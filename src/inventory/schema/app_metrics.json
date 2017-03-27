@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "app_metrics",
+  "type": "object",
+
+  "properties": {
+    "system": {
+      "type": "string"
+    },
+    "application": {
+      "type": "string"
+    },
+    "instance": {
+      "type": "string"
+    },
+    "hostipv4": {
+      "type": "string"
+    },
+    "hostname": {
+      "type": "string"
+    },
+    "@timestamp": {
+      "type": "integer"
+    },
+    "type": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "measurement_start": {
+      "type": "string"
+    },
+    "count": {
+      "type": "integer"
+    },
+    "m1_rate": {
+      "type": "number"
+    },
+    "m5_rate": {
+      "type": "number"
+    },
+    "m15_rate": {
+      "type": "number"
+    },
+    "mean_rate": {
+      "type": "number"
+    },
+    "m1_count": {
+      "type": "integer"
+    },
+    "m5_count": {
+      "type": "integer"
+    },
+    "m15_count": {
+      "type": "integer"
+    }
+  },
+
+  "required": ["system", "application", "instance", "hostipv4", "hostname",
+               "@timestamp", "type", "name", "measurement_start", "count",
+               "m1_rate", "m5_rate", "m15_rate", "mean_rate",
+               "m1_count", "m5_count", "m15_count"]
+}

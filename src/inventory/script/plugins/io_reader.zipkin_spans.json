@@ -1,0 +1,8 @@
+{
+  "type": "IOReader",
+  "config": {
+    "plugin_name": "io_reader.zipkin_spans",
+    "input_key": "HTTP_REQUEST_BODY_IO",
+    "output_key": "DATA"
+  }
+}

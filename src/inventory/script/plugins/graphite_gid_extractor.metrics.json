@@ -1,0 +1,8 @@
+{
+  "type": "GraphiteGidExtractor",
+  "config": {
+    "plugin_name": "graphite_gid_extractor.metrics",
+    "gid_key": "GID",
+    "data_key": "DATA"
+  }
+}

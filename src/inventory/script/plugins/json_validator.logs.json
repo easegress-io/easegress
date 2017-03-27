@@ -1,0 +1,8 @@
+{
+  "type": "JSONValidator",
+  "config": {
+    "plugin_name": "json_validator.logs",
+    "schema": "{\"$schema\":\"http://json-schema.org/draft-04/schema#\",\"title\":\"logs\",\"type\":\"object\",\"properties\":{\"system\":{\"type\":\"string\"},\"instance\":{\"type\":\"string\"},\"hostipv4\":{\"type\":\"string\"},\"hostname\":{\"type\":\"string\"},\"@timestamp\":{\"type\":\"string\"},\"beat\":{\"type\":\"object\",\"properties\":{\"hostname\":{\"type\":\"string\"},\"name\":{\"type\":\"string\"}},\"required\":[\"hostname\",\"name\"]},\"group\":{\"type\":\"string\"},\"input_type\":{\"type\":\"string\"},\"message\":{\"type\":\"string\"},\"offset\":{\"type\":\"integer\"},\"source\":{\"type\":\"string\"},\"type\":{\"type\":\"string\"}},\"required\":[\"system\",\"hostname\",\"hostipv4\",\"@timestamp\",\"beat\",\"group\",\"input_type\",\"message\",\"offset\",\"source\",\"type\"]}",
+    "data_key": "DATA"
+  }
+}

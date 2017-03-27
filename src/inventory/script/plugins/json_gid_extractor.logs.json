@@ -1,0 +1,8 @@
+{
+  "type": "JSONGidExtractor",
+  "config": {
+    "plugin_name": "json_gid_extractor.logs",
+    "gid_key": "GID",
+    "data_key": "DATA"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "type": "LinearPipeline",
+  "config": {
+    "pipeline_name": "linear_pipeline.metrics",
+    "parallelism": 1,
+    "wait_plugin_close": true,
+    "plugin_names": [
+      "http_input.metrics",
+			"io_reader.metrics",
+			"graphite_validator.metrics",
+			"graphite_gid_extractor.metrics",
+			"kafka_output.metrics"
+    ]
+  }
+}

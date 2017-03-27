@@ -1,0 +1,85 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "zipkin_spans",
+  "type": "array",
+
+  "items": {
+    "type": "object",
+    "properties": {
+      "traceId": {
+        "type": "string"
+      },
+      "id": {
+        "type": "string"
+      },
+      "name": {
+        "type": "string"
+      },
+      "parentId": {
+        "type": "string"
+      },
+      "timestamp": {
+        "type": "integer"
+      },
+      "duration": {
+        "type": "integer"
+      },
+      "annotations": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "timestamp": {
+              "type": "integer"
+            },
+            "value": {
+              "type": "string"
+            },
+            "endpoint": {
+              "type": "object",
+              "properties": {
+                "serviceName": {
+                  "type": "string"
+                },
+                "ipv4": {
+                  "type": "string"
+                }
+              },
+              "required": ["serviceName", "ipv4"]
+            }
+          },
+          "required": ["timestamp", "value", "endpoint"]
+        }
+      },
+      "binaryAnnotations": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "key": {
+              "type": "string"
+            },
+            "value": {
+              "type": "string"
+            },
+            "endpoint": {
+              "type": "object",
+              "properties": {
+                "serviceName": {
+                  "type": "string"
+                },
+                "ipv4": {
+                  "type": "string"
+                }
+              },
+              "required": ["serviceName", "ipv4"]
+            }
+          },
+          "required": ["key", "value", "endpoint"]
+        }
+      }
+    },
+    "required": ["traceId", "id", "name", "parentId",
+                 "annotations", "binaryAnnotations"]
+  }
+}

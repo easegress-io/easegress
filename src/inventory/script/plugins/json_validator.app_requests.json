@@ -1,0 +1,8 @@
+{
+  "type": "JSONValidator",
+  "config": {
+    "plugin_name": "json_validator.app_requests",
+    "schema": "{\"$schema\":\"http://json-schema.org/draft-04/schema#\",\"title\":\"app_requests\",\"type\":\"object\",\"properties\":{\"system\":{\"type\":\"string\"},\"application\":{\"type\":\"string\"},\"instance\":{\"type\":\"string\"},\"hostipv4\":{\"type\":\"string\"},\"hostname\":{\"type\":\"string\"},\"@timestamp\":{\"type\":\"string\"},\"type\":{\"type\":\"string\"},\"name\":{\"type\":\"string\"},\"measurement_start\":{\"type\":\"integer\"},\"id\":{\"type\":\"string\"},\"callStackJson\":{\"type\":\"string\"}},\"required\":[\"system\",\"application\",\"instance\",\"hostipv4\",\"hostname\",\"@timestamp\",\"type\",\"name\",\"measurement_start\",\"id\",\"callStackJson\"]}",
+    "data_key": "DATA"
+  }
+}

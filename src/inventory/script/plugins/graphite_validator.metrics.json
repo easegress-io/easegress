@@ -1,0 +1,7 @@
+{
+  "type": "GraphiteValidator",
+  "config": {
+    "plugin_name": "graphite_validator.metrics",
+    "data_key": "DATA"
+  }
+}

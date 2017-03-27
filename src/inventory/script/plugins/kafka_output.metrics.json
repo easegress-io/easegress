@@ -1,0 +1,11 @@
+{
+  "type": "KafkaOutput",
+  "config": {
+    "plugin_name": "kafka_output.metrics",
+    "brokers": ["127.0.0.1:9092"],
+    "client_id": "gateway.kafka_output.metrics",
+    "topic": "collectd",
+    "message_key_key": "GID",
+    "data_key": "DATA"
+  }
+}

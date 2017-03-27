@@ -1,0 +1,15 @@
+{
+  "type": "LinearPipeline",
+  "config": {
+    "pipeline_name": "linear_pipeline.logs",
+    "parallelism": 1,
+    "wait_plugin_close": true,
+    "plugin_names": [
+			"http_input.logs",
+			"io_reader.logs",
+			"json_validator.logs",
+			"json_gid_extractor.logs",
+			"kafka_output.logs"
+    ]
+  }
+}
