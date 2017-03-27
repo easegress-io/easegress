@@ -10,7 +10,7 @@ make build
 
 # Run
 ```shell
-sudo make run
+make run
 ```
 
 # Security
