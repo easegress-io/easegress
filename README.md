@@ -1,7 +1,6 @@
 # Introduction
 
 `easegateway` aims to hide kafka from public network by changing https to kafka protocol.
-The design document is at [monitor-gateway](https://github.com/hexdecteam/easestack-monitor/blob/master/design/gateway/monitor-gateway.md)
 
 # Build
 
