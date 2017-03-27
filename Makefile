@@ -9,7 +9,7 @@ export GOPATH
 GATEWAY_SRC_FILES=$(shell find ${MAFILE_DIR}src/ -type f -name \*.go)
 GATEWAY_INVENTORY_FILES=${MKFILE_DIR}src/inventory/*
 
-TARGET_GATEWAY=${MKFILE_DIR}build/bin/easemon_gateway
+TARGET_GATEWAY=${MKFILE_DIR}build/bin/easegateway
 TARGET_INVENTORY=${MKFILE_DIR}build/inventory
 
 TARGET=${TARGET_GATEWAY} ${TARGET_CONFIG} ${TARGET_INVENTORY}
