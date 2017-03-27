@@ -44,7 +44,6 @@ type Task interface {
 	Error() error
 	StartAt() time.Time
 	FinishAt() time.Time
-	Recover(errorPluginName string, lastStatus TaskStatus) (bool, Task)
 
 	// Callbacks are only used by plugin instead of model
 	AddFinishedCallback(name string, callback TaskFinished) TaskFinished

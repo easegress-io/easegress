@@ -98,16 +98,17 @@ func getTaskRecoveryFuncInSimpleCommonMock(pluginConcerned string, taskErrorCode
 	mockTaskDataKey, mockTaskDataValue string) task.TaskRecovery {
 
 	return func(t task.Task, errorPluginName string) (bool, task.Task) {
-		if errorPluginName == pluginConcerned && t.ResultCode() == taskErrorCodeConcerned {
-			t1, err := task.WithValue(t, mockTaskDataKey, mockTaskDataValue)
-			if err == nil {
-				return true, t1
-			} else {
-				logger.Warnf("[BUG: supply mock data %s to plugin %s failed, ignored: %s]",
-					mockTaskDataKey, pluginConcerned, err)
-			}
+		if errorPluginName != pluginConcerned || t.ResultCode() != taskErrorCodeConcerned {
+			return false, t
 		}
 
-		return false, t
+		t1, err := task.WithValue(t, mockTaskDataKey, mockTaskDataValue)
+		if err != nil {
+			logger.Warnf("[BUG: supply mock data %s to plugin %s failed, ignored: %s]",
+				mockTaskDataKey, pluginConcerned, err)
+			return false, t
+		}
+
+		return true, t1
 	}
 }

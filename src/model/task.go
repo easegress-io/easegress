@@ -85,26 +85,6 @@ func (t *Task) FinishAt() time.Time {
 	}
 }
 
-func (t *Task) Recover(errorPluginName string, lastStatus task.TaskStatus) (bool, task.Task) {
-	tmp := make([]*common.NamedCallback, len(t.taskRecoveries))
-	copy(tmp, t.taskRecoveries)
-
-	for _, namedCallback := range tmp {
-		recovered, tsk := namedCallback.Callback().(task.TaskRecovery)(t, errorPluginName)
-		if recovered {
-			if lastStatus == task.Running { // defensive
-				// clean up errors
-				t.err = nil
-				t.resultCode = task.ResultOK
-			}
-			t.setStatus(lastStatus)
-			return true, tsk
-		}
-	}
-
-	return false, t
-}
-
 func (t *Task) AddFinishedCallback(name string, callback task.TaskFinished) task.TaskFinished {
 	var oriCallback interface{}
 	t.statusFinishedCallbacks, oriCallback, _ = common.AddCallback(t.statusFinishedCallbacks, name, callback, true)
@@ -210,6 +190,24 @@ func (t *Task) clearError(originalCode task.TaskResultCode) {
 	t.err = nil
 	t.resultCode = originalCode
 	t.setStatus(task.Running)
+}
+
+func (t *Task) recover(errorPluginName string, lastStatus task.TaskStatus, latestTask task.Task) (bool, task.Task) {
+	tmp := make([]*common.NamedCallback, len(t.taskRecoveries))
+	copy(tmp, t.taskRecoveries)
+
+	for _, namedCallback := range tmp {
+		recovered, t1 := namedCallback.Callback().(task.TaskRecovery)(latestTask, errorPluginName)
+		if recovered {
+			if lastStatus == task.Running { // defensive
+				t.clearError(task.ResultOK)
+			}
+			t.setStatus(lastStatus)
+			return true, t1
+		}
+	}
+
+	return false, latestTask
 }
 
 ////

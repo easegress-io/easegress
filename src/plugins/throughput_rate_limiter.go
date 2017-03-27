@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 
 	"golang.org/x/time/rate"
 
 	"logger"
 	"pipelines"
-	"sync"
 	"task"
 )
 

@@ -180,7 +180,7 @@ func (p *linearPipeline) Run() error {
 			if p.stopped {
 				tsk.finish(t)
 			} else {
-				recovered, t1 := t.Recover(pluginNames[i], task.Running)
+				recovered, t1 := tsk.recover(pluginNames[i], task.Running, t)
 				if recovered {
 					t = t1
 				} else {
