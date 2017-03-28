@@ -70,7 +70,8 @@ paths:
     get:
       summary: Retrieves Plugin Instances
       description: |
-        The Plugin Instances retrieve endpoint returns all existing plugin instnaces Gateway has currently.
+        The Plugin Instances retrieve endpoint returns all existing plugin instnaces Gateway
+        has currently.
       parameters:
         - name: pluginsRetrieveRequest
           in: body
@@ -106,7 +107,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: Plugin instnace not found on given name.
+          description: Plugin instnace not found by given name.
           schema:
             $ref: '#/definitions/Error'
         202:
@@ -115,7 +116,8 @@ paths:
     get:
       summary: Retrieves Plugin Instance
       description: |
-        The Plugin Instance retrieve endpoint returns an existing plugin instnace Gateway has currently by plugin name.
+        The Plugin Instance retrieve endpoint returns an existing plugin instnace Gateway has
+        currently by plugin name.
       parameters:
         - name: pluginName
           in: path
@@ -128,7 +130,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: Plugin instnace not found on given name.
+          description: Plugin instnace not found by given name.
           schema:
             $ref: '#/definitions/Error'
         200:
@@ -138,7 +140,8 @@ paths:
     delete:
       summary: Deletes Plugin Instance
       description: |
-        The Plugin Instance deletion endpoint deletes an existing plugin instnace Gateway has currently by plugin name.
+        The Plugin Instance deletion endpoint deletes an existing plugin instnace Gateway has
+        currently by plugin name.
       parameters:
         - name: pluginName
           in: path
@@ -151,15 +154,139 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: Plugin instnace not found on given name.
+          description: Plugin instnace not found by given name.
           schema:
             $ref: '#/definitions/Error'
         406:
-          description: Plugin instnace could not be deleted on given name since it is used by one or more pipelines.
+          description: |
+            Plugin instnace could not be deleted by given name since it is used by
+            one or more pipelines.
           schema:
             $ref: '#/definitions/Error'
         200:
           description: Plugin instance is deleted successfully.
+  /pipelines:
+    post:
+      summary: Creates Pipwline Instance
+      description: |
+        The Pipeline Instance creation endpoint creates a special pipeline instance according
+        to the pipeline type and the configuration.
+      parameters:
+        - name: pipelineCreationRequest
+          in: body
+          schema:
+            $ref: '#/definitions/PipelineCreationRequest'
+          required: true
+          description: Pipeline type and configuration.
+      responses:
+        400:
+          description: |
+            Invalid pipeline instance creation request parameter. Including, invalid pipeline
+            type or invalid configuration according to the pipeline instance is being created,
+            or one or more plugin instances in the pipeline are not found.
+          schema:
+            $ref: '#/definitions/Error'
+        409:
+          description: |
+            Pipeline instance with the given name request parameter provided is already existing.
+          schema:
+            $ref: '#/definitions/Error'
+        200:
+          description: Pipeline instance is created successfully.
+    get:
+      summary: Retrieves Pipeline Instances
+      description: |
+        The Pipeline Instances retrieve endpoint returns all existing pipeline instnaces Gateway
+        has currently.
+      parameters:
+        - name: pipelinesRetrieveRequest
+          in: body
+          schema:
+            $ref: '#/definitions/PipelinesRetrieveRequest'
+          required: true
+          description: Pipeline instance retrieve conditions.
+      responses:
+        400:
+          description: |
+            Invalid pipeline instance retrieve request parameter. Including, invalid pipeline type.
+          schema:
+            $ref: '#/definitions/Error'
+        200:
+          description: Pipeline instances response.
+          schema:
+            $ref: '#/definitions/PipelinesRetrieveResponse'
+    put:
+      summary: Updates Pipeline Instance
+      description: |
+        The Pipeline Instance update endpoint updates a special pipeline instance according to the
+        pipeline type and the configuration.
+      parameters:
+        - name: pipelineUpdateRequest
+          in: body
+          schema:
+            $ref: '#/definitions/PipelineUpdateRequest'
+      responses:
+        400:
+          description: |
+            Invalid pipeline instance udpate request parameter. Including, invalid pipeline type
+            or invalid configuration according to the pipeline instance is being updated.
+          schema:
+            $ref: '#/definitions/Error'
+        404:
+          description: |
+            Pipeline instnace not found by given name, or one or more plugin instances in the
+            pipeline are not found.
+          schema:
+            $ref: '#/definitions/Error'
+        202:
+          description: Pipeline instance is updated successfully.
+  /pipelines/{pipelineName}:
+    get:
+      summary: Retrieves Pipeline Instance
+      description: |
+        The Pipeline Instance retrieve endpoint returns an existing pipeline instnace Gateway has
+        currently by pipeline name.
+      parameters:
+        - name: pipelineName
+          in: path
+          description: Pipeline instance name to query.
+          required: true
+          type: string
+      responses:
+        400:
+          description: Invalid pipeline instance name to query.
+          schema:
+            $ref: '#/definitions/Error'
+        404:
+          description: Pipeline instnace not found by given name.
+          schema:
+            $ref: '#/definitions/Error'
+        200:
+          description: Pipeline instnace response.
+          schema:
+            $ref: '#/definitions/PipelineSpec'
+    delete:
+      summary: Deletes Pipeline Instance
+      description: |
+        The Pipeline Instance deletion endpoint deletes an existing pipeline instnace Gateway has
+        currently by pipeline name.
+      parameters:
+        - name: pipelineName
+          in: path
+          description: Pipeline instance name to delete.
+          required: true
+          type: string
+      responses:
+        400:
+          description: Invalid pipeline instance name to delete.
+          schema:
+            $ref: '#/definitions/Error'
+        404:
+          description: Pipeline instnace not found by given name.
+          schema:
+            $ref: '#/definitions/Error'
+        200:
+          description: Pipeline instance is deleted successfully.
 definitions:
   PluginTypesRetrieveResponse:
     type: object
@@ -191,7 +318,8 @@ definitions:
       config:
         type: object
         description: |
-          A special configuration object of the plugin type. Check Plugin Reference document for more information.
+          A special configuration object of the plugin type. Check Plugin Reference document for
+          more information.
   PluginsRetrieveRequest:
     type: object
     properties:
@@ -224,7 +352,8 @@ definitions:
       config:
         type: object
         description: |
-          A special configuration object of the plugin type. Check Plugin Reference document for more information.
+          A special configuration object of the plugin type. Check Plugin Reference document
+          for more information.
   PluginSpec:
     type: object
     required:
@@ -237,7 +366,70 @@ definitions:
       config:
         type: object
         description: |
-          A special configuration object of the plugin type. Check Plugin Reference document for more information.
+          A special configuration object of the plugin type. Check Plugin Reference document for
+          more information.
+  PipelineCreationRequest:
+    type: object
+    required:
+      - type
+      - config
+    properties:
+      type:
+        type: string
+        description: One valid type of available pipeline types listed in PipelineTypesRetrieveResponse.
+      config:
+        type: object
+        description: |
+          A special configuration object of the pipeline type. Check Pipeline Reference document for
+          more information.
+  PipelinesRetrieveRequest:
+    type: object
+    properties:
+      name_pattern:
+        type: string
+        description: Pipeline name filter condition, supports regex expression.
+      types:
+        type: array
+        items:
+          type: string
+        description: Pipeline types filter condition, supports regex expression.
+  PipelinesRetrieveResponse:
+    type: object
+    required:
+      - pipelines
+    properties:
+      pipelines:
+        type: array
+        items:
+          $ref: '#/definitions/PipelineSpec'
+  PipelineUpdateRequest:
+    type: object
+    required:
+      - type
+      - config
+    properties:
+      type:
+        type: string
+        description: One valid type of available pipeline types listed in PipelineTypesRetrieveResponse.
+      config:
+        type: object
+        description: |
+          A special configuration object of the pipeline type. Check Pipeline Reference document
+          for more information.
+  PipelineSpec:
+    type: object
+    required:
+      - type
+      - config
+    properties:
+      type:
+        type: string
+        description: One valid type of available pipeline types listed in PipelineTypesRetrieveResponse.
+      config:
+        type: object
+        description: |
+          A special configuration object of the pipeline type. Check Pipeline Reference document
+          for more information.
   Error:
     type: object
     required:
