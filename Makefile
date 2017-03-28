@@ -50,7 +50,7 @@ vendor_get:
 		github.com/golang/protobuf/proto \
 		github.com/rcrowley/go-metrics \
 		golang.org/x/time/rate \
-		golang.org/x/net/context
+		github.com/urfave/cli
 
 vendor_update: vendor_get
 	cd ${MKFILE_DIR} && rm -rf `find ./_vendor/src -type d -name .git` \
