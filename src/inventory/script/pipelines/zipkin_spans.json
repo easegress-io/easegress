@@ -5,7 +5,7 @@
     "parallelism": 1,
     "wait_plugin_close": true,
     "plugin_names": [
-			"http_input.zipkin_spans",
+			"http_input.default",
 			"io_reader.zipkin_spans",
 			"json_validator.zipkin_spans",
 			"kafka_output.zipkin_spans"

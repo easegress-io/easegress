@@ -1,0 +1,87 @@
+{
+  "type": "HTTPInput",
+  "config": {
+    "plugin_name": "http_input.default",
+    "listen_port": 10443,
+    "HTTPS": true,
+    "url_key": "",
+    "request_body_io_key": "HTTP_REQUEST_BODY_IO",
+    "response_code_key": "",
+    "response_body_io_key": "",
+    "response_body_buffer_key": "",
+
+    "entrys": {
+      "/v1/metrics": {
+        "POST": {
+          "headers_enum": {
+            "Content-Encoding": ["", "gzip", "gzip, deflate", "deflate, gzip"],
+            "Content-Type": ["application/x-graphite"],
+            "User-Agent": ["collectd/5.7.0"]
+          },
+          "unzip": true,
+          "respond_err": true
+        }
+      },
+
+      "/v1/logs": {
+        "POST": {
+          "headers_enum": {
+            "Content-Encoding": ["", "gzip", "gzip, deflate", "deflate, gzip"],
+            "Content-Type": ["application/json"],
+            "User-Agent": ["filebeat/5.0.0", "filebeat/5.2.3"]
+          },
+          "unzip": true,
+          "respond_err": true
+        }
+      },
+
+      "/v1/app_metrics": {
+        "POST": {
+          "headers_enum": {
+            "Content-Encoding": ["", "gzip", "gzip, deflate", "deflate, gzip"],
+            "Content-Type": ["application/json"],
+            "User-Agent": ["easeagent/0.1.0"]
+          },
+          "unzip": true,
+          "respond_err": true
+        }
+      },
+
+      "/v1/app_requests": {
+        "POST": {
+          "headers_enum": {
+            "Content-Encoding": ["", "gzip", "gzip, deflate", "deflate, gzip"],
+            "Content-Type": ["application/json"],
+            "User-Agent": ["easeagent/0.1.0"]
+          },
+          "unzip": true,
+          "respond_err": true
+        }
+      },
+
+      "/v1/zipkin_spans": {
+        "POST": {
+          "headers_enum": {
+            "Content-Encoding": ["", "gzip", "gzip, deflate", "deflate, gzip"],
+            "Content-Type": ["application/json"],
+            "User-Agent": ["easeagent/0.1.0"]
+          },
+          "unzip": true,
+          "respond_err": true
+        }
+      },
+
+      "/v1/mobile_metrics": {
+        "POST": {
+          "headers_enum": {
+            "Content-Encoding": ["", "gzip", "gzip, deflate", "deflate, gzip"],
+            "Content-Type": ["application/x-protobuf"],
+            "User-Agent": ["iOS", "Android"]
+          },
+          "unzip": true,
+          "respond_err": true
+        }
+      }
+    }
+  }
+}

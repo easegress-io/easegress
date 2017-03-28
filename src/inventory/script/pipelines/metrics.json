@@ -5,7 +5,7 @@
     "parallelism": 1,
     "wait_plugin_close": true,
     "plugin_names": [
-      "http_input.metrics",
+      "http_input.default",
 			"io_reader.metrics",
 			"graphite_validator.metrics",
 			"graphite_gid_extractor.metrics",
