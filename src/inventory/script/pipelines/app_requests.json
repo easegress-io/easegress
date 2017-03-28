@@ -5,7 +5,7 @@
     "parallelism": 1,
     "wait_plugin_close": true,
     "plugin_names": [
-      "http_input.default",
+      "http_input.app_requests",
       "io_reader.app_requests",
       "json_validator.app_requests",
       "json_gid_extractor.app_requests",
