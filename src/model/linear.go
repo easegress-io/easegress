@@ -177,13 +177,19 @@ func (p *linearPipeline) Run() error {
 
 		switch t.Status() {
 		case task.ResponseImmediately:
+			msg := fmt.Sprintf(
+				"[plugin %s in pipeline %s execution failure, result code = %d, error = \"%s\"]",
+				pluginNames[i], p.conf.Name, t.ResultCode(), t.Error())
+
 			if p.stopped {
+				logger.Warnf(msg)
 				tsk.finish(t)
 			} else {
 				recovered, t1 := tsk.recover(pluginNames[i], task.Running, t)
 				if recovered {
 					t = t1
 				} else {
+					logger.Warnf(msg)
 					tsk.finish(t)
 				}
 			}
