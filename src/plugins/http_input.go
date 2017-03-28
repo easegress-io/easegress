@@ -147,7 +147,7 @@ type httpInput struct {
 	conf         *HTTPInputConfig
 	router       *httprouter.Router
 	srv          *http.Server
-	srvDone      chan error
+	srvDone      chan struct{}
 	httpTaskChan chan *httpTask
 	instanceId   string
 	queueLength  uint64
@@ -198,12 +198,18 @@ func HTTPInputConstructor(conf Config) (p Plugin, err error) {
 
 		go func() {
 			err := h.srv.ListenAndServeTLS(SSL_CRT_PATH, SSL_KEY_PATH)
-			h.srvDone <- err
+			if err != nil {
+				logger.Warnf("ListenAndServeTLS failed: %s", err)
+			}
+			h.srvDone <- struct{}{}
 		}()
 	} else {
 		go func() {
 			err := h.srv.ListenAndServe()
-			h.srvDone <- err
+			if err != nil {
+				logger.Warnf("ListenAndServe failed: %s", err)
+			}
+			h.srvDone <- struct{}{}
 		}()
 	}
 
@@ -315,6 +321,8 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 			}
 		case <-t.Cancel():
 			return fmt.Errorf("task is cancelled by %s", t.CancelCause()), task.ResultTaskCancelled, t
+		case <-h.srvDone:
+			return fmt.Errorf("server closed"), task.ResultServiceUnavailable, t
 		}
 
 		responseCaller := func(t1 task.Task, _ task.TaskStatus) {
@@ -441,7 +449,7 @@ func (h *httpInput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, 
 		t.SetError(err, resultCode)
 	}
 
-	if resultCode == task.ResultTaskCancelled {
+	if resultCode == task.ResultTaskCancelled || resultCode == task.ResultServiceUnavailable {
 		return t, t.Error()
 	} else {
 		return t, nil
@@ -458,9 +466,13 @@ func (h *httpInput) Close() {
 		h.httpTaskChan = nil
 	}
 
-	err := h.srv.Close()
-	if err != nil {
-		logger.Warnf("%s close server failed: %s", h.Name(), err)
+	select {
+	case <-h.srvDone:
+	default:
+		err := h.srv.Close()
+		if err != nil {
+			logger.Warnf("%s close server failed: %s", h.Name(), err)
+		}
 	}
 }
 
