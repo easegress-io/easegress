@@ -1,0 +1,35 @@
+swagger: '2.0'
+info:
+  title: Ease Gateway Health API
+  description: Ease Gateway supports APIs for health check.
+  version: "1.0"
+schemes:
+  - http
+  - https
+basePath: /v1
+produces:
+  - application/json
+paths:
+  /health:
+    get:
+      summary: Checks Gateway Service Instance Health
+      description: |
+        The Gateway Service Instance Health check endpoint returns a http status code
+        to present if the gateway service instance is existing and runs normally.
+      responses:
+        200:
+          description: |
+            The gateway service instance which serves API request currently
+            is existing and runs normally.
+        default:
+          description: Unexpected error.
+          schema:
+            $ref: '#/definitions/Error'
+definitions:
+  Error:
+    type: object
+    required:
+      - Error
+    properties:
+      Error:
+        type: string
