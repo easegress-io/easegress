@@ -1,0 +1,2 @@
+Ease Gateway Plugin Reference
+===============================
