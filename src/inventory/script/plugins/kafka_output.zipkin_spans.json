@@ -5,7 +5,7 @@
     "brokers": ["127.0.0.1:9092"],
     "client_id": "gateway.kafka_output.zipkin_spans",
     "topic": "zipkin_spans",
-    "message_key_key": "GID",
+    "message_key_key": "",
     "data_key": "DATA"
   }
 }
