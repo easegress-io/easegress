@@ -156,7 +156,7 @@ func (o *kafkaOutput) output(t task.Task) (error, task.TaskResultCode, task.Task
 		messageKeyValue := t.Value(o.conf.MessageKeyKey)
 		messageKey, ok := messageKeyValue.(string)
 		if !ok {
-			return fmt.Errorf("input %s got wrong value: %#v", o.conf.DataKey, dataValue),
+			return fmt.Errorf("input %s got wrong value: %#v", o.conf.MessageKeyKey, messageKey),
 				task.ResultMissingInput, t
 		}
 		messageKey = strings.TrimSpace(messageKey)
