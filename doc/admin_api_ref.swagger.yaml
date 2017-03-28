@@ -1,0 +1,247 @@
+swagger: '2.0'
+info:
+  title: Ease Gateway Administration API
+  description: Ease Gateway supports APIs on administration panel.
+  version: "1.0"
+schemes:
+  - http
+  - https
+basePath: /v1
+produces:
+  - application/json
+paths:
+  /plugin-types:
+    get:
+      summary: Retrieves Plugin Type
+      description: |
+        The Plugin Type retrieve endpoint returns all available plugin types Gateway supports currently.
+        Which can be used to create a plugin instance with a special configuration.
+      responses:
+        200:
+          description: Plugin types response.
+          schema:
+            $ref: '#/definitions/PluginTypesRetrieveResponse'
+        default:
+          description: Unexpected error.
+          schema:
+            $ref: '#/definitions/Error'
+  /pipeline-types:
+    get:
+      summary: Retrieves Pipeline Type
+      description: |
+        The Pipeline Type retrieve endpoint returns all available pipeline types Gateway supports
+        currently. Which can be used to create a pipeline instance with a special configuration.
+      responses:
+        200:
+          description: Pipeline types response.
+          schema:
+            $ref: '#/definitions/PipelineTypesRetrieveResponse'
+        default:
+          description: Unexpected error.
+          schema:
+            $ref: '#/definitions/Error'
+  /plugins:
+    post:
+      summary: Creates Plugin Instance
+      description: |
+        The Plugin Instance creation endpoint creates a special plugin instance according to the
+        plugin type and the configuration.
+      parameters:
+        - name: pluginCreationRequest
+          in: body
+          schema:
+            $ref: '#/definitions/PluginCreationRequest'
+          required: true
+          description: Plugin type and configuration.
+      responses:
+        400:
+          description: |
+            Invalid plugin instance creation request parameter. Including, invalid plugin type
+            or invalid configuration according to the plugin instance is being created.
+          schema:
+            $ref: '#/definitions/Error'
+        409:
+          description: |
+            Plugin instance with the given name request parameter provided is already existing.
+          schema:
+            $ref: '#/definitions/Error'
+        200:
+          description: Plugin instance is created successfully.
+    get:
+      summary: Retrieves Plugin Instances
+      description: |
+        The Plugin Instances retrieve endpoint returns all existing plugin instnaces Gateway has currently.
+      parameters:
+        - name: pluginsRetrieveRequest
+          in: body
+          schema:
+            $ref: '#/definitions/PluginsRetrieveRequest'
+          required: true
+          description: Plugin instance retrieve conditions.
+      responses:
+        400:
+          description: |
+            Invalid plugin instance retrieve request parameter. Including, invalid plugin type.
+          schema:
+            $ref: '#/definitions/Error'
+        200:
+          description: Plugin instances response.
+          schema:
+            $ref: '#/definitions/PluginsRetrieveResponse'
+    put:
+      summary: Updates Plugin Instance
+      description: |
+        The Plugin Instance update endpoint updates a special plugin instance according to the
+        plugin type and the configuration.
+      parameters:
+        - name: pluginUpdateRequest
+          in: body
+          schema:
+            $ref: '#/definitions/PluginUpdateRequest'
+      responses:
+        400:
+          description: |
+            Invalid plugin instance udpate request parameter. Including, invalid plugin type
+            or invalid configuration according to the plugin instance is being updated.
+          schema:
+            $ref: '#/definitions/Error'
+        404:
+          description: Plugin instnace not found on given name.
+          schema:
+            $ref: '#/definitions/Error'
+        202:
+          description: Plugin instance is updated successfully.
+  /plugins/{pluginName}:
+    get:
+      summary: Retrieves Plugin Instance
+      description: |
+        The Plugin Instance retrieve endpoint returns an existing plugin instnace Gateway has currently by plugin name.
+      parameters:
+        - name: pluginName
+          in: path
+          description: Plugin instance name to query.
+          required: true
+          type: string
+      responses:
+        400:
+          description: Invalid plugin instance name to query.
+          schema:
+            $ref: '#/definitions/Error'
+        404:
+          description: Plugin instnace not found on given name.
+          schema:
+            $ref: '#/definitions/Error'
+        200:
+          description: Plugin instnace response.
+          schema:
+            $ref: '#/definitions/PluginSpec'
+    delete:
+      summary: Deletes Plugin Instance
+      description: |
+        The Plugin Instance deletion endpoint deletes an existing plugin instnace Gateway has currently by plugin name.
+      parameters:
+        - name: pluginName
+          in: path
+          description: Plugin instance name to delete.
+          required: true
+          type: string
+      responses:
+        400:
+          description: Invalid plugin instance name to delete.
+          schema:
+            $ref: '#/definitions/Error'
+        404:
+          description: Plugin instnace not found on given name.
+          schema:
+            $ref: '#/definitions/Error'
+        406:
+          description: Plugin instnace could not be deleted on given name since it is used by one or more pipelines.
+          schema:
+            $ref: '#/definitions/Error'
+        200:
+          description: Plugin instance is deleted successfully.
+definitions:
+  PluginTypesRetrieveResponse:
+    type: object
+    required:
+      - plugin_types
+    properties:
+      plugin_types:
+        type: array
+        items:
+          type: string
+  PipelineTypesRetrieveResponse:
+    type: object
+    required:
+      - pipeline_types
+    properties:
+      pipeline_types:
+        type: array
+        items:
+          type: string
+  PluginCreationRequest:
+    type: object
+    required:
+      - type
+      - config
+    properties:
+      type:
+        type: string
+        description: One valid type of available plugin types listed in PluginTypesRetrieveResponse.
+      config:
+        type: object
+        description: |
+          A special configuration object of the plugin type. Check Plugin Reference document for more information.
+  PluginsRetrieveRequest:
+    type: object
+    properties:
+      name_pattern:
+        type: string
+        description: Plugin name filter condition, supports regex expression.
+      types:
+        type: array
+        items:
+          type: string
+        description: Plugin types filter condition, supports regex expression.
+  PluginsRetrieveResponse:
+    type: object
+    required:
+      - plugins
+    properties:
+      plugins:
+        type: array
+        items:
+          $ref: '#/definitions/PluginSpec'
+  PluginUpdateRequest:
+    type: object
+    required:
+      - type
+      - config
+    properties:
+      type:
+        type: string
+        description: One valid type of available plugin types listed in PluginTypesRetrieveResponse.
+      config:
+        type: object
+        description: |
+          A special configuration object of the plugin type. Check Plugin Reference document for more information.
+  PluginSpec:
+    type: object
+    required:
+      - type
+      - config
+    properties:
+      type:
+        type: string
+        description: One valid type of available plugin types listed in PluginTypesRetrieveResponse.
+      config:
+        type: object
+        description: |
+          A special configuration object of the plugin type. Check Plugin Reference document for more information.
+  Error:
+    type: object
+    required:
+      - Error
+    properties:
+      Error:
+        type: string
