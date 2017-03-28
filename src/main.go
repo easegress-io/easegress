@@ -43,7 +43,9 @@ func main() {
 
 	select {
 	case err = <-done1:
+		logger.Infof("done signal from gateway engine: %s", err)
 	case err = <-done2:
+		logger.Infof("done signal from api server: %s", err)
 	}
 
 	// interrupt by signal
