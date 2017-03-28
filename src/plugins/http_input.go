@@ -11,39 +11,80 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/julienschmidt/httprouter"
+
 	"common"
 	"logger"
 	"pipelines"
 	"task"
 )
 
-// TODO: Moves this into plugin, aligns https server life-cycle with plugin life-cycle
-func init() {
-	crt_name := common.Host + "-cert.pem"
-	key_name := common.Host + "-key.pem"
-	SSL_CRT_PATH := filepath.Join(common.CERT_HOME_DIR, crt_name)
-	SSL_KEY_PATH := filepath.Join(common.CERT_HOME_DIR, key_name)
-
-	logger.Infof("[cert file: %s]", SSL_CRT_PATH)
-	logger.Infof("[key  file: %s]", SSL_KEY_PATH)
-
-	go func() {
-		err := http.ListenAndServeTLS("0.0.0.0:10443", SSL_CRT_PATH, SSL_KEY_PATH, defaultMux)
-		if err != nil {
-			logger.Errorf("ListenAndServeTLS failed:", err)
-		}
-	}()
+var supportedMethods = map[string]struct{}{
+	http.MethodGet:     {},
+	http.MethodHead:    {},
+	http.MethodPost:    {},
+	http.MethodPut:     {},
+	http.MethodPatch:   {},
+	http.MethodDelete:  {},
+	http.MethodConnect: {},
+	http.MethodOptions: {},
+	http.MethodTrace:   {},
 }
 
-////
+type headerErr struct {
+	Code    int
+	Message string
+}
 
-type HTTPInputConfig struct {
-	CommonConfig
-	URL         string              `json:"url"`
-	Method      string              `json:"method"`
+var defaultHeaderErr = headerErr{
+	Code:    http.StatusNotFound,
+	Message: "invaliad request",
+}
+
+var headerPriority = []string{"User-Agent", "Content-Type", "Content-Encoding"}
+
+var headerErrs = map[string]headerErr{
+	"User-Agent": {
+		Code:    http.StatusForbidden,
+		Message: "unsupported User-Agent",
+	},
+	"Content-Type": {
+		Code:    http.StatusUnsupportedMediaType,
+		Message: "unsupported media type",
+	},
+	"Content-Encoding": {
+		Code:    http.StatusBadRequest,
+		Message: "invaliad request",
+	},
+}
+
+func getHeaderError(keys ...string) headerErr {
+	for _, keyPattern := range headerPriority {
+		for _, k := range keys {
+			if keyPattern == k {
+				he, ok := headerErrs[k]
+				if !ok {
+					return defaultHeaderErr
+				}
+				return he
+			}
+		}
+	}
+
+	return defaultHeaderErr
+}
+
+type HTTPInputEntry struct {
 	HeadersEnum map[string][]string `json:"headers_enum"`
 	Unzip       bool                `json:"unzip"`
 	RespondErr  bool                `json:"respond_error"`
+}
+
+type HTTPInputConfig struct {
+	CommonConfig
+	ListenPort uint16                               `json:"listen_port"`
+	HTTPS      bool                                 `json:"https"`
+	Entrys     map[string]map[string]HTTPInputEntry `json:"entrys"`
 
 	RequestBodyIOKey      string `json:"request_body_io_key"`
 	ResponseCodeKey       string `json:"response_code_key"`
@@ -53,8 +94,7 @@ type HTTPInputConfig struct {
 
 func HTTPInputConfigConstructor() Config {
 	return &HTTPInputConfig{
-		Method: http.MethodGet,
-		Unzip:  true,
+		ListenPort: 80,
 	}
 }
 
@@ -65,30 +105,30 @@ func (c *HTTPInputConfig) Prepare() error {
 	}
 
 	ts := strings.TrimSpace
-	c.URL = ts(c.URL)
-	c.Method = ts(c.Method)
+
+	for url, urlEntry := range c.Entrys {
+		if !filepath.IsAbs(url) {
+			return fmt.Errorf("invalid absolutate url: %s", url)
+		}
+		for method, methodEntry := range urlEntry {
+			_, ok := supportedMethods[method]
+			if !ok {
+				return fmt.Errorf("unsupported method %s", method)
+			}
+			for k, v := range methodEntry.HeadersEnum {
+				k = ts(k)
+				if len(k) == 0 {
+					return fmt.Errorf("empty key in headers_enum")
+				}
+				methodEntry.HeadersEnum[k] = v
+			}
+		}
+	}
 
 	c.RequestBodyIOKey = ts(c.RequestBodyIOKey)
 	c.ResponseCodeKey = ts(c.ResponseCodeKey)
 	c.ResponseBodyIOKey = ts(c.ResponseBodyIOKey)
 	c.ResponseBodyBufferKey = ts(c.ResponseBodyBufferKey)
-
-	if !filepath.IsAbs(c.URL) {
-		return fmt.Errorf("invalid absolutate url")
-	}
-
-	_, ok := supportedMethods[c.Method]
-	if !ok {
-		return fmt.Errorf("invalid http method")
-	}
-
-	for key, value := range c.HeadersEnum {
-		key = ts(key)
-		if len(key) == 0 {
-			return fmt.Errorf("invalid http headers enum")
-		}
-		c.HeadersEnum[key] = value
-	}
 
 	return nil
 }
@@ -96,6 +136,7 @@ func (c *HTTPInputConfig) Prepare() error {
 ////
 
 type httpTask struct {
+	entry        HTTPInputEntry
 	request      *http.Request
 	writer       http.ResponseWriter
 	finishedChan chan struct{}
@@ -104,12 +145,15 @@ type httpTask struct {
 ////
 type httpInput struct {
 	conf         *HTTPInputConfig
+	router       *httprouter.Router
+	srv          *http.Server
+	srvDone      chan error
 	httpTaskChan chan *httpTask
 	instanceId   string
 	queueLength  uint64
 }
 
-func HTTPInputConstructor(conf Config) (Plugin, error) {
+func HTTPInputConstructor(conf Config) (p Plugin, err error) {
 	c, ok := conf.(*HTTPInputConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *HTTPInputConfig got %T", conf)
@@ -119,13 +163,51 @@ func HTTPInputConstructor(conf Config) (Plugin, error) {
 		conf:         c,
 		httpTaskChan: make(chan *httpTask, 32767),
 	}
-
 	h.instanceId = fmt.Sprintf("%p", h)
 
-	err := defaultMux.HandleFunc(h.conf.URL, h.conf.Method, h.conf.HeadersEnum, h.handler)
-	if err != nil {
-		return nil, fmt.Errorf("handle failed: %v", err)
+	// recover for router.Handle
+	defer func() {
+		if r := recover(); r != nil {
+			p, err = nil, fmt.Errorf("%s", r)
+		}
+	}()
+
+	h.router = httprouter.New()
+	for url, urlEntry := range c.Entrys {
+		for method, methodEntry := range urlEntry {
+			h.router.Handle(method, url, func(entry HTTPInputEntry) func(http.ResponseWriter, *http.Request, httprouter.Params) {
+				return func(w http.ResponseWriter, req *http.Request, ps httprouter.Params) {
+					h.handler(w, req, ps, entry)
+				}
+			}(methodEntry))
+		}
 	}
+
+	h.srv = &http.Server{
+		Addr:    fmt.Sprintf(":%d", h.conf.ListenPort),
+		Handler: h.router,
+	}
+
+	if h.conf.HTTPS {
+		crtName := common.Host + "-cert.pem"
+		keyName := common.Host + "-key.pem"
+		SSL_CRT_PATH := filepath.Join(common.CERT_HOME_DIR, crtName)
+		SSL_KEY_PATH := filepath.Join(common.CERT_HOME_DIR, keyName)
+		logger.Infof("[cert file: %s]", SSL_CRT_PATH)
+		logger.Infof("[key  file: %s]", SSL_KEY_PATH)
+
+		go func() {
+			err := h.srv.ListenAndServeTLS(SSL_CRT_PATH, SSL_KEY_PATH)
+			h.srvDone <- err
+		}()
+	} else {
+		go func() {
+			err := h.srv.ListenAndServe()
+			h.srvDone <- err
+		}()
+	}
+
+	// TODO: wait seconds for h.SrvDone?
 
 	return h, err
 }
@@ -166,8 +248,24 @@ func (h *httpInput) Prepare(ctx pipelines.PipelineContext) {
 	}
 }
 
-func (h *httpInput) handler(w http.ResponseWriter, req *http.Request) {
-	if h.conf.Unzip && strings.Contains(req.Header.Get("Content-Encoding"), "gzip") {
+func (h *httpInput) handler(w http.ResponseWriter, req *http.Request, ps httprouter.Params, entry HTTPInputEntry) {
+	errKeys := make([]string, 0)
+	for k, valuesEnum := range entry.HeadersEnum {
+		errKeys = append(errKeys, k)
+		v := req.Header.Get(k)
+		for _, valueEnum := range valuesEnum {
+			if v == valueEnum {
+				errKeys = errKeys[:len(errKeys)-1]
+			}
+		}
+	}
+	if len(errKeys) > 0 {
+		err := getHeaderError(errKeys...)
+		w.WriteHeader(err.Code)
+		return
+	}
+
+	if entry.Unzip && strings.Contains(req.Header.Get("Content-Encoding"), "gzip") {
 		var err error
 		req.Body, err = gzip.NewReader(req.Body)
 		if err != nil {
@@ -177,6 +275,7 @@ func (h *httpInput) handler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	httpTask := httpTask{
+		entry:        entry,
 		request:      req,
 		writer:       w,
 		finishedChan: make(chan struct{}),
@@ -259,7 +358,7 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 				if ok {
 					ht.writer.Write(buff)
 				}
-			} else if !task.SuccessfulResult(t1.ResultCode()) && h.conf.RespondErr {
+			} else if !task.SuccessfulResult(t1.ResultCode()) && ht.entry.RespondErr {
 				if strings.Contains(ht.request.Header.Get("Accept-Encoding"), "gzip") {
 					ht.writer.Header().Set("Content-Encoding", "gzip, deflate")
 					ht.writer.Header().Set("Content-Type", "application/x-gzip")
@@ -354,10 +453,14 @@ func (h *httpInput) Name() string {
 }
 
 func (h *httpInput) Close() {
-	defaultMux.DeleteFunc(h.conf.URL, h.conf.Method)
 	if h.httpTaskChan != nil {
 		close(h.httpTaskChan)
 		h.httpTaskChan = nil
+	}
+
+	err := h.srv.Close()
+	if err != nil {
+		logger.Warnf("%s close server failed: %s", h.Name(), err)
 	}
 }
 
