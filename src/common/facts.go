@@ -15,16 +15,19 @@ var (
 	CERT_HOME_DIR       = filepath.Join(INVENTORY_HOME_DIR, "cert")
 	CGI_HOME_DIR        = filepath.Join(INVENTORY_HOME_DIR, "cgi")
 
-	Host  string
-	Stage string
+	Host       string
+	Stage      string
+	ConfigHome string
 )
 
 func init() {
 	host := flag.String("host", "localhost", "specify host to corresponding cert files")
-	stage := flag.String("stage", "debug", "sepcify runtime stage(debug,test,prod)")
+	stage := flag.String("stage", "debug", "sepcify runtime stage (debug, test, prod)")
+	config := flag.String("config", CONFIG_HOME_DIR, "sepcify config home path")
 
 	flag.Parse()
 
 	Host = *host
 	Stage = *stage
+	ConfigHome = *config
 }
