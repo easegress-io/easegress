@@ -35,7 +35,7 @@ Plugin handles HTTP request and retruns client with pipeline procssed response. 
 | plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
 | url | string | The request HTTP url plugin will proceed. | Functionality | No | N/A |
 | method | string | The request HTTP method plugin will proceed. | Functionality | Yes | "GET" |
-| headers_enum | map[string]string | The request HTTP headers plugin will proceed. | Functionality | No | N/A |
+| headers_enum | map[string][]string | The request HTTP headers plugin will proceed. | Functionality | Yes | nil |
 | unzip | bool | The flag represents if the plugin decompresses the request body when request content is encoded in GZIP. | Functionality | Yes | true |
 | respond_error | bool | The flag represents if the plugin respond error information to client if pipeline handles the request unsuccessfully. The option will be used only when `response_body_io_key` and `response_body_io_key` options are empty. | Functionality | Yes | false |
 | request\_body\_io\_key | string | The key name of http request body io object stored in internal storage as the plugin output. | I/O | Yes | "" |
@@ -199,14 +199,14 @@ Plugin outputs request data to a kafka service.
 | brokers | []string | The kafka broker list. | Functionality | No | N/A |
 | client\_id | string | The client id as a kafka consumer. | Functionality | Yes | "easegateway" |
 | topic | string | The topic data outputs to. | Functionality | No | N/A |
-| message\_key\_key | The key name of message key value stored in internal storage as the plugin input. | I/O | Yes | nil |
-| data\_key | The key name of message data stored in internal storage as the plugin input. | I/O | No | N/A |
+| message\_key\_key | string |The key name of message key value stored in internal storage as the plugin input. | I/O | Yes | "" |
+| data\_key | string | The key name of message data stored in internal storage as the plugin input. | I/O | No | N/A |
 
 ### I/O
 
 | Data name | Configuration option name | Type | Data Type | Optional |
 |:--|:--|:--:|:--|:--:|
-| Message key | message\_key\_key | Input | []byte | Yes |
+| Message key | message\_key\_key | Input | string | Yes |
 | Message data | data\_key | Input | []byte | No |
 
 ### Error
@@ -232,7 +232,7 @@ Plugin outputs request data to a HTTP endpoint.
 |:--|:--|:--|:--:|:--:|:--|
 | plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
 | url\_pattern | string | The pattern of the complete HTTP output endpoint. E.g. https://1.2.3.4/abc?def={INPUT_DATA} | Functionality | No | N/A |
-| header\_patterns | map[string]string | The list of HTTP output header name pattern and value pattern pair. | Functionality | Yes | {} |
+| header\_patterns | map[string]string | The list of HTTP output header name pattern and value pattern pair. | Functionality | Yes | nil |
 | body\_pattern | string | The HTTP output body pattern. | Functionality | Yes | "" |
 | method | string | The method HTTP output used. | Functionality | No | N/A |
 | timeout\_sec | uint16 | The request timtout HTTP output limited in second. | Functionality | Yes | 120 |
