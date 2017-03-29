@@ -5,7 +5,7 @@ echo "SCRIPTFILE: ${SCRIPTFILE}"
 SCRIPTPATH="$(dirname "$SCRIPTFILE")"
 echo "SCRIPTPATH: ${SCRIPTPATH}"
 
-ADMIN=${SCRIPTPATH}/../../cmd/admin
+ADMIN=${SCRIPTPATH}/../../bin/easegateway_admin
 
 echo ""
 echo "Initial Plugins"

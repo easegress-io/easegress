@@ -27,7 +27,6 @@ _testmain.go
 .env
 build
 _vendor
-admin
 
 .DS_Store
 .idea/

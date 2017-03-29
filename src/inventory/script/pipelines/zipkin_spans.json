@@ -7,7 +7,6 @@
     "plugin_names": [
 			"http_input.zipkin_spans",
 			"io_reader.zipkin_spans",
-			"json_validator.zipkin_spans",
 			"kafka_output.zipkin_spans"
     ]
   }
