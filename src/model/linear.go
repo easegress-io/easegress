@@ -178,7 +178,7 @@ func (p *linearPipeline) Run() error {
 		switch t.Status() {
 		case task.ResponseImmediately:
 			msg := fmt.Sprintf(
-				"[plugin %s in pipeline %s execution failure, result code = %d, error = \"%s\"]",
+				"[plugin %s in pipeline %s execution failure, resultcode=%d, error=\"%s\"]",
 				pluginNames[i], p.conf.Name, t.ResultCode(), t.Error())
 
 			if p.stopped {

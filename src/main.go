@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -41,11 +42,20 @@ func main() {
 		logger.Infof("[rest interface started at %s]", rest.LISTEN_ADDRESS)
 	}
 
+	var msg string
 	select {
 	case err = <-done1:
-		logger.Infof("done signal from gateway engine: %s", err)
+		msg = "gateway engine"
 	case err = <-done2:
-		logger.Infof("done signal from api server: %s", err)
+		msg = "api server"
+	}
+
+	if err != nil {
+		msg = fmt.Sprintf("[exit from %s due to error: %s]", msg, err)
+		logger.Warnf(msg)
+	} else {
+		msg = fmt.Sprintf("[exit from %s without error]", msg)
+		logger.Infof(msg)
 	}
 
 	// interrupt by signal
