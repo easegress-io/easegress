@@ -6,7 +6,7 @@ Ease Gateway Plugin Reference
 There are 16 available plugins totoally in Ease Gateway current release.
 
 | Plugin name | Type name | Block-able | Functional | Development status | Link |
-|:--|:--|:--:|:--:|:--:|:--:|:--|
+|:--|:--|:--:|:--:|:--:|:--|
 | Http input | HttpInput | Yes | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/http_input.go) |
 | Graphite validator | GraphiteValidator | No | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/graphite_validator.go) |
 | Json validator | JSONValidator | No | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/json_validator.go) |
@@ -45,7 +45,7 @@ Plugin handles HTTP request and retruns client with pipeline procssed response.
 #### I/O
 
 | Data name | Configuration option name | Type | Optional |
-|:--|:--|:--:|:--:|:--|
+|:--|:--|:--:|:--:|
 | Request body IO object | request\_body\_io\_key | Output | Yes |
 | Response http status code | response\_code\_key | Input | Yes |
 | Response body IO object | response\_body\_io\_key | Input | Yes |
