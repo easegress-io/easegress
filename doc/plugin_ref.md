@@ -45,21 +45,12 @@ Plugin handles HTTP request and retruns client with pipeline procssed response. 
 
 ### I/O
 
-<<<<<<< HEAD
-| Data name | Configuration option name | Type | Optional |
-|:--|:--|:--:|:--:|
-| Request body IO object | request\_body\_io\_key | Output | Yes |
-| Response http status code | response\_code\_key | Input | Yes |
-| Response body IO object | response\_body\_io\_key | Input | Yes |
-| Response body buffer | response\_body\_buffer\_key | Input | Yes |
-=======
 | Data name | Configuration option name | Type | Data Type | Optional |
 |:--|:--|:--:|:--|:--:|
 | Request body IO object | request\_body\_io\_key | Output | io.Reader | Yes |
 | Response http status code | response\_code\_key | Input | int | Yes |
 | Response body IO object | response\_body\_io\_key | Input | io.Reader | Yes |
 | Response body buffer | response\_body\_buffer\_key | Input | []byte | Yes |
->>>>>>> [gateway-doc] Complete plugin reference doc
 
 ### Error
 
@@ -74,8 +65,6 @@ Plugin handles HTTP request and retruns client with pipeline procssed response. 
 |:--:|:--:|:--|
 | WAIT\_QUEUE\_LENGTH | uint64 | The length of wait queue which contains requests wait to be handled by a pipeline. |
 | WIP\_REQUEST\_COUNT | uint64 | The count of request which in the working progress of the pipeline. |
-<<<<<<< HEAD
-=======
 
 ## Graphite Validator plugin
 
@@ -540,4 +529,3 @@ No any errors returned.
 ### Dedicated statistics indicator
 
 No any indicators exposed.
->>>>>>> [gateway-doc] Complete plugin reference doc
