@@ -2,7 +2,7 @@
   "type": "KafkaOutput",
   "config": {
     "plugin_name": "kafka_output.zipkin_spans",
-    "brokers": ["127.0.0.1:9092"],
+    "brokers": KAFKA_BOOTSTRAP_SERVERS,
     "client_id": "gateway.kafka_output.zipkin_spans",
     "topic": "zipkin_spans",
     "message_key_key": "",

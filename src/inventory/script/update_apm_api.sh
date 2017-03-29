@@ -12,12 +12,13 @@ if [ -z "${KAFKA_BOOTSTRAP_SERVERS}" ]; then
 fi
 
 echo ""
-echo "Initial APM Plugins"
+echo "Update APM Plugins"
 rm -fr ${SCRIPTPATH}/apm_plugins
 cp -r ${SCRIPTPATH}/apm_plugins_template ${SCRIPTPATH}/apm_plugins
 sed -i "s#KAFKA_BOOTSTRAP_SERVERS#"${KAFKA_BOOTSTRAP_SERVERS}"#g" ${SCRIPTPATH}/apm_plugins/*.json
-${ADMIN} plugin add ${SCRIPTPATH}/apm_plugins/*.json
+${ADMIN} plugin update ${SCRIPTPATH}/apm_plugins/*.json
 
 echo ""
-echo "Initial APM Pipelines"
-${ADMIN} pipeline add ${SCRIPTPATH}/apm_pipelines_template/*.json
+echo "Update APM Pipelines"
+${ADMIN} pipeline update ${SCRIPTPATH}/apm_pipelines_template/*.json
+

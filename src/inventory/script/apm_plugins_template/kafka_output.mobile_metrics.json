@@ -2,7 +2,7 @@
   "type": "KafkaOutput",
   "config": {
     "plugin_name": "kafka_output.mobile_metrics",
-    "brokers": ["127.0.0.1:9092"],
+    "brokers": KAFKA_BOOTSTRAP_SERVERS,
     "client_id": "gateway.kafka_output.mobile_metrics",
     "topic": "mobile",
     "message_key_key": "GID",
