@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -25,12 +26,34 @@ func init() {
 	SSL_KEY_PATH := filepath.Join(common.CERT_HOME_DIR, key_name)
 
 	logger.Infof("[cert file: %s]", SSL_CRT_PATH)
-	logger.Infof("[key  file: %s]", SSL_KEY_PATH)
+	logger.Infof("[key file: %s]", SSL_KEY_PATH)
 
 	go func() {
-		err := http.ListenAndServeTLS("0.0.0.0:10443", SSL_CRT_PATH, SSL_KEY_PATH, defaultMux)
+		tls := true
+		if _, err := os.Stat(SSL_CRT_PATH); os.IsNotExist(err) {
+			logger.Warnf("[cert file %s not found]", SSL_CRT_PATH)
+			tls = false
+		}
+
+		if _, err := os.Stat(SSL_KEY_PATH); os.IsNotExist(err) {
+			logger.Warnf("[key file %s not found]", SSL_KEY_PATH)
+			tls = false
+		}
+
+		var (
+			err    error
+			server string
+		)
+		if tls {
+			err = http.ListenAndServeTLS("0.0.0.0:10443", SSL_CRT_PATH, SSL_KEY_PATH, defaultMux)
+			server = "HTTPS"
+		} else {
+			err = http.ListenAndServe("0.0.0.0:10080", defaultMux)
+			server = "HTTP"
+		}
+
 		if err != nil {
-			logger.Errorf("ListenAndServeTLS failed:", err)
+			logger.Errorf("Start %s server failed:", server, err)
 		}
 	}()
 }
