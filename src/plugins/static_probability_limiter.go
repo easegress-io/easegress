@@ -26,15 +26,15 @@ func (c *staticProbabilityLimiterConfig) Prepare() error {
 	}
 
 	if c.PassPr < 0 || c.PassPr > 1 {
-		return fmt.Errorf("invalid pass probability %f", c.PassPr)
+		return fmt.Errorf("invalid passing probability %f", c.PassPr)
 	}
 
 	if c.PassPr == 0 {
-		logger.Warnf("[ZERO pass probablity has been applied, no request could be processed!]")
+		logger.Warnf("[ZERO passing probablity has been applied, no request could be processed!]")
 	}
 
 	if c.PassPr == 1 {
-		logger.Warnf("[1.0 pass probablity has been applied, no request could be limited!]")
+		logger.Warnf("[1.0 passing probablity has been applied, no request could be limited!]")
 	}
 
 	return nil

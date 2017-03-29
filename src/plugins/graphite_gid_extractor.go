@@ -65,7 +65,8 @@ func (e *graphiteGidExtractor) extract(t task.Task) (error, task.TaskResultCode,
 	dataValue := t.Value(e.conf.DataKey)
 	data, ok := dataValue.([]byte)
 	if !ok {
-		return fmt.Errorf("input %s got wrong value: %#v", e.conf.DataKey, dataValue), task.ResultMissingInput, t
+		return fmt.Errorf("input %s got wrong value: %#v", e.conf.DataKey, dataValue),
+			task.ResultMissingInput, t
 	}
 
 	s := bufio.NewScanner(bytes.NewReader(data))

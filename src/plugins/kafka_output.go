@@ -25,7 +25,7 @@ type kafkaOutputConfig struct {
 
 func KafkaOutputConfigConstructor() Config {
 	return &kafkaOutputConfig{
-		ClientID: "apigw",
+		ClientID: "easegateway",
 	}
 }
 
@@ -50,11 +50,14 @@ func (c *kafkaOutputConfig) Prepare() error {
 	}
 
 	if len(c.Brokers) == 0 {
-		return fmt.Errorf("invalid kafka borker name")
+		return fmt.Errorf("invalid kafka borker list")
 	}
 
-	// kafkaOutput can handle empty MessageKeyKey
-
+	for _, broker := range c.Brokers {
+		if len(ts(broker)) == 0 {
+			return fmt.Errorf("invalid kafka borker name")
+		}
+	}
 	if len(c.DataKey) == 0 {
 		return fmt.Errorf("invalid data key")
 	}
@@ -169,7 +172,7 @@ func (o *kafkaOutput) output(t task.Task) (error, task.TaskResultCode, task.Task
 
 	_, _, err := o.producer.SendMessage(msg)
 	if err != nil {
-		logger.Warnf("[send message to topic(%s) failed]", o.conf.Topic)
+		logger.Warnf("[send message to topic (%s) failed]", o.conf.Topic)
 		return err, task.ResultServiceUnavailable, t
 	}
 
