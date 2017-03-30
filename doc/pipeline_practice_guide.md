@@ -4,7 +4,7 @@
 In this document, we would like to introduce 6 pipelines from real practice to cover some worth usecases as examples.
 
 | Name | Description | Complexity level |
-|:--|:--|:--:|:--:|
+|:--|:--|:--:|
 | [Ease Monitor edge service](#ease-monitor-edge-service) | Runs an example HTTPS endpoint to receive an Ease Monitor data, processes it in the pipeline and sends prepared data to kafka finally. | Beginner |
 | [Http traffic throttling](#http-traffic-throttling) | Performs latency and throughput rate based traffic control. | Beginner |
 | [Service circuit breaking](#service-circuit-breaking) | As a protection function, once the service failures reach a certain threshold all further calls to the service will be returned with an error directly, and when the service recovery the breaking function will be disabled automatically. | Beginner |
