@@ -151,13 +151,14 @@ func (a *gwProtoAdaptor) adapt(t task.Task) (err error, resultCode task.TaskResu
 
 	resultCode = t.ResultCode()
 
-	retTask, err = task.WithValue(t, a.conf.GidKey, gid)
+	retTask = t
+	retTask, err = task.WithValue(retTask, a.conf.GidKey, gid)
 	if err != nil {
 		resultCode = task.ResultInternalServerError
 		return
 	}
 
-	retTask, err = task.WithValue(t, a.conf.DataKey, newData)
+	retTask, err = task.WithValue(retTask, a.conf.DataKey, newData)
 	if err != nil {
 		resultCode = task.ResultInternalServerError
 		return
