@@ -159,12 +159,12 @@ func (o *kafkaOutput) output(t task.Task) (error, task.TaskResultCode, task.Task
 		messageKeyValue := t.Value(o.conf.MessageKeyKey)
 		messageKey, ok := messageKeyValue.(string)
 		if !ok {
-			return fmt.Errorf("input %s got wrong value: %#v", o.conf.MessageKeyKey, messageKey),
+			return fmt.Errorf("input %s got wrong value: %#v", o.conf.MessageKeyKey, messageKeyValue),
 				task.ResultMissingInput, t
 		}
 		messageKey = strings.TrimSpace(messageKey)
 		if len(messageKey) == 0 {
-			return fmt.Errorf("input %s got empty string", o.conf.MessageKeyKey, messageKey),
+			return fmt.Errorf("input %s got empty string", o.conf.MessageKeyKey),
 				task.ResultBadInput, t
 		}
 		msg.Key = sarama.StringEncoder(messageKey)
