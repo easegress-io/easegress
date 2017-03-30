@@ -34,12 +34,12 @@ func main() {
 		logger.Infof("[gateway engine started]")
 	}
 
-	done2, err := api.Start(rest.LISTEN_ADDRESS)
+	done2, listenAddr, err := api.Start()
 	if err != nil {
-		logger.Errorf("[start rest interface at %s failed: %s]", rest.LISTEN_ADDRESS, err)
+		logger.Errorf("[start rest interface at %s failed: %s]", listenAddr, err)
 		os.Exit(4)
 	} else {
-		logger.Infof("[rest interface started at %s]", rest.LISTEN_ADDRESS)
+		logger.Infof("[rest interface started at %s]", listenAddr)
 	}
 
 	var msg string

@@ -21,7 +21,8 @@ var (
 )
 
 func init() {
-	host := flag.String("host", "localhost", "specify host to corresponding cert files")
+	host := flag.String("host", "localhost",
+		"specify host to corresponding cert files and serve http/https request")
 	stage := flag.String("stage", "debug", "sepcify runtime stage (debug, test, prod)")
 	config := flag.String("config", CONFIG_HOME_DIR, "sepcify config home path")
 
