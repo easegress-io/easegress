@@ -10,9 +10,6 @@
     "application": {
       "type": "string"
     },
-    "instance": {
-      "type": "string"
-    },
     "hostipv4": {
       "type": "string"
     },
@@ -39,6 +36,6 @@
     }
   },
 
-  "required": ["system", "application", "instance", "hostipv4", "hostname",
+  "required": ["system", "application", "hostipv4", "hostname",
 			   "@timestamp", "type", "name", "measurement_start", "id", "callStackJson"]
 }
