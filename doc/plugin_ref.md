@@ -27,7 +27,7 @@ There are 16 available plugins totoally in Ease Gateway current release.
 ## Http Input plugin
 
 Plugin handles HTTP request and retruns client with pipeline procssed response. Currently a HTTPS server will runs on a fixed 10443 port with a certificate and key file pair.
- 
+
 ### Configuration
 
 | Parameter name | Data type (golang) | Description | Type | Optional | Default value (golang) |
@@ -35,9 +35,9 @@ Plugin handles HTTP request and retruns client with pipeline procssed response. 
 | plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
 | url | string | The request HTTP url plugin will proceed. | Functionality | No | N/A |
 | method | string | The request HTTP method plugin will proceed. | Functionality | Yes | "GET" |
-| headers_enum | map[string][]string | The request HTTP headers plugin will proceed. | Functionality | Yes | nil |
+| headers\_enum | map[string][]string | The request HTTP headers plugin will proceed. | Functionality | Yes | nil |
 | unzip | bool | The flag represents if the plugin decompresses the request body when request content is encoded in GZIP. | Functionality | Yes | true |
-| respond_error | bool | The flag represents if the plugin respond error information to client if pipeline handles the request unsuccessfully. The option will be used only when `response_body_io_key` and `response_body_io_key` options are empty. | Functionality | Yes | false |
+| respond\_error | bool | The flag represents if the plugin respond error information to client if pipeline handles the request unsuccessfully. The option will be used only when `response_body_io_key` and `response_body_io_key` options are empty. | Functionality | Yes | false |
 | request\_body\_io\_key | string | The key name of http request body io object stored in internal storage as the plugin output. | I/O | Yes | "" |
 | response\_code\_key | string | The key name of http response status code value stored in internal storage as the plugin input. An empty value of the option means returning pipeline handling result code to client. | I/O | Yes | "" |
 | response\_body\_io\_key | string | The key name of http response body io object stored in internal storage as the plugin input. | I/O | Yes | "" |
@@ -190,7 +190,7 @@ No any indicators exposed.
 ## Kafka Output plugin
 
 Plugin outputs request data to a kafka service.
- 
+
 ### Configuration
 
 | Parameter name | Data type (golang) | Description | Type | Optional | Default value (golang) |
