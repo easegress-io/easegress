@@ -231,11 +231,11 @@ Plugin outputs request data to a HTTP endpoint.
 | Parameter name | Data type (golang) | Description | Type | Optional | Default value (golang) |
 |:--|:--|:--|:--:|:--:|:--|
 | plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
-| url\_pattern | string | The pattern of the complete HTTP output endpoint. E.g. https://1.2.3.4/abc?def={INPUT_DATA} | Functionality | No | N/A |
+| url\_pattern | string | The pattern of the complete HTTP output endpoint. E.g. ``https://1.2.3.4/abc?def={INPUT_DATA}`` | Functionality | No | N/A |
 | header\_patterns | map[string]string | The list of HTTP output header name pattern and value pattern pair. | Functionality | Yes | nil |
 | body\_pattern | string | The HTTP output body pattern. | Functionality | Yes | "" |
 | method | string | The method HTTP output used. | Functionality | No | N/A |
-| timeout\_sec | uint16 | The request timtout HTTP output limited in second. | Functionality | Yes | 120 |
+| timeout\_sec | uint16 | The request timtout HTTP output limited in second. | Functionality | Yes | 120 (2 minutes) |
 | cert\_file | string | The certificate file HTTPS output used. | Functionality | Yes | "" |
 | key\_file | string | The key file HTTPS output used. | Functionality | Yes | "" |
 | ca\_file | string | The root certificate HTTPS output used. | Functionality | Yes | "" |
@@ -471,8 +471,8 @@ Plugin caches a data and uses it to serve follow requests directly.
 |:--|:--|:--|:--:|:--:|:--|
 | plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
 | hit\_keys | []string | All the data with every keys will be considered to check if request hits the cache or missing | Functionality  | No | N/A|
-| cache\_key | string | The data with the key will be cached in internal storage as the plugin input (caching) and output (reusing) | I/O | No | N/A |
 | ttl\_sec | uint32 | Time to live of cache data in second. | Functionality | Yes | 600 (10 mins) |
+| cache\_key | string | The data with the key will be cached in internal storage as the plugin input (caching) and output (reusing) | I/O | No | N/A |
 
 ### I/O
 
