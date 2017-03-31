@@ -264,14 +264,16 @@ func NewPipelineStatistics(pipelineName string, pluginNames []string, m *Model) 
 	tickFun := func(ewmas []metrics.EWMA) {
 		ticker := time.NewTicker(time.Duration(5) * time.Second)
 
-		select {
-		case <-ticker.C:
-			for _, ewma := range ewmas {
-				ewma.Tick()
+		for {
+			select {
+			case <-ticker.C:
+				for _, ewma := range ewmas {
+					ewma.Tick()
+				}
+			case <-ret.done:
+				ticker.Stop()
+				return
 			}
-		case <-ret.done:
-			ticker.Stop()
-			return
 		}
 	}
 
