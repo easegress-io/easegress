@@ -463,7 +463,7 @@ We need to set both cache plugins to the certain position in the pipeline, in th
 You can use follow [Administration API](https://github.com/hexdecteam/easegateway/blob/master/doc/admin_api_ref.swagger.yaml) calls to setup the pipeline:
 
 ```
-curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "test-jsonpipeline", "plugin_names": ["test-httpinput", "test-simplecommoncache-body", "test-simplecommoncache-code", "test-ioreader1", "test-httpoutput", "test-ioreader2"], "parallelism": 10}}
+$ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "test-jsonpipeline", "plugin_names": ["test-httpinput", "test-simplecommoncache-body", "test-simplecommoncache-code", "test-ioreader1", "test-httpoutput", "test-ioreader2"], "parallelism": 10}}'
 ```
 
 ### Test
@@ -596,7 +596,7 @@ $ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:applic
 You can use follow [Administration API](https://github.com/hexdecteam/easegateway/blob/master/doc/admin_api_ref.swagger.yaml) calls to setup the pipeline:
 
 ```
-curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "test-jsonpipeline", "plugin_names": ["test-httpinput", "test-simplecommonmock", "test-staticprobabilitylimiter", "test-ioreader", "test-jsonvalidator", "test-jsongidextractor", "test-kafkaoutput"], "parallelism": 10}}'
+$ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "test-jsonpipeline", "plugin_names": ["test-httpinput", "test-simplecommonmock", "test-staticprobabilitylimiter", "test-ioreader", "test-jsonvalidator", "test-jsongidextractor", "test-kafkaoutput"], "parallelism": 10}}'
 ```
 
 ### Test
@@ -654,3 +654,240 @@ Percentage of the requests served within a certain time (ms)
 ```
 
 ## Flash sale event support
+
+In a flash sale event of e-Commerence case, the behaviors between user and website are like these:
+
+1. Before the flash sale event starts, many users open the event page of the website and prepare to click the order link. At the moment the order link is under disable status since event is not started.
+2. After the flash sale event starts, users click the order link and a large number of the order requests are sent to the website, and website handles the requests as much as posible on the basis of the service availability.
+3. Once the commodity sold out, any incoming order request will be rejected.
+
+So the biggest challenges to support this kind of event for a website backend is how to support massive order requests in a very short period and keep best availability of all related services. To handle the challenge, Ease Gateway provides 4 steps to cover above three cases separately and technologically:
+
+1. Ease gateway can be distributed to have multiple instances to serve users come from different region or logical group. Under this way, we can increase the capacity of access layer by scaling out gateway instance easily, we are even preconfigure the capacity before the event.
+2. Before the flash sale event starts, according to the user behavior gateway can provides a statistics data to indicate how many user are prepared and ready to order. And base on this statistics indicator, website can calculate and pre-configure the probability of success buying for different access endpoint on each gateway instance.
+3. When the flash sale event starts, the gateway instance will reduce the massive order requests according to the pre-configured probability, and finally a reasonable volume of order requests hit the website backend service really. 
+4. Once the website backend service responds gateway there is no more commodity in the stock, gateway returns user a standard error and reject all incoming order requests directly and no further requests hit the website.
+
+To achieve above solution we need to prepare two dedicated pipelines for each gateway instance, first one is used to cover above point #2, and another one is used to cover point #3 and #4.
+
+1. User session counting.
+2. Rejecting requests based on the probability and completely rejecting once upstream returns a special failure.
+
+### User session counting
+
+#### Plugin
+
+1. [HTTP input](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#http-input-plugin): To enable HTTP endpoint to receive user request for accessing flash sale event page.
+2. [IO reader](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#io-reader-plugin): To read received data from the client via HTTP transport layer in to local memory as a proxy.
+3. [HTTP output](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#http-output-plugin): Sending the body and headers to the flash sale event page of the website.
+4. [HTTP header counter](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#http-header-counter-plugin): To calculate amount of different HTTP header value of a certain header name, and the amount will be deducted automatically if user has not any active with website more then 1 minute. The result is exposed by the statistics indicator ``RECENT_HEADER_COUNT``.
+
+Using follow [Administration API](https://github.com/hexdecteam/easegateway/blob/master/doc/admin_api_ref.swagger.yaml) calls to setup above plugins:
+
+```
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPInput", "config": {"plugin_name": "test-httpinput", "url": "/test", "method": "GET", "headers_enum": {"name": ["bar", "bar1"]}, "request_body_io_key": "HTTP_REQUEST_BODY_IO", "response_code_key": "response_code", "response_body_io_key": "HTTP_RESP_BODY_IO"}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "IOReader", "config": {"plugin_name": "test-ioreader", "input_key":"HTTP_REQUEST_BODY_IO", "output_key": "REQ_DATA"}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPOutput", "config": {"plugin_name": "test-httpoutput", "url_pattern": "http://127.0.0.1:1122/abc{def}/{ghi}", "header_patterns": {}, "method": "GET", "response_code_key": "response_code", "response_body_io_key": "HTTP_RESP_BODY_IO", "body_pattern": "{REQ_DATA}"}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPHeaderCounter", "config": {"plugin_name": "test-httpheadercounter", "header_concerned": "name", "expiration_min": 1}}'
+```
+
+#### Pipeline
+
+Technically there is no requirement on the position of HTTP header counter plugin.
+
+You can use follow [Administration API](https://github.com/hexdecteam/easegateway/blob/master/doc/admin_api_ref.swagger.yaml) calls to setup the pipeline:
+
+```
+curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "test-jsonpipeline", "plugin_names": ["test-httpinput", "test-ioreader", "test-httpoutput", "test-httpheadercounter"], "parallelism": 10}}'
+```
+
+#### Test
+
+```
+$ curl http://127.0.0.1:9090/statistics/v1/pipelines/test-jsonpipeline/plugins/test-httpheadercounter/indicators/RECENT_HEADER_COUNT/desc  -X GET -w "\n"
+"The count of http requests that the header of each one contains a key 'name' in last 60 second(s)."
+
+$ curl http://127.0.0.1:9090/statistics/v1/pipelines/test-jsonpipeline/plugins/test-httpheadercounter/indicators/RECENT_HEADER_COUNT/value  -X GET -w "\n"
+0
+
+$ curl -i -k https://127.0.0.1:10443/test -X GET -i -w "\n" -H "name:bar" -d "$LOAD"
+HTTP/1.1 200 OK
+Date: Fri, 31 Mar 2017 17:39:48 GMT
+Content-Type: text/html; charset=utf-8
+Content-Length: 0
+
+$ curl http://127.0.0.1:9090/statistics/v1/pipelines/test-jsonpipeline/plugins/test-httpheadercounter/indicators/RECENT_HEADER_COUNT/value  -X GET -w "\n"
+1
+
+$ curl -i -k https://127.0.0.1:10443/test -X GET -i -w "\n" -H "name:bar1" -d "$LOAD"
+HTTP/1.1 200 OK
+Date: Fri, 31 Mar 2017 17:40:02 GMT
+Content-Type: text/html; charset=utf-8
+Content-Length: 0
+
+$ curl http://127.0.0.1:9090/statistics/v1/pipelines/test-jsonpipeline/plugins/test-httpheadercounter/indicators/RECENT_HEADER_COUNT/value  -X GET -w "\n"
+2
+```
+
+### Rejecting requests
+
+#### Plugin
+
+1. [HTTP input](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#http-input-plugin): To enable HTTP endpoint to receive user request for order commodity.
+2. [No more failure limiter](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#no-more-failure-limiter-plugin): To returns a standard error and reject all incoming requests directly and no further requests hit the upstream.
+3. [Static pass probability limiter](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#static-pass-probability-limiter-plugin): The plugin passes the reqeust with a fixed probability. In this case it is used to reduce the massive order requests and finally a reasonable volume of order requests hit the website backend service really.
+4. [IO reader](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#io-reader-plugin): To read received data from the client via HTTP transport layer in to local memory as a proxy.
+5. [HTTP output](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#http-output-plugin): Sending the body and headers to the order serivce of the website.
+
+```
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPInput", "config": {"plugin_name": "test-httpinput", "url": "/test", "method": "GET", "headers_enum": {"name": ["bar", "bar1"]}, "request_body_io_key": "HTTP_REQUEST_BODY_IO", "response_code_key": "response_code", "response_body_io_key": "HTTP_RESP_BODY_IO"}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "NoMoreFailureLimiter", "config": {"plugin_name": "test-nomorefailurelimiter", "failure_count_threshold": 1, "failure_task_data_key": "response_code", "failure_task_data_value": "400"}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "StaticProbabilityLimiter", "config": {"plugin_name": "test-staticprobabilitylimiter", "pass_pr": 0.75}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "IOReader", "config": {"plugin_name": "test-ioreader", "input_key":"HTTP_REQUEST_BODY_IO", "output_key": "REQ_DATA"}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPOutput", "config": {"plugin_name": "test-httpoutput", "url_pattern": "http://127.0.0.1:1122/abc", "header_patterns": {}, "method": "GET", "response_code_key": "response_code", "response_body_io_key": "HTTP_RESP_BODY_IO", "body_pattern": "{REQ_DATA}"}}'
+```
+
+#### Pipeline
+
+You can use follow [Administration API](https://github.com/hexdecteam/easegateway/blob/master/doc/admin_api_ref.swagger.yaml) calls to setup the pipeline:
+
+```
+$ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "test-jsonpipeline", "plugin_names": ["test-httpinput", "test-nomorefailurelimiter", "test-staticprobabilitylimiter", "test-ioreader", "test-httpoutput"], "parallelism": 10}}'
+```
+
+#### Test
+
+```
+$ cat ~/server1.py
+from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
+
+global stock
+stock = 6
+
+class WebServerHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        global stock
+        if self.path.endswith("/abc"):
+            stock -= 1
+            if stock > 0:
+                self.send_response(200)
+                self.send_header('Content-type', 'text/html')
+                self.end_headers()
+                message = "<html><body>Order successfully!</body></html>"
+                self.wfile.write(message)
+            else:
+                self.send_response(400)
+                self.send_header('Content-type', 'text/html')
+                self.end_headers()
+                message = "<html><body>Order failed!</body></html>"
+                self.wfile.write(message)
+            return
+
+def main():
+    try:
+        port = 1122
+        server = HTTPServer(('127.0.0.1', port), WebServerHandler)
+        print "Web Server running on port %s" % port
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print " ^C entered, stopping web server...."
+        server.socket.close()
+
+main()
+
+$ python ~/server1.py
+Web Server running on port 1122
+127.0.0.1 - - [01/Apr/2017 02:26:00] "GET /abc HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2017 02:26:04] "GET /abc HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2017 02:26:06] "GET /abc HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2017 02:26:07] "GET /abc HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2017 02:26:08] "GET /abc HTTP/1.1" 200 -
+127.0.0.1 - - [01/Apr/2017 02:26:11] "GET /abc HTTP/1.1" 400 -
+^C ^C entered, stopping web server....
+```
+
+```
+$ curl -i -k https://127.0.0.1:10443/test -X GET -i -w "\n" -H "name:bar1" -d "$LOAD"
+HTTP/1.1 200 OK
+Date: Fri, 31 Mar 2017 18:26:00 GMT
+Content-Type: text/html; charset=utf-8
+Transfer-Encoding: chunked
+
+<html><body>Order successfully!</body></html>
+
+$ curl -i -k https://127.0.0.1:10443/test -X GET -i -w "\n" -H "name:bar1" -d "$LOAD"
+HTTP/1.1 429 Too Many Requests              <= This is limited by static probability limiter plugin
+Date: Fri, 31 Mar 2017 18:26:01 GMT
+Content-Type: text/plain; charset=utf-8
+Transfer-Encoding: chunked
+
+$ curl -i -k https://127.0.0.1:10443/test -X GET -i -w "\n" -H "name:bar1" -d "$LOAD"
+HTTP/1.1 200 OK
+Date: Fri, 31 Mar 2017 18:26:04 GMT
+Content-Type: text/html; charset=utf-8
+Transfer-Encoding: chunked
+
+<html><body>Order successfully!</body></html>
+
+$ curl -i -k https://127.0.0.1:10443/test -X GET -i -w "\n" -H "name:bar1" -d "$LOAD"
+HTTP/1.1 429 Too Many Requests              <= This is limited by static probability limiter plugin
+Date: Fri, 31 Mar 2017 18:26:05 GMT
+Content-Type: text/plain; charset=utf-8
+Transfer-Encoding: chunked
+
+$ curl -i -k https://127.0.0.1:10443/test -X GET -i -w "\n" -H "name:bar1" -d "$LOAD"
+HTTP/1.1 200 OK
+Date: Fri, 31 Mar 2017 18:26:06 GMT
+Content-Type: text/html; charset=utf-8
+Transfer-Encoding: chunked
+
+<html><body>Order successfully!</body></html>
+
+$ curl -i -k https://127.0.0.1:10443/test -X GET -i -w "\n" -H "name:bar1" -d "$LOAD"
+HTTP/1.1 429 Too Many Requests              <= This is limited by static probability limiter plugin
+Date: Fri, 31 Mar 2017 18:26:07 GMT
+Content-Type: text/plain; charset=utf-8
+Transfer-Encoding: chunked
+
+$ curl -i -k https://127.0.0.1:10443/test -X GET -i -w "\n" -H "name:bar1" -d "$LOAD"
+HTTP/1.1 200 OK
+Date: Fri, 31 Mar 2017 18:26:07 GMT
+Content-Type: text/html; charset=utf-8
+Transfer-Encoding: chunked
+
+<html><body>Order successfully!</body></html>
+
+$ curl -i -k https://127.0.0.1:10443/test -X GET -i -w "\n" -H "name:bar1" -d "$LOAD"
+HTTP/1.1 200 OK
+Date: Fri, 31 Mar 2017 18:26:08 GMT
+Content-Type: text/html; charset=utf-8
+Transfer-Encoding: chunked
+
+<html><body>Order successfully!</body></html>
+
+$ curl -i -k https://127.0.0.1:10443/test -X GET -i -w "\n" -H "name:bar1" -d "$LOAD"
+HTTP/1.1 400 Bad Request
+Date: Fri, 31 Mar 2017 18:26:11 GMT
+Content-Type: text/html; charset=utf-8
+Transfer-Encoding: chunked
+
+<html><body>Order failed!</body></html>
+
+$ curl -i -k https://127.0.0.1:10443/test -X GET -i -w "\n" -H "name:bar1" -d "$LOAD"
+HTTP/1.1 429 Too Many Requests              <= This is limited by no more failure limiter plugin
+Date: Fri, 31 Mar 2017 18:26:12 GMT
+Content-Type: text/plain; charset=utf-8
+Transfer-Encoding: chunked
+
+$ curl -i -k https://127.0.0.1:10443/test -X GET -i -w "\n" -H "name:bar1" -d "$LOAD"
+HTTP/1.1 429 Too Many Requests              <= This is limited by no more failure limiter plugin
+Date: Fri, 31 Mar 2017 18:26:13 GMT
+Content-Type: text/plain; charset=utf-8
+Transfer-Encoding: chunked
+
+$ curl -i -k https://127.0.0.1:10443/test -X GET -i -w "\n" -H "name:bar1" -d "$LOAD"
+HTTP/1.1 429 Too Many Requests              <= This is limited by no more failure limiter plugin
+Date: Fri, 31 Mar 2017 18:26:14 GMT
+Content-Type: text/plain; charset=utf-8
+Transfer-Encoding: chunked
+```
