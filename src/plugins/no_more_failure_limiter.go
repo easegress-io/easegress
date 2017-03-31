@@ -146,14 +146,9 @@ func getTaskFinishedCallbackInNoMoreFailureLimiter(ctx pipelines.PipelineContext
 		state.Lock()
 		defer state.Unlock()
 
-		// FIXME: Currently count failure on failure task directly instead of checking task data with config
-		if !task.SuccessfulResult(t1.ResultCode()) {
+		value := fmt.Sprintf("%v", t1.Value(failureTaskDataKey))
+		if value == failureTaskDataValue {
 			state.failureCount++
-		} else {
-			value := fmt.Sprintf("%v", t1.Value(failureTaskDataKey))
-			if value == failureTaskDataValue {
-				state.failureCount++
-			}
 		}
 
 		return
