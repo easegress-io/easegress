@@ -382,7 +382,7 @@ No any indicators exposed.
 
 ## Service Circuit Breaker plugin
 
-Plugin limits request rate based on a failure rate.
+Plugin limits request rate base on the failure rate of one or more plugins.
 
 ### Configuration
 
