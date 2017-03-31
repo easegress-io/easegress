@@ -54,7 +54,7 @@ func init() {
 		}
 
 		if err != nil {
-			logger.Errorf("Start %s server failed:", server, err)
+			logger.Errorf("Start %s server failed: %s", server, err)
 		}
 	}()
 }
