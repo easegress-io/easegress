@@ -20,10 +20,10 @@ Linear Pipeline is a model to define a unidirectional path plugins handling task
 |:--|:--|:--|:--:|:--:|:--:|
 | pipeline\_name | string | The pipeline instance name. | Functionality | No | N/A |
 | plugin\_names | []string | The sequential list of plugins handling tasks. | Functionality | No | N/A |
-| parallelism | uint16 | The parallel number of linear pipleine. |Functionality | No | 1 |
-| wait\_plugin\_close | bool | The flag represents if the pipeline suspends until the rotten plugins closed. | Functionality | No | true |
+| parallelism | uint16 | The parallel number of linear pipleine. |Functionality | Yes | 1 |
+| wait\_plugin\_close | bool | The flag represents if the pipeline suspends until the rotten plugins closed. | Functionality | Yes | true |
 
-> Notice: The reason why `wait\_plugin\_close` appears is to  prevent that a new instance can not complete construction because a old instance(same plugin) is still holding some critical and unique resources. e.g. A instance of http\_input.metrics with holding url `/v1/meitrcs` suddenly is updated(with the same url `/v1/metrics`), the pipeline can not construct a new instance before the old instance closes, because the unique resource url `/v1/metrics` can not be occupied by multiple instances simultaneously.
+> Notice: The reason why `wait_plugin_close` appears is to  prevent that a new instance can not complete construction because a old instance(same plugin) is still holding some critical and unique resources. e.g. A instance of http\_input.metrics with holding url `/v1/meitrcs` suddenly is updated(with the same url `/v1/metrics`), the pipeline can not construct a new instance before the old instance closes, because the unique resource url `/v1/metrics` can not be occupied by multiple instances simultaneously.
 
 ### Dedicated statistics indicator
 
