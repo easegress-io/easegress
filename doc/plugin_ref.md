@@ -382,7 +382,7 @@ No any indicators exposed.
 
 ## Service Circuit Breaker plugin
 
-Plugin limits request rate based on current latency based failures.
+Plugin limits request rate based on a failure rate.
 
 ### Configuration
 
@@ -392,7 +392,7 @@ Plugin limits request rate based on current latency based failures.
 | plugins\_concerned | []string | Plugins their processing failure will be considered to control circuit breaker status. | Functionality | No | N/A |
 | all\_tps\_threshold\_to\_enable | float64 | As the condition, it indicates how many requests pre second will cause circuit breaker to be enabled. Value zero means to enable circuit breaker immediately when a request arrived. | Functionality | Yes | 1 |
 | failure\_tps\_threshold\_to\_break | float64 | As the condition, it indicates how many failure requests pre second will cause circuit breaker to be turned on. It means fully close request flow. Value zero here means breaker will keep open or half-open status. | Functionality | Yes | 1 |
-| failure\_tps\_percent\_threshold\_to\_break | float32 | As the condition, it indicates what percent of failure requests pre second will cause circuit breaker to be turned on. It means fully close request flow. Value zero here means breaker will keep open or half-open status. The option can be leveraged only when `failure\_tps\_threshold\_to\_break` contiditon does not satisfy. | Functionality | No | N/A |
+| failure\_tps\_percent\_threshold\_to\_break | float32 | As the condition, it indicates what percent of failure requests pre second will cause circuit breaker to be turned on. It means fully close request flow. Value zero here means breaker will keep open or half-open status. The option can be leveraged only when `failure_tps_threshold_to_break` contiditon does not satisfy. | Functionality | No | N/A |
 | recovery\_time\_msec | uint32 | As the condition, it indicates how long delay in milliseconds will cause circuit breaker to be turned to half-open status, the status is used to try service availability. In general, it equals to MTTR. | Functionality | Yes | 1000 |
 | success\_tps\_threshold\_to\_open | float64 | As the condition, it indicates how many success requests pre second will cause circuit breaker to be turned off. It means fully open request flow. Value zero here means to fully open request flow immediately after recovery time elapsed. | Functionality | Yes | 1 |
 
