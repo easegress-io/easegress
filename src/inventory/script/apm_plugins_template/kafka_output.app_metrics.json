@@ -2,7 +2,7 @@
   "type": "KafkaOutput",
   "config": {
     "plugin_name": "kafka_output.app_metrics",
-    "brokers": KAFKA_BOOTSTRAP_SERVERS,
+    "brokers": ["KAFKA_BOOTSTRAP_SERVERS"],
     "client_id": "gateway.kafka_output.app_metrics",
     "topic": "sm-metrics",
     "message_key_key": "GID",

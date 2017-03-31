@@ -9,7 +9,7 @@ ADMIN=${SCRIPTPATH}/../../bin/easegateway_admin
 
 KAFKA_BOOTSTRAP_SERVERS="$1"
 if [ -z "${KAFKA_BOOTSTRAP_SERVERS}" ]; then
-    KAFKA_BOOTSTRAP_SERVERS='["127.0.0.1:9092"]'
+    KAFKA_BOOTSTRAP_SERVERS='127.0.0.1:9092'
 fi
 
 echo ""
