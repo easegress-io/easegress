@@ -112,13 +112,16 @@ type Task interface {
 	AddFinishedCallback(name string, callback TaskFinished) TaskFinished
 	// DeleteFinishedCallback deletes registered Finished callback function
 	DeleteFinishedCallback(name string) TaskFinished
-	// AddRecoveryFunc adds callback function executing after task status set to `ResponseImmediately`, after executing them the status of task will be recovered to `Running`
+	// AddRecoveryFunc adds callback function executing after task status set to `ResponseImmediately`,
+	// after executing them the status of task will be recovered to `Running`
 	AddRecoveryFunc(name string, taskRecovery TaskRecovery) TaskRecovery
 	// DeleteRecoveryFunc deletes registered recovery function
 	DeleteRecoveryFunc(name string) TaskRecovery
 	// Value saves task-life-cycle value, key must be comparable
 	Value(key interface{}) interface{}
-	// Cancel returns a cannel channel which could be closed to broadcast cancellation of task, if a plugin needs relatively long time to wait I/O or anything else, it should listen this channel to exit current plugin instance.
+	// Cancel returns a cannel channel which could be closed to broadcast cancellation of task,
+	// if a plugin needs relatively long time to wait I/O or anything else,
+	// it should listen this channel to exit current plugin instance.
 	Cancel() <-chan struct{}
 	// CancelCause returns error message of cancellation
 	CancelCause() error
@@ -139,7 +142,11 @@ type PipelineContext interface {
 	Parallelism() uint16
 	// Statistics returns pipeline statistics
 	Statistics() PipelineStatistics
-	// DataBucket returns(creates a new one if necessary) pipeline data bucket corresponding with plugin. If the pluginInstanceId is not empty (usually memory address of the instance), the data bucket will be deleted automatically when closing the instance.But if the pluginInstanceId is empty which indicates all instances of a plugin share one data bucket, the data bucket won't be deleted automatically until the plugin(not plugin instance) is deleted.
+	// DataBucket returns(creates a new one if necessary) pipeline data bucket corresponding with plugin.
+	// If the pluginInstanceId is not empty (usually memory address of the instance),
+	// the data bucket will be deleted automatically when closing the instance.
+	// But if the pluginInstanceId is empty which indicates all instances of a plugin share one data bucket,
+	// the data bucket won't be deleted automatically until the plugin(not plugin instance) is deleted.
 	DataBucket(pluginName, pluginInstanceId string) PipelineContextDataBucket
 	// DeleteBucket deletes a data bucket.
 	DeleteBucket(pluginName, pluginInstanceId string) PipelineContextDataBucket
