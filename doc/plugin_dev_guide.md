@@ -23,10 +23,10 @@ We can use this pipeline to protect backend from crashing because of too much il
 4.  `http_output.logs` pushes it to backend
 
 In the example above, the abstraction Task is designed to save all information within one process, we can review it from Task's perspective:
-	1. Put HTTP Body in a place(KEY\_HTTP\_BODY) in the task
-	2. Read a place(KEY\_HTTP\_BODY)  to another place(KEY\_JSON\_DATA) in the task - if there is no data or wrong type in the source then set error for the task
-	3. Validate data in a place(KEY\_JSON\_DATA) in the task - if the data is invalid json then set error for the task
-	4. Post data in a place(KEY\_JSON\_DATA) in the task as HTTP Body - if the response is unexpected then set error for the task
+1. Put HTTP Body in a place(KEY\_HTTP\_BODY) in the task
+2. Read a place(KEY\_HTTP\_BODY)  to another place(KEY\_JSON\_DATA) in the task - if there is no data or wrong type in the source then set error for the task
+3. Validate data in a place(KEY\_JSON\_DATA) in the task - if the data is invalid json then set error for the task
+4. Post data in a place(KEY\_JSON\_DATA) in the task as HTTP Body - if the response is unexpected then set error for the task
 
 You can see all plugins just care their own jobs, and it just need the user to predefine interface between them. And the pipeline creates a new blank task for every new process.  the task will be stopped by pipeline at any plugins which consider the task is invalid for itself, then destroyed by pipeline or recovered by some plugins.
 
