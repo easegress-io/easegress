@@ -48,9 +48,9 @@ Plugin handles HTTP request and retruns client with pipeline procssed response. 
 
 | Data name | Configuration option name | Type | Data Type | Optional |
 |:--|:--|:--:|:--|:--:|
-| Request body IO object | request\_body\_io\_key | Output | io.Reader | Yes |
+| Request body IO object | request\_body\_io\_key | Output | io.ReadCloser | Yes |
 | Response http status code | response\_code\_key | Input | int | Yes |
-| Response body IO object | response\_body\_io\_key | Input | io.Reader | Yes |
+| Response body IO object | response\_body\_io\_key | Input | io.ReadCloser | Yes |
 | Response body buffer | response\_body\_buffer\_key | Input | []byte | Yes |
 
 ### Error
@@ -158,7 +158,7 @@ Plugin outputs request data to a HTTP endpoint.
 | Data name | Configuration option name | Type | Data Type | Optional |
 |:--|:--|:--:|:--|:--:|
 | Response http status code | response\_code\_key | Output | int | Yes |
-| Response body IO object | response\_body\_io\_key | Output | io.Reader | Yes |
+| Response body IO object | response\_body\_io\_key | Output | io.ReadCloser | Yes |
 
 ### Error
 
