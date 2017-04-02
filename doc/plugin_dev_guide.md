@@ -1,4 +1,5 @@
 # Ease Gateway Plugin Development Guide
+
 ## Overview
 Plugin is considered a kind of essential element managed and scheduled by Pipeline to handle corresponding parts of tasks. It aims to provide a consistent and equivalent abstraction(constructed to instances) to diverse schedulers(pipelines in Ease Gateway). It usually works with these kinds of abstraction: Pipeline, Task, PipelineContext, PipelineStatistic.
 
@@ -57,11 +58,12 @@ Plugin config needs to inherit plugins.CommonConfig which defines essential fiel
 Just as Plugin itself, a correct config needs a `config constructor function` returning a config with default fields, and defines method `Prepare` to validator final config or initialize all intermediate products if necessary.
 
 ### Rules
-1. Plugin  Should be implemented as stateless, a plugin instance could be used in different pipeline or parallel running instances of same pipeline. So do NOT update data in plugin config and plugin instance itself after construction, it will cause race condition. Under current implementation, a plugin couldn't be used in different pipeline but there's no guarantee this limitation is existing in future release.
-2. `Prepare(pipelines.PipelineContext)` guarantees it will be called on the same pipeline context against the same plugin instance only once before executing `Run(task.Task)` on the pipeline.
-3.  `Run(task.Task)` method should update task if an error is caused by user input, and returns error only if
-   - the plugin needs reconstruction, e.g. backend failure causes local client object invalidation
-   - the task has been cancelled by pipeline after running plugin is updated dynamically, task will re-run on updated plugin.
+* Plugin Should be implemented as stateless and be re-entry-able (idempotency) on the same task, a plugin instance could be used in different pipeline or parallel running instances of same pipeline. So do NOT update data in plugin config and plugin instance itself after construction, it will cause race condition. Under current implementation, a plugin couldn't be used in different pipeline but there is no guarantee this limitation is existing in future release.
+* Function `Prepare(pipelines.PipelineContext)` guarantees it will be called on the same pipeline context against the same plugin instance only once before executing `Run(task.Task)` on the pipeline.
+*  `Run(task.Task)` method should update task if an error is caused by user input, and returns error only if
+   * the plugin needs reconstruction, e.g. backend failure causes local client object invalidation
+   * the task has been cancelled by pipeline after running plugin is updated dynamically, task will re-run on updated plugin.
+* Plugin should not do anything which might block pipeline execution in it registered recovery function, e.g. any I/O operation.
 
 ### Store of Data
 A plugin might operate data in different life-cycle, here is guideline:
