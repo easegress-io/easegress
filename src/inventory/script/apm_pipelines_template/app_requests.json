@@ -8,7 +8,7 @@
       "http_input.app_requests",
       "io_reader.app_requests",
       "json_validator.app_requests",
-      "json_gid_extractor.app_requests",
+      "easemonitor_json_gid_extractor.app_requests",
       "kafka_output.app_requests"
     ]
   }

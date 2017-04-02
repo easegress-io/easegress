@@ -7,7 +7,7 @@
     "plugin_names": [
 			"http_input.mobile_metrics",
 			"io_reader.mobile_metrics",
-			"gwproto_adaptor.mobile_metrics",
+			"easemonitor_proto_adaptor.mobile_metrics",
 			"kafka_output.mobile_metrics"
     ]
   }

@@ -7,8 +7,8 @@
     "plugin_names": [
       "http_input.metrics",
 			"io_reader.metrics",
-			"graphite_validator.metrics",
-			"graphite_gid_extractor.metrics",
+			"easemonitor_graphite_validator.metrics",
+			"easemonitor_graphite_gid_extractor.metrics",
 			"kafka_output.metrics"
     ]
   }

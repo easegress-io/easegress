@@ -8,10 +8,7 @@ There are 16 available plugins totoally in Ease Gateway current release.
 | Plugin name | Type name | Block-able | Functional | Development status | Link |
 |:--|:--|:--:|:--:|:--:|:--|
 | [Http input](#http-input-plugin) | HttpInput | Yes | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/http_input.go) |
-| [Graphite validator](#graphite-validator-plugin) | GraphiteValidator | No | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/graphite_validator.go) |
 | [Json validator](#json-validator-plugin) | JSONValidator | No | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/json_validator.go) |
-| [Graphite GID extractor](#graphite-gid-extractor-plugin) | GraphiteGidExtractor | No | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/graphite_gid_extractor.go) |
-| [Json GID extractor](#json-gid-extractor-plugin) | JSONGidExtractor | No | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/json_gid_extractor.go) |
 | [Kafka output](#kafka-output-plugin) | KafkaOutput | No | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/kafka_output.go) |
 | [Http output](#http-output-plugin) | HTTPOutput | No | Yes  | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/http_output.go) |
 | [IO reader](#io-reader-plugin) | IOReader | Yes | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/io_reader.go) |
@@ -23,6 +20,10 @@ There are 16 available plugins totoally in Ease Gateway current release.
 | [No more failure limiter](#no-more-failure-limiter-plugin) | NoMoreFailureLimiter | No | No | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/no_more_failure_limiter.go) |
 | [Simple common cache](#simple-common-cache-plugin) | SimpleCommonCache | No | No | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/simple_common_cache.go) |
 | [Simple common mock](#simple-common-mock-plugin) | SimpleCommonMock | No | No | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/simple_common_mock.go) |
+| [Ease Monitor graphite validator](#ease-monitor-graphite-validator-plugin) | EaseMonitorGraphiteValidator | No | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/easemonitor_graphite_validator.go) |
+| [Ease Monitor graphite GID extractor](#ease-monitor-graphite-gid-extractor-plugin) | EaseMonitorGraphiteGidExtractor | No | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/easemonitor_graphite_gid_extractor.go) |
+| [Ease Monitor Json GID extractor](#ease-monitor-json-gid-extractor-plugin) | EaseMonitorJSONGidExtractor | No | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/easemonitor_json_gid_extractor.go) |
+
 
 ## Http Input plugin
 
@@ -66,34 +67,6 @@ Plugin handles HTTP request and retruns client with pipeline procssed response. 
 | WAIT\_QUEUE\_LENGTH | uint64 | The length of wait queue which contains requests wait to be handled by a pipeline. |
 | WIP\_REQUEST\_COUNT | uint64 | The count of request which in the working progress of the pipeline. |
 
-## Graphite Validator plugin
-
-Plugin validates input data, to check if it's a valid graphite data with plaintext protocol.
-
-### Configuration
-
-| Parameter name | Data type (golang) | Description | Type | Optional | Default value (golang) |
-|:--|:--|:--|:--:|:--:|:--|
-| plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
-| data\_key | string | The key name of data needs to check as the plugin input. | I/O | No | N/A |
-
-### I/O
-
-| Data name | Configuration option name | Type | Data Type  | Optional |
-|:--|:--|:--:|:--|:--:|
-| Data | data\_key | Input | string | No |
-
-### Error
-
-| Result code | Error reason |
-|:--|:--|
-| ResultBadInput | graphite data got EOF |
-| ResultBadInput | graphite data want 4 fields('#'-splitted) |
-
-### Dedicated statistics indicator
-
-No any indicators exposed.
-
 ## Json Validator plugin
 
 Plugin validates input data, to check if it's a valid json data with a special schema.
@@ -119,69 +92,6 @@ Plugin validates input data, to check if it's a valid json data with a special s
 | ResultInternalServerError | schema not found |
 | ResultMissingInput | input got wrong value |
 | ResultBadInput | failed to validate |
-
-### Dedicated statistics indicator
-
-No any indicators exposed.
-
-## Graphite GID Extractor plugin
-
-Plugin extracts Ease Monitor global ID from graphite data.
-
-### Configuration
-
-| Parameter name | Data type (golang) | Description | Type | Optional | Default value (golang) |
-|:--|:--|:--|:--:|:--:|:--|
-| plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
-| gid\_key | string | The key name of global ID stored in internal storage as the plugin output. | I/O | No | N/A |
-| data\_key | string | The key name of data needs to be extracted as the plugin input. | I/O | No | N/A |
-
-### I/O
-
-| Data name | Configuration option name | Type | Data Type | Optional |
-|:--|:--|:--:|:--|:--:|
-| Global ID | gid\_key | Output | string | No |
-| Data | data\_key | Input | string | No |
-
-### Error
-
-| Result code | Error reason |
-|:--|:--|
-| ResultMissingInput | input got wrong value |
-| ResultBadInput | unexpected EOF |
-| ResultBadInput | graphite data want 4 fields('#'-splitted) |
-| ResultInternalServerError | failed to output global ID |
-
-### Dedicated statistics indicator
-
-No any indicators exposed.
-
-## Json GID extractor plugin
-
-Plugin extracts Ease Monitor global ID from json data.
-
-### Configuration
-
-| Parameter name | Data type (golang) | Description | Type | Optional | Default value (golang) |
-|:--|:--|:--|:--:|:--:|:--|
-| plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
-| gid\_key | string | The key name of global ID stored in internal storage as the plugin output. | I/O | No | N/A |
-| data\_key | string | The key name of data needs to be extracted as the plugin input. | I/O | No | N/A |
-
-### I/O
-
-| Data name | Configuration option name | Type | Data Type | Optional |
-|:--|:--|:--:|:--|:--:|
-| Global ID | gid\_key | Output | string | No |
-| Data | data\_key | Input | string | No |
-
-### Error
-
-| Result code | Error reason |
-|:--|:--|
-| ResultMissingInput | input got wrong value |
-| ResultBadInput | invalid json |
-| ResultInternalServerError | failed to output global ID |
 
 ### Dedicated statistics indicator
 
@@ -525,6 +435,97 @@ Available task error result code:
 ### Error
 
 No any errors returned.
+
+### Dedicated statistics indicator
+
+No any indicators exposed.
+
+## Ease Monitor Graphite Validator plugin
+
+Plugin validates input data, to check if it's a valid Ease Monitor graphite data with plaintext protocol.
+
+### Configuration
+
+| Parameter name | Data type (golang) | Description | Type | Optional | Default value (golang) |
+|:--|:--|:--|:--:|:--:|:--|
+| plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
+| data\_key | string | The key name of data needs to check as the plugin input. | I/O | No | N/A |
+
+### I/O
+
+| Data name | Configuration option name | Type | Data Type  | Optional |
+|:--|:--|:--:|:--|:--:|
+| Data | data\_key | Input | string | No |
+
+### Error
+
+| Result code | Error reason |
+|:--|:--|
+| ResultBadInput | graphite data got EOF |
+| ResultBadInput | graphite data want 4 fields('#'-splitted) |
+
+### Dedicated statistics indicator
+
+No any indicators exposed.
+
+## Ease Monitor Graphite GID Extractor plugin
+
+Plugin extracts Ease Monitor global ID from Ease Monitor graphite data.
+
+### Configuration
+
+| Parameter name | Data type (golang) | Description | Type | Optional | Default value (golang) |
+|:--|:--|:--|:--:|:--:|:--|
+| plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
+| gid\_key | string | The key name of global ID stored in internal storage as the plugin output. | I/O | No | N/A |
+| data\_key | string | The key name of data needs to be extracted as the plugin input. | I/O | No | N/A |
+
+### I/O
+
+| Data name | Configuration option name | Type | Data Type | Optional |
+|:--|:--|:--:|:--|:--:|
+| Global ID | gid\_key | Output | string | No |
+| Data | data\_key | Input | string | No |
+
+### Error
+
+| Result code | Error reason |
+|:--|:--|
+| ResultMissingInput | input got wrong value |
+| ResultBadInput | unexpected EOF |
+| ResultBadInput | graphite data want 4 fields('#'-splitted) |
+| ResultInternalServerError | failed to output global ID |
+
+### Dedicated statistics indicator
+
+No any indicators exposed.
+
+## Ease Monitor Json GID extractor plugin
+
+Plugin extracts Ease Monitor global ID from Ease Monitor json data.
+
+### Configuration
+
+| Parameter name | Data type (golang) | Description | Type | Optional | Default value (golang) |
+|:--|:--|:--|:--:|:--:|:--|
+| plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
+| gid\_key | string | The key name of global ID stored in internal storage as the plugin output. | I/O | No | N/A |
+| data\_key | string | The key name of data needs to be extracted as the plugin input. | I/O | No | N/A |
+
+### I/O
+
+| Data name | Configuration option name | Type | Data Type | Optional |
+|:--|:--|:--:|:--|:--:|
+| Global ID | gid\_key | Output | string | No |
+| Data | data\_key | Input | string | No |
+
+### Error
+
+| Result code | Error reason |
+|:--|:--|
+| ResultMissingInput | input got wrong value |
+| ResultBadInput | invalid json |
+| ResultInternalServerError | failed to output global ID |
 
 ### Dedicated statistics indicator
 

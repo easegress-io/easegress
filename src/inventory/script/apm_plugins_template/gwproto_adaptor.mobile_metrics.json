@@ -1,8 +1,0 @@
-{
-  "type": "GWProtoAdaptor",
-  "config": {
-    "plugin_name": "gwproto_adaptor.mobile_metrics",
-    "gid_key": "GID",
-    "data_key": "DATA"
-  }
-}

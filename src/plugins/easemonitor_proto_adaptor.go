@@ -13,18 +13,18 @@ import (
 	"plugins/gwproto"
 )
 
-type gwProtoAdaptorConfig struct {
+type easeMonitorProtoAdaptorConfig struct {
 	CommonConfig
 
 	GidKey  string `json:"gid_key"`
 	DataKey string `json:"data_key"`
 }
 
-func GWProtoAdaptorConfigConstructor() Config {
-	return &gwProtoAdaptorConfig{}
+func EaseMonitorProtoAdaptorConfigConstructor() Config {
+	return &easeMonitorProtoAdaptorConfig{}
 }
 
-func (c *gwProtoAdaptorConfig) Prepare() error {
+func (c *easeMonitorProtoAdaptorConfig) Prepare() error {
 	err := c.CommonConfig.Prepare()
 	if err != nil {
 		return err
@@ -44,26 +44,26 @@ func (c *gwProtoAdaptorConfig) Prepare() error {
 	return nil
 }
 
-type gwProtoAdaptor struct {
-	conf *gwProtoAdaptorConfig
+type easeMonitorProtoAdaptor struct {
+	conf *easeMonitorProtoAdaptorConfig
 }
 
-func GWProtoAdaptorConstructor(conf Config) (Plugin, error) {
-	c, ok := conf.(*gwProtoAdaptorConfig)
+func EaseMonitorProtoAdaptorConstructor(conf Config) (Plugin, error) {
+	c, ok := conf.(*easeMonitorProtoAdaptorConfig)
 	if !ok {
-		return nil, fmt.Errorf("config type want *gwProtoAdaptorConfig got %T", conf)
+		return nil, fmt.Errorf("config type want *easeMonitorProtoAdaptorConfig got %T", conf)
 	}
 
-	return &gwProtoAdaptor{
+	return &easeMonitorProtoAdaptor{
 		conf: c,
 	}, nil
 }
 
-func (a *gwProtoAdaptor) Prepare(ctx pipelines.PipelineContext) {
+func (a *easeMonitorProtoAdaptor) Prepare(ctx pipelines.PipelineContext) {
 	// Nothing to do.
 }
 
-func (a *gwProtoAdaptor) adapt(t task.Task) (err error, resultCode task.TaskResultCode, retTask task.Task) {
+func (a *easeMonitorProtoAdaptor) adapt(t task.Task) (err error, resultCode task.TaskResultCode, retTask task.Task) {
 	dataValue := t.Value(a.conf.DataKey)
 	data, ok := dataValue.([]byte)
 	if !ok {
@@ -167,7 +167,7 @@ func (a *gwProtoAdaptor) adapt(t task.Task) (err error, resultCode task.TaskResu
 	return
 }
 
-func (a *gwProtoAdaptor) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
+func (a *easeMonitorProtoAdaptor) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
 	err, resultCode, t := a.adapt(t)
 	if err != nil {
 		t.SetError(err, resultCode)
@@ -175,10 +175,10 @@ func (a *gwProtoAdaptor) Run(ctx pipelines.PipelineContext, t task.Task) (task.T
 	return t, nil
 }
 
-func (g *gwProtoAdaptor) Name() string {
+func (g *easeMonitorProtoAdaptor) Name() string {
 	return g.conf.PluginName()
 }
 
-func (g *gwProtoAdaptor) Close() {
+func (g *easeMonitorProtoAdaptor) Close() {
 	// Nothing to do.
 }

@@ -1,7 +1,7 @@
 {
-  "type": "GraphiteValidator",
+  "type": "EaseMonitorGraphiteValidator",
   "config": {
-    "plugin_name": "graphite_validator.metrics",
+    "plugin_name": "easemonitor_graphite_validator.metrics",
     "data_key": "DATA"
   }
 }

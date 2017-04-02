@@ -1,7 +1,7 @@
 {
-  "type": "JSONGidExtractor",
+  "type": "EaseMonitorJSONGidExtractor",
   "config": {
-    "plugin_name": "json_gid_extractor.logs",
+    "plugin_name": "easemonitor_json_gid_extractor.logs",
     "gid_key": "GID",
     "data_key": "DATA"
   }

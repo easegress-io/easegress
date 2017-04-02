@@ -8,7 +8,7 @@
 			"http_input.logs",
 			"io_reader.logs",
 			"json_validator.logs",
-			"json_gid_extractor.logs",
+			"easemonitor_json_gid_extractor.logs",
 			"kafka_output.logs"
     ]
   }

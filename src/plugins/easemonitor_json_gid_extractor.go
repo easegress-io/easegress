@@ -9,18 +9,18 @@ import (
 	"task"
 )
 
-type jsonGidExtractorConfig struct {
+type easeMonitorJSONGidExtractorConfig struct {
 	CommonConfig
 
 	GidKey  string `json:"gid_key"`
 	DataKey string `json:"data_key"`
 }
 
-func JSONGidExtractorConfigConstructor() Config {
-	return &jsonGidExtractorConfig{}
+func EaseMonitorJSONGidExtractorConfigConstructor() Config {
+	return &easeMonitorJSONGidExtractorConfig{}
 }
 
-func (c *jsonGidExtractorConfig) Prepare() error {
+func (c *easeMonitorJSONGidExtractorConfig) Prepare() error {
 	err := c.CommonConfig.Prepare()
 	if err != nil {
 		return err
@@ -40,26 +40,26 @@ func (c *jsonGidExtractorConfig) Prepare() error {
 	return nil
 }
 
-type jsonGidExtractor struct {
-	conf *jsonGidExtractorConfig
+type easeMonitorJSONGidExtractor struct {
+	conf *easeMonitorJSONGidExtractorConfig
 }
 
-func JSONGidExtractorConstructor(conf Config) (Plugin, error) {
-	c, ok := conf.(*jsonGidExtractorConfig)
+func EaseMonitorJSONGidExtractorConstructor(conf Config) (Plugin, error) {
+	c, ok := conf.(*easeMonitorJSONGidExtractorConfig)
 	if !ok {
-		return nil, fmt.Errorf("config type want *jsonGidExtractorConfig got %T", conf)
+		return nil, fmt.Errorf("config type want *easeMonitorJSONGidExtractorConfig got %T", conf)
 	}
 
-	return &jsonGidExtractor{
+	return &easeMonitorJSONGidExtractor{
 		conf: c,
 	}, nil
 }
 
-func (e *jsonGidExtractor) Prepare(ctx pipelines.PipelineContext) {
+func (e *easeMonitorJSONGidExtractor) Prepare(ctx pipelines.PipelineContext) {
 	// Nothing to do.
 }
 
-func (e *jsonGidExtractor) extract(t task.Task) (error, task.TaskResultCode, task.Task) {
+func (e *easeMonitorJSONGidExtractor) extract(t task.Task) (error, task.TaskResultCode, task.Task) {
 	type straw struct {
 		System      string `json:"system"`
 		Application string `json:"application"`
@@ -91,7 +91,7 @@ func (e *jsonGidExtractor) extract(t task.Task) (error, task.TaskResultCode, tas
 	return nil, t.ResultCode(), t
 }
 
-func (e *jsonGidExtractor) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
+func (e *easeMonitorJSONGidExtractor) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
 	err, resultCode, t := e.extract(t)
 	if err != nil {
 		t.SetError(err, resultCode)
@@ -99,10 +99,10 @@ func (e *jsonGidExtractor) Run(ctx pipelines.PipelineContext, t task.Task) (task
 	return t, nil
 }
 
-func (e *jsonGidExtractor) Name() string {
+func (e *easeMonitorJSONGidExtractor) Name() string {
 	return e.conf.PluginName()
 }
 
-func (e *jsonGidExtractor) Close() {
+func (e *easeMonitorJSONGidExtractor) Close() {
 	// Nothing to do.
 }

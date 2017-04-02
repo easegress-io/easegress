@@ -11,17 +11,17 @@ import (
 	"task"
 )
 
-type graphiteValidatorConfig struct {
+type easeMonitorGraphiteValidatorConfig struct {
 	CommonConfig
 
 	DataKey string `json:"data_key"`
 }
 
-func GraphiteValidatorConfigConstructor() Config {
-	return &graphiteValidatorConfig{}
+func EaseMonitorGraphiteValidatorConfigConstructor() Config {
+	return &easeMonitorGraphiteValidatorConfig{}
 }
 
-func (c *graphiteValidatorConfig) Prepare() error {
+func (c *easeMonitorGraphiteValidatorConfig) Prepare() error {
 	err := c.CommonConfig.Prepare()
 	if err != nil {
 		return err
@@ -37,26 +37,26 @@ func (c *graphiteValidatorConfig) Prepare() error {
 	return nil
 }
 
-type graphiteValidator struct {
-	conf *graphiteValidatorConfig
+type easeMonitorGraphiteValidator struct {
+	conf *easeMonitorGraphiteValidatorConfig
 }
 
-func GraphiteValidatorConstructor(conf Config) (Plugin, error) {
-	c, ok := conf.(*graphiteValidatorConfig)
+func EaseMonitorGraphiteValidatorConstructor(conf Config) (Plugin, error) {
+	c, ok := conf.(*easeMonitorGraphiteValidatorConfig)
 	if !ok {
-		return nil, fmt.Errorf("config type want *GraphiteValidatorConfig got %T", conf)
+		return nil, fmt.Errorf("config type want *easeMonitorGraphiteValidatorConfig got %T", conf)
 	}
 
-	return &graphiteValidator{
+	return &easeMonitorGraphiteValidator{
 		conf: c,
 	}, nil
 }
 
-func (v *graphiteValidator) Prepare(ctx pipelines.PipelineContext) {
+func (v *easeMonitorGraphiteValidator) Prepare(ctx pipelines.PipelineContext) {
 	// Nothing to do.
 }
 
-func (v *graphiteValidator) validate(t task.Task) (error, task.TaskResultCode, task.Task) {
+func (v *easeMonitorGraphiteValidator) validate(t task.Task) (error, task.TaskResultCode, task.Task) {
 	dataValue := t.Value(v.conf.DataKey)
 	data, ok := dataValue.([]byte)
 	if !ok {
@@ -81,7 +81,7 @@ func (v *graphiteValidator) validate(t task.Task) (error, task.TaskResultCode, t
 	return nil, t.ResultCode(), t
 }
 
-func (v *graphiteValidator) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
+func (v *easeMonitorGraphiteValidator) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
 	err, resultCode, t := v.validate(t)
 	if err != nil {
 		t.SetError(err, resultCode)
@@ -89,10 +89,10 @@ func (v *graphiteValidator) Run(ctx pipelines.PipelineContext, t task.Task) (tas
 	return t, nil
 }
 
-func (v *graphiteValidator) Name() string {
+func (v *easeMonitorGraphiteValidator) Name() string {
 	return v.conf.PluginName()
 }
 
-func (v *graphiteValidator) Close() {
+func (v *easeMonitorGraphiteValidator) Close() {
 	// Nothing to do.
 }

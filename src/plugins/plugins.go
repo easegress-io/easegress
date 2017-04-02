@@ -63,16 +63,9 @@ type pluginEntry struct {
 
 var (
 	PLUGIN_ENTRIES = map[string]pluginEntry{
+		// Generic plugins
 		"HTTPInput": {
 			HTTPInputConstructor, HTTPInputConfigConstructor},
-		"GWProtoAdaptor": {
-			GWProtoAdaptorConstructor, GWProtoAdaptorConfigConstructor},
-		"GraphiteGidExtractor": {
-			GraphiteGidExtractorConstructor, GraphiteGidExtractorConfigConstructor},
-		"GraphiteValidator": {
-			GraphiteValidatorConstructor, GraphiteValidatorConfigConstructor},
-		"JSONGidExtractor": {
-			JSONGidExtractorConstructor, JSONGidExtractorConfigConstructor},
 		"JSONValidator": {
 			JSONValidatorConstructor, JSONValidatorConfigConstructor},
 		"KafkaOutput": {
@@ -97,6 +90,16 @@ var (
 			IOReaderConstructor, IOReaderConfigConfigConstructor},
 		"SimpleCommonCache": {
 			SimpleCommonCacheConstructor, SimpleCommonCacheConfigConstructor},
+
+		// To support Ease Monitor product
+		"EaseMonitorProtoAdaptor": {
+			EaseMonitorProtoAdaptorConstructor, EaseMonitorProtoAdaptorConfigConstructor},
+		"EaseMonitorGraphiteGidExtractor": {
+			EaseMonitorGraphiteGidExtractorConstructor, EaseMonitorGraphiteGidExtractorConfigConstructor},
+		"EaseMonitorGraphiteValidator": {
+			EaseMonitorGraphiteValidatorConstructor, EaseMonitorGraphiteValidatorConfigConstructor},
+		"EaseMonitorJSONGidExtractor": {
+			EaseMonitorJSONGidExtractorConstructor, EaseMonitorJSONGidExtractorConfigConstructor},
 	}
 )
 
