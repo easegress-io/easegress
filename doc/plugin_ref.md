@@ -195,7 +195,7 @@ Plugin reads a given I/O object and output the data.
 | Data name | Configuration option name | Type | Data Type | Optional |
 |:--|:--|:--:|:--|:--:|
 | Data buffer read out | data\_key | Output | []byte | No |
-| IO object to read | gid\_key | Input | io.ReadCloser | No |
+| IO object to read | input\_key | Input | io.Reader, io.ReadCloser | No |
 
 ### Error
 

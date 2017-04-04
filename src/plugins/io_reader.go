@@ -70,13 +70,13 @@ func (r *ioReader) Prepare(ctx pipelines.PipelineContext) {
 
 func (r *ioReader) read(t task.Task) (error, task.TaskResultCode, task.Task) {
 	inputValue := t.Value(r.conf.InputKey)
-	input, ok := inputValue.(io.ReadCloser)
+	input, ok := inputValue.(io.Reader)
 	if !ok {
 		return fmt.Errorf("input %s got wrong value: %#v", r.conf.InputKey, inputValue),
 			task.ResultMissingInput, t
 	}
 
-	reader := input.(io.Reader)
+	reader := input
 	if r.conf.LengthMax > 0 {
 		reader = io.LimitReader(reader, r.conf.LengthMax)
 	}
@@ -94,9 +94,12 @@ func (r *ioReader) read(t task.Task) (error, task.TaskResultCode, task.Task) {
 	}
 
 	if r.conf.Close {
-		err = input.Close()
-		if err != nil {
-			logger.Warnf("[close io input reader faild, ignored: %s", err)
+		input1, ok := inputValue.(io.ReadCloser)
+		if ok {
+			err = input1.Close()
+			if err != nil {
+				logger.Warnf("[close io input reader faild, ignored: %s", err)
+			}
 		}
 	}
 
