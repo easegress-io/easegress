@@ -15,9 +15,9 @@ var (
 )
 
 // https://tools.ietf.org/html/rfc3875#section-4.1
-func GenerateCGIEnv(req *http.Request) map[string]string {
+func GenerateCGIEnv(req *http.Request) (map[string]string, []string) {
 	if req == nil {
-		return nil
+		return nil, nil
 	}
 
 	var (
@@ -140,6 +140,9 @@ func GenerateCGIEnv(req *http.Request) map[string]string {
 		"SERVER_SOFTWARE":   serverSoftware,   // 4.1.17
 	}
 
+	// Names of Protocol-Specific Meta-Variables
+	var names []string
+
 	// 4.1.18
 	for k, v := range req.Header {
 		k = UpperCaseAndUnderscore(k)
@@ -153,10 +156,12 @@ func GenerateCGIEnv(req *http.Request) map[string]string {
 		if k == "COOKIE" {
 			joinStr = "; "
 		}
-		env["HTTP_"+k] = strings.Join(v, joinStr)
+		name := "HTTP_" + k
+		names = append(names, name)
+		env[name] = strings.Join(v, joinStr)
 	}
 
-	return env
+	return env, names
 }
 
 func UpperCaseAndUnderscore(s string) string {

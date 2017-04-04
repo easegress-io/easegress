@@ -69,6 +69,7 @@ type HTTPInputConfig struct {
 	Unzip       bool                `json:"unzip"`
 	RespondErr  bool                `json:"respond_error"`
 
+	RequestHeaderNamesKey string `json:"request_header_names_key"`
 	RequestBodyIOKey      string `json:"request_body_io_key"`
 	ResponseCodeKey       string `json:"response_code_key"`
 	ResponseBodyIOKey     string `json:"response_body_io_key"`
@@ -92,6 +93,7 @@ func (c *HTTPInputConfig) Prepare() error {
 	c.URL = ts(c.URL)
 	c.Method = ts(c.Method)
 
+	c.RequestHeaderNamesKey = ts(c.RequestHeaderNamesKey)
 	c.RequestBodyIOKey = ts(c.RequestBodyIOKey)
 	c.ResponseCodeKey = ts(c.ResponseCodeKey)
 	c.ResponseBodyIOKey = ts(c.ResponseBodyIOKey)
@@ -270,7 +272,7 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 			// TODO: Take care other headers if inputted
 
 			if len(h.conf.ResponseBodyIOKey) != 0 {
-				reader, ok := t1.Value(h.conf.ResponseBodyIOKey).(io.ReadCloser)
+				reader, ok := t1.Value(h.conf.ResponseBodyIOKey).(io.Reader)
 				if ok {
 					_, err := io.Copy(ht.writer, reader)
 					if err != nil {
@@ -332,8 +334,16 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 			}
 		}
 
-		for k, v := range common.GenerateCGIEnv(ht.request) {
+		vars, names := common.GenerateCGIEnv(ht.request)
+		for k, v := range vars {
 			t, err = task.WithValue(t, k, v)
+			if err != nil {
+				return err, task.ResultInternalServerError, t
+			}
+		}
+
+		if len(h.conf.RequestHeaderNamesKey) != 0 {
+			t, err = task.WithValue(t, h.conf.RequestHeaderNamesKey, names)
 			if err != nil {
 				return err, task.ResultInternalServerError, t
 			}
