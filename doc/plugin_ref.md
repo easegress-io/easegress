@@ -39,6 +39,7 @@ Plugin handles HTTP request and retruns client with pipeline procssed response. 
 | headers\_enum | map[string][]string | The request HTTP headers plugin will proceed. | Functionality | Yes | nil |
 | unzip | bool | The flag represents if the plugin decompresses the request body when request content is encoded in GZIP. | Functionality | Yes | true |
 | respond\_error | bool | The flag represents if the plugin respond error information to client if pipeline handles the request unsuccessfully. The option will be used only when `response_body_io_key` and `response_body_io_key` options are empty. | Functionality | Yes | false |
+| fast_close | bool | The flag represents if the plugin does not wait any response which is processing before close, e.g. ignore data transmission on a slow connection. | Functionality | Yes | false | 
 | request\_header\_names\_key | string | The name of HTTP request header name list stored in internal storage as the plugin output. | I/O | Yes | "" |
 | request\_body\_io\_key | string | The key name of HTTP request body io object stored in internal storage as the plugin output. | I/O | Yes | "" |
 | response\_code\_key | string | The key name of HTTP response status code value stored in internal storage as the plugin input. An empty value of the option means returning pipeline handling result code to client. | I/O | Yes | "" |
@@ -169,6 +170,7 @@ Plugin outputs request data to a HTTP endpoint.
 | Result code | Error reason |
 |:--|:--|
 | ResultServiceUnavailable | failed to send HTTP request |
+| ResultInternalServerError | failed to create HTTP request |
 | ResultInternalServerError | failed to output response HTTP status code |
 | ResultInternalServerError | failed to output response body IO object |
 

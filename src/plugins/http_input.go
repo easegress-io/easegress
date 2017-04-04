@@ -68,6 +68,7 @@ type HTTPInputConfig struct {
 	HeadersEnum map[string][]string `json:"headers_enum"`
 	Unzip       bool                `json:"unzip"`
 	RespondErr  bool                `json:"respond_error"`
+	FastClose   bool                `json:"fast_close"`
 
 	RequestHeaderNamesKey string `json:"request_header_names_key"`
 	RequestBodyIOKey      string `json:"request_body_io_key"`
@@ -128,6 +129,7 @@ type httpTask struct {
 }
 
 ////
+
 type httpInput struct {
 	conf         *HTTPInputConfig
 	httpTaskChan chan *httpTask
@@ -274,10 +276,32 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 			if len(h.conf.ResponseBodyIOKey) != 0 {
 				reader, ok := t1.Value(h.conf.ResponseBodyIOKey).(io.Reader)
 				if ok {
-					_, err := io.Copy(ht.writer, reader)
-					if err != nil {
-						logger.Warnf("[load response body from reader in the task failed, "+
-							"response might be incomplete: %s]", err)
+					done := make(chan int, 1)
+					reader1 := newInterruptibleReader(reader)
+
+					go func() {
+						_, err := io.Copy(ht.writer, reader1)
+						if err != nil {
+							logger.Warnf("[load response body from reader in the task"+
+								" failed, response might be incomplete: %s]", err)
+						}
+						done <- 0
+					}()
+
+					select {
+					case <-t.Cancel():
+						if h.conf.FastClose {
+							reader1.Cancel()
+							logger.Warnf("[load response body from reader in the task" +
+								" has been cancelled, response might be incomplete]")
+						} else {
+							<-done
+							close(done)
+							reader1.Close()
+						}
+					case <-done:
+						close(done)
+						reader1.Close()
 					}
 				}
 			} else if len(h.conf.ResponseBodyBufferKey) != 0 {
@@ -415,4 +439,40 @@ func getHttpInputHandlingRequestCount(ctx pipelines.PipelineContext, pluginName 
 	}
 
 	return count.(*uint64), nil
+}
+
+////
+
+type interruptibleReader struct {
+	r         io.Reader
+	interrupt chan struct{}
+}
+
+func newInterruptibleReader(r io.Reader) *interruptibleReader {
+	return &interruptibleReader{
+		r,
+		make(chan struct{}),
+	}
+}
+
+func (r *interruptibleReader) Read(p []byte) (int, error) {
+	if r.r == nil {
+		return 0, io.EOF
+	}
+
+	select {
+	case <-r.interrupt:
+		r.r = nil
+		return 0, io.EOF
+	default:
+		return r.r.Read(p)
+	}
+}
+
+func (r *interruptibleReader) Cancel() {
+	close(r.interrupt)
+}
+
+func (r *interruptibleReader) Close() {
+	close(r.interrupt)
 }
