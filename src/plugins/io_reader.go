@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"strings"
 
+	"common"
 	"logger"
 	"pipelines"
 	"task"
@@ -76,18 +77,40 @@ func (r *ioReader) read(t task.Task) (error, task.TaskResultCode, task.Task) {
 			task.ResultMissingInput, t
 	}
 
-	reader := input
+	reader1 := common.NewInterruptibleReader(input)
+	var reader io.Reader = reader1
 	if r.conf.LengthMax > 0 {
 		reader = io.LimitReader(reader, r.conf.LengthMax)
 	}
 
-	data, err := ioutil.ReadAll(reader)
-	if err != nil {
+	d := make(chan []byte, 1)
+	e := make(chan error, 1)
+
+	defer close(d)
+	defer close(e)
+
+	go func() {
+		data, err := ioutil.ReadAll(reader)
+		if err != nil {
+			e <- err
+		}
+		d <- data
+	}()
+
+	var data []byte
+	select {
+	case data = <-d:
+		reader1.Close()
+	case err := <-e:
+		reader1.Close()
 		return err, task.ResultInternalServerError, t
+	case <-t.Cancel():
+		reader1.Cancel()
+		return fmt.Errorf("task is cancelled by %s", t.CancelCause()), task.ResultTaskCancelled, t
 	}
 
 	if len(r.conf.OutputKey) != 0 {
-		t, err = task.WithValue(t, r.conf.OutputKey, data)
+		t, err := task.WithValue(t, r.conf.OutputKey, data)
 		if err != nil {
 			return err, task.ResultInternalServerError, t
 		}
@@ -96,7 +119,7 @@ func (r *ioReader) read(t task.Task) (error, task.TaskResultCode, task.Task) {
 	if r.conf.Close {
 		input1, ok := inputValue.(io.ReadCloser)
 		if ok {
-			err = input1.Close()
+			err := input1.Close()
 			if err != nil {
 				logger.Warnf("[close io input reader faild, ignored: %s", err)
 			}

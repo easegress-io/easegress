@@ -277,7 +277,7 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 				reader, ok := t1.Value(h.conf.ResponseBodyIOKey).(io.Reader)
 				if ok {
 					done := make(chan int, 1)
-					reader1 := newInterruptibleReader(reader)
+					reader1 := common.NewInterruptibleReader(reader)
 
 					go func() {
 						_, err := io.Copy(ht.writer, reader1)
@@ -439,40 +439,4 @@ func getHttpInputHandlingRequestCount(ctx pipelines.PipelineContext, pluginName 
 	}
 
 	return count.(*uint64), nil
-}
-
-////
-
-type interruptibleReader struct {
-	r         io.Reader
-	interrupt chan struct{}
-}
-
-func newInterruptibleReader(r io.Reader) *interruptibleReader {
-	return &interruptibleReader{
-		r,
-		make(chan struct{}),
-	}
-}
-
-func (r *interruptibleReader) Read(p []byte) (int, error) {
-	if r.r == nil {
-		return 0, io.EOF
-	}
-
-	select {
-	case <-r.interrupt:
-		r.r = nil
-		return 0, io.EOF
-	default:
-		return r.r.Read(p)
-	}
-}
-
-func (r *interruptibleReader) Cancel() {
-	close(r.interrupt)
-}
-
-func (r *interruptibleReader) Close() {
-	close(r.interrupt)
 }
