@@ -9,6 +9,7 @@ In this document, we would like to introduce 6 pipelines from real practice to c
 | [Ease Monitor edge service](#ease-monitor-edge-service) | Runs an example HTTPS endpoint to receive an Ease Monitor data, processes it in the pipeline and sends prepared data to kafka finally. | Beginner |
 | [HTTP traffic throttling](#http-traffic-throttling) | Performs latency and throughput rate based traffic control. | Beginner |
 | [Service circuit breaking](#service-circuit-breaking) | As a protection function, once the service failures reach a certain threshold all further calls to the service will be returned with an error directly, and when the service recovery the breaking function will be disabled automatically. | Beginner |
+| [HTTP streamy proxy](#http-streamy-proxy) | Works as a streamy HTTP/HTTPS porxy between client and upstream | Beginner |
 | [HTTP proxy with caching](#http-proxy-with-caching) | Caches HTTP/HTTPS response for duplicated request | Intermediate |
 | [Service downgrading to protect critical service](#service-downgrading-to-protect-critical-service) | Under unexpected taffic which higher than planed, sacrifice the unimportant services but keep critical request is handled. | Intermediate |
 | [Flash sale event support](#flash-sale-event-support) | A pair of pipelines to support flash sale event. For e-Commerence, it means we have very low price items with limited stock, but have huge amount of people online compete on that. | Advanced |
@@ -432,6 +433,88 @@ Percentage of the requests served within a certain time (ms)
  100%    274 (longest request)
 ```
 
+## HTTP streamy proxy
+
+In this case, you can see how a pipleine act a HTTP/HTTPS proxy between input and upstream. There is no any buffering and unnecessary operations in the middle.
+
+### Plugin
+
+1. [HTTP input](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#http-input-plugin): To enable HTTP endpoint to receive RESTful request for upstream service.
+2. [HTTP output](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#http-output-plugin): Sending the body and headers to a certain endpoint of upstream RESTFul service.
+
+Using follow [Administration API](https://github.com/hexdecteam/easegateway/blob/master/doc/admin_api_ref.swagger.yaml) calls to setup above plugins:
+
+```
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPInput", "config": {"plugin_name": "test-httpinput", "url": "/test", "method": "GET", "headers_enum": {"name": ["bar", "bar1"]}, "request_body_io_key": "HTTP_REQUEST_BODY_IO", "response_code_key": "response_code", "response_body_io_key": "HTTP_RESP_BODY_IO"}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPOutput", "config": {"plugin_name": "test-httpoutput", "url_pattern": "http://127.0.0.1:1122/abc", "header_patterns": {}, "method": "POST", "response_code_key": "response_code", "response_body_io_key": "HTTP_RESP_BODY_IO", "request_body_io_key": "HTTP_REQUEST_BODY_IO" }}'
+```
+
+### Pipeline
+
+You can use follow [Administration API](https://github.com/hexdecteam/easegateway/blob/master/doc/admin_api_ref.swagger.yaml) calls to setup the pipeline:
+
+```
+$ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "test-jsonpipeline", "plugin_names": ["test-httpinput", "test-httpoutput"], "parallelism": 10}}'
+```
+
+### Test
+
+A fake HTTP Server to output request log for demo.
+
+```
+$ cat ~/server2.py
+from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
+
+class WebServerHandler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        if self.path.endswith("/abc"):
+            content_len = int(self.headers.get('Content-Length', 0))
+            post_body = self.rfile.read(content_len)
+            print content_len, post_body
+            self.send_response(200)
+            self.send_header('Content-type', 'text/html')
+            self.end_headers()
+            message = "<html><body>OK</body></html>"
+            self.wfile.write(message)
+            return
+
+def main():
+    try:
+        port = 1122
+        server = HTTPServer(('127.0.0.1', port), WebServerHandler)
+        print "Web Server running on port %s" % port
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print " ^C entered, stopping web server...."
+        server.socket.close()
+    
+main()
+
+$ python ~/server2.py 
+Web Server running on port 1122
+185 {
+	"name": "test-workload",
+	"system": "ExampleSystem",
+	"application": "ExampleApplication",
+	"instance": "ExampleInstance",
+	"hostname": "ExampleHost",
+	"hostipv4": "192.168.98.130"
+}
+127.0.0.1 - - [04/Apr/2017 15:22:14] "POST /abc HTTP/1.1" 200 -
+```
+
+Sending out client requests to the proxy endpoint we created by above commands.
+
+```
+$ curl -i -k https://127.0.0.1:10443/test -X GET -i -w "\n" -H "name:bar" -d "$LOAD"
+HTTP/1.1 200 OK
+Date: Tue, 04 Apr 2017 07:22:14 GMT
+Content-Type: text/html; charset=utf-8
+Transfer-Encoding: chunked
+
+<html><body>OK</body></html>
+```
+
 ## HTTP proxy with caching
 
 In this case, you can see how a pipleine act a HTTP/HTTPS proxy and how to add a cache layer between input and upstream. The cache function is used to improve the performance of RESTful service automatically.
@@ -492,7 +575,6 @@ Web Server running on port 1122
 127.0.0.1 - - [31/Mar/2017 22:56:37] "GET /abc/ HTTP/1.1" 501 -
 127.0.0.1 - - [31/Mar/2017 22:56:56] code 501, message Unsupported method ('GET')
 127.0.0.1 - - [31/Mar/2017 22:56:56] "GET /abc/ HTTP/1.1" 501 -
-^C ^C entered, stopping web server....
 ```
 
 Sending out client requests to the proxy endpoint we created by above commands. You might check the timestamp in fake server and ``curl`` outputs.
@@ -803,7 +885,6 @@ Web Server running on port 1122
 127.0.0.1 - - [01/Apr/2017 02:26:07] "GET /abc HTTP/1.1" 200 -
 127.0.0.1 - - [01/Apr/2017 02:26:08] "GET /abc HTTP/1.1" 200 -
 127.0.0.1 - - [01/Apr/2017 02:26:11] "GET /abc HTTP/1.1" 400 -
-^C ^C entered, stopping web server....
 ```
 
 ```
