@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -177,6 +178,38 @@ func (h *httpOutput) Prepare(ctx pipelines.PipelineContext) {
 	// Nothing to do.
 }
 
+func (h *httpOutput) send(t task.Task, req *http.Request) (*http.Response, error) {
+	r := make(chan *http.Response, 1)
+	e := make(chan error, 1)
+
+	defer close(r)
+	defer close(e)
+
+	cancelCtx, cancel := context.WithCancel(context.Background())
+	req.WithContext(cancelCtx)
+
+	go func() {
+		resp, err := h.client.Do(req)
+		if err != nil {
+			e <- err
+		}
+		r <- resp
+	}()
+
+	select {
+	case resp := <-r:
+		return resp, nil
+	case err := <-e:
+		t.SetError(err, task.ResultServiceUnavailable)
+		return nil, err
+	case <-t.Cancel():
+		cancel()
+		err := fmt.Errorf("task is cancelled by %s", t.CancelCause())
+		t.SetError(err, task.ResultTaskCancelled)
+		return nil, err
+	}
+}
+
 func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
 	url := replacePatternWithTaskValue(t, h.conf.URLPattern, h.conf.urlTokens)
 
@@ -208,8 +241,9 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task,
 	}
 
 	req, err := http.NewRequest(h.conf.Method, url, reader)
-	req.GetBody = func() (io.ReadCloser, error) {
-		return ioutil.NopCloser(reader), nil
+	if err != nil {
+		t.SetError(err, task.ResultInternalServerError)
+		return t, nil
 	}
 	req.ContentLength = length
 
@@ -228,9 +262,8 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task,
 
 	req.Header.Set("User-Agent", "EaseGateway")
 
-	resp, err := h.client.Do(req)
+	resp, err := h.send(t, req)
 	if err != nil {
-		t.SetError(err, task.ResultServiceUnavailable)
 		return t, nil
 	}
 
