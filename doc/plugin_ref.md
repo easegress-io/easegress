@@ -39,18 +39,20 @@ Plugin handles HTTP request and retruns client with pipeline procssed response. 
 | headers\_enum | map[string][]string | The request HTTP headers plugin will proceed. | Functionality | Yes | nil |
 | unzip | bool | The flag represents if the plugin decompresses the request body when request content is encoded in GZIP. | Functionality | Yes | true |
 | respond\_error | bool | The flag represents if the plugin respond error information to client if pipeline handles the request unsuccessfully. The option will be used only when `response_body_io_key` and `response_body_io_key` options are empty. | Functionality | Yes | false |
-| request\_body\_io\_key | string | The key name of http request body io object stored in internal storage as the plugin output. | I/O | Yes | "" |
-| response\_code\_key | string | The key name of http response status code value stored in internal storage as the plugin input. An empty value of the option means returning pipeline handling result code to client. | I/O | Yes | "" |
-| response\_body\_io\_key | string | The key name of http response body io object stored in internal storage as the plugin input. | I/O | Yes | "" |
-| response\_body\_buffer\_key | string | The key name of http response body buffer stored in internal storage as the plugin input. The option will be leveraged only when `response_body_io_key` option is empty. | I/O | Yes | "" |
+| request\_header\_names\_key | string | The name of HTTP request header name list stored in internal storage as the plugin output. | I/O | Yes | "" |
+| request\_body\_io\_key | string | The key name of HTTP request body io object stored in internal storage as the plugin output. | I/O | Yes | "" |
+| response\_code\_key | string | The key name of HTTP response status code value stored in internal storage as the plugin input. An empty value of the option means returning pipeline handling result code to client. | I/O | Yes | "" |
+| response\_body\_io\_key | string | The key name of HTTP response body io object stored in internal storage as the plugin input. | I/O | Yes | "" |
+| response\_body\_buffer\_key | string | The key name of HTTP response body buffer stored in internal storage as the plugin input. The option will be leveraged only when `response_body_io_key` option is empty. | I/O | Yes | "" |
 
 ### I/O
 
 | Data name | Configuration option name | Type | Data Type | Optional |
 |:--|:--|:--:|:--|:--:|
-| Request body IO object | request\_body\_io\_key | Output | io.ReadCloser | Yes |
-| Response http status code | response\_code\_key | Input | int | Yes |
-| Response body IO object | response\_body\_io\_key | Input | io.ReadCloser | Yes |
+| Request header name list | request\_header\_names\_key | Output | []string | Yes |
+| Request body IO object | request\_body\_io\_key | Output | io.Reader | Yes |
+| Response HTTP status code | response\_code\_key | Input | int | Yes |
+| Response body IO object | response\_body\_io\_key | Input | io.Reader | Yes |
 | Response body buffer | response\_body\_buffer\_key | Input | []byte | Yes |
 
 ### Error
@@ -143,29 +145,31 @@ Plugin outputs request data to a HTTP endpoint.
 | plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
 | url\_pattern | string | The pattern of the complete HTTP output endpoint. E.g. ``https://1.2.3.4/abc?def={INPUT_DATA}`` | Functionality | No | N/A |
 | header\_patterns | map[string]string | The list of HTTP output header name pattern and value pattern pair. | Functionality | Yes | nil |
-| body\_pattern | string | The HTTP output body pattern. | Functionality | Yes | "" |
 | method | string | The method HTTP output used. | Functionality | No | N/A |
 | timeout\_sec | uint16 | The request timtout HTTP output limited in second. | Functionality | Yes | 120 (2 minutes) |
 | cert\_file | string | The certificate file HTTPS output used. | Functionality | Yes | "" |
 | key\_file | string | The key file HTTPS output used. | Functionality | Yes | "" |
 | ca\_file | string | The root certificate HTTPS output used. | Functionality | Yes | "" |
 | insecure\_tls | bool | The flag represents if the plugin does not check server certificate. | Functionality | Yes | false |
-| response\_code\_key | string | The key name of http response status code value stored in internal storage as the plugin output. An empty value of the option means the plugin does not output http response status code. | I/O | Yes | "" |
-| response\_body\_io\_key | string | The key name of http response body io object stored in internal storage as the plugin output. An empty value of the option means the plugin does not output http response body io object.| I/O | Yes | "" |
+| request\_body\_buffer\_pattern | string | The HTTP output body buffer pattern. The option will be leveraged only when `request_body_io_key` option is empty. | Functionality | Yes | "" |
+| request\_body\_io\_key | string | The HTTP output body io object. | I/O | Yes | "" |
+| response\_code\_key | string | The key name of HTTP response status code value stored in internal storage as the plugin output. An empty value of the option means the plugin does not output HTTP response status code. | I/O | Yes | "" |
+| response\_body\_io\_key | string | The key name of HTTP response body io object stored in internal storage as the plugin output. An empty value of the option means the plugin does not output HTTP response body io object.| I/O | Yes | "" |
 
 ### I/O
 
 | Data name | Configuration option name | Type | Data Type | Optional |
 |:--|:--|:--:|:--|:--:|
-| Response http status code | response\_code\_key | Output | int | Yes |
-| Response body IO object | response\_body\_io\_key | Output | io.ReadCloser | Yes |
+| Request HTTP body | request\_body\_io\_key | Input | io.Reader | Yes |
+| Response HTTP status code | response\_code\_key | Output | int | Yes |
+| Response body IO object | response\_body\_io\_key | Output | io.Reader | Yes |
 
 ### Error
 
 | Result code | Error reason |
 |:--|:--|
-| ResultServiceUnavailable | failed to send http request |
-| ResultInternalServerError | failed to output response http status code |
+| ResultServiceUnavailable | failed to send HTTP request |
+| ResultInternalServerError | failed to output response HTTP status code |
 | ResultInternalServerError | failed to output response body IO object |
 
 ### Dedicated statistics indicator
@@ -231,7 +235,7 @@ No any inputs or outputs.
 
 | Indicator name | Data type (golang) | Description |
 |:--:|:--:|:--|
-| RECENT\_HEADER\_COUNT | uint64 | The count of http requests that the header of each one contains the key in the recent preidor. |
+| RECENT\_HEADER\_COUNT | uint64 | The count of HTTP requests that the header of each one contains the key in the recent preidor. |
 
 ## Throughput Rate Limiter plugin
 

@@ -5,9 +5,11 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,16 +21,16 @@ import (
 
 type httpOutputConfig struct {
 	CommonConfig
-	URLPattern     string            `json:"url_pattern"`
-	HeaderPatterns map[string]string `json:"header_patterns"`
-	// FIXME(zhiyan): get body from task as an io reader instead of string.
-	BodyPattern string `json:"body_pattern"`
-	Method      string `json:"method"`
-	TimeoutSec  uint16 `json:"timeout_sec"` // up to 65535, zero means no timeout
-	CertFile    string `json:"cert_file"`
-	KeyFile     string `json:"key_file"`
-	CAFile      string `json:"ca_file"`
-	Insecure    bool   `json:"insecure_tls"`
+	URLPattern               string            `json:"url_pattern"`
+	HeaderPatterns           map[string]string `json:"header_patterns"`
+	RequestBodyIOKey         string            `json:"request_body_io_key"`
+	RequestBodyBufferPattern string            `json:"request_body_buffer_pattern"`
+	Method                   string            `json:"method"`
+	TimeoutSec               uint16            `json:"timeout_sec"` // up to 65535, zero means no timeout
+	CertFile                 string            `json:"cert_file"`
+	KeyFile                  string            `json:"key_file"`
+	CAFile                   string            `json:"ca_file"`
+	Insecure                 bool              `json:"insecure_tls"`
 
 	ResponseCodeKey   string `json:"response_code_key"`
 	ResponseBodyIOKey string `json:"response_body_io_key"`
@@ -40,6 +42,7 @@ type httpOutputConfig struct {
 }
 
 func HTTPOutputConfigConstructor() Config {
+
 	return &httpOutputConfig{
 		TimeoutSec: 120,
 	}
@@ -53,7 +56,8 @@ func (c *httpOutputConfig) Prepare() error {
 
 	ts := strings.TrimSpace
 	c.URLPattern = ts(c.URLPattern)
-	c.BodyPattern = ts(c.BodyPattern)
+	c.RequestBodyIOKey = ts(c.RequestBodyIOKey)
+	c.RequestBodyBufferPattern = ts(c.RequestBodyBufferPattern)
 	c.Method = ts(c.Method)
 	c.CertFile = ts(c.CertFile)
 	c.KeyFile = ts(c.KeyFile)
@@ -106,9 +110,9 @@ func (c *httpOutputConfig) Prepare() error {
 		logger.Warnf("[ZERO timeout has been applied, no request could be cancelled by timeout!]")
 	}
 
-	c.bodyTokens, err = common.ScanTokens(c.BodyPattern)
+	c.bodyTokens, err = common.ScanTokens(c.RequestBodyBufferPattern)
 	if err != nil {
-		return fmt.Errorf("invalid body pattern")
+		return fmt.Errorf("invalid body buffer pattern")
 	}
 
 	if len(c.CertFile) != 0 && len(c.KeyFile) != 0 {
@@ -175,21 +179,54 @@ func (h *httpOutput) Prepare(ctx pipelines.PipelineContext) {
 
 func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
 	url := replacePatternWithTaskValue(t, h.conf.URLPattern, h.conf.urlTokens)
-	body := replacePatternWithTaskValue(t, h.conf.BodyPattern, h.conf.bodyTokens)
+
+	var length int64
+	var reader io.Reader
+	if len(h.conf.RequestBodyIOKey) != 0 {
+		inputValue := t.Value(h.conf.RequestBodyIOKey)
+		input, ok := inputValue.(io.Reader)
+		if !ok {
+			t.SetError(fmt.Errorf("input %s got wrong value: %#v", h.conf.RequestBodyIOKey, inputValue),
+				task.ResultMissingInput)
+			return t, nil
+		}
+
+		// optimization and defensive for http proxy case
+		lenValue := t.Value("HTTP_CONTENT_LENGTH")
+		clen, ok := lenValue.(string)
+		if ok {
+			length, _ = strconv.ParseInt(clen, 10, 64)
+			reader = io.LimitReader(input, length)
+		} else {
+			// Request.ContentLength of 0 means either actually 0 or unknown
+			reader = input
+		}
+	} else {
+		body := replacePatternWithTaskValue(t, h.conf.RequestBodyBufferPattern, h.conf.bodyTokens)
+		reader = bytes.NewBuffer([]byte(body))
+		length = int64(len(body))
+	}
+
+	req, err := http.NewRequest(h.conf.Method, url, reader)
+	req.GetBody = func() (io.ReadCloser, error) {
+		return ioutil.NopCloser(reader), nil
+	}
+	req.ContentLength = length
 
 	var headerNames, headerValues []string
 	i := 0
 	for name, value := range h.conf.HeaderPatterns {
 		headerNames = append(headerNames, replacePatternWithTaskValue(t, name, h.conf.headerNameTokens[i]))
-		headerValues = append(headerValues, replacePatternWithTaskValue(t, value, h.conf.headerNameTokens[i]))
+		headerValues = append(headerValues, replacePatternWithTaskValue(t, value, h.conf.headerValueTokens[i]))
 		i++
 	}
 
-	req, err := http.NewRequest(h.conf.Method, url, bytes.NewBuffer([]byte(body)))
 	for i > 0 {
 		i--
 		req.Header.Set(headerNames[i], headerValues[i])
 	}
+
+	req.Header.Set("User-Agent", "EaseGateway")
 
 	resp, err := h.client.Do(req)
 	if err != nil {
