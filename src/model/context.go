@@ -125,20 +125,6 @@ func (pc *pipelineContext) DeleteBucket(pluginName, pluginInstanceId string) pip
 }
 
 func (pc *pipelineContext) PreparePlugin(pluginName string, fun pipelines.PluginPreparationFunc) {
-	pc.preparePlugin(pluginName, fun, true)
-}
-
-func (pc *pipelineContext) Close() {
-	pc.mod.DeletePluginDeletedCallback("deletePipelineContextDataBucketWhenPluginDeleted")
-	pc.mod.DeletePluginUpdatedCallback("deletePipelineContextDataBucketWhenPluginUpdated")
-
-	pc.mod.DeletePluginDeletedCallback("deletePluginPreparationBookWhenPluginDeleted")
-	pc.mod.DeletePluginUpdatedCallback("deletePluginPreparationBookWhenPluginUpdated")
-}
-
-func (pc *pipelineContext) preparePlugin(pluginName string, fun pipelines.PluginPreparationFunc,
-	registerPluginDeletedAndUpdatedCallbacks bool) {
-
 	pc.bookLocker.RLock()
 	_, exists := pc.preparationBook[pluginName]
 	if exists {
@@ -160,17 +146,23 @@ func (pc *pipelineContext) preparePlugin(pluginName string, fun pipelines.Plugin
 	fun()
 	logger.Debugf("[plugin %s prepared for pipeline %s]", pluginName, pc.pipeName)
 
-	if registerPluginDeletedAndUpdatedCallbacks {
-		pc.mod.AddPluginDeletedCallback("deletePluginPreparationBookWhenPluginDeleted",
-			pc.deletePluginPreparationBookWhenPluginDeleted, false)
-		pc.mod.AddPluginUpdatedCallback("deletePluginPreparationBookWhenPluginUpdated",
-			pc.deletePluginPreparationBookWhenPluginUpdated, false)
-	}
+	pc.mod.AddPluginDeletedCallback("deletePluginPreparationBookWhenPluginUpdatedOrDeleted",
+		pc.deletePluginPreparationBookWhenPluginUpdatedOrDeleted, false)
+	pc.mod.AddPluginUpdatedCallback("deletePluginPreparationBookWhenPluginUpdatedOrDeleted",
+		pc.deletePluginPreparationBookWhenPluginUpdatedOrDeleted, false)
 
 	pc.preparationBook[pluginName] = nil
 }
 
-func (pc *pipelineContext) deletePluginPreparationBookWhenPluginDeleted(plugin *Plugin) {
+func (pc *pipelineContext) Close() {
+	pc.mod.DeletePluginDeletedCallback("deletePipelineContextDataBucketWhenPluginDeleted")
+	pc.mod.DeletePluginUpdatedCallback("deletePipelineContextDataBucketWhenPluginUpdated")
+
+	pc.mod.DeletePluginDeletedCallback("deletePluginPreparationBookWhenPluginUpdatedOrDeleted")
+	pc.mod.DeletePluginUpdatedCallback("deletePluginPreparationBookWhenPluginUpdatedOrDeleted")
+}
+
+func (pc *pipelineContext) deletePluginPreparationBookWhenPluginUpdatedOrDeleted(plugin *Plugin) {
 	if !common.StrInSlice(plugin.Name(), pc.plugNames) {
 		return
 	}
@@ -178,25 +170,6 @@ func (pc *pipelineContext) deletePluginPreparationBookWhenPluginDeleted(plugin *
 	pc.bookLocker.Lock()
 	defer pc.bookLocker.Unlock()
 	delete(pc.preparationBook, plugin.Name())
-}
-
-func (pc *pipelineContext) deletePluginPreparationBookWhenPluginUpdated(plugin *Plugin) {
-	if !common.StrInSlice(plugin.Name(), pc.plugNames) {
-		return
-	}
-
-	pc.bookLocker.Lock()
-	delete(pc.preparationBook, plugin.Name())
-	pc.bookLocker.Unlock()
-
-	go func() {
-		// Prepare updated plugin immediately, do not wait pipeline Run() triggers preparation.
-		instance, err := pc.mod.GetPluginInstance(plugin.Name())
-		if err == nil {
-			pc.preparePlugin(plugin.Name(), func() { instance.Prepare(pc) }, false)
-			pc.mod.ReleasePluginInstance(instance)
-		}
-	}()
 }
 
 func (pc *pipelineContext) deletePipelineContextDataBucketWhenPluginDeleted(_ *Plugin) {
