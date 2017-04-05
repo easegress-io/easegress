@@ -1,7 +1,6 @@
 package model
 
 import (
-	"fmt"
 	"sync"
 
 	"common"
@@ -132,8 +131,7 @@ func (p *Plugin) dismissInstance() {
 		_, ok := p.counter.CompareRefAndFunc(
 			instance, 0, func() error { return p.closePluginInstance(instance) })
 		if !ok {
-			p.counter.AddUpdateCallback(fmt.Sprint("%s-destroyOverduePluginInstance", p.conf.PluginName()),
-				p.destroyOverduePluginInstance)
+			p.counter.AddUpdateCallback(p.conf.PluginName(), p.destroyOverduePluginInstance)
 		}
 	}
 }
@@ -141,7 +139,7 @@ func (p *Plugin) dismissInstance() {
 func (p *Plugin) destroyOverduePluginInstance(plugin plugins.Plugin, count int, counter *pluginInstanceCounter) {
 	if count == 0 {
 		p.closePluginInstance(plugin)
-		counter.DeleteUpdateCallback(fmt.Sprint("%s-destroyOverduePluginInstance", p.conf.PluginName()))
+		counter.DeleteUpdateCallback(p.conf.PluginName())
 	}
 }
 
@@ -189,7 +187,9 @@ func (c *pluginInstanceCounter) AddRef(plugin plugins.Plugin) int {
 	c.Unlock()
 
 	for _, callback := range tmp {
-		callback.Callback().(PluginRefCountUpdated)(plugin, count, c)
+		if callback.Name() == plugin.Name() {
+			callback.Callback().(PluginRefCountUpdated)(plugin, count, c)
+		}
 	}
 
 	return count
@@ -211,7 +211,9 @@ func (c *pluginInstanceCounter) DeleteRef(plugin plugins.Plugin) int {
 	c.Unlock()
 
 	for _, callback := range tmp {
-		callback.Callback().(PluginRefCountUpdated)(plugin, count, c)
+		if callback.Name() == plugin.Name() {
+			callback.Callback().(PluginRefCountUpdated)(plugin, count, c)
+		}
 	}
 
 	return count
@@ -229,12 +231,14 @@ func (c *pluginInstanceCounter) CompareRefAndFunc(plugin plugins.Plugin, count i
 	return nil, false
 }
 
-func (c *pluginInstanceCounter) AddUpdateCallback(name string, callback PluginRefCountUpdated) PluginRefCountUpdated {
+func (c *pluginInstanceCounter) AddUpdateCallback(pluginName string,
+	callback PluginRefCountUpdated) PluginRefCountUpdated {
+
 	c.Lock()
 	defer c.Unlock()
 
 	var oriCallback interface{}
-	c.callbacks, oriCallback, _ = common.AddCallback(c.callbacks, name, callback, false)
+	c.callbacks, oriCallback, _ = common.AddCallback(c.callbacks, pluginName, callback, false)
 
 	if oriCallback == nil {
 		return nil
@@ -243,12 +247,12 @@ func (c *pluginInstanceCounter) AddUpdateCallback(name string, callback PluginRe
 	}
 }
 
-func (c *pluginInstanceCounter) DeleteUpdateCallback(name string) PluginRefCountUpdated {
+func (c *pluginInstanceCounter) DeleteUpdateCallback(pluginName string) PluginRefCountUpdated {
 	c.Lock()
 	defer c.Unlock()
 
 	var oriCallback interface{}
-	c.callbacks, oriCallback = common.DeleteCallback(c.callbacks, name)
+	c.callbacks, oriCallback = common.DeleteCallback(c.callbacks, pluginName)
 
 	if oriCallback == nil {
 		return nil

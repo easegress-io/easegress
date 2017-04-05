@@ -232,7 +232,7 @@ func (s *adminServer) updatePlugin(w rest.ResponseWriter, r *rest.Request) {
 	}
 
 	if plugin.Type() != req.Type {
-		msg := fmt.Sprint("plugin type is readonly.")
+		msg := fmt.Sprintf("plugin type %s is readonly.", plugin.Type())
 		rest.Error(w, msg, http.StatusBadRequest)
 		logger.Errorf("[%s]", msg)
 		return
@@ -455,7 +455,7 @@ func (s *adminServer) updatePipeline(w rest.ResponseWriter, r *rest.Request) {
 	}
 
 	if pipeline.Type() != req.Type {
-		msg := fmt.Sprint("pipeline type is readonly.")
+		msg := fmt.Sprintf("pipeline type %s is readonly.", pipeline.Type())
 		rest.Error(w, msg, http.StatusBadRequest)
 		logger.Errorf("[%s]", msg)
 		return
