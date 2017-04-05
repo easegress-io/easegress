@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"common"
 	"engine"
 	"logger"
 )
@@ -68,7 +67,7 @@ func (s *Rest) Start() (<-chan error, string, error) {
 	http.Handle("/statistics/", http.StripPrefix("/statistics", statisticsApi.MakeHandler()))
 	http.Handle("/", healthCheckApi.MakeHandler()) // keep backward-compatibility
 
-	listenAddr := fmt.Sprintf("%s:9090", common.Host)
+	listenAddr := fmt.Sprintf("0.0.0.0:9090")
 
 	go func() {
 		err := http.ListenAndServe(listenAddr, nil)
