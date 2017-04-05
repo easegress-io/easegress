@@ -11,7 +11,6 @@ import (
 
 type easeMonitorJSONGidExtractorConfig struct {
 	CommonConfig
-
 	GidKey  string `json:"gid_key"`
 	DataKey string `json:"data_key"`
 }

@@ -13,7 +13,6 @@ import (
 
 type easeMonitorGraphiteValidatorConfig struct {
 	CommonConfig
-
 	DataKey string `json:"data_key"`
 }
 

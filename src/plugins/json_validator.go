@@ -12,7 +12,6 @@ import (
 
 type jsonValidatorConfig struct {
 	CommonConfig
-
 	Schema  string `json:"schema"`
 	DataKey string `json:"data_key"`
 

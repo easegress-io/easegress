@@ -15,7 +15,6 @@ import (
 
 type easeMonitorProtoAdaptorConfig struct {
 	CommonConfig
-
 	GidKey  string `json:"gid_key"`
 	DataKey string `json:"data_key"`
 }

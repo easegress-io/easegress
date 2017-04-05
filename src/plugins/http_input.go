@@ -61,7 +61,7 @@ func init() {
 
 ////
 
-type HTTPInputConfig struct {
+type httpInputConfig struct {
 	CommonConfig
 	URL         string              `json:"url"`
 	Method      string              `json:"method"`
@@ -78,13 +78,13 @@ type HTTPInputConfig struct {
 }
 
 func HTTPInputConfigConstructor() Config {
-	return &HTTPInputConfig{
+	return &httpInputConfig{
 		Method: http.MethodGet,
 		Unzip:  true,
 	}
 }
 
-func (c *HTTPInputConfig) Prepare() error {
+func (c *httpInputConfig) Prepare() error {
 	err := c.CommonConfig.Prepare()
 	if err != nil {
 		return err
@@ -131,14 +131,14 @@ type httpTask struct {
 ////
 
 type httpInput struct {
-	conf         *HTTPInputConfig
+	conf         *httpInputConfig
 	httpTaskChan chan *httpTask
 	instanceId   string
 	queueLength  uint64
 }
 
 func HTTPInputConstructor(conf Config) (Plugin, error) {
-	c, ok := conf.(*HTTPInputConfig)
+	c, ok := conf.(*httpInputConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *HTTPInputConfig got %T", conf)
 	}

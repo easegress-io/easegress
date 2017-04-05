@@ -13,7 +13,6 @@ import (
 
 type easeMonitorGraphiteGidExtractorConfig struct {
 	CommonConfig
-
 	GidKey  string `json:"gid_key"`
 	DataKey string `json:"data_key"`
 }
