@@ -110,7 +110,8 @@ func (r *ioReader) read(t task.Task) (error, task.TaskResultCode, task.Task) {
 	}
 
 	if len(r.conf.OutputKey) != 0 {
-		t, err := task.WithValue(t, r.conf.OutputKey, data)
+		var err error
+		t, err = task.WithValue(t, r.conf.OutputKey, data)
 		if err != nil {
 			return err, task.ResultInternalServerError, t
 		}
