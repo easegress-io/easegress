@@ -9,11 +9,35 @@ import (
 	"github.com/urfave/cli"
 )
 
+var (
+	adminScheme = "http://"
+	adminHost   = "127.0.0.1:9090"
+
+	client = http.DefaultClient
+)
+
+func parseHost(c *cli.Context) error {
+	host := c.String("host")
+	if len(host) != 0 {
+		// FIXME: how to validate host
+		adminHost = host
+	}
+	return nil
+}
+
 func main() {
 	app := cli.NewApp()
 	app.Name = "admin"
 	app.Usage = "gateway admin client"
 	app.Version = "0.0.1"
+	app.Flags = []cli.Flag{
+		cli.StringFlag{
+			Name:  "host",
+			Usage: "Indicate Ease Gateway Host Address",
+			Value: "127.0.0.1:9090",
+		},
+	}
+	app.Before = parseHost
 
 	app.Commands = []cli.Command{
 		{
@@ -85,16 +109,12 @@ func main() {
 	}
 }
 
-const SERVER_ADDRESS = "http://127.0.0.1:9090"
-
-var client = http.DefaultClient
-
 func post(url, body string) (*http.Response, error) {
-	return client.Post(SERVER_ADDRESS+url, "application/json", strings.NewReader(body))
+	return client.Post(adminScheme+adminHost+url, "application/json", strings.NewReader(body))
 }
 
 func delete_(url string) (*http.Response, error) {
-	req, err := http.NewRequest(http.MethodDelete, SERVER_ADDRESS+url, nil)
+	req, err := http.NewRequest(http.MethodDelete, adminScheme+adminHost+url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +122,7 @@ func delete_(url string) (*http.Response, error) {
 }
 
 func get(url, body string) (*http.Response, error) {
-	req, err := http.NewRequest(http.MethodGet, SERVER_ADDRESS+url, strings.NewReader(body))
+	req, err := http.NewRequest(http.MethodGet, adminScheme+adminHost+url, strings.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +130,7 @@ func get(url, body string) (*http.Response, error) {
 }
 
 func put(url, body string) (*http.Response, error) {
-	req, err := http.NewRequest(http.MethodPut, SERVER_ADDRESS+url, strings.NewReader(body))
+	req, err := http.NewRequest(http.MethodPut, adminScheme+adminHost+url, strings.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
