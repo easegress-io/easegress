@@ -347,9 +347,14 @@ paths:
             $ref: '#/definitions/AvgLoad'
 definitions:
   PluginIndicatorNames:
-    type: array
-    items:
-      type: string
+    type: object
+    required:
+      - names
+    properties:
+      names:
+        type: array
+        items:
+          type: string
 # Could be one of:
 # - EXECUTION_COUNT_ALL
 # - EXECUTION_COUNT_FAILURE
@@ -384,62 +389,107 @@ definitions:
 # - THROUGHPUT_RATE_LAST_5MIN_SUCCESS
   PluginIndicatorValue:
     type: object
-    description: |
-      A special value object of the plugin indicator type. Check Plugin Reference document for
-      more information.
+    required:
+      - value
+    properties:
+      value:
+        type: object
+        description: |
+          A special value object of the plugin indicator type. Check Plugin Reference document for
+          more information.
   PluginIndicatorDescription:
-    type: string
-    description: |
-      A human readable description of the special plugin indicator type. Check Plugin Reference
-      document for more information.
+    type: object
+    required:
+      - desc
+    properties:
+      desc:
+        type: string
+        description: |
+          A human readable description of the special plugin indicator type. Check Plugin Reference
+          document for more information.
   PipelineIndicatorNames:
-    type: array
-    items:
-      type: string
-      enum:
-        - EXECUTION_COUNT_ALL
-        - EXECUTION_TIME_50_PERCENT_ALL
-        - EXECUTION_TIME_90_PERCENT_ALL
-        - EXECUTION_TIME_99_PERCENT_ALL
-        - EXECUTION_TIME_MAX_ALL
-        - EXECUTION_TIME_MIN_ALL
-        - EXECUTION_TIME_STD_DEV_ALL
-        - EXECUTION_TIME_SUM_ALL
-        - EXECUTION_TIME_VARIANCE_ALL
-        - THROUGHPUT_RATE_LAST_15MIN_ALL
-        - THROUGHPUT_RATE_LAST_1MIN_ALL
-        - THROUGHPUT_RATE_LAST_5MIN_ALL
+    type: object
+    required:
+      - names
+    properties:
+      names:
+        type: array
+        items:
+          type: string
+          enum:
+            - EXECUTION_COUNT_ALL
+            - EXECUTION_TIME_50_PERCENT_ALL
+            - EXECUTION_TIME_90_PERCENT_ALL
+            - EXECUTION_TIME_99_PERCENT_ALL
+            - EXECUTION_TIME_MAX_ALL
+            - EXECUTION_TIME_MIN_ALL
+            - EXECUTION_TIME_STD_DEV_ALL
+            - EXECUTION_TIME_SUM_ALL
+            - EXECUTION_TIME_VARIANCE_ALL
+            - THROUGHPUT_RATE_LAST_15MIN_ALL
+            - THROUGHPUT_RATE_LAST_1MIN_ALL
+            - THROUGHPUT_RATE_LAST_5MIN_ALL
   PipelineIndicatorValue:
     type: object
-    description: |
-      A special value object of the pipeline indicator type. Check Pipeline Reference document for
-      more information.
+    required:
+      - value
+    properties:
+      value:
+        type: object
+        description: |
+          A special value object of the pipeline indicator type. Check Pipeline Reference document for
+          more information.
   PipelineIndicatorDescription:
-    type: string
-    description: |
-      A human readable description of the special plugin indicator type. Check Pipeline Reference
-      document for more information.
+    type: object
+    required:
+      - desc
+    properties:
+      desc:
+        type: string
+        description: |
+          A human readable description of the special plugin indicator type. Check Pipeline Reference
+          document for more information.
   TaskIndicatorNames:
-    type: array
-    items:
-      type: string
-      enum:
-        - EXECUTION_COUNT_ALL
-        - EXECUTION_COUNT_FAILURE
-        - EXECUTION_COUNT_SUCCESS
+    type: object
+    required:
+      - names
+    properties:
+      names:
+        type: array
+        items:
+          type: string
+          enum:
+            - EXECUTION_COUNT_ALL
+            - EXECUTION_COUNT_FAILURE
+            - EXECUTION_COUNT_SUCCESS
   TaskIndicatorValue:
     type: object
-    description: |
-      A special value object of the pipeline indicator type. Check Pipeline Reference document for
-      more information.
+    required:
+      - value
+    properties:
+      value:
+        type: object
+        description: |
+          A special value object of the pipeline indicator type. Check Pipeline Reference document for
+          more information.
   TaskIndicatorDescription:
-    type: string
-    description: |
-      A human readable description of the special task indicator type. Check Pipeline Reference
-      document for more information.
+    type: object
+    required:
+      - desc
+    properties:
+      desc:
+        type: string
+        description: |
+          A human readable description of the special task indicator type. Check Pipeline Reference
+          document for more information.
   UptimeDuration:
-    type: integer
-    description: The uptime of the gateway service instance.
+    type: object
+    required:
+      - desc
+    properties:
+      desc:
+        type: integer
+        description: The uptime of the gateway service instance.
   ResourceUsage:
     type: object
     required:

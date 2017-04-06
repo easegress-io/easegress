@@ -2,6 +2,7 @@ package rest
 
 import (
 	"config"
+	"time"
 )
 
 //
@@ -56,4 +57,26 @@ type pluginTypesRetrieveResponse struct {
 
 type pipelineTypesRetrieveResponse struct {
 	PipelineTypes []string `json:"pipeline_types"`
+}
+
+//
+// Statistics API
+//
+
+type IndicatorNamesRetrieveResponse struct {
+	Names []string `json:"names"`
+}
+
+type IndicatorValueRetrieveResponse struct {
+	Value interface{} `json:"value"`
+}
+
+type IndicatorDescriptionRetrieveResponse struct {
+	Description interface{} `json:"desc"`
+}
+
+////
+
+type GatewayUpTimeRetrieveResponse struct {
+	UpTime time.Duration `json:"up_nanosec"`
 }

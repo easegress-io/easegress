@@ -787,10 +787,10 @@ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:applic
 
 ```
 $ curl http://127.0.0.1:9090/statistics/v1/pipelines/test-jsonpipeline/plugins/test-httpheadercounter/indicators/RECENT_HEADER_COUNT/desc  -X GET -w "\n"
-"The count of http requests that the header of each one contains a key 'name' in last 60 second(s)."
+{"desc":"The count of http requests that the header of each one contains a key 'name' in last 60 second(s)."}
 
 $ curl http://127.0.0.1:9090/statistics/v1/pipelines/test-jsonpipeline/plugins/test-httpheadercounter/indicators/RECENT_HEADER_COUNT/value  -X GET -w "\n"
-0
+{"value":0}
 
 $ curl -i -k https://127.0.0.1:10443/test -X GET -i -w "\n" -H "name:bar" -d "$LOAD"
 HTTP/1.1 200 OK
@@ -799,7 +799,7 @@ Content-Type: text/html; charset=utf-8
 Content-Length: 0
 
 $ curl http://127.0.0.1:9090/statistics/v1/pipelines/test-jsonpipeline/plugins/test-httpheadercounter/indicators/RECENT_HEADER_COUNT/value  -X GET -w "\n"
-1
+{"value":1}
 
 $ curl -i -k https://127.0.0.1:10443/test -X GET -i -w "\n" -H "name:bar1" -d "$LOAD"
 HTTP/1.1 200 OK
@@ -808,7 +808,7 @@ Content-Type: text/html; charset=utf-8
 Content-Length: 0
 
 $ curl http://127.0.0.1:9090/statistics/v1/pipelines/test-jsonpipeline/plugins/test-httpheadercounter/indicators/RECENT_HEADER_COUNT/value  -X GET -w "\n"
-2
+{"value":2}
 ```
 
 ### Rejecting requests

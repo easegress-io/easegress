@@ -92,7 +92,9 @@ func (s *statisticsServer) retrievePluginIndicatorNames(w rest.ResponseWriter, r
 	// Returns with stable order
 	sort.Strings(indicatorNames)
 
-	w.WriteJson(indicatorNames)
+	w.WriteJson(&IndicatorNamesRetrieveResponse{
+		Names: indicatorNames,
+	})
 	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[indicator names of plugin %s in pipeline %s returned]", pluginName, pipelineName)
@@ -141,7 +143,9 @@ func (s *statisticsServer) retrievePluginIndicatorValue(w rest.ResponseWriter, r
 		rest.Error(w, msg, http.StatusForbidden)
 		logger.Warnf("[%s: %v]", msg, err)
 	} else {
-		w.WriteJson(indicatorValue)
+		w.WriteJson(&IndicatorValueRetrieveResponse{
+			Value: indicatorValue,
+		})
 		w.WriteHeader(http.StatusOK)
 		logger.Debugf("[indicator value of plugin %s in pipeline %s returned]", pluginName, pipelineName)
 	}
@@ -190,7 +194,9 @@ func (s *statisticsServer) retrievePluginIndicatorDesc(w rest.ResponseWriter, r 
 		rest.Error(w, msg, http.StatusForbidden)
 		logger.Warnf("[%s: %v]", msg, err)
 	} else {
-		w.WriteJson(indicatorDesc)
+		w.WriteJson(&IndicatorDescriptionRetrieveResponse{
+			Description: indicatorDesc,
+		})
 		w.WriteHeader(http.StatusOK)
 		logger.Debugf("[indicator description of plugin %s in pipeline %s returned]", pluginName, pipelineName)
 	}
@@ -217,7 +223,9 @@ func (s *statisticsServer) retrievePipelineIndicatorNames(w rest.ResponseWriter,
 	// Returns with stable order
 	sort.Strings(indicatorNames)
 
-	w.WriteJson(indicatorNames)
+	w.WriteJson(&IndicatorNamesRetrieveResponse{
+		Names: indicatorNames,
+	})
 	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[indicator names of pipeline %s returned]", pipelineName)
@@ -260,7 +268,9 @@ func (s *statisticsServer) retrievePipelineIndicatorValue(w rest.ResponseWriter,
 		rest.Error(w, msg, http.StatusForbidden)
 		logger.Warnf("[%s: %v]", msg, err)
 	} else {
-		w.WriteJson(indicatorValue)
+		w.WriteJson(&IndicatorValueRetrieveResponse{
+			Value: indicatorValue,
+		})
 		w.WriteHeader(http.StatusOK)
 		logger.Debugf("[indicator value of pipeline %s returned]", pipelineName)
 	}
@@ -303,7 +313,9 @@ func (s *statisticsServer) retrievePipelineIndicatorDesc(w rest.ResponseWriter, 
 		rest.Error(w, msg, http.StatusForbidden)
 		logger.Warnf("[%s: %v]", msg, err)
 	} else {
-		w.WriteJson(indicatorDesc)
+		w.WriteJson(&IndicatorDescriptionRetrieveResponse{
+			Description: indicatorDesc,
+		})
 		w.WriteHeader(http.StatusOK)
 		logger.Debugf("[indicator description of pipeline %s returned]", pipelineName)
 	}
@@ -330,7 +342,9 @@ func (s *statisticsServer) retrievePipelineTaskIndicatorNames(w rest.ResponseWri
 	// Returns with stable order
 	sort.Strings(indicatorNames)
 
-	w.WriteJson(indicatorNames)
+	w.WriteJson(&IndicatorNamesRetrieveResponse{
+		Names: indicatorNames,
+	})
 	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[indicator names of task in pipeline %s returned]", pipelineName)
@@ -373,7 +387,9 @@ func (s *statisticsServer) retrievePipelineTaskIndicatorValue(w rest.ResponseWri
 		rest.Error(w, msg, http.StatusForbidden)
 		logger.Warnf("[%s: %v]", msg, err)
 	} else {
-		w.WriteJson(indicatorValue)
+		w.WriteJson(&IndicatorValueRetrieveResponse{
+			Value: indicatorValue,
+		})
 		w.WriteHeader(http.StatusOK)
 		logger.Debugf("[indicator value of task in pipeline %s returned]", pipelineName)
 	}
@@ -416,7 +432,9 @@ func (s *statisticsServer) retrievePipelineTaskIndicatorDesc(w rest.ResponseWrit
 		rest.Error(w, msg, http.StatusForbidden)
 		logger.Warnf("[%s: %v]", msg, err)
 	} else {
-		w.WriteJson(indicatorDesc)
+		w.WriteJson(&IndicatorDescriptionRetrieveResponse{
+			Description: indicatorDesc,
+		})
 		w.WriteHeader(http.StatusOK)
 		logger.Debugf("[indicator description of task in pipeline %s returned]", pipelineName)
 	}
@@ -424,7 +442,9 @@ func (s *statisticsServer) retrievePipelineTaskIndicatorDesc(w rest.ResponseWrit
 
 func (s *statisticsServer) retrieveGatewayUpTime(w rest.ResponseWriter, r *rest.Request) {
 	logger.Debugf("[retrieve gateway uptime]")
-	w.WriteJson(s.gateway.UpTime())
+	w.WriteJson(&GatewayUpTimeRetrieveResponse{
+		UpTime: s.gateway.UpTime(),
+	})
 	w.WriteHeader(http.StatusOK)
 	logger.Debugf("[gateway uptime returned]")
 }
