@@ -45,10 +45,11 @@ func init() {
 			server string
 		)
 		if tls {
-			err = http.ListenAndServeTLS("0.0.0.0:10443", SSL_CRT_PATH, SSL_KEY_PATH, defaultMux)
+			err = http.ListenAndServeTLS(
+				fmt.Sprintf("%s:10443", common.Host), SSL_CRT_PATH, SSL_KEY_PATH, defaultMux)
 			server = "HTTPS"
 		} else {
-			err = http.ListenAndServe("0.0.0.0:10080", defaultMux)
+			err = http.ListenAndServe(fmt.Sprintf("%s:10080", common.Host), defaultMux)
 			server = "HTTP"
 		}
 
@@ -60,7 +61,7 @@ func init() {
 
 ////
 
-type httpInputConfig struct {
+type HTTPInputConfig struct {
 	CommonConfig
 	URL         string              `json:"url"`
 	Method      string              `json:"method"`
@@ -77,13 +78,13 @@ type httpInputConfig struct {
 }
 
 func HTTPInputConfigConstructor() Config {
-	return &httpInputConfig{
+	return &HTTPInputConfig{
 		Method: http.MethodGet,
 		Unzip:  true,
 	}
 }
 
-func (c *httpInputConfig) Prepare() error {
+func (c *HTTPInputConfig) Prepare() error {
 	err := c.CommonConfig.Prepare()
 	if err != nil {
 		return err
@@ -130,14 +131,14 @@ type httpTask struct {
 ////
 
 type httpInput struct {
-	conf         *httpInputConfig
+	conf         *HTTPInputConfig
 	httpTaskChan chan *httpTask
 	instanceId   string
 	queueLength  uint64
 }
 
 func HTTPInputConstructor(conf Config) (Plugin, error) {
-	c, ok := conf.(*httpInputConfig)
+	c, ok := conf.(*HTTPInputConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *HTTPInputConfig got %T", conf)
 	}

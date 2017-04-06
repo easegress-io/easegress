@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"common"
 	"engine"
 	"logger"
 )
@@ -65,9 +66,9 @@ func (s *Rest) Start() (<-chan error, string, error) {
 
 	http.Handle("/admin/", http.StripPrefix("/admin", adminApi.MakeHandler()))
 	http.Handle("/statistics/", http.StripPrefix("/statistics", statisticsApi.MakeHandler()))
-	http.Handle("/health/", http.StripPrefix("/health", healthCheckApi.MakeHandler()))
+	http.Handle("/", healthCheckApi.MakeHandler()) // keep backward-compatibility
 
-	listenAddr := "0.0.0.0:9090"
+	listenAddr := fmt.Sprintf("%s:9090", common.Host)
 
 	go func() {
 		err := http.ListenAndServe(listenAddr, nil)
