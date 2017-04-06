@@ -65,9 +65,9 @@ func (s *Rest) Start() (<-chan error, string, error) {
 
 	http.Handle("/admin/", http.StripPrefix("/admin", adminApi.MakeHandler()))
 	http.Handle("/statistics/", http.StripPrefix("/statistics", statisticsApi.MakeHandler()))
-	http.Handle("/", healthCheckApi.MakeHandler()) // keep backward-compatibility
+	http.Handle("/health/", http.StripPrefix("/health", healthCheckApi.MakeHandler()))
 
-	listenAddr := fmt.Sprintf("0.0.0.0:9090")
+	listenAddr := "0.0.0.0:9090"
 
 	go func() {
 		err := http.ListenAndServe(listenAddr, nil)

@@ -22,7 +22,7 @@ func newHealthCheckServer(gateway *engine.Gateway) (*healthCheckServer, error) {
 
 func (s *healthCheckServer) Api() (*rest.Api, error) {
 	router, err := rest.MakeRouter(
-		rest.Get(common.PrefixAPIVersion("/health"), s.existing), // keep backward-compatibility
+		rest.Get(common.PrefixAPIVersion("/check"), s.existing), // keep backward-compatibility
 	)
 
 	if err != nil {
@@ -38,7 +38,7 @@ func (s *healthCheckServer) Api() (*rest.Api, error) {
 }
 
 func (s *healthCheckServer) existing(w rest.ResponseWriter, req *rest.Request) {
-	logger.Debugf("[check health]")
+	logger.Debugf("[check existing]")
 	w.WriteHeader(http.StatusOK)
-	logger.Debugf("[healthy status returned]")
+	logger.Debugf("[existing status returned]")
 }

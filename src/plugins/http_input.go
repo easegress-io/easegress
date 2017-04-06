@@ -45,11 +45,10 @@ func init() {
 			server string
 		)
 		if tls {
-			err = http.ListenAndServeTLS(
-				fmt.Sprintf("0.0.0.0:10443"), SSL_CRT_PATH, SSL_KEY_PATH, defaultMux)
+			err = http.ListenAndServeTLS("0.0.0.0:10443", SSL_CRT_PATH, SSL_KEY_PATH, defaultMux)
 			server = "HTTPS"
 		} else {
-			err = http.ListenAndServe(fmt.Sprintf("0.0.0.0:10080"), defaultMux)
+			err = http.ListenAndServe("0.0.0.0:10080", defaultMux)
 			server = "HTTP"
 		}
 
