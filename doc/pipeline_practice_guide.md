@@ -2,7 +2,7 @@
 
 ## Overview
 
-In this document, we would like to introduce 6 pipelines from real practice to cover some worth usecases as examples.
+In this document, we would like to introduce follow pipelines from real practice to cover some worth usecases as examples.
 
 | Name | Description | Complexity level |
 |:--|:--|:--:|
