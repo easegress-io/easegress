@@ -6,7 +6,7 @@ info:
 schemes:
   - http
   - https
-basePath: /v1
+basePath: /admin/v1
 produces:
   - application/json
 paths:

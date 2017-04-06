@@ -6,7 +6,7 @@ info:
 schemes:
   - http
   - https
-basePath: /v1
+basePath: /statistics/v1
 produces:
   - application/json
 paths:

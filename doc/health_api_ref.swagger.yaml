@@ -6,13 +6,13 @@ info:
 schemes:
   - http
   - https
-basePath: /v1
+basePath: /health/v1
 produces:
   - application/json
 paths:
-  /health:
+  /check:
     get:
-      summary: Checks Gateway Service Instance Health
+      summary: Checks Gateway Service Instance Existing
       description: |
         The Gateway Service Instance Health check endpoint returns a http status code
         to present if the gateway service instance is existing and runs normally.
