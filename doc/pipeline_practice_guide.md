@@ -16,7 +16,7 @@ In this document, we would like to introduce follow pipelines from real practice
 
 ## Ease Monitor edge service
 
-In this case, we will prepare a piplein to runs necessary processes as Ease Monitor edge service endpoint.
+In this case, we will prepare a pipeline to runs necessary processes as Ease Monitor edge service endpoint.
 
 ### Plugin
 
@@ -73,7 +73,7 @@ Currently Ease Gateway supports two kinds of traffic throttling:
 
 ### Throughput rate based throttling
 
-In this case, we will prepare a piplein to show you how to setup a throughput rate limitation for Ease Monitor edge service. You can see we only need to create a plugin and add it to a certain position in to the pipeline easily.
+In this case, we will prepare a pipeline to show you how to setup a throughput rate limitation for Ease Monitor edge service. You can see we only need to create a plugin and add it to a certain position in to the pipeline easily.
 
 #### Plugin
 
@@ -169,7 +169,7 @@ Percentage of the requests served within a certain time (ms)
 
 ### Upstream latency based throttling
 
-In this case, we will prepare a piplein to show you how to setup a latency based limitation for Ease Monitor edge service. You can see we only need to create a plugin and add it to a certain position in to the pipeline easily, it just like what we did in throughput rate based throttling above.
+In this case, we will prepare a pipeline to show you how to setup a latency based limitation for Ease Monitor edge service. You can see we only need to create a plugin and add it to a certain position in to the pipeline easily, it just like what we did in throughput rate based throttling above.
 
 #### Plugin
 
@@ -261,7 +261,7 @@ Percentage of the requests served within a certain time (ms)
 
 ## Service circuit breaking
 
-In this case, we will prepare a piplein to show you how to add such a service circuit breaking mechanism to Ease Monitor edge service. You can see we only need to create a plugin and add it to a certain position in to the pipeline easily.
+In this case, we will prepare a pipeline to show you how to add such a service circuit breaking mechanism to Ease Monitor edge service. You can see we only need to create a plugin and add it to a certain position in to the pipeline easily.
 
 >**Note**:<br>
 > To simulate upstream failure in the example, an assistant plugin is added to the pipeline, you need not it in the real case.
@@ -435,7 +435,7 @@ Percentage of the requests served within a certain time (ms)
 
 ## HTTP streamy proxy
 
-In this case, you can see how a pipleine act a HTTP/HTTPS proxy between input and upstream. There is no any buffering and unnecessary operations in the middle.
+In this case, you can see how a pipeline act a HTTP/HTTPS proxy between input and upstream. There is no any buffering and unnecessary operations in the middle.
 
 ### Plugin
 
@@ -517,7 +517,7 @@ Transfer-Encoding: chunked
 
 ## HTTP proxy with caching
 
-In this case, you can see how a pipleine act a HTTP/HTTPS proxy and how to add a cache layer between input and upstream. The cache function is used to improve the performance of RESTful service automatically.
+In this case, you can see how a pipeline act a HTTP/HTTPS proxy and how to add a cache layer between input and upstream. The cache function is used to improve the performance of RESTful service automatically.
 
 ### Plugin
 
