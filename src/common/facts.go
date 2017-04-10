@@ -18,6 +18,7 @@ var (
 	Host       string
 	Stage      string
 	ConfigHome string
+	LogHome    string
 )
 
 func init() {
@@ -25,10 +26,12 @@ func init() {
 		"specify host to corresponding cert files and serve http/https request")
 	stage := flag.String("stage", "debug", "sepcify runtime stage (debug, test, prod)")
 	config := flag.String("config", CONFIG_HOME_DIR, "sepcify config home path")
+	log := flag.String("log", LOG_HOME_DIR, "specify log home path")
 
 	flag.Parse()
 
 	Host = *host
 	Stage = *stage
 	ConfigHome = *config
+	LogHome = *log
 }

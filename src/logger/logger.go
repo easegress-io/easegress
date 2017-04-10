@@ -34,14 +34,14 @@ func (l *loggers) getLoggers() loggers {
 func openLogFile(name string) (*os.File, error) {
 	const flag = os.O_RDWR | os.O_CREATE | os.O_APPEND
 
-	if _, err := os.Stat(common.LOG_HOME_DIR); os.IsNotExist(err) {
-		err = os.Mkdir(common.LOG_HOME_DIR, 0755)
+	if _, err := os.Stat(common.LogHome); os.IsNotExist(err) {
+		err = os.Mkdir(common.LogHome, 0755)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	f, err := os.OpenFile(filepath.Join(common.LOG_HOME_DIR, name), flag, 0644)
+	f, err := os.OpenFile(filepath.Join(common.LogHome, name), flag, 0644)
 	if err != nil {
 		return nil, err
 	}
