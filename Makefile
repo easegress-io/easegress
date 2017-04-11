@@ -1,4 +1,4 @@
-.PHONY: default build build_cmd build_gateway build_inventory \
+.PHONY: default build build_cli build_server build_inventory \
 		run fmt vendor_clean vendor_get vendor_update clean
 
 MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
@@ -8,25 +8,25 @@ GOPATH := ${MKFILE_DIR}_vendor:${MKFILE_DIR}
 export GOPATH
 
 GATEWAY_ALL_SRC_FILES = $(shell find ${MKFILE_DIR}src -type f -name "*.go")
-GATEWAY_CMD_SRC_FILES = $(shell find ${MKFILE_DIR}src/cmd -type f -name "*.go")
-GATEWAY_SRC_FILES = $(filter-out ${GATEWAY_CMD_SRC_FILES},${GATEWAY_ALL_SRC_FILES})
+GATEWAY_CLI_SRC_FILES = $(shell find ${MKFILE_DIR}src/cli ${MKFILE_DIR}src/client -type f -name "*.go")
+GATEWAY_SERVER_SRC_FILES = $(filter-out ${GATEWAY_CLI_SRC_FILES},${GATEWAY_ALL_SRC_FILES})
 GATEWAY_INVENTORY_FILES=${MKFILE_DIR}src/inventory/*
 
-TARGET_GATEWAY_CMD=${MKFILE_DIR}build/bin/easegateway_admin
-TARGET_GATEWAY=${MKFILE_DIR}build/bin/easegateway
+TARGET_GATEWAY_SERVER=${MKFILE_DIR}build/bin/easegateway-server
+TARGET_GATEWAY_CLI=${MKFILE_DIR}build/bin/easegateway
 TARGET_INVENTORY=${MKFILE_DIR}build/inventory
 
-TARGET=${TARGET_GATEWAY_CMD} ${TARGET_GATEWAY} ${TARGET_INVENTORY}
+TARGET=${TARGET_GATEWAY_SERVER} ${TARGET_GATEWAY_CLI} ${TARGET_INVENTORY}
 
 default: ${TARGET}
 
-${TARGET_GATEWAY_CMD} : ${GATEWAY_CMD_SRC_FILES}
-	@echo "-------------- building gateway cmd------------"
-	cd ${MKFILE_DIR} && go build  -gcflags "-N -l"  -v -o ${TARGET_GATEWAY_CMD} ${GATEWAY_CMD_SRC_FILES}
+${TARGET_GATEWAY_SERVER} : ${GATEWAY_SERVER_SRC_FILES}
+	@echo "-------------- building gateway server ---------------"
+	cd ${MKFILE_DIR} && go build  -gcflags "-N -l"  -v -o ${TARGET_GATEWAY_SERVER} ${MKFILE_DIR}src/server/main.go
 
-${TARGET_GATEWAY} : ${GATEWAY_SRC_FILES}
-	@echo "-------------- building gateway ---------------"
-	cd ${MKFILE_DIR} && go build  -gcflags "-N -l"  -v -o ${TARGET_GATEWAY} ${MKFILE_DIR}src/main.go
+${TARGET_GATEWAY_CLI} : ${GATEWAY_CLI_SRC_FILES}
+	@echo "-------------- building gateway cli------------"
+	cd ${MKFILE_DIR} && go build  -gcflags "-N -l"  -v -o ${TARGET_GATEWAY_CLI} ${MKFILE_DIR}src/client/main.go
 
 ${TARGET_INVENTORY} : ${GATEWAY_INVENTORY_FILES}
 	@echo "-------------- building inventory -------------"
@@ -34,14 +34,14 @@ ${TARGET_INVENTORY} : ${GATEWAY_INVENTORY_FILES}
 
 build: default
 
-build_cmd:
+build_cli: ${TARGET_GATEWAY_CLI}
 
-build_gateway: ${TARGET_GATEWAY}
+build_server: ${TARGET_GATEWAY_SERVER}
 
 build_inventory: ${TARGET_INVENTORY}
 
-run: build_gateway
-	${TARGET_GATEWAY}
+run: build_server
+	${TARGET_GATEWAY_SERVER}
 
 fmt:
 	cd ${MKFILE_DIR} && go fmt ./src/...
@@ -54,13 +54,13 @@ vendor_get:
 		github.com/sirupsen/logrus \
 		github.com/Shopify/sarama \
 		github.com/bsm/sarama-cluster \
-		github.com/BurntSushi/toml \
 		github.com/xeipuuv/gojsonschema \
 		github.com/ant0ine/go-json-rest/rest \
 		github.com/golang/protobuf/proto \
 		github.com/rcrowley/go-metrics \
 		golang.org/x/time/rate \
-		github.com/urfave/cli
+		github.com/urfave/cli \
+		github.com/hexdecteam/easegateway-go-client/...
 
 vendor_update: vendor_get
 	cd ${MKFILE_DIR} && rm -rf `find ./_vendor/src -type d -name .git` \
