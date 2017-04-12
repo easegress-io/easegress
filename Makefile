@@ -1,4 +1,4 @@
-.PHONY: default build build_cli build_server build_inventory \
+.PHONY: default build build_client build_server build_inventory \
 		run fmt vendor_clean vendor_get vendor_update clean
 
 MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
@@ -8,15 +8,15 @@ GOPATH := ${MKFILE_DIR}_vendor:${MKFILE_DIR}
 export GOPATH
 
 GATEWAY_ALL_SRC_FILES = $(shell find ${MKFILE_DIR}src -type f -name "*.go")
-GATEWAY_CLI_SRC_FILES = $(shell find ${MKFILE_DIR}src/cli ${MKFILE_DIR}src/client -type f -name "*.go")
-GATEWAY_SERVER_SRC_FILES = $(filter-out ${GATEWAY_CLI_SRC_FILES},${GATEWAY_ALL_SRC_FILES})
+GATEWAY_CLIENT_SRC_FILES = $(shell find ${MKFILE_DIR}src/cli ${MKFILE_DIR}src/client -type f -name "*.go")
+GATEWAY_SERVER_SRC_FILES = $(filter-out ${GATEWAY_CLIENT_SRC_FILES},${GATEWAY_ALL_SRC_FILES})
 GATEWAY_INVENTORY_FILES=${MKFILE_DIR}src/inventory/*
 
 TARGET_GATEWAY_SERVER=${MKFILE_DIR}build/bin/easegateway-server
-TARGET_GATEWAY_CLI=${MKFILE_DIR}build/bin/easegateway
+TARGET_GATEWAY_CLIENT=${MKFILE_DIR}build/bin/easegateway-client
 TARGET_INVENTORY=${MKFILE_DIR}build/inventory
 
-TARGET=${TARGET_GATEWAY_SERVER} ${TARGET_GATEWAY_CLI} ${TARGET_INVENTORY}
+TARGET=${TARGET_GATEWAY_SERVER} ${TARGET_GATEWAY_CLIENT} ${TARGET_INVENTORY}
 
 default: ${TARGET}
 
@@ -24,9 +24,9 @@ ${TARGET_GATEWAY_SERVER} : ${GATEWAY_SERVER_SRC_FILES}
 	@echo "-------------- building gateway server ---------------"
 	cd ${MKFILE_DIR} && go build  -gcflags "-N -l"  -v -o ${TARGET_GATEWAY_SERVER} ${MKFILE_DIR}src/server/main.go
 
-${TARGET_GATEWAY_CLI} : ${GATEWAY_CLI_SRC_FILES}
-	@echo "-------------- building gateway cli------------"
-	cd ${MKFILE_DIR} && go build  -gcflags "-N -l"  -v -o ${TARGET_GATEWAY_CLI} ${MKFILE_DIR}src/client/main.go
+${TARGET_GATEWAY_CLIENT} : ${GATEWAY_CLIENT_SRC_FILES}
+	@echo "-------------- building gateway client------------"
+	cd ${MKFILE_DIR} && go build  -gcflags "-N -l"  -v -o ${TARGET_GATEWAY_CLIENT} ${MKFILE_DIR}src/client/main.go
 
 ${TARGET_INVENTORY} : ${GATEWAY_INVENTORY_FILES}
 	@echo "-------------- building inventory -------------"
@@ -34,7 +34,7 @@ ${TARGET_INVENTORY} : ${GATEWAY_INVENTORY_FILES}
 
 build: default
 
-build_cli: ${TARGET_GATEWAY_CLI}
+build_client: ${TARGET_GATEWAY_CLIENT}
 
 build_server: ${TARGET_GATEWAY_SERVER}
 
