@@ -41,9 +41,8 @@ func main() {
 
 	app.Commands = []urfavecli.Command{
 		{
-			Name:    "Administration interface",
-			Aliases: []string{"admin"},
-			Usage:   "Administration interface",
+			Name:  "admin",
+			Usage: "Administration interface",
 			Subcommands: []urfavecli.Command{
 				{
 					Name:  "plugin",
@@ -111,9 +110,8 @@ func main() {
 			},
 		},
 		{
-			Name:    "Statistics interface",
-			Aliases: []string{"stat"},
-			Usage:   "Statistics interface",
+			Name:  "stat",
+			Usage: "Statistics interface",
 			Subcommands: []urfavecli.Command{
 				{
 					Name:  "plugin",
