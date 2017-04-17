@@ -88,6 +88,7 @@ func (a *easeMonitorProtoAdaptor) adapt(t task.Task) (err error, resultCode task
 	)
 
 	resultCode = task.ResultBadInput
+	retTask = t
 
 	if n == 0 {
 		err = fmt.Errorf("unexpected EOF")
