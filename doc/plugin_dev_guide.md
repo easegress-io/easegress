@@ -1,4 +1,6 @@
 # Ease Gateway Plugin Development Guide
+## Quick Start
+TODO: create a hello-world plugin in ease gateway.
 
 ## Overview
 Plugin is considered a kind of essential element managed and scheduled by Pipeline to handle corresponding parts of tasks. It aims to provide a consistent and equivalent abstraction(constructed to instances) to diverse schedulers(pipelines in Ease Gateway). It usually works with these kinds of abstraction: Pipeline, Task, PipelineContext, PipelineStatistic.
