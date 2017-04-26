@@ -1,6 +1,70 @@
 # Ease Gateway Plugin Development Guide
 ## Quick Start
-TODO: create a hello-world plugin in ease gateway.
+Let's create a simplest plugin named `hello` which set a value to key `hello` in the task. This one give you a basic taste of plugin development, You can ignore confusing stuff that will be clarified soon after.
+
+```golang
+package plugins
+
+import (
+	"fmt"
+	"pipelines"
+	"task"
+)
+
+type helloConfig struct {
+	CommonConfig
+}
+
+func HelloConfigConstructor() Config { return &helloConfig{} }
+
+func (c *helloConfig) Prepare() error {
+	err := c.CommonConfig.Prepare()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+type hello struct {
+	conf *helloConfig
+}
+
+func HelloConstructor(conf Config) (Plugin, error) {
+	c, ok := conf.(*helloConfig)
+	if !ok {
+		return nil, fmt.Errorf("config type want *helloConfig got %T", conf)
+	}
+
+	return &hello{
+		conf: c,
+	}, nil
+}
+
+func (h *hello) Prepare(ctx pipelines.PipelineContext) {}
+
+func (h *hello) sayHello(t task.Task) (error, task.TaskResultCode, task.Task) {
+	t, err := task.WithValue(t, "hello", "world")
+	if err != nil {
+		return err, task.ResultInternalServerError, t
+	}
+
+	return nil, t.ResultCode(), t
+}
+
+func (h *hello) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
+	err, resultCode, t := h.sayHello(t)
+	if err != nil {
+		t.SetError(err, resultCode)
+	}
+
+	return t, nil
+}
+
+func (h *hello) Name() string { return h.conf.PluginName() }
+
+func (h *hello) Close() {}
+```
 
 ## Overview
 Plugin is considered a kind of essential element managed and scheduled by Pipeline to handle corresponding parts of tasks. It aims to provide a consistent and equivalent abstraction(constructed to instances) to diverse schedulers(pipelines in Ease Gateway). It usually works with these kinds of abstraction: Pipeline, Task, PipelineContext, PipelineStatistic.
@@ -651,4 +715,3 @@ type PipelineStatistics interface {
 ```
 
 ## Notice
-
