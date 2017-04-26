@@ -63,7 +63,7 @@ func init() {
 type httpInputConfig struct {
 	CommonConfig
 	URL         string              `json:"url"`
-	Method      string              `json:"method"`
+	Methods     []string            `json:"methods"`
 	HeadersEnum map[string][]string `json:"headers_enum"`
 	Unzip       bool                `json:"unzip"`
 	RespondErr  bool                `json:"respond_error"`
@@ -78,8 +78,8 @@ type httpInputConfig struct {
 
 func HTTPInputConfigConstructor() Config {
 	return &httpInputConfig{
-		Method: http.MethodGet,
-		Unzip:  true,
+		Methods: []string{http.MethodGet},
+		Unzip:   true,
 	}
 }
 
@@ -91,7 +91,9 @@ func (c *httpInputConfig) Prepare() error {
 
 	ts := strings.TrimSpace
 	c.URL = ts(c.URL)
-	c.Method = ts(c.Method)
+	for i := range c.Methods {
+		c.Methods[i] = ts(c.Methods[i])
+	}
 
 	c.RequestHeaderNamesKey = ts(c.RequestHeaderNamesKey)
 	c.RequestBodyIOKey = ts(c.RequestBodyIOKey)
@@ -103,9 +105,16 @@ func (c *httpInputConfig) Prepare() error {
 		return fmt.Errorf("invalid absolutate url")
 	}
 
-	_, ok := supportedMethods[c.Method]
-	if !ok {
-		return fmt.Errorf("invalid http method")
+	methodMarks := map[string]bool{}
+	for _, method := range c.Methods {
+		_, ok := supportedMethods[method]
+		if !ok {
+			return fmt.Errorf("invalid http method")
+		}
+		if methodMarks[method] {
+			return fmt.Errorf("duplicate method: %s", method)
+		}
+		methodMarks[method] = true
 	}
 
 	for key, value := range c.HeadersEnum {
@@ -149,12 +158,14 @@ func HTTPInputConstructor(conf Config) (Plugin, error) {
 
 	h.instanceId = fmt.Sprintf("%p", h)
 
-	err := defaultMux.HandleFunc(h.conf.URL, h.conf.Method, h.conf.HeadersEnum, h.handler)
-	if err != nil {
-		return nil, fmt.Errorf("handle failed: %v", err)
+	for _, method := range h.conf.Methods {
+		err := defaultMux.HandleFunc(h.conf.URL, method, h.conf.HeadersEnum, h.handler)
+		if err != nil {
+			return nil, fmt.Errorf("handle failed: %v", err)
+		}
 	}
 
-	return h, err
+	return h, nil
 }
 
 func (h *httpInput) Prepare(ctx pipelines.PipelineContext) {
@@ -411,7 +422,9 @@ func (h *httpInput) Name() string {
 }
 
 func (h *httpInput) Close() {
-	defaultMux.DeleteFunc(h.conf.URL, h.conf.Method)
+	for _, method := range h.conf.Methods {
+		defaultMux.DeleteFunc(h.conf.URL, method)
+	}
 	if h.httpTaskChan != nil {
 		close(h.httpTaskChan)
 		h.httpTaskChan = nil

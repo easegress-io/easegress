@@ -3,7 +3,7 @@
   "config": {
     "plugin_name": "http_input.logs",
     "url": "/v1/logs",
-    "method": "POST",
+    "methods": ["POST"],
     "headers_enum": {
       "Content-Encoding": [
         "",

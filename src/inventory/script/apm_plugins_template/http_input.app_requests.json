@@ -3,7 +3,7 @@
   "config": {
     "plugin_name": "http_input.app_requests",
     "url": "/v1/app_requests",
-    "method": "POST",
+    "methods": ["POST"],
     "headers_enum": {
       "Content-Encoding": [
         "",

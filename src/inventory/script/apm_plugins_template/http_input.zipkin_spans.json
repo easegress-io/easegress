@@ -3,7 +3,7 @@
   "config": {
     "plugin_name": "http_input.zipkin_spans",
     "url": "/v1/zipkin_spans",
-    "method": "POST",
+    "methods": ["POST"],
     "headers_enum": {
       "Content-Encoding": [
         "",
