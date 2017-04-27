@@ -20,42 +20,55 @@ import (
 
 // TODO: Moves this into plugin, aligns https server life-cycle with plugin life-cycle
 func init() {
-	crt_name := common.Host + "-cert.pem"
-	key_name := common.Host + "-key.pem"
-	SSL_CRT_PATH := filepath.Join(common.CERT_HOME_DIR, crt_name)
-	SSL_KEY_PATH := filepath.Join(common.CERT_HOME_DIR, key_name)
+	var (
+		disableHTTPS bool
+		certPath     string
+		keyPath      string
+	)
 
-	logger.Infof("[cert file: %s]", SSL_CRT_PATH)
-	logger.Infof("[key file: %s]", SSL_KEY_PATH)
-
-	go func() {
-		tls := true
-		if _, err := os.Stat(SSL_CRT_PATH); os.IsNotExist(err) {
-			logger.Warnf("[cert file %s not found]", SSL_CRT_PATH)
-			tls = false
-		}
-
-		if _, err := os.Stat(SSL_KEY_PATH); os.IsNotExist(err) {
-			logger.Warnf("[key file %s not found]", SSL_KEY_PATH)
-			tls = false
-		}
-
-		var (
-			err    error
-			server string
-		)
-		if tls {
-			err = http.ListenAndServeTLS(fmt.Sprintf("%s:10443", common.Host), SSL_CRT_PATH, SSL_KEY_PATH, defaultMux)
-			server = "HTTPS"
+	if len(common.CertFile) == 0 || len(common.KeyFile) == 0 {
+		if len(common.CertFile) != 0 {
+			logger.Infof("[keyfile set empty, certfile set: %s]", common.CertFile)
+		} else if len(common.KeyFile) != 0 {
+			logger.Infof("[certfile set empty, keyfile set: %s]", common.KeyFile)
 		} else {
-			err = http.ListenAndServe(fmt.Sprintf("%s:10080", common.Host), defaultMux)
-			server = "HTTP"
+			logger.Infof("[certfile and keyfile set empty]")
+		}
+		disableHTTPS = true
+	} else {
+		certPath = filepath.Join(common.CERT_HOME_DIR, common.CertFile)
+		keyPath = filepath.Join(common.CERT_HOME_DIR, common.KeyFile)
+		logger.Infof("[cert file: %s]", certPath)
+		logger.Infof("[key file: %s]", keyPath)
+
+		if _, err := os.Stat(certPath); os.IsNotExist(err) {
+			logger.Warnf("[certfile not found]")
+			disableHTTPS = true
 		}
 
-		if err != nil {
-			logger.Errorf("Start %s server failed: %s", server, err)
+		if _, err := os.Stat(keyPath); os.IsNotExist(err) {
+			logger.Warnf("[key file not found]")
+			disableHTTPS = true
 		}
-	}()
+	}
+
+	if disableHTTPS {
+		logger.Infof("[downgrade HTTPS to HTTP, listen port 10080]")
+		go func() {
+			err := http.ListenAndServe(fmt.Sprintf("%s:10080", common.Host), defaultMux)
+			if err != nil {
+				logger.Errorf("listen failed: %s", err)
+			}
+		}()
+	} else {
+		logger.Infof("[upgrade HTTP to HTTPS, listen port 10443]")
+		go func() {
+			err := http.ListenAndServeTLS(fmt.Sprintf("%s:10443", common.Host), certPath, keyPath, defaultMux)
+			if err != nil {
+				logger.Errorf("listen failed: %s", err)
+			}
+		}()
+	}
 }
 
 ////
