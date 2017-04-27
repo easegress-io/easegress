@@ -52,18 +52,30 @@ func init() {
 		}
 	}
 
+	keepAliveTimeout := 10 * time.Second // TODO: move it to httpInputConfig
+	// TODO: Adds keep_alive_requests and max_connections to httpInputConfig after making http server plugin-life-cycle
+
+	srv := &http.Server{
+		Handler:     defaultMux,
+		IdleTimeout: keepAliveTimeout,
+	}
+
 	if disableHTTPS {
-		logger.Infof("[downgrade HTTPS to HTTP, listen %s:10080]", common.Host)
+		addr := fmt.Sprintf("%s:10080", common.Host)
+		logger.Infof("[downgrade HTTPS to HTTP, listen %s]", addr)
+		srv.Addr = addr
 		go func() {
-			err := http.ListenAndServe(fmt.Sprintf("%s:10080", common.Host), defaultMux)
+			err := srv.ListenAndServe()
 			if err != nil {
 				logger.Errorf("listen failed: %s", err)
 			}
 		}()
 	} else {
-		logger.Infof("[upgrade HTTP to HTTPS, listen %s:10443]", common.Host)
+		addr := fmt.Sprintf("%s:10443", common.Host)
+		logger.Infof("[upgrade HTTP to HTTPS, listen %s]", addr)
+		srv.Addr = addr
 		go func() {
-			err := http.ListenAndServeTLS(fmt.Sprintf("%s:10443", common.Host), certPath, keyPath, defaultMux)
+			err := srv.ListenAndServeTLS(certPath, keyPath)
 			if err != nil {
 				logger.Errorf("listen failed: %s", err)
 			}
