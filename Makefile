@@ -41,7 +41,7 @@ build_server: ${TARGET_GATEWAY_SERVER}
 build_inventory: ${TARGET_INVENTORY}
 
 run: build_server
-	${TARGET_GATEWAY_SERVER}
+	${TARGET_GATEWAY_SERVER} -host=localhost -certfile=localhost-cert.pem -keyfile=localhost-key.pem
 
 fmt:
 	cd ${MKFILE_DIR} && go fmt ./src/...
