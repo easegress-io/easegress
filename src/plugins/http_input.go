@@ -53,7 +53,7 @@ func init() {
 	}
 
 	if disableHTTPS {
-		logger.Infof("[downgrade HTTPS to HTTP, listen port 10080]")
+		logger.Infof("[downgrade HTTPS to HTTP, listen %s:10080]", common.Host)
 		go func() {
 			err := http.ListenAndServe(fmt.Sprintf("%s:10080", common.Host), defaultMux)
 			if err != nil {
@@ -61,7 +61,7 @@ func init() {
 			}
 		}()
 	} else {
-		logger.Infof("[upgrade HTTP to HTTPS, listen port 10443]")
+		logger.Infof("[upgrade HTTP to HTTPS, listen %s:10443]", common.Host)
 		go func() {
 			err := http.ListenAndServeTLS(fmt.Sprintf("%s:10443", common.Host), certPath, keyPath, defaultMux)
 			if err != nil {
