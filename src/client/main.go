@@ -185,6 +185,17 @@ func main() {
 				},
 			},
 		},
+		{
+			Name:  "health",
+			Usage: "Health Interface",
+			Subcommands: []urfavecli.Command{
+				{
+					Name:   "check",
+					Usage:  "Check health of Gateway",
+					Action: cli.CheckHealth,
+				},
+			},
+		},
 	}
 
 	err := app.Run(os.Args)
