@@ -19,13 +19,25 @@ const DATA_BUCKET_FOR_ALL_PLUGIN_INSTANCE = "*"
 type PluginPreparationFunc func()
 
 type PipelineContext interface {
+	// PipelineName returns pipeline name
 	PipelineName() string
+	// PluginNames returns sequential plugin names
 	PluginNames() []string
+	// Parallelism returns number of parallelism
 	Parallelism() uint16
+	// Statistics returns pipeline statistics
 	Statistics() PipelineStatistics
+	// DataBucket returns(creates a new one if necessary) pipeline data bucket corresponding with plugin.
+	// If the pluginInstanceId is not empty (usually memory address of the instance),
+	// the data bucket will be deleted automatically when closing the instance.
+	// But if the pluginInstanceId is empty which indicates all instances of a plugin share one data bucket,
+	// the data bucket won't be deleted automatically until the plugin(not plugin instance) is deleted.
 	DataBucket(pluginName, pluginInstanceId string) PipelineContextDataBucket
+	// DeleteBucket deletes a data bucket.
 	DeleteBucket(pluginName, pluginInstanceId string) PipelineContextDataBucket
+	// PreparePlugin is a hook method to invoke Prepare of plugin
 	PreparePlugin(pluginName string, fun PluginPreparationFunc)
+	// Close closes a PipelineContext
 	Close()
 }
 
@@ -34,9 +46,13 @@ type PipelineContext interface {
 type DefaultValueFunc func() interface{}
 
 type PipelineContextDataBucket interface {
+	// BindData binds data, the type of key must be comparable
 	BindData(key, value interface{}) (interface{}, error)
+	// QueryData querys data, return nil if not found
 	QueryData(key interface{}) interface{}
+	// QueryDataWithBindDefault queries data with binding default data if not found, return final value
 	QueryDataWithBindDefault(key interface{}, defaultValueFunc DefaultValueFunc) (interface{}, error)
+	// UnbindData unbinds data
 	UnbindData(key interface{}) interface{}
 }
 
