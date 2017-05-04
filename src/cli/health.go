@@ -14,5 +14,7 @@ func CheckHealth(c *cli.Context) error {
 		return fmt.Errorf("%s\n", resp.Error.Error)
 	}
 
+	fmt.Println("Service is reachable.")
+
 	return nil
 }
