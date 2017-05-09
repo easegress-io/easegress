@@ -11,14 +11,14 @@ First of all, we would like to draw up important goals of our cluster to guide o
 2. deploy in WAN
 3. differentiate nodes carrying diverse tasks (aka. collect nodes carrying the same task together)
 
-Fix 1: According to CAP theory, we have to make a compromise to decline one feature, it's nature to choose to decline Consistency with our requirements, so Ease Gateway is an AP type system. And for high availability, so it's necessary to decentralize because we could bear with the whole system is unavailable owing to central nodes down. So P2P is our main architecture like Cassandra.
+Fix 1: According to CAP theory, we have to make a compromise to decline one feature, it's nature to choose to decline Consistency with our requirements, so Ease Gateway is an AP type system. And for high availability, so it's necessary to decentralize because we can't bear with the whole system is unavailable owing to central nodes down. So P2P is our main architecture like Cassandra.
 
-Fix 2: Because bad network status of WAN, it's hard to get strong consistency or lets system hang out a long time which violate the goal high availability. So we compromise to choose eventual consistency so common and mature protocol **Gossip** is our choice to synchronize information of cluster. By the way, in the 3 models of Gossip push, pull, push/pull we choose push/pull whose convergence rate is fastest.
+Fix 2: Because unstable network status of WAN, it's hard to get strong consistency or lets system hang out a long time which violate the goal high availability. So we compromise to choose eventual consistency so common and mature protocol **Gossip** is our choice to synchronize information of cluster. By the way, in the 3 models of Gossip push, pull, push/pull we choose push/pull whose convergence rate is fastest.
 
 Fix 3: We bring a plain **logical** concept: **group**, which is one kind of metadata of cluster and separate diverse kinds of nodes carrying different tasks. From user's perspective, the action of each node in the same group must be the same.
 
 ### Synchronized Content
-Every node keep some data which specify its environment, responsibility and so on. There are two layers of data: metadata and service data. Metadata is foundation for service data, the former provides necessary information for the latter.
+Every node stores some data which specifies its environment, responsibility and so on. There are two layers of data: metadata and service data. Metadata is foundation for service data, the former provides necessary information for the latter.
 
 ![./internal cluster design](./internal-cluster-design.png)
 
@@ -28,7 +28,7 @@ Every node keep some data which specify its environment, responsibility and so o
 
 The metadata is read-only from perspective of administrator after deployment in theory. For simplicity, every node belongs to one and only one group. Therefore metadata can be maintained by Ease Gateway automatically.
 
-Here is a example to illustrate how Ease Gateway maintain metadata automatically(< for add, << for update).
+Here is an example to illustrate how Ease Gateway maintain metadata automatically(< for add, << for update).
 
 1. Initially the info is:
 ```
@@ -216,7 +216,7 @@ info in Node-3:
 info in Node-1:
 	key         value                  timestamp
 	Pipeline-A  {"group": "Group-BJ"}  1000
-	Pipeline-C  {"group": "Group-BJ"}  1002
+	Pipeline-C  {"group": "Group-BJ"}  1002    <
 
 info in Node-2:
 	key         value                  timestamp
@@ -228,13 +228,13 @@ info in Node-3:
 	Pipeline-C  {"group": "Group-BJ"}  1002
 ```
 
-5. Adds a new ungrouped pipeline `Pipeline-D`, and `Node-1` received firstly:
+5. Adds a new ungrouped pipeline `Pipeline-D`, suppose `Node-1` received firstly:
 ```
 info in Node-1:
 	key         value                  timestamp
 	Pipeline-A  {"group": "Group-BJ"}  1000
 	Pipeline-C  {"group": "Group-BJ"}  1002
-	Pipeline-D  {"group": ""}          1005
+	Pipeline-D  {"group": ""}          1005    <
 
 info in Node-2:
 	key         value                  timestamp
@@ -257,7 +257,8 @@ The persistence of cluster data is the same with data of standalone version like
 
 #### Serialization & Compression
 JSON is friendly to debug. Binary protocols such as Protocol Buffers of Google, Thrift/Avro of Apache are good to bandwidth and efficiency. It's a tradeoff here.
-Make a trade-off between CPU and bandwidth, it's appropriate to choose common gzip.
+
+As for compression, make a trade-off between CPU and bandwidth, it's appropriate to choose common gzip.
 
 ### Conclusion
 Let's conclude our design by simply answering common design questions in distributed system.
@@ -275,7 +276,7 @@ Let's conclude our design by simply answering common design questions in distrib
 	when a node down, the others in the same group share responsibility of the death one, the behavior to users is the same.
 
 ## API Specification
-As usual, we choose common RESTful HTTP API to administrate clustering. Here we just give two typical demos.
+As usual, we choose common RESTful HTTP API to administrate cluster. Here we just give two typical demos.
 
 ### Check Metadata
 ```shell
@@ -292,7 +293,7 @@ $ curl https://gateway.megaease.com/cluster/v1/groups/pipelines \
 -H 'Content-Type: application/json' -H 'Accept:application/json' \
 -d '
 {
-	"group": "Group-BJ"
+	"group": "Group-BJ",
 	"type": "LinearPipeline",
 	"config": {
 		"pipeline_name": "test-pipeline",
