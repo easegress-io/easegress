@@ -18,7 +18,7 @@ Fix 2: Because unstable network status of WAN, it's hard to get strong consisten
 Fix 3: We bring a plain **logical** concept: **group**, which is one kind of metadata of cluster and separate diverse kinds of nodes carrying different tasks. From user's perspective, the action of each node in the same group must be the same.
 
 ### Synchronized Content
-Every node stores some data which specifies its environment, responsibility and so on. There are two layers of data: metadata and service data. Metadata is foundation for service data, the former provides necessary information for the latter.
+Every node stores some data which specifies its environment, responsibility and so on. There are two layers of data: metadata and service data. Metadata is foundation for service data, the former provides necessary information for the latter. Here is an implementation trick, we could provide metadata callback API to notify related service data to update if necessary(Observer Pattern). For example: In flash sale, a group with 3 nodes got ratio of pass 0.6, so each one got 0.2 respectively, and if one node went down, the other two need to update their ratio to 0.3 respectively.
 
 ![./internal cluster design](./internal-cluster-design.png)
 
