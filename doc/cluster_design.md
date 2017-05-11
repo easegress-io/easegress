@@ -15,20 +15,20 @@ Fix 1: According to CAP theory, we have to make a compromise to decline one feat
 
 Fix 2: Because unstable network status of WAN, it's hard to get strong consistency or lets system hang out a long time which violate the goal high availability. So we compromise to choose eventual consistency so common and mature protocol **Gossip** is our choice to synchronize information of cluster. By the way, in the 3 models of Gossip push, pull, push/pull we choose push/pull whose convergence rate is fastest.
 
-Fix 3: We bring a plain **logical** concept: **group**, which is one kind of metadata of cluster and separate diverse kinds of nodes carrying different tasks. From user's perspective, the action of each node in the same group must be the same.
+Fix 3: We bring a plain **logical** concept: **group**, which is one kind of system data of cluster and separate diverse kinds of nodes carrying different tasks. From user's perspective, the action of each node in the same group must be the same.
 
 ### Synchronized Content
-Every node stores some data which specifies its environment, responsibility and so on. For example: In flash sale, a group with 3 nodes got ratio of pass 0.6, so each one of it got 0.6 respectively. There are two layers of data: metadata and service data. Metadata is foundation for service data, the former provides necessary information for the latter. (TODO: provide a true example where the changes of metadata will affect  data) Here is an implementation trick, we could provide metadata callback API to notify related service data to update if necessary(Observer Pattern). 
+Every node stores some data which specifies its environment, responsibility and so on. For example: In flash sale, a group with 3 nodes got ratio of pass 0.6, so each one of it got 0.6 respectively. There are two layers of data: system data and business data. system data is foundation for business data, the former provides necessary information for the latter. (TODO: provide a true example where the changes of system data will affect  business data) Here is an implementation trick, we could provide system data callback API to notify related business data to update if necessary(Observer Pattern).
 
 ![./internal cluster design](./internal-cluster-design.png)
 
-#### Metadata
+#### System Data
 1. IP, port, status of every node of the cluster
 2. group information
 
-The metadata is read-only from perspective of administrator after deployment in theory. For simplicity, every node belongs to one and only one group. Therefore metadata can be maintained by Ease Gateway automatically.
+The system data is read-only from perspective of administrator after deployment in theory. For simplicity, every node belongs to one and only one group. Therefore system data can be maintained by Ease Gateway automatically.
 
-Here is an example to illustrate how Ease Gateway maintain metadata automatically(< for add, << for update).
+Here is an example to illustrate how Ease Gateway maintain system data automatically(< for add, << for update).
 
 1. Initially the info is:
 ```
@@ -151,14 +151,14 @@ info in Node-3:
 ```
 You can see the `Node-3` spread wrong info which is `Node-2` is still alive temporarily. But the `Node-2` and `Node-3` will also find death of `Node-2` finally. Moreover in here we could use quick check for down-node to dodge fake news: )
 
-#### Service Data
+#### Business Data
 1. pipeline configure
 2. plugin configure
-3. user-defined data such as all ports of nodes(which is a kind of aggregate-metadata)
+3. user-defined data such as all ports of nodes(which is a kind of aggregate system data)
 
-The service data can be grouped or ungrouped. And the ungrouped data belongs to every node, but grouped data belongs to corresponding grouped nodes. The administrator can update service data manually, or in the scene of flash sale the flash-sale-master could use cluster API to update percents of pass in corresponding nodes dynamically.
+The business data can be grouped or ungrouped. And the ungrouped data belongs to every node, but grouped data belongs to corresponding grouped nodes. The administrator can update business data manually, or in the scene of flash sale the flash-sale-master could use cluster API to update percents of pass in corresponding nodes dynamically.
 
-Here is a example to illustrate how Ease Gateway synchronizes service data automatically(< for add, << for update).
+Here is a example to illustrate how Ease Gateway synchronizes business data automatically(< for add, << for update).
 ```
 constant group information here:
 	Group-BJ: Node-1, Node-2
@@ -247,13 +247,13 @@ info in Node-3:
 ```
 As usual, `Pipeline-D` will be spread to all nodes finally.
 
-So at the layer of service data, the node will keep some data which is unnecessary for itself for a moment to issue the data to other nodes. In this scenario, the node plays a temporary spreader for service data.
+So at the layer of business data, the node will keep some data which is unnecessary for itself for a moment to issue the data to other nodes. In this scenario, the node plays a temporary spreader for business data.
 
 #### Version Control
 FIXME:  Is there time sequence of synchronized data and need to redo version11->version20 after the node reboot from version10(need redo log)?  Or just cover current version with newest version.
 
 #### Data Persistence
-The persistence of cluster data is the same with data of standalone version like the configure of pipeline/plugin is stored in disk. But for some service data unnecessary for current node could be cleared under some condition.
+The persistence of cluster data is the same with data of standalone version like the configure of pipeline/plugin is stored in disk. But for some business data unnecessary for current node could be cleared under some condition.
 
 #### Serialization & Compression
 JSON is friendly to debug. Binary protocols such as Protocol Buffers of Google, Thrift/Avro of Apache are good to bandwidth and efficiency. It's a tradeoff here.
@@ -278,14 +278,14 @@ Let's conclude our design by simply answering common design questions in distrib
 ## API Specification
 As usual, we choose common RESTful HTTP API to administrate cluster. Here we just give two typical demos.
 
-### Check Metadata
+### Query System Data
 ```shell
-$ curl https://gateway.megaease.com/cluster/v1/metadata \
--X POST \
+$ curl https://gateway.megaease.com/cluster/v1/system_data \
+-X GET \
 -H 'Accept:application/json'
 ```
 
-### Update Service Data
+### Update Business Data
 Given an example here, other APIs are similar. Create a pipeline to a group:
 ```shell
 $ curl https://gateway.megaease.com/cluster/v1/groups/pipelines \
