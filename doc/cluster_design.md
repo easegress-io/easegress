@@ -1,5 +1,11 @@
 # Clustering Design of Ease Gateway(Beta Version)
 
+Enhancement items(TODO):
+1. There could be a concept of data zone: synchronization zone and local zone.
+2. Each node could belong to multiple groups - enhanced by the more flexible tag mechanism.
+3. Add a subsection in design to explain how the upper layer based on Gossip guarantees good fault-tolerance.
+4. We could apply NRW model of Amazon Dynamo KV to the whole the clustering design(R + W > N).
+
 ## Background
 In milestone 2, we wanna deploy Ease Gateway carrying with large scale use cases such as flash sale. So it's necessary to solve following clustering problems.
 Here we put a regular issue we have now: In the scenario of flash sale, since there are different amounts of online users at every area waiting to rush to buy something, we must give different percents of pass for the crowd **at corresponding area**. It's hard to manually administrate so many instances carrying with different configure, thus we must design a general architecture for Ease Gateway to automate this kind of problems.
