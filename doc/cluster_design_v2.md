@@ -2,7 +2,13 @@
 
 NOTICE: This is a underway design document to explain current cluster architecture under quick iteration, at some appropriate context there might be related knowledge or references to help new contributors jump in quickly.
 
-## Clock Synchronization
+## Background
+In milestone 2, we wanna deploy Ease Gateway carrying with large scale use cases such as flash sale. So it's necessary to solve following clustering problems.
+Here we put a regular issue we have now: In the scenario of flash sale, since there are different amounts of online users at every area waiting to rush to buy something, we must give different percents of pass for the crowd **at corresponding area**. It's hard to manually administrate so many instances carrying with different configure, thus we must design a general architecture for Ease Gateway to automate this kind of problems.
+
+## Design (WIP)
+
+### Clock Synchronization
 The physical/wall clock can not fix global synchronization in distributed system. There have been already multiple ways to solve it. In Ease Gateway, there is no need to use complex vector clock, and then logical clock(lamport clock) satisfies the case enough. The original and complete source about lamport clock is the paper [Time, Clocks and the Ordering of Events in a Distributed System](http://lamport.azurewebsites.net/pubs/time-clocks.pdf).
 
 Here we just introduce it in a simple way. Lamport clock is a mechanism for capturing chronological and causal relationships in a distributed system. According to [Wikipedia](https://en.wikipedia.org/wiki/Lamport_timestamps), it follows 3 simple rules:
@@ -52,6 +58,16 @@ func (l *LamportClock) Witness(v LamportTime) {
 	}
 }
 ```
+
+### Data Persistence
+The persistence of cluster data is the same with data of standalone version like the configure of pipeline/plugin is stored in disk. But for some business data unnecessary for current node could be cleared under some condition.
+
+### Serialization & Compression
+JSON is friendly to debug. Binary protocols such as Protocol Buffers of Google, Thrift/Avro of Apache are good to bandwidth and efficiency. It's a tradeoff here.
+
+As for compression, make a trade-off between CPU and bandwidth, it's appropriate to choose common gzip.
+
+## API Specification (TODO)
 
 ## References
 Sorted by occurrence time.
