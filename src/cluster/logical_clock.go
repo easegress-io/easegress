@@ -27,14 +27,13 @@ func (lc *logicalClock) Update(time logicalTime) logicalTime {
 			break
 		}
 
-		if atomic.CompareAndSwapUint64(&lc.time, localTime, otherTime + 1) {
+		if atomic.CompareAndSwapUint64(&lc.time, localTime, otherTime+1) {
 			break
 		}
 	}
 
 	return logicalTime(atomic.LoadUint64(&lc.time))
 }
-
 
 func (lc *logicalClock) Time() logicalTime {
 	return logicalTime(atomic.LoadUint64(&lc.time))

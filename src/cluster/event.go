@@ -67,11 +67,11 @@ func (e *MemberEvent) Type() EventType {
 
 type RequestEvent struct {
 	sync.Mutex
-	Name                 string
-	Payload              []byte
-	NodeName             string
+	Name     string
+	Payload  []byte
+	NodeName string
 
-	c                    *cluster
+	c *cluster
 
 	id                   uint64
 	time                 logicalTime
@@ -93,7 +93,7 @@ func createRequestEvent(c *cluster, msg *messageRequest) *RequestEvent {
 		flags:       msg.flags,
 		nodeAddress: msg.nodeAddress,
 		nodePort:    msg.nodePort,
-		relayCount:       msg.relayCount,
+		relayCount:  msg.relayCount,
 	}
 
 	time.AfterFunc(msg.timeout, func() {
