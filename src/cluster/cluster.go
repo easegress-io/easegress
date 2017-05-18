@@ -200,7 +200,7 @@ func (c *cluster) Stop() error {
 	return nil
 }
 
-func (c *cluster) Query(name string, payload []byte, param *RequestParam) (*Future, error) {
+func (c *cluster) Request(name string, payload []byte, param *RequestParam) (*Future, error) {
 	if param == nil {
 		param = defaultRequestParam(
 			c.memberList.NumMembers(), c.conf.RequestTimeoutMult, c.conf.GossipInterval)
