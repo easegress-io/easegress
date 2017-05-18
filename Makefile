@@ -25,7 +25,7 @@ ${TARGET_GATEWAY_SERVER} : ${GATEWAY_SERVER_SRC_FILES}
 	cd ${MKFILE_DIR} && go build  -gcflags "-N -l"  -v -o ${TARGET_GATEWAY_SERVER} ${MKFILE_DIR}src/server/main.go
 
 ${TARGET_GATEWAY_CLIENT} : ${GATEWAY_CLIENT_SRC_FILES}
-	@echo "-------------- building gateway client------------"
+	@echo "-------------- building gateway client ---------------"
 	cd ${MKFILE_DIR} && go build  -gcflags "-N -l"  -v -o ${TARGET_GATEWAY_CLIENT} ${MKFILE_DIR}src/client/main.go
 
 ${TARGET_INVENTORY} : ${GATEWAY_INVENTORY_FILES}
@@ -60,6 +60,7 @@ vendor_get:
 		github.com/rcrowley/go-metrics \
 		golang.org/x/time/rate \
 		github.com/urfave/cli \
+		github.com/hashicorp/memberlist \
 		github.com/hexdecteam/easegateway-go-client/...
 
 vendor_update: vendor_get

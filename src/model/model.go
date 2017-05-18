@@ -458,7 +458,6 @@ func (m *Model) GetPipeline(name string) *Pipeline {
 }
 
 func (m *Model) GetPipelines(namePattern string, types []string) ([]*Pipeline, error) {
-
 	m.RLock()
 	defer m.RUnlock()
 
