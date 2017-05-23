@@ -111,7 +111,7 @@ func (c *cluster) Join(peerNodeNames []string) (int, error) {
 	c.nodeJoinLock.Lock()
 	defer c.nodeJoinLock.Unlock()
 
-	if c.nodeStatus != NodeAlive {
+	if c.NodeStatus() != NodeAlive {
 		return 0, fmt.Errorf("invalid node status")
 	}
 
