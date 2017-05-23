@@ -17,11 +17,11 @@ type Config struct {
 
 	// Message retransmits equals to MessageRetransmitMult * log(N+1)
 	// Request timeout equals to GossipInterval * RequestTimeoutMult * log(N+1)
-	MessageRetransmitMult, RequestTimeoutMult uint
+	MessageRetransmitMult, RequestTimeoutMult int
 
-	EventStream chan<- *Event
+	EventStream chan<- Event
 
-	RequestSizeLimit, ResponseSizeLimit uint
+	RequestSizeLimit, ResponseSizeLimit int
 
 	GossipInterval time.Duration
 }

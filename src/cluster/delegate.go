@@ -1,10 +1,6 @@
 package cluster
 
 import (
-	"bytes"
-	"fmt"
-
-	"github.com/hashicorp/go-msgpack/codec"
 	"github.com/hashicorp/memberlist"
 
 	"common"
@@ -171,7 +167,7 @@ func (d *messageDelegate) LocalState(join bool) []byte {
 
 	msg.leftMembers = append(msg.leftMembers, d.c.leftMembers.names()...)
 
-	buff, err := pack(&msg, statePushPullMessage)
+	buff, err := pack(&msg, uint8(statePushPullMessage))
 	if err != nil {
 		logger.Errorf("[pack state push/pull message failed, ignored: %s]", err)
 		return nil

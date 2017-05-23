@@ -17,10 +17,10 @@ const (
 	MemberFailedEvent
 	MemberUpdateEvent
 	MemberCleanupEvent
-	RequestEvent
+	RequestReceivedEvent
 )
 
-func (t *EventType) String() string {
+func (t EventType) String() string {
 	switch t {
 	case MemberJoinEvent:
 		return "MemberJoin"
@@ -32,8 +32,8 @@ func (t *EventType) String() string {
 		return "MemberUpdate"
 	case MemberCleanupEvent:
 		return "MemberCleanup"
-	case RequestEvent:
-		return "Request"
+	case RequestReceivedEvent:
+		return "RequestReceived"
 	}
 
 	return "Unknow"
@@ -48,19 +48,19 @@ type Event interface {
 ////
 
 type MemberEvent struct {
-	Type   EventType
+	Typ    EventType
 	Member member
 }
 
 func createMemberEvent(t EventType, member *member) *MemberEvent {
 	return &MemberEvent{
-		Type:   t,
+		Typ:    t,
 		Member: *member,
 	}
 }
 
 func (e *MemberEvent) Type() EventType {
-	return e.Type
+	return e.Typ
 }
 
 ////
@@ -105,12 +105,12 @@ func createRequestEvent(c *cluster, msg *messageRequest) *RequestEvent {
 	return ret
 }
 
-func (e *RequestEvent) EventType() EventType {
-	return RequestEvent
+func (e *RequestEvent) Type() EventType {
+	return RequestReceivedEvent
 }
 
 func (e *RequestEvent) flag(flag requestFlagType) bool {
-	return (e.flags & flag) != 0
+	return (e.flags & uint32(flag)) != 0
 }
 
 func (e *RequestEvent) Respond(payload []byte) error {
@@ -135,7 +135,7 @@ func (e *RequestEvent) Respond(payload []byte) error {
 		payload:  payload,
 	}
 
-	buff, err := pack(&msg, responseMessage)
+	buff, err := pack(&msg, uint8(responseMessage))
 	if err != nil {
 		return fmt.Errorf("pack response message failed: %s", err)
 	}
@@ -205,11 +205,11 @@ func (e *RequestEvent) ack() error {
 	msg := messageResponse{
 		id:       e.id,
 		time:     e.time,
-		flags:    ackRequestFlag,
+		flags:    uint32(ackRequestFlag),
 		nodeName: source.Name,
 	}
 
-	buff, err := pack(&msg, responseMessage)
+	buff, err := pack(&msg, uint8(responseMessage))
 	if err != nil {
 		return fmt.Errorf("pack response message failed: %s", err)
 	}

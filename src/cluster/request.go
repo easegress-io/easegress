@@ -15,7 +15,7 @@ type RequestParam struct {
 	Timeout    time.Duration
 }
 
-func defaultRequestParam(aliveMemberCount, requestTimeoutMult uint, gossipInterval time.Duration) *RequestParam {
+func defaultRequestParam(aliveMemberCount, requestTimeoutMult int, gossipInterval time.Duration) *RequestParam {
 	return &RequestParam{
 		NodeNames: nil, // no filter
 		NodeTags:  nil, // no filter
@@ -24,8 +24,8 @@ func defaultRequestParam(aliveMemberCount, requestTimeoutMult uint, gossipInterv
 	}
 }
 
-func defaultRequestTimeout(aliveMemberCount, requestTimeoutMult uint, gossipInterval time.Duration) time.Duration {
-	return time.Duration(gossipInterval * requestTimeoutMult * math.Ceil(math.Log10(float64(aliveMemberCount+1))))
+func defaultRequestTimeout(aliveMemberCount, requestTimeoutMult int, gossipInterval time.Duration) time.Duration {
+	return time.Duration(float64(gossipInterval) * float64(requestTimeoutMult) * math.Ceil(math.Log10(float64(aliveMemberCount+1))))
 }
 
 ////
@@ -58,8 +58,8 @@ func createFuture(requestId uint64, requestTime logicalTime, memberCount int,
 		requestId:       requestId,
 		requestTime:     requestTime,
 		requestDeadline: time.Now().Add(param.Timeout),
-		responseBook:    make(chan MemberResponse, memberCount*2),
-		responseStream:  make(map[string]struct{}),
+		responseBook:    make(map[string]struct{}),
+		responseStream:  make(chan *MemberResponse, memberCount*2),
 		ackStream:       make(chan string, memberCount*2),
 	}
 
@@ -124,7 +124,7 @@ func (f *Future) ack(nodeName string) (bool, error) {
 	case f.ackStream <- nodeName:
 		f.ackBook[nodeName] = struct{}{}
 	default:
-		return fmt.Errorf("write response ack event to channel failed")
+		return false, fmt.Errorf("write response ack event to channel failed")
 	}
 
 	return true, nil
@@ -147,7 +147,7 @@ func (f *Future) response(response *MemberResponse) (bool, error) {
 	case f.responseStream <- response:
 		f.responseBook[response.NodeName] = struct{}{}
 	default:
-		return fmt.Errorf("write response event to channel failed")
+		return false, fmt.Errorf("write response event to channel failed")
 	}
 
 	return true, nil
@@ -168,7 +168,7 @@ type requestOperationBook struct {
 
 func createRequestOperationBook(timeout time.Duration) *requestOperationBook {
 	return &requestOperationBook{
-		operations: make(map[uint64]time.Time),
+		operations: make(map[uint64]*requestOperation),
 		timeout:    timeout,
 	}
 }

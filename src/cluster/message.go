@@ -93,7 +93,7 @@ func (mr *messageRequest) applyFilters(param *RequestParam) error {
 	var filters [][]byte
 
 	if len(param.NodeNames) > 0 {
-		buff, err := pack(param.NodeNames, nodeNameFilter)
+		buff, err := pack(param.NodeNames, uint8(nodeNameFilter))
 		if err != nil {
 			return err
 		}
@@ -106,7 +106,7 @@ func (mr *messageRequest) applyFilters(param *RequestParam) error {
 			name, valueRegex,
 		}
 
-		buff, err := pack(&filter, nodeTagsFilter)
+		buff, err := pack(&filter, uint8(nodeTagsFilter))
 		if err != nil {
 			return err
 		}
@@ -120,7 +120,7 @@ func (mr *messageRequest) applyFilters(param *RequestParam) error {
 }
 
 func (mr *messageRequest) flag(flag requestFlagType) bool {
-	return (mr.flags & flag) != 0
+	return (mr.flags & uint32(flag)) != 0
 }
 
 func (mr *messageRequest) filter(conf *Config) bool {
@@ -185,11 +185,12 @@ type messageResponse struct {
 }
 
 func (mr *messageResponse) flag(flag requestFlagType) bool {
-	return (mr.flags & flag) != 0
+	return (mr.flags & uint32(flag)) != 0
 }
 
 func (mr *messageResponse) send() bool {
-
+	// TODO
+	return false
 }
 
 ////
@@ -235,7 +236,7 @@ func fanoutBuffer(q *memberlist.TransmitLimitedQueue, buff []byte, sentNotify ch
 func fanoutMessage(q *memberlist.TransmitLimitedQueue, msg interface{},
 	msgType messageType, sentNotify chan<- struct{}) error {
 
-	buff, err := pack(msg, msgType)
+	buff, err := pack(msg, uint8(msgType))
 	if err != nil {
 		return err
 	}

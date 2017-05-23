@@ -111,7 +111,7 @@ func (c *cluster) Join(peerNodeNames []string) (int, error) {
 	c.nodeJoinLock.Lock()
 	defer c.nodeJoinLock.Unlock()
 
-	if c.nodeStatus() != NodeAlive {
+	if c.nodeStatus != NodeAlive {
 		return 0, fmt.Errorf("invalid node status")
 	}
 
@@ -502,7 +502,7 @@ func (c *cluster) operateRequest(msg *messageRequest) bool {
 	}
 
 	logger.Debugf("[event %s happened for member %s (%s:%d)]",
-		RequestEvent.String(), msg.nodeName, msg.nodeAddress, msg.nodePort)
+		RequestReceivedEvent, msg.nodeName, msg.nodeAddress, msg.nodePort)
 
 	if c.conf.EventStream != nil {
 		c.conf.EventStream <- event
@@ -511,51 +511,53 @@ func (c *cluster) operateRequest(msg *messageRequest) bool {
 	return ret
 }
 
-func (c *cluster) operateResponse(msg *messageRequest) bool {
-	c.futuresLock.RLock()
-	future, known := c.futures[msg.time]
-	c.futuresLock.RUnlock()
+func (c *cluster) operateResponse(msg *messageResponse) bool {
+	// TODO: fix compilation error in this func
 
-	if !known {
-		logger.Warnf("[BUG: request %s is responded but the request did not send, ignored]", msg.name)
-		return false
-	}
+	// c.futuresLock.RLock()
+	// future, known := c.futures[msg.time]
+	// c.futuresLock.RUnlock()
 
-	if future.requestId != msg.id {
-		logger.Warnf("[BUG: request id %d is mismatch with response %d, ignored]", future.requestId, msg.id)
-		return false
-	}
+	// if !known {
+	// 	logger.Warnf("[BUG: request %s is responded but the request did not send, ignored]", msg.name)
+	// 	return false
+	// }
 
-	if future.Closed() {
-		return false
-	}
+	// if future.requestId != msg.id {
+	// 	logger.Warnf("[BUG: request id %d is mismatch with response %d, ignored]", future.requestId, msg.id)
+	// 	return false
+	// }
 
-	if msg.flag(ackRequestFlag) {
-		triggered, err := future.ack(msg.nodeName)
-		if err != nil {
-			logger.Errorf("[trigger response ack event failed: %s]", err)
-		}
+	// if future.Closed() {
+	// 	return false
+	// }
 
-		if triggered {
-			logger.Debugf("[ack of request %s triggered for member %s (%s:%d)]",
-				msg.name, msg.nodeAddress, msg.nodePort)
-		}
-	} else {
-		response := MemberResponse{
-			NodeName: msg.nodeName,
-			Payload:  msg.payload,
-		}
+	// if msg.flag(ackRequestFlag) {
+	// 	triggered, err := future.ack(msg.nodeName)
+	// 	if err != nil {
+	// 		logger.Errorf("[trigger response ack event failed: %s]", err)
+	// 	}
 
-		triggered, err := future.response(response)
-		if err != nil {
-			logger.Errorf("[trigger response event failed: %s]", err)
-		}
+	// 	if triggered {
+	// 		logger.Debugf("[ack of request %s triggered for member %s (%s:%d)]",
+	// 			msg.name, msg.nodeAddress, msg.nodePort)
+	// 	}
+	// } else {
+	// 	response := MemberResponse{
+	// 		NodeName: msg.nodeName,
+	// 		Payload:  msg.payload,
+	// 	}
 
-		if triggered {
-			logger.Debugf("[response of request %s triggered for member %s (%s:%d)]",
-				msg.name, msg.nodeAddress, msg.nodePort)
-		}
-	}
+	// 	triggered, err := future.response(response)
+	// 	if err != nil {
+	// 		logger.Errorf("[trigger response event failed: %s]", err)
+	// 	}
+
+	// 	if triggered {
+	// 		logger.Debugf("[response of request %s triggered for member %s (%s:%d)]",
+	// 			msg.name, msg.nodeAddress, msg.nodePort)
+	// 	}
+	// }
 
 	return false
 }
@@ -657,7 +659,7 @@ func (c *cluster) broadcastRequestMessage(requestId uint64, name string, request
 
 	var flag uint32
 	if param.Ack {
-		flag |= ackRequestFlag
+		flag |= uint32(ackRequestFlag)
 	}
 
 	source := c.memberList.LocalNode()
@@ -680,7 +682,7 @@ func (c *cluster) broadcastRequestMessage(requestId uint64, name string, request
 		return err
 	}
 
-	buff, err := pack(msg, requestMessage)
+	buff, err := pack(msg, uint8(requestMessage))
 	if err != nil {
 		return err
 	}
@@ -753,7 +755,7 @@ func (c *cluster) cleanup() {
 			removedMembers := c.failedMembers.cleanup(now)
 			_cleanup(removedMembers)
 
-			removedMembers := c.leftMembers.cleanup(now)
+			removedMembers = c.leftMembers.cleanup(now)
 			_cleanup(removedMembers)
 
 			c.memberOperations.cleanup(now)
@@ -779,7 +781,8 @@ func (c *cluster) reconnectFailedMembers() {
 
 			c.membersLock.RUnlock()
 
-			peer := net.UDPAddr{IP: member.address, Port: int(member.port)}.String()
+			udpaddr := &net.UDPAddr{IP: member.address, Port: int(member.port)}
+			peer := udpaddr.String()
 
 			c.memberList.Join([]string{peer})
 		case <-c.stop:

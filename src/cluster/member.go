@@ -54,7 +54,7 @@ func (msb *memberStatusBook) Count() int {
 func (msb *memberStatusBook) add(member *memberStatus) {
 	msb.Lock()
 	defer msb.Unlock()
-	append(msb.members, member)
+	msb.members = append(msb.members, member)
 }
 
 func (msb *memberStatusBook) randGet() *memberStatus {
@@ -107,7 +107,7 @@ func (msb *memberStatusBook) names() []string {
 	var ret []string
 
 	for _, ms := range msb.members {
-		append(ret, ms.name)
+		ret = append(ret, ms.name)
 	}
 
 	return ret

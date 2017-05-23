@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	_ "cluster"
 	"config"
 	"logger"
 	"model"
