@@ -15,7 +15,7 @@ type RequestParam struct {
 	Timeout    time.Duration
 }
 
-func defaultRequestParam(aliveMemberCount, requestTimeoutMult int, gossipInterval time.Duration) *RequestParam {
+func defaultRequestParam(aliveMemberCount int, requestTimeoutMult uint, gossipInterval time.Duration) *RequestParam {
 	return &RequestParam{
 		NodeNames: nil, // no filter
 		NodeTags:  nil, // no filter
@@ -24,8 +24,10 @@ func defaultRequestParam(aliveMemberCount, requestTimeoutMult int, gossipInterva
 	}
 }
 
-func defaultRequestTimeout(aliveMemberCount, requestTimeoutMult int, gossipInterval time.Duration) time.Duration {
-	return time.Duration(float64(gossipInterval) * float64(requestTimeoutMult) * math.Ceil(math.Log10(float64(aliveMemberCount+1))))
+func defaultRequestTimeout(aliveMemberCount int, requestTimeoutMult uint, gossipInterval time.Duration) time.Duration {
+	return time.Duration(
+		float64(gossipInterval) * float64(requestTimeoutMult) *
+			math.Ceil(math.Log10(float64(aliveMemberCount+1))))
 }
 
 ////

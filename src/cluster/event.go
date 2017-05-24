@@ -142,7 +142,7 @@ func (e *RequestEvent) Respond(payload []byte) error {
 		return fmt.Errorf("pack response message failed: %s", err)
 	}
 
-	if len(buff) > e.c.conf.ResponseSizeLimit {
+	if len(buff) > int(e.c.conf.ResponseSizeLimit) {
 		return fmt.Errorf("response is too big (%d bytes)", len(buff))
 	}
 
@@ -219,7 +219,7 @@ func (e *RequestEvent) ack() error {
 		return fmt.Errorf("pack response message failed: %s", err)
 	}
 
-	if len(buff) > e.c.conf.ResponseSizeLimit {
+	if len(buff) > int(e.c.conf.ResponseSizeLimit) {
 		return fmt.Errorf("response is too big (%d bytes)", len(buff))
 	}
 

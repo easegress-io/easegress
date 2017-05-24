@@ -1,6 +1,8 @@
 package cluster
 
 import (
+	"math"
+	"os"
 	"time"
 
 	"github.com/hashicorp/memberlist"
@@ -12,18 +14,39 @@ type Config struct {
 	NodeName string
 	NodeTags map[string]string
 
-	MessageSendTimeout, FailedMemberReconnectTimeout, MemberLeftRecordTimeout, RecentOperationTimeout time.Duration
-	FailedMemberReconnectInterval, MemberLeftRecordCleanupInterval                                    time.Duration
+	BindAddress, AdvertiseAddress string
+	BindPort, AdvertisePort       uint16
 
-	// Message retransmits equals to MessageRetransmitMult * log(N+1)
+	GossipInterval, GossipToTheDeadTime time.Duration
+
+	ProbeTimeout time.Duration
+
+	PushPullInterval, ProbeInterval time.Duration
+
+	TCPTimeout time.Duration
+
+	EnableCompression bool
+
+	ProbeIntervalLimit uint
+
+	GossipNodes, IndirectCheckNodes uint
+
+	MessageSendTimeout, FailedMemberReconnectTimeout, MemberLeftRecordTimeout    time.Duration
+	RecentMemberOperationTimeout, RecentRequestOperationTimeout                  time.Duration
+	FailedMemberReconnectInterval, MemberCleanupInterval, RequestCleanupInterval time.Duration
+
+	// Gossip message retransmits = GossipRetransmitMult * log(N+1)
+	// Gateway cluster Message retransmits equals to MessageRetransmitMult * log(N+1)
 	// Request timeout equals to GossipInterval * RequestTimeoutMult * log(N+1)
-	MessageRetransmitMult, RequestTimeoutMult int
+	GossipRetransmitMult, MessageRetransmitMult, RequestTimeoutMult uint
+
+	// Member suspicion timeout equals to MemberSuspicionMult * log(N+1) * ProbeInterval
+	// Max member suspicion timeout equals to member suspicion timeout * SuspicionMaxTimeoutMult
+	MemberSuspicionMult, MemberSuspicionMaxTimeoutMult uint
+
+	RequestSizeLimit, ResponseSizeLimit uint
 
 	EventStream chan<- Event
-
-	RequestSizeLimit, ResponseSizeLimit int
-
-	GossipInterval time.Duration
 }
 
 func createMemberListConfig(conf *Config, eventDelegate memberlist.EventDelegate,
@@ -33,8 +56,44 @@ func createMemberListConfig(conf *Config, eventDelegate memberlist.EventDelegate
 		return nil
 	}
 
+	probeInterval := time.Duration(1)
+	if conf.ProbeInterval > 0 {
+		probeInterval = conf.ProbeInterval
+	}
+
+	gossipNodes := 1
+	if conf.GossipNodes > 0 {
+		gossipNodes = int(conf.GossipNodes)
+	}
+
+	indirectCheckNodes := 1
+	if conf.IndirectCheckNodes > 0 {
+		indirectCheckNodes = int(conf.IndirectCheckNodes)
+	}
+
+	udpBufferSize := 1400
+	if conf.RequestSizeLimit > conf.ResponseSizeLimit {
+		udpBufferSize = int(conf.RequestSizeLimit) + 200 // 200 bytes for memberlist internal usage
+	} else {
+		udpBufferSize = int(conf.ResponseSizeLimit) + 200
+	}
+
+	gossipRetransmitMult := 1
+	if conf.GossipRetransmitMult > 0 {
+		gossipRetransmitMult = int(conf.GossipRetransmitMult)
+	}
+
+	memberSuspicionMult := 1
+	if conf.MemberSuspicionMult > 0 {
+		memberSuspicionMult = int(conf.MemberSuspicionMult)
+	}
+
+	memberSuspicionMaxTimeoutMult := 1
+	if conf.MemberSuspicionMaxTimeoutMult > 0 {
+		memberSuspicionMaxTimeoutMult = int(conf.MemberSuspicionMaxTimeoutMult)
+	}
+
 	ret := &memberlist.Config{
-		Name:                    conf.NodeName,
 		ProtocolVersion:         memberlist.ProtocolVersion2Compatible,
 		DelegateProtocolMin:     ProtocolVersionMin,
 		DelegateProtocolMax:     ProtocolVersionMax,
@@ -43,9 +102,101 @@ func createMemberListConfig(conf *Config, eventDelegate memberlist.EventDelegate
 		Conflict:                conflictDelegate,
 		Delegate:                messageDelegate,
 		// TODO: add TCP pull/push merge and node "alive" message hooks to notify upper layer when cares
-		Merge: nil,
-		Alive: nil,
+		Merge:                   nil,
+		Alive:                   nil,
+		Name:                    conf.NodeName,
+		BindAddr:                conf.BindAddress,
+		BindPort:                int(conf.BindPort),
+		AdvertiseAddr:           conf.AdvertiseAddress,
+		AdvertisePort:           int(conf.AdvertisePort),
+		ProbeTimeout:            conf.ProbeTimeout,
+		PushPullInterval:        conf.PushPullInterval,
+		ProbeInterval:           probeInterval,
+		GossipNodes:             gossipNodes,
+		GossipInterval:          conf.GossipInterval,
+		GossipToTheDeadTime:     conf.GossipToTheDeadTime,
+		TCPTimeout:              conf.TCPTimeout,
+		EnableCompression:       conf.EnableCompression,
+		AwarenessMaxMultiplier:  int(math.Ceil(float64(conf.ProbeIntervalLimit) / float64(probeInterval))),
+		IndirectChecks:          indirectCheckNodes,
+		DisableTcpPings:         false,
+		DNSConfigPath:           "/etc/resolv.conf",
+		HandoffQueueDepth:       1024,
+		UDPBufferSize:           udpBufferSize,
+		RetransmitMult:          gossipRetransmitMult,
+		SuspicionMult:           memberSuspicionMult,
+		SuspicionMaxTimeoutMult: memberSuspicionMaxTimeoutMult,
 	}
 
+	return ret
+}
+
+func DefaultLANConfig() *Config {
+	hostname, _ := os.Hostname()
+
+	ret := &Config{
+		ProtocolVersion:               1,
+		NodeName:                      hostname,
+		NodeTags:                      make(map[string]string),
+		BindAddress:                   "0.0.0.0",
+		BindPort:                      9099,
+		AdvertisePort:                 9099,
+		ProbeTimeout:                  500 * time.Millisecond,
+		PushPullInterval:              30 * time.Second,
+		ProbeInterval:                 1 * time.Second,
+		GossipNodes:                   3,
+		GossipInterval:                200 * time.Millisecond,
+		GossipToTheDeadTime:           30 * time.Second,
+		TCPTimeout:                    10 * time.Second,
+		EnableCompression:             true,
+		ProbeIntervalLimit:            5,
+		IndirectCheckNodes:            3,
+		MessageSendTimeout:            5 * time.Second,
+		FailedMemberReconnectTimeout:  24 * time.Hour,
+		MemberLeftRecordTimeout:       24 * time.Hour,
+		RecentMemberOperationTimeout:  5 * time.Minute,
+		RecentRequestOperationTimeout: 15 * time.Minute,
+		FailedMemberReconnectInterval: 30 * time.Second,
+		MemberCleanupInterval:         15 * time.Second,
+		RequestCleanupInterval:        20 * time.Second,
+		GossipRetransmitMult:          4,
+		MessageRetransmitMult:         4,
+		RequestTimeoutMult:            15,
+		MemberSuspicionMult:           5,
+		MemberSuspicionMaxTimeoutMult: 6,
+		RequestSizeLimit:              1200,
+		ResponseSizeLimit:             1200,
+	}
+
+	return ret
+}
+
+func DefaultWANConfig() *Config {
+	ret := DefaultLANConfig()
+
+	ret.TCPTimeout = 30 * time.Second
+	ret.ProbeTimeout = 3 * time.Second
+	ret.PushPullInterval = 60 * time.Second
+	ret.ProbeInterval = 5 * time.Second
+	ret.MemberSuspicionMult = 6
+	ret.GossipNodes = 4
+	ret.GossipInterval = 1 * time.Second
+	ret.GossipToTheDeadTime = 60 * time.Second
+
+	return ret
+}
+
+func DefaultLocalConfig() *Config {
+	ret := DefaultLANConfig()
+
+	ret.TCPTimeout = time.Second
+	ret.IndirectCheckNodes = 1
+	ret.GossipRetransmitMult = 2
+	ret.MemberSuspicionMult = 3
+	ret.PushPullInterval = 15 * time.Second
+	ret.ProbeTimeout = 200 * time.Millisecond
+	ret.ProbeInterval = time.Second
+	ret.GossipInterval = 100 * time.Millisecond
+	ret.GossipToTheDeadTime = 15 * time.Second
 	return ret
 }

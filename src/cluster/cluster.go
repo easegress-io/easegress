@@ -60,8 +60,8 @@ func Create(conf *Config) (*cluster, error) {
 		members:           make(map[string]*memberStatus),
 		leftMembers:       createMemberStatusBook(conf.MemberLeftRecordTimeout),
 		failedMembers:     createMemberStatusBook(conf.FailedMemberReconnectTimeout),
-		memberOperations:  createMemberOperationBook(conf.RecentOperationTimeout),
-		requestOperations: createRequestOperationBook(conf.RecentOperationTimeout),
+		memberOperations:  createMemberOperationBook(conf.RecentMemberOperationTimeout),
+		requestOperations: createRequestOperationBook(conf.RecentRequestOperationTimeout),
 		stop:              make(chan struct{}),
 	}
 
@@ -82,11 +82,11 @@ func Create(conf *Config) (*cluster, error) {
 
 	c.memberMessageSendQueue = &memberlist.TransmitLimitedQueue{
 		NumNodes:       c.GetMemberCount,
-		RetransmitMult: conf.MessageRetransmitMult,
+		RetransmitMult: int(conf.MessageRetransmitMult),
 	}
 	c.requestMessageSendQueue = &memberlist.TransmitLimitedQueue{
 		NumNodes:       c.GetMemberCount,
-		RetransmitMult: conf.MessageRetransmitMult,
+		RetransmitMult: int(conf.MessageRetransmitMult),
 	}
 
 	// logical clock starts from 1
@@ -101,7 +101,8 @@ func Create(conf *Config) (*cluster, error) {
 		return nil, fmt.Errorf("create memberlist failed: %s", err.Error())
 	}
 
-	go c.cleanup()
+	go c.cleanupMember()
+	go c.cleanupRequest()
 	go c.reconnectFailedMembers()
 
 	return c, nil
@@ -689,7 +690,7 @@ func (c *cluster) broadcastRequestMessage(requestId uint64, name string, request
 		return err
 	}
 
-	if len(buff) > c.conf.RequestSizeLimit {
+	if len(buff) > int(c.conf.RequestSizeLimit) {
 		return fmt.Errorf("request is too big (%d bytes)", len(buff))
 	}
 
@@ -732,7 +733,7 @@ func (c *cluster) anyAlivePeerMembers() bool {
 
 ////
 
-func (c *cluster) cleanup() {
+func (c *cluster) cleanupMember() {
 	_cleanup := func(members []*memberStatus) {
 		for _, ms := range members {
 			delete(c.members, ms.name)
@@ -748,7 +749,7 @@ func (c *cluster) cleanup() {
 
 	for {
 		select {
-		case <-time.After(c.conf.MemberLeftRecordCleanupInterval):
+		case <-time.After(c.conf.MemberCleanupInterval):
 			now := time.Now()
 
 			c.membersLock.Lock()
@@ -758,9 +759,18 @@ func (c *cluster) cleanup() {
 			_cleanup(removedMembers)
 			c.memberOperations.cleanup(now)
 			c.membersLock.Unlock()
+		case <-c.stop:
+			break
+		}
+	}
+}
 
+func (c *cluster) cleanupRequest() {
+	for {
+		select {
+		case <-time.After(c.conf.RequestCleanupInterval):
 			c.requestLock.Lock()
-			c.requestOperations.cleanup(now)
+			c.requestOperations.cleanup(time.Now())
 			c.requestLock.Unlock()
 		case <-c.stop:
 			break
@@ -783,8 +793,8 @@ func (c *cluster) reconnectFailedMembers() {
 
 			c.membersLock.RUnlock()
 
-			udpaddr := &net.UDPAddr{IP: member.address, Port: int(member.port)}
-			peer := udpaddr.String()
+			addr := &net.UDPAddr{IP: member.address, Port: int(member.port)}
+			peer := addr.String()
 
 			c.memberList.Join([]string{peer})
 		case <-c.stop:
