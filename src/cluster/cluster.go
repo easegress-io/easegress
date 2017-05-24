@@ -20,7 +20,7 @@ const (
 
 type cluster struct {
 	conf     *Config
-	nodeTags []byte // don't do local copy when supporting dynamic node tag update
+	nodeTags []byte // do not do local copy when supporting dynamic node tag update
 
 	nodeJoinLock   sync.Mutex
 	nodeStatusLock sync.RWMutex
@@ -33,7 +33,7 @@ type cluster struct {
 	leftMembers, failedMembers *memberStatusBook
 	memberOperations           *memberOperationBook
 
-	futuresLock       sync.RWMutex
+	requestLock       sync.RWMutex
 	futures           map[logicalTime]*Future
 	requestOperations *requestOperationBook
 
@@ -222,15 +222,15 @@ func (c *cluster) Request(name string, payload []byte, param *RequestParam) (*Fu
 
 	future := createFuture(requestId, requestTime, c.memberList.NumMembers(), param,
 		func() {
-			c.futuresLock.Lock()
+			c.requestLock.Lock()
 			delete(c.futures, requestTime)
-			c.futuresLock.Unlock()
+			c.requestLock.Unlock()
 		})
 
 	// book for asynchronous response
-	c.futuresLock.Lock()
+	c.requestLock.Lock()
 	c.futures[requestTime] = future
-	c.futuresLock.Unlock()
+	c.requestLock.Unlock()
 
 	err = c.broadcastRequestMessage(requestId, name, requestTime, payload, param)
 	if err != nil {
@@ -480,6 +480,9 @@ func (c *cluster) operateNodeLeave(msg *messageMemberLeave) bool {
 func (c *cluster) operateRequest(msg *messageRequest) bool {
 	c.requestClock.Update(msg.time)
 
+	c.requestLock.Lock()
+	defer c.requestLock.Unlock()
+
 	care := c.requestOperations.save(msg.id, msg.time)
 	if !care {
 		return false
@@ -512,10 +515,10 @@ func (c *cluster) operateRequest(msg *messageRequest) bool {
 }
 
 func (c *cluster) operateResponse(msg *messageResponse) bool {
-	c.futuresLock.RLock()
-	future, known := c.futures[msg.time]
-	c.futuresLock.RUnlock()
+	c.requestLock.RLock()
+	defer c.requestLock.RUnlock()
 
+	future, known := c.futures[msg.time]
 	if !known {
 		logger.Warnf("[BUG: request %s is responded but the request did not send, ignored]", msg.name)
 		return false
@@ -731,9 +734,6 @@ func (c *cluster) anyAlivePeerMembers() bool {
 
 func (c *cluster) cleanup() {
 	_cleanup := func(members []*memberStatus) {
-		c.membersLock.Lock()
-		defer c.membersLock.Unlock()
-
 		for _, ms := range members {
 			delete(c.members, ms.name)
 
@@ -751,14 +751,17 @@ func (c *cluster) cleanup() {
 		case <-time.After(c.conf.MemberLeftRecordCleanupInterval):
 			now := time.Now()
 
+			c.membersLock.Lock()
 			removedMembers := c.failedMembers.cleanup(now)
 			_cleanup(removedMembers)
-
 			removedMembers = c.leftMembers.cleanup(now)
 			_cleanup(removedMembers)
-
 			c.memberOperations.cleanup(now)
+			c.membersLock.Unlock()
+
+			c.requestLock.Lock()
 			c.requestOperations.cleanup(now)
+			c.requestLock.Unlock()
 		case <-c.stop:
 			break
 		}

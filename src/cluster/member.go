@@ -3,7 +3,6 @@ package cluster
 import (
 	"math/rand"
 	"net"
-	"sync"
 	"time"
 )
 
@@ -34,7 +33,6 @@ type memberStatus struct {
 }
 
 type memberStatusBook struct {
-	sync.RWMutex
 	members []*memberStatus
 	timeout time.Duration
 }
@@ -46,14 +44,10 @@ func createMemberStatusBook(timeout time.Duration) *memberStatusBook {
 }
 
 func (msb *memberStatusBook) Count() int {
-	msb.RLock()
-	defer msb.RUnlock()
 	return len(msb.members)
 }
 
 func (msb *memberStatusBook) add(member *memberStatus) {
-	msb.Lock()
-	defer msb.Unlock()
 	msb.members = append(msb.members, member)
 }
 
@@ -62,9 +56,6 @@ func (msb *memberStatusBook) randGet() *memberStatus {
 }
 
 func (msb *memberStatusBook) remove(memberName string) int {
-	msb.Lock()
-	defer msb.Unlock()
-
 	var members []*memberStatus
 	removed := 0
 
@@ -84,9 +75,6 @@ func (msb *memberStatusBook) remove(memberName string) int {
 func (msb *memberStatusBook) cleanup(now time.Time) []*memberStatus {
 	var keepMembers, removedMembers []*memberStatus
 
-	msb.Lock()
-	defer msb.Unlock()
-
 	for _, ms := range msb.members {
 		if now.Sub(ms.goneTime) <= msb.timeout {
 			keepMembers = append(keepMembers, ms)
@@ -101,9 +89,6 @@ func (msb *memberStatusBook) cleanup(now time.Time) []*memberStatus {
 }
 
 func (msb *memberStatusBook) names() []string {
-	msb.RLock()
-	defer msb.RUnlock()
-
 	var ret []string
 
 	for _, ms := range msb.members {
@@ -122,7 +107,6 @@ type memberOperation struct {
 }
 
 type memberOperationBook struct {
-	sync.Mutex
 	operations map[string]*memberOperation
 	timeout    time.Duration
 }
@@ -135,9 +119,6 @@ func createMemberOperationBook(timeout time.Duration) *memberOperationBook {
 }
 
 func (mob *memberOperationBook) save(msgType messageType, nodeName string, msgTime logicalTime) bool {
-	mob.Lock()
-	defer mob.Unlock()
-
 	operation, ok := mob.operations[nodeName]
 	if !ok || msgTime > operation.messageTime {
 		mob.operations[nodeName] = &memberOperation{
@@ -152,9 +133,6 @@ func (mob *memberOperationBook) save(msgType messageType, nodeName string, msgTi
 }
 
 func (mob *memberOperationBook) get(nodeName string, msgType messageType) (bool, logicalTime) {
-	mob.Lock()
-	defer mob.Unlock()
-
 	operation, ok := mob.operations[nodeName]
 	if !ok || operation.msgType != msgType {
 		return false, zeroLogicalTime
@@ -164,9 +142,6 @@ func (mob *memberOperationBook) get(nodeName string, msgType messageType) (bool,
 }
 
 func (mob *memberOperationBook) cleanup(now time.Time) {
-	mob.Lock()
-	defer mob.Unlock()
-
 	for nodeName, operation := range mob.operations {
 		if now.Sub(operation.receiveTime) > mob.timeout {
 			delete(mob.operations, nodeName)

@@ -161,7 +161,6 @@ type requestOperation struct {
 }
 
 type requestOperationBook struct {
-	sync.Mutex
 	operations map[uint64]*requestOperation
 	timeout    time.Duration
 }
@@ -174,9 +173,6 @@ func createRequestOperationBook(timeout time.Duration) *requestOperationBook {
 }
 
 func (rob *requestOperationBook) save(requestId uint64, msgTime logicalTime) bool {
-	rob.Lock()
-	defer rob.Unlock()
-
 	request, known := rob.operations[requestId]
 	if !known {
 		request = &requestOperation{
@@ -200,9 +196,6 @@ func (rob *requestOperationBook) save(requestId uint64, msgTime logicalTime) boo
 }
 
 func (rob *requestOperationBook) cleanup(now time.Time) {
-	rob.Lock()
-	defer rob.Unlock()
-
 	for requestId, operation := range rob.operations {
 		if now.Sub(operation.receiveTime) > rob.timeout {
 			delete(rob.operations, requestId)
