@@ -177,11 +177,14 @@ func (mr *messageRequest) filter(conf *Config) bool {
 ////
 
 type messageResponse struct {
-	id       uint64
-	time     logicalTime
-	flags    uint32
-	nodeName string
-	payload  []byte // response payload for upper layer
+	requestId   uint64
+	name        string
+	time        logicalTime
+	flags       uint32
+	nodeName    string
+	nodeAddress net.IP
+	nodePort    uint16
+	payload     []byte // response payload for upper layer
 }
 
 func (mr *messageResponse) flag(flag requestFlagType) bool {

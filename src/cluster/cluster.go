@@ -512,52 +512,51 @@ func (c *cluster) operateRequest(msg *messageRequest) bool {
 }
 
 func (c *cluster) operateResponse(msg *messageResponse) bool {
-	// TODO: fix compilation error in this func
+	c.futuresLock.RLock()
+	future, known := c.futures[msg.time]
+	c.futuresLock.RUnlock()
 
-	// c.futuresLock.RLock()
-	// future, known := c.futures[msg.time]
-	// c.futuresLock.RUnlock()
+	if !known {
+		logger.Warnf("[BUG: request %s is responded but the request did not send, ignored]", msg.name)
+		return false
+	}
 
-	// if !known {
-	// 	logger.Warnf("[BUG: request %s is responded but the request did not send, ignored]", msg.name)
-	// 	return false
-	// }
+	if future.requestId != msg.requestId {
+		logger.Warnf("[BUG: request id %d is mismatch with response %d, ignored]",
+			future.requestId, msg.requestId)
+		return false
+	}
 
-	// if future.requestId != msg.id {
-	// 	logger.Warnf("[BUG: request id %d is mismatch with response %d, ignored]", future.requestId, msg.id)
-	// 	return false
-	// }
+	if future.Closed() {
+		return false
+	}
 
-	// if future.Closed() {
-	// 	return false
-	// }
+	if msg.flag(ackRequestFlag) {
+		triggered, err := future.ack(msg.nodeName)
+		if err != nil {
+			logger.Errorf("[trigger response ack event failed: %s]", err)
+		}
 
-	// if msg.flag(ackRequestFlag) {
-	// 	triggered, err := future.ack(msg.nodeName)
-	// 	if err != nil {
-	// 		logger.Errorf("[trigger response ack event failed: %s]", err)
-	// 	}
+		if triggered {
+			logger.Debugf("[ack of request %s triggered for member %s (%s:%d)]",
+				msg.name, msg.nodeName, msg.nodePort)
+		}
+	} else {
+		response := MemberResponse{
+			NodeName: msg.nodeName,
+			Payload:  msg.payload,
+		}
 
-	// 	if triggered {
-	// 		logger.Debugf("[ack of request %s triggered for member %s (%s:%d)]",
-	// 			msg.name, msg.nodeAddress, msg.nodePort)
-	// 	}
-	// } else {
-	// 	response := MemberResponse{
-	// 		NodeName: msg.nodeName,
-	// 		Payload:  msg.payload,
-	// 	}
+		triggered, err := future.response(&response)
+		if err != nil {
+			logger.Errorf("[trigger response event failed: %s]", err)
+		}
 
-	// 	triggered, err := future.response(response)
-	// 	if err != nil {
-	// 		logger.Errorf("[trigger response event failed: %s]", err)
-	// 	}
-
-	// 	if triggered {
-	// 		logger.Debugf("[response of request %s triggered for member %s (%s:%d)]",
-	// 			msg.name, msg.nodeAddress, msg.nodePort)
-	// 	}
-	// }
+		if triggered {
+			logger.Debugf("[response of request %s triggered for member %s (%s:%d)]",
+				msg.name, msg.nodeName, msg.nodeAddress, msg.nodePort)
+		}
+	}
 
 	return false
 }

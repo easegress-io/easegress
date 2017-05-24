@@ -128,11 +128,13 @@ func (e *RequestEvent) Respond(payload []byte) error {
 	source := e.c.memberList.LocalNode()
 
 	msg := messageResponse{
-		id:       e.id,
-		time:     e.time,
-		flags:    e.flags,
-		nodeName: source.Name,
-		payload:  payload,
+		requestId:   e.id,
+		name:        e.Name,
+		time:        e.time,
+		nodeName:    source.Name,
+		nodeAddress: source.Addr,
+		nodePort:    source.Port,
+		payload:     payload,
 	}
 
 	buff, err := pack(&msg, uint8(responseMessage))
@@ -203,10 +205,13 @@ func (e *RequestEvent) ack() error {
 	source := e.c.memberList.LocalNode()
 
 	msg := messageResponse{
-		id:       e.id,
-		time:     e.time,
-		flags:    uint32(ackRequestFlag),
-		nodeName: source.Name,
+		requestId:   e.id,
+		name:        e.Name,
+		time:        e.time,
+		flags:       uint32(ackRequestFlag),
+		nodeName:    source.Name,
+		nodeAddress: source.Addr,
+		nodePort:    source.Port,
 	}
 
 	buff, err := pack(&msg, uint8(responseMessage))
