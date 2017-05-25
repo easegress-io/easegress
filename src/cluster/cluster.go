@@ -322,7 +322,14 @@ func (c *cluster) joinNode(node *memberlist.Node) {
 		MemberJoinEvent.String(), ms.nodeName, ms.address, ms.port)
 
 	if c.conf.EventStream != nil {
-		c.conf.EventStream <- createMemberEvent(MemberJoinEvent, &ms.member)
+		select {
+		case c.conf.EventStream <- createMemberEvent(MemberJoinEvent, &ms.member):
+			logger.Debugf("[event %s triggered for member %s (%s:%d)]",
+				MemberJoinEvent.String(), ms.nodeName, ms.address, ms.port)
+		default:
+			logger.Errorf("[event %s trigger failed for member %s (%s:%d)]",
+				MemberJoinEvent.String(), ms.nodeName, ms.address, ms.port)
+		}
 	}
 }
 
@@ -363,7 +370,14 @@ func (c *cluster) leaveNode(node *memberlist.Node) {
 		event.String(), ms.nodeName, ms.address, ms.port)
 
 	if c.conf.EventStream != nil {
-		c.conf.EventStream <- createMemberEvent(event, &ms.member)
+		select {
+		case c.conf.EventStream <- createMemberEvent(event, &ms.member):
+			logger.Debugf("[event %s triggered for member %s (%s:%d)]",
+				event.String(), ms.nodeName, ms.address, ms.port)
+		default:
+			logger.Errorf("[event %s trigger failed for member %s (%s:%d)]",
+				event.String(), ms.nodeName, ms.address, ms.port)
+		}
 	}
 }
 
@@ -396,7 +410,14 @@ func (c *cluster) updateNode(node *memberlist.Node) {
 		MemberUpdateEvent.String(), ms.nodeName, ms.address, ms.port)
 
 	if c.conf.EventStream != nil {
-		c.conf.EventStream <- createMemberEvent(MemberUpdateEvent, &ms.member)
+		select {
+		case c.conf.EventStream <- createMemberEvent(MemberUpdateEvent, &ms.member):
+			logger.Debugf("[event %s triggered for member %s (%s:%d)]",
+				MemberUpdateEvent.String(), ms.nodeName, ms.address, ms.port)
+		default:
+			logger.Errorf("[event %s trigger failed for member %s (%s:%d)]",
+				MemberUpdateEvent.String(), ms.nodeName, ms.address, ms.port)
+		}
 	}
 }
 
@@ -468,7 +489,14 @@ func (c *cluster) operateNodeLeave(msg *messageMemberLeave) bool {
 			MemberLeftEvent.String(), ms.nodeName, ms.address, ms.port)
 
 		if c.conf.EventStream != nil {
-			c.conf.EventStream <- createMemberEvent(MemberLeftEvent, &ms.member)
+			select {
+			case c.conf.EventStream <- createMemberEvent(MemberLeftEvent, &ms.member):
+				logger.Debugf("[event %s triggered for member %s (%s:%d)]",
+					MemberLeftEvent.String(), ms.nodeName, ms.address, ms.port)
+			default:
+				logger.Errorf("[event %s trigger failed for member %s (%s:%d)]",
+					MemberLeftEvent.String(), ms.nodeName, ms.address, ms.port)
+			}
 		}
 
 		return true
@@ -508,7 +536,14 @@ func (c *cluster) operateRequest(msg *messageRequest) bool {
 		RequestReceivedEvent, msg.requestNodeName, msg.requestNodeAddress, msg.requestNodePort)
 
 	if c.conf.EventStream != nil {
-		c.conf.EventStream <- event
+		select {
+		case c.conf.EventStream <- event:
+			logger.Debugf("[event %s triggered for member %s (%s:%d)]",
+				RequestReceivedEvent, msg.requestNodeName, msg.requestNodeAddress, msg.requestNodePort)
+		default:
+			logger.Errorf("[event %s trigger failed for member %s (%s:%d)]",
+				RequestReceivedEvent, msg.requestNodeName, msg.requestNodeAddress, msg.requestNodePort)
+		}
 	}
 
 	return ret
