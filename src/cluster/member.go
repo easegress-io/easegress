@@ -12,7 +12,7 @@ func init() {
 
 ////
 
-type member struct {
+type Member struct {
 	nodeName string
 	nodeTags map[string]string
 	address  net.IP
@@ -27,7 +27,7 @@ type member struct {
 ////
 
 type memberStatus struct {
-	member
+	Member
 	lastMessageTime logicalTime
 	goneTime        time.Time // local wall clock time, for cleanup
 }

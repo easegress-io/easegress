@@ -2,12 +2,21 @@ package cluster
 
 import (
 	"fmt"
+	"math/rand"
 	"net"
 	"sync"
 	"time"
 
 	"github.com/hashicorp/memberlist"
+
+	"logger"
 )
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
+////
 
 type EventType int8
 
@@ -49,10 +58,10 @@ type Event interface {
 
 type MemberEvent struct {
 	Typ    EventType
-	Member member
+	Member Member
 }
 
-func createMemberEvent(t EventType, member *member) *MemberEvent {
+func createMemberEvent(t EventType, member *Member) *MemberEvent {
 	return &MemberEvent{
 		Typ:    t,
 		Member: *member,
@@ -157,10 +166,10 @@ func (e *RequestEvent) Respond(payload []byte) error {
 
 	err = e.c.memberList.SendReliable(requester, buff)
 	if err != nil {
-		return err
+		return fmt.Errorf("send response message failed: %s", err)
 	}
 
-	err = e.relay(&msg, requester)
+	err = e.relay(responder, requester, buff)
 	if err != nil {
 		return err
 	}
@@ -170,14 +179,75 @@ func (e *RequestEvent) Respond(payload []byte) error {
 	return nil
 }
 
-func (e *RequestEvent) relay(msg *messageResponse, requester *memberlist.Node) error {
+func (e *RequestEvent) relay(responder, requester *memberlist.Node, responseMsgBuff []byte) error {
 	if e.responseRelayCount == 0 {
 		// nothing to do
 		return nil
 	}
 
-	// TODO(zhiyan): to send relay message out
-	// TODO(zhiyan): merge ack/response event for upper layer on duplicated messages
+	members := e.c.Members()
+	if len(members) < int(e.responseRelayCount)+1 {
+		// need not to do
+		return nil
+	}
+
+	msg := messageRelay{
+		sourceNodeName:    responder.Name,
+		targetNodeAddress: requester.Addr,
+		targetNodePort:    requester.Port,
+		relayPayload:      responseMsgBuff,
+	}
+
+	buff, err := pack(&msg, uint8(messageRelayMessage))
+	if err != nil {
+		return fmt.Errorf("pack relay message failed: %s", err)
+	}
+
+	var relayMembers []*memberlist.Node
+
+LOOP:
+	for times := 0; len(relayMembers) < int(e.responseRelayCount) && times < len(members)*5; times++ {
+		idx := rand.Intn(len(members))
+		member := members[idx]
+
+		if member.nodeName == responder.Name {
+			// skip myself
+			continue LOOP
+		}
+
+		if member.status != MemberAlive {
+			// skip the node as non-alive member
+			continue LOOP
+		}
+
+		for _, m := range relayMembers {
+			if m.Name == member.nodeName {
+				// skip selected member
+				continue LOOP
+			}
+		}
+
+		for _, node := range e.c.memberList.Members() {
+			if node.Addr.Equal(member.address) && node.Port == member.port {
+				relayMembers = append(relayMembers, node)
+				continue LOOP
+			}
+		}
+	}
+
+	if len(relayMembers) != int(e.responseRelayCount) {
+		logger.Warnf("[only %d member(s) can be selected to relay message, request requires %d relier]",
+			len(relayMembers), e.responseRelayCount)
+	}
+
+	// Relay to a random set of peers.
+	for _, m := range relayMembers {
+		err = e.c.memberList.SendReliable(m, buff)
+		if err != nil {
+			return fmt.Errorf("send relay message failed: %s", err)
+		}
+
+	}
 
 	return nil
 }
@@ -225,15 +295,15 @@ func (e *RequestEvent) ack() error {
 
 	buff, err := pack(&msg, uint8(responseMessage))
 	if err != nil {
-		return fmt.Errorf("pack response message failed: %s", err)
+		return fmt.Errorf("pack response ack message failed: %s", err)
 	}
 
 	err = e.c.memberList.SendReliable(requester, buff)
 	if err != nil {
-		return err
+		return fmt.Errorf("send response ack message failed: %s", err)
 	}
 
-	err = e.relay(&msg, requester)
+	err = e.relay(responder, requester, buff)
 	if err != nil {
 		return err
 	}

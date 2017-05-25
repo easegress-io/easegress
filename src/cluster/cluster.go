@@ -256,6 +256,18 @@ func (c *cluster) NodeStatus() NodeStatus {
 	return c.nodeStatus
 }
 
+func (s *cluster) Members() []Member {
+	s.membersLock.RLock()
+	defer s.membersLock.RUnlock()
+
+	var ret []Member
+	for _, ms := range s.members {
+		ret = append(ret, ms.Member)
+	}
+
+	return ret
+}
+
 ////
 
 func (c *cluster) joinNode(node *memberlist.Node) {
@@ -274,7 +286,7 @@ func (c *cluster) joinNode(node *memberlist.Node) {
 		originalStatus = MemberNone
 
 		ms = &memberStatus{
-			member: member{
+			Member: Member{
 				nodeName: node.Name,
 				nodeTags: tags,
 				address:  node.Addr,
@@ -323,7 +335,7 @@ func (c *cluster) joinNode(node *memberlist.Node) {
 
 	if c.conf.EventStream != nil {
 		select {
-		case c.conf.EventStream <- createMemberEvent(MemberJoinEvent, &ms.member):
+		case c.conf.EventStream <- createMemberEvent(MemberJoinEvent, &ms.Member):
 			logger.Debugf("[event %s triggered for member %s (%s:%d)]",
 				MemberJoinEvent.String(), ms.nodeName, ms.address, ms.port)
 		default:
@@ -371,7 +383,7 @@ func (c *cluster) leaveNode(node *memberlist.Node) {
 
 	if c.conf.EventStream != nil {
 		select {
-		case c.conf.EventStream <- createMemberEvent(event, &ms.member):
+		case c.conf.EventStream <- createMemberEvent(event, &ms.Member):
 			logger.Debugf("[event %s triggered for member %s (%s:%d)]",
 				event.String(), ms.nodeName, ms.address, ms.port)
 		default:
@@ -411,7 +423,7 @@ func (c *cluster) updateNode(node *memberlist.Node) {
 
 	if c.conf.EventStream != nil {
 		select {
-		case c.conf.EventStream <- createMemberEvent(MemberUpdateEvent, &ms.member):
+		case c.conf.EventStream <- createMemberEvent(MemberUpdateEvent, &ms.Member):
 			logger.Debugf("[event %s triggered for member %s (%s:%d)]",
 				MemberUpdateEvent.String(), ms.nodeName, ms.address, ms.port)
 		default:
@@ -490,7 +502,7 @@ func (c *cluster) operateNodeLeave(msg *messageMemberLeave) bool {
 
 		if c.conf.EventStream != nil {
 			select {
-			case c.conf.EventStream <- createMemberEvent(MemberLeftEvent, &ms.member):
+			case c.conf.EventStream <- createMemberEvent(MemberLeftEvent, &ms.Member):
 				logger.Debugf("[event %s triggered for member %s (%s:%d)]",
 					MemberLeftEvent.String(), ms.nodeName, ms.address, ms.port)
 			default:
@@ -740,11 +752,11 @@ func (c *cluster) broadcastRequestMessage(requestId uint64, name string, request
 	return nil
 }
 
-func (c *cluster) aliveMembers(peer bool) []*member {
+func (c *cluster) aliveMembers(peer bool) []*Member {
 	c.membersLock.RLock()
 	defer c.membersLock.RUnlock()
 
-	ret := make([]*member, 0, len(c.members))
+	ret := make([]*Member, 0, len(c.members))
 
 	for _, ms := range c.members {
 		if ms.nodeName == c.conf.NodeName && peer {
@@ -752,7 +764,7 @@ func (c *cluster) aliveMembers(peer bool) []*member {
 		}
 
 		if ms.status == MemberAlive {
-			ret = append(ret, &ms.member)
+			ret = append(ret, &ms.Member)
 		}
 	}
 
@@ -774,7 +786,7 @@ func (c *cluster) cleanupMember() {
 				MemberCleanupEvent.String(), ms.nodeName, ms.address, ms.port)
 
 			if c.conf.EventStream != nil {
-				c.conf.EventStream <- createMemberEvent(MemberCleanupEvent, &ms.member)
+				c.conf.EventStream <- createMemberEvent(MemberCleanupEvent, &ms.Member)
 			}
 		}
 	}
