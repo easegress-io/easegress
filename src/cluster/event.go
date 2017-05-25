@@ -137,15 +137,6 @@ func (e *RequestEvent) Respond(payload []byte) error {
 		responsePayload:     payload,
 	}
 
-	buff, err := pack(&msg, uint8(responseMessage))
-	if err != nil {
-		return fmt.Errorf("pack response message failed: %s", err)
-	}
-
-	if len(buff) > int(e.c.conf.ResponseSizeLimit) {
-		return fmt.Errorf("response is too big (%d bytes)", len(buff))
-	}
-
 	var requester *memberlist.Node
 
 	for _, member := range e.c.memberList.Members() {
@@ -159,7 +150,12 @@ func (e *RequestEvent) Respond(payload []byte) error {
 		return fmt.Errorf("request source node is not available")
 	}
 
-	err = e.c.memberList.SendBestEffort(requester, buff)
+	buff, err := pack(&msg, uint8(responseMessage))
+	if err != nil {
+		return fmt.Errorf("pack response message failed: %s", err)
+	}
+
+	err = e.c.memberList.SendReliable(requester, buff)
 	if err != nil {
 		return err
 	}
@@ -214,15 +210,6 @@ func (e *RequestEvent) ack() error {
 		responseNodePort:    responder.Port,
 	}
 
-	buff, err := pack(&msg, uint8(responseMessage))
-	if err != nil {
-		return fmt.Errorf("pack response message failed: %s", err)
-	}
-
-	if len(buff) > int(e.c.conf.ResponseSizeLimit) {
-		return fmt.Errorf("response is too big (%d bytes)", len(buff))
-	}
-
 	var requester *memberlist.Node
 
 	for _, member := range e.c.memberList.Members() {
@@ -236,7 +223,12 @@ func (e *RequestEvent) ack() error {
 		return fmt.Errorf("request source node is not available")
 	}
 
-	err = e.c.memberList.SendBestEffort(requester, buff)
+	buff, err := pack(&msg, uint8(responseMessage))
+	if err != nil {
+		return fmt.Errorf("pack response message failed: %s", err)
+	}
+
+	err = e.c.memberList.SendReliable(requester, buff)
 	if err != nil {
 		return err
 	}

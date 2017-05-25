@@ -45,8 +45,6 @@ type Config struct {
 	// Max member suspicion timeout equals to member suspicion timeout * SuspicionMaxTimeoutMult
 	MemberSuspicionMult, MemberSuspicionMaxTimeoutMult uint
 
-	RequestSizeLimit, ResponseSizeLimit uint
-
 	EventStream chan<- Event
 }
 
@@ -70,13 +68,6 @@ func createMemberListConfig(conf *Config, eventDelegate memberlist.EventDelegate
 	indirectCheckNodes := 1
 	if conf.IndirectCheckNodes > 0 {
 		indirectCheckNodes = int(conf.IndirectCheckNodes)
-	}
-
-	udpBufferSize := 1400
-	if conf.RequestSizeLimit > conf.ResponseSizeLimit {
-		udpBufferSize = int(conf.RequestSizeLimit) + 200 // 200 bytes for memberlist internal usage
-	} else {
-		udpBufferSize = int(conf.ResponseSizeLimit) + 200
 	}
 
 	gossipRetransmitMult := 1
@@ -123,7 +114,7 @@ func createMemberListConfig(conf *Config, eventDelegate memberlist.EventDelegate
 		DisableTcpPings:         false,
 		DNSConfigPath:           "/etc/resolv.conf",
 		HandoffQueueDepth:       1024,
-		UDPBufferSize:           udpBufferSize,
+		UDPBufferSize:           1400,
 		RetransmitMult:          gossipRetransmitMult,
 		SuspicionMult:           memberSuspicionMult,
 		SuspicionMaxTimeoutMult: memberSuspicionMaxTimeoutMult,
@@ -164,8 +155,6 @@ func DefaultLANConfig() *Config {
 		RequestTimeoutMult:            15,
 		MemberSuspicionMult:           5,
 		MemberSuspicionMaxTimeoutMult: 6,
-		RequestSizeLimit:              1200,
-		ResponseSizeLimit:             1200,
 	}
 
 	return ret

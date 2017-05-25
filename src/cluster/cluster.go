@@ -615,7 +615,7 @@ func (c *cluster) operateRelay(msg *messageRelay) bool {
 		return false
 	}
 
-	err := c.memberList.SendBestEffort(target, msg.relayPayload)
+	err := c.memberList.SendReliable(target, msg.relayPayload)
 	if err != nil {
 		logger.Warnf("[forward a relay message to target member (%s:%s) failed, ignored: %s]",
 			msg.targetNodeAddress, msg.targetNodePort, err)
@@ -723,15 +723,6 @@ func (c *cluster) broadcastRequestMessage(requestId uint64, name string, request
 		return err
 	}
 
-	buff, err := pack(msg, uint8(requestMessage))
-	if err != nil {
-		return err
-	}
-
-	if len(buff) > int(c.conf.RequestSizeLimit) {
-		return fmt.Errorf("request is too big (%d bytes)", len(buff))
-	}
-
 	// handle operation message locally
 	c.operateRequest(&msg)
 
@@ -740,8 +731,11 @@ func (c *cluster) broadcastRequestMessage(requestId uint64, name string, request
 		return nil
 	}
 
-	// send out the request message
-	fanoutBuffer(c.memberMessageSendQueue, buff, nil) // need not care if request sending is done
+	err = fanoutMessage(c.requestMessageSendQueue, &msg, requestMessage, nil) // need not to care if sending is done
+	if err != nil {
+		logger.Errorf("[failed to broadcast request message: %s]", err)
+		return err
+	}
 
 	return nil
 }
