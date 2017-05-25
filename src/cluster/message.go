@@ -25,15 +25,15 @@ const (
 ////
 
 type messageMemberJoin struct {
-	time     logicalTime
+	joinTime logicalTime
 	nodeName string
 }
 
 ////
 
 type messageMemberLeave struct {
-	time     logicalTime
-	nodeName string
+	leaveTime logicalTime
+	nodeName  string
 }
 
 ////
@@ -41,7 +41,7 @@ type messageMemberLeave struct {
 type messagePushPull struct {
 	memberClockTime, requestClockTime logicalTime
 	memberLastMessageTimes            map[string]logicalTime
-	leftMembers                       []string
+	leftMemberNames                   []string
 }
 
 ////
@@ -66,23 +66,23 @@ type requestNodeTagFilter struct {
 }
 
 type messageRequest struct {
-	id   uint64
-	name string
-	time logicalTime
+	requestId   uint64
+	requestName string
+	requestTime logicalTime
 
-	nodeName string
+	requestNodeName string
 	// used to respond directly
-	nodeAddress net.IP
-	nodePort    uint16
+	requestNodeAddress net.IP
+	requestNodePort    uint16
 
 	// options
-	filters    [][]byte
-	flags      uint32
-	relayCount uint
-	timeout    time.Duration
+	requestFilters     [][]byte
+	requestFlags       uint32
+	responseRelayCount uint
+	requestTimeout     time.Duration
 
-	// payload of upper layer
-	payload []byte
+	// request payload of upper layer
+	requestPayload []byte
 }
 
 func (mr *messageRequest) applyFilters(param *RequestParam) error {
@@ -92,8 +92,8 @@ func (mr *messageRequest) applyFilters(param *RequestParam) error {
 
 	var filters [][]byte
 
-	if len(param.NodeNames) > 0 {
-		buff, err := pack(param.NodeNames, uint8(nodeNameFilter))
+	if len(param.TargetNodeNames) > 0 {
+		buff, err := pack(param.TargetNodeNames, uint8(nodeNameFilter))
 		if err != nil {
 			return err
 		}
@@ -101,7 +101,7 @@ func (mr *messageRequest) applyFilters(param *RequestParam) error {
 		filters = append(filters, buff)
 	}
 
-	for name, valueRegex := range param.NodeTags {
+	for name, valueRegex := range param.TargetNodeTags {
 		filter := requestNodeTagFilter{
 			name, valueRegex,
 		}
@@ -114,13 +114,13 @@ func (mr *messageRequest) applyFilters(param *RequestParam) error {
 		filters = append(filters, buff)
 	}
 
-	mr.filters = filters
+	mr.requestFilters = filters
 
 	return nil
 }
 
 func (mr *messageRequest) flag(flag requestFlagType) bool {
-	return (mr.flags & uint32(flag)) != 0
+	return (mr.requestFlags & uint32(flag)) != 0
 }
 
 func (mr *messageRequest) filter(conf *Config) bool {
@@ -128,7 +128,7 @@ func (mr *messageRequest) filter(conf *Config) bool {
 		return false
 	}
 
-	for _, filter := range mr.filters {
+	for _, filter := range mr.requestFilters {
 		filterType := requestFilterType(filter[0])
 
 		switch filterType {
@@ -166,7 +166,7 @@ func (mr *messageRequest) filter(conf *Config) bool {
 
 			return false
 		default:
-			logger.Errorf("[BUG: invalid request filter type, ignored: %v]", filterType)
+			logger.Errorf("[BUG: invalid request filter type %v, ignored]", filterType)
 			return false
 		}
 	}
@@ -176,36 +176,42 @@ func (mr *messageRequest) filter(conf *Config) bool {
 
 ////
 
+type responseFlagType uint32
+
+const (
+	ackResponseFlag responseFlagType = 1 << iota
+)
+
+////
+
 type messageResponse struct {
 	requestId   uint64
-	name        string
-	time        logicalTime
-	flags       uint32
-	nodeName    string
-	nodeAddress net.IP
-	nodePort    uint16
-	payload     []byte // response payload for upper layer
+	requestName string
+	requestTime logicalTime
+
+	// options
+	responseFlags       uint32
+	responseNodeName    string
+	responseNodeAddress net.IP
+	responseNodePort    uint16
+
+	// response payload of upper layer
+	responsePayload []byte
 }
 
-func (mr *messageResponse) flag(flag requestFlagType) bool {
-	return (mr.flags & uint32(flag)) != 0
-}
-
-func (mr *messageResponse) send() bool {
-	// TODO
-	return false
+func (mr *messageResponse) flag(flag responseFlagType) bool {
+	return (mr.responseFlags & uint32(flag)) != 0
 }
 
 ////
 
 type messageRelay struct {
 	sourceNodeName string
-	time           logicalTime
 
-	nodeAddress net.IP
-	nodePort    uint16
+	targetNodeAddress net.IP
+	targetNodePort    uint16
 
-	payload []byte
+	relayPayload []byte
 }
 
 ////

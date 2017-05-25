@@ -192,11 +192,13 @@ func DefaultLocalConfig() *Config {
 	ret.TCPTimeout = time.Second
 	ret.IndirectCheckNodes = 1
 	ret.GossipRetransmitMult = 2
+	ret.MessageRetransmitMult = 2
 	ret.MemberSuspicionMult = 3
 	ret.PushPullInterval = 15 * time.Second
 	ret.ProbeTimeout = 200 * time.Millisecond
 	ret.ProbeInterval = time.Second
 	ret.GossipInterval = 100 * time.Millisecond
 	ret.GossipToTheDeadTime = 15 * time.Second
+
 	return ret
 }

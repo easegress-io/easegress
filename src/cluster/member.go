@@ -13,10 +13,10 @@ func init() {
 ////
 
 type member struct {
-	name    string
-	tags    map[string]string
-	address net.IP
-	port    uint16
+	nodeName string
+	nodeTags map[string]string
+	address  net.IP
+	port     uint16
 
 	status MemberStatus
 
@@ -32,7 +32,7 @@ type memberStatus struct {
 	goneTime        time.Time // local wall clock time, for cleanup
 }
 
-type memberStatusBook struct {
+type memberStatusBook struct { // locking from outside
 	members []*memberStatus
 	timeout time.Duration
 }
@@ -60,7 +60,7 @@ func (msb *memberStatusBook) remove(memberName string) int {
 	removed := 0
 
 	for _, ms := range msb.members {
-		if ms.name == memberName {
+		if ms.nodeName == memberName {
 			removed++
 		} else {
 			members = append(members, ms)
@@ -92,7 +92,7 @@ func (msb *memberStatusBook) names() []string {
 	var ret []string
 
 	for _, ms := range msb.members {
-		ret = append(ret, ms.name)
+		ret = append(ret, ms.nodeName)
 	}
 
 	return ret
@@ -106,7 +106,7 @@ type memberOperation struct {
 	receiveTime time.Time // local wall clock time, for cleanup
 }
 
-type memberOperationBook struct {
+type memberOperationBook struct { // locking from outside
 	operations map[string]*memberOperation
 	timeout    time.Duration
 }

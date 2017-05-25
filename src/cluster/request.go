@@ -8,19 +8,19 @@ import (
 )
 
 type RequestParam struct {
-	NodeNames  []string
-	NodeTags   map[string]string // support regular expression
-	Ack        bool
-	RelayCount uint
-	Timeout    time.Duration
+	TargetNodeNames    []string
+	TargetNodeTags     map[string]string // support regular expression
+	RequireAck         bool
+	ResponseRelayCount uint
+	Timeout            time.Duration
 }
 
 func defaultRequestParam(aliveMemberCount int, requestTimeoutMult uint, gossipInterval time.Duration) *RequestParam {
 	return &RequestParam{
-		NodeNames: nil, // no filter
-		NodeTags:  nil, // no filter
-		Ack:       true,
-		Timeout:   defaultRequestTimeout(aliveMemberCount, requestTimeoutMult, gossipInterval),
+		TargetNodeNames: nil, // no filter
+		TargetNodeTags:  nil, // no filter
+		RequireAck:      true,
+		Timeout:         defaultRequestTimeout(aliveMemberCount, requestTimeoutMult, gossipInterval),
 	}
 }
 
@@ -33,8 +33,8 @@ func defaultRequestTimeout(aliveMemberCount int, requestTimeoutMult uint, gossip
 ////
 
 type MemberResponse struct {
-	NodeName string
-	Payload  []byte
+	ResponseNodeName string
+	Payload          []byte
 }
 
 ////
@@ -65,7 +65,7 @@ func createFuture(requestId uint64, requestTime logicalTime, memberCount int,
 		ackStream:       make(chan string, memberCount*2),
 	}
 
-	if param.Ack {
+	if param.RequireAck {
 		future.ackBook = make(map[string]struct{})
 	}
 
@@ -140,14 +140,14 @@ func (f *Future) response(response *MemberResponse) (bool, error) {
 		return false, nil
 	}
 
-	_, triggered := f.responseBook[response.NodeName]
+	_, triggered := f.responseBook[response.ResponseNodeName]
 	if triggered {
 		return false, nil
 	}
 
 	select {
 	case f.responseStream <- response:
-		f.responseBook[response.NodeName] = struct{}{}
+		f.responseBook[response.ResponseNodeName] = struct{}{}
 	default:
 		return false, fmt.Errorf("write response event to channel failed")
 	}

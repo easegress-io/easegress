@@ -70,7 +70,7 @@ func (md *messageDelegate) NotifyMsg(buff []byte) {
 		}
 
 		logger.Debugf("[received member join memssage from node %s at logical clock %d]",
-			msg.nodeName, msg.time)
+			msg.nodeName, msg.joinTime)
 
 		messageQueue = md.c.memberMessageSendQueue
 		forward = md.c.operateNodeJoin(&msg)
@@ -83,7 +83,7 @@ func (md *messageDelegate) NotifyMsg(buff []byte) {
 		}
 
 		logger.Debugf("[received member leave memssage from node %s at logical clock %d]",
-			msg.nodeName, msg.time)
+			msg.nodeName, msg.leaveTime)
 
 		messageQueue = md.c.memberMessageSendQueue
 		forward = md.c.operateNodeLeave(&msg)
@@ -96,7 +96,7 @@ func (md *messageDelegate) NotifyMsg(buff []byte) {
 		}
 
 		logger.Debugf("[received request memssage from node %s at logical clock %d]",
-			msg.nodeName, msg.time)
+			msg.requestNodeName, msg.requestTime)
 
 		messageQueue = md.c.requestMessageSendQueue
 		forward = md.c.operateRequest(&msg)
@@ -109,7 +109,7 @@ func (md *messageDelegate) NotifyMsg(buff []byte) {
 		}
 
 		logger.Debugf("[received response memssage from node %s at logical clock %d]",
-			msg.nodeName, msg.time)
+			msg.responseNodeName, msg.requestTime)
 
 		messageQueue = nil
 		forward = md.c.operateResponse(&msg)
@@ -121,8 +121,8 @@ func (md *messageDelegate) NotifyMsg(buff []byte) {
 			break
 		}
 
-		logger.Debugf("[received relay memssage from node %s at logical clock %d]",
-			msg.sourceNodeName, msg.time)
+		logger.Debugf("[received relay memssage from node %s]",
+			msg.sourceNodeName)
 
 		messageQueue = nil
 		forward = md.c.operateRelay(&msg)
@@ -165,7 +165,7 @@ func (d *messageDelegate) LocalState(join bool) []byte {
 		msg.memberLastMessageTimes[name] = ms.lastMessageTime
 	}
 
-	msg.leftMembers = append(msg.leftMembers, d.c.leftMembers.names()...)
+	msg.leftMemberNames = append(msg.leftMemberNames, d.c.leftMembers.names()...)
 
 	buff, err := pack(&msg, uint8(statePushPullMessage))
 	if err != nil {
@@ -199,7 +199,6 @@ func (d *messageDelegate) MergeRemoteState(buff []byte, isJoin bool) {
 	}
 
 	logger.Debugf("[received state push/pull memssage]")
-
 	if msg.memberClockTime > 0 {
 		d.c.memberClock.Update(msg.memberClockTime - 1)
 	}
@@ -210,11 +209,11 @@ func (d *messageDelegate) MergeRemoteState(buff []byte, isJoin bool) {
 
 	var leftMemberNames []string
 
-	for _, name := range msg.leftMembers {
+	for _, name := range msg.leftMemberNames {
 		leftMemberNames = append(leftMemberNames, name)
 
 		d.c.operateNodeLeave(&messageMemberLeave{
-			time:     msg.memberLastMessageTimes[name],
+			leaveTime:     msg.memberLastMessageTimes[name],
 			nodeName: name,
 		})
 	}
@@ -222,7 +221,7 @@ func (d *messageDelegate) MergeRemoteState(buff []byte, isJoin bool) {
 	for name, lastMessageTime := range msg.memberLastMessageTimes {
 		if !common.StrInSlice(name, leftMemberNames) {
 			d.c.operateNodeJoin(&messageMemberJoin{
-				time:     lastMessageTime,
+				joinTime:     lastMessageTime,
 				nodeName: name,
 			})
 		}

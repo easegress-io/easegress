@@ -276,11 +276,11 @@ func (c *cluster) joinNode(node *memberlist.Node) {
 
 		ms = &memberStatus{
 			member: member{
-				name:    node.Name,
-				tags:    tags,
-				address: node.Addr,
-				port:    node.Port,
-				status:  MemberAlive,
+				nodeName: node.Name,
+				nodeTags: tags,
+				address:  node.Addr,
+				port:     node.Port,
+				status:   MemberAlive,
 			},
 		}
 
@@ -299,7 +299,7 @@ func (c *cluster) joinNode(node *memberlist.Node) {
 	} else {
 		originalStatus = ms.status
 
-		ms.tags = tags
+		ms.nodeTags = tags
 		ms.address = node.Addr
 		ms.port = node.Port
 		ms.goneTime = time.Time{}
@@ -314,13 +314,13 @@ func (c *cluster) joinNode(node *memberlist.Node) {
 	ms.clusterProtocolCurrent = node.DCur
 
 	if originalStatus == MemberFailed {
-		c.failedMembers.remove(ms.name)
+		c.failedMembers.remove(ms.nodeName)
 	} else if originalStatus == MemberLeft {
-		c.leftMembers.remove(ms.name)
+		c.leftMembers.remove(ms.nodeName)
 	}
 
 	logger.Debugf("[event %s happened for member %s (%s:%d)]",
-		MemberJoinEvent.String(), ms.name, ms.address, ms.port)
+		MemberJoinEvent.String(), ms.nodeName, ms.address, ms.port)
 
 	if c.conf.EventStream != nil {
 		c.conf.EventStream <- createMemberEvent(MemberJoinEvent, &ms.member)
@@ -361,7 +361,7 @@ func (c *cluster) leaveNode(node *memberlist.Node) {
 	}
 
 	logger.Debugf("[event %s happened for member %s (%s:%d)]",
-		event.String(), ms.name, ms.address, ms.port)
+		event.String(), ms.nodeName, ms.address, ms.port)
 
 	if c.conf.EventStream != nil {
 		c.conf.EventStream <- createMemberEvent(event, &ms.member)
@@ -383,7 +383,7 @@ func (c *cluster) updateNode(node *memberlist.Node) {
 		logger.Errorf("[unpack node tags from metadata failed, tags are ignored: %s]", err)
 	}
 
-	ms.tags = tags
+	ms.nodeTags = tags
 	ms.address = node.Addr
 	ms.port = node.Port
 	ms.memberListProtocolMin = node.PMin
@@ -394,7 +394,7 @@ func (c *cluster) updateNode(node *memberlist.Node) {
 	ms.clusterProtocolCurrent = node.DCur
 
 	logger.Debugf("[event %s happened for member %s (%s:%d)]",
-		MemberUpdateEvent.String(), ms.name, ms.address, ms.port)
+		MemberUpdateEvent.String(), ms.nodeName, ms.address, ms.port)
 
 	if c.conf.EventStream != nil {
 		c.conf.EventStream <- createMemberEvent(MemberUpdateEvent, &ms.member)
@@ -408,22 +408,22 @@ func (c *cluster) resolveNodeConflict(knownNode, otherNode *memberlist.Node) {
 ////
 
 func (c *cluster) operateNodeJoin(msg *messageMemberJoin) bool {
-	c.memberClock.Update(msg.time)
+	c.memberClock.Update(msg.joinTime)
 
 	c.membersLock.Lock()
 	defer c.membersLock.Unlock()
 
 	member, known := c.members[msg.nodeName]
 	if !known {
-		return c.memberOperations.save(memberJoinMessage, msg.nodeName, msg.time)
+		return c.memberOperations.save(memberJoinMessage, msg.nodeName, msg.joinTime)
 	}
 
-	if member.lastMessageTime > msg.time {
+	if member.lastMessageTime > msg.joinTime {
 		// message is too old, ignore it
 		return false
 	}
 
-	member.lastMessageTime = msg.time
+	member.lastMessageTime = msg.joinTime
 
 	if member.status == MemberLeaving {
 		member.status = MemberAlive
@@ -433,17 +433,17 @@ func (c *cluster) operateNodeJoin(msg *messageMemberJoin) bool {
 }
 
 func (c *cluster) operateNodeLeave(msg *messageMemberLeave) bool {
-	c.memberClock.Update(msg.time)
+	c.memberClock.Update(msg.leaveTime)
 
 	c.membersLock.Lock()
 	defer c.membersLock.Unlock()
 
 	ms, known := c.members[msg.nodeName]
 	if !known {
-		return c.memberOperations.save(memberLeaveMessage, msg.nodeName, msg.time)
+		return c.memberOperations.save(memberLeaveMessage, msg.nodeName, msg.leaveTime)
 	}
 
-	if ms.lastMessageTime > msg.time {
+	if ms.lastMessageTime > msg.leaveTime {
 		// message is too old, ignore it
 		return false
 	}
@@ -456,17 +456,17 @@ func (c *cluster) operateNodeLeave(msg *messageMemberLeave) bool {
 	switch ms.status {
 	case MemberAlive:
 		ms.status = MemberLeaving
-		ms.lastMessageTime = msg.time
+		ms.lastMessageTime = msg.leaveTime
 		return true
 	case MemberFailed:
 		ms.status = MemberLeft
-		ms.lastMessageTime = msg.time
+		ms.lastMessageTime = msg.leaveTime
 
-		c.failedMembers.remove(ms.name)
+		c.failedMembers.remove(ms.nodeName)
 		c.leftMembers.add(ms)
 
 		logger.Debugf("[event %s happened for member %s (%s:%d)]",
-			MemberLeftEvent.String(), ms.name, ms.address, ms.port)
+			MemberLeftEvent.String(), ms.nodeName, ms.address, ms.port)
 
 		if c.conf.EventStream != nil {
 			c.conf.EventStream <- createMemberEvent(MemberLeftEvent, &ms.member)
@@ -479,12 +479,12 @@ func (c *cluster) operateNodeLeave(msg *messageMemberLeave) bool {
 }
 
 func (c *cluster) operateRequest(msg *messageRequest) bool {
-	c.requestClock.Update(msg.time)
+	c.requestClock.Update(msg.requestTime)
 
 	c.requestLock.Lock()
 	defer c.requestLock.Unlock()
 
-	care := c.requestOperations.save(msg.id, msg.time)
+	care := c.requestOperations.save(msg.requestId, msg.requestTime)
 	if !care {
 		return false
 	}
@@ -506,7 +506,7 @@ func (c *cluster) operateRequest(msg *messageRequest) bool {
 	}
 
 	logger.Debugf("[event %s happened for member %s (%s:%d)]",
-		RequestReceivedEvent, msg.nodeName, msg.nodeAddress, msg.nodePort)
+		RequestReceivedEvent, msg.requestNodeName, msg.requestNodeAddress, msg.requestNodePort)
 
 	if c.conf.EventStream != nil {
 		c.conf.EventStream <- event
@@ -519,9 +519,9 @@ func (c *cluster) operateResponse(msg *messageResponse) bool {
 	c.requestLock.RLock()
 	defer c.requestLock.RUnlock()
 
-	future, known := c.futures[msg.time]
+	future, known := c.futures[msg.requestTime]
 	if !known {
-		logger.Warnf("[BUG: request %s is responded but the request did not send, ignored]", msg.name)
+		logger.Warnf("[BUG: request %s is responded but the request did not send, ignored]", msg.requestName)
 		return false
 	}
 
@@ -535,20 +535,20 @@ func (c *cluster) operateResponse(msg *messageResponse) bool {
 		return false
 	}
 
-	if msg.flag(ackRequestFlag) {
-		triggered, err := future.ack(msg.nodeName)
+	if msg.flag(ackResponseFlag) {
+		triggered, err := future.ack(msg.responseNodeName)
 		if err != nil {
 			logger.Errorf("[trigger response ack event failed: %s]", err)
 		}
 
 		if triggered {
 			logger.Debugf("[ack of request %s triggered for member %s (%s:%d)]",
-				msg.name, msg.nodeName, msg.nodePort)
+				msg.requestName, msg.responseNodeName, msg.responseNodePort)
 		}
 	} else {
 		response := MemberResponse{
-			NodeName: msg.nodeName,
-			Payload:  msg.payload,
+			ResponseNodeName: msg.responseNodeName,
+			Payload:          msg.responsePayload,
 		}
 
 		triggered, err := future.response(&response)
@@ -558,7 +558,7 @@ func (c *cluster) operateResponse(msg *messageResponse) bool {
 
 		if triggered {
 			logger.Debugf("[response of request %s triggered for member %s (%s:%d)]",
-				msg.name, msg.nodeName, msg.nodeAddress, msg.nodePort)
+				msg.requestName, msg.responseNodeName, msg.responseNodeAddress, msg.responseNodePort)
 		}
 	}
 
@@ -569,7 +569,7 @@ func (c *cluster) operateRelay(msg *messageRelay) bool {
 	var target *memberlist.Node
 
 	for _, member := range c.memberList.Members() {
-		if member.Addr.Equal(msg.nodeAddress) && member.Port == msg.nodePort {
+		if member.Addr.Equal(msg.targetNodeAddress) && member.Port == msg.targetNodePort {
 			target = member
 			break
 		}
@@ -577,19 +577,19 @@ func (c *cluster) operateRelay(msg *messageRelay) bool {
 
 	if target == nil {
 		logger.Warnf("[target member (%s:%d) is not available, ignored]",
-			msg.nodeAddress, msg.nodePort)
+			msg.targetNodeAddress, msg.targetNodePort)
 		return false
 	}
 
-	err := c.memberList.SendBestEffort(target, msg.payload)
+	err := c.memberList.SendBestEffort(target, msg.relayPayload)
 	if err != nil {
 		logger.Warnf("[forward a relay message to target member (%s:%s) failed, ignored: %s]",
-			msg.nodeAddress, msg.nodePort, err)
+			msg.targetNodeAddress, msg.targetNodePort, err)
 		return false
 	}
 
 	logger.Debugf("[forward a relay message to target member (%s:%d)]",
-		msg.nodeAddress, msg.nodePort)
+		msg.targetNodeAddress, msg.targetNodePort)
 
 	return false
 }
@@ -599,7 +599,7 @@ func (c *cluster) operateRelay(msg *messageRelay) bool {
 func (c *cluster) broadcastMemberJoinMessage() error {
 	msg := messageMemberJoin{
 		nodeName: c.conf.NodeName,
-		time:     c.memberClock.Time(),
+		joinTime: c.memberClock.Time(),
 	}
 
 	// handle operation message locally
@@ -626,8 +626,8 @@ func (c *cluster) broadcastMemberJoinMessage() error {
 
 func (c *cluster) broadcastMemberLeaveMessage(nodeName string) error {
 	msg := messageMemberLeave{
-		nodeName: nodeName,
-		time:     c.memberClock.Time(),
+		nodeName:  nodeName,
+		leaveTime: c.memberClock.Time(),
 	}
 
 	// handle operation message locally
@@ -661,23 +661,23 @@ func (c *cluster) broadcastRequestMessage(requestId uint64, name string, request
 	payload []byte, param *RequestParam) error {
 
 	var flag uint32
-	if param.Ack {
+	if param.RequireAck {
 		flag |= uint32(ackRequestFlag)
 	}
 
 	source := c.memberList.LocalNode()
 
 	msg := messageRequest{
-		id:          requestId,
-		name:        name,
-		time:        requestTime,
-		nodeName:    source.Name,
-		nodeAddress: source.Addr,
-		nodePort:    source.Port,
-		flags:       flag,
-		relayCount:  param.RelayCount,
-		timeout:     param.Timeout,
-		payload:     payload,
+		requestId:          requestId,
+		requestName:        name,
+		requestTime:        requestTime,
+		requestNodeName:    source.Name,
+		requestNodeAddress: source.Addr,
+		requestNodePort:    source.Port,
+		requestFlags:       flag,
+		responseRelayCount: param.ResponseRelayCount,
+		requestTimeout:     param.Timeout,
+		requestPayload:     payload,
 	}
 
 	err := msg.applyFilters(param)
@@ -715,7 +715,7 @@ func (c *cluster) aliveMembers(peer bool) []*member {
 	ret := make([]*member, 0, len(c.members))
 
 	for _, ms := range c.members {
-		if ms.name == c.conf.NodeName && peer {
+		if ms.nodeName == c.conf.NodeName && peer {
 			continue
 		}
 
@@ -736,10 +736,10 @@ func (c *cluster) anyAlivePeerMembers() bool {
 func (c *cluster) cleanupMember() {
 	_cleanup := func(members []*memberStatus) {
 		for _, ms := range members {
-			delete(c.members, ms.name)
+			delete(c.members, ms.nodeName)
 
 			logger.Debugf("[event %s happened for member %s (%s:%d)]",
-				MemberCleanupEvent.String(), ms.name, ms.address, ms.port)
+				MemberCleanupEvent.String(), ms.nodeName, ms.address, ms.port)
 
 			if c.conf.EventStream != nil {
 				c.conf.EventStream <- createMemberEvent(MemberCleanupEvent, &ms.member)

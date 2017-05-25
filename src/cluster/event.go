@@ -67,36 +67,36 @@ func (e *MemberEvent) Type() EventType {
 
 type RequestEvent struct {
 	sync.Mutex
-	Name     string
-	Payload  []byte
-	NodeName string
+	RequestName     string
+	RequestPayload  []byte
+	RequestNodeName string
 
 	c *cluster
 
-	id                   uint64
-	time                 logicalTime
-	flags                uint32
-	nodeAddress          net.IP
-	nodePort             uint16
-	relayCount           uint
+	requestId            uint64
+	requestTime          logicalTime
+	requestFlags         uint32
+	requestNodeAddress   net.IP
+	requestNodePort      uint16
+	responseRelayCount   uint
 	acknowledged, closed bool
 }
 
 func createRequestEvent(c *cluster, msg *messageRequest) *RequestEvent {
 	ret := &RequestEvent{
-		Name:        msg.name,
-		Payload:     msg.payload,
-		NodeName:    msg.nodeName,
-		c:           c,
-		id:          msg.id,
-		time:        msg.time,
-		flags:       msg.flags,
-		nodeAddress: msg.nodeAddress,
-		nodePort:    msg.nodePort,
-		relayCount:  msg.relayCount,
+		RequestName:        msg.requestName,
+		RequestPayload:     msg.requestPayload,
+		RequestNodeName:    msg.requestNodeName,
+		c:                  c,
+		requestId:          msg.requestId,
+		requestTime:        msg.requestTime,
+		requestFlags:       msg.requestFlags,
+		requestNodeAddress: msg.requestNodeAddress,
+		requestNodePort:    msg.requestNodePort,
+		responseRelayCount: msg.responseRelayCount,
 	}
 
-	time.AfterFunc(msg.timeout, func() {
+	time.AfterFunc(msg.requestTimeout, func() {
 		ret.Lock()
 		defer ret.Unlock()
 		ret.closed = true
@@ -110,7 +110,7 @@ func (e *RequestEvent) Type() EventType {
 }
 
 func (e *RequestEvent) flag(flag requestFlagType) bool {
-	return (e.flags & uint32(flag)) != 0
+	return (e.requestFlags & uint32(flag)) != 0
 }
 
 func (e *RequestEvent) Respond(payload []byte) error {
@@ -125,16 +125,16 @@ func (e *RequestEvent) Respond(payload []byte) error {
 		return fmt.Errorf("notification can not respond")
 	}
 
-	source := e.c.memberList.LocalNode()
+	responder := e.c.memberList.LocalNode()
 
 	msg := messageResponse{
-		requestId:   e.id,
-		name:        e.Name,
-		time:        e.time,
-		nodeName:    source.Name,
-		nodeAddress: source.Addr,
-		nodePort:    source.Port,
-		payload:     payload,
+		requestId:           e.requestId,
+		requestName:         e.RequestName,
+		requestTime:         e.requestTime,
+		responseNodeName:    responder.Name,
+		responseNodeAddress: responder.Addr,
+		responseNodePort:    responder.Port,
+		responsePayload:     payload,
 	}
 
 	buff, err := pack(&msg, uint8(responseMessage))
@@ -149,14 +149,14 @@ func (e *RequestEvent) Respond(payload []byte) error {
 	var requester *memberlist.Node
 
 	for _, member := range e.c.memberList.Members() {
-		if member.Addr.Equal(e.nodeAddress) && member.Port == e.nodePort {
+		if member.Addr.Equal(e.requestNodeAddress) && member.Port == e.requestNodePort {
 			requester = member
 			break
 		}
 	}
 
 	if requester == nil {
-		return fmt.Errorf("source node is not available")
+		return fmt.Errorf("request source node is not available")
 	}
 
 	err = e.c.memberList.SendBestEffort(requester, buff)
@@ -174,8 +174,8 @@ func (e *RequestEvent) Respond(payload []byte) error {
 	return nil
 }
 
-func (e *RequestEvent) relay(msg *messageResponse, target *memberlist.Node) error {
-	if e.relayCount == 0 {
+func (e *RequestEvent) relay(msg *messageResponse, requester *memberlist.Node) error {
+	if e.responseRelayCount == 0 {
 		// nothing to do
 		return nil
 	}
@@ -202,16 +202,16 @@ func (e *RequestEvent) ack() error {
 		return fmt.Errorf("request need not be acknowledged")
 	}
 
-	source := e.c.memberList.LocalNode()
+	responder := e.c.memberList.LocalNode()
 
 	msg := messageResponse{
-		requestId:   e.id,
-		name:        e.Name,
-		time:        e.time,
-		flags:       uint32(ackRequestFlag),
-		nodeName:    source.Name,
-		nodeAddress: source.Addr,
-		nodePort:    source.Port,
+		requestId:           e.requestId,
+		requestName:         e.RequestName,
+		requestTime:         e.requestTime,
+		responseFlags:       uint32(ackResponseFlag),
+		responseNodeName:    responder.Name,
+		responseNodeAddress: responder.Addr,
+		responseNodePort:    responder.Port,
 	}
 
 	buff, err := pack(&msg, uint8(responseMessage))
@@ -226,13 +226,14 @@ func (e *RequestEvent) ack() error {
 	var requester *memberlist.Node
 
 	for _, member := range e.c.memberList.Members() {
-		if member.Addr.Equal(e.nodeAddress) && member.Port == e.nodePort {
+		if member.Addr.Equal(e.requestNodeAddress) && member.Port == e.requestNodePort {
 			requester = member
+			break
 		}
 	}
 
 	if requester == nil {
-		return fmt.Errorf("source node is not available")
+		return fmt.Errorf("request source node is not available")
 	}
 
 	err = e.c.memberList.SendBestEffort(requester, buff)
