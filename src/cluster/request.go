@@ -119,6 +119,7 @@ func (f *Future) ack(nodeName string) (bool, error) {
 
 	_, triggered := f.ackBook[nodeName]
 	if triggered {
+		// ack is handled, ignore it
 		return false, nil
 	}
 
@@ -142,6 +143,7 @@ func (f *Future) response(response *MemberResponse) (bool, error) {
 
 	_, triggered := f.responseBook[response.ResponseNodeName]
 	if triggered {
+		// response is handled, ignore it
 		return false, nil
 	}
 

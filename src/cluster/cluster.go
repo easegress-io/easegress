@@ -606,18 +606,20 @@ func (c *cluster) broadcastMemberJoinMessage() error {
 
 	// send out the node join message
 	sentNotify := make(chan struct{})
+	defer close(sentNotify)
+
 	err := fanoutMessage(c.memberMessageSendQueue, &msg, memberJoinMessage, sentNotify)
 	if err != nil {
 		logger.Errorf("[failed to broadcast member join message: %s]", err)
-		close(sentNotify)
 		return err
 	}
 
 	select {
 	case <-sentNotify:
 	case <-time.After(c.conf.MessageSendTimeout):
-		close(sentNotify)
 		return fmt.Errorf("broadcast member join message timtout")
+	case <-c.stop:
+		return fmt.Errorf("cluster stopped")
 	}
 
 	return nil
@@ -639,9 +641,10 @@ func (c *cluster) broadcastMemberLeaveMessage(nodeName string) error {
 
 	// send out the node leave message
 	sentNotify := make(chan struct{})
+	defer close(sentNotify)
+
 	err := fanoutMessage(c.memberMessageSendQueue, &msg, memberLeaveMessage, sentNotify)
 	if err != nil {
-		close(sentNotify)
 		logger.Errorf("[failed to broadcast member leave message: %s]", err)
 		return err
 	}
@@ -649,8 +652,9 @@ func (c *cluster) broadcastMemberLeaveMessage(nodeName string) error {
 	select {
 	case <-sentNotify:
 	case <-time.After(c.conf.MessageSendTimeout):
-		close(sentNotify)
 		return fmt.Errorf("broadcast member leave message timtout")
+	case <-c.stop:
+		return fmt.Errorf("cluster stopped")
 	}
 
 	return nil
