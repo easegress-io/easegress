@@ -31,9 +31,10 @@ type Config struct {
 
 	GossipNodes, IndirectCheckNodes uint
 
-	MessageSendTimeout, FailedMemberReconnectTimeout, MemberLeftRecordTimeout    time.Duration
-	RecentMemberOperationTimeout, RecentRequestOperationTimeout                  time.Duration
-	FailedMemberReconnectInterval, MemberCleanupInterval, RequestCleanupInterval time.Duration
+	MessageSendTimeout, FailedMemberReconnectTimeout, MemberLeftRecordTimeout time.Duration
+	RecentMemberOperationTimeout                                              time.Duration
+	FailedMemberReconnectInterval, MemberCleanupInterval                      time.Duration
+	RecentRequestBookSize                                                     uint
 
 	// Gossip message retransmits = GossipRetransmitMult * log(N+1)
 	// Gateway cluster Message retransmits equals to MessageRetransmitMult * log(N+1)
@@ -155,10 +156,9 @@ func DefaultLANConfig() *Config {
 		FailedMemberReconnectTimeout:  24 * time.Hour,
 		MemberLeftRecordTimeout:       24 * time.Hour,
 		RecentMemberOperationTimeout:  5 * time.Minute,
-		RecentRequestOperationTimeout: 15 * time.Minute,
+		RecentRequestBookSize:         500,
 		FailedMemberReconnectInterval: 30 * time.Second,
 		MemberCleanupInterval:         15 * time.Second,
-		RequestCleanupInterval:        20 * time.Second,
 		GossipRetransmitMult:          4,
 		MessageRetransmitMult:         4,
 		RequestTimeoutMult:            15,

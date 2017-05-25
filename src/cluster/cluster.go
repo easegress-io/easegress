@@ -61,7 +61,7 @@ func Create(conf *Config) (*cluster, error) {
 		leftMembers:       createMemberStatusBook(conf.MemberLeftRecordTimeout),
 		failedMembers:     createMemberStatusBook(conf.FailedMemberReconnectTimeout),
 		memberOperations:  createMemberOperationBook(conf.RecentMemberOperationTimeout),
-		requestOperations: createRequestOperationBook(conf.RecentRequestOperationTimeout),
+		requestOperations: createRequestOperationBook(conf.RecentRequestBookSize),
 		stop:              make(chan struct{}),
 	}
 
@@ -102,7 +102,6 @@ func Create(conf *Config) (*cluster, error) {
 	}
 
 	go c.cleanupMember()
-	go c.cleanupRequest()
 	go c.reconnectFailedMembers()
 
 	return c, nil
@@ -484,7 +483,7 @@ func (c *cluster) operateRequest(msg *messageRequest) bool {
 	c.requestLock.Lock()
 	defer c.requestLock.Unlock()
 
-	care := c.requestOperations.save(msg.requestId, msg.requestTime)
+	care := c.requestOperations.save(msg.requestId, msg.requestTime, c.requestClock.Time())
 	if !care {
 		return false
 	}
@@ -759,19 +758,6 @@ func (c *cluster) cleanupMember() {
 			_cleanup(removedMembers)
 			c.memberOperations.cleanup(now)
 			c.membersLock.Unlock()
-		case <-c.stop:
-			break
-		}
-	}
-}
-
-func (c *cluster) cleanupRequest() {
-	for {
-		select {
-		case <-time.After(c.conf.RequestCleanupInterval):
-			c.requestLock.Lock()
-			c.requestOperations.cleanup(time.Now())
-			c.requestLock.Unlock()
 		case <-c.stop:
 			break
 		}

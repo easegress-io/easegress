@@ -157,50 +157,47 @@ func (f *Future) response(response *MemberResponse) (bool, error) {
 
 ////
 
-type requestOperation struct {
-	messageTime logicalTime
-	receiveTime time.Time // local wall clock time, for cleanup
+type requestOperations struct {
+	requestTime logicalTime
+	requestIds  []uint64
 }
 
 type requestOperationBook struct {
-	operations map[uint64]*requestOperation
-	timeout    time.Duration
+	size       uint
+	operations []*requestOperations
 }
 
-func createRequestOperationBook(timeout time.Duration) *requestOperationBook {
+func createRequestOperationBook(size uint) *requestOperationBook {
 	return &requestOperationBook{
-		operations: make(map[uint64]*requestOperation),
-		timeout:    timeout,
+		size:       size,
+		operations: make([]*requestOperations, size),
 	}
 }
 
-func (rob *requestOperationBook) save(requestId uint64, msgTime logicalTime) bool {
-	request, known := rob.operations[requestId]
-	if !known {
-		request = &requestOperation{
-			messageTime: msgTime,
-			receiveTime: time.Now(),
-		}
-		rob.operations[requestId] = request
-
-		return true
-	}
-
-	if request.messageTime > msgTime {
+func (rob *requestOperationBook) save(requestId uint64, msgTime, requestClock logicalTime) bool {
+	if requestClock > logicalTime(rob.size) && msgTime < requestClock-logicalTime(rob.size) {
 		// message is too old, ignore it
 		return false
 	}
 
-	request.messageTime = msgTime
-	request.receiveTime = time.Now()
+	idx := msgTime % logicalTime(rob.size)
+
+	operations := rob.operations[idx]
+	if operations != nil && operations.requestTime == msgTime {
+		for _, id := range operations.requestIds {
+			if id == requestId {
+				// request is handled, ignored it
+				return false
+			}
+		}
+	} else {
+		operations = &requestOperations{
+			requestTime: msgTime,
+		}
+		rob.operations[idx] = operations
+	}
+
+	operations.requestIds = append(operations.requestIds, requestId)
 
 	return true
-}
-
-func (rob *requestOperationBook) cleanup(now time.Time) {
-	for requestId, operation := range rob.operations {
-		if now.Sub(operation.receiveTime) > rob.timeout {
-			delete(rob.operations, requestId)
-		}
-	}
 }
