@@ -334,14 +334,10 @@ func (c *cluster) joinNode(node *memberlist.Node) {
 		MemberJoinEvent.String(), ms.nodeName, ms.address, ms.port)
 
 	if c.conf.EventStream != nil {
-		select {
-		case c.conf.EventStream <- createMemberEvent(MemberJoinEvent, &ms.Member):
-			logger.Debugf("[event %s triggered for member %s (%s:%d)]",
-				MemberJoinEvent.String(), ms.nodeName, ms.address, ms.port)
-		default:
-			logger.Errorf("[event %s trigger failed for member %s (%s:%d)]",
-				MemberJoinEvent.String(), ms.nodeName, ms.address, ms.port)
-		}
+		c.conf.EventStream <- createMemberEvent(MemberJoinEvent, &ms.Member)
+
+		logger.Debugf("[event %s triggered for member %s (%s:%d)]",
+			MemberJoinEvent.String(), ms.nodeName, ms.address, ms.port)
 	}
 }
 
@@ -382,14 +378,10 @@ func (c *cluster) leaveNode(node *memberlist.Node) {
 		event.String(), ms.nodeName, ms.address, ms.port)
 
 	if c.conf.EventStream != nil {
-		select {
-		case c.conf.EventStream <- createMemberEvent(event, &ms.Member):
-			logger.Debugf("[event %s triggered for member %s (%s:%d)]",
-				event.String(), ms.nodeName, ms.address, ms.port)
-		default:
-			logger.Errorf("[event %s trigger failed for member %s (%s:%d)]",
-				event.String(), ms.nodeName, ms.address, ms.port)
-		}
+		c.conf.EventStream <- createMemberEvent(event, &ms.Member)
+
+		logger.Debugf("[event %s triggered for member %s (%s:%d)]",
+			event.String(), ms.nodeName, ms.address, ms.port)
 	}
 }
 
@@ -422,14 +414,10 @@ func (c *cluster) updateNode(node *memberlist.Node) {
 		MemberUpdateEvent.String(), ms.nodeName, ms.address, ms.port)
 
 	if c.conf.EventStream != nil {
-		select {
-		case c.conf.EventStream <- createMemberEvent(MemberUpdateEvent, &ms.Member):
-			logger.Debugf("[event %s triggered for member %s (%s:%d)]",
-				MemberUpdateEvent.String(), ms.nodeName, ms.address, ms.port)
-		default:
-			logger.Errorf("[event %s trigger failed for member %s (%s:%d)]",
-				MemberUpdateEvent.String(), ms.nodeName, ms.address, ms.port)
-		}
+		c.conf.EventStream <- createMemberEvent(MemberUpdateEvent, &ms.Member)
+
+		logger.Debugf("[event %s triggered for member %s (%s:%d)]",
+			MemberUpdateEvent.String(), ms.nodeName, ms.address, ms.port)
 	}
 }
 
@@ -501,14 +489,10 @@ func (c *cluster) operateNodeLeave(msg *messageMemberLeave) bool {
 			MemberLeftEvent.String(), ms.nodeName, ms.address, ms.port)
 
 		if c.conf.EventStream != nil {
-			select {
-			case c.conf.EventStream <- createMemberEvent(MemberLeftEvent, &ms.Member):
-				logger.Debugf("[event %s triggered for member %s (%s:%d)]",
-					MemberLeftEvent.String(), ms.nodeName, ms.address, ms.port)
-			default:
-				logger.Errorf("[event %s trigger failed for member %s (%s:%d)]",
-					MemberLeftEvent.String(), ms.nodeName, ms.address, ms.port)
-			}
+			c.conf.EventStream <- createMemberEvent(MemberLeftEvent, &ms.Member)
+
+			logger.Debugf("[event %s triggered for member %s (%s:%d)]",
+				MemberLeftEvent.String(), ms.nodeName, ms.address, ms.port)
 		}
 
 		return true
@@ -548,14 +532,10 @@ func (c *cluster) operateRequest(msg *messageRequest) bool {
 		RequestReceivedEvent, msg.requestNodeName, msg.requestNodeAddress, msg.requestNodePort)
 
 	if c.conf.EventStream != nil {
-		select {
-		case c.conf.EventStream <- event:
-			logger.Debugf("[event %s triggered for member %s (%s:%d)]",
-				RequestReceivedEvent, msg.requestNodeName, msg.requestNodeAddress, msg.requestNodePort)
-		default:
-			logger.Errorf("[event %s trigger failed for member %s (%s:%d)]",
-				RequestReceivedEvent, msg.requestNodeName, msg.requestNodeAddress, msg.requestNodePort)
-		}
+		c.conf.EventStream <- event
+
+		logger.Debugf("[event %s triggered for member %s (%s:%d)]",
+			RequestReceivedEvent, msg.requestNodeName, msg.requestNodeAddress, msg.requestNodePort)
 	}
 
 	return ret
@@ -787,6 +767,9 @@ func (c *cluster) cleanupMember() {
 
 			if c.conf.EventStream != nil {
 				c.conf.EventStream <- createMemberEvent(MemberCleanupEvent, &ms.Member)
+
+				logger.Debugf("[event %s triggered for member %s (%s:%d)]",
+					MemberCleanupEvent.String(), ms.nodeName, ms.address, ms.port)
 			}
 		}
 	}
