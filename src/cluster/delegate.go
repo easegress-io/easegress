@@ -11,7 +11,7 @@ import (
 // Node notification hooks about members joining leaving and updating
 //
 type eventDelegate struct {
-	c *cluster
+	c *Cluster
 }
 
 func (ed *eventDelegate) NotifyJoin(node *memberlist.Node) {
@@ -31,7 +31,7 @@ func (ed *eventDelegate) NotifyUpdate(node *memberlist.Node) {
 //
 
 type conflictDelegate struct {
-	c *cluster
+	c *Cluster
 }
 
 func (cd *conflictDelegate) NotifyConflict(knownNode, otherNode *memberlist.Node) {
@@ -43,7 +43,7 @@ func (cd *conflictDelegate) NotifyConflict(knownNode, otherNode *memberlist.Node
 //
 
 type messageDelegate struct {
-	c *cluster
+	c *Cluster
 }
 
 func (md *messageDelegate) NodeMeta(limit int) []byte {
@@ -213,15 +213,15 @@ func (d *messageDelegate) MergeRemoteState(buff []byte, isJoin bool) {
 		leftMemberNames = append(leftMemberNames, name)
 
 		d.c.operateNodeLeave(&messageMemberLeave{
-			leaveTime:     msg.memberLastMessageTimes[name],
-			nodeName: name,
+			leaveTime: msg.memberLastMessageTimes[name],
+			nodeName:  name,
 		})
 	}
 
 	for name, lastMessageTime := range msg.memberLastMessageTimes {
 		if !common.StrInSlice(name, leftMemberNames) {
 			d.c.operateNodeJoin(&messageMemberJoin{
-				joinTime:     lastMessageTime,
+				joinTime: lastMessageTime,
 				nodeName: name,
 			})
 		}

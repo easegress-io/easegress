@@ -18,7 +18,7 @@ const (
 	ProtocolVersionMax uint8 = 1
 )
 
-type cluster struct {
+type Cluster struct {
 	conf     *Config
 	nodeTags []byte // do not do local copy when supporting dynamic node tag update
 
@@ -44,7 +44,7 @@ type cluster struct {
 	stop chan struct{}
 }
 
-func Create(conf *Config) (*cluster, error) {
+func Create(conf *Config) (*Cluster, error) {
 	if conf == nil {
 		return nil, fmt.Errorf("empty config")
 	}
@@ -54,7 +54,7 @@ func Create(conf *Config) (*cluster, error) {
 
 	}
 
-	c := &cluster{
+	c := &Cluster{
 		conf:              conf,
 		nodeStatus:        NodeAlive,
 		members:           make(map[string]*memberStatus),
@@ -107,7 +107,7 @@ func Create(conf *Config) (*cluster, error) {
 	return c, nil
 }
 
-func (c *cluster) Join(peerNodeNames []string) (int, error) {
+func (c *Cluster) Join(peerNodeNames []string) (int, error) {
 	c.nodeJoinLock.Lock()
 	defer c.nodeJoinLock.Unlock()
 
@@ -123,7 +123,7 @@ func (c *cluster) Join(peerNodeNames []string) (int, error) {
 	return 0, err
 }
 
-func (c *cluster) Leave() error {
+func (c *Cluster) Leave() error {
 	err := func() error {
 		c.nodeStatusLock.Lock()
 		defer c.nodeStatusLock.Unlock()
@@ -166,7 +166,7 @@ func (c *cluster) Leave() error {
 	return nil
 }
 
-func (c *cluster) ForceLeave(nodeName string) error {
+func (c *Cluster) ForceLeave(nodeName string) error {
 	if nodeName == c.conf.NodeName {
 		// should go normal Leave() case
 		return fmt.Errorf("invalid node")
@@ -175,7 +175,7 @@ func (c *cluster) ForceLeave(nodeName string) error {
 	return c.broadcastMemberLeaveMessage(nodeName)
 }
 
-func (c *cluster) Stop() error {
+func (c *Cluster) Stop() error {
 	c.nodeStatusLock.Lock()
 	defer c.nodeStatusLock.Unlock()
 
@@ -200,7 +200,7 @@ func (c *cluster) Stop() error {
 	return nil
 }
 
-func (c *cluster) Request(name string, payload []byte, param *RequestParam) (*Future, error) {
+func (c *Cluster) Request(name string, payload []byte, param *RequestParam) (*Future, error) {
 	if param == nil {
 		param = defaultRequestParam(
 			c.memberList.NumMembers(), c.conf.RequestTimeoutMult, c.conf.GossipInterval)
@@ -240,23 +240,23 @@ func (c *cluster) Request(name string, payload []byte, param *RequestParam) (*Fu
 	return future, nil
 }
 
-func (c *cluster) Stopped() <-chan struct{} {
+func (c *Cluster) Stopped() <-chan struct{} {
 	return c.stop
 }
 
-func (c *cluster) GetMemberCount() int {
+func (c *Cluster) GetMemberCount() int {
 	c.membersLock.RLock()
 	defer c.membersLock.RUnlock()
 	return len(c.members)
 }
 
-func (c *cluster) NodeStatus() NodeStatus {
+func (c *Cluster) NodeStatus() NodeStatus {
 	c.nodeStatusLock.RLock()
 	defer c.nodeStatusLock.RUnlock()
 	return c.nodeStatus
 }
 
-func (s *cluster) Members() []Member {
+func (s *Cluster) Members() []Member {
 	s.membersLock.RLock()
 	defer s.membersLock.RUnlock()
 
@@ -270,7 +270,7 @@ func (s *cluster) Members() []Member {
 
 ////
 
-func (c *cluster) joinNode(node *memberlist.Node) {
+func (c *Cluster) joinNode(node *memberlist.Node) {
 	c.membersLock.Lock()
 	defer c.membersLock.Unlock()
 
@@ -341,7 +341,7 @@ func (c *cluster) joinNode(node *memberlist.Node) {
 	}
 }
 
-func (c *cluster) leaveNode(node *memberlist.Node) {
+func (c *Cluster) leaveNode(node *memberlist.Node) {
 	c.membersLock.Lock()
 	defer c.membersLock.Unlock()
 
@@ -385,7 +385,7 @@ func (c *cluster) leaveNode(node *memberlist.Node) {
 	}
 }
 
-func (c *cluster) updateNode(node *memberlist.Node) {
+func (c *Cluster) updateNode(node *memberlist.Node) {
 	c.membersLock.Lock()
 	defer c.membersLock.Unlock()
 
@@ -421,13 +421,13 @@ func (c *cluster) updateNode(node *memberlist.Node) {
 	}
 }
 
-func (c *cluster) resolveNodeConflict(knownNode, otherNode *memberlist.Node) {
+func (c *Cluster) resolveNodeConflict(knownNode, otherNode *memberlist.Node) {
 	// TODO(zhiyan): implementation
 }
 
 ////
 
-func (c *cluster) operateNodeJoin(msg *messageMemberJoin) bool {
+func (c *Cluster) operateNodeJoin(msg *messageMemberJoin) bool {
 	c.memberClock.Update(msg.joinTime)
 
 	c.membersLock.Lock()
@@ -452,7 +452,7 @@ func (c *cluster) operateNodeJoin(msg *messageMemberJoin) bool {
 	return true
 }
 
-func (c *cluster) operateNodeLeave(msg *messageMemberLeave) bool {
+func (c *Cluster) operateNodeLeave(msg *messageMemberLeave) bool {
 	c.memberClock.Update(msg.leaveTime)
 
 	c.membersLock.Lock()
@@ -501,7 +501,7 @@ func (c *cluster) operateNodeLeave(msg *messageMemberLeave) bool {
 	return false
 }
 
-func (c *cluster) operateRequest(msg *messageRequest) bool {
+func (c *Cluster) operateRequest(msg *messageRequest) bool {
 	c.requestClock.Update(msg.requestTime)
 
 	c.requestLock.Lock()
@@ -541,7 +541,7 @@ func (c *cluster) operateRequest(msg *messageRequest) bool {
 	return ret
 }
 
-func (c *cluster) operateResponse(msg *messageResponse) bool {
+func (c *Cluster) operateResponse(msg *messageResponse) bool {
 	c.requestLock.RLock()
 	defer c.requestLock.RUnlock()
 
@@ -591,7 +591,7 @@ func (c *cluster) operateResponse(msg *messageResponse) bool {
 	return false
 }
 
-func (c *cluster) operateRelay(msg *messageRelay) bool {
+func (c *Cluster) operateRelay(msg *messageRelay) bool {
 	var target *memberlist.Node
 
 	for _, member := range c.memberList.Members() {
@@ -622,7 +622,7 @@ func (c *cluster) operateRelay(msg *messageRelay) bool {
 
 ////
 
-func (c *cluster) broadcastMemberJoinMessage() error {
+func (c *Cluster) broadcastMemberJoinMessage() error {
 	msg := messageMemberJoin{
 		nodeName: c.conf.NodeName,
 		joinTime: c.memberClock.Time(),
@@ -652,7 +652,7 @@ func (c *cluster) broadcastMemberJoinMessage() error {
 	return nil
 }
 
-func (c *cluster) broadcastMemberLeaveMessage(nodeName string) error {
+func (c *Cluster) broadcastMemberLeaveMessage(nodeName string) error {
 	msg := messageMemberLeave{
 		nodeName:  nodeName,
 		leaveTime: c.memberClock.Time(),
@@ -687,7 +687,7 @@ func (c *cluster) broadcastMemberLeaveMessage(nodeName string) error {
 	return nil
 }
 
-func (c *cluster) broadcastRequestMessage(requestId uint64, name string, requestTime logicalTime,
+func (c *Cluster) broadcastRequestMessage(requestId uint64, name string, requestTime logicalTime,
 	payload []byte, param *RequestParam) error {
 
 	var flag uint32
@@ -732,7 +732,7 @@ func (c *cluster) broadcastRequestMessage(requestId uint64, name string, request
 	return nil
 }
 
-func (c *cluster) aliveMembers(peer bool) []*Member {
+func (c *Cluster) aliveMembers(peer bool) []*Member {
 	c.membersLock.RLock()
 	defer c.membersLock.RUnlock()
 
@@ -751,13 +751,13 @@ func (c *cluster) aliveMembers(peer bool) []*Member {
 	return ret
 }
 
-func (c *cluster) anyAlivePeerMembers() bool {
+func (c *Cluster) anyAlivePeerMembers() bool {
 	return len(c.aliveMembers(true)) > 0
 }
 
 ////
 
-func (c *cluster) cleanupMember() {
+func (c *Cluster) cleanupMember() {
 	_cleanup := func(members []*memberStatus) {
 		for _, ms := range members {
 			delete(c.members, ms.nodeName)
@@ -792,7 +792,7 @@ func (c *cluster) cleanupMember() {
 	}
 }
 
-func (c *cluster) reconnectFailedMembers() {
+func (c *Cluster) reconnectFailedMembers() {
 	for {
 		select {
 		case <-time.After(c.conf.FailedMemberReconnectInterval):

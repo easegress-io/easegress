@@ -80,7 +80,7 @@ type RequestEvent struct {
 	RequestPayload  []byte
 	RequestNodeName string
 
-	c *cluster
+	c *Cluster
 
 	requestId            uint64
 	requestTime          logicalTime
@@ -91,7 +91,7 @@ type RequestEvent struct {
 	acknowledged, closed bool
 }
 
-func createRequestEvent(c *cluster, msg *messageRequest) *RequestEvent {
+func createRequestEvent(c *Cluster, msg *messageRequest) *RequestEvent {
 	ret := &RequestEvent{
 		RequestName:        msg.requestName,
 		RequestPayload:     msg.requestPayload,
