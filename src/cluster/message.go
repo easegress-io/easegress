@@ -7,6 +7,7 @@ import (
 
 	"github.com/hashicorp/memberlist"
 
+	"common"
 	"logger"
 )
 
@@ -93,7 +94,7 @@ func (mr *messageRequest) applyFilters(param *RequestParam) error {
 	var filters [][]byte
 
 	if len(param.TargetNodeNames) > 0 {
-		buff, err := pack(param.TargetNodeNames, uint8(nodeNameFilter))
+		buff, err := common.Pack(param.TargetNodeNames, uint8(nodeNameFilter))
 		if err != nil {
 			return err
 		}
@@ -106,7 +107,7 @@ func (mr *messageRequest) applyFilters(param *RequestParam) error {
 			name, valueRegex,
 		}
 
-		buff, err := pack(&filter, uint8(nodeTagsFilter))
+		buff, err := common.Pack(&filter, uint8(nodeTagsFilter))
 		if err != nil {
 			return err
 		}
@@ -135,9 +136,9 @@ func (mr *messageRequest) filter(conf *Config) bool {
 		case nodeNameFilter:
 			var nodeNames []string
 
-			err := unpack(filter[1:], nodeNames)
+			err := common.Unpack(filter[1:], nodeNames)
 			if err != nil {
-				logger.Errorf("[failed to unpack node name filter of request message: %s]", err)
+				logger.Errorf("[failed to common.Unpack node name filter of request message: %s]", err)
 				return false
 			}
 
@@ -151,9 +152,9 @@ func (mr *messageRequest) filter(conf *Config) bool {
 		case nodeTagsFilter:
 			var tags map[string]string
 
-			err := unpack(filter[1:], tags)
+			err := common.Unpack(filter[1:], tags)
 			if err != nil {
-				logger.Errorf("[failed to unpack tag filter of request message: %s]", err)
+				logger.Errorf("[failed to common.Unpack tag filter of request message: %s]", err)
 				return false
 			}
 
@@ -245,7 +246,7 @@ func fanoutBuffer(q *memberlist.TransmitLimitedQueue, buff []byte, sentNotify ch
 func fanoutMessage(q *memberlist.TransmitLimitedQueue, msg interface{},
 	msgType messageType, sentNotify chan<- struct{}) error {
 
-	buff, err := pack(msg, uint8(msgType))
+	buff, err := common.Pack(msg, uint8(msgType))
 	if err != nil {
 		return err
 	}

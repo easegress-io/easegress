@@ -63,7 +63,7 @@ func (md *messageDelegate) NotifyMsg(buff []byte) {
 	switch msgType {
 	case memberJoinMessage:
 		var msg messageMemberJoin
-		err := unpack(buff[1:], &msg)
+		err := common.Unpack(buff[1:], &msg)
 		if err != nil {
 			logger.Errorf("[unpack member join message failed: %s]", err)
 			break
@@ -76,7 +76,7 @@ func (md *messageDelegate) NotifyMsg(buff []byte) {
 		forward = md.c.operateNodeJoin(&msg)
 	case memberLeaveMessage:
 		var msg messageMemberLeave
-		err := unpack(buff[1:], &msg)
+		err := common.Unpack(buff[1:], &msg)
 		if err != nil {
 			logger.Errorf("[unpack member leave message failed: %s]", err)
 			break
@@ -89,7 +89,7 @@ func (md *messageDelegate) NotifyMsg(buff []byte) {
 		forward = md.c.operateNodeLeave(&msg)
 	case requestMessage:
 		var msg messageRequest
-		err := unpack(buff[1:], &msg)
+		err := common.Unpack(buff[1:], &msg)
 		if err != nil {
 			logger.Errorf("[unpack request message failed: %s]", err)
 			break
@@ -102,7 +102,7 @@ func (md *messageDelegate) NotifyMsg(buff []byte) {
 		forward = md.c.operateRequest(&msg)
 	case responseMessage:
 		var msg messageResponse
-		err := unpack(buff[1:], &msg)
+		err := common.Unpack(buff[1:], &msg)
 		if err != nil {
 			logger.Errorf("[unpack response message failed: %s]", err)
 			break
@@ -115,7 +115,7 @@ func (md *messageDelegate) NotifyMsg(buff []byte) {
 		forward = md.c.operateResponse(&msg)
 	case messageRelayMessage:
 		var msg messageRelay
-		err := unpack(buff[1:], &msg)
+		err := common.Unpack(buff[1:], &msg)
 		if err != nil {
 			logger.Errorf("[unpack relay message failed: %s]", err)
 			break
@@ -167,7 +167,7 @@ func (d *messageDelegate) LocalState(join bool) []byte {
 
 	msg.leftMemberNames = append(msg.leftMemberNames, d.c.leftMembers.names()...)
 
-	buff, err := pack(&msg, uint8(statePushPullMessage))
+	buff, err := common.Pack(&msg, uint8(statePushPullMessage))
 	if err != nil {
 		logger.Errorf("[pack state push/pull message failed, ignored: %s]", err)
 		return nil
@@ -192,7 +192,7 @@ func (d *messageDelegate) MergeRemoteState(buff []byte, isJoin bool) {
 
 	msg := messagePushPull{}
 
-	err := unpack(buff[1:], &msg)
+	err := common.Unpack(buff[1:], &msg)
 	if err != nil {
 		logger.Errorf("[unpack state push/pull message failed: %s]", err)
 		return

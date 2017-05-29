@@ -71,7 +71,7 @@ func Create(conf *Config) (*Cluster, error) {
 		conf.NodeTags = make(map[string]string)
 	}
 
-	c.nodeTags, err = packNodeTags(conf.NodeTags)
+	c.nodeTags, err = common.PackNodeTags(conf.NodeTags)
 	if err != nil {
 		return nil, err
 	}
@@ -274,7 +274,7 @@ func (c *Cluster) joinNode(node *memberlist.Node) {
 	c.membersLock.Lock()
 	defer c.membersLock.Unlock()
 
-	tags, err := unpackNodeTags(node.Meta)
+	tags, err := common.UnpackNodeTags(node.Meta)
 	if err != nil {
 		logger.Errorf("[unpack node tags from metadata failed, tags are ignored: %s]", err)
 	}
@@ -395,7 +395,7 @@ func (c *Cluster) updateNode(node *memberlist.Node) {
 		return
 	}
 
-	tags, err := unpackNodeTags(node.Meta)
+	tags, err := common.UnpackNodeTags(node.Meta)
 	if err != nil {
 		logger.Errorf("[unpack node tags from metadata failed, tags are ignored: %s]", err)
 	}

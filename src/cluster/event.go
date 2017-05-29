@@ -9,6 +9,7 @@ import (
 
 	"github.com/hashicorp/memberlist"
 
+	"common"
 	"logger"
 )
 
@@ -159,7 +160,7 @@ func (e *RequestEvent) Respond(payload []byte) error {
 		return fmt.Errorf("request source node is not available")
 	}
 
-	buff, err := pack(&msg, uint8(responseMessage))
+	buff, err := common.Pack(&msg, uint8(responseMessage))
 	if err != nil {
 		return fmt.Errorf("pack response message failed: %s", err)
 	}
@@ -198,7 +199,7 @@ func (e *RequestEvent) relay(responder, requester *memberlist.Node, responseMsgB
 		relayPayload:      responseMsgBuff,
 	}
 
-	buff, err := pack(&msg, uint8(messageRelayMessage))
+	buff, err := common.Pack(&msg, uint8(messageRelayMessage))
 	if err != nil {
 		return fmt.Errorf("pack relay message failed: %s", err)
 	}
@@ -293,7 +294,7 @@ func (e *RequestEvent) ack() error {
 		return fmt.Errorf("request source node is not available")
 	}
 
-	buff, err := pack(&msg, uint8(responseMessage))
+	buff, err := common.Pack(&msg, uint8(responseMessage))
 	if err != nil {
 		return fmt.Errorf("pack response ack message failed: %s", err)
 	}
