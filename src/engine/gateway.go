@@ -13,6 +13,7 @@ import (
 	"config"
 	"logger"
 	"model"
+	_ "nrw"
 	"pipelines"
 )
 

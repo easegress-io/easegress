@@ -61,7 +61,8 @@ vendor_get:
 		golang.org/x/time/rate \
 		github.com/urfave/cli \
 		github.com/hashicorp/memberlist \
-		github.com/hexdecteam/easegateway-go-client/...
+		github.com/hexdecteam/easegateway-go-client/... \
+		github.com/dgraph-io/badger/badger
 
 vendor_update: vendor_get
 	cd ${MKFILE_DIR} && rm -rf `find ./_vendor/src -type d -name .git` \
