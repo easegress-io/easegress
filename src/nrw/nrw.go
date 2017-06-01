@@ -5,6 +5,7 @@ import (
 
 	"cluster"
 	"common"
+	"logger"
 	"model"
 )
 
@@ -18,8 +19,6 @@ type Mode string
 const (
 	WriteMode Mode = "WriteMode"
 	ReadMode  Mode = "ReadMode"
-
-	chanSize = 100
 )
 
 type Config struct {
@@ -34,10 +33,7 @@ type NRW struct {
 	opLog   *opLog
 	mode    Mode
 
-	eventStream            chan cluster.Event
-	writeModeOperationChan chan *cluster.RequestEvent
-	readModeOperationChan  chan *cluster.RequestEvent
-	syncOPLogChan          chan *cluster.RequestEvent
+	eventStream chan cluster.Event
 }
 
 func NewNRW(conf *Config, mdl *model.Model) (*NRW, error) {
@@ -46,7 +42,7 @@ func NewNRW(conf *Config, mdl *model.Model) (*NRW, error) {
 	}
 	// TODO: choose config automatically
 	cltConf := cluster.DefaultLocalConfig()
-	eventStream := make(chan cluster.Event, chanSize)
+	eventStream := make(chan cluster.Event)
 	cltConf.EventStream = eventStream
 	cltConf.NodeTags["group"] = "default"            // TODO: read from config
 	cltConf.NodeTags["nrw_mode"] = string(WriteMode) // TODO: read from config
@@ -68,23 +64,14 @@ func NewNRW(conf *Config, mdl *model.Model) (*NRW, error) {
 		opLog:   opLog,
 		mode:    WriteMode, // TODO
 
-		eventStream:            eventStream,
-		writeModeOperationChan: make(chan *cluster.RequestEvent, chanSize),
-		readModeOperationChan:  make(chan *cluster.RequestEvent, chanSize),
-		syncOPLogChan:          make(chan *cluster.RequestEvent, chanSize),
+		eventStream: eventStream,
 	}
-
-	// The 3 must handle corresponding requests one by one sequentially.
-	go nrw.handleWriteModeOperation()
-	go nrw.handleReadModeOperation()
-	go nrw.syncOPLog()
 
 	go nrw.dispatch()
 
 	return nrw, nil
 }
 
-// nrw.mode can be changed after re-electing new only one write-mode node.
 func (nrw *NRW) Mode() Mode {
 	return nrw.mode
 }
@@ -102,23 +89,18 @@ func (nrw *NRW) dispatch() {
 			switch MessageType(msgType) {
 			case MessageQueryMaxSeq:
 				go nrw.handleQueryMaxSeq(event)
+			case MessageOperation:
+				if nrw.Mode() == WriteMode {
+					go nrw.handleWriteModeOperation(event)
+				} else if nrw.Mode() == ReadMode {
+					go nrw.handleReadModeOperation(event)
+				}
 			case MessageRetrieve:
 				go nrw.handleRetrieve(event)
 			case MessasgeStat:
 				go nrw.handleStat(event)
-
-			case MessageOperation: // only execute sequentially
-				go func() {
-					if nrw.Mode() == WriteMode {
-						nrw.writeModeOperationChan <- event
-					} else if nrw.Mode() == ReadMode {
-						nrw.readModeOperationChan <- event
-					}
-				}()
 			case MessageSyncOPLog:
-				go func() {
-					nrw.syncOPLogChan <- event
-				}()
+				nrw.syncOPLog(event)
 			}
 		case *cluster.MemberEvent:
 			// TODO: notify current executing updateBusiness or let it go
@@ -128,40 +110,15 @@ func (nrw *NRW) dispatch() {
 }
 
 func (nrw *NRW) handleQueryMaxSeq(req *cluster.RequestEvent) {
-	// TODO
-}
-
-func (nrw *NRW) handleRetrieve(req *cluster.RequestEvent) {
-	// TODO
-}
-
-func (nrw *NRW) handleStat(req *cluster.RequestEvent) {
-	// TODO
-}
-
-func (nrw *NRW) handleWriteModeOperation() {
-	for {
-		req := <-nrw.writeModeOperationChan
-		// TODO: when the request has been gossiped, make a new goroutine
-		// to wait reponse then respond to rest server.
-		_ = req
+	ms := nrw.opLog.maxSeq()
+	payload, err := common.Pack(RespQueryMaxSeq(ms), uint8(MessageQueryMaxSeq))
+	if err != nil {
+		logger.Errorf("[BUG: pack max sequence %d failed: %v]", ms, err)
+		return
 	}
-
-}
-
-func (nrw *NRW) handleReadModeOperation() {
-	for {
-		req := <-nrw.readModeOperationChan
-		// TODO
-		_ = req
-	}
-}
-
-func (nrw *NRW) syncOPLog() {
-	for {
-		req := <-nrw.syncOPLogChan
-		// TODO
-		_ = req
+	err = req.Respond(payload)
+	if err != nil {
+		logger.Errorf("[repond reqeust max sequence to request %s, node %s failed: %v]", req.RequestName, req.RequestNodeName, err)
 	}
 }
 
