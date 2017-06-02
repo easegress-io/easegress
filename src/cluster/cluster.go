@@ -20,8 +20,7 @@ const (
 )
 
 type Cluster struct {
-	conf     *Config
-	nodeTags []byte // do not do local copy when supporting dynamic node tag update
+	conf *Config
 
 	nodeJoinLock   sync.Mutex
 	nodeStatusLock sync.RWMutex
@@ -90,18 +89,16 @@ func Create(conf Config) (*Cluster, error) {
 		stop:              make(chan struct{}),
 	}
 
-	var err error
-
 	if conf.NodeTags == nil {
 		conf.NodeTags = make(map[string]string)
 	}
 
-	c.nodeTags, err = common.PackNodeTags(conf.NodeTags)
+	nodeTags, err := common.PackNodeTags(conf.NodeTags)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(c.nodeTags) > memberlist.MetaMaxSize {
+	if len(nodeTags) > memberlist.MetaMaxSize {
 		return nil, fmt.Errorf("tags of the node is too much")
 	}
 
@@ -283,16 +280,31 @@ func (c *Cluster) NodeStatus() NodeStatus {
 	return c.nodeStatus
 }
 
-func (s *Cluster) Members() []Member {
-	s.membersLock.RLock()
-	defer s.membersLock.RUnlock()
+func (c *Cluster) Members() []Member {
+	c.membersLock.RLock()
+	defer c.membersLock.RUnlock()
 
 	var ret []Member
-	for _, ms := range s.members {
+	for _, ms := range c.members {
 		ret = append(ret, ms.Member)
 	}
 
 	return ret
+}
+
+func (c *Cluster) UpdateTags(tags map[string]string) error {
+	nodeTags, err := common.PackNodeTags(tags)
+	if err != nil {
+		return err
+	}
+
+	if len(nodeTags) > memberlist.MetaMaxSize {
+		return fmt.Errorf("tags of the node is too much")
+	}
+
+	c.conf.NodeTags = tags
+
+	return c.memberList.UpdateNode(c.conf.MessageSendTimeout)
 }
 
 ////

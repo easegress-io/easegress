@@ -47,7 +47,18 @@ type messageDelegate struct {
 }
 
 func (md *messageDelegate) NodeMeta(limit int) []byte {
-	return md.c.nodeTags
+	nodeTags, err := common.PackNodeTags(md.c.conf.NodeTags)
+	if err != nil {
+		logger.Errorf("[pack node tags failed: %s]", err)
+		return make([]byte, 0)
+	}
+
+	if len(nodeTags) > limit {
+		logger.Errorf("[tags of the node is too much]")
+		return make([]byte, 0)
+	}
+
+	return nodeTags
 }
 
 func (md *messageDelegate) NotifyMsg(buff []byte) {
