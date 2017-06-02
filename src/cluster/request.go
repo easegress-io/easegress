@@ -242,7 +242,7 @@ func newInternalRequestHandler(c *Cluster, eventStream chan<- Event) chan<- Even
 
 	go h.handleInternalRequest()
 
-	return in, nil
+	return in
 }
 
 func (h *internalRequestHandler) handleInternalRequest() {
@@ -281,7 +281,7 @@ func (h *internalRequestHandler) handleMemberConflict(request *RequestEvent) {
 		return
 	}
 
-	msgType := request.RequestPayload[0]
+	msgType := messageType(request.RequestPayload[0])
 	if msgType != memberConflictResolvingRequestMessage {
 		logger.Errorf("[BUG: received illegal member conflict resolving request message, ignored: %d]", msgType)
 		return
@@ -310,7 +310,7 @@ func (h *internalRequestHandler) handleMemberConflict(request *RequestEvent) {
 	}
 	h.c.membersLock.Unlock()
 
-	buff, err := common.Pack(&responseMsg, memberConflictResolvingResponseMessage)
+	buff, err := common.Pack(&responseMsg, uint8(memberConflictResolvingResponseMessage))
 	if err != nil {
 		logger.Errorf("[pack member conflict resolving response message failed: %s]", err)
 		return
