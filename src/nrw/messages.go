@@ -51,7 +51,7 @@ type (
 	}
 	// Pack Header: MessageOperation
 	RespOperation struct {
-		Err error // If Err is non-nil, the update operation failed owe to Err.
+		Err OperationErr // If Err is non-nil, the update operation failed owe to Err.
 	}
 	Operation struct {
 		SeqBased uint64
@@ -104,6 +104,14 @@ type (
 	RetrieveType uint8
 	// Pack Header: MessageRetrieve
 	ReqRetrieve struct {
+		// RetrieveAllNodes is the flag to specify the write_mode node
+		// retrieve just its own stuff then return immediately when false,
+		// or retrieve corresponding stuff of all nodes in the group then
+		// return when true. If any one of nodes has different stuff,
+		// that would cause returning inconsistent error to the client.
+		// The mechanism guarantees that retrieval must choose either
+		// Consistency or Availability.
+		RetrieveAllNodes bool
 		// Unpack Header: RetrieveType
 		// Possible Type:
 		//      FilterRetrievePlugins, FilterRetrievePipelines
@@ -114,7 +122,7 @@ type (
 	RespRetrieve struct {
 		// If Err is non-nil, the retrieval failed owe to Err,
 		// and Result will be nil.
-		Err error
+		Err RetrieveErr
 		// Unpack Header: RetrieveType
 		// Possible Type:
 		//      ResultRetrievePlugins, ResultRetrievePipelines,
@@ -176,7 +184,7 @@ type (
 	RespStat struct {
 		// If Err is non-nil, the stat failed owe to Err,
 		// and Result will be nil.
-		Err error
+		Err StatErr
 		// Unpack Header: StatType
 		// Possible Type:
 		//      ResultStatPipelineIndicatorNames, ResultStatPipelineIndicatorValue, ResultStatPipelineIndicatorDesc,

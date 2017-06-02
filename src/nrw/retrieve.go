@@ -12,50 +12,37 @@ import (
 	"plugins"
 )
 
-// TODO: Divide the switch-case into smaller 2, merge its common part.
-func (nrw *NRW) handleRetrieve(req *cluster.RequestEvent) {
-	respondErr := func(e error) {
-		resp := RespRetrieve{
-			Err: e,
-		}
-		respBuff, err := Pack(resp, uint8(MessageRetrieve))
-		if err != nil {
-			logger.Errorf("[BUG: pack %#v failed: %v]", resp, err)
-			return
-		}
-
-		err = req.Respond(respBuff)
-		if err != nil {
-			logger.Errorf("[respond error %v to request %s, node %s failed: %v]", resp, req.RequestName, req.RequestNodeName, err)
-			return
-		}
-	}
-
+func unpackReqRetrieve(payload []byte) (ReqRetrieve, error) {
 	reqRetrieve := ReqRetrieve{}
-	err := Unpack(req.RequestPayload[1:], &reqRetrieve)
+	err := Unpack(payload, &reqRetrieve)
 	if err != nil {
-		respondErr(fmt.Errorf("wrong format: want ReqRetrieve"))
-		return
+		return reqRetrieve, fmt.Errorf("wrong payload format: want ReqRetrieve")
 	}
 
 	if len(reqRetrieve.Filter) < 1 {
-		respondErr(fmt.Errorf("wrong format: filter is empty"))
-		return
+		return reqRetrieve, fmt.Errorf("wrong payload format: filter is empty")
 	}
 
-	resp := RespRetrieve{}
+	return reqRetrieve, nil
+}
+
+// retrieveResult could decrease degree of coupling between nrw mode and business.
+func (nrw *NRW) retrieveResult(payload []byte) ([]byte, error) {
+	if len(payload) < 1 {
+		return nil, fmt.Errorf("empty payload")
+	}
+	reqRetrieve, err := unpackReqRetrieve(payload[1:])
+
 	switch RetrieveType(reqRetrieve.Filter[0]) {
 	case RetrievePlugins:
 		filter := FilterRetrievePlugins{}
 		err := Unpack(reqRetrieve.Filter[1:], &filter)
 		if err != nil {
-			respondErr(fmt.Errorf("wrong format: want FilterRetrievePlugins"))
-			return
+			return nil, fmt.Errorf("wrong filter format: want %T", filter)
 		}
 		plugs, err := nrw.model.GetPlugins(filter.NamePattern, filter.Types)
 		if err != nil {
-			respondErr(fmt.Errorf("server error: get plugins failed: %v", err))
-			return
+			return nil, fmt.Errorf("server error: get plugins failed: %v", err)
 		}
 
 		result := ResultRetrievePlugins{}
@@ -67,25 +54,21 @@ func (nrw *NRW) handleRetrieve(req *cluster.RequestEvent) {
 			}
 			result.Plugins = append(result.Plugins, spec)
 		}
-		buffResult, err := Pack(result, uint8(RetrievePlugins))
+		resultBuff, err := Pack(result, uint8(RetrievePlugins))
 		if err != nil {
-			logger.Errorf("[BUG: pack %#v failed: %v]", result, err)
-			respondErr(fmt.Errorf("server error: pack %#v failed: %v", result, err))
-			return
+			return nil, fmt.Errorf("server error: pack %#v failed: %v", result, err)
 		}
 
-		resp.Result = buffResult
+		return resultBuff, nil
 	case RetrievePipelines:
 		filter := FilterRetrievePipelines{}
 		err := Unpack(reqRetrieve.Filter[1:], &filter)
 		if err != nil {
-			respondErr(fmt.Errorf("wrong format: want FilterRetrievePipelines"))
-			return
+			return nil, fmt.Errorf("wrong filter format: want %T", filter)
 		}
 		pipes, err := nrw.model.GetPipelines(filter.NamePattern, filter.Types)
 		if err != nil {
-			respondErr(fmt.Errorf("server error: get pipelines failed: %v", err))
-			return
+			return nil, fmt.Errorf("server error: get pipelines failed: %v", err)
 		}
 
 		result := ResultRetrievePipelines{}
@@ -97,14 +80,12 @@ func (nrw *NRW) handleRetrieve(req *cluster.RequestEvent) {
 			}
 			result.Pipelines = append(result.Pipelines, spec)
 		}
-		buffResult, err := Pack(result, uint8(RetrievePipelines))
+		resultBuff, err := Pack(result, uint8(RetrievePipelines))
 		if err != nil {
-			logger.Errorf("[BUG: pack %#v failed: %v]", result, err)
-			respondErr(fmt.Errorf("server error: pack %#v failed: %v", result, err))
-			return
+			return nil, fmt.Errorf("server error: pack %#v failed: %v", result, err)
 		}
 
-		resp.Result = buffResult
+		return resultBuff, nil
 	case RetrievePluginTypes:
 		result := ResultRetrievePluginTypes{}
 		result.PluginTypes = make([]string, 0)
@@ -115,14 +96,12 @@ func (nrw *NRW) handleRetrieve(req *cluster.RequestEvent) {
 		}
 		sort.Strings(result.PluginTypes)
 
-		buffResult, err := Pack(result, uint8(RetrievePluginTypes))
+		resultBuff, err := Pack(result, uint8(RetrievePluginTypes))
 		if err != nil {
-			logger.Errorf("[BUG: pack %#v failed: %v]", result, err)
-			respondErr(fmt.Errorf("server error: pack %#v failed: %v", result, err))
-			return
+			return nil, fmt.Errorf("server error: pack %#v failed: %v", result, err)
 		}
 
-		resp.Result = buffResult
+		return resultBuff, nil
 	case RetrievePipelineTypes:
 		result := ResultRetrievePipelineTypes{}
 		result.PipelineTypes = make([]string, 0)
@@ -133,25 +112,47 @@ func (nrw *NRW) handleRetrieve(req *cluster.RequestEvent) {
 		}
 		sort.Strings(result.PipelineTypes)
 
-		buffResult, err := Pack(result, uint8(RetrievePipelineTypes))
+		resultBuff, err := Pack(result, uint8(RetrievePipelineTypes))
 		if err != nil {
-			logger.Errorf("[BUG: pack %#v failed: %v]", result, err)
-			respondErr(fmt.Errorf("server error: pack %#v failed: %v", result, err))
+			return nil, fmt.Errorf("server error: pack %#v failed: %v", result, err)
+		}
+
+		return resultBuff, nil
+	default:
+		return nil, fmt.Errorf("unsupported filter type")
+	}
+
+}
+
+func (nrw *NRW) handleReadModeRetrieve(req *cluster.RequestEvent) {
+	respond := func(result []byte, e error) {
+		resp := RespRetrieve{
+			Err:    NewRetrieveErr(e.Error()),
+			Result: result,
+		}
+		respBuff, err := Pack(resp, uint8(MessageRetrieve))
+		if err != nil {
+			logger.Errorf("[BUG: pack %#v failed: %v]", resp, err)
 			return
 		}
 
-		resp.Result = buffResult
+		err = req.Respond(respBuff)
+		if err != nil {
+			logger.Errorf("[respond %s to request %s, node %s failed: %v]", respBuff, req.RequestName, req.RequestNodeName, err)
+			return
+		}
 	}
 
-	respBuff, err := Pack(resp, uint8(MessageRetrieve))
-	if err != nil {
-		logger.Errorf("[BUG: pack %#v failed: %v]", resp, err)
-		respondErr(fmt.Errorf("server error: pack %#v failed: %v", resp, err))
-		return
+	result, e := nrw.retrieveResult(req.RequestPayload)
+	respond(result, e)
+}
+
+func (nrw *NRW) handleWriteModeRetrieve(event *cluster.RequestEvent) {
+	respond := func(result []byte, e error) {
+		resp := RespRetrieve{
+			Err:    NewRetrieveErr(e.Error()),
+			Result: result,
+		}
 	}
-	err = req.Respond(respBuff)
-	if err != nil {
-		logger.Errorf("[respond %v to request %s, node %s failed: %v]", resp, req.RequestName, req.RequestNodeName, err)
-		return
-	}
+	// TODO
 }

@@ -10,7 +10,7 @@ import (
 func (nrw *NRW) handleStat(req *cluster.RequestEvent) {
 	respondErr := func(e error) {
 		resp := RespStat{
-			Err: e,
+			Err: NewStatErr(e.Error()),
 		}
 		respBuff, err := Pack(resp, uint8(MessasgeStat))
 		if err != nil {

@@ -2,6 +2,7 @@ package nrw
 
 import (
 	"fmt"
+	"time"
 
 	"cluster"
 	"common"
@@ -23,7 +24,8 @@ const (
 
 type Config struct {
 	// MaxSeqGapToSync means ... TODO
-	MaxSeqGapToSync uint64
+	MaxSeqGapToSync   uint64
+	SyncOPLogInterval time.Duration
 }
 
 type NRW struct {
@@ -67,6 +69,7 @@ func NewNRW(conf *Config, mdl *model.Model) (*NRW, error) {
 		eventStream: eventStream,
 	}
 
+	go nrw.syncOPLog()
 	go nrw.dispatch()
 
 	return nrw, nil
@@ -96,11 +99,15 @@ func (nrw *NRW) dispatch() {
 					go nrw.handleReadModeOperation(event)
 				}
 			case MessageRetrieve:
-				go nrw.handleRetrieve(event)
+				if nrw.Mode() == WriteMode {
+					go nrw.handleWriteModeRetrieve(event)
+				} else if nrw.Mode() == ReadMode {
+					go nrw.handleReadModeRetrieve(event)
+				}
 			case MessasgeStat:
 				go nrw.handleStat(event)
 			case MessageSyncOPLog:
-				nrw.syncOPLog(event)
+				nrw.handleSyncOPLog(event)
 			}
 		case *cluster.MemberEvent:
 			// TODO: notify current executing updateBusiness or let it go
