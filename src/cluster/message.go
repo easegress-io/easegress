@@ -20,7 +20,9 @@ const (
 	responseMessage
 	messageRelayMessage
 	statePushPullMessage
-	memberConflictResponseMessage
+	memberConflictResolvingResponseMessage
+	memberConflictResolvingRequestMessage
+	memberPingMessage
 )
 
 ////

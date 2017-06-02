@@ -44,7 +44,7 @@ type Cluster struct {
 	stop chan struct{}
 }
 
-func Create(conf *Config) (*Cluster, error) {
+func Create(conf Config) (*Cluster, error) {
 	if conf == nil {
 		return nil, fmt.Errorf("empty config")
 	}
@@ -55,7 +55,7 @@ func Create(conf *Config) (*Cluster, error) {
 	}
 
 	c := &Cluster{
-		conf:              conf,
+		conf:              &conf,
 		nodeStatus:        NodeAlive,
 		members:           make(map[string]*memberStatus),
 		leftMembers:       createMemberStatusBook(conf.MemberLeftRecordTimeout),
@@ -80,6 +80,8 @@ func Create(conf *Config) (*Cluster, error) {
 		return nil, fmt.Errorf("tags of the node is too much")
 	}
 
+	conf.EventStream = newInternalRequestHandler(c, conf.EventStream)
+
 	c.memberMessageSendQueue = &memberlist.TransmitLimitedQueue{
 		NumNodes:       c.GetMemberCount,
 		RetransmitMult: int(conf.MessageRetransmitMult),
@@ -96,7 +98,7 @@ func Create(conf *Config) (*Cluster, error) {
 	memberListConf := createMemberListConfig(conf,
 		&eventDelegate{c: c}, &conflictDelegate{c: c}, &messageDelegate{c: c})
 
-	c.memberList, err = memberlist.Create(memberListConf)
+	c.memberList, err := memberlist.Create(memberListConf)
 	if err != nil {
 		return nil, fmt.Errorf("create memberlist failed: %s", err.Error())
 	}
@@ -422,7 +424,16 @@ func (c *Cluster) updateNode(node *memberlist.Node) {
 }
 
 func (c *Cluster) resolveNodeConflict(knownNode, otherNode *memberlist.Node) {
-	// TODO(zhiyan): implementation
+	if c.conf.NodeName != knownNode.Name {
+		logger.Warnf("[dectcted node name %s conflict at %s:%d and %s:%d]", knownNode.Name,
+			knownNode.Addr, knownNode.Port, otherNode.Addr, otherNode.Port)
+		return
+	}
+
+	logger.Errorf("[Node name conflicts with another node at %s:%d, begine to resolve it automatically]",
+		otherNode.Addr, otherNode.Port)
+
+	go c.handleNodeConflict()
 }
 
 ////
@@ -547,7 +558,7 @@ func (c *Cluster) operateResponse(msg *messageResponse) bool {
 
 	future, known := c.futures[msg.requestTime]
 	if !known {
-		logger.Warnf("[BUG: request %s is responded but the request did not send, ignored]", msg.requestName)
+		logger.Debugf("[response returned after request %s timeout, ignored]", msg.requestName)
 		return false
 	}
 
@@ -753,6 +764,10 @@ func (c *Cluster) aliveMembers(peer bool) []*Member {
 
 func (c *Cluster) anyAlivePeerMembers() bool {
 	return len(c.aliveMembers(true)) > 0
+}
+
+func (c *Cluster) handleNodeConflict() {
+
 }
 
 ////

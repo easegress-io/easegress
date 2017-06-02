@@ -3,8 +3,12 @@ package cluster
 import (
 	"fmt"
 	"math"
+	"strconv"
 	"sync"
 	"time"
+
+	"common"
+	"logger"
 )
 
 type RequestParam struct {
@@ -202,4 +206,99 @@ func (rob *requestOperationBook) save(requestId uint64, msgTime, requestClock lo
 	operations.requestIds = append(operations.requestIds, requestId)
 
 	return true
+}
+
+////
+
+type internalRequestHandler struct {
+	c *Cluster
+
+	in  chan Event
+	out chan<- Event
+}
+
+func newInternalRequestHandler(c *Cluster, eventStream chan<- Event) chan<- Event {
+	in := make(chan Event, 1024)
+
+	h := &internalRequestHandler{
+		c:   c,
+		in:  in,
+		out: eventStream,
+	}
+
+	go h.handleInternalRequest()
+
+	return in, nil
+}
+
+func (h *internalRequestHandler) handleInternalRequest() {
+	for {
+		select {
+		case event := <-h.in:
+			if event.Type() != RequestReceivedEvent {
+				if h.out != nil {
+					h.out <- event
+				}
+
+				continue
+			}
+
+			request, _ := event.(*RequestEvent)
+
+			msgType, err := strconv.ParseUint(request.RequestName, 0, 8)
+			if err != nil {
+				if h.out != nil {
+					h.out <- event
+				}
+
+				continue
+			}
+
+			switch uint8(msgType) {
+			case memberConflictResolvingRequestMessage:
+				h.handleMemberConflict(request)
+			case memberPingMessage:
+				// eat tne event and nothing to do
+				// ack response is enough to show member is reach-able
+			default:
+				if h.out != nil {
+					h.out <- event
+				}
+			}
+		case <-h.c.Stopped():
+			return
+		}
+	}
+}
+
+func (h *internalRequestHandler) handleMemberConflict(request *RequestEvent) {
+	memberNodeName := string(request.RequestPayload)
+
+	memberNodeName
+
+	if memberNodeName == h.c.conf.NodeName {
+		return
+	}
+
+	logger.Debugf("[received conflict resolution request for member %s", memberNodeName)
+
+	var member *Member
+
+	h.c.membersLock.Lock()
+	ms, ok := h.c.members[memberNodeName]
+	if ok {
+		member = &ms.Member
+	}
+	h.c.membersLock.Unlock()
+
+	buff, err := common.Pack(member, memberConflictResolvingResponseMessage)
+	if err != nil {
+		logger.Errorf("[pack member conflict resolving response message failed, ignored: %s]", err)
+		return
+	}
+
+	err = request.Respond(buff)
+	if err != nil {
+		logger.Errorf("[respond member conflict resolving response message failed, ignored: %s]", err)
+	}
 }
