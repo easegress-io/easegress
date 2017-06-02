@@ -127,7 +127,7 @@ func (md *messageDelegate) NotifyMsg(buff []byte) {
 		messageQueue = nil
 		forward = md.c.operateRelay(&msg)
 	default:
-		logger.Errorf("[cluster receives unknown message type, ignored: %d]", msgType)
+		logger.Errorf("[BUG: received unknown message type, ignored: %d]", msgType)
 	}
 
 	if forward {
@@ -169,7 +169,7 @@ func (d *messageDelegate) LocalState(join bool) []byte {
 
 	buff, err := common.Pack(&msg, uint8(statePushPullMessage))
 	if err != nil {
-		logger.Errorf("[pack state push/pull message failed, ignored: %s]", err)
+		logger.Errorf("[pack state push/pull message failed: %s]", err)
 		return nil
 	}
 
@@ -185,9 +185,8 @@ func (d *messageDelegate) MergeRemoteState(buff []byte, isJoin bool) {
 	}
 
 	msgType := messageType(buff[0])
-
 	if msgType != statePushPullMessage {
-		logger.Errorf("[cluster receives illegal state push/pull message, ignored: %d]", msgType)
+		logger.Errorf("[BUG: received illegal state push/pull message, ignored: %d]", msgType)
 	}
 
 	msg := messagePushPull{}

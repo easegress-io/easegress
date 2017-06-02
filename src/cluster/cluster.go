@@ -98,7 +98,7 @@ func Create(conf Config) (*Cluster, error) {
 	memberListConf := createMemberListConfig(conf,
 		&eventDelegate{c: c}, &conflictDelegate{c: c}, &messageDelegate{c: c})
 
-	c.memberList, err := memberlist.Create(memberListConf)
+	c.memberList, err = memberlist.Create(memberListConf)
 	if err != nil {
 		return nil, fmt.Errorf("create memberlist failed: %s", err.Error())
 	}
@@ -430,8 +430,9 @@ func (c *Cluster) resolveNodeConflict(knownNode, otherNode *memberlist.Node) {
 		return
 	}
 
-	logger.Errorf("[Node name conflicts with another node at %s:%d, begine to resolve it automatically]",
-		otherNode.Addr, otherNode.Port)
+	logger.Errorf("[my node name conflicts with another node at %s:%d]", otherNode.Addr, otherNode.Port)
+
+	logger.Debugf("[start to resolve node name conflict automatically]")
 
 	go c.handleNodeConflict()
 }
@@ -648,7 +649,7 @@ func (c *Cluster) broadcastMemberJoinMessage() error {
 
 	err := fanoutMessage(c.memberMessageSendQueue, &msg, memberJoinMessage, sentNotify)
 	if err != nil {
-		logger.Errorf("[failed to broadcast member join message: %s]", err)
+		logger.Errorf("[broadcast member join message failed: %s]", err)
 		return err
 	}
 
@@ -683,7 +684,7 @@ func (c *Cluster) broadcastMemberLeaveMessage(nodeName string) error {
 
 	err := fanoutMessage(c.memberMessageSendQueue, &msg, memberLeaveMessage, sentNotify)
 	if err != nil {
-		logger.Errorf("[failed to broadcast member leave message: %s]", err)
+		logger.Errorf("[broadcast member leave message failed: %s]", err)
 		return err
 	}
 
@@ -736,7 +737,7 @@ func (c *Cluster) broadcastRequestMessage(requestId uint64, name string, request
 
 	err = fanoutMessage(c.requestMessageSendQueue, &msg, requestMessage, nil) // need not to care if sending is done
 	if err != nil {
-		logger.Errorf("[failed to broadcast request message: %s]", err)
+		logger.Errorf("[broadcast request message failed: %s]", err)
 		return err
 	}
 
@@ -767,7 +768,71 @@ func (c *Cluster) anyAlivePeerMembers() bool {
 }
 
 func (c *Cluster) handleNodeConflict() {
+	msg := messageMemberConflictResolvingRequest{
+		conflictNodeName: c.conf.NodeName,
+	}
 
+	buff, err := common.Pack(&msg, uint8(memberConflictResolvingRequestMessage))
+	if err != nil {
+		logger.Errorf("[pack member conflict resolving message failed: %s]", err)
+		return nil
+	}
+
+	future, err := c.Request(memberConflictResolvingInternalRequest, buff, nil)
+	if err != nil {
+		logger.Errorf("[send member conflict resolving request failed: %s]", err)
+		return
+	}
+
+	var responses, vote int
+
+	local := c.memberList.LocalNode()
+
+	for {
+		select {
+		case response := <-future.Response():
+			if len(response.Payload) == 0 {
+				logger.Errorf("[BUG: received illegal member conflict resolving response message, " +
+					"ignored]")
+				continue
+			}
+
+			msgType := messageType(response.Payload[0])
+			if msgType != memberConflictResolvingResponseMessage {
+				logger.Errorf("[BUG: received illegal member conflict resolving response message, "+
+					"ignored: %d]", msgType)
+				continue
+			}
+
+			msg := messageMemberConflictResolvingResponse{}
+
+			err := common.Unpack(response.Payload[1:], &msg)
+			if err != nil {
+				logger.Errorf("[unpack member conflict resolving response message failed: %s]", err)
+				continue
+			}
+
+			if msg.member.address.Equal(local.Addr) && msg.member.port == local.Port {
+				vote++
+			}
+
+			responses++
+		case c.stop:
+			return
+		}
+	}
+
+	if vote >= (responses/2)+1 {
+		logger.Infof("[I won the vote of node name conflict resolution]")
+		return
+	} else {
+		logger.Infof("[I lost the vote of node name conflict resolution, quit myself from the cluster]")
+
+		err := c.Stop()
+		if err != nil {
+			logger.Errorf("[quit myself from the cluster failed: %s", err)
+		}
+	}
 }
 
 ////
@@ -802,7 +867,7 @@ func (c *Cluster) cleanupMember() {
 			c.memberOperations.cleanup(now)
 			c.membersLock.Unlock()
 		case <-c.stop:
-			break
+			return
 		}
 	}
 }

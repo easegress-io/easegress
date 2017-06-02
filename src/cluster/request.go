@@ -3,7 +3,6 @@ package cluster
 import (
 	"fmt"
 	"math"
-	"strconv"
 	"sync"
 	"time"
 
@@ -75,14 +74,18 @@ func createFuture(requestId uint64, requestTime logicalTime, memberCount int,
 
 	// close and cleanup response automatically when request timeout
 	time.AfterFunc(param.Timeout, func() {
+		future.Lock()
+		if future.closed {
+			return
+		}
+
+		future.closed = true
+		future.Unlock()
+
 		cleanup()
 
 		future.Lock()
 		defer future.Unlock()
-
-		if future.closed {
-			return
-		}
 
 		if future.responseStream != nil {
 			close(future.responseStream)
@@ -91,8 +94,6 @@ func createFuture(requestId uint64, requestTime logicalTime, memberCount int,
 		if future.ackStream != nil {
 			close(future.ackStream)
 		}
-
-		future.closed = true
 	})
 
 	return future
@@ -210,6 +211,19 @@ func (rob *requestOperationBook) save(requestId uint64, msgTime, requestClock lo
 
 ////
 
+type internalRequestType string
+
+const (
+	memberConflictResolvingInternalRequest internalRequestType = "memberConflictResolvingInternalRequest"
+	memberPingInternalRequest              internalRequestType = "memberPingInternalRequest"
+)
+
+func (t internalRequestType) String() string {
+	return string(t)
+}
+
+////
+
 type internalRequestHandler struct {
 	c *Cluster
 
@@ -239,25 +253,15 @@ func (h *internalRequestHandler) handleInternalRequest() {
 				if h.out != nil {
 					h.out <- event
 				}
-
 				continue
 			}
 
 			request, _ := event.(*RequestEvent)
 
-			msgType, err := strconv.ParseUint(request.RequestName, 0, 8)
-			if err != nil {
-				if h.out != nil {
-					h.out <- event
-				}
-
-				continue
-			}
-
-			switch uint8(msgType) {
-			case memberConflictResolvingRequestMessage:
+			switch request.RequestName {
+			case memberConflictResolvingInternalRequest.String():
 				h.handleMemberConflict(request)
-			case memberPingMessage:
+			case memberPingInternalRequest.String():
 				// eat tne event and nothing to do
 				// ack response is enough to show member is reach-able
 			default:
@@ -272,33 +276,48 @@ func (h *internalRequestHandler) handleInternalRequest() {
 }
 
 func (h *internalRequestHandler) handleMemberConflict(request *RequestEvent) {
-	memberNodeName := string(request.RequestPayload)
-
-	memberNodeName
-
-	if memberNodeName == h.c.conf.NodeName {
+	if len(request.RequestPayload) == 0 {
+		logger.Errorf("[BUG: received illegal member conflict resolving request message, ignored]")
 		return
 	}
 
-	logger.Debugf("[received conflict resolution request for member %s", memberNodeName)
+	msgType := request.RequestPayload[0]
+	if msgType != memberConflictResolvingRequestMessage {
+		logger.Errorf("[BUG: received illegal member conflict resolving request message, ignored: %d]", msgType)
+		return
+	}
 
-	var member *Member
+	requestMsg := messageMemberConflictResolvingRequest{}
+
+	err := common.Unpack(request.RequestPayload[1:], &requestMsg)
+	if err != nil {
+		logger.Errorf("[unpack member conflict resolving request message failed: %s]", err)
+		return
+	}
+
+	if requestMsg.conflictNodeName == h.c.conf.NodeName {
+		return
+	}
+
+	logger.Debugf("[received conflict resolution request for member %s", requestMsg.conflictNodeName)
+
+	responseMsg := messageMemberConflictResolvingResponse{}
 
 	h.c.membersLock.Lock()
-	ms, ok := h.c.members[memberNodeName]
+	ms, ok := h.c.members[requestMsg.conflictNodeName]
 	if ok {
-		member = &ms.Member
+		responseMsg.member = &ms.Member
 	}
 	h.c.membersLock.Unlock()
 
-	buff, err := common.Pack(member, memberConflictResolvingResponseMessage)
+	buff, err := common.Pack(&responseMsg, memberConflictResolvingResponseMessage)
 	if err != nil {
-		logger.Errorf("[pack member conflict resolving response message failed, ignored: %s]", err)
+		logger.Errorf("[pack member conflict resolving response message failed: %s]", err)
 		return
 	}
 
 	err = request.Respond(buff)
 	if err != nil {
-		logger.Errorf("[respond member conflict resolving response message failed, ignored: %s]", err)
+		logger.Errorf("[respond member conflict resolving response message failed: %s]", err)
 	}
 }

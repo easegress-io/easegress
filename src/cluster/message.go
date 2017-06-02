@@ -20,9 +20,8 @@ const (
 	responseMessage
 	messageRelayMessage
 	statePushPullMessage
-	memberConflictResolvingResponseMessage
 	memberConflictResolvingRequestMessage
-	memberPingMessage
+	memberConflictResolvingResponseMessage
 )
 
 ////
@@ -215,6 +214,18 @@ type messageRelay struct {
 	targetNodePort    uint16
 
 	relayPayload []byte
+}
+
+////
+
+type messageMemberConflictResolvingRequest struct {
+	conflictNodeName string
+}
+
+////
+
+type messageMemberConflictResolvingResponse struct {
+	member *Member
 }
 
 ////
