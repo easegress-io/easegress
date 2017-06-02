@@ -800,10 +800,10 @@ func (c *Cluster) handleNodeConflict() {
 	buff, err := common.Pack(&msg, uint8(memberConflictResolvingRequestMessage))
 	if err != nil {
 		logger.Errorf("[pack member conflict resolving message failed: %s]", err)
-		return nil
+		return
 	}
 
-	future, err := c.Request(memberConflictResolvingInternalRequest, buff, nil)
+	future, err := c.Request(memberConflictResolvingInternalRequest.String(), buff, nil)
 	if err != nil {
 		logger.Errorf("[send member conflict resolving request failed: %s]", err)
 		return
@@ -842,7 +842,7 @@ func (c *Cluster) handleNodeConflict() {
 			}
 
 			responses++
-		case c.stop:
+		case <-c.stop:
 			return
 		}
 	}
