@@ -43,13 +43,13 @@ func NewNRW(conf *Config, mdl *model.Model) (*NRW, error) {
 		return nil, fmt.Errorf("model is nil")
 	}
 	// TODO: choose config automatically
-	cltConf := cluster.DefaultLocalConfig()
+	cltConf := cluster.DefaultLANConfig()
 	eventStream := make(chan cluster.Event)
 	cltConf.EventStream = eventStream
 	cltConf.NodeTags["group"] = "default"            // TODO: read from config
 	cltConf.NodeTags["nrw_mode"] = string(WriteMode) // TODO: read from config
 
-	clt, err := cluster.Create(cltConf)
+	clt, err := cluster.Create(*cltConf)
 	if err != nil {
 		return nil, err
 	}

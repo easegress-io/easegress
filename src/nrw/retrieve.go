@@ -32,6 +32,9 @@ func (nrw *NRW) retrieveResult(payload []byte) ([]byte, error) {
 		return nil, fmt.Errorf("empty payload")
 	}
 	reqRetrieve, err := unpackReqRetrieve(payload[1:])
+	if err != nil {
+		return nil, err
+	}
 
 	switch RetrieveType(reqRetrieve.Filter[0]) {
 	case RetrievePlugins:
@@ -148,11 +151,5 @@ func (nrw *NRW) handleReadModeRetrieve(req *cluster.RequestEvent) {
 }
 
 func (nrw *NRW) handleWriteModeRetrieve(event *cluster.RequestEvent) {
-	respond := func(result []byte, e error) {
-		resp := RespRetrieve{
-			Err:    NewRetrieveErr(e.Error()),
-			Result: result,
-		}
-	}
 	// TODO
 }
