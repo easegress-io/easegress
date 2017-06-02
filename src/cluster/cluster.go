@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -45,13 +46,37 @@ type Cluster struct {
 }
 
 func Create(conf Config) (*Cluster, error) {
-	if conf == nil {
-		return nil, fmt.Errorf("empty config")
-	}
-
 	if conf.ProtocolVersion < ProtocolVersionMin || conf.ProtocolVersion > ProtocolVersionMax {
 		return nil, fmt.Errorf("invalid cluster protocol version %d", conf.ProtocolVersion)
 
+	}
+
+	if len(strings.TrimSpace(conf.NodeName)) == 0 {
+		return nil, fmt.Errorf("invalid node name")
+	}
+
+	if len(strings.TrimSpace(conf.BindAddress)) == 0 {
+		conf.BindAddress = "0.0.0.0"
+	}
+
+	if len(strings.TrimSpace(conf.AdvertiseAddress)) == 0 {
+		conf.AdvertiseAddress = conf.BindAddress
+	}
+
+	if conf.BindPort == 0 {
+		conf.BindPort = 9099
+	}
+
+	if conf.AdvertisePort == 0 {
+		conf.BindPort = conf.AdvertisePort
+	}
+
+	if conf.BindPort > 65535 {
+		return nil, fmt.Errorf("invalid bind port")
+	}
+
+	if conf.AdvertisePort > 65535 {
+		return nil, fmt.Errorf("invalid advertise port")
 	}
 
 	c := &Cluster{
@@ -95,7 +120,7 @@ func Create(conf Config) (*Cluster, error) {
 	c.memberClock.Increase()
 	c.requestClock.Increase()
 
-	memberListConf := createMemberListConfig(conf,
+	memberListConf := createMemberListConfig(&conf,
 		&eventDelegate{c: c}, &conflictDelegate{c: c}, &messageDelegate{c: c})
 
 	c.memberList, err = memberlist.Create(memberListConf)
