@@ -309,7 +309,7 @@ func (h *internalRequestHandler) handleMemberConflict(request *RequestEvent) {
 	}
 	h.c.membersLock.Unlock()
 
-	buff, err := Pack(&responseMsg, uint8(memberConflictResolvingResponseMessage))
+	buff, err := PackWithHeader(&responseMsg, uint8(memberConflictResolvingResponseMessage))
 	if err != nil {
 		logger.Errorf("[pack member conflict resolving response message failed: %s]", err)
 		return

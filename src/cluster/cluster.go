@@ -809,7 +809,7 @@ func (c *Cluster) handleNodeConflict() {
 		conflictNodeName: c.conf.NodeName,
 	}
 
-	buff, err := Pack(&msg, uint8(memberConflictResolvingRequestMessage))
+	buff, err := PackWithHeader(&msg, uint8(memberConflictResolvingRequestMessage))
 	if err != nil {
 		logger.Errorf("[pack member conflict resolving message failed: %s]", err)
 		return

@@ -178,7 +178,7 @@ func (d *messageDelegate) LocalState(join bool) []byte {
 
 	msg.leftMemberNames = append(msg.leftMemberNames, d.c.leftMembers.names()...)
 
-	buff, err := Pack(&msg, uint8(statePushPullMessage))
+	buff, err := PackWithHeader(&msg, uint8(statePushPullMessage))
 	if err != nil {
 		logger.Errorf("[pack state push/pull message failed: %s]", err)
 		return nil

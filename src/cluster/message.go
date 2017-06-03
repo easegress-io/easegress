@@ -94,7 +94,7 @@ func (mr *messageRequest) applyFilters(param *RequestParam) error {
 	var filters [][]byte
 
 	if len(param.TargetNodeNames) > 0 {
-		buff, err := Pack(param.TargetNodeNames, uint8(nodeNameFilter))
+		buff, err := PackWithHeader(param.TargetNodeNames, uint8(nodeNameFilter))
 		if err != nil {
 			return err
 		}
@@ -107,7 +107,7 @@ func (mr *messageRequest) applyFilters(param *RequestParam) error {
 			name, valueRegex,
 		}
 
-		buff, err := Pack(&filter, uint8(nodeTagsFilter))
+		buff, err := PackWithHeader(&filter, uint8(nodeTagsFilter))
 		if err != nil {
 			return err
 		}
@@ -258,7 +258,7 @@ func fanoutBuffer(q *memberlist.TransmitLimitedQueue, buff []byte, sentNotify ch
 func fanoutMessage(q *memberlist.TransmitLimitedQueue, msg interface{},
 	msgType messageType, sentNotify chan<- struct{}) error {
 
-	buff, err := Pack(msg, uint8(msgType))
+	buff, err := PackWithHeader(msg, uint8(msgType))
 	if err != nil {
 		return err
 	}

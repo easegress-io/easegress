@@ -2,19 +2,32 @@ package cluster
 
 import (
 	"bytes"
+	"io"
 
 	"github.com/hashicorp/go-msgpack/codec"
 )
 
-func Pack(obj interface{}, t uint8) ([]byte, error) {
+func msgPack(w io.Writer, obj interface{}) error {
+	encoder := codec.NewEncoder(w, &codec.MsgpackHandle{})
+	err := encoder.Encode(obj)
+	return err
+
+}
+
+func PackWithHeader(obj interface{}, header uint8) ([]byte, error) {
+	buff := bytes.NewBuffer(nil)
+	buff.WriteByte(header)
+
+	err := msgPack(buff, obj)
+
+	return buff.Bytes(), err
+}
+
+func Pack(obj interface{}) ([]byte, error) {
 	buff := bytes.NewBuffer(nil)
 
-	// write header
-	buff.WriteByte(t)
+	err := msgPack(buff, obj)
 
-	// write payload
-	encoder := codec.NewEncoder(buff, &codec.MsgpackHandle{})
-	err := encoder.Encode(obj)
 	return buff.Bytes(), err
 }
 
