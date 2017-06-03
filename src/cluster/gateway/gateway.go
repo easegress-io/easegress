@@ -24,7 +24,7 @@ type Config struct {
 
 type GatewayCluster struct {
 	conf    *Config
-	model   *model.Model
+	mod     *model.Model
 	cluster *cluster.Cluster
 	log     *opLog
 	mode    Mode
@@ -36,14 +36,16 @@ func NewGatewayCluster(conf Config, mod *model.Model) (*GatewayCluster, error) {
 	if mod == nil {
 		return nil, fmt.Errorf("model is nil")
 	}
-	// TODO: choose config of under layer automatically
-	underConf := cluster.DefaultLANConfig()
-	eventStream := make(chan cluster.Event)
-	underConf.EventStream = eventStream
-	underConf.NodeTags["group"] = "default"        // TODO: read from config
-	underConf.NodeTags["mode"] = string(WriteMode) // TODO: read from config
 
-	infra, err := cluster.Create(*underConf)
+	eventStream := make(chan cluster.Event)
+
+	// TODO: choose config of under layer automatically
+	basisConf := cluster.DefaultLANConfig()
+	basisConf.EventStream = eventStream
+	basisConf.NodeTags["group"] = "default"        // TODO: read from config
+	basisConf.NodeTags["mode"] = string(WriteMode) // TODO: read from config
+
+	basis, err := cluster.Create(*basisConf)
 	if err != nil {
 		return nil, err
 	}
@@ -55,8 +57,8 @@ func NewGatewayCluster(conf Config, mod *model.Model) (*GatewayCluster, error) {
 
 	gc := &GatewayCluster{
 		conf:    &conf,
-		model:   mod,
-		cluster: infra,
+		mod:     mod,
+		cluster: basis,
 		log:     log,
 		mode:    WriteMode, // TODO
 

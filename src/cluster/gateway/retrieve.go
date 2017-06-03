@@ -43,7 +43,7 @@ func (gc *GatewayCluster) retrieveResult(payload []byte) ([]byte, error) {
 		if err != nil {
 			return nil, fmt.Errorf("wrong filter format: want %T", filter)
 		}
-		plugs, err := gc.model.GetPlugins(filter.NamePattern, filter.Types)
+		plugs, err := gc.mod.GetPlugins(filter.NamePattern, filter.Types)
 		if err != nil {
 			return nil, fmt.Errorf("server error: get plugins failed: %v", err)
 		}
@@ -69,7 +69,7 @@ func (gc *GatewayCluster) retrieveResult(payload []byte) ([]byte, error) {
 		if err != nil {
 			return nil, fmt.Errorf("wrong filter format: want %T", filter)
 		}
-		pipes, err := gc.model.GetPipelines(filter.NamePattern, filter.Types)
+		pipes, err := gc.mod.GetPipelines(filter.NamePattern, filter.Types)
 		if err != nil {
 			return nil, fmt.Errorf("server error: get pipelines failed: %v", err)
 		}
