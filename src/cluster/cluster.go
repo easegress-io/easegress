@@ -825,20 +825,26 @@ func (c *Cluster) handleNodeConflict() {
 
 	local := c.memberList.LocalNode()
 
+LOOP:
 	for {
 		select {
-		case response := <-future.Response():
+		case response, ok := <-future.Response():
+			if !ok {
+				// timeout, vote finished
+				break LOOP
+			}
+
 			if len(response.Payload) == 0 {
 				logger.Errorf("[BUG: received illegal member conflict resolving response message, " +
 					"ignored]")
-				continue
+				continue LOOP
 			}
 
 			msgType := messageType(response.Payload[0])
 			if msgType != memberConflictResolvingResponseMessage {
 				logger.Errorf("[BUG: received illegal member conflict resolving response message, "+
 					"ignored: %d]", msgType)
-				continue
+				continue LOOP
 			}
 
 			msg := messageMemberConflictResolvingResponse{}
@@ -846,7 +852,7 @@ func (c *Cluster) handleNodeConflict() {
 			err := common.Unpack(response.Payload[1:], &msg)
 			if err != nil {
 				logger.Errorf("[unpack member conflict resolving response message failed: %s]", err)
-				continue
+				continue LOOP
 			}
 
 			if msg.member.address.Equal(local.Addr) && msg.member.port == local.Port {

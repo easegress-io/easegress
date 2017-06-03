@@ -132,7 +132,7 @@ func (f *Future) ack(nodeName string) (bool, error) {
 	case f.ackStream <- nodeName:
 		f.ackBook[nodeName] = struct{}{}
 	default:
-		return false, fmt.Errorf("write response ack event to channel failed")
+		return false, fmt.Errorf("write response ack to channel failed")
 	}
 
 	return true, nil
@@ -156,7 +156,7 @@ func (f *Future) response(response *MemberResponse) (bool, error) {
 	case f.responseStream <- response:
 		f.responseBook[response.ResponseNodeName] = struct{}{}
 	default:
-		return false, fmt.Errorf("write response event to channel failed")
+		return false, fmt.Errorf("write response to channel failed")
 	}
 
 	return true, nil
