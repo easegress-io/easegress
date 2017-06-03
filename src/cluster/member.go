@@ -13,15 +13,15 @@ func init() {
 ////
 
 type Member struct {
-	nodeName string
-	nodeTags map[string]string
-	address  net.IP
-	port     uint16
+	NodeName string
+	NodeTags map[string]string
+	Address  net.IP
+	Port     uint16
 
-	status MemberStatus
+	Status MemberStatus
 
-	memberListProtocolMin, memberListProtocolMax, memberListProtocolCurrent uint8
 	clusterProtocolMin, clusterProtocolMax, clusterProtocolCurrent          uint8
+	memberListProtocolMin, memberListProtocolMax, memberListProtocolCurrent uint8
 }
 
 ////
@@ -60,7 +60,7 @@ func (msb *memberStatusBook) remove(memberName string) int {
 	removed := 0
 
 	for _, ms := range msb.members {
-		if ms.nodeName == memberName {
+		if ms.NodeName == memberName {
 			removed++
 		} else {
 			members = append(members, ms)
@@ -92,7 +92,7 @@ func (msb *memberStatusBook) names() []string {
 	var ret []string
 
 	for _, ms := range msb.members {
-		ret = append(ret, ms.nodeName)
+		ret = append(ret, ms.NodeName)
 	}
 
 	return ret

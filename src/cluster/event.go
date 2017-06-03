@@ -210,25 +210,25 @@ LOOP:
 		idx := rand.Intn(len(members))
 		member := members[idx]
 
-		if member.nodeName == responder.Name {
+		if member.NodeName == responder.Name {
 			// skip myself
 			continue LOOP
 		}
 
-		if member.status != MemberAlive {
+		if member.Status != MemberAlive {
 			// skip the node as non-alive member
 			continue LOOP
 		}
 
 		for _, m := range relayMembers {
-			if m.Name == member.nodeName {
+			if m.Name == member.NodeName {
 				// skip selected member
 				continue LOOP
 			}
 		}
 
 		for _, node := range e.c.memberList.Members() {
-			if node.Addr.Equal(member.address) && node.Port == member.port {
+			if node.Addr.Equal(member.Address) && node.Port == member.Port {
 				relayMembers = append(relayMembers, node)
 				continue LOOP
 			}

@@ -326,11 +326,11 @@ func (c *Cluster) joinNode(node *memberlist.Node) {
 
 		ms = &memberStatus{
 			Member: Member{
-				nodeName: node.Name,
-				nodeTags: tags,
-				address:  node.Addr,
-				port:     node.Port,
-				status:   MemberAlive,
+				NodeName: node.Name,
+				NodeTags: tags,
+				Address:  node.Addr,
+				Port:     node.Port,
+				Status:   MemberAlive,
 			},
 		}
 
@@ -341,19 +341,19 @@ func (c *Cluster) joinNode(node *memberlist.Node) {
 
 		existing, messageTime = c.memberOperations.get(node.Name, memberLeaveMessage)
 		if existing {
-			ms.status = MemberLeaving
+			ms.Status = MemberLeaving
 			ms.lastMessageTime = messageTime
 		}
 
 		c.members[node.Name] = ms
 	} else {
-		originalStatus = ms.status
+		originalStatus = ms.Status
 
-		ms.nodeTags = tags
-		ms.address = node.Addr
-		ms.port = node.Port
+		ms.NodeTags = tags
+		ms.Address = node.Addr
+		ms.Port = node.Port
+		ms.Status = MemberAlive
 		ms.goneTime = time.Time{}
-		ms.status = MemberAlive
 	}
 
 	ms.memberListProtocolMin = node.PMin
@@ -364,19 +364,19 @@ func (c *Cluster) joinNode(node *memberlist.Node) {
 	ms.clusterProtocolCurrent = node.DCur
 
 	if originalStatus == MemberFailed {
-		c.failedMembers.remove(ms.nodeName)
+		c.failedMembers.remove(ms.NodeName)
 	} else if originalStatus == MemberLeft {
-		c.leftMembers.remove(ms.nodeName)
+		c.leftMembers.remove(ms.NodeName)
 	}
 
 	logger.Debugf("[event %s happened for member %s (%s:%d)]",
-		MemberJoinEvent.String(), ms.nodeName, ms.address, ms.port)
+		MemberJoinEvent.String(), ms.NodeName, ms.Address, ms.Port)
 
 	if c.conf.EventStream != nil {
 		c.conf.EventStream <- createMemberEvent(MemberJoinEvent, &ms.Member)
 
 		logger.Debugf("[event %s triggered for member %s (%s:%d)]",
-			MemberJoinEvent.String(), ms.nodeName, ms.address, ms.port)
+			MemberJoinEvent.String(), ms.NodeName, ms.Address, ms.Port)
 	}
 }
 
@@ -393,34 +393,34 @@ func (c *Cluster) leaveNode(node *memberlist.Node) {
 	var event EventType
 	now := time.Now()
 
-	switch ms.status {
+	switch ms.Status {
 	case MemberLeaving:
-		ms.status = MemberLeft
+		ms.Status = MemberLeft
 		ms.goneTime = now
 
 		c.leftMembers.add(ms)
 
 		event = MemberLeftEvent
 	case MemberAlive:
-		ms.status = MemberFailed
+		ms.Status = MemberFailed
 		ms.goneTime = now
 
 		c.failedMembers.add(ms)
 
 		event = MemberFailedEvent
 	default:
-		logger.Errorf("[BUG: invalid member status when the node leave, ignored: %s]", ms.status.String())
+		logger.Errorf("[BUG: invalid member status when the node leave, ignored: %s]", ms.Status.String())
 		return
 	}
 
 	logger.Debugf("[event %s happened for member %s (%s:%d)]",
-		event.String(), ms.nodeName, ms.address, ms.port)
+		event.String(), ms.NodeName, ms.Address, ms.Port)
 
 	if c.conf.EventStream != nil {
 		c.conf.EventStream <- createMemberEvent(event, &ms.Member)
 
 		logger.Debugf("[event %s triggered for member %s (%s:%d)]",
-			event.String(), ms.nodeName, ms.address, ms.port)
+			event.String(), ms.NodeName, ms.Address, ms.Port)
 	}
 }
 
@@ -439,9 +439,9 @@ func (c *Cluster) updateNode(node *memberlist.Node) {
 		logger.Errorf("[unpack node tags from metadata failed, tags are ignored: %s]", err)
 	}
 
-	ms.nodeTags = tags
-	ms.address = node.Addr
-	ms.port = node.Port
+	ms.NodeTags = tags
+	ms.Address = node.Addr
+	ms.Port = node.Port
 	ms.memberListProtocolMin = node.PMin
 	ms.memberListProtocolMax = node.PMax
 	ms.memberListProtocolCurrent = node.PCur
@@ -450,13 +450,13 @@ func (c *Cluster) updateNode(node *memberlist.Node) {
 	ms.clusterProtocolCurrent = node.DCur
 
 	logger.Debugf("[event %s happened for member %s (%s:%d)]",
-		MemberUpdateEvent.String(), ms.nodeName, ms.address, ms.port)
+		MemberUpdateEvent.String(), ms.NodeName, ms.Address, ms.Port)
 
 	if c.conf.EventStream != nil {
 		c.conf.EventStream <- createMemberEvent(MemberUpdateEvent, &ms.Member)
 
 		logger.Debugf("[event %s triggered for member %s (%s:%d)]",
-			MemberUpdateEvent.String(), ms.nodeName, ms.address, ms.port)
+			MemberUpdateEvent.String(), ms.NodeName, ms.Address, ms.Port)
 	}
 }
 
@@ -494,8 +494,8 @@ func (c *Cluster) operateNodeJoin(msg *messageMemberJoin) bool {
 
 	member.lastMessageTime = msg.joinTime
 
-	if member.status == MemberLeaving {
-		member.status = MemberAlive
+	if member.Status == MemberLeaving {
+		member.Status = MemberAlive
 	}
 
 	return true
@@ -522,26 +522,26 @@ func (c *Cluster) operateNodeLeave(msg *messageMemberLeave) bool {
 		return false
 	}
 
-	switch ms.status {
+	switch ms.Status {
 	case MemberAlive:
-		ms.status = MemberLeaving
+		ms.Status = MemberLeaving
 		ms.lastMessageTime = msg.leaveTime
 		return true
 	case MemberFailed:
-		ms.status = MemberLeft
+		ms.Status = MemberLeft
 		ms.lastMessageTime = msg.leaveTime
 
-		c.failedMembers.remove(ms.nodeName)
+		c.failedMembers.remove(ms.NodeName)
 		c.leftMembers.add(ms)
 
 		logger.Debugf("[event %s happened for member %s (%s:%d)]",
-			MemberLeftEvent.String(), ms.nodeName, ms.address, ms.port)
+			MemberLeftEvent.String(), ms.NodeName, ms.Address, ms.Port)
 
 		if c.conf.EventStream != nil {
 			c.conf.EventStream <- createMemberEvent(MemberLeftEvent, &ms.Member)
 
 			logger.Debugf("[event %s triggered for member %s (%s:%d)]",
-				MemberLeftEvent.String(), ms.nodeName, ms.address, ms.port)
+				MemberLeftEvent.String(), ms.NodeName, ms.Address, ms.Port)
 		}
 
 		return true
@@ -788,11 +788,11 @@ func (c *Cluster) aliveMembers(peer bool) []*Member {
 	ret := make([]*Member, 0, len(c.members))
 
 	for _, ms := range c.members {
-		if ms.nodeName == c.conf.NodeName && peer {
+		if ms.NodeName == c.conf.NodeName && peer {
 			continue
 		}
 
-		if ms.status == MemberAlive {
+		if ms.Status == MemberAlive {
 			ret = append(ret, &ms.Member)
 		}
 	}
@@ -855,7 +855,7 @@ LOOP:
 				continue LOOP
 			}
 
-			if msg.member.address.Equal(local.Addr) && msg.member.port == local.Port {
+			if msg.member.Address.Equal(local.Addr) && msg.member.Port == local.Port {
 				vote++
 			}
 
@@ -883,16 +883,16 @@ LOOP:
 func (c *Cluster) cleanupMember() {
 	_cleanup := func(members []*memberStatus) {
 		for _, ms := range members {
-			delete(c.members, ms.nodeName)
+			delete(c.members, ms.NodeName)
 
 			logger.Debugf("[event %s happened for member %s (%s:%d)]",
-				MemberCleanupEvent.String(), ms.nodeName, ms.address, ms.port)
+				MemberCleanupEvent.String(), ms.NodeName, ms.Address, ms.Port)
 
 			if c.conf.EventStream != nil {
 				c.conf.EventStream <- createMemberEvent(MemberCleanupEvent, &ms.Member)
 
 				logger.Debugf("[event %s triggered for member %s (%s:%d)]",
-					MemberCleanupEvent.String(), ms.nodeName, ms.address, ms.port)
+					MemberCleanupEvent.String(), ms.NodeName, ms.Address, ms.Port)
 			}
 		}
 	}
@@ -930,7 +930,7 @@ func (c *Cluster) reconnectFailedMembers() {
 
 			c.membersLock.RUnlock()
 
-			addr := &net.UDPAddr{IP: member.address, Port: int(member.port)}
+			addr := &net.UDPAddr{IP: member.Address, Port: int(member.Port)}
 			peer := addr.String()
 
 			c.memberList.Join([]string{peer})
