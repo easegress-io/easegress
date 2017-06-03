@@ -9,11 +9,10 @@ import (
 	"syscall"
 	"time"
 
-	_ "cluster"
+	_ "cluster/gateway"
 	"config"
 	"logger"
 	"model"
-	_ "nrw"
 	"pipelines"
 )
 

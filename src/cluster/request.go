@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"common"
 	"logger"
 )
 
@@ -289,7 +288,7 @@ func (h *internalRequestHandler) handleMemberConflict(request *RequestEvent) {
 
 	requestMsg := messageMemberConflictResolvingRequest{}
 
-	err := common.Unpack(request.RequestPayload[1:], &requestMsg)
+	err := Unpack(request.RequestPayload[1:], &requestMsg)
 	if err != nil {
 		logger.Errorf("[unpack member conflict resolving request message failed: %s]", err)
 		return
@@ -310,7 +309,7 @@ func (h *internalRequestHandler) handleMemberConflict(request *RequestEvent) {
 	}
 	h.c.membersLock.Unlock()
 
-	buff, err := common.Pack(&responseMsg, uint8(memberConflictResolvingResponseMessage))
+	buff, err := Pack(&responseMsg, uint8(memberConflictResolvingResponseMessage))
 	if err != nil {
 		logger.Errorf("[pack member conflict resolving response message failed: %s]", err)
 		return

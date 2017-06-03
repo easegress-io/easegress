@@ -1,4 +1,4 @@
-package nrw
+package gateway
 
 type BaseErr struct {
 	S string

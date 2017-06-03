@@ -93,7 +93,7 @@ func Create(conf Config) (*Cluster, error) {
 		conf.NodeTags = make(map[string]string)
 	}
 
-	nodeTags, err := common.PackNodeTags(conf.NodeTags)
+	nodeTags, err := PackNodeTags(conf.NodeTags)
 	if err != nil {
 		return nil, err
 	}
@@ -293,7 +293,7 @@ func (c *Cluster) Members() []Member {
 }
 
 func (c *Cluster) UpdateTags(tags map[string]string) error {
-	nodeTags, err := common.PackNodeTags(tags)
+	nodeTags, err := PackNodeTags(tags)
 	if err != nil {
 		return err
 	}
@@ -313,7 +313,7 @@ func (c *Cluster) joinNode(node *memberlist.Node) {
 	c.membersLock.Lock()
 	defer c.membersLock.Unlock()
 
-	tags, err := common.UnpackNodeTags(node.Meta)
+	tags, err := UnpackNodeTags(node.Meta)
 	if err != nil {
 		logger.Errorf("[unpack node tags from metadata failed, tags are ignored: %s]", err)
 	}
@@ -434,7 +434,7 @@ func (c *Cluster) updateNode(node *memberlist.Node) {
 		return
 	}
 
-	tags, err := common.UnpackNodeTags(node.Meta)
+	tags, err := UnpackNodeTags(node.Meta)
 	if err != nil {
 		logger.Errorf("[unpack node tags from metadata failed, tags are ignored: %s]", err)
 	}
@@ -809,7 +809,7 @@ func (c *Cluster) handleNodeConflict() {
 		conflictNodeName: c.conf.NodeName,
 	}
 
-	buff, err := common.Pack(&msg, uint8(memberConflictResolvingRequestMessage))
+	buff, err := Pack(&msg, uint8(memberConflictResolvingRequestMessage))
 	if err != nil {
 		logger.Errorf("[pack member conflict resolving message failed: %s]", err)
 		return
@@ -849,7 +849,7 @@ LOOP:
 
 			msg := messageMemberConflictResolvingResponse{}
 
-			err := common.Unpack(response.Payload[1:], &msg)
+			err := Unpack(response.Payload[1:], &msg)
 			if err != nil {
 				logger.Errorf("[unpack member conflict resolving response message failed: %s]", err)
 				continue LOOP

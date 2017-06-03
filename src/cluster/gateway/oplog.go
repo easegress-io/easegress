@@ -1,4 +1,4 @@
-package nrw
+package gateway
 
 import (
 	"encoding/json"
@@ -9,14 +9,15 @@ import (
 	"strconv"
 	"sync"
 
-	"common"
-
 	"github.com/dgraph-io/badger/badger"
+
+	"cluster"
+	"common"
 )
 
-type OPLogAppended func(newOPLog *OPLogAtom)
+type opLogAppended func(newOPLog *opLogAtom)
 
-type OPLogAtom struct {
+type opLogAtom struct {
 	SeqBased uint64
 	Type     OperationType
 	Content  interface{}
@@ -24,17 +25,17 @@ type OPLogAtom struct {
 
 var (
 	contentConstructorMaps = map[OperationType]func() interface{}{
-		OperationCreatePlugin:   func() interface{} { return new(ContentCreatePlugin) },
-		OperationUpdatePlugin:   func() interface{} { return new(ContentUpdatePlugin) },
-		OperationDeletePlugin:   func() interface{} { return new(ContentDeletePlugin) },
-		OperationCreatePipeline: func() interface{} { return new(ContentCreatePipeline) },
-		OperationUpdatePipeline: func() interface{} { return new(ContentUpdatePipeline) },
-		OperationDeletePipeline: func() interface{} { return new(ContentDeletePipeline) },
+		createPlugin:   func() interface{} { return new(ContentCreatePlugin) },
+		updatePlugin:   func() interface{} { return new(ContentUpdatePlugin) },
+		deletePlugin:   func() interface{} { return new(ContentDeletePlugin) },
+		createPipeline: func() interface{} { return new(ContentCreatePipeline) },
+		updatePipeline: func() interface{} { return new(ContentUpdatePipeline) },
+		deletePipeline: func() interface{} { return new(ContentDeletePipeline) },
 	}
 )
 
-func operation2Atom(operation Operation) (OPLogAtom, error) {
-	atom := OPLogAtom{
+func operation2Atom(operation Operation) (opLogAtom, error) {
+	atom := opLogAtom{
 		SeqBased: operation.SeqBased,
 	}
 
@@ -44,7 +45,7 @@ func operation2Atom(operation Operation) (OPLogAtom, error) {
 	atom.Type = OperationType(operation.Content[0])
 
 	content := contentConstructorMaps[atom.Type]()
-	err := Unpack(operation.Content[1:], content)
+	err := cluster.Unpack(operation.Content[1:], content)
 	if err != nil {
 		return atom, fmt.Errorf("got wrong format: want %T", content)
 	}
@@ -53,12 +54,12 @@ func operation2Atom(operation Operation) (OPLogAtom, error) {
 	return atom, nil
 }
 
-func atom2Operation(atom OPLogAtom) (Operation, error) {
+func atom2Operation(atom opLogAtom) (Operation, error) {
 	operation := Operation{
 		SeqBased: atom.SeqBased,
 	}
 	var err error
-	operation.Content, err = Pack(atom.Content, uint8(atom.Type))
+	operation.Content, err = cluster.Pack(atom.Content, uint8(atom.Type))
 	if err != nil {
 		return operation, fmt.Errorf("pack %#v failed: %v", atom.Content, err)
 	}
@@ -66,7 +67,7 @@ func atom2Operation(atom OPLogAtom) (Operation, error) {
 	return operation, nil
 }
 
-func marshalAtom(atom OPLogAtom) ([]byte, error) {
+func marshalAtom(atom opLogAtom) ([]byte, error) {
 	buff, err := json.Marshal(atom)
 	if err != nil {
 		logger.Errorf("[BUG: marshal %#v failed: %v]", atom, err)
@@ -74,7 +75,7 @@ func marshalAtom(atom OPLogAtom) ([]byte, error) {
 	return buff, nil
 }
 
-func unmarshalAtom(buff []byte, atom *OPLogAtom) error {
+func unmarshalAtom(buff []byte, atom *opLogAtom) error {
 	err := json.Unmarshal(buff, atom)
 	if err != nil {
 		return fmt.Errorf("unmarshal %s failed: %v", buff, err)
@@ -131,7 +132,7 @@ func newOPLog() (*opLog, error) {
 	return op, nil
 }
 
-func (op *opLog) AddOPLogAppendedCallback(name string, callback OPLogAppended, overwrite bool) OPLogAppended {
+func (op *opLog) AddOPLogAppendedCallback(name string, callback opLogAppended, overwrite bool) opLogAppended {
 	op.Lock()
 	defer op.Unlock()
 
@@ -141,11 +142,11 @@ func (op *opLog) AddOPLogAppendedCallback(name string, callback OPLogAppended, o
 	if oriCallback == nil {
 		return nil
 	} else {
-		return oriCallback.(OPLogAppended)
+		return oriCallback.(opLogAppended)
 	}
 }
 
-func (op *opLog) DeleteOPLogAppendedCallback(name string) OPLogAppended {
+func (op *opLog) DeleteOPLogAppendedCallback(name string) opLogAppended {
 	op.Lock()
 	defer op.Unlock()
 
@@ -155,7 +156,7 @@ func (op *opLog) DeleteOPLogAppendedCallback(name string) OPLogAppended {
 	if oriCallback == nil {
 		return nil
 	} else {
-		return oriCallback.(OPLogAppended)
+		return oriCallback.(opLogAppended)
 	}
 }
 
@@ -187,7 +188,7 @@ func (op *opLog) _locklessMaxSeq() uint64 {
 func (op *opLog) _locklessIncreaseMaxSeq() uint64 {
 	ms := op._locklessMaxSeq()
 	ms++
-	op.kv.Set([]byte(maxSeqKey), u2b(ms))
+	op.kv.Set([]byte(maxSeqKey), []byte(fmt.Sprintf("%d", ms)))
 	return ms
 }
 
@@ -207,7 +208,7 @@ func (op *opLog) append(operations ...Operation) error {
 		begin++
 	}
 
-	atoms := make([]OPLogAtom, 0)
+	atoms := make([]opLogAtom, 0)
 	for i, operation := range operations {
 		atom, err := operation2Atom(operation)
 		if err != nil {
@@ -225,10 +226,10 @@ func (op *opLog) append(operations ...Operation) error {
 		}
 
 		ms := op._locklessIncreaseMaxSeq()
-		op.kv.Set(u2b(ms), buff)
+		op.kv.Set([]byte(fmt.Sprintf("%d", ms)), buff)
 
 		for _, callback := range op.opLogAppendedCallbacks {
-			callback.Callback().(OPLogAppended)(&atom)
+			callback.Callback().(opLogAppended)(&atom)
 		}
 	}
 
@@ -255,13 +256,13 @@ func (op *opLog) retrieve(begin, end uint64) ([]Operation, error) {
 
 	operations := make([]Operation, 0)
 	for i := begin; i <= end; i++ {
-		buff, _ := op.kv.Get(u2b(i))
+		buff, _ := op.kv.Get([]byte(fmt.Sprintf("%d", i)))
 		if buff == nil {
 			logger.Errorf("[BUG: retrieve nothing at %d which is less than max sequence %d]", i, ms)
 			return nil, fmt.Errorf("retrieve nothing at %d which is less than max sequence %d", i, ms)
 		}
 
-		var atom OPLogAtom
+		var atom opLogAtom
 		err := unmarshalAtom(buff, &atom)
 		if err != nil {
 			logger.Errorf("[BUG: at %d unmarshal %s to atom failed: %v]", i, buff, err)

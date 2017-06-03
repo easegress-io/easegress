@@ -1,55 +1,54 @@
-package nrw
+package gateway
 
 import (
 	"config"
 )
 
-// MessageType
 const (
 	// Requests/Responses need 1 byte header specifying message type.
-	MessageQueryMaxSeq MessageType = iota
+	queryMaxSeqMessage MessageType = iota
 	// Operation here means those operations for updating config,
 	// We didn't choose the word `update` in order to makes naming clear.
-	MessageOperation
-	MessageRetrieve
-	MessasgeStat
-	MessageSyncOPLog
+	operationMessage
+	retrieveMessage
+	statMessage
+	syncOPLogMessage
 )
 
 type MessageType uint8
 
-// NOTICE: The type of all generic fileds whose types are limieted/known can be []byte.
+// NOTICE: The type of all generic fields whose types are limited/known can be []byte.
 // The []byte whose first-byte(header) represent the concrete type,
 // the rest of it can be Unpacked to the corresponding type definitely.
 // So interface{} is used to represent unlimited/unknown type.
 
-// MessageQueryMaxSeq
-// No const for MessageQueryMaxSeq for now.
+// queryMaxSeqMessage
+// No const for queryMaxSeqMessage for now.
 
 type (
-	// Pack Header: MessageQueryMaxSeq
+	// Pack Header: queryMaxSeqMessage
 	ReqQueryMaxSeq struct{}
-	// Pack Header: MessageQueryMaxSeq
+	// Pack Header: queryMaxSeqMessage
 	RespQueryMaxSeq uint64
 )
 
-// MessageOperation
+// operationMessage
 const (
-	OperationCreatePlugin OperationType = iota
-	OperationUpdatePlugin
-	OperationDeletePlugin
-	OperationCreatePipeline
-	OperationUpdatePipeline
-	OperationDeletePipeline
+	createPlugin OperationType = iota
+	updatePlugin
+	deletePlugin
+	createPipeline
+	updatePipeline
+	deletePipeline
 )
 
 type (
 	OperationType uint8
-	// Pack Header: MessageOperation
+	// Pack Header: operationMessage
 	ReqOperation struct {
 		Operation Operation
 	}
-	// Pack Header: MessageOperation
+	// Pack Header: operationMessage
 	RespOperation struct {
 		Err OperationErr // If Err is non-nil, the update operation failed owe to Err.
 	}
@@ -61,48 +60,48 @@ type (
 		//      ContentCreatePipeline, ContentUpdatePipeline, ContentDeletePipeline
 		Content []byte
 	}
-	// Pack Header: OperationCreatePlugin
+	// Pack Header: createPlugin
 	ContentCreatePlugin struct {
 		Type   string
 		Config interface{}
 	}
-	// Pack Header: OperationUpdatePlugin
+	// Pack Header: updatePlugin
 	ContentUpdatePlugin struct {
 		Type   string
 		Config interface{}
 	}
-	// Pack Header: OperationDeletePlugin
+	// Pack Header: deletePlugin
 	ContentDeletePlugin struct {
 		Name string
 	}
-	// Pack Header: OperationCreatePipeline
+	// Pack Header: createPipeline
 	ContentCreatePipeline struct {
 		Type   string
 		Config interface{}
 	}
-	// Pack Header: OperationUpdatePipeline
+	// Pack Header: updatePipeline
 	ContentUpdatePipeline struct {
 		Type   string
 		Config interface{}
 	}
-	// Pack Header: OperationDeletePipeline
+	// Pack Header: deletePipeline
 	ContentDeletePipeline struct {
 		Name string
 	}
 )
 
-// MessageRetrieve
+// retrieveMessage
 const (
 	// NOTICE: Cluster REST API could use plural retrieval to implement single one.
-	RetrievePlugins RetrieveType = iota
-	RetrievePipelines
-	RetrievePluginTypes
-	RetrievePipelineTypes
+	retrievePlugins RetrieveType = iota
+	retrievePipelines
+	retrievePluginTypes
+	retrievePipelineTypes
 )
 
 type (
 	RetrieveType uint8
-	// Pack Header: MessageRetrieve
+	// Pack Header: retrieveMessage
 	ReqRetrieve struct {
 		// RetrieveAllNodes is the flag to specify the write_mode node
 		// retrieve just its own stuff then return immediately when false,
@@ -118,7 +117,7 @@ type (
 		// No filter for RetrievePluginTypes, RetrievePipelineTypes for now.
 		Filter []byte
 	}
-	// Pack Header: MessageRetrieve
+	// Pack Header: retrieveMessage
 	RespRetrieve struct {
 		// If Err is non-nil, the retrieval failed owe to Err,
 		// and Result will be nil.
@@ -129,23 +128,23 @@ type (
 		//      ResultRetrievePluginTypes, ResultRetrievePipelineTypes
 		Result []byte
 	}
-	// Pack Header: RetrievePlugins
+	// Pack Header: retrievePlugins
 	ResultRetrievePlugins struct {
 		Plugins []config.PluginSpec
 	}
-	// Pack Header: RetrievePipelines
+	// Pack Header: retrievePipelines
 	ResultRetrievePipelines struct {
 		Pipelines []config.PipelineSpec
 	}
-	// Pack Header: RetrievePluginTypes
+	// Pack Header: retrievePluginTypes
 	ResultRetrievePluginTypes struct {
 		PluginTypes []string
 	}
-	// Pack Header: RetrievePipelineTypes
+	// Pack Header: retrievePipelineTypes
 	ResultRetrievePipelineTypes struct {
 		PipelineTypes []string
 	}
-	// Pack Header: RetrievePlugins
+	// Pack Header: retrievePlugins
 	FilterRetrievePlugins struct {
 		NamePattern string
 		Types       []string
@@ -157,22 +156,22 @@ type (
 	}
 )
 
-// MessageStat
+// statMessage
 const (
-	StatPipelineIndicatorNames StatType = iota
-	StatPipelineIndicatorValue
-	StatPipelineIndicatorDesc
-	StatPluginIndicatorNames
-	StatPluginIndicatorValue
-	StatPluginIndicatorDesc
-	StatTaskIndicatorNames
-	StatTaskIndicatorValue
-	StatTaskIndicatorDesc
+	statPipelineIndicatorNames StatType = iota
+	statPipelineIndicatorValue
+	statPipelineIndicatorDesc
+	statPluginIndicatorNames
+	statPluginIndicatorValue
+	statPluginIndicatorDesc
+	statTaskIndicatorNames
+	statTaskIndicatorValue
+	statTaskIndicatorDesc
 )
 
 type (
 	StatType uint8
-	// Pack Header: MessageStat
+	// Pack Header: statMessage
 	ReqStat struct {
 		// Unpack Header: StatType
 		// Possible Type:
@@ -192,80 +191,80 @@ type (
 		//      ResultStatTaskIndicatorNames, ResultStatTaskIndicatorValue, ResultStatTaskIndicatorDesc
 		Result []byte
 	}
-	// Pack Header: StatPipelineIndicatorNames
+	// Pack Header: statPipelineIndicatorNames
 	ResultStatPipelineIndicatorNames struct {
 		Names []string
 	}
-	// Pack Header: StatPipelineIndicatorValue
+	// Pack Header: statPipelineIndicatorValue
 	ResultStatPipelineIndicatorValue struct {
 		Value interface{}
 	}
-	// Pack Header: StatPipelineIndicatorDesc
+	// Pack Header: statPipelineIndicatorDesc
 	ResultStatPipelineIndicatorDesc struct {
 		Desc interface{}
 	}
-	// Pack Header: StatPluginIndicatorNames
+	// Pack Header: statPluginIndicatorNames
 	ResultStatPluginIndicatorNames struct {
 		Names []string
 	}
-	// Pack Header: StatPluginIndicatorValue
+	// Pack Header: statPluginIndicatorValue
 	ResultStatPluginIndicatorValue struct {
 		Value interface{}
 	}
-	// Pack Header: StatPluginIndicatorDesc
+	// Pack Header: statPluginIndicatorDesc
 	ResultStatPluginIndicatorDesc struct {
 		Desc interface{}
 	}
-	// Pack Header: StatTaskIndicatorNames
+	// Pack Header: statTaskIndicatorNames
 	ResultStatTaskIndicatorNames struct {
 		Names []string
 	}
-	// Pack Header: StatTaskIndicatorValue
+	// Pack Header: statTaskIndicatorValue
 	ResultStatTaskIndicatorValue struct {
 		Value interface{}
 	}
-	// Pack Header: StatTaskIndicatorDesc
+	// Pack Header: statTaskIndicatorDesc
 	ResultStatTaskIndicatorDesc struct {
 		Desc interface{}
 	}
-	// Pack Header: StatPipelineIndicatorNames
+	// Pack Header: statPipelineIndicatorNames
 	FilterPipelineIndicatorNames struct {
 		PipelineName string
 	}
-	// Pack Header: StatPipelineIndicatorValue
+	// Pack Header: statPipelineIndicatorValue
 	FilterPipelineIndicatorValue struct {
 		PipelineName  string
 		IndicatorName string
 	}
-	// Pack Header: StatPipelineIndicatorDesc
+	// Pack Header: statPipelineIndicatorDesc
 	FilterPipelineIndicatorDesc struct {
 		PipelineName  string
 		IndicatorName string
 	}
-	// Pack Header: StatPluginIndicatorNames
+	// Pack Header: statPluginIndicatorNames
 	FilterPluginIndicatorNames struct {
 		PluginName string
 	}
-	// Pack Header: StatPluginIndicatorValue
+	// Pack Header: statPluginIndicatorValue
 	FilterPluginIndicatorValue struct {
 		PluginName    string
 		IndicatorName string
 	}
-	// Pack Header: StatPluginIndicatorDesc
+	// Pack Header: statPluginIndicatorDesc
 	FilterPluginIndicatorDesc struct {
 		PluginName    string
 		IndicatorName string
 	}
-	// Pack Header: StatTaskIndicatorNames
+	// Pack Header: statTaskIndicatorNames
 	FilterTaskIndicatorNames struct {
 		PipelineName string
 	}
-	// Pack Header: StatTaskIndicatorValue
+	// Pack Header: statTaskIndicatorValue
 	FilterTaskIndicatorValue struct {
 		PipelineName  string
 		IndicatorName string
 	}
-	// Pack Header: StatTaskIndicatorDesc
+	// Pack Header: statTaskIndicatorDesc
 	FilterTaskIndicatorDesc struct {
 		PipelineName  string
 		IndicatorName string
@@ -274,11 +273,11 @@ type (
 	// uptime, rusage, loadavg of a group.
 )
 
-// MessageSyncOPLog
-// const for Opertion in MessageSyncOPLog is the same with
-// corresponding stuff in MessageOperation.
+// syncOPLogMessage
+// const for Operation in syncOPLogMessage is the same with
+// corresponding stuff in operationMessage.
 type (
-	// Header: MessageSyncOPLog.
+	// Header: syncOPLogMessage.
 	ReqSyncOPLog struct {
 		LocalMaxSeq uint64
 		WantMaxSeq  uint64

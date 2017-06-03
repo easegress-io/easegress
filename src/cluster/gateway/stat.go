@@ -1,4 +1,4 @@
-package nrw
+package gateway
 
 import (
 	"fmt"
@@ -7,12 +7,12 @@ import (
 	"logger"
 )
 
-func (nrw *NRW) handleStat(req *cluster.RequestEvent) {
+func (gc *GatewayCluster) handleStat(req *cluster.RequestEvent) {
 	respondErr := func(e error) {
 		resp := RespStat{
 			Err: NewStatErr(e.Error()),
 		}
-		respBuff, err := Pack(resp, uint8(MessasgeStat))
+		respBuff, err := cluster.Pack(resp, uint8(statMessage))
 		if err != nil {
 			logger.Errorf("[BUG: pack %#v failed: %v]", resp, err)
 			return
@@ -26,7 +26,7 @@ func (nrw *NRW) handleStat(req *cluster.RequestEvent) {
 	}
 
 	reqStat := ReqStat{}
-	err := Unpack(req.RequestPayload[1:], &reqStat)
+	err := cluster.Unpack(req.RequestPayload[1:], &reqStat)
 	if err != nil {
 		respondErr(fmt.Errorf("wrong format: want ReqStat"))
 		return
@@ -39,20 +39,20 @@ func (nrw *NRW) handleStat(req *cluster.RequestEvent) {
 	resp := RespRetrieve{}
 	_ = resp
 	switch StatType(reqStat.Filter[0]) {
-	case StatPipelineIndicatorNames:
+	case statPipelineIndicatorNames:
 		filter := FilterPipelineIndicatorNames{}
-		err := Unpack(reqStat.Filter[1:], &filter)
+		err := cluster.Unpack(reqStat.Filter[1:], &filter)
 		if err != nil {
 			respondErr(fmt.Errorf("wrong format: want FilterPipelineIndicatorNames"))
 			return
 		}
-	case StatPipelineIndicatorValue:
-	case StatPipelineIndicatorDesc:
-	case StatPluginIndicatorNames:
-	case StatPluginIndicatorValue:
-	case StatPluginIndicatorDesc:
-	case StatTaskIndicatorNames:
-	case StatTaskIndicatorValue:
-	case StatTaskIndicatorDesc:
+	case statPipelineIndicatorValue:
+	case statPipelineIndicatorDesc:
+	case statPluginIndicatorNames:
+	case statPluginIndicatorValue:
+	case statPluginIndicatorDesc:
+	case statTaskIndicatorNames:
+	case statTaskIndicatorValue:
+	case statTaskIndicatorDesc:
 	}
 }
