@@ -1,5 +1,7 @@
 package gateway
 
+import "config"
+
 const (
 	// Requests/Responses need 1 byte header specifying message type.
 
@@ -23,7 +25,8 @@ type MessageType uint8
 
 // MessageErr
 const (
-	ErrNil MessageErrType = iota
+	ErrWrongFormat MessageErrType = iota
+	ErrInternalServer
 	ErrRetrieveInconsistency
 	ErrRetrieveTimeout
 )
@@ -104,12 +107,14 @@ type (
 		RetrieveAllNodes bool
 
 		// Below Filter* is Packed from corresponding struct
-		FilterRetrievePlugins   *FilterRetrievePlugins
-		FilterRetrievePipelines *FilterRetrievePipelines
+		FilterRetrievePlugins       *FilterRetrievePlugins
+		FilterRetrievePipelines     *FilterRetrievePipelines
+		FilterRetrievePluginTypes   *FilterRetrievePluginTypes
+		FilterRetrievePipelineTypes *FilterRetrievePipelineTypes
 	}
 	// Pack Header: retrieveMessage | retrieveRelayedMessage
 	RespRetrieve struct {
-		Err MessageErr
+		Err *MessageErr
 
 		ResultRetrievePlugins       []byte // json
 		ResultRetrievePipelines     []byte // json
@@ -123,6 +128,20 @@ type (
 	FilterRetrievePipelines struct {
 		NamePattern string
 		Types       []string
+	}
+	FilterRetrievePluginTypes   struct{}
+	FilterRetrievePipelineTypes struct{}
+	ResultRetrievePlugins       struct {
+		Plugins []config.PluginSpec `json:"plugins"`
+	}
+	ResultRetrievePipelines struct {
+		Pipelines []config.PipelineSpec `json:"pipelines"`
+	}
+	ResultRetrievePluginTypes struct {
+		PluginTypes []string `json:"plugin_types"`
+	}
+	ResultRetrievePipelineTypes struct {
+		PipelineTypes []string `json:"pipeline_types"`
 	}
 )
 
@@ -142,7 +161,7 @@ type (
 	}
 	// Pack Header: statMessage | statRelayedMessage
 	RespStat struct {
-		Err MessageErr
+		Err *MessageErr
 
 		Names []byte // json
 		Value []byte // json

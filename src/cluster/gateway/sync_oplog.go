@@ -2,7 +2,7 @@ package gateway
 
 import "cluster"
 
-func (gc *GatewayCluster) handleSyncOPLog(req *cluster.RequestEvent) {
+func (gc *GatewayCluster) handlePullOPLog(req *cluster.RequestEvent) {
 	for {
 		// TODO
 	}
