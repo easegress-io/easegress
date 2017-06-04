@@ -11,91 +11,10 @@ import (
 
 	"github.com/dgraph-io/badger/badger"
 
-	"cluster"
 	"common"
 )
 
-type opLogAppended func(newOPLog *opLogAtom)
-
-type opLogAtom struct {
-	SeqBased uint64
-	Type     OperationType
-	Content  interface{}
-}
-
-var (
-	contentConstructorMaps = map[OperationType]func() interface{}{
-		createPlugin:   func() interface{} { return new(ContentCreatePlugin) },
-		updatePlugin:   func() interface{} { return new(ContentUpdatePlugin) },
-		deletePlugin:   func() interface{} { return new(ContentDeletePlugin) },
-		createPipeline: func() interface{} { return new(ContentCreatePipeline) },
-		updatePipeline: func() interface{} { return new(ContentUpdatePipeline) },
-		deletePipeline: func() interface{} { return new(ContentDeletePipeline) },
-	}
-)
-
-func operation2Atom(operation Operation) (opLogAtom, error) {
-	atom := opLogAtom{
-		SeqBased: operation.SeqBased,
-	}
-
-	if len(operation.Content) < 1 {
-		return atom, fmt.Errorf("no content")
-	}
-	atom.Type = OperationType(operation.Content[0])
-
-	content := contentConstructorMaps[atom.Type]()
-	err := cluster.Unpack(operation.Content[1:], content)
-	if err != nil {
-		return atom, fmt.Errorf("got wrong format: want %T", content)
-	}
-	atom.Content = content
-
-	return atom, nil
-}
-
-func atom2Operation(atom opLogAtom) (Operation, error) {
-	operation := Operation{
-		SeqBased: atom.SeqBased,
-	}
-	var err error
-	operation.Content, err = cluster.Pack(atom.Content, uint8(atom.Type))
-	if err != nil {
-		return operation, fmt.Errorf("pack %#v failed: %v", atom.Content, err)
-	}
-
-	return operation, nil
-}
-
-func marshalAtom(atom opLogAtom) ([]byte, error) {
-	buff, err := json.Marshal(atom)
-	if err != nil {
-		logger.Errorf("[BUG: marshal %#v failed: %v]", atom, err)
-	}
-	return buff, nil
-}
-
-func unmarshalAtom(buff []byte, atom *opLogAtom) error {
-	err := json.Unmarshal(buff, atom)
-	if err != nil {
-		return fmt.Errorf("unmarshal %s failed: %v", buff, err)
-	}
-
-	contentBuff, err := json.Marshal(atom.Content)
-	if err != nil {
-		return fmt.Errorf("marshal content %#v failed: %v", atom.Content, err)
-	}
-
-	content := contentConstructorMaps[atom.Type]()
-	err = json.Unmarshal(contentBuff, content)
-	if err != nil {
-		logger.Errorf("unmarshal %s to %T failed: %v", contentBuff, content, err)
-		return err
-	}
-	atom.Content = content
-
-	return nil
-}
+type OperationAppended func(newOperation *Operation)
 
 const (
 	maxSeqKey = "maxSeqKey"
@@ -106,8 +25,8 @@ const (
 // opLog's methods prefixed by underscore(_) can't be invoked by other functions
 type opLog struct {
 	sync.RWMutex
-	kv                     *badger.KV
-	opLogAppendedCallbacks []*common.NamedCallback
+	kv                         *badger.KV
+	operationAppendedCallbacks []*common.NamedCallback
 }
 
 func newOPLog() (*opLog, error) {
@@ -132,31 +51,31 @@ func newOPLog() (*opLog, error) {
 	return op, nil
 }
 
-func (op *opLog) AddOPLogAppendedCallback(name string, callback opLogAppended, overwrite bool) opLogAppended {
+func (op *opLog) AddOPLogAppendedCallback(name string, callback OperationAppended, overwrite bool) OperationAppended {
 	op.Lock()
 	defer op.Unlock()
 
 	var oriCallback interface{}
-	op.opLogAppendedCallbacks, oriCallback, _ = common.AddCallback(op.opLogAppendedCallbacks, name, callback, overwrite)
+	op.operationAppendedCallbacks, oriCallback, _ = common.AddCallback(op.operationAppendedCallbacks, name, callback, overwrite)
 
 	if oriCallback == nil {
 		return nil
 	} else {
-		return oriCallback.(opLogAppended)
+		return oriCallback.(OperationAppended)
 	}
 }
 
-func (op *opLog) DeleteOPLogAppendedCallback(name string) opLogAppended {
+func (op *opLog) DeleteOPLogAppendedCallback(name string) OperationAppended {
 	op.Lock()
 	defer op.Unlock()
 
 	var oriCallback interface{}
-	op.opLogAppendedCallbacks, oriCallback = common.DeleteCallback(op.opLogAppendedCallbacks, name)
+	op.operationAppendedCallbacks, oriCallback = common.DeleteCallback(op.operationAppendedCallbacks, name)
 
 	if oriCallback == nil {
 		return nil
 	} else {
-		return oriCallback.(opLogAppended)
+		return oriCallback.(OperationAppended)
 	}
 }
 
@@ -166,11 +85,15 @@ func (op *opLog) maxSeq() uint64 {
 	return op._locklessMaxSeq()
 }
 
-// TODO: use Operation marshal to json and vice versa.
-
 // _locklessMaxSeq is designed to be invoked by locked methods of opLog
 func (op *opLog) _locklessMaxSeq() uint64 {
-	maxSeq, _ := op.kv.Get([]byte(maxSeqKey))
+	var item badger.KVItem
+	err := op.kv.Get([]byte(maxSeqKey), &item)
+	if err != nil {
+		return 0
+	}
+
+	maxSeq := item.Value()
 	if maxSeq == nil {
 		return 0
 	}
@@ -206,30 +129,31 @@ func (op *opLog) append(operations ...Operation) error {
 			return fmt.Errorf("operations must obey monotonic increasing quantity is 1")
 		}
 		begin++
-	}
 
-	atoms := make([]opLogAtom, 0)
-	for i, operation := range operations {
-		atom, err := operation2Atom(operation)
-		if err != nil {
-			return fmt.Errorf("illegal operation %d: %v", i+1, err)
+		switch {
+		case operation.ContentCreatePlugin != nil:
+		case operation.ContentUpdatePlugin != nil:
+		case operation.ContentDeletePlugin != nil:
+		case operation.ContentCreatePipeline != nil:
+		case operation.ContentUpdatePipeline != nil:
+		case operation.ContentDeletePipeline != nil:
+		default:
+			return fmt.Errorf("operation with sequence %d has no content", begin)
 		}
-
-		atoms = append(atoms, atom)
 	}
 
-	for _, atom := range atoms {
-		buff, err := marshalAtom(atom)
+	for _, operation := range operations {
+		operationBuff, err := json.Marshal(operation)
 		if err != nil {
-			logger.Errorf("[BUG: marshal %#v failed: %v]", err)
-			return fmt.Errorf("marshal %#v failed: %v", atom, err)
+			logger.Errorf("[BUG: Marshal %#v failed: %v]", operation, err)
+			return fmt.Errorf("[marshal %#v failed: %v]", operation, err)
 		}
 
 		ms := op._locklessIncreaseMaxSeq()
-		op.kv.Set([]byte(fmt.Sprintf("%d", ms)), buff)
+		op.kv.Set([]byte(fmt.Sprintf("%d", ms)), operationBuff)
 
-		for _, callback := range op.opLogAppendedCallbacks {
-			callback.Callback().(opLogAppended)(&atom)
+		for _, cb := range op.operationAppendedCallbacks {
+			cb.Callback().(OperationAppended)(&operation)
 		}
 	}
 
@@ -256,23 +180,24 @@ func (op *opLog) retrieve(begin, end uint64) ([]Operation, error) {
 
 	operations := make([]Operation, 0)
 	for i := begin; i <= end; i++ {
-		buff, _ := op.kv.Get([]byte(fmt.Sprintf("%d", i)))
-		if buff == nil {
-			logger.Errorf("[BUG: retrieve nothing at %d which is less than max sequence %d]", i, ms)
-			return nil, fmt.Errorf("retrieve nothing at %d which is less than max sequence %d", i, ms)
+		var item badger.KVItem
+		err := op.kv.Get([]byte(fmt.Sprintf("%d", i)), &item)
+		if err != nil {
+			logger.Errorf("[BUG: at %d retrieve operation less than max sequence %d failed: %v]", i, ms, err)
+			return nil, fmt.Errorf("[at %d retrieve operation less than max sequence %d failed: %v]", i, ms, err)
 		}
 
-		var atom opLogAtom
-		err := unmarshalAtom(buff, &atom)
-		if err != nil {
-			logger.Errorf("[BUG: at %d unmarshal %s to atom failed: %v]", i, buff, err)
-			return nil, fmt.Errorf("at %d unmarshal %s to atom failed: %v", i, buff, err)
+		operationBuff := item.Value()
+		if operationBuff == nil {
+			logger.Errorf("[BUG: at %d retrieve nothing less than max sequence %d]", i, ms)
+			return nil, fmt.Errorf("at %d retrieve nothing less than max sequence %d", i, ms)
 		}
 
-		operation, err := atom2Operation(atom)
+		var operation Operation
+		err = json.Unmarshal(operationBuff, &operation)
 		if err != nil {
-			logger.Errorf("[BUG: at %d transform atom %#v to operation failed: %v]", i, atom, err)
-			return nil, fmt.Errorf("at %d transform atom %#v to operation failed: %v", i, atom, err)
+			logger.Errorf("[BUG: at %d unmarshal %s to Operation failed: %v]", i, operationBuff, err)
+			return nil, fmt.Errorf("at %d unmarshal %s to Operation failed: %v]", i, operationBuff, err)
 		}
 
 		operations = append(operations, operation)
@@ -282,9 +207,9 @@ func (op *opLog) retrieve(begin, end uint64) ([]Operation, error) {
 }
 
 func (op *opLog) _cleanup() {
-	// TODO: Is it necessary to clean very old values?
+	// TODO: clean very old values
 }
 
-func (op *opLog) close() {
-	op.kv.Close()
+func (op *opLog) close() error {
+	return op.kv.Close()
 }
