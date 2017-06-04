@@ -1,107 +1,98 @@
 package gateway
 
-import (
-	"config"
-)
-
 const (
 	// Requests/Responses need 1 byte header specifying message type.
-	queryMaxSeqMessage MessageType = iota
+
+	queryGroupMaxSeqMessage MessageType = iota
+
 	// Operation here means those operations for updating config,
 	// We didn't choose the word `update` in order to makes naming clear.
 	operationMessage
+	operationRelayedMessage
+
 	retrieveMessage
+	retrieveRelayedMessage
+
 	statMessage
-	syncOPLogMessage
+	statRelayedMessage
+
+	pullOPLogMessage
 )
 
 type MessageType uint8
 
-// NOTICE: The type of all generic fields whose types are limited/known can be []byte.
-// The []byte whose first-byte(header) represent the concrete type,
-// the rest of it can be Unpacked to the corresponding type definitely.
-// So interface{} is used to represent unlimited/unknown type.
-
-// queryMaxSeqMessage
-// No const for queryMaxSeqMessage for now.
-
-type (
-	// Pack Header: queryMaxSeqMessage
-	ReqQueryMaxSeq struct{}
-	// Pack Header: queryMaxSeqMessage
-	RespQueryMaxSeq uint64
-)
-
-// operationMessage
+// MessageErr
 const (
-	createPlugin OperationType = iota
-	updatePlugin
-	deletePlugin
-	createPipeline
-	updatePipeline
-	deletePipeline
+	ErrNil MessageErrType = iota
+	ErrRetrieveInconsistency
+	ErrRetrieveTimeout
 )
 
 type (
-	OperationType uint8
-	// Pack Header: operationMessage
+	MessageErrType uint8
+	MessageErr     struct {
+		Type MessageErrType
+		Msg  string
+	}
+)
+
+// queryGroupMaxSeqMessage
+
+type (
+	// Pack Header: queryGroupMaxSeqMessage
+	ReqQueryGroupMaxSeq struct{}
+	// Pack Header: queryGroupMaxSeqMessage
+	RespQueryGroupMaxSeq uint64
+)
+
+// operationMessage | operationRelayedMessage
+
+type (
+	// Pack Header: operationMessage | operationRelayedMessage
 	ReqOperation struct {
 		Operation Operation
 	}
-	// Pack Header: operationMessage
+	// Pack Header: operationMessage | operationRelayedMessage
 	RespOperation struct {
-		Err OperationErr // If Err is non-nil, the update operation failed owe to Err.
+		Err *MessageErr
 	}
 	Operation struct {
 		SeqBased uint64
-		// Unpack Header: OperationType
-		// Possible Type:
-		//      ContentCreatePlugin, ContentUpdatePlugin, ContentDeletePlugin,
-		//      ContentCreatePipeline, ContentUpdatePipeline, ContentDeletePipeline
-		Content []byte
+
+		ContentCreatePlugin   *ContentCreatePlugin
+		ContentUpdatePlugin   *ContentUpdatePlugin
+		ContentDeletePlugin   *ContentDeletePlugin
+		ContentCreatePipeline *ContentCreatePipeline
+		ContentUpdatePipeline *ContentUpdatePipeline
+		ContentDeletePipeline *ContentDeletePipeline
 	}
-	// Pack Header: createPlugin
 	ContentCreatePlugin struct {
 		Type   string
-		Config interface{}
+		Config []byte // json
 	}
-	// Pack Header: updatePlugin
 	ContentUpdatePlugin struct {
 		Type   string
-		Config interface{}
+		Config []byte // json
 	}
-	// Pack Header: deletePlugin
 	ContentDeletePlugin struct {
 		Name string
 	}
-	// Pack Header: createPipeline
 	ContentCreatePipeline struct {
 		Type   string
-		Config interface{}
+		Config []byte // json
 	}
-	// Pack Header: updatePipeline
 	ContentUpdatePipeline struct {
 		Type   string
-		Config interface{}
+		Config []byte // json
 	}
-	// Pack Header: deletePipeline
 	ContentDeletePipeline struct {
 		Name string
 	}
 )
 
-// retrieveMessage
-const (
-	// NOTICE: Cluster REST API could use plural retrieval to implement single one.
-	retrievePlugins RetrieveType = iota
-	retrievePipelines
-	retrievePluginTypes
-	retrievePipelineTypes
-)
-
+// retrieveMessage | retrieveRelayedMessage
 type (
-	RetrieveType uint8
-	// Pack Header: retrieveMessage
+	// Pack Header: retrieveMessage | retrieveRelayedMessage
 	ReqRetrieve struct {
 		// RetrieveAllNodes is the flag to specify the write_mode node
 		// retrieve just its own stuff then return immediately when false,
@@ -111,178 +102,97 @@ type (
 		// The mechanism guarantees that retrieval must choose either
 		// Consistency or Availability.
 		RetrieveAllNodes bool
-		// Unpack Header: RetrieveType
-		// Possible Type:
-		//      FilterRetrievePlugins, FilterRetrievePipelines
-		// No filter for RetrievePluginTypes, RetrievePipelineTypes for now.
-		Filter []byte
+
+		// Below Filter* is Packed from corresponding struct
+		FilterRetrievePlugins   *FilterRetrievePlugins
+		FilterRetrievePipelines *FilterRetrievePipelines
 	}
-	// Pack Header: retrieveMessage
+	// Pack Header: retrieveMessage | retrieveRelayedMessage
 	RespRetrieve struct {
-		// If Err is non-nil, the retrieval failed owe to Err,
-		// and Result will be nil.
-		Err RetrieveErr
-		// Unpack Header: RetrieveType
-		// Possible Type:
-		//      ResultRetrievePlugins, ResultRetrievePipelines,
-		//      ResultRetrievePluginTypes, ResultRetrievePipelineTypes
-		Result []byte
+		Err MessageErr
+
+		ResultRetrievePlugins       []byte // json
+		ResultRetrievePipelines     []byte // json
+		ResultRetrievePluginTypes   []byte // json
+		ResultRetrievePipelineTypes []byte // json
 	}
-	// Pack Header: retrievePlugins
-	ResultRetrievePlugins struct {
-		Plugins []config.PluginSpec
-	}
-	// Pack Header: retrievePipelines
-	ResultRetrievePipelines struct {
-		Pipelines []config.PipelineSpec
-	}
-	// Pack Header: retrievePluginTypes
-	ResultRetrievePluginTypes struct {
-		PluginTypes []string
-	}
-	// Pack Header: retrievePipelineTypes
-	ResultRetrievePipelineTypes struct {
-		PipelineTypes []string
-	}
-	// Pack Header: retrievePlugins
 	FilterRetrievePlugins struct {
 		NamePattern string
 		Types       []string
 	}
-	// Pack Header: RetrievePipelines
 	FilterRetrievePipelines struct {
 		NamePattern string
 		Types       []string
 	}
 )
 
-// statMessage
-const (
-	statPipelineIndicatorNames StatType = iota
-	statPipelineIndicatorValue
-	statPipelineIndicatorDesc
-	statPluginIndicatorNames
-	statPluginIndicatorValue
-	statPluginIndicatorDesc
-	statTaskIndicatorNames
-	statTaskIndicatorValue
-	statTaskIndicatorDesc
-)
-
+// statMessage | statRelayedMessage
 type (
-	StatType uint8
-	// Pack Header: statMessage
+	// Pack Header: statMessage | statRelayedMessage
 	ReqStat struct {
-		// Unpack Header: StatType
-		// Possible Type:
-		//      FilterPipelineIndicatorNames, FilterPipelineIndicatorValue, FilterPipelineIndicatorDesc,
-		//      FilterPluginIndicatorNames, FilterPluginIndicatorValue, FilterPluginIndicatorDesc,
-		//      FilterTaskIndicatorNames, FilterTaskIndicatorValue, FilterTaskIndicatorDesc
-		Filter []byte
+		FilterPipelineIndicatorNames *FilterPipelineIndicatorNames
+		FilterPipelineIndicatorValue *FilterPipelineIndicatorValue
+		FilterPipelineIndicatorDesc  *FilterPipelineIndicatorDesc
+		FilterPluginIndicatorNames   *FilterPluginIndicatorNames
+		FilterPluginIndicatorValue   *FilterPluginIndicatorValue
+		FilterPluginIndicatorDesc    *FilterPluginIndicatorDesc
+		FilterTaskIndicatorNames     *FilterTaskIndicatorNames
+		FilterTaskIndicatorValue     *FilterTaskIndicatorValue
+		FilterTaskIndicatorDesc      *FilterTaskIndicatorDesc
 	}
+	// Pack Header: statMessage | statRelayedMessage
 	RespStat struct {
-		// If Err is non-nil, the stat failed owe to Err,
-		// and Result will be nil.
-		Err StatErr
-		// Unpack Header: StatType
-		// Possible Type:
-		//      ResultStatPipelineIndicatorNames, ResultStatPipelineIndicatorValue, ResultStatPipelineIndicatorDesc,
-		//      ResultStatPluginIndicatorNames, ResultStatPluginIndicatorValue, ResultStatPluginIndicatorDesc,
-		//      ResultStatTaskIndicatorNames, ResultStatTaskIndicatorValue, ResultStatTaskIndicatorDesc
-		Result []byte
+		Err MessageErr
+
+		Names []byte // json
+		Value []byte // json
+		Desc  []byte // json
 	}
-	// Pack Header: statPipelineIndicatorNames
-	ResultStatPipelineIndicatorNames struct {
-		Names []string
-	}
-	// Pack Header: statPipelineIndicatorValue
-	ResultStatPipelineIndicatorValue struct {
-		Value interface{}
-	}
-	// Pack Header: statPipelineIndicatorDesc
-	ResultStatPipelineIndicatorDesc struct {
-		Desc interface{}
-	}
-	// Pack Header: statPluginIndicatorNames
-	ResultStatPluginIndicatorNames struct {
-		Names []string
-	}
-	// Pack Header: statPluginIndicatorValue
-	ResultStatPluginIndicatorValue struct {
-		Value interface{}
-	}
-	// Pack Header: statPluginIndicatorDesc
-	ResultStatPluginIndicatorDesc struct {
-		Desc interface{}
-	}
-	// Pack Header: statTaskIndicatorNames
-	ResultStatTaskIndicatorNames struct {
-		Names []string
-	}
-	// Pack Header: statTaskIndicatorValue
-	ResultStatTaskIndicatorValue struct {
-		Value interface{}
-	}
-	// Pack Header: statTaskIndicatorDesc
-	ResultStatTaskIndicatorDesc struct {
-		Desc interface{}
-	}
-	// Pack Header: statPipelineIndicatorNames
 	FilterPipelineIndicatorNames struct {
 		PipelineName string
 	}
-	// Pack Header: statPipelineIndicatorValue
 	FilterPipelineIndicatorValue struct {
 		PipelineName  string
 		IndicatorName string
 	}
-	// Pack Header: statPipelineIndicatorDesc
 	FilterPipelineIndicatorDesc struct {
 		PipelineName  string
 		IndicatorName string
 	}
-	// Pack Header: statPluginIndicatorNames
 	FilterPluginIndicatorNames struct {
 		PluginName string
 	}
-	// Pack Header: statPluginIndicatorValue
 	FilterPluginIndicatorValue struct {
 		PluginName    string
 		IndicatorName string
 	}
-	// Pack Header: statPluginIndicatorDesc
 	FilterPluginIndicatorDesc struct {
 		PluginName    string
 		IndicatorName string
 	}
-	// Pack Header: statTaskIndicatorNames
 	FilterTaskIndicatorNames struct {
 		PipelineName string
 	}
-	// Pack Header: statTaskIndicatorValue
 	FilterTaskIndicatorValue struct {
 		PipelineName  string
 		IndicatorName string
 	}
-	// Pack Header: statTaskIndicatorDesc
 	FilterTaskIndicatorDesc struct {
 		PipelineName  string
 		IndicatorName string
 	}
-	// FIXME: Is it necessary or meaningful to add statistics of
-	// uptime, rusage, loadavg of a group.
+	// TODO: add uptime, rusage, loadavg of a group.
 )
 
-// syncOPLogMessage
-// const for Operation in syncOPLogMessage is the same with
-// corresponding stuff in operationMessage.
+// pullOPLogMessage
 type (
-	// Header: syncOPLogMessage.
-	ReqSyncOPLog struct {
+	// Pack Header: pullOPLogMessage
+	ReqPullOPLog struct {
 		LocalMaxSeq uint64
 		WantMaxSeq  uint64
 	}
-	RespSyncOPLog struct {
+	// Pack Header: pullOPLogMessage
+	RespPullOPLog struct {
 		// It's recommended to check sequence of first operation and len
 		// to get max sequence of SequentialOperations then just land
 		// and record needed operations to local Operation Log.
