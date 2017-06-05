@@ -29,6 +29,7 @@ type Config struct {
 	MaxSeqGapToSync       uint64
 	PullOPLogMaxCountOnce uint64
 	SyncOPLogInterval     time.Duration
+	SyncOPLogTimeout      time.Duration
 }
 
 type GatewayCluster struct {

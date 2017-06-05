@@ -200,7 +200,7 @@ func (gc *GatewayCluster) handleRetrieve(req *cluster.RequestEvent) {
 			groupTagKey: gc.localGroupName(),
 			modeTagKey:  ReadMode.String(), // skip myself
 		},
-		Timeout: reqRetrieve.RetrieveTimeout,
+		Timeout: reqRetrieve.Timeout,
 	}
 
 	payload := req.RequestPayload

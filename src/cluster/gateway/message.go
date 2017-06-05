@@ -67,6 +67,7 @@ type (
 type (
 	// Pack Header: operationMessage | operationRelayMessage
 	ReqOperation struct {
+		Timeout   time.Duration
 		Operation Operation
 	}
 	// Pack Header: operationMessage | operationRelayMessage
@@ -119,7 +120,7 @@ type (
 		// The mechanism guarantees that retrieval must choose either
 		// Consistency or Availability.
 		RetrieveAllNodes bool
-		RetrieveTimeout  time.Duration
+		Timeout          time.Duration
 
 		// Below Filter* is Packed from corresponding struct
 		FilterRetrievePlugins       *FilterRetrievePlugins
@@ -164,6 +165,8 @@ type (
 type (
 	// Pack Header: statMessage | statRelayMessage
 	ReqStat struct {
+		Timeout time.Duration
+
 		FilterPipelineIndicatorNames *FilterPipelineIndicatorNames
 		FilterPipelineIndicatorValue *FilterPipelineIndicatorValue
 		FilterPipelineIndicatorDesc  *FilterPipelineIndicatorDesc
@@ -215,6 +218,7 @@ type (
 		PipelineName  string
 		IndicatorName string
 	}
+	// TODO: Result*
 	// TODO: add uptime, rusage, loadavg of a group.
 )
 
@@ -222,6 +226,8 @@ type (
 type (
 	// Pack Header: opLogPullMessage
 	ReqPullOPLog struct {
+		Timeout time.Duration
+
 		LocalMaxSeq uint64
 		WantMaxSeq  uint64
 	}
