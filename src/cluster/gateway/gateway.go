@@ -15,8 +15,8 @@ const (
 	WriteMode Mode = "WriteMode"
 	ReadMode  Mode = "ReadMode"
 
-	groupTagKey   = "group"
-	nrwModeTagKey = "nrw_mode"
+	groupTagKey = "group"
+	modeTagKey  = "mode"
 )
 
 type Config struct {
@@ -47,8 +47,8 @@ func NewGatewayCluster(conf Config, mod *model.Model) (*GatewayCluster, error) {
 	// TODO: choose config of under layer automatically
 	basisConf := cluster.DefaultLANConfig()
 	basisConf.EventStream = eventStream
-	basisConf.NodeTags[groupTagKey] = "default"           // TODO: read from config
-	basisConf.NodeTags[nrwModeTagKey] = string(WriteMode) // TODO: read from config
+	basisConf.NodeTags[groupTagKey] = "default"        // TODO: read from config
+	basisConf.NodeTags[modeTagKey] = string(WriteMode) // TODO: read from config
 
 	basis, err := cluster.Create(*basisConf)
 	if err != nil {
@@ -82,11 +82,11 @@ func (gc *GatewayCluster) Mode() Mode {
 }
 
 func (gc *GatewayCluster) dispatch() {
-loop:
+LOOP:
 	for {
 		select {
 		case <-gc.stopChan:
-			break loop
+			break LOOP
 		case event := <-gc.eventStream:
 			switch event := event.(type) {
 			case *cluster.RequestEvent:
@@ -98,40 +98,36 @@ loop:
 				switch MessageType(msgType) {
 				case queryGroupMaxSeqMessage:
 					go gc.handleQueryGroupMaxSeq(event)
-
 				case operationMessage:
 					if gc.Mode() == WriteMode {
 						go gc.handleOperation(event)
 					}
-					logger.Errorf("[BUG: read mode but received operationMessage]")
+					logger.Errorf("[BUG: node with read mode received operationMessage]")
 				case operationRelayMessage:
 					if gc.Mode() == ReadMode {
 						go gc.handleOperationRelay(event)
 					}
-					logger.Errorf("[BUG: write mode but received operationRelayMessage]")
-
+					logger.Errorf("[BUG: node with write mode received operationRelayMessage]")
 				case retrieveMessage:
 					if gc.Mode() == WriteMode {
 						go gc.handleRetrieve(event)
 					}
-					logger.Errorf("[BUG: read mode but received retrieveMessage]")
+					logger.Errorf("[BUG: node with read mode received retrieveMessage]")
 				case retrieveRelayMessage:
 					if gc.Mode() == ReadMode {
 						go gc.handleRetrieveRelay(event)
 					}
-					logger.Errorf("[BUG: write mode but received retrieveRelayMessage]")
-
+					logger.Errorf("[BUG: node with write mode received retrieveRelayMessage]")
 				case statMessage:
 					if gc.Mode() == WriteMode {
 						go gc.handleStat(event)
 					}
-					logger.Errorf("[BUG: read mode but received statMessage]")
+					logger.Errorf("[BUG: node with read mode received statMessage]")
 				case statRelayMessage:
 					if gc.Mode() == ReadMode {
 						go gc.handleStatRelay(event)
 					}
-					logger.Errorf("[BUG: write mode but received statRelayMessage]")
-
+					logger.Errorf("[BUG: node with write mode received statRelayMessage]")
 				case opLogPullMessage:
 					go gc.handlePullOPLog(event)
 				}
@@ -142,7 +138,7 @@ loop:
 	}
 }
 
-func (gc *GatewayCluster) GetOPLog() *opLog {
+func (gc *GatewayCluster) OPLog() *opLog {
 	return gc.log
 }
 
@@ -150,7 +146,7 @@ func (gc *GatewayCluster) localGroupName() string {
 	return gc.cluster.GetConfig().NodeTags[groupTagKey]
 }
 
-func (gc *GatewayCluster) otherSameGroupMemebers() []cluster.Member {
+func (gc *GatewayCluster) otherSameGroupMembers() []cluster.Member {
 	totalMembers := gc.cluster.Members()
 
 	members := make([]cluster.Member, 0)
@@ -169,12 +165,12 @@ func (gc *GatewayCluster) handleQueryGroupMaxSeq(req *cluster.RequestEvent) {
 	ms := gc.log.maxSeq()
 	payload, err := cluster.PackWithHeader(RespQueryGroupMaxSeq(ms), uint8(queryGroupMaxSeqMessage))
 	if err != nil {
-		logger.Errorf("[BUG: PackWithHeader max sequence %d failed: %s]", ms, err)
+		logger.Errorf("[BUG: PackWithHeader max sequence %d failed: %v]", ms, err)
 		return
 	}
 	err = req.Respond(payload)
 	if err != nil {
-		logger.Errorf("[repond max sequence to request %s, node %s failed: %s]",
+		logger.Errorf("[repond max sequence to request %s, node %s failed: %v]",
 			req.RequestName, req.RequestNodeName, err)
 	}
 }

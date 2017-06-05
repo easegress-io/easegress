@@ -199,10 +199,15 @@ func (gc *GatewayCluster) handleRetrieve(req *cluster.RequestEvent) {
 		return
 	}
 
+	//// FIXME: config waitTime
+	//waitTime := time.Duration(30 * time.Second)
+	//timer := time.NewTimer(waitTime)
+
 	requestParam := cluster.RequestParam{
 		TargetNodeTags: map[string]string{
 			groupTagKey: gc.localGroupName(),
 		},
+		Timeout: time.Duration(30 * time.Second),
 	}
 	payload := req.RequestPayload
 	payload[0] = byte(retrieveRelayMessage)
@@ -211,33 +216,33 @@ func (gc *GatewayCluster) handleRetrieve(req *cluster.RequestEvent) {
 		fmt.Errorf("send request %s")
 	}
 
-	members := gc.otherSameGroupMemebers()
+	members := gc.otherSameGroupMembers()
 	membersRespBook := make(map[string][]byte)
 	for _, member := range members {
 		membersRespBook[member.NodeName] = nil
 	}
 
-	// FIXME: config waitTime
-	waitTime := time.Duration(30 * time.Second)
-	timer := time.NewTimer(waitTime)
-
 	var memberRespCount int
-loop:
+LOOP:
 	for ; memberRespCount < len(membersRespBook); memberRespCount++ {
 		select {
-		case <-timer.C:
-			break loop
-		case memberResp := <-future.Response():
+		case memberResp, ok := <-future.Response():
+			if !ok {
+				break LOOP
+			}
+
 			payload, ok := membersRespBook[memberResp.ResponseNodeName]
 			if !ok {
 				// maybe not a bug, a new node is up within the same group
-				logger.Errorf("[received unexpected response from request %s, node %s]", req.RequestName+"_relayed", memberResp.ResponseNodeName)
+				logger.Errorf("[received unexpected response from request %s, node %s]",
+					req.RequestName+"_relayed", memberResp.ResponseNodeName)
 				memberRespCount--
 				continue
 			}
 
 			if payload != nil {
-				logger.Errorf("[BUG: received multiple response from request %s, node %s]", req.RequestName+"_relayed", memberResp.ResponseNodeName)
+				logger.Errorf("[BUG: received multiple response from request %s, node %s]",
+					req.RequestName+"_relayed", memberResp.ResponseNodeName)
 				memberRespCount--
 				continue
 			}
