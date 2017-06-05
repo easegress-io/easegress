@@ -169,7 +169,7 @@ func getThroughputRateLimiterStateData(ctx pipelines.PipelineContext, tps float6
 
 	if err != nil {
 		logger.Warnf("[BUG: query state data for pipeline %s failed, "+
-			"ignored to limit throughput rate: %s]", ctx.PipelineName(), err)
+			"ignored to limit throughput rate: %v]", ctx.PipelineName(), err)
 		return nil, err
 	}
 

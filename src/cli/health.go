@@ -9,7 +9,7 @@ import (
 func CheckHealth(c *cli.Context) error {
 	resp, err := healthApi().Check()
 	if err != nil {
-		return fmt.Errorf("%s\n", err)
+		return fmt.Errorf("%v\n", err)
 	} else if resp.Error != nil {
 		return fmt.Errorf("%s\n", resp.Error.Error)
 	}

@@ -122,7 +122,7 @@ func Create(conf Config) (*Cluster, error) {
 
 	c.memberList, err = memberlist.Create(memberListConf)
 	if err != nil {
-		return nil, fmt.Errorf("create memberlist failed: %s", err.Error())
+		return nil, fmt.Errorf("create memberlist failed: %v", err)
 	}
 
 	go c.cleanupMember()
@@ -320,7 +320,7 @@ func (c *Cluster) joinNode(node *memberlist.Node) {
 
 	tags, err := UnpackNodeTags(node.Meta)
 	if err != nil {
-		logger.Errorf("[unpack node tags from metadata failed, tags are ignored: %s]", err)
+		logger.Errorf("[unpack node tags from metadata failed, tags are ignored: %v]", err)
 	}
 
 	var originalStatus MemberStatus
@@ -441,7 +441,7 @@ func (c *Cluster) updateNode(node *memberlist.Node) {
 
 	tags, err := UnpackNodeTags(node.Meta)
 	if err != nil {
-		logger.Errorf("[unpack node tags from metadata failed, tags are ignored: %s]", err)
+		logger.Errorf("[unpack node tags from metadata failed, tags are ignored: %v]", err)
 	}
 
 	ms.NodeTags = tags
@@ -578,7 +578,7 @@ func (c *Cluster) operateRequest(msg *messageRequest) bool {
 	if msg.flag(ackRequestFlag) {
 		err := event.ack()
 		if err != nil {
-			logger.Errorf("[send ack to source node failed: %s]", err)
+			logger.Errorf("[send ack to source node failed: %v]", err)
 		}
 	}
 
@@ -618,7 +618,7 @@ func (c *Cluster) operateResponse(msg *messageResponse) bool {
 	if msg.flag(ackResponseFlag) {
 		triggered, err := future.ack(msg.responseNodeName)
 		if err != nil {
-			logger.Errorf("[trigger response ack event failed: %s]", err)
+			logger.Errorf("[trigger response ack event failed: %v]", err)
 		}
 
 		if triggered {
@@ -633,7 +633,7 @@ func (c *Cluster) operateResponse(msg *messageResponse) bool {
 
 		triggered, err := future.response(&response)
 		if err != nil {
-			logger.Errorf("[trigger response event failed: %s]", err)
+			logger.Errorf("[trigger response event failed: %v]", err)
 		}
 
 		if triggered {
@@ -663,7 +663,7 @@ func (c *Cluster) operateRelay(msg *messageRelay) bool {
 
 	err := c.memberList.SendReliable(target, msg.relayPayload)
 	if err != nil {
-		logger.Warnf("[forward a relay message to target member (%s:%s) failed, ignored: %s]",
+		logger.Warnf("[forward a relay message to target member (%s:%s) failed, ignored: %v]",
 			msg.targetNodeAddress, msg.targetNodePort, err)
 		return false
 	}
@@ -691,7 +691,7 @@ func (c *Cluster) broadcastMemberJoinMessage() error {
 
 	err := fanoutMessage(c.memberMessageSendQueue, &msg, memberJoinMessage, sentNotify)
 	if err != nil {
-		logger.Errorf("[broadcast member join message failed: %s]", err)
+		logger.Errorf("[broadcast member join message failed: %v]", err)
 		return err
 	}
 
@@ -726,7 +726,7 @@ func (c *Cluster) broadcastMemberLeaveMessage(nodeName string) error {
 
 	err := fanoutMessage(c.memberMessageSendQueue, &msg, memberLeaveMessage, sentNotify)
 	if err != nil {
-		logger.Errorf("[broadcast member leave message failed: %s]", err)
+		logger.Errorf("[broadcast member leave message failed: %v]", err)
 		return err
 	}
 
@@ -779,7 +779,7 @@ func (c *Cluster) broadcastRequestMessage(requestId uint64, name string, request
 
 	err = fanoutMessage(c.requestMessageSendQueue, &msg, requestMessage, nil) // need not to care if sending is done
 	if err != nil {
-		logger.Errorf("[broadcast request message failed: %s]", err)
+		logger.Errorf("[broadcast request message failed: %v]", err)
 		return err
 	}
 
@@ -816,13 +816,13 @@ func (c *Cluster) handleNodeConflict() {
 
 	buff, err := PackWithHeader(&msg, uint8(memberConflictResolvingRequestMessage))
 	if err != nil {
-		logger.Errorf("[pack member conflict resolving message failed: %s]", err)
+		logger.Errorf("[pack member conflict resolving message failed: %v]", err)
 		return
 	}
 
 	future, err := c.Request(memberConflictResolvingInternalRequest.String(), buff, nil)
 	if err != nil {
-		logger.Errorf("[send member conflict resolving request failed: %s]", err)
+		logger.Errorf("[send member conflict resolving request failed: %v]", err)
 		return
 	}
 
@@ -856,7 +856,7 @@ LOOP:
 
 			err := Unpack(response.Payload[1:], &msg)
 			if err != nil {
-				logger.Errorf("[unpack member conflict resolving response message failed: %s]", err)
+				logger.Errorf("[unpack member conflict resolving response message failed: %v]", err)
 				continue LOOP
 			}
 
@@ -878,7 +878,7 @@ LOOP:
 
 		err := c.Stop()
 		if err != nil {
-			logger.Errorf("[quit myself from the cluster failed: %s", err)
+			logger.Errorf("[quit myself from the cluster failed: %v", err)
 		}
 	}
 }

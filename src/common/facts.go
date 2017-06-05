@@ -25,8 +25,10 @@ var (
 
 func init() {
 	host := flag.String("host", "localhost", "specify listen host")
-	certFile := flag.String("certfile", "", "specify cert file, downgrade HTTPS(10443) to HTTP(10080) if it is set empty or inexistent file")
-	keyFile := flag.String("keyfile", "", "specify key file, downgrade HTTPS(10443) to HTTP(10080) if it is set empty or inexistent file")
+	certFile := flag.String("certfile", "", "specify cert file, " +
+		"downgrade HTTPS(10443) to HTTP(10080) if it is set empty or inexistent file")
+	keyFile := flag.String("keyfile", "", "specify key file, " +
+		"downgrade HTTPS(10443) to HTTP(10080) if it is set empty or inexistent file")
 	stage := flag.String("stage", "debug", "sepcify runtime stage (debug, test, prod)")
 	configHome := flag.String("config", CONFIG_HOME_DIR, "sepcify config home path")
 	logHome := flag.String("log", LOG_HOME_DIR, "specify log home path")

@@ -207,7 +207,7 @@ func (p *linearPipeline) Run() error {
 
 	err1 := p.statistics.updatePipelineExecution(time.Now().Sub(startAt))
 	if err1 != nil {
-		logger.Errorf("[pipeline %s updates execution statistics failed: %s]", p.Name(), err1)
+		logger.Errorf("[pipeline %s updates execution statistics failed: %v]", p.Name(), err1)
 	}
 
 	if t.Error() == nil {
@@ -276,7 +276,7 @@ func (p *linearPipeline) runPlugin(instance plugins.Plugin, input task.Task, tsk
 
 		err1 := p.statistics.updatePluginExecution(instance.Name(), kind, finishAt.Sub(startAt))
 		if err1 != nil {
-			logger.Errorf("[plugin %s updates execution statistics failed: %s]", instance.Name(), err1)
+			logger.Errorf("[plugin %s updates execution statistics failed: %v]", instance.Name(), err1)
 		}
 	}
 

@@ -56,7 +56,8 @@ func (op *opLog) AddOPLogAppendedCallback(name string, callback OperationAppende
 	defer op.Unlock()
 
 	var oriCallback interface{}
-	op.operationAppendedCallbacks, oriCallback, _ = common.AddCallback(op.operationAppendedCallbacks, name, callback, overwrite)
+	op.operationAppendedCallbacks, oriCallback, _ =
+		common.AddCallback(op.operationAppendedCallbacks, name, callback, overwrite)
 
 	if oriCallback == nil {
 		return nil
@@ -100,7 +101,7 @@ func (op *opLog) _locklessMaxSeq() uint64 {
 
 	ms, err := strconv.ParseUint(string(maxSeq), 0, 64)
 	if err != nil {
-		logger.Errorf("[BUG: parse max sequence %s failed: %v]", string(maxSeq), err)
+		logger.Errorf("[BUG: parse max sequence %s failed: %s]", string(maxSeq), err)
 		return 0
 	}
 

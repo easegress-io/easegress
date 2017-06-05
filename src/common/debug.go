@@ -13,7 +13,7 @@ func GoID() (int, error) {
 	idField := strings.Fields(strings.TrimPrefix(string(buf[:n]), "goroutine "))[0]
 	id, err := strconv.Atoi(idField)
 	if err != nil {
-		return -1, fmt.Errorf("get goroutine id faild: %s", err)
+		return -1, fmt.Errorf("get goroutine id faild: %v", err)
 	}
 	return id, nil
 }

@@ -244,7 +244,7 @@ func getServiceCircuitBreakerStateData(ctx pipelines.PipelineContext, pluginsCon
 
 	if err != nil {
 		logger.Warnf("[BUG: query state data for pipeline %s failed, "+
-			"ignored to handle service fusing: %s]", ctx.PipelineName(), err)
+			"ignored to handle service fusing: %v]", ctx.PipelineName(), err)
 		return nil, err
 	}
 
@@ -265,7 +265,7 @@ func getTPS(ctx pipelines.PipelineContext, pluginsConcerned []string,
 		tps, err := tpsQuerier(name, kind)
 		if err != nil {
 			logger.Warnf("[BUG: query plugin %s throughput rate failed (kinid=%s), "+
-				"ignored to consider the rate of this plugin: %s]", name, err)
+				"ignored to consider the rate of this plugin: %v]", name, err)
 			continue
 		}
 

@@ -26,7 +26,7 @@ func (s *healthCheckServer) Api() (*rest.Api, error) {
 	)
 
 	if err != nil {
-		logger.Errorf("[make router for healthcheck server failed: %s]", err)
+		logger.Errorf("[make router for healthcheck server failed: %v]", err)
 		return nil, err
 	}
 

@@ -250,7 +250,7 @@ func getSimpleCommonCacheState(ctx pipelines.PipelineContext, pluginName string)
 		})
 	if err != nil {
 		logger.Warnf("[BUG: query state data for pipeline %s failed, "+
-			"ignored to cache data: %s]", ctx.PipelineName(), err)
+			"ignored to cache data: %v]", ctx.PipelineName(), err)
 		return nil, err
 	}
 

@@ -122,7 +122,7 @@ func (r *ioReader) read(t task.Task) (error, task.TaskResultCode, task.Task) {
 		if ok {
 			err := input1.Close()
 			if err != nil {
-				logger.Warnf("[close io input reader faild, ignored: %s", err)
+				logger.Warnf("[close io input reader faild, ignored: %v", err)
 			}
 		}
 	}

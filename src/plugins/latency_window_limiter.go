@@ -184,7 +184,7 @@ func (l *latencyWindowLimiter) getPluginExecutionSampleUpdatedCallback(
 				name, pipelines.SuccessStatistics, 0.9) // value 90% is an option?
 			if err != nil {
 				logger.Warnf("[BUG: query plugin %s 90% execution time failed, "+
-					"ignored to adjust sliding window: %s]", pluginName, err)
+					"ignored to adjust sliding window: %v]", pluginName, err)
 				return
 			}
 
@@ -245,7 +245,7 @@ func getLatencyWindowLimiterWindow(ctx pipelines.PipelineContext, windowSizeInit
 		func() interface{} { return windowSizeInit })
 	if err != nil {
 		logger.Warnf("[BUG: query sliding window for pipeline %s failed, "+
-			"ignored to adjust sliding window: %s]", ctx.PipelineName(), err)
+			"ignored to adjust sliding window: %v]", ctx.PipelineName(), err)
 		return 0, err
 	}
 
@@ -258,7 +258,7 @@ func setLatencyWindowLimiterWindow(ctx pipelines.PipelineContext, window uint64,
 	bucket := ctx.DataBucket(pluginName, pluginInstanceId)
 	_, err := bucket.BindData(latencyWindowLimiterSlidingWindowKey, window)
 	if err != nil {
-		logger.Errorf("[BUG: save sliding window for pipeline %s failed, ignored but it is critical: %s]",
+		logger.Errorf("[BUG: save sliding window for pipeline %s failed, ignored but it is critical: %v]",
 			ctx.PipelineName(), err)
 	}
 

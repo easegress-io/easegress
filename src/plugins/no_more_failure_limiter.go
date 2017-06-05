@@ -125,7 +125,7 @@ func getNoMoreFailureLimiterStateData(ctx pipelines.PipelineContext,
 
 	if err != nil {
 		logger.Warnf("[BUG: query state data for pipeline %s failed, "+
-			"ignored to handle failure limitation: %s]", ctx.PipelineName(), err)
+			"ignored to handle failure limitation: %v]", ctx.PipelineName(), err)
 		return nil, err
 	}
 

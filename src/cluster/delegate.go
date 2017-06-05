@@ -49,7 +49,7 @@ type messageDelegate struct {
 func (md *messageDelegate) NodeMeta(limit int) []byte {
 	nodeTags, err := PackNodeTags(md.c.conf.NodeTags)
 	if err != nil {
-		logger.Errorf("[pack node tags failed: %s]", err)
+		logger.Errorf("[pack node tags failed: %v]", err)
 		return make([]byte, 0)
 	}
 
@@ -76,7 +76,7 @@ func (md *messageDelegate) NotifyMsg(buff []byte) {
 		var msg messageMemberJoin
 		err := Unpack(buff[1:], &msg)
 		if err != nil {
-			logger.Errorf("[unpack member join message failed: %s]", err)
+			logger.Errorf("[unpack member join message failed: %v]", err)
 			break
 		}
 
@@ -89,7 +89,7 @@ func (md *messageDelegate) NotifyMsg(buff []byte) {
 		var msg messageMemberLeave
 		err := Unpack(buff[1:], &msg)
 		if err != nil {
-			logger.Errorf("[unpack member leave message failed: %s]", err)
+			logger.Errorf("[unpack member leave message failed: %v]", err)
 			break
 		}
 
@@ -102,7 +102,7 @@ func (md *messageDelegate) NotifyMsg(buff []byte) {
 		var msg messageRequest
 		err := Unpack(buff[1:], &msg)
 		if err != nil {
-			logger.Errorf("[unpack request message failed: %s]", err)
+			logger.Errorf("[unpack request message failed: %v]", err)
 			break
 		}
 
@@ -115,7 +115,7 @@ func (md *messageDelegate) NotifyMsg(buff []byte) {
 		var msg messageResponse
 		err := Unpack(buff[1:], &msg)
 		if err != nil {
-			logger.Errorf("[unpack response message failed: %s]", err)
+			logger.Errorf("[unpack response message failed: %v]", err)
 			break
 		}
 
@@ -128,7 +128,7 @@ func (md *messageDelegate) NotifyMsg(buff []byte) {
 		var msg messageRelay
 		err := Unpack(buff[1:], &msg)
 		if err != nil {
-			logger.Errorf("[unpack relay message failed: %s]", err)
+			logger.Errorf("[unpack relay message failed: %v]", err)
 			break
 		}
 
@@ -180,7 +180,7 @@ func (d *messageDelegate) LocalState(join bool) []byte {
 
 	buff, err := PackWithHeader(&msg, uint8(statePushPullMessage))
 	if err != nil {
-		logger.Errorf("[pack state push/pull message failed: %s]", err)
+		logger.Errorf("[pack state push/pull message failed: %v]", err)
 		return nil
 	}
 
@@ -204,7 +204,7 @@ func (d *messageDelegate) MergeRemoteState(buff []byte, isJoin bool) {
 
 	err := Unpack(buff[1:], &msg)
 	if err != nil {
-		logger.Errorf("[unpack state push/pull message failed: %s]", err)
+		logger.Errorf("[unpack state push/pull message failed: %v]", err)
 		return
 	}
 

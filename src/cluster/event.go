@@ -161,12 +161,12 @@ func (e *RequestEvent) Respond(payload []byte) error {
 
 	buff, err := PackWithHeader(&msg, uint8(responseMessage))
 	if err != nil {
-		return fmt.Errorf("pack response message failed: %s", err)
+		return fmt.Errorf("pack response message failed: %v", err)
 	}
 
 	err = e.c.memberList.SendReliable(requester, buff)
 	if err != nil {
-		return fmt.Errorf("send response message failed: %s", err)
+		return fmt.Errorf("send response message failed: %v", err)
 	}
 
 	err = e.relay(responder, requester, buff)
@@ -200,7 +200,7 @@ func (e *RequestEvent) relay(responder, requester *memberlist.Node, responseMsgB
 
 	buff, err := PackWithHeader(&msg, uint8(messageRelayMessage))
 	if err != nil {
-		return fmt.Errorf("pack relay message failed: %s", err)
+		return fmt.Errorf("pack relay message failed: %v", err)
 	}
 
 	var relayMembers []*memberlist.Node
@@ -244,7 +244,7 @@ LOOP:
 	for _, m := range relayMembers {
 		err = e.c.memberList.SendReliable(m, buff)
 		if err != nil {
-			return fmt.Errorf("send relay message failed: %s", err)
+			return fmt.Errorf("send relay message failed: %v", err)
 		}
 
 	}
@@ -295,12 +295,12 @@ func (e *RequestEvent) ack() error {
 
 	buff, err := PackWithHeader(&msg, uint8(responseMessage))
 	if err != nil {
-		return fmt.Errorf("pack response ack message failed: %s", err)
+		return fmt.Errorf("pack response ack message failed: %v", err)
 	}
 
 	err = e.c.memberList.SendReliable(requester, buff)
 	if err != nil {
-		return fmt.Errorf("send response ack message failed: %s", err)
+		return fmt.Errorf("send response ack message failed: %v", err)
 	}
 
 	err = e.relay(responder, requester, buff)

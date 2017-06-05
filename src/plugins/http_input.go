@@ -67,7 +67,7 @@ func init() {
 		go func() {
 			err := srv.ListenAndServe()
 			if err != nil {
-				logger.Errorf("listen failed: %s", err)
+				logger.Errorf("listen failed: %v", err)
 			}
 		}()
 	} else {
@@ -77,7 +77,7 @@ func init() {
 		go func() {
 			err := srv.ListenAndServeTLS(certPath, keyPath)
 			if err != nil {
-				logger.Errorf("listen failed: %s", err)
+				logger.Errorf("listen failed: %v", err)
 			}
 		}()
 	}

@@ -47,7 +47,7 @@ func (s *adminServer) Api() (*rest.Api, error) {
 	)
 
 	if err != nil {
-		logger.Errorf("[make router for admin server failed: %s]", err)
+		logger.Errorf("[make router for admin server failed: %v]", err)
 		return nil, err
 	}
 

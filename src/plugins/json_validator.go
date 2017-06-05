@@ -84,7 +84,7 @@ func (v *jsonValidator) validate(t task.Task) (error, task.TaskResultCode, task.
 	if !res.Valid() {
 		var errs []string
 		for i, err := range res.Errors() {
-			errs = append(errs, fmt.Sprintf("%d: %s", i+1, err))
+			errs = append(errs, fmt.Sprintf("%d: %v", i+1, err))
 		}
 
 		return fmt.Errorf(strings.Join(errs, ", ")), task.ResultBadInput, t

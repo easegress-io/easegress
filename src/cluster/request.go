@@ -290,7 +290,7 @@ func (h *internalRequestHandler) handleMemberConflict(request *RequestEvent) {
 
 	err := Unpack(request.RequestPayload[1:], &requestMsg)
 	if err != nil {
-		logger.Errorf("[unpack member conflict resolving request message failed: %s]", err)
+		logger.Errorf("[unpack member conflict resolving request message failed: %v]", err)
 		return
 	}
 
@@ -298,7 +298,7 @@ func (h *internalRequestHandler) handleMemberConflict(request *RequestEvent) {
 		return
 	}
 
-	logger.Debugf("[received conflict resolution request for member %s", requestMsg.conflictNodeName)
+	logger.Debugf("[received conflict resolution request for member %s]", requestMsg.conflictNodeName)
 
 	responseMsg := messageMemberConflictResolvingResponse{}
 
@@ -311,12 +311,12 @@ func (h *internalRequestHandler) handleMemberConflict(request *RequestEvent) {
 
 	buff, err := PackWithHeader(&responseMsg, uint8(memberConflictResolvingResponseMessage))
 	if err != nil {
-		logger.Errorf("[pack member conflict resolving response message failed: %s]", err)
+		logger.Errorf("[pack member conflict resolving response message failed: %v]", err)
 		return
 	}
 
 	err = request.Respond(buff)
 	if err != nil {
-		logger.Errorf("[respond member conflict resolving response message failed: %s]", err)
+		logger.Errorf("[respond member conflict resolving response message failed: %v]", err)
 	}
 }

@@ -138,7 +138,7 @@ func (mr *messageRequest) filter(conf *Config) bool {
 
 			err := Unpack(filter[1:], nodeNames)
 			if err != nil {
-				logger.Errorf("[unpack node name filter of request message failed: %s]", err)
+				logger.Errorf("[unpack node name filter of request message failed: %v]", err)
 				return false
 			}
 
@@ -154,7 +154,7 @@ func (mr *messageRequest) filter(conf *Config) bool {
 
 			err := Unpack(filter[1:], tags)
 			if err != nil {
-				logger.Errorf("[unpack tag filter of request message failed: %s]", err)
+				logger.Errorf("[unpack tag filter of request message failed: %v]", err)
 				return false
 			}
 

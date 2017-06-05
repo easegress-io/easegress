@@ -80,7 +80,7 @@ func (s *JSONFileStore) GetAllPlugins() ([]*PluginSpec, error) {
 	buff, err := ioutil.ReadFile(s.pluginFileFullPath)
 	if err != nil {
 		s.pluginLock.RUnlock()
-		return nil, fmt.Errorf("read file %s failed: %s", s.pluginFileFullPath, err)
+		return nil, fmt.Errorf("read file %s failed: %v", s.pluginFileFullPath, err)
 	}
 	s.pluginLock.RUnlock()
 
@@ -93,7 +93,7 @@ func (s *JSONFileStore) GetAllPlugins() ([]*PluginSpec, error) {
 	for _, spec := range pluginRepo.PluginSpecs {
 		constructor, e := plugins.GetConstructor(spec.Type)
 		if e != nil {
-			logger.Warnf("get plugin constructor failed, skipped: %s", e)
+			logger.Warnf("get plugin constructor failed, skipped: %v", e)
 			continue
 		}
 		spec.Constructor = constructor
@@ -113,7 +113,7 @@ func (s *JSONFileStore) GetAllPipelines() ([]*PipelineSpec, error) {
 	buff, err := ioutil.ReadFile(s.pipelineFileFullPath)
 	if err != nil {
 		s.pipelineLock.RUnlock()
-		return nil, fmt.Errorf("read file %s failed: %s", s.pipelineFileFullPath, err)
+		return nil, fmt.Errorf("read file %s failed: %v", s.pipelineFileFullPath, err)
 	}
 	s.pipelineLock.RUnlock()
 
@@ -144,7 +144,7 @@ func (s *JSONFileStore) AddPlugin(plugin *PluginSpec) error {
 
 	buff, err := ioutil.ReadFile(s.pluginFileFullPath)
 	if err != nil {
-		return fmt.Errorf("read file %s failed: %s", s.pluginFileFullPath, err)
+		return fmt.Errorf("read file %s failed: %v", s.pluginFileFullPath, err)
 	}
 
 	pluginRepo := new(GatewayPluginRepository)
@@ -185,7 +185,7 @@ func (s *JSONFileStore) AddPipeline(pipeline *PipelineSpec) error {
 
 	buff, err := ioutil.ReadFile(s.pipelineFileFullPath)
 	if err != nil {
-		return fmt.Errorf("read file %s failed: %s", s.pipelineFileFullPath, err)
+		return fmt.Errorf("read file %s failed: %v", s.pipelineFileFullPath, err)
 	}
 
 	pipelineRepo := new(GatewayPipelineRepository)
@@ -221,7 +221,7 @@ func (s *JSONFileStore) DeletePlugin(name string) error {
 
 	buff, err := ioutil.ReadFile(s.pluginFileFullPath)
 	if err != nil {
-		return fmt.Errorf("read file %s failed: %s", s.pluginFileFullPath, err)
+		return fmt.Errorf("read file %s failed: %v", s.pluginFileFullPath, err)
 	}
 
 	pluginRepo := new(GatewayPluginRepository)
@@ -266,7 +266,7 @@ func (s *JSONFileStore) DeletePipeline(name string) error {
 
 	buff, err := ioutil.ReadFile(s.pipelineFileFullPath)
 	if err != nil {
-		return fmt.Errorf("read file %s failed: %s", s.pipelineFileFullPath, err)
+		return fmt.Errorf("read file %s failed: %v", s.pipelineFileFullPath, err)
 	}
 
 	pipelineRepo := new(GatewayPipelineRepository)
@@ -316,7 +316,7 @@ func (s *JSONFileStore) UpdatePlugin(plugin *PluginSpec) error {
 
 	buff, err := ioutil.ReadFile(s.pluginFileFullPath)
 	if err != nil {
-		return fmt.Errorf("read file %s failed: %s", s.pluginFileFullPath, err)
+		return fmt.Errorf("read file %s failed: %v", s.pluginFileFullPath, err)
 	}
 
 	pluginRepo := new(GatewayPluginRepository)
@@ -360,7 +360,7 @@ func (s *JSONFileStore) UpdatePipeline(pipeline *PipelineSpec) error {
 
 	buff, err := ioutil.ReadFile(s.pipelineFileFullPath)
 	if err != nil {
-		return fmt.Errorf("read file %s failed: %s", s.pipelineFileFullPath, err)
+		return fmt.Errorf("read file %s failed: %v", s.pipelineFileFullPath, err)
 	}
 
 	pipelineRepo := new(GatewayPipelineRepository)
@@ -401,7 +401,7 @@ func (s *JSONFileStore) saveJSONFile(repo interface{}, filePath string) error {
 
 	err = ioutil.WriteFile(filePath, buff, 0600)
 	if err != nil {
-		logger.Errorf("[a corrupt storage file could remain]", filePath, err)
+		logger.Errorf("[a corrupt storage file %s could remain due to %v]", filePath, err)
 		return err
 	} else {
 		return nil

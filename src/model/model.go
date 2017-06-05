@@ -113,7 +113,7 @@ func (m *Model) AddPlugin(typ string, conf plugins.Config,
 
 	err := conf.Prepare()
 	if err != nil {
-		return nil, fmt.Errorf("add plugin %s failed: %s", pluginName, err)
+		return nil, fmt.Errorf("add plugin %s failed: %v", pluginName, err)
 	}
 
 	if !plugins.ValidType(typ) {

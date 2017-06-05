@@ -104,7 +104,7 @@ func getTaskRecoveryFuncInSimpleCommonMock(pluginConcerned string, taskErrorCode
 
 		t1, err := task.WithValue(t, mockTaskDataKey, mockTaskDataValue)
 		if err != nil {
-			logger.Warnf("[BUG: supply mock data %s to plugin %s failed, ignored: %s]",
+			logger.Warnf("[BUG: supply mock data %s to plugin %s failed, ignored: %v]",
 				mockTaskDataKey, pluginConcerned, err)
 			return false, t
 		}

@@ -19,13 +19,13 @@ func CreatePlugin(c *cli.Context) error {
 		pdu := new(pdu.PluginCreationRequest)
 		err := json.Unmarshal(data, pdu)
 		if err != nil {
-			errs.append(fmt.Errorf("%s: %s", source, err))
+			errs.append(fmt.Errorf("%s: %v", source, err))
 			return
 		}
 
 		resp, err := adminApi().CreatePlugin(pdu)
 		if err != nil {
-			errs.append(fmt.Errorf("%s: %s", source, err))
+			errs.append(fmt.Errorf("%s: %v", source, err))
 			return
 		} else if resp.Error != nil {
 			errs.append(fmt.Errorf("%s: %s", source, resp.Error.Error))
@@ -36,7 +36,7 @@ func CreatePlugin(c *cli.Context) error {
 	if len(args) == 0 {
 		data, err := ioutil.ReadAll(os.Stdin)
 		if err != nil {
-			errs.append(fmt.Errorf("stdin: %s", err))
+			errs.append(fmt.Errorf("stdin: %v", err))
 			return errs.Return()
 		}
 
@@ -45,7 +45,7 @@ func CreatePlugin(c *cli.Context) error {
 		for _, file := range args {
 			data, err := ioutil.ReadFile(file)
 			if err != nil {
-				errs.append(fmt.Errorf("%s: %s", file, err))
+				errs.append(fmt.Errorf("%s: %v", file, err))
 				continue
 			}
 
@@ -69,7 +69,7 @@ func DeletePlugin(c *cli.Context) error {
 	for _, pluginName := range args {
 		resp, err := adminApi().DeletePluginByName(pluginName)
 		if err != nil {
-			errs.append(fmt.Errorf("%s: %s", pluginName, err))
+			errs.append(fmt.Errorf("%s: %v", pluginName, err))
 			continue
 		} else if resp.Error != nil {
 			errs.append(fmt.Errorf("%s: %s", pluginName, resp.Error.Error))
@@ -88,7 +88,7 @@ func RetrievePlugins(c *cli.Context) error {
 	do := func(source string, req *pdu.PluginsRetrieveRequest) {
 		retrieveResp, apiResp, err := adminApi().GetPlugins(req)
 		if err != nil {
-			errs.append(fmt.Errorf("%s: %s", source, err))
+			errs.append(fmt.Errorf("%s: %v", source, err))
 			return
 		} else if apiResp.Error != nil {
 			errs.append(fmt.Errorf("%s: %s", source, apiResp.Error.Error))
@@ -97,7 +97,7 @@ func RetrievePlugins(c *cli.Context) error {
 
 		data, err := json.Marshal(retrieveResp)
 		if err != nil {
-			errs.append(fmt.Errorf("%s: %s", source, err))
+			errs.append(fmt.Errorf("%s: %v", source, err))
 			return
 		}
 
@@ -127,13 +127,13 @@ func UpdatePlugin(c *cli.Context) error {
 		pdu := new(pdu.PluginUpdateRequest)
 		err := json.Unmarshal(data, pdu)
 		if err != nil {
-			errs.append(fmt.Errorf("%s: %s", source, err))
+			errs.append(fmt.Errorf("%s: %v", source, err))
 			return
 		}
 
 		resp, err := adminApi().UpdatePlugin(pdu)
 		if err != nil {
-			errs.append(fmt.Errorf("%s: %s", source, err))
+			errs.append(fmt.Errorf("%s: %v", source, err))
 			return
 		} else if resp.Error != nil {
 			errs.append(fmt.Errorf("%s: %s", source, resp.Error.Error))
@@ -153,7 +153,7 @@ func UpdatePlugin(c *cli.Context) error {
 		for _, file := range args {
 			data, err := ioutil.ReadFile(file)
 			if err != nil {
-				errs.append(fmt.Errorf("%s: %s", file, err))
+				errs.append(fmt.Errorf("%s: %v", file, err))
 				continue
 			}
 
@@ -173,13 +173,13 @@ func CreatePipeline(c *cli.Context) error {
 		pdu := new(pdu.PipelineCreationRequest)
 		err := json.Unmarshal(data, pdu)
 		if err != nil {
-			errs.append(fmt.Errorf("%s: %s", source, err))
+			errs.append(fmt.Errorf("%s: %v", source, err))
 			return
 		}
 
 		resp, err := adminApi().CreatePipeline(pdu)
 		if err != nil {
-			errs.append(fmt.Errorf("%s: %s", source, err))
+			errs.append(fmt.Errorf("%s: %v", source, err))
 			return
 		} else if resp.Error != nil {
 			errs.append(fmt.Errorf("%s: %s", source, resp.Error.Error))
@@ -199,7 +199,7 @@ func CreatePipeline(c *cli.Context) error {
 		for _, file := range args {
 			data, err := ioutil.ReadFile(file)
 			if err != nil {
-				errs.append(fmt.Errorf("%s: %s", file, err))
+				errs.append(fmt.Errorf("%s: %v", file, err))
 				continue
 			}
 
@@ -223,7 +223,7 @@ func DeletePipeline(c *cli.Context) error {
 	for _, pipelineName := range args {
 		resp, err := adminApi().DeletePipelineByName(pipelineName)
 		if err != nil {
-			errs.append(fmt.Errorf("%s: %s", pipelineName, err))
+			errs.append(fmt.Errorf("%s: %v", pipelineName, err))
 			continue
 		} else if resp.Error != nil {
 			errs.append(fmt.Errorf("%s: %s", pipelineName, resp.Error.Error))
@@ -242,7 +242,7 @@ func RetrievePipelines(c *cli.Context) error {
 	do := func(source string, req *pdu.PipelinesRetrieveRequest) {
 		retrieveResp, apiResp, err := adminApi().GetPipelines(req)
 		if err != nil {
-			errs.append(fmt.Errorf("%s: %s", source, err))
+			errs.append(fmt.Errorf("%s: %v", source, err))
 			return
 		} else if apiResp.Error != nil {
 			errs.append(fmt.Errorf("%s: %s", source, apiResp.Error.Error))
@@ -251,7 +251,7 @@ func RetrievePipelines(c *cli.Context) error {
 
 		data, err := json.Marshal(retrieveResp)
 		if err != nil {
-			errs.append(fmt.Errorf("%s: %s", source, err))
+			errs.append(fmt.Errorf("%s: %v", source, err))
 			return
 		}
 
@@ -281,13 +281,13 @@ func UpdatePipeline(c *cli.Context) error {
 		pdu := new(pdu.PipelineUpdateRequest)
 		err := json.Unmarshal(data, pdu)
 		if err != nil {
-			errs.append(fmt.Errorf("%s: %s", source, err))
+			errs.append(fmt.Errorf("%s: %v", source, err))
 			return
 		}
 
 		resp, err := adminApi().UpdatePipeline(pdu)
 		if err != nil {
-			errs.append(fmt.Errorf("%s: %s", source, err))
+			errs.append(fmt.Errorf("%s: %v", source, err))
 			return
 		} else if resp.Error != nil {
 			errs.append(fmt.Errorf("%s: %s", source, resp.Error.Error))
@@ -306,7 +306,7 @@ func UpdatePipeline(c *cli.Context) error {
 		for _, file := range args {
 			data, err := ioutil.ReadFile(file)
 			if err != nil {
-				errs.append(fmt.Errorf("%s: %s", file, err))
+				errs.append(fmt.Errorf("%s: %v", file, err))
 				continue
 			}
 

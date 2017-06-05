@@ -51,7 +51,7 @@ func main() {
 	}
 
 	if err != nil {
-		msg = fmt.Sprintf("[exit from %s due to error: %s]", msg, err)
+		msg = fmt.Sprintf("[exit from %s due to error: %v]", msg, err)
 		logger.Warnf(msg)
 	} else {
 		msg = fmt.Sprintf("[exit from %s without error]", msg)

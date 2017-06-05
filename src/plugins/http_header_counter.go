@@ -82,7 +82,7 @@ func (c *httpHeaderCounter) Prepare(ctx pipelines.PipelineContext) {
 	)
 	if err != nil {
 		logger.Warnf("[BUG: register plugin %s indicator %s failed, "+
-			"ignored to expose customized statistics indicator: %s]", c.Name(), "RECENT_HEADER_COUNT", err)
+			"ignored to expose customized statistics indicator: %v]", c.Name(), "RECENT_HEADER_COUNT", err)
 	} else if added {
 		ctx.Statistics().UnregisterPluginIndicatorAfterPluginDelete(
 			c.Name(), c.instanceId, "RECENT_HEADER_COUNT",
@@ -198,7 +198,7 @@ func getHttpHeaderCounterState(ctx pipelines.PipelineContext, pluginName, instan
 		})
 	if err != nil {
 		logger.Warnf("[BUG: query state data for pipeline %s failed, "+
-			"ignored to handle header counter timer: %s]", ctx.PipelineName(), err)
+			"ignored to handle header counter timer: %v]", ctx.PipelineName(), err)
 		return nil, err
 	}
 

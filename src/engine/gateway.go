@@ -44,7 +44,7 @@ loop:
 			err := pi.instance.Run()
 			if err != nil {
 				logger.Errorf(
-					"[pipeline %s runs error and exits exceptionally: %s]",
+					"[pipeline %s runs error and exits exceptionally: %v]",
 					pi.instance.Name(), err)
 				break loop
 			}
@@ -224,7 +224,7 @@ func (gw *Gateway) launchPipeline(newPipeline *model.Pipeline) {
 	for i := uint16(0); i < newPipeline.Config().Parallelism(); i++ {
 		instance, err := newPipeline.GetInstance(ctx, statistics, gw.mod)
 		if err != nil {
-			logger.Errorf("[launch pipeline %s-#%d failed: %s]", newPipeline.Name(), i, err)
+			logger.Errorf("[launch pipeline %s-#%d failed: %v]", newPipeline.Name(), i, err)
 			return
 		}
 
@@ -275,13 +275,13 @@ func (gw *Gateway) terminatePipeline(deletedPipeline *model.Pipeline) {
 func (gw *Gateway) loadPlugins() error {
 	specs, err := gw.repo.GetAllPlugins()
 	if err != nil {
-		logger.Errorf("[load plugins from storage failed: %s]", err)
+		logger.Errorf("[load plugins from storage failed: %v]", err)
 		return err
 	}
 
 	err = gw.mod.LoadPlugins(specs)
 	if err != nil {
-		logger.Errorf("[load model from plugin repository failed: %s]", err)
+		logger.Errorf("[load model from plugin repository failed: %v]", err)
 		return err
 	}
 
@@ -293,13 +293,13 @@ func (gw *Gateway) loadPlugins() error {
 func (gw *Gateway) loadPipelines() error {
 	specs, err := gw.repo.GetAllPipelines()
 	if err != nil {
-		logger.Errorf("[load pipelines from storage failed: %s]", err)
+		logger.Errorf("[load pipelines from storage failed: %v]", err)
 		return err
 	}
 
 	err = gw.mod.LoadPipelines(specs)
 	if err != nil {
-		logger.Errorf("[load model fomr pipeline repository failed: %s]", err)
+		logger.Errorf("[load model fomr pipeline repository failed: %v]", err)
 		return err
 	}
 
@@ -328,15 +328,14 @@ func (gw *Gateway) addPluginToStorage(newPlugin *model.Plugin) {
 
 	err := gw.repo.AddPlugin(spec)
 	if err != nil {
-		logger.Errorf("[add plugin %s failed: %s]", newPlugin.Name(), err)
+		logger.Errorf("[add plugin %s failed: %v]", newPlugin.Name(), err)
 	}
 }
 
 func (gw *Gateway) deletePluginFromStorage(deletedPlugin *model.Plugin) {
 	err := gw.repo.DeletePlugin(deletedPlugin.Name())
 	if err != nil {
-		logger.Errorf("[delete plugin %s failed: %s]",
-			deletedPlugin.Name(), err)
+		logger.Errorf("[delete plugin %s failed: %v]", deletedPlugin.Name(), err)
 	}
 }
 
@@ -348,7 +347,7 @@ func (gw *Gateway) updatePluginInStorage(updatedPlugin *model.Plugin) {
 
 	err := gw.repo.UpdatePlugin(spec)
 	if err != nil {
-		logger.Errorf("[update plugin %s failed: %s]", updatedPlugin.Name(), err)
+		logger.Errorf("[update plugin %s failed: %v]", updatedPlugin.Name(), err)
 	}
 }
 
@@ -359,14 +358,14 @@ func (gw *Gateway) addPipelineToStorage(newPipeline *model.Pipeline) {
 	}
 	err := gw.repo.AddPipeline(spec)
 	if err != nil {
-		logger.Errorf("[add pipeline %s failed: %s]", newPipeline.Name(), err)
+		logger.Errorf("[add pipeline %s failed: %v]", newPipeline.Name(), err)
 	}
 }
 
 func (gw *Gateway) deletePipelineFromStorage(deletedPipeline *model.Pipeline) {
 	err := gw.repo.DeletePipeline(deletedPipeline.Name())
 	if err != nil {
-		logger.Errorf("[delete pipeline %s failed: %s]", deletedPipeline.Name(), err)
+		logger.Errorf("[delete pipeline %s failed: %v]", deletedPipeline.Name(), err)
 	}
 }
 
@@ -378,6 +377,6 @@ func (gw *Gateway) updatePipelineInStorage(updatedPipeline *model.Pipeline) {
 
 	err := gw.repo.UpdatePipeline(spec)
 	if err != nil {
-		logger.Errorf("[update pipeline %s failed: %s]", updatedPipeline.Name(), err)
+		logger.Errorf("[update pipeline %s failed: %v]", updatedPipeline.Name(), err)
 	}
 }

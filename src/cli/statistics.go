@@ -25,7 +25,7 @@ func RetrievePluginIndicatorNames(c *cli.Context) error {
 	for _, pluginName := range args[1:] {
 		retrieveResp, apiResp, err := statisticsApi().GetPluginIndicatorNames(pipelineName, pluginName)
 		if err != nil {
-			errs.append(fmt.Errorf("%s-%s: %s", pipelineName, pluginName, err))
+			errs.append(fmt.Errorf("%s-%s: %v", pipelineName, pluginName, err))
 			continue
 		} else if apiResp.Error != nil {
 			errs.append(fmt.Errorf("%s-%s: %s", pipelineName, pluginName, apiResp.Error.Error))
@@ -34,7 +34,7 @@ func RetrievePluginIndicatorNames(c *cli.Context) error {
 
 		data, err := json.Marshal(retrieveResp)
 		if err != nil {
-			errs.append(fmt.Errorf("%s-%s: %s", pipelineName, pluginName, err))
+			errs.append(fmt.Errorf("%s-%s: %v", pipelineName, pluginName, err))
 			continue
 		}
 
@@ -67,17 +67,20 @@ func GetPluginIndicatorValue(c *cli.Context) error {
 	for _, indicatorName := range args[2:] {
 		value, apiResp, err := statisticsApi().GetPluginIndicatorValue(pipelineName, pluginName, indicatorName)
 		if err != nil {
-			errs.append(fmt.Errorf("%s-%s-%s: %s", pipelineName, pluginName, indicatorName, err))
+			errs.append(fmt.Errorf("%s-%s-%s: %v",
+				pipelineName, pluginName, indicatorName, err))
 			continue
 		} else if apiResp.Error != nil {
 			errs.append(
-				fmt.Errorf("%s-%s-%s: %s", pipelineName, pluginName, indicatorName, apiResp.Error.Error))
+				fmt.Errorf("%s-%s-%s: %s",
+					pipelineName, pluginName, indicatorName, apiResp.Error.Error))
 			continue
 		}
 
 		data, err := json.Marshal(value)
 		if err != nil {
-			errs.append(fmt.Errorf("%s-%s-%s: %s", pipelineName, pluginName, indicatorName, err))
+			errs.append(fmt.Errorf("%s-%s-%s: %v",
+				pipelineName, pluginName, indicatorName, err))
 			continue
 		}
 
@@ -110,7 +113,8 @@ func GetPluginIndicatorDesc(c *cli.Context) error {
 	for _, indicatorName := range args[2:] {
 		desc, apiResp, err := statisticsApi().GetPluginIndicatorDesc(pipelineName, pluginName, indicatorName)
 		if err != nil {
-			errs.append(fmt.Errorf("%s-%s-%s: %s", pipelineName, pluginName, indicatorName, err))
+			errs.append(fmt.Errorf("%s-%s-%s: %v",
+				pipelineName, pluginName, indicatorName, err))
 			continue
 		} else if apiResp.Error != nil {
 			errs.append(fmt.Errorf("%s-%s-%s: %s",
@@ -120,7 +124,8 @@ func GetPluginIndicatorDesc(c *cli.Context) error {
 
 		data, err := json.Marshal(desc)
 		if err != nil {
-			errs.append(fmt.Errorf("%s-%s-%s: %s", pipelineName, pluginName, indicatorName, err))
+			errs.append(fmt.Errorf("%s-%s-%s: %v",
+				pipelineName, pluginName, indicatorName, err))
 			continue
 		}
 
@@ -144,7 +149,7 @@ func RetrievePipelineIndicatorNames(c *cli.Context) error {
 	for _, pipelineName := range args {
 		retrieveResp, apiResp, err := statisticsApi().GetPipelineIndicatorNames(pipelineName)
 		if err != nil {
-			errs.append(fmt.Errorf("%s: %s", pipelineName, err))
+			errs.append(fmt.Errorf("%s: %v", pipelineName, err))
 			continue
 		} else if apiResp.Error != nil {
 			errs.append(fmt.Errorf("%s: %s", pipelineName, apiResp.Error.Error))
@@ -153,7 +158,7 @@ func RetrievePipelineIndicatorNames(c *cli.Context) error {
 
 		data, err := json.Marshal(retrieveResp)
 		if err != nil {
-			errs.append(fmt.Errorf("%s: %s", pipelineName, err))
+			errs.append(fmt.Errorf("%s: %v", pipelineName, err))
 			continue
 		}
 
@@ -182,7 +187,7 @@ func GetPipelineIndicatorValue(c *cli.Context) error {
 	for _, indicatorName := range args[1:] {
 		value, apiResp, err := statisticsApi().GetPipelineIndicatorValue(pipelineName, indicatorName)
 		if err != nil {
-			errs.append(fmt.Errorf("%s-%s: %s", pipelineName, indicatorName, err))
+			errs.append(fmt.Errorf("%s-%s: %v", pipelineName, indicatorName, err))
 			continue
 		} else if apiResp.Error != nil {
 			errs.append(fmt.Errorf("%s-%s: %s", pipelineName, indicatorName, apiResp.Error.Error))
@@ -191,7 +196,7 @@ func GetPipelineIndicatorValue(c *cli.Context) error {
 
 		data, err := json.Marshal(value)
 		if err != nil {
-			errs.append(fmt.Errorf("%s-%s: %s", pipelineName, indicatorName, err))
+			errs.append(fmt.Errorf("%s-%s: %v", pipelineName, indicatorName, err))
 			continue
 		}
 
@@ -220,7 +225,7 @@ func GetPipelineIndicatorDesc(c *cli.Context) error {
 	for _, indicatorName := range args[1:] {
 		desc, apiResp, err := statisticsApi().GetPipelineIndicatorDesc(pipelineName, indicatorName)
 		if err != nil {
-			errs.append(fmt.Errorf("%s-%s: %s", pipelineName, indicatorName, err))
+			errs.append(fmt.Errorf("%s-%s: %v", pipelineName, indicatorName, err))
 			continue
 		} else if apiResp.Error != nil {
 			errs.append(fmt.Errorf("%s-%s: %s", pipelineName, indicatorName, apiResp.Error.Error))
@@ -229,7 +234,7 @@ func GetPipelineIndicatorDesc(c *cli.Context) error {
 
 		data, err := json.Marshal(desc)
 		if err != nil {
-			errs.append(fmt.Errorf("%s-%s: %s", pipelineName, indicatorName, err))
+			errs.append(fmt.Errorf("%s-%s: %v", pipelineName, indicatorName, err))
 			continue
 		}
 
@@ -253,7 +258,7 @@ func RetrieveTaskIndicatorNames(c *cli.Context) error {
 	for _, pipelineName := range args {
 		retrieveResp, apiResp, err := statisticsApi().GetTaskIndicatorNames(pipelineName)
 		if err != nil {
-			errs.append(fmt.Errorf("%s: %s", pipelineName, err))
+			errs.append(fmt.Errorf("%s: %v", pipelineName, err))
 			continue
 		} else if apiResp.Error != nil {
 			errs.append(fmt.Errorf("%s: %s", pipelineName, apiResp.Error.Error))
@@ -262,7 +267,7 @@ func RetrieveTaskIndicatorNames(c *cli.Context) error {
 
 		data, err := json.Marshal(retrieveResp)
 		if err != nil {
-			errs.append(fmt.Errorf("%s: %s", pipelineName, err))
+			errs.append(fmt.Errorf("%s: %v", pipelineName, err))
 			continue
 		}
 
@@ -291,7 +296,7 @@ func GetTaskIndicatorValue(c *cli.Context) error {
 	for _, indicatorName := range args[1:] {
 		value, apiResp, err := statisticsApi().GetTaskIndicatorValue(pipelineName, indicatorName)
 		if err != nil {
-			errs.append(fmt.Errorf("%s-%s: %s", pipelineName, indicatorName, err))
+			errs.append(fmt.Errorf("%s-%s: %v", pipelineName, indicatorName, err))
 			continue
 		} else if apiResp.Error != nil {
 			errs.append(fmt.Errorf("%s-%s: %s", pipelineName, indicatorName, apiResp.Error.Error))
@@ -300,7 +305,7 @@ func GetTaskIndicatorValue(c *cli.Context) error {
 
 		data, err := json.Marshal(value)
 		if err != nil {
-			errs.append(fmt.Errorf("%s-%s: %s", pipelineName, indicatorName, err))
+			errs.append(fmt.Errorf("%s-%s: %v", pipelineName, indicatorName, err))
 			continue
 		}
 
@@ -329,7 +334,7 @@ func GetTaskIndicatorDesc(c *cli.Context) error {
 	for _, indicatorName := range args[1:] {
 		desc, apiResp, err := statisticsApi().GetTaskIndicatorDesc(pipelineName, indicatorName)
 		if err != nil {
-			errs.append(fmt.Errorf("%s-%s: %s", pipelineName, indicatorName, err))
+			errs.append(fmt.Errorf("%s-%s: %v", pipelineName, indicatorName, err))
 			continue
 		} else if apiResp.Error != nil {
 			errs.append(fmt.Errorf("%s-%s: %s", pipelineName, indicatorName, apiResp.Error.Error))
@@ -338,7 +343,7 @@ func GetTaskIndicatorDesc(c *cli.Context) error {
 
 		data, err := json.Marshal(desc)
 		if err != nil {
-			errs.append(fmt.Errorf("%s-%s: %s", pipelineName, indicatorName, err))
+			errs.append(fmt.Errorf("%s-%s: %v", pipelineName, indicatorName, err))
 			continue
 		}
 
