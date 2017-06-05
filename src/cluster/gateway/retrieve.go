@@ -226,10 +226,6 @@ func (gc *GatewayCluster) handleRetrieve(req *cluster.RequestEvent) {
 	var memberRespCount int
 LOOP:
 	for ; memberRespCount < len(membersRespBook); memberRespCount++ {
-		if future.Closed() {
-			break LOOP
-		}
-
 		select {
 		case memberResp, ok := <-future.Response():
 			if !ok {
