@@ -165,7 +165,7 @@ func (gc *GatewayCluster) getLocalRetrieveResp(req *cluster.RequestEvent) *RespR
 	return resp
 }
 
-func (gc *GatewayCluster) handleRetrieveRelayed(req *cluster.RequestEvent) {
+func (gc *GatewayCluster) handleRetrieveRelay(req *cluster.RequestEvent) {
 	resp := gc.getLocalRetrieveResp(req)
 	if resp == nil {
 		return
@@ -179,7 +179,7 @@ func (gc *GatewayCluster) handleRetrieve(req *cluster.RequestEvent) {
 		return
 	}
 
-	respToCompare, err := cluster.PackWithHeader(resp, uint8(retrieveRelayedMessage))
+	respToCompare, err := cluster.PackWithHeader(resp, uint8(retrieveRelayMessage))
 	if err != nil {
 		logger.Errorf("[BUG: PackWithHeader %d %#v failed: %v]", req.RequestPayload[0], resp, err)
 		return
@@ -205,7 +205,7 @@ func (gc *GatewayCluster) handleRetrieve(req *cluster.RequestEvent) {
 		},
 	}
 	payload := req.RequestPayload
-	payload[0] = byte(retrieveRelayedMessage)
+	payload[0] = byte(retrieveRelayMessage)
 	future, err := gc.cluster.Request(req.RequestName+"_relayed", req.RequestPayload, &requestParam)
 	if err != nil {
 		fmt.Errorf("send request %s")
@@ -233,13 +233,13 @@ loop:
 				// maybe not a bug, a new node is up within the same group
 				logger.Errorf("[received unexpected response from request %s, node %s]", req.RequestName+"_relayed", memberResp.ResponseNodeName)
 				memberRespCount--
-				continue loop
+				continue
 			}
 
 			if payload != nil {
 				logger.Errorf("[BUG: received multiple response from request %s, node %s]", req.RequestName+"_relayed", memberResp.ResponseNodeName)
 				memberRespCount--
-				continue loop
+				continue
 			}
 
 			if memberResp.Payload != nil {

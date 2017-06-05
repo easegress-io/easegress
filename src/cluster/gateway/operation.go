@@ -10,7 +10,7 @@ func (gc *GatewayCluster) handleOperation(req *cluster.RequestEvent) {
 
 }
 
-func (gc *GatewayCluster) handleOperationRelayed(req *cluster.RequestEvent) {
+func (gc *GatewayCluster) handleOperationRelay(req *cluster.RequestEvent) {
 	for {
 		// TODO
 	}

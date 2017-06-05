@@ -10,15 +10,15 @@ const (
 	// Operation here means those operations for updating config,
 	// We didn't choose the word `update` in order to makes naming clear.
 	operationMessage
-	operationRelayedMessage
+	operationRelayMessage
 
 	retrieveMessage
-	retrieveRelayedMessage
+	retrieveRelayMessage
 
 	statMessage
-	statRelayedMessage
+	statRelayMessage
 
-	pullOPLogMessage
+	opLogPullMessage
 )
 
 type MessageType uint8
@@ -48,14 +48,14 @@ type (
 	RespQueryGroupMaxSeq uint64
 )
 
-// operationMessage | operationRelayedMessage
+// operationMessage | operationRelayMessage
 
 type (
-	// Pack Header: operationMessage | operationRelayedMessage
+	// Pack Header: operationMessage | operationRelayMessage
 	ReqOperation struct {
 		Operation Operation
 	}
-	// Pack Header: operationMessage | operationRelayedMessage
+	// Pack Header: operationMessage | operationRelayMessage
 	RespOperation struct {
 		Err *MessageErr
 	}
@@ -93,9 +93,9 @@ type (
 	}
 )
 
-// retrieveMessage | retrieveRelayedMessage
+// retrieveMessage | retrieveRelayMessage
 type (
-	// Pack Header: retrieveMessage | retrieveRelayedMessage
+	// Pack Header: retrieveMessage | retrieveRelayMessage
 	ReqRetrieve struct {
 		// RetrieveAllNodes is the flag to specify the write_mode node
 		// retrieve just its own stuff then return immediately when false,
@@ -112,7 +112,7 @@ type (
 		FilterRetrievePluginTypes   *FilterRetrievePluginTypes
 		FilterRetrievePipelineTypes *FilterRetrievePipelineTypes
 	}
-	// Pack Header: retrieveMessage | retrieveRelayedMessage
+	// Pack Header: retrieveMessage | retrieveRelayMessage
 	RespRetrieve struct {
 		Err *MessageErr
 
@@ -145,9 +145,9 @@ type (
 	}
 )
 
-// statMessage | statRelayedMessage
+// statMessage | statRelayMessage
 type (
-	// Pack Header: statMessage | statRelayedMessage
+	// Pack Header: statMessage | statRelayMessage
 	ReqStat struct {
 		FilterPipelineIndicatorNames *FilterPipelineIndicatorNames
 		FilterPipelineIndicatorValue *FilterPipelineIndicatorValue
@@ -159,7 +159,7 @@ type (
 		FilterTaskIndicatorValue     *FilterTaskIndicatorValue
 		FilterTaskIndicatorDesc      *FilterTaskIndicatorDesc
 	}
-	// Pack Header: statMessage | statRelayedMessage
+	// Pack Header: statMessage | statRelayMessage
 	RespStat struct {
 		Err *MessageErr
 
@@ -203,14 +203,14 @@ type (
 	// TODO: add uptime, rusage, loadavg of a group.
 )
 
-// pullOPLogMessage
+// opLogPullMessage
 type (
-	// Pack Header: pullOPLogMessage
+	// Pack Header: opLogPullMessage
 	ReqPullOPLog struct {
 		LocalMaxSeq uint64
 		WantMaxSeq  uint64
 	}
-	// Pack Header: pullOPLogMessage
+	// Pack Header: opLogPullMessage
 	RespPullOPLog struct {
 		// It's recommended to check sequence of first operation and len
 		// to get max sequence of SequentialOperations then just land

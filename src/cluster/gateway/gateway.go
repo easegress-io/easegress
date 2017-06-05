@@ -21,8 +21,9 @@ const (
 
 type Config struct {
 	// MaxSeqGapToSync means ... TODO
-	MaxSeqGapToSync   uint64
-	SyncOPLogInterval time.Duration
+	MaxSeqGapToSync       uint64
+	PullOPLogMaxCountOnce uint64
+	SyncOPLogInterval     time.Duration
 }
 
 type GatewayCluster struct {
@@ -70,8 +71,8 @@ func NewGatewayCluster(conf Config, mod *model.Model) (*GatewayCluster, error) {
 		eventStream: eventStream,
 	}
 
-	go gc.syncOPLog()
 	go gc.dispatch()
+	go gc.syncOPLog()
 
 	return gc, nil
 }
@@ -103,35 +104,35 @@ loop:
 						go gc.handleOperation(event)
 					}
 					logger.Errorf("[BUG: read mode but received operationMessage]")
-				case operationRelayedMessage:
+				case operationRelayMessage:
 					if gc.Mode() == ReadMode {
-						go gc.handleOperationRelayed(event)
+						go gc.handleOperationRelay(event)
 					}
-					logger.Errorf("[BUG: write mode but received operationRelayedMessage]")
+					logger.Errorf("[BUG: write mode but received operationRelayMessage]")
 
 				case retrieveMessage:
 					if gc.Mode() == WriteMode {
 						go gc.handleRetrieve(event)
 					}
 					logger.Errorf("[BUG: read mode but received retrieveMessage]")
-				case retrieveRelayedMessage:
+				case retrieveRelayMessage:
 					if gc.Mode() == ReadMode {
-						go gc.handleRetrieveRelayed(event)
+						go gc.handleRetrieveRelay(event)
 					}
-					logger.Errorf("[BUG: write mode but received retrieveRelayedMessage]")
+					logger.Errorf("[BUG: write mode but received retrieveRelayMessage]")
 
 				case statMessage:
 					if gc.Mode() == WriteMode {
 						go gc.handleStat(event)
 					}
 					logger.Errorf("[BUG: read mode but received statMessage]")
-				case statRelayedMessage:
+				case statRelayMessage:
 					if gc.Mode() == ReadMode {
-						go gc.handleStatRelayed(event)
+						go gc.handleStatRelay(event)
 					}
-					logger.Errorf("[BUG: write mode but received statRelayedMessage]")
+					logger.Errorf("[BUG: write mode but received statRelayMessage]")
 
-				case pullOPLogMessage:
+				case opLogPullMessage:
 					go gc.handlePullOPLog(event)
 				}
 			case *cluster.MemberEvent:
@@ -168,12 +169,12 @@ func (gc *GatewayCluster) handleQueryGroupMaxSeq(req *cluster.RequestEvent) {
 	ms := gc.log.maxSeq()
 	payload, err := cluster.PackWithHeader(RespQueryGroupMaxSeq(ms), uint8(queryGroupMaxSeqMessage))
 	if err != nil {
-		logger.Errorf("[BUG: pack max sequence %d failed: %s]", ms, err)
+		logger.Errorf("[BUG: PackWithHeader max sequence %d failed: %s]", ms, err)
 		return
 	}
 	err = req.Respond(payload)
 	if err != nil {
-		logger.Errorf("[repond reqeust max sequence to request %s, node %s failed: %s]",
+		logger.Errorf("[repond max sequence to request %s, node %s failed: %s]",
 			req.RequestName, req.RequestNodeName, err)
 	}
 }
