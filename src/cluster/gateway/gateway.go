@@ -12,6 +12,10 @@ import (
 
 type Mode string
 
+func (m Mode) String() string {
+	return string(m)
+}
+
 const (
 	WriteMode Mode = "WriteMode"
 	ReadMode  Mode = "ReadMode"
@@ -91,8 +95,6 @@ func (gc *GatewayCluster) dispatch() {
 LOOP:
 	for {
 		select {
-		case <-gc.stopChan:
-			break LOOP
 		case event := <-gc.eventStream:
 			switch event := event.(type) {
 			case *cluster.RequestEvent:
@@ -140,6 +142,8 @@ LOOP:
 			case *cluster.MemberEvent:
 				// Do not handle MemberEvent for the time being.
 			}
+		case <-gc.stopChan:
+			break LOOP
 		}
 	}
 }
@@ -152,10 +156,24 @@ func (gc *GatewayCluster) localGroupName() string {
 	return gc.cluster.GetConfig().NodeTags[groupTagKey]
 }
 
-func (gc *GatewayCluster) restAliveMembersInSameGroup() (ret []cluster.Member) {
+func (gc *GatewayCluster) nonAliveMember(nodeName string) bool {
 	totalMembers := gc.cluster.Members()
 
+	for _, member := range totalMembers {
+		if member.NodeName == nodeName &&
+			member.Status != cluster.MemberAlive {
+
+			return true
+		}
+	}
+
+	return false
+}
+
+func (gc *GatewayCluster) restAliveMembersInSameGroup() (ret []cluster.Member) {
+	totalMembers := gc.cluster.Members()
 	groupName := gc.localGroupName()
+
 	for _, member := range totalMembers {
 		if member.NodeTags[groupTagKey] == groupName &&
 			member.Status == cluster.MemberAlive &&

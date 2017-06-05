@@ -133,11 +133,6 @@ func (gc *GatewayCluster) retrieveResult(filter interface{}) ([]byte, error) {
 }
 
 func (gc *GatewayCluster) getLocalRetrieveResp(req *cluster.RequestEvent) *RespRetrieve {
-	if len(req.RequestPayload) < 1 {
-		logger.Errorf("[BUG: received empty ReqRetrieve]")
-		return nil
-	}
-
 	reqRetrieve, err := unpackReqRetrieve(req.RequestPayload[1:])
 	if err != nil {
 		respondRetrieveErr(req, WrongFormatError, err.Error())
@@ -166,27 +161,27 @@ func (gc *GatewayCluster) getLocalRetrieveResp(req *cluster.RequestEvent) *RespR
 }
 
 func (gc *GatewayCluster) handleRetrieveRelay(req *cluster.RequestEvent) {
+	if len(req.RequestPayload) < 1 {
+		// defensive programming
+		return
+	}
+
 	resp := gc.getLocalRetrieveResp(req)
 	if resp == nil {
 		return
 	}
+
 	respondRetrieve(req, resp)
 }
 
 func (gc *GatewayCluster) handleRetrieve(req *cluster.RequestEvent) {
+	if len(req.RequestPayload) < 1 {
+		// defensive programming
+		return
+	}
+
 	resp := gc.getLocalRetrieveResp(req)
 	if resp == nil {
-		return
-	}
-
-	respToCompare, err := cluster.PackWithHeader(resp, uint8(retrieveRelayMessage))
-	if err != nil {
-		logger.Errorf("[BUG: pack retrieve relay message failed: %v]", req.RequestPayload[0], resp, err)
-		return
-	}
-
-	// defensive programming
-	if len(req.RequestPayload) < 1 {
 		return
 	}
 
@@ -203,22 +198,26 @@ func (gc *GatewayCluster) handleRetrieve(req *cluster.RequestEvent) {
 	requestParam := cluster.RequestParam{
 		TargetNodeTags: map[string]string{
 			groupTagKey: gc.localGroupName(),
+			modeTagKey:  ReadMode.String(), // skip myself
 		},
 		Timeout: reqRetrieve.RetrieveTimeout,
 	}
+
 	payload := req.RequestPayload
 	payload[0] = byte(retrieveRelayMessage)
-	future, err := gc.cluster.Request(fmt.Sprintf("%s_relayed", req.RequestName), req.RequestPayload, &requestParam)
+
+	future, err := gc.cluster.Request(fmt.Sprintf("%s_relayed", req.RequestName), payload, &requestParam)
 	if err != nil {
 		fmt.Errorf("send request failed %v", err)
 	}
 
 	membersRespBook := make(map[string][]byte)
+	membersRespBook[gc.clusterConf.NodeName] = payload // add myself
 	for _, member := range gc.restAliveMembersInSameGroup() {
 		membersRespBook[member.NodeName] = nil
 	}
 
-	memberRespCount := 0
+	memberRespCount := 1
 LOOP:
 	for ; memberRespCount < len(membersRespBook); memberRespCount++ {
 		select {
@@ -229,6 +228,10 @@ LOOP:
 
 			payload, known := membersRespBook[memberResp.ResponseNodeName]
 			if !known {
+				if gc.nonAliveMember(memberResp.ResponseNodeName) {
+					continue LOOP
+				}
+
 				// a new node is up within the same group
 				logger.Warnf(
 					"[received the response from a new node %s started durning the request %s]",
@@ -236,10 +239,11 @@ LOOP:
 			}
 
 			if payload != nil {
-				logger.Errorf("[BUG: received multiple response from node %s for request %s]",
+				logger.Errorf("[received multiple response from node %s for request %s, skipped. "+
+					"probably need to tune cluster configuration]",
 					memberResp.ResponseNodeName, fmt.Sprintf("%s_relayed", req.RequestName))
 				memberRespCount--
-				continue
+				continue LOOP
 			}
 
 			if memberResp.Payload != nil {
@@ -250,11 +254,20 @@ LOOP:
 			}
 
 			membersRespBook[memberResp.ResponseNodeName] = memberResp.Payload
+		case <-gc.stopChan:
+			respondRetrieveErr(req, InternalServerError, "node %s stopped")
+			return
 		}
 	}
 
 	if memberRespCount < len(membersRespBook) {
 		respondRetrieveErr(req, RetrieveTimeoutError, "retrieve timeout")
+		return
+	}
+
+	respToCompare, err := cluster.PackWithHeader(resp, uint8(retrieveRelayMessage))
+	if err != nil {
+		logger.Errorf("[BUG: pack retrieve relay message failed: %v]", err)
 		return
 	}
 
