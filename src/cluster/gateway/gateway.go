@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"cluster"
@@ -27,12 +28,15 @@ type Config struct {
 }
 
 type GatewayCluster struct {
-	conf     *Config
-	mod      *model.Model
-	cluster  *cluster.Cluster
-	log      *opLog
-	mode     Mode
-	stopChan chan struct{}
+	conf    *Config
+	mod     *model.Model
+	cluster *cluster.Cluster
+	log     *opLog
+	mode    Mode
+
+	statusLock sync.Mutex
+	stopChan   chan struct{}
+	stopped    bool
 
 	eventStream chan cluster.Event
 }
@@ -176,6 +180,13 @@ func (gc *GatewayCluster) handleQueryGroupMaxSeq(req *cluster.RequestEvent) {
 }
 
 func (gc *GatewayCluster) Stop() error {
+	gc.statusLock.Lock()
+	defer gc.statusLock.Unlock()
+
+	if gc.stopped {
+		return fmt.Errorf("already stopped")
+	}
+
 	err := gc.log.close()
 	if err != nil {
 		return err
@@ -187,6 +198,8 @@ func (gc *GatewayCluster) Stop() error {
 	}
 
 	close(gc.stopChan)
+
+	gc.stopped = true
 
 	return nil
 }
