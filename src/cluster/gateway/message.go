@@ -2,6 +2,7 @@ package gateway
 
 import "config"
 
+// MessageType
 const (
 	// Requests/Responses need 1 byte header specifying message type.
 
@@ -21,23 +22,33 @@ const (
 	opLogPullMessage
 )
 
-type MessageType uint8
+type (
+	MessageType uint8
+)
 
-// MessageErr
+// ClusterErrorType
 const (
-	ErrWrongFormat MessageErrType = iota
-	ErrInternalServer
-	ErrRetrieveInconsistency
-	ErrRetrieveTimeout
+	WrongFormatError ClusterErrorType = iota
+	InternalServerError
+	RetrieveInconsistencyError
+	RetrieveTimeoutError
 )
 
 type (
-	MessageErrType uint8
-	MessageErr     struct {
-		Type MessageErrType
-		Msg  string
+	ClusterErrorType uint8
+	ClusterError     struct {
+		Type    ClusterErrorType
+		Message string
 	}
 )
+
+func (e *ClusterError) Error() string {
+	if e == nil {
+		return ""
+	}
+
+	return e.Message
+}
 
 // queryGroupMaxSeqMessage
 
@@ -57,7 +68,7 @@ type (
 	}
 	// Pack Header: operationMessage | operationRelayMessage
 	RespOperation struct {
-		Err *MessageErr
+		Err *ClusterError
 	}
 	Operation struct {
 		SeqBased uint64
@@ -114,7 +125,7 @@ type (
 	}
 	// Pack Header: retrieveMessage | retrieveRelayMessage
 	RespRetrieve struct {
-		Err *MessageErr
+		Err *ClusterError
 
 		ResultRetrievePlugins       []byte // json
 		ResultRetrievePipelines     []byte // json
@@ -161,7 +172,7 @@ type (
 	}
 	// Pack Header: statMessage | statRelayMessage
 	RespStat struct {
-		Err *MessageErr
+		Err *ClusterError
 
 		Names []byte // json
 		Value []byte // json

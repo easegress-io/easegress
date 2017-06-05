@@ -53,11 +53,11 @@ func respondRetrieve(req *cluster.RequestEvent, resp *RespRetrieve) {
 	}
 }
 
-func respondRetrieveErr(req *cluster.RequestEvent, typ MessageErrType, msg string) {
+func respondRetrieveErr(req *cluster.RequestEvent, typ ClusterErrorType, msg string) {
 	resp := &RespRetrieve{
-		Err: &MessageErr{
+		Err: &ClusterError{
 			Type: typ,
-			Msg:  msg,
+			Message:  msg,
 		},
 	}
 	respondRetrieve(req, resp)
@@ -140,7 +140,7 @@ func (gc *GatewayCluster) getLocalRetrieveResp(req *cluster.RequestEvent) *RespR
 	reqRetrieve, err := unpackReqRetrieve(req.RequestPayload[1:])
 
 	if err != nil {
-		respondRetrieveErr(req, ErrWrongFormat, err.Error())
+		respondRetrieveErr(req, WrongFormatError, err.Error())
 		return nil
 	}
 
@@ -158,7 +158,7 @@ func (gc *GatewayCluster) getLocalRetrieveResp(req *cluster.RequestEvent) *RespR
 	}
 
 	if err != nil {
-		respondRetrieveErr(req, ErrInternalServer, err.Error())
+		respondRetrieveErr(req, InternalServerError, err.Error())
 		return nil
 	}
 
@@ -251,13 +251,13 @@ loop:
 	}
 
 	if memberRespCount < len(membersRespBook) {
-		respondRetrieveErr(req, ErrRetrieveTimeout, fmt.Sprintf("retrieve timeou %v", waitTime))
+		respondRetrieveErr(req, RetrieveTimeoutError, fmt.Sprintf("retrieve timeou %v", waitTime))
 		return
 	}
 
 	for _, payload := range membersRespBook {
 		if bytes.Compare(respToCompare, payload) != 0 {
-			respondRetrieveErr(req, ErrRetrieveInconsistency, "retrieve inconsistent content")
+			respondRetrieveErr(req, RetrieveInconsistencyError, "retrieve inconsistent content")
 			return
 		}
 	}
