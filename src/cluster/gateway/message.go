@@ -1,6 +1,9 @@
 package gateway
 
-import "config"
+import (
+	"config"
+	"time"
+)
 
 // MessageType
 const (
@@ -116,6 +119,7 @@ type (
 		// The mechanism guarantees that retrieval must choose either
 		// Consistency or Availability.
 		RetrieveAllNodes bool
+		RetrieveTimeout  time.Duration
 
 		// Below Filter* is Packed from corresponding struct
 		FilterRetrievePlugins       *FilterRetrievePlugins

@@ -28,11 +28,12 @@ type Config struct {
 }
 
 type GatewayCluster struct {
-	conf    *Config
-	mod     *model.Model
-	cluster *cluster.Cluster
-	log     *opLog
-	mode    Mode
+	conf        *Config
+	mod         *model.Model
+	clusterConf *cluster.Config
+	cluster     *cluster.Cluster
+	log         *opLog
+	mode        Mode
 
 	statusLock sync.Mutex
 	stopChan   chan struct{}
@@ -65,12 +66,13 @@ func NewGatewayCluster(conf Config, mod *model.Model) (*GatewayCluster, error) {
 	}
 
 	gc := &GatewayCluster{
-		conf:     &conf,
-		mod:      mod,
-		cluster:  basis,
-		log:      log,
-		mode:     WriteMode, // TODO
-		stopChan: make(chan struct{}),
+		conf:        &conf,
+		mod:         mod,
+		clusterConf: basisConf,
+		cluster:     basis,
+		log:         log,
+		mode:        WriteMode, // TODO
+		stopChan:    make(chan struct{}),
 
 		eventStream: eventStream,
 	}
@@ -150,19 +152,19 @@ func (gc *GatewayCluster) localGroupName() string {
 	return gc.cluster.GetConfig().NodeTags[groupTagKey]
 }
 
-func (gc *GatewayCluster) otherSameGroupMembers() []cluster.Member {
+func (gc *GatewayCluster) restAliveMembersInSameGroup() (ret []cluster.Member) {
 	totalMembers := gc.cluster.Members()
-
-	members := make([]cluster.Member, 0)
 
 	groupName := gc.localGroupName()
 	for _, member := range totalMembers {
-		if member.NodeTags[groupTagKey] == groupName {
-			members = append(members, member)
+		if member.NodeTags[groupTagKey] == groupName &&
+			member.Status == cluster.MemberAlive &&
+			member.NodeName != gc.clusterConf.NodeName {
+			ret = append(ret, member)
 		}
 	}
 
-	return members
+	return ret
 }
 
 func (gc *GatewayCluster) handleQueryGroupMaxSeq(req *cluster.RequestEvent) {

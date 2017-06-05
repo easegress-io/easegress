@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"time"
 
 	"cluster"
 	"common"
@@ -48,7 +47,8 @@ func respondRetrieve(req *cluster.RequestEvent, resp *RespRetrieve) {
 
 	err = req.Respond(respBuff)
 	if err != nil {
-		logger.Errorf("[respond %s to request %s, node %s failed: %v]", respBuff, req.RequestName, req.RequestNodeName, err)
+		logger.Errorf("[respond %s to request %s, node %s failed: %v]",
+			respBuff, req.RequestName, req.RequestNodeName, err)
 		return
 	}
 }
@@ -137,8 +137,8 @@ func (gc *GatewayCluster) getLocalRetrieveResp(req *cluster.RequestEvent) *RespR
 		logger.Errorf("[BUG: received empty ReqRetrieve]")
 		return nil
 	}
-	reqRetrieve, err := unpackReqRetrieve(req.RequestPayload[1:])
 
+	reqRetrieve, err := unpackReqRetrieve(req.RequestPayload[1:])
 	if err != nil {
 		respondRetrieveErr(req, WrongFormatError, err.Error())
 		return nil
@@ -181,7 +181,7 @@ func (gc *GatewayCluster) handleRetrieve(req *cluster.RequestEvent) {
 
 	respToCompare, err := cluster.PackWithHeader(resp, uint8(retrieveRelayMessage))
 	if err != nil {
-		logger.Errorf("[BUG: PackWithHeader %d %#v failed: %v]", req.RequestPayload[0], resp, err)
+		logger.Errorf("[BUG: pack retrieve relay message failed: %v]", req.RequestPayload[0], resp, err)
 		return
 	}
 
@@ -189,6 +189,7 @@ func (gc *GatewayCluster) handleRetrieve(req *cluster.RequestEvent) {
 	if len(req.RequestPayload) < 1 {
 		return
 	}
+
 	reqRetrieve, err := unpackReqRetrieve(req.RequestPayload[1:])
 	if err != nil {
 		return
@@ -199,31 +200,25 @@ func (gc *GatewayCluster) handleRetrieve(req *cluster.RequestEvent) {
 		return
 	}
 
-	//// FIXME: config waitTime
-	//waitTime := time.Duration(30 * time.Second)
-	//timer := time.NewTimer(waitTime)
-
-	waitTime := time.Duration(30 * time.Second)
 	requestParam := cluster.RequestParam{
 		TargetNodeTags: map[string]string{
 			groupTagKey: gc.localGroupName(),
 		},
-		Timeout: waitTime,
+		Timeout: reqRetrieve.RetrieveTimeout,
 	}
 	payload := req.RequestPayload
 	payload[0] = byte(retrieveRelayMessage)
-	future, err := gc.cluster.Request(req.RequestName+"_relayed", req.RequestPayload, &requestParam)
+	future, err := gc.cluster.Request(fmt.Sprintf("%s_relayed", req.RequestName), req.RequestPayload, &requestParam)
 	if err != nil {
-		fmt.Errorf("send request %s")
+		fmt.Errorf("send request failed %v", err)
 	}
 
-	members := gc.otherSameGroupMembers()
 	membersRespBook := make(map[string][]byte)
-	for _, member := range members {
+	for _, member := range gc.restAliveMembersInSameGroup() {
 		membersRespBook[member.NodeName] = nil
 	}
 
-	var memberRespCount int
+	memberRespCount := 0
 LOOP:
 	for ; memberRespCount < len(membersRespBook); memberRespCount++ {
 		select {
@@ -232,32 +227,34 @@ LOOP:
 				break LOOP
 			}
 
-			payload, ok := membersRespBook[memberResp.ResponseNodeName]
-			if !ok {
-				// maybe not a bug, a new node is up within the same group
-				logger.Errorf("[received unexpected response from request %s, node %s]",
-					req.RequestName+"_relayed", memberResp.ResponseNodeName)
-				memberRespCount--
-				continue
+			payload, known := membersRespBook[memberResp.ResponseNodeName]
+			if !known {
+				// a new node is up within the same group
+				logger.Warnf(
+					"[received the response from a new node %s started durning the request %s]",
+					memberResp.ResponseNodeName, fmt.Sprintf("%s_relayed", req.RequestName))
 			}
 
 			if payload != nil {
-				logger.Errorf("[BUG: received multiple response from request %s, node %s]",
-					req.RequestName+"_relayed", memberResp.ResponseNodeName)
+				logger.Errorf("[BUG: received multiple response from node %s for request %s]",
+					memberResp.ResponseNodeName, fmt.Sprintf("%s_relayed", req.RequestName))
 				memberRespCount--
 				continue
 			}
 
 			if memberResp.Payload != nil {
-				membersRespBook[memberResp.ResponseNodeName] = memberResp.Payload
-			} else {
-				membersRespBook[memberResp.ResponseNodeName] = []byte("")
+				logger.Errorf("[BUG: received empty response from node %s for request %s]",
+					memberResp.ResponseNodeName, fmt.Sprintf("%s_relayed", req.RequestName))
+
+				memberResp.Payload = []byte("")
 			}
+
+			membersRespBook[memberResp.ResponseNodeName] = memberResp.Payload
 		}
 	}
 
 	if memberRespCount < len(membersRespBook) {
-		respondRetrieveErr(req, RetrieveTimeoutError, fmt.Sprintf("retrieve timeout %v", waitTime))
+		respondRetrieveErr(req, RetrieveTimeoutError, "retrieve timeout")
 		return
 	}
 
