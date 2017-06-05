@@ -56,8 +56,8 @@ func respondRetrieve(req *cluster.RequestEvent, resp *RespRetrieve) {
 func respondRetrieveErr(req *cluster.RequestEvent, typ ClusterErrorType, msg string) {
 	resp := &RespRetrieve{
 		Err: &ClusterError{
-			Type: typ,
-			Message:  msg,
+			Type:    typ,
+			Message: msg,
 		},
 	}
 	respondRetrieve(req, resp)
@@ -203,11 +203,12 @@ func (gc *GatewayCluster) handleRetrieve(req *cluster.RequestEvent) {
 	//waitTime := time.Duration(30 * time.Second)
 	//timer := time.NewTimer(waitTime)
 
+	waitTime := time.Duration(30 * time.Second)
 	requestParam := cluster.RequestParam{
 		TargetNodeTags: map[string]string{
 			groupTagKey: gc.localGroupName(),
 		},
-		Timeout: time.Duration(30 * time.Second),
+		Timeout: waitTime,
 	}
 	payload := req.RequestPayload
 	payload[0] = byte(retrieveRelayMessage)
@@ -225,6 +226,10 @@ func (gc *GatewayCluster) handleRetrieve(req *cluster.RequestEvent) {
 	var memberRespCount int
 LOOP:
 	for ; memberRespCount < len(membersRespBook); memberRespCount++ {
+		if future.Closed() {
+			break LOOP
+		}
+
 		select {
 		case memberResp, ok := <-future.Response():
 			if !ok {
@@ -256,7 +261,7 @@ LOOP:
 	}
 
 	if memberRespCount < len(membersRespBook) {
-		respondRetrieveErr(req, RetrieveTimeoutError, fmt.Sprintf("retrieve timeou %v", waitTime))
+		respondRetrieveErr(req, RetrieveTimeoutError, fmt.Sprintf("retrieve timeout %v", waitTime))
 		return
 	}
 
