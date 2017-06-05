@@ -30,10 +30,12 @@ type opLog struct {
 }
 
 func newOPLog() (*opLog, error) {
-	opt := badger.DefaultOptions
 	dir := filepath.Join(common.INVENTORY_HOME_DIR, "/badger_oplogs")
 	os.MkdirAll(dir, 0700)
+
+	opt := badger.DefaultOptions
 	opt.Dir = dir
+	opt.SyncWrites = true // consistence is more important than performance
 
 	logger.Debugf("[operation logs path: %s]", dir)
 
@@ -46,10 +48,117 @@ func newOPLog() (*opLog, error) {
 		kv: kv,
 	}
 
+	op._checkAndRecovery()
+
 	go op._cleanup()
 
 	return op, nil
 }
+
+func (op *opLog) maxSeq() uint64 {
+	op.RLock()
+	defer op.RUnlock()
+	return op._locklessMaxSeq()
+}
+
+func (op *opLog) append(operations ...Operation) error {
+	if len(operations) < 1 {
+		return nil
+	}
+
+	begin := operations[0].SeqBased
+
+	for _, operation := range operations[1:] {
+		if operation.SeqBased-begin != 1 {
+			return fmt.Errorf("operation must obey monotonic increasing quantity is 1")
+		}
+		begin++
+
+		switch {
+		case operation.ContentCreatePlugin != nil:
+		case operation.ContentUpdatePlugin != nil:
+		case operation.ContentDeletePlugin != nil:
+		case operation.ContentCreatePipeline != nil:
+		case operation.ContentUpdatePipeline != nil:
+		case operation.ContentDeletePipeline != nil:
+		default:
+			return fmt.Errorf("operation with sequence %d has no content", begin)
+		}
+	}
+
+	op.Lock()
+	defer op.Unlock()
+
+	for _, operation := range operations {
+		operationBuff, err := json.Marshal(operation)
+		if err != nil {
+			logger.Errorf("[BUG: marshal %#v failed: %v]", operation, err)
+			return fmt.Errorf("[marshal %#v failed: %v]", operation, err)
+		}
+
+		ms := op._locklessIncreaseMaxSeq()
+		op.kv.Set([]byte(fmt.Sprintf("%d", ms)), operationBuff)
+
+		for _, cb := range op.operationAppendedCallbacks {
+			cb.Callback().(OperationAppended)(&operation)
+		}
+	}
+
+	return nil
+}
+
+// retrieve reads logs whose sequence is `begin <= seq <= end`
+func (op *opLog) retrieve(begin, end uint64) ([]*Operation, error) {
+	if begin == 0 {
+		return nil, fmt.Errorf("begin must be greater than 0")
+	}
+	if begin > end {
+		return nil, fmt.Errorf("begin is greater than end")
+	}
+
+	// NOTICE: We never change recorded content, so it's unnecessary to use RLock.
+
+	ms := op._locklessMaxSeq()
+	if end > ms {
+		return nil, fmt.Errorf("end is greater than max sequence %d", ms)
+	}
+
+	var ret []*Operation
+
+	for i := begin; i <= end; i++ {
+		var item badger.KVItem
+		err := op.kv.Get([]byte(fmt.Sprintf("%d", i)), &item)
+		if err != nil {
+			logger.Errorf("[BUG: at %d retrieve operation less than max sequence %d failed: %v]",
+				i, ms, err)
+			return nil, fmt.Errorf("[at %d retrieve operation less than max sequence %d failed: %v]",
+				i, ms, err)
+		}
+
+		operationBuff := item.Value()
+		if operationBuff == nil {
+			logger.Errorf("[BUG: at %d retrieve nothing less than max sequence %d]", i, ms)
+			return nil, fmt.Errorf("at %d retrieve nothing less than max sequence %d", i, ms)
+		}
+
+		var operation Operation
+		err = json.Unmarshal(operationBuff, &operation)
+		if err != nil {
+			logger.Errorf("[BUG: at %d unmarshal %s to Operation failed: %v]", i, operationBuff, err)
+			return nil, fmt.Errorf("at %d unmarshal %s to Operation failed: %v]", i, operationBuff, err)
+		}
+
+		ret = append(ret, &operation)
+	}
+
+	return ret, nil
+}
+
+func (op *opLog) close() error {
+	return op.kv.Close()
+}
+
+////
 
 func (op *opLog) AddOPLogAppendedCallback(name string, callback OperationAppended, overwrite bool) OperationAppended {
 	op.Lock()
@@ -80,11 +189,7 @@ func (op *opLog) DeleteOPLogAppendedCallback(name string) OperationAppended {
 	}
 }
 
-func (op *opLog) maxSeq() uint64 {
-	op.RLock()
-	defer op.RUnlock()
-	return op._locklessMaxSeq()
-}
+////
 
 // _locklessMaxSeq is designed to be invoked by locked methods of opLog
 func (op *opLog) _locklessMaxSeq() uint64 {
@@ -116,101 +221,11 @@ func (op *opLog) _locklessIncreaseMaxSeq() uint64 {
 	return ms
 }
 
-func (op *opLog) append(operations ...Operation) error {
-	op.Lock()
-	defer op.Unlock()
-
-	if len(operations) < 1 {
-		return nil
-	}
-
-	begin := operations[0].SeqBased
-	for _, operation := range operations[1:] {
-		if operation.SeqBased-begin != 1 {
-			return fmt.Errorf("operations must obey monotonic increasing quantity is 1")
-		}
-		begin++
-
-		switch {
-		case operation.ContentCreatePlugin != nil:
-		case operation.ContentUpdatePlugin != nil:
-		case operation.ContentDeletePlugin != nil:
-		case operation.ContentCreatePipeline != nil:
-		case operation.ContentUpdatePipeline != nil:
-		case operation.ContentDeletePipeline != nil:
-		default:
-			return fmt.Errorf("operation with sequence %d has no content", begin)
-		}
-	}
-
-	for _, operation := range operations {
-		operationBuff, err := json.Marshal(operation)
-		if err != nil {
-			logger.Errorf("[BUG: Marshal %#v failed: %v]", operation, err)
-			return fmt.Errorf("[marshal %#v failed: %v]", operation, err)
-		}
-
-		ms := op._locklessIncreaseMaxSeq()
-		op.kv.Set([]byte(fmt.Sprintf("%d", ms)), operationBuff)
-
-		for _, cb := range op.operationAppendedCallbacks {
-			cb.Callback().(OperationAppended)(&operation)
-		}
-	}
-
-	return nil
-}
-
-// retrieve reads logs whose sequence is `begin <= seq <= end`
-func (op *opLog) retrieve(begin, end uint64) ([]Operation, error) {
-	if begin == 0 {
-		return nil, fmt.Errorf("begin must be greater than 0")
-	}
-	if begin > end {
-		return nil, fmt.Errorf("begin is greater than end")
-	}
-
-	// op.RLock()
-	// defer op.RUnlock()
-	// NOTICE: We never change recorded content, so it's unnecessary to use RLock.
-
-	ms := op._locklessMaxSeq()
-	if end > ms {
-		return nil, fmt.Errorf("end is greater than max sequence %d", ms)
-	}
-
-	operations := make([]Operation, 0)
-	for i := begin; i <= end; i++ {
-		var item badger.KVItem
-		err := op.kv.Get([]byte(fmt.Sprintf("%d", i)), &item)
-		if err != nil {
-			logger.Errorf("[BUG: at %d retrieve operation less than max sequence %d failed: %v]", i, ms, err)
-			return nil, fmt.Errorf("[at %d retrieve operation less than max sequence %d failed: %v]", i, ms, err)
-		}
-
-		operationBuff := item.Value()
-		if operationBuff == nil {
-			logger.Errorf("[BUG: at %d retrieve nothing less than max sequence %d]", i, ms)
-			return nil, fmt.Errorf("at %d retrieve nothing less than max sequence %d", i, ms)
-		}
-
-		var operation Operation
-		err = json.Unmarshal(operationBuff, &operation)
-		if err != nil {
-			logger.Errorf("[BUG: at %d unmarshal %s to Operation failed: %v]", i, operationBuff, err)
-			return nil, fmt.Errorf("at %d unmarshal %s to Operation failed: %v]", i, operationBuff, err)
-		}
-
-		operations = append(operations, operation)
-	}
-
-	return operations, nil
+func (op *opLog) _checkAndRecovery() {
+	// TODO: check the consistence between maxSeqKey and the key of "latest" operation record, and correct maxSeqKey if needed
+	// note: we write maxSeqKey+1 first in append(), and badger doesn't support transaction currently
 }
 
 func (op *opLog) _cleanup() {
 	// TODO: clean very old values
-}
-
-func (op *opLog) close() error {
-	return op.kv.Close()
 }
