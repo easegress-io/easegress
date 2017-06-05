@@ -145,6 +145,25 @@ func (gc *GatewayCluster) GetOPLog() *opLog {
 	return gc.log
 }
 
+func (gc *GatewayCluster) localGroupName() string {
+	return gc.cluster.GetConfig().NodeTags[groupTagKey]
+}
+
+func (gc *GatewayCluster) otherSameGroupMemebers() []cluster.Member {
+	totalMembers := gc.cluster.Members()
+
+	members := make([]cluster.Member, 0)
+
+	groupName := gc.localGroupName()
+	for _, member := range totalMembers {
+		if member.NodeTags[groupTagKey] == groupName {
+			members = append(members, member)
+		}
+	}
+
+	return members
+}
+
 func (gc *GatewayCluster) handleQueryGroupMaxSeq(req *cluster.RequestEvent) {
 	ms := gc.log.maxSeq()
 	payload, err := cluster.PackWithHeader(RespQueryGroupMaxSeq(ms), uint8(queryGroupMaxSeqMessage))

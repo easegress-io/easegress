@@ -131,6 +131,11 @@ func Create(conf Config) (*Cluster, error) {
 	return c, nil
 }
 
+func (c *Cluster) GetConfig() Config {
+	// not allow to change Cluster.Config in runtime directly.
+	return *c.conf
+}
+
 func (c *Cluster) Join(peerNodeNames []string) (int, error) {
 	c.nodeJoinLock.Lock()
 	defer c.nodeJoinLock.Unlock()
