@@ -25,11 +25,10 @@ const (
 )
 
 type Config struct {
-	// MaxSeqGapToSync means ... TODO
-	MaxSeqGapToSync       uint64
-	PullOPLogMaxCountOnce uint64
-	SyncOPLogInterval     time.Duration
-	SyncOPLogTimeout      time.Duration
+	OPLogMaxSeqGapToPull  uint64
+	OPLogPullMaxCountOnce uint64
+	OPLogPullInterval     time.Duration
+	OPLogPullTimeout      time.Duration
 }
 
 type GatewayCluster struct {
@@ -138,7 +137,7 @@ LOOP:
 					}
 					logger.Errorf("[BUG: node with write mode received statRelayMessage]")
 				case opLogPullMessage:
-					go gc.handlePullOPLog(event)
+					go gc.handleOPLogPull(event)
 				}
 			case *cluster.MemberEvent:
 				// Do not handle MemberEvent for the time being.

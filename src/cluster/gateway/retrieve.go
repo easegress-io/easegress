@@ -41,7 +41,7 @@ func respondRetrieve(req *cluster.RequestEvent, resp *RespRetrieve) {
 
 	respBuff, err := cluster.PackWithHeader(resp, uint8(req.RequestPayload[0]))
 	if err != nil {
-		logger.Errorf("[BUG: PackWithHeader %d %#v failed: %v]", req.RequestPayload[0], resp, err)
+		logger.Errorf("[BUG: pack header(%d) %#v failed: %v]", req.RequestPayload[0], resp, err)
 		return
 	}
 

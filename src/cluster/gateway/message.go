@@ -225,14 +225,14 @@ type (
 // opLogPullMessage
 type (
 	// Pack Header: opLogPullMessage
-	ReqPullOPLog struct {
+	ReqOPLogPull struct {
 		Timeout time.Duration
 
 		LocalMaxSeq uint64
 		WantMaxSeq  uint64
 	}
 	// Pack Header: opLogPullMessage
-	RespPullOPLog struct {
+	RespOPLogPull struct {
 		// It's recommended to check sequence of first operation and len
 		// to get max sequence of SequentialOperations then just land
 		// and record needed operations to local Operation Log.
