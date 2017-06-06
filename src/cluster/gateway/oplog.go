@@ -66,13 +66,25 @@ func (op *opLog) append(operations ...Operation) error {
 		return nil
 	}
 
-	begin := operations[0].SeqBased
+	op.Lock()
+	defer op.Unlock()
 
-	for _, operation := range operations[1:] {
-		if operation.SeqBased-begin != 1 {
+	ms := op._locklessMaxSeq()
+	if ms >= operations[len(operations)-1].Seq {
+		return nil
+	}
+
+	lastSeq := operations[0].Seq
+	if lastSeq == 0 {
+		return fmt.Errorf("no zero sequence operation")
+	}
+	lastSeq--
+
+	for _, operation := range operations {
+		if operation.Seq-lastSeq != 1 {
 			return fmt.Errorf("operation must obey monotonic increasing quantity is 1")
 		}
-		begin++
+		lastSeq++
 
 		switch {
 		case operation.ContentCreatePlugin != nil:
@@ -82,21 +94,20 @@ func (op *opLog) append(operations ...Operation) error {
 		case operation.ContentUpdatePipeline != nil:
 		case operation.ContentDeletePipeline != nil:
 		default:
-			return fmt.Errorf("operation with sequence %d has no content", begin)
+			return fmt.Errorf("operation with sequence %d has no content", operation.Seq)
 		}
-	}
 
-	op.Lock()
-	defer op.Unlock()
+		if ms+1 != operation.Seq {
+			continue
+		}
 
-	for _, operation := range operations {
 		operationBuff, err := json.Marshal(operation)
 		if err != nil {
 			logger.Errorf("[BUG: marshal %#v failed: %v]", operation, err)
 			return fmt.Errorf("[marshal %#v failed: %v]", operation, err)
 		}
 
-		ms := op._locklessIncreaseMaxSeq()
+		ms = op._locklessIncreaseMaxSeq()
 		op.kv.Set([]byte(fmt.Sprintf("%d", ms)), operationBuff)
 
 		for _, cb := range op.operationAppendedCallbacks {

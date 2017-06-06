@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"time"
 
 	"cluster"
 	"common"
@@ -19,6 +20,10 @@ func unpackReqRetrieve(payload []byte) (*ReqRetrieve, error) {
 	err := cluster.Unpack(payload, reqRetrieve)
 	if err != nil {
 		return nil, fmt.Errorf("unpack %s to ReqRetrieve failed: %v", payload, err)
+	}
+
+	if reqRetrieve.Timeout < 1*time.Second {
+		return nil, fmt.Errorf("timeout is less than 1 second")
 	}
 
 	switch {
@@ -203,21 +208,23 @@ func (gc *GatewayCluster) handleRetrieve(req *cluster.RequestEvent) {
 		Timeout: reqRetrieve.Timeout,
 	}
 
-	payload := req.RequestPayload
-	payload[0] = byte(retrieveRelayMessage)
+	requestPayload := make([]byte, len(req.RequestPayload))
+	copy(requestPayload, req.RequestPayload)
+	requestPayload[0] = byte(retrieveRelayMessage)
 
-	future, err := gc.cluster.Request(fmt.Sprintf("%s_relayed", req.RequestName), payload, &requestParam)
+	future, err := gc.cluster.Request(fmt.Sprintf("%s_relay", req.RequestName), requestPayload, &requestParam)
 	if err != nil {
-		fmt.Errorf("send request failed %v", err)
+		respondRetrieveErr(req, InternalServerError, fmt.Sprintf("braodcast message failed: %s", err.Error()))
+		return
 	}
 
 	membersRespBook := make(map[string][]byte)
-	membersRespBook[gc.clusterConf.NodeName] = payload // add myself
 	for _, member := range gc.restAliveMembersInSameGroup() {
 		membersRespBook[member.NodeName] = nil
 	}
 
-	memberRespCount := 1
+	// The type is signed owe to the value could be -1 temporarily.
+	var memberRespCount int = 0
 LOOP:
 	for ; memberRespCount < len(membersRespBook); memberRespCount++ {
 		select {
@@ -255,7 +262,7 @@ LOOP:
 
 			membersRespBook[memberResp.ResponseNodeName] = memberResp.Payload
 		case <-gc.stopChan:
-			respondRetrieveErr(req, InternalServerError, "node %s stopped")
+			respondRetrieveErr(req, InternalServerError, fmt.Sprintln("node %s stopped", gc.clusterConf.NodeName))
 			return
 		}
 	}

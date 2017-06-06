@@ -33,8 +33,15 @@ type (
 const (
 	WrongFormatError ClusterErrorType = iota
 	InternalServerError
+
 	RetrieveInconsistencyError
 	RetrieveTimeoutError
+
+	OperationWrongSeq
+	OperationWrongContent
+	OperationLogHugeGapError
+	OperationPartiallySecceed
+	OperationTimeoutError
 )
 
 type (
@@ -67,15 +74,16 @@ type (
 type (
 	// Pack Header: operationMessage | operationRelayMessage
 	ReqOperation struct {
-		Timeout   time.Duration
-		Operation Operation
+		OperationAllNodes bool
+		Timeout           time.Duration
+		Operation         Operation
 	}
 	// Pack Header: operationMessage | operationRelayMessage
 	RespOperation struct {
 		Err *ClusterError
 	}
 	Operation struct {
-		SeqBased uint64
+		Seq uint64
 
 		ContentCreatePlugin   *ContentCreatePlugin
 		ContentUpdatePlugin   *ContentUpdatePlugin

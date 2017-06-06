@@ -91,6 +91,12 @@ func (gc *GatewayCluster) Mode() Mode {
 	return gc.mode
 }
 
+// For note.
+// UpdateMode might be invoked after add/delete callbacks of
+// oplog.operationAppendedCallbacks correspondingly.
+func (gc *GatewayCluster) UpdateMode() {
+}
+
 func (gc *GatewayCluster) dispatch() {
 LOOP:
 	for {

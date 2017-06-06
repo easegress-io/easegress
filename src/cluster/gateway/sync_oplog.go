@@ -16,6 +16,10 @@ func unpackReqOPLogPull(payload []byte) (*ReqOPLogPull, error) {
 		return nil, fmt.Errorf("unpack %s to ReqOPLogPull failed: %v", payload, err)
 	}
 
+	if reqOPLogPull.Timeout < 1*time.Second {
+		return nil, fmt.Errorf("timeout is less than 1 second")
+	}
+
 	return reqOPLogPull, nil
 }
 
