@@ -18,7 +18,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	api, err := rest.NewReset(gateway)
+	api, err := rest.NewRest(gateway)
 	if err != nil {
 		logger.Errorf("[initialize rest interface failed: %v]", err)
 		os.Exit(2)

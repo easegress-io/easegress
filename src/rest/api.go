@@ -14,7 +14,7 @@ type Rest struct {
 	done    chan error
 }
 
-func NewReset(gateway *engine.Gateway) (*Rest, error) {
+func NewRest(gateway *engine.Gateway) (*Rest, error) {
 	if gateway == nil {
 		return nil, fmt.Errorf("gateway engine is nil")
 	}
