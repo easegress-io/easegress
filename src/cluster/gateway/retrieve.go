@@ -138,6 +138,9 @@ func (gc *GatewayCluster) retrieveResult(filter interface{}) ([]byte, error) {
 }
 
 func (gc *GatewayCluster) getLocalRetrieveResp(req *cluster.RequestEvent) *RespRetrieve {
+	if len(req.RequestPayload) < 1 {
+		return nil
+	}
 	reqRetrieve, err := unpackReqRetrieve(req.RequestPayload[1:])
 	if err != nil {
 		respondRetrieveErr(req, WrongFormatError, err.Error())
@@ -200,74 +203,46 @@ func (gc *GatewayCluster) handleRetrieve(req *cluster.RequestEvent) {
 		return
 	}
 
+	requestMembers := gc.restAliveMembersInSameGroup()
+	requestMemberNames := make([]string, 0)
+	for _, member := range requestMembers {
+		requestMemberNames = append(requestMemberNames, member.NodeName)
+	}
 	requestParam := cluster.RequestParam{
+		TargetNodeNames: requestMemberNames,
+		// TargetNodeNames is enough but TargetNodeTags could make rule strict.
 		TargetNodeTags: map[string]string{
 			groupTagKey: gc.localGroupName(),
-			modeTagKey:  ReadMode.String(), // skip myself
+			modeTagKey:  ReadMode.String(),
 		},
 		Timeout: reqRetrieve.Timeout,
 	}
 
+	requestName := fmt.Sprintf("%s_relay", req.RequestName)
 	requestPayload := make([]byte, len(req.RequestPayload))
 	copy(requestPayload, req.RequestPayload)
 	requestPayload[0] = byte(retrieveRelayMessage)
 
-	future, err := gc.cluster.Request(fmt.Sprintf("%s_relay", req.RequestName), requestPayload, &requestParam)
+	future, err := gc.cluster.Request(requestName, requestPayload, &requestParam)
 	if err != nil {
 		respondRetrieveErr(req, InternalServerError, fmt.Sprintf("braodcast message failed: %s", err.Error()))
 		return
 	}
 
 	membersRespBook := make(map[string][]byte)
-	for _, member := range gc.restAliveMembersInSameGroup() {
-		membersRespBook[member.NodeName] = nil
+	for _, memberName := range requestMemberNames {
+		membersRespBook[memberName] = nil
 	}
 
-	// The type is signed owe to the value could be -1 temporarily.
-	var memberRespCount int = 0
-LOOP:
-	for ; memberRespCount < len(membersRespBook); memberRespCount++ {
-		select {
-		case memberResp, ok := <-future.Response():
-			if !ok {
-				break LOOP
-			}
+	gc.recordResp(requestName, future, membersRespBook)
 
-			payload, known := membersRespBook[memberResp.ResponseNodeName]
-			if !known {
-				if gc.nonAliveMember(memberResp.ResponseNodeName) {
-					continue LOOP
-				}
-
-				// a new node is up within the same group
-				logger.Warnf(
-					"[received the response from a new node %s started durning the request %s]",
-					memberResp.ResponseNodeName, fmt.Sprintf("%s_relayed", req.RequestName))
-			}
-
-			if payload != nil {
-				logger.Errorf("[received multiple response from node %s for request %s, skipped. "+
-					"probably need to tune cluster configuration]",
-					memberResp.ResponseNodeName, fmt.Sprintf("%s_relayed", req.RequestName))
-				memberRespCount--
-				continue LOOP
-			}
-
-			if memberResp.Payload != nil {
-				logger.Errorf("[BUG: received empty response from node %s for request %s]",
-					memberResp.ResponseNodeName, fmt.Sprintf("%s_relayed", req.RequestName))
-
-				memberResp.Payload = []byte("")
-			}
-
-			membersRespBook[memberResp.ResponseNodeName] = memberResp.Payload
-		case <-gc.stopChan:
-			respondRetrieveErr(req, InternalServerError, fmt.Sprintln("node %s stopped", gc.clusterConf.NodeName))
-			return
+	membersRespCount := 0
+	for _, payload := range membersRespBook {
+		if payload != nil {
+			membersRespCount++
 		}
 	}
-
-	if memberRespCount < len(membersRespBook) {
+	if membersRespCount < len(membersRespBook) {
 		respondRetrieveErr(req, RetrieveTimeoutError, "retrieve timeout")
 		return
 	}

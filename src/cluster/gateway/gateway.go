@@ -133,15 +133,9 @@ LOOP:
 					}
 					logger.Errorf("[BUG: node with write mode received retrieveRelayMessage]")
 				case statMessage:
-					if gc.Mode() == WriteMode {
-						go gc.handleStat(event)
-					}
-					logger.Errorf("[BUG: node with read mode received statMessage]")
+					go gc.handleStat(event)
 				case statRelayMessage:
-					if gc.Mode() == ReadMode {
-						go gc.handleStatRelay(event)
-					}
-					logger.Errorf("[BUG: node with write mode received statRelayMessage]")
+					go gc.handleStatRelay(event)
 				case opLogPullMessage:
 					go gc.handleOPLogPull(event)
 				}
@@ -203,6 +197,52 @@ func (gc *GatewayCluster) handleQueryGroupMaxSeq(req *cluster.RequestEvent) {
 		logger.Errorf("[repond max sequence to request %s, node %s failed: %v]",
 			req.RequestName, req.RequestNodeName, err)
 	}
+}
+
+// recordResp just records known response of member and ignore others.
+// It does its best to record response, and just exits when GatewayCluster stopped
+// or future got timeout, the caller could check membersRespBook to get the result.
+func (gc *GatewayCluster) recordResp(requestName string, future *cluster.Future, membersRespBook map[string][]byte) {
+	// The type is signed owe to the value could be -1 temporarily.
+	var memberRespCount int = 0
+LOOP:
+	for ; memberRespCount < len(membersRespBook); memberRespCount++ {
+		select {
+		case memberResp, ok := <-future.Response():
+			if !ok {
+				break LOOP
+			}
+
+			payload, known := membersRespBook[memberResp.ResponseNodeName]
+			if !known {
+				logger.Warnf(
+					"[received the response from an unexpexted node %s started durning the request %s]",
+					memberResp.ResponseNodeName, fmt.Sprintf("%s_relayed", requestName))
+				continue LOOP
+			}
+
+			if payload != nil {
+				logger.Errorf("[received multiple response from node %s for request %s, skipped. "+
+					"probably need to tune cluster configuration]",
+					memberResp.ResponseNodeName, fmt.Sprintf("%s_relayed", requestName))
+				memberRespCount--
+				continue LOOP
+			}
+
+			if memberResp.Payload != nil {
+				logger.Errorf("[BUG: received empty response from node %s for request %s]",
+					memberResp.ResponseNodeName, fmt.Sprintf("%s_relayed", requestName))
+
+				memberResp.Payload = []byte("")
+			}
+
+			membersRespBook[memberResp.ResponseNodeName] = memberResp.Payload
+		case <-gc.stopChan:
+			break LOOP
+		}
+	}
+
+	return
 }
 
 func (gc *GatewayCluster) Stop() error {
