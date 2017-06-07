@@ -66,12 +66,11 @@ func (pi *pipelineInstance) terminate() chan struct{} {
 
 type Gateway struct {
 	sync.Mutex
-	repo             config.Store
-	mod              *model.Model
-	pipelines        map[string][]*pipelineInstance
-	pipelineContexts map[string]pipelines.PipelineContext
-	done             chan error
-	startAt          time.Time
+	repo      config.Store
+	mod       *model.Model
+	pipelines map[string][]*pipelineInstance
+	done      chan error
+	startAt   time.Time
 }
 
 func NewGateway() (*Gateway, error) {
@@ -84,11 +83,10 @@ func NewGateway() (*Gateway, error) {
 	mod := model.NewModel()
 
 	return &Gateway{
-		repo:             repo,
-		mod:              mod,
-		pipelines:        make(map[string][]*pipelineInstance),
-		pipelineContexts: make(map[string]pipelines.PipelineContext),
-		done:             make(chan error, 1),
+		repo:      repo,
+		mod:       mod,
+		pipelines: make(map[string][]*pipelineInstance),
+		done:      make(chan error, 1),
 	}, nil
 }
 
@@ -218,8 +216,7 @@ func (gw *Gateway) launchPipeline(newPipeline *model.Pipeline) {
 		return
 	}
 
-	ctx := model.NewPipelineContext(newPipeline.Config(), statistics, gw.mod)
-	gw.pipelineContexts[newPipeline.Name()] = ctx
+	ctx := gw.mod.CreatePipelineContext(newPipeline.Config(), statistics)
 
 	for i := uint16(0); i < newPipeline.Config().Parallelism(); i++ {
 		instance, err := newPipeline.GetInstance(ctx, statistics, gw.mod)
@@ -228,12 +225,12 @@ func (gw *Gateway) launchPipeline(newPipeline *model.Pipeline) {
 			return
 		}
 
-		pi := newPipelineInstance(instance)
+		p := newPipelineInstance(instance)
 
-		go pi.run()
+		go p.run()
 
 		pipes := gw.pipelines[newPipeline.Name()]
-		pipes = append(pipes, pi)
+		pipes = append(pipes, p)
 		gw.pipelines[newPipeline.Name()] = pipes
 	}
 }
@@ -261,15 +258,11 @@ func (gw *Gateway) terminatePipeline(deletedPipeline *model.Pipeline) {
 
 	delete(gw.pipelines, deletedPipeline.Name())
 
-	pipeCtx, exists := gw.pipelineContexts[deletedPipeline.Name()]
-	if !exists {
+	deleted := gw.mod.DeletePipelineContext(deletedPipeline.Name())
+	if !deleted {
 		logger.Errorf("[BUG: deleted pipeline %s have not context.]", deletedPipeline.Name())
 		return
 	}
-
-	go pipeCtx.Close()
-
-	delete(gw.pipelineContexts, deletedPipeline.Name())
 }
 
 func (gw *Gateway) loadPlugins() error {

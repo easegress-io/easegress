@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"time"
 
 	"common"
 	"logger"
@@ -26,10 +27,11 @@ type pipelineContext struct {
 	parallelismCount uint16
 	statistics       pipelines.PipelineStatistics
 	mod              *Model
-	bucketLocker     sync.RWMutex // dedicated lock provides better performance
+	bucketLock       sync.RWMutex // dedicated lock provides better performance
 	buckets          map[string]*bucketItem
-	bookLocker       sync.RWMutex
+	bookLock         sync.RWMutex
 	preparationBook  map[string]interface{} // hash here for O(1) time on query
+	requestChan      chan *pipelines.DownstreamRequest
 }
 
 func NewPipelineContext(conf pipelines.Config,
@@ -43,6 +45,7 @@ func NewPipelineContext(conf pipelines.Config,
 		mod:              m,
 		buckets:          make(map[string]*bucketItem),
 		preparationBook:  make(map[string]interface{}),
+		requestChan:      make(chan *pipelines.DownstreamRequest, conf.CrossPipelineRequestBacklog()),
 	}
 }
 
@@ -71,13 +74,13 @@ func (pc *pipelineContext) DataBucket(pluginName, pluginInstanceId string) pipel
 		deleteWhenPluginUpdatedOrDeleted = true
 	}
 
-	pc.bucketLocker.Lock()
+	pc.bucketLock.Lock()
 
 	bucketKey := fmt.Sprintf("%s-%s", pluginName, pluginInstanceId)
 
 	item, exists := pc.buckets[bucketKey]
 	if exists {
-		defer pc.bucketLocker.Unlock()
+		defer pc.bucketLock.Unlock()
 		return item.bucket
 	}
 
@@ -88,7 +91,7 @@ func (pc *pipelineContext) DataBucket(pluginName, pluginInstanceId string) pipel
 		autoDelete: deleteWhenPluginUpdatedOrDeleted,
 	}
 
-	defer pc.bucketLocker.Unlock()
+	defer pc.bucketLock.Unlock()
 
 	if deleteWhenPluginUpdatedOrDeleted {
 		pc.mod.AddPluginDeletedCallback("deletePipelineContextDataBucketWhenPluginDeleted",
@@ -108,8 +111,8 @@ func (pc *pipelineContext) DeleteBucket(pluginName, pluginInstanceId string) pip
 	var oriBucket pipelines.PipelineContextDataBucket
 	updatedBucket := make(map[string]*bucketItem)
 
-	pc.bucketLocker.Lock()
-	defer pc.bucketLocker.Unlock()
+	pc.bucketLock.Lock()
+	defer pc.bucketLock.Unlock()
 
 	for bucketKey, bucketItem := range pc.buckets {
 		if bucketKey == fmt.Sprintf("%s-%s", pluginName, pluginInstanceId) {
@@ -125,16 +128,16 @@ func (pc *pipelineContext) DeleteBucket(pluginName, pluginInstanceId string) pip
 }
 
 func (pc *pipelineContext) PreparePlugin(pluginName string, fun pipelines.PluginPreparationFunc) {
-	pc.bookLocker.RLock()
+	pc.bookLock.RLock()
 	_, exists := pc.preparationBook[pluginName]
 	if exists {
-		pc.bookLocker.RUnlock()
+		pc.bookLock.RUnlock()
 		return
 	}
-	pc.bookLocker.RUnlock()
+	pc.bookLock.RUnlock()
 
-	pc.bookLocker.Lock()
-	defer pc.bookLocker.Unlock()
+	pc.bookLock.Lock()
+	defer pc.bookLock.Unlock()
 
 	// DCL
 	_, exists = pc.preparationBook[pluginName]
@@ -154,12 +157,46 @@ func (pc *pipelineContext) PreparePlugin(pluginName string, fun pipelines.Plugin
 	pc.preparationBook[pluginName] = nil
 }
 
+func (pc *pipelineContext) CommitCrossPipelineRequest(
+	request *pipelines.DownstreamRequest, timeout time.Duration) error {
+
+	if request == nil {
+		return fmt.Errorf("request is nil")
+	}
+
+	if request.UpstreamPipelineName() == pc.pipeName {
+		select {
+		case pc.requestChan <- request:
+			return nil
+		case <-time.After(timeout):
+			return fmt.Errorf("request is timeout")
+		default: // request channel is closed
+			return fmt.Errorf("request processing queue of upstream pipeline %s is closed",
+				request.UpstreamPipelineName())
+		}
+	} else {
+		ctx := pc.mod.GetPipelineContext(request.UpstreamPipelineName())
+		if ctx == nil {
+			return fmt.Errorf("the context of upstream pipeline %s not found",
+				request.UpstreamPipelineName())
+		}
+
+		return ctx.CommitCrossPipelineRequest(request, timeout)
+	}
+}
+
+func (pc *pipelineContext) ClaimCrossPipelineRequest() *pipelines.DownstreamRequest {
+	return <-pc.requestChan
+}
+
 func (pc *pipelineContext) Close() {
 	pc.mod.DeletePluginDeletedCallback("deletePipelineContextDataBucketWhenPluginDeleted")
 	pc.mod.DeletePluginUpdatedCallback("deletePipelineContextDataBucketWhenPluginUpdated")
 
 	pc.mod.DeletePluginDeletedCallback("deletePluginPreparationBookWhenPluginUpdatedOrDeleted")
 	pc.mod.DeletePluginUpdatedCallback("deletePluginPreparationBookWhenPluginUpdatedOrDeleted")
+
+	close(pc.requestChan)
 }
 
 func (pc *pipelineContext) deletePluginPreparationBookWhenPluginUpdatedOrDeleted(plugin *Plugin) {
@@ -167,8 +204,8 @@ func (pc *pipelineContext) deletePluginPreparationBookWhenPluginUpdatedOrDeleted
 		return
 	}
 
-	pc.bookLocker.Lock()
-	defer pc.bookLocker.Unlock()
+	pc.bookLock.Lock()
+	defer pc.bookLock.Unlock()
 	delete(pc.preparationBook, plugin.Name())
 }
 
@@ -184,8 +221,8 @@ func (pc *pipelineContext) deletePipelineContextDataBucketWhenPluginDeleted(_ *P
 		return false
 	}
 
-	pc.bucketLocker.Lock()
-	defer pc.bucketLocker.Unlock()
+	pc.bucketLock.Lock()
+	defer pc.bucketLock.Unlock()
 
 	updatedBucket := make(map[string]*bucketItem)
 
@@ -201,8 +238,8 @@ func (pc *pipelineContext) deletePipelineContextDataBucketWhenPluginDeleted(_ *P
 func (pc *pipelineContext) deletePipelineContextDataBucketWhenPluginUpdated(p *Plugin) {
 	updatedBucket := make(map[string]*bucketItem)
 
-	pc.bucketLocker.Lock()
-	defer pc.bucketLocker.Unlock()
+	pc.bucketLock.Lock()
+	defer pc.bucketLock.Unlock()
 
 	for bucketKey, bucketItem := range pc.buckets {
 		if !strings.HasPrefix(bucketKey, fmt.Sprintf("%s-", p.Name())) || !bucketItem.autoDelete {

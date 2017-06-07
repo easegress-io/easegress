@@ -23,10 +23,11 @@ type PipelineUpdated func(updatedPipeline *Pipeline)
 
 type Model struct {
 	sync.RWMutex
-	plugins       map[string]*Plugin
-	pluginCounter *pluginInstanceCounter
-	pipelines     map[string]*Pipeline
-	statistics    *statRegistry
+	plugins          map[string]*Plugin
+	pluginCounter    *pluginInstanceCounter
+	pipelines        map[string]*Pipeline
+	pipelineContexts map[string]pipelines.PipelineContext
+	statistics       *statRegistry
 
 	pluginAddedCallbacks     []*common.NamedCallback
 	pluginDeletedCallbacks   []*common.NamedCallback
@@ -38,9 +39,10 @@ type Model struct {
 
 func NewModel() *Model {
 	ret := &Model{
-		plugins:       make(map[string]*Plugin),
-		pluginCounter: newPluginRefCounter(),
-		pipelines:     make(map[string]*Pipeline),
+		plugins:          make(map[string]*Plugin),
+		pluginCounter:    newPluginRefCounter(),
+		pipelines:        make(map[string]*Pipeline),
+		pipelineContexts: make(map[string]pipelines.PipelineContext),
 	}
 
 	ret.statistics = newStatRegistry(ret)
@@ -626,6 +628,39 @@ func (m *Model) DeletePipelineUpdatedCallback(name string) PipelineUpdated {
 	} else {
 		return oriCallback.(PipelineUpdated)
 	}
+}
+
+func (m *Model) CreatePipelineContext(
+	conf pipelines.Config, statistics pipelines.PipelineStatistics) pipelines.PipelineContext {
+
+	ctx := NewPipelineContext(conf, statistics, m)
+
+	m.Lock()
+	defer m.Unlock()
+
+	m.pipelineContexts[conf.PipelineName()] = ctx
+
+	return ctx
+}
+
+func (m *Model) DeletePipelineContext(name string) bool {
+	m.Lock()
+	defer m.Unlock()
+
+	ctx, exists := m.pipelineContexts[name]
+	if exists {
+		go ctx.Close()
+
+		delete(m.pipelineContexts, name)
+	}
+
+	return exists
+}
+
+func (m *Model) GetPipelineContext(name string) pipelines.PipelineContext {
+	m.RLock()
+	defer m.RUnlock()
+	return m.pipelineContexts[name]
 }
 
 func (m *Model) StatRegistry() *statRegistry {

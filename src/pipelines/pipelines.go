@@ -3,6 +3,8 @@ package pipelines
 import (
 	"fmt"
 	"strings"
+	"time"
+
 	"task"
 )
 
@@ -38,6 +40,10 @@ type PipelineContext interface {
 	DeleteBucket(pluginName, pluginInstanceId string) PipelineContextDataBucket
 	// PreparePlugin is a hook method to invoke Prepare of plugin
 	PreparePlugin(pluginName string, fun PluginPreparationFunc)
+	// Downstream pipeline calls PushCrossPipelineRequest to commit a request
+	CommitCrossPipelineRequest(request *DownstreamRequest, timeout time.Duration) error
+	// Upstream pipeline calls PopCrossPipelineRequest to claim a request
+	ClaimCrossPipelineRequest() *DownstreamRequest
 	// Close closes a PipelineContext
 	Close()
 }
@@ -55,6 +61,61 @@ type PipelineContextDataBucket interface {
 	QueryDataWithBindDefault(key interface{}, defaultValueFunc DefaultValueFunc) (interface{}, error)
 	// UnbindData unbinds data
 	UnbindData(key interface{}) interface{}
+}
+
+////
+
+type DownstreamRequest struct {
+	upstreamPipelineName, downstreamPipelineName string
+	data                                         map[interface{}]interface{}
+	responseChan                                 chan *UpstreamResponse
+}
+
+func NewDownstreamRequest(upstreamPipelineName, downstreamPipelineName string,
+	data map[interface{}]interface{}) *DownstreamRequest {
+
+	ret := &DownstreamRequest{
+		upstreamPipelineName:   upstreamPipelineName,
+		downstreamPipelineName: downstreamPipelineName,
+		data:         data,
+		responseChan: make(chan *UpstreamResponse, 0),
+	}
+
+	return ret
+}
+
+func (r *DownstreamRequest) UpstreamPipelineName() string {
+	return r.upstreamPipelineName
+}
+
+func (r *DownstreamRequest) DownstreamPipelineName() string {
+	return r.downstreamPipelineName
+}
+
+func (r *DownstreamRequest) Respond(response *UpstreamResponse, timeout time.Duration) bool {
+	select {
+	case r.responseChan <- response:
+		return true
+	case <-time.After(timeout):
+		return false
+	default: // response channel is closed
+		return false
+	}
+}
+
+func (r *DownstreamRequest) Response() <-chan *UpstreamResponse {
+	return r.responseChan
+}
+
+func (r *DownstreamRequest) Close() {
+	close(r.responseChan)
+}
+
+type UpstreamResponse struct {
+	upstreamPipelineName string
+	data                 map[interface{}]interface{}
+	taskError            error
+	taskResultCode       task.TaskResultCode
 }
 
 ////
@@ -143,15 +204,17 @@ type Config interface {
 	PipelineName() string
 	PluginNames() []string
 	Parallelism() uint16
+	CrossPipelineRequestBacklog() uint16
 	Prepare() error
 }
 
 ////
 
 type CommonConfig struct {
-	Name             string   `json:"pipeline_name"`
-	Plugins          []string `json:"plugin_names"`
-	ParallelismCount uint16   `json:"parallelism"` // up to 65535
+	Name                              string   `json:"pipeline_name"`
+	Plugins                           []string `json:"plugin_names"`
+	ParallelismCount                  uint16   `json:"parallelism"`                    // up to 65535
+	CrossPipelineRequestBacklogLength uint16   `json:"cross_pipeline_request_backlog"` // up to 65535
 }
 
 func (c *CommonConfig) PipelineName() string {
@@ -164,6 +227,10 @@ func (c *CommonConfig) PluginNames() []string {
 
 func (c *CommonConfig) Parallelism() uint16 {
 	return c.ParallelismCount
+}
+
+func (c *CommonConfig) CrossPipelineRequestBacklog() uint16 {
+	return c.CrossPipelineRequestBacklogLength
 }
 
 func (c *CommonConfig) Prepare() error {
@@ -180,19 +247,6 @@ func (c *CommonConfig) Prepare() error {
 	}
 
 	return nil
-}
-
-////
-
-type DownstreamRequest struct {
-	data         map[interface{}]interface{}
-	responseChan chan *UpstreamResponse
-}
-
-type UpstreamResponse struct {
-	data           map[interface{}]interface{}
-	taskError      error
-	taskResultCode task.TaskResultCode
 }
 
 // Pipelines register authority
