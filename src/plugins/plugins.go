@@ -33,7 +33,7 @@ type ConfigConstructor func() Config
 
 type Config interface {
 	PluginName() string
-	Prepare() error
+	Prepare(pipelineNames []string) error
 }
 
 type CommonConfig struct {
@@ -44,7 +44,7 @@ func (c *CommonConfig) PluginName() string {
 	return c.Name
 }
 
-func (c *CommonConfig) Prepare() error {
+func (c *CommonConfig) Prepare(pipelineNames []string) error {
 	c.Name = strings.TrimSpace(c.Name)
 	if len(c.Name) == 0 {
 		return fmt.Errorf("invalid plugin name")

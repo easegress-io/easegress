@@ -21,8 +21,8 @@ func EaseMonitorGraphiteGidExtractorConfigConstructor() Config {
 	return &easeMonitorGraphiteGidExtractorConfig{}
 }
 
-func (c *easeMonitorGraphiteGidExtractorConfig) Prepare() error {
-	err := c.CommonConfig.Prepare()
+func (c *easeMonitorGraphiteGidExtractorConfig) Prepare(pipelineNames []string) error {
+	err := c.CommonConfig.Prepare(pipelineNames)
 	if err != nil {
 		return err
 	}

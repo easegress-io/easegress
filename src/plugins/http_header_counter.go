@@ -25,8 +25,8 @@ func HTTPHeaderCounterConfigConstructor() Config {
 	}
 }
 
-func (c *httpHeaderCounterConfig) Prepare() error {
-	err := c.CommonConfig.Prepare()
+func (c *httpHeaderCounterConfig) Prepare(pipelineNames []string) error {
+	err := c.CommonConfig.Prepare(pipelineNames)
 	if err != nil {
 		return err
 	}

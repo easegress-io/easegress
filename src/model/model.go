@@ -109,9 +109,16 @@ func (m *Model) LoadPipelines(specs []*config.PipelineSpec) error {
 func (m *Model) AddPlugin(typ string, conf plugins.Config,
 	constructor plugins.Constructor) (*Plugin, error) {
 
+	m.Lock()
+
 	pluginName := conf.PluginName()
 
-	err := conf.Prepare()
+	var pipelineNames []string
+	for pipelineName := range m.pipelines {
+		pipelineNames = append(pipelineNames, pipelineName)
+	}
+
+	err := conf.Prepare(pipelineNames)
 	if err != nil {
 		return nil, fmt.Errorf("add plugin %s failed: %v", pluginName, err)
 	}
@@ -120,7 +127,6 @@ func (m *Model) AddPlugin(typ string, conf plugins.Config,
 		return nil, fmt.Errorf("plugin type %s is invalid", typ)
 	}
 
-	m.Lock()
 	_, exists := m.plugins[pluginName]
 	if exists {
 		logger.Errorf("[add plugin %v failed: duplicate plugin]", pluginName)
@@ -259,14 +265,19 @@ func (m *Model) DismissAllPluginInstances() {
 }
 
 func (m *Model) UpdatePluginConfig(conf plugins.Config) error {
-	err := conf.Prepare()
+	m.RLock()
+
+	var pipelineNames []string
+	for pipelineName := range m.pipelines {
+		pipelineNames = append(pipelineNames, pipelineName)
+	}
+
+	err := conf.Prepare(pipelineNames)
 	if err != nil {
 		return err
 	}
 
 	pluginName := conf.PluginName()
-
-	m.RLock()
 
 	plugin, exists := m.plugins[pluginName]
 	if !exists {

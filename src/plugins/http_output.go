@@ -49,8 +49,8 @@ func HTTPOutputConfigConstructor() Config {
 	}
 }
 
-func (c *httpOutputConfig) Prepare() error {
-	err := c.CommonConfig.Prepare()
+func (c *httpOutputConfig) Prepare(pipelineNames []string) error {
+	err := c.CommonConfig.Prepare(pipelineNames)
 	if err != nil {
 		return err
 	}

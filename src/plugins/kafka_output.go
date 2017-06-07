@@ -29,8 +29,8 @@ func KafkaOutputConfigConstructor() Config {
 	}
 }
 
-func (c *kafkaOutputConfig) Prepare() error {
-	err := c.CommonConfig.Prepare()
+func (c *kafkaOutputConfig) Prepare(pipelineNames []string) error {
+	err := c.CommonConfig.Prepare(pipelineNames)
 	if err != nil {
 		return err
 	}

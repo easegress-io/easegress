@@ -23,8 +23,8 @@ func EaseMonitorProtoAdaptorConfigConstructor() Config {
 	return &easeMonitorProtoAdaptorConfig{}
 }
 
-func (c *easeMonitorProtoAdaptorConfig) Prepare() error {
-	err := c.CommonConfig.Prepare()
+func (c *easeMonitorProtoAdaptorConfig) Prepare(pipelineNames []string) error {
+	err := c.CommonConfig.Prepare(pipelineNames)
 	if err != nil {
 		return err
 	}

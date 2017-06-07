@@ -27,8 +27,8 @@ func SimpleCommonCacheConfigConstructor() Config {
 	}
 }
 
-func (c *simpleCommonCacheConfig) Prepare() error {
-	err := c.CommonConfig.Prepare()
+func (c *simpleCommonCacheConfig) Prepare(pipelineNames []string) error {
+	err := c.CommonConfig.Prepare(pipelineNames)
 	if err != nil {
 		return err
 	}

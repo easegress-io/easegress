@@ -3,6 +3,7 @@ package pipelines
 import (
 	"fmt"
 	"strings"
+	"task"
 )
 
 type Pipeline interface {
@@ -179,6 +180,19 @@ func (c *CommonConfig) Prepare() error {
 	}
 
 	return nil
+}
+
+////
+
+type DownstreamRequest struct {
+	data         map[interface{}]interface{}
+	responseChan chan *UpstreamResponse
+}
+
+type UpstreamResponse struct {
+	data           map[interface{}]interface{}
+	taskError      error
+	taskResultCode task.TaskResultCode
 }
 
 // Pipelines register authority

@@ -25,8 +25,8 @@ func ThroughputRateLimiterConfigConstructor() Config {
 	return new(throughputRateLimiterConfig)
 }
 
-func (c *throughputRateLimiterConfig) Prepare() error {
-	err := c.CommonConfig.Prepare()
+func (c *throughputRateLimiterConfig) Prepare(pipelineNames []string) error {
+	err := c.CommonConfig.Prepare(pipelineNames)
 	if err != nil {
 		return err
 	}

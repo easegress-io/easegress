@@ -35,8 +35,8 @@ func ServiceCircuitBreakerConfigConstructor() Config {
 	}
 }
 
-func (c *serviceCircuitBreakerConfig) Prepare() error {
-	err := c.CommonConfig.Prepare()
+func (c *serviceCircuitBreakerConfig) Prepare(pipelineNames []string) error {
+	err := c.CommonConfig.Prepare(pipelineNames)
 	if err != nil {
 		return err
 	}

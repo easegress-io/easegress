@@ -20,8 +20,8 @@ func EaseMonitorGraphiteValidatorConfigConstructor() Config {
 	return &easeMonitorGraphiteValidatorConfig{}
 }
 
-func (c *easeMonitorGraphiteValidatorConfig) Prepare() error {
-	err := c.CommonConfig.Prepare()
+func (c *easeMonitorGraphiteValidatorConfig) Prepare(pipelineNames []string) error {
+	err := c.CommonConfig.Prepare(pipelineNames)
 	if err != nil {
 		return err
 	}

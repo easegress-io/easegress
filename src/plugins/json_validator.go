@@ -22,8 +22,8 @@ func JSONValidatorConfigConstructor() Config {
 	return &jsonValidatorConfig{}
 }
 
-func (c *jsonValidatorConfig) Prepare() error {
-	err := c.CommonConfig.Prepare()
+func (c *jsonValidatorConfig) Prepare(pipelineNames []string) error {
+	err := c.CommonConfig.Prepare(pipelineNames)
 	if err != nil {
 		return err
 	}

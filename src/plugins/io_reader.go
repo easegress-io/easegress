@@ -28,8 +28,8 @@ func IOReaderConfigConfigConstructor() Config {
 	}
 }
 
-func (c *ioReaderConfig) Prepare() error {
-	err := c.CommonConfig.Prepare()
+func (c *ioReaderConfig) Prepare(pipelineNames []string) error {
+	err := c.CommonConfig.Prepare(pipelineNames)
 	if err != nil {
 		return err
 	}

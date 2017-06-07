@@ -19,8 +19,8 @@ func StaticProbabilityLimiterConfigConstructor() Config {
 	return new(staticProbabilityLimiterConfig)
 }
 
-func (c *staticProbabilityLimiterConfig) Prepare() error {
-	err := c.CommonConfig.Prepare()
+func (c *staticProbabilityLimiterConfig) Prepare(pipelineNames []string) error {
+	err := c.CommonConfig.Prepare(pipelineNames)
 	if err != nil {
 		return err
 	}

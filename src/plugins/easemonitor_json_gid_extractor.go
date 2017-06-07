@@ -19,8 +19,8 @@ func EaseMonitorJSONGidExtractorConfigConstructor() Config {
 	return &easeMonitorJSONGidExtractorConfig{}
 }
 
-func (c *easeMonitorJSONGidExtractorConfig) Prepare() error {
-	err := c.CommonConfig.Prepare()
+func (c *easeMonitorJSONGidExtractorConfig) Prepare(pipelineNames []string) error {
+	err := c.CommonConfig.Prepare(pipelineNames)
 	if err != nil {
 		return err
 	}
