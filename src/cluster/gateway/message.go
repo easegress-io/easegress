@@ -37,11 +37,13 @@ const (
 	RetrieveInconsistencyError
 	RetrieveTimeoutError
 
-	OperationWrongSeq
-	OperationWrongContent
+	OperationWrongSeqError
+	OperationWrongContentError
 	OperationLogHugeGapError
-	OperationPartiallySecceed
+	OperationPartiallySecceedError
 	OperationTimeoutError
+
+	StatNotFoundError
 )
 
 type (
@@ -205,13 +207,16 @@ type (
 		IndicatorName string
 	}
 	FilterPluginIndicatorNames struct {
-		PluginName string
+		PipelineName string
+		PluginName   string
 	}
 	FilterPluginIndicatorValue struct {
+		PipelineName  string
 		PluginName    string
 		IndicatorName string
 	}
 	FilterPluginIndicatorDesc struct {
+		PipelineName  string
 		PluginName    string
 		IndicatorName string
 	}
@@ -226,7 +231,15 @@ type (
 		PipelineName  string
 		IndicatorName string
 	}
-	// TODO: Result*
+	ResultStatIndicatorNames struct {
+		Names []string `json:"names"`
+	}
+	ResultStatIndicatorValue struct {
+		Value interface{} `json:"value"`
+	}
+	ResultStatIndicatorDesc struct {
+		Desc interface{} `json:"desc"`
+	}
 	// TODO: add uptime, rusage, loadavg of a group.
 )
 
