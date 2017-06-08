@@ -653,6 +653,9 @@ func avgInt64(values ...[]byte) []byte {
 	return NumericAvg(int64(0), values...)
 }
 
+// In the table-driven design, just use function sumXXX to aggregate
+// all known indicators for the time being, will refine them later.
+
 var pipelineIndicatorAggregateMap = map[string]aggregateFunc{
 	"THROUGHPUT_RATE_LAST_1MIN_ALL":  sumFloat64,
 	"THROUGHPUT_RATE_LAST_5MIN_ALL":  sumFloat64,
