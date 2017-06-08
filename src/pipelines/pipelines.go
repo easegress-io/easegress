@@ -96,6 +96,10 @@ func (r *DownstreamRequest) DownstreamPipelineName() string {
 	return r.downstreamPipelineName
 }
 
+func (r *DownstreamRequest) Data() map[interface{}]interface{} {
+	return r.data
+}
+
 func (r *DownstreamRequest) Respond(response *UpstreamResponse, cancel <-chan struct{}) bool {
 	if r.responseChan == nil {
 		return false
