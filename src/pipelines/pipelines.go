@@ -31,10 +31,11 @@ type PipelineContext interface {
 	// Statistics returns pipeline statistics
 	Statistics() PipelineStatistics
 	// DataBucket returns(creates a new one if necessary) pipeline data bucket corresponding with plugin.
-	// If the pluginInstanceId is not empty (usually memory address of the instance),
-	// the data bucket will be deleted automatically when closing the instance.
-	// But if the pluginInstanceId is empty which indicates all instances of a plugin share one data bucket,
-	// the data bucket won't be deleted automatically until the plugin(not plugin instance) is deleted.
+	// If the pluginInstanceId doesn't equal to DATA_BUCKET_FOR_ALL_PLUGIN_INSTANCE
+	// (usually memory address of the instance), the data bucket will be deleted automatically
+	// when closing the plugin instance. However if the pluginInstanceId equals to
+	// DATA_BUCKET_FOR_ALL_PLUGIN_INSTANCE, which indicates all instances of a plugin share one data bucket,
+	// the data bucket won't be deleted automatically until the plugin (not the plugin instance) is deleted.
 	DataBucket(pluginName, pluginInstanceId string) PipelineContextDataBucket
 	// DeleteBucket deletes a data bucket.
 	DeleteBucket(pluginName, pluginInstanceId string) PipelineContextDataBucket
@@ -44,6 +45,8 @@ type PipelineContext interface {
 	CommitCrossPipelineRequest(request *DownstreamRequest, timeout time.Duration) error
 	// Upstream pipeline calls PopCrossPipelineRequest to claim a request
 	ClaimCrossPipelineRequest() *DownstreamRequest
+	// Upstream pipeline calls CrossPipelineWIPRequestsCount to make sure how many requests are waiting process
+	CrossPipelineWIPRequestsCount(upstreamPipelineName string) int
 	// Close closes a PipelineContext
 	Close()
 }

@@ -31,6 +31,7 @@ type pipelineContext struct {
 	buckets          map[string]*bucketItem
 	bookLock         sync.RWMutex
 	preparationBook  map[string]interface{} // hash here for O(1) time on query
+	requestChanLock  sync.Mutex
 	requestChan      chan *pipelines.DownstreamRequest
 }
 
@@ -165,19 +166,34 @@ func (pc *pipelineContext) CommitCrossPipelineRequest(
 	}
 
 	if request.UpstreamPipelineName() == pc.pipeName {
-		select {
-		case pc.requestChan <- request:
-			return nil
-		case <-time.After(timeout):
-			return fmt.Errorf("request is timeout")
-		default: // request channel is closed
-			return fmt.Errorf("request processing queue of upstream pipeline %s is closed",
+		if pc.requestChan == nil {
+			return fmt.Errorf("request processing queue of pipeline %s is closed",
 				request.UpstreamPipelineName())
 		}
-	} else {
+
+		return func() (err error) {
+			defer func() {
+				// to prevent send on closed channel due to
+				// Close() of the pipeline context can be called concurrently
+				e := recover()
+				if e != nil {
+					err = fmt.Errorf("request processing queue of pipeline %s is closed",
+						request.UpstreamPipelineName())
+				}
+			}()
+
+			select {
+			case pc.requestChan <- request:
+				err = nil
+			case <-time.After(timeout):
+				err = fmt.Errorf("request is timeout")
+			}
+			return
+		}()
+	} else { // cross to the correct pipeline context
 		ctx := pc.mod.GetPipelineContext(request.UpstreamPipelineName())
 		if ctx == nil {
-			return fmt.Errorf("the context of upstream pipeline %s not found",
+			return fmt.Errorf("the context of pipeline %s not found",
 				request.UpstreamPipelineName())
 		}
 
@@ -186,7 +202,36 @@ func (pc *pipelineContext) CommitCrossPipelineRequest(
 }
 
 func (pc *pipelineContext) ClaimCrossPipelineRequest() *pipelines.DownstreamRequest {
-	return <-pc.requestChan
+	// to use recover() way instead of lock pc.requestChanLock since
+	// Close() of the pipeline context should be able to support concurrent call with this function
+	// (this function can be blocked on channel receiving)
+	return func() (ret *pipelines.DownstreamRequest) {
+		defer func() {
+			// to prevent receive on nil channel due to
+			// Close() of the pipeline context can be called concurrently
+			e := recover()
+			if e != nil {
+				ret = nil
+			}
+		}()
+
+		ret = <-pc.requestChan
+		return
+	}()
+}
+
+func (pc *pipelineContext) CrossPipelineWIPRequestsCount(upstreamPipelineName string) int {
+	if upstreamPipelineName == pc.pipeName {
+		return len(pc.requestChan)
+	} else { // cross to the correct pipeline context
+		ctx := pc.mod.GetPipelineContext(upstreamPipelineName)
+		if ctx == nil {
+			logger.Warnf("[the context of upstream pipeline %s not found]", upstreamPipelineName)
+			return 0
+		}
+
+		return ctx.CrossPipelineWIPRequestsCount(upstreamPipelineName)
+	}
 }
 
 func (pc *pipelineContext) Close() {
@@ -196,7 +241,15 @@ func (pc *pipelineContext) Close() {
 	pc.mod.DeletePluginDeletedCallback("deletePluginPreparationBookWhenPluginUpdatedOrDeleted")
 	pc.mod.DeletePluginUpdatedCallback("deletePluginPreparationBookWhenPluginUpdatedOrDeleted")
 
-	close(pc.requestChan)
+	// to guarantee call close() on channel only once
+	pc.requestChanLock.Lock()
+	defer pc.requestChanLock.Unlock()
+
+	if pc.requestChan != nil {
+		// defensive programming on reentry
+		close(pc.requestChan)
+		pc.requestChan = nil // to make len() returns 0 in CrossPipelineWIPRequestsCount()
+	}
 }
 
 func (pc *pipelineContext) deletePluginPreparationBookWhenPluginUpdatedOrDeleted(plugin *Plugin) {

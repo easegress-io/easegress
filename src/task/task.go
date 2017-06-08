@@ -65,7 +65,7 @@ type Task interface {
 	DeleteRecoveryFunc(name string) TaskRecovery
 	// Value saves task-life-cycle value, key must be comparable
 	Value(key interface{}) interface{}
-	// Cancel returns a cannel channel which could be closed to broadcast cancellation of task,
+	// Cancel returns a cancellation channel which could be closed to broadcast cancellation of task,
 	// if a plugin needs relatively long time to wait I/O or anything else,
 	// it should listen this channel to exit current plugin instance.
 	Cancel() <-chan struct{}
