@@ -3,7 +3,7 @@ package pipelines
 import (
 	"fmt"
 	"strings"
-	"time"
+	"sync"
 
 	"task"
 )
@@ -42,7 +42,7 @@ type PipelineContext interface {
 	// PreparePlugin is a hook method to invoke Prepare of plugin
 	PreparePlugin(pluginName string, fun PluginPreparationFunc)
 	// Downstream pipeline calls PushCrossPipelineRequest to commit a request
-	CommitCrossPipelineRequest(request *DownstreamRequest, timeout time.Duration) error
+	CommitCrossPipelineRequest(request *DownstreamRequest, cancel <-chan struct{}) error
 	// Upstream pipeline calls PopCrossPipelineRequest to claim a request
 	ClaimCrossPipelineRequest() *DownstreamRequest
 	// Upstream pipeline calls CrossPipelineWIPRequestsCount to make sure how many requests are waiting process
@@ -71,6 +71,7 @@ type PipelineContextDataBucket interface {
 type DownstreamRequest struct {
 	upstreamPipelineName, downstreamPipelineName string
 	data                                         map[interface{}]interface{}
+	responseChanLock                             sync.Mutex
 	responseChan                                 chan *UpstreamResponse
 }
 
@@ -95,15 +96,27 @@ func (r *DownstreamRequest) DownstreamPipelineName() string {
 	return r.downstreamPipelineName
 }
 
-func (r *DownstreamRequest) Respond(response *UpstreamResponse, timeout time.Duration) bool {
-	select {
-	case r.responseChan <- response:
-		return true
-	case <-time.After(timeout):
-		return false
-	default: // response channel is closed
+func (r *DownstreamRequest) Respond(response *UpstreamResponse, cancel <-chan struct{}) bool {
+	if r.responseChan == nil {
 		return false
 	}
+
+	return func() (ret bool) {
+		defer func() {
+			// to prevent send on closed channel due to
+			// Close() of the downstream request can be called concurrently
+			ret = recover() == nil
+		}()
+
+		select {
+		case r.responseChan <- response:
+			ret = true
+		case <-cancel:
+			ret = false
+		}
+
+		return
+	}()
 }
 
 func (r *DownstreamRequest) Response() <-chan *UpstreamResponse {
@@ -111,14 +124,20 @@ func (r *DownstreamRequest) Response() <-chan *UpstreamResponse {
 }
 
 func (r *DownstreamRequest) Close() {
-	close(r.responseChan)
+	r.responseChanLock.Lock()
+	defer r.responseChanLock.Unlock()
+
+	if r.responseChan != nil {
+		close(r.responseChan)
+		r.responseChan = nil
+	}
 }
 
 type UpstreamResponse struct {
-	upstreamPipelineName string
-	data                 map[interface{}]interface{}
-	taskError            error
-	taskResultCode       task.TaskResultCode
+	UpstreamPipelineName string
+	Data                 map[interface{}]interface{}
+	TaskError            error
+	TaskResultCode       task.TaskResultCode
 }
 
 ////

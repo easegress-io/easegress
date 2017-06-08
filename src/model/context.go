@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"strings"
 	"sync"
-	"time"
 
 	"common"
 	"logger"
@@ -159,7 +158,7 @@ func (pc *pipelineContext) PreparePlugin(pluginName string, fun pipelines.Plugin
 }
 
 func (pc *pipelineContext) CommitCrossPipelineRequest(
-	request *pipelines.DownstreamRequest, timeout time.Duration) error {
+	request *pipelines.DownstreamRequest, cancel <-chan struct{}) error {
 
 	if request == nil {
 		return fmt.Errorf("request is nil")
@@ -182,22 +181,12 @@ func (pc *pipelineContext) CommitCrossPipelineRequest(
 				}
 			}()
 
-			stop := make(chan struct{}, 0)
-
-			if timeout > 0 {
-				time.AfterFunc(timeout, func() {
-					stop <- struct{}{}
-				})
-			}
-
 			select {
 			case pc.requestChan <- request:
 				err = nil
-			case <-stop:
-				err = fmt.Errorf("request is timeout")
+			case <-cancel:
+				err = fmt.Errorf("request is canclled")
 			}
-
-			close(stop)
 
 			return
 		}()
@@ -208,7 +197,7 @@ func (pc *pipelineContext) CommitCrossPipelineRequest(
 				request.UpstreamPipelineName())
 		}
 
-		return ctx.CommitCrossPipelineRequest(request, timeout)
+		return ctx.CommitCrossPipelineRequest(request, cancel)
 	}
 }
 
