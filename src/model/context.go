@@ -182,12 +182,23 @@ func (pc *pipelineContext) CommitCrossPipelineRequest(
 				}
 			}()
 
+			stop := make(chan struct{}, 0)
+
+			if timeout > 0 {
+				time.AfterFunc(timeout, func() {
+					stop <- struct{}{}
+				})
+			}
+
 			select {
 			case pc.requestChan <- request:
 				err = nil
-			case <-time.After(timeout):
+			case <-stop:
 				err = fmt.Errorf("request is timeout")
 			}
+
+			close(stop)
+
 			return
 		}()
 	} else { // cross to the correct pipeline context
