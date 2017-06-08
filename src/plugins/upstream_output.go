@@ -204,6 +204,7 @@ func (u *upstreamOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.T
 	}
 
 	request := pipelines.NewDownstreamRequest(targetPipelineName, u.Name(), data)
+	defer request.Close()
 
 	done := make(chan struct{}, 0)
 
@@ -215,7 +216,7 @@ func (u *upstreamOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.T
 					task.ResultTaskCancelled)
 			}
 		case <-done:
-			// Nothing to do, to exit goroutine
+			// Nothing to do, exit goroutine
 		}
 	}()
 
@@ -229,13 +230,16 @@ func (u *upstreamOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.T
 		})
 	}
 
+	defer common.CloseChan(done)
+
 	err := ctx.CommitCrossPipelineRequest(request, done)
 	if err != nil && t.Error() != nil {
-		// commit failed and error did not cause by task cancellation or request timeout
+		// commit failed and error was not caused by task cancellation or request timeout
 		t.SetError(err, task.ResultServiceUnavailable)
 		return t, nil
 	}
 
+	// synchronized call
 	select {
 	case response := <-request.Response():
 		if response == nil {
@@ -269,8 +273,6 @@ func (u *upstreamOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.T
 			t.SetError(response.TaskError, response.TaskResultCode)
 			return t, nil
 		}
-
-		common.CloseChan(done)
 	case <-done:
 		// Nothing to do, task is cancelled or request runs timeout before get response from upstream
 	}
