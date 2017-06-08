@@ -14,45 +14,41 @@ import (
 	"task"
 )
 
-type routeSelector func(targetPipelines []string, targetWeights []uint16,
-	ctx pipelines.PipelineContext, pluginName, instanceId string, t task.Task) string
+type routeSelector func(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) string
 
 var routeSelectors = map[string]routeSelector{
-	"round_robin":        roundRobinSelector,
-	"weight_round_robin": weightRoundRobinSelector,
-	"random":             randomSelector,
-	"weight_random":      WeightRandomSelector,
-	"hashSelector":       hashSelector, // to support use cases for both http source address and header hash
-	"least_wip_requests": leastWIPRequestsSelector,
-	"sticky_session":     stickySessionSelector,
+	"round_robin":          roundRobinSelector,
+	"weighted_round_robin": weightedRoundRobinSelector,
+	"random":               randomSelector,
+	"weighted_random":      weightedRandomSelector,
+	"hashSelector":         hashSelector, // to support use cases for both http source address and header hash
+	"least_wip_requests":   leastWIPRequestsSelector,
+	"sticky_session":       stickySessionSelector,
 }
 
-func roundRobinSelector(targetPipelines []string, targetWeights []uint16,
-	ctx pipelines.PipelineContext, pluginName, instanceId string, t task.Task) string {
-
-	taskCount, err := getTaskCount(ctx, pluginName)
+func roundRobinSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) string {
+	taskCount, err := getTaskCount(ctx, u.Name())
 	if err != nil {
-		return randomSelector(targetPipelines, targetWeights, ctx, pluginName, instanceId, t)
+		return randomSelector(u, ctx, t)
 	}
 
 	atomic.AddUint64(taskCount, 1)
 
-	return targetPipelines[*taskCount%uint64(len(targetPipelines))]
+	return u.conf.TargetPipelineNames[*taskCount%uint64(len(u.conf.TargetPipelineNames))]
 }
 
-func weightRoundRobinSelector(targetPipelines []string, targetWeights []uint16,
-	ctx pipelines.PipelineContext, pluginName, instanceId string, t task.Task) string {
+func weightedRoundRobinSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) string {
 
-	state, err := getWeightRoundRobinSelectorState(ctx, pluginName, instanceId, targetWeights)
+	state, err := getWeightedRoundRobinSelectorState(ctx, u.Name(), u.instanceId, u.conf.TargetPipelineWeights)
 	if err != nil {
-		return randomSelector(targetPipelines, targetWeights, ctx, pluginName, instanceId, t)
+		return randomSelector(u, ctx, t)
 	}
 
 	state.Lock()
 	defer state.Unlock()
 
 	for {
-		state.lastPipelineIndex = (state.lastPipelineIndex + 1) % len(targetPipelines)
+		state.lastPipelineIndex = (state.lastPipelineIndex + 1) % len(u.conf.TargetPipelineNames)
 		if state.lastPipelineIndex == 0 {
 			state.lastWeight -= state.weightGCD
 			if state.lastWeight <= 0 {
@@ -60,40 +56,30 @@ func weightRoundRobinSelector(targetPipelines []string, targetWeights []uint16,
 			}
 		}
 
-		weight := targetWeights[state.lastPipelineIndex]
+		weight := u.conf.TargetPipelineWeights[state.lastPipelineIndex]
 		if weight >= state.lastWeight {
-			return targetPipelines[state.lastPipelineIndex]
+			return u.conf.TargetPipelineNames[state.lastPipelineIndex]
 		}
 	}
 }
 
-func randomSelector(targetPipelines []string, targetWeights []uint16,
-	ctx pipelines.PipelineContext, pluginName, instanceId string, t task.Task) string {
-
-	return targetPipelines[rand.Intn(len(targetPipelines))]
+func randomSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) string {
+	return u.conf.TargetPipelineNames[rand.Intn(len(u.conf.TargetPipelineNames))]
 }
 
-func WeightRandomSelector(targetPipelines []string, targetWeights []uint16,
-	ctx pipelines.PipelineContext, pluginName, instanceId string, t task.Task) string {
-
+func weightedRandomSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) string {
 	return "" // todo(zhiyan)
 }
 
-func hashSelector(targetPipelines []string, targetWeights []uint16,
-	ctx pipelines.PipelineContext, pluginName, instanceId string, t task.Task) string {
-
+func hashSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) string {
 	return "" // todo(zhiyan)
 }
 
-func leastWIPRequestsSelector(targetPipelines []string, targetWeights []uint16,
-	ctx pipelines.PipelineContext, pluginName, instanceId string, t task.Task) string {
-
+func leastWIPRequestsSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) string {
 	return "" // todo(zhiyan)
 }
 
-func stickySessionSelector(targetPipelines []string, targetWeights []uint16,
-	ctx pipelines.PipelineContext, pluginName, instanceId string, t task.Task) string {
-
+func stickySessionSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) string {
 	return "" // todo(zhiyan)
 }
 
@@ -143,7 +129,7 @@ func (c *upstreamOutputConfig) Prepare(pipelineNames []string) error {
 	}
 
 	if len(c.TargetPipelineWeights) > 0 && len(c.TargetPipelineWeights) != len(c.TargetPipelineNames) {
-		return fmt.Errorf("invalid target Weightts")
+		return fmt.Errorf("invalid target Weights")
 	}
 
 	useDefaultWeight := len(c.TargetPipelineWeights) == 0
@@ -160,7 +146,7 @@ func (c *upstreamOutputConfig) Prepare(pipelineNames []string) error {
 		}
 	}
 
-	if !useDefaultWeight && c.RoutePolicy == "weight_round_robin" {
+	if !useDefaultWeight && c.RoutePolicy == "weighted_round_robin" {
 		var weightGCD uint16
 		for i := 0; i < len(c.TargetPipelineWeights); i++ {
 			weightGCD = gcd(weightGCD, c.TargetPipelineWeights[i])
@@ -206,8 +192,7 @@ func (u *upstreamOutput) Prepare(ctx pipelines.PipelineContext) {
 }
 
 func (u *upstreamOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
-	targetPipelineName := u.conf.selector(
-		u.conf.TargetPipelineNames, u.conf.TargetPipelineWeights, ctx, u.conf.PluginName(), u.instanceId, t)
+	targetPipelineName := u.conf.selector(u, ctx, t)
 	if len(strings.TrimSpace(targetPipelineName)) == 0 {
 		logger.Errorf("[BUG: selecting target pipeline returns empty pipeline name]")
 		return t, nil
@@ -304,8 +289,8 @@ func (u *upstreamOutput) Close() {
 ////
 
 const (
-	upstreamOutputRoundRobinSelectorStateKey       = "upstreamOutputRoundRobinSelectorStateKey"
-	upstreamOutputWeightRoundRobinSelectorStateKey = "upstreamOutputWeightRoundRobinSelectorStateKey"
+	upstreamOutputRoundRobinSelectorStateKey         = "upstreamOutputRoundRobinSelectorStateKey"
+	upstreamOutputWeightedRoundRobinSelectorStateKey = "upstreamOutputWeightedRoundRobinSelectorStateKey"
 )
 
 func getTaskCount(ctx pipelines.PipelineContext, pluginName string) (*uint64, error) {
@@ -326,7 +311,7 @@ func getTaskCount(ctx pipelines.PipelineContext, pluginName string) (*uint64, er
 
 //
 
-type upstreamOutputRoundWeightRobinSelectorState struct {
+type upstreamOutputRoundWeightedRobinSelectorState struct {
 	sync.Mutex
 	lastPipelineIndex int
 	lastWeight        uint16
@@ -353,19 +338,19 @@ func maxWeight(targetWeights []uint16) uint16 {
 	return ret
 }
 
-func getWeightRoundRobinSelectorState(
+func getWeightedRoundRobinSelectorState(
 	ctx pipelines.PipelineContext, pluginName, instanceId string, targetWeights []uint16) (
-	*upstreamOutputRoundWeightRobinSelectorState, error) {
+	*upstreamOutputRoundWeightedRobinSelectorState, error) {
 
 	bucket := ctx.DataBucket(pluginName, instanceId)
-	count, err := bucket.QueryDataWithBindDefault(upstreamOutputWeightRoundRobinSelectorStateKey,
+	count, err := bucket.QueryDataWithBindDefault(upstreamOutputWeightedRoundRobinSelectorStateKey,
 		func() interface{} {
 			var weightGCD uint16
 			for i := 0; i < len(targetWeights); i++ {
 				weightGCD = gcd(weightGCD, targetWeights[i])
 			}
 
-			return &upstreamOutputRoundWeightRobinSelectorState{
+			return &upstreamOutputRoundWeightedRobinSelectorState{
 				lastPipelineIndex: -1,
 				weightGCD:         weightGCD,
 				maxWeight:         maxWeight(targetWeights),
@@ -373,11 +358,11 @@ func getWeightRoundRobinSelectorState(
 		})
 	if err != nil {
 		logger.Warnf("[BUG: query state data for pipeline %s failed, "+
-			"ignored to update state of weight round robin selector: %s]", ctx.PipelineName(), err)
+			"ignored to update state of weighted round robin selector: %s]", ctx.PipelineName(), err)
 		return nil, err
 	}
 
-	return count.(*upstreamOutputRoundWeightRobinSelectorState), nil
+	return count.(*upstreamOutputRoundWeightedRobinSelectorState), nil
 }
 
 ////
