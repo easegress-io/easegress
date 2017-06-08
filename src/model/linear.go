@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"common"
 	"logger"
 	"pipelines"
 	"plugins"
@@ -160,13 +161,7 @@ func (p *linearPipeline) Run() error {
 				if !p.stopped {
 					<-done
 				}
-				func() {
-					defer func() {
-						recover()
-					}()
-					close(done)
-				}()
-
+				common.CloseChan(done)
 			}
 
 			if !success && rerun {
