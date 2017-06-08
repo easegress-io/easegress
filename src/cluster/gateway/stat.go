@@ -374,7 +374,11 @@ func (gc *GatewayCluster) handleStat(req *cluster.RequestEvent) {
 	respondStat(req, localResp)
 }
 
+type aggregateFunc func(values ...[]byte) []byte
+
 func aggregateRespStat(reqStat *ReqStat, respStats ...RespStat) *RespStat {
+	indicatorName := ""
+	var aggrFunc aggregateFunc = nil
 	switch {
 	case reqStat.FilterPipelineIndicatorNames != nil:
 		fallthrough
@@ -429,10 +433,33 @@ func aggregateRespStat(reqStat *ReqStat, respStats ...RespStat) *RespStat {
 		return nil
 
 	case reqStat.FilterPipelineIndicatorValue != nil:
+		if len(indicatorName) == 0 {
+			indicatorName = reqStat.FilterPipelineIndicatorValue.IndicatorName
+			if aggrFunc == nil {
+				aggrFunc = pipelineIndicatorAggregateMap[indicatorName]
+			}
+		}
 		fallthrough
 	case reqStat.FilterPluginIndicatorValue != nil:
+		if len(indicatorName) == 0 {
+			indicatorName = reqStat.FilterPluginIndicatorValue.IndicatorName
+			if aggrFunc == nil {
+				aggrFunc = pipelineIndicatorAggregateMap[indicatorName]
+			}
+		}
 		fallthrough
 	case reqStat.FilterTaskIndicatorValue != nil:
+		if len(indicatorName) == 0 {
+			indicatorName = reqStat.FilterTaskIndicatorValue.IndicatorName
+			if aggrFunc == nil {
+				aggrFunc = pipelineIndicatorAggregateMap[indicatorName]
+			}
+		}
+
+		if len(indicatorName) == 0 {
+			return nil
+		}
+
 		resultValues := make([]ResultStatIndicatorValue, 0)
 		for _, resp := range respStats {
 			result := &ResultStatIndicatorValue{}
@@ -445,20 +472,255 @@ func aggregateRespStat(reqStat *ReqStat, respStats ...RespStat) *RespStat {
 		if len(resultValues) == 0 {
 			return nil
 		}
-		result := aggregateResultValues(resultValues...)
-		resultBuff, err := json.Marshal(result)
-		if err != nil {
+
+		// unknown indicators, just list values
+		if aggrFunc == nil {
+			resultBuff, err := json.Marshal(resultValues)
+			if err != nil {
+				return nil
+			}
+			return &RespStat{
+				Value: resultBuff,
+			}
+		}
+
+		// aggregate known indicators
+		values := make([][]byte, 0)
+		for _, value := range resultValues {
+			valueBuff, err := json.Marshal(value.Value)
+			if err != nil {
+				continue
+			}
+			values = append(values, valueBuff)
+		}
+		if len(values) == 0 {
 			return nil
 		}
-		return &RespStat{
-			Value: resultBuff,
+
+		resp := new(RespStat)
+		resp.Value = aggrFunc(values...)
+		if resp.Value != nil {
+			return resp
 		}
+		return nil
 	}
 
 	return nil
 }
 
-func aggregateResultValues(resultValues ...ResultStatIndicatorValue) ResultStatIndicatorValue {
-	// TODO
-	return ResultStatIndicatorValue{}
+func NumericSum(typ interface{}, values ...[]byte) []byte {
+	// defensive programming
+	if len(values) == 0 {
+		return nil
+	}
+
+	var ret interface{}
+	switch typ.(type) {
+	case float64:
+		var sum float64 = 0
+		for _, value := range values {
+			var v float64
+			err := json.Unmarshal(value, &v)
+			if err != nil {
+				continue
+			}
+			sum += v
+		}
+		ret = sum
+	case uint64:
+		var sum uint64 = 0
+		for _, value := range values {
+			var v uint64
+			err := json.Unmarshal(value, &v)
+			if err != nil {
+				continue
+			}
+			sum += v
+		}
+		ret = sum
+	case int64:
+		var sum int64 = 0
+		for _, value := range values {
+			var v int64
+			err := json.Unmarshal(value, &v)
+			if err != nil {
+				continue
+			}
+			sum += v
+		}
+		ret = sum
+	default:
+		return nil
+	}
+
+	retBuff, err := json.Marshal(ret)
+	if err != nil {
+		return retBuff
+	}
+
+	return retBuff
+}
+
+func NumericAvg(typ interface{}, values ...[]byte) []byte {
+	// defensive programming
+	if len(values) == 0 {
+		return nil
+	}
+
+	var ret interface{}
+	switch typ.(type) {
+	case float64:
+		var sum float64 = 0
+		var count float64 = 0
+		for _, value := range values {
+			var v float64
+			err := json.Unmarshal(value, &v)
+			if err != nil {
+				continue
+			}
+			sum += v
+			count += 1
+		}
+		if count == 0 {
+			return nil
+		}
+		ret = sum / count
+	case uint64:
+		var sum uint64 = 0
+		var count uint64 = 0
+		for _, value := range values {
+			var v uint64
+			err := json.Unmarshal(value, &v)
+			if err != nil {
+				continue
+			}
+			sum += v
+			count += 1
+		}
+		if count == 0 {
+			return nil
+		}
+		ret = sum / count
+	case int64:
+		var sum int64 = 0
+		var count int64 = 0
+		for _, value := range values {
+			var v int64
+			err := json.Unmarshal(value, &v)
+			if err != nil {
+				continue
+			}
+			sum += v
+			count += 1
+		}
+		if count == 0 {
+			return nil
+		}
+		ret = sum / count
+	default:
+		return nil
+	}
+
+	retBuff, err := json.Marshal(ret)
+	if err != nil {
+		return retBuff
+	}
+
+	return retBuff
+}
+
+func sumFloat64(values ...[]byte) []byte {
+	return NumericSum(float64(0), values...)
+}
+
+func avgFloat64(values ...[]byte) []byte {
+	return NumericAvg(float64(0), values...)
+}
+
+func sumUint64(values ...[]byte) []byte {
+	return NumericSum(uint64(0), values...)
+}
+
+func avgUint64(values ...[]byte) []byte {
+	return NumericAvg(uint64(0), values...)
+}
+
+func sumInt64(values ...[]byte) []byte {
+	return NumericSum(int64(0), values...)
+}
+
+func avgInt64(values ...[]byte) []byte {
+	return NumericAvg(int64(0), values...)
+}
+
+var pipelineIndicatorAggregateMap = map[string]aggregateFunc{
+	"THROUGHPUT_RATE_LAST_1MIN_ALL":  sumFloat64,
+	"THROUGHPUT_RATE_LAST_5MIN_ALL":  sumFloat64,
+	"THROUGHPUT_RATE_LAST_15MIN_ALL": sumFloat64,
+
+	"EXECUTION_COUNT_ALL":    sumInt64,
+	"EXECUTION_TIME_MAX_ALL": sumInt64,
+	"EXECUTION_TIME_MIN_ALL": sumInt64,
+
+	"EXECUTION_TIME_50_PERCENT_ALL": sumFloat64,
+	"EXECUTION_TIME_90_PERCENT_ALL": sumFloat64,
+	"EXECUTION_TIME_99_PERCENT_ALL": sumFloat64,
+
+	"EXECUTION_TIME_STD_DEV_ALL":  sumFloat64,
+	"EXECUTION_TIME_VARIANCE_ALL": sumFloat64,
+	"EXECUTION_TIME_SUM_ALL":      sumInt64,
+}
+
+var pluginIndicatorAggregateMap = map[string]aggregateFunc{
+	"THROUGHPUT_RATE_LAST_1MIN_ALL":      sumFloat64,
+	"THROUGHPUT_RATE_LAST_5MIN_ALL":      sumFloat64,
+	"THROUGHPUT_RATE_LAST_15MIN_ALL":     sumFloat64,
+	"THROUGHPUT_RATE_LAST_1MIN_SUCCESS":  sumFloat64,
+	"THROUGHPUT_RATE_LAST_5MIN_SUCCESS":  sumFloat64,
+	"THROUGHPUT_RATE_LAST_15MIN_SUCCESS": sumFloat64,
+	"THROUGHPUT_RATE_LAST_1MIN_FAILURE":  sumFloat64,
+	"THROUGHPUT_RATE_LAST_5MIN_FAILURE":  sumFloat64,
+	"THROUGHPUT_RATE_LAST_15MIN_FAILURE": sumFloat64,
+
+	"EXECUTION_COUNT_ALL":     sumInt64,
+	"EXECUTION_COUNT_SUCCESS": sumInt64,
+	"EXECUTION_COUNT_FAILURE": sumInt64,
+
+	"EXECUTION_TIME_MAX_ALL":     sumInt64,
+	"EXECUTION_TIME_MAX_SUCCESS": sumInt64,
+	"EXECUTION_TIME_MAX_FAILURE": sumInt64,
+	"EXECUTION_TIME_MIN_ALL":     sumInt64,
+	"EXECUTION_TIME_MIN_SUCCESS": sumInt64,
+	"EXECUTION_TIME_MIN_FAILURE": sumInt64,
+
+	"EXECUTION_TIME_50_PERCENT_SUCCESS": sumFloat64,
+	"EXECUTION_TIME_50_PERCENT_FAILURE": sumFloat64,
+	"EXECUTION_TIME_90_PERCENT_SUCCESS": sumFloat64,
+	"EXECUTION_TIME_90_PERCENT_FAILURE": sumFloat64,
+	"EXECUTION_TIME_99_PERCENT_SUCCESS": sumFloat64,
+	"EXECUTION_TIME_99_PERCENT_FAILURE": sumFloat64,
+
+	"EXECUTION_TIME_STD_DEV_SUCCESS":  sumFloat64,
+	"EXECUTION_TIME_STD_DEV_FAILURE":  sumFloat64,
+	"EXECUTION_TIME_VARIANCE_SUCCESS": sumFloat64,
+	"EXECUTION_TIME_VARIANCE_FAILURE": sumFloat64,
+
+	"EXECUTION_TIME_SUM_ALL":     sumInt64,
+	"EXECUTION_TIME_SUM_SUCCESS": sumInt64,
+	"EXECUTION_TIME_SUM_FAILURE": sumInt64,
+
+	// Plugin Dedicated Indicator
+	// Plugin http_input
+	"WAIT_QUEUE_LENGTH": sumUint64,
+	"WIP_REQUEST_COUNT": sumUint64,
+
+	// Plugin http_counter
+	"RECENT_HEADER_COUNT ": sumUint64,
+}
+
+var taskIndicatorAggregateMap = map[string]aggregateFunc{
+	// Task Dedicated Indicator
+	"EXECUTION_COUNT_ALL":     sumUint64,
+	"EXECUTION_COUNT_SUCCESS": sumUint64,
+	"EXECUTION_COUNT_FAILURE": sumUint64,
 }
