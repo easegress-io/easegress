@@ -49,7 +49,7 @@ func (d *downstreamInput) Prepare(ctx pipelines.PipelineContext) {
 func (d *downstreamInput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
 	request := ctx.ClaimCrossPipelineRequest()
 	if request == nil {
-		// ignore safely
+		// request was closed by downstream before any upstream handles it, ignore safely
 		return t, nil
 	}
 
@@ -57,6 +57,7 @@ func (d *downstreamInput) Run(ctx pipelines.PipelineContext, t task.Task) (task.
 		logger.Errorf("[BUG: downstream pipeline %s sends the request of "+
 			"cross pipeline request to the wrong upstream %s]",
 			request.DownstreamPipelineName(), ctx.PipelineName())
+
 		t.SetError(fmt.Errorf("upstream received wrong downstream request"),
 			task.ResultInternalServerError)
 		return t, nil
@@ -85,17 +86,12 @@ func (d *downstreamInput) Run(ctx pipelines.PipelineContext, t task.Task) (task.
 			TaskResultCode:       t1.ResultCode(),
 		}
 
-		// currently no timeout needed
-		forever := make(chan struct{}, 0)
-
-		ret := request.Respond(response, forever)
+		ret := request.Respond(response, t1.Cancel())
 		if ret {
 			logger.Debugf("[respond downstream pipeline %s successfully]", request.DownstreamPipelineName())
 		} else {
 			logger.Errorf("[respond downstream pipeline %s failed]", request.DownstreamPipelineName())
 		}
-
-		close(forever)
 
 		t1.DeleteFinishedCallback(fmt.Sprintf("%s-respondDownstreamRequest", d.Name()))
 	}
