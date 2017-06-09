@@ -62,7 +62,7 @@ type pluginEntry struct {
 
 var (
 	PLUGIN_ENTRIES = map[string]pluginEntry{
-		// Generic plugins
+		// generic plugins
 		"HTTPInput": {
 			HTTPInputConstructor, HTTPInputConfigConstructor},
 		"JSONValidator": {
@@ -89,8 +89,12 @@ var (
 			IOReaderConstructor, IOReaderConfigConfigConstructor},
 		"SimpleCommonCache": {
 			SimpleCommonCacheConstructor, SimpleCommonCacheConfigConstructor},
+		"UpstreamOutput": {
+			UpstreamOutputConstructor, UpstreamOutputConfigConstructor},
+		"DownstreamInput": {
+			DownstreamInputConstructor, DownstreamInputConfigConstructor},
 
-		// To support Ease Monitor product
+		// Ease Monitor product dedicated plugins
 		"EaseMonitorProtoAdaptor": {
 			EaseMonitorProtoAdaptorConstructor, EaseMonitorProtoAdaptorConfigConstructor},
 		"EaseMonitorGraphiteGidExtractor": {
