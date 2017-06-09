@@ -86,11 +86,10 @@ func (d *downstreamInput) Run(ctx pipelines.PipelineContext, t task.Task) (task.
 			TaskResultCode:       t1.ResultCode(),
 		}
 
-		ret := request.Respond(response, t1.Cancel())
-		if ret {
-			logger.Debugf("[respond downstream pipeline %s successfully]", request.DownstreamPipelineName())
-		} else {
-			logger.Errorf("[respond downstream pipeline %s failed]", request.DownstreamPipelineName())
+		err := request.Respond(response, t1.Cancel())
+		if err != nil {
+			logger.Errorf("[respond downstream pipeline %s failed: %v]",
+				request.DownstreamPipelineName(), err)
 		}
 
 		t1.DeleteFinishedCallback(fmt.Sprintf("%s-respondDownstreamRequest", d.Name()))

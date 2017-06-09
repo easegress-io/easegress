@@ -103,23 +103,26 @@ func (r *DownstreamRequest) Data() map[interface{}]interface{} {
 	return r.data
 }
 
-func (r *DownstreamRequest) Respond(response *UpstreamResponse, cancel <-chan struct{}) bool {
+func (r *DownstreamRequest) Respond(response *UpstreamResponse, cancel <-chan struct{}) error {
 	if r.responseChan == nil {
-		return false
+		return fmt.Errorf("request from pipeline %s was closed", r.downstreamPipelineName)
 	}
 
-	return func() (ret bool) {
+	return func() (err error) {
 		defer func() {
 			// to prevent send on closed channel due to
 			// Close() of the downstream request can be called concurrently
-			ret = recover() == nil
+			e := recover()
+			if e != nil {
+				err = fmt.Errorf("request from pipeline %s is closed", r.downstreamPipelineName)
+			}
 		}()
 
 		select {
 		case r.responseChan <- response:
-			ret = true
+			err = nil
 		case <-cancel:
-			ret = false
+			err = fmt.Errorf("response is canclled")
 		}
 
 		return
