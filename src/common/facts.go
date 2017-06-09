@@ -33,7 +33,7 @@ func init() {
 	logHome := flag.String("log", LOG_HOME_DIR, "specify log home path")
 	cpuProfileFile := flag.String("cpuprofile", "", "specify cpu profile output file, "+
 		"cpu profiling will be fully disabled if not provided")
-	memProfileFile := flag.String("memprofile", "", "specify memory profile output file, "+
+	memProfileFile := flag.String("memprofile", "", "specify heap dump file, "+
 		"memory profiling will be fully disabled if not provided")
 
 	flag.Parse()

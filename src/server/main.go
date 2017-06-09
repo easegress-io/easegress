@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"runtime"
 	"runtime/pprof"
 	"syscall"
 
@@ -22,14 +23,14 @@ func main() {
 	if common.CpuProfileFile != "" {
 		cpuProfile, err = os.Create(common.CpuProfileFile)
 		if err != nil {
-			logger.Errorf("[initialize cpu profile failed: %v]", err)
+			logger.Errorf("[create cpu profile failed: %v]", err)
 			exitCode = 1
 			return
 		}
 
 		pprof.StartCPUProfile(cpuProfile)
 
-		logger.Infof("[cpu profiling started, output to %s]", common.CpuProfileFile)
+		logger.Infof("[cpu profiling started, profile output to %s]", common.CpuProfileFile)
 	}
 
 	defer func() {
@@ -43,6 +44,15 @@ func main() {
 
 		os.Exit(exitCode)
 	}()
+
+	if common.MemProfileFile != "" {
+		// to include every allocated block in the profile
+		runtime.MemProfileRate = 1
+
+		setupHeapDumpSignalHandler()
+
+		logger.Infof("[memory profiling enabled, heap dump to %s]", common.CpuProfileFile)
+	}
 
 	gateway, err := engine.NewGateway()
 	if err != nil {
@@ -105,7 +115,7 @@ func main() {
 
 func setupExitSignalHandler(gateway *engine.Gateway) {
 	sigChannel := make(chan os.Signal, 1)
-	signal.Notify(sigChannel, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	signal.Notify(sigChannel, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
 		for times := 0; sigChannel != nil; times++ {
@@ -127,6 +137,46 @@ func setupExitSignalHandler(gateway *engine.Gateway) {
 				close(sigChannel)
 				sigChannel = nil
 				os.Exit(255)
+			}
+		}
+	}()
+}
+
+func setupHeapDumpSignalHandler() {
+	sigChannel := make(chan os.Signal, 1)
+	signal.Notify(sigChannel, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+
+	go func() {
+		for {
+			sig := <-sigChannel
+			switch sig {
+			case syscall.SIGHUP:
+				fallthrough
+			case syscall.SIGINT:
+				fallthrough
+			case syscall.SIGTERM:
+				return
+			case syscall.SIGQUIT:
+				if common.MemProfileFile != "" {
+					func() {
+						f, err := os.Create(common.MemProfileFile)
+						if err != nil {
+							logger.Errorf("[create heap dump file failed: %v]", err)
+						}
+						defer f.Close()
+
+						logger.Debugf("[memory profiling started, heap dump to %s]",
+							common.MemProfileFile)
+
+						// get up-to-date statistics
+						runtime.GC()
+
+						pprof.WriteHeapProfile(f)
+
+						logger.Infof("[memory profiling finished, heap dump to %s]",
+							common.MemProfileFile)
+					}()
+				}
 			}
 		}
 	}()
