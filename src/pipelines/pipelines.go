@@ -81,7 +81,10 @@ func NewDownstreamRequest(upstreamPipelineName, downstreamPipelineName string,
 	ret := &DownstreamRequest{
 		upstreamPipelineName:   upstreamPipelineName,
 		downstreamPipelineName: downstreamPipelineName,
-		data:         data,
+		data: data,
+		// zero size channel guarantees client front of downstream receives response
+		// after backend back of upstream respond successfully
+		// there is not any queue on the response path between the client and real backend
 		responseChan: make(chan *UpstreamResponse, 0),
 	}
 

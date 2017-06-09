@@ -16,7 +16,7 @@ const (
 	Finished            TaskStatus = "Finished"
 )
 
-// Task is designed a finite state machine:
+// The finite state machine of task status is:
 //                   Pending
 //                      +
 //                      |

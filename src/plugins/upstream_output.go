@@ -194,7 +194,11 @@ func (u *upstreamOutput) Prepare(ctx pipelines.PipelineContext) {
 func (u *upstreamOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
 	targetPipelineName := u.conf.selector(u, ctx, t)
 	if len(strings.TrimSpace(targetPipelineName)) == 0 {
-		logger.Errorf("[BUG: selecting target pipeline returns empty pipeline name]")
+		logger.Errorf("[BUG: target pipeline selector returns empty pipeline name]")
+
+		t.SetError(fmt.Errorf("target pipeline selector of %s returns empty pipeline name", u.conf.RoutePolicy),
+			task.ResultInternalServerError)
+
 		return t, nil
 	}
 
@@ -221,21 +225,29 @@ func (u *upstreamOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.T
 	}()
 
 	timeout := time.Duration(u.conf.TimeoutSec) * time.Second
-	if timeout > 0 {
-		time.AfterFunc(timeout, func() {
-			if common.CloseChan(done) {
-				t.SetError(fmt.Errorf("upstream is timeout after %d second(s)", u.conf.TimeoutSec),
-					task.ResultServiceUnavailable)
+	if timeout > 0 { // zero value means no timeout
+		go func() { // watch on request timeout
+			select {
+			case <-time.After(timeout):
+				if common.CloseChan(done) {
+					t.SetError(
+						fmt.Errorf("upstream is timeout after %d second(s)", u.conf.TimeoutSec),
+						task.ResultServiceUnavailable)
+				}
+			case <-done:
+				// Nothing to do, exit goroutine
 			}
-		})
+		}()
 	}
 
 	defer common.CloseChan(done)
 
 	err := ctx.CommitCrossPipelineRequest(request, done)
-	if err != nil && t.Error() != nil {
-		// commit failed and error was not caused by task cancellation or request timeout
-		t.SetError(err, task.ResultServiceUnavailable)
+	if err != nil {
+		if t.Error() == nil { // commit failed and it was not caused by task cancellation or request timeout
+			t.SetError(err, task.ResultServiceUnavailable)
+		}
+
 		return t, nil
 	}
 
@@ -245,6 +257,7 @@ func (u *upstreamOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.T
 		if response == nil {
 			logger.Errorf("[BUG: upstream pipeline %s returns nil response]",
 				response.UpstreamPipelineName)
+
 			t.SetError(fmt.Errorf("downstrewam received nil uptream response"),
 				task.ResultInternalServerError)
 			return t, nil
@@ -254,6 +267,7 @@ func (u *upstreamOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.T
 			logger.Errorf("[BUG: upstream pipeline %s returns the response of "+
 				"cross pipeline request to the wrong downstrewam %s]",
 				response.UpstreamPipelineName, ctx.PipelineName())
+
 			t.SetError(fmt.Errorf("downstrewam received wrong uptream response"),
 				task.ResultInternalServerError)
 			return t, nil
