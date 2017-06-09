@@ -4,32 +4,67 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"runtime/pprof"
 	"syscall"
 
+	_ "cluster/gateway"
+	"common"
 	"engine"
 	"logger"
 	"rest"
 )
 
 func main() {
+	var exitCode int
+	var err error
+
+	var cpuProfile *os.File
+	if common.CpuProfileFile != "" {
+		cpuProfile, err = os.Create(common.CpuProfileFile)
+		if err != nil {
+			logger.Errorf("[initialize cpu profile failed: %v]", err)
+			exitCode = 1
+			return
+		}
+
+		pprof.StartCPUProfile(cpuProfile)
+
+		logger.Infof("[cpu profiling started, output to %s]", common.CpuProfileFile)
+	}
+
+	defer func() {
+		if common.CpuProfileFile != "" {
+			pprof.StopCPUProfile()
+
+			if cpuProfile != nil {
+				cpuProfile.Close()
+			}
+		}
+
+		os.Exit(exitCode)
+	}()
+
 	gateway, err := engine.NewGateway()
 	if err != nil {
-		logger.Errorf("[initialize gateway engine failed: %v.]", err)
-		os.Exit(1)
+		logger.Errorf("[initialize gateway engine failed: %v]", err)
+		exitCode = 2
+		return
 	}
 
 	api, err := rest.NewRest(gateway)
 	if err != nil {
 		logger.Errorf("[initialize rest interface failed: %v]", err)
-		os.Exit(2)
+		exitCode = 3
+		return
 	}
 
-	setupSignalHandler(gateway)
+	setupExitSignalHandler(gateway)
 
 	done1, err := gateway.Run()
 	if err != nil {
 		logger.Errorf("[start gateway engine failed: %v]", err)
-		os.Exit(3)
+		exitCode = 4
+		return
 	} else {
 		logger.Infof("[gateway engine started]")
 	}
@@ -37,7 +72,8 @@ func main() {
 	done2, listenAddr, err := api.Start()
 	if err != nil {
 		logger.Errorf("[start rest interface at %s failed: %s]", listenAddr, err)
-		os.Exit(4)
+		exitCode = 5
+		return
 	} else {
 		logger.Infof("[rest interface started at %s]", listenAddr)
 	}
@@ -63,10 +99,11 @@ func main() {
 	api.Close()
 
 	logger.Infof("[gateway exited normally]")
-	os.Exit(0)
+
+	return
 }
 
-func setupSignalHandler(gateway *engine.Gateway) {
+func setupExitSignalHandler(gateway *engine.Gateway) {
 	sigChannel := make(chan os.Signal, 1)
 	signal.Notify(sigChannel, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
