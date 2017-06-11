@@ -11,6 +11,108 @@ import (
 	"plugins"
 )
 
+// for api
+func (gc *GatewayCluster) queryGroupMaxSeq(group string, timeout time.Duration) (uint64, error) {
+	requestParam := cluster.RequestParam{
+		TargetNodeTags: map[string]string{
+			groupTagKey: group,
+			modeTagKey:  WriteMode.String(),
+		},
+		Timeout: timeout,
+	}
+
+	requestName := fmt.Sprintf("(group:%s)query_group_max_sequence", group)
+	requestPayload, err := cluster.PackWithHeader(ReqQueryGroupMaxSeq{}, uint8(queryGroupMaxSeqMessage))
+	if err != nil {
+		return 0, err
+	}
+
+	future, err := gc.cluster.Request(requestName, requestPayload, &requestParam)
+	if err != nil {
+		return 0, err
+	}
+
+	memberResp, ok := <-future.Response()
+	if !ok {
+		return 0, fmt.Errorf("timeout")
+	}
+	if len(memberResp.Payload) < 1 {
+		return 0, fmt.Errorf("empty response")
+	}
+
+	var resp RespQueryGroupMaxSeq
+	err = cluster.Unpack(memberResp.Payload[1:], &resp)
+	if err != nil {
+		return 0, err
+	}
+
+	return uint64(resp), nil
+}
+
+func (gc *GatewayCluster) issueOperation(group string, syncAll bool, timeout time.Duration,
+	requestName string, operation Operation) error {
+	for {
+		queryStart := time.Now()
+		ms, err := gc.queryGroupMaxSeq(group, timeout)
+		if err != nil {
+			return err
+		}
+		expiredDuration := time.Now().Sub(queryStart)
+		if timeout <= expiredDuration {
+			return fmt.Errorf("timeout")
+		}
+		timeout -= expiredDuration
+
+		operation.Seq = ms + 1
+		req := ReqOperation{
+			OperationAllNodes: syncAll,
+			Timeout:           timeout,
+			Operation:         operation,
+		}
+		requestPayload, err := cluster.PackWithHeader(req, uint8(operationMessage))
+		if err != nil {
+			return err
+		}
+		requestParam := cluster.RequestParam{
+			TargetNodeTags: map[string]string{
+				groupTagKey: group,
+				modeTagKey:  WriteMode.String(),
+			},
+			Timeout: timeout,
+		}
+
+		future, err := gc.cluster.Request(requestName, requestPayload, &requestParam)
+		if err != nil {
+			return err
+		}
+
+		memberResp, ok := <-future.Response()
+		if !ok {
+			return fmt.Errorf("timeout")
+		}
+		if len(memberResp.Payload) < 1 {
+			return fmt.Errorf("empty response")
+		}
+
+		var resp RespOperation
+		err = cluster.Unpack(memberResp.Payload[1:], &resp)
+		if err != nil {
+			return err
+		}
+		if resp.Err != nil {
+			if resp.Err.Type == OperationWrongSeqError {
+				continue
+			}
+			return fmt.Errorf("%s", resp.Err.Message)
+		}
+
+		return nil
+	}
+}
+
+////
+
+// for core
 func unpackReqOperation(payload []byte) (*ReqOperation, error) {
 	reqOperation := new(ReqOperation)
 	err := cluster.Unpack(payload, reqOperation)
@@ -119,7 +221,7 @@ func (gc *GatewayCluster) handleOperationRelay(req *cluster.RequestEvent) {
 	for {
 		select {
 		case <-waitTimer.C:
-			respondOperationErr(req, OperationTimeoutError, "timeout")
+			respondOperationErr(req, TimeoutError, "timeout")
 		default:
 			ms = gc.log.maxSeq()
 			if ms+1 >= reqOperation.Operation.Seq {
