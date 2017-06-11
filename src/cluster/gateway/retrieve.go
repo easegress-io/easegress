@@ -243,7 +243,7 @@ func (gc *GatewayCluster) handleRetrieve(req *cluster.RequestEvent) {
 		}
 	}
 	if membersRespCount < len(membersRespBook) {
-		respondRetrieveErr(req, RetrieveTimeoutError, "retrieve timeout")
+		respondRetrieveErr(req, TimeoutError, "retrieve timeout")
 		return
 	}
 

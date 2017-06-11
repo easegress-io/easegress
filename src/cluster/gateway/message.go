@@ -33,15 +33,14 @@ type (
 const (
 	WrongFormatError ClusterErrorType = iota
 	InternalServerError
+	TimeoutError
 
 	RetrieveInconsistencyError
-	RetrieveTimeoutError
 
 	OperationWrongSeqError
 	OperationWrongContentError
 	OperationLogHugeGapError
 	OperationPartiallySecceedError
-	OperationTimeoutError
 
 	StatNotFoundError
 )
