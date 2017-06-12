@@ -80,7 +80,7 @@ func (d *downstreamInput) Run(ctx pipelines.PipelineContext, t task.Task) (task.
 		}
 
 		response := &pipelines.UpstreamResponse{
-			UpstreamPipelineName: d.Name(),
+			UpstreamPipelineName: ctx.PipelineName(),
 			Data:                 data,
 			TaskError:            t1.Error(),
 			TaskResultCode:       t1.ResultCode(),
