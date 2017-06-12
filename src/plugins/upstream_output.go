@@ -21,7 +21,7 @@ var routeSelectors = map[string]routeSelector{
 	"weighted_round_robin": weightedRoundRobinSelector,
 	"random":               randomSelector,
 	"weighted_random":      weightedRandomSelector,
-	"hashSelector":         hashSelector, // to support use cases for both http source address and header hash
+	"hash":                 hashSelector, // to support use cases for both http source address and header hash
 	"least_wip_requests":   leastWIPRequestsSelector,
 	"sticky_session":       stickySessionSelector,
 }
@@ -87,13 +87,16 @@ func stickySessionSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t t
 
 type upstreamOutputConfig struct {
 	CommonConfig
-	TargetPipelineNames   []string `json:"target_pipelines"`
-	TargetPipelineWeights []uint16 `json:"target_weights"` // up to 65535, 0 based
-	RoutePolicy           string   `json:"route_policy"`
-	TimeoutSec            uint16   `json:"timeout_sec"` // up to 65535, zero means no timeout
+	TargetPipelineNames []string `json:"target_pipelines"`
+	RoutePolicy         string   `json:"route_policy"`
+	TimeoutSec          uint16   `json:"timeout_sec"` // up to 65535, zero means no timeout
 
-	RequestDataKeys   []string `json:"request_data_keys"`
-	ValueHashedKey    string   `json:"value_hashed_key"`
+	RequestDataKeys []string `json:"request_data_keys"`
+	// for weighted_round_robin and weighted_random policies
+	TargetPipelineWeights []uint16 `json:"target_weights"` // up to 65535, 0 based
+	// for hash policy
+	ValueHashedKey string `json:"value_hashed_key"`
+	// for sticky_session policy
 	StickySessionKeys []string `json:"sticky_session_keys"`
 
 	selector routeSelector
@@ -125,11 +128,11 @@ func (c *upstreamOutputConfig) Prepare(pipelineNames []string) error {
 	c.ValueHashedKey = ts(c.ValueHashedKey)
 
 	if len(c.TargetPipelineNames) == 0 {
-		return fmt.Errorf("invalid target pipelines")
+		return fmt.Errorf("invalid upstream pipelines")
 	}
 
 	if len(c.TargetPipelineWeights) > 0 && len(c.TargetPipelineWeights) != len(c.TargetPipelineNames) {
-		return fmt.Errorf("invalid target Weights")
+		return fmt.Errorf("invalid upstream pipeline weight")
 	}
 
 	useDefaultWeight := len(c.TargetPipelineWeights) == 0
@@ -138,7 +141,7 @@ func (c *upstreamOutputConfig) Prepare(pipelineNames []string) error {
 		c.TargetPipelineNames[idx] = ts(pipelineName)
 
 		if !common.StrInSlice(c.TargetPipelineNames[idx], pipelineNames) {
-			return fmt.Errorf("invalid target pipeline")
+			logger.Warnf("[upstream pipeline %s not found]", c.TargetPipelineNames[idx])
 		}
 
 		if useDefaultWeight {
