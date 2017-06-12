@@ -3,7 +3,7 @@ Ease Gateway Plugin Reference
 
 ## Summary
 
-There are 16 available plugins totoally in Ease Gateway current release.
+There are 16 available plugins totally in Ease Gateway current release.
 
 | Plugin name | Type name | Block-able | Functional | Development status | Link |
 |:--|:--|:--:|:--:|:--:|:--|
@@ -20,6 +20,8 @@ There are 16 available plugins totoally in Ease Gateway current release.
 | [No more failure limiter](#no-more-failure-limiter-plugin) | NoMoreFailureLimiter | No | No | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/no_more_failure_limiter.go) |
 | [Simple common cache](#simple-common-cache-plugin) | SimpleCommonCache | No | No | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/simple_common_cache.go) |
 | [Simple common mock](#simple-common-mock-plugin) | SimpleCommonMock | No | No | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/simple_common_mock.go) |
+| [Upstream output](#upstream-output-plugin) | UpstreamOutput | Yes | No | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/upstream_output.go) |
+| [Downstream input](#downstream-input-plugin) | DownstreamInput | Yes | No | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/downstream_input.go) |
 | [Ease Monitor graphite validator](#ease-monitor-graphite-validator-plugin) | EaseMonitorGraphiteValidator | No | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/easemonitor_graphite_validator.go) |
 | [Ease Monitor graphite GID extractor](#ease-monitor-graphite-gid-extractor-plugin) | EaseMonitorGraphiteGidExtractor | No | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/easemonitor_graphite_gid_extractor.go) |
 | [Ease Monitor Json GID extractor](#ease-monitor-json-gid-extractor-plugin) | EaseMonitorJSONGidExtractor | No | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/easemonitor_json_gid_extractor.go) |
