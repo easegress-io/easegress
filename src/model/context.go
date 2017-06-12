@@ -201,7 +201,7 @@ func (pc *pipelineContext) CommitCrossPipelineRequest(
 	}
 }
 
-func (pc *pipelineContext) ClaimCrossPipelineRequest() *pipelines.DownstreamRequest {
+func (pc *pipelineContext) ClaimCrossPipelineRequest(cancel <-chan struct{}) *pipelines.DownstreamRequest {
 	// to use recover() way instead of lock pc.requestChanLock since
 	// Close() of the pipeline context should be able to support concurrent call with this function
 	// (this function can be blocked on channel receiving)
@@ -215,7 +215,12 @@ func (pc *pipelineContext) ClaimCrossPipelineRequest() *pipelines.DownstreamRequ
 			}
 		}()
 
-		ret = <-pc.requestChan
+		select {
+		case ret = <-pc.requestChan:
+			// Nothing to do
+		case <-cancel:
+			ret = nil
+		}
 		return
 	}()
 }

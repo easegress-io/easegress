@@ -44,7 +44,7 @@ type PipelineContext interface {
 	// Downstream pipeline calls PushCrossPipelineRequest to commit a request
 	CommitCrossPipelineRequest(request *DownstreamRequest, cancel <-chan struct{}) error
 	// Upstream pipeline calls PopCrossPipelineRequest to claim a request
-	ClaimCrossPipelineRequest() *DownstreamRequest
+	ClaimCrossPipelineRequest(cancel <-chan struct{}) *DownstreamRequest
 	// Upstream pipeline calls CrossPipelineWIPRequestsCount to make sure how many requests are waiting process
 	CrossPipelineWIPRequestsCount(upstreamPipelineName string) int
 	// Close closes a PipelineContext

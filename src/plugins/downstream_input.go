@@ -47,7 +47,7 @@ func (d *downstreamInput) Prepare(ctx pipelines.PipelineContext) {
 }
 
 func (d *downstreamInput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
-	request := ctx.ClaimCrossPipelineRequest()
+	request := ctx.ClaimCrossPipelineRequest(t.Cancel())
 	if request == nil {
 		// request was closed by downstream before any upstream handles it, ignore safely
 		return t, nil
@@ -88,7 +88,7 @@ func (d *downstreamInput) Run(ctx pipelines.PipelineContext, t task.Task) (task.
 
 		err := request.Respond(response, t1.Cancel())
 		if err != nil {
-			logger.Errorf("[respond downstream pipeline %s failed: %v]",
+			logger.Warnf("[respond downstream pipeline %s failed: %v]",
 				request.DownstreamPipelineName(), err)
 		}
 
