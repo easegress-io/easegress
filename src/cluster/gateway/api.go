@@ -85,20 +85,38 @@ func (gc *GatewayCluster) DeletePipeline(group string, syncAll bool, timeout tim
 // retrive
 func (gc *GatewayCluster) RetrievePlugins(group string, syncAll bool, timeout time.Duration,
 	NamePattern string, types []string) ([]byte, error) {
-	return nil, nil
+	filter := FilterRetrievePlugins{
+		NamePattern: NamePattern,
+		Types:       types,
+	}
+
+	requestName := fmt.Sprintf("(group:%s)retrive_plugins", group)
+	return gc.issueRetrieve(group, syncAll, timeout, requestName, filter)
 }
 
-func (hc *GatewayCluster) RetrievePipelines(group string, syncAll bool, timeout time.Duration,
+func (gc *GatewayCluster) RetrievePipelines(group string, syncAll bool, timeout time.Duration,
 	NamePattern string, types []string) ([]byte, error) {
-	return nil, nil
+	filter := FilterRetrievePipelines{
+		NamePattern: NamePattern,
+		Types:       types,
+	}
+
+	requestName := fmt.Sprintf("(group:%s)retrive_pipelines", group)
+	return gc.issueRetrieve(group, syncAll, timeout, requestName, filter)
 }
 
 func (gc *GatewayCluster) RetrievePluginTypes(group string, syncAll bool, timeout time.Duration) ([]byte, error) {
-	return nil, nil
+	filter := FilterRetrievePluginTypes{}
+
+	requestName := fmt.Sprintf("(group:%s)retrive_plugin_types", group)
+	return gc.issueRetrieve(group, syncAll, timeout, requestName, filter)
 }
 
 func (gc *GatewayCluster) RetrievePipelineTypes(group string, syncAll bool, timeout time.Duration) ([]byte, error) {
-	return nil, nil
+	filter := FilterRetrievePluginTypes{}
+
+	requestName := fmt.Sprintf("(group:%s)retrive_pipeline_types", group)
+	return gc.issueRetrieve(group, syncAll, timeout, requestName, filter)
 }
 
 // stat

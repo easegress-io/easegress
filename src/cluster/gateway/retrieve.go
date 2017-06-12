@@ -15,6 +15,95 @@ import (
 	"plugins"
 )
 
+// for api
+func (gc *GatewayCluster) issueRetrieve(group string, syncAll bool, timeout time.Duration,
+	requestName string, filter interface{}) ([]byte, error) {
+	req := ReqRetrieve{
+		RetrieveAllNodes: syncAll,
+		Timeout:          timeout,
+	}
+	switch filter := filter.(type) {
+	case FilterRetrievePlugins:
+		req.FilterRetrievePlugins = &FilterRetrievePlugins{
+			NamePattern: filter.NamePattern,
+			Types:       filter.Types,
+		}
+	case FilterRetrievePipelines:
+		req.FilterRetrievePipelines = &FilterRetrievePipelines{
+			NamePattern: filter.NamePattern,
+			Types:       filter.Types,
+		}
+	case FilterRetrievePluginTypes:
+		req.FilterRetrievePluginTypes = &FilterRetrievePluginTypes{}
+	case FilterRetrievePipelineTypes:
+		req.FilterRetrievePipelineTypes = &FilterRetrievePipelineTypes{}
+	default:
+		return nil, fmt.Errorf("unsupported filter type")
+	}
+
+	requestPayload, err := cluster.PackWithHeader(req, uint8(retrieveMessage))
+	if err != nil {
+		return nil, err
+	}
+	requestParam := cluster.RequestParam{
+		TargetNodeTags: map[string]string{
+			groupTagKey: group,
+			modeTagKey:  WriteMode.String(),
+		},
+		Timeout: timeout,
+	}
+
+	future, err := gc.cluster.Request(requestName, requestPayload, &requestParam)
+	if err != nil {
+		return nil, err
+	}
+
+	memberResp, ok := <-future.Response()
+	if !ok {
+		return nil, fmt.Errorf("timeout")
+	}
+	if len(memberResp.Payload) < 1 {
+		return nil, fmt.Errorf("empty response")
+	}
+
+	var resp RespRetrieve
+	err = cluster.Unpack(memberResp.Payload[1:], &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.Err != nil {
+		return nil, fmt.Errorf("%s", resp.Err.Message)
+	}
+
+	switch filter.(type) {
+	case FilterRetrievePlugins:
+		if resp.ResultRetrievePlugins == nil {
+			return nil, fmt.Errorf("empty result")
+		}
+		return resp.ResultRetrievePlugins, nil
+	case FilterRetrievePipelines:
+		if resp.ResultRetrievePipelines == nil {
+			return nil, fmt.Errorf("empty result")
+		}
+		return resp.ResultRetrievePipelines, nil
+	case FilterRetrievePluginTypes:
+		if resp.ResultRetrievePluginTypes == nil {
+			return nil, fmt.Errorf("empty result")
+		}
+		return resp.ResultRetrievePluginTypes, nil
+	case FilterRetrievePipelineTypes:
+		if resp.ResultRetrievePipelineTypes == nil {
+			return nil, fmt.Errorf("empty result")
+		}
+		return resp.ResultRetrievePipelineTypes, nil
+	default:
+		return nil, fmt.Errorf("unsupported filter type")
+
+	}
+}
+
+// for core
 func unpackReqRetrieve(payload []byte) (*ReqRetrieve, error) {
 	reqRetrieve := new(ReqRetrieve)
 	err := cluster.Unpack(payload, reqRetrieve)
@@ -238,7 +327,7 @@ func (gc *GatewayCluster) handleRetrieve(req *cluster.RequestEvent) {
 
 	membersRespCount := 0
 	for _, payload := range membersRespBook {
-		if payload != nil {
+		if len(payload) >= 1 {
 			membersRespCount++
 		}
 	}
