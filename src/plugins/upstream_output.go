@@ -21,9 +21,9 @@ var routeSelectors = map[string]routeSelector{
 	"weighted_round_robin": weightedRoundRobinSelector,
 	"random":               randomSelector,
 	"weighted_random":      weightedRandomSelector,
-	"hash":                 hashSelector, // to support use cases for both http source address and header hash
 	"least_wip_requests":   leastWIPRequestsSelector,
-	"sticky_session":       stickySessionSelector,
+
+	"hash": hashSelector, // to support use cases for http source address and header hash, sticky session
 }
 
 func roundRobinSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) string {
@@ -71,15 +71,11 @@ func weightedRandomSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t 
 	return "" // todo(zhiyan)
 }
 
-func hashSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) string {
-	return "" // todo(zhiyan)
-}
-
 func leastWIPRequestsSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) string {
 	return "" // todo(zhiyan)
 }
 
-func stickySessionSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) string {
+func hashSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) string {
 	return "" // todo(zhiyan)
 }
 
@@ -93,11 +89,9 @@ type upstreamOutputConfig struct {
 
 	RequestDataKeys []string `json:"request_data_keys"`
 	// for weighted_round_robin and weighted_random policies
-	TargetPipelineWeights []uint16 `json:"target_weights"` // up to 65535, 0 based
+	TargetPipelineWeights []uint16 `json:"target_weights"` // weight up to 65535, 0 based
 	// for hash policy
 	ValueHashedKey string `json:"value_hashed_key"`
-	// for sticky_session policy
-	StickySessionKeys []string `json:"sticky_session_keys"`
 
 	selector routeSelector
 }
@@ -131,34 +125,40 @@ func (c *upstreamOutputConfig) Prepare(pipelineNames []string) error {
 		return fmt.Errorf("invalid upstream pipelines")
 	}
 
-	if len(c.TargetPipelineWeights) > 0 && len(c.TargetPipelineWeights) != len(c.TargetPipelineNames) {
-		return fmt.Errorf("invalid upstream pipeline weight")
+	if strings.HasPrefix(c.RoutePolicy, "weighted_") {
+		if len(c.TargetPipelineWeights) > 0 && len(c.TargetPipelineWeights) != len(c.TargetPipelineNames) {
+			return fmt.Errorf("invalid upstream pipeline weight")
+		}
+
+		useDefaultWeight := len(c.TargetPipelineWeights) == 0
+
+		for idx, pipelineName := range c.TargetPipelineNames {
+			c.TargetPipelineNames[idx] = ts(pipelineName)
+
+			if !common.StrInSlice(c.TargetPipelineNames[idx], pipelineNames) {
+				logger.Warnf("[upstream pipeline %s not found]", c.TargetPipelineNames[idx])
+			}
+
+			if useDefaultWeight {
+				c.TargetPipelineWeights = append(c.TargetPipelineWeights, 1)
+			}
+		}
+
+		if !useDefaultWeight && c.RoutePolicy == "weighted_round_robin" {
+			var weightGCD uint16
+			for i := 0; i < len(c.TargetPipelineWeights); i++ {
+				weightGCD = gcd(weightGCD, c.TargetPipelineWeights[i])
+			}
+
+			if weightGCD == 0 {
+				return fmt.Errorf("invalid target pipeline weights, " +
+					"one of them should be greater or equal to zero")
+			}
+		}
 	}
 
-	useDefaultWeight := len(c.TargetPipelineWeights) == 0
-
-	for idx, pipelineName := range c.TargetPipelineNames {
-		c.TargetPipelineNames[idx] = ts(pipelineName)
-
-		if !common.StrInSlice(c.TargetPipelineNames[idx], pipelineNames) {
-			logger.Warnf("[upstream pipeline %s not found]", c.TargetPipelineNames[idx])
-		}
-
-		if useDefaultWeight {
-			c.TargetPipelineWeights = append(c.TargetPipelineWeights, 1)
-		}
-	}
-
-	if !useDefaultWeight && c.RoutePolicy == "weighted_round_robin" {
-		var weightGCD uint16
-		for i := 0; i < len(c.TargetPipelineWeights); i++ {
-			weightGCD = gcd(weightGCD, c.TargetPipelineWeights[i])
-		}
-
-		if weightGCD == 0 {
-			return fmt.Errorf(
-				"invalid target pipeline weights, one of them should be greater or equal to zero")
-		}
+	if c.RoutePolicy == "hash" && len(c.ValueHashedKey) == 0 {
+		return fmt.Errorf("invalid hash key")
 	}
 
 	if c.TimeoutSec == 0 {
@@ -201,7 +201,6 @@ func (u *upstreamOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.T
 
 		t.SetError(fmt.Errorf("target pipeline selector of %s returns empty pipeline name", u.conf.RoutePolicy),
 			task.ResultInternalServerError)
-
 		return t, nil
 	}
 
@@ -261,7 +260,7 @@ func (u *upstreamOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.T
 			logger.Errorf("[BUG: upstream pipeline %s returns nil response]",
 				response.UpstreamPipelineName)
 
-			t.SetError(fmt.Errorf("downstrewam received nil uptream response"),
+			t.SetError(fmt.Errorf("downstream received nil upstream response"),
 				task.ResultInternalServerError)
 			return t, nil
 		}
@@ -271,7 +270,7 @@ func (u *upstreamOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.T
 				"cross pipeline request to the wrong downstrewam %s]",
 				response.UpstreamPipelineName, ctx.PipelineName())
 
-			t.SetError(fmt.Errorf("downstrewam received wrong uptream response"),
+			t.SetError(fmt.Errorf("downstream received wrong upstream response"),
 				task.ResultInternalServerError)
 			return t, nil
 		}
