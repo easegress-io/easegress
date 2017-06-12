@@ -191,6 +191,12 @@ func (h *httpOutput) send(t task.Task, req *http.Request) (*http.Response, error
 	req.WithContext(cancelCtx)
 
 	go func() {
+		defer func() {
+			// channel e and r can be closed first before return by existing send()
+			// caused by task cancellation, the result or error of Do() can be ignored safely.
+			recover()
+		}()
+
 		resp, err := h.client.Do(req)
 		if err != nil {
 			e <- err
