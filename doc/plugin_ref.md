@@ -238,7 +238,7 @@ No any inputs or outputs.
 
 | Indicator name | Data type (golang) | Description |
 |:--:|:--:|:--|
-| RECENT\_HEADER\_COUNT | uint64 | The count of HTTP requests that the header of each one contains the key in the recent preidor. |
+| RECENT\_HEADER\_COUNT | uint64 | The count of HTTP requests that the header of each one contains the key in the recent period. |
 
 ## Throughput Rate Limiter plugin
 
@@ -259,7 +259,7 @@ No any inputs or outputs.
 
 | Result code | Error reason |
 |:--|:--|
-| ResultFlowControl | service is unavaialbe caused by throughput rate limit |
+| ResultFlowControl | service is unavailable caused by throughput rate limit |
 | ResultTaskCancelled | task is cancelled |
 | ResultInternalServerError | unexpected error on internal delay timer |
 
@@ -290,7 +290,7 @@ No any inputs or outputs.
 
 | Result code | Error reason |
 |:--|:--|
-| ResultFlowControl | service is unavaialbe caused by sliding window limit |
+| ResultFlowControl | service is unavailable caused by sliding window limit |
 | ResultTaskCancelled | task is cancelled |
 
 ### Dedicated statistics indicator
@@ -321,7 +321,7 @@ No any inputs or outputs.
 
 | Result code | Error reason |
 |:--|:--|
-| ResultFlowControl | service is unavaialbe caused by service fusing |
+| ResultFlowControl | service is unavailable caused by service fusing |
 
 ### Dedicated statistics indicator
 
@@ -346,7 +346,7 @@ No any inputs or outputs.
 
 | Result code | Error reason |
 |:--|:--|
-| ResultFlowControl | service is unavaialbe caused by probability limit |
+| ResultFlowControl | service is unavailable caused by probability limit |
 
 ### Dedicated statistics indicator
 
@@ -372,7 +372,7 @@ No any inputs or outputs.
 
 | Result code | Error reason |
 |:--|:--|
-| ResultFlowControl | service is unavaialbe caused by failure limitation |
+| ResultFlowControl | service is unavailable caused by failure limitation |
 
 ### Dedicated statistics indicator
 
@@ -533,6 +533,72 @@ Plugin extracts Ease Monitor global ID from Ease Monitor json data.
 | ResultMissingInput | input got wrong value |
 | ResultBadInput | invalid json |
 | ResultInternalServerError | failed to output global ID |
+
+### Dedicated statistics indicator
+
+No any indicators exposed.
+
+## Upstream Output plugin
+
+Plugin outputs request to an upstream pipeline and waits the response.
+
+### Configuration
+
+| Parameter name | Data type (golang) | Description | Type | Optional | Default value (golang) |
+|:--|:--|:--|:--:|:--:|:--|
+| plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
+| target\_pipelines | []string | The list of upstream pipeline name. | Functionality | No | N/A |
+| route\_policy | string | The name of route policy which is used to select a upstream pipeline form `target_pipelines` option for a task. Available policies are `round_robin`, `weighted_round_robin`, `random`, `weighted_random`, `least_wip_requests` and `hash`. | Functionality | Yes | "round_robin" |
+| timeout\_sec | uint16 | The wait timeout upstream process limited in second. | Functionality | Yes | 120 (2 minutes) |
+| request\_data\_keys | []string | The key names of the data in current pipeline, each of them will be passed to target pipeline as the input part of cross-pipeline request. Plugin `downstream_input` will handle the data as the input. | I/O | No | [] |
+| target\_weights | []uint16 | The weight of each upstream pipeline, only for `weighted_round_robin` and `weighted_random` policies. | Functionality | Yes | [1...] |
+| value\_hashed\_key | string | The key name of the value in current pipeline which is used to calculate hash value for `hash` policy of upstream pipeline selection. | Functionality | No | N/A |
+
+### I/O
+
+| Data name | Configuration option name | Type | Data Type | Optional |
+|:--|:--|:--:|:--|:--:|
+| Data of cross-pipeline request | request\_data\_keys | Output (intents to send to upstream pipeline) | map[interface{}]interface{} | Yes |
+
+### Error
+
+| Result code | Error reason |
+|:--|:--|
+| ResultServiceUnavailable | upstream is timeout |
+| ResultServiceUnavailable | failed to commit cross-pipeline request to upstream |
+| ResultInternalServerError | downstream received nil upstream response |
+| ResultInternalServerError | downstream received wrong upstream response |
+| ResultInternalServerError | upstream pipeline selector returns empty pipeline name |
+| ResultInternalServerError | failed to output data |
+| ResultTaskCancelled | task is cancelled |
+
+### Dedicated statistics indicator
+
+No any indicators exposed.
+
+## Downstream Input plugin
+
+Plugin handles downstream request to running pipeline as input and send the response back.
+
+### Configuration
+
+| Parameter name | Data type (golang) | Description | Type | Optional | Default value (golang) |
+|:--|:--|:--|:--:|:--:|:--|
+| plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
+| response\_data\_keys | []string | The key names of the data in current pipeline, each of them will be send back to downstream pipeline as the output part of cross-pipeline response. Plugin `upstream_input` will handle the data as the output. | I/O | No | [] |
+
+### I/O
+
+| Data name | Configuration option name | Type | Data Type | Optional |
+|:--|:--|:--:|:--|:--:|
+| Data of cross-pipeline response | response\_data\_keys | Input (intents to send to downstream pipeline) | map[interface{}]interface{} | Yes |
+
+### Error
+
+| Result code | Error reason |
+|:--|:--|
+| ResultInternalServerError | upstream received wrong downstream request |
+| ResultInternalServerError | failed to output data |
 
 ### Dedicated statistics indicator
 
