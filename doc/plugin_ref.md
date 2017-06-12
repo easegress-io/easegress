@@ -147,11 +147,12 @@ Plugin outputs request data to a HTTP endpoint.
 | url\_pattern | string | The pattern of the complete HTTP output endpoint. E.g. ``https://1.2.3.4/abc?def={INPUT_DATA}`` | Functionality | No | N/A |
 | header\_patterns | map[string]string | The list of HTTP output header name pattern and value pattern pair. | Functionality | Yes | nil |
 | method | string | The method HTTP output used. | Functionality | No | N/A |
-| timeout\_sec | uint16 | The request timtout HTTP output limited in second. | Functionality | Yes | 120 (2 minutes) |
+| timeout\_sec | uint16 | The request timeout HTTP output limited in second. | Functionality | Yes | 120 (2 minutes) |
 | cert\_file | string | The certificate file HTTPS output used. | Functionality | Yes | "" |
 | key\_file | string | The key file HTTPS output used. | Functionality | Yes | "" |
 | ca\_file | string | The root certificate HTTPS output used. | Functionality | Yes | "" |
 | insecure\_tls | bool | The flag represents if the plugin does not check server certificate. | Functionality | Yes | false |
+| close\_body\_after\_pipeline | bool | The flag represents if to close the http body IO object after task finished the pipeline. | Functionality | Yes | true |  
 | request\_body\_buffer\_pattern | string | The HTTP output body buffer pattern. The option will be leveraged only when `request_body_io_key` option is empty. | Functionality | Yes | "" |
 | request\_body\_io\_key | string | The HTTP output body io object. | I/O | Yes | "" |
 | response\_code\_key | string | The key name of HTTP response status code value stored in internal storage as the plugin output. An empty value of the option means the plugin does not output HTTP response status code. | I/O | Yes | "" |
