@@ -292,7 +292,7 @@ func (gw *Gateway) loadPipelines() error {
 
 	err = gw.mod.LoadPipelines(specs)
 	if err != nil {
-		logger.Errorf("[load model fomr pipeline repository failed: %v]", err)
+		logger.Errorf("[load model form pipeline repository failed: %v]", err)
 		return err
 	}
 

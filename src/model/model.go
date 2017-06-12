@@ -122,17 +122,19 @@ func (m *Model) AddPlugin(typ string, conf plugins.Config,
 
 	err := conf.Prepare(pipelineNames)
 	if err != nil {
+		m.Unlock()
 		return nil, fmt.Errorf("add plugin %s failed: %v", pluginName, err)
 	}
 
 	if !plugins.ValidType(typ) {
+		m.Unlock()
 		return nil, fmt.Errorf("plugin type %s is invalid", typ)
 	}
 
 	_, exists := m.plugins[pluginName]
 	if exists {
 		logger.Errorf("[add plugin %v failed: duplicate plugin]", pluginName)
-		defer m.Unlock()
+		m.Unlock()
 		return nil, fmt.Errorf("duplicate plugin %s", pluginName)
 	}
 
@@ -276,6 +278,7 @@ func (m *Model) UpdatePluginConfig(conf plugins.Config) error {
 
 	err := conf.Prepare(pipelineNames)
 	if err != nil {
+		m.RUnlock()
 		return err
 	}
 
@@ -417,6 +420,8 @@ func (m *Model) AddPipeline(typ string, conf pipelines.Config) (*Pipeline, error
 		}
 
 		// Currently model internal allows to use plugin instance cross more than one pipeline.
+		// Can remove this check simply since there is no guarantee a plugin instance will be only used
+		// in a dedicated pipeline or serially runs in multiple pipelines. (comments at Plugin interface)
 		for pipelineName, pipeline := range m.pipelines {
 			if common.StrInSlice(pluginName, pipeline.Config().PluginNames()) {
 				m.Unlock()
