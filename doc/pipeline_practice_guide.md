@@ -697,16 +697,16 @@ Transfer-Encoding: chunked
 
 >**Note**:
 > * Under `weighted_round_robin` policy, the upstream with a zero weight will not get any chance to handle the request from the downstream. Therefore, if you gives a weight list of only zero value, the gateway will reject the plugin creation or update request with a proper error as a fast-failure. Fox example:
-```  
-$ curl http://127.0.0.1:9090/admin/v1/plugins -X PUT -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "UpstreamOutput", "config": {"plugin_name": "test-upstreamoutput1", "target_pipelines": ["test-upstream1", "test-upstream2"], "request_data_keys": ["HTTP_REQUEST_BODY_IO"], "route_policy": "weighted_round_robin", "target_weights": [0, 0]}}'
-HTTP/1.1 400 Bad Request
-Content-Type: application/json; charset=utf-8
-X-Powered-By: go-json-rest
-Date: Mon, 12 Jun 2017 06:25:29 GMT
-Content-Length: 91
-\r\n
-{"Error":"invalid target pipeline weights, one of them should be greater or equal to zero"}
-```
+> ```  
+> $ curl http://127.0.0.1:9090/admin/v1/plugins -X PUT -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "UpstreamOutput", "config": {"plugin_name": "test-upstreamoutput1", "target_pipelines": ["test-upstream1", "test-upstream2"], "request_data_keys": ["HTTP_REQUEST_BODY_IO"], "route_policy": "weighted_round_robin", "target_weights": [0, 0]}}'
+> HTTP/1.1 400 Bad Request
+> Content-Type: application/json; charset=utf-8
+> X-Powered-By: go-json-rest
+> Date: Mon, 12 Jun 2017 06:25:29 GMT
+> Content-Length: 91
+>
+> {"Error":"invalid target pipeline weights, one of them should be greater or equal to zero"}
+> ```
 > * The default weight of each upstream under `weighted_round_robin` policy is value 1, which means the behavior equals `round_robin` policy.
 
 Finally, let's check on a upstream timeout case.
