@@ -38,7 +38,6 @@ func roundRobinSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task
 }
 
 func weightedRoundRobinSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) string {
-
 	state, err := getWeightedRoundRobinSelectorState(ctx, u.Name(), u.instanceId, u.conf.TargetPipelineWeights)
 	if err != nil {
 		return randomSelector(u, ctx, t)
@@ -72,7 +71,18 @@ func weightedRandomSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t 
 }
 
 func leastWIPRequestsSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) string {
-	return "" // todo(zhiyan)
+	ret := u.conf.TargetPipelineNames[0]
+	leastWIP := ctx.CrossPipelineWIPRequestsCount(ret)
+
+	for idx := 1; idx < len(u.conf.TargetPipelineNames)-1; idx++ {
+		count := ctx.CrossPipelineWIPRequestsCount(u.conf.TargetPipelineNames[idx])
+		if count < leastWIP {
+			leastWIP = count
+			ret = u.conf.TargetPipelineNames[idx]
+		}
+	}
+
+	return ret
 }
 
 func hashSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) string {
