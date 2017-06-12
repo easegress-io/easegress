@@ -531,6 +531,16 @@ func (m *Model) UpdatePipelineConfig(conf pipelines.Config) error {
 			m.RUnlock()
 			return fmt.Errorf("plugin %s not found", pluginName)
 		}
+
+		// Currently model internal allows to use plugin instance cross more than one pipeline.
+		// Can remove this check simply since there is no guarantee a plugin instance will be only used
+		// in a dedicated pipeline or serially runs in multiple pipelines. (comments at Plugin interface)
+		for pipelineName, pipeline := range m.pipelines {
+			if common.StrInSlice(pluginName, pipeline.Config().PluginNames()) {
+				m.RUnlock()
+				return fmt.Errorf("plugin %s is used by pipeline %s", pluginName, pipelineName)
+			}
+		}
 	}
 
 	pipeline.UpdateConfig(conf)
