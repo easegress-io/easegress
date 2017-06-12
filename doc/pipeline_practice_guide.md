@@ -9,10 +9,11 @@ In this document, we would like to introduce follow pipelines from real practice
 | [Ease Monitor edge service](#ease-monitor-edge-service) | Runs an example HTTPS endpoint to receive an Ease Monitor data, processes it in the pipeline and sends prepared data to kafka finally. | Beginner |
 | [HTTP traffic throttling](#http-traffic-throttling) | Performs latency and throughput rate based traffic control. | Beginner |
 | [Service circuit breaking](#service-circuit-breaking) | As a protection function, once the service failures reach a certain threshold all further calls to the service will be returned with an error directly, and when the service recovery the breaking function will be disabled automatically. | Beginner |
-| [HTTP streamy proxy](#http-streamy-proxy) | Works as a streamy HTTP/HTTPS porxy between client and upstream | Beginner |
+| [HTTP streamy proxy](#http-streamy-proxy) | Works as a streamy HTTP/HTTPS proxy between client and upstream | Beginner |
+| [HTTP proxy with load routing](#http-proxy-with-load-routing) | Works as a streamy HTTP/HTTPS proxy between client and upstream with a route selection policy. Blue/Green deployment and A/B testing are example use cases. | Intermediate |
 | [HTTP proxy with caching](#http-proxy-with-caching) | Caches HTTP/HTTPS response for duplicated request | Intermediate |
-| [Service downgrading to protect critical service](#service-downgrading-to-protect-critical-service) | Under unexpected taffic which higher than planed, sacrifice the unimportant services but keep critical request is handled. | Intermediate |
-| [Flash sale event support](#flash-sale-event-support) | A pair of pipelines to support flash sale event. For e-Commerence, it means we have very low price items with limited stock, but have huge amount of people online compete on that. | Advanced |
+| [Service downgrading to protect critical service](#service-downgrading-to-protect-critical-service) | Under unexpected traffic which higher than planed, sacrifice the unimportant services but keep critical request is handled. | Intermediate |
+| [Flash sale event support](#flash-sale-event-support) | A pair of pipelines to support flash sale event. For e-Commerce, it means we have very low price items with limited stock, but have huge amount of people online compete on that. | Advanced |
 
 ## Ease Monitor edge service
 
@@ -263,7 +264,7 @@ Percentage of the requests served within a certain time (ms)
 
 In this case, we will prepare a pipeline to show you how to add such a service circuit breaking mechanism to Ease Monitor edge service. You can see we only need to create a plugin and add it to a certain position in to the pipeline easily.
 
->**Note**:<br>
+>**Note**:
 > To simulate upstream failure in the example, an assistant plugin is added to the pipeline, you need not it in the real case.
 
 ### Plugin
@@ -515,6 +516,260 @@ Transfer-Encoding: chunked
 <html><body>OK</body></html>
 ```
 
+## HTTP proxy with load routing
+
+In this case, you can see how three pipelines co-works together, downstream pipeline receives HTTP/HTTPS request and sends to one of two upstream pipelines selected by round_robin and weighted_round_robin policy. The upstream timeout case will be practiced as well.  
+
+
+### Plugin
+
+1. [HTTP input](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#http-input-plugin): To enable HTTP endpoint to receive RESTful request for upstream service.
+2. [HTTP output](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#http-output-plugin): Sending the body and headers to a certain endpoint of upstream RESTFul service.
+3. [Upstream output](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/upstream_output.go): To output request to an upstream pipeline and waits the response.
+4. [Downstream input](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/downstream_input.go): Handles downstream request to running pipeline as input and send the response back.
+
+Using follow [Administration API](https://github.com/hexdecteam/easegateway/blob/master/doc/admin_api_ref.swagger.yaml) calls to setup above plugins:
+
+```
+# For upstream #1
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "DownstreamInput", "config": {"plugin_name": "test-downstreamintpu1", "response_data_keys": ["response_code", "HTTP_RESP_BODY_IO"] }}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPOutput", "config": {"plugin_name": "test-httpoutput1", "url_pattern": "http://127.0.0.1:1122/abc", "header_patterns": {}, "method": "POST", "response_code_key": "response_code", "response_body_io_key": "HTTP_RESP_BODY_IO", "request_body_io_key": "HTTP_REQUEST_BODY_IO", "close_body_after_pipeline": false}}'
+
+# For upstream #2
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "DownstreamInput", "config": {"plugin_name": "test-downstreamintpu2", "response_data_keys": ["response_code", "HTTP_RESP_BODY_IO"] }}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPOutput", "config": {"plugin_name": "test-httpoutput2", "url_pattern": "http://127.0.0.1:3344/abc", "header_patterns": {}, "method": "POST", "response_code_key": "response_code", "response_body_io_key": "HTTP_RESP_BODY_IO", "request_body_io_key": "HTTP_REQUEST_BODY_IO", "close_body_after_pipeline": false}}'
+
+# For downstream, round_robin policy is used at this time
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPInput", "config": {"plugin_name": "test-httpinput", "url": "/test", "method": "GET", "headers_enum": {"name": ["bar", "bar1"]}, "request_body_io_key": "HTTP_REQUEST_BODY_IO", "response_code_key": "response_code", "response_body_io_key": "HTTP_RESP_BODY_IO"}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "UpstreamOutput", "config": {"plugin_name": "test-upstreamoutput1", "target_pipelines": ["test-upstream1", "test-upstream2"], "request_data_keys": ["HTTP_REQUEST_BODY_IO"], "route_policy": "round_robin"}}'
+
+```
+
+### Pipeline
+
+You can use follow [Administration API](https://github.com/hexdecteam/easegateway/blob/master/doc/admin_api_ref.swagger.yaml) calls to setup the pipeline:
+
+```
+# For upstream #1
+$ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "test-upstream1", "plugin_names": ["test-downstreamintpu1", "test-httpoutput1"], "parallelism": 10}}'
+
+# For upstream #2
+$ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "test-upstream2", "plugin_names": ["test-downstreamintpu2", "test-httpoutput2"], "parallelism": 10}}'
+
+# For downstream
+$curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "intput", "plugin_names": ["test-httpinput", "test-upstreamoutput1"], "parallelism": 10}}'
+
+```
+
+### Test
+
+A fake HTTP Server to serve the request for demo.
+
+```
+$ cat ~/server3.py
+from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
+import sys
+
+class WebServerHandler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        if self.path.endswith("/abc"):
+            content_len = int(self.headers.get('Content-Length', 0))
+            post_body = self.rfile.read(content_len)
+            print content_len, post_body
+            self.send_response(200)
+            self.send_header('Content-type', 'text/html')
+            self.end_headers()
+            message = "<html><body>OK - %s</body></html>" % sys.argv[1]
+            self.wfile.write(message)
+            return
+
+def main():
+    try:
+        port = int(sys.argv[1])
+        server = HTTPServer(('127.0.0.1', port), WebServerHandler)
+        print "Web Server running on port %s" % port
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print " ^C entered, stopping web server...."
+        server.socket.close()
+
+main()
+
+$ python ~/server3.py 1122
+$ python ~/server3.py 3344 # in a different terminal
+```
+
+Sending out client requests to the proxy endpoint we created by above commands.
+
+```
+$ curl -i -k http://127.0.0.1:10080/test -X GET -i -w "\n" -H "name:bar" -d "$LOAD"
+HTTP/1.1 200 OK
+Date: Mon, 12 Jun 2017 06:24:59 GMT
+Content-Type: text/html; charset=utf-8
+Transfer-Encoding: chunked
+
+<html><body>OK - 1122</body></html>
+$ curl -i -k http://127.0.0.1:10080/test -X GET -i -w "\n" -H "name:bar" -d "$LOAD"
+HTTP/1.1 200 OK
+Date: Mon, 12 Jun 2017 06:25:00 GMT
+Content-Type: text/html; charset=utf-8
+Transfer-Encoding: chunked
+
+<html><body>OK - 3344</body></html>
+$ curl -i -k http://127.0.0.1:10080/test -X GET -i -w "\n" -H "name:bar" -d "$LOAD"
+HTTP/1.1 200 OK
+Date: Mon, 12 Jun 2017 06:25:00 GMT
+Content-Type: text/html; charset=utf-8
+Transfer-Encoding: chunked
+
+<html><body>OK - 1122</body></html>
+$ curl -i -k http://127.0.0.1:10080/test -X GET -i -w "\n" -H "name:bar" -d "$LOAD"
+HTTP/1.1 200 OK
+Date: Mon, 12 Jun 2017 06:25:01 GMT
+Content-Type: text/html; charset=utf-8
+Transfer-Encoding: chunked
+
+<html><body>OK - 3344</body></html>
+$ curl -i -k http://127.0.0.1:10080/test -X GET -i -w "\n" -H "name:bar" -d "$LOAD"
+HTTP/1.1 200 OK
+Date: Mon, 12 Jun 2017 06:25:01 GMT
+Content-Type: text/html; charset=utf-8
+Transfer-Encoding: chunked
+
+<html><body>OK - 1122</body></html>
+$ curl -i -k http://127.0.0.1:10080/test -X GET -i -w "\n" -H "name:bar" -d "$LOAD"
+HTTP/1.1 200 OK
+Date: Mon, 12 Jun 2017 06:25:02 GMT
+Content-Type: text/html; charset=utf-8
+Transfer-Encoding: chunked
+
+<html><body>OK - 3344</body></html>
+```
+
+Let's take a look on the result with `weighted_round_robin` policy.
+
+```
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X PUT -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "UpstreamOutput", "config": {"plugin_name": "test-upstreamoutput1", "target_pipelines": ["test-upstream1", "test-upstream2"], "request_data_keys": ["HTTP_REQUEST_BODY_IO"], "route_policy": "weighted_round_robin", "target_weights": [2, 1]}}'
+
+$ curl -i -k http://127.0.0.1:10080/test -X GET -i -w "\n" -H "name:bar" -d "$LOAD"
+HTTP/1.1 200 OK
+Date: Mon, 12 Jun 2017 06:26:22 GMT
+Content-Type: text/html; charset=utf-8
+Transfer-Encoding: chunked
+
+<html><body>OK - 1122</body></html>
+$ curl -i -k http://127.0.0.1:10080/test -X GET -i -w "\n" -H "name:bar" -d "$LOAD"
+HTTP/1.1 200 OK
+Date: Mon, 12 Jun 2017 06:26:23 GMT
+Content-Type: text/html; charset=utf-8
+Transfer-Encoding: chunked
+
+<html><body>OK - 1122</body></html>
+$ curl -i -k http://127.0.0.1:10080/test -X GET -i -w "\n" -H "name:bar" -d "$LOAD"
+HTTP/1.1 200 OK
+Date: Mon, 12 Jun 2017 06:26:24 GMT
+Content-Type: text/html; charset=utf-8
+Transfer-Encoding: chunked
+
+<html><body>OK - 3344</body></html>
+$ curl -i -k http://127.0.0.1:10080/test -X GET -i -w "\n" -H "name:bar" -d "$LOAD"
+HTTP/1.1 200 OK
+Date: Mon, 12 Jun 2017 06:26:25 GMT
+Content-Type: text/html; charset=utf-8
+Transfer-Encoding: chunked
+
+<html><body>OK - 1122</body></html>
+$ curl -i -k http://127.0.0.1:10080/test -X GET -i -w "\n" -H "name:bar" -d "$LOAD"
+HTTP/1.1 200 OK
+Date: Mon, 12 Jun 2017 06:26:25 GMT
+Content-Type: text/html; charset=utf-8
+Transfer-Encoding: chunked
+
+<html><body>OK - 1122</body></html>
+$ curl -i -k http://127.0.0.1:10080/test -X GET -i -w "\n" -H "name:bar" -d "$LOAD"
+HTTP/1.1 200 OK
+Date: Mon, 12 Jun 2017 06:26:26 GMT
+Content-Type: text/html; charset=utf-8
+Transfer-Encoding: chunked
+
+<html><body>OK - 3344</body></html>
+```
+
+>**Note**:
+> * Under `weighted_round_robin` policy, the upstream with a zero weight will not get any chance to handle the request from the downstream. Therefore, if you gives a weight list of only zero value, the gateway will reject the plugin creation or update request with a proper error as a fast-failure. Fox example:
+```  
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X PUT -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "UpstreamOutput", "config": {"plugin_name": "test-upstreamoutput1", "target_pipelines": ["test-upstream1", "test-upstream2"], "request_data_keys": ["HTTP_REQUEST_BODY_IO"], "route_policy": "weighted_round_robin", "target_weights": [0, 0]}}'
+HTTP/1.1 400 Bad Request
+Content-Type: application/json; charset=utf-8
+X-Powered-By: go-json-rest
+Date: Mon, 12 Jun 2017 06:25:29 GMT
+Content-Length: 91
+\r\n
+{"Error":"invalid target pipeline weights, one of them should be greater or equal to zero"}
+```
+> * The default weight of each upstream under `weighted_round_robin` policy is value 1, which means the behavior equals `round_robin` policy.
+
+Finally, let's check on a upstream timeout case.
+
+A fake HTTP Server to serve the request for demo, this time we add a 5 seconds sleep to simulate upstream response timeout.
+
+```
+$ cat ~/server3.py
+
+from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
+import sys
+import time
+
+class WebServerHandler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        time.sleep(5)
+        if self.path.endswith("/abc"):
+            content_len = int(self.headers.get('Content-Length', 0))
+            post_body = self.rfile.read(content_len)
+            print content_len, post_body
+            self.send_response(200)
+            self.send_header('Content-type', 'text/html')
+            self.end_headers()
+            message = "<html><body>OK - %s</body></html>" % sys.argv[1]
+            self.wfile.write(message)
+            return
+
+def main():
+    try:
+        port = int(sys.argv[1])
+        server = HTTPServer(('127.0.0.1', port), WebServerHandler)
+        print "Web Server running on port %s" % port
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print " ^C entered, stopping web server...."
+        server.socket.close()
+
+main()
+
+$ python ~/server3.py 1122
+$ python ~/server3.py 3344 # in a different terminal
+```
+
+Sending out client requests to the proxy endpoint we created by above commands.
+
+```
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X PUT -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "UpstreamOutput", "config": {"plugin_name": "test-upstreamoutput1", "target_pipelines": ["test-upstream1", "test-upstream2"], "request_data_keys": ["HTTP_REQUEST_BODY_IO"], "route_policy": "round_robin", "timeout_sec": 2}}'
+
+$ curl -i -k http://127.0.0.1:10080/test -X GET -i -w "\n" -H "name:bar" -d "$LOAD"
+HTTP/1.1 503 Service Unavailable
+Date: Mon, 12 Jun 2017 06:40:41 GMT
+Content-Type: text/plain; charset=utf-8
+Transfer-Encoding: chunked
+```
+
+At the moment we can see such logs have been outputted by gateway server like following.
+
+```
+WARN[2017-06-12T14:42:02+08:00] [plugin test-upstreamoutput1 in pipeline intput execution failure, resultcode=503, error="upstream is timeout after 2 second(s)"]  source="linear.go#186-model.(*linearPipeline).Run"
+WARN[2017-06-12T14:42:02+08:00] [http request processed unsuccesfully, result code: 503, error: upstream is timeout after 2 second(s)]  source="http_input.go#382-plugins.(*httpInput).receive.func3"
+ERRO[2017-06-12T14:42:05+08:00] [respond downstream pipeline test-upstreamoutput1 failed: request from pipeline test-upstreamoutput1 was closed]  source="downstream_input.go#92-plugins.(*downstreamInput).Run.func1"
+```
+
 ## HTTP proxy with caching
 
 In this case, you can see how a pipeline act a HTTP/HTTPS proxy and how to add a cache layer between input and upstream. The cache function is used to improve the performance of RESTful service automatically.
@@ -737,7 +992,7 @@ Percentage of the requests served within a certain time (ms)
 
 ## Flash sale event support
 
-In a flash sale event of e-Commerence case, the behaviors between user and website are like these:
+In a flash sale event of e-Commerce case, the behaviors between user and website are like these:
 
 1. Before the flash sale event starts, many users open the event page of the website and prepare to click the order link. At the moment the order link is under disable status since event is not started.
 2. After the flash sale event starts, users click the order link and a large number of the order requests are sent to the website, and website handles the requests as much as posible on the basis of the service availability.
