@@ -24,7 +24,7 @@ type httpOutputConfig struct {
 	CommonConfig
 	URLPattern               string            `json:"url_pattern"`
 	HeaderPatterns           map[string]string `json:"header_patterns"`
-	RequestBodyIOKey         string            `json:"request_body_io_key"`
+	Close                    bool              `json:"close_body_after_pipeline"`
 	RequestBodyBufferPattern string            `json:"request_body_buffer_pattern"`
 	Method                   string            `json:"method"`
 	TimeoutSec               uint16            `json:"timeout_sec"` // up to 65535, zero means no timeout
@@ -33,6 +33,7 @@ type httpOutputConfig struct {
 	CAFile                   string            `json:"ca_file"`
 	Insecure                 bool              `json:"insecure_tls"`
 
+	RequestBodyIOKey  string `json:"request_body_io_key"`
 	ResponseCodeKey   string `json:"response_code_key"`
 	ResponseBodyIOKey string `json:"response_body_io_key"`
 
@@ -46,6 +47,7 @@ func HTTPOutputConfigConstructor() Config {
 
 	return &httpOutputConfig{
 		TimeoutSec: 120,
+		Close:      true,
 	}
 }
 
@@ -283,13 +285,16 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task,
 		}
 	}
 
-	closeHttpOutputResponseBody := func(t1 task.Task, _ task.TaskStatus) {
-		t1.DeleteFinishedCallback(fmt.Sprintf("%s-closeHttpOutputResponseBody", h.Name()))
+	if h.conf.Close {
+		closeHttpOutputResponseBody := func(t1 task.Task, _ task.TaskStatus) {
+			t1.DeleteFinishedCallback(fmt.Sprintf("%s-closeHttpOutputResponseBody", h.Name()))
 
-		resp.Body.Close()
+			resp.Body.Close()
+		}
+
+		t.AddFinishedCallback(fmt.Sprintf("%s-closeHttpOutputResponseBody", h.Name()),
+			closeHttpOutputResponseBody)
 	}
-
-	t.AddFinishedCallback(fmt.Sprintf("%s-closeHttpOutputResponseBody", h.Name()), closeHttpOutputResponseBody)
 
 	return t, nil
 }
