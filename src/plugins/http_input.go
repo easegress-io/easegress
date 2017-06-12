@@ -281,7 +281,7 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 			return fmt.Errorf("task is cancelled by %s", t.CancelCause()), task.ResultTaskCancelled, t
 		}
 
-		responseCaller := func(t1 task.Task, _ task.TaskStatus) {
+		respondCaller := func(t1 task.Task, _ task.TaskStatus) {
 			t1.DeleteFinishedCallback(fmt.Sprintf("%s-responseCaller", h.Name()))
 
 			select {
@@ -415,7 +415,7 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 			}
 		}
 
-		t.AddFinishedCallback(fmt.Sprintf("%s-responseCaller", h.Name()), responseCaller)
+		t.AddFinishedCallback(fmt.Sprintf("%s-responseCaller", h.Name()), respondCaller)
 		t.AddFinishedCallback(fmt.Sprintf("%s-closeHttpInputRequestBody", h.Name()), closeHttpInputRequestBody)
 		t.AddFinishedCallback(fmt.Sprintf("%s-logRequest", h.Name()), logRequest)
 		t.AddFinishedCallback(fmt.Sprintf("%s-shrinkWipRequestCounter", h.Name()), shrinkWipRequestCounter)
