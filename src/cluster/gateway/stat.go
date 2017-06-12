@@ -3,6 +3,7 @@ package gateway
 import (
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"sort"
 	"time"
 
@@ -10,6 +11,165 @@ import (
 	"logger"
 )
 
+// for api
+func (gc *GatewayCluster) chooseMembertoAggregateStat(group string) (string, error) {
+	totalMembers := gc.cluster.Members()
+	writeMember := ""
+	readMembers := make([]string, 0)
+	for _, member := range totalMembers {
+		if member.NodeTags[groupTagKey] == group &&
+			member.Status == cluster.MemberAlive {
+			if member.NodeTags[modeTagKey] == ReadMode.String() {
+				readMembers = append(readMembers, member.NodeName)
+			} else {
+				writeMember = member.NodeName
+			}
+		}
+	}
+
+	// prefer to choose ReadMode member in order to reduce load of WriteMode member
+	if len(readMembers) > 0 {
+		rand.Seed(time.Now().UnixNano())
+		return readMembers[rand.Int()%len(readMembers)], nil
+	}
+
+	// have to choose only alive WriteMode member
+	if len(writeMember) > 0 {
+		return writeMember, nil
+	}
+
+	return "", fmt.Errorf("none of members is alive")
+}
+
+func (gc *GatewayCluster) issueStat(group string, timeout time.Duration,
+	requestName string, filter interface{}) ([]byte, error) {
+	req := ReqStat{
+		Timeout: timeout,
+	}
+	switch filter := filter.(type) {
+	case FilterPipelineIndicatorNames:
+		req.FilterPipelineIndicatorNames = &FilterPipelineIndicatorNames{
+			PipelineName: filter.PipelineName,
+		}
+	case FilterPipelineIndicatorValue:
+		req.FilterPipelineIndicatorValue = &FilterPipelineIndicatorValue{
+			PipelineName:  filter.PipelineName,
+			IndicatorName: filter.IndicatorName,
+		}
+	case FilterPipelineIndicatorDesc:
+		req.FilterPipelineIndicatorDesc = &FilterPipelineIndicatorDesc{
+			PipelineName:  filter.PipelineName,
+			IndicatorName: filter.IndicatorName,
+		}
+
+	case FilterPluginIndicatorNames:
+		req.FilterPluginIndicatorNames = &FilterPluginIndicatorNames{
+			PipelineName: filter.PipelineName,
+			PluginName:   filter.PluginName,
+		}
+	case FilterPluginIndicatorValue:
+		req.FilterPluginIndicatorValue = &FilterPluginIndicatorValue{
+			PipelineName:  filter.PipelineName,
+			PluginName:    filter.PluginName,
+			IndicatorName: filter.IndicatorName,
+		}
+	case FilterPluginIndicatorDesc:
+		req.FilterPluginIndicatorDesc = &FilterPluginIndicatorDesc{
+			PipelineName:  filter.PipelineName,
+			PluginName:    filter.PluginName,
+			IndicatorName: filter.IndicatorName,
+		}
+
+	case FilterTaskIndicatorNames:
+		req.FilterTaskIndicatorNames = &FilterTaskIndicatorNames{
+			PipelineName: filter.PipelineName,
+		}
+	case FilterTaskIndicatorValue:
+		req.FilterTaskIndicatorValue = &FilterTaskIndicatorValue{
+			PipelineName:  filter.PipelineName,
+			IndicatorName: filter.IndicatorName,
+		}
+	case FilterTaskIndicatorDesc:
+		req.FilterTaskIndicatorDesc = &FilterTaskIndicatorDesc{
+			PipelineName:  filter.PipelineName,
+			IndicatorName: filter.IndicatorName,
+		}
+	default:
+		return nil, fmt.Errorf("unsupported filter type")
+	}
+
+	requestPayload, err := cluster.PackWithHeader(req, uint8(statMessage))
+	if err != nil {
+		return nil, err
+	}
+	targetMember, err := gc.chooseMembertoAggregateStat(group)
+	if err != nil {
+		return nil, err
+	}
+	requestParam := cluster.RequestParam{
+		TargetNodeNames: []string{targetMember},
+		TargetNodeTags: map[string]string{
+			groupTagKey: group,
+		},
+		Timeout: timeout,
+	}
+
+	future, err := gc.cluster.Request(requestName, requestPayload, &requestParam)
+	if err != nil {
+		return nil, err
+	}
+
+	memberResp, ok := <-future.Response()
+	if !ok {
+		return nil, fmt.Errorf("timeout")
+	}
+	if len(memberResp.Payload) < 1 {
+		return nil, fmt.Errorf("empty response")
+	}
+
+	var resp RespStat
+	err = cluster.Unpack(memberResp.Payload[1:], &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.Err != nil {
+		return nil, fmt.Errorf("%s", resp.Err.Message)
+	}
+
+	var result []byte
+	switch filter.(type) {
+	case FilterPipelineIndicatorNames:
+		result = resp.Names
+	case FilterPipelineIndicatorValue:
+		result = resp.Value
+	case FilterPipelineIndicatorDesc:
+		result = resp.Desc
+
+	case FilterPluginIndicatorNames:
+		result = resp.Names
+	case FilterPluginIndicatorValue:
+		result = resp.Value
+	case FilterPluginIndicatorDesc:
+		result = resp.Desc
+
+	case FilterTaskIndicatorNames:
+		result = resp.Names
+	case FilterTaskIndicatorValue:
+		result = resp.Value
+	case FilterTaskIndicatorDesc:
+		result = resp.Desc
+	default:
+		return nil, fmt.Errorf("unsupported filter type")
+	}
+	if result == nil {
+		return nil, fmt.Errorf("empty result")
+	}
+
+	return result, nil
+}
+
+// for core
 func unpackReqStat(payload []byte) (*ReqStat, error) {
 	reqStat := new(ReqStat)
 	err := cluster.Unpack(payload, reqStat)

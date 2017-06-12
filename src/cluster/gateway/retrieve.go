@@ -76,31 +76,24 @@ func (gc *GatewayCluster) issueRetrieve(group string, syncAll bool, timeout time
 		return nil, fmt.Errorf("%s", resp.Err.Message)
 	}
 
+	var result []byte
 	switch filter.(type) {
 	case FilterRetrievePlugins:
-		if resp.ResultRetrievePlugins == nil {
-			return nil, fmt.Errorf("empty result")
-		}
-		return resp.ResultRetrievePlugins, nil
+		result = resp.ResultRetrievePlugins
 	case FilterRetrievePipelines:
-		if resp.ResultRetrievePipelines == nil {
-			return nil, fmt.Errorf("empty result")
-		}
-		return resp.ResultRetrievePipelines, nil
+		result = resp.ResultRetrievePipelines
 	case FilterRetrievePluginTypes:
-		if resp.ResultRetrievePluginTypes == nil {
-			return nil, fmt.Errorf("empty result")
-		}
-		return resp.ResultRetrievePluginTypes, nil
+		result = resp.ResultRetrievePluginTypes
 	case FilterRetrievePipelineTypes:
-		if resp.ResultRetrievePipelineTypes == nil {
-			return nil, fmt.Errorf("empty result")
-		}
-		return resp.ResultRetrievePipelineTypes, nil
+		result = resp.ResultRetrievePipelineTypes
 	default:
 		return nil, fmt.Errorf("unsupported filter type")
 
 	}
+	if result == nil {
+		return nil, fmt.Errorf("empty result")
+	}
+	return result, nil
 }
 
 // for core

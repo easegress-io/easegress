@@ -122,45 +122,99 @@ func (gc *GatewayCluster) RetrievePipelineTypes(group string, syncAll bool, time
 // stat
 func (gc *GatewayCluster) StatPipelineIndicatorNames(group string, timeout time.Duration,
 	pipelineName string) ([]byte, error) {
-	return nil, nil
+	filter := FilterPipelineIndicatorNames{
+		PipelineName: pipelineName,
+	}
+
+	requestName := fmt.Sprintf("(group(%s)stat_pipleine_indicator_names)", group)
+	return gc.issueStat(group, timeout, requestName, filter)
 }
 
 func (gc *GatewayCluster) StatPipelineIndicatorValue(group string, timeout time.Duration,
 	pipelineName, indicatorName string) ([]byte, error) {
-	return nil, nil
+	filter := FilterPipelineIndicatorValue{
+		PipelineName:  pipelineName,
+		IndicatorName: indicatorName,
+	}
+
+	requestName := fmt.Sprintf("(group(%s)stat_pipleine_indicator_value)", group)
+	return gc.issueStat(group, timeout, requestName, filter)
 }
 
 func (gc *GatewayCluster) StatPipelineIndicatorDesc(group string, timeout time.Duration,
 	pipelineName, indicatorName string) ([]byte, error) {
-	return nil, nil
+	filter := FilterPipelineIndicatorDesc{
+		PipelineName:  pipelineName,
+		IndicatorName: indicatorName,
+	}
+
+	requestName := fmt.Sprintf("(group(%s)stat_pipleine_indicator_desc)", group)
+	return gc.issueStat(group, timeout, requestName, filter)
 }
 
 func (gc *GatewayCluster) StatPluginIndicatorNames(group string, timeout time.Duration,
 	pipelineName, pluginName string) ([]byte, error) {
-	return nil, nil
+	filter := FilterPluginIndicatorNames{
+		PipelineName: pipelineName,
+		PluginName:   pluginName,
+	}
+
+	requestName := fmt.Sprintf("(group(%s)stat_plugin_indicator_names)", group)
+	return gc.issueStat(group, timeout, requestName, filter)
 }
 
 func (gc *GatewayCluster) StatPluginIndicatorValue(group string, timeout time.Duration,
 	pipelineName, pluginName, indicatorName string) ([]byte, error) {
-	return nil, nil
+	filter := FilterPluginIndicatorValue{
+		PipelineName:  pipelineName,
+		PluginName:    pluginName,
+		IndicatorName: indicatorName,
+	}
+
+	requestName := fmt.Sprintf("(group(%s)stat_plugin_indicator_value)", group)
+	return gc.issueStat(group, timeout, requestName, filter)
 }
 
 func (gc *GatewayCluster) StatPluginIndicatorDesc(group string, timeout time.Duration,
 	pipelineName, pluginName, indicatorName string) ([]byte, error) {
-	return nil, nil
+	filter := FilterPluginIndicatorDesc{
+		PipelineName:  pipelineName,
+		PluginName:    pluginName,
+		IndicatorName: indicatorName,
+	}
+
+	requestName := fmt.Sprintf("(group(%s)stat_plugin_indicator_desc)", group)
+	return gc.issueStat(group, timeout, requestName, filter)
 }
 
 func (gc *GatewayCluster) StatTaskIndicatorNames(group string, timeout time.Duration,
 	pipelineName string) ([]byte, error) {
-	return nil, nil
+	filter := FilterTaskIndicatorNames{
+		PipelineName: pipelineName,
+	}
+
+	requestName := fmt.Sprintf("(group(%s)stat_task_indicator_names)", group)
+	return gc.issueStat(group, timeout, requestName, filter)
 }
 
 func (gc *GatewayCluster) StatTaskIndicatorValue(group string, timeout time.Duration,
 	pipelineName, indicatorName string) ([]byte, error) {
-	return nil, nil
+	filter := FilterTaskIndicatorValue{
+		PipelineName:  pipelineName,
+		IndicatorName: indicatorName,
+	}
+
+	requestName := fmt.Sprintf("(group(%s)stat_task_indicator_value)", group)
+	return gc.issueStat(group, timeout, requestName, filter)
 }
 
 func (gc *GatewayCluster) StatTaskIndicatorDesc(group string, timeout time.Duration,
 	pipelineName, indicatorName string) ([]byte, error) {
-	return nil, nil
+	filter := FilterTaskIndicatorDesc{
+		PipelineName:  pipelineName,
+		IndicatorName: indicatorName,
+	}
+
+	requestName := fmt.Sprintf("(group(%s)stat_task_indicator_desc)", group)
+	return gc.issueStat(group, timeout, requestName, filter)
 }
