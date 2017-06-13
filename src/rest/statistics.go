@@ -24,33 +24,32 @@ func newStatisticsServer(gateway *engine.Gateway) (*statisticsServer, error) {
 }
 
 func (s *statisticsServer) Api() (*rest.Api, error) {
+	pav := common.PrefixAPIVersion
 	router, err := rest.MakeRouter(
-		rest.Get(common.PrefixAPIVersion("/pipelines/#pipelineName/plugins/#pluginName/indicators"),
+		rest.Get(pav("/pipelines/#pipelineName/plugins/#pluginName/indicators"),
 			s.retrievePluginIndicatorNames),
-		rest.Get(common.PrefixAPIVersion(
-			"/pipelines/#pipelineName/plugins/#pluginName/indicators/#indicatorName/value"),
+		rest.Get(pav("/pipelines/#pipelineName/plugins/#pluginName/indicators/#indicatorName/value"),
 			s.retrievePluginIndicatorValue),
-		rest.Get(common.PrefixAPIVersion(
-			"/pipelines/#pipelineName/plugins/#pluginName/indicators/#indicatorName/desc"),
+		rest.Get(pav("/pipelines/#pipelineName/plugins/#pluginName/indicators/#indicatorName/desc"),
 			s.retrievePluginIndicatorDesc),
 
-		rest.Get(common.PrefixAPIVersion("/pipelines/#pipelineName/indicators"),
+		rest.Get(pav("/pipelines/#pipelineName/indicators"),
 			s.retrievePipelineIndicatorNames),
-		rest.Get(common.PrefixAPIVersion("/pipelines/#pipelineName/indicators/#indicatorName/value"),
+		rest.Get(pav("/pipelines/#pipelineName/indicators/#indicatorName/value"),
 			s.retrievePipelineIndicatorValue),
-		rest.Get(common.PrefixAPIVersion("/pipelines/#pipelineName/indicators/#indicatorName/desc"),
+		rest.Get(pav("/pipelines/#pipelineName/indicators/#indicatorName/desc"),
 			s.retrievePipelineIndicatorDesc),
 
-		rest.Get(common.PrefixAPIVersion("/pipelines/#pipelineName/task/indicators"),
+		rest.Get(pav("/pipelines/#pipelineName/task/indicators"),
 			s.retrievePipelineTaskIndicatorNames),
-		rest.Get(common.PrefixAPIVersion("/pipelines/#pipelineName/task/indicators/#indicatorName/value"),
+		rest.Get(pav("/pipelines/#pipelineName/task/indicators/#indicatorName/value"),
 			s.retrievePipelineTaskIndicatorValue),
-		rest.Get(common.PrefixAPIVersion("/pipelines/#pipelineName/task/indicators/#indicatorName/desc"),
+		rest.Get(pav("/pipelines/#pipelineName/task/indicators/#indicatorName/desc"),
 			s.retrievePipelineTaskIndicatorDesc),
 
-		rest.Get(common.PrefixAPIVersion("/gateway/uptime"), s.retrieveGatewayUpTime),
-		rest.Get(common.PrefixAPIVersion("/gateway/rusage"), s.retrieveGatewaySysResUsage),
-		rest.Get(common.PrefixAPIVersion("/gateway/loadavg"), s.retrieveGatewaySysAverageLoad),
+		rest.Get(pav("/gateway/uptime"), s.retrieveGatewayUpTime),
+		rest.Get(pav("/gateway/rusage"), s.retrieveGatewaySysResUsage),
+		rest.Get(pav("/gateway/loadavg"), s.retrieveGatewaySysAverageLoad),
 	)
 
 	if err != nil {

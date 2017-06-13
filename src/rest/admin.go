@@ -29,21 +29,22 @@ func newAdminServer(gateway *engine.Gateway) (*adminServer, error) {
 }
 
 func (s *adminServer) Api() (*rest.Api, error) {
+	pav := common.PrefixAPIVersion
 	router, err := rest.MakeRouter(
-		rest.Post(common.PrefixAPIVersion("/plugins"), s.createPlugin),
-		rest.Get(common.PrefixAPIVersion("/plugins"), s.retrievePlugins),
-		rest.Get(common.PrefixAPIVersion("/plugins/#pluginName"), s.retrievePlugin),
-		rest.Put(common.PrefixAPIVersion("/plugins"), s.updatePlugin),
-		rest.Delete(common.PrefixAPIVersion("/plugins/#pluginName"), s.deletePlugin),
+		rest.Post(pav("/plugins"), s.createPlugin),
+		rest.Get(pav("/plugins"), s.retrievePlugins),
+		rest.Get(pav("/plugins/#pluginName"), s.retrievePlugin),
+		rest.Put(pav("/plugins"), s.updatePlugin),
+		rest.Delete(pav("/plugins/#pluginName"), s.deletePlugin),
 
-		rest.Post(common.PrefixAPIVersion("/pipelines"), s.createPipeline),
-		rest.Get(common.PrefixAPIVersion("/pipelines"), s.retrievePipelines),
-		rest.Get(common.PrefixAPIVersion("/pipelines/#pipelineName"), s.retrievePipeline),
-		rest.Put(common.PrefixAPIVersion("/pipelines"), s.updatePipeline),
-		rest.Delete(common.PrefixAPIVersion("/pipelines/#pipelineName"), s.deletePipeline),
+		rest.Post(pav("/pipelines"), s.createPipeline),
+		rest.Get(pav("/pipelines"), s.retrievePipelines),
+		rest.Get(pav("/pipelines/#pipelineName"), s.retrievePipeline),
+		rest.Put(pav("/pipelines"), s.updatePipeline),
+		rest.Delete(pav("/pipelines/#pipelineName"), s.deletePipeline),
 
-		rest.Get(common.PrefixAPIVersion("/plugin-types"), s.retrievePluginTypes),
-		rest.Get(common.PrefixAPIVersion("/pipeline-types"), s.retrievePipelineTypes),
+		rest.Get(pav("/plugin-types"), s.retrievePluginTypes),
+		rest.Get(pav("/pipeline-types"), s.retrievePipelineTypes),
 	)
 
 	if err != nil {
