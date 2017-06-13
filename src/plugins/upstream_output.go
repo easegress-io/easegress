@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"fmt"
+	"hash/fnv"
 	"math/rand"
 	"strings"
 	"sync"
@@ -103,7 +104,18 @@ func leastWIPRequestsSelector(u *upstreamOutput, ctx pipelines.PipelineContext, 
 }
 
 func hashSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) string {
-	return "" // todo(zhiyan)
+	h := fnv.New32a()
+
+	for _, key := range u.conf.ValueHashedKeys {
+		v := t.Value(key)
+		if v == nil {
+			continue
+		}
+
+		h.Write([]byte(task.ToString(v)))
+	}
+
+	return u.conf.TargetPipelineNames[h.Sum32()%uint32(len(u.conf.TargetPipelineNames))]
 }
 
 ////
@@ -118,7 +130,7 @@ type upstreamOutputConfig struct {
 	// for weighted_round_robin and weighted_random policies
 	TargetPipelineWeights []uint16 `json:"target_weights"` // weight up to 65535, 0 based
 	// for hash policy
-	ValueHashedKey string `json:"value_hashed_key"`
+	ValueHashedKeys []string `json:"value_hashed_keys"`
 
 	selector routeSelector
 }
@@ -146,7 +158,6 @@ func (c *upstreamOutputConfig) Prepare(pipelineNames []string) error {
 
 	ts := strings.TrimSpace
 	c.RoutePolicy = ts(c.RoutePolicy)
-	c.ValueHashedKey = ts(c.ValueHashedKey)
 
 	if len(c.TargetPipelineNames) == 0 {
 		return fmt.Errorf("invalid upstream pipelines")
@@ -184,7 +195,7 @@ func (c *upstreamOutputConfig) Prepare(pipelineNames []string) error {
 		}
 	}
 
-	if c.RoutePolicy == "hash" && len(c.ValueHashedKey) == 0 {
+	if c.RoutePolicy == "hash" && len(c.ValueHashedKeys) == 0 {
 		return fmt.Errorf("invalid hash key")
 	}
 
