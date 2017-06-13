@@ -7,7 +7,7 @@ import (
 
 // operation
 func (gc *GatewayCluster) CreatePlugin(group string, syncAll bool, timeout time.Duration,
-	typ string, conf []byte) error {
+	typ string, conf []byte) *HTTPError {
 	operation := Operation{
 		ContentCreatePlugin: &ContentCreatePlugin{
 			Type:   typ,
@@ -20,7 +20,7 @@ func (gc *GatewayCluster) CreatePlugin(group string, syncAll bool, timeout time.
 }
 
 func (gc *GatewayCluster) UpdatePlugin(group string, syncAll bool, timeout time.Duration,
-	typ string, conf []byte) error {
+	typ string, conf []byte) *HTTPError {
 	operation := Operation{
 		ContentUpdatePlugin: &ContentUpdatePlugin{
 			Type:   typ,
@@ -33,7 +33,7 @@ func (gc *GatewayCluster) UpdatePlugin(group string, syncAll bool, timeout time.
 }
 
 func (gc *GatewayCluster) DeletePlugin(group string, syncAll bool, timeout time.Duration,
-	name string) error {
+	name string) *HTTPError {
 	operation := Operation{
 		ContentDeletePlugin: &ContentDeletePlugin{
 			Name: name,
@@ -45,7 +45,7 @@ func (gc *GatewayCluster) DeletePlugin(group string, syncAll bool, timeout time.
 }
 
 func (gc *GatewayCluster) CreatePipeline(group string, syncAll bool, timeout time.Duration,
-	typ string, conf []byte) error {
+	typ string, conf []byte) *HTTPError {
 	operation := Operation{
 		ContentCreatePipeline: &ContentCreatePipeline{
 			Type:   typ,
@@ -58,7 +58,7 @@ func (gc *GatewayCluster) CreatePipeline(group string, syncAll bool, timeout tim
 }
 
 func (gc *GatewayCluster) UpdatePipeline(group string, syncAll bool, timeout time.Duration,
-	typ string, conf []byte) error {
+	typ string, conf []byte) *HTTPError {
 	operation := Operation{
 		ContentUpdatePipeline: &ContentUpdatePipeline{
 			Type:   typ,
@@ -71,7 +71,7 @@ func (gc *GatewayCluster) UpdatePipeline(group string, syncAll bool, timeout tim
 }
 
 func (gc *GatewayCluster) DeletePipeline(group string, syncAll bool, timeout time.Duration,
-	name string) error {
+	name string) *HTTPError {
 	operation := Operation{
 		ContentDeletePipeline: &ContentDeletePipeline{
 			Name: name,
@@ -84,7 +84,7 @@ func (gc *GatewayCluster) DeletePipeline(group string, syncAll bool, timeout tim
 
 // retrive
 func (gc *GatewayCluster) RetrievePlugins(group string, syncAll bool, timeout time.Duration,
-	NamePattern string, types []string) ([]byte, error) {
+	NamePattern string, types []string) ([]byte, *HTTPError) {
 	filter := FilterRetrievePlugins{
 		NamePattern: NamePattern,
 		Types:       types,
@@ -95,7 +95,7 @@ func (gc *GatewayCluster) RetrievePlugins(group string, syncAll bool, timeout ti
 }
 
 func (gc *GatewayCluster) RetrievePipelines(group string, syncAll bool, timeout time.Duration,
-	NamePattern string, types []string) ([]byte, error) {
+	NamePattern string, types []string) ([]byte, *HTTPError) {
 	filter := FilterRetrievePipelines{
 		NamePattern: NamePattern,
 		Types:       types,
@@ -105,14 +105,14 @@ func (gc *GatewayCluster) RetrievePipelines(group string, syncAll bool, timeout 
 	return gc.issueRetrieve(group, syncAll, timeout, requestName, filter)
 }
 
-func (gc *GatewayCluster) RetrievePluginTypes(group string, syncAll bool, timeout time.Duration) ([]byte, error) {
+func (gc *GatewayCluster) RetrievePluginTypes(group string, syncAll bool, timeout time.Duration) ([]byte, *HTTPError) {
 	filter := FilterRetrievePluginTypes{}
 
 	requestName := fmt.Sprintf("(group:%s)retrive_plugin_types", group)
 	return gc.issueRetrieve(group, syncAll, timeout, requestName, filter)
 }
 
-func (gc *GatewayCluster) RetrievePipelineTypes(group string, syncAll bool, timeout time.Duration) ([]byte, error) {
+func (gc *GatewayCluster) RetrievePipelineTypes(group string, syncAll bool, timeout time.Duration) ([]byte, *HTTPError) {
 	filter := FilterRetrievePluginTypes{}
 
 	requestName := fmt.Sprintf("(group:%s)retrive_pipeline_types", group)
@@ -121,7 +121,7 @@ func (gc *GatewayCluster) RetrievePipelineTypes(group string, syncAll bool, time
 
 // stat
 func (gc *GatewayCluster) StatPipelineIndicatorNames(group string, timeout time.Duration,
-	pipelineName string) ([]byte, error) {
+	pipelineName string) ([]byte, *HTTPError) {
 	filter := FilterPipelineIndicatorNames{
 		PipelineName: pipelineName,
 	}
@@ -131,7 +131,7 @@ func (gc *GatewayCluster) StatPipelineIndicatorNames(group string, timeout time.
 }
 
 func (gc *GatewayCluster) StatPipelineIndicatorValue(group string, timeout time.Duration,
-	pipelineName, indicatorName string) ([]byte, error) {
+	pipelineName, indicatorName string) ([]byte, *HTTPError) {
 	filter := FilterPipelineIndicatorValue{
 		PipelineName:  pipelineName,
 		IndicatorName: indicatorName,
@@ -142,7 +142,7 @@ func (gc *GatewayCluster) StatPipelineIndicatorValue(group string, timeout time.
 }
 
 func (gc *GatewayCluster) StatPipelineIndicatorDesc(group string, timeout time.Duration,
-	pipelineName, indicatorName string) ([]byte, error) {
+	pipelineName, indicatorName string) ([]byte, *HTTPError) {
 	filter := FilterPipelineIndicatorDesc{
 		PipelineName:  pipelineName,
 		IndicatorName: indicatorName,
@@ -153,7 +153,7 @@ func (gc *GatewayCluster) StatPipelineIndicatorDesc(group string, timeout time.D
 }
 
 func (gc *GatewayCluster) StatPluginIndicatorNames(group string, timeout time.Duration,
-	pipelineName, pluginName string) ([]byte, error) {
+	pipelineName, pluginName string) ([]byte, *HTTPError) {
 	filter := FilterPluginIndicatorNames{
 		PipelineName: pipelineName,
 		PluginName:   pluginName,
@@ -164,7 +164,7 @@ func (gc *GatewayCluster) StatPluginIndicatorNames(group string, timeout time.Du
 }
 
 func (gc *GatewayCluster) StatPluginIndicatorValue(group string, timeout time.Duration,
-	pipelineName, pluginName, indicatorName string) ([]byte, error) {
+	pipelineName, pluginName, indicatorName string) ([]byte, *HTTPError) {
 	filter := FilterPluginIndicatorValue{
 		PipelineName:  pipelineName,
 		PluginName:    pluginName,
@@ -176,7 +176,7 @@ func (gc *GatewayCluster) StatPluginIndicatorValue(group string, timeout time.Du
 }
 
 func (gc *GatewayCluster) StatPluginIndicatorDesc(group string, timeout time.Duration,
-	pipelineName, pluginName, indicatorName string) ([]byte, error) {
+	pipelineName, pluginName, indicatorName string) ([]byte, *HTTPError) {
 	filter := FilterPluginIndicatorDesc{
 		PipelineName:  pipelineName,
 		PluginName:    pluginName,
@@ -188,7 +188,7 @@ func (gc *GatewayCluster) StatPluginIndicatorDesc(group string, timeout time.Dur
 }
 
 func (gc *GatewayCluster) StatTaskIndicatorNames(group string, timeout time.Duration,
-	pipelineName string) ([]byte, error) {
+	pipelineName string) ([]byte, *HTTPError) {
 	filter := FilterTaskIndicatorNames{
 		PipelineName: pipelineName,
 	}
@@ -198,7 +198,7 @@ func (gc *GatewayCluster) StatTaskIndicatorNames(group string, timeout time.Dura
 }
 
 func (gc *GatewayCluster) StatTaskIndicatorValue(group string, timeout time.Duration,
-	pipelineName, indicatorName string) ([]byte, error) {
+	pipelineName, indicatorName string) ([]byte, *HTTPError) {
 	filter := FilterTaskIndicatorValue{
 		PipelineName:  pipelineName,
 		IndicatorName: indicatorName,
@@ -209,7 +209,7 @@ func (gc *GatewayCluster) StatTaskIndicatorValue(group string, timeout time.Dura
 }
 
 func (gc *GatewayCluster) StatTaskIndicatorDesc(group string, timeout time.Duration,
-	pipelineName, indicatorName string) ([]byte, error) {
+	pipelineName, indicatorName string) ([]byte, *HTTPError) {
 	filter := FilterTaskIndicatorDesc{
 		PipelineName:  pipelineName,
 		IndicatorName: indicatorName,

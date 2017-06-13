@@ -3,6 +3,7 @@ package gateway
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"time"
 
 	"cluster"
@@ -12,7 +13,7 @@ import (
 )
 
 // for api
-func (gc *GatewayCluster) queryGroupMaxSeq(group string, timeout time.Duration) (uint64, error) {
+func (gc *GatewayCluster) queryGroupMaxSeq(group string, timeout time.Duration) (uint64, *HTTPError) {
 	requestParam := cluster.RequestParam{
 		TargetNodeTags: map[string]string{
 			groupTagKey: group,
@@ -24,42 +25,42 @@ func (gc *GatewayCluster) queryGroupMaxSeq(group string, timeout time.Duration) 
 	requestName := fmt.Sprintf("(group:%s)query_group_max_sequence", group)
 	requestPayload, err := cluster.PackWithHeader(ReqQueryGroupMaxSeq{}, uint8(queryGroupMaxSeqMessage))
 	if err != nil {
-		return 0, err
+		return 0, NewHTTPError(err.Error(), http.StatusInternalServerError)
 	}
 
 	future, err := gc.cluster.Request(requestName, requestPayload, &requestParam)
 	if err != nil {
-		return 0, err
+		return 0, NewHTTPError(err.Error(), http.StatusInternalServerError)
 	}
 
 	memberResp, ok := <-future.Response()
 	if !ok {
-		return 0, fmt.Errorf("timeout")
+		return 0, NewHTTPError("timeout", http.StatusGatewayTimeout)
 	}
 	if len(memberResp.Payload) < 1 {
-		return 0, fmt.Errorf("empty response")
+		return 0, NewHTTPError("empty response", http.StatusInternalServerError)
 	}
 
 	var resp RespQueryGroupMaxSeq
 	err = cluster.Unpack(memberResp.Payload[1:], &resp)
 	if err != nil {
-		return 0, err
+		return 0, NewHTTPError(err.Error(), http.StatusInternalServerError)
 	}
 
 	return uint64(resp), nil
 }
 
 func (gc *GatewayCluster) issueOperation(group string, syncAll bool, timeout time.Duration,
-	requestName string, operation Operation) error {
+	requestName string, operation Operation) *HTTPError {
 	for {
 		queryStart := time.Now()
-		ms, err := gc.queryGroupMaxSeq(group, timeout)
-		if err != nil {
-			return err
+		ms, httpErr := gc.queryGroupMaxSeq(group, timeout)
+		if httpErr != nil {
+			return httpErr
 		}
 		expiredDuration := time.Now().Sub(queryStart)
 		if timeout <= expiredDuration {
-			return fmt.Errorf("timeout")
+			return NewHTTPError("timeout", http.StatusGatewayTimeout)
 		}
 		timeout -= expiredDuration
 
@@ -71,7 +72,7 @@ func (gc *GatewayCluster) issueOperation(group string, syncAll bool, timeout tim
 		}
 		requestPayload, err := cluster.PackWithHeader(req, uint8(operationMessage))
 		if err != nil {
-			return err
+			return NewHTTPError(err.Error(), http.StatusInternalServerError)
 		}
 		requestParam := cluster.RequestParam{
 			TargetNodeTags: map[string]string{
@@ -83,27 +84,39 @@ func (gc *GatewayCluster) issueOperation(group string, syncAll bool, timeout tim
 
 		future, err := gc.cluster.Request(requestName, requestPayload, &requestParam)
 		if err != nil {
-			return err
+			return NewHTTPError(err.Error(), http.StatusInternalServerError)
 		}
 
 		memberResp, ok := <-future.Response()
 		if !ok {
-			return fmt.Errorf("timeout")
+			return NewHTTPError("timeout", http.StatusGatewayTimeout)
 		}
 		if len(memberResp.Payload) < 1 {
-			return fmt.Errorf("empty response")
+			return NewHTTPError("empty response", http.StatusGatewayTimeout)
 		}
 
 		var resp RespOperation
 		err = cluster.Unpack(memberResp.Payload[1:], &resp)
 		if err != nil {
-			return err
+			return NewHTTPError(err.Error(), http.StatusInternalServerError)
 		}
 		if resp.Err != nil {
 			if resp.Err.Type == OperationWrongSeqError {
 				continue
 			}
-			return fmt.Errorf("%s", resp.Err.Message)
+
+			var code int
+			switch resp.Err.Type {
+			case WrongFormatError, OperationWrongContentError:
+				code = http.StatusBadRequest
+			case TimeoutError:
+				code = http.StatusGatewayTimeout
+			case OperationPartiallySecceedError:
+				code = http.StatusAccepted
+			default:
+				code = http.StatusInternalServerError
+			}
+			return NewHTTPError(resp.Err.Message, code)
 		}
 
 		return nil

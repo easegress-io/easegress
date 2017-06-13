@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"sort"
 	"time"
 
@@ -17,7 +18,7 @@ import (
 
 // for api
 func (gc *GatewayCluster) issueRetrieve(group string, syncAll bool, timeout time.Duration,
-	requestName string, filter interface{}) ([]byte, error) {
+	requestName string, filter interface{}) ([]byte, *HTTPError) {
 	req := ReqRetrieve{
 		RetrieveAllNodes: syncAll,
 		Timeout:          timeout,
@@ -38,12 +39,12 @@ func (gc *GatewayCluster) issueRetrieve(group string, syncAll bool, timeout time
 	case FilterRetrievePipelineTypes:
 		req.FilterRetrievePipelineTypes = &FilterRetrievePipelineTypes{}
 	default:
-		return nil, fmt.Errorf("unsupported filter type")
+		return nil, NewHTTPError("unsupported filter type", http.StatusInternalServerError)
 	}
 
 	requestPayload, err := cluster.PackWithHeader(req, uint8(retrieveMessage))
 	if err != nil {
-		return nil, err
+		return nil, NewHTTPError(err.Error(), http.StatusInternalServerError)
 	}
 	requestParam := cluster.RequestParam{
 		TargetNodeTags: map[string]string{
@@ -55,25 +56,36 @@ func (gc *GatewayCluster) issueRetrieve(group string, syncAll bool, timeout time
 
 	future, err := gc.cluster.Request(requestName, requestPayload, &requestParam)
 	if err != nil {
-		return nil, err
+		return nil, NewHTTPError(err.Error(), http.StatusInternalServerError)
 	}
 
 	memberResp, ok := <-future.Response()
 	if !ok {
-		return nil, fmt.Errorf("timeout")
+		return nil, NewHTTPError("timeout", http.StatusGatewayTimeout)
 	}
 	if len(memberResp.Payload) < 1 {
-		return nil, fmt.Errorf("empty response")
+		return nil, NewHTTPError("empty response", http.StatusInternalServerError)
 	}
 
 	var resp RespRetrieve
 	err = cluster.Unpack(memberResp.Payload[1:], &resp)
 	if err != nil {
-		return nil, err
+		return nil, NewHTTPError(err.Error(), http.StatusInternalServerError)
 	}
 
 	if resp.Err != nil {
-		return nil, fmt.Errorf("%s", resp.Err.Message)
+		var code int
+		switch resp.Err.Type {
+		case WrongFormatError:
+			code = http.StatusBadRequest
+		case TimeoutError:
+			code = http.StatusGatewayTimeout
+		case RetrieveInconsistencyError:
+			code = http.StatusConflict
+		default:
+			code = http.StatusInternalServerError
+		}
+		return nil, NewHTTPError(resp.Err.Message, code)
 	}
 
 	var result []byte
@@ -87,11 +99,11 @@ func (gc *GatewayCluster) issueRetrieve(group string, syncAll bool, timeout time
 	case FilterRetrievePipelineTypes:
 		result = resp.ResultRetrievePipelineTypes
 	default:
-		return nil, fmt.Errorf("unsupported filter type")
+		return nil, NewHTTPError("unsupported filter type", http.StatusInternalServerError)
 
 	}
 	if result == nil {
-		return nil, fmt.Errorf("empty result")
+		return nil, NewHTTPError("empty result", http.StatusInternalServerError)
 	}
 	return result, nil
 }

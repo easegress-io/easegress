@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"net/http"
 	"sort"
 	"time"
 
@@ -42,7 +43,7 @@ func (gc *GatewayCluster) chooseMembertoAggregateStat(group string) (string, err
 }
 
 func (gc *GatewayCluster) issueStat(group string, timeout time.Duration,
-	requestName string, filter interface{}) ([]byte, error) {
+	requestName string, filter interface{}) ([]byte, *HTTPError) {
 	req := ReqStat{
 		Timeout: timeout,
 	}
@@ -95,16 +96,16 @@ func (gc *GatewayCluster) issueStat(group string, timeout time.Duration,
 			IndicatorName: filter.IndicatorName,
 		}
 	default:
-		return nil, fmt.Errorf("unsupported filter type")
+		return nil, NewHTTPError("unsupported filter type", http.StatusInternalServerError)
 	}
 
 	requestPayload, err := cluster.PackWithHeader(req, uint8(statMessage))
 	if err != nil {
-		return nil, err
+		return nil, NewHTTPError(err.Error(), http.StatusInternalServerError)
 	}
 	targetMember, err := gc.chooseMembertoAggregateStat(group)
 	if err != nil {
-		return nil, err
+		return nil, NewHTTPError(err.Error(), http.StatusInternalServerError)
 	}
 	requestParam := cluster.RequestParam{
 		TargetNodeNames: []string{targetMember},
@@ -116,25 +117,36 @@ func (gc *GatewayCluster) issueStat(group string, timeout time.Duration,
 
 	future, err := gc.cluster.Request(requestName, requestPayload, &requestParam)
 	if err != nil {
-		return nil, err
+		return nil, NewHTTPError(err.Error(), http.StatusInternalServerError)
 	}
 
 	memberResp, ok := <-future.Response()
 	if !ok {
-		return nil, fmt.Errorf("timeout")
+		return nil, NewHTTPError("timeout", http.StatusGatewayTimeout)
 	}
 	if len(memberResp.Payload) < 1 {
-		return nil, fmt.Errorf("empty response")
+		return nil, NewHTTPError("empty response", http.StatusInternalServerError)
 	}
 
 	var resp RespStat
 	err = cluster.Unpack(memberResp.Payload[1:], &resp)
 	if err != nil {
-		return nil, err
+		return nil, NewHTTPError(err.Error(), http.StatusInternalServerError)
 	}
 
 	if resp.Err != nil {
-		return nil, fmt.Errorf("%s", resp.Err.Message)
+		var code int
+		switch resp.Err.Type {
+		case WrongFormatError:
+			code = http.StatusBadRequest
+		case TimeoutError:
+			code = http.StatusGatewayTimeout
+		case StatNotFoundError:
+			code = http.StatusNotFound
+		default:
+			code = http.StatusInternalServerError
+		}
+		return nil, NewHTTPError(resp.Err.Message, code)
 	}
 
 	var result []byte
@@ -160,10 +172,10 @@ func (gc *GatewayCluster) issueStat(group string, timeout time.Duration,
 	case FilterTaskIndicatorDesc:
 		result = resp.Desc
 	default:
-		return nil, fmt.Errorf("unsupported filter type")
+		return nil, NewHTTPError("unsupported filter type", http.StatusInternalServerError)
 	}
 	if result == nil {
-		return nil, fmt.Errorf("empty result")
+		return nil, NewHTTPError("empty result", http.StatusInternalServerError)
 	}
 
 	return result, nil
