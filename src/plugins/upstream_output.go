@@ -67,7 +67,24 @@ func randomSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Tas
 }
 
 func weightedRandomSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) string {
-	return "" // todo(zhiyan)
+	sum, err := getWeightSum(ctx, u.Name(), u.instanceId, u.conf.TargetPipelineWeights)
+	if err != nil {
+		return randomSelector(u, ctx, t)
+	}
+
+	r := rand.Uint64() % sum
+
+	for idx := 0; idx < len(u.conf.TargetPipelineWeights); idx++ {
+		if r < uint64(u.conf.TargetPipelineWeights[idx]) {
+			return u.conf.TargetPipelineNames[idx]
+		}
+
+		r -= uint64(u.conf.TargetPipelineWeights[idx])
+	}
+
+	logger.Errorf("[BUG: calculation in weighted random selector is wrong, should not reach here]")
+
+	return randomSelector(u, ctx, t)
 }
 
 func leastWIPRequestsSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) string {
@@ -154,7 +171,7 @@ func (c *upstreamOutputConfig) Prepare(pipelineNames []string) error {
 			}
 		}
 
-		if !useDefaultWeight && c.RoutePolicy == "weighted_round_robin" {
+		if !useDefaultWeight {
 			var weightGCD uint16
 			for i := 0; i < len(c.TargetPipelineWeights); i++ {
 				weightGCD = gcd(weightGCD, c.TargetPipelineWeights[i])
@@ -319,6 +336,7 @@ func (u *upstreamOutput) Close() {
 const (
 	upstreamOutputRoundRobinSelectorStateKey         = "upstreamOutputRoundRobinSelectorStateKey"
 	upstreamOutputWeightedRoundRobinSelectorStateKey = "upstreamOutputWeightedRoundRobinSelectorStateKey"
+	upstreamOutputWeightedRandomSelectorStateKey     = "upstreamOutputWeightedRandomSelectorStateKey"
 )
 
 func getTaskCount(ctx pipelines.PipelineContext, pluginName string) (*uint64, error) {
@@ -391,6 +409,32 @@ func getWeightedRoundRobinSelectorState(
 	}
 
 	return count.(*upstreamOutputRoundWeightedRobinSelectorState), nil
+}
+
+//
+
+func getWeightSum(
+	ctx pipelines.PipelineContext, pluginName, instanceId string, targetWeights []uint16) (uint64, error) {
+
+	bucket := ctx.DataBucket(pluginName, instanceId)
+	sum, err := bucket.QueryDataWithBindDefault(upstreamOutputWeightedRandomSelectorStateKey,
+		func() interface{} {
+			var ret uint64
+			for _, weight := range targetWeights {
+				// FIXME(zhiyan): to use better algorithm of weighted random if we meet overflow issue
+				ret += uint64(weight)
+			}
+
+			return ret
+		})
+
+	if err != nil {
+		logger.Warnf("[BUG: query state data for pipeline %s failed, "+
+			"ignored to get state of weighted random selector: %s]", ctx.PipelineName(), err)
+		return 0, err
+	}
+
+	return sum.(uint64), nil
 }
 
 ////
