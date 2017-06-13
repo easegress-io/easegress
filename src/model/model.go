@@ -207,9 +207,12 @@ func (m *Model) GetPlugins(namePattern string, types []string) ([]*Plugin, error
 		namePattern = `.*`
 	}
 
-	r := regexp.MustCompile(namePattern)
-
 	var ret []*Plugin
+
+	r, err := regexp.Compile(namePattern)
+	if err != nil {
+		return ret, fmt.Errorf("invalid plugin name pattern: %v", err)
+	}
 
 	for _, plugin := range m.plugins {
 		if len(types) > 0 && !common.StrInSlice(plugin.Type(), types) {
@@ -489,9 +492,12 @@ func (m *Model) GetPipelines(namePattern string, types []string) ([]*Pipeline, e
 		namePattern = `.*`
 	}
 
-	r := regexp.MustCompile(namePattern)
-
 	var ret []*Pipeline
+
+	r, err := regexp.Compile(namePattern)
+	if err != nil {
+		return ret, fmt.Errorf("invalid plugin name pattern: %v", err)
+	}
 
 	for _, pipeline := range m.pipelines {
 		if len(types) > 0 && !common.StrInSlice(pipeline.Type(), types) {
