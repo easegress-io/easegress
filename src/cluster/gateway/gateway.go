@@ -82,7 +82,10 @@ func NewGatewayCluster(conf Config, mod *model.Model) (*GatewayCluster, error) {
 	}
 
 	go gc.dispatch()
-	go gc.syncOPLog()
+
+	if gc.Mode() == ReadMode {
+		go gc.syncOPLog()
+	}
 
 	return gc, nil
 }
@@ -95,6 +98,7 @@ func (gc *GatewayCluster) Mode() Mode {
 // UpdateMode might be invoked after add/delete callbacks of
 // oplog.operationAppendedCallbacks correspondingly.
 func (gc *GatewayCluster) UpdateMode() {
+	// Fixme(zhiyan): we don't allow update mode at run time, no?
 }
 
 func (gc *GatewayCluster) dispatch() {
@@ -140,7 +144,7 @@ LOOP:
 					go gc.handleOPLogPull(event)
 				}
 			case *cluster.MemberEvent:
-				// Do not handle MemberEvent for the time being.
+				// do not handle MemberEvent for the time being
 			}
 		case <-gc.stopChan:
 			break LOOP

@@ -100,13 +100,6 @@ LOOP:
 	for {
 		select {
 		case <-time.After(gc.conf.OPLogPullTimeout):
-			if gc.Mode() == WriteMode {
-				// WriteMode doesn't have to, because the mode
-				// could be changed in runtime so it's necessary
-				// to check intermittently.
-				continue LOOP
-			}
-
 			ms := gc.log.maxSeq()
 			reqOPLogPull := ReqOPLogPull{
 				Timeout:     gc.conf.OPLogPullTimeout,
