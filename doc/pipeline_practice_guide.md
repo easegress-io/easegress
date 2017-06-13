@@ -557,7 +557,7 @@ $ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:appl
 $ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "test-upstream2", "plugin_names": ["test-downstreamintpu2", "test-httpoutput2"], "parallelism": 10}}'
 
 # For downstream
-$curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "intput", "plugin_names": ["test-httpinput", "test-upstreamoutput1"], "parallelism": 10}}'
+$ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "intput", "plugin_names": ["test-httpinput", "test-upstreamoutput1"], "parallelism": 10}}'
 
 ```
 
@@ -709,7 +709,48 @@ Transfer-Encoding: chunked
 > ```
 > * The default weight of each upstream under `weighted_round_robin` policy is value 1, which means the behavior equals `round_robin` policy.
 
-Finally, let's check on a upstream timeout case.
+Next, let's see Blue/Green deployment case, this time we need to use `filter` policy and provide a proper condition option to it. The data belongs to the key `QUERY_STRING` is given by HTTP input plugin, you can check the detail out by plugin reference document.
+
+```
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X PUT -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "UpstreamOutput", "config": {"plugin_name": "test-upstreamoutput1", "target_pipelines": ["test-upstream1", "test-upstream2"], "request_data_keys": ["HTTP_REQUEST_BODY_IO"], "route_policy": "filter", "filter_conditions": [{"QUERY_STRING":"release=green"}, {"QUERY_STRING":"release=blue"}]}}'
+
+$ curl -i -k http://127.0.0.1:10080/test?release=green -X GET -i -w "\n" -H "name:bar" -d "$LOAD"
+HTTP/1.1 200 OK
+Date: Tue, 13 Jun 2017 08:02:54 GMT
+Content-Type: text/html; charset=utf-8
+Transfer-Encoding: chunked
+
+<html><body>OK - 1122</body></html>
+$ curl -i -k http://127.0.0.1:10080/test?release=blue -X GET -i -w "\n" -H "name:bar" -d "$LOAD"
+HTTP/1.1 200 OK
+Date: Tue, 13 Jun 2017 08:03:02 GMT
+Content-Type: text/html; charset=utf-8
+Transfer-Encoding: chunked
+
+<html><body>OK - 3344</body></html>
+$ curl -i -k http://127.0.0.1:10080/test?release=green -X GET -i -w "\n" -H "name:bar" -d "$LOAD"
+HTTP/1.1 200 OK
+Date: Tue, 13 Jun 2017 08:02:55 GMT
+Content-Type: text/html; charset=utf-8
+Transfer-Encoding: chunked
+
+<html><body>OK - 1122</body></html>
+$ curl -i -k http://127.0.0.1:10080/test?release=blue -X GET -i -w "\n" -H "name:bar" -d "$LOAD"
+HTTP/1.1 200 OK
+Date: Tue, 13 Jun 2017 08:03:04 GMT
+Content-Type: text/html; charset=utf-8
+Transfer-Encoding: chunked
+
+<html><body>OK - 3344</body></html>
+$ curl -i -k http://127.0.0.1:10080/test?release=shit -X GET -i -w "\n" -H "name:bar" -d "$LOAD"
+HTTP/1.1 503 Service Unavailable
+Date: Tue, 13 Jun 2017 08:03:24 GMT
+Content-Type: text/plain; charset=utf-8
+Transfer-Encoding: chunked
+
+```
+
+Finally, Let's check on a upstream timeout case.
 
 A fake HTTP Server to serve the request for demo, this time we add a 5 seconds sleep to simulate upstream response timeout.
 
