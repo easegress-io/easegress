@@ -94,11 +94,33 @@ func (gc *GatewayCluster) Mode() Mode {
 	return gc.mode
 }
 
-// For note.
-// UpdateMode might be invoked after add/delete callbacks of
-// oplog.operationAppendedCallbacks correspondingly.
-func (gc *GatewayCluster) UpdateMode() {
-	// Fixme(zhiyan): we don't allow update mode at run time, no?
+func (gc *GatewayCluster) OPLog() *opLog {
+	return gc.log
+}
+
+func (gc *GatewayCluster) Stop() error {
+	gc.statusLock.Lock()
+	defer gc.statusLock.Unlock()
+
+	if gc.stopped {
+		return fmt.Errorf("already stopped")
+	}
+
+	err := gc.log.close()
+	if err != nil {
+		return err
+	}
+
+	err = gc.cluster.Stop()
+	if err != nil {
+		return err
+	}
+
+	close(gc.stopChan)
+
+	gc.stopped = true
+
+	return nil
 }
 
 func (gc *GatewayCluster) dispatch() {
@@ -144,16 +166,33 @@ LOOP:
 					go gc.handleOPLogPull(event)
 				}
 			case *cluster.MemberEvent:
-				// do not handle MemberEvent for the time being
+				switch event.Type() {
+				case cluster.MemberJoinEvent:
+					logger.Infof("[member %s (group=%s, mode=%s) joined to the cluster]",
+						event.Member.NodeName, event.Member.NodeTags[groupTagKey],
+						event.Member.NodeTags[modeTagKey])
+				case cluster.MemberLeftEvent:
+					logger.Infof("[member %s (group=%s, mode=%s) left from the cluster]",
+						event.Member.NodeName, event.Member.NodeTags[groupTagKey],
+						event.Member.NodeTags[modeTagKey])
+				case cluster.MemberFailedEvent:
+					logger.Warnf("[member %s (group=%s, mode=%s) failed in the cluster]",
+						event.Member.NodeName, event.Member.NodeTags[groupTagKey],
+						event.Member.NodeTags[modeTagKey])
+				case cluster.MemberUpdateEvent:
+					logger.Infof("[member %s (group=%s, mode=%s) updated in the cluster]",
+						event.Member.NodeName, event.Member.NodeTags[groupTagKey],
+						event.Member.NodeTags[modeTagKey])
+				case cluster.MemberCleanupEvent:
+					logger.Debugf("[member %s (group=%s, mode=%s) record is cleaned up]",
+						event.Member.NodeName, event.Member.NodeTags[groupTagKey],
+						event.Member.NodeTags[modeTagKey])
+				}
 			}
 		case <-gc.stopChan:
 			break LOOP
 		}
 	}
-}
-
-func (gc *GatewayCluster) OPLog() *opLog {
-	return gc.log
 }
 
 func (gc *GatewayCluster) localGroupName() string {
@@ -247,29 +286,4 @@ LOOP:
 	}
 
 	return
-}
-
-func (gc *GatewayCluster) Stop() error {
-	gc.statusLock.Lock()
-	defer gc.statusLock.Unlock()
-
-	if gc.stopped {
-		return fmt.Errorf("already stopped")
-	}
-
-	err := gc.log.close()
-	if err != nil {
-		return err
-	}
-
-	err = gc.cluster.Stop()
-	if err != nil {
-		return err
-	}
-
-	close(gc.stopChan)
-
-	gc.stopped = true
-
-	return nil
 }
