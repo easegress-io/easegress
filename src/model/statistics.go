@@ -49,7 +49,7 @@ func (r *statRegistry) addPipelineStatistics(pipeline *Pipeline) {
 
 	r.statistics[pipeline.Name()] = NewPipelineStatistics(
 		pipeline.config.PipelineName(), pipeline.Config().PluginNames(), r.mod)
-	logger.Infof("[pipeline %s statistics is created.]", pipeline.Name())
+	logger.Infof("[pipeline %s statistics is created]", pipeline.Name())
 }
 
 func (r *statRegistry) deletePipelineStatistics(pipeline *Pipeline) {
@@ -62,7 +62,7 @@ func (r *statRegistry) deletePipelineStatistics(pipeline *Pipeline) {
 		go statistics.Close()
 	}
 	delete(r.statistics, pipeline.Name())
-	logger.Infof("[pipeline %s statistics is deleted.]", pipeline.Name())
+	logger.Infof("[pipeline %s statistics is deleted]", pipeline.Name())
 }
 
 func (r *statRegistry) renewPipelineStatistics(pipeline *Pipeline) {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"math/rand"
+	"regexp"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -24,7 +25,8 @@ var routeSelectors = map[string]routeSelector{
 	"weighted_random":      weightedRandomSelector,
 	"least_wip_requests":   leastWIPRequestsSelector,
 
-	"hash": hashSelector, // to support use cases for http source address and header hash, sticky session
+	"hash":   hashSelector,   // to support use cases for http source address and header hash, sticky session
+	"filter": filterSelector, // to support blue/green deployment and A/B testing
 }
 
 func roundRobinSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) string {
@@ -118,6 +120,35 @@ func hashSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task)
 	return u.conf.TargetPipelineNames[h.Sum32()%uint32(len(u.conf.TargetPipelineNames))]
 }
 
+func filterSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) string {
+	selectedIdx := -1
+
+	for idx, conditionSet := range u.conf.FilterConditions {
+		matched := true
+
+		for key := range conditionSet {
+			r := u.conf.filterRegexMapList[idx][key]
+			v := t.Value(key)
+
+			if v == nil || !r.MatchString(task.ToString(v)) {
+				matched = false
+				break
+			}
+		}
+
+		if matched {
+			selectedIdx = idx
+		}
+	}
+
+	if selectedIdx == -1 {
+		logger.Warnf("[no target pipeline matched the condition, filter selector chooses nothing]")
+		return ""
+	}
+
+	return u.conf.TargetPipelineNames[selectedIdx]
+}
+
 ////
 
 type upstreamOutputConfig struct {
@@ -131,8 +162,13 @@ type upstreamOutputConfig struct {
 	TargetPipelineWeights []uint16 `json:"target_weights"` // weight up to 65535, 0 based
 	// for hash policy
 	ValueHashedKeys []string `json:"value_hashed_keys"`
+	// for filter policy
+	// each map in the list as the condition set for the target pipeline according to the index
+	// map key is the key of value in the task, map value is the match condition, support regex
+	FilterConditions []map[string]string `json:"filter_conditions"`
 
-	selector routeSelector
+	selector           routeSelector
+	filterRegexMapList []map[string]*regexp.Regexp
 }
 
 func UpstreamOutputConfigConstructor() Config {
@@ -196,7 +232,31 @@ func (c *upstreamOutputConfig) Prepare(pipelineNames []string) error {
 	}
 
 	if c.RoutePolicy == "hash" && len(c.ValueHashedKeys) == 0 {
-		return fmt.Errorf("invalid hash key")
+		return fmt.Errorf("invalid hash keys")
+	}
+
+	if c.RoutePolicy == "filter" {
+		if len(c.FilterConditions) != len(c.TargetPipelineNames) {
+			return fmt.Errorf("invalid filter conditions")
+		}
+
+		for idx, conditionSet := range c.FilterConditions {
+			if len(conditionSet) == 0 {
+				return fmt.Errorf("invalid filter conditons of target pipeline %s",
+					c.TargetPipelineNames[idx])
+			}
+
+			regexMap := make(map[string]*regexp.Regexp)
+
+			for key, condition := range conditionSet {
+				regexMap[key], err = regexp.Compile(condition)
+				if err != nil {
+					return fmt.Errorf("invalid filter condition: %v", err)
+				}
+			}
+
+			c.filterRegexMapList = append(c.filterRegexMapList, regexMap)
+		}
 	}
 
 	if c.TimeoutSec == 0 {
@@ -235,10 +295,8 @@ func (u *upstreamOutput) Prepare(ctx pipelines.PipelineContext) {
 func (u *upstreamOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
 	targetPipelineName := u.conf.selector(u, ctx, t)
 	if len(strings.TrimSpace(targetPipelineName)) == 0 {
-		logger.Errorf("[BUG: target pipeline selector returns empty pipeline name]")
-
 		t.SetError(fmt.Errorf("target pipeline selector of %s returns empty pipeline name", u.conf.RoutePolicy),
-			task.ResultInternalServerError)
+			task.ResultServiceUnavailable)
 		return t, nil
 	}
 
