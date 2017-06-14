@@ -63,7 +63,7 @@ func (op *opLog) maxSeq() uint64 {
 
 func (op *opLog) append(operations ...*Operation) (error, ClusterErrorType) {
 	if len(operations) == 0 {
-		return nil
+		return nil, NoneError
 	}
 
 	op.Lock()
@@ -73,7 +73,7 @@ func (op *opLog) append(operations ...*Operation) (error, ClusterErrorType) {
 
 	// check last one of the sequential operations first to speed up
 	if ms >= operations[len(operations)-1].Seq {
-		return nil
+		return nil, NoneError
 	}
 
 	leastSeq := operations[0].Seq
@@ -81,7 +81,7 @@ func (op *opLog) append(operations ...*Operation) (error, ClusterErrorType) {
 		return fmt.Errorf("invalid sequential operation"), InternalServerError
 	}
 
-	if leastSeq != ms + 1 {
+	if leastSeq != ms+1 {
 		return fmt.Errorf("invalid sequential operation"), OperationWrongSeqError
 	}
 
@@ -118,7 +118,7 @@ func (op *opLog) append(operations ...*Operation) (error, ClusterErrorType) {
 		op.kv.Set([]byte(fmt.Sprintf("%d", operation.Seq)), operationBuff)
 
 		for _, cb := range op.operationAppendedCallbacks {
-			err := cb.Callback().(OperationAppended)(&operation)
+			err := cb.Callback().(OperationAppended)(operation)
 			logger.Errorf("[BUG: operation appended callback %s failed: %v]", cb.Name(), err)
 		}
 	}
@@ -212,7 +212,7 @@ func (op *opLog) _locklessMaxSeq() uint64 {
 	var item badger.KVItem
 	err := op.kv.Get([]byte(maxSeqKey), &item)
 	if err != nil {
-		logger.Errorf("[get max sequence from badger failed: %v]", err)
+		logger.Errorf("[BUG: get max sequence from badger failed: %v]", err)
 		return 0
 	}
 
