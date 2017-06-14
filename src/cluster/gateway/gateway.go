@@ -25,7 +25,8 @@ const (
 )
 
 type Config struct {
-	OPLogMaxSeqGapToPull  uint64
+	// TODO: Implements support on this in handleOperationRelay()
+	//OPLogMaxSeqGapToPull  uint64
 	OPLogPullMaxCountOnce uint64
 	OPLogPullInterval     time.Duration
 	OPLogPullTimeout      time.Duration
@@ -275,10 +276,9 @@ func (gc *GatewayCluster) handleQueryGroupMaxSeq(req *cluster.RequestEvent) {
 // It does its best to record response, and just exits when GatewayCluster stopped
 // or future got timeout, the caller could check membersRespBook to get the result.
 func (gc *GatewayCluster) recordResp(requestName string, future *cluster.Future, membersRespBook map[string][]byte) {
-	// The type is signed owe to the value could be -1 temporarily.
-	var memberRespCount int = 0
+	memberRespCount := 0
 LOOP:
-	for ; memberRespCount < len(membersRespBook); memberRespCount++ {
+	for memberRespCount < len(membersRespBook) {
 		select {
 		case memberResp, ok := <-future.Response():
 			if !ok {
@@ -287,28 +287,27 @@ LOOP:
 
 			payload, known := membersRespBook[memberResp.ResponseNodeName]
 			if !known {
-				logger.Warnf(
-					"[received the response from an unexpexted node %s started durning the request %s]",
-					memberResp.ResponseNodeName, fmt.Sprintf("%s_relayed", requestName))
+				logger.Warnf("[received the response from an unexpexted node %s "+
+					"started durning the request %s]", memberResp.ResponseNodeName,
+					fmt.Sprintf("%s_relayed", requestName))
 				continue LOOP
 			}
 
 			if payload != nil {
-				logger.Errorf("[received multiple response from node %s for request %s, skipped. "+
-					"probably need to tune cluster configuration]",
+				logger.Errorf("[received multiple responses from node %s "+
+					"for request %s, skipped. probably need to tune cluster configuration]",
 					memberResp.ResponseNodeName, fmt.Sprintf("%s_relayed", requestName))
-				memberRespCount--
 				continue LOOP
 			}
 
-			if memberResp.Payload != nil {
+			if memberResp.Payload == nil {
 				logger.Errorf("[BUG: received empty response from node %s for request %s]",
 					memberResp.ResponseNodeName, fmt.Sprintf("%s_relayed", requestName))
-
 				memberResp.Payload = []byte("")
 			}
 
 			membersRespBook[memberResp.ResponseNodeName] = memberResp.Payload
+			memberRespCount++
 		case <-gc.stopChan:
 			break LOOP
 		}

@@ -14,7 +14,7 @@ import (
 	"common"
 )
 
-type OperationAppended func(newOperation *Operation) error
+type OperationAppended func(seq uint64, newOperation *Operation)
 
 const (
 	maxSeqKey = "maxSeqKey"
@@ -61,7 +61,7 @@ func (op *opLog) maxSeq() uint64 {
 	return op._locklessMaxSeq()
 }
 
-func (op *opLog) append(operations ...*Operation) (error, ClusterErrorType) {
+func (op *opLog) append(startSeq uint64, operations ...*Operation) (error, ClusterErrorType) {
 	if len(operations) == 0 {
 		return nil, NoneError
 	}
@@ -71,30 +71,15 @@ func (op *opLog) append(operations ...*Operation) (error, ClusterErrorType) {
 
 	ms := op._locklessMaxSeq()
 
-	// check last one of the sequential operations first to speed up
-	if ms >= operations[len(operations)-1].Seq {
-		return nil, NoneError
-	}
-
-	leastSeq := operations[0].Seq
-	if leastSeq == 0 {
+	if startSeq == 0 {
 		return fmt.Errorf("invalid sequential operation"), InternalServerError
+	} else if startSeq > ms+1 {
+		return fmt.Errorf("invalid sequential operation"), OperationInvalidSeqError
+	} else if startSeq < ms+1 {
+		return fmt.Errorf("operation conflict"), OperationSeqConflictError
 	}
 
-	if leastSeq != ms+1 {
-		return fmt.Errorf("invalid sequential operation"), OperationWrongSeqError
-	}
-
-	leastSeq--
-
-	for _, operation := range operations {
-		if operation.Seq-leastSeq != 1 {
-			return fmt.Errorf("operation must obey monotonic increasing quantity is 1"),
-				OperationWrongSeqError
-		}
-
-		leastSeq++
-
+	for idx, operation := range operations {
 		switch {
 		case operation.ContentCreatePlugin != nil:
 		case operation.ContentUpdatePlugin != nil:
@@ -103,23 +88,23 @@ func (op *opLog) append(operations ...*Operation) (error, ClusterErrorType) {
 		case operation.ContentUpdatePipeline != nil:
 		case operation.ContentDeletePipeline != nil:
 		default:
-			return fmt.Errorf("operation with sequence %d is empty", operation.Seq),
-				OperationWrongContentError
+			return fmt.Errorf("operation content is empty"), OperationInvalidContentError
 		}
 
 		operationBuff, err := json.Marshal(operation)
 		if err != nil {
-			logger.Errorf("[BUG: marshal %#v failed: %v]", operation, err)
-			return fmt.Errorf("[marshal %#v failed: %v]", operation, err), OperationWrongContentError
+			logger.Errorf("[BUG: marshal operation (sequence=%d) %#v failed: %v]",
+				startSeq, operation, err)
+			return fmt.Errorf("[marshal operation (sequence=%d) %#v failed: %v]",
+				startSeq, operation, err), OperationInvalidContentError
 		}
 
 		op._locklessIncreaseMaxSeq()
 
-		op.kv.Set([]byte(fmt.Sprintf("%d", operation.Seq)), operationBuff)
+		op.kv.Set([]byte(fmt.Sprintf("%d", startSeq + idx)), operationBuff)
 
 		for _, cb := range op.operationAppendedCallbacks {
-			err := cb.Callback().(OperationAppended)(operation)
-			logger.Errorf("[BUG: operation appended callback %s failed: %v]", cb.Name(), err)
+			cb.Callback().(OperationAppended)(startSeq + idx, operation)
 		}
 	}
 

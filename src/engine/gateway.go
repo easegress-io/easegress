@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"strconv"
@@ -9,11 +10,12 @@ import (
 	"syscall"
 	"time"
 
-	cluster_gateway "cluster/gateway"
+	cluster "cluster/gateway"
 	"config"
 	"logger"
 	"model"
 	"pipelines"
+	"plugins"
 )
 
 const (
@@ -68,7 +70,7 @@ type Gateway struct {
 	sync.Mutex
 	repo      config.Store
 	mod       *model.Model
-	gc        *cluster_gateway.GatewayCluster
+	gc        *cluster.GatewayCluster
 	pipelines map[string][]*pipelineInstance
 	done      chan error
 	startAt   time.Time
@@ -84,15 +86,14 @@ func NewGateway() (*Gateway, error) {
 	mod := model.NewModel()
 
 	// TODO: read from launch config
-	gcConf := cluster_gateway.Config{
-		OPLogMaxSeqGapToPull:  10,
+	gcConf := cluster.Config{
 		OPLogPullMaxCountOnce: 5,
 		OPLogPullInterval:     10 * time.Second,
 		OPLogPullTimeout:      30 * time.Second,
 	}
-	gc, err := cluster_gateway.NewGatewayCluster(gcConf, mod)
+	gc, err := cluster.NewGatewayCluster(gcConf, mod)
 	if err != nil {
-		return nil, fmt.Errorf("[initialize gateway cluster failed: %v]", err)
+		return nil, fmt.Errorf("[create gateway cluster failed: %v]", err)
 	}
 
 	return &Gateway{
@@ -129,7 +130,7 @@ func (gw *Gateway) Run() (<-chan error, error) {
 
 	gw.setupPluginPersistenceControl()
 	gw.setupPipelinePersistenceControl()
-	gw.setupGatewayClusterLandOperation()
+	gw.setupClusterOpLogSync()
 
 	return gw.done, nil
 }
@@ -164,7 +165,7 @@ func (gw *Gateway) Stop() {
 	logger.Infof("[closing gateway cluster]")
 	err := gw.gc.Stop()
 	if err != nil {
-		logger.Errorf("[closing gateway cluster failed: %s]", err)
+		logger.Errorf("[closing gateway cluster failed: %v]", err)
 	} else {
 		logger.Infof("[closed gateway cluster]")
 	}
@@ -176,7 +177,7 @@ func (gw *Gateway) Model() *model.Model {
 	return gw.mod
 }
 
-func (gw *Gateway) GatewayCluster() *cluster_gateway.GatewayCluster {
+func (gw *Gateway) Cluster() *cluster.GatewayCluster {
 	return gw.gc
 }
 
@@ -341,8 +342,8 @@ func (gw *Gateway) setupPipelinePersistenceControl() {
 	gw.mod.AddPipelineUpdatedCallback("updatePipelineInStorage", gw.updatePipelineInStorage, false)
 }
 
-func (gw *Gateway) setupGatewayClusterLandOperation() {
-	gw.gc.OPLog().AddOPLogAppendedCallback("landOperationToModel", gw.gc.LandOperation, false)
+func (gw *Gateway) setupClusterOpLogSync() {
+	gw.gc.OPLog().AddOPLogAppendedCallback("handleClusterOperation", gw.handleClusterOperation, false)
 }
 
 func (gw *Gateway) addPluginToStorage(newPlugin *model.Plugin) {
@@ -404,4 +405,123 @@ func (gw *Gateway) updatePipelineInStorage(updatedPipeline *model.Pipeline) {
 	if err != nil {
 		logger.Errorf("[update pipeline %s failed: %v]", updatedPipeline.Name(), err)
 	}
+}
+
+func (gw *Gateway) handleClusterOperation(seq uint64, operation *cluster.Operation) {
+	switch {
+	case operation.ContentCreatePlugin != nil:
+		content := operation.ContentCreatePlugin
+
+		conf, err := plugins.GetConfig(content.Type)
+		if err != nil {
+			logger.Errorf("[handle cluster operation to create plugin failed on get config: %v]", err)
+			return
+		}
+
+		err = json.Unmarshal(content.Config, conf)
+		if err != nil {
+			logger.Errorf("[handle cluster operation to create plugin failed on unmarshal config: %v]",
+				err)
+			return
+		}
+
+		constructor, err := plugins.GetConstructor(content.Type)
+		if err != nil {
+			logger.Errorf("[handle cluster operation to create plugin failed on get constructor: %v]",
+				err)
+			return
+		}
+
+		_, err = gw.mod.AddPlugin(content.Type, conf, constructor)
+		if err != nil {
+			logger.Errorf("[handle cluster operation to create plugin failed on add to model: %v]", err)
+			return
+		}
+	case operation.ContentUpdatePlugin != nil:
+		content := operation.ContentUpdatePlugin
+
+		conf, err := plugins.GetConfig(content.Type)
+		if err != nil {
+			logger.Errorf("[handle cluster operation to update plugin failed on get config: %v]", err)
+			return
+		}
+
+		err = json.Unmarshal(content.Config, conf)
+		if err != nil {
+			logger.Errorf("[handle cluster operation to update plugin failed on unmarshal config: %v]",
+				err)
+			return
+		}
+
+		err = gw.mod.UpdatePluginConfig(conf)
+		if err != nil {
+			logger.Errorf("[handle cluster operation to update plugin failed on update model: %v]", err)
+			return
+		}
+	case operation.ContentDeletePlugin != nil:
+		content := operation.ContentDeletePlugin
+
+		err := gw.mod.DeletePlugin(content.Name)
+		if err != nil {
+			logger.Errorf("[handle cluster operation to delete plugin failed on delete from model: %v]",
+				err)
+			return
+		}
+	case operation.ContentCreatePipeline != nil:
+		content := operation.ContentCreatePipeline
+
+		conf, err := model.GetPipelineConfig(content.Type)
+		if err != nil {
+			logger.Errorf("[handle cluster operation to create pipeline failed on get config: %v]", err)
+			return
+		}
+
+		err = json.Unmarshal(content.Config, conf)
+		if err != nil {
+			logger.Errorf("[handle cluster operation to create pipeline failed on unmarshal  config: %v]",
+				err)
+			return
+		}
+
+		_, err = gw.mod.AddPipeline(content.Type, conf)
+		if err != nil {
+			logger.Errorf("[handle cluster operation to create pipeline failed on add to model: %v]", err)
+			return
+		}
+	case operation.ContentUpdatePipeline != nil:
+		content := operation.ContentUpdatePipeline
+
+		conf, err := model.GetPipelineConfig(content.Type)
+		if err != nil {
+			logger.Errorf("[handle cluster operation to update pipeline failed on get config: %v]", err)
+			return
+		}
+
+		err = json.Unmarshal(content.Config, conf)
+		if err != nil {
+			logger.Errorf("[handle cluster operation to update pipeline failed on unmarshal config: %v]",
+				err)
+			return
+		}
+
+		err = gw.mod.UpdatePipelineConfig(conf)
+		if err != nil {
+			logger.Errorf("[handle cluster operation to update pipeline failed on update model: %v]", err)
+			return
+		}
+	case operation.ContentDeletePipeline != nil:
+		content := operation.ContentDeletePipeline
+
+		err := gw.mod.DeletePipeline(content.Name)
+		if err != nil {
+			logger.Errorf("[handle cluster operation to delete pipeline failed on delete from model: %v]",
+				err)
+			return
+		}
+	default:
+		logger.Errorf("[BUG: cluster operation (sequence=%d) has no certain content, skipped]", seq)
+		return
+	}
+
+	logger.Debugf("[cluster operation (sequence=%d) has been handled]", seq)
 }

@@ -137,7 +137,7 @@ func (gc *GatewayCluster) issueStat(group string, timeout time.Duration,
 	if resp.Err != nil {
 		var code int
 		switch resp.Err.Type {
-		case WrongFormatError:
+		case WrongMessageFormatError:
 			code = http.StatusBadRequest
 		case TimeoutError:
 			code = http.StatusGatewayTimeout
@@ -417,7 +417,7 @@ func (gc *GatewayCluster) getLocalStatResp(req *cluster.RequestEvent) *RespStat 
 
 	reqStat, err := unpackReqStat(req.RequestPayload[1:])
 	if err != nil {
-		respondStatErr(req, WrongFormatError, err.Error())
+		respondStatErr(req, WrongMessageFormatError, err.Error())
 		return nil
 	}
 

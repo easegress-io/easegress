@@ -23,21 +23,15 @@ func (gc *GatewayCluster) issueRetrieve(group string, syncAll bool, timeout time
 		RetrieveAllNodes: syncAll,
 		Timeout:          timeout,
 	}
-	switch filter := filter.(type) {
-	case FilterRetrievePlugins:
-		req.FilterRetrievePlugins = &FilterRetrievePlugins{
-			NamePattern: filter.NamePattern,
-			Types:       filter.Types,
-		}
-	case FilterRetrievePipelines:
-		req.FilterRetrievePipelines = &FilterRetrievePipelines{
-			NamePattern: filter.NamePattern,
-			Types:       filter.Types,
-		}
-	case FilterRetrievePluginTypes:
-		req.FilterRetrievePluginTypes = &FilterRetrievePluginTypes{}
-	case FilterRetrievePipelineTypes:
-		req.FilterRetrievePipelineTypes = &FilterRetrievePipelineTypes{}
+	switch filter.(type) {
+	case *FilterRetrievePlugins:
+		req.FilterRetrievePlugins = filter.(*FilterRetrievePlugins)
+	case *FilterRetrievePipelines:
+		req.FilterRetrievePipelines = filter.(*FilterRetrievePipelines)
+	case *FilterRetrievePluginTypes:
+		req.FilterRetrievePluginTypes = filter.(*FilterRetrievePluginTypes)
+	case *FilterRetrievePipelineTypes:
+		req.FilterRetrievePipelineTypes = filter.(*FilterRetrievePipelineTypes)
 	default:
 		return nil, NewHTTPError("unsupported filter type", http.StatusInternalServerError)
 	}
@@ -76,7 +70,7 @@ func (gc *GatewayCluster) issueRetrieve(group string, syncAll bool, timeout time
 	if resp.Err != nil {
 		var code int
 		switch resp.Err.Type {
-		case WrongFormatError:
+		case WrongMessageFormatError:
 			code = http.StatusBadRequest
 		case TimeoutError:
 			code = http.StatusGatewayTimeout
@@ -237,7 +231,7 @@ func (gc *GatewayCluster) getLocalRetrieveResp(req *cluster.RequestEvent) *RespR
 	}
 	reqRetrieve, err := unpackReqRetrieve(req.RequestPayload[1:])
 	if err != nil {
-		respondRetrieveErr(req, WrongFormatError, err.Error())
+		respondRetrieveErr(req, WrongMessageFormatError, err.Error())
 		return nil
 	}
 

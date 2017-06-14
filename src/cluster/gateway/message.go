@@ -32,16 +32,17 @@ type (
 // ClusterErrorType
 const (
 	NoneError ClusterErrorType = iota
-	WrongFormatError
+
+	WrongMessageFormatError
 	InternalServerError
 	TimeoutError
 
-	RetrieveInconsistencyError
+	OperationSeqConflictError
+	OperationInvalidSeqError
+	OperationInvalidContentError
+	OperationPartiallyCompleteError
 
-	OperationWrongSeqError
-	OperationWrongContentError
-	OperationLogHugeGapError
-	OperationPartiallySucceedError
+	RetrieveInconsistencyError
 
 	StatNotFoundError
 )
@@ -76,17 +77,16 @@ type (
 type (
 	// Pack Header: operationMessage | operationRelayMessage
 	ReqOperation struct {
-		OperationAllNodes bool
-		Timeout           time.Duration
-		Operation         Operation
+		OperateAllNodes bool
+		Timeout         time.Duration
+		StartSeq        uint64
+		Operation       *Operation
 	}
 	// Pack Header: operationMessage | operationRelayMessage
 	RespOperation struct {
 		Err *ClusterError
 	}
 	Operation struct {
-		Seq uint64
-
 		ContentCreatePlugin   *ContentCreatePlugin
 		ContentUpdatePlugin   *ContentUpdatePlugin
 		ContentDeletePlugin   *ContentDeletePlugin
@@ -254,6 +254,7 @@ type (
 	}
 	// Pack Header: opLogPullMessage
 	RespOPLogPull struct {
+		StartSeq             uint64
 		SequentialOperations []*Operation
 	}
 )

@@ -1,15 +1,12 @@
 package gateway
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
 
 	"cluster"
 	"logger"
-	"model"
-	"plugins"
 )
 
 // for api
@@ -51,7 +48,7 @@ func (gc *GatewayCluster) queryGroupMaxSeq(group string, timeout time.Duration) 
 }
 
 func (gc *GatewayCluster) issueOperation(group string, syncAll bool, timeout time.Duration,
-	requestName string, operation Operation) *HTTPError {
+	requestName string, operation *Operation) *HTTPError {
 	for {
 		queryStart := time.Now()
 		ms, httpErr := gc.queryGroupMaxSeq(group, timeout)
@@ -66,9 +63,9 @@ func (gc *GatewayCluster) issueOperation(group string, syncAll bool, timeout tim
 
 		operation.Seq = ms + 1
 		req := ReqOperation{
-			OperationAllNodes: syncAll,
-			Timeout:           timeout,
-			Operation:         operation,
+			OperateAllNodes: syncAll,
+			Timeout:         timeout,
+			Operation:       operation,
 		}
 		requestPayload, err := cluster.PackWithHeader(&req, uint8(operationMessage))
 		if err != nil {
@@ -101,17 +98,20 @@ func (gc *GatewayCluster) issueOperation(group string, syncAll bool, timeout tim
 			return NewHTTPError(err.Error(), http.StatusInternalServerError)
 		}
 		if resp.Err != nil {
-			if resp.Err.Type == OperationWrongSeqError {
+			if resp.Err.Type == OperationSeqConflictError {
 				continue
 			}
 
 			var code int
 			switch resp.Err.Type {
-			case WrongFormatError, OperationWrongContentError:
+			// FIXME(zhiyan): I think continue above is wrong, returns StatusConflict seems better
+			//case OperationSeqConflictError:
+			//	code = http.StatusConflict
+			case WrongMessageFormatError, OperationInvalidContentError, OperationSeqInterruptError:
 				code = http.StatusBadRequest
 			case TimeoutError:
 				code = http.StatusGatewayTimeout
-			case OperationPartiallySucceedError:
+			case OperationPartiallyCompleteError:
 				code = http.StatusAccepted
 			default:
 				code = http.StatusInternalServerError
@@ -179,8 +179,8 @@ func unpackReqOperation(payload []byte) (*ReqOperation, error) {
 }
 
 func respondOperation(req *cluster.RequestEvent, resp *RespOperation) {
-	// defensive programming
 	if len(req.RequestPayload) == 0 {
+		// defensive programming
 		return
 	}
 
@@ -216,30 +216,32 @@ func (gc *GatewayCluster) handleOperationRelay(req *cluster.RequestEvent) {
 
 	reqOperation, err := unpackReqOperation(req.RequestPayload[1:])
 	if err != nil {
-		respondOperationErr(req, WrongFormatError, err.Error())
-		return
-	}
-
-	ms := gc.log.maxSeq()
-	if ms+gc.conf.OPLogMaxSeqGapToPull < reqOperation.Operation.Seq {
-		respondOperationErr(req, OperationLogHugeGapError,
-			fmt.Sprintf("want sync to %d but local is %d, skipped since local is too old",
-				reqOperation.Operation.Seq, ms))
+		respondOperationErr(req, WrongMessageFormatError, err.Error())
 		return
 	}
 
 	// ignore timeout handling on relayed request operation, which is controlled by under layer
 
-	err, errType := gc.log.append(&reqOperation.Operation)
+	err, errType := gc.log.append(reqOperation.StartSeq, reqOperation.Operation)
 	if err != nil {
+		switch errType {
+		case OperationSeqConflictError:
+			logger.Warnf("[the operation (sequence=%d) was synced before, skipped to write oplog]",
+				reqOperation.StartSeq)
+			goto SUCCESS
+		case OperationInvalidSeqError:
+			logger.Warnf("[the operation (sequence=%d) is retrieved too early to write oplog]",
+				reqOperation.StartSeq)
+		default: // does not make sense
+			logger.Errorf("[append operation to oplog failed: %v]", err)
+		}
+
 		respondOperationErr(req, errType, err.Error())
 		return
 	}
-
-	resp := new(RespOperation) // nil Err
-	respondOperation(req, resp)
+SUCCESS:
+	respondOperation(req, new(RespOperation))
 	return
-
 }
 
 func (gc *GatewayCluster) handleOperation(req *cluster.RequestEvent) {
@@ -250,19 +252,19 @@ func (gc *GatewayCluster) handleOperation(req *cluster.RequestEvent) {
 
 	reqOperation, err := unpackReqOperation(req.RequestPayload[1:])
 	if err != nil {
-		respondOperationErr(req, WrongFormatError, err.Error())
+		respondOperationErr(req, WrongMessageFormatError, err.Error())
 		return
 	}
 
-	ms := gc.log.maxSeq()
-	if ms+1 != reqOperation.Operation.Seq {
-		respondOperationErr(req, OperationWrongSeqError, fmt.Sprintf("we need sequence %d", ms+1))
+	err, errType := gc.log.append(reqOperation.StartSeq, reqOperation.Operation)
+	if err != nil {
+		logger.Errorf("[append operation to oplog failed: %v]", err)
+		respondOperationErr(req, errType, err.Error())
 		return
 	}
-	
-	if !reqOperation.OperationAllNodes {
-		resp := new(RespOperation) // nil Err
-		respondOperation(req, resp)
+
+	if !reqOperation.OperateAllNodes {
+		respondOperation(req, new(RespOperation))
 		return
 	}
 
@@ -288,8 +290,8 @@ func (gc *GatewayCluster) handleOperation(req *cluster.RequestEvent) {
 
 	future, err := gc.cluster.Request(requestName, requestPayload, &requestParam)
 	if err != nil {
-		respondOperationErr(req, InternalServerError,
-			fmt.Sprintf("braodcast message failed: %s", err.Error()))
+		logger.Errorf("[send operagtion relay message failed: %v]", err)
+		respondOperationErr(req, InternalServerError, err)
 		return
 	}
 
@@ -300,118 +302,26 @@ func (gc *GatewayCluster) handleOperation(req *cluster.RequestEvent) {
 
 	gc.recordResp(requestName, future, membersRespBook)
 
-	memberCorrectRespCount := 0
+	correctMemberRespCount := 0
 	for _, payload := range membersRespBook {
 		if len(payload) == 0 {
 			continue
 		}
+
 		resp := new(RespOperation)
 		err := cluster.Unpack(payload[1:], resp)
-		if err != nil {
+		if err != nil || resp.Err != nil {
 			continue
 		}
 
-		if resp.Err != nil {
-			continue
-		}
-		memberCorrectRespCount++
+		correctMemberRespCount++
 	}
 
-	if memberCorrectRespCount < len(membersRespBook) {
-		respondRetrieveErr(req, OperationPartiallySucceedError,
-			fmt.Sprintf("partially succeed in %d nodes", memberCorrectRespCount+1)) // add self
+	if correctMemberRespCount < len(membersRespBook) {
+		respondRetrieveErr(req, OperationPartiallyCompleteError,
+			fmt.Sprintf("partially succeed in %d nodes", correctMemberRespCount+1)) // add myself
 		return
 	}
 
-	resp := new(RespOperation) // nil Err
-	respondOperation(req, resp)
-}
-
-// LandOperation could be wrapped then added to oplog.operationAppendedCallbacks.
-func (gc *GatewayCluster) LandOperation(operation *Operation) error {
-	switch {
-	case operation.ContentCreatePlugin != nil:
-		content := operation.ContentCreatePlugin
-		conf, err := plugins.GetConfig(content.Type)
-		if err != nil {
-			return err
-		}
-		err = json.Unmarshal(content.Config, conf)
-		if err != nil {
-			return err
-		}
-		constructor, err := plugins.GetConstructor(content.Type)
-		if err != nil {
-			return err
-		}
-
-		_, err = gc.mod.AddPlugin(content.Type, conf, constructor)
-		if err != nil {
-			return err
-		}
-	case operation.ContentUpdatePlugin != nil:
-		content := operation.ContentUpdatePlugin
-		conf, err := plugins.GetConfig(content.Type)
-		if err != nil {
-			return err
-		}
-		err = json.Unmarshal(content.Config, conf)
-		if err != nil {
-			return err
-		}
-
-		err = gc.mod.UpdatePluginConfig(conf)
-		if err != nil {
-			return err
-		}
-	case operation.ContentDeletePlugin != nil:
-		content := operation.ContentDeletePlugin
-		err := gc.mod.DeletePlugin(content.Name)
-		if err != nil {
-			return err
-		}
-	case operation.ContentCreatePipeline != nil:
-		content := operation.ContentCreatePipeline
-		// FIXME: (@zhiyan) Is it more appropriate to put this method
-		// into pipelines package: pipelines.GetConfig(typ string).
-		// It's consistent with plugins.GetConfig. Or maybe you have concenrned it.
-		conf, err := model.GetPipelineConfig(content.Type)
-		if err != nil {
-			return err
-		}
-		err = json.Unmarshal(content.Config, conf)
-		if err != nil {
-			return err
-		}
-
-		_, err = gc.mod.AddPipeline(content.Type, conf)
-		if err != nil {
-			return err
-		}
-	case operation.ContentUpdatePipeline != nil:
-		content := operation.ContentUpdatePipeline
-		conf, err := model.GetPipelineConfig(content.Type)
-		if err != nil {
-			return err
-		}
-		err = json.Unmarshal(content.Config, conf)
-		if err != nil {
-			return err
-		}
-
-		err = gc.mod.UpdatePipelineConfig(conf)
-		if err != nil {
-			return err
-		}
-	case operation.ContentDeletePipeline != nil:
-		content := operation.ContentDeletePipeline
-		err := gc.mod.DeletePipeline(content.Name)
-		if err != nil {
-			return err
-		}
-	default:
-		return fmt.Errorf("operation with sequence %d has no content", operation.Seq)
-	}
-
-	return nil
+	respondOperation(req, new(RespOperation))
 }

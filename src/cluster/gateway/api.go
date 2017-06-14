@@ -16,7 +16,7 @@ func (gc *GatewayCluster) CreatePlugin(group string, syncAll bool, timeout time.
 	}
 
 	requestName := fmt.Sprintf("(group:%s)create_plugin", group)
-	return gc.issueOperation(group, syncAll, timeout, requestName, operation)
+	return gc.issueOperation(group, syncAll, timeout, requestName, &operation)
 }
 
 func (gc *GatewayCluster) UpdatePlugin(group string, syncAll bool, timeout time.Duration,
@@ -29,7 +29,7 @@ func (gc *GatewayCluster) UpdatePlugin(group string, syncAll bool, timeout time.
 	}
 
 	requestName := fmt.Sprintf("(group:%s)update_plugin", group)
-	return gc.issueOperation(group, syncAll, timeout, requestName, operation)
+	return gc.issueOperation(group, syncAll, timeout, requestName, &operation)
 }
 
 func (gc *GatewayCluster) DeletePlugin(group string, syncAll bool, timeout time.Duration,
@@ -41,7 +41,7 @@ func (gc *GatewayCluster) DeletePlugin(group string, syncAll bool, timeout time.
 	}
 
 	requestName := fmt.Sprintf("(group:%s)delete_plugin", group)
-	return gc.issueOperation(group, syncAll, timeout, requestName, operation)
+	return gc.issueOperation(group, syncAll, timeout, requestName, &operation)
 }
 
 func (gc *GatewayCluster) CreatePipeline(group string, syncAll bool, timeout time.Duration,
@@ -54,7 +54,7 @@ func (gc *GatewayCluster) CreatePipeline(group string, syncAll bool, timeout tim
 	}
 
 	requestName := fmt.Sprintf("(group:%s)create_pipeline", group)
-	return gc.issueOperation(group, syncAll, timeout, requestName, operation)
+	return gc.issueOperation(group, syncAll, timeout, requestName, &operation)
 }
 
 func (gc *GatewayCluster) UpdatePipeline(group string, syncAll bool, timeout time.Duration,
@@ -67,7 +67,7 @@ func (gc *GatewayCluster) UpdatePipeline(group string, syncAll bool, timeout tim
 	}
 
 	requestName := fmt.Sprintf("(group:%s)update_pipeline", group)
-	return gc.issueOperation(group, syncAll, timeout, requestName, operation)
+	return gc.issueOperation(group, syncAll, timeout, requestName, &operation)
 }
 
 func (gc *GatewayCluster) DeletePipeline(group string, syncAll bool, timeout time.Duration,
@@ -79,7 +79,7 @@ func (gc *GatewayCluster) DeletePipeline(group string, syncAll bool, timeout tim
 	}
 
 	requestName := fmt.Sprintf("(group:%s)delete_pipeline", group)
-	return gc.issueOperation(group, syncAll, timeout, requestName, operation)
+	return gc.issueOperation(group, syncAll, timeout, requestName, &operation)
 }
 
 // retrive
@@ -91,7 +91,7 @@ func (gc *GatewayCluster) RetrievePlugins(group string, syncAll bool, timeout ti
 	}
 
 	requestName := fmt.Sprintf("(group:%s)retrive_plugins", group)
-	return gc.issueRetrieve(group, syncAll, timeout, requestName, filter)
+	return gc.issueRetrieve(group, syncAll, timeout, requestName, &filter)
 }
 
 func (gc *GatewayCluster) RetrievePipelines(group string, syncAll bool, timeout time.Duration,
@@ -102,21 +102,21 @@ func (gc *GatewayCluster) RetrievePipelines(group string, syncAll bool, timeout 
 	}
 
 	requestName := fmt.Sprintf("(group:%s)retrive_pipelines", group)
-	return gc.issueRetrieve(group, syncAll, timeout, requestName, filter)
+	return gc.issueRetrieve(group, syncAll, timeout, requestName, &filter)
 }
 
-func (gc *GatewayCluster) RetrievePluginTypes(group string, syncAll bool, timeout time.Duration) ([]byte, *HTTPError) {
-	filter := FilterRetrievePluginTypes{}
+func (gc *GatewayCluster) RetrievePluginTypes(group string, syncAll bool,
+	timeout time.Duration) ([]byte, *HTTPError) {
 
 	requestName := fmt.Sprintf("(group:%s)retrive_plugin_types", group)
-	return gc.issueRetrieve(group, syncAll, timeout, requestName, filter)
+	return gc.issueRetrieve(group, syncAll, timeout, requestName, &FilterRetrievePluginTypes{})
 }
 
-func (gc *GatewayCluster) RetrievePipelineTypes(group string, syncAll bool, timeout time.Duration) ([]byte, *HTTPError) {
-	filter := FilterRetrievePluginTypes{}
+func (gc *GatewayCluster) RetrievePipelineTypes(group string, syncAll bool,
+	timeout time.Duration) ([]byte, *HTTPError) {
 
 	requestName := fmt.Sprintf("(group:%s)retrive_pipeline_types", group)
-	return gc.issueRetrieve(group, syncAll, timeout, requestName, filter)
+	return gc.issueRetrieve(group, syncAll, timeout, requestName, &FilterRetrievePluginTypes{})
 }
 
 // stat

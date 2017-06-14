@@ -23,7 +23,7 @@ func NewRest(gateway *engine.Gateway) (*Rest, error) {
 
 	return &Rest{
 		gateway: gateway,
-		gc:      gateway.GatewayCluster(),
+		gc:      gateway.Cluster(),
 		done:    make(chan error, 1),
 	}, nil
 }
