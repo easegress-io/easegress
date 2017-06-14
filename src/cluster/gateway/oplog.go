@@ -218,6 +218,7 @@ func (op *opLog) _locklessMaxSeq() uint64 {
 
 	maxSeq := item.Value()
 	if maxSeq == nil {
+		// NOTICE: At the very beinning, it's not a bug to get empty value.
 		logger.Errorf("[BUG: get max sequence from badger returns empty]")
 		return 0
 	}
