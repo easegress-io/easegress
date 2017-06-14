@@ -212,7 +212,7 @@ func (c *Cluster) Stop() error {
 	case NodeShutdown:
 		return nil // already stop
 	case NodeAlive:
-		fallthrough // FIXME: (@zhiyan) why fallthrough here?
+		fallthrough // need to Leave() first
 	case NodeLeaving:
 		return fmt.Errorf("invalid node status")
 	}
