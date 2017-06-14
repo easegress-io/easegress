@@ -14,7 +14,7 @@ import (
 	"common"
 )
 
-type OperationAppended func(newOperation *Operation)
+type OperationAppended func(newOperation *Operation) error
 
 const (
 	maxSeqKey = "maxSeqKey"
@@ -111,7 +111,8 @@ func (op *opLog) append(operations ...Operation) error {
 		op.kv.Set([]byte(fmt.Sprintf("%d", ms)), operationBuff)
 
 		for _, cb := range op.operationAppendedCallbacks {
-			cb.Callback().(OperationAppended)(&operation)
+			err := cb.Callback().(OperationAppended)(&operation)
+			logger.Errorf("[BUG: operation appended callback %s failed: %v]", cb.Name(), err)
 		}
 	}
 

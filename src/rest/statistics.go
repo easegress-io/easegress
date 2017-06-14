@@ -26,6 +26,8 @@ func newStatisticsServer(gateway *engine.Gateway) (*statisticsServer, error) {
 func (s *statisticsServer) Api() (*rest.Api, error) {
 	pav := common.PrefixAPIVersion
 	router, err := rest.MakeRouter(
+		// parameters: timeout(seconds, min: 10s, default:30s),
+		// e.g. /cluster/statistics/v1/group_NY/plugins/plugin_ex/indicators?timeout=30s
 		rest.Get(pav("/pipelines/#pipelineName/plugins/#pluginName/indicators"),
 			s.retrievePluginIndicatorNames),
 		rest.Get(pav("/pipelines/#pipelineName/plugins/#pluginName/indicators/#indicatorName/value"),

@@ -36,7 +36,7 @@ func (s *clusterAdminServer) Api() (*rest.Api, error) {
 	router, err := rest.MakeRouter(
 		// parameters: sync_all(bool, default:false) and
 		// timeout(seconds, min: 10s, default:30s),
-		// e.g. /cluster_admin/v1/group_NY/plugins?sync_all=false&timeout=30s
+		// e.g. /cluster/admin/v1/group_NY/plugins?sync_all=false&timeout=30s
 		rest.Post(pav("/#group/plugins"), s.createPlugin),
 		rest.Get(pav("/#group/plugins"), s.retrievePlugins),
 		rest.Get(pav("/#group/plugins/#pluginName"), s.retrievePlugin),

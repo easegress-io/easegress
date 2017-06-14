@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"time"
 
-	_ "cluster/gateway"
+	cluster_gateway "cluster/gateway"
 	"config"
 	"logger"
 	"model"
@@ -68,6 +68,7 @@ type Gateway struct {
 	sync.Mutex
 	repo      config.Store
 	mod       *model.Model
+	gc        *cluster_gateway.GatewayCluster
 	pipelines map[string][]*pipelineInstance
 	done      chan error
 	startAt   time.Time
@@ -82,9 +83,22 @@ func NewGateway() (*Gateway, error) {
 
 	mod := model.NewModel()
 
+	// TODO: read from launch config
+	gcConf := cluster_gateway.Config{
+		OPLogMaxSeqGapToPull:  10,
+		OPLogPullMaxCountOnce: 5,
+		OPLogPullInterval:     10 * time.Second,
+		OPLogPullTimeout:      30 * time.Second,
+	}
+	gc, err := cluster_gateway.NewGatewayCluster(gcConf, mod)
+	if err != nil {
+		return nil, fmt.Errorf("[initialize gateway cluster failed: %v]", err)
+	}
+
 	return &Gateway{
 		repo:      repo,
 		mod:       mod,
+		gc:        gc,
 		pipelines: make(map[string][]*pipelineInstance),
 		done:      make(chan error, 1),
 	}, nil
@@ -115,6 +129,7 @@ func (gw *Gateway) Run() (<-chan error, error) {
 
 	gw.setupPluginPersistenceControl()
 	gw.setupPipelinePersistenceControl()
+	gw.setupGatewayClusterLandOperation()
 
 	return gw.done, nil
 }
@@ -146,10 +161,23 @@ func (gw *Gateway) Stop() {
 	gw.mod.DismissAllPluginInstances()
 	logger.Infof("[closed plugins]")
 
-	gw.done <- nil
+	logger.Infof("[closing gateway cluster]")
+	err := gw.gc.Stop()
+	if err != nil {
+		logger.Errorf("[closing gateway cluster failed: %s]", err)
+	} else {
+		logger.Infof("[closed gateway cluster]")
+	}
+
+	gw.done <- err
 }
+
 func (gw *Gateway) Model() *model.Model {
 	return gw.mod
+}
+
+func (gw *Gateway) GatewayCluster() *cluster_gateway.GatewayCluster {
+	return gw.gc
 }
 
 func (gw *Gateway) UpTime() time.Duration {
@@ -311,6 +339,10 @@ func (gw *Gateway) setupPipelinePersistenceControl() {
 	gw.mod.AddPipelineAddedCallback("addPipelineToStorage", gw.addPipelineToStorage, false)
 	gw.mod.AddPipelineDeletedCallback("deletePipelineFromStorage", gw.deletePipelineFromStorage, false)
 	gw.mod.AddPipelineUpdatedCallback("updatePipelineInStorage", gw.updatePipelineInStorage, false)
+}
+
+func (gw *Gateway) setupGatewayClusterLandOperation() {
+	gw.gc.OPLog().AddOPLogAppendedCallback("landOperationToModel", gw.gc.LandOperation, false)
 }
 
 func (gw *Gateway) addPluginToStorage(newPlugin *model.Plugin) {

@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"net/http"
 
+	"cluster/gateway"
 	"engine"
 	"logger"
 )
 
 type Rest struct {
 	gateway *engine.Gateway
+	gc      *gateway.GatewayCluster
 	done    chan error
 }
 
@@ -21,6 +23,7 @@ func NewRest(gateway *engine.Gateway) (*Rest, error) {
 
 	return &Rest{
 		gateway: gateway,
+		gc:      gateway.GatewayCluster(),
 		done:    make(chan error, 1),
 	}, nil
 }
@@ -39,6 +42,16 @@ func (s *Rest) Start() (<-chan error, string, error) {
 	healthCheckServer, err := newHealthCheckServer(s.gateway)
 	if err != nil {
 		logger.Errorf("[create healthcheck rest server failed: %v", err)
+		return nil, "", err
+	}
+	clusterAdminServer, err := newClusterAdminServer(s.gateway, s.gc)
+	if err != nil {
+		logger.Errorf("[create cluster admin rest server failed: %v", err)
+		return nil, "", err
+	}
+	clusterStatisticsServer, err := newClusterStatisticsServer(s.gateway, s.gc)
+	if err != nil {
+		logger.Errorf("[create cluster statistics rest server failed: %v", err)
 		return nil, "", err
 	}
 
@@ -63,10 +76,26 @@ func (s *Rest) Start() (<-chan error, string, error) {
 	} else {
 		logger.Debugf("[healthcheck api created]")
 	}
+	clusterAdminApi, err := clusterAdminServer.Api()
+	if err != nil {
+		logger.Errorf("[create cluster admin api failed: %v", err)
+		return nil, "", err
+	} else {
+		logger.Debugf("[cluster admin api created]")
+	}
+	clusterStatisticsApi, err := clusterStatisticsServer.Api()
+	if err != nil {
+		logger.Errorf("[create cluster statistics api failed: %v", err)
+		return nil, "", err
+	} else {
+		logger.Debugf("[cluster statistics api created]")
+	}
 
 	http.Handle("/admin/", http.StripPrefix("/admin", adminApi.MakeHandler()))
 	http.Handle("/statistics/", http.StripPrefix("/statistics", statisticsApi.MakeHandler()))
 	http.Handle("/health/", http.StripPrefix("/health", healthCheckApi.MakeHandler()))
+	http.Handle("/cluster/admin/", http.StripPrefix("/cluster/admin", clusterAdminApi.MakeHandler()))
+	http.Handle("/cluster/statistics/", http.StripPrefix("/cluster/statistics", clusterStatisticsApi.MakeHandler()))
 
 	listenAddr := fmt.Sprintf("%s:9090", common.Host)
 
