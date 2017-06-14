@@ -34,7 +34,7 @@ func (s *clusterStatisticsServer) Api() (*rest.Api, error) {
 	pav := common.PrefixAPIVersion
 	router, err := rest.MakeRouter(
 		// parameters: timeout(seconds, min: 10s, default:30s),
-		// e.g. /cluster/statistics/v1/group_NY/plugins/plugin_ex/indicators?timeout=30s
+		// e.g. /cluster/statistics/v1/group_NY/pipelines/pipeline_1/plugins/plugin_ex/indicators?timeout=30s
 		rest.Get(pav("/#group/pipelines/#pipelineName/plugins/#pluginName/indicators"),
 			s.retrievePluginIndicatorNames),
 		rest.Get(pav("/#group/pipelines/#pipelineName/plugins/#pluginName/indicators/#indicatorName/value"),
