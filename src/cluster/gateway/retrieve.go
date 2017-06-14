@@ -23,15 +23,15 @@ func (gc *GatewayCluster) issueRetrieve(group string, syncAll bool, timeout time
 		RetrieveAllNodes: syncAll,
 		Timeout:          timeout,
 	}
-	switch filter.(type) {
+	switch filter := filter.(type) {
 	case *FilterRetrievePlugins:
-		req.FilterRetrievePlugins = filter.(*FilterRetrievePlugins)
+		req.FilterRetrievePlugins = filter
 	case *FilterRetrievePipelines:
-		req.FilterRetrievePipelines = filter.(*FilterRetrievePipelines)
+		req.FilterRetrievePipelines = filter
 	case *FilterRetrievePluginTypes:
-		req.FilterRetrievePluginTypes = filter.(*FilterRetrievePluginTypes)
+		req.FilterRetrievePluginTypes = filter
 	case *FilterRetrievePipelineTypes:
-		req.FilterRetrievePipelineTypes = filter.(*FilterRetrievePipelineTypes)
+		req.FilterRetrievePipelineTypes = filter
 	default:
 		return nil, NewHTTPError("unsupported filter type", http.StatusInternalServerError)
 	}
