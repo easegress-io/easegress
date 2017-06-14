@@ -34,8 +34,8 @@ func unpackRespOPLogPull(payload []byte) (*RespOPLogPull, error) {
 }
 
 func respondOPLog(req *cluster.RequestEvent, resp *RespOPLogPull) {
-	// defensive programming
-	if len(req.RequestPayload) < 1 {
+	if len(req.RequestPayload) == 0 {
+		// defensive programming
 		return
 	}
 
@@ -54,7 +54,7 @@ func respondOPLog(req *cluster.RequestEvent, resp *RespOPLogPull) {
 }
 
 func (gc *GatewayCluster) handleOPLogPull(req *cluster.RequestEvent) {
-	if len(req.RequestPayload) < 1 {
+	if len(req.RequestPayload) == 0 {
 		// defensive programming
 		return
 	}
@@ -65,14 +65,10 @@ func (gc *GatewayCluster) handleOPLogPull(req *cluster.RequestEvent) {
 	}
 
 	resp := new(RespOPLogPull)
-	operations, err := gc.log.retrieve(reqOPLogPull.LocalMaxSeq+1, reqOPLogPull.WantMaxSeq)
+	resp.SequentialOperations, err = gc.log.retrieve(reqOPLogPull.LocalMaxSeq+1, reqOPLogPull.WantMaxSeq)
 	if err != nil {
+		logger.Errorf("[retrieve sequential operations from oplog failed: %v]", err)
 		return
-	}
-
-	resp.SequentialOperations = make([]Operation, 0)
-	for _, operation := range operations {
-		resp.SequentialOperations = append(resp.SequentialOperations, *operation)
 	}
 
 	respondOPLog(req, resp)
@@ -106,7 +102,7 @@ LOOP:
 				LocalMaxSeq: ms,
 				WantMaxSeq:  ms + gc.conf.OPLogPullMaxCountOnce,
 			}
-			payload, err := cluster.PackWithHeader(reqOPLogPull, uint8(opLogPullMessage))
+			payload, err := cluster.PackWithHeader(&reqOPLogPull, uint8(opLogPullMessage))
 			if err != nil {
 				logger.Errorf("[BUG: PackWithHeader %#v failed: %v]", reqOPLogPull, err)
 				continue LOOP
@@ -117,25 +113,29 @@ LOOP:
 				TargetNodeNames: []string{member.NodeName},
 			}
 
-			future, err := gc.cluster.Request("pull_oplog", payload, &requestParam)
+			future, _ := gc.cluster.Request("pull_oplog", payload, &requestParam)
 
-			go func(future *cluster.Future) {
+			go func() {
 				memberResp, ok := <-future.Response()
 				if !ok {
 					return
 				}
-				if len(memberResp.Payload) < 1 {
-					logger.Errorf("received empty pull_oplog response")
+				if len(memberResp.Payload) == 0 {
+					logger.Errorf("[received empty pull_oplog response]")
 					return
 				}
 				resp, err := unpackRespOPLogPull(memberResp.Payload[1:])
 				if err != nil {
-					logger.Errorf("received bad RespOPLogPull: %v", err)
+					logger.Errorf("[received bad RespOPLogPull: %v]", err)
 					return
 				}
-				gc.log.append(resp.SequentialOperations...)
-			}(future)
 
+				err, _ = gc.log.append(resp.SequentialOperations...)
+				if err != nil {
+					logger.Errorf("[append sequential operations to oplog failed: %v]", err)
+					return
+				}
+			}()
 		case <-gc.stopChan:
 			break LOOP
 		}

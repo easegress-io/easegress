@@ -23,7 +23,7 @@ func (gc *GatewayCluster) queryGroupMaxSeq(group string, timeout time.Duration) 
 	}
 
 	requestName := fmt.Sprintf("(group:%s)query_group_max_sequence", group)
-	requestPayload, err := cluster.PackWithHeader(ReqQueryGroupMaxSeq{}, uint8(queryGroupMaxSeqMessage))
+	requestPayload, err := cluster.PackWithHeader(&ReqQueryGroupMaxSeq{}, uint8(queryGroupMaxSeqMessage))
 	if err != nil {
 		return 0, NewHTTPError(err.Error(), http.StatusInternalServerError)
 	}
@@ -37,7 +37,7 @@ func (gc *GatewayCluster) queryGroupMaxSeq(group string, timeout time.Duration) 
 	if !ok {
 		return 0, NewHTTPError("timeout", http.StatusGatewayTimeout)
 	}
-	if len(memberResp.Payload) < 1 {
+	if len(memberResp.Payload) == 0 {
 		return 0, NewHTTPError("empty response", http.StatusInternalServerError)
 	}
 
@@ -70,7 +70,7 @@ func (gc *GatewayCluster) issueOperation(group string, syncAll bool, timeout tim
 			Timeout:           timeout,
 			Operation:         operation,
 		}
-		requestPayload, err := cluster.PackWithHeader(req, uint8(operationMessage))
+		requestPayload, err := cluster.PackWithHeader(&req, uint8(operationMessage))
 		if err != nil {
 			return NewHTTPError(err.Error(), http.StatusInternalServerError)
 		}
@@ -91,7 +91,7 @@ func (gc *GatewayCluster) issueOperation(group string, syncAll bool, timeout tim
 		if !ok {
 			return NewHTTPError("timeout", http.StatusGatewayTimeout)
 		}
-		if len(memberResp.Payload) < 1 {
+		if len(memberResp.Payload) == 0 {
 			return NewHTTPError("empty response", http.StatusGatewayTimeout)
 		}
 
@@ -111,7 +111,7 @@ func (gc *GatewayCluster) issueOperation(group string, syncAll bool, timeout tim
 				code = http.StatusBadRequest
 			case TimeoutError:
 				code = http.StatusGatewayTimeout
-			case OperationPartiallySecceedError:
+			case OperationPartiallySucceedError:
 				code = http.StatusAccepted
 			default:
 				code = http.StatusInternalServerError
@@ -184,7 +184,7 @@ func unpackReqOperation(payload []byte) (*ReqOperation, error) {
 
 func respondOperation(req *cluster.RequestEvent, resp *RespOperation) {
 	// defensive programming
-	if len(req.RequestPayload) < 1 {
+	if len(req.RequestPayload) == 0 {
 		return
 	}
 
@@ -213,7 +213,7 @@ func respondOperationErr(req *cluster.RequestEvent, typ ClusterErrorType, msg st
 }
 
 func (gc *GatewayCluster) handleOperationRelay(req *cluster.RequestEvent) {
-	if len(req.RequestPayload) < 1 {
+	if len(req.RequestPayload) == 0 {
 		// defensive programming
 		return
 	}
@@ -226,37 +226,28 @@ func (gc *GatewayCluster) handleOperationRelay(req *cluster.RequestEvent) {
 
 	ms := gc.log.maxSeq()
 	if ms+gc.conf.OPLogMaxSeqGapToPull < reqOperation.Operation.Seq {
-		respondOperationErr(req, OperationLogHugeGapError, fmt.Sprintf("want sync to %d but local is %d", reqOperation.Operation.Seq, ms))
+		respondOperationErr(req, OperationLogHugeGapError,
+			fmt.Sprintf("want sync to %d but local is %d, skipped since local is too old",
+				reqOperation.Operation.Seq, ms))
 		return
 	}
 
-	waitTimer := time.NewTimer(reqOperation.Timeout)
-	for {
-		select {
-		case <-waitTimer.C:
-			respondOperationErr(req, TimeoutError, "timeout")
-		default:
-			ms = gc.log.maxSeq()
-			if ms+1 >= reqOperation.Operation.Seq {
-				err = gc.log.append(reqOperation.Operation)
-				ms = gc.log.maxSeq()
-				if ms < reqOperation.Operation.Seq {
-					respondOperationErr(req, InternalServerError, err.Error())
-					return
-				}
+	// ignore timeout handling on relayed request operation, which is controlled by under layer
 
-				resp := new(RespOperation) // nil Err
-				respondOperation(req, resp)
-				return
-			}
-
-			time.After(gc.conf.OPLogPullInterval)
-		}
+	err, errType := gc.log.append(&reqOperation.Operation)
+	if err != nil {
+		respondOperationErr(req, errType, err.Error())
+		return
 	}
+
+	resp := new(RespOperation) // nil Err
+	respondOperation(req, resp)
+	return
+
 }
 
 func (gc *GatewayCluster) handleOperation(req *cluster.RequestEvent) {
-	if len(req.RequestPayload) < 1 {
+	if len(req.RequestPayload) == 0 {
 		// defensive programming
 		return
 	}
@@ -307,7 +298,8 @@ func (gc *GatewayCluster) handleOperation(req *cluster.RequestEvent) {
 
 	future, err := gc.cluster.Request(requestName, requestPayload, &requestParam)
 	if err != nil {
-		respondOperationErr(req, InternalServerError, fmt.Sprintf("braodcast message failed: %s", err.Error()))
+		respondOperationErr(req, InternalServerError,
+			fmt.Sprintf("braodcast message failed: %s", err.Error()))
 		return
 	}
 
@@ -320,7 +312,7 @@ func (gc *GatewayCluster) handleOperation(req *cluster.RequestEvent) {
 
 	memberCorrectRespCount := 0
 	for _, payload := range membersRespBook {
-		if len(payload) < 1 {
+		if len(payload) == 0 {
 			continue
 		}
 		resp := new(RespOperation)
@@ -336,7 +328,8 @@ func (gc *GatewayCluster) handleOperation(req *cluster.RequestEvent) {
 	}
 
 	if memberCorrectRespCount < len(membersRespBook) {
-		respondRetrieveErr(req, OperationPartiallySecceedError, fmt.Sprintf("partially succeed in %d nodes", memberCorrectRespCount+1)) // add self
+		respondRetrieveErr(req, OperationPartiallySucceedError,
+			fmt.Sprintf("partially succeed in %d nodes", memberCorrectRespCount+1)) // add self
 		return
 	}
 

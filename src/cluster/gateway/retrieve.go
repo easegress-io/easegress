@@ -42,7 +42,7 @@ func (gc *GatewayCluster) issueRetrieve(group string, syncAll bool, timeout time
 		return nil, NewHTTPError("unsupported filter type", http.StatusInternalServerError)
 	}
 
-	requestPayload, err := cluster.PackWithHeader(req, uint8(retrieveMessage))
+	requestPayload, err := cluster.PackWithHeader(&req, uint8(retrieveMessage))
 	if err != nil {
 		return nil, NewHTTPError(err.Error(), http.StatusInternalServerError)
 	}

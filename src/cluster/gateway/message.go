@@ -31,7 +31,8 @@ type (
 
 // ClusterErrorType
 const (
-	WrongFormatError ClusterErrorType = iota
+	NoneError ClusterErrorType = iota
+	WrongFormatError
 	InternalServerError
 	TimeoutError
 
@@ -40,7 +41,7 @@ const (
 	OperationWrongSeqError
 	OperationWrongContentError
 	OperationLogHugeGapError
-	OperationPartiallySecceedError
+	OperationPartiallySucceedError
 
 	StatNotFoundError
 )
@@ -121,15 +122,15 @@ type (
 type (
 	// Pack Header: retrieveMessage | retrieveRelayMessage
 	ReqRetrieve struct {
-		// RetrieveAllNodes is the flag to specify the write_mode node
-		// retrieve just its own stuff then return immediately when false,
-		// or retrieve corresponding stuff of all nodes in the group then
-		// return when true. If any one of nodes has different stuff,
+		Timeout time.Duration
+
+		// RetrieveAllNodes is the flag to represent if the node under write mode
+		// retrieves just its own stuff (false value) or retrieves corresponding stuff
+		// of all nodes in the group (true value). If any one of nodes has different stuff,
 		// that would cause returning inconsistent error to the client.
 		// The mechanism guarantees that retrieval must choose either
 		// Consistency or Availability.
 		RetrieveAllNodes bool
-		Timeout          time.Duration
 
 		// Below Filter* is Packed from corresponding struct
 		FilterRetrievePlugins       *FilterRetrievePlugins
@@ -239,7 +240,7 @@ type (
 	ResultStatIndicatorDesc struct {
 		Desc interface{} `json:"desc"`
 	}
-	// TODO: add uptime, rusage, loadavg of a group.
+	// TODO: add health stuff, including uptime, rusage, loadavg of a group.
 )
 
 // opLogPullMessage
@@ -253,9 +254,6 @@ type (
 	}
 	// Pack Header: opLogPullMessage
 	RespOPLogPull struct {
-		// It's recommended to check sequence of first operation and len
-		// to get max sequence of SequentialOperations then just land
-		// and record needed operations to local Operation Log.
-		SequentialOperations []Operation
+		SequentialOperations []*Operation
 	}
 )

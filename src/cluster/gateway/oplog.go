@@ -31,7 +31,7 @@ type opLog struct {
 
 func newOPLog() (*opLog, error) {
 	dir := filepath.Join(common.INVENTORY_HOME_DIR, "/badger_oplogs")
-	os.MkdirAll(dir, 0700)
+	os.MkdirAll(dir, 0600)
 
 	opt := badger.DefaultOptions
 	opt.Dir = dir
@@ -61,8 +61,8 @@ func (op *opLog) maxSeq() uint64 {
 	return op._locklessMaxSeq()
 }
 
-func (op *opLog) append(operations ...Operation) error {
-	if len(operations) < 1 {
+func (op *opLog) append(operations ...*Operation) (error, ClusterErrorType) {
+	if len(operations) == 0 {
 		return nil
 	}
 
@@ -70,21 +70,30 @@ func (op *opLog) append(operations ...Operation) error {
 	defer op.Unlock()
 
 	ms := op._locklessMaxSeq()
+
+	// check last one of the sequential operations first to speed up
 	if ms >= operations[len(operations)-1].Seq {
 		return nil
 	}
 
-	lastSeq := operations[0].Seq
-	if lastSeq == 0 {
-		return fmt.Errorf("no zero sequence operation")
+	leastSeq := operations[0].Seq
+	if leastSeq == 0 {
+		return fmt.Errorf("invalid sequential operation"), InternalServerError
 	}
-	lastSeq--
+
+	if leastSeq != ms + 1 {
+		return fmt.Errorf("invalid sequential operation"), OperationWrongSeqError
+	}
+
+	leastSeq--
 
 	for _, operation := range operations {
-		if operation.Seq-lastSeq != 1 {
-			return fmt.Errorf("operation must obey monotonic increasing quantity is 1")
+		if operation.Seq-leastSeq != 1 {
+			return fmt.Errorf("operation must obey monotonic increasing quantity is 1"),
+				OperationWrongSeqError
 		}
-		lastSeq++
+
+		leastSeq++
 
 		switch {
 		case operation.ContentCreatePlugin != nil:
@@ -94,21 +103,19 @@ func (op *opLog) append(operations ...Operation) error {
 		case operation.ContentUpdatePipeline != nil:
 		case operation.ContentDeletePipeline != nil:
 		default:
-			return fmt.Errorf("operation with sequence %d has no content", operation.Seq)
-		}
-
-		if ms+1 != operation.Seq {
-			continue
+			return fmt.Errorf("operation with sequence %d is empty", operation.Seq),
+				OperationWrongContentError
 		}
 
 		operationBuff, err := json.Marshal(operation)
 		if err != nil {
 			logger.Errorf("[BUG: marshal %#v failed: %v]", operation, err)
-			return fmt.Errorf("[marshal %#v failed: %v]", operation, err)
+			return fmt.Errorf("[marshal %#v failed: %v]", operation, err), OperationWrongContentError
 		}
 
-		ms = op._locklessIncreaseMaxSeq()
-		op.kv.Set([]byte(fmt.Sprintf("%d", ms)), operationBuff)
+		op._locklessIncreaseMaxSeq()
+
+		op.kv.Set([]byte(fmt.Sprintf("%d", operation.Seq)), operationBuff)
 
 		for _, cb := range op.operationAppendedCallbacks {
 			err := cb.Callback().(OperationAppended)(&operation)
@@ -116,7 +123,7 @@ func (op *opLog) append(operations ...Operation) error {
 		}
 	}
 
-	return nil
+	return nil, NoneError
 }
 
 // retrieve reads logs whose sequence is `begin <= seq <= end`
@@ -124,20 +131,17 @@ func (op *opLog) retrieve(begin, end uint64) ([]*Operation, error) {
 	if begin == 0 {
 		return nil, fmt.Errorf("begin must be greater than 0")
 	}
+
 	if begin > end {
 		return nil, fmt.Errorf("begin is greater than end")
 	}
 
 	// NOTICE: We never change recorded content, so it's unnecessary to use RLock.
-
 	ms := op._locklessMaxSeq()
-	if end > ms {
-		return nil, fmt.Errorf("end is greater than max sequence %d", ms)
-	}
 
 	var ret []*Operation
 
-	for i := begin; i <= end; i++ {
+	for i := begin; i <= end && i <= ms; i++ {
 		var item badger.KVItem
 		err := op.kv.Get([]byte(fmt.Sprintf("%d", i)), &item)
 		if err != nil {
@@ -208,11 +212,13 @@ func (op *opLog) _locklessMaxSeq() uint64 {
 	var item badger.KVItem
 	err := op.kv.Get([]byte(maxSeqKey), &item)
 	if err != nil {
+		logger.Errorf("[get max sequence from badger failed: %v]", err)
 		return 0
 	}
 
 	maxSeq := item.Value()
 	if maxSeq == nil {
+		logger.Errorf("[BUG: get max sequence from badger returns empty]")
 		return 0
 	}
 
