@@ -212,7 +212,7 @@ func (op *opLog) _locklessMaxSeq() uint64 {
 	var item badger.KVItem
 	err := op.kv.Get([]byte(maxSeqKey), &item)
 	if err != nil {
-		logger.Errorf("[BUG: get max sequence from badger failed: %v]", err)
+		logger.Errorf("[get max sequence from badger failed: %v]", err)
 		return 0
 	}
 
