@@ -437,6 +437,7 @@ func (s *clusterAdminServer) retrievePluginTypes(w rest.ResponseWriter, r *rest.
 		return
 	}
 
+	timeout = time.Duration(ADMIN_TIMEOUT_DECAY_RATE * float64(timeout))
 	resp, httpErr := s.gc.RetrievePluginTypes(group, syncAll, timeout)
 	if httpErr != nil {
 		w.WriteHeader(httpErr.StatusCode)
@@ -460,6 +461,7 @@ func (s *clusterAdminServer) retrievePipelineTypes(w rest.ResponseWriter, r *res
 		return
 	}
 
+	timeout = time.Duration(ADMIN_TIMEOUT_DECAY_RATE * float64(timeout))
 	resp, httpErr := s.gc.RetrievePipelineTypes(group, syncAll, timeout)
 	if httpErr != nil {
 		w.WriteHeader(httpErr.StatusCode)
