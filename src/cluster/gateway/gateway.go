@@ -130,39 +130,68 @@ LOOP:
 		case event := <-gc.eventStream:
 			switch event := event.(type) {
 			case *cluster.RequestEvent:
-				if len(event.RequestPayload) < 1 {
+				if len(event.RequestPayload) == 0 {
 					break
 				}
-				msgType := event.RequestPayload[0]
 
-				switch MessageType(msgType) {
+				switch MessageType(event.RequestPayload[0]) {
 				case queryGroupMaxSeqMessage:
+					logger.Debugf("[member %s received queryGroupMaxSeqMessage message]",
+						gc.clusterConf.NodeName)
+
 					go gc.handleQueryGroupMaxSeq(event)
 				case operationMessage:
 					if gc.Mode() == WriteMode {
+						logger.Debugf("[member %s received operationMessage message]",
+							gc.clusterConf.NodeName)
+
 						go gc.handleOperation(event)
+					} else {
+						logger.Errorf("[BUG: member with read mode received operationMessage]")
 					}
-					logger.Errorf("[BUG: node with read mode received operationMessage]")
 				case operationRelayMessage:
 					if gc.Mode() == ReadMode {
+						logger.Debugf("[member %s received operationRelayMessage message]",
+							gc.clusterConf.NodeName)
+
 						go gc.handleOperationRelay(event)
+					} else {
+						logger.Errorf(
+							"[BUG: member with write mode received operationRelayMessage]")
 					}
-					logger.Errorf("[BUG: node with write mode received operationRelayMessage]")
 				case retrieveMessage:
 					if gc.Mode() == WriteMode {
+						logger.Debugf("[member %s received retrieveMessage message]",
+							gc.clusterConf.NodeName)
+
 						go gc.handleRetrieve(event)
+					} else {
+						logger.Errorf("[BUG: member with read mode received retrieveMessage]")
 					}
-					logger.Errorf("[BUG: node with read mode received retrieveMessage]")
 				case retrieveRelayMessage:
 					if gc.Mode() == ReadMode {
+						logger.Debugf("[member %s received retrieveRelayMessage message]",
+							gc.clusterConf.NodeName)
+
 						go gc.handleRetrieveRelay(event)
+					} else {
+						logger.Errorf(
+							"[BUG: member with write mode received retrieveRelayMessage]")
 					}
-					logger.Errorf("[BUG: node with write mode received retrieveRelayMessage]")
 				case statMessage:
+					logger.Debugf("[member %s received statMessage message]",
+						gc.clusterConf.NodeName)
+
 					go gc.handleStat(event)
 				case statRelayMessage:
+					logger.Debugf("[member %s received statRelayMessage message]",
+						gc.clusterConf.NodeName)
+
 					go gc.handleStatRelay(event)
 				case opLogPullMessage:
+					logger.Debugf("[member %s received opLogPullMessage message]",
+						gc.clusterConf.NodeName)
+
 					go gc.handleOPLogPull(event)
 				}
 			case *cluster.MemberEvent:
