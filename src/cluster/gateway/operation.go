@@ -133,50 +133,46 @@ func unpackReqOperation(payload []byte) (*ReqOperation, error) {
 		return nil, fmt.Errorf("unpack %s to ReqOperation failed: %v", payload, err)
 	}
 
-	if reqOperation.Timeout < 1*time.Second {
-		return nil, fmt.Errorf("timeout is less than 1 second")
-	}
 	operation := reqOperation.Operation
 	switch {
 	case operation.ContentCreatePlugin != nil:
 		if len(operation.ContentCreatePlugin.Type) == 0 {
-			return nil, fmt.Errorf("empty type")
+			return nil, fmt.Errorf("empty plugin type for creation")
 		}
 		if operation.ContentCreatePlugin.Config == nil {
-			return nil, fmt.Errorf("empty config")
+			return nil, fmt.Errorf("empty plugin config for creation")
 		}
 	case operation.ContentUpdatePlugin != nil:
 		if len(operation.ContentUpdatePlugin.Type) == 0 {
-			return nil, fmt.Errorf("empty type")
+			return nil, fmt.Errorf("empty plugin type for update")
 		}
 		if operation.ContentUpdatePlugin.Config == nil {
-			return nil, fmt.Errorf("empty config")
+			return nil, fmt.Errorf("empty plugin config for update")
 		}
 	case operation.ContentDeletePlugin != nil:
 		if len(operation.ContentDeletePlugin.Name) == 0 {
-			return nil, fmt.Errorf("empty name")
+			return nil, fmt.Errorf("empty plugin name for deletion")
 		}
-
 	case operation.ContentCreatePipeline != nil:
 		if len(operation.ContentCreatePipeline.Type) == 0 {
-			return nil, fmt.Errorf("empty type")
+			return nil, fmt.Errorf("empty pipeline type for creation")
 		}
 		if operation.ContentCreatePipeline.Config == nil {
-			return nil, fmt.Errorf("empty config")
+			return nil, fmt.Errorf("empty pipeline config for creation")
 		}
 	case operation.ContentUpdatePipeline != nil:
 		if len(operation.ContentUpdatePipeline.Type) == 0 {
-			return nil, fmt.Errorf("empty type")
+			return nil, fmt.Errorf("empty pipeline type for update")
 		}
 		if operation.ContentUpdatePipeline.Config == nil {
-			return nil, fmt.Errorf("empty config")
+			return nil, fmt.Errorf("empty pipeline config for update")
 		}
 	case operation.ContentDeletePipeline != nil:
 		if len(operation.ContentDeletePipeline.Name) == 0 {
-			return nil, fmt.Errorf("empty name")
+			return nil, fmt.Errorf("empty pipeline name for deletion")
 		}
 	default:
-		return nil, fmt.Errorf("empty operation content")
+		return nil, fmt.Errorf("empty operation request")
 	}
 
 	return reqOperation, nil
@@ -190,14 +186,14 @@ func respondOperation(req *cluster.RequestEvent, resp *RespOperation) {
 
 	respBuff, err := cluster.PackWithHeader(resp, uint8(req.RequestPayload[0]))
 	if err != nil {
-		logger.Errorf("[BUG: pack header(%d) %#v failed: %v]", req.RequestPayload[0], resp, err)
+		logger.Errorf("[BUG: pack response (header=%d) to %#v failed: %v]", req.RequestPayload[0], resp, err)
 		return
 	}
 
 	err = req.Respond(respBuff)
 	if err != nil {
-		logger.Errorf("[respond %s to request %s, node %s failed: %v]",
-			respBuff, req.RequestName, req.RequestNodeName, err)
+		logger.Errorf("[respond request %s to member %s failed: %v]",
+			req.RequestName, req.RequestNodeName, err)
 		return
 	}
 }
@@ -263,13 +259,7 @@ func (gc *GatewayCluster) handleOperation(req *cluster.RequestEvent) {
 		respondOperationErr(req, OperationWrongSeqError, fmt.Sprintf("we need sequence %d", ms+1))
 		return
 	}
-
-	err = gc.LandOperation(&reqOperation.Operation)
-	if err != nil {
-		respondOperationErr(req, OperationWrongContentError, err.Error())
-		return
-	}
-
+	
 	if !reqOperation.OperationAllNodes {
 		resp := new(RespOperation) // nil Err
 		respondOperation(req, resp)
