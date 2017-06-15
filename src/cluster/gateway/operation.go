@@ -126,56 +126,56 @@ func (gc *GatewayCluster) issueOperation(group string, syncAll bool, timeout tim
 ////
 
 // for core
-func unpackReqOperation(payload []byte) (*ReqOperation, error) {
+func unpackReqOperation(payload []byte) (*ReqOperation, error, ClusterErrorType) {
 	reqOperation := new(ReqOperation)
 	err := cluster.Unpack(payload, reqOperation)
 	if err != nil {
-		return nil, fmt.Errorf("unpack %s to ReqOperation failed: %v", payload, err)
+		return nil, fmt.Errorf("unpack %s to ReqOperation failed: %v", payload, err), WrongMessageFormatError
 	}
 
 	operation := reqOperation.Operation
 	switch {
 	case operation.ContentCreatePlugin != nil:
 		if len(operation.ContentCreatePlugin.Type) == 0 {
-			return nil, fmt.Errorf("empty plugin type for creation")
+			return nil, fmt.Errorf("empty plugin type for creation"), InternalServerError
 		}
 		if operation.ContentCreatePlugin.Config == nil {
-			return nil, fmt.Errorf("empty plugin config for creation")
+			return nil, fmt.Errorf("empty plugin config for creation"), InternalServerError
 		}
 	case operation.ContentUpdatePlugin != nil:
 		if len(operation.ContentUpdatePlugin.Type) == 0 {
-			return nil, fmt.Errorf("empty plugin type for update")
+			return nil, fmt.Errorf("empty plugin type for update"), InternalServerError
 		}
 		if operation.ContentUpdatePlugin.Config == nil {
-			return nil, fmt.Errorf("empty plugin config for update")
+			return nil, fmt.Errorf("empty plugin config for update"), InternalServerError
 		}
 	case operation.ContentDeletePlugin != nil:
 		if len(operation.ContentDeletePlugin.Name) == 0 {
-			return nil, fmt.Errorf("empty plugin name for deletion")
+			return nil, fmt.Errorf("empty plugin name for deletion"), InternalServerError
 		}
 	case operation.ContentCreatePipeline != nil:
 		if len(operation.ContentCreatePipeline.Type) == 0 {
-			return nil, fmt.Errorf("empty pipeline type for creation")
+			return nil, fmt.Errorf("empty pipeline type for creation"), InternalServerError
 		}
 		if operation.ContentCreatePipeline.Config == nil {
-			return nil, fmt.Errorf("empty pipeline config for creation")
+			return nil, fmt.Errorf("empty pipeline config for creation"), InternalServerError
 		}
 	case operation.ContentUpdatePipeline != nil:
 		if len(operation.ContentUpdatePipeline.Type) == 0 {
-			return nil, fmt.Errorf("empty pipeline type for update")
+			return nil, fmt.Errorf("empty pipeline type for update"), InternalServerError
 		}
 		if operation.ContentUpdatePipeline.Config == nil {
-			return nil, fmt.Errorf("empty pipeline config for update")
+			return nil, fmt.Errorf("empty pipeline config for update"), InternalServerError
 		}
 	case operation.ContentDeletePipeline != nil:
 		if len(operation.ContentDeletePipeline.Name) == 0 {
-			return nil, fmt.Errorf("empty pipeline name for deletion")
+			return nil, fmt.Errorf("empty pipeline name for deletion"), InternalServerError
 		}
 	default:
-		return nil, fmt.Errorf("empty operation request")
+		return nil, fmt.Errorf("empty operation request"), InternalServerError
 	}
 
-	return reqOperation, nil
+	return reqOperation, nil, NoneError
 }
 
 func respondOperation(req *cluster.RequestEvent, resp *RespOperation) {
@@ -214,15 +214,15 @@ func (gc *GatewayCluster) handleOperationRelay(req *cluster.RequestEvent) {
 		return
 	}
 
-	reqOperation, err := unpackReqOperation(req.RequestPayload[1:])
+	reqOperation, err, errType := unpackReqOperation(req.RequestPayload[1:])
 	if err != nil {
-		respondOperationErr(req, WrongMessageFormatError, err.Error())
+		respondOperationErr(req, errType, err.Error())
 		return
 	}
 
 	// ignore timeout handling on relayed request operation, which is controlled by under layer
 
-	err, errType := gc.log.append(reqOperation.StartSeq, reqOperation.Operation)
+	err, errType = gc.log.append(reqOperation.StartSeq, reqOperation.Operation)
 	if err != nil {
 		switch errType {
 		case OperationSeqConflictError:
@@ -250,13 +250,13 @@ func (gc *GatewayCluster) handleOperation(req *cluster.RequestEvent) {
 		return
 	}
 
-	reqOperation, err := unpackReqOperation(req.RequestPayload[1:])
+	reqOperation, err, errType := unpackReqOperation(req.RequestPayload[1:])
 	if err != nil {
-		respondOperationErr(req, WrongMessageFormatError, err.Error())
+		respondOperationErr(req, errType, err.Error())
 		return
 	}
 
-	err, errType := gc.log.append(reqOperation.StartSeq, reqOperation.Operation)
+	err, errType = gc.log.append(reqOperation.StartSeq, reqOperation.Operation)
 	if err != nil {
 		logger.Errorf("[append operation to oplog failed: %v]", err)
 		respondOperationErr(req, errType, err.Error())
@@ -291,7 +291,7 @@ func (gc *GatewayCluster) handleOperation(req *cluster.RequestEvent) {
 	future, err := gc.cluster.Request(requestName, requestPayload, &requestParam)
 	if err != nil {
 		logger.Errorf("[send operagtion relay message failed: %v]", err)
-		respondOperationErr(req, InternalServerError, err)
+		respondOperationErr(req, InternalServerError, err.Error())
 		return
 	}
 

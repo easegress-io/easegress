@@ -103,15 +103,11 @@ func (gc *GatewayCluster) issueRetrieve(group string, syncAll bool, timeout time
 }
 
 // for core
-func unpackReqRetrieve(payload []byte) (*ReqRetrieve, error) {
+func unpackReqRetrieve(payload []byte) (*ReqRetrieve, error, ClusterErrorType) {
 	reqRetrieve := new(ReqRetrieve)
 	err := cluster.Unpack(payload, reqRetrieve)
 	if err != nil {
-		return nil, fmt.Errorf("unpack %s to ReqRetrieve failed: %v", payload, err)
-	}
-
-	if reqRetrieve.Timeout < 1*time.Second {
-		return nil, fmt.Errorf("timeout is less than 1 second")
+		return nil, fmt.Errorf("unpack %s to ReqRetrieve failed: %v", payload, err), WrongMessageFormatError
 	}
 
 	switch {
@@ -120,28 +116,28 @@ func unpackReqRetrieve(payload []byte) (*ReqRetrieve, error) {
 	case reqRetrieve.FilterRetrievePluginTypes != nil:
 	case reqRetrieve.FilterRetrievePipelineTypes != nil:
 	default:
-		return nil, fmt.Errorf("empty filter")
+		return nil, fmt.Errorf("empty retieve filter"), InternalServerError
 	}
 
-	return reqRetrieve, nil
+	return reqRetrieve, nil, NoneError
 }
 
 func respondRetrieve(req *cluster.RequestEvent, resp *RespRetrieve) {
-	// defensive programming
-	if len(req.RequestPayload) < 1 {
+	if len(req.RequestPayload) == 0 {
+		// defensive programming
 		return
 	}
 
 	respBuff, err := cluster.PackWithHeader(resp, uint8(req.RequestPayload[0]))
 	if err != nil {
-		logger.Errorf("[BUG: pack header(%d) %#v failed: %v]", req.RequestPayload[0], resp, err)
+		logger.Errorf("[BUG: pack response (header=%d) to %#v failed: %v]", req.RequestPayload[0], resp, err)
 		return
 	}
 
 	err = req.Respond(respBuff)
 	if err != nil {
-		logger.Errorf("[respond %s to request %s, node %s failed: %v]",
-			respBuff, req.RequestName, req.RequestNodeName, err)
+		logger.Errorf("[respond request %s to member %s failed: %v]",
+			req.RequestName, req.RequestNodeName, err)
 		return
 	}
 }
@@ -156,114 +152,128 @@ func respondRetrieveErr(req *cluster.RequestEvent, typ ClusterErrorType, msg str
 	respondRetrieve(req, resp)
 }
 
-func (gc *GatewayCluster) retrieveResult(filter interface{}) ([]byte, error) {
+func (gc *GatewayCluster) retrieveResult(filter interface{}) ([]byte, error, ClusterErrorType) {
 	var ret interface{}
 
 	switch filter := filter.(type) {
 	case *FilterRetrievePlugins:
 		plugs, err := gc.mod.GetPlugins(filter.NamePattern, filter.Types)
 		if err != nil {
-			return nil, fmt.Errorf("server error: get plugins failed: %v", err)
+			logger.Errorf("[retrieve plugins from model failed: %v]", err)
+			return nil, err, RetrievePluginsError
 		}
 
-		result := ResultRetrievePlugins{}
-		result.Plugins = make([]config.PluginSpec, 0)
+		r := ResultRetrievePlugins{}
+		r.Plugins = make([]config.PluginSpec, 0)
+
 		for _, plug := range plugs {
 			spec := config.PluginSpec{
 				Type:   plug.Type(),
 				Config: plug.Config(),
 			}
-			result.Plugins = append(result.Plugins, spec)
+			r.Plugins = append(r.Plugins, spec)
 		}
-		ret = result
+
+		ret = r
 	case *FilterRetrievePipelines:
 		pipes, err := gc.mod.GetPipelines(filter.NamePattern, filter.Types)
 		if err != nil {
-			return nil, fmt.Errorf("server error: get pipelines failed: %v", err)
+			logger.Errorf("[retrieve pipelines from model failed: %v]", err)
+			return nil, err, RetrievePipelinesError
 		}
 
-		result := ResultRetrievePipelines{}
-		result.Pipelines = make([]config.PipelineSpec, 0)
+		r := ResultRetrievePipelines{}
+		r.Pipelines = make([]config.PipelineSpec, 0)
+
 		for _, pipe := range pipes {
 			spec := config.PipelineSpec{
 				Type:   pipe.Type(),
 				Config: pipe.Config(),
 			}
-			result.Pipelines = append(result.Pipelines, spec)
+			r.Pipelines = append(r.Pipelines, spec)
 		}
-		ret = result
+
+		ret = r
 	case *FilterRetrievePluginTypes:
-		result := ResultRetrievePluginTypes{}
-		result.PluginTypes = make([]string, 0)
+		r := ResultRetrievePluginTypes{}
+		r.PluginTypes = make([]string, 0)
+
 		for _, typ := range plugins.GetAllTypes() {
-			if !common.StrInSlice(typ, result.PluginTypes) {
-				result.PluginTypes = append(result.PluginTypes, typ)
+			// defensively
+			if !common.StrInSlice(typ, r.PluginTypes) {
+				r.PluginTypes = append(r.PluginTypes, typ)
 			}
 		}
-		sort.Strings(result.PluginTypes)
-		ret = result
+
+		// returns with stable order
+		sort.Strings(r.PluginTypes)
+
+		ret = r
 	case *FilterRetrievePipelineTypes:
-		result := ResultRetrievePipelineTypes{}
-		result.PipelineTypes = make([]string, 0)
-		for _, typ := range pipelines.GetAllTypes() {
-			if !common.StrInSlice(typ, result.PipelineTypes) {
-				result.PipelineTypes = append(result.PipelineTypes, typ)
-			}
-		}
-		sort.Strings(result.PipelineTypes)
-		ret = result
+		r := ResultRetrievePipelineTypes{}
+		r.PipelineTypes = pipelines.GetAllTypes()
+
+		// returns with stable order
+		sort.Strings(r.PipelineTypes)
+
+		ret = r
 	default:
-		return nil, fmt.Errorf("unsupported filter type")
+		return nil, fmt.Errorf("unsupported retrieve filter type %T", filter), InternalServerError
 	}
 
 	retBuff, err := json.Marshal(ret)
 	if err != nil {
-		logger.Errorf("[BUG: marshal %#v failed: %v]", ret, err)
-		return nil, fmt.Errorf("server error: marshal %#v failed: %v", ret, err)
+		logger.Errorf("[BUG: marshal retrieve result failed: %v]", err)
+		return nil, fmt.Errorf("marshal retrieve result failed: %v", err), InternalServerError
 	}
 
 	return retBuff, nil
 }
 
-func (gc *GatewayCluster) getLocalRetrieveResp(req *cluster.RequestEvent) *RespRetrieve {
-	if len(req.RequestPayload) < 1 {
-		return nil
-	}
-	reqRetrieve, err := unpackReqRetrieve(req.RequestPayload[1:])
-	if err != nil {
-		respondRetrieveErr(req, WrongMessageFormatError, err.Error())
-		return nil
-	}
+func (gc *GatewayCluster) getLocalRetrieveResp(reqRetrieve *ReqRetrieve) (*RespRetrieve, error, ClusterErrorType) {
+	ret := new(RespRetrieve)
 
-	resp := new(RespRetrieve)
-	err = nil // for emphasizing
+	// for emphasizing
+	var err error
+	var errType ClusterError
+
 	switch {
 	case reqRetrieve.FilterRetrievePlugins != nil:
-		resp.ResultRetrievePlugins, err = gc.retrieveResult(reqRetrieve.FilterRetrievePlugins)
+		ret.ResultRetrievePlugins, err, errType =
+			gc.retrieveResult(reqRetrieve.FilterRetrievePlugins)
 	case reqRetrieve.FilterRetrievePipelines != nil:
-		resp.ResultRetrievePipelines, err = gc.retrieveResult(reqRetrieve.FilterRetrievePipelines)
+		ret.ResultRetrievePipelines, err, errType =
+			gc.retrieveResult(reqRetrieve.FilterRetrievePipelines)
 	case reqRetrieve.FilterRetrievePluginTypes != nil:
-		resp.ResultRetrievePluginTypes, err = gc.retrieveResult(reqRetrieve.FilterRetrievePluginTypes)
+		ret.ResultRetrievePluginTypes, err, errType =
+			gc.retrieveResult(reqRetrieve.FilterRetrievePluginTypes)
 	case reqRetrieve.FilterRetrievePipelineTypes != nil:
-		resp.ResultRetrievePipelineTypes, err = gc.retrieveResult(reqRetrieve.FilterRetrievePipelineTypes)
+		ret.ResultRetrievePipelineTypes, err, errType =
+			gc.retrieveResult(reqRetrieve.FilterRetrievePipelineTypes)
 	}
 
 	if err != nil {
-		respondRetrieveErr(req, InternalServerError, err.Error())
-		return nil
+		return nil, err, errType
 	}
 
-	return resp
+	return ret, err, errType
 }
 
 func (gc *GatewayCluster) handleRetrieveRelay(req *cluster.RequestEvent) {
-	if len(req.RequestPayload) < 1 {
+	if len(req.RequestPayload) == 0 {
 		// defensive programming
 		return
 	}
 
-	resp := gc.getLocalRetrieveResp(req)
-	if resp == nil {
+	reqRetrieve, err, errType := unpackReqRetrieve(req.RequestPayload[1:])
+	if err != nil {
+		respondRetrieveErr(req, errType, err.Error())
+		return
+	}
+
+	resp, err, errType := gc.getLocalRetrieveResp(reqRetrieve)
+	if err != nil {
+		respondRetrieveErr(req, errType, err.Error())
 		return
 	}
 
@@ -271,18 +281,20 @@ func (gc *GatewayCluster) handleRetrieveRelay(req *cluster.RequestEvent) {
 }
 
 func (gc *GatewayCluster) handleRetrieve(req *cluster.RequestEvent) {
-	if len(req.RequestPayload) < 1 {
+	if len(req.RequestPayload) == 0 {
 		// defensive programming
 		return
 	}
 
-	resp := gc.getLocalRetrieveResp(req)
-	if resp == nil {
+	reqRetrieve, err, errType := unpackReqRetrieve(req.RequestPayload[1:])
+	if err != nil {
+		respondRetrieveErr(req, errType, err.Error())
 		return
 	}
 
-	reqRetrieve, err := unpackReqRetrieve(req.RequestPayload[1:])
+	resp, err, errType := gc.getLocalRetrieveResp(reqRetrieve)
 	if err != nil {
+		respondRetrieveErr(req, errType, err.Error())
 		return
 	}
 
@@ -313,7 +325,8 @@ func (gc *GatewayCluster) handleRetrieve(req *cluster.RequestEvent) {
 
 	future, err := gc.cluster.Request(requestName, requestPayload, &requestParam)
 	if err != nil {
-		respondRetrieveErr(req, InternalServerError, fmt.Sprintf("braodcast message failed: %s", err.Error()))
+		logger.Errorf("[send retrieve relay message failed: %v]", err)
+		respondRetrieveErr(req, InternalServerError, err.Error())
 		return
 	}
 
@@ -324,13 +337,14 @@ func (gc *GatewayCluster) handleRetrieve(req *cluster.RequestEvent) {
 
 	gc.recordResp(requestName, future, membersRespBook)
 
-	membersRespCount := 0
+	correctMembersRespCount := 0
 	for _, payload := range membersRespBook {
-		if len(payload) >= 1 {
-			membersRespCount++
+		if len(payload) > 0 {
+			correctMembersRespCount++
 		}
 	}
-	if membersRespCount < len(membersRespBook) {
+
+	if correctMembersRespCount < len(membersRespBook) {
 		respondRetrieveErr(req, TimeoutError, "retrieve timeout")
 		return
 	}
@@ -338,12 +352,14 @@ func (gc *GatewayCluster) handleRetrieve(req *cluster.RequestEvent) {
 	respToCompare, err := cluster.PackWithHeader(resp, uint8(retrieveRelayMessage))
 	if err != nil {
 		logger.Errorf("[BUG: pack retrieve relay message failed: %v]", err)
+		respondRetrieveErr(req, InternalServerError, err.Error())
 		return
 	}
 
 	for _, payload := range membersRespBook {
 		if bytes.Compare(respToCompare, payload) != 0 {
-			respondRetrieveErr(req, RetrieveInconsistencyError, "retrieve inconsistent content")
+			respondRetrieveErr(req, RetrieveInconsistencyError,
+				"retrieve results from different members are inconsistent")
 			return
 		}
 	}

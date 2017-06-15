@@ -510,13 +510,13 @@ func (s *adminServer) retrievePluginTypes(w rest.ResponseWriter, _ *rest.Request
 	resp.PluginTypes = make([]string, 0)
 
 	for _, typ := range plugins.GetAllTypes() {
-		// Defensively
+		// defensively
 		if !common.StrInSlice(typ, resp.PluginTypes) {
 			resp.PluginTypes = append(resp.PluginTypes, typ)
 		}
 	}
 
-	// Returns with stable order
+	// returns with stable order
 	sort.Strings(resp.PluginTypes)
 
 	w.WriteJson(resp)
@@ -529,9 +529,9 @@ func (s *adminServer) retrievePipelineTypes(w rest.ResponseWriter, _ *rest.Reque
 	logger.Debugf("[retrieve pipeline types]")
 
 	resp := new(pipelineTypesRetrieveResponse)
-	resp.PipelineTypes = append(resp.PipelineTypes, pipelines.GetAllTypes()...)
+	resp.PipelineTypes = pipelines.GetAllTypes()
 
-	// Returns with stable order
+	// returns with stable order
 	sort.Strings(resp.PipelineTypes)
 
 	w.WriteJson(resp)

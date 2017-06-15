@@ -95,7 +95,7 @@ func (op *opLog) append(startSeq uint64, operations ...*Operation) (error, Clust
 		if err != nil {
 			logger.Errorf("[BUG: marshal operation (sequence=%d) %#v failed: %v]",
 				startSeq, operation, err)
-			return fmt.Errorf("[marshal operation (sequence=%d) %#v failed: %v]",
+			return fmt.Errorf("marshal operation (sequence=%d) %#v failed: %v",
 				startSeq, operation, err), OperationInvalidContentError
 		}
 
@@ -146,7 +146,7 @@ func (op *opLog) retrieve(begin, end uint64) ([]*Operation, error) {
 		err = json.Unmarshal(operationBuff, &operation)
 		if err != nil {
 			logger.Errorf("[BUG: at %d unmarshal %s to Operation failed: %v]", i, operationBuff, err)
-			return nil, fmt.Errorf("at %d unmarshal %s to Operation failed: %v]", i, operationBuff, err)
+			return nil, fmt.Errorf("at %d unmarshal %s to Operation failed: %v", i, operationBuff, err)
 		}
 
 		ret = append(ret, &operation)

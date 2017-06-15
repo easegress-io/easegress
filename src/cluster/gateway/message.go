@@ -43,6 +43,8 @@ const (
 	OperationPartiallyCompleteError
 
 	RetrieveInconsistencyError
+	RetrievePluginsError
+	RetrievePipelinesError
 
 	StatNotFoundError
 )
