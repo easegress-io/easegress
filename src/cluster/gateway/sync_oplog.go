@@ -130,7 +130,7 @@ LOOP:
 					return
 				}
 
-				err, _ = gc.log.append(resp.SequentialOperations...)
+				err, _ = gc.log.append(resp.SequentialOperations)
 				if err != nil {
 					logger.Errorf("[append sequential operations to oplog failed: %v]", err)
 					return

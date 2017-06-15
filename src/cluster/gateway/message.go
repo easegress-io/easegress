@@ -29,28 +29,7 @@ type (
 	MessageType uint8
 )
 
-// ClusterErrorType
-const (
-	NoneError ClusterErrorType = iota
-
-	WrongMessageFormatError
-	InternalServerError
-	TimeoutError
-
-	OperationSeqConflictError
-	OperationInvalidSeqError
-	OperationInvalidContentError
-	OperationPartiallyCompleteError
-
-	RetrieveInconsistencyError
-	RetrievePluginsError
-	RetrievePipelinesError
-
-	StatNotFoundError
-)
-
 type (
-	ClusterErrorType uint8
 	ClusterError     struct {
 		Type    ClusterErrorType
 		Message string

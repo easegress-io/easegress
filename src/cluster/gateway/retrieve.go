@@ -157,16 +157,14 @@ func (gc *GatewayCluster) retrieveResult(filter interface{}) ([]byte, error, Clu
 
 	switch filter := filter.(type) {
 	case *FilterRetrievePlugins:
-		plugs, err := gc.mod.GetPlugins(filter.NamePattern, filter.Types)
+		plugins, err := gc.mod.GetPlugins(filter.NamePattern, filter.Types)
 		if err != nil {
 			logger.Errorf("[retrieve plugins from model failed: %v]", err)
 			return nil, err, RetrievePluginsError
 		}
 
-		r := ResultRetrievePlugins{}
-		r.Plugins = make([]config.PluginSpec, 0)
-
-		for _, plug := range plugs {
+		r := new(ResultRetrievePlugins)
+		for _, plug := range plugins {
 			spec := config.PluginSpec{
 				Type:   plug.Type(),
 				Config: plug.Config(),
@@ -176,16 +174,14 @@ func (gc *GatewayCluster) retrieveResult(filter interface{}) ([]byte, error, Clu
 
 		ret = r
 	case *FilterRetrievePipelines:
-		pipes, err := gc.mod.GetPipelines(filter.NamePattern, filter.Types)
+		pipelines, err := gc.mod.GetPipelines(filter.NamePattern, filter.Types)
 		if err != nil {
 			logger.Errorf("[retrieve pipelines from model failed: %v]", err)
 			return nil, err, RetrievePipelinesError
 		}
 
-		r := ResultRetrievePipelines{}
-		r.Pipelines = make([]config.PipelineSpec, 0)
-
-		for _, pipe := range pipes {
+		r := new(ResultRetrievePipelines)
+		for _, pipe := range pipelines {
 			spec := config.PipelineSpec{
 				Type:   pipe.Type(),
 				Config: pipe.Config(),
@@ -195,7 +191,7 @@ func (gc *GatewayCluster) retrieveResult(filter interface{}) ([]byte, error, Clu
 
 		ret = r
 	case *FilterRetrievePluginTypes:
-		r := ResultRetrievePluginTypes{}
+		r := new(ResultRetrievePluginTypes)
 		r.PluginTypes = make([]string, 0)
 
 		for _, typ := range plugins.GetAllTypes() {
@@ -210,7 +206,7 @@ func (gc *GatewayCluster) retrieveResult(filter interface{}) ([]byte, error, Clu
 
 		ret = r
 	case *FilterRetrievePipelineTypes:
-		r := ResultRetrievePipelineTypes{}
+		r := new(ResultRetrievePipelineTypes)
 		r.PipelineTypes = pipelines.GetAllTypes()
 
 		// returns with stable order
@@ -227,7 +223,7 @@ func (gc *GatewayCluster) retrieveResult(filter interface{}) ([]byte, error, Clu
 		return nil, fmt.Errorf("marshal retrieve result failed: %v", err), InternalServerError
 	}
 
-	return retBuff, nil
+	return retBuff, nil, NoneError
 }
 
 func (gc *GatewayCluster) getLocalRetrieveResp(reqRetrieve *ReqRetrieve) (*RespRetrieve, error, ClusterErrorType) {
@@ -310,7 +306,7 @@ func (gc *GatewayCluster) handleRetrieve(req *cluster.RequestEvent) {
 	}
 	requestParam := cluster.RequestParam{
 		TargetNodeNames: requestMemberNames,
-		// TargetNodeNames is enough but TargetNodeTags could make rule strict.
+		// TargetNodeNames is enough but TargetNodeTags could make rule strict
 		TargetNodeTags: map[string]string{
 			groupTagKey: gc.localGroupName(),
 			modeTagKey:  ReadMode.String(),

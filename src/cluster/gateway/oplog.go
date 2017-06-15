@@ -61,7 +61,7 @@ func (op *opLog) maxSeq() uint64 {
 	return op._locklessMaxSeq()
 }
 
-func (op *opLog) append(startSeq uint64, operations ...*Operation) (error, ClusterErrorType) {
+func (op *opLog) append(startSeq uint64, operations []*Operation) (error, ClusterErrorType) {
 	if len(operations) == 0 {
 		return nil, NoneError
 	}

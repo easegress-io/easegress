@@ -2,6 +2,35 @@ package gateway
 
 import "fmt"
 
+type ClusterErrorType uint8
+
+const (
+	NoneError ClusterErrorType = iota
+
+	WrongMessageFormatError
+	InternalServerError
+	TimeoutError
+
+	OperationSeqConflictError
+	OperationInvalidSeqError
+	OperationInvalidContentError
+	OperationPartiallyCompleteError
+
+	RetrieveInconsistencyError
+	RetrievePluginsError
+	RetrievePipelinesError
+
+	PipelineStatNotFoundError
+	RetrievePipelineStatValueError
+	RetrievePipelineStatDescError
+	RetrievePluginStatValueError
+	RetrievePluginStatDescError
+	RetrieveTaskStatValueError
+	RetrieveTaskStatDescError
+)
+
+////
+
 type HTTPError struct {
 	Msg        string
 	StatusCode int

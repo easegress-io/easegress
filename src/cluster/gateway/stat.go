@@ -12,8 +12,12 @@ import (
 	"logger"
 )
 
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
 // for api
-func (gc *GatewayCluster) chooseMembertoAggregateStat(group string) (string, error) {
+func (gc *GatewayCluster) chooseMemberToAggregateStat(group string) (string, error) {
 	totalMembers := gc.cluster.Members()
 	writeMember := ""
 	readMembers := make([]string, 0)
@@ -28,9 +32,8 @@ func (gc *GatewayCluster) chooseMembertoAggregateStat(group string) (string, err
 		}
 	}
 
-	// prefer to choose ReadMode member in order to reduce load of WriteMode member
+	// choose read mode member preferentially to reduce load of member under write mode
 	if len(readMembers) > 0 {
-		rand.Seed(time.Now().UnixNano())
 		return readMembers[rand.Int()%len(readMembers)], nil
 	}
 
@@ -103,7 +106,7 @@ func (gc *GatewayCluster) issueStat(group string, timeout time.Duration,
 	if err != nil {
 		return nil, NewHTTPError(err.Error(), http.StatusInternalServerError)
 	}
-	targetMember, err := gc.chooseMembertoAggregateStat(group)
+	targetMember, err := gc.chooseMemberToAggregateStat(group)
 	if err != nil {
 		return nil, NewHTTPError(err.Error(), http.StatusInternalServerError)
 	}
@@ -182,15 +185,11 @@ func (gc *GatewayCluster) issueStat(group string, timeout time.Duration,
 }
 
 // for core
-func unpackReqStat(payload []byte) (*ReqStat, error) {
+func unpackReqStat(payload []byte) (*ReqStat, error, ClusterErrorType) {
 	reqStat := new(ReqStat)
 	err := cluster.Unpack(payload, reqStat)
 	if err != nil {
-		return nil, fmt.Errorf("unpack %s to ReqStat failed: %v", payload, err)
-	}
-
-	if reqStat.Timeout < 1*time.Second {
-		return nil, fmt.Errorf("timeout is less than 1 second")
+		return nil, fmt.Errorf("unpack %s to ReqStat failed: %v", payload, err), WrongMessageFormatError
 	}
 
 	emptyString := func(s string) bool {
@@ -200,90 +199,108 @@ func unpackReqStat(payload []byte) (*ReqStat, error) {
 	switch {
 	case reqStat.FilterPipelineIndicatorNames != nil:
 		if emptyString(reqStat.FilterPipelineIndicatorNames.PipelineName) {
-			return nil, fmt.Errorf("empty pipeline name")
+			return nil, fmt.Errorf("empty pipeline name in filter to retireve " +
+				"pipeline statistics indicator names"), InternalServerError
 		}
 	case reqStat.FilterPipelineIndicatorValue != nil:
 		if emptyString(reqStat.FilterPipelineIndicatorValue.PipelineName) {
-			return nil, fmt.Errorf("empty pipeline name")
+			return nil, fmt.Errorf("empty pipeline name in filter to retrieve " +
+				"pipeline statistics indicator value"), InternalServerError
 		}
 		if emptyString(reqStat.FilterPipelineIndicatorValue.IndicatorName) {
-			return nil, fmt.Errorf("empty indicator name")
+			return nil, fmt.Errorf("empty indicator name in filter to " +
+				"retrieve pipeline statistics indicator value"), InternalServerError
 		}
 	case reqStat.FilterPipelineIndicatorDesc != nil:
 		if emptyString(reqStat.FilterPipelineIndicatorDesc.PipelineName) {
-			return nil, fmt.Errorf("empty pipeline name")
+			return nil, fmt.Errorf("empty pipeline name in filter to retrieve " +
+				"pipeline statistics indicator description"), InternalServerError
 		}
 		if emptyString(reqStat.FilterPipelineIndicatorDesc.IndicatorName) {
-			return nil, fmt.Errorf("empty indicator name")
+			return nil, fmt.Errorf("empty indicator name in filter to retrieve " +
+				"pipeline statistics indicator description"), InternalServerError
 		}
 	case reqStat.FilterPluginIndicatorNames != nil:
 		if emptyString(reqStat.FilterPluginIndicatorNames.PipelineName) {
-			return nil, fmt.Errorf("empty pipeline name")
+			return nil, fmt.Errorf("empty pipeline name in filter to retrieve " +
+				"plugin statistics indicator names"), InternalServerError
 		}
 		if emptyString(reqStat.FilterPluginIndicatorNames.PluginName) {
-			return nil, fmt.Errorf("empty plugin name")
+			return nil, fmt.Errorf("empty plugin name in filter to retrieve " +
+				"plugin statistics indicator names"), InternalServerError
 		}
 	case reqStat.FilterPluginIndicatorValue != nil:
 		if emptyString(reqStat.FilterPluginIndicatorValue.PipelineName) {
-			return nil, fmt.Errorf("empty pipeline name")
+			return nil, fmt.Errorf("empty pipeline name in filter to retrieve " +
+				"plugin statistics indicator value"), InternalServerError
 		}
 		if emptyString(reqStat.FilterPluginIndicatorValue.PluginName) {
-			return nil, fmt.Errorf("empty plugin name")
+			return nil, fmt.Errorf("empty plugin name in filter to retrieve " +
+				"plugin statistics indicator value"), InternalServerError
 		}
 		if emptyString(reqStat.FilterPluginIndicatorValue.IndicatorName) {
-			return nil, fmt.Errorf("empty indicator name")
+			return nil, fmt.Errorf("empty indicator name in filter to retrieve " +
+				"plugin statistics indicator value"), InternalServerError
 		}
 	case reqStat.FilterPluginIndicatorDesc != nil:
 		if emptyString(reqStat.FilterPluginIndicatorDesc.PipelineName) {
-			return nil, fmt.Errorf("empty pipeline name")
+			return nil, fmt.Errorf("empty pipeline name in filter to retrieve " +
+				"plugin statistics indicator description"), InternalServerError
 		}
 		if emptyString(reqStat.FilterPluginIndicatorDesc.PluginName) {
-			return nil, fmt.Errorf("empty plugin name")
+			return nil, fmt.Errorf("empty plugin name in filter to retrieve " +
+				"plugin statistics indicator description"), InternalServerError
 		}
 		if emptyString(reqStat.FilterPluginIndicatorDesc.IndicatorName) {
-			return nil, fmt.Errorf("empty indicator name")
+			return nil, fmt.Errorf("empty indicator name in filter to retrieve " +
+				"plugin statistics indicator description"), InternalServerError
 		}
 	case reqStat.FilterTaskIndicatorNames != nil:
 		if emptyString(reqStat.FilterTaskIndicatorNames.PipelineName) {
-			return nil, fmt.Errorf("empty pipeline name")
+			return nil, fmt.Errorf("empty pipeline name in filter to retrieve " +
+				"task statistics indicator names"), InternalServerError
 		}
 	case reqStat.FilterTaskIndicatorValue != nil:
 		if emptyString(reqStat.FilterTaskIndicatorValue.PipelineName) {
-			return nil, fmt.Errorf("empty pipeline name")
+			return nil, fmt.Errorf("empty pipeline name in filter to retrieve " +
+				"task statistics indicator value"), InternalServerError
 		}
 		if emptyString(reqStat.FilterTaskIndicatorValue.IndicatorName) {
-			return nil, fmt.Errorf("empty indicator name")
+			return nil, fmt.Errorf("empty indicator name in filter to retrieve " +
+				"task statistics indicator value"), InternalServerError
 		}
 	case reqStat.FilterTaskIndicatorDesc != nil:
 		if emptyString(reqStat.FilterTaskIndicatorDesc.PipelineName) {
-			return nil, fmt.Errorf("empty pipeline name")
+			return nil, fmt.Errorf("empty pipeline name in filter to retrieve " +
+				"task statistics indicator description"), InternalServerError
 		}
 		if emptyString(reqStat.FilterTaskIndicatorDesc.IndicatorName) {
-			return nil, fmt.Errorf("empty indicator name")
+			return nil, fmt.Errorf("empty indicator name in filter to retrieve " +
+				"task statistics indicator description"), InternalServerError
 		}
 	default:
-		return nil, fmt.Errorf("empty filter")
+		return nil, fmt.Errorf("empty statistics filter"), InternalServerError
 	}
 
-	return reqStat, nil
+	return reqStat, nil, NoneError
 }
 
 func respondStat(req *cluster.RequestEvent, resp *RespStat) {
-	// defensive programming
-	if len(req.RequestPayload) < 1 {
+	if len(req.RequestPayload) == 0 {
+		// defensive programming
 		return
 	}
 
 	respBuff, err := cluster.PackWithHeader(resp, uint8(req.RequestPayload[0]))
 	if err != nil {
-		logger.Errorf("[BUG: pack header(%d) %#v failed: %v]", req.RequestPayload[0], resp, err)
+		logger.Errorf("[BUG: pack response (header=%d) to %#v failed: %v]", req.RequestPayload[0], resp, err)
 		return
 	}
 
 	err = req.Respond(respBuff)
 	if err != nil {
-		logger.Errorf("[respond %s to request %s, node %s failed: %v]",
-			respBuff, req.RequestName, req.RequestNodeName, err)
+		logger.Errorf("[respond request %s to member %s failed: %v]",
+			req.RequestName, req.RequestNodeName, err)
 		return
 	}
 }
@@ -298,191 +315,237 @@ func respondStatErr(req *cluster.RequestEvent, typ ClusterErrorType, msg string)
 	respondStat(req, resp)
 }
 
-func (gc *GatewayCluster) statResult(filter interface{}) ([]byte, error) {
+func (gc *GatewayCluster) statResult(filter interface{}) ([]byte, error, ClusterErrorType) {
 	var ret interface{}
 	var err error
 
 	statRegistry := gc.mod.StatRegistry()
+
 	switch filter := filter.(type) {
 	case *FilterPipelineIndicatorNames:
 		stat := statRegistry.GetPipelineStatistics(filter.PipelineName)
 		if stat == nil {
-			return nil, fmt.Errorf("pipeline %s statistics not found", filter.PipelineName)
+			return nil, fmt.Errorf("pipeline %s statistics not found", filter.PipelineName),
+				PipelineStatNotFoundError
 		}
-		result := ResultStatIndicatorNames{}
-		result.Names = stat.PipelineIndicatorNames()
-		sort.Strings(result.Names)
-		ret = result
+
+		r := new(ResultStatIndicatorNames)
+		r.Names = stat.PipelineIndicatorNames()
+
+		// returns with stable order
+		sort.Strings(r.Names)
+
+		ret = r
 	case *FilterPipelineIndicatorValue:
 		stat := statRegistry.GetPipelineStatistics(filter.PipelineName)
 		if stat == nil {
-			return nil, fmt.Errorf("pipeline %s statistics not found", filter.PipelineName)
+			return nil, fmt.Errorf("pipeline %s statistics not found", filter.PipelineName),
+				PipelineStatNotFoundError
 		}
-		result := ResultStatIndicatorValue{}
-		result.Value, err = stat.PipelineIndicatorValue(filter.IndicatorName)
+
+		r := new(ResultStatIndicatorValue)
+		r.Value, err = stat.PipelineIndicatorValue(filter.IndicatorName)
 		if err != nil {
-			return nil, err
+			logger.Errorf("[retrieve the value of pipeline %s statistics indicator %s "+
+				"from model failed: %v]", filter.PipelineName, filter.IndicatorName, err)
+			return nil, err, RetrievePipelineStatValueError
 		}
-		ret = result
+
+		ret = r
 	case *FilterPipelineIndicatorDesc:
 		stat := statRegistry.GetPipelineStatistics(filter.PipelineName)
 		if stat == nil {
-			return nil, fmt.Errorf("pipeline %s statistics not found", filter.PipelineName)
+			return nil, fmt.Errorf("pipeline %s statistics not found", filter.PipelineName),
+				PipelineStatNotFoundError
 		}
-		result := ResultStatIndicatorDesc{}
-		result.Desc, err = stat.PipelineIndicatorDescription(filter.IndicatorName)
+
+		r := new(ResultStatIndicatorDesc)
+		r.Desc, err = stat.PipelineIndicatorDescription(filter.IndicatorName)
 		if err != nil {
-			return nil, err
+			logger.Errorf("[retrieve the description of pipeline %s statistics indicator %s "+
+				"from model failed: %v]", filter.PipelineName, filter.IndicatorName, err)
+			return nil, err, RetrievePipelineStatDescError
 		}
-		ret = result
+
+		ret = r
 	case *FilterPluginIndicatorNames:
 		stat := statRegistry.GetPipelineStatistics(filter.PipelineName)
 		if stat == nil {
-			return nil, fmt.Errorf("pipeline %s statistics not found", filter.PipelineName)
+			return nil, fmt.Errorf("pipeline %s statistics not found", filter.PipelineName),
+				PipelineStatNotFoundError
 		}
-		result := ResultStatIndicatorNames{}
-		result.Names = stat.PluginIndicatorNames(filter.PluginName)
-		sort.Strings(result.Names)
-		ret = result
+
+		r := new(ResultStatIndicatorNames)
+		r.Names = stat.PluginIndicatorNames(filter.PluginName)
+
+		// returns with stable order
+		sort.Strings(r.Names)
+
+		ret = r
 	case *FilterPluginIndicatorValue:
 		stat := statRegistry.GetPipelineStatistics(filter.PipelineName)
 		if stat == nil {
-			return nil, fmt.Errorf("pipeline %s statistics not found", filter.PipelineName)
+			return nil, fmt.Errorf("pipeline %s statistics not found", filter.PipelineName),
+				PipelineStatNotFoundError
 		}
-		result := ResultStatIndicatorValue{}
-		result.Value, err = stat.PluginIndicatorValue(filter.PluginName, filter.IndicatorName)
+
+		r := new(ResultStatIndicatorValue)
+		r.Value, err = stat.PluginIndicatorValue(filter.PluginName, filter.IndicatorName)
 		if err != nil {
-			return nil, err
+			logger.Errorf("[retrieve the value of plugin %s statistics indicator %s in pipeline %s "+
+				"from model failed: %v]", filter.PluginName, filter.IndicatorName,
+				filter.PipelineName, err)
+			return nil, err, RetrievePluginStatValueError
 		}
-		ret = result
+
+		ret = r
 	case *FilterPluginIndicatorDesc:
 		stat := statRegistry.GetPipelineStatistics(filter.PipelineName)
 		if stat == nil {
-			return nil, fmt.Errorf("pipeline %s statistics not found", filter.PipelineName)
+			return nil, fmt.Errorf("pipeline %s statistics not found", filter.PipelineName),
+				PipelineStatNotFoundError
 		}
-		result := ResultStatIndicatorDesc{}
-		result.Desc, err = stat.PluginIndicatorDescription(filter.PluginName, filter.IndicatorName)
+
+		r := new(ResultStatIndicatorDesc)
+		r.Desc, err = stat.PluginIndicatorDescription(filter.PluginName, filter.IndicatorName)
 		if err != nil {
-			return nil, err
+			logger.Errorf("[retrieve the description of plugin %s statistics indicator %s "+
+				"in pipeline %s from model failed: %v]", filter.PluginName, filter.IndicatorName,
+				filter.PipelineName, err)
+			return nil, err, RetrievePluginStatDescError
 		}
-		ret = result
+
+		ret = r
 	case *FilterTaskIndicatorNames:
 		stat := statRegistry.GetPipelineStatistics(filter.PipelineName)
 		if stat == nil {
-			return nil, fmt.Errorf("pipeline %s statistics not found", filter.PipelineName)
+			return nil, fmt.Errorf("pipeline %s statistics not found", filter.PipelineName),
+				PipelineStatNotFoundError
 		}
-		result := ResultStatIndicatorNames{}
-		result.Names = stat.TaskIndicatorNames()
-		sort.Strings(result.Names)
-		ret = result
+
+		r := new(ResultStatIndicatorNames)
+		r.Names = stat.TaskIndicatorNames()
+
+		// returns with stable order
+		sort.Strings(r.Names)
+
+		ret = r
 	case *FilterTaskIndicatorValue:
 		stat := statRegistry.GetPipelineStatistics(filter.PipelineName)
 		if stat == nil {
-			return nil, fmt.Errorf("pipeline %s statistics not found", filter.PipelineName)
+			return nil, fmt.Errorf("pipeline %s statistics not found", filter.PipelineName),
+				PipelineStatNotFoundError
 		}
-		result := ResultStatIndicatorValue{}
-		result.Value, err = stat.TaskIndicatorValue(filter.IndicatorName)
+
+		r := new(ResultStatIndicatorValue)
+		r.Value, err = stat.TaskIndicatorValue(filter.IndicatorName)
 		if err != nil {
-			return nil, err
+			logger.Errorf("[retrieve the value of task statistics indicator %s in pipeline %s "+
+				"from model failed: %v]", filter.IndicatorName, filter.PipelineName, err)
+			return nil, err, RetrieveTaskStatValueError
 		}
-		ret = result
+
+		ret = r
 	case *FilterTaskIndicatorDesc:
 		stat := statRegistry.GetPipelineStatistics(filter.PipelineName)
 		if stat == nil {
-			return nil, fmt.Errorf("pipeline %s statistics not found", filter.PipelineName)
+			return nil, fmt.Errorf("pipeline %s statistics not found", filter.PipelineName),
+				PipelineStatNotFoundError
 		}
-		result := ResultStatIndicatorDesc{}
-		result.Desc, err = stat.TaskIndicatorDescription(filter.IndicatorName)
+
+		r := new(ResultStatIndicatorDesc)
+		r.Desc, err = stat.TaskIndicatorDescription(filter.IndicatorName)
 		if err != nil {
-			return nil, err
+			logger.Errorf("[retrieve the description of task statistics indicator %s in pipeline %s "+
+				"from model failed: %v]", filter.IndicatorName, filter.PipelineName, err)
+			return nil, err, RetrieveTaskStatDescError
 		}
-		ret = result
+
+		ret = r
 	default:
-		return nil, fmt.Errorf("unsupported filter type")
+		return nil, fmt.Errorf("unsupported statistics filter type %T", filter), InternalServerError
 	}
 
 	retBuff, err := json.Marshal(ret)
 	if err != nil {
-		logger.Errorf("[BUG: marshal %#v failed: %v]", ret, err)
-		return nil, fmt.Errorf("server error: marshal %#v failed: %v", ret, err)
+		logger.Errorf("[BUG: marshal statistics result failed: %v]", err)
+		return nil, fmt.Errorf("marshal statistics result failed: %v", err), InternalServerError
 	}
 
-	return retBuff, nil
+	return retBuff, nil, NoneError
 }
 
-func (gc *GatewayCluster) getLocalStatResp(req *cluster.RequestEvent) *RespStat {
-	if len(req.RequestPayload) < 1 {
-		return nil
-	}
-
-	reqStat, err := unpackReqStat(req.RequestPayload[1:])
-	if err != nil {
-		respondStatErr(req, WrongMessageFormatError, err.Error())
-		return nil
-	}
-
+func (gc *GatewayCluster) getLocalStatResp(reqStat *ReqStat) (*RespStat, error, ClusterErrorType) {
 	resp := new(RespStat)
-	err = nil // for emphasizing
+
+	// for emphasizing
+	var err error
+	var errType ClusterErrorType
+
 	switch {
 	case reqStat.FilterPipelineIndicatorNames != nil:
-		resp.Names, err = gc.statResult(reqStat.FilterPipelineIndicatorNames)
+		resp.Names, err, errType = gc.statResult(reqStat.FilterPipelineIndicatorNames)
 	case reqStat.FilterPipelineIndicatorValue != nil:
-		resp.Value, err = gc.statResult(reqStat.FilterPipelineIndicatorValue)
+		resp.Value, err, errType = gc.statResult(reqStat.FilterPipelineIndicatorValue)
 	case reqStat.FilterPipelineIndicatorDesc != nil:
-		resp.Desc, err = gc.statResult(reqStat.FilterPipelineIndicatorDesc)
+		resp.Desc, err, errType = gc.statResult(reqStat.FilterPipelineIndicatorDesc)
 	case reqStat.FilterPluginIndicatorNames != nil:
-		resp.Names, err = gc.statResult(reqStat.FilterPluginIndicatorNames)
+		resp.Names, err, errType = gc.statResult(reqStat.FilterPluginIndicatorNames)
 	case reqStat.FilterPluginIndicatorValue != nil:
-		resp.Value, err = gc.statResult(reqStat.FilterPluginIndicatorValue)
+		resp.Value, err, errType = gc.statResult(reqStat.FilterPluginIndicatorValue)
 	case reqStat.FilterPluginIndicatorDesc != nil:
-		resp.Desc, err = gc.statResult(reqStat.FilterPluginIndicatorDesc)
+		resp.Desc, err, errType = gc.statResult(reqStat.FilterPluginIndicatorDesc)
 	case reqStat.FilterTaskIndicatorNames != nil:
-		resp.Names, err = gc.statResult(reqStat.FilterTaskIndicatorNames)
+		resp.Names, err, errType = gc.statResult(reqStat.FilterTaskIndicatorNames)
 	case reqStat.FilterTaskIndicatorValue != nil:
-		resp.Value, err = gc.statResult(reqStat.FilterTaskIndicatorValue)
+		resp.Value, err, errType = gc.statResult(reqStat.FilterTaskIndicatorValue)
 	case reqStat.FilterTaskIndicatorDesc != nil:
-		resp.Desc, err = gc.statResult(reqStat.FilterTaskIndicatorDesc)
+		resp.Desc, err, errType = gc.statResult(reqStat.FilterTaskIndicatorDesc)
 	}
 
 	if err != nil {
-		resp.Err = &ClusterError{
-			Type:    StatNotFoundError,
-			Message: err.Error(),
-		}
+		return nil, err, errType
 	}
 
-	return resp
+	return resp, err, errType
 }
 
 func (gc *GatewayCluster) handleStatRelay(req *cluster.RequestEvent) {
-	if len(req.RequestPayload) < 1 {
+	if len(req.RequestPayload) == 0 {
 		// defensive programming
 		return
 	}
 
-	resp := gc.getLocalStatResp(req)
-	if resp == nil {
+	reqStat, err, errType := unpackReqStat(req.RequestPayload[1:])
+	if err != nil {
+		respondStatErr(req, errType, err.Error())
+		return
+	}
+
+	resp, err, errType := gc.getLocalStatResp(reqStat)
+	if err != nil {
+		respondStatErr(req, errType, err.Error())
 		return
 	}
 
 	respondStat(req, resp)
 }
 
-// Choose ReadMode node preferentially to reduce load of WrieMode
 func (gc *GatewayCluster) handleStat(req *cluster.RequestEvent) {
-	if len(req.RequestPayload) < 1 {
+	if len(req.RequestPayload) == 0 {
 		// defensive programming
 		return
 	}
 
-	// Maybe the result is not found locally which is OK to go on.
-	localResp := gc.getLocalStatResp(req)
-	if localResp == nil {
+	reqStat, err, errType := unpackReqStat(req.RequestPayload[1:])
+	if err != nil {
+		respondStatErr(req, errType, err.Error())
 		return
 	}
 
-	reqStat, err := unpackReqStat(req.RequestPayload[1:])
+	localResp, err, errType := gc.getLocalStatResp(reqStat)
 	if err != nil {
+		respondStatErr(req, errType, err.Error())
 		return
 	}
 
@@ -493,6 +556,7 @@ func (gc *GatewayCluster) handleStat(req *cluster.RequestEvent) {
 	}
 	requestParam := cluster.RequestParam{
 		TargetNodeNames: requestMemberNames,
+		// TargetNodeNames is enough but TargetNodeTags could make rule strict
 		TargetNodeTags: map[string]string{
 			groupTagKey: gc.localGroupName(),
 		},
@@ -506,7 +570,8 @@ func (gc *GatewayCluster) handleStat(req *cluster.RequestEvent) {
 
 	future, err := gc.cluster.Request(requestName, requestPayload, &requestParam)
 	if err != nil {
-		respondRetrieveErr(req, InternalServerError, fmt.Sprintf("braodcast message failed: %s", err.Error()))
+		logger.Errorf("[send stat relay message failed: %v]", err)
+		respondRetrieveErr(req, InternalServerError, err.Error())
 		return
 	}
 
@@ -517,114 +582,114 @@ func (gc *GatewayCluster) handleStat(req *cluster.RequestEvent) {
 
 	gc.recordResp(requestName, future, membersRespBook)
 
-	validResp := make([]RespStat, 0)
-	if localResp.Err != nil {
-		validResp = append(validResp, *localResp)
-	}
+	var validRespList []*RespStat
+	validRespList = append(validRespList, localResp)
+
 	for _, payload := range membersRespBook {
-		if len(payload) < 1 {
+		if len(payload) == 0 {
 			continue
 		}
 
 		resp := new(RespStat)
 		err := cluster.Unpack(payload[1:], resp)
-		if err != nil {
+		if err != nil || resp.Err != nil {
 			continue
 		}
 
-		if resp.Err != nil {
-			continue
-		}
-		validResp = append(validResp, *resp)
+		validRespList = append(validRespList, resp)
 	}
 
-	resp := aggregateRespStat(reqStat, validResp...)
-	if resp != nil {
-		respondStat(req, resp)
+	ret := aggregateStatResponses(reqStat, validRespList)
+	if ret != nil {
+		respondRetrieveErr(req, InternalServerError, "aggreate statistics for cluster memebers failed")
 		return
 	}
-	respondStat(req, localResp)
+
+	respondStat(req, ret)
 }
 
-type aggregateFunc func(values ...[]byte) []byte
+type stateAggregator func(values ...[]byte) []byte
 
-func aggregateRespStat(reqStat *ReqStat, respStats ...RespStat) *RespStat {
-	indicatorName := ""
-	var aggrFunc aggregateFunc = nil
+func aggregateStatResponses(reqStat *ReqStat, respStats []*RespStat) *RespStat {
+	var indicatorName string
+	var aggregator stateAggregator = nil
+
 	switch {
 	case reqStat.FilterPipelineIndicatorNames != nil:
 		fallthrough
 	case reqStat.FilterPluginIndicatorNames != nil:
 		fallthrough
 	case reqStat.FilterTaskIndicatorNames != nil:
-		namesMark := make(map[string]struct{})
+		memory := make(map[string]struct{})
+		ret := new(ResultStatIndicatorNames)
+		ret.Names = make([]string, 0)
+
 		for _, resp := range respStats {
-			result := &ResultStatIndicatorNames{}
-			err := json.Unmarshal(resp.Names, result)
+			r := new(ResultStatIndicatorNames)
+			err := json.Unmarshal(resp.Names, r)
 			if err != nil {
 				continue
 			}
-			for _, name := range result.Names {
-				namesMark[name] = struct{}{}
+
+			for _, name := range r.Names {
+				_, exists := memory[name]
+				if !exists {
+					ret.Names = append(ret.Names, name)
+					memory[name] = struct{}{}
+				}
 			}
 		}
 
-		if len(namesMark) == 0 {
-			return nil
-		}
-		result := &ResultStatIndicatorNames{
-			Names: make([]string, 0),
-		}
-		for name := range namesMark {
-			result.Names = append(result.Names, name)
-		}
-		sort.Strings(result.Names)
-		resultBuff, err := json.Marshal(result)
+		// returns with stable order
+		sort.Strings(ret.Names)
+
+		retBuff, err := json.Marshal(ret)
 		if err != nil {
 			return nil
 		}
-		return &RespStat{
-			Names: resultBuff,
-		}
 
+		return &RespStat{
+			Names: retBuff,
+		}
 	case reqStat.FilterPipelineIndicatorDesc != nil:
 		fallthrough
 	case reqStat.FilterPluginIndicatorDesc != nil:
 		fallthrough
 	case reqStat.FilterTaskIndicatorDesc != nil:
 		for _, resp := range respStats {
-			result := &ResultStatIndicatorDesc{}
-			err := json.Unmarshal(resp.Desc, result)
-			if err != nil || result.Desc == nil {
+			r := new(ResultStatIndicatorDesc)
+			err := json.Unmarshal(resp.Desc, r)
+			if err != nil || r.Desc == nil {
 				continue
 			}
+
 			return &RespStat{
 				Desc: resp.Desc,
 			}
 		}
-		return nil
 
+		return nil
 	case reqStat.FilterPipelineIndicatorValue != nil:
 		if len(indicatorName) == 0 {
 			indicatorName = reqStat.FilterPipelineIndicatorValue.IndicatorName
-			if aggrFunc == nil {
-				aggrFunc = pipelineIndicatorAggregateMap[indicatorName]
+			if aggregator == nil {
+				aggregator = pipelineIndicatorAggregateMap[indicatorName]
 			}
 		}
 		fallthrough
 	case reqStat.FilterPluginIndicatorValue != nil:
 		if len(indicatorName) == 0 {
 			indicatorName = reqStat.FilterPluginIndicatorValue.IndicatorName
-			if aggrFunc == nil {
-				aggrFunc = pipelineIndicatorAggregateMap[indicatorName]
+			if aggregator == nil {
+				aggregator = pluginIndicatorAggregateMap[indicatorName]
 			}
 		}
 		fallthrough
 	case reqStat.FilterTaskIndicatorValue != nil:
 		if len(indicatorName) == 0 {
 			indicatorName = reqStat.FilterTaskIndicatorValue.IndicatorName
-			if aggrFunc == nil {
-				aggrFunc = pipelineIndicatorAggregateMap[indicatorName]
+			if aggregator == nil {
+				aggregator = taskIndicatorAggregateMap[indicatorName]
 			}
 		}
 
@@ -632,33 +697,32 @@ func aggregateRespStat(reqStat *ReqStat, respStats ...RespStat) *RespStat {
 			return nil
 		}
 
-		resultValues := make([]ResultStatIndicatorValue, 0)
+		indicatorValues := make([]*ResultStatIndicatorValue, 0)
 		for _, resp := range respStats {
-			result := &ResultStatIndicatorValue{}
-			err := json.Unmarshal(resp.Value, result)
-			if err != nil || result.Value == nil {
+			r := new(ResultStatIndicatorValue)
+			err := json.Unmarshal(resp.Value, r)
+			if err != nil || r.Value == nil {
 				continue
 			}
-			resultValues = append(resultValues, *result)
-		}
-		if len(resultValues) == 0 {
-			return nil
+
+			indicatorValues = append(indicatorValues, r)
 		}
 
 		// unknown indicators, just list values
-		if aggrFunc == nil {
-			resultBuff, err := json.Marshal(resultValues)
+		if aggregator == nil {
+			retBuff, err := json.Marshal(indicatorValues)
 			if err != nil {
 				return nil
 			}
+
 			return &RespStat{
-				Value: resultBuff,
+				Value: retBuff,
 			}
 		}
 
 		// aggregate known indicators
 		values := make([][]byte, 0)
-		for _, value := range resultValues {
+		for _, value := range indicatorValues {
 			valueBuff, err := json.Marshal(value.Value)
 			if err != nil {
 				continue
@@ -670,7 +734,7 @@ func aggregateRespStat(reqStat *ReqStat, respStats ...RespStat) *RespStat {
 		}
 
 		resp := new(RespStat)
-		resp.Value = aggrFunc(values...)
+		resp.Value = aggregator(values...)
 		if resp.Value != nil {
 			return resp
 		}
@@ -681,8 +745,8 @@ func aggregateRespStat(reqStat *ReqStat, respStats ...RespStat) *RespStat {
 }
 
 func NumericSum(typ interface{}, values ...[]byte) []byte {
-	// defensive programming
 	if len(values) == 0 {
+		// defensive programming
 		return nil
 	}
 
@@ -734,8 +798,8 @@ func NumericSum(typ interface{}, values ...[]byte) []byte {
 }
 
 func NumericAvg(typ interface{}, values ...[]byte) []byte {
-	// defensive programming
 	if len(values) == 0 {
+		// defensive programming
 		return nil
 	}
 
@@ -825,28 +889,27 @@ func avgInt64(values ...[]byte) []byte {
 	return NumericAvg(int64(0), values...)
 }
 
-// In the table-driven design, just use function sumXXX to aggregate
-// all known indicators for the time being, will refine them later.
+////
 
-var pipelineIndicatorAggregateMap = map[string]aggregateFunc{
+var pipelineIndicatorAggregateMap = map[string]stateAggregator{
 	"THROUGHPUT_RATE_LAST_1MIN_ALL":  sumFloat64,
 	"THROUGHPUT_RATE_LAST_5MIN_ALL":  sumFloat64,
 	"THROUGHPUT_RATE_LAST_15MIN_ALL": sumFloat64,
 
 	"EXECUTION_COUNT_ALL":    sumInt64,
-	"EXECUTION_TIME_MAX_ALL": sumInt64,
-	"EXECUTION_TIME_MIN_ALL": sumInt64,
+	"EXECUTION_TIME_MAX_ALL": maxInt64,
+	"EXECUTION_TIME_MIN_ALL": minInt64,
 
-	"EXECUTION_TIME_50_PERCENT_ALL": sumFloat64,
-	"EXECUTION_TIME_90_PERCENT_ALL": sumFloat64,
-	"EXECUTION_TIME_99_PERCENT_ALL": sumFloat64,
+	"EXECUTION_TIME_50_PERCENT_ALL": maxFloat64,
+	"EXECUTION_TIME_90_PERCENT_ALL": maxFloat64,
+	"EXECUTION_TIME_99_PERCENT_ALL": maxFloat64,
 
-	"EXECUTION_TIME_STD_DEV_ALL":  sumFloat64,
-	"EXECUTION_TIME_VARIANCE_ALL": sumFloat64,
+	"EXECUTION_TIME_STD_DEV_ALL":  maxFloat64,
+	"EXECUTION_TIME_VARIANCE_ALL": maxFloat64,
 	"EXECUTION_TIME_SUM_ALL":      sumInt64,
 }
 
-var pluginIndicatorAggregateMap = map[string]aggregateFunc{
+var pluginIndicatorAggregateMap = map[string]stateAggregator{
 	"THROUGHPUT_RATE_LAST_1MIN_ALL":      sumFloat64,
 	"THROUGHPUT_RATE_LAST_5MIN_ALL":      sumFloat64,
 	"THROUGHPUT_RATE_LAST_15MIN_ALL":     sumFloat64,
@@ -861,40 +924,41 @@ var pluginIndicatorAggregateMap = map[string]aggregateFunc{
 	"EXECUTION_COUNT_SUCCESS": sumInt64,
 	"EXECUTION_COUNT_FAILURE": sumInt64,
 
-	"EXECUTION_TIME_MAX_ALL":     sumInt64,
-	"EXECUTION_TIME_MAX_SUCCESS": sumInt64,
-	"EXECUTION_TIME_MAX_FAILURE": sumInt64,
-	"EXECUTION_TIME_MIN_ALL":     sumInt64,
-	"EXECUTION_TIME_MIN_SUCCESS": sumInt64,
-	"EXECUTION_TIME_MIN_FAILURE": sumInt64,
+	"EXECUTION_TIME_MAX_ALL":     maxInt64,
+	"EXECUTION_TIME_MAX_SUCCESS": maxInt64,
+	"EXECUTION_TIME_MAX_FAILURE": maxInt64,
+	"EXECUTION_TIME_MIN_ALL":     minInt64,
+	"EXECUTION_TIME_MIN_SUCCESS": minInt64,
+	"EXECUTION_TIME_MIN_FAILURE": minInt64,
 
-	"EXECUTION_TIME_50_PERCENT_SUCCESS": sumFloat64,
-	"EXECUTION_TIME_50_PERCENT_FAILURE": sumFloat64,
-	"EXECUTION_TIME_90_PERCENT_SUCCESS": sumFloat64,
-	"EXECUTION_TIME_90_PERCENT_FAILURE": sumFloat64,
-	"EXECUTION_TIME_99_PERCENT_SUCCESS": sumFloat64,
-	"EXECUTION_TIME_99_PERCENT_FAILURE": sumFloat64,
+	"EXECUTION_TIME_50_PERCENT_SUCCESS": maxFloat64,
+	"EXECUTION_TIME_50_PERCENT_FAILURE": maxFloat64,
+	"EXECUTION_TIME_90_PERCENT_SUCCESS": maxFloat64,
+	"EXECUTION_TIME_90_PERCENT_FAILURE": maxFloat64,
+	"EXECUTION_TIME_99_PERCENT_SUCCESS": maxFloat64,
+	"EXECUTION_TIME_99_PERCENT_FAILURE": maxFloat64,
 
-	"EXECUTION_TIME_STD_DEV_SUCCESS":  sumFloat64,
-	"EXECUTION_TIME_STD_DEV_FAILURE":  sumFloat64,
-	"EXECUTION_TIME_VARIANCE_SUCCESS": sumFloat64,
-	"EXECUTION_TIME_VARIANCE_FAILURE": sumFloat64,
+	"EXECUTION_TIME_STD_DEV_SUCCESS":  maxFloat64,
+	"EXECUTION_TIME_STD_DEV_FAILURE":  maxFloat64,
+	"EXECUTION_TIME_VARIANCE_SUCCESS": maxFloat64,
+	"EXECUTION_TIME_VARIANCE_FAILURE": maxFloat64,
 
 	"EXECUTION_TIME_SUM_ALL":     sumInt64,
 	"EXECUTION_TIME_SUM_SUCCESS": sumInt64,
 	"EXECUTION_TIME_SUM_FAILURE": sumInt64,
 
-	// Plugin Dedicated Indicator
-	// Plugin http_input
+	// plugin dedicated indicators
+
+	// http_input plugin
 	"WAIT_QUEUE_LENGTH": sumUint64,
 	"WIP_REQUEST_COUNT": sumUint64,
 
-	// Plugin http_counter
+	// http_counter plugin
 	"RECENT_HEADER_COUNT ": sumUint64,
 }
 
-var taskIndicatorAggregateMap = map[string]aggregateFunc{
-	// Task Dedicated Indicator
+var taskIndicatorAggregateMap = map[string]stateAggregator{
+	// task dedicated indicator
 	"EXECUTION_COUNT_ALL":     sumUint64,
 	"EXECUTION_COUNT_SUCCESS": sumUint64,
 	"EXECUTION_COUNT_FAILURE": sumUint64,
