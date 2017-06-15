@@ -3,6 +3,7 @@ package gateway
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"math/rand"
 	"net/http"
 	"sort"
@@ -144,7 +145,10 @@ func (gc *GatewayCluster) issueStat(group string, timeout time.Duration,
 			code = http.StatusBadRequest
 		case TimeoutError:
 			code = http.StatusGatewayTimeout
-		case StatNotFoundError:
+		case PipelineStatNotFoundError, RetrievePipelineStatValueError,
+			RetrievePipelineStatDescError, RetrievePluginStatValueError,
+			RetrievePluginStatDescError, RetrieveTaskStatValueError,
+			RetrieveTaskStatDescError:
 			code = http.StatusNotFound
 		default:
 			code = http.StatusInternalServerError
@@ -744,12 +748,151 @@ func aggregateStatResponses(reqStat *ReqStat, respStats []*RespStat) *RespStat {
 	return nil
 }
 
-func NumericSum(typ interface{}, values ...[]byte) []byte {
+func numericMax(typ interface{}, values ...[]byte) []byte {
 	if len(values) == 0 {
 		// defensive programming
 		return nil
 	}
 
+	handledAny := false
+	var ret interface{}
+	switch typ.(type) {
+	case float64:
+		var max float64 = math.NaN()
+		for _, value := range values {
+			var v float64
+			err := json.Unmarshal(value, &v)
+			if err != nil {
+				continue
+			}
+			if math.IsNaN(max) {
+				max = v
+			} else {
+				max = math.Max(max, v)
+			}
+			handledAny = true
+		}
+		ret = max
+	case uint64:
+		var max uint64 = 0
+		for _, value := range values {
+			var v uint64
+			err := json.Unmarshal(value, &v)
+			if err != nil {
+				continue
+			}
+			if v > max {
+				max = v
+			}
+			handledAny = true
+		}
+		ret = max
+	case int64:
+		var max int64 = math.MinInt64
+		for _, value := range values {
+			var v int64
+			err := json.Unmarshal(value, &v)
+			if err != nil {
+				continue
+			}
+			if v > max {
+				max = v
+			}
+			handledAny = true
+		}
+		ret = max
+	default:
+		return nil
+	}
+
+	if !handledAny {
+		return nil
+	}
+
+	retBuff, err := json.Marshal(ret)
+	if err != nil {
+		return nil
+	}
+
+	return retBuff
+}
+
+func numericMin(typ interface{}, values ...[]byte) []byte {
+	if len(values) == 0 {
+		// defensive programming
+		return nil
+	}
+
+	handledAny := false
+	var ret interface{}
+	switch typ.(type) {
+	case float64:
+		var min float64 = math.NaN()
+		for _, value := range values {
+			var v float64
+			err := json.Unmarshal(value, &v)
+			if err != nil {
+				continue
+			}
+			if math.IsNaN(min) {
+				min = v
+			} else {
+				min = math.Min(min, v)
+			}
+			handledAny = true
+		}
+		ret = min
+	case uint64:
+		var min uint64 = math.MaxUint64
+		for _, value := range values {
+			var v uint64
+			err := json.Unmarshal(value, &v)
+			if err != nil {
+				continue
+			}
+			if v < min {
+				min = v
+			}
+			handledAny = true
+		}
+		ret = min
+	case int64:
+		var min int64 = math.MaxInt64
+		for _, value := range values {
+			var v int64
+			err := json.Unmarshal(value, &v)
+			if err != nil {
+				continue
+			}
+			if v < min {
+				min = v
+			}
+			handledAny = true
+		}
+		ret = min
+	default:
+		return nil
+	}
+
+	if !handledAny {
+		return nil
+	}
+
+	retBuff, err := json.Marshal(ret)
+	if err != nil {
+		return nil
+	}
+
+	return retBuff
+}
+
+func numericSum(typ interface{}, values ...[]byte) []byte {
+	if len(values) == 0 {
+		// defensive programming
+		return nil
+	}
+
+	handledAny := false
 	var ret interface{}
 	switch typ.(type) {
 	case float64:
@@ -761,6 +904,7 @@ func NumericSum(typ interface{}, values ...[]byte) []byte {
 				continue
 			}
 			sum += v
+			handledAny = true
 		}
 		ret = sum
 	case uint64:
@@ -772,6 +916,7 @@ func NumericSum(typ interface{}, values ...[]byte) []byte {
 				continue
 			}
 			sum += v
+			handledAny = true
 		}
 		ret = sum
 	case int64:
@@ -783,26 +928,32 @@ func NumericSum(typ interface{}, values ...[]byte) []byte {
 				continue
 			}
 			sum += v
+			handledAny = true
 		}
 		ret = sum
 	default:
 		return nil
 	}
 
+	if !handledAny {
+		return nil
+	}
+
 	retBuff, err := json.Marshal(ret)
 	if err != nil {
-		return retBuff
+		return nil
 	}
 
 	return retBuff
 }
 
-func NumericAvg(typ interface{}, values ...[]byte) []byte {
+func numericAvg(typ interface{}, values ...[]byte) []byte {
 	if len(values) == 0 {
 		// defensive programming
 		return nil
 	}
 
+	handledAny := false
 	var ret interface{}
 	switch typ.(type) {
 	case float64:
@@ -816,6 +967,7 @@ func NumericAvg(typ interface{}, values ...[]byte) []byte {
 			}
 			sum += v
 			count += 1
+			handledAny = true
 		}
 		if count == 0 {
 			return nil
@@ -832,6 +984,7 @@ func NumericAvg(typ interface{}, values ...[]byte) []byte {
 			}
 			sum += v
 			count += 1
+			handledAny = true
 		}
 		if count == 0 {
 			return nil
@@ -848,6 +1001,7 @@ func NumericAvg(typ interface{}, values ...[]byte) []byte {
 			}
 			sum += v
 			count += 1
+			handledAny = true
 		}
 		if count == 0 {
 			return nil
@@ -857,36 +1011,68 @@ func NumericAvg(typ interface{}, values ...[]byte) []byte {
 		return nil
 	}
 
+	if !handledAny {
+		return nil
+	}
+
 	retBuff, err := json.Marshal(ret)
 	if err != nil {
-		return retBuff
+		return nil
 	}
 
 	return retBuff
 }
 
+func maxFloat64(values ...[]byte) []byte {
+	return numericMax(float64(0), values...)
+}
+
+func minFloat64(values ...[]byte) []byte {
+	return numericMin(float64(0), values...)
+}
+
 func sumFloat64(values ...[]byte) []byte {
-	return NumericSum(float64(0), values...)
+	return numericSum(float64(0), values...)
 }
 
 func avgFloat64(values ...[]byte) []byte {
-	return NumericAvg(float64(0), values...)
+	return numericAvg(float64(0), values...)
+}
+
+////
+
+func maxUint64(values ...[]byte) []byte {
+	return numericMax(uint64(0), values...)
+}
+
+func minUint64(values ...[]byte) []byte {
+	return numericMin(uint64(0), values...)
 }
 
 func sumUint64(values ...[]byte) []byte {
-	return NumericSum(uint64(0), values...)
+	return numericSum(uint64(0), values...)
 }
 
 func avgUint64(values ...[]byte) []byte {
-	return NumericAvg(uint64(0), values...)
+	return numericAvg(uint64(0), values...)
+}
+
+////
+
+func maxInt64(values ...[]byte) []byte {
+	return numericMax(int64(0), values...)
+}
+
+func minInt64(values ...[]byte) []byte {
+	return numericMin(int64(0), values...)
 }
 
 func sumInt64(values ...[]byte) []byte {
-	return NumericSum(int64(0), values...)
+	return numericSum(int64(0), values...)
 }
 
 func avgInt64(values ...[]byte) []byte {
-	return NumericAvg(int64(0), values...)
+	return numericAvg(int64(0), values...)
 }
 
 ////
