@@ -192,15 +192,15 @@ Plugin reads a given I/O object and output the data.
 | plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
 | read\_length\_max | int64 | Maximal bytes to read. | Functionality | Yes | 1048576 (1 MiB) |
 | close\_after\_read | bool | The flag represents if to close IO object after reading. | Functionality | Yes | true |
-| data\_key | string | The key name of read out data as the plugin output. | I/O | No | N/A |
 | input\_key | string | The key name of IO object stored in internal storage as the plugin input. | I/O | No | N/A |
+| output\_key | string | The key name of read out data as the plugin output. | I/O | No | N/A |
 
 ### I/O
 
 | Data name | Configuration option name | Type | Data Type | Optional |
 |:--|:--|:--:|:--|:--:|
-| Data buffer read out | data\_key | Output | []byte | No |
 | IO object to read | input\_key | Input | io.Reader, io.ReadCloser | No |
+| Data buffer read out | output\_key | Output | []byte | No |
 
 ### Error
 
