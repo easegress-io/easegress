@@ -130,7 +130,8 @@ LOOP:
 					return
 				}
 
-				err, _ = gc.log.append(resp.SequentialOperations)
+				// FIXME: not suitable because the case resp.StartSeq < ms + 1 is normal.
+				err, _ = gc.log.append(resp.StartSeq, resp.SequentialOperations)
 				if err != nil {
 					logger.Errorf("[append sequential operations to oplog failed: %v]", err)
 					return

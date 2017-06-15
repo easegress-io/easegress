@@ -231,7 +231,7 @@ func (gc *GatewayCluster) getLocalRetrieveResp(reqRetrieve *ReqRetrieve) (*RespR
 
 	// for emphasizing
 	var err error
-	var errType ClusterError
+	var errType ClusterErrorType
 
 	switch {
 	case reqRetrieve.FilterRetrievePlugins != nil:

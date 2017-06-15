@@ -61,10 +61,10 @@ func (gc *GatewayCluster) issueOperation(group string, syncAll bool, timeout tim
 		}
 		timeout -= expiredDuration
 
-		operation.Seq = ms + 1
 		req := ReqOperation{
 			OperateAllNodes: syncAll,
 			Timeout:         timeout,
+			StartSeq:        ms + 1,
 			Operation:       operation,
 		}
 		requestPayload, err := cluster.PackWithHeader(&req, uint8(operationMessage))
@@ -107,7 +107,7 @@ func (gc *GatewayCluster) issueOperation(group string, syncAll bool, timeout tim
 			// FIXME(zhiyan): I think continue above is wrong, returns StatusConflict seems better
 			//case OperationSeqConflictError:
 			//	code = http.StatusConflict
-			case WrongMessageFormatError, OperationInvalidContentError, OperationSeqInterruptError:
+			case WrongMessageFormatError, OperationInvalidContentError:
 				code = http.StatusBadRequest
 			case TimeoutError:
 				code = http.StatusGatewayTimeout
@@ -256,7 +256,7 @@ func (gc *GatewayCluster) handleOperation(req *cluster.RequestEvent) {
 		return
 	}
 
-	err, errType = gc.log.append(reqOperation.StartSeq, []**Operation{reqOperation.Operation})
+	err, errType = gc.log.append(reqOperation.StartSeq, []*Operation{reqOperation.Operation})
 	if err != nil {
 		logger.Errorf("[append operation to oplog failed: %v]", err)
 		respondOperationErr(req, errType, err.Error())

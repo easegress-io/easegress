@@ -101,10 +101,10 @@ func (op *opLog) append(startSeq uint64, operations []*Operation) (error, Cluste
 
 		op._locklessIncreaseMaxSeq()
 
-		op.kv.Set([]byte(fmt.Sprintf("%d", startSeq + idx)), operationBuff)
+		op.kv.Set([]byte(fmt.Sprintf("%d", startSeq+uint64(idx))), operationBuff)
 
 		for _, cb := range op.operationAppendedCallbacks {
-			cb.Callback().(OperationAppended)(startSeq + idx, operation)
+			cb.Callback().(OperationAppended)(startSeq+uint64(idx), operation)
 		}
 	}
 
