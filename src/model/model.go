@@ -203,7 +203,7 @@ func (m *Model) GetPlugins(namePattern string, types []string) ([]*Plugin, error
 		}
 	}
 
-	if namePattern == "" {
+	if len(namePattern) == 0 {
 		namePattern = `.*`
 	}
 
@@ -488,7 +488,7 @@ func (m *Model) GetPipelines(namePattern string, types []string) ([]*Pipeline, e
 		}
 	}
 
-	if namePattern == "" {
+	if len(namePattern) == 0 {
 		namePattern = `.*`
 	}
 

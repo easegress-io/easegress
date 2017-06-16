@@ -30,7 +30,7 @@ type (
 )
 
 type (
-	ClusterError     struct {
+	ClusterError struct {
 		Type    ClusterErrorType
 		Message string
 	}
@@ -228,10 +228,8 @@ type (
 type (
 	// Pack Header: opLogPullMessage
 	ReqOPLogPull struct {
-		Timeout time.Duration
-
-		LocalMaxSeq uint64
-		WantMaxSeq  uint64
+		StartSeq   uint64
+		CountLimit uint64
 	}
 	// Pack Header: opLogPullMessage
 	RespOPLogPull struct {

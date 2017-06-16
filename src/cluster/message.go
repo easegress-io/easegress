@@ -159,6 +159,10 @@ func (mr *messageRequest) filter(conf *Config) bool {
 			}
 
 			for tagName, tagValueRegex := range tags {
+				if len(tagValueRegex) == 0 {
+					tagValueRegex = `.*`
+				}
+
 				matched, _ := regexp.MatchString(tagValueRegex, conf.NodeTags[tagName])
 				if matched {
 					return true

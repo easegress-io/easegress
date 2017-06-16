@@ -220,25 +220,43 @@ func (gc *GatewayCluster) handleOperationRelay(req *cluster.RequestEvent) {
 		return
 	}
 
+	ms := gc.log.maxSeq()
+
+	if ms >= reqOperation.StartSeq {
+		goto SUCCESS // sync goroutine is so fast
+	}
+
+	if reqOperation.StartSeq-ms > gc.conf.OPLogMaxSeqGapToPull {
+		respondOperationErr(req, OperationLogHugeGapError,
+			fmt.Sprintf("can not handle relayed operation request (sequence=%d) "+
+				"due to local oplog is too old (sequence=%d)", reqOperation.StartSeq, ms))
+		return
+	}
+
+	if reqOperation.StartSeq-ms > 1 {
+		gc.syncOpLog(ms+1, reqOperation.StartSeq-ms-1)
+	}
+
 	// ignore timeout handling on relayed request operation, which is controlled by under layer
 
 	err, errType = gc.log.append(reqOperation.StartSeq, []*Operation{reqOperation.Operation})
 	if err != nil {
 		switch errType {
 		case OperationSeqConflictError:
-			logger.Warnf("[the operation (sequence=%d) was synced before, skipped to write oplog]",
+			logger.Debugf("[the operation (sequence=%d) was synced before, skipped to write oplog]",
 				reqOperation.StartSeq)
 			goto SUCCESS
 		case OperationInvalidSeqError:
 			logger.Warnf("[the operation (sequence=%d) is retrieved too early to write oplog]",
 				reqOperation.StartSeq)
 		default: // does not make sense
-			logger.Errorf("[append operation to oplog failed: %v]", err)
+			logger.Errorf("[append operation to oplog (completely or partially) failed: %v]", err)
 		}
 
 		respondOperationErr(req, errType, err.Error())
 		return
 	}
+
 SUCCESS:
 	respondOperation(req, new(RespOperation))
 	return
@@ -258,7 +276,7 @@ func (gc *GatewayCluster) handleOperation(req *cluster.RequestEvent) {
 
 	err, errType = gc.log.append(reqOperation.StartSeq, []*Operation{reqOperation.Operation})
 	if err != nil {
-		logger.Errorf("[append operation to oplog failed: %v]", err)
+		logger.Errorf("[append operation to oplog (completely or partially) failed: %v]", err)
 		respondOperationErr(req, errType, err.Error())
 		return
 	}

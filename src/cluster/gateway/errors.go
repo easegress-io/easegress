@@ -11,6 +11,7 @@ const (
 	InternalServerError
 	TimeoutError
 
+	OperationLogHugeGapError
 	OperationSeqConflictError
 	OperationInvalidSeqError
 	OperationInvalidContentError

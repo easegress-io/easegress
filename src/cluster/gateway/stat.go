@@ -564,7 +564,8 @@ func (gc *GatewayCluster) handleStat(req *cluster.RequestEvent) {
 		TargetNodeTags: map[string]string{
 			groupTagKey: gc.localGroupName(),
 		},
-		Timeout: reqStat.Timeout,
+		Timeout:            reqStat.Timeout,
+		ResponseRelayCount: 1,
 	}
 
 	requestName := fmt.Sprintf("%s_relay", req.RequestName)

@@ -25,8 +25,7 @@ const (
 )
 
 type Config struct {
-	// TODO: Implements support on this in handleOperationRelay()
-	//OPLogMaxSeqGapToPull  uint64
+	OPLogMaxSeqGapToPull  uint64
 	OPLogPullMaxCountOnce uint64
 	OPLogPullInterval     time.Duration
 	OPLogPullTimeout      time.Duration
@@ -43,6 +42,8 @@ type GatewayCluster struct {
 	statusLock sync.Mutex
 	stopChan   chan struct{}
 	stopped    bool
+
+	syncOpLogLock sync.Mutex
 
 	eventStream chan cluster.Event
 }
@@ -85,7 +86,7 @@ func NewGatewayCluster(conf Config, mod *model.Model) (*GatewayCluster, error) {
 	go gc.dispatch()
 
 	if gc.Mode() == ReadMode {
-		go gc.syncOPLog()
+		go gc.syncOpLogLoop()
 	}
 
 	return gc, nil
@@ -107,17 +108,17 @@ func (gc *GatewayCluster) Stop() error {
 		return fmt.Errorf("already stopped")
 	}
 
-	err := gc.log.close()
-	if err != nil {
-		return err
-	}
-
-	err = gc.cluster.Stop()
-	if err != nil {
-		return err
-	}
-
 	close(gc.stopChan)
+
+	err := gc.cluster.Stop()
+	if err != nil {
+		return err
+	}
+
+	err = gc.log.close()
+	if err != nil {
+		return err
+	}
 
 	gc.stopped = true
 
@@ -229,21 +230,7 @@ func (gc *GatewayCluster) localGroupName() string {
 	return gc.cluster.GetConfig().NodeTags[groupTagKey]
 }
 
-func (gc *GatewayCluster) nonAliveMember(nodeName string) bool {
-	totalMembers := gc.cluster.Members()
-
-	for _, member := range totalMembers {
-		if member.NodeName == nodeName &&
-			member.Status != cluster.MemberAlive {
-
-			return true
-		}
-	}
-
-	return false
-}
-
-func (gc *GatewayCluster) restAliveMembersInSameGroup() (ret []cluster.Member) {
+func (gc *GatewayCluster) restAliveMembersInSameGroup() (ret []*cluster.Member) {
 	totalMembers := gc.cluster.Members()
 	groupName := gc.localGroupName()
 
@@ -251,7 +238,7 @@ func (gc *GatewayCluster) restAliveMembersInSameGroup() (ret []cluster.Member) {
 		if member.NodeTags[groupTagKey] == groupName &&
 			member.Status == cluster.MemberAlive &&
 			member.NodeName != gc.clusterConf.NodeName {
-			ret = append(ret, member)
+			ret = append(ret, &member)
 		}
 	}
 

@@ -48,8 +48,6 @@ func newOPLog() (*opLog, error) {
 		kv: kv,
 	}
 
-	op._checkAndRecovery()
-
 	go op._cleanup()
 
 	return op, nil
@@ -91,17 +89,27 @@ func (op *opLog) append(startSeq uint64, operations []*Operation) (error, Cluste
 			return fmt.Errorf("operation content is empty"), OperationInvalidContentError
 		}
 
-		operationBuff, err := json.Marshal(operation)
+		opBuff, err := json.Marshal(operation)
 		if err != nil {
 			logger.Errorf("[BUG: marshal operation (sequence=%d) %#v failed: %v]",
-				startSeq, operation, err)
+				startSeq+uint64(idx), operation, err)
 			return fmt.Errorf("marshal operation (sequence=%d) %#v failed: %v",
-				startSeq, operation, err), OperationInvalidContentError
+				startSeq+uint64(idx), operation, err), OperationInvalidContentError
 		}
 
-		op._locklessIncreaseMaxSeq()
+		err = op.kv.Set([]byte(fmt.Sprintf("%d", startSeq+uint64(idx))), opBuff)
+		if err != nil {
+			logger.Errorf("[set operation (sequence=%d) to badger failed: %v]", startSeq+uint64(idx), err)
+			return fmt.Errorf("set operation (sequence=%d) to badger failed: %v",
+				startSeq+uint64(idx), err), InternalServerError
+		}
 
-		op.kv.Set([]byte(fmt.Sprintf("%d", startSeq+uint64(idx))), operationBuff)
+		// update max sequence at last to keep "transaction" complete
+		_, err = op._locklessIncreaseMaxSeq()
+		if err != nil {
+			logger.Errorf("[update max operation sequence failed: %v]", err)
+			return fmt.Errorf("update max operation sequence failed: %v", err), InternalServerError
+		}
 
 		for _, cb := range op.operationAppendedCallbacks {
 			cb.Callback().(OperationAppended)(startSeq+uint64(idx), operation)
@@ -111,48 +119,51 @@ func (op *opLog) append(startSeq uint64, operations []*Operation) (error, Cluste
 	return nil, NoneError
 }
 
-// retrieve reads logs whose sequence is `begin <= seq <= end`
-func (op *opLog) retrieve(begin, end uint64) ([]*Operation, error) {
-	if begin == 0 {
-		return nil, fmt.Errorf("begin must be greater than 0")
-	}
-
-	if begin > end {
-		return nil, fmt.Errorf("begin is greater than end")
-	}
-
+// retrieve logs whose sequence are [startSeq, MIN(max-sequence, startSeq + countLimit - 1)]
+func (op *opLog) retrieve(startSeq, countLimit uint64) ([]*Operation, error, ClusterErrorType) {
 	// NOTICE: We never change recorded content, so it's unnecessary to use RLock.
 	ms := op._locklessMaxSeq()
 
-	var ret []*Operation
-
-	for i := begin; i <= end && i <= ms; i++ {
-		var item badger.KVItem
-		err := op.kv.Get([]byte(fmt.Sprintf("%d", i)), &item)
-		if err != nil {
-			logger.Errorf("[BUG: at %d retrieve operation less than max sequence %d failed: %v]",
-				i, ms, err)
-			return nil, fmt.Errorf("[at %d retrieve operation less than max sequence %d failed: %v]",
-				i, ms, err)
-		}
-
-		operationBuff := item.Value()
-		if operationBuff == nil {
-			logger.Errorf("[BUG: at %d retrieve nothing less than max sequence %d]", i, ms)
-			return nil, fmt.Errorf("at %d retrieve nothing less than max sequence %d", i, ms)
-		}
-
-		var operation Operation
-		err = json.Unmarshal(operationBuff, &operation)
-		if err != nil {
-			logger.Errorf("[BUG: at %d unmarshal %s to Operation failed: %v]", i, operationBuff, err)
-			return nil, fmt.Errorf("at %d unmarshal %s to Operation failed: %v", i, operationBuff, err)
-		}
-
-		ret = append(ret, &operation)
+	if startSeq == 0 {
+		return nil, fmt.Errorf("invalid begin sequential operation"), InternalServerError
+	} else if startSeq > ms {
+		return nil, fmt.Errorf("invalid sequential operation"), OperationInvalidSeqError
 	}
 
-	return ret, nil
+	var ret []*Operation
+
+	for idx := 0; idx < countLimit && startSeq+uint64(idx) <= op._locklessMaxSeq(); idx++ {
+		var item badger.KVItem
+		err := op.kv.Get([]byte(fmt.Sprintf("%d", startSeq+uint64(idx))), &item)
+		if err != nil {
+			logger.Errorf("[get operation (sequence=%d) from badger failed: %v]",
+				startSeq+uint64(idx), err)
+			return nil, fmt.Errorf("get operation (sequence=%d) from badger failed: %v",
+				startSeq+uint64(idx), err), InternalServerError
+		}
+
+		opBuff := item.Value()
+		if opBuff == nil || len(opBuff) == 0 {
+			logger.Errorf("[BUG: get operation (sequence=%d) from badger get empty]",
+				startSeq+uint64(idx))
+			return nil, fmt.Errorf("get operation (sequence=%d) from badger get empty",
+				startSeq+uint64(idx)),
+				InternalServerError
+		}
+
+		operation := new(Operation)
+		err = json.Unmarshal(opBuff, operation)
+		if err != nil {
+			logger.Errorf("[BUG: unmarshal operation (sequence=%d) %#v failed: %v]",
+				startSeq+uint64(idx), opBuff, err)
+			return nil, fmt.Errorf("marshal operation (sequence=%d) %#v failed: %v",
+				startSeq+uint64(idx), opBuff, err), InternalServerError
+		}
+
+		ret = append(ret, operation)
+	}
+
+	return ret, nil, NoneError
 }
 
 func (op *opLog) close() error {
@@ -202,10 +213,9 @@ func (op *opLog) _locklessMaxSeq() uint64 {
 	}
 
 	maxSeq := item.Value()
-	if maxSeq == nil {
-		// NOTICE: At the very beinning, it's not a bug to get empty value.
-		logger.Errorf("[BUG: get max sequence from badger returns empty]")
-		return 0
+	if maxSeq == nil || len(maxSeq) == 0 {
+		// at the beginning, it is not a bug to get empty value.
+		maxSeq = "0"
 	}
 
 	ms, err := strconv.ParseUint(string(maxSeq), 0, 64)
@@ -218,16 +228,17 @@ func (op *opLog) _locklessMaxSeq() uint64 {
 }
 
 // _locklessIncreaseMaxSeq is designed to be invoked by locked methods of opLog
-func (op *opLog) _locklessIncreaseMaxSeq() uint64 {
+func (op *opLog) _locklessIncreaseMaxSeq() (uint64, error) {
 	ms := op._locklessMaxSeq()
 	ms++
-	op.kv.Set([]byte(maxSeqKey), []byte(fmt.Sprintf("%d", ms)))
-	return ms
-}
 
-func (op *opLog) _checkAndRecovery() {
-	// TODO: check the consistence between maxSeqKey and the key of "latest" operation record, and correct maxSeqKey if needed
-	// note: we write maxSeqKey+1 first in append(), and badger doesn't support transaction currently
+	err := op.kv.Set([]byte(maxSeqKey), []byte(fmt.Sprintf("%d", ms)))
+	if err != nil {
+		logger.Errorf("[set max sequence to badger failed: %v]", err)
+		return 0, err
+	}
+
+	return ms, nil
 }
 
 func (op *opLog) _cleanup() {

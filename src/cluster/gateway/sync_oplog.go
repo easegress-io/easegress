@@ -9,15 +9,17 @@ import (
 	"logger"
 )
 
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
+//
+
 func unpackReqOPLogPull(payload []byte) (*ReqOPLogPull, error) {
 	reqOPLogPull := new(ReqOPLogPull)
 	err := cluster.Unpack(payload, reqOPLogPull)
 	if err != nil {
-		return nil, fmt.Errorf("unpack %s to ReqOPLogPull failed: %v", payload, err)
-	}
-
-	if reqOPLogPull.Timeout < 1*time.Second {
-		return nil, fmt.Errorf("timeout is less than 1 second")
+		return nil, fmt.Errorf("unpack %s to reqOPLogPull failed: %v", payload, err)
 	}
 
 	return reqOPLogPull, nil
@@ -41,14 +43,14 @@ func respondOPLog(req *cluster.RequestEvent, resp *RespOPLogPull) {
 
 	respBuff, err := cluster.PackWithHeader(resp, uint8(req.RequestPayload[0]))
 	if err != nil {
-		logger.Errorf("[BUG: Pack header(%d) %#v failed: %v]", req.RequestPayload[0], resp, err)
+		logger.Errorf("[BUG: pack response (header=%d) to %#v failed: %v]", req.RequestPayload[0], resp, err)
 		return
 	}
 
 	err = req.Respond(respBuff)
 	if err != nil {
-		logger.Errorf("[respond %s to request %s, node %s failed: %v]",
-			respBuff, req.RequestName, req.RequestNodeName, err)
+		logger.Errorf("[respond request %s to member %s failed: %v]",
+			req.RequestName, req.RequestNodeName, err)
 		return
 	}
 }
@@ -61,84 +63,128 @@ func (gc *GatewayCluster) handleOPLogPull(req *cluster.RequestEvent) {
 
 	reqOPLogPull, err := unpackReqOPLogPull(req.RequestPayload)
 	if err != nil {
+		logger.Errorf("[BUG: invalid pull_oplog %s requested from %d: %v]",
+			req.RequestName, req.RequestNodeName, err)
+		// swallow the failure, requester will wait to timeout and retry later
 		return
 	}
 
 	resp := new(RespOPLogPull)
-	resp.SequentialOperations, err = gc.log.retrieve(reqOPLogPull.LocalMaxSeq+1, reqOPLogPull.WantMaxSeq)
+	resp.StartSeq = reqOPLogPull.StartSeq
+	resp.SequentialOperations, err, _ = gc.log.retrieve(reqOPLogPull.StartSeq, reqOPLogPull.CountLimit)
 	if err != nil {
-		logger.Errorf("[retrieve sequential operations from oplog failed: %v]", err)
+		logger.Errorf("[retrieve sequential operation(s) from oplog failed: %v]", err)
+		// swallow the failure, requester will wait to timeout and retry later
 		return
 	}
 
 	respondOPLog(req, resp)
 }
 
-func (gc *GatewayCluster) chooseMemberToPull() cluster.Member {
-	// About half of the probability to choose WriteMode node.
-
+func (gc *GatewayCluster) chooseMemberToPull() *cluster.Member {
+	r := rand.Int()
 	members := gc.restAliveMembersInSameGroup()
 
-	rand.Seed(time.Now().UnixNano())
-	if rand.Int()%2 != 0 {
-		for _, member := range members {
-			if member.NodeTags[modeTagKey] == string(WriteMode) {
-				return member
+	if len(members) == 0 {
+		return nil
+	}
+
+	var member *cluster.Member
+
+	// about half of the probability to choose WriteMode node
+	if r%2 != 0 {
+		for _, m := range members {
+			if m.NodeTags[modeTagKey] == WriteMode.String() {
+				member = m
+				break
 			}
 		}
 	}
 
-	return members[rand.Int()%len(members)]
+	if member == nil {
+		member = members[r%len(members)]
+	}
+
+	return member
 }
 
-func (gc *GatewayCluster) syncOPLog() {
+func (gc *GatewayCluster) syncOpLogLoop() {
 LOOP:
 	for {
 		select {
 		case <-time.After(gc.conf.OPLogPullTimeout):
-			ms := gc.log.maxSeq()
-			reqOPLogPull := ReqOPLogPull{
-				Timeout:     gc.conf.OPLogPullTimeout,
-				LocalMaxSeq: ms,
-				WantMaxSeq:  ms + gc.conf.OPLogPullMaxCountOnce,
-			}
-			payload, err := cluster.PackWithHeader(&reqOPLogPull, uint8(opLogPullMessage))
-			if err != nil {
-				logger.Errorf("[BUG: PackWithHeader %#v failed: %v]", reqOPLogPull, err)
-				continue LOOP
-			}
-
-			member := gc.chooseMemberToPull()
-			requestParam := cluster.RequestParam{
-				TargetNodeNames: []string{member.NodeName},
-			}
-
-			future, _ := gc.cluster.Request("pull_oplog", payload, &requestParam)
-
-			go func() {
-				memberResp, ok := <-future.Response()
-				if !ok {
-					return
-				}
-				if len(memberResp.Payload) == 0 {
-					logger.Errorf("[received empty pull_oplog response]")
-					return
-				}
-				resp, err := unpackRespOPLogPull(memberResp.Payload[1:])
-				if err != nil {
-					logger.Errorf("[received bad RespOPLogPull: %v]", err)
-					return
-				}
-
-				// FIXME: not suitable because the case resp.StartSeq < ms + 1 is normal.
-				err, _ = gc.log.append(resp.StartSeq, resp.SequentialOperations)
-				if err != nil {
-					logger.Errorf("[append sequential operations to oplog failed: %v]", err)
-					return
-				}
-			}()
+			gc.syncOpLog(gc.log.maxSeq()+1, gc.conf.OPLogPullMaxCountOnce)
 		case <-gc.stopChan:
 			break LOOP
 		}
+	}
+}
+
+func (gc *GatewayCluster) syncOpLog(startSeq, countLimit uint64) {
+	gc.syncOpLogLock.Lock()
+	defer gc.syncOpLogLock.Unlock()
+
+	if startSeq+countLimit-1 <= gc.log.maxSeq() {
+		// nothing to do, the log has been synced before acquire the lock
+		return
+	}
+
+	// adjust count limitation of sync in according to the latest max sequence after acquire the lock
+	countLimit -= gc.log.maxSeq() + 1 - startSeq
+
+	reqOPLogPull := ReqOPLogPull{
+		StartSeq:   gc.log.maxSeq() + 1, // operations are sequential in the log
+		CountLimit: countLimit,
+	}
+
+	payload, err := cluster.PackWithHeader(&reqOPLogPull, uint8(opLogPullMessage))
+	if err != nil {
+		logger.Errorf("[BUG: pack request (header=%d) to %#v failed, oplog sync skipped: %v]",
+			opLogPullMessage, reqOPLogPull, err)
+		return
+	}
+
+	member := gc.chooseMemberToPull()
+	if member == nil {
+		logger.Warnf("[peer member not found, oplog sync skipped]")
+	}
+
+	requestParam := cluster.RequestParam{
+		TargetNodeNames: []string{member.NodeName},
+		// TargetNodeNames is enough but TargetNodeTags could make rule strict
+		TargetNodeTags: map[string]string{
+			groupTagKey: gc.localGroupName(),
+			modeTagKey:  member.NodeTags[modeTagKey],
+		},
+		Timeout:            gc.conf.OPLogPullTimeout,
+		ResponseRelayCount: 1,
+	}
+
+	future, _ := gc.cluster.Request("pull_oplog(StartSeq=%d,Count=%d)", payload, &requestParam,
+		reqOPLogPull.StartSeq, reqOPLogPull.CountLimit)
+	select {
+	case memberResp, ok := <-future.Response():
+		if !ok {
+			logger.Warnf("[peer member responds too late, oplog sync skipped]")
+			return
+		}
+
+		if len(memberResp.Payload) == 0 {
+			logger.Errorf("[BUG: receive empty pull_oplog response]")
+			return
+		}
+
+		resp, err := unpackRespOPLogPull(memberResp.Payload[1:])
+		if err != nil {
+			return
+		}
+
+		err, _ = gc.log.append(resp.StartSeq, resp.SequentialOperations)
+		if err != nil {
+			logger.Errorf("[append operation(s) to oplog failed: %v]", err)
+			return
+		}
+	case <-gc.stopChan:
+		return
 	}
 }

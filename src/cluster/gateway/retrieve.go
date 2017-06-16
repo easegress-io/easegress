@@ -311,7 +311,8 @@ func (gc *GatewayCluster) handleRetrieve(req *cluster.RequestEvent) {
 			groupTagKey: gc.localGroupName(),
 			modeTagKey:  ReadMode.String(),
 		},
-		Timeout: reqRetrieve.Timeout,
+		Timeout:            reqRetrieve.Timeout,
+		ResponseRelayCount: 1,
 	}
 
 	requestName := fmt.Sprintf("%s_relay", req.RequestName)
