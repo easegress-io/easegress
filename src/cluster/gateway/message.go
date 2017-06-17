@@ -29,21 +29,6 @@ type (
 	MessageType uint8
 )
 
-type (
-	ClusterError struct {
-		Type    ClusterErrorType
-		Message string
-	}
-)
-
-func (e *ClusterError) Error() string {
-	if e == nil {
-		return ""
-	}
-
-	return e.Message
-}
-
 // queryGroupMaxSeqMessage
 
 type (

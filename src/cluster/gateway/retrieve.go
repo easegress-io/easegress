@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"sort"
 	"time"
 
@@ -17,12 +16,14 @@ import (
 )
 
 // for api
-func (gc *GatewayCluster) issueRetrieve(group string, syncAll bool, timeout time.Duration,
-	requestName string, filter interface{}) ([]byte, *HTTPError) {
-	req := ReqRetrieve{
+func (gc *GatewayCluster) issueRetrieve(group string, timeout time.Duration,
+	requestName string, syncAll bool, filter interface{}) ([]byte, *ClusterError) {
+
+	req := &ReqRetrieve{
 		RetrieveAllNodes: syncAll,
 		Timeout:          timeout,
 	}
+
 	switch filter := filter.(type) {
 	case *FilterRetrievePlugins:
 		req.FilterRetrievePlugins = filter
@@ -33,73 +34,79 @@ func (gc *GatewayCluster) issueRetrieve(group string, syncAll bool, timeout time
 	case *FilterRetrievePipelineTypes:
 		req.FilterRetrievePipelineTypes = filter
 	default:
-		return nil, NewHTTPError("unsupported filter type", http.StatusInternalServerError)
+		return nil, newClusterError(fmt.Sprintf("unsupported retrieve filter type %T", filter),
+			InternalServerError)
 	}
 
-	requestPayload, err := cluster.PackWithHeader(&req, uint8(retrieveMessage))
+	requestPayload, err := cluster.PackWithHeader(req, uint8(retrieveMessage))
 	if err != nil {
-		return nil, NewHTTPError(err.Error(), http.StatusInternalServerError)
+		logger.Errorf("[BUG: pack request (header=%d) to %#v failed: %v]",
+			uint8(retrieveMessage), req, err)
+
+		return nil, newClusterError(
+			fmt.Sprintf("pack request (header=%d) to %#v failed: %v",
+				uint8(retrieveMessage), req, err),
+			InternalServerError)
 	}
+
 	requestParam := cluster.RequestParam{
 		TargetNodeTags: map[string]string{
 			groupTagKey: group,
 			modeTagKey:  WriteMode.String(),
 		},
 		Timeout: timeout,
+		ResponseRelayCount: 1, // fault tolerance on network issue
 	}
 
 	future, err := gc.cluster.Request(requestName, requestPayload, &requestParam)
 	if err != nil {
-		return nil, NewHTTPError(err.Error(), http.StatusInternalServerError)
+		return nil, newClusterError(fmt.Sprintf("issue retrieve failed: %v", err), InternalServerError)
 	}
 
-	memberResp, ok := <-future.Response()
-	if !ok {
-		return nil, NewHTTPError("timeout", http.StatusGatewayTimeout)
-	}
-	if len(memberResp.Payload) < 1 {
-		return nil, NewHTTPError("empty response", http.StatusInternalServerError)
+	var memberResp *cluster.MemberResponse
+
+	select {
+	case r, ok := <-future.Response():
+		if !ok {
+			return nil, newClusterError("issue retrieve timeout", TimeoutError)
+		}
+		memberResp = r
+	case <-gc.stopChan:
+		return newClusterError("the member gone during issuing retrieve", IssueMemberGoneError)
 	}
 
-	var resp RespRetrieve
-	err = cluster.Unpack(memberResp.Payload[1:], &resp)
+	if len(memberResp.Payload) == 0 {
+		return newClusterError("issue retrieve responds empty response", InternalServerError)
+	}
+
+	resp := new(RespRetrieve)
+	err = cluster.Unpack(memberResp.Payload[1:], resp)
 	if err != nil {
-		return nil, NewHTTPError(err.Error(), http.StatusInternalServerError)
+		return nil, newClusterError(
+			fmt.Errorf("unpack retrieve response failed: %v", err), InternalServerError)
 	}
 
 	if resp.Err != nil {
-		var code int
-		switch resp.Err.Type {
-		case WrongMessageFormatError:
-			code = http.StatusBadRequest
-		case TimeoutError:
-			code = http.StatusGatewayTimeout
-		case RetrieveInconsistencyError:
-			code = http.StatusConflict
-		default:
-			code = http.StatusInternalServerError
-		}
-		return nil, NewHTTPError(resp.Err.Message, code)
+		return nil, resp.Err
 	}
 
-	var result []byte
+	var ret []byte
 	switch filter.(type) {
 	case FilterRetrievePlugins:
-		result = resp.ResultRetrievePlugins
+		ret = resp.ResultRetrievePlugins
 	case FilterRetrievePipelines:
-		result = resp.ResultRetrievePipelines
+		ret = resp.ResultRetrievePipelines
 	case FilterRetrievePluginTypes:
-		result = resp.ResultRetrievePluginTypes
+		ret = resp.ResultRetrievePluginTypes
 	case FilterRetrievePipelineTypes:
-		result = resp.ResultRetrievePipelineTypes
-	default:
-		return nil, NewHTTPError("unsupported filter type", http.StatusInternalServerError)
+		ret = resp.ResultRetrievePipelineTypes
+	}
 
+	if ret == nil || len(ret) == 0 {
+		return newClusterError("issue retrieve responds invalid result", InternalServerError)
 	}
-	if result == nil {
-		return nil, NewHTTPError("empty result", http.StatusInternalServerError)
-	}
-	return result, nil
+
+	return ret, nil
 }
 
 // for core
@@ -144,10 +151,7 @@ func respondRetrieve(req *cluster.RequestEvent, resp *RespRetrieve) {
 
 func respondRetrieveErr(req *cluster.RequestEvent, typ ClusterErrorType, msg string) {
 	resp := &RespRetrieve{
-		Err: &ClusterError{
-			Type:    typ,
-			Message: msg,
-		},
+		Err: newClusterError(msg, typ),
 	}
 	respondRetrieve(req, resp)
 }
@@ -312,7 +316,7 @@ func (gc *GatewayCluster) handleRetrieve(req *cluster.RequestEvent) {
 			modeTagKey:  ReadMode.String(),
 		},
 		Timeout:            reqRetrieve.Timeout,
-		ResponseRelayCount: 1,
+		ResponseRelayCount: 1, // fault tolerance on network issue
 	}
 
 	requestName := fmt.Sprintf("%s_relay", req.RequestName)

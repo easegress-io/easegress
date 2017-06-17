@@ -86,12 +86,14 @@ func NewGateway() (*Gateway, error) {
 	mod := model.NewModel()
 
 	// TODO: read from launch config
-	gcConf := cluster.Config{
+	clusterConf := cluster.Config{
+		OPLogMaxSeqGapToPull:  5,
 		OPLogPullMaxCountOnce: 5,
 		OPLogPullInterval:     10 * time.Second,
 		OPLogPullTimeout:      30 * time.Second,
 	}
-	gc, err := cluster.NewGatewayCluster(gcConf, mod)
+
+	gc, err := cluster.NewGatewayCluster(clusterConf, mod)
 	if err != nil {
 		return nil, fmt.Errorf("[create gateway cluster failed: %v]", err)
 	}

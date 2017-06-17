@@ -2,7 +2,6 @@ package gateway
 
 import (
 	"fmt"
-	"net/http"
 	"time"
 
 	"cluster"
@@ -10,117 +9,118 @@ import (
 )
 
 // for api
-func (gc *GatewayCluster) queryGroupMaxSeq(group string, timeout time.Duration) (uint64, *HTTPError) {
+func (gc *GatewayCluster) queryGroupMaxSeq(group string, timeout time.Duration) (uint64, *ClusterError) {
+	req := new(ReqQueryGroupMaxSeq)
+	requestPayload, err := cluster.PackWithHeader(req, uint8(queryGroupMaxSeqMessage))
+	if err != nil {
+		logger.Errorf("[BUG: pack request (header=%d) to %#v failed: %v]",
+			uint8(queryGroupMaxSeqMessage), req, err)
+
+		return 0, newClusterError(
+			fmt.Sprintf("pack request (header=%d) to %#v failed: %v",
+				uint8(queryGroupMaxSeqMessage), req, err),
+			InternalServerError)
+	}
+
 	requestParam := cluster.RequestParam{
 		TargetNodeTags: map[string]string{
 			groupTagKey: group,
 			modeTagKey:  WriteMode.String(),
 		},
-		Timeout: timeout,
+		Timeout:            timeout,
+		ResponseRelayCount: 1, // fault tolerance on network issue
 	}
 
 	requestName := fmt.Sprintf("(group:%s)query_group_max_sequence", group)
-	requestPayload, err := cluster.PackWithHeader(&ReqQueryGroupMaxSeq{}, uint8(queryGroupMaxSeqMessage))
-	if err != nil {
-		return 0, NewHTTPError(err.Error(), http.StatusInternalServerError)
-	}
 
 	future, err := gc.cluster.Request(requestName, requestPayload, &requestParam)
 	if err != nil {
-		return 0, NewHTTPError(err.Error(), http.StatusInternalServerError)
+		return 0, newClusterError(fmt.Sprintf("query max sequence failed: %v", err), InternalServerError)
 	}
 
 	memberResp, ok := <-future.Response()
 	if !ok {
-		return 0, NewHTTPError("timeout", http.StatusGatewayTimeout)
+		return 0, newClusterError("query max sequence in the group timeout", TimeoutError)
 	}
 	if len(memberResp.Payload) == 0 {
-		return 0, NewHTTPError("empty response", http.StatusInternalServerError)
+		return 0, newClusterError("query max sequence responds empty response", InternalServerError)
 	}
 
 	var resp RespQueryGroupMaxSeq
 	err = cluster.Unpack(memberResp.Payload[1:], &resp)
 	if err != nil {
-		return 0, NewHTTPError(err.Error(), http.StatusInternalServerError)
+		return 0, newClusterError(fmt.Sprintf("unpack max sequence response failed: %v", err),
+			InternalServerError)
 	}
 
 	return uint64(resp), nil
 }
 
-func (gc *GatewayCluster) issueOperation(group string, syncAll bool, timeout time.Duration,
-	requestName string, operation *Operation) *HTTPError {
-	for {
-		queryStart := time.Now()
-		ms, httpErr := gc.queryGroupMaxSeq(group, timeout)
-		if httpErr != nil {
-			return httpErr
-		}
-		expiredDuration := time.Now().Sub(queryStart)
-		if timeout <= expiredDuration {
-			return NewHTTPError("timeout", http.StatusGatewayTimeout)
-		}
-		timeout -= expiredDuration
+func (gc *GatewayCluster) issueOperation(group string, timeout time.Duration, requestName string,
+	seqSnapshot uint64, syncAll bool, operation *Operation) *ClusterError {
 
-		req := ReqOperation{
-			OperateAllNodes: syncAll,
-			Timeout:         timeout,
-			StartSeq:        ms + 1,
-			Operation:       operation,
-		}
-		requestPayload, err := cluster.PackWithHeader(&req, uint8(operationMessage))
-		if err != nil {
-			return NewHTTPError(err.Error(), http.StatusInternalServerError)
-		}
-		requestParam := cluster.RequestParam{
-			TargetNodeTags: map[string]string{
-				groupTagKey: group,
-				modeTagKey:  WriteMode.String(),
-			},
-			Timeout: timeout,
-		}
-
-		future, err := gc.cluster.Request(requestName, requestPayload, &requestParam)
-		if err != nil {
-			return NewHTTPError(err.Error(), http.StatusInternalServerError)
-		}
-
-		memberResp, ok := <-future.Response()
-		if !ok {
-			return NewHTTPError("timeout", http.StatusGatewayTimeout)
-		}
-		if len(memberResp.Payload) == 0 {
-			return NewHTTPError("empty response", http.StatusGatewayTimeout)
-		}
-
-		var resp RespOperation
-		err = cluster.Unpack(memberResp.Payload[1:], &resp)
-		if err != nil {
-			return NewHTTPError(err.Error(), http.StatusInternalServerError)
-		}
-		if resp.Err != nil {
-			if resp.Err.Type == OperationSeqConflictError {
-				continue
-			}
-
-			var code int
-			switch resp.Err.Type {
-			// FIXME(zhiyan): I think continue above is wrong, returns StatusConflict seems better
-			//case OperationSeqConflictError:
-			//	code = http.StatusConflict
-			case WrongMessageFormatError, OperationInvalidContentError:
-				code = http.StatusBadRequest
-			case TimeoutError:
-				code = http.StatusGatewayTimeout
-			case OperationPartiallyCompleteError:
-				code = http.StatusAccepted
-			default:
-				code = http.StatusInternalServerError
-			}
-			return NewHTTPError(resp.Err.Message, code)
-		}
-
-		return nil
+	req := &ReqOperation{
+		OperateAllNodes: syncAll,
+		Timeout:         timeout,
+		StartSeq:        seqSnapshot + 1,
+		Operation:       operation,
 	}
+	requestPayload, err := cluster.PackWithHeader(req, uint8(operationMessage))
+	if err != nil {
+		logger.Errorf("[BUG: pack request (header=%d) to %#v failed: %v]", uint8(operationMessage), req, err)
+
+		return 0, newClusterError(
+			fmt.Sprintf("pack request (header=%d) to %#v failed: %v", uint8(operationMessage), req, err),
+			InternalServerError)
+	}
+
+	requestParam := cluster.RequestParam{
+		TargetNodeTags: map[string]string{
+			groupTagKey: group,
+			modeTagKey:  WriteMode.String(),
+		},
+		Timeout:            timeout,
+		ResponseRelayCount: 1, // fault tolerance on network issue
+	}
+
+	future, err := gc.cluster.Request(requestName, requestPayload, &requestParam)
+	if err != nil {
+		return newClusterError(fmt.Sprintf("issue operation (sequence=%d) failed: %v", req.StartSeq, err),
+			InternalServerError)
+	}
+
+	var memberResp *cluster.MemberResponse
+
+	select {
+	case r, ok := <-future.Response():
+		if !ok {
+			return newClusterError(fmt.Sprintf("request operation (sequence=%d) timeout", req.StartSeq),
+				TimeoutError)
+		}
+		memberResp = r
+	case <-gc.stopChan:
+		return newClusterError(
+			fmt.Sprintf("the member gone during issuing operation (sequence=%d)", req.StartSeq),
+			IssueMemberGoneError)
+	}
+
+	if len(memberResp.Payload) == 0 {
+		return newClusterError(
+			fmt.Sprintf("request operation (sequence=%d) responds empty response", req.StartSeq),
+			InternalServerError)
+	}
+
+	resp := new(RespOperation)
+	err = cluster.Unpack(memberResp.Payload[1:], resp)
+	if err != nil {
+		return newClusterError(fmt.Errorf("unpack operation response failed: %v", err), InternalServerError)
+	}
+
+	if resp.Err != nil {
+		return resp.Err
+	}
+
+	return nil
 }
 
 ////
@@ -200,10 +200,7 @@ func respondOperation(req *cluster.RequestEvent, resp *RespOperation) {
 
 func respondOperationErr(req *cluster.RequestEvent, typ ClusterErrorType, msg string) {
 	resp := &RespOperation{
-		Err: &ClusterError{
-			Type:    typ,
-			Message: msg,
-		},
+		Err: newClusterError(msg, typ),
 	}
 	respondOperation(req, resp)
 }
@@ -298,7 +295,8 @@ func (gc *GatewayCluster) handleOperation(req *cluster.RequestEvent) {
 			groupTagKey: gc.localGroupName(),
 			modeTagKey:  ReadMode.String(),
 		},
-		Timeout: reqOperation.Timeout,
+		Timeout:            reqOperation.Timeout,
+		ResponseRelayCount: 1, // fault tolerance on network issue
 	}
 
 	requestName := fmt.Sprintf("%s_relay", req.RequestName)

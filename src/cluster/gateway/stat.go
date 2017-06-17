@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
-	"net/http"
 	"sort"
 	"time"
 
@@ -18,17 +17,17 @@ func init() {
 }
 
 // for api
-func (gc *GatewayCluster) chooseMemberToAggregateStat(group string) (string, error) {
+func (gc *GatewayCluster) chooseMemberToAggregateStat(group string) (*cluster.Member, error) {
 	totalMembers := gc.cluster.Members()
-	writeMember := ""
-	readMembers := make([]string, 0)
+	var readMembers, writeMembers []*cluster.Member
+
 	for _, member := range totalMembers {
 		if member.NodeTags[groupTagKey] == group &&
 			member.Status == cluster.MemberAlive {
 			if member.NodeTags[modeTagKey] == ReadMode.String() {
-				readMembers = append(readMembers, member.NodeName)
+				readMembers = append(readMembers, &member)
 			} else {
-				writeMember = member.NodeName
+				writeMembers = append(writeMembers, &member)
 			}
 		}
 	}
@@ -39,153 +38,134 @@ func (gc *GatewayCluster) chooseMemberToAggregateStat(group string) (string, err
 	}
 
 	// have to choose only alive WriteMode member
-	if len(writeMember) > 0 {
-		return writeMember, nil
+	if len(writeMembers) > 0 {
+		return writeMembers[rand.Int()%len(writeMembers)], nil
 	}
 
-	return "", fmt.Errorf("none of members is alive")
+	return nil, fmt.Errorf("none of members is alive to aggregate statistics")
 }
 
 func (gc *GatewayCluster) issueStat(group string, timeout time.Duration,
-	requestName string, filter interface{}) ([]byte, *HTTPError) {
-	req := ReqStat{
+	requestName string, filter interface{}) ([]byte, *ClusterError) {
+
+	req := &ReqStat{
 		Timeout: timeout,
 	}
+
 	switch filter := filter.(type) {
-	case FilterPipelineIndicatorNames:
-		req.FilterPipelineIndicatorNames = &FilterPipelineIndicatorNames{
-			PipelineName: filter.PipelineName,
-		}
-	case FilterPipelineIndicatorValue:
-		req.FilterPipelineIndicatorValue = &FilterPipelineIndicatorValue{
-			PipelineName:  filter.PipelineName,
-			IndicatorName: filter.IndicatorName,
-		}
-	case FilterPipelineIndicatorDesc:
-		req.FilterPipelineIndicatorDesc = &FilterPipelineIndicatorDesc{
-			PipelineName:  filter.PipelineName,
-			IndicatorName: filter.IndicatorName,
-		}
-
-	case FilterPluginIndicatorNames:
-		req.FilterPluginIndicatorNames = &FilterPluginIndicatorNames{
-			PipelineName: filter.PipelineName,
-			PluginName:   filter.PluginName,
-		}
-	case FilterPluginIndicatorValue:
-		req.FilterPluginIndicatorValue = &FilterPluginIndicatorValue{
-			PipelineName:  filter.PipelineName,
-			PluginName:    filter.PluginName,
-			IndicatorName: filter.IndicatorName,
-		}
-	case FilterPluginIndicatorDesc:
-		req.FilterPluginIndicatorDesc = &FilterPluginIndicatorDesc{
-			PipelineName:  filter.PipelineName,
-			PluginName:    filter.PluginName,
-			IndicatorName: filter.IndicatorName,
-		}
-
-	case FilterTaskIndicatorNames:
-		req.FilterTaskIndicatorNames = &FilterTaskIndicatorNames{
-			PipelineName: filter.PipelineName,
-		}
-	case FilterTaskIndicatorValue:
-		req.FilterTaskIndicatorValue = &FilterTaskIndicatorValue{
-			PipelineName:  filter.PipelineName,
-			IndicatorName: filter.IndicatorName,
-		}
-	case FilterTaskIndicatorDesc:
-		req.FilterTaskIndicatorDesc = &FilterTaskIndicatorDesc{
-			PipelineName:  filter.PipelineName,
-			IndicatorName: filter.IndicatorName,
-		}
+	case *FilterPipelineIndicatorNames:
+		req.FilterPipelineIndicatorNames = filter
+	case *FilterPipelineIndicatorValue:
+		req.FilterPipelineIndicatorValue = filter
+	case *FilterPipelineIndicatorDesc:
+		req.FilterPipelineIndicatorDesc = filter
+	case *FilterPluginIndicatorNames:
+		req.FilterPluginIndicatorNames = filter
+	case *FilterPluginIndicatorValue:
+		req.FilterPluginIndicatorValue = filter
+	case *FilterPluginIndicatorDesc:
+		req.FilterPluginIndicatorDesc = filter
+	case *FilterTaskIndicatorNames:
+		req.FilterTaskIndicatorNames = filter
+	case *FilterTaskIndicatorValue:
+		req.FilterTaskIndicatorValue = filter
+	case *FilterTaskIndicatorDesc:
+		req.FilterTaskIndicatorDesc = filter
 	default:
-		return nil, NewHTTPError("unsupported filter type", http.StatusInternalServerError)
+		return nil, newClusterError(fmt.Sprintf("unsupported statistics filter type %T", filter),
+			InternalServerError)
 	}
 
-	requestPayload, err := cluster.PackWithHeader(&req, uint8(statMessage))
+	requestPayload, err := cluster.PackWithHeader(req, uint8(statMessage))
 	if err != nil {
-		return nil, NewHTTPError(err.Error(), http.StatusInternalServerError)
+		logger.Errorf("[BUG: pack request (header=%d) to %#v failed: %v]",
+			uint8(statMessage), req, err)
+
+		return nil, newClusterError(
+			fmt.Sprintf("pack request (header=%d) to %#v failed: %v",
+				uint8(statMessage), req, err),
+			InternalServerError)
 	}
+
 	targetMember, err := gc.chooseMemberToAggregateStat(group)
 	if err != nil {
-		return nil, NewHTTPError(err.Error(), http.StatusInternalServerError)
+		return nil, newClusterError(
+			fmt.Sprintf("choose member to aggregate statistics failed: %v", err), InternalServerError)
 	}
+
 	requestParam := cluster.RequestParam{
-		TargetNodeNames: []string{targetMember},
+		TargetNodeNames: []string{targetMember.NodeName},
+		// TargetNodeNames is enough but TargetNodeTags could make rule strict
 		TargetNodeTags: map[string]string{
 			groupTagKey: group,
+			modeTagKey:  targetMember.NodeTags[modeTagKey],
 		},
-		Timeout: timeout,
+		Timeout:            timeout,
+		ResponseRelayCount: 1, // fault tolerance on network issue
 	}
 
 	future, err := gc.cluster.Request(requestName, requestPayload, &requestParam)
 	if err != nil {
-		return nil, NewHTTPError(err.Error(), http.StatusInternalServerError)
+		return nil, newClusterError(
+			fmt.Sprintf("issue statistics aggregation failed: %v", err), InternalServerError)
 	}
 
-	memberResp, ok := <-future.Response()
-	if !ok {
-		return nil, NewHTTPError("timeout", http.StatusGatewayTimeout)
+	var memberResp *cluster.MemberResponse
+
+	select {
+	case r, ok := <-future.Response():
+		if !ok {
+			return nil, newClusterError("issue statistics aggregation timeout", TimeoutError)
+		}
+		memberResp = r
+	case <-gc.stopChan:
+		return newClusterError("the member gone during issuing statistics aggregation", IssueMemberGoneError)
 	}
-	if len(memberResp.Payload) < 1 {
-		return nil, NewHTTPError("empty response", http.StatusInternalServerError)
+
+	if len(memberResp.Payload) == 0 {
+		return newClusterError("issue statistics aggregation responds empty response", InternalServerError)
 	}
 
 	var resp RespStat
 	err = cluster.Unpack(memberResp.Payload[1:], &resp)
 	if err != nil {
-		return nil, NewHTTPError(err.Error(), http.StatusInternalServerError)
+		return nil, newClusterError(
+			fmt.Errorf("unpack statistics aggregation response failed: %v", err), InternalServerError)
 	}
 
 	if resp.Err != nil {
-		var code int
-		switch resp.Err.Type {
-		case WrongMessageFormatError:
-			code = http.StatusBadRequest
-		case TimeoutError:
-			code = http.StatusGatewayTimeout
-		case PipelineStatNotFoundError, RetrievePipelineStatValueError,
-			RetrievePipelineStatDescError, RetrievePluginStatValueError,
-			RetrievePluginStatDescError, RetrieveTaskStatValueError,
-			RetrieveTaskStatDescError:
-			code = http.StatusNotFound
-		default:
-			code = http.StatusInternalServerError
-		}
-		return nil, NewHTTPError(resp.Err.Message, code)
+		return resp.Err
 	}
 
-	var result []byte
+	var ret []byte
 	switch filter.(type) {
-	case FilterPipelineIndicatorNames:
-		result = resp.Names
-	case FilterPipelineIndicatorValue:
-		result = resp.Value
-	case FilterPipelineIndicatorDesc:
-		result = resp.Desc
+	case *FilterPipelineIndicatorNames:
+		ret = resp.Names
+	case *FilterPipelineIndicatorValue:
+		ret = resp.Value
+	case *FilterPipelineIndicatorDesc:
+		ret = resp.Desc
 
-	case FilterPluginIndicatorNames:
-		result = resp.Names
-	case FilterPluginIndicatorValue:
-		result = resp.Value
-	case FilterPluginIndicatorDesc:
-		result = resp.Desc
+	case *FilterPluginIndicatorNames:
+		ret = resp.Names
+	case *FilterPluginIndicatorValue:
+		ret = resp.Value
+	case *FilterPluginIndicatorDesc:
+		ret = resp.Desc
 
-	case FilterTaskIndicatorNames:
-		result = resp.Names
-	case FilterTaskIndicatorValue:
-		result = resp.Value
-	case FilterTaskIndicatorDesc:
-		result = resp.Desc
-	default:
-		return nil, NewHTTPError("unsupported filter type", http.StatusInternalServerError)
-	}
-	if result == nil {
-		return nil, NewHTTPError("empty result", http.StatusInternalServerError)
+	case *FilterTaskIndicatorNames:
+		ret = resp.Names
+	case *FilterTaskIndicatorValue:
+		ret = resp.Value
+	case *FilterTaskIndicatorDesc:
+		ret = resp.Desc
 	}
 
-	return result, nil
+	if ret == nil || len(ret) == 0 {
+		return newClusterError("issue statistics aggregation responds invalid result", InternalServerError)
+	}
+
+	return ret, nil
 }
 
 // for core
@@ -311,10 +291,7 @@ func respondStat(req *cluster.RequestEvent, resp *RespStat) {
 
 func respondStatErr(req *cluster.RequestEvent, typ ClusterErrorType, msg string) {
 	resp := &RespStat{
-		Err: &ClusterError{
-			Type:    typ,
-			Message: msg,
-		},
+		Err: newClusterError(msg, typ),
 	}
 	respondStat(req, resp)
 }
@@ -565,7 +542,7 @@ func (gc *GatewayCluster) handleStat(req *cluster.RequestEvent) {
 			groupTagKey: gc.localGroupName(),
 		},
 		Timeout:            reqStat.Timeout,
-		ResponseRelayCount: 1,
+		ResponseRelayCount: 1, // fault tolerance on network issue
 	}
 
 	requestName := fmt.Sprintf("%s_relay", req.RequestName)
