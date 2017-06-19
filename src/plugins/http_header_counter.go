@@ -100,7 +100,7 @@ func (c *httpHeaderCounter) count(ctx pipelines.PipelineContext, t task.Task) (e
 			task.ResultMissingInput, t
 	}
 
-	state, err := getHttpHeaderCounterState(ctx, c.Name(), c.instanceId)
+	state, err := getHTTPHeaderCounterState(ctx, c.Name(), c.instanceId)
 	if err != nil {
 		return nil, t.ResultCode(), t
 	}
@@ -126,7 +126,7 @@ func (c *httpHeaderCounter) count(ctx pipelines.PipelineContext, t task.Task) (e
 			for !atomic.CompareAndSwapUint64(count1, *count1, *count1-1) {
 			}
 
-			state1, err := getHttpHeaderCounterState(ctx, c.Name(), c.instanceId)
+			state1, err := getHTTPHeaderCounterState(ctx, c.Name(), c.instanceId)
 			if err != nil {
 				return
 			}
@@ -186,7 +186,7 @@ func getRecentHeaderCount(ctx pipelines.PipelineContext, pluginName string) (*ui
 	return count.(*uint64), nil
 }
 
-func getHttpHeaderCounterState(ctx pipelines.PipelineContext, pluginName, instanceId string) (
+func getHTTPHeaderCounterState(ctx pipelines.PipelineContext, pluginName, instanceId string) (
 	*httpHeaderCounterTimerState, error) {
 
 	bucket := ctx.DataBucket(pluginName, instanceId)

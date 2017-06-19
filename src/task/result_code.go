@@ -32,7 +32,7 @@ func SuccessfulResult(code TaskResultCode) bool {
 	return code < 400
 }
 
-func ResultCodeToHttpCode(code TaskResultCode) int {
+func ResultCodeToHTTPCode(code TaskResultCode) int {
 	httpCode := -1
 
 	switch code {

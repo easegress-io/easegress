@@ -292,14 +292,14 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task,
 	}
 
 	if h.conf.Close {
-		closeHttpOutputResponseBody := func(t1 task.Task, _ task.TaskStatus) {
-			t1.DeleteFinishedCallback(fmt.Sprintf("%s-closeHttpOutputResponseBody", h.Name()))
+		closeHTTPOutputResponseBody := func(t1 task.Task, _ task.TaskStatus) {
+			t1.DeleteFinishedCallback(fmt.Sprintf("%s-closeHTTPOutputResponseBody", h.Name()))
 
 			resp.Body.Close()
 		}
 
-		t.AddFinishedCallback(fmt.Sprintf("%s-closeHttpOutputResponseBody", h.Name()),
-			closeHttpOutputResponseBody)
+		t.AddFinishedCallback(fmt.Sprintf("%s-closeHTTPOutputResponseBody", h.Name()),
+			closeHTTPOutputResponseBody)
 	}
 
 	return t, nil

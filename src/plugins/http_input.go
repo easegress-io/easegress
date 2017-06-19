@@ -212,7 +212,7 @@ func (h *httpInput) Prepare(ctx pipelines.PipelineContext) {
 	added, err = ctx.Statistics().RegisterPluginIndicator(h.Name(), h.instanceId, "WIP_REQUEST_COUNT",
 		"The count of request which in the working progress of the pipeline.",
 		func(pluginName, indicatorName string) (interface{}, error) {
-			wipReqCount, err := getHttpInputHandlingRequestCount(ctx, pluginName)
+			wipReqCount, err := getHTTPInputHandlingRequestCount(ctx, pluginName)
 			if err != nil {
 				return nil, err
 			}
@@ -294,7 +294,7 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 			default:
 			}
 
-			statusCode := task.ResultCodeToHttpCode(t1.ResultCode())
+			statusCode := task.ResultCodeToHTTPCode(t1.ResultCode())
 
 			if len(h.conf.ResponseCodeKey) != 0 {
 				code, err := strconv.Atoi(task.ToString(t1.Value(h.conf.ResponseCodeKey)))
@@ -361,8 +361,8 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 			ht.writer.(http.Flusher).Flush()
 		}
 
-		closeHttpInputRequestBody := func(t1 task.Task, _ task.TaskStatus) {
-			t1.DeleteFinishedCallback(fmt.Sprintf("%s-closeHttpInputRequestBody", h.Name()))
+		closeHTTPInputRequestBody := func(t1 task.Task, _ task.TaskStatus) {
+			t1.DeleteFinishedCallback(fmt.Sprintf("%s-closeHTTPInputRequestBody", h.Name()))
 
 			ht.request.Body.Close()
 			close(ht.finishedChan)
@@ -372,7 +372,7 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 			t1.DeleteFinishedCallback(fmt.Sprintf("%s-logRequest", h.Name()))
 
 			code := t1.ResultCode()
-			httpCode := task.ResultCodeToHttpCode(code)
+			httpCode := task.ResultCodeToHTTPCode(code)
 			// TODO: use variables(e.g. upstream_response_time_xxx) of each plugin
 			// or provide a method(e.g. AddUpstreamResponseTime) of task
 			logger.HTTPAccess(ht.request, httpCode, 0, t1.FinishAt().Sub(t1.StartAt()), time.Duration(0))
@@ -386,7 +386,7 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 		shrinkWipRequestCounter := func(t1 task.Task, _ task.TaskStatus) {
 			t1.DeleteFinishedCallback(fmt.Sprintf("%s-shrinkWipRequestCounter", h.Name()))
 
-			wipReqCount, err := getHttpInputHandlingRequestCount(ctx, h.Name())
+			wipReqCount, err := getHTTPInputHandlingRequestCount(ctx, h.Name())
 			if err == nil {
 				for !atomic.CompareAndSwapUint64(wipReqCount, *wipReqCount, *wipReqCount-1) {
 				}
@@ -416,11 +416,11 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 		}
 
 		t.AddFinishedCallback(fmt.Sprintf("%s-responseCaller", h.Name()), respondCaller)
-		t.AddFinishedCallback(fmt.Sprintf("%s-closeHttpInputRequestBody", h.Name()), closeHttpInputRequestBody)
+		t.AddFinishedCallback(fmt.Sprintf("%s-closeHTTPInputRequestBody", h.Name()), closeHTTPInputRequestBody)
 		t.AddFinishedCallback(fmt.Sprintf("%s-logRequest", h.Name()), logRequest)
 		t.AddFinishedCallback(fmt.Sprintf("%s-shrinkWipRequestCounter", h.Name()), shrinkWipRequestCounter)
 
-		wipReqCount, err := getHttpInputHandlingRequestCount(ctx, h.Name())
+		wipReqCount, err := getHTTPInputHandlingRequestCount(ctx, h.Name())
 		if err == nil {
 			atomic.AddUint64(wipReqCount, 1)
 		}
@@ -462,7 +462,7 @@ const (
 	httpInputHandlingRequestCountKey = "httpInputHandlingRequestCountKey"
 )
 
-func getHttpInputHandlingRequestCount(ctx pipelines.PipelineContext, pluginName string) (*uint64, error) {
+func getHTTPInputHandlingRequestCount(ctx pipelines.PipelineContext, pluginName string) (*uint64, error) {
 	bucket := ctx.DataBucket(pluginName, pipelines.DATA_BUCKET_FOR_ALL_PLUGIN_INSTANCE)
 	count, err := bucket.QueryDataWithBindDefault(httpInputHandlingRequestCountKey,
 		func() interface{} {

@@ -20,7 +20,7 @@ type linearPipelineConfig struct {
 
 func linearPipelineConfigConstructor() pipelines.Config {
 	return &linearPipelineConfig{
-		WaitPluginClose: true, // HttpInput plugin needs this due to it has a global mux object
+		WaitPluginClose: true, // HTTPInput plugin needs this due to it has a global mux object
 	}
 }
 
