@@ -69,7 +69,7 @@ func (gc *GatewayCluster) issueOperation(group string, timeout time.Duration, re
 	if err != nil {
 		logger.Errorf("[BUG: pack request (header=%d) to %#v failed: %v]", uint8(operationMessage), req, err)
 
-		return 0, newClusterError(
+		return newClusterError(
 			fmt.Sprintf("pack request (header=%d) to %#v failed: %v", uint8(operationMessage), req, err),
 			InternalServerError)
 	}
@@ -113,7 +113,7 @@ func (gc *GatewayCluster) issueOperation(group string, timeout time.Duration, re
 	resp := new(RespOperation)
 	err = cluster.Unpack(memberResp.Payload[1:], resp)
 	if err != nil {
-		return newClusterError(fmt.Errorf("unpack operation response failed: %v", err), InternalServerError)
+		return newClusterError(fmt.Sprintf("unpack operation response failed: %v", err), InternalServerError)
 	}
 
 	if resp.Err != nil {

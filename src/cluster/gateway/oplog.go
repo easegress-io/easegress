@@ -132,7 +132,7 @@ func (op *opLog) retrieve(startSeq, countLimit uint64) ([]*Operation, error, Clu
 
 	var ret []*Operation
 
-	for idx := 0; idx < countLimit && startSeq+uint64(idx) <= op._locklessMaxSeq(); idx++ {
+	for idx := uint64(0); idx < countLimit && startSeq+uint64(idx) <= op._locklessMaxSeq(); idx++ {
 		var item badger.KVItem
 		err := op.kv.Get([]byte(fmt.Sprintf("%d", startSeq+uint64(idx))), &item)
 		if err != nil {
@@ -147,7 +147,7 @@ func (op *opLog) retrieve(startSeq, countLimit uint64) ([]*Operation, error, Clu
 			logger.Errorf("[BUG: get operation (sequence=%d) from badger get empty]",
 				startSeq+uint64(idx))
 			return nil, fmt.Errorf("get operation (sequence=%d) from badger get empty",
-				startSeq+uint64(idx)),
+					startSeq+uint64(idx)),
 				InternalServerError
 		}
 
@@ -215,7 +215,7 @@ func (op *opLog) _locklessMaxSeq() uint64 {
 	maxSeq := item.Value()
 	if maxSeq == nil || len(maxSeq) == 0 {
 		// at the beginning, it is not a bug to get empty value.
-		maxSeq = "0"
+		maxSeq = []byte("0")
 	}
 
 	ms, err := strconv.ParseUint(string(maxSeq), 0, 64)

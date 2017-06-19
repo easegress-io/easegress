@@ -103,7 +103,7 @@ func (gc *GatewayCluster) RetrievePlugins(group string, timeout time.Duration, s
 
 	requestName := fmt.Sprintf("(group:%s)retrive_plugins", group)
 
-	return gc.issueRetrieve(group, syncAll, timeout, requestName, &filter)
+	return gc.issueRetrieve(group, timeout, requestName, syncAll, &filter)
 }
 
 func (gc *GatewayCluster) RetrievePipelines(group string, timeout time.Duration, syncAll bool,

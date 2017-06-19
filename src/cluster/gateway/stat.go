@@ -119,22 +119,22 @@ func (gc *GatewayCluster) issueStat(group string, timeout time.Duration,
 		}
 		memberResp = r
 	case <-gc.stopChan:
-		return newClusterError("the member gone during issuing statistics aggregation", IssueMemberGoneError)
+		return nil, newClusterError("the member gone during issuing statistics aggregation", IssueMemberGoneError)
 	}
 
 	if len(memberResp.Payload) == 0 {
-		return newClusterError("issue statistics aggregation responds empty response", InternalServerError)
+		return nil, newClusterError("issue statistics aggregation responds empty response", InternalServerError)
 	}
 
 	var resp RespStat
 	err = cluster.Unpack(memberResp.Payload[1:], &resp)
 	if err != nil {
 		return nil, newClusterError(
-			fmt.Errorf("unpack statistics aggregation response failed: %v", err), InternalServerError)
+			fmt.Sprintf("unpack statistics aggregation response failed: %v", err), InternalServerError)
 	}
 
 	if resp.Err != nil {
-		return resp.Err
+		return nil, resp.Err
 	}
 
 	var ret []byte
@@ -162,7 +162,7 @@ func (gc *GatewayCluster) issueStat(group string, timeout time.Duration,
 	}
 
 	if ret == nil || len(ret) == 0 {
-		return newClusterError("issue statistics aggregation responds invalid result", InternalServerError)
+		return nil, newClusterError("issue statistics aggregation responds invalid result", InternalServerError)
 	}
 
 	return ret, nil

@@ -54,7 +54,7 @@ func (gc *GatewayCluster) issueRetrieve(group string, timeout time.Duration,
 			groupTagKey: group,
 			modeTagKey:  WriteMode.String(),
 		},
-		Timeout: timeout,
+		Timeout:            timeout,
 		ResponseRelayCount: 1, // fault tolerance on network issue
 	}
 
@@ -72,18 +72,18 @@ func (gc *GatewayCluster) issueRetrieve(group string, timeout time.Duration,
 		}
 		memberResp = r
 	case <-gc.stopChan:
-		return newClusterError("the member gone during issuing retrieve", IssueMemberGoneError)
+		return nil, newClusterError("the member gone during issuing retrieve", IssueMemberGoneError)
 	}
 
 	if len(memberResp.Payload) == 0 {
-		return newClusterError("issue retrieve responds empty response", InternalServerError)
+		return nil, newClusterError("issue retrieve responds empty response", InternalServerError)
 	}
 
 	resp := new(RespRetrieve)
 	err = cluster.Unpack(memberResp.Payload[1:], resp)
 	if err != nil {
 		return nil, newClusterError(
-			fmt.Errorf("unpack retrieve response failed: %v", err), InternalServerError)
+			fmt.Sprintf("unpack retrieve response failed: %v", err), InternalServerError)
 	}
 
 	if resp.Err != nil {
@@ -103,7 +103,7 @@ func (gc *GatewayCluster) issueRetrieve(group string, timeout time.Duration,
 	}
 
 	if ret == nil || len(ret) == 0 {
-		return newClusterError("issue retrieve responds invalid result", InternalServerError)
+		return nil, newClusterError("issue retrieve responds invalid result", InternalServerError)
 	}
 
 	return ret, nil

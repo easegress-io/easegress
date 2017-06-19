@@ -34,7 +34,7 @@ const (
 	RetrieveTaskStatDescError
 )
 
-func (t *ClusterErrorType) HttpStatusCode() int {
+func (t ClusterErrorType) HTTPStatusCode() int {
 	ret := http.StatusInternalServerError
 
 	switch t {
