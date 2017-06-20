@@ -17,8 +17,7 @@ import (
 
 // for api
 func (gc *GatewayCluster) issueRetrieve(group string, timeout time.Duration,
-	requestName string, syncAll bool, filter interface{}) (
-	interface{}, *ClusterError) {
+	requestName string, syncAll bool, filter interface{}) (interface{}, *ClusterError) {
 
 	req := &ReqRetrieve{
 		RetrieveAllNodes: syncAll,

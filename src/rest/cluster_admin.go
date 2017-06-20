@@ -90,17 +90,16 @@ func (s *clusterAdminServer) createPlugin(w rest.ResponseWriter, r *rest.Request
 		return
 	}
 
-	timeout := req.TimeoutSec
-	if timeout == 0 {
-		timeout = 30
-	} else if timeout < 10 {
+	if req.TimeoutSec == 0 {
+		req.TimeoutSec = 30
+	} else if req.TimeoutSec < 10 {
 		msg := fmt.Sprintf("timeout %d should greater than or equal to 10 senconds", req.TimeoutSec)
 		rest.Error(w, msg, http.StatusBadRequest)
 		return
 	}
 
-	clusterErr := s.gc.CreatePlugin(group, timeout * time.Second, req.OperationSeqSnapshot, req.Consistent,
-		req.Type, conf)
+	clusterErr := s.gc.CreatePlugin(group, req.TimeoutSec * time.Second, req.OperationSeqSnapshot,
+		req.Consistent, req.Type, conf)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
 		return
@@ -112,30 +111,41 @@ func (s *clusterAdminServer) createPlugin(w rest.ResponseWriter, r *rest.Request
 }
 
 func (s *clusterAdminServer) retrievePlugins(w rest.ResponseWriter, r *rest.Request) {
-	logger.Debugf("[retrieve plugins]")
+	logger.Debugf("[retrieve plugins from cluster]")
 
-	group, syncAll, timeout, err := parseClusterParam(r)
+	group, err := url.QueryUnescape(r.PathParam("group"))
 	if err != nil {
-		msg := fmt.Sprintf("invalid request: %s", err.Error())
-		rest.Error(w, msg, http.StatusBadRequest)
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%v]", err)
 		return
 	}
 
-	req := new(pluginsRetrieveRequest)
+	req := new(pluginsRetrieveClusterRequest)
 	err = r.DecodeJsonPayload(req)
 	if err != nil {
-		msg := fmt.Sprintf("invalid request: %s", err.Error())
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%v]", err)
+		return
+	}
+
+	if req.TimeoutSec == 0 {
+		req.TimeoutSec = 30
+	} else if req.TimeoutSec < 10 {
+		msg := fmt.Sprintf("timeout %d should greater than or equal to 10 senconds", req.TimeoutSec)
 		rest.Error(w, msg, http.StatusBadRequest)
 		return
 	}
 
-	timeout = time.Duration(ADMIN_TIMEOUT_DECAY_RATE * float64(timeout))
-	resp, httpErr := s.gc.RetrievePlugins(group, syncAll, timeout, req.NamePattern, req.Types)
-	if httpErr != nil {
-		w.WriteHeader(httpErr.StatusCode)
-		rest.Error(w, httpErr.Msg, httpErr.StatusCode)
+	resp, clusterErr := s.gc.RetrievePlugins(group, req.TimeoutSec * time.Second, req.Consistent,
+		req.NamePattern, req.Types)
+	if clusterErr != nil {
+		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
 		return
 	}
+
+	plugins := resp.(*gateway.ResultRetrievePlugins)
+
+	.Plugins
 
 	w.WriteHeader(http.StatusOK)
 	w.(http.ResponseWriter).Write(resp)

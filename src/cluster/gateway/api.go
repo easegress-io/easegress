@@ -144,7 +144,7 @@ func (gc *GatewayCluster) DeletePipeline(group string, timeout time.Duration, se
 
 // retrieve
 func (gc *GatewayCluster) RetrievePlugins(group string, timeout time.Duration, syncAll bool,
-	NamePattern string, types []string) ([]byte, *ClusterError) {
+	NamePattern string, types []string) (interface{}, *ClusterError) {
 
 	filter := FilterRetrievePlugins{
 		NamePattern: NamePattern,
