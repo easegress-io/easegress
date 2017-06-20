@@ -690,6 +690,8 @@ func aggregateStatResponses(reqStat *ReqStat, respStats []*RespStat) *RespStat {
 			indicatorValues = append(indicatorValues, r)
 		}
 
+		// TODO: Add node names about detailed list
+
 		// unknown indicators, just list values
 		if aggregator == nil {
 			retBuff, err := json.Marshal(indicatorValues)
