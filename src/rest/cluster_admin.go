@@ -64,7 +64,7 @@ func (s *clusterAdminServer) retrieveOperationSequence(w rest.ResponseWriter, r 
 	logger.Debugf("[retrieve operation sequence from cluster]")
 
 	group, err := url.QueryUnescape(r.PathParam("group"))
-	if err != nil {
+	if err != nil || len(group) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		logger.Errorf("[%s]", err.Error())
 		return
@@ -107,7 +107,7 @@ func (s *clusterAdminServer) createPlugin(w rest.ResponseWriter, r *rest.Request
 	logger.Debugf("[create plugin in cluster]")
 
 	group, err := url.QueryUnescape(r.PathParam("group"))
-	if err != nil {
+	if err != nil || len(group) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		logger.Errorf("[%v]", err)
 		return
@@ -162,7 +162,7 @@ func (s *clusterAdminServer) retrievePlugins(w rest.ResponseWriter, r *rest.Requ
 	logger.Debugf("[retrieve plugins from cluster]")
 
 	group, err := url.QueryUnescape(r.PathParam("group"))
-	if err != nil {
+	if err != nil || len(group) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		logger.Errorf("[%v]", err)
 		return
@@ -203,14 +203,14 @@ func (s *clusterAdminServer) retrievePlugin(w rest.ResponseWriter, r *rest.Reque
 	logger.Debugf("[retrieve plugin from cluster]")
 
 	group, err := url.QueryUnescape(r.PathParam("group"))
-	if err != nil {
+	if err != nil || len(group) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		logger.Errorf("[%s]", err.Error())
 		return
 	}
 
 	pluginName, err := url.QueryUnescape(r.PathParam("pluginName"))
-	if err != nil {
+	if err != nil || len(pluginName) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		logger.Errorf("[%s]", err.Error())
 		return
@@ -250,7 +250,7 @@ func (s *clusterAdminServer) updatePlugin(w rest.ResponseWriter, r *rest.Request
 	logger.Debugf("[update plugin in cluster]")
 
 	group, err := url.QueryUnescape(r.PathParam("group"))
-	if err != nil {
+	if err != nil || len(group) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		logger.Errorf("[%s]", err.Error())
 		return
@@ -298,14 +298,14 @@ func (s *clusterAdminServer) deletePlugin(w rest.ResponseWriter, r *rest.Request
 	logger.Debugf("[delete plugin from cluster]")
 
 	group, err := url.QueryUnescape(r.PathParam("group"))
-	if err != nil {
+	if err != nil || len(group) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		logger.Errorf("[%s]", err.Error())
 		return
 	}
 
 	pluginName, err := url.QueryUnescape(r.PathParam("pluginName"))
-	if err != nil {
+	if err != nil || len(pluginName) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		logger.Errorf("[%s]", err.Error())
 		return
@@ -345,7 +345,7 @@ func (s *clusterAdminServer) createPipeline(w rest.ResponseWriter, r *rest.Reque
 	logger.Debugf("[create pipeline in cluster]")
 
 	group, err := url.QueryUnescape(r.PathParam("group"))
-	if err != nil {
+	if err != nil || len(group) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		logger.Errorf("[%v]", err)
 		return
@@ -399,7 +399,7 @@ func (s *clusterAdminServer) retrievePipelines(w rest.ResponseWriter, r *rest.Re
 	logger.Debugf("[retrieve pipelines from cluster]")
 
 	group, err := url.QueryUnescape(r.PathParam("group"))
-	if err != nil {
+	if err != nil || len(group) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		logger.Errorf("[%v]", err)
 		return
@@ -440,14 +440,14 @@ func (s *clusterAdminServer) retrievePipeline(w rest.ResponseWriter, r *rest.Req
 	logger.Debugf("[retrieve pipeline from cluster]")
 
 	group, err := url.QueryUnescape(r.PathParam("group"))
-	if err != nil {
+	if err != nil || len(group) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		logger.Errorf("[%s]", err.Error())
 		return
 	}
 
 	pipelineName, err := url.QueryUnescape(r.PathParam("pipelineName"))
-	if err != nil {
+	if err != nil || len(pipelineName) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		logger.Errorf("[%s]", err.Error())
 		return
@@ -488,7 +488,7 @@ func (s *clusterAdminServer) updatePipeline(w rest.ResponseWriter, r *rest.Reque
 	logger.Debugf("[update pipeline in cluster]")
 
 	group, err := url.QueryUnescape(r.PathParam("group"))
-	if err != nil {
+	if err != nil || len(group) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		logger.Errorf("[%s]", err.Error())
 		return
@@ -536,14 +536,14 @@ func (s *clusterAdminServer) deletePipeline(w rest.ResponseWriter, r *rest.Reque
 	logger.Debugf("[delete pipeline from cluster]")
 
 	group, err := url.QueryUnescape(r.PathParam("group"))
-	if err != nil {
+	if err != nil || len(group) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		logger.Errorf("[%s]", err.Error())
 		return
 	}
 
 	pipelineName, err := url.QueryUnescape(r.PathParam("pipelineName"))
-	if err != nil {
+	if err != nil || len(pipelineName) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		logger.Errorf("[%s]", err.Error())
 		return
@@ -583,7 +583,7 @@ func (s *clusterAdminServer) retrievePluginTypes(w rest.ResponseWriter, r *rest.
 	logger.Debugf("[retrieve plugin types from cluster]")
 
 	group, err := url.QueryUnescape(r.PathParam("group"))
-	if err != nil {
+	if err != nil || len(group) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		logger.Errorf("[%s]", err.Error())
 		return
@@ -623,7 +623,7 @@ func (s *clusterAdminServer) retrievePipelineTypes(w rest.ResponseWriter, r *res
 	logger.Debugf("[retrieve pipeline types from cluster]")
 
 	group, err := url.QueryUnescape(r.PathParam("group"))
-	if err != nil {
+	if err != nil || len(group) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		logger.Errorf("[%s]", err.Error())
 		return

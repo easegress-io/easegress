@@ -68,13 +68,13 @@ func (s *statisticsServer) retrievePluginIndicatorNames(w rest.ResponseWriter, r
 	logger.Debugf("[retrieve plugin indicator names]")
 
 	pipelineName, err := url.QueryUnescape(r.PathParam("pipelineName"))
-	if err != nil {
+	if err != nil || len(pipelineName) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	pluginName, err := url.QueryUnescape(r.PathParam("pluginName"))
-	if err != nil {
+	if err != nil || len(pluginName) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -103,19 +103,19 @@ func (s *statisticsServer) retrievePluginIndicatorValue(w rest.ResponseWriter, r
 	logger.Debugf("[retrieve plugin indicator value]")
 
 	pipelineName, err := url.QueryUnescape(r.PathParam("pipelineName"))
-	if err != nil {
+	if err != nil || len(pipelineName) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	pluginName, err := url.QueryUnescape(r.PathParam("pluginName"))
-	if err != nil {
+	if err != nil || len(pluginName) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	indicatorName, err := url.QueryUnescape(r.PathParam("indicatorName"))
-	if err != nil {
+	if err != nil || len(indicatorName) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -154,19 +154,19 @@ func (s *statisticsServer) retrievePluginIndicatorDesc(w rest.ResponseWriter, r 
 	logger.Debugf("[retrieve plugin indicator description]")
 
 	pipelineName, err := url.QueryUnescape(r.PathParam("pipelineName"))
-	if err != nil {
+	if err != nil || len(pipelineName) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	pluginName, err := url.QueryUnescape(r.PathParam("pluginName"))
-	if err != nil {
+	if err != nil || len(pluginName) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	indicatorName, err := url.QueryUnescape(r.PathParam("indicatorName"))
-	if err != nil {
+	if err != nil || len(indicatorName) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -205,7 +205,7 @@ func (s *statisticsServer) retrievePipelineIndicatorNames(w rest.ResponseWriter,
 	logger.Debugf("[retrieve pipeline indicator names]")
 
 	pipelineName, err := url.QueryUnescape(r.PathParam("pipelineName"))
-	if err != nil {
+	if err != nil || len(pipelineName) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -234,13 +234,13 @@ func (s *statisticsServer) retrievePipelineIndicatorValue(w rest.ResponseWriter,
 	logger.Debugf("[retrieve pipeline indicator value]")
 
 	pipelineName, err := url.QueryUnescape(r.PathParam("pipelineName"))
-	if err != nil {
+	if err != nil || len(pipelineName) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	indicatorName, err := url.QueryUnescape(r.PathParam("indicatorName"))
-	if err != nil {
+	if err != nil || len(indicatorName) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -279,13 +279,13 @@ func (s *statisticsServer) retrievePipelineIndicatorDesc(w rest.ResponseWriter, 
 	logger.Debugf("[retrieve pipeline indicator description]")
 
 	pipelineName, err := url.QueryUnescape(r.PathParam("pipelineName"))
-	if err != nil {
+	if err != nil || len(pipelineName) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	indicatorName, err := url.QueryUnescape(r.PathParam("indicatorName"))
-	if err != nil {
+	if err != nil || len(indicatorName) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -324,7 +324,7 @@ func (s *statisticsServer) retrievePipelineTaskIndicatorNames(w rest.ResponseWri
 	logger.Debugf("[retrieve pipeline task indicator names]")
 
 	pipelineName, err := url.QueryUnescape(r.PathParam("pipelineName"))
-	if err != nil {
+	if err != nil || len(pipelineName) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -353,13 +353,13 @@ func (s *statisticsServer) retrievePipelineTaskIndicatorValue(w rest.ResponseWri
 	logger.Debugf("[retrieve pipeline task indicator value]")
 
 	pipelineName, err := url.QueryUnescape(r.PathParam("pipelineName"))
-	if err != nil {
+	if err != nil || len(pipelineName) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	indicatorName, err := url.QueryUnescape(r.PathParam("indicatorName"))
-	if err != nil {
+	if err != nil || len(indicatorName) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -398,13 +398,13 @@ func (s *statisticsServer) retrievePipelineTaskIndicatorDesc(w rest.ResponseWrit
 	logger.Debugf("[retrieve pipeline task indicator description]")
 
 	pipelineName, err := url.QueryUnescape(r.PathParam("pipelineName"))
-	if err != nil {
+	if err != nil || len(pipelineName) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	indicatorName, err := url.QueryUnescape(r.PathParam("indicatorName"))
-	if err != nil {
+	if err != nil || len(indicatorName) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}

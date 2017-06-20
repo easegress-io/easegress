@@ -167,7 +167,7 @@ func (s *adminServer) retrievePlugin(w rest.ResponseWriter, r *rest.Request) {
 	logger.Debugf("[retrieve plugin]")
 
 	pluginName, err := url.QueryUnescape(r.PathParam("pluginName"))
-	if err != nil {
+	if err != nil || len(pluginName) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		logger.Errorf("[%s]", err.Error())
 		return
@@ -258,7 +258,7 @@ func (s *adminServer) deletePlugin(w rest.ResponseWriter, r *rest.Request) {
 	logger.Debugf("[delete plugin]")
 
 	pluginName, err := url.QueryUnescape(r.PathParam("pluginName"))
-	if err != nil {
+	if err != nil || len(pluginName) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -393,7 +393,7 @@ func (s *adminServer) retrievePipeline(w rest.ResponseWriter, r *rest.Request) {
 	logger.Debugf("[retrieve pipeline]")
 
 	pipelineName, err := url.QueryUnescape(r.PathParam("pipelineName"))
-	if err != nil {
+	if err != nil || len(pipelineName) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -483,7 +483,7 @@ func (s *adminServer) deletePipeline(w rest.ResponseWriter, r *rest.Request) {
 	logger.Debugf("[delete pipeline]")
 
 	pipelineName, err := url.QueryUnescape(r.PathParam("pipelineName"))
-	if err != nil {
+	if err != nil || len(pipelineName) == 0 {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
