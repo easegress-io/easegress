@@ -59,13 +59,13 @@ func NewGatewayCluster(conf Config, mod *model.Model) (*GatewayCluster, error) {
 	switch {
 	case len(conf.Group) == 0:
 		return nil, fmt.Errorf("empty group")
-	case OPLogMaxSeqGapToPull == 0:
+	case conf.OPLogMaxSeqGapToPull == 0:
 		return nil, fmt.Errorf("oplog_max_seq_gap_to_pull must be greater then 0")
-	case OPLogPullMaxCountOnce == 0:
+	case conf.OPLogPullMaxCountOnce == 0:
 		return nil, fmt.Errorf("oplog_pull_max_count_once must be greater then 0")
-	case OPLogPullInterval == 0:
+	case conf.OPLogPullInterval == 0:
 		return nil, fmt.Errorf("oplog_pull_interval must be greater than 0")
-	case OPLogPullTimeout == 0:
+	case conf.OPLogPullTimeout == 0:
 		return nil, fmt.Errorf("oplog_pull_timeout must be greater than 0")
 	}
 
@@ -75,7 +75,7 @@ func NewGatewayCluster(conf Config, mod *model.Model) (*GatewayCluster, error) {
 	basisConf := cluster.DefaultLANConfig()
 	basisConf.EventStream = eventStream
 	basisConf.NodeTags[groupTagKey] = conf.Group
-	basisConf.NodeTags[modeTagKey] = conf.Mode
+	basisConf.NodeTags[modeTagKey] = string(conf.Mode)
 
 	basis, err := cluster.Create(*basisConf)
 	if err != nil {

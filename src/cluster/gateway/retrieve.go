@@ -99,7 +99,7 @@ func (gc *GatewayCluster) issueRetrieve(group string, timeout time.Duration,
 	switch filter.(type) {
 	case *FilterRetrievePlugin:
 		ret := new(ResultRetrievePlugin)
-		err = json.Unmarshal(ret, resp.ResultRetrievePlugin)
+		err = json.Unmarshal(resp.ResultRetrievePlugin, ret)
 		if err != nil {
 			logger.Errorf("[BUG: unmarsh retrieve plugin response failed: %v]", err)
 			return nil, newClusterError(
@@ -110,7 +110,7 @@ func (gc *GatewayCluster) issueRetrieve(group string, timeout time.Duration,
 		return ret, nil
 	case *FilterRetrievePlugins:
 		ret := new(ResultRetrievePlugins)
-		err = json.Unmarshal(ret, resp.ResultRetrievePlugins)
+		err = json.Unmarshal(resp.ResultRetrievePlugins, ret)
 		if err != nil {
 			logger.Errorf("[BUG: unmarsh retrieve plugins response failed: %v]", err)
 			return nil, newClusterError(
@@ -121,7 +121,7 @@ func (gc *GatewayCluster) issueRetrieve(group string, timeout time.Duration,
 		return ret, nil
 	case *FilterRetrievePipeline:
 		ret := new(ResultRetrievePipeline)
-		err = json.Unmarshal(ret, resp.ResultRetrievePipeline)
+		err = json.Unmarshal(resp.ResultRetrievePipeline, ret)
 		if err != nil {
 			logger.Errorf("[BUG: unmarsh retrieve pipeline response failed: %v]", err)
 			return nil, newClusterError(
@@ -132,7 +132,7 @@ func (gc *GatewayCluster) issueRetrieve(group string, timeout time.Duration,
 		return ret, nil
 	case *FilterRetrievePipelines:
 		ret := new(ResultRetrievePipelines)
-		err = json.Unmarshal(ret, resp.ResultRetrievePipelines)
+		err = json.Unmarshal(resp.ResultRetrievePipelines, ret)
 		if err != nil {
 			logger.Errorf("[BUG: unmarsh retrieve pipelines response failed: %v]", err)
 			return nil, newClusterError(
@@ -143,7 +143,7 @@ func (gc *GatewayCluster) issueRetrieve(group string, timeout time.Duration,
 		return ret, nil
 	case *FilterRetrievePluginTypes:
 		ret := new(ResultRetrievePluginTypes)
-		err = json.Unmarshal(ret, resp.ResultRetrievePluginTypes)
+		err = json.Unmarshal(resp.ResultRetrievePluginTypes, ret)
 		if err != nil {
 			logger.Errorf("[BUG: unmarsh retrieve plugin types response failed: %v]", err)
 			return nil, newClusterError(
@@ -154,7 +154,7 @@ func (gc *GatewayCluster) issueRetrieve(group string, timeout time.Duration,
 		return ret, nil
 	case *FilterRetrievePipelineTypes:
 		ret := new(ResultRetrievePipelineTypes)
-		err = json.Unmarshal(ret, resp.ResultRetrievePipelineTypes)
+		err = json.Unmarshal(resp.ResultRetrievePipelineTypes, ret)
 		if err != nil {
 			logger.Errorf("[BUG: unmarsh retrieve pipeline types response failed: %v]", err)
 			return nil, newClusterError(

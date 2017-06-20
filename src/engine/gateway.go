@@ -87,7 +87,7 @@ func NewGateway() (*Gateway, error) {
 	mod := model.NewModel()
 
 	var memberMode cluster.Mode
-	switch strings.ToLower(common.ClusterMode) {
+	switch strings.ToLower(common.MemberMode) {
 	case "read":
 		memberMode = cluster.ReadMode
 	case "write":
