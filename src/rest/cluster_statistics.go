@@ -250,21 +250,317 @@ func (s *clusterStatisticsServer) retrievePluginIndicatorDesc(w rest.ResponseWri
 }
 
 func (s *clusterStatisticsServer) retrievePipelineIndicatorNames(w rest.ResponseWriter, r *rest.Request) {
+	logger.Debugf("[retrieve pipeline indicator names from cluster]")
+
+	group, err := url.QueryUnescape(r.PathParam("group"))
+	if err != nil || len(group) == 0 {
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%v]", err)
+		return
+	}
+
+	pipelineName, err := url.QueryUnescape(r.PathParam("pipelineName"))
+	if err != nil || len(pipelineName) == 0 {
+		msg := fmt.Sprintf("invalid request: invalid pipeline name")
+		rest.Error(w, msg, http.StatusBadRequest)
+		return
+	}
+
+	req := new(clusterStat)
+	err = r.DecodeJsonPayload(req)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%v]", err)
+		return
+	}
+
+	if req.TimeoutSec == 0 {
+		req.TimeoutSec = 30
+	} else if req.TimeoutSec < 10 {
+		msg := fmt.Sprintf("timeout %d should greater than or equal to 10 senconds", req.TimeoutSec)
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
+		return
+	}
+
+	ret, clusterErr := s.gc.StatPipelineIndicatorNames(group, time.Duration(req.TimeoutSec)*time.Second, pipelineName)
+	if clusterErr != nil {
+		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
+		logger.Errorf("[%s]", clusterErr.Error())
+		return
+	}
+
+	w.WriteJson(ret)
+	w.WriteHeader(http.StatusOK)
+
+	logger.Debugf("[retrive pipeline %s indicator names succeed]", pipelineName)
 }
 
 func (s *clusterStatisticsServer) retrievePipelineIndicatorValue(w rest.ResponseWriter, r *rest.Request) {
+	logger.Debugf("[retrieve pipeline indicator value from cluster]")
+
+	group, err := url.QueryUnescape(r.PathParam("group"))
+	if err != nil || len(group) == 0 {
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%v]", err)
+		return
+	}
+
+	pipelineName, err := url.QueryUnescape(r.PathParam("pipelineName"))
+	if err != nil || len(pipelineName) == 0 {
+		msg := fmt.Sprintf("invalid request: invalid pipeline name")
+		rest.Error(w, msg, http.StatusBadRequest)
+		return
+	}
+
+	indicatorName, err := url.QueryUnescape(r.PathParam("indicatorName"))
+	if err != nil || len(indicatorName) == 0 {
+		msg := fmt.Sprintf("invalid request: invalid indicator name")
+		rest.Error(w, msg, http.StatusBadRequest)
+		return
+	}
+
+	req := new(clusterStat)
+	err = r.DecodeJsonPayload(req)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%v]", err)
+		return
+	}
+
+	if req.TimeoutSec == 0 {
+		req.TimeoutSec = 30
+	} else if req.TimeoutSec < 10 {
+		msg := fmt.Sprintf("timeout %d should greater than or equal to 10 senconds", req.TimeoutSec)
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
+		return
+	}
+
+	ret, clusterErr := s.gc.StatPipelineIndicatorValue(group, time.Duration(req.TimeoutSec)*time.Second,
+		pipelineName, indicatorName)
+	if clusterErr != nil {
+		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
+		logger.Errorf("[%s]", clusterErr.Error())
+		return
+	}
+
+	w.WriteJson(ret)
+	w.WriteHeader(http.StatusOK)
+
+	logger.Debugf("[retrive pipeline %s indicator %s value succeed]", pipelineName, indicatorName)
 }
 
 func (s *clusterStatisticsServer) retrievePipelineIndicatorDesc(w rest.ResponseWriter, r *rest.Request) {
+	logger.Debugf("[retrieve pipeline indicator desc from cluster]")
+
+	group, err := url.QueryUnescape(r.PathParam("group"))
+	if err != nil || len(group) == 0 {
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%v]", err)
+		return
+	}
+
+	pipelineName, err := url.QueryUnescape(r.PathParam("pipelineName"))
+	if err != nil || len(pipelineName) == 0 {
+		msg := fmt.Sprintf("invalid request: invalid pipeline name")
+		rest.Error(w, msg, http.StatusBadRequest)
+		return
+	}
+
+	indicatorName, err := url.QueryUnescape(r.PathParam("indicatorName"))
+	if err != nil || len(indicatorName) == 0 {
+		msg := fmt.Sprintf("invalid request: invalid indicator name")
+		rest.Error(w, msg, http.StatusBadRequest)
+		return
+	}
+
+	req := new(clusterStat)
+	err = r.DecodeJsonPayload(req)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%v]", err)
+		return
+	}
+
+	if req.TimeoutSec == 0 {
+		req.TimeoutSec = 30
+	} else if req.TimeoutSec < 10 {
+		msg := fmt.Sprintf("timeout %d should greater than or equal to 10 senconds", req.TimeoutSec)
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
+		return
+	}
+
+	ret, clusterErr := s.gc.StatPipelineIndicatorDesc(group, time.Duration(req.TimeoutSec)*time.Second,
+		pipelineName, indicatorName)
+	if clusterErr != nil {
+		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
+		logger.Errorf("[%s]", clusterErr.Error())
+		return
+	}
+
+	w.WriteJson(ret)
+	w.WriteHeader(http.StatusOK)
+
+	logger.Debugf("[retrive pipeline %s indicator %s desc succeed]", pipelineName, indicatorName)
 }
 
 func (s *clusterStatisticsServer) retrievePipelineTaskIndicatorNames(w rest.ResponseWriter, r *rest.Request) {
+	logger.Debugf("[retrieve task indicator names from cluster]")
+
+	group, err := url.QueryUnescape(r.PathParam("group"))
+	if err != nil || len(group) == 0 {
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%v]", err)
+		return
+	}
+
+	pipelineName, err := url.QueryUnescape(r.PathParam("pipelineName"))
+	if err != nil || len(pipelineName) == 0 {
+		msg := fmt.Sprintf("invalid request: invalid pipeline name")
+		rest.Error(w, msg, http.StatusBadRequest)
+		return
+	}
+
+	req := new(clusterStat)
+	err = r.DecodeJsonPayload(req)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%v]", err)
+		return
+	}
+
+	if req.TimeoutSec == 0 {
+		req.TimeoutSec = 30
+	} else if req.TimeoutSec < 10 {
+		msg := fmt.Sprintf("timeout %d should greater than or equal to 10 senconds", req.TimeoutSec)
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
+		return
+	}
+
+	ret, clusterErr := s.gc.StatTaskIndicatorNames(group, time.Duration(req.TimeoutSec)*time.Second, pipelineName)
+	if clusterErr != nil {
+		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
+		logger.Errorf("[%s]", clusterErr.Error())
+		return
+	}
+
+	w.WriteJson(ret)
+	w.WriteHeader(http.StatusOK)
+
+	logger.Debugf("[retrive task %s indicator names succeed]", pipelineName)
 }
 
 func (s *clusterStatisticsServer) retrievePipelineTaskIndicatorValue(w rest.ResponseWriter, r *rest.Request) {
+	logger.Debugf("[retrieve pipeline task indicator value from cluster]")
+
+	group, err := url.QueryUnescape(r.PathParam("group"))
+	if err != nil || len(group) == 0 {
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%v]", err)
+		return
+	}
+
+	pipelineName, err := url.QueryUnescape(r.PathParam("pipelineName"))
+	if err != nil || len(pipelineName) == 0 {
+		msg := fmt.Sprintf("invalid request: invalid pipeline name")
+		rest.Error(w, msg, http.StatusBadRequest)
+		return
+	}
+
+	indicatorName, err := url.QueryUnescape(r.PathParam("indicatorName"))
+	if err != nil || len(indicatorName) == 0 {
+		msg := fmt.Sprintf("invalid request: invalid indicator name")
+		rest.Error(w, msg, http.StatusBadRequest)
+		return
+	}
+
+	req := new(clusterStat)
+	err = r.DecodeJsonPayload(req)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%v]", err)
+		return
+	}
+
+	if req.TimeoutSec == 0 {
+		req.TimeoutSec = 30
+	} else if req.TimeoutSec < 10 {
+		msg := fmt.Sprintf("timeout %d should greater than or equal to 10 senconds", req.TimeoutSec)
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
+		return
+	}
+
+	ret, clusterErr := s.gc.StatTaskIndicatorValue(group, time.Duration(req.TimeoutSec)*time.Second,
+		pipelineName, indicatorName)
+	if clusterErr != nil {
+		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
+		logger.Errorf("[%s]", clusterErr.Error())
+		return
+	}
+
+	w.WriteJson(ret)
+	w.WriteHeader(http.StatusOK)
+
+	logger.Debugf("[retrive pipeline %s task indicator %s value succeed]", pipelineName, indicatorName)
 }
 
 func (s *clusterStatisticsServer) retrievePipelineTaskIndicatorDesc(w rest.ResponseWriter, r *rest.Request) {
+	logger.Debugf("[retrieve pipeline task indicator desc from cluster]")
+
+	group, err := url.QueryUnescape(r.PathParam("group"))
+	if err != nil || len(group) == 0 {
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%v]", err)
+		return
+	}
+
+	pipelineName, err := url.QueryUnescape(r.PathParam("pipelineName"))
+	if err != nil || len(pipelineName) == 0 {
+		msg := fmt.Sprintf("invalid request: invalid pipeline name")
+		rest.Error(w, msg, http.StatusBadRequest)
+		return
+	}
+
+	indicatorName, err := url.QueryUnescape(r.PathParam("indicatorName"))
+	if err != nil || len(indicatorName) == 0 {
+		msg := fmt.Sprintf("invalid request: invalid indicator name")
+		rest.Error(w, msg, http.StatusBadRequest)
+		return
+	}
+
+	req := new(clusterStat)
+	err = r.DecodeJsonPayload(req)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%v]", err)
+		return
+	}
+
+	if req.TimeoutSec == 0 {
+		req.TimeoutSec = 30
+	} else if req.TimeoutSec < 10 {
+		msg := fmt.Sprintf("timeout %d should greater than or equal to 10 senconds", req.TimeoutSec)
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
+		return
+	}
+
+	ret, clusterErr := s.gc.StatPipelineIndicatorDesc(group, time.Duration(req.TimeoutSec)*time.Second,
+		pipelineName, indicatorName)
+	if clusterErr != nil {
+		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
+		logger.Errorf("[%s]", clusterErr.Error())
+		return
+	}
+
+	w.WriteJson(ret)
+	w.WriteHeader(http.StatusOK)
+
+	logger.Debugf("[retrive pipeline %s task indicator %s desc succeed]", pipelineName, indicatorName)
 }
 
 func (s *clusterStatisticsServer) retrieveGatewayUpTime(w rest.ResponseWriter, r *rest.Request) {
