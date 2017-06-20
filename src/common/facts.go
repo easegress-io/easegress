@@ -4,6 +4,7 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 )
 
@@ -31,16 +32,41 @@ var (
 	CpuProfileFile, MemProfileFile string
 )
 
+////
+
+type uint16Value uint16
+
+func newUint16Value(val uint16, p *uint16) *uint16Value {
+	*p = val
+	return (*uint16Value)(p)
+}
+
+func (i *uint16Value) Set(s string) error {
+	v, err := strconv.ParseUint(s, 0, 16)
+	*i = uint16Value(v)
+	return err
+}
+
+func (i *uint16Value) Get() interface{} { return uint16(*i) }
+
+func (i *uint16Value) String() string { return strconv.FormatUint(uint16(*i), 10) }
+
+////
+
 func init() {
 	clusterGroup := flag.String("group", "default", "specify cluster group")
 	memberMode := flag.String("mode", "read", "specify member mode (read or write)")
-	opLogMaxSeqGapToPull := flag.Uint64("oplog_max_seq_gap_to_pull", 5,
+	opLogMaxSeqGapToPull := new(uint16)
+	flag.Var(newUint16Value(5, opLogMaxSeqGapToPull), "oplog_max_seq_gap_to_pull",
 		"specify max gap of sequnce of operation logs deciding whether to wait for missing operations or not")
-	opLogPullMaxCountOnce := flag.Uint64("oplog_pull_max_count_once", 5,
+	opLogPullMaxCountOnce := new(uint16)
+	flag.Var(newUint16Value(5, opLogPullMaxCountOnce), "oplog_pull_max_count_once",
 		"specify max count of pulling operation logs once")
-	opLogPullInterval := flag.Uint64("oplog_pull_interval", 10,
+	opLogPullInterval := new(uint16)
+	flag.Var(newUint16Value(10, opLogPullInterval), "oplog_pull_interval",
 		"specify interval of pulling operation logs in second")
-	opLogPullTimeout := flag.Uint64("oplog_pull_timeout", 30,
+	opLogPullTimeout := new(int16)
+	flag.Var(newUint16Value(30, opLogPullTimeout), "oplog_pull_timeout",
 		"specify timeout of pulling operation logs in second")
 
 	host := flag.String("host", "localhost", "specify listen host")
