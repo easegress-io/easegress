@@ -93,12 +93,12 @@ func NewGateway() (*Gateway, error) {
 	case "write":
 		memberMode = cluster.WriteMode
 	default:
-		return nil, fmt.Errorf("bad member mode")
+		return nil, fmt.Errorf("invalid member mode")
 	}
-	clusterConf := cluster.Config{
-		Group: common.ClusterGroup,
-		Mode:  memberMode,
 
+	clusterConf := cluster.Config{
+		ClusterGroup: common.ClusterGroup,
+		ClusterMemberMode:  memberMode,
 		OPLogMaxSeqGapToPull:  common.OPLogMaxSeqGapToPull,
 		OPLogPullMaxCountOnce: common.OPLogPullMaxCountOnce,
 		OPLogPullInterval:     common.OPLogPullInterval,

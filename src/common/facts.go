@@ -33,11 +33,15 @@ var (
 
 func init() {
 	clusterGroup := flag.String("group", "default", "specify cluster group")
-	memberMode := flag.String("mode", "read", "specify member mode(read, write)")
-	opLogMaxSeqGapToPull := flag.Uint64("oplog_max_seq_gap_to_pull", 5, "specify max gap of sequnce of operation logs deciding whether to wait for missing operations or not")
-	opLogPullMaxCountOnce := flag.Uint64("oplog_pull_max_count_once", 5, "specify max count of pulling operation logs once")
-	opLogPullInterval := flag.Duration("oplog_pull_interval", 10*time.Second, "specify interval of pulling operation logs")
-	opLogPullTimeout := flag.Duration("oplog_pull_timeout", 30*time.Second, "specify timeout of pulling operation logs")
+	memberMode := flag.String("mode", "read", "specify member mode (read or write)")
+	opLogMaxSeqGapToPull := flag.Uint64("oplog_max_seq_gap_to_pull", 5,
+		"specify max gap of sequnce of operation logs deciding whether to wait for missing operations or not")
+	opLogPullMaxCountOnce := flag.Uint64("oplog_pull_max_count_once", 5,
+		"specify max count of pulling operation logs once")
+	opLogPullInterval := flag.Duration("oplog_pull_interval", 10,
+		"specify interval of pulling operation logs in second")
+	opLogPullTimeout := flag.Duration("oplog_pull_timeout", 30,
+		"specify timeout of pulling operation logs in second")
 
 	host := flag.String("host", "localhost", "specify listen host")
 	certFile := flag.String("certfile", "", "specify cert file, "+
@@ -58,8 +62,8 @@ func init() {
 	MemberMode = *memberMode
 	OPLogMaxSeqGapToPull = *opLogMaxSeqGapToPull
 	OPLogPullMaxCountOnce = *opLogPullMaxCountOnce
-	OPLogPullInterval = *opLogPullInterval
-	OPLogPullTimeout = *opLogPullTimeout
+	OPLogPullInterval = *opLogPullInterval  * time.Second
+	OPLogPullTimeout = *opLogPullTimeout * time.Second
 
 	Host = *host
 	CertFile = *certFile

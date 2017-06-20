@@ -25,8 +25,8 @@ const (
 )
 
 type Config struct {
-	Group string
-	Mode  Mode
+	ClusterGroup      string
+	ClusterMemberMode Mode
 
 	OPLogMaxSeqGapToPull  uint64
 	OPLogPullMaxCountOnce uint64
@@ -57,7 +57,7 @@ func NewGatewayCluster(conf Config, mod *model.Model) (*GatewayCluster, error) {
 	}
 
 	switch {
-	case len(conf.Group) == 0:
+	case len(conf.ClusterGroup) == 0:
 		return nil, fmt.Errorf("empty group")
 	case conf.OPLogMaxSeqGapToPull == 0:
 		return nil, fmt.Errorf("oplog_max_seq_gap_to_pull must be greater then 0")
@@ -65,8 +65,8 @@ func NewGatewayCluster(conf Config, mod *model.Model) (*GatewayCluster, error) {
 		return nil, fmt.Errorf("oplog_pull_max_count_once must be greater then 0")
 	case conf.OPLogPullInterval == 0:
 		return nil, fmt.Errorf("oplog_pull_interval must be greater than 0")
-	case conf.OPLogPullTimeout == 0:
-		return nil, fmt.Errorf("oplog_pull_timeout must be greater than 0")
+	case conf.OPLogPullTimeout.Seconds() < 10:
+		return nil, fmt.Errorf("oplog_pull_timeout must be greater than or equals to 10")
 	}
 
 	eventStream := make(chan cluster.Event)
@@ -74,8 +74,8 @@ func NewGatewayCluster(conf Config, mod *model.Model) (*GatewayCluster, error) {
 	// TODO: choose config of under layer automatically
 	basisConf := cluster.DefaultLANConfig()
 	basisConf.EventStream = eventStream
-	basisConf.NodeTags[groupTagKey] = conf.Group
-	basisConf.NodeTags[modeTagKey] = string(conf.Mode)
+	basisConf.NodeTags[groupTagKey] = conf.ClusterGroup
+	basisConf.NodeTags[modeTagKey] = conf.ClusterMemberMode.String()
 
 	basis, err := cluster.Create(*basisConf)
 	if err != nil {
@@ -93,7 +93,7 @@ func NewGatewayCluster(conf Config, mod *model.Model) (*GatewayCluster, error) {
 		clusterConf: basisConf,
 		cluster:     basis,
 		log:         log,
-		mode:        WriteMode, // TODO
+		mode:        conf.ClusterMemberMode,
 		stopChan:    make(chan struct{}),
 
 		eventStream: eventStream,
