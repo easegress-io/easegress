@@ -100,7 +100,7 @@ func (s *clusterAdminServer) createPlugin(w rest.ResponseWriter, r *rest.Request
 		return
 	}
 
-	clusterErr := s.gc.CreatePlugin(group, req.TimeoutSec * time.Second, req.OperationSeqSnapshot,
+	clusterErr := s.gc.CreatePlugin(group, req.TimeoutSec*time.Second, req.OperationSeqSnapshot,
 		req.Consistent, req.Type, conf)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
@@ -140,7 +140,7 @@ func (s *clusterAdminServer) retrievePlugins(w rest.ResponseWriter, r *rest.Requ
 		return
 	}
 
-	ret, clusterErr := s.gc.RetrievePlugins(group, req.TimeoutSec * time.Second, req.Consistent,
+	ret, clusterErr := s.gc.RetrievePlugins(group, req.TimeoutSec*time.Second, req.Consistent,
 		req.NamePattern, req.Types)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
@@ -160,18 +160,18 @@ func (s *clusterAdminServer) retrievePlugin(w rest.ResponseWriter, r *rest.Reque
 	group, err := url.QueryUnescape(r.PathParam("group"))
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%v]", err)
+		logger.Errorf("[%s]", err.Error())
 		return
 	}
 
 	pluginName, err := url.QueryUnescape(r.PathParam("pluginName"))
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%s]", err.Error())
 		return
 	}
 
-
-	req := new(pluginsRetrieveClusterRequest)
+	req := new(pluginRetrieveClusterRequest)
 	err = r.DecodeJsonPayload(req)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
@@ -188,26 +188,24 @@ func (s *clusterAdminServer) retrievePlugin(w rest.ResponseWriter, r *rest.Reque
 		return
 	}
 
-
-	group, syncAll, timeout, err := parseClusterParam(r)
-	if err != nil {
-		msg := fmt.Sprintf("invalid request: %s", err.Error())
-		rest.Error(w, msg, http.StatusBadRequest)
+	ret, clusterErr := s.gc.RetrievePlugin(group, req.TimeoutSec*time.Second, req.Consistent, pluginName)
+	if clusterErr != nil {
+		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
+		logger.Errorf("[%s]", clusterErr.Error())
 		return
 	}
 
-	timeout = time.Duration(ADMIN_TIMEOUT_DECAY_RATE * float64(timeout))
-	resp, httpErr := s.gc.RetrievePlugins(group, syncAll, timeout, pluginName, nil)
-	if httpErr != nil {
-		w.WriteHeader(httpErr.StatusCode)
-		rest.Error(w, httpErr.Msg, httpErr.StatusCode)
+	if ret.Plugin == nil {
+		msg := fmt.Sprintf("plugin %s not found", pluginName)
+		rest.Error(w, msg, http.StatusNotFound)
+		logger.Debugf("[%s]", msg)
 		return
 	}
 
+	w.WriteJson(ret.Plugin)
 	w.WriteHeader(http.StatusOK)
-	w.(http.ResponseWriter).Write(resp)
 
-	logger.Debugf("[retrieve plugin %s succeed: %s]", pluginName, resp)
+	logger.Debugf("[retrieve plugin %s succeed: %s]", pluginName, ret)
 }
 
 func (s *clusterAdminServer) updatePlugin(w rest.ResponseWriter, r *rest.Request) {

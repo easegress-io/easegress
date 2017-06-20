@@ -24,6 +24,8 @@ const (
 	RetrieveInconsistencyError
 	RetrievePipelinesError
 	RetrievePluginsError
+	RetrievePipelineNotFoundError
+	RetrievePluginNotFoundError
 
 	PipelineStatNotFoundError
 	RetrievePipelineStatValueError
@@ -63,6 +65,10 @@ func (t ClusterErrorType) HTTPStatusCode() int {
 		ret = http.StatusBadRequest
 	case RetrievePluginsError:
 		ret = http.StatusBadRequest
+	case RetrievePipelineNotFoundError:
+		ret = http.StatusNotFound
+	case RetrievePluginNotFoundError:
+		ret = http.StatusNotFound
 
 	case PipelineStatNotFoundError:
 		ret = http.StatusNotFound

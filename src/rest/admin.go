@@ -199,7 +199,7 @@ func (s *adminServer) updatePlugin(w rest.ResponseWriter, r *rest.Request) {
 	err := r.DecodeJsonPayload(req)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%v]", err)
+		logger.Errorf("[%s]", err.Error())
 		return
 	}
 
@@ -214,14 +214,14 @@ func (s *adminServer) updatePlugin(w rest.ResponseWriter, r *rest.Request) {
 	conf, err := plugins.GetConfig(req.Type)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%v]", err)
+		logger.Errorf("[%s]", err.Error())
 		return
 	}
 
 	err = json.Unmarshal(buff, conf)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%v]", err)
+		logger.Errorf("[%s]", err.Error())
 		return
 	}
 
@@ -245,7 +245,7 @@ func (s *adminServer) updatePlugin(w rest.ResponseWriter, r *rest.Request) {
 	err = s.gateway.Model().UpdatePluginConfig(conf)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%v]", err)
+		logger.Errorf("[%s]", err.Error())
 		return
 	}
 
@@ -299,7 +299,7 @@ func (s *adminServer) createPipeline(w rest.ResponseWriter, r *rest.Request) {
 	err := r.DecodeJsonPayload(req)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%v]", err)
+		logger.Errorf("[%s]", err.Error())
 		return
 	}
 
@@ -321,14 +321,14 @@ func (s *adminServer) createPipeline(w rest.ResponseWriter, r *rest.Request) {
 	conf, err := model.GetPipelineConfig(req.Type)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%v]", err)
+		logger.Errorf("[%s]", err.Error())
 		return
 	}
 
 	err = json.Unmarshal(buff, conf)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%v]", err)
+		logger.Errorf("[%s]", err.Error())
 		return
 	}
 
@@ -345,7 +345,7 @@ func (s *adminServer) createPipeline(w rest.ResponseWriter, r *rest.Request) {
 	_, err = s.gateway.Model().AddPipeline(req.Type, conf)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%v]", err)
+		logger.Errorf("[%s]", err.Error())
 		return
 	}
 
@@ -361,14 +361,14 @@ func (s *adminServer) retrievePipelines(w rest.ResponseWriter, r *rest.Request) 
 	err := r.DecodeJsonPayload(req)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%v]", err)
+		logger.Errorf("[%s]", err.Error())
 		return
 	}
 
 	pipes, err := s.gateway.Model().GetPipelines(req.NamePattern, req.Types)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%v]", err)
+		logger.Errorf("[%s]", err.Error())
 		return
 	}
 
@@ -424,7 +424,7 @@ func (s *adminServer) updatePipeline(w rest.ResponseWriter, r *rest.Request) {
 	err := r.DecodeJsonPayload(req)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%v]", err)
+		logger.Errorf("[%s]", err.Error())
 		return
 	}
 
@@ -439,14 +439,14 @@ func (s *adminServer) updatePipeline(w rest.ResponseWriter, r *rest.Request) {
 	conf, err := model.GetPipelineConfig(req.Type)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%v]", err)
+		logger.Errorf("[%s]", err.Error())
 		return
 	}
 
 	err = json.Unmarshal(buff, conf)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%v]", err)
+		logger.Errorf("[%s]", err.Error())
 		return
 	}
 
@@ -470,7 +470,7 @@ func (s *adminServer) updatePipeline(w rest.ResponseWriter, r *rest.Request) {
 	err = s.gateway.Model().UpdatePipelineConfig(conf)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%v]", err)
+		logger.Errorf("[%s]", err.Error())
 		return
 	}
 
@@ -499,7 +499,7 @@ func (s *adminServer) deletePipeline(w rest.ResponseWriter, r *rest.Request) {
 	err = s.gateway.Model().DeletePipeline(pipelineName)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%v]", err)
+		logger.Errorf("[%s]", err.Error())
 		return
 	}
 

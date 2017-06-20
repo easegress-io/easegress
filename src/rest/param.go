@@ -111,6 +111,11 @@ type pluginsRetrieveClusterRequest struct {
 	Consistent bool `json:"consistent"`
 }
 
+type pluginRetrieveClusterRequest struct {
+	clusterRequest
+	Consistent bool `json:"consistent"`
+}
+
 type pluginUpdateClusterRequest struct {
 	clusterOperation
 	pluginUpdateRequest

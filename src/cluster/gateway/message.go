@@ -99,7 +99,9 @@ type (
 		RetrieveAllNodes bool
 
 		// Below Filter* is Packed from corresponding struct
+		FilterRetrievePlugin        *FilterRetrievePlugin
 		FilterRetrievePlugins       *FilterRetrievePlugins
+		FilterRetrievePipeline      *FilterRetrievePipeline
 		FilterRetrievePipelines     *FilterRetrievePipelines
 		FilterRetrievePluginTypes   *FilterRetrievePluginTypes
 		FilterRetrievePipelineTypes *FilterRetrievePipelineTypes
@@ -108,14 +110,22 @@ type (
 	RespRetrieve struct {
 		Err *ClusterError
 
+		ResultRetrievePlugin        []byte // json
 		ResultRetrievePlugins       []byte // json
+		ResultRetrievePipeline      []byte // json
 		ResultRetrievePipelines     []byte // json
 		ResultRetrievePluginTypes   []byte // json
 		ResultRetrievePipelineTypes []byte // json
 	}
+	FilterRetrievePlugin struct {
+		Name string
+	}
 	FilterRetrievePlugins struct {
 		NamePattern string
 		Types       []string
+	}
+	FilterRetrievePipeline struct {
+		Name string
 	}
 	FilterRetrievePipelines struct {
 		NamePattern string
@@ -123,8 +133,14 @@ type (
 	}
 	FilterRetrievePluginTypes   struct{}
 	FilterRetrievePipelineTypes struct{}
-	ResultRetrievePlugins       struct {
+	ResultRetrievePlugin        struct {
+		Plugin config.PluginSpec `json:"plugin"`
+	}
+	ResultRetrievePlugins struct {
 		Plugins []config.PluginSpec `json:"plugins"`
+	}
+	ResultRetrievePipeline struct {
+		Pipeline config.PipelineSpec `json:"pipeline"`
 	}
 	ResultRetrievePipelines struct {
 		Pipelines []config.PipelineSpec `json:"pipelines"`

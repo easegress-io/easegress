@@ -25,8 +25,12 @@ func (gc *GatewayCluster) issueRetrieve(group string, timeout time.Duration,
 	}
 
 	switch filter := filter.(type) {
+	case *FilterRetrievePlugin:
+		req.FilterRetrievePlugin = filter
 	case *FilterRetrievePlugins:
 		req.FilterRetrievePlugins = filter
+	case *FilterRetrievePipeline:
+		req.FilterRetrievePipeline = filter
 	case *FilterRetrievePipelines:
 		req.FilterRetrievePipelines = filter
 	case *FilterRetrievePluginTypes:
@@ -93,6 +97,17 @@ func (gc *GatewayCluster) issueRetrieve(group string, timeout time.Duration,
 	}
 
 	switch filter.(type) {
+	case *FilterRetrievePlugin:
+		ret := new(ResultRetrievePlugin)
+		err = json.Unmarshal(ret, resp.ResultRetrievePlugin)
+		if err != nil {
+			logger.Errorf("[BUG: unmarsh retrieve plugin response failed: %v]", err)
+			return nil, newClusterError(
+				fmt.Sprintf("unmarsh retrieve plugin response failed: %v", err),
+				InternalServerError)
+		}
+
+		return ret, nil
 	case *FilterRetrievePlugins:
 		ret := new(ResultRetrievePlugins)
 		err = json.Unmarshal(ret, resp.ResultRetrievePlugins)
@@ -100,6 +115,17 @@ func (gc *GatewayCluster) issueRetrieve(group string, timeout time.Duration,
 			logger.Errorf("[BUG: unmarsh retrieve plugins response failed: %v]", err)
 			return nil, newClusterError(
 				fmt.Sprintf("unmarsh retrieve plugins response failed: %v", err),
+				InternalServerError)
+		}
+
+		return ret, nil
+	case *FilterRetrievePipeline:
+		ret := new(ResultRetrievePipeline)
+		err = json.Unmarshal(ret, resp.ResultRetrievePipeline)
+		if err != nil {
+			logger.Errorf("[BUG: unmarsh retrieve pipeline response failed: %v]", err)
+			return nil, newClusterError(
+				fmt.Sprintf("unmarsh retrieve pipeline response failed: %v", err),
 				InternalServerError)
 		}
 
@@ -151,7 +177,9 @@ func unpackReqRetrieve(payload []byte) (*ReqRetrieve, error, ClusterErrorType) {
 	}
 
 	switch {
+	case reqRetrieve.FilterRetrievePlugin != nil:
 	case reqRetrieve.FilterRetrievePlugins != nil:
+	case reqRetrieve.FilterRetrievePipeline != nil:
 	case reqRetrieve.FilterRetrievePipelines != nil:
 	case reqRetrieve.FilterRetrievePluginTypes != nil:
 	case reqRetrieve.FilterRetrievePipelineTypes != nil:
@@ -193,6 +221,20 @@ func (gc *GatewayCluster) retrieveResult(filter interface{}) ([]byte, error, Clu
 	var ret interface{}
 
 	switch filter := filter.(type) {
+	case *FilterRetrievePlugin:
+		plug := gc.mod.GetPlugin(filter.Name)
+		if plug == nil {
+			logger.Errorf("[plugin %s not found]", filter.Name)
+			return nil, fmt.Errorf("plugin %s not found", filter.Name), RetrievePluginNotFoundError
+		}
+
+		r := new(ResultRetrievePlugin)
+		r.Plugin = config.PluginSpec{
+			Type:   plug.Type(),
+			Config: plug.Config(),
+		}
+
+		ret = r
 	case *FilterRetrievePlugins:
 		plugins, err := gc.mod.GetPlugins(filter.NamePattern, filter.Types)
 		if err != nil {
@@ -207,6 +249,20 @@ func (gc *GatewayCluster) retrieveResult(filter interface{}) ([]byte, error, Clu
 				Config: plug.Config(),
 			}
 			r.Plugins = append(r.Plugins, spec)
+		}
+
+		ret = r
+	case *FilterRetrievePipeline:
+		pipe := gc.mod.GetPipeline(filter.Name)
+		if pipe == nil {
+			logger.Errorf("[pipeline %s not found]", filter.Name)
+			return nil, fmt.Errorf("pipeline %s not found", filter.Name), RetrievePipelineNotFoundError
+		}
+
+		r := new(ResultRetrievePipeline)
+		r.Pipeline = config.PipelineSpec{
+			Type:   pipe.Type(),
+			Config: pipe.Config(),
 		}
 
 		ret = r
@@ -271,9 +327,15 @@ func (gc *GatewayCluster) getLocalRetrieveResp(reqRetrieve *ReqRetrieve) (*RespR
 	var errType ClusterErrorType
 
 	switch {
+	case reqRetrieve.FilterRetrievePlugin != nil:
+		ret.ResultRetrievePlugin, err, errType =
+			gc.retrieveResult(reqRetrieve.FilterRetrievePlugin)
 	case reqRetrieve.FilterRetrievePlugins != nil:
 		ret.ResultRetrievePlugins, err, errType =
 			gc.retrieveResult(reqRetrieve.FilterRetrievePlugins)
+	case reqRetrieve.FilterRetrievePipeline != nil:
+		ret.ResultRetrievePipeline, err, errType =
+			gc.retrieveResult(reqRetrieve.FilterRetrievePipeline)
 	case reqRetrieve.FilterRetrievePipelines != nil:
 		ret.ResultRetrievePipelines, err, errType =
 			gc.retrieveResult(reqRetrieve.FilterRetrievePipelines)

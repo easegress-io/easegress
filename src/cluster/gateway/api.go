@@ -6,7 +6,6 @@ import (
 
 	"cluster"
 	"logger"
-	"net/http"
 )
 
 // operation
@@ -68,6 +67,7 @@ func (gc *GatewayCluster) CreatePlugin(group string, timeout time.Duration, seqS
 	}
 
 	requestName := fmt.Sprintf("(group:%s)create_plugin", group)
+
 	return gc.issueOperation(group, timeout, requestName, seqSnapshot, syncAll, &operation)
 }
 
@@ -144,11 +144,34 @@ func (gc *GatewayCluster) DeletePipeline(group string, timeout time.Duration, se
 }
 
 // retrieve
+func (gc *GatewayCluster) RetrievePlugin(group string, timeout time.Duration, syncAll bool,
+	name string) (*ResultRetrievePlugin, *ClusterError) {
+
+	filter := FilterRetrievePlugin{
+		Name: name,
+	}
+
+	requestName := fmt.Sprintf("(group:%s)retrive_plugin", group)
+
+	resp, err := gc.issueRetrieve(group, timeout, requestName, syncAll, &filter)
+	if err != nil {
+		return nil, err
+	}
+
+	ret, ok := resp.(*ResultRetrievePlugin)
+	if !ok {
+		logger.Errorf("[BUG: retrieve plugin returns invalid result, got type %T]", resp)
+		return nil, newClusterError("retrieve plugin returns invalid result", InternalServerError)
+	}
+
+	return ret, nil
+}
+
 func (gc *GatewayCluster) RetrievePlugins(group string, timeout time.Duration, syncAll bool,
-	NamePattern string, types []string) (*ResultRetrievePlugins, *ClusterError) {
+	namePattern string, types []string) (*ResultRetrievePlugins, *ClusterError) {
 
 	filter := FilterRetrievePlugins{
-		NamePattern: NamePattern,
+		NamePattern: namePattern,
 		Types:       types,
 	}
 
@@ -168,33 +191,89 @@ func (gc *GatewayCluster) RetrievePlugins(group string, timeout time.Duration, s
 	return ret, nil
 }
 
+func (gc *GatewayCluster) RetrievePipeline(group string, timeout time.Duration, syncAll bool,
+	name string) (*ResultRetrievePipeline, *ClusterError) {
+
+	filter := FilterRetrievePipeline{
+		Name: name,
+	}
+
+	requestName := fmt.Sprintf("(group:%s)retrive_pipeline", group)
+
+	resp, err := gc.issueRetrieve(group, timeout, requestName, syncAll, &filter)
+	if err != nil {
+		return nil, err
+	}
+
+	ret, ok := resp.(*ResultRetrievePipeline)
+	if !ok {
+		logger.Errorf("[BUG: retrieve pipeline returns invalid result, got type %T]", resp)
+		return nil, newClusterError("retrieve pipeline returns invalid result", InternalServerError)
+	}
+
+	return ret, nil
+}
+
 func (gc *GatewayCluster) RetrievePipelines(group string, timeout time.Duration, syncAll bool,
-	NamePattern string, types []string) ([]byte, *ClusterError) {
+	namePattern string, types []string) (*ResultRetrievePipelines, *ClusterError) {
 
 	filter := FilterRetrievePipelines{
-		NamePattern: NamePattern,
+		NamePattern: namePattern,
 		Types:       types,
 	}
 
 	requestName := fmt.Sprintf("(group:%s)retrive_pipelines", group)
 
-	return gc.issueRetrieve(group, timeout, requestName, syncAll, &filter)
+	resp, err := gc.issueRetrieve(group, timeout, requestName, syncAll, &filter)
+	if err != nil {
+		return nil, err
+	}
+
+	ret, ok := resp.(*ResultRetrievePipelines)
+	if !ok {
+		logger.Errorf("[BUG: retrieve pipelines returns invalid result, got type %T]", resp)
+		return nil, newClusterError("retrieve pipelines returns invalid result", InternalServerError)
+	}
+
+	return ret, nil
 }
 
 func (gc *GatewayCluster) RetrievePluginTypes(group string, timeout time.Duration,
-	syncAll bool) ([]byte, *ClusterError) {
+	syncAll bool) (*ResultRetrievePluginTypes, *ClusterError) {
 
 	requestName := fmt.Sprintf("(group:%s)retrive_plugin_types", group)
 
-	return gc.issueRetrieve(group, timeout, requestName, syncAll, &FilterRetrievePluginTypes{})
+	resp, err := gc.issueRetrieve(group, timeout, requestName, syncAll, &FilterRetrievePluginTypes{})
+	if err != nil {
+		return nil, err
+	}
+
+	ret, ok := resp.(*ResultRetrievePluginTypes)
+	if !ok {
+		logger.Errorf("[BUG: retrieve plugin types returns invalid result, got type %T]", resp)
+		return nil, newClusterError("retrieve plugin types returns invalid result", InternalServerError)
+	}
+
+	return ret, nil
 }
 
 func (gc *GatewayCluster) RetrievePipelineTypes(group string, timeout time.Duration,
-	syncAll bool) ([]byte, *ClusterError) {
+	syncAll bool) (*ResultRetrievePipelineTypes, *ClusterError) {
 
 	requestName := fmt.Sprintf("(group:%s)retrive_pipeline_types", group)
 
-	return gc.issueRetrieve(group, timeout, requestName, syncAll, &FilterRetrievePluginTypes{})
+	resp, err := gc.issueRetrieve(group, timeout, requestName, syncAll, &FilterRetrievePluginTypes{})
+	if err != nil {
+		return nil, err
+	}
+
+	ret, ok := resp.(*ResultRetrievePipelineTypes)
+	if !ok {
+		logger.Errorf("[BUG: retrieve pipeline types returns invalid result, got type %T]", resp)
+		return nil, newClusterError("retrieve pipeline types returns invalid result", InternalServerError)
+	}
+
+	return ret, nil
 }
 
 // statistics
