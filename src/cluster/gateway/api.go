@@ -6,6 +6,7 @@ import (
 
 	"cluster"
 	"logger"
+	"net/http"
 )
 
 // operation
@@ -144,7 +145,7 @@ func (gc *GatewayCluster) DeletePipeline(group string, timeout time.Duration, se
 
 // retrieve
 func (gc *GatewayCluster) RetrievePlugins(group string, timeout time.Duration, syncAll bool,
-	NamePattern string, types []string) (interface{}, *ClusterError) {
+	NamePattern string, types []string) (*ResultRetrievePlugins, *ClusterError) {
 
 	filter := FilterRetrievePlugins{
 		NamePattern: NamePattern,
@@ -153,7 +154,18 @@ func (gc *GatewayCluster) RetrievePlugins(group string, timeout time.Duration, s
 
 	requestName := fmt.Sprintf("(group:%s)retrive_plugins", group)
 
-	return gc.issueRetrieve(group, timeout, requestName, syncAll, &filter)
+	resp, err := gc.issueRetrieve(group, timeout, requestName, syncAll, &filter)
+	if err != nil {
+		return nil, err
+	}
+
+	ret, ok := resp.(*ResultRetrievePlugins)
+	if !ok {
+		logger.Errorf("[BUG: retrieve plugins returns invalid result, got type %T]", resp)
+		return nil, newClusterError("retrieve plugins returns invalid result", InternalServerError)
+	}
+
+	return ret, nil
 }
 
 func (gc *GatewayCluster) RetrievePipelines(group string, timeout time.Duration, syncAll bool,

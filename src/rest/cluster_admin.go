@@ -140,18 +140,11 @@ func (s *clusterAdminServer) retrievePlugins(w rest.ResponseWriter, r *rest.Requ
 		return
 	}
 
-	resp, clusterErr := s.gc.RetrievePlugins(group, req.TimeoutSec * time.Second, req.Consistent,
+	ret, clusterErr := s.gc.RetrievePlugins(group, req.TimeoutSec * time.Second, req.Consistent,
 		req.NamePattern, req.Types)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
 		logger.Errorf("[%s]", clusterErr.Error())
-		return
-	}
-
-	ret, ok := resp.(*gateway.ResultRetrievePlugins)
-	if !ok {
-		logger.Errorf("[BUG: retrieve plugins returns invalid result]")
-		rest.Error(w, "retrieve plugins returns invalid result", http.StatusInternalServerError)
 		return
 	}
 
@@ -164,12 +157,37 @@ func (s *clusterAdminServer) retrievePlugins(w rest.ResponseWriter, r *rest.Requ
 func (s *clusterAdminServer) retrievePlugin(w rest.ResponseWriter, r *rest.Request) {
 	logger.Debugf("[retrieve plugin]")
 
-	pluginName, err := url.QueryUnescape(r.PathParam("pluginName"))
-	if err != nil || len(pluginName) == 0 {
-		msg := fmt.Sprintf("invalid request: invalid plugin name")
-		rest.Error(w, msg, http.StatusBadRequest)
+	group, err := url.QueryUnescape(r.PathParam("group"))
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%v]", err)
 		return
 	}
+
+	pluginName, err := url.QueryUnescape(r.PathParam("pluginName"))
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+
+	req := new(pluginsRetrieveClusterRequest)
+	err = r.DecodeJsonPayload(req)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%v]", err)
+		return
+	}
+
+	if req.TimeoutSec == 0 {
+		req.TimeoutSec = 30
+	} else if req.TimeoutSec < 10 {
+		msg := fmt.Sprintf("timeout %d should greater than or equal to 10 senconds", req.TimeoutSec)
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
+		return
+	}
+
 
 	group, syncAll, timeout, err := parseClusterParam(r)
 	if err != nil {

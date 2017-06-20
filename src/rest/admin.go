@@ -169,6 +169,7 @@ func (s *adminServer) retrievePlugin(w rest.ResponseWriter, r *rest.Request) {
 	pluginName, err := url.QueryUnescape(r.PathParam("pluginName"))
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%s]", err.Error())
 		return
 	}
 
