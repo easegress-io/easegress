@@ -150,7 +150,7 @@ func (s *clusterStatisticsServer) retrievePluginIndicatorValue(w rest.ResponseWr
 	}
 
 	indicatorName, err := url.QueryUnescape(r.PathParam("indicatorName"))
-	if err != nil || len(pluginName) == 0 {
+	if err != nil || len(indicatorName) == 0 {
 		msg := fmt.Sprintf("invalid request: invalid indicator name")
 		rest.Error(w, msg, http.StatusBadRequest)
 		return
@@ -212,7 +212,7 @@ func (s *clusterStatisticsServer) retrievePluginIndicatorDesc(w rest.ResponseWri
 	}
 
 	indicatorName, err := url.QueryUnescape(r.PathParam("indicatorName"))
-	if err != nil || len(pluginName) == 0 {
+	if err != nil || len(indicatorName) == 0 {
 		msg := fmt.Sprintf("invalid request: invalid indicator name")
 		rest.Error(w, msg, http.StatusBadRequest)
 		return
