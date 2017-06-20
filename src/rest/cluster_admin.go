@@ -65,8 +65,9 @@ func (s *clusterAdminServer) retrieveOperationSequence(w rest.ResponseWriter, r 
 
 	group, err := url.QueryUnescape(r.PathParam("group"))
 	if err != nil || len(group) == 0 {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%s]", err.Error())
+		msg := "invalid cluster group name"
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
@@ -108,8 +109,9 @@ func (s *clusterAdminServer) createPlugin(w rest.ResponseWriter, r *rest.Request
 
 	group, err := url.QueryUnescape(r.PathParam("group"))
 	if err != nil || len(group) == 0 {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%v]", err)
+		msg := "invalid cluster group name"
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
@@ -163,8 +165,9 @@ func (s *clusterAdminServer) retrievePlugins(w rest.ResponseWriter, r *rest.Requ
 
 	group, err := url.QueryUnescape(r.PathParam("group"))
 	if err != nil || len(group) == 0 {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%v]", err)
+		msg := "invalid cluster group name"
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
@@ -204,15 +207,17 @@ func (s *clusterAdminServer) retrievePlugin(w rest.ResponseWriter, r *rest.Reque
 
 	group, err := url.QueryUnescape(r.PathParam("group"))
 	if err != nil || len(group) == 0 {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%s]", err.Error())
+		msg := "invalid cluster group name"
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
 	pluginName, err := url.QueryUnescape(r.PathParam("pluginName"))
 	if err != nil || len(pluginName) == 0 {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%s]", err.Error())
+		msg := "invalid plugin name"
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
@@ -251,8 +256,9 @@ func (s *clusterAdminServer) updatePlugin(w rest.ResponseWriter, r *rest.Request
 
 	group, err := url.QueryUnescape(r.PathParam("group"))
 	if err != nil || len(group) == 0 {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%s]", err.Error())
+		msg := "invalid cluster group name"
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
@@ -299,15 +305,17 @@ func (s *clusterAdminServer) deletePlugin(w rest.ResponseWriter, r *rest.Request
 
 	group, err := url.QueryUnescape(r.PathParam("group"))
 	if err != nil || len(group) == 0 {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%s]", err.Error())
+		msg := "invalid cluster group name"
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
 	pluginName, err := url.QueryUnescape(r.PathParam("pluginName"))
 	if err != nil || len(pluginName) == 0 {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%s]", err.Error())
+		msg := "invalid plugin name"
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
@@ -346,8 +354,9 @@ func (s *clusterAdminServer) createPipeline(w rest.ResponseWriter, r *rest.Reque
 
 	group, err := url.QueryUnescape(r.PathParam("group"))
 	if err != nil || len(group) == 0 {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%v]", err)
+		msg := "invalid cluster group name"
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
@@ -400,8 +409,9 @@ func (s *clusterAdminServer) retrievePipelines(w rest.ResponseWriter, r *rest.Re
 
 	group, err := url.QueryUnescape(r.PathParam("group"))
 	if err != nil || len(group) == 0 {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%v]", err)
+		msg := "invalid cluster group name"
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
@@ -441,15 +451,17 @@ func (s *clusterAdminServer) retrievePipeline(w rest.ResponseWriter, r *rest.Req
 
 	group, err := url.QueryUnescape(r.PathParam("group"))
 	if err != nil || len(group) == 0 {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%s]", err.Error())
+		msg := "invalid cluster group name"
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
 	pipelineName, err := url.QueryUnescape(r.PathParam("pipelineName"))
 	if err != nil || len(pipelineName) == 0 {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%s]", err.Error())
+		msg := "invalid pipeline name"
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
@@ -489,8 +501,9 @@ func (s *clusterAdminServer) updatePipeline(w rest.ResponseWriter, r *rest.Reque
 
 	group, err := url.QueryUnescape(r.PathParam("group"))
 	if err != nil || len(group) == 0 {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%s]", err.Error())
+		msg := "invalid cluster group name"
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
@@ -537,15 +550,17 @@ func (s *clusterAdminServer) deletePipeline(w rest.ResponseWriter, r *rest.Reque
 
 	group, err := url.QueryUnescape(r.PathParam("group"))
 	if err != nil || len(group) == 0 {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%s]", err.Error())
+		msg := "invalid cluster group name"
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
 	pipelineName, err := url.QueryUnescape(r.PathParam("pipelineName"))
 	if err != nil || len(pipelineName) == 0 {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%s]", err.Error())
+		msg := "invalid pipeline name"
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
@@ -584,8 +599,9 @@ func (s *clusterAdminServer) retrievePluginTypes(w rest.ResponseWriter, r *rest.
 
 	group, err := url.QueryUnescape(r.PathParam("group"))
 	if err != nil || len(group) == 0 {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%s]", err.Error())
+		msg := "invalid cluster group name"
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
@@ -624,8 +640,9 @@ func (s *clusterAdminServer) retrievePipelineTypes(w rest.ResponseWriter, r *res
 
 	group, err := url.QueryUnescape(r.PathParam("group"))
 	if err != nil || len(group) == 0 {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%s]", err.Error())
+		msg := "invalid cluster group name"
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
