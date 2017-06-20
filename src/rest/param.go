@@ -177,8 +177,8 @@ type pipelineTypesRetrieveClusterRequest struct {
 // Cluster statistics API
 //
 
-type clusterStat struct {
+type statisticsClusterRequest struct {
 	clusterRequest
-	// TODO: Add Verbose to all stat stuff
-	Verbose bool `json:"verbose"`
+	// TODO: Add details to all stat stuff
+	Details bool `json:"details"`
 }

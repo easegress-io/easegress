@@ -341,8 +341,9 @@ func (gc *GatewayCluster) StatPipelineIndicatorDesc(group string, timeout time.D
 
 	ret, ok := resp.(*ResultStatIndicatorDesc)
 	if !ok {
-		logger.Errorf("[BUG: stat pipeline indicator desc returns invalid result, got type %T]", resp)
-		return nil, newClusterError("stat pipeline indicator desc returns invalid result", InternalServerError)
+		logger.Errorf("[BUG: stat pipeline indicator description returns invalid result, got type %T]", resp)
+		return nil, newClusterError("stat pipeline indicator description returns invalid result",
+			InternalServerError)
 	}
 
 	return ret, nil
@@ -415,8 +416,9 @@ func (gc *GatewayCluster) StatPluginIndicatorDesc(group string, timeout time.Dur
 
 	ret, ok := resp.(*ResultStatIndicatorDesc)
 	if !ok {
-		logger.Errorf("[BUG: stat plugin indicator desc returns invalid result, got type %T]", resp)
-		return nil, newClusterError("stat plugin indicator desc returns invalid result", InternalServerError)
+		logger.Errorf("[BUG: stat plugin indicator description returns invalid result, got type %T]", resp)
+		return nil, newClusterError("stat plugin indicator description returns invalid result",
+			InternalServerError)
 	}
 
 	return ret, nil
@@ -486,8 +488,9 @@ func (gc *GatewayCluster) StatTaskIndicatorDesc(group string, timeout time.Durat
 
 	ret, ok := resp.(*ResultStatIndicatorDesc)
 	if !ok {
-		logger.Errorf("[BUG: stat task indicator desc returns invalid result, got type %T]", resp)
-		return nil, newClusterError("stat task indicator desc returns invalid result", InternalServerError)
+		logger.Errorf("[BUG: stat task indicator description returns invalid result, got type %T]", resp)
+		return nil, newClusterError("stat task indicator description returns invalid result",
+			InternalServerError)
 	}
 
 	return ret, nil

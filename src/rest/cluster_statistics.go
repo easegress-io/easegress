@@ -6,16 +6,12 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/ant0ine/go-json-rest/rest"
+
 	"cluster/gateway"
 	"common"
 	"engine"
 	"logger"
-
-	"github.com/ant0ine/go-json-rest/rest"
-)
-
-const (
-	STAT_TIMEOUT_DECAY_RATE = 0.8
 )
 
 type clusterStatisticsServer struct {
@@ -76,26 +72,29 @@ func (s *clusterStatisticsServer) retrievePluginIndicatorNames(w rest.ResponseWr
 
 	group, err := url.QueryUnescape(r.PathParam("group"))
 	if err != nil || len(group) == 0 {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%v]", err)
+		msg := "invalid cluster group name"
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
 	pipelineName, err := url.QueryUnescape(r.PathParam("pipelineName"))
 	if err != nil || len(pipelineName) == 0 {
-		msg := fmt.Sprintf("invalid request: invalid pipeline name")
+		msg := "invalid pipeline name"
 		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
 	pluginName, err := url.QueryUnescape(r.PathParam("pluginName"))
 	if err != nil || len(pluginName) == 0 {
-		msg := fmt.Sprintf("invalid request: invalid plugin name")
+		msg := "invalid plugin name"
 		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
-	req := new(clusterStat)
+	req := new(statisticsClusterRequest)
 	err = r.DecodeJsonPayload(req)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
@@ -112,7 +111,8 @@ func (s *clusterStatisticsServer) retrievePluginIndicatorNames(w rest.ResponseWr
 		return
 	}
 
-	ret, clusterErr := s.gc.StatPluginIndicatorNames(group, time.Duration(req.TimeoutSec)*time.Second, pipelineName, pluginName)
+	ret, clusterErr := s.gc.StatPluginIndicatorNames(group, time.Duration(req.TimeoutSec)*time.Second,
+		pipelineName, pluginName)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
 		logger.Errorf("[%s]", clusterErr.Error())
@@ -122,7 +122,7 @@ func (s *clusterStatisticsServer) retrievePluginIndicatorNames(w rest.ResponseWr
 	w.WriteJson(ret)
 	w.WriteHeader(http.StatusOK)
 
-	logger.Debugf("[retrive pipeline %s plugin %s indicator names succeed]", pipelineName, pluginName)
+	logger.Debugf("[indicator names of plugin %s in pipeline %s returned from cluster]", pluginName, pipelineName)
 }
 
 func (s *clusterStatisticsServer) retrievePluginIndicatorValue(w rest.ResponseWriter, r *rest.Request) {
@@ -130,33 +130,37 @@ func (s *clusterStatisticsServer) retrievePluginIndicatorValue(w rest.ResponseWr
 
 	group, err := url.QueryUnescape(r.PathParam("group"))
 	if err != nil || len(group) == 0 {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%v]", err)
+		msg := "invalid cluster group name"
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
 	pipelineName, err := url.QueryUnescape(r.PathParam("pipelineName"))
 	if err != nil || len(pipelineName) == 0 {
-		msg := fmt.Sprintf("invalid request: invalid pipeline name")
+		msg := "invalid pipeline name"
 		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
 	pluginName, err := url.QueryUnescape(r.PathParam("pluginName"))
 	if err != nil || len(pluginName) == 0 {
-		msg := fmt.Sprintf("invalid request: invalid plugin name")
+		msg := "invalid plugin name"
 		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
 	indicatorName, err := url.QueryUnescape(r.PathParam("indicatorName"))
 	if err != nil || len(indicatorName) == 0 {
-		msg := fmt.Sprintf("invalid request: invalid indicator name")
+		msg := "invalid indicator name"
 		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
-	req := new(clusterStat)
+	req := new(statisticsClusterRequest)
 	err = r.DecodeJsonPayload(req)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
@@ -184,7 +188,8 @@ func (s *clusterStatisticsServer) retrievePluginIndicatorValue(w rest.ResponseWr
 	w.WriteJson(ret)
 	w.WriteHeader(http.StatusOK)
 
-	logger.Debugf("[retrive pipeline %s plugin %s indicator %s value succeed]", pipelineName, pluginName, indicatorName)
+	logger.Debugf("[indicator %s value of plugin %s in pipeline %s returned from cluster]",
+		indicatorName, pluginName, pipelineName)
 }
 
 func (s *clusterStatisticsServer) retrievePluginIndicatorDesc(w rest.ResponseWriter, r *rest.Request) {
@@ -192,33 +197,37 @@ func (s *clusterStatisticsServer) retrievePluginIndicatorDesc(w rest.ResponseWri
 
 	group, err := url.QueryUnescape(r.PathParam("group"))
 	if err != nil || len(group) == 0 {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%v]", err)
+		msg := "invalid cluster group name"
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
 	pipelineName, err := url.QueryUnescape(r.PathParam("pipelineName"))
 	if err != nil || len(pipelineName) == 0 {
-		msg := fmt.Sprintf("invalid request: invalid pipeline name")
+		msg := "invalid pipeline name"
 		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
 	pluginName, err := url.QueryUnescape(r.PathParam("pluginName"))
 	if err != nil || len(pluginName) == 0 {
-		msg := fmt.Sprintf("invalid request: invalid plugin name")
+		msg := "invalid plugin name"
 		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
 	indicatorName, err := url.QueryUnescape(r.PathParam("indicatorName"))
 	if err != nil || len(indicatorName) == 0 {
-		msg := fmt.Sprintf("invalid request: invalid indicator name")
+		msg := "invalid indicator name"
 		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
-	req := new(clusterStat)
+	req := new(statisticsClusterRequest)
 	err = r.DecodeJsonPayload(req)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
@@ -246,7 +255,8 @@ func (s *clusterStatisticsServer) retrievePluginIndicatorDesc(w rest.ResponseWri
 	w.WriteJson(ret)
 	w.WriteHeader(http.StatusOK)
 
-	logger.Debugf("[retrive pipeline %s plugin %s indicator %s desc succeed]", pipelineName, pluginName, indicatorName)
+	logger.Debugf("[indicator %s description of plugin %s in pipeline %s returned from cluster]",
+		indicatorName, pluginName, pipelineName)
 }
 
 func (s *clusterStatisticsServer) retrievePipelineIndicatorNames(w rest.ResponseWriter, r *rest.Request) {
@@ -254,19 +264,21 @@ func (s *clusterStatisticsServer) retrievePipelineIndicatorNames(w rest.Response
 
 	group, err := url.QueryUnescape(r.PathParam("group"))
 	if err != nil || len(group) == 0 {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%v]", err)
+		msg := "invalid cluster group name"
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
 	pipelineName, err := url.QueryUnescape(r.PathParam("pipelineName"))
 	if err != nil || len(pipelineName) == 0 {
-		msg := fmt.Sprintf("invalid request: invalid pipeline name")
+		msg := "invalid pipeline name"
 		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
-	req := new(clusterStat)
+	req := new(statisticsClusterRequest)
 	err = r.DecodeJsonPayload(req)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
@@ -283,7 +295,8 @@ func (s *clusterStatisticsServer) retrievePipelineIndicatorNames(w rest.Response
 		return
 	}
 
-	ret, clusterErr := s.gc.StatPipelineIndicatorNames(group, time.Duration(req.TimeoutSec)*time.Second, pipelineName)
+	ret, clusterErr := s.gc.StatPipelineIndicatorNames(group, time.Duration(req.TimeoutSec)*time.Second,
+		pipelineName)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
 		logger.Errorf("[%s]", clusterErr.Error())
@@ -293,7 +306,7 @@ func (s *clusterStatisticsServer) retrievePipelineIndicatorNames(w rest.Response
 	w.WriteJson(ret)
 	w.WriteHeader(http.StatusOK)
 
-	logger.Debugf("[retrive pipeline %s indicator names succeed]", pipelineName)
+	logger.Debugf("[indicator names of pipeline %s returned from cluster]", pipelineName)
 }
 
 func (s *clusterStatisticsServer) retrievePipelineIndicatorValue(w rest.ResponseWriter, r *rest.Request) {
@@ -301,26 +314,29 @@ func (s *clusterStatisticsServer) retrievePipelineIndicatorValue(w rest.Response
 
 	group, err := url.QueryUnescape(r.PathParam("group"))
 	if err != nil || len(group) == 0 {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%v]", err)
+		msg := "invalid cluster group name"
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
 	pipelineName, err := url.QueryUnescape(r.PathParam("pipelineName"))
 	if err != nil || len(pipelineName) == 0 {
-		msg := fmt.Sprintf("invalid request: invalid pipeline name")
+		msg := "invalid pipeline name"
 		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
 	indicatorName, err := url.QueryUnescape(r.PathParam("indicatorName"))
 	if err != nil || len(indicatorName) == 0 {
-		msg := fmt.Sprintf("invalid request: invalid indicator name")
+		msg := "invalid indicator name"
 		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
-	req := new(clusterStat)
+	req := new(statisticsClusterRequest)
 	err = r.DecodeJsonPayload(req)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
@@ -348,7 +364,7 @@ func (s *clusterStatisticsServer) retrievePipelineIndicatorValue(w rest.Response
 	w.WriteJson(ret)
 	w.WriteHeader(http.StatusOK)
 
-	logger.Debugf("[retrive pipeline %s indicator %s value succeed]", pipelineName, indicatorName)
+	logger.Debugf("[indicator %s value of pipeline %s returned from cluster]", indicatorName, pipelineName)
 }
 
 func (s *clusterStatisticsServer) retrievePipelineIndicatorDesc(w rest.ResponseWriter, r *rest.Request) {
@@ -356,26 +372,29 @@ func (s *clusterStatisticsServer) retrievePipelineIndicatorDesc(w rest.ResponseW
 
 	group, err := url.QueryUnescape(r.PathParam("group"))
 	if err != nil || len(group) == 0 {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%v]", err)
+		msg := "invalid cluster group name"
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", err)
 		return
 	}
 
 	pipelineName, err := url.QueryUnescape(r.PathParam("pipelineName"))
 	if err != nil || len(pipelineName) == 0 {
-		msg := fmt.Sprintf("invalid request: invalid pipeline name")
+		msg := "invalid pipeline name"
 		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", err)
 		return
 	}
 
 	indicatorName, err := url.QueryUnescape(r.PathParam("indicatorName"))
 	if err != nil || len(indicatorName) == 0 {
-		msg := fmt.Sprintf("invalid request: invalid indicator name")
+		msg := "invalid indicator name"
 		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", err)
 		return
 	}
 
-	req := new(clusterStat)
+	req := new(statisticsClusterRequest)
 	err = r.DecodeJsonPayload(req)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
@@ -403,7 +422,7 @@ func (s *clusterStatisticsServer) retrievePipelineIndicatorDesc(w rest.ResponseW
 	w.WriteJson(ret)
 	w.WriteHeader(http.StatusOK)
 
-	logger.Debugf("[retrive pipeline %s indicator %s desc succeed]", pipelineName, indicatorName)
+	logger.Debugf("[indicator %s description of pipeline %s returned from cluster]", indicatorName, pipelineName)
 }
 
 func (s *clusterStatisticsServer) retrievePipelineTaskIndicatorNames(w rest.ResponseWriter, r *rest.Request) {
@@ -411,19 +430,21 @@ func (s *clusterStatisticsServer) retrievePipelineTaskIndicatorNames(w rest.Resp
 
 	group, err := url.QueryUnescape(r.PathParam("group"))
 	if err != nil || len(group) == 0 {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%v]", err)
+		msg := "invalid cluster group name"
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
 	pipelineName, err := url.QueryUnescape(r.PathParam("pipelineName"))
 	if err != nil || len(pipelineName) == 0 {
-		msg := fmt.Sprintf("invalid request: invalid pipeline name")
+		msg := "invalid pipeline name"
 		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
-	req := new(clusterStat)
+	req := new(statisticsClusterRequest)
 	err = r.DecodeJsonPayload(req)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
@@ -450,7 +471,7 @@ func (s *clusterStatisticsServer) retrievePipelineTaskIndicatorNames(w rest.Resp
 	w.WriteJson(ret)
 	w.WriteHeader(http.StatusOK)
 
-	logger.Debugf("[retrive task %s indicator names succeed]", pipelineName)
+	logger.Debugf("[indicator names of task in pipeline %s returned from cluster]", pipelineName)
 }
 
 func (s *clusterStatisticsServer) retrievePipelineTaskIndicatorValue(w rest.ResponseWriter, r *rest.Request) {
@@ -458,26 +479,29 @@ func (s *clusterStatisticsServer) retrievePipelineTaskIndicatorValue(w rest.Resp
 
 	group, err := url.QueryUnescape(r.PathParam("group"))
 	if err != nil || len(group) == 0 {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%v]", err)
+		msg := "invalid cluster group name"
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
 	pipelineName, err := url.QueryUnescape(r.PathParam("pipelineName"))
 	if err != nil || len(pipelineName) == 0 {
-		msg := fmt.Sprintf("invalid request: invalid pipeline name")
+		msg := "invalid pipeline name"
 		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
 	indicatorName, err := url.QueryUnescape(r.PathParam("indicatorName"))
 	if err != nil || len(indicatorName) == 0 {
-		msg := fmt.Sprintf("invalid request: invalid indicator name")
+		msg := "invalid indicator name"
 		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
-	req := new(clusterStat)
+	req := new(statisticsClusterRequest)
 	err = r.DecodeJsonPayload(req)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
@@ -505,7 +529,7 @@ func (s *clusterStatisticsServer) retrievePipelineTaskIndicatorValue(w rest.Resp
 	w.WriteJson(ret)
 	w.WriteHeader(http.StatusOK)
 
-	logger.Debugf("[retrive pipeline %s task indicator %s value succeed]", pipelineName, indicatorName)
+	logger.Debugf("[indicator %s value of task in pipeline %s returned]", indicatorName, pipelineName)
 }
 
 func (s *clusterStatisticsServer) retrievePipelineTaskIndicatorDesc(w rest.ResponseWriter, r *rest.Request) {
@@ -513,26 +537,29 @@ func (s *clusterStatisticsServer) retrievePipelineTaskIndicatorDesc(w rest.Respo
 
 	group, err := url.QueryUnescape(r.PathParam("group"))
 	if err != nil || len(group) == 0 {
-		rest.Error(w, err.Error(), http.StatusBadRequest)
-		logger.Errorf("[%v]", err)
+		msg := "invalid cluster group name"
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
 	pipelineName, err := url.QueryUnescape(r.PathParam("pipelineName"))
 	if err != nil || len(pipelineName) == 0 {
-		msg := fmt.Sprintf("invalid request: invalid pipeline name")
+		msg := "invalid pipeline name"
 		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
 	indicatorName, err := url.QueryUnescape(r.PathParam("indicatorName"))
 	if err != nil || len(indicatorName) == 0 {
-		msg := fmt.Sprintf("invalid request: invalid indicator name")
+		msg := "invalid indicator name"
 		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
-	req := new(clusterStat)
+	req := new(statisticsClusterRequest)
 	err = r.DecodeJsonPayload(req)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
@@ -560,7 +587,7 @@ func (s *clusterStatisticsServer) retrievePipelineTaskIndicatorDesc(w rest.Respo
 	w.WriteJson(ret)
 	w.WriteHeader(http.StatusOK)
 
-	logger.Debugf("[retrive pipeline %s task indicator %s desc succeed]", pipelineName, indicatorName)
+	logger.Debugf("[indicator %s description of task in pipeline %s returned]", indicatorName, pipelineName)
 }
 
 func (s *clusterStatisticsServer) retrieveGatewayUpTime(w rest.ResponseWriter, r *rest.Request) {
