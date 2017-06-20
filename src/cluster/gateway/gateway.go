@@ -25,6 +25,9 @@ const (
 )
 
 type Config struct {
+	Group string
+	Mode  Mode
+
 	OPLogMaxSeqGapToPull  uint64
 	OPLogPullMaxCountOnce uint64
 	OPLogPullInterval     time.Duration
@@ -58,8 +61,8 @@ func NewGatewayCluster(conf Config, mod *model.Model) (*GatewayCluster, error) {
 	// TODO: choose config of under layer automatically
 	basisConf := cluster.DefaultLANConfig()
 	basisConf.EventStream = eventStream
-	basisConf.NodeTags[groupTagKey] = "default"        // TODO: read from config
-	basisConf.NodeTags[modeTagKey] = string(WriteMode) // TODO: read from config
+	basisConf.NodeTags[groupTagKey] = conf.Group
+	basisConf.NodeTags[modeTagKey] = conf.Mode
 
 	basis, err := cluster.Create(*basisConf)
 	if err != nil {

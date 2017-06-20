@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"common"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -85,8 +86,23 @@ func NewGateway() (*Gateway, error) {
 
 	mod := model.NewModel()
 
-	// TODO: read from launch config
+	if len(common.ClusterGroup) == 0 {
+		return nil, fmt.Errorf("empty cluster group")
+	}
+	var clusterMode cluster.Mode
+	switch strings.ToLower(common.ClusterMode) {
+	case "read":
+		clusterMode = cluster.ReadMode
+	case "write":
+		clusterMode = cluster.WriteMode
+	default:
+		return nil, fmt.Errorf("bad cluster mode")
+	}
 	clusterConf := cluster.Config{
+		Group: common.ClusterGroup,
+		Mode:  common.ClusterMode,
+
+		// TODO: read from launch config
 		OPLogMaxSeqGapToPull:  5,
 		OPLogPullMaxCountOnce: 5,
 		OPLogPullInterval:     10 * time.Second,

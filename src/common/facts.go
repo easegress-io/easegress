@@ -15,6 +15,8 @@ var (
 	CERT_HOME_DIR       = filepath.Join(INVENTORY_HOME_DIR, "cert")
 	CGI_HOME_DIR        = filepath.Join(INVENTORY_HOME_DIR, "cgi")
 
+	ClusterGroup                   string
+	ClusterMode                    string
 	Host                           string
 	CertFile, KeyFile              string
 	Stage                          string
@@ -23,6 +25,8 @@ var (
 )
 
 func init() {
+	clusterGroup := flag.String("group", "default", "specify cluster group")
+	clusterMode := flag.String("mode", "read", "specify cluster mode(read, write)")
 	host := flag.String("host", "localhost", "specify listen host")
 	certFile := flag.String("certfile", "", "specify cert file, "+
 		"downgrade HTTPS(10443) to HTTP(10080) if it is set empty or inexistent file")
@@ -38,6 +42,8 @@ func init() {
 
 	flag.Parse()
 
+	ClusterGroup = *clusterGroup
+	ClusterMode = *clusterMode
 	Host = *host
 	CertFile = *certFile
 	KeyFile = *keyFile
