@@ -30,7 +30,7 @@ func newClusterAdminServer(gateway *engine.Gateway, gc *gateway.GatewayCluster) 
 func (s *clusterAdminServer) Api() (*rest.Api, error) {
 	pav := common.PrefixAPIVersion
 	router, err := rest.MakeRouter(
-		rest.Get(pav("/sequence"), s.retrieveOperationSequence),
+		rest.Get(pav("/#group/sequence"), s.retrieveOperationSequence),
 
 		rest.Post(pav("/#group/plugins"), s.createPlugin),
 		rest.Get(pav("/#group/plugins"), s.retrievePlugins),
