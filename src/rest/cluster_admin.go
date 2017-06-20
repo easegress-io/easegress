@@ -193,7 +193,7 @@ func (s *clusterAdminServer) retrievePlugins(w rest.ResponseWriter, r *rest.Requ
 		return
 	}
 
-	w.WriteJson(ret.Plugins)
+	w.WriteJson(ret)
 	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[plugins returned from cluster]")
@@ -240,7 +240,7 @@ func (s *clusterAdminServer) retrievePlugin(w rest.ResponseWriter, r *rest.Reque
 		return
 	}
 
-	w.WriteJson(ret.Plugin)
+	w.WriteJson(ret)
 	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[plugin %s returned from cluster]", pluginName)
@@ -430,7 +430,7 @@ func (s *clusterAdminServer) retrievePipelines(w rest.ResponseWriter, r *rest.Re
 		return
 	}
 
-	w.WriteJson(ret.Pipelines)
+	w.WriteJson(ret)
 	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[retrieve pipelines name-pattern(%s) types(%s) succeed: %s]", req.NamePattern, req.Types, ret)
@@ -478,7 +478,7 @@ func (s *clusterAdminServer) retrievePipeline(w rest.ResponseWriter, r *rest.Req
 		return
 	}
 
-	w.WriteJson(ret.Pipeline)
+	w.WriteJson(ret)
 	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[retrieve pipeline %s succeed: %s]", pipelineName, ret)
@@ -613,7 +613,7 @@ func (s *clusterAdminServer) retrievePluginTypes(w rest.ResponseWriter, r *rest.
 		return
 	}
 
-	w.WriteJson(ret.PluginTypes)
+	w.WriteJson(ret)
 	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[plugin types returned from cluster]")
@@ -654,7 +654,7 @@ func (s *clusterAdminServer) retrievePipelineTypes(w rest.ResponseWriter, r *res
 		return
 	}
 
-	w.WriteJson(ret.PipelineTypes)
+	w.WriteJson(ret)
 	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[retrieve pipeline types succeed: %s]", ret)
