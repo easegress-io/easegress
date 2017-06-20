@@ -87,7 +87,7 @@ func (s *clusterAdminServer) retrieveOperationSequence(w rest.ResponseWriter, r 
 		return
 	}
 
-	seq, clusterErr := s.gc.QueryGroupMaxSeq(group, req.TimeoutSec*time.Second)
+	seq, clusterErr := s.gc.QueryGroupMaxSeq(group, time.Duration(req.TimeoutSec)*time.Second)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
 		logger.Errorf("[%s]", clusterErr.Error())
@@ -145,7 +145,7 @@ func (s *clusterAdminServer) createPlugin(w rest.ResponseWriter, r *rest.Request
 		return
 	}
 
-	clusterErr := s.gc.CreatePlugin(group, req.TimeoutSec*time.Second, req.OperationSeqSnapshot,
+	clusterErr := s.gc.CreatePlugin(group, time.Duration(req.TimeoutSec)*time.Second, req.OperationSeqSnapshot,
 		req.Consistent, req.Type, conf)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
@@ -185,7 +185,7 @@ func (s *clusterAdminServer) retrievePlugins(w rest.ResponseWriter, r *rest.Requ
 		return
 	}
 
-	ret, clusterErr := s.gc.RetrievePlugins(group, req.TimeoutSec*time.Second, req.Consistent,
+	ret, clusterErr := s.gc.RetrievePlugins(group, time.Duration(req.TimeoutSec)*time.Second, req.Consistent,
 		req.NamePattern, req.Types)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
@@ -233,18 +233,10 @@ func (s *clusterAdminServer) retrievePlugin(w rest.ResponseWriter, r *rest.Reque
 		return
 	}
 
-	ret, clusterErr := s.gc.RetrievePlugin(group, req.TimeoutSec*time.Second, req.Consistent, pluginName)
+	ret, clusterErr := s.gc.RetrievePlugin(group, time.Duration(req.TimeoutSec)*time.Second, req.Consistent, pluginName)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
 		logger.Errorf("[%s]", clusterErr.Error())
-		return
-	}
-
-	if ret.Plugin == nil {
-		// defensive programming
-		msg := fmt.Sprintf("plugin %s not found", pluginName)
-		rest.Error(w, msg, http.StatusNotFound)
-		logger.Debugf("[%s]", msg)
 		return
 	}
 
@@ -289,8 +281,8 @@ func (s *clusterAdminServer) updatePlugin(w rest.ResponseWriter, r *rest.Request
 		return
 	}
 
-	clusterErr := s.gc.UpdatePlugin(group, req.TimeoutSec*time.Second, req.OperationSeqSnapshot, req.Consistent,
-		req.Type, conf)
+	clusterErr := s.gc.UpdatePlugin(group, time.Duration(req.TimeoutSec)*time.Second, req.OperationSeqSnapshot,
+		req.Consistent, req.Type, conf)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
 		logger.Errorf("[%s]", clusterErr.Error())
@@ -336,8 +328,8 @@ func (s *clusterAdminServer) deletePlugin(w rest.ResponseWriter, r *rest.Request
 		return
 	}
 
-	clusterErr := s.gc.DeletePlugin(group, req.TimeoutSec*time.Second, req.OperationSeqSnapshot, req.Consistent,
-		pluginName)
+	clusterErr := s.gc.DeletePlugin(group, time.Duration(req.TimeoutSec)*time.Second, req.OperationSeqSnapshot,
+		req.Consistent, pluginName)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
 		logger.Errorf("[%s]", clusterErr.Error())
@@ -390,7 +382,7 @@ func (s *clusterAdminServer) createPipeline(w rest.ResponseWriter, r *rest.Reque
 		return
 	}
 
-	clusterErr := s.gc.CreatePipeline(group, req.TimeoutSec*time.Second, req.OperationSeqSnapshot,
+	clusterErr := s.gc.CreatePipeline(group, time.Duration(req.TimeoutSec)*time.Second, req.OperationSeqSnapshot,
 		req.Consistent, req.Type, conf)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
@@ -430,7 +422,7 @@ func (s *clusterAdminServer) retrievePipelines(w rest.ResponseWriter, r *rest.Re
 		return
 	}
 
-	ret, clusterErr := s.gc.RetrievePipelines(group, req.TimeoutSec*time.Second, req.Consistent,
+	ret, clusterErr := s.gc.RetrievePipelines(group, time.Duration(req.TimeoutSec)*time.Second, req.Consistent,
 		req.NamePattern, req.Types)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
@@ -478,18 +470,11 @@ func (s *clusterAdminServer) retrievePipeline(w rest.ResponseWriter, r *rest.Req
 		return
 	}
 
-	ret, clusterErr := s.gc.RetrievePipeline(group, req.TimeoutSec*time.Second, req.Consistent, pipelineName)
+	ret, clusterErr := s.gc.RetrievePipeline(group, time.Duration(req.TimeoutSec)*time.Second,
+		req.Consistent, pipelineName)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
 		logger.Errorf("[%s]", clusterErr.Error())
-		return
-	}
-
-	if ret.Pipeline == nil {
-		// defensive programming
-		msg := fmt.Sprintf("pipeline %s not found", pipelineName)
-		rest.Error(w, msg, http.StatusNotFound)
-		logger.Debugf("[%s]", msg)
 		return
 	}
 
@@ -534,7 +519,7 @@ func (s *clusterAdminServer) updatePipeline(w rest.ResponseWriter, r *rest.Reque
 		return
 	}
 
-	clusterErr := s.gc.UpdatePipeline(group, req.TimeoutSec*time.Second, req.OperationSeqSnapshot,
+	clusterErr := s.gc.UpdatePipeline(group, time.Duration(req.TimeoutSec)*time.Second, req.OperationSeqSnapshot,
 		req.Consistent, req.Type, conf)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
@@ -581,7 +566,7 @@ func (s *clusterAdminServer) deletePipeline(w rest.ResponseWriter, r *rest.Reque
 		return
 	}
 
-	clusterErr := s.gc.DeletePipeline(group, req.TimeoutSec*time.Second, req.OperationSeqSnapshot,
+	clusterErr := s.gc.DeletePipeline(group, time.Duration(req.TimeoutSec)*time.Second, req.OperationSeqSnapshot,
 		req.Consistent, pipelineName)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
@@ -621,7 +606,7 @@ func (s *clusterAdminServer) retrievePluginTypes(w rest.ResponseWriter, r *rest.
 		return
 	}
 
-	ret, clusterErr := s.gc.RetrievePluginTypes(group, req.TimeoutSec*time.Second, req.Consistent)
+	ret, clusterErr := s.gc.RetrievePluginTypes(group, time.Duration(req.TimeoutSec)*time.Second, req.Consistent)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
 		logger.Errorf("[%s]", clusterErr.Error())
@@ -661,7 +646,8 @@ func (s *clusterAdminServer) retrievePipelineTypes(w rest.ResponseWriter, r *res
 		return
 	}
 
-	ret, clusterErr := s.gc.RetrievePipelineTypes(group, req.TimeoutSec*time.Second, req.Consistent)
+	ret, clusterErr := s.gc.RetrievePipelineTypes(group, time.Duration(req.TimeoutSec)*time.Second,
+		req.Consistent)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
 		logger.Errorf("[%s]", clusterErr.Error())
