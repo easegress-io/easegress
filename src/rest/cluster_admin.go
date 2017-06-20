@@ -257,33 +257,49 @@ func (s *clusterAdminServer) updatePlugin(w rest.ResponseWriter, r *rest.Request
 }
 
 func (s *clusterAdminServer) deletePlugin(w rest.ResponseWriter, r *rest.Request) {
-	logger.Debugf("[delete plugin]")
+	logger.Debugf("[delete plugin from cluster]")
 
-	pluginName, err := url.QueryUnescape(r.PathParam("pluginName"))
-	if err != nil || len(pluginName) == 0 {
-		msg := fmt.Sprintf("invalid request: invalid plugin name")
-		rest.Error(w, msg, http.StatusBadRequest)
-		return
-	}
-
-	group, syncAll, timeout, err := parseClusterParam(r)
+	group, err := url.QueryUnescape(r.PathParam("group"))
 	if err != nil {
-		msg := fmt.Sprintf("invalid request: %s", err.Error())
-		rest.Error(w, msg, http.StatusBadRequest)
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%s]", err.Error())
+		return
+	}
+	pluginName, err := url.QueryUnescape(r.PathParam("pluginName"))
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%s]", err.Error())
 		return
 	}
 
-	timeout = time.Duration(ADMIN_TIMEOUT_DECAY_RATE * float64(timeout))
-	httpErr := s.gc.DeletePlugin(group, syncAll, timeout, pluginName)
-	if httpErr != nil {
-		w.WriteHeader(httpErr.StatusCode)
-		rest.Error(w, httpErr.Msg, httpErr.StatusCode)
+	req := new(pluginDeletionClusterRequest)
+	err = r.DecodeJsonPayload(req)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%v]", err)
+		return
+	}
+
+	if req.TimeoutSec == 0 {
+		req.TimeoutSec = 30
+	} else if req.TimeoutSec < 10 {
+		msg := fmt.Sprintf("timeout %d should greater than or equal to 10 senconds", req.TimeoutSec)
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
+		return
+	}
+
+	clusterErr := s.gc.DeletePlugin(group, req.TimeoutSec*time.Second, req.OperationSeqSnapshot, req.Consistent,
+		pluginName)
+	if clusterErr != nil {
+		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
+		logger.Errorf("[%s]", clusterErr.Error())
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
 
-	logger.Debugf("[delete plugin %s succeed]", pluginName)
+	logger.Debugf("[plugin %s deleted from cluster]", pluginName)
 }
 
 func (s *clusterAdminServer) createPipeline(w rest.ResponseWriter, r *rest.Request) {
