@@ -113,7 +113,7 @@ LOOP:
 	for {
 		select {
 		case <-time.After(gc.conf.OPLogPullInterval):
-			gc.syncOpLog(gc.log.maxSeq()+1, gc.conf.OPLogPullMaxCountOnce)
+			gc.syncOpLog(gc.log.maxSeq()+1, uint64(gc.conf.OPLogPullMaxCountOnce))
 		case <-gc.stopChan:
 			break LOOP
 		}

@@ -28,8 +28,8 @@ type Config struct {
 	ClusterGroup      string
 	ClusterMemberMode Mode
 
-	OPLogMaxSeqGapToPull  uint64
-	OPLogPullMaxCountOnce uint64
+	OPLogMaxSeqGapToPull  uint16
+	OPLogPullMaxCountOnce uint16
 	OPLogPullInterval     time.Duration
 	OPLogPullTimeout      time.Duration
 }

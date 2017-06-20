@@ -176,7 +176,7 @@ func (gc *GatewayCluster) handleOperationRelay(req *cluster.RequestEvent) {
 		goto SUCCESS // sync goroutine is so fast
 	}
 
-	if reqOperation.StartSeq-ms > gc.conf.OPLogMaxSeqGapToPull {
+	if reqOperation.StartSeq-ms > uint64(gc.conf.OPLogMaxSeqGapToPull) {
 		respondOperationErr(req, OperationLogHugeGapError,
 			fmt.Sprintf("can not handle relayed operation request (sequence=%d) "+
 				"due to local oplog is too old (sequence=%d)", reqOperation.StartSeq, ms))

@@ -20,8 +20,8 @@ var (
 	// cluster stuff
 	ClusterGroup          string
 	MemberMode            string
-	OPLogMaxSeqGapToPull  uint64
-	OPLogPullMaxCountOnce uint64
+	OPLogMaxSeqGapToPull  uint16
+	OPLogPullMaxCountOnce uint16
 	OPLogPullInterval     time.Duration
 	OPLogPullTimeout      time.Duration
 
@@ -49,7 +49,7 @@ func (i *uint16Value) Set(s string) error {
 
 func (i *uint16Value) Get() interface{} { return uint16(*i) }
 
-func (i *uint16Value) String() string { return strconv.FormatUint(uint16(*i), 10) }
+func (i *uint16Value) String() string { return strconv.FormatUint(uint64(*i), 10) }
 
 ////
 
@@ -65,7 +65,7 @@ func init() {
 	opLogPullInterval := new(uint16)
 	flag.Var(newUint16Value(10, opLogPullInterval), "oplog_pull_interval",
 		"specify interval of pulling operation logs in second")
-	opLogPullTimeout := new(int16)
+	opLogPullTimeout := new(uint16)
 	flag.Var(newUint16Value(30, opLogPullTimeout), "oplog_pull_timeout",
 		"specify timeout of pulling operation logs in second")
 
