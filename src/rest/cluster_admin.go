@@ -241,6 +241,7 @@ func (s *clusterAdminServer) retrievePlugin(w rest.ResponseWriter, r *rest.Reque
 	}
 
 	if ret.Plugin == nil {
+		// defensive programming
 		msg := fmt.Sprintf("plugin %s not found", pluginName)
 		rest.Error(w, msg, http.StatusNotFound)
 		logger.Debugf("[%s]", msg)
@@ -310,6 +311,7 @@ func (s *clusterAdminServer) deletePlugin(w rest.ResponseWriter, r *rest.Request
 		logger.Errorf("[%s]", err.Error())
 		return
 	}
+
 	pluginName, err := url.QueryUnescape(r.PathParam("pluginName"))
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
@@ -348,230 +350,326 @@ func (s *clusterAdminServer) deletePlugin(w rest.ResponseWriter, r *rest.Request
 }
 
 func (s *clusterAdminServer) createPipeline(w rest.ResponseWriter, r *rest.Request) {
-	logger.Debugf("[create pipeline]")
+	logger.Debugf("[create pipeline in cluster]")
 
-	group, syncAll, timeout, err := parseClusterParam(r)
+	group, err := url.QueryUnescape(r.PathParam("group"))
 	if err != nil {
-		msg := fmt.Sprintf("invalid request: %s", err.Error())
-		rest.Error(w, msg, http.StatusBadRequest)
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%v]", err)
 		return
 	}
 
-	req := new(pipelineCreationRequest)
+	req := new(pipelineCreationClusterRequest)
 	err = r.DecodeJsonPayload(req)
 	if err != nil {
-		msg := fmt.Sprintf("invalid request: %s", err.Error())
-		rest.Error(w, msg, http.StatusBadRequest)
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%v]", err)
 		return
 	}
 
-	if len(req.Type) == 0 || req.Config == nil {
-		msg := fmt.Sprintf("invalid request: need both type and config")
+	if req == nil || req.Config == nil {
+		msg := "invalid request"
 		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
 	conf, err := json.Marshal(req.Config)
 	if err != nil {
-		msg := fmt.Sprintf("invalid request: bad config: %v", err)
+		msg := "pipeline config is invalid"
 		rest.Error(w, msg, http.StatusBadRequest)
 		return
 	}
 
-	timeout = time.Duration(ADMIN_TIMEOUT_DECAY_RATE * float64(timeout))
-	httpErr := s.gc.CreatePipeline(group, syncAll, timeout, req.Type, conf)
-	if httpErr != nil {
-		w.WriteHeader(httpErr.StatusCode)
-		rest.Error(w, httpErr.Msg, httpErr.StatusCode)
+	if req.TimeoutSec == 0 {
+		req.TimeoutSec = 30
+	} else if req.TimeoutSec < 10 {
+		msg := fmt.Sprintf("timeout %d should greater than or equal to 10 senconds", req.TimeoutSec)
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
+		return
+	}
+
+	clusterErr := s.gc.CreatePipeline(group, req.TimeoutSec*time.Second, req.OperationSeqSnapshot,
+		req.Consistent, req.Type, conf)
+	if clusterErr != nil {
+		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
+		logger.Errorf("[%s]", clusterErr.Error())
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
 
-	logger.Debugf("create pipeline succeed: %s: %s", req.Type, conf)
+	logger.Debugf("pipeline created in cluster")
 }
 
 func (s *clusterAdminServer) retrievePipelines(w rest.ResponseWriter, r *rest.Request) {
-	logger.Debugf("[retrieve pipelines]")
+	logger.Debugf("[retrieve pipelines from cluster]")
 
-	group, syncAll, timeout, err := parseClusterParam(r)
+	group, err := url.QueryUnescape(r.PathParam("group"))
 	if err != nil {
-		msg := fmt.Sprintf("invalid request: %s", err.Error())
-		rest.Error(w, msg, http.StatusBadRequest)
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%v]", err)
 		return
 	}
 
-	req := new(pipelinesRetrieveRequest)
+	req := new(pipelinesRetrieveClusterRequest)
 	err = r.DecodeJsonPayload(req)
 	if err != nil {
-		msg := fmt.Sprintf("invalid request: %s", err.Error())
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%v]", err)
+		return
+	}
+
+	if req.TimeoutSec == 0 {
+		req.TimeoutSec = 30
+	} else if req.TimeoutSec < 10 {
+		msg := fmt.Sprintf("timeout %d should greater than or equal to 10 senconds", req.TimeoutSec)
 		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
-	timeout = time.Duration(ADMIN_TIMEOUT_DECAY_RATE * float64(timeout))
-	resp, httpErr := s.gc.RetrievePipelines(group, syncAll, timeout, req.NamePattern, req.Types)
-	if httpErr != nil {
-		w.WriteHeader(httpErr.StatusCode)
-		rest.Error(w, httpErr.Msg, httpErr.StatusCode)
+	ret, clusterErr := s.gc.RetrievePipelines(group, req.TimeoutSec*time.Second, req.Consistent,
+		req.NamePattern, req.Types)
+	if clusterErr != nil {
+		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
+		logger.Errorf("[%s]", clusterErr.Error())
 		return
 	}
 
+	w.WriteJson(ret.Pipelines)
 	w.WriteHeader(http.StatusOK)
-	w.(http.ResponseWriter).Write(resp)
 
-	logger.Debugf("[retrieve pipelines name-pattern(%s) types(%s) succeed: %s]", req.NamePattern, req.Types, resp)
+	logger.Debugf("[retrieve pipelines name-pattern(%s) types(%s) succeed: %s]", req.NamePattern, req.Types, ret)
 }
 
 func (s *clusterAdminServer) retrievePipeline(w rest.ResponseWriter, r *rest.Request) {
-	logger.Debugf("[retrieve pipeline]")
+	logger.Debugf("[retrieve pipeline from cluster]")
+
+	group, err := url.QueryUnescape(r.PathParam("group"))
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%s]", err.Error())
+		return
+	}
 
 	pipelineName, err := url.QueryUnescape(r.PathParam("pipelineName"))
-	if err != nil || len(pipelineName) == 0 {
-		msg := fmt.Sprintf("invalid request: invalid pipeline name")
-		rest.Error(w, msg, http.StatusBadRequest)
-		return
-	}
-
-	group, syncAll, timeout, err := parseClusterParam(r)
 	if err != nil {
-		msg := fmt.Sprintf("invalid request: %s", err.Error())
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%s]", err.Error())
+		return
+	}
+
+	req := new(pipelineRetrieveClusterRequest)
+	err = r.DecodeJsonPayload(req)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%v]", err)
+		return
+	}
+
+	if req.TimeoutSec == 0 {
+		req.TimeoutSec = 30
+	} else if req.TimeoutSec < 10 {
+		msg := fmt.Sprintf("timeout %d should greater than or equal to 10 senconds", req.TimeoutSec)
 		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
-	timeout = time.Duration(ADMIN_TIMEOUT_DECAY_RATE * float64(timeout))
-	resp, httpErr := s.gc.RetrievePipelines(group, syncAll, timeout, pipelineName, nil)
-	if httpErr != nil {
-		w.WriteHeader(httpErr.StatusCode)
-		rest.Error(w, httpErr.Msg, httpErr.StatusCode)
+	ret, clusterErr := s.gc.RetrievePipeline(group, req.TimeoutSec*time.Second, req.Consistent, pipelineName)
+	if clusterErr != nil {
+		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
+		logger.Errorf("[%s]", clusterErr.Error())
 		return
 	}
 
+	if ret.Pipeline == nil {
+		// defensive programming
+		msg := fmt.Sprintf("pipeline %s not found", pipelineName)
+		rest.Error(w, msg, http.StatusNotFound)
+		logger.Debugf("[%s]", msg)
+		return
+	}
+
+	w.WriteJson(ret.Pipeline)
 	w.WriteHeader(http.StatusOK)
-	w.(http.ResponseWriter).Write(resp)
 
-	logger.Debugf("[retrieve pipeline %s succeed: %s]", pipelineName, resp)
+	logger.Debugf("[retrieve pipeline %s succeed: %s]", pipelineName, ret)
 }
 
 func (s *clusterAdminServer) updatePipeline(w rest.ResponseWriter, r *rest.Request) {
-	logger.Debugf("[update pipeline]")
+	logger.Debugf("[update pipeline in cluster]")
 
-	group, syncAll, timeout, err := parseClusterParam(r)
+	group, err := url.QueryUnescape(r.PathParam("group"))
 	if err != nil {
-		msg := fmt.Sprintf("invalid request: %s", err.Error())
-		rest.Error(w, msg, http.StatusBadRequest)
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%s]", err.Error())
 		return
 	}
 
-	req := new(pipelineUpdateRequest)
+	req := new(pipelineUpdateClusterRequest)
 	err = r.DecodeJsonPayload(req)
 	if err != nil {
-		msg := fmt.Sprintf("invalid request: %s", err.Error())
-		rest.Error(w, msg, http.StatusBadRequest)
-		return
-	}
-
-	if len(req.Type) == 0 || req.Config == nil {
-		msg := fmt.Sprintf("invalid request: need both type and config")
-		rest.Error(w, msg, http.StatusBadRequest)
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%s]", err.Error())
 		return
 	}
 
 	conf, err := json.Marshal(req.Config)
 	if err != nil {
-		msg := fmt.Sprintf("invalid request: bad config: %v", err)
+		msg := "pipeline config is invalid"
 		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
-	timeout = time.Duration(ADMIN_TIMEOUT_DECAY_RATE * float64(timeout))
-	httpErr := s.gc.UpdatePipeline(group, syncAll, timeout, req.Type, conf)
-	if httpErr != nil {
-		w.WriteHeader(httpErr.StatusCode)
-		rest.Error(w, httpErr.Msg, httpErr.StatusCode)
+	if req.TimeoutSec == 0 {
+		req.TimeoutSec = 30
+	} else if req.TimeoutSec < 10 {
+		msg := fmt.Sprintf("timeout %d should greater than or equal to 10 senconds", req.TimeoutSec)
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
+		return
+	}
+
+	clusterErr := s.gc.UpdatePipeline(group, req.TimeoutSec*time.Second, req.OperationSeqSnapshot,
+		req.Consistent, req.Type, conf)
+	if clusterErr != nil {
+		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
+		logger.Errorf("[%s]", clusterErr.Error())
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
 
-	logger.Debugf("update pipeline succeed: %s: %s", req.Type, conf)
+	logger.Debugf("pipeline updated in cluster")
 }
 
 func (s *clusterAdminServer) deletePipeline(w rest.ResponseWriter, r *rest.Request) {
-	logger.Debugf("[delete pipeline]")
+	logger.Debugf("[delete pipeline from cluster]")
+
+	group, err := url.QueryUnescape(r.PathParam("group"))
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%s]", err.Error())
+		return
+	}
 
 	pipelineName, err := url.QueryUnescape(r.PathParam("pipelineName"))
-	if err != nil || len(pipelineName) == 0 {
-		msg := fmt.Sprintf("invalid request: invalid pipeline name")
-		rest.Error(w, msg, http.StatusBadRequest)
-		return
-	}
-
-	group, syncAll, timeout, err := parseClusterParam(r)
 	if err != nil {
-		msg := fmt.Sprintf("invalid request: %s", err.Error())
-		rest.Error(w, msg, http.StatusBadRequest)
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%s]", err.Error())
 		return
 	}
 
-	timeout = time.Duration(ADMIN_TIMEOUT_DECAY_RATE * float64(timeout))
-	httpErr := s.gc.DeletePipeline(group, syncAll, timeout, pipelineName)
-	if httpErr != nil {
-		w.WriteHeader(httpErr.StatusCode)
-		rest.Error(w, httpErr.Msg, httpErr.StatusCode)
+	req := new(pipelineDeletionClusterRequest)
+	err = r.DecodeJsonPayload(req)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%v]", err)
+		return
+	}
+
+	if req.TimeoutSec == 0 {
+		req.TimeoutSec = 30
+	} else if req.TimeoutSec < 10 {
+		msg := fmt.Sprintf("timeout %d should greater than or equal to 10 senconds", req.TimeoutSec)
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
+		return
+	}
+
+	clusterErr := s.gc.DeletePipeline(group, req.TimeoutSec*time.Second, req.OperationSeqSnapshot,
+		req.Consistent, pipelineName)
+	if clusterErr != nil {
+		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
+		logger.Errorf("[%s]", clusterErr.Error())
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
 
-	logger.Debugf("[delete pipeline %s succeed]", pipelineName)
+	logger.Debugf("[pipeline %s deleted from cluster]", pipelineName)
 }
 
 func (s *clusterAdminServer) retrievePluginTypes(w rest.ResponseWriter, r *rest.Request) {
-	logger.Debugf("[retrieve plugin types]")
+	logger.Debugf("[retrieve plugin types from cluster]")
 
-	group, syncAll, timeout, err := parseClusterParam(r)
+	group, err := url.QueryUnescape(r.PathParam("group"))
 	if err != nil {
-		msg := fmt.Sprintf("invalid request: %s", err.Error())
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%s]", err.Error())
+		return
+	}
+
+	req := new(pluginTypesRetrieveClusterRequest)
+	err = r.DecodeJsonPayload(req)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%v]", err)
+		return
+	}
+
+	if req.TimeoutSec == 0 {
+		req.TimeoutSec = 30
+	} else if req.TimeoutSec < 10 {
+		msg := fmt.Sprintf("timeout %d should greater than or equal to 10 senconds", req.TimeoutSec)
 		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
-	timeout = time.Duration(ADMIN_TIMEOUT_DECAY_RATE * float64(timeout))
-	resp, httpErr := s.gc.RetrievePluginTypes(group, syncAll, timeout)
-	if httpErr != nil {
-		w.WriteHeader(httpErr.StatusCode)
-		rest.Error(w, httpErr.Msg, httpErr.StatusCode)
+	ret, clusterErr := s.gc.RetrievePluginTypes(group, req.TimeoutSec*time.Second, req.Consistent)
+	if clusterErr != nil {
+		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
+		logger.Errorf("[%s]", clusterErr.Error())
 		return
 	}
 
+	w.WriteJson(ret.PluginTypes)
 	w.WriteHeader(http.StatusOK)
-	w.(http.ResponseWriter).Write(resp)
 
-	logger.Debugf("[retrieve plugin types succeed: %s]", resp)
+	logger.Debugf("[plugin types returned from cluster]")
 }
 
 func (s *clusterAdminServer) retrievePipelineTypes(w rest.ResponseWriter, r *rest.Request) {
-	logger.Debugf("[retrieve pipeline types]")
+	logger.Debugf("[retrieve pipeline types from cluster]")
 
-	group, syncAll, timeout, err := parseClusterParam(r)
+	group, err := url.QueryUnescape(r.PathParam("group"))
 	if err != nil {
-		msg := fmt.Sprintf("invalid request: %s", err.Error())
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%s]", err.Error())
+		return
+	}
+
+	req := new(pipelineTypesRetrieveClusterRequest)
+	err = r.DecodeJsonPayload(req)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%v]", err)
+		return
+	}
+
+	if req.TimeoutSec == 0 {
+		req.TimeoutSec = 30
+	} else if req.TimeoutSec < 10 {
+		msg := fmt.Sprintf("timeout %d should greater than or equal to 10 senconds", req.TimeoutSec)
 		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
-	timeout = time.Duration(ADMIN_TIMEOUT_DECAY_RATE * float64(timeout))
-	resp, httpErr := s.gc.RetrievePipelineTypes(group, syncAll, timeout)
-	if httpErr != nil {
-		w.WriteHeader(httpErr.StatusCode)
-		rest.Error(w, httpErr.Msg, httpErr.StatusCode)
+	ret, clusterErr := s.gc.RetrievePipelineTypes(group, req.TimeoutSec*time.Second, req.Consistent)
+	if clusterErr != nil {
+		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
+		logger.Errorf("[%s]", clusterErr.Error())
 		return
 	}
 
+	w.WriteJson(ret.PipelineTypes)
 	w.WriteHeader(http.StatusOK)
-	w.(http.ResponseWriter).Write(resp)
 
-	logger.Debugf("[retrieve pipeline types succeed: %s]", resp)
+	logger.Debugf("[retrieve pipeline types succeed: %s]", ret)
 }

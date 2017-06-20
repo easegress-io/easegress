@@ -147,6 +147,11 @@ type pipelinesRetrieveClusterRequest struct {
 	Consistent bool `json:"consistent"`
 }
 
+type pipelineRetrieveClusterRequest struct {
+	clusterRequest
+	Consistent bool `json:"consistent"`
+}
+
 type pipelineUpdateClusterRequest struct {
 	clusterOperation
 	pipelineUpdateRequest
@@ -158,14 +163,12 @@ type pipelineDeletionClusterRequest struct {
 
 ////
 
-type pluginTypesRetrieveClusterResponse struct {
+type pluginTypesRetrieveClusterRequest struct {
 	clusterRequest
-	pluginTypesRetrieveResponse
 	Consistent bool `json:"consistent"`
 }
 
-type pipelineTypesRetrieveClusterResponse struct {
+type pipelineTypesRetrieveClusterRequest struct {
 	clusterRequest
-	pipelineTypesRetrieveResponse
 	Consistent bool `json:"consistent"`
 }
