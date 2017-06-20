@@ -46,7 +46,7 @@ func (gc *GatewayCluster) chooseMemberToAggregateStat(group string) (*cluster.Me
 }
 
 func (gc *GatewayCluster) issueStat(group string, timeout time.Duration,
-	requestName string, filter interface{}) ([]byte, *ClusterError) {
+	requestName string, filter interface{}) (interface{}, *ClusterError) {
 
 	req := &ReqStat{
 		Timeout: timeout,
@@ -137,35 +137,111 @@ func (gc *GatewayCluster) issueStat(group string, timeout time.Duration,
 		return nil, resp.Err
 	}
 
-	var ret []byte
 	switch filter.(type) {
 	case *FilterPipelineIndicatorNames:
-		ret = resp.Names
+		ret := new(ResultStatIndicatorNames)
+		err = json.Unmarshal(resp.Names, ret)
+		if err != nil {
+			logger.Errorf("[BUG: unmarsh stat pipeline indicator names response failed: %v]", err)
+			return nil, newClusterError(
+				fmt.Sprintf("unmarsh stat pipeline indicator names response failed: %v", err),
+				InternalServerError)
+		}
+
+		return ret, nil
 	case *FilterPipelineIndicatorValue:
-		ret = resp.Value
+		ret := new(ResultStatIndicatorValue)
+		err = json.Unmarshal(resp.Value, ret)
+		if err != nil {
+			logger.Errorf("[BUG: unmarsh stat pipeline indicator value response failed: %v]", err)
+			return nil, newClusterError(
+				fmt.Sprintf("unmarsh stat pipeline indicator value response failed: %v", err),
+				InternalServerError)
+		}
+
+		return ret, nil
 	case *FilterPipelineIndicatorDesc:
-		ret = resp.Desc
+		ret := new(ResultStatIndicatorDesc)
+		err = json.Unmarshal(resp.Desc, ret)
+		if err != nil {
+			logger.Errorf("[BUG: unmarsh stat pipeline indicator desc response failed: %v]", err)
+			return nil, newClusterError(
+				fmt.Sprintf("unmarsh stat pipeline indicator desc response failed: %v", err),
+				InternalServerError)
+		}
+
+		return ret, nil
 
 	case *FilterPluginIndicatorNames:
-		ret = resp.Names
+		ret := new(ResultStatIndicatorNames)
+		err = json.Unmarshal(resp.Names, ret)
+		if err != nil {
+			logger.Errorf("[BUG: unmarsh stat plugin indicator names response failed: %v]", err)
+			return nil, newClusterError(
+				fmt.Sprintf("unmarsh stat plugin indicator names response failed: %v", err),
+				InternalServerError)
+		}
+
+		return ret, nil
 	case *FilterPluginIndicatorValue:
-		ret = resp.Value
+		ret := new(ResultStatIndicatorValue)
+		err = json.Unmarshal(resp.Value, ret)
+		if err != nil {
+			logger.Errorf("[BUG: unmarsh stat plugin indicator value response failed: %v]", err)
+			return nil, newClusterError(
+				fmt.Sprintf("unmarsh stat plugin indicator value response failed: %v", err),
+				InternalServerError)
+		}
+
+		return ret, nil
 	case *FilterPluginIndicatorDesc:
-		ret = resp.Desc
+		ret := new(ResultStatIndicatorDesc)
+		err = json.Unmarshal(resp.Desc, ret)
+		if err != nil {
+			logger.Errorf("[BUG: unmarsh stat plugin indicator desc response failed: %v]", err)
+			return nil, newClusterError(
+				fmt.Sprintf("unmarsh stat plugin indicator desc response failed: %v", err),
+				InternalServerError)
+		}
+
+		return ret, nil
 
 	case *FilterTaskIndicatorNames:
-		ret = resp.Names
+		ret := new(ResultStatIndicatorNames)
+		err = json.Unmarshal(resp.Names, ret)
+		if err != nil {
+			logger.Errorf("[BUG: unmarsh stat task indicator names response failed: %v]", err)
+			return nil, newClusterError(
+				fmt.Sprintf("unmarsh stat task indicator names response failed: %v", err),
+				InternalServerError)
+		}
+
+		return ret, nil
 	case *FilterTaskIndicatorValue:
-		ret = resp.Value
+		ret := new(ResultStatIndicatorValue)
+		err = json.Unmarshal(resp.Value, ret)
+		if err != nil {
+			logger.Errorf("[BUG: unmarsh stat task indicator value response failed: %v]", err)
+			return nil, newClusterError(
+				fmt.Sprintf("unmarsh stat task indicator value response failed: %v", err),
+				InternalServerError)
+		}
+
+		return ret, nil
 	case *FilterTaskIndicatorDesc:
-		ret = resp.Desc
+		ret := new(ResultStatIndicatorDesc)
+		err = json.Unmarshal(resp.Desc, ret)
+		if err != nil {
+			logger.Errorf("[BUG: unmarsh stat task indicator desc response failed: %v]", err)
+			return nil, newClusterError(
+				fmt.Sprintf("unmarsh stat task indicator desc response failed: %v", err),
+				InternalServerError)
+		}
+
+		return ret, nil
 	}
 
-	if ret == nil || len(ret) == 0 {
-		return nil, newClusterError("issue statistics aggregation responds invalid result", InternalServerError)
-	}
-
-	return ret, nil
+	return nil, newClusterError(fmt.Sprintf("unmarsh stat response failed: %v", err), InternalServerError)
 }
 
 // for core

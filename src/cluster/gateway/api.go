@@ -278,7 +278,7 @@ func (gc *GatewayCluster) RetrievePipelineTypes(group string, timeout time.Durat
 
 // statistics
 func (gc *GatewayCluster) StatPipelineIndicatorNames(group string, timeout time.Duration,
-	pipelineName string) ([]byte, *ClusterError) {
+	pipelineName string) (*ResultStatIndicatorNames, *ClusterError) {
 
 	filter := FilterPipelineIndicatorNames{
 		PipelineName: pipelineName,
@@ -286,11 +286,22 @@ func (gc *GatewayCluster) StatPipelineIndicatorNames(group string, timeout time.
 
 	requestName := fmt.Sprintf("(group(%s)stat_pipleine_indicator_names)", group)
 
-	return gc.issueStat(group, timeout, requestName, &filter)
+	resp, err := gc.issueStat(group, timeout, requestName, &filter)
+	if err != nil {
+		return nil, err
+	}
+
+	ret, ok := resp.(*ResultStatIndicatorNames)
+	if !ok {
+		logger.Errorf("[BUG: stat pipeline indicator names returns invalid result, got type %T]", resp)
+		return nil, newClusterError("stat pipeline indicator names returns invalid result", InternalServerError)
+	}
+
+	return ret, nil
 }
 
 func (gc *GatewayCluster) StatPipelineIndicatorValue(group string, timeout time.Duration,
-	pipelineName, indicatorName string) ([]byte, *ClusterError) {
+	pipelineName, indicatorName string) (*ResultStatIndicatorValue, *ClusterError) {
 
 	filter := FilterPipelineIndicatorValue{
 		PipelineName:  pipelineName,
@@ -299,11 +310,22 @@ func (gc *GatewayCluster) StatPipelineIndicatorValue(group string, timeout time.
 
 	requestName := fmt.Sprintf("(group(%s)stat_pipleine_indicator_value)", group)
 
-	return gc.issueStat(group, timeout, requestName, &filter)
+	resp, err := gc.issueStat(group, timeout, requestName, &filter)
+	if err != nil {
+		return nil, err
+	}
+
+	ret, ok := resp.(*ResultStatIndicatorValue)
+	if !ok {
+		logger.Errorf("[BUG: stat pipeline indicator value returns invalid result, got type %T]", resp)
+		return nil, newClusterError("stat pipeline indicator value returns invalid result", InternalServerError)
+	}
+
+	return ret, nil
 }
 
 func (gc *GatewayCluster) StatPipelineIndicatorDesc(group string, timeout time.Duration,
-	pipelineName, indicatorName string) ([]byte, *ClusterError) {
+	pipelineName, indicatorName string) (*ResultStatIndicatorDesc, *ClusterError) {
 
 	filter := FilterPipelineIndicatorDesc{
 		PipelineName:  pipelineName,
@@ -312,11 +334,22 @@ func (gc *GatewayCluster) StatPipelineIndicatorDesc(group string, timeout time.D
 
 	requestName := fmt.Sprintf("(group(%s)stat_pipleine_indicator_desc)", group)
 
-	return gc.issueStat(group, timeout, requestName, &filter)
+	resp, err := gc.issueStat(group, timeout, requestName, &filter)
+	if err != nil {
+		return nil, err
+	}
+
+	ret, ok := resp.(*ResultStatIndicatorDesc)
+	if !ok {
+		logger.Errorf("[BUG: stat pipeline indicator desc returns invalid result, got type %T]", resp)
+		return nil, newClusterError("stat pipeline indicator desc returns invalid result", InternalServerError)
+	}
+
+	return ret, nil
 }
 
 func (gc *GatewayCluster) StatPluginIndicatorNames(group string, timeout time.Duration,
-	pipelineName, pluginName string) ([]byte, *ClusterError) {
+	pipelineName, pluginName string) (*ResultStatIndicatorNames, *ClusterError) {
 
 	filter := FilterPluginIndicatorNames{
 		PipelineName: pipelineName,
@@ -325,11 +358,22 @@ func (gc *GatewayCluster) StatPluginIndicatorNames(group string, timeout time.Du
 
 	requestName := fmt.Sprintf("(group(%s)stat_plugin_indicator_names)", group)
 
-	return gc.issueStat(group, timeout, requestName, &filter)
+	resp, err := gc.issueStat(group, timeout, requestName, &filter)
+	if err != nil {
+		return nil, err
+	}
+
+	ret, ok := resp.(*ResultStatIndicatorNames)
+	if !ok {
+		logger.Errorf("[BUG: stat plugin indicator names returns invalid result, got type %T]", resp)
+		return nil, newClusterError("stat plugin indicator names returns invalid result", InternalServerError)
+	}
+
+	return ret, nil
 }
 
 func (gc *GatewayCluster) StatPluginIndicatorValue(group string, timeout time.Duration,
-	pipelineName, pluginName, indicatorName string) ([]byte, *ClusterError) {
+	pipelineName, pluginName, indicatorName string) (*ResultStatIndicatorValue, *ClusterError) {
 
 	filter := FilterPluginIndicatorValue{
 		PipelineName:  pipelineName,
@@ -339,11 +383,22 @@ func (gc *GatewayCluster) StatPluginIndicatorValue(group string, timeout time.Du
 
 	requestName := fmt.Sprintf("(group(%s)stat_plugin_indicator_value)", group)
 
-	return gc.issueStat(group, timeout, requestName, &filter)
+	resp, err := gc.issueStat(group, timeout, requestName, &filter)
+	if err != nil {
+		return nil, err
+	}
+
+	ret, ok := resp.(*ResultStatIndicatorValue)
+	if !ok {
+		logger.Errorf("[BUG: stat plugin indicator value returns invalid result, got type %T]", resp)
+		return nil, newClusterError("stat plugin indicator value returns invalid result", InternalServerError)
+	}
+
+	return ret, nil
 }
 
 func (gc *GatewayCluster) StatPluginIndicatorDesc(group string, timeout time.Duration,
-	pipelineName, pluginName, indicatorName string) ([]byte, *ClusterError) {
+	pipelineName, pluginName, indicatorName string) (*ResultStatIndicatorDesc, *ClusterError) {
 
 	filter := FilterPluginIndicatorDesc{
 		PipelineName:  pipelineName,
@@ -353,11 +408,22 @@ func (gc *GatewayCluster) StatPluginIndicatorDesc(group string, timeout time.Dur
 
 	requestName := fmt.Sprintf("(group(%s)stat_plugin_indicator_desc)", group)
 
-	return gc.issueStat(group, timeout, requestName, &filter)
+	resp, err := gc.issueStat(group, timeout, requestName, &filter)
+	if err != nil {
+		return nil, err
+	}
+
+	ret, ok := resp.(*ResultStatIndicatorDesc)
+	if !ok {
+		logger.Errorf("[BUG: stat plugin indicator desc returns invalid result, got type %T]", resp)
+		return nil, newClusterError("stat plugin indicator desc returns invalid result", InternalServerError)
+	}
+
+	return ret, nil
 }
 
 func (gc *GatewayCluster) StatTaskIndicatorNames(group string, timeout time.Duration,
-	pipelineName string) ([]byte, *ClusterError) {
+	pipelineName string) (*ResultStatIndicatorNames, *ClusterError) {
 
 	filter := FilterTaskIndicatorNames{
 		PipelineName: pipelineName,
@@ -365,11 +431,22 @@ func (gc *GatewayCluster) StatTaskIndicatorNames(group string, timeout time.Dura
 
 	requestName := fmt.Sprintf("(group(%s)stat_task_indicator_names)", group)
 
-	return gc.issueStat(group, timeout, requestName, &filter)
+	resp, err := gc.issueStat(group, timeout, requestName, &filter)
+	if err != nil {
+		return nil, err
+	}
+
+	ret, ok := resp.(*ResultStatIndicatorNames)
+	if !ok {
+		logger.Errorf("[BUG: stat task indicator names returns invalid result, got type %T]", resp)
+		return nil, newClusterError("stat task indicator names returns invalid result", InternalServerError)
+	}
+
+	return ret, nil
 }
 
 func (gc *GatewayCluster) StatTaskIndicatorValue(group string, timeout time.Duration,
-	pipelineName, indicatorName string) ([]byte, *ClusterError) {
+	pipelineName, indicatorName string) (*ResultStatIndicatorValue, *ClusterError) {
 
 	filter := FilterTaskIndicatorValue{
 		PipelineName:  pipelineName,
@@ -378,11 +455,22 @@ func (gc *GatewayCluster) StatTaskIndicatorValue(group string, timeout time.Dura
 
 	requestName := fmt.Sprintf("(group(%s)stat_task_indicator_value)", group)
 
-	return gc.issueStat(group, timeout, requestName, &filter)
+	resp, err := gc.issueStat(group, timeout, requestName, &filter)
+	if err != nil {
+		return nil, err
+	}
+
+	ret, ok := resp.(*ResultStatIndicatorValue)
+	if !ok {
+		logger.Errorf("[BUG: stat task indicator value returns invalid result, got type %T]", resp)
+		return nil, newClusterError("stat task indicator value returns invalid result", InternalServerError)
+	}
+
+	return ret, nil
 }
 
 func (gc *GatewayCluster) StatTaskIndicatorDesc(group string, timeout time.Duration,
-	pipelineName, indicatorName string) ([]byte, *ClusterError) {
+	pipelineName, indicatorName string) (*ResultStatIndicatorDesc, *ClusterError) {
 
 	filter := FilterTaskIndicatorDesc{
 		PipelineName:  pipelineName,
@@ -391,5 +479,16 @@ func (gc *GatewayCluster) StatTaskIndicatorDesc(group string, timeout time.Durat
 
 	requestName := fmt.Sprintf("(group(%s)stat_task_indicator_desc)", group)
 
-	return gc.issueStat(group, timeout, requestName, &filter)
+	resp, err := gc.issueStat(group, timeout, requestName, &filter)
+	if err != nil {
+		return nil, err
+	}
+
+	ret, ok := resp.(*ResultStatIndicatorDesc)
+	if !ok {
+		logger.Errorf("[BUG: stat task indicator desc returns invalid result, got type %T]", resp)
+		return nil, newClusterError("stat task indicator desc returns invalid result", InternalServerError)
+	}
+
+	return ret, nil
 }
