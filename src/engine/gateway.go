@@ -86,27 +86,23 @@ func NewGateway() (*Gateway, error) {
 
 	mod := model.NewModel()
 
-	if len(common.ClusterGroup) == 0 {
-		return nil, fmt.Errorf("empty cluster group")
-	}
-	var clusterMode cluster.Mode
+	var memberMode cluster.Mode
 	switch strings.ToLower(common.ClusterMode) {
 	case "read":
-		clusterMode = cluster.ReadMode
+		memberMode = cluster.ReadMode
 	case "write":
-		clusterMode = cluster.WriteMode
+		memberMode = cluster.WriteMode
 	default:
-		return nil, fmt.Errorf("bad cluster mode")
+		return nil, fmt.Errorf("bad member mode")
 	}
 	clusterConf := cluster.Config{
 		Group: common.ClusterGroup,
-		Mode:  common.ClusterMode,
+		Mode:  memberMode,
 
-		// TODO: read from launch config
-		OPLogMaxSeqGapToPull:  5,
-		OPLogPullMaxCountOnce: 5,
-		OPLogPullInterval:     10 * time.Second,
-		OPLogPullTimeout:      30 * time.Second,
+		OPLogMaxSeqGapToPull:  common.OPLogMaxSeqGapToPull,
+		OPLogPullMaxCountOnce: common.OPLogPullMaxCountOnce,
+		OPLogPullInterval:     common.OPLogPullInterval,
+		OPLogPullTimeout:      common.OPLogPullTimeout,
 	}
 
 	gc, err := cluster.NewGatewayCluster(clusterConf, mod)

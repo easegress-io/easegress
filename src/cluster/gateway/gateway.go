@@ -56,6 +56,19 @@ func NewGatewayCluster(conf Config, mod *model.Model) (*GatewayCluster, error) {
 		return nil, fmt.Errorf("model is nil")
 	}
 
+	switch {
+	case len(conf.Group) == 0:
+		return nil, fmt.Errorf("empty group")
+	case OPLogMaxSeqGapToPull == 0:
+		return nil, fmt.Errorf("oplog_max_seq_gap_to_pull must be greater then 0")
+	case OPLogPullMaxCountOnce == 0:
+		return nil, fmt.Errorf("oplog_pull_max_count_once must be greater then 0")
+	case OPLogPullInterval == 0:
+		return nil, fmt.Errorf("oplog_pull_interval must be greater than 0")
+	case OPLogPullTimeout == 0:
+		return nil, fmt.Errorf("oplog_pull_timeout must be greater than 0")
+	}
+
 	eventStream := make(chan cluster.Event)
 
 	// TODO: choose config of under layer automatically

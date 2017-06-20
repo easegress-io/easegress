@@ -4,6 +4,7 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 var (
@@ -15,8 +16,14 @@ var (
 	CERT_HOME_DIR       = filepath.Join(INVENTORY_HOME_DIR, "cert")
 	CGI_HOME_DIR        = filepath.Join(INVENTORY_HOME_DIR, "cgi")
 
-	ClusterGroup                   string
-	ClusterMode                    string
+	// cluster stuff
+	ClusterGroup          string
+	MemberMode            string
+	OPLogMaxSeqGapToPull  uint64
+	OPLogPullMaxCountOnce uint64
+	OPLogPullInterval     time.Duration
+	OPLogPullTimeout      time.Duration
+
 	Host                           string
 	CertFile, KeyFile              string
 	Stage                          string
@@ -26,7 +33,12 @@ var (
 
 func init() {
 	clusterGroup := flag.String("group", "default", "specify cluster group")
-	clusterMode := flag.String("mode", "read", "specify cluster mode(read, write)")
+	memberMode := flag.String("mode", "read", "specify member mode(read, write)")
+	opLogMaxSeqGapToPull := flag.Uint64("oplog_max_seq_gap_to_pull", 5, "specify max gap of sequnce of operation logs deciding whether to wait for missing operations or not")
+	opLogPullMaxCountOnce := flag.Uint64("oplog_pull_max_count_once", 5, "specify max count of pulling operation logs once")
+	opLogPullInterval := flag.Duration("oplog_pull_interval", 10*time.Second, "specify interval of pulling operation logs")
+	opLogPullTimeout := flag.Duration("oplog_pull_timeout", 30*time.Second, "specify timeout of pulling operation logs")
+
 	host := flag.String("host", "localhost", "specify listen host")
 	certFile := flag.String("certfile", "", "specify cert file, "+
 		"downgrade HTTPS(10443) to HTTP(10080) if it is set empty or inexistent file")
@@ -43,7 +55,12 @@ func init() {
 	flag.Parse()
 
 	ClusterGroup = *clusterGroup
-	ClusterMode = *clusterMode
+	MemberMode = *memberMode
+	OPLogMaxSeqGapToPull = *opLogMaxSeqGapToPull
+	OPLogPullMaxCountOnce = *opLogPullMaxCountOnce
+	OPLogPullInterval = *opLogPullInterval
+	OPLogPullTimeout = *opLogPullTimeout
+
 	Host = *host
 	CertFile = *certFile
 	KeyFile = *keyFile
