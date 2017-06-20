@@ -1,14 +1,9 @@
 package rest
 
 import (
-	"fmt"
-	"net/url"
-	"strconv"
 	"time"
 
 	"config"
-
-	"github.com/ant0ine/go-json-rest/rest"
 )
 
 //

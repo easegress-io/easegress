@@ -85,8 +85,9 @@ func (s *clusterAdminServer) createPlugin(w rest.ResponseWriter, r *rest.Request
 
 	conf, err := json.Marshal(req.Config)
 	if err != nil {
-		msg := fmt.Sprintf("plugin config is invalid")
+		msg := "plugin config is invalid"
 		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
@@ -95,6 +96,7 @@ func (s *clusterAdminServer) createPlugin(w rest.ResponseWriter, r *rest.Request
 	} else if req.TimeoutSec < 10 {
 		msg := fmt.Sprintf("timeout %d should greater than or equal to 10 senconds", req.TimeoutSec)
 		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
@@ -102,6 +104,7 @@ func (s *clusterAdminServer) createPlugin(w rest.ResponseWriter, r *rest.Request
 		req.Consistent, req.Type, conf)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
+		logger.Errorf("[%s]", clusterErr.Error())
 		return
 	}
 
@@ -133,6 +136,7 @@ func (s *clusterAdminServer) retrievePlugins(w rest.ResponseWriter, r *rest.Requ
 	} else if req.TimeoutSec < 10 {
 		msg := fmt.Sprintf("timeout %d should greater than or equal to 10 senconds", req.TimeoutSec)
 		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
@@ -140,17 +144,21 @@ func (s *clusterAdminServer) retrievePlugins(w rest.ResponseWriter, r *rest.Requ
 		req.NamePattern, req.Types)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
+		logger.Errorf("[%s]", clusterErr.Error())
 		return
 	}
 
-	plugins := resp.(*gateway.ResultRetrievePlugins)
+	ret, ok := resp.(*gateway.ResultRetrievePlugins)
+	if !ok {
+		logger.Errorf("[BUG: retrieve plugins returns invalid result]")
+		rest.Error(w, "retrieve plugins returns invalid result", http.StatusInternalServerError)
+		return
+	}
 
-	.Plugins
-
+	w.WriteJson(ret.Plugins)
 	w.WriteHeader(http.StatusOK)
-	w.(http.ResponseWriter).Write(resp)
 
-	logger.Debugf("[retrieve plugins name-pattern(%s) types(%s) succeed: %s]", req.NamePattern, req.Types, resp)
+	logger.Debugf("[plugins returned from cluster]")
 }
 
 func (s *clusterAdminServer) retrievePlugin(w rest.ResponseWriter, r *rest.Request) {

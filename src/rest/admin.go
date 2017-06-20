@@ -79,7 +79,7 @@ func (s *adminServer) createPlugin(w rest.ResponseWriter, r *rest.Request) {
 
 	buff, err := json.Marshal(req.Config)
 	if err != nil {
-		msg := ("plugin config is invalid")
+		msg := "plugin config is invalid"
 		rest.Error(w, msg, http.StatusBadRequest)
 		logger.Errorf("[%s]", msg)
 		return
@@ -204,7 +204,7 @@ func (s *adminServer) updatePlugin(w rest.ResponseWriter, r *rest.Request) {
 
 	buff, err := json.Marshal(req.Config)
 	if err != nil {
-		msg := ("plugin config is invalid")
+		msg := "plugin config is invalid"
 		rest.Error(w, msg, http.StatusBadRequest)
 		logger.Errorf("[%s]", msg)
 		return
@@ -311,7 +311,7 @@ func (s *adminServer) createPipeline(w rest.ResponseWriter, r *rest.Request) {
 
 	buff, err := json.Marshal(req.Config)
 	if err != nil {
-		msg := ("pipeline config is invalid")
+		msg := "pipeline config is invalid"
 		rest.Error(w, msg, http.StatusBadRequest)
 		logger.Errorf("[%s]", msg)
 		return
