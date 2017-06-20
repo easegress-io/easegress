@@ -30,6 +30,8 @@ func newClusterAdminServer(gateway *engine.Gateway, gc *gateway.GatewayCluster) 
 func (s *clusterAdminServer) Api() (*rest.Api, error) {
 	pav := common.PrefixAPIVersion
 	router, err := rest.MakeRouter(
+		rest.Get(pav("/sequence"), s.retrieveOperationSequence),
+
 		rest.Post(pav("/#group/plugins"), s.createPlugin),
 		rest.Get(pav("/#group/plugins"), s.retrievePlugins),
 		rest.Get(pav("/#group/plugins/#pluginName"), s.retrievePlugin),
@@ -56,6 +58,49 @@ func (s *clusterAdminServer) Api() (*rest.Api, error) {
 	api.SetApp(router)
 
 	return api, nil
+}
+
+func (s *clusterAdminServer) retrieveOperationSequence(w rest.ResponseWriter, r *rest.Request) {
+	logger.Debugf("[retrieve operation sequence from cluster]")
+
+	group, err := url.QueryUnescape(r.PathParam("group"))
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%s]", err.Error())
+		return
+	}
+
+	req := new(clusterOperationSeqRequest)
+	err = r.DecodeJsonPayload(req)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%v]", err)
+		return
+	}
+
+	if req.TimeoutSec == 0 {
+		req.TimeoutSec = 30
+	} else if req.TimeoutSec < 10 {
+		msg := fmt.Sprintf("timeout %d should greater than or equal to 10 senconds", req.TimeoutSec)
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
+		return
+	}
+
+	seq, clusterErr := s.gc.QueryGroupMaxSeq(group, req.TimeoutSec*time.Second)
+	if clusterErr != nil {
+		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
+		logger.Errorf("[%s]", clusterErr.Error())
+		return
+	}
+
+	w.WriteJson(clusterOperationSeqResponse{
+		Group:             group,
+		OperationSequence: seq,
+	})
+	w.WriteHeader(http.StatusOK)
+
+	logger.Debugf("[operation sequence %d returned from cluster]", seq)
 }
 
 func (s *clusterAdminServer) createPlugin(w rest.ResponseWriter, r *rest.Request) {

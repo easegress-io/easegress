@@ -94,6 +94,15 @@ type clusterRequest struct {
 // Cluster admin API
 //
 
+type clusterOperationSeqRequest struct {
+	clusterRequest
+}
+
+type clusterOperationSeqResponse struct {
+	Group             string `json:"cluster_group"`
+	OperationSequence uint64 `json:"operation_seq"`
+}
+
 type clusterOperation struct {
 	clusterRequest
 	OperationSeqSnapshot uint64 `json:"operation_seq_snapshot"`
