@@ -172,3 +172,13 @@ type pipelineTypesRetrieveClusterRequest struct {
 	clusterRequest
 	Consistent bool `json:"consistent"`
 }
+
+//
+// Cluster statistics API
+//
+
+type clusterStat struct {
+	clusterRequest
+	// TODO: Add Verbose to all stat stuff
+	Verbose bool `json:"verbose"`
+}

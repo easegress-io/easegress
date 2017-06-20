@@ -97,8 +97,8 @@ func NewGateway() (*Gateway, error) {
 	}
 
 	clusterConf := cluster.Config{
-		ClusterGroup: common.ClusterGroup,
-		ClusterMemberMode:  memberMode,
+		ClusterGroup:          common.ClusterGroup,
+		ClusterMemberMode:     memberMode,
 		OPLogMaxSeqGapToPull:  common.OPLogMaxSeqGapToPull,
 		OPLogPullMaxCountOnce: common.OPLogPullMaxCountOnce,
 		OPLogPullInterval:     common.OPLogPullInterval,
