@@ -69,65 +69,94 @@ type pipelineTypesRetrieveResponse struct {
 // Statistics API
 //
 
-type IndicatorNamesRetrieveResponse struct {
+type indicatorNamesRetrieveResponse struct {
 	Names []string `json:"names"`
 }
 
-type IndicatorValueRetrieveResponse struct {
+type indicatorValueRetrieveResponse struct {
 	Value interface{} `json:"value"`
 }
 
-type IndicatorDescriptionRetrieveResponse struct {
+type indicatorDescriptionRetrieveResponse struct {
 	Description interface{} `json:"desc"`
 }
 
 ////
 
-type GatewayUpTimeRetrieveResponse struct {
+type gatewayUpTimeRetrieveResponse struct {
 	UpTime time.Duration `json:"up_nanosec"`
 }
 
-// group is required, sync_all(default: false) and
-// timeout(default: 30s, min: 10s) is optional
-// e.g. /group_NY/foo?sync_all=false&timeout=30s
-func parseClusterParam(r *rest.Request) (group string, syncAll bool, timeout time.Duration,
-	err error) {
-	group, err = url.QueryUnescape(r.PathParam("group"))
-	if err != nil || len(group) == 0 {
-		err = fmt.Errorf("invalid group")
-		return
-	}
+//
+// Cluster API
+//
 
-	err = r.ParseForm()
-	if err != nil {
-		return
-	}
+type clusterRequest struct {
+	TimeoutSec uint16 `json:"timeout_sec"` // 10-65535, zero means using default value (30)
+}
 
-	syncAllValue := r.Form.Get("sync_all")
-	if len(syncAllValue) > 0 {
-		syncAll, err = strconv.ParseBool(syncAllValue)
-		if err != nil {
-			err = fmt.Errorf("invalid sync_all")
-			return
-		}
-	}
+//
+// Cluster admin API
+//
 
-	timeoutValue := r.Form.Get("timeout")
-	if len(timeoutValue) > 0 {
-		timeout, err = time.ParseDuration(timeoutValue)
-		if err != nil {
-			err = fmt.Errorf("invalid timeout")
-			return
-		}
-		minTimeout := time.Duration(10 * time.Second)
-		if timeout < minTimeout {
-			err = fmt.Errorf("timeout less than the minimum timeout %s", minTimeout)
-			return
-		}
-	} else {
-		timeout = 30 * time.Second
-	}
+type clusterOperation struct {
+	clusterRequest
+	OperationSeqSnapshot uint64 `json:"operation_seq_snapshot"`
+	Consistent           bool   `json:"consistent"`
+}
 
-	err = nil // for emphasizing
-	return
+type pluginCreationClusterRequest struct {
+	clusterOperation
+	pluginCreationRequest
+}
+
+type pluginsRetrieveClusterRequest struct {
+	clusterRequest
+	pluginsRetrieveRequest
+	Consistent bool `json:"consistent"`
+}
+
+type pluginUpdateClusterRequest struct {
+	clusterOperation
+	pluginUpdateRequest
+}
+
+type pluginDeletionClusterRequest struct {
+	clusterOperation
+}
+
+////
+
+type pipelineCreationClusterRequest struct {
+	clusterOperation
+	pipelineCreationRequest
+}
+
+type pipelinesRetrieveClusterRequest struct {
+	clusterRequest
+	pipelinesRetrieveRequest
+	Consistent bool `json:"consistent"`
+}
+
+type pipelineUpdateClusterRequest struct {
+	clusterOperation
+	pipelineUpdateRequest
+}
+
+type pipelineDeletionClusterRequest struct {
+	clusterOperation
+}
+
+////
+
+type pluginTypesRetrieveClusterResponse struct {
+	clusterRequest
+	pluginTypesRetrieveResponse
+	Consistent bool `json:"consistent"`
+}
+
+type pipelineTypesRetrieveClusterResponse struct {
+	clusterRequest
+	pipelineTypesRetrieveResponse
+	Consistent bool `json:"consistent"`
 }

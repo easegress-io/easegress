@@ -79,7 +79,7 @@ func (s *adminServer) createPlugin(w rest.ResponseWriter, r *rest.Request) {
 
 	buff, err := json.Marshal(req.Config)
 	if err != nil {
-		msg := ("plugin config is invalid.")
+		msg := ("plugin config is invalid")
 		rest.Error(w, msg, http.StatusBadRequest)
 		logger.Errorf("[%s]", msg)
 		return
@@ -103,7 +103,7 @@ func (s *adminServer) createPlugin(w rest.ResponseWriter, r *rest.Request) {
 
 	plugin := s.gateway.Model().GetPlugin(pluginName)
 	if plugin != nil {
-		msg := fmt.Sprintf("plugin %s already exists.", pluginName)
+		msg := fmt.Sprintf("plugin %s already exists", pluginName)
 		rest.Error(w, msg, http.StatusConflict)
 		logger.Errorf("[%s]", msg)
 		return
@@ -135,6 +135,7 @@ func (s *adminServer) retrievePlugins(w rest.ResponseWriter, r *rest.Request) {
 	err := r.DecodeJsonPayload(req)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%v]", err)
 		return
 	}
 
@@ -197,12 +198,13 @@ func (s *adminServer) updatePlugin(w rest.ResponseWriter, r *rest.Request) {
 	err := r.DecodeJsonPayload(req)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%v]", err)
 		return
 	}
 
 	buff, err := json.Marshal(req.Config)
 	if err != nil {
-		msg := ("plugin config is invalid.")
+		msg := ("plugin config is invalid")
 		rest.Error(w, msg, http.StatusBadRequest)
 		logger.Errorf("[%s]", msg)
 		return
@@ -233,7 +235,7 @@ func (s *adminServer) updatePlugin(w rest.ResponseWriter, r *rest.Request) {
 	}
 
 	if plugin.Type() != req.Type {
-		msg := fmt.Sprintf("plugin type %s is readonly.", plugin.Type())
+		msg := fmt.Sprintf("plugin type %s is readonly", plugin.Type())
 		rest.Error(w, msg, http.StatusBadRequest)
 		logger.Errorf("[%s]", msg)
 		return
@@ -309,7 +311,7 @@ func (s *adminServer) createPipeline(w rest.ResponseWriter, r *rest.Request) {
 
 	buff, err := json.Marshal(req.Config)
 	if err != nil {
-		msg := ("pipeline config is invalid.")
+		msg := ("pipeline config is invalid")
 		rest.Error(w, msg, http.StatusBadRequest)
 		logger.Errorf("[%s]", msg)
 		return
@@ -358,6 +360,7 @@ func (s *adminServer) retrievePipelines(w rest.ResponseWriter, r *rest.Request) 
 	err := r.DecodeJsonPayload(req)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%v]", err)
 		return
 	}
 
@@ -420,12 +423,13 @@ func (s *adminServer) updatePipeline(w rest.ResponseWriter, r *rest.Request) {
 	err := r.DecodeJsonPayload(req)
 	if err != nil {
 		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%v]", err)
 		return
 	}
 
 	buff, err := json.Marshal(req.Config)
 	if err != nil {
-		msg := fmt.Sprintf("pipeline config %s is invalid.", req.Type)
+		msg := fmt.Sprintf("pipeline config %s is invalid", req.Type)
 		rest.Error(w, msg, http.StatusBadRequest)
 		logger.Errorf("[%s]", msg)
 		return
@@ -456,7 +460,7 @@ func (s *adminServer) updatePipeline(w rest.ResponseWriter, r *rest.Request) {
 	}
 
 	if pipeline.Type() != req.Type {
-		msg := fmt.Sprintf("pipeline type %s is readonly.", pipeline.Type())
+		msg := fmt.Sprintf("pipeline type %s is readonly", pipeline.Type())
 		rest.Error(w, msg, http.StatusBadRequest)
 		logger.Errorf("[%s]", msg)
 		return

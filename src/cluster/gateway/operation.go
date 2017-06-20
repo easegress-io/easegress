@@ -9,53 +9,6 @@ import (
 )
 
 // for api
-func (gc *GatewayCluster) queryGroupMaxSeq(group string, timeout time.Duration) (uint64, *ClusterError) {
-	req := new(ReqQueryGroupMaxSeq)
-	requestPayload, err := cluster.PackWithHeader(req, uint8(queryGroupMaxSeqMessage))
-	if err != nil {
-		logger.Errorf("[BUG: pack request (header=%d) to %#v failed: %v]",
-			uint8(queryGroupMaxSeqMessage), req, err)
-
-		return 0, newClusterError(
-			fmt.Sprintf("pack request (header=%d) to %#v failed: %v",
-				uint8(queryGroupMaxSeqMessage), req, err),
-			InternalServerError)
-	}
-
-	requestParam := cluster.RequestParam{
-		TargetNodeTags: map[string]string{
-			groupTagKey: group,
-			modeTagKey:  WriteMode.String(),
-		},
-		Timeout:            timeout,
-		ResponseRelayCount: 1, // fault tolerance on network issue
-	}
-
-	requestName := fmt.Sprintf("(group:%s)query_group_max_sequence", group)
-
-	future, err := gc.cluster.Request(requestName, requestPayload, &requestParam)
-	if err != nil {
-		return 0, newClusterError(fmt.Sprintf("query max sequence failed: %v", err), InternalServerError)
-	}
-
-	memberResp, ok := <-future.Response()
-	if !ok {
-		return 0, newClusterError("query max sequence in the group timeout", TimeoutError)
-	}
-	if len(memberResp.Payload) == 0 {
-		return 0, newClusterError("query max sequence responds empty response", InternalServerError)
-	}
-
-	var resp RespQueryGroupMaxSeq
-	err = cluster.Unpack(memberResp.Payload[1:], &resp)
-	if err != nil {
-		return 0, newClusterError(fmt.Sprintf("unpack max sequence response failed: %v", err),
-			InternalServerError)
-	}
-
-	return uint64(resp), nil
-}
-
 func (gc *GatewayCluster) issueOperation(group string, timeout time.Duration, requestName string,
 	seqSnapshot uint64, syncAll bool, operation *Operation) *ClusterError {
 

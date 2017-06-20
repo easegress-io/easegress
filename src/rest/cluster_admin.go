@@ -7,16 +7,12 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/ant0ine/go-json-rest/rest"
+
 	"cluster/gateway"
 	"common"
 	"engine"
 	"logger"
-
-	"github.com/ant0ine/go-json-rest/rest"
-)
-
-const (
-	ADMIN_TIMEOUT_DECAY_RATE = 0.8
 )
 
 type clusterAdminServer struct {
@@ -34,9 +30,6 @@ func newClusterAdminServer(gateway *engine.Gateway, gc *gateway.GatewayCluster) 
 func (s *clusterAdminServer) Api() (*rest.Api, error) {
 	pav := common.PrefixAPIVersion
 	router, err := rest.MakeRouter(
-		// parameters: sync_all(bool, default:false) and
-		// timeout(seconds, min: 10s, default:30s),
-		// e.g. /cluster/admin/v1/group_NY/plugins?sync_all=false&timeout=30s
 		rest.Post(pav("/#group/plugins"), s.createPlugin),
 		rest.Get(pav("/#group/plugins"), s.retrievePlugins),
 		rest.Get(pav("/#group/plugins/#pluginName"), s.retrievePlugin),
@@ -66,47 +59,56 @@ func (s *clusterAdminServer) Api() (*rest.Api, error) {
 }
 
 func (s *clusterAdminServer) createPlugin(w rest.ResponseWriter, r *rest.Request) {
-	logger.Debugf("[create plugin]")
+	logger.Debugf("[create plugin in cluster]")
 
-	group, syncAll, timeout, err := parseClusterParam(r)
+	group, err := url.QueryUnescape(r.PathParam("group"))
 	if err != nil {
-		msg := fmt.Sprintf("invalid request: %s", err.Error())
-		rest.Error(w, msg, http.StatusBadRequest)
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%v]", err)
 		return
 	}
 
-	req := new(pluginCreationRequest)
+	req := new(pluginCreationClusterRequest)
 	err = r.DecodeJsonPayload(req)
 	if err != nil {
-		msg := fmt.Sprintf("invalid request: %s", err.Error())
-		rest.Error(w, msg, http.StatusBadRequest)
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%v]", err)
 		return
 	}
 
-	if len(req.Type) == 0 || req.Config == nil {
-		msg := fmt.Sprintf("invalid request: need both type and config")
+	if req == nil || req.Config == nil {
+		msg := "invalid request"
 		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 
 	conf, err := json.Marshal(req.Config)
 	if err != nil {
-		msg := fmt.Sprintf("invalid request: bad config: %v", err)
+		msg := fmt.Sprintf("plugin config is invalid")
 		rest.Error(w, msg, http.StatusBadRequest)
 		return
 	}
 
-	timeout = time.Duration(ADMIN_TIMEOUT_DECAY_RATE * float64(timeout))
-	httpErr := s.gc.CreatePlugin(group, syncAll, timeout, req.Type, conf)
-	if httpErr != nil {
-		w.WriteHeader(httpErr.StatusCode)
-		rest.Error(w, httpErr.Msg, httpErr.StatusCode)
+	timeout := req.TimeoutSec
+	if timeout == 0 {
+		timeout = 30
+	} else if timeout < 10 {
+		msg := fmt.Sprintf("timeout %d should greater than or equal to 10 senconds", req.TimeoutSec)
+		rest.Error(w, msg, http.StatusBadRequest)
+		return
+	}
+
+	clusterErr := s.gc.CreatePlugin(group, timeout * time.Second, req.OperationSeqSnapshot, req.Consistent,
+		req.Type, conf)
+	if clusterErr != nil {
+		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
 
-	logger.Debugf("create plugin succeed: %s: %s", req.Type, conf)
+	logger.Debugf("plugin created in cluster")
 }
 
 func (s *clusterAdminServer) retrievePlugins(w rest.ResponseWriter, r *rest.Request) {

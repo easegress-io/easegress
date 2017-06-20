@@ -91,7 +91,7 @@ func (s *statisticsServer) retrievePluginIndicatorNames(w rest.ResponseWriter, r
 	// Returns with stable order
 	sort.Strings(indicatorNames)
 
-	w.WriteJson(&IndicatorNamesRetrieveResponse{
+	w.WriteJson(&indicatorNamesRetrieveResponse{
 		Names: indicatorNames,
 	})
 	w.WriteHeader(http.StatusOK)
@@ -142,7 +142,7 @@ func (s *statisticsServer) retrievePluginIndicatorValue(w rest.ResponseWriter, r
 		rest.Error(w, msg, http.StatusForbidden)
 		logger.Warnf("[%s: %v]", msg, err)
 	} else {
-		w.WriteJson(&IndicatorValueRetrieveResponse{
+		w.WriteJson(&indicatorValueRetrieveResponse{
 			Value: indicatorValue,
 		})
 		w.WriteHeader(http.StatusOK)
@@ -193,7 +193,7 @@ func (s *statisticsServer) retrievePluginIndicatorDesc(w rest.ResponseWriter, r 
 		rest.Error(w, msg, http.StatusForbidden)
 		logger.Warnf("[%s: %v]", msg, err)
 	} else {
-		w.WriteJson(&IndicatorDescriptionRetrieveResponse{
+		w.WriteJson(&indicatorDescriptionRetrieveResponse{
 			Description: indicatorDesc,
 		})
 		w.WriteHeader(http.StatusOK)
@@ -222,7 +222,7 @@ func (s *statisticsServer) retrievePipelineIndicatorNames(w rest.ResponseWriter,
 	// Returns with stable order
 	sort.Strings(indicatorNames)
 
-	w.WriteJson(&IndicatorNamesRetrieveResponse{
+	w.WriteJson(&indicatorNamesRetrieveResponse{
 		Names: indicatorNames,
 	})
 	w.WriteHeader(http.StatusOK)
@@ -267,7 +267,7 @@ func (s *statisticsServer) retrievePipelineIndicatorValue(w rest.ResponseWriter,
 		rest.Error(w, msg, http.StatusForbidden)
 		logger.Warnf("[%s: %v]", msg, err)
 	} else {
-		w.WriteJson(&IndicatorValueRetrieveResponse{
+		w.WriteJson(&indicatorValueRetrieveResponse{
 			Value: indicatorValue,
 		})
 		w.WriteHeader(http.StatusOK)
@@ -312,7 +312,7 @@ func (s *statisticsServer) retrievePipelineIndicatorDesc(w rest.ResponseWriter, 
 		rest.Error(w, msg, http.StatusForbidden)
 		logger.Warnf("[%s: %v]", msg, err)
 	} else {
-		w.WriteJson(&IndicatorDescriptionRetrieveResponse{
+		w.WriteJson(&indicatorDescriptionRetrieveResponse{
 			Description: indicatorDesc,
 		})
 		w.WriteHeader(http.StatusOK)
@@ -341,7 +341,7 @@ func (s *statisticsServer) retrievePipelineTaskIndicatorNames(w rest.ResponseWri
 	// Returns with stable order
 	sort.Strings(indicatorNames)
 
-	w.WriteJson(&IndicatorNamesRetrieveResponse{
+	w.WriteJson(&indicatorNamesRetrieveResponse{
 		Names: indicatorNames,
 	})
 	w.WriteHeader(http.StatusOK)
@@ -386,7 +386,7 @@ func (s *statisticsServer) retrievePipelineTaskIndicatorValue(w rest.ResponseWri
 		rest.Error(w, msg, http.StatusForbidden)
 		logger.Warnf("[%s: %v]", msg, err)
 	} else {
-		w.WriteJson(&IndicatorValueRetrieveResponse{
+		w.WriteJson(&indicatorValueRetrieveResponse{
 			Value: indicatorValue,
 		})
 		w.WriteHeader(http.StatusOK)
@@ -431,7 +431,7 @@ func (s *statisticsServer) retrievePipelineTaskIndicatorDesc(w rest.ResponseWrit
 		rest.Error(w, msg, http.StatusForbidden)
 		logger.Warnf("[%s: %v]", msg, err)
 	} else {
-		w.WriteJson(&IndicatorDescriptionRetrieveResponse{
+		w.WriteJson(&indicatorDescriptionRetrieveResponse{
 			Description: indicatorDesc,
 		})
 		w.WriteHeader(http.StatusOK)
@@ -441,7 +441,7 @@ func (s *statisticsServer) retrievePipelineTaskIndicatorDesc(w rest.ResponseWrit
 
 func (s *statisticsServer) retrieveGatewayUpTime(w rest.ResponseWriter, r *rest.Request) {
 	logger.Debugf("[retrieve gateway uptime]")
-	w.WriteJson(&GatewayUpTimeRetrieveResponse{
+	w.WriteJson(&gatewayUpTimeRetrieveResponse{
 		UpTime: s.gateway.UpTime(),
 	})
 	w.WriteHeader(http.StatusOK)

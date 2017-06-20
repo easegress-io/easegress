@@ -17,7 +17,8 @@ import (
 
 // for api
 func (gc *GatewayCluster) issueRetrieve(group string, timeout time.Duration,
-	requestName string, syncAll bool, filter interface{}) ([]byte, *ClusterError) {
+	requestName string, syncAll bool, filter interface{}) (
+	interface{}, *ClusterError) {
 
 	req := &ReqRetrieve{
 		RetrieveAllNodes: syncAll,
@@ -34,14 +35,13 @@ func (gc *GatewayCluster) issueRetrieve(group string, timeout time.Duration,
 	case *FilterRetrievePipelineTypes:
 		req.FilterRetrievePipelineTypes = filter
 	default:
-		return nil, newClusterError(fmt.Sprintf("unsupported retrieve filter type %T", filter),
-			InternalServerError)
+		return nil, newClusterError(
+			fmt.Sprintf("unsupported retrieve filter type %T", filter), InternalServerError)
 	}
 
 	requestPayload, err := cluster.PackWithHeader(req, uint8(retrieveMessage))
 	if err != nil {
-		logger.Errorf("[BUG: pack request (header=%d) to %#v failed: %v]",
-			uint8(retrieveMessage), req, err)
+		logger.Errorf("[BUG: pack request (header=%d) to %#v failed: %v]", uint8(retrieveMessage), req, err)
 
 		return nil, newClusterError(
 			fmt.Sprintf("pack request (header=%d) to %#v failed: %v",
@@ -60,7 +60,8 @@ func (gc *GatewayCluster) issueRetrieve(group string, timeout time.Duration,
 
 	future, err := gc.cluster.Request(requestName, requestPayload, &requestParam)
 	if err != nil {
-		return nil, newClusterError(fmt.Sprintf("issue retrieve failed: %v", err), InternalServerError)
+		return nil, newClusterError(
+			fmt.Sprintf("issue retrieve failed: %v", err), InternalServerError)
 	}
 
 	var memberResp *cluster.MemberResponse
@@ -72,11 +73,13 @@ func (gc *GatewayCluster) issueRetrieve(group string, timeout time.Duration,
 		}
 		memberResp = r
 	case <-gc.stopChan:
-		return nil, newClusterError("the member gone during issuing retrieve", IssueMemberGoneError)
+		return nil, newClusterError(
+			"the member gone during issuing retrieve", IssueMemberGoneError)
 	}
 
 	if len(memberResp.Payload) == 0 {
-		return nil, newClusterError("issue retrieve responds empty response", InternalServerError)
+		return nil, newClusterError(
+			"issue retrieve responds empty response", InternalServerError)
 	}
 
 	resp := new(RespRetrieve)
@@ -90,23 +93,54 @@ func (gc *GatewayCluster) issueRetrieve(group string, timeout time.Duration,
 		return nil, resp.Err
 	}
 
-	var ret []byte
 	switch filter.(type) {
-	case FilterRetrievePlugins:
-		ret = resp.ResultRetrievePlugins
-	case FilterRetrievePipelines:
-		ret = resp.ResultRetrievePipelines
-	case FilterRetrievePluginTypes:
-		ret = resp.ResultRetrievePluginTypes
-	case FilterRetrievePipelineTypes:
-		ret = resp.ResultRetrievePipelineTypes
+	case *FilterRetrievePlugins:
+		ret := new(ResultRetrievePlugins)
+		err = json.Unmarshal(ret, resp.ResultRetrievePlugins)
+		if err != nil {
+			logger.Errorf("[BUG: unmarsh retrieve plugins response failed: %v]", err)
+			return nil, newClusterError(
+				fmt.Sprintf("unmarsh retrieve plugins response failed: %v", err),
+				InternalServerError)
+		}
+
+		return ret, nil
+	case *FilterRetrievePipelines:
+		ret := new(ResultRetrievePipelines)
+		err = json.Unmarshal(ret, resp.ResultRetrievePipelines)
+		if err != nil {
+			logger.Errorf("[BUG: unmarsh retrieve pipelines response failed: %v]", err)
+			return nil, newClusterError(
+				fmt.Sprintf("unmarsh retrieve pipelines response failed: %v", err),
+				InternalServerError)
+		}
+
+		return ret, nil
+	case *FilterRetrievePluginTypes:
+		ret := new(ResultRetrievePluginTypes)
+		err = json.Unmarshal(ret, resp.ResultRetrievePluginTypes)
+		if err != nil {
+			logger.Errorf("[BUG: unmarsh retrieve plugin types response failed: %v]", err)
+			return nil, newClusterError(
+				fmt.Sprintf("unmarsh retrieve plugin types response failed: %v", err),
+				InternalServerError)
+		}
+
+		return ret, nil
+	case *FilterRetrievePipelineTypes:
+		ret := new(ResultRetrievePipelineTypes)
+		err = json.Unmarshal(ret, resp.ResultRetrievePipelineTypes)
+		if err != nil {
+			logger.Errorf("[BUG: unmarsh retrieve pipeline types response failed: %v]", err)
+			return nil, newClusterError(
+				fmt.Sprintf("unmarsh retrieve pipeline types response failed: %v", err),
+				InternalServerError)
+		}
+
+		return ret, nil
 	}
 
-	if ret == nil || len(ret) == 0 {
-		return nil, newClusterError("issue retrieve responds invalid result", InternalServerError)
-	}
-
-	return ret, nil
+	return nil, newClusterError(fmt.Sprintf("unmarsh retrieve response failed: %v", err), InternalServerError)
 }
 
 // for core
