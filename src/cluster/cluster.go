@@ -543,8 +543,6 @@ func (c *Cluster) operateRequest(msg *messageRequest) bool {
 
 	care := c.requestOperations.save(msg.RequestId, msg.RequestTime, c.requestClock.Time())
 	if !care {
-		logger.Debugf("[member %s (%s:%d) received request but not care]",
-			msg.RequestNodeName, msg.RequestNodeAddress, msg.RequestNodePort)
 		return false
 	}
 
@@ -552,6 +550,8 @@ func (c *Cluster) operateRequest(msg *messageRequest) bool {
 
 	care = msg.filter(c.conf)
 	if !care {
+		logger.Debugf("[member %s (%s:%d) received request but do not care]",
+			msg.RequestNodeName, msg.RequestNodeAddress, msg.RequestNodePort)
 		return ret
 	}
 
