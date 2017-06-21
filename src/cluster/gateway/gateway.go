@@ -126,6 +126,15 @@ func (gc *GatewayCluster) Stop() error {
 
 	close(gc.stopChan)
 
+	err := gc.cluster.Leave()
+	if err != nil {
+		return err
+	}
+
+	for gc.cluster.NodeStatus() != cluster.NodeLeft {
+		time.Sleep(100 * time.Millisecond)
+	}
+
 	err := gc.cluster.Stop()
 	if err != nil {
 		return err
