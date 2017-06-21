@@ -131,7 +131,7 @@ func unpackReqOperation(payload []byte) (*ReqOperation, error, ClusterErrorType)
 	return reqOperation, nil, NoneError
 }
 
-func respondOperation(req *cluster.RequestEvent, resp *RespOperation) {
+func (gc *GatewayCluster) respondOperation(req *cluster.RequestEvent, resp *RespOperation) {
 	if len(req.RequestPayload) == 0 {
 		// defensive programming
 		return
@@ -149,13 +149,15 @@ func respondOperation(req *cluster.RequestEvent, resp *RespOperation) {
 			req.RequestName, req.RequestNodeName, err)
 		return
 	}
+
+	logger.Debugf("[member %s responded operationMessage message]", gc.clusterConf.NodeName)
 }
 
-func respondOperationErr(req *cluster.RequestEvent, typ ClusterErrorType, msg string) {
+func (gc *GatewayCluster) respondOperationErr(req *cluster.RequestEvent, typ ClusterErrorType, msg string) {
 	resp := &RespOperation{
 		Err: newClusterError(msg, typ),
 	}
-	respondOperation(req, resp)
+	gc.respondOperation(req, resp)
 }
 
 func (gc *GatewayCluster) handleOperationRelay(req *cluster.RequestEvent) {
@@ -166,7 +168,7 @@ func (gc *GatewayCluster) handleOperationRelay(req *cluster.RequestEvent) {
 
 	reqOperation, err, errType := unpackReqOperation(req.RequestPayload[1:])
 	if err != nil {
-		respondOperationErr(req, errType, err.Error())
+		gc.respondOperationErr(req, errType, err.Error())
 		return
 	}
 
@@ -177,7 +179,7 @@ func (gc *GatewayCluster) handleOperationRelay(req *cluster.RequestEvent) {
 	}
 
 	if reqOperation.StartSeq-ms > uint64(gc.conf.OPLogMaxSeqGapToPull) {
-		respondOperationErr(req, OperationLogHugeGapError,
+		gc.respondOperationErr(req, OperationLogHugeGapError,
 			fmt.Sprintf("can not handle relayed operation request (sequence=%d) "+
 				"due to local oplog is too old (sequence=%d)", reqOperation.StartSeq, ms))
 		return
@@ -203,12 +205,12 @@ func (gc *GatewayCluster) handleOperationRelay(req *cluster.RequestEvent) {
 			logger.Errorf("[append operation to oplog (completely or partially) failed: %v]", err)
 		}
 
-		respondOperationErr(req, errType, err.Error())
+		gc.respondOperationErr(req, errType, err.Error())
 		return
 	}
 
 SUCCESS:
-	respondOperation(req, new(RespOperation))
+	gc.respondOperation(req, new(RespOperation))
 	return
 }
 
@@ -220,19 +222,19 @@ func (gc *GatewayCluster) handleOperation(req *cluster.RequestEvent) {
 
 	reqOperation, err, errType := unpackReqOperation(req.RequestPayload[1:])
 	if err != nil {
-		respondOperationErr(req, errType, err.Error())
+		gc.respondOperationErr(req, errType, err.Error())
 		return
 	}
 
 	err, errType = gc.log.append(reqOperation.StartSeq, []*Operation{reqOperation.Operation})
 	if err != nil {
 		logger.Errorf("[append operation to oplog (completely or partially) failed: %v]", err)
-		respondOperationErr(req, errType, err.Error())
+		gc.respondOperationErr(req, errType, err.Error())
 		return
 	}
 
 	if !reqOperation.OperateAllNodes {
-		respondOperation(req, new(RespOperation))
+		gc.respondOperation(req, new(RespOperation))
 		return
 	}
 
@@ -260,7 +262,7 @@ func (gc *GatewayCluster) handleOperation(req *cluster.RequestEvent) {
 	future, err := gc.cluster.Request(requestName, requestPayload, &requestParam)
 	if err != nil {
 		logger.Errorf("[send operagtion relay message failed: %v]", err)
-		respondOperationErr(req, InternalServerError, err.Error())
+		gc.respondOperationErr(req, InternalServerError, err.Error())
 		return
 	}
 
@@ -287,10 +289,10 @@ func (gc *GatewayCluster) handleOperation(req *cluster.RequestEvent) {
 	}
 
 	if correctMemberRespCount < len(membersRespBook) {
-		respondRetrieveErr(req, OperationPartiallyCompleteError,
+		gc.respondRetrieveErr(req, OperationPartiallyCompleteError,
 			fmt.Sprintf("partially succeed in %d nodes", correctMemberRespCount+1)) // add myself
 		return
 	}
 
-	respondOperation(req, new(RespOperation))
+	gc.respondOperation(req, new(RespOperation))
 }

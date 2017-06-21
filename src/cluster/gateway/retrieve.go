@@ -190,7 +190,7 @@ func unpackReqRetrieve(payload []byte) (*ReqRetrieve, error, ClusterErrorType) {
 	return reqRetrieve, nil, NoneError
 }
 
-func respondRetrieve(req *cluster.RequestEvent, resp *RespRetrieve) {
+func (gc *GatewayCluster) respondRetrieve(req *cluster.RequestEvent, resp *RespRetrieve) {
 	if len(req.RequestPayload) == 0 {
 		// defensive programming
 		return
@@ -208,13 +208,15 @@ func respondRetrieve(req *cluster.RequestEvent, resp *RespRetrieve) {
 			req.RequestName, req.RequestNodeName, err)
 		return
 	}
+
+	logger.Debugf("[member %s responded operationRelayMessage message]", gc.clusterConf.NodeName)
 }
 
-func respondRetrieveErr(req *cluster.RequestEvent, typ ClusterErrorType, msg string) {
+func (gc *GatewayCluster) respondRetrieveErr(req *cluster.RequestEvent, typ ClusterErrorType, msg string) {
 	resp := &RespRetrieve{
 		Err: newClusterError(msg, typ),
 	}
-	respondRetrieve(req, resp)
+	gc.respondRetrieve(req, resp)
 }
 
 func (gc *GatewayCluster) retrieveResult(filter interface{}) ([]byte, error, ClusterErrorType) {
@@ -362,17 +364,17 @@ func (gc *GatewayCluster) handleRetrieveRelay(req *cluster.RequestEvent) {
 
 	reqRetrieve, err, errType := unpackReqRetrieve(req.RequestPayload[1:])
 	if err != nil {
-		respondRetrieveErr(req, errType, err.Error())
+		gc.respondRetrieveErr(req, errType, err.Error())
 		return
 	}
 
 	resp, err, errType := gc.getLocalRetrieveResp(reqRetrieve)
 	if err != nil {
-		respondRetrieveErr(req, errType, err.Error())
+		gc.respondRetrieveErr(req, errType, err.Error())
 		return
 	}
 
-	respondRetrieve(req, resp)
+	gc.respondRetrieve(req, resp)
 }
 
 func (gc *GatewayCluster) handleRetrieve(req *cluster.RequestEvent) {
@@ -383,18 +385,18 @@ func (gc *GatewayCluster) handleRetrieve(req *cluster.RequestEvent) {
 
 	reqRetrieve, err, errType := unpackReqRetrieve(req.RequestPayload[1:])
 	if err != nil {
-		respondRetrieveErr(req, errType, err.Error())
+		gc.respondRetrieveErr(req, errType, err.Error())
 		return
 	}
 
 	resp, err, errType := gc.getLocalRetrieveResp(reqRetrieve)
 	if err != nil {
-		respondRetrieveErr(req, errType, err.Error())
+		gc.respondRetrieveErr(req, errType, err.Error())
 		return
 	}
 
 	if !reqRetrieve.RetrieveAllNodes {
-		respondRetrieve(req, resp)
+		gc.respondRetrieve(req, resp)
 		return
 	}
 
@@ -422,7 +424,7 @@ func (gc *GatewayCluster) handleRetrieve(req *cluster.RequestEvent) {
 	future, err := gc.cluster.Request(requestName, requestPayload, &requestParam)
 	if err != nil {
 		logger.Errorf("[send retrieve relay message failed: %v]", err)
-		respondRetrieveErr(req, InternalServerError, err.Error())
+		gc.respondRetrieveErr(req, InternalServerError, err.Error())
 		return
 	}
 
@@ -441,24 +443,24 @@ func (gc *GatewayCluster) handleRetrieve(req *cluster.RequestEvent) {
 	}
 
 	if correctMembersRespCount < len(membersRespBook) {
-		respondRetrieveErr(req, TimeoutError, "retrieve timeout")
+		gc.respondRetrieveErr(req, TimeoutError, "retrieve timeout")
 		return
 	}
 
 	respToCompare, err := cluster.PackWithHeader(resp, uint8(retrieveRelayMessage))
 	if err != nil {
 		logger.Errorf("[BUG: pack retrieve relay message failed: %v]", err)
-		respondRetrieveErr(req, InternalServerError, err.Error())
+		gc.respondRetrieveErr(req, InternalServerError, err.Error())
 		return
 	}
 
 	for _, payload := range membersRespBook {
 		if bytes.Compare(respToCompare, payload) != 0 {
-			respondRetrieveErr(req, RetrieveInconsistencyError,
+			gc.respondRetrieveErr(req, RetrieveInconsistencyError,
 				"retrieve results from different members are inconsistent")
 			return
 		}
 	}
 
-	respondRetrieve(req, resp)
+	gc.respondRetrieve(req, resp)
 }

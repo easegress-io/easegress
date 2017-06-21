@@ -101,7 +101,7 @@ func (e *ClusterError) Error() string {
 		return ""
 	}
 
-	return fmt.Sprintf("%s (type=%d)", e.Message, e.Type)
+	return fmt.Sprintf("%s (error type=%d)", e.Message, e.Type)
 }
 
 func newClusterError(msg string, errorType ClusterErrorType) *ClusterError {

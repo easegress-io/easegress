@@ -294,18 +294,18 @@ func (h *internalRequestHandler) handleMemberConflict(request *RequestEvent) {
 		return
 	}
 
-	if requestMsg.conflictNodeName == h.c.conf.NodeName {
+	if requestMsg.ConflictNodeName == h.c.conf.NodeName {
 		return
 	}
 
-	logger.Debugf("[received conflict resolution request for member %s]", requestMsg.conflictNodeName)
+	logger.Debugf("[received conflict resolution request for member %s]", requestMsg.ConflictNodeName)
 
 	responseMsg := messageMemberConflictResolvingResponse{}
 
 	h.c.membersLock.Lock()
-	ms, ok := h.c.members[requestMsg.conflictNodeName]
+	ms, ok := h.c.members[requestMsg.ConflictNodeName]
 	if ok {
-		responseMsg.member = &ms.Member
+		responseMsg.Member = &ms.Member
 	}
 	h.c.membersLock.Unlock()
 

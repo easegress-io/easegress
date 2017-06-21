@@ -345,7 +345,7 @@ func unpackReqStat(payload []byte) (*ReqStat, error, ClusterErrorType) {
 	return reqStat, nil, NoneError
 }
 
-func respondStat(req *cluster.RequestEvent, resp *RespStat) {
+func (gc *GatewayCluster) respondStat(req *cluster.RequestEvent, resp *RespStat) {
 	if len(req.RequestPayload) == 0 {
 		// defensive programming
 		return
@@ -363,13 +363,15 @@ func respondStat(req *cluster.RequestEvent, resp *RespStat) {
 			req.RequestName, req.RequestNodeName, err)
 		return
 	}
+
+	logger.Debugf("[member %s responded statMessage message]", gc.clusterConf.NodeName)
 }
 
-func respondStatErr(req *cluster.RequestEvent, typ ClusterErrorType, msg string) {
+func (gc *GatewayCluster) respondStatErr(req *cluster.RequestEvent, typ ClusterErrorType, msg string) {
 	resp := &RespStat{
 		Err: newClusterError(msg, typ),
 	}
-	respondStat(req, resp)
+	gc.respondStat(req, resp)
 }
 
 func (gc *GatewayCluster) statResult(filter interface{}) ([]byte, error, ClusterErrorType) {
@@ -575,17 +577,17 @@ func (gc *GatewayCluster) handleStatRelay(req *cluster.RequestEvent) {
 
 	reqStat, err, errType := unpackReqStat(req.RequestPayload[1:])
 	if err != nil {
-		respondStatErr(req, errType, err.Error())
+		gc.respondStatErr(req, errType, err.Error())
 		return
 	}
 
 	resp, err, errType := gc.getLocalStatResp(reqStat)
 	if err != nil {
-		respondStatErr(req, errType, err.Error())
+		gc.respondStatErr(req, errType, err.Error())
 		return
 	}
 
-	respondStat(req, resp)
+	gc.respondStat(req, resp)
 }
 
 func (gc *GatewayCluster) handleStat(req *cluster.RequestEvent) {
@@ -596,13 +598,13 @@ func (gc *GatewayCluster) handleStat(req *cluster.RequestEvent) {
 
 	reqStat, err, errType := unpackReqStat(req.RequestPayload[1:])
 	if err != nil {
-		respondStatErr(req, errType, err.Error())
+		gc.respondStatErr(req, errType, err.Error())
 		return
 	}
 
 	localResp, err, errType := gc.getLocalStatResp(reqStat)
 	if err != nil {
-		respondStatErr(req, errType, err.Error())
+		gc.respondStatErr(req, errType, err.Error())
 		return
 	}
 
@@ -629,7 +631,7 @@ func (gc *GatewayCluster) handleStat(req *cluster.RequestEvent) {
 	future, err := gc.cluster.Request(requestName, requestPayload, &requestParam)
 	if err != nil {
 		logger.Errorf("[send stat relay message failed: %v]", err)
-		respondRetrieveErr(req, InternalServerError, err.Error())
+		gc.respondRetrieveErr(req, InternalServerError, err.Error())
 		return
 	}
 
@@ -659,11 +661,11 @@ func (gc *GatewayCluster) handleStat(req *cluster.RequestEvent) {
 
 	ret := aggregateStatResponses(reqStat, validRespList)
 	if ret != nil {
-		respondRetrieveErr(req, InternalServerError, "aggreate statistics for cluster memebers failed")
+		gc.respondRetrieveErr(req, InternalServerError, "aggreate statistics for cluster memebers failed")
 		return
 	}
 
-	respondStat(req, ret)
+	gc.respondStat(req, ret)
 }
 
 type stateAggregator func(values ...[]byte) []byte

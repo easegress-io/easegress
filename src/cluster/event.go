@@ -93,19 +93,19 @@ type RequestEvent struct {
 
 func createRequestEvent(c *Cluster, msg *messageRequest) *RequestEvent {
 	ret := &RequestEvent{
-		RequestName:        msg.requestName,
-		RequestPayload:     msg.requestPayload,
-		RequestNodeName:    msg.requestNodeName,
+		RequestName:        msg.RequestName,
+		RequestPayload:     msg.RequestPayload,
+		RequestNodeName:    msg.RequestNodeName,
 		c:                  c,
-		requestId:          msg.requestId,
-		requestTime:        msg.requestTime,
-		requestFlags:       msg.requestFlags,
-		requestNodeAddress: msg.requestNodeAddress,
-		requestNodePort:    msg.requestNodePort,
-		responseRelayCount: msg.responseRelayCount,
+		requestId:          msg.RequestId,
+		requestTime:        msg.RequestTime,
+		requestFlags:       msg.RequestFlags,
+		requestNodeAddress: msg.RequestNodeAddress,
+		requestNodePort:    msg.RequestNodePort,
+		responseRelayCount: msg.ResponseRelayCount,
 	}
 
-	time.AfterFunc(msg.requestTimeout, func() {
+	time.AfterFunc(msg.RequestTimeout, func() {
 		ret.Lock()
 		defer ret.Unlock()
 		ret.closed = true
@@ -137,13 +137,13 @@ func (e *RequestEvent) Respond(payload []byte) error {
 	responder := e.c.memberList.LocalNode()
 
 	msg := messageResponse{
-		requestId:           e.requestId,
-		requestName:         e.RequestName,
-		requestTime:         e.requestTime,
-		responseNodeName:    responder.Name,
-		responseNodeAddress: responder.Addr,
-		responseNodePort:    responder.Port,
-		responsePayload:     payload,
+		RequestId:           e.requestId,
+		RequestName:         e.RequestName,
+		RequestTime:         e.requestTime,
+		ResponseNodeName:    responder.Name,
+		ResponseNodeAddress: responder.Addr,
+		ResponseNodePort:    responder.Port,
+		ResponsePayload:     payload,
 	}
 
 	var requester *memberlist.Node
@@ -192,10 +192,10 @@ func (e *RequestEvent) relay(responder, requester *memberlist.Node, responseMsgB
 	}
 
 	msg := messageRelay{
-		sourceNodeName:    responder.Name,
-		targetNodeAddress: requester.Addr,
-		targetNodePort:    requester.Port,
-		relayPayload:      responseMsgBuff,
+		SourceNodeName:    responder.Name,
+		TargetNodeAddress: requester.Addr,
+		TargetNodePort:    requester.Port,
+		RelayPayload:      responseMsgBuff,
 	}
 
 	buff, err := PackWithHeader(&msg, uint8(messageRelayMessage))
@@ -271,13 +271,13 @@ func (e *RequestEvent) ack() error {
 	responder := e.c.memberList.LocalNode()
 
 	msg := messageResponse{
-		requestId:           e.requestId,
-		requestName:         e.RequestName,
-		requestTime:         e.requestTime,
-		responseFlags:       uint32(ackResponseFlag),
-		responseNodeName:    responder.Name,
-		responseNodeAddress: responder.Addr,
-		responseNodePort:    responder.Port,
+		RequestId:           e.requestId,
+		RequestName:         e.RequestName,
+		RequestTime:         e.requestTime,
+		ResponseFlags:       uint32(ackResponseFlag),
+		ResponseNodeName:    responder.Name,
+		ResponseNodeAddress: responder.Addr,
+		ResponseNodePort:    responder.Port,
 	}
 
 	var requester *memberlist.Node

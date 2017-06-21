@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"io"
 
-	"github.com/hashicorp/go-msgpack/codec"
+	"github.com/ugorji/go/codec"
 )
 
 func msgPack(w io.Writer, obj interface{}) error {
@@ -17,14 +17,6 @@ func msgPack(w io.Writer, obj interface{}) error {
 func PackWithHeader(obj interface{}, header uint8) ([]byte, error) {
 	buff := bytes.NewBuffer(nil)
 	buff.WriteByte(header)
-
-	err := msgPack(buff, obj)
-
-	return buff.Bytes(), err
-}
-
-func Pack(obj interface{}) ([]byte, error) {
-	buff := bytes.NewBuffer(nil)
 
 	err := msgPack(buff, obj)
 

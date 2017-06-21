@@ -35,7 +35,7 @@ func unpackRespOPLogPull(payload []byte) (*RespOPLogPull, error) {
 	return respOPLogPull, nil
 }
 
-func respondOPLog(req *cluster.RequestEvent, resp *RespOPLogPull) {
+func (gc *GatewayCluster) respondOPLog(req *cluster.RequestEvent, resp *RespOPLogPull) {
 	if len(req.RequestPayload) == 0 {
 		// defensive programming
 		return
@@ -53,6 +53,8 @@ func respondOPLog(req *cluster.RequestEvent, resp *RespOPLogPull) {
 			req.RequestName, req.RequestNodeName, err)
 		return
 	}
+
+	logger.Debugf("[member %s responded opLogPullMessage message]", gc.clusterConf.NodeName)
 }
 
 func (gc *GatewayCluster) handleOPLogPull(req *cluster.RequestEvent) {
@@ -78,7 +80,7 @@ func (gc *GatewayCluster) handleOPLogPull(req *cluster.RequestEvent) {
 		return
 	}
 
-	respondOPLog(req, resp)
+	gc.respondOPLog(req, resp)
 }
 
 func (gc *GatewayCluster) chooseMemberToPull() *cluster.Member {

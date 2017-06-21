@@ -31,16 +31,21 @@ type opLog struct {
 
 func newOPLog() (*opLog, error) {
 	dir := filepath.Join(common.INVENTORY_HOME_DIR, "/oplog")
-	os.MkdirAll(dir, 0700)
+	err := os.MkdirAll(dir, 0770)
+	if err != nil {
+		return nil, err
+	}
 
 	opt := badger.DefaultOptions
 	opt.Dir = dir
+	opt.ValueDir = dir
 	opt.SyncWrites = true // consistence is more important than performance
 
 	logger.Debugf("[operation logs path: %s]", dir)
 
 	kv, err := badger.NewKV(&opt)
 	if err != nil {
+		logger.Debugf("=== %v", err)
 		return nil, err
 	}
 

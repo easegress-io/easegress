@@ -462,22 +462,22 @@ func (c *Cluster) resolveNodeConflict(knownNode, otherNode *memberlist.Node) {
 ////
 
 func (c *Cluster) operateNodeJoin(msg *messageMemberJoin) bool {
-	c.memberClock.Update(msg.joinTime)
+	c.memberClock.Update(msg.JoinTime)
 
 	c.membersLock.Lock()
 	defer c.membersLock.Unlock()
 
-	member, known := c.members[msg.nodeName]
+	member, known := c.members[msg.NodeName]
 	if !known {
-		return c.memberOperations.save(memberJoinMessage, msg.nodeName, msg.joinTime)
+		return c.memberOperations.save(memberJoinMessage, msg.NodeName, msg.JoinTime)
 	}
 
-	if member.lastMessageTime > msg.joinTime {
+	if member.lastMessageTime > msg.JoinTime {
 		// message is too old, ignore it
 		return false
 	}
 
-	member.lastMessageTime = msg.joinTime
+	member.lastMessageTime = msg.JoinTime
 
 	if member.Status == MemberLeaving {
 		member.Status = MemberAlive
@@ -487,22 +487,22 @@ func (c *Cluster) operateNodeJoin(msg *messageMemberJoin) bool {
 }
 
 func (c *Cluster) operateNodeLeave(msg *messageMemberLeave) bool {
-	c.memberClock.Update(msg.leaveTime)
+	c.memberClock.Update(msg.LeaveTime)
 
 	c.membersLock.Lock()
 	defer c.membersLock.Unlock()
 
-	ms, known := c.members[msg.nodeName]
+	ms, known := c.members[msg.NodeName]
 	if !known {
-		return c.memberOperations.save(memberLeaveMessage, msg.nodeName, msg.leaveTime)
+		return c.memberOperations.save(memberLeaveMessage, msg.NodeName, msg.LeaveTime)
 	}
 
-	if ms.lastMessageTime > msg.leaveTime {
+	if ms.lastMessageTime > msg.LeaveTime {
 		// message is too old, ignore it
 		return false
 	}
 
-	if msg.nodeName == c.conf.NodeName && c.NodeStatus() == NodeAlive {
+	if msg.NodeName == c.conf.NodeName && c.NodeStatus() == NodeAlive {
 		go c.broadcastMemberJoinMessage()
 		return false
 	}
@@ -510,11 +510,11 @@ func (c *Cluster) operateNodeLeave(msg *messageMemberLeave) bool {
 	switch ms.Status {
 	case MemberAlive:
 		ms.Status = MemberLeaving
-		ms.lastMessageTime = msg.leaveTime
+		ms.lastMessageTime = msg.LeaveTime
 		return true
 	case MemberFailed:
 		ms.Status = MemberLeft
-		ms.lastMessageTime = msg.leaveTime
+		ms.lastMessageTime = msg.LeaveTime
 
 		c.failedMembers.remove(ms.NodeName)
 		c.leftMembers.add(ms)
@@ -536,13 +536,15 @@ func (c *Cluster) operateNodeLeave(msg *messageMemberLeave) bool {
 }
 
 func (c *Cluster) operateRequest(msg *messageRequest) bool {
-	c.requestClock.Update(msg.requestTime)
+	c.requestClock.Update(msg.RequestTime)
 
 	c.requestLock.Lock()
 	defer c.requestLock.Unlock()
 
-	care := c.requestOperations.save(msg.requestId, msg.requestTime, c.requestClock.Time())
+	care := c.requestOperations.save(msg.RequestId, msg.RequestTime, c.requestClock.Time())
 	if !care {
+		logger.Debugf("[member %s (%s:%d) received request but not care]",
+			msg.RequestNodeName, msg.RequestNodeAddress, msg.RequestNodePort)
 		return false
 	}
 
@@ -563,13 +565,13 @@ func (c *Cluster) operateRequest(msg *messageRequest) bool {
 	}
 
 	logger.Debugf("[event %s happened for member %s (%s:%d)]",
-		RequestReceivedEvent, msg.requestNodeName, msg.requestNodeAddress, msg.requestNodePort)
+		RequestReceivedEvent, msg.RequestNodeName, msg.RequestNodeAddress, msg.RequestNodePort)
 
 	if c.conf.EventStream != nil {
 		c.conf.EventStream <- event
 
 		logger.Debugf("[event %s triggered for member %s (%s:%d)]",
-			RequestReceivedEvent, msg.requestNodeName, msg.requestNodeAddress, msg.requestNodePort)
+			RequestReceivedEvent, msg.RequestNodeName, msg.RequestNodeAddress, msg.RequestNodePort)
 	}
 
 	return ret
@@ -579,15 +581,15 @@ func (c *Cluster) operateResponse(msg *messageResponse) bool {
 	c.requestLock.RLock()
 	defer c.requestLock.RUnlock()
 
-	future, known := c.futures[msg.requestTime]
+	future, known := c.futures[msg.RequestTime]
 	if !known {
-		logger.Debugf("[response returned after request %s timeout, ignored]", msg.requestName)
+		logger.Debugf("[response returned after request %s timeout, ignored]", msg.RequestName)
 		return false
 	}
 
-	if future.requestId != msg.requestId {
+	if future.requestId != msg.RequestId {
 		logger.Warnf("[BUG: request id %d is mismatch with response %d, ignored]",
-			future.requestId, msg.requestId)
+			future.requestId, msg.RequestId)
 		return false
 	}
 
@@ -596,19 +598,19 @@ func (c *Cluster) operateResponse(msg *messageResponse) bool {
 	}
 
 	if msg.flag(ackResponseFlag) {
-		triggered, err := future.ack(msg.responseNodeName)
+		triggered, err := future.ack(msg.ResponseNodeName)
 		if err != nil {
 			logger.Errorf("[trigger response ack event failed: %v]", err)
 		}
 
 		if triggered {
 			logger.Debugf("[ack of request %s triggered for member %s (%s:%d)]",
-				msg.requestName, msg.responseNodeName, msg.responseNodePort)
+				msg.RequestName, msg.ResponseNodeName, msg.ResponseNodePort)
 		}
 	} else {
 		response := MemberResponse{
-			ResponseNodeName: msg.responseNodeName,
-			Payload:          msg.responsePayload,
+			ResponseNodeName: msg.ResponseNodeName,
+			Payload:          msg.ResponsePayload,
 		}
 
 		triggered, err := future.response(&response)
@@ -618,7 +620,7 @@ func (c *Cluster) operateResponse(msg *messageResponse) bool {
 
 		if triggered {
 			logger.Debugf("[response of request %s triggered for member %s (%s:%d)]",
-				msg.requestName, msg.responseNodeName, msg.responseNodeAddress, msg.responseNodePort)
+				msg.RequestName, msg.ResponseNodeName, msg.ResponseNodeAddress, msg.ResponseNodePort)
 		}
 	}
 
@@ -629,7 +631,7 @@ func (c *Cluster) operateRelay(msg *messageRelay) bool {
 	var target *memberlist.Node
 
 	for _, member := range c.memberList.Members() {
-		if member.Addr.Equal(msg.targetNodeAddress) && member.Port == msg.targetNodePort {
+		if member.Addr.Equal(msg.TargetNodeAddress) && member.Port == msg.TargetNodePort {
 			target = member
 			break
 		}
@@ -637,19 +639,19 @@ func (c *Cluster) operateRelay(msg *messageRelay) bool {
 
 	if target == nil {
 		logger.Warnf("[target member (%s:%d) is not available, ignored]",
-			msg.targetNodeAddress, msg.targetNodePort)
+			msg.TargetNodeAddress, msg.TargetNodePort)
 		return false
 	}
 
-	err := c.memberList.SendReliable(target, msg.relayPayload)
+	err := c.memberList.SendReliable(target, msg.RelayPayload)
 	if err != nil {
 		logger.Warnf("[forward a relay message to target member (%s:%s) failed, ignored: %v]",
-			msg.targetNodeAddress, msg.targetNodePort, err)
+			msg.TargetNodeAddress, msg.TargetNodePort, err)
 		return false
 	}
 
 	logger.Debugf("[forward a relay message to target member (%s:%d)]",
-		msg.targetNodeAddress, msg.targetNodePort)
+		msg.TargetNodeAddress, msg.TargetNodePort)
 
 	return false
 }
@@ -658,8 +660,8 @@ func (c *Cluster) operateRelay(msg *messageRelay) bool {
 
 func (c *Cluster) broadcastMemberJoinMessage() error {
 	msg := messageMemberJoin{
-		nodeName: c.conf.NodeName,
-		joinTime: c.memberClock.Time(),
+		NodeName: c.conf.NodeName,
+		JoinTime: c.memberClock.Time(),
 	}
 
 	// handle operation message locally
@@ -688,8 +690,8 @@ func (c *Cluster) broadcastMemberJoinMessage() error {
 
 func (c *Cluster) broadcastMemberLeaveMessage(nodeName string) error {
 	msg := messageMemberLeave{
-		nodeName:  nodeName,
-		leaveTime: c.memberClock.Time(),
+		NodeName:  nodeName,
+		LeaveTime: c.memberClock.Time(),
 	}
 
 	// handle operation message locally
@@ -732,16 +734,16 @@ func (c *Cluster) broadcastRequestMessage(requestId uint64, name string, request
 	source := c.memberList.LocalNode()
 
 	msg := messageRequest{
-		requestId:          requestId,
-		requestName:        name,
-		requestTime:        requestTime,
-		requestNodeName:    source.Name,
-		requestNodeAddress: source.Addr,
-		requestNodePort:    source.Port,
-		requestFlags:       flag,
-		responseRelayCount: param.ResponseRelayCount,
-		requestTimeout:     param.Timeout,
-		requestPayload:     payload,
+		RequestId:          requestId,
+		RequestName:        name,
+		RequestTime:        requestTime,
+		RequestNodeName:    source.Name,
+		RequestNodeAddress: source.Addr,
+		RequestNodePort:    source.Port,
+		RequestFlags:       flag,
+		ResponseRelayCount: param.ResponseRelayCount,
+		RequestTimeout:     param.Timeout,
+		RequestPayload:     payload,
 	}
 
 	err := msg.applyFilters(param)
@@ -791,7 +793,7 @@ func (c *Cluster) anyAlivePeerMembers() bool {
 
 func (c *Cluster) handleNodeConflict() {
 	msg := messageMemberConflictResolvingRequest{
-		conflictNodeName: c.conf.NodeName,
+		ConflictNodeName: c.conf.NodeName,
 	}
 
 	buff, err := PackWithHeader(&msg, uint8(memberConflictResolvingRequestMessage))
@@ -840,7 +842,7 @@ LOOP:
 				continue LOOP
 			}
 
-			if msg.member.Address.Equal(local.Addr) && msg.member.Port == local.Port {
+			if msg.Member.Address.Equal(local.Addr) && msg.Member.Port == local.Port {
 				vote++
 			}
 

@@ -26,23 +26,23 @@ const (
 ////
 
 type messageMemberJoin struct {
-	joinTime logicalTime
-	nodeName string
+	JoinTime logicalTime
+	NodeName string
 }
 
 ////
 
 type messageMemberLeave struct {
-	leaveTime logicalTime
-	nodeName  string
+	LeaveTime logicalTime
+	NodeName  string
 }
 
 ////
 
 type messagePushPull struct {
-	memberClockTime, requestClockTime logicalTime
-	memberLastMessageTimes            map[string]logicalTime
-	leftMemberNames                   []string
+	MemberClockTime, RequestClockTime logicalTime
+	MemberLastMessageTimes            map[string]logicalTime
+	LeftMemberNames                   []string
 }
 
 ////
@@ -51,7 +51,7 @@ type requestFilterType uint8
 
 const (
 	nodeNameFilter requestFilterType = iota
-	nodeTagsFilter
+	nodeTagFilter
 )
 
 type requestFlagType uint32
@@ -62,28 +62,32 @@ const (
 	unicastRequestFlag
 )
 
+type requestNodeNameFilter struct {
+	Name string
+}
+
 type requestNodeTagFilter struct {
-	name, valueRegex string
+	Name, ValueRegex string
 }
 
 type messageRequest struct {
-	requestId   uint64
-	requestName string
-	requestTime logicalTime
+	RequestId   uint64
+	RequestName string
+	RequestTime logicalTime
 
-	requestNodeName string
+	RequestNodeName string
 	// used to respond directly
-	requestNodeAddress net.IP
-	requestNodePort    uint16
+	RequestNodeAddress net.IP
+	RequestNodePort    uint16
 
 	// options
-	requestFilters     [][]byte
-	requestFlags       uint32
-	responseRelayCount uint
-	requestTimeout     time.Duration
+	RequestFilters     [][]byte
+	RequestFlags       uint32
+	ResponseRelayCount uint
+	RequestTimeout     time.Duration
 
 	// request payload of upper layer
-	requestPayload []byte
+	RequestPayload []byte
 }
 
 func (mr *messageRequest) applyFilters(param *RequestParam) error {
@@ -93,8 +97,12 @@ func (mr *messageRequest) applyFilters(param *RequestParam) error {
 
 	var filters [][]byte
 
-	if len(param.TargetNodeNames) > 0 {
-		buff, err := PackWithHeader(param.TargetNodeNames, uint8(nodeNameFilter))
+	for _, name := range param.TargetNodeNames {
+		filter := requestNodeNameFilter{
+			Name: name,
+		}
+
+		buff, err := PackWithHeader(&filter, uint8(nodeNameFilter))
 		if err != nil {
 			return err
 		}
@@ -104,10 +112,11 @@ func (mr *messageRequest) applyFilters(param *RequestParam) error {
 
 	for name, valueRegex := range param.TargetNodeTags {
 		filter := requestNodeTagFilter{
-			name, valueRegex,
+			Name:       name,
+			ValueRegex: valueRegex,
 		}
 
-		buff, err := PackWithHeader(&filter, uint8(nodeTagsFilter))
+		buff, err := PackWithHeader(&filter, uint8(nodeTagFilter))
 		if err != nil {
 			return err
 		}
@@ -115,13 +124,13 @@ func (mr *messageRequest) applyFilters(param *RequestParam) error {
 		filters = append(filters, buff)
 	}
 
-	mr.requestFilters = filters
+	mr.RequestFilters = filters
 
 	return nil
 }
 
 func (mr *messageRequest) flag(flag requestFlagType) bool {
-	return (mr.requestFlags & uint32(flag)) != 0
+	return (mr.RequestFlags & uint32(flag)) != 0
 }
 
 func (mr *messageRequest) filter(conf *Config) bool {
@@ -129,54 +138,61 @@ func (mr *messageRequest) filter(conf *Config) bool {
 		return false
 	}
 
-	for _, filter := range mr.requestFilters {
-		filterType := requestFilterType(filter[0])
+	nameFilter := false
+	nameMatched := false
 
-		switch filterType {
-		case nodeNameFilter:
-			var nodeNames []string
+	for _, filter := range mr.RequestFilters {
+		if requestFilterType(filter[0]) == nodeNameFilter {
+			nameFilter = true
 
-			err := Unpack(filter[1:], nodeNames)
+			nameFilter := new(requestNodeNameFilter)
+
+			err := Unpack(filter[1:], nameFilter)
 			if err != nil {
 				logger.Errorf("[unpack node name filter of request message failed: %v]", err)
-				return false
+				continue
 			}
 
-			for _, nodeName := range nodeNames {
-				if conf.NodeName == nodeName {
-					return true
-				}
+			if conf.NodeName == nameFilter.Name {
+				nameMatched = true
+				break
 			}
-
-			return false
-		case nodeTagsFilter:
-			var tags map[string]string
-
-			err := Unpack(filter[1:], tags)
-			if err != nil {
-				logger.Errorf("[unpack tag filter of request message failed: %v]", err)
-				return false
-			}
-
-			for tagName, tagValueRegex := range tags {
-				if len(tagValueRegex) == 0 {
-					tagValueRegex = `.*`
-				}
-
-				matched, _ := regexp.MatchString(tagValueRegex, conf.NodeTags[tagName])
-				if matched {
-					return true
-				}
-			}
-
-			return false
-		default:
-			logger.Errorf("[BUG: invalid request filter type %v, ignored]", filterType)
-			return false
 		}
 	}
 
-	return false
+	if nameFilter && !nameMatched {
+		return false
+	}
+
+	tagMatched := true
+
+	for _, filter := range mr.RequestFilters {
+		if requestFilterType(filter[0]) == nodeTagFilter {
+			tagFilter := new(requestNodeTagFilter)
+
+			err := Unpack(filter[1:], tagFilter)
+			if err != nil {
+				logger.Errorf("[unpack tag filter of request message failed: %v]", err)
+				continue
+			}
+
+			if len(tagFilter.ValueRegex) == 0 {
+				tagFilter.ValueRegex = `.*`
+			}
+
+			ok, _ := regexp.MatchString(tagFilter.ValueRegex, conf.NodeTags[tagFilter.Name])
+			if !ok {
+				tagMatched = false
+				break
+			}
+		}
+	}
+
+	if !nameFilter {
+		nameMatched = true
+	}
+
+	return nameMatched && tagMatched
 }
 
 ////
@@ -190,45 +206,45 @@ const (
 ////
 
 type messageResponse struct {
-	requestId   uint64
-	requestName string
-	requestTime logicalTime
+	RequestId   uint64
+	RequestName string
+	RequestTime logicalTime
 
 	// options
-	responseFlags       uint32
-	responseNodeName    string
-	responseNodeAddress net.IP
-	responseNodePort    uint16
+	ResponseFlags       uint32
+	ResponseNodeName    string
+	ResponseNodeAddress net.IP
+	ResponseNodePort    uint16
 
 	// response payload of upper layer
-	responsePayload []byte
+	ResponsePayload []byte
 }
 
 func (mr *messageResponse) flag(flag responseFlagType) bool {
-	return (mr.responseFlags & uint32(flag)) != 0
+	return (mr.ResponseFlags & uint32(flag)) != 0
 }
 
 ////
 
 type messageRelay struct {
-	sourceNodeName string
+	SourceNodeName string
 
-	targetNodeAddress net.IP
-	targetNodePort    uint16
+	TargetNodeAddress net.IP
+	TargetNodePort    uint16
 
-	relayPayload []byte
+	RelayPayload []byte
 }
 
 ////
 
 type messageMemberConflictResolvingRequest struct {
-	conflictNodeName string
+	ConflictNodeName string
 }
 
 ////
 
 type messageMemberConflictResolvingResponse struct {
-	member *Member
+	Member *Member
 }
 
 ////

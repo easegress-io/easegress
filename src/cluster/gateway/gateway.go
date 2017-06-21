@@ -18,8 +18,8 @@ func (m Mode) String() string {
 }
 
 const (
-	WriteMode Mode = "WriteMode"
-	ReadMode  Mode = "ReadMode"
+	WriteMode Mode = "Write"
+	ReadMode  Mode = "Read"
 
 	groupTagKey = "group"
 	modeTagKey  = "mode"
@@ -303,16 +303,20 @@ func (gc *GatewayCluster) restAliveMembersInSameGroup() (ret []*cluster.Member) 
 
 func (gc *GatewayCluster) handleQueryGroupMaxSeq(req *cluster.RequestEvent) {
 	ms := gc.log.maxSeq()
+
 	payload, err := cluster.PackWithHeader(RespQueryGroupMaxSeq(ms), uint8(queryGroupMaxSeqMessage))
 	if err != nil {
 		logger.Errorf("[BUG: PackWithHeader max sequence %d failed: %v]", ms, err)
 		return
 	}
+
 	err = req.Respond(payload)
 	if err != nil {
 		logger.Errorf("[repond max sequence to request %s, node %s failed: %v]",
 			req.RequestName, req.RequestNodeName, err)
 	}
+
+	logger.Debugf("[member %s responded queryGroupMaxSeqMessage message]", gc.clusterConf.NodeName)
 }
 
 // recordResp just records known response of member and ignore others.
