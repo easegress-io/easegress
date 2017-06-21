@@ -86,6 +86,7 @@ func Create(conf Config) (*Cluster, error) {
 		failedMembers:     createMemberStatusBook(conf.FailedMemberReconnectTimeout),
 		memberOperations:  createMemberOperationBook(conf.RecentMemberOperationTimeout),
 		requestOperations: createRequestOperationBook(conf.RecentRequestBookSize),
+		futures:           make(map[logicalTime]*Future),
 		stop:              make(chan struct{}),
 	}
 
@@ -205,28 +206,7 @@ func (c *Cluster) ForceLeave(nodeName string) error {
 }
 
 func (c *Cluster) Stop() error {
-	c.nodeStatusLock.Lock()
-	defer c.nodeStatusLock.Unlock()
-
-	switch c.nodeStatus {
-	case NodeShutdown:
-		return nil // already stop
-	case NodeAlive:
-		fallthrough // need to Leave() first
-	case NodeLeaving:
-		return fmt.Errorf("invalid node status")
-	}
-
-	err := c.memberList.Shutdown()
-	if err != nil {
-		return err
-	}
-
-	c.nodeStatus = NodeShutdown
-
-	close(c.stop)
-
-	return nil
+	return c.internalStop(true)
 }
 
 func (c *Cluster) Request(name string, payload []byte, param *RequestParam) (*Future, error) {
@@ -876,11 +856,41 @@ LOOP:
 	} else {
 		logger.Infof("[I lost the vote of node name conflict resolution, quit myself from the cluster]")
 
-		err := c.Stop()
+		err := c.internalStop(false)
 		if err != nil {
 			logger.Errorf("[quit myself from the cluster failed: %v", err)
 		}
 	}
+}
+
+func (c *Cluster) internalStop(needLeave bool) error {
+	c.nodeStatusLock.Lock()
+	defer c.nodeStatusLock.Unlock()
+
+	switch c.nodeStatus {
+	case NodeShutdown:
+		return nil // already stop
+	case NodeAlive:
+		if needLeave {
+			// need to Leave() first
+			return fmt.Errorf("invalid node status")
+		} else {
+			logger.Warnf("[stop cluster without leave]")
+		}
+	case NodeLeaving:
+		return fmt.Errorf("invalid node status")
+	}
+
+	err := c.memberList.Shutdown()
+	if err != nil {
+		return err
+	}
+
+	c.nodeStatus = NodeShutdown
+
+	close(c.stop)
+
+	return nil
 }
 
 ////

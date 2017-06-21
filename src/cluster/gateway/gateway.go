@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"cluster"
+	"common"
 	"logger"
 	"model"
 )
@@ -76,6 +77,12 @@ func NewGatewayCluster(conf Config, mod *model.Model) (*GatewayCluster, error) {
 	basisConf.EventStream = eventStream
 	basisConf.NodeTags[groupTagKey] = conf.ClusterGroup
 	basisConf.NodeTags[modeTagKey] = conf.ClusterMemberMode.String()
+	if common.Host != "localhost" {
+		basisConf.NodeName = common.Host
+	} else {
+		basisConf.AdvertiseAddress = "127.0.0.1"
+	}
+	basisConf.BindAddress = common.Host
 
 	basis, err := cluster.Create(*basisConf)
 	if err != nil {
@@ -99,6 +106,16 @@ func NewGatewayCluster(conf Config, mod *model.Model) (*GatewayCluster, error) {
 		eventStream: eventStream,
 	}
 
+	go func() {
+		select {
+		case <-gc.stopChan:
+			return
+		case <-gc.cluster.Stopped():
+			logger.Warnf("[stop the gateway cluster internally due to basis cluster is gone]")
+			gc.internalStop(false)
+		}
+	}()
+
 	go gc.dispatch()
 
 	if gc.Mode() == ReadMode {
@@ -117,6 +134,10 @@ func (gc *GatewayCluster) OPLog() *opLog {
 }
 
 func (gc *GatewayCluster) Stop() error {
+	return gc.internalStop(true)
+}
+
+func (gc *GatewayCluster) internalStop(stopBasis bool) error {
 	gc.statusLock.Lock()
 	defer gc.statusLock.Unlock()
 
@@ -126,21 +147,23 @@ func (gc *GatewayCluster) Stop() error {
 
 	close(gc.stopChan)
 
-	err := gc.cluster.Leave()
-	if err != nil {
-		return err
+	if stopBasis {
+		err := gc.cluster.Leave()
+		if err != nil {
+			return err
+		}
+
+		for gc.cluster.NodeStatus() != cluster.NodeLeft {
+			time.Sleep(100 * time.Millisecond)
+		}
+
+		err = gc.cluster.Stop()
+		if err != nil {
+			return err
+		}
 	}
 
-	for gc.cluster.NodeStatus() != cluster.NodeLeft {
-		time.Sleep(100 * time.Millisecond)
-	}
-
-	err = gc.cluster.Stop()
-	if err != nil {
-		return err
-	}
-
-	err = gc.log.close()
+	err := gc.log.close()
 	if err != nil {
 		return err
 	}
@@ -257,7 +280,10 @@ func (gc *GatewayCluster) localGroupName() string {
 
 func (gc *GatewayCluster) restAliveMembersInSameGroup() (ret []*cluster.Member) {
 	totalMembers := gc.cluster.Members()
+
 	groupName := gc.localGroupName()
+
+	var members []string
 
 	for _, member := range totalMembers {
 		if member.NodeTags[groupTagKey] == groupName &&
@@ -265,7 +291,12 @@ func (gc *GatewayCluster) restAliveMembersInSameGroup() (ret []*cluster.Member) 
 			member.NodeName != gc.clusterConf.NodeName {
 			ret = append(ret, &member)
 		}
+
+		members = append(members, fmt.Sprintf("%s (%s:%d) %s, %v",
+			member.NodeName, member.Address, member.Port, member.Status.String(), member.NodeTags))
 	}
+
+	logger.Debugf("[total memebers in cluster (count=%d): %v]", len(members), members)
 
 	return ret
 }
