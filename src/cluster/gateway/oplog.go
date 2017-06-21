@@ -30,8 +30,8 @@ type opLog struct {
 }
 
 func newOPLog() (*opLog, error) {
-	dir := filepath.Join(common.INVENTORY_HOME_DIR, "/badger_oplogs")
-	os.MkdirAll(dir, 0600)
+	dir := filepath.Join(common.INVENTORY_HOME_DIR, "/oplog")
+	os.MkdirAll(dir, 0700)
 
 	opt := badger.DefaultOptions
 	opt.Dir = dir
