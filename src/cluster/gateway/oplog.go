@@ -14,7 +14,7 @@ import (
 	"common"
 )
 
-type OperationAppended func(seq uint64, newOperation *Operation)
+type OperationAppended func(seq uint64, newOperation *Operation) error
 
 const (
 	maxSeqKey = "maxSeqKey"
@@ -117,7 +117,12 @@ func (op *opLog) append(startSeq uint64, operations []*Operation) (error, Cluste
 		}
 
 		for _, cb := range op.operationAppendedCallbacks {
-			cb.Callback().(OperationAppended)(startSeq+uint64(idx), operation)
+			err = cb.Callback().(OperationAppended)(startSeq+uint64(idx), operation)
+			if err != nil {
+				logger.Errorf("[operation (sequence=%d) failed: %v]", startSeq+uint64(idx), err)
+				return fmt.Errorf("operation (sequence=%d) failed: %v", startSeq+uint64(idx), err),
+					OperationFailureError
+			}
 		}
 	}
 

@@ -82,7 +82,8 @@ func (s *clusterAdminServer) retrieveOperationSequence(w rest.ResponseWriter, r 
 	if req.TimeoutSec == 0 {
 		req.TimeoutSec = 30
 	} else if req.TimeoutSec < 10 {
-		msg := fmt.Sprintf("timeout %d should greater than or equal to 10 senconds", req.TimeoutSec)
+		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
+			req.TimeoutSec)
 		rest.Error(w, msg, http.StatusBadRequest)
 		logger.Errorf("[%s]", msg)
 		return
@@ -141,7 +142,8 @@ func (s *clusterAdminServer) createPlugin(w rest.ResponseWriter, r *rest.Request
 	if req.TimeoutSec == 0 {
 		req.TimeoutSec = 30
 	} else if req.TimeoutSec < 10 {
-		msg := fmt.Sprintf("timeout %d should greater than or equal to 10 senconds", req.TimeoutSec)
+		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
+			req.TimeoutSec)
 		rest.Error(w, msg, http.StatusBadRequest)
 		logger.Errorf("[%s]", msg)
 		return
@@ -182,7 +184,8 @@ func (s *clusterAdminServer) retrievePlugins(w rest.ResponseWriter, r *rest.Requ
 	if req.TimeoutSec == 0 {
 		req.TimeoutSec = 30
 	} else if req.TimeoutSec < 10 {
-		msg := fmt.Sprintf("timeout %d should greater than or equal to 10 senconds", req.TimeoutSec)
+		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
+			req.TimeoutSec)
 		rest.Error(w, msg, http.StatusBadRequest)
 		logger.Errorf("[%s]", msg)
 		return
@@ -232,7 +235,8 @@ func (s *clusterAdminServer) retrievePlugin(w rest.ResponseWriter, r *rest.Reque
 	if req.TimeoutSec == 0 {
 		req.TimeoutSec = 30
 	} else if req.TimeoutSec < 10 {
-		msg := fmt.Sprintf("timeout %d should greater than or equal to 10 senconds", req.TimeoutSec)
+		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
+			req.TimeoutSec)
 		rest.Error(w, msg, http.StatusBadRequest)
 		logger.Errorf("[%s]", msg)
 		return
@@ -281,7 +285,8 @@ func (s *clusterAdminServer) updatePlugin(w rest.ResponseWriter, r *rest.Request
 	if req.TimeoutSec == 0 {
 		req.TimeoutSec = 30
 	} else if req.TimeoutSec < 10 {
-		msg := fmt.Sprintf("timeout %d should greater than or equal to 10 senconds", req.TimeoutSec)
+		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
+			req.TimeoutSec)
 		rest.Error(w, msg, http.StatusBadRequest)
 		logger.Errorf("[%s]", msg)
 		return
@@ -330,7 +335,8 @@ func (s *clusterAdminServer) deletePlugin(w rest.ResponseWriter, r *rest.Request
 	if req.TimeoutSec == 0 {
 		req.TimeoutSec = 30
 	} else if req.TimeoutSec < 10 {
-		msg := fmt.Sprintf("timeout %d should greater than or equal to 10 senconds", req.TimeoutSec)
+		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
+			req.TimeoutSec)
 		rest.Error(w, msg, http.StatusBadRequest)
 		logger.Errorf("[%s]", msg)
 		return
@@ -385,7 +391,8 @@ func (s *clusterAdminServer) createPipeline(w rest.ResponseWriter, r *rest.Reque
 	if req.TimeoutSec == 0 {
 		req.TimeoutSec = 30
 	} else if req.TimeoutSec < 10 {
-		msg := fmt.Sprintf("timeout %d should greater than or equal to 10 senconds", req.TimeoutSec)
+		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
+			req.TimeoutSec)
 		rest.Error(w, msg, http.StatusBadRequest)
 		logger.Errorf("[%s]", msg)
 		return
@@ -426,7 +433,8 @@ func (s *clusterAdminServer) retrievePipelines(w rest.ResponseWriter, r *rest.Re
 	if req.TimeoutSec == 0 {
 		req.TimeoutSec = 30
 	} else if req.TimeoutSec < 10 {
-		msg := fmt.Sprintf("timeout %d should greater than or equal to 10 senconds", req.TimeoutSec)
+		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
+			req.TimeoutSec)
 		rest.Error(w, msg, http.StatusBadRequest)
 		logger.Errorf("[%s]", msg)
 		return
@@ -476,7 +484,8 @@ func (s *clusterAdminServer) retrievePipeline(w rest.ResponseWriter, r *rest.Req
 	if req.TimeoutSec == 0 {
 		req.TimeoutSec = 30
 	} else if req.TimeoutSec < 10 {
-		msg := fmt.Sprintf("timeout %d should greater than or equal to 10 senconds", req.TimeoutSec)
+		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
+			req.TimeoutSec)
 		rest.Error(w, msg, http.StatusBadRequest)
 		logger.Errorf("[%s]", msg)
 		return
@@ -526,7 +535,8 @@ func (s *clusterAdminServer) updatePipeline(w rest.ResponseWriter, r *rest.Reque
 	if req.TimeoutSec == 0 {
 		req.TimeoutSec = 30
 	} else if req.TimeoutSec < 10 {
-		msg := fmt.Sprintf("timeout %d should greater than or equal to 10 senconds", req.TimeoutSec)
+		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
+			req.TimeoutSec)
 		rest.Error(w, msg, http.StatusBadRequest)
 		logger.Errorf("[%s]", msg)
 		return
@@ -575,7 +585,8 @@ func (s *clusterAdminServer) deletePipeline(w rest.ResponseWriter, r *rest.Reque
 	if req.TimeoutSec == 0 {
 		req.TimeoutSec = 30
 	} else if req.TimeoutSec < 10 {
-		msg := fmt.Sprintf("timeout %d should greater than or equal to 10 senconds", req.TimeoutSec)
+		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
+			req.TimeoutSec)
 		rest.Error(w, msg, http.StatusBadRequest)
 		logger.Errorf("[%s]", msg)
 		return
@@ -616,7 +627,8 @@ func (s *clusterAdminServer) retrievePluginTypes(w rest.ResponseWriter, r *rest.
 	if req.TimeoutSec == 0 {
 		req.TimeoutSec = 30
 	} else if req.TimeoutSec < 10 {
-		msg := fmt.Sprintf("timeout %d should greater than or equal to 10 senconds", req.TimeoutSec)
+		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
+			req.TimeoutSec)
 		rest.Error(w, msg, http.StatusBadRequest)
 		logger.Errorf("[%s]", msg)
 		return
@@ -657,7 +669,8 @@ func (s *clusterAdminServer) retrievePipelineTypes(w rest.ResponseWriter, r *res
 	if req.TimeoutSec == 0 {
 		req.TimeoutSec = 30
 	} else if req.TimeoutSec < 10 {
-		msg := fmt.Sprintf("timeout %d should greater than or equal to 10 senconds", req.TimeoutSec)
+		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
+			req.TimeoutSec)
 		rest.Error(w, msg, http.StatusBadRequest)
 		logger.Errorf("[%s]", msg)
 		return
