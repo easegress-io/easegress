@@ -153,6 +153,15 @@ func (gw *Gateway) Stop() {
 	gw.Lock()
 	defer gw.Unlock()
 
+	logger.Infof("[closing gateway cluster]")
+
+	err := gw.gc.Stop()
+	if err != nil {
+		logger.Errorf("[closing gateway cluster failed: %v]", err)
+	} else {
+		logger.Infof("[closed gateway cluster]")
+	}
+
 	logger.Infof("[stopping pipelines]")
 
 	for name, pipes := range gw.pipelines {
@@ -175,14 +184,6 @@ func (gw *Gateway) Stop() {
 	logger.Infof("[closing plugins]")
 	gw.mod.DismissAllPluginInstances()
 	logger.Infof("[closed plugins]")
-
-	logger.Infof("[closing gateway cluster]")
-	err := gw.gc.Stop()
-	if err != nil {
-		logger.Errorf("[closing gateway cluster failed: %v]", err)
-	} else {
-		logger.Infof("[closed gateway cluster]")
-	}
 
 	gw.done <- err
 }

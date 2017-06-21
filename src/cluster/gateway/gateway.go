@@ -135,7 +135,7 @@ func (gc *GatewayCluster) Stop() error {
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	err := gc.cluster.Stop()
+	err = gc.cluster.Stop()
 	if err != nil {
 		return err
 	}
