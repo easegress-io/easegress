@@ -33,10 +33,13 @@ const (
 	RetrievePluginNotFoundError
 
 	PipelineStatNotFoundError
+	RetrievePipelineStatIndicatorNotFoundError
 	RetrievePipelineStatValueError
 	RetrievePipelineStatDescError
+	RetrievePluginStatIndicatorNotFoundError
 	RetrievePluginStatValueError
 	RetrievePluginStatDescError
+	RetrieveTaskStatIndicatorNotFoundError
 	RetrieveTaskStatValueError
 	RetrieveTaskStatDescError
 )
@@ -87,18 +90,24 @@ func (t ClusterErrorType) HTTPStatusCode() int {
 
 	case PipelineStatNotFoundError:
 		ret = http.StatusNotFound
+	case RetrievePipelineStatIndicatorNotFoundError:
+		ret = http.StatusNotFound
 	case RetrievePipelineStatValueError:
-		ret = http.StatusInternalServerError
+		ret = http.StatusForbidden
 	case RetrievePipelineStatDescError:
+		ret = http.StatusForbidden
+	case RetrievePluginStatIndicatorNotFoundError:
 		ret = http.StatusNotFound
 	case RetrievePluginStatValueError:
-		ret = http.StatusInternalServerError
+		ret = http.StatusForbidden
 	case RetrievePluginStatDescError:
+		ret = http.StatusForbidden
+	case RetrieveTaskStatIndicatorNotFoundError:
 		ret = http.StatusNotFound
 	case RetrieveTaskStatValueError:
-		ret = http.StatusInternalServerError
+		ret = http.StatusForbidden
 	case RetrieveTaskStatDescError:
-		ret = http.StatusNotFound
+		ret = http.StatusForbidden
 	}
 
 	return ret

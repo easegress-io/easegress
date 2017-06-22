@@ -226,7 +226,7 @@ func (s *statisticsServer) retrievePipelineIndicatorNames(w rest.ResponseWriter,
 	if err != nil || len(pipelineName) == 0 {
 		msg := "invalid pipeline name"
 		rest.Error(w, msg, http.StatusBadRequest)
-		logger.Warnf("[%s]", msg)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 

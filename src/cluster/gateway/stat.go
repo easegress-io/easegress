@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"cluster"
+	"common"
 	"logger"
 )
 
@@ -402,12 +403,19 @@ func (gc *GatewayCluster) statResult(filter interface{}) ([]byte, error, Cluster
 				PipelineStatNotFoundError
 		}
 
+		indicatorNames := stat.PipelineIndicatorNames()
+		if !common.StrInSlice(filter.IndicatorName, indicatorNames) {
+			return nil, fmt.Errorf("indicator %s not found", filter.IndicatorName),
+				RetrievePipelineStatIndicatorNotFoundError
+		}
+
 		r := new(ResultStatIndicatorValue)
 		r.Value, err = stat.PipelineIndicatorValue(filter.IndicatorName)
 		if err != nil {
 			logger.Errorf("[retrieve the value of pipeline %s statistics indicator %s "+
 				"from model failed: %v]", filter.PipelineName, filter.IndicatorName, err)
-			return nil, err, RetrievePipelineStatValueError
+			return nil, fmt.Errorf("evaluate indicator %s value failed", filter.IndicatorName),
+				RetrievePipelineStatValueError
 		}
 
 		ret = r
@@ -418,12 +426,19 @@ func (gc *GatewayCluster) statResult(filter interface{}) ([]byte, error, Cluster
 				PipelineStatNotFoundError
 		}
 
+		indicatorNames := stat.PipelineIndicatorNames()
+		if !common.StrInSlice(filter.IndicatorName, indicatorNames) {
+			return nil, fmt.Errorf("indicator %s not found", filter.IndicatorName),
+				RetrievePipelineStatIndicatorNotFoundError
+		}
+
 		r := new(ResultStatIndicatorDesc)
 		r.Desc, err = stat.PipelineIndicatorDescription(filter.IndicatorName)
 		if err != nil {
 			logger.Errorf("[retrieve the description of pipeline %s statistics indicator %s "+
 				"from model failed: %v]", filter.PipelineName, filter.IndicatorName, err)
-			return nil, err, RetrievePipelineStatDescError
+			return nil, fmt.Errorf("describe indicator %s failed", filter.IndicatorName),
+				RetrievePipelineStatDescError
 		}
 
 		ret = r
@@ -448,13 +463,20 @@ func (gc *GatewayCluster) statResult(filter interface{}) ([]byte, error, Cluster
 				PipelineStatNotFoundError
 		}
 
+		indicatorNames := stat.PluginIndicatorNames(filter.PluginName)
+		if !common.StrInSlice(filter.IndicatorName, indicatorNames) {
+			return nil, fmt.Errorf("indicator %s not found", filter.IndicatorName),
+				RetrievePluginStatIndicatorNotFoundError
+		}
+
 		r := new(ResultStatIndicatorValue)
 		r.Value, err = stat.PluginIndicatorValue(filter.PluginName, filter.IndicatorName)
 		if err != nil {
 			logger.Errorf("[retrieve the value of plugin %s statistics indicator %s in pipeline %s "+
 				"from model failed: %v]", filter.PluginName, filter.IndicatorName,
 				filter.PipelineName, err)
-			return nil, err, RetrievePluginStatValueError
+			return nil, fmt.Errorf("evaluate indicator %s value failed", filter.IndicatorName),
+				RetrievePluginStatValueError
 		}
 
 		ret = r
@@ -465,13 +487,20 @@ func (gc *GatewayCluster) statResult(filter interface{}) ([]byte, error, Cluster
 				PipelineStatNotFoundError
 		}
 
+		indicatorNames := stat.PluginIndicatorNames(filter.PluginName)
+		if !common.StrInSlice(filter.IndicatorName, indicatorNames) {
+			return nil, fmt.Errorf("indicator %s not found", filter.IndicatorName),
+				RetrievePluginStatIndicatorNotFoundError
+		}
+
 		r := new(ResultStatIndicatorDesc)
 		r.Desc, err = stat.PluginIndicatorDescription(filter.PluginName, filter.IndicatorName)
 		if err != nil {
 			logger.Errorf("[retrieve the description of plugin %s statistics indicator %s "+
 				"in pipeline %s from model failed: %v]", filter.PluginName, filter.IndicatorName,
 				filter.PipelineName, err)
-			return nil, err, RetrievePluginStatDescError
+			return nil, fmt.Errorf("describe indicator %s failed", filter.IndicatorName),
+				RetrievePluginStatDescError
 		}
 
 		ret = r
@@ -496,12 +525,19 @@ func (gc *GatewayCluster) statResult(filter interface{}) ([]byte, error, Cluster
 				PipelineStatNotFoundError
 		}
 
+		indicatorNames := stat.TaskIndicatorNames()
+		if !common.StrInSlice(filter.IndicatorName, indicatorNames) {
+			return nil, fmt.Errorf("indicator %s not found", filter.IndicatorName),
+				RetrieveTaskStatIndicatorNotFoundError
+		}
+
 		r := new(ResultStatIndicatorValue)
 		r.Value, err = stat.TaskIndicatorValue(filter.IndicatorName)
 		if err != nil {
 			logger.Errorf("[retrieve the value of task statistics indicator %s in pipeline %s "+
 				"from model failed: %v]", filter.IndicatorName, filter.PipelineName, err)
-			return nil, err, RetrieveTaskStatValueError
+			return nil, fmt.Errorf("evaluate indicator %s value failed", filter.IndicatorName),
+				RetrieveTaskStatValueError
 		}
 
 		ret = r
@@ -512,12 +548,19 @@ func (gc *GatewayCluster) statResult(filter interface{}) ([]byte, error, Cluster
 				PipelineStatNotFoundError
 		}
 
+		indicatorNames := stat.TaskIndicatorNames()
+		if !common.StrInSlice(filter.IndicatorName, indicatorNames) {
+			return nil, fmt.Errorf("indicator %s not found", filter.IndicatorName),
+				RetrieveTaskStatIndicatorNotFoundError
+		}
+
 		r := new(ResultStatIndicatorDesc)
 		r.Desc, err = stat.TaskIndicatorDescription(filter.IndicatorName)
 		if err != nil {
 			logger.Errorf("[retrieve the description of task statistics indicator %s in pipeline %s "+
 				"from model failed: %v]", filter.IndicatorName, filter.PipelineName, err)
-			return nil, err, RetrieveTaskStatDescError
+			return nil, fmt.Errorf("describe indicator %s failed", filter.IndicatorName),
+				RetrieveTaskStatDescError
 		}
 
 		ret = r
@@ -660,7 +703,7 @@ func (gc *GatewayCluster) handleStat(req *cluster.RequestEvent) {
 	}
 
 	ret := aggregateStatResponses(reqStat, validRespList)
-	if ret != nil {
+	if ret == nil {
 		gc.respondRetrieveErr(req, InternalServerError, "aggreate statistics for cluster memebers failed")
 		return
 	}
