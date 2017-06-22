@@ -140,8 +140,7 @@ func (op *opLog) append(startSeq uint64, operations []*Operation) (error, Cluste
 					clusterErrType = OperationUnknownFailureError
 				}
 
-				return fmt.Errorf("operation (sequence=%d) failed: %v", startSeq+uint64(idx), err),
-					clusterErrType
+				return err, clusterErrType
 			}
 		}
 	}

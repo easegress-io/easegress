@@ -245,6 +245,8 @@ func (gc *GatewayCluster) retrieveResult(filter interface{}) ([]byte, error, Clu
 		}
 
 		r := new(ResultRetrievePlugins)
+		r.Plugins = make([]config.PluginSpec, 0)
+
 		for _, plug := range plugins {
 			spec := config.PluginSpec{
 				Type:   plug.Type(),
@@ -276,6 +278,8 @@ func (gc *GatewayCluster) retrieveResult(filter interface{}) ([]byte, error, Clu
 		}
 
 		r := new(ResultRetrievePipelines)
+		r.Pipelines = make([]config.PipelineSpec, 0)
+
 		for _, pipe := range pipelines {
 			spec := config.PipelineSpec{
 				Type:   pipe.Type(),
