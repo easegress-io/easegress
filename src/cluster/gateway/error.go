@@ -8,7 +8,7 @@ import (
 type ClusterErrorType uint8
 
 const (
-	NoneError ClusterErrorType = iota
+	NoneClusterError ClusterErrorType = iota
 
 	WrongMessageFormatError
 	InternalServerError
@@ -19,7 +19,11 @@ const (
 	OperationSeqConflictError
 	OperationInvalidSeqError
 	OperationInvalidContentError
-	OperationFailureError
+	OperationGeneralFailureError
+	OperationTargetNotFoundFailureError
+	OperationNotAcceptableFailureError
+	OperationConflictFailureError
+	OperationUnknownFailureError
 	OperationPartiallyCompleteError
 
 	RetrieveInconsistencyError
@@ -41,7 +45,7 @@ func (t ClusterErrorType) HTTPStatusCode() int {
 	ret := http.StatusInternalServerError
 
 	switch t {
-	case NoneError:
+	case NoneClusterError:
 		ret = http.StatusOK
 
 	case WrongMessageFormatError:
@@ -57,8 +61,16 @@ func (t ClusterErrorType) HTTPStatusCode() int {
 		ret = http.StatusConflict
 	case OperationInvalidContentError:
 		ret = http.StatusBadRequest
-	case OperationFailureError:
+	case OperationGeneralFailureError:
 		ret = http.StatusBadRequest
+	case OperationTargetNotFoundFailureError:
+		ret = http.StatusNotFound
+	case OperationNotAcceptableFailureError:
+		ret = http.StatusNotAcceptable
+	case OperationConflictFailureError:
+		ret = http.StatusConflict
+	case OperationUnknownFailureError:
+		ret = http.StatusInternalServerError
 	case OperationPartiallyCompleteError:
 		ret = http.StatusAccepted
 
@@ -113,3 +125,17 @@ func newClusterError(msg string, errorType ClusterErrorType) *ClusterError {
 		Type:    errorType,
 	}
 }
+
+////
+
+type OperationFailureType uint8
+
+const (
+	NoneOperationFailure = iota
+
+	OperationGeneralFailure
+	OperationTargetNotFoundFailure
+	OperationNotAcceptableFailure
+	OperationConflictFailure
+	OperationUnknownFailure
+)

@@ -187,7 +187,7 @@ func unpackReqRetrieve(payload []byte) (*ReqRetrieve, error, ClusterErrorType) {
 		return nil, fmt.Errorf("empty retieve filter"), InternalServerError
 	}
 
-	return reqRetrieve, nil, NoneError
+	return reqRetrieve, nil, NoneClusterError
 }
 
 func (gc *GatewayCluster) respondRetrieve(req *cluster.RequestEvent, resp *RespRetrieve) {
@@ -318,7 +318,7 @@ func (gc *GatewayCluster) retrieveResult(filter interface{}) ([]byte, error, Clu
 		return nil, fmt.Errorf("marshal retrieve result failed: %v", err), InternalServerError
 	}
 
-	return retBuff, nil, NoneError
+	return retBuff, nil, NoneClusterError
 }
 
 func (gc *GatewayCluster) getLocalRetrieveResp(reqRetrieve *ReqRetrieve) (*RespRetrieve, error, ClusterErrorType) {

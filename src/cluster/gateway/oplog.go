@@ -14,7 +14,7 @@ import (
 	"common"
 )
 
-type OperationAppended func(seq uint64, newOperation *Operation) error
+type OperationAppended func(seq uint64, newOperation *Operation) (error, OperationFailureType)
 
 const (
 	maxSeqKey = "maxSeqKey"
@@ -66,7 +66,7 @@ func (op *opLog) maxSeq() uint64 {
 
 func (op *opLog) append(startSeq uint64, operations []*Operation) (error, ClusterErrorType) {
 	if len(operations) == 0 {
-		return nil, NoneError
+		return nil, NoneClusterError
 	}
 
 	op.Lock()
@@ -117,16 +117,36 @@ func (op *opLog) append(startSeq uint64, operations []*Operation) (error, Cluste
 		}
 
 		for _, cb := range op.operationAppendedCallbacks {
-			err = cb.Callback().(OperationAppended)(startSeq+uint64(idx), operation)
+			err, failureType := cb.Callback().(OperationAppended)(startSeq+uint64(idx), operation)
 			if err != nil {
-				logger.Errorf("[operation (sequence=%d) failed: %v]", startSeq+uint64(idx), err)
+				logger.Errorf("[operation (sequence=%d) failed (failure type=%d): %v]",
+					startSeq+uint64(idx), failureType, err)
+
+				clusterErrType := InternalServerError
+
+				switch failureType {
+				case NoneOperationFailure:
+					logger.Errorf("[BUG: operation callback returns error without " +
+						"a certain failure type]")
+				case OperationGeneralFailure:
+					clusterErrType = OperationGeneralFailureError
+				case OperationTargetNotFoundFailure:
+					clusterErrType = OperationTargetNotFoundFailureError
+				case OperationNotAcceptableFailure:
+					clusterErrType = OperationNotAcceptableFailureError
+				case OperationConflictFailure:
+					clusterErrType = OperationConflictFailureError
+				case OperationUnknownFailure:
+					clusterErrType = OperationUnknownFailureError
+				}
+
 				return fmt.Errorf("operation (sequence=%d) failed: %v", startSeq+uint64(idx), err),
-					OperationFailureError
+					clusterErrType
 			}
 		}
 	}
 
-	return nil, NoneError
+	return nil, NoneClusterError
 }
 
 // retrieve logs whose sequence are [startSeq, MIN(max-sequence, startSeq + countLimit - 1)]
@@ -173,7 +193,7 @@ func (op *opLog) retrieve(startSeq, countLimit uint64) ([]*Operation, error, Clu
 		ret = append(ret, operation)
 	}
 
-	return ret, nil, NoneError
+	return ret, nil, NoneClusterError
 }
 
 func (op *opLog) close() error {

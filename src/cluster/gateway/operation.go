@@ -128,7 +128,7 @@ func unpackReqOperation(payload []byte) (*ReqOperation, error, ClusterErrorType)
 		return nil, fmt.Errorf("empty operation request"), InternalServerError
 	}
 
-	return reqOperation, nil, NoneError
+	return reqOperation, nil, NoneClusterError
 }
 
 func (gc *GatewayCluster) respondOperation(req *cluster.RequestEvent, resp *RespOperation) {

@@ -342,7 +342,7 @@ func unpackReqStat(payload []byte) (*ReqStat, error, ClusterErrorType) {
 		return nil, fmt.Errorf("empty statistics filter"), InternalServerError
 	}
 
-	return reqStat, nil, NoneError
+	return reqStat, nil, NoneClusterError
 }
 
 func (gc *GatewayCluster) respondStat(req *cluster.RequestEvent, resp *RespStat) {
@@ -531,7 +531,7 @@ func (gc *GatewayCluster) statResult(filter interface{}) ([]byte, error, Cluster
 		return nil, fmt.Errorf("marshal statistics result failed: %v", err), InternalServerError
 	}
 
-	return retBuff, nil, NoneError
+	return retBuff, nil, NoneClusterError
 }
 
 func (gc *GatewayCluster) getLocalStatResp(reqStat *ReqStat) (*RespStat, error, ClusterErrorType) {
