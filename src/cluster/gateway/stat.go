@@ -711,7 +711,7 @@ func (gc *GatewayCluster) handleStat(req *cluster.RequestEvent) {
 	gc.respondStat(req, ret)
 }
 
-type stateAggregator func(values ...[]byte) []byte
+type stateAggregator func(values ...[]byte) interface{}
 
 func aggregateStatResponses(reqStat *ReqStat, respStats []*RespStat) *RespStat {
 	var indicatorName string
@@ -838,18 +838,25 @@ func aggregateStatResponses(reqStat *ReqStat, respStats []*RespStat) *RespStat {
 			return nil
 		}
 
-		resp := new(RespStat)
-		resp.Value = aggregator(values...)
-		if resp.Value != nil {
-			return resp
+		result := new(ResultStatIndicatorValue)
+		result.Value = aggregator(values...)
+		if result.Value == nil {
+			return nil
 		}
-		return nil
+
+		resp := new(RespStat)
+		var err error
+		resp.Value, err = json.Marshal(result)
+		if err != nil {
+			return nil
+		}
+		return resp
 	}
 
 	return nil
 }
 
-func numericMax(typ interface{}, values ...[]byte) []byte {
+func numericMax(typ interface{}, values ...[]byte) interface{} {
 	if len(values) == 0 {
 		// defensive programming
 		return nil
@@ -910,15 +917,10 @@ func numericMax(typ interface{}, values ...[]byte) []byte {
 		return nil
 	}
 
-	retBuff, err := json.Marshal(ret)
-	if err != nil {
-		return nil
-	}
-
-	return retBuff
+	return ret
 }
 
-func numericMin(typ interface{}, values ...[]byte) []byte {
+func numericMin(typ interface{}, values ...[]byte) interface{} {
 	if len(values) == 0 {
 		// defensive programming
 		return nil
@@ -979,15 +981,10 @@ func numericMin(typ interface{}, values ...[]byte) []byte {
 		return nil
 	}
 
-	retBuff, err := json.Marshal(ret)
-	if err != nil {
-		return nil
-	}
-
-	return retBuff
+	return ret
 }
 
-func numericSum(typ interface{}, values ...[]byte) []byte {
+func numericSum(typ interface{}, values ...[]byte) interface{} {
 	if len(values) == 0 {
 		// defensive programming
 		return nil
@@ -1040,15 +1037,10 @@ func numericSum(typ interface{}, values ...[]byte) []byte {
 		return nil
 	}
 
-	retBuff, err := json.Marshal(ret)
-	if err != nil {
-		return nil
-	}
-
-	return retBuff
+	return ret
 }
 
-func numericAvg(typ interface{}, values ...[]byte) []byte {
+func numericAvg(typ interface{}, values ...[]byte) interface{} {
 	if len(values) == 0 {
 		// defensive programming
 		return nil
@@ -1116,63 +1108,58 @@ func numericAvg(typ interface{}, values ...[]byte) []byte {
 		return nil
 	}
 
-	retBuff, err := json.Marshal(ret)
-	if err != nil {
-		return nil
-	}
-
-	return retBuff
+	return ret
 }
 
-func maxFloat64(values ...[]byte) []byte {
+func maxFloat64(values ...[]byte) interface{} {
 	return numericMax(float64(0), values...)
 }
 
-func minFloat64(values ...[]byte) []byte {
+func minFloat64(values ...[]byte) interface{} {
 	return numericMin(float64(0), values...)
 }
 
-func sumFloat64(values ...[]byte) []byte {
+func sumFloat64(values ...[]byte) interface{} {
 	return numericSum(float64(0), values...)
 }
 
-func avgFloat64(values ...[]byte) []byte {
+func avgFloat64(values ...[]byte) interface{} {
 	return numericAvg(float64(0), values...)
 }
 
 ////
 
-func maxUint64(values ...[]byte) []byte {
+func maxUint64(values ...[]byte) interface{} {
 	return numericMax(uint64(0), values...)
 }
 
-func minUint64(values ...[]byte) []byte {
+func minUint64(values ...[]byte) interface{} {
 	return numericMin(uint64(0), values...)
 }
 
-func sumUint64(values ...[]byte) []byte {
+func sumUint64(values ...[]byte) interface{} {
 	return numericSum(uint64(0), values...)
 }
 
-func avgUint64(values ...[]byte) []byte {
+func avgUint64(values ...[]byte) interface{} {
 	return numericAvg(uint64(0), values...)
 }
 
 ////
 
-func maxInt64(values ...[]byte) []byte {
+func maxInt64(values ...[]byte) interface{} {
 	return numericMax(int64(0), values...)
 }
 
-func minInt64(values ...[]byte) []byte {
+func minInt64(values ...[]byte) interface{} {
 	return numericMin(int64(0), values...)
 }
 
-func sumInt64(values ...[]byte) []byte {
+func sumInt64(values ...[]byte) interface{} {
 	return numericSum(int64(0), values...)
 }
 
-func avgInt64(values ...[]byte) []byte {
+func avgInt64(values ...[]byte) interface{} {
 	return numericAvg(int64(0), values...)
 }
 
