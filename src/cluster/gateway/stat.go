@@ -143,9 +143,9 @@ func (gc *GatewayCluster) issueStat(group string, timeout time.Duration,
 		ret := new(ResultStatIndicatorNames)
 		err = json.Unmarshal(resp.Names, ret)
 		if err != nil {
-			logger.Errorf("[BUG: unmarsh stat pipeline indicator names response failed: %v]", err)
+			logger.Errorf("[BUG: unmarshal stat pipeline indicator names response failed: %v]", err)
 			return nil, newClusterError(
-				fmt.Sprintf("unmarsh stat pipeline indicator names response failed: %v", err),
+				fmt.Sprintf("unmarshal stat pipeline indicator names response failed: %v", err),
 				InternalServerError)
 		}
 
@@ -154,9 +154,9 @@ func (gc *GatewayCluster) issueStat(group string, timeout time.Duration,
 		ret := new(ResultStatIndicatorValue)
 		err = json.Unmarshal(resp.Value, ret)
 		if err != nil {
-			logger.Errorf("[BUG: unmarsh stat pipeline indicator value response failed: %v]", err)
+			logger.Errorf("[BUG: unmarshal stat pipeline indicator value response failed: %v]", err)
 			return nil, newClusterError(
-				fmt.Sprintf("unmarsh stat pipeline indicator value response failed: %v", err),
+				fmt.Sprintf("unmarshal stat pipeline indicator value response failed: %v", err),
 				InternalServerError)
 		}
 
@@ -165,9 +165,9 @@ func (gc *GatewayCluster) issueStat(group string, timeout time.Duration,
 		ret := new(ResultStatIndicatorDesc)
 		err = json.Unmarshal(resp.Desc, ret)
 		if err != nil {
-			logger.Errorf("[BUG: unmarsh stat pipeline indicator desc response failed: %v]", err)
+			logger.Errorf("[BUG: unmarshal stat pipeline indicator desc response failed: %v]", err)
 			return nil, newClusterError(
-				fmt.Sprintf("unmarsh stat pipeline indicator desc response failed: %v", err),
+				fmt.Sprintf("unmarshal stat pipeline indicator desc response failed: %v", err),
 				InternalServerError)
 		}
 
@@ -177,9 +177,9 @@ func (gc *GatewayCluster) issueStat(group string, timeout time.Duration,
 		ret := new(ResultStatIndicatorNames)
 		err = json.Unmarshal(resp.Names, ret)
 		if err != nil {
-			logger.Errorf("[BUG: unmarsh stat plugin indicator names response failed: %v]", err)
+			logger.Errorf("[BUG: unmarshal stat plugin indicator names response failed: %v]", err)
 			return nil, newClusterError(
-				fmt.Sprintf("unmarsh stat plugin indicator names response failed: %v", err),
+				fmt.Sprintf("unmarshal stat plugin indicator names response failed: %v", err),
 				InternalServerError)
 		}
 
@@ -188,9 +188,9 @@ func (gc *GatewayCluster) issueStat(group string, timeout time.Duration,
 		ret := new(ResultStatIndicatorValue)
 		err = json.Unmarshal(resp.Value, ret)
 		if err != nil {
-			logger.Errorf("[BUG: unmarsh stat plugin indicator value response failed: %v]", err)
+			logger.Errorf("[BUG: unmarshal stat plugin indicator value response failed: %v]", err)
 			return nil, newClusterError(
-				fmt.Sprintf("unmarsh stat plugin indicator value response failed: %v", err),
+				fmt.Sprintf("unmarshal stat plugin indicator value response failed: %v", err),
 				InternalServerError)
 		}
 
@@ -199,9 +199,9 @@ func (gc *GatewayCluster) issueStat(group string, timeout time.Duration,
 		ret := new(ResultStatIndicatorDesc)
 		err = json.Unmarshal(resp.Desc, ret)
 		if err != nil {
-			logger.Errorf("[BUG: unmarsh stat plugin indicator desc response failed: %v]", err)
+			logger.Errorf("[BUG: unmarshal stat plugin indicator desc response failed: %v]", err)
 			return nil, newClusterError(
-				fmt.Sprintf("unmarsh stat plugin indicator desc response failed: %v", err),
+				fmt.Sprintf("unmarshal stat plugin indicator desc response failed: %v", err),
 				InternalServerError)
 		}
 
@@ -211,9 +211,9 @@ func (gc *GatewayCluster) issueStat(group string, timeout time.Duration,
 		ret := new(ResultStatIndicatorNames)
 		err = json.Unmarshal(resp.Names, ret)
 		if err != nil {
-			logger.Errorf("[BUG: unmarsh stat task indicator names response failed: %v]", err)
+			logger.Errorf("[BUG: unmarshal stat task indicator names response failed: %v]", err)
 			return nil, newClusterError(
-				fmt.Sprintf("unmarsh stat task indicator names response failed: %v", err),
+				fmt.Sprintf("unmarshal stat task indicator names response failed: %v", err),
 				InternalServerError)
 		}
 
@@ -222,9 +222,9 @@ func (gc *GatewayCluster) issueStat(group string, timeout time.Duration,
 		ret := new(ResultStatIndicatorValue)
 		err = json.Unmarshal(resp.Value, ret)
 		if err != nil {
-			logger.Errorf("[BUG: unmarsh stat task indicator value response failed: %v]", err)
+			logger.Errorf("[BUG: unmarshal stat task indicator value response failed: %v]", err)
 			return nil, newClusterError(
-				fmt.Sprintf("unmarsh stat task indicator value response failed: %v", err),
+				fmt.Sprintf("unmarshal stat task indicator value response failed: %v", err),
 				InternalServerError)
 		}
 
@@ -233,16 +233,16 @@ func (gc *GatewayCluster) issueStat(group string, timeout time.Duration,
 		ret := new(ResultStatIndicatorDesc)
 		err = json.Unmarshal(resp.Desc, ret)
 		if err != nil {
-			logger.Errorf("[BUG: unmarsh stat task indicator desc response failed: %v]", err)
+			logger.Errorf("[BUG: unmarshal stat task indicator desc response failed: %v]", err)
 			return nil, newClusterError(
-				fmt.Sprintf("unmarsh stat task indicator desc response failed: %v", err),
+				fmt.Sprintf("unmarshal stat task indicator desc response failed: %v", err),
 				InternalServerError)
 		}
 
 		return ret, nil
 	}
 
-	return nil, newClusterError(fmt.Sprintf("unmarsh stat response failed: %v", err), InternalServerError)
+	return nil, newClusterError(fmt.Sprintf("unmarshal stat response failed: %v", err), InternalServerError)
 }
 
 // for core
