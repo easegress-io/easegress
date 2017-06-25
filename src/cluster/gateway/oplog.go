@@ -200,6 +200,10 @@ func (op *opLog) close() error {
 
 ////
 
+func (op *opLog) MaxSeq() uint64 {
+	return op._locklessMaxSeq()
+}
+
 func (op *opLog) AddOPLogAppendedCallback(name string, callback OperationAppended, overwrite bool) OperationAppended {
 	op.Lock()
 	defer op.Unlock()

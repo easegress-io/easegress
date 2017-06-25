@@ -404,7 +404,7 @@ func (gc *GatewayCluster) handleRetrieve(req *cluster.RequestEvent) {
 		return
 	}
 
-	requestMembers := gc.restAliveMembersInSameGroup()
+	requestMembers := gc.RestAliveMembersInSameGroup()
 	requestMemberNames := make([]string, 0)
 	for _, member := range requestMembers {
 		requestMemberNames = append(requestMemberNames, member.NodeName)

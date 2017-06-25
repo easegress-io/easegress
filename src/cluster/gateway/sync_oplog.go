@@ -84,7 +84,7 @@ func (gc *GatewayCluster) handleOPLogPull(req *cluster.RequestEvent) {
 }
 
 func (gc *GatewayCluster) chooseMemberToPull() *cluster.Member {
-	members := gc.restAliveMembersInSameGroup()
+	members := gc.RestAliveMembersInSameGroup()
 
 	if len(members) == 0 {
 		return nil

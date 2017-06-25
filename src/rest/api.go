@@ -39,7 +39,7 @@ func (s *Rest) Start() (<-chan error, string, error) {
 		logger.Errorf("[create statistics rest server failed: %v", err)
 		return nil, "", err
 	}
-	healthCheckServer, err := newHealthCheckServer(s.gateway)
+	healthCheckServer, err := newHealthCheckServer(s.gateway, s.gc)
 	if err != nil {
 		logger.Errorf("[create healthcheck rest server failed: %v", err)
 		return nil, "", err

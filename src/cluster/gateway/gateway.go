@@ -137,6 +137,10 @@ func NewGatewayCluster(conf Config, mod *model.Model) (*GatewayCluster, error) {
 	return gc, nil
 }
 
+func (gc *GatewayCluster) NodeName() string {
+	return gc.clusterConf.NodeName
+}
+
 func (gc *GatewayCluster) Mode() Mode {
 	return gc.mode
 }
@@ -290,7 +294,7 @@ func (gc *GatewayCluster) localGroupName() string {
 	return gc.cluster.GetConfig().NodeTags[groupTagKey]
 }
 
-func (gc *GatewayCluster) restAliveMembersInSameGroup() (ret []cluster.Member) {
+func (gc *GatewayCluster) RestAliveMembersInSameGroup() (ret []cluster.Member) {
 	totalMembers := gc.cluster.Members()
 
 	groupName := gc.localGroupName()
