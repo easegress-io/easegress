@@ -59,7 +59,7 @@ func (s *healthCheckServer) info(w rest.ResponseWriter, req *rest.Request) {
 		groupMaxSeqStr = fmt.Sprintf("%d", groupMaxSeq)
 	}
 
-	// keep same datatype of group_sequence_snapshot for client
+	// keep same datatype of group max sequence for client
 	localMaxSeqStr := fmt.Sprintf("%d", s.gc.OPLog().MaxSeq())
 
 	members := make([]string, 0)
