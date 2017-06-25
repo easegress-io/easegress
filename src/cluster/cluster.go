@@ -472,7 +472,7 @@ func (c *Cluster) operateNodeJoin(msg *messageMemberJoin) bool {
 		return c.memberOperations.save(memberJoinMessage, msg.NodeName, msg.JoinTime)
 	}
 
-	if member.lastMessageTime > msg.JoinTime {
+	if msg.JoinTime <= member.lastMessageTime {
 		// message is too old, ignore it
 		return false
 	}
@@ -669,7 +669,6 @@ func (c *Cluster) broadcastMemberJoinMessage() error {
 
 	// send out the node join message
 	sentNotify := make(chan struct{})
-	defer close(sentNotify)
 
 	err := fanoutMessage(c.memberMessageSendQueue, &msg, memberJoinMessage, sentNotify)
 	if err != nil {
@@ -704,7 +703,6 @@ func (c *Cluster) broadcastMemberLeaveMessage(nodeName string) error {
 
 	// send out the node leave message
 	sentNotify := make(chan struct{})
-	defer close(sentNotify)
 
 	err := fanoutMessage(c.memberMessageSendQueue, &msg, memberLeaveMessage, sentNotify)
 	if err != nil {
