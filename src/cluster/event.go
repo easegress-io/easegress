@@ -236,7 +236,8 @@ LOOP:
 	}
 
 	if len(relayMembers) != int(e.responseRelayCount) {
-		logger.Warnf("[only %d member(s) can be selected to relay message, request requires %d relier]",
+		logger.Warnf("[only %d member(s) can be selected to relay message, request requires %d relier, " +
+			"skip relay]",
 			len(relayMembers), e.responseRelayCount)
 	}
 

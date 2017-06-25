@@ -647,8 +647,7 @@ func (gc *GatewayCluster) handleStat(req *cluster.RequestEvent) {
 
 	localResp, err, errType := gc.getLocalStatResp(reqStat)
 	if err != nil {
-		gc.respondStatErr(req, errType, err.Error())
-		return
+		logger.Warnf("[get local statistics failed: %v]", err)
 	}
 
 	requestMembers := gc.restAliveMembersInSameGroup()
@@ -686,7 +685,10 @@ func (gc *GatewayCluster) handleStat(req *cluster.RequestEvent) {
 	gc.recordResp(requestName, future, membersRespBook)
 
 	var validRespList []*RespStat
-	validRespList = append(validRespList, localResp)
+
+	if localResp != nil {
+		validRespList = append(validRespList, localResp)
+	}
 
 	for _, payload := range membersRespBook {
 		if len(payload) == 0 {
