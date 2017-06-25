@@ -45,7 +45,6 @@ func newOPLog() (*opLog, error) {
 
 	kv, err := badger.NewKV(&opt)
 	if err != nil {
-		logger.Debugf("=== %v", err)
 		return nil, err
 	}
 
