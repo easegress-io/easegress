@@ -20,27 +20,27 @@ func init() {
 // for api
 func (gc *GatewayCluster) chooseMemberToAggregateStat(group string) (*cluster.Member, error) {
 	totalMembers := gc.cluster.Members()
-	var readMembers, writeMembers []*cluster.Member
+	var readMembers, writeMembers []cluster.Member
 
 	for _, member := range totalMembers {
 		if member.NodeTags[groupTagKey] == group &&
 			member.Status == cluster.MemberAlive {
 			if member.NodeTags[modeTagKey] == ReadMode.String() {
-				readMembers = append(readMembers, &member)
+				readMembers = append(readMembers, member)
 			} else {
-				writeMembers = append(writeMembers, &member)
+				writeMembers = append(writeMembers, member)
 			}
 		}
 	}
 
 	// choose read mode member preferentially to reduce load of member under write mode
 	if len(readMembers) > 0 {
-		return readMembers[rand.Int()%len(readMembers)], nil
+		return &readMembers[rand.Int()%len(readMembers)], nil
 	}
 
 	// have to choose only alive WriteMode member
 	if len(writeMembers) > 0 {
-		return writeMembers[rand.Int()%len(writeMembers)], nil
+		return &writeMembers[rand.Int()%len(writeMembers)], nil
 	}
 
 	return nil, fmt.Errorf("none of members is alive to aggregate statistics")

@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -289,7 +290,7 @@ func (gc *GatewayCluster) localGroupName() string {
 	return gc.cluster.GetConfig().NodeTags[groupTagKey]
 }
 
-func (gc *GatewayCluster) restAliveMembersInSameGroup() (ret []*cluster.Member) {
+func (gc *GatewayCluster) restAliveMembersInSameGroup() (ret []cluster.Member) {
 	totalMembers := gc.cluster.Members()
 
 	groupName := gc.localGroupName()
@@ -300,14 +301,15 @@ func (gc *GatewayCluster) restAliveMembersInSameGroup() (ret []*cluster.Member) 
 		if member.NodeTags[groupTagKey] == groupName &&
 			member.Status == cluster.MemberAlive &&
 			member.NodeName != gc.clusterConf.NodeName {
-			ret = append(ret, &member)
+
+			ret = append(ret, member)
 		}
 
 		members = append(members, fmt.Sprintf("%s (%s:%d) %s, %v",
 			member.NodeName, member.Address, member.Port, member.Status.String(), member.NodeTags))
 	}
 
-	logger.Debugf("[total memebers in cluster (count=%d): %v]", len(members), members)
+	logger.Debugf("[total memebers in cluster (count=%d): %v]", len(members), strings.Join(members, ", "))
 
 	return ret
 }

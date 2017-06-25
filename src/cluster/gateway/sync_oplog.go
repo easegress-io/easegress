@@ -65,7 +65,7 @@ func (gc *GatewayCluster) handleOPLogPull(req *cluster.RequestEvent) {
 
 	reqOPLogPull, err := unpackReqOPLogPull(req.RequestPayload)
 	if err != nil {
-		logger.Errorf("[BUG: invalid pull_oplog %s requested from %d: %v]",
+		logger.Errorf("[BUG: invalid pull_oplog %s requested from %s: %v]",
 			req.RequestName, req.RequestNodeName, err)
 		// swallow the failure, requester will wait to timeout and retry later
 		return
@@ -76,7 +76,7 @@ func (gc *GatewayCluster) handleOPLogPull(req *cluster.RequestEvent) {
 	resp.SequentialOperations, err, _ = gc.log.retrieve(reqOPLogPull.StartSeq, reqOPLogPull.CountLimit)
 	if err != nil {
 		logger.Errorf("[retrieve sequential operation(s) from oplog failed: %v]", err)
-		// swallow the failure, requester will wait to timeout and retry later
+		// swallow the failure, requester will wait until timeout and retry later
 		return
 	}
 
@@ -84,7 +84,6 @@ func (gc *GatewayCluster) handleOPLogPull(req *cluster.RequestEvent) {
 }
 
 func (gc *GatewayCluster) chooseMemberToPull() *cluster.Member {
-	r := rand.Int()
 	members := gc.restAliveMembersInSameGroup()
 
 	if len(members) == 0 {
@@ -92,19 +91,20 @@ func (gc *GatewayCluster) chooseMemberToPull() *cluster.Member {
 	}
 
 	var member *cluster.Member
+	r := rand.Int()
 
 	// about half of the probability to choose WriteMode node
 	if r%2 != 0 {
 		for _, m := range members {
 			if m.NodeTags[modeTagKey] == WriteMode.String() {
-				member = m
+				member = &m
 				break
 			}
 		}
 	}
 
 	if member == nil {
-		member = members[r%len(members)]
+		member = &members[r%len(members)]
 	}
 
 	return member

@@ -766,11 +766,11 @@ func (c *Cluster) broadcastRequestMessage(requestId uint64, name string, request
 	return nil
 }
 
-func (c *Cluster) aliveMembers(peer bool) []*Member {
+func (c *Cluster) aliveMembers(peer bool) []Member {
 	c.membersLock.RLock()
 	defer c.membersLock.RUnlock()
 
-	ret := make([]*Member, 0, len(c.members))
+	ret := make([]Member, 0)
 
 	for _, ms := range c.members {
 		if ms.NodeName == c.conf.NodeName && peer {
@@ -778,7 +778,7 @@ func (c *Cluster) aliveMembers(peer bool) []*Member {
 		}
 
 		if ms.Status == MemberAlive {
-			ret = append(ret, &ms.Member)
+			ret = append(ret, ms.Member)
 		}
 	}
 
