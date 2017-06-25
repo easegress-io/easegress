@@ -30,7 +30,7 @@ type opLog struct {
 }
 
 func newOPLog() (*opLog, error) {
-	dir := filepath.Join(common.INVENTORY_HOME_DIR, "/oplog")
+	dir := filepath.Join(common.INVENTORY_HOME_DIR, "oplog", common.Stage)
 	err := os.MkdirAll(dir, 0770)
 	if err != nil {
 		return nil, err
