@@ -63,7 +63,7 @@ func (gc *GatewayCluster) handleOPLogPull(req *cluster.RequestEvent) {
 		return
 	}
 
-	reqOPLogPull, err := unpackReqOPLogPull(req.RequestPayload)
+	reqOPLogPull, err := unpackReqOPLogPull(req.RequestPayload[1:])
 	if err != nil {
 		logger.Errorf("[BUG: invalid pull_oplog %s requested from %s: %v]",
 			req.RequestName, req.RequestNodeName, err)
@@ -142,7 +142,7 @@ func (gc *GatewayCluster) syncOpLog(startSeq, countLimit uint64) {
 	payload, err := cluster.PackWithHeader(&reqOPLogPull, uint8(opLogPullMessage))
 	if err != nil {
 		logger.Errorf("[BUG: pack request (header=%d) to %#v failed, oplog sync skipped: %v]",
-			opLogPullMessage, reqOPLogPull, err)
+			opLogPullMessage, &reqOPLogPull, err)
 		return
 	}
 
@@ -179,6 +179,8 @@ func (gc *GatewayCluster) syncOpLog(startSeq, countLimit uint64) {
 
 		resp, err := unpackRespOPLogPull(memberResp.Payload[1:])
 		if err != nil {
+			logger.Errorf("[BUG: invalid pull_oplog response from %s: %v]",
+				memberResp.ResponseNodeName, err)
 			return
 		}
 
