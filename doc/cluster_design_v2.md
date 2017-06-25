@@ -12,7 +12,7 @@ In the case of `Ease Gateway`, many cases need different configure in different 
 
 We design an essential logic concept which is `Group` which classifies nodes into different groups. Every group involves one or more nodes. So below diagram shows an overall layout:
 
-![cluster_external_view](**TODO：PICTURE 1**)
+![cluster_external_view](./diagrams/cluster_external_view.jpg)
 
 In this layout, node `A`, `B` and`C` belong to `Group1`, node `D`, `E`, `F` and `G` belong to Group2. In theory, the business configure of `A` `B` `C` will be the same eventually, so are `D`, `E`, `F`, `G`.
 
@@ -37,27 +37,27 @@ General Rules:
 - Any request has a timeout.
 
 ##### Update Configure - Operation
-![issue_operation](**TODO：PICTURE 2**)
+![issue_operation](./diagrams/issue_operation.jpg)
 
 Particular Rules:
 - The request is sent to the WriteMode node directly.
 - If the administrator specified flag `consistent`, the request will be responded by the WriteMode node until all nodes of the group updated the operation.
 
 ##### Retrieve Configure - Retrieve
-![issue_retrieve](**TODO：PICTURE 3**)
+![issue_retrieve](./diagrams/issue_retrieve.jpg)
 Particular Rules:
 - The request is sent to the WriteMode node directly.
 - If the administrator specified flag `consistent`, the request will be responded by the WriteMode node until the WriteMode Node collected corresponding configure from all ReadMode nodes. And the error will be returned if the configure are different between all node.
 
 ##### Retrieve Statistics - Statistics
-![issue_statistics](**TODO：PICTURE 3**)
+![issue_statistics](./diagrams/issue_statistics.jpg)
 Particular Rules:
 - The request is sent to any one ReadMode node if there is, otherwise sent to the WriteMode node. The WriteMode node always keep the last version of configure so the Operation and Retrieve must be sent to it, but the statistics has no version concept. So it's a load-balance decision for reduce load pressure of WriteMode node.
 - The request is responded until the chosen node aggregated statistics of all nodes.
 
 ### Internal View
 In internal architecture, we split the cluster feature into two layers: `Upper Layer` and `Lower Layer`.
-![cluster_internal_view](**TODO：PICTURE 4**)
+![cluster_internal_view](./diagrams/cluster_internal_view.jpg)
 
 Lower layer provides two APIs:
 1. Request: This is a very flexible and powerful API, the upper layer plays with it most of the time. Callers could use it to broadcast requests to particular nodes such as all nodes in the cluster, all nodes in Group1, the WriteMode node in Group2, all ReadMode nodes in Group2, etc.
@@ -74,7 +74,7 @@ Here we just introduce it in a simple way. Lamport clock is a mechanism for capt
 > 2. When a process sends a message, it includes its counter value with the message;
 > 3. On receiving a message, the counter of the recipient is updated, if necessary, to the greater of its current counter and the timestamp in the received message. The counter is then incremented by 1 before the message is considered received.
 
-The implementation could be found at [logic_lock](**TODO: code link**)
+The implementation could be found at [logic_lock](../src/cluster/logical_clock.go).
 
 ### Data Persistence
 The configure of business keep the same with data of standalone version. The OPLog stores all operations about updating configure in json format sequentially which is friendly to debug.
