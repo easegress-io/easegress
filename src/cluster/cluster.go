@@ -550,7 +550,7 @@ func (c *Cluster) operateRequest(msg *messageRequest) bool {
 
 	care = msg.filter(c.conf)
 	if !care {
-		logger.Debugf("[member %s (%s:%d) received request but do not care]",
+		logger.Debugf("[received the request from member %s (%s:%d) but do not care]",
 			msg.RequestNodeName, msg.RequestNodeAddress, msg.RequestNodePort)
 		return ret
 	}
@@ -564,13 +564,13 @@ func (c *Cluster) operateRequest(msg *messageRequest) bool {
 		}
 	}
 
-	logger.Debugf("[event %s happened for member %s (%s:%d)]",
+	logger.Debugf("[event %s happened for the request from member %s (%s:%d)]",
 		RequestReceivedEvent, msg.RequestNodeName, msg.RequestNodeAddress, msg.RequestNodePort)
 
 	if c.conf.EventStream != nil {
 		c.conf.EventStream <- event
 
-		logger.Debugf("[event %s triggered for member %s (%s:%d)]",
+		logger.Debugf("[event %s triggered for the request from member %s (%s:%d)]",
 			RequestReceivedEvent, msg.RequestNodeName, msg.RequestNodeAddress, msg.RequestNodePort)
 	}
 
@@ -604,7 +604,7 @@ func (c *Cluster) operateResponse(msg *messageResponse) bool {
 		}
 
 		if triggered {
-			logger.Debugf("[ack of request %s triggered for member %s (%s:%d)]",
+			logger.Debugf("[ack from member %s (%s:%d) for request %s is triggered]",
 				msg.RequestName, msg.ResponseNodeName, msg.ResponseNodePort)
 		}
 	} else {
@@ -619,7 +619,7 @@ func (c *Cluster) operateResponse(msg *messageResponse) bool {
 		}
 
 		if triggered {
-			logger.Debugf("[response of request %s triggered for member %s (%s:%d)]",
+			logger.Debugf("[response from member %s (%s:%d) for request %s is triggered]",
 				msg.RequestName, msg.ResponseNodeName, msg.ResponseNodeAddress, msg.ResponseNodePort)
 		}
 	}
