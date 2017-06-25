@@ -152,13 +152,13 @@ func (op *opLog) retrieve(startSeq, countLimit uint64) ([]*Operation, error, Clu
 	// NOTICE: We never change recorded content, so it's unnecessary to use RLock.
 	ms := op._locklessMaxSeq()
 
+	var ret []*Operation
+
 	if startSeq == 0 {
 		return nil, fmt.Errorf("invalid begin sequential operation"), InternalServerError
 	} else if startSeq > ms {
-		return nil, fmt.Errorf("invalid sequential operation"), OperationInvalidSeqError
+		return ret, nil, NoneClusterError
 	}
-
-	var ret []*Operation
 
 	for idx := uint64(0); idx < countLimit && startSeq+uint64(idx) <= op._locklessMaxSeq(); idx++ {
 		var item badger.KVItem
