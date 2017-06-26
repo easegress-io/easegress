@@ -15,7 +15,7 @@ func (gc *GatewayCluster) issueOperation(group string, timeout time.Duration, re
 	req := &ReqOperation{
 		OperateAllNodes: syncAll,
 		Timeout:         timeout,
-		StartSeq:        seqSnapshot + 1,
+		StartSeq:        seqSnapshot,
 		Operation:       operation,
 	}
 	requestPayload, err := cluster.PackWithHeader(req, uint8(operationMessage))
