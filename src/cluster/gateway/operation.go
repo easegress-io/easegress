@@ -10,12 +10,12 @@ import (
 
 // for api
 func (gc *GatewayCluster) issueOperation(group string, timeout time.Duration, requestName string,
-	seqSnapshot uint64, syncAll bool, operation *Operation) *ClusterError {
+	startSeq uint64, syncAll bool, operation *Operation) *ClusterError {
 
 	req := &ReqOperation{
 		OperateAllNodes: syncAll,
 		Timeout:         timeout,
-		StartSeq:        seqSnapshot,
+		StartSeq:        startSeq,
 		Operation:       operation,
 	}
 	requestPayload, err := cluster.PackWithHeader(req, uint8(operationMessage))

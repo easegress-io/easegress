@@ -149,7 +149,7 @@ func (s *clusterAdminServer) createPlugin(w rest.ResponseWriter, r *rest.Request
 		return
 	}
 
-	clusterErr := s.gc.CreatePlugin(group, time.Duration(req.TimeoutSec)*time.Second, req.OperationSeqSnapshot,
+	clusterErr := s.gc.CreatePlugin(group, time.Duration(req.TimeoutSec)*time.Second, req.OperationSeq,
 		req.Consistent, req.Type, conf)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
@@ -292,7 +292,7 @@ func (s *clusterAdminServer) updatePlugin(w rest.ResponseWriter, r *rest.Request
 		return
 	}
 
-	clusterErr := s.gc.UpdatePlugin(group, time.Duration(req.TimeoutSec)*time.Second, req.OperationSeqSnapshot,
+	clusterErr := s.gc.UpdatePlugin(group, time.Duration(req.TimeoutSec)*time.Second, req.OperationSeq,
 		req.Consistent, req.Type, conf)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
@@ -342,7 +342,7 @@ func (s *clusterAdminServer) deletePlugin(w rest.ResponseWriter, r *rest.Request
 		return
 	}
 
-	clusterErr := s.gc.DeletePlugin(group, time.Duration(req.TimeoutSec)*time.Second, req.OperationSeqSnapshot,
+	clusterErr := s.gc.DeletePlugin(group, time.Duration(req.TimeoutSec)*time.Second, req.OperationSeq,
 		req.Consistent, pluginName)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
@@ -398,7 +398,7 @@ func (s *clusterAdminServer) createPipeline(w rest.ResponseWriter, r *rest.Reque
 		return
 	}
 
-	clusterErr := s.gc.CreatePipeline(group, time.Duration(req.TimeoutSec)*time.Second, req.OperationSeqSnapshot,
+	clusterErr := s.gc.CreatePipeline(group, time.Duration(req.TimeoutSec)*time.Second, req.OperationSeq,
 		req.Consistent, req.Type, conf)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
@@ -542,7 +542,7 @@ func (s *clusterAdminServer) updatePipeline(w rest.ResponseWriter, r *rest.Reque
 		return
 	}
 
-	clusterErr := s.gc.UpdatePipeline(group, time.Duration(req.TimeoutSec)*time.Second, req.OperationSeqSnapshot,
+	clusterErr := s.gc.UpdatePipeline(group, time.Duration(req.TimeoutSec)*time.Second, req.OperationSeq,
 		req.Consistent, req.Type, conf)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
@@ -592,7 +592,7 @@ func (s *clusterAdminServer) deletePipeline(w rest.ResponseWriter, r *rest.Reque
 		return
 	}
 
-	clusterErr := s.gc.DeletePipeline(group, time.Duration(req.TimeoutSec)*time.Second, req.OperationSeqSnapshot,
+	clusterErr := s.gc.DeletePipeline(group, time.Duration(req.TimeoutSec)*time.Second, req.OperationSeq,
 		req.Consistent, pipelineName)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())

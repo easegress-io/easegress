@@ -105,8 +105,8 @@ type clusterOperationSeqResponse struct {
 
 type clusterOperation struct {
 	clusterRequest
-	OperationSeqSnapshot uint64 `json:"operation_seq_snapshot"`
-	Consistent           bool   `json:"consistent"`
+	OperationSeq uint64 `json:"operation_seq"`
+	Consistent   bool   `json:"consistent"`
 }
 
 type pluginCreationClusterRequest struct {

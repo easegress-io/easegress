@@ -56,7 +56,7 @@ func (gc *GatewayCluster) QueryGroupMaxSeq(group string, timeout time.Duration) 
 	return uint64(resp), nil
 }
 
-func (gc *GatewayCluster) CreatePlugin(group string, timeout time.Duration, seqSnapshot uint64, syncAll bool,
+func (gc *GatewayCluster) CreatePlugin(group string, timeout time.Duration, startSeq uint64, syncAll bool,
 	typ string, conf []byte) *ClusterError {
 
 	operation := Operation{
@@ -68,10 +68,10 @@ func (gc *GatewayCluster) CreatePlugin(group string, timeout time.Duration, seqS
 
 	requestName := fmt.Sprintf("(group:%s)create_plugin", group)
 
-	return gc.issueOperation(group, timeout, requestName, seqSnapshot, syncAll, &operation)
+	return gc.issueOperation(group, timeout, requestName, startSeq, syncAll, &operation)
 }
 
-func (gc *GatewayCluster) UpdatePlugin(group string, timeout time.Duration, seqSnapshot uint64, syncAll bool,
+func (gc *GatewayCluster) UpdatePlugin(group string, timeout time.Duration, startSeq uint64, syncAll bool,
 	typ string, conf []byte) *ClusterError {
 
 	operation := Operation{
@@ -83,10 +83,10 @@ func (gc *GatewayCluster) UpdatePlugin(group string, timeout time.Duration, seqS
 
 	requestName := fmt.Sprintf("(group:%s)update_plugin", group)
 
-	return gc.issueOperation(group, timeout, requestName, seqSnapshot, syncAll, &operation)
+	return gc.issueOperation(group, timeout, requestName, startSeq, syncAll, &operation)
 }
 
-func (gc *GatewayCluster) DeletePlugin(group string, timeout time.Duration, seqSnapshot uint64, syncAll bool,
+func (gc *GatewayCluster) DeletePlugin(group string, timeout time.Duration, startSeq uint64, syncAll bool,
 	name string) *ClusterError {
 
 	operation := Operation{
@@ -97,10 +97,10 @@ func (gc *GatewayCluster) DeletePlugin(group string, timeout time.Duration, seqS
 
 	requestName := fmt.Sprintf("(group:%s)delete_plugin", group)
 
-	return gc.issueOperation(group, timeout, requestName, seqSnapshot, syncAll, &operation)
+	return gc.issueOperation(group, timeout, requestName, startSeq, syncAll, &operation)
 }
 
-func (gc *GatewayCluster) CreatePipeline(group string, timeout time.Duration, seqSnapshot uint64, syncAll bool,
+func (gc *GatewayCluster) CreatePipeline(group string, timeout time.Duration, startSeq uint64, syncAll bool,
 	typ string, conf []byte) *ClusterError {
 
 	operation := Operation{
@@ -112,10 +112,10 @@ func (gc *GatewayCluster) CreatePipeline(group string, timeout time.Duration, se
 
 	requestName := fmt.Sprintf("(group:%s)create_pipeline", group)
 
-	return gc.issueOperation(group, timeout, requestName, seqSnapshot, syncAll, &operation)
+	return gc.issueOperation(group, timeout, requestName, startSeq, syncAll, &operation)
 }
 
-func (gc *GatewayCluster) UpdatePipeline(group string, timeout time.Duration, seqSnapshot uint64, syncAll bool,
+func (gc *GatewayCluster) UpdatePipeline(group string, timeout time.Duration, startSeq uint64, syncAll bool,
 	typ string, conf []byte) *ClusterError {
 	operation := Operation{
 		ContentUpdatePipeline: &ContentUpdatePipeline{
@@ -126,10 +126,10 @@ func (gc *GatewayCluster) UpdatePipeline(group string, timeout time.Duration, se
 
 	requestName := fmt.Sprintf("(group:%s)update_pipeline", group)
 
-	return gc.issueOperation(group, timeout, requestName, seqSnapshot, syncAll, &operation)
+	return gc.issueOperation(group, timeout, requestName, startSeq, syncAll, &operation)
 }
 
-func (gc *GatewayCluster) DeletePipeline(group string, timeout time.Duration, seqSnapshot uint64, syncAll bool,
+func (gc *GatewayCluster) DeletePipeline(group string, timeout time.Duration, startSeq uint64, syncAll bool,
 	name string) *ClusterError {
 
 	operation := Operation{
@@ -140,7 +140,7 @@ func (gc *GatewayCluster) DeletePipeline(group string, timeout time.Duration, se
 
 	requestName := fmt.Sprintf("(group:%s)delete_pipeline", group)
 
-	return gc.issueOperation(group, timeout, requestName, seqSnapshot, syncAll, &operation)
+	return gc.issueOperation(group, timeout, requestName, startSeq, syncAll, &operation)
 }
 
 // retrieve
