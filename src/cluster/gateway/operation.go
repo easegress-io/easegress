@@ -239,6 +239,11 @@ func (gc *GatewayCluster) handleOperation(req *cluster.RequestEvent) {
 	}
 
 	requestMembers := gc.RestAliveMembersInSameGroup()
+	if len(requestMembers) == 0 {
+		gc.respondOperation(req, new(RespOperation))
+		return
+	}
+
 	requestMemberNames := make([]string, 0)
 	for _, member := range requestMembers {
 		requestMemberNames = append(requestMemberNames, member.NodeName)

@@ -405,10 +405,16 @@ func (gc *GatewayCluster) handleRetrieve(req *cluster.RequestEvent) {
 	}
 
 	requestMembers := gc.RestAliveMembersInSameGroup()
+	if len(requestMembers) == 0 {
+		gc.respondRetrieve(req, resp)
+		return
+	}
+
 	requestMemberNames := make([]string, 0)
 	for _, member := range requestMembers {
 		requestMemberNames = append(requestMemberNames, member.NodeName)
 	}
+
 	requestParam := cluster.RequestParam{
 		TargetNodeNames: requestMemberNames,
 		// TargetNodeNames is enough but TargetNodeTags could make rule strict

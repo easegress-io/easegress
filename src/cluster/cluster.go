@@ -605,7 +605,7 @@ func (c *Cluster) operateResponse(msg *messageResponse) bool {
 
 		if triggered {
 			logger.Debugf("[ack from member %s (%s:%d) for request %s is triggered]",
-				msg.RequestName, msg.ResponseNodeName, msg.ResponseNodePort)
+				msg.ResponseNodeName, msg.ResponseNodeAddress, msg.ResponseNodePort, msg.RequestName)
 		}
 	} else {
 		response := MemberResponse{
@@ -620,7 +620,7 @@ func (c *Cluster) operateResponse(msg *messageResponse) bool {
 
 		if triggered {
 			logger.Debugf("[response from member %s (%s:%d) for request %s is triggered]",
-				msg.RequestName, msg.ResponseNodeName, msg.ResponseNodeAddress, msg.ResponseNodePort)
+				msg.ResponseNodeName, msg.ResponseNodeAddress, msg.ResponseNodePort, msg.RequestName)
 		}
 	}
 

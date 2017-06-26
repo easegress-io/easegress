@@ -148,7 +148,7 @@ func (gc *GatewayCluster) syncOpLog(startSeq, countLimit uint64) {
 
 	member := gc.chooseMemberToPull()
 	if member == nil {
-		logger.Warnf("[peer member not found, oplog sync skipped]")
+		logger.Warnf("[peer member not found in the same group %s, oplog sync skipped]", gc.localGroupName())
 		return
 	}
 

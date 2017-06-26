@@ -645,63 +645,69 @@ func (gc *GatewayCluster) handleStat(req *cluster.RequestEvent) {
 		return
 	}
 
+	var validRespList []*RespStat
+
 	localResp, err, errType := gc.getLocalStatResp(reqStat)
 	if err != nil {
 		logger.Warnf("[get local statistics failed: %v]", err)
 	}
 
-	requestMembers := gc.RestAliveMembersInSameGroup()
-	requestMemberNames := make([]string, 0)
-	for _, member := range requestMembers {
-		requestMemberNames = append(requestMemberNames, member.NodeName)
-	}
-	requestParam := cluster.RequestParam{
-		TargetNodeNames: requestMemberNames,
-		// TargetNodeNames is enough but TargetNodeTags could make rule strict
-		TargetNodeTags: map[string]string{
-			groupTagKey: gc.localGroupName(),
-		},
-		Timeout:            reqStat.Timeout,
-		ResponseRelayCount: 1, // fault tolerance on network issue
-	}
-
-	requestName := fmt.Sprintf("%s_relay", req.RequestName)
-	requestPayload := make([]byte, len(req.RequestPayload))
-	copy(requestPayload, req.RequestPayload)
-	requestPayload[0] = byte(statRelayMessage)
-
-	future, err := gc.cluster.Request(requestName, requestPayload, &requestParam)
-	if err != nil {
-		logger.Errorf("[send stat relay message failed: %v]", err)
-		gc.respondRetrieveErr(req, InternalServerError, err.Error())
-		return
-	}
-
-	membersRespBook := make(map[string][]byte)
-	for _, memberName := range requestMemberNames {
-		membersRespBook[memberName] = nil
-	}
-
-	gc.recordResp(requestName, future, membersRespBook)
-
-	var validRespList []*RespStat
-
 	if localResp != nil {
 		validRespList = append(validRespList, localResp)
 	}
 
-	for _, payload := range membersRespBook {
-		if len(payload) == 0 {
-			continue
+	requestMembers := gc.RestAliveMembersInSameGroup()
+
+	if len(requestMembers) > 0 {
+		requestMemberNames := make([]string, 0)
+		for _, member := range requestMembers {
+			requestMemberNames = append(requestMemberNames, member.NodeName)
 		}
 
-		resp := new(RespStat)
-		err := cluster.Unpack(payload[1:], resp)
-		if err != nil || resp.Err != nil {
-			continue
+		requestParam := cluster.RequestParam{
+			TargetNodeNames: requestMemberNames,
+			// TargetNodeNames is enough but TargetNodeTags could make rule strict
+			TargetNodeTags: map[string]string{
+				groupTagKey: gc.localGroupName(),
+			},
+			Timeout:            reqStat.Timeout,
+			ResponseRelayCount: 1, // fault tolerance on network issue
 		}
 
-		validRespList = append(validRespList, resp)
+		requestName := fmt.Sprintf("%s_relay", req.RequestName)
+		requestPayload := make([]byte, len(req.RequestPayload))
+		copy(requestPayload, req.RequestPayload)
+		requestPayload[0] = byte(statRelayMessage)
+
+		future, err := gc.cluster.Request(requestName, requestPayload, &requestParam)
+		if err != nil {
+			logger.Errorf("[send stat relay message failed: %v]", err)
+			gc.respondRetrieveErr(req, InternalServerError, err.Error())
+			return
+		}
+
+		membersRespBook := make(map[string][]byte)
+		for _, memberName := range requestMemberNames {
+			membersRespBook[memberName] = nil
+		}
+
+		gc.recordResp(requestName, future, membersRespBook)
+
+		for _, payload := range membersRespBook {
+			if len(payload) == 0 {
+				continue
+			}
+
+			resp := new(RespStat)
+			err := cluster.Unpack(payload[1:], resp)
+			if err != nil || resp.Err != nil {
+				// FIXME: when aggregateStatResponses() supports to return "details" for each member,
+				// provide error in the dedicated section of each member as the part of result
+				continue
+			}
+
+			validRespList = append(validRespList, resp)
+		}
 	}
 
 	ret := aggregateStatResponses(reqStat, validRespList)

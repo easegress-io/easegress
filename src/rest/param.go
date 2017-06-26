@@ -179,7 +179,8 @@ type pipelineTypesRetrieveClusterRequest struct {
 
 type statisticsClusterRequest struct {
 	clusterRequest
-	// TODO: Add details to all stat stuff
+	// TODO: aggregateStatResponses() returns result of each member as the part of aggregation result
+	// if the flag is turned on
 	Details bool `json:"details"`
 }
 
