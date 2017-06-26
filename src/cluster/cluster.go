@@ -679,7 +679,8 @@ func (c *Cluster) broadcastMemberJoinMessage() error {
 	select {
 	case <-sentNotify:
 	case <-time.After(c.conf.MessageSendTimeout):
-		return fmt.Errorf("broadcast member join message timtout")
+		fmt.Println("send timeout:", c.conf.MessageSendTimeout)
+		return fmt.Errorf("broadcast member join message timeout")
 	case <-c.stop:
 		return fmt.Errorf("cluster stopped")
 	}
@@ -713,7 +714,7 @@ func (c *Cluster) broadcastMemberLeaveMessage(nodeName string) error {
 	select {
 	case <-sentNotify:
 	case <-time.After(c.conf.MessageSendTimeout):
-		return fmt.Errorf("broadcast member leave message timtout")
+		return fmt.Errorf("broadcast member leave message timeout")
 	case <-c.stop:
 		return fmt.Errorf("cluster stopped")
 	}
