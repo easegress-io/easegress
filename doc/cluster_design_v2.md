@@ -41,7 +41,7 @@ General Rules:
 
 Particular Rules:
 - The request is sent to the WriteMode node directly.
-- If the administrator specified flag `consistent`, the request will be responded by the WriteMode node until all nodes of the group updated the operation.
+- If the administrator specified flag `consistent`, the request will be responded by the WriteMode node until all nodes of the group updated the operation but exceptionally the member who is out-of-sync of OPLog too much will return failure.
 
 ##### Retrieve Configure - Retrieve
 ![issue_retrieve](./diagrams/issue_retrieve.jpg)
@@ -61,7 +61,7 @@ In internal architecture, we split the cluster feature into two layers: `Upper L
 
 Lower layer provides two APIs:
 1. Request: This is a very flexible and powerful API, the upper layer plays with it most of the time. Callers could use it to broadcast requests to particular nodes such as all nodes in the cluster, all nodes in Group1, the WriteMode node in Group2, all ReadMode nodes in Group2, etc.
-2. Nodes' up, down and update：The status of any node of cluster will be notified through this API. The `update` means the metadata of a node changed, for example its group attribute is updated from Group1 to Group2.
+2. Member Discovery and Failure Detection: This mechanism support a common feature which is Nodes' up, down and update：The change of status of any node in the cluster will be notified through this API. The `update` means the metadata of a node changed, for example its group attribute is updated from Group1 to Group2.
 
 Upper layer implements the business logic, just as diagrams of external view there are mainly three kinds of exported APIs(Operation, Retrieve, Statistics), and internally plus one kind of not-exported API synchronize OPLog. These APIs are implemented based on `Request` of lower layer. Moreover, the upper layer also provides fine-grained business APIs such as creating a plugin, deleting a pipeline and so on in a group, generally speaking the REST server as a typical client will invoke these APIs directly.
 
@@ -81,6 +81,7 @@ The configure of business keep the same with data of standalone version. The OPL
 
 ### Serialization
 We choose [msgpack](https://github.com/ugorji/go) to serialize switch message, it costs less bits than json and be more friendly to the type system of Golang.
+
 
 ## API Specification (TODO)
 
