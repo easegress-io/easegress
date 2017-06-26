@@ -29,6 +29,8 @@ const (
 type Config struct {
 	ClusterGroup      string
 	ClusterMemberMode Mode
+	ClusterMemberName string
+	Peers             []string
 
 	OPLogMaxSeqGapToPull  uint16
 	OPLogPullMaxCountOnce uint16
@@ -75,15 +77,14 @@ func NewGatewayCluster(conf Config, mod *model.Model) (*GatewayCluster, error) {
 
 	// TODO: choose config of under layer automatically
 	basisConf := cluster.DefaultLANConfig()
-	basisConf.EventStream = eventStream
+	basisConf.NodeName = conf.ClusterMemberName
 	basisConf.NodeTags[groupTagKey] = conf.ClusterGroup
 	basisConf.NodeTags[modeTagKey] = conf.ClusterMemberMode.String()
-	if common.Host != "localhost" {
-		basisConf.NodeName = common.Host
-	} else {
+	basisConf.BindAddress = common.Host
+	if common.Host == "localhost" {
 		basisConf.AdvertiseAddress = "127.0.0.1"
 	}
-	basisConf.BindAddress = common.Host
+	basisConf.EventStream = eventStream
 
 	basis, err := cluster.Create(*basisConf)
 	if err != nil {
@@ -119,10 +120,10 @@ func NewGatewayCluster(conf Config, mod *model.Model) (*GatewayCluster, error) {
 
 	go gc.dispatch()
 
-	if len(common.Peers) > 0 {
-		logger.Infof("[start to join peer memeber(s): %v]", common.Peers)
+	if len(conf.Peers) > 0 {
+		logger.Infof("[start to join peer memeber(s): %v]", conf.Peers)
 
-		connected, err := basis.Join(common.Peers)
+		connected, err := basis.Join(conf.Peers)
 		if err != nil {
 			logger.Errorf("[join peer member(s) failed, running in standalone mode: %v]", err)
 		} else {

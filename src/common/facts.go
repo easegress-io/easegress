@@ -21,6 +21,7 @@ var (
 	// cluster stuff
 	ClusterGroup          string
 	MemberMode            string
+	MemberName            string
 	Peers                 []string
 	OPLogMaxSeqGapToPull  uint16
 	OPLogPullMaxCountOnce uint16
@@ -56,8 +57,14 @@ func (i *uint16Value) String() string { return strconv.FormatUint(uint64(*i), 10
 ////
 
 func init() {
+	hostName, err := os.Hostname()
+	if err != nil {
+		hostName = "node0"
+	}
+
 	clusterGroup := flag.String("group", "default", "specify cluster group")
 	memberMode := flag.String("mode", "read", "specify member mode (read or write)")
+	memberName := flag.String("name", hostName, "specify member name")
 	peers := flag.String("peers", "", "specify address list of peer members (seprated by comma)")
 	opLogMaxSeqGapToPull := new(uint16)
 	flag.Var(newUint16Value(5, opLogMaxSeqGapToPull), "oplog_max_seq_gap_to_pull",
@@ -89,6 +96,7 @@ func init() {
 
 	ClusterGroup = *clusterGroup
 	MemberMode = *memberMode
+	MemberName = *memberName
 	OPLogMaxSeqGapToPull = *opLogMaxSeqGapToPull
 	OPLogPullMaxCountOnce = *opLogPullMaxCountOnce
 	OPLogPullInterval = time.Duration(*opLogPullInterval) * time.Second
