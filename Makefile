@@ -63,6 +63,7 @@ vendor_get:
 		github.com/hashicorp/memberlist \
 		github.com/dgraph-io/badger/badger \
 		github.com/ugorji/go/codec \
+		github.com/hashicorp/logutils \
 		github.com/hexdecteam/easegateway-go-client/...
 
 vendor_update: vendor_get

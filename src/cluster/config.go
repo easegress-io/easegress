@@ -1,6 +1,8 @@
 package cluster
 
 import (
+	"io"
+	"log"
 	"math"
 	"os"
 	"time"
@@ -44,6 +46,9 @@ type Config struct {
 	// Member suspicion timeout equals to MemberSuspicionMult * log(N+1) * ProbeInterval
 	// Max member suspicion timeout equals to member suspicion timeout * SuspicionMaxTimeoutMult
 	MemberSuspicionMult, MemberSuspicionMaxTimeoutMult uint
+
+	LogOutput io.Writer
+	Logger    *log.Logger
 
 	EventStream chan<- Event
 }
@@ -118,6 +123,9 @@ func createMemberListConfig(conf *Config, eventDelegate memberlist.EventDelegate
 		RetransmitMult:          gossipRetransmitMult,
 		SuspicionMult:           memberSuspicionMult,
 		SuspicionMaxTimeoutMult: memberSuspicionMaxTimeoutMult,
+
+		LogOutput: conf.LogOutput,
+		Logger:    conf.Logger,
 	}
 
 	return ret
