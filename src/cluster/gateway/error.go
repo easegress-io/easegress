@@ -62,6 +62,8 @@ func (t ClusterErrorType) HTTPStatusCode() int {
 
 	case OperationSeqConflictError:
 		ret = http.StatusConflict
+	case OperationInvalidSeqError:
+		ret = http.StatusBadRequest
 	case OperationInvalidContentError:
 		ret = http.StatusBadRequest
 	case OperationGeneralFailureError:
