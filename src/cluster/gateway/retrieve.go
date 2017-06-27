@@ -19,6 +19,9 @@ import (
 func (gc *GatewayCluster) issueRetrieve(group string, timeout time.Duration,
 	requestName string, syncAll bool, filter interface{}) (interface{}, *ClusterError) {
 
+	logger.Infof("issue retrieve: requestName(%s) filter(%#v) syncAll(%v) timeout(%s)",
+		requestName, filter, syncAll, timeout)
+
 	req := &ReqRetrieve{
 		RetrieveAllNodes: syncAll,
 		Timeout:          timeout,

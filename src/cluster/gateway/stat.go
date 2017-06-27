@@ -49,6 +49,9 @@ func (gc *GatewayCluster) chooseMemberToAggregateStat(group string) (*cluster.Me
 func (gc *GatewayCluster) issueStat(group string, timeout time.Duration,
 	requestName string, filter interface{}) (interface{}, *ClusterError) {
 
+	logger.Infof("issue stat: requestName(%s) filter(%#v) timeout(%s)",
+		requestName, filter, timeout)
+
 	req := &ReqStat{
 		Timeout: timeout,
 	}

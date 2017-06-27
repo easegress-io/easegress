@@ -12,6 +12,9 @@ import (
 func (gc *GatewayCluster) issueOperation(group string, timeout time.Duration, requestName string,
 	startSeq uint64, syncAll bool, operation *Operation) *ClusterError {
 
+	logger.Infof("issue operation: requestName(%s) startSeq(%d) operation(%#v) syncAll(%v) timeout(%s)",
+		requestName, startSeq, operation, syncAll, timeout)
+
 	req := &ReqOperation{
 		OperateAllNodes: syncAll,
 		Timeout:         timeout,
