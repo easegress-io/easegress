@@ -100,7 +100,6 @@ func (s *clusterAdminServer) retrieveOperationSequence(w rest.ResponseWriter, r 
 		Group:             group,
 		OperationSequence: seq,
 	})
-	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[operation sequence %d returned from cluster]", seq)
 }
@@ -157,8 +156,6 @@ func (s *clusterAdminServer) createPlugin(w rest.ResponseWriter, r *rest.Request
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-
 	logger.Debugf("plugin created in cluster")
 }
 
@@ -200,7 +197,6 @@ func (s *clusterAdminServer) retrievePlugins(w rest.ResponseWriter, r *rest.Requ
 	}
 
 	w.WriteJson(ret)
-	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[plugins returned from cluster]")
 }
@@ -250,7 +246,6 @@ func (s *clusterAdminServer) retrievePlugin(w rest.ResponseWriter, r *rest.Reque
 	}
 
 	w.WriteJson(ret)
-	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[plugin %s returned from cluster]", pluginName)
 }
@@ -300,8 +295,6 @@ func (s *clusterAdminServer) updatePlugin(w rest.ResponseWriter, r *rest.Request
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-
 	logger.Debugf("plugin updated in cluster")
 }
 
@@ -349,8 +342,6 @@ func (s *clusterAdminServer) deletePlugin(w rest.ResponseWriter, r *rest.Request
 		logger.Errorf("[%s]", clusterErr.Error())
 		return
 	}
-
-	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[plugin %s deleted from cluster]", pluginName)
 }
@@ -406,8 +397,6 @@ func (s *clusterAdminServer) createPipeline(w rest.ResponseWriter, r *rest.Reque
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-
 	logger.Debugf("pipeline created in cluster")
 }
 
@@ -449,7 +438,6 @@ func (s *clusterAdminServer) retrievePipelines(w rest.ResponseWriter, r *rest.Re
 	}
 
 	w.WriteJson(ret)
-	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[retrieve pipelines name-pattern(%s) types(%s) succeed: %s]", req.NamePattern, req.Types, ret)
 }
@@ -500,7 +488,6 @@ func (s *clusterAdminServer) retrievePipeline(w rest.ResponseWriter, r *rest.Req
 	}
 
 	w.WriteJson(ret)
-	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[retrieve pipeline %s succeed: %s]", pipelineName, ret)
 }
@@ -550,8 +537,6 @@ func (s *clusterAdminServer) updatePipeline(w rest.ResponseWriter, r *rest.Reque
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-
 	logger.Debugf("pipeline updated in cluster")
 }
 
@@ -600,8 +585,6 @@ func (s *clusterAdminServer) deletePipeline(w rest.ResponseWriter, r *rest.Reque
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-
 	logger.Debugf("[pipeline %s deleted from cluster]", pipelineName)
 }
 
@@ -642,7 +625,6 @@ func (s *clusterAdminServer) retrievePluginTypes(w rest.ResponseWriter, r *rest.
 	}
 
 	w.WriteJson(ret)
-	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[plugin types returned from cluster]")
 }
@@ -685,7 +667,6 @@ func (s *clusterAdminServer) retrievePipelineTypes(w rest.ResponseWriter, r *res
 	}
 
 	w.WriteJson(ret)
-	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[retrieve pipeline types succeed: %s]", ret)
 }

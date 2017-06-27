@@ -123,8 +123,6 @@ func (s *adminServer) createPlugin(w rest.ResponseWriter, r *rest.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-
 	logger.Debugf("[plugin %s created]", pluginName)
 }
 
@@ -158,7 +156,6 @@ func (s *adminServer) retrievePlugins(w rest.ResponseWriter, r *rest.Request) {
 	}
 
 	w.WriteJson(resp)
-	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[plugins returned]")
 }
@@ -187,7 +184,6 @@ func (s *adminServer) retrievePlugin(w rest.ResponseWriter, r *rest.Request) {
 	}
 
 	w.WriteJson(resp)
-	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[plugin %s returned]", pluginName)
 }
@@ -249,8 +245,6 @@ func (s *adminServer) updatePlugin(w rest.ResponseWriter, r *rest.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-
 	logger.Debugf("[the config of plugin %s updated]", pluginName)
 }
 
@@ -286,8 +280,6 @@ func (s *adminServer) deletePlugin(w rest.ResponseWriter, r *rest.Request) {
 		logger.Errorf("[%s]", msg)
 		return
 	}
-
-	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[plugin %s deleted]", pluginName)
 }
@@ -349,8 +341,6 @@ func (s *adminServer) createPipeline(w rest.ResponseWriter, r *rest.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-
 	logger.Debugf("[pipeline %s created]", pipelineName)
 }
 
@@ -384,7 +374,6 @@ func (s *adminServer) retrievePipelines(w rest.ResponseWriter, r *rest.Request) 
 	}
 
 	w.WriteJson(resp)
-	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[pipelines returned]")
 }
@@ -412,7 +401,6 @@ func (s *adminServer) retrievePipeline(w rest.ResponseWriter, r *rest.Request) {
 	}
 
 	w.WriteJson(resp)
-	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[pipeline %s returned]", pipelineName)
 }
@@ -474,8 +462,6 @@ func (s *adminServer) updatePipeline(w rest.ResponseWriter, r *rest.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-
 	logger.Debugf("[the config of pipeline %s updated]", pipelineName)
 }
 
@@ -503,8 +489,6 @@ func (s *adminServer) deletePipeline(w rest.ResponseWriter, r *rest.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-
 	logger.Debugf("[pipeline %s deleted]", pipelineName)
 }
 
@@ -525,7 +509,6 @@ func (s *adminServer) retrievePluginTypes(w rest.ResponseWriter, _ *rest.Request
 	sort.Strings(resp.PluginTypes)
 
 	w.WriteJson(resp)
-	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[plugin types returned]")
 }
@@ -540,7 +523,6 @@ func (s *adminServer) retrievePipelineTypes(w rest.ResponseWriter, _ *rest.Reque
 	sort.Strings(resp.PipelineTypes)
 
 	w.WriteJson(resp)
-	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[pipeline types returned]")
 }

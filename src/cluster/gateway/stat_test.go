@@ -13,7 +13,7 @@ func TestAggregateStatResponses(t *testing.T) {
 	}
 
 	resps := []*RespStat{
-		&RespStat{
+		{
 			Value: []byte(`{"value":0}`),
 		},
 	}

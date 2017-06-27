@@ -2,7 +2,6 @@ package rest
 
 import (
 	"fmt"
-	"net/http"
 	"strings"
 	"time"
 
@@ -46,7 +45,7 @@ func (s *healthCheckServer) Api() (*rest.Api, error) {
 
 func (s *healthCheckServer) existing(w rest.ResponseWriter, req *rest.Request) {
 	logger.Debugf("[check existing]")
-	w.WriteHeader(http.StatusOK)
+
 	logger.Debugf("[existing status returned]")
 }
 
@@ -85,6 +84,5 @@ func (s *healthCheckServer) info(w rest.ResponseWriter, req *rest.Request) {
 		},
 	})
 
-	w.WriteHeader(http.StatusOK)
 	logger.Debugf("[cluster member info returned]")
 }

@@ -121,7 +121,6 @@ func (s *clusterStatisticsServer) retrievePluginIndicatorNames(w rest.ResponseWr
 	}
 
 	w.WriteJson(ret)
-	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[indicator names of plugin %s in pipeline %s returned from cluster]", pluginName, pipelineName)
 }
@@ -188,7 +187,6 @@ func (s *clusterStatisticsServer) retrievePluginIndicatorValue(w rest.ResponseWr
 	}
 
 	w.WriteJson(ret)
-	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[indicator %s value of plugin %s in pipeline %s returned from cluster]",
 		indicatorName, pluginName, pipelineName)
@@ -256,7 +254,6 @@ func (s *clusterStatisticsServer) retrievePluginIndicatorDesc(w rest.ResponseWri
 	}
 
 	w.WriteJson(ret)
-	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[indicator %s description of plugin %s in pipeline %s returned from cluster]",
 		indicatorName, pluginName, pipelineName)
@@ -308,7 +305,6 @@ func (s *clusterStatisticsServer) retrievePipelineIndicatorNames(w rest.Response
 	}
 
 	w.WriteJson(ret)
-	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[indicator names of pipeline %s returned from cluster]", pipelineName)
 }
@@ -367,7 +363,6 @@ func (s *clusterStatisticsServer) retrievePipelineIndicatorValue(w rest.Response
 	}
 
 	w.WriteJson(ret)
-	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[indicator %s value of pipeline %s returned from cluster]", indicatorName, pipelineName)
 }
@@ -426,7 +421,6 @@ func (s *clusterStatisticsServer) retrievePipelineIndicatorDesc(w rest.ResponseW
 	}
 
 	w.WriteJson(ret)
-	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[indicator %s description of pipeline %s returned from cluster]", indicatorName, pipelineName)
 }
@@ -476,7 +470,6 @@ func (s *clusterStatisticsServer) retrievePipelineTaskIndicatorNames(w rest.Resp
 	}
 
 	w.WriteJson(ret)
-	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[indicator names of task in pipeline %s returned from cluster]", pipelineName)
 }
@@ -535,7 +528,6 @@ func (s *clusterStatisticsServer) retrievePipelineTaskIndicatorValue(w rest.Resp
 	}
 
 	w.WriteJson(ret)
-	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[indicator %s value of task in pipeline %s returned]", indicatorName, pipelineName)
 }
@@ -594,7 +586,6 @@ func (s *clusterStatisticsServer) retrievePipelineTaskIndicatorDesc(w rest.Respo
 	}
 
 	w.WriteJson(ret)
-	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[indicator %s description of task in pipeline %s returned]", indicatorName, pipelineName)
 }

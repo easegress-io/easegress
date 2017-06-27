@@ -98,7 +98,6 @@ func (s *statisticsServer) retrievePluginIndicatorNames(w rest.ResponseWriter, r
 	w.WriteJson(&indicatorNamesRetrieveResponse{
 		Names: indicatorNames,
 	})
-	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[indicator names of plugin %s in pipeline %s returned]", pluginName, pipelineName)
 }
@@ -155,7 +154,7 @@ func (s *statisticsServer) retrievePluginIndicatorValue(w rest.ResponseWriter, r
 		w.WriteJson(&indicatorValueRetrieveResponse{
 			Value: indicatorValue,
 		})
-		w.WriteHeader(http.StatusOK)
+
 		logger.Debugf("[indicator %s value of plugin %s in pipeline %s returned]",
 			indicatorName, pluginName, pipelineName)
 	}
@@ -213,7 +212,7 @@ func (s *statisticsServer) retrievePluginIndicatorDesc(w rest.ResponseWriter, r 
 		w.WriteJson(&indicatorDescriptionRetrieveResponse{
 			Description: indicatorDesc,
 		})
-		w.WriteHeader(http.StatusOK)
+
 		logger.Debugf("[indicator %s description of plugin %s in pipeline %s returned]",
 			indicatorName, pluginName, pipelineName)
 	}
@@ -245,7 +244,6 @@ func (s *statisticsServer) retrievePipelineIndicatorNames(w rest.ResponseWriter,
 	w.WriteJson(&indicatorNamesRetrieveResponse{
 		Names: indicatorNames,
 	})
-	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[indicator names of pipeline %s returned]", pipelineName)
 }
@@ -294,7 +292,7 @@ func (s *statisticsServer) retrievePipelineIndicatorValue(w rest.ResponseWriter,
 		w.WriteJson(&indicatorValueRetrieveResponse{
 			Value: indicatorValue,
 		})
-		w.WriteHeader(http.StatusOK)
+
 		logger.Debugf("[indicator %s value of pipeline %s returned]", indicatorName, pipelineName)
 	}
 }
@@ -343,7 +341,7 @@ func (s *statisticsServer) retrievePipelineIndicatorDesc(w rest.ResponseWriter, 
 		w.WriteJson(&indicatorDescriptionRetrieveResponse{
 			Description: indicatorDesc,
 		})
-		w.WriteHeader(http.StatusOK)
+
 		logger.Debugf("[indicator %s description of pipeline %s returned]", indicatorName, pipelineName)
 	}
 }
@@ -374,7 +372,6 @@ func (s *statisticsServer) retrievePipelineTaskIndicatorNames(w rest.ResponseWri
 	w.WriteJson(&indicatorNamesRetrieveResponse{
 		Names: indicatorNames,
 	})
-	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[indicator names of task in pipeline %s returned]", pipelineName)
 }
@@ -423,7 +420,7 @@ func (s *statisticsServer) retrievePipelineTaskIndicatorValue(w rest.ResponseWri
 		w.WriteJson(&indicatorValueRetrieveResponse{
 			Value: indicatorValue,
 		})
-		w.WriteHeader(http.StatusOK)
+
 		logger.Debugf("[indicator %s value of task in pipeline %s returned]", indicatorName, pipelineName)
 	}
 }
@@ -472,7 +469,7 @@ func (s *statisticsServer) retrievePipelineTaskIndicatorDesc(w rest.ResponseWrit
 		w.WriteJson(&indicatorDescriptionRetrieveResponse{
 			Description: indicatorDesc,
 		})
-		w.WriteHeader(http.StatusOK)
+
 		logger.Debugf("[indicator %s description of task in pipeline %s returned]",
 			indicatorName, pipelineName)
 	}
@@ -483,7 +480,7 @@ func (s *statisticsServer) retrieveGatewayUpTime(w rest.ResponseWriter, r *rest.
 	w.WriteJson(&gatewayUpTimeRetrieveResponse{
 		UpTime: s.gateway.UpTime(),
 	})
-	w.WriteHeader(http.StatusOK)
+
 	logger.Debugf("[gateway uptime returned]")
 }
 
@@ -497,7 +494,7 @@ func (s *statisticsServer) retrieveGatewaySysResUsage(w rest.ResponseWriter, r *
 		logger.Warnf("[%s: %v]", msg, err)
 	} else {
 		w.WriteJson(usage)
-		w.WriteHeader(http.StatusOK)
+
 		logger.Debugf("[gateway system resource usage returned]")
 	}
 }
@@ -520,7 +517,7 @@ func (s *statisticsServer) retrieveGatewaySysAverageLoad(w rest.ResponseWriter, 
 			Load5:  load5,
 			Load15: load15,
 		})
-		w.WriteHeader(http.StatusOK)
+
 		logger.Debugf("[gateway system average load returned]")
 	}
 }
