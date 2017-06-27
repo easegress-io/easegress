@@ -22,7 +22,7 @@ func initHTTP() {
 	if err != nil {
 		Errorf("open %v failed: %v\n", err)
 	} else {
-		httpstd.registerLogger(f, formatter, logrus.DebugLevel)
+		httpstd.registerLogger("http", f, formatter, logrus.DebugLevel)
 	}
 
 	// test example:
@@ -69,7 +69,8 @@ func HTTPAccess(req *http.Request, code int, bodyBytesSent int,
 		code, bodyBytesSent, referer,
 		agent, realIP,
 		requestTime, upstreamResponseTime)
-	for _, logger := range httpstd.getLoggers() {
+
+	for _, logger := range httpstd.getLoggers("http") {
 		logger.Debugf(line)
 	}
 }

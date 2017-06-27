@@ -2,7 +2,6 @@ package gateway
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -87,13 +86,16 @@ func NewGatewayCluster(conf Config, mod *model.Model) (*GatewayCluster, error) {
 	if common.Host == "localhost" {
 		basisConf.AdvertiseAddress = "127.0.0.1"
 	}
-	if common.Stage != "debug" {
-		filter := &logutils.LevelFilter{
-			Levels:   []logutils.LogLevel{"DEBUG", "WARN", "ERROR"},
-			MinLevel: logutils.LogLevel("WARN"),
-			Writer:   os.Stderr,
-		}
-		basisConf.LogOutput = filter
+	var minLogLevel logutils.LogLevel
+	if common.Stage == "debug" {
+		minLogLevel = logutils.LogLevel("DEBUG")
+	} else {
+		minLogLevel = logutils.LogLevel("WARN")
+	}
+	basisConf.LogOutput = &logutils.LevelFilter{
+		Levels:   []logutils.LogLevel{"DEBUG", "WARN", "ERROR"},
+		MinLevel: minLogLevel,
+		Writer:   logger.Writer(),
 	}
 	basisConf.EventStream = eventStream
 

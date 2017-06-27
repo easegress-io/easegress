@@ -12,23 +12,26 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type loggers []*logrus.Logger
-
-func New() *loggers {
-	l := make(loggers, 0)
-	return &l
+type loggers struct {
+	v map[string][]*logrus.Logger
 }
 
-func (l *loggers) registerLogger(out io.Writer, formatter logrus.Formatter, lvl logrus.Level) {
+func New() *loggers {
+	return &loggers{
+		v: make(map[string][]*logrus.Logger, 0),
+	}
+}
+
+func (l *loggers) registerLogger(name string, out io.Writer, formatter logrus.Formatter, lvl logrus.Level) {
 	logger := logrus.New()
 	logger.Out = out
 	logger.Formatter = formatter
 	logger.Level = lvl
-	*l = append(*l, logger)
+	l.v[name] = append(l.v[name], logger)
 }
 
-func (l *loggers) getLoggers() loggers {
-	return *l
+func (l *loggers) getLoggers(typ string) []*logrus.Logger {
+	return l.v[typ]
 }
 
 func openLogFile(name string) (*os.File, error) {
@@ -56,4 +59,5 @@ func getSourceInfo() string {
 func init() {
 	initStd()
 	initHTTP()
+	initMemberList()
 }

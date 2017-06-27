@@ -11,32 +11,32 @@ import (
 var (
 	LOG_STD_FILE  = "gateway.log"
 	LOG_STD_LEVEL = logrus.InfoLevel
-	LOG_TTY_LEVEL = logrus.DebugLevel
+	LOG_STD_TTY_LEVEL = logrus.DebugLevel
 
 	std = New()
 )
 
 func initStd() {
 	if common.Stage == "prod" {
-		LOG_TTY_LEVEL = logrus.InfoLevel
+		LOG_STD_TTY_LEVEL = logrus.InfoLevel
 	}
 	formatter := &logrus.TextFormatter{
 		FullTimestamp: true,
 	}
 
-	std.registerLogger(os.Stdout, formatter, LOG_TTY_LEVEL)
+	std.registerLogger("stdio", os.Stdout, formatter, LOG_STD_TTY_LEVEL)
 
 	f, err := openLogFile(LOG_STD_FILE)
 	if err != nil {
 		Errorf("[logger:initStd] - [open file %v failed: %v]", LOG_STD_FILE, err)
 	} else {
-		std.registerLogger(f, formatter, LOG_STD_LEVEL)
+		std.registerLogger("stdio", f, formatter, LOG_STD_LEVEL)
 
 	}
 }
 
 func Debugf(format string, args ...interface{}) {
-	for _, logger := range std.getLoggers() {
+	for _, logger := range std.getLoggers("stdio") {
 		logger.WithFields(logrus.Fields{
 			"source": getSourceInfo(),
 		}).Debugf(format, args...)
@@ -44,7 +44,7 @@ func Debugf(format string, args ...interface{}) {
 }
 
 func Infof(format string, args ...interface{}) {
-	for _, logger := range std.getLoggers() {
+	for _, logger := range std.getLoggers("stdio") {
 		logger.WithFields(logrus.Fields{
 			"source": getSourceInfo(),
 		}).Infof(format, args...)
@@ -52,7 +52,7 @@ func Infof(format string, args ...interface{}) {
 }
 
 func Warnf(format string, args ...interface{}) {
-	for _, logger := range std.getLoggers() {
+	for _, logger := range std.getLoggers("stdio") {
 		logger.WithFields(logrus.Fields{
 			"source": getSourceInfo(),
 		}).Warnf(format, args...)
@@ -60,7 +60,7 @@ func Warnf(format string, args ...interface{}) {
 }
 
 func Errorf(format string, args ...interface{}) {
-	for _, logger := range std.getLoggers() {
+	for _, logger := range std.getLoggers("stdio") {
 		logger.WithFields(logrus.Fields{
 			"source": getSourceInfo(),
 		}).Errorf(format, args...)
