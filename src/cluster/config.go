@@ -33,6 +33,8 @@ type Config struct {
 
 	GossipNodes, IndirectCheckNodes uint
 
+	UDPBufferSize int
+
 	MessageSendTimeout, FailedMemberReconnectTimeout, MemberLeftRecordTimeout time.Duration
 	RecentMemberOperationTimeout                                              time.Duration
 	FailedMemberReconnectInterval, MemberCleanupInterval                      time.Duration
@@ -90,6 +92,11 @@ func createMemberListConfig(conf *Config, eventDelegate memberlist.EventDelegate
 		memberSuspicionMaxTimeoutMult = int(conf.MemberSuspicionMaxTimeoutMult)
 	}
 
+	udpBufferSize := conf.UDPBufferSize
+	if udpBufferSize <= 0 {
+		udpBufferSize = 1400
+	}
+
 	ret := &memberlist.Config{
 		ProtocolVersion:         memberlist.ProtocolVersion2Compatible,
 		DelegateProtocolMin:     ProtocolVersionMin,
@@ -119,7 +126,7 @@ func createMemberListConfig(conf *Config, eventDelegate memberlist.EventDelegate
 		DisableTcpPings:         false,
 		DNSConfigPath:           "/etc/resolv.conf",
 		HandoffQueueDepth:       1024,
-		UDPBufferSize:           1400,
+		UDPBufferSize:           udpBufferSize,
 		RetransmitMult:          gossipRetransmitMult,
 		SuspicionMult:           memberSuspicionMult,
 		SuspicionMaxTimeoutMult: memberSuspicionMaxTimeoutMult,
@@ -163,6 +170,7 @@ func DefaultLANConfig() *Config {
 		RequestTimeoutMult:            15,
 		MemberSuspicionMult:           5,
 		MemberSuspicionMaxTimeoutMult: 6,
+		UDPBufferSize:                 4000,
 	}
 
 	return ret
@@ -179,6 +187,7 @@ func DefaultWANConfig() *Config {
 	ret.GossipNodes = 4
 	ret.GossipInterval = 1 * time.Second
 	ret.GossipToTheDeadTime = 60 * time.Second
+	ret.UDPBufferSize = 1400
 
 	return ret
 }
@@ -196,6 +205,7 @@ func DefaultLocalConfig() *Config {
 	ret.ProbeInterval = time.Second
 	ret.GossipInterval = 100 * time.Millisecond
 	ret.GossipToTheDeadTime = 15 * time.Second
+	ret.UDPBufferSize = 8000
 
 	return ret
 }
