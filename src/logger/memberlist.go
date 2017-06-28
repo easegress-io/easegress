@@ -20,7 +20,7 @@ var (
 
 	memberList = New()
 
-	LOG_MEMBERLIST_REGEX = regexp.MustCompile(`.+? \[(DEBUG|WARN)\] (.*)`)
+	LOG_MEMBERLIST_REGEX = regexp.MustCompile(`.+? \[(DEBUG|WARN|ERR)\] (.*)`)
 )
 
 func initMemberList() {
