@@ -11,6 +11,7 @@ import (
 	"common"
 	"engine"
 	"logger"
+	"version"
 )
 
 type healthCheckServer struct {
@@ -68,7 +69,8 @@ func (s *healthCheckServer) info(w rest.ResponseWriter, req *rest.Request) {
 	}
 
 	w.WriteJson(struct {
-		CI clusterInfo `json:"cluster"`
+		CI    clusterInfo `json:"cluster"`
+		Build buildInfo   `json:"build"`
 	}{
 		clusterInfo{
 			Name:                  s.gc.NodeName(),
@@ -81,6 +83,12 @@ func (s *healthCheckServer) info(w rest.ResponseWriter, req *rest.Request) {
 			OPLogPullMaxCountOnce: common.OPLogPullMaxCountOnce,
 			OPLogPullInterval:     int(common.OPLogPullInterval.Seconds()),
 			OPLogPullTimeout:      int(common.OPLogPullTimeout.Seconds()),
+		},
+		buildInfo{
+			Name:       "Ease Gateway",
+			Release:    version.RELEASE,
+			Build:      version.COMMIT,
+			Repository: version.REPO,
 		},
 	})
 

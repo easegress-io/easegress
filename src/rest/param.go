@@ -200,3 +200,10 @@ type clusterInfo struct {
 	OPLogPullInterval     int      `json:"oplog_pull_interval_in_second"`
 	OPLogPullTimeout      int      `json:"oplog_pull_timeout_in_second"`
 }
+
+type buildInfo struct {
+	Name       string `json:"name"`
+	Release    string `json:"release"`
+	Build      string `json:"build"`
+	Repository string `json:"repository"`
+}
