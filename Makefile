@@ -7,6 +7,13 @@ MKFILE_DIR := $(dir $(MKFILE_PATH))
 GOPATH := ${MKFILE_DIR}_vendor:${MKFILE_DIR}
 export GOPATH
 
+RELEASE?=0.1.0-m2
+REPO_INFO=$(shell git config --get remote.origin.url)
+
+ifndef COMMIT
+  COMMIT := git-$(shell git rev-parse --short HEAD)
+endif
+
 GATEWAY_ALL_SRC_FILES = $(shell find ${MKFILE_DIR}src -type f -name "*.go")
 GATEWAY_CLIENT_SRC_FILES = $(shell find ${MKFILE_DIR}src/cli ${MKFILE_DIR}src/client -type f -name "*.go")
 GATEWAY_SERVER_SRC_FILES = $(filter-out ${GATEWAY_CLIENT_SRC_FILES},${GATEWAY_ALL_SRC_FILES})
@@ -22,11 +29,17 @@ default: ${TARGET}
 
 ${TARGET_GATEWAY_SERVER} : ${GATEWAY_SERVER_SRC_FILES}
 	@echo "-------------- building gateway server ---------------"
-	cd ${MKFILE_DIR} && go build  -gcflags "-N -l"  -v -o ${TARGET_GATEWAY_SERVER} ${MKFILE_DIR}src/server/main.go
+	cd ${MKFILE_DIR} && \
+		go build  -gcflags "-N -l" -v \
+		-ldflags "-X version.RELEASE=${RELEASE} -X version.COMMIT=${COMMIT} -X version.REPO=${REPO_INFO}" \
+		-o ${TARGET_GATEWAY_SERVER} ${MKFILE_DIR}src/server/main.go
 
 ${TARGET_GATEWAY_CLIENT} : ${GATEWAY_CLIENT_SRC_FILES}
 	@echo "-------------- building gateway client ---------------"
-	cd ${MKFILE_DIR} && go build  -gcflags "-N -l"  -v -o ${TARGET_GATEWAY_CLIENT} ${MKFILE_DIR}src/client/main.go
+	cd ${MKFILE_DIR} && \
+		go build  -gcflags "-N -l" -v \
+		-ldflags "-X version.RELEASE=${RELEASE} -X version.COMMIT=${COMMIT} -X version.REPO=${REPO_INFO}" \
+		-o ${TARGET_GATEWAY_CLIENT} ${MKFILE_DIR}src/client/main.go
 
 ${TARGET_INVENTORY} : ${GATEWAY_INVENTORY_FILES}
 	@echo "-------------- building inventory -------------"
