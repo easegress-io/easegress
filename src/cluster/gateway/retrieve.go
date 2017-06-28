@@ -375,6 +375,8 @@ func (gc *GatewayCluster) handleRetrieveRelay(req *cluster.RequestEvent) {
 		return
 	}
 
+	logger.Infof("received relay retrieve: %#v", reqRetrieve)
+
 	resp, err, errType := gc.getLocalRetrieveResp(reqRetrieve)
 	if err != nil {
 		gc.respondRetrieveErr(req, errType, err.Error())
@@ -395,6 +397,8 @@ func (gc *GatewayCluster) handleRetrieve(req *cluster.RequestEvent) {
 		gc.respondRetrieveErr(req, errType, err.Error())
 		return
 	}
+
+	logger.Infof("received retrieve: %#v", reqRetrieve)
 
 	resp, err, errType := gc.getLocalRetrieveResp(reqRetrieve)
 	if err != nil {

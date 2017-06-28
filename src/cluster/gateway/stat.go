@@ -627,6 +627,8 @@ func (gc *GatewayCluster) handleStatRelay(req *cluster.RequestEvent) {
 		return
 	}
 
+	logger.Infof("received relay stat: %#v", reqStat)
+
 	resp, err, errType := gc.getLocalStatResp(reqStat)
 	if err != nil {
 		gc.respondStatErr(req, errType, err.Error())
@@ -647,6 +649,8 @@ func (gc *GatewayCluster) handleStat(req *cluster.RequestEvent) {
 		gc.respondStatErr(req, errType, err.Error())
 		return
 	}
+
+	logger.Infof("received stat: %#v", reqStat)
 
 	var validRespList []*RespStat
 

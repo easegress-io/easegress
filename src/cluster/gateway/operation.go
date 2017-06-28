@@ -175,6 +175,8 @@ func (gc *GatewayCluster) handleOperationRelay(req *cluster.RequestEvent) {
 		return
 	}
 
+	logger.Infof("received relay operation: %#v", reqOperation)
+
 	ms := gc.log.maxSeq()
 
 	if ms >= reqOperation.StartSeq {
@@ -235,6 +237,8 @@ func (gc *GatewayCluster) handleOperation(req *cluster.RequestEvent) {
 		gc.respondOperationErr(req, errType, err.Error())
 		return
 	}
+
+	logger.Infof("received operation: %#v", reqOperation)
 
 	if !reqOperation.OperateAllNodes {
 		gc.respondOperation(req, new(RespOperation))
