@@ -645,7 +645,7 @@ func (c *Cluster) operateRelay(msg *messageRelay) bool {
 
 	err := c.memberList.SendReliable(target, msg.RelayPayload)
 	if err != nil {
-		logger.Warnf("[forward a relay message to target member (%s:%s) failed, ignored: %v]",
+		logger.Warnf("[forward a relay message to target member (%s:%d) failed, ignored: %v]",
 			msg.TargetNodeAddress, msg.TargetNodePort, err)
 		return false
 	}
