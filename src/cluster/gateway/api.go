@@ -33,7 +33,7 @@ func (gc *GatewayCluster) QueryGroupMaxSeq(group string, timeout time.Duration) 
 
 	requestName := fmt.Sprintf("(group:%s)query_group_max_sequence", group)
 
-	logger.Infof("issue querySequence: requestName(%s) timeout(%s)",
+	logger.Debugf("issue querySequence: requestName(%s) timeout(%s)",
 		requestName, timeout)
 
 	future, err := gc.cluster.Request(requestName, requestPayload, &requestParam)

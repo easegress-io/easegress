@@ -19,7 +19,7 @@ import (
 func (gc *GatewayCluster) issueRetrieve(group string, timeout time.Duration,
 	requestName string, syncAll bool, filter interface{}) (interface{}, *ClusterError) {
 
-	logger.Infof("issue retrieve: requestName(%s) filter(%#v) syncAll(%v) timeout(%s)",
+	logger.Debugf("issue retrieve: requestName(%s) filter(%#v) syncAll(%v) timeout(%s)",
 		requestName, filter, syncAll, timeout)
 
 	req := &ReqRetrieve{
@@ -375,7 +375,7 @@ func (gc *GatewayCluster) handleRetrieveRelay(req *cluster.RequestEvent) {
 		return
 	}
 
-	logger.Infof("received relay retrieve: %#v", reqRetrieve)
+	logger.Debugf("received relay retrieve: %#v", reqRetrieve)
 
 	resp, err, errType := gc.getLocalRetrieveResp(reqRetrieve)
 	if err != nil {
@@ -398,7 +398,7 @@ func (gc *GatewayCluster) handleRetrieve(req *cluster.RequestEvent) {
 		return
 	}
 
-	logger.Infof("received retrieve: %#v", reqRetrieve)
+	logger.Debugf("received retrieve: %#v", reqRetrieve)
 
 	resp, err, errType := gc.getLocalRetrieveResp(reqRetrieve)
 	if err != nil {
