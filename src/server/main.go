@@ -8,7 +8,6 @@ import (
 	"runtime/pprof"
 	"syscall"
 
-	_ "cluster/gateway"
 	"common"
 	"engine"
 	"logger"
