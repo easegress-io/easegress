@@ -13,11 +13,15 @@ import (
 	"engine"
 	"logger"
 	"rest"
+	"version"
 )
 
 func main() {
 	var exitCode int
 	var err error
+
+	logger.Infof("[ease gateway server: release=%s, commit=%s, repo=%s]",
+		version.RELEASE, version.COMMIT, version.REPO)
 
 	var cpuProfile *os.File
 	if common.CpuProfileFile != "" {

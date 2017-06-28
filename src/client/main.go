@@ -8,6 +8,7 @@ import (
 	urfavecli "github.com/urfave/cli"
 
 	"cli"
+	"version"
 )
 
 func parseHost(c *urfavecli.Context) error {
@@ -27,7 +28,7 @@ func main() {
 	app := urfavecli.NewApp()
 	app.Name = "Ease Gateway command line interface"
 	app.Usage = ""
-	app.Version = "0.0.1"
+	app.Version = fmt.Sprintf("release=%s, commit=%s, repo=%s", version.RELEASE, version.COMMIT, version.REPO)
 	app.Compiled = time.Now()
 	app.Copyright = "(c) 2017 MegaEase.com"
 	app.Before = parseHost
