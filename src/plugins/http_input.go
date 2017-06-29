@@ -20,6 +20,10 @@ import (
 
 // TODO: Moves this into plugin, aligns https server life-cycle with plugin life-cycle
 func init() {
+	if common.ShowVersion {
+		return
+	}
+
 	var (
 		disableHTTPS bool
 		certPath     string

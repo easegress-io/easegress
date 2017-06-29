@@ -33,6 +33,8 @@ var (
 	Stage                          string
 	ConfigHome, LogHome            string
 	CpuProfileFile, MemProfileFile string
+
+	ShowVersion bool
 )
 
 ////
@@ -91,6 +93,7 @@ func init() {
 		"cpu profiling will be fully disabled if not provided")
 	memProfileFile := flag.String("memprofile", "", "specify heap dump file, "+
 		"memory profiling will be fully disabled if not provided")
+	showVersion := flag.Bool("version", false, "ouptput version information")
 
 	flag.Parse()
 
@@ -102,7 +105,6 @@ func init() {
 	OPLogPullInterval = time.Duration(*opLogPullInterval) * time.Second
 	OPLogPullTimeout = time.Duration(*opLogPullTimeout) * time.Second
 	Peers = make([]string, 0)
-
 	for _, peer := range strings.Split(*peers, ",") {
 		peer = strings.TrimSpace(peer)
 		if len(peer) > 0 {
@@ -118,4 +120,5 @@ func init() {
 	LogHome = *logHome
 	CpuProfileFile = *cpuProfileFile
 	MemProfileFile = *memProfileFile
+	ShowVersion = *showVersion
 }

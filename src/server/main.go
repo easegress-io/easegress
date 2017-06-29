@@ -22,6 +22,10 @@ func main() {
 	logger.Infof("[ease gateway server: release=%s, commit=%s, repo=%s]",
 		version.RELEASE, version.COMMIT, version.REPO)
 
+	if common.ShowVersion {
+		os.Exit(exitCode)
+	}
+
 	var cpuProfile *os.File
 	if common.CpuProfileFile != "" {
 		cpuProfile, err = os.Create(common.CpuProfileFile)
