@@ -110,6 +110,7 @@ paths:
           description: Plugin instnace not found by given name.
           schema:
             $ref: '#/definitions/Error'
+        # FIXME: should this be 200 same as cluster api.
         202:
           description: Plugin instance is updated successfully.
   /plugins/{pluginName}:
