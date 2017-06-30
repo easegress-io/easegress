@@ -9,8 +9,8 @@ import (
 )
 
 var (
-	LOG_STD_FILE  = "gateway.log"
-	LOG_STD_LEVEL = logrus.InfoLevel
+	LOG_STD_FILE      = "gateway.log"
+	LOG_STD_LEVEL     = logrus.InfoLevel
 	LOG_STD_TTY_LEVEL = logrus.DebugLevel
 
 	std = New()
