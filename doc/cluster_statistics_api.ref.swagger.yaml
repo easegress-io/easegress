@@ -1,0 +1,572 @@
+swagger: '2.0'
+info:
+  title: Ease Gateway Cluster Statistics API
+  description: Ease Gateway supports Cluster APIs for statistics.
+  version: "1.0"
+schemes:
+  - http
+  - https
+basePath: /cluster/statistics/v1
+produces:
+  - application/json
+paths:
+  /{group}/pipelines/{pipelineName}/plugins/{pluginName}/indicators:
+    get:
+      summary: Retrieves Plugin Statistics Indicator Names in a Group
+      description: |
+        The Plugin Statistics Indicators retrieve endpoints in the group return
+        the name list of all available statistics indicators plugin instance
+        exposed against the pipleine instance.
+      parameters:
+        - name: group
+          in: path
+          required: true
+          type: string
+        - name: pipelineName
+          in: path
+          description: Pipeline instance name to query.
+          required: true
+          type: string
+        - name: pluginName
+          in: path
+          description: Plugin instance name to query.
+          required: true
+          type: string
+        - name: statisticsClusterRequest
+          in: body
+          schema:
+            $ref: '#definitions/StatisticsClusterRequest'
+          required: true
+          description: Timeout, flag details configuration.
+      responses:
+        400:
+          description: |
+            Invalid group name or timeout is less than 10s.
+            Or invalid pipeline or plugin instance name to query.
+          schema:
+            $ref: '#/definitions/Error'
+        404:
+          description: The statistics of pipeline instnace not found by given name.
+          schema:
+            $ref: '#/definitions/Error'
+        408:
+          description: The timeout period expired.
+          schema:
+            $ref: '#/definitions/Error'
+        410:
+          description: The endpoint has gone.
+          schema:
+            $ref: '#/definitions/Error'
+        200:
+          description: The names of statistics indicator.
+          schema:
+            $ref: '#/definitions/ResultStatIndicatorNames'
+  /{group}/pipelines/{pipelineName}/plugins/{pluginName}/indicators/{indicatorName}/value:
+    get:
+      summary: Retrieves Plugin Statistics Indicator Value in a Group
+      description: |
+        The Plugin Statistics Indicator Value retrieve endpoints in the gourp return
+        the value of given statistics indicator plugin instance exposed against
+        the pipleine instance.
+      parameters:
+        - name: group
+          in: path
+          required: true
+          type: string
+        - name: pipelineName
+          in: path
+          description: Pipeline instance name to query.
+          required: true
+          type: string
+        - name: pluginName
+          in: path
+          description: Plugin instance name to query.
+          required: true
+          type: string
+        - name: indicatorName
+          in: path
+          description: Statistics indicator name to query.
+          required: true
+          type: string
+        - name: statisticsClusterRequest
+          in: body
+          schema:
+            $ref: '#definitions/StatisticsClusterRequest'
+          required: true
+          description: Timeout, flag details configuration.
+      responses:
+        400:
+          description: |
+            Invalid group name or timeout is less than 10s.
+            Or invalid pipeline, plugin instance name or indicator name to query.
+          schema:
+            $ref: '#/definitions/Error'
+        403:
+          description: Failed to query value from plugin indicator.
+          schema:
+            $ref: '#/definitions/Error'
+        404:
+          description: The statistics of pipeline instnace or indicator not found by given name.
+          schema:
+            $ref: '#/definitions/Error'
+        408:
+          description: The timeout period expired.
+          schema:
+            $ref: '#/definitions/Error'
+        410:
+          description: The endpoint has gone.
+          schema:
+            $ref: '#/definitions/Error'
+        200:
+          description: The value of statistics indicator.
+          schema:
+            $ref: '#/definitions/ResultStatIndicatorValue'
+  /{group}/pipelines/{pipelineName}/plugins/{pluginName}/indicators/{indicatorName}/desc:
+    get:
+      summary: Retrieves Plugin Statistics Indicator Description in a Group
+      description: |
+        The Plugin Statistics Indicator Description retrieve endpoints in the group
+        return the description of given statistics indicator plugin instance exposed
+        against the pipleine instance.
+      parameters:
+        - name: group
+          in: path
+          required: true
+          type: string
+        - name: pipelineName
+          in: path
+          description: Pipeline instance name to query.
+          required: true
+          type: string
+        - name: pluginName
+          in: path
+          description: Plugin instance name to query.
+          required: true
+          type: string
+        - name: indicatorName
+          in: path
+          description: Statistics indicator name to query.
+          required: true
+          type: string
+        - name: statisticsClusterRequest
+          in: body
+          schema:
+            $ref: '#definitions/StatisticsClusterRequest'
+          required: true
+          description: Timeout, flag details configuration.
+      responses:
+        400:
+          description: |
+            Invalid group name or timeout is less than 10s.
+            Or invalid pipeline, plugin instance name or indicator name to query.
+          schema:
+            $ref: '#/definitions/Error'
+        403:
+          description: Failed to describe plugin indicator.
+          schema:
+            $ref: '#/definitions/Error'
+        404:
+          description: The statistics of pipeline instnace or indicator not found by given name.
+          schema:
+            $ref: '#/definitions/Error'
+        408:
+          description: The timeout period expired.
+          schema:
+            $ref: '#/definitions/Error'
+        410:
+          description: The endpoint has gone.
+          schema:
+            $ref: '#/definitions/Error'
+        200:
+          description: The description of statistics indicator.
+          schema:
+            $ref: '#/definitions/ResultStatIndicatorDesc'
+  /{group}/pipelines/{pipelineName}/indicators:
+    get:
+      summary: Retrieves Pipeline Statistics Indicator Names in a Group
+      description: |
+        The Pipeline Statistics Indicators retrieve endpoints in the group return
+        the name list of all available statistics indicators pipeline instance exposed.
+      parameters:
+        - name: group
+          in: path
+          required: true
+          type: string
+        - name: pipelineName
+          in: path
+          description: Pipeline instance name to query.
+          required: true
+          type: string
+        - name: statisticsClusterRequest
+          in: body
+          schema:
+            $ref: '#definitions/StatisticsClusterRequest'
+          required: true
+          description: Timeout, flag details configuration.
+      responses:
+        400:
+          description: |
+            Invalid group name or timeout is less than 10s.
+            Or invalid pipeline instance name to query.
+          schema:
+            $ref: '#/definitions/Error'
+        404:
+          description: The statistics of pipeline instnace not found by given name.
+          schema:
+            $ref: '#/definitions/Error'
+        408:
+          description: The timeout period expired.
+          schema:
+            $ref: '#/definitions/Error'
+        410:
+          description: The endpoint has gone.
+          schema:
+            $ref: '#/definitions/Error'
+        200:
+          description: The names of statistics indicator.
+          schema:
+            $ref: '#/definitions/ResultStatIndicatorNames'
+  /{group}/pipelines/{pipelineName}/indicators/{indicatorName}/value:
+    get:
+      summary: Retrieves Pipeline Statistics Indicator Value in a Group
+      description: |
+        The Pipeline Statistics Indicator Value retrieve endpoints in the group
+        return the value of given statistics indicator pipeline instance exposed.
+      parameters:
+        - name: group
+          in: path
+          required: true
+          type: string
+        - name: pipelineName
+          in: path
+          description: Pipeline instance name to query.
+          required: true
+          type: string
+        - name: indicatorName
+          in: path
+          description: Statistics indicator name to query.
+          required: true
+          type: string
+        - name: statisticsClusterRequest
+          in: body
+          schema:
+            $ref: '#definitions/StatisticsClusterRequest'
+          required: true
+          description: Timeout, flag details configuration.
+      responses:
+        400:
+          description: |
+            Invalid group name or timeout is less than 10s.
+            Invalid pipeline instance name or indicator name to query.
+          schema:
+            $ref: '#/definitions/Error'
+        403:
+          description: Failed to query value from pipeline indicator.
+          schema:
+            $ref: '#/definitions/Error'
+        404:
+          description: The statistics of pipeline instnace or indicator not found by given name.
+          schema:
+            $ref: '#/definitions/Error'
+        408:
+          description: The timeout period expired.
+          schema:
+            $ref: '#/definitions/Error'
+        410:
+          description: The endpoint has gone.
+          schema:
+            $ref: '#/definitions/Error'
+        200:
+          description: The value of statistics indicator.
+          schema:
+            $ref: '#/definitions/ResultStatIndicatorValue'
+  /{group}/pipelines/{pipelineName}/indicators/{indicatorName}/desc:
+    get:
+      summary: Retrieves Pipeline Statistics Indicator Description in a Group
+      description: |
+        The Pipeline Statistics Indicator Description retrieve endpoints in the
+        group return the description of given statistics indicator pipeline
+        instance exposed.
+      parameters:
+        - name: group
+          in: path
+          required: true
+          type: string
+        - name: pipelineName
+          in: path
+          description: Pipeline instance name to query.
+          required: true
+          type: string
+        - name: indicatorName
+          in: path
+          description: Statistics indicator name to query.
+          required: true
+          type: string
+        - name: statisticsClusterRequest
+          in: body
+          schema:
+            $ref: '#definitions/StatisticsClusterRequest'
+          required: true
+          description: Timeout, flag details configuration.
+      responses:
+        400:
+          description: |
+            Invalid group name or timeout is less than 10s.
+            Or invalid pipeline or indicator name to query.
+          schema:
+            $ref: '#/definitions/Error'
+        403:
+          description: Failed to describe pipeline indicator.
+          schema:
+            $ref: '#/definitions/Error'
+        404:
+          description: The statistics of pipeline instnace or indicator not found by given name.
+          schema:
+            $ref: '#/definitions/Error'
+        408:
+          description: The timeout period expired.
+          schema:
+            $ref: '#/definitions/Error'
+        410:
+          description: The endpoint has gone.
+          schema:
+            $ref: '#/definitions/Error'
+        200:
+          description: The description of statistics indicator.
+          schema:
+            $ref: '#/definitions/ResultStatIndicatorDesc'
+  /{group}/pipelines/{pipelineName}/task/indicators:
+    get:
+      summary: Retrieves Task Statistics Indicator Names in a Group
+      description: |
+        The Task Statistics Indicators retrieve endpoints in the group return
+        the name list of all available statistics indicators task exposed
+        against the pipleine instance.
+      parameters:
+        - name: group
+          in: path
+          required: true
+          type: string
+        - name: pipelineName
+          in: path
+          description: Pipeline instance name to query.
+          required: true
+          type: string
+        - name: statisticsClusterRequest
+          in: body
+          schema:
+            $ref: '#definitions/StatisticsClusterRequest'
+          required: true
+          description: Timeout, flag details configuration.
+      responses:
+        400:
+          description: |
+            Invalid group name or timeout is less than 10s.
+            Or invalid pipeline instance name to query.
+          schema:
+            $ref: '#/definitions/Error'
+        404:
+          description: The statistics of pipeline instnace not found by given name.
+          schema:
+            $ref: '#/definitions/Error'
+        408:
+          description: The timeout period expired.
+          schema:
+            $ref: '#/definitions/Error'
+        410:
+          description: The endpoint has gone.
+          schema:
+            $ref: '#/definitions/Error'
+        200:
+          description: The names of statistics indicator.
+          schema:
+            $ref: '#/definitions/ResultStatIndicatorNames'
+  /{group}/pipelines/{pipelineName}/task/indicators/{indicatorName}/value:
+    get:
+      summary: Retrieves Task Statistics Indicator Value in a Group
+      description: |
+        The Task Statistics Indicator Value retrieve endpoints in the group return
+        the value of given statistics indicator task exposed against the pipleine instance.
+      parameters:
+        - name: group
+          in: path
+          required: true
+          type: string
+        - name: pipelineName
+          in: path
+          description: Pipeline instance name to query.
+          required: true
+          type: string
+        - name: indicatorName
+          in: path
+          description: Statistics indicator name to query.
+          required: true
+          type: string
+        - name: statisticsClusterRequest
+          in: body
+          schema:
+            $ref: '#definitions/StatisticsClusterRequest'
+          required: true
+          description: Timeout, flag details configuration.
+      responses:
+        400:
+          description: |
+            Invalid group name or timeout is less than 10s.
+            Or invalid pipeline instance name or indicator name to query.
+          schema:
+            $ref: '#/definitions/Error'
+        403:
+          description: Failed to query value from task indicator.
+          schema:
+            $ref: '#/definitions/Error'
+        404:
+          description: The statistics of pipeline instnace or indicator not found by given name.
+          schema:
+            $ref: '#/definitions/Error'
+        408:
+          description: The timeout period expired.
+          schema:
+            $ref: '#/definitions/Error'
+        410:
+          description: The endpoint has gone.
+          schema:
+            $ref: '#/definitions/Error'
+        200:
+          description: The value of statistics indicator.
+          schema:
+            $ref: '#/definitions/ResultStatIndicatorValue'
+  /{group}/pipelines/{pipelineName}/task/indicators/{indicatorName}/desc:
+    get:
+      summary: Retrieves Task Statistics Indicator Description in a Group
+      description: |
+        The Task Statistics Indicator Description retrieve endpoints in the group
+        return the description of given statistics indicator task exposed against
+        the pipleine instance.
+      parameters:
+        - name: group
+          in: path
+          required: true
+          type: string
+        - name: pipelineName
+          in: path
+          description: Pipeline instance name to query.
+          required: true
+          type: string
+        - name: indicatorName
+          in: path
+          description: Statistics indicator name to query.
+          required: true
+          type: string
+        - name: statisticsClusterRequest
+          in: body
+          schema:
+            $ref: '#definitions/StatisticsClusterRequest'
+          required: true
+          description: Timeout, flag details configuration.
+      responses:
+        400:
+          description: |
+            Invalid group name or timeout is less than 10s.
+            Or invalid pipeline instance name or indicator name to query.
+          schema:
+            $ref: '#/definitions/Error'
+        403:
+          description: Failed to describe task indicator.
+          schema:
+            $ref: '#/definitions/Error'
+        404:
+          description: The statistics of pipeline instnace or indicator not found by given name.
+          schema:
+            $ref: '#/definitions/Error'
+        408:
+          description: The timeout period expired.
+          schema:
+            $ref: '#/definitions/Error'
+        410:
+          description: The endpoint has gone.
+          schema:
+            $ref: '#/definitions/Error'
+        200:
+          description: The statistics indicator description.
+          schema:
+            $ref: '#/definitions/ResultStatIndicatorDesc'
+definitions:
+  StatisticsClusterRequest:
+    type: object
+    properties:
+      timeout_sec:
+        type: integer
+        minimum: 10
+        maximum: 65535
+        default: 30
+      details:
+        type: boolean
+        default: false
+  ResultStatIndicatorNames:
+    type: object
+    required:
+      - names
+    properties:
+      names:
+        type: array
+        items:
+          type: string
+          enum:
+            - EXECUTION_COUNT_ALL
+            - EXECUTION_COUNT_FAILURE
+            - EXECUTION_COUNT_SUCCESS
+            - EXECUTION_TIME_50_PERCENT_FAILURE
+            - EXECUTION_TIME_50_PERCENT_SUCCESS
+            - EXECUTION_TIME_90_PERCENT_FAILURE
+            - EXECUTION_TIME_90_PERCENT_SUCCESS
+            - EXECUTION_TIME_99_PERCENT_FAILURE
+            - EXECUTION_TIME_99_PERCENT_SUCCESS
+            - EXECUTION_TIME_MAX_ALL
+            - EXECUTION_TIME_MAX_FAILURE
+            - EXECUTION_TIME_MAX_SUCCESS
+            - EXECUTION_TIME_MIN_ALL
+            - EXECUTION_TIME_MIN_FAILURE
+            - EXECUTION_TIME_MIN_SUCCESS
+            - EXECUTION_TIME_STD_DEV_FAILURE
+            - EXECUTION_TIME_STD_DEV_SUCCESS
+            - EXECUTION_TIME_SUM_ALL
+            - EXECUTION_TIME_SUM_FAILURE
+            - EXECUTION_TIME_SUM_SUCCESS
+            - EXECUTION_TIME_VARIANCE_FAILURE
+            - EXECUTION_TIME_VARIANCE_SUCCESS
+            - THROUGHPUT_RATE_LAST_15MIN_ALL
+            - THROUGHPUT_RATE_LAST_15MIN_FAILURE
+            - THROUGHPUT_RATE_LAST_15MIN_SUCCESS
+            - THROUGHPUT_RATE_LAST_1MIN_ALL
+            - THROUGHPUT_RATE_LAST_1MIN_FAILURE
+            - THROUGHPUT_RATE_LAST_1MIN_SUCCESS
+            - THROUGHPUT_RATE_LAST_5MIN_ALL
+            - THROUGHPUT_RATE_LAST_5MIN_FAILURE
+            - THROUGHPUT_RATE_LAST_5MIN_SUCCESS
+  ResultStatIndicatorValue:
+    type: object
+    required:
+      - value
+    properties:
+      value:
+        type: object
+        description: |
+          A special value object of the indicator type.
+          Check Pipeline/Plugin Reference document for more information.
+  ResultStatIndicatorDesc:
+    type: object
+    required:
+      - desc
+    properties:
+      desc:
+        type: string
+        description: |
+          A human readable description of the indicator type.
+          Check Pipeline/Plugin Reference document for more information.
+  Error:
+    type: object
+    required:
+      - Error
+    properties:
+      Error:
+        type: string
