@@ -141,13 +141,13 @@ func GetConfig(t string) (Config, error) {
 	return PLUGIN_ENTRIES[t].configConstructor(), nil
 }
 
-// Out-tree plugin loading
+// Out-tree plugin type loading
 
 type GetTypeNames func() ([]string, error)
 type GetPluginConstructor func() (Constructor, error)
 type GetPluginConfigConstructor func() (ConfigConstructor, error)
 
-func LoadOutTreePlugins() error {
+func LoadOutTreePluginTypes() error {
 	logger.Debugf("[load all out-tree plugin types]")
 
 	err := os.MkdirAll(common.PLUGIN_HOME_DIR, 0700)
@@ -167,12 +167,13 @@ func LoadOutTreePlugins() error {
 			return filepath.SkipDir
 		}
 
-		typeNames, failedTypeName, err := loadOutTreePlugins(path)
+		typeNames, failedTypeName, err := loadOutTreePluginTypes(path)
 		if err != nil {
 			if failedTypeName == "" {
 				logger.Errorf("[load out-tree plugin types from %s failed, skipped: %v]", path, err)
 			} else {
-				logger.Errorf("[load out-tree plugin type %s from %s failed: %v]", failedTypeName, path, err)
+				logger.Errorf("[load out-tree plugin type %s from %s failed: %v]",
+					failedTypeName, path, err)
 			}
 		}
 
@@ -193,7 +194,7 @@ func LoadOutTreePlugins() error {
 	return nil
 }
 
-func loadOutTreePlugins(path string) ([]string, string, error) {
+func loadOutTreePluginTypes(path string) ([]string, string, error) {
 	ret := make([]string, 0)
 
 	p, err := plugin.Open(path)

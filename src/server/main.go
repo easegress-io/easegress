@@ -62,7 +62,7 @@ func main() {
 		logger.Infof("[memory profiling enabled, heap dump to %s]", common.CpuProfileFile)
 	}
 
-	err = plugins.LoadOutTreePlugins()
+	err = plugins.LoadOutTreePluginTypes()
 	if err != nil {
 		logger.Errorf("[initialize out-tree plugin type failed: %v]", err)
 		exitCode = 2
