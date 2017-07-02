@@ -6,19 +6,21 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hexdecteam/easegateway-types/pipelines"
+	"github.com/hexdecteam/easegateway-types/plugins"
+	"github.com/hexdecteam/easegateway-types/task"
+
 	"common"
 	"logger"
-	"pipelines"
-	"plugins"
-	"task"
+	pipelines_gw "pipelines"
 )
 
 type linearPipelineConfig struct {
-	*pipelines.CommonConfig
+	*pipelines_gw.CommonConfig
 	WaitPluginClose bool `json:"wait_plugin_close"`
 }
 
-func linearPipelineConfigConstructor() pipelines.Config {
+func linearPipelineConfigConstructor() pipelines_gw.Config {
 	return &linearPipelineConfig{
 		WaitPluginClose: true, // HTTPInput plugin needs this due to it has a global mux object
 	}
@@ -41,7 +43,7 @@ type linearPipeline struct {
 }
 
 func newLinearPipeline(ctx pipelines.PipelineContext, statistics *PipelineStatistics,
-	conf pipelines.Config, m *Model) (pipelines.Pipeline, error) {
+	conf pipelines_gw.Config, m *Model) (pipelines_gw.Pipeline, error) {
 
 	c, ok := conf.(*linearPipelineConfig)
 	if !ok {

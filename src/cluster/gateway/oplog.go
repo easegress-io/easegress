@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/dgraph-io/badger/badger"
+	"github.com/dgraph-io/badger"
 
 	"common"
 )

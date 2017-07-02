@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hexdecteam/easegateway-types/pipelines"
+	"github.com/hexdecteam/easegateway-types/plugins"
+	"github.com/hexdecteam/easegateway-types/task"
+
 	"common"
-	"pipelines"
-	"task"
 )
 
 type easeMonitorGraphiteGidExtractorConfig struct {
@@ -17,7 +19,7 @@ type easeMonitorGraphiteGidExtractorConfig struct {
 	DataKey string `json:"data_key"`
 }
 
-func EaseMonitorGraphiteGidExtractorConfigConstructor() Config {
+func EaseMonitorGraphiteGidExtractorConfigConstructor() plugins.Config {
 	return &easeMonitorGraphiteGidExtractorConfig{}
 }
 
@@ -45,7 +47,7 @@ type easeMonitorGraphiteGidExtractor struct {
 	conf *easeMonitorGraphiteGidExtractorConfig
 }
 
-func EaseMonitorGraphiteGidExtractorConstructor(conf Config) (Plugin, error) {
+func EaseMonitorGraphiteGidExtractorConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	c, ok := conf.(*easeMonitorGraphiteGidExtractorConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *easeMonitorGraphiteGidExtractorConfig got %T", conf)

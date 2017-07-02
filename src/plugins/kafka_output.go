@@ -6,11 +6,12 @@ import (
 	"time"
 
 	"github.com/Shopify/sarama"
+	"github.com/hexdecteam/easegateway-types/pipelines"
+	"github.com/hexdecteam/easegateway-types/plugins"
+	"github.com/hexdecteam/easegateway-types/task"
 
 	"common"
 	"logger"
-	"pipelines"
-	"task"
 )
 
 type kafkaOutputConfig struct {
@@ -23,7 +24,7 @@ type kafkaOutputConfig struct {
 	DataKey       string `json:"data_key"`
 }
 
-func KafkaOutputConfigConstructor() Config {
+func KafkaOutputConfigConstructor() plugins.Config {
 	return &kafkaOutputConfig{
 		ClientID: "easegateway",
 	}
@@ -71,7 +72,7 @@ type kafkaOutput struct {
 	producer sarama.SyncProducer
 }
 
-func KafkaOutputConstructor(conf Config) (Plugin, error) {
+func KafkaOutputConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	c, ok := conf.(*kafkaOutputConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *kafkaOutputConfig got %T", conf)

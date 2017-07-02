@@ -5,9 +5,11 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/hexdecteam/easegateway-types/pipelines"
+	"github.com/hexdecteam/easegateway-types/plugins"
+	"github.com/hexdecteam/easegateway-types/task"
+
 	"logger"
-	"pipelines"
-	"task"
 )
 
 type noMoreFailureLimiterConfig struct {
@@ -19,7 +21,7 @@ type noMoreFailureLimiterConfig struct {
 	FailureTaskDataValue string `json:"failure_task_data_value"`
 }
 
-func NoMoreFailureLimiterConfigConstructor() Config {
+func NoMoreFailureLimiterConfigConstructor() plugins.Config {
 	return &noMoreFailureLimiterConfig{
 		FailureCountThreshold: 1,
 	}
@@ -52,7 +54,7 @@ type noMoreFailureLimiter struct {
 	instanceId string
 }
 
-func NoMoreFailureLimiterConstructor(conf Config) (Plugin, error) {
+func NoMoreFailureLimiterConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	c, ok := conf.(*noMoreFailureLimiterConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *noMoreFailureLimiterConfig got %T", conf)

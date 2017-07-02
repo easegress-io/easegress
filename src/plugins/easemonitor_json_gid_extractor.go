@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"pipelines"
-	"task"
+	"github.com/hexdecteam/easegateway-types/pipelines"
+	"github.com/hexdecteam/easegateway-types/plugins"
+	"github.com/hexdecteam/easegateway-types/task"
 )
 
 type easeMonitorJSONGidExtractorConfig struct {
@@ -15,7 +16,7 @@ type easeMonitorJSONGidExtractorConfig struct {
 	DataKey string `json:"data_key"`
 }
 
-func EaseMonitorJSONGidExtractorConfigConstructor() Config {
+func EaseMonitorJSONGidExtractorConfigConstructor() plugins.Config {
 	return &easeMonitorJSONGidExtractorConfig{}
 }
 
@@ -43,7 +44,7 @@ type easeMonitorJSONGidExtractor struct {
 	conf *easeMonitorJSONGidExtractorConfig
 }
 
-func EaseMonitorJSONGidExtractorConstructor(conf Config) (Plugin, error) {
+func EaseMonitorJSONGidExtractorConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	c, ok := conf.(*easeMonitorJSONGidExtractorConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *easeMonitorJSONGidExtractorConfig got %T", conf)

@@ -5,9 +5,11 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/hexdecteam/easegateway-types/pipelines"
+	"github.com/hexdecteam/easegateway-types/plugins"
+	"github.com/hexdecteam/easegateway-types/task"
+
 	"logger"
-	"pipelines"
-	"task"
 )
 
 type staticProbabilityLimiterConfig struct {
@@ -15,7 +17,7 @@ type staticProbabilityLimiterConfig struct {
 	PassPr float32 `json:"pass_pr"`
 }
 
-func StaticProbabilityLimiterConfigConstructor() Config {
+func StaticProbabilityLimiterConfigConstructor() plugins.Config {
 	return new(staticProbabilityLimiterConfig)
 }
 
@@ -44,7 +46,7 @@ type staticProbabilityLimiter struct {
 	conf *staticProbabilityLimiterConfig
 }
 
-func StaticProbabilityLimiterConstructor(conf Config) (Plugin, error) {
+func StaticProbabilityLimiterConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	c, ok := conf.(*staticProbabilityLimiterConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *staticProbabilityLimiterConfig got %T", conf)

@@ -1,7 +1,7 @@
 package config
 
 import (
-	"plugins"
+	"github.com/hexdecteam/easegateway-types/plugins"
 )
 
 type PluginSpec struct {

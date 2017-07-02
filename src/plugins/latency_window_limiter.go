@@ -6,10 +6,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hexdecteam/easegateway-types/pipelines"
+	"github.com/hexdecteam/easegateway-types/plugins"
+	"github.com/hexdecteam/easegateway-types/task"
+
 	"common"
 	"logger"
-	"pipelines"
-	"task"
 )
 
 type latencyWindowLimiterConfig struct {
@@ -21,7 +23,7 @@ type latencyWindowLimiterConfig struct {
 	WindowSizeInit       uint64   `json:"windows_size_init"`
 }
 
-func LatencyWindowLimiterConfigConstructor() Config {
+func LatencyWindowLimiterConfigConstructor() plugins.Config {
 	return &latencyWindowLimiterConfig{
 		LatencyThresholdMSec: 800,
 		BackOffMSec:          100,
@@ -73,7 +75,7 @@ type latencyWindowLimiter struct {
 	executionSampleUpdatedCallbackName string
 }
 
-func LatencyWindowLimiterConstructor(conf Config) (Plugin, error) {
+func LatencyWindowLimiterConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	c, ok := conf.(*latencyWindowLimiterConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *latencyWindowLimiterConfig got %T", conf)

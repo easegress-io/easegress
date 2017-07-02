@@ -3,9 +3,11 @@ package plugins
 import (
 	"fmt"
 
+	"github.com/hexdecteam/easegateway-types/pipelines"
+	"github.com/hexdecteam/easegateway-types/plugins"
+	"github.com/hexdecteam/easegateway-types/task"
+
 	"logger"
-	"pipelines"
-	"task"
 )
 
 type downstreamInputConfig struct {
@@ -14,7 +16,7 @@ type downstreamInputConfig struct {
 	ResponseDataKeys []string `json:"response_data_keys"`
 }
 
-func DownstreamInputConfigConstructor() Config {
+func DownstreamInputConfigConstructor() plugins.Config {
 	return &downstreamInputConfig{}
 }
 
@@ -31,7 +33,7 @@ type downstreamInput struct {
 	conf *downstreamInputConfig
 }
 
-func DownstreamInputConstructor(conf Config) (Plugin, error) {
+func DownstreamInputConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	c, ok := conf.(*downstreamInputConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *downstreamInputConfig got %T", conf)
@@ -58,8 +60,7 @@ func (d *downstreamInput) Run(ctx pipelines.PipelineContext, t task.Task) (task.
 			"cross pipeline request to the wrong upstream %s]",
 			request.DownstreamPipelineName(), ctx.PipelineName())
 
-		t.SetError(fmt.Errorf("upstream received wrong downstream request"),
-			task.ResultInternalServerError)
+		t.SetError(fmt.Errorf("upstream received wrong downstream request"), task.ResultInternalServerError)
 		return t, nil
 	}
 

@@ -7,40 +7,11 @@ import (
 	"plugin"
 	"strings"
 
+	"github.com/hexdecteam/easegateway-types/plugins"
+
 	"common"
 	"logger"
-	"pipelines"
-	"task"
 )
-
-// Plugin needs to cover follow rules:
-//
-// 1. Run(task.Task) method returns error only if
-//    a) the plugin needs reconstruction, e.g. backend failure causes local client object invalidation;
-//    b) the task has been cancelled by pipeline after running plugin is updated dynamically, task will
-//    re-run on updated plugin;
-//    The error caused by user input should be updated to task instead.
-// 2. Should be implemented as stateless and be re-entry-able (idempotency) on the same task, a plugin
-//    instance could be used in different pipeline or parallel running instances of same pipeline.
-//    Under current implementation, a plugin couldn't be used in different pipeline but there is no
-//    guarantee this limitation is existing in future release.
-// 3. Prepare(pipelines.PipelineContext) guarantees it will be called on the same pipeline context against
-//    the same plugin instance only once before executing Run(task.Task) on the pipeline.
-type Plugin interface {
-	Prepare(ctx pipelines.PipelineContext)
-	Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error)
-	Name() string
-	Close()
-}
-
-type Constructor func(conf Config) (Plugin, error)
-
-type Config interface {
-	PluginName() string
-	Prepare(pipelineNames []string) error
-}
-
-type ConfigConstructor func() Config
 
 type CommonConfig struct {
 	Name string `json:"plugin_name"`
@@ -62,8 +33,8 @@ func (c *CommonConfig) Prepare(pipelineNames []string) error {
 // Plugins Register Authority
 
 type pluginEntry struct {
-	pluginConstructor Constructor
-	configConstructor ConfigConstructor
+	pluginConstructor plugins.Constructor
+	configConstructor plugins.ConfigConstructor
 }
 
 var (
@@ -125,7 +96,7 @@ func GetAllTypes() []string {
 	return types
 }
 
-func GetConstructor(t string) (Constructor, error) {
+func GetConstructor(t string) (plugins.Constructor, error) {
 	if !ValidType(t) {
 		return nil, fmt.Errorf("invalid plugin type %s", t)
 	}
@@ -133,7 +104,7 @@ func GetConstructor(t string) (Constructor, error) {
 	return PLUGIN_ENTRIES[t].pluginConstructor, nil
 }
 
-func GetConfig(t string) (Config, error) {
+func GetConfig(t string) (plugins.Config, error) {
 	if !ValidType(t) {
 		return nil, fmt.Errorf("invalid plugin type %s", t)
 	}
@@ -144,8 +115,8 @@ func GetConfig(t string) (Config, error) {
 // Out-tree plugin type loading
 
 type GetTypeNames func() ([]string, error)
-type GetPluginConstructor func() (Constructor, error)
-type GetPluginConfigConstructor func() (ConfigConstructor, error)
+type GetPluginConstructor func() (plugins.Constructor, error)
+type GetPluginConfigConstructor func() (plugins.ConfigConstructor, error)
 
 func LoadOutTreePluginTypes() error {
 	logger.Debugf("[load all out-tree plugin types]")
@@ -236,7 +207,7 @@ func loadOutTreePluginTypes(path string) ([]string, string, error) {
 			return ret, name, fmt.Errorf("invalid plugin constructor definition")
 		}
 
-		var c Constructor
+		var c plugins.Constructor
 		var e error
 
 		if common.PanicToErr(func() { c, e = getConstructor() }, &err) {
@@ -256,7 +227,7 @@ func loadOutTreePluginTypes(path string) ([]string, string, error) {
 			return ret, name, fmt.Errorf("invalid plugin config constructor definition")
 		}
 
-		var cc ConfigConstructor
+		var cc plugins.ConfigConstructor
 		e = nil
 
 		if common.PanicToErr(func() { cc, e = getConfigConstructor() }, &err) {

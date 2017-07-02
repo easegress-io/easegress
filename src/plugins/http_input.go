@@ -12,10 +12,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/hexdecteam/easegateway-types/pipelines"
+	"github.com/hexdecteam/easegateway-types/plugins"
+	"github.com/hexdecteam/easegateway-types/task"
+
 	"common"
 	"logger"
-	"pipelines"
-	"task"
 )
 
 // TODO: Moves this into plugin, aligns https server life-cycle with plugin life-cycle
@@ -105,7 +107,7 @@ type httpInputConfig struct {
 	ResponseBodyBufferKey string `json:"response_body_buffer_key"`
 }
 
-func HTTPInputConfigConstructor() Config {
+func HTTPInputConfigConstructor() plugins.Config {
 	return &httpInputConfig{
 		Methods: []string{http.MethodGet},
 		Unzip:   true,
@@ -174,7 +176,7 @@ type httpInput struct {
 	queueLength  uint64
 }
 
-func HTTPInputConstructor(conf Config) (Plugin, error) {
+func HTTPInputConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	c, ok := conf.(*httpInputConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *HTTPInputConfig got %T", conf)

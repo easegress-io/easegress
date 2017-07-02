@@ -7,11 +7,14 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/hexdecteam/easegateway-types/pipelines"
+	"github.com/hexdecteam/easegateway-types/plugins"
+
 	"common"
 	"config"
 	"logger"
-	"pipelines"
-	"plugins"
+	pipelines_gw "pipelines"
+	plugins_gw "plugins"
 )
 
 type PluginAdded func(newPlugin *Plugin)
@@ -58,7 +61,7 @@ func (m *Model) LoadPlugins(specs []*config.PluginSpec) error {
 			return err
 		}
 
-		conf, err := plugins.GetConfig(spec.Type)
+		conf, err := plugins_gw.GetConfig(spec.Type)
 		if err != nil {
 			logger.Errorf("[construct plugin config failed: %v]", err)
 			return err
@@ -126,7 +129,7 @@ func (m *Model) AddPlugin(typ string, conf plugins.Config,
 		return nil, fmt.Errorf("add plugin %s failed: %v", pluginName, err)
 	}
 
-	if !plugins.ValidType(typ) {
+	if !plugins_gw.ValidType(typ) {
 		m.Unlock()
 		return nil, fmt.Errorf("plugin type %s is invalid", typ)
 	}
@@ -198,7 +201,7 @@ func (m *Model) GetPlugins(namePattern string, types []string) ([]*Plugin, error
 	defer m.RUnlock()
 
 	for _, t := range types {
-		if !plugins.ValidType(t) {
+		if !plugins_gw.ValidType(t) {
 			return nil, fmt.Errorf("invalid plugin type %s", t)
 		}
 	}
@@ -392,13 +395,13 @@ func (m *Model) DeletePluginUpdatedCallback(name string) PluginUpdated {
 	}
 }
 
-func (m *Model) AddPipeline(typ string, conf pipelines.Config) (*Pipeline, error) {
+func (m *Model) AddPipeline(typ string, conf pipelines_gw.Config) (*Pipeline, error) {
 	err := conf.Prepare()
 	if err != nil {
 		return nil, err
 	}
 
-	if !pipelines.ValidType(typ) {
+	if !pipelines_gw.ValidType(typ) {
 		return nil, fmt.Errorf("pipeline type %s is invalid", typ)
 	}
 
@@ -483,7 +486,7 @@ func (m *Model) GetPipelines(namePattern string, types []string) ([]*Pipeline, e
 	defer m.RUnlock()
 
 	for _, t := range types {
-		if !pipelines.ValidType(t) {
+		if !pipelines_gw.ValidType(t) {
 			return nil, fmt.Errorf("invalid pipeline type %s", t)
 		}
 	}
@@ -512,7 +515,7 @@ func (m *Model) GetPipelines(namePattern string, types []string) ([]*Pipeline, e
 	return ret, nil
 }
 
-func (m *Model) UpdatePipelineConfig(conf pipelines.Config) error {
+func (m *Model) UpdatePipelineConfig(conf pipelines_gw.Config) error {
 	err := conf.Prepare()
 	if err != nil {
 		return err
@@ -652,7 +655,7 @@ func (m *Model) DeletePipelineUpdatedCallback(name string) PipelineUpdated {
 }
 
 func (m *Model) CreatePipelineContext(
-	conf pipelines.Config, statistics pipelines.PipelineStatistics) pipelines.PipelineContext {
+	conf pipelines_gw.Config, statistics pipelines.PipelineStatistics) pipelines.PipelineContext {
 
 	ctx := NewPipelineContext(conf, statistics, m)
 

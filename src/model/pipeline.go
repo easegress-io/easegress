@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"sync"
 
-	"pipelines"
+	"github.com/hexdecteam/easegateway-types/pipelines"
+
+	pipelines_gw "pipelines"
 )
 
 //
@@ -14,10 +16,10 @@ import (
 type Pipeline struct {
 	sync.RWMutex
 	typ    string
-	config pipelines.Config
+	config pipelines_gw.Config
 }
 
-func newPipeline(typ string, conf pipelines.Config) *Pipeline {
+func newPipeline(typ string, conf pipelines_gw.Config) *Pipeline {
 	return &Pipeline{
 		typ:    typ,
 		config: conf,
@@ -36,14 +38,14 @@ func (p *Pipeline) Type() string {
 	return p.typ
 }
 
-func (p *Pipeline) Config() pipelines.Config {
+func (p *Pipeline) Config() pipelines_gw.Config {
 	p.RLock()
 	defer p.RUnlock()
 	return p.config
 }
 
 func (p *Pipeline) GetInstance(ctx pipelines.PipelineContext, statistics *PipelineStatistics,
-	m *Model) (pipelines.Pipeline, error) {
+	m *Model) (pipelines_gw.Pipeline, error) {
 
 	p.RLock()
 	defer p.RUnlock()
@@ -56,7 +58,7 @@ func (p *Pipeline) GetInstance(ctx pipelines.PipelineContext, statistics *Pipeli
 	return newLinearPipeline(ctx, statistics, p.config, m)
 }
 
-func (p *Pipeline) UpdateConfig(conf pipelines.Config) {
+func (p *Pipeline) UpdateConfig(conf pipelines_gw.Config) {
 	p.Lock()
 	defer p.Unlock()
 	p.config = conf
@@ -66,8 +68,8 @@ func (p *Pipeline) UpdateConfig(conf pipelines.Config) {
 // Pipeline config factory
 //
 
-func GetPipelineConfig(typ string) (pipelines.Config, error) {
-	var conf pipelines.Config
+func GetPipelineConfig(typ string) (pipelines_gw.Config, error) {
+	var conf pipelines_gw.Config
 	switch typ {
 	case "LinearPipeline":
 		conf = linearPipelineConfigConstructor()

@@ -10,10 +10,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/hexdecteam/easegateway-types/pipelines"
+	"github.com/hexdecteam/easegateway-types/plugins"
+	"github.com/hexdecteam/easegateway-types/task"
+
 	"common"
 	"logger"
-	"pipelines"
-	"task"
 )
 
 type routeSelector func(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) string
@@ -171,7 +173,7 @@ type upstreamOutputConfig struct {
 	filterRegexMapList []map[string]*regexp.Regexp
 }
 
-func UpstreamOutputConfigConstructor() Config {
+func UpstreamOutputConfigConstructor() plugins.Config {
 	return &upstreamOutputConfig{
 		RoutePolicy: "round_robin",
 	}
@@ -273,7 +275,7 @@ type upstreamOutput struct {
 	instanceId string
 }
 
-func UpstreamOutputConstructor(conf Config) (Plugin, error) {
+func UpstreamOutputConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	c, ok := conf.(*upstreamOutputConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *upstreamOutputConfig got %T", conf)

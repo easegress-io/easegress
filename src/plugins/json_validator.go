@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hexdecteam/easegateway-types/pipelines"
+	"github.com/hexdecteam/easegateway-types/plugins"
+	"github.com/hexdecteam/easegateway-types/task"
 	"github.com/xeipuuv/gojsonschema"
-
-	"pipelines"
-	"task"
 )
 
 type jsonValidatorConfig struct {
@@ -18,7 +18,7 @@ type jsonValidatorConfig struct {
 	schemaObj *gojsonschema.Schema
 }
 
-func JSONValidatorConfigConstructor() Config {
+func JSONValidatorConfigConstructor() plugins.Config {
 	return &jsonValidatorConfig{}
 }
 
@@ -48,7 +48,7 @@ type jsonValidator struct {
 	conf *jsonValidatorConfig
 }
 
-func JSONValidatorConstructor(conf Config) (Plugin, error) {
+func JSONValidatorConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	c, ok := conf.(*jsonValidatorConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *jsonValidatorConfig got %T", conf)

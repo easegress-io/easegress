@@ -6,9 +6,11 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/hexdecteam/easegateway-types/pipelines"
+
 	"common"
 	"logger"
-	"pipelines"
+	pipelines_gw "pipelines"
 )
 
 //
@@ -34,7 +36,7 @@ type pipelineContext struct {
 	requestChan      chan *pipelines.DownstreamRequest
 }
 
-func NewPipelineContext(conf pipelines.Config,
+func NewPipelineContext(conf pipelines_gw.Config,
 	statistics pipelines.PipelineStatistics, m *Model) *pipelineContext {
 
 	return &pipelineContext{

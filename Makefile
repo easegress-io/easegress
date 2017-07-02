@@ -74,9 +74,10 @@ vendor_get:
 		golang.org/x/time/rate \
 		github.com/urfave/cli \
 		github.com/hashicorp/memberlist \
-		github.com/dgraph-io/badger/badger \
+		github.com/dgraph-io/badger \
 		github.com/ugorji/go/codec \
 		github.com/hashicorp/logutils \
+		github.com/hexdecteam/easegateway-types/... \
 		github.com/hexdecteam/easegateway-go-client/...
 
 vendor_update: vendor_get

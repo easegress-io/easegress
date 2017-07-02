@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hexdecteam/easegateway-types/pipelines"
+	"github.com/hexdecteam/easegateway-types/plugins"
+	"github.com/hexdecteam/easegateway-types/task"
+
 	"common"
-	"pipelines"
-	"task"
 )
 
 type easeMonitorGraphiteValidatorConfig struct {
@@ -16,7 +18,7 @@ type easeMonitorGraphiteValidatorConfig struct {
 	DataKey string `json:"data_key"`
 }
 
-func EaseMonitorGraphiteValidatorConfigConstructor() Config {
+func EaseMonitorGraphiteValidatorConfigConstructor() plugins.Config {
 	return &easeMonitorGraphiteValidatorConfig{}
 }
 
@@ -40,7 +42,7 @@ type easeMonitorGraphiteValidator struct {
 	conf *easeMonitorGraphiteValidatorConfig
 }
 
-func EaseMonitorGraphiteValidatorConstructor(conf Config) (Plugin, error) {
+func EaseMonitorGraphiteValidatorConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	c, ok := conf.(*easeMonitorGraphiteValidatorConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *easeMonitorGraphiteValidatorConfig got %T", conf)
@@ -59,7 +61,8 @@ func (v *easeMonitorGraphiteValidator) validate(t task.Task) (error, task.TaskRe
 	dataValue := t.Value(v.conf.DataKey)
 	data, ok := dataValue.([]byte)
 	if !ok {
-		return fmt.Errorf("input %s got wrong value: %#v", v.conf.DataKey, dataValue), task.ResultMissingInput, t
+		return fmt.Errorf("input %s got wrong value: %#v", v.conf.DataKey, dataValue),
+			task.ResultMissingInput, t
 	}
 
 	if len(data) == 0 {
@@ -72,8 +75,8 @@ func (v *easeMonitorGraphiteValidator) validate(t task.Task) (error, task.TaskRe
 		text := s.Text()
 		fields := common.GraphiteSplit(text, ".", "#")
 		if len(fields) != 4 {
-			return fmt.Errorf("graphite data want 4 fields('#'-splitted) got %v",
-				len(fields)), task.ResultBadInput, t
+			return fmt.Errorf("graphite data want 4 fields('#'-splitted) got %v", len(fields)),
+				task.ResultBadInput, t
 		}
 	}
 

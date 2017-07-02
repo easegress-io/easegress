@@ -8,10 +8,12 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/hexdecteam/easegateway-types/plugins"
+
 	"common"
 	"logger"
 	"pipelines"
-	"plugins"
+	plugins_gw "plugins"
 )
 
 type GatewayPluginRepository struct {
@@ -93,7 +95,7 @@ func (s *JSONFileStore) GetAllPlugins() ([]*PluginSpec, error) {
 	}
 
 	for _, spec := range pluginRepo.PluginSpecs {
-		constructor, e := plugins.GetConstructor(spec.Type)
+		constructor, e := plugins_gw.GetConstructor(spec.Type)
 		if e != nil {
 			logger.Warnf("get plugin constructor failed, skipped: %v", e)
 			continue
@@ -157,7 +159,7 @@ func (s *JSONFileStore) AddPlugin(plugin *PluginSpec) error {
 
 	for _, spec := range pluginRepo.PluginSpecs {
 		buff, _ := json.Marshal(spec.Config)
-		c := new(plugins.CommonConfig)
+		c := new(plugins_gw.CommonConfig)
 		json.Unmarshal(buff, c)
 
 		if c.PluginName() == conf.PluginName() {
@@ -236,7 +238,7 @@ func (s *JSONFileStore) DeletePlugin(name string) error {
 	deleted := false
 	for _, spec := range pluginRepo.PluginSpecs {
 		buff, _ := json.Marshal(spec.Config)
-		c := new(plugins.CommonConfig)
+		c := new(plugins_gw.CommonConfig)
 		json.Unmarshal(buff, c)
 
 		if c.PluginName() != name {
@@ -330,7 +332,7 @@ func (s *JSONFileStore) UpdatePlugin(plugin *PluginSpec) error {
 	var newPluginSpecs []PluginSpec
 	for _, spec := range pluginRepo.PluginSpecs {
 		buff, _ := json.Marshal(spec.Config)
-		c := new(plugins.CommonConfig)
+		c := new(plugins_gw.CommonConfig)
 		json.Unmarshal(buff, c)
 
 		if c.PluginName() == conf.PluginName() {

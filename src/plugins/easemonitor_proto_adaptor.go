@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"task"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/hexdecteam/easegateway-types/pipelines"
+	"github.com/hexdecteam/easegateway-types/plugins"
+	"github.com/hexdecteam/easegateway-types/task"
 
-	"pipelines"
 	"plugins/gwproto"
 )
 
@@ -19,7 +20,7 @@ type easeMonitorProtoAdaptorConfig struct {
 	DataKey string `json:"data_key"`
 }
 
-func EaseMonitorProtoAdaptorConfigConstructor() Config {
+func EaseMonitorProtoAdaptorConfigConstructor() plugins.Config {
 	return &easeMonitorProtoAdaptorConfig{}
 }
 
@@ -47,7 +48,7 @@ type easeMonitorProtoAdaptor struct {
 	conf *easeMonitorProtoAdaptorConfig
 }
 
-func EaseMonitorProtoAdaptorConstructor(conf Config) (Plugin, error) {
+func EaseMonitorProtoAdaptorConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	c, ok := conf.(*easeMonitorProtoAdaptorConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *easeMonitorProtoAdaptorConfig got %T", conf)
@@ -66,7 +67,8 @@ func (a *easeMonitorProtoAdaptor) adapt(t task.Task) (err error, resultCode task
 	dataValue := t.Value(a.conf.DataKey)
 	data, ok := dataValue.([]byte)
 	if !ok {
-		return fmt.Errorf("input %s got wrong value: %#v", a.conf.DataKey, dataValue), task.ResultMissingInput, t
+		return fmt.Errorf("input %s got wrong value: %#v", a.conf.DataKey, dataValue),
+			task.ResultMissingInput, t
 	}
 
 	const (

@@ -7,11 +7,12 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/hexdecteam/easegateway-types/pipelines"
+	"github.com/hexdecteam/easegateway-types/plugins"
+	"github.com/hexdecteam/easegateway-types/task"
 	"golang.org/x/time/rate"
 
 	"logger"
-	"pipelines"
-	"task"
 )
 
 type throughputRateLimiterConfig struct {
@@ -21,7 +22,7 @@ type throughputRateLimiterConfig struct {
 	tps float64
 }
 
-func ThroughputRateLimiterConfigConstructor() Config {
+func ThroughputRateLimiterConfigConstructor() plugins.Config {
 	return new(throughputRateLimiterConfig)
 }
 
@@ -51,7 +52,7 @@ type throughputRateLimiter struct {
 	instanceId string
 }
 
-func ThroughputRateLimiterConstructor(conf Config) (Plugin, error) {
+func ThroughputRateLimiterConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	c, ok := conf.(*throughputRateLimiterConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *throughputRateLimiterConfig got %T", conf)

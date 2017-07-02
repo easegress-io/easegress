@@ -7,11 +7,11 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/hexdecteam/easegateway-types/pipelines"
 	"github.com/rcrowley/go-metrics"
 
 	"common"
 	"logger"
-	"pipelines"
 )
 
 //

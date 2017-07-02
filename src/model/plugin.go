@@ -3,9 +3,10 @@ package model
 import (
 	"sync"
 
+	"github.com/hexdecteam/easegateway-types/plugins"
+
 	"common"
 	"logger"
-	"plugins"
 )
 
 //

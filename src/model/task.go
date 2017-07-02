@@ -5,8 +5,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hexdecteam/easegateway-types/task"
+
 	"common"
-	"task"
 )
 
 ////

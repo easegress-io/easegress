@@ -8,9 +8,11 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/hexdecteam/easegateway-types/pipelines"
+	"github.com/hexdecteam/easegateway-types/plugins"
+	"github.com/hexdecteam/easegateway-types/task"
+
 	"common"
-	"pipelines"
-	"task"
 )
 
 type httpHeaderCounterConfig struct {
@@ -19,7 +21,7 @@ type httpHeaderCounterConfig struct {
 	ExpirationSec   uint32 `json:"expiration_sec"`
 }
 
-func HTTPHeaderCounterConfigConstructor() Config {
+func HTTPHeaderCounterConfigConstructor() plugins.Config {
 	return &httpHeaderCounterConfig{
 		ExpirationSec: 60,
 	}
@@ -52,7 +54,7 @@ type httpHeaderCounter struct {
 	instanceId string
 }
 
-func HTTPHeaderCounterConstructor(conf Config) (Plugin, error) {
+func HTTPHeaderCounterConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	c, ok := conf.(*httpHeaderCounterConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *httpHeaderCounterConfig got %T", conf)

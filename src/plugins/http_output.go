@@ -14,10 +14,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hexdecteam/easegateway-types/pipelines"
+	"github.com/hexdecteam/easegateway-types/plugins"
+	"github.com/hexdecteam/easegateway-types/task"
+
 	"common"
 	"logger"
-	"pipelines"
-	"task"
 )
 
 type httpOutputConfig struct {
@@ -43,8 +45,7 @@ type httpOutputConfig struct {
 	caCert                              []byte
 }
 
-func HTTPOutputConfigConstructor() Config {
-
+func HTTPOutputConfigConstructor() plugins.Config {
 	return &httpOutputConfig{
 		TimeoutSec: 120,
 		Close:      true,
@@ -143,7 +144,7 @@ type httpOutput struct {
 	client *http.Client
 }
 
-func HTTPOutputConstructor(conf Config) (Plugin, error) {
+func HTTPOutputConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	c, ok := conf.(*httpOutputConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *httpOutputConfig got %T", conf)

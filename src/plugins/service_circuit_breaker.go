@@ -6,10 +6,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hexdecteam/easegateway-types/pipelines"
+	"github.com/hexdecteam/easegateway-types/plugins"
+	"github.com/hexdecteam/easegateway-types/task"
+
 	"common"
 	"logger"
-	"pipelines"
-	"task"
 )
 
 type serviceCircuitBreakerConfig struct {
@@ -26,7 +28,7 @@ type serviceCircuitBreakerConfig struct {
 	SuccessTPSThresholdToOpen float64 `json:"success_tps_threshold_to_open"`
 }
 
-func ServiceCircuitBreakerConfigConstructor() Config {
+func ServiceCircuitBreakerConfigConstructor() plugins.Config {
 	return &serviceCircuitBreakerConfig{
 		AllTPSThresholdToEnablement: 1,
 		FailureTPSThresholdToBreak:  1,
@@ -81,7 +83,7 @@ type serviceCircuitBreaker struct {
 	executionSampleUpdatedCallbackName string
 }
 
-func ServiceCircuitBreakerConstructor(conf Config) (Plugin, error) {
+func ServiceCircuitBreakerConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	c, ok := conf.(*serviceCircuitBreakerConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *serviceCircuitBreakerConfig got %T", conf)

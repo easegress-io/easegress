@@ -7,9 +7,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hexdecteam/easegateway-types/pipelines"
+	"github.com/hexdecteam/easegateway-types/plugins"
+	"github.com/hexdecteam/easegateway-types/task"
+
 	"logger"
-	"pipelines"
-	"task"
 )
 
 type simpleCommonCacheConfig struct {
@@ -20,7 +22,7 @@ type simpleCommonCacheConfig struct {
 	FinishIfHit bool     `json:"finish_if_hit"`
 }
 
-func SimpleCommonCacheConfigConstructor() Config {
+func SimpleCommonCacheConfigConstructor() plugins.Config {
 	return &simpleCommonCacheConfig{
 		TTLSec:      600, // 10 minutes
 		FinishIfHit: true,
@@ -60,7 +62,7 @@ type simpleCommonCache struct {
 	conf *simpleCommonCacheConfig
 }
 
-func SimpleCommonCacheConstructor(conf Config) (Plugin, error) {
+func SimpleCommonCacheConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	c, ok := conf.(*simpleCommonCacheConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *simpleCommonCacheConfig got %T", conf)

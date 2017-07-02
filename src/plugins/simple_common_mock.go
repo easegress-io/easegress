@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hexdecteam/easegateway-types/pipelines"
+	"github.com/hexdecteam/easegateway-types/plugins"
+	"github.com/hexdecteam/easegateway-types/task"
+
 	"logger"
-	"pipelines"
-	"task"
 )
 
 type simpleCommonMockConfig struct {
@@ -20,7 +22,7 @@ type simpleCommonMockConfig struct {
 	taskErrorCodeConcerned task.TaskResultCode
 }
 
-func SimpleCommonMockConfigConstructor() Config {
+func SimpleCommonMockConfigConstructor() plugins.Config {
 	return &simpleCommonMockConfig{
 		TaskErrorCodeConcerned: "ResultFlowControl",
 	}
@@ -60,7 +62,7 @@ type simpleCommonMock struct {
 	conf *simpleCommonMockConfig
 }
 
-func SimpleCommonMockConstructor(conf Config) (Plugin, error) {
+func SimpleCommonMockConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	c, ok := conf.(*simpleCommonMockConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *simpleCommonMockConfig got %T", conf)

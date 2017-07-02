@@ -6,10 +6,12 @@ import (
 	"io/ioutil"
 	"strings"
 
+	"github.com/hexdecteam/easegateway-types/pipelines"
+	"github.com/hexdecteam/easegateway-types/plugins"
+	"github.com/hexdecteam/easegateway-types/task"
+
 	"common"
 	"logger"
-	"pipelines"
-	"task"
 )
 
 type ioReaderConfig struct {
@@ -21,7 +23,7 @@ type ioReaderConfig struct {
 	OutputKey string `json:"output_key"`
 }
 
-func IOReaderConfigConfigConstructor() Config {
+func IOReaderConfigConfigConstructor() plugins.Config {
 	return &ioReaderConfig{
 		LengthMax: 1048576, // 1MiB
 		Close:     true,
@@ -54,7 +56,7 @@ type ioReader struct {
 	conf *ioReaderConfig
 }
 
-func IOReaderConstructor(conf Config) (Plugin, error) {
+func IOReaderConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	c, ok := conf.(*ioReaderConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *ioReaderConfig got %T", conf)
