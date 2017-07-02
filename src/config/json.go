@@ -41,8 +41,15 @@ func NewJSONFileStore() (*JSONFileStore, error) {
 	logger.Debugf("[storage file path: %s]", pluginFullFile)
 	logger.Debugf("[storage file path: %s]", pipelineFullFile)
 
-	os.MkdirAll(filepath.Dir(pluginFullFile), 0700)
-	os.MkdirAll(filepath.Dir(pipelineFullFile), 0700)
+	err := os.MkdirAll(filepath.Dir(pluginFullFile), 0700)
+	if err != nil {
+		return nil, fmt.Errorf(err.Error())
+	}
+
+	err = os.MkdirAll(filepath.Dir(pipelineFullFile), 0700)
+	if err != nil {
+		return nil, fmt.Errorf(err.Error())
+	}
 
 	for _, path := range []string{pluginFullFile, pipelineFullFile} {
 		if _, err := os.Stat(path); os.IsNotExist(err) {

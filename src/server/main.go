@@ -11,6 +11,7 @@ import (
 	"common"
 	"engine"
 	"logger"
+	"plugins"
 	"rest"
 	"version"
 )
@@ -61,17 +62,24 @@ func main() {
 		logger.Infof("[memory profiling enabled, heap dump to %s]", common.CpuProfileFile)
 	}
 
+	err = plugins.LoadOutTreePlugins()
+	if err != nil {
+		logger.Errorf("[initialize out-tree plugin type failed: %v]", err)
+		exitCode = 2
+		return
+	}
+
 	gateway, err := engine.NewGateway()
 	if err != nil {
 		logger.Errorf("[initialize gateway engine failed: %v]", err)
-		exitCode = 2
+		exitCode = 3
 		return
 	}
 
 	api, err := rest.NewRest(gateway)
 	if err != nil {
 		logger.Errorf("[initialize rest interface failed: %v]", err)
-		exitCode = 3
+		exitCode = 4
 		return
 	}
 
@@ -80,7 +88,7 @@ func main() {
 	done1, err := gateway.Run()
 	if err != nil {
 		logger.Errorf("[start gateway engine failed: %v]", err)
-		exitCode = 4
+		exitCode = 5
 		return
 	} else {
 		logger.Infof("[gateway engine started]")
@@ -89,7 +97,7 @@ func main() {
 	done2, listenAddr, err := api.Start()
 	if err != nil {
 		logger.Errorf("[start rest interface at %s failed: %s]", listenAddr, err)
-		exitCode = 5
+		exitCode = 6
 		return
 	} else {
 		logger.Infof("[rest interface started at %s]", listenAddr)

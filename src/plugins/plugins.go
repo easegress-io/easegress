@@ -2,8 +2,13 @@ package plugins
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"plugin"
 	"strings"
 
+	"common"
+	"logger"
 	"pipelines"
 	"task"
 )
@@ -29,12 +34,13 @@ type Plugin interface {
 }
 
 type Constructor func(conf Config) (Plugin, error)
-type ConfigConstructor func() Config
 
 type Config interface {
 	PluginName() string
 	Prepare(pipelineNames []string) error
 }
+
+type ConfigConstructor func() Config
 
 type CommonConfig struct {
 	Name string `json:"plugin_name"`
@@ -133,4 +139,137 @@ func GetConfig(t string) (Config, error) {
 	}
 
 	return PLUGIN_ENTRIES[t].configConstructor(), nil
+}
+
+// Out-tree plugin loading
+
+type GetTypeNames func() ([]string, error)
+type GetPluginConstructor func() (Constructor, error)
+type GetPluginConfigConstructor func() (ConfigConstructor, error)
+
+func LoadOutTreePlugins() error {
+	logger.Debugf("[load all out-tree plugin types]")
+
+	err := os.MkdirAll(common.PLUGIN_HOME_DIR, 0700)
+	if err != nil {
+		return fmt.Errorf(err.Error())
+	}
+
+	count := 0
+
+	err = filepath.Walk(common.PLUGIN_HOME_DIR, func(path string, info os.FileInfo, err error) error {
+		if info == nil {
+			logger.Warnf("[access %s failed, out-tree plugin types skipped in the file: %v]", path, err)
+			return filepath.SkipDir
+		}
+
+		if info.IsDir() {
+			return filepath.SkipDir
+		}
+
+		typeNames, failedTypeName, err := loadOutTreePlugins(path)
+		if err != nil {
+			if failedTypeName == "" {
+				logger.Errorf("[load out-tree plugin types from %s failed, skipped: %v]", path, err)
+			} else {
+				logger.Errorf("[load out-tree plugin type %s from %s failed: %v]", failedTypeName, path, err)
+			}
+		}
+
+		for _, name := range typeNames {
+			logger.Debugf("[out-tree plugin type %s is loaded from %s successfully]", name, path)
+			count++
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		logger.Errorf("[load out-tree plugin types failed: %v]", err)
+		return err
+	}
+
+	logger.Infof("[out-tree plugin types are loaded successfully (total=%d)]", count)
+	return nil
+}
+
+func loadOutTreePlugins(path string) ([]string, string, error) {
+	ret := make([]string, 0)
+
+	p, err := plugin.Open(path)
+	if err != nil {
+		return ret, "", err
+	}
+
+	f, err := p.Lookup("GetTypeNames")
+	if err != nil {
+		return ret, "", err
+	}
+
+	getTypeNames, ok := f.(GetTypeNames)
+	if !ok {
+		return ret, "", fmt.Errorf("invalid plugin type names definition")
+	}
+
+	names, err := getTypeNames()
+	if err != nil {
+		return ret, "", err
+	}
+
+	for _, name := range names {
+		// check if definition is existing
+		_, exists := PLUGIN_ENTRIES[name]
+		if exists {
+			logger.Warnf("[plugin type %s definied in %s is conflicting, skipped]", name, path)
+			continue
+		}
+
+		// plugin constructor
+		f, err := p.Lookup(fmt.Sprintf("Get%sConstructor", strings.Title(name)))
+		if err != nil {
+			return ret, name, err
+		}
+
+		getConstructor, ok := f.(GetPluginConstructor)
+		if !ok {
+			return ret, name, fmt.Errorf("invalid plugin constructor definition")
+		}
+
+		var c Constructor
+		var e error
+
+		if common.PanicToErr(func() { c, e = getConstructor() }, &err) {
+			return ret, name, err
+		} else if e != nil {
+			return ret, name, e
+		}
+
+		// plugin configuration constructor
+		f, err = p.Lookup(fmt.Sprintf("Get%sConfigConstructor", strings.Title(name)))
+		if err != nil {
+			return ret, name, err
+		}
+
+		getConfigConstructor, ok := f.(GetPluginConfigConstructor)
+		if !ok {
+			return ret, name, fmt.Errorf("invalid plugin config constructor definition")
+		}
+
+		var cc ConfigConstructor
+		e = nil
+
+		if common.PanicToErr(func() { cc, e = getConfigConstructor() }, &err) {
+			return ret, name, err
+		} else if e != nil {
+			return ret, name, e
+		}
+
+		// register
+		PLUGIN_ENTRIES[name] = pluginEntry{
+			pluginConstructor: c,
+			configConstructor: cc,
+		}
+	}
+
+	return ret, "", nil
 }

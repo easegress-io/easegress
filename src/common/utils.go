@@ -87,3 +87,34 @@ func ScanTokens(str string) ([]string, error) {
 
 	return ret, nil
 }
+
+func PanicToErr(f func(), err *error) (failed bool) {
+	defer func() {
+		x := recover()
+		if x == nil {
+			failed = false
+			return
+		}
+
+		failed = true
+
+		if err == nil {
+			return
+		}
+
+		switch e := x.(type) {
+		case error:
+			*err = e
+		case string:
+			*err = fmt.Errorf(e)
+		default:
+			*err = fmt.Errorf("%v", x)
+		}
+
+		return
+	}()
+
+	f()
+
+	return
+}

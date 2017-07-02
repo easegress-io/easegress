@@ -325,7 +325,7 @@ func (gw *Gateway) loadPlugins() error {
 		return err
 	}
 
-	logger.Infof("[plugins are loaded successfully (total=%d)]", len(specs))
+	logger.Infof("[plugins are loaded from repository successfully (total=%d)]", len(specs))
 
 	return nil
 }
@@ -343,7 +343,7 @@ func (gw *Gateway) loadPipelines() error {
 		return err
 	}
 
-	logger.Infof("[pipelines are loaded successfully (total=%d)]", len(specs))
+	logger.Infof("[pipelines are loaded from repository successfully (total=%d)]", len(specs))
 
 	return nil
 }
