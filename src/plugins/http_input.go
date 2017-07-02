@@ -477,7 +477,7 @@ func getHTTPInputHandlingRequestCount(ctx pipelines.PipelineContext, pluginName 
 		})
 	if err != nil {
 		logger.Warnf("[BUG: query wip request counter for pipeline %s failed, "+
-			"ignored to calculate wip request: %s]", ctx.PipelineName(), err)
+			"ignored to calculate wip request: %v]", ctx.PipelineName(), err)
 		return nil, err
 	}
 

@@ -419,7 +419,7 @@ func getTaskCount(ctx pipelines.PipelineContext, pluginName string) (*uint64, er
 		})
 	if err != nil {
 		logger.Warnf("[BUG: query state data for pipeline %s failed, "+
-			"ignored to count task: %s]", ctx.PipelineName(), err)
+			"ignored to count task: %v]", ctx.PipelineName(), err)
 		return nil, err
 	}
 
@@ -475,7 +475,7 @@ func getWeightedRoundRobinSelectorState(
 		})
 	if err != nil {
 		logger.Warnf("[BUG: query state data for pipeline %s failed, "+
-			"ignored to update state of weighted round robin selector: %s]", ctx.PipelineName(), err)
+			"ignored to update state of weighted round robin selector: %v]", ctx.PipelineName(), err)
 		return nil, err
 	}
 
@@ -501,7 +501,7 @@ func getWeightSum(
 
 	if err != nil {
 		logger.Warnf("[BUG: query state data for pipeline %s failed, "+
-			"ignored to get state of weighted random selector: %s]", ctx.PipelineName(), err)
+			"ignored to get state of weighted random selector: %v]", ctx.PipelineName(), err)
 		return 0, err
 	}
 

@@ -275,7 +275,7 @@ func getLatencyWindowLimiterWindowLock(ctx pipelines.PipelineContext,
 		func() interface{} { return &sync.Mutex{} })
 	if err != nil {
 		logger.Warnf("[BUG: query sliding window lock for pipeline %s failed, "+
-			"ignored to adjust sliding window: %s]", ctx.PipelineName(), err)
+			"ignored to adjust sliding window: %v]", ctx.PipelineName(), err)
 		return nil, err
 	}
 

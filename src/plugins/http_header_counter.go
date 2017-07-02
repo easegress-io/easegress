@@ -181,7 +181,7 @@ func getRecentHeaderCount(ctx pipelines.PipelineContext, pluginName string) (*ui
 		})
 	if err != nil {
 		logger.Warnf("[BUG: query state data for pipeline %s failed, "+
-			"ignored to count header: %s]", ctx.PipelineName(), err)
+			"ignored to count header: %v]", ctx.PipelineName(), err)
 		return nil, err
 	}
 
