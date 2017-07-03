@@ -148,6 +148,13 @@ func (s *clusterAdminServer) createPlugin(w rest.ResponseWriter, r *rest.Request
 		return
 	}
 
+	if req.OperationSeq == 0 {
+		msg := "invalid cluster operation sequence"
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
+		return
+	}
+
 	clusterErr := s.gc.CreatePlugin(group, time.Duration(req.TimeoutSec)*time.Second, req.OperationSeq,
 		req.Consistent, req.Type, conf)
 	if clusterErr != nil {
@@ -288,6 +295,13 @@ func (s *clusterAdminServer) updatePlugin(w rest.ResponseWriter, r *rest.Request
 		return
 	}
 
+	if req.OperationSeq == 0 {
+		msg := "invalid cluster operation sequence"
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
+		return
+	}
+
 	clusterErr := s.gc.UpdatePlugin(group, time.Duration(req.TimeoutSec)*time.Second, req.OperationSeq,
 		req.Consistent, req.Type, conf)
 	if clusterErr != nil {
@@ -331,6 +345,13 @@ func (s *clusterAdminServer) deletePlugin(w rest.ResponseWriter, r *rest.Request
 	} else if req.TimeoutSec < 10 {
 		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
 			req.TimeoutSec)
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
+		return
+	}
+
+	if req.OperationSeq == 0 {
+		msg := "invalid cluster operation sequence"
 		rest.Error(w, msg, http.StatusBadRequest)
 		logger.Errorf("[%s]", msg)
 		return
@@ -385,6 +406,13 @@ func (s *clusterAdminServer) createPipeline(w rest.ResponseWriter, r *rest.Reque
 	} else if req.TimeoutSec < 10 {
 		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
 			req.TimeoutSec)
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
+		return
+	}
+
+	if req.OperationSeq == 0 {
+		msg := "invalid cluster operation sequence"
 		rest.Error(w, msg, http.StatusBadRequest)
 		logger.Errorf("[%s]", msg)
 		return
@@ -530,6 +558,13 @@ func (s *clusterAdminServer) updatePipeline(w rest.ResponseWriter, r *rest.Reque
 		return
 	}
 
+	if req.OperationSeq == 0 {
+		msg := "invalid cluster operation sequence"
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
+		return
+	}
+
 	clusterErr := s.gc.UpdatePipeline(group, time.Duration(req.TimeoutSec)*time.Second, req.OperationSeq,
 		req.Consistent, req.Type, conf)
 	if clusterErr != nil {
@@ -573,6 +608,13 @@ func (s *clusterAdminServer) deletePipeline(w rest.ResponseWriter, r *rest.Reque
 	} else if req.TimeoutSec < 10 {
 		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
 			req.TimeoutSec)
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
+		return
+	}
+
+	if req.OperationSeq == 0 {
+		msg := "invalid cluster operation sequence"
 		rest.Error(w, msg, http.StatusBadRequest)
 		logger.Errorf("[%s]", msg)
 		return
