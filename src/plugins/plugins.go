@@ -114,10 +114,6 @@ func GetConfig(t string) (plugins.Config, error) {
 
 // Out-tree plugin type loading
 
-type GetTypeNames func() ([]string, error)
-type GetPluginConstructor func() (plugins.Constructor, error)
-type GetPluginConfigConstructor func() (plugins.ConfigConstructor, error)
-
 func LoadOutTreePluginTypes() error {
 	logger.Debugf("[load all out-tree plugin types]")
 
@@ -143,7 +139,7 @@ func LoadOutTreePluginTypes() error {
 			if failedTypeName == "" {
 				logger.Errorf("[load out-tree plugin types from %s failed, skipped: %v]", path, err)
 			} else {
-				logger.Errorf("[load out-tree plugin type %s from %s failed: %v]",
+				logger.Errorf("[load out-tree plugin type %s from %s failed, skipped: %v]",
 					failedTypeName, path, err)
 			}
 		}
@@ -173,14 +169,14 @@ func loadOutTreePluginTypes(path string) ([]string, string, error) {
 		return ret, "", err
 	}
 
-	f, err := p.Lookup("GetTypeNames")
+	f, err := p.Lookup("GetPluginTypeNames")
 	if err != nil {
 		return ret, "", err
 	}
 
-	getTypeNames, ok := f.(GetTypeNames)
+	getTypeNames, ok := f.(func() ([]string, error))
 	if !ok {
-		return ret, "", fmt.Errorf("invalid plugin type names definition")
+		return ret, "", fmt.Errorf("invalid plugin type names definition (%T)", f)
 	}
 
 	names, err := getTypeNames()
@@ -197,14 +193,14 @@ func loadOutTreePluginTypes(path string) ([]string, string, error) {
 		}
 
 		// plugin constructor
-		f, err := p.Lookup(fmt.Sprintf("Get%sConstructor", strings.Title(name)))
+		f, err := p.Lookup(fmt.Sprintf("Get%sPluginConstructor", strings.Title(name)))
 		if err != nil {
 			return ret, name, err
 		}
 
-		getConstructor, ok := f.(GetPluginConstructor)
+		getConstructor, ok := f.(func() (plugins.Constructor, error))
 		if !ok {
-			return ret, name, fmt.Errorf("invalid plugin constructor definition")
+			return ret, name, fmt.Errorf("invalid plugin constructor definition (%T)", f)
 		}
 
 		var c plugins.Constructor
@@ -217,14 +213,14 @@ func loadOutTreePluginTypes(path string) ([]string, string, error) {
 		}
 
 		// plugin configuration constructor
-		f, err = p.Lookup(fmt.Sprintf("Get%sConfigConstructor", strings.Title(name)))
+		f, err = p.Lookup(fmt.Sprintf("Get%sPluginConfigConstructor", strings.Title(name)))
 		if err != nil {
 			return ret, name, err
 		}
 
-		getConfigConstructor, ok := f.(GetPluginConfigConstructor)
+		getConfigConstructor, ok := f.(func() (plugins.ConfigConstructor, error))
 		if !ok {
-			return ret, name, fmt.Errorf("invalid plugin config constructor definition")
+			return ret, name, fmt.Errorf("invalid plugin config constructor definition (%T)", f)
 		}
 
 		var cc plugins.ConfigConstructor
