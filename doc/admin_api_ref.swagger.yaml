@@ -86,7 +86,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         200:
-          description: Plugin instances response.
+          description: Plugin instance response.
           schema:
             $ref: '#/definitions/PluginsRetrieveResponse'
     put:
@@ -110,8 +110,7 @@ paths:
           description: Plugin instnace not found by given name.
           schema:
             $ref: '#/definitions/Error'
-        # FIXME: should this be 200 same as cluster api.
-        202:
+        200:
           description: Plugin instance is updated successfully.
   /plugins/{pluginName}:
     get:
@@ -239,7 +238,7 @@ paths:
             pipeline are not found.
           schema:
             $ref: '#/definitions/Error'
-        202:
+        200:
           description: Pipeline instance is updated successfully.
   /pipelines/{pipelineName}:
     get:
