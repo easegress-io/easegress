@@ -135,7 +135,7 @@ func LoadOutTreePluginTypes() error {
 		}
 
 		if info.IsDir() {
-			return filepath.SkipDir
+			return nil
 		}
 
 		typeNames, failedTypeName, err := loadOutTreePluginTypes(path)
