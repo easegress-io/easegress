@@ -316,3 +316,39 @@ func UpdatePipeline(c *cli.Context) error {
 
 	return errs.Return()
 }
+
+func RetrievePluginTypes(c *cli.Context) error {
+	retrieveResp, apiResp, err := adminApi().GetPluginTypes()
+	if err != nil {
+		return err
+	} else if apiResp.Error != nil {
+		return fmt.Errorf("%s", apiResp.Error.Error)
+	}
+
+	data, err := json.Marshal(retrieveResp)
+	if err != nil {
+		return err
+	}
+
+	// TODO: make it pretty
+	fmt.Printf("%s\n", data)
+	return nil
+}
+
+func RetrievePipelineTypes(c *cli.Context) error {
+	retrieveResp, apiResp, err := adminApi().GetPipelineTypes()
+	if err != nil {
+		return err
+	} else if apiResp.Error != nil {
+		return fmt.Errorf("%s", apiResp.Error.Error)
+	}
+
+	data, err := json.Marshal(retrieveResp)
+	if err != nil {
+		return err
+	}
+
+	// TODO: make it pretty
+	fmt.Printf("%s\n", data)
+	return nil
+}

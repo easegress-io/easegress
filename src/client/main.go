@@ -76,6 +76,11 @@ func main() {
 							Usage:  "Update one or more plugins",
 							Action: cli.UpdatePlugin,
 						},
+						{
+							Name:   "types",
+							Usage:  "Retrieve plugin types",
+							Action: cli.RetrievePluginTypes,
+						},
 					},
 				},
 				{
@@ -106,6 +111,11 @@ func main() {
 							// TODO: add -f --force to add pipeline which does not exist
 							Usage:  "Update one or more pipelines",
 							Action: cli.UpdatePipeline,
+						},
+						{
+							Name:   "types",
+							Usage:  "Retrieve pipeline types",
+							Action: cli.RetrievePipelineTypes,
 						},
 					},
 				},
