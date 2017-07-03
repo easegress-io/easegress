@@ -14,7 +14,7 @@ paths:
     get:
       summary: Retrieves Plugin Type in a Group
       description: |
-        The Plugin Type retrieve endpoints in the group return all available
+        The Plugin Type retrieve endpoint in the group returns all available
         plugin types the group supports currently. Which can be used to create
         a plugin instance with a special configuration.
       parameters:
@@ -27,16 +27,20 @@ paths:
           schema:
             $ref: '#/definitions/PluginTypesRetrieveClusterRequest'
           required: true
-          description: Timeout and flag consistent configuration.
+          description: Timeout and consistency flag configurations.
       responses:
+        500:
+          description: Handle the reqeuest failed by internal error.
+          schema:
+            $ref: '#/definitions/Error'
         400:
           description: |
-            Invalid cluster and plugin type retrieve request parameter.
+            Invalid cluster and plugin types retrieve request parameter.
             Including, invalid group name or timeout is less than 10s.
           schema:
             $ref: '#/definitions/Error'
         408:
-          description: The timeout period expired.
+          description: The retrieve timeout period expired.
           schema:
             $ref: '#/definitions/Error'
         409:
@@ -50,12 +54,16 @@ paths:
         200:
           description: Plugin types response.
           schema:
-            $ref: '#/definitions/ResultRetrievePluginTypes'
+            $ref: '#/definitions/PluginTypesRetrieveClusterResponse'
+        default:
+          description: Unexpected error.
+          schema:
+            $ref: '#/definitions/Error'
   /{group}/pipeline-types:
     get:
       summary: Retrieves Pipeline Type in a Group
       description: |
-        The Pipeline Type retrieve endpoints in the group return all available
+        The Pipeline Type retrieve endpoint in the group returns all available
         pipeline types the group supports currently. Which can be used to create
         a pipeline instance with a special configuration.
       parameters:
@@ -68,16 +76,20 @@ paths:
           schema:
             $ref: '#/definitions/PipelineTypesRetrieveClusterRequest'
           required: true
-          description: Timeout and flag consistent configuration.
+          description: Timeout and consistency flag configurations.
       responses:
+        500:
+          description: Handle the reqeuest failed by internal error.
+          schema:
+            $ref: '#/definitions/Error'
         400:
           description: |
-            Invalid cluster and pipeline type retrieve request parameter.
+            Invalid cluster and pipeline types retrieve request parameter.
             Including, invalid group name or timeout is less than 10s.
           schema:
             $ref: '#/definitions/Error'
         408:
-          description: The timeout period expired.
+          description: The retrieve timeout period expired.
           schema:
             $ref: '#/definitions/Error'
         409:
@@ -91,12 +103,16 @@ paths:
         200:
           description: Pipeline types response.
           schema:
-            $ref: '#/definitions/ResultRetrievePipelineTypes'
+            $ref: '#/definitions/PipelineTypesRetrieveClusterResponse'
+        default:
+          description: Unexpected error.
+          schema:
+            $ref: '#/definitions/Error'
   /{group}/plugins:
     post:
       summary: Creates Plugin Instance in a Group
       description: |
-        The Plugin Instance creation endpoints in the group create a special
+        The Plugin Instance creation endpoint in the group creates a special
         plugin instance according to the plugin type and the configuration.
       parameters:
         - name: group
@@ -109,25 +125,28 @@ paths:
             $ref: '#/definitions/PluginCreationClusterRequest'
           required: true
           description: |
-            Timeout, operation sequence and flag consistent configuration.
-            And plugin type and configuration.
+            Timeout, operation sequence, consistency flag, and plugin type and configurations.
       responses:
+        500:
+          description: Handle the reqeuest failed by internal error.
+          schema:
+            $ref: '#/definitions/Error'
         400:
           description: |
             Invalid cluster operation and plugin instance creation request parameter.
-            Including, invalid group name or timeout is less than 10s or invalid
+            Including, invalid group name, timeout is less than 10s, invalid
             operation sequence, invalid plugin type or invalid configuration
             according to the plugin instance is being created.
           schema:
             $ref: '#/definitions/Error'
         408:
-          description: The timeout period expired.
+          description: The creation timeout period expired.
           schema:
             $ref: '#/definitions/Error'
         409:
           description: |
             Plugin instance with the given name request parameter provided is
-            already existing, or the operation sequence is out-of-date.
+            already existing or the operation sequence is out-of-date.
           schema:
             $ref: '#/definitions/Error'
         410:
@@ -141,7 +160,7 @@ paths:
     get:
       summary: Retrieves Plugin Instance in a Group
       description: |
-        The Plugin Instances retrieve endpoints in the group return all existing
+        The Plugin Instances retrieve endpoint in the group returns all existing
         plugin instnaces the group has currently.
       parameters:
         - name: group
@@ -154,13 +173,16 @@ paths:
             $ref: '#/definitions/PluginsRetrieveClusterRequest'
           required: true
           description: |
-            Timeout and flag consistent configuration.
-            And plugin instance retrieve conditions.
+            Timeout, consistency flag, and plugin instance retrieve conditions.
       responses:
+        500:
+          description: Handle the reqeuest failed by internal error.
+          schema:
+            $ref: '#/definitions/Error'
         400:
           description: |
-            Invalid cluster operation and plugin instance retrieve request parameter.
-            Including, invalid group name or timeout is less than 10s,
+            Invalid cluster operation and plugin instances retrieve request parameter.
+            Including, invalid group name, timeout is less than 10s,
             invalid plugin type or invalid name pattern.
           schema:
             $ref: '#/definitions/Error'
@@ -177,13 +199,13 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         200:
-          description: Plugin instances response.
+          description: Plugin instance response.
           schema:
-            $ref: '#/definitions/ResultRetrievePlugins'
+            $ref: '#/definitions/PluginsRetrieveClusterResponse'
     put:
       summary: Updates Plugin Instance in a Group
       description: |
-        The Plugin Instance update endpoints in the group update a special
+        The Plugin Instance update endpoint in the group updates a special
         plugin instance according to the plugin type and the configuration.
       parameters:
         - name: group
@@ -196,13 +218,16 @@ paths:
             $ref: '#/definitions/PluginUpdateClusterRequest'
           required: true
           description: |
-            Timeout, operation sequence and flag consistent configuration.
-            And plugin type and configuration.
+            Timeout, operation sequence, consistency flag, and plugin type and configurations.
       responses:
+        500:
+          description: Handle the reqeuest failed by internal error.
+          schema:
+            $ref: '#/definitions/Error'
         400:
           description: |
             Invalid cluster operation and plugin instance update request parameter.
-            Including, invalid group name or timeout is less than 10s or invalid
+            Including, invalid group name, timeout is less than 10s, invalid
             operation sequence, invalid plugin type or invalid configuration
             according to the plugin instance is being updated.
           schema:
@@ -232,8 +257,8 @@ paths:
     get:
       summary: Retrieves Plugin Instance in a Group
       description: |
-        The Plugin Instance retrieve endpoints in the group return an existing
-        plugin instnaces the group has currently by plugin name.
+        The Plugin Instance retrieve endpoint in the group returns an existing
+        plugin instnace the group has currently by plugin name.
       parameters:
         - name: group
           in: path
@@ -250,12 +275,16 @@ paths:
             $ref: '#/definitions/PluginRetrieveClusterRequest'
           required: true
           description: |
-            Timeout and flag consistent configuration.
+            Timeout and consistency flag configurations.
       responses:
+        500:
+          description: Handle the reqeuest failed by internal error.
+          schema:
+            $ref: '#/definitions/Error'
         400:
           description: |
             Invalid cluster operation and plugin instance retrieve request parameter.
-            Including, invalid group name or invalid plugin name or timeout is
+            Including, invalid group name, invalid plugin name or timeout is
             less than 10s,
           schema:
             $ref: '#/definitions/Error'
@@ -278,11 +307,11 @@ paths:
         200:
           description: Plugin instances response.
           schema:
-            $ref: '#/definitions/ResultRetrievePlugin'
+            $ref: '#/definitions/PluginSpec'
     delete:
       summary: Deletes Plugin Instance in a Group
       description: |
-        The Plugin Instance deletion endpoints in the group delete an existing
+        The Plugin Instance deletion endpoint in the group deletes an existing
         plugin instnace the group has currently by plugin name.
       parameters:
         - name: group
@@ -300,12 +329,16 @@ paths:
             $ref: '#/definitions/PluginDeletionClusterRequest'
           required: true
           description: |
-            Timeout, operation sequence and flag consistent configuration.
+            Timeout, operation sequence and consistency flag configurations.
       responses:
+        500:
+          description: Handle the reqeuest failed by internal error.
+          schema:
+            $ref: '#/definitions/Error'
         400:
           description: |
             Invalid cluster operation and plugin instance deletion request parameter.
-            Including, invalid group name or invalid plugin name or timeout is less
+            Including, invalid group name, invalid plugin name, timeout is less
             than 10s or invalid operation sequence.
           schema:
             $ref: '#/definitions/Error'
@@ -335,7 +368,7 @@ paths:
     post:
       summary: Creates Pipeline Instance in a Group
       description: |
-        The Pipeline Instance creation endpoints in the group create a special
+        The Pipeline Instance creation endpoint in the group creates a special
         pipeline instance according to the pipeline type and the configuration.
       parameters:
         - name: group
@@ -348,13 +381,16 @@ paths:
             $ref: '#/definitions/PipelineCreationClusterRequest'
           required: true
           description: |
-            Timeout, operation sequence and flag consistent configuration.
-            And pipeline type and configuration.
+            Timeout, operation sequence, consistency flag and pipeline type and configurations.
       responses:
+        500:
+          description: Handle the reqeuest failed by internal error.
+          schema:
+            $ref: '#/definitions/Error'
         400:
           description: |
             Invalid cluster operation and pipeline instance creation request parameter.
-            Including, invalid group name or timeout is less than 10s or invalid
+            Including, invalid group name, timeout is less than 10s, invalid
             operation sequence, invalid pipeline type or invalid configuration
             according to the pipeline instance is being created, or one or more
             plugin instances in the pipeline are not found.
@@ -379,9 +415,9 @@ paths:
         202:
           description: Pipeline instance is created partially in the group.
     get:
-      summary: Retrieves Pipeline Instance in a Group
+      summary: Retrieves Pipeline Instances in a Group
       description: |
-        The Pipeline Instances retrieve endpoints in the group return all existing
+        The Pipeline Instances retrieve endpoint in the group returns all existing
         pipeline instnaces the group has currently.
       parameters:
         - name: group
@@ -394,13 +430,16 @@ paths:
             $ref: '#/definitions/PipelinesRetrieveClusterRequest'
           required: true
           description: |
-            Timeout and flag consistent configuration.
-            And pipeline instance retrieve conditions.
+            Timeout, consistency flag and pipeline instance retrieve conditions.
       responses:
+        500:
+          description: Handle the reqeuest failed by internal error.
+          schema:
+            $ref: '#/definitions/Error'
         400:
           description: |
-            Invalid cluster operation and pipeline instance retrieve request parameter.
-            Including, invalid group name or timeout is less than 10s,
+            Invalid cluster operation and pipeline instances retrieve request parameter.
+            Including, invalid group name, timeout is less than 10s,
             invalid pipeline type or invalid name pattern.
           schema:
             $ref: '#/definitions/Error'
@@ -419,11 +458,11 @@ paths:
         200:
           description: Pipeline instances response.
           schema:
-            $ref: '#/definitions/ResultRetrievePipelines'
+            $ref: '#/definitions/PipelinesRetrieveClusterResponse'
     put:
       summary: Updates Pipeline Instance in a Group
       description: |
-        The Pipeline Instance update endpoints in the group update a special
+        The Pipeline Instance update endpoint in the group updates a special
         pipeline instance according to the pipeline type and the configuration.
       parameters:
         - name: group
@@ -436,13 +475,16 @@ paths:
             $ref: '#/definitions/PipelineUpdateClusterRequest'
           required: true
           description: |
-            Timeout, operation sequence and flag consistent configuration.
-            And pipeline type and configuration.
+            Timeout, operation sequence, consistency flag and pipeline type and configurations.
       responses:
+        500:
+          description: Handle the reqeuest failed by internal error.
+          schema:
+            $ref: '#/definitions/Error'
         400:
           description: |
             Invalid cluster operation and pipeline instance update request parameter.
-            Including, invalid group name or timeout is less than 10s or invalid
+            Including, invalid group name, timeout is less than 10s, invalid
             operation sequence, invalid pipeline type or invalid configuration
             according to the pipeline instance is being updated, or one or more
             plugin instances in the pipeline are not found.
@@ -473,7 +515,7 @@ paths:
     get:
       summary: Retrieves Pipeline Instance in a Group
       description: |
-        The Pipeline Instance retrieve endpoints in the group return an existing
+        The Pipeline Instance retrieve endpoint in the group returns an existing
         pipeline instnaces the group has currently by pipeline name.
       parameters:
         - name: group
@@ -491,12 +533,16 @@ paths:
             $ref: '#/definitions/PipelineRetrieveClusterRequest'
           required: true
           description: |
-            Timeout and flag consistent configuration.
+            Timeout and consistency flag configurations.
       responses:
+        500:
+          description: Handle the reqeuest failed by internal error.
+          schema:
+            $ref: '#/definitions/Error'
         400:
           description: |
             Invalid cluster operation and pipeline instance retrieve request parameter.
-            Including, invalid group name or invalid pipeline name or timeout is
+            Including, invalid group name, invalid pipeline name or timeout is
             less than 10s,
           schema:
             $ref: '#/definitions/Error'
@@ -519,11 +565,11 @@ paths:
         200:
           description: Pipeline instances response.
           schema:
-            $ref: '#/definitions/ResultRetrievePipeline'
+            $ref: '#/definitions/PipelineSpec'
     delete:
       summary: Deletes Pipeline Instance in a Group
       description: |
-        The Pipeline Instance deletion endpoints in the group delete an existing
+        The Pipeline Instance deletion endpoint in the group deletes an existing
         pipeline instnace the group has currently by pipeline name.
       parameters:
         - name: group
@@ -541,23 +587,21 @@ paths:
             $ref: '#/definitions/PipelineDeletionClusterRequest'
           required: true
           description: |
-            Timeout, operation sequence and flag consistent configuration.
+            Timeout, operation sequence and consistency flag configurations.
       responses:
+        500:
+          description: Handle the reqeuest failed by internal error.
+          schema:
+            $ref: '#/definitions/Error'
         400:
           description: |
             Invalid cluster operation and pipeline instance deletion request parameter.
-            Including, invalid group name or invalid pipeline name or timeout is less
+            Including, invalid group name, invalid pipeline name, timeout is less
             than 10s or invalid operation sequence.
           schema:
             $ref: '#/definitions/Error'
         404:
           description: Pipeline instnace not found by given name.
-          schema:
-            $ref: '#/definitions/Error'
-        406:
-          description: |
-            Pipeline instnace could not be deleted by given name since it is used by
-            one or more pipelines.
           schema:
             $ref: '#/definitions/Error'
         408:
@@ -584,7 +628,7 @@ definitions:
       consistent:
         type: boolean
         default: false
-  ResultRetrievePluginTypes:
+  PluginTypesRetrieveClusterResponse:
     type: object
     required:
       - plugin_types
@@ -604,7 +648,7 @@ definitions:
       consistent:
         type: boolean
         default: false
-  ResultRetrievePipelineTypes:
+  PipelineTypesRetrieveClusterResponse:
     type: object
     required:
       - pipeline_types
@@ -633,7 +677,7 @@ definitions:
         default: false
       type:
         type: string
-        description: One valid type of available plugin types listed in ResultRetrievePluginTypes.
+        description: One valid type of available plugin types listed in PluginTypesRetrieveClusterResponse.
       config:
         type: object
         description: |
@@ -658,7 +702,7 @@ definitions:
         items:
           type: string
         description: Plugin types filter condition, supports regex expression.
-  ResultRetrievePlugins:
+  PluginsRetrieveClusterResponse:
     type: object
     required:
       - plugins
@@ -687,7 +731,7 @@ definitions:
         default: false
       type:
         type: string
-        description: One valid type of available plugin types listed in ResultRetrievePluginTypes.
+        description: One valid type of available plugin types listed in PluginTypesRetrieveClusterResponse.
       config:
         type: object
         description: |
@@ -704,13 +748,6 @@ definitions:
       consistent:
         type: boolean
         default: false
-  ResultRetrievePlugin:
-    type: object
-    required:
-      - plugin
-    properties:
-      plugin:
-        $ref: '#/definitions/PluginSpec'
   PluginDeletionClusterRequest:
     type: object
     required:
@@ -727,6 +764,20 @@ definitions:
       consistent:
         type: boolean
         default: false
+  PluginSpec:
+    type: object
+    required:
+      - type
+      - config
+    properties:
+      type:
+        type: string
+        description: One valid type of available plugin types listed in PluginTypesRetrieveClusterResponse.
+      config:
+        type: object
+        description: |
+          A special configuration object of the plugin type. Check Plugin Reference document for
+          more information.
   PipelineCreationClusterRequest:
     type: object
     required:
@@ -747,7 +798,7 @@ definitions:
         default: false
       type:
         type: string
-        description: One valid type of available pipeline types listed in ResultRetrievePipelineTypes.
+        description: One valid type of available pipeline types listed in PipelineTypesRetrieveClusterResponse.
       config:
         type: object
         description: |
@@ -772,7 +823,7 @@ definitions:
         items:
           type: string
         description: Pipeline types filter condition, supports regex expression.
-  ResultRetrievePipelines:
+  PipelinesRetrieveClusterResponse:
     type: object
     required:
       - pipelines
@@ -801,7 +852,7 @@ definitions:
         default: false
       type:
         type: string
-        description: One valid type of available pipeline types listed in ResultRetrievePipelineTypes.
+        description: One valid type of available pipeline types listed in PipelineTypesRetrieveClusterResponse.
       config:
         type: object
         description: |
@@ -818,13 +869,6 @@ definitions:
       consistent:
         type: boolean
         default: false
-  ResultRetrievePipeline:
-    type: object
-    required:
-      - pipeline
-    properties:
-      pipeline:
-        $ref: '#/definitions/PipelineSpec'
   PipelineDeletionClusterRequest:
     type: object
     required:
@@ -841,20 +885,6 @@ definitions:
       consistent:
         type: boolean
         default: false
-  PluginSpec:
-    type: object
-    required:
-      - type
-      - config
-    properties:
-      type:
-        type: string
-        description: One valid type of available plugin types listed in ResultRetrievePluginTypes.
-      config:
-        type: object
-        description: |
-          A special configuration object of the plugin type. Check Plugin Reference document for
-          more information.
   PipelineSpec:
     type: object
     required:
@@ -863,7 +893,7 @@ definitions:
     properties:
       type:
         type: string
-        description: One valid type of available pipeline types listed in ResultRetrievePipelineTypes.
+        description: One valid type of available pipeline types listed in PipelineTypesRetrieveClusterResponse.
       config:
         type: object
         description: |
