@@ -1,0 +1,10 @@
+- name: build_image
+  shell: make vendor_clean && make vendor_get && make clean && make
+  docker_file: rootfs/Dockerfile
+  docker_registry: dockerhub.megaease.com
+  image_name: megaease/easegateway
+  push_image: true
+  notifications:
+    emails:
+      - lzy.dev@gmail.com
+    slack: true
