@@ -54,6 +54,11 @@ func (s *Rest) Start() (<-chan error, string, error) {
 		logger.Errorf("[create cluster statistics rest server failed: %v", err)
 		return nil, "", err
 	}
+	clusterMetaServer, err := newClusterMetaServer(s.gateway, s.gc)
+	if err != nil {
+		logger.Errorf("[create cluster meta rest server failed: %v", err)
+		return nil, "", err
+	}
 
 	adminApi, err := adminServer.Api()
 	if err != nil {
@@ -90,12 +95,20 @@ func (s *Rest) Start() (<-chan error, string, error) {
 	} else {
 		logger.Debugf("[cluster statistics api created]")
 	}
+	clusterMetaApi, err := clusterMetaServer.Api()
+	if err != nil {
+		logger.Errorf("[create cluster meta api failed: %v", err)
+		return nil, "", err
+	} else {
+		logger.Debugf("[cluster meta api created]")
+	}
 
 	http.Handle("/admin/", http.StripPrefix("/admin", adminApi.MakeHandler()))
 	http.Handle("/statistics/", http.StripPrefix("/statistics", statisticsApi.MakeHandler()))
 	http.Handle("/health/", http.StripPrefix("/health", healthCheckApi.MakeHandler()))
 	http.Handle("/cluster/admin/", http.StripPrefix("/cluster/admin", clusterAdminApi.MakeHandler()))
 	http.Handle("/cluster/statistics/", http.StripPrefix("/cluster/statistics", clusterStatisticsApi.MakeHandler()))
+	http.Handle("/cluster/meta/", http.StripPrefix("/cluster/meta", clusterMetaApi.MakeHandler()))
 
 	listenAddr := fmt.Sprintf("%s:9090", common.Host)
 

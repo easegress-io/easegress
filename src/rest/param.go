@@ -91,6 +91,17 @@ type clusterRequest struct {
 }
 
 //
+// Cluster meta API
+//
+type clusterRetrieveGroupsResponse struct {
+	Groups []string `json:"groups"`
+}
+
+type clusterRetrieveMembersResponse struct {
+	Members []string `json:"members"`
+}
+
+//
 // Cluster admin API
 //
 
@@ -188,17 +199,8 @@ type statisticsClusterRequest struct {
 // Health check API
 //
 
-type clusterInfo struct {
-	Name                  string   `json:"node_name"`
-	Mode                  string   `json:"node_mode"`
-	Group                 string   `json:"group_name"`
-	GroupMaxSeq           string   `json:"group_operation_sequence"`
-	LocalMaxSeq           string   `json:"local_operation_sequence"`
-	Peers                 []string `json:"alive_peers_in_group"`
-	OPLogMaxSeqGapToPull  uint16   `json:"oplog_max_seq_gap_to_pull"`
-	OPLogPullMaxCountOnce uint16   `json:"oplog_pull_max_count_once"`
-	OPLogPullInterval     int      `json:"oplog_pull_interval_in_second"`
-	OPLogPullTimeout      int      `json:"oplog_pull_timeout_in_second"`
+type healthInfoResponse struct {
+	Build buildInfo `json:"build"`
 }
 
 type buildInfo struct {
