@@ -238,14 +238,15 @@ func (s *clusterAdminServer) retrievePlugin(w rest.ResponseWriter, r *rest.Reque
 		return
 	}
 
-	ret, clusterErr := s.gc.RetrievePlugin(group, time.Duration(req.TimeoutSec)*time.Second, req.Consistent, pluginName)
+	ret, clusterErr := s.gc.RetrievePlugin(
+		group, time.Duration(req.TimeoutSec)*time.Second, req.Consistent, pluginName)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
 		logger.Errorf("[%s]", clusterErr.Error())
 		return
 	}
 
-	w.WriteJson(ret)
+	w.WriteJson(ret.Plugin)
 
 	logger.Debugf("[plugin %s returned from cluster]", pluginName)
 }
@@ -487,7 +488,7 @@ func (s *clusterAdminServer) retrievePipeline(w rest.ResponseWriter, r *rest.Req
 		return
 	}
 
-	w.WriteJson(ret)
+	w.WriteJson(ret.Pipeline)
 
 	logger.Debugf("[retrieve pipeline %s succeed: %s]", pipelineName, ret)
 }
