@@ -27,6 +27,7 @@ _testmain.go
 .env
 build
 _vendor
+rootfs/opt
 
 .DS_Store
 .idea/

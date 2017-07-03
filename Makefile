@@ -31,19 +31,22 @@ ${TARGET_GATEWAY_SERVER} : ${GATEWAY_SERVER_SRC_FILES}
 	@echo "-------------- building gateway server ---------------"
 	cd ${MKFILE_DIR} && \
 		go build -gcflags "-N -l" -v \
-		-ldflags "-s -w -X version.RELEASE=${RELEASE} -X version.COMMIT=${COMMIT} -X version.REPO=${REPO_INFO}" \
-		-o ${TARGET_GATEWAY_SERVER} ${MKFILE_DIR}src/server/main.go
+			-ldflags "-s -w -X version.RELEASE=${RELEASE} -X version.COMMIT=${COMMIT} -X version.REPO=${REPO_INFO}" \
+			-o ${TARGET_GATEWAY_SERVER} ${MKFILE_DIR}src/server/main.go && \
+		mkdir -p ${MKFILE_DIR}rootfs/opt/easegateway/bin && cp ${TARGET_GATEWAY_SERVER} ${MKFILE_DIR}rootfs/opt/easegateway/bin
 
 ${TARGET_GATEWAY_CLIENT} : ${GATEWAY_CLIENT_SRC_FILES}
 	@echo "-------------- building gateway client ---------------"
 	cd ${MKFILE_DIR} && \
 		go build -gcflags "-N -l" -v \
-		-ldflags "-s -w -X version.RELEASE=${RELEASE} -X version.COMMIT=${COMMIT} -X version.REPO=${REPO_INFO}" \
-		-o ${TARGET_GATEWAY_CLIENT} ${MKFILE_DIR}src/client/main.go
+			-ldflags "-s -w -X version.RELEASE=${RELEASE} -X version.COMMIT=${COMMIT} -X version.REPO=${REPO_INFO}" \
+			-o ${TARGET_GATEWAY_CLIENT} ${MKFILE_DIR}src/client/main.go && \
+		mkdir -p ${MKFILE_DIR}rootfs/opt/easegateway/bin && cp ${TARGET_GATEWAY_CLIENT} ${MKFILE_DIR}rootfs/opt/easegateway/bin
 
 ${TARGET_INVENTORY} : ${GATEWAY_INVENTORY_FILES}
 	@echo "-------------- building inventory -------------"
-	cd ${MKFILE_DIR} && rm -rf ${TARGET_INVENTORY} && mkdir -p ${TARGET_INVENTORY} && cp -r ${GATEWAY_INVENTORY_FILES} ${TARGET_INVENTORY}
+	cd ${MKFILE_DIR} && rm -rf ${TARGET_INVENTORY} && mkdir -p ${TARGET_INVENTORY} && mkdir -p ${MKFILE_DIR}rootfs/opt/easegateway && \
+		cp -r ${GATEWAY_INVENTORY_FILES} ${TARGET_INVENTORY} ${MKFILE_DIR}rootfs/opt/easegateway
 
 build: default
 
@@ -87,4 +90,4 @@ vendor_update: vendor_get
 	&& rm -rf `find ./_vendor/src -type d -name .svn`
 
 clean:
-	@rm -rf ${MKFILE_DIR}build
+	@rm -rf ${MKFILE_DIR}build && rm -rf ${MKFILE_DIR}rootfs/opt
