@@ -1,12 +1,135 @@
 package gateway
 
 import (
+	"common"
 	"fmt"
+	"sort"
+	"strings"
 	"time"
 
 	"cluster"
 	"logger"
 )
+
+// meta
+func (gc *GatewayCluster) RetrieveGroups() []string {
+	totalMembers := gc.cluster.Members()
+
+	groupsBook := make(map[string]struct{})
+	groups := make([]string, 0)
+
+	for _, member := range totalMembers {
+		group := member.NodeTags[groupTagKey]
+		if _, ok := groupsBook[group]; ok {
+			continue
+		}
+		groupsBook[group] = struct{}{}
+
+		groups = append(groups, group)
+	}
+
+	sort.Strings(groups)
+	return groups
+}
+
+type GroupInfo struct {
+	Name        string   `json:"group_name"`
+	GroupMaxSeq string   `json:"group_operation_sequence"`
+	WriteNode   string   `json:"write_node"`
+	ReadNodes   []string `json:"read_nodes"`
+}
+
+func (gc *GatewayCluster) RetrieveGroup(group string) *GroupInfo {
+	totalMembers := gc.cluster.Members()
+	groupInfo := &GroupInfo{
+		Name: group,
+	}
+	groupInfo.ReadNodes = make([]string, 0)
+
+	for _, member := range totalMembers {
+		if member.NodeTags[groupTagKey] != groupInfo.Name {
+			continue
+		}
+
+		if member.NodeTags[modeTagKey] == string(WriteMode) {
+			groupInfo.WriteNode = member.NodeName
+		} else {
+			groupInfo.ReadNodes = append(groupInfo.ReadNodes, member.NodeName)
+		}
+	}
+
+	groupMaxSeqStr := "UNKNOW"
+	groupMaxSeq, err := gc.QueryGroupMaxSeq(common.ClusterGroup, 10*time.Second)
+	if err == nil {
+		groupMaxSeqStr = fmt.Sprintf("%d", groupMaxSeq)
+	}
+	groupInfo.GroupMaxSeq = groupMaxSeqStr
+
+	return groupInfo
+}
+
+func (gc *GatewayCluster) RetrieveMembers() []string {
+	totalMembers := gc.cluster.Members()
+
+	members := make([]string, 0)
+	for _, member := range totalMembers {
+		members = append(members, formatMember(&member))
+	}
+
+	sort.Strings(members)
+	return members
+}
+
+type MemberInfo struct {
+	Name                  string   `json:"node_name"`
+	Mode                  string   `json:"node_mode"`
+	Group                 string   `json:"group_name"`
+	GroupMaxSeq           string   `json:"group_operation_sequence"`
+	LocalMaxSeq           string   `json:"local_operation_sequence"`
+	Peers                 []string `json:"alive_peers_in_group"`
+	OPLogMaxSeqGapToPull  uint16   `json:"oplog_max_seq_gap_to_pull"`
+	OPLogPullMaxCountOnce uint16   `json:"oplog_pull_max_count_once"`
+	OPLogPullInterval     int      `json:"oplog_pull_interval_in_second"`
+	OPLogPullTimeout      int      `json:"oplog_pull_timeout_in_second"`
+}
+
+func formatMember(member *cluster.Member) string {
+	if member == nil {
+		return ""
+	}
+	return fmt.Sprintf("%s (%s:%d) (%s:%s)",
+		member.NodeName, member.Address.String(), member.Port,
+		member.NodeTags[groupTagKey], member.NodeTags[modeTagKey])
+}
+
+func (gc *GatewayCluster) RetrieveMember(nodeName string) *MemberInfo {
+	groupMaxSeqStr := "UNKNOW"
+	groupMaxSeq, err := gc.QueryGroupMaxSeq(common.ClusterGroup, 10*time.Second)
+	if err == nil {
+		groupMaxSeqStr = fmt.Sprintf("%d", groupMaxSeq)
+	}
+
+	// keep same datatype of group max sequence for client
+	localMaxSeqStr := fmt.Sprintf("%d", gc.OPLog().MaxSeq())
+
+	peers := make([]string, 0)
+	for _, member := range gc.RestAliveMembersInSameGroup() {
+		peers = append(peers, formatMember(&member))
+	}
+
+	return &MemberInfo{
+		Name:                  gc.NodeName(),
+		Mode:                  strings.ToLower(gc.Mode().String()),
+		Group:                 common.ClusterGroup,
+		GroupMaxSeq:           groupMaxSeqStr,
+		LocalMaxSeq:           localMaxSeqStr,
+		Peers:                 peers,
+		OPLogMaxSeqGapToPull:  common.OPLogMaxSeqGapToPull,
+		OPLogPullMaxCountOnce: common.OPLogPullMaxCountOnce,
+		OPLogPullInterval:     int(common.OPLogPullInterval.Seconds()),
+		OPLogPullTimeout:      int(common.OPLogPullTimeout.Seconds()),
+	}
+}
 
 // operation
 func (gc *GatewayCluster) QueryGroupMaxSeq(group string, timeout time.Duration) (uint64, *ClusterError) {
