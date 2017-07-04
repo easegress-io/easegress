@@ -164,10 +164,18 @@ func (gc *GatewayCluster) QueryGroupMaxSeq(group string, timeout time.Duration) 
 		return 0, newClusterError(fmt.Sprintf("query max sequence failed: %v", err), InternalServerError)
 	}
 
-	memberResp, ok := <-future.Response()
-	if !ok {
-		return 0, newClusterError("query max sequence in the group timeout", TimeoutError)
+	var memberResp *cluster.MemberResponse
+
+	select {
+	case r, ok := <-future.Response():
+		if !ok {
+			return 0, newClusterError("query max sequence in the group timeout", TimeoutError)
+		}
+		memberResp = r
+	case <-gc.stopChan:
+		return 0, newClusterError("the member gone during issuing max sequence query", IssueMemberGoneError)
 	}
+
 	if len(memberResp.Payload) == 0 {
 		return 0, newClusterError("query max sequence responds empty response", InternalServerError)
 	}
