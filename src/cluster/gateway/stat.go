@@ -123,11 +123,13 @@ func (gc *GatewayCluster) issueStat(group string, timeout time.Duration,
 		}
 		memberResp = r
 	case <-gc.stopChan:
-		return nil, newClusterError("the member gone during issuing statistics aggregation", IssueMemberGoneError)
+		return nil, newClusterError(
+			"the member gone during issuing statistics aggregation", IssueMemberGoneError)
 	}
 
 	if len(memberResp.Payload) == 0 {
-		return nil, newClusterError("issue statistics aggregation responds empty response", InternalServerError)
+		return nil, newClusterError(
+			"issue statistics aggregation responds empty response", InternalServerError)
 	}
 
 	var resp RespStat

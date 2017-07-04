@@ -22,6 +22,7 @@ paths:
           in: path
           required: true
           type: string
+          description: Group name of cluster.
         - name: pluginTypesRetrieveClusterRequest
           in: body
           schema:
@@ -71,6 +72,7 @@ paths:
           in: path
           required: true
           type: string
+          description: Group name of cluster.
         - name: pipelineTypesRetrieveClusterRequest
           in: body
           schema:
@@ -119,6 +121,7 @@ paths:
           in: path
           required: true
           type: string
+          description: Group name of cluster.
         - name: pluginCreationClusterRequest
           in: body
           schema:
@@ -167,6 +170,7 @@ paths:
           in: path
           required: true
           type: string
+          description: Group name of cluster.
         - name: pluginsRetrieveClusterRequest
           in: body
           schema:
@@ -212,6 +216,7 @@ paths:
           in: path
           required: true
           type: string
+          description: Group name of cluster.
         - name: pluginUpdateClusterRequest
           in: body
           schema:
@@ -264,6 +269,7 @@ paths:
           in: path
           required: true
           type: string
+          description: Group name of cluster.
         - name: pluginName
           in: path
           description: Plugin instance name to query.
@@ -318,6 +324,7 @@ paths:
           in: path
           required: true
           type: string
+          description: Group name of cluster.
         - name: pluginName
           in: path
           description: Plugin instance name to delete.
@@ -375,6 +382,7 @@ paths:
           in: path
           required: true
           type: string
+          description: Group name of cluster.
         - name: pipelineCreationClusterRequest
           in: body
           schema:
@@ -424,6 +432,7 @@ paths:
           in: path
           required: true
           type: string
+          description: Group name of cluster.
         - name: pipelinesRetrieveClusterRequest
           in: body
           schema:
@@ -469,6 +478,7 @@ paths:
           in: path
           required: true
           type: string
+          description: Group name of cluster.
         - name: pipelineUpdateClusterRequest
           in: body
           schema:
@@ -522,6 +532,7 @@ paths:
           in: path
           required: true
           type: string
+          description: Group name of cluster.
         - name: pipelineName
           in: path
           description: Pipeline instance name to query.
@@ -576,6 +587,7 @@ paths:
           in: path
           required: true
           type: string
+          description: Group name of cluster.
         - name: pipelineName
           in: path
           description: Pipeline instance name to delete.

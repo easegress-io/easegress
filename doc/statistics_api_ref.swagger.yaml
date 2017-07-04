@@ -355,7 +355,7 @@ definitions:
         type: array
         items:
           type: string
-# Could be one of:
+# Could be one of (not complete list, plugin might expose onw or more own indicator):
 # - EXECUTION_COUNT_ALL
 # - EXECUTION_COUNT_FAILURE
 # - EXECUTION_COUNT_SUCCESS
@@ -395,8 +395,8 @@ definitions:
       value:
         type: object
         description: |
-          A special value object of the plugin indicator type. Check Plugin Reference document for
-          more information.
+          A special value object of the plugin indicator type.
+          Check Plugin Reference document for more information.
   PluginIndicatorDescription:
     type: object
     required:
@@ -405,8 +405,8 @@ definitions:
       desc:
         type: string
         description: |
-          A human readable description of the special plugin indicator type. Check Plugin Reference
-          document for more information.
+          A human readable description of the special plugin indicator type.
+          Check Plugin Reference document for more information.
   PipelineIndicatorNames:
     type: object
     required:
@@ -437,8 +437,8 @@ definitions:
       value:
         type: object
         description: |
-          A special value object of the pipeline indicator type. Check Pipeline Reference document for
-          more information.
+          A special value object of the pipeline indicator type.
+          Check Pipeline Reference document for more information.
   PipelineIndicatorDescription:
     type: object
     required:
@@ -447,8 +447,8 @@ definitions:
       desc:
         type: string
         description: |
-          A human readable description of the special plugin indicator type. Check Pipeline Reference
-          document for more information.
+          A human readable description of the special plugin indicator type.
+          Check Pipeline Reference document for more information.
   TaskIndicatorNames:
     type: object
     required:
@@ -470,8 +470,8 @@ definitions:
       value:
         type: object
         description: |
-          A special value object of the pipeline indicator type. Check Pipeline Reference document for
-          more information.
+          A special value object of the task indicator type.
+          Check Pipeline Reference document for more information.
   TaskIndicatorDescription:
     type: object
     required:
@@ -480,8 +480,8 @@ definitions:
       desc:
         type: string
         description: |
-          A human readable description of the special task indicator type. Check Pipeline Reference
-          document for more information.
+          A human readable description of the special task indicator type.
+          Check Pipeline Reference document for more information.
   UptimeDuration:
     type: object
     required:
