@@ -10,6 +10,47 @@ basePath: /cluster/admin/v1
 produces:
   - application/json
 paths:
+  /{group}/sequence:
+    get:
+      summary: Retrieves Maximum Operation Sequence in a Group
+      description: |
+        The Maximum Operation Sequence retrieve endpoint in the group returns
+        maximum value of operation sequence in the group.
+      parameters:
+        - name: group
+          in: path
+          required: true
+          type: string
+          description: Group name of cluster.
+        - name: clusterOperationSeqRetrieveRequest
+          in: body
+          schema:
+            $ref: '#/definitions/ClusterOperationSeqRetrieveRequest'
+          required: true
+          description: Timeout configuration.
+      responses:
+        500:
+          description: Handle the reqeuest failed by internal error.
+          schema:
+            $ref: '#/definitions/Error'
+        400:
+          description: |
+            Invalid cluster operation sequence retrieve request parameter.
+            Including, invalid group name or timeout is less than 10s.
+          schema:
+            $ref: '#/definitions/Error'
+        408:
+          description: The retrieve timeout period expired.
+          schema:
+            $ref: '#/definitions/Error'
+        410:
+          description: The endpoint has gone.
+          schema:
+            $ref: '#/definitions/Error'
+        200:
+          description: Maximum operation sequence response.
+          schema:
+            $ref: '#/definitions/ClusterOperationSeqRetrieveResponse'
   /{group}/plugin-types:
     get:
       summary: Retrieves Plugin Type in a Group
@@ -272,7 +313,7 @@ paths:
           description: Group name of cluster.
         - name: pluginName
           in: path
-          description: Plugin instance name to query.
+          description: Plugin instance name to retrieve.
           required: true
           type: string
         - name: pluginRetrieveClusterRequest
@@ -535,7 +576,7 @@ paths:
           description: Group name of cluster.
         - name: pipelineName
           in: path
-          description: Pipeline instance name to query.
+          description: Pipeline instance name to retrieve.
           required: true
           type: string
         - name: pipelineRetrieveClusterRequest
@@ -629,6 +670,21 @@ paths:
         202:
           description: Pipeline instance is deleted partially in the group.
 definitions:
+  ClusterOperationSeqRetrieveRequest:
+    type: object
+    properties:
+      timeout_sec:
+        type: integer
+        minimum: 10
+        maximum: 65535
+        default: 30
+  ClusterOperationSeqRetrieveResponse:
+    type: object
+    properties:
+      cluster_group:
+        type: string
+      operation_seq:
+        type: integer
   PluginTypesRetrieveClusterRequest:
     type: object
     properties:

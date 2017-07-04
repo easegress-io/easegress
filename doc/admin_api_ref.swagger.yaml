@@ -121,12 +121,12 @@ paths:
       parameters:
         - name: pluginName
           in: path
-          description: Plugin instance name to query.
+          description: Plugin instance name to retrieve.
           required: true
           type: string
       responses:
         400:
-          description: Invalid plugin instance name to query.
+          description: Invalid plugin instance name to retrieve.
           schema:
             $ref: '#/definitions/Error'
         404:
@@ -249,12 +249,12 @@ paths:
       parameters:
         - name: pipelineName
           in: path
-          description: Pipeline instance name to query.
+          description: Pipeline instance name to retrieve.
           required: true
           type: string
       responses:
         400:
-          description: Invalid pipeline instance name to query.
+          description: Invalid pipeline instance name to retrieve.
           schema:
             $ref: '#/definitions/Error'
         404:
