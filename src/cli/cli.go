@@ -76,8 +76,12 @@ func (e *multipleErr) String() string {
 	}
 
 	var s string
-	for _, err := range e.errs {
-		s = fmt.Sprintf("%s%s\n", s, err.Error())
+	for i, err := range e.errs {
+		if i < len(e.errs)-1 {
+			s = fmt.Sprintf("%s%s\n", s, err.Error())
+		} else {
+			s = fmt.Sprintf("%s%s", s, err.Error())
+		}
 	}
 	return s
 }

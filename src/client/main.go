@@ -326,9 +326,6 @@ func main() {
 	err := app.Run(os.Args)
 	if err != nil {
 		errStr := err.Error()
-		fmt.Print(errStr)
-		if errStr[len(errStr)-1] != '\n' {
-			fmt.Println()
-		}
+		fmt.Println(errStr)
 	}
 }
