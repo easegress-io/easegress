@@ -77,22 +77,41 @@ func RetrievePlugins(c *cli.Context) error {
 
 	errs := &multipleErr{}
 
-	do := func(source, namePattern string) {
-		req := new(pdu.PluginsRetrieveRequest)
-		req.NamePattern = namePattern
-
-		retrieveResp, apiResp, err := adminApi().GetPlugins(req)
+	do := func(pluginName string) {
+		retrieveResp, apiResp, err := adminApi().GetPluginByName(pluginName)
 		if err != nil {
-			errs.append(fmt.Errorf("%s: %v", source, err))
+			errs.append(fmt.Errorf("%s: %v", pluginName, err))
 			return
 		} else if apiResp.Error != nil {
-			errs.append(fmt.Errorf("%s: %s", source, apiResp.Error.Error))
+			errs.append(fmt.Errorf("%s: %s", pluginName, apiResp.Error.Error))
 			return
 		}
 
 		data, err := json.Marshal(retrieveResp)
 		if err != nil {
-			errs.append(fmt.Errorf("%s: %v", source, err))
+			errs.append(fmt.Errorf("%s: %v", pluginName, err))
+			return
+		}
+
+		// TODO: make it pretty
+		fmt.Printf("%s\n", data)
+	}
+
+	doAll := func() {
+		req := new(pdu.PluginsRetrieveRequest)
+		req.NamePattern = ""
+		retrieveResp, apiResp, err := adminApi().GetPlugins(req)
+		if err != nil {
+			errs.append(fmt.Errorf("%v", err))
+			return
+		} else if apiResp.Error != nil {
+			errs.append(fmt.Errorf("%s", apiResp.Error.Error))
+			return
+		}
+
+		data, err := json.Marshal(retrieveResp)
+		if err != nil {
+			errs.append(fmt.Errorf("%v", err))
 			return
 		}
 
@@ -101,10 +120,10 @@ func RetrievePlugins(c *cli.Context) error {
 	}
 
 	if len(args) == 0 {
-		do("all plugins", "")
+		doAll()
 	} else {
 		for _, pluginName := range args {
-			do(pluginName, pluginName)
+			do(pluginName)
 		}
 	}
 
@@ -218,22 +237,41 @@ func RetrievePipelines(c *cli.Context) error {
 
 	errs := &multipleErr{}
 
-	do := func(source, namePattern string) {
-		req := new(pdu.PipelinesRetrieveRequest)
-		req.NamePattern = namePattern
-
-		retrieveResp, apiResp, err := adminApi().GetPipelines(req)
+	do := func(pipelineName string) {
+		retrieveResp, apiResp, err := adminApi().GetPipelineByName(pipelineName)
 		if err != nil {
-			errs.append(fmt.Errorf("%s: %v", source, err))
+			errs.append(fmt.Errorf("%s: %v", pipelineName, err))
 			return
 		} else if apiResp.Error != nil {
-			errs.append(fmt.Errorf("%s: %s", source, apiResp.Error.Error))
+			errs.append(fmt.Errorf("%s: %s", pipelineName, apiResp.Error.Error))
 			return
 		}
 
 		data, err := json.Marshal(retrieveResp)
 		if err != nil {
-			errs.append(fmt.Errorf("%s: %v", source, err))
+			errs.append(fmt.Errorf("%s: %v", pipelineName, err))
+			return
+		}
+
+		// TODO: make it pretty
+		fmt.Printf("%s\n", data)
+	}
+
+	doAll := func() {
+		req := new(pdu.PipelinesRetrieveRequest)
+		req.NamePattern = ""
+		retrieveResp, apiResp, err := adminApi().GetPipelines(req)
+		if err != nil {
+			errs.append(fmt.Errorf("%v", err))
+			return
+		} else if apiResp.Error != nil {
+			errs.append(fmt.Errorf("%s", apiResp.Error.Error))
+			return
+		}
+
+		data, err := json.Marshal(retrieveResp)
+		if err != nil {
+			errs.append(fmt.Errorf("%v", err))
 			return
 		}
 
@@ -242,10 +280,10 @@ func RetrievePipelines(c *cli.Context) error {
 	}
 
 	if len(args) == 0 {
-		do("all pipelines", "")
+		doAll()
 	} else {
 		for _, pipelineName := range args {
-			do(pipelineName, pipelineName)
+			do(pipelineName)
 		}
 	}
 
