@@ -27,7 +27,7 @@ paths:
             $ref: '#/definitions/Error'
   /info:
     get:
-      summary: Retriev Gateway Service Information
+      summary: Retrieve Gateway Service Instance Information
       description: |
         The Gateway Service Instance Health infomation endpoint returns build
         information of gateway service instance.
