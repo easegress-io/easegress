@@ -281,7 +281,7 @@ func ClusterRetrievePlugins(c *cli.Context) error {
 			do(pluginName)
 			expiredTime := time.Now().Sub(startTime)
 			if timeout <= expiredTime && i < len(args)-1 {
-				errs.append(fmt.Errorf("timeout: no time to handle: %s", args[i+1:]))
+				errs.append(fmt.Errorf("timeout: skip to handle: %s", args[i+1:]))
 				break
 			}
 			timeout -= expiredTime
@@ -292,7 +292,77 @@ func ClusterRetrievePlugins(c *cli.Context) error {
 }
 
 func ClusterUpdatePlugin(c *cli.Context) error {
-	return nil
+	args := c.Args()
+	group := c.GlobalString("group")
+	timeoutSec := uint16(*c.GlobalGeneric("timeout").(*common.Uint16Value))
+	timeout := time.Duration(timeoutSec) * time.Second
+	consistent := c.GlobalBool("consistent")
+
+	errs := &multipleErr{}
+
+	do := func(source string, seq uint64, data []byte) {
+		req := new(pdu.PluginUpdateClusterRequest)
+		err := json.Unmarshal(data, req)
+		if err != nil {
+			errs.append(fmt.Errorf("%s: %v", source, err))
+			return
+		}
+
+		req.TimeoutSec = uint16(timeout.Seconds())
+		req.Consistent = consistent
+		req.OperationSeq = seq
+
+		resp, err := clusterAdminApi().UpdatePlugin(group, req)
+		if err != nil {
+			errs.append(fmt.Errorf("%s: %v", source, err))
+			return
+		} else if resp.Error != nil {
+			errs.append(fmt.Errorf("%s: %s", source, resp.Error.Error))
+			return
+		}
+	}
+
+	if len(args) == 0 {
+		args = append(args, "/dev/stdin")
+	}
+	for i, file := range args {
+		data, err := ioutil.ReadFile(file)
+		if err != nil {
+			errs.append(fmt.Errorf("%s: %v", file, err))
+			continue
+		}
+
+		startTime := time.Now()
+		seq, err := getOperationSequence(group, uint16(timeout.Seconds()))
+		expiredTime := time.Now().Sub(startTime)
+
+		if err != nil {
+			errs.append(fmt.Errorf("%s: %v", file, err))
+			break
+		}
+
+		if timeout <= expiredTime {
+			errs.append(fmt.Errorf("timeout: skip to handle [%s]", strings.Join(args[i:], ", ")))
+			break
+		}
+		timeout -= expiredTime
+
+		seq++
+
+		startTime = time.Now()
+		do(file, seq, data)
+		expiredTime = time.Now().Sub(startTime)
+
+		setLocalOperationSequence(group, seq)
+
+		if timeout <= expiredTime && i < len(args)-1 {
+			errs.append(fmt.Errorf("timeout: skip to handle [%s]", strings.Join(args[i+1:], ", ")))
+			break
+		}
+		timeout -= expiredTime
+	}
+
+	return errs.Return()
 }
 
 func ClusterCreatePipeline(c *cli.Context) error {
