@@ -2,8 +2,11 @@ package cli
 
 import (
 	"common"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"time"
 
 	"github.com/hexdecteam/easegateway-go-client/rest/1.0/cluster/admin/v1/pdu"
 	"github.com/urfave/cli"
@@ -54,7 +57,7 @@ func getLocalOperationSequence(group string) (uint64, error) {
 
 	seq, ok := rc.GroupSeq[group]
 	if !ok {
-		return 0, fmt.Errorf("not found sequence of %s", group)
+		return 0, nil
 	}
 
 	return seq, nil
@@ -85,16 +88,8 @@ func getOperationSequence(group string, timeoutSec uint16) (uint64, error) {
 		return remoteSeq, nil
 	}
 
-	switch {
-	case localSeq == remoteSeq:
-		return localSeq, nil
-	case localSeq < remoteSeq:
-		fmt.Printf("Warning: the configuration of %s has changed\n", group)
-		return remoteSeq, nil
-	case localSeq > remoteSeq:
-		fmt.Printf("Warning: BUG happended: local sequence %d is "+
-			"unexpectedly greater than remote sequence %d", localSeq, remoteSeq)
-		return remoteSeq, nil
+	if localSeq < remoteSeq {
+		return 0, fmt.Errorf("the remote configure of %s has changed\n", group)
 	}
 
 	return remoteSeq, nil
@@ -102,13 +97,72 @@ func getOperationSequence(group string, timeoutSec uint16) (uint64, error) {
 
 func ClusterCreatePlugin(c *cli.Context) error {
 	args := c.Args()
-	timeoutSec := uint16(*c.Generic("timeout").(*common.Uint16Value))
-	_, _ = args, timeoutSec
+	group := c.GlobalString("group")
+	timeoutSec := uint16(*c.GlobalGeneric("timeout").(*common.Uint16Value))
+	consistent := c.GlobalBool("consistent")
 
-	// FIXME: When handling one or more plugins, the timeoutSec should apply
-	// to each one or all of them.
+	errs := &multipleErr{}
+	exited := false
 
-	return nil
+	do := func(source string, data []byte) {
+		startTime := time.Now()
+		seq, err := getOperationSequence(group, timeoutSec)
+		if err != nil {
+			exited = true
+			errs.append(fmt.Errorf("%s: %v", source, err))
+		}
+		expiredTime := time.Now().Sub(startTime)
+		timeoutSec = uint16(float64(timeoutSec) - expiredTime.Seconds())
+
+		req := new(pdu.PluginCreationClusterRequest)
+		req.TimeoutSec = timeoutSec
+		req.Consistent = consistent
+		req.OperationSeq = seq
+
+		// FIXME: Need easegateway-go-client to wrap req.Type&req.Config
+		// into req.PluginCreationRequest
+		err = json.Unmarshal(data, req.PluginCreationRequest)
+		if err != nil {
+			errs.append(fmt.Errorf("%s: %v", source, err))
+			return
+		}
+
+		resp, err := clusterAdminApi().CreatePlugin(group, req)
+		if err != nil {
+			errs.append(fmt.Errorf("%s: %v", source, err))
+			return
+		} else if resp.Error != nil {
+			errs.append(fmt.Errorf("%s: %s", source, resp.Error.Error))
+			return
+		}
+	}
+
+	if len(args) == 0 {
+		data, err := ioutil.ReadAll(os.Stdin)
+		if err != nil {
+			errs.append(fmt.Errorf("stdin: %v", err))
+			return errs.Return()
+		}
+
+		do("stdin", data)
+	} else {
+		for _, file := range args {
+			if exited {
+				goto EXITED
+			}
+
+			data, err := ioutil.ReadFile(file)
+			if err != nil {
+				errs.append(fmt.Errorf("%s: %v", file, err))
+				continue
+			}
+
+			do(file, data)
+		}
+	}
+
+EXITED:
+	return errs.Return()
 }
 
 func ClusterDeletePlugin(c *cli.Context) error {

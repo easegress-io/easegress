@@ -16,14 +16,14 @@ func CreatePlugin(c *cli.Context) error {
 	errs := &multipleErr{}
 
 	do := func(source string, data []byte) {
-		pdu := new(pdu.PluginCreationRequest)
-		err := json.Unmarshal(data, pdu)
+		req := new(pdu.PluginCreationRequest)
+		err := json.Unmarshal(data, req)
 		if err != nil {
 			errs.append(fmt.Errorf("%s: %v", source, err))
 			return
 		}
 
-		resp, err := adminApi().CreatePlugin(pdu)
+		resp, err := adminApi().CreatePlugin(req)
 		if err != nil {
 			errs.append(fmt.Errorf("%s: %v", source, err))
 			return
@@ -85,7 +85,10 @@ func RetrievePlugins(c *cli.Context) error {
 
 	errs := &multipleErr{}
 
-	do := func(source string, req *pdu.PluginsRetrieveRequest) {
+	do := func(source, namePattern string) {
+		req := new(pdu.PluginsRetrieveRequest)
+		req.NamePattern = namePattern
+
 		retrieveResp, apiResp, err := adminApi().GetPlugins(req)
 		if err != nil {
 			errs.append(fmt.Errorf("%s: %v", source, err))
@@ -106,12 +109,10 @@ func RetrievePlugins(c *cli.Context) error {
 	}
 
 	if len(args) == 0 {
-		do("all plugins", new(pdu.PluginsRetrieveRequest))
+		do("all plugins", "")
 	} else {
 		for _, pluginName := range args {
-			pdu := new(pdu.PluginsRetrieveRequest)
-			pdu.NamePattern = pluginName
-			do(pluginName, pdu)
+			do(pluginName, pluginName)
 		}
 	}
 
@@ -124,14 +125,14 @@ func UpdatePlugin(c *cli.Context) error {
 	errs := &multipleErr{}
 
 	do := func(source string, data []byte) {
-		pdu := new(pdu.PluginUpdateRequest)
-		err := json.Unmarshal(data, pdu)
+		req := new(pdu.PluginUpdateRequest)
+		err := json.Unmarshal(data, req)
 		if err != nil {
 			errs.append(fmt.Errorf("%s: %v", source, err))
 			return
 		}
 
-		resp, err := adminApi().UpdatePlugin(pdu)
+		resp, err := adminApi().UpdatePlugin(req)
 		if err != nil {
 			errs.append(fmt.Errorf("%s: %v", source, err))
 			return
@@ -170,14 +171,14 @@ func CreatePipeline(c *cli.Context) error {
 	errs := &multipleErr{}
 
 	do := func(source string, data []byte) {
-		pdu := new(pdu.PipelineCreationRequest)
-		err := json.Unmarshal(data, pdu)
+		req := new(pdu.PipelineCreationRequest)
+		err := json.Unmarshal(data, req)
 		if err != nil {
 			errs.append(fmt.Errorf("%s: %v", source, err))
 			return
 		}
 
-		resp, err := adminApi().CreatePipeline(pdu)
+		resp, err := adminApi().CreatePipeline(req)
 		if err != nil {
 			errs.append(fmt.Errorf("%s: %v", source, err))
 			return
@@ -239,7 +240,10 @@ func RetrievePipelines(c *cli.Context) error {
 
 	errs := &multipleErr{}
 
-	do := func(source string, req *pdu.PipelinesRetrieveRequest) {
+	do := func(source, namePattern string) {
+		req := new(pdu.PipelinesRetrieveRequest)
+		req.NamePattern = namePattern
+
 		retrieveResp, apiResp, err := adminApi().GetPipelines(req)
 		if err != nil {
 			errs.append(fmt.Errorf("%s: %v", source, err))
@@ -260,12 +264,10 @@ func RetrievePipelines(c *cli.Context) error {
 	}
 
 	if len(args) == 0 {
-		do("all pipelines", new(pdu.PipelinesRetrieveRequest))
+		do("all pipelines", "")
 	} else {
 		for _, pipelineName := range args {
-			pdu := new(pdu.PipelinesRetrieveRequest)
-			pdu.NamePattern = pipelineName
-			do(pipelineName, pdu)
+			do(pipelineName, pipelineName)
 		}
 	}
 
@@ -278,14 +280,14 @@ func UpdatePipeline(c *cli.Context) error {
 	errs := &multipleErr{}
 
 	do := func(source string, data []byte) {
-		pdu := new(pdu.PipelineUpdateRequest)
-		err := json.Unmarshal(data, pdu)
+		req := new(pdu.PipelineUpdateRequest)
+		err := json.Unmarshal(data, req)
 		if err != nil {
 			errs.append(fmt.Errorf("%s: %v", source, err))
 			return
 		}
 
-		resp, err := adminApi().UpdatePipeline(pdu)
+		resp, err := adminApi().UpdatePipeline(req)
 		if err != nil {
 			errs.append(fmt.Errorf("%s: %v", source, err))
 			return

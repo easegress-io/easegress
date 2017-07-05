@@ -229,6 +229,22 @@ func main() {
 		{
 			Name:  "adminc",
 			Usage: "Cluster Administration interface",
+			Flags: []urfavecli.Flag{
+				urfavecli.StringFlag{
+					Name:  "group",
+					Usage: "Indicates group name",
+					Value: "default_group",
+				},
+				urfavecli.GenericFlag{
+					Name:  "timeout",
+					Usage: "Indicates timeout in senconds (max: 65535)",
+					Value: common.NewUint16Value(30, nil),
+				},
+				urfavecli.BoolFlag{
+					Name:  "consistent",
+					Usage: "Indicates if the operation or retrieve is consistent",
+				},
+			},
 			Subcommands: []urfavecli.Command{
 				{
 					Name:  "plugin",
@@ -240,25 +256,11 @@ func main() {
 							// TODO: add -f --force to overwrite existing plugins
 							Usage:  "Create one or more plugins",
 							Action: cli.ClusterCreatePlugin,
-							Flags: []urfavecli.Flag{
-								urfavecli.GenericFlag{
-									Name:  "timeout",
-									Usage: "Indicates timeout in senconds (max: 65535)",
-									Value: common.NewUint16Value(30, nil),
-								},
-							},
 						},
 						{
 							Name:   "rm",
 							Usage:  "Delete one or more plugins",
 							Action: cli.ClusterDeletePlugin,
-							Flags: []urfavecli.Flag{
-								urfavecli.GenericFlag{
-									Name:  "timeout",
-									Usage: "Indicates timeout in senconds (max: 65535)",
-									Value: common.NewUint16Value(30, nil),
-								},
-							},
 						},
 						{
 							Name: "ls",
@@ -267,38 +269,17 @@ func main() {
 							// TODO: add --type -t
 							Usage:  "Retrieve plugins",
 							Action: cli.ClusterRetrievePlugins,
-							Flags: []urfavecli.Flag{
-								urfavecli.GenericFlag{
-									Name:  "timeout",
-									Usage: "Indicates timeout in senconds (max: 65535)",
-									Value: common.NewUint16Value(30, nil),
-								},
-							},
 						},
 						{
 							Name: "update",
 							// TODO: add -f --force to add plugins which does not exist
 							Usage:  "Update one or more plugins",
 							Action: cli.ClusterUpdatePlugin,
-							Flags: []urfavecli.Flag{
-								urfavecli.GenericFlag{
-									Name:  "timeout",
-									Usage: "Indicates timeout in senconds (max: 65535)",
-									Value: common.NewUint16Value(30, nil),
-								},
-							},
 						},
 						{
 							Name:   "types",
 							Usage:  "Retrieve plugin types",
 							Action: cli.ClusterRetrievePluginTypes,
-							Flags: []urfavecli.Flag{
-								urfavecli.GenericFlag{
-									Name:  "timeout",
-									Usage: "Indicates timeout in senconds (max: 65535)",
-									Value: common.NewUint16Value(30, nil),
-								},
-							},
 						},
 					},
 				},
@@ -312,25 +293,11 @@ func main() {
 							// TODO: add -f --force to overwrite existing pipelines
 							Usage:  "Create one or more pipelines",
 							Action: cli.ClusterCreatePipeline,
-							Flags: []urfavecli.Flag{
-								urfavecli.GenericFlag{
-									Name:  "timeout",
-									Usage: "Indicates timeout in senconds (max: 65535)",
-									Value: common.NewUint16Value(30, nil),
-								},
-							},
 						},
 						{
 							Name:   "rm",
 							Usage:  "Delete one or more pipelines",
 							Action: cli.ClusterDeletePipeline,
-							Flags: []urfavecli.Flag{
-								urfavecli.GenericFlag{
-									Name:  "timeout",
-									Usage: "Indicates timeout in senconds (max: 65535)",
-									Value: common.NewUint16Value(30, nil),
-								},
-							},
 						},
 						{
 							Name: "ls",
@@ -338,38 +305,17 @@ func main() {
 							// TODO: add --format (json, xml...)
 							Usage:  "Retrieve pipelines",
 							Action: cli.ClusterRetrievePipelines,
-							Flags: []urfavecli.Flag{
-								urfavecli.GenericFlag{
-									Name:  "timeout",
-									Usage: "Indicates timeout in senconds (max: 65535)",
-									Value: common.NewUint16Value(30, nil),
-								},
-							},
 						},
 						{
 							Name: "update",
 							// TODO: add -f --force to add pipeline which does not exist
 							Usage:  "Update one or more pipelines",
 							Action: cli.ClusterUpdatePipeline,
-							Flags: []urfavecli.Flag{
-								urfavecli.GenericFlag{
-									Name:  "timeout",
-									Usage: "Indicates timeout in senconds (max: 65535)",
-									Value: common.NewUint16Value(30, nil),
-								},
-							},
 						},
 						{
 							Name:   "types",
 							Usage:  "Retrieve pipeline types",
 							Action: cli.ClusterRetrievePipelineTypes,
-							Flags: []urfavecli.Flag{
-								urfavecli.GenericFlag{
-									Name:  "timeout",
-									Usage: "Indicates timeout in senconds (max: 65535)",
-									Value: common.NewUint16Value(30, nil),
-								},
-							},
 						},
 					},
 				},
