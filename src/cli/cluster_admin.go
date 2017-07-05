@@ -253,7 +253,6 @@ func ClusterRetrievePlugins(c *cli.Context) error {
 		req := new(pdu.PluginsRetrieveClusterRequest)
 		req.TimeoutSec = uint16(timeout.Seconds())
 		req.Consistent = consistent
-		req.NamePattern = ""
 		retrieveResp, apiResp, err := clusterAdminApi().GetPlugins(group, req)
 		if err != nil {
 			errs.append(fmt.Errorf("%v", err))

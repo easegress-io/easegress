@@ -99,7 +99,6 @@ func RetrievePlugins(c *cli.Context) error {
 
 	doAll := func() {
 		req := new(pdu.PluginsRetrieveRequest)
-		req.NamePattern = ""
 		retrieveResp, apiResp, err := adminApi().GetPlugins(req)
 		if err != nil {
 			errs.append(fmt.Errorf("%v", err))
@@ -259,7 +258,6 @@ func RetrievePipelines(c *cli.Context) error {
 
 	doAll := func() {
 		req := new(pdu.PipelinesRetrieveRequest)
-		req.NamePattern = ""
 		retrieveResp, apiResp, err := adminApi().GetPipelines(req)
 		if err != nil {
 			errs.append(fmt.Errorf("%v", err))
