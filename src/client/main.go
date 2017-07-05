@@ -1,7 +1,6 @@
 package main
 
 import (
-	"common"
 	"fmt"
 	"os"
 	"time"
@@ -9,6 +8,7 @@ import (
 	urfavecli "github.com/urfave/cli"
 
 	"cli"
+	"common"
 	"version"
 )
 
@@ -21,7 +21,7 @@ func parseGlobalConfig(c *urfavecli.Context) error {
 		}
 	}
 
-	rcFullPath := c.String("gwrc")
+	rcFullPath := c.String("rcfile")
 	if len(rcFullPath) != 0 {
 		err := cli.SetGatewayRCFullPath(rcFullPath)
 		if err != nil {
@@ -49,12 +49,12 @@ func main() {
 	app.Flags = []urfavecli.Flag{
 		urfavecli.StringFlag{
 			Name:  "address",
-			Usage: "Indicates gateway service instance address",
+			Usage: "Indicates endpoint address of the gateway service instance",
 			Value: cli.GatewayServerAddress(),
 		},
 		urfavecli.StringFlag{
 			Name:  "rcfile",
-			Usage: "Indicates gateway runtime config",
+			Usage: "Indicates full file path of the gateway client runtime config",
 			Value: cli.GatewayRCFullPath(),
 		},
 	}
@@ -225,24 +225,24 @@ func main() {
 				},
 			},
 		},
-
 		{
 			Name:  "adminc",
 			Usage: "Cluster Administration interface",
 			Flags: []urfavecli.Flag{
 				urfavecli.StringFlag{
 					Name:  "group",
-					Usage: "Indicates group name",
-					Value: "default_group",
+					Usage: "Indicates group name in cluster the request perform to",
+					Value: "default",
 				},
 				urfavecli.GenericFlag{
 					Name:  "timeout",
-					Usage: "Indicates timeout in senconds (max: 65535)",
+					Usage: "Indicates request timeout limitation in senconds (10-65535)",
 					Value: common.NewUint16Value(30, nil),
 				},
 				urfavecli.BoolFlag{
 					Name:  "consistent",
-					Usage: "Indicates if the operation or retrieve is consistent",
+					Usage: "Indicates request is performed in the group as " +
+						"consistency or availability first",
 				},
 			},
 			Subcommands: []urfavecli.Command{

@@ -5,37 +5,21 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"time"
 
 	"github.com/hexdecteam/easegateway-go-client/rest/1.0/cluster/admin/v1/pdu"
 	"github.com/urfave/cli"
+	"strings"
 )
 
-type runtimeConfig struct {
-	GroupSeq map[string]uint64 `json:"group_sequence"`
-}
-
 func setLocalOperationSequence(group string, seq uint64) error {
-	if _, err := os.Stat(rcFullPath); os.IsNotExist(err) {
-		file, err := os.OpenFile(rcFullPath, os.O_WRONLY|os.O_CREATE, 0600)
-		if err != nil {
-			return err
-		}
-		file.WriteString("{}")
-		file.Close()
-	}
-
 	store := newRCJSONFileStore(rcFullPath)
 	rc, err := store.load()
 	if err != nil {
 		return err
 	}
 
-	if rc.GroupSeq == nil {
-		rc.GroupSeq = make(map[string]uint64)
-	}
-	rc.GroupSeq[group] = seq
+	rc.Sequences[group] = seq
 	err = store.save(rc)
 	if err != nil {
 		return err
@@ -45,54 +29,50 @@ func setLocalOperationSequence(group string, seq uint64) error {
 }
 
 func getLocalOperationSequence(group string) (uint64, error) {
-	if _, err := os.Stat(rcFullPath); os.IsNotExist(err) {
-		return 0, fmt.Errorf("the runtime config file %s doesn't exist", rcFullPath)
-	}
-
 	store := newRCJSONFileStore(rcFullPath)
 	rc, err := store.load()
 	if err != nil {
 		return 0, err
 	}
 
-	seq, ok := rc.GroupSeq[group]
-	if !ok {
-		return 0, nil
-	}
-
-	return seq, nil
+	return rc.Sequences[group], nil
 }
 
-func clusterRetrieveOperationSequnce(group string, timeoutSec uint16) (uint64, error) {
+func getServerOperationSequence(group string, timeoutSec uint16) (uint64, error) {
 	req := new(pdu.ClusterOperationSeqRetrieveRequest)
 	req.TimeoutSec = timeoutSec
 	retrieveResp, apiResp, err := clusterAdminApi().GetMaxOperationSequence(group, req)
 	if err != nil {
 		return 0, err
 	} else if apiResp.Error != nil {
-		return 0, fmt.Errorf("%s", apiResp.Error)
+		return 0, fmt.Errorf("%s", apiResp.Error.Error)
 	}
+
+	if retrieveResp.ClusterGroup != group {
+		fmt.Printf("BUG: server returns wrong cluster group, required %s but get %s.\n",
+			group, retrieveResp.ClusterGroup)
+		return 0, fmt.Errorf("server returns wrong cluster group")
+	}
+
 	return retrieveResp.OperationSeq, nil
 }
 
 func getOperationSequence(group string, timeoutSec uint16) (uint64, error) {
 	localSeq, localErr := getLocalOperationSequence(group)
 	if localErr != nil {
-		fmt.Printf("Warning: %v\n", localErr)
+		fmt.Printf("Warning: failed to get operation sequence from local config: %v\n", localErr)
 	}
 
-	remoteSeq, remoteErr := clusterRetrieveOperationSequnce(group, timeoutSec)
-	if remoteErr != nil {
-		return 0, remoteErr
-	} else if localErr != nil {
-		return remoteSeq, nil
+	serverSeq, serverErr := getServerOperationSequence(group, timeoutSec)
+	if serverErr != nil {
+		return 0, serverErr
 	}
 
-	if localSeq < remoteSeq {
-		return 0, fmt.Errorf("the remote configure of %s has changed\n", group)
+	if localErr != nil && localSeq < serverSeq {
+		return 0, fmt.Errorf("the configure of group %s on the server side has changed\n", group)
 	}
 
-	return remoteSeq, nil
+	return serverSeq, nil
 }
 
 func ClusterCreatePlugin(c *cli.Context) error {
@@ -115,7 +95,7 @@ func ClusterCreatePlugin(c *cli.Context) error {
 		err := json.Unmarshal(data, req) // for compilation: req.PluginCreationRequest)
 		if err != nil {
 			errs.append(fmt.Errorf("%s: %v", source, err))
-			return
+			return false
 		}
 
 		resp, err := clusterAdminApi().CreatePlugin(group, req)
@@ -140,28 +120,32 @@ func ClusterCreatePlugin(c *cli.Context) error {
 
 		startTime := time.Now()
 		seq, err := getOperationSequence(group, uint16(timeout.Seconds()))
+		expiredSecs := time.Now().Sub(startTime).Seconds()
+
 		if err != nil {
 			errs.append(fmt.Errorf("%s: %v", file, err))
 			break
 		}
-		expiredTime := time.Now().Sub(startTime)
-		if timeout <= expiredTime {
-			errs.append(fmt.Errorf("timeout: no time to handle", args[i:]))
+
+		if timeout <= expiredSecs {
+			errs.append(fmt.Errorf("timeout: skip to handle [%s]", strings.Join(args[i:], ", ")))
 			break
 		}
-		timeout -= expiredTime
+		timeout -= expiredSecs
 
 		seq++
 
 		startTime = time.Now()
 		do(file, seq, data)
+		expiredSecs = time.Now().Sub(startTime).Seconds()
+
 		setLocalOperationSequence(group, seq)
-		expiredTime = time.Now().Sub(startTime)
-		if timeout <= expiredTime && i < len(args)-1 {
-			errs.append(fmt.Errorf("timeout: no time to handle: %s", args[i+1:]))
+
+		if timeout <= expiredSecs && i < len(args)-1 {
+			errs.append(fmt.Errorf("timeout: skip to handle [%s]", strings.Join(args[i+1:], ", ")))
 			break
 		}
-		timeout -= expiredTime
+		timeout -= expiredSecs
 	}
 
 	return errs.Return()
