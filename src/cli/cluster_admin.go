@@ -13,7 +13,11 @@ import (
 )
 
 func setLocalOperationSequence(group string, seq uint64) error {
-	store := newRCJSONFileStore(rcFullPath)
+	store, err := newRCJSONFileStore(rcFullPath)
+	if err != nil {
+		return err
+	}
+
 	rc, err := store.load()
 	if err != nil {
 		return err
@@ -29,7 +33,11 @@ func setLocalOperationSequence(group string, seq uint64) error {
 }
 
 func getLocalOperationSequence(group string) (uint64, error) {
-	store := newRCJSONFileStore(rcFullPath)
+	store, err := newRCJSONFileStore(rcFullPath)
+	if err != nil {
+		return 0, err
+	}
+
 	rc, err := store.load()
 	if err != nil {
 		return 0, err
@@ -86,17 +94,16 @@ func ClusterCreatePlugin(c *cli.Context) error {
 
 	do := func(source string, seq uint64, data []byte) {
 		req := new(pdu.PluginCreationClusterRequest)
+		err := json.Unmarshal(data, req)
+		if err != nil {
+			errs.append(fmt.Errorf("%s: %v", source, err))
+			return
+		}
+
 		req.TimeoutSec = uint16(timeout.Seconds())
 		req.Consistent = consistent
 		req.OperationSeq = seq
 
-		// FIXME: Need easegateway-go-client to wrap req.Type&req.Config
-		// into req.PluginCreationRequest
-		err := json.Unmarshal(data, req) // for compilation: req.PluginCreationRequest)
-		if err != nil {
-			errs.append(fmt.Errorf("%s: %v", source, err))
-			return false
-		}
 
 		resp, err := clusterAdminApi().CreatePlugin(group, req)
 		if err != nil {
@@ -120,32 +127,32 @@ func ClusterCreatePlugin(c *cli.Context) error {
 
 		startTime := time.Now()
 		seq, err := getOperationSequence(group, uint16(timeout.Seconds()))
-		expiredSecs := time.Now().Sub(startTime).Seconds()
+		expiredTime := time.Now().Sub(startTime)
 
 		if err != nil {
 			errs.append(fmt.Errorf("%s: %v", file, err))
 			break
 		}
 
-		if timeout <= expiredSecs {
+		if timeout <= expiredTime {
 			errs.append(fmt.Errorf("timeout: skip to handle [%s]", strings.Join(args[i:], ", ")))
 			break
 		}
-		timeout -= expiredSecs
+		timeout -= expiredTime
 
 		seq++
 
 		startTime = time.Now()
 		do(file, seq, data)
-		expiredSecs = time.Now().Sub(startTime).Seconds()
+		expiredTime = time.Now().Sub(startTime)
 
 		setLocalOperationSequence(group, seq)
 
-		if timeout <= expiredSecs && i < len(args)-1 {
+		if timeout <= expiredTime && i < len(args)-1 {
 			errs.append(fmt.Errorf("timeout: skip to handle [%s]", strings.Join(args[i+1:], ", ")))
 			break
 		}
-		timeout -= expiredSecs
+		timeout -= expiredTime
 	}
 
 	return errs.Return()

@@ -15,11 +15,11 @@ type rcJSONFileStore struct {
 	path string
 }
 
-func newRCJSONFileStore(path string) *rcJSONFileStore {
+func newRCJSONFileStore(path string) (*rcJSONFileStore, error) {
 	if _, err := os.Stat(rcFullPath); os.IsNotExist(err) {
 		file, err := os.OpenFile(rcFullPath, os.O_WRONLY|os.O_CREATE, 0600)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		file.WriteString("{}")
 		file.Close()
@@ -27,7 +27,7 @@ func newRCJSONFileStore(path string) *rcJSONFileStore {
 
 	return &rcJSONFileStore{
 		path: path,
-	}
+	}, nil
 }
 
 func (s *rcJSONFileStore) save(rc *runtimeConfig) error {
