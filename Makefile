@@ -44,6 +44,7 @@ ${TARGET_GATEWAY_CLIENT} : ${GATEWAY_CLIENT_SRC_FILES}
 ${TARGET_INVENTORY} : ${GATEWAY_INVENTORY_FILES}
 	@echo "-------------- building inventory -------------"
 	cd ${MKFILE_DIR} && rm -rf ${TARGET_INVENTORY} && mkdir -p ${TARGET_INVENTORY} && mkdir -p ${MKFILE_DIR}rootfs/opt/easegateway && \
+		cp -r ${GATEWAY_INVENTORY_FILES} ${TARGET_INVENTORY} && \
 		cp -r ${GATEWAY_INVENTORY_FILES} ${TARGET_INVENTORY} ${MKFILE_DIR}rootfs/opt/easegateway
 
 build: default
