@@ -25,7 +25,45 @@ paths:
           description: Unexpected error.
           schema:
             $ref: '#/definitions/Error'
+  /info:
+    get:
+      summary: Retriev Gateway Service Information
+      description: |
+        The Gateway Service Instance Health infomation endpoint returns build
+        information of gateway service instance.
+      responses:
+        200:
+          description: |
+            The information of the gateway service instance
+            which serves API request currently.
+          schema:
+            $ref: '#/definitions/HealthInfoResponse'
+        default:
+          description: Unexpected error.
+          schema:
+            $ref: '#/definitions/Error'
 definitions:
+  HealthInfoResponse:
+    type: object
+    required:
+      - build
+    properties:
+      build:
+        type: object
+        required:
+          - name
+          - release
+          - build
+          - repository
+        properties:
+          name:
+            type: string
+          release:
+            type: string
+          build:
+            type: string
+          repository:
+            type: string
   Error:
     type: object
     required:
