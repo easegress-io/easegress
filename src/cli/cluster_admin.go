@@ -76,7 +76,7 @@ func getOperationSequence(group string, timeoutSec uint16) (uint64, error) {
 		return 0, serverErr
 	}
 
-	if localErr != nil && localSeq < serverSeq {
+	if localErr == nil && localSeq < serverSeq {
 		return 0, fmt.Errorf("the configure of group %s on the server side has changed\n", group)
 	}
 
