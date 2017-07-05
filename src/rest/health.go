@@ -3,7 +3,6 @@ package rest
 import (
 	"github.com/ant0ine/go-json-rest/rest"
 
-	"cluster/gateway"
 	"common"
 	"engine"
 	"logger"
@@ -12,13 +11,11 @@ import (
 
 type healthCheckServer struct {
 	gateway *engine.Gateway
-	gc      *gateway.GatewayCluster
 }
 
-func newHealthCheckServer(gateway *engine.Gateway, gc *gateway.GatewayCluster) (*healthCheckServer, error) {
+func newHealthCheckServer(gateway *engine.Gateway) (*healthCheckServer, error) {
 	return &healthCheckServer{
 		gateway: gateway,
-		gc:      gc,
 	}, nil
 }
 

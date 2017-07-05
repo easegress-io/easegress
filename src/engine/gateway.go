@@ -110,7 +110,7 @@ func NewGateway() (*Gateway, error) {
 
 	gc, err := cluster.NewGatewayCluster(clusterConf, mod)
 	if err != nil {
-		return nil, fmt.Errorf("create gateway cluster failed: %v", err)
+		logger.Errorf("[create gateway cluster failed, clustering is disabled: %v]", err)
 	}
 
 	return &Gateway{
@@ -156,13 +156,17 @@ func (gw *Gateway) Stop() {
 	gw.Lock()
 	defer gw.Unlock()
 
-	logger.Infof("[closing gateway cluster]")
+	var err error
 
-	err := gw.gc.Stop()
-	if err != nil {
-		logger.Errorf("[closing gateway cluster failed: %v]", err)
-	} else {
-		logger.Infof("[closed gateway cluster]")
+	if gw.gc != nil {
+		logger.Infof("[closing gateway cluster]")
+
+		err = gw.gc.Stop()
+		if err != nil {
+			logger.Errorf("[closing gateway cluster failed: %v]", err)
+		} else {
+			logger.Infof("[closed gateway cluster]")
+		}
 	}
 
 	logger.Infof("[stopping pipelines]")
@@ -361,7 +365,9 @@ func (gw *Gateway) setupPipelinePersistenceControl() {
 }
 
 func (gw *Gateway) setupClusterOpLogSync() {
-	gw.gc.OPLog().AddOPLogAppendedCallback("handleClusterOperation", gw.handleClusterOperation, false)
+	if gw.gc != nil {
+		gw.gc.OPLog().AddOPLogAppendedCallback("handleClusterOperation", gw.handleClusterOperation, false)
+	}
 }
 
 func (gw *Gateway) addPluginToStorage(newPlugin *model.Plugin) {
