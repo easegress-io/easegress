@@ -131,7 +131,6 @@ func ClusterCreatePlugin(c *cli.Context) error {
 	if len(args) == 0 {
 		args = append(args, "/dev/stdin")
 	}
-
 	for i, file := range args {
 		data, err := ioutil.ReadFile(file)
 		if err != nil {
@@ -152,8 +151,11 @@ func ClusterCreatePlugin(c *cli.Context) error {
 		}
 		timeout -= expiredTime
 
+		seq++
+
 		startTime = time.Now()
 		do(file, seq, data)
+		setLocalOperationSequence(group, seq)
 		expiredTime = time.Now().Sub(startTime)
 		if timeout <= expiredTime && i < len(args)-1 {
 			errs.append(fmt.Errorf("timeout: no time to handle: %s", args[i+1:]))
@@ -166,7 +168,62 @@ func ClusterCreatePlugin(c *cli.Context) error {
 }
 
 func ClusterDeletePlugin(c *cli.Context) error {
-	return nil
+	args := c.Args()
+	group := c.GlobalString("group")
+	timeoutSec := uint16(*c.GlobalGeneric("timeout").(*common.Uint16Value))
+	timeout := time.Duration(timeoutSec) * time.Second
+	consistent := c.GlobalBool("consistent")
+
+	errs := &multipleErr{}
+
+	do := func(pluginName string, seq uint64) {
+		req := new(pdu.ClusterOperationRequest)
+		req.TimeoutSec = uint16(timeout.Seconds())
+		req.Consistent = consistent
+		req.OperationSeq = seq
+		resp, err := clusterAdminApi().DeletePluginByName(group, pluginName, req)
+
+		if err != nil {
+			errs.append(fmt.Errorf("%s: %v", pluginName, err))
+			return
+		} else if resp.Error != nil {
+			errs.append(fmt.Errorf("%s: %s", pluginName, resp.Error.Error))
+			return
+		}
+	}
+
+	if len(args) == 0 {
+		errs.append(fmt.Errorf("plugin name requied"))
+		return errs.Return()
+	}
+	for i, pluginName := range args {
+		startTime := time.Now()
+		seq, err := getOperationSequence(group, uint16(timeout.Seconds()))
+		if err != nil {
+			errs.append(fmt.Errorf("%s: %v", pluginName, err))
+			break
+		}
+		expiredTime := time.Now().Sub(startTime)
+		if timeout <= expiredTime {
+			errs.append(fmt.Errorf("timeout: no time to handle", args[i:]))
+			break
+		}
+		timeout -= expiredTime
+
+		seq++
+
+		startTime = time.Now()
+		do(pluginName, seq)
+		setLocalOperationSequence(group, seq+1)
+		expiredTime = time.Now().Sub(startTime)
+		if timeout <= expiredTime && i < len(args)-1 {
+			errs.append(fmt.Errorf("timeout: no time to handle: %s", args[i+1:]))
+			break
+		}
+		timeout -= expiredTime
+	}
+
+	return errs.Return()
 }
 
 func ClusterRetrievePlugins(c *cli.Context) error {
