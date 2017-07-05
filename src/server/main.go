@@ -27,6 +27,8 @@ func main() {
 		os.Exit(exitCode)
 	}
 
+	setupLogFileReopenSignalHandler()
+
 	var cpuProfile *os.File
 	if common.CpuProfileFile != "" {
 		cpuProfile, err = os.Create(common.CpuProfileFile)
@@ -130,7 +132,7 @@ func main() {
 
 func setupExitSignalHandler(gateway *engine.Gateway) {
 	sigChannel := make(chan os.Signal, 1)
-	signal.Notify(sigChannel, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sigChannel, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
 		for times := 0; sigChannel != nil; times++ {
@@ -159,14 +161,12 @@ func setupExitSignalHandler(gateway *engine.Gateway) {
 
 func setupHeapDumpSignalHandler() {
 	sigChannel := make(chan os.Signal, 1)
-	signal.Notify(sigChannel, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	signal.Notify(sigChannel, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
 	go func() {
 		for {
 			sig := <-sigChannel
 			switch sig {
-			case syscall.SIGHUP:
-				fallthrough
 			case syscall.SIGINT:
 				fallthrough
 			case syscall.SIGTERM:
@@ -192,6 +192,26 @@ func setupHeapDumpSignalHandler() {
 							common.MemProfileFile)
 					}()
 				}
+			}
+		}
+	}()
+}
+
+func setupLogFileReopenSignalHandler() {
+	sigChannel := make(chan os.Signal, 1)
+	signal.Notify(sigChannel, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+
+	go func() {
+		for {
+			sig := <-sigChannel
+			switch sig {
+			case syscall.SIGINT:
+				fallthrough
+			case syscall.SIGTERM:
+				return
+			case syscall.SIGHUP:
+				logger.Infof("[%s signal received, reopen log files]", syscall.SIGHUP)
+				logger.ReOpenLogFiles()
 			}
 		}
 	}()

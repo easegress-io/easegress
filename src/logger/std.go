@@ -13,7 +13,7 @@ var (
 	LOG_STD_LEVEL     = logrus.InfoLevel
 	LOG_STD_TTY_LEVEL = logrus.DebugLevel
 
-	std = New()
+	std = newLoggerSet()
 )
 
 func initStd() {
@@ -24,14 +24,13 @@ func initStd() {
 		FullTimestamp: true,
 	}
 
-	std.registerLogger("stdio", os.Stdout, formatter, LOG_STD_TTY_LEVEL)
+	std.registerIOLogger("stdio", os.Stdout, formatter, LOG_STD_TTY_LEVEL)
 
 	f, err := openLogFile(LOG_STD_FILE)
 	if err != nil {
-		Errorf("[logger:initStd] - [open file %v failed: %v]", LOG_STD_FILE, err)
+		Errorf("[open log file %s failed: %v]", LOG_STD_FILE, err)
 	} else {
-		std.registerLogger("stdio", f, formatter, LOG_STD_LEVEL)
-
+		std.registerFileLogger("stdio", f, LOG_STD_FILE, formatter, LOG_STD_LEVEL)
 	}
 }
 

@@ -10,19 +10,17 @@ import (
 
 var (
 	LOG_HTTP_FILE  = "http_access.log"
-	LOG_HTTP_LEVEL = logrus.InfoLevel
+	LOG_HTTP_LEVEL = logrus.DebugLevel
 
-	httpstd = New()
+	httpstd = newLoggerSet()
 )
 
 func initHTTP() {
 	f, err := openLogFile(LOG_HTTP_FILE)
-	formatter := &httpFormatter{}
-
 	if err != nil {
-		Errorf("open %v failed: %v\n", err)
+		Errorf("[open log file %s failed: %v]", LOG_HTTP_FILE, err)
 	} else {
-		httpstd.registerLogger("http", f, formatter, logrus.DebugLevel)
+		httpstd.registerFileLogger("http", f, LOG_HTTP_FILE, &httpFormatter{}, LOG_HTTP_LEVEL)
 	}
 
 	// test example:

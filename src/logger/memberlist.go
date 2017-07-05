@@ -18,7 +18,7 @@ var (
 	LOG_MEMBERLIST_LEVEL     = logrus.InfoLevel
 	LOG_MEMBERLIST_TTY_LEVEL = logrus.DebugLevel
 
-	memberList = New()
+	memberList = newLoggerSet()
 
 	LOG_MEMBERLIST_REGEX = regexp.MustCompile(`.+? \[(DEBUG|WARN|ERR)\] (.*)`)
 )
@@ -31,13 +31,13 @@ func initMemberList() {
 		FullTimestamp: true,
 	}
 
-	memberList.registerLogger("memberlist", os.Stdout, formatter, LOG_MEMBERLIST_TTY_LEVEL)
+	memberList.registerIOLogger("memberlist", os.Stdout, formatter, LOG_MEMBERLIST_TTY_LEVEL)
 
 	f, err := openLogFile(LOG_MEMBERLIST_FILE)
 	if err != nil {
-		Errorf("[logger:initCluster] - [open file %v failed: %v]", LOG_MEMBERLIST_FILE, err)
+		Errorf("[open log file %s failed: %v]", LOG_MEMBERLIST_FILE, err)
 	} else {
-		memberList.registerLogger("memberlist", f, formatter, LOG_MEMBERLIST_LEVEL)
+		memberList.registerFileLogger("memberlist", f, LOG_MEMBERLIST_FILE, formatter, LOG_MEMBERLIST_LEVEL)
 	}
 }
 
