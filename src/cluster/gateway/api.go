@@ -13,10 +13,14 @@ import (
 
 // meta
 func (gc *GatewayCluster) RetrieveGroups() []string {
-	totalMembers := gc.cluster.Members()
-
-	groupsBook := make(map[string]struct{})
 	groups := make([]string, 0)
+
+	if gc.Stopped() {
+		return groups
+	}
+
+	totalMembers := gc.cluster.Members()
+	groupsBook := make(map[string]struct{})
 
 	for _, member := range totalMembers {
 		group := member.NodeTags[groupTagKey]
@@ -40,6 +44,10 @@ type GroupInfo struct {
 }
 
 func (gc *GatewayCluster) RetrieveGroup(group string) *GroupInfo {
+	if gc.Stopped() {
+		return nil
+	}
+
 	totalMembers := gc.cluster.Members()
 	groupInfo := &GroupInfo{
 		Name: group,
@@ -69,9 +77,14 @@ func (gc *GatewayCluster) RetrieveGroup(group string) *GroupInfo {
 }
 
 func (gc *GatewayCluster) RetrieveMembers() []string {
+	members := make([]string, 0)
+
+	if gc.Stopped() {
+		return members
+	}
+
 	totalMembers := gc.cluster.Members()
 
-	members := make([]string, 0)
 	for _, member := range totalMembers {
 		members = append(members, formatMember(&member))
 	}
@@ -103,6 +116,10 @@ func formatMember(member *cluster.Member) string {
 }
 
 func (gc *GatewayCluster) RetrieveMember(nodeName string) *MemberInfo {
+	if gc.Stopped() {
+		return nil
+	}
+
 	groupMaxSeqStr := "UNKNOW"
 	groupMaxSeq, err := gc.QueryGroupMaxSeq(common.ClusterGroup, 10*time.Second)
 	if err == nil {
@@ -133,6 +150,11 @@ func (gc *GatewayCluster) RetrieveMember(nodeName string) *MemberInfo {
 
 // operation
 func (gc *GatewayCluster) QueryGroupMaxSeq(group string, timeout time.Duration) (uint64, *ClusterError) {
+	if gc.Stopped() {
+		return 0, newClusterError("can not query max operation sequence due to cluster gone",
+			IssueMemberGoneError)
+	}
+
 	req := new(ReqQueryGroupMaxSeq)
 	requestPayload, err := cluster.PackWithHeader(req, uint8(queryGroupMaxSeqMessage))
 	if err != nil {
@@ -193,6 +215,12 @@ func (gc *GatewayCluster) QueryGroupMaxSeq(group string, timeout time.Duration) 
 func (gc *GatewayCluster) CreatePlugin(group string, timeout time.Duration, startSeq uint64, syncAll bool,
 	typ string, conf []byte) *ClusterError {
 
+	if gc.Stopped() {
+		return newClusterError(
+			fmt.Sprintf("can not create plugin (sequence=%d) due to cluster gone", startSeq),
+			IssueMemberGoneError)
+	}
+
 	operation := Operation{
 		ContentCreatePlugin: &ContentCreatePlugin{
 			Type:   typ,
@@ -207,6 +235,12 @@ func (gc *GatewayCluster) CreatePlugin(group string, timeout time.Duration, star
 
 func (gc *GatewayCluster) UpdatePlugin(group string, timeout time.Duration, startSeq uint64, syncAll bool,
 	typ string, conf []byte) *ClusterError {
+
+	if gc.Stopped() {
+		return newClusterError(
+			fmt.Sprintf("can not update plugin (sequence=%d) due to cluster gone", startSeq),
+			IssueMemberGoneError)
+	}
 
 	operation := Operation{
 		ContentUpdatePlugin: &ContentUpdatePlugin{
@@ -223,6 +257,12 @@ func (gc *GatewayCluster) UpdatePlugin(group string, timeout time.Duration, star
 func (gc *GatewayCluster) DeletePlugin(group string, timeout time.Duration, startSeq uint64, syncAll bool,
 	name string) *ClusterError {
 
+	if gc.Stopped() {
+		return newClusterError(
+			fmt.Sprintf("can not delete plugin (sequence=%d) due to cluster gone", startSeq),
+			IssueMemberGoneError)
+	}
+
 	operation := Operation{
 		ContentDeletePlugin: &ContentDeletePlugin{
 			Name: name,
@@ -236,6 +276,12 @@ func (gc *GatewayCluster) DeletePlugin(group string, timeout time.Duration, star
 
 func (gc *GatewayCluster) CreatePipeline(group string, timeout time.Duration, startSeq uint64, syncAll bool,
 	typ string, conf []byte) *ClusterError {
+
+	if gc.Stopped() {
+		return newClusterError(
+			fmt.Sprintf("can not create pipeline (sequence=%d) due to cluster gone", startSeq),
+			IssueMemberGoneError)
+	}
 
 	operation := Operation{
 		ContentCreatePipeline: &ContentCreatePipeline{
@@ -251,6 +297,13 @@ func (gc *GatewayCluster) CreatePipeline(group string, timeout time.Duration, st
 
 func (gc *GatewayCluster) UpdatePipeline(group string, timeout time.Duration, startSeq uint64, syncAll bool,
 	typ string, conf []byte) *ClusterError {
+
+	if gc.Stopped() {
+		return newClusterError(
+			fmt.Sprintf("can not update pipeline (sequence=%d) due to cluster gone", startSeq),
+			IssueMemberGoneError)
+	}
+
 	operation := Operation{
 		ContentUpdatePipeline: &ContentUpdatePipeline{
 			Type:   typ,
@@ -266,6 +319,12 @@ func (gc *GatewayCluster) UpdatePipeline(group string, timeout time.Duration, st
 func (gc *GatewayCluster) DeletePipeline(group string, timeout time.Duration, startSeq uint64, syncAll bool,
 	name string) *ClusterError {
 
+	if gc.Stopped() {
+		return newClusterError(
+			fmt.Sprintf("can not delete pipeline (sequence=%d) due to cluster gone", startSeq),
+			IssueMemberGoneError)
+	}
+
 	operation := Operation{
 		ContentDeletePipeline: &ContentDeletePipeline{
 			Name: name,
@@ -280,6 +339,10 @@ func (gc *GatewayCluster) DeletePipeline(group string, timeout time.Duration, st
 // retrieve
 func (gc *GatewayCluster) RetrievePlugin(group string, timeout time.Duration, syncAll bool,
 	name string) (*ResultRetrievePlugin, *ClusterError) {
+
+	if gc.Stopped() {
+		return nil, newClusterError("can not retrieve plugin due to cluster gone", IssueMemberGoneError)
+	}
 
 	filter := FilterRetrievePlugin{
 		Name: name,
@@ -303,6 +366,10 @@ func (gc *GatewayCluster) RetrievePlugin(group string, timeout time.Duration, sy
 
 func (gc *GatewayCluster) RetrievePlugins(group string, timeout time.Duration, syncAll bool,
 	namePattern string, types []string) (*ResultRetrievePlugins, *ClusterError) {
+
+	if gc.Stopped() {
+		return nil, newClusterError("can not retrieve plugins due to cluster gone", IssueMemberGoneError)
+	}
 
 	filter := FilterRetrievePlugins{
 		NamePattern: namePattern,
@@ -328,6 +395,10 @@ func (gc *GatewayCluster) RetrievePlugins(group string, timeout time.Duration, s
 func (gc *GatewayCluster) RetrievePipeline(group string, timeout time.Duration, syncAll bool,
 	name string) (*ResultRetrievePipeline, *ClusterError) {
 
+	if gc.Stopped() {
+		return nil, newClusterError("can not retrieve pipeline due to cluster gone", IssueMemberGoneError)
+	}
+
 	filter := FilterRetrievePipeline{
 		Name: name,
 	}
@@ -350,6 +421,10 @@ func (gc *GatewayCluster) RetrievePipeline(group string, timeout time.Duration, 
 
 func (gc *GatewayCluster) RetrievePipelines(group string, timeout time.Duration, syncAll bool,
 	namePattern string, types []string) (*ResultRetrievePipelines, *ClusterError) {
+
+	if gc.Stopped() {
+		return nil, newClusterError("can not retrieve pipelines due to cluster gone", IssueMemberGoneError)
+	}
 
 	filter := FilterRetrievePipelines{
 		NamePattern: namePattern,
@@ -375,6 +450,10 @@ func (gc *GatewayCluster) RetrievePipelines(group string, timeout time.Duration,
 func (gc *GatewayCluster) RetrievePluginTypes(group string, timeout time.Duration,
 	syncAll bool) (*ResultRetrievePluginTypes, *ClusterError) {
 
+	if gc.Stopped() {
+		return nil, newClusterError("can not retrieve plugin types due to cluster gone", IssueMemberGoneError)
+	}
+
 	requestName := fmt.Sprintf("(group:%s)retrive_plugin_types", group)
 
 	resp, err := gc.issueRetrieve(group, timeout, requestName, syncAll, &FilterRetrievePluginTypes{})
@@ -393,6 +472,11 @@ func (gc *GatewayCluster) RetrievePluginTypes(group string, timeout time.Duratio
 
 func (gc *GatewayCluster) RetrievePipelineTypes(group string, timeout time.Duration,
 	syncAll bool) (*ResultRetrievePipelineTypes, *ClusterError) {
+
+	if gc.Stopped() {
+		return nil, newClusterError("can not retrieve pipeline types due to cluster gone",
+			IssueMemberGoneError)
+	}
 
 	requestName := fmt.Sprintf("(group:%s)retrive_pipeline_types", group)
 
@@ -414,6 +498,11 @@ func (gc *GatewayCluster) RetrievePipelineTypes(group string, timeout time.Durat
 func (gc *GatewayCluster) StatPipelineIndicatorNames(group string, timeout time.Duration,
 	pipelineName string) (*ResultStatIndicatorNames, *ClusterError) {
 
+	if gc.Stopped() {
+		return nil, newClusterError("can not retrieve pipeline statistics indicator names due to cluster gone",
+			IssueMemberGoneError)
+	}
+
 	filter := FilterPipelineIndicatorNames{
 		PipelineName: pipelineName,
 	}
@@ -428,7 +517,8 @@ func (gc *GatewayCluster) StatPipelineIndicatorNames(group string, timeout time.
 	ret, ok := resp.(*ResultStatIndicatorNames)
 	if !ok {
 		logger.Errorf("[BUG: stat pipeline indicator names returns invalid result, got type %T]", resp)
-		return nil, newClusterError("stat pipeline indicator names returns invalid result", InternalServerError)
+		return nil, newClusterError("stat pipeline indicator names returns invalid result",
+			InternalServerError)
 	}
 
 	return ret, nil
@@ -436,6 +526,11 @@ func (gc *GatewayCluster) StatPipelineIndicatorNames(group string, timeout time.
 
 func (gc *GatewayCluster) StatPipelineIndicatorValue(group string, timeout time.Duration,
 	pipelineName, indicatorName string) (*ResultStatIndicatorValue, *ClusterError) {
+
+	if gc.Stopped() {
+		return nil, newClusterError("can not retrieve pipeline statistics indicator value due to cluster gone",
+			IssueMemberGoneError)
+	}
 
 	filter := FilterPipelineIndicatorValue{
 		PipelineName:  pipelineName,
@@ -460,6 +555,12 @@ func (gc *GatewayCluster) StatPipelineIndicatorValue(group string, timeout time.
 
 func (gc *GatewayCluster) StatPipelineIndicatorDesc(group string, timeout time.Duration,
 	pipelineName, indicatorName string) (*ResultStatIndicatorDesc, *ClusterError) {
+
+	if gc.Stopped() {
+		return nil, newClusterError(
+			"can not retrieve pipeline statistics indicator description due to cluster gone",
+			IssueMemberGoneError)
+	}
 
 	filter := FilterPipelineIndicatorDesc{
 		PipelineName:  pipelineName,
@@ -486,6 +587,11 @@ func (gc *GatewayCluster) StatPipelineIndicatorDesc(group string, timeout time.D
 func (gc *GatewayCluster) StatPluginIndicatorNames(group string, timeout time.Duration,
 	pipelineName, pluginName string) (*ResultStatIndicatorNames, *ClusterError) {
 
+	if gc.Stopped() {
+		return nil, newClusterError("can not retrieve plugin statistics indicator names due to cluster gone",
+			IssueMemberGoneError)
+	}
+
 	filter := FilterPluginIndicatorNames{
 		PipelineName: pipelineName,
 		PluginName:   pluginName,
@@ -509,6 +615,11 @@ func (gc *GatewayCluster) StatPluginIndicatorNames(group string, timeout time.Du
 
 func (gc *GatewayCluster) StatPluginIndicatorValue(group string, timeout time.Duration,
 	pipelineName, pluginName, indicatorName string) (*ResultStatIndicatorValue, *ClusterError) {
+
+	if gc.Stopped() {
+		return nil, newClusterError("can not retrieve plugin statistics indicator value due to cluster gone",
+			IssueMemberGoneError)
+	}
 
 	filter := FilterPluginIndicatorValue{
 		PipelineName:  pipelineName,
@@ -534,6 +645,12 @@ func (gc *GatewayCluster) StatPluginIndicatorValue(group string, timeout time.Du
 
 func (gc *GatewayCluster) StatPluginIndicatorDesc(group string, timeout time.Duration,
 	pipelineName, pluginName, indicatorName string) (*ResultStatIndicatorDesc, *ClusterError) {
+
+	if gc.Stopped() {
+		return nil, newClusterError(
+			"can not retrieve plugin statistics indicator description due to cluster gone",
+			IssueMemberGoneError)
+	}
 
 	filter := FilterPluginIndicatorDesc{
 		PipelineName:  pipelineName,
@@ -561,6 +678,11 @@ func (gc *GatewayCluster) StatPluginIndicatorDesc(group string, timeout time.Dur
 func (gc *GatewayCluster) StatTaskIndicatorNames(group string, timeout time.Duration,
 	pipelineName string) (*ResultStatIndicatorNames, *ClusterError) {
 
+	if gc.Stopped() {
+		return nil, newClusterError("can not retrieve task statistics indicator names due to cluster gone",
+			IssueMemberGoneError)
+	}
+
 	filter := FilterTaskIndicatorNames{
 		PipelineName: pipelineName,
 	}
@@ -583,6 +705,11 @@ func (gc *GatewayCluster) StatTaskIndicatorNames(group string, timeout time.Dura
 
 func (gc *GatewayCluster) StatTaskIndicatorValue(group string, timeout time.Duration,
 	pipelineName, indicatorName string) (*ResultStatIndicatorValue, *ClusterError) {
+
+	if gc.Stopped() {
+		return nil, newClusterError("can not retrieve task statistics indicator value due to cluster gone",
+			IssueMemberGoneError)
+	}
 
 	filter := FilterTaskIndicatorValue{
 		PipelineName:  pipelineName,
@@ -607,6 +734,12 @@ func (gc *GatewayCluster) StatTaskIndicatorValue(group string, timeout time.Dura
 
 func (gc *GatewayCluster) StatTaskIndicatorDesc(group string, timeout time.Duration,
 	pipelineName, indicatorName string) (*ResultStatIndicatorDesc, *ClusterError) {
+
+	if gc.Stopped() {
+		return nil, newClusterError(
+			"can not retrieve task statistics indicator description due to cluster gone",
+			IssueMemberGoneError)
+	}
 
 	filter := FilterTaskIndicatorDesc{
 		PipelineName:  pipelineName,

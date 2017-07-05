@@ -48,7 +48,7 @@ type GatewayCluster struct {
 	log         *opLog
 	mode        Mode
 
-	statusLock sync.Mutex
+	statusLock sync.RWMutex
 	stopChan   chan struct{}
 	stopped    bool
 
@@ -205,6 +205,13 @@ func (gc *GatewayCluster) internalStop(stopBasis bool) error {
 	gc.stopped = true
 
 	return nil
+}
+
+func (gc *GatewayCluster) Stopped() bool {
+	gc.statusLock.RLock()
+	defer gc.statusLock.RUnlock()
+
+	return gc.stopped
 }
 
 func (gc *GatewayCluster) dispatch() {
