@@ -3,16 +3,20 @@ package cli
 import (
 	"fmt"
 	"net"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
 	admin_api "github.com/hexdecteam/easegateway-go-client/rest/1.0/admin/v1"
+	cluster_admin_api "github.com/hexdecteam/easegateway-go-client/rest/1.0/cluster/admin/v1"
 	health_api "github.com/hexdecteam/easegateway-go-client/rest/1.0/health/v1"
 	stat_api "github.com/hexdecteam/easegateway-go-client/rest/1.0/statistics/v1"
 )
 
 var (
 	serviceAddress = "localhost:9090"
+	rcFullPath     = filepath.Join(os.Getenv("HOME"), "/.easegatewayrc")
 )
 
 func SetGatewayServerAddress(address string) error {
@@ -41,6 +45,19 @@ func SetGatewayServerAddress(address string) error {
 
 func GatewayServerAddress() string {
 	return serviceAddress
+}
+
+func SetGatewayRCFullPath(path string) error {
+	var err error
+	rcFullPath, err = filepath.Abs(path)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func GatewayRCFullPath() string {
+	return rcFullPath
 }
 
 ////
@@ -89,4 +106,8 @@ func statisticsApi() *stat_api.StatisticsApi {
 
 func healthApi() *health_api.HealthApi {
 	return health_api.NewHealthApi(serviceAddress)
+}
+
+func clusterAdminApi() *cluster_admin_api.ClusterAdminApi {
+	return cluster_admin_api.NewClusterAdminApi(serviceAddress)
 }

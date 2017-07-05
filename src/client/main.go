@@ -1,6 +1,7 @@
 package main
 
 import (
+	"common"
 	"fmt"
 	"os"
 	"time"
@@ -11,11 +12,23 @@ import (
 	"version"
 )
 
-func parseHost(c *urfavecli.Context) error {
+func parseGlobalConfig(c *urfavecli.Context) error {
 	address := c.String("address")
 	if len(address) != 0 {
-		return cli.SetGatewayServerAddress(address)
+		err := cli.SetGatewayServerAddress(address)
+		if err != nil {
+			return err
+		}
 	}
+
+	rcFullPath := c.String("gwrc")
+	if len(rcFullPath) != 0 {
+		err := cli.SetGatewayRCFullPath(rcFullPath)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -31,13 +44,18 @@ func main() {
 	app.Version = fmt.Sprintf("release=%s, commit=%s, repo=%s", version.RELEASE, version.COMMIT, version.REPO)
 	app.Compiled = time.Now()
 	app.Copyright = "(c) 2017 MegaEase.com"
-	app.Before = parseHost
+	app.Before = parseGlobalConfig
 
 	app.Flags = []urfavecli.Flag{
 		urfavecli.StringFlag{
 			Name:  "address",
 			Usage: "Indicates gateway service instance address",
 			Value: cli.GatewayServerAddress(),
+		},
+		urfavecli.StringFlag{
+			Name:  "rcfile",
+			Usage: "Indicates gateway runtime config",
+			Value: cli.GatewayRCFullPath(),
 		},
 	}
 
@@ -207,10 +225,164 @@ func main() {
 				},
 			},
 		},
+
+		{
+			Name:  "adminc",
+			Usage: "Cluster Administration interface",
+			Subcommands: []urfavecli.Command{
+				{
+					Name:  "plugin",
+					Usage: "Plugin cluster administration interface",
+					Flags: []urfavecli.Flag{},
+					Subcommands: []urfavecli.Command{
+						{
+							Name: "add",
+							// TODO: add -f --force to overwrite existing plugins
+							Usage:  "Create one or more plugins",
+							Action: cli.ClusterCreatePlugin,
+							Flags: []urfavecli.Flag{
+								urfavecli.GenericFlag{
+									Name:  "timeout",
+									Usage: "Indicates timeout in senconds (max: 65535)",
+									Value: common.NewUint16Value(30, nil),
+								},
+							},
+						},
+						{
+							Name:   "rm",
+							Usage:  "Delete one or more plugins",
+							Action: cli.ClusterDeletePlugin,
+							Flags: []urfavecli.Flag{
+								urfavecli.GenericFlag{
+									Name:  "timeout",
+									Usage: "Indicates timeout in senconds (max: 65535)",
+									Value: common.NewUint16Value(30, nil),
+								},
+							},
+						},
+						{
+							Name: "ls",
+							// TODO: add --only-name -n
+							// TODO: add --format (json, xml...)
+							// TODO: add --type -t
+							Usage:  "Retrieve plugins",
+							Action: cli.ClusterRetrievePlugins,
+							Flags: []urfavecli.Flag{
+								urfavecli.GenericFlag{
+									Name:  "timeout",
+									Usage: "Indicates timeout in senconds (max: 65535)",
+									Value: common.NewUint16Value(30, nil),
+								},
+							},
+						},
+						{
+							Name: "update",
+							// TODO: add -f --force to add plugins which does not exist
+							Usage:  "Update one or more plugins",
+							Action: cli.ClusterUpdatePlugin,
+							Flags: []urfavecli.Flag{
+								urfavecli.GenericFlag{
+									Name:  "timeout",
+									Usage: "Indicates timeout in senconds (max: 65535)",
+									Value: common.NewUint16Value(30, nil),
+								},
+							},
+						},
+						{
+							Name:   "types",
+							Usage:  "Retrieve plugin types",
+							Action: cli.ClusterRetrievePluginTypes,
+							Flags: []urfavecli.Flag{
+								urfavecli.GenericFlag{
+									Name:  "timeout",
+									Usage: "Indicates timeout in senconds (max: 65535)",
+									Value: common.NewUint16Value(30, nil),
+								},
+							},
+						},
+					},
+				},
+				{
+					Name:  "pipeline",
+					Usage: "Pipeline cluster administration interface",
+					Flags: []urfavecli.Flag{},
+					Subcommands: []urfavecli.Command{
+						{
+							Name: "add",
+							// TODO: add -f --force to overwrite existing pipelines
+							Usage:  "Create one or more pipelines",
+							Action: cli.ClusterCreatePipeline,
+							Flags: []urfavecli.Flag{
+								urfavecli.GenericFlag{
+									Name:  "timeout",
+									Usage: "Indicates timeout in senconds (max: 65535)",
+									Value: common.NewUint16Value(30, nil),
+								},
+							},
+						},
+						{
+							Name:   "rm",
+							Usage:  "Delete one or more pipelines",
+							Action: cli.ClusterDeletePipeline,
+							Flags: []urfavecli.Flag{
+								urfavecli.GenericFlag{
+									Name:  "timeout",
+									Usage: "Indicates timeout in senconds (max: 65535)",
+									Value: common.NewUint16Value(30, nil),
+								},
+							},
+						},
+						{
+							Name: "ls",
+							// TODO: add -n --only-name
+							// TODO: add --format (json, xml...)
+							Usage:  "Retrieve pipelines",
+							Action: cli.ClusterRetrievePipelines,
+							Flags: []urfavecli.Flag{
+								urfavecli.GenericFlag{
+									Name:  "timeout",
+									Usage: "Indicates timeout in senconds (max: 65535)",
+									Value: common.NewUint16Value(30, nil),
+								},
+							},
+						},
+						{
+							Name: "update",
+							// TODO: add -f --force to add pipeline which does not exist
+							Usage:  "Update one or more pipelines",
+							Action: cli.ClusterUpdatePipeline,
+							Flags: []urfavecli.Flag{
+								urfavecli.GenericFlag{
+									Name:  "timeout",
+									Usage: "Indicates timeout in senconds (max: 65535)",
+									Value: common.NewUint16Value(30, nil),
+								},
+							},
+						},
+						{
+							Name:   "types",
+							Usage:  "Retrieve pipeline types",
+							Action: cli.ClusterRetrievePipelineTypes,
+							Flags: []urfavecli.Flag{
+								urfavecli.GenericFlag{
+									Name:  "timeout",
+									Usage: "Indicates timeout in senconds (max: 65535)",
+									Value: common.NewUint16Value(30, nil),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	err := app.Run(os.Args)
 	if err != nil {
-		fmt.Print(err)
+		errStr := err.Error()
+		fmt.Print(errStr)
+		if errStr[len(errStr)-1] != '\n' {
+			fmt.Println()
+		}
 	}
 }

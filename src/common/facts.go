@@ -40,22 +40,25 @@ var (
 
 ////
 
-type uint16Value uint16
+type Uint16Value uint16
 
-func newUint16Value(val uint16, p *uint16) *uint16Value {
+func NewUint16Value(val uint16, p *uint16) *Uint16Value {
+	if p == nil {
+		p = new(uint16)
+	}
 	*p = val
-	return (*uint16Value)(p)
+	return (*Uint16Value)(p)
 }
 
-func (i *uint16Value) Set(s string) error {
+func (i *Uint16Value) Set(s string) error {
 	v, err := strconv.ParseUint(s, 0, 16)
-	*i = uint16Value(v)
+	*i = Uint16Value(v)
 	return err
 }
 
-func (i *uint16Value) Get() interface{} { return uint16(*i) }
+func (i *Uint16Value) Get() interface{} { return uint16(*i) }
 
-func (i *uint16Value) String() string { return strconv.FormatUint(uint64(*i), 10) }
+func (i *Uint16Value) String() string { return strconv.FormatUint(uint64(*i), 10) }
 
 ////
 
@@ -70,16 +73,16 @@ func init() {
 	memberName := flag.String("name", hostName, "specify member name")
 	peers := flag.String("peers", "", "specify address list of peer members (seprated by comma)")
 	opLogMaxSeqGapToPull := new(uint16)
-	flag.Var(newUint16Value(5, opLogMaxSeqGapToPull), "oplog_max_seq_gap_to_pull",
+	flag.Var(NewUint16Value(5, opLogMaxSeqGapToPull), "oplog_max_seq_gap_to_pull",
 		"specify max gap of sequnce of operation logs deciding whether to wait for missing operations or not")
 	opLogPullMaxCountOnce := new(uint16)
-	flag.Var(newUint16Value(5, opLogPullMaxCountOnce), "oplog_pull_max_count_once",
+	flag.Var(NewUint16Value(5, opLogPullMaxCountOnce), "oplog_pull_max_count_once",
 		"specify max count of pulling operation logs once")
 	opLogPullInterval := new(uint16)
-	flag.Var(newUint16Value(10, opLogPullInterval), "oplog_pull_interval",
+	flag.Var(NewUint16Value(10, opLogPullInterval), "oplog_pull_interval",
 		"specify interval of pulling operation logs in second")
 	opLogPullTimeout := new(uint16)
-	flag.Var(newUint16Value(30, opLogPullTimeout), "oplog_pull_timeout",
+	flag.Var(NewUint16Value(30, opLogPullTimeout), "oplog_pull_timeout",
 		"specify timeout of pulling operation logs in second")
 
 	host := flag.String("host", "localhost", "specify listen host")
