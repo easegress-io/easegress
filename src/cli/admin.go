@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"os"
 
 	"github.com/hexdecteam/easegateway-go-client/rest/1.0/admin/v1/pdu"
 	"github.com/urfave/cli"
@@ -34,23 +33,16 @@ func CreatePlugin(c *cli.Context) error {
 	}
 
 	if len(args) == 0 {
-		data, err := ioutil.ReadAll(os.Stdin)
+		args = append(args, "/dev/stdin")
+	}
+	for _, file := range args {
+		data, err := ioutil.ReadFile(file)
 		if err != nil {
-			errs.append(fmt.Errorf("stdin: %v", err))
-			return errs.Return()
+			errs.append(fmt.Errorf("%s: %v", file, err))
+			continue
 		}
 
-		do("stdin", data)
-	} else {
-		for _, file := range args {
-			data, err := ioutil.ReadFile(file)
-			if err != nil {
-				errs.append(fmt.Errorf("%s: %v", file, err))
-				continue
-			}
-
-			do(file, data)
-		}
+		do(file, data)
 	}
 
 	return errs.Return()
@@ -143,23 +135,16 @@ func UpdatePlugin(c *cli.Context) error {
 	}
 
 	if len(args) == 0 {
-		data, err := ioutil.ReadAll(os.Stdin)
+		args = append(args, "/dev/stdin")
+	}
+	for _, file := range args {
+		data, err := ioutil.ReadFile(file)
 		if err != nil {
-			errs.append(fmt.Errorf("stdin: %v", err))
-			return errs.Return()
+			errs.append(fmt.Errorf("%s: %v", file, err))
+			continue
 		}
 
-		do("stdin", data)
-	} else {
-		for _, file := range args {
-			data, err := ioutil.ReadFile(file)
-			if err != nil {
-				errs.append(fmt.Errorf("%s: %v", file, err))
-				continue
-			}
-
-			do(file, data)
-		}
+		do(file, data)
 	}
 
 	return errs.Return()
@@ -189,23 +174,16 @@ func CreatePipeline(c *cli.Context) error {
 	}
 
 	if len(args) == 0 {
-		data, err := ioutil.ReadAll(os.Stdin)
+		args = append(args, "/dev/stdin")
+	}
+	for _, file := range args {
+		data, err := ioutil.ReadFile(file)
 		if err != nil {
-			errs.append(fmt.Errorf("stdin: %v", err))
-			return errs.Return()
+			errs.append(fmt.Errorf("%s: %v", file, err))
+			continue
 		}
 
-		do("stdin", data)
-	} else {
-		for _, file := range args {
-			data, err := ioutil.ReadFile(file)
-			if err != nil {
-				errs.append(fmt.Errorf("%s: %v", file, err))
-				continue
-			}
-
-			do(file, data)
-		}
+		do(file, data)
 	}
 
 	return errs.Return()
@@ -298,22 +276,16 @@ func UpdatePipeline(c *cli.Context) error {
 	}
 
 	if len(args) == 0 {
-		data, err := ioutil.ReadAll(os.Stdin)
+		args = append(args, "/dev/stdin")
+	}
+	for _, file := range args {
+		data, err := ioutil.ReadFile(file)
 		if err != nil {
-			errs.append(fmt.Errorf("stdin: %v", err))
-			return errs.Return()
+			errs.append(fmt.Errorf("%s: %v", file, err))
+			continue
 		}
-		do("stdin", data)
-	} else {
-		for _, file := range args {
-			data, err := ioutil.ReadFile(file)
-			if err != nil {
-				errs.append(fmt.Errorf("%s: %v", file, err))
-				continue
-			}
 
-			do(file, data)
-		}
+		do(file, data)
 	}
 
 	return errs.Return()
