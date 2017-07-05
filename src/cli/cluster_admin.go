@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"strings"
 	"time"
 
 	"github.com/hexdecteam/easegateway-go-client/rest/1.0/cluster/admin/v1/pdu"
 	"github.com/urfave/cli"
-	"strings"
 )
 
 func setLocalOperationSequence(group string, seq uint64) error {
