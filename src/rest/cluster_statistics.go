@@ -577,7 +577,7 @@ func (s *clusterStatisticsServer) retrievePipelineTaskIndicatorDesc(w rest.Respo
 		return
 	}
 
-	ret, clusterErr := s.gc.StatPipelineIndicatorDesc(group, time.Duration(req.TimeoutSec)*time.Second,
+	ret, clusterErr := s.gc.StatTaskIndicatorDesc(group, time.Duration(req.TimeoutSec)*time.Second,
 		pipelineName, indicatorName)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
