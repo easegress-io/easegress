@@ -110,7 +110,7 @@ func NewGateway() (*Gateway, error) {
 
 	gc, err := cluster.NewGatewayCluster(clusterConf, mod)
 	if err != nil {
-		return nil, fmt.Errorf("[create gateway cluster failed: %v]", err)
+		return nil, fmt.Errorf("create gateway cluster failed: %v", err)
 	}
 
 	return &Gateway{
