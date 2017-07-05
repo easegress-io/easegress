@@ -1,10 +1,13 @@
 # Introduction
 
-`easegateway` aims to hide kafka from public network by changing https to kafka protocol.
+`EaseGateway` is a generic gateway system, support standalone and cluster both running modes.
 
 # Build
 
 ```shell
+make vendor_clean
+make vendor_get
+make clean
 make build
 ```
 
