@@ -99,29 +99,20 @@ func ClusterCreatePlugin(c *cli.Context) error {
 	args := c.Args()
 	group := c.GlobalString("group")
 	timeoutSec := uint16(*c.GlobalGeneric("timeout").(*common.Uint16Value))
+	timeout := time.Duration(timeoutSec) * time.Second
 	consistent := c.GlobalBool("consistent")
 
 	errs := &multipleErr{}
-	exited := false
 
-	do := func(source string, data []byte) {
-		startTime := time.Now()
-		seq, err := getOperationSequence(group, timeoutSec)
-		if err != nil {
-			exited = true
-			errs.append(fmt.Errorf("%s: %v", source, err))
-		}
-		expiredTime := time.Now().Sub(startTime)
-		timeoutSec = uint16(float64(timeoutSec) - expiredTime.Seconds())
-
+	do := func(source string, seq uint64, data []byte) {
 		req := new(pdu.PluginCreationClusterRequest)
-		req.TimeoutSec = timeoutSec
+		req.TimeoutSec = uint16(timeout.Seconds())
 		req.Consistent = consistent
 		req.OperationSeq = seq
 
 		// FIXME: Need easegateway-go-client to wrap req.Type&req.Config
 		// into req.PluginCreationRequest
-		err = json.Unmarshal(data, req.PluginCreationRequest)
+		err := json.Unmarshal(data, req) // for compilation: req.PluginCreationRequest)
 		if err != nil {
 			errs.append(fmt.Errorf("%s: %v", source, err))
 			return
@@ -138,30 +129,39 @@ func ClusterCreatePlugin(c *cli.Context) error {
 	}
 
 	if len(args) == 0 {
-		data, err := ioutil.ReadAll(os.Stdin)
-		if err != nil {
-			errs.append(fmt.Errorf("stdin: %v", err))
-			return errs.Return()
-		}
-
-		do("stdin", data)
-	} else {
-		for _, file := range args {
-			if exited {
-				goto EXITED
-			}
-
-			data, err := ioutil.ReadFile(file)
-			if err != nil {
-				errs.append(fmt.Errorf("%s: %v", file, err))
-				continue
-			}
-
-			do(file, data)
-		}
+		args = append(args, "/dev/stdin")
 	}
 
-EXITED:
+	for i, file := range args {
+		data, err := ioutil.ReadFile(file)
+		if err != nil {
+			errs.append(fmt.Errorf("%s: %v", file, err))
+			continue
+		}
+
+		startTime := time.Now()
+		seq, err := getOperationSequence(group, uint16(timeout.Seconds()))
+		if err != nil {
+			errs.append(fmt.Errorf("%s: %v", file, err))
+			break
+		}
+		expiredTime := time.Now().Sub(startTime)
+		if timeout <= expiredTime {
+			errs.append(fmt.Errorf("timeout: no time to handle", args[i:]))
+			break
+		}
+		timeout -= expiredTime
+
+		startTime = time.Now()
+		do(file, seq, data)
+		expiredTime = time.Now().Sub(startTime)
+		if timeout <= expiredTime && i < len(args)-1 {
+			errs.append(fmt.Errorf("timeout: no time to handle: %s", args[i+1:]))
+			break
+		}
+		timeout -= expiredTime
+	}
+
 	return errs.Return()
 }
 
