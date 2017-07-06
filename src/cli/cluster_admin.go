@@ -495,7 +495,7 @@ func ClusterDeletePipeline(c *cli.Context) error {
 		}
 		expiredTime := time.Now().Sub(startTime)
 		if timeout <= expiredTime {
-			errs.append(fmt.Errorf("timeout: no time to handle", args[i:]))
+			errs.append(fmt.Errorf("timeout: skip to handle [%s]", strings.Join(args[i:], ", ")))
 			break
 		}
 		timeout -= expiredTime
@@ -508,7 +508,7 @@ func ClusterDeletePipeline(c *cli.Context) error {
 		expiredTime = time.Now().Sub(startTime)
 		if timeout <= expiredTime {
 			if i < len(args)-1 {
-				errs.append(fmt.Errorf("timeout: no time to handle: %s", args[i+1:]))
+				errs.append(fmt.Errorf("timeout: skip to handle [%s]", strings.Join(args[i+1:], ", ")))
 			}
 			break
 		}
