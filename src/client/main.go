@@ -232,7 +232,7 @@ func main() {
 		},
 		{
 			Name:  "adminc",
-			Usage: "Cluster Administration interface",
+			Usage: "Cluster Administration Interface",
 			Flags: []urfavecli.Flag{
 				urfavecli.StringFlag{
 					Name:  "group",
@@ -321,6 +321,93 @@ func main() {
 							Name:   "types",
 							Usage:  "Retrieve pipeline types",
 							Action: cli.ClusterRetrievePipelineTypes,
+						},
+					},
+				},
+			},
+		},
+		{
+			Name:  "statc",
+			Usage: "Cluster Statistics Interface",
+			Flags: []urfavecli.Flag{
+				urfavecli.StringFlag{
+					Name:  "group",
+					Usage: "Indicates group name in cluster the request perform to",
+					Value: "default",
+				},
+				urfavecli.GenericFlag{
+					Name:  "timeout",
+					Usage: "Indicates request timeout limitation in senconds (10-65535)",
+					Value: common.NewUint16Value(30, nil),
+				},
+			},
+			Subcommands: []urfavecli.Command{
+				{
+					Name:  "plugin",
+					Usage: "Plugin cluster statistics interface",
+					Flags: []urfavecli.Flag{},
+					Subcommands: []urfavecli.Command{
+						{
+							Name: "ls",
+							// TODO: add --format (json, xml...)
+							Usage:  "Retrieve plugin indicator names",
+							Action: cli.ClusterRetrievePluginIndicatorNames,
+						},
+						{
+							Name:   "value",
+							Usage:  "Retrieve plugin indicator value",
+							Action: cli.ClusterGetPluginIndicatorValue,
+						},
+						{
+							Name:   "desc",
+							Usage:  "Retrieve plugin indicator description",
+							Action: cli.ClusterGetPluginIndicatorDesc,
+						},
+					},
+				},
+				{
+					Name:  "pipeline",
+					Usage: "Pipeline cluster statistics interface",
+					Flags: []urfavecli.Flag{},
+					Subcommands: []urfavecli.Command{
+						{
+							Name: "ls",
+							// TODO: add --format (json, xml...)
+							Usage:  "Retrieve pipeline indicator names",
+							Action: cli.ClusterRetrievePipelineIndicatorNames,
+						},
+						{
+							Name:   "value",
+							Usage:  "Retrieve pipeline indicator value",
+							Action: cli.ClusterGetPipelineIndicatorValue,
+						},
+						{
+							Name:   "desc",
+							Usage:  "Retrieve pipeline indicator description",
+							Action: cli.ClusterGetPipelineIndicatorDesc,
+						},
+					},
+				},
+				{
+					Name:  "task",
+					Usage: "Task cluster statistics interface",
+					Flags: []urfavecli.Flag{},
+					Subcommands: []urfavecli.Command{
+						{
+							Name: "ls",
+							// TODO: add --format (json, xml...)
+							Usage:  "Retrieve pipeline indicator names",
+							Action: cli.ClusterRetrieveTaskIndicatorNames,
+						},
+						{
+							Name:   "value",
+							Usage:  "Retrieve pipeline indicator value",
+							Action: cli.ClusterGetTaskIndicatorValue,
+						},
+						{
+							Name:   "desc",
+							Usage:  "Retrieve pipeline indicator description",
+							Action: cli.ClusterGetTaskIndicatorDesc,
 						},
 					},
 				},
