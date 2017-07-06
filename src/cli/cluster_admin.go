@@ -220,7 +220,8 @@ func ClusterDeletePlugin(c *cli.Context) error {
 
 		if timeout <= expiredTime {
 			if i < len(args)-1 {
-				errs.append(fmt.Errorf("timeout: skip to handle [%s]", strings.Join(args[i+1:], ", ")))
+				errs.append(fmt.Errorf(
+					"timeout: skip to handle [%s]", strings.Join(args[i+1:], ", ")))
 			}
 			break
 		}
@@ -520,7 +521,8 @@ func ClusterDeletePipeline(c *cli.Context) error {
 
 		if timeout <= expiredTime {
 			if i < len(args)-1 {
-				errs.append(fmt.Errorf("timeout: skip to handle [%s]", strings.Join(args[i+1:], ", ")))
+				errs.append(fmt.Errorf(
+					"timeout: skip to handle [%s]", strings.Join(args[i+1:], ", ")))
 			}
 			break
 		}
