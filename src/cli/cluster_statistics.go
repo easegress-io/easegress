@@ -37,12 +37,15 @@ func ClusterRetrievePluginIndicatorNames(c *cli.Context) error {
 		req.TimeoutSec = uint16(timeout.Seconds())
 
 		if timeout <= expiredTime {
-			errs.append(fmt.Errorf("timeout: skip to handle [%s]", strings.Join(pluginNames[i:], ", ")))
+			errs.append(fmt.Errorf(
+				"timeout: skip to handle [%s]", strings.Join(pluginNames[i:], ", ")))
 			break
 		}
+		timeout -= expiredTime
 
 		startTime := time.Now()
-		retrieveResp, apiResp, err := clusterStatApi().GetPluginIndicatorNames(group, pipelineName, pluginName, req)
+		retrieveResp, apiResp, err := clusterStatApi().GetPluginIndicatorNames(
+			group, pipelineName, pluginName, req)
 		expiredTime = time.Now().Sub(startTime)
 
 		if err != nil {
@@ -95,12 +98,15 @@ func ClusterGetPluginIndicatorValue(c *cli.Context) error {
 		req.TimeoutSec = uint16(timeout.Seconds())
 
 		if timeout <= expiredTime {
-			errs.append(fmt.Errorf("timeout: skip to handle [%s]", strings.Join(indicatorNames[i:], ", ")))
+			errs.append(fmt.Errorf(
+				"timeout: skip to handle [%s]", strings.Join(indicatorNames[i:], ", ")))
 			break
 		}
+		timeout -= expiredTime
 
 		startTime := time.Now()
-		value, apiResp, err := clusterStatApi().GetPluginIndicatorValue(group, pipelineName, pluginName, indicatorName, req)
+		value, apiResp, err := clusterStatApi().GetPluginIndicatorValue(
+			group, pipelineName, pluginName, indicatorName, req)
 		expiredTime = time.Now().Sub(startTime)
 
 		if err != nil {
@@ -157,12 +163,15 @@ func ClusterGetPluginIndicatorDesc(c *cli.Context) error {
 		req.TimeoutSec = uint16(timeout.Seconds())
 
 		if timeout <= expiredTime {
-			errs.append(fmt.Errorf("timeout: skip to handle [%s]", strings.Join(indicatorNames[i:], ", ")))
+			errs.append(fmt.Errorf(
+				"timeout: skip to handle [%s]", strings.Join(indicatorNames[i:], ", ")))
 			break
 		}
+		timeout -= expiredTime
 
 		startTime := time.Now()
-		desc, apiResp, err := clusterStatApi().GetPluginIndicatorDesc(group, pipelineName, pluginName, indicatorName, req)
+		desc, apiResp, err := clusterStatApi().GetPluginIndicatorDesc(
+			group, pipelineName, pluginName, indicatorName, req)
 		expiredTime = time.Now().Sub(startTime)
 
 		if err != nil {
@@ -210,9 +219,11 @@ func ClusterRetrievePipelineIndicatorNames(c *cli.Context) error {
 		req.TimeoutSec = uint16(timeout.Seconds())
 
 		if timeout <= expiredTime {
-			errs.append(fmt.Errorf("timeout: skip to handle [%s]", strings.Join(pipelineNames[i:], ", ")))
+			errs.append(fmt.Errorf(
+				"timeout: skip to handle [%s]", strings.Join(pipelineNames[i:], ", ")))
 			break
 		}
+		timeout -= expiredTime
 
 		startTime := time.Now()
 		retrieveResp, apiResp, err := clusterStatApi().GetPipelineIndicatorNames(group, pipelineName, req)
@@ -264,12 +275,15 @@ func ClusterGetPipelineIndicatorValue(c *cli.Context) error {
 		req.TimeoutSec = uint16(timeout.Seconds())
 
 		if timeout <= expiredTime {
-			errs.append(fmt.Errorf("timeout: skip to handle [%s]", strings.Join(indicatorNames[i:], ", ")))
+			errs.append(fmt.Errorf(
+				"timeout: skip to handle [%s]", strings.Join(indicatorNames[i:], ", ")))
 			break
 		}
+		timeout -= expiredTime
 
 		startTime := time.Now()
-		value, apiResp, err := clusterStatApi().GetPipelineIndicatorValue(group, pipelineName, indicatorName, req)
+		value, apiResp, err := clusterStatApi().GetPipelineIndicatorValue(
+			group, pipelineName, indicatorName, req)
 		expiredTime = time.Now().Sub(startTime)
 
 		if err != nil {
@@ -318,12 +332,15 @@ func ClusterGetPipelineIndicatorDesc(c *cli.Context) error {
 		req.TimeoutSec = uint16(timeout.Seconds())
 
 		if timeout <= expiredTime {
-			errs.append(fmt.Errorf("timeout: skip to handle [%s]", strings.Join(indicatorNames[i:], ", ")))
+			errs.append(fmt.Errorf(
+				"timeout: skip to handle [%s]", strings.Join(indicatorNames[i:], ", ")))
 			break
 		}
+		timeout -= expiredTime
 
 		startTime := time.Now()
-		desc, apiResp, err := clusterStatApi().GetPipelineIndicatorDesc(group, pipelineName, indicatorName, req)
+		desc, apiResp, err := clusterStatApi().GetPipelineIndicatorDesc(
+			group, pipelineName, indicatorName, req)
 		expiredTime = time.Now().Sub(startTime)
 
 		if err != nil {
@@ -368,9 +385,11 @@ func ClusterRetrieveTaskIndicatorNames(c *cli.Context) error {
 		req.TimeoutSec = uint16(timeout.Seconds())
 
 		if timeout <= expiredTime {
-			errs.append(fmt.Errorf("timeout: skip to handle [%s]", strings.Join(pipelineNames[i:], ", ")))
+			errs.append(fmt.Errorf(
+				"timeout: skip to handle [%s]", strings.Join(pipelineNames[i:], ", ")))
 			break
 		}
+		timeout -= expiredTime
 
 		startTime := time.Now()
 		retrieveResp, apiResp, err := clusterStatApi().GetTaskIndicatorNames(group, pipelineName, req)
@@ -422,12 +441,15 @@ func ClusterGetTaskIndicatorValue(c *cli.Context) error {
 		req.TimeoutSec = uint16(timeout.Seconds())
 
 		if timeout <= expiredTime {
-			errs.append(fmt.Errorf("timeout: skip to handle [%s]", strings.Join(indicatorNames[i:], ", ")))
+			errs.append(fmt.Errorf(
+				"timeout: skip to handle [%s]", strings.Join(indicatorNames[i:], ", ")))
 			break
 		}
+		timeout -= expiredTime
 
 		startTime := time.Now()
-		value, apiResp, err := clusterStatApi().GetTaskIndicatorValue(group, pipelineName, indicatorName, req)
+		value, apiResp, err := clusterStatApi().GetTaskIndicatorValue(
+			group, pipelineName, indicatorName, req)
 		expiredTime = time.Now().Sub(startTime)
 
 		if err != nil {
@@ -476,9 +498,11 @@ func ClusterGetTaskIndicatorDesc(c *cli.Context) error {
 		req.TimeoutSec = uint16(timeout.Seconds())
 
 		if timeout <= expiredTime {
-			errs.append(fmt.Errorf("timeout: skip to handle [%s]", strings.Join(indicatorNames[i:], ", ")))
+			errs.append(fmt.Errorf(
+				"timeout: skip to handle [%s]", strings.Join(indicatorNames[i:], ", ")))
 			break
 		}
+		timeout -= expiredTime
 
 		startTime := time.Now()
 		desc, apiResp, err := clusterStatApi().GetTaskIndicatorDesc(group, pipelineName, indicatorName, req)
