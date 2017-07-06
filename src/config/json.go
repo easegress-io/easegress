@@ -10,8 +10,8 @@ import (
 
 	"github.com/hexdecteam/easegateway-types/plugins"
 
-	"common"
 	"logger"
+	"option"
 	"pipelines"
 	plugins_gw "plugins"
 )
@@ -37,8 +37,8 @@ func NewJSONFileStore() (*JSONFileStore, error) {
 	pluginFile := "plugins.json"
 	pipelineFile := "pipelines.json"
 
-	pluginFullFile := filepath.Join(common.ConfigHome, common.Stage, pluginFile)
-	pipelineFullFile := filepath.Join(common.ConfigHome, common.Stage, pipelineFile)
+	pluginFullFile := filepath.Join(option.ConfigHome, option.Stage, pluginFile)
+	pipelineFullFile := filepath.Join(option.ConfigHome, option.Stage, pipelineFile)
 
 	logger.Debugf("[storage file path: %s]", pluginFullFile)
 	logger.Debugf("[storage file path: %s]", pipelineFullFile)

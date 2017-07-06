@@ -11,7 +11,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"common"
+	"option"
 )
 
 type innerLogger struct {
@@ -80,14 +80,14 @@ func (l *loggerSet) getLoggers(typ string) []*logrus.Logger {
 }
 
 func openLogFile(fileName string) (*os.File, error) {
-	if _, err := os.Stat(common.LogHome); os.IsNotExist(err) {
-		err = os.Mkdir(common.LogHome, 0750)
+	if _, err := os.Stat(option.LogHome); os.IsNotExist(err) {
+		err = os.Mkdir(option.LogHome, 0750)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	f, err := os.OpenFile(filepath.Join(common.LogHome, fileName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0640)
+	f, err := os.OpenFile(filepath.Join(option.LogHome, fileName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0640)
 	if err != nil {
 		return nil, err
 	}

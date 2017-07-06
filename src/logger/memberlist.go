@@ -10,7 +10,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"common"
+	"option"
 )
 
 var (
@@ -24,7 +24,7 @@ var (
 )
 
 func initMemberList() {
-	if common.Stage == "prod" {
+	if option.Stage == "prod" {
 		LOG_MEMBERLIST_TTY_LEVEL = logrus.InfoLevel
 	}
 	formatter := &logrus.TextFormatter{

@@ -8,9 +8,9 @@ import (
 	"runtime/pprof"
 	"syscall"
 
-	"common"
 	"engine"
 	"logger"
+	"option"
 	"plugins"
 	"rest"
 	"version"
@@ -23,15 +23,15 @@ func main() {
 	logger.Infof("[ease gateway server: release=%s, commit=%s, repo=%s]",
 		version.RELEASE, version.COMMIT, version.REPO)
 
-	if common.ShowVersion {
+	if option.ShowVersion {
 		os.Exit(exitCode)
 	}
 
 	setupLogFileReopenSignalHandler()
 
 	var cpuProfile *os.File
-	if common.CpuProfileFile != "" {
-		cpuProfile, err = os.Create(common.CpuProfileFile)
+	if option.CpuProfileFile != "" {
+		cpuProfile, err = os.Create(option.CpuProfileFile)
 		if err != nil {
 			logger.Errorf("[create cpu profile failed: %v]", err)
 			exitCode = 1
@@ -40,11 +40,11 @@ func main() {
 
 		pprof.StartCPUProfile(cpuProfile)
 
-		logger.Infof("[cpu profiling started, profile output to %s]", common.CpuProfileFile)
+		logger.Infof("[cpu profiling started, profile output to %s]", option.CpuProfileFile)
 	}
 
 	defer func() {
-		if common.CpuProfileFile != "" {
+		if option.CpuProfileFile != "" {
 			pprof.StopCPUProfile()
 
 			if cpuProfile != nil {
@@ -55,13 +55,13 @@ func main() {
 		os.Exit(exitCode)
 	}()
 
-	if common.MemProfileFile != "" {
+	if option.MemProfileFile != "" {
 		// to include every allocated block in the profile
 		runtime.MemProfileRate = 1
 
 		setupHeapDumpSignalHandler()
 
-		logger.Infof("[memory profiling enabled, heap dump to %s]", common.CpuProfileFile)
+		logger.Infof("[memory profiling enabled, heap dump to %s]", option.CpuProfileFile)
 	}
 
 	err = plugins.LoadOutTreePluginTypes()
@@ -172,16 +172,16 @@ func setupHeapDumpSignalHandler() {
 			case syscall.SIGTERM:
 				return
 			case syscall.SIGQUIT:
-				if common.MemProfileFile != "" {
+				if option.MemProfileFile != "" {
 					func() {
-						f, err := os.Create(common.MemProfileFile)
+						f, err := os.Create(option.MemProfileFile)
 						if err != nil {
 							logger.Errorf("[create heap dump file failed: %v]", err)
 						}
 						defer f.Close()
 
 						logger.Debugf("[memory profiling started, heap dump to %s]",
-							common.MemProfileFile)
+							option.MemProfileFile)
 
 						// get up-to-date statistics
 						runtime.GC()
@@ -189,7 +189,7 @@ func setupHeapDumpSignalHandler() {
 						pprof.WriteHeapProfile(f)
 
 						logger.Infof("[memory profiling finished, heap dump to %s]",
-							common.MemProfileFile)
+							option.MemProfileFile)
 					}()
 				}
 			}

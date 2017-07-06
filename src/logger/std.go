@@ -3,9 +3,9 @@ package logger
 import (
 	"os"
 
-	"common"
-
 	"github.com/sirupsen/logrus"
+
+	"option"
 )
 
 var (
@@ -17,7 +17,7 @@ var (
 )
 
 func initStd() {
-	if common.Stage == "prod" {
+	if option.Stage == "prod" {
 		LOG_STD_TTY_LEVEL = logrus.InfoLevel
 	}
 	formatter := &logrus.TextFormatter{

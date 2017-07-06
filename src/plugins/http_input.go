@@ -18,11 +18,12 @@ import (
 
 	"common"
 	"logger"
+	"option"
 )
 
 // TODO: Moves this into plugin, aligns https server life-cycle with plugin life-cycle
 func init() {
-	if common.ShowVersion {
+	if option.ShowVersion {
 		return
 	}
 
@@ -32,18 +33,18 @@ func init() {
 		keyPath      string
 	)
 
-	if len(common.CertFile) == 0 || len(common.KeyFile) == 0 {
-		if len(common.CertFile) != 0 {
-			logger.Infof("[keyfile set empty, certfile set: %s]", common.CertFile)
-		} else if len(common.KeyFile) != 0 {
-			logger.Infof("[certfile set empty, keyfile set: %s]", common.KeyFile)
+	if len(option.CertFile) == 0 || len(option.KeyFile) == 0 {
+		if len(option.CertFile) != 0 {
+			logger.Infof("[keyfile set empty, certfile set: %s]", option.CertFile)
+		} else if len(option.KeyFile) != 0 {
+			logger.Infof("[certfile set empty, keyfile set: %s]", option.KeyFile)
 		} else {
 			logger.Infof("[certfile and keyfile set empty]")
 		}
 		disableHTTPS = true
 	} else {
-		certPath = filepath.Join(common.CERT_HOME_DIR, common.CertFile)
-		keyPath = filepath.Join(common.CERT_HOME_DIR, common.KeyFile)
+		certPath = filepath.Join(common.CERT_HOME_DIR, option.CertFile)
+		keyPath = filepath.Join(common.CERT_HOME_DIR, option.KeyFile)
 		logger.Infof("[cert file: %s]", certPath)
 		logger.Infof("[key file: %s]", keyPath)
 
@@ -67,7 +68,7 @@ func init() {
 	}
 
 	if disableHTTPS {
-		addr := fmt.Sprintf("%s:10080", common.Host)
+		addr := fmt.Sprintf("%s:10080", option.Host)
 		logger.Infof("[downgrade HTTPS to HTTP, listen %s]", addr)
 		srv.Addr = addr
 		go func() {
@@ -77,7 +78,7 @@ func init() {
 			}
 		}()
 	} else {
-		addr := fmt.Sprintf("%s:10443", common.Host)
+		addr := fmt.Sprintf("%s:10443", option.Host)
 		logger.Infof("[upgrade HTTP to HTTPS, listen %s]", addr)
 		srv.Addr = addr
 		go func() {

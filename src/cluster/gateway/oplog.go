@@ -12,6 +12,7 @@ import (
 	"github.com/dgraph-io/badger"
 
 	"common"
+	"option"
 )
 
 type OperationAppended func(seq uint64, newOperation *Operation) (error, OperationFailureType)
@@ -30,7 +31,7 @@ type opLog struct {
 }
 
 func newOPLog() (*opLog, error) {
-	dir := filepath.Join(common.INVENTORY_HOME_DIR, "oplog", common.Stage)
+	dir := filepath.Join(common.INVENTORY_HOME_DIR, "oplog", option.Stage)
 	err := os.MkdirAll(dir, 0770)
 	if err != nil {
 		return nil, err

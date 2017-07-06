@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"common"
 	"fmt"
 	"sort"
 	"strings"
@@ -9,6 +8,7 @@ import (
 
 	"cluster"
 	"logger"
+	"option"
 )
 
 // meta
@@ -67,7 +67,7 @@ func (gc *GatewayCluster) RetrieveGroup(group string) *GroupInfo {
 	}
 
 	groupMaxSeqStr := "UNKNOW"
-	groupMaxSeq, err := gc.QueryGroupMaxSeq(common.ClusterGroup, 10*time.Second)
+	groupMaxSeq, err := gc.QueryGroupMaxSeq(option.ClusterGroup, 10*time.Second)
 	if err == nil {
 		groupMaxSeqStr = fmt.Sprintf("%d", groupMaxSeq)
 	}
@@ -121,7 +121,7 @@ func (gc *GatewayCluster) RetrieveMember(nodeName string) *MemberInfo {
 	}
 
 	groupMaxSeqStr := "UNKNOW"
-	groupMaxSeq, err := gc.QueryGroupMaxSeq(common.ClusterGroup, 10*time.Second)
+	groupMaxSeq, err := gc.QueryGroupMaxSeq(option.ClusterGroup, 10*time.Second)
 	if err == nil {
 		groupMaxSeqStr = fmt.Sprintf("%d", groupMaxSeq)
 	}
@@ -137,14 +137,14 @@ func (gc *GatewayCluster) RetrieveMember(nodeName string) *MemberInfo {
 	return &MemberInfo{
 		Name:                  gc.NodeName(),
 		Mode:                  strings.ToLower(gc.Mode().String()),
-		Group:                 common.ClusterGroup,
+		Group:                 option.ClusterGroup,
 		GroupMaxSeq:           groupMaxSeqStr,
 		LocalMaxSeq:           localMaxSeqStr,
 		Peers:                 peers,
-		OPLogMaxSeqGapToPull:  common.OPLogMaxSeqGapToPull,
-		OPLogPullMaxCountOnce: common.OPLogPullMaxCountOnce,
-		OPLogPullInterval:     int(common.OPLogPullInterval.Seconds()),
-		OPLogPullTimeout:      int(common.OPLogPullTimeout.Seconds()),
+		OPLogMaxSeqGapToPull:  option.OPLogMaxSeqGapToPull,
+		OPLogPullMaxCountOnce: option.OPLogPullMaxCountOnce,
+		OPLogPullInterval:     int(option.OPLogPullInterval.Seconds()),
+		OPLogPullTimeout:      int(option.OPLogPullTimeout.Seconds()),
 	}
 }
 

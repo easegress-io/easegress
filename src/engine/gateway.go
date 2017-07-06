@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"common"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -15,6 +14,7 @@ import (
 	"config"
 	"logger"
 	"model"
+	"option"
 	"pipelines"
 	"plugins"
 )
@@ -87,7 +87,7 @@ func NewGateway() (*Gateway, error) {
 	mod := model.NewModel()
 
 	var memberMode cluster.Mode
-	switch strings.ToLower(common.MemberMode) {
+	switch strings.ToLower(option.MemberMode) {
 	case "read":
 		memberMode = cluster.ReadMode
 	case "write":
@@ -97,15 +97,15 @@ func NewGateway() (*Gateway, error) {
 	}
 
 	clusterConf := cluster.Config{
-		ClusterGroup:      common.ClusterGroup,
+		ClusterGroup:      option.ClusterGroup,
 		ClusterMemberMode: memberMode,
-		ClusterMemberName: common.MemberName,
-		Peers:             common.Peers,
+		ClusterMemberName: option.MemberName,
+		Peers:             option.Peers,
 
-		OPLogMaxSeqGapToPull:  common.OPLogMaxSeqGapToPull,
-		OPLogPullMaxCountOnce: common.OPLogPullMaxCountOnce,
-		OPLogPullInterval:     common.OPLogPullInterval,
-		OPLogPullTimeout:      common.OPLogPullTimeout,
+		OPLogMaxSeqGapToPull:  option.OPLogMaxSeqGapToPull,
+		OPLogPullMaxCountOnce: option.OPLogPullMaxCountOnce,
+		OPLogPullInterval:     option.OPLogPullInterval,
+		OPLogPullTimeout:      option.OPLogPullTimeout,
 	}
 
 	gc, err := cluster.NewGatewayCluster(clusterConf, mod)

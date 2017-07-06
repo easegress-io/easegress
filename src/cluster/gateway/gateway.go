@@ -12,6 +12,7 @@ import (
 	"common"
 	"logger"
 	"model"
+	"option"
 )
 
 type Mode string
@@ -82,8 +83,8 @@ func NewGatewayCluster(conf Config, mod *model.Model) (*GatewayCluster, error) {
 	basisConf.NodeName = conf.ClusterMemberName
 	basisConf.NodeTags[groupTagKey] = conf.ClusterGroup
 	basisConf.NodeTags[modeTagKey] = conf.ClusterMemberMode.String()
-	basisConf.BindAddress = common.Host
-	basisConf.AdvertiseAddress = common.Host
+	basisConf.BindAddress = option.Host
+	basisConf.AdvertiseAddress = option.Host
 
 	if common.StrInSlice(basisConf.AdvertiseAddress, []string{"127.0.0.1", "localhost", "0.0.0.0"}) {
 		return nil, fmt.Errorf("invalid advertise address %s, it should be reachable from the peer",
@@ -91,7 +92,7 @@ func NewGatewayCluster(conf Config, mod *model.Model) (*GatewayCluster, error) {
 	}
 
 	var minLogLevel logutils.LogLevel
-	if common.Stage == "debug" {
+	if option.Stage == "debug" {
 		minLogLevel = logutils.LogLevel("DEBUG")
 	} else {
 		minLogLevel = logutils.LogLevel("WARN")

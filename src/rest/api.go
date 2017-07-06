@@ -1,13 +1,13 @@
 package rest
 
 import (
-	"common"
 	"fmt"
 	"net/http"
 
 	"cluster/gateway"
 	"engine"
 	"logger"
+	"option"
 )
 
 type Rest struct {
@@ -114,7 +114,7 @@ func (s *Rest) Start() (<-chan error, string, error) {
 		http.Handle("/cluster/meta/", http.StripPrefix("/cluster/meta", clusterMetaApi.MakeHandler()))
 	}
 
-	listenAddr := fmt.Sprintf("%s:9090", common.Host)
+	listenAddr := fmt.Sprintf("%s:9090", option.Host)
 
 	go func() {
 		err := http.ListenAndServe(listenAddr, nil)
