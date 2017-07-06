@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/urfave/cli"
+
 	admin_api "github.com/hexdecteam/easegateway-go-client/rest/1.0/admin/v1"
 	cluster_admin_api "github.com/hexdecteam/easegateway-go-client/rest/1.0/cluster/admin/v1"
 	cluster_stat_api "github.com/hexdecteam/easegateway-go-client/rest/1.0/cluster/statistics/v1"
@@ -67,8 +69,9 @@ type multipleErr struct {
 	errs []error
 }
 
-func (e *multipleErr) append(err error) {
+func (e *multipleErr) append(err error) *multipleErr {
 	e.errs = append(e.errs, err)
+	return e
 }
 
 func (e *multipleErr) String() string {
@@ -96,7 +99,8 @@ func (e *multipleErr) Return() error {
 	if len(e.errs) == 0 {
 		return nil
 	}
-	return e
+
+	return cli.NewExitError(e.String(), 127)
 }
 
 ////

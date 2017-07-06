@@ -8,32 +8,42 @@ import (
 )
 
 func Check(c *cli.Context) error {
-	resp, err := healthApi().Check()
+	errs := &multipleErr{}
+
+	apiResp, err := healthApi().Check()
 	if err != nil {
-		return fmt.Errorf("%v\n", err)
-	} else if resp.Error != nil {
-		return fmt.Errorf("%s\n", resp.Error.Error)
+		errs.append(err)
+		return errs.Return()
+	} else if apiResp.Error != nil {
+		errs.append(fmt.Errorf("%s", apiResp.Error.Error))
+		return errs.Return()
 	}
 
 	fmt.Println("Service is reachable.")
 
-	return nil
+	return errs.Return()
 }
 
 func Info(c *cli.Context) error {
-	info, resp, err := healthApi().GetInfo()
+	errs := &multipleErr{}
+
+	info, apiResp, err := healthApi().GetInfo()
 	if err != nil {
-		return fmt.Errorf("%v\n", err)
-	} else if resp.Error != nil {
-		return fmt.Errorf("%s\n", resp.Error.Error)
+		errs.append(err)
+		return errs.Return()
+	} else if apiResp.Error != nil {
+		errs.append(fmt.Errorf("%s", apiResp.Error.Error))
+		return errs.Return()
 	}
 
 	data, err := json.Marshal(info)
 	if err != nil {
-		return err
+		errs.append(err)
+		return errs.Return()
 	}
 
 	// TODO: make it pretty
 	fmt.Printf("%s\n", data)
-	return nil
+
+	return errs.Return()
 }

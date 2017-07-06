@@ -110,7 +110,7 @@ func RetrievePlugins(c *cli.Context) error {
 
 		data, err := json.Marshal(retrieveResp)
 		if err != nil {
-			errs.append(fmt.Errorf("%v", err))
+			errs.append(err)
 			return
 		}
 
@@ -269,7 +269,7 @@ func RetrievePipelines(c *cli.Context) error {
 
 		data, err := json.Marshal(retrieveResp)
 		if err != nil {
-			errs.append(fmt.Errorf("%v", err))
+			errs.append(err)
 			return
 		}
 
@@ -328,37 +328,49 @@ func UpdatePipeline(c *cli.Context) error {
 }
 
 func RetrievePluginTypes(c *cli.Context) error {
+	errs := &multipleErr{}
+
 	retrieveResp, apiResp, err := adminApi().GetPluginTypes()
 	if err != nil {
-		return err
+		errs.append(err)
+		return errs.Return()
 	} else if apiResp.Error != nil {
-		return fmt.Errorf("%s", apiResp.Error.Error)
+		errs.append(fmt.Errorf("%s", apiResp.Error.Error))
+		return errs.Return()
 	}
 
 	data, err := json.Marshal(retrieveResp)
 	if err != nil {
-		return err
+		errs.append(err)
+		return errs.Return()
 	}
 
 	// TODO: make it pretty
 	fmt.Printf("%s\n", data)
-	return nil
+
+	return errs.Return()
 }
 
 func RetrievePipelineTypes(c *cli.Context) error {
+	errs := &multipleErr{}
+
 	retrieveResp, apiResp, err := adminApi().GetPipelineTypes()
 	if err != nil {
-		return err
+		errs.append(err)
+		return errs.Return()
 	} else if apiResp.Error != nil {
-		return fmt.Errorf("%s", apiResp.Error.Error)
+		errs.append(fmt.Errorf("%s", apiResp.Error.Error))
+		return errs.Return()
 	}
 
 	data, err := json.Marshal(retrieveResp)
 	if err != nil {
-		return err
+		errs.append(err)
+		return errs.Return()
 	}
 
 	// TODO: make it pretty
 	fmt.Printf("%s\n", data)
-	return nil
+
+	return errs.Return()
 }
