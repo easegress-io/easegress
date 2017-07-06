@@ -88,12 +88,11 @@ func ClusterCreatePlugin(c *cli.Context) error {
 	args := c.Args()
 	group := c.GlobalString("group")
 	timeoutSec := uint16(*c.GlobalGeneric("timeout").(*common.Uint16Value))
-	timeout := time.Duration(timeoutSec) * time.Second
 	consistent := c.GlobalBool("consistent")
 
 	errs := &multipleErr{}
 
-	do := func(source string, seq uint64, data []byte) {
+	do := func(source string, seq uint64, data []byte, t uint16) {
 		req := new(pdu.PluginCreationClusterRequest)
 		err := json.Unmarshal(data, req)
 		if err != nil {
@@ -101,7 +100,7 @@ func ClusterCreatePlugin(c *cli.Context) error {
 			return
 		}
 
-		req.TimeoutSec = uint16(timeout.Seconds())
+		req.TimeoutSec = t
 		req.Consistent = consistent
 		req.OperationSeq = seq
 
@@ -115,9 +114,12 @@ func ClusterCreatePlugin(c *cli.Context) error {
 		}
 	}
 
+	timeout := time.Duration(timeoutSec) * time.Second
+
 	if len(args) == 0 {
 		args = append(args, "/dev/stdin")
 	}
+
 	for i, file := range args {
 		data, err := ioutil.ReadFile(file)
 		if err != nil {
@@ -143,7 +145,7 @@ func ClusterCreatePlugin(c *cli.Context) error {
 		seq++
 
 		startTime = time.Now()
-		do(file, seq, data)
+		do(file, seq, data, uint16(timeout.Seconds()))
 		expiredTime = time.Now().Sub(startTime)
 
 		setLocalOperationSequence(group, seq)
@@ -164,16 +166,16 @@ func ClusterDeletePlugin(c *cli.Context) error {
 	args := c.Args()
 	group := c.GlobalString("group")
 	timeoutSec := uint16(*c.GlobalGeneric("timeout").(*common.Uint16Value))
-	timeout := time.Duration(timeoutSec) * time.Second
 	consistent := c.GlobalBool("consistent")
 
 	errs := &multipleErr{}
 
-	do := func(pluginName string, seq uint64) {
+	do := func(pluginName string, seq uint64, t uint16) {
 		req := new(pdu.ClusterOperationRequest)
-		req.TimeoutSec = uint16(timeout.Seconds())
+		req.TimeoutSec = t
 		req.Consistent = consistent
 		req.OperationSeq = seq
+
 		resp, err := clusterAdminApi().DeletePluginByName(group, pluginName, req)
 
 		if err != nil {
@@ -185,20 +187,25 @@ func ClusterDeletePlugin(c *cli.Context) error {
 		}
 	}
 
+	timeout := time.Duration(timeoutSec) * time.Second
+
 	if len(args) == 0 {
 		errs.append(fmt.Errorf("plugin name requied"))
 		return errs.Return()
 	}
+
 	for i, pluginName := range args {
 		startTime := time.Now()
 		seq, err := getOperationSequence(group, uint16(timeout.Seconds()))
+		expiredTime := time.Now().Sub(startTime)
+
 		if err != nil {
 			errs.append(fmt.Errorf("%s: %v", pluginName, err))
 			break
 		}
-		expiredTime := time.Now().Sub(startTime)
+
 		if timeout <= expiredTime {
-			errs.append(fmt.Errorf("timeout: no time to handle", args[i:]))
+			errs.append(fmt.Errorf("timeout: skip to handle [%s]", strings.Join(args[i:], ", ")))
 			break
 		}
 		timeout -= expiredTime
@@ -206,12 +213,13 @@ func ClusterDeletePlugin(c *cli.Context) error {
 		seq++
 
 		startTime = time.Now()
-		do(pluginName, seq)
+		do(pluginName, seq, uint16(timeout.Seconds()))
 		setLocalOperationSequence(group, seq+1)
 		expiredTime = time.Now().Sub(startTime)
+
 		if timeout <= expiredTime {
 			if i < len(args)-1 {
-				errs.append(fmt.Errorf("timeout: no time to handle: %s", args[i+1:]))
+				errs.append(fmt.Errorf("timeout: skip to handle [%s]", strings.Join(args[i+1:], ", ")))
 			}
 			break
 		}
