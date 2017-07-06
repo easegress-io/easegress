@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -10,7 +11,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"bytes"
 	"common"
 )
 

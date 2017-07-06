@@ -156,12 +156,12 @@ func main() {
 						},
 						{
 							Name:   "value",
-							Usage:  "Get plugin indicator value",
+							Usage:  "Retrieve plugin indicator value",
 							Action: cli.GetPluginIndicatorValue,
 						},
 						{
 							Name:   "desc",
-							Usage:  "Get plugin indicator description",
+							Usage:  "Retrieve plugin indicator description",
 							Action: cli.GetPluginIndicatorDesc,
 						},
 					},
@@ -179,12 +179,12 @@ func main() {
 						},
 						{
 							Name:   "value",
-							Usage:  "Get pipeline indicator value",
+							Usage:  "Retrieve pipeline indicator value",
 							Action: cli.GetPipelineIndicatorValue,
 						},
 						{
 							Name:   "desc",
-							Usage:  "Get pipeline indicator description",
+							Usage:  "Retrieve pipeline indicator description",
 							Action: cli.GetPipelineIndicatorDesc,
 						},
 					},
@@ -202,12 +202,12 @@ func main() {
 						},
 						{
 							Name:   "value",
-							Usage:  "Get pipeline indicator value",
+							Usage:  "Retrieve pipeline indicator value",
 							Action: cli.GetTaskIndicatorValue,
 						},
 						{
 							Name:   "desc",
-							Usage:  "Get pipeline indicator description",
+							Usage:  "Retrieve pipeline indicator description",
 							Action: cli.GetTaskIndicatorDesc,
 						},
 					},
@@ -220,8 +220,13 @@ func main() {
 			Subcommands: []urfavecli.Command{
 				{
 					Name:   "check",
-					Usage:  "Check health of Gateway",
-					Action: cli.CheckHealth,
+					Usage:  "Check health of the gateway service instance",
+					Action: cli.Check,
+				},
+				{
+					Name:   "info",
+					Usage:  "Retrieve information of the gateway service instance",
+					Action: cli.Info,
 				},
 			},
 		},
@@ -240,7 +245,7 @@ func main() {
 					Value: common.NewUint16Value(30, nil),
 				},
 				urfavecli.BoolFlag{
-					Name:  "consistent",
+					Name: "consistent",
 					Usage: "Indicates request is performed in the group as " +
 						"consistency or availability first",
 				},
