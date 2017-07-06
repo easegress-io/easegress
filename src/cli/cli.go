@@ -19,7 +19,7 @@ import (
 
 var (
 	serviceAddress = "127.0.0.1:9090"
-	rcFullPath     = filepath.Join(os.Getenv("EGWHOME"), "/.easegatewayrc")
+	rcFullPath     = filepath.Join(os.Getenv("HOME"), "/.easegatewayrc")
 )
 
 func SetGatewayServerAddress(address string) error {
