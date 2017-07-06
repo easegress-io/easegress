@@ -187,12 +187,12 @@ func ClusterDeletePlugin(c *cli.Context) error {
 		}
 	}
 
-	timeout := time.Duration(timeoutSec) * time.Second
-
 	if len(args) == 0 {
 		errs.append(fmt.Errorf("plugin name requied"))
 		return errs.Return()
 	}
+
+	timeout := time.Duration(timeoutSec) * time.Second
 
 	for i, pluginName := range args {
 		startTime := time.Now()
@@ -214,8 +214,9 @@ func ClusterDeletePlugin(c *cli.Context) error {
 
 		startTime = time.Now()
 		do(pluginName, seq, uint16(timeout.Seconds()))
-		setLocalOperationSequence(group, seq+1)
 		expiredTime = time.Now().Sub(startTime)
+
+		setLocalOperationSequence(group, seq+1)
 
 		if timeout <= expiredTime {
 			if i < len(args)-1 {
@@ -233,14 +234,13 @@ func ClusterRetrievePlugins(c *cli.Context) error {
 	args := c.Args()
 	group := c.GlobalString("group")
 	timeoutSec := uint16(*c.GlobalGeneric("timeout").(*common.Uint16Value))
-	timeout := time.Duration(timeoutSec) * time.Second
 	consistent := c.GlobalBool("consistent")
 
 	errs := &multipleErr{}
 
-	do := func(pluginName string) {
+	do := func(pluginName string, t uint16) {
 		req := new(pdu.ClusterRetrieveRequest)
-		req.TimeoutSec = uint16(timeout.Seconds())
+		req.TimeoutSec = t
 		req.Consistent = consistent
 		retrieveResp, apiResp, err := clusterAdminApi().GetPluginByName(group, pluginName, req)
 
@@ -262,9 +262,9 @@ func ClusterRetrievePlugins(c *cli.Context) error {
 		fmt.Printf("%s\n", data)
 	}
 
-	doAll := func() {
+	doAll := func(t uint16) {
 		req := new(pdu.PluginsRetrieveClusterRequest)
-		req.TimeoutSec = uint16(timeout.Seconds())
+		req.TimeoutSec = t
 		req.Consistent = consistent
 		retrieveResp, apiResp, err := clusterAdminApi().GetPlugins(group, req)
 		if err != nil {
@@ -285,16 +285,20 @@ func ClusterRetrievePlugins(c *cli.Context) error {
 		fmt.Printf("%s\n", data)
 	}
 
+	timeout := time.Duration(timeoutSec) * time.Second
+
 	if len(args) == 0 {
-		doAll()
+		doAll(uint16(timeout.Seconds()))
 	} else {
 		for i, pluginName := range args {
 			startTime := time.Now()
-			do(pluginName)
+			do(pluginName, uint16(timeout.Seconds()))
 			expiredTime := time.Now().Sub(startTime)
+
 			if timeout <= expiredTime {
 				if i < len(args)-1 {
-					errs.append(fmt.Errorf("timeout: skip to handle: %s", args[i+1:]))
+					errs.append(fmt.Errorf(
+						"timeout: skip to handle [%s]", strings.Join(args[i+1:], ", ")))
 				}
 				break
 			}
@@ -309,12 +313,11 @@ func ClusterUpdatePlugin(c *cli.Context) error {
 	args := c.Args()
 	group := c.GlobalString("group")
 	timeoutSec := uint16(*c.GlobalGeneric("timeout").(*common.Uint16Value))
-	timeout := time.Duration(timeoutSec) * time.Second
 	consistent := c.GlobalBool("consistent")
 
 	errs := &multipleErr{}
 
-	do := func(source string, seq uint64, data []byte) {
+	do := func(source string, seq uint64, data []byte, t uint16) {
 		req := new(pdu.PluginUpdateClusterRequest)
 		err := json.Unmarshal(data, req)
 		if err != nil {
@@ -322,7 +325,7 @@ func ClusterUpdatePlugin(c *cli.Context) error {
 			return
 		}
 
-		req.TimeoutSec = uint16(timeout.Seconds())
+		req.TimeoutSec = t
 		req.Consistent = consistent
 		req.OperationSeq = seq
 
@@ -336,9 +339,12 @@ func ClusterUpdatePlugin(c *cli.Context) error {
 		}
 	}
 
+	timeout := time.Duration(timeoutSec) * time.Second
+
 	if len(args) == 0 {
 		args = append(args, "/dev/stdin")
 	}
+
 	for i, file := range args {
 		data, err := ioutil.ReadFile(file)
 		if err != nil {
@@ -364,7 +370,7 @@ func ClusterUpdatePlugin(c *cli.Context) error {
 		seq++
 
 		startTime = time.Now()
-		do(file, seq, data)
+		do(file, seq, data, uint16(timeout.Seconds()))
 		expiredTime = time.Now().Sub(startTime)
 
 		setLocalOperationSequence(group, seq)
@@ -385,12 +391,11 @@ func ClusterCreatePipeline(c *cli.Context) error {
 	args := c.Args()
 	group := c.GlobalString("group")
 	timeoutSec := uint16(*c.GlobalGeneric("timeout").(*common.Uint16Value))
-	timeout := time.Duration(timeoutSec) * time.Second
 	consistent := c.GlobalBool("consistent")
 
 	errs := &multipleErr{}
 
-	do := func(source string, seq uint64, data []byte) {
+	do := func(source string, seq uint64, data []byte, t uint16) {
 		req := new(pdu.PipelineCreationClusterRequest)
 		err := json.Unmarshal(data, req)
 		if err != nil {
@@ -398,7 +403,7 @@ func ClusterCreatePipeline(c *cli.Context) error {
 			return
 		}
 
-		req.TimeoutSec = uint16(timeout.Seconds())
+		req.TimeoutSec = t
 		req.Consistent = consistent
 		req.OperationSeq = seq
 
@@ -412,9 +417,12 @@ func ClusterCreatePipeline(c *cli.Context) error {
 		}
 	}
 
+	timeout := time.Duration(timeoutSec) * time.Second
+
 	if len(args) == 0 {
 		args = append(args, "/dev/stdin")
 	}
+
 	for i, file := range args {
 		data, err := ioutil.ReadFile(file)
 		if err != nil {
@@ -440,7 +448,7 @@ func ClusterCreatePipeline(c *cli.Context) error {
 		seq++
 
 		startTime = time.Now()
-		do(file, seq, data)
+		do(file, seq, data, uint16(timeout.Seconds()))
 		expiredTime = time.Now().Sub(startTime)
 
 		setLocalOperationSequence(group, seq)
@@ -461,14 +469,13 @@ func ClusterDeletePipeline(c *cli.Context) error {
 	args := c.Args()
 	group := c.GlobalString("group")
 	timeoutSec := uint16(*c.GlobalGeneric("timeout").(*common.Uint16Value))
-	timeout := time.Duration(timeoutSec) * time.Second
 	consistent := c.GlobalBool("consistent")
 
 	errs := &multipleErr{}
 
-	do := func(pipelineName string, seq uint64) {
+	do := func(pipelineName string, seq uint64, t uint16) {
 		req := new(pdu.ClusterOperationRequest)
-		req.TimeoutSec = uint16(timeout.Seconds())
+		req.TimeoutSec = t
 		req.Consistent = consistent
 		req.OperationSeq = seq
 		resp, err := clusterAdminApi().DeletePipelineByName(group, pipelineName, req)
@@ -486,6 +493,9 @@ func ClusterDeletePipeline(c *cli.Context) error {
 		errs.append(fmt.Errorf("pipeline name requied"))
 		return errs.Return()
 	}
+
+	timeout := time.Duration(timeoutSec) * time.Second
+
 	for i, pipelineName := range args {
 		startTime := time.Now()
 		seq, err := getOperationSequence(group, uint16(timeout.Seconds()))
@@ -503,9 +513,11 @@ func ClusterDeletePipeline(c *cli.Context) error {
 		seq++
 
 		startTime = time.Now()
-		do(pipelineName, seq)
-		setLocalOperationSequence(group, seq+1)
+		do(pipelineName, seq, uint16(timeout.Seconds()))
 		expiredTime = time.Now().Sub(startTime)
+
+		setLocalOperationSequence(group, seq+1)
+
 		if timeout <= expiredTime {
 			if i < len(args)-1 {
 				errs.append(fmt.Errorf("timeout: skip to handle [%s]", strings.Join(args[i+1:], ", ")))
@@ -522,14 +534,13 @@ func ClusterRetrievePipelines(c *cli.Context) error {
 	args := c.Args()
 	group := c.GlobalString("group")
 	timeoutSec := uint16(*c.GlobalGeneric("timeout").(*common.Uint16Value))
-	timeout := time.Duration(timeoutSec) * time.Second
 	consistent := c.GlobalBool("consistent")
 
 	errs := &multipleErr{}
 
-	do := func(pipelineName string) {
+	do := func(pipelineName string, t uint16) {
 		req := new(pdu.ClusterRetrieveRequest)
-		req.TimeoutSec = uint16(timeout.Seconds())
+		req.TimeoutSec = t
 		req.Consistent = consistent
 		retrieveResp, apiResp, err := clusterAdminApi().GetPipelineByName(group, pipelineName, req)
 
@@ -551,9 +562,9 @@ func ClusterRetrievePipelines(c *cli.Context) error {
 		fmt.Printf("%s\n", data)
 	}
 
-	doAll := func() {
+	doAll := func(t uint16) {
 		req := new(pdu.PipelinesRetrieveClusterRequest)
-		req.TimeoutSec = uint16(timeout.Seconds())
+		req.TimeoutSec = t
 		req.Consistent = consistent
 		retrieveResp, apiResp, err := clusterAdminApi().GetPipelines(group, req)
 		if err != nil {
@@ -574,16 +585,20 @@ func ClusterRetrievePipelines(c *cli.Context) error {
 		fmt.Printf("%s\n", data)
 	}
 
+	timeout := time.Duration(timeoutSec) * time.Second
+
 	if len(args) == 0 {
-		doAll()
+		doAll(uint16(timeout.Seconds()))
 	} else {
 		for i, pipelineName := range args {
 			startTime := time.Now()
-			do(pipelineName)
+			do(pipelineName, uint16(timeout.Seconds()))
 			expiredTime := time.Now().Sub(startTime)
+
 			if timeout <= expiredTime {
 				if i < len(args)-1 {
-					errs.append(fmt.Errorf("timeout: skip to handle: %s", args[i+1:]))
+					errs.append(fmt.Errorf(
+						"timeout: skip to handle [%s]", strings.Join(args[i+1:], ", ")))
 				}
 				break
 			}
@@ -598,12 +613,11 @@ func ClusterUpdatePipeline(c *cli.Context) error {
 	args := c.Args()
 	group := c.GlobalString("group")
 	timeoutSec := uint16(*c.GlobalGeneric("timeout").(*common.Uint16Value))
-	timeout := time.Duration(timeoutSec) * time.Second
 	consistent := c.GlobalBool("consistent")
 
 	errs := &multipleErr{}
 
-	do := func(source string, seq uint64, data []byte) {
+	do := func(source string, seq uint64, data []byte, t uint16) {
 		req := new(pdu.PipelineUpdateClusterRequest)
 		err := json.Unmarshal(data, req)
 		if err != nil {
@@ -611,7 +625,7 @@ func ClusterUpdatePipeline(c *cli.Context) error {
 			return
 		}
 
-		req.TimeoutSec = uint16(timeout.Seconds())
+		req.TimeoutSec = t
 		req.Consistent = consistent
 		req.OperationSeq = seq
 
@@ -625,9 +639,12 @@ func ClusterUpdatePipeline(c *cli.Context) error {
 		}
 	}
 
+	timeout := time.Duration(timeoutSec) * time.Second
+
 	if len(args) == 0 {
 		args = append(args, "/dev/stdin")
 	}
+
 	for i, file := range args {
 		data, err := ioutil.ReadFile(file)
 		if err != nil {
@@ -653,7 +670,7 @@ func ClusterUpdatePipeline(c *cli.Context) error {
 		seq++
 
 		startTime = time.Now()
-		do(file, seq, data)
+		do(file, seq, data, uint16(timeout.Seconds()))
 		expiredTime = time.Now().Sub(startTime)
 
 		setLocalOperationSequence(group, seq)
