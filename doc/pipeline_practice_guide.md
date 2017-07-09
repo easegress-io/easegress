@@ -17,13 +17,13 @@ In this document, we would like to introduce follow pipelines from real practice
 
 ## Ease Monitor edge service
 
-In this case, we will prepare a pipeline to runs necessary processes as Ease Monitor edge service endpoint.
+In this case, we will prepare a pipeline to runs necessary processes as Ease Monitor edge service endpoint.This a basic case for some of the following cases, so it's highly recommended to get through it.
 
 ### Plugin
 
-1. [HTTP input](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#http-input-plugin): To enable HTTPS endpoint to receive Ease Monitor data send from the client.
+1. [HTTP input](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#http-input-plugin): To enable HTTPS endpoint to receive Ease Monitor data sent from the client.
 2. [IO reader](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#io-reader-plugin): To read Ease Monitor data from the client via HTTPS transport layer in to local memory for handling in next steps.
-3. [Json validator](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#json-validator-plugin): Validating the Ease Monitor data send from the client is using a certain schema. You can use [Ease Monitor graphite validator](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#ease-monitor-graphite-validator-plugin) if you would like to use the pipeline to handle Ease Monitor data with graphite plaintext protocol.
+3. [Json validator](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#json-validator-plugin): Validating the Ease Monitor data sent from the client is using a certain schema. You can use [Ease Monitor graphite validator](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#ease-monitor-graphite-validator-plugin) if you would like to use the pipeline to handle Ease Monitor data with graphite plaintext protocol.
 4. [Ease Monitor Json GID extractor](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#ease-monitor-json-gid-extractor-plugin): Extracts Ease Monitor global ID from the Ease Monitor data. You can use [Ease Monitor graphite GID extractor](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#ease-monitor-graphite-gid-extractor-plugin) if you would like to use the pipeline to handle Ease Monitor data with graphite plaintext protocol.
 5. [Kafka output](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#kafka-output-plugin): Sending the data to configured kafka topic, Ease Monitor pipeline will fetch them for rest of processes.
 
@@ -47,7 +47,7 @@ $ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:appl
 
 ### Test
 
-Once the pipeline is created (above Administration API returns HTTP 200), any incoming Ease Monitor data send to the URL with certain method and header will be handled in pipeline and send to the kafka topic. You might send test requests by blow commands. The data in `~/load` file just show you an example, refer Ease Monitor document to check complete data.
+Once the pipeline is created (above Administration API returns HTTP 200), any incoming Ease Monitor data sent to the URL with certain method and header will be handled in pipeline and sent to the kafka topic. You might send test requests by blow commands. The data in `~/load` file just show you an example, refer Ease Monitor document to check complete data.
 
 ```
 $ cat ~/load
@@ -78,10 +78,10 @@ In this case, we will prepare a pipeline to show you how to setup a throughput r
 
 #### Plugin
 
-1. [HTTP input](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#http-input-plugin): To enable HTTPS endpoint to receive Ease Monitor data send from the client.
-2. [Throughput rate limiter](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#throughput-rate-limiter-plugin): To add a limitation to control request rate. The limitation will be performed no matter how many concurrent clients send the request. In this case, we ask there are no more than 11 requests per second send to Ease Monitor pipeline.
+1. [HTTP input](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#http-input-plugin): To enable HTTPS endpoint to receive Ease Monitor data sent from the client.
+2. [Throughput rate limiter](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#throughput-rate-limiter-plugin): To add a limitation to control request rate. The limitation will be performed no matter how many concurrent clients send the request. In this case, we ask there are no more than 11 requests per second sent to Ease Monitor pipeline.
 3. [IO reader](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#io-reader-plugin): To read Ease Monitor data from the client via HTTPS transport layer in to local memory for handling in next steps.
-4. [Json validator](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#json-validator-plugin): Validating the Ease Monitor data send from the client is using a certain schema.
+4. [Json validator](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#json-validator-plugin): Validating the Ease Monitor data sent from the client is using a certain schema.
 5. [Ease Monitor Json GID extractor](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#ease-monitor-json-gid-extractor-plugin): Extracts Ease Monitor global ID from the Ease Monitor data. You can use [Graphite GID extractor](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#graphite-gid-extractor-plugin) if you would like to use the pipeline to handle Ease Monitor data with graphite plaintext protocol.
 6. [Kafka output](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#kafka-output-plugin): Sending the data to configured kafka topic, Ease Monitor pipeline will fetch them for rest of processes.
 
@@ -98,7 +98,7 @@ $ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:applic
 
 #### Pipeline
 
-We need to set throughput rate limiter plugin to a certain position in the pipeline, generally we should terminate request as earlier as possible in the pipeline since once limiation is reached there is no reason to handle the request for rest steps, in this case we add the limiter close to HTTP input plugin.
+We need to set throughput rate limiter plugin to a certain position in the pipeline, generally we should terminate request as earlier as possible in the pipeline since once limitation is reached there is no reason to handle the request for rest steps, in this case we add the limiter close to HTTP input plugin.
 
 You can use follow [Administration API](https://github.com/hexdecteam/easegateway/blob/master/doc/admin_api_ref.swagger.yaml) calls to setup the pipeline:
 
@@ -174,10 +174,10 @@ In this case, we will prepare a pipeline to show you how to setup a latency base
 
 #### Plugin
 
-1. [HTTP input](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#http-input-plugin): To enable HTTPS endpoint to receive Ease Monitor data send from the client.
-2. [Latency based sliding window limiter](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#latency-based-sliding-window-limiter-plugin): To add a limitation to control request rate. The limitation will be performed no matter how many concurrent clients send the request. In this case, we ask there are no more than 11 requests per second send to Ease Monitor pipeline.
+1. [HTTP input](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#http-input-plugin): To enable HTTPS endpoint to receive Ease Monitor data sent from the client.
+2. [Latency based sliding window limiter](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#latency-based-sliding-window-limiter-plugin): To add a limitation to control request rate. The limitation will be performed no matter how many concurrent clients send the request. In this case, we ask there are no more than 11 requests per second sent to Ease Monitor pipeline.
 3. [IO reader](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#io-reader-plugin): To read Ease Monitor data from the client via HTTPS transport layer in to local memory for handling in next steps.
-4. [Json validator](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#json-validator-plugin): Validating the Ease Monitor data send from the client is using a certain schema.
+4. [Json validator](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#json-validator-plugin): Validating the Ease Monitor data sent from the client is using a certain schema.
 5. [Ease Monitor Json GID extractor](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#ease-monitor-json-gid-extractor-plugin): Extracts Ease Monitor global ID from the Ease Monitor data. You can use [Graphite GID extractor](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#graphite-gid-extractor-plugin) if you would like to use the pipeline to handle Ease Monitor data with graphite plaintext protocol.
 6. [Kafka output](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#kafka-output-plugin): Sending the data to configured kafka topic, Ease Monitor pipeline will fetch them for rest of processes.
 
@@ -194,7 +194,7 @@ $ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:applic
 
 #### Pipeline
 
-We need to set the limiter plugin to a certain position in the pipeline, generally we should terminate request as earlier as possible in the pipeline since once limiation is reached there is no reason to handle the request for rest steps, in this case we add the limiter close to HTTP input plugin.
+We need to set the limiter plugin to a certain position in the pipeline, generally we should terminate request as earlier as possible in the pipeline since once limitation is reached there is no reason to handle the request for rest steps, in this case we add the limiter close to HTTP input plugin.
 
 You can use follow [Administration API](https://github.com/hexdecteam/easegateway/blob/master/doc/admin_api_ref.swagger.yaml) calls to setup the pipeline:
 
@@ -269,10 +269,10 @@ In this case, we will prepare a pipeline to show you how to add such a service c
 
 ### Plugin
 
-1. [HTTP input](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#http-input-plugin): To enable HTTPS endpoint to receive Ease Monitor data send from the client.
+1. [HTTP input](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#http-input-plugin): To enable HTTPS endpoint to receive Ease Monitor data sent from the client.
 2. [Service circuit breaker](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#service-circuit-breaker-plugin): Limiting request rate base on the failure rate the pass probability plugin simulated.
 3. [IO reader](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#io-reader-plugin): To read Ease Monitor data from the client via HTTPS transport layer in to local memory for handling in next steps.
-4. [Json validator](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#json-validator-plugin): Validating the Ease Monitor data send from the client is using a certain schema. You can use [Ease Monitor graphite validator](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#ease-monitor-graphite-validator-plugin) if you would like to use the pipeline to handle Ease Monitor data with graphite plaintext protocol.
+4. [Json validator](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#json-validator-plugin): Validating the Ease Monitor data sent from the client is using a certain schema. You can use [Ease Monitor graphite validator](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#ease-monitor-graphite-validator-plugin) if you would like to use the pipeline to handle Ease Monitor data with graphite plaintext protocol.
 5. [Ease Monitor Json GID extractor](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#ease-monitor-json-gid-extractor-plugin): Extracts Ease Monitor global ID from the Ease Monitor data. You can use [Ease Monitor graphite GID extractor](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#ease-monitor-graphite-gid-extractor-plugin) if you would like to use the pipeline to handle Ease Monitor data with graphite plaintext protocol.
 6. [Static pass probability limiter](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#static-pass-probability-limiter-plugin): The plugin passes the request with a fixed probability, in this case it is used to simulate upstream service failure with 50% probability.
 7. [Kafka output](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#kafka-output-plugin): Sending the data to configured kafka topic, Ease Monitor pipeline will fetch them for rest of processes.
@@ -488,10 +488,10 @@ def main():
     except KeyboardInterrupt:
         print " ^C entered, stopping web server...."
         server.socket.close()
-    
+
 main()
 
-$ python ~/server2.py 
+$ python ~/server2.py
 Web Server running on port 1122
 185 {
 	"name": "test-workload",
@@ -518,15 +518,15 @@ Transfer-Encoding: chunked
 
 ## HTTP proxy with load routing
 
-In this case, you can see how three pipelines co-works together, downstream pipeline receives HTTP/HTTPS request and sends to one of two upstream pipelines selected by round_robin and weighted_round_robin policy. The upstream timeout case will be practiced as well.  
+In this case, you can see how three pipelines co-works together, downstream pipeline receives HTTP/HTTPS request and sends to one of two upstream pipelines selected by round_robin and weighted_round_robin policy. The upstream timeout case will be practiced as well.
 
 
 ### Plugin
 
 1. [HTTP input](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#http-input-plugin): To enable HTTP endpoint to receive RESTful request for upstream service.
 2. [HTTP output](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#http-output-plugin): Sending the body and headers to a certain endpoint of upstream RESTFul service.
-3. [Upstream output](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/upstream_output.go): To output request to an upstream pipeline and waits the response.
-4. [Downstream input](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/downstream_input.go): Handles downstream request to running pipeline as input and send the response back.
+3. [Upstream output](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#upstream-output-plugin): To output request to an upstream pipeline and waits the response.
+4. [Downstream input](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#downstream-input-plugin): Handles downstream request to running pipeline as input and send the response back.
 
 Using follow [Administration API](https://github.com/hexdecteam/easegateway/blob/master/doc/admin_api_ref.swagger.yaml) calls to setup above plugins:
 
@@ -697,7 +697,7 @@ Transfer-Encoding: chunked
 
 >**Note**:
 > * Under `weighted_round_robin` policy, the upstream with a zero weight will not get any chance to handle the request from the downstream. Therefore, if you gives a weight list of only zero value, the gateway will reject the plugin creation or update request with a proper error as a fast-failure. Fox example:
-> ```  
+> ```
 > $ curl http://127.0.0.1:9090/admin/v1/plugins -X PUT -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "UpstreamOutput", "config": {"plugin_name": "test-upstreamoutput1", "target_pipelines": ["test-upstream1", "test-upstream2"], "request_data_keys": ["HTTP_REQUEST_BODY_IO"], "route_policy": "weighted_round_robin", "target_weights": [0, 0]}}'
 > HTTP/1.1 400 Bad Request
 > Content-Type: application/json; charset=utf-8
@@ -944,16 +944,16 @@ Transfer-Encoding: chunked
 
 In this case, we would like to show a way to make failure upstream service to returns mock data instead of exposing failure to the client direclty. In general downstream on client side is a critical service, it means even which depends on the upstream however the business in the service is not important that can be skipped if some issues happened at there, like loading customer comments for a commodity display page.
 
->**Note**:<br>
+>**Note**:
 > To simulate upstream failure in the example, an assistant plugin is added to the pipeline, you need not it in the real case.
 
 ### Plugins
 
-1. [HTTP input](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#http-input-plugin): To enable HTTPS endpoint to receive Ease Monitor data send from the client.
+1. [HTTP input](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#http-input-plugin): To enable HTTPS endpoint to receive Ease Monitor data sent from the client.
 2. [Simple common mock](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#simple-common-mock-plugin): To returns mock data for the failure Ease Monitor service at upstream.
 3. [Static pass probability limiter](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#static-pass-probability-limiter-plugin): The plugin passes the request with a fixed probability, in this case it is used to simulate upstream service failure with 50% probability.
 4. [IO reader](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#io-reader-plugin): To read Ease Monitor data from the client via HTTPS transport layer in to local memory for handling in next steps.
-5. [Json validator](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#json-validator-plugin): Validating the Ease Monitor data send from the client is using a certain schema. You can use [Ease Monitor graphite validator](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#ease-monitor-graphite-validator-plugin) if you would like to use the pipeline to handle Ease Monitor data with graphite plaintext protocol.
+5. [Json validator](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#json-validator-plugin): Validating the Ease Monitor data sent from the client is using a certain schema. You can use [Ease Monitor graphite validator](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#ease-monitor-graphite-validator-plugin) if you would like to use the pipeline to handle Ease Monitor data with graphite plaintext protocol.
 6. [Ease Monitor Json GID extractor](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#ease-monitor-json-gid-extractor-plugin): Extracts Ease Monitor global ID from the Ease Monitor data. You can use [Ease Monitor graphite GID extractor](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#ease-monitor-graphite-gid-extractor-plugin) if you would like to use the pipeline to handle Ease Monitor data with graphite plaintext protocol.
 7. [Kafka output](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#kafka-output-plugin): Sending the data to configured kafka topic, Ease Monitor pipeline will fetch them for rest of processes.
 
@@ -1043,7 +1043,7 @@ So the biggest challenges to support this kind of event for a website backend is
 
 1. Ease gateway can be distributed to have multiple instances to serve users come from different region or logical group. Under this way, we can increase the capacity of access layer by scaling out gateway instance easily, we are even preconfigure the capacity before the event.
 2. Before the flash sale event starts, according to the user behavior gateway can provides a statistics data to indicate how many user are prepared and ready to order. And base on this statistics indicator, website can calculate and pre-configure the probability of success buying for different access endpoint on each gateway instance.
-3. When the flash sale event starts, the gateway instance will reduce the massive order requests according to the pre-configured probability, and finally a reasonable volume of order requests hit the website backend service really. 
+3. When the flash sale event starts, the gateway instance will reduce the massive order requests according to the pre-configured probability, and finally a reasonable volume of order requests hit the website backend service really.
 4. Once the website backend service responds gateway there is no more commodity in the stock, gateway returns user a standard error and reject all incoming order requests directly and no further requests hit the website.
 
 To achieve above solution we need to prepare two dedicated pipelines for each gateway instance, first one is used to cover above point #2, and another one is used to cover point #3 and #4.
@@ -1058,7 +1058,7 @@ To achieve above solution we need to prepare two dedicated pipelines for each ga
 1. [HTTP input](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#http-input-plugin): To enable HTTP endpoint to receive user request for accessing flash sale event page.
 2. [IO reader](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#io-reader-plugin): To read received data from the client via HTTP transport layer in to local memory as a proxy.
 3. [HTTP output](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#http-output-plugin): Sending the body and headers to the flash sale event page of the website.
-4. [HTTP header counter](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#http-header-counter-plugin): To calculate amount of different HTTP header value of a certain header name, and the amount will be deducted automatically if user has not any active with website more then 1 minute. The result is exposed by the statistics indicator ``RECENT_HEADER_COUNT``.
+4. [HTTP header counter](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#http-header-counter-plugin): To calculate amount of different HTTP header value of a certain header name, and the amount will be deducted automatically if user has not any active with website more than 1 minute. The result is exposed by the statistics indicator ``RECENT_HEADER_COUNT``.
 
 Using follow [Administration API](https://github.com/hexdecteam/easegateway/blob/master/doc/admin_api_ref.swagger.yaml) calls to setup above plugins:
 
