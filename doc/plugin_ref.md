@@ -3,7 +3,7 @@ Ease Gateway Plugin Reference
 
 ## Summary
 
-There are 16 available plugins totally in Ease Gateway current release.
+There are 18 available plugins totally in Ease Gateway current release.
 
 | Plugin name | Type name | Block-able | Functional | Development status | Link |
 |:--|:--|:--:|:--:|:--:|:--|
