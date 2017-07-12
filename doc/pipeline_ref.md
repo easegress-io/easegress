@@ -30,9 +30,9 @@ Linear Pipeline is a model to define a unidirectional path plugins handling task
 
 | Indicator name | Level | Data type (golang) | Description |
 |:--|:--:|:--|:--|
-| THROUGHPUT\_RATE\_LAST\_1MIN\_ALL | Pipeline | float64 | Throughtput rate of the pipeline in last 1 minute. |
-| THROUGHPUT\_RATE\_LAST\_5MIN\_ALL | Pipeline | float64 | Throughtput rate of the pipeline in last 5 minute. |
-| THROUGHPUT\_RATE\_LAST\_15MIN\_ALL | Pipeline | float64 | Throughtput rate of the pipeline in last 15 minute. |
+| THROUGHPUT\_RATE\_LAST\_1MIN\_ALL | Pipeline | float64 | Throughput rate of the pipeline in last 1 minute. |
+| THROUGHPUT\_RATE\_LAST\_5MIN\_ALL | Pipeline | float64 | Throughput rate of the pipeline in last 5 minute. |
+| THROUGHPUT\_RATE\_LAST\_15MIN\_ALL | Pipeline | float64 | Throughput rate of the pipeline in last 15 minute. |
 | EXECUTION\_COUNT\_ALL | Pipeline | int64 | Total execution count of the pipeline. |
 | EXECUTION\_TIME\_MAX\_ALL | Pipeline | int64 | Maximal time of execution time of the pipeline in nanosecond. |
 | EXECUTION\_TIME\_MIN\_ALL | Pipeline | int64 | Minimal time of execution time of the pipeline in nanosecond. |
@@ -42,9 +42,9 @@ Linear Pipeline is a model to define a unidirectional path plugins handling task
 | EXECUTION\_TIME\_STD\_DEV\_ALL | Pipeline | float64 | Standard deviation of execution time of the pipeline in nanosecond. |
 | EXECUTION\_TIME\_VARIANCE\_ALL | Pipeline | float64 | Variance of execution time of the pipeline. |
 | EXECUTION\_TIME\_SUM\_ALL | Pipeline | int64 | Sum of execution time of the pipeline in nanosecond. |
-| THROUGHPUT\_RATE\_LAST\_1MIN\_ALL | Plugin | float64 | Throughtput rate of the plugin in last 1 minute. |
-| THROUGHPUT\_RATE\_LAST\_5MIN\_ALL | Plugin | float64 | Throughtput rate of the plugin in last 5 minute. |
-| THROUGHPUT\_RATE\_LAST\_15MIN\_ALL | Plugin | float64 | Throughtput rate of the plugin in last 15 minute. |
+| THROUGHPUT\_RATE\_LAST\_1MIN\_ALL | Plugin | float64 | Throughput rate of the plugin in last 1 minute. |
+| THROUGHPUT\_RATE\_LAST\_5MIN\_ALL | Plugin | float64 | Throughput rate of the plugin in last 5 minute. |
+| THROUGHPUT\_RATE\_LAST\_15MIN\_ALL | Plugin | float64 | Throughput rate of the plugin in last 15 minute. |
 | THROUGHPUT\_RATE\_LAST\_1MIN\_SUCCESS | Plugin | float64 | Successful throughtput rate of the plugin in last 1 minute. |
 | THROUGHPUT\_RATE\_LAST\_5MIN\_SUCCESS | Plugin | float64 | Successful throughtput rate of the plugin in last 5 minute. |
 | THROUGHPUT\_RATE\_LAST\_15MIN\_SUCCESS | Plugin | float64 | Successful throughtput rate of the plugin in last 15 minute. |

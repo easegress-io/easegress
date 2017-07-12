@@ -70,7 +70,7 @@ paths:
     get:
       summary: Retrieves Plugin Instances
       description: |
-        The Plugin Instances retrieve endpoint returns all existing plugin instnaces Gateway
+        The Plugin Instances retrieve endpoint returns all existing plugin instances Gateway
         has currently.
       parameters:
         - name: pluginsRetrieveRequest
@@ -102,12 +102,12 @@ paths:
       responses:
         400:
           description: |
-            Invalid plugin instance udpate request parameter. Including, invalid plugin type
+            Invalid plugin instance update request parameter. Including, invalid plugin type
             or invalid configuration according to the plugin instance is being updated.
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: Plugin instnace not found by given name.
+          description: Plugin instance not found by given name.
           schema:
             $ref: '#/definitions/Error'
         200:
@@ -116,7 +116,7 @@ paths:
     get:
       summary: Retrieves Plugin Instance
       description: |
-        The Plugin Instance retrieve endpoint returns an existing plugin instnace Gateway has
+        The Plugin Instance retrieve endpoint returns an existing plugin instance Gateway has
         currently by plugin name.
       parameters:
         - name: pluginName
@@ -130,17 +130,17 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: Plugin instnace not found by given name.
+          description: Plugin instance not found by given name.
           schema:
             $ref: '#/definitions/Error'
         200:
-          description: Plugin instnace response.
+          description: Plugin instance response.
           schema:
             $ref: '#/definitions/PluginSpec'
     delete:
       summary: Deletes Plugin Instance
       description: |
-        The Plugin Instance deletion endpoint deletes an existing plugin instnace Gateway has
+        The Plugin Instance deletion endpoint deletes an existing plugin instance Gateway has
         currently by plugin name.
       parameters:
         - name: pluginName
@@ -154,12 +154,12 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: Plugin instnace not found by given name.
+          description: Plugin instance not found by given name.
           schema:
             $ref: '#/definitions/Error'
         406:
           description: |
-            Plugin instnace could not be deleted by given name since it is used by
+            Plugin instance could not be deleted by given name since it is used by
             one or more pipelines.
           schema:
             $ref: '#/definitions/Error'
@@ -167,7 +167,7 @@ paths:
           description: Plugin instance is deleted successfully.
   /pipelines:
     post:
-      summary: Creates Pipwline Instance
+      summary: Creates Pipeline Instance
       description: |
         The Pipeline Instance creation endpoint creates a special pipeline instance according
         to the pipeline type and the configuration.
@@ -196,7 +196,7 @@ paths:
     get:
       summary: Retrieves Pipeline Instances
       description: |
-        The Pipeline Instances retrieve endpoint returns all existing pipeline instnaces Gateway
+        The Pipeline Instances retrieve endpoint returns all existing pipeline instances Gateway
         has currently.
       parameters:
         - name: pipelinesRetrieveRequest
@@ -228,13 +228,13 @@ paths:
       responses:
         400:
           description: |
-            Invalid pipeline instance udpate request parameter. Including, invalid pipeline type
+            Invalid pipeline instance update request parameter. Including, invalid pipeline type
             or invalid configuration according to the pipeline instance is being updated.
           schema:
             $ref: '#/definitions/Error'
         404:
           description: |
-            Pipeline instnace not found by given name, or one or more plugin instances in the
+            Pipeline instance not found by given name, or one or more plugin instances in the
             pipeline are not found.
           schema:
             $ref: '#/definitions/Error'
@@ -244,7 +244,7 @@ paths:
     get:
       summary: Retrieves Pipeline Instance
       description: |
-        The Pipeline Instance retrieve endpoint returns an existing pipeline instnace Gateway has
+        The Pipeline Instance retrieve endpoint returns an existing pipeline instance Gateway has
         currently by pipeline name.
       parameters:
         - name: pipelineName
@@ -258,17 +258,17 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: Pipeline instnace not found by given name.
+          description: Pipeline instance not found by given name.
           schema:
             $ref: '#/definitions/Error'
         200:
-          description: Pipeline instnace response.
+          description: Pipeline instance response.
           schema:
             $ref: '#/definitions/PipelineSpec'
     delete:
       summary: Deletes Pipeline Instance
       description: |
-        The Pipeline Instance deletion endpoint deletes an existing pipeline instnace Gateway has
+        The Pipeline Instance deletion endpoint deletes an existing pipeline instance Gateway has
         currently by pipeline name.
       parameters:
         - name: pipelineName
@@ -282,7 +282,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: Pipeline instnace not found by given name.
+          description: Pipeline instance not found by given name.
           schema:
             $ref: '#/definitions/Error'
         200:

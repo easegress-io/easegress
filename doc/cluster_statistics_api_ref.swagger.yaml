@@ -16,7 +16,7 @@ paths:
       description: |
         The Plugin Statistics Indicators retrieve endpoint in the group returns
         the name list of all available statistics indicators plugin instance
-        exposed against the pipleine instance.
+        exposed against the pipeline instance.
       parameters:
         - name: group
           in: path
@@ -50,7 +50,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: The statistics of pipeline instnace not found by given name.
+          description: The statistics of pipeline instance not found by given name.
           schema:
             $ref: '#/definitions/Error'
         408:
@@ -71,7 +71,7 @@ paths:
       description: |
         The Plugin Statistics Indicator Value retrieve endpoint in the gourp returns
         the value of given statistics indicator plugin instance exposed against
-        the pipleine instance.
+        the pipeline instance.
       parameters:
         - name: group
           in: path
@@ -115,7 +115,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: The statistics of pipeline instnace or indicator not found by given name.
+          description: The statistics of pipeline instance or indicator not found by given name.
           schema:
             $ref: '#/definitions/Error'
         408:
@@ -136,7 +136,7 @@ paths:
       description: |
         The Plugin Statistics Indicator Description retrieve endpoint in the group
         returns the description of given statistics indicator plugin instance exposed
-        against the pipleine instance.
+        against the pipeline instance.
       parameters:
         - name: group
           in: path
@@ -180,7 +180,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: The statistics of pipeline instnace or indicator not found by given name.
+          description: The statistics of pipeline instance or indicator not found by given name.
           schema:
             $ref: '#/definitions/Error'
         408:
@@ -229,7 +229,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: The statistics of pipeline instnace not found by given name.
+          description: The statistics of pipeline instance not found by given name.
           schema:
             $ref: '#/definitions/Error'
         408:
@@ -287,7 +287,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: The statistics of pipeline instnace or indicator not found by given name.
+          description: The statistics of pipeline instance or indicator not found by given name.
           schema:
             $ref: '#/definitions/Error'
         408:
@@ -346,7 +346,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: The statistics of pipeline instnace or indicator not found by given name.
+          description: The statistics of pipeline instance or indicator not found by given name.
           schema:
             $ref: '#/definitions/Error'
         408:
@@ -367,7 +367,7 @@ paths:
       description: |
         The Task Statistics Indicators retrieve endpoint in the group returns
         the name list of all available statistics indicators task exposed
-        against the pipleine instance.
+        against the pipeline instance.
       parameters:
         - name: group
           in: path
@@ -396,7 +396,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: The statistics of pipeline instnace not found by given name.
+          description: The statistics of pipeline instance not found by given name.
           schema:
             $ref: '#/definitions/Error'
         408:
@@ -416,7 +416,7 @@ paths:
       summary: Retrieves Task Statistics Indicator Value in a Group
       description: |
         The Task Statistics Indicator Value retrieve endpoint in the group returns
-        the value of given statistics indicator task exposed against the pipleine instance.
+        the value of given statistics indicator task exposed against the pipeline instance.
       parameters:
         - name: group
           in: path
@@ -454,7 +454,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: The statistics of pipeline instnace or indicator not found by given name.
+          description: The statistics of pipeline instance or indicator not found by given name.
           schema:
             $ref: '#/definitions/Error'
         408:
@@ -475,7 +475,7 @@ paths:
       description: |
         The Task Statistics Indicator Description retrieve endpoint in the group
         returns the description of given statistics indicator task exposed against
-        the pipleine instance.
+        the pipeline instance.
       parameters:
         - name: group
           in: path
@@ -513,7 +513,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: The statistics of pipeline instnace or indicator not found by given name.
+          description: The statistics of pipeline instance or indicator not found by given name.
           schema:
             $ref: '#/definitions/Error'
         408:
@@ -549,7 +549,7 @@ definitions:
         type: array
         items:
           type: string
-# Could be one of (not complete list, plugin might expose onw or more own indicator):
+# Could be one of (not complete list, plugin might expose one or more own indicator):
 # - EXECUTION_COUNT_ALL
 # - EXECUTION_COUNT_FAILURE
 # - EXECUTION_COUNT_SUCCESS

@@ -155,7 +155,7 @@ type jsonValidatorConfig struct {
 	schemaObj *gojsonschema.Schema
 }
 
-// JSONValidatorConfigConstructor returns default config of JsonValidator
+// JSONValidatorConfigConstructor returns default config of JSONValidator
 func JSONValidatorConfigConstructor() Config {
 	return &jsonValidatorConfig{
 		Schema:    "",

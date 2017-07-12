@@ -15,7 +15,7 @@ paths:
       summary: Retrieves Plugin Statistics Indicator Names
       description: |
         The Plugin Statistics Indicators retrieve endpoint returns the name list of all available
-        statistics indicators plugin instance exposed against the pipleine instance.
+        statistics indicators plugin instance exposed against the pipeline instance.
       parameters:
         - name: pipelineName
           in: path
@@ -33,7 +33,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: The statistics of pipeline instnace not found by given name.
+          description: The statistics of pipeline instance not found by given name.
           schema:
             $ref: '#/definitions/Error'
         200:
@@ -45,7 +45,7 @@ paths:
       summary: Retrieves Plugin Statistics Indicator Value
       description: |
         The Plugin Statistics Indicator Value retrieve endpoint returns the value of given statistics
-        indicator plugin instance exposed against the pipleine instance.
+        indicator plugin instance exposed against the pipeline instance.
       parameters:
         - name: pipelineName
           in: path
@@ -72,7 +72,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: The statistics of pipeline instnace or indicator not found by given name.
+          description: The statistics of pipeline instance or indicator not found by given name.
           schema:
             $ref: '#/definitions/Error'
         200:
@@ -84,7 +84,7 @@ paths:
       summary: Retrieves Plugin Statistics Indicator Description
       description: |
         The Plugin Statistics Indicator Description retrieve endpoint returns the description
-        of given statistics indicator plugin instance exposed against the pipleine instance.
+        of given statistics indicator plugin instance exposed against the pipeline instance.
       parameters:
         - name: pipelineName
           in: path
@@ -111,7 +111,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: The statistics of pipeline instnace or indicator not found by given name.
+          description: The statistics of pipeline instance or indicator not found by given name.
           schema:
             $ref: '#/definitions/Error'
         200:
@@ -136,7 +136,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: The statistics of pipeline instnace not found by given name.
+          description: The statistics of pipeline instance not found by given name.
           schema:
             $ref: '#/definitions/Error'
         200:
@@ -170,7 +170,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: The statistics of pipeline instnace or indicator not found by given name.
+          description: The statistics of pipeline instance or indicator not found by given name.
           schema:
             $ref: '#/definitions/Error'
         200:
@@ -204,7 +204,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: The statistics of pipeline instnace or indicator not found by given name.
+          description: The statistics of pipeline instance or indicator not found by given name.
           schema:
             $ref: '#/definitions/Error'
         200:
@@ -216,7 +216,7 @@ paths:
       summary: Retrieves Task Statistics Indicator Names
       description: |
         The Task Statistics Indicators retrieve endpoint returns the name list of all available
-        statistics indicators task exposed against the pipleine instance.
+        statistics indicators task exposed against the pipeline instance.
       parameters:
         - name: pipelineName
           in: path
@@ -229,7 +229,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: The statistics of pipeline instnace not found by given name.
+          description: The statistics of pipeline instance not found by given name.
           schema:
             $ref: '#/definitions/Error'
         200:
@@ -241,7 +241,7 @@ paths:
       summary: Retrieves Task Statistics Indicator Value
       description: |
         The Task Statistics Indicator Value retrieve endpoint returns the value of given statistics
-        indicator task exposed against the pipleine instance.
+        indicator task exposed against the pipeline instance.
       parameters:
         - name: pipelineName
           in: path
@@ -263,7 +263,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: The statistics of pipeline instnace or indicator not found by given name.
+          description: The statistics of pipeline instance or indicator not found by given name.
           schema:
             $ref: '#/definitions/Error'
         200:
@@ -275,7 +275,7 @@ paths:
       summary: Retrieves Task Statistics Indicator Description
       description: |
         The Task Statistics Indicator Description retrieve endpoint returns the description
-        of given statistics indicator task exposed against the pipleine instance.
+        of given statistics indicator task exposed against the pipeline instance.
       parameters:
         - name: pipelineName
           in: path
@@ -297,7 +297,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: The statistics of pipeline instnace or indicator not found by given name.
+          description: The statistics of pipeline instance or indicator not found by given name.
           schema:
             $ref: '#/definitions/Error'
         200:
@@ -355,7 +355,7 @@ definitions:
         type: array
         items:
           type: string
-# Could be one of (not complete list, plugin might expose onw or more own indicator):
+# Could be one of (not complete list, plugin might expose one or more own indicator):
 # - EXECUTION_COUNT_ALL
 # - EXECUTION_COUNT_FAILURE
 # - EXECUTION_COUNT_SUCCESS

@@ -7,12 +7,12 @@ There are 18 available plugins totally in Ease Gateway current release.
 
 | Plugin name | Type name | Block-able | Functional | Development status | Link |
 |:--|:--|:--:|:--:|:--:|:--|
-| [Http input](#http-input-plugin) | HttpInput | Yes | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/http_input.go) |
-| [Json validator](#json-validator-plugin) | JSONValidator | No | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/json_validator.go) |
+| [HTTP input](#http-input-plugin) | HTTPInput | Yes | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/http_input.go) |
+| [JSON validator](#json-validator-plugin) | JSONValidator | No | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/json_validator.go) |
 | [Kafka output](#kafka-output-plugin) | KafkaOutput | No | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/kafka_output.go) |
-| [Http output](#http-output-plugin) | HTTPOutput | No | Yes  | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/http_output.go) |
+| [HTTP output](#http-output-plugin) | HTTPOutput | No | Yes  | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/http_output.go) |
 | [IO reader](#io-reader-plugin) | IOReader | Yes | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/io_reader.go) |
-| [Http header counter](#http-header-counter-plugin) | HTTPHeaderCounter | No | No | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/http_header_counter.go) |
+| [HTTP header counter](#http-header-counter-plugin) | HTTPHeaderCounter | No | No | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/http_header_counter.go) |
 | [Throughput rate limiter](#throughput-rate-limiter-plugin) | ThroughputRateLimiter | Yes | No | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/throughput_rate_limiter.go) |
 | [Latency based sliding window limiter](#latency-based-sliding-window-limiter-plugin) | LatencyWindowLimiter | Yes | No | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/latency_window_limiter.go) |
 | [Service circuit breaker](#service-circuit-breaker-plugin) | ServiceCircuitBreaker | No | No | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/service_circuit_breaker.go) |
@@ -24,12 +24,12 @@ There are 18 available plugins totally in Ease Gateway current release.
 | [Downstream input](#downstream-input-plugin) | DownstreamInput | Yes | No | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/downstream_input.go) |
 | [Ease Monitor graphite validator](#ease-monitor-graphite-validator-plugin) | EaseMonitorGraphiteValidator | No | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/easemonitor_graphite_validator.go) |
 | [Ease Monitor graphite GID extractor](#ease-monitor-graphite-gid-extractor-plugin) | EaseMonitorGraphiteGidExtractor | No | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/easemonitor_graphite_gid_extractor.go) |
-| [Ease Monitor Json GID extractor](#ease-monitor-json-gid-extractor-plugin) | EaseMonitorJSONGidExtractor | No | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/easemonitor_json_gid_extractor.go) |
+| [Ease Monitor JSON GID extractor](#ease-monitor-json-gid-extractor-plugin) | EaseMonitorJSONGidExtractor | No | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/easemonitor_json_gid_extractor.go) |
 
 
-## Http Input plugin
+## HTTP Input plugin
 
-Plugin handles HTTP request and retruns client with pipeline procssed response. Currently a HTTPS server will runs on a fixed 10443 port with a certificate and key file pair.
+Plugin handles HTTP request and returns client with pipeline procssed response. Currently a HTTPS server will runs on a fixed 10443 port with a certificate and key file pair.
 
 ### Configuration
 
@@ -72,7 +72,7 @@ Plugin handles HTTP request and retruns client with pipeline procssed response. 
 | WAIT\_QUEUE\_LENGTH | uint64 | The length of wait queue which contains requests wait to be handled by a pipeline. |
 | WIP\_REQUEST\_COUNT | uint64 | The count of request which in the working progress of the pipeline. |
 
-## Json Validator plugin
+## JSON Validator plugin
 
 Plugin validates input data, to check if it's a valid json data with a special schema.
 
@@ -137,7 +137,7 @@ Plugin outputs request data to a kafka service.
 
 No any indicators exposed.
 
-## Http Output plugin
+## HTTP Output plugin
 
 Plugin outputs request data to a HTTP endpoint.
 
@@ -214,9 +214,9 @@ Plugin reads a given I/O object and output the data.
 
 No any indicators exposed.
 
-## Http Header Counter plugin
+## HTTP Header Counter plugin
 
-Plugin calculates request count in a recent preidor which has a special header name. This behavior likes count session amount.
+Plugin calculates request count in a recent period which has a special header name. This behavior likes count session amount.
 
 ### Configuration
 
@@ -224,7 +224,7 @@ Plugin calculates request count in a recent preidor which has a special header n
 |:--|:--|:--|:--:|:--:|:--|
 | plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
 | header\_concerned | string | The header name plugin calculates. | Functionality | No | N/A |
-| expiration\_sec | uint32 | The recent preidor in second. | Functionality | No | N/A |
+| expiration\_sec | uint32 | The recent period in second. | Functionality | No | N/A |
 
 ### I/O
 
@@ -251,7 +251,7 @@ Plugin limits request rate based on current throughput.
 | Parameter name | Data type (golang) | Description | Type | Optional | Default value (golang) |
 |:--|:--|:--|:--:|:--:|:--|
 | plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
-| tps | The maximal requests per second. Value -1 means no limition. Value zero here means there is no request could be processed.| Functionality | No | N/A |
+| tps | The maximal requests per second. Value -1 means no limitation. Value zero here means there is no request could be processed.| Functionality | No | N/A |
 
 ### I/O
 
@@ -271,7 +271,7 @@ No any indicators exposed.
 
 ## Latency Based Sliding Window Limiter plugin
 
-Plugin limits request rate based on current latency based sliding winidow.
+Plugin limits request rate based on current latency based sliding window.
 
 ### Configuration
 
@@ -311,7 +311,7 @@ Plugin limits request rate base on the failure rate of one or more plugins.
 | plugins\_concerned | []string | Plugins their processing failure will be considered to control circuit breaker status. | Functionality | No | N/A |
 | all\_tps\_threshold\_to\_enable | float64 | As the condition, it indicates how many requests per second will cause circuit breaker to be enabled. Value zero means to enable circuit breaker immediately when a request arrived. | Functionality | Yes | 1 |
 | failure\_tps\_threshold\_to\_break | float64 | As the condition, it indicates how many failure requests per second will cause circuit breaker to be turned on. It means fully close request flow. Value zero here means breaker will keep open or half-open status. | Functionality | Yes | 1 |
-| failure\_tps\_percent\_threshold\_to\_break | float32 | As the condition, it indicates what percent of failure requests per second will cause circuit breaker to be turned on. It means fully close request flow. Value zero here means breaker will keep open or half-open status. The option can be leveraged only when `failure_tps_threshold_to_break` contiditon does not satisfy. | Functionality | No | N/A |
+| failure\_tps\_percent\_threshold\_to\_break | float32 | As the condition, it indicates what percent of failure requests per second will cause circuit breaker to be turned on. It means fully close request flow. Value zero here means breaker will keep open or half-open status. The option can be leveraged only when `failure_tps_threshold_to_break` condition does not satisfy. | Functionality | No | N/A |
 | recovery\_time\_msec | uint32 | As the condition, it indicates how long delay in milliseconds will cause circuit breaker to be turned to half-open status, the status is used to try service availability. In general, it equals to MTTR. | Functionality | Yes | 1000 |
 | success\_tps\_threshold\_to\_open | float64 | As the condition, it indicates how many success requests per second will cause circuit breaker to be turned off. It means fully open request flow. Value zero here means to fully open request flow immediately after recovery time elapsed. | Functionality | Yes | 1 |
 
@@ -576,7 +576,7 @@ Plugin extracts Ease Monitor global ID from Ease Monitor graphite data.
 
 No any indicators exposed.
 
-## Ease Monitor Json GID extractor plugin
+## Ease Monitor JSON GID extractor plugin
 
 Plugin extracts Ease Monitor global ID from Ease Monitor json data.
 

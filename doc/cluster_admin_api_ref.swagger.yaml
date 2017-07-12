@@ -205,7 +205,7 @@ paths:
       summary: Retrieves Plugin Instance in a Group
       description: |
         The Plugin Instances retrieve endpoint in the group returns all existing
-        plugin instnaces the group has currently.
+        plugin instances the group has currently.
       parameters:
         - name: group
           in: path
@@ -279,7 +279,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: Plugin instnace not found by given name in the group.
+          description: Plugin instance not found by given name in the group.
           schema:
             $ref: '#/definitions/Error'
         408:
@@ -304,7 +304,7 @@ paths:
       summary: Retrieves Plugin Instance in a Group
       description: |
         The Plugin Instance retrieve endpoint in the group returns an existing
-        plugin instnace the group has currently by plugin name.
+        plugin instance the group has currently by plugin name.
       parameters:
         - name: group
           in: path
@@ -336,7 +336,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: Plugin instnace not found by given name.
+          description: Plugin instance not found by given name.
           schema:
             $ref: '#/definitions/Error'
         408:
@@ -359,7 +359,7 @@ paths:
       summary: Deletes Plugin Instance in a Group
       description: |
         The Plugin Instance deletion endpoint in the group deletes an existing
-        plugin instnace the group has currently by plugin name.
+        plugin instance the group has currently by plugin name.
       parameters:
         - name: group
           in: path
@@ -391,12 +391,12 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: Plugin instnace not found by given name.
+          description: Plugin instance not found by given name.
           schema:
             $ref: '#/definitions/Error'
         406:
           description: |
-            Plugin instnace could not be deleted by given name since it is used by
+            Plugin instance could not be deleted by given name since it is used by
             one or more pipelines.
           schema:
             $ref: '#/definitions/Error'
@@ -467,7 +467,7 @@ paths:
       summary: Retrieves Pipeline Instances in a Group
       description: |
         The Pipeline Instances retrieve endpoint in the group returns all existing
-        pipeline instnaces the group has currently.
+        pipeline instances the group has currently.
       parameters:
         - name: group
           in: path
@@ -542,7 +542,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: Pipeline instnace not found by given name in the group.
+          description: Pipeline instance not found by given name in the group.
           schema:
             $ref: '#/definitions/Error'
         408:
@@ -567,7 +567,7 @@ paths:
       summary: Retrieves Pipeline Instance in a Group
       description: |
         The Pipeline Instance retrieve endpoint in the group returns an existing
-        pipeline instnaces the group has currently by pipeline name.
+        pipeline instances the group has currently by pipeline name.
       parameters:
         - name: group
           in: path
@@ -599,7 +599,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: Pipeline instnace not found by given name.
+          description: Pipeline instance not found by given name.
           schema:
             $ref: '#/definitions/Error'
         408:
@@ -622,7 +622,7 @@ paths:
       summary: Deletes Pipeline Instance in a Group
       description: |
         The Pipeline Instance deletion endpoint in the group deletes an existing
-        pipeline instnace the group has currently by pipeline name.
+        pipeline instance the group has currently by pipeline name.
       parameters:
         - name: group
           in: path
@@ -654,7 +654,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: Pipeline instnace not found by given name.
+          description: Pipeline instance not found by given name.
           schema:
             $ref: '#/definitions/Error'
         408:
