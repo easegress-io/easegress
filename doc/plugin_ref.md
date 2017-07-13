@@ -37,11 +37,11 @@ Plugin handles HTTP request and returns client with pipeline procssed response. 
 |:--|:--|:--|:--:|:--:|:--|
 | plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
 | url | string | The request HTTP url plugin will proceed. | Functionality | No | N/A |
-| method | string | The request HTTP method plugin will proceed. | Functionality | Yes | "GET" |
+| methods | []string | The request HTTP methods plugin will proceed. | Functionality | Yes | {"GET"} |
 | headers\_enum | map[string][]string | The request HTTP headers plugin will proceed. | Functionality | Yes | nil |
 | unzip | bool | The flag represents if the plugin decompresses the request body when request content is encoded in GZIP. | Functionality | Yes | true |
 | respond\_error | bool | The flag represents if the plugin respond error information to client if pipeline handles the request unsuccessfully. The option will be used only when `response_body_io_key` and `response_body_io_key` options are empty. | Functionality | Yes | false |
-| fast_close | bool | The flag represents if the plugin does not wait any response which is processing before close, e.g. ignore data transmission on a slow connection. | Functionality | Yes | false | 
+| fast_close | bool | The flag represents if the plugin does not wait any response which is processing before close, e.g. ignore data transmission on a slow connection. | Functionality | Yes | false |
 | request\_header\_names\_key | string | The name of HTTP request header name list stored in internal storage as the plugin output. | I/O | Yes | "" |
 | request\_body\_io\_key | string | The key name of HTTP request body io object stored in internal storage as the plugin output. | I/O | Yes | "" |
 | response\_code\_key | string | The key name of HTTP response status code value stored in internal storage as the plugin input. An empty value of the option means returning pipeline handling result code to client. | I/O | Yes | "" |
@@ -154,7 +154,7 @@ Plugin outputs request data to a HTTP endpoint.
 | key\_file | string | The key file HTTPS output used. | Functionality | Yes | "" |
 | ca\_file | string | The root certificate HTTPS output used. | Functionality | Yes | "" |
 | insecure\_tls | bool | The flag represents if the plugin does not check server certificate. | Functionality | Yes | false |
-| close\_body\_after\_pipeline | bool | The flag represents if to close the http body IO object after task finished the pipeline. | Functionality | Yes | true |  
+| close\_body\_after\_pipeline | bool | The flag represents if to close the http body IO object after task finished the pipeline. | Functionality | Yes | true |
 | request\_body\_buffer\_pattern | string | The HTTP output body buffer pattern. The option will be leveraged only when `request_body_io_key` option is empty. | Functionality | Yes | "" |
 | request\_body\_io\_key | string | The HTTP output body io object. | I/O | Yes | "" |
 | response\_code\_key | string | The key name of HTTP response status code value stored in internal storage as the plugin output. An empty value of the option means the plugin does not output HTTP response status code. | I/O | Yes | "" |
