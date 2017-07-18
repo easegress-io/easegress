@@ -161,17 +161,15 @@ func HTTPOutputConstructor(conf plugins.Config) (plugins.Plugin, error) {
 		},
 	}
 
-	if c.cert != nil || c.caCert != nil {
-		if c.cert != nil {
-			tlsConfig.Certificates = []tls.Certificate{*c.cert}
-			tlsConfig.BuildNameToCertificate()
-		}
+	if c.cert != nil {
+		tlsConfig.Certificates = []tls.Certificate{*c.cert}
+		tlsConfig.BuildNameToCertificate()
+	}
 
-		if c.caCert != nil {
-			caCertPool := x509.NewCertPool()
-			caCertPool.AppendCertsFromPEM(c.caCert)
-			tlsConfig.RootCAs = caCertPool
-		}
+	if c.caCert != nil {
+		caCertPool := x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM(c.caCert)
+		tlsConfig.RootCAs = caCertPool
 	}
 
 	return h, nil
@@ -182,8 +180,8 @@ func (h *httpOutput) Prepare(ctx pipelines.PipelineContext) {
 }
 
 func (h *httpOutput) send(t task.Task, req *http.Request) (*http.Response, error) {
-	r := make(chan *http.Response, 1)
-	e := make(chan error, 1)
+	r := make(chan *http.Response)
+	e := make(chan error)
 
 	defer close(r)
 	defer close(e)
@@ -237,8 +235,13 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task,
 		lenValue := t.Value("HTTP_CONTENT_LENGTH")
 		clen, ok := lenValue.(string)
 		if ok {
-			length, _ = strconv.ParseInt(clen, 10, 64)
-			reader = io.LimitReader(input, length)
+			var err error
+			length, err = strconv.ParseInt(clen, 10, 64)
+			if err == nil && length >= 0 {
+				reader = io.LimitReader(input, length)
+			} else {
+				reader = input
+			}
 		} else {
 			// Request.ContentLength of 0 means either actually 0 or unknown
 			reader = input
@@ -256,19 +259,13 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task,
 	}
 	req.ContentLength = length
 
-	var headerNames, headerValues []string
 	i := 0
 	for name, value := range h.conf.HeaderPatterns {
-		headerNames = append(headerNames, replacePatternWithTaskValue(t, name, h.conf.headerNameTokens[i]))
-		headerValues = append(headerValues, replacePatternWithTaskValue(t, value, h.conf.headerValueTokens[i]))
+		name1 := replacePatternWithTaskValue(t, name, h.conf.headerNameTokens[i])
+		value1 := replacePatternWithTaskValue(t, value, h.conf.headerValueTokens[i])
+		req.Header.Set(name1, value1)
 		i++
 	}
-
-	for i > 0 {
-		i--
-		req.Header.Set(headerNames[i], headerValues[i])
-	}
-
 	req.Header.Set("User-Agent", "EaseGateway")
 
 	resp, err := h.send(t, req)
