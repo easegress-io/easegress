@@ -110,21 +110,15 @@ func (l *latencyWindowLimiter) Run(ctx pipelines.PipelineContext, t task.Task) (
 		getTaskFinishedCallbackInLatencyWindowLimiter(ctx, l.conf.WindowSizeInit, l.Name(), l.instanceId))
 
 	for {
-		lock, err := getLatencyWindowLimiterWindowLock(ctx, l.Name(), l.instanceId)
-		if err != nil {
-			return t, nil
-		}
-
-		lock.Lock()
-
 		window, err := getLatencyWindowLimiterWindow(ctx, l.conf.WindowSizeInit, l.Name(), l.instanceId)
 		if err != nil {
-			lock.Unlock()
 			return t, nil
 		}
 
-		if window < 1 {
-			lock.Unlock()
+		window.Lock()
+
+		if window.size < 1 {
+			window.Unlock()
 			if l.conf.BackOffMSec < 1 {
 				// service fusing
 				t.SetError(fmt.Errorf("service is unavaialbe caused by sliding window limit"),
@@ -143,14 +137,13 @@ func (l *latencyWindowLimiter) Run(ctx pipelines.PipelineContext, t task.Task) (
 			continue
 		}
 
-		if window > l.conf.WindowSizeMax {
-			window = l.conf.WindowSizeMax
+		if window.size > l.conf.WindowSizeMax {
+			window.size = l.conf.WindowSizeMax
 		}
 
-		window--
+		window.size--
+		window.Unlock()
 
-		setLatencyWindowLimiterWindow(ctx, window, l.Name(), l.instanceId)
-		lock.Unlock()
 		break
 	}
 
@@ -201,85 +194,57 @@ func (l *latencyWindowLimiter) getPluginExecutionSampleUpdatedCallback(
 			return
 		}
 
-		lock, err := getLatencyWindowLimiterWindowLock(ctx, l.Name(), l.instanceId)
-		if err != nil {
-			return
-		}
-
-		lock.Lock()
-		defer lock.Unlock()
-
 		window, err := getLatencyWindowLimiterWindow(ctx, l.conf.WindowSizeInit, l.Name(), l.instanceId)
 		if err != nil {
 			return
 		}
+		window.Lock()
+		defer window.Unlock()
 
-		if window > l.conf.WindowSizeMax {
-			window = l.conf.WindowSizeMax
+		if window.size > l.conf.WindowSizeMax {
+			window.size = l.conf.WindowSizeMax
 		}
 
 		if latency < float64(time.Duration(l.conf.LatencyThresholdMSec)*time.Millisecond) {
-			if window < l.conf.WindowSizeMax {
-				window++
+			if window.size < l.conf.WindowSizeMax {
+				window.size++
 			}
 		} else {
-			if window > 0 {
-				window--
+			if window.size > 0 {
+				window.size--
 			}
 		}
-
-		setLatencyWindowLimiterWindow(ctx, window, l.Name(), l.instanceId)
 	}
 }
 
 ////
 
 const (
-	latencyWindowLimiterSlidingWindowKey     = "latencyWindowLimiterSlidingWindowKey"
-	latencyWindowLimiterSlidingWindowLockKey = "latencyWindowLimiterSlidingWindowLockKey"
+	latencyWindowLimiterSlidingWindowKey = "latencyWindowLimiterSlidingWindowKey"
 )
 
+type latencyWindowLimiterWindow struct {
+	sync.Mutex
+	size uint64
+}
+
 func getLatencyWindowLimiterWindow(ctx pipelines.PipelineContext, windowSizeInit uint64,
-	pluginName, pluginInstanceId string) (uint64, error) {
+	pluginName, pluginInstanceId string) (*latencyWindowLimiterWindow, error) {
 
 	bucket := ctx.DataBucket(pluginName, pluginInstanceId)
 	window, err := bucket.QueryDataWithBindDefault(latencyWindowLimiterSlidingWindowKey,
-		func() interface{} { return windowSizeInit })
+		func() interface{} {
+			return &latencyWindowLimiterWindow{
+				size: windowSizeInit,
+			}
+		})
 	if err != nil {
 		logger.Warnf("[BUG: query sliding window for pipeline %s failed, "+
-			"ignored to adjust sliding window: %v]", ctx.PipelineName(), err)
-		return 0, err
-	}
-
-	return window.(uint64), nil
-}
-
-func setLatencyWindowLimiterWindow(ctx pipelines.PipelineContext, window uint64,
-	pluginName, pluginInstanceId string) error {
-
-	bucket := ctx.DataBucket(pluginName, pluginInstanceId)
-	_, err := bucket.BindData(latencyWindowLimiterSlidingWindowKey, window)
-	if err != nil {
-		logger.Errorf("[BUG: save sliding window for pipeline %s failed, ignored but it is critical: %v]",
-			ctx.PipelineName(), err)
-	}
-
-	return nil
-}
-
-func getLatencyWindowLimiterWindowLock(ctx pipelines.PipelineContext,
-	pluginName, pluginInstanceId string) (*sync.Mutex, error) {
-
-	bucket := ctx.DataBucket(pluginName, pluginInstanceId)
-	lock, err := bucket.QueryDataWithBindDefault(latencyWindowLimiterSlidingWindowLockKey,
-		func() interface{} { return &sync.Mutex{} })
-	if err != nil {
-		logger.Warnf("[BUG: query sliding window lock for pipeline %s failed, "+
 			"ignored to adjust sliding window: %v]", ctx.PipelineName(), err)
 		return nil, err
 	}
 
-	return lock.(*sync.Mutex), nil
+	return window.(*latencyWindowLimiterWindow), nil
 }
 
 func getTaskFinishedCallbackInLatencyWindowLimiter(ctx pipelines.PipelineContext, windowSizeInit uint64,
@@ -292,23 +257,15 @@ func getTaskFinishedCallbackInLatencyWindowLimiter(ctx pipelines.PipelineContext
 			return // only successful plugin execution can effect window
 		}
 
-		lock, err := getLatencyWindowLimiterWindowLock(ctx, pluginName, pluginInstanceId)
-		if err != nil {
-			return
-		}
-
-		lock.Lock()
-		defer lock.Unlock()
-
 		window, err := getLatencyWindowLimiterWindow(ctx, windowSizeInit, pluginName, pluginInstanceId)
 		if err != nil {
 			return
 		}
+		window.Lock()
+		defer window.Unlock()
 
 		// Do not check maximal window size as limitation at the moment due to the
 		// configuration could be updated after this callback was registered on the task.
-		window++
-
-		setLatencyWindowLimiterWindow(ctx, window, pluginName, pluginInstanceId)
+		window.size++
 	}
 }
