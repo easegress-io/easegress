@@ -187,7 +187,7 @@ func (h *httpOutput) send(t task.Task, req *http.Request) (*http.Response, error
 	defer close(e)
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
-	req.WithContext(cancelCtx)
+	req = req.WithContext(cancelCtx)
 
 	go func() {
 		defer func() {
