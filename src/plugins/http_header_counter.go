@@ -75,11 +75,11 @@ func (c *httpHeaderCounter) Prepare(ctx pipelines.PipelineContext) {
 		fmt.Sprintf("The count of http requests that the header of each one "+
 			"contains a key '%s' in last %d second(s).", c.conf.HeaderConcerned, c.conf.ExpirationSec),
 		func(pluginName, indicatorName string) (interface{}, error) {
-			count, err := getRecentHeaderCount(ctx, pluginName)
+			state, err := getHTTPHeaderCounterState(ctx, pluginName, c.instanceId)
 			if err != nil {
 				return nil, err
 			}
-			return *count, nil
+			return state.count, nil
 		},
 	)
 	if err != nil {
@@ -112,30 +112,22 @@ func (c *httpHeaderCounter) count(ctx pipelines.PipelineContext, t task.Task) (e
 
 	timer, exists := state.timers[value]
 	if !exists {
-		count, err := getRecentHeaderCount(ctx, c.Name())
-		if err != nil {
-			return nil, t.ResultCode(), t
-		}
-
-		atomic.AddUint64(count, 1)
+		atomic.AddUint64(&state.count, 1)
 
 		state.timers[value] = time.AfterFunc(time.Duration(c.conf.ExpirationSec)*time.Second, func() {
-			count1, err := getRecentHeaderCount(ctx, c.Name())
+			state, err := getHTTPHeaderCounterState(ctx, c.Name(), c.instanceId)
 			if err != nil {
 				return
 			}
 
-			for !atomic.CompareAndSwapUint64(count1, *count1, *count1-1) {
+			// substitute for illegal atomic.AddUint64(&state.count, -1)
+			// whose second parameter is negative.
+			for !atomic.CompareAndSwapUint64(&state.count, state.count, state.count-1) {
 			}
 
-			state1, err := getHTTPHeaderCounterState(ctx, c.Name(), c.instanceId)
-			if err != nil {
-				return
-			}
-
-			state1.Lock()
-			delete(state1.timers, value)
-			state1.Unlock()
+			state.Lock()
+			delete(state.timers, value)
+			state.Unlock()
 		})
 	} else {
 		timer.Reset(time.Duration(c.conf.ExpirationSec) * time.Second)
@@ -163,29 +155,15 @@ func (c *httpHeaderCounter) Close() {
 ////
 
 const (
-	httpHeaderCounterRecentCountKey = "httpHeaderCountKey"
-	httpHeaderCounterStateKey       = "httpHeaderCounterStateKey"
+	httpHeaderCounterStateKey = "httpHeaderCounterStateKey"
 )
 
 type httpHeaderCounterTimerState struct {
+	// count caches len(timers) and needs not be protected by sync.Mutex.
+	count uint64
+
 	sync.Mutex
 	timers map[string]*time.Timer
-}
-
-func getRecentHeaderCount(ctx pipelines.PipelineContext, pluginName string) (*uint64, error) {
-	bucket := ctx.DataBucket(pluginName, pipelines.DATA_BUCKET_FOR_ALL_PLUGIN_INSTANCE)
-	count, err := bucket.QueryDataWithBindDefault(httpHeaderCounterRecentCountKey,
-		func() interface{} {
-			var recentHeaderCount uint64
-			return &recentHeaderCount
-		})
-	if err != nil {
-		logger.Warnf("[BUG: query state data for pipeline %s failed, "+
-			"ignored to count header: %v]", ctx.PipelineName(), err)
-		return nil, err
-	}
-
-	return count.(*uint64), nil
 }
 
 func getHTTPHeaderCounterState(ctx pipelines.PipelineContext, pluginName, instanceId string) (
