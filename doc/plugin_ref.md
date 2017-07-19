@@ -389,9 +389,10 @@ Plugin caches a data and uses it to serve follow requests directly.
 | Parameter name | Data type (golang) | Description | Type | Optional | Default value (golang) |
 |:--|:--|:--|:--:|:--:|:--|
 | plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
-| hit\_keys | []string | All the data with every keys will be considered to check if request hits the cache or missing | Functionality  | No | N/A|
+| hit\_keys | []string | All the data with every key will be considered to check if the request hits or misses the cache. | Functionality  | No | N/A|
 | ttl\_sec | uint32 | Time to live of cache data in second. | Functionality | Yes | 600 (10 mins) |
-| cache\_key | string | The data with the key will be cached in internal storage as the plugin input (caching) and output (reusing) | I/O | No | N/A |
+| cache\_key | string | The data with the key will be cached in internal storage as the plugin input (caching) and output (reusing). | I/O | No | N/A |
+| finish\_if\_hit | bool | The flag represents if the pipeline is finished after hitting cache data | Functionality | Yes | true |
 
 ### I/O
 
