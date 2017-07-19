@@ -223,6 +223,7 @@ type circuitBreakerStateData struct {
 	openAt, halfOpenAt time.Time
 }
 
+// FIXME: squeeze arguments
 func getServiceCircuitBreakerStateData(ctx pipelines.PipelineContext, pluginsConcerned []string,
 	tpsToEnablement, tpsToBreak float64, tpsPercentToBreak float32, tpsToOpen float64,
 	pluginName, pluginInstanceId string) (*circuitBreakerStateData, error) {
@@ -281,6 +282,7 @@ func getTPS(ctx pipelines.PipelineContext, pluginsConcerned []string,
 	return ret
 }
 
+// FIXME: squeeze arguments
 func nextStatus(ctx pipelines.PipelineContext, pluginsConcerned []string, currentStatus circuitBreakerStatus,
 	halfOpenAt time.Time, tpsToEnablement, tpsToBreak float64, tpsPercentToBreak float32,
 	tpsToOpen float64) circuitBreakerStatus {
