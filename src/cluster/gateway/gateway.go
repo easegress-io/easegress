@@ -87,7 +87,7 @@ func NewGatewayCluster(conf Config, mod *model.Model) (*GatewayCluster, error) {
 	basisConf.AdvertiseAddress = option.Host
 
 	if common.StrInSlice(basisConf.AdvertiseAddress, []string{"127.0.0.1", "localhost", "0.0.0.0"}) {
-		return nil, fmt.Errorf("invalid advertise address %s, it should be reachable from the peer",
+		return nil, fmt.Errorf("invalid advertise address %s, it should be reachable from peer",
 			basisConf.AdvertiseAddress)
 	}
 

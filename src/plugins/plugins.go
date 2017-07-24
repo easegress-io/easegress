@@ -70,6 +70,8 @@ var (
 			UpstreamOutputConstructor, UpstreamOutputConfigConstructor},
 		"DownstreamInput": {
 			DownstreamInputConstructor, DownstreamInputConfigConstructor},
+		"Python": {
+			PythonConstructor, PythonConfigConstructor},
 
 		// Ease Monitor product dedicated plugins
 		"EaseMonitorProtoAdaptor": {
