@@ -19,14 +19,18 @@ import (
 type pythonConfig struct {
 	CommonConfig
 	Code       string `json:"code"`
+	Version    string `json:"version"`
 	InputKey   string `json:"input_key"`
 	OutputKey  string `json:"output_key"`
 	TimeoutSec uint16 `json:"timeout_sec"` // up to 65535, zero means no timeout
+
+	cmd string
 }
 
 func PythonConfigConstructor() plugins.Config {
 	return &pythonConfig{
 		TimeoutSec: 10,
+		Version:    "2",
 	}
 }
 
@@ -38,6 +42,18 @@ func (c *pythonConfig) Prepare(pipelineNames []string) error {
 
 	if len(c.Code) == 0 {
 		return fmt.Errorf("invalid python code")
+	}
+
+	// NOTICE: Perhaps support minor version such as 2.7, 3.6, etc in future.
+	if c.Version != "2" || c.Version != "3" {
+		return fmt.Errorf("invalid python version")
+	}
+
+	switch c.Version {
+	case "2":
+		c.cmd = "python2"
+	case "3":
+		c.cmd = "python3"
 	}
 
 	cmd := exec.Command("python", "-c", "")
@@ -76,7 +92,7 @@ func (p *python) Prepare(ctx pipelines.PipelineContext) {
 }
 
 func (p *python) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
-	cmd := exec.Command("python", "-c", p.conf.Code)
+	cmd := exec.Command(p.conf.cmd, "-c", p.conf.Code)
 	cmd.SysProcAttr = common.SysProcAttr()
 
 	if len(p.conf.InputKey) != 0 {
