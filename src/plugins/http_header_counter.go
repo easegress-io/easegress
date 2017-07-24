@@ -75,7 +75,7 @@ func (c *httpHeaderCounter) Prepare(ctx pipelines.PipelineContext) {
 		fmt.Sprintf("The count of http requests that the header of each one "+
 			"contains a key '%s' in last %d second(s).", c.conf.HeaderConcerned, c.conf.ExpirationSec),
 		func(pluginName, indicatorName string) (interface{}, error) {
-			state, err := getHTTPHeaderCounterState(ctx, pluginName, c.instanceId)
+			state, err := getHTTPHeaderCounterState(ctx, pluginName)
 			if err != nil {
 				return nil, err
 			}
@@ -102,7 +102,7 @@ func (c *httpHeaderCounter) count(ctx pipelines.PipelineContext, t task.Task) (e
 			task.ResultMissingInput, t
 	}
 
-	state, err := getHTTPHeaderCounterState(ctx, c.Name(), c.instanceId)
+	state, err := getHTTPHeaderCounterState(ctx, c.Name())
 	if err != nil {
 		return nil, t.ResultCode(), t
 	}
@@ -115,7 +115,7 @@ func (c *httpHeaderCounter) count(ctx pipelines.PipelineContext, t task.Task) (e
 		atomic.AddUint64(&state.count, 1)
 
 		state.timers[value] = time.AfterFunc(time.Duration(c.conf.ExpirationSec)*time.Second, func() {
-			state, err := getHTTPHeaderCounterState(ctx, c.Name(), c.instanceId)
+			state, err := getHTTPHeaderCounterState(ctx, c.Name())
 			if err != nil {
 				return
 			}
@@ -166,10 +166,10 @@ type httpHeaderCounterTimerState struct {
 	timers map[string]*time.Timer
 }
 
-func getHTTPHeaderCounterState(ctx pipelines.PipelineContext, pluginName, instanceId string) (
+func getHTTPHeaderCounterState(ctx pipelines.PipelineContext, pluginName string) (
 	*httpHeaderCounterTimerState, error) {
 
-	bucket := ctx.DataBucket(pluginName, instanceId)
+	bucket := ctx.DataBucket(pluginName, pipelines.DATA_BUCKET_FOR_ALL_PLUGIN_INSTANCE)
 	state, err := bucket.QueryDataWithBindDefault(httpHeaderCounterStateKey,
 		func() interface{} {
 			return &httpHeaderCounterTimerState{
