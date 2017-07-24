@@ -140,6 +140,7 @@ func filterSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Tas
 
 		if matched {
 			selectedIdx = idx
+			break
 		}
 	}
 
