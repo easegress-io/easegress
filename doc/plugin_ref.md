@@ -20,6 +20,7 @@ There are 18 available plugins totally in Ease Gateway current release.
 | [No more failure limiter](#no-more-failure-limiter-plugin) | NoMoreFailureLimiter | No | No | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/no_more_failure_limiter.go) |
 | [Simple common cache](#simple-common-cache-plugin) | SimpleCommonCache | No | No | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/simple_common_cache.go) |
 | [Simple common mock](#simple-common-mock-plugin) | SimpleCommonMock | No | No | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/simple_common_mock.go) |
+| [Python](#python-plugin) | Python | Yes | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/python.go) |
 | [Upstream output](#upstream-output-plugin) | UpstreamOutput | Yes | No | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/upstream_output.go) |
 | [Downstream input](#downstream-input-plugin) | DownstreamInput | Yes | No | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/downstream_input.go) |
 | [Ease Monitor graphite validator](#ease-monitor-graphite-validator-plugin) | EaseMonitorGraphiteValidator | No | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/easemonitor_graphite_validator.go) |
@@ -412,7 +413,7 @@ No any indicators exposed.
 
 ## Simple Common Mock plugin
 
-Plugin mock a data for a failure request.
+Plugin mocks a data for a failure request.
 
 ### Configuration
 
@@ -445,6 +446,42 @@ Available task error result code:
 ### Error
 
 No any errors returned.
+
+### Dedicated statistics indicator
+
+No any indicators exposed.
+
+## Python
+
+Plugin executes python code.
+
+### Configuration
+
+| Parameter name | Data type (golang) | Description | Type | Optional | Default value (golang) |
+|:--|:--|:--|:--:|:--:|:--|
+| plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
+| code | string | The python code to be executed. | Functionality | No | N/A |
+| version | string | The version of python interpreter. | Functionality | Yes | 2 |
+| timeout_sec | uint16 | The wait timeout python code execution limited in second. | Functionality | Yes | 10 |
+| input\_key | string | The key name of standard input data for python code stored in internal storage as the plugin input. | I/O | Yes | "" |
+| output\_key | string | The key name of standard output data for python code stored in internal storage as the plugin output. | I/O | Yes | "" |
+
+### I/O
+
+| Data name | Configuration option name | Type | Data Type | Optional |
+|:--|:--|:--:|:--|:--:|
+| Standard input data | input\_key | Input | []byte | Yes |
+| Standard output data | output\_key | Output | []byte | Yes |
+
+### Error
+
+| Result code | Error reason |
+|:--|:--|
+| ResultServiceUnavailable | failed to get standard input |
+| ResultServiceUnavailable | failed to launch python interpreter |
+| ResultServiceUnavailable | failed to execute python code |
+| ResultInternalServerError | failed to load/read data |
+| ResultTaskCancelled | task is cancelled |
 
 ### Dedicated statistics indicator
 
