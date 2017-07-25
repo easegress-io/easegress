@@ -56,9 +56,10 @@ func (c *pythonConfig) Prepare(pipelineNames []string) error {
 		c.cmd = "python3"
 	}
 
-	cmd := exec.Command("python", "-c", "")
+	cmd := exec.Command(c.cmd, "-c", "")
 	if cmd.Run() != nil {
-		logger.Warnf("[python interpreter is not ready, python plugin will runs unsucessfullly!]")
+		logger.Warnf("[python interpreter (version=%s) is not ready, python plugin will runs unsucessfullly!]",
+			c.Version)
 	}
 
 	if c.TimeoutSec == 0 {
