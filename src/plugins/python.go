@@ -45,15 +45,13 @@ func (c *pythonConfig) Prepare(pipelineNames []string) error {
 	}
 
 	// NOTICE: Perhaps support minor version such as 2.7, 3.6, etc in future.
-	if c.Version != "2" || c.Version != "3" {
-		return fmt.Errorf("invalid python version")
-	}
-
 	switch c.Version {
 	case "2":
 		c.cmd = "python2"
 	case "3":
 		c.cmd = "python3"
+	default:
+		return fmt.Errorf("invalid python version")
 	}
 
 	cmd := exec.Command(c.cmd, "-c", "")
