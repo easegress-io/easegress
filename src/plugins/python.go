@@ -20,7 +20,7 @@ import (
 type pythonConfig struct {
 	CommonConfig
 	Code       string `json:"code"`
-	CodeBase64 bool   `json:"code_base64"`
+	Base64     bool   `json:"base64_encoded"`
 	Version    string `json:"version"`
 	InputKey   string `json:"input_key"`
 	OutputKey  string `json:"output_key"`
@@ -47,18 +47,15 @@ func (c *pythonConfig) Prepare(pipelineNames []string) error {
 		return fmt.Errorf("invalid python code")
 	}
 
-	if c.CodeBase64 {
+	if c.Base64 {
 		ec, err := base64.StdEncoding.DecodeString(c.Code)
 		if err != nil {
-			return fmt.Errorf("decode base64 code failed: %v", err)
+			return fmt.Errorf("invalid base64 encoded python code", err)
 		}
 		c.executableCode = string(ec)
 	} else {
 		c.executableCode = c.Code
 	}
-
-	fmt.Println("executableCode:")
-	fmt.Printf(c.executableCode)
 
 	// NOTICE: Perhaps support minor version such as 2.7, 3.6, etc in future.
 	switch c.Version {
