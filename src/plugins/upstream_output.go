@@ -16,6 +16,7 @@ import (
 
 	"common"
 	"logger"
+	"option"
 )
 
 type routeSelector func(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) string
@@ -116,7 +117,7 @@ func hashSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task)
 			continue
 		}
 
-		h.Write([]byte(task.ToString(v)))
+		h.Write([]byte(task.ToString(v, option.PluginIODataFormatLengthLimit)))
 	}
 
 	return u.conf.TargetPipelineNames[h.Sum32()%uint32(len(u.conf.TargetPipelineNames))]
@@ -132,7 +133,7 @@ func filterSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Tas
 			r := u.conf.filterRegexMapList[idx][key]
 			v := t.Value(key)
 
-			if v == nil || !r.MatchString(task.ToString(v)) {
+			if v == nil || !r.MatchString(task.ToString(v, option.PluginIODataFormatLengthLimit)) {
 				matched = false
 				break
 			}

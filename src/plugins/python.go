@@ -15,6 +15,7 @@ import (
 
 	"common"
 	"logger"
+	"option"
 )
 
 type pythonConfig struct {
@@ -118,7 +119,7 @@ func (p *python) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, err
 
 		go func() {
 			defer in.Close()
-			io.WriteString(in, task.ToString(t.Value(p.conf.InputKey)))
+			io.WriteString(in, task.ToString(t.Value(p.conf.InputKey), option.PluginIODataFormatLengthLimit))
 		}()
 	}
 

@@ -12,6 +12,7 @@ import (
 	"github.com/hexdecteam/easegateway-types/task"
 
 	"logger"
+	"option"
 )
 
 type simpleCommonCacheConfig struct {
@@ -101,7 +102,7 @@ func (c *simpleCommonCache) cacheKey(t task.Task) uint32 {
 		}
 
 		h.Write([]byte(key))
-		h.Write([]byte(task.ToString(v)))
+		h.Write([]byte(task.ToString(v, option.PluginIODataFormatLengthLimit)))
 	}
 
 	return h.Sum32()
