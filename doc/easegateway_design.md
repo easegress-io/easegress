@@ -2,23 +2,24 @@
 
 * [1. Introduction](#1-introduction)
 * [2. Architecture](#2-architecture)
-  * [2.1 Groups](#2.1-groups)
+  * [2.1 Groups](#21-groups)
 * [3. Implementation](#3-implementation)
-  * [3.1 Write Requests](#3.1-write-requests)
-  * [3.2 Membership Detection And Failure Detection](#3.2-membership-detection-and-failure-detection)
-  * [3.3 Fault Tolerance](#3.3-fault-tolerance)
-  * [3.4 Replication](#3.4-replication)
-  * [3.5 High Availability](#3.5-high-availability)
-  * [3.6 Communication Layer](#3.6-communication-layer)
-  * [3.7 High Performance](#3.7-high-performance)
-  * [3.8 Scaling The Cluster](#3.8-scaling-the-cluster)
-  * [3.9 Load Balancing](#3.9-load-balancing)
-  * [3.10 System Monitoring](#3.10-system-monitoring)
-  * [3.11 System Operations](#3.11-system-operations)
+  * [3.1 Write Requests](#31-write-requests)
+  * [3.2 Membership Management And Failure Detection](#32-membership-management-and-failure-detection)
+  * [3.3 Fault Tolerance](#33-fault-tolerance)
+  * [3.4 Replication](#34-replication)
+  * [3.5 High Availability](#35-high-availability)
+  * [3.6 Communication Layer](#36-communication-layer)
+  * [3.7 High Performance](#37-high-performance)
+  * [3.8 Scaling The Cluster](#38-scaling-the-cluster)
+  * [3.9 Load Balancing](#39-load-balancing)
+  * [3.10 System Monitoring](#310-system-monitoring)
+  * [3.11 System Operations](#311-system-operations)
 
 ## 1. Introduction
-EaseGateway is a decentralized distributed gateway for serving the very large amount of requests coming from different areas while providing highly available service. Gateway provides many [built-in plugins](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md) to complete specific work, users can [create pipelines](https://github.com/hexdecteam/easegateway/blob/master/doc/admin_api_ref.swagger.yaml) by assembling different kinds of plugins to complete a business logic.
+EaseGateway is a decentralized distributed gateway for serving the very large amount of requests coming from different areas while providing highly available service. Gateway provides many [built-in plugins](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md) to complete specific work, users can [create pipelines](https://github.com/hexdecteam/easegateway/blob/master/doc/admin_api_ref.swagger.yaml) by assembling different kinds of plugins to complete a business logic. Please see the illustration below.
 
+![easegateway illustration](./diagrams/easegateway_illustration.png)
 
 EaseGateway currently supports many [use cases](https://github.com/hexdecteam/easegateway/blob/master/doc/pipeline_practice_guide.md).
 
@@ -28,13 +29,14 @@ In addition to built-in plugins, EaseGateway supports user-defined plugins.
 [TODO]  add more details about user-defined plugins
 
 ## 2. Architecture
-EaseGateway is client/server architecture. There are two kinds of client: admin clients and ordinary clients. Admin clients are used to send administration commands to EaseGateway clusters, such as create pipeline, modify pipeline configurations, retrieve cluster statistics and so on. Ordinary clients are unaware of the existence of the EaseGateway cluster, they just send the requests and get the response as if they are directly communicating with upstream servers.
+EaseGateway is client/server architecture. There are two kinds of client: admin clients and ordinary clients. Admin clients are used to send administration commands to EaseGateway clusters, such as create pipeline, modify plugin configurations, retrieve cluster statistics and so on. Ordinary clients are unaware of the existence of the EaseGateway cluster, they just send the requests and get the response as if they are directly communicating with upstream servers.
 
 EaseGateway is designed to handle large requests across multiple nodes with no single point of failure. Its architecture is based on the perception that system and hardware failures always happen. EaseGateway addresses the problem of failures by employing a peer-to-peer distributed system across homogeneous nodes. Data is replicated reasonably among nodes in the cluster. So this mechanism ensures service availability and data durability. EaseGateway is an AP system as regards to the CAP theorem. This implies that it sacrifices some consistency in order to achieve high availability and partition tolerance. Below is the EaseGateway cluster architecture.
 
 ![cluster architecture](./diagrams/cluster_architecture.png)
 
-Let's break down the above diagram and describe each piece. First of all, we see that there are two groups, labeled "Beijing" and "Shanghai". Within each group, we have a mixture of one leader and multiple followers. All the nodes in the cluster communicate with each other in gossip protocol. This serves two purposes(@shengdong, I'm little confused about below descriptions):
+Let's break down the above diagram and describe each piece. First of all, we see that there are two groups, labeled "Beijing" and "Shanghai". Within each group, we have a mixture of one leader and multiple followers. All the nodes in the cluster communicate with each other in gossip protocol. We use gossip protocol to serve two purposes:
+
 1. the work of membership and node failure detection is not placed on specific servers but is distributed. This makes failure detection much more scalable than naive heartbeat schemes.
 2. it is used as a messaging layer to notify when important events such as leader election take place, or to broadcast application level messages.
 
@@ -55,7 +57,7 @@ EaseGateway uses [write-ahead-logging(WAL)](https://en.wikipedia.org/wiki/Write-
 
 Every EaseGateway server serves client requests, as we can see from the above EaseGateway architecture. Clients connect to exactly one server to send requests. Requests are served by each server, write requests are processed by an agreement protocol. As part of the agreement protocol, all write requests from admin clients are forwarded to a single server, called the leader. The rest of the EaseGateway servers, called followers, receive update message proposals from the leader and agree upon message delivery. The atomic broadcast message protocol takes care of replacing leaders on failures and syncing followers with leaders.
 
-### 3.2 Membership Detection And Failure Detection
+### 3.2 Membership Management And Failure Detection
 EaseGateway manages cluster membership and member failure detection using an SWIM-based gossip protocol. We choose third-party library [memberlist](https://github.com/hashicorp/memberlist) as the gossip layer implementation. EaseGateway uses gossip based protocol to sovle three major problems:
 1. Membership: EaseGateway maintains cluster membership lists
 2. Failure detection and Recovery: EaseGateway can detect failed nodes within seconds, and executes callback processes to handle these events.
