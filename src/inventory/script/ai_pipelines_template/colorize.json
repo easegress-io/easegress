@@ -1,0 +1,13 @@
+{
+  "type": "LinearPipeline",
+  "config": {
+    "pipeline_name": "linear_pipeline.colorize",
+    "parallelism": 10,
+    "wait_plugin_close": true,
+    "plugin_names": [
+      "http_input.colorize",
+      "io_reader.colorize",
+      "http_output.colorize"
+    ]
+  }
+}
