@@ -1,7 +1,7 @@
 # Introduction
 
 `EaseGateway` is a generic gateway system, support standalone and cluster both running modes.
-
+For more design details, please see [easegateway design](https://github.com/hexdecteam/easegateway/blob/master/doc/easegateway_design.md)
 # Build
 
 ```shell
