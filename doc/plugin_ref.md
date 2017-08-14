@@ -461,6 +461,7 @@ Plugin executes python code.
 |:--|:--|:--|:--:|:--:|:--|
 | plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
 | code | string | The python code to be executed. | Functionality | No | N/A |
+| code_base64 | bool | The flag represents if the python code is encoded in base64. | Functionality | Yes | false |
 | version | string | The version of python interpreter. | Functionality | Yes | 2 |
 | timeout_sec | uint16 | The wait timeout python code execution limited in second. | Functionality | Yes | 10 |
 | input\_key | string | The key name of standard input data for python code stored in internal storage as the plugin input. | I/O | Yes | "" |

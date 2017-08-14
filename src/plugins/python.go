@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"os/exec"
@@ -19,12 +20,14 @@ import (
 type pythonConfig struct {
 	CommonConfig
 	Code       string `json:"code"`
+	CodeBase64 bool   `json:"code_base64"`
 	Version    string `json:"version"`
 	InputKey   string `json:"input_key"`
 	OutputKey  string `json:"output_key"`
 	TimeoutSec uint16 `json:"timeout_sec"` // up to 65535, zero means no timeout
 
-	cmd string
+	executableCode string
+	cmd            string
 }
 
 func PythonConfigConstructor() plugins.Config {
@@ -43,6 +46,19 @@ func (c *pythonConfig) Prepare(pipelineNames []string) error {
 	if len(c.Code) == 0 {
 		return fmt.Errorf("invalid python code")
 	}
+
+	if c.CodeBase64 {
+		ec, err := base64.StdEncoding.DecodeString(c.Code)
+		if err != nil {
+			return fmt.Errorf("decode base64 code failed: %v", err)
+		}
+		c.executableCode = string(ec)
+	} else {
+		c.executableCode = c.Code
+	}
+
+	fmt.Println("executableCode:")
+	fmt.Printf(c.executableCode)
 
 	// NOTICE: Perhaps support minor version such as 2.7, 3.6, etc in future.
 	switch c.Version {
@@ -91,7 +107,7 @@ func (p *python) Prepare(ctx pipelines.PipelineContext) {
 }
 
 func (p *python) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
-	cmd := exec.Command(p.conf.cmd, "-c", p.conf.Code)
+	cmd := exec.Command(p.conf.cmd, "-c", p.conf.executableCode)
 	cmd.SysProcAttr = common.SysProcAttr()
 
 	if len(p.conf.InputKey) != 0 {
