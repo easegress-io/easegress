@@ -27,6 +27,8 @@ var (
 	CpuProfileFile, MemProfileFile string
 
 	ShowVersion bool
+
+	PluginIODataFormatLengthLimit uint64
 )
 
 func init() {
@@ -35,13 +37,13 @@ func init() {
 		hostName = "node0"
 	}
 
-	clusterGroup := flag.String("group", "default", "specify cluster group")
+	clusterGroup := flag.String("group", "default", "specify cluster group name")
 	memberMode := flag.String("mode", "read", "specify member mode (read or write)")
 	memberName := flag.String("name", hostName, "specify member name")
-	peers := flag.String("peers", "", "specify address list of peer members (seprated by comma)")
+	peers := flag.String("peers", "", "specify address list of peer members (separated by comma)")
 	opLogMaxSeqGapToPull := new(uint16)
 	flag.Var(common.NewUint16Value(5, opLogMaxSeqGapToPull), "oplog_max_seq_gap_to_pull",
-		"specify max gap of sequnce of operation logs deciding whether to wait for missing operations or not")
+		"specify max gap of sequence of operation logs deciding whether to wait for missing operations or not")
 	opLogPullMaxCountOnce := new(uint16)
 	flag.Var(common.NewUint16Value(5, opLogPullMaxCountOnce), "oplog_pull_max_count_once",
 		"specify max count of pulling operation logs once")
@@ -54,17 +56,20 @@ func init() {
 
 	host := flag.String("host", "localhost", "specify listen host")
 	certFile := flag.String("certfile", "", "specify cert file, "+
-		"downgrade HTTPS(10443) to HTTP(10080) if it is set empty or inexistent file")
+		"downgrade HTTPS(10443) to HTTP(10080) if it is set empty or nonexistent file")
 	keyFile := flag.String("keyfile", "", "specify key file, "+
-		"downgrade HTTPS(10443) to HTTP(10080) if it is set empty or inexistent file")
+		"downgrade HTTPS(10443) to HTTP(10080) if it is set empty or nonexistent file")
 	stage := flag.String("stage", "debug", "sepcify runtime stage (debug, test, prod)")
-	configHome := flag.String("config", common.CONFIG_HOME_DIR, "sepcify config home path")
+	configHome := flag.String("config", common.CONFIG_HOME_DIR, "specify config home path")
 	logHome := flag.String("log", common.LOG_HOME_DIR, "specify log home path")
 	cpuProfileFile := flag.String("cpuprofile", "", "specify cpu profile output file, "+
 		"cpu profiling will be fully disabled if not provided")
 	memProfileFile := flag.String("memprofile", "", "specify heap dump file, "+
 		"memory profiling will be fully disabled if not provided")
-	showVersion := flag.Bool("version", false, "ouptput version information")
+	showVersion := flag.Bool("version", false, "output version information")
+
+	pluginIODataFormatLengthLimit := flag.Uint64("plugin_io_data_format_len_limit", 128,
+		"specify length limit on plugin IO data formation output in byte unit")
 
 	flag.Parse()
 
@@ -92,4 +97,5 @@ func init() {
 	CpuProfileFile = *cpuProfileFile
 	MemProfileFile = *memProfileFile
 	ShowVersion = *showVersion
+	PluginIODataFormatLengthLimit = *pluginIODataFormatLengthLimit
 }

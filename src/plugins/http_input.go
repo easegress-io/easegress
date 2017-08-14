@@ -304,7 +304,8 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 			statusCode := task.ResultCodeToHTTPCode(t1.ResultCode())
 
 			if len(h.conf.ResponseCodeKey) != 0 {
-				code, err := strconv.Atoi(task.ToString(t1.Value(h.conf.ResponseCodeKey)))
+				code, err := strconv.Atoi(
+					task.ToString(t1.Value(h.conf.ResponseCodeKey), option.PluginIODataFormatLengthLimit))
 				if err == nil &&
 					code > 99 && code < 600 { // should seems like a valid http code, at least
 					statusCode = code

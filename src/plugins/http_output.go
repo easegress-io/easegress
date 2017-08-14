@@ -20,6 +20,7 @@ import (
 
 	"common"
 	"logger"
+	"option"
 )
 
 type httpOutputConfig struct {
@@ -319,7 +320,7 @@ func replacePatternWithTaskValue(t task.Task, pattern string, tokens []string) s
 		var s string
 		v := t.Value(token)
 		if v != nil {
-			s = task.ToString(v)
+			s = task.ToString(v, option.PluginIODataFormatLengthLimit)
 		}
 
 		ret = strings.Replace(ret, fmt.Sprintf("{%s}", token), s, -1)
