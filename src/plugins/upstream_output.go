@@ -18,7 +18,12 @@ import (
 	"logger"
 )
 
-type routeSelector func(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) string
+type target struct {
+	pipelineName string
+	needResponse bool
+}
+
+type routeSelector func(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) []*target
 
 var routeSelectors = map[string]routeSelector{
 	"round_robin":          roundRobinSelector,
@@ -29,9 +34,11 @@ var routeSelectors = map[string]routeSelector{
 
 	"hash":   hashSelector,   // to support use cases for http source address and header hash, sticky session
 	"filter": filterSelector, // to support blue/green deployment and A/B testing
+
+	"fanout": fanoutSelector,
 }
 
-func roundRobinSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) string {
+func roundRobinSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) []*target {
 	taskCount, err := getTaskCount(ctx, u.Name())
 	if err != nil {
 		return randomSelector(u, ctx, t)
@@ -39,10 +46,13 @@ func roundRobinSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task
 
 	atomic.AddUint64(taskCount, 1)
 
-	return u.conf.TargetPipelineNames[*taskCount%uint64(len(u.conf.TargetPipelineNames))]
+	return []*target{{
+		pipelineName: u.conf.TargetPipelineNames[*taskCount%uint64(len(u.conf.TargetPipelineNames))],
+		needResponse: true,
+	}}
 }
 
-func weightedRoundRobinSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) string {
+func weightedRoundRobinSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) []*target {
 	state, err := getWeightedRoundRobinSelectorState(ctx, u.Name(), u.instanceId, u.conf.TargetPipelineWeights)
 	if err != nil {
 		return randomSelector(u, ctx, t)
@@ -62,16 +72,22 @@ func weightedRoundRobinSelector(u *upstreamOutput, ctx pipelines.PipelineContext
 
 		weight := u.conf.TargetPipelineWeights[state.lastPipelineIndex]
 		if weight >= state.lastWeight {
-			return u.conf.TargetPipelineNames[state.lastPipelineIndex]
+			return []*target{{
+				pipelineName: u.conf.TargetPipelineNames[state.lastPipelineIndex],
+				needResponse: true,
+			}}
 		}
 	}
 }
 
-func randomSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) string {
-	return u.conf.TargetPipelineNames[rand.Intn(len(u.conf.TargetPipelineNames))]
+func randomSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) []*target {
+	return []*target{{
+		pipelineName: u.conf.TargetPipelineNames[rand.Intn(len(u.conf.TargetPipelineNames))],
+		needResponse: true,
+	}}
 }
 
-func weightedRandomSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) string {
+func weightedRandomSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) []*target {
 	sum, err := getWeightSum(ctx, u.Name(), u.instanceId, u.conf.TargetPipelineWeights)
 	if err != nil {
 		return randomSelector(u, ctx, t)
@@ -81,7 +97,10 @@ func weightedRandomSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t 
 
 	for idx := 0; idx < len(u.conf.TargetPipelineWeights); idx++ {
 		if r < uint64(u.conf.TargetPipelineWeights[idx]) {
-			return u.conf.TargetPipelineNames[idx]
+			return []*target{{
+				pipelineName: u.conf.TargetPipelineNames[idx],
+				needResponse: true,
+			}}
 		}
 
 		r -= uint64(u.conf.TargetPipelineWeights[idx])
@@ -92,7 +111,7 @@ func weightedRandomSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t 
 	return randomSelector(u, ctx, t)
 }
 
-func leastWIPRequestsSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) string {
+func leastWIPRequestsSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) []*target {
 	ret := u.conf.TargetPipelineNames[0]
 	leastWIP := ctx.CrossPipelineWIPRequestsCount(ret)
 
@@ -104,10 +123,13 @@ func leastWIPRequestsSelector(u *upstreamOutput, ctx pipelines.PipelineContext, 
 		}
 	}
 
-	return ret
+	return []*target{{
+		pipelineName: ret,
+		needResponse: true,
+	}}
 }
 
-func hashSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) string {
+func hashSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) []*target {
 	h := fnv.New32a()
 
 	for _, key := range u.conf.ValueHashedKeys {
@@ -119,10 +141,13 @@ func hashSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task)
 		h.Write([]byte(task.ToString(v)))
 	}
 
-	return u.conf.TargetPipelineNames[h.Sum32()%uint32(len(u.conf.TargetPipelineNames))]
+	return []*target{{
+		pipelineName: u.conf.TargetPipelineNames[h.Sum32()%uint32(len(u.conf.TargetPipelineNames))],
+		needResponse: true,
+	}}
 }
 
-func filterSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) string {
+func filterSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) []*target {
 	selectedIdx := -1
 
 	for idx, conditionSet := range u.conf.FilterConditions {
@@ -146,10 +171,26 @@ func filterSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Tas
 
 	if selectedIdx == -1 {
 		logger.Warnf("[no target pipeline matched the condition, filter selector chooses nothing]")
-		return ""
+		return nil
 	}
 
-	return u.conf.TargetPipelineNames[selectedIdx]
+	return []*target{{
+		pipelineName: u.conf.TargetPipelineNames[selectedIdx],
+		needResponse: true,
+	}}
+}
+
+func fanoutSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) []*target {
+	var ret []*target
+
+	for idx, pipelineName := range u.conf.TargetPipelineNames {
+		ret = append(ret, &target{
+			pipelineName: pipelineName,
+			needResponse: u.conf.TargetPipelineResponseFlags[idx],
+		})
+	}
+
+	return ret
 }
 
 ////
@@ -169,6 +210,8 @@ type upstreamOutputConfig struct {
 	// each map in the list as the condition set for the target pipeline according to the index
 	// map key is the key of value in the task, map value is the match condition, support regex
 	FilterConditions []map[string]string `json:"filter_conditions"`
+	// for fanout policy
+	TargetPipelineResponseFlags []bool `json:"target_response_flags"`
 
 	selector           routeSelector
 	filterRegexMapList []map[string]*regexp.Regexp
@@ -262,6 +305,26 @@ func (c *upstreamOutputConfig) Prepare(pipelineNames []string) error {
 		}
 	}
 
+	if c.RoutePolicy == "fanout" {
+		if len(c.TargetPipelineResponseFlags) > 0 && len(c.TargetPipelineResponseFlags) != len(c.TargetPipelineNames) {
+			return fmt.Errorf("invalid upstream pipeline response flag")
+		}
+
+		useDefaultFlag := len(c.TargetPipelineResponseFlags) == 0
+
+		for idx, pipelineName := range c.TargetPipelineNames {
+			c.TargetPipelineNames[idx] = ts(pipelineName)
+
+			if !common.StrInSlice(c.TargetPipelineNames[idx], pipelineNames) {
+				logger.Warnf("[upstream pipeline %s not found]", c.TargetPipelineNames[idx])
+			}
+
+			if useDefaultFlag {
+				c.TargetPipelineResponseFlags = append(c.TargetPipelineResponseFlags, false)
+			}
+		}
+	}
+
 	if c.TimeoutSec == 0 {
 		logger.Warnf("[ZERO timeout has been applied, no task could be cancelled by timeout!]")
 	}
@@ -296,20 +359,36 @@ func (u *upstreamOutput) Prepare(ctx pipelines.PipelineContext) {
 }
 
 func (u *upstreamOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
-	targetPipelineName := u.conf.selector(u, ctx, t)
-	if len(strings.TrimSpace(targetPipelineName)) == 0 {
+	targets := u.conf.selector(u, ctx, t)
+	if len(targets) == 0 {
 		t.SetError(fmt.Errorf("target pipeline selector of %s returns empty pipeline name", u.conf.RoutePolicy),
 			task.ResultServiceUnavailable)
 		return t, nil
 	}
 
-	data := make(map[interface{}]interface{})
-	for _, key := range u.conf.RequestDataKeys {
-		data[key] = t.Value(key)
+	var requests []*pipelines.DownstreamRequest
+	var waitResponses []string
+
+	for _, target := range targets {
+		data := make(map[interface{}]interface{})
+		for _, key := range u.conf.RequestDataKeys {
+			data[key] = t.Value(key)
+		}
+
+		request := pipelines.NewDownstreamRequest(target.pipelineName, u.Name(), data)
+		requests = append(requests, request)
+
+		if target.needResponse {
+			waitResponses = append(waitResponses, target.pipelineName)
+		}
 	}
 
-	request := pipelines.NewDownstreamRequest(targetPipelineName, u.Name(), data)
-	defer request.Close()
+	// close request without response at last to prevent upstream ignores closed request directly when it scheduled
+	defer func() {
+		for _, request := range requests {
+			request.Close()
+		}
+	}()
 
 	done := make(chan struct{}, 0)
 
@@ -317,8 +396,7 @@ func (u *upstreamOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.T
 		select {
 		case <-t.Cancel():
 			if common.CloseChan(done) {
-				t.SetError(fmt.Errorf("task is cancelled by %s", t.CancelCause()),
-					task.ResultTaskCancelled)
+				t.SetError(fmt.Errorf("task is cancelled by %s", t.CancelCause()), task.ResultTaskCancelled)
 			}
 		case <-done:
 			// Nothing to do, exit goroutine
@@ -343,53 +421,61 @@ func (u *upstreamOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.T
 
 	defer common.CloseChan(done)
 
-	err := ctx.CommitCrossPipelineRequest(request, done)
-	if err != nil {
-		if t.Error() == nil { // commit failed and it was not caused by task cancellation or request timeout
-			t.SetError(err, task.ResultServiceUnavailable)
-		}
+LOOP:
+	for _, request := range requests {
+		err := ctx.CommitCrossPipelineRequest(request, done)
+		if err != nil {
+			if t.Error() == nil { // commit failed and it was not caused by task cancellation or request timeout
+				t.SetError(err, task.ResultServiceUnavailable)
+			}
 
-		return t, nil
-	}
-
-	// synchronized call
-	select {
-	case response := <-request.Response():
-		if response == nil {
-			logger.Errorf("[BUG: upstream pipeline %s returns nil response]",
-				response.UpstreamPipelineName)
-
-			t.SetError(fmt.Errorf("downstream received nil upstream response"),
-				task.ResultInternalServerError)
 			return t, nil
 		}
 
-		if response.UpstreamPipelineName != targetPipelineName {
-			logger.Errorf("[BUG: upstream pipeline %s returns the response of "+
-				"cross pipeline request to the wrong downstrewam %s]",
-				response.UpstreamPipelineName, ctx.PipelineName())
-
-			t.SetError(fmt.Errorf("downstream received wrong upstream response"),
-				task.ResultInternalServerError)
-			return t, nil
+		if !common.StrInSlice(request.UpstreamPipelineName(), waitResponses) {
+			continue LOOP
 		}
 
-		for k, v := range response.Data {
-			t1, err := task.WithValue(t, k, v)
-			if err != nil {
-				t.SetError(err, task.ResultInternalServerError)
+		// synchronized call
+		select {
+		case response := <-request.Response():
+			if response == nil {
+				logger.Errorf("[BUG: upstream pipeline %s returns nil response]",
+					response.UpstreamPipelineName)
+
+				t.SetError(fmt.Errorf("downstream received nil upstream response"),
+					task.ResultInternalServerError)
 				return t, nil
 			}
 
-			t = t1
-		}
+			if response.UpstreamPipelineName != request.UpstreamPipelineName() {
+				logger.Errorf("[BUG: upstream pipeline %s returns the response of "+
+					"cross pipeline request to the wrong downstream %s]",
+					response.UpstreamPipelineName, ctx.PipelineName())
 
-		if response.TaskError != nil {
-			t.SetError(response.TaskError, response.TaskResultCode)
-			return t, nil
+				t.SetError(fmt.Errorf("downstream received wrong upstream response"),
+					task.ResultInternalServerError)
+				return t, nil
+			}
+
+			for k, v := range response.Data {
+				t1, err := task.WithValue(t, k, v)
+				if err != nil {
+					t.SetError(err, task.ResultInternalServerError)
+					return t, nil
+				}
+
+				t = t1
+			}
+
+			if response.TaskError != nil {
+				t.SetError(response.TaskError, response.TaskResultCode)
+				return t, nil
+			}
+		case <-done:
+			// stop loop, task is cancelled or requests running timeout before get all responses from upstreams
+			break LOOP
 		}
-	case <-done:
-		// Nothing to do, task is cancelled or request runs timeout before get response from upstream
 	}
 
 	return t, nil
