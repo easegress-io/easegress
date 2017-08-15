@@ -53,36 +53,72 @@ func GraphiteSplit(s string, lensep string, sep string) []string {
 	return a
 }
 
-func ScanTokens(str string) ([]string, error) {
+type TokenVisitor func(pos int, token string) (care bool, replacement string)
+
+func ScanTokens(str string, removeEscapeChar bool, visitor TokenVisitor) (string, error) {
+	if visitor == nil {
+		visitor = func(_ int, _ string) (bool, string) {
+			return false, ""
+		}
+	}
+
 	in := false
-	ret := make([]string, 0)
+	var ret string
+	v := []byte(str)
+
+	escaped := func(pos int) bool {
+		if pos == 0 {
+			return false
+		}
+
+		return v[pos-1] == '\\'
+	}
 
 	token := ""
-	for _, c := range str {
-		if c == '{' {
+	for i, c := range v {
+		if c == '{' && !escaped(i) {
 			if in {
-				return nil, fmt.Errorf("invalid pattern string")
-			} else {
-				token = ""
-				in = true
+				return str, fmt.Errorf("invalid pattern string")
 			}
-		} else if c == '}' {
-			if in {
-				if len(strings.TrimSpace(token)) == 0 {
-					return nil, fmt.Errorf("empty token")
-				}
-				ret = append(ret, token)
-				in = false
-			} else {
-				return nil, fmt.Errorf("invalid pattern string")
+
+			in = true
+		} else if c == '}' && !escaped(i) {
+			if !in {
+				return str, fmt.Errorf("invalid pattern string")
 			}
+
+			if len(strings.TrimSpace(token)) == 0 {
+				return str, fmt.Errorf("empty token")
+			}
+
+			pos := i - len(token) - 1
+			token = strings.Replace(strings.Replace(token, `\{`, "{", -1), `\}`, "}", -1)
+
+			care, replacement := visitor(pos, token)
+			if care {
+				ret += replacement
+				c = 0
+			} else {
+				ret += fmt.Sprintf("{%s", token)
+			}
+
+			token = ""
+			in = false
 		} else if in {
 			token += string(c)
+		}
+
+		if !in && c != 0 {
+			ret += string(c)
 		}
 	}
 
 	if in {
-		return nil, fmt.Errorf("invalid pattern string")
+		return str, fmt.Errorf("invalid pattern string")
+	}
+
+	if removeEscapeChar {
+		ret = strings.Replace(strings.Replace(ret, `\{`, "{", -1), `\}`, "}", -1)
 	}
 
 	return ret, nil

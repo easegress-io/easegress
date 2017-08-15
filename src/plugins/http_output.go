@@ -40,10 +40,8 @@ type httpOutputConfig struct {
 	ResponseCodeKey   string `json:"response_code_key"`
 	ResponseBodyIOKey string `json:"response_body_io_key"`
 
-	urlTokens, bodyTokens               []string
-	headerNameTokens, headerValueTokens [][]string
-	cert                                *tls.Certificate
-	caCert                              []byte
+	cert   *tls.Certificate
+	caCert []byte
 }
 
 func HTTPOutputConfigConstructor() plugins.Config {
@@ -71,39 +69,31 @@ func (c *httpOutputConfig) Prepare(pipelineNames []string) error {
 	c.ResponseBodyIOKey = ts(c.ResponseBodyIOKey)
 
 	uri, err := url.ParseRequestURI(c.URLPattern)
-
 	if err != nil || !uri.IsAbs() || uri.Hostname() == "" ||
 		!common.StrInSlice(uri.Scheme, []string{"http", "https"}) {
 
 		return fmt.Errorf("invalid url")
 	}
 
-	c.urlTokens, err = common.ScanTokens(c.URLPattern)
+	_, err = common.ScanTokens(c.URLPattern, false, nil)
 	if err != nil {
 		return fmt.Errorf("invalid url pattern")
 	}
 
-	c.headerNameTokens = make([][]string, len(c.HeaderPatterns))
-	c.headerValueTokens = make([][]string, len(c.HeaderPatterns))
-	i := 0
 	for name, value := range c.HeaderPatterns {
 		if len(ts(name)) == 0 {
 			return fmt.Errorf("invalid header name")
 		}
 
-		tokens, err := common.ScanTokens(name)
+		_, err := common.ScanTokens(name, false, nil)
 		if err != nil {
 			return fmt.Errorf("invalid header name pattern")
 		}
-		c.headerNameTokens[i] = tokens
 
-		tokens, err = common.ScanTokens(value)
+		_, err = common.ScanTokens(value, false, nil)
 		if err != nil {
 			return fmt.Errorf("invalid header value pattern")
 		}
-		c.headerValueTokens[i] = tokens
-
-		i++
 	}
 
 	_, ok := supportedMethods[c.Method]
@@ -115,7 +105,7 @@ func (c *httpOutputConfig) Prepare(pipelineNames []string) error {
 		logger.Warnf("[ZERO timeout has been applied, no request could be cancelled by timeout!]")
 	}
 
-	c.bodyTokens, err = common.ScanTokens(c.RequestBodyBufferPattern)
+	_, err = common.ScanTokens(c.RequestBodyBufferPattern, false, nil)
 	if err != nil {
 		return fmt.Errorf("invalid body buffer pattern")
 	}
@@ -219,7 +209,7 @@ func (h *httpOutput) send(t task.Task, req *http.Request) (*http.Response, error
 }
 
 func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
-	url := replacePatternWithTaskValue(t, h.conf.URLPattern, h.conf.urlTokens)
+	url := replaceTokensInPattern(t, h.conf.URLPattern)
 
 	var length int64
 	var reader io.Reader
@@ -248,7 +238,7 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task,
 			reader = input
 		}
 	} else {
-		body := replacePatternWithTaskValue(t, h.conf.RequestBodyBufferPattern, h.conf.bodyTokens)
+		body := replaceTokensInPattern(t, h.conf.RequestBodyBufferPattern)
 		reader = bytes.NewBuffer([]byte(body))
 		length = int64(len(body))
 	}
@@ -262,8 +252,8 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task,
 
 	i := 0
 	for name, value := range h.conf.HeaderPatterns {
-		name1 := replacePatternWithTaskValue(t, name, h.conf.headerNameTokens[i])
-		value1 := replacePatternWithTaskValue(t, value, h.conf.headerValueTokens[i])
+		name1 := replaceTokensInPattern(t, name)
+		value1 := replaceTokensInPattern(t, value)
 		req.Header.Set(name1, value1)
 		i++
 	}
@@ -314,16 +304,19 @@ func (h *httpOutput) Close() {
 
 ////
 
-func replacePatternWithTaskValue(t task.Task, pattern string, tokens []string) string {
-	ret := pattern
-	for _, token := range tokens {
-		var s string
+func replaceTokensInPattern(t task.Task, pattern string) string {
+	visitor := func(pos int, token string) (bool, string) {
+		var ret string
+
 		v := t.Value(token)
 		if v != nil {
-			s = task.ToString(v, option.PluginIODataFormatLengthLimit)
+			ret = task.ToString(v, option.PluginIODataFormatLengthLimit)
 		}
 
-		ret = strings.Replace(ret, fmt.Sprintf("{%s}", token), s, -1)
+		// always do replacement even it is empty (no value found in the task with a certain data key)
+		return true, ret
 	}
+
+	ret, _ := common.ScanTokens(pattern, true, visitor) // skip error check safely due to we ensured it in Prepare()
 	return ret
 }
