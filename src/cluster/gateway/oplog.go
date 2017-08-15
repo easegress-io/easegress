@@ -102,7 +102,7 @@ func (op *opLog) append(startSeq uint64, operations []*Operation) (error, Cluste
 				startSeq+uint64(idx), operation, err), OperationInvalidContentError
 		}
 
-		err = op.kv.Set([]byte(fmt.Sprintf("%d", startSeq+uint64(idx))), opBuff)
+		err = op.kv.Set([]byte(fmt.Sprintf("%d", startSeq+uint64(idx))), opBuff, 0x00)
 		if err != nil {
 			logger.Errorf("[set operation (sequence=%d) to badger failed: %v]", startSeq+uint64(idx), err)
 			return fmt.Errorf("set operation (sequence=%d) to badger failed: %v",
@@ -265,7 +265,7 @@ func (op *opLog) _locklessIncreaseMaxSeq() (uint64, error) {
 	ms := op._locklessMaxSeq()
 	ms++
 
-	err := op.kv.Set([]byte(maxSeqKey), []byte(fmt.Sprintf("%d", ms)))
+	err := op.kv.Set([]byte(maxSeqKey), []byte(fmt.Sprintf("%d", ms)), 0x00)
 	if err != nil {
 		logger.Errorf("[set max sequence to badger failed: %v]", err)
 		return 0, err
