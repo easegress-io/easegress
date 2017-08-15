@@ -51,7 +51,7 @@ func (c *pythonConfig) Prepare(pipelineNames []string) error {
 	if c.Base64 {
 		ec, err := base64.StdEncoding.DecodeString(c.Code)
 		if err != nil {
-			return fmt.Errorf("invalid base64 encoded python code", err)
+			return fmt.Errorf("invalid base64 encoded python code")
 		}
 		c.executableCode = string(ec)
 	} else {
