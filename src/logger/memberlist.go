@@ -49,16 +49,16 @@ func Writer() *io.PipeWriter {
 		match := LOG_MEMBERLIST_REGEX.FindStringSubmatch(line)
 
 		for _, l := range memberList.getLoggers("memberlist") {
-			output := l.Error
 			if len(match) == 3 {
+				output := l.Error
 				if match[1] == "DEBUG" {
 					output = l.Debug
 				} else if match[1] == "WARN" {
 					output = l.Warn
 				}
-				output(match[2])
+				output(fmt.Sprintf("[%s]", match[2]))
 			} else {
-				output(line)
+				l.Error(line)
 			}
 		}
 	})
