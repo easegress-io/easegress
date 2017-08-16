@@ -1,7 +1,0 @@
-FROM alpine:3.6
-
-COPY . /
-RUN apk add --no-cache tini libc6-compat && chmod +x /opt/easegateway/bin/*
-
-ENTRYPOINT ["/sbin/tini", "--", "/opt/easegateway/bin/easegateway-server"]
-CMD ["/opt/easegateway/bin/easegateway-server"]
