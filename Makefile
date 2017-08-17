@@ -1,5 +1,7 @@
 .PHONY: default build build_client build_server build_inventory \
-		run fmt vendor_clean vendor_get vendor_update clean
+		run fmt vendor_clean vendor_get vendor_update clean \
+		build_client_docker build_server_docker \
+		build_server_easestack
 
 MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 MKFILE_DIR := $(dir $(MKFILE_PATH))
@@ -7,12 +9,15 @@ MKFILE_DIR := $(dir $(MKFILE_PATH))
 GOPATH := ${MKFILE_DIR}_vendor:${MKFILE_DIR}
 export GOPATH
 
-RELEASE?=0.1.0-m2
-REPO_INFO=$(shell git config --get remote.origin.url)
+RELEASE?=0.1.0
+GIT_REPO_INFO=$(shell git config --get remote.origin.url)
+DOCKER_REPO_INFO?=megaeasegateway/easegateway
 
 ifndef COMMIT
   COMMIT := git-$(shell git rev-parse --short HEAD)
 endif
+
+DOCKER?=docker --
 
 GATEWAY_ALL_SRC_FILES = $(shell find ${MKFILE_DIR}src -type f -name "*.go")
 GATEWAY_CLIENT_SRC_FILES = $(shell find ${MKFILE_DIR}src/cli ${MKFILE_DIR}src/client -type f -name "*.go")
@@ -30,22 +35,19 @@ default: ${TARGET}
 ${TARGET_GATEWAY_SERVER} : ${GATEWAY_SERVER_SRC_FILES}
 	@echo "-------------- building gateway server ---------------"
 	cd ${MKFILE_DIR} && \
-		go build -v -ldflags "-s -w -X version.RELEASE=${RELEASE} -X version.COMMIT=${COMMIT} -X version.REPO=${REPO_INFO}" \
-			-o ${TARGET_GATEWAY_SERVER} ${MKFILE_DIR}src/server/main.go && \
-		mkdir -p ${MKFILE_DIR}rootfs/opt/easegateway/bin && cp ${TARGET_GATEWAY_SERVER} ${MKFILE_DIR}rootfs/opt/easegateway/bin
+		go build -v -ldflags "-s -w -X version.RELEASE=${RELEASE} -X version.COMMIT=${COMMIT} -X version.REPO=${GIT_REPO_INFO}" \
+			-o ${TARGET_GATEWAY_SERVER} ${MKFILE_DIR}src/server/main.go
 
 ${TARGET_GATEWAY_CLIENT} : ${GATEWAY_CLIENT_SRC_FILES}
 	@echo "-------------- building gateway client ---------------"
 	cd ${MKFILE_DIR} && \
-		go build -v -ldflags "-s -w -X version.RELEASE=${RELEASE} -X version.COMMIT=${COMMIT} -X version.REPO=${REPO_INFO}" \
-			-o ${TARGET_GATEWAY_CLIENT} ${MKFILE_DIR}src/client/main.go && \
-		mkdir -p ${MKFILE_DIR}rootfs/opt/easegateway/bin && cp ${TARGET_GATEWAY_CLIENT} ${MKFILE_DIR}rootfs/opt/easegateway/bin
+		go build -v -ldflags "-s -w -X version.RELEASE=${RELEASE} -X version.COMMIT=${COMMIT} -X version.REPO=${GIT_REPO_INFO}" \
+			-o ${TARGET_GATEWAY_CLIENT} ${MKFILE_DIR}src/client/main.go
 
 ${TARGET_INVENTORY} : ${GATEWAY_INVENTORY_FILES}
 	@echo "-------------- building inventory -------------"
-	cd ${MKFILE_DIR} && rm -rf ${TARGET_INVENTORY} && mkdir -p ${TARGET_INVENTORY} && mkdir -p ${MKFILE_DIR}rootfs/opt/easegateway && \
-		cp -r ${GATEWAY_INVENTORY_FILES} ${TARGET_INVENTORY} && \
-		cp -r ${TARGET_INVENTORY} ${MKFILE_DIR}rootfs/opt/easegateway
+	cd ${MKFILE_DIR} && rm -rf ${TARGET_INVENTORY} && mkdir -p ${TARGET_INVENTORY} && \
+		cp -r ${GATEWAY_INVENTORY_FILES} ${TARGET_INVENTORY}
 
 build: default
 
@@ -89,4 +91,26 @@ vendor_update: vendor_get
 	&& rm -rf `find ./_vendor/src -type d -name .svn`
 
 clean:
-	@rm -rf ${MKFILE_DIR}build && rm -rf ${MKFILE_DIR}rootfs/opt
+	@rm -rf ${MKFILE_DIR}build && rm -rf ${MKFILE_DIR}rootfs/docker/opt && rm -rf ${MKFILE_DIR}rootfs/easestack/opt
+
+build_client_docker: ${TARGET_GATEWAY_CLIENT} ${TARGET_INVENTORY}
+	@echo "-------------- building gateway client docker image ---------------"
+	rm -rf ${MKFILE_DIR}rootfs/docker/opt && \
+		mkdir -p ${MKFILE_DIR}rootfs/docker/opt/easegateway/bin && cp ${TARGET_GATEWAY_CLIENT} ${MKFILE_DIR}rootfs/docker/opt/easegateway/bin && \
+		cp -r ${TARGET_INVENTORY} ${MKFILE_DIR}rootfs/docker/opt/easegateway && \
+		cd ${MKFILE_DIR}rootfs/docker && $(DOCKER) build -t ${DOCKER_REPO_INFO}:client-${RELEASE} -f ./Dockerfile.client .
+
+build_server_docker: ${TARGET_GATEWAY_SERVER} ${TARGET_INVENTORY}
+	@echo "-------------- building gateway server docker image ---------------"
+	rm -rf ${MKFILE_DIR}rootfs/docker/opt && \
+		mkdir -p ${MKFILE_DIR}rootfs/docker/opt/easegateway/bin && cp ${TARGET_GATEWAY_SERVER} ${MKFILE_DIR}rootfs/docker/opt/easegateway/bin && \
+		cp -r ${TARGET_INVENTORY} ${MKFILE_DIR}rootfs/docker/opt/easegateway && \
+		cd ${MKFILE_DIR}rootfs/docker && $(DOCKER) build -t ${DOCKER_REPO_INFO}:server-${RELEASE} -f ./Dockerfile.server .
+
+build_server_easestack: ${TARGET_GATEWAY_SERVER} ${TARGET_INVENTORY}
+	@echo "-------------- building gateway server easestack image ---------------"
+	rm -rf ${MKFILE_DIR}rootfs/easestack/opt && \
+		mkdir -p ${MKFILE_DIR}rootfs/easestack/opt/easegateway/bin && cp ${TARGET_GATEWAY_SERVER} ${MKFILE_DIR}rootfs/easestack/opt/easegateway/bin && \
+		cp -r ${TARGET_INVENTORY} ${MKFILE_DIR}rootfs/easestack/opt/easegateway && \
+		cd ${MKFILE_DIR}rootfs/easestack && $(DOCKER) build -t ${DOCKER_REPO_INFO}:server-${RELEASE}-easestack -f ./Dockerfile.server .
+
