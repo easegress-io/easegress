@@ -545,7 +545,8 @@ func (m *Model) UpdatePipelineConfig(conf pipelines_gw.Config) error {
 		// Can remove this check simply since there is no guarantee a plugin instance will be only used
 		// in a dedicated pipeline or serially runs in multiple pipelines. (comments at Plugin interface)
 		for pipelineName, pipeline := range m.pipelines {
-			if common.StrInSlice(pluginName, pipeline.Config().PluginNames()) {
+			if conf.PipelineName() != pipelineName &&
+				common.StrInSlice(pluginName, pipeline.Config().PluginNames()) {
 				m.RUnlock()
 				return fmt.Errorf("plugin %s is used by pipeline %s", pluginName, pipelineName)
 			}
