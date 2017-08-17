@@ -10,7 +10,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -30,7 +29,7 @@ type httpOutputConfig struct {
 	Close                    bool              `json:"close_body_after_pipeline"`
 	RequestBodyBufferPattern string            `json:"request_body_buffer_pattern"`
 	Method                   string            `json:"method"`
-	ExpectedResponseCode     string            `json:"expected_response_code"`
+	ExpectedResponseCodes    []int             `json:"expected_response_codes"`
 	TimeoutSec               uint16            `json:"timeout_sec"` // up to 65535, zero means no timeout
 	CertFile                 string            `json:"cert_file"`
 	KeyFile                  string            `json:"key_file"`
@@ -41,8 +40,6 @@ type httpOutputConfig struct {
 	ResponseCodeKey   string `json:"response_code_key"`
 	ResponseBodyIOKey string `json:"response_body_io_key"`
 
-	expectedResponseCode *regexp.Regexp
-
 	cert   *tls.Certificate
 	caCert []byte
 }
@@ -51,7 +48,6 @@ func HTTPOutputConfigConstructor() plugins.Config {
 	return &httpOutputConfig{
 		TimeoutSec: 120,
 		Close:      true,
-		ExpectedResponseCode: ".*",
 	}
 }
 
@@ -65,7 +61,6 @@ func (c *httpOutputConfig) Prepare(pipelineNames []string) error {
 	c.URLPattern = ts(c.URLPattern)
 	c.RequestBodyIOKey = ts(c.RequestBodyIOKey)
 	c.Method = ts(c.Method)
-	c.ExpectedResponseCode = ts(c.ExpectedResponseCode)
 	c.CertFile = ts(c.CertFile)
 	c.KeyFile = ts(c.KeyFile)
 	c.CAFile = ts(c.CAFile)
@@ -103,11 +98,6 @@ func (c *httpOutputConfig) Prepare(pipelineNames []string) error {
 	_, ok := supportedMethods[c.Method]
 	if !ok {
 		return fmt.Errorf("invalid http method")
-	}
-
-	c.expectedResponseCode, err = regexp.Compile(c.ExpectedResponseCode)
-	if err != nil {
-		return fmt.Errorf("invalid expected response code: %v", err)
 	}
 
 	if c.TimeoutSec == 0 {
@@ -276,11 +266,19 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task,
 		return t, nil
 	}
 
-	responseCode := task.ToString(resp.StatusCode, option.PluginIODataFormatLengthLimit)
-	if !h.conf.expectedResponseCode.MatchString(responseCode) {
-		err = fmt.Errorf("response code: %d doesn't match with expected : %s", resp.StatusCode, h.conf.ExpectedResponseCode)
-		t.SetError(err, task.ResultInternalServerError)
-		return t, nil
+	if len(h.conf.ExpectedResponseCodes) > 0 {
+		match := false
+		for _, expected := range h.conf.ExpectedResponseCodes {
+			if resp.StatusCode == expected {
+				match = true
+				break
+			}
+		}
+		if !match {
+			err = fmt.Errorf("response code: %d doesn't match with expected : %v", resp.StatusCode, h.conf.ExpectedResponseCodes)
+			t.SetError(err, task.ResultInternalServerError)
+			return t, nil
+		}
 	}
 
 	if len(h.conf.ResponseCodeKey) != 0 {

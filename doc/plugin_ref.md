@@ -150,7 +150,7 @@ Plugin outputs request data to a HTTP endpoint.
 | url\_pattern | string | The pattern of the complete HTTP output endpoint. E.g. ``https://1.2.3.4/abc?def={INPUT_DATA}`` | Functionality | No | N/A |
 | header\_patterns | map[string]string | The list of HTTP output header name pattern and value pattern pair. | Functionality | Yes | nil |
 | method | string | The method HTTP output used. | Functionality | No | N/A |
-| expected\_response\_code| string | The expected HTTP response status code, support regular expression. If the real HTTP response status code doesn't match, then pipeline is finished | Functionality | Yes | ".*" |
+| expected\_response\_codes| []int | The expected HTTP response status code. If the real HTTP response status code doesn't match any of them, then pipeline is finished. Default value is an empty array, which means not to check response status code. | Functionality | Yes | [] |
 | timeout\_sec | uint16 | The request timeout HTTP output limited in second. | Functionality | Yes | 120 (2 minutes) |
 | cert\_file | string | The certificate file HTTPS output used. | Functionality | Yes | "" |
 | key\_file | string | The key file HTTPS output used. | Functionality | Yes | "" |
