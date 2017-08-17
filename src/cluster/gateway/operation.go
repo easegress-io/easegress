@@ -12,9 +12,6 @@ import (
 func (gc *GatewayCluster) issueOperation(group string, timeout time.Duration, requestName string,
 	startSeq uint64, syncAll bool, operation *Operation) *ClusterError {
 
-	logger.Debugf("issue operation: requestName(%s) startSeq(%d) operation(%#v) syncAll(%v) timeout(%s)",
-		requestName, startSeq, operation, syncAll, timeout)
-
 	req := &ReqOperation{
 		OperateAllNodes: syncAll,
 		Timeout:         timeout,
@@ -175,8 +172,6 @@ func (gc *GatewayCluster) handleOperationRelay(req *cluster.RequestEvent) {
 		return
 	}
 
-	logger.Debugf("received relay operation: %#v", reqOperation)
-
 	ms := gc.log.maxSeq()
 
 	if ms >= reqOperation.StartSeq {
@@ -237,8 +232,6 @@ func (gc *GatewayCluster) handleOperation(req *cluster.RequestEvent) {
 		gc.respondOperationErr(req, errType, err.Error())
 		return
 	}
-
-	logger.Debugf("received operation: %#v", reqOperation)
 
 	if !reqOperation.OperateAllNodes {
 		gc.respondOperation(req, new(RespOperation))

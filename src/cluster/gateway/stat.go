@@ -48,10 +48,6 @@ func (gc *GatewayCluster) chooseMemberToAggregateStat(group string) (*cluster.Me
 
 func (gc *GatewayCluster) issueStat(group string, timeout time.Duration,
 	requestName string, filter interface{}) (interface{}, *ClusterError) {
-
-	logger.Debugf("issue stat: requestName(%s) filter(%#v) timeout(%s)",
-		requestName, filter, timeout)
-
 	req := &ReqStat{
 		Timeout: timeout,
 	}
@@ -629,8 +625,6 @@ func (gc *GatewayCluster) handleStatRelay(req *cluster.RequestEvent) {
 		return
 	}
 
-	logger.Debugf("received relay stat: %#v", reqStat)
-
 	resp, err, errType := gc.getLocalStatResp(reqStat)
 	if err != nil {
 		gc.respondStatErr(req, errType, err.Error())
@@ -651,8 +645,6 @@ func (gc *GatewayCluster) handleStat(req *cluster.RequestEvent) {
 		gc.respondStatErr(req, errType, err.Error())
 		return
 	}
-
-	logger.Debugf("received stat: %#v", reqStat)
 
 	var validRespList []*RespStat
 

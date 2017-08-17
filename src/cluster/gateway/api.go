@@ -178,9 +178,6 @@ func (gc *GatewayCluster) QueryGroupMaxSeq(group string, timeout time.Duration) 
 
 	requestName := fmt.Sprintf("(group:%s)query_group_max_sequence", group)
 
-	logger.Debugf("issue querySequence: requestName(%s) timeout(%s)",
-		requestName, timeout)
-
 	future, err := gc.cluster.Request(requestName, requestPayload, &requestParam)
 	if err != nil {
 		return 0, newClusterError(fmt.Sprintf("query max sequence failed: %v", err), InternalServerError)

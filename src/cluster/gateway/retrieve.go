@@ -18,10 +18,6 @@ import (
 // for api
 func (gc *GatewayCluster) issueRetrieve(group string, timeout time.Duration,
 	requestName string, syncAll bool, filter interface{}) (interface{}, *ClusterError) {
-
-	logger.Debugf("issue retrieve: requestName(%s) filter(%#v) syncAll(%v) timeout(%s)",
-		requestName, filter, syncAll, timeout)
-
 	req := &ReqRetrieve{
 		RetrieveAllNodes: syncAll,
 		Timeout:          timeout,
@@ -375,8 +371,6 @@ func (gc *GatewayCluster) handleRetrieveRelay(req *cluster.RequestEvent) {
 		return
 	}
 
-	logger.Debugf("received relay retrieve: %#v", reqRetrieve)
-
 	resp, err, errType := gc.getLocalRetrieveResp(reqRetrieve)
 	if err != nil {
 		gc.respondRetrieveErr(req, errType, err.Error())
@@ -397,8 +391,6 @@ func (gc *GatewayCluster) handleRetrieve(req *cluster.RequestEvent) {
 		gc.respondRetrieveErr(req, errType, err.Error())
 		return
 	}
-
-	logger.Debugf("received retrieve: %#v", reqRetrieve)
 
 	resp, err, errType := gc.getLocalRetrieveResp(reqRetrieve)
 	if err != nil {
