@@ -1,8 +1,8 @@
 - name: build_image
   shell: make vendor_clean && make vendor_get && make clean && make
-  docker_file: rootfs/Dockerfile.server
+  docker_file: rootfs/alpine/Dockerfile.server
   docker_registry: dockerhub.megaease.com
-  image_name: megaease/easegateway
+  image_name: megaease/easegateway:server-0.1.0
   push_image: true
   notifications:
     emails:
