@@ -109,7 +109,10 @@ func (p *python) Prepare(ctx pipelines.PipelineContext) {
 
 func (p *python) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
 	cmd := exec.Command(p.conf.cmd, "-c", p.conf.executableCode)
-	cmd.SysProcAttr = common.SysProcAttr()
+
+	if option.PluginPythonIsolatedNamespace {
+		cmd.SysProcAttr = common.SysProcAttr()
+	}
 
 	// skip error check safely due to we ensured it in Prepare()
 	input, _ := ReplaceTokensInPattern(t, p.conf.InputBufferPattern)
