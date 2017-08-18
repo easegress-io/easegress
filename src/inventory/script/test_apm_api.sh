@@ -5,7 +5,7 @@ echo "SCRIPTFILE: ${SCRIPTFILE}"
 SCRIPTPATH="$(dirname "$SCRIPTFILE")"
 echo "SCRIPTPATH: ${SCRIPTPATH}"
 
-CA_FILE=${SCRIPTPATH}/../../cert/localhost-cert.pem
+CA_FILE=${SCRIPTPATH}/../cert/localhost-cert.pem
 
 # collectd
 echo -e '18.docker-test-system#20.docker-test-instance#11.52.69.164.6#11.docker-test.GenericJMX-tomcat_servlet.SpringApplication.count-milliseconds-processing 22613 1489377836\n18.docker-test-system#20.docker-test-instance#11.52.69.164.6#11.docker-test.GenericJMX-tomcat_servlet.StagemonitorFileServlet.count-requests 0 1489377836\n18.docker-test-system#20.docker-test-instance#11.52.69.164.6#11.docker-test.GenericJMX-tomcat_servlet.StagemonitorFileServlet.count-errors 0 1489377836' | \

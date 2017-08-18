@@ -5,7 +5,7 @@ echo "SCRIPTFILE: ${SCRIPTFILE}"
 SCRIPTPATH="$(dirname "$SCRIPTFILE")"
 echo "SCRIPTPATH: ${SCRIPTPATH}"
 
-CLIENT=${SCRIPTPATH}/../../../bin/easegateway-client
+CLIENT=${SCRIPTPATH}/../../bin/easegateway-client
 
 ADDRESS="$1"
 if [ -z "${ADDRESS}" ]; then
@@ -18,12 +18,13 @@ if [ -z "${KAFKA_BOOTSTRAP_SERVERS}" ]; then
 fi
 
 echo ""
-echo "Initial APM Plugins"
+echo "Update APM Plugins"
 rm -fr ${SCRIPTPATH}/apm_plugins
 cp -r ${SCRIPTPATH}/apm_plugins_template ${SCRIPTPATH}/apm_plugins
 sed -i "s#KAFKA_BOOTSTRAP_SERVERS#"${KAFKA_BOOTSTRAP_SERVERS}"#g" ${SCRIPTPATH}/apm_plugins/*.json
-${CLIENT} --address "${ADDRESS}" admin plugin add ${SCRIPTPATH}/apm_plugins/*.json
+${CLIENT} --address "${ADDRESS}" admin plugin update ${SCRIPTPATH}/apm_plugins/*.json
 
 echo ""
-echo "Initial APM Pipelines"
-${CLIENT} --address "${ADDRESS}" admin pipeline add ${SCRIPTPATH}/apm_pipelines_template/*.json
+echo "Update APM Pipelines"
+${CLIENT} --address "${ADDRESS}" admin pipeline update ${SCRIPTPATH}/apm_pipelines_template/*.json
+

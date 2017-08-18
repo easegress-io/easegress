@@ -1,0 +1,25 @@
+{
+  "type": "HTTPInput",
+  "config": {
+    "plugin_name": "http_input.colorize",
+    "url": "/ai/colorize",
+    "methods": ["POST"],
+    "headers_enum": {
+      "Content-Encoding": [
+        "",
+        "gzip",
+        "gzip, deflate"
+      ],
+      "Content-Type": [
+        "application/json"
+      ]
+    },
+    "unzip": true,
+    "respond_error": true,
+    "url_key": "",
+    "request_body_io_key": "HTTP_REQUEST_BODY_IO",
+    "response_code_key": "response_code",
+    "response_body_io_key": "HTTP_RESP_BODY_IO",
+    "response_body_buffer_key": ""
+  }
+}
