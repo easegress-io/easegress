@@ -8,9 +8,11 @@ import (
 	"strings"
 
 	"github.com/hexdecteam/easegateway-types/plugins"
+	"github.com/hexdecteam/easegateway-types/task"
 
 	"common"
 	"logger"
+	"option"
 )
 
 type CommonConfig struct {
@@ -242,4 +244,22 @@ func loadOutTreePluginTypes(path string) ([]string, string, error) {
 	}
 
 	return ret, "", nil
+}
+
+// Plugins utils
+
+func ReplaceTokensInPattern(t task.Task, pattern string) (string, error) {
+	visitor := func(pos int, token string) (bool, string) {
+		var ret string
+
+		v := t.Value(token)
+		if v != nil {
+			ret = task.ToString(v, option.PluginIODataFormatLengthLimit)
+		}
+
+		// always do replacement even it is empty (no value found in the task with a certain data key)
+		return true, ret
+	}
+
+	return common.ScanTokens(pattern, true, visitor)
 }

@@ -15,17 +15,16 @@ import (
 
 	"common"
 	"logger"
-	"option"
 )
 
 type pythonConfig struct {
 	CommonConfig
-	Code       string `json:"code"`
-	Base64     bool   `json:"base64_encoded"`
-	Version    string `json:"version"`
-	InputKey   string `json:"input_key"`
-	OutputKey  string `json:"output_key"`
-	TimeoutSec uint16 `json:"timeout_sec"` // up to 65535, zero means no timeout
+	Code               string `json:"code"`
+	Base64             bool   `json:"base64_encoded"`
+	Version            string `json:"version"`
+	InputBufferPattern string `json:"input_buffer_pattern"`
+	OutputKey          string `json:"output_key"`
+	TimeoutSec         uint16 `json:"timeout_sec"` // up to 65535, zero means no timeout
 
 	executableCode string
 	cmd            string
@@ -70,7 +69,7 @@ func (c *pythonConfig) Prepare(pipelineNames []string) error {
 
 	cmd := exec.Command(c.cmd, "-c", "")
 	if cmd.Run() != nil {
-		logger.Warnf("[python interpreter (version=%s) is not ready, python plugin will runs unsucessfullly!]",
+		logger.Warnf("[python interpreter (version=%s) is not ready, python plugin will runs unsuccessfully!]",
 			c.Version)
 	}
 
@@ -79,8 +78,12 @@ func (c *pythonConfig) Prepare(pipelineNames []string) error {
 	}
 
 	ts := strings.TrimSpace
-	c.InputKey = ts(c.InputKey)
 	c.OutputKey = ts(c.OutputKey)
+
+	_, err = common.ScanTokens(c.InputBufferPattern, false, nil)
+	if err != nil {
+		return fmt.Errorf("invalid input buffer pattern")
+	}
 
 	return nil
 }
@@ -108,7 +111,10 @@ func (p *python) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, err
 	cmd := exec.Command(p.conf.cmd, "-c", p.conf.executableCode)
 	cmd.SysProcAttr = common.SysProcAttr()
 
-	if len(p.conf.InputKey) != 0 {
+	// skip error check safely due to we ensured it in Prepare()
+	input, _ := ReplaceTokensInPattern(t, p.conf.InputBufferPattern)
+
+	if len(input) != 0 {
 		in, err := cmd.StdinPipe()
 		if err != nil {
 			logger.Errorf("[prepare stdin of python command failed: %v]", err)
@@ -119,7 +125,7 @@ func (p *python) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, err
 
 		go func() {
 			defer in.Close()
-			io.WriteString(in, task.ToString(t.Value(p.conf.InputKey), option.PluginIODataFormatLengthLimit))
+			io.WriteString(in, input)
 		}()
 	}
 

@@ -464,14 +464,14 @@ Plugin executes python code.
 | base64_encoded | bool | The flag represents if the python code is encoded in base64. | Functionality | Yes | false |
 | version | string | The version of python interpreter. | Functionality | Yes | 2 |
 | timeout_sec | uint16 | The wait timeout python code execution limited in second. | Functionality | Yes | 10 |
-| input\_key | string | The key name of standard input data for python code stored in internal storage as the plugin input. | I/O | Yes | "" |
+| input\_buffer\_pattern | string | The input data buffer pattern for python code as the input. | I/O | Yes | "" |
 | output\_key | string | The key name of standard output data for python code stored in internal storage as the plugin output. | I/O | Yes | "" |
 
 ### I/O
 
 | Data name | Configuration option name | Type | Data Type | Optional |
 |:--|:--|:--:|:--|:--:|
-| Standard input data | input\_key | Input | []byte | Yes |
+| Standard input data | input\_buffer\_pattern | Input | []byte | Yes |
 | Standard output data | output\_key | Output | []byte | Yes |
 
 ### Error
