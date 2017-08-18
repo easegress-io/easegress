@@ -47,7 +47,7 @@ type httpOutputConfig struct {
 func HTTPOutputConfigConstructor() plugins.Config {
 	return &httpOutputConfig{
 		TimeoutSec: 120,
-		Close:      true,
+		ExpectedResponseCodes: []int{http.StatusOK},
 	}
 }
 
@@ -275,8 +275,8 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task,
 			}
 		}
 		if !match {
-			err = fmt.Errorf("response code: %d doesn't match with expected : %v", resp.StatusCode, h.conf.ExpectedResponseCodes)
-			t.SetError(err, task.ResultInternalServerError)
+			err = fmt.Errorf("http upstream responded with unexpected status code: %d", resp.StatusCode)
+			t.SetError(err, task.ResultServiceUnavailable)
 			return t, nil
 		}
 	}
