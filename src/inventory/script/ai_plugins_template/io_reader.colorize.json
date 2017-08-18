@@ -1,8 +1,0 @@
-{
-  "type": "IOReader",
-  "config": {
-    "plugin_name": "io_reader.colorize",
-    "input_key": "HTTP_REQUEST_BODY_IO",
-    "output_key": "REQ_DATA"
-  }
-}
