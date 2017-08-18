@@ -15,6 +15,7 @@ import (
 
 	"common"
 	"logger"
+	"option"
 )
 
 type pythonConfig struct {
@@ -113,6 +114,7 @@ func (p *python) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, err
 	if option.PluginPythonIsolatedNamespace {
 		cmd.SysProcAttr = common.SysProcAttr()
 	}
+	cmd.Dir = "/tmp/easegateway_python_plugin"
 
 	// skip error check safely due to we ensured it in Prepare()
 	input, _ := ReplaceTokensInPattern(t, p.conf.InputBufferPattern)
