@@ -29,7 +29,7 @@ var (
 	ShowVersion bool
 
 	PluginIODataFormatLengthLimit uint64
-	PluginPythonIsolatedNamespace bool
+	PluginPythonRootNamespace bool
 )
 
 func init() {
@@ -71,8 +71,8 @@ func init() {
 
 	pluginIODataFormatLengthLimit := flag.Uint64("plugin_io_data_format_len_limit", 128,
 		"specify length limit on plugin IO data formation output in byte unit")
-	pluginPythonIsolatedNamespace := flag.Bool("plugin_python_isolated_namespace", true,
-		"specify if to use an isolated namespace to run python code")
+	pluginPythonRootNamespace := flag.Bool("plugin_python_root_namespace", false,
+		"specify if to run python code in root namespace without isolation")
 
 	flag.Parse()
 
@@ -101,5 +101,5 @@ func init() {
 	MemProfileFile = *memProfileFile
 	ShowVersion = *showVersion
 	PluginIODataFormatLengthLimit = *pluginIODataFormatLengthLimit
-	PluginPythonIsolatedNamespace = *pluginPythonIsolatedNamespace
+	PluginPythonRootNamespace = *pluginPythonRootNamespace
 }

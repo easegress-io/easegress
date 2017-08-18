@@ -5,8 +5,10 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/hexdecteam/easegateway-types/pipelines"
@@ -18,6 +20,8 @@ import (
 	"option"
 )
 
+const PYTHON_CODE_WORK_DIR = "/tmp/easegateway_python_plugin"
+
 type pythonConfig struct {
 	CommonConfig
 	Code               string `json:"code"`
@@ -26,6 +30,7 @@ type pythonConfig struct {
 	InputBufferPattern string `json:"input_buffer_pattern"`
 	OutputKey          string `json:"output_key"`
 	TimeoutSec         uint16 `json:"timeout_sec"` // up to 65535, zero means no timeout
+	ExpectedExitCodes  []int  `json:"expected_exit_codes"`
 
 	executableCode string
 	cmd            string
@@ -33,8 +38,9 @@ type pythonConfig struct {
 
 func PythonConfigConstructor() plugins.Config {
 	return &pythonConfig{
-		TimeoutSec: 10,
-		Version:    "2",
+		TimeoutSec:        10,
+		Version:           "2",
+		ExpectedExitCodes: []int{0},
 	}
 }
 
@@ -58,7 +64,7 @@ func (c *pythonConfig) Prepare(pipelineNames []string) error {
 		c.executableCode = c.Code
 	}
 
-	// NOTICE: Perhaps support minor version such as 2.7, 3.6, etc in future.
+	// NOTE(longyun): Perhaps support minor version such as 2.7, 3.6, etc in future.
 	switch c.Version {
 	case "2":
 		c.cmd = "python2"
@@ -86,6 +92,9 @@ func (c *pythonConfig) Prepare(pipelineNames []string) error {
 		return fmt.Errorf("invalid input buffer pattern")
 	}
 
+	os.RemoveAll(PYTHON_CODE_WORK_DIR)
+	os.MkdirAll(PYTHON_CODE_WORK_DIR, 750)
+
 	return nil
 }
 
@@ -111,10 +120,10 @@ func (p *python) Prepare(ctx pipelines.PipelineContext) {
 func (p *python) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
 	cmd := exec.Command(p.conf.cmd, "-c", p.conf.executableCode)
 
-	if option.PluginPythonIsolatedNamespace {
+	if !option.PluginPythonRootNamespace {
 		cmd.SysProcAttr = common.SysProcAttr()
 	}
-	cmd.Dir = "/tmp/easegateway_python_plugin"
+	cmd.Dir = PYTHON_CODE_WORK_DIR
 
 	// skip error check safely due to we ensured it in Prepare()
 	input, _ := ReplaceTokensInPattern(t, p.conf.InputBufferPattern)
@@ -134,9 +143,9 @@ func (p *python) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, err
 		}()
 	}
 
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &out
+	var stdOut, stdErr bytes.Buffer
+	cmd.Stdout = &stdOut
+	cmd.Stderr = &stdErr
 
 	err := cmd.Start()
 	if err != nil {
@@ -150,12 +159,7 @@ func (p *python) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, err
 	defer close(done)
 
 	go func() {
-		err := cmd.Wait()
-		if err != nil {
-			logger.Errorf("[execute python code failed: %v]", err)
-		}
-
-		done <- err
+		done <- cmd.Wait()
 	}()
 
 	var timer <-chan time.Time
@@ -171,14 +175,11 @@ func (p *python) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, err
 
 	select {
 	case err := <-done:
-		if err != nil {
-			t.SetError(err, task.ResultServiceUnavailable)
-		} else if len(p.conf.OutputKey) != 0 {
-			t, err = task.WithValue(t, p.conf.OutputKey, out.Bytes())
-			if err != nil {
-				t.SetError(err, task.ResultInternalServerError)
-			}
+		if stdErr.Len() > 0 {
+			logger.Warnf("[python code wrote stderr:\n%s\n]", stdErr.String())
 		}
+
+		t = handleResult(err, p.conf.ExpectedExitCodes, stdOut, p.conf.OutputKey, t)
 	case <-timer:
 		cmd.Process.Kill()
 		<-done // wait goroutine exits
@@ -192,7 +193,6 @@ func (p *python) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, err
 		<-done // wait goroutine exits
 
 		err := fmt.Errorf("task is cancelled by %s", t.CancelCause())
-
 		t.SetError(err, task.ResultTaskCancelled)
 	}
 
@@ -205,4 +205,55 @@ func (p *python) Name() string {
 
 func (p *python) Close() {
 	// Nothing to do.
+}
+
+////
+
+func handleResult(err error, expectedExitCodes []int,
+	out bytes.Buffer, outputKey string, t task.Task) task.Task {
+
+	exitCode := 0
+
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			if status, ok := exitErr.Sys().(syscall.WaitStatus); ok {
+				exitCode = status.ExitStatus()
+
+				logger.Debugf("[execute python code exit code: %d]", exitCode)
+			}
+		} else {
+			logger.Errorf("[execute python code failed: %v]", err)
+
+			t.SetError(err, task.ResultServiceUnavailable)
+			return t
+		}
+	}
+
+	if pythonExitCodeExpected(exitCode, expectedExitCodes) {
+		if len(outputKey) != 0 {
+			t, err = task.WithValue(t, outputKey, out.Bytes())
+			if err != nil {
+				t.SetError(err, task.ResultInternalServerError)
+			}
+		}
+	} else {
+		err := fmt.Errorf("python code responded with unexpected exit code (%d)", exitCode)
+		t.SetError(err, task.ResultServiceUnavailable)
+	}
+
+	return t
+}
+
+func pythonExitCodeExpected(code int, expectedExitCodes []int) bool {
+	if len(expectedExitCodes) == 0 {
+		return true
+	}
+
+	for _, expected := range expectedExitCodes {
+		if code == expected {
+			return true
+		}
+	}
+
+	return false
 }

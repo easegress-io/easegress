@@ -275,7 +275,7 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task,
 			}
 		}
 		if !match {
-			err = fmt.Errorf("http upstream responded with unexpected status code: %d", resp.StatusCode)
+			err = fmt.Errorf("http upstream responded with unexpected status code (%d)", resp.StatusCode)
 			t.SetError(err, task.ResultServiceUnavailable)
 			return t, nil
 		}

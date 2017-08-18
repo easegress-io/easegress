@@ -467,6 +467,7 @@ Plugin executes python code.
 | timeout_sec | uint16 | The wait timeout python code execution limited in second. | Functionality | Yes | 10 |
 | input\_buffer\_pattern | string | The input data buffer pattern for python code as the input. | I/O | Yes | "" |
 | output\_key | string | The key name of standard output data for python code stored in internal storage as the plugin output. | I/O | Yes | "" |
+| expected\_exit\_codes| []int | The expected python code exit code. If the plugin doesn't need to check the exit code, then set it to an empty array. Else if the real exit code doesn't match any of them, then the pipeline is finished. | Functionality | Yes | []{0} |
 
 ### I/O
 
