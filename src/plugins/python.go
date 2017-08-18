@@ -138,24 +138,36 @@ func (p *python) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, err
 	cmd.Stdout = &out
 	cmd.Stderr = &out
 
+	err := cmd.Start()
+	if err != nil {
+		logger.Errorf("[launch python interpreter failed: %v]", err)
+
+		t.SetError(err, task.ResultServiceUnavailable)
+		return t, nil
+	}
+
 	done := make(chan error, 0)
+	defer close(done)
 
 	go func() {
-		err := cmd.Start()
-		if err != nil {
-			logger.Errorf("[launch python interpreter failed: %v]", err)
-			done <- err
-			return
-		}
-
-		err = cmd.Wait()
+		err := cmd.Wait()
 		if err != nil {
 			logger.Errorf("[execute python code failed: %v]", err)
-			done <- err
 		}
 
-		done <- nil
+		done <- err
 	}()
+
+	var timer <-chan time.Time
+
+	if p.conf.TimeoutSec > 0 {
+		timer = time.After(time.Duration(p.conf.TimeoutSec) * time.Second)
+	} else {
+		timer1 := make(chan time.Time, 0)
+		defer close(timer1)
+
+		timer = timer1
+	}
 
 	select {
 	case err := <-done:
@@ -167,8 +179,9 @@ func (p *python) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, err
 				t.SetError(err, task.ResultInternalServerError)
 			}
 		}
-	case <-time.After(time.Duration(p.conf.TimeoutSec) * time.Second):
+	case <-timer:
 		cmd.Process.Kill()
+		<-done // wait goroutine exits
 
 		logger.Errorf("[execute python code timeout, terminated]")
 
@@ -176,8 +189,10 @@ func (p *python) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, err
 		t.SetError(err, task.ResultServiceUnavailable)
 	case <-t.Cancel():
 		cmd.Process.Kill()
+		<-done // wait goroutine exits
 
 		err := fmt.Errorf("task is cancelled by %s", t.CancelCause())
+
 		t.SetError(err, task.ResultTaskCancelled)
 	}
 
