@@ -121,7 +121,6 @@ if __name__ == '__main__':
             since_id = get_since_id(user.id_str)
             if since_id is not None:
                 user_since_ids[user.id_str] = since_id
-        print(user_ids)
 
         if len(user_since_ids) == 0:
             wait_new_tweet(user_ids)
