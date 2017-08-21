@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+const TOKEN_ESCAPE_CHAR string = `\`
+
 func StrInSlice(a string, list []string) bool {
 	for _, b := range list {
 		if b == a {
@@ -71,7 +73,13 @@ func ScanTokens(str string, removeEscapeChar bool, visitor TokenVisitor) (string
 			return false
 		}
 
-		return v[pos-1] == '\\'
+		return string(v[pos-1]) == TOKEN_ESCAPE_CHAR
+	}
+
+	escaper := func(s string) string {
+		return strings.Replace(
+			strings.Replace(s, TOKEN_ESCAPE_CHAR+`{`, "{", -1),
+			TOKEN_ESCAPE_CHAR+`}`, "}", -1)
 	}
 
 	token := ""
@@ -92,7 +100,7 @@ func ScanTokens(str string, removeEscapeChar bool, visitor TokenVisitor) (string
 			}
 
 			pos := i - len(token) - 1
-			token = strings.Replace(strings.Replace(token, `\{`, "{", -1), `\}`, "}", -1)
+			token = escaper(token)
 
 			care, replacement := visitor(pos, token)
 			if care {
@@ -118,7 +126,7 @@ func ScanTokens(str string, removeEscapeChar bool, visitor TokenVisitor) (string
 	}
 
 	if removeEscapeChar {
-		ret = strings.Replace(strings.Replace(ret, `\{`, "{", -1), `\}`, "}", -1)
+		ret = escaper(ret)
 	}
 
 	return ret, nil

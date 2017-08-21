@@ -261,5 +261,7 @@ func ReplaceTokensInPattern(t task.Task, pattern string) (string, error) {
 		return true, ret
 	}
 
-	return common.ScanTokens(pattern, true, visitor)
+	removeEscapeChar := strings.Contains(pattern, common.TOKEN_ESCAPE_CHAR)
+
+	return common.ScanTokens(pattern, removeEscapeChar, visitor)
 }
