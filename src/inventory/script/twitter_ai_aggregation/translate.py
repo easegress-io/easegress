@@ -1,6 +1,16 @@
 #!/usr/bin/env python3
 # -*- encoding: utf-8 -*-
 
+'''
+Description:
+    This script aims to translate a input text into Chinese.
+    Currently we use Youdao as the translate service.
+
+Input: text needed to be translated
+Output: translated text:
+'''
+
+
 import sys
 import hashlib
 import urllib.request
@@ -32,7 +42,7 @@ url = 'https://openapi.youdao.com/api?'+url_args_str
 def translate():
     with urllib.request.urlopen(url) as response:
         data = json.loads(response.read().decode())
-        print(data['translation'])
+        print(data['translation'][0], end='')
 
 if __name__ == '__main__':
     try:
