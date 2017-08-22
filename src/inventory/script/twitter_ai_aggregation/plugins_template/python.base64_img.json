@@ -5,7 +5,7 @@
         "code": "aW1wb3J0IGJhc2U2NAppbXBvcnQgc3lzCgppZiBfX25hbWVfXyA9PSAnX19tYWluX18nOgogICAgIHRyeToKICAgICAgICAgaW1nID0gc3lzLnN0ZGluLmJ1ZmZlci5yZWFkKCkKICAgICAgICAgYmFzZTY0ZWQgPSBiYXNlNjQuYjY0ZW5jb2RlKGltZykuZGVjb2RlKCkKICAgICAgICAgcHJpbnQoYmFzZTY0ZWQsIGVuZD0nJykKICAgICBleGNlcHQgRXhjZXB0aW9uIGFzIGU6CiAgICAgICAgIGVycl9tc2cgPSAncHl0aG9uIHNjcmlwdCBiYXNlNjQgaW1nIGRhdGEgZmFpbGVkOiB7fScuZm9ybWF0KGUpCiAgICAgICAgIHByaW50KGUsIGZpbGU9c3lzLnN0ZGVycikKICAgICAgICAgc3lzLmV4aXQoMSk=",
         "base64_encoded": true,
         "version": "3",
-        "timeout_sec": 2,
+        "timeout_sec": 20,
         "input_buffer_pattern": "{COL_IMG}",
         "output_key": "BASE64_COL_IMG"
     }
