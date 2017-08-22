@@ -13,6 +13,7 @@
       "http_output.download_colorized_img",
       "io_reader.colorized_img",
       "python.base64_img",
+      "python.translate_txt",
       "python.weibo"
     ]
   }

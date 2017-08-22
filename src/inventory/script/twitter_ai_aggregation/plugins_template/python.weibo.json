@@ -6,6 +6,6 @@
         "base64_encoded": true,
         "version": "3",
         "timeout_sec": 20,
-        "input_buffer_pattern": "\\{ \"image\": \"{BASE64_COL_IMG}\", \"text\": \"{TWEET_EN_TXT}\" \\}"
+        "input_buffer_pattern": "\\{ \"image\": \"{BASE64_COL_IMG}\", \"text\": \"{TWEET_ZH_TXT}\" \\}"
     }
 }
