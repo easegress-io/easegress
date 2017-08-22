@@ -81,6 +81,7 @@ vendor_get:
 		github.com/dgraph-io/badger \
 		github.com/ugorji/go/codec \
 		github.com/hashicorp/logutils \
+		github.com/ghodss/yaml \
 		github.com/hexdecteam/easegateway-types/... \
 		github.com/hexdecteam/easegateway-go-client/...
 
