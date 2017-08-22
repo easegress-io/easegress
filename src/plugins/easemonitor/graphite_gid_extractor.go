@@ -1,4 +1,4 @@
-package plugins
+package easemonitor
 
 import (
 	"bufio"
@@ -13,18 +13,18 @@ import (
 	"common"
 )
 
-type easeMonitorGraphiteGidExtractorConfig struct {
-	CommonConfig
+type graphiteGidExtractorConfig struct {
+	common.PluginCommonConfig
 	GidKey  string `json:"gid_key"`
 	DataKey string `json:"data_key"`
 }
 
-func EaseMonitorGraphiteGidExtractorConfigConstructor() plugins.Config {
-	return &easeMonitorGraphiteGidExtractorConfig{}
+func GraphiteGidExtractorConfigConstructor() plugins.Config {
+	return &graphiteGidExtractorConfig{}
 }
 
-func (c *easeMonitorGraphiteGidExtractorConfig) Prepare(pipelineNames []string) error {
-	err := c.CommonConfig.Prepare(pipelineNames)
+func (c *graphiteGidExtractorConfig) Prepare(pipelineNames []string) error {
+	err := c.PluginCommonConfig.Prepare(pipelineNames)
 	if err != nil {
 		return err
 	}
@@ -43,26 +43,26 @@ func (c *easeMonitorGraphiteGidExtractorConfig) Prepare(pipelineNames []string) 
 	return nil
 }
 
-type easeMonitorGraphiteGidExtractor struct {
-	conf *easeMonitorGraphiteGidExtractorConfig
+type graphiteGidExtractor struct {
+	conf *graphiteGidExtractorConfig
 }
 
-func EaseMonitorGraphiteGidExtractorConstructor(conf plugins.Config) (plugins.Plugin, error) {
-	c, ok := conf.(*easeMonitorGraphiteGidExtractorConfig)
+func GraphiteGidExtractorConstructor(conf plugins.Config) (plugins.Plugin, error) {
+	c, ok := conf.(*graphiteGidExtractorConfig)
 	if !ok {
-		return nil, fmt.Errorf("config type want *easeMonitorGraphiteGidExtractorConfig got %T", conf)
+		return nil, fmt.Errorf("config type want *graphiteGidExtractorConfig got %T", conf)
 	}
 
-	return &easeMonitorGraphiteGidExtractor{
+	return &graphiteGidExtractor{
 		conf: c,
 	}, nil
 }
 
-func (e *easeMonitorGraphiteGidExtractor) Prepare(ctx pipelines.PipelineContext) {
+func (e *graphiteGidExtractor) Prepare(ctx pipelines.PipelineContext) {
 	// Nothing to do.
 }
 
-func (e *easeMonitorGraphiteGidExtractor) extract(t task.Task) (error, task.TaskResultCode, task.Task) {
+func (e *graphiteGidExtractor) extract(t task.Task) (error, task.TaskResultCode, task.Task) {
 	dataValue := t.Value(e.conf.DataKey)
 	data, ok := dataValue.([]byte)
 	if !ok {
@@ -93,7 +93,7 @@ func (e *easeMonitorGraphiteGidExtractor) extract(t task.Task) (error, task.Task
 	return nil, t.ResultCode(), t
 }
 
-func (e *easeMonitorGraphiteGidExtractor) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
+func (e *graphiteGidExtractor) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
 	err, resultCode, t := e.extract(t)
 	if err != nil {
 		t.SetError(err, resultCode)
@@ -101,10 +101,10 @@ func (e *easeMonitorGraphiteGidExtractor) Run(ctx pipelines.PipelineContext, t t
 	return t, nil
 }
 
-func (e *easeMonitorGraphiteGidExtractor) Name() string {
+func (e *graphiteGidExtractor) Name() string {
 	return e.conf.PluginName()
 }
 
-func (e *easeMonitorGraphiteGidExtractor) Close() {
+func (e *graphiteGidExtractor) Close() {
 	// Nothing to do.
 }

@@ -15,7 +15,7 @@ import (
 )
 
 type ioReaderConfig struct {
-	CommonConfig
+	common.PluginCommonConfig
 	LengthMax int64 `json:"read_length_max"` // up to 9223372036854775807 ~= 8192 Pebibyte
 	Close     bool  `json:"close_after_read"`
 
@@ -31,7 +31,7 @@ func IOReaderConfigConfigConstructor() plugins.Config {
 }
 
 func (c *ioReaderConfig) Prepare(pipelineNames []string) error {
-	err := c.CommonConfig.Prepare(pipelineNames)
+	err := c.PluginCommonConfig.Prepare(pipelineNames)
 	if err != nil {
 		return err
 	}

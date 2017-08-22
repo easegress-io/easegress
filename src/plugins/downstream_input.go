@@ -7,11 +7,12 @@ import (
 	"github.com/hexdecteam/easegateway-types/plugins"
 	"github.com/hexdecteam/easegateway-types/task"
 
+	"common"
 	"logger"
 )
 
 type downstreamInputConfig struct {
-	CommonConfig
+	common.PluginCommonConfig
 
 	ResponseDataKeys []string `json:"response_data_keys"`
 }
@@ -21,7 +22,7 @@ func DownstreamInputConfigConstructor() plugins.Config {
 }
 
 func (c *downstreamInputConfig) Prepare(pipelineNames []string) error {
-	err := c.CommonConfig.Prepare(pipelineNames)
+	err := c.PluginCommonConfig.Prepare(pipelineNames)
 	if err != nil {
 		return err
 	}

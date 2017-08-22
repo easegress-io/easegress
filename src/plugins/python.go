@@ -23,7 +23,7 @@ import (
 const PYTHON_CODE_WORK_DIR = "/tmp/easegateway_python_plugin"
 
 type pythonConfig struct {
-	CommonConfig
+	common.PluginCommonConfig
 	Code               string `json:"code"`
 	Base64             bool   `json:"base64_encoded"`
 	Version            string `json:"version"`
@@ -45,7 +45,7 @@ func PythonConfigConstructor() plugins.Config {
 }
 
 func (c *pythonConfig) Prepare(pipelineNames []string) error {
-	err := c.CommonConfig.Prepare(pipelineNames)
+	err := c.PluginCommonConfig.Prepare(pipelineNames)
 	if err != nil {
 		return err
 	}

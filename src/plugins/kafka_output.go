@@ -15,7 +15,7 @@ import (
 )
 
 type kafkaOutputConfig struct {
-	CommonConfig
+	common.PluginCommonConfig
 	Brokers  []string `json:"brokers"`
 	ClientID string   `json:"client_id"`
 	Topic    string   `json:"topic"`
@@ -31,7 +31,7 @@ func KafkaOutputConfigConstructor() plugins.Config {
 }
 
 func (c *kafkaOutputConfig) Prepare(pipelineNames []string) error {
-	err := c.CommonConfig.Prepare(pipelineNames)
+	err := c.PluginCommonConfig.Prepare(pipelineNames)
 	if err != nil {
 		return err
 	}

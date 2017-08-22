@@ -10,6 +10,7 @@ import (
 
 	"github.com/hexdecteam/easegateway-types/plugins"
 
+	"common"
 	"logger"
 	"option"
 	"pipelines"
@@ -159,7 +160,7 @@ func (s *JSONFileStore) AddPlugin(plugin *PluginSpec) error {
 
 	for _, spec := range pluginRepo.PluginSpecs {
 		buff, _ := json.Marshal(spec.Config)
-		c := new(plugins_gw.CommonConfig)
+		c := new(common.PluginCommonConfig)
 		json.Unmarshal(buff, c)
 
 		if c.PluginName() == conf.PluginName() {
@@ -200,7 +201,7 @@ func (s *JSONFileStore) AddPipeline(pipeline *PipelineSpec) error {
 
 	for _, spec := range pipelineRepo.PipelineSpecs {
 		buff, _ := json.Marshal(spec.Config)
-		c := new(pipelines.CommonConfig)
+		c := new(common.PipelineCommonConfig)
 		json.Unmarshal(buff, c)
 
 		if c.PipelineName() == conf.PipelineName() {
@@ -238,7 +239,7 @@ func (s *JSONFileStore) DeletePlugin(name string) error {
 	deleted := false
 	for _, spec := range pluginRepo.PluginSpecs {
 		buff, _ := json.Marshal(spec.Config)
-		c := new(plugins_gw.CommonConfig)
+		c := new(common.PluginCommonConfig)
 		json.Unmarshal(buff, c)
 
 		if c.PluginName() != name {
@@ -283,7 +284,7 @@ func (s *JSONFileStore) DeletePipeline(name string) error {
 	deleted := false
 	for _, spec := range pipelineRepo.PipelineSpecs {
 		buff, _ := json.Marshal(spec.Config)
-		c := new(pipelines.CommonConfig)
+		c := new(common.PipelineCommonConfig)
 		json.Unmarshal(buff, c)
 
 		if c.PipelineName() != name {
@@ -332,7 +333,7 @@ func (s *JSONFileStore) UpdatePlugin(plugin *PluginSpec) error {
 	var newPluginSpecs []PluginSpec
 	for _, spec := range pluginRepo.PluginSpecs {
 		buff, _ := json.Marshal(spec.Config)
-		c := new(plugins_gw.CommonConfig)
+		c := new(common.PluginCommonConfig)
 		json.Unmarshal(buff, c)
 
 		if c.PluginName() == conf.PluginName() {
@@ -376,7 +377,7 @@ func (s *JSONFileStore) UpdatePipeline(pipeline *PipelineSpec) error {
 	var newPipelineSpecs []PipelineSpec
 	for _, spec := range pipelineRepo.PipelineSpecs {
 		buff, _ := json.Marshal(spec.Config)
-		c := new(pipelines.CommonConfig)
+		c := new(common.PipelineCommonConfig)
 		json.Unmarshal(buff, c)
 
 		if c.PipelineName() == conf.PipelineName() {

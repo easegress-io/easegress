@@ -8,10 +8,11 @@ import (
 	"github.com/hexdecteam/easegateway-types/plugins"
 	"github.com/hexdecteam/easegateway-types/task"
 	"github.com/xeipuuv/gojsonschema"
+	"common"
 )
 
 type jsonValidatorConfig struct {
-	CommonConfig
+	common.PluginCommonConfig
 	Schema  string `json:"schema"`
 	DataKey string `json:"data_key"`
 
@@ -23,7 +24,7 @@ func JSONValidatorConfigConstructor() plugins.Config {
 }
 
 func (c *jsonValidatorConfig) Prepare(pipelineNames []string) error {
-	err := c.CommonConfig.Prepare(pipelineNames)
+	err := c.PluginCommonConfig.Prepare(pipelineNames)
 	if err != nil {
 		return err
 	}

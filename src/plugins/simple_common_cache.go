@@ -13,10 +13,11 @@ import (
 
 	"logger"
 	"option"
+	"common"
 )
 
 type simpleCommonCacheConfig struct {
-	CommonConfig
+	common.PluginCommonConfig
 	HitKeys     []string `json:"hit_keys"`
 	CacheKey    string   `json:"cache_key"`
 	TTLSec      uint32   `json:"ttl_sec"` // up to 4294967295, zero means infinite time to live
@@ -31,7 +32,7 @@ func SimpleCommonCacheConfigConstructor() plugins.Config {
 }
 
 func (c *simpleCommonCacheConfig) Prepare(pipelineNames []string) error {
-	err := c.CommonConfig.Prepare(pipelineNames)
+	err := c.PluginCommonConfig.Prepare(pipelineNames)
 	if err != nil {
 		return err
 	}

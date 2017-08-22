@@ -13,10 +13,11 @@ import (
 	"golang.org/x/time/rate"
 
 	"logger"
+	"common"
 )
 
 type throughputRateLimiterConfig struct {
-	CommonConfig
+	common.PluginCommonConfig
 	Tps string `json:"tps,omitempty"`
 
 	tps float64
@@ -27,7 +28,7 @@ func ThroughputRateLimiterConfigConstructor() plugins.Config {
 }
 
 func (c *throughputRateLimiterConfig) Prepare(pipelineNames []string) error {
-	err := c.CommonConfig.Prepare(pipelineNames)
+	err := c.PluginCommonConfig.Prepare(pipelineNames)
 	if err != nil {
 		return err
 	}

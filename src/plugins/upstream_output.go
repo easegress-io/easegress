@@ -197,7 +197,7 @@ func fanoutSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Tas
 ////
 
 type upstreamOutputConfig struct {
-	CommonConfig
+	common.PluginCommonConfig
 	TargetPipelineNames []string `json:"target_pipelines"`
 	RoutePolicy         string   `json:"route_policy"`
 	TimeoutSec          uint16   `json:"timeout_sec"` // up to 65535, zero means no timeout
@@ -225,7 +225,7 @@ func UpstreamOutputConfigConstructor() plugins.Config {
 }
 
 func (c *upstreamOutputConfig) Prepare(pipelineNames []string) error {
-	err := c.CommonConfig.Prepare(pipelineNames)
+	err := c.PluginCommonConfig.Prepare(pipelineNames)
 	if err != nil {
 		return err
 	}

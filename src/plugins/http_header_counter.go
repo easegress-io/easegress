@@ -16,7 +16,7 @@ import (
 )
 
 type httpHeaderCounterConfig struct {
-	CommonConfig
+	common.PluginCommonConfig
 	HeaderConcerned string `json:"header_concerned"`
 	ExpirationSec   uint32 `json:"expiration_sec"`
 }
@@ -28,7 +28,7 @@ func HTTPHeaderCounterConfigConstructor() plugins.Config {
 }
 
 func (c *httpHeaderCounterConfig) Prepare(pipelineNames []string) error {
-	err := c.CommonConfig.Prepare(pipelineNames)
+	err := c.PluginCommonConfig.Prepare(pipelineNames)
 	if err != nil {
 		return err
 	}

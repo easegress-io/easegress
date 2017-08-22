@@ -10,10 +10,11 @@ import (
 	"github.com/hexdecteam/easegateway-types/task"
 
 	"logger"
+	"common"
 )
 
 type staticProbabilityLimiterConfig struct {
-	CommonConfig
+	common.PluginCommonConfig
 	PassPr float32 `json:"pass_pr"`
 }
 
@@ -22,7 +23,7 @@ func StaticProbabilityLimiterConfigConstructor() plugins.Config {
 }
 
 func (c *staticProbabilityLimiterConfig) Prepare(pipelineNames []string) error {
-	err := c.CommonConfig.Prepare(pipelineNames)
+	err := c.PluginCommonConfig.Prepare(pipelineNames)
 	if err != nil {
 		return err
 	}

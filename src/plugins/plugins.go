@@ -13,24 +13,8 @@ import (
 	"common"
 	"logger"
 	"option"
+	apm "plugins/easemonitor"
 )
-
-type CommonConfig struct {
-	Name string `json:"plugin_name"`
-}
-
-func (c *CommonConfig) PluginName() string {
-	return c.Name
-}
-
-func (c *CommonConfig) Prepare(pipelineNames []string) error {
-	c.Name = strings.TrimSpace(c.Name)
-	if len(c.Name) == 0 {
-		return fmt.Errorf("invalid plugin name")
-	}
-
-	return nil
-}
 
 // Plugins Register Authority
 
@@ -77,13 +61,13 @@ var (
 
 		// Ease Monitor product dedicated plugins
 		"EaseMonitorProtoAdaptor": {
-			EaseMonitorProtoAdaptorConstructor, EaseMonitorProtoAdaptorConfigConstructor},
+			apm.ProtoAdaptorConstructor, apm.ProtoAdaptorConfigConstructor},
 		"EaseMonitorGraphiteGidExtractor": {
-			EaseMonitorGraphiteGidExtractorConstructor, EaseMonitorGraphiteGidExtractorConfigConstructor},
+			apm.GraphiteGidExtractorConstructor, apm.GraphiteGidExtractorConfigConstructor},
 		"EaseMonitorGraphiteValidator": {
-			EaseMonitorGraphiteValidatorConstructor, EaseMonitorGraphiteValidatorConfigConstructor},
+			apm.GraphiteValidatorConstructor, apm.GraphiteValidatorConfigConstructor},
 		"EaseMonitorJSONGidExtractor": {
-			EaseMonitorJSONGidExtractorConstructor, EaseMonitorJSONGidExtractorConfigConstructor},
+			apm.JSONGidExtractorConstructor, apm.JSONGidExtractorConfigConstructor},
 	}
 )
 

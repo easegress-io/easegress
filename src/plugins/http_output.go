@@ -23,7 +23,7 @@ import (
 )
 
 type httpOutputConfig struct {
-	CommonConfig
+	common.PluginCommonConfig
 	URLPattern               string            `json:"url_pattern"`
 	HeaderPatterns           map[string]string `json:"header_patterns"`
 	Close                    bool              `json:"close_body_after_pipeline"`
@@ -52,7 +52,7 @@ func HTTPOutputConfigConstructor() plugins.Config {
 }
 
 func (c *httpOutputConfig) Prepare(pipelineNames []string) error {
-	err := c.CommonConfig.Prepare(pipelineNames)
+	err := c.PluginCommonConfig.Prepare(pipelineNames)
 	if err != nil {
 		return err
 	}

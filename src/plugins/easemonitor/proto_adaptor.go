@@ -1,4 +1,4 @@
-package plugins
+package easemonitor
 
 import (
 	"encoding/binary"
@@ -11,21 +11,22 @@ import (
 	"github.com/hexdecteam/easegateway-types/plugins"
 	"github.com/hexdecteam/easegateway-types/task"
 
-	"plugins/gwproto"
+	"common"
+	"plugins/easemonitor/gwproto"
 )
 
-type easeMonitorProtoAdaptorConfig struct {
-	CommonConfig
+type protoAdaptorConfig struct {
+	common.PluginCommonConfig
 	GidKey  string `json:"gid_key"`
 	DataKey string `json:"data_key"`
 }
 
-func EaseMonitorProtoAdaptorConfigConstructor() plugins.Config {
-	return &easeMonitorProtoAdaptorConfig{}
+func ProtoAdaptorConfigConstructor() plugins.Config {
+	return &protoAdaptorConfig{}
 }
 
-func (c *easeMonitorProtoAdaptorConfig) Prepare(pipelineNames []string) error {
-	err := c.CommonConfig.Prepare(pipelineNames)
+func (c *protoAdaptorConfig) Prepare(pipelineNames []string) error {
+	err := c.PluginCommonConfig.Prepare(pipelineNames)
 	if err != nil {
 		return err
 	}
@@ -44,26 +45,26 @@ func (c *easeMonitorProtoAdaptorConfig) Prepare(pipelineNames []string) error {
 	return nil
 }
 
-type easeMonitorProtoAdaptor struct {
-	conf *easeMonitorProtoAdaptorConfig
+type protoAdaptor struct {
+	conf *protoAdaptorConfig
 }
 
-func EaseMonitorProtoAdaptorConstructor(conf plugins.Config) (plugins.Plugin, error) {
-	c, ok := conf.(*easeMonitorProtoAdaptorConfig)
+func ProtoAdaptorConstructor(conf plugins.Config) (plugins.Plugin, error) {
+	c, ok := conf.(*protoAdaptorConfig)
 	if !ok {
-		return nil, fmt.Errorf("config type want *easeMonitorProtoAdaptorConfig got %T", conf)
+		return nil, fmt.Errorf("config type want *protoAdaptorConfig got %T", conf)
 	}
 
-	return &easeMonitorProtoAdaptor{
+	return &protoAdaptor{
 		conf: c,
 	}, nil
 }
 
-func (a *easeMonitorProtoAdaptor) Prepare(ctx pipelines.PipelineContext) {
+func (a *protoAdaptor) Prepare(ctx pipelines.PipelineContext) {
 	// Nothing to do.
 }
 
-func (a *easeMonitorProtoAdaptor) adapt(t task.Task) (err error, resultCode task.TaskResultCode, retTask task.Task) {
+func (a *protoAdaptor) adapt(t task.Task) (err error, resultCode task.TaskResultCode, retTask task.Task) {
 	dataValue := t.Value(a.conf.DataKey)
 	data, ok := dataValue.([]byte)
 	if !ok {
@@ -169,7 +170,7 @@ func (a *easeMonitorProtoAdaptor) adapt(t task.Task) (err error, resultCode task
 	return
 }
 
-func (a *easeMonitorProtoAdaptor) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
+func (a *protoAdaptor) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
 	err, resultCode, t := a.adapt(t)
 	if err != nil {
 		t.SetError(err, resultCode)
@@ -177,10 +178,10 @@ func (a *easeMonitorProtoAdaptor) Run(ctx pipelines.PipelineContext, t task.Task
 	return t, nil
 }
 
-func (g *easeMonitorProtoAdaptor) Name() string {
+func (g *protoAdaptor) Name() string {
 	return g.conf.PluginName()
 }
 
-func (g *easeMonitorProtoAdaptor) Close() {
+func (g *protoAdaptor) Close() {
 	// Nothing to do.
 }

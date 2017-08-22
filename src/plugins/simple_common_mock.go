@@ -9,10 +9,11 @@ import (
 	"github.com/hexdecteam/easegateway-types/task"
 
 	"logger"
+	"common"
 )
 
 type simpleCommonMockConfig struct {
-	CommonConfig
+	common.PluginCommonConfig
 	PluginConcerned        string `json:"plugin_concerned"`
 	TaskErrorCodeConcerned string `json:"task_error_code_concerned"`
 	// TODO: Supports multiple key and value pairs
@@ -29,7 +30,7 @@ func SimpleCommonMockConfigConstructor() plugins.Config {
 }
 
 func (c *simpleCommonMockConfig) Prepare(pipelineNames []string) error {
-	err := c.CommonConfig.Prepare(pipelineNames)
+	err := c.PluginCommonConfig.Prepare(pipelineNames)
 	if err != nil {
 		return err
 	}

@@ -15,7 +15,7 @@ import (
 )
 
 type serviceCircuitBreakerConfig struct {
-	CommonConfig
+	common.PluginCommonConfig
 	PluginsConcerned []string `json:"plugins_concerned"`
 	// condition to enable circuit breaker
 	AllTPSThresholdToEnablement float64 `json:"all_tps_threshold_to_enable"`
@@ -38,7 +38,7 @@ func ServiceCircuitBreakerConfigConstructor() plugins.Config {
 }
 
 func (c *serviceCircuitBreakerConfig) Prepare(pipelineNames []string) error {
-	err := c.CommonConfig.Prepare(pipelineNames)
+	err := c.PluginCommonConfig.Prepare(pipelineNames)
 	if err != nil {
 		return err
 	}

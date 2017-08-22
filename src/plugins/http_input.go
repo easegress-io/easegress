@@ -93,7 +93,7 @@ func init() {
 ////
 
 type httpInputConfig struct {
-	CommonConfig
+	common.PluginCommonConfig
 	URL         string              `json:"url"`
 	Methods     []string            `json:"methods"`
 	HeadersEnum map[string][]string `json:"headers_enum"`
@@ -116,7 +116,7 @@ func HTTPInputConfigConstructor() plugins.Config {
 }
 
 func (c *httpInputConfig) Prepare(pipelineNames []string) error {
-	err := c.CommonConfig.Prepare(pipelineNames)
+	err := c.PluginCommonConfig.Prepare(pipelineNames)
 	if err != nil {
 		return err
 	}

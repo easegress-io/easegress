@@ -16,7 +16,7 @@ import (
 )
 
 type linearPipelineConfig struct {
-	*pipelines_gw.CommonConfig
+	*common.PipelineCommonConfig
 	WaitPluginClose bool `json:"wait_plugin_close"`
 }
 

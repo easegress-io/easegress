@@ -15,7 +15,7 @@ import (
 )
 
 type latencyWindowLimiterConfig struct {
-	CommonConfig
+	common.PluginCommonConfig
 	PluginsConcerned     []string `json:"plugins_concerned"`
 	LatencyThresholdMSec uint32   `json:"latency_threshold_msec"` // up to 4294967295
 	BackOffMSec          uint16   `json:"backoff_msec"`           // up to 65535
@@ -33,7 +33,7 @@ func LatencyWindowLimiterConfigConstructor() plugins.Config {
 }
 
 func (c *latencyWindowLimiterConfig) Prepare(pipelineNames []string) error {
-	err := c.CommonConfig.Prepare(pipelineNames)
+	err := c.PluginCommonConfig.Prepare(pipelineNames)
 	if err != nil {
 		return err
 	}

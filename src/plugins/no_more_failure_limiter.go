@@ -10,10 +10,11 @@ import (
 	"github.com/hexdecteam/easegateway-types/task"
 
 	"logger"
+	"common"
 )
 
 type noMoreFailureLimiterConfig struct {
-	CommonConfig
+	common.PluginCommonConfig
 	FailureCountThreshold uint64 `json:"failure_count_threshold"` // up to 18446744073709551615
 
 	// TODO: Supports multiple key and value pairs
@@ -28,7 +29,7 @@ func NoMoreFailureLimiterConfigConstructor() plugins.Config {
 }
 
 func (c *noMoreFailureLimiterConfig) Prepare(pipelineNames []string) error {
-	err := c.CommonConfig.Prepare(pipelineNames)
+	err := c.PluginCommonConfig.Prepare(pipelineNames)
 	if err != nil {
 		return err
 	}
