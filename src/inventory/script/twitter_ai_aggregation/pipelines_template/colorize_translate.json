@@ -1,0 +1,19 @@
+{
+  "type": "LinearPipeline",
+  "config": {
+    "pipeline_name": "linear_pipeline.colorize",
+    "parallelism": 1,
+    "plugin_names": [
+      "python.wait_new_tweet",
+      "python.parse_tweet_img",
+      "python.parse_tweet_txt",
+      "http_output.colorize",
+      "io_reader.colorize",
+      "python.parse_col_result",
+      "http_output.download_colorized_img",
+      "io_reader.colorized_img",
+      "python.base64_img",
+      "python.weibo"
+    ]
+  }
+}

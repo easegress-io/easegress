@@ -1,0 +1,9 @@
+{
+  "type": "IOReader",
+  "config": {
+    "plugin_name": "io_reader.colorized_img",
+    "input_key": "COL_IMG_IO",
+    "output_key": "COL_IMG",
+    "read_length_max": 10240000
+  }
+}
