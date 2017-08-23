@@ -1,7 +1,7 @@
 #!/bin/sh
 
 if [ $# -eq 0 ] ; then
-  exit 1
+  set -- "-plugin_python_root_namespace"
 fi
 
 if [ "$(echo $1 | head -c 1)" != "-" ] ; then

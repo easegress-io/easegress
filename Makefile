@@ -99,19 +99,19 @@ build_client_alpine: ${TARGET_GATEWAY_CLIENT} ${TARGET_INVENTORY}
 	rm -rf ${MKFILE_DIR}rootfs/alpine/opt && \
 		mkdir -p ${MKFILE_DIR}rootfs/alpine/opt/easegateway/bin && cp ${TARGET_GATEWAY_CLIENT} ${MKFILE_DIR}rootfs/alpine/opt/easegateway/bin && \
 		cp -r ${TARGET_INVENTORY} ${MKFILE_DIR}rootfs/alpine/opt/easegateway && \
-		cd ${MKFILE_DIR}rootfs/alpine && $(DOCKER) build -t ${DOCKER_REPO_INFO}:client-${RELEASE} -f ./Dockerfile.client .
+		cd ${MKFILE_DIR}rootfs/alpine && $(DOCKER) build -t ${DOCKER_REPO_INFO}:client-${RELEASE}_alpine -f ./Dockerfile.client .
 
 build_server_alpine: ${TARGET_GATEWAY_SERVER} ${TARGET_INVENTORY}
 	@echo "-------------- building gateway server docker image (from alpine) ---------------"
 	rm -rf ${MKFILE_DIR}rootfs/alpine/opt && \
 		mkdir -p ${MKFILE_DIR}rootfs/alpine/opt/easegateway/bin && cp ${TARGET_GATEWAY_SERVER} ${MKFILE_DIR}rootfs/alpine/opt/easegateway/bin && \
 		cp -r ${TARGET_INVENTORY} ${MKFILE_DIR}rootfs/alpine/opt/easegateway && \
-		cd ${MKFILE_DIR}rootfs/alpine && $(DOCKER) build -t ${DOCKER_REPO_INFO}:server-${RELEASE} -f ./Dockerfile.server .
+		cd ${MKFILE_DIR}rootfs/alpine && $(DOCKER) build -t ${DOCKER_REPO_INFO}:server-${RELEASE}_alpine -f ./Dockerfile.server .
 
 build_server_ubuntu: ${TARGET_GATEWAY_SERVER} ${TARGET_INVENTORY}
 	@echo "-------------- building gateway server docker image (from ubuntu) ---------------"
 	rm -rf ${MKFILE_DIR}rootfs/ubuntu/opt && \
 		mkdir -p ${MKFILE_DIR}rootfs/ubuntu/opt/easegateway/bin && cp ${TARGET_GATEWAY_SERVER} ${MKFILE_DIR}rootfs/ubuntu/opt/easegateway/bin && \
 		cp -r ${TARGET_INVENTORY} ${MKFILE_DIR}rootfs/ubuntu/opt/easegateway && \
-		cd ${MKFILE_DIR}rootfs/ubuntu && $(DOCKER) build -t ${DOCKER_REPO_INFO}:server-${RELEASE} -f ./Dockerfile.server .
+		cd ${MKFILE_DIR}rootfs/ubuntu && $(DOCKER) build -t ${DOCKER_REPO_INFO}:server-${RELEASE}_ubuntu -f ./Dockerfile.server .
 

@@ -5,4 +5,3 @@ ADD https://github.com/krallin/tini/releases/download/v0.15.0/tini /sbin/tini
 RUN chmod +x /sbin/tini
 
 ENTRYPOINT ["/sbin/tini", "--", "/entrypoint.server.sh"]
-CMD ["/opt/easegateway/bin/easegateway-server"]

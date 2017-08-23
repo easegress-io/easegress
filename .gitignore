@@ -28,6 +28,7 @@ _testmain.go
 build
 _vendor
 rootfs/alpine/opt
+rootfs/ubuntu/opt
 
 .DS_Store
 .idea/
