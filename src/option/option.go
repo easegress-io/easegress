@@ -29,7 +29,8 @@ var (
 	ShowVersion bool
 
 	PluginIODataFormatLengthLimit uint64
-	PluginPythonRootNamespace bool
+	PluginPythonRootNamespace     bool
+	PluginShellRootNamespace      bool
 )
 
 func init() {
@@ -73,6 +74,8 @@ func init() {
 		"specify length limit on plugin IO data formation output in byte unit")
 	pluginPythonRootNamespace := flag.Bool("plugin_python_root_namespace", false,
 		"specify if to run python code in root namespace without isolation")
+	pluginShellRootNamespace := flag.Bool("plugin_shell_root_namespace", false,
+		"specify if to run shell script in root namespace without isolation")
 
 	flag.Parse()
 
@@ -102,4 +105,5 @@ func init() {
 	ShowVersion = *showVersion
 	PluginIODataFormatLengthLimit = *pluginIODataFormatLengthLimit
 	PluginPythonRootNamespace = *pluginPythonRootNamespace
+	PluginShellRootNamespace = *pluginShellRootNamespace
 }

@@ -21,11 +21,12 @@ There are 18 available plugins totally in Ease Gateway current release.
 | [Simple common cache](#simple-common-cache-plugin) | SimpleCommonCache | No | No | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/simple_common_cache.go) |
 | [Simple common mock](#simple-common-mock-plugin) | SimpleCommonMock | No | No | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/simple_common_mock.go) |
 | [Python](#python-plugin) | Python | Yes | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/python.go) |
+| [Shell](#shell-plugin) | Shell | Yes | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/shell.go) |
 | [Upstream output](#upstream-output-plugin) | UpstreamOutput | Yes | No | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/upstream_output.go) |
 | [Downstream input](#downstream-input-plugin) | DownstreamInput | Yes | No | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/downstream_input.go) |
-| [Ease Monitor graphite validator](#ease-monitor-graphite-validator-plugin) | EaseMonitorGraphiteValidator | No | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/easemonitor_graphite_validator.go) |
-| [Ease Monitor graphite GID extractor](#ease-monitor-graphite-gid-extractor-plugin) | EaseMonitorGraphiteGidExtractor | No | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/easemonitor_graphite_gid_extractor.go) |
-| [Ease Monitor JSON GID extractor](#ease-monitor-json-gid-extractor-plugin) | EaseMonitorJSONGidExtractor | No | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/easemonitor_json_gid_extractor.go) |
+| [Ease Monitor graphite validator](#ease-monitor-graphite-validator-plugin) | EaseMonitorGraphiteValidator | No | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/easemonitor/graphite_validator.go) |
+| [Ease Monitor graphite GID extractor](#ease-monitor-graphite-gid-extractor-plugin) | EaseMonitorGraphiteGidExtractor | No | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/easemonitor/graphite_gid_extractor.go) |
+| [Ease Monitor JSON GID extractor](#ease-monitor-json-gid-extractor-plugin) | EaseMonitorJSONGidExtractor | No | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/easemonitor/json_gid_extractor.go) |
 
 
 ## HTTP Input plugin
@@ -463,7 +464,7 @@ Plugin executes python code.
 | plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
 | code | string | The python code to be executed. | Functionality | No | N/A |
 | base64_encoded | bool | The flag represents if the python code is encoded in base64. | Functionality | Yes | false |
-| version | string | The version of python interpreter. | Functionality | Yes | 2 |
+| version | string | The version of python interpreter. Currently valid values are `2` and `3`.  | Functionality | Yes | "2" |
 | timeout_sec | uint16 | The wait timeout python code execution limited in second. | Functionality | Yes | 10 |
 | input\_buffer\_pattern | string | The input data buffer pattern for python code as the input. | I/O | Yes | "" |
 | output\_key | string | The key name of standard output data for python code stored in internal storage as the plugin output. | I/O | Yes | "" |
@@ -483,6 +484,46 @@ Plugin executes python code.
 | ResultServiceUnavailable | failed to get standard input |
 | ResultServiceUnavailable | failed to launch python interpreter |
 | ResultServiceUnavailable | failed to execute python code |
+| ResultServiceUnavailable | execute python code timeout and terminated |
+| ResultInternalServerError | failed to load/read data |
+| ResultTaskCancelled | task is cancelled |
+
+### Dedicated statistics indicator
+
+No any indicators exposed.
+
+## Shell
+
+Plugin executes shell script.
+
+### Configuration
+
+| Parameter name | Data type (golang) | Description | Type | Optional | Default value (golang) |
+|:--|:--|:--|:--:|:--:|:--|
+| plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
+| code | string | The shell script to be executed. | Functionality | No | N/A |
+| base64_encoded | bool | The flag represents if the shell script is encoded in base64. | Functionality | Yes | false |
+| type | string | The type of shell interpreter. Currently valid values are `sh`, `bash` and `zsh`. | Functionality | Yes | "sh" |
+| timeout_sec | uint16 | The wait timeout shell script execution limited in second. | Functionality | Yes | 10 |
+| input\_buffer\_pattern | string | The input data buffer pattern for shell script as the input. | I/O | Yes | "" |
+| output\_key | string | The key name of standard output data for shell script stored in internal storage as the plugin output. | I/O | Yes | "" |
+| expected\_exit\_codes| []int | The expected shell script exit code. If the plugin doesn't need to check the exit code, then set it to an empty array. Else if the real exit code doesn't match any of them, then the pipeline is finished. | Functionality | Yes | []{0} |
+
+### I/O
+
+| Data name | Configuration option name | Type | Data Type | Optional |
+|:--|:--|:--:|:--|:--:|
+| Standard input data | input\_buffer\_pattern | Input | []byte | Yes |
+| Standard output data | output\_key | Output | []byte | Yes |
+
+### Error
+
+| Result code | Error reason |
+|:--|:--|
+| ResultServiceUnavailable | failed to get standard input |
+| ResultServiceUnavailable | failed to launch shell interpreter |
+| ResultServiceUnavailable | failed to execute shell script |
+| ResultServiceUnavailable | execute shell script timeout and terminated |
 | ResultInternalServerError | failed to load/read data |
 | ResultTaskCancelled | task is cancelled |
 

@@ -58,6 +58,8 @@ var (
 			DownstreamInputConstructor, DownstreamInputConfigConstructor},
 		"Python": {
 			PythonConstructor, PythonConfigConstructor},
+		"Shell": {
+			ShellConstructor, ShellConfigConstructor},
 
 		// Ease Monitor product dedicated plugins
 		"EaseMonitorProtoAdaptor": {
