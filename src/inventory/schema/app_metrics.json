@@ -42,15 +42,6 @@
     },
     "mean_rate": {
       "type": "number"
-    },
-    "m1_count": {
-      "type": "integer"
-    },
-    "m5_count": {
-      "type": "integer"
-    },
-    "m15_count": {
-      "type": "integer"
     }
   },
 
