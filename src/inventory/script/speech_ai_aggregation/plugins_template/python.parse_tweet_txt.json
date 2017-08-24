@@ -1,0 +1,12 @@
+{
+    "type": "Python",
+    "config": {
+        "plugin_name": "python.parse_tweet_txt",
+        "code": "aW1wb3J0IHN5cwppbXBvcnQganNvbgoKaWYgX19uYW1lX18gPT0gJ19fbWFpbl9fJzoKICAgIHRyeToKICAgICAgICB0d2VldCA9IGpzb24ubG9hZHMoc3lzLnN0ZGluLnJlYWQoKSkKICAgICAgICBwcmludCh0d2VldC5nZXQoJ3RleHQnKSwgZW5kPScnKQogICAgZXhjZXB0IEV4Y2VwdGlvbiBhcyBlOgogICAgICAgIGVycl9tc2cgPSAncHl0aG9uIHNjcmlwdCBwYXJzZSB0d2VldCB0ZXh0IGZhaWxlZDoge30nLmZvcm1hdChlKQogICAgICAgIHByaW50KGVycl9tc2csIGZpbGU9c3lzLnN0ZGVycikKICAgICAgICBzeXMuZXhpdCgxKQ==",
+        "base64_encoded": true,
+        "version": "3",
+        "timeout_sec": 5,
+        "input_buffer_pattern": "{TWEET}",
+        "output_key": "TWEET_EN_TXT"
+    }
+}

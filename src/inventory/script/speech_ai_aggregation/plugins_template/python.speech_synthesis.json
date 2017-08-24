@@ -1,0 +1,12 @@
+{
+    "type": "Python",
+    "config": {
+        "plugin_name": "python.speech_synthesis",
+        "code": "IyEvdXNyL2Jpbi9lbnYgcHl0aG9uMwojIC0qLSBlbmNvZGluZzogdXRmLTggLSotCgonJycKRGVzY3JpcHRpb246CiAgICBUaGlzIHNjcmlwdCBhaW1zIHRvIHJlYWQgb25lIGNoaW5lc2UgdGV4dCBhbmQgc3ludGhlc2l6ZSBpdCBpbnRvCiAgICBhIHNlY3Rpb24gb2Ygc3BlZWNoLgoKSW5wdXQ6IHN0ciBpbiBjaGluZXNlIGxhbmd1YWdlLgpPdXRwdXQ6IHNwZWVjaCBpbiBiaW5hcnkgbXAzIGZvcm1hdC4KCicnJwoKaW1wb3J0IHN5cwpmcm9tIGFpcCBpbXBvcnQgQWlwU3BlZWNoCgphcHBfaWQgPSAnOTk5MTgwNicKYXBwX2tleSA9ICdvRFRreWJrTU1iOGZ4ZlpGS3VmR0lXRDQnCnNlY3JldF9rZXkgPSAnbTZ1TVM1d3R6QTA1TFhyejVVNEF5R0c0ZkxDRU50TXYnCgphcGkgPSBBaXBTcGVlY2goYXBwX2lkLCBhcHBfa2V5LCBzZWNyZXRfa2V5KQoKZGVmIHN5bnRoZXNpemUodGV4dCk6CiAgICByZXN1bHQgPSBhcGkuc3ludGhlc2lzKHRleHQsICd6aCcsIDEpCgogICAgaWYgbm90IGlzaW5zdGFuY2UocmVzdWx0LCBkaWN0KToKICAgICAgICBzeXMuc3Rkb3V0LmJ1ZmZlci53cml0ZShyZXN1bHQpCiAgICAgICAgc3lzLmV4aXQoMCkKICAgIGVsc2U6CiAgICAgICAgcmFpc2UgRXhjZXB0aW9uKCdzZXJ2ZXIgZXJyb3IgcmV0dXJuIGNvZGUge30nLmZvcm1hdChyZXN1bHQuZ2V0KCdlcnJfbm8nKSkpCgoKaWYgX19uYW1lX18gPT0gJ19fbWFpbl9fJzoKICAgIHRyeToKICAgICAgICB0ZXh0ID0gc3lzLnN0ZGluLnJlYWQoKQogICAgICAgIHN5bnRoZXNpemUodGV4dCkKICAgIGV4Y2VwdCBFeGNlcHRpb24gYXMgZToKICAgICAgICBlcnJfbXNnID0gJ3B5dGhvbiBzY3JpcHQgaGFuZGxlcyB0ZXh0IGlucHV0IGZhaWxlZDoge30nLmZvcm1hdChlKQogICAgICAgIHByaW50KGUsIGZpbGU9c3lzLnN0ZGVycikKICAgICAgICBzeXMuZXhpdCgxKQo=",
+        "base64_encoded": true,
+        "version": "3",
+        "timeout_sec": 20,
+        "input_buffer_pattern": "{TWEET_ZH_TXT}",
+        "output_key": "TWEET_ZH_SPEECH"
+    }
+}

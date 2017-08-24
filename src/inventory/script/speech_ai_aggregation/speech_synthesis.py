@@ -33,8 +33,6 @@ def synthesize(text):
 if __name__ == '__main__':
     try:
         text = sys.stdin.read()
-        if len(text) == 0:
-            raise Exception('input is empty')
         synthesize(text)
     except Exception as e:
         err_msg = 'python script handles text input failed: {}'.format(e)

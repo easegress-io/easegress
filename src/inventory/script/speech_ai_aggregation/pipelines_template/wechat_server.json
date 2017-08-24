@@ -1,0 +1,10 @@
+{
+  "type": "LinearPipeline",
+  "config": {
+    "pipeline_name": "linear_pipeline.synthesis",
+    "parallelism": 1,
+    "plugin_names": [
+      "python.wechat_server"
+    ]
+  }
+}

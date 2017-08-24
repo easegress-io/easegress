@@ -1,0 +1,12 @@
+{
+    "type": "HTTPOutput",
+    "config": {
+        "plugin_name": "http_output.upload_wechat",
+        "url_pattern": "http://127.0.0.1:8000/upload_speech/{TWEET_FILENAME}",
+        "header_patterns": {
+          "Content-Type": "audio/mpeg"
+        },
+        "method": "POST",
+        "request_body_buffer_pattern": "{TWEET_ZH_SPEECH}"
+    }
+}

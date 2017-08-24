@@ -1,0 +1,15 @@
+{
+  "type": "LinearPipeline",
+  "config": {
+    "pipeline_name": "linear_pipeline.synthesis",
+    "parallelism": 1,
+    "plugin_names": [
+      "python.wait_new_tweet",
+      "python.parse_tweet_filename",
+      "python.parse_tweet_txt",
+      "python.translate_txt",
+      "python.speech_synthesis",
+      "http_output.upload_wechat"
+    ]
+  }
+}
