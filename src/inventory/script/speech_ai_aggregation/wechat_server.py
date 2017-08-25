@@ -5,8 +5,22 @@
 import os
 import itchat
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from pyqrcode import QRCode
 
-itchat.auto_login(hotReload=True, enableCmdQR=2)
+QR_FILE = 'qr.txt'
+
+def writeQrToFile(uuid, status, qrcode):
+    qrCode = QRCode('https://login.weixin.qq.com/l/' + uuid)
+
+    with open(QR_FILE, 'wt') as f:
+        print_qr(qrCode.text(1), f)
+
+def print_qr(qrText, f, white='MM', black='  ', blockCount=1):
+    white *= abs(blockCount)
+    qr = qrText.replace('0', white).replace('1', black)
+    f.write(qr)
+
+itchat.auto_login(hotReload=True, qrCallback=writeQrToFile)
 
 def sendout_to_wechat(filename, content):
     itchat.get_chatrooms(update=True, contactOnly=False)
