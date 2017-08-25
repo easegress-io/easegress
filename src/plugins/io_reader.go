@@ -1,6 +1,8 @@
 package plugins
 
 import (
+	"bytes"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -16,8 +18,9 @@ import (
 
 type ioReaderConfig struct {
 	common.PluginCommonConfig
-	LengthMax int64 `json:"read_length_max"` // up to 9223372036854775807 ~= 8192 Pebibyte
-	Close     bool  `json:"close_after_read"`
+	LengthMax    int64  `json:"read_length_max"` // up to 9223372036854775807 ~= 8192 Pebibyte
+	Close        bool   `json:"close_after_read"`
+	Base64Coding string `json:"base64_coding"`
 
 	InputKey  string `json:"input_key"`
 	OutputKey string `json:"output_key"`
@@ -37,16 +40,19 @@ func (c *ioReaderConfig) Prepare(pipelineNames []string) error {
 	}
 
 	ts := strings.TrimSpace
+	c.Base64Coding = ts(c.Base64Coding)
 	c.InputKey, c.OutputKey = ts(c.InputKey), ts(c.OutputKey)
 
-	if len(c.InputKey) == 0 {
-		return fmt.Errorf("invalid input key")
+	if !common.StrInSlice(c.Base64Coding, []string{"", "encode", "decode"}) {
+		return fmt.Errorf("invalid base64 coding flag")
 	}
-
-	// FIXME: why not check whether c.OutputKey is empty? Only Read?
 
 	if c.LengthMax < 1 {
 		logger.Warnf("[UNLIMITED read length has been applied, all data could be read in to memory!]")
+	}
+
+	if len(c.InputKey) == 0 {
+		return fmt.Errorf("invalid input key")
 	}
 
 	return nil
@@ -92,10 +98,30 @@ func (r *ioReader) read(t task.Task) (error, task.TaskResultCode, task.Task) {
 	defer close(e)
 
 	go func() {
+		if r.conf.Base64Coding == "decode" {
+			reader = base64.NewDecoder(base64.StdEncoding, reader)
+		}
+
 		data, err := ioutil.ReadAll(reader)
 		if err != nil {
 			e <- err
+			return
 		}
+
+		if r.conf.Base64Coding == "encode" {
+			buff := bytes.NewBuffer(nil)
+			encoder := base64.NewEncoder(base64.StdEncoding, buff)
+			_, err = encoder.Write(data)
+			encoder.Close()
+
+			if err != nil {
+				e <- err
+				return
+			}
+
+			data = buff.Bytes()
+		}
+
 		d <- data
 	}()
 

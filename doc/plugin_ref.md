@@ -195,6 +195,7 @@ Plugin reads a given I/O object and output the data.
 | plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
 | read\_length\_max | int64 | Maximal bytes to read. | Functionality | Yes | 1048576 (1 MiB) |
 | close\_after\_read | bool | The flag represents if to close IO object after reading. | Functionality | Yes | true |
+| base64\_coding | string | The flag represents if to encode or decode the output read from IO object. Valid flag are `` (empty), `encode` and `decode`. | Functionality | Yes | "" |
 | input\_key | string | The key name of IO object stored in internal storage as the plugin input. | I/O | No | N/A |
 | output\_key | string | The key name of read out data as the plugin output. | I/O | No | N/A |
 
