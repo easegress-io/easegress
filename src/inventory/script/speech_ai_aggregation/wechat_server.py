@@ -21,6 +21,7 @@ def print_qr(qrText, f, white='MM', black='  ', blockCount=1):
     f.write(qr)
 
 itchat.auto_login(hotReload=True, qrCallback=writeQrToFile)
+# itchat.auto_login(enableCmdQR=2) # for debug - login quickly
 
 def sendout_to_wechat(filename, content):
     itchat.get_chatrooms(update=True, contactOnly=False)
@@ -31,9 +32,7 @@ def sendout_to_wechat(filename, content):
 
 
 class WeChatTTPServer(BaseHTTPRequestHandler):
-  def do_POST(self):
-        print(self.path)
-
+    def do_POST(self):
         prefix = '/upload_speech/'
         if len(self.path) <= len(prefix) or self.path[:len(prefix)] != prefix:
             self.send_error(404)
@@ -46,13 +45,16 @@ class WeChatTTPServer(BaseHTTPRequestHandler):
 
         sendout_to_wechat(filename+'.mp3', content)
 
+        self.send_response(200)
+        self.end_headers()
+
         return
 
 
 def run():
-  server_address = ('', 8000)
-  httpd = HTTPServer(server_address, WeChatTTPServer)
-  httpd.serve_forever()
+    server_address = ('', 8000)
+    httpd = HTTPServer(server_address, WeChatTTPServer)
+    httpd.serve_forever()
 
 
 if __name__ == '__main__':
