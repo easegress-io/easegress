@@ -1,8 +1,6 @@
-#!/bin/bash
+#!/bin/sh
 
-SCRIPTFILE="$(readlink --canonicalize-existing "$0")"
-echo "SCRIPTFILE: ${SCRIPTFILE}"
-SCRIPTPATH="$(dirname "$SCRIPTFILE")"
+SCRIPTPATH="$(cd "$(dirname "$0")"; pwd -P)"
 echo "SCRIPTPATH: ${SCRIPTPATH}"
 
 CA_FILE=${SCRIPTPATH}/../../cert/localhost-cert.pem
