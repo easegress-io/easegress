@@ -211,7 +211,8 @@ Plugin reads a given I/O object and output the data.
 | Result code | Error reason |
 |:--|:--|
 | ResultMissingInput | input got wrong value |
-| ResultInternalServerError | failed to read data |
+| ResultBadInput | failed to read data |
+| ResultBadInput | failed to encode or decode data as base64 coding |
 | ResultInternalServerError | failed to output data buffer |
 
 ### Dedicated statistics indicator

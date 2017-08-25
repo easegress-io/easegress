@@ -131,7 +131,7 @@ func (r *ioReader) read(t task.Task) (error, task.TaskResultCode, task.Task) {
 		reader1.Close()
 	case err := <-e:
 		reader1.Close()
-		return err, task.ResultInternalServerError, t
+		return err, task.ResultBadInput, t
 	case <-t.Cancel():
 		reader1.Cancel()
 		return fmt.Errorf("task is cancelled by %s", t.CancelCause()), task.ResultTaskCancelled, t
@@ -150,7 +150,7 @@ func (r *ioReader) read(t task.Task) (error, task.TaskResultCode, task.Task) {
 		if ok {
 			err := input1.Close()
 			if err != nil {
-				logger.Warnf("[close io input reader faild, ignored: %v", err)
+				logger.Warnf("[close io input reader failed, ignored: %v", err)
 			}
 		}
 	}
