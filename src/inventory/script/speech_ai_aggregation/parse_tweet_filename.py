@@ -17,18 +17,28 @@ Output: speech filename in text format
     news@08-25-03:37
 '''
 
-import sys
+import calendar
+from datetime import datetime, timedelta
 import json
 import string
-from datetime import datetime
+import sys
+
+
+def utc_to_local(utc_dt):
+    # get integer timestamp to avoid precision lost
+    timestamp = calendar.timegm(utc_dt.timetuple())
+    local_dt = datetime.fromtimestamp(timestamp)
+    return local_dt.replace(microsecond=utc_dt.microsecond)
+
 
 if __name__ == '__main__':
     try:
         tweet = json.loads(sys.stdin.read())
         created_at = tweet.get('created_at')
         dt = datetime.strptime(created_at, '%c')
+        dt = utc_to_local(dt)
 
-        filename = 'news@'+ dt.strftime('%m-%d-%H:%M')
+        filename = 'NEWS@'+ dt.strftime('%b%d-%H:%M')
         print(filename, end='')
     except Exception as e:
         err_msg = 'python script parse tweet text failed: {}'.format(e)
