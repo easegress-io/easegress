@@ -4,9 +4,9 @@
 '''
 Description:
     This script aims to crawl a tweet and retrieve pure text and image from it.
-    The currrent hard code screen_name are mega_ease and HiztoryPhotos.
+    The currrent hard code screen_name are mega_ease and CNN Breaking News.
     https://twitter.com/mega_ease.
-    https://twitter.com/HiztoryPhotos
+    https://twitter.com/cnnbrk
 
 Input: None
 Output: str in json format:
@@ -128,8 +128,8 @@ def quick_test():
 if __name__ == '__main__':
     try:
         mega_ease = api.get_user(screen_name='mega_ease')
-        hiztory_photos = api.get_user(screen_name='HiztoryPhotos')
-        users = [mega_ease, hiztory_photos]
+        cnnbrk = api.get_user(screen_name='cnnbrk')
+        users = [mega_ease, cnnbrk]
 
         user_since_ids = {}
         user_ids = []
