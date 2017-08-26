@@ -11,8 +11,11 @@ Output: speech in binary mp3 format.
 
 '''
 
+import random
 import sys
+
 from aip import AipSpeech
+
 
 app_id = '9991806'
 app_key = 'oDTkybkMMb8fxfZFKufGIWD4'
@@ -21,7 +24,10 @@ secret_key = 'm6uMS5wtzA05LXrz5U4AyGG4fLCENtMv'
 api = AipSpeech(app_id, app_key, secret_key)
 
 def synthesize(text):
-    result = api.synthesis(text, 'zh', 1)
+    timbres = [0, 1, 3, 4]
+    ops = {'per': timbres[random.randint(0, len(timbres) - 1)]}
+
+    result = api.synthesis(text, 'zh', 1, ops)
 
     if not isinstance(result, dict):
         sys.stdout.buffer.write(result)
