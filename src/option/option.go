@@ -70,8 +70,9 @@ func init() {
 		"memory profiling will be fully disabled if not provided")
 	showVersion := flag.Bool("version", false, "output version information")
 
-	pluginIODataFormatLengthLimit := flag.Uint64("plugin_io_data_format_len_limit", 128,
-		"specify length limit on plugin IO data formation output in byte unit")
+	pluginIODataFormatLengthLimit := new(uint64)
+	flag.Var(common.NewUint64RangeValue(128, pluginIODataFormatLengthLimit, 1, 10000009), // limited by fmt precision
+		"plugin_io_data_format_len_limit", "specify length limit on plugin IO data formation output in byte unit")
 	pluginPythonRootNamespace := flag.Bool("plugin_python_root_namespace", false,
 		"specify if to run python code in root namespace without isolation")
 	pluginShellRootNamespace := flag.Bool("plugin_shell_root_namespace", false,
