@@ -57,7 +57,7 @@ func (i *Uint64RangeValue) Set(s string) error {
 		return fmt.Errorf("value out of range [%d, %d]", i.min, i.max)
 	}
 
-	i.v = &v
+	*i.v = v
 	return nil
 }
 
