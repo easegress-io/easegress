@@ -1,0 +1,8 @@
+{
+  "type": "IOReader",
+  "config": {
+    "plugin_name": "speech.io_reader.tweet",
+    "input_key": "HTTP_REQUEST_BODY_IO",
+    "output_key": "TWEET"
+  }
+}

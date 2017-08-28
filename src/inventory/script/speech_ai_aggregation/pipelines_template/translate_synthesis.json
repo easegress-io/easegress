@@ -1,10 +1,11 @@
 {
   "type": "LinearPipeline",
   "config": {
-    "pipeline_name": "linear_pipeline.synthesis",
+    "pipeline_name": "speech.linear_pipeline.translate_synthesis",
     "parallelism": 1,
     "plugin_names": [
-      "python.wait_new_tweet",
+      "speech.http_input.upload_tweet",
+      "speech.io_reader.tweet",
       "python.parse_tweet_filename",
       "python.parse_tweet_txt",
       "python.translate_txt",

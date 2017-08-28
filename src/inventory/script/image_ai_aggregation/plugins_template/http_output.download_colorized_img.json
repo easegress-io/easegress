@@ -1,7 +1,7 @@
 {
     "type": "HTTPOutput",
     "config": {
-        "plugin_name": "http_output.download_colorized_img",
+        "plugin_name": "image.http_output.download_colorized_img",
         "url_pattern": "https://api.algorithmia.com/v1/connector/data/{COL_IMG_URL}",
         "header_patterns": {
           "Authorization": "Simple simtkASUTjWsw2aIB9xb6YCpIYg1"

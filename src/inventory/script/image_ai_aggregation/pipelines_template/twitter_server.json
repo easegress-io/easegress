@@ -1,10 +1,12 @@
 {
   "type": "LinearPipeline",
   "config": {
-    "pipeline_name": "speech.linear_pipeline.wechat_server",
+    "pipeline_name": "image.linear_pipeline.twitter_server",
     "parallelism": 1,
     "plugin_names": [
-      "python.wechat_server"
+      "image.python.twitter_server"
     ]
   }
 }
+
+

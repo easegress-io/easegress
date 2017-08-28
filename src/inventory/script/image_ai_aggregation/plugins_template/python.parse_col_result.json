@@ -1,7 +1,7 @@
 {
     "type": "Python",
     "config": {
-        "plugin_name": "python.parse_col_result",
+        "plugin_name": "image.python.parse_col_result",
         "code": "aW1wb3J0IHN5cwppbXBvcnQganNvbgoKaWYgX19uYW1lX18gPT0gJ19fbWFpbl9fJzoKICAgIHRyeToKICAgICAgICByZXNwb25zZSA9IGpzb24ubG9hZHMoc3lzLnN0ZGluLnJlYWQoKSkKICAgICAgICB1cmxfc3VmZml4ID0gcmVzcG9uc2UuZ2V0KCdyZXN1bHQnKS5nZXQoJ291dHB1dCcpCiAgICAgICAgcHJpbnQodXJsX3N1ZmZpeFs3Ol0sIGVuZD0nJykKICAgIGV4Y2VwdCBFeGNlcHRpb24gYXMgZToKICAgICAgICBlcnJfbXNnID0gJ3B5dGhvbiBzY3JpcHQgcGFyc2UgY29sb3JpemVkIHJlc3VsdCBmYWlsZWQ6IHt9Jy5mb3JtYXQoZSkKICAgICAgICBwcmludChlcnJfbXNnLCBmaWxlPXN5cy5zdGRlcnIpCiAgICAgICAgc3lzLmV4aXQoMSk=",
         "base64_encoded": true,
         "version": "3",

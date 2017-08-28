@@ -1,7 +1,7 @@
 {
   "type": "IOReader",
   "config": {
-    "plugin_name": "io_reader.colorized_img",
+    "plugin_name": "image.io_reader.colorized_img",
     "input_key": "COL_IMG_IO",
     "base64_coding": "encode",
     "output_key": "BASE64_COL_IMG",

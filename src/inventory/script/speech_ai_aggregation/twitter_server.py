@@ -18,10 +18,10 @@ Output: str in json format:
     }
 '''
 
-import sys
 import base64
 import json
-from pprint import pprint
+import sys
+import urllib.request
 
 import tweepy
 from tweepy import Stream
@@ -40,47 +40,26 @@ api = tweepy.API(auth)
 
 
 class MyListener(StreamListener):
-    def on_status(self, status):
-        send_out_status(status)
-
-    def on_error(self, status_code):
+    def on_connect(self):
+        print('on_connect')
         return True
 
+    def on_disconnect(self, notice):
+        print('on_disconnect:', notice)
+        return False
 
-store_path = './.tweet_since_id'
-def get_since_id(user_id):
-    try:
-        with open(store_path) as f:
-            user_since_ids = json.loads(f.read())
-            return user_since_ids.get(user_id)
-    except:
-        return None
+    def on_status(self, status):
+        send_out_status(status)
+        return True
 
-def set_since_id(user_id, since_id):
-    with open(store_path, 'w') as f:
-        try:
-            user_since_ids = json.loads(f.read())
-        except:
-            user_since_ids = {}
-        user_since_ids[user_id] = since_id
-        f.write(json.dumps(user_since_ids))
+    def on_error(self, status_code):
+        print('on_error:', status_code)
+        return True
 
 
 def wait_new_tweet(user_ids):
     stream = Stream(auth, MyListener())
     stream.filter(follow=user_ids)
-
-
-def get_existed_tweet(user_since_ids):
-    for user_id, since_id in user_since_ids.items():
-        statuses = api.user_timeline(user_id=user_id, since_id=since_id)
-        if statuses is None or len(statuses) == 0:
-            continue
-
-        # NOTICE: Here it doesn't try to find the exactly nearest since_id status.
-        return statuses[-1]
-
-    return None
 
 
 def send_out_status(status):
@@ -112,42 +91,30 @@ def send_out_status(status):
         d['created_at'] = status.created_at.strftime('%c')
 
 
-    print(json.dumps(d))
-    set_since_id(status.user.id_str, status.id)
-    sys.exit(0)
+    data = json.dumps(d).encode()
+    headers = { 'Content-Type': 'application/json' }
+    req = urllib.request.Request(url='http://127.0.0.1:10080/upload_speech_tweet',
+            method='POST', data=data, headers=headers)
+    print('sending req:', req)
+    try:
+        with urllib.request.urlopen(req) as f:
+            pass
+        print('received response status code:', f.status)
+    except Exception as e:
+        print('urlopen failed:', e)
 
 
-def quick_test():
-    mega_ease = api.get_user(screen_name='mega_ease')
-    user_since_ids = {
-            mega_ease.id_str: 897843917890043904
-    }
-    status = get_existed_tweet(user_since_ids)
-    send_out_status(status)
-
-if __name__ == '__main__':
+def main():
     try:
         mega_ease = api.get_user(screen_name='mega_ease')
         cnnbrk = api.get_user(screen_name='cnnbrk')
         users = [mega_ease, cnnbrk]
 
-        user_since_ids = {}
-        user_ids = []
-        for user in users:
-            user_ids.append(user.id_str)
-            since_id = get_since_id(user.id_str)
-            if since_id is not None:
-                user_since_ids[user.id_str] = since_id
-
-        if len(user_since_ids) == 0:
-            wait_new_tweet(user_ids)
-        else:
-            status = get_existed_tweet(user_since_ids)
-            if status == None:
-                wait_new_tweet(user_ids)
-            else:
-                send_out_status(status)
+        wait_new_tweet([user.id_str for user in users])
     except Exception as e:
         err_msg = 'python script handles tweet input failed: {}'.format(e)
         print(err_msg, file=sys.stderr)
         sys.exit(1)
+
+if __name__ == '__main__':
+    main()

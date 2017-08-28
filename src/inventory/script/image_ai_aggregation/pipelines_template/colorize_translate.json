@@ -1,19 +1,20 @@
 {
   "type": "LinearPipeline",
   "config": {
-    "pipeline_name": "linear_pipeline.colorize",
+    "pipeline_name": "image.linear_pipeline.colorize_translate",
     "parallelism": 1,
     "plugin_names": [
-      "python.wait_new_tweet",
-      "python.parse_tweet_img",
-      "python.parse_tweet_txt",
-      "http_output.colorize",
-      "io_reader.colorize",
-      "python.parse_col_result",
-      "http_output.download_colorized_img",
-      "io_reader.colorized_img",
-      "python.translate_txt",
-      "python.weibo"
+      "image.http_input.upload_tweet",
+      "image.io_reader.tweet",
+      "image.python.parse_tweet_img",
+      "image.python.parse_tweet_txt",
+      "image.http_output.colorize",
+      "image.io_reader.colorize",
+      "image.python.parse_col_result",
+      "image.http_output.download_colorized_img",
+      "image.io_reader.colorized_img",
+      "image.python.translate_txt",
+      "image.python.post_tweet"
     ]
   }
 }
