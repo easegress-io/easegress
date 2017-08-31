@@ -25,9 +25,6 @@
     "name": {
       "type": "string"
     },
-    "measurement_start": {
-      "type": "string"
-    },
     "count": {
       "type": "integer"
     },
@@ -46,7 +43,6 @@
   },
 
   "required": ["system", "application", "hostipv4", "hostname",
-               "@timestamp", "type", "name", "measurement_start", "count",
-               "m1_rate", "m5_rate", "m15_rate", "mean_rate",
-               "m1_count", "m5_count", "m15_count"]
+               "@timestamp", "type", "name", "count",
+               "m1_rate", "m5_rate", "m15_rate", "mean_rate"]
 }

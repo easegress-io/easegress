@@ -25,9 +25,6 @@
     "name": {
       "type": "string"
     },
-    "measurement_start": {
-      "type": "integer"
-    },
     "id": {
       "type": "string"
     },
@@ -37,5 +34,5 @@
   },
 
   "required": ["system", "application", "hostipv4", "hostname",
-			   "@timestamp", "type", "name", "measurement_start", "id", "callStackJson"]
+			   "@timestamp", "type", "name", "id", "callStackJson"]
 }
