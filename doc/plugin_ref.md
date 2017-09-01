@@ -84,6 +84,7 @@ Plugin validates input data, to check if it's a valid json data with a special s
 |:--|:--|:--|:--:|:--:|:--|
 | plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
 | schema | string | The schema json data needs to accord. | Functionality | No | N/A |
+| base64\_encoded | bool | The flag represents if the schema is encoded in base64. | Functionality | Yes | false |
 | data\_key | string | The key name of data needs to check as the plugin input. | I/O | No | N/A |
 
 ### I/O
@@ -465,7 +466,7 @@ Plugin executes python code.
 |:--|:--|:--|:--:|:--:|:--|
 | plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
 | code | string | The python code to be executed. | Functionality | No | N/A |
-| base64_encoded | bool | The flag represents if the python code is encoded in base64. | Functionality | Yes | false |
+| base64\_encoded | bool | The flag represents if the python code is encoded in base64. | Functionality | Yes | false |
 | version | string | The version of python interpreter. Currently valid values are `2` and `3`.  | Functionality | Yes | "2" |
 | timeout_sec | uint16 | The wait timeout python code execution limited in second. | Functionality | Yes | 10 |
 | input\_buffer\_pattern | string | The input data buffer pattern for python code as the input. | I/O | Yes | "" |

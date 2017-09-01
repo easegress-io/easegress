@@ -2,7 +2,8 @@
   "type": "JSONValidator",
   "config": {
     "plugin_name": "json_validator.app_requests",
-    "schema": "{\"required\":[\"system\",\"application\",\"hostipv4\",\"hostname\",\"@timestamp\",\"type\",\"name\",\"id\",\"callStackJson\"],\"properties\":{\"callStackJson\":{\"type\":\"string\"},\"system\":{\"type\":\"string\"},\"application\":{\"type\":\"string\"},\"hostipv4\":{\"type\":\"string\"},\"hostname\":{\"type\":\"string\"},\"@timestamp\":{\"type\":\"string\"},\"type\":{\"type\":\"string\"},\"name\":{\"type\":\"string\"},\"id\":{\"type\":\"string\"}},\"type\":\"object\",\"title\":\"app_requests\",\"$schema\":\"http://json-schema.org/draft-04/schema#\"}",
+    "schema": "ewogICIkc2NoZW1hIjogImh0dHA6Ly9qc29uLXNjaGVtYS5vcmcvZHJhZnQtMDQvc2NoZW1hIyIsCiAgInRpdGxlIjogImFwcF9yZXF1ZXN0cyIsCiAgInR5cGUiOiAib2JqZWN0IiwKCiAgInByb3BlcnRpZXMiOiB7CiAgICAic3lzdGVtIjogewogICAgICAidHlwZSI6ICJzdHJpbmciCiAgICB9LAogICAgImFwcGxpY2F0aW9uIjogewogICAgICAidHlwZSI6ICJzdHJpbmciCiAgICB9LAogICAgImhvc3RpcHY0IjogewogICAgICAidHlwZSI6ICJzdHJpbmciCiAgICB9LAogICAgImhvc3RuYW1lIjogewogICAgICAidHlwZSI6ICJzdHJpbmciCiAgICB9LAogICAgIkB0aW1lc3RhbXAiOiB7CiAgICAgICJ0eXBlIjogInN0cmluZyIKICAgIH0sCiAgICAidHlwZSI6IHsKICAgICAgInR5cGUiOiAic3RyaW5nIgogICAgfSwKICAgICJuYW1lIjogewogICAgICAidHlwZSI6ICJzdHJpbmciCiAgICB9LAogICAgImlkIjogewogICAgICAidHlwZSI6ICJzdHJpbmciCiAgICB9LAogICAgImNhbGxTdGFja0pzb24iOiB7CiAgICAgICJ0eXBlIjogInN0cmluZyIKICAgIH0KICB9LAoKICAicmVxdWlyZWQiOiBbInN5c3RlbSIsICJhcHBsaWNhdGlvbiIsICJob3N0aXB2NCIsICJob3N0bmFtZSIsCgkJCSAgICJAdGltZXN0YW1wIiwgInR5cGUiLCAibmFtZSIsICJpZCIsICJjYWxsU3RhY2tKc29uIl0KfQo=",
+    "base64_encoded": true,
     "data_key": "DATA"
   }
 }

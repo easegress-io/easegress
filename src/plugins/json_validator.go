@@ -1,19 +1,22 @@
 package plugins
 
 import (
+	"encoding/base64"
 	"fmt"
 	"strings"
+
+	"common"
 
 	"github.com/hexdecteam/easegateway-types/pipelines"
 	"github.com/hexdecteam/easegateway-types/plugins"
 	"github.com/hexdecteam/easegateway-types/task"
 	"github.com/xeipuuv/gojsonschema"
-	"common"
 )
 
 type jsonValidatorConfig struct {
 	common.PluginCommonConfig
 	Schema  string `json:"schema"`
+	Base64  bool   `json:"base64_encoded"`
 	DataKey string `json:"data_key"`
 
 	schemaObj *gojsonschema.Schema
@@ -29,7 +32,16 @@ func (c *jsonValidatorConfig) Prepare(pipelineNames []string) error {
 		return err
 	}
 
-	loader := gojsonschema.NewBytesLoader([]byte(c.Schema))
+	schema := c.Schema
+	if c.Base64 {
+		ec, err := base64.StdEncoding.DecodeString(c.Schema)
+		if err != nil {
+			return fmt.Errorf("invalid base64 encoded schema")
+		}
+		schema = string(ec)
+	}
+
+	loader := gojsonschema.NewBytesLoader([]byte(schema))
 	c.schemaObj, err = gojsonschema.NewSchema(loader)
 	if err != nil {
 		return fmt.Errorf("invalid schema: %v", err)

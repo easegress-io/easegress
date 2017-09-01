@@ -6,7 +6,9 @@ echo "SCRIPTPATH: ${SCRIPTPATH}"
 CA_FILE=${SCRIPTPATH}/../../cert/localhost-cert.pem
 
 # collectd
-echo -e '18.docker-test-system#20.docker-test-instance#11.52.69.164.6#11.docker-test.GenericJMX-tomcat_servlet.SpringApplication.count-milliseconds-processing 22613 1489377836\n18.docker-test-system#20.docker-test-instance#11.52.69.164.6#11.docker-test.GenericJMX-tomcat_servlet.StagemonitorFileServlet.count-requests 0 1489377836\n18.docker-test-system#20.docker-test-instance#11.52.69.164.6#11.docker-test.GenericJMX-tomcat_servlet.StagemonitorFileServlet.count-errors 0 1489377836' | \
+echo '18.docker-test-system#20.docker-test-instance#11.52.69.164.6#11.docker-test.GenericJMX-tomcat_servlet.SpringApplication.count-milliseconds-processing 22613 1489377836
+18.docker-test-system#20.docker-test-instance#11.52.69.164.6#11.docker-test.GenericJMX-tomcat_servlet.StagemonitorFileServlet.count-requests 0 1489377836
+18.docker-test-system#20.docker-test-instance#11.52.69.164.6#11.docker-test.GenericJMX-tomcat_servlet.StagemonitorFileServlet.count-errors 0 1489377836' | \
      http --verify ${CA_FILE} -v 'https://localhost:10443/v1/metrics' 'User-Agent: collectd/5.7.0' 'Content-Type: application/x-graphite'
 
 # filebeat
@@ -45,9 +47,6 @@ echo '{
   "m5_rate": 0.08429964436701744,
   "m15_rate": 0.08493885570690576,
   "mean_rate": 0.08527692632241543,
-  "m1_count": 5,
-  "m5_count": 26,
-  "m15_count": 77,
   "min": 0.019975,
   "max": 0.516932,
   "mean": 0.04709865255859028,
@@ -71,7 +70,6 @@ echo '{
   "hostname": "OKR",
   "hostipv4": "172.31.5.25",
   "instance": "web1",
-  "measurement_start": 1483353731594,
   "id": "4e7185db-b17d-49a8-ad44-e6dc1851a39a",
   "callStackJson":"{}"
 }' | http  --verify ${CA_FILE} -v 'https://localhost:10443/v1/app_requests' 'User-Agent: easeagent/0.1.0' 'Content-Type: application/json'
