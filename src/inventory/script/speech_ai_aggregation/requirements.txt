@@ -2,3 +2,4 @@ baidu-aip
 itchat
 python-dateutil
 translate
+tweepy

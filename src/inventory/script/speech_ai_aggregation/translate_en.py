@@ -20,7 +20,7 @@ translator = Translator(to_lang="zh")
 
 if __name__ == '__main__':
     try:
-        if len(query_text) != 0:
+        if query_text != None and len(query_text) != 0:
             text = translator.translate(query_text)
             print(text, end='')
     except Exception as e:

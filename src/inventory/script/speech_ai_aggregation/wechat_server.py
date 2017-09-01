@@ -27,7 +27,10 @@ def sendout_to_wechat(filename, content):
     itchat.get_chatrooms(update=True, contactOnly=False)
     with open(filename, 'wb') as f:
         f.write(content)
-    itchat.search_chatrooms(name='Breaking News')[0].send('@fil@'+filename)
+    try:
+        itchat.search_chatrooms(name='Breaking News')[0].send('@fil@'+filename)
+    except Exception:
+        pass
     os.remove(filename)
 
 
