@@ -2,7 +2,9 @@ package rest
 
 import (
 	"fmt"
+	"net"
 	"net/http"
+	"time"
 
 	"cluster/gateway"
 	"engine"
@@ -29,39 +31,41 @@ func NewRest(gateway *engine.Gateway) (*Rest, error) {
 }
 
 func (s *Rest) Start() (<-chan error, string, error) {
+	listenAddr := fmt.Sprintf("%s:9090", option.Host)
+
 	adminServer, err := newAdminServer(s.gateway)
 	if err != nil {
 		logger.Errorf("[create admin rest server failed: %v", err)
-		return nil, "", err
+		return nil, listenAddr, err
 	}
 	statisticsServer, err := newStatisticsServer(s.gateway)
 	if err != nil {
 		logger.Errorf("[create statistics rest server failed: %v", err)
-		return nil, "", err
+		return nil, listenAddr, err
 	}
 	healthCheckServer, err := newHealthCheckServer(s.gateway)
 	if err != nil {
 		logger.Errorf("[create healthcheck rest server failed: %v", err)
-		return nil, "", err
+		return nil, listenAddr, err
 	}
 	adminApi, err := adminServer.Api()
 	if err != nil {
 		logger.Errorf("[create admin api failed: %v", err)
-		return nil, "", err
+		return nil, listenAddr, err
 	} else {
 		logger.Debugf("[admin api created]")
 	}
 	statisticsApi, err := statisticsServer.Api()
 	if err != nil {
 		logger.Errorf("[create statistics api failed: %v", err)
-		return nil, "", err
+		return nil, listenAddr, err
 	} else {
 		logger.Debugf("[statistics api created]")
 	}
 	healthCheckApi, err := healthCheckServer.Api()
 	if err != nil {
 		logger.Errorf("[create healthcheck api failed: %v", err)
-		return nil, "", err
+		return nil, listenAddr, err
 	} else {
 		logger.Debugf("[healthcheck api created]")
 	}
@@ -74,36 +78,36 @@ func (s *Rest) Start() (<-chan error, string, error) {
 		clusterAdminServer, err := newClusterAdminServer(s.gateway, s.gc)
 		if err != nil {
 			logger.Errorf("[create cluster admin rest server failed: %v", err)
-			return nil, "", err
+			return nil, listenAddr, err
 		}
 		clusterStatisticsServer, err := newClusterStatisticsServer(s.gateway, s.gc)
 		if err != nil {
 			logger.Errorf("[create cluster statistics rest server failed: %v", err)
-			return nil, "", err
+			return nil, listenAddr, err
 		}
 		clusterMetaServer, err := newClusterMetaServer(s.gateway, s.gc)
 		if err != nil {
 			logger.Errorf("[create cluster meta rest server failed: %v", err)
-			return nil, "", err
+			return nil, listenAddr, err
 		}
 		clusterAdminApi, err := clusterAdminServer.Api()
 		if err != nil {
 			logger.Errorf("[create cluster admin api failed: %v", err)
-			return nil, "", err
+			return nil, listenAddr, err
 		} else {
 			logger.Debugf("[cluster admin api created]")
 		}
 		clusterStatisticsApi, err := clusterStatisticsServer.Api()
 		if err != nil {
 			logger.Errorf("[create cluster statistics api failed: %v", err)
-			return nil, "", err
+			return nil, listenAddr, err
 		} else {
 			logger.Debugf("[cluster statistics api created]")
 		}
 		clusterMetaApi, err := clusterMetaServer.Api()
 		if err != nil {
 			logger.Errorf("[create cluster meta api failed: %v", err)
-			return nil, "", err
+			return nil, listenAddr, err
 		} else {
 			logger.Debugf("[cluster meta api created]")
 		}
@@ -114,13 +118,13 @@ func (s *Rest) Start() (<-chan error, string, error) {
 		http.Handle("/cluster/meta/", http.StripPrefix("/cluster/meta", clusterMetaApi.MakeHandler()))
 	}
 
-	listenAddr := fmt.Sprintf("%s:9090", option.Host)
+	ln, err := net.Listen("tcp", listenAddr)
+	if err != nil {
+		return nil, listenAddr, err
+	}
 
 	go func() {
-		err := http.ListenAndServe(listenAddr, nil)
-		if err != nil {
-			s.done <- err
-		}
+		s.done <- http.Serve(TcpKeepAliveListener{ln.(*net.TCPListener)}, nil)
 	}()
 
 	return s.done, listenAddr, nil
@@ -128,4 +132,20 @@ func (s *Rest) Start() (<-chan error, string, error) {
 
 func (s *Rest) Close() {
 	close(s.done)
+}
+
+////
+
+type TcpKeepAliveListener struct {
+	*net.TCPListener
+}
+
+func (ln TcpKeepAliveListener) Accept() (c net.Conn, err error) {
+	tc, err := ln.AcceptTCP()
+	if err != nil {
+		return
+	}
+	tc.SetKeepAlive(true)
+	tc.SetKeepAlivePeriod(3 * time.Minute)
+	return tc, nil
 }
