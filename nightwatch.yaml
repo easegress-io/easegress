@@ -1,3 +1,8 @@
+email:
+  username: service@easeapm.com
+  password: aU&x3v@xOw5FIDnb
+
+plugins:
 - name: build_image
   shell: make vendor_clean && make vendor_get && make clean && make
   docker_file: rootfs/alpine/Dockerfile.server
