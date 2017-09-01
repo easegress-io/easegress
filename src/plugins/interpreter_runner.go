@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path"
 	"strings"
 	"syscall"
 	"time"
@@ -29,17 +30,17 @@ type interpreterRunnerConfig struct {
 	ExpectedExitCodes  []int  `json:"expected_exit_codes"`
 
 	interpreterName string
-	workDir         string
+	pluginWorkDir   string
 	executableCode  string
 }
 
-func newInterpreterRunnerConfig(interpreterName string, workDir string) interpreterRunnerConfig {
+func newInterpreterRunnerConfig(interpreterName string, pluginWorkDir string) interpreterRunnerConfig {
 	return interpreterRunnerConfig{
 		TimeoutSec:        10,
 		ExpectedExitCodes: []int{0},
 
 		interpreterName: strings.TrimSpace(interpreterName),
-		workDir:         workDir,
+		pluginWorkDir:   pluginWorkDir,
 	}
 }
 
@@ -76,9 +77,6 @@ func (c *interpreterRunnerConfig) Prepare(pipelineNames []string) error {
 		return fmt.Errorf("invalid input buffer pattern")
 	}
 
-	os.RemoveAll(c.workDir)
-	os.MkdirAll(c.workDir, 750)
-
 	return nil
 }
 
@@ -88,6 +86,7 @@ type interpreterExecutor interface {
 
 type interpreterRunner struct {
 	executor interpreterExecutor
+	workDir  string
 	conf     *interpreterRunnerConfig
 }
 
@@ -102,12 +101,14 @@ func newInterpreterRunner(conf plugins.Config) (*interpreterRunner, error) {
 	}
 
 	p.executor = p
+	p.workDir = path.Join(c.pluginWorkDir, fmt.Sprintf("instance-%p", p))
 
 	return p, nil
 }
 
 func (r *interpreterRunner) Prepare(ctx pipelines.PipelineContext) {
-	// Nothing to do.
+	os.RemoveAll(r.workDir)
+	os.MkdirAll(r.workDir, 0750)
 }
 
 func (r *interpreterRunner) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
@@ -118,7 +119,7 @@ func (r *interpreterRunner) Run(ctx pipelines.PipelineContext, t task.Task) (tas
 		return t, nil
 	}
 
-	cmd.Dir = r.conf.workDir
+	cmd.Dir = r.workDir
 
 	// skip error check safely due to we ensured it in Prepare()
 	input, _ := ReplaceTokensInPattern(t, r.conf.InputBufferPattern)
@@ -208,7 +209,7 @@ func (r *interpreterRunner) Name() string {
 }
 
 func (r *interpreterRunner) Close() {
-	// Nothing to do.
+	os.RemoveAll(r.workDir)
 }
 
 func (r *interpreterRunner) command(code string) *exec.Cmd {

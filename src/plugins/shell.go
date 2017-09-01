@@ -12,7 +12,7 @@ import (
 	"option"
 )
 
-const SHELL_SCRIPT_WORK_DIR = "/tmp/easegateway_shell_plugin"
+const SHELL_PLUGIN_WORK_DIR = "/tmp/easegateway_shell_plugin"
 
 type shellConfig struct {
 	interpreterRunnerConfig
@@ -23,7 +23,7 @@ type shellConfig struct {
 
 func ShellConfigConstructor() plugins.Config {
 	c := &shellConfig{
-		interpreterRunnerConfig: newInterpreterRunnerConfig("shell", SHELL_SCRIPT_WORK_DIR),
+		interpreterRunnerConfig: newInterpreterRunnerConfig("shell", SHELL_PLUGIN_WORK_DIR),
 		Type: "sh",
 	}
 

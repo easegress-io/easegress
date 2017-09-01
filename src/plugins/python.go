@@ -12,7 +12,7 @@ import (
 	"option"
 )
 
-const PYTHON_CODE_WORK_DIR = "/tmp/easegateway_python_plugin"
+const PYTHON_PLUGIN_WORK_DIR = "/tmp/easegateway_python_plugin"
 
 type pythonConfig struct {
 	interpreterRunnerConfig
@@ -23,7 +23,7 @@ type pythonConfig struct {
 
 func PythonConfigConstructor() plugins.Config {
 	c := &pythonConfig{
-		interpreterRunnerConfig: newInterpreterRunnerConfig("python", PYTHON_CODE_WORK_DIR),
+		interpreterRunnerConfig: newInterpreterRunnerConfig("python", PYTHON_PLUGIN_WORK_DIR),
 		Version:                 "2",
 	}
 
