@@ -456,7 +456,7 @@ No any errors returned.
 
 No any indicators exposed.
 
-## Python
+## Python Plugin
 
 Plugin executes python code.
 
@@ -495,7 +495,7 @@ Plugin executes python code.
 
 No any indicators exposed.
 
-## Shell
+## Shell Plugin
 
 Plugin executes shell script.
 
