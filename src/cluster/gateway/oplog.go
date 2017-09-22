@@ -171,11 +171,16 @@ func (op *opLog) retrieve(startSeq, countLimit uint64) ([]*Operation, error, Clu
 				startSeq+uint64(idx), err), InternalServerError
 		}
 
-		opBuff := item.Value()
-		if opBuff == nil || len(opBuff) == 0 {
-			logger.Errorf("[BUG: get operation (sequence=%d) from badger get empty]",
+		var opBuff []byte
+		err = item.Value(func(v []byte) error {
+			opBuff = make([]byte, len(v))
+			copy(opBuff, v)
+			return nil
+		})
+		if err != nil || opBuff == nil || len(opBuff) == 0 {
+			logger.Errorf("[BUG: get empty operation (sequence=%d) from badger]",
 				startSeq+uint64(idx))
-			return nil, fmt.Errorf("get operation (sequence=%d) from badger get empty",
+			return nil, fmt.Errorf("get empty operation (sequence=%d) from badger",
 					startSeq+uint64(idx)),
 				InternalServerError
 		}
@@ -245,8 +250,13 @@ func (op *opLog) _locklessMaxSeq() uint64 {
 		return 0
 	}
 
-	maxSeq := item.Value()
-	if maxSeq == nil || len(maxSeq) == 0 {
+	var maxSeq []byte
+	err = item.Value(func(v []byte) error {
+		maxSeq = make([]byte, len(v))
+		copy(maxSeq, v)
+		return nil
+	})
+	if err != nil || maxSeq == nil || len(maxSeq) == 0 {
 		// at the beginning, it is not a bug to get empty value.
 		maxSeq = []byte("0")
 	}
