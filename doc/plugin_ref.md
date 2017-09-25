@@ -7,26 +7,26 @@ There are 18 available plugins totally in Ease Gateway current release.
 
 | Plugin name | Type name | Block-able | Functional | Development status | Link |
 |:--|:--|:--:|:--:|:--:|:--|
-| [HTTP input](#http-input-plugin) | HTTPInput | Yes | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/http_input.go) |
-| [JSON validator](#json-validator-plugin) | JSONValidator | No | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/json_validator.go) |
-| [Kafka output](#kafka-output-plugin) | KafkaOutput | No | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/kafka_output.go) |
-| [HTTP output](#http-output-plugin) | HTTPOutput | No | Yes  | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/http_output.go) |
-| [IO reader](#io-reader-plugin) | IOReader | Yes | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/io_reader.go) |
-| [HTTP header counter](#http-header-counter-plugin) | HTTPHeaderCounter | No | No | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/http_header_counter.go) |
-| [Throughput rate limiter](#throughput-rate-limiter-plugin) | ThroughputRateLimiter | Yes | No | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/throughput_rate_limiter.go) |
-| [Latency based sliding window limiter](#latency-based-sliding-window-limiter-plugin) | LatencyWindowLimiter | Yes | No | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/latency_window_limiter.go) |
-| [Service circuit breaker](#service-circuit-breaker-plugin) | ServiceCircuitBreaker | No | No | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/service_circuit_breaker.go) |
-| [Static pass probability limiter](#static-pass-probability-limiter-plugin) | StaticProbabilityLimiter | No | No | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/static_probability_limiter.go) |
-| [No more failure limiter](#no-more-failure-limiter-plugin) | NoMoreFailureLimiter | No | No | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/no_more_failure_limiter.go) |
-| [Simple common cache](#simple-common-cache-plugin) | SimpleCommonCache | No | No | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/simple_common_cache.go) |
-| [Simple common mock](#simple-common-mock-plugin) | SimpleCommonMock | No | No | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/simple_common_mock.go) |
-| [Python](#python-plugin) | Python | Yes | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/python.go) |
-| [Shell](#shell-plugin) | Shell | Yes | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/shell.go) |
-| [Upstream output](#upstream-output-plugin) | UpstreamOutput | Yes | No | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/upstream_output.go) |
-| [Downstream input](#downstream-input-plugin) | DownstreamInput | Yes | No | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/downstream_input.go) |
-| [Ease Monitor graphite validator](#ease-monitor-graphite-validator-plugin) | EaseMonitorGraphiteValidator | No | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/easemonitor/graphite_validator.go) |
-| [Ease Monitor graphite GID extractor](#ease-monitor-graphite-gid-extractor-plugin) | EaseMonitorGraphiteGidExtractor | No | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/easemonitor/graphite_gid_extractor.go) |
-| [Ease Monitor JSON GID extractor](#ease-monitor-json-gid-extractor-plugin) | EaseMonitorJSONGidExtractor | No | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/plugins/easemonitor/json_gid_extractor.go) |
+| [HTTP input](#http-input-plugin) | HTTPInput | Yes | Yes | GA | [code](../src/plugins/http_input.go) |
+| [JSON validator](#json-validator-plugin) | JSONValidator | No | Yes | GA | [code](../src/plugins/json_validator.go) |
+| [Kafka output](#kafka-output-plugin) | KafkaOutput | No | Yes | GA | [code](../src/plugins/kafka_output.go) |
+| [HTTP output](#http-output-plugin) | HTTPOutput | No | Yes  | GA | [code](../src/plugins/http_output.go) |
+| [IO reader](#io-reader-plugin) | IOReader | Yes | Yes | GA | [code](../src/plugins/io_reader.go) |
+| [HTTP header counter](#http-header-counter-plugin) | HTTPHeaderCounter | No | No | GA | [code](../src/plugins/http_header_counter.go) |
+| [Throughput rate limiter](#throughput-rate-limiter-plugin) | ThroughputRateLimiter | Yes | No | GA | [code](../src/plugins/throughput_rate_limiter.go) |
+| [Latency based sliding window limiter](#latency-based-sliding-window-limiter-plugin) | LatencyWindowLimiter | Yes | No | GA | [code](../src/plugins/latency_window_limiter.go) |
+| [Service circuit breaker](#service-circuit-breaker-plugin) | ServiceCircuitBreaker | No | No | GA | [code](../src/plugins/service_circuit_breaker.go) |
+| [Static pass probability limiter](#static-pass-probability-limiter-plugin) | StaticProbabilityLimiter | No | No | GA | [code](../src/plugins/static_probability_limiter.go) |
+| [No more failure limiter](#no-more-failure-limiter-plugin) | NoMoreFailureLimiter | No | No | GA | [code](../src/plugins/no_more_failure_limiter.go) |
+| [Simple common cache](#simple-common-cache-plugin) | SimpleCommonCache | No | No | GA | [code](../src/plugins/simple_common_cache.go) |
+| [Simple common mock](#simple-common-mock-plugin) | SimpleCommonMock | No | No | GA | [code](../src/plugins/simple_common_mock.go) |
+| [Python](#python-plugin) | Python | Yes | Yes | GA | [code](../src/plugins/python.go) |
+| [Shell](#shell-plugin) | Shell | Yes | Yes | GA | [code](../src/plugins/shell.go) |
+| [Upstream output](#upstream-output-plugin) | UpstreamOutput | Yes | No | GA | [code](../src/plugins/upstream_output.go) |
+| [Downstream input](#downstream-input-plugin) | DownstreamInput | Yes | No | GA | [code](../src/plugins/downstream_input.go) |
+| [Ease Monitor graphite validator](#ease-monitor-graphite-validator-plugin) | EaseMonitorGraphiteValidator | No | Yes | GA | [code](../src/plugins/easemonitor/graphite_validator.go) |
+| [Ease Monitor graphite GID extractor](#ease-monitor-graphite-gid-extractor-plugin) | EaseMonitorGraphiteGidExtractor | No | Yes | GA | [code](../src/plugins/easemonitor/graphite_gid_extractor.go) |
+| [Ease Monitor JSON GID extractor](#ease-monitor-json-gid-extractor-plugin) | EaseMonitorJSONGidExtractor | No | Yes | GA | [code](../src/plugins/easemonitor/json_gid_extractor.go) |
 
 
 ## HTTP Input plugin

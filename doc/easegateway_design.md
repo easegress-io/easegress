@@ -17,11 +17,11 @@
   * [3.11 System Operations](#311-system-operations)
 
 ## 1. Introduction
-EaseGateway is a decentralized distributed gateway for serving the very large amount of requests coming from different areas while providing highly available service. Gateway provides many [built-in plugins](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md) to complete specific work, users can [create pipelines](https://github.com/hexdecteam/easegateway/blob/master/doc/admin_api_ref.swagger.yaml) by assembling different kinds of plugins to complete a business logic. Please see the illustration below.
+EaseGateway is a decentralized distributed gateway for serving the very large amount of requests coming from different areas while providing highly available service. Gateway provides many [built-in plugins](./plugin_ref.md) to complete specific work, users can [create pipelines](./admin_api_ref.swagger.yaml) by assembling different kinds of plugins to complete a business logic. Please see the illustration below.
 
 ![easegateway illustration](./diagrams/easegateway_illustration.png)
 
-EaseGateway currently supports many [use cases](https://github.com/hexdecteam/easegateway/blob/master/doc/pipeline_practice_guide.md).
+EaseGateway currently supports many [use cases](./pipeline_practice_guide.md).
 
 ### User defined plugins
 In addition to built-in plugins, EaseGateway supports user-defined plugins.
@@ -178,10 +178,10 @@ When a node joins the cluster, EaseGateway sends a join message. The purpose of 
 Request time, Member clock time
 
 ### 3.9 Load Balancing
-Gateway cluster depends on external load balancer such as DNS to do load balancing. As for gateway upstream, we support some route policy like round-robin and weighted round robin policy in [upstreams output plugin](https://github.com/hexdecteam/easegateway/blob/master/doc/plugin_ref.md#upstream-output-plugin).
+Gateway cluster depends on external load balancer such as DNS to do load balancing. As for gateway upstream, we support some route policy like round-robin and weighted round robin policy in [upstreams output plugin](./plugin_ref.md#upstream-output-plugin).
 
 ### 3.10 System Monitoring
-EaseGateway exposes system statistics through [Health statistics API](https://github.com/hexdecteam/easegateway/blob/master/doc/statistics_api_ref.swagger.yaml).
+EaseGateway exposes system statistics through [Health statistics API](./statistics_api_ref.swagger.yaml).
 
 
 ### 3.11 System Operations

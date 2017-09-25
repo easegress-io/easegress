@@ -7,7 +7,7 @@ There is 1 available pipeline in Ease Gateway current release.
 
 | Pipeline name | Type name | Functional | Development status | Link |
 |:--|:--|:--:|:--:|:--:|
-| [Linear Pipeline](#linear-pipeline) | Linear | Yes | GA | [code](https://github.com/hexdecteam/easegateway/blob/master/src/model/linear.go) |
+| [Linear Pipeline](#linear-pipeline) | Linear | Yes | GA | [code](../src/model/linear.go) |
 
 
 ## Linear Pipeline
