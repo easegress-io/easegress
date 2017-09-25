@@ -5,26 +5,29 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"sync"
+	"time"
 
 	"github.com/hexdecteam/easegateway-types/pipelines"
 	"github.com/hexdecteam/easegateway-types/plugins"
 	"github.com/hexdecteam/easegateway-types/task"
 	"golang.org/x/time/rate"
 
-	"logger"
 	"common"
+	"logger"
 )
 
 type throughputRateLimiterConfig struct {
 	common.PluginCommonConfig
-	Tps string `json:"tps,omitempty"`
+	Tps         string `json:"tps,omitempty"`
+	TimeoutMSec uint32 `json:"timeout_msec"` // up to 4294967295, zero means no queuing
 
 	tps float64
 }
 
 func ThroughputRateLimiterConfigConstructor() plugins.Config {
-	return new(throughputRateLimiterConfig)
+	return &throughputRateLimiterConfig{
+		TimeoutMSec: 200,
+	}
 }
 
 func (c *throughputRateLimiterConfig) Prepare(pipelineNames []string) error {
@@ -38,6 +41,10 @@ func (c *throughputRateLimiterConfig) Prepare(pipelineNames []string) error {
 
 	if len(c.Tps) == 0 {
 		return fmt.Errorf("invalid throughput rate limit")
+	}
+
+	if c.TimeoutMSec == 0 {
+		logger.Warnf("[ZERO timeout has been applied, no request could be queued by limiter!]")
 	}
 
 	c.tps, err = strconv.ParseFloat(c.Tps, 64)
@@ -73,49 +80,56 @@ func (l *throughputRateLimiter) Prepare(ctx pipelines.PipelineContext) {
 }
 
 func (l *throughputRateLimiter) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
-	state, err := getThroughputRateLimiterStateData(ctx, l.conf.tps, l.Name(), l.instanceId)
+	limiter, err := getThroughputRateLimiter(ctx, l.conf.tps, l.Name(), l.instanceId)
 	if err != nil {
 		return t, nil
 	}
 
-	state.Lock()
-	defer state.Unlock()
-
-	if state.limiter == nil {
+	if limiter == nil {
 		t.SetError(fmt.Errorf("service is unavaialbe caused by throughput rate limit"), task.ResultFlowControl)
 		return t, nil
 	}
 
-	if !state.limiter.Allow() {
+	if !limiter.Allow() {
+		if l.conf.TimeoutMSec == 0 {
+			t.SetError(fmt.Errorf("service is unavaialbe caused by throughput rate limit (without queuing)"),
+				task.ResultFlowControl)
+			return t, nil
+		}
+
 		pass := make(chan struct{})
+		cancelCtx, cancel := context.WithTimeout(
+			context.Background(), time.Duration(l.conf.TimeoutMSec)*time.Millisecond)
 
 		go func() {
 			select {
 			case <-pass:
 			case <-t.Cancel():
-				state.cancelFunc()
+				cancel()
 			}
 		}()
 
-		err := state.limiter.Wait(state.ctx)
+		err = limiter.Wait(cancelCtx)
 		if err != nil {
-			// err returns if task was cancelled as well.
-			if t.CancelCause() != nil {
-				t.SetError(fmt.Errorf("task is cancelled by %s", t.CancelCause()),
-					task.ResultTaskCancelled)
-			} else {
-				t.SetError(err, task.ResultInternalServerError)
+			switch err {
+			case context.Canceled:
+				if t.CancelCause() != nil { // task was cancelled
+					t.SetError(fmt.Errorf("task is cancelled by %s", t.CancelCause()),
+						task.ResultTaskCancelled)
+				} else {
+					logger.Warnf("[BUG: limiter context was canceled but task still running]")
+				}
+			default: // task queuing timeout
+				// type of error is context.DeadlineExceeded or limiter predicts waiting would exceed context deadline
+				t.SetError(fmt.Errorf("service is unavaialbe caused by throughput rate limit (queuing timeout)"),
+					task.ResultFlowControl)
 			}
 		}
 
 		close(pass)
 	}
 
-	if t.ResultCode() == task.ResultTaskCancelled {
-		return t, t.Error()
-	} else {
-		return t, nil
-	}
+	return t, nil
 }
 
 func (l *throughputRateLimiter) Name() string {
@@ -129,21 +143,14 @@ func (l *throughputRateLimiter) Close() {
 ////
 
 const (
-	throughputRateLimiterStateDataKey = "throughputRateLimiterStateDataKey"
+	throughputRateLimiterKey = "throughputRateLimiterKey"
 )
 
-type throughputRateLimiterStateData struct {
-	sync.Mutex
-	ctx        context.Context
-	cancelFunc context.CancelFunc
-	limiter    *rate.Limiter
-}
-
-func getThroughputRateLimiterStateData(ctx pipelines.PipelineContext, tps float64,
-	pluginName, pluginInstanceId string) (*throughputRateLimiterStateData, error) {
+func getThroughputRateLimiter(ctx pipelines.PipelineContext, tps float64,
+	pluginName, pluginInstanceId string) (*rate.Limiter, error) {
 
 	bucket := ctx.DataBucket(pluginName, pluginInstanceId)
-	state, err := bucket.QueryDataWithBindDefault(throughputRateLimiterStateDataKey,
+	limiter, err := bucket.QueryDataWithBindDefault(throughputRateLimiterKey,
 		func() interface{} {
 			var limit rate.Limit
 			if tps < 0 {
@@ -152,7 +159,6 @@ func getThroughputRateLimiterStateData(ctx pipelines.PipelineContext, tps float6
 				limit = rate.Limit(tps)
 			}
 
-			cancelCtx, cancel := context.WithCancel(context.Background())
 			var limiter *rate.Limiter
 
 			if tps == 0 {
@@ -162,11 +168,7 @@ func getThroughputRateLimiterStateData(ctx pipelines.PipelineContext, tps float6
 				limiter = rate.NewLimiter(limit, int(limit)+1)
 			}
 
-			return &throughputRateLimiterStateData{
-				ctx:        cancelCtx,
-				cancelFunc: cancel,
-				limiter:    limiter,
-			}
+			return limiter
 		})
 
 	if err != nil {
@@ -175,5 +177,5 @@ func getThroughputRateLimiterStateData(ctx pipelines.PipelineContext, tps float6
 		return nil, err
 	}
 
-	return state.(*throughputRateLimiterStateData), nil
+	return limiter.(*rate.Limiter), nil
 }

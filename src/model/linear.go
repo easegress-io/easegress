@@ -258,7 +258,7 @@ func (p *linearPipeline) runPlugin(instance plugins.Plugin, input task.Task, tsk
 
 	if output == nil {
 		if !p.rerun {
-			logger.Warnf("[plugin %s doens't output task, use input task continually.]", instance.Name())
+			logger.Warnf("[plugin %s doesn't output task, use input task continually.]", instance.Name())
 		}
 		output = input
 	}
