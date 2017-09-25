@@ -6,19 +6,22 @@ Let's create a simplest plugin named `hello` which set a value to key `hello` in
 package plugins
 
 import (
+	"common"
 	"fmt"
-	"pipelines"
-	"task"
+
+	"github.com/hexdecteam/easegateway-types/pipelines"
+	"github.com/hexdecteam/easegateway-types/plugins"
+	"github.com/hexdecteam/easegateway-types/task"
 )
 
 type helloConfig struct {
-	CommonConfig
+	common.PluginCommonConfig
 }
 
-func HelloConfigConstructor() Config { return &helloConfig{} }
+func HelloConfigConstructor() plugins.Config { return &helloConfig{} }
 
-func (c *helloConfig) Prepare() error {
-	err := c.CommonConfig.Prepare()
+func (c *helloConfig) Prepare(pipelineNames []string) error {
+	err := c.PluginCommonConfig.Prepare(pipelineNames)
 	if err != nil {
 		return err
 	}
@@ -30,7 +33,7 @@ type hello struct {
 	conf *helloConfig
 }
 
-func HelloConstructor(conf Config) (Plugin, error) {
+func HelloConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	c, ok := conf.(*helloConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *helloConfig got %T", conf)
@@ -144,7 +147,7 @@ Here's a demo to illustrate how to develop `json_validator` above step by step.
 ```golang
 type jsonValidatorConfig struct {
 	// inherit essential fields
-	CommonConfig
+	common.PluginCommonConfig
 	// json Schema config from user
 	Schema string `json:"schema"`
 	// key of data source in task
@@ -156,7 +159,7 @@ type jsonValidatorConfig struct {
 }
 
 // JSONValidatorConfigConstructor returns default config of JSONValidator
-func JSONValidatorConfigConstructor() Config {
+func JSONValidatorConfigConstructor() plugins.Config {
 	return &jsonValidatorConfig{
 		Schema:    "",
 		DataKey:   "",
@@ -167,9 +170,9 @@ func JSONValidatorConfigConstructor() Config {
 // Prepare validates config and does some preparation work for config
 // after validating final config. This function is invoked after loading
 // final config into jsonValidatorConfig
-func (c *jsonValidatorConfig) Prepare() error {
+func (c *jsonValidatorConfig) Prepare(pipelineNames []string) error {
 	// prepare common config firstly
-	err := c.CommonConfig.Prepare()
+	err := c.PluginCommonConfig.Prepare(pipelineNames)
 	if err != nil {
 		return err
 	}
@@ -203,7 +206,7 @@ type jsonValidator struct {
 }
 
 // JSONValidatorConstructor is invoked to contruct a new instance.
-func JSONValidatorConstructor(conf Config) (Plugin, error) {
+func JSONValidatorConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	// Even gateway ensures type of entered config is corresponding Config
 	// which is jsonValidatorConfig here, it's safer to use
 	// checking  two values of type assertion to prevent panic.
