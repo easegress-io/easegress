@@ -257,8 +257,8 @@ Plugin limits request rate based on current throughput.
 | Parameter name | Data type (golang) | Description | Type | Optional | Default value (golang) |
 |:--|:--|:--|:--:|:--:|:--|
 | plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
-| tps | The maximal requests per second. Value -1 means no limitation. Value zero here means there is no request could be processed.| Functionality | No | N/A |
-| timeout_msec | The maximal wait time in millisecond of request queuing. Value 0 means there is no request could be queued, value -1 means there is no queuing timeout.| Functionality | Yes | 200 |
+| tps | string| The maximal requests per second. Value -1 means no limitation. Value zero here means there is no request could be processed.| Functionality | No | N/A |
+| timeout\_msec | int64 | The maximal wait time in millisecond of request queuing. Value 0 means there is no request could be queued, value -1 means there is no queuing timeout.| Functionality | Yes | 200 |
 
 ### I/O
 
