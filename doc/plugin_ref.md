@@ -258,6 +258,7 @@ Plugin limits request rate based on current throughput.
 |:--|:--|:--|:--:|:--:|:--|
 | plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
 | tps | The maximal requests per second. Value -1 means no limitation. Value zero here means there is no request could be processed.| Functionality | No | N/A |
+| timeout_msec | The maximal wait time in millisecond of request queuing. Value 0 means there is no request could be queued, value -1 means there is no queuing timeout.| Functionality | Yes | 200 |
 
 ### I/O
 
@@ -269,7 +270,6 @@ No any inputs or outputs.
 |:--|:--|
 | ResultFlowControl | service is unavailable caused by throughput rate limit |
 | ResultTaskCancelled | task is cancelled |
-| ResultInternalServerError | unexpected error on internal delay timer |
 
 ### Dedicated statistics indicator
 

@@ -18,8 +18,8 @@ import (
 
 type throughputRateLimiterConfig struct {
 	common.PluginCommonConfig
-	Tps         string `json:"tps,omitempty"`
-	TimeoutMSec uint32 `json:"timeout_msec"` // up to 4294967295, zero means no queuing
+	Tps         string `json:"tps,omitempty"` // zero means no request could be processed, -1 means no limitation
+	TimeoutMSec int64  `json:"timeout_msec"`  // up to 9223372036854775807, zero means no queuing, -1 means no timeout
 
 	tps float64
 }
@@ -43,13 +43,21 @@ func (c *throughputRateLimiterConfig) Prepare(pipelineNames []string) error {
 		return fmt.Errorf("invalid throughput rate limit")
 	}
 
-	if c.TimeoutMSec == 0 {
-		logger.Warnf("[ZERO timeout has been applied, no request could be queued by limiter!]")
-	}
-
 	c.tps, err = strconv.ParseFloat(c.Tps, 64)
 	if err != nil || c.tps < -1 { // -1 means infinite rate
 		return fmt.Errorf("invalid throughput rate limit")
+	}
+
+	if c.TimeoutMSec < -1 { // -1 means no timeout
+		return fmt.Errorf("invalid queuing timeout")
+	}
+
+	if c.TimeoutMSec == 0 {
+		logger.Warnf("[ZERO timeout of throughput rate limit has been applied, " +
+			"no request could be queued by limiter!]")
+	} else if c.TimeoutMSec == -1 {
+		logger.Warnf("[INFINITE timeout of throughput rate limit has been applied, " +
+			"no request could be timed out from queue!]")
 	}
 
 	return nil
@@ -91,15 +99,20 @@ func (l *throughputRateLimiter) Run(ctx pipelines.PipelineContext, t task.Task) 
 	}
 
 	if !limiter.Allow() {
+		var timeout time.Duration
+
 		if l.conf.TimeoutMSec == 0 {
 			t.SetError(fmt.Errorf("service is unavaialbe caused by throughput rate limit (without queuing)"),
 				task.ResultFlowControl)
 			return t, nil
+		} else if l.conf.TimeoutMSec == -1 {
+			timeout = rate.InfDuration
+		} else {
+			timeout = time.Duration(l.conf.TimeoutMSec) * time.Millisecond
 		}
 
 		pass := make(chan struct{})
-		cancelCtx, cancel := context.WithTimeout(
-			context.Background(), time.Duration(l.conf.TimeoutMSec)*time.Millisecond)
+		cancelCtx, cancel := context.WithTimeout(context.Background(), timeout)
 
 		go func() {
 			select {
