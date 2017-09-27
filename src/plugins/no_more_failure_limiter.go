@@ -3,14 +3,14 @@ package plugins
 import (
 	"fmt"
 	"strings"
-	"sync"
+	"sync/atomic"
 
 	"github.com/hexdecteam/easegateway-types/pipelines"
 	"github.com/hexdecteam/easegateway-types/plugins"
 	"github.com/hexdecteam/easegateway-types/task"
 
-	"logger"
 	"common"
+	"logger"
 )
 
 type noMoreFailureLimiterConfig struct {
@@ -79,18 +79,15 @@ func (l *noMoreFailureLimiter) Run(ctx pipelines.PipelineContext, t task.Task) (
 		getTaskFinishedCallbackInNoMoreFailureLimiter(ctx, l.conf.FailureTaskDataKey,
 			l.conf.FailureTaskDataValue, l.Name(), l.instanceId))
 
-	state, err := getNoMoreFailureLimiterStateData(ctx, l.Name(), l.instanceId)
+	counter, err := getNoMoreFailureCounter(ctx, l.Name(), l.instanceId)
 	if err != nil {
 		return t, nil
 	}
 
-	state.Lock()
-	defer state.Unlock()
-
-	if state.failureCount >= l.conf.FailureCountThreshold {
+	if *counter >= l.conf.FailureCountThreshold {
 		// TODO: Adds an option to allow operator provides a special output value as a parameter with task
 		t.SetError(fmt.Errorf("service is unavaialbe caused by failure limitation"), task.ResultFlowControl)
-		state.failureCount = l.conf.FailureCountThreshold // to prevent overflow
+		atomic.StoreUint64(counter, l.conf.FailureCountThreshold) // to prevent overflow
 	}
 
 	return t, nil
@@ -107,32 +104,26 @@ func (l *noMoreFailureLimiter) Close() {
 ////
 
 const (
-	noMoreFailureLimiterStateKey = "noMoreFailureLimiterStateKey"
+	noMoreFailureLimiterCounterKey = "noMoreFailureLimiterCounterKey"
 )
 
-type noMoreFailureLimiterStateData struct {
-	sync.Mutex
-	failureCount uint64
-}
-
-func getNoMoreFailureLimiterStateData(ctx pipelines.PipelineContext,
-	pluginName, pluginInstanceId string) (*noMoreFailureLimiterStateData, error) {
+func getNoMoreFailureCounter(ctx pipelines.PipelineContext,
+	pluginName, pluginInstanceId string) (*uint64, error) {
 
 	bucket := ctx.DataBucket(pluginName, pluginInstanceId)
-	state, err := bucket.QueryDataWithBindDefault(noMoreFailureLimiterStateKey,
+	counter, err := bucket.QueryDataWithBindDefault(noMoreFailureLimiterCounterKey,
 		func() interface{} {
-			return &noMoreFailureLimiterStateData{
-				failureCount: 0,
-			}
+			var failureCount uint64
+			return &failureCount
 		})
 
 	if err != nil {
-		logger.Warnf("[BUG: query state data for pipeline %s failed, "+
+		logger.Warnf("[BUG: query failure counter for pipeline %s failed, "+
 			"ignored to handle failure limitation: %v]", ctx.PipelineName(), err)
 		return nil, err
 	}
 
-	return state.(*noMoreFailureLimiterStateData), nil
+	return counter.(*uint64), nil
 }
 
 func getTaskFinishedCallbackInNoMoreFailureLimiter(ctx pipelines.PipelineContext,
@@ -141,17 +132,14 @@ func getTaskFinishedCallbackInNoMoreFailureLimiter(ctx pipelines.PipelineContext
 	return func(t1 task.Task, _ task.TaskStatus) {
 		t1.DeleteFinishedCallback(fmt.Sprintf("%s-calculateTaskFailure", pluginName))
 
-		state, err := getNoMoreFailureLimiterStateData(ctx, pluginName, pluginInstanceId)
+		counter, err := getNoMoreFailureCounter(ctx, pluginName, pluginInstanceId)
 		if err != nil {
 			return
 		}
 
-		state.Lock()
-		defer state.Unlock()
-
 		value := fmt.Sprintf("%v", t1.Value(failureTaskDataKey))
 		if value == failureTaskDataValue {
-			state.failureCount++
+			atomic.AddUint64(counter, 1)
 		}
 
 		return
