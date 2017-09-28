@@ -62,8 +62,6 @@ var (
 			ShellConstructor, ShellConfigConstructor},
 
 		// Ease Monitor product dedicated plugins
-		"EaseMonitorProtoAdaptor": {
-			apm.ProtoAdaptorConstructor, apm.ProtoAdaptorConfigConstructor},
 		"EaseMonitorGraphiteGidExtractor": {
 			apm.GraphiteGidExtractorConstructor, apm.GraphiteGidExtractorConfigConstructor},
 		"EaseMonitorGraphiteValidator": {

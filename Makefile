@@ -73,7 +73,6 @@ vendor_get:
 		github.com/bsm/sarama-cluster \
 		github.com/xeipuuv/gojsonschema \
 		github.com/ant0ine/go-json-rest/rest \
-		github.com/golang/protobuf/proto \
 		github.com/rcrowley/go-metrics \
 		golang.org/x/time/rate \
 		github.com/urfave/cli \
