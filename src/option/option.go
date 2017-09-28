@@ -11,6 +11,7 @@ import (
 
 var (
 	// cluster stuff
+	ClusterHost           string
 	ClusterGroup          string
 	MemberMode            string
 	MemberName            string
@@ -39,6 +40,7 @@ func init() {
 		hostName = "node0"
 	}
 
+	clusterHost := flag.String("cluster_host", "", "specify cluster listen host")
 	clusterGroup := flag.String("group", "default", "specify cluster group name")
 	memberMode := flag.String("mode", "read", "specify member mode (read or write)")
 	memberName := flag.String("name", hostName, "specify member name")
@@ -80,6 +82,11 @@ func init() {
 
 	flag.Parse()
 
+	if len(*clusterHost) == 0 {
+		*clusterHost = *host
+	}
+
+	ClusterHost = *clusterHost
 	ClusterGroup = *clusterGroup
 	MemberMode = *memberMode
 	MemberName = *memberName

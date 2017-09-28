@@ -208,7 +208,7 @@ func (d *messageDelegate) MergeRemoteState(buff []byte, isJoin bool) {
 		return
 	}
 
-	logger.Debugf("[received state push/pull memssage]")
+	logger.Debugf("[received state push/pull message]")
 	if msg.MemberClockTime > 0 {
 		d.c.memberClock.Update(msg.MemberClockTime - 1)
 	}
