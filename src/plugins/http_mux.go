@@ -10,16 +10,16 @@ type Handler func(http.ResponseWriter, *http.Request)
 
 func Error(w http.ResponseWriter, code int) { w.WriteHeader(code) }
 
-var supportedMethods = map[string]struct{}{
-	http.MethodGet:     {},
-	http.MethodHead:    {},
-	http.MethodPost:    {},
-	http.MethodPut:     {},
-	http.MethodPatch:   {},
-	http.MethodDelete:  {},
-	http.MethodConnect: {},
-	http.MethodOptions: {},
-	http.MethodTrace:   {},
+var supportedMethods = map[string]interface{}{
+	http.MethodGet:     nil,
+	http.MethodHead:    nil,
+	http.MethodPost:    nil,
+	http.MethodPut:     nil,
+	http.MethodPatch:   nil,
+	http.MethodDelete:  nil,
+	http.MethodConnect: nil,
+	http.MethodOptions: nil,
+	http.MethodTrace:   nil,
 }
 
 type muxEntry struct {
@@ -116,7 +116,7 @@ type headerErr struct {
 
 var defaultHeaderErr = headerErr{
 	Code:    http.StatusNotFound,
-	Message: "invaliad request",
+	Message: "invalid request",
 }
 
 var headerPriority = []string{"User-Agent", "Content-Type", "Content-Encoding"}
@@ -132,7 +132,7 @@ var headerErrs = map[string]headerErr{
 	},
 	"Content-Encoding": {
 		Code:    http.StatusBadRequest,
-		Message: "invaliad request",
+		Message: "invalid request",
 	},
 }
 

@@ -46,7 +46,7 @@ type httpOutputConfig struct {
 
 func HTTPOutputConfigConstructor() plugins.Config {
 	return &httpOutputConfig{
-		TimeoutSec: 120,
+		TimeoutSec:            120,
 		ExpectedResponseCodes: []int{http.StatusOK},
 	}
 }
@@ -95,9 +95,9 @@ func (c *httpOutputConfig) Prepare(pipelineNames []string) error {
 		}
 	}
 
-	_, ok := supportedMethods[c.Method]
-	if !ok {
-		return fmt.Errorf("invalid http method")
+	_, err = common.ScanTokens(c.Method, false, nil)
+	if err != nil {
+		return fmt.Errorf("invalid method pattern")
 	}
 
 	if c.TimeoutSec == 0 {
@@ -244,7 +244,16 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task,
 		length = int64(len(body))
 	}
 
-	req, err := http.NewRequest(h.conf.Method, link, reader)
+	// skip error check safely due to we ensured it in Prepare()
+	method, _ := ReplaceTokensInPattern(t, h.conf.Method)
+
+	_, ok := supportedMethods[method]
+	if !ok {
+		t.SetError(fmt.Errorf("invalid http method %s", method), task.ResultMissingInput)
+		return t, nil
+	}
+
+	req, err := http.NewRequest(method, link, reader)
 	if err != nil {
 		t.SetError(err, task.ResultInternalServerError)
 		return t, nil
