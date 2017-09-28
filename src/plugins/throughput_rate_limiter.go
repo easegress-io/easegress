@@ -142,7 +142,11 @@ func (l *throughputRateLimiter) Run(ctx pipelines.PipelineContext, t task.Task) 
 		close(pass)
 	}
 
-	return t, nil
+	if t.ResultCode() == task.ResultTaskCancelled {
+		return t, t.Error()
+	} else {
+		return t, nil
+	}
 }
 
 func (l *throughputRateLimiter) Name() string {
