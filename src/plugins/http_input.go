@@ -165,6 +165,7 @@ func (c *httpInputConfig) Prepare(pipelineNames []string) error {
 type httpTask struct {
 	request      *http.Request
 	writer       http.ResponseWriter
+	receivedAt   time.Time
 	finishedChan chan struct{}
 }
 
@@ -249,6 +250,7 @@ func (h *httpInput) handler(w http.ResponseWriter, req *http.Request) {
 	httpTask := httpTask{
 		request:      req,
 		writer:       w,
+		receivedAt:   time.Now(),
 		finishedChan: make(chan struct{}),
 	}
 
@@ -383,10 +385,11 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 			httpCode := task.ResultCodeToHTTPCode(code)
 			// TODO: use variables(e.g. upstream_response_time_xxx) of each plugin
 			// or provide a method(e.g. AddUpstreamResponseTime) of task
-			logger.HTTPAccess(ht.request, httpCode, 0, t1.FinishAt().Sub(t1.StartAt()), time.Duration(0))
+			// TODO: calculate real body_bytes_sent value
+			logger.HTTPAccess(ht.request, httpCode, -1, t1.FinishAt().Sub(ht.receivedAt), time.Duration(-1))
 
 			if !task.SuccessfulResult(code) {
-				logger.Warnf("[http request processed unsuccesfully, "+
+				logger.Warnf("[http request processed unsuccessfully, "+
 					"result code: %d, error: %s]", httpCode, t1.Error())
 			}
 		}
