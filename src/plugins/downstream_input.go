@@ -51,6 +51,11 @@ func (d *downstreamInput) Prepare(ctx pipelines.PipelineContext) {
 
 func (d *downstreamInput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
 	request := ctx.ClaimCrossPipelineRequest(t.Cancel())
+	if t.CancelCause() != nil {
+		t.SetError(fmt.Errorf("task is cancelled by %s", t.CancelCause()), task.ResultTaskCancelled)
+		return t, t.Error()
+	}
+
 	if request == nil {
 		// request was closed by downstream before any upstream handles it, ignore safely
 		return t, nil
