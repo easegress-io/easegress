@@ -544,7 +544,7 @@ Plugin outputs request to an upstream pipeline and waits the response.
 |:--|:--|:--|:--:|:--:|:--|
 | plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
 | target\_pipelines | []string | The list of upstream pipeline name. | Functionality | No | N/A |
-| route\_policy | string | The name of route policy which is used to select a upstream pipeline form `target_pipelines` option for a task. Available policies are `round_robin`, `weighted_round_robin`, `random`, `weighted_random`, `least_wip_requests`,  `hash`, `filter` and `fanout`. | Functionality | Yes | "round_robin" |
+| route\_policy | string | The name of route policy which is used to select a upstream pipeline form `target_pipelines` option for a task. Available policies are `round_robin`, `weighted_round_robin`, `random`, `weighted_random`, `least_wip_requests`, `hash`, `filter`, `fanout` and `retry`. | Functionality | Yes | "round_robin" |
 | timeout\_sec | uint16 | The wait timeout upstream process limited in second. | Functionality | Yes | 120 (2 minutes) |
 | request\_data\_keys | []string | The key names of the data in current pipeline, each of them will be passed to target pipeline as the input part of cross-pipeline request. Plugin `downstream_input` will handle the data as the input. | I/O | No | [] |
 | target\_weights | []uint16 | The weight of each upstream pipeline, only for `weighted_round_robin` and `weighted_random` policies. | Functionality | Yes | [1...] |
