@@ -536,7 +536,7 @@ $ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:applic
 $ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPOutput", "config": {"plugin_name": "test-httpoutput1", "url_pattern": "http://127.0.0.1:1122/abc", "header_patterns": {}, "method": "POST", "response_code_key": "response_code", "response_body_io_key": "HTTP_RESP_BODY_IO", "request_body_io_key": "HTTP_REQUEST_BODY_IO", "close_body_after_pipeline": false}}'
 
 # For upstream #2
-$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "DownstreamInput", "config": {"plugin_name": "test-downstreamintpu2", "response_data_keys": ["response_code", "HTTP_RESP_BODY_IO"] }}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "DownstreamInput", "config": {"plugin_name": "test-downstreamintput2", "response_data_keys": ["response_code", "HTTP_RESP_BODY_IO"] }}'
 $ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPOutput", "config": {"plugin_name": "test-httpoutput2", "url_pattern": "http://127.0.0.1:3344/abc", "header_patterns": {}, "method": "POST", "response_code_key": "response_code", "response_body_io_key": "HTTP_RESP_BODY_IO", "request_body_io_key": "HTTP_REQUEST_BODY_IO", "close_body_after_pipeline": false}}'
 
 # For downstream, round_robin policy is used at this time
@@ -554,7 +554,7 @@ You can use follow [Administration API](./admin_api_ref.swagger.yaml) calls to s
 $ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "test-upstream1", "plugin_names": ["test-downstreamintpu1", "test-httpoutput1"], "parallelism": 10}}'
 
 # For upstream #2
-$ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "test-upstream2", "plugin_names": ["test-downstreamintpu2", "test-httpoutput2"], "parallelism": 10}}'
+$ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "test-upstream2", "plugin_names": ["test-downstreamintput2", "test-httpoutput2"], "parallelism": 10}}'
 
 # For downstream
 $ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "intput", "plugin_names": ["test-httpinput", "test-upstreamoutput1"], "parallelism": 10}}'
