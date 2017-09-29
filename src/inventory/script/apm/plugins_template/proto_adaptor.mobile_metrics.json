@@ -1,8 +1,0 @@
-{
-  "type": "EaseMonitorProtoAdaptor",
-  "config": {
-    "plugin_name": "easemonitor_proto_adaptor.mobile_metrics",
-    "gid_key": "GID",
-    "data_key": "DATA"
-  }
-}
