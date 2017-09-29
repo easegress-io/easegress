@@ -31,7 +31,7 @@ func NewRest(gateway *engine.Gateway) (*Rest, error) {
 }
 
 func (s *Rest) Start() (<-chan error, string, error) {
-	listenAddr := fmt.Sprintf("%s:9090", option.Host)
+	listenAddr := fmt.Sprintf("%s:9090", option.RestHost)
 
 	adminServer, err := newAdminServer(s.gateway)
 	if err != nil {

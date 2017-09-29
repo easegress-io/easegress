@@ -21,13 +21,14 @@ var (
 	OPLogPullInterval     time.Duration
 	OPLogPullTimeout      time.Duration
 
-	Host                           string
-	CertFile, KeyFile              string
+	Host              string
+	CertFile, KeyFile string
+
+	RestHost                       string
 	Stage                          string
 	ConfigHome, LogHome            string
 	CpuProfileFile, MemProfileFile string
-
-	ShowVersion bool
+	ShowVersion                    bool
 
 	PluginIODataFormatLengthLimit uint64
 	PluginPythonRootNamespace     bool
@@ -63,6 +64,8 @@ func init() {
 		"downgrade HTTPS(10443) to HTTP(10080) if it is set empty or nonexistent file")
 	keyFile := flag.String("keyfile", "", "specify key file, "+
 		"downgrade HTTPS(10443) to HTTP(10080) if it is set empty or nonexistent file")
+
+	restHost := flag.String("rest_host", "", "specify rest listen host")
 	stage := flag.String("stage", "debug", "sepcify runtime stage (debug, test, prod)")
 	configHome := flag.String("config", common.CONFIG_HOME_DIR, "specify config home path")
 	logHome := flag.String("log", common.LOG_HOME_DIR, "specify log home path")
@@ -105,12 +108,19 @@ func init() {
 	Host = *host
 	CertFile = *certFile
 	KeyFile = *keyFile
+
+	if len(*restHost) == 0 {
+		*restHost = *host
+	}
+
+	RestHost = *restHost
 	Stage = *stage
 	ConfigHome = *configHome
 	LogHome = *logHome
 	CpuProfileFile = *cpuProfileFile
 	MemProfileFile = *memProfileFile
 	ShowVersion = *showVersion
+
 	PluginIODataFormatLengthLimit = *pluginIODataFormatLengthLimit
 	PluginPythonRootNamespace = *pluginPythonRootNamespace
 	PluginShellRootNamespace = *pluginShellRootNamespace
