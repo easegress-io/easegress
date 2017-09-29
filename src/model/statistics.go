@@ -310,17 +310,17 @@ func NewPipelineStatistics(pipelineName string, pluginNames []string, m *Model) 
 
 	// Expose pipeline statistics values as indicators
 	ret.registerPipelineIndicator("THROUGHPUT_RATE_LAST_1MIN_ALL",
-		"Throughtput rate of the pipeline in last 1 minute.",
+		"Throughput rate of the pipeline in last 1 minute.",
 		func(pipelineName, indicatorName string) (interface{}, error) {
 			return ret.PipelineThroughputRate1()
 		})
 	ret.registerPipelineIndicator("THROUGHPUT_RATE_LAST_5MIN_ALL",
-		"Throughtput rate of the pipeline in last 5 minute.",
+		"Throughput rate of the pipeline in last 5 minute.",
 		func(pipelineName, indicatorName string) (interface{}, error) {
 			return ret.PipelineThroughputRate5()
 		})
 	ret.registerPipelineIndicator("THROUGHPUT_RATE_LAST_15MIN_ALL",
-		"Throughtput rate of the pipeline in last 15 minute.",
+		"Throughput rate of the pipeline in last 15 minute.",
 		func(pipelineName, indicatorName string) (interface{}, error) {
 			return ret.PipelineThroughputRate15()
 		})
@@ -373,53 +373,53 @@ func NewPipelineStatistics(pipelineName string, pluginNames []string, m *Model) 
 	// Expose common plugin statistics values as builtin plugin indicators
 	for _, pluginName := range pluginNames {
 		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
-			"THROUGHPUT_RATE_LAST_1MIN_ALL", "Throughtput rate of the plugin in last 1 minute.",
+			"THROUGHPUT_RATE_LAST_1MIN_ALL", "Throughput rate of the plugin in last 1 minute.",
 			func(pluginName, indicatorName string) (interface{}, error) {
 				return ret.PluginThroughputRate1(pluginName, pipelines.AllStatistics)
 			})
 		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
-			"THROUGHPUT_RATE_LAST_5MIN_ALL", "Throughtput rate of the plugin in last 5 minute.",
+			"THROUGHPUT_RATE_LAST_5MIN_ALL", "Throughput rate of the plugin in last 5 minute.",
 			func(pluginName, indicatorName string) (interface{}, error) {
 				return ret.PluginThroughputRate5(pluginName, pipelines.AllStatistics)
 			})
 		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
-			"THROUGHPUT_RATE_LAST_15MIN_ALL", "Throughtput rate of the plugin in last 15 minute.",
+			"THROUGHPUT_RATE_LAST_15MIN_ALL", "Throughput rate of the plugin in last 15 minute.",
 			func(pluginName, indicatorName string) (interface{}, error) {
 				return ret.PluginThroughputRate15(pluginName, pipelines.AllStatistics)
 			})
 		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
 			"THROUGHPUT_RATE_LAST_1MIN_SUCCESS",
-			"Successful throughtput rate of the plugin in last 1 minute.",
+			"Successful throughput rate of the plugin in last 1 minute.",
 			func(pluginName, indicatorName string) (interface{}, error) {
 				return ret.PluginThroughputRate1(pluginName, pipelines.SuccessStatistics)
 			})
 		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
 			"THROUGHPUT_RATE_LAST_5MIN_SUCCESS",
-			"Successful throughtput rate of the plugin in last 5 minute.",
+			"Successful throughput rate of the plugin in last 5 minute.",
 			func(pluginName, indicatorName string) (interface{}, error) {
 				return ret.PluginThroughputRate5(pluginName, pipelines.SuccessStatistics)
 			})
 		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
 			"THROUGHPUT_RATE_LAST_15MIN_SUCCESS",
-			"Successful throughtput rate of the plugin in last 15 minute.",
+			"Successful throughput rate of the plugin in last 15 minute.",
 			func(pluginName, indicatorName string) (interface{}, error) {
 				return ret.PluginThroughputRate15(pluginName, pipelines.SuccessStatistics)
 			})
 		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
 			"THROUGHPUT_RATE_LAST_1MIN_FAILURE",
-			"Failed throughtput rate of the plugin in last 1 minute.",
+			"Failed throughput rate of the plugin in last 1 minute.",
 			func(pluginName, indicatorName string) (interface{}, error) {
 				return ret.PluginThroughputRate1(pluginName, pipelines.FailureStatistics)
 			})
 		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
 			"THROUGHPUT_RATE_LAST_5MIN_FAILURE",
-			"Failed throughtput rate of the plugin in last 5 minute.",
+			"Failed throughput rate of the plugin in last 5 minute.",
 			func(pluginName, indicatorName string) (interface{}, error) {
 				return ret.PluginThroughputRate5(pluginName, pipelines.FailureStatistics)
 			})
 		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
 			"THROUGHPUT_RATE_LAST_15MIN_FAILURE",
-			"Failed throughtput rate of the plugin in last 15 minute.",
+			"Failed throughput rate of the plugin in last 15 minute.",
 			func(pluginName, indicatorName string) (interface{}, error) {
 				return ret.PluginThroughputRate15(pluginName, pipelines.FailureStatistics)
 			})

@@ -80,7 +80,7 @@ func (md *messageDelegate) NotifyMsg(buff []byte) {
 			break
 		}
 
-		logger.Debugf("[received member join memssage from node %s at logical clock %d]",
+		logger.Debugf("[received member join message from node %s at logical clock %d]",
 			msg.NodeName, msg.JoinTime)
 
 		messageQueue = md.c.memberMessageSendQueue
@@ -93,7 +93,7 @@ func (md *messageDelegate) NotifyMsg(buff []byte) {
 			break
 		}
 
-		logger.Debugf("[received member leave memssage from node %s at logical clock %d]",
+		logger.Debugf("[received member leave message from node %s at logical clock %d]",
 			msg.NodeName, msg.LeaveTime)
 
 		messageQueue = md.c.memberMessageSendQueue
@@ -106,7 +106,7 @@ func (md *messageDelegate) NotifyMsg(buff []byte) {
 			break
 		}
 
-		logger.Debugf("[received request memssage from node %s at logical clock %d]",
+		logger.Debugf("[received request message from node %s at logical clock %d]",
 			msg.RequestNodeName, msg.RequestTime)
 
 		messageQueue = md.c.requestMessageSendQueue
@@ -119,7 +119,7 @@ func (md *messageDelegate) NotifyMsg(buff []byte) {
 			break
 		}
 
-		logger.Debugf("[received response memssage from node %s at logical clock %d]",
+		logger.Debugf("[received response message from node %s at logical clock %d]",
 			msg.ResponseNodeName, msg.RequestTime)
 
 		messageQueue = nil
@@ -132,7 +132,7 @@ func (md *messageDelegate) NotifyMsg(buff []byte) {
 			break
 		}
 
-		logger.Debugf("[received relay memssage from node %s]",
+		logger.Debugf("[received relay message from node %s]",
 			msg.SourceNodeName)
 
 		messageQueue = nil
