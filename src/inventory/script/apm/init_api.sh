@@ -41,6 +41,8 @@ sed -i "s/BASE64_JSON_SCHEMA_ZIPKIN_SPANS/${BASE64_JSON_SCHEMA_ZIPKIN_SPANS}/g" 
 
 ${CLIENT} --address "${GATEWAY_SERVER_ADDRESS}" admin plugin add ${SCRIPTPATH}/plugins/*.json
 
+rm -fr ${SCRIPTPATH}/plugins
+
 echo ""
 echo "====================Initial APM Pipelines===================="
 ${CLIENT} --address "${GATEWAY_SERVER_ADDRESS}" admin pipeline add ${SCRIPTPATH}/pipelines_template/*.json
