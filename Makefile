@@ -17,7 +17,7 @@ ifndef COMMIT
   COMMIT := git-$(shell git rev-parse --short HEAD)
 endif
 
-DOCKER?=docker --
+DOCKER?=docker
 
 GATEWAY_ALL_SRC_FILES = $(shell find ${MKFILE_DIR}src -type f -name "*.go")
 GATEWAY_CLIENT_SRC_FILES = $(shell find ${MKFILE_DIR}src/cli ${MKFILE_DIR}src/client -type f -name "*.go")
