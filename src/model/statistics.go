@@ -619,7 +619,6 @@ func (ps *PipelineStatistics) PipelineExecutionTimeMin() (int64, error) {
 }
 
 func (ps *PipelineStatistics) PipelineExecutionTimePercentile(percentile float64) (float64, error) {
-
 	ps.RLock()
 	defer ps.RUnlock()
 	return ps.pipelineExecutionSample.Percentile(percentile), nil

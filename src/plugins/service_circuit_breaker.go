@@ -68,7 +68,7 @@ func (c *serviceCircuitBreakerConfig) Prepare(pipelineNames []string) error {
 	}
 
 	if c.FailureTPSThresholdToBreak == 0 || c.FailureTPSPercentThresholdToBreak == 0 {
-		logger.Warnf("[ZERO failure throughput rate or throughput rate percentage threashold " +
+		logger.Warnf("[ZERO failure throughput rate or throughput rate percentage threshold " +
 			"has been applied, breaker will keep open or half-open!]")
 	}
 

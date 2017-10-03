@@ -5,7 +5,6 @@ import (
 	"logger"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/hexdecteam/easegateway-types/pipelines"
@@ -75,11 +74,12 @@ func (c *httpHeaderCounter) Prepare(ctx pipelines.PipelineContext) {
 		fmt.Sprintf("The count of http requests that the header of each one "+
 			"contains a key '%s' in last %d second(s).", c.conf.HeaderConcerned, c.conf.ExpirationSec),
 		func(pluginName, indicatorName string) (interface{}, error) {
-			count, err := getRecentHeaderCount(ctx, pluginName)
+			state, err := getHTTPHeaderCounterState(ctx, c.Name(), c.instanceId)
 			if err != nil {
 				return nil, err
 			}
-			return *count, nil
+			// without locking to accelerate read
+			return len(state.timers), nil
 		},
 	)
 	if err != nil {
@@ -110,35 +110,37 @@ func (c *httpHeaderCounter) count(ctx pipelines.PipelineContext, t task.Task) (e
 	state.Lock()
 	defer state.Unlock()
 
-	timer, exists := state.timers[value]
+	book, exists := state.timers[value]
 	if !exists {
-		count, err := getRecentHeaderCount(ctx, c.Name())
-		if err != nil {
-			return nil, t.ResultCode(), t
+		timer := time.AfterFunc(time.Duration(c.conf.ExpirationSec)*time.Second, func() {
+			state, err := getHTTPHeaderCounterState(ctx, c.Name(), c.instanceId)
+			if err != nil {
+				return
+			}
+
+			state.Lock()
+			defer state.Unlock()
+
+			book := state.timers[value]
+			if book.recycled {
+				book.recycled = false // reset for next handling
+				return
+			}
+
+			delete(state.timers, value)
+		})
+
+		state.timers[value] = &httpHeaderCounterTimerBook{
+			timer:    timer,
+			recycled: false,
+		}
+	} else {
+		expired := !book.timer.Stop()
+		if expired { // timeout callback is triggered concurrently
+			book.recycled = true
 		}
 
-		atomic.AddUint64(count, 1)
-
-		state.timers[value] = time.AfterFunc(time.Duration(c.conf.ExpirationSec)*time.Second, func() {
-			count1, err := getRecentHeaderCount(ctx, c.Name())
-			if err != nil {
-				return
-			}
-
-			for !atomic.CompareAndSwapUint64(count1, *count1, *count1-1) {
-			}
-
-			state1, err := getHTTPHeaderCounterState(ctx, c.Name(), c.instanceId)
-			if err != nil {
-				return
-			}
-
-			state1.Lock()
-			delete(state1.timers, value)
-			state1.Unlock()
-		})
-	} else {
-		timer.Reset(time.Duration(c.conf.ExpirationSec) * time.Second)
+		book.timer.Reset(time.Duration(c.conf.ExpirationSec) * time.Second)
 	}
 
 	return nil, t.ResultCode(), t
@@ -162,30 +164,15 @@ func (c *httpHeaderCounter) Close() {
 
 ////
 
-const (
-	httpHeaderCounterRecentCountKey = "httpHeaderCountKey"
-	httpHeaderCounterStateKey       = "httpHeaderCounterStateKey"
-)
+const httpHeaderCounterStateKey = "httpHeaderCounterStateKey"
 
+type httpHeaderCounterTimerBook struct {
+	timer    *time.Timer
+	recycled bool
+}
 type httpHeaderCounterTimerState struct {
 	sync.Mutex
-	timers map[string]*time.Timer
-}
-
-func getRecentHeaderCount(ctx pipelines.PipelineContext, pluginName string) (*uint64, error) {
-	bucket := ctx.DataBucket(pluginName, pipelines.DATA_BUCKET_FOR_ALL_PLUGIN_INSTANCE)
-	count, err := bucket.QueryDataWithBindDefault(httpHeaderCounterRecentCountKey,
-		func() interface{} {
-			var recentHeaderCount uint64
-			return &recentHeaderCount
-		})
-	if err != nil {
-		logger.Warnf("[BUG: query state data for pipeline %s failed, "+
-			"ignored to count header: %v]", ctx.PipelineName(), err)
-		return nil, err
-	}
-
-	return count.(*uint64), nil
+	timers map[string]*httpHeaderCounterTimerBook
 }
 
 func getHTTPHeaderCounterState(ctx pipelines.PipelineContext, pluginName, instanceId string) (
@@ -195,7 +182,7 @@ func getHTTPHeaderCounterState(ctx pipelines.PipelineContext, pluginName, instan
 	state, err := bucket.QueryDataWithBindDefault(httpHeaderCounterStateKey,
 		func() interface{} {
 			return &httpHeaderCounterTimerState{
-				timers: make(map[string]*time.Timer),
+				timers: make(map[string]*httpHeaderCounterTimerBook),
 			}
 		})
 	if err != nil {
