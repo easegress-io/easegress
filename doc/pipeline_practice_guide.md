@@ -1066,7 +1066,7 @@ Using follow [Administration API](./admin_api_ref.swagger.yaml) calls to setup a
 $ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPInput", "config": {"plugin_name": "test-httpinput1", "url": "/test/book", "methods": ["GET"], "headers_enum": {}, "request_body_io_key": "HTTP_REQUEST_BODY_IO", "response_code_key": "response_code", "response_body_io_key": "HTTP_RESP_BODY_IO"}}'
 $ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "IOReader", "config": {"plugin_name": "test-ioreader1", "input_key":"HTTP_REQUEST_BODY_IO", "output_key": "REQ_DATA"}}'
 $ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPOutput", "config": {"plugin_name": "test-httpoutput1", "url_pattern": "http://127.0.0.1:1122/book/abc", "header_patterns": {}, "method": "GET", "response_code_key": "response_code", "response_body_io_key": "HTTP_RESP_BODY_IO", "request_body_buffer_pattern": "{REQ_DATA}"}}'
-$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPHeaderCounter", "config": {"plugin_name": "test-httpheadercounter1", "header_concerned": "name", "expiration_min": 1}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPHeaderCounter", "config": {"plugin_name": "test-httpheadercounter1", "header_concerned": "name", "expiration_sec": 60}}'
 ```
 
 #### Pipeline
