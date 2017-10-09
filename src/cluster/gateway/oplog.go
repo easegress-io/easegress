@@ -26,7 +26,7 @@ const (
 // opLog's methods prefixed by underscore(_) can't be invoked by other functions
 type opLog struct {
 	sync.RWMutex
-	kv                         *badger.KV
+	db                         *badger.DB
 	operationAppendedCallbacks []*common.NamedCallback
 }
 
@@ -44,13 +44,13 @@ func newOPLog() (*opLog, error) {
 
 	logger.Debugf("[operation logs path: %s]", dir)
 
-	kv, err := badger.NewKV(&opt)
+	db, err := badger.Open(&opt)
 	if err != nil {
 		return nil, err
 	}
 
 	op := &opLog{
-		kv: kv,
+		db: db,
 	}
 
 	go op._cleanup()
@@ -61,7 +61,9 @@ func newOPLog() (*opLog, error) {
 func (op *opLog) maxSeq() uint64 {
 	op.RLock()
 	defer op.RUnlock()
-	return op._locklessMaxSeq()
+	txn := op.db.NewTransaction(false)
+	defer txn.Discard()
+	return op._locklessMaxSeq(txn)
 }
 
 func (op *opLog) append(startSeq uint64, operations []*Operation) (error, ClusterErrorType) {
@@ -72,7 +74,10 @@ func (op *opLog) append(startSeq uint64, operations []*Operation) (error, Cluste
 	op.Lock()
 	defer op.Unlock()
 
-	ms := op._locklessMaxSeq()
+	txn := op.db.NewTransaction(true)
+	defer txn.Discard()
+
+	ms := op._locklessMaxSeq(txn)
 
 	if startSeq == 0 {
 		return fmt.Errorf("invalid sequential operation"), InternalServerError
@@ -102,15 +107,14 @@ func (op *opLog) append(startSeq uint64, operations []*Operation) (error, Cluste
 				startSeq+uint64(idx), operation, err), OperationInvalidContentError
 		}
 
-		err = op.kv.Set([]byte(fmt.Sprintf("%d", startSeq+uint64(idx))), opBuff, 0x00)
+		err = txn.Set([]byte(fmt.Sprintf("%d", startSeq+uint64(idx))), opBuff, 0x00)
 		if err != nil {
 			logger.Errorf("[set operation (sequence=%d) to badger failed: %v]", startSeq+uint64(idx), err)
 			return fmt.Errorf("set operation (sequence=%d) to badger failed: %v",
 				startSeq+uint64(idx), err), InternalServerError
 		}
 
-		// update max sequence at last to keep "transaction" complete
-		_, err = op._locklessIncreaseMaxSeq()
+		_, err = op._locklessIncreaseMaxSeq(txn)
 		if err != nil {
 			logger.Errorf("[update max operation sequence failed: %v]", err)
 			return fmt.Errorf("update max operation sequence failed: %v", err), InternalServerError
@@ -145,13 +149,21 @@ func (op *opLog) append(startSeq uint64, operations []*Operation) (error, Cluste
 		}
 	}
 
+	err := txn.Commit(nil)
+	if err != nil {
+		logger.Errorf("[BUG: transaction commit failed: %v]", err)
+	}
+
 	return nil, NoneClusterError
 }
 
 // retrieve logs whose sequence are [startSeq, MIN(max-sequence, startSeq + countLimit - 1)]
 func (op *opLog) retrieve(startSeq, countLimit uint64) ([]*Operation, error, ClusterErrorType) {
 	// NOTICE: We never change recorded content, so it's unnecessary to use RLock.
-	ms := op._locklessMaxSeq()
+	txn := op.db.NewTransaction(false)
+	defer txn.Discard()
+
+	ms := op._locklessMaxSeq(txn)
 
 	var ret []*Operation
 
@@ -161,9 +173,8 @@ func (op *opLog) retrieve(startSeq, countLimit uint64) ([]*Operation, error, Clu
 		return ret, nil, NoneClusterError
 	}
 
-	for idx := uint64(0); idx < countLimit && startSeq+uint64(idx) <= op._locklessMaxSeq(); idx++ {
-		var item badger.KVItem
-		err := op.kv.Get([]byte(fmt.Sprintf("%d", startSeq+uint64(idx))), &item)
+	for idx := uint64(0); idx < countLimit && startSeq+uint64(idx) <= op._locklessMaxSeq(txn); idx++ {
+		item, err := txn.Get([]byte(fmt.Sprintf("%d", startSeq+uint64(idx))))
 		if err != nil {
 			logger.Errorf("[get operation (sequence=%d) from badger failed: %v]",
 				startSeq+uint64(idx), err)
@@ -171,12 +182,7 @@ func (op *opLog) retrieve(startSeq, countLimit uint64) ([]*Operation, error, Clu
 				startSeq+uint64(idx), err), InternalServerError
 		}
 
-		var opBuff []byte
-		err = item.Value(func(v []byte) error {
-			opBuff = make([]byte, len(v))
-			copy(opBuff, v)
-			return nil
-		})
+		opBuff, err := item.Value()
 		if err != nil || opBuff == nil || len(opBuff) == 0 {
 			logger.Errorf("[BUG: get empty operation (sequence=%d) from badger]",
 				startSeq+uint64(idx))
@@ -201,13 +207,7 @@ func (op *opLog) retrieve(startSeq, countLimit uint64) ([]*Operation, error, Clu
 }
 
 func (op *opLog) close() error {
-	return op.kv.Close()
-}
-
-////
-
-func (op *opLog) MaxSeq() uint64 {
-	return op._locklessMaxSeq()
+	return op.db.Close()
 }
 
 func (op *opLog) AddOPLogAppendedCallback(name string, callback OperationAppended, overwrite bool) OperationAppended {
@@ -242,20 +242,14 @@ func (op *opLog) DeleteOPLogAppendedCallback(name string) OperationAppended {
 ////
 
 // _locklessMaxSeq is designed to be invoked by locked methods of opLog
-func (op *opLog) _locklessMaxSeq() uint64 {
-	var item badger.KVItem
-	err := op.kv.Get([]byte(maxSeqKey), &item)
+func (op *opLog) _locklessMaxSeq(txn *badger.Txn) uint64 {
+	item, err := txn.Get([]byte(maxSeqKey))
 	if err != nil {
 		logger.Errorf("[get max sequence from badger failed: %v]", err)
 		return 0
 	}
 
-	var maxSeq []byte
-	err = item.Value(func(v []byte) error {
-		maxSeq = make([]byte, len(v))
-		copy(maxSeq, v)
-		return nil
-	})
+	maxSeq, err := item.Value()
 	if err != nil || maxSeq == nil || len(maxSeq) == 0 {
 		// at the beginning, it is not a bug to get empty value.
 		maxSeq = []byte("0")
@@ -271,11 +265,11 @@ func (op *opLog) _locklessMaxSeq() uint64 {
 }
 
 // _locklessIncreaseMaxSeq is designed to be invoked by locked methods of opLog
-func (op *opLog) _locklessIncreaseMaxSeq() (uint64, error) {
-	ms := op._locklessMaxSeq()
+func (op *opLog) _locklessIncreaseMaxSeq(txn *badger.Txn) (uint64, error) {
+	ms := op._locklessMaxSeq(txn)
 	ms++
 
-	err := op.kv.Set([]byte(maxSeqKey), []byte(fmt.Sprintf("%d", ms)), 0x00)
+	err := txn.Set([]byte(maxSeqKey), []byte(fmt.Sprintf("%d", ms)), 0x00)
 	if err != nil {
 		logger.Errorf("[set max sequence to badger failed: %v]", err)
 		return 0, err

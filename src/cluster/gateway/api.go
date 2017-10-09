@@ -127,7 +127,7 @@ func (gc *GatewayCluster) RetrieveMember(nodeName string) *MemberInfo {
 	}
 
 	// keep same datatype of group max sequence for client
-	localMaxSeqStr := fmt.Sprintf("%d", gc.OPLog().MaxSeq())
+	localMaxSeqStr := fmt.Sprintf("%d", gc.OPLog().maxSeq())
 
 	peers := make([]string, 0)
 	for _, member := range gc.RestAliveMembersInSameGroup() {
