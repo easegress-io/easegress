@@ -30,6 +30,7 @@ import:
 - package: github.com/urfave/cli
 - package: github.com/hashicorp/memberlist
 - package: github.com/dgraph-io/badger
+  version: =v0.8
 - package: github.com/ugorji/go
   subpackages:
   - codec
