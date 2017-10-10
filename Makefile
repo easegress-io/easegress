@@ -1,12 +1,11 @@
-.PHONY: default build build_client build_server build_inventory \
-		run fmt vendor_clean vendor_get vendor_update clean \
-		build_client_alpine build_server_alpine \
-		build_server_ubuntu
+.PHONY: default build build_client build_server build_inventory run fmt clean \
+		depend vendor_get vendor_update vendor_clean \
+		build_client_alpine build_server_alpine build_server_ubuntu
 
 MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 MKFILE_DIR := $(dir $(MKFILE_PATH))
 
-GOPATH := ${MKFILE_DIR}_vendor:${MKFILE_DIR}
+GOPATH := ${MKFILE_DIR}
 export GOPATH
 
 RELEASE?=0.1.0
@@ -18,6 +17,8 @@ ifndef COMMIT
 endif
 
 DOCKER?=docker
+
+GLIDE=${MKFILE_DIR}build/bin/glide
 
 GATEWAY_ALL_SRC_FILES = $(shell find ${MKFILE_DIR}src -type f -name "*.go")
 GATEWAY_CLIENT_SRC_FILES = $(shell find ${MKFILE_DIR}src/cli ${MKFILE_DIR}src/client -type f -name "*.go")
@@ -57,41 +58,30 @@ build_server: ${TARGET_GATEWAY_SERVER}
 
 build_inventory: ${TARGET_INVENTORY}
 
+clean:
+	@rm -rf ${MKFILE_DIR}build && rm -rf ${MKFILE_DIR}rootfs/alpine/opt && rm -rf ${MKFILE_DIR}rootfs/ubuntu/opt
+
 run: build_server
 	${TARGET_GATEWAY_SERVER} -host=localhost -certfile=localhost-cert.pem -keyfile=localhost-key.pem
 
 fmt:
 	cd ${MKFILE_DIR} && go fmt ./src/...
 
+depend:
+	GOPATH=${MKFILE_DIR}build go get -v github.com/Masterminds/glide
+
+vendor_get: depend
+	${GLIDE} install
+	rm -rf ${MKFILE_DIR}src/vendor ${GLIDE} ${MKFILE_DIR}build/pkg ${MKFILE_DIR}build/src
+	ln -s ${MKFILE_DIR}vendor ${MKFILE_DIR}src/vendor
+
+vendor_update: depend
+	${GLIDE} update && ${GLIDE} install
+	rm -rf ${MKFILE_DIR}src/vendor ${GLIDE} ${MKFILE_DIR}build/pkg ${MKFILE_DIR}build/src
+	ln -s ${MKFILE_DIR}vendor ${MKFILE_DIR}src/vendor
+
 vendor_clean:
-	rm -dRf ${MKFILE_DIR}_vendor/src
-
-vendor_get:
-	GOPATH=${MKFILE_DIR}_vendor go get -d -u -v \
-		github.com/sirupsen/logrus \
-		github.com/Shopify/sarama \
-		github.com/bsm/sarama-cluster \
-		github.com/xeipuuv/gojsonschema \
-		github.com/ant0ine/go-json-rest/rest \
-		github.com/rcrowley/go-metrics \
-		golang.org/x/time/rate \
-		github.com/urfave/cli \
-		github.com/hashicorp/memberlist \
-		github.com/dgraph-io/badger \
-		github.com/ugorji/go/codec \
-		github.com/hashicorp/logutils \
-		github.com/ghodss/yaml \
-		github.com/hexdecteam/easegateway-types/... \
-		github.com/hexdecteam/easegateway-go-client/...
-
-vendor_update: vendor_get
-	cd ${MKFILE_DIR} && rm -rf `find ./_vendor/src -type d -name .git` \
-	&& rm -rf `find ./_vendor/src -type d -name .hg` \
-	&& rm -rf `find ./_vendor/src -type d -name .bzr` \
-	&& rm -rf `find ./_vendor/src -type d -name .svn`
-
-clean:
-	@rm -rf ${MKFILE_DIR}build && rm -rf ${MKFILE_DIR}rootfs/alpine/opt && rm -rf ${MKFILE_DIR}rootfs/ubuntu/opt
+	rm -dRf ${MKFILE_DIR}src/vendor ${MKFILE_DIR}vendor
 
 build_client_alpine: ${TARGET_GATEWAY_CLIENT} ${TARGET_INVENTORY}
 	@echo "-------------- building gateway client docker image (from alpine) ---------------"

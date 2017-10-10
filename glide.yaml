@@ -1,0 +1,53 @@
+package: .
+ignore:
+# https://github.com/Masterminds/glide/issues/662
+# https://github.com/Masterminds/glide/issues/862
+- cli
+- cluster
+- common
+- config
+- engine
+- logger
+- model
+- option
+- pipelines
+- plugins
+- plugins/easemonitor
+- plugins/easenight/manifest
+- plugins/easenight/common
+- plugins/easenight/domain
+- rest
+- version
+import:
+- package: github.com/sirupsen/logrus
+- package: github.com/Shopify/sarama
+- package: github.com/xeipuuv/gojsonschema
+- package: github.com/ant0ine/go-json-rest
+  subpackages:
+  - rest
+- package: github.com/rcrowley/go-metrics
+- package: golang.org/x/time/rate
+- package: github.com/urfave/cli
+- package: github.com/hashicorp/memberlist
+- package: github.com/dgraph-io/badger
+- package: github.com/ugorji/go
+  subpackages:
+  - codec
+- package: github.com/hashicorp/logutils
+- package: github.com/ghodss/yaml
+
+- package: github.com/hexdecteam/easegateway-go-client
+  subpackages:
+  - rest/1.0/admin/v1
+  - rest/1.0/admin/v1/pdu
+  - rest/1.0/cluster/admin/v1
+  - rest/1.0/cluster/admin/v1/pdu
+  - rest/1.0/cluster/statistics/v1
+  - rest/1.0/cluster/statistics/v1/pdu
+  - rest/1.0/health/v1
+  - rest/1.0/statistics/v1
+- package: github.com/hexdecteam/easegateway-types
+  subpackages:
+  - pipelines
+  - plugins
+  - task
