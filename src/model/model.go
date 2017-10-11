@@ -17,6 +17,9 @@ import (
 	plugins_gw "plugins"
 )
 
+// safe characters for friendly url, rfc3986 section 2.3
+var PIPELINE_PLUGIN_NAME_REGEX = regexp.MustCompile(`^[A-Za-z0-9\-_\.~]+$`)
+
 type PluginAdded func(newPlugin *Plugin)
 type PluginDeleted func(deletedPlugin *Plugin)
 type PluginUpdated func(updatedPlugin *Plugin)
@@ -114,9 +117,24 @@ func (m *Model) LoadPipelines(specs []*config.PipelineSpec) error {
 func (m *Model) AddPlugin(typ string, conf plugins.Config,
 	constructor plugins.Constructor) (*Plugin, error) {
 
+	pluginName := conf.PluginName()
+
+	if !PIPELINE_PLUGIN_NAME_REGEX.Match([]byte(pluginName)) {
+		return nil, fmt.Errorf("plugin name %s is invalid", pluginName)
+	}
+
+	if !plugins_gw.ValidType(typ) {
+		return nil, fmt.Errorf("plugin type %s is invalid", typ)
+	}
+
 	m.Lock()
 
-	pluginName := conf.PluginName()
+	_, exists := m.plugins[pluginName]
+	if exists {
+		logger.Errorf("[add plugin %v failed: duplicate plugin]", pluginName)
+		m.Unlock()
+		return nil, fmt.Errorf("duplicate plugin %s", pluginName)
+	}
 
 	var pipelineNames []string
 	for pipelineName := range m.pipelines {
@@ -126,19 +144,7 @@ func (m *Model) AddPlugin(typ string, conf plugins.Config,
 	err := conf.Prepare(pipelineNames)
 	if err != nil {
 		m.Unlock()
-		return nil, fmt.Errorf("add plugin %s failed: %v", pluginName, err)
-	}
-
-	if !plugins_gw.ValidType(typ) {
-		m.Unlock()
-		return nil, fmt.Errorf("plugin type %s is invalid", typ)
-	}
-
-	_, exists := m.plugins[pluginName]
-	if exists {
-		logger.Errorf("[add plugin %v failed: duplicate plugin]", pluginName)
-		m.Unlock()
-		return nil, fmt.Errorf("duplicate plugin %s", pluginName)
+		return nil, fmt.Errorf("prepare plugin %s failed: %v", pluginName, err)
 	}
 
 	plugin := newPlugin(typ, conf, constructor, m.pluginCounter)
@@ -277,6 +283,14 @@ func (m *Model) DismissAllPluginInstances() {
 func (m *Model) UpdatePluginConfig(conf plugins.Config) error {
 	m.RLock()
 
+	pluginName := conf.PluginName()
+
+	plugin, exists := m.plugins[pluginName]
+	if !exists {
+		m.RUnlock()
+		return fmt.Errorf("plugin %s not found", pluginName)
+	}
+
 	var pipelineNames []string
 	for pipelineName := range m.pipelines {
 		pipelineNames = append(pipelineNames, pipelineName)
@@ -285,15 +299,7 @@ func (m *Model) UpdatePluginConfig(conf plugins.Config) error {
 	err := conf.Prepare(pipelineNames)
 	if err != nil {
 		m.RUnlock()
-		return err
-	}
-
-	pluginName := conf.PluginName()
-
-	plugin, exists := m.plugins[pluginName]
-	if !exists {
-		m.RUnlock()
-		return fmt.Errorf("plugin %s not found", pluginName)
+		return fmt.Errorf("prepare plugin %s failed: %v", pluginName, err)
 	}
 
 	plugin.UpdateConfig(conf)
@@ -396,23 +402,29 @@ func (m *Model) DeletePluginUpdatedCallback(name string) PluginUpdated {
 }
 
 func (m *Model) AddPipeline(typ string, conf pipelines_gw.Config) (*Pipeline, error) {
-	err := conf.Prepare()
-	if err != nil {
-		return nil, err
+	pipelineName := conf.PipelineName()
+
+	if !PIPELINE_PLUGIN_NAME_REGEX.Match([]byte(pipelineName)) {
+		return nil, fmt.Errorf("pipeline name %s is invalid", pipelineName)
 	}
 
 	if !pipelines_gw.ValidType(typ) {
 		return nil, fmt.Errorf("pipeline type %s is invalid", typ)
 	}
 
-	pipelineName := conf.PipelineName()
-
 	m.Lock()
+
 	_, exists := m.pipelines[pipelineName]
 	if exists {
 		logger.Errorf("[add pipeline %v failed: duplicate pipeline]", pipelineName)
 		m.Unlock()
-		return nil, fmt.Errorf("pipeline %s exists", pipelineName)
+		return nil, fmt.Errorf("duplicate pipeline %s", pipelineName)
+	}
+
+	err := conf.Prepare()
+	if err != nil {
+		m.Unlock()
+		return nil, fmt.Errorf("prepare pipeline %s failed: %v", pipelineName, err)
 	}
 
 	for _, pluginName := range conf.PluginNames() {
@@ -516,12 +528,12 @@ func (m *Model) GetPipelines(namePattern string, types []string) ([]*Pipeline, e
 }
 
 func (m *Model) UpdatePipelineConfig(conf pipelines_gw.Config) error {
+	pipelineName := conf.PipelineName()
+
 	err := conf.Prepare()
 	if err != nil {
-		return err
+		return fmt.Errorf("prepare pipeline %s failed: %v", pipelineName, err)
 	}
-
-	pipelineName := conf.PipelineName()
 
 	m.RLock()
 

@@ -36,7 +36,6 @@ import:
   - codec
 - package: github.com/hashicorp/logutils
 - package: github.com/ghodss/yaml
-
 - package: github.com/hexdecteam/easegateway-go-client
   subpackages:
   - rest/1.0/admin/v1
