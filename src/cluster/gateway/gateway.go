@@ -339,7 +339,7 @@ func (gc *GatewayCluster) RestAliveMembersInSameGroup() (ret []cluster.Member) {
 			member.NodeName, member.Address, member.Port, member.Status.String(), member.NodeTags))
 	}
 
-	logger.Debugf("[total memebers in cluster (count=%d): %v]", len(members), strings.Join(members, ", "))
+	logger.Debugf("[total members in cluster (count=%d): %v]", len(members), strings.Join(members, ", "))
 
 	return ret
 }
@@ -355,7 +355,7 @@ func (gc *GatewayCluster) handleQueryGroupMaxSeq(req *cluster.RequestEvent) {
 
 	err = req.Respond(payload)
 	if err != nil {
-		logger.Errorf("[repond max sequence to request %s, node %s failed: %v]",
+		logger.Errorf("[respond max sequence to request %s, node %s failed: %v]",
 			req.RequestName, req.RequestNodeName, err)
 	}
 

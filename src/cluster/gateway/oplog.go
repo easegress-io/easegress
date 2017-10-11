@@ -3,6 +3,7 @@ package gateway
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"logger"
 	"os"
 	"path/filepath"
@@ -32,9 +33,26 @@ type opLog struct {
 
 func newOPLog() (*opLog, error) {
 	dir := filepath.Join(common.INVENTORY_HOME_DIR, "oplog", option.Stage)
-	err := os.MkdirAll(dir, 0770)
+	err := os.MkdirAll(dir, 0700)
 	if err != nil {
 		return nil, err
+	}
+
+	new := false
+
+	fp, err := os.Open(dir)
+	if err != nil {
+		return nil, err
+	}
+	defer fp.Close()
+
+	_, err = fp.Readdirnames(1)
+	if err != nil {
+		if err == io.EOF {
+			new = true
+		} else {
+			return nil, err
+		}
 	}
 
 	opt := badger.DefaultOptions
@@ -53,6 +71,18 @@ func newOPLog() (*opLog, error) {
 		db: db,
 	}
 
+	if new { // init max sequence to prevent fake read error
+		txn := op.db.NewTransaction(true)
+		defer txn.Discard()
+
+		op._locklessWriteMaxSeq(txn, 0)
+
+		err = txn.Commit(nil)
+		if err != nil {
+			logger.Errorf("[BUG: commit transaction failed: %v]", err)
+		}
+	}
+
 	go op._cleanup()
 
 	return op, nil
@@ -63,7 +93,7 @@ func (op *opLog) maxSeq() uint64 {
 	defer op.RUnlock()
 	txn := op.db.NewTransaction(false)
 	defer txn.Discard()
-	return op._locklessMaxSeq(txn)
+	return op._locklessReadMaxSeq(txn)
 }
 
 func (op *opLog) append(startSeq uint64, operations []*Operation) (error, ClusterErrorType) {
@@ -77,7 +107,7 @@ func (op *opLog) append(startSeq uint64, operations []*Operation) (error, Cluste
 	txn := op.db.NewTransaction(true)
 	defer txn.Discard()
 
-	ms := op._locklessMaxSeq(txn)
+	ms := op._locklessReadMaxSeq(txn)
 
 	if startSeq == 0 {
 		return fmt.Errorf("invalid sequential operation"), InternalServerError
@@ -151,7 +181,7 @@ func (op *opLog) append(startSeq uint64, operations []*Operation) (error, Cluste
 
 	err := txn.Commit(nil)
 	if err != nil {
-		logger.Errorf("[BUG: transaction commit failed: %v]", err)
+		logger.Errorf("[BUG: commit transaction failed: %v]", err)
 	}
 
 	return nil, NoneClusterError
@@ -163,7 +193,7 @@ func (op *opLog) retrieve(startSeq, countLimit uint64) ([]*Operation, error, Clu
 	txn := op.db.NewTransaction(false)
 	defer txn.Discard()
 
-	ms := op._locklessMaxSeq(txn)
+	ms := op._locklessReadMaxSeq(txn)
 
 	var ret []*Operation
 
@@ -173,7 +203,7 @@ func (op *opLog) retrieve(startSeq, countLimit uint64) ([]*Operation, error, Clu
 		return ret, nil, NoneClusterError
 	}
 
-	for idx := uint64(0); idx < countLimit && startSeq+uint64(idx) <= op._locklessMaxSeq(txn); idx++ {
+	for idx := uint64(0); idx < countLimit && startSeq+uint64(idx) <= op._locklessReadMaxSeq(txn); idx++ {
 		item, err := txn.Get([]byte(fmt.Sprintf("%d", startSeq+uint64(idx))))
 		if err != nil {
 			logger.Errorf("[get operation (sequence=%d) from badger failed: %v]",
@@ -241,8 +271,8 @@ func (op *opLog) DeleteOPLogAppendedCallback(name string) OperationAppended {
 
 ////
 
-// _locklessMaxSeq is designed to be invoked by locked methods of opLog
-func (op *opLog) _locklessMaxSeq(txn *badger.Txn) uint64 {
+// _locklessReadMaxSeq is designed to be invoked by locked methods of opLog
+func (op *opLog) _locklessReadMaxSeq(txn *badger.Txn) uint64 {
 	item, err := txn.Get([]byte(maxSeqKey))
 	if err != nil {
 		logger.Errorf("[get max sequence from badger failed: %v]", err)
@@ -266,9 +296,12 @@ func (op *opLog) _locklessMaxSeq(txn *badger.Txn) uint64 {
 
 // _locklessIncreaseMaxSeq is designed to be invoked by locked methods of opLog
 func (op *opLog) _locklessIncreaseMaxSeq(txn *badger.Txn) (uint64, error) {
-	ms := op._locklessMaxSeq(txn)
+	ms := op._locklessReadMaxSeq(txn)
 	ms++
+	return op._locklessWriteMaxSeq(txn, ms)
+}
 
+func (op *opLog) _locklessWriteMaxSeq(txn *badger.Txn, ms uint64) (uint64, error) {
 	err := txn.Set([]byte(maxSeqKey), []byte(fmt.Sprintf("%d", ms)), 0x00)
 	if err != nil {
 		logger.Errorf("[set max sequence to badger failed: %v]", err)

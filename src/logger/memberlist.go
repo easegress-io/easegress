@@ -20,7 +20,7 @@ var (
 
 	memberList = newLoggerSet()
 
-	LOG_MEMBERLIST_REGEX = regexp.MustCompile(`.+? \[(DEBUG|WARN|ERR)\] (.*)`)
+	LOG_MEMBERLIST_REGEX = regexp.MustCompile(`.+? \[(DEBUG|WARN|ERR|INFO)\] (.*)`)
 )
 
 func initMemberList() {
@@ -55,6 +55,8 @@ func Writer() *io.PipeWriter {
 					output = l.Debug
 				} else if match[1] == "WARN" {
 					output = l.Warn
+				} else if match[1] == "INFO" {
+					output = l.Info
 				}
 				output(fmt.Sprintf("[%s]", match[2]))
 			} else {

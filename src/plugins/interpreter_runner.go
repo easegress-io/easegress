@@ -108,7 +108,7 @@ func newInterpreterRunner(conf plugins.Config) (*interpreterRunner, error) {
 
 func (r *interpreterRunner) Prepare(ctx pipelines.PipelineContext) {
 	os.RemoveAll(r.workDir)
-	os.MkdirAll(r.workDir, 0750)
+	os.MkdirAll(r.workDir, 0700)
 }
 
 func (r *interpreterRunner) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
