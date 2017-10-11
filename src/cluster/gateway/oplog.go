@@ -62,7 +62,7 @@ func newOPLog() (*opLog, error) {
 
 	logger.Debugf("[operation logs path: %s]", dir)
 
-	db, err := badger.Open(&opt)
+	db, err := badger.Open(opt)
 	if err != nil {
 		return nil, err
 	}
