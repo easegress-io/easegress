@@ -76,6 +76,7 @@ vendor_get: depend
 	ln -s ${MKFILE_DIR}vendor ${MKFILE_DIR}src/vendor
 
 vendor_update: depend
+	rm -rf $(HOME)/.glide/cache
 	${GLIDE} update && ${GLIDE} install
 	rm -rf ${MKFILE_DIR}src/vendor ${GLIDE} ${MKFILE_DIR}build/pkg ${MKFILE_DIR}build/src
 	ln -s ${MKFILE_DIR}vendor ${MKFILE_DIR}src/vendor
