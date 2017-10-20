@@ -275,6 +275,17 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task,
 		return t, nil
 	}
 
+	if h.conf.Close {
+		closeHTTPOutputResponseBody := func(t1 task.Task, _ task.TaskStatus) {
+			t1.DeleteFinishedCallback(fmt.Sprintf("%s-closeHTTPOutputResponseBody", h.Name()))
+
+			resp.Body.Close()
+		}
+
+		t.AddFinishedCallback(fmt.Sprintf("%s-closeHTTPOutputResponseBody", h.Name()),
+			closeHTTPOutputResponseBody)
+	}
+
 	if len(h.conf.ExpectedResponseCodes) > 0 {
 		match := false
 		for _, expected := range h.conf.ExpectedResponseCodes {
@@ -304,17 +315,6 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task,
 			t.SetError(err, task.ResultInternalServerError)
 			return t, nil
 		}
-	}
-
-	if h.conf.Close {
-		closeHTTPOutputResponseBody := func(t1 task.Task, _ task.TaskStatus) {
-			t1.DeleteFinishedCallback(fmt.Sprintf("%s-closeHTTPOutputResponseBody", h.Name()))
-
-			resp.Body.Close()
-		}
-
-		t.AddFinishedCallback(fmt.Sprintf("%s-closeHTTPOutputResponseBody", h.Name()),
-			closeHTTPOutputResponseBody)
 	}
 
 	return t, nil
