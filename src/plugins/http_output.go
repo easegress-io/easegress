@@ -279,7 +279,10 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task,
 		closeHTTPOutputResponseBody := func(t1 task.Task, _ task.TaskStatus) {
 			t1.DeleteFinishedCallback(fmt.Sprintf("%s-closeHTTPOutputResponseBody", h.Name()))
 
-			resp.Body.Close()
+			err := resp.Body.Close()
+			if err != nil {
+				logger.Errorf("[close response body failed: %v]", err)
+			}
 		}
 
 		t.AddFinishedCallback(fmt.Sprintf("%s-closeHTTPOutputResponseBody", h.Name()),

@@ -158,7 +158,7 @@ Plugin outputs request data to a HTTP endpoint.
 | key\_file | string | The key file HTTPS output used. | Functionality | Yes | "" |
 | ca\_file | string | The root certificate HTTPS output used. | Functionality | Yes | "" |
 | insecure\_tls | bool | The flag represents if the plugin does not check server certificate. | Functionality | Yes | false |
-| close\_body\_after\_pipeline | bool | The flag represents if to close the http body IO object after task finished the pipeline. | Functionality | Yes | true |
+| close\_body\_after\_pipeline | bool | The flag represents if to close the http body IO object after task finished the pipeline. | Functionality | Yes | false |
 | request\_body\_buffer\_pattern | string | The HTTP output body buffer pattern. The option will be leveraged only when `request_body_io_key` option is empty. | Functionality | Yes | "" |
 | request\_body\_io\_key | string | The HTTP output body io object. | I/O | Yes | "" |
 | response\_code\_key | string | The key name of HTTP response status code value stored in internal storage as the plugin output. An empty value of the option means the plugin does not output HTTP response status code. | I/O | Yes | "" |

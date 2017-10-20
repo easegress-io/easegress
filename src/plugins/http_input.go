@@ -349,6 +349,15 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 						reader1.Close()
 					}
 				}
+
+				closer, ok := t1.Value(h.conf.ResponseBodyIOKey).(io.Closer)
+				if ok {
+					err := closer.Close()
+					if err != nil {
+						logger.Errorf("[close response body io %s failed: %v]",
+							h.conf.ResponseBodyIOKey, err)
+					}
+				}
 			} else if len(h.conf.ResponseBodyBufferKey) != 0 {
 				buff, ok := t1.Value(h.conf.ResponseBodyBufferKey).([]byte)
 				if ok {
