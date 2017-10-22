@@ -6,7 +6,9 @@
 1. You can check the exit code of the easegateway-client whether it exited successfully.
 2. You can use `pipeline ls` or `plugin ls` to check the latest configuration manually. 
 
-NOTE: when you are operating cluster, you need to specify option `--consistent`. That option indicates request is performed in the group as consistency or availability first.
+NOTE: when you are operating cluster, you can choose the priority of your administration operation:
+* `availability first`: The operation will be considered to success after the operation is committed to operation log and applied on write node within the required group. There's no guarantee whether the operation is committed and applied to any read node within the group, it can be completely done, partial or nothing complete. Generally, this option means the operation needs less time to be done.
+* `consistency first`: if you specify option `--consistent` to command line, after command returned successfully, EaseGateway guarantees the operation is committed and applied to all the node within the group completely and successfully. If any node within the group has problem (and didn't offline) during the administration, the failure will be returned. Generally, this option means the operation needs more time to be done.
 
 ## Why {QUERY_STRING} is empty in HTTPOutput plugin?
 
@@ -26,4 +28,4 @@ admin adminstration interface for standalone EaseGateway
 
 ## How to use memory profile
 1. Use option `memprofile` to specify cpu profile output file and start the EaseGateway node
-2. Send `SIGQUIT` signal to EaseGateway by using `kill -SIGQUIT eg-pid`, then EaseGateway will dump the memprofile file
+2. Send `SIGQUIT` signal to EaseGateway by using `kill -SIGQUIT easegateway-server-pid`, then EaseGateway will dump the memprofile file

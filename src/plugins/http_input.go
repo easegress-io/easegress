@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httputil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -288,6 +289,16 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 			}
 		case <-t.Cancel():
 			return fmt.Errorf("task is cancelled by %s", t.CancelCause()), task.ResultTaskCancelled, t
+		}
+
+		if option.Stage == "debug" || option.Stage == "test" {
+			dumpBody := false
+			dumpRequest, err := httputil.DumpRequest(ht.request, dumpBody)
+			if err == nil {
+				logger.Debugf("[input request:\n%s]", dumpRequest)
+			} else {
+				logger.Warnf("[dump input request failed: %s]", err)
+			}
 		}
 
 		respondCaller := func(t1 task.Task, _ task.TaskStatus) {

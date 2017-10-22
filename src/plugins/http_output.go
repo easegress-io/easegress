@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"strconv"
 	"strings"
@@ -20,6 +21,7 @@ import (
 
 	"common"
 	"logger"
+	"option"
 )
 
 type httpOutputConfig struct {
@@ -178,6 +180,16 @@ func (h *httpOutput) send(t task.Task, req *http.Request) (*http.Response, error
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	req = req.WithContext(cancelCtx)
+
+	if option.Stage == "debug" || option.Stage == "test" {
+		dumpBody := false
+		dumpRequest, err := httputil.DumpRequest(req, dumpBody)
+		if err == nil {
+			logger.Debugf("[output request:\n%s]", dumpRequest)
+		} else {
+			logger.Warnf("[dump output request failed: %s]", err)
+		}
+	}
 
 	go func() {
 		defer func() {
