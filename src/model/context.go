@@ -82,7 +82,7 @@ func (pc *pipelineContext) DataBucket(pluginName, pluginInstanceId string) pipel
 
 	item, exists := pc.buckets[bucketKey]
 	if exists {
-		defer pc.bucketLock.Unlock()
+		pc.bucketLock.Unlock()
 		return item.bucket
 	}
 
@@ -93,7 +93,7 @@ func (pc *pipelineContext) DataBucket(pluginName, pluginInstanceId string) pipel
 		autoDelete: deleteWhenPluginUpdatedOrDeleted,
 	}
 
-	defer pc.bucketLock.Unlock()
+	pc.bucketLock.Unlock()
 
 	if deleteWhenPluginUpdatedOrDeleted {
 		pc.mod.AddPluginDeletedCallback("deletePipelineContextDataBucketWhenPluginDeleted",

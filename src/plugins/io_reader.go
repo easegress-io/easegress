@@ -146,7 +146,7 @@ func (r *ioReader) read(t task.Task) (error, task.TaskResultCode, task.Task) {
 	}
 
 	if r.conf.Close {
-		input1, ok := inputValue.(io.ReadCloser)
+		input1, ok := inputValue.(io.Closer)
 		if ok {
 			err := input1.Close()
 			if err != nil {

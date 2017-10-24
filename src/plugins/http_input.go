@@ -135,7 +135,39 @@ func (c *httpInputConfig) Prepare(pipelineNames []string) error {
 	c.ResponseBodyBufferKey = ts(c.ResponseBodyBufferKey)
 
 	if !filepath.IsAbs(c.URL) {
-		return fmt.Errorf("invalid absolutate url")
+		return fmt.Errorf("invalid relative url")
+	}
+
+	var positions []int
+	token_booker := func(pos int, token string) (care bool, replacement string) {
+		positions = append(positions, pos)
+		positions = append(positions, pos+len(token)+1)
+		return false, ""
+	}
+
+	_, err = common.ScanTokens(c.URL,
+		false, /* do not remove escape char, due to escape char is not allowed in the path and pattern */
+		token_booker)
+	if err != nil {
+		return err
+	}
+
+	// one and only one parameter fits in a level of path
+	// e.g. correct: `/{a}/{b}`, wrong: `/{a}b{c}` and `/{a}b`
+	for _, pos := range positions {
+		if pos == 0 { // defensive, not an absolute path
+			return fmt.Errorf("invalid parametric url")
+		}
+
+		if []byte(c.URL)[pos] == '{' {
+			if []byte(c.URL)[pos-1] != '/' {
+				return fmt.Errorf("invalid parametric url")
+			}
+		} else { // []byte(c.URL)[pos] == '}'
+			if pos+1 < len(c.URL) && []byte(c.URL)[pos+1] != '/' {
+				return fmt.Errorf("invalid parametric url")
+			}
+		}
 	}
 
 	methodMarks := map[string]bool{}
@@ -145,7 +177,7 @@ func (c *httpInputConfig) Prepare(pipelineNames []string) error {
 			return fmt.Errorf("invalid http method")
 		}
 		if methodMarks[method] {
-			return fmt.Errorf("duplicate method: %s", method)
+			return fmt.Errorf("duplicated http method: %s", method)
 		}
 		methodMarks[method] = true
 	}
@@ -167,6 +199,7 @@ type httpTask struct {
 	request      *http.Request
 	writer       http.ResponseWriter
 	receivedAt   time.Time
+	path_params  map[string]string
 	finishedChan chan struct{}
 }
 
@@ -195,7 +228,7 @@ func HTTPInputConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	for _, method := range h.conf.Methods {
 		err := defaultMux.HandleFunc(h.conf.URL, method, h.conf.HeadersEnum, h.handler)
 		if err != nil {
-			return nil, fmt.Errorf("handle failed: %v", err)
+			return nil, fmt.Errorf("add handler failed: %v", err)
 		}
 	}
 
@@ -238,7 +271,7 @@ func (h *httpInput) Prepare(ctx pipelines.PipelineContext) {
 	}
 }
 
-func (h *httpInput) handler(w http.ResponseWriter, req *http.Request) {
+func (h *httpInput) handler(w http.ResponseWriter, req *http.Request, path_params map[string]string) {
 	if h.conf.Unzip && strings.Contains(req.Header.Get("Content-Encoding"), "gzip") {
 		var err error
 		req.Body, err = gzip.NewReader(req.Body)
@@ -252,6 +285,7 @@ func (h *httpInput) handler(w http.ResponseWriter, req *http.Request) {
 		request:      req,
 		writer:       w,
 		receivedAt:   time.Now(),
+		path_params:  path_params,
 		finishedChan: make(chan struct{}),
 	}
 
@@ -264,7 +298,6 @@ func (h *httpInput) handler(w http.ResponseWriter, req *http.Request) {
 			if err != nil {
 				w.WriteHeader(http.StatusBadGateway)
 			}
-
 		}()
 		h.httpTaskChan <- &httpTask
 		atomic.AddUint64(&h.queueLength, 1)
@@ -441,6 +474,13 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 
 		if len(h.conf.RequestBodyIOKey) != 0 {
 			t, err = task.WithValue(t, h.conf.RequestBodyIOKey, ht.request.Body)
+			if err != nil {
+				return err, task.ResultInternalServerError, t
+			}
+		}
+
+		for k, v := range ht.path_params {
+			t, err = task.WithValue(t, k, v)
 			if err != nil {
 				return err, task.ResultInternalServerError, t
 			}

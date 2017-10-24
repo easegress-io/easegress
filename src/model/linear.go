@@ -109,9 +109,7 @@ func (p *linearPipeline) Run() error {
 	p.mod.AddPluginUpdatedCallback(fmt.Sprintf("%s-cancelAndRerunRunningPlugin@%p", p.Name(), p),
 		p.cancelAndRerunRunningPlugin, false)
 
-	defer func() {
-		p.mod.DeletePluginUpdatedCallback(fmt.Sprintf("%s-cancelAndRerunRunningPlugin@%p", p.Name(), p))
-	}()
+	defer p.mod.DeletePluginUpdatedCallback(fmt.Sprintf("%s-cancelAndRerunRunningPlugin@%p", p.Name(), p))
 
 	startAt := time.Now()
 
