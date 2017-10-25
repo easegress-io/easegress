@@ -162,3 +162,21 @@ func PanicToErr(f func(), err *error) (failed bool) {
 
 	return
 }
+
+var (
+	TRUE_STRINGS  = []string{"1", "t", "true", "on", "y", "yes"}
+	FALSE_STRINGS = []string{"0", "f", "false", "off", "n", "no"}
+)
+
+func BoolFromStr(s string, def bool) bool {
+	s = strings.TrimSpace(s)
+	s = strings.ToLower(s)
+
+	if StrInSlice(s, TRUE_STRINGS) {
+		return true
+	} else if StrInSlice(s, FALSE_STRINGS) {
+		return false
+	} else {
+		return def
+	}
+}

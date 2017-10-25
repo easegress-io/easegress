@@ -101,18 +101,22 @@ type httpInputConfig struct {
 	Unzip       bool                `json:"unzip"`
 	RespondErr  bool                `json:"respond_error"`
 	FastClose   bool                `json:"fast_close"`
+	DumpRequest string              `json:"dump_request"`
 
 	RequestHeaderNamesKey string `json:"request_header_names_key"`
 	RequestBodyIOKey      string `json:"request_body_io_key"`
 	ResponseCodeKey       string `json:"response_code_key"`
 	ResponseBodyIOKey     string `json:"response_body_io_key"`
 	ResponseBodyBufferKey string `json:"response_body_buffer_key"`
+
+	dumpReq bool
 }
 
 func HTTPInputConfigConstructor() plugins.Config {
 	return &httpInputConfig{
-		Methods: []string{http.MethodGet},
-		Unzip:   true,
+		Methods:     []string{http.MethodGet},
+		Unzip:       true,
+		DumpRequest: "auto",
 	}
 }
 
@@ -128,6 +132,7 @@ func (c *httpInputConfig) Prepare(pipelineNames []string) error {
 		c.Methods[i] = ts(c.Methods[i])
 	}
 
+	c.DumpRequest = ts(c.DumpRequest)
 	c.RequestHeaderNamesKey = ts(c.RequestHeaderNamesKey)
 	c.RequestBodyIOKey = ts(c.RequestBodyIOKey)
 	c.ResponseCodeKey = ts(c.ResponseCodeKey)
@@ -188,6 +193,18 @@ func (c *httpInputConfig) Prepare(pipelineNames []string) error {
 			return fmt.Errorf("invalid http headers enum")
 		}
 		c.HeadersEnum[key] = value
+	}
+
+	if c.DumpRequest == "auto" {
+		if common.StrInSlice(option.Stage, []string{"debug", "test"}) {
+			c.dumpReq = true
+		}
+	} else if common.BoolFromStr(c.DumpRequest, false) {
+		c.dumpReq = true
+	} else if !common.BoolFromStr(c.DumpRequest, true) {
+		c.dumpReq = false
+	} else {
+		return fmt.Errorf("invalid http request dump option")
 	}
 
 	return nil
@@ -324,13 +341,12 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 			return fmt.Errorf("task is cancelled by %s", t.CancelCause()), task.ResultTaskCancelled, t
 		}
 
-		if option.Stage == "debug" || option.Stage == "test" {
-			dumpBody := false
-			dumpRequest, err := httputil.DumpRequest(ht.request, dumpBody)
+		if h.conf.dumpReq {
+			dump, err := httputil.DumpRequest(ht.request, false /* do not dump request body */)
 			if err == nil {
-				logger.Debugf("[input request:\n%s]", dumpRequest)
+				logger.Debugf("[http request:\n%s]", dump)
 			} else {
-				logger.Warnf("[dump input request failed: %s]", err)
+				logger.Warnf("[dump http request failed: %s]", err)
 			}
 		}
 
