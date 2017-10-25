@@ -37,19 +37,24 @@ type httpOutputConfig struct {
 	KeyFile                  string            `json:"key_file"`
 	CAFile                   string            `json:"ca_file"`
 	Insecure                 bool              `json:"insecure_tls"`
+	DumpRequest              string            `json:"dump_request"`
+	DumpResponse             string            `json:"dump_response"`
 
 	RequestBodyIOKey  string `json:"request_body_io_key"`
 	ResponseCodeKey   string `json:"response_code_key"`
 	ResponseBodyIOKey string `json:"response_body_io_key"`
 
-	cert   *tls.Certificate
-	caCert []byte
+	cert              *tls.Certificate
+	caCert            []byte
+	dumpReq, dumpResp bool
 }
 
 func HTTPOutputConfigConstructor() plugins.Config {
 	return &httpOutputConfig{
 		TimeoutSec:            120,
 		ExpectedResponseCodes: []int{http.StatusOK},
+		DumpRequest:           "auto",
+		DumpResponse:          "auto",
 	}
 }
 
@@ -66,6 +71,8 @@ func (c *httpOutputConfig) Prepare(pipelineNames []string) error {
 	c.CertFile = ts(c.CertFile)
 	c.KeyFile = ts(c.KeyFile)
 	c.CAFile = ts(c.CAFile)
+	c.DumpRequest = ts(c.DumpRequest)
+	c.DumpResponse = ts(c.DumpResponse)
 	c.ResponseCodeKey = ts(c.ResponseCodeKey)
 	c.ResponseBodyIOKey = ts(c.ResponseBodyIOKey)
 
@@ -104,6 +111,28 @@ func (c *httpOutputConfig) Prepare(pipelineNames []string) error {
 
 	if c.TimeoutSec == 0 {
 		logger.Warnf("[ZERO timeout has been applied, no request could be cancelled by timeout!]")
+	}
+
+	dumpFlag := func(flag, name string) (bool, error) {
+		if strings.ToLower(flag) == "auto" {
+			return common.StrInSlice(option.Stage, []string{"debug", "test"}), nil
+		} else if common.BoolFromStr(flag, false) {
+			return true, nil
+		} else if !common.BoolFromStr(flag, true) {
+			return false, nil
+		}
+
+		return false, fmt.Errorf("invalid http %s dump option", name)
+	}
+
+	c.dumpReq, err = dumpFlag(c.DumpRequest, "request")
+	if err != nil {
+		return err
+	}
+
+	c.dumpResp, err = dumpFlag(c.DumpResponse, "response")
+	if err != nil {
+		return err
 	}
 
 	_, err = common.ScanTokens(c.RequestBodyBufferPattern, false, nil)
@@ -181,13 +210,12 @@ func (h *httpOutput) send(t task.Task, req *http.Request) (*http.Response, error
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	req = req.WithContext(cancelCtx)
 
-	if option.Stage == "debug" || option.Stage == "test" {
-		dumpBody := false
-		dumpRequest, err := httputil.DumpRequest(req, dumpBody)
+	if h.conf.dumpReq {
+		dump, err := httputil.DumpRequest(req, false /* do not dump request body */)
 		if err == nil {
-			logger.Debugf("[output request:\n%s]", dumpRequest)
+			logger.Debugf("[http request:\n%s]", dump)
 		} else {
-			logger.Warnf("[dump output request failed: %s]", err)
+			logger.Warnf("[dump http request failed: %s]", err)
 		}
 	}
 
@@ -207,6 +235,15 @@ func (h *httpOutput) send(t task.Task, req *http.Request) (*http.Response, error
 
 	select {
 	case resp := <-r:
+		if h.conf.dumpResp {
+			dump, err := httputil.DumpResponse(resp, false /* do not dump response body */)
+			if err == nil {
+				logger.Debugf("[http response:\n%s]", dump)
+			} else {
+				logger.Warnf("[dump http response failed: %s]", err)
+			}
+		}
+
 		return resp, nil
 	case err := <-e:
 		t.SetError(err, task.ResultServiceUnavailable)

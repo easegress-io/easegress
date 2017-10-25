@@ -157,7 +157,7 @@ func (c *httpInputConfig) Prepare(pipelineNames []string) error {
 		return err
 	}
 
-	// one and only one parameter fits in a level of path
+	// one and only one parameter fits in a segment of the path
 	// e.g. correct: `/{a}/{b}`, wrong: `/{a}b{c}` and `/{a}b`
 	for _, pos := range positions {
 		if pos == 0 { // defensive, not an absolute path
@@ -195,10 +195,8 @@ func (c *httpInputConfig) Prepare(pipelineNames []string) error {
 		c.HeadersEnum[key] = value
 	}
 
-	if c.DumpRequest == "auto" {
-		if common.StrInSlice(option.Stage, []string{"debug", "test"}) {
-			c.dumpReq = true
-		}
+	if strings.ToLower(c.DumpRequest) == "auto" {
+		c.dumpReq = common.StrInSlice(option.Stage, []string{"debug", "test"})
 	} else if common.BoolFromStr(c.DumpRequest, false) {
 		c.dumpReq = true
 	} else if !common.BoolFromStr(c.DumpRequest, true) {
