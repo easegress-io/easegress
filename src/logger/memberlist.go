@@ -15,7 +15,7 @@ import (
 
 var (
 	LOG_MEMBERLIST_FILE      = "memberlist.log"
-	LOG_MEMBERLIST_LEVEL     = logrus.InfoLevel
+	LOG_MEMBERLIST_LEVEL     = logrus.DebugLevel
 	LOG_MEMBERLIST_TTY_LEVEL = logrus.DebugLevel
 
 	memberList = newLoggerSet()
