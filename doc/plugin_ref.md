@@ -31,14 +31,14 @@ There are 20 built-in plugins totally in Ease Gateway current release.
 
 ## HTTP Input plugin
 
-Plugin handles HTTP request and returns client with pipeline procssed response. Currently a HTTPS server will runs on a fixed 10443 port with a certificate and key file pair.
+Plugin handles HTTP request and returns client with pipeline processed response. Currently a HTTPS server will runs on a fixed 10443 port with a certificate and key file pair.
 
 ### Configuration
 
 | Parameter name | Data type (golang) | Description | Type | Optional | Default value (golang) |
 |:--|:--|:--|:--:|:--:|:--|
 | plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
-| url | string | The request HTTP url plugin will proceed. | Functionality | No | N/A |
+| url | string | The request HTTP url plugin will proceed. Parametric url is supported, like `/user/{user}` or `/{resource}/count`, the values of each parameter will be extracted into task. We do not allow to register static path and parametric path on the same segment, e.g. you can not register the patterns `/user/jack` and `/user/{user}` on the same http method. | Functionality | No | N/A |
 | methods | []string | The request HTTP methods plugin will proceed. | Functionality | Yes | {"GET"} |
 | headers\_enum | map[string][]string | The request HTTP headers plugin will proceed. | Functionality | Yes | nil |
 | unzip | bool | The flag represents if the plugin decompresses the request body when request content is encoded in GZIP. | Functionality | Yes | true |
@@ -54,6 +54,8 @@ Plugin handles HTTP request and returns client with pipeline procssed response. 
 
 | Data name | Configuration option name | Type | Data Type | Optional |
 |:--|:--|:--:|:--|:--:|
+| Each parameter value of parametric request url | N/A | Output | string | N/A |
+| Each [CGI environment value](#https://tools.ietf.org/html/rfc3875#section-4.1) of the request | N/A | Output | string | N/A |
 | Request header name list | request\_header\_names\_key | Output | []string | Yes |
 | Request body IO object | request\_body\_io\_key | Output | io.Reader | Yes |
 | Response HTTP status code | response\_code\_key | Input | int | Yes |
