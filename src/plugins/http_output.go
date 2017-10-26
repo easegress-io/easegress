@@ -316,7 +316,7 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task,
 		return t, nil
 	}
 
-	if h.conf.Close {
+	closeRespBody := func() {
 		closeHTTPOutputResponseBody := func(t1 task.Task, _ task.TaskStatus) {
 			t1.DeleteFinishedCallback(fmt.Sprintf("%s-closeHTTPOutputResponseBody", h.Name()))
 
@@ -328,6 +328,20 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task,
 
 		t.AddFinishedCallback(fmt.Sprintf("%s-closeHTTPOutputResponseBody", h.Name()),
 			closeHTTPOutputResponseBody)
+	}
+
+	if h.conf.Close || len(h.conf.ResponseBodyIOKey) == 0 {
+		closeRespBody()
+	}
+
+	if len(h.conf.ResponseBodyIOKey) != 0 {
+		t, err = task.WithValue(t, h.conf.ResponseBodyIOKey, resp.Body)
+		if err != nil {
+			closeRespBody()
+
+			t.SetError(err, task.ResultInternalServerError)
+			return t, nil
+		}
 	}
 
 	if len(h.conf.ExpectedResponseCodes) > 0 {
@@ -347,14 +361,6 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task,
 
 	if len(h.conf.ResponseCodeKey) != 0 {
 		t, err = task.WithValue(t, h.conf.ResponseCodeKey, resp.StatusCode)
-		if err != nil {
-			t.SetError(err, task.ResultInternalServerError)
-			return t, nil
-		}
-	}
-
-	if len(h.conf.ResponseBodyIOKey) != 0 {
-		t, err = task.WithValue(t, h.conf.ResponseBodyIOKey, resp.Body)
 		if err != nil {
 			t.SetError(err, task.ResultInternalServerError)
 			return t, nil

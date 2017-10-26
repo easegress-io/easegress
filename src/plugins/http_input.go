@@ -321,191 +321,182 @@ func (h *httpInput) handler(w http.ResponseWriter, req *http.Request, path_param
 }
 
 func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, task.TaskResultCode, task.Task) {
-	for {
-		var ok bool
-		var ht *httpTask
-		var err error
+	var ok bool
+	var ht *httpTask
+	var err error
+
+	select {
+	case ht, ok = <-h.httpTaskChan:
+		if !ok {
+			return fmt.Errorf("plugin %s has been closed", h.Name()),
+				task.ResultInternalServerError, t
+		}
+		for !atomic.CompareAndSwapUint64(&h.queueLength, h.queueLength, h.queueLength-1) {
+		}
+	case <-t.Cancel():
+		return fmt.Errorf("task is cancelled by %s", t.CancelCause()), task.ResultTaskCancelled, t
+	}
+
+	if h.conf.dumpReq {
+		logger.HTTPReqDump(ctx.PipelineName(), h.Name(), h.instanceId, t.StartAt().UnixNano(), ht.request)
+	}
+
+	respondCaller := func(t1 task.Task, _ task.TaskStatus) {
+		t1.DeleteFinishedCallback(fmt.Sprintf("%s-responseCaller", h.Name()))
+
+		defer h.closeResponseBody(t1)
 
 		select {
-		case ht, ok = <-h.httpTaskChan:
-			if !ok {
-				return fmt.Errorf("plugin %s has been closed", h.Name()),
-					task.ResultInternalServerError, t
+		case closed := <-ht.writer.(http.CloseNotifier).CloseNotify():
+			if closed {
+				// 499 StatusClientClosed - same as nginx
+				t1.SetError(fmt.Errorf("client closed"), task.ResultRequesterGone)
+				return
 			}
-			for !atomic.CompareAndSwapUint64(&h.queueLength, h.queueLength, h.queueLength-1) {
-			}
-		case <-t.Cancel():
-			return fmt.Errorf("task is cancelled by %s", t.CancelCause()), task.ResultTaskCancelled, t
+		default:
 		}
 
-		if h.conf.dumpReq {
-			logger.HTTPReqDump(ctx.PipelineName(), h.Name(), h.instanceId, t.StartAt().UnixNano(), ht.request)
+		statusCode := task.ResultCodeToHTTPCode(t1.ResultCode())
+
+		if len(h.conf.ResponseCodeKey) != 0 {
+			code, err := strconv.Atoi(
+				task.ToString(t1.Value(h.conf.ResponseCodeKey), option.PluginIODataFormatLengthLimit))
+			if err == nil &&
+				code > 99 && code < 600 { // should seems like a valid http code, at least
+				statusCode = code
+			}
 		}
 
-		respondCaller := func(t1 task.Task, _ task.TaskStatus) {
-			t1.DeleteFinishedCallback(fmt.Sprintf("%s-responseCaller", h.Name()))
+		ht.writer.WriteHeader(statusCode)
 
-			select {
-			case closed := <-ht.writer.(http.CloseNotifier).CloseNotify():
-				if closed {
-					// 499 StatusClientClosed - same as nginx
-					t1.SetError(fmt.Errorf("client closed"), task.ResultRequesterGone)
-					return
-				}
-			default:
-			}
+		// TODO: Take care other headers if inputted
 
-			statusCode := task.ResultCodeToHTTPCode(t1.ResultCode())
+		if len(h.conf.ResponseBodyIOKey) != 0 {
+			reader, ok := t1.Value(h.conf.ResponseBodyIOKey).(io.Reader)
+			if ok {
+				done := make(chan int, 1)
+				reader1 := common.NewInterruptibleReader(reader)
 
-			if len(h.conf.ResponseCodeKey) != 0 {
-				code, err := strconv.Atoi(
-					task.ToString(t1.Value(h.conf.ResponseCodeKey), option.PluginIODataFormatLengthLimit))
-				if err == nil &&
-					code > 99 && code < 600 { // should seems like a valid http code, at least
-					statusCode = code
-				}
-			}
+				go func() {
+					_, err := io.Copy(ht.writer, reader1)
+					if err != nil {
+						logger.Warnf("[load response body from reader in the task"+
+							" failed, response might be incomplete: %s]", err)
+					}
+					done <- 0
+				}()
 
-			ht.writer.WriteHeader(statusCode)
-
-			// TODO: Take care other headers if inputted
-
-			if len(h.conf.ResponseBodyIOKey) != 0 {
-				reader, ok := t1.Value(h.conf.ResponseBodyIOKey).(io.Reader)
-				if ok {
-					done := make(chan int, 1)
-					reader1 := common.NewInterruptibleReader(reader)
-
-					go func() {
-						_, err := io.Copy(ht.writer, reader1)
-						if err != nil {
-							logger.Warnf("[load response body from reader in the task"+
-								" failed, response might be incomplete: %s]", err)
-						}
-						done <- 0
-					}()
-
-					select {
-					case <-t.Cancel():
-						if h.conf.FastClose {
-							reader1.Cancel()
-							logger.Warnf("[load response body from reader in the task" +
-								" has been cancelled, response might be incomplete]")
-						} else {
-							<-done
-							close(done)
-							reader1.Close()
-						}
-					case <-done:
+				select {
+				case <-t1.Cancel():
+					if h.conf.FastClose {
+						reader1.Cancel()
+						logger.Warnf("[load response body from reader in the task" +
+							" has been cancelled, response might be incomplete]")
+					} else {
+						<-done
 						close(done)
 						reader1.Close()
 					}
-				}
-
-				closer, ok := t1.Value(h.conf.ResponseBodyIOKey).(io.Closer)
-				if ok {
-					err := closer.Close()
-					if err != nil {
-						logger.Errorf("[close response body io %s failed: %v]",
-							h.conf.ResponseBodyIOKey, err)
-					}
-				}
-			} else if len(h.conf.ResponseBodyBufferKey) != 0 {
-				buff, ok := t1.Value(h.conf.ResponseBodyBufferKey).([]byte)
-				if ok {
-					ht.writer.Write(buff)
-				}
-			} else if !task.SuccessfulResult(t1.ResultCode()) && h.conf.RespondErr {
-				if strings.Contains(ht.request.Header.Get("Accept-Encoding"), "gzip") {
-					ht.writer.Header().Set("Content-Encoding", "gzip, deflate")
-					ht.writer.Header().Set("Content-Type", "application/x-gzip")
-					gz := gzip.NewWriter(ht.writer)
-					gz.Write([]byte(t1.Error().Error()))
-					gz.Close()
-				} else {
-					ht.writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
-					// ascii is a subset of utf-8
-					ht.writer.Write([]byte(t1.Error().Error()))
+				case <-done:
+					close(done)
+					reader1.Close()
 				}
 			}
-
-			ht.writer.(http.Flusher).Flush()
-		}
-
-		closeHTTPInputRequestBody := func(t1 task.Task, _ task.TaskStatus) {
-			t1.DeleteFinishedCallback(fmt.Sprintf("%s-closeHTTPInputRequestBody", h.Name()))
-
-			ht.request.Body.Close()
-			close(ht.finishedChan)
-		}
-
-		logRequest := func(t1 task.Task, _ task.TaskStatus) {
-			t1.DeleteFinishedCallback(fmt.Sprintf("%s-logRequest", h.Name()))
-
-			code := t1.ResultCode()
-			httpCode := task.ResultCodeToHTTPCode(code)
-			// TODO: use variables(e.g. upstream_response_time_xxx) of each plugin
-			// or provide a method(e.g. AddUpstreamResponseTime) of task
-			// TODO: calculate real body_bytes_sent value
-			logger.HTTPAccess(ht.request, httpCode, -1, t1.FinishAt().Sub(ht.receivedAt), time.Duration(-1))
-
-			if !task.SuccessfulResult(code) {
-				logger.Warnf("[http request processed unsuccessfully, "+
-					"result code: %d, error: %s]", httpCode, t1.Error())
+		} else if len(h.conf.ResponseBodyBufferKey) != 0 {
+			buff, ok := t1.Value(h.conf.ResponseBodyBufferKey).([]byte)
+			if ok {
+				ht.writer.Write(buff)
+			}
+		} else if !task.SuccessfulResult(t1.ResultCode()) && h.conf.RespondErr {
+			if strings.Contains(ht.request.Header.Get("Accept-Encoding"), "gzip") {
+				ht.writer.Header().Set("Content-Encoding", "gzip, deflate")
+				ht.writer.Header().Set("Content-Type", "application/x-gzip")
+				gz := gzip.NewWriter(ht.writer)
+				gz.Write([]byte(t1.Error().Error()))
+				gz.Close()
+			} else {
+				ht.writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
+				// ascii is a subset of utf-8
+				ht.writer.Write([]byte(t1.Error().Error()))
 			}
 		}
 
-		shrinkWipRequestCounter := func(t1 task.Task, _ task.TaskStatus) {
-			t1.DeleteFinishedCallback(fmt.Sprintf("%s-shrinkWipRequestCounter", h.Name()))
+		ht.writer.(http.Flusher).Flush()
+	}
 
-			wipReqCount, err := getHTTPInputHandlingRequestCount(ctx, h.Name())
-			if err == nil {
-				for !atomic.CompareAndSwapUint64(wipReqCount, *wipReqCount, *wipReqCount-1) {
-				}
-			}
+	closeHTTPInputRequestBody := func(t1 task.Task, _ task.TaskStatus) {
+		t1.DeleteFinishedCallback(fmt.Sprintf("%s-closeHTTPInputRequestBody", h.Name()))
+
+		ht.request.Body.Close()
+		close(ht.finishedChan)
+	}
+
+	logRequest := func(t1 task.Task, _ task.TaskStatus) {
+		t1.DeleteFinishedCallback(fmt.Sprintf("%s-logRequest", h.Name()))
+
+		code := t1.ResultCode()
+		httpCode := task.ResultCodeToHTTPCode(code)
+		// TODO: use variables(e.g. upstream_response_time_xxx) of each plugin
+		// or provide a method(e.g. AddUpstreamResponseTime) of task
+		// TODO: calculate real body_bytes_sent value
+		logger.HTTPAccess(ht.request, httpCode, -1, t1.FinishAt().Sub(ht.receivedAt), time.Duration(-1))
+
+		if !task.SuccessfulResult(code) {
+			logger.Warnf("[http request processed unsuccessfully, "+
+				"result code: %d, error: %s]", httpCode, t1.Error())
 		}
+	}
 
-		vars, names := common.GenerateCGIEnv(ht.request)
-		for k, v := range vars {
-			t, err = task.WithValue(t, k, v)
-			if err != nil {
-				return err, task.ResultInternalServerError, t
-			}
-		}
-
-		if len(h.conf.RequestHeaderNamesKey) != 0 {
-			t, err = task.WithValue(t, h.conf.RequestHeaderNamesKey, names)
-			if err != nil {
-				return err, task.ResultInternalServerError, t
-			}
-		}
-
-		if len(h.conf.RequestBodyIOKey) != 0 {
-			t, err = task.WithValue(t, h.conf.RequestBodyIOKey, ht.request.Body)
-			if err != nil {
-				return err, task.ResultInternalServerError, t
-			}
-		}
-
-		for k, v := range ht.path_params {
-			t, err = task.WithValue(t, k, v)
-			if err != nil {
-				return err, task.ResultInternalServerError, t
-			}
-		}
-
-		t.AddFinishedCallback(fmt.Sprintf("%s-responseCaller", h.Name()), respondCaller)
-		t.AddFinishedCallback(fmt.Sprintf("%s-closeHTTPInputRequestBody", h.Name()), closeHTTPInputRequestBody)
-		t.AddFinishedCallback(fmt.Sprintf("%s-logRequest", h.Name()), logRequest)
-		t.AddFinishedCallback(fmt.Sprintf("%s-shrinkWipRequestCounter", h.Name()), shrinkWipRequestCounter)
+	shrinkWipRequestCounter := func(t1 task.Task, _ task.TaskStatus) {
+		t1.DeleteFinishedCallback(fmt.Sprintf("%s-shrinkWipRequestCounter", h.Name()))
 
 		wipReqCount, err := getHTTPInputHandlingRequestCount(ctx, h.Name())
 		if err == nil {
-			atomic.AddUint64(wipReqCount, 1)
+			for !atomic.CompareAndSwapUint64(wipReqCount, *wipReqCount, *wipReqCount-1) {
+			}
 		}
-
-		return nil, t.ResultCode(), t
 	}
+
+	vars, names := common.GenerateCGIEnv(ht.request)
+	for k, v := range vars {
+		t, err = task.WithValue(t, k, v)
+		if err != nil {
+			return err, task.ResultInternalServerError, t
+		}
+	}
+
+	if len(h.conf.RequestHeaderNamesKey) != 0 {
+		t, err = task.WithValue(t, h.conf.RequestHeaderNamesKey, names)
+		if err != nil {
+			return err, task.ResultInternalServerError, t
+		}
+	}
+
+	if len(h.conf.RequestBodyIOKey) != 0 {
+		t, err = task.WithValue(t, h.conf.RequestBodyIOKey, ht.request.Body)
+		if err != nil {
+			return err, task.ResultInternalServerError, t
+		}
+	}
+
+	for k, v := range ht.path_params {
+		t, err = task.WithValue(t, k, v)
+		if err != nil {
+			return err, task.ResultInternalServerError, t
+		}
+	}
+
+	t.AddFinishedCallback(fmt.Sprintf("%s-responseCaller", h.Name()), respondCaller)
+	t.AddFinishedCallback(fmt.Sprintf("%s-closeHTTPInputRequestBody", h.Name()), closeHTTPInputRequestBody)
+	t.AddFinishedCallback(fmt.Sprintf("%s-logRequest", h.Name()), logRequest)
+	t.AddFinishedCallback(fmt.Sprintf("%s-shrinkWipRequestCounter", h.Name()), shrinkWipRequestCounter)
+
+	wipReqCount, err := getHTTPInputHandlingRequestCount(ctx, h.Name())
+	if err == nil {
+		atomic.AddUint64(wipReqCount, 1)
+	}
+
+	return nil, t.ResultCode(), t
 }
 
 func (h *httpInput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
@@ -532,6 +523,21 @@ func (h *httpInput) Close() {
 	if h.httpTaskChan != nil {
 		close(h.httpTaskChan)
 		h.httpTaskChan = nil
+	}
+}
+
+func (h *httpInput) closeResponseBody(t task.Task) {
+	if len(h.conf.ResponseBodyIOKey) == 0 {
+		return
+	}
+
+	closer, ok := t.Value(h.conf.ResponseBodyIOKey).(io.Closer)
+	if ok {
+		err := closer.Close()
+		if err != nil {
+			logger.Errorf("[close response body io %s failed: %v]",
+				h.conf.ResponseBodyIOKey, err)
+		}
 	}
 }
 
