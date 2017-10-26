@@ -175,7 +175,10 @@ Plugin outputs request data to a HTTP endpoint.
 |:--|:--|:--:|:--|:--:|
 | Request HTTP body | request\_body\_io\_key | Input | io.Reader | Yes |
 | Response HTTP status code | response\_code\_key | Output | int | Yes |
-| Response body IO object | response\_body\_io\_key | Output | io.Reader | Yes |
+| Response body IO object | response\_body\_io\_key | Output | io.ReadCloser | Yes |
+
+> NOTE:
+> Kindly reminder for plugin developer: if the option `response_body_io_key` is configured, downstream plugin has the responsibility to close it after use to prevent resource leak.
 
 ### Error
 
