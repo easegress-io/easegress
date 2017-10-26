@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -177,8 +178,21 @@ func HTTPOutputConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	h := &httpOutput{
 		conf: c,
 		client: &http.Client{
-			Timeout:   time.Duration(c.TimeoutSec) * time.Second,
-			Transport: &http.Transport{TLSClientConfig: tlsConfig},
+			Timeout: time.Duration(c.TimeoutSec) * time.Second,
+			Transport: &http.Transport{
+				Proxy: http.ProxyFromEnvironment,
+				DialContext: (&net.Dialer{
+					Timeout:   30 * time.Second,
+					KeepAlive: 30 * time.Second,
+					DualStack: true,
+				}).DialContext,
+				MaxIdleConns:          100,
+				MaxIdleConnsPerHost:   20,
+				IdleConnTimeout:       90 * time.Second,
+				TLSHandshakeTimeout:   10 * time.Second,
+				ExpectContinueTimeout: 1 * time.Second,
+				TLSClientConfig:       tlsConfig,
+			},
 		},
 	}
 
@@ -226,8 +240,9 @@ func (h *httpOutput) send(ctx pipelines.PipelineContext, t task.Task, req *http.
 		resp, err := h.client.Do(req)
 		if err != nil {
 			e <- err
+		} else {
+			r <- resp
 		}
-		r <- resp
 	}()
 
 	select {
@@ -299,7 +314,9 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task,
 		t.SetError(err, task.ResultInternalServerError)
 		return t, nil
 	}
+
 	req.ContentLength = length
+	req.Header.Set("Connection", "keep-alive")
 
 	i := 0
 	for name, value := range h.conf.HeaderPatterns {
