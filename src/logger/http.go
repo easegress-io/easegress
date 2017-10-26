@@ -3,24 +3,26 @@ package logger
 import (
 	"fmt"
 	"net/http"
+	"net/http/httputil"
 	"time"
 
 	"github.com/sirupsen/logrus"
 )
 
 var (
-	LOG_HTTP_FILE  = "http_access.log"
-	LOG_HTTP_LEVEL = logrus.DebugLevel
+	LOG_HTTP_ACCESS_FILE = "http_access.log"
+	LOG_HTTP_DUMP_FILE   = "http_dump.log"
+	LOG_HTTP_LEVEL       = logrus.DebugLevel
 
-	httpstd = newLoggerSet()
+	httpLog = newLoggerSet()
 )
 
 func initHTTP() {
-	f, err := openLogFile(LOG_HTTP_FILE)
+	f, err := openLogFile(LOG_HTTP_ACCESS_FILE)
 	if err != nil {
-		Errorf("[open log file %s failed: %v]", LOG_HTTP_FILE, err)
+		Errorf("[open log file %s failed: %v]", LOG_HTTP_ACCESS_FILE, err)
 	} else {
-		httpstd.registerFileLogger("http", f, LOG_HTTP_FILE, &httpFormatter{}, LOG_HTTP_LEVEL)
+		httpLog.registerFileLogger("http_access", f, LOG_HTTP_ACCESS_FILE, &httpFormatter{}, LOG_HTTP_LEVEL)
 	}
 
 	// test example:
@@ -28,6 +30,13 @@ func initHTTP() {
 	// req.Header.Set("Referer", "http://easeteam.com/login")
 	// req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.75 Safari/537.36")
 	// HTTPAccess(req, 504, 585, time.Duration(150*time.Millisecond))
+
+	f, err = openLogFile(LOG_HTTP_DUMP_FILE)
+	if err != nil {
+		Errorf("[open log file %s failed: %v]", LOG_HTTP_DUMP_FILE, err)
+	} else {
+		httpLog.registerFileLogger("http_dump", f, LOG_HTTP_DUMP_FILE, &httpFormatter{}, LOG_HTTP_LEVEL)
+	}
 }
 
 type httpFormatter struct{}
@@ -37,8 +46,7 @@ func (f *httpFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 }
 
 func HTTPAccess(req *http.Request, code int, bodyBytesSent int,
-	requestTime time.Duration,
-	upstreamResponseTime time.Duration) {
+	requestTime time.Duration, upstreamResponseTime time.Duration) {
 	// mock nginx log_format:
 	// '$remote_addr - $remote_user [$time_local] "$request" '
 	// '$status $body_bytes_sent "$http_referer" '
@@ -68,7 +76,33 @@ func HTTPAccess(req *http.Request, code int, bodyBytesSent int,
 		agent, realIP,
 		requestTime, upstreamResponseTime)
 
-	for _, logger := range httpstd.getLoggers("http") {
-		logger.Debugf(line)
+	for _, l := range httpLog.getLoggers("http_access") {
+		l.Debugf(line)
+	}
+}
+
+func HTTPReqDump(pipelineName, pluginName, pluginInstanceId string, taskId int64, req *http.Request) {
+	dump, err := httputil.DumpRequest(req, false /* do not dump request body */)
+	if err != nil {
+		Warnf("[dump http request to log failed: %s]", err)
+		return
+	}
+
+	for _, l := range httpLog.getLoggers("http_dump") {
+		l.Debugf("%s/%s@%s/task#%d - - [%v]:\n%s]",
+			pipelineName, pluginName, pluginInstanceId, taskId, time.Now().Local(), dump)
+	}
+}
+
+func HTTPRespDump(pipelineName, pluginName, pluginInstanceId string, taskId int64, resp *http.Response) {
+	dump, err := httputil.DumpResponse(resp, false /* do not dump response body */)
+	if err != nil {
+		Warnf("[dump http response to log failed: %s]", err)
+		return
+	}
+
+	for _, l := range httpLog.getLoggers("http_dump") {
+		l.Debugf("%s/%s@%s/task#%d - - [%v]:\n%s]",
+			pipelineName, pluginName, pluginInstanceId, taskId, time.Now().Local(), dump)
 	}
 }

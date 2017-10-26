@@ -9,7 +9,6 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
 	"strconv"
 	"strings"
@@ -161,8 +160,9 @@ func (c *httpOutputConfig) Prepare(pipelineNames []string) error {
 ////
 
 type httpOutput struct {
-	conf   *httpOutputConfig
-	client *http.Client
+	conf       *httpOutputConfig
+	instanceId string
+	client     *http.Client
 }
 
 func HTTPOutputConstructor(conf plugins.Config) (plugins.Plugin, error) {
@@ -182,6 +182,8 @@ func HTTPOutputConstructor(conf plugins.Config) (plugins.Plugin, error) {
 		},
 	}
 
+	h.instanceId = fmt.Sprintf("%p", h)
+
 	if c.cert != nil {
 		tlsConfig.Certificates = []tls.Certificate{*c.cert}
 		tlsConfig.BuildNameToCertificate()
@@ -200,7 +202,7 @@ func (h *httpOutput) Prepare(ctx pipelines.PipelineContext) {
 	// Nothing to do.
 }
 
-func (h *httpOutput) send(t task.Task, req *http.Request) (*http.Response, error) {
+func (h *httpOutput) send(ctx pipelines.PipelineContext, t task.Task, req *http.Request) (*http.Response, error) {
 	r := make(chan *http.Response)
 	e := make(chan error)
 
@@ -211,12 +213,7 @@ func (h *httpOutput) send(t task.Task, req *http.Request) (*http.Response, error
 	req = req.WithContext(cancelCtx)
 
 	if h.conf.dumpReq {
-		dump, err := httputil.DumpRequest(req, false /* do not dump request body */)
-		if err == nil {
-			logger.Debugf("[http request:\n%s]", dump)
-		} else {
-			logger.Warnf("[dump http request failed: %s]", err)
-		}
+		logger.HTTPReqDump(ctx.PipelineName(), h.Name(), h.instanceId, t.StartAt().UnixNano(), req)
 	}
 
 	go func() {
@@ -236,12 +233,7 @@ func (h *httpOutput) send(t task.Task, req *http.Request) (*http.Response, error
 	select {
 	case resp := <-r:
 		if h.conf.dumpResp {
-			dump, err := httputil.DumpResponse(resp, false /* do not dump response body */)
-			if err == nil {
-				logger.Debugf("[http response:\n%s]", dump)
-			} else {
-				logger.Warnf("[dump http response failed: %s]", err)
-			}
+			logger.HTTPRespDump(ctx.PipelineName(), h.Name(), h.instanceId, t.StartAt().UnixNano(), resp)
 		}
 
 		return resp, nil
@@ -319,7 +311,7 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task,
 	}
 	req.Header.Set("User-Agent", "EaseGateway")
 
-	resp, err := h.send(t, req)
+	resp, err := h.send(ctx, t, req)
 	if err != nil {
 		return t, nil
 	}

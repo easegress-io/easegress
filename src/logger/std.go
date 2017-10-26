@@ -43,24 +43,24 @@ func Debugf(format string, args ...interface{}) {
 }
 
 func Infof(format string, args ...interface{}) {
-	for _, logger := range std.getLoggers("stdio") {
-		logger.WithFields(logrus.Fields{
+	for _, l := range std.getLoggers("stdio") {
+		l.WithFields(logrus.Fields{
 			"source": getSourceInfo(),
 		}).Infof(format, args...)
 	}
 }
 
 func Warnf(format string, args ...interface{}) {
-	for _, logger := range std.getLoggers("stdio") {
-		logger.WithFields(logrus.Fields{
+	for _, l := range std.getLoggers("stdio") {
+		l.WithFields(logrus.Fields{
 			"source": getSourceInfo(),
 		}).Warnf(format, args...)
 	}
 }
 
 func Errorf(format string, args ...interface{}) {
-	for _, logger := range std.getLoggers("stdio") {
-		logger.WithFields(logrus.Fields{
+	for _, l := range std.getLoggers("stdio") {
+		l.WithFields(logrus.Fields{
 			"source": getSourceInfo(),
 		}).Errorf(format, args...)
 	}

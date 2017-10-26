@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/http/httputil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -340,12 +339,7 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 		}
 
 		if h.conf.dumpReq {
-			dump, err := httputil.DumpRequest(ht.request, false /* do not dump request body */)
-			if err == nil {
-				logger.Debugf("[http request:\n%s]", dump)
-			} else {
-				logger.Warnf("[dump http request failed: %s]", err)
-			}
+			logger.HTTPReqDump(ctx.PipelineName(), h.Name(), h.instanceId, t.StartAt().UnixNano(), ht.request)
 		}
 
 		respondCaller := func(t1 task.Task, _ task.TaskStatus) {
