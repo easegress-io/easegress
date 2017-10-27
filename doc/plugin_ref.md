@@ -40,11 +40,11 @@ Plugin handles HTTP request and returns client with pipeline processed response.
 | plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
 | url | string | The request HTTP url plugin will proceed. Parametric url is supported, like `/user/{user}` or `/{resource}/count`, the values of each parameter will be extracted into task. We do not allow to register static path and parametric path on the same segment, e.g. you can not register the patterns `/user/jack` and `/user/{user}` on the same http method. | Functionality | No | N/A |
 | methods | []string | The request HTTP methods plugin will proceed. | Functionality | Yes | {"GET"} |
-| headers\_enum | map[string][]string | The request HTTP headers plugin will proceed. | Functionality | Yes | nil |
+| headers\_enum | map\[string\][]string | The request HTTP headers plugin will proceed. | Functionality | Yes | nil |
 | unzip | bool | The flag represents if the plugin decompresses the request body when request content is encoded in GZIP. | Functionality | Yes | true |
 | respond\_error | bool | The flag represents if the plugin respond error information to client if pipeline handles the request unsuccessfully. The option will be used only when `response_body_io_key` and `response_body_buffer_key` options are empty. | Functionality | Yes | false |
 | fast\_close | bool | The flag represents if the plugin does not wait any response which is processing before close, e.g. ignore data transmission on a slow connection. | Functionality | Yes | false |
-| dump\_request | string | The flag represents if the plugin dumps http request out to `http_dump.log` log file (exclude body). Three options are available `auto`, `yes`/`y`/`true`/`t`/`on`/`1` and `no`/`n`/`false`/`f`/`off`/`0` (case-insensitive). In `auto` option, the request will be dumped only when the gateway running on `debug` or `test` stage. | Functionality | Yes | "auto" |
+| dump\_request | string | The flag represents if the plugin dumps http request out to `http_dump.log` log file (exclude body). Three options are available `auto`, `yes`/`y`/`true`/`t`/`on`/`1` or `no`/`n`/`false`/`f`/`off`/`0` (case-insensitive). In `auto` option, the request will be dumped only when the gateway running on `debug` or `test` stage. | Functionality | Yes | "auto" |
 | request\_header\_names\_key | string | The name of HTTP request header name list stored in internal storage as the plugin output. | I/O | Yes | "" |
 | request\_body\_io\_key | string | The key name of HTTP request body io object stored in internal storage as the plugin output. | I/O | Yes | "" |
 | response\_code\_key | string | The key name of HTTP response status code value stored in internal storage as the plugin input. An empty value of the option means returning pipeline handling result code to client. | I/O | Yes | "" |
@@ -153,7 +153,7 @@ Plugin outputs request data to a HTTP endpoint.
 |:--|:--|:--|:--:|:--:|:--|
 | plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
 | url\_pattern | string | The pattern of the complete HTTP output endpoint. E.g. ``https://1.2.3.4/abc?def={INPUT_DATA}`` | Functionality | No | N/A |
-| header\_patterns | map[string]string | The list of HTTP output header name pattern and value pattern pair. | Functionality | Yes | nil |
+| header\_patterns | map\[string\]string | The list of HTTP output header name pattern and value pattern pair. | Functionality | Yes | nil |
 | method | string | The method HTTP output used. | Functionality | No | N/A |
 | expected\_response\_codes| []int | The expected HTTP response status code. If HTTPOutput doesn't need to check the response status code, then set it to an empty array. Else if the real HTTP response status code doesn't match any of them, then the pipeline is finished. | Functionality | Yes | []{http.StatusOK} |
 | timeout\_sec | uint16 | The request timeout HTTP output limited in second. | Functionality | Yes | 120 (2 minutes) |
@@ -162,8 +162,10 @@ Plugin outputs request data to a HTTP endpoint.
 | ca\_file | string | The root certificate HTTPS output used. | Functionality | Yes | "" |
 | insecure\_tls | bool | The flag represents if the plugin does not check server certificate. | Functionality | Yes | false |
 | close\_body\_after\_pipeline | bool | The flag represents if to close the http body IO object after task finished the pipeline. | Functionality | Yes | false |
-| dump\_request | string | The flag represents if the plugin dumps http request out to `http_dump.log` log file (exclude body). Three options are available `auto`, `yes`/`y`/`true`/`t`/`on`/`1` and `no`/`n`/`false`/`f`/`off`/`0` (case-insensitive). In `auto` option, the request will be dumped only when the gateway running on `debug` or `test` stage. | Functionality | Yes | "auto" |
-| dump\_response | string | The flag represents if the plugin dumps http response out to `http_dump.log` log file (exclude body). Three options are available `auto`, `yes`/`y`/`true`/`t`/`on`/`1` and `no`/`n`/`false`/`f`/`off`/`0` (case-insensitive). In `auto` option, the response will be dumped only when the gateway running on `debug` or `test` stage. | Functionality | Yes | "auto" |
+| keepalive | string | The flag represents if the plugin configures keep-alive for an active connection. Three options are available `auto`, `yes`/`y`/`true`/`t`/`on`/`1` or `no`/`n`/`false`/`f`/`off`/`0` (case-insensitive). In `auto` option, the keep-alive feature will be applied according to the original request from http input plugin for http proxy case. | Functionality | Yes | "auto" |
+| keepalive\_sec | string | The flag specifies the keep-alive period for an active network connection. Network protocols that do not support keep-alive ignore this option. | Functionality | Yes | 30 |
+| dump\_request | string | The flag represents if the plugin dumps http request out to `http_dump.log` log file (exclude body). Three options are available `auto`, `yes`/`y`/`true`/`t`/`on`/`1` or `no`/`n`/`false`/`f`/`off`/`0` (case-insensitive). In `auto` option, the request will be dumped only when the gateway running on `debug` or `test` stage. | Functionality | Yes | "auto" |
+| dump\_response | string | The flag represents if the plugin dumps http response out to `http_dump.log` log file (exclude body). Three options are available `auto`, `yes`/`y`/`true`/`t`/`on`/`1` or `no`/`n`/`false`/`f`/`off`/`0` (case-insensitive). In `auto` option, the response will be dumped only when the gateway running on `debug` or `test` stage. | Functionality | Yes | "auto" |
 | request\_body\_buffer\_pattern | string | The HTTP output body buffer pattern. The option will be leveraged only when `request_body_io_key` option is empty. | Functionality | Yes | "" |
 | request\_body\_io\_key | string | The HTTP output body io object. | I/O | Yes | "" |
 | response\_code\_key | string | The key name of HTTP response status code value stored in internal storage as the plugin output. An empty value of the option means the plugin does not output HTTP response status code. | I/O | Yes | "" |
@@ -555,16 +557,16 @@ Plugin outputs request to an upstream pipeline and waits the response.
 | route\_policy | string | The name of route policy which is used to select a upstream pipeline form `target_pipelines` option for a task. Available policies are `round_robin`, `weighted_round_robin`, `random`, `weighted_random`, `least_wip_requests`, `hash`, `filter`, `fanout` and `retry`. | Functionality | Yes | "round_robin" |
 | timeout\_sec | uint16 | The wait timeout upstream process limited in second. | Functionality | Yes | 120 (2 minutes) |
 | request\_data\_keys | []string | The key names of the data in current pipeline, each of them will be passed to target pipeline as the input part of cross-pipeline request. Plugin `downstream_input` will handle the data as the input. | I/O | No | [] |
-| target\_weights | []uint16 | The weight of each upstream pipeline, only for `weighted_round_robin` and `weighted_random` policies. | Functionality | Yes | [1...] |
+| target\_weights | []uint16 | The weight of each upstream pipeline, only for `weighted_round_robin` and `weighted_random` policies. | Functionality | Yes | \[1...\] |
 | value\_hashed\_keys | string | The key names of the value in current pipeline which is used to calculate hash value for `hash` policy of upstream pipeline selection. | Functionality | No | N/A |
-| filter\_conditions | []map[string]string | Each map in the list as the condition set for the target pipeline according to the index. The Map key is the key of value in the task, map value is the match condition, support regular expression. | Functionality | No | N/A |
-| target\_response\_flags | []bool | The flag list to represent if handling the upstream pipeline response, only for `fanout` policy. | Functionality | Yes | [false...] |
+| filter\_conditions | []map\[string\]string | Each map in the list as the condition set for the target pipeline according to the index. The Map key is the key of value in the task, map value is the match condition, support regular expression. | Functionality | No | N/A |
+| target\_response\_flags | []bool | The flag list to represent if handling the upstream pipeline response, only for `fanout` policy. | Functionality | Yes | \[false...\] |
 
 ### I/O
 
 | Data name | Configuration option name | Type | Data Type | Optional |
 |:--|:--|:--:|:--|:--:|
-| Data of cross-pipeline request | request\_data\_keys | Output (intents to send to upstream pipeline) | map[interface{}]interface{} | Yes |
+| Data of cross-pipeline request | request\_data\_keys | Output (intents to send to upstream pipeline) | map\[interface{}\]interface{} | Yes |
 
 ### Error
 
@@ -597,7 +599,7 @@ Plugin handles downstream request to running pipeline as input and send the resp
 
 | Data name | Configuration option name | Type | Data Type | Optional |
 |:--|:--|:--:|:--|:--:|
-| Data of cross-pipeline response | response\_data\_keys | Input (intents to send to downstream pipeline) | map[interface{}]interface{} | Yes |
+| Data of cross-pipeline response | response\_data\_keys | Input (intents to send to downstream pipeline) | map\[interface{}\]interface{} | Yes |
 
 ### Error
 
