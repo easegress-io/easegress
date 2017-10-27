@@ -37,6 +37,8 @@ type httpOutputConfig struct {
 	KeyFile                  string            `json:"key_file"`
 	CAFile                   string            `json:"ca_file"`
 	Insecure                 bool              `json:"insecure_tls"`
+	ConnKeepAlive            string            `json:"keepalive"`
+	ConnKeepAliveSec         uint16            `json:"keepalive_sec"` // up to 65535
 	DumpRequest              string            `json:"dump_request"`
 	DumpResponse             string            `json:"dump_response"`
 
@@ -46,6 +48,7 @@ type httpOutputConfig struct {
 
 	cert              *tls.Certificate
 	caCert            []byte
+	connKeepAlive     int16
 	dumpReq, dumpResp bool
 }
 
@@ -53,6 +56,8 @@ func HTTPOutputConfigConstructor() plugins.Config {
 	return &httpOutputConfig{
 		TimeoutSec:            120,
 		ExpectedResponseCodes: []int{http.StatusOK},
+		ConnKeepAlive:         "auto",
+		ConnKeepAliveSec:      30,
 		DumpRequest:           "auto",
 		DumpResponse:          "auto",
 	}
@@ -111,6 +116,20 @@ func (c *httpOutputConfig) Prepare(pipelineNames []string) error {
 
 	if c.TimeoutSec == 0 {
 		logger.Warnf("[ZERO timeout has been applied, no request could be cancelled by timeout!]")
+	}
+
+	if strings.ToLower(c.ConnKeepAlive) == "auto" {
+		c.connKeepAlive = -1
+	} else if common.BoolFromStr(c.ConnKeepAlive, false) {
+		c.connKeepAlive = 1
+	} else if !common.BoolFromStr(c.ConnKeepAlive, true) {
+		c.connKeepAlive = 0
+	} else {
+		return fmt.Errorf("invalid connection keep-alive option")
+	}
+
+	if c.ConnKeepAliveSec == 0 {
+		return fmt.Errorf("invalid connection keep-alive period")
 	}
 
 	dumpFlag := func(flag, name string) (bool, error) {
@@ -174,6 +193,10 @@ func HTTPOutputConstructor(conf plugins.Config) (plugins.Plugin, error) {
 
 	tlsConfig := new(tls.Config)
 	tlsConfig.InsecureSkipVerify = c.Insecure
+	keepAlivePeriod := c.ConnKeepAliveSec
+	if c.connKeepAlive == 0 {
+		keepAlivePeriod = 0 // disable keep-alive
+	}
 
 	h := &httpOutput{
 		conf: c,
@@ -182,8 +205,8 @@ func HTTPOutputConstructor(conf plugins.Config) (plugins.Plugin, error) {
 			Transport: &http.Transport{
 				Proxy: http.ProxyFromEnvironment,
 				DialContext: (&net.Dialer{
-					Timeout:   30 * time.Second,
-					KeepAlive: 30 * time.Second,
+					Timeout:   10 * time.Second,
+					KeepAlive: time.Duration(keepAlivePeriod) * time.Second,
 					DualStack: true,
 				}).DialContext,
 				MaxIdleConns:          100,
@@ -316,7 +339,23 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task,
 	}
 
 	req.ContentLength = length
-	req.Header.Set("Connection", "keep-alive")
+
+	if h.conf.connKeepAlive == 0 {
+		req.Header.Set("Connection", "close")
+	} else if h.conf.connKeepAlive == 1 {
+		req.Header.Set("Connection", "keep-alive")
+	} else { // h.conf.connKeepAlive == -1, auto mode
+		// http proxy case
+		keepAliveValue := t.Value("HTTP_CONNECTION")
+		keepAliveStr, ok := keepAliveValue.(string)
+		if ok {
+			req.Header.Set("Connection", strings.TrimSpace(keepAliveStr))
+		} else {
+			// use default value of protocol:
+			// HTTP/1.1, keep-alive is enabled by default
+			// HTTP/1.0, keep-alive is disabled by default
+		}
+	}
 
 	i := 0
 	for name, value := range h.conf.HeaderPatterns {
