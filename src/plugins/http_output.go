@@ -400,6 +400,14 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task,
 		}
 	}
 
+	if len(h.conf.ResponseCodeKey) != 0 {
+		t, err = task.WithValue(t, h.conf.ResponseCodeKey, resp.StatusCode)
+		if err != nil {
+			t.SetError(err, task.ResultInternalServerError)
+			return t, nil
+		}
+	}
+
 	if len(h.conf.ExpectedResponseCodes) > 0 {
 		match := false
 		for _, expected := range h.conf.ExpectedResponseCodes {
@@ -411,14 +419,6 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task,
 		if !match {
 			err = fmt.Errorf("http upstream responded with unexpected status code (%d)", resp.StatusCode)
 			t.SetError(err, task.ResultServiceUnavailable)
-			return t, nil
-		}
-	}
-
-	if len(h.conf.ResponseCodeKey) != 0 {
-		t, err = task.WithValue(t, h.conf.ResponseCodeKey, resp.StatusCode)
-		if err != nil {
-			t.SetError(err, task.ResultInternalServerError)
 			return t, nil
 		}
 	}
