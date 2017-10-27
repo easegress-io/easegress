@@ -39,7 +39,7 @@ func (s *clusterMetaServer) Api() (*rest.Api, error) {
 	}
 
 	api := rest.NewApi()
-	api.Use(rest.DefaultCommonStack...)
+	api.Use(RestStack...)
 	api.SetApp(router)
 
 	return api, nil

@@ -61,7 +61,7 @@ func (s *clusterStatisticsServer) Api() (*rest.Api, error) {
 	}
 
 	api := rest.NewApi()
-	api.Use(rest.DefaultCommonStack...)
+	api.Use(RestStack...)
 	api.SetApp(router)
 
 	return api, nil

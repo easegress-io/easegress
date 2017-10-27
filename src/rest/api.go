@@ -6,12 +6,25 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/ant0ine/go-json-rest/rest"
+
 	"cluster/gateway"
 	"engine"
 	"logger"
 	"option"
+	"version"
 )
 
+var RestStack = []rest.Middleware{
+	&rest.TimerMiddleware{},
+	&rest.RecorderMiddleware{},
+	&rest.PoweredByMiddleware{
+		XPoweredBy: fmt.Sprintf("EaseGateway/rest-api/%s-%s", version.RELEASE, version.COMMIT),
+	},
+	&rest.RecoverMiddleware{},
+	&rest.GzipMiddleware{},
+	&rest.ContentTypeCheckerMiddleware{},
+}
 type Rest struct {
 	gateway *engine.Gateway
 	gc      *gateway.GatewayCluster
