@@ -161,9 +161,9 @@ Plugin outputs request data to a HTTP endpoint.
 | method | string | The method HTTP output used. | Functionality | No | N/A |
 | expected\_response\_codes| []int | The expected HTTP response status code. If HTTPOutput doesn't need to check the response status code, then set it to an empty array. Else if the real HTTP response status code doesn't match any of them, then the pipeline is finished. | Functionality | Yes | []{http.StatusOK} |
 | timeout\_sec | uint16 | The request timeout HTTP output limited in second. | Functionality | Yes | 120 (2 minutes) |
-| cert\_file | string | The certificate file HTTPS output used. | Functionality | Yes | "" |
-| key\_file | string | The key file HTTPS output used. | Functionality | Yes | "" |
-| ca\_file | string | The root certificate HTTPS output used. | Functionality | Yes | "" |
+| cert\_file | string | The certificate file name HTTPS output used. The option is mandatory if HTTPS is expected as output protocol. | Functionality | Yes | "" |
+| key\_file | string | The key file name HTTPS output used. The option is mandatory if HTTPS is expected as output protocol. | Functionality | Yes | "" |
+| ca\_file | string | The root certificate file name HTTPS output used. | Functionality | Yes | "" |
 | insecure\_tls | bool | The flag represents if the plugin does not check server certificate. | Functionality | Yes | false |
 | close\_body\_after\_pipeline | bool | The flag represents if to close the http body IO object after task finished the pipeline. | Functionality | Yes | false |
 | keepalive | string | The flag represents if the plugin configures keep-alive for an active connection. Three options are available `auto`, `yes`/`y`/`true`/`t`/`on`/`1` or `no`/`n`/`false`/`f`/`off`/`0` (case-insensitive). In `auto` option, the keep-alive feature will be applied according to the original request from http input plugin for http proxy case. | Functionality | Yes | "auto" |

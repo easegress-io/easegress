@@ -11,6 +11,8 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -163,16 +165,33 @@ func (c *httpOutputConfig) Prepare(pipelineNames []string) error {
 		return fmt.Errorf("invalid body buffer pattern")
 	}
 
-	if len(c.CertFile) != 0 && len(c.KeyFile) != 0 {
-		cert, err := tls.LoadX509KeyPair(c.CertFile, c.KeyFile)
+	if len(c.CertFile) != 0 || len(c.KeyFile) != 0 {
+		certFilePath := filepath.Join(common.CERT_HOME_DIR, c.CertFile)
+		keyFilePath := filepath.Join(common.CERT_HOME_DIR, c.KeyFile)
+
+		if s, err := os.Stat(certFilePath); os.IsNotExist(err) || s.IsDir() {
+			return fmt.Errorf("cert file %s not found", c.CertFile)
+		}
+
+		if s, err := os.Stat(keyFilePath); os.IsNotExist(err) || s.IsDir() {
+			return fmt.Errorf("key file %s not found", c.KeyFile)
+		}
+
+		cert, err := tls.LoadX509KeyPair(certFilePath, keyFilePath)
 		if err != nil {
-			return fmt.Errorf("invalid PEM eoncoded certificate and/or preivate key file(s)")
+			return fmt.Errorf("invalid PEM eoncoded certificate and/or preivate key file")
 		}
 		c.cert = &cert
 	}
 
 	if len(c.CAFile) != 0 {
-		c.caCert, err = ioutil.ReadFile(c.CAFile)
+		caFilePath := filepath.Join(common.CERT_HOME_DIR, c.CAFile)
+
+		if s, err := os.Stat(caFilePath); os.IsNotExist(err) || s.IsDir() {
+			return fmt.Errorf("CA certificate file %s not found", c.CAFile)
+		}
+
+		c.caCert, err = ioutil.ReadFile(caFilePath)
 		if err != nil {
 			return fmt.Errorf("invalid PEM eoncoded CA certificate file")
 		}
