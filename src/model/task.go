@@ -158,10 +158,12 @@ func (t *Task) start() error {
 }
 
 func (t *Task) finish(latestTask task.Task) error {
-	if t.startAt == nil {
-		return fmt.Errorf("task was not started")
-	} else if t.finishAt != nil {
+	if t.finishAt != nil {
 		return fmt.Errorf("task is already finished at %s", t.finishAt.String())
+	}
+
+	if t.startAt == nil {
+		t.startAt = &time.Time{} // task is finished before started, e.g. preparing plugin failed
 	}
 
 	now := time.Now()

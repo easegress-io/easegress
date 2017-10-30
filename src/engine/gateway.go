@@ -311,7 +311,7 @@ func (gw *Gateway) terminatePipeline(deletedPipeline *model.Pipeline) {
 
 	deleted := gw.mod.DeletePipelineContext(deletedPipeline.Name())
 	if !deleted {
-		logger.Errorf("[BUG: deleted pipeline %s have not context.]", deletedPipeline.Name())
+		logger.Errorf("[BUG: deleted pipeline %s has not context.]", deletedPipeline.Name())
 		return
 	}
 }
