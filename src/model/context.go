@@ -96,9 +96,11 @@ func (pc *pipelineContext) DataBucket(pluginName, pluginInstanceId string) pipel
 	pc.bucketLock.Unlock()
 
 	if deleteWhenPluginUpdatedOrDeleted {
-		pc.mod.AddPluginDeletedCallback("deletePipelineContextDataBucketWhenPluginDeleted",
+		pc.mod.AddPluginDeletedCallback(
+			fmt.Sprintf("%s-deletePipelineContextDataBucketWhenPluginDeleted@%p", pc.pipeName, pc),
 			pc.deletePipelineContextDataBucketWhenPluginDeleted, false)
-		pc.mod.AddPluginUpdatedCallback("deletePipelineContextDataBucketWhenPluginUpdated",
+		pc.mod.AddPluginUpdatedCallback(
+			fmt.Sprintf("%s-deletePipelineContextDataBucketWhenPluginUpdated@%p", pc.pipeName, pc),
 			pc.deletePipelineContextDataBucketWhenPluginUpdated, false)
 	}
 
@@ -241,8 +243,10 @@ func (pc *pipelineContext) CrossPipelineWIPRequestsCount(upstreamPipelineName st
 }
 
 func (pc *pipelineContext) Close() {
-	pc.mod.DeletePluginDeletedCallback("deletePipelineContextDataBucketWhenPluginDeleted")
-	pc.mod.DeletePluginUpdatedCallback("deletePipelineContextDataBucketWhenPluginUpdated")
+	pc.mod.DeletePluginDeletedCallback(
+		fmt.Sprintf("%s-deletePipelineContextDataBucketWhenPluginDeleted@%p", pc.pipeName, pc))
+	pc.mod.DeletePluginUpdatedCallback(
+		fmt.Sprintf("%s-deletePipelineContextDataBucketWhenPluginUpdated@%p", pc.pipeName, pc))
 
 	callBackName := fmt.Sprintf("%s-deletePluginPreparationBookWhenPluginUpdatedOrDeleted@%p", pc.pipeName, pc)
 	pc.mod.DeletePluginDeletedCallback(callBackName)
