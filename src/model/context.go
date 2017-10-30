@@ -151,10 +151,9 @@ func (pc *pipelineContext) PreparePlugin(pluginName string, fun pipelines.Plugin
 	fun()
 	logger.Debugf("[plugin %s prepared for pipeline %s]", pluginName, pc.pipeName)
 
-	pc.mod.AddPluginDeletedCallback("deletePluginPreparationBookWhenPluginUpdatedOrDeleted",
-		pc.deletePluginPreparationBookWhenPluginUpdatedOrDeleted, false)
-	pc.mod.AddPluginUpdatedCallback("deletePluginPreparationBookWhenPluginUpdatedOrDeleted",
-		pc.deletePluginPreparationBookWhenPluginUpdatedOrDeleted, false)
+	callBackName := fmt.Sprintf("%s-deletePluginPreparationBookWhenPluginUpdatedOrDeleted@%p", pc.pipeName, pc)
+	pc.mod.AddPluginDeletedCallback(callBackName, pc.deletePluginPreparationBookWhenPluginUpdatedOrDeleted, false)
+	pc.mod.AddPluginUpdatedCallback(callBackName, pc.deletePluginPreparationBookWhenPluginUpdatedOrDeleted, false)
 
 	pc.preparationBook[pluginName] = nil
 }
@@ -245,8 +244,9 @@ func (pc *pipelineContext) Close() {
 	pc.mod.DeletePluginDeletedCallback("deletePipelineContextDataBucketWhenPluginDeleted")
 	pc.mod.DeletePluginUpdatedCallback("deletePipelineContextDataBucketWhenPluginUpdated")
 
-	pc.mod.DeletePluginDeletedCallback("deletePluginPreparationBookWhenPluginUpdatedOrDeleted")
-	pc.mod.DeletePluginUpdatedCallback("deletePluginPreparationBookWhenPluginUpdatedOrDeleted")
+	callBackName := fmt.Sprintf("%s-deletePluginPreparationBookWhenPluginUpdatedOrDeleted@%p", pc.pipeName, pc)
+	pc.mod.DeletePluginDeletedCallback(callBackName)
+	pc.mod.DeletePluginUpdatedCallback(callBackName)
 
 	// to guarantee call close() on channel only once
 	pc.requestChanLock.Lock()
