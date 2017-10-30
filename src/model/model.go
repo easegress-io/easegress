@@ -131,9 +131,9 @@ func (m *Model) AddPlugin(typ string, conf plugins.Config,
 
 	_, exists := m.plugins[pluginName]
 	if exists {
-		logger.Errorf("[add plugin %v failed: duplicate plugin]", pluginName)
+		logger.Errorf("[add plugin %v failed: duplicated plugin]", pluginName)
 		m.Unlock()
-		return nil, fmt.Errorf("duplicate plugin %s", pluginName)
+		return nil, fmt.Errorf("duplicated plugin %s", pluginName)
 	}
 
 	var pipelineNames []string
@@ -416,9 +416,9 @@ func (m *Model) AddPipeline(typ string, conf pipelines_gw.Config) (*Pipeline, er
 
 	_, exists := m.pipelines[pipelineName]
 	if exists {
-		logger.Errorf("[add pipeline %v failed: duplicate pipeline]", pipelineName)
+		logger.Errorf("[add pipeline %v failed: duplicated pipeline]", pipelineName)
 		m.Unlock()
-		return nil, fmt.Errorf("duplicate pipeline %s", pipelineName)
+		return nil, fmt.Errorf("duplicated pipeline %s", pipelineName)
 	}
 
 	err := conf.Prepare()
@@ -435,16 +435,6 @@ func (m *Model) AddPipeline(typ string, conf pipelines_gw.Config) (*Pipeline, er
 			}
 			m.Unlock()
 			return nil, fmt.Errorf("plugin %s not found", pluginName)
-		}
-
-		// Currently model internal allows to use plugin instance cross more than one pipeline.
-		// Can remove this check simply since there is no guarantee a plugin instance will be only used
-		// in a dedicated pipeline or serially runs in multiple pipelines. (comments at Plugin interface)
-		for pipelineName, pipeline := range m.pipelines {
-			if common.StrInSlice(pluginName, pipeline.Config().PluginNames()) {
-				m.Unlock()
-				return nil, fmt.Errorf("plugin %s is used by pipeline %s", pluginName, pipelineName)
-			}
 		}
 	}
 
@@ -551,17 +541,6 @@ func (m *Model) UpdatePipelineConfig(conf pipelines_gw.Config) error {
 			}
 			m.RUnlock()
 			return fmt.Errorf("plugin %s not found", pluginName)
-		}
-
-		// Currently model internal allows to use plugin instance cross more than one pipeline.
-		// Can remove this check simply since there is no guarantee a plugin instance will be only used
-		// in a dedicated pipeline or serially runs in multiple pipelines. (comments at Plugin interface)
-		for pipelineName, pipeline := range m.pipelines {
-			if conf.PipelineName() != pipelineName &&
-				common.StrInSlice(pluginName, pipeline.Config().PluginNames()) {
-				m.RUnlock()
-				return fmt.Errorf("plugin %s is used by pipeline %s", pluginName, pipelineName)
-			}
 		}
 	}
 
