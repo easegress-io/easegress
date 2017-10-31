@@ -13,7 +13,7 @@ before_install:
   - rm -rf ${HOME}/eg-repo
 install:
   - cd ${GOPATH}/
-  - make vendor_get
+  - make vendor_update
   - go get github.com/modocache/gover
 
 script:
