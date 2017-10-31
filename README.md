@@ -1,3 +1,5 @@
+# EaseGateway [![Build Status](https://travis-ci.com/hexdecteam/easegateway.svg?token=bgrenfvQpzZ8JoKbi6uX&branch=master)](https://travis-ci.com/hexdecteam/easegateway) [![codecov](https://codecov.io/gh/hexdecteam/easegateway/branch/master/graph/badge.svg?token=HAR3ZmYoQG)](https://codecov.io/gh/hexdecteam/easegateway)
+
 # Introduction
 
 `EaseGateway` is a generic gateway system, support standalone and cluster both running modes.
