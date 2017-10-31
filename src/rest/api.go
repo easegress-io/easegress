@@ -25,9 +25,11 @@ var RestStack = []rest.Middleware{
 	&rest.GzipMiddleware{},
 	&rest.ContentTypeCheckerMiddleware{},
 }
+
 type Rest struct {
 	gateway *engine.Gateway
 	gc      *gateway.GatewayCluster
+	server  *http.Server
 	done    chan error
 }
 
@@ -48,36 +50,36 @@ func (s *Rest) Start() (<-chan error, string, error) {
 
 	adminServer, err := newAdminServer(s.gateway)
 	if err != nil {
-		logger.Errorf("[create admin rest server failed: %v", err)
+		logger.Errorf("[create admin rest server failed: %v]", err)
 		return nil, listenAddr, err
 	}
 	statisticsServer, err := newStatisticsServer(s.gateway)
 	if err != nil {
-		logger.Errorf("[create statistics rest server failed: %v", err)
+		logger.Errorf("[create statistics rest server failed: %v]", err)
 		return nil, listenAddr, err
 	}
 	healthCheckServer, err := newHealthCheckServer(s.gateway)
 	if err != nil {
-		logger.Errorf("[create healthcheck rest server failed: %v", err)
+		logger.Errorf("[create healthcheck rest server failed: %v]", err)
 		return nil, listenAddr, err
 	}
 	adminApi, err := adminServer.Api()
 	if err != nil {
-		logger.Errorf("[create admin api failed: %v", err)
+		logger.Errorf("[create admin api failed: %v]", err)
 		return nil, listenAddr, err
 	} else {
 		logger.Debugf("[admin api created]")
 	}
 	statisticsApi, err := statisticsServer.Api()
 	if err != nil {
-		logger.Errorf("[create statistics api failed: %v", err)
+		logger.Errorf("[create statistics api failed: %v]", err)
 		return nil, listenAddr, err
 	} else {
 		logger.Debugf("[statistics api created]")
 	}
 	healthCheckApi, err := healthCheckServer.Api()
 	if err != nil {
-		logger.Errorf("[create healthcheck api failed: %v", err)
+		logger.Errorf("[create healthcheck api failed: %v]", err)
 		return nil, listenAddr, err
 	} else {
 		logger.Debugf("[healthcheck api created]")
@@ -134,24 +136,33 @@ func (s *Rest) Start() (<-chan error, string, error) {
 		return nil, listenAddr, err
 	}
 
+	s.server = &http.Server{}
+
 	go func() {
-		s.done <- http.Serve(TcpKeepAliveListener{ln.(*net.TCPListener)}, nil)
+		s.done <- s.server.Serve(tcpKeepAliveListener{ln.(*net.TCPListener)})
 	}()
 
 	return s.done, listenAddr, nil
 }
 
 func (s *Rest) Close() {
+	err := s.server.Shutdown(nil)
+	if err != nil {
+		logger.Errorf("[shut rest interface down failed: %s]", err)
+	} else {
+		logger.Debugf("[rest interface is shut down gracefully]")
+	}
+
 	close(s.done)
 }
 
 ////
 
-type TcpKeepAliveListener struct {
+type tcpKeepAliveListener struct {
 	*net.TCPListener
 }
 
-func (ln TcpKeepAliveListener) Accept() (c net.Conn, err error) {
+func (ln tcpKeepAliveListener) Accept() (c net.Conn, err error) {
 	tc, err := ln.AcceptTCP()
 	if err != nil {
 		return

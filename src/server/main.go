@@ -122,8 +122,8 @@ func main() {
 	}
 
 	// interrupt by signal
-	gateway.Close()
-	api.Close()
+	api.Close()     // close management panel
+	gateway.Close() // close data panel
 
 	logger.Infof("[gateway exited normally]")
 
