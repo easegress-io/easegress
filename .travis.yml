@@ -10,6 +10,7 @@ before_install:
   - cp -r ${TRAVIS_BUILD_DIR}/ ${HOME}/eg-repo
   - rm -rf ${GOPATH}/*
   - mv ${HOME}/eg-repo/* ${GOPATH}/
+  - rm -rf ${HOME}/eg-repo
 install:
   - cd ${GOPATH}/
   - make vendor_get
