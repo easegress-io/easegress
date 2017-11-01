@@ -208,6 +208,10 @@ func (r *interpreterRunner) Name() string {
 	return r.conf.PluginName()
 }
 
+func (r *interpreterRunner) CleanUp(ctx pipelines.PipelineContext) {
+	// Nothing to do.
+}
+
 func (r *interpreterRunner) Close() {
 	os.RemoveAll(r.workDir)
 }

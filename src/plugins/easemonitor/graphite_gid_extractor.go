@@ -105,6 +105,10 @@ func (e *graphiteGidExtractor) Name() string {
 	return e.conf.PluginName()
 }
 
+func (e *graphiteGidExtractor) CleanUp(ctx pipelines.PipelineContext) {
+	// Nothing to do.
+}
+
 func (e *graphiteGidExtractor) Close() {
 	// Nothing to do.
 }

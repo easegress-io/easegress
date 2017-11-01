@@ -85,7 +85,7 @@ func main() {
 		return
 	}
 
-	setupExitSignalHandler(gateway)
+	setupExitSignalHandler(gateway, api)
 
 	done1, err := gateway.Run()
 	if err != nil {
@@ -114,7 +114,7 @@ func main() {
 	}
 
 	if err != nil {
-		msg = fmt.Sprintf("[exit from %s failed: %v]", msg, err)
+		msg = fmt.Sprintf("[exit from %s cause: %v]", msg, err)
 		logger.Warnf(msg)
 	} else {
 		msg = fmt.Sprintf("[exited from %s]", msg)
@@ -122,15 +122,15 @@ func main() {
 	}
 
 	// interrupt by signal
-	api.Close()     // close management panel
-	gateway.Close() // close data panel
+	api.Close()
+	gateway.Close()
 
 	logger.Infof("[gateway exited normally]")
 
 	return
 }
 
-func setupExitSignalHandler(gateway *engine.Gateway) {
+func setupExitSignalHandler(gateway *engine.Gateway, api *rest.Rest) {
 	sigChannel := make(chan os.Signal, 1)
 	signal.Notify(sigChannel, syscall.SIGINT, syscall.SIGTERM)
 
@@ -145,7 +145,8 @@ func setupExitSignalHandler(gateway *engine.Gateway) {
 			case 0:
 				go func() {
 					logger.Infof("[%s signal received, shutting down gateway]", sig)
-					gateway.Stop()
+					api.Stop()     // stop management panel
+					gateway.Stop() // stop data panel
 					close(sigChannel)
 					sigChannel = nil
 				}()

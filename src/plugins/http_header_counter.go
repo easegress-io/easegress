@@ -20,7 +20,7 @@ type httpHeaderCounterConfig struct {
 	ExpirationSec   uint32 `json:"expiration_sec"`
 }
 
-func HTTPHeaderCounterConfigConstructor() plugins.Config {
+func httpHeaderCounterConfigConstructor() plugins.Config {
 	return &httpHeaderCounterConfig{
 		ExpirationSec: 60,
 	}
@@ -53,7 +53,7 @@ type httpHeaderCounter struct {
 	instanceId string
 }
 
-func HTTPHeaderCounterConstructor(conf plugins.Config) (plugins.Plugin, error) {
+func httpHeaderCounterConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	c, ok := conf.(*httpHeaderCounterConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *httpHeaderCounterConfig got %T", conf)
@@ -156,6 +156,10 @@ func (c *httpHeaderCounter) Run(ctx pipelines.PipelineContext, t task.Task) (tas
 
 func (c *httpHeaderCounter) Name() string {
 	return c.conf.Name
+}
+
+func (c *httpHeaderCounter) CleanUp(ctx pipelines.PipelineContext) {
+	// Nothing to do.
 }
 
 func (c *httpHeaderCounter) Close() {

@@ -27,6 +27,7 @@ import:
   - rest
 - package: github.com/rcrowley/go-metrics
 - package: golang.org/x/time/rate
+- package: golang.org/x/net/netutil
 - package: github.com/urfave/cli
 - package: github.com/hashicorp/memberlist
 - package: github.com/dgraph-io/badger

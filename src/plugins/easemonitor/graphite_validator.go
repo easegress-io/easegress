@@ -95,6 +95,10 @@ func (v *graphiteValidator) Name() string {
 	return v.conf.PluginName()
 }
 
+func (v *graphiteValidator) CleanUp(ctx pipelines.PipelineContext) {
+	// Nothing to do.
+}
+
 func (v *graphiteValidator) Close() {
 	// Nothing to do.
 }

@@ -18,7 +18,7 @@ type staticProbabilityLimiterConfig struct {
 	PassPr float32 `json:"pass_pr"`
 }
 
-func StaticProbabilityLimiterConfigConstructor() plugins.Config {
+func staticProbabilityLimiterConfigConstructor() plugins.Config {
 	return new(staticProbabilityLimiterConfig)
 }
 
@@ -33,11 +33,11 @@ func (c *staticProbabilityLimiterConfig) Prepare(pipelineNames []string) error {
 	}
 
 	if c.PassPr == 0 {
-		logger.Warnf("[ZERO passing probablity has been applied, no request could be processed!]")
+		logger.Warnf("[ZERO passing probability has been applied, no request could be processed!]")
 	}
 
 	if c.PassPr == 1 {
-		logger.Warnf("[1.0 passing probablity has been applied, no request could be limited!]")
+		logger.Warnf("[1.0 passing probability has been applied, no request could be limited!]")
 	}
 
 	return nil
@@ -47,7 +47,7 @@ type staticProbabilityLimiter struct {
 	conf *staticProbabilityLimiterConfig
 }
 
-func StaticProbabilityLimiterConstructor(conf plugins.Config) (plugins.Plugin, error) {
+func staticProbabilityLimiterConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	c, ok := conf.(*staticProbabilityLimiterConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *staticProbabilityLimiterConfig got %T", conf)
@@ -71,6 +71,10 @@ func (l *staticProbabilityLimiter) Run(ctx pipelines.PipelineContext, t task.Tas
 
 func (l *staticProbabilityLimiter) Name() string {
 	return l.conf.PluginName()
+}
+
+func (l *staticProbabilityLimiter) CleanUp(ctx pipelines.PipelineContext) {
+	// Nothing to do.
 }
 
 func (l *staticProbabilityLimiter) Close() {

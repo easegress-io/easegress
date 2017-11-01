@@ -22,7 +22,7 @@ type noMoreFailureLimiterConfig struct {
 	FailureTaskDataValue string `json:"failure_task_data_value"`
 }
 
-func NoMoreFailureLimiterConfigConstructor() plugins.Config {
+func noMoreFailureLimiterConfigConstructor() plugins.Config {
 	return &noMoreFailureLimiterConfig{
 		FailureCountThreshold: 1,
 	}
@@ -55,7 +55,7 @@ type noMoreFailureLimiter struct {
 	instanceId string
 }
 
-func NoMoreFailureLimiterConstructor(conf plugins.Config) (plugins.Plugin, error) {
+func noMoreFailureLimiterConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	c, ok := conf.(*noMoreFailureLimiterConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *noMoreFailureLimiterConfig got %T", conf)
@@ -95,6 +95,10 @@ func (l *noMoreFailureLimiter) Run(ctx pipelines.PipelineContext, t task.Task) (
 
 func (l *noMoreFailureLimiter) Name() string {
 	return l.conf.PluginName()
+}
+
+func (l *noMoreFailureLimiter) CleanUp(ctx pipelines.PipelineContext) {
+	// Nothing to do.
 }
 
 func (l *noMoreFailureLimiter) Close() {

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	cluster "cluster/gateway"
+	"common"
 	"config"
 	"logger"
 	"model"
@@ -250,9 +251,9 @@ func (gw *Gateway) SysResUsage() (*syscall.Rusage, error) {
 }
 
 func (gw *Gateway) setupPipelineLifecycleControl() {
-	gw.mod.AddPipelineAddedCallback("launchPipeline", gw.launchPipeline, false)
-	gw.mod.AddPipelineDeletedCallback("terminatePipeline", gw.terminatePipeline, false)
-	gw.mod.AddPipelineUpdatedCallback("relaunchPipeline", gw.relaunchPipeline, false)
+	gw.mod.AddPipelineAddedCallback("launchPipeline", gw.launchPipeline, false, common.NormalCallback)
+	gw.mod.AddPipelineDeletedCallback("terminatePipeline", gw.terminatePipeline, false, common.NormalCallback)
+	gw.mod.AddPipelineUpdatedCallback("relaunchPipeline", gw.relaunchPipeline, false, common.NormalCallback)
 }
 
 func (gw *Gateway) launchPipeline(newPipeline *model.Pipeline) {
@@ -353,20 +354,27 @@ func (gw *Gateway) loadPipelines() error {
 }
 
 func (gw *Gateway) setupPluginPersistenceControl() {
-	gw.mod.AddPluginAddedCallback("addPluginToStorage", gw.addPluginToStorage, false)
-	gw.mod.AddPluginDeletedCallback("deletePluginFromStorage", gw.deletePluginFromStorage, false)
-	gw.mod.AddPluginUpdatedCallback("updatePluginInStorage", gw.updatePluginInStorage, false)
+	gw.mod.AddPluginAddedCallback("addPluginToStorage", gw.addPluginToStorage,
+		false, common.NormalCallback)
+	gw.mod.AddPluginDeletedCallback("deletePluginFromStorage", gw.deletePluginFromStorage,
+		false, common.NormalCallback)
+	gw.mod.AddPluginUpdatedCallback("updatePluginInStorage", gw.updatePluginInStorage,
+		false, common.NormalCallback)
 }
 
 func (gw *Gateway) setupPipelinePersistenceControl() {
-	gw.mod.AddPipelineAddedCallback("addPipelineToStorage", gw.addPipelineToStorage, false)
-	gw.mod.AddPipelineDeletedCallback("deletePipelineFromStorage", gw.deletePipelineFromStorage, false)
-	gw.mod.AddPipelineUpdatedCallback("updatePipelineInStorage", gw.updatePipelineInStorage, false)
+	gw.mod.AddPipelineAddedCallback("addPipelineToStorage", gw.addPipelineToStorage,
+		false, common.NormalCallback)
+	gw.mod.AddPipelineDeletedCallback("deletePipelineFromStorage", gw.deletePipelineFromStorage,
+		false, common.NormalCallback)
+	gw.mod.AddPipelineUpdatedCallback("updatePipelineInStorage", gw.updatePipelineInStorage,
+		false, common.NormalCallback)
 }
 
 func (gw *Gateway) setupClusterOpLogSync() {
 	if gw.gc != nil {
-		gw.gc.OPLog().AddOPLogAppendedCallback("handleClusterOperation", gw.handleClusterOperation, false)
+		gw.gc.OPLog().AddOPLogAppendedCallback("handleClusterOperation", gw.handleClusterOperation,
+			false, common.NormalCallback)
 	}
 }
 

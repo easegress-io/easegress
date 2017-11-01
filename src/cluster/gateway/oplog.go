@@ -240,13 +240,15 @@ func (op *opLog) close() error {
 	return op.db.Close()
 }
 
-func (op *opLog) AddOPLogAppendedCallback(name string, callback OperationAppended, overwrite bool) OperationAppended {
+func (op *opLog) AddOPLogAppendedCallback(name string, callback OperationAppended,
+	overwrite bool, priority common.CallbackPriority) OperationAppended {
+
 	op.Lock()
 	defer op.Unlock()
 
 	var oriCallback interface{}
-	op.operationAppendedCallbacks, oriCallback, _ =
-		common.AddCallback(op.operationAppendedCallbacks, name, callback, overwrite)
+	op.operationAppendedCallbacks, oriCallback, _ = common.AddCallback(
+		op.operationAppendedCallbacks, name, callback, overwrite, priority)
 
 	if oriCallback == nil {
 		return nil

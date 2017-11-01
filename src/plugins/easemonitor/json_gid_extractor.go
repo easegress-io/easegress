@@ -105,6 +105,10 @@ func (e *jsonGidExtractor) Name() string {
 	return e.conf.PluginName()
 }
 
+func (e *jsonGidExtractor) CleanUp(ctx pipelines.PipelineContext) {
+	// Nothing to do.
+}
+
 func (e *jsonGidExtractor) Close() {
 	// Nothing to do.
 }

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -21,86 +20,26 @@ import (
 	"option"
 )
 
-// TODO: Moves this into plugin, aligns https server life-cycle with plugin life-cycle
-func init() {
-	if option.ShowVersion {
-		return
-	}
-
-	var (
-		disableHTTPS bool
-		certPath     string
-		keyPath      string
-	)
-
-	if len(option.CertFile) == 0 || len(option.KeyFile) == 0 {
-		if len(option.CertFile) != 0 {
-			logger.Infof("[keyfile set empty, certfile set: %s]", option.CertFile)
-		} else if len(option.KeyFile) != 0 {
-			logger.Infof("[certfile set empty, keyfile set: %s]", option.KeyFile)
-		} else {
-			logger.Infof("[certfile and keyfile set empty]")
-		}
-		disableHTTPS = true
-	} else {
-		certPath = filepath.Join(common.CERT_HOME_DIR, option.CertFile)
-		keyPath = filepath.Join(common.CERT_HOME_DIR, option.KeyFile)
-		logger.Infof("[cert file: %s]", certPath)
-		logger.Infof("[key file: %s]", keyPath)
-
-		if _, err := os.Stat(certPath); os.IsNotExist(err) {
-			logger.Warnf("[certfile not found]")
-			disableHTTPS = true
-		}
-
-		if _, err := os.Stat(keyPath); os.IsNotExist(err) {
-			logger.Warnf("[key file not found]")
-			disableHTTPS = true
-		}
-	}
-
-	keepAliveTimeout := 10 * time.Second // TODO: move it to httpInputConfig
-	// TODO: Adds keep_alive_requests and max_connections to httpInputConfig after making http server plugin-life-cycle
-
-	srv := &http.Server{
-		Handler:     defaultMux,
-		IdleTimeout: keepAliveTimeout,
-	}
-
-	if disableHTTPS {
-		addr := fmt.Sprintf("%s:10080", option.Host)
-		logger.Infof("[downgrade HTTPS to HTTP, listen %s]", addr)
-		srv.Addr = addr
-		go func() {
-			err := srv.ListenAndServe()
-			if err != nil {
-				logger.Errorf("[listen failed: %v]", err)
-			}
-		}()
-	} else {
-		addr := fmt.Sprintf("%s:10443", option.Host)
-		logger.Infof("[upgrade HTTP to HTTPS, listen %s]", addr)
-		srv.Addr = addr
-		go func() {
-			err := srv.ListenAndServeTLS(certPath, keyPath)
-			if err != nil {
-				logger.Errorf("[listen failed: %v]", err)
-			}
-		}()
-	}
+type httpTask struct {
+	request      *http.Request
+	writer       http.ResponseWriter
+	receivedAt   time.Time
+	path_params  map[string]string
+	finishedChan chan struct{}
 }
 
 ////
 
 type httpInputConfig struct {
 	common.PluginCommonConfig
-	URL         string              `json:"url"`
-	Methods     []string            `json:"methods"`
-	HeadersEnum map[string][]string `json:"headers_enum"`
-	Unzip       bool                `json:"unzip"`
-	RespondErr  bool                `json:"respond_error"`
-	FastClose   bool                `json:"fast_close"`
-	DumpRequest string              `json:"dump_request"`
+	ServerPluginName string              `json:"server_name"`
+	URL              string              `json:"url"`
+	Methods          []string            `json:"methods"`
+	HeadersEnum      map[string][]string `json:"headers_enum"`
+	Unzip            bool                `json:"unzip"`
+	RespondErr       bool                `json:"respond_error"`
+	FastClose        bool                `json:"fast_close"`
+	DumpRequest      string              `json:"dump_request"`
 
 	RequestHeaderNamesKey string `json:"request_header_names_key"`
 	RequestBodyIOKey      string `json:"request_body_io_key"`
@@ -113,11 +52,12 @@ type httpInputConfig struct {
 	dumpReq bool
 }
 
-func HTTPInputConfigConstructor() plugins.Config {
+func httpInputConfigConstructor() plugins.Config {
 	return &httpInputConfig{
-		Methods:     []string{http.MethodGet},
-		Unzip:       true,
-		DumpRequest: "auto",
+		ServerPluginName: "default",
+		Methods:          []string{http.MethodGet},
+		Unzip:            true,
+		DumpRequest:      "auto",
 	}
 }
 
@@ -128,7 +68,13 @@ func (c *httpInputConfig) Prepare(pipelineNames []string) error {
 	}
 
 	ts := strings.TrimSpace
+	c.ServerPluginName = ts(c.ServerPluginName)
 	c.URL = ts(c.URL)
+
+	if len(c.ServerPluginName) == 0 {
+		return fmt.Errorf("invalid server name")
+	}
+
 	for i := range c.Methods {
 		c.Methods[i] = ts(c.Methods[i])
 	}
@@ -211,18 +157,6 @@ func (c *httpInputConfig) Prepare(pipelineNames []string) error {
 	return nil
 }
 
-////
-
-type httpTask struct {
-	request      *http.Request
-	writer       http.ResponseWriter
-	receivedAt   time.Time
-	path_params  map[string]string
-	finishedChan chan struct{}
-}
-
-////
-
 type httpInput struct {
 	conf         *httpInputConfig
 	httpTaskChan chan *httpTask
@@ -230,7 +164,7 @@ type httpInput struct {
 	queueLength  uint64
 }
 
-func HTTPInputConstructor(conf plugins.Config) (plugins.Plugin, error) {
+func httpInputConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	c, ok := conf.(*httpInputConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *HTTPInputConfig got %T", conf)
@@ -243,17 +177,20 @@ func HTTPInputConstructor(conf plugins.Config) (plugins.Plugin, error) {
 
 	h.instanceId = fmt.Sprintf("%p", h)
 
-	for _, method := range h.conf.Methods {
-		err := defaultMux.HandleFunc(h.conf.URL, method, h.conf.HeadersEnum, h.handler)
-		if err != nil {
-			return nil, fmt.Errorf("add handler failed: %v", err)
-		}
-	}
-
 	return h, nil
 }
 
 func (h *httpInput) Prepare(ctx pipelines.PipelineContext) {
+	mux := getHTTPServerMux(ctx, h.conf.ServerPluginName)
+	if mux != nil {
+		for _, method := range h.conf.Methods {
+			err := mux.AddFunc(h.conf.URL, method, h.conf.HeadersEnum, h.handler)
+			if err != nil {
+				logger.Errorf("[add handler to server %s failed: %v]", h.conf.ServerPluginName, err)
+			}
+		}
+	}
+
 	added, err := ctx.Statistics().RegisterPluginIndicator(h.Name(), h.instanceId, "WAIT_QUEUE_LENGTH",
 		"The length of wait queue which contains requests wait to be handled by a pipeline.",
 		func(pluginName, indicatorName string) (interface{}, error) {
@@ -548,10 +485,22 @@ func (h *httpInput) Name() string {
 	return h.conf.Name
 }
 
-func (h *httpInput) Close() {
-	for _, method := range h.conf.Methods {
-		defaultMux.DeleteFunc(h.conf.URL, method)
+func (h *httpInput) CleanUp(ctx pipelines.PipelineContext) {
+	mux := getHTTPServerMux(ctx, h.conf.ServerPluginName)
+	if mux == nil {
+		return
 	}
+
+	for _, method := range h.conf.Methods {
+		mux.DeleteFunc(h.conf.URL, method)
+	}
+}
+
+func (h *httpInput) Close(contexts map[string]pipelines.PipelineContext) {
+	for _, ctx := range contexts {
+		h.CleanUp(ctx)
+	}
+
 	if h.httpTaskChan != nil {
 		close(h.httpTaskChan)
 		h.httpTaskChan = nil
@@ -593,4 +542,20 @@ func getHTTPInputHandlingRequestCount(ctx pipelines.PipelineContext, pluginName 
 	}
 
 	return count.(*uint64), nil
+}
+
+////
+
+func getHTTPServerMux(ctx pipelines.PipelineContext, serverPluginName string) plugins.HTTPMux {
+	bucket := ctx.DataBucket(serverPluginName, pipelines.DATA_BUCKET_FOR_ALL_PLUGIN_INSTANCE)
+	mux := bucket.QueryData(plugins.HTTP_SERVER_MUX_BUCKET_KEY)
+
+	ret, ok := mux.(plugins.HTTPMux)
+	if !ok {
+		logger.Errorf("[the mux of http server '%s' for pipeline %s is invalid]",
+			serverPluginName, ctx.PipelineName())
+		return nil
+	}
+
+	return ret
 }

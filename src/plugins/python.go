@@ -21,7 +21,7 @@ type pythonConfig struct {
 	cmd string
 }
 
-func PythonConfigConstructor() plugins.Config {
+func pythonConfigConstructor() plugins.Config {
 	c := &pythonConfig{
 		interpreterRunnerConfig: newInterpreterRunnerConfig("python", PYTHON_PLUGIN_WORK_DIR),
 		Version:                 "2",
@@ -64,7 +64,7 @@ type python struct {
 	conf *pythonConfig
 }
 
-func PythonConstructor(conf plugins.Config) (plugins.Plugin, error) {
+func pythonConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	c, ok := conf.(*pythonConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *pythonConfig got %T", conf)

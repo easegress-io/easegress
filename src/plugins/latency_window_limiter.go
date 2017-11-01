@@ -23,7 +23,7 @@ type latencyWindowLimiterConfig struct {
 	WindowSizeInit       uint64   `json:"windows_size_init"`
 }
 
-func LatencyWindowLimiterConfigConstructor() plugins.Config {
+func latencyWindowLimiterConfigConstructor() plugins.Config {
 	return &latencyWindowLimiterConfig{
 		LatencyThresholdMSec: 800,
 		BackOffMSec:          100,
@@ -75,7 +75,7 @@ type latencyWindowLimiter struct {
 	executionSampleUpdatedCallbackName string
 }
 
-func LatencyWindowLimiterConstructor(conf plugins.Config) (plugins.Plugin, error) {
+func latencyWindowLimiterConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	c, ok := conf.(*latencyWindowLimiterConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *latencyWindowLimiterConfig got %T", conf)
@@ -152,6 +152,10 @@ func (l *latencyWindowLimiter) Run(ctx pipelines.PipelineContext, t task.Task) (
 
 func (l *latencyWindowLimiter) Name() string {
 	return l.conf.PluginName()
+}
+
+func (l *latencyWindowLimiter) CleanUp(ctx pipelines.PipelineContext) {
+	// Nothing to do.
 }
 
 func (l *latencyWindowLimiter) Close() {

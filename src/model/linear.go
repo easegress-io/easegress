@@ -107,7 +107,7 @@ func (p *linearPipeline) Run() error {
 	}
 
 	p.mod.AddPluginUpdatedCallback(fmt.Sprintf("%s-cancelAndRerunRunningPlugin@%p", p.Name(), p),
-		p.cancelAndRerunRunningPlugin, false)
+		p.cancelAndRerunRunningPlugin, false, common.NormalCallback)
 
 	defer p.mod.DeletePluginUpdatedCallback(fmt.Sprintf("%s-cancelAndRerunRunningPlugin@%p", p.Name(), p))
 
@@ -151,7 +151,7 @@ func (p *linearPipeline) Run() error {
 								fmt.Sprintf("%s-pluginInstanceClosed@%p", p.Name(), p))
 							close(done)
 						},
-						false)
+						false, common.NormalCallback)
 				}
 			}
 

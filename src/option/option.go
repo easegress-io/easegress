@@ -21,9 +21,6 @@ var (
 	OPLogPullInterval     time.Duration
 	OPLogPullTimeout      time.Duration
 
-	Host              string
-	CertFile, KeyFile string
-
 	RestHost                       string
 	Stage                          string
 	ConfigHome, LogHome            string
@@ -41,7 +38,7 @@ func init() {
 		hostName = "node0"
 	}
 
-	clusterHost := flag.String("cluster_host", "", "specify cluster listen host")
+	clusterHost := flag.String("cluster_host", "localhost", "specify cluster listen host")
 	clusterGroup := flag.String("group", "default", "specify cluster group name")
 	memberMode := flag.String("mode", "read", "specify member mode (read or write)")
 	memberName := flag.String("name", hostName, "specify member name")
@@ -59,13 +56,7 @@ func init() {
 	flag.Var(common.NewUint16Value(30, opLogPullTimeout), "oplog_pull_timeout",
 		"specify timeout of pulling operation logs in second")
 
-	host := flag.String("host", "localhost", "specify listen host")
-	certFile := flag.String("certfile", "", "specify cert file, "+
-		"downgrade HTTPS(10443) to HTTP(10080) if it is set empty or nonexistent file")
-	keyFile := flag.String("keyfile", "", "specify key file, "+
-		"downgrade HTTPS(10443) to HTTP(10080) if it is set empty or nonexistent file")
-
-	restHost := flag.String("rest_host", "", "specify rest listen host")
+	restHost := flag.String("rest_host", "localhost", "specify rest listen host")
 	stage := flag.String("stage", "debug", "sepcify runtime stage (debug, test, prod)")
 	configHome := flag.String("config", common.CONFIG_HOME_DIR, "specify config home path")
 	logHome := flag.String("log", common.LOG_HOME_DIR, "specify log home path")
@@ -85,10 +76,6 @@ func init() {
 
 	flag.Parse()
 
-	if len(*clusterHost) == 0 {
-		*clusterHost = *host
-	}
-
 	ClusterHost = *clusterHost
 	ClusterGroup = *clusterGroup
 	MemberMode = *memberMode
@@ -103,14 +90,6 @@ func init() {
 		if len(peer) > 0 {
 			Peers = append(Peers, peer)
 		}
-	}
-
-	Host = *host
-	CertFile = *certFile
-	KeyFile = *keyFile
-
-	if len(*restHost) == 0 {
-		*restHost = *host
 	}
 
 	RestHost = *restHost

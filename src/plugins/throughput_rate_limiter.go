@@ -24,7 +24,7 @@ type throughputRateLimiterConfig struct {
 	tps float64
 }
 
-func ThroughputRateLimiterConfigConstructor() plugins.Config {
+func throughputRateLimiterConfigConstructor() plugins.Config {
 	return &throughputRateLimiterConfig{
 		TimeoutMSec: 200,
 	}
@@ -68,7 +68,7 @@ type throughputRateLimiter struct {
 	instanceId string
 }
 
-func ThroughputRateLimiterConstructor(conf plugins.Config) (plugins.Plugin, error) {
+func throughputRateLimiterConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	c, ok := conf.(*throughputRateLimiterConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *throughputRateLimiterConfig got %T", conf)
@@ -151,6 +151,10 @@ func (l *throughputRateLimiter) Run(ctx pipelines.PipelineContext, t task.Task) 
 
 func (l *throughputRateLimiter) Name() string {
 	return l.conf.PluginName()
+}
+
+func (l *throughputRateLimiter) CleanUp(ctx pipelines.PipelineContext) {
+	// Nothing to do.
 }
 
 func (l *throughputRateLimiter) Close() {

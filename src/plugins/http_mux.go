@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"strings"
 	"sync"
-)
 
-type Handler func(w http.ResponseWriter, r *http.Request, path_params map[string]string)
+	"github.com/hexdecteam/easegateway-types/plugins"
+)
 
 var supportedMethods = map[string]interface{}{
 	http.MethodGet:     nil,
@@ -24,25 +24,25 @@ var supportedMethods = map[string]interface{}{
 
 type entry struct {
 	headers map[string][]string
-	handler Handler
+	handler plugins.HTTPHandler
 }
 
-type Mux struct {
+type mux struct {
 	sync.Mutex
 	rtable map[string]map[string]*entry
 }
 
-func NewMux() *Mux { return new(Mux) }
+func newMux() *mux {
+	return new(mux)
+}
 
-var defaultMux = NewMux()
-
-func (mux *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (m *mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	match := false
 	wrongMethod := false
 	var path_params map[string]string
 	var e *entry
 
-	for pattern, methods := range mux.rtable {
+	for pattern, methods := range m.rtable {
 		match, path_params, _ = parsePath(r.URL.Path, pattern)
 
 		if match {
@@ -85,7 +85,7 @@ func (mux *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	e.handler(w, r, path_params)
 }
 
-func (mux *Mux) HandleFunc(path, method string, headers map[string][]string, handler Handler) error {
+func (m *mux) AddFunc(path, method string, headers map[string][]string, handler plugins.HTTPHandler) error {
 	path = strings.TrimSpace(path)
 	method = strings.TrimSpace(method)
 
@@ -106,16 +106,16 @@ func (mux *Mux) HandleFunc(path, method string, headers map[string][]string, han
 		return fmt.Errorf("invalid handler")
 	}
 
-	mux.Lock()
-	defer mux.Unlock()
+	m.Lock()
+	defer m.Unlock()
 
-	if mux.rtable == nil {
-		mux.rtable = make(map[string]map[string]*entry)
+	if m.rtable == nil {
+		m.rtable = make(map[string]map[string]*entry)
 	}
 
 	// we do not allow to register static path and parametric path on the same segment, for example
 	// client can not register the patterns `/user/jack` and `/user/{user}` on the same http method at the same time.
-	for p, methods := range mux.rtable {
+	for p, methods := range m.rtable {
 		dup, err := duplicatedPath(p, path)
 		if err != nil {
 			return err
@@ -126,11 +126,11 @@ func (mux *Mux) HandleFunc(path, method string, headers map[string][]string, han
 		}
 	}
 
-	if mux.rtable[path] == nil {
-		mux.rtable[path] = make(map[string]*entry)
+	if m.rtable[path] == nil {
+		m.rtable[path] = make(map[string]*entry)
 	}
 
-	mux.rtable[path][method] = &entry{
+	m.rtable[path][method] = &entry{
 		headers: headers,
 		handler: handler,
 	}
@@ -138,13 +138,13 @@ func (mux *Mux) HandleFunc(path, method string, headers map[string][]string, han
 	return nil
 }
 
-func (mux *Mux) DeleteFunc(path, method string) {
-	mux.Lock()
-	defer mux.Unlock()
+func (m *mux) DeleteFunc(path, method string) {
+	m.Lock()
+	defer m.Unlock()
 
-	delete(mux.rtable[path], method)
-	if len(mux.rtable[path]) == 0 {
-		delete(mux.rtable, path)
+	delete(m.rtable[path], method)
+	if len(m.rtable[path]) == 0 {
+		delete(m.rtable, path)
 	}
 }
 

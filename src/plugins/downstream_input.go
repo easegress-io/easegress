@@ -17,7 +17,7 @@ type downstreamInputConfig struct {
 	ResponseDataKeys []string `json:"response_data_keys"`
 }
 
-func DownstreamInputConfigConstructor() plugins.Config {
+func downstreamInputConfigConstructor() plugins.Config {
 	return &downstreamInputConfig{}
 }
 
@@ -34,7 +34,7 @@ type downstreamInput struct {
 	conf *downstreamInputConfig
 }
 
-func DownstreamInputConstructor(conf plugins.Config) (plugins.Plugin, error) {
+func downstreamInputConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	c, ok := conf.(*downstreamInputConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *downstreamInputConfig got %T", conf)
@@ -109,6 +109,10 @@ func (d *downstreamInput) Run(ctx pipelines.PipelineContext, t task.Task) (task.
 
 func (d *downstreamInput) Name() string {
 	return d.conf.PluginName()
+}
+
+func (d *downstreamInput) CleanUp(ctx pipelines.PipelineContext) {
+	// Nothing to do.
 }
 
 func (d *downstreamInput) Close() {

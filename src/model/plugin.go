@@ -1,13 +1,106 @@
 package model
 
 import (
+	"fmt"
 	"sync"
 
+	"github.com/hexdecteam/easegateway-types/pipelines"
 	"github.com/hexdecteam/easegateway-types/plugins"
+	"github.com/hexdecteam/easegateway-types/task"
 
 	"common"
 	"logger"
 )
+
+//
+// Plugin wrapper for plugin close and cleanup
+//
+
+type wrappedPlugin struct {
+	mod                      *Model
+	ori                      plugins.Plugin
+	preparedPipelineContexts map[string]pipelines.PipelineContext
+}
+
+func newWrappedPlugin(mod *Model, ori plugins.Plugin) *wrappedPlugin {
+	p := &wrappedPlugin{
+		mod: mod,
+		ori: ori,
+		preparedPipelineContexts: make(map[string]pipelines.PipelineContext),
+	}
+
+	callbackName := fmt.Sprintf("%s-cleanUpPreparedPipelineContextMapWhenPipelineUpdatedOrDeleted@%p", p.Name(), p)
+	go p.mod.AddPipelineDeletedCallback(callbackName, p.cleanUpPreparedPipelineContext,
+		false, common.CriticalCallback)
+	go p.mod.AddPipelineUpdatedCallback(callbackName, p.cleanUpPreparedPipelineContext,
+		false, common.CriticalCallback)
+
+	return p
+}
+
+func (p *wrappedPlugin) Prepare(ctx pipelines.PipelineContext) {
+	// booking
+	_, ok := p.preparedPipelineContexts[ctx.PipelineName()]
+	if ok {
+		logger.Errorf("[BUG: plugin %s is prepared on the same pipeline %s twice, overwrite]",
+			p.Name(), ctx.PipelineName())
+	}
+
+	p.preparedPipelineContexts[ctx.PipelineName()] = ctx
+
+	logger.Debugf("[prepare plugin %s for pipeline %s]", p.Name(), ctx.PipelineName())
+	p.ori.Prepare(ctx)
+	logger.Debugf("[plugin %s prepared for pipeline %s]", p.Name(), ctx.PipelineName())
+}
+
+func (p *wrappedPlugin) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
+	return p.ori.Run(ctx, t)
+}
+
+func (p *wrappedPlugin) Name() string {
+	return p.ori.Name()
+}
+
+func (p *wrappedPlugin) CleanUp(ctx pipelines.PipelineContext) {
+	logger.Debugf("[cleaning plugin %s up from pipeline %s]", p.Name(), ctx.PipelineName())
+	p.ori.CleanUp(ctx)
+	logger.Debugf("[cleaned plugin %s up from pipeline %s]", p.Name(), ctx.PipelineName())
+}
+
+func (p *wrappedPlugin) Close() {
+	callbackName := fmt.Sprintf("%s-cleanUpPreparedPipelineContextMapWhenPipelineUpdatedOrDeleted@%p", p.Name(), p)
+	go p.mod.DeletePipelineDeletedCallback(callbackName)
+	go p.mod.DeletePipelineUpdatedCallback(callbackName)
+
+	logger.Debugf("[closing plugin %s]", p.Name())
+	p.ori.Close()
+	logger.Debugf("[closed plugin %s]", p.Name())
+}
+
+func (p *wrappedPlugin) cleanUpAndClose() {
+	for _, ctx := range p.preparedPipelineContexts {
+		p.CleanUp(ctx)
+	}
+
+	// clear the book
+	for pipelineName := range p.preparedPipelineContexts {
+		delete(p.preparedPipelineContexts, pipelineName)
+	}
+
+	p.Close()
+}
+
+func (p *wrappedPlugin) cleanUpPreparedPipelineContext(pipeline *Pipeline) {
+	ctx, ok := p.preparedPipelineContexts[pipeline.Name()]
+	if !ok {
+		// the plugin was not prepared on the pipeline
+		return
+	}
+
+	delete(p.preparedPipelineContexts, pipeline.Name())
+
+	p.CleanUp(ctx)
+}
 
 //
 // Plugin entry in model structure
@@ -21,7 +114,7 @@ type Plugin struct {
 	conf                    plugins.Config
 	constructor             plugins.Constructor
 	counter                 *pluginInstanceCounter
-	instance                plugins.Plugin
+	instance                *wrappedPlugin
 	instanceClosedCallbacks []*common.NamedCallback
 }
 
@@ -54,7 +147,7 @@ func (p *Plugin) Config() plugins.Config {
 	return p.conf
 }
 
-func (p *Plugin) GetInstance() (plugins.Plugin, error) {
+func (p *Plugin) GetInstance(mod *Model) (plugins.Plugin, error) {
 	p.RLock()
 	instance := p.instance
 	p.RUnlock()
@@ -67,27 +160,29 @@ func (p *Plugin) GetInstance() (plugins.Plugin, error) {
 	defer p.Unlock()
 
 	// DCL
-	if instance != nil {
+	if p.instance != nil {
 		return p.instance, nil
 	}
 
-	instance, err := p.constructor(p.conf)
+	ori, err := p.constructor(p.conf)
 	if err != nil {
 		return nil, err
 	}
+
+	instance = newWrappedPlugin(mod, ori)
 	p.instance = instance
 	return instance, nil
 }
 
 func (p *Plugin) AddInstanceClosedCallback(name string, callback PluginInstanceClosed,
-	overwrite bool) PluginInstanceClosed {
+	overwrite bool, priority common.CallbackPriority) PluginInstanceClosed {
 
 	p.Lock()
 	defer p.Unlock()
 
 	var oriCallback interface{}
 	p.instanceClosedCallbacks, oriCallback, _ = common.AddCallback(
-		p.instanceClosedCallbacks, name, callback, overwrite)
+		p.instanceClosedCallbacks, name, callback, overwrite, priority)
 
 	if oriCallback == nil {
 		return nil
@@ -139,15 +234,13 @@ func (p *Plugin) dismissInstance() {
 
 func (p *Plugin) destroyOverduePluginInstance(plugin plugins.Plugin, count int, counter *pluginInstanceCounter) {
 	if count == 0 {
-		p.closePluginInstance(plugin)
+		p.closePluginInstance(plugin.(*wrappedPlugin))
 		counter.DeleteUpdateCallback(p.conf.PluginName())
 	}
 }
 
-func (p *Plugin) closePluginInstance(instance plugins.Plugin) error {
-	logger.Debugf("[closing plugin %s]", instance.Name())
-	instance.Close()
-	logger.Debugf("[closed plugin %s]", instance.Name())
+func (p *Plugin) closePluginInstance(instance *wrappedPlugin) error {
+	instance.cleanUpAndClose()
 
 	tmp := make([]*common.NamedCallback, len(p.instanceClosedCallbacks))
 	copy(tmp, p.instanceClosedCallbacks)
@@ -239,7 +332,8 @@ func (c *pluginInstanceCounter) AddUpdateCallback(pluginName string,
 	defer c.Unlock()
 
 	var oriCallback interface{}
-	c.callbacks, oriCallback, _ = common.AddCallback(c.callbacks, pluginName, callback, false)
+	c.callbacks, oriCallback, _ = common.AddCallback(
+		c.callbacks, pluginName, callback, false, common.NormalCallback)
 
 	if oriCallback == nil {
 		return nil

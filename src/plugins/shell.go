@@ -21,7 +21,7 @@ type shellConfig struct {
 	cmd string
 }
 
-func ShellConfigConstructor() plugins.Config {
+func shellConfigConstructor() plugins.Config {
 	c := &shellConfig{
 		interpreterRunnerConfig: newInterpreterRunnerConfig("shell", SHELL_PLUGIN_WORK_DIR),
 		Type: "sh",
@@ -65,7 +65,7 @@ type shell struct {
 	conf *shellConfig
 }
 
-func ShellConstructor(conf plugins.Config) (plugins.Plugin, error) {
+func shellConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	c, ok := conf.(*shellConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *shellConfig got %T", conf)

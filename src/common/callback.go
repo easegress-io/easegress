@@ -1,5 +1,14 @@
 package common
 
+type CallbackPriority uint8
+
+const (
+	CriticalCallback CallbackPriority = iota
+	NormalCallback
+)
+
+////
+
 type NamedCallback struct {
 	name     string
 	callback interface{}
@@ -28,7 +37,9 @@ func (cb *NamedCallback) SetCallback(callback interface{}) interface{} {
 
 ////
 
-func AddCallback(callbacks []*NamedCallback, name string, callback interface{}, rewrite bool) (
+func AddCallback(callbacks []*NamedCallback, name string, callback interface{},
+	rewrite bool, priority CallbackPriority) (
+
 	[]*NamedCallback, interface{}, bool) {
 
 	var oriCallback interface{}
@@ -43,7 +54,12 @@ func AddCallback(callbacks []*NamedCallback, name string, callback interface{}, 
 	}
 
 	if oriCallback == nil {
-		callbacks = append(callbacks, NewNamedCallback(name, callback))
+		callback := NewNamedCallback(name, callback)
+		if callbacks == nil || priority == NormalCallback {
+			callbacks = append(callbacks, callback)
+		} else {
+			callbacks = append([]*NamedCallback{callback}, callbacks...)
+		}
 	}
 
 	return callbacks, oriCallback, true

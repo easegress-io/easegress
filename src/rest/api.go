@@ -139,20 +139,26 @@ func (s *Rest) Start() (<-chan error, string, error) {
 	s.server = &http.Server{}
 
 	go func() {
+		defer func() {
+			// server exits after closing channel, ignore safely
+			recover()
+		}()
 		s.done <- s.server.Serve(tcpKeepAliveListener{ln.(*net.TCPListener)})
 	}()
 
 	return s.done, listenAddr, nil
 }
 
-func (s *Rest) Close() {
+func (s *Rest) Stop() {
 	err := s.server.Shutdown(nil)
 	if err != nil {
 		logger.Errorf("[shut rest interface down failed: %s]", err)
 	} else {
 		logger.Debugf("[rest interface is shut down gracefully]")
 	}
+}
 
+func (s *Rest) Close() {
 	close(s.done)
 }
 

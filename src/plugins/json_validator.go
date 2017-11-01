@@ -22,7 +22,7 @@ type jsonValidatorConfig struct {
 	schemaObj *gojsonschema.Schema
 }
 
-func JSONValidatorConfigConstructor() plugins.Config {
+func jsonValidatorConfigConstructor() plugins.Config {
 	return &jsonValidatorConfig{}
 }
 
@@ -61,7 +61,7 @@ type jsonValidator struct {
 	conf *jsonValidatorConfig
 }
 
-func JSONValidatorConstructor(conf plugins.Config) (plugins.Plugin, error) {
+func jsonValidatorConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	c, ok := conf.(*jsonValidatorConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *jsonValidatorConfig got %T", conf)
@@ -116,6 +116,10 @@ func (v *jsonValidator) Run(ctx pipelines.PipelineContext, t task.Task) (task.Ta
 
 func (v *jsonValidator) Name() string {
 	return v.conf.PluginName()
+}
+
+func (v *jsonValidator) CleanUp(ctx pipelines.PipelineContext) {
+	// Nothing to do.
 }
 
 func (v *jsonValidator) Close() {

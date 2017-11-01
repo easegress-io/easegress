@@ -30,9 +30,12 @@ func newStatRegistry(m *Model) *statRegistry {
 		mod:        m,
 	}
 
-	m.AddPipelineAddedCallback("addPipelineStatistics", ret.addPipelineStatistics, false)
-	m.AddPipelineDeletedCallback("deletePipelineStatistics", ret.deletePipelineStatistics, false)
-	m.AddPipelineUpdatedCallback("renewPipelineStatistics", ret.renewPipelineStatistics, false)
+	m.AddPipelineAddedCallback("addPipelineStatistics", ret.addPipelineStatistics,
+		false, common.NormalCallback)
+	m.AddPipelineDeletedCallback("deletePipelineStatistics", ret.deletePipelineStatistics,
+		false, common.NormalCallback)
+	m.AddPipelineUpdatedCallback("renewPipelineStatistics", ret.renewPipelineStatistics,
+		false, common.NormalCallback)
 
 	return ret
 }
@@ -1158,7 +1161,7 @@ func (ps *PipelineStatistics) AddPipelineThroughputRateUpdatedCallback(name stri
 	var oriCallback interface{}
 	var added bool
 	ps.pipelineThroughputRateUpdatedCallbacks, oriCallback, added = common.AddCallback(
-		ps.pipelineThroughputRateUpdatedCallbacks, name, callback, overwrite)
+		ps.pipelineThroughputRateUpdatedCallbacks, name, callback, overwrite, common.NormalCallback)
 
 	if oriCallback == nil {
 		return nil, added
@@ -1202,7 +1205,8 @@ func (ps *PipelineStatistics) DeletePipelineThroughputRateUpdatedCallbackAfterPl
 		func(innerCallbackName string, callback interface{}, overwrite bool) {
 			ps.RLock()
 			defer ps.RUnlock()
-			ps.mod.AddPluginDeletedCallback(innerCallbackName, callback.(PluginDeleted), overwrite)
+			ps.mod.AddPluginDeletedCallback(innerCallbackName, callback.(PluginDeleted),
+				overwrite, common.NormalCallback)
 		})
 
 	ps.Lock()
@@ -1238,7 +1242,8 @@ func (ps *PipelineStatistics) DeletePipelineThroughputRateUpdatedCallbackAfterPl
 		func(innerCallbackName string, callback interface{}, overwrite bool) {
 			ps.RLock()
 			defer ps.RUnlock()
-			ps.mod.AddPluginUpdatedCallback(innerCallbackName, callback.(PluginUpdated), overwrite)
+			ps.mod.AddPluginUpdatedCallback(innerCallbackName, callback.(PluginUpdated),
+				overwrite, common.NormalCallback)
 		})
 
 	ps.Lock()
@@ -1257,7 +1262,7 @@ func (ps *PipelineStatistics) AddPipelineExecutionSampleUpdatedCallback(name str
 	var oriCallback interface{}
 	var added bool
 	ps.pipelineExecutionSampleUpdatedCallbacks, oriCallback, added = common.AddCallback(
-		ps.pipelineExecutionSampleUpdatedCallbacks, name, callback, overwrite)
+		ps.pipelineExecutionSampleUpdatedCallbacks, name, callback, overwrite, common.NormalCallback)
 
 	if oriCallback == nil {
 		return nil, added
@@ -1299,7 +1304,8 @@ func (ps *PipelineStatistics) DeletePipelineExecutionSampleUpdatedCallbackAfterP
 		func(innerCallbackName string, callback interface{}, overwrite bool) {
 			ps.RLock()
 			defer ps.RUnlock()
-			ps.mod.AddPluginDeletedCallback(innerCallbackName, callback.(PluginDeleted), overwrite)
+			ps.mod.AddPluginDeletedCallback(innerCallbackName, callback.(PluginDeleted),
+				overwrite, common.NormalCallback)
 		})
 
 	ps.Lock()
@@ -1333,7 +1339,8 @@ func (ps *PipelineStatistics) DeletePipelineExecutionSampleUpdatedCallbackAfterP
 		func(innerCallbackName string, callback interface{}, overwrite bool) {
 			ps.RLock()
 			defer ps.RUnlock()
-			ps.mod.AddPluginUpdatedCallback(innerCallbackName, callback.(PluginUpdated), overwrite)
+			ps.mod.AddPluginUpdatedCallback(innerCallbackName, callback.(PluginUpdated), overwrite,
+				common.NormalCallback)
 		})
 
 	ps.Lock()
@@ -1343,7 +1350,8 @@ func (ps *PipelineStatistics) DeletePipelineExecutionSampleUpdatedCallbackAfterP
 }
 
 func (ps *PipelineStatistics) AddPluginThroughputRateUpdatedCallback(name string,
-	callback pipelines.PluginThroughputRateUpdated, overwrite bool) (pipelines.PluginThroughputRateUpdated, bool) {
+	callback pipelines.PluginThroughputRateUpdated,
+	overwrite bool) (pipelines.PluginThroughputRateUpdated, bool) {
 
 	ps.Lock()
 	defer ps.Unlock()
@@ -1351,7 +1359,7 @@ func (ps *PipelineStatistics) AddPluginThroughputRateUpdatedCallback(name string
 	var oriCallback interface{}
 	var added bool
 	ps.pluginThroughputRateUpdatedCallbacks, oriCallback, added = common.AddCallback(
-		ps.pluginThroughputRateUpdatedCallbacks, name, callback, overwrite)
+		ps.pluginThroughputRateUpdatedCallbacks, name, callback, overwrite, common.NormalCallback)
 
 	if oriCallback == nil {
 		return nil, added
@@ -1395,7 +1403,8 @@ func (ps *PipelineStatistics) DeletePluginThroughputRateUpdatedCallbackAfterPlug
 		func(innerCallbackName string, callback interface{}, overwrite bool) {
 			ps.RLock()
 			ps.RUnlock()
-			ps.mod.AddPluginDeletedCallback(innerCallbackName, callback.(PluginDeleted), overwrite)
+			ps.mod.AddPluginDeletedCallback(innerCallbackName, callback.(PluginDeleted),
+				overwrite, common.NormalCallback)
 		})
 
 	ps.Lock()
@@ -1431,7 +1440,8 @@ func (ps *PipelineStatistics) DeletePluginThroughputRateUpdatedCallbackAfterPlug
 		func(innerCallbackName string, callback interface{}, overwrite bool) {
 			ps.RLock()
 			ps.RUnlock()
-			ps.mod.AddPluginUpdatedCallback(innerCallbackName, callback.(PluginUpdated), overwrite)
+			ps.mod.AddPluginUpdatedCallback(innerCallbackName, callback.(PluginUpdated),
+				overwrite, common.NormalCallback)
 		})
 
 	ps.Lock()
@@ -1450,7 +1460,7 @@ func (ps *PipelineStatistics) AddPluginExecutionSampleUpdatedCallback(name strin
 	var oriCallback interface{}
 	var added bool
 	ps.pluginExecutionSampleUpdatedCallbacks, oriCallback, added = common.AddCallback(
-		ps.pluginExecutionSampleUpdatedCallbacks, name, callback, overwrite)
+		ps.pluginExecutionSampleUpdatedCallbacks, name, callback, overwrite, common.NormalCallback)
 
 	if oriCallback == nil {
 		return nil, added
@@ -1494,7 +1504,8 @@ func (ps *PipelineStatistics) DeletePluginExecutionSampleUpdatedCallbackAfterPlu
 		func(innerCallbackName string, callback interface{}, overwrite bool) {
 			ps.RLock()
 			defer ps.RUnlock()
-			ps.mod.AddPluginDeletedCallback(innerCallbackName, callback.(PluginDeleted), overwrite)
+			ps.mod.AddPluginDeletedCallback(innerCallbackName, callback.(PluginDeleted),
+				overwrite, common.NormalCallback)
 		})
 
 	ps.Lock()
@@ -1530,7 +1541,8 @@ func (ps *PipelineStatistics) DeletePluginExecutionSampleUpdatedCallbackAfterPlu
 		func(innerCallbackName string, callback interface{}, overwrite bool) {
 			ps.RLock()
 			defer ps.RUnlock()
-			ps.mod.AddPluginUpdatedCallback(innerCallbackName, callback.(PluginUpdated), overwrite)
+			ps.mod.AddPluginUpdatedCallback(innerCallbackName, callback.(PluginUpdated),
+				overwrite, common.NormalCallback)
 		})
 
 	ps.Lock()
@@ -1664,7 +1676,8 @@ func (ps *PipelineStatistics) UnregisterPluginIndicatorAfterPluginDelete(
 		func(innerCallbackName string, callback interface{}, overwrite bool) {
 			ps.RLock()
 			defer ps.RUnlock()
-			ps.mod.AddPluginDeletedCallback(innerCallbackName, callback.(PluginDeleted), overwrite)
+			ps.mod.AddPluginDeletedCallback(innerCallbackName, callback.(PluginDeleted),
+				overwrite, common.NormalCallback)
 		})
 
 	ps.Lock()
@@ -1701,7 +1714,8 @@ func (ps *PipelineStatistics) UnregisterPluginIndicatorAfterPluginUpdate(
 		func(innerCallbackName string, callback interface{}, overwrite bool) {
 			ps.RLock()
 			defer ps.RUnlock()
-			ps.mod.AddPluginUpdatedCallback(innerCallbackName, callback.(PluginUpdated), overwrite)
+			ps.mod.AddPluginUpdatedCallback(innerCallbackName, callback.(PluginUpdated),
+				overwrite, common.NormalCallback)
 		})
 
 	ps.Lock()

@@ -242,7 +242,7 @@ func (m *Model) GetPluginInstance(name string) (plugins.Plugin, error) {
 
 	plugin, exists := m.plugins[name]
 	if exists {
-		instance, err := plugin.GetInstance()
+		instance, err := plugin.GetInstance(m)
 		if err == nil {
 			m.pluginCounter.AddRef(instance)
 		}
@@ -315,12 +315,15 @@ func (m *Model) UpdatePluginConfig(conf plugins.Config) error {
 	return nil
 }
 
-func (m *Model) AddPluginAddedCallback(name string, callback PluginAdded, overwrite bool) PluginAdded {
+func (m *Model) AddPluginAddedCallback(name string, callback PluginAdded,
+	overwrite bool, priority common.CallbackPriority) PluginAdded {
+
 	m.Lock()
 	defer m.Unlock()
 
 	var oriCallback interface{}
-	m.pluginAddedCallbacks, oriCallback, _ = common.AddCallback(m.pluginAddedCallbacks, name, callback, overwrite)
+	m.pluginAddedCallbacks, oriCallback, _ = common.AddCallback(
+		m.pluginAddedCallbacks, name, callback, overwrite, priority)
 
 	if oriCallback == nil {
 		return nil
@@ -343,13 +346,15 @@ func (m *Model) DeletePluginAddedCallback(name string) PluginAdded {
 	}
 }
 
-func (m *Model) AddPluginDeletedCallback(name string, callback PluginDeleted, overwrite bool) PluginDeleted {
+func (m *Model) AddPluginDeletedCallback(name string, callback PluginDeleted,
+	overwrite bool, priority common.CallbackPriority) PluginDeleted {
+
 	m.Lock()
 	defer m.Unlock()
 
 	var oriCallback interface{}
 	m.pluginDeletedCallbacks, oriCallback, _ = common.AddCallback(
-		m.pluginDeletedCallbacks, name, callback, overwrite)
+		m.pluginDeletedCallbacks, name, callback, overwrite, priority)
 
 	if oriCallback == nil {
 		return nil
@@ -372,13 +377,15 @@ func (m *Model) DeletePluginDeletedCallback(name string) PluginDeleted {
 	}
 }
 
-func (m *Model) AddPluginUpdatedCallback(name string, callback PluginUpdated, overwrite bool) PluginUpdated {
+func (m *Model) AddPluginUpdatedCallback(name string, callback PluginUpdated,
+	overwrite bool, priority common.CallbackPriority) PluginUpdated {
+
 	m.Lock()
 	defer m.Unlock()
 
 	var oriCallback interface{}
 	m.pluginUpdatedCallbacks, oriCallback, _ = common.AddCallback(
-		m.pluginUpdatedCallbacks, name, callback, overwrite)
+		m.pluginUpdatedCallbacks, name, callback, overwrite, priority)
 
 	if oriCallback == nil {
 		return nil
@@ -557,13 +564,15 @@ func (m *Model) UpdatePipelineConfig(conf pipelines_gw.Config) error {
 	return nil
 }
 
-func (m *Model) AddPipelineAddedCallback(name string, callback PipelineAdded, overwrite bool) PipelineAdded {
+func (m *Model) AddPipelineAddedCallback(name string, callback PipelineAdded,
+	overwrite bool, priority common.CallbackPriority) PipelineAdded {
+
 	m.Lock()
 	defer m.Unlock()
 
 	var oriCallback interface{}
 	m.pipelineAddedCallbacks, oriCallback, _ = common.AddCallback(
-		m.pipelineAddedCallbacks, name, callback, overwrite)
+		m.pipelineAddedCallbacks, name, callback, overwrite, priority)
 
 	if oriCallback == nil {
 		return nil
@@ -586,13 +595,15 @@ func (m *Model) DeletePipelineAddedCallback(name string) PipelineAdded {
 	}
 }
 
-func (m *Model) AddPipelineDeletedCallback(name string, callback PipelineDeleted, overwrite bool) PipelineDeleted {
+func (m *Model) AddPipelineDeletedCallback(name string, callback PipelineDeleted,
+	overwrite bool, priority common.CallbackPriority) PipelineDeleted {
+
 	m.Lock()
 	defer m.Unlock()
 
 	var oriCallback interface{}
 	m.pipelineDeletedCallbacks, oriCallback, _ = common.AddCallback(
-		m.pipelineDeletedCallbacks, name, callback, overwrite)
+		m.pipelineDeletedCallbacks, name, callback, overwrite, priority)
 
 	if oriCallback == nil {
 		return nil
@@ -615,15 +626,15 @@ func (m *Model) DeletePipelineDeletedCallback(name string) PipelineDeleted {
 	}
 }
 
-func (m *Model) AddPipelineUpdatedCallback(
-	name string, callback PipelineUpdated, overwrite bool) PipelineUpdated {
+func (m *Model) AddPipelineUpdatedCallback(name string, callback PipelineUpdated,
+	overwrite bool, priority common.CallbackPriority) PipelineUpdated {
 
 	m.Lock()
 	defer m.Unlock()
 
 	var oriCallback interface{}
 	m.pipelineUpdatedCallbacks, oriCallback, _ = common.AddCallback(
-		m.pipelineUpdatedCallbacks, name, callback, overwrite)
+		m.pipelineUpdatedCallbacks, name, callback, overwrite, priority)
 
 	if oriCallback == nil {
 		return nil

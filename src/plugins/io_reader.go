@@ -26,7 +26,7 @@ type ioReaderConfig struct {
 	OutputKey string `json:"output_key"`
 }
 
-func IOReaderConfigConfigConstructor() plugins.Config {
+func ioReaderConfigConfigConstructor() plugins.Config {
 	return &ioReaderConfig{
 		LengthMax: 1048576, // 1MiB
 		Close:     true,
@@ -62,7 +62,7 @@ type ioReader struct {
 	conf *ioReaderConfig
 }
 
-func IOReaderConstructor(conf plugins.Config) (plugins.Plugin, error) {
+func ioReaderConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	c, ok := conf.(*ioReaderConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *ioReaderConfig got %T", conf)
@@ -168,6 +168,10 @@ func (r *ioReader) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, e
 
 func (r *ioReader) Name() string {
 	return r.conf.PluginName()
+}
+
+func (r *ioReader) CleanUp(ctx pipelines.PipelineContext) {
+	// Nothing to do.
 }
 
 func (r *ioReader) Close() {

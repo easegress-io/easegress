@@ -28,7 +28,7 @@ type serviceCircuitBreakerConfig struct {
 	SuccessTPSThresholdToOpen float64 `json:"success_tps_threshold_to_open"`
 }
 
-func ServiceCircuitBreakerConfigConstructor() plugins.Config {
+func serviceCircuitBreakerConfigConstructor() plugins.Config {
 	return &serviceCircuitBreakerConfig{
 		AllTPSThresholdToEnablement: 1,
 		FailureTPSThresholdToBreak:  1,
@@ -83,7 +83,7 @@ type serviceCircuitBreaker struct {
 	executionSampleUpdatedCallbackName string
 }
 
-func ServiceCircuitBreakerConstructor(conf plugins.Config) (plugins.Plugin, error) {
+func serviceCircuitBreakerConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	c, ok := conf.(*serviceCircuitBreakerConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *serviceCircuitBreakerConfig got %T", conf)
@@ -153,6 +153,10 @@ func (cb *serviceCircuitBreaker) Run(ctx pipelines.PipelineContext, t task.Task)
 
 func (cb *serviceCircuitBreaker) Name() string {
 	return cb.conf.PluginName()
+}
+
+func (cb *serviceCircuitBreaker) CleanUp(ctx pipelines.PipelineContext) {
+	// Nothing to do.
 }
 
 func (cb *serviceCircuitBreaker) Close() {

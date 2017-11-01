@@ -98,10 +98,10 @@ func (pc *pipelineContext) DataBucket(pluginName, pluginInstanceId string) pipel
 	if deleteWhenPluginUpdatedOrDeleted {
 		pc.mod.AddPluginDeletedCallback(
 			fmt.Sprintf("%s-deletePipelineContextDataBucketWhenPluginDeleted@%p", pc.pipeName, pc),
-			pc.deletePipelineContextDataBucketWhenPluginDeleted, false)
+			pc.deletePipelineContextDataBucketWhenPluginDeleted, false, common.NormalCallback)
 		pc.mod.AddPluginUpdatedCallback(
 			fmt.Sprintf("%s-deletePipelineContextDataBucketWhenPluginUpdated@%p", pc.pipeName, pc),
-			pc.deletePipelineContextDataBucketWhenPluginUpdated, false)
+			pc.deletePipelineContextDataBucketWhenPluginUpdated, false, common.NormalCallback)
 	}
 
 	return bucket
@@ -149,13 +149,13 @@ func (pc *pipelineContext) PreparePlugin(pluginName string, fun pipelines.Plugin
 		return
 	}
 
-	logger.Debugf("[prepare plugin %s for pipeline %s]", pluginName, pc.pipeName)
 	fun()
-	logger.Debugf("[plugin %s prepared for pipeline %s]", pluginName, pc.pipeName)
 
 	callBackName := fmt.Sprintf("%s-deletePluginPreparationBookWhenPluginUpdatedOrDeleted@%p", pc.pipeName, pc)
-	pc.mod.AddPluginDeletedCallback(callBackName, pc.deletePluginPreparationBookWhenPluginUpdatedOrDeleted, false)
-	pc.mod.AddPluginUpdatedCallback(callBackName, pc.deletePluginPreparationBookWhenPluginUpdatedOrDeleted, false)
+	pc.mod.AddPluginDeletedCallback(callBackName, pc.deletePluginPreparationBookWhenPluginUpdatedOrDeleted,
+		false, common.NormalCallback)
+	pc.mod.AddPluginUpdatedCallback(callBackName, pc.deletePluginPreparationBookWhenPluginUpdatedOrDeleted,
+		false, common.NormalCallback)
 
 	pc.preparationBook[pluginName] = nil
 }

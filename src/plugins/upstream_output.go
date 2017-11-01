@@ -292,7 +292,7 @@ type upstreamOutputConfig struct {
 	filterRegexMapList []map[string]*regexp.Regexp
 }
 
-func UpstreamOutputConfigConstructor() plugins.Config {
+func upstreamOutputConfigConstructor() plugins.Config {
 	return &upstreamOutputConfig{
 		RoutePolicy: "round_robin",
 	}
@@ -414,7 +414,7 @@ type upstreamOutput struct {
 	instanceId string
 }
 
-func UpstreamOutputConstructor(conf plugins.Config) (plugins.Plugin, error) {
+func upstreamOutputConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	c, ok := conf.(*upstreamOutputConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *upstreamOutputConfig got %T", conf)
@@ -566,6 +566,10 @@ LOOP:
 
 func (u *upstreamOutput) Name() string {
 	return u.conf.PluginName()
+}
+
+func (u *upstreamOutput) CleanUp(ctx pipelines.PipelineContext) {
+	// Nothing to do.
 }
 
 func (u *upstreamOutput) Close() {

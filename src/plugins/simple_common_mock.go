@@ -23,7 +23,7 @@ type simpleCommonMockConfig struct {
 	taskErrorCodeConcerned task.TaskResultCode
 }
 
-func SimpleCommonMockConfigConstructor() plugins.Config {
+func simpleCommonMockConfigConstructor() plugins.Config {
 	return &simpleCommonMockConfig{
 		TaskErrorCodeConcerned: "ResultFlowControl",
 	}
@@ -63,7 +63,7 @@ type simpleCommonMock struct {
 	conf *simpleCommonMockConfig
 }
 
-func SimpleCommonMockConstructor(conf plugins.Config) (plugins.Plugin, error) {
+func simpleCommonMockConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	c, ok := conf.(*simpleCommonMockConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *simpleCommonMockConfig got %T", conf)
@@ -89,6 +89,10 @@ func (m *simpleCommonMock) Run(ctx pipelines.PipelineContext, t task.Task) (task
 
 func (m *simpleCommonMock) Name() string {
 	return m.conf.PluginName()
+}
+
+func (m *simpleCommonMock) CleanUp(ctx pipelines.PipelineContext) {
+	// Nothing to do.
 }
 
 func (m *simpleCommonMock) Close() {

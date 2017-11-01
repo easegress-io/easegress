@@ -26,40 +26,42 @@ type pluginEntry struct {
 var (
 	PLUGIN_ENTRIES = map[string]pluginEntry{
 		// generic plugins
+		"HTTPServer": {
+			httpServerConstructor, httpServerConfigConstructor},
 		"HTTPInput": {
-			HTTPInputConstructor, HTTPInputConfigConstructor},
+			httpInputConstructor, httpInputConfigConstructor},
 		"JSONValidator": {
-			JSONValidatorConstructor, JSONValidatorConfigConstructor},
+			jsonValidatorConstructor, jsonValidatorConfigConstructor},
 		"KafkaOutput": {
-			KafkaOutputConstructor, KafkaOutputConfigConstructor},
+			kafkaOutputConstructor, kafkaOutputConfigConstructor},
 		"ThroughputRateLimiter": {
-			ThroughputRateLimiterConstructor, ThroughputRateLimiterConfigConstructor},
+			throughputRateLimiterConstructor, throughputRateLimiterConfigConstructor},
 		"LatencyWindowLimiter": {
-			LatencyWindowLimiterConstructor, LatencyWindowLimiterConfigConstructor},
+			latencyWindowLimiterConstructor, latencyWindowLimiterConfigConstructor},
 		"ServiceCircuitBreaker": {
-			ServiceCircuitBreakerConstructor, ServiceCircuitBreakerConfigConstructor},
+			serviceCircuitBreakerConstructor, serviceCircuitBreakerConfigConstructor},
 		"StaticProbabilityLimiter": {
-			StaticProbabilityLimiterConstructor, StaticProbabilityLimiterConfigConstructor},
+			staticProbabilityLimiterConstructor, staticProbabilityLimiterConfigConstructor},
 		"NoMoreFailureLimiter": {
-			NoMoreFailureLimiterConstructor, NoMoreFailureLimiterConfigConstructor},
+			noMoreFailureLimiterConstructor, noMoreFailureLimiterConfigConstructor},
 		"SimpleCommonMock": {
-			SimpleCommonMockConstructor, SimpleCommonMockConfigConstructor},
+			simpleCommonMockConstructor, simpleCommonMockConfigConstructor},
 		"HTTPHeaderCounter": {
-			HTTPHeaderCounterConstructor, HTTPHeaderCounterConfigConstructor},
+			httpHeaderCounterConstructor, httpHeaderCounterConfigConstructor},
 		"HTTPOutput": {
-			HTTPOutputConstructor, HTTPOutputConfigConstructor},
+			httpOutputConstructor, httpOutputConfigConstructor},
 		"IOReader": {
-			IOReaderConstructor, IOReaderConfigConfigConstructor},
+			ioReaderConstructor, ioReaderConfigConfigConstructor},
 		"SimpleCommonCache": {
-			SimpleCommonCacheConstructor, SimpleCommonCacheConfigConstructor},
+			simpleCommonCacheConstructor, simpleCommonCacheConfigConstructor},
 		"UpstreamOutput": {
-			UpstreamOutputConstructor, UpstreamOutputConfigConstructor},
+			upstreamOutputConstructor, upstreamOutputConfigConstructor},
 		"DownstreamInput": {
-			DownstreamInputConstructor, DownstreamInputConfigConstructor},
+			downstreamInputConstructor, downstreamInputConfigConstructor},
 		"Python": {
-			PythonConstructor, PythonConfigConstructor},
+			pythonConstructor, pythonConfigConstructor},
 		"Shell": {
-			ShellConstructor, ShellConfigConstructor},
+			shellConstructor, shellConfigConstructor},
 
 		// Ease Monitor product dedicated plugins
 		"EaseMonitorGraphiteGidExtractor": {

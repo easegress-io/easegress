@@ -56,7 +56,7 @@ type httpOutputConfig struct {
 	dumpReq, dumpResp bool
 }
 
-func HTTPOutputConfigConstructor() plugins.Config {
+func httpOutputConfigConstructor() plugins.Config {
 	return &httpOutputConfig{
 		TimeoutSec:            120,
 		ExpectedResponseCodes: []int{http.StatusOK},
@@ -208,7 +208,7 @@ type httpOutput struct {
 	client     *http.Client
 }
 
-func HTTPOutputConstructor(conf plugins.Config) (plugins.Plugin, error) {
+func httpOutputConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	c, ok := conf.(*httpOutputConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *httpOutputConfig got %T", conf)
@@ -473,6 +473,10 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task,
 
 func (h *httpOutput) Name() string {
 	return h.conf.PluginName()
+}
+
+func (h *httpOutput) CleanUp(ctx pipelines.PipelineContext) {
+	// Nothing to do.
 }
 
 func (h *httpOutput) Close() {

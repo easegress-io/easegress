@@ -24,7 +24,7 @@ type simpleCommonCacheConfig struct {
 	FinishIfHit bool     `json:"finish_if_hit"`
 }
 
-func SimpleCommonCacheConfigConstructor() plugins.Config {
+func simpleCommonCacheConfigConstructor() plugins.Config {
 	return &simpleCommonCacheConfig{
 		TTLSec:      600, // 10 minutes
 		FinishIfHit: true,
@@ -64,7 +64,7 @@ type simpleCommonCache struct {
 	conf *simpleCommonCacheConfig
 }
 
-func SimpleCommonCacheConstructor(conf plugins.Config) (plugins.Plugin, error) {
+func simpleCommonCacheConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	c, ok := conf.(*simpleCommonCacheConfig)
 	if !ok {
 		return nil, fmt.Errorf("config type want *simpleCommonCacheConfig got %T", conf)
@@ -87,6 +87,10 @@ func (c *simpleCommonCache) Run(ctx pipelines.PipelineContext, t task.Task) (tas
 
 func (c *simpleCommonCache) Name() string {
 	return c.conf.PluginName()
+}
+
+func (c *simpleCommonCache) CleanUp(ctx pipelines.PipelineContext) {
+	// Nothing to do.
 }
 
 func (c *simpleCommonCache) Close() {
