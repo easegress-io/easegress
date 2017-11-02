@@ -54,7 +54,7 @@ type httpInputConfig struct {
 
 func httpInputConfigConstructor() plugins.Config {
 	return &httpInputConfig{
-		ServerPluginName: "default",
+		ServerPluginName: "httpserver-default",
 		Methods:          []string{http.MethodGet},
 		Unzip:            true,
 		DumpRequest:      "auto",
@@ -184,7 +184,7 @@ func (h *httpInput) Prepare(ctx pipelines.PipelineContext) {
 	mux := getHTTPServerMux(ctx, h.conf.ServerPluginName)
 	if mux != nil {
 		for _, method := range h.conf.Methods {
-			err := mux.AddFunc(h.conf.URL, method, h.conf.HeadersEnum, h.handler)
+			err := mux.AddFunc(ctx.PipelineName(), h.conf.URL, method, h.conf.HeadersEnum, h.handler)
 			if err != nil {
 				logger.Errorf("[add handler to server %s failed: %v]", h.conf.ServerPluginName, err)
 			}
@@ -492,15 +492,11 @@ func (h *httpInput) CleanUp(ctx pipelines.PipelineContext) {
 	}
 
 	for _, method := range h.conf.Methods {
-		mux.DeleteFunc(h.conf.URL, method)
+		mux.DeleteFunc(ctx.PipelineName(), h.conf.URL, method)
 	}
 }
 
-func (h *httpInput) Close(contexts map[string]pipelines.PipelineContext) {
-	for _, ctx := range contexts {
-		h.CleanUp(ctx)
-	}
-
+func (h *httpInput) Close() {
 	if h.httpTaskChan != nil {
 		close(h.httpTaskChan)
 		h.httpTaskChan = nil
@@ -542,20 +538,4 @@ func getHTTPInputHandlingRequestCount(ctx pipelines.PipelineContext, pluginName 
 	}
 
 	return count.(*uint64), nil
-}
-
-////
-
-func getHTTPServerMux(ctx pipelines.PipelineContext, serverPluginName string) plugins.HTTPMux {
-	bucket := ctx.DataBucket(serverPluginName, pipelines.DATA_BUCKET_FOR_ALL_PLUGIN_INSTANCE)
-	mux := bucket.QueryData(plugins.HTTP_SERVER_MUX_BUCKET_KEY)
-
-	ret, ok := mux.(plugins.HTTPMux)
-	if !ok {
-		logger.Errorf("[the mux of http server '%s' for pipeline %s is invalid]",
-			serverPluginName, ctx.PipelineName())
-		return nil
-	}
-
-	return ret
 }

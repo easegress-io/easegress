@@ -22,14 +22,11 @@ var supportedMethods = map[string]interface{}{
 	http.MethodTrace:   nil,
 }
 
-type entry struct {
-	headers map[string][]string
-	handler plugins.HTTPHandler
-}
+////
 
 type mux struct {
 	sync.Mutex
-	rtable map[string]map[string]*entry
+	rtable map[string]map[string]map[string]*plugins.HTTPMuxEntry
 }
 
 func newMux() *mux {
@@ -40,17 +37,19 @@ func (m *mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	match := false
 	wrongMethod := false
 	var path_params map[string]string
-	var e *entry
+	var e *plugins.HTTPMuxEntry
 
-	for pattern, methods := range m.rtable {
-		match, path_params, _ = parsePath(r.URL.Path, pattern)
-
-		if match {
-			e = methods[r.Method]
-			if e == nil {
-				wrongMethod = true
-			} else {
-				break
+LOOP:
+	for _, pipeline_rtable := range m.rtable {
+		for pattern, methods := range pipeline_rtable {
+			match, path_params, _ = parsePath(r.URL.Path, pattern)
+			if match {
+				e = methods[r.Method]
+				if e == nil {
+					wrongMethod = true
+				} else {
+					break LOOP
+				}
 			}
 		}
 	}
@@ -66,7 +65,7 @@ func (m *mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	errKeys := make([]string, 0)
-	for key, valuesEnum := range e.headers {
+	for key, valuesEnum := range e.Headers {
 		errKeys = append(errKeys, key)
 		v := r.Header.Get(key)
 		for _, valueEnum := range valuesEnum {
@@ -82,15 +81,66 @@ func (m *mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	e.handler(w, r, path_params)
+	e.Handler(w, r, path_params)
 }
 
-func (m *mux) AddFunc(path, method string, headers map[string][]string, handler plugins.HTTPHandler) error {
-	path = strings.TrimSpace(path)
-	method = strings.TrimSpace(method)
+func (m *mux) validate(path, method string) error {
+	// we do not allow to register static path and parametric path on the same segment, for example
+	// client can not register the patterns `/user/jack` and `/user/{user}` on the same http method at the same time.
+	for pipeline, pipeline_rtable := range m.rtable {
+		for p, methods := range pipeline_rtable {
+			dup, err := duplicatedPath(p, path)
+			if err != nil {
+				return err
+			}
+
+			if dup && methods[method] != nil {
+				return fmt.Errorf("duplicated handler on %s %s with existing %s %s in pipeline %s",
+					method, path, method, p, pipeline)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (m *mux) _locklessAddFunc(pipeline, path, method string, headers map[string][]string,
+	handler plugins.HTTPHandler) {
+
+	if m.rtable == nil {
+		m.rtable = make(map[string]map[string]map[string]*plugins.HTTPMuxEntry)
+	}
+
+	pipeline_rtable, exists := m.rtable[pipeline]
+	if !exists {
+		pipeline_rtable = make(map[string]map[string]*plugins.HTTPMuxEntry)
+		m.rtable[pipeline] = pipeline_rtable
+	}
+
+	path_rules, exists := pipeline_rtable[path]
+	if !exists {
+		path_rules = make(map[string]*plugins.HTTPMuxEntry)
+		pipeline_rtable[path] = path_rules
+	}
+
+	path_rules[method] = &plugins.HTTPMuxEntry{
+		Headers: headers,
+		Handler: handler,
+	}
+}
+
+func (m *mux) AddFunc(pipeline, path, method string, headers map[string][]string, handler plugins.HTTPHandler) error {
+	ts := strings.TrimSpace
+	pipeline = ts(pipeline)
+	path = ts(path)
+	method = ts(method)
+
+	if len(pipeline) == 0 {
+		return fmt.Errorf("empty pipeline name")
+	}
 
 	if len(path) == 0 {
-		return fmt.Errorf("empty path pattern")
+		return fmt.Errorf("empty path")
 	}
 
 	if len(method) == 0 {
@@ -109,44 +159,79 @@ func (m *mux) AddFunc(path, method string, headers map[string][]string, handler 
 	m.Lock()
 	defer m.Unlock()
 
-	if m.rtable == nil {
-		m.rtable = make(map[string]map[string]*entry)
+	err := m.validate(path, method)
+	if err != nil {
+		return err
 	}
 
-	// we do not allow to register static path and parametric path on the same segment, for example
-	// client can not register the patterns `/user/jack` and `/user/{user}` on the same http method at the same time.
-	for p, methods := range m.rtable {
-		dup, err := duplicatedPath(p, path)
-		if err != nil {
-			return err
+	m._locklessAddFunc(pipeline, path, method, headers, handler)
+
+	return nil
+}
+
+func (m *mux) AddFuncs(pipeline string, pipeline_rtable map[string]map[string]*plugins.HTTPMuxEntry) error {
+	ts := strings.TrimSpace
+	pipeline = ts(pipeline)
+
+	if len(pipeline) == 0 {
+		return fmt.Errorf("empty pipeline name")
+	}
+
+	if pipeline_rtable == nil {
+		return fmt.Errorf("empty pipeline route table")
+	}
+
+	m.Lock()
+	defer m.Unlock()
+
+	// full validation first
+	for path, methods := range pipeline_rtable {
+		for method := range methods {
+			err := m.validate(path, method)
+			if err != nil {
+				return err
+			}
+
 		}
+	}
 
-		if dup && methods[method] != nil {
-			return fmt.Errorf("duplicated handler on %s %s with existing %s %s", method, path, method, p)
+	for path, methods := range pipeline_rtable {
+		for method, entry := range methods {
+			m._locklessAddFunc(pipeline, path, method, entry.Headers, entry.Handler)
 		}
-	}
-
-	if m.rtable[path] == nil {
-		m.rtable[path] = make(map[string]*entry)
-	}
-
-	m.rtable[path][method] = &entry{
-		headers: headers,
-		handler: handler,
 	}
 
 	return nil
 }
 
-func (m *mux) DeleteFunc(path, method string) {
+func (m *mux) DeleteFunc(pipeline, path, method string) {
 	m.Lock()
 	defer m.Unlock()
 
-	delete(m.rtable[path], method)
-	if len(m.rtable[path]) == 0 {
-		delete(m.rtable, path)
+	pipeline_rtable, exists := m.rtable[pipeline]
+	if !exists {
+		return
+	}
+
+	delete(pipeline_rtable[path], method)
+	if len(pipeline_rtable[path]) == 0 {
+		delete(pipeline_rtable, path)
+	}
+	if len(pipeline_rtable) == 0 {
+		delete(m.rtable, pipeline)
 	}
 }
+
+func (m *mux) DeleteFuncs(pipeline string) map[string]map[string]*plugins.HTTPMuxEntry {
+	m.Lock()
+	defer m.Unlock()
+
+	pipeline_rtable := m.rtable[pipeline]
+	delete(m.rtable, pipeline)
+	return pipeline_rtable
+}
+
+////
 
 func findNextChar(str []byte, cs []byte, end_as_closer bool) int {
 	l := len(str)
@@ -270,6 +355,8 @@ func duplicatedPath(p1, p2 string) (bool, error) {
 
 	return true, nil
 }
+
+////
 
 type headerErr struct {
 	Code    int

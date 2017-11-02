@@ -39,7 +39,7 @@ type pipelineContext struct {
 func NewPipelineContext(conf pipelines_gw.Config,
 	statistics pipelines.PipelineStatistics, m *Model) *pipelineContext {
 
-	return &pipelineContext{
+	c := &pipelineContext{
 		pipeName:         conf.PipelineName(),
 		plugNames:        conf.PluginNames(),
 		parallelismCount: conf.Parallelism(),
@@ -49,6 +49,10 @@ func NewPipelineContext(conf pipelines_gw.Config,
 		preparationBook:  make(map[string]interface{}),
 		requestChan:      make(chan *pipelines.DownstreamRequest, conf.CrossPipelineRequestBacklog()),
 	}
+
+	logger.Infof("[pipeline %s context is created]", conf.PipelineName())
+
+	return c
 }
 
 func (pc *pipelineContext) PipelineName() string {
@@ -261,6 +265,8 @@ func (pc *pipelineContext) Close() {
 		close(pc.requestChan)
 		pc.requestChan = nil // to make len() returns 0 in CrossPipelineWIPRequestsCount()
 	}
+
+	logger.Infof("[pipeline %s context is closed]", pc.pipeName)
 }
 
 func (pc *pipelineContext) deletePluginPreparationBookWhenPluginUpdatedOrDeleted(plugin *Plugin) {

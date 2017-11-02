@@ -179,14 +179,12 @@ func httpServerConstructor(conf plugins.Config) (plugins.Plugin, error) {
 }
 
 func (h *httpServer) Prepare(ctx pipelines.PipelineContext) {
-	mux, err := storeHTTPServerMux(ctx, h.Name(), h.mux)
-	if err != nil {
-		h.server.Handler = newMux() // empty route table
-		return
+	pipeline_rtable := getPipelineRouteTable(ctx, h.Name())
+	if pipeline_rtable != nil {
+		h.mux.AddFuncs(ctx.PipelineName(), pipeline_rtable)
 	}
 
-	// reuse existing mux, if exists, which is created and used before the server plugin update
-	h.server.Handler = mux
+	storeHTTPServerMux(ctx, h.Name(), h.mux)
 }
 
 func (h *httpServer) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
@@ -199,10 +197,19 @@ func (h *httpServer) Name() string {
 }
 
 func (h *httpServer) CleanUp(ctx pipelines.PipelineContext) {
-	// Nothing to do.
+	mux := getHTTPServerMux(ctx, h.Name())
+	if mux == nil {
+		// doesn't make sense, defensive
+		return
+	}
+
+	pipeline_rtable := mux.DeleteFuncs(ctx.PipelineName())
+	if pipeline_rtable != nil {
+		storePipelineRouteTable(ctx, h.Name(), pipeline_rtable)
+	}
 }
 
-func (h *httpServer) Close(contexts map[string]pipelines.PipelineContext) {
+func (h *httpServer) Close() {
 	h.closed = true
 
 	err := h.server.Close()
@@ -245,19 +252,62 @@ func (ln tcpKeepAliveListener) Addr() net.Addr {
 
 ////
 
-func storeHTTPServerMux(ctx pipelines.PipelineContext, pluginName string,
-	defaultMux plugins.HTTPMux) (plugins.HTTPMux, error) {
-
+func storeHTTPServerMux(ctx pipelines.PipelineContext, pluginName string, mux plugins.HTTPMux) error {
 	bucket := ctx.DataBucket(pluginName, pipelines.DATA_BUCKET_FOR_ALL_PLUGIN_INSTANCE)
-	mux, err := bucket.QueryDataWithBindDefault(plugins.HTTP_SERVER_MUX_BUCKET_KEY,
-		func() interface{} {
-			return defaultMux
-		})
+	_, err := bucket.BindData(plugins.HTTP_SERVER_MUX_BUCKET_KEY, mux)
 	if err != nil {
-		logger.Warnf("[BUG: query the mux of http server %s for pipeline %s failed, "+
+		logger.Warnf("[BUG: store the mux of http server %s for pipeline %s failed, "+
 			"ignored to provide mux: %v]", pluginName, ctx.PipelineName(), err)
-		return nil, err
+		return err
 	}
 
-	return mux.(plugins.HTTPMux), nil
+	return nil
+}
+
+func getHTTPServerMux(ctx pipelines.PipelineContext, pluginName string) plugins.HTTPMux {
+	bucket := ctx.DataBucket(pluginName, pipelines.DATA_BUCKET_FOR_ALL_PLUGIN_INSTANCE)
+	mux := bucket.QueryData(plugins.HTTP_SERVER_MUX_BUCKET_KEY)
+
+	ret, ok := mux.(plugins.HTTPMux)
+	if !ok {
+		logger.Errorf("[the mux of http server %s for pipeline %s is invalid]",
+			pluginName, ctx.PipelineName())
+		return nil
+	}
+
+	return ret
+}
+
+func storePipelineRouteTable(ctx pipelines.PipelineContext, pluginName string,
+	pipeline_rtable map[string]map[string]*plugins.HTTPMuxEntry) error {
+
+	bucket := ctx.DataBucket(pluginName, pipelines.DATA_BUCKET_FOR_ALL_PLUGIN_INSTANCE)
+	_, err := bucket.BindData(plugins.HTTP_SERVER_PIPELINE_ROUTE_TABLE_BUCKET_KEY, pipeline_rtable)
+	if err != nil {
+		logger.Errorf("[BUG: store the route table of pipeline %s for http server %s failed: %v]",
+			ctx.PipelineName(), pluginName, err)
+		return err
+	}
+
+	return nil
+}
+
+func getPipelineRouteTable(ctx pipelines.PipelineContext,
+	pluginName string) map[string]map[string]*plugins.HTTPMuxEntry {
+
+	bucket := ctx.DataBucket(pluginName, pipelines.DATA_BUCKET_FOR_ALL_PLUGIN_INSTANCE)
+	pipeline_rtable := bucket.QueryData(plugins.HTTP_SERVER_PIPELINE_ROUTE_TABLE_BUCKET_KEY)
+
+	if pipeline_rtable == nil {
+		return nil
+	}
+
+	ret, ok := pipeline_rtable.(map[string]map[string]*plugins.HTTPMuxEntry)
+	if !ok {
+		logger.Errorf("[the route table of pipeline %s for http server %s is invalid]",
+			ctx.PipelineName(), pluginName)
+		return nil
+	}
+
+	return ret
 }
