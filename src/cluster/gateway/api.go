@@ -477,7 +477,7 @@ func (gc *GatewayCluster) RetrievePipelineTypes(group string, timeout time.Durat
 
 	requestName := fmt.Sprintf("(group:%s)retrive_pipeline_types", group)
 
-	resp, err := gc.issueRetrieve(group, timeout, requestName, syncAll, &FilterRetrievePluginTypes{})
+	resp, err := gc.issueRetrieve(group, timeout, requestName, syncAll, &FilterRetrievePipelineTypes{})
 	if err != nil {
 		return nil, err
 	}
