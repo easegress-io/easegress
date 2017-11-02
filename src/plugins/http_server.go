@@ -131,8 +131,6 @@ func httpServerConstructor(conf plugins.Config) (plugins.Plugin, error) {
 		h.server.IdleTimeout = time.Duration(c.ConnKeepAliveSec) * time.Second
 	}
 
-	logger.Debugf("[the server is starting at %s]", h.addr)
-
 	done := make(chan error)
 	defer close(done)
 
@@ -145,6 +143,8 @@ func httpServerConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	}
 
 	if c.https {
+		logger.Debugf("[https server is starting at %s]", h.addr)
+
 		go func() {
 			err := h.server.ServeTLS(ln, c.certFilePath, c.keyFilePath)
 			if !h.closed && err != nil {
@@ -153,6 +153,8 @@ func httpServerConstructor(conf plugins.Config) (plugins.Plugin, error) {
 			server_startup_notifier(err)
 		}()
 	} else {
+		logger.Debugf("[http server is starting at %s]", h.addr)
+
 		go func() {
 			err := h.server.Serve(ln)
 			if !h.closed && err != nil {
@@ -162,11 +164,9 @@ func httpServerConstructor(conf plugins.Config) (plugins.Plugin, error) {
 		}()
 	}
 
-	// This is a trick way, but it's fine, in most case error will
-	// happen at Listen() or doing preparation in Serve() at start
 	select {
 	case err = <-done:
-	case <-time.After(2 * time.Second): // FIXME: I hate this kind of magic number, but Serve() blocks
+	default:
 	}
 
 	if err != nil {
@@ -185,6 +185,7 @@ func (h *httpServer) Prepare(ctx pipelines.PipelineContext) {
 	}
 
 	storeHTTPServerMux(ctx, h.Name(), h.mux)
+	storeHTTPServerGoneNotifier(ctx, h.Name(), make(chan struct{}))
 }
 
 func (h *httpServer) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
@@ -197,7 +198,7 @@ func (h *httpServer) Name() string {
 }
 
 func (h *httpServer) CleanUp(ctx pipelines.PipelineContext) {
-	mux := getHTTPServerMux(ctx, h.Name())
+	mux := getHTTPServerMux(ctx, h.Name(), true)
 	if mux == nil {
 		// doesn't make sense, defensive
 		return
@@ -206,6 +207,11 @@ func (h *httpServer) CleanUp(ctx pipelines.PipelineContext) {
 	pipeline_rtable := mux.DeleteFuncs(ctx.PipelineName())
 	if pipeline_rtable != nil {
 		storePipelineRouteTable(ctx, h.Name(), pipeline_rtable)
+	}
+
+	notifier := getHTTPServerGoneNotifier(ctx, h.Name(), true)
+	if notifier != nil {
+		close(notifier)
 	}
 }
 
@@ -264,12 +270,12 @@ func storeHTTPServerMux(ctx pipelines.PipelineContext, pluginName string, mux pl
 	return nil
 }
 
-func getHTTPServerMux(ctx pipelines.PipelineContext, pluginName string) plugins.HTTPMux {
+func getHTTPServerMux(ctx pipelines.PipelineContext, pluginName string, required bool) plugins.HTTPMux {
 	bucket := ctx.DataBucket(pluginName, pipelines.DATA_BUCKET_FOR_ALL_PLUGIN_INSTANCE)
 	mux := bucket.QueryData(plugins.HTTP_SERVER_MUX_BUCKET_KEY)
 
 	ret, ok := mux.(plugins.HTTPMux)
-	if !ok {
+	if !ok && required {
 		logger.Errorf("[the mux of http server %s for pipeline %s is invalid]",
 			pluginName, ctx.PipelineName())
 		return nil
@@ -306,6 +312,32 @@ func getPipelineRouteTable(ctx pipelines.PipelineContext,
 	if !ok {
 		logger.Errorf("[the route table of pipeline %s for http server %s is invalid]",
 			ctx.PipelineName(), pluginName)
+		return nil
+	}
+
+	return ret
+}
+
+func storeHTTPServerGoneNotifier(ctx pipelines.PipelineContext, pluginName string, notifier chan struct{}) error {
+	bucket := ctx.DataBucket(pluginName, pipelines.DATA_BUCKET_FOR_ALL_PLUGIN_INSTANCE)
+	_, err := bucket.BindData(plugins.HTTP_SERVER_GONE_NOTIFIER_BUCKET_KEY, notifier)
+	if err != nil {
+		logger.Warnf("[BUG: store the close notifier of http server %s for pipeline %s failed, "+
+			"ignored to provide close notifier: %v]", pluginName, ctx.PipelineName(), err)
+		return err
+	}
+
+	return nil
+}
+
+func getHTTPServerGoneNotifier(ctx pipelines.PipelineContext, pluginName string, required bool) chan struct{} {
+	bucket := ctx.DataBucket(pluginName, pipelines.DATA_BUCKET_FOR_ALL_PLUGIN_INSTANCE)
+	notifier := bucket.QueryData(plugins.HTTP_SERVER_GONE_NOTIFIER_BUCKET_KEY)
+
+	ret, ok := notifier.(chan struct{})
+	if !ok && required {
+		logger.Errorf("[the close notifier of http server %s for pipeline %s is invalid]",
+			pluginName, ctx.PipelineName())
 		return nil
 	}
 

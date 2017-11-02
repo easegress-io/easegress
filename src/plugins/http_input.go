@@ -181,7 +181,7 @@ func httpInputConstructor(conf plugins.Config) (plugins.Plugin, error) {
 }
 
 func (h *httpInput) Prepare(ctx pipelines.PipelineContext) {
-	mux := getHTTPServerMux(ctx, h.conf.ServerPluginName)
+	mux := getHTTPServerMux(ctx, h.conf.ServerPluginName, true)
 	if mux != nil {
 		for _, method := range h.conf.Methods {
 			err := mux.AddFunc(ctx.PipelineName(), h.conf.URL, method, h.conf.HeadersEnum, h.handler)
@@ -266,6 +266,11 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 	var ht *httpTask
 	var err error
 
+	notifier := getHTTPServerGoneNotifier(ctx, h.conf.ServerPluginName, false)
+	if notifier == nil {
+		return fmt.Errorf("http server %s gone", h.conf.ServerPluginName), task.ResultServerGone, t
+	}
+
 	select {
 	case ht, ok = <-h.httpTaskChan:
 		if !ok {
@@ -276,6 +281,8 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 		}
 	case <-t.Cancel():
 		return fmt.Errorf("task is cancelled by %s", t.CancelCause()), task.ResultTaskCancelled, t
+	case <-notifier:
+		return fmt.Errorf("http server %s gone", h.conf.ServerPluginName), task.ResultServerGone, t
 	}
 
 	if h.conf.dumpReq {
@@ -486,7 +493,7 @@ func (h *httpInput) Name() string {
 }
 
 func (h *httpInput) CleanUp(ctx pipelines.PipelineContext) {
-	mux := getHTTPServerMux(ctx, h.conf.ServerPluginName)
+	mux := getHTTPServerMux(ctx, h.conf.ServerPluginName, false)
 	if mux == nil {
 		return
 	}
