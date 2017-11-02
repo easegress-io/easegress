@@ -143,7 +143,7 @@ func httpServerConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	}
 
 	if c.https {
-		logger.Debugf("[https server is starting at %s]", h.addr)
+		logger.Debugf("[https server %s is starting at %s]", c.Name, h.addr)
 
 		go func() {
 			err := h.server.ServeTLS(ln, c.certFilePath, c.keyFilePath)
@@ -153,7 +153,7 @@ func httpServerConstructor(conf plugins.Config) (plugins.Plugin, error) {
 			server_startup_notifier(err)
 		}()
 	} else {
-		logger.Debugf("[http server is starting at %s]", h.addr)
+		logger.Debugf("[http server %s is starting at %s]", c.Name, h.addr)
 
 		go func() {
 			err := h.server.Serve(ln)

@@ -100,10 +100,13 @@ func (p *linearPipeline) Run() error {
 	pluginNames := p.conf.PluginNames()
 	for i := 0; i < len(pluginNames) && !p.stopped; i++ {
 		instance, err := p.mod.GetPluginInstance(pluginNames[i])
-		if err == nil {
-			p.ctx.PreparePlugin(pluginNames[i], func() { instance.Prepare(p.ctx) })
-			p.mod.ReleasePluginInstance(instance)
+		if err != nil {
+			// the preparation of follow plugin might depend on previous plugin
+			break
 		}
+
+		p.ctx.PreparePlugin(pluginNames[i], func() { instance.Prepare(p.ctx) })
+		p.mod.ReleasePluginInstance(instance)
 	}
 
 	p.mod.AddPluginUpdatedCallback(fmt.Sprintf("%s-cancelAndRerunRunningPlugin@%p", p.Name(), p),

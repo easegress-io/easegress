@@ -189,9 +189,9 @@ func (gw *Gateway) Stop() {
 
 	logger.Infof("[stopped pipelines]")
 
-	logger.Infof("[closing plugins]")
+	logger.Infof("[cleaning and closing plugins]")
 	gw.mod.DismissAllPluginInstances()
-	logger.Infof("[closed plugins]")
+	logger.Infof("[cleaned and closed plugins]")
 
 	gw.done <- err
 }
