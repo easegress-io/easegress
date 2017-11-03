@@ -137,7 +137,7 @@ func (op *opLog) append(startSeq uint64, operations []*Operation) (error, Cluste
 				startSeq+uint64(idx), operation, err), OperationInvalidContentError
 		}
 
-		err = txn.Set([]byte(fmt.Sprintf("%d", startSeq+uint64(idx))), opBuff, 0x00)
+		err = txn.Set([]byte(fmt.Sprintf("%d", startSeq+uint64(idx))), opBuff)
 		if err != nil {
 			logger.Errorf("[set operation (sequence=%d) to badger failed: %v]", startSeq+uint64(idx), err)
 			return fmt.Errorf("set operation (sequence=%d) to badger failed: %v",
@@ -302,7 +302,7 @@ func (op *opLog) _locklessIncreaseMaxSeq(txn *badger.Txn) (uint64, error) {
 }
 
 func (op *opLog) _locklessWriteMaxSeq(txn *badger.Txn, ms uint64) (uint64, error) {
-	err := txn.Set([]byte(maxSeqKey), []byte(fmt.Sprintf("%d", ms)), 0x00)
+	err := txn.Set([]byte(maxSeqKey), []byte(fmt.Sprintf("%d", ms)))
 	if err != nil {
 		logger.Errorf("[set max sequence to badger failed: %v]", err)
 		return 0, err
