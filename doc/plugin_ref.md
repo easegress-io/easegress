@@ -50,6 +50,8 @@ Plugin handles HTTP request and returns client with pipeline processed response.
 | response\_code\_key | string | The key name of HTTP response status code value stored in internal storage as the plugin input. An empty value of the option means returning pipeline handling result code to client. | I/O | Yes | "" |
 | response\_body\_io\_key | string | The key name of HTTP response body io object stored in internal storage as the plugin input. | I/O | Yes | "" |
 | response\_body\_buffer\_key | string | The key name of HTTP response body buffer stored in internal storage as the plugin input. The option will be leveraged only when `response_body_io_key` option is empty. | I/O | Yes | "" |
+| response\_remote\_key | string | The key name of HTTP response remote address stored in internal storage as the plugin input. | I/O | Yes | "" |
+| response\_duration\_key | string | The key name of HTTP response process time stored in internal storage as the plugin input. | I/O | Yes | "" |
 
 ### I/O
 
@@ -62,6 +64,8 @@ Plugin handles HTTP request and returns client with pipeline processed response.
 | Response HTTP status code | response\_code\_key | Input | int | Yes |
 | Response body IO object | response\_body\_io\_key | Input | io.Reader | Yes |
 | Response body buffer | response\_body\_buffer\_key | Input | []byte | Yes |
+| Response remote address | response\_remote\_key | Input | string | Yes |
+| Response process time | response\_duration\_key | Input | time.Duration | Yes |
 
 ### Error
 
@@ -170,6 +174,8 @@ Plugin outputs request data to a HTTP endpoint.
 | request\_body\_io\_key | string | The HTTP output body io object. | I/O | Yes | "" |
 | response\_code\_key | string | The key name of HTTP response status code value stored in internal storage as the plugin output. An empty value of the option means the plugin does not output HTTP response status code. | I/O | Yes | "" |
 | response\_body\_io\_key | string | The key name of HTTP response body io object stored in internal storage as the plugin output. An empty value of the option means the plugin does not output HTTP response body io object.| I/O | Yes | "" |
+| response\_remote\_key | string | The key name of HTTP response remote address stored in internal storage as the plugin input. An empty value of the option means the plugin does not output HTTP reponse remote address. | I/O | Yes | "" |
+| response\_duration\_key | string | The key name of HTTP response process time stored in internal storage as the plugin output. An empty value of the option means the plugin does not output HTTP response process time. | I/O | Yes | "" |
 
 ### I/O
 
@@ -178,6 +184,8 @@ Plugin outputs request data to a HTTP endpoint.
 | Request HTTP body | request\_body\_io\_key | Input | io.Reader | Yes |
 | Response HTTP status code | response\_code\_key | Output | int | Yes |
 | Response body IO object | response\_body\_io\_key | Output | io.ReadCloser | Yes |
+| Response remote address | response\_remote\_key | Output | string | Yes |
+| Response process time | response\_duration\_key | Output | time.Duration | Yes |
 
 > NOTE:
 > Kindly reminder for plugin developer: if the option `response_body_io_key` is configured, downstream plugin has the responsibility to close it after use to prevent resource leak.
@@ -190,6 +198,8 @@ Plugin outputs request data to a HTTP endpoint.
 | ResultInternalServerError | failed to create HTTP request |
 | ResultInternalServerError | failed to output response HTTP status code |
 | ResultInternalServerError | failed to output response body IO object |
+| ResultInternalServerError | failed to output remote address of the response |
+| ResultInternalServerError | failed to output process time of the response |
 
 ### Dedicated statistics indicator
 

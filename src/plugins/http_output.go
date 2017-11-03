@@ -42,9 +42,11 @@ type httpOutputConfig struct {
 	DumpRequest              string            `json:"dump_request"`
 	DumpResponse             string            `json:"dump_response"`
 
-	RequestBodyIOKey  string `json:"request_body_io_key"`
-	ResponseCodeKey   string `json:"response_code_key"`
-	ResponseBodyIOKey string `json:"response_body_io_key"`
+	RequestBodyIOKey    string `json:"request_body_io_key"`
+	ResponseCodeKey     string `json:"response_code_key"`
+	ResponseBodyIOKey   string `json:"response_body_io_key"`
+	ResponseRemoteKey   string `json:"response_remote_key"`
+	ResponseDurationKey string `json:"response_duration_key"`
 
 	cert              *tls.Certificate
 	caCert            []byte
@@ -80,6 +82,8 @@ func (c *httpOutputConfig) Prepare(pipelineNames []string) error {
 	c.DumpResponse = ts(c.DumpResponse)
 	c.ResponseCodeKey = ts(c.ResponseCodeKey)
 	c.ResponseBodyIOKey = ts(c.ResponseBodyIOKey)
+	c.ResponseRemoteKey = ts(c.ResponseRemoteKey)
+	c.ResponseDurationKey = ts(c.ResponseDurationKey)
 
 	uri, err := url.ParseRequestURI(c.URLPattern)
 	if err != nil || !uri.IsAbs() || uri.Hostname() == "" ||
@@ -239,7 +243,7 @@ func (h *httpOutput) Prepare(ctx pipelines.PipelineContext) {
 	// Nothing to do.
 }
 
-func (h *httpOutput) send(ctx pipelines.PipelineContext, t task.Task, req *http.Request) (*http.Response, error) {
+func (h *httpOutput) send(ctx pipelines.PipelineContext, t task.Task, req *http.Request) (*http.Response, time.Duration, error) {
 	r := make(chan *http.Response)
 	e := make(chan error)
 
@@ -253,6 +257,8 @@ func (h *httpOutput) send(ctx pipelines.PipelineContext, t task.Task, req *http.
 		logger.HTTPReqDump(ctx.PipelineName(), h.Name(), h.instanceId, t.StartAt().UnixNano(), req)
 	}
 
+	var requestStartAt time.Time
+
 	go func() {
 		defer func() {
 			// channel e and r can be closed first before return by existing send()
@@ -260,6 +266,7 @@ func (h *httpOutput) send(ctx pipelines.PipelineContext, t task.Task, req *http.
 			recover()
 		}()
 
+		requestStartAt = time.Now()
 		resp, err := h.client.Do(req)
 		if err != nil {
 			e <- err
@@ -270,19 +277,20 @@ func (h *httpOutput) send(ctx pipelines.PipelineContext, t task.Task, req *http.
 
 	select {
 	case resp := <-r:
+		responseDuration := time.Since(requestStartAt)
 		if h.conf.dumpResp {
 			logger.HTTPRespDump(ctx.PipelineName(), h.Name(), h.instanceId, t.StartAt().UnixNano(), resp)
 		}
 
-		return resp, nil
+		return resp, responseDuration, nil
 	case err := <-e:
 		t.SetError(err, task.ResultServiceUnavailable)
-		return nil, err
+		return nil, 0, err
 	case <-t.Cancel():
 		cancel()
 		err := fmt.Errorf("task is cancelled by %s", t.CancelCause())
 		t.SetError(err, task.ResultTaskCancelled)
-		return nil, err
+		return nil, 0, err
 	}
 }
 
@@ -368,7 +376,7 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task,
 	req.Header.Set("User-Agent", "EaseGateway")
 	req.Host = req.Header.Get("Host") // https://github.com/golang/go/issues/7682
 
-	resp, err := h.send(ctx, t, req)
+	resp, responseDuration, err := h.send(ctx, t, req)
 	if err != nil {
 		return t, nil
 	}
@@ -403,6 +411,23 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task,
 
 	if len(h.conf.ResponseCodeKey) != 0 {
 		t, err = task.WithValue(t, h.conf.ResponseCodeKey, resp.StatusCode)
+		if err != nil {
+			t.SetError(err, task.ResultInternalServerError)
+			return t, nil
+		}
+	}
+
+	if len(h.conf.ResponseRemoteKey) != 0 {
+		t, err = task.WithValue(t, h.conf.ResponseRemoteKey, link)
+		if err != nil {
+			t.SetError(err, task.ResultInternalServerError)
+			return t, nil
+		}
+	}
+
+	if len(h.conf.ResponseDurationKey) != 0 {
+		var err error = nil
+		t, err = task.WithValue(t, h.conf.ResponseDurationKey, responseDuration)
 		if err != nil {
 			t.SetError(err, task.ResultInternalServerError)
 			return t, nil

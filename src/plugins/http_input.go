@@ -107,6 +107,8 @@ type httpInputConfig struct {
 	ResponseCodeKey       string `json:"response_code_key"`
 	ResponseBodyIOKey     string `json:"response_body_io_key"`
 	ResponseBodyBufferKey string `json:"response_body_buffer_key"`
+	ResponseRemoteKey     string `json:"response_remote_key"`
+	ResponseDurationKey   string `json:"response_duration_key"`
 
 	dumpReq bool
 }
@@ -137,6 +139,8 @@ func (c *httpInputConfig) Prepare(pipelineNames []string) error {
 	c.ResponseCodeKey = ts(c.ResponseCodeKey)
 	c.ResponseBodyIOKey = ts(c.ResponseBodyIOKey)
 	c.ResponseBodyBufferKey = ts(c.ResponseBodyBufferKey)
+	c.ResponseRemoteKey = ts(c.ResponseRemoteKey)
+	c.ResponseDurationKey = ts(c.ResponseDurationKey)
 
 	if !filepath.IsAbs(c.URL) {
 		return fmt.Errorf("invalid relative url")
@@ -341,6 +345,22 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 		logger.HTTPReqDump(ctx.PipelineName(), h.Name(), h.instanceId, t.StartAt().UnixNano(), ht.request)
 	}
 
+	getTaskResultCode := func(t1 task.Task) int {
+		return task.ResultCodeToHTTPCode(t1.ResultCode())
+	}
+
+	getResponseCode := func(t1 task.Task) int {
+		statusCode := getTaskResultCode(t1)
+		if len(h.conf.ResponseCodeKey) != 0 {
+			code, err := strconv.Atoi(
+				task.ToString(t1.Value(h.conf.ResponseCodeKey), option.PluginIODataFormatLengthLimit))
+			if err == nil {
+				statusCode = code
+			}
+		}
+		return statusCode
+	}
+
 	respondCaller := func(t1 task.Task, _ task.TaskStatus) {
 		t1.DeleteFinishedCallback(fmt.Sprintf("%s-responseCaller", h.Name()))
 
@@ -356,18 +376,8 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 		default:
 		}
 
-		statusCode := task.ResultCodeToHTTPCode(t1.ResultCode())
-
-		if len(h.conf.ResponseCodeKey) != 0 {
-			code, err := strconv.Atoi(
-				task.ToString(t1.Value(h.conf.ResponseCodeKey), option.PluginIODataFormatLengthLimit))
-			if err == nil &&
-				code > 99 && code < 600 { // should seems like a valid http code, at least
-				statusCode = code
-			}
-		}
-
-		ht.writer.WriteHeader(statusCode)
+		taskResultCode := getTaskResultCode(t1)
+		ht.writer.WriteHeader(taskResultCode)
 
 		// TODO: Take care other headers if inputted
 
@@ -434,16 +444,38 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 	logRequest := func(t1 task.Task, _ task.TaskStatus) {
 		t1.DeleteFinishedCallback(fmt.Sprintf("%s-logRequest", h.Name()))
 
-		code := t1.ResultCode()
-		httpCode := task.ResultCodeToHTTPCode(code)
+		var responseRemote string = ""
+		value := t1.Value(h.conf.ResponseRemoteKey)
+		if value != nil {
+			rr, ok := value.(string)
+			if ok {
+				responseRemote = rr
+			}
+		}
+
+		taskResultCode := getTaskResultCode(t1)
+		responseCode := getResponseCode(t1)
+
+		var responseDuration time.Duration = 0
+		value = nil
+		value = t1.Value(h.conf.ResponseDurationKey)
+		if value != nil {
+			rd, ok := value.(time.Duration)
+			if ok {
+				responseDuration = rd
+			}
+		}
+
 		// TODO: use variables(e.g. upstream_response_time_xxx) of each plugin
 		// or provide a method(e.g. AddUpstreamResponseTime) of task
-		// TODO: calculate real body_bytes_sent value
-		logger.HTTPAccess(ht.request, httpCode, -1, t1.FinishAt().Sub(ht.receivedAt), time.Duration(-1))
+		// TODO: calculate real body_bytes_sent value, which need read data from repondCaller.
+		logger.HTTPAccess(ht.request, taskResultCode, -1,
+			t1.FinishAt().Sub(ht.receivedAt), responseDuration,
+			responseRemote, responseCode)
 
-		if !task.SuccessfulResult(code) {
+		if !task.SuccessfulResult(t1.ResultCode()) {
 			logger.Warnf("[http request processed unsuccessfully, "+
-				"result code: %d, error: %s]", httpCode, t1.Error())
+				"result code: %d, error: %s]", taskResultCode, t1.Error())
 		}
 	}
 
