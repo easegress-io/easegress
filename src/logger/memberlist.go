@@ -26,6 +26,7 @@ var (
 func initMemberList() {
 	if option.Stage == "prod" {
 		LOG_MEMBERLIST_TTY_LEVEL = logrus.InfoLevel
+		LOG_MEMBERLIST_LEVEL = logrus.InfoLevel
 	}
 	formatter := &logrus.TextFormatter{
 		FullTimestamp: true,

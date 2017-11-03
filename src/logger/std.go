@@ -18,6 +18,7 @@ var (
 
 func initStd() {
 	if option.Stage == "prod" {
+		LOG_STD_LEVEL = logrus.InfoLevel
 		LOG_STD_TTY_LEVEL = logrus.InfoLevel
 	}
 	formatter := &logrus.TextFormatter{
