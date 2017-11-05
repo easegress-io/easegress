@@ -306,7 +306,7 @@ Plugin limits request rate based on current latency based sliding window.
 | plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
 | plugins\_concerned | []string | Plugins their processing latency will be considered to calculate sliding window size. | Functionality | No | N/A |
 | latency\_threshold\_msec | uint32 | The latency threshold in millisecond, when the latency greater than it the sliding window will be shrank. | Functionality | Yes | 800 |
-| backoff\_msec | uint16 | How many milliseconds the request need to be delayed when current sliding window is fully closed. | Functionality | Yes | 100 |
+| backoff\_msec | uint16 | How many milliseconds the request need to be delayed when current sliding window is fully closed. Value 0 means there is not request could be delayed, respond StatusTooManyRequests immediately. | Functionality | Yes | 100 |
 | window\_size\_max | uint64 | Maximal sliding window size. | Functionality | Yes | 65535 |
 | windows\_size\_init | uint64 | Initial sliding window size. | Functionality | Yes | 512 |
 
