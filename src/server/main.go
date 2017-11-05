@@ -109,8 +109,10 @@ func main() {
 	select {
 	case err = <-done1:
 		msg = "gateway engine"
+		<-done2
 	case err = <-done2:
 		msg = "api server"
+		<-done1
 	}
 
 	if err != nil {

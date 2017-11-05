@@ -31,6 +31,7 @@ type Rest struct {
 	gc      *gateway.GatewayCluster
 	server  *http.Server
 	done    chan error
+	stopped bool
 }
 
 func NewRest(gateway *engine.Gateway) (*Rest, error) {
@@ -143,13 +144,19 @@ func (s *Rest) Start() (<-chan error, string, error) {
 			// server exits after closing channel, ignore safely
 			recover()
 		}()
-		s.done <- s.server.Serve(tcpKeepAliveListener{ln.(*net.TCPListener)})
+		err := s.server.Serve(tcpKeepAliveListener{ln.(*net.TCPListener)})
+		if err != nil && !s.stopped {
+			s.done <- err
+		}
+		s.done <- nil
 	}()
 
 	return s.done, listenAddr, nil
 }
 
 func (s *Rest) Stop() {
+	s.stopped = true
+
 	err := s.server.Shutdown(nil)
 	if err != nil {
 		logger.Errorf("[shut rest interface down failed: %s]", err)
