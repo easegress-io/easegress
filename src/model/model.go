@@ -196,10 +196,23 @@ func (m *Model) DeletePlugin(name string) error {
 	return nil
 }
 
-func (m *Model) GetPlugin(name string) *Plugin {
+func (m *Model) GetPlugin(name string) (*Plugin, int) {
 	m.RLock()
 	defer m.RUnlock()
-	return m.plugins[name]
+
+	plugin := m.plugins[name]
+	if plugin == nil {
+		return plugin, 0
+	}
+
+	var refCount int
+	for _, pipeline := range m.pipelines {
+		if common.StrInSlice(name, pipeline.Config().PluginNames()) {
+			refCount++
+		}
+	}
+
+	return plugin, refCount
 }
 
 func (m *Model) GetPlugins(namePattern string, types []string) ([]*Plugin, error) {
@@ -316,7 +329,7 @@ func (m *Model) UpdatePluginConfig(conf plugins.Config) error {
 }
 
 func (m *Model) AddPluginAddedCallback(name string, callback PluginAdded,
-	overwrite bool, priority common.CallbackPriority) PluginAdded {
+	overwrite bool, priority string) PluginAdded {
 
 	m.Lock()
 	defer m.Unlock()
@@ -347,7 +360,7 @@ func (m *Model) DeletePluginAddedCallback(name string) PluginAdded {
 }
 
 func (m *Model) AddPluginDeletedCallback(name string, callback PluginDeleted,
-	overwrite bool, priority common.CallbackPriority) PluginDeleted {
+	overwrite bool, priority string) PluginDeleted {
 
 	m.Lock()
 	defer m.Unlock()
@@ -378,7 +391,7 @@ func (m *Model) DeletePluginDeletedCallback(name string) PluginDeleted {
 }
 
 func (m *Model) AddPluginUpdatedCallback(name string, callback PluginUpdated,
-	overwrite bool, priority common.CallbackPriority) PluginUpdated {
+	overwrite bool, priority string) PluginUpdated {
 
 	m.Lock()
 	defer m.Unlock()
@@ -565,7 +578,7 @@ func (m *Model) UpdatePipelineConfig(conf pipelines_gw.Config) error {
 }
 
 func (m *Model) AddPipelineAddedCallback(name string, callback PipelineAdded,
-	overwrite bool, priority common.CallbackPriority) PipelineAdded {
+	overwrite bool, priority string) PipelineAdded {
 
 	m.Lock()
 	defer m.Unlock()
@@ -596,7 +609,7 @@ func (m *Model) DeletePipelineAddedCallback(name string) PipelineAdded {
 }
 
 func (m *Model) AddPipelineDeletedCallback(name string, callback PipelineDeleted,
-	overwrite bool, priority common.CallbackPriority) PipelineDeleted {
+	overwrite bool, priority string) PipelineDeleted {
 
 	m.Lock()
 	defer m.Unlock()
@@ -627,7 +640,7 @@ func (m *Model) DeletePipelineDeletedCallback(name string) PipelineDeleted {
 }
 
 func (m *Model) AddPipelineUpdatedCallback(name string, callback PipelineUpdated,
-	overwrite bool, priority common.CallbackPriority) PipelineUpdated {
+	overwrite bool, priority string) PipelineUpdated {
 
 	m.Lock()
 	defer m.Unlock()

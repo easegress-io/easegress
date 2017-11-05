@@ -90,7 +90,7 @@ func (t *Task) AddFinishedCallback(name string, callback task.TaskFinished) task
 
 	var oriCallback interface{}
 	t.statusFinishedCallbacks, oriCallback, _ = common.AddCallback(
-		t.statusFinishedCallbacks, name, callback, true, common.NormalCallback)
+		t.statusFinishedCallbacks, name, callback, true, common.NORMAL_PRIORITY_CALLBACK)
 
 	if oriCallback == nil {
 		return nil
@@ -113,7 +113,7 @@ func (t *Task) DeleteFinishedCallback(name string) task.TaskFinished {
 func (t *Task) AddRecoveryFunc(name string, taskRecovery task.TaskRecovery) task.TaskRecovery {
 	var oriCallback interface{}
 	t.taskRecoveries, oriCallback, _ = common.AddCallback(
-		t.taskRecoveries, name, taskRecovery, true, common.NormalCallback)
+		t.taskRecoveries, name, taskRecovery, true, common.NORMAL_PRIORITY_CALLBACK)
 
 	if oriCallback == nil {
 		return nil

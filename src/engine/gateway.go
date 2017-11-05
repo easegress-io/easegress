@@ -251,9 +251,18 @@ func (gw *Gateway) SysResUsage() (*syscall.Rusage, error) {
 }
 
 func (gw *Gateway) setupPipelineLifecycleControl() {
-	gw.mod.AddPipelineAddedCallback("launchPipeline", gw.launchPipeline, false, common.NormalCallback)
-	gw.mod.AddPipelineDeletedCallback("terminatePipeline", gw.terminatePipeline, false, common.NormalCallback)
-	gw.mod.AddPipelineUpdatedCallback("relaunchPipeline", gw.relaunchPipeline, false, common.NormalCallback)
+	gw.mod.AddPipelineAddedCallback("launchPipeline", gw.launchPipeline,
+		false, common.NORMAL_PRIORITY_CALLBACK)
+	gw.mod.AddPipelineDeletedCallback("terminatePipeline", gw.terminatePipeline,
+		false, common.NORMAL_PRIORITY_CALLBACK)
+	gw.mod.AddPipelineDeletedCallback("closePipelineContext", gw.closePipelineContext,
+		false, common.NORMAL_PRIORITY_CALLBACK)
+
+	// separated to 2 stages for plugin cleanup on the pipeline context
+	gw.mod.AddPipelineUpdatedCallback("relaunchPipelineStage1", gw.relaunchPipelineStage1,
+		false, common.NORMAL_PRIORITY_CALLBACK)
+	gw.mod.AddPipelineUpdatedCallback("relaunchPipelineStage2", gw.relaunchPipelineStage2,
+		false, common.NORMAL_PRIORITY_CALLBACK)
 }
 
 func (gw *Gateway) launchPipeline(newPipeline *model.Pipeline) {
@@ -287,8 +296,12 @@ func (gw *Gateway) launchPipeline(newPipeline *model.Pipeline) {
 	}
 }
 
-func (gw *Gateway) relaunchPipeline(updatedPipeline *model.Pipeline) {
+func (gw *Gateway) relaunchPipelineStage1(updatedPipeline *model.Pipeline) {
 	gw.terminatePipeline(updatedPipeline)
+}
+
+func (gw *Gateway) relaunchPipelineStage2(updatedPipeline *model.Pipeline) {
+	gw.closePipelineContext(updatedPipeline)
 	gw.launchPipeline(updatedPipeline)
 }
 
@@ -309,6 +322,10 @@ func (gw *Gateway) terminatePipeline(deletedPipeline *model.Pipeline) {
 	}
 
 	delete(gw.pipelines, deletedPipeline.Name())
+}
+
+func (gw *Gateway) closePipelineContext(deletedPipeline *model.Pipeline) {
+	logger.Infof("[close pipeline context: %s]", deletedPipeline.Name())
 
 	deleted := gw.mod.DeletePipelineContext(deletedPipeline.Name())
 	if !deleted {
@@ -355,26 +372,26 @@ func (gw *Gateway) loadPipelines() error {
 
 func (gw *Gateway) setupPluginPersistenceControl() {
 	gw.mod.AddPluginAddedCallback("addPluginToStorage", gw.addPluginToStorage,
-		false, common.NormalCallback)
+		false, common.NORMAL_PRIORITY_CALLBACK)
 	gw.mod.AddPluginDeletedCallback("deletePluginFromStorage", gw.deletePluginFromStorage,
-		false, common.NormalCallback)
+		false, common.NORMAL_PRIORITY_CALLBACK)
 	gw.mod.AddPluginUpdatedCallback("updatePluginInStorage", gw.updatePluginInStorage,
-		false, common.NormalCallback)
+		false, common.NORMAL_PRIORITY_CALLBACK)
 }
 
 func (gw *Gateway) setupPipelinePersistenceControl() {
 	gw.mod.AddPipelineAddedCallback("addPipelineToStorage", gw.addPipelineToStorage,
-		false, common.NormalCallback)
+		false, common.NORMAL_PRIORITY_CALLBACK)
 	gw.mod.AddPipelineDeletedCallback("deletePipelineFromStorage", gw.deletePipelineFromStorage,
-		false, common.NormalCallback)
+		false, common.NORMAL_PRIORITY_CALLBACK)
 	gw.mod.AddPipelineUpdatedCallback("updatePipelineInStorage", gw.updatePipelineInStorage,
-		false, common.NormalCallback)
+		false, common.NORMAL_PRIORITY_CALLBACK)
 }
 
 func (gw *Gateway) setupClusterOpLogSync() {
 	if gw.gc != nil {
 		gw.gc.OPLog().AddOPLogAppendedCallback("handleClusterOperation", gw.handleClusterOperation,
-			false, common.NormalCallback)
+			false, common.NORMAL_PRIORITY_CALLBACK)
 	}
 }
 
@@ -460,7 +477,7 @@ func (gw *Gateway) handleClusterOperation(seq uint64, operation *cluster.Operati
 
 		pluginName := conf.PluginName()
 
-		plugin := gw.mod.GetPlugin(pluginName)
+		plugin, _ := gw.mod.GetPlugin(pluginName)
 		if plugin != nil {
 			logger.Errorf("[handle cluster operation to create plugin failed: plugin %s already exists]",
 				pluginName)
@@ -496,7 +513,7 @@ func (gw *Gateway) handleClusterOperation(seq uint64, operation *cluster.Operati
 
 		pluginName := conf.PluginName()
 
-		plugin := gw.mod.GetPlugin(pluginName)
+		plugin, _ := gw.mod.GetPlugin(pluginName)
 		if plugin == nil {
 			logger.Errorf("[handle cluster operation to update plugin failed: plugin %s not found]",
 				pluginName)
@@ -517,11 +534,18 @@ func (gw *Gateway) handleClusterOperation(seq uint64, operation *cluster.Operati
 	case operation.ContentDeletePlugin != nil:
 		content := operation.ContentDeletePlugin
 
-		plugin := gw.mod.GetPlugin(content.Name)
+		plugin, refCount := gw.mod.GetPlugin(content.Name)
 		if plugin == nil {
 			logger.Errorf("[handle cluster operation to delete plugin failed: plugin %s not found]",
 				content.Name)
 			return fmt.Errorf("plugin %s not found", content.Name), cluster.OperationTargetNotFoundFailure
+		}
+
+		if refCount > 0 {
+			logger.Errorf("[handle cluster operation to delete plugin failed: "+
+				"plugin %s is used by %d pipeline(s)]", content.Name, refCount)
+			return fmt.Errorf("plugin %s is used by one or more pipelines", content.Name),
+				cluster.OperationNotAcceptableFailure
 		}
 
 		err := gw.mod.DismissPluginInstance(content.Name)

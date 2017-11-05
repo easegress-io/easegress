@@ -104,13 +104,12 @@ func (p *linearPipeline) Run() error {
 			// the preparation of follow plugin might depend on previous plugin
 			break
 		}
-
-		p.ctx.PreparePlugin(pluginNames[i], func() { instance.Prepare(p.ctx) })
+		instance.Prepare(p.ctx)
 		p.mod.ReleasePluginInstance(instance)
 	}
 
 	p.mod.AddPluginUpdatedCallback(fmt.Sprintf("%s-cancelAndRerunRunningPlugin@%p", p.Name(), p),
-		p.cancelAndRerunRunningPlugin, false, common.NormalCallback)
+		p.cancelAndRerunRunningPlugin, false, common.NORMAL_PRIORITY_CALLBACK)
 
 	defer p.mod.DeletePluginUpdatedCallback(fmt.Sprintf("%s-cancelAndRerunRunningPlugin@%p", p.Name(), p))
 
@@ -124,9 +123,8 @@ func (p *linearPipeline) Run() error {
 			t.SetError(err, http.StatusServiceUnavailable)
 		} else {
 			// Plugin might be updated during the pipeline execution.
-			// Pipeline context guarantees preparing the plugin instance only once.
-			p.ctx.PreparePlugin(pluginNames[i], func() { instance.Prepare(p.ctx) })
-
+			// This guarantees preparing the plugin instance only once.
+			instance.Prepare(p.ctx)
 			p.runningPlugin = pluginNames[i]
 		}
 
@@ -146,15 +144,16 @@ func (p *linearPipeline) Run() error {
 				done = make(chan struct{})
 
 				if !p.stopped {
-					plugin := p.mod.GetPlugin(pluginNames[i])
-					plugin.AddInstanceClosedCallback(
-						fmt.Sprintf("%s-pluginInstanceClosed@%p", p.Name(), p),
-						func() {
-							plugin.DeleteInstanceClosedCallback(
-								fmt.Sprintf("%s-pluginInstanceClosed@%p", p.Name(), p))
-							close(done)
+					plugin, _ := p.mod.GetPlugin(pluginNames[i])
+					callbackName := fmt.Sprintf("%s-pluginInstanceClosed@%p", p.Name(), instance)
+					plugin.AddInstanceClosedCallback(callbackName,
+						func(closedInstance plugins.Plugin) {
+							if closedInstance == instance {
+								plugin.DeleteInstanceClosedCallback(callbackName)
+								close(done)
+							}
 						},
-						false, common.NormalCallback)
+						false, common.NORMAL_PRIORITY_CALLBACK)
 				}
 			}
 

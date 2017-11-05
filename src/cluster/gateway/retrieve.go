@@ -223,7 +223,7 @@ func (gc *GatewayCluster) retrieveResult(filter interface{}) ([]byte, error, Clu
 
 	switch filter := filter.(type) {
 	case *FilterRetrievePlugin:
-		plug := gc.mod.GetPlugin(filter.Name)
+		plug, _ := gc.mod.GetPlugin(filter.Name)
 		if plug == nil {
 			logger.Errorf("[plugin %s not found]", filter.Name)
 			return nil, fmt.Errorf("plugin %s not found", filter.Name), RetrievePluginNotFoundError

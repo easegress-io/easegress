@@ -30,8 +30,6 @@ type pipelineContext struct {
 	mod              *Model
 	bucketLock       sync.RWMutex // dedicated lock provides better performance
 	buckets          map[string]*bucketItem
-	bookLock         sync.RWMutex
-	preparationBook  map[string]interface{} // hash here for O(1) time on query
 	requestChanLock  sync.Mutex
 	requestChan      chan *pipelines.DownstreamRequest
 }
@@ -46,7 +44,6 @@ func NewPipelineContext(conf pipelines_gw.Config,
 		statistics:       statistics,
 		mod:              m,
 		buckets:          make(map[string]*bucketItem),
-		preparationBook:  make(map[string]interface{}),
 		requestChan:      make(chan *pipelines.DownstreamRequest, conf.CrossPipelineRequestBacklog()),
 	}
 
@@ -102,10 +99,10 @@ func (pc *pipelineContext) DataBucket(pluginName, pluginInstanceId string) pipel
 	if deleteWhenPluginUpdatedOrDeleted {
 		pc.mod.AddPluginDeletedCallback(
 			fmt.Sprintf("%s-deletePipelineContextDataBucketWhenPluginDeleted@%p", pc.pipeName, pc),
-			pc.deletePipelineContextDataBucketWhenPluginDeleted, false, common.NormalCallback)
+			pc.deletePipelineContextDataBucketWhenPluginDeleted, false, common.NORMAL_PRIORITY_CALLBACK)
 		pc.mod.AddPluginUpdatedCallback(
 			fmt.Sprintf("%s-deletePipelineContextDataBucketWhenPluginUpdated@%p", pc.pipeName, pc),
-			pc.deletePipelineContextDataBucketWhenPluginUpdated, false, common.NormalCallback)
+			pc.deletePipelineContextDataBucketWhenPluginUpdated, false, common.NORMAL_PRIORITY_CALLBACK)
 	}
 
 	return bucket
@@ -133,35 +130,6 @@ func (pc *pipelineContext) DeleteBucket(pluginName, pluginInstanceId string) pip
 	pc.buckets = updatedBucket
 
 	return oriBucket
-}
-
-func (pc *pipelineContext) PreparePlugin(pluginName string, fun pipelines.PluginPreparationFunc) {
-	pc.bookLock.RLock()
-	_, exists := pc.preparationBook[pluginName]
-	if exists {
-		pc.bookLock.RUnlock()
-		return
-	}
-	pc.bookLock.RUnlock()
-
-	pc.bookLock.Lock()
-	defer pc.bookLock.Unlock()
-
-	// DCL
-	_, exists = pc.preparationBook[pluginName]
-	if exists {
-		return
-	}
-
-	fun()
-
-	callBackName := fmt.Sprintf("%s-deletePluginPreparationBookWhenPluginUpdatedOrDeleted@%p", pc.pipeName, pc)
-	pc.mod.AddPluginDeletedCallback(callBackName, pc.deletePluginPreparationBookWhenPluginUpdatedOrDeleted,
-		false, common.NormalCallback)
-	pc.mod.AddPluginUpdatedCallback(callBackName, pc.deletePluginPreparationBookWhenPluginUpdatedOrDeleted,
-		false, common.NormalCallback)
-
-	pc.preparationBook[pluginName] = nil
 }
 
 func (pc *pipelineContext) CommitCrossPipelineRequest(
@@ -252,10 +220,6 @@ func (pc *pipelineContext) Close() {
 	pc.mod.DeletePluginUpdatedCallback(
 		fmt.Sprintf("%s-deletePipelineContextDataBucketWhenPluginUpdated@%p", pc.pipeName, pc))
 
-	callBackName := fmt.Sprintf("%s-deletePluginPreparationBookWhenPluginUpdatedOrDeleted@%p", pc.pipeName, pc)
-	pc.mod.DeletePluginDeletedCallback(callBackName)
-	pc.mod.DeletePluginUpdatedCallback(callBackName)
-
 	// to guarantee call close() on channel only once
 	pc.requestChanLock.Lock()
 	defer pc.requestChanLock.Unlock()
@@ -267,16 +231,6 @@ func (pc *pipelineContext) Close() {
 	}
 
 	logger.Infof("[pipeline %s context is closed]", pc.pipeName)
-}
-
-func (pc *pipelineContext) deletePluginPreparationBookWhenPluginUpdatedOrDeleted(plugin *Plugin) {
-	if !common.StrInSlice(plugin.Name(), pc.plugNames) {
-		return
-	}
-
-	pc.bookLock.Lock()
-	defer pc.bookLock.Unlock()
-	delete(pc.preparationBook, plugin.Name())
 }
 
 func (pc *pipelineContext) deletePipelineContextDataBucketWhenPluginDeleted(_ *Plugin) {

@@ -1,10 +1,8 @@
 package common
 
-type CallbackPriority uint8
-
 const (
-	CriticalCallback CallbackPriority = iota
-	NormalCallback
+	NORMAL_PRIORITY_CALLBACK   = "__NoRmAl_PrIoRiTy_CaLlBaCk"
+	CRITICAL_PRIORITY_CALLBACK = "__CrItIcAl_PrIoRiTy_CaLlBaCk"
 )
 
 ////
@@ -38,7 +36,7 @@ func (cb *NamedCallback) SetCallback(callback interface{}) interface{} {
 ////
 
 func AddCallback(callbacks []*NamedCallback, name string, callback interface{},
-	rewrite bool, priority CallbackPriority) (
+	rewrite bool, priority string) (
 
 	[]*NamedCallback, interface{}, bool) {
 
@@ -55,10 +53,21 @@ func AddCallback(callbacks []*NamedCallback, name string, callback interface{},
 
 	if oriCallback == nil {
 		callback := NewNamedCallback(name, callback)
-		if callbacks == nil || priority == NormalCallback {
+		if priority == NORMAL_PRIORITY_CALLBACK || callbacks == nil {
 			callbacks = append(callbacks, callback)
-		} else {
+		} else if priority == CRITICAL_PRIORITY_CALLBACK {
 			callbacks = append([]*NamedCallback{callback}, callbacks...)
+		} else {
+			pos := len(callbacks)
+			for i, namedCallback := range callbacks {
+				if namedCallback.Name() == priority {
+					pos = i
+					break
+				}
+			}
+
+			// insert before the pos
+			callbacks = append(callbacks[:pos], append([]*NamedCallback{callback}, callbacks[pos:]...)...)
 		}
 	}
 

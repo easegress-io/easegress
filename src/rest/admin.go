@@ -101,7 +101,7 @@ func (s *adminServer) createPlugin(w rest.ResponseWriter, r *rest.Request) {
 
 	pluginName := conf.PluginName()
 
-	plugin := s.gateway.Model().GetPlugin(pluginName)
+	plugin, _ := s.gateway.Model().GetPlugin(pluginName)
 	if plugin != nil {
 		msg := fmt.Sprintf("plugin %s already exists", pluginName)
 		rest.Error(w, msg, http.StatusConflict)
@@ -170,7 +170,7 @@ func (s *adminServer) retrievePlugin(w rest.ResponseWriter, r *rest.Request) {
 		return
 	}
 
-	plugin := s.gateway.Model().GetPlugin(pluginName)
+	plugin, _ := s.gateway.Model().GetPlugin(pluginName)
 	if plugin == nil {
 		msg := fmt.Sprintf("plugin %s not found", pluginName)
 		rest.Error(w, msg, http.StatusNotFound)
@@ -223,7 +223,7 @@ func (s *adminServer) updatePlugin(w rest.ResponseWriter, r *rest.Request) {
 
 	pluginName := conf.PluginName()
 
-	plugin := s.gateway.Model().GetPlugin(pluginName)
+	plugin, _ := s.gateway.Model().GetPlugin(pluginName)
 	if plugin == nil {
 		msg := fmt.Sprintf("plugin %s not found", pluginName)
 		rest.Error(w, msg, http.StatusNotFound)
@@ -257,11 +257,18 @@ func (s *adminServer) deletePlugin(w rest.ResponseWriter, r *rest.Request) {
 		return
 	}
 
-	plugin := s.gateway.Model().GetPlugin(pluginName)
+	plugin, refCount := s.gateway.Model().GetPlugin(pluginName)
 	if plugin == nil {
 		msg := fmt.Sprintf("plugin %s not found", pluginName)
 		rest.Error(w, msg, http.StatusNotFound)
 		logger.Debugf("[%s]", msg)
+		return
+	}
+
+	if refCount > 0 {
+		msg := fmt.Sprintf("plugin %s is used by %d pipeline(s)", pluginName, refCount)
+		rest.Error(w, msg, http.StatusNotAcceptable)
+		logger.Errorf("[%s]", msg)
 		return
 	}
 

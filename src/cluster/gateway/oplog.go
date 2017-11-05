@@ -241,7 +241,7 @@ func (op *opLog) close() error {
 }
 
 func (op *opLog) AddOPLogAppendedCallback(name string, callback OperationAppended,
-	overwrite bool, priority common.CallbackPriority) OperationAppended {
+	overwrite bool, priority string) OperationAppended {
 
 	op.Lock()
 	defer op.Unlock()
