@@ -21,7 +21,9 @@ func setLocalOperationSequence(group string, seq uint64) error {
 
 	rc, err := store.load()
 	if err != nil {
-		return err
+		rc = &runtimeConfig{
+			Sequences: make(map[string]uint64),
+		}
 	}
 
 	rc.Sequences[group] = seq
@@ -77,11 +79,29 @@ func getOperationSequence(group string, timeoutSec uint16) (uint64, error) {
 		return 0, serverErr
 	}
 
-	if localErr == nil && localSeq < serverSeq {
-		return 0, fmt.Errorf("the configure of group %s on the server side has changed\n", group)
+	if localErr != nil {
+		return serverSeq, nil
+	} else if localSeq < serverSeq {
+		return 0, fmt.Errorf("The configure of group %s on the server side has changed "+
+			"since your last operation: local sequence{default stored in ~/.easegatewayrc} "+
+			"is less than cluster sequence (%d < %d), use adminc [plugin|pipeline] [ls|types] to update the local sequence.",
+			group, localSeq, serverSeq)
 	}
 
 	return serverSeq, nil
+}
+
+func pullToLocalOperationSequence(group string, timeoutSec uint16) {
+	seq, err := getServerOperationSequence(group, timeoutSec)
+	if err != nil {
+		fmt.Println("pull operaion sequnce to local failed: get server operation sequence failed:", err)
+		return
+	}
+	err = setLocalOperationSequence(group, seq)
+	if err != nil {
+		fmt.Println("pull operaion sequnce to local failed: set local sequence failed:", err)
+		return
+	}
 }
 
 func ClusterCreatePlugin(c *cli.Context) error {
@@ -306,6 +326,8 @@ func ClusterRetrievePlugins(c *cli.Context) error {
 			timeout -= expiredTime
 		}
 	}
+
+	pullToLocalOperationSequence(group, timeoutSec)
 
 	return errs.Return()
 }
@@ -608,6 +630,8 @@ func ClusterRetrievePipelines(c *cli.Context) error {
 		}
 	}
 
+	pullToLocalOperationSequence(group, timeoutSec)
+
 	return errs.Return()
 }
 
@@ -717,6 +741,8 @@ func ClusterRetrievePluginTypes(c *cli.Context) error {
 	// TODO: make it pretty
 	fmt.Printf("%s\n", data)
 
+	pullToLocalOperationSequence(group, timeoutSec)
+
 	return errs.Return()
 }
 
@@ -747,6 +773,8 @@ func ClusterRetrievePipelineTypes(c *cli.Context) error {
 
 	// TODO: make it pretty
 	fmt.Printf("%s\n", data)
+
+	pullToLocalOperationSequence(group, timeoutSec)
 
 	return errs.Return()
 }
