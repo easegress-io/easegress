@@ -26,6 +26,26 @@ var RestStack = []rest.Middleware{
 	&rest.ContentTypeCheckerMiddleware{},
 }
 
+////
+
+type clusterAvailabilityMiddleware struct {
+	gc *gateway.GatewayCluster
+}
+
+func (cam *clusterAvailabilityMiddleware) MiddlewareFunc(h rest.HandlerFunc) rest.HandlerFunc {
+	return func(w rest.ResponseWriter, r *rest.Request) {
+		if cam.gc == nil {
+			rest.Error(w, "service unavailable", http.StatusServiceUnavailable)
+			return
+		}
+
+		// call the handler
+		h(w, r)
+	}
+}
+
+////
+
 type Rest struct {
 	gateway *engine.Gateway
 	gc      *gateway.GatewayCluster

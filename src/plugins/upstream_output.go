@@ -569,7 +569,7 @@ func (u *upstreamOutput) Name() string {
 }
 
 func (u *upstreamOutput) CleanUp(ctx pipelines.PipelineContext) {
-	// Nothing to do.
+	ctx.DeleteBucket(u.Name(), u.instanceId)
 }
 
 func (u *upstreamOutput) Close() {

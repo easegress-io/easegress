@@ -49,8 +49,9 @@ func (c *httpHeaderCounterConfig) Prepare(pipelineNames []string) error {
 ////
 
 type httpHeaderCounter struct {
-	conf       *httpHeaderCounterConfig
-	instanceId string
+	conf           *httpHeaderCounterConfig
+	instanceId     string
+	indicatorAdded bool
 }
 
 func httpHeaderCounterConstructor(conf plugins.Config) (plugins.Plugin, error) {
@@ -85,13 +86,9 @@ func (c *httpHeaderCounter) Prepare(ctx pipelines.PipelineContext) {
 	if err != nil {
 		logger.Warnf("[BUG: register plugin %s indicator %s failed, "+
 			"ignored to expose customized statistics indicator: %v]", c.Name(), "RECENT_HEADER_COUNT", err)
-	} else if added {
-		ctx.Statistics().UnregisterPluginIndicatorAfterPluginDelete(
-			c.Name(), c.instanceId, "RECENT_HEADER_COUNT",
-		)
-		ctx.Statistics().UnregisterPluginIndicatorAfterPluginUpdate(
-			c.Name(), c.instanceId, "RECENT_HEADER_COUNT")
 	}
+
+	c.indicatorAdded = added
 }
 
 func (c *httpHeaderCounter) count(ctx pipelines.PipelineContext, t task.Task) (error, task.TaskResultCode, task.Task) {
@@ -159,7 +156,11 @@ func (c *httpHeaderCounter) Name() string {
 }
 
 func (c *httpHeaderCounter) CleanUp(ctx pipelines.PipelineContext) {
-	// Nothing to do.
+	if c.indicatorAdded {
+		ctx.Statistics().UnregisterPluginIndicator(c.Name(), c.instanceId, "RECENT_HEADER_COUNT")
+	}
+
+	ctx.DeleteBucket(c.Name(), c.instanceId)
 }
 
 func (c *httpHeaderCounter) Close() {

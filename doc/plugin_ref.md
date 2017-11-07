@@ -14,7 +14,7 @@ There are 20 built-in plugins totally in Ease Gateway current release.
 | [IO reader](#io-reader-plugin) | IOReader | Yes | Yes | GA | [code](../src/plugins/io_reader.go) |
 | [HTTP header counter](#http-header-counter-plugin) | HTTPHeaderCounter | No | No | GA | [code](../src/plugins/http_header_counter.go) |
 | [Throughput rate limiter](#throughput-rate-limiter-plugin) | ThroughputRateLimiter | Yes | No | GA | [code](../src/plugins/throughput_rate_limiter.go) |
-| [Latency based sliding window limiter](#latency-based-sliding-window-limiter-plugin) | LatencyWindowLimiter | Yes | No | GA | [code](../src/plugins/latency_window_limiter.go) |
+| [Latency limiter](#latency-limiter-plugin) | LatencyWindowLimiter | Yes | No | GA | [code](../src/plugins/latency_limiter.go) |
 | [Service circuit breaker](#service-circuit-breaker-plugin) | ServiceCircuitBreaker | No | No | GA | [code](../src/plugins/service_circuit_breaker.go) |
 | [Static pass probability limiter](#static-pass-probability-limiter-plugin) | StaticProbabilityLimiter | No | No | GA | [code](../src/plugins/static_probability_limiter.go) |
 | [No more failure limiter](#no-more-failure-limiter-plugin) | NoMoreFailureLimiter | No | No | GA | [code](../src/plugins/no_more_failure_limiter.go) |
@@ -295,20 +295,20 @@ No any inputs or outputs.
 
 No any indicators exposed.
 
-## Latency Based Sliding Window Limiter plugin
+## Latency Limiter plugin
 
-Plugin limits request rate based on current latency based sliding window.
+Plugin limits request rate based on historical latency statistics.
 
 ### Configuration
 
 | Parameter name | Data type (golang) | Description | Type | Optional | Default value (golang) |
 |:--|:--|:--|:--:|:--:|:--|
 | plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
-| plugins\_concerned | []string | Plugins their processing latency will be considered to calculate sliding window size. | Functionality | No | N/A |
-| latency\_threshold\_msec | uint32 | The latency threshold in millisecond, when the latency greater than it the sliding window will be shrank. | Functionality | Yes | 800 |
-| backoff\_msec | uint16 | How many milliseconds the request need to be delayed when current sliding window is fully closed. Value 0 means there is not request could be delayed, respond StatusTooManyRequests immediately. | Functionality | Yes | 100 |
-| window\_size\_max | uint64 | Maximal sliding window size. | Functionality | Yes | 65535 |
-| windows\_size\_init | uint64 | Initial sliding window size. | Functionality | Yes | 512 |
+| plugins\_concerned | []string | Plugin name list, the execution time on 90% requests of each of them will be calculated, the result will be compared with the `latency_threshold_msec` option. | Functionality | No | N/A |
+| latency\_threshold\_msec | uint32 | The latency threshold in millisecond, when the latency is greater than it the request will be counted as one slow request. Normally, this value could be 1.5 * average-normal-response-time. | Functionality | Yes | 800 |
+| backoff\_msec | uint16 | How many milliseconds the request need to be delayed when the times of the slow request reached. Value 0 means there is not request could be delayed, respond StatusTooManyRequests immediately. Normally, this value could be 0.5 * average-normal-response-time. | Functionality | Yes | 100 |
+| allow\_times | uint32 | Allowed times of slow request before to perform backoff. | Functionality | Yes | 0 |
+
 
 ### I/O
 
@@ -318,7 +318,7 @@ No any inputs or outputs.
 
 | Result code | Error reason |
 |:--|:--|
-| ResultFlowControl | service is unavailable caused by sliding window limit |
+| ResultFlowControl | service is unavailable caused by latency limit |
 | ResultTaskCancelled | task is cancelled |
 
 ### Dedicated statistics indicator

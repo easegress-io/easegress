@@ -36,8 +36,8 @@ var (
 			kafkaOutputConstructor, kafkaOutputConfigConstructor},
 		"ThroughputRateLimiter": {
 			throughputRateLimiterConstructor, throughputRateLimiterConfigConstructor},
-		"LatencyWindowLimiter": {
-			latencyWindowLimiterConstructor, latencyWindowLimiterConfigConstructor},
+		"LatencyLimiter": {
+			latencyLimiterConstructor, latencyLimiterConfigConstructor},
 		"ServiceCircuitBreaker": {
 			serviceCircuitBreakerConstructor, serviceCircuitBreakerConfigConstructor},
 		"StaticProbabilityLimiter": {

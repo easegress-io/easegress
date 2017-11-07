@@ -689,7 +689,7 @@ func (m *Model) DeletePipelineContext(name string) bool {
 
 	ctx, exists := m.pipelineContexts[name]
 	if exists {
-		go ctx.Close()
+		ctx.Close()
 
 		delete(m.pipelineContexts, name)
 	}

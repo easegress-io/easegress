@@ -122,7 +122,13 @@ func (r *ioReader) read(t task.Task) (error, task.TaskResultCode, task.Task) {
 			data = buff.Bytes()
 		}
 
-		d <- data
+		func() {
+			defer func() {
+				// channel d could be closed by the error happened in Run()
+				recover()
+			}()
+			d <- data
+		}()
 	}()
 
 	var data []byte

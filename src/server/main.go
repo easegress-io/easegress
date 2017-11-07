@@ -118,9 +118,6 @@ func main() {
 	if err != nil {
 		msg = fmt.Sprintf("[exit from %s cause: %v]", msg, err)
 		logger.Warnf(msg)
-	} else {
-		msg = fmt.Sprintf("[exited from %s]", msg)
-		logger.Infof(msg)
 	}
 
 	// interrupt by signal

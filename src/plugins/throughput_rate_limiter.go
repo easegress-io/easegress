@@ -154,7 +154,7 @@ func (l *throughputRateLimiter) Name() string {
 }
 
 func (l *throughputRateLimiter) CleanUp(ctx pipelines.PipelineContext) {
-	// Nothing to do.
+	ctx.DeleteBucket(l.Name(), l.instanceId)
 }
 
 func (l *throughputRateLimiter) Close() {

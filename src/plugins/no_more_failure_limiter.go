@@ -98,7 +98,7 @@ func (l *noMoreFailureLimiter) Name() string {
 }
 
 func (l *noMoreFailureLimiter) CleanUp(ctx pipelines.PipelineContext) {
-	// Nothing to do.
+	ctx.DeleteBucket(l.Name(), l.instanceId)
 }
 
 func (l *noMoreFailureLimiter) Close() {
@@ -111,9 +111,7 @@ const (
 	noMoreFailureLimiterCounterKey = "noMoreFailureLimiterCounterKey"
 )
 
-func getNoMoreFailureCounter(ctx pipelines.PipelineContext,
-	pluginName, pluginInstanceId string) (*uint64, error) {
-
+func getNoMoreFailureCounter(ctx pipelines.PipelineContext, pluginName, pluginInstanceId string) (*uint64, error) {
 	bucket := ctx.DataBucket(pluginName, pluginInstanceId)
 	counter, err := bucket.QueryDataWithBindDefault(noMoreFailureLimiterCounterKey,
 		func() interface{} {

@@ -238,8 +238,6 @@ type PipelineStatistics struct {
 
 	pipelineThroughputRateUpdatedCallbacks, pipelineExecutionSampleUpdatedCallbacks,
 	pluginThroughputRateUpdatedCallbacks, pluginExecutionSampleUpdatedCallbacks []*common.NamedCallback
-
-	registeredPluginDeletedCallbackNames, registeredPluginUpdatedCallbackNames []string
 }
 
 func NewPipelineStatistics(pipelineName string, pluginNames []string, m *Model) *PipelineStatistics {
@@ -575,14 +573,6 @@ func (ps *PipelineStatistics) Close() {
 	ps.RLock()
 	defer ps.RUnlock()
 	close(ps.done)
-
-	for _, callback := range ps.registeredPluginDeletedCallbackNames {
-		ps.mod.DeletePluginDeletedCallback(callback)
-	}
-
-	for _, callback := range ps.registeredPluginUpdatedCallbackNames {
-		ps.mod.DeletePluginUpdatedCallback(callback)
-	}
 }
 
 func (ps *PipelineStatistics) PipelineThroughputRate1() (float64, error) {
@@ -1178,80 +1168,6 @@ func (ps *PipelineStatistics) DeletePipelineThroughputRateUpdatedCallback(name s
 		ps.pipelineThroughputRateUpdatedCallbacks, name)
 }
 
-func (ps *PipelineStatistics) DeletePipelineThroughputRateUpdatedCallbackAfterPluginDelete(
-	name string, pluginName string) {
-
-	innerCallbackName := ps.addDelayPipelineStatisticsCallbackDeletion(name, pluginName,
-		"DeletePipelineThroughputRateUpdatedCallback",
-		func(callbackName, innerCallbackName string) {
-			ps.DeletePipelineThroughputRateUpdatedCallback(callbackName)
-			ps.Lock()
-			for i, name := range ps.registeredPluginDeletedCallbackNames {
-				if name == innerCallbackName {
-					ps.registeredPluginDeletedCallbackNames = append(
-						ps.registeredPluginDeletedCallbackNames[:i],
-						ps.registeredPluginDeletedCallbackNames[i+1:]...)
-					break
-				}
-			}
-			ps.Unlock()
-			ps.RLock()
-			go ps.mod.DeletePluginDeletedCallback(innerCallbackName)
-			ps.RUnlock()
-		},
-		func(fun func(p *Plugin)) interface{} {
-			return PluginDeleted(fun)
-		},
-		func(innerCallbackName string, callback interface{}, overwrite bool) {
-			ps.RLock()
-			defer ps.RUnlock()
-			ps.mod.AddPluginDeletedCallback(innerCallbackName, callback.(PluginDeleted),
-				overwrite, common.NORMAL_PRIORITY_CALLBACK)
-		})
-
-	ps.Lock()
-	defer ps.Unlock()
-
-	ps.registeredPluginDeletedCallbackNames = append(ps.registeredPluginDeletedCallbackNames, innerCallbackName)
-}
-
-func (ps *PipelineStatistics) DeletePipelineThroughputRateUpdatedCallbackAfterPluginUpdate(
-	name string, pluginName string) {
-
-	innerCallbackName := ps.addDelayPipelineStatisticsCallbackDeletion(name, pluginName,
-		"DeletePipelineThroughputRateUpdatedCallback",
-		func(callbackName, innerCallbackName string) {
-			ps.DeletePipelineThroughputRateUpdatedCallback(callbackName)
-			ps.Lock()
-			for i, name := range ps.registeredPluginUpdatedCallbackNames {
-				if name == innerCallbackName {
-					ps.registeredPluginUpdatedCallbackNames = append(
-						ps.registeredPluginUpdatedCallbackNames[:i],
-						ps.registeredPluginUpdatedCallbackNames[i+1:]...)
-					break
-				}
-			}
-			ps.Unlock()
-			ps.RLock()
-			go ps.mod.DeletePluginUpdatedCallback(innerCallbackName)
-			ps.RUnlock()
-		},
-		func(fun func(p *Plugin)) interface{} {
-			return PluginUpdated(fun)
-		},
-		func(innerCallbackName string, callback interface{}, overwrite bool) {
-			ps.RLock()
-			defer ps.RUnlock()
-			ps.mod.AddPluginUpdatedCallback(innerCallbackName, callback.(PluginUpdated),
-				overwrite, common.NORMAL_PRIORITY_CALLBACK)
-		})
-
-	ps.Lock()
-	defer ps.Unlock()
-
-	ps.registeredPluginUpdatedCallbackNames = append(ps.registeredPluginUpdatedCallbackNames, innerCallbackName)
-}
-
 func (ps *PipelineStatistics) AddPipelineExecutionSampleUpdatedCallback(name string,
 	callback pipelines.PipelineExecutionSampleUpdated, overwrite bool) (
 	pipelines.PipelineExecutionSampleUpdated, bool) {
@@ -1277,76 +1193,6 @@ func (ps *PipelineStatistics) DeletePipelineExecutionSampleUpdatedCallback(name 
 
 	ps.pipelineExecutionSampleUpdatedCallbacks, _ = common.DeleteCallback(
 		ps.pipelineExecutionSampleUpdatedCallbacks, name)
-}
-
-func (ps *PipelineStatistics) DeletePipelineExecutionSampleUpdatedCallbackAfterPluginDelete(
-	name string, pluginName string) {
-
-	innerCallbackName := ps.addDelayPipelineStatisticsCallbackDeletion(name, pluginName,
-		"DeletePipelineExecutionSampleUpdatedCallback",
-		func(callbackName, innerCallbackName string) {
-			ps.DeletePipelineExecutionSampleUpdatedCallback(callbackName)
-			ps.RLock()
-			defer ps.RUnlock()
-			ps.mod.DeletePluginDeletedCallback(innerCallbackName)
-			for i, name := range ps.registeredPluginDeletedCallbackNames {
-				if name == innerCallbackName {
-					ps.registeredPluginDeletedCallbackNames = append(
-						ps.registeredPluginDeletedCallbackNames[:i],
-						ps.registeredPluginDeletedCallbackNames[i+1:]...)
-					break
-				}
-			}
-		},
-		func(fun func(p *Plugin)) interface{} {
-			return PluginDeleted(fun)
-		},
-		func(innerCallbackName string, callback interface{}, overwrite bool) {
-			ps.RLock()
-			defer ps.RUnlock()
-			ps.mod.AddPluginDeletedCallback(innerCallbackName, callback.(PluginDeleted),
-				overwrite, common.NORMAL_PRIORITY_CALLBACK)
-		})
-
-	ps.Lock()
-	defer ps.Unlock()
-
-	ps.registeredPluginDeletedCallbackNames = append(ps.registeredPluginDeletedCallbackNames, innerCallbackName)
-}
-
-func (ps *PipelineStatistics) DeletePipelineExecutionSampleUpdatedCallbackAfterPluginUpdate(
-	name string, pluginName string) {
-
-	innerCallbackName := ps.addDelayPipelineStatisticsCallbackDeletion(name, pluginName,
-		"DeletePipelineExecutionSampleUpdatedCallback",
-		func(callbackName, innerCallbackName string) {
-			ps.DeletePipelineExecutionSampleUpdatedCallback(callbackName)
-			ps.RLock()
-			defer ps.RUnlock()
-			ps.mod.DeletePluginUpdatedCallback(innerCallbackName)
-			for i, name := range ps.registeredPluginUpdatedCallbackNames {
-				if name == innerCallbackName {
-					ps.registeredPluginUpdatedCallbackNames = append(
-						ps.registeredPluginUpdatedCallbackNames[:i],
-						ps.registeredPluginUpdatedCallbackNames[i+1:]...)
-					break
-				}
-			}
-		},
-		func(fun func(p *Plugin)) interface{} {
-			return PluginUpdated(fun)
-		},
-		func(innerCallbackName string, callback interface{}, overwrite bool) {
-			ps.RLock()
-			defer ps.RUnlock()
-			ps.mod.AddPluginUpdatedCallback(innerCallbackName, callback.(PluginUpdated), overwrite,
-				common.NORMAL_PRIORITY_CALLBACK)
-		})
-
-	ps.Lock()
-	defer ps.Unlock()
-
-	ps.registeredPluginUpdatedCallbackNames = append(ps.registeredPluginUpdatedCallbackNames, innerCallbackName)
 }
 
 func (ps *PipelineStatistics) AddPluginThroughputRateUpdatedCallback(name string,
@@ -1376,80 +1222,6 @@ func (ps *PipelineStatistics) DeletePluginThroughputRateUpdatedCallback(name str
 		ps.pluginThroughputRateUpdatedCallbacks, name)
 }
 
-func (ps *PipelineStatistics) DeletePluginThroughputRateUpdatedCallbackAfterPluginDelete(
-	name string, pluginName string) {
-
-	innerCallbackName := ps.addDelayPipelineStatisticsCallbackDeletion(name, pluginName,
-		"DeletePluginThroughputRateUpdatedCallback",
-		func(callbackName, innerCallbackName string) {
-			ps.DeletePluginThroughputRateUpdatedCallback(callbackName)
-			ps.Lock()
-			for i, name := range ps.registeredPluginDeletedCallbackNames {
-				if name == innerCallbackName {
-					ps.registeredPluginDeletedCallbackNames = append(
-						ps.registeredPluginDeletedCallbackNames[:i],
-						ps.registeredPluginDeletedCallbackNames[i+1:]...)
-					break
-				}
-			}
-			ps.Unlock()
-			ps.RLock()
-			go ps.mod.DeletePluginDeletedCallback(innerCallbackName)
-			ps.RUnlock()
-		},
-		func(fun func(p *Plugin)) interface{} {
-			return PluginDeleted(fun)
-		},
-		func(innerCallbackName string, callback interface{}, overwrite bool) {
-			ps.RLock()
-			ps.RUnlock()
-			ps.mod.AddPluginDeletedCallback(innerCallbackName, callback.(PluginDeleted),
-				overwrite, common.NORMAL_PRIORITY_CALLBACK)
-		})
-
-	ps.Lock()
-	defer ps.Unlock()
-
-	ps.registeredPluginDeletedCallbackNames = append(ps.registeredPluginDeletedCallbackNames, innerCallbackName)
-}
-
-func (ps *PipelineStatistics) DeletePluginThroughputRateUpdatedCallbackAfterPluginUpdate(
-	name string, pluginName string) {
-
-	innerCallbackName := ps.addDelayPipelineStatisticsCallbackDeletion(name, pluginName,
-		"DeletePluginThroughputRateUpdatedCallback",
-		func(callbackName, innerCallbackName string) {
-			ps.DeletePluginThroughputRateUpdatedCallback(callbackName)
-			ps.Lock()
-			for i, name := range ps.registeredPluginUpdatedCallbackNames {
-				if name == innerCallbackName {
-					ps.registeredPluginUpdatedCallbackNames = append(
-						ps.registeredPluginUpdatedCallbackNames[:i],
-						ps.registeredPluginUpdatedCallbackNames[i+1:]...)
-					break
-				}
-			}
-			ps.Unlock()
-			ps.RLock()
-			go ps.mod.DeletePluginUpdatedCallback(innerCallbackName)
-			ps.RUnlock()
-		},
-		func(fun func(p *Plugin)) interface{} {
-			return PluginUpdated(fun)
-		},
-		func(innerCallbackName string, callback interface{}, overwrite bool) {
-			ps.RLock()
-			ps.RUnlock()
-			ps.mod.AddPluginUpdatedCallback(innerCallbackName, callback.(PluginUpdated),
-				overwrite, common.NORMAL_PRIORITY_CALLBACK)
-		})
-
-	ps.Lock()
-	defer ps.Unlock()
-
-	ps.registeredPluginUpdatedCallbackNames = append(ps.registeredPluginUpdatedCallbackNames, innerCallbackName)
-}
-
 func (ps *PipelineStatistics) AddPluginExecutionSampleUpdatedCallback(name string,
 	callback pipelines.PluginExecutionSampleUpdated, overwrite bool) (
 	pipelines.PluginExecutionSampleUpdated, bool) {
@@ -1475,80 +1247,6 @@ func (ps *PipelineStatistics) DeletePluginExecutionSampleUpdatedCallback(name st
 
 	ps.pluginExecutionSampleUpdatedCallbacks, _ = common.DeleteCallback(
 		ps.pluginExecutionSampleUpdatedCallbacks, name)
-}
-
-func (ps *PipelineStatistics) DeletePluginExecutionSampleUpdatedCallbackAfterPluginDelete(
-	name string, pluginName string) {
-
-	innerCallbackName := ps.addDelayPipelineStatisticsCallbackDeletion(name, pluginName,
-		"DeletePluginExecutionSampleUpdatedCallback",
-		func(callbackName, innerCallbackName string) {
-			ps.DeletePluginExecutionSampleUpdatedCallback(callbackName)
-			ps.Lock()
-			for i, name := range ps.registeredPluginDeletedCallbackNames {
-				if name == innerCallbackName {
-					ps.registeredPluginDeletedCallbackNames = append(
-						ps.registeredPluginDeletedCallbackNames[:i],
-						ps.registeredPluginDeletedCallbackNames[i+1:]...)
-					break
-				}
-			}
-			ps.Unlock()
-			ps.RLock()
-			go ps.mod.DeletePluginDeletedCallback(innerCallbackName)
-			ps.RUnlock()
-		},
-		func(fun func(p *Plugin)) interface{} {
-			return PluginDeleted(fun)
-		},
-		func(innerCallbackName string, callback interface{}, overwrite bool) {
-			ps.RLock()
-			defer ps.RUnlock()
-			ps.mod.AddPluginDeletedCallback(innerCallbackName, callback.(PluginDeleted),
-				overwrite, common.NORMAL_PRIORITY_CALLBACK)
-		})
-
-	ps.Lock()
-	defer ps.Unlock()
-
-	ps.registeredPluginDeletedCallbackNames = append(ps.registeredPluginDeletedCallbackNames, innerCallbackName)
-}
-
-func (ps *PipelineStatistics) DeletePluginExecutionSampleUpdatedCallbackAfterPluginUpdate(
-	name string, pluginName string) {
-
-	innerCallbackName := ps.addDelayPipelineStatisticsCallbackDeletion(name, pluginName,
-		"DeletePluginExecutionSampleUpdatedCallback",
-		func(callbackName, innerCallbackName string) {
-			ps.DeletePluginExecutionSampleUpdatedCallback(callbackName)
-			ps.Lock()
-			for i, name := range ps.registeredPluginUpdatedCallbackNames {
-				if name == innerCallbackName {
-					ps.registeredPluginUpdatedCallbackNames = append(
-						ps.registeredPluginUpdatedCallbackNames[:i],
-						ps.registeredPluginUpdatedCallbackNames[i+1:]...)
-					break
-				}
-			}
-			ps.Unlock()
-			ps.RLock()
-			go ps.mod.DeletePluginUpdatedCallback(innerCallbackName)
-			ps.RUnlock()
-		},
-		func(fun func(p *Plugin)) interface{} {
-			return PluginUpdated(fun)
-		},
-		func(innerCallbackName string, callback interface{}, overwrite bool) {
-			ps.RLock()
-			defer ps.RUnlock()
-			ps.mod.AddPluginUpdatedCallback(innerCallbackName, callback.(PluginUpdated),
-				overwrite, common.NORMAL_PRIORITY_CALLBACK)
-		})
-
-	ps.Lock()
-	defer ps.Unlock()
-
-	ps.registeredPluginUpdatedCallbackNames = append(ps.registeredPluginUpdatedCallbackNames, innerCallbackName)
 }
 
 func (ps *PipelineStatistics) registerPipelineIndicator(indicatorName, desc string,
@@ -1646,82 +1344,6 @@ func (ps *PipelineStatistics) UnregisterPluginIndicator(pluginName, pluginInstan
 	} else {
 		delete(indicators, indicatorName)
 	}
-}
-
-func (ps *PipelineStatistics) UnregisterPluginIndicatorAfterPluginDelete(
-	pluginName, pluginInstanceId, indicatorName string) {
-
-	innerCallbackName := ps.addDelayPluginStatisticsIndicatorUnregister(
-		pluginName, pluginInstanceId, indicatorName,
-		"UnregisterPluginIndicator",
-		func(pluginName, pluginInstanceId, indicatorName, innerCallbackName string) {
-			ps.UnregisterPluginIndicator(pluginName, pluginInstanceId, indicatorName)
-			ps.Lock()
-			for i, name := range ps.registeredPluginDeletedCallbackNames {
-				if name == innerCallbackName {
-					ps.registeredPluginDeletedCallbackNames = append(
-						ps.registeredPluginDeletedCallbackNames[:i],
-						ps.registeredPluginDeletedCallbackNames[i+1:]...)
-					break
-				}
-			}
-			ps.Unlock()
-			ps.RLock()
-			go ps.mod.DeletePluginDeletedCallback(innerCallbackName)
-			ps.RUnlock()
-		},
-		func(fun func(p *Plugin)) interface{} {
-			return PluginDeleted(fun)
-		},
-		func(innerCallbackName string, callback interface{}, overwrite bool) {
-			ps.RLock()
-			defer ps.RUnlock()
-			ps.mod.AddPluginDeletedCallback(innerCallbackName, callback.(PluginDeleted),
-				overwrite, common.NORMAL_PRIORITY_CALLBACK)
-		})
-
-	ps.Lock()
-	defer ps.Unlock()
-
-	ps.registeredPluginDeletedCallbackNames = append(ps.registeredPluginDeletedCallbackNames, innerCallbackName)
-}
-
-func (ps *PipelineStatistics) UnregisterPluginIndicatorAfterPluginUpdate(
-	pluginName, pluginInstanceId, indicatorName string) {
-
-	innerCallbackName := ps.addDelayPluginStatisticsIndicatorUnregister(
-		pluginName, pluginInstanceId, indicatorName,
-		"UnregisterPluginIndicator",
-		func(pluginName, pluginInstanceId, indicatorName, innerCallbackName string) {
-			ps.UnregisterPluginIndicator(pluginName, pluginInstanceId, indicatorName)
-			ps.Lock()
-			for i, name := range ps.registeredPluginUpdatedCallbackNames {
-				if name == innerCallbackName {
-					ps.registeredPluginUpdatedCallbackNames = append(
-						ps.registeredPluginUpdatedCallbackNames[:i],
-						ps.registeredPluginUpdatedCallbackNames[i+1:]...)
-					break
-				}
-			}
-			ps.Unlock()
-			ps.RLock()
-			go ps.mod.DeletePluginUpdatedCallback(innerCallbackName)
-			ps.RUnlock()
-		},
-		func(fun func(p *Plugin)) interface{} {
-			return PluginUpdated(fun)
-		},
-		func(innerCallbackName string, callback interface{}, overwrite bool) {
-			ps.RLock()
-			defer ps.RUnlock()
-			ps.mod.AddPluginUpdatedCallback(innerCallbackName, callback.(PluginUpdated),
-				overwrite, common.NORMAL_PRIORITY_CALLBACK)
-		})
-
-	ps.Lock()
-	defer ps.Unlock()
-
-	ps.registeredPluginUpdatedCallbackNames = append(ps.registeredPluginUpdatedCallbackNames, innerCallbackName)
 }
 
 func (ps *PipelineStatistics) registerTaskIndicator(indicatorName, desc string,
@@ -1867,45 +1489,4 @@ func (ps *PipelineStatistics) updateTaskExecution(kind pipelines.StatisticsKind)
 	}
 
 	return nil
-}
-
-func (ps *PipelineStatistics) addDelayPipelineStatisticsCallbackDeletion(
-	callbackName string, pluginName string, opName string, op func(string, string),
-	creator func(func(p *Plugin)) interface{},
-	register func(string, interface{}, bool)) string {
-
-	innerCallbackName := fmt.Sprintf("%s#%d", opName, time.Now().UnixNano())
-
-	callback := creator(
-		func(p *Plugin) {
-			if p.Name() != pluginName {
-				return
-			}
-			op(callbackName, innerCallbackName)
-		})
-
-	register(innerCallbackName, callback, false)
-
-	return innerCallbackName
-}
-
-func (ps *PipelineStatistics) addDelayPluginStatisticsIndicatorUnregister(
-	pluginName, pluginInstanceId, indicatorName, opName string,
-	op func(string, string, string, string),
-	creator func(func(p *Plugin)) interface{},
-	register func(string, interface{}, bool)) string {
-
-	innerCallbackName := fmt.Sprintf("%s#%d", opName, time.Now().UnixNano())
-
-	callback := creator(
-		func(p *Plugin) {
-			if p.Name() != pluginName {
-				return
-			}
-			op(pluginName, pluginInstanceId, indicatorName, innerCallbackName)
-		})
-
-	register(innerCallbackName, callback, false)
-
-	return innerCallbackName
 }

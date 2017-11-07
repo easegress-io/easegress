@@ -27,22 +27,6 @@ func newClusterAdminServer(gateway *engine.Gateway, gc *gateway.GatewayCluster) 
 	}, nil
 }
 
-type clusterAvailabilityMiddleware struct {
-	gc *gateway.GatewayCluster
-}
-
-func (cam *clusterAvailabilityMiddleware) MiddlewareFunc(h rest.HandlerFunc) rest.HandlerFunc {
-	return func(w rest.ResponseWriter, r *rest.Request) {
-		if cam.gc == nil {
-			rest.Error(w, "service unavailable", http.StatusServiceUnavailable)
-			return
-		}
-
-		// call the handler
-		h(w, r)
-	}
-}
-
 func (s *clusterAdminServer) Api() (*rest.Api, error) {
 	pav := common.PrefixAPIVersion
 	router, err := rest.MakeRouter(

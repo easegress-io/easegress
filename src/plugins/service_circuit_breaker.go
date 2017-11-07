@@ -80,7 +80,7 @@ func (c *serviceCircuitBreakerConfig) Prepare(pipelineNames []string) error {
 type serviceCircuitBreaker struct {
 	conf                               *serviceCircuitBreakerConfig
 	instanceId                         string
-	executionSampleUpdatedCallbackName string
+	pluginExecutionSampleCallbackAdded bool
 }
 
 func serviceCircuitBreakerConstructor(conf plugins.Config) (plugins.Plugin, error) {
@@ -94,23 +94,20 @@ func serviceCircuitBreakerConstructor(conf plugins.Config) (plugins.Plugin, erro
 	}
 
 	cb.instanceId = fmt.Sprintf("%p", cb)
-	cb.executionSampleUpdatedCallbackName = fmt.Sprintf(
-		"ServiceCircuitBreaker-pluginExecutionSampleUpdatedForPluginInstance@%p", cb)
 
 	return cb, nil
 }
 
 func (cb *serviceCircuitBreaker) Prepare(ctx pipelines.PipelineContext) {
+	callbackName := fmt.Sprintf(
+		"%s-pluginExecutionSampleUpdatedForPluginInstance@%p", cb.Name(), cb)
+
 	_, added := ctx.Statistics().AddPluginExecutionSampleUpdatedCallback(
-		cb.executionSampleUpdatedCallbackName,
+		callbackName,
 		cb.getPluginExecutionSampleUpdatedCallback(ctx),
 		false)
-	if added {
-		ctx.Statistics().DeletePluginExecutionSampleUpdatedCallbackAfterPluginDelete(
-			cb.executionSampleUpdatedCallbackName, cb.Name())
-		ctx.Statistics().DeletePluginExecutionSampleUpdatedCallbackAfterPluginUpdate(
-			cb.executionSampleUpdatedCallbackName, cb.Name())
-	}
+
+	cb.pluginExecutionSampleCallbackAdded = added
 }
 
 func (cb *serviceCircuitBreaker) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
@@ -156,7 +153,14 @@ func (cb *serviceCircuitBreaker) Name() string {
 }
 
 func (cb *serviceCircuitBreaker) CleanUp(ctx pipelines.PipelineContext) {
-	// Nothing to do.
+	if cb.pluginExecutionSampleCallbackAdded {
+		callbackName := fmt.Sprintf(
+			"%s-pluginExecutionSampleUpdatedForPluginInstance@%p", cb.Name(), cb)
+
+		ctx.Statistics().DeletePluginExecutionSampleUpdatedCallback(callbackName)
+	}
+
+	ctx.DeleteBucket(cb.Name(), cb.instanceId)
 }
 
 func (cb *serviceCircuitBreaker) Close() {

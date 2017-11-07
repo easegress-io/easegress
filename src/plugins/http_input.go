@@ -158,10 +158,12 @@ func (c *httpInputConfig) Prepare(pipelineNames []string) error {
 }
 
 type httpInput struct {
-	conf         *httpInputConfig
-	httpTaskChan chan *httpTask
-	instanceId   string
-	queueLength  uint64
+	conf                          *httpInputConfig
+	httpTaskChan                  chan *httpTask
+	instanceId                    string
+	queueLength                   uint64
+	waitQueueLengthIndicatorAdded bool
+	wipRequestCountIndicatorAdded bool
 }
 
 func httpInputConstructor(conf plugins.Config) (plugins.Plugin, error) {
@@ -199,12 +201,9 @@ func (h *httpInput) Prepare(ctx pipelines.PipelineContext) {
 	if err != nil {
 		logger.Warnf("[BUG: register plugin %s indicator %s failed, "+
 			"ignored to expose customized statistics indicator: %s]", h.Name(), "WAIT_QUEUE_LENGTH", err)
-	} else if added {
-		ctx.Statistics().UnregisterPluginIndicatorAfterPluginDelete(
-			h.Name(), h.instanceId, "WAIT_QUEUE_LENGTH")
-		ctx.Statistics().UnregisterPluginIndicatorAfterPluginUpdate(
-			h.Name(), h.instanceId, "WAIT_QUEUE_LENGTH")
 	}
+
+	h.waitQueueLengthIndicatorAdded = added
 
 	added, err = ctx.Statistics().RegisterPluginIndicator(h.Name(), h.instanceId, "WIP_REQUEST_COUNT",
 		"The count of request which in the working progress of the pipeline.",
@@ -218,12 +217,9 @@ func (h *httpInput) Prepare(ctx pipelines.PipelineContext) {
 	if err != nil {
 		logger.Warnf("[BUG: register plugin %s indicator %s failed, "+
 			"ignored to expose customized statistics indicator: %s]", h.Name(), "WIP_REQUEST_COUNT", err)
-	} else if added {
-		ctx.Statistics().UnregisterPluginIndicatorAfterPluginDelete(
-			h.Name(), h.instanceId, "WIP_REQUEST_COUNT")
-		ctx.Statistics().UnregisterPluginIndicatorAfterPluginUpdate(
-			h.Name(), h.instanceId, "WIP_REQUEST_COUNT")
 	}
+
+	h.wipRequestCountIndicatorAdded = added
 }
 
 func (h *httpInput) handler(w http.ResponseWriter, req *http.Request, path_params map[string]string) {
@@ -494,12 +490,18 @@ func (h *httpInput) Name() string {
 
 func (h *httpInput) CleanUp(ctx pipelines.PipelineContext) {
 	mux := getHTTPServerMux(ctx, h.conf.ServerPluginName, false)
-	if mux == nil {
-		return
+	if mux != nil {
+		for _, method := range h.conf.Methods {
+			mux.DeleteFunc(ctx.PipelineName(), h.conf.URL, method)
+		}
 	}
 
-	for _, method := range h.conf.Methods {
-		mux.DeleteFunc(ctx.PipelineName(), h.conf.URL, method)
+	if h.waitQueueLengthIndicatorAdded {
+		ctx.Statistics().UnregisterPluginIndicator(h.Name(), h.instanceId, "WAIT_QUEUE_LENGTH")
+	}
+
+	if h.wipRequestCountIndicatorAdded {
+		ctx.Statistics().UnregisterPluginIndicator(h.Name(), h.instanceId, "WIP_REQUEST_COUNT")
 	}
 }
 
