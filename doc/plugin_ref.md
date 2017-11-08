@@ -7,10 +7,11 @@ There are 20 built-in plugins totally in Ease Gateway current release.
 
 | Plugin name | Type name | Block-able | Functional | Development status | Link |
 |:--|:--|:--:|:--:|:--:|:--|
+| [HTTP server](#http-server-plugin) | HTTPServer | No | Yes | GA | [code](../src/plugins/http_server.go) |
 | [HTTP input](#http-input-plugin) | HTTPInput | Yes | Yes | GA | [code](../src/plugins/http_input.go) |
 | [JSON validator](#json-validator-plugin) | JSONValidator | No | Yes | GA | [code](../src/plugins/json_validator.go) |
 | [Kafka output](#kafka-output-plugin) | KafkaOutput | No | Yes | GA | [code](../src/plugins/kafka_output.go) |
-| [HTTP output](#http-output-plugin) | HTTPOutput | No | Yes  | GA | [code](../src/plugins/http_output.go) |
+| [HTTP output](#http-output-plugin) | HTTPOutput | Yes | Yes  | GA | [code](../src/plugins/http_output.go) |
 | [IO reader](#io-reader-plugin) | IOReader | Yes | Yes | GA | [code](../src/plugins/io_reader.go) |
 | [HTTP header counter](#http-header-counter-plugin) | HTTPHeaderCounter | No | No | GA | [code](../src/plugins/http_header_counter.go) |
 | [Throughput rate limiter](#throughput-rate-limiter-plugin) | ThroughputRateLimiter | Yes | No | GA | [code](../src/plugins/throughput_rate_limiter.go) |
@@ -29,15 +30,51 @@ There are 20 built-in plugins totally in Ease Gateway current release.
 | [Ease Monitor JSON GID extractor](#ease-monitor-json-gid-extractor-plugin) | EaseMonitorJSONGidExtractor | No | Yes | GA | [code](../src/plugins/easemonitor/json_gid_extractor.go) |
 
 
-## HTTP Input plugin
+## HTTP Server plugin
 
-Plugin handles HTTP request and returns client with pipeline processed response. Currently a HTTPS server will runs on a fixed 10443 port with a certificate and key file pair.
+Plugin runs a HTTP server implemented based on golang net/http listens on a port, HTTP input plugin can registers route rules to its router.
 
 ### Configuration
 
 | Parameter name | Data type (golang) | Description | Type | Optional | Default value (golang) |
 |:--|:--|:--|:--:|:--:|:--|
 | plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
+| host | string | The host name or IP address of HTTP server to listen. | Functionality | Yes | "localhost" |
+| port | uint16 | The port number of HTTP server to listen. | Functionality | Yes | 10080 |
+| cert\_file | string | The certificate file name HTTPS server used. The option is mandatory if HTTPS is expected as output protocol. | Functionality | Yes | "" |
+| key\_file | string | The key file name HTTPS server used. The option is mandatory if HTTPS is expected as output protocol. | Functionality | Yes | "" |
+| keepalive | bool | The flag represents if the plugin configures keep-alive for an active connection. | Functionality | Yes | true |
+| keepalive\_sec | uint16 | The flag specifies the keep-alive period for an active network connection. Network protocols that do not support keep-alive ignore this option. | Functionality | Yes | 10 |
+| max\_connections | uint32 | The maximal simultaneous connections. | Functionality | Yes | 1024 |
+
+> NOTE:
+> About `host` option, the value `localhost` and `0.0.0.0` is different. Value `localhost` could be resolved to any IP address based on your local configuration in `/etc/hosts` file, generally it is configured to `127.0.0.1`.
+
+### I/O
+
+The plugin exposes two data buckets in the pipeline context:
+
+1. `request router`, follow plugin like HTTP input plugin can register and unregister route rules into the server by this. The key of the data bucket is `HTTP_SERVER_MUX_BUCKET_KEY`, there is a constant value defined in `easegateway-types/plugins`.
+2. `server gone notifier`, as a golang channel, follow plugin like HTTP input plugin knows HTTP server is removed from the pipeline or missing within the pipeline. The key of the data bucket is `HTTP_SERVER_GONE_NOTIFIER_BUCKET_KEY`, there is a constant value defined in `easegateway-types/plugins`.
+
+### Error
+
+No any errors returned.
+
+### Dedicated statistics indicator
+
+No any indicators exposed.
+
+## HTTP Input plugin
+
+Plugin handles HTTP request and returns client with pipeline processed response. The plugin needs register to the router of one or more HTTP servers.
+
+### Configuration
+
+| Parameter name | Data type (golang) | Description | Type | Optional | Default value (golang) |
+|:--|:--|:--|:--:|:--:|:--|
+| plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
+| server\_name | string | The plugin instance name of the HTTP server plugin. | Functionality | Yes | "httpserver-default" |
 | url | string | The request HTTP url plugin will proceed. Parametric url is supported, like `/user/{user}` or `/{resource}/count`, the values of each parameter will be extracted into task. We do not allow to register static path and parametric path on the same segment, e.g. you can not register the patterns `/user/jack` and `/user/{user}` on the same http method. | Functionality | No | N/A |
 | methods | []string | The request HTTP methods plugin will proceed. | Functionality | Yes | {"GET"} |
 | headers\_enum | map\[string\][]string | The request HTTP headers plugin will proceed. | Functionality | Yes | nil |
@@ -73,6 +110,7 @@ Plugin handles HTTP request and returns client with pipeline processed response.
 |:--|:--|
 | ResultRequesterGone | client closed |
 | ResultTaskCancelled | task is cancelled |
+| ResultServerGone | server gone, e.g. HTTP server plugin is removed from the pipeline or missing before the HTTP plugin within the pipeline |
 
 ### Dedicated statistics indicator
 
@@ -167,7 +205,7 @@ Plugin outputs request data to a HTTP endpoint.
 | insecure\_tls | bool | The flag represents if the plugin does not check server certificate. | Functionality | Yes | false |
 | close\_body\_after\_pipeline | bool | The flag represents if to close the http body IO object after task finished the pipeline. | Functionality | Yes | false |
 | keepalive | string | The flag represents if the plugin configures keep-alive for an active connection. Three options are available `auto`, `yes`/`y`/`true`/`t`/`on`/`1` or `no`/`n`/`false`/`f`/`off`/`0` (case-insensitive). In `auto` option, the keep-alive feature will be applied according to the original request from http input plugin for http proxy case. | Functionality | Yes | "auto" |
-| keepalive\_sec | string | The flag specifies the keep-alive period for an active network connection. Network protocols that do not support keep-alive ignore this option. | Functionality | Yes | 30 |
+| keepalive\_sec | uint16 | The flag specifies the keep-alive period for an active network connection. Network protocols that do not support keep-alive ignore this option. | Functionality | Yes | 30 |
 | dump\_request | string | The flag represents if the plugin dumps http request out to `http_dump.log` log file (exclude body). Three options are available `auto`, `yes`/`y`/`true`/`t`/`on`/`1` or `no`/`n`/`false`/`f`/`off`/`0` (case-insensitive). In `auto` option, the request will be dumped only when the gateway running on `debug` or `test` stage. | Functionality | Yes | "auto" |
 | dump\_response | string | The flag represents if the plugin dumps http response out to `http_dump.log` log file (exclude body). Three options are available `auto`, `yes`/`y`/`true`/`t`/`on`/`1` or `no`/`n`/`false`/`f`/`off`/`0` (case-insensitive). In `auto` option, the response will be dumped only when the gateway running on `debug` or `test` stage. | Functionality | Yes | "auto" |
 | request\_body\_buffer\_pattern | string | The HTTP output body buffer pattern. The option will be leveraged only when `request_body_io_key` option is empty. | Functionality | Yes | "" |

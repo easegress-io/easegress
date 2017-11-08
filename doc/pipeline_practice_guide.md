@@ -2,7 +2,7 @@
 
 ## Overview
 
-In this document, we would like to introduce follow pipelines from real practice to cover some worth usecases as examples.
+In this document, we would like to introduce follow pipelines from real practice to cover some worth use cases as examples.
 
 | Name | Description | Complexity level |
 |:--|:--|:--:|
@@ -10,7 +10,7 @@ In this document, we would like to introduce follow pipelines from real practice
 | [HTTP traffic throttling](#http-traffic-throttling) | Performs latency and throughput rate based traffic control. | Beginner |
 | [Service circuit breaking](#service-circuit-breaking) | As a protection function, once the service failures reach a certain threshold all further calls to the service will be returned with an error directly, and when the service recovery the breaking function will be disabled automatically. | Beginner |
 | [HTTP streamy proxy](#http-streamy-proxy) | Works as a streamy HTTP/HTTPS proxy between client and upstream | Beginner |
-| [HTTP proxy with load routing](#http-proxy-with-load-routing) | Works as a streamy HTTP/HTTPS proxy between client and upstream with a route selection policy. Blue/Green deployment and A/B testing are example use cases. | Intermediate |
+| [HTTP proxy with load routing](#http-proxy-with-load-routing) | Works as a streamy HTTP/HTTPS proxy between client and upstream with a route selection policy. Blue/Green deployment, A/B testing and Retry are example use cases. | Intermediate |
 | [HTTP proxy with caching](#http-proxy-with-caching) | Caches HTTP/HTTPS response for duplicated request | Intermediate |
 | [Service downgrading to protect critical service](#service-downgrading-to-protect-critical-service) | Under unexpected traffic which higher than planed, sacrifice the unimportant services but keep critical request is handled. | Intermediate |
 | [Flash sale event support](#flash-sale-event-support) | A pair of pipelines to support flash sale event. For e-Commerce, it means we have very low price items with limited stock, but have huge amount of people online compete on that. | Advanced |
@@ -21,17 +21,19 @@ In this case, we will prepare a pipeline to runs necessary processes as Ease Mon
 
 ### Plugin
 
-1. [HTTP input](./plugin_ref.md#http-input-plugin): To enable HTTPS endpoint to receive Ease Monitor data sent from the client.
-2. [IO reader](./plugin_ref.md#io-reader-plugin): To read Ease Monitor data from the client via HTTPS transport layer in to local memory for handling in next steps.
-3. [JSON validator](./plugin_ref.md#json-validator-plugin): Validating the Ease Monitor data sent from the client is using a certain schema. You can use [Ease Monitor graphite validator](./plugin_ref.md#ease-monitor-graphite-validator-plugin) if you would like to use the pipeline to handle Ease Monitor data with graphite plaintext protocol.
-4. [Ease Monitor JSON GID extractor](./plugin_ref.md#ease-monitor-json-gid-extractor-plugin): Extracts Ease Monitor global ID from the Ease Monitor data. You can use [Ease Monitor graphite GID extractor](./plugin_ref.md#ease-monitor-graphite-gid-extractor-plugin) if you would like to use the pipeline to handle Ease Monitor data with graphite plaintext protocol.
-5. [Kafka output](./plugin_ref.md#kafka-output-plugin): Sending the data to configured kafka topic, Ease Monitor pipeline will fetch them for rest of processes.
+1. [HTTP server](./plugin_ref.md#http-server-plugin): To enable HTTP server to listen on port 10080.
+2. [HTTP input](./plugin_ref.md#http-input-plugin): To enable HTTPS endpoint to receive Ease Monitor data sent from the client.
+3. [IO reader](./plugin_ref.md#io-reader-plugin): To read Ease Monitor data from the client via HTTPS transport layer in to local memory for handling in next steps.
+4. [JSON validator](./plugin_ref.md#json-validator-plugin): Validating the Ease Monitor data sent from the client is using a certain schema. You can use [Ease Monitor graphite validator](./plugin_ref.md#ease-monitor-graphite-validator-plugin) if you would like to use the pipeline to handle Ease Monitor data with graphite plaintext protocol.
+5. [Ease Monitor JSON GID extractor](./plugin_ref.md#ease-monitor-json-gid-extractor-plugin): Extracts Ease Monitor global ID from the Ease Monitor data. You can use [Ease Monitor graphite GID extractor](./plugin_ref.md#ease-monitor-graphite-gid-extractor-plugin) if you would like to use the pipeline to handle Ease Monitor data with graphite plaintext protocol.
+6. [Kafka output](./plugin_ref.md#kafka-output-plugin): Sending the data to configured kafka topic, Ease Monitor pipeline will fetch them for rest of processes.
 
 Using follow [Administration API](./admin_api_ref.swagger.yaml) calls to setup above plugins:
 
 ```
-$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPInput", "config": {"plugin_name": "test-httpinput", "url": "/test", "methods": ["POST"], "headers_enum": {"name": ["bar", "bar1"]}, "request_body_io_key": "HTTP_REQUEST_BODY_IO"}}'
-$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "IOReader", "config": {"plugin_name": "test-ioreader", "input_key":"HTTP_REQUEST_BODY_IO", "output_key": "DATA"}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPServer", "config": {"plugin_name": "httpserver", "port":10080, "keepalive_sec":30}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPInput", "config": {"plugin_name": "test-httpinput", "server_name": "httpserver", "url": "/test", "methods": ["POST"], "headers_enum": {"name": ["bar", "bar1"]}, "request_body_io_key": "HTTP_REQUEST_BODY_IO"}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "IOReader", "config": {"plugin_name": "test-ioreader", "input_key": "HTTP_REQUEST_BODY_IO", "output_key": "DATA"}}'
 $ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "JSONValidator", "config": {"plugin_name": "test-jsonvalidator", "schema": "{\"title\": \"Record\",\"type\": \"object\",\"properties\": {\"name\": {\"type\": \"string\"}}, \"required\": [\"name\"]}", "data_key": "DATA"}}'
 $ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "EaseMonitorJSONGidExtractor", "config": {"plugin_name": "test-jsongidextractor", "gid_key": "GID", "data_key": "DATA"}}'
 $ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "KafkaOutput", "config": {"plugin_name": "test-kafkaoutput", "topic": "test", "brokers": ["127.0.0.1:9092"], "message_key_key": "GID", "data_key": "DATA"}}'
@@ -42,7 +44,7 @@ $ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:applic
 You can use follow [Administration API](./admin_api_ref.swagger.yaml) calls to setup the pipeline:
 
 ```
-$ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "test-jsonpipeline", "plugin_names": ["test-httpinput", "test-ioreader", "test-jsonvalidator", "test-jsongidextractor", "test-kafkaoutput"], "parallelism": 10}}'
+$ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "test-jsonpipeline", "plugin_names": ["httpserver", "test-httpinput", "test-ioreader", "test-jsonvalidator", "test-jsongidextractor", "test-kafkaoutput"], "parallelism": 10}}'
 ```
 
 ### Test
@@ -67,7 +69,7 @@ $ curl -i -k https://127.0.0.1:10443/test -X POST -i -w "\n" -H "name:bar" -d "$
 
 Currently Ease Gateway supports two kinds of traffic throttling:
 
-* Throughput rate based throttling. This kind traffic throttling provides a clear and predictable workload limitation on the upstream, any exceeded requests will all be rejected by a ResultFlowControl internal error. Finally the error will be translated to a special response to the client, for example, HTTP Input plugin tnslatesranslates the error to HTTP status code 429 (StatusTooManyRequests, RFC 6585.4). There are two potential limitations on this traffic throttling way:
+* Throughput rate based throttling. This kind traffic throttling provides a clear and predictable workload limitation on the upstream, any exceeded requests will all be rejected by a ResultFlowControl internal error. Finally the error will be translated to a special response to the client, for example, HTTP Input plugin translates the error to HTTP status code 429 (StatusTooManyRequests, RFC 6585.4). There are two potential limitations on this traffic throttling way:
 	* When upstream is deployed in a distributed environment, it is hard to setup a accurate throughput rate limitation according to a single service instance due to requests on the upstream could be passed by different instances.
 	* When Ease Gateway is deployed in a distributed environment and more than one gateway instances are pointed to the same upstream service, under this case the requests could be handled by different gateway instances, so a clear throughput rate limitation in a single gateway instance does not really work on upstream.
 * Upstream latency based throttling. This kind of traffic throttling provides a sliding window based on upstream handling latency, just like TCP flow control implementation the size of sliding window will be adjusted according to the case of upstream response, lower latency generally means better performance upstream has and more requests could be sent to upstream quickly. This traffic throttling way solved above two potential limitations of throughput rate based throttling method.
@@ -78,19 +80,21 @@ In this case, we will prepare a pipeline to show you how to setup a throughput r
 
 #### Plugin
 
-1. [HTTP input](./plugin_ref.md#http-input-plugin): To enable HTTPS endpoint to receive Ease Monitor data sent from the client.
-2. [Throughput rate limiter](./plugin_ref.md#throughput-rate-limiter-plugin): To add a limitation to control request rate. The limitation will be performed no matter how many concurrent clients send the request. In this case, we ask there are no more than 11 requests per second sent to Ease Monitor pipeline.
-3. [IO reader](./plugin_ref.md#io-reader-plugin): To read Ease Monitor data from the client via HTTPS transport layer in to local memory for handling in next steps.
-4. [JSON validator](./plugin_ref.md#json-validator-plugin): Validating the Ease Monitor data sent from the client is using a certain schema.
-5. [Ease Monitor JSON GID extractor](./plugin_ref.md#ease-monitor-json-gid-extractor-plugin): Extracts Ease Monitor global ID from the Ease Monitor data. You can use [Graphite GID extractor](./plugin_ref.md#graphite-gid-extractor-plugin) if you would like to use the pipeline to handle Ease Monitor data with graphite plaintext protocol.
-6. [Kafka output](./plugin_ref.md#kafka-output-plugin): Sending the data to configured kafka topic, Ease Monitor pipeline will fetch them for rest of processes.
+1. [HTTP server](./plugin_ref.md#http-server-plugin): To enable HTTP server to listen on port 10080.
+2. [HTTP input](./plugin_ref.md#http-input-plugin): To enable HTTPS endpoint to receive Ease Monitor data sent from the client.
+3. [Throughput rate limiter](./plugin_ref.md#throughput-rate-limiter-plugin): To add a limitation to control request rate. The limitation will be performed no matter how many concurrent clients send the request. In this case, we ask there are no more than 11 requests per second sent to Ease Monitor pipeline.
+4. [IO reader](./plugin_ref.md#io-reader-plugin): To read Ease Monitor data from the client via HTTPS transport layer in to local memory for handling in next steps.
+5. [JSON validator](./plugin_ref.md#json-validator-plugin): Validating the Ease Monitor data sent from the client is using a certain schema.
+6. [Ease Monitor JSON GID extractor](./plugin_ref.md#ease-monitor-json-gid-extractor-plugin): Extracts Ease Monitor global ID from the Ease Monitor data. You can use [Graphite GID extractor](./plugin_ref.md#graphite-gid-extractor-plugin) if you would like to use the pipeline to handle Ease Monitor data with graphite plaintext protocol.
+7. [Kafka output](./plugin_ref.md#kafka-output-plugin): Sending the data to configured kafka topic, Ease Monitor pipeline will fetch them for rest of processes.
 
 Using follow [Administration API](./admin_api_ref.swagger.yaml) calls to setup above plugins:
 
 ```
-$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPInput", "config": {"plugin_name": "test-httpinput", "url": "/test", "methods": ["POST"], "headers_enum": {"name": ["bar", "bar1"]}, "request_body_io_key": "HTTP_REQUEST_BODY_IO"}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPServer", "config": {"plugin_name": "httpserver", "port":10080, "keepalive_sec":30}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPInput", "config": {"plugin_name": "test-httpinput", "server_name": "httpserver", "url": "/test", "methods": ["POST"], "headers_enum": {"name": ["bar", "bar1"]}, "request_body_io_key": "HTTP_REQUEST_BODY_IO"}}'
 $ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "ThroughputRateLimiter", "config": {"plugin_name": "test-throughputratelimiter", "tps": "11"}}'
-$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "IOReader", "config": {"plugin_name": "test-ioreader", "input_key":"HTTP_REQUEST_BODY_IO", "output_key": "DATA"}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "IOReader", "config": {"plugin_name": "test-ioreader", "input_key": "HTTP_REQUEST_BODY_IO", "output_key": "DATA"}}'
 $ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "JSONValidator", "config": {"plugin_name": "test-jsonvalidator", "schema": "{\"title\": \"Record\",\"type\": \"object\",\"properties\": {\"name\": {\"type\": \"string\"}}, \"required\": [\"name\"]}", "data_key": "DATA"}}'
 $ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "EaseMonitorJSONGidExtractor", "config": {"plugin_name": "test-jsongidextractor", "gid_key": "GID", "data_key": "DATA"}}'
 $ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "KafkaOutput", "config": {"plugin_name": "test-kafkaoutput", "topic": "test", "brokers": ["127.0.0.1:9092"], "message_key_key": "GID", "data_key": "DATA"}}'
@@ -103,7 +107,7 @@ We need to set throughput rate limiter plugin to a certain position in the pipel
 You can use follow [Administration API](./admin_api_ref.swagger.yaml) calls to setup the pipeline:
 
 ```
-$ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "test-jsonpipeline", "plugin_names": ["test-httpinput", "test-throughputratelimiter", "test-ioreader", "test-jsonvalidator", "test-jsongidextractor", "test-kafkaoutput"], "parallelism": 10}}'
+$ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "test-jsonpipeline", "plugin_names": ["httpserver", "test-httpinput", "test-throughputratelimiter", "test-ioreader", "test-jsonvalidator", "test-jsongidextractor", "test-kafkaoutput"], "parallelism": 10}}'
 ```
 
 #### Test
@@ -170,23 +174,25 @@ Percentage of the requests served within a certain time (ms)
 
 ### Upstream latency based throttling
 
-In this case, we will prepare a pipeline to show you how to setup a latency based limitation for Ease Monitor edge service. You can see we only need to create a plugin and add it to a certain position in to the pipeline easily, it just like what we did in throughput rate based throttling above.
+1. In this case, we will prepare a pipeline to show you how to setup a latency based limitation for Ease Monitor edge service. You can see we only need to create a plugin and add it to a certain position in to the pipeline easily, it just like what we did in throughput rate based throttling above.
 
 #### Plugin
 
-1. [HTTP input](./plugin_ref.md#http-input-plugin): To enable HTTPS endpoint to receive Ease Monitor data sent from the client.
-2. [Latency based sliding window limiter](./plugin_ref.md#latency-based-sliding-window-limiter-plugin): To add a limitation to control request rate. The limitation will be performed no matter how many concurrent clients send the request. In this case, we ask there are no more than 11 requests per second sent to Ease Monitor pipeline.
-3. [IO reader](./plugin_ref.md#io-reader-plugin): To read Ease Monitor data from the client via HTTPS transport layer in to local memory for handling in next steps.
-4. [JSON validator](./plugin_ref.md#json-validator-plugin): Validating the Ease Monitor data sent from the client is using a certain schema.
-5. [Ease Monitor JSON GID extractor](./plugin_ref.md#ease-monitor-json-gid-extractor-plugin): Extracts Ease Monitor global ID from the Ease Monitor data. You can use [Graphite GID extractor](./plugin_ref.md#graphite-gid-extractor-plugin) if you would like to use the pipeline to handle Ease Monitor data with graphite plaintext protocol.
-6. [Kafka output](./plugin_ref.md#kafka-output-plugin): Sending the data to configured kafka topic, Ease Monitor pipeline will fetch them for rest of processes.
+1. [HTTP server](./plugin_ref.md#http-server-plugin): To enable HTTP server to listen on port 10080.
+2. [HTTP input](./plugin_ref.md#http-input-plugin): To enable HTTPS endpoint to receive Ease Monitor data sent from the client.
+3. [Latency limiter](./plugin_ref.md#latency-limiter-plugin): To add a limitation to control request rate. The limitation will be performed no matter how many concurrent clients send the request. In this case, we request to backoff follow requests 1 second if the process time of output kafka broker for previous request greater than 150 milliseconds.
+4. [IO reader](./plugin_ref.md#io-reader-plugin): To read Ease Monitor data from the client via HTTPS transport layer in to local memory for handling in next steps.
+5. [JSON validator](./plugin_ref.md#json-validator-plugin): Validating the Ease Monitor data sent from the client is using a certain schema.
+6. [Ease Monitor JSON GID extractor](./plugin_ref.md#ease-monitor-json-gid-extractor-plugin): Extracts Ease Monitor global ID from the Ease Monitor data. You can use [Graphite GID extractor](./plugin_ref.md#graphite-gid-extractor-plugin) if you would like to use the pipeline to handle Ease Monitor data with graphite plaintext protocol.
+7. [Kafka output](./plugin_ref.md#kafka-output-plugin): Sending the data to configured kafka topic, Ease Monitor pipeline will fetch them for rest of processes.
 
 Using follow [Administration API](./admin_api_ref.swagger.yaml) calls to setup above plugins:
 
 ```
-$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPInput", "config": {"plugin_name": "test-httpinput", "url": "/test", "methods": ["POST"], "headers_enum": {"name": ["bar", "bar1"]}, "request_body_io_key": "HTTP_REQUEST_BODY_IO"}}'
-$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LatencyWindowLimiter", "config": {"plugin_name": "test-latencywindowlimiter", "latency_threshold_msec": 150, "plugins_concerned": ["test-kafkaoutput"], "window_size_max": 10, "windows_size_init": 5}}'
-$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "IOReader", "config": {"plugin_name": "test-ioreader", "input_key":"HTTP_REQUEST_BODY_IO", "output_key": "DATA"}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPServer", "config": {"plugin_name": "httpserver", "port":10080, "keepalive_sec":30}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPInput", "config": {"plugin_name": "test-httpinput", "server_name": "httpserver", "url": "/test", "methods": ["POST"], "headers_enum": {"name": ["bar", "bar1"]}, "request_body_io_key": "HTTP_REQUEST_BODY_IO"}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LatencyWindowLimiter", "config": {"plugin_name": "test-latencywindowlimiter", "latency_threshold_msec": 150, "plugins_concerned": ["test-kafkaoutput"], "allow_times": 0, "backoff_msec": 1000}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "IOReader", "config": {"plugin_name": "test-ioreader", "input_key": "HTTP_REQUEST_BODY_IO", "output_key": "DATA"}}'
 $ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "JSONValidator", "config": {"plugin_name": "test-jsonvalidator", "schema": "{\"title\": \"Record\",\"type\": \"object\",\"properties\": {\"name\": {\"type\": \"string\"}}, \"required\": [\"name\"]}", "data_key": "DATA"}}'
 $ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "EaseMonitorJSONGidExtractor", "config": {"plugin_name": "test-jsongidextractor", "gid_key": "GID", "data_key": "DATA"}}'
 $ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "KafkaOutput", "config": {"plugin_name": "test-kafkaoutput", "topic": "test", "brokers": ["127.0.0.1:9092"], "message_key_key": "GID", "data_key": "DATA"}}'
@@ -199,7 +205,7 @@ We need to set the limiter plugin to a certain position in the pipeline, general
 You can use follow [Administration API](./admin_api_ref.swagger.yaml) calls to setup the pipeline:
 
 ```
-$ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "test-jsonpipeline", "plugin_names": ["test-httpinput", "test-latencywindowlimiter", "test-ioreader", "test-jsonvalidator", "test-jsongidextractor", "test-kafkaoutput"], "parallelism": 10}}'
+$ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "test-jsonpipeline", "plugin_names": ["httpserver", "test-httpinput", "test-latencywindowlimiter", "test-ioreader", "test-jsonvalidator", "test-jsongidextractor", "test-kafkaoutput"], "parallelism": 10}}'
 ```
 
 #### Test
@@ -260,6 +266,89 @@ Percentage of the requests served within a certain time (ms)
  100%    322 (longest request)
 ```
 
+2. In follow case, we will prepare a pipeline to show you how to setup a latency based limitation for http proxy case. The idea is similar with above one. In this case, EaseGateway is acting a http proxy and a latency limiter is applied, we suggest to configure IO reader plugin in the pipeline, with the reader the execution time of receiving the upstream response body could be calculated by latency limiter, additionally, the execution time of HTTP output plugin will includes the socket initialization time and the time of receiving HTTP response header of the upstream.
+
+#### Plugin
+
+1. [HTTP server](./plugin_ref.md#http-server-plugin): To enable HTTP server to listen on port 10080.
+2. [HTTP input](./plugin_ref.md#http-input-plugin): To enable HTTP endpoint to receive the data sent from the client.
+3. [Latency limiter](./plugin_ref.md#latency-limiter-plugin): To add a limitation to control request rate. The limitation will be performed no matter how many concurrent clients send the request. In this case, we request to backoff follow requests 100 milliseconds if the process time of output kafka broker for previous request greater than 500 milliseconds.
+4. [Upstream output](./plugin_ref.md#upstream-output-plugin): To output request to an upstream pipeline and waits the response.
+5. [IO reader](./plugin_ref.md#io-reader-plugin): To read the data from the upstream via HTTP transport layer in to local memory for handling in next steps.
+6. [Downstream input](./plugin_ref.md#downstream-input-plugin): Handles downstream request to running pipeline as input and send the response back.
+7. [HTTP output](./plugin_ref.md#http-output-plugin): Sending the body and headers to a certain endpoint of upstream RESTFul service.
+
+Using follow [Administration API](./admin_api_ref.swagger.yaml) calls to setup above plugins:
+
+```
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPServer", "config": {"plugin_name": "httpserver", "port":10080, "keepalive_sec":30}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPInput", "config": {"plugin_name": "httpinput", "server_name": "httpserver", "dump_request": "auto", "fast_close":false, "headers_enum":null, "methods":["GET", "POST"], "request_body_io_key": "HTTP_REQUEST_BODY_IO", "request_header_names_key": "", "respond_error":false, "response_body_buffer_key": "HTTP_RESP_BODY_DATA", "response_body_io_key": "", "response_code_key": "HTTP_RESP_CODE", "unzip":true, "url": "\/test"}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LatencyLimiter", "config": {"plugin_name": "limiter", "backoff_msec":100, "latency_threshold_msec":500, "plugins_concerned":["upstreamoutput", "ioreader"], "allow_times":0}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "UpstreamOutput", "config": {"plugin_name": "upstreamoutput", "target_pipelines":["upstream"], "route_policy": "round_robin", "timeout_sec":0, "request_data_keys":["HTTP_REQUEST_BODY_IO", "CONTENT_TYPE", "REQUEST_METHOD", "QUERY_STRING"], "target_weights":null, "value_hashed_keys":null, "filter_conditions":null, "target_response_flags":null}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "IOReader", "config": {"plugin_name": "ioreader", "input_key": "HTTP_RESP_BODY_IO", "output_key": "HTTP_RESP_BODY_DATA"}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "DownstreamInput", "config": {"plugin_name": "downstreaminput", "response_data_keys":["HTTP_RESP_CODE", "HTTP_RESP_BODY_IO"]}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPOutput", "config": {"plugin_name": "httpoutput", "ca_file": "", "cert_file": "", "close_body_after_pipeline":false, "dump_request": "auto", "dump_response": "auto", "expected_response_codes":[200, 500, 404, 405], "header_patterns": {"Content-Type": "{CONTENT_TYPE}"}, "insecure_tls":false, "keepalive": "auto", "keepalive_sec":30, "key_file": "", "method": "POST", "request_body_buffer_pattern": "", "request_body_io_key": "HTTP_REQUEST_BODY_IO", "response_body_io_key": "HTTP_RESP_BODY_IO", "response_code_key": "RESPONSE_CODE", "timeout_sec":120, "url_pattern": "http:\/\/127.0.0.1:1122\/abc"}}'
+```
+
+#### Pipeline
+
+We need to set the limiter plugin to a certain position in the pipeline, generally we should terminate request as earlier as possible in the pipeline since once limitation is reached there is no reason to handle the request for rest steps, in this case we add the limiter close to HTTP input plugin.
+
+You can use follow [Administration API](./admin_api_ref.swagger.yaml) calls to setup the pipelines:
+
+```
+$ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "downstream", "plugin_names":["httpserver", "httpinput", "limiter", "upstreamoutput", "ioreader"], "parallelism":2, "cross_pipeline_request_backlog":0, "wait_plugin_close":true}}'
+$ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"cross_pipeline_request_backlog":0, "parallelism":2, "pipeline_name": "upstream", "plugin_names":["downstreaminput", "httpoutput"], "wait_plugin_close":true}}'
+```
+
+#### Test
+
+```
+$ ab -c 2 -n 10 http://127.0.0.1:10080/test
+This is ApacheBench, Version 2.3 <$Revision: 1528965 $>
+Copyright 1996 Adam Twiss, Zeus Technology Ltd, http://www.zeustech.net/
+Licensed to The Apache Software Foundation, http://www.apache.org/
+
+Benchmarking 127.0.0.1 (be patient).....done
+
+
+Server Software:
+Server Hostname:        127.0.0.1
+Server Port:            10080
+
+Document Path:          /test
+Document Length:        64 bytes
+
+Concurrency Level:      2
+Time taken for tests:   2.022 seconds
+Complete requests:      10
+Failed requests:        0
+Total transferred:      1600 bytes
+HTML transferred:       640 bytes
+Requests per second:    4.95 [#/sec] (mean)
+Time per request:       404.409 [ms] (mean)
+Time per request:       202.204 [ms] (mean, across all concurrent requests)
+Transfer rate:          0.77 [Kbytes/sec] received
+
+Connection Times (ms)
+              min  mean[+/-sd] median   max
+Connect:        0    0   0.9      0       3
+Processing:   205  384  63.0    403     406
+Waiting:      202  383  63.7    403     406
+Total:        205  384  62.9    403     407
+
+Percentage of the requests served within a certain time (ms)
+  50%    403
+  66%    404
+  75%    406
+  80%    406
+  90%    407
+  95%    407
+  98%    407
+  99%    407
+ 100%    407 (longest request)
+```
+
 ## Service circuit breaking
 
 In this case, we will prepare a pipeline to show you how to add such a service circuit breaking mechanism to Ease Monitor edge service. You can see we only need to create a plugin and add it to a certain position in to the pipeline easily.
@@ -269,20 +358,22 @@ In this case, we will prepare a pipeline to show you how to add such a service c
 
 ### Plugin
 
-1. [HTTP input](./plugin_ref.md#http-input-plugin): To enable HTTPS endpoint to receive Ease Monitor data sent from the client.
-2. [Service circuit breaker](./plugin_ref.md#service-circuit-breaker-plugin): Limiting request rate base on the failure rate the pass probability plugin simulated.
-3. [IO reader](./plugin_ref.md#io-reader-plugin): To read Ease Monitor data from the client via HTTPS transport layer in to local memory for handling in next steps.
-4. [JSON validator](./plugin_ref.md#json-validator-plugin): Validating the Ease Monitor data sent from the client is using a certain schema. You can use [Ease Monitor graphite validator](./plugin_ref.md#ease-monitor-graphite-validator-plugin) if you would like to use the pipeline to handle Ease Monitor data with graphite plaintext protocol.
-5. [Ease Monitor JSON GID extractor](./plugin_ref.md#ease-monitor-json-gid-extractor-plugin): Extracts Ease Monitor global ID from the Ease Monitor data. You can use [Ease Monitor graphite GID extractor](./plugin_ref.md#ease-monitor-graphite-gid-extractor-plugin) if you would like to use the pipeline to handle Ease Monitor data with graphite plaintext protocol.
-6. [Static pass probability limiter](./plugin_ref.md#static-pass-probability-limiter-plugin): The plugin passes the request with a fixed probability, in this case it is used to simulate upstream service failure with 50% probability.
-7. [Kafka output](./plugin_ref.md#kafka-output-plugin): Sending the data to configured kafka topic, Ease Monitor pipeline will fetch them for rest of processes.
+1. [HTTP server](./plugin_ref.md#http-server-plugin): To enable HTTP server to listen on port 10080.
+2. [HTTP input](./plugin_ref.md#http-input-plugin): To enable HTTPS endpoint to receive Ease Monitor data sent from the client.
+3. [Service circuit breaker](./plugin_ref.md#service-circuit-breaker-plugin): Limiting request rate base on the failure rate the pass probability plugin simulated.
+4. [IO reader](./plugin_ref.md#io-reader-plugin): To read Ease Monitor data from the client via HTTPS transport layer in to local memory for handling in next steps.
+5. [JSON validator](./plugin_ref.md#json-validator-plugin): Validating the Ease Monitor data sent from the client is using a certain schema. You can use [Ease Monitor graphite validator](./plugin_ref.md#ease-monitor-graphite-validator-plugin) if you would like to use the pipeline to handle Ease Monitor data with graphite plaintext protocol.
+6. [Ease Monitor JSON GID extractor](./plugin_ref.md#ease-monitor-json-gid-extractor-plugin): Extracts Ease Monitor global ID from the Ease Monitor data. You can use [Ease Monitor graphite GID extractor](./plugin_ref.md#ease-monitor-graphite-gid-extractor-plugin) if you would like to use the pipeline to handle Ease Monitor data with graphite plaintext protocol.
+7. [Static pass probability limiter](./plugin_ref.md#static-pass-probability-limiter-plugin): The plugin passes the request with a fixed probability, in this case it is used to simulate upstream service failure with 50% probability.
+8. [Kafka output](./plugin_ref.md#kafka-output-plugin): Sending the data to configured kafka topic, Ease Monitor pipeline will fetch them for rest of processes.
 
 Using follow [Administration API](./admin_api_ref.swagger.yaml) calls to setup above plugins:
 
 ```
-$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPInput", "config": {"plugin_name": "test-httpinput", "url": "/test", "methods": ["POST"], "headers_enum": {"name": ["bar", "bar1"]}, "request_body_io_key": "HTTP_REQUEST_BODY_IO"}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPServer", "config": {"plugin_name": "httpserver", "port":10080, "keepalive_sec":30}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPInput", "config": {"plugin_name": "test-httpinput", "server_name": "httpserver", "url": "/test", "methods": ["POST"], "headers_enum": {"name": ["bar", "bar1"]}, "request_body_io_key": "HTTP_REQUEST_BODY_IO"}}'
 $ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "ServiceCircuitBreaker", "config": {"plugin_name": "test-servicecircuitbreaker", "plugins_concerned": ["test-staticprobabilitylimiter"], "all_tps_threshold_to_enable": 1, "failure_tps_threshold_to_break": 1, "failure_tps_percent_threshold_to_break": -1, "recovery_time_msec": 500, "success_tps_threshold_to_open": 1}}'
-$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "IOReader", "config": {"plugin_name": "test-ioreader", "input_key":"HTTP_REQUEST_BODY_IO", "output_key": "DATA"}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "IOReader", "config": {"plugin_name": "test-ioreader", "input_key": "HTTP_REQUEST_BODY_IO", "output_key": "DATA"}}'
 $ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "JSONValidator", "config": {"plugin_name": "test-jsonvalidator", "schema": "{\"title\": \"Record\",\"type\": \"object\",\"properties\": {\"name\": {\"type\": \"string\"}}, \"required\": [\"name\"]}", "data_key": "DATA"}}'
 $ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "EaseMonitorJSONGidExtractor", "config": {"plugin_name": "test-jsongidextractor", "gid_key": "GID", "data_key": "DATA"}}'
 $ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "StaticProbabilityLimiter", "config": {"plugin_name": "test-staticprobabilitylimiter", "pass_pr": 0.5}}'
@@ -296,7 +387,7 @@ We need to set the limiter plugin to a certain position in the pipeline, general
 You can use follow [Administration API](./admin_api_ref.swagger.yaml) calls to setup the pipeline:
 
 ```
-$ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "test-jsonpipeline", "plugin_names": ["test-httpinput", "test-servicecircuitbreaker", "test-ioreader", "test-jsonvalidator", "test-jsongidextractor", "test-staticprobabilitylimiter", "test-kafkaoutput"], "parallelism": 10}}'
+$ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "test-jsonpipeline", "plugin_names": ["httpserver", "test-httpinput", "test-servicecircuitbreaker", "test-ioreader", "test-jsonvalidator", "test-jsongidextractor", "test-staticprobabilitylimiter", "test-kafkaoutput"], "parallelism": 10}}'
 ```
 
 ### Test
@@ -440,14 +531,16 @@ In this case, you can see how a pipeline act a HTTP/HTTPS proxy between input an
 
 ### Plugin
 
-1. [HTTP input](./plugin_ref.md#http-input-plugin): To enable HTTP endpoint to receive RESTful request for upstream service.
-2. [HTTP output](./plugin_ref.md#http-output-plugin): Sending the body and headers to a certain endpoint of upstream RESTFul service.
+1. [HTTP server](./plugin_ref.md#http-server-plugin): To enable HTTP server to listen on port 10080.
+2. [HTTP input](./plugin_ref.md#http-input-plugin): To enable HTTP endpoint to receive RESTful request for upstream service.
+3. [HTTP output](./plugin_ref.md#http-output-plugin): Sending the body and headers to a certain endpoint of upstream RESTFul service.
 
 Using follow [Administration API](./admin_api_ref.swagger.yaml) calls to setup above plugins:
 
 ```
-$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPInput", "config": {"plugin_name": "test-httpinput", "url": "/test", "methods": ["GET"], "headers_enum": {"name": ["bar", "bar1"]}, "request_body_io_key": "HTTP_REQUEST_BODY_IO", "response_code_key": "response_code", "response_body_io_key": "HTTP_RESP_BODY_IO"}}'
-$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPOutput", "config": {"plugin_name": "test-httpoutput", "url_pattern": "http://127.0.0.1:1122/abc", "header_patterns": {}, "method": "POST", "response_code_key": "response_code", "response_body_io_key": "HTTP_RESP_BODY_IO", "request_body_io_key": "HTTP_REQUEST_BODY_IO" }}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPServer", "config": {"plugin_name": "httpserver", "port":10080, "keepalive_sec":30}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPInput", "config": {"plugin_name": "test-httpinput", "server_name": "httpserver", "url": "/test", "methods": ["GET"], "headers_enum": {"name": ["bar", "bar1"]}, "request_body_io_key": "HTTP_REQUEST_BODY_IO", "response_code_key": "HTTP_RESP_CODE", "response_body_io_key": "HTTP_RESP_BODY_IO"}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPOutput", "config": {"plugin_name": "test-httpoutput", "url_pattern": "http://127.0.0.1:1122/abc", "header_patterns": {}, "method": "POST", "response_code_key": "HTTP_RESP_CODE", "response_body_io_key": "HTTP_RESP_BODY_IO", "request_body_io_key": "HTTP_REQUEST_BODY_IO" }}'
 ```
 
 ### Pipeline
@@ -455,7 +548,7 @@ $ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:applic
 You can use follow [Administration API](./admin_api_ref.swagger.yaml) calls to setup the pipeline:
 
 ```
-$ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "test-jsonpipeline", "plugin_names": ["test-httpinput", "test-httpoutput"], "parallelism": 10}}'
+$ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "test-jsonpipeline", "plugin_names": ["httpserver", "test-httpinput", "test-httpoutput"], "parallelism": 10}}'
 ```
 
 ### Test
@@ -523,24 +616,26 @@ In this case, you can see how three pipelines co-works together, downstream pipe
 
 ### Plugin
 
-1. [HTTP input](./plugin_ref.md#http-input-plugin): To enable HTTP endpoint to receive RESTful request for upstream service.
-2. [HTTP output](./plugin_ref.md#http-output-plugin): Sending the body and headers to a certain endpoint of upstream RESTFul service.
-3. [Upstream output](./plugin_ref.md#upstream-output-plugin): To output request to an upstream pipeline and waits the response.
-4. [Downstream input](./plugin_ref.md#downstream-input-plugin): Handles downstream request to running pipeline as input and send the response back.
+1. [HTTP server](./plugin_ref.md#http-server-plugin): To enable HTTP server to listen on port 10080.
+2. [HTTP input](./plugin_ref.md#http-input-plugin): To enable HTTP endpoint to receive RESTful request for upstream service.
+3. [HTTP output](./plugin_ref.md#http-output-plugin): Sending the body and headers to a certain endpoint of upstream RESTFul service.
+4. [Upstream output](./plugin_ref.md#upstream-output-plugin): To output request to an upstream pipeline and waits the response.
+5. [Downstream input](./plugin_ref.md#downstream-input-plugin): Handles downstream request to running pipeline as input and send the response back.
 
 Using follow [Administration API](./admin_api_ref.swagger.yaml) calls to setup above plugins:
 
 ```
 # For upstream #1
-$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "DownstreamInput", "config": {"plugin_name": "test-downstreamintpu1", "response_data_keys": ["response_code", "HTTP_RESP_BODY_IO"] }}'
-$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPOutput", "config": {"plugin_name": "test-httpoutput1", "url_pattern": "http://127.0.0.1:1122/abc", "header_patterns": {}, "method": "POST", "response_code_key": "response_code", "response_body_io_key": "HTTP_RESP_BODY_IO", "request_body_io_key": "HTTP_REQUEST_BODY_IO", "close_body_after_pipeline": false}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "DownstreamInput", "config": {"plugin_name": "test-downstreamintpu1", "response_data_keys": ["HTTP_RESP_CODE", "HTTP_RESP_BODY_IO"] }}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPOutput", "config": {"plugin_name": "test-httpoutput1", "url_pattern": "http://127.0.0.1:1122/abc", "header_patterns": {}, "method": "POST", "response_code_key": "HTTP_RESP_CODE", "response_body_io_key": "HTTP_RESP_BODY_IO", "request_body_io_key": "HTTP_REQUEST_BODY_IO", "close_body_after_pipeline": false}}'
 
 # For upstream #2
-$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "DownstreamInput", "config": {"plugin_name": "test-downstreamintput2", "response_data_keys": ["response_code", "HTTP_RESP_BODY_IO"] }}'
-$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPOutput", "config": {"plugin_name": "test-httpoutput2", "url_pattern": "http://127.0.0.1:3344/abc", "header_patterns": {}, "method": "POST", "response_code_key": "response_code", "response_body_io_key": "HTTP_RESP_BODY_IO", "request_body_io_key": "HTTP_REQUEST_BODY_IO", "close_body_after_pipeline": false}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "DownstreamInput", "config": {"plugin_name": "test-downstreaminput2", "response_data_keys": ["HTTP_RESP_CODE", "HTTP_RESP_BODY_IO"] }}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPOutput", "config": {"plugin_name": "test-httpoutput2", "url_pattern": "http://127.0.0.1:3344/abc", "header_patterns": {}, "method": "POST", "response_code_key": "HTTP_RESP_CODE", "response_body_io_key": "HTTP_RESP_BODY_IO", "request_body_io_key": "HTTP_REQUEST_BODY_IO", "close_body_after_pipeline": false}}'
 
 # For downstream, round_robin policy is used at this time
-$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPInput", "config": {"plugin_name": "test-httpinput", "url": "/test", "methods": ["GET"], "headers_enum": {"name": ["bar", "bar1"]}, "request_body_io_key": "HTTP_REQUEST_BODY_IO", "response_code_key": "response_code", "response_body_io_key": "HTTP_RESP_BODY_IO"}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPServer", "config": {"plugin_name": "httpserver", "port":10080, "keepalive_sec":30}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPInput", "config": {"plugin_name": "test-httpinput", "server_name": "httpserver", "url": "/test", "methods": ["GET"], "headers_enum": {"name": ["bar", "bar1"]}, "request_body_io_key": "HTTP_REQUEST_BODY_IO", "response_code_key": "HTTP_RESP_CODE", "response_body_io_key": "HTTP_RESP_BODY_IO"}}'
 $ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "UpstreamOutput", "config": {"plugin_name": "test-upstreamoutput1", "target_pipelines": ["test-upstream1", "test-upstream2"], "request_data_keys": ["HTTP_REQUEST_BODY_IO"], "route_policy": "round_robin"}}'
 
 ```
@@ -554,10 +649,10 @@ You can use follow [Administration API](./admin_api_ref.swagger.yaml) calls to s
 $ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "test-upstream1", "plugin_names": ["test-downstreamintpu1", "test-httpoutput1"], "parallelism": 10}}'
 
 # For upstream #2
-$ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "test-upstream2", "plugin_names": ["test-downstreamintput2", "test-httpoutput2"], "parallelism": 10}}'
+$ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "test-upstream2", "plugin_names": ["test-downstreaminput2", "test-httpoutput2"], "parallelism": 10}}'
 
 # For downstream
-$ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "intput", "plugin_names": ["test-httpinput", "test-upstreamoutput1"], "parallelism": 10}}'
+$ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "input", "plugin_names": ["httpserver", "test-httpinput", "test-upstreamoutput1"], "parallelism": 10}}'
 
 ```
 
@@ -712,7 +807,7 @@ Transfer-Encoding: chunked
 Next, let's see Blue/Green deployment case, this time we need to use `filter` policy and provide a proper condition option to it. The data belongs to the key `QUERY_STRING` is given by HTTP input plugin, you can check the detail out by plugin reference document.
 
 ```
-$ curl http://127.0.0.1:9090/admin/v1/plugins -X PUT -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "UpstreamOutput", "config": {"plugin_name": "test-upstreamoutput1", "target_pipelines": ["test-upstream1", "test-upstream2"], "request_data_keys": ["HTTP_REQUEST_BODY_IO"], "route_policy": "filter", "filter_conditions": [{"QUERY_STRING":"release=green"}, {"QUERY_STRING":"release=blue"}]}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X PUT -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "UpstreamOutput", "config": {"plugin_name": "test-upstreamoutput1", "target_pipelines": ["test-upstream1", "test-upstream2"], "request_data_keys": ["HTTP_REQUEST_BODY_IO"], "route_policy": "filter", "filter_conditions": [{"QUERY_STRING": "release=green"}, {"QUERY_STRING": "release=blue"}]}}'
 
 $ curl -i -k http://127.0.0.1:10080/test?release=green -X GET -i -w "\n" -H "name:bar" -d "$LOAD"
 HTTP/1.1 200 OK
@@ -750,7 +845,7 @@ Transfer-Encoding: chunked
 
 ```
 
-Finally, Let's check on a upstream timeout case.
+Follow is an upstream timeout case.
 
 A fake HTTP Server to serve the request for demo, this time we add a 5 seconds sleep to simulate upstream response timeout.
 
@@ -806,43 +901,116 @@ Transfer-Encoding: chunked
 At the moment we can see such logs have been outputted by gateway server like following.
 
 ```
-WARN[2017-06-12T14:42:02+08:00] [plugin test-upstreamoutput1 in pipeline intput execution failure, resultcode=503, error="upstream is timeout after 2 second(s)"]  source="linear.go#186-model.(*linearPipeline).Run"
+WARN[2017-06-12T14:42:02+08:00] [plugin test-upstreamoutput1 in pipeline input execution failure, resultcode=503, error="upstream is timeout after 2 second(s)"]  source="linear.go#186-model.(*linearPipeline).Run"
 WARN[2017-06-12T14:42:02+08:00] [http request processed unsuccesfully, result code: 503, error: upstream is timeout after 2 second(s)]  source="http_input.go#382-plugins.(*httpInput).receive.func3"
 ERRO[2017-06-12T14:42:05+08:00] [respond downstream pipeline test-upstreamoutput1 failed: request from pipeline test-upstreamoutput1 was closed]  source="downstream_input.go#92-plugins.(*downstreamInput).Run.func1"
 ```
 
+Finally, let's check upstream retry case. In this case, the request chould be handled by both upstreams, and when #1 upstream returns failure we'd like #2 upstream takes over.
+
+A fake HTTP Server to serve the request for demo, this time we fail the request on the server which listens the port 1122.
+
+```
+$ cat ~/server3.py
+
+from BaseHTTPServer import BaseHTTPRequestHandler,HTTPServer
+import sys
+import time
+
+port = 0
+
+class WebServerHandler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        global port
+        if self.path.endswith("/abc"):
+            content_len = int(self.headers.get('Content-Length', 0))
+            post_body = self.rfile.read(content_len)
+            print content_len, post_body
+            if port == 1122:
+                self.send_response(500)
+            else:
+                self.send_response(200)
+            self.send_header('Content-type', 'text/html')
+            self.end_headers()
+            message = "<html><body>OK - %s</body></html>" % sys.argv[1]
+            self.wfile.write(message)
+            return
+
+def main():
+    try:
+        global port
+        port = int(sys.argv[1])
+        server = HTTPServer(('127.0.0.1', port), WebServerHandler)
+        print "Web Server running on port %s" % port
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print " ^C entered, stopping web server...."
+        server.socket.close()
+
+main()
+
+$ python ~/server3.py 1122
+$ python ~/server3.py 3344 # in a different terminal
+```
+
+Sending out client requests to the proxy endpoint we created by above commands. The IO reader plugin new added is necessary, because original request IO body can not be read twice if the first try is failed, so need to read request body first and reuse it in second HTTP output.
+
+```
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "IOReader", "config": {"plugin_name": "test-ioreader1", "input_key": "HTTP_REQUEST_BODY_IO", "output_key": "REQ_DATA"}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X PUT -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "UpstreamOutput", "config": {"plugin_name": "test-upstreamoutput1", "target_pipelines": ["test-upstream1", "test-upstream2"], "request_data_keys": ["REQ_DATA"], "route_policy": "retry"}}'
+$ curl http://127.0.0.1:9090/admin/v1/pipelines -X PUT -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "input", "plugin_names": ["httpserver", "test-httpinput", "test-ioreader1", "test-upstreamoutput1"], "parallelism": 10}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X PUT -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPOutput", "config": {"plugin_name": "test-httpoutput1", "url_pattern": "http://127.0.0.1:1122/abc", "header_patterns": {}, "method": "POST", "response_code_key": "HTTP_RESP_CODE", "response_body_io_key": "HTTP_RESP_BODY_IO", "request_body_buffer_pattern": "{REQ_DATA}", "close_body_after_pipeline": false}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X PUT -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPOutput", "config": {"plugin_name": "test-httpoutput2", "url_pattern": "http://127.0.0.1:3344/abc", "header_patterns": {}, "method": "POST", "response_code_key": "HTTP_RESP_CODE", "response_body_io_key": "HTTP_RESP_BODY_IO", "request_body_buffer_pattern": "{REQ_DATA}", "close_body_after_pipeline": false}}'
+
+$ curl -i -k http://127.0.0.1:10080/test -X GET -i -w "\n" -H "name:bar" -d "$LOAD"
+HTTP/1.1 200 OK
+Date: Wed, 08 Nov 2017 08:23:09 GMT
+Content-Type: text/html; charset=utf-8
+Transfer-Encoding: chunked
+
+<html><body>OK - 3344</body></html>
+```
+
+At the moment we can see such logs have been outputted by gateway server like following.
+
+```
+WARN[2017-11-08T16:23:09+08:00] [plugin test-httpoutput1 in pipeline test-upstream1 execution failure, resultcode=503, error="http upstream responded with unexpected status code (500)"]  source="linear.go#188-model.(*linearPipeline).Run"
+```
+
 ## HTTP proxy with caching
 
-In this case, you can see how a pipeline act a HTTP/HTTPS proxy and how to add a cache layer between input and upstream. The cache function is used to improve the performance of RESTful service automatically.
+In this case, you can see how a pipeline acts a HTTP/HTTPS proxy and how to add a cache layer between input and upstream. The cache function is used to improve the performance of RESTful service automatically.
 
 ### Plugin
 
-1. [HTTP input](./plugin_ref.md#http-input-plugin): To enable HTTP endpoint to receive RESTful request for upstream service.
-2. [Simple common cache](./plugin_ref.md#simple-common-cache-plugin): To cache HTTP body upstream service responded. The body buffer will be cached in 10 seconds in this case. During the TTL (Time-To-Live) any request which hits the cache will renew the expiration time of the body buffer automatically.
-3. [Simple common cache](./plugin_ref.md#simple-common-cache-plugin): To cache HTTP status code upstream service responded. The status code will be cached in 10 seconds in this case. Like body buffer, during the TTL any request which hits the cache will renew the expiration time of the status code as well.
-4. [IO reader](./plugin_ref.md#io-reader-plugin): To read received data from the client via HTTP transport layer in to local memory as a proxy.
-5. [HTTP output](./plugin_ref.md#http-output-plugin): Sending the body and headers to a certain endpoint of upstream RESTFul service.
-6. [IO reader](./plugin_ref.md#io-reader-plugin): To read response data from the upstream service via HTTP transport layer in to local memory, the body buffer can be cached and will be responded to client in anyway.
+1. [HTTP server](./plugin_ref.md#http-server-plugin): To enable HTTP server to listen on port 10080.
+2. [HTTP input](./plugin_ref.md#http-input-plugin): To enable HTTP endpoint to receive RESTful requests for upstream service.
+3. [Simple common cache](./plugin_ref.md#simple-common-cache-plugin): To cache HTTP body upstream service responded. The body buffer will be cached in 10 seconds in this case. During the TTL (Time-To-Live) any request which hits the cache will renew the expiration time of the body buffer automatically.
+4. [Simple common cache](./plugin_ref.md#simple-common-cache-plugin): To cache HTTP status code upstream service responded. The status code will be cached in 10 seconds in this case. Like body buffer, during the TTL any request which hits the cache will renew the expiration time of the status code as well.
+5. [IO reader](./plugin_ref.md#io-reader-plugin): To read received data from the client via HTTP transport layer in to local memory as a proxy.
+6. [HTTP output](./plugin_ref.md#http-output-plugin): Sending the body and headers to a certain endpoint of upstream RESTFul service.
+7. [IO reader](./plugin_ref.md#io-reader-plugin): To read response data from the upstream service via HTTP transport layer in to local memory, the body buffer can be cached and will be responded to client in anyway.
 
 Using follow [Administration API](./admin_api_ref.swagger.yaml) calls to setup above plugins:
 
 ```
-$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPInput", "config": {"plugin_name": "test-httpinput", "url": "/test", "methods": ["GET"], "headers_enum": {"name": ["bar", "bar1"]}, "request_body_io_key": "HTTP_REQUEST_BODY_IO", "response_code_key": "response_code", "response_body_buffer_key": "DATA"}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPServer", "config": {"plugin_name": "httpserver", "port":10080, "keepalive_sec":30}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPInput", "config": {"plugin_name": "test-httpinput", "server_name": "httpserver", "url": "/test", "methods": ["GET"], "headers_enum": {"name": ["bar", "bar1"]}, "request_body_io_key": "HTTP_REQUEST_BODY_IO", "response_code_key": "HTTP_RESP_CODE", "response_body_buffer_key": "DATA"}}'
 $ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "SimpleCommonCache", "config": {"plugin_name": "test-simplecommoncache-body", "hit_keys": ["HTTP_NAME"], "cache_key": "DATA", "ttl_sec": 10, "finish_if_hit": false}}'
-$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "SimpleCommonCache", "config": {"plugin_name": "test-simplecommoncache-code", "hit_keys": ["HTTP_NAME"], "cache_key": "response_code", "ttl_sec": 10, "finish_if_hit": true}}'
-$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "IOReader", "config": {"plugin_name": "test-ioreader1", "input_key":"HTTP_REQUEST_BODY_IO", "output_key": "REQ_DATA"}}'
-$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPOutput", "config": {"plugin_name": "test-httpoutput", "url_pattern": "http://127.0.0.1:1122/abc{fake}", "header_patterns": {}, "method": "GET", "response_code_key": "response_code", "response_body_io_key": "HTTP_RESP_BODY_IO", "request_body_buffer_pattern": "{REQ_DATA}"}}'
-$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "IOReader", "config": {"plugin_name": "test-ioreader2", "input_key":"HTTP_RESP_BODY_IO", "output_key": "DATA"}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "SimpleCommonCache", "config": {"plugin_name": "test-simplecommoncache-code", "hit_keys": ["HTTP_NAME"], "cache_key": "HTTP_RESP_CODE", "ttl_sec": 10, "finish_if_hit": true}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "IOReader", "config": {"plugin_name": "test-ioreader1", "input_key": "HTTP_REQUEST_BODY_IO", "output_key": "REQ_DATA"}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPOutput", "config": {"plugin_name": "test-httpoutput", "url_pattern": "http://127.0.0.1:1122/abc{fake}", "header_patterns": {}, "method": "GET", "response_code_key": "HTTP_RESP_CODE", "response_body_io_key": "HTTP_RESP_BODY_IO", "request_body_buffer_pattern": "{REQ_DATA}"}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "IOReader", "config": {"plugin_name": "test-ioreader2", "input_key": "HTTP_RESP_BODY_IO", "output_key": "DATA"}}'
 ```
 
 ### Pipeline
 
-We need to set both cache plugins to the certain position in the pipeline, in this case we would like to response client from cache as soon as possible since once cache is hit there is no reason to handle the request for rest steps in the pipeline, so we add the cache sutff close to HTTP input plugin.
+We need to set both cache plugins to the certain position in the pipeline, in this case we would like to response client from cache as soon as possible since once cache is hit there is no reason to handle the request for rest steps in the pipeline, so we add the cache stuff close to HTTP input plugin.
 
 You can use follow [Administration API](./admin_api_ref.swagger.yaml) calls to setup the pipeline:
 
 ```
-$ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "test-jsonpipeline", "plugin_names": ["test-httpinput", "test-simplecommoncache-body", "test-simplecommoncache-code", "test-ioreader1", "test-httpoutput", "test-ioreader2"], "parallelism": 10}}'
+$ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "test-jsonpipeline", "plugin_names": ["httpserver", "test-httpinput", "test-simplecommoncache-body", "test-simplecommoncache-code", "test-ioreader1", "test-httpoutput", "test-ioreader2"], "parallelism": 10}}'
 ```
 
 ### Test
@@ -949,21 +1117,23 @@ In this case, we would like to show a way to make failure upstream service to re
 
 ### Plugins
 
-1. [HTTP input](./plugin_ref.md#http-input-plugin): To enable HTTPS endpoint to receive Ease Monitor data sent from the client.
-2. [Simple common mock](./plugin_ref.md#simple-common-mock-plugin): To returns mock data for the failure Ease Monitor service at upstream.
-3. [Static pass probability limiter](./plugin_ref.md#static-pass-probability-limiter-plugin): The plugin passes the request with a fixed probability, in this case it is used to simulate upstream service failure with 50% probability.
-4. [IO reader](./plugin_ref.md#io-reader-plugin): To read Ease Monitor data from the client via HTTPS transport layer in to local memory for handling in next steps.
-5. [JSON validator](./plugin_ref.md#json-validator-plugin): Validating the Ease Monitor data sent from the client is using a certain schema. You can use [Ease Monitor graphite validator](./plugin_ref.md#ease-monitor-graphite-validator-plugin) if you would like to use the pipeline to handle Ease Monitor data with graphite plaintext protocol.
-6. [Ease Monitor JSON GID extractor](./plugin_ref.md#ease-monitor-json-gid-extractor-plugin): Extracts Ease Monitor global ID from the Ease Monitor data. You can use [Ease Monitor graphite GID extractor](./plugin_ref.md#ease-monitor-graphite-gid-extractor-plugin) if you would like to use the pipeline to handle Ease Monitor data with graphite plaintext protocol.
-7. [Kafka output](./plugin_ref.md#kafka-output-plugin): Sending the data to configured kafka topic, Ease Monitor pipeline will fetch them for rest of processes.
+1. [HTTP server](./plugin_ref.md#http-server-plugin): To enable HTTP server to listen on port 10080.
+2. [HTTP input](./plugin_ref.md#http-input-plugin): To enable HTTPS endpoint to receive Ease Monitor data sent from the client.
+3. [Simple common mock](./plugin_ref.md#simple-common-mock-plugin): To returns mock data for the failure Ease Monitor service at upstream.
+4. [Static pass probability limiter](./plugin_ref.md#static-pass-probability-limiter-plugin): The plugin passes the request with a fixed probability, in this case it is used to simulate upstream service failure with 50% probability.
+5. [IO reader](./plugin_ref.md#io-reader-plugin): To read Ease Monitor data from the client via HTTPS transport layer in to local memory for handling in next steps.
+6. [JSON validator](./plugin_ref.md#json-validator-plugin): Validating the Ease Monitor data sent from the client is using a certain schema. You can use [Ease Monitor graphite validator](./plugin_ref.md#ease-monitor-graphite-validator-plugin) if you would like to use the pipeline to handle Ease Monitor data with graphite plaintext protocol.
+7. [Ease Monitor JSON GID extractor](./plugin_ref.md#ease-monitor-json-gid-extractor-plugin): Extracts Ease Monitor global ID from the Ease Monitor data. You can use [Ease Monitor graphite GID extractor](./plugin_ref.md#ease-monitor-graphite-gid-extractor-plugin) if you would like to use the pipeline to handle Ease Monitor data with graphite plaintext protocol.
+8. [Kafka output](./plugin_ref.md#kafka-output-plugin): Sending the data to configured kafka topic, Ease Monitor pipeline will fetch them for rest of processes.
 
 Using follow [Administration API](./admin_api_ref.swagger.yaml) calls to setup above plugins:
 
 ```
-$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPInput", "config": {"plugin_name": "test-httpinput", "url": "/test", "methods": ["POST"], "headers_enum": {"name": ["bar", "bar1"]}, "request_body_io_key": "HTTP_REQUEST_BODY_IO"}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPServer", "config": {"plugin_name": "httpserver", "port":10080, "keepalive_sec":30}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPInput", "config": {"plugin_name": "test-httpinput", "server_name": "httpserver", "url": "/test", "methods": ["POST"], "headers_enum": {"name": ["bar", "bar1"]}, "request_body_io_key": "HTTP_REQUEST_BODY_IO"}}'
 $ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "SimpleCommonMock", "config": {"plugin_name": "test-simplecommonmock", "plugin_concerned": "test-staticprobabilitylimiter", "task_error_code_concerned": "ResultFlowControl", "mock_task_data_key": "example", "mock_task_data_value": "fake"}}'
 $ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "StaticProbabilityLimiter", "config": {"plugin_name": "test-staticprobabilitylimiter", "pass_pr": 0.5}}'
-$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "IOReader", "config": {"plugin_name": "test-ioreader", "input_key":"HTTP_REQUEST_BODY_IO", "output_key": "DATA"}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "IOReader", "config": {"plugin_name": "test-ioreader", "input_key": "HTTP_REQUEST_BODY_IO", "output_key": "DATA"}}'
 $ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "JSONValidator", "config": {"plugin_name": "test-jsonvalidator", "schema": "{\"title\": \"Record\",\"type\": \"object\",\"properties\": {\"name\": {\"type\": \"string\"}}, \"required\": [\"name\"]}", "data_key": "DATA"}}'
 $ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "EaseMonitorJSONGidExtractor", "config": {"plugin_name": "test-jsongidextractor", "gid_key": "GID", "data_key": "DATA"}}'
 $ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "KafkaOutput", "config": {"plugin_name": "test-kafkaoutput", "topic": "test", "brokers": ["127.0.0.1:9092"], "message_key_key": "GID", "data_key": "DATA"}}'
@@ -974,12 +1144,12 @@ $ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:applic
 You can use follow [Administration API](./admin_api_ref.swagger.yaml) calls to setup the pipeline:
 
 ```
-$ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "test-jsonpipeline", "plugin_names": ["test-httpinput", "test-simplecommonmock", "test-staticprobabilitylimiter", "test-ioreader", "test-jsonvalidator", "test-jsongidextractor", "test-kafkaoutput"], "parallelism": 10}}'
+$ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "test-jsonpipeline", "plugin_names": ["httpserver", "test-httpinput", "test-simplecommonmock", "test-staticprobabilitylimiter", "test-ioreader", "test-jsonvalidator", "test-jsongidextractor", "test-kafkaoutput"], "parallelism": 10}}'
 ```
 
 ### Test
 
-In output of ApacheBench you can see there is no any Non-2xx responses.
+In output of ApacheBench you can see there are no any Non-2xx responses.
 
 ```
 $ ab -n 100 -c 20 -H "name:bar" -T "application/json" -p ~/load -f TSL1.2 https://127.0.0.1:10443/test
@@ -1055,17 +1225,19 @@ To achieve above solution we need to prepare two dedicated pipelines for each ga
 
 #### Plugin
 
-1. [HTTP input](./plugin_ref.md#http-input-plugin): To enable HTTP endpoint to receive user request for accessing flash sale event page.
-2. [IO reader](./plugin_ref.md#io-reader-plugin): To read received data from the client via HTTP transport layer in to local memory as a proxy.
-3. [HTTP output](./plugin_ref.md#http-output-plugin): Sending the body and headers to the flash sale event page of the website.
-4. [HTTP header counter](./plugin_ref.md#http-header-counter-plugin): To calculate amount of different HTTP header value of a certain header name, and the amount will be deducted automatically if user has not any active with website more than 1 minute. The result is exposed by the statistics indicator ``RECENT_HEADER_COUNT``.
+1. [HTTP server](./plugin_ref.md#http-server-plugin): To enable HTTP server to listen on port 10080.
+2. [HTTP input](./plugin_ref.md#http-input-plugin): To enable HTTP endpoint to receive user request for accessing flash sale event page.
+3. [IO reader](./plugin_ref.md#io-reader-plugin): To read received data from the client via HTTP transport layer in to local memory as a proxy.
+4. [HTTP output](./plugin_ref.md#http-output-plugin): Sending the body and headers to the flash sale event page of the website.
+5. [HTTP header counter](./plugin_ref.md#http-header-counter-plugin): To calculate amount of different HTTP header value of a certain header name, and the amount will be deducted automatically if user has not any active with website more than 1 minute. The result is exposed by the statistics indicator ``RECENT_HEADER_COUNT``.
 
 Using follow [Administration API](./admin_api_ref.swagger.yaml) calls to setup above plugins:
 
 ```
-$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPInput", "config": {"plugin_name": "test-httpinput1", "url": "/test/book", "methods": ["GET"], "headers_enum": {}, "request_body_io_key": "HTTP_REQUEST_BODY_IO", "response_code_key": "response_code", "response_body_io_key": "HTTP_RESP_BODY_IO"}}'
-$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "IOReader", "config": {"plugin_name": "test-ioreader1", "input_key":"HTTP_REQUEST_BODY_IO", "output_key": "REQ_DATA"}}'
-$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPOutput", "config": {"plugin_name": "test-httpoutput1", "url_pattern": "http://127.0.0.1:1122/book/abc", "header_patterns": {}, "method": "GET", "response_code_key": "response_code", "response_body_io_key": "HTTP_RESP_BODY_IO", "request_body_buffer_pattern": "{REQ_DATA}"}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPServer", "config": {"plugin_name": "httpserver", "port":10080, "keepalive_sec":30}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPInput", "config": {"plugin_name": "test-httpinput1", "server_name": "httpserver", "url": "/test/book", "methods": ["GET"], "headers_enum": {}, "request_body_io_key": "HTTP_REQUEST_BODY_IO", "response_code_key": "HTTP_RESP_CODE", "response_body_io_key": "HTTP_RESP_BODY_IO"}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "IOReader", "config": {"plugin_name": "test-ioreader1", "input_key": "HTTP_REQUEST_BODY_IO", "output_key": "REQ_DATA"}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPOutput", "config": {"plugin_name": "test-httpoutput1", "url_pattern": "http://127.0.0.1:1122/book/abc", "header_patterns": {}, "method": "GET", "response_code_key": "HTTP_RESP_CODE", "response_body_io_key": "HTTP_RESP_BODY_IO", "request_body_buffer_pattern": "{REQ_DATA}"}}'
 $ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPHeaderCounter", "config": {"plugin_name": "test-httpheadercounter1", "header_concerned": "name", "expiration_sec": 60}}'
 ```
 
@@ -1076,7 +1248,7 @@ Technically there is no requirement on the position of HTTP header counter plugi
 You can use follow [Administration API](./admin_api_ref.swagger.yaml) calls to setup the pipeline:
 
 ```
-$ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "test-jsonpipeline1", "plugin_names": ["test-httpinput1", "test-ioreader1", "test-httpoutput1", "test-httpheadercounter1"], "parallelism": 10}}'
+$ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "test-jsonpipeline1", "plugin_names": ["httpserver", test-httpinput1", "test-ioreader1", "test-httpoutput1", "test-httpheadercounter1"], "parallelism": 10}}'
 ```
 
 #### Test
@@ -1169,18 +1341,20 @@ $ curl http://127.0.0.1:9090/statistics/v1/pipelines/test-jsonpipeline1/plugins/
 
 #### Plugin
 
-1. [HTTP input](./plugin_ref.md#http-input-plugin): To enable HTTP endpoint to receive user request for order commodity.
-2. [No more failure limiter](./plugin_ref.md#no-more-failure-limiter-plugin): To returns a standard error and reject all incoming requests directly and no further requests hit the upstream.
-3. [Static pass probability limiter](./plugin_ref.md#static-pass-probability-limiter-plugin): The plugin passes the request with a fixed probability. In this case it is used to reduce the massive order requests and finally a reasonable volume of order requests hit the website backend service really.
-4. [IO reader](./plugin_ref.md#io-reader-plugin): To read received data from the client via HTTP transport layer in to local memory as a proxy.
-5. [HTTP output](./plugin_ref.md#http-output-plugin): Sending the body and headers to the order serivce of the website.
+1. [HTTP server](./plugin_ref.md#http-server-plugin): To enable HTTP server to listen on port 10080.
+2. [HTTP input](./plugin_ref.md#http-input-plugin): To enable HTTP endpoint to receive user request for order commodity.
+3. [No more failure limiter](./plugin_ref.md#no-more-failure-limiter-plugin): To return a standard error and reject all incoming requests directly and no further requests hit the upstream.
+4. [Static pass probability limiter](./plugin_ref.md#static-pass-probability-limiter-plugin): The plugin passes the request with a fixed probability. In this case it is used to reduce the massive order requests and finally a reasonable volume of order requests hit the website backend service really.
+5. [IO reader](./plugin_ref.md#io-reader-plugin): To read received data from the client via HTTP transport layer in to local memory as a proxy.
+6. [HTTP output](./plugin_ref.md#http-output-plugin): Sending the body and headers to the order service of the website.
 
 ```
-$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPInput", "config": {"plugin_name": "test-httpinput2", "url": "/test", "methods": ["GET"], "headers_enum": {}, "request_body_io_key": "HTTP_REQUEST_BODY_IO", "response_code_key": "response_code", "response_body_io_key": "HTTP_RESP_BODY_IO"}}'
-$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "NoMoreFailureLimiter", "config": {"plugin_name": "test-nomorefailurelimiter2", "failure_count_threshold": 1, "failure_task_data_key": "response_code", "failure_task_data_value": "400"}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPServer", "config": {"plugin_name": "httpserver", "port":10080, "keepalive_sec":30}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPInput", "config": {"plugin_name": "test-httpinput2", "server_name": "httpserver", "url": "/test", "methods": ["GET"], "headers_enum": {}, "request_body_io_key": "HTTP_REQUEST_BODY_IO", "response_code_key": "HTTP_RESP_CODE", "response_body_io_key": "HTTP_RESP_BODY_IO"}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "NoMoreFailureLimiter", "config": {"plugin_name": "test-nomorefailurelimiter2", "failure_count_threshold": 1, "failure_task_data_key": "HTTP_RESP_CODE", "failure_task_data_value": "400"}}'
 $ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "StaticProbabilityLimiter", "config": {"plugin_name": "test-staticprobabilitylimiter2", "pass_pr": 0.75}}'
-$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "IOReader", "config": {"plugin_name": "test-ioreader2", "input_key":"HTTP_REQUEST_BODY_IO", "output_key": "REQ_DATA"}}'
-$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPOutput", "config": {"plugin_name": "test-httpoutput2", "url_pattern": "http://127.0.0.1:1122/abc", "header_patterns": {}, "method": "GET", "response_code_key": "response_code", "response_body_io_key": "HTTP_RESP_BODY_IO", "request_body_buffer_pattern": "{REQ_DATA}"}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "IOReader", "config": {"plugin_name": "test-ioreader2", "input_key": "HTTP_REQUEST_BODY_IO", "output_key": "REQ_DATA"}}'
+$ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "HTTPOutput", "config": {"plugin_name": "test-httpoutput2", "url_pattern": "http://127.0.0.1:1122/abc", "header_patterns": {}, "method": "GET", "response_code_key": "HTTP_RESP_CODE", "response_body_io_key": "HTTP_RESP_BODY_IO", "request_body_buffer_pattern": "{REQ_DATA}"}}'
 ```
 
 #### Pipeline
@@ -1188,7 +1362,7 @@ $ curl http://127.0.0.1:9090/admin/v1/plugins -X POST -i -H "Content-Type:applic
 You can use follow [Administration API](./admin_api_ref.swagger.yaml) calls to setup the pipeline:
 
 ```
-$ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "test-jsonpipeline2", "plugin_names": ["test-httpinput2", "test-nomorefailurelimiter2", "test-staticprobabilitylimiter2", "test-ioreader2", "test-httpoutput2"], "parallelism": 10}}'
+$ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "test-jsonpipeline2", "plugin_names": ["httpserver", "test-httpinput2", "test-nomorefailurelimiter2", "test-staticprobabilitylimiter2", "test-ioreader2", "test-httpoutput2"], "parallelism": 10}}'
 ```
 
 #### Test
