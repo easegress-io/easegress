@@ -41,6 +41,8 @@ Plugin runs a HTTP server implemented based on golang net/http listens on a port
 | plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
 | host | string | The host name or IP address of HTTP server to listen. | Functionality | Yes | "localhost" |
 | port | uint16 | The port number of HTTP server to listen. | Functionality | Yes | 10080 |
+| mux\_type | string | The mux type HTTP server to support. The available values are regexp and param. Regexp type routes incoming requests with scheme, host, port, path, query, fragment, method. Param type routes incoming requests with path and method. Both of them support parameters whose values are sent to the context of the task. | Functionality | Yes | regexp |
+| regexp_mux_max_cache_count | uint32 | Under mux type being regexp, the max cache count the mux to keep. Zero value means no limit. | Functionality | Yes | 1024 |
 | cert\_file | string | The certificate file name HTTPS server used. The option is mandatory if HTTPS is expected as output protocol. | Functionality | Yes | "" |
 | key\_file | string | The key file name HTTPS server used. The option is mandatory if HTTPS is expected as output protocol. | Functionality | Yes | "" |
 | keepalive | bool | The flag represents if the plugin configures keep-alive for an active connection. | Functionality | Yes | true |
@@ -74,9 +76,16 @@ Plugin handles HTTP request and returns client with pipeline processed response.
 | Parameter name | Data type (golang) | Description | Type | Optional | Default value (golang) |
 |:--|:--|:--|:--:|:--:|:--|
 | plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
-| server\_name | string | The plugin instance name of the HTTP server plugin. | Functionality | Yes | "httpserver-default" |
-| url | string | The request HTTP url plugin will proceed. Parametric url is supported, like `/user/{user}` or `/{resource}/count`, the values of each parameter will be extracted into task. We do not allow to register static path and parametric path on the same segment, e.g. you can not register the patterns `/user/jack` and `/user/{user}` on the same http method. | Functionality | No | N/A |
-| methods | []string | The request HTTP methods plugin will proceed. | Functionality | Yes | {"GET"} |
+| server\_name | string | The plugin instance name of the HTTP server plugin. | Functionality | Yes | httpserver-default |
+| mux\_type | string | The mux type which must keep the same with the mux type of the corresponding HTTP server plugin. The available values are regexp and param. while mux\_type is specified param, the scheme,host,port,query,fragment are ignored. | Functionality | Yes | regexp |
+| scheme| string | The request HTTP scheme plugin will proceed. Regular expression is supported. | Functionality | Yes | (http|https) |
+| host| string | The request HTTP hostname plugin will proceed. Regular expression is supported. | Functionality | Yes | .* |
+| port| string | The request HTTP port plugin will proceed. Regular expression is supported. | Functionality | Yes | \d* |
+| path| string | The request HTTP path plugin will proceed. Regular expression and parametric url are supported while mux\_type is regexp and param respectively. Specifically in param mux type, like `/user/{user}` or `/{resource}/count`, the values of each parameter will be extracted into task. We do not allow to register static path and parametric path on the same segment, e.g. you can not register the patterns `/user/jack` and `/user/{user}` on the same http method.  | Functionality | No | N/A |
+| query| string | The request HTTP query plugin will proceed. Regular expression is supported. | Functionality | Yes | .* |
+| fragment| string | The request HTTP fragment plugin will proceed. Regular expression is supported. | Functionality | Yes | .* |
+| priority | uint32 | The routing priority for all HTTP URL pattern. | Yes | 0 |
+| methods | []string | The request HTTP methods plugin will proceed. | Functionality | Yes | {"GET", "POST", "Put", "DELETE", "HEAD"} |
 | headers\_enum | map\[string\][]string | The request HTTP headers plugin will proceed. | Functionality | Yes | nil |
 | unzip | bool | The flag represents if the plugin decompresses the request body when request content is encoded in GZIP. | Functionality | Yes | true |
 | respond\_error | bool | The flag represents if the plugin respond error information to client if pipeline handles the request unsuccessfully. The option will be used only when `response_body_io_key` and `response_body_buffer_key` options are empty. | Functionality | Yes | false |
@@ -91,6 +100,10 @@ Plugin handles HTTP request and returns client with pipeline processed response.
 | response\_body\_buffer\_key | string | The key name of HTTP response body buffer stored in internal storage as the plugin input. The option will be leveraged only when `response_body_io_key` option is empty. | I/O | Yes | "" |
 | response\_remote\_key | string | The key name of HTTP response remote address stored in internal storage as the plugin input. | I/O | Yes | "" |
 | response\_duration\_key | string | The key name of HTTP response process time stored in internal storage as the plugin input. | I/O | Yes | "" |
+
+> NOTE:
+> Kindly reminder: When writing regulare expression in json config, the escape chare `\` itself needs be escaped firstly, such as `"host": "127\\.0\\.0\\.1"`.
+> And you can the specification about HTTP URL pattern match at [regular_expression_mux](../spec/regular_expression_mux.md).
 
 ### I/O
 

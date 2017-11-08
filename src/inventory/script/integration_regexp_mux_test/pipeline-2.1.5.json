@@ -1,0 +1,18 @@
+{
+  "type": "LinearPipeline",
+  "config": {
+    "pipeline_name": "linear_pipeline.2.1.5",
+    "plugin_names": [
+      "http_server.test",
+      "http_input.2.1.5",
+      "http_output.test"
+    ],
+    "parallelism": 10,
+    "cross_pipeline_request_backlog": 0,
+    "wait_plugin_close": true
+  }
+}
+
+
+
+

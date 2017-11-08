@@ -15,6 +15,8 @@ In this document, we would like to introduce follow pipelines from real practice
 | [Service downgrading to protect critical service](#service-downgrading-to-protect-critical-service) | Under unexpected traffic which higher than planed, sacrifice the unimportant services but keep critical request is handled. | Intermediate |
 | [Flash sale event support](#flash-sale-event-support) | A pair of pipelines to support flash sale event. For e-Commerce, it means we have very low price items with limited stock, but have huge amount of people online compete on that. | Advanced |
 
+> Kindly reminder: You could use the scripts at `src/inventory/script/utils` to simplify testing commands.
+
 ## Ease Monitor edge service
 
 In this case, we will prepare a pipeline to runs necessary processes as Ease Monitor edge service endpoint.This a basic case for some of the following cases, so it's highly recommended to get through it.

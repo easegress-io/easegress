@@ -24,7 +24,7 @@ type httpTask struct {
 	request      *http.Request
 	writer       http.ResponseWriter
 	receivedAt   time.Time
-	path_params  map[string]string
+	urlParams    map[string]string
 	finishedChan chan struct{}
 }
 
@@ -33,7 +33,14 @@ type httpTask struct {
 type httpInputConfig struct {
 	common.PluginCommonConfig
 	ServerPluginName string              `json:"server_name"`
-	URL              string              `json:"url"`
+	MuxType          muxType             `json:"mux_type"`
+	Scheme           string              `json:"scheme"`
+	Host             string              `json:"host"`
+	Port             string              `json:"port"`
+	Path             string              `json:"path"`
+	Query            string              `json:"query"`
+	Fragment         string              `json:"fragment"`
+	Priority         uint32              `json:"priority"`
 	Methods          []string            `json:"methods"`
 	HeadersEnum      map[string][]string `json:"headers_enum"`
 	Unzip            bool                `json:"unzip"`
@@ -57,7 +64,8 @@ type httpInputConfig struct {
 func httpInputConfigConstructor() plugins.Config {
 	return &httpInputConfig{
 		ServerPluginName: "httpserver-default",
-		Methods:          []string{http.MethodGet},
+		MuxType:          regexpMuxType,
+		Methods:          []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodHead},
 		Unzip:            true,
 		DumpRequest:      "auto",
 	}
@@ -71,63 +79,26 @@ func (c *httpInputConfig) Prepare(pipelineNames []string) error {
 
 	ts := strings.TrimSpace
 	c.ServerPluginName = ts(c.ServerPluginName)
-	c.URL = ts(c.URL)
 
 	if len(c.ServerPluginName) == 0 {
 		return fmt.Errorf("invalid server name")
 	}
 
+	c.Scheme = ts(c.Scheme)
+	c.Host = ts(c.Host)
+	c.Port = ts(c.Port)
+	c.Path = ts(c.Path)
+	// Even in regular expression, squeezing `/v1//?` to `/v1/?` makes sense.
+	c.Path = common.RemoveRepeatedRune(c.Path, '/')
+	c.Query = ts(c.Query)
+	c.Fragment = ts(c.Fragment)
+
+	if len(c.Methods) == 0 {
+		return fmt.Errorf("empty methods")
+	}
 	for i := range c.Methods {
 		c.Methods[i] = ts(c.Methods[i])
 	}
-
-	c.DumpRequest = ts(c.DumpRequest)
-	c.RequestHeaderNamesKey = ts(c.RequestHeaderNamesKey)
-	c.RequestBodyIOKey = ts(c.RequestBodyIOKey)
-	c.RequestHeaderKey = ts(c.RequestHeaderKey)
-	c.ResponseCodeKey = ts(c.ResponseCodeKey)
-	c.ResponseBodyIOKey = ts(c.ResponseBodyIOKey)
-	c.ResponseBodyBufferKey = ts(c.ResponseBodyBufferKey)
-	c.ResponseHeaderKey = ts(c.ResponseHeaderKey)
-	c.ResponseRemoteKey = ts(c.ResponseRemoteKey)
-	c.ResponseDurationKey = ts(c.ResponseDurationKey)
-
-	if !filepath.IsAbs(c.URL) {
-		return fmt.Errorf("invalid relative url")
-	}
-
-	var positions []int
-	token_booker := func(pos int, token string) (care bool, replacement string) {
-		positions = append(positions, pos)
-		positions = append(positions, pos+len(token)+1)
-		return false, ""
-	}
-
-	_, err = common.ScanTokens(c.URL,
-		false, /* do not remove escape char, due to escape char is not allowed in the path and pattern */
-		token_booker)
-	if err != nil {
-		return err
-	}
-
-	// one and only one parameter fits in a segment of the path
-	// e.g. correct: `/{a}/{b}`, wrong: `/{a}b{c}` and `/{a}b`
-	for _, pos := range positions {
-		if pos == 0 { // defensive, not an absolute path
-			return fmt.Errorf("invalid parametric url")
-		}
-
-		if []byte(c.URL)[pos] == '{' {
-			if []byte(c.URL)[pos-1] != '/' {
-				return fmt.Errorf("invalid parametric url")
-			}
-		} else { // []byte(c.URL)[pos] == '}'
-			if pos+1 < len(c.URL) && []byte(c.URL)[pos+1] != '/' {
-				return fmt.Errorf("invalid parametric url")
-			}
-		}
-	}
-
 	methodMarks := map[string]bool{}
 	for _, method := range c.Methods {
 		_, ok := supportedMethods[method]
@@ -140,6 +111,50 @@ func (c *httpInputConfig) Prepare(pipelineNames []string) error {
 		methodMarks[method] = true
 	}
 
+	switch c.MuxType {
+	case regexpMuxType:
+		if len(c.Path) == 0 {
+			return fmt.Errorf("empty path")
+		}
+	case paramMuxType:
+		if !filepath.IsAbs(c.Path) {
+			return fmt.Errorf("invalid relative url")
+		}
+		var positions []int
+		token_booker := func(pos int, token string) (care bool, replacement string) {
+			positions = append(positions, pos)
+			positions = append(positions, pos+len(token)+1)
+			return false, ""
+		}
+
+		_, err = common.ScanTokens(c.Path,
+			false, /* do not remove escape char, due to escape char is not allowed in the path and pattern */
+			token_booker)
+		if err != nil {
+			return err
+		}
+
+		// one and only one parameter fits in a segment of the path
+		// e.g. correct: `/{a}/{b}`, wrong: `/{a}b{c}` and `/{a}b`
+		for _, pos := range positions {
+			if pos == 0 { // defensive, not an absolute path
+				return fmt.Errorf("invalid parametric path")
+			}
+
+			if []byte(c.Path)[pos] == '{' {
+				if []byte(c.Path)[pos-1] != '/' {
+					return fmt.Errorf("invalid parametric path")
+				}
+			} else { // []byte(c.Path)[pos] == '}'
+				if pos+1 < len(c.Path) && []byte(c.Path)[pos+1] != '/' {
+					return fmt.Errorf("invalid parametric path")
+				}
+			}
+		}
+	default:
+		return fmt.Errorf("unsupported mux type")
+	}
+
 	for key, value := range c.HeadersEnum {
 		key = ts(key)
 		if len(key) == 0 {
@@ -148,6 +163,7 @@ func (c *httpInputConfig) Prepare(pipelineNames []string) error {
 		c.HeadersEnum[key] = value
 	}
 
+	c.DumpRequest = ts(c.DumpRequest)
 	if strings.ToLower(c.DumpRequest) == "auto" {
 		c.dumpReq = common.StrInSlice(option.Stage, []string{"debug", "test"})
 	} else if common.BoolFromStr(c.DumpRequest, false) {
@@ -157,6 +173,16 @@ func (c *httpInputConfig) Prepare(pipelineNames []string) error {
 	} else {
 		return fmt.Errorf("invalid http request dump option")
 	}
+
+	c.RequestHeaderNamesKey = ts(c.RequestHeaderNamesKey)
+	c.RequestBodyIOKey = ts(c.RequestBodyIOKey)
+	c.RequestHeaderKey = ts(c.RequestHeaderKey)
+	c.ResponseCodeKey = ts(c.ResponseCodeKey)
+	c.ResponseBodyIOKey = ts(c.ResponseBodyIOKey)
+	c.ResponseBodyBufferKey = ts(c.ResponseBodyBufferKey)
+	c.ResponseRemoteKey = ts(c.ResponseRemoteKey)
+	c.ResponseDurationKey = ts(c.ResponseDurationKey)
+	c.ResponseHeaderKey = ts(c.ResponseHeaderKey)
 
 	return nil
 }
@@ -186,11 +212,34 @@ func httpInputConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	return h, nil
 }
 
+func (h *httpInput) toHTTPMuxEntries() []*plugins.HTTPMuxEntry {
+	var entries []*plugins.HTTPMuxEntry
+	for _, method := range h.conf.Methods {
+		entry := &plugins.HTTPMuxEntry{
+			HTTPURLPattern: plugins.HTTPURLPattern{
+				Scheme:   h.conf.Scheme,
+				Host:     h.conf.Host,
+				Port:     h.conf.Port,
+				Path:     h.conf.Path,
+				Query:    h.conf.Query,
+				Fragment: h.conf.Fragment,
+			},
+			Method:   method,
+			Priority: h.conf.Priority,
+			Instance: h,
+			Headers:  h.conf.HeadersEnum,
+			Handler:  h.handler,
+		}
+		entries = append(entries, entry)
+	}
+	return entries
+}
+
 func (h *httpInput) Prepare(ctx pipelines.PipelineContext) {
 	mux := getHTTPServerMux(ctx, h.conf.ServerPluginName, true)
 	if mux != nil {
-		for _, method := range h.conf.Methods {
-			err := mux.AddFunc(ctx.PipelineName(), h.conf.URL, method, h.conf.HeadersEnum, h.handler)
+		for _, entry := range h.toHTTPMuxEntries() {
+			err := mux.AddFunc(ctx.PipelineName(), entry)
 			if err != nil {
 				logger.Errorf("[add handler to server %s failed: %v]", h.conf.ServerPluginName, err)
 			}
@@ -226,7 +275,7 @@ func (h *httpInput) Prepare(ctx pipelines.PipelineContext) {
 	h.wipRequestCountIndicatorAdded = added
 }
 
-func (h *httpInput) handler(w http.ResponseWriter, req *http.Request, path_params map[string]string) {
+func (h *httpInput) handler(w http.ResponseWriter, req *http.Request, urlParams map[string]string) {
 	if h.conf.Unzip && strings.Contains(req.Header.Get("Content-Encoding"), "gzip") {
 		var err error
 		req.Body, err = gzip.NewReader(req.Body)
@@ -240,7 +289,7 @@ func (h *httpInput) handler(w http.ResponseWriter, req *http.Request, path_param
 		request:      req,
 		writer:       w,
 		receivedAt:   time.Now(),
-		path_params:  path_params,
+		urlParams:    urlParams,
 		finishedChan: make(chan struct{}),
 	}
 
@@ -481,7 +530,7 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 		}
 	}
 
-	for k, v := range ht.path_params {
+	for k, v := range ht.urlParams {
 		t, err = task.WithValue(t, k, v)
 		if err != nil {
 			return err, task.ResultInternalServerError, t
@@ -521,8 +570,8 @@ func (h *httpInput) Name() string {
 func (h *httpInput) CleanUp(ctx pipelines.PipelineContext) {
 	mux := getHTTPServerMux(ctx, h.conf.ServerPluginName, false)
 	if mux != nil {
-		for _, method := range h.conf.Methods {
-			mux.DeleteFunc(ctx.PipelineName(), h.conf.URL, method)
+		for _, entry := range h.toHTTPMuxEntries() {
+			mux.DeleteFunc(ctx.PipelineName(), entry)
 		}
 	}
 

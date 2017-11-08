@@ -180,3 +180,19 @@ func BoolFromStr(s string, def bool) bool {
 		return def
 	}
 }
+
+func RemoveRepeatedRune(s string, needRemoveRune rune) string {
+	if len(s) < 2 {
+		return s
+	}
+
+	repeatingRune := rune(s[0])
+	result := string(s[0])
+	for _, r := range s[1:] {
+		if r != repeatingRune || r != needRemoveRune {
+			result = fmt.Sprintf("%s%s", result, string(r))
+		}
+		repeatingRune = r
+	}
+	return result
+}

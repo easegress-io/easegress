@@ -4,6 +4,7 @@ import (
 	"common"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -24,24 +25,24 @@ var supportedMethods = map[string]interface{}{
 
 ////
 
-type mux struct {
+type paramMux struct {
 	sync.Mutex
 	rtable map[string]map[string]map[string]*plugins.HTTPMuxEntry
 }
 
-func newMux() *mux {
-	return new(mux)
+func newParamMux() *paramMux {
+	return new(paramMux)
 }
 
-func (m *mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (m *paramMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	match := false
 	wrongMethod := false
 	var path_params map[string]string
 	var e *plugins.HTTPMuxEntry
 
 LOOP:
-	for _, pipeline_rtable := range m.rtable {
-		for pattern, methods := range pipeline_rtable {
+	for _, pipelineRTable := range m.rtable {
+		for pattern, methods := range pipelineRTable {
 			match, path_params, _ = parsePath(r.URL.Path, pattern)
 			if match {
 				e = methods[r.Method]
@@ -84,19 +85,31 @@ LOOP:
 	e.Handler(w, r, path_params)
 }
 
-func (m *mux) validate(path, method string) error {
+func (m *paramMux) sameRoutingRulesInDifferentGeneration(entry *plugins.HTTPMuxEntry, entryChecking *plugins.HTTPMuxEntry) bool {
+	return entry.Path == entryChecking.Path &&
+		entry.Method == entryChecking.Method &&
+		entry.Instance.Name() == entryChecking.Instance.Name() &&
+		entry.Instance != entryChecking.Instance
+}
+
+func (m *paramMux) validate(entryValidating *plugins.HTTPMuxEntry) error {
 	// we do not allow to register static path and parametric path on the same segment, for example
 	// client can not register the patterns `/user/jack` and `/user/{user}` on the same http method at the same time.
-	for pipeline, pipeline_rtable := range m.rtable {
-		for p, methods := range pipeline_rtable {
-			dup, err := duplicatedPath(p, path)
+	for pipeline, pipelineRTable := range m.rtable {
+		for p, methods := range pipelineRTable {
+			for _, entry := range methods {
+				if m.sameRoutingRulesInDifferentGeneration(entry, entryValidating) {
+					return nil
+				}
+			}
+			dup, err := duplicatedPath(p, entryValidating.Path)
 			if err != nil {
 				return err
 			}
 
-			if dup && methods[method] != nil {
-				return fmt.Errorf("duplicated handler on %s %s with existing %s %s in pipeline %s",
-					method, path, method, p, pipeline)
+			if dup && methods[entryValidating.Method] != nil {
+				return fmt.Errorf("duplicated handler on %s %s in pipeline %s",
+					entryValidating.Method, entryValidating, pipeline)
 			}
 		}
 	}
@@ -104,80 +117,95 @@ func (m *mux) validate(path, method string) error {
 	return nil
 }
 
-func (m *mux) _locklessAddFunc(pipeline, path, method string, headers map[string][]string,
-	handler plugins.HTTPHandler) {
-
+func (m *paramMux) _locklessAddFunc(pipeline string, entryAdding *plugins.HTTPMuxEntry) {
 	if m.rtable == nil {
 		m.rtable = make(map[string]map[string]map[string]*plugins.HTTPMuxEntry)
 	}
 
-	pipeline_rtable, exists := m.rtable[pipeline]
+	pipelineRTable, exists := m.rtable[pipeline]
 	if !exists {
-		pipeline_rtable = make(map[string]map[string]*plugins.HTTPMuxEntry)
-		m.rtable[pipeline] = pipeline_rtable
+		pipelineRTable = make(map[string]map[string]*plugins.HTTPMuxEntry)
+		m.rtable[pipeline] = pipelineRTable
 	}
 
-	path_rules, exists := pipeline_rtable[path]
+	path_rules, exists := pipelineRTable[entryAdding.Path]
 	if !exists {
 		path_rules = make(map[string]*plugins.HTTPMuxEntry)
-		pipeline_rtable[path] = path_rules
+		pipelineRTable[entryAdding.Path] = path_rules
 	}
 
-	path_rules[method] = &plugins.HTTPMuxEntry{
-		Headers: headers,
-		Handler: handler,
+	entry, exists := path_rules[entryAdding.Method]
+	if exists { // just change generation
+		entry.Instance = entryAdding.Instance
+		entry.Headers = entryAdding.Headers
+		entry.Handler = entryAdding.Handler
+	} else {
+		path_rules[entry.Method] = entryAdding
 	}
 }
 
-func (m *mux) AddFunc(pipeline, path, method string, headers map[string][]string, handler plugins.HTTPHandler) error {
-	ts := strings.TrimSpace
-	pipeline = ts(pipeline)
-	path = ts(path)
-	method = ts(method)
-
-	if len(pipeline) == 0 {
-		return fmt.Errorf("empty pipeline name")
+func (m *paramMux) checkValidity(e *plugins.HTTPMuxEntry) error {
+	if e == nil {
+		return fmt.Errorf("empty entry")
 	}
+	ts := strings.TrimSpace
+	e.Path = ts(e.Path)
+	e.Method = ts(e.Method)
 
-	if len(path) == 0 {
+	if e.Instance == nil {
+		return fmt.Errorf("empty instance")
+	}
+	if e.Handler == nil {
+		return fmt.Errorf("empty handler")
+	}
+	if e.Path == "" {
 		return fmt.Errorf("empty path")
 	}
-
-	if len(method) == 0 {
-		return fmt.Errorf("empty http method")
+	if !filepath.IsAbs(e.Path) {
+		return fmt.Errorf("invalid relative path")
 	}
 
-	_, ok := supportedMethods[method]
+	if e.Method == "" {
+		return fmt.Errorf("empty method")
+	}
+	_, ok := supportedMethods[e.Method]
 	if !ok {
-		return fmt.Errorf("unsupported http method %s", method)
+		return fmt.Errorf("unsupported http method %s", e.Method)
 	}
-
-	if handler == nil {
-		return fmt.Errorf("invalid handler")
-	}
-
-	m.Lock()
-	defer m.Unlock()
-
-	err := m.validate(path, method)
-	if err != nil {
-		return err
-	}
-
-	m._locklessAddFunc(pipeline, path, method, headers, handler)
 
 	return nil
 }
 
-func (m *mux) AddFuncs(pipeline string, pipeline_rtable map[string]map[string]*plugins.HTTPMuxEntry) error {
+func (m *paramMux) AddFunc(pipeline string, entryAdding *plugins.HTTPMuxEntry) error {
 	ts := strings.TrimSpace
 	pipeline = ts(pipeline)
+	if pipeline == "" {
+		return fmt.Errorf("empty pipeline name")
+	}
 
+	m.checkValidity(entryAdding)
+
+	m.Lock()
+	defer m.Unlock()
+
+	err := m.validate(entryAdding)
+	if err != nil {
+		return err
+	}
+
+	m._locklessAddFunc(pipeline, entryAdding)
+
+	return nil
+}
+
+func (m *paramMux) AddFuncs(pipeline string, entriesAdding []*plugins.HTTPMuxEntry) error {
+	ts := strings.TrimSpace
+	pipeline = ts(pipeline)
 	if len(pipeline) == 0 {
 		return fmt.Errorf("empty pipeline name")
 	}
 
-	if pipeline_rtable == nil {
+	if len(entriesAdding) == 0 {
 		return fmt.Errorf("empty pipeline route table")
 	}
 
@@ -185,50 +213,77 @@ func (m *mux) AddFuncs(pipeline string, pipeline_rtable map[string]map[string]*p
 	defer m.Unlock()
 
 	// full validation first
-	for path, methods := range pipeline_rtable {
-		for method := range methods {
-			err := m.validate(path, method)
-			if err != nil {
-				return err
-			}
-
+	for _, entry := range entriesAdding {
+		err := m.validate(entry)
+		if err != nil {
+			return err
 		}
 	}
 
-	for path, methods := range pipeline_rtable {
-		for method, entry := range methods {
-			m._locklessAddFunc(pipeline, path, method, entry.Headers, entry.Handler)
-		}
+	for _, entry := range entriesAdding {
+		m._locklessAddFunc(pipeline, entry)
 	}
 
 	return nil
 }
 
-func (m *mux) DeleteFunc(pipeline, path, method string) {
+func (m *paramMux) DeleteFunc(pipeline string, entryDeleting *plugins.HTTPMuxEntry) {
+	ts := strings.TrimSpace
+	pipeline = ts(pipeline)
+	if pipeline == "" {
+		return
+	}
+
 	m.Lock()
 	defer m.Unlock()
 
-	pipeline_rtable, exists := m.rtable[pipeline]
+	pipelineRTable, exists := m.rtable[pipeline]
+	if !exists {
+		return
+	}
+	methods, exists := pipelineRTable[entryDeleting.Path]
+	if !exists {
+		return
+	}
+	entry, exists := methods[entryDeleting.Method]
 	if !exists {
 		return
 	}
 
-	delete(pipeline_rtable[path], method)
-	if len(pipeline_rtable[path]) == 0 {
-		delete(pipeline_rtable, path)
-	}
-	if len(pipeline_rtable) == 0 {
-		delete(m.rtable, pipeline)
+	if m.sameRoutingRulesInDifferentGeneration(entry, entryDeleting) {
+		return // The older one has already been covered.
+	} else {
+		delete(pipelineRTable[entryDeleting.Path], entryDeleting.Method)
+		if len(pipelineRTable[entryDeleting.Path]) == 0 {
+			delete(pipelineRTable, entryDeleting.Path)
+		}
+		if len(pipelineRTable) == 0 {
+			delete(m.rtable, pipeline)
+		}
 	}
 }
 
-func (m *mux) DeleteFuncs(pipeline string) map[string]map[string]*plugins.HTTPMuxEntry {
+func (m *paramMux) DeleteFuncs(pipeline string) []*plugins.HTTPMuxEntry {
+	ts := strings.TrimSpace
+	pipeline = ts(pipeline)
+	if pipeline == "" {
+		return nil
+	}
+
 	m.Lock()
 	defer m.Unlock()
 
-	pipeline_rtable := m.rtable[pipeline]
+	pipelineRTable := m.rtable[pipeline]
+
+	var entries []*plugins.HTTPMuxEntry
+	for _, methods := range pipelineRTable {
+		for _, entry := range methods {
+			entries = append(entries, entry)
+		}
+	}
+
 	delete(m.rtable, pipeline)
-	return pipeline_rtable
+	return entries
 }
 
 ////
@@ -354,49 +409,4 @@ func duplicatedPath(p1, p2 string) (bool, error) {
 	}
 
 	return true, nil
-}
-
-////
-
-type headerErr struct {
-	Code    int
-	Message string
-}
-
-var defaultHeaderErr = headerErr{
-	Code:    http.StatusNotFound,
-	Message: "invalid request",
-}
-
-var headerPriority = []string{"User-Agent", "Content-Type", "Content-Encoding"}
-
-var headerErrs = map[string]headerErr{
-	"User-Agent": {
-		Code:    http.StatusForbidden,
-		Message: "unsupported User-Agent",
-	},
-	"Content-Type": {
-		Code:    http.StatusUnsupportedMediaType,
-		Message: "unsupported media type",
-	},
-	"Content-Encoding": {
-		Code:    http.StatusBadRequest,
-		Message: "invalid request",
-	},
-}
-
-func getHeaderError(keys ...string) headerErr {
-	for _, keyPattern := range headerPriority {
-		for _, k := range keys {
-			if keyPattern == k {
-				he, ok := headerErrs[k]
-				if !ok {
-					return defaultHeaderErr
-				}
-				return he
-			}
-		}
-	}
-
-	return defaultHeaderErr
 }

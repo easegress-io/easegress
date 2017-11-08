@@ -20,12 +20,14 @@ import (
 
 type httpServerConfig struct {
 	common.PluginCommonConfig
-	Host             string `json:"host"`
-	Port             uint16 `json:"port"` // up to 65535
-	CertFile         string `json:"cert_file"`
-	KeyFile          string `json:"key_file"`
-	ConnKeepAlive    bool   `json:"keepalive"`
-	ConnKeepAliveSec uint16 `json:"keepalive_sec"` // up to 65535
+	Host             string  `json:"host"`
+	Port             uint16  `json:"port"` // up to 65535
+	MuxType          muxType `json:"mux_type"`
+	REMuxCacheCount  uint32  `json:"regexp_mux_max_cache_count"`
+	CertFile         string  `json:"cert_file"`
+	KeyFile          string  `json:"key_file"`
+	ConnKeepAlive    bool    `json:"keepalive"`
+	ConnKeepAliveSec uint16  `json:"keepalive_sec"` // up to 65535
 	// TODO: Adds keepalive_requests support
 	MaxSimulConns uint32 `json:"max_connections"` // up to 4294967295
 
@@ -37,6 +39,8 @@ func httpServerConfigConstructor() plugins.Config {
 	return &httpServerConfig{
 		Host:             "localhost",
 		Port:             10080,
+		MuxType:          regexpMuxType,
+		REMuxCacheCount:  1024,
 		ConnKeepAlive:    true,
 		ConnKeepAliveSec: 10,
 		MaxSimulConns:    1024,
@@ -75,6 +79,13 @@ func (c *httpServerConfig) Prepare(pipelineNames []string) error {
 
 	if c.Port == 0 {
 		return fmt.Errorf("invalid port")
+	}
+
+	switch c.MuxType {
+	case regexpMuxType:
+	case paramMuxType:
+	default:
+		return fmt.Errorf("unsupported mux type")
 	}
 
 	if c.ConnKeepAliveSec == 0 {
@@ -120,7 +131,14 @@ func httpServerConstructor(conf plugins.Config) (plugins.Plugin, error) {
 		tcpListener:      ln.(*net.TCPListener),
 	}, int(c.MaxSimulConns))
 
-	h.mux = newMux()
+	switch h.conf.MuxType {
+	case regexpMuxType:
+		h.mux = newREMux(h.conf.REMuxCacheCount)
+	case paramMuxType:
+		h.mux = newParamMux()
+	default:
+		return nil, fmt.Errorf("unsupported mux type") //defensive
+	}
 
 	h.server = &http.Server{
 		Handler: h.mux,
@@ -285,10 +303,10 @@ func getHTTPServerMux(ctx pipelines.PipelineContext, pluginName string, required
 }
 
 func storePipelineRouteTable(ctx pipelines.PipelineContext, pluginName string,
-	pipeline_rtable map[string]map[string]*plugins.HTTPMuxEntry) error {
+	pipelineRTable []*plugins.HTTPMuxEntry) error {
 
 	bucket := ctx.DataBucket(pluginName, pipelines.DATA_BUCKET_FOR_ALL_PLUGIN_INSTANCE)
-	_, err := bucket.BindData(plugins.HTTP_SERVER_PIPELINE_ROUTE_TABLE_BUCKET_KEY, pipeline_rtable)
+	_, err := bucket.BindData(plugins.HTTP_SERVER_PIPELINE_ROUTE_TABLE_BUCKET_KEY, pipelineRTable)
 	if err != nil {
 		logger.Errorf("[BUG: store the route table of pipeline %s for http server %s failed: %v]",
 			ctx.PipelineName(), pluginName, err)
@@ -299,16 +317,16 @@ func storePipelineRouteTable(ctx pipelines.PipelineContext, pluginName string,
 }
 
 func getPipelineRouteTable(ctx pipelines.PipelineContext,
-	pluginName string) map[string]map[string]*plugins.HTTPMuxEntry {
+	pluginName string) []*plugins.HTTPMuxEntry {
 
 	bucket := ctx.DataBucket(pluginName, pipelines.DATA_BUCKET_FOR_ALL_PLUGIN_INSTANCE)
-	pipeline_rtable := bucket.QueryData(plugins.HTTP_SERVER_PIPELINE_ROUTE_TABLE_BUCKET_KEY)
+	pipelineRTable := bucket.QueryData(plugins.HTTP_SERVER_PIPELINE_ROUTE_TABLE_BUCKET_KEY)
 
-	if pipeline_rtable == nil {
+	if pipelineRTable == nil {
 		return nil
 	}
 
-	ret, ok := pipeline_rtable.(map[string]map[string]*plugins.HTTPMuxEntry)
+	ret, ok := pipelineRTable.([]*plugins.HTTPMuxEntry)
 	if !ok {
 		logger.Errorf("[the route table of pipeline %s for http server %s is invalid]",
 			ctx.PipelineName(), pluginName)

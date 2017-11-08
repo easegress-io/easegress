@@ -1,0 +1,6 @@
+{
+  "type": "HTTPServer",
+  "config": {
+    "plugin_name": "http_server.test"
+  }
+}
