@@ -145,7 +145,7 @@ func (p *linearPipeline) Run() error {
 
 				if !p.stopped {
 					plugin, _ := p.mod.GetPlugin(pluginNames[i])
-					callbackName := fmt.Sprintf("%s-pluginInstanceClosed@%p", p.Name(), instance)
+					callbackName := fmt.Sprintf("%s@%p-pluginInstanceClosed@%p", p.Name(), p, instance)
 					plugin.AddInstanceClosedCallback(callbackName,
 						func(closedInstance plugins.Plugin) {
 							if closedInstance == instance {

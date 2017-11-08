@@ -321,9 +321,7 @@ func (c *pluginInstanceCounter) AddRef(plugin plugins.Plugin) int {
 	c.Unlock()
 
 	for _, callback := range tmp {
-		if callback.Name() == plugin.Name() {
-			callback.Callback().(PluginRefCountUpdated)(plugin, count, c)
-		}
+		callback.Callback().(PluginRefCountUpdated)(plugin, count, c)
 	}
 
 	return count
@@ -345,9 +343,7 @@ func (c *pluginInstanceCounter) DeleteRef(plugin plugins.Plugin) int {
 	c.Unlock()
 
 	for _, callback := range tmp {
-		if callback.Name() == plugin.Name() {
-			callback.Callback().(PluginRefCountUpdated)(plugin, count, c)
-		}
+		callback.Callback().(PluginRefCountUpdated)(plugin, count, c)
 	}
 
 	return count
