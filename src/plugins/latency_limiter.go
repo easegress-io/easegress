@@ -87,7 +87,7 @@ func (l *latencyWindowLimiter) Run(ctx pipelines.PipelineContext, t task.Task) (
 		return t, nil
 	}
 
-	if counter.Count() > l.conf.AllowTimes {
+	if counter.Count() > uint64(l.conf.AllowTimes) {
 		if l.conf.BackOffMSec < 1 {
 			// service fusing
 			t.SetError(fmt.Errorf("service is unavaialbe caused by latency limit"),
@@ -126,26 +126,26 @@ const (
 )
 
 type latencyLimiterCounter struct {
-	c       chan int64
-	counter uint32
+	c       chan *bool
+	counter uint64
 	closed  bool
 }
 
 func newLatencyLimiterCounter() *latencyLimiterCounter {
 	ret := &latencyLimiterCounter{
-		c: make(chan int64, 32767),
+		c: make(chan *bool, 32767),
 	}
 
 	go func() {
 		for {
 			select {
-			case v := <-ret.c:
-				if v == 0 {
+			case f := <-ret.c:
+				if f == nil {
 					return // channel/counter closed, exit
-				} else if v > 0 {
-					ret.counter += uint32(v)
-				} else if ret.counter > 0 && (int64(ret.counter)+v) > 0 {
-					ret.counter = uint32(int64(ret.counter) + v)
+				} else if *f && ret.counter < ^uint64(0) {
+					ret.counter += 1
+				} else if ret.counter > 0 {
+					ret.counter = ret.counter - 1
 				}
 			}
 		}
@@ -155,14 +155,16 @@ func newLatencyLimiterCounter() *latencyLimiterCounter {
 }
 
 func (c *latencyLimiterCounter) Increase() {
-	c.c <- 1
+	f := true
+	c.c <- &f
 }
 
 func (c *latencyLimiterCounter) Decrease() {
-	c.c <- -1
+	f := false
+	c.c <- &f
 }
 
-func (c *latencyLimiterCounter) Count() uint32 {
+func (c *latencyLimiterCounter) Count() uint64 {
 	if c.closed {
 		return 0
 	}
