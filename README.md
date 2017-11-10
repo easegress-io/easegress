@@ -6,12 +6,22 @@
 For more design details, please see [easegateway design](./doc/easegateway_design.md)
 
 # Build
+
+## Requirements
+
+1. Go version >= 1.9
+
+## Make
+
 ```shell
 make vendor_clean
 make vendor_get
 make clean
 make build
 ```
+
+Use `make vendor_update` to update local dependent packages if the file glide.yaml is updated. It's also used to keep latest code of the package could be updated. This command clears the glide local cache before the update.
+
 
 # Run
 ```shell
