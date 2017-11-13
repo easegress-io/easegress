@@ -62,7 +62,7 @@ clean:
 	@rm -rf ${MKFILE_DIR}build && rm -rf ${MKFILE_DIR}rootfs/alpine/opt && rm -rf ${MKFILE_DIR}rootfs/ubuntu/opt
 
 run: build_server
-	${TARGET_GATEWAY_SERVER} -certfile=localhost-cert.pem -keyfile=localhost-key.pem
+	${TARGET_GATEWAY_SERVER}
 
 fmt:
 	cd ${MKFILE_DIR} && go fmt ./src/...
