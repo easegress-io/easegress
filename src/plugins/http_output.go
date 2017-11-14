@@ -392,7 +392,7 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task,
 		req.Header.Set(name1, value1)
 		i++
 	}
-	req.Header.Set("User-Agent", "EaseGateway")
+
 	req.Host = req.Header.Get("Host") // https://github.com/golang/go/issues/7682
 
 	resp, responseDuration, err := h.send(ctx, t, req)
