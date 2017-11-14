@@ -22,12 +22,15 @@ import (
 type target struct {
 	pipelineName string
 	needResponse bool
+	idx          int
 }
 
 type selection interface {
-	getTargets() []*target
 	careTaskError(targetIdx int, response *pipelines.UpstreamResponse) bool
 	doNextTarget(response *pipelines.UpstreamResponse) bool
+	getTargets() []*target
+	taskErrored(targetIdx int)
+	taskSucceed(targetIdx int)
 }
 
 type defaultSelection struct {
@@ -44,6 +47,14 @@ func (s *defaultSelection) careTaskError(targetIdx int, response *pipelines.Upst
 
 func (s *defaultSelection) doNextTarget(response *pipelines.UpstreamResponse) bool {
 	return true
+}
+
+func (s *defaultSelection) taskErrored(targetIdx int) {
+	// Nothing to do.
+}
+
+func (s *defaultSelection) taskSucceed(targetIdx int) {
+	// Nothing to do.
 }
 
 type routeSelector func(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) selection
@@ -71,11 +82,12 @@ func roundRobinSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task
 	}
 
 	atomic.AddUint64(taskCount, 1)
-
+	idx := int(*taskCount % uint64(len(u.conf.TargetPipelineNames)))
 	return &defaultSelection{
 		targets: []*target{{
-			pipelineName: u.conf.TargetPipelineNames[*taskCount%uint64(len(u.conf.TargetPipelineNames))],
+			pipelineName: u.conf.TargetPipelineNames[idx],
 			needResponse: true,
+			idx:          idx,
 		}},
 	}
 }
@@ -104,6 +116,7 @@ func weightedRoundRobinSelector(u *upstreamOutput, ctx pipelines.PipelineContext
 				targets: []*target{{
 					pipelineName: u.conf.TargetPipelineNames[state.lastPipelineIndex],
 					needResponse: true,
+					idx:          state.lastPipelineIndex,
 				}},
 			}
 		}
@@ -111,10 +124,12 @@ func weightedRoundRobinSelector(u *upstreamOutput, ctx pipelines.PipelineContext
 }
 
 func randomSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) selection {
+	idx := rand.Intn(len(u.conf.TargetPipelineNames))
 	return &defaultSelection{
 		targets: []*target{{
-			pipelineName: u.conf.TargetPipelineNames[rand.Intn(len(u.conf.TargetPipelineNames))],
+			pipelineName: u.conf.TargetPipelineNames[idx],
 			needResponse: true,
+			idx:          idx,
 		}},
 	}
 }
@@ -133,6 +148,7 @@ func weightedRandomSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t 
 				targets: []*target{{
 					pipelineName: u.conf.TargetPipelineNames[idx],
 					needResponse: true,
+					idx:          idx,
 				}},
 			}
 		}
@@ -146,21 +162,21 @@ func weightedRandomSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t 
 }
 
 func leastWIPRequestsSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) selection {
-	ret := u.conf.TargetPipelineNames[0]
-	leastWIP := ctx.CrossPipelineWIPRequestsCount(ret)
-
+	leastWIP := ctx.CrossPipelineWIPRequestsCount(u.conf.TargetPipelineNames[0])
+	index := 0
 	for idx := 1; idx < len(u.conf.TargetPipelineNames)-1; idx++ {
 		count := ctx.CrossPipelineWIPRequestsCount(u.conf.TargetPipelineNames[idx])
 		if count < leastWIP {
 			leastWIP = count
-			ret = u.conf.TargetPipelineNames[idx]
+			index = idx
 		}
 	}
 
 	return &defaultSelection{
 		targets: []*target{{
-			pipelineName: ret,
+			pipelineName: u.conf.TargetPipelineNames[index],
 			needResponse: true,
+			idx:          index,
 		}},
 	}
 }
@@ -176,11 +192,12 @@ func hashSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task)
 
 		h.Write([]byte(task.ToString(v, option.PluginIODataFormatLengthLimit)))
 	}
-
+	idx := int(h.Sum32() % uint32(len(u.conf.TargetPipelineNames)))
 	return &defaultSelection{
 		targets: []*target{{
-			pipelineName: u.conf.TargetPipelineNames[h.Sum32()%uint32(len(u.conf.TargetPipelineNames))],
+			pipelineName: u.conf.TargetPipelineNames[idx],
 			needResponse: true,
+			idx:          idx,
 		}},
 	}
 }
@@ -216,6 +233,7 @@ func filterSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Tas
 		targets: []*target{{
 			pipelineName: u.conf.TargetPipelineNames[selectedIdx],
 			needResponse: true,
+			idx:          selectedIdx,
 		}},
 	}
 }
@@ -227,6 +245,7 @@ func fanoutSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Tas
 		targets = append(targets, &target{
 			pipelineName: pipelineName,
 			needResponse: u.conf.TargetPipelineResponseFlags[idx],
+			idx:          idx,
 		})
 	}
 
@@ -237,6 +256,7 @@ func fanoutSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Tas
 
 type retryNextSelection struct {
 	defaultSelection
+	targetsPossibility *targetsPossibility
 }
 
 func (s *retryNextSelection) careTaskError(targetIdx int, response *pipelines.UpstreamResponse) bool {
@@ -251,21 +271,112 @@ func (s *retryNextSelection) doNextTarget(response *pipelines.UpstreamResponse) 
 	return response.TaskError != nil
 }
 
-func retrySelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) selection {
-	var targets []*target
+func (s *retryNextSelection) taskErrored(targetIdx int) {
+	if s.targetsPossibility != nil {
+		s.targetsPossibility.decrease(targetIdx)
+	}
+}
 
-	for _, pipelineName := range u.conf.TargetPipelineNames {
+func (s *retryNextSelection) taskSucceed(targetIdx int) {
+	if s.targetsPossibility != nil {
+		s.targetsPossibility.increase(targetIdx)
+	}
+}
+
+func retrySelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task) selection {
+	targetLen := len(u.conf.TargetPipelineNames)
+	targetsPossibility, err := getTargetsPossibility(ctx, u.Name(), u.instanceId, targetLen)
+	var p []int // p will be nil when error occurs
+	if err == nil {
+		p = targetsPossibility.getAll()
+	}
+
+	targets := generateTargets(u.conf.TargetPipelineNames, p)
+	return &retryNextSelection{
+		defaultSelection: defaultSelection{
+			targets: targets,
+		},
+		targetsPossibility: targetsPossibility,
+	}
+}
+
+func generateTargets(targetPipelineNames []string, p []int) []*target{
+	targetLen := len(targetPipelineNames)
+	targets := make([]*target, 0, targetLen)
+	for idx, pipelineName := range targetPipelineNames {
+		// last target is always in the list
+		if idx < targetLen-1 && p != nil && rand.Intn(100) >= p[idx] {
+			continue
+		}
 		targets = append(targets, &target{
 			pipelineName: pipelineName,
 			needResponse: true,
+			idx:          idx,
 		})
 	}
+	return targets
+}
 
-	return &retryNextSelection{
-		defaultSelection{
-			targets: targets,
-		},
+////
+
+const (
+	targetsPossibilityKey = "targetsPossibility"
+)
+
+type targetsPossibility struct {
+	possibility []int
+	sync.RWMutex
+}
+
+func newTargetsPossibility(targetLen int) *targetsPossibility {
+	possibility := make([]int, targetLen)
+	// initial possibility is 100%
+	for idx, _ := range possibility {
+		possibility[idx] = 100
 	}
+	return &targetsPossibility{
+		possibility:	possibility,
+	}
+}
+func (t *targetsPossibility) getAll() []int {
+	t.RLock()
+	defer t.RUnlock()
+	ret := make([]int, len(t.possibility))
+	copy(ret, t.possibility)
+	return ret
+}
+
+func (t *targetsPossibility) increase(targetIdx int) {
+	t.Lock()
+	defer t.Unlock()
+	// fast recovery
+	if t.possibility[targetIdx] < 50 {
+		t.possibility[targetIdx] = 50
+	} else {
+		t.possibility[targetIdx] = 100
+	}
+}
+
+func (t *targetsPossibility) decrease(targetIdx int) {
+	t.Lock()
+	defer t.Unlock()
+	// halve decrease
+	if t.possibility[targetIdx] >= 2 {
+		t.possibility[targetIdx] = t.possibility[targetIdx] / 2
+	} // else t.possibility[targetIdx] = 1
+}
+
+func getTargetsPossibility(ctx pipelines.PipelineContext, pluginName, pluginInstanceId string, targetLen int) (*targetsPossibility, error) {
+	bucket := ctx.DataBucket(pluginName, pluginInstanceId)
+	p, err := bucket.QueryDataWithBindDefault(targetsPossibilityKey, func() interface{} {
+		return newTargetsPossibility(targetLen)
+	})
+	if err != nil {
+		logger.Warnf("[BUG: query state for pipeline %s failed, ignored to update targets possibility: %v]", ctx.PipelineName(), err)
+		return nil, err
+	}
+
+	return p.(*targetsPossibility), nil
 }
 
 ////
@@ -441,7 +552,7 @@ func (u *upstreamOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.T
 		return t, nil
 	}
 
-	var requests []*pipelines.DownstreamRequest
+	targetRequests := make(map[int]*pipelines.DownstreamRequest, len(s.getTargets()))
 	var waitResponses []string
 
 	for _, target := range s.getTargets() {
@@ -451,7 +562,7 @@ func (u *upstreamOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.T
 		}
 
 		request := pipelines.NewDownstreamRequest(target.pipelineName, u.Name(), data)
-		requests = append(requests, request)
+		targetRequests[target.idx] = request
 
 		if target.needResponse {
 			waitResponses = append(waitResponses, target.pipelineName)
@@ -460,7 +571,7 @@ func (u *upstreamOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.T
 
 	// close request without response at last to prevent upstream ignores closed request directly when it scheduled
 	defer func() {
-		for _, request := range requests {
+		for _, request := range targetRequests {
 			request.Close()
 		}
 	}()
@@ -496,8 +607,14 @@ func (u *upstreamOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.T
 
 	defer common.CloseChan(done)
 
+	targetIdxKeys := make([]int, 0, len(targetRequests))
+	for k, _ := range targetRequests {
+		targetIdxKeys = append(targetIdxKeys, k)
+	}
+
 LOOP:
-	for requestIdx, request := range requests {
+	for _, targetIdx := range targetIdxKeys {
+		request := targetRequests[targetIdx]
 		err := ctx.CommitCrossPipelineRequest(request, done)
 		if err != nil {
 			if t.Error() == nil { // commit failed and it was not caused by task cancellation or request timeout
@@ -542,8 +659,12 @@ LOOP:
 
 				t = t1
 			}
-
-			if !s.careTaskError(requestIdx, response) {
+			if response.TaskError != nil {
+				s.taskErrored(targetIdx)
+			} else {
+				s.taskSucceed(targetIdx)
+			}
+			if !s.careTaskError(targetIdx, response) {
 				continue LOOP
 			}
 
@@ -556,7 +677,7 @@ LOOP:
 				break LOOP
 			}
 		case <-done:
-			// stop loop, task is cancelled or requests running timeout before get all responses from upstreams
+			// stop loop, task is cancelled or targetRequests running timeout before get all responses from upstreams
 			break LOOP
 		}
 	}
