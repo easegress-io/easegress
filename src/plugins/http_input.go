@@ -43,11 +43,13 @@ type httpInputConfig struct {
 
 	RequestHeaderNamesKey string `json:"request_header_names_key"`
 	RequestBodyIOKey      string `json:"request_body_io_key"`
+	RequestHeaderKey      string `json:"request_header_key"`
 	ResponseCodeKey       string `json:"response_code_key"`
 	ResponseBodyIOKey     string `json:"response_body_io_key"`
 	ResponseBodyBufferKey string `json:"response_body_buffer_key"`
 	ResponseRemoteKey     string `json:"response_remote_key"`
 	ResponseDurationKey   string `json:"response_duration_key"`
+	ResponseHeaderKey     string `json:"response_header_key"`
 
 	dumpReq bool
 }
@@ -82,9 +84,11 @@ func (c *httpInputConfig) Prepare(pipelineNames []string) error {
 	c.DumpRequest = ts(c.DumpRequest)
 	c.RequestHeaderNamesKey = ts(c.RequestHeaderNamesKey)
 	c.RequestBodyIOKey = ts(c.RequestBodyIOKey)
+	c.RequestHeaderKey = ts(c.RequestHeaderKey)
 	c.ResponseCodeKey = ts(c.ResponseCodeKey)
 	c.ResponseBodyIOKey = ts(c.ResponseBodyIOKey)
 	c.ResponseBodyBufferKey = ts(c.ResponseBodyBufferKey)
+	c.ResponseHeaderKey = ts(c.ResponseHeaderKey)
 	c.ResponseRemoteKey = ts(c.ResponseRemoteKey)
 	c.ResponseDurationKey = ts(c.ResponseDurationKey)
 
@@ -257,6 +261,20 @@ func (h *httpInput) handler(w http.ResponseWriter, req *http.Request, path_param
 	<-httpTask.finishedChan
 }
 
+func copyHeaderFromTask(t task.Task, key string, dst http.Header) {
+	respHeader, ok := t.Value(key).(http.Header)
+	if ok {
+		for k, v := range respHeader {
+			for _, vv := range v {
+				// Add appends to any existing values associated with key.
+				dst.Add(k, vv)
+			}
+		}
+	} else {
+		logger.Errorf("[load header: %s in the task failed, value:%+v]", key, t.Value(key))
+	}
+}
+
 func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, task.TaskResultCode, task.Task) {
 	var ok bool
 	var ht *httpTask
@@ -317,6 +335,11 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 		}
 
 		taskResultCode := getTaskResultCode(t1)
+
+		if len(h.conf.ResponseHeaderKey) != 0 {
+			copyHeaderFromTask(t1, h.conf.ResponseHeaderKey, ht.writer.Header())
+		}
+
 		ht.writer.WriteHeader(taskResultCode)
 
 		// TODO: Take care other headers if inputted
@@ -446,6 +469,13 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 
 	if len(h.conf.RequestBodyIOKey) != 0 {
 		t, err = task.WithValue(t, h.conf.RequestBodyIOKey, ht.request.Body)
+		if err != nil {
+			return err, task.ResultInternalServerError, t
+		}
+	}
+
+	if len(h.conf.RequestHeaderKey) != 0 {
+		t, err = task.WithValue(t, h.conf.RequestHeaderKey, ht.request.Header)
 		if err != nil {
 			return err, task.ResultInternalServerError, t
 		}

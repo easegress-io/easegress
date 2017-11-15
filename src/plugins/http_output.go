@@ -45,8 +45,10 @@ type httpOutputConfig struct {
 	DumpResponse             string            `json:"dump_response"`
 
 	RequestBodyIOKey    string `json:"request_body_io_key"`
+	RequestHeaderKey    string `json:"request_header_key"`
 	ResponseCodeKey     string `json:"response_code_key"`
 	ResponseBodyIOKey   string `json:"response_body_io_key"`
+	ResponseHeaderKey   string `json:"response_header_key"`
 	ResponseRemoteKey   string `json:"response_remote_key"`
 	ResponseDurationKey string `json:"response_duration_key"`
 
@@ -365,8 +367,11 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task,
 		return t, nil
 	}
 
-	req.ContentLength = length
+	if len(h.conf.RequestHeaderKey) != 0 {
+		copyHeaderFromTask(t, h.conf.RequestHeaderKey, req.Header)
+	}
 
+	req.ContentLength = length
 	if h.conf.connKeepAlive == 0 {
 		req.Header.Set("Connection", "close")
 	} else if h.conf.connKeepAlive == 1 {
@@ -423,6 +428,14 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task,
 		if err != nil {
 			closeRespBody()
 
+			t.SetError(err, task.ResultInternalServerError)
+			return t, nil
+		}
+	}
+
+	if len(h.conf.ResponseHeaderKey) != 0 {
+		t, err = task.WithValue(t, h.conf.ResponseHeaderKey, resp.Header)
+		if err != nil {
 			t.SetError(err, task.ResultInternalServerError)
 			return t, nil
 		}

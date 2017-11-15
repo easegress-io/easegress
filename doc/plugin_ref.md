@@ -82,6 +82,8 @@ Plugin handles HTTP request and returns client with pipeline processed response.
 | respond\_error | bool | The flag represents if the plugin respond error information to client if pipeline handles the request unsuccessfully. The option will be used only when `response_body_io_key` and `response_body_buffer_key` options are empty. | Functionality | Yes | false |
 | fast\_close | bool | The flag represents if the plugin does not wait any response which is processing before close, e.g. ignore data transmission on a slow connection. | Functionality | Yes | false |
 | dump\_request | string | The flag represents if the plugin dumps http request out to `http_dump.log` log file (exclude body). Three options are available `auto`, `yes`/`y`/`true`/`t`/`on`/`1` or `no`/`n`/`false`/`f`/`off`/`0` (case-insensitive). In `auto` option, the request will be dumped only when the gateway running on `debug` or `test` stage. | Functionality | Yes | "auto" |
+| request\_header\_key | string | The key name of HTTP request header stored in internal storage as the plugin output. | I/O | Yes | "" |
+| response\_header\_key | string | The key name of HTTP response header stored in internal storage as the plugin input. | I/O | Yes | "" |
 | request\_header\_names\_key | string | The name of HTTP request header name list stored in internal storage as the plugin output. | I/O | Yes | "" |
 | request\_body\_io\_key | string | The key name of HTTP request body io object stored in internal storage as the plugin output. | I/O | Yes | "" |
 | response\_code\_key | string | The key name of HTTP response status code value stored in internal storage as the plugin input. An empty value of the option means returning pipeline handling result code to client. | I/O | Yes | "" |
@@ -98,6 +100,8 @@ Plugin handles HTTP request and returns client with pipeline processed response.
 | Each [CGI environment value](#https://tools.ietf.org/html/rfc3875#section-4.1) of the request | N/A | Output | string | N/A |
 | Request header name list | request\_header\_names\_key | Output | []string | Yes |
 | Request body IO object | request\_body\_io\_key | Output | io.Reader | Yes |
+| Request HTTP header | request\_header\_key | Output | map[string][]string | Yes |
+| Response HTTP header | response\_header\_key | Input | map[string][]string | Yes |
 | Response HTTP status code | response\_code\_key | Input | int | Yes |
 | Response body IO object | response\_body\_io\_key | Input | io.Reader | Yes |
 | Response body buffer | response\_body\_buffer\_key | Input | []byte | Yes |
@@ -195,7 +199,9 @@ Plugin outputs request data to a HTTP endpoint.
 |:--|:--|:--|:--:|:--:|:--|
 | plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
 | url\_pattern | string | The pattern of the complete HTTP output endpoint. E.g. ``https://1.2.3.4/abc?def={INPUT_DATA}`` | Functionality | No | N/A |
-| header\_patterns | map\[string\]string | The list of HTTP output header name pattern and value pattern pair. | Functionality | Yes | nil |
+| request\_header\_key | string | The key name of HTTP request header stored in internal storage as the plugin input. | I/O | Yes | "" |
+| response\_header\_key | string | The key name of HTTP response header stored in internal storage as the plugin output. | I/O | Yes | "" |
+| header\_patterns | map\[string\]string | The list of HTTP output header name pattern and value pattern pair. If both this and `request_header_key` are configured, this option has higher priority so duplicated keys will be overwrite. | Functionality | Yes | nil |
 | method | string | The method HTTP output used. | Functionality | No | N/A |
 | expected\_response\_codes| []int | The expected HTTP response status code. If HTTPOutput doesn't need to check the response status code, then set it to an empty array. Else if the real HTTP response status code doesn't match any of them, then the pipeline is finished. | Functionality | Yes | []{http.StatusOK} |
 | timeout\_sec | uint16 | The request timeout HTTP output limited in second. | Functionality | Yes | 120 (2 minutes) |
@@ -220,6 +226,8 @@ Plugin outputs request data to a HTTP endpoint.
 | Data name | Configuration option name | Type | Data Type | Optional |
 |:--|:--|:--:|:--|:--:|
 | Request HTTP body | request\_body\_io\_key | Input | io.Reader | Yes |
+| Request HTTP header | request\_header\_key | Input | map[string][]string | Yes |
+| Response HTTP header | response\_header\_key | Output | map[string][]string | Yes |
 | Response HTTP status code | response\_code\_key | Output | int | Yes |
 | Response body IO object | response\_body\_io\_key | Output | io.ReadCloser | Yes |
 | Response remote address | response\_remote\_key | Output | string | Yes |
