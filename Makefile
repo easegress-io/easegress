@@ -82,7 +82,7 @@ vendor_update: depend
 	ln -s ${MKFILE_DIR}vendor ${MKFILE_DIR}src/vendor
 
 vendor_clean:
-	rm ${MKFILE_DIR}glide.lock
+	rm -f ${MKFILE_DIR}glide.lock
 	rm -dRf ${MKFILE_DIR}src/vendor ${MKFILE_DIR}vendor
 
 build_client_alpine: ${TARGET_GATEWAY_CLIENT} ${TARGET_INVENTORY}
