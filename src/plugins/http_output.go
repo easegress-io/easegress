@@ -93,12 +93,12 @@ func (c *httpOutputConfig) Prepare(pipelineNames []string) error {
 	if err != nil || !uri.IsAbs() || uri.Hostname() == "" ||
 		!common.StrInSlice(uri.Scheme, []string{"http", "https"}) {
 
-		return fmt.Errorf("invalid url")
+		return fmt.Errorf("invalid url: %s", c.URLPattern)
 	}
 
 	_, err = common.ScanTokens(c.URLPattern, false, nil)
 	if err != nil {
-		return fmt.Errorf("invalid url pattern")
+		return fmt.Errorf("scan pattern failed, invalid url pattern %s", c.URLPattern)
 	}
 
 	for name, value := range c.HeaderPatterns {
