@@ -20,14 +20,15 @@ import (
 
 type httpServerConfig struct {
 	common.PluginCommonConfig
-	Host             string  `json:"host"`
-	Port             uint16  `json:"port"` // up to 65535
-	MuxType          muxType `json:"mux_type"`
-	REMuxCacheCount  uint32  `json:"regexp_mux_max_cache_count"`
-	CertFile         string  `json:"cert_file"`
-	KeyFile          string  `json:"key_file"`
-	ConnKeepAlive    bool    `json:"keepalive"`
-	ConnKeepAliveSec uint16  `json:"keepalive_sec"` // up to 65535
+	Host                  string  `json:"host"`
+	Port                  uint16  `json:"port"` // up to 65535
+	MuxType               muxType `json:"mux_type"`
+	REMuxCacheKeyComplete bool    `json:"regexp_mux_cache_key_complete"`
+	REMuxCacheCount       uint32  `json:"regexp_mux_max_cache_count"`
+	CertFile              string  `json:"cert_file"`
+	KeyFile               string  `json:"key_file"`
+	ConnKeepAlive         bool    `json:"keepalive"`
+	ConnKeepAliveSec      uint16  `json:"keepalive_sec"` // up to 65535
 	// TODO: Adds keepalive_requests support
 	MaxSimulConns uint32 `json:"max_connections"` // up to 4294967295
 
@@ -37,13 +38,14 @@ type httpServerConfig struct {
 
 func httpServerConfigConstructor() plugins.Config {
 	return &httpServerConfig{
-		Host:             "localhost",
-		Port:             10080,
-		MuxType:          regexpMuxType,
-		REMuxCacheCount:  1024,
-		ConnKeepAlive:    true,
-		ConnKeepAliveSec: 10,
-		MaxSimulConns:    1024,
+		Host:                  "localhost",
+		Port:                  10080,
+		MuxType:               regexpMuxType,
+		REMuxCacheKeyComplete: false,
+		REMuxCacheCount:       1024,
+		ConnKeepAlive:         true,
+		ConnKeepAliveSec:      10,
+		MaxSimulConns:         1024,
 	}
 }
 
@@ -133,7 +135,7 @@ func httpServerConstructor(conf plugins.Config) (plugins.Plugin, error) {
 
 	switch h.conf.MuxType {
 	case regexpMuxType:
-		h.mux = newREMux(h.conf.REMuxCacheCount)
+		h.mux = newREMux(h.conf.REMuxCacheKeyComplete, h.conf.REMuxCacheCount)
 	case paramMuxType:
 		h.mux = newParamMux()
 	default:

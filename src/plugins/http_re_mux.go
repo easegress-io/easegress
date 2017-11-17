@@ -23,6 +23,8 @@ type reMux struct {
 	// The priorityEntries sorts by priority from smaller to bigger.
 	priorityEntries []*reEntry
 
+	cacheKeyComplete bool
+
 	cacheMutex sync.RWMutex
 	cache      *lru.Cache
 }
@@ -42,10 +44,11 @@ func (entry *reEntry) String() string {
 			entry.Path, entry.Query, entry.Fragment))
 }
 
-func newREMux(maxCacheEntries uint32) *reMux {
+func newREMux(cacheKeyComplete bool, maxCacheEntries uint32) *reMux {
 	return &reMux{
-		pipelineEntries: make(map[string][]*reEntry),
-		cache:           lru.New(int(maxCacheEntries)),
+		pipelineEntries:  make(map[string][]*reEntry),
+		cacheKeyComplete: cacheKeyComplete,
+		cache:            lru.New(int(maxCacheEntries)),
 	}
 }
 
@@ -90,6 +93,7 @@ func (m *reMux) getCache(key string) (*cacheValue, bool) {
 }
 
 func (m *reMux) dump() {
+	m.RLock()
 	fmt.Println("pipelineEntries:")
 	for pipeline, entries := range m.pipelineEntries {
 		fmt.Println(pipeline)
@@ -101,10 +105,16 @@ func (m *reMux) dump() {
 	for _, entry := range m.priorityEntries {
 		fmt.Printf("\t%s\n", entry)
 	}
+	m.RUnlock()
 }
 
 func (m *reMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	requestURL := m.generateRequestURL(r)
+	var requestURL string
+	if m.cacheKeyComplete {
+		requestURL = m.generateCompleteRequestURL(r)
+	} else {
+		requestURL = m.generatePathEndingRequestURL(r)
+	}
 
 	matchURL := false
 	matchMethod := false
@@ -338,7 +348,20 @@ func (m *reMux) DeleteFuncs(pname string) []*plugins.HTTPMuxEntry {
 	return adaptionPipelineEntries
 }
 
-func (m *reMux) generateRequestURL(r *http.Request) string {
+func (m *reMux) generatePathEndingRequestURL(r *http.Request) string {
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	host, port, err := net.SplitHostPort(r.Host)
+	if err != nil {
+		host = r.Host
+	}
+	return fmt.Sprintf(`%s://%s:%s%s?#`,
+		scheme, host, port, r.URL.Path)
+}
+
+func (m *reMux) generateCompleteRequestURL(r *http.Request) string {
 	scheme := "http"
 	if r.TLS != nil {
 		scheme = "https"
