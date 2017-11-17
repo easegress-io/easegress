@@ -17,15 +17,13 @@ import (
 var compile = regexp.Compile
 
 type reMux struct {
-	sync.Mutex
+	sync.RWMutex
 	// The key is pipeline name.
 	pipelineEntries map[string][]*reEntry
 	// The priorityEntries sorts by priority from smaller to bigger.
 	priorityEntries []*reEntry
 
-	// NOTICE: We allows immutable operations such as Get and Len,
-	// but protects mutable operations such as Add, Clear, Remove, RemoveOldest.
-	cacheMutex sync.Mutex
+	cacheMutex sync.RWMutex
 	cache      *lru.Cache
 }
 
@@ -75,6 +73,9 @@ func (m *reMux) addCache(key string, value *cacheValue) {
 }
 
 func (m *reMux) getCache(key string) (*cacheValue, bool) {
+	m.cacheMutex.RLock()
+	defer m.cacheMutex.RUnlock()
+
 	value, found := m.cache.Get(key)
 	if !found {
 		return nil, false
@@ -118,6 +119,7 @@ func (m *reMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		urlParams = valueCache.urlParams
 		entryServing = valueCache.entry.HTTPMuxEntry
 	} else {
+		m.RLock()
 		for _, entry := range m.priorityEntries {
 			pathValues := entry.urlRE.FindStringSubmatch(requestURL)
 			if pathValues != nil {
@@ -141,6 +143,7 @@ func (m *reMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 			urlParams = make(map[string]string)
 		}
+		m.RUnlock()
 
 		if !matchURL {
 			w.WriteHeader(http.StatusNotFound)

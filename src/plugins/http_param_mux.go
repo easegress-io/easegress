@@ -26,7 +26,7 @@ var supportedMethods = map[string]interface{}{
 ////
 
 type paramMux struct {
-	sync.Mutex
+	sync.RWMutex
 	rtable map[string]map[string]map[string]*plugins.HTTPMuxEntry
 }
 
@@ -40,6 +40,7 @@ func (m *paramMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var path_params map[string]string
 	var e *plugins.HTTPMuxEntry
 
+	m.RLock()
 LOOP:
 	for _, pipelineRTable := range m.rtable {
 		for pattern, methods := range pipelineRTable {
@@ -54,6 +55,7 @@ LOOP:
 			}
 		}
 	}
+	m.RUnlock()
 
 	if e == nil {
 		if wrongMethod {
