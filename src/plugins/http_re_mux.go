@@ -1,6 +1,7 @@
 package plugins
 
 import (
+	"bytes"
 	"fmt"
 	"logger"
 	"net"
@@ -9,8 +10,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/golang/groupcache/lru"
+	"github.com/allegro/bigcache"
 	"github.com/hexdecteam/easegateway-types/plugins"
+	"github.com/ugorji/go/codec"
 )
 
 // For quickly substituting another implementation.
@@ -26,7 +28,7 @@ type reMux struct {
 	cacheKeyComplete bool
 
 	cacheMutex sync.RWMutex
-	cache      *lru.Cache
+	cache      *bigcache.BigCache
 }
 
 type reEntry struct {
@@ -45,51 +47,64 @@ func (entry *reEntry) String() string {
 }
 
 func newREMux(cacheKeyComplete bool, maxCacheEntries uint32) *reMux {
+	cacheConfig := bigcache.Config{
+		Shards: 1024,
+	}
+	cache, err := bigcache.NewBigCache(cacheConfig)
+	if err != nil {
+		logger.Errorf("[BUG: new big cache failed: %v]", err)
+		return nil
+	}
 	return &reMux{
 		pipelineEntries:  make(map[string][]*reEntry),
 		cacheKeyComplete: cacheKeyComplete,
-		cache:            lru.New(int(maxCacheEntries)),
+		cache:            cache,
 	}
 }
 
 type cacheValue struct {
-	entry     *reEntry
-	urlParams map[string]string
+	PriorityEntriesIndex int
+	URLParams            map[string]string
 }
 
 func (m *reMux) clearCache() {
-	// Not to block.
-	go func() {
-		m.cacheMutex.Lock()
-		m.cache.Clear()
-		m.cacheMutex.Unlock()
-	}()
+	err := m.cache.Reset()
+	if err != nil {
+		fmt.Errorf("[BUG: reset cache failed: %v]", err)
+	}
 }
 
 func (m *reMux) addCache(key string, value *cacheValue) {
-	// Not to block.
-	go func() {
-		m.cacheMutex.Lock()
-		m.cache.Add(key, value)
-		m.cacheMutex.Unlock()
-	}()
+	buff := bytes.NewBuffer(nil)
+	encoder := codec.NewEncoder(buff, &codec.MsgpackHandle{})
+	err := encoder.Encode(*value)
+	if err != nil {
+		logger.Errorf("[BUG: msgpack encode failed: %v]", err)
+		return
+	}
+
+	err = m.cache.Set(key, buff.Bytes())
+	if err != nil {
+		logger.Errorf("[BUG: cache set failed: %v]", err)
+		return
+	}
 }
 
-func (m *reMux) getCache(key string) (*cacheValue, bool) {
-	m.cacheMutex.RLock()
-	defer m.cacheMutex.RUnlock()
-
-	value, found := m.cache.Get(key)
-	if !found {
-		return nil, false
+func (m *reMux) getCache(key string) *cacheValue {
+	buff, err := m.cache.Get(key)
+	if err != nil {
+		return nil
 	}
 
-	v, ok := value.(*cacheValue)
-	if !ok {
-		logger.Errorf("[BUG: get cache want *cacheValue got %T]", value)
-		return nil, false
+	value := cacheValue{}
+	decoder := codec.NewDecoder(bytes.NewReader(buff), &codec.MsgpackHandle{})
+	err = decoder.Decode(&value)
+	if err != nil {
+		logger.Errorf("[BUG: msgpack decode failed: %v]", err)
+		return nil
 	}
-	return v, found
+
+	return &value
 }
 
 func (m *reMux) dump() {
@@ -122,15 +137,16 @@ func (m *reMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var entryServing *plugins.HTTPMuxEntry
 
 	keyCache := fmt.Sprintf("%s %s", r.Method, requestURL)
-	valueCache, found := m.getCache(keyCache)
-	if found {
+	valueCache := m.getCache(keyCache)
+	m.RLock()
+	if valueCache != nil && valueCache.PriorityEntriesIndex < len(m.priorityEntries) {
 		matchURL = true
 		matchMethod = true
-		urlParams = valueCache.urlParams
-		entryServing = valueCache.entry.HTTPMuxEntry
+		urlParams = valueCache.URLParams
+		entryServing = m.priorityEntries[valueCache.PriorityEntriesIndex].HTTPMuxEntry
+		m.RUnlock()
 	} else {
-		m.RLock()
-		for _, entry := range m.priorityEntries {
+		for priorityEntriesIndex, entry := range m.priorityEntries {
 			pathValues := entry.urlRE.FindStringSubmatch(requestURL)
 			if pathValues != nil {
 				matchURL = true
@@ -144,8 +160,8 @@ func (m *reMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					matchMethod = true
 					entryServing = entry.HTTPMuxEntry
 					m.addCache(keyCache, &cacheValue{
-						entry:     entry,
-						urlParams: urlParams,
+						PriorityEntriesIndex: priorityEntriesIndex,
+						URLParams:            urlParams,
 					})
 					break
 				}
