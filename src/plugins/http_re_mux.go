@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"bytes"
+	"common"
 	"fmt"
 	"logger"
 	"net"
@@ -48,7 +49,7 @@ func (entry *reEntry) String() string {
 
 func newREMux(cacheKeyComplete bool, maxCacheEntries uint32) *reMux {
 	cacheConfig := bigcache.Config{
-		Shards: 1024,
+		Shards: int(common.NextNumberPowerOf2(uint64(1023))),
 	}
 	cache, err := bigcache.NewBigCache(cacheConfig)
 	if err != nil {

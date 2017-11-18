@@ -1,6 +1,7 @@
 package common
 
 import (
+	"math"
 	"testing"
 )
 
@@ -248,5 +249,42 @@ func TestScanTokensExceptionally(t *testing.T) {
 	}
 	if ret != `abc\{def\}{\{ghi\{{jkl}}` {
 		t.Fatalf("scan token returns wrong result: %s", ret)
+	}
+}
+
+func TestNextNumberPowerOf2(t *testing.T) {
+	ret := NextNumberPowerOf2(0)
+	if ret != 0 {
+		t.Fatalf("unexpected return: %d", ret)
+	}
+
+	ret = NextNumberPowerOf2(1)
+	if ret != 1 {
+		t.Fatalf("unexpected return: %d", ret)
+	}
+
+	ret = NextNumberPowerOf2(2)
+	if ret != 2 {
+		t.Fatalf("unexpected return: %d", ret)
+	}
+
+	ret = NextNumberPowerOf2(8)
+	if ret != 8 {
+		t.Fatalf("unexpected return: %d", ret)
+	}
+
+	ret = NextNumberPowerOf2(1023)
+	if ret != 1024 {
+		t.Fatalf("unexpected return: %d", ret)
+	}
+
+	ret = NextNumberPowerOf2(math.MaxUint32)
+	if ret != math.MaxUint32+1 {
+		t.Fatalf("unexpected return: %d", ret)
+	}
+
+	ret = NextNumberPowerOf2(math.MaxUint32 + 1)
+	if ret != math.MaxUint32+1 {
+		t.Fatalf("unexpected return: %d", ret)
 	}
 }
