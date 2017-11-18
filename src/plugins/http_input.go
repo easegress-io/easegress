@@ -442,8 +442,6 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 				ht.writer.Write([]byte(t1.Error().Error()))
 			}
 		}
-
-		ht.writer.(http.Flusher).Flush()
 	}
 
 	closeHTTPInputRequestBody := func(t1 task.Task, _ task.TaskStatus) {
