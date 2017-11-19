@@ -142,7 +142,7 @@ func (m *paramMux) _locklessAddFunc(pipeline string, entryAdding *plugins.HTTPMu
 		entry.Headers = entryAdding.Headers
 		entry.Handler = entryAdding.Handler
 	} else {
-		path_rules[entry.Method] = entryAdding
+		path_rules[entryAdding.Method] = entryAdding
 	}
 }
 
