@@ -200,6 +200,8 @@ func RemoveRepeatedRune(s string, needRemoveRune rune) string {
 	return result
 }
 
+// Via: https://stackoverflow.com/a/466242/1705845
+//      https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
 func NextNumberPowerOf2(v uint64) uint64 {
 	v--
 	v |= v >> 1
@@ -208,7 +210,6 @@ func NextNumberPowerOf2(v uint64) uint64 {
 	v |= v >> 8
 	v |= v >> 16
 	v |= v >> 32
-	v |= v >> 64
 	v++
 	return v
 }

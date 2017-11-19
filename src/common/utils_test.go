@@ -287,4 +287,14 @@ func TestNextNumberPowerOf2(t *testing.T) {
 	if ret != math.MaxUint32+1 {
 		t.Fatalf("unexpected return: %d", ret)
 	}
+
+	ret = NextNumberPowerOf2(1<<63 - 1)
+	if ret != 1<<63 {
+		t.Fatalf("unexpected return: %d", ret)
+	}
+
+	ret = NextNumberPowerOf2(1 << 63)
+	if ret != 1<<63 {
+		t.Fatalf("unexpected return: %d", ret)
+	}
 }
