@@ -1,6 +1,7 @@
 package common
 
 import (
+	"bytes"
 	"fmt"
 	"strconv"
 	"strings"
@@ -65,7 +66,7 @@ func ScanTokens(str string, removeEscapeChar bool, visitor TokenVisitor) (string
 	}
 
 	in := false
-	var ret string
+	ret := bytes.NewBuffer(nil)
 	v := []byte(str)
 
 	escaped := func(pos int) bool {
@@ -82,7 +83,7 @@ func ScanTokens(str string, removeEscapeChar bool, visitor TokenVisitor) (string
 			TOKEN_ESCAPE_CHAR+`}`, "}", -1)
 	}
 
-	token := ""
+	token := bytes.NewBuffer(nil)
 	for i, c := range v {
 		if c == '{' && !escaped(i) {
 			if in {
@@ -95,29 +96,30 @@ func ScanTokens(str string, removeEscapeChar bool, visitor TokenVisitor) (string
 				return str, fmt.Errorf("invalid pattern string")
 			}
 
-			if len(strings.TrimSpace(token)) == 0 {
+			if len(strings.TrimSpace(token.String())) == 0 {
 				return str, fmt.Errorf("empty token")
 			}
 
-			pos := i - len(token) - 1
-			token = escaper(token)
+			pos := i - token.Len() - 1
+			token = bytes.NewBufferString(escaper(token.String()))
 
-			care, replacement := visitor(pos, token)
+			care, replacement := visitor(pos, token.String())
 			if care {
-				ret += replacement
+				ret.WriteString(replacement)
 				c = 0
 			} else {
-				ret += fmt.Sprintf("{%s", token)
+				ret.WriteString("{")
+				ret.WriteString(token.String())
 			}
 
-			token = ""
+			token = bytes.NewBuffer(nil)
 			in = false
 		} else if in {
-			token += string(c)
+			token.WriteByte(c)
 		}
 
 		if !in && c != 0 {
-			ret += string(c)
+			ret.WriteByte(c)
 		}
 	}
 
@@ -125,11 +127,12 @@ func ScanTokens(str string, removeEscapeChar bool, visitor TokenVisitor) (string
 		return str, fmt.Errorf("invalid pattern string")
 	}
 
+	retStr := ret.String()
 	if removeEscapeChar {
-		ret = escaper(ret)
+		retStr = escaper(retStr)
 	}
 
-	return ret, nil
+	return retStr, nil
 }
 
 func PanicToErr(f func(), err *error) (failed bool) {
