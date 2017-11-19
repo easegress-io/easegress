@@ -45,10 +45,16 @@ type Model struct {
 
 func NewModel() *Model {
 	ret := &Model{
-		plugins:          make(map[string]*Plugin),
-		pluginCounter:    newPluginRefCounter(),
-		pipelines:        make(map[string]*Pipeline),
-		pipelineContexts: make(map[string]pipelines.PipelineContext),
+		plugins:                  make(map[string]*Plugin),
+		pluginCounter:            newPluginRefCounter(),
+		pipelines:                make(map[string]*Pipeline),
+		pipelineContexts:         make(map[string]pipelines.PipelineContext),
+		pluginAddedCallbacks:     make([]*common.NamedCallback, 0, common.CallbacksInitCapicity),
+		pluginDeletedCallbacks:   make([]*common.NamedCallback, 0, common.CallbacksInitCapicity),
+		pluginUpdatedCallbacks:   make([]*common.NamedCallback, 0, common.CallbacksInitCapicity),
+		pipelineAddedCallbacks:   make([]*common.NamedCallback, 0, common.CallbacksInitCapicity),
+		pipelineDeletedCallbacks: make([]*common.NamedCallback, 0, common.CallbacksInitCapicity),
+		pipelineUpdatedCallbacks: make([]*common.NamedCallback, 0, common.CallbacksInitCapicity),
 	}
 
 	ret.statistics = newStatRegistry(ret)

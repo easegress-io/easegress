@@ -27,8 +27,10 @@ type Task struct {
 
 func NewTask() *Task {
 	return &Task{
-		status:     task.Pending,
-		resultCode: task.ResultOK,
+		status:                  task.Pending,
+		resultCode:              task.ResultOK,
+		statusFinishedCallbacks: make([]*common.NamedCallback, 0, common.CallbacksInitCapicity),
+		taskRecoveries:          make([]*common.NamedCallback, 0, common.CallbacksInitCapicity),
 	}
 }
 

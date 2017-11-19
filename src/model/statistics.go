@@ -260,6 +260,10 @@ func NewPipelineStatistics(pipelineName string, pluginNames []string, m *Model) 
 		taskIndicators:                 make(map[string]*statisticsIndicator),
 		done:                           make(chan struct{}),
 		mod:                            m,
+		pipelineThroughputRateUpdatedCallbacks:  make([]*common.NamedCallback, 0, common.CallbacksInitCapicity),
+		pipelineExecutionSampleUpdatedCallbacks: make([]*common.NamedCallback, 0, common.CallbacksInitCapicity),
+		pluginThroughputRateUpdatedCallbacks:    make([]*common.NamedCallback, 0, common.CallbacksInitCapicity),
+		pluginExecutionSampleUpdatedCallbacks:   make([]*common.NamedCallback, 0, common.CallbacksInitCapicity),
 	}
 
 	tickFun := func(ewmas []metrics.EWMA) {

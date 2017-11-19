@@ -69,6 +69,7 @@ func newOPLog() (*opLog, error) {
 
 	op := &opLog{
 		db: db,
+		operationAppendedCallbacks: make([]*common.NamedCallback, 0, common.CallbacksInitCapicity),
 	}
 
 	if new { // init max sequence to prevent fake read error
