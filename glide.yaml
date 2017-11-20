@@ -52,6 +52,4 @@ import:
   - pipelines
   - plugins
   - task
-- package: github.com/golang/groupcache
-  subpackages:
-  - lru
+- package: github.com/allegro/bigcache
