@@ -300,7 +300,7 @@ func retrySelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task
 	}
 }
 
-func generateTargets(targetPipelineNames []string, p []int) []*target{
+func generateTargets(targetPipelineNames []string, p []int) []*target {
 	targetLen := len(targetPipelineNames)
 	targets := make([]*target, 0, targetLen)
 	for idx, pipelineName := range targetPipelineNames {
@@ -335,7 +335,7 @@ func newTargetsPossibility(targetLen int) *targetsPossibility {
 		possibility[idx] = 100
 	}
 	return &targetsPossibility{
-		possibility:	possibility,
+		possibility: possibility,
 	}
 }
 func (t *targetsPossibility) getAll() []int {
@@ -366,13 +366,16 @@ func (t *targetsPossibility) decrease(targetIdx int) {
 	} // else t.possibility[targetIdx] = 1
 }
 
-func getTargetsPossibility(ctx pipelines.PipelineContext, pluginName, pluginInstanceId string, targetLen int) (*targetsPossibility, error) {
+func getTargetsPossibility(ctx pipelines.PipelineContext, pluginName, pluginInstanceId string,
+	targetLen int) (*targetsPossibility, error) {
+
 	bucket := ctx.DataBucket(pluginName, pluginInstanceId)
 	p, err := bucket.QueryDataWithBindDefault(targetsPossibilityKey, func() interface{} {
 		return newTargetsPossibility(targetLen)
 	})
 	if err != nil {
-		logger.Warnf("[BUG: query state for pipeline %s failed, ignored to update targets possibility: %v]", ctx.PipelineName(), err)
+		logger.Warnf("[BUG: query state for pipeline %s failed, ignored to update targets possibility: %v]",
+			ctx.PipelineName(), err)
 		return nil, err
 	}
 
@@ -607,14 +610,9 @@ func (u *upstreamOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.T
 
 	defer common.CloseChan(done)
 
-	targetIdxKeys := make([]int, 0, len(targetRequests))
-	for k, _ := range targetRequests {
-		targetIdxKeys = append(targetIdxKeys, k)
-	}
-
 LOOP:
-	for _, targetIdx := range targetIdxKeys {
-		request := targetRequests[targetIdx]
+	for _, target := range s.getTargets() {
+		request := targetRequests[target.idx]
 		err := ctx.CommitCrossPipelineRequest(request, done)
 		if err != nil {
 			if t.Error() == nil { // commit failed and it was not caused by task cancellation or request timeout
@@ -660,11 +658,11 @@ LOOP:
 				t = t1
 			}
 			if response.TaskError != nil {
-				s.taskErrored(targetIdx)
+				s.taskErrored(target.idx)
 			} else {
-				s.taskSucceed(targetIdx)
+				s.taskSucceed(target.idx)
 			}
-			if !s.careTaskError(targetIdx, response) {
+			if !s.careTaskError(target.idx, response) {
 				continue LOOP
 			}
 
