@@ -195,6 +195,19 @@ func (gw *Gateway) Stop() {
 	gw.mod.DismissAllPluginInstances()
 	logger.Infof("[cleaned and closed plugins]")
 
+	logger.Infof("[close pipeline contexts]")
+
+	for name := range gw.pipelines {
+		logger.Infof("[close pipeline context: %s]", name)
+
+		deleted := gw.mod.DeletePipelineContext(name)
+		if !deleted {
+			logger.Errorf("[BUG: the pipeline %s has not context.]", name)
+		}
+	}
+
+	logger.Infof("[closed pipeline contexts]")
+
 	gw.done <- err
 }
 
