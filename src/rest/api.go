@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -177,7 +178,7 @@ func (s *Rest) Start() (<-chan error, string, error) {
 func (s *Rest) Stop() {
 	s.stopped = true
 
-	err := s.server.Shutdown(nil)
+	err := s.server.Shutdown(context.Background())
 	if err != nil {
 		logger.Errorf("[shut rest interface down failed: %s]", err)
 	} else {
