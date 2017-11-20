@@ -38,8 +38,8 @@ func NewJSONFileStore() (*JSONFileStore, error) {
 	pluginFile := "plugins.json"
 	pipelineFile := "pipelines.json"
 
-	pluginFullFile := filepath.Join(option.ConfigHome, option.Stage, pluginFile)
-	pipelineFullFile := filepath.Join(option.ConfigHome, option.Stage, pipelineFile)
+	pluginFullFile := filepath.Join(option.ConfigHome, pluginFile)
+	pipelineFullFile := filepath.Join(option.ConfigHome, pipelineFile)
 
 	logger.Debugf("[storage file path: %s]", pluginFullFile)
 	logger.Debugf("[storage file path: %s]", pipelineFullFile)
