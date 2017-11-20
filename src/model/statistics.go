@@ -260,10 +260,10 @@ func NewPipelineStatistics(pipelineName string, pluginNames []string, m *Model) 
 		taskIndicators:                 make(map[string]*statisticsIndicator),
 		done:                           make(chan struct{}),
 		mod:                            m,
-		pipelineThroughputRateUpdatedCallbacks:  make([]*common.NamedCallback, 0, common.CallbacksInitCapicity),
-		pipelineExecutionSampleUpdatedCallbacks: make([]*common.NamedCallback, 0, common.CallbacksInitCapicity),
-		pluginThroughputRateUpdatedCallbacks:    make([]*common.NamedCallback, 0, common.CallbacksInitCapicity),
-		pluginExecutionSampleUpdatedCallbacks:   make([]*common.NamedCallback, 0, common.CallbacksInitCapicity),
+		pipelineThroughputRateUpdatedCallbacks:  make([]*common.NamedCallback, 0, common.CallbacksInitCapacity),
+		pipelineExecutionSampleUpdatedCallbacks: make([]*common.NamedCallback, 0, common.CallbacksInitCapacity),
+		pluginThroughputRateUpdatedCallbacks:    make([]*common.NamedCallback, 0, common.CallbacksInitCapacity),
+		pluginExecutionSampleUpdatedCallbacks:   make([]*common.NamedCallback, 0, common.CallbacksInitCapacity),
 	}
 
 	tickFun := func(ewmas []metrics.EWMA) {
@@ -580,62 +580,42 @@ func (ps *PipelineStatistics) Close() {
 }
 
 func (ps *PipelineStatistics) PipelineThroughputRate1() (float64, error) {
-	ps.RLock()
-	defer ps.RUnlock()
 	return ps.pipelineThroughputRates1.Rate(), nil
 }
 
 func (ps *PipelineStatistics) PipelineThroughputRate5() (float64, error) {
-	ps.RLock()
-	defer ps.RUnlock()
 	return ps.pipelineThroughputRates5.Rate(), nil
 }
 
 func (ps *PipelineStatistics) PipelineThroughputRate15() (float64, error) {
-	ps.RLock()
-	defer ps.RUnlock()
 	return ps.pipelineThroughputRates15.Rate(), nil
 }
 
 func (ps *PipelineStatistics) PipelineExecutionCount() (int64, error) {
-	ps.RLock()
-	defer ps.RUnlock()
 	return ps.pipelineExecutionSample.Count(), nil
 }
 
 func (ps *PipelineStatistics) PipelineExecutionTimeMax() (int64, error) {
-	ps.RLock()
-	defer ps.RUnlock()
 	return ps.pipelineExecutionSample.Max(), nil
 }
 
 func (ps *PipelineStatistics) PipelineExecutionTimeMin() (int64, error) {
-	ps.RLock()
-	defer ps.RUnlock()
 	return ps.pipelineExecutionSample.Min(), nil
 }
 
 func (ps *PipelineStatistics) PipelineExecutionTimePercentile(percentile float64) (float64, error) {
-	ps.RLock()
-	defer ps.RUnlock()
 	return ps.pipelineExecutionSample.Percentile(percentile), nil
 }
 
 func (ps *PipelineStatistics) PipelineExecutionTimeStdDev() (float64, error) {
-	ps.RLock()
-	defer ps.RUnlock()
 	return ps.pipelineExecutionSample.StdDev(), nil
 }
 
 func (ps *PipelineStatistics) PipelineExecutionTimeVariance() (float64, error) {
-	ps.RLock()
-	defer ps.RUnlock()
 	return ps.pipelineExecutionSample.Variance(), nil
 }
 
 func (ps *PipelineStatistics) PipelineExecutionTimeSum() (int64, error) {
-	ps.RLock()
-	defer ps.RUnlock()
 	return ps.pipelineExecutionSample.Sum(), nil
 }
 
@@ -1278,6 +1258,7 @@ func (ps *PipelineStatistics) RegisterPluginIndicator(pluginName, pluginInstance
 	evaluator pipelines.StatisticsIndicatorEvaluator) (bool, error) {
 
 	ps.RLock()
+
 	indicators, exists := ps.pluginIndicators[pluginName]
 	if exists {
 		versions, exists := indicators[indicatorName]
@@ -1290,6 +1271,7 @@ func (ps *PipelineStatistics) RegisterPluginIndicator(pluginName, pluginInstance
 			}
 		}
 	}
+
 	ps.RUnlock()
 
 	ps.Lock()
@@ -1384,14 +1366,14 @@ func (ps *PipelineStatistics) pluginThroughputRate(pluginName string, slot map[s
 }
 
 func (ps *PipelineStatistics) updatePipelineExecution(duration time.Duration) error {
-
-	ps.Lock()
-	defer ps.Unlock()
-
 	ps.pipelineExecutionSample.Update(int64(duration)) // safe conversion
+
+	ps.RLock()
 
 	tmp := make([]*common.NamedCallback, len(ps.pipelineExecutionSampleUpdatedCallbacks))
 	copy(tmp, ps.pipelineExecutionSampleUpdatedCallbacks)
+
+	ps.RUnlock()
 
 	for _, callback := range tmp {
 		go callback.Callback().(pipelines.PipelineExecutionSampleUpdated)(ps.pipelineName, ps)
@@ -1401,8 +1383,12 @@ func (ps *PipelineStatistics) updatePipelineExecution(duration time.Duration) er
 	ps.pipelineThroughputRates5.Update(1)
 	ps.pipelineThroughputRates15.Update(1)
 
+	ps.RLock()
+
 	tmp = make([]*common.NamedCallback, len(ps.pipelineThroughputRateUpdatedCallbacks))
 	copy(tmp, ps.pipelineThroughputRateUpdatedCallbacks)
+
+	ps.RUnlock()
 
 	for _, callback := range tmp {
 		go callback.Callback().(pipelines.PipelineThroughputRateUpdated)(ps.pipelineName, ps)
@@ -1418,30 +1404,42 @@ func (ps *PipelineStatistics) updatePluginExecution(pluginName string,
 		return fmt.Errorf("only supports plugin success and failure statistics kinds")
 	}
 
-	ps.Lock()
-	defer ps.Unlock()
+	err := func() error {
+		ps.RLock()
+		defer ps.RUnlock()
 
-	switch kind {
-	case pipelines.SuccessStatistics:
-		sample, exists := ps.pluginSuccessExecutionSamples[pluginName]
-		if !exists {
-			return fmt.Errorf("invalid plugin name")
+		switch kind {
+		case pipelines.SuccessStatistics:
+			sample, exists := ps.pluginSuccessExecutionSamples[pluginName]
+			if !exists {
+				return fmt.Errorf("invalid plugin name")
+			}
+			sample.Update(int64(duration)) // safe conversion
+		case pipelines.FailureStatistics:
+			sample, exists := ps.pluginFailureExecutionSamples[pluginName]
+			if !exists {
+				return fmt.Errorf("invalid plugin name")
+			}
+			sample.Update(int64(duration)) // safe conversion
+		case pipelines.AllStatistics:
+			fallthrough
+		default:
+			return fmt.Errorf("invalid plugin statistics kind %s", kind)
 		}
-		sample.Update(int64(duration)) // safe conversion
-	case pipelines.FailureStatistics:
-		sample, exists := ps.pluginFailureExecutionSamples[pluginName]
-		if !exists {
-			return fmt.Errorf("invalid plugin name")
-		}
-		sample.Update(int64(duration)) // safe conversion
-	case pipelines.AllStatistics:
-		fallthrough
-	default:
-		return fmt.Errorf("invalid plugin statistics kind %s", kind)
+
+		return nil
+	}()
+
+	if err != nil {
+		return err
 	}
+
+	ps.RLock()
 
 	tmp := make([]*common.NamedCallback, len(ps.pluginExecutionSampleUpdatedCallbacks))
 	copy(tmp, ps.pluginExecutionSampleUpdatedCallbacks)
+
+	ps.RUnlock()
 
 	for _, callback := range tmp {
 		go callback.Callback().(pipelines.PluginExecutionSampleUpdated)(pluginName, ps, kind)
@@ -1449,24 +1447,39 @@ func (ps *PipelineStatistics) updatePluginExecution(pluginName string,
 			pipelines.AllStatistics)
 	}
 
-	// plugin name is valid if sample has been accessed successfully from map.
-	switch kind {
-	case pipelines.SuccessStatistics:
-		ps.pluginSuccessThroughputRates1[pluginName].Update(1)
-		ps.pluginSuccessThroughputRates5[pluginName].Update(1)
-		ps.pluginSuccessThroughputRates15[pluginName].Update(1)
-	case pipelines.FailureStatistics:
-		ps.pluginFailureThroughputRates1[pluginName].Update(1)
-		ps.pluginFailureThroughputRates5[pluginName].Update(1)
-		ps.pluginFailureThroughputRates15[pluginName].Update(1)
-	case pipelines.AllStatistics:
-		fallthrough
-	default:
-		return fmt.Errorf("invalid plugin statistics kind %s", kind)
+	err = func() error {
+		ps.RLock()
+		defer ps.RUnlock()
+
+		// plugin name is valid if sample has been accessed successfully from map.
+		switch kind {
+		case pipelines.SuccessStatistics:
+			ps.pluginSuccessThroughputRates1[pluginName].Update(1)
+			ps.pluginSuccessThroughputRates5[pluginName].Update(1)
+			ps.pluginSuccessThroughputRates15[pluginName].Update(1)
+		case pipelines.FailureStatistics:
+			ps.pluginFailureThroughputRates1[pluginName].Update(1)
+			ps.pluginFailureThroughputRates5[pluginName].Update(1)
+			ps.pluginFailureThroughputRates15[pluginName].Update(1)
+		case pipelines.AllStatistics:
+			fallthrough
+		default:
+			return fmt.Errorf("invalid plugin statistics kind %s", kind)
+		}
+
+		return nil
+	}()
+
+	if err != nil {
+		return err
 	}
+
+	ps.RLock()
 
 	tmp = make([]*common.NamedCallback, len(ps.pluginThroughputRateUpdatedCallbacks))
 	copy(tmp, ps.pluginThroughputRateUpdatedCallbacks)
+
+	ps.RUnlock()
 
 	for _, callback := range tmp {
 		go callback.Callback().(pipelines.PluginThroughputRateUpdated)(pluginName, ps, kind)
@@ -1478,9 +1491,6 @@ func (ps *PipelineStatistics) updatePluginExecution(pluginName string,
 }
 
 func (ps *PipelineStatistics) updateTaskExecution(kind pipelines.StatisticsKind) error {
-	ps.RLock()
-	defer ps.RUnlock()
-
 	switch kind {
 	case pipelines.SuccessStatistics:
 		atomic.AddUint64(&ps.taskSuccessCount, 1)

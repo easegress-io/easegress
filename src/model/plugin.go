@@ -307,7 +307,7 @@ type pluginInstanceCounter struct {
 func newPluginRefCounter() *pluginInstanceCounter {
 	return &pluginInstanceCounter{
 		count:     make(map[plugins.Plugin]int),
-		callbacks: make([]*common.NamedCallback, 0, common.CallbacksInitCapicity),
+		callbacks: make([]*common.NamedCallback, 0, common.CallbacksInitCapacity),
 	}
 }
 

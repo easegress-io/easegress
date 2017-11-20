@@ -49,12 +49,12 @@ func NewModel() *Model {
 		pluginCounter:            newPluginRefCounter(),
 		pipelines:                make(map[string]*Pipeline),
 		pipelineContexts:         make(map[string]pipelines.PipelineContext),
-		pluginAddedCallbacks:     make([]*common.NamedCallback, 0, common.CallbacksInitCapicity),
-		pluginDeletedCallbacks:   make([]*common.NamedCallback, 0, common.CallbacksInitCapicity),
-		pluginUpdatedCallbacks:   make([]*common.NamedCallback, 0, common.CallbacksInitCapicity),
-		pipelineAddedCallbacks:   make([]*common.NamedCallback, 0, common.CallbacksInitCapicity),
-		pipelineDeletedCallbacks: make([]*common.NamedCallback, 0, common.CallbacksInitCapicity),
-		pipelineUpdatedCallbacks: make([]*common.NamedCallback, 0, common.CallbacksInitCapicity),
+		pluginAddedCallbacks:     make([]*common.NamedCallback, 0, common.CallbacksInitCapacity),
+		pluginDeletedCallbacks:   make([]*common.NamedCallback, 0, common.CallbacksInitCapacity),
+		pluginUpdatedCallbacks:   make([]*common.NamedCallback, 0, common.CallbacksInitCapacity),
+		pipelineAddedCallbacks:   make([]*common.NamedCallback, 0, common.CallbacksInitCapacity),
+		pipelineDeletedCallbacks: make([]*common.NamedCallback, 0, common.CallbacksInitCapacity),
+		pipelineUpdatedCallbacks: make([]*common.NamedCallback, 0, common.CallbacksInitCapacity),
 	}
 
 	ret.statistics = newStatRegistry(ret)

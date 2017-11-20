@@ -29,8 +29,8 @@ func NewTask() *Task {
 	return &Task{
 		status:                  task.Pending,
 		resultCode:              task.ResultOK,
-		statusFinishedCallbacks: make([]*common.NamedCallback, 0, common.CallbacksInitCapicity),
-		taskRecoveries:          make([]*common.NamedCallback, 0, common.CallbacksInitCapicity),
+		statusFinishedCallbacks: make([]*common.NamedCallback, 0, common.CallbacksInitCapacity),
+		taskRecoveries:          make([]*common.NamedCallback, 0, common.CallbacksInitCapacity),
 	}
 }
 
