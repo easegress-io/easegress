@@ -49,7 +49,7 @@ func (entry *reEntry) String() string {
 
 func newREMux(cacheKeyComplete bool, maxCacheEntries uint32) *reMux {
 	cacheConfig := bigcache.Config{
-		Shards: int(common.NextNumberPowerOf2(uint64(1023))),
+		Shards: int(common.NextNumberPowerOf2(uint64(maxCacheEntries))),
 	}
 	cache, err := bigcache.NewBigCache(cacheConfig)
 	if err != nil {
