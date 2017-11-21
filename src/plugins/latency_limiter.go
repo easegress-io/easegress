@@ -19,6 +19,7 @@ type latencyLimiterConfig struct {
 	LatencyThresholdMSec uint32   `json:"latency_threshold_msec"` // up to 4294967295
 	BackOffMSec          uint16   `json:"backoff_msec"`           // up to 65535
 	AllowTimes           uint32   `json:"allow_times"`            // up to 4294967295
+	FlowControlPercentageKey  string   `json:"flow_control_percentage_key"`
 }
 
 func latencyLimiterConfigConstructor() plugins.Config {
@@ -52,13 +53,16 @@ func (c *latencyLimiterConfig) Prepare(pipelineNames []string) error {
 		return fmt.Errorf("invalid backoff millisecond (requires less than or equal to 10 seconds)")
 	}
 
+	c.FlowControlPercentageKey = strings.TrimSpace(c.FlowControlPercentageKey)
+
 	return nil
 }
 
 ////
 
 type latencyWindowLimiter struct {
-	conf *latencyLimiterConfig
+	conf       *latencyLimiterConfig
+	instanceId string
 }
 
 func latencyLimiterConstructor(conf plugins.Config) (plugins.Plugin, error) {
@@ -70,24 +74,28 @@ func latencyLimiterConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	l := &latencyWindowLimiter{
 		conf: c,
 	}
+	l.instanceId = fmt.Sprintf("%p", l)
 
 	return l, nil
 }
 
 func (l *latencyWindowLimiter) Prepare(ctx pipelines.PipelineContext) {
-	// Nothing to do.
+	registerPluginIndicatorForLimiter(ctx, l.Name(), l.instanceId)
 }
 
 func (l *latencyWindowLimiter) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
 	t.AddFinishedCallback(fmt.Sprintf("%s-checkLatency", l.Name()),
 		getTaskFinishedCallbackInLatencyLimiter(ctx, l.conf.PluginsConcerned, l.conf.LatencyThresholdMSec, l.Name()))
 
+	_ = updateInThroughputRate(ctx, l.Name()) // ignore error if it occurs
+
 	counter, err := getLatencyLimiterCounter(ctx, l.Name())
 	if err != nil {
-		return t, nil
+		return t, nil // ignore limit if error occurs
 	}
 
 	if counter.Count() > uint64(l.conf.AllowTimes) {
+		_ = updateFlowControlledThroughputRate(ctx, l.Name())
 		if l.conf.BackOffMSec < 1 {
 			// service fusing
 			t.SetError(fmt.Errorf("service is unavaialbe caused by latency limit"),
@@ -104,6 +112,20 @@ func (l *latencyWindowLimiter) Run(ctx pipelines.PipelineContext, t task.Task) (
 		}
 	}
 
+	if len(l.conf.FlowControlPercentageKey) != 0 {
+		meter, err := getFlowControlledMeter(ctx, l.Name())
+		if err != nil {
+			logger.Warnf("[BUG: query flow control percentage data for pipeline %s failed, "+
+				"ignored this output]", ctx.PipelineName(), err)
+		} else {
+			t1, err := task.WithValue(t, l.conf.FlowControlPercentageKey, meter)
+			if err != nil {
+				t.SetError(err, task.ResultInternalServerError)
+				return t, nil
+			}
+			t = t1
+		}
+	}
 	return t, nil
 }
 
@@ -155,13 +177,17 @@ func newLatencyLimiterCounter() *latencyLimiterCounter {
 }
 
 func (c *latencyLimiterCounter) Increase() {
-	f := true
-	c.c <- &f
+	if !c.closed {
+		f := true
+		c.c <- &f
+	}
 }
 
 func (c *latencyLimiterCounter) Decrease() {
-	f := false
-	c.c <- &f
+	if !c.closed {
+		f := false
+		c.c <- &f
+	}
 }
 
 func (c *latencyLimiterCounter) Count() uint64 {
@@ -177,8 +203,8 @@ func (c *latencyLimiterCounter) Count() uint64 {
 }
 
 func (c *latencyLimiterCounter) Close() error { // io.Closer stub
-	close(c.c)
 	c.closed = true
+	close(c.c)
 	return nil
 }
 
@@ -223,7 +249,6 @@ func getTaskFinishedCallbackInLatencyLimiter(ctx pipelines.PipelineContext, plug
 					"ignored to adjust exceptional latency counter: %v]", pluginName, err)
 				return
 			}
-
 			if rt < 0 {
 				continue // doesn't make sense, defensive
 			}
@@ -247,4 +272,100 @@ func getTaskFinishedCallbackInLatencyLimiter(ctx pipelines.PipelineContext, plug
 			counter.Increase()
 		}
 	}
+}
+
+///
+
+const limiterFlowControlledThroughputRate1Key = "LimiterFlowControlledRateKey"
+const limiterInKeyThroughputRate1 = "LimiterInRateKey"
+
+func getInThroughputRate1(ctx pipelines.PipelineContext, pluginName string) (*common.ThroughputStatistic, error) {
+	bucket := ctx.DataBucket(pluginName, pipelines.DATA_BUCKET_FOR_ALL_PLUGIN_INSTANCE)
+	rate, err := bucket.QueryDataWithBindDefault(limiterInKeyThroughputRate1, func() interface{} {
+		return common.NewThroughputStatistic(common.ThroughputRate1)
+	})
+	if err != nil {
+		logger.Warnf("[BUG: query in-throughput rate data for pipeline %s failed, "+
+			"ignored statistic: %v]", ctx.PipelineName(), err)
+		return nil, err
+	}
+
+	return rate.(*common.ThroughputStatistic), nil
+}
+
+func getFlowControlledThroughputRate1(ctx pipelines.PipelineContext, pluginName string) (*common.ThroughputStatistic, error) {
+	bucket := ctx.DataBucket(pluginName, pipelines.DATA_BUCKET_FOR_ALL_PLUGIN_INSTANCE)
+	rate, err := bucket.QueryDataWithBindDefault(limiterFlowControlledThroughputRate1Key, func() interface{} {
+		return common.NewThroughputStatistic(common.ThroughputRate1)
+	})
+	if err != nil {
+		logger.Warnf("[BUG: query flow controlled throughput rate data for pipeline %s failed, "+
+			"ignored statistic: %v]", ctx.PipelineName(), err)
+		return nil, err
+	}
+
+	return rate.(*common.ThroughputStatistic), nil
+}
+
+func getFlowControlledMeter(ctx pipelines.PipelineContext, pluginName string) (int, error) {
+	rate, err := getFlowControlledThroughputRate1(ctx, pluginName)
+	if err != nil {
+		return 0, err
+	}
+	pluginFlowControlledRate, err := rate.Get()
+	if err != nil {
+		return 0, err
+	}
+	rate, err = getInThroughputRate1(ctx, pluginName)
+	if err != nil {
+		return 0, err
+	}
+	pluginInThroughputRate, err := rate.Get()
+	if pluginInThroughputRate == 0 { // avoid divide by zero
+		return 0, nil
+	}
+	return int(100.0 * pluginFlowControlledRate / pluginInThroughputRate), nil
+}
+
+func registerPluginIndicatorForLimiter(ctx pipelines.PipelineContext, pluginName, pluginInstanceId string) {
+	_, err := ctx.Statistics().RegisterPluginIndicator(pluginName, pluginInstanceId, "THROUGHPUT_RATE_LAST_1MIN_FLOWCONTROLLED", "Flow controlled throughput rate of the plugin in last 1 minute.", func(pluginName, indicatorName string) (interface{}, error) {
+		rate, err := getFlowControlledThroughputRate1(ctx, pluginName)
+		if err != nil {
+			return nil, err
+		}
+		return rate.Get()
+	})
+	if err != nil {
+		logger.Warnf("[BUG: register plugin indicator for pipeline %s plugin %s failed: %v]", ctx.PipelineName(), pluginName, err)
+	}
+
+	// We don't use limiter plugin's THROUGHPUT_RATE_LAST_1MIN_ALL because it indicates the throughput rate after applying flow control
+	_, err = ctx.Statistics().RegisterPluginIndicator(pluginName, pluginInstanceId, "THROUGHPUT_RATE_LAST_1MIN_IN", "in(not flow controled) throughput rate of the plugin in last 1 minute.", func(pluginName, indicatorName string) (interface{}, error) {
+		rate, err := getInThroughputRate1(ctx, pluginName)
+		if err != nil {
+			return nil, err
+		}
+		return rate.Get()
+	})
+	if err != nil {
+		logger.Warnf("[BUG: register plugin indicator for pipeline %s plugin %s failed: %v]", ctx.PipelineName(), pluginName, err)
+	}
+}
+
+func updateFlowControlledThroughputRate(ctx pipelines.PipelineContext, pluginName string) error {
+	flowControlledRate1, err := getFlowControlledThroughputRate1(ctx, pluginName)
+	if err != nil {
+		return err
+	}
+	flowControlledRate1.Update(1)
+	return nil
+}
+
+func updateInThroughputRate(ctx pipelines.PipelineContext, pluginName string) error {
+	inRate1, err := getInThroughputRate1(ctx, pluginName)
+	if err != nil {
+		return err
+	}
+	inRate1.Update(1)
+	return nil
 }

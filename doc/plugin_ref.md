@@ -337,11 +337,15 @@ Plugin limits request rate based on current throughput.
 |:--|:--|:--|:--:|:--:|:--|
 | plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
 | tps | string| The maximal requests per second. Value -1 means no limitation. Value zero here means there is no request could be processed.| Functionality | No | N/A |
+| flow\_control\_percentage\_key | string | The key name of flow control percentage stored in internal storage as the plugin output. It's value is an integer in range [0~100]. Zero value means no flow control(0%) happend, 100 means all requests(100%) in last 1 min are flow controlled. | I/O | Yes | "" |
 | timeout\_msec | int64 | The maximal wait time in millisecond of request queuing. Value 0 means there is no request could be queued, value -1 means there is no queuing timeout.| Functionality | Yes | 200 |
 
 ### I/O
 
-No any inputs or outputs.
+
+| Data name | Configuration option name | Type | Data Type | Optional |
+|:--|:--|:--:|:--|:--:|
+| Flow control percentage | flow\_control\_percentage\_key | I/O | int | Yes |
 
 ### Error
 
@@ -367,11 +371,13 @@ Plugin limits request rate based on historical latency statistics.
 | latency\_threshold\_msec | uint32 | The latency threshold in millisecond, when the latency is greater than it the request will be counted as one slow request. Normally, this value could be 1.5 * average-normal-response-time. | Functionality | Yes | 800 |
 | backoff\_msec | uint16 | How many milliseconds the request need to be delayed when the times of the slow request reached. Value 0 means there is not request could be delayed, respond StatusTooManyRequests immediately. Normally, this value could be 0.5 * average-normal-response-time. | Functionality | Yes | 100 |
 | allow\_times | uint32 | Allowed times of slow request before to perform backoff. | Functionality | Yes | 0 |
-
+| flow\_control\_percentage\_key | string | The key name of flow control percentage stored in internal storage as the plugin output. It's value is an integer in range [0~100]. Zero value means no flow control(0%) happend, 100 means all requests(100%) in last 1 min are flow controlled. | I/O | Yes | "" |
 
 ### I/O
 
-No any inputs or outputs.
+| Data name | Configuration option name | Type | Data Type | Optional |
+|:--|:--|:--:|:--|:--:|
+| Flow control percentage | flow\_control\_percentage\_key | I/O | int | Yes |
 
 ### Error
 
