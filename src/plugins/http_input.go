@@ -368,6 +368,15 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 		return statusCode
 	}
 
+	getClientReceivedCode := func(t1 task.Task) int {
+		if t1.Error() != nil || len(h.conf.ResponseCodeKey) == 0 {
+			return getTaskResultCode(t1)
+		} else {
+			return getResponseCode(t1)
+		}
+
+	}
+
 	respondCaller := func(t1 task.Task, _ task.TaskStatus) {
 		t1.DeleteFinishedCallback(fmt.Sprintf("%s-responseCaller", h.Name()))
 
@@ -383,13 +392,11 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 		default:
 		}
 
-		taskResultCode := getTaskResultCode(t1)
-
 		if len(h.conf.ResponseHeaderKey) != 0 {
 			copyHeaderFromTask(t1, h.conf.ResponseHeaderKey, ht.writer.Header())
 		}
 
-		ht.writer.WriteHeader(taskResultCode)
+		ht.writer.WriteHeader(getClientReceivedCode(t1))
 
 		// TODO: Take care other headers if inputted
 
@@ -463,9 +470,6 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 			}
 		}
 
-		taskResultCode := getTaskResultCode(t1)
-		responseCode := getResponseCode(t1)
-
 		var responseDuration time.Duration = 0
 		value = nil
 		value = t1.Value(h.conf.ResponseDurationKey)
@@ -479,13 +483,13 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 		// TODO: use variables(e.g. upstream_response_time_xxx) of each plugin
 		// or provide a method(e.g. AddUpstreamResponseTime) of task
 		// TODO: calculate real body_bytes_sent value, which need read data from repondCaller.
-		logger.HTTPAccess(ht.request, taskResultCode, -1,
+		logger.HTTPAccess(ht.request, getClientReceivedCode(t1), -1,
 			t1.FinishAt().Sub(ht.receivedAt), responseDuration,
-			responseRemote, responseCode)
+			responseRemote, getResponseCode(t1))
 
 		if !task.SuccessfulResult(t1.ResultCode()) {
 			logger.Warnf("[http request processed unsuccessfully, "+
-				"result code: %d, error: %s]", taskResultCode, t1.Error())
+				"result code: %d, error: %s]", getTaskResultCode(t1), t1.Error())
 		}
 	}
 
