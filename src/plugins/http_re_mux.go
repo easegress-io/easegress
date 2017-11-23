@@ -19,6 +19,11 @@ import (
 // For quickly substituting another implementation.
 var compile = regexp.Compile
 
+type reMuxConfig struct {
+	CacheKeyComplete bool   `json:"cache_key_complete"`
+	CacheMaxCount    uint32 `json:"cache_max_count"`
+}
+
 type reMux struct {
 	sync.RWMutex
 	// The key is pipeline name.
@@ -26,10 +31,10 @@ type reMux struct {
 	// The priorityEntries sorts by priority from smaller to bigger.
 	priorityEntries []*reEntry
 
-	cacheKeyComplete bool
-
 	cacheMutex sync.RWMutex
 	cache      *bigcache.BigCache
+
+	conf *reMuxConfig
 }
 
 type reEntry struct {
@@ -47,20 +52,20 @@ func (entry *reEntry) String() string {
 			entry.Path, entry.Query, entry.Fragment))
 }
 
-func newREMux(cacheKeyComplete bool, maxCacheEntries uint32) *reMux {
+func newREMux(conf *reMuxConfig) (*reMux, error) {
 	cacheConfig := bigcache.Config{
-		Shards: int(common.NextNumberPowerOf2(uint64(maxCacheEntries))),
+		Shards: int(common.NextNumberPowerOf2(uint64(conf.CacheMaxCount))),
 	}
 	cache, err := bigcache.NewBigCache(cacheConfig)
 	if err != nil {
 		logger.Errorf("[BUG: new big cache failed: %v]", err)
-		return nil
+		return nil, err
 	}
 	return &reMux{
-		pipelineEntries:  make(map[string][]*reEntry),
-		cacheKeyComplete: cacheKeyComplete,
-		cache:            cache,
-	}
+		pipelineEntries: make(map[string][]*reEntry),
+		cache:           cache,
+		conf:            conf,
+	}, nil
 }
 
 type cacheValue struct {
@@ -126,7 +131,7 @@ func (m *reMux) dump() {
 
 func (m *reMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var requestURL string
-	if m.cacheKeyComplete {
+	if m.conf.CacheKeyComplete {
 		requestURL = m.generateCompleteRequestURL(r)
 	} else {
 		requestURL = m.generatePathEndingRequestURL(r)

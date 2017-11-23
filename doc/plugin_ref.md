@@ -42,8 +42,7 @@ Plugin runs a HTTP server implemented based on golang net/http listens on a port
 | host | string | The host name or IP address of HTTP server to listen. | Functionality | Yes | "localhost" |
 | port | uint16 | The port number of HTTP server to listen. | Functionality | Yes | 10080 |
 | mux\_type | string | The mux type HTTP server to support. The available values are regexp and param. Regexp type routes incoming requests with scheme, host, port, path, query, fragment, method. Param type routes incoming requests with path and method. Both of them support parameters whose values are sent to the context of the task. | Functionality | Yes | regexp |
-| regexp\_mux\_cache\_key\_complete | bool | The flag represents if the regexp mux cache uses complete request url as cache key. True means from scheme to fragment, false means from scheme to path. | Functionality | Yes | false |
-| regexp\_mux\_max\_cache\_count | uint32 | Under mux type being regexp, the max cache count the mux to keep. Zero value means no limit. | Functionality | Yes | 1024 |
+| mux\_config | string | The mux config of the corresponding mux type. The concrete config fields reference is at [HTTP Mux Reference](./http_mux_ref.md). | Functionality | Yes | N/A |
 | cert\_file | string | The certificate file name HTTPS server used. The option is mandatory if HTTPS is expected as output protocol. | Functionality | Yes | "" |
 | key\_file | string | The key file name HTTPS server used. The option is mandatory if HTTPS is expected as output protocol. | Functionality | Yes | "" |
 | keepalive | bool | The flag represents if the plugin configures keep-alive for an active connection. | Functionality | Yes | true |

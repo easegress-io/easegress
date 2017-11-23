@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"common"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -20,32 +21,34 @@ import (
 
 type httpServerConfig struct {
 	common.PluginCommonConfig
-	Host                  string  `json:"host"`
-	Port                  uint16  `json:"port"` // up to 65535
-	MuxType               muxType `json:"mux_type"`
-	REMuxCacheKeyComplete bool    `json:"regexp_mux_cache_key_complete"`
-	REMuxCacheCount       uint32  `json:"regexp_mux_max_cache_count"`
-	CertFile              string  `json:"cert_file"`
-	KeyFile               string  `json:"key_file"`
-	ConnKeepAlive         bool    `json:"keepalive"`
-	ConnKeepAliveSec      uint16  `json:"keepalive_sec"` // up to 65535
+	Host             string      `json:"host"`
+	Port             uint16      `json:"port"` // up to 65535
+	MuxType          muxType     `json:"mux_type"`
+	MuxConfig        interface{} `json:"mux_config"`
+	CertFile         string      `json:"cert_file"`
+	KeyFile          string      `json:"key_file"`
+	ConnKeepAlive    bool        `json:"keepalive"`
+	ConnKeepAliveSec uint16      `json:"keepalive_sec"` // up to 65535
 	// TODO: Adds keepalive_requests support
 	MaxSimulConns uint32 `json:"max_connections"` // up to 4294967295
 
 	certFilePath, keyFilePath string
 	https                     bool
+	muxConf                   interface{}
 }
 
 func httpServerConfigConstructor() plugins.Config {
 	return &httpServerConfig{
-		Host:                  "localhost",
-		Port:                  10080,
-		MuxType:               regexpMuxType,
-		REMuxCacheKeyComplete: false,
-		REMuxCacheCount:       1024,
-		ConnKeepAlive:         true,
-		ConnKeepAliveSec:      10,
-		MaxSimulConns:         1024,
+		Host:    "localhost",
+		Port:    10080,
+		MuxType: regexpMuxType,
+		MuxConfig: reMuxConfig{
+			CacheKeyComplete: false,
+			CacheMaxCount:    1024,
+		},
+		ConnKeepAlive:    true,
+		ConnKeepAliveSec: 10,
+		MaxSimulConns:    1024,
 	}
 }
 
@@ -83,12 +86,25 @@ func (c *httpServerConfig) Prepare(pipelineNames []string) error {
 		return fmt.Errorf("invalid port")
 	}
 
+	var muxConf interface{}
 	switch c.MuxType {
 	case regexpMuxType:
+		muxConf = new(reMuxConfig)
 	case paramMuxType:
+		muxConf = new(paramMuxConfig)
 	default:
 		return fmt.Errorf("unsupported mux type")
 	}
+
+	muxBuff, err := json.Marshal(c.MuxConfig)
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal(muxBuff, muxConf)
+	if err != nil {
+		return err
+	}
+	c.muxConf = muxConf
 
 	if c.ConnKeepAliveSec == 0 {
 		return fmt.Errorf("invalid connection keep-alive period")
@@ -135,9 +151,25 @@ func httpServerConstructor(conf plugins.Config) (plugins.Plugin, error) {
 
 	switch h.conf.MuxType {
 	case regexpMuxType:
-		h.mux = newREMux(h.conf.REMuxCacheKeyComplete, h.conf.REMuxCacheCount)
+		muxConf, ok := h.conf.muxConf.(*reMuxConfig)
+		if !ok {
+			logger.Errorf("[BUG: want *reMuxConfig got %T]", h.conf.muxConf)
+			return nil, fmt.Errorf("construct regexp mux failed: mux config type want *reMuxConfig got %T", h.conf.muxConf)
+		}
+		h.mux, err = newREMux(muxConf)
+		if err != nil {
+			return nil, fmt.Errorf("construct regexp mux failed: %v", err)
+		}
 	case paramMuxType:
-		h.mux = newParamMux()
+		muxConf, ok := h.conf.muxConf.(*paramMuxConfig)
+		if !ok {
+			logger.Errorf("[BUG: want *paramMuxConfig got %T]", h.conf.muxConf)
+			return nil, fmt.Errorf("construct param mux failed: mux config type want *paramMuxConfig got %T", h.conf.muxConf)
+		}
+		h.mux, err = newParamMux(muxConf)
+		if err != nil {
+			return nil, fmt.Errorf("construct param mux failed: %v", err)
+		}
 	default:
 		return nil, fmt.Errorf("unsupported mux type") //defensive
 	}

@@ -25,13 +25,16 @@ var supportedMethods = map[string]interface{}{
 
 ////
 
+type paramMuxConfig struct {
+}
+
 type paramMux struct {
 	sync.RWMutex
 	rtable map[string]map[string]map[string]*plugins.HTTPMuxEntry
 }
 
-func newParamMux() *paramMux {
-	return new(paramMux)
+func newParamMux(conf *paramMuxConfig) (*paramMux, error) {
+	return new(paramMux), nil
 }
 
 func (m *paramMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
