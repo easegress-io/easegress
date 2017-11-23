@@ -38,6 +38,7 @@ type ThroughputStatistic struct {
 	// EWMA is thread safe
 	ewma metrics.EWMA
 	done chan struct{}
+	closed bool
 }
 
 func NewThroughputStatistic(typ ThroughputStatisticType) *ThroughputStatistic {
@@ -67,6 +68,7 @@ func NewThroughputStatistic(typ ThroughputStatisticType) *ThroughputStatistic {
 		}
 	}
 	go tickFunc(ewma)
+
 	return &ThroughputStatistic{
 		ewma: ewma,
 		done: done,
@@ -82,6 +84,9 @@ func (t *ThroughputStatistic) Update(n int64) {
 }
 
 func (t *ThroughputStatistic) Close() error { // io.Closer stub
-	close(t.done)
+	if !t.closed {
+		t.closed = true
+		close(t.done)
+	}
 	return nil
 }
