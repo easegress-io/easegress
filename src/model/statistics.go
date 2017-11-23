@@ -225,7 +225,11 @@ type PipelineStatistics struct {
 	pluginSuccessThroughputRates1, pluginSuccessThroughputRates5,
 	pluginSuccessThroughputRates15, pluginFailureThroughputRates1,
 	pluginFailureThroughputRates5, pluginFailureThroughputRates15 map[string]metrics.EWMA
-	pluginSuccessExecutionSamples, pluginFailureExecutionSamples map[string]metrics.Sample
+
+	pluginAllThroughputRates1, pluginAllThroughputRates5,
+	pluginAllThroughputRates15 map[string]metrics.EWMA
+
+	pluginSuccessExecutionSamples, pluginFailureExecutionSamples, pluginAllExecutionSamples map[string]metrics.Sample
 
 	taskSuccessCount, taskFailureCount uint64
 
@@ -250,11 +254,18 @@ func NewPipelineStatistics(pipelineName string, pluginNames []string, m *Model) 
 		pluginSuccessThroughputRates1:  make(map[string]metrics.EWMA),
 		pluginSuccessThroughputRates5:  make(map[string]metrics.EWMA),
 		pluginSuccessThroughputRates15: make(map[string]metrics.EWMA),
-		pluginSuccessExecutionSamples:  make(map[string]metrics.Sample),
 		pluginFailureThroughputRates1:  make(map[string]metrics.EWMA),
 		pluginFailureThroughputRates5:  make(map[string]metrics.EWMA),
 		pluginFailureThroughputRates15: make(map[string]metrics.EWMA),
+
+		pluginAllThroughputRates1:  make(map[string]metrics.EWMA),
+		pluginAllThroughputRates5:  make(map[string]metrics.EWMA),
+		pluginAllThroughputRates15: make(map[string]metrics.EWMA),
+
+		pluginSuccessExecutionSamples:  make(map[string]metrics.Sample),
 		pluginFailureExecutionSamples:  make(map[string]metrics.Sample),
+		pluginAllExecutionSamples:      make(map[string]metrics.Sample),
+
 		pipelineIndicators:             make(map[string]*statisticsIndicator),
 		pluginIndicators:               make(map[string]map[string][]*pluginStatisticsIndicator),
 		taskIndicators:                 make(map[string]*statisticsIndicator),
@@ -307,10 +318,21 @@ func NewPipelineStatistics(pipelineName string, pluginNames []string, m *Model) 
 
 		go tickFun([]metrics.EWMA{ewma1, ewma5, ewma15})
 
+		ewma1 = metrics.NewEWMA1()
+		ewma5 = metrics.NewEWMA5()
+		ewma15 = metrics.NewEWMA15()
+
+		ret.pluginAllThroughputRates1[name] = ewma1
+		ret.pluginAllThroughputRates5[name] = ewma5
+		ret.pluginAllThroughputRates15[name] = ewma15
+
+		go tickFun([]metrics.EWMA{ewma1, ewma5, ewma15})
+
 		// https://github.com/rcrowley/go-metrics/blob/master/sample_test.go#L62
 		// http://dimacs.rutgers.edu/~graham/pubs/papers/fwddecay.pdf
 		ret.pluginSuccessExecutionSamples[name] = metrics.NewExpDecaySample(514, 0.015)
 		ret.pluginFailureExecutionSamples[name] = metrics.NewExpDecaySample(514, 0.015)
+		ret.pluginAllExecutionSamples[name] = metrics.NewExpDecaySample(514, 0.015)
 	}
 
 	// Expose pipeline statistics values as indicators
@@ -489,6 +511,13 @@ func NewPipelineStatistics(pipelineName string, pluginNames []string, m *Model) 
 					pluginName, pipelines.FailureStatistics, 0.5)
 			})
 		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
+			"EXECUTION_TIME_50_PERCENT_ALL",
+			"50% execution time of the plugin in nanosecond.",
+			func(pluginName, indicatorName string) (interface{}, error) {
+				return ret.PluginExecutionTimePercentile(
+					pluginName, pipelines.SuccessStatistics, 0.5)
+			})
+		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
 			"EXECUTION_TIME_90_PERCENT_SUCCESS",
 			"90% successful execution time of the plugin in nanosecond.",
 			func(pluginName, indicatorName string) (interface{}, error) {
@@ -500,6 +529,13 @@ func NewPipelineStatistics(pipelineName string, pluginNames []string, m *Model) 
 			func(pluginName, indicatorName string) (interface{}, error) {
 				return ret.PluginExecutionTimePercentile(
 					pluginName, pipelines.FailureStatistics, 0.9)
+			})
+		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
+			"EXECUTION_TIME_90_PERCENT_ALL",
+			"90% execution time of the plugin in nanosecond.",
+			func(pluginName, indicatorName string) (interface{}, error) {
+				return ret.PluginExecutionTimePercentile(
+					pluginName, pipelines.AllStatistics, 0.9)
 			})
 		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
 			"EXECUTION_TIME_99_PERCENT_SUCCESS",
@@ -515,6 +551,13 @@ func NewPipelineStatistics(pipelineName string, pluginNames []string, m *Model) 
 					pluginName, pipelines.FailureStatistics, 0.99)
 			})
 		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
+			"EXECUTION_TIME_99_PERCENT_ALL",
+			"99% execution time of the plugin in nanosecond.",
+			func(pluginName, indicatorName string) (interface{}, error) {
+				return ret.PluginExecutionTimePercentile(
+					pluginName, pipelines.AllStatistics, 0.99)
+			})
+		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
 			"EXECUTION_TIME_STD_DEV_SUCCESS",
 			"Standard deviation of successful execution time of the plugin in nanosecond.",
 			func(pluginName, indicatorName string) (interface{}, error) {
@@ -527,6 +570,12 @@ func NewPipelineStatistics(pipelineName string, pluginNames []string, m *Model) 
 				return ret.PluginExecutionTimeStdDev(pluginName, pipelines.FailureStatistics)
 			})
 		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
+			"EXECUTION_TIME_STD_DEV_ALL",
+			"Standard deviation of failure execution time of the plugin in nanosecond.",
+			func(pluginName, indicatorName string) (interface{}, error) {
+				return ret.PluginExecutionTimeStdDev(pluginName, pipelines.AllStatistics)
+			})
+		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
 			"EXECUTION_TIME_VARIANCE_SUCCESS", "Variance of successful execution time of the plugin.",
 			func(pluginName, indicatorName string) (interface{}, error) {
 				return ret.PluginExecutionTimeVariance(pluginName, pipelines.SuccessStatistics)
@@ -537,9 +586,9 @@ func NewPipelineStatistics(pipelineName string, pluginNames []string, m *Model) 
 				return ret.PluginExecutionTimeVariance(pluginName, pipelines.FailureStatistics)
 			})
 		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
-			"EXECUTION_TIME_SUM_ALL", "Sum of execution time of the plugin in nanosecond.",
+			"EXECUTION_TIME_VARIANCE_ALL", "Variance of execution time of the plugin.",
 			func(pluginName, indicatorName string) (interface{}, error) {
-				return ret.PluginExecutionTimeSum(pluginName, pipelines.AllStatistics)
+				return ret.PluginExecutionTimeVariance(pluginName, pipelines.AllStatistics)
 			})
 		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
 			"EXECUTION_TIME_SUM_SUCCESS", "Sum of successful execution time of the plugin in nanosecond.",
@@ -551,6 +600,12 @@ func NewPipelineStatistics(pipelineName string, pluginNames []string, m *Model) 
 			func(pluginName, indicatorName string) (interface{}, error) {
 				return ret.PluginExecutionTimeSum(pluginName, pipelines.FailureStatistics)
 			})
+		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
+			"EXECUTION_TIME_SUM_ALL", "Sum of execution time of the plugin in nanosecond.",
+			func(pluginName, indicatorName string) (interface{}, error) {
+				return ret.PluginExecutionTimeSum(pluginName, pipelines.AllStatistics)
+			})
+
 	}
 
 	// Expose task statistics values as indicators
@@ -628,16 +683,7 @@ func (ps *PipelineStatistics) PluginThroughputRate1(pluginName string,
 	case pipelines.FailureStatistics:
 		return ps.pluginThroughputRate(pluginName, ps.pluginFailureThroughputRates1)
 	case pipelines.AllStatistics:
-		v1, err := ps.pluginThroughputRate(pluginName, ps.pluginSuccessThroughputRates1)
-		if err != nil {
-			return -1, err
-		}
-		v2, err := ps.pluginThroughputRate(pluginName, ps.pluginFailureThroughputRates1)
-		if err != nil {
-			return -1, err
-		}
-		return v1 + v2, nil
-
+		return ps.pluginThroughputRate(pluginName, ps.pluginAllThroughputRates1)
 	default:
 		return -1, fmt.Errorf("invalid plugin statistics kind %s", kind)
 	}
@@ -652,16 +698,7 @@ func (ps *PipelineStatistics) PluginThroughputRate5(pluginName string,
 	case pipelines.FailureStatistics:
 		return ps.pluginThroughputRate(pluginName, ps.pluginFailureThroughputRates5)
 	case pipelines.AllStatistics:
-		v1, err := ps.pluginThroughputRate(pluginName, ps.pluginSuccessThroughputRates5)
-		if err != nil {
-			return -1, err
-		}
-		v2, err := ps.pluginThroughputRate(pluginName, ps.pluginFailureThroughputRates5)
-		if err != nil {
-			return -1, err
-		}
-		return v1 + v2, nil
-
+		return ps.pluginThroughputRate(pluginName, ps.pluginAllThroughputRates5)
 	default:
 		return -1, fmt.Errorf("invalid plugin statistics kind %s", kind)
 	}
@@ -676,15 +713,7 @@ func (ps *PipelineStatistics) PluginThroughputRate15(pluginName string,
 	case pipelines.FailureStatistics:
 		return ps.pluginThroughputRate(pluginName, ps.pluginFailureThroughputRates15)
 	case pipelines.AllStatistics:
-		v1, err := ps.pluginThroughputRate(pluginName, ps.pluginSuccessThroughputRates15)
-		if err != nil {
-			return -1, err
-		}
-		v2, err := ps.pluginThroughputRate(pluginName, ps.pluginFailureThroughputRates15)
-		if err != nil {
-			return -1, err
-		}
-		return v1 + v2, err
+		return ps.pluginThroughputRate(pluginName, ps.pluginAllThroughputRates15)
 	default:
 		return -1, fmt.Errorf("invalid plugin statistics kind %s", kind)
 	}
@@ -710,15 +739,11 @@ func (ps *PipelineStatistics) PluginExecutionCount(pluginName string,
 		}
 		return sample.Count(), nil
 	case pipelines.AllStatistics:
-		sample1, exists := ps.pluginSuccessExecutionSamples[pluginName]
+		sample, exists := ps.pluginAllExecutionSamples[pluginName]
 		if !exists {
 			return -1, fmt.Errorf("invalid plugin name")
 		}
-		sample2, exists := ps.pluginFailureExecutionSamples[pluginName]
-		if !exists {
-			return -1, fmt.Errorf("invalid plugin name")
-		}
-		return sample1.Count() + sample2.Count(), nil
+		return sample.Count(), nil
 	default:
 		return -1, fmt.Errorf("invalid plugin statistics kind %s", kind)
 	}
@@ -744,20 +769,11 @@ func (ps *PipelineStatistics) PluginExecutionTimeMax(pluginName string,
 		}
 		return sample.Max(), nil
 	case pipelines.AllStatistics:
-		sample1, exists := ps.pluginSuccessExecutionSamples[pluginName]
+		sample, exists := ps.pluginAllExecutionSamples[pluginName]
 		if !exists {
 			return -1, fmt.Errorf("invalid plugin name")
 		}
-		sample2, exists := ps.pluginFailureExecutionSamples[pluginName]
-		if !exists {
-			return -1, fmt.Errorf("invalid plugin name")
-		}
-		v1, v2 := sample1.Max(), sample2.Max()
-		if v1 > v2 {
-			return v1, nil
-		} else {
-			return v2, nil
-		}
+		return sample.Max(), nil
 	default:
 		return -1, fmt.Errorf("invalid plugin statistics kind %s", kind)
 	}
@@ -783,20 +799,11 @@ func (ps *PipelineStatistics) PluginExecutionTimeMin(pluginName string,
 		}
 		return sample.Min(), nil
 	case pipelines.AllStatistics:
-		sample1, exists := ps.pluginSuccessExecutionSamples[pluginName]
+		sample, exists := ps.pluginAllExecutionSamples[pluginName]
 		if !exists {
 			return -1, fmt.Errorf("invalid plugin name")
 		}
-		sample2, exists := ps.pluginFailureExecutionSamples[pluginName]
-		if !exists {
-			return -1, fmt.Errorf("invalid plugin name")
-		}
-		v1, v2 := sample1.Min(), sample2.Min()
-		if v1 > v2 {
-			return v2, nil
-		} else {
-			return v1, nil
-		}
+		return sample.Min(), nil
 	default:
 		return -1, fmt.Errorf("invalid plugin statistics kind %s", kind)
 	}
@@ -822,8 +829,11 @@ func (ps *PipelineStatistics) PluginExecutionTimePercentile(pluginName string,
 		}
 		return sample.Percentile(percentile), nil
 	case pipelines.AllStatistics:
-		// Unsupported, doesn't make sense
-		fallthrough
+		sample, exists := ps.pluginAllExecutionSamples[pluginName]
+		if !exists {
+			return -1, fmt.Errorf("invalid plugin name")
+		}
+		return sample.Percentile(percentile), nil
 	default:
 		return -1, fmt.Errorf("invalid plugin statistics kind %s", kind)
 	}
@@ -849,8 +859,11 @@ func (ps *PipelineStatistics) PluginExecutionTimeStdDev(pluginName string,
 		}
 		return sample.StdDev(), nil
 	case pipelines.AllStatistics:
-		// Unsupported, doesn't make sense
-		fallthrough
+		sample, exists := ps.pluginAllExecutionSamples[pluginName]
+		if !exists {
+			return -1, fmt.Errorf("invalid plugin name")
+		}
+		return sample.StdDev(), nil
 	default:
 		return -1, fmt.Errorf("invalid plugin statistics kind %s", kind)
 	}
@@ -876,8 +889,11 @@ func (ps *PipelineStatistics) PluginExecutionTimeVariance(pluginName string,
 		}
 		return sample.Variance(), nil
 	case pipelines.AllStatistics:
-		// Unsupported, doesn't make sense
-		fallthrough
+		sample, exists := ps.pluginAllExecutionSamples[pluginName]
+		if !exists {
+			return -1, fmt.Errorf("invalid plugin name")
+		}
+		return sample.Variance(), nil
 	default:
 		return -1, fmt.Errorf("invalid plugin statistics kind %s", kind)
 	}
@@ -903,15 +919,11 @@ func (ps *PipelineStatistics) PluginExecutionTimeSum(pluginName string,
 		}
 		return sample.Sum(), nil
 	case pipelines.AllStatistics:
-		sample1, exists := ps.pluginSuccessExecutionSamples[pluginName]
+		sample, exists := ps.pluginFailureExecutionSamples[pluginName]
 		if !exists {
 			return -1, fmt.Errorf("invalid plugin name")
 		}
-		sample2, exists := ps.pluginFailureExecutionSamples[pluginName]
-		if !exists {
-			return -1, fmt.Errorf("invalid plugin name")
-		}
-		return sample1.Sum() + sample2.Sum(), nil
+		return sample.Sum(), nil
 	default:
 		return -1, fmt.Errorf("invalid plugin statistics kind %s", kind)
 	}
@@ -1401,7 +1413,7 @@ func (ps *PipelineStatistics) updatePluginExecution(pluginName string,
 	kind pipelines.StatisticsKind, duration time.Duration) error {
 
 	if kind == pipelines.AllStatistics {
-		return fmt.Errorf("only supports plugin success and failure statistics kinds")
+		return fmt.Errorf("only supports update plugin success and failure statistics kinds")
 	}
 
 	err := func() error {
@@ -1415,14 +1427,24 @@ func (ps *PipelineStatistics) updatePluginExecution(pluginName string,
 				return fmt.Errorf("invalid plugin name")
 			}
 			sample.Update(int64(duration)) // safe conversion
+			sample, exists = ps.pluginAllExecutionSamples[pluginName]
+			if !exists {
+				return fmt.Errorf("invalid plugin name")
+			}
+			sample.Update(int64(duration)) // safe conversion
 		case pipelines.FailureStatistics:
 			sample, exists := ps.pluginFailureExecutionSamples[pluginName]
 			if !exists {
 				return fmt.Errorf("invalid plugin name")
 			}
 			sample.Update(int64(duration)) // safe conversion
+			sample, exists = ps.pluginAllExecutionSamples[pluginName]
+			if !exists {
+				return fmt.Errorf("invalid plugin name")
+			}
+			sample.Update(int64(duration)) // safe conversion
 		case pipelines.AllStatistics:
-			fallthrough
+			return fmt.Errorf("don't support update kind %s directly", kind)
 		default:
 			return fmt.Errorf("invalid plugin statistics kind %s", kind)
 		}
@@ -1457,12 +1479,18 @@ func (ps *PipelineStatistics) updatePluginExecution(pluginName string,
 			ps.pluginSuccessThroughputRates1[pluginName].Update(1)
 			ps.pluginSuccessThroughputRates5[pluginName].Update(1)
 			ps.pluginSuccessThroughputRates15[pluginName].Update(1)
+			ps.pluginAllThroughputRates1[pluginName].Update(1)
+			ps.pluginAllThroughputRates5[pluginName].Update(1)
+			ps.pluginAllThroughputRates15[pluginName].Update(1)
 		case pipelines.FailureStatistics:
 			ps.pluginFailureThroughputRates1[pluginName].Update(1)
 			ps.pluginFailureThroughputRates5[pluginName].Update(1)
 			ps.pluginFailureThroughputRates15[pluginName].Update(1)
+			ps.pluginAllThroughputRates1[pluginName].Update(1)
+			ps.pluginAllThroughputRates5[pluginName].Update(1)
+			ps.pluginAllThroughputRates15[pluginName].Update(1)
 		case pipelines.AllStatistics:
-			fallthrough
+			return fmt.Errorf("don't support update kind %s directly", kind)
 		default:
 			return fmt.Errorf("invalid plugin statistics kind %s", kind)
 		}
