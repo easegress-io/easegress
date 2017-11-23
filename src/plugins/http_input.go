@@ -320,7 +320,9 @@ func copyHeaderFromTask(t task.Task, key string, dst http.Header) {
 			}
 		}
 	} else {
-		logger.Errorf("[load header: %s in the task failed, value:%+v]", key, t.Value(key))
+		// There are some normal cases that the header key is nil in task
+		// Because header key producer don't write them
+		logger.Debugf("[load header: %s in the task failed, value:%+v]", key, t.Value(key))
 	}
 }
 
