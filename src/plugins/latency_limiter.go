@@ -228,10 +228,7 @@ func getTaskFinishedCallbackInLatencyLimiter(ctx pipelines.PipelineContext, plug
 	return func(t1 task.Task, _ task.TaskStatus) {
 		t1.DeleteFinishedCallback(fmt.Sprintf("%s-checkLatency", pluginName))
 
-		kind := pipelines.SuccessStatistics
-		if !task.SuccessfulResult(t1.ResultCode()) {
-			kind = pipelines.FailureStatistics
-		}
+		kind := pipelines.AllStatistics
 
 		var latency float64
 		var found bool
