@@ -319,7 +319,7 @@ func registerPluginIndicatorForLimiter(ctx pipelines.PipelineContext, pluginName
 	}
 
 	// We don't use limiter plugin's THROUGHPUT_RATE_LAST_1MIN_ALL because it indicates the throughput rate after applying flow control
-	_, err = ctx.Statistics().RegisterPluginIndicator(pluginName, pluginInstanceId, "THROUGHPUT_RATE_LAST_1MIN_IN", "in(not flow controled) throughput rate of the plugin in last 1 minute.", func(pluginName, indicatorName string) (interface{}, error) {
+	_, err = ctx.Statistics().RegisterPluginIndicator(pluginName, pluginInstanceId, "THROUGHPUT_RATE_LAST_1MIN_IN", "In(not flow controled) throughput rate of the plugin in last 1 minute.", func(pluginName, indicatorName string) (interface{}, error) {
 		rate, err := getInThroughputRate1(ctx, pluginName)
 		if err != nil {
 			return nil, err

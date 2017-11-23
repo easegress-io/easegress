@@ -356,7 +356,10 @@ Plugin limits request rate based on current throughput.
 
 ### Dedicated statistics indicator
 
-No any indicators exposed.
+| Indicator name | Description |
+|:--|:--|
+| THROUGHPUT\_RATE\_LAST\_1MIN\_FLOWCONTROLLED | Flow controlled throughput rate of the plugin in last 1 minute. |
+| THROUGHPUT\_RATE\_LAST\_1MIN\_IN | In(not flow controled) throughput rate of the plugin in last 1 minute. |
 
 ## Latency Limiter plugin
 
@@ -387,8 +390,10 @@ Plugin limits request rate based on historical latency statistics.
 | ResultTaskCancelled | task is cancelled |
 
 ### Dedicated statistics indicator
-
-No any indicators exposed.
+| Indicator name | Description |
+|:--|:--|
+| THROUGHPUT\_RATE\_LAST\_1MIN\_FLOWCONTROLLED | Flow controlled throughput rate of the plugin in last 1 minute. |
+| THROUGHPUT\_RATE\_LAST\_1MIN\_IN | In(not flow controled) throughput rate of the plugin in last 1 minute. |
 
 ## Service Circuit Breaker plugin
 
