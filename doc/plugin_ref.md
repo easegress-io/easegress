@@ -345,7 +345,7 @@ Plugin limits request rate based on current throughput.
 
 | Data name | Configuration option name | Type | Data Type | Optional |
 |:--|:--|:--:|:--|:--:|
-| Flow control percentage | flow\_control\_percentage\_key | I/O | int | Yes |
+| Flow control percentage | flow\_control\_percentage\_key | Output | int | Yes |
 
 ### Error
 
@@ -377,7 +377,7 @@ Plugin limits request rate based on historical latency statistics.
 
 | Data name | Configuration option name | Type | Data Type | Optional |
 |:--|:--|:--:|:--|:--:|
-| Flow control percentage | flow\_control\_percentage\_key | I/O | int | Yes |
+| Flow control percentage | flow\_control\_percentage\_key | Output | int | Yes |
 
 ### Error
 
