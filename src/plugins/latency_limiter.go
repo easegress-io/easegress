@@ -62,7 +62,6 @@ func (c *latencyLimiterConfig) Prepare(pipelineNames []string) error {
 
 type latencyWindowLimiter struct {
 	conf       *latencyLimiterConfig
-	instanceId string
 }
 
 func latencyLimiterConstructor(conf plugins.Config) (plugins.Plugin, error) {
@@ -74,13 +73,12 @@ func latencyLimiterConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	l := &latencyWindowLimiter{
 		conf: c,
 	}
-	l.instanceId = fmt.Sprintf("%p", l)
 
 	return l, nil
 }
 
 func (l *latencyWindowLimiter) Prepare(ctx pipelines.PipelineContext) {
-	// Register as plugin level indicator, so we don't need to unregister them in Cleanup()
+	// Register as plugin level indicator, so we don't need to unregister them in CleanUp()
 	registerPluginIndicatorForLimiter(ctx, l.Name(), pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE)
 }
 

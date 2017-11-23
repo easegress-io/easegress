@@ -85,7 +85,7 @@ func throughputRateLimiterConstructor(conf plugins.Config) (plugins.Plugin, erro
 }
 
 func (l *throughputRateLimiter) Prepare(ctx pipelines.PipelineContext) {
-	// Register as plugin level indicator, so we don't need to unregister them in Cleanup()
+	// Register as plugin level indicator, so we don't need to unregister them in CleanUp()
 	registerPluginIndicatorForLimiter(ctx, l.Name(), pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE)
 }
 
