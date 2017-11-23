@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/hexdecteam/easegateway-types/plugins"
+	"github.com/hexdecteam/easegateway-types/pipelines"
 	"github.com/hexdecteam/easegateway-types/task"
 
 	"common"
@@ -250,4 +251,100 @@ func ReplaceTokensInPattern(t task.Task, pattern string) (string, error) {
 	removeEscapeChar := strings.Contains(pattern, common.TOKEN_ESCAPE_CHAR)
 
 	return common.ScanTokens(pattern, removeEscapeChar, visitor)
+}
+
+// limiter related utils
+
+const limiterFlowControlledThroughputRate1Key = "LimiterFlowControlledRateKey"
+const limiterInKeyThroughputRate1 = "LimiterInRateKey"
+
+func getInThroughputRate1(ctx pipelines.PipelineContext, pluginName string) (*common.ThroughputStatistic, error) {
+	bucket := ctx.DataBucket(pluginName, pipelines.DATA_BUCKET_FOR_ALL_PLUGIN_INSTANCE)
+	rate, err := bucket.QueryDataWithBindDefault(limiterInKeyThroughputRate1, func() interface{} {
+		return common.NewThroughputStatistic(common.ThroughputRate1)
+	})
+	if err != nil {
+		logger.Warnf("[BUG: query in-throughput rate data for pipeline %s failed, "+
+			"ignored statistic: %v]", ctx.PipelineName(), err)
+		return nil, err
+	}
+
+	return rate.(*common.ThroughputStatistic), nil
+}
+
+func getFlowControlledThroughputRate1(ctx pipelines.PipelineContext, pluginName string) (*common.ThroughputStatistic, error) {
+	bucket := ctx.DataBucket(pluginName, pipelines.DATA_BUCKET_FOR_ALL_PLUGIN_INSTANCE)
+	rate, err := bucket.QueryDataWithBindDefault(limiterFlowControlledThroughputRate1Key, func() interface{} {
+		return common.NewThroughputStatistic(common.ThroughputRate1)
+	})
+	if err != nil {
+		logger.Warnf("[BUG: query flow controlled throughput rate data for pipeline %s failed, "+
+			"ignored statistic: %v]", ctx.PipelineName(), err)
+		return nil, err
+	}
+
+	return rate.(*common.ThroughputStatistic), nil
+}
+
+func getFlowControlledMeter(ctx pipelines.PipelineContext, pluginName string) (int, error) {
+	rate, err := getFlowControlledThroughputRate1(ctx, pluginName)
+	if err != nil {
+		return 0, err
+	}
+	pluginFlowControlledRate, err := rate.Get()
+	if err != nil {
+		return 0, err
+	}
+	rate, err = getInThroughputRate1(ctx, pluginName)
+	if err != nil {
+		return 0, err
+	}
+	pluginInThroughputRate, err := rate.Get()
+	if pluginInThroughputRate == 0 { // avoid divide by zero
+		return 0, nil
+	}
+	return int(100.0 * pluginFlowControlledRate / pluginInThroughputRate), nil
+}
+
+func registerPluginIndicatorForLimiter(ctx pipelines.PipelineContext, pluginName, pluginInstanceId string) {
+	_, err := ctx.Statistics().RegisterPluginIndicator(pluginName, pluginInstanceId, "THROUGHPUT_RATE_LAST_1MIN_FLOWCONTROLLED", "Flow controlled throughput rate of the plugin in last 1 minute.", func(pluginName, indicatorName string) (interface{}, error) {
+		rate, err := getFlowControlledThroughputRate1(ctx, pluginName)
+		if err != nil {
+			return nil, err
+		}
+		return rate.Get()
+	})
+	if err != nil {
+		logger.Warnf("[BUG: register plugin indicator for pipeline %s plugin %s failed: %v]", ctx.PipelineName(), pluginName, err)
+	}
+
+	// We don't use limiter plugin's THROUGHPUT_RATE_LAST_1MIN_ALL because it indicates the throughput rate after applying flow control
+	_, err = ctx.Statistics().RegisterPluginIndicator(pluginName, pluginInstanceId, "THROUGHPUT_RATE_LAST_1MIN_IN", "in(not flow controled) throughput rate of the plugin in last 1 minute.", func(pluginName, indicatorName string) (interface{}, error) {
+		rate, err := getInThroughputRate1(ctx, pluginName)
+		if err != nil {
+			return nil, err
+		}
+		return rate.Get()
+	})
+	if err != nil {
+		logger.Warnf("[BUG: register plugin indicator for pipeline %s plugin %s failed: %v]", ctx.PipelineName(), pluginName, err)
+	}
+}
+
+func updateFlowControlledThroughputRate(ctx pipelines.PipelineContext, pluginName string) error {
+	flowControlledRate1, err := getFlowControlledThroughputRate1(ctx, pluginName)
+	if err != nil {
+		return err
+	}
+	flowControlledRate1.Update(1)
+	return nil
+}
+
+func updateInThroughputRate(ctx pipelines.PipelineContext, pluginName string) error {
+	inRate1, err := getInThroughputRate1(ctx, pluginName)
+	if err != nil {
+		return err
+	}
+	inRate1.Update(1)
+	return nil
 }

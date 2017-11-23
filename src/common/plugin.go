@@ -30,8 +30,8 @@ type ThroughputStatisticType int
 
 const (
 	ThroughputRate1  ThroughputStatisticType = iota
-	ThroughputRate5  ThroughputStatisticType = iota
-	ThroughputRate15 ThroughputStatisticType = iota
+	ThroughputRate5
+	ThroughputRate15
 )
 
 type ThroughputStatistic struct {

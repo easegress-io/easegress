@@ -21,7 +21,8 @@ type throughputRateLimiterConfig struct {
 	Tps                      string `json:"tps,omitempty"` // zero means no request could be processed, -1 means no limitation
 	TimeoutMSec              int64  `json:"timeout_msec"`  // up to 9223372036854775807, zero means no queuing, -1 means no timeout
 	FlowControlPercentageKey string `json:"flow_control_percentage_key"`
-	tps                      float64
+
+	tps float64
 }
 
 func throughputRateLimiterConfigConstructor() plugins.Config {
@@ -84,7 +85,8 @@ func throughputRateLimiterConstructor(conf plugins.Config) (plugins.Plugin, erro
 }
 
 func (l *throughputRateLimiter) Prepare(ctx pipelines.PipelineContext) {
-	registerPluginIndicatorForLimiter(ctx, l.Name(), l.instanceId)
+	// Register as plugin level indicator, so we don't need to unregister them in Cleanup()
+	registerPluginIndicatorForLimiter(ctx, l.Name(), pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE)
 }
 
 func (l *throughputRateLimiter) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
@@ -93,7 +95,7 @@ func (l *throughputRateLimiter) Run(ctx pipelines.PipelineContext, t task.Task) 
 		return t, nil
 	}
 
-	_ = updateInThroughputRate(ctx, l.Name()) // ignore error if it occurs
+	go updateInThroughputRate(ctx, l.Name()) // ignore error if it occurs
 
 	if limiter == nil {
 		t.SetError(fmt.Errorf("service is unavaialbe caused by throughput rate limit"), task.ResultFlowControl)
@@ -103,7 +105,7 @@ func (l *throughputRateLimiter) Run(ctx pipelines.PipelineContext, t task.Task) 
 	if !limiter.Allow() {
 		var timeout time.Duration
 
-		_ = updateFlowControlledThroughputRate(ctx, l.Name())
+		go updateFlowControlledThroughputRate(ctx, l.Name())
 		if l.conf.TimeoutMSec == 0 {
 			t.SetError(fmt.Errorf("service is unavaialbe caused by throughput rate limit (without queuing)"),
 				task.ResultFlowControl)
