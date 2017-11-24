@@ -310,22 +310,6 @@ func (h *httpInput) handler(w http.ResponseWriter, req *http.Request, urlParams 
 	<-httpTask.finishedChan
 }
 
-func copyHeaderFromTask(t task.Task, key string, dst http.Header) {
-	respHeader, ok := t.Value(key).(http.Header)
-	if ok {
-		for k, v := range respHeader {
-			for _, vv := range v {
-				// Add appends to any existing values associated with key.
-				dst.Add(k, vv)
-			}
-		}
-	} else {
-		// There are some normal cases that the header key is nil in task
-		// Because header key producer don't write them
-		logger.Debugf("[load header: %s in the task failed, value:%+v]", key, t.Value(key))
-	}
-}
-
 func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, task.TaskResultCode, task.Task) {
 	var ok bool
 	var ht *httpTask
@@ -354,33 +338,8 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 		logger.HTTPReqDump(ctx.PipelineName(), h.Name(), h.instanceId, t.StartAt().UnixNano(), ht.request)
 	}
 
-	getTaskResultCode := func(t1 task.Task) int {
-		return task.ResultCodeToHTTPCode(t1.ResultCode())
-	}
-
-	getResponseCode := func(t1 task.Task) int {
-		statusCode := getTaskResultCode(t1)
-		if len(h.conf.ResponseCodeKey) != 0 {
-			code, err := strconv.Atoi(
-				task.ToString(t1.Value(h.conf.ResponseCodeKey), option.PluginIODataFormatLengthLimit))
-			if err == nil {
-				statusCode = code
-			}
-		}
-		return statusCode
-	}
-
-	getClientReceivedCode := func(t1 task.Task) int {
-		if t1.Error() != nil || len(h.conf.ResponseCodeKey) == 0 {
-			return getTaskResultCode(t1)
-		} else {
-			return getResponseCode(t1)
-		}
-
-	}
-
-	respondCaller := func(t1 task.Task, _ task.TaskStatus) {
-		t1.DeleteFinishedCallback(fmt.Sprintf("%s-responseCaller", h.Name()))
+	respondCallerAndLogRequest := func(t1 task.Task, _ task.TaskStatus) {
+		t1.DeleteFinishedCallback(fmt.Sprintf("%s-responseCallerAndLogRequest", h.Name()))
 
 		defer h.closeResponseBody(t1)
 
@@ -398,10 +357,11 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 			copyHeaderFromTask(t1, h.conf.ResponseHeaderKey, ht.writer.Header())
 		}
 
-		ht.writer.WriteHeader(getClientReceivedCode(t1))
+		ht.writer.WriteHeader(getClientReceivedCode(t1, h.conf.ResponseCodeKey))
 
 		// TODO: Take care other headers if inputted
 
+		bodyBytesSent := 0
 		if len(h.conf.ResponseBodyIOKey) != 0 {
 			reader, ok := t1.Value(h.conf.ResponseBodyIOKey).(io.Reader)
 			if ok {
@@ -409,10 +369,12 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 				reader1 := common.NewInterruptibleReader(reader)
 
 				go func() {
-					_, err := io.Copy(ht.writer, reader1)
+					written, err := io.Copy(ht.writer, reader1)
 					if err != nil {
 						logger.Warnf("[load response body from reader in the task"+
 							" failed, response might be incomplete: %s]", err)
+					} else {
+						bodyBytesSent = int(written)
 					}
 					done <- 0
 				}()
@@ -437,20 +399,25 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 			buff, ok := t1.Value(h.conf.ResponseBodyBufferKey).([]byte)
 			if ok {
 				ht.writer.Write(buff)
+				bodyBytesSent = len(buff)
 			}
 		} else if !task.SuccessfulResult(t1.ResultCode()) && h.conf.RespondErr {
 			if strings.Contains(ht.request.Header.Get("Accept-Encoding"), "gzip") {
 				ht.writer.Header().Set("Content-Encoding", "gzip, deflate")
 				ht.writer.Header().Set("Content-Type", "application/x-gzip")
 				gz := gzip.NewWriter(ht.writer)
-				gz.Write([]byte(t1.Error().Error()))
+				bytes := []byte(t1.Error().Error())
+				bodyBytesSent, _ = gz.Write(bytes) // ignore error
 				gz.Close()
 			} else {
 				ht.writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
 				// ascii is a subset of utf-8
-				ht.writer.Write([]byte(t1.Error().Error()))
+				bytes := []byte(t1.Error().Error())
+				bodyBytesSent = len(bytes)
+				ht.writer.Write(bytes)
 			}
 		}
+		logRequest(ht, t1, h.conf.ResponseCodeKey, h.conf.ResponseRemoteKey, h.conf.ResponseDurationKey, bodyBytesSent)
 	}
 
 	closeHTTPInputRequestBody := func(t1 task.Task, _ task.TaskStatus) {
@@ -458,41 +425,6 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 
 		ht.request.Body.Close()
 		close(ht.finishedChan)
-	}
-
-	logRequest := func(t1 task.Task, _ task.TaskStatus) {
-		t1.DeleteFinishedCallback(fmt.Sprintf("%s-logRequest", h.Name()))
-
-		var responseRemote string = ""
-		value := t1.Value(h.conf.ResponseRemoteKey)
-		if value != nil {
-			rr, ok := value.(string)
-			if ok {
-				responseRemote = rr
-			}
-		}
-
-		var responseDuration time.Duration = 0
-		value = nil
-		value = t1.Value(h.conf.ResponseDurationKey)
-		if value != nil {
-			rd, ok := value.(time.Duration)
-			if ok {
-				responseDuration = rd
-			}
-		}
-
-		// TODO: use variables(e.g. upstream_response_time_xxx) of each plugin
-		// or provide a method(e.g. AddUpstreamResponseTime) of task
-		// TODO: calculate real body_bytes_sent value, which need read data from repondCaller.
-		logger.HTTPAccess(ht.request, getClientReceivedCode(t1), -1,
-			t1.FinishAt().Sub(ht.receivedAt), responseDuration,
-			responseRemote, getResponseCode(t1))
-
-		if !task.SuccessfulResult(t1.ResultCode()) {
-			logger.Warnf("[http request processed unsuccessfully, "+
-				"result code: %d, error: %s]", getTaskResultCode(t1), t1.Error())
-		}
 	}
 
 	shrinkWipRequestCounter := func(t1 task.Task, _ task.TaskStatus) {
@@ -541,9 +473,8 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 		}
 	}
 
-	t.AddFinishedCallback(fmt.Sprintf("%s-responseCaller", h.Name()), respondCaller)
+	t.AddFinishedCallback(fmt.Sprintf("%s-responseCallerAndLogRequest", h.Name()), respondCallerAndLogRequest)
 	t.AddFinishedCallback(fmt.Sprintf("%s-closeHTTPInputRequestBody", h.Name()), closeHTTPInputRequestBody)
-	t.AddFinishedCallback(fmt.Sprintf("%s-logRequest", h.Name()), logRequest)
 	t.AddFinishedCallback(fmt.Sprintf("%s-shrinkWipRequestCounter", h.Name()), shrinkWipRequestCounter)
 
 	wipReqCount, err := getHTTPInputHandlingRequestCount(ctx, h.Name())
@@ -630,4 +561,72 @@ func getHTTPInputHandlingRequestCount(ctx pipelines.PipelineContext, pluginName 
 	}
 
 	return count.(*uint64), nil
+}
+
+func getResponseCode(t task.Task, responseCodeKey string) int {
+	statusCode := task.ResultCodeToHTTPCode(t.ResultCode())
+	if len(responseCodeKey) != 0 {
+		code, err := strconv.Atoi(
+			task.ToString(t.Value(responseCodeKey), option.PluginIODataFormatLengthLimit))
+		if err == nil {
+			statusCode = code
+		}
+	}
+	return statusCode
+}
+
+func getClientReceivedCode(t task.Task, responseCodeKey string) int {
+	if t.Error() != nil || len(responseCodeKey) == 0 {
+		return task.ResultCodeToHTTPCode(t.ResultCode())
+	} else {
+		return getResponseCode(t, responseCodeKey)
+	}
+}
+
+func logRequest(ht *httpTask, t task.Task, responseCodeKey, responseRemoteKey, responseDurationKey string, bodyBytesSent int) {
+	var responseRemote string = ""
+	value := t.Value(responseRemoteKey)
+	if value != nil {
+		rr, ok := value.(string)
+		if ok {
+			responseRemote = rr
+		}
+	}
+
+	var responseDuration time.Duration = 0
+	value = nil
+	value = t.Value(responseDurationKey)
+	if value != nil {
+		rd, ok := value.(time.Duration)
+		if ok {
+			responseDuration = rd
+		}
+	}
+
+	// TODO: use variables(e.g. upstream_response_time_xxx) of each plugin
+	// or provide a method(e.g. AddUpstreamResponseTime) of task
+	logger.HTTPAccess(ht.request, getClientReceivedCode(t, responseCodeKey), bodyBytesSent,
+		time.Now().Sub(ht.receivedAt), responseDuration,
+		responseRemote, getResponseCode(t, responseCodeKey))
+
+	if !task.SuccessfulResult(t.ResultCode()) {
+		logger.Warnf("[http request processed unsuccessfully, "+
+			"result code: %d, error: %s]", task.ResultCodeToHTTPCode(t.ResultCode()), t.Error())
+	}
+}
+
+func copyHeaderFromTask(t task.Task, key string, dst http.Header) {
+	respHeader, ok := t.Value(key).(http.Header)
+	if ok {
+		for k, v := range respHeader {
+			for _, vv := range v {
+				// Add appends to any existing values associated with key.
+				dst.Add(k, vv)
+			}
+		}
+	} else {
+		// There are some normal cases that the header key is nil in task
+		// Because header key producer don't write them
+		logger.Debugf("[load header: %s in the task failed, value:%+v]", key, t.Value(key))
+	}
 }
