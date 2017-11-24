@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"net"
 	"net/http"
 	"net/url"
@@ -204,10 +205,12 @@ func (c *httpOutputConfig) Prepare(pipelineNames []string) error {
 
 ////
 
+const HTTP_OUTPUT_CLIENT_COUNT = 20
+
 type httpOutput struct {
 	conf       *httpOutputConfig
 	instanceId string
-	client     *http.Client
+	clients    []*http.Client
 }
 
 func httpOutputConstructor(conf plugins.Config) (plugins.Plugin, error) {
@@ -224,8 +227,12 @@ func httpOutputConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	}
 
 	h := &httpOutput{
-		conf: c,
-		client: &http.Client{
+		conf:    c,
+		clients: make([]*http.Client, HTTP_OUTPUT_CLIENT_COUNT),
+	}
+
+	for i := 0; i < HTTP_OUTPUT_CLIENT_COUNT; i++ {
+		h.clients[i] = &http.Client{
 			Timeout: time.Duration(c.TimeoutSec) * time.Second,
 			Transport: &http.Transport{
 				Proxy: http.ProxyFromEnvironment,
@@ -241,7 +248,7 @@ func httpOutputConstructor(conf plugins.Config) (plugins.Plugin, error) {
 				ExpectContinueTimeout: 1 * time.Second,
 				TLSClientConfig:       tlsConfig,
 			},
-		},
+		}
 	}
 
 	h.instanceId = fmt.Sprintf("%p", h)
@@ -288,7 +295,7 @@ func (h *httpOutput) send(ctx pipelines.PipelineContext, t task.Task, req *http.
 		}()
 
 		requestStartAt = time.Now()
-		resp, err := h.client.Do(req)
+		resp, err := h.clients[rand.Intn(HTTP_OUTPUT_CLIENT_COUNT)].Do(req)
 		if err != nil {
 			e <- err
 		} else {
@@ -299,6 +306,7 @@ func (h *httpOutput) send(ctx pipelines.PipelineContext, t task.Task, req *http.
 	select {
 	case resp := <-r:
 		responseDuration := time.Since(requestStartAt)
+
 		if h.conf.dumpResp {
 			logger.HTTPRespDump(ctx.PipelineName(), h.Name(), h.instanceId, t.StartAt().UnixNano(), resp)
 		}
@@ -315,7 +323,7 @@ func (h *httpOutput) send(ctx pipelines.PipelineContext, t task.Task, req *http.
 	}
 }
 
-func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
+func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) error {
 	// skip error check safely due to we ensured it in Prepare()
 	link, _ := ReplaceTokensInPattern(t, h.conf.URLPattern)
 
@@ -327,7 +335,7 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task,
 		if !ok {
 			t.SetError(fmt.Errorf("input %s got wrong value: %#v", h.conf.RequestBodyIOKey, inputValue),
 				task.ResultMissingInput)
-			return t, nil
+			return nil
 		}
 
 		// optimization and defensive for http proxy case
@@ -358,13 +366,13 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task,
 	_, ok := supportedMethods[method]
 	if !ok {
 		t.SetError(fmt.Errorf("invalid http method %s", method), task.ResultMissingInput)
-		return t, nil
+		return nil
 	}
 
 	req, err := http.NewRequest(method, link, reader)
 	if err != nil {
 		t.SetError(err, task.ResultInternalServerError)
-		return t, nil
+		return nil
 	}
 
 	if len(h.conf.RequestHeaderKey) != 0 {
@@ -402,13 +410,11 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task,
 
 	resp, responseDuration, err := h.send(ctx, t, req)
 	if err != nil {
-		return t, nil
+		return nil
 	}
 
 	closeRespBody := func() {
 		closeHTTPOutputResponseBody := func(t1 task.Task, _ task.TaskStatus) {
-			t1.DeleteFinishedCallback(fmt.Sprintf("%s-closeHTTPOutputResponseBody", h.Name()))
-
 			err := resp.Body.Close()
 			if err != nil {
 				logger.Errorf("[close response body failed: %v]", err)
@@ -424,46 +430,23 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task,
 	}
 
 	if len(h.conf.ResponseBodyIOKey) != 0 {
-		t, err = task.WithValue(t, h.conf.ResponseBodyIOKey, resp.Body)
-		if err != nil {
-			closeRespBody()
-
-			t.SetError(err, task.ResultInternalServerError)
-			return t, nil
-		}
+		t.WithValue(h.conf.ResponseBodyIOKey, resp.Body)
 	}
 
 	if len(h.conf.ResponseHeaderKey) != 0 {
-		t, err = task.WithValue(t, h.conf.ResponseHeaderKey, resp.Header)
-		if err != nil {
-			t.SetError(err, task.ResultInternalServerError)
-			return t, nil
-		}
+		t.WithValue(h.conf.ResponseHeaderKey, resp.Header)
 	}
 
 	if len(h.conf.ResponseCodeKey) != 0 {
-		t, err = task.WithValue(t, h.conf.ResponseCodeKey, resp.StatusCode)
-		if err != nil {
-			t.SetError(err, task.ResultInternalServerError)
-			return t, nil
-		}
+		t.WithValue(h.conf.ResponseCodeKey, resp.StatusCode)
 	}
 
 	if len(h.conf.ResponseRemoteKey) != 0 {
-		t, err = task.WithValue(t, h.conf.ResponseRemoteKey, link)
-		if err != nil {
-			t.SetError(err, task.ResultInternalServerError)
-			return t, nil
-		}
+		t.WithValue(h.conf.ResponseRemoteKey, link)
 	}
 
 	if len(h.conf.ResponseDurationKey) != 0 {
-		var err error = nil
-		t, err = task.WithValue(t, h.conf.ResponseDurationKey, responseDuration)
-		if err != nil {
-			t.SetError(err, task.ResultInternalServerError)
-			return t, nil
-		}
+		t.WithValue(h.conf.ResponseDurationKey, responseDuration)
 	}
 
 	if len(h.conf.ExpectedResponseCodes) > 0 {
@@ -477,11 +460,11 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task,
 		if !match {
 			err = fmt.Errorf("http upstream responded with unexpected status code (%d)", resp.StatusCode)
 			t.SetError(err, task.ResultServiceUnavailable)
-			return t, nil
+			return nil
 		}
 	}
 
-	return t, nil
+	return nil
 }
 
 func (h *httpOutput) Name() string {
@@ -494,4 +477,10 @@ func (h *httpOutput) CleanUp(ctx pipelines.PipelineContext) {
 
 func (h *httpOutput) Close() {
 	// Nothing to do.
+}
+
+////
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
 }
