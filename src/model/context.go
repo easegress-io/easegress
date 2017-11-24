@@ -81,10 +81,18 @@ func (pc *pipelineContext) DataBucket(pluginName, pluginInstanceId string) pipel
 
 	bucketKey := fmt.Sprintf("%s-%s", pluginName, pluginInstanceId)
 
-	pc.bucketLock.Lock()
-
+	pc.bucketLock.RLock()
 	item, exists := pc.buckets[bucketKey]
 	if exists {
+		pc.bucketLock.RUnlock()
+		return item.bucket
+	}
+	pc.bucketLock.RUnlock()
+
+	pc.bucketLock.Lock()
+
+	item, exists = pc.buckets[bucketKey]
+	if exists { // DCL
 		pc.bucketLock.Unlock()
 		return item.bucket
 	}
@@ -101,10 +109,8 @@ func (pc *pipelineContext) DataBucket(pluginName, pluginInstanceId string) pipel
 	if deleteWhenPluginDeleted {
 		pc.mod.AddPluginDeletedCallback(
 			fmt.Sprintf("%s-deletePipelineContextDataBucketWhenPluginDeleted@%p", pc.pipeName, pc),
-			pc.deletePipelineContextDataBucketWhenPluginDeleted, false, common.NORMAL_PRIORITY_CALLBACK)
-	} else {
-		// Plugin takes the responsibility to delete bucket when the instance cleanup
-	}
+			pc.deletePipelineContextDataBucketWhenPluginDeleted, common.NORMAL_PRIORITY_CALLBACK)
+	} // else plugin takes the responsibility to delete bucket when the instance cleanup
 
 	return bucket
 }
