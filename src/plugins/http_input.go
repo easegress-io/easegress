@@ -361,7 +361,7 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 
 		// TODO: Take care other headers if inputted
 
-		bodyBytesSent := 0
+		bodyBytesSent := int64(-1) // `-1` indicates we can't provide a proper value
 		if len(h.conf.ResponseBodyIOKey) != 0 {
 			reader, ok := t1.Value(h.conf.ResponseBodyIOKey).(io.Reader)
 			if ok {
@@ -374,7 +374,7 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 						logger.Warnf("[load response body from reader in the task"+
 							" failed, response might be incomplete: %s]", err)
 					} else {
-						bodyBytesSent = int(written)
+						bodyBytesSent = written
 					}
 					done <- 0
 				}()
@@ -399,7 +399,7 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 			buff, ok := t1.Value(h.conf.ResponseBodyBufferKey).([]byte)
 			if ok {
 				ht.writer.Write(buff)
-				bodyBytesSent = len(buff)
+				bodyBytesSent = int64(len(buff))
 			}
 		} else if !task.SuccessfulResult(t1.ResultCode()) && h.conf.RespondErr {
 			if strings.Contains(ht.request.Header.Get("Accept-Encoding"), "gzip") {
@@ -407,13 +407,14 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 				ht.writer.Header().Set("Content-Type", "application/x-gzip")
 				gz := gzip.NewWriter(ht.writer)
 				bytes := []byte(t1.Error().Error())
-				bodyBytesSent, _ = gz.Write(bytes) // ignore error
+				written, _ := gz.Write(bytes) // ignore error
+				bodyBytesSent = int64(written)
 				gz.Close()
 			} else {
 				ht.writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
 				// ascii is a subset of utf-8
 				bytes := []byte(t1.Error().Error())
-				bodyBytesSent = len(bytes)
+				bodyBytesSent = int64(len(bytes))
 				ht.writer.Write(bytes)
 			}
 		}
@@ -583,7 +584,7 @@ func getClientReceivedCode(t task.Task, responseCodeKey string) int {
 	}
 }
 
-func logRequest(ht *httpTask, t task.Task, responseCodeKey, responseRemoteKey, responseDurationKey string, bodyBytesSent int) {
+func logRequest(ht *httpTask, t task.Task, responseCodeKey, responseRemoteKey, responseDurationKey string, bodyBytesSent int64) {
 	var responseRemote string = ""
 	value := t.Value(responseRemoteKey)
 	if value != nil {

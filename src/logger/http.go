@@ -45,7 +45,7 @@ func (f *httpFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	return []byte(fmt.Sprintln(entry.Message)), nil
 }
 
-func HTTPAccess(req *http.Request, code int, bodyBytesSent int,
+func HTTPAccess(req *http.Request, code int, bodyBytesSent int64,
 	requestTime time.Duration, upstreamResponseTime time.Duration,
 	upstreamAddr string, upstreamCode int) {
 	// mock nginx log_format:
