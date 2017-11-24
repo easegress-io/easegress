@@ -126,6 +126,8 @@ func main() {
 
 	logger.Infof("[gateway exited normally]")
 
+	logger.CloseLogFiles()
+
 	return
 }
 

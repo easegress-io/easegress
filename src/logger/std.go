@@ -31,7 +31,7 @@ func initStd() {
 	if err != nil {
 		Errorf("[open log file %s failed: %v]", LOG_STD_FILE, err)
 	} else {
-		std.registerFileLogger("stdio", f, LOG_STD_FILE, formatter, LOG_STD_LEVEL)
+		std.registerFileLogger("stdio", f, f, LOG_STD_FILE, formatter, LOG_STD_LEVEL)
 	}
 }
 

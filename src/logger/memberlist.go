@@ -38,7 +38,7 @@ func initMemberList() {
 	if err != nil {
 		Errorf("[open log file %s failed: %v]", LOG_MEMBERLIST_FILE, err)
 	} else {
-		memberList.registerFileLogger("memberlist", f, LOG_MEMBERLIST_FILE, formatter, LOG_MEMBERLIST_LEVEL)
+		memberList.registerFileLogger("memberlist", f, f, LOG_MEMBERLIST_FILE, formatter, LOG_MEMBERLIST_LEVEL)
 	}
 }
 
