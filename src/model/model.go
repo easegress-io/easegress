@@ -35,12 +35,12 @@ type Model struct {
 	pipelineContexts map[string]pipelines.PipelineContext
 	statistics       *statRegistry
 
-	pluginAddedCallbacks     []*common.NamedCallback
-	pluginDeletedCallbacks   []*common.NamedCallback
-	pluginUpdatedCallbacks   []*common.NamedCallback
-	pipelineAddedCallbacks   []*common.NamedCallback
-	pipelineDeletedCallbacks []*common.NamedCallback
-	pipelineUpdatedCallbacks []*common.NamedCallback
+	pluginAddedCallbacks     *common.NamedCallbackSet
+	pluginDeletedCallbacks   *common.NamedCallbackSet
+	pluginUpdatedCallbacks   *common.NamedCallbackSet
+	pipelineAddedCallbacks   *common.NamedCallbackSet
+	pipelineDeletedCallbacks *common.NamedCallbackSet
+	pipelineUpdatedCallbacks *common.NamedCallbackSet
 }
 
 func NewModel() *Model {
@@ -49,12 +49,12 @@ func NewModel() *Model {
 		pluginCounter:            newPluginRefCounter(),
 		pipelines:                make(map[string]*Pipeline),
 		pipelineContexts:         make(map[string]pipelines.PipelineContext),
-		pluginAddedCallbacks:     make([]*common.NamedCallback, 0, common.CallbacksInitCapacity),
-		pluginDeletedCallbacks:   make([]*common.NamedCallback, 0, common.CallbacksInitCapacity),
-		pluginUpdatedCallbacks:   make([]*common.NamedCallback, 0, common.CallbacksInitCapacity),
-		pipelineAddedCallbacks:   make([]*common.NamedCallback, 0, common.CallbacksInitCapacity),
-		pipelineDeletedCallbacks: make([]*common.NamedCallback, 0, common.CallbacksInitCapacity),
-		pipelineUpdatedCallbacks: make([]*common.NamedCallback, 0, common.CallbacksInitCapacity),
+		pluginAddedCallbacks:     common.NewNamedCallbackSet(),
+		pluginDeletedCallbacks:   common.NewNamedCallbackSet(),
+		pluginUpdatedCallbacks:   common.NewNamedCallbackSet(),
+		pipelineAddedCallbacks:   common.NewNamedCallbackSet(),
+		pipelineDeletedCallbacks: common.NewNamedCallbackSet(),
+		pipelineUpdatedCallbacks: common.NewNamedCallbackSet(),
 	}
 
 	ret.statistics = newStatRegistry(ret)
@@ -160,8 +160,7 @@ func (m *Model) AddPlugin(typ string, conf plugins.Config,
 	logger.Debugf("[%d:%v registered]", len(m.plugins), pluginName)
 
 	m.RLock()
-	tmp := make([]*common.NamedCallback, len(m.pluginAddedCallbacks))
-	copy(tmp, m.pluginAddedCallbacks)
+	tmp := m.pluginAddedCallbacks.CopyCallbacks()
 	m.RUnlock()
 
 	for _, callback := range tmp {
@@ -191,8 +190,7 @@ func (m *Model) DeletePlugin(name string) error {
 	}
 
 	m.RLock()
-	tmp := make([]*common.NamedCallback, len(m.pluginDeletedCallbacks))
-	copy(tmp, m.pluginDeletedCallbacks)
+	tmp := m.pluginDeletedCallbacks.CopyCallbacks()
 	m.RUnlock()
 
 	for _, callback := range tmp {
@@ -271,23 +269,41 @@ func (m *Model) GetPluginInstance(name string) (plugins.Plugin, error) {
 	}
 }
 
-func (m *Model) ReleasePluginInstance(plugin plugins.Plugin) int {
+func (m *Model) ReleasePluginInstance(plugin plugins.Plugin) int64 {
 	m.RLock()
 	defer m.RUnlock()
 	return m.pluginCounter.DeleteRef(plugin)
 }
 
-func (m *Model) DismissPluginInstance(name string) error {
+func (m *Model) DismissPluginInstanceByName(name string) error {
 	m.RLock()
 	defer m.RUnlock()
 
 	plugin, exists := m.plugins[name]
 	if exists {
-		plugin.DismissInstance()
+		plugin.DismissInstance(nil)
 		return nil
 	} else {
 		return fmt.Errorf("plugin %s not found", name)
 	}
+}
+
+func (m *Model) DismissPluginInstance(instance plugins.Plugin) error {
+	if instance == nil {
+		return fmt.Errorf("invalid plugin instance")
+	}
+
+	m.RLock()
+	defer m.RUnlock()
+
+	plugin, exists := m.plugins[instance.Name()]
+	if exists {
+		plugin.DismissInstance(instance)
+		return nil
+	} else {
+		return fmt.Errorf("plugin %s not found", instance.Name())
+	}
+
 }
 
 func (m *Model) DismissAllPluginInstances() {
@@ -295,7 +311,7 @@ func (m *Model) DismissAllPluginInstances() {
 	defer m.RUnlock()
 
 	for _, plugin := range m.plugins {
-		plugin.DismissInstance()
+		plugin.DismissInstance(nil)
 	}
 }
 
@@ -323,8 +339,7 @@ func (m *Model) UpdatePluginConfig(conf plugins.Config) error {
 
 	plugin.UpdateConfig(conf)
 
-	tmp := make([]*common.NamedCallback, len(m.pluginUpdatedCallbacks))
-	copy(tmp, m.pluginUpdatedCallbacks)
+	tmp := m.pluginUpdatedCallbacks.CopyCallbacks()
 	m.RUnlock()
 
 	for _, callback := range tmp {
@@ -334,97 +349,40 @@ func (m *Model) UpdatePluginConfig(conf plugins.Config) error {
 	return nil
 }
 
-func (m *Model) AddPluginAddedCallback(name string, callback PluginAdded,
-	overwrite bool, priority string) PluginAdded {
-
+func (m *Model) AddPluginAddedCallback(name string, callback PluginAdded, priority string) {
 	m.Lock()
-	defer m.Unlock()
-
-	var oriCallback interface{}
-	m.pluginAddedCallbacks, oriCallback, _ = common.AddCallback(
-		m.pluginAddedCallbacks, name, callback, overwrite, priority)
-
-	if oriCallback == nil {
-		return nil
-	} else {
-		return oriCallback.(PluginAdded)
-	}
+	m.pluginAddedCallbacks = common.AddCallback(m.pluginAddedCallbacks, name, callback, priority)
+	m.Unlock()
 }
 
-func (m *Model) DeletePluginAddedCallback(name string) PluginAdded {
+func (m *Model) DeletePluginAddedCallback(name string) {
 	m.Lock()
-	defer m.Unlock()
-
-	var oriCallback interface{}
-	m.pluginAddedCallbacks, oriCallback = common.DeleteCallback(m.pluginAddedCallbacks, name)
-
-	if oriCallback == nil {
-		return nil
-	} else {
-		return oriCallback.(PluginAdded)
-	}
+	m.pluginAddedCallbacks = common.DeleteCallback(m.pluginAddedCallbacks, name)
+	m.Unlock()
 }
 
-func (m *Model) AddPluginDeletedCallback(name string, callback PluginDeleted,
-	overwrite bool, priority string) PluginDeleted {
-
+func (m *Model) AddPluginDeletedCallback(name string, callback PluginDeleted, priority string) {
 	m.Lock()
-	defer m.Unlock()
-
-	var oriCallback interface{}
-	m.pluginDeletedCallbacks, oriCallback, _ = common.AddCallback(
-		m.pluginDeletedCallbacks, name, callback, overwrite, priority)
-
-	if oriCallback == nil {
-		return nil
-	} else {
-		return oriCallback.(PluginDeleted)
-	}
+	m.pluginDeletedCallbacks = common.AddCallback(m.pluginDeletedCallbacks, name, callback, priority)
+	m.Unlock()
 }
 
-func (m *Model) DeletePluginDeletedCallback(name string) PluginDeleted {
+func (m *Model) DeletePluginDeletedCallback(name string) {
 	m.Lock()
-	defer m.Unlock()
-
-	var oriCallback interface{}
-	m.pluginDeletedCallbacks, oriCallback = common.DeleteCallback(m.pluginDeletedCallbacks, name)
-
-	if oriCallback == nil {
-		return nil
-	} else {
-		return oriCallback.(PluginDeleted)
-	}
+	m.pluginDeletedCallbacks = common.DeleteCallback(m.pluginDeletedCallbacks, name)
+	m.Unlock()
 }
 
-func (m *Model) AddPluginUpdatedCallback(name string, callback PluginUpdated,
-	overwrite bool, priority string) PluginUpdated {
-
+func (m *Model) AddPluginUpdatedCallback(name string, callback PluginUpdated, priority string) {
 	m.Lock()
-	defer m.Unlock()
-
-	var oriCallback interface{}
-	m.pluginUpdatedCallbacks, oriCallback, _ = common.AddCallback(
-		m.pluginUpdatedCallbacks, name, callback, overwrite, priority)
-
-	if oriCallback == nil {
-		return nil
-	} else {
-		return oriCallback.(PluginUpdated)
-	}
+	m.pluginUpdatedCallbacks = common.AddCallback(m.pluginUpdatedCallbacks, name, callback, priority)
+	m.Unlock()
 }
 
-func (m *Model) DeletePluginUpdatedCallback(name string) PluginUpdated {
+func (m *Model) DeletePluginUpdatedCallback(name string) {
 	m.Lock()
-	defer m.Unlock()
-
-	var oriCallback interface{}
-	m.pluginUpdatedCallbacks, oriCallback = common.DeleteCallback(m.pluginUpdatedCallbacks, name)
-
-	if oriCallback == nil {
-		return nil
-	} else {
-		return oriCallback.(PluginUpdated)
-	}
+	m.pluginUpdatedCallbacks = common.DeleteCallback(m.pluginUpdatedCallbacks, name)
+	m.Unlock()
 }
 
 func (m *Model) AddPipeline(typ string, conf pipelines_gw.Config) (*Pipeline, error) {
@@ -471,8 +429,7 @@ func (m *Model) AddPipeline(typ string, conf pipelines_gw.Config) (*Pipeline, er
 	logger.Debugf("[%d:%v registered]", len(m.pipelines), pipelineName)
 
 	m.RLock()
-	tmp := make([]*common.NamedCallback, len(m.pipelineAddedCallbacks))
-	copy(tmp, m.pipelineAddedCallbacks)
+	tmp := m.pipelineAddedCallbacks.CopyCallbacks()
 	m.RUnlock()
 
 	for _, callback := range tmp {
@@ -492,8 +449,7 @@ func (m *Model) DeletePipeline(name string) error {
 	}
 
 	m.RLock()
-	tmp := make([]*common.NamedCallback, len(m.pipelineDeletedCallbacks))
-	copy(tmp, m.pipelineDeletedCallbacks)
+	tmp := m.pipelineDeletedCallbacks.CopyCallbacks()
 	m.RUnlock()
 
 	for _, callback := range tmp {
@@ -572,8 +528,7 @@ func (m *Model) UpdatePipelineConfig(conf pipelines_gw.Config) error {
 
 	pipeline.UpdateConfig(conf)
 
-	tmp := make([]*common.NamedCallback, len(m.pipelineUpdatedCallbacks))
-	copy(tmp, m.pipelineUpdatedCallbacks)
+	tmp := m.pipelineUpdatedCallbacks.CopyCallbacks()
 	m.RUnlock()
 
 	for _, callback := range tmp {
@@ -583,97 +538,40 @@ func (m *Model) UpdatePipelineConfig(conf pipelines_gw.Config) error {
 	return nil
 }
 
-func (m *Model) AddPipelineAddedCallback(name string, callback PipelineAdded,
-	overwrite bool, priority string) PipelineAdded {
-
+func (m *Model) AddPipelineAddedCallback(name string, callback PipelineAdded, priority string) {
 	m.Lock()
-	defer m.Unlock()
-
-	var oriCallback interface{}
-	m.pipelineAddedCallbacks, oriCallback, _ = common.AddCallback(
-		m.pipelineAddedCallbacks, name, callback, overwrite, priority)
-
-	if oriCallback == nil {
-		return nil
-	} else {
-		return oriCallback.(PipelineAdded)
-	}
+	m.pipelineAddedCallbacks = common.AddCallback(m.pipelineAddedCallbacks, name, callback, priority)
+	m.Unlock()
 }
 
-func (m *Model) DeletePipelineAddedCallback(name string) PipelineAdded {
+func (m *Model) DeletePipelineAddedCallback(name string) {
 	m.Lock()
-	defer m.Unlock()
-
-	var oriCallback interface{}
-	m.pipelineAddedCallbacks, oriCallback = common.DeleteCallback(m.pipelineAddedCallbacks, name)
-
-	if oriCallback == nil {
-		return nil
-	} else {
-		return oriCallback.(PipelineAdded)
-	}
+	m.pipelineAddedCallbacks = common.DeleteCallback(m.pipelineAddedCallbacks, name)
+	m.Unlock()
 }
 
-func (m *Model) AddPipelineDeletedCallback(name string, callback PipelineDeleted,
-	overwrite bool, priority string) PipelineDeleted {
-
+func (m *Model) AddPipelineDeletedCallback(name string, callback PipelineDeleted, priority string) {
 	m.Lock()
-	defer m.Unlock()
-
-	var oriCallback interface{}
-	m.pipelineDeletedCallbacks, oriCallback, _ = common.AddCallback(
-		m.pipelineDeletedCallbacks, name, callback, overwrite, priority)
-
-	if oriCallback == nil {
-		return nil
-	} else {
-		return oriCallback.(PipelineDeleted)
-	}
+	m.pipelineDeletedCallbacks = common.AddCallback(m.pipelineDeletedCallbacks, name, callback, priority)
+	m.Unlock()
 }
 
-func (m *Model) DeletePipelineDeletedCallback(name string) PipelineDeleted {
+func (m *Model) DeletePipelineDeletedCallback(name string) {
 	m.Lock()
-	defer m.Unlock()
-
-	var oriCallback interface{}
-	m.pipelineDeletedCallbacks, oriCallback = common.DeleteCallback(m.pipelineDeletedCallbacks, name)
-
-	if oriCallback == nil {
-		return nil
-	} else {
-		return oriCallback.(PipelineDeleted)
-	}
+	m.pipelineDeletedCallbacks = common.DeleteCallback(m.pipelineDeletedCallbacks, name)
+	m.Unlock()
 }
 
-func (m *Model) AddPipelineUpdatedCallback(name string, callback PipelineUpdated,
-	overwrite bool, priority string) PipelineUpdated {
-
+func (m *Model) AddPipelineUpdatedCallback(name string, callback PipelineUpdated, priority string) {
 	m.Lock()
-	defer m.Unlock()
-
-	var oriCallback interface{}
-	m.pipelineUpdatedCallbacks, oriCallback, _ = common.AddCallback(
-		m.pipelineUpdatedCallbacks, name, callback, overwrite, priority)
-
-	if oriCallback == nil {
-		return nil
-	} else {
-		return oriCallback.(PipelineUpdated)
-	}
+	m.pipelineUpdatedCallbacks = common.AddCallback(m.pipelineUpdatedCallbacks, name, callback, priority)
+	m.Unlock()
 }
 
-func (m *Model) DeletePipelineUpdatedCallback(name string) PipelineUpdated {
+func (m *Model) DeletePipelineUpdatedCallback(name string) {
 	m.Lock()
-	defer m.Unlock()
-
-	var oriCallback interface{}
-	m.pipelineUpdatedCallbacks, oriCallback = common.DeleteCallback(m.pipelineUpdatedCallbacks, name)
-
-	if oriCallback == nil {
-		return nil
-	} else {
-		return oriCallback.(PipelineUpdated)
-	}
+	m.pipelineUpdatedCallbacks = common.DeleteCallback(m.pipelineUpdatedCallbacks, name)
+	m.Unlock()
 }
 
 func (m *Model) CreatePipelineContext(

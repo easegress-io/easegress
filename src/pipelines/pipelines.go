@@ -2,6 +2,7 @@ package pipelines
 
 type Pipeline interface {
 	Name() string
+	Prepare()
 	Run() error
 	Stop()
 	Close()
