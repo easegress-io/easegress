@@ -154,7 +154,8 @@ func httpServerConstructor(conf plugins.Config) (plugins.Plugin, error) {
 		muxConf, ok := h.conf.muxConf.(*reMuxConfig)
 		if !ok {
 			logger.Errorf("[BUG: want *reMuxConfig got %T]", h.conf.muxConf)
-			return nil, fmt.Errorf("construct regexp mux failed: mux config type want *reMuxConfig got %T", h.conf.muxConf)
+			return nil, fmt.Errorf("construct regexp mux failed: mux config type want *reMuxConfig got %T",
+				h.conf.muxConf)
 		}
 		h.mux, err = newREMux(muxConf)
 		if err != nil {
@@ -164,7 +165,8 @@ func httpServerConstructor(conf plugins.Config) (plugins.Plugin, error) {
 		muxConf, ok := h.conf.muxConf.(*paramMuxConfig)
 		if !ok {
 			logger.Errorf("[BUG: want *paramMuxConfig got %T]", h.conf.muxConf)
-			return nil, fmt.Errorf("construct param mux failed: mux config type want *paramMuxConfig got %T", h.conf.muxConf)
+			return nil, fmt.Errorf("construct param mux failed: mux config type want *paramMuxConfig got %T",
+				h.conf.muxConf)
 		}
 		h.mux, err = newParamMux(muxConf)
 		if err != nil {
@@ -195,20 +197,20 @@ func httpServerConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	}
 
 	if c.https {
-		logger.Debugf("[https server %s is starting at %s]", c.Name, h.addr)
+		logger.Infof("[https server %s is listening at %s]", c.Name, h.addr)
 
 		go func() {
-			err := h.server.ServeTLS(ln, c.certFilePath, c.keyFilePath)
+			err := h.server.ServeTLS(h.listener, c.certFilePath, c.keyFilePath)
 			if !h.closed && err != nil {
 				logger.Errorf("[https server listens %s failed: %v]", h.addr, err)
 			}
 			server_startup_notifier(err)
 		}()
 	} else {
-		logger.Debugf("[http server %s is starting at %s]", c.Name, h.addr)
+		logger.Infof("[http server %s is listening at %s]", c.Name, h.addr)
 
 		go func() {
-			err := h.server.Serve(ln)
+			err := h.server.Serve(h.listener)
 			if !h.closed && err != nil {
 				logger.Errorf("[http server listens %s failed: %v]", h.addr, err)
 			}
@@ -240,9 +242,9 @@ func (h *httpServer) Prepare(ctx pipelines.PipelineContext) {
 	storeHTTPServerGoneNotifier(ctx, h.Name(), make(chan struct{}))
 }
 
-func (h *httpServer) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
+func (h *httpServer) Run(ctx pipelines.PipelineContext, t task.Task) error {
 	// Nothing to do
-	return t, nil
+	return nil
 }
 
 func (h *httpServer) Name() string {
@@ -274,7 +276,7 @@ func (h *httpServer) Close() {
 	if err != nil {
 		logger.Errorf("[shut server listens at %s down failed: %v]", h.addr, err)
 	} else {
-		logger.Debugf("[server listens at %s is shut down]", h.addr)
+		logger.Infof("[server listens at %s is shut down]", h.addr)
 	}
 }
 
