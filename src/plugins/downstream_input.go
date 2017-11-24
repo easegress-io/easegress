@@ -49,16 +49,16 @@ func (d *downstreamInput) Prepare(ctx pipelines.PipelineContext) {
 	// Nothing to do.
 }
 
-func (d *downstreamInput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
+func (d *downstreamInput) Run(ctx pipelines.PipelineContext, t task.Task) error {
 	request := ctx.ClaimCrossPipelineRequest(t.Cancel())
 	if t.CancelCause() != nil {
 		t.SetError(fmt.Errorf("task is cancelled by %s", t.CancelCause()), task.ResultTaskCancelled)
-		return t, t.Error()
+		return t.Error()
 	}
 
 	if request == nil {
 		// request was closed by downstream before any upstream handles it, ignore safely
-		return t, nil
+		return nil
 	}
 
 	if request.UpstreamPipelineName() != ctx.PipelineName() {
@@ -67,21 +67,15 @@ func (d *downstreamInput) Run(ctx pipelines.PipelineContext, t task.Task) (task.
 			request.DownstreamPipelineName(), ctx.PipelineName())
 
 		t.SetError(fmt.Errorf("upstream received wrong downstream request"), task.ResultInternalServerError)
-		return t, nil
+		return nil
 	}
 
 	for k, v := range request.Data() {
-		t1, err := task.WithValue(t, k, v)
-		if err != nil {
-			t.SetError(err, task.ResultInternalServerError)
-			return t, nil
-		}
-
-		t = t1
+		t.WithValue(k, v)
 	}
 
 	respondDownstreamRequest := func(t1 task.Task, _ task.TaskStatus) {
-		data := make(map[interface{}]interface{})
+		data := make(map[string]interface{})
 		for _, key := range d.conf.ResponseDataKeys {
 			data[key] = t1.Value(key)
 		}
@@ -98,13 +92,11 @@ func (d *downstreamInput) Run(ctx pipelines.PipelineContext, t task.Task) (task.
 			logger.Warnf("[respond downstream pipeline %s failed: %v]",
 				request.DownstreamPipelineName(), err)
 		}
-
-		t1.DeleteFinishedCallback(fmt.Sprintf("%s-respondDownstreamRequest", d.Name()))
 	}
 
 	t.AddFinishedCallback(fmt.Sprintf("%s-respondDownstreamRequest", d.Name()), respondDownstreamRequest)
 
-	return t, nil
+	return nil
 }
 
 func (d *downstreamInput) Name() string {

@@ -185,18 +185,18 @@ var kafkaOutputErrorsTolerable = []string{
 	sarama.ErrMessageSizeTooLarge.Error(),
 }
 
-func (o *kafkaOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
+func (o *kafkaOutput) Run(ctx pipelines.PipelineContext, t task.Task) error {
 	err, resultCode, t := o.output(t)
 	if err != nil {
 		if resultCode == task.ResultServiceUnavailable &&
 			!common.StrInSlice(err.Error(), kafkaOutputErrorsTolerable) {
-			return t, err
+			return err
 		} else {
 			t.SetError(err, resultCode)
-			return t, nil
+			return nil
 		}
 	}
-	return t, nil
+	return nil
 }
 
 func (o *kafkaOutput) Name() string {

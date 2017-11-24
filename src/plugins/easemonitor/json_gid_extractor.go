@@ -85,20 +85,18 @@ func (e *jsonGidExtractor) extract(t task.Task) (error, task.TaskResultCode, tas
 
 	gid := strings.Join([]string{s.System, s.Application, s.Instance, s.HostIPv4, s.Hostname}, "")
 
-	t, err = task.WithValue(t, e.conf.GidKey, gid)
-	if err != nil {
-		return err, task.ResultInternalServerError, t
-	}
+	t.WithValue(e.conf.GidKey, gid)
 
 	return nil, t.ResultCode(), t
 }
 
-func (e *jsonGidExtractor) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
+func (e *jsonGidExtractor) Run(ctx pipelines.PipelineContext, t task.Task) error {
 	err, resultCode, t := e.extract(t)
 	if err != nil {
 		t.SetError(err, resultCode)
 	}
-	return t, nil
+
+	return nil
 }
 
 func (e *jsonGidExtractor) Name() string {

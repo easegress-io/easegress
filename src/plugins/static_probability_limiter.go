@@ -62,11 +62,11 @@ func (l *staticProbabilityLimiter) Prepare(ctx pipelines.PipelineContext) {
 	// Nothing to do.
 }
 
-func (l *staticProbabilityLimiter) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
+func (l *staticProbabilityLimiter) Run(ctx pipelines.PipelineContext, t task.Task) error {
 	if rand.Float32() < 1.0-l.conf.PassPr {
 		t.SetError(fmt.Errorf("service is unavaialbe caused by probability limit"), task.ResultFlowControl)
 	}
-	return t, nil
+	return nil
 }
 
 func (l *staticProbabilityLimiter) Name() string {

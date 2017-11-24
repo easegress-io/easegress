@@ -111,12 +111,12 @@ func (r *interpreterRunner) Prepare(ctx pipelines.PipelineContext) {
 	os.MkdirAll(r.workDir, 0700)
 }
 
-func (r *interpreterRunner) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
+func (r *interpreterRunner) Run(ctx pipelines.PipelineContext, t task.Task) error {
 	cmd := r.executor.command(r.conf.executableCode)
 	if cmd == nil {
 		logger.Errorf("[BUG: %s interpreter did not provide valid command, skip to execution]",
 			r.conf.interpreterName)
-		return t, nil
+		return nil
 	}
 
 	cmd.Dir = r.workDir
@@ -130,7 +130,7 @@ func (r *interpreterRunner) Run(ctx pipelines.PipelineContext, t task.Task) (tas
 			logger.Errorf("[prepare stdin of command of %s interpreter failed: %v]", r.conf.interpreterName, err)
 
 			t.SetError(err, task.ResultServiceUnavailable)
-			return t, nil
+			return nil
 		}
 
 		go func() {
@@ -148,7 +148,7 @@ func (r *interpreterRunner) Run(ctx pipelines.PipelineContext, t task.Task) (tas
 		logger.Errorf("[launch %s interpreter failed: %v]", r.conf.interpreterName, err)
 
 		t.SetError(err, task.ResultServiceUnavailable)
-		return t, nil
+		return nil
 	}
 
 	done := make(chan error, 0)
@@ -201,7 +201,7 @@ func (r *interpreterRunner) Run(ctx pipelines.PipelineContext, t task.Task) (tas
 		t.SetError(err, task.ResultTaskCancelled)
 	}
 
-	return t, nil
+	return nil
 }
 
 func (r *interpreterRunner) Name() string {
@@ -245,10 +245,7 @@ func handleInterpreterResult(interpreterName string, err error, expectedExitCode
 
 	if interpreterExitCodeExpected(exitCode, expectedExitCodes) {
 		if len(outputKey) != 0 {
-			t, err = task.WithValue(t, outputKey, out.Bytes())
-			if err != nil {
-				t.SetError(err, task.ResultInternalServerError)
-			}
+			t.WithValue(outputKey, out.Bytes())
 		}
 	} else {
 		err := fmt.Errorf("%s code exited with unexpected code (%d)", interpreterName, exitCode)

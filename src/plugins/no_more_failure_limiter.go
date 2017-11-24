@@ -74,14 +74,14 @@ func (l *noMoreFailureLimiter) Prepare(ctx pipelines.PipelineContext) {
 	// Nothing to do.
 }
 
-func (l *noMoreFailureLimiter) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
+func (l *noMoreFailureLimiter) Run(ctx pipelines.PipelineContext, t task.Task) error {
 	t.AddFinishedCallback(fmt.Sprintf("%s-calculateTaskFailure", l.Name()),
 		getTaskFinishedCallbackInNoMoreFailureLimiter(ctx, l.conf.FailureTaskDataKey,
 			l.conf.FailureTaskDataValue, l.Name(), l.instanceId))
 
 	counter, err := getNoMoreFailureCounter(ctx, l.Name(), l.instanceId)
 	if err != nil {
-		return t, nil
+		return nil
 	}
 
 	if *counter >= l.conf.FailureCountThreshold {
@@ -90,7 +90,7 @@ func (l *noMoreFailureLimiter) Run(ctx pipelines.PipelineContext, t task.Task) (
 		atomic.StoreUint64(counter, l.conf.FailureCountThreshold) // to prevent overflow
 	}
 
-	return t, nil
+	return nil
 }
 
 func (l *noMoreFailureLimiter) Name() string {
@@ -132,8 +132,6 @@ func getTaskFinishedCallbackInNoMoreFailureLimiter(ctx pipelines.PipelineContext
 	failureTaskDataKey, failureTaskDataValue, pluginName, pluginInstanceId string) task.TaskFinished {
 
 	return func(t1 task.Task, _ task.TaskStatus) {
-		t1.DeleteFinishedCallback(fmt.Sprintf("%s-calculateTaskFailure", pluginName))
-
 		counter, err := getNoMoreFailureCounter(ctx, pluginName, pluginInstanceId)
 		if err != nil {
 			return

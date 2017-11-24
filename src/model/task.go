@@ -21,16 +21,18 @@ type Task struct {
 	resultCode              task.TaskResultCode
 	status                  task.TaskStatus
 	err                     error
-	statusFinishedCallbacks []*common.NamedCallback
-	taskRecoveries          []*common.NamedCallback
+	values                  map[string]interface{}
+	statusFinishedCallbacks *common.NamedCallbackSet
+	taskRecoveries          *common.NamedCallbackSet
 }
 
 func NewTask() *Task {
 	return &Task{
 		status:                  task.Pending,
 		resultCode:              task.ResultOK,
-		statusFinishedCallbacks: make([]*common.NamedCallback, 0, common.CallbacksInitCapacity),
-		taskRecoveries:          make([]*common.NamedCallback, 0, common.CallbacksInitCapacity),
+		values:                  make(map[string]interface{}, 50), // initialize with capacity
+		statusFinishedCallbacks: common.NewNamedCallbackSet(),
+		taskRecoveries:          common.NewNamedCallbackSet(),
 	}
 }
 
@@ -88,55 +90,30 @@ func (t *Task) FinishAt() time.Time {
 	}
 }
 
-func (t *Task) AddFinishedCallback(name string, callback task.TaskFinished) task.TaskFinished {
-
-	var oriCallback interface{}
-	t.statusFinishedCallbacks, oriCallback, _ = common.AddCallback(
-		t.statusFinishedCallbacks, name, callback, true, common.NORMAL_PRIORITY_CALLBACK)
-
-	if oriCallback == nil {
-		return nil
-	} else {
-		return oriCallback.(task.TaskFinished)
-	}
+func (t *Task) AddFinishedCallback(name string, callback task.TaskFinished) {
+	t.statusFinishedCallbacks = common.AddCallback(
+		t.statusFinishedCallbacks, name, callback, common.NORMAL_PRIORITY_CALLBACK)
 }
 
-func (t *Task) DeleteFinishedCallback(name string) task.TaskFinished {
-	var oriCallback interface{}
-	t.statusFinishedCallbacks, oriCallback = common.DeleteCallback(t.statusFinishedCallbacks, name)
-
-	if oriCallback == nil {
-		return nil
-	} else {
-		return oriCallback.(task.TaskFinished)
-	}
+func (t *Task) DeleteFinishedCallback(name string) {
+	t.statusFinishedCallbacks = common.DeleteCallback(t.statusFinishedCallbacks, name)
 }
 
-func (t *Task) AddRecoveryFunc(name string, taskRecovery task.TaskRecovery) task.TaskRecovery {
-	var oriCallback interface{}
-	t.taskRecoveries, oriCallback, _ = common.AddCallback(
-		t.taskRecoveries, name, taskRecovery, true, common.NORMAL_PRIORITY_CALLBACK)
-
-	if oriCallback == nil {
-		return nil
-	} else {
-		return oriCallback.(task.TaskRecovery)
-	}
+func (t *Task) AddRecoveryFunc(name string, taskRecovery task.TaskRecovery) {
+	t.taskRecoveries = common.AddCallback(
+		t.taskRecoveries, name, taskRecovery, common.NORMAL_PRIORITY_CALLBACK)
 }
 
-func (t *Task) DeleteRecoveryFunc(name string) task.TaskRecovery {
-	var oriCallback interface{}
-	t.taskRecoveries, oriCallback = common.DeleteCallback(t.taskRecoveries, name)
-
-	if oriCallback == nil {
-		return nil
-	} else {
-		return oriCallback.(task.TaskRecovery)
-	}
+func (t *Task) DeleteRecoveryFunc(name string) {
+	t.taskRecoveries = common.DeleteCallback(t.taskRecoveries, name)
 }
 
-func (t *Task) Value(key interface{}) interface{} {
-	return nil
+func (t *Task) WithValue(key string, value interface{}) {
+	t.values[key] = value
+}
+
+func (t *Task) Value(key string) interface{} {
+	return t.values[key]
 }
 
 func (t *Task) Cancel() <-chan struct{} {
@@ -175,15 +152,10 @@ func (t *Task) finish(latestTask task.Task) error {
 	t.finishAt = &now
 	t.setStatus(task.Finished)
 
-	// clean up, remove references to cooperate with go gc
-	t.taskRecoveries = t.taskRecoveries[:0]
-
 	oriStatus := t.status
 
-	tmp := make([]*common.NamedCallback, len(t.statusFinishedCallbacks))
-	copy(tmp, t.statusFinishedCallbacks)
-
-	for _, namedCallback := range tmp {
+	// so don't call DeleteFinishedCallback() in the callback
+	for _, namedCallback := range t.statusFinishedCallbacks.GetCallbacks() {
 		namedCallback.Callback().(task.TaskFinished)(latestTask, oriStatus)
 	}
 
@@ -200,22 +172,20 @@ func (t *Task) clearError(originalCode task.TaskResultCode) {
 	t.setStatus(task.Running)
 }
 
-func (t *Task) recover(errorPluginName string, lastStatus task.TaskStatus, latestTask task.Task) (bool, task.Task) {
-	tmp := make([]*common.NamedCallback, len(t.taskRecoveries))
-	copy(tmp, t.taskRecoveries)
-
-	for _, namedCallback := range tmp {
-		recovered, t1 := namedCallback.Callback().(task.TaskRecovery)(latestTask, errorPluginName)
+func (t *Task) recover(errorPluginName string, lastStatus task.TaskStatus, t1 task.Task) bool {
+	// so don't call DeleteRecoveryFunc() in the callback
+	for _, namedCallback := range t.taskRecoveries.GetCallbacks() {
+		recovered := namedCallback.Callback().(task.TaskRecovery)(t1, errorPluginName)
 		if recovered {
 			if lastStatus == task.Running { // defensive
 				t.clearError(task.ResultOK)
 			}
 			t.setStatus(lastStatus)
-			return true, t1
+			return true
 		}
 	}
 
-	return false, latestTask
+	return false
 }
 
 ////
@@ -234,8 +204,6 @@ func parentCancelTask(parent task.Task) (*cancelTask, bool) {
 			return c, true
 		case *timerTask:
 			return c.cancelTask, true
-		case *task.ValueTask:
-			parent = c.Task
 		default:
 			return nil, false
 		}

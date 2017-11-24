@@ -79,10 +79,10 @@ func (c *simpleCommonCache) Prepare(ctx pipelines.PipelineContext) {
 	// Nothing to do.
 }
 
-func (c *simpleCommonCache) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
+func (c *simpleCommonCache) Run(ctx pipelines.PipelineContext, t task.Task) error {
 	c.saveToCache(ctx, t)
 	t = c.loadFromCache(ctx, t)
-	return t, nil
+	return nil
 }
 
 func (c *simpleCommonCache) Name() string {
@@ -134,8 +134,6 @@ func (c *simpleCommonCache) releaseCacheTimer(ctx pipelines.PipelineContext, cac
 
 func (c *simpleCommonCache) saveToCache(ctx pipelines.PipelineContext, t task.Task) {
 	cacheItem := func(t1 task.Task, _ task.TaskStatus) {
-		t1.DeleteFinishedCallback(fmt.Sprintf("%s-cacheItem", c.Name()))
-
 		// cache successful result only
 		if t1.Error() != nil {
 			return
@@ -210,20 +208,12 @@ func (c *simpleCommonCache) loadFromCache(ctx pipelines.PipelineContext, t task.
 		// Nothing to do.
 	}
 
-	t, err = task.WithValue(t, cacheItem.name, cacheItem.data)
-	if err != nil {
-		t.SetError(err, task.ResultInternalServerError)
-		return t
-	}
+	t.WithValue(cacheItem.name, cacheItem.data)
 
 	if c.conf.FinishIfHit {
 		// to add the flag to prevent loop caching only if cache hits can finish pipeline
 		// otherwise here assumes follow plugins might update cached data.
-		t, err = task.WithValue(t, fmt.Sprintf("%s_CACHED", c.Name()), true)
-		if err != nil {
-			t.SetError(err, task.ResultInternalServerError)
-			return t
-		}
+		t.WithValue(fmt.Sprintf("%s_CACHED", c.Name()), true)
 
 		t.Finish()
 	}
@@ -238,7 +228,7 @@ const (
 )
 
 type simpleCommonCacheItem struct {
-	name  interface{}
+	name  string
 	data  interface{}
 	timer *time.Timer
 }

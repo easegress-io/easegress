@@ -8,7 +8,6 @@ import (
 	"github.com/hexdecteam/easegateway-types/plugins"
 	"github.com/hexdecteam/easegateway-types/task"
 
-	"logger"
 	"common"
 )
 
@@ -80,11 +79,11 @@ func (m *simpleCommonMock) Prepare(ctx pipelines.PipelineContext) {
 	// Nothing to do.
 }
 
-func (m *simpleCommonMock) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
+func (m *simpleCommonMock) Run(ctx pipelines.PipelineContext, t task.Task) error {
 	t.AddRecoveryFunc("mockBrokenTaskOutput",
 		getTaskRecoveryFuncInSimpleCommonMock(m.conf.PluginConcerned, m.conf.taskErrorCodeConcerned,
 			m.conf.MockTaskDataKey, m.conf.MockTaskDataValue))
-	return t, nil
+	return nil
 }
 
 func (m *simpleCommonMock) Name() string {
@@ -104,18 +103,13 @@ func (m *simpleCommonMock) Close() {
 func getTaskRecoveryFuncInSimpleCommonMock(pluginConcerned string, taskErrorCodeConcerned task.TaskResultCode,
 	mockTaskDataKey, mockTaskDataValue string) task.TaskRecovery {
 
-	return func(t task.Task, errorPluginName string) (bool, task.Task) {
+	return func(t task.Task, errorPluginName string) bool {
 		if errorPluginName != pluginConcerned || t.ResultCode() != taskErrorCodeConcerned {
-			return false, t
+			return false
 		}
 
-		t1, err := task.WithValue(t, mockTaskDataKey, mockTaskDataValue)
-		if err != nil {
-			logger.Warnf("[BUG: supply mock data %s to plugin %s failed, ignored: %v]",
-				mockTaskDataKey, pluginConcerned, err)
-			return false, t
-		}
+		t.WithValue(mockTaskDataKey, mockTaskDataValue)
 
-		return true, t1
+		return true
 	}
 }

@@ -61,7 +61,7 @@ func (c *latencyLimiterConfig) Prepare(pipelineNames []string) error {
 ////
 
 type latencyWindowLimiter struct {
-	conf       *latencyLimiterConfig
+	conf *latencyLimiterConfig
 }
 
 func latencyLimiterConstructor(conf plugins.Config) (plugins.Plugin, error) {
@@ -82,7 +82,7 @@ func (l *latencyWindowLimiter) Prepare(ctx pipelines.PipelineContext) {
 	registerPluginIndicatorForLimiter(ctx, l.Name(), pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE)
 }
 
-func (l *latencyWindowLimiter) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
+func (l *latencyWindowLimiter) Run(ctx pipelines.PipelineContext, t task.Task) error {
 	t.AddFinishedCallback(fmt.Sprintf("%s-checkLatency", l.Name()),
 		getTaskFinishedCallbackInLatencyLimiter(ctx, l.conf.PluginsConcerned, l.conf.LatencyThresholdMSec, l.Name()))
 
@@ -90,7 +90,7 @@ func (l *latencyWindowLimiter) Run(ctx pipelines.PipelineContext, t task.Task) (
 
 	counter, err := getLatencyLimiterCounter(ctx, l.Name())
 	if err != nil {
-		return t, nil // ignore limit if error occurs
+		return nil
 	}
 
 	if counter.Count() > uint64(l.conf.AllowTimes) {
@@ -99,7 +99,7 @@ func (l *latencyWindowLimiter) Run(ctx pipelines.PipelineContext, t task.Task) (
 			// service fusing
 			t.SetError(fmt.Errorf("service is unavaialbe caused by latency limit"),
 				task.ResultFlowControl)
-			return t, nil
+			return nil
 		}
 
 		select {
@@ -107,7 +107,7 @@ func (l *latencyWindowLimiter) Run(ctx pipelines.PipelineContext, t task.Task) (
 		case <-t.Cancel():
 			err := fmt.Errorf("task is cancelled by %s", t.CancelCause())
 			t.SetError(err, task.ResultTaskCancelled)
-			return t, err
+			return err
 		}
 	}
 
@@ -117,15 +117,11 @@ func (l *latencyWindowLimiter) Run(ctx pipelines.PipelineContext, t task.Task) (
 			logger.Warnf("[BUG: query flow control percentage data for pipeline %s failed, "+
 				"ignored this output]", ctx.PipelineName(), err)
 		} else {
-			t1, err := task.WithValue(t, l.conf.FlowControlPercentageKey, meter)
-			if err != nil {
-				t.SetError(err, task.ResultInternalServerError)
-				return t, nil
-			}
-			t = t1
+			t.WithValue(l.conf.FlowControlPercentageKey, meter)
 		}
 	}
-	return t, nil
+
+	return nil
 }
 
 func (l *latencyWindowLimiter) Name() string {
@@ -226,10 +222,6 @@ func getTaskFinishedCallbackInLatencyLimiter(ctx pipelines.PipelineContext, plug
 	latencyThresholdMSec uint32, pluginName string) task.TaskFinished {
 
 	return func(t1 task.Task, _ task.TaskStatus) {
-		t1.DeleteFinishedCallback(fmt.Sprintf("%s-checkLatency", pluginName))
-
-		kind := pipelines.AllStatistics
-
 		var latency float64
 		var found bool
 
@@ -239,7 +231,7 @@ func getTaskFinishedCallbackInLatencyLimiter(ctx pipelines.PipelineContext, plug
 			}
 
 			rt, err := ctx.Statistics().PluginExecutionTimePercentile(
-				name, kind, 0.9) // value 90% is an option?
+				name, pipelines.AllStatistics, 0.9) // value 90% is an option?
 			if err != nil {
 				logger.Warnf("[BUG: query plugin %s 90%% execution time failed, "+
 					"ignored to adjust exceptional latency counter: %v]", pluginName, err)

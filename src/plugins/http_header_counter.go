@@ -143,12 +143,13 @@ func (c *httpHeaderCounter) count(ctx pipelines.PipelineContext, t task.Task) (e
 	return nil, t.ResultCode(), t
 }
 
-func (c *httpHeaderCounter) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
+func (c *httpHeaderCounter) Run(ctx pipelines.PipelineContext, t task.Task) error {
 	err, resultCode, t := c.count(ctx, t)
 	if err != nil {
 		t.SetError(err, resultCode)
 	}
-	return t, nil
+
+	return nil
 }
 
 func (c *httpHeaderCounter) Name() string {

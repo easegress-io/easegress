@@ -89,17 +89,17 @@ func (l *throughputRateLimiter) Prepare(ctx pipelines.PipelineContext) {
 	registerPluginIndicatorForLimiter(ctx, l.Name(), pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE)
 }
 
-func (l *throughputRateLimiter) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
+func (l *throughputRateLimiter) Run(ctx pipelines.PipelineContext, t task.Task) error {
 	limiter, err := getThroughputRateLimiter(ctx, l.conf.tps, l.Name(), l.instanceId)
 	if err != nil {
-		return t, nil
+		return nil
 	}
 
 	go updateInThroughputRate(ctx, l.Name()) // ignore error if it occurs
 
 	if limiter == nil {
 		t.SetError(fmt.Errorf("service is unavaialbe caused by throughput rate limit"), task.ResultFlowControl)
-		return t, nil
+		return nil
 	}
 
 	if !limiter.Allow() {
@@ -109,7 +109,7 @@ func (l *throughputRateLimiter) Run(ctx pipelines.PipelineContext, t task.Task) 
 		if l.conf.TimeoutMSec == 0 {
 			t.SetError(fmt.Errorf("service is unavaialbe caused by throughput rate limit (without queuing)"),
 				task.ResultFlowControl)
-			return t, nil
+			return nil
 		} else if l.conf.TimeoutMSec == -1 {
 			timeout = rate.InfDuration
 		} else {
@@ -148,24 +148,20 @@ func (l *throughputRateLimiter) Run(ctx pipelines.PipelineContext, t task.Task) 
 	}
 
 	if t.ResultCode() == task.ResultTaskCancelled {
-		return t, t.Error()
+		return t.Error()
 	}
+
 	if len(l.conf.FlowControlPercentageKey) != 0 {
 		meter, err := getFlowControlledMeter(ctx, l.Name())
 		if err != nil {
 			logger.Warnf("[BUG: query flow control percentage data for pipeline %s failed, "+
 				"ignored this output]", ctx.PipelineName(), err)
 		} else {
-			t1, err := task.WithValue(t, l.conf.FlowControlPercentageKey, meter)
-			if err != nil {
-				t.SetError(err, task.ResultInternalServerError)
-				return t, nil
-			}
-			t = t1
+			t.WithValue(l.conf.FlowControlPercentageKey, meter)
 		}
 	}
 
-	return t, nil
+	return nil
 }
 
 func (l *throughputRateLimiter) Name() string {

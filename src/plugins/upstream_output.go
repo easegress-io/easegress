@@ -547,19 +547,19 @@ func (u *upstreamOutput) Prepare(ctx pipelines.PipelineContext) {
 	// Nothing to do.
 }
 
-func (u *upstreamOutput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
+func (u *upstreamOutput) Run(ctx pipelines.PipelineContext, t task.Task) error {
 	s := u.conf.selector(u, ctx, t)
 	if len(s.getTargets()) == 0 {
 		t.SetError(fmt.Errorf("target pipeline selector of %s returns empty pipeline name", u.conf.RoutePolicy),
 			task.ResultServiceUnavailable)
-		return t, nil
+		return nil
 	}
 
 	targetRequests := make(map[int]*pipelines.DownstreamRequest, len(s.getTargets()))
 	var waitResponses []string
 
 	for _, target := range s.getTargets() {
-		data := make(map[interface{}]interface{})
+		data := make(map[string]interface{})
 		for _, key := range u.conf.RequestDataKeys {
 			data[key] = t.Value(key)
 		}
@@ -619,7 +619,7 @@ LOOP:
 				t.SetError(err, task.ResultServiceUnavailable)
 			}
 
-			return t, nil
+			return nil
 		}
 
 		if !common.StrInSlice(request.UpstreamPipelineName(), waitResponses) {
@@ -635,7 +635,7 @@ LOOP:
 
 				t.SetError(fmt.Errorf("downstream received nil upstream response"),
 					task.ResultInternalServerError)
-				return t, nil
+				return nil
 			}
 
 			if response.UpstreamPipelineName != request.UpstreamPipelineName() {
@@ -645,30 +645,26 @@ LOOP:
 
 				t.SetError(fmt.Errorf("downstream received wrong upstream response"),
 					task.ResultInternalServerError)
-				return t, nil
+				return nil
 			}
 
 			for k, v := range response.Data {
-				t1, err := task.WithValue(t, k, v)
-				if err != nil {
-					t.SetError(err, task.ResultInternalServerError)
-					return t, nil
-				}
-
-				t = t1
+				t.WithValue(k, v)
 			}
+
 			if response.TaskError != nil {
 				s.taskErrored(target.idx)
 			} else {
 				s.taskSucceed(target.idx)
 			}
+
 			if !s.careTaskError(target.idx, response) {
 				continue LOOP
 			}
 
 			if response.TaskError != nil {
 				t.SetError(response.TaskError, response.TaskResultCode)
-				return t, nil
+				return nil
 			}
 
 			if !s.doNextTarget(response) {
@@ -680,7 +676,7 @@ LOOP:
 		}
 	}
 
-	return t, nil
+	return nil
 }
 
 func (u *upstreamOutput) Name() string {

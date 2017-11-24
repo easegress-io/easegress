@@ -144,11 +144,7 @@ func (r *ioReader) read(t task.Task) (error, task.TaskResultCode, task.Task) {
 	}
 
 	if len(r.conf.OutputKey) != 0 {
-		var err error
-		t, err = task.WithValue(t, r.conf.OutputKey, data)
-		if err != nil {
-			return err, task.ResultInternalServerError, t
-		}
+		t.WithValue(r.conf.OutputKey, data)
 	}
 
 	if r.conf.Close {
@@ -164,12 +160,13 @@ func (r *ioReader) read(t task.Task) (error, task.TaskResultCode, task.Task) {
 	return nil, t.ResultCode(), t
 }
 
-func (r *ioReader) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
+func (r *ioReader) Run(ctx pipelines.PipelineContext, t task.Task) error {
 	err, resultCode, t := r.read(t)
 	if err != nil {
 		t.SetError(err, resultCode)
 	}
-	return t, nil
+
+	return nil
 }
 
 func (r *ioReader) Name() string {

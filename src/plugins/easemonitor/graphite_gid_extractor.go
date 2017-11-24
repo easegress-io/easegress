@@ -84,21 +84,18 @@ func (e *graphiteGidExtractor) extract(t task.Task) (error, task.TaskResultCode,
 	// system application instance hostipv4 hostname
 	gid := strings.Join([]string{fields[0], "", fields[1], fields[2], fields[3]}, "")
 
-	var err error
-	t, err = task.WithValue(t, e.conf.GidKey, gid)
-	if err != nil {
-		return err, task.ResultInternalServerError, t
-	}
+	t.WithValue(e.conf.GidKey, gid)
 
 	return nil, t.ResultCode(), t
 }
 
-func (e *graphiteGidExtractor) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
+func (e *graphiteGidExtractor) Run(ctx pipelines.PipelineContext, t task.Task) error {
 	err, resultCode, t := e.extract(t)
 	if err != nil {
 		t.SetError(err, resultCode)
 	}
-	return t, nil
+
+	return nil
 }
 
 func (e *graphiteGidExtractor) Name() string {

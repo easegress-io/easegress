@@ -339,8 +339,6 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 	}
 
 	respondCallerAndLogRequest := func(t1 task.Task, _ task.TaskStatus) {
-		t1.DeleteFinishedCallback(fmt.Sprintf("%s-responseCallerAndLogRequest", h.Name()))
-
 		defer h.closeResponseBody(t1)
 
 		select {
@@ -361,7 +359,7 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 
 		// TODO: Take care other headers if inputted
 
-		bodyBytesSent := int64(-1) // `-1` indicates we can't provide a proper value
+		var bodyBytesSent int64 = -1 // -1 indicates we can't provide a proper value
 		if len(h.conf.ResponseBodyIOKey) != 0 {
 			reader, ok := t1.Value(h.conf.ResponseBodyIOKey).(io.Reader)
 			if ok {
@@ -418,19 +416,17 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 				ht.writer.Write(bytes)
 			}
 		}
-		logRequest(ht, t1, h.conf.ResponseCodeKey, h.conf.ResponseRemoteKey, h.conf.ResponseDurationKey, bodyBytesSent)
+
+		logRequest(ht, t1, h.conf.ResponseCodeKey, h.conf.ResponseRemoteKey,
+			h.conf.ResponseDurationKey, bodyBytesSent)
 	}
 
 	closeHTTPInputRequestBody := func(t1 task.Task, _ task.TaskStatus) {
-		t1.DeleteFinishedCallback(fmt.Sprintf("%s-closeHTTPInputRequestBody", h.Name()))
-
 		ht.request.Body.Close()
 		close(ht.finishedChan)
 	}
 
 	shrinkWipRequestCounter := func(t1 task.Task, _ task.TaskStatus) {
-		t1.DeleteFinishedCallback(fmt.Sprintf("%s-shrinkWipRequestCounter", h.Name()))
-
 		wipReqCount, err := getHTTPInputHandlingRequestCount(ctx, h.Name())
 		if err == nil {
 			for !atomic.CompareAndSwapUint64(wipReqCount, *wipReqCount, *wipReqCount-1) {
@@ -440,38 +436,23 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 
 	vars, names := common.GenerateCGIEnv(ht.request)
 	for k, v := range vars {
-		t, err = task.WithValue(t, k, v)
-		if err != nil {
-			return err, task.ResultInternalServerError, t
-		}
+		t.WithValue(k, v)
 	}
 
 	if len(h.conf.RequestHeaderNamesKey) != 0 {
-		t, err = task.WithValue(t, h.conf.RequestHeaderNamesKey, names)
-		if err != nil {
-			return err, task.ResultInternalServerError, t
-		}
+		t.WithValue(h.conf.RequestHeaderNamesKey, names)
 	}
 
 	if len(h.conf.RequestBodyIOKey) != 0 {
-		t, err = task.WithValue(t, h.conf.RequestBodyIOKey, ht.request.Body)
-		if err != nil {
-			return err, task.ResultInternalServerError, t
-		}
+		t.WithValue(h.conf.RequestBodyIOKey, ht.request.Body)
 	}
 
 	if len(h.conf.RequestHeaderKey) != 0 {
-		t, err = task.WithValue(t, h.conf.RequestHeaderKey, ht.request.Header)
-		if err != nil {
-			return err, task.ResultInternalServerError, t
-		}
+		t.WithValue(h.conf.RequestHeaderKey, ht.request.Header)
 	}
 
 	for k, v := range ht.urlParams {
-		t, err = task.WithValue(t, k, v)
-		if err != nil {
-			return err, task.ResultInternalServerError, t
-		}
+		t.WithValue(k, v)
 	}
 
 	t.AddFinishedCallback(fmt.Sprintf("%s-responseCallerAndLogRequest", h.Name()), respondCallerAndLogRequest)
@@ -486,16 +467,16 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 	return nil, t.ResultCode(), t
 }
 
-func (h *httpInput) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
+func (h *httpInput) Run(ctx pipelines.PipelineContext, t task.Task) error {
 	err, resultCode, t := h.receive(ctx, t)
 	if err != nil {
 		t.SetError(err, resultCode)
 	}
 
 	if resultCode == task.ResultTaskCancelled {
-		return t, t.Error()
+		return t.Error()
 	} else {
-		return t, nil
+		return nil
 	}
 }
 
@@ -564,6 +545,8 @@ func getHTTPInputHandlingRequestCount(ctx pipelines.PipelineContext, pluginName 
 	return count.(*uint64), nil
 }
 
+////
+
 func getResponseCode(t task.Task, responseCodeKey string) int {
 	statusCode := task.ResultCodeToHTTPCode(t.ResultCode())
 	if len(responseCodeKey) != 0 {
@@ -584,7 +567,9 @@ func getClientReceivedCode(t task.Task, responseCodeKey string) int {
 	}
 }
 
-func logRequest(ht *httpTask, t task.Task, responseCodeKey, responseRemoteKey, responseDurationKey string, bodyBytesSent int64) {
+func logRequest(ht *httpTask, t task.Task, responseCodeKey, responseRemoteKey,
+	responseDurationKey string, bodyBytesSent int64) {
+
 	var responseRemote string = ""
 	value := t.Value(responseRemoteKey)
 	if value != nil {

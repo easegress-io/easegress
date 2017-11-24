@@ -78,9 +78,8 @@ func (c *serviceCircuitBreakerConfig) Prepare(pipelineNames []string) error {
 ////
 
 type serviceCircuitBreaker struct {
-	conf                               *serviceCircuitBreakerConfig
-	instanceId                         string
-	pluginExecutionSampleCallbackAdded bool
+	conf       *serviceCircuitBreakerConfig
+	instanceId string
 }
 
 func serviceCircuitBreakerConstructor(conf plugins.Config) (plugins.Plugin, error) {
@@ -102,21 +101,18 @@ func (cb *serviceCircuitBreaker) Prepare(ctx pipelines.PipelineContext) {
 	callbackName := fmt.Sprintf(
 		"%s-pluginExecutionSampleUpdatedForPluginInstance@%p", cb.Name(), cb)
 
-	_, added := ctx.Statistics().AddPluginExecutionSampleUpdatedCallback(
+	ctx.Statistics().AddPluginExecutionSampleUpdatedCallback(
 		callbackName,
-		cb.getPluginExecutionSampleUpdatedCallback(ctx),
-		false)
-
-	cb.pluginExecutionSampleCallbackAdded = added
+		cb.getPluginExecutionSampleUpdatedCallback(ctx))
 }
 
-func (cb *serviceCircuitBreaker) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
+func (cb *serviceCircuitBreaker) Run(ctx pipelines.PipelineContext, t task.Task) error {
 	state, err := getServiceCircuitBreakerStateData(ctx, cb.conf.PluginsConcerned,
 		cb.conf.AllTPSThresholdToEnablement, cb.conf.FailureTPSThresholdToBreak,
 		cb.conf.FailureTPSPercentThresholdToBreak, cb.conf.SuccessTPSThresholdToOpen,
 		cb.Name(), cb.instanceId)
 	if err != nil {
-		return t, nil
+		return nil
 	}
 
 	state.Lock()
@@ -126,7 +122,7 @@ func (cb *serviceCircuitBreaker) Run(ctx pipelines.PipelineContext, t task.Task)
 	case off:
 		fallthrough
 	case closed:
-		return t, nil
+		return nil
 	case open:
 		if time.Now().Sub(state.openAt).Seconds()*1e3 <= float64(cb.conf.RecoveryTimeMSec) {
 			// service fusing
@@ -139,13 +135,13 @@ func (cb *serviceCircuitBreaker) Run(ctx pipelines.PipelineContext, t task.Task)
 			logger.Debugf("[service circuit breaker turns status from Open to %s "+
 				"(recovery %dms timeout)", state.status, cb.conf.RecoveryTimeMSec)
 		}
-		return t, nil
+		return nil
 	case halfOpen:
 		// try task
-		return t, nil
+		return nil
 	}
 
-	return nil, fmt.Errorf("BUG: unreasonable execution path")
+	return fmt.Errorf("BUG: unreasonable execution path")
 }
 
 func (cb *serviceCircuitBreaker) Name() string {
@@ -153,12 +149,9 @@ func (cb *serviceCircuitBreaker) Name() string {
 }
 
 func (cb *serviceCircuitBreaker) CleanUp(ctx pipelines.PipelineContext) {
-	if cb.pluginExecutionSampleCallbackAdded {
-		callbackName := fmt.Sprintf(
-			"%s-pluginExecutionSampleUpdatedForPluginInstance@%p", cb.Name(), cb)
-
-		ctx.Statistics().DeletePluginExecutionSampleUpdatedCallback(callbackName)
-	}
+	callbackName := fmt.Sprintf(
+		"%s-pluginExecutionSampleUpdatedForPluginInstance@%p", cb.Name(), cb)
+	ctx.Statistics().DeletePluginExecutionSampleUpdatedCallback(callbackName)
 
 	ctx.DeleteBucket(cb.Name(), cb.instanceId)
 }

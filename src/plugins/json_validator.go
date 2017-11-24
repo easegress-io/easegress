@@ -106,12 +106,13 @@ func (v *jsonValidator) validate(t task.Task) (error, task.TaskResultCode, task.
 	return nil, t.ResultCode(), t
 }
 
-func (v *jsonValidator) Run(ctx pipelines.PipelineContext, t task.Task) (task.Task, error) {
+func (v *jsonValidator) Run(ctx pipelines.PipelineContext, t task.Task) error {
 	err, resultCode, t := v.validate(t)
 	if err != nil {
 		t.SetError(err, resultCode)
 	}
-	return t, nil
+
+	return nil
 }
 
 func (v *jsonValidator) Name() string {
