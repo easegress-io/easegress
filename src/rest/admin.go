@@ -272,7 +272,7 @@ func (s *adminServer) deletePlugin(w rest.ResponseWriter, r *rest.Request) {
 		return
 	}
 
-	err = s.gateway.Model().DismissPluginInstance(pluginName)
+	err = s.gateway.Model().DismissPluginInstanceByName(pluginName)
 	if err != nil {
 		msg := err.Error()
 		rest.Error(w, msg, http.StatusInternalServerError) // Doesn't make sense
