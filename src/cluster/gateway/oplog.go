@@ -27,7 +27,7 @@ const (
 type opLog struct {
 	sync.RWMutex
 	db                         *badger.DB
-	operationAppendedCallbacks []*common.NamedCallback
+	operationAppendedCallbacks *common.NamedCallbackSet
 }
 
 func newOPLog() (*opLog, error) {
@@ -68,7 +68,7 @@ func newOPLog() (*opLog, error) {
 
 	op := &opLog{
 		db: db,
-		operationAppendedCallbacks: make([]*common.NamedCallback, 0, common.CallbacksInitCapacity),
+		operationAppendedCallbacks: common.NewNamedCallbackSet(),
 	}
 
 	if new { // init max sequence to prevent fake read error
@@ -150,7 +150,7 @@ func (op *opLog) append(startSeq uint64, operations []*Operation) (error, Cluste
 			return fmt.Errorf("update max operation sequence failed: %v", err), InternalServerError
 		}
 
-		for _, cb := range op.operationAppendedCallbacks {
+		for _, cb := range op.operationAppendedCallbacks.GetCallbacks() {
 			err, failureType := cb.Callback().(OperationAppended)(startSeq+uint64(idx), operation)
 			if err != nil {
 				logger.Errorf("[operation (sequence=%d) failed (failure type=%d): %v]",
@@ -240,35 +240,16 @@ func (op *opLog) close() error {
 	return op.db.Close()
 }
 
-func (op *opLog) AddOPLogAppendedCallback(name string, callback OperationAppended,
-	overwrite bool, priority string) OperationAppended {
-
+func (op *opLog) AddOPLogAppendedCallback(name string, callback OperationAppended, priority string) {
 	op.Lock()
-	defer op.Unlock()
-
-	var oriCallback interface{}
-	op.operationAppendedCallbacks, oriCallback, _ = common.AddCallback(
-		op.operationAppendedCallbacks, name, callback, overwrite, priority)
-
-	if oriCallback == nil {
-		return nil
-	} else {
-		return oriCallback.(OperationAppended)
-	}
+	op.operationAppendedCallbacks = common.AddCallback(op.operationAppendedCallbacks, name, callback, priority)
+	op.Unlock()
 }
 
-func (op *opLog) DeleteOPLogAppendedCallback(name string) OperationAppended {
+func (op *opLog) DeleteOPLogAppendedCallback(name string) {
 	op.Lock()
-	defer op.Unlock()
-
-	var oriCallback interface{}
-	op.operationAppendedCallbacks, oriCallback = common.DeleteCallback(op.operationAppendedCallbacks, name)
-
-	if oriCallback == nil {
-		return nil
-	} else {
-		return oriCallback.(OperationAppended)
-	}
+	op.operationAppendedCallbacks = common.DeleteCallback(op.operationAppendedCallbacks, name)
+	op.Unlock()
 }
 
 ////

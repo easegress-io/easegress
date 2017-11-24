@@ -39,6 +39,8 @@ func newPipelineInstance(instance pipelines.Pipeline) *pipelineInstance {
 }
 
 func (pi *pipelineInstance) run() {
+	pi.instance.Prepare()
+
 loop:
 	for {
 		select {
@@ -252,17 +254,17 @@ func (gw *Gateway) SysResUsage() (*syscall.Rusage, error) {
 
 func (gw *Gateway) setupPipelineLifecycleControl() {
 	gw.mod.AddPipelineAddedCallback("launchPipeline", gw.launchPipeline,
-		false, common.NORMAL_PRIORITY_CALLBACK)
+		common.NORMAL_PRIORITY_CALLBACK)
 	gw.mod.AddPipelineDeletedCallback("terminatePipeline", gw.terminatePipeline,
-		false, common.NORMAL_PRIORITY_CALLBACK)
+		common.NORMAL_PRIORITY_CALLBACK)
 	gw.mod.AddPipelineDeletedCallback("closePipelineContext", gw.closePipelineContext,
-		false, common.NORMAL_PRIORITY_CALLBACK)
+		common.NORMAL_PRIORITY_CALLBACK)
 
 	// separated to 2 stages for plugin cleanup on the pipeline context
 	gw.mod.AddPipelineUpdatedCallback("relaunchPipelineStage1", gw.relaunchPipelineStage1,
-		false, common.NORMAL_PRIORITY_CALLBACK)
+		common.NORMAL_PRIORITY_CALLBACK)
 	gw.mod.AddPipelineUpdatedCallback("relaunchPipelineStage2", gw.relaunchPipelineStage2,
-		false, common.NORMAL_PRIORITY_CALLBACK)
+		common.NORMAL_PRIORITY_CALLBACK)
 }
 
 func (gw *Gateway) launchPipeline(newPipeline *model.Pipeline) {
@@ -372,26 +374,26 @@ func (gw *Gateway) loadPipelines() error {
 
 func (gw *Gateway) setupPluginPersistenceControl() {
 	gw.mod.AddPluginAddedCallback("addPluginToStorage", gw.addPluginToStorage,
-		false, common.NORMAL_PRIORITY_CALLBACK)
+		common.NORMAL_PRIORITY_CALLBACK)
 	gw.mod.AddPluginDeletedCallback("deletePluginFromStorage", gw.deletePluginFromStorage,
-		false, common.NORMAL_PRIORITY_CALLBACK)
+		common.NORMAL_PRIORITY_CALLBACK)
 	gw.mod.AddPluginUpdatedCallback("updatePluginInStorage", gw.updatePluginInStorage,
-		false, common.NORMAL_PRIORITY_CALLBACK)
+		common.NORMAL_PRIORITY_CALLBACK)
 }
 
 func (gw *Gateway) setupPipelinePersistenceControl() {
 	gw.mod.AddPipelineAddedCallback("addPipelineToStorage", gw.addPipelineToStorage,
-		false, common.NORMAL_PRIORITY_CALLBACK)
+		common.NORMAL_PRIORITY_CALLBACK)
 	gw.mod.AddPipelineDeletedCallback("deletePipelineFromStorage", gw.deletePipelineFromStorage,
-		false, common.NORMAL_PRIORITY_CALLBACK)
+		common.NORMAL_PRIORITY_CALLBACK)
 	gw.mod.AddPipelineUpdatedCallback("updatePipelineInStorage", gw.updatePipelineInStorage,
-		false, common.NORMAL_PRIORITY_CALLBACK)
+		common.NORMAL_PRIORITY_CALLBACK)
 }
 
 func (gw *Gateway) setupClusterOpLogSync() {
 	if gw.gc != nil {
 		gw.gc.OPLog().AddOPLogAppendedCallback("handleClusterOperation", gw.handleClusterOperation,
-			false, common.NORMAL_PRIORITY_CALLBACK)
+			common.NORMAL_PRIORITY_CALLBACK)
 	}
 }
 
@@ -548,7 +550,7 @@ func (gw *Gateway) handleClusterOperation(seq uint64, operation *cluster.Operati
 				cluster.OperationNotAcceptableFailure
 		}
 
-		err := gw.mod.DismissPluginInstance(content.Name)
+		err := gw.mod.DismissPluginInstanceByName(content.Name)
 		if err != nil {
 			logger.Errorf("[handle cluster operation to delete plugin failed on "+
 				"dismiss plugin instance on model: %v]", err)

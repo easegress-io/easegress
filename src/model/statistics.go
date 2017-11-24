@@ -31,11 +31,11 @@ func newStatRegistry(m *Model) *statRegistry {
 	}
 
 	m.AddPipelineAddedCallback("addPipelineStatistics", ret.addPipelineStatistics,
-		false, common.NORMAL_PRIORITY_CALLBACK)
+		common.NORMAL_PRIORITY_CALLBACK)
 	m.AddPipelineDeletedCallback("deletePipelineStatistics", ret.deletePipelineStatistics,
-		false, common.NORMAL_PRIORITY_CALLBACK)
+		common.NORMAL_PRIORITY_CALLBACK)
 	m.AddPipelineUpdatedCallback("renewPipelineStatistics", ret.renewPipelineStatistics,
-		false, common.NORMAL_PRIORITY_CALLBACK)
+		common.NORMAL_PRIORITY_CALLBACK)
 
 	return ret
 }
@@ -241,7 +241,7 @@ type PipelineStatistics struct {
 	mod  *Model
 
 	pipelineThroughputRateUpdatedCallbacks, pipelineExecutionSampleUpdatedCallbacks,
-	pluginThroughputRateUpdatedCallbacks, pluginExecutionSampleUpdatedCallbacks []*common.NamedCallback
+	pluginThroughputRateUpdatedCallbacks, pluginExecutionSampleUpdatedCallbacks *common.NamedCallbackSet
 }
 
 func NewPipelineStatistics(pipelineName string, pluginNames []string, m *Model) *PipelineStatistics {
@@ -271,10 +271,10 @@ func NewPipelineStatistics(pipelineName string, pluginNames []string, m *Model) 
 		taskIndicators:                 make(map[string]*statisticsIndicator),
 		done:                           make(chan struct{}),
 		mod:                            m,
-		pipelineThroughputRateUpdatedCallbacks:  make([]*common.NamedCallback, 0, common.CallbacksInitCapacity),
-		pipelineExecutionSampleUpdatedCallbacks: make([]*common.NamedCallback, 0, common.CallbacksInitCapacity),
-		pluginThroughputRateUpdatedCallbacks:    make([]*common.NamedCallback, 0, common.CallbacksInitCapacity),
-		pluginExecutionSampleUpdatedCallbacks:   make([]*common.NamedCallback, 0, common.CallbacksInitCapacity),
+		pipelineThroughputRateUpdatedCallbacks:  common.NewNamedCallbackSet(),
+		pipelineExecutionSampleUpdatedCallbacks: common.NewNamedCallbackSet(),
+		pluginThroughputRateUpdatedCallbacks:    common.NewNamedCallbackSet(),
+		pluginExecutionSampleUpdatedCallbacks:   common.NewNamedCallbackSet(),
 	}
 
 	tickFun := func(ewmas []metrics.EWMA) {
@@ -1138,111 +1138,69 @@ func (ps *PipelineStatistics) TaskIndicatorDescription(indicatorName string) (st
 }
 
 func (ps *PipelineStatistics) AddPipelineThroughputRateUpdatedCallback(name string,
-	callback pipelines.PipelineThroughputRateUpdated, overwrite bool) (
-	pipelines.PipelineThroughputRateUpdated, bool) {
+	callback pipelines.PipelineThroughputRateUpdated) {
 
 	ps.Lock()
-	defer ps.Unlock()
+	ps.pipelineThroughputRateUpdatedCallbacks = common.AddCallback(
+		ps.pipelineThroughputRateUpdatedCallbacks, name, callback, common.NORMAL_PRIORITY_CALLBACK)
+	ps.Unlock()
 
-	var oriCallback interface{}
-	var added bool
-	ps.pipelineThroughputRateUpdatedCallbacks, oriCallback, added = common.AddCallback(
-		ps.pipelineThroughputRateUpdatedCallbacks, name, callback, overwrite, common.NORMAL_PRIORITY_CALLBACK)
-
-	if oriCallback == nil {
-		return nil, added
-	} else {
-		return oriCallback.(pipelines.PipelineThroughputRateUpdated), added
-	}
 }
 
 func (ps *PipelineStatistics) DeletePipelineThroughputRateUpdatedCallback(name string) {
 	ps.Lock()
-	defer ps.Unlock()
-
-	ps.pipelineThroughputRateUpdatedCallbacks, _ = common.DeleteCallback(
+	ps.pipelineThroughputRateUpdatedCallbacks = common.DeleteCallback(
 		ps.pipelineThroughputRateUpdatedCallbacks, name)
+	ps.Unlock()
 }
 
 func (ps *PipelineStatistics) AddPipelineExecutionSampleUpdatedCallback(name string,
-	callback pipelines.PipelineExecutionSampleUpdated, overwrite bool) (
-	pipelines.PipelineExecutionSampleUpdated, bool) {
+	callback pipelines.PipelineExecutionSampleUpdated) {
 
 	ps.Lock()
-	defer ps.Unlock()
-
-	var oriCallback interface{}
-	var added bool
-	ps.pipelineExecutionSampleUpdatedCallbacks, oriCallback, added = common.AddCallback(
-		ps.pipelineExecutionSampleUpdatedCallbacks, name, callback, overwrite, common.NORMAL_PRIORITY_CALLBACK)
-
-	if oriCallback == nil {
-		return nil, added
-	} else {
-		return oriCallback.(pipelines.PipelineExecutionSampleUpdated), added
-	}
+	ps.pipelineExecutionSampleUpdatedCallbacks = common.AddCallback(
+		ps.pipelineExecutionSampleUpdatedCallbacks, name, callback, common.NORMAL_PRIORITY_CALLBACK)
+	ps.Unlock()
 }
 
 func (ps *PipelineStatistics) DeletePipelineExecutionSampleUpdatedCallback(name string) {
 	ps.Lock()
-	defer ps.Unlock()
-
-	ps.pipelineExecutionSampleUpdatedCallbacks, _ = common.DeleteCallback(
+	ps.pipelineExecutionSampleUpdatedCallbacks = common.DeleteCallback(
 		ps.pipelineExecutionSampleUpdatedCallbacks, name)
+	ps.Unlock()
 }
 
 func (ps *PipelineStatistics) AddPluginThroughputRateUpdatedCallback(name string,
-	callback pipelines.PluginThroughputRateUpdated,
-	overwrite bool) (pipelines.PluginThroughputRateUpdated, bool) {
+	callback pipelines.PluginThroughputRateUpdated) {
 
 	ps.Lock()
-	defer ps.Unlock()
-
-	var oriCallback interface{}
-	var added bool
-	ps.pluginThroughputRateUpdatedCallbacks, oriCallback, added = common.AddCallback(
-		ps.pluginThroughputRateUpdatedCallbacks, name, callback, overwrite, common.NORMAL_PRIORITY_CALLBACK)
-
-	if oriCallback == nil {
-		return nil, added
-	} else {
-		return oriCallback.(pipelines.PluginThroughputRateUpdated), added
-	}
+	ps.pluginThroughputRateUpdatedCallbacks = common.AddCallback(
+		ps.pluginThroughputRateUpdatedCallbacks, name, callback, common.NORMAL_PRIORITY_CALLBACK)
+	ps.Unlock()
 }
 
 func (ps *PipelineStatistics) DeletePluginThroughputRateUpdatedCallback(name string) {
 	ps.Lock()
-	defer ps.Unlock()
-
-	ps.pluginThroughputRateUpdatedCallbacks, _ = common.DeleteCallback(
+	ps.pluginThroughputRateUpdatedCallbacks = common.DeleteCallback(
 		ps.pluginThroughputRateUpdatedCallbacks, name)
+	ps.Unlock()
 }
 
 func (ps *PipelineStatistics) AddPluginExecutionSampleUpdatedCallback(name string,
-	callback pipelines.PluginExecutionSampleUpdated, overwrite bool) (
-	pipelines.PluginExecutionSampleUpdated, bool) {
+	callback pipelines.PluginExecutionSampleUpdated) {
 
 	ps.Lock()
-	defer ps.Unlock()
+	ps.pluginExecutionSampleUpdatedCallbacks = common.AddCallback(
+		ps.pluginExecutionSampleUpdatedCallbacks, name, callback, common.NORMAL_PRIORITY_CALLBACK)
+	ps.Unlock()
 
-	var oriCallback interface{}
-	var added bool
-	ps.pluginExecutionSampleUpdatedCallbacks, oriCallback, added = common.AddCallback(
-		ps.pluginExecutionSampleUpdatedCallbacks, name, callback, overwrite, common.NORMAL_PRIORITY_CALLBACK)
-
-	if oriCallback == nil {
-		return nil, added
-	} else {
-		return oriCallback.(pipelines.PluginExecutionSampleUpdated), added
-	}
 }
 
 func (ps *PipelineStatistics) DeletePluginExecutionSampleUpdatedCallback(name string) {
 	ps.Lock()
-	defer ps.Unlock()
-
-	ps.pluginExecutionSampleUpdatedCallbacks, _ = common.DeleteCallback(
+	ps.pluginExecutionSampleUpdatedCallbacks = common.DeleteCallback(
 		ps.pluginExecutionSampleUpdatedCallbacks, name)
+	ps.Unlock()
 }
 
 func (ps *PipelineStatistics) registerPipelineIndicator(indicatorName, desc string,
@@ -1380,14 +1338,8 @@ func (ps *PipelineStatistics) pluginThroughputRate(pluginName string, slot map[s
 func (ps *PipelineStatistics) updatePipelineExecution(duration time.Duration) error {
 	ps.pipelineExecutionSample.Update(int64(duration)) // safe conversion
 
-	ps.RLock()
-
-	tmp := make([]*common.NamedCallback, len(ps.pipelineExecutionSampleUpdatedCallbacks))
-	copy(tmp, ps.pipelineExecutionSampleUpdatedCallbacks)
-
-	ps.RUnlock()
-
-	for _, callback := range tmp {
+	// so don't call DeletePipelineExecutionSampleUpdatedCallback() in the callback
+	for _, callback := range ps.pipelineExecutionSampleUpdatedCallbacks.GetCallbacks() {
 		go callback.Callback().(pipelines.PipelineExecutionSampleUpdated)(ps.pipelineName, ps)
 	}
 
@@ -1395,14 +1347,8 @@ func (ps *PipelineStatistics) updatePipelineExecution(duration time.Duration) er
 	ps.pipelineThroughputRates5.Update(1)
 	ps.pipelineThroughputRates15.Update(1)
 
-	ps.RLock()
-
-	tmp = make([]*common.NamedCallback, len(ps.pipelineThroughputRateUpdatedCallbacks))
-	copy(tmp, ps.pipelineThroughputRateUpdatedCallbacks)
-
-	ps.RUnlock()
-
-	for _, callback := range tmp {
+	// so don't call DeletePipelineThroughputRateUpdatedCallback() in the callback
+	for _, callback := range ps.pipelineThroughputRateUpdatedCallbacks.GetCallbacks() {
 		go callback.Callback().(pipelines.PipelineThroughputRateUpdated)(ps.pipelineName, ps)
 	}
 
@@ -1456,14 +1402,8 @@ func (ps *PipelineStatistics) updatePluginExecution(pluginName string,
 		return err
 	}
 
-	ps.RLock()
-
-	tmp := make([]*common.NamedCallback, len(ps.pluginExecutionSampleUpdatedCallbacks))
-	copy(tmp, ps.pluginExecutionSampleUpdatedCallbacks)
-
-	ps.RUnlock()
-
-	for _, callback := range tmp {
+	// so don't call DeletePluginExecutionSampleUpdatedCallback() in the callback
+	for _, callback := range ps.pluginExecutionSampleUpdatedCallbacks.GetCallbacks() {
 		go callback.Callback().(pipelines.PluginExecutionSampleUpdated)(pluginName, ps, kind)
 		go callback.Callback().(pipelines.PluginExecutionSampleUpdated)(pluginName, ps,
 			pipelines.AllStatistics)
@@ -1502,14 +1442,8 @@ func (ps *PipelineStatistics) updatePluginExecution(pluginName string,
 		return err
 	}
 
-	ps.RLock()
-
-	tmp = make([]*common.NamedCallback, len(ps.pluginThroughputRateUpdatedCallbacks))
-	copy(tmp, ps.pluginThroughputRateUpdatedCallbacks)
-
-	ps.RUnlock()
-
-	for _, callback := range tmp {
+	// so don't call DeletePluginThroughputRateUpdatedCallback() in the callback
+	for _, callback := range ps.pluginThroughputRateUpdatedCallbacks.GetCallbacks() {
 		go callback.Callback().(pipelines.PluginThroughputRateUpdated)(pluginName, ps, kind)
 		go callback.Callback().(pipelines.PluginThroughputRateUpdated)(pluginName, ps,
 			pipelines.AllStatistics)

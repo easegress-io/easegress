@@ -1,7 +1,7 @@
 package common
 
 const (
-	CallbacksInitCapacity = 20
+	CallbacksInitCapacity = 512
 
 	NORMAL_PRIORITY_CALLBACK   = "__NoRmAl_PrIoRiTy_CaLlBaCk"
 	CRITICAL_PRIORITY_CALLBACK = "__CrItIcAl_PrIoRiTy_CaLlBaCk"
@@ -35,56 +35,95 @@ func (cb *NamedCallback) SetCallback(callback interface{}) interface{} {
 	return oriCallback
 }
 
-////
-
-func AddCallback(callbacks []*NamedCallback, name string, callback interface{},
-	rewrite bool, priority string) (
-
-	[]*NamedCallback, interface{}, bool) {
-
-	var oriCallback interface{}
-	for _, namedCallback := range callbacks {
-		if namedCallback.Name() == name {
-			if rewrite {
-				oriCallback = namedCallback.SetCallback(callback)
-			} else {
-				return callbacks, namedCallback.Callback(), false
-			}
-		}
-	}
-
-	if oriCallback == nil {
-		callback := NewNamedCallback(name, callback)
-		if priority == NORMAL_PRIORITY_CALLBACK || callbacks == nil {
-			callbacks = append(callbacks, callback)
-		} else if priority == CRITICAL_PRIORITY_CALLBACK {
-			callbacks = append([]*NamedCallback{callback}, callbacks...)
-		} else {
-			pos := len(callbacks)
-			for i, namedCallback := range callbacks {
-				if namedCallback.Name() == priority {
-					pos = i
-					break
-				}
-			}
-
-			// insert before the pos
-			callbacks = append(callbacks[:pos], append([]*NamedCallback{callback}, callbacks[pos:]...)...)
-		}
-	}
-
-	return callbacks, oriCallback, true
+type namedCallbackWithIdx struct {
+	cb         *NamedCallback
+	idxOfOrder int
 }
 
-func DeleteCallback(callbacks []*NamedCallback, name string) ([]*NamedCallback, interface{}) {
-	var oriCallback interface{}
-	for i, namedCallback := range callbacks {
-		if namedCallback.Name() == name {
-			oriCallback = namedCallback.Callback()
-			callbacks = append(callbacks[:i], callbacks[i+1:]...)
-			break
+type NamedCallbackSet struct {
+	// critical callback takes low index, normal callback takes high index
+	callbacks []*NamedCallback                 // index for access by order
+	names     map[string]*namedCallbackWithIdx // index for access by callback name
+
+}
+
+func NewNamedCallbackSet() *NamedCallbackSet {
+	return &NamedCallbackSet{
+		names:     make(map[string]*namedCallbackWithIdx, CallbacksInitCapacity),
+		callbacks: make([]*NamedCallback, 0, CallbacksInitCapacity),
+	}
+}
+
+func (cbs *NamedCallbackSet) CopyCallbacks() []*NamedCallback {
+	ret := make([]*NamedCallback, len(cbs.callbacks))
+	copy(ret, cbs.callbacks)
+	return ret
+}
+
+func (cbs *NamedCallbackSet) GetCallbacks() []*NamedCallback {
+	return cbs.callbacks
+}
+
+////
+
+func AddCallback(cbs *NamedCallbackSet, name string, callback interface{}, priority string) *NamedCallbackSet {
+	if cbs == nil {
+		return nil
+	}
+
+	_, exists := cbs.names[name]
+	if exists {
+		return cbs
+	}
+
+	cb := NewNamedCallback(name, callback)
+	idx := 0
+
+	if priority == NORMAL_PRIORITY_CALLBACK {
+		idx = len(cbs.callbacks)
+		cbs.callbacks = append(cbs.callbacks, cb)
+	} else if priority == CRITICAL_PRIORITY_CALLBACK {
+		// idx = 0
+		cbs.callbacks = append([]*NamedCallback{cb}, cbs.callbacks...)
+	} else {
+		idx = len(cbs.callbacks)
+		for i, namedCallback := range cbs.callbacks {
+			if namedCallback.Name() == priority {
+				idx = i
+				break
+			}
+		}
+
+		// insert before the pos
+		cbs.callbacks = append(cbs.callbacks[:idx], append([]*NamedCallback{cb}, cbs.callbacks[idx:]...)...)
+	}
+
+	cbs.names[name] = &namedCallbackWithIdx{
+		cb:         cb,
+		idxOfOrder: idx,
+	}
+
+	return cbs
+}
+
+func DeleteCallback(cbs *NamedCallbackSet, name string) *NamedCallbackSet {
+	if cbs == nil {
+		return nil
+	}
+
+	cbi, exists := cbs.names[name]
+	if !exists {
+		return cbs
+	}
+
+	delete(cbs.names, name)
+	cbs.callbacks = append(cbs.callbacks[:cbi.idxOfOrder], cbs.callbacks[cbi.idxOfOrder+1:]...)
+
+	for _, cbi1 := range cbs.names {
+		if cbi1.idxOfOrder > cbi.idxOfOrder {
+			cbi1.idxOfOrder--
 		}
 	}
 
-	return callbacks, oriCallback
+	return cbs
 }
