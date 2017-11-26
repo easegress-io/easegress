@@ -3,7 +3,6 @@ package model
 import (
 	"fmt"
 	"net/http"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -17,12 +16,15 @@ import (
 )
 
 type linearPipelineConfig struct {
-	*common.PipelineCommonConfig
+	common.PipelineCommonConfig
 	WaitPluginClose bool `json:"wait_plugin_close"`
 }
 
 func linearPipelineConfigConstructor() pipelines_gw.Config {
 	return &linearPipelineConfig{
+		PipelineCommonConfig: common.PipelineCommonConfig{
+			CrossPipelineRequestBacklogLength: 10240,
+		},
 		WaitPluginClose: true, // HTTPInput plugin needs this due to it has a global mux object
 	}
 }
@@ -36,15 +38,14 @@ type linearPipeline struct {
 	ctx                     pipelines.PipelineContext
 	statistics              *PipelineStatistics
 	mod                     *Model
+	preparedPlugins         *uint32
 	rerunCancel, stopCancel cancelFunc
-	started, stopped        int32
-	rerun                   bool
+	started, stopped        uint32
 	runningPlugin           string
-	rerunLock               sync.RWMutex
 }
 
 func newLinearPipeline(ctx pipelines.PipelineContext, statistics *PipelineStatistics,
-	conf pipelines_gw.Config, m *Model) (pipelines_gw.Pipeline, error) {
+	conf pipelines_gw.Config, m *Model, data interface{}) (pipelines_gw.Pipeline, error) {
 
 	c, ok := conf.(*linearPipelineConfig)
 	if !ok {
@@ -63,11 +64,17 @@ func newLinearPipeline(ctx pipelines.PipelineContext, statistics *PipelineStatis
 		return nil, fmt.Errorf("model object is nil")
 	}
 
+	preparedPlugins, ok := data.(*uint32)
+	if !ok {
+		return nil, fmt.Errorf("plugin preparation book invalid")
+	}
+
 	return &linearPipeline{
-		ctx:        ctx,
-		conf:       c,
-		statistics: statistics,
-		mod:        m,
+		ctx:             ctx,
+		conf:            c,
+		statistics:      statistics,
+		mod:             m,
+		preparedPlugins: preparedPlugins,
 	}, nil
 }
 
@@ -79,12 +86,13 @@ func (p *linearPipeline) Prepare() {
 	pluginNames := p.conf.PluginNames()
 
 	// Prepare all plugin first for, like, indicator exposing.
-	for i := 0; i < len(pluginNames) && atomic.LoadInt32(&p.stopped) == 0; i++ {
+	for i := 0; i < len(pluginNames) && atomic.LoadUint32(&p.stopped) == 0; i++ {
 		instance, err := p.mod.GetPluginInstance(pluginNames[i])
 		if err != nil {
 			// the preparation of follow plugin might depend on previous plugin
 			break
 		}
+
 		instance.Prepare(p.ctx)
 		p.mod.ReleasePluginInstance(instance)
 	}
@@ -94,25 +102,25 @@ func (p *linearPipeline) Prepare() {
 }
 
 func (p *linearPipeline) Run() error {
-	if atomic.LoadInt32(&p.stopped) == 1 {
+	if atomic.LoadUint32(&p.stopped) == 1 {
 		return fmt.Errorf("pipeline is stopped")
 	}
 
-	if !atomic.CompareAndSwapInt32(&p.started, 0, 1) {
+	if !atomic.CompareAndSwapUint32(&p.started, 0, 1) {
 		return fmt.Errorf("pipeline is already started")
 	}
 
-	defer atomic.StoreInt32(&p.started, 0)
+	defer atomic.StoreUint32(&p.started, 0)
 
 	tsk := NewTask()
 	var t task.Task
-	t, p.stopCancel = withCancel(tsk)
+	t, p.stopCancel = withCancel(tsk, task.CanceledByPipelineStop)
 
 	pluginNames := p.conf.PluginNames()
 
 	startAt := time.Now()
 
-	for i := 0; i < len(pluginNames) && atomic.LoadInt32(&p.stopped) == 0; i++ {
+	for i := 0; i < len(pluginNames) && atomic.LoadUint32(&p.stopped) == 0; i++ {
 		// error here is acceptable to pipeline, so do not return and keep pipeline runs
 		instance, err := p.mod.GetPluginInstance(pluginNames[i])
 		if err != nil {
@@ -120,8 +128,13 @@ func (p *linearPipeline) Run() error {
 			t.SetError(err, http.StatusServiceUnavailable)
 		} else {
 			// Plugin might be updated during the pipeline execution.
-			// This guarantees preparing the plugin instance only once.
-			instance.Prepare(p.ctx)
+			// Wait engine.RePreparePlugin callback finish by spin.
+			for atomic.LoadUint32(p.preparedPlugins) != uint32(len(pluginNames)) &&
+				atomic.LoadUint32(&p.stopped) == 0 {
+
+				time.Sleep(time.Millisecond)
+			}
+
 			p.runningPlugin = pluginNames[i]
 		}
 
@@ -140,7 +153,7 @@ func (p *linearPipeline) Run() error {
 			if !success && p.conf.WaitPluginClose {
 				done = make(chan struct{})
 
-				if atomic.LoadInt32(&p.stopped) == 0 {
+				if atomic.LoadUint32(&p.stopped) == 0 {
 					plugin, _ := p.mod.GetPlugin(pluginNames[i])
 					callbackName := fmt.Sprintf("%s@%p-pluginInstanceClosed@%p", p.Name(), p, instance)
 					plugin.AddInstanceClosedCallback(callbackName,
@@ -157,7 +170,7 @@ func (p *linearPipeline) Run() error {
 			p.mod.ReleasePluginInstance(instance)
 
 			if !success && p.conf.WaitPluginClose {
-				if atomic.LoadInt32(&p.stopped) == 0 {
+				if atomic.LoadUint32(&p.stopped) == 0 {
 					<-done
 				}
 				common.CloseChan(done)
@@ -175,7 +188,7 @@ func (p *linearPipeline) Run() error {
 				"[plugin %s in pipeline %s execution failure, resultcode=%d, error=\"%s\"]",
 				pluginNames[i], p.conf.Name, t.ResultCode(), t.Error())
 
-			if atomic.LoadInt32(&p.stopped) == 1 {
+			if atomic.LoadUint32(&p.stopped) == 1 {
 				tsk.finish(t)
 			} else {
 				recovered := tsk.recover(pluginNames[i], task.Running, t)
@@ -222,11 +235,11 @@ func (p *linearPipeline) Close() {
 }
 
 func (p *linearPipeline) Stop() {
-	if atomic.LoadInt32(&p.started) == 0 {
+	if atomic.LoadUint32(&p.started) == 0 {
 		return // not start to run yet
 	}
 
-	if !atomic.CompareAndSwapInt32(&p.stopped, 0, 1) {
+	if !atomic.CompareAndSwapUint32(&p.stopped, 0, 1) {
 		return // already stopped
 	}
 
@@ -236,26 +249,27 @@ func (p *linearPipeline) Stop() {
 }
 
 func (p *linearPipeline) runPlugin(instance plugins.Plugin, input task.Task, tsk *Task) (bool, bool) {
-	p.rerunLock.Lock()
-	if p.rerun {
-		p.mod.DismissPluginInstance(instance)
-		p.rerunLock.Unlock()
-		return false, true
-	}
-	var i task.Task
-	i, p.rerunCancel = withCancel(input)
-	p.rerunLock.Unlock()
-
 	originalCode := input.ResultCode()
+	rerun := false
+
+	t, canceller := withCancel(input, task.CanceledByPluginUpdate)
+
+	p.rerunCancel = func() {
+		rerun = true
+		canceller()
+	}
+
 	startAt := time.Now()
-	err := instance.Run(p.ctx, i)
-	p.runningPlugin = ""
+	err := instance.Run(p.ctx, t)
 	finishAt := time.Now()
 
-	if !p.rerun {
+	p.runningPlugin = ""
+	p.rerunCancel = nil
+
+	if !rerun {
 		go func() {
 			var kind pipelines.StatisticsKind = pipelines.AllStatistics
-			if err != nil || i.Error() != nil {
+			if err != nil || t.Error() != nil {
 				kind = pipelines.FailureStatistics
 			} else {
 				kind = pipelines.SuccessStatistics
@@ -269,53 +283,35 @@ func (p *linearPipeline) runPlugin(instance plugins.Plugin, input task.Task, tsk
 	}
 
 	if err != nil {
-		if !p.rerun {
-			if atomic.LoadInt32(&p.stopped) == 0 {
-				logger.Warnf("[plugin %s encountered failure itself can't cover: %v]",
-					instance.Name(), err)
+		if !rerun {
+			if atomic.LoadUint32(&p.stopped) == 0 {
+				logger.Warnf("[plugin %s encountered failure itself can't cover: %v]", instance.Name(), err)
 			}
 
-			if i.Error() == nil { // do not overwrite plugin gives error
-				i.SetError(err, http.StatusServiceUnavailable)
+			if t.Error() == nil { // do not overwrite plugin gives error
+				t.SetError(err, http.StatusServiceUnavailable)
 			}
 		} else {
 			// clear task cancellation error
 			tsk.clearError(originalCode)
 		}
 
-		if atomic.LoadInt32(&p.stopped) == 0 {
+		if atomic.LoadUint32(&p.stopped) == 0 {
 			// error caused by plugin update or execution failure
 			p.mod.DismissPluginInstance(instance)
 		}
 	}
 
-	rerun := p.rerun
-	p.rerun = false
-	p.rerunCancel = nil
-
 	return err == nil, rerun
 }
 
 func (p *linearPipeline) cancelAndRerunRunningPlugin(updatedPlugin *Plugin) {
-	p.rerunLock.RLock()
-
-	if p.runningPlugin != updatedPlugin.Name() {
-		p.rerunLock.RUnlock()
-		return
-	}
-
-	p.rerunLock.RUnlock()
-
-	p.rerunLock.Lock()
-	defer p.rerunLock.Unlock()
-
-	// DCL
 	if p.runningPlugin != updatedPlugin.Name() {
 		return
 	}
 
-	p.rerun = true
-	if p.rerunCancel != nil {
+	defer func() {
+		recover() // to prevent p.rerunCancel is nil
 		p.rerunCancel()
-	}
+	}()
 }

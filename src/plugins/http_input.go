@@ -310,28 +310,28 @@ func (h *httpInput) handler(w http.ResponseWriter, req *http.Request, urlParams 
 	<-httpTask.finishedChan
 }
 
-func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, task.TaskResultCode, task.Task) {
+func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, task.TaskResultCode) {
 	var ok bool
 	var ht *httpTask
 	var err error
 
 	notifier := getHTTPServerGoneNotifier(ctx, h.conf.ServerPluginName, false)
 	if notifier == nil {
-		return fmt.Errorf("http server %s gone", h.conf.ServerPluginName), task.ResultServerGone, t
+		return fmt.Errorf("http server %s gone", h.conf.ServerPluginName), task.ResultServerGone
 	}
 
 	select {
 	case ht, ok = <-h.httpTaskChan:
 		if !ok {
 			return fmt.Errorf("plugin %s has been closed", h.Name()),
-				task.ResultInternalServerError, t
+				task.ResultInternalServerError
 		}
 		for !atomic.CompareAndSwapUint64(&h.queueLength, h.queueLength, h.queueLength-1) {
 		}
 	case <-t.Cancel():
-		return fmt.Errorf("task is cancelled by %s", t.CancelCause()), task.ResultTaskCancelled, t
+		return fmt.Errorf("task is cancelled by %s", t.CancelCause()), task.ResultTaskCancelled
 	case <-notifier:
-		return fmt.Errorf("http server %s gone", h.conf.ServerPluginName), task.ResultServerGone, t
+		return fmt.Errorf("http server %s gone", h.conf.ServerPluginName), task.ResultServerGone
 	}
 
 	if h.conf.dumpReq {
@@ -464,11 +464,11 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 		atomic.AddUint64(wipReqCount, 1)
 	}
 
-	return nil, t.ResultCode(), t
+	return nil, t.ResultCode()
 }
 
 func (h *httpInput) Run(ctx pipelines.PipelineContext, t task.Task) error {
-	err, resultCode, t := h.receive(ctx, t)
+	err, resultCode := h.receive(ctx, t)
 	if err != nil {
 		t.SetError(err, resultCode)
 	}

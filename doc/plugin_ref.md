@@ -47,7 +47,7 @@ Plugin runs a HTTP server implemented based on golang net/http listens on a port
 | key\_file | string | The key file name HTTPS server used. The option is mandatory if HTTPS is expected as output protocol. | Functionality | Yes | "" |
 | keepalive | bool | The flag represents if the plugin configures keep-alive for an active connection. | Functionality | Yes | true |
 | keepalive\_sec | uint16 | The flag specifies the keep-alive period for an active network connection. Network protocols that do not support keep-alive ignore this option. | Functionality | Yes | 10 |
-| max\_connections | uint32 | The maximal simultaneous connections. | Functionality | Yes | 1024 |
+| max\_connections | uint32 | The maximal simultaneous connections. | Functionality | Yes | 10240 |
 
 > NOTE:
 > About `host` option, the value `localhost` and `0.0.0.0` is different. Value `localhost` could be resolved to any IP address based on your local configuration in `/etc/hosts` file, generally it is configured to `127.0.0.1`.

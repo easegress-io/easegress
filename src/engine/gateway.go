@@ -7,8 +7,11 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
+
+	"github.com/hexdecteam/easegateway-types/pipelines"
 
 	cluster "cluster/gateway"
 	"common"
@@ -16,7 +19,7 @@ import (
 	"logger"
 	"model"
 	"option"
-	"pipelines"
+	pipelines_gw "pipelines"
 	"plugins"
 )
 
@@ -25,12 +28,12 @@ const (
 )
 
 type pipelineInstance struct {
-	instance pipelines.Pipeline
+	instance pipelines_gw.Pipeline
 	stop     chan struct{}
 	done     chan struct{}
 }
 
-func newPipelineInstance(instance pipelines.Pipeline) *pipelineInstance {
+func newPipelineInstance(instance pipelines_gw.Pipeline) *pipelineInstance {
 	return &pipelineInstance{
 		instance: instance,
 		stop:     make(chan struct{}),
@@ -294,8 +297,14 @@ func (gw *Gateway) launchPipeline(newPipeline *model.Pipeline) {
 
 	ctx := gw.mod.CreatePipelineContext(newPipeline.Config(), statistics)
 
+	preparedPlugins := uint32(len(newPipeline.Config().PluginNames()))
+
+	gw.mod.AddPluginUpdatedCallback(fmt.Sprintf("%s-rePreparePlugin", newPipeline.Name()),
+		gw.getRePreparePluginCallback(newPipeline.Config().PluginNames(), &preparedPlugins, ctx),
+		common.NORMAL_PRIORITY_CALLBACK)
+
 	for i := uint16(0); i < newPipeline.Config().Parallelism(); i++ {
-		instance, err := newPipeline.GetInstance(ctx, statistics, gw.mod)
+		instance, err := newPipeline.GetInstance(ctx, statistics, gw.mod, &preparedPlugins)
 		if err != nil {
 			logger.Errorf("[launch pipeline %s-#%d failed: %v]", newPipeline.Name(), i, err)
 			return
@@ -335,6 +344,8 @@ func (gw *Gateway) terminatePipeline(deletedPipeline *model.Pipeline) {
 	for _, pi := range pipes {
 		<-pi.terminate()
 	}
+
+	gw.mod.DeletePluginUpdatedCallback(fmt.Sprintf("%s-rePreparePlugin", deletedPipeline.Name()))
 
 	delete(gw.pipelines, deletedPipeline.Name())
 }
@@ -671,4 +682,27 @@ func (gw *Gateway) handleClusterOperation(seq uint64, operation *cluster.Operati
 	logger.Debugf("[cluster operation (sequence=%d) has been handled]", seq)
 
 	return nil, cluster.NoneOperationFailure
+}
+
+func (gw *Gateway) getRePreparePluginCallback(pluginNames []string, preparedPlugins *uint32,
+	ctx pipelines.PipelineContext) model.PluginUpdated {
+
+	return func(updatedPlugin *model.Plugin) {
+		if !common.StrInSlice(updatedPlugin.Name(), pluginNames) {
+			return
+		}
+
+		atomic.StoreUint32(preparedPlugins, 0)
+
+		instance, err := gw.mod.GetPluginInstance(updatedPlugin.Name())
+		if err != nil {
+			logger.Warnf("[plugin %s get instance failed: %v]", updatedPlugin.Name(), err)
+		}
+
+		// This guarantees preparing the plugin instance only once.
+		instance.Prepare(ctx)
+		gw.mod.ReleasePluginInstance(instance)
+
+		atomic.StoreUint32(preparedPlugins, uint32(len(pluginNames)))
+	}
 }

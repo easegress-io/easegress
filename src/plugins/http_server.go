@@ -48,7 +48,7 @@ func httpServerConfigConstructor() plugins.Config {
 		},
 		ConnKeepAlive:    true,
 		ConnKeepAliveSec: 10,
-		MaxSimulConns:    1024,
+		MaxSimulConns:    10240,
 	}
 }
 

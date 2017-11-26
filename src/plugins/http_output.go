@@ -271,7 +271,9 @@ func (h *httpOutput) Prepare(ctx pipelines.PipelineContext) {
 	// Nothing to do.
 }
 
-func (h *httpOutput) send(ctx pipelines.PipelineContext, t task.Task, req *http.Request) (*http.Response, time.Duration, error) {
+func (h *httpOutput) send(ctx pipelines.PipelineContext, t task.Task, req *http.Request) (
+	*http.Response, time.Duration, error) {
+
 	r := make(chan *http.Response)
 	e := make(chan error)
 
@@ -410,7 +412,13 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) error {
 
 	resp, responseDuration, err := h.send(ctx, t, req)
 	if err != nil {
-		return nil
+		if t.ResultCode() == task.ResultTaskCancelled &&
+			len(h.conf.RequestBodyIOKey) == 0 { // has no rewind for rerun plugin
+
+			return t.Error()
+		} else {
+			return nil
+		}
 	}
 
 	closeRespBody := func() {

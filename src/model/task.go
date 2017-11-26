@@ -254,10 +254,15 @@ func removeChild(parent task.Task, child canceler) {
 
 ////
 
-func withCancel(parent task.Task) (task.Task, cancelFunc) {
+func withCancel(parent task.Task, err error) (task.Task, cancelFunc) {
 	c := newCancelTask(parent)
 	propagateCancel(parent, c)
-	return c, func() { c.cancel(true, task.Canceled) }
+	return c, func() {
+		if err == nil {
+			c.cancel(true, task.Canceled)
+		} else {
+			c.cancel(true, err)
+		}}
 }
 
 type cancelTask struct {
@@ -313,7 +318,7 @@ func (c *cancelTask) CancelCause() error {
 func withDeadline(parent task.Task, deadline time.Time) (task.Task, cancelFunc) {
 	if cur, ok := parent.Deadline(); ok && cur.Before(deadline) {
 		// The current deadline is already sooner than the new one.
-		return withCancel(parent)
+		return withCancel(parent, task.DeadlineExceeded)
 	}
 
 	c := &timerTask{
