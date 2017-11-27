@@ -189,15 +189,19 @@ func RemoveRepeatedRune(s string, needRemoveRune rune) string {
 		return s
 	}
 
-	repeatingRune := rune(s[0])
-	result := string(s[0])
+	var repeatingRune rune
+	result := bytes.NewBuffer(nil)
+	for _, r := range s[:1] {
+		repeatingRune = r
+		result.WriteRune(r)
+	}
 	for _, r := range s[1:] {
 		if r != repeatingRune || r != needRemoveRune {
-			result = fmt.Sprintf("%s%s", result, string(r))
+			result.WriteRune(r)
 		}
 		repeatingRune = r
 	}
-	return result
+	return result.String()
 }
 
 // Via: https://stackoverflow.com/a/466242/1705845
