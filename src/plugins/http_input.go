@@ -360,14 +360,16 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 		// TODO: Take care other headers if inputted
 
 		var bodyBytesSent int64 = -1 // -1 indicates we can't provide a proper value
+		var ioElapse time.Duration
 		if len(h.conf.ResponseBodyIOKey) != 0 {
 			reader, ok := t1.Value(h.conf.ResponseBodyIOKey).(io.Reader)
 			if ok {
 				done := make(chan int, 1)
-				reader1 := common.NewInterruptibleReader(reader)
+				ir := common.NewInterruptibleReader(reader)
+				tr := common.NewTimeReader(ir)
 
 				go func() {
-					written, err := io.Copy(ht.writer, reader1)
+					written, err := io.Copy(ht.writer, tr)
 					if err != nil {
 						logger.Warnf("[load response body from reader in the task"+
 							" failed, response might be incomplete: %s]", err)
@@ -380,18 +382,20 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 				select {
 				case <-t1.Cancel():
 					if h.conf.FastClose {
-						reader1.Cancel()
+						ir.Cancel()
 						logger.Warnf("[load response body from reader in the task" +
 							" has been cancelled, response might be incomplete]")
 					} else {
 						<-done
 						close(done)
-						reader1.Close()
+						ir.Close()
 					}
 				case <-done:
 					close(done)
-					reader1.Close()
+					ir.Close()
 				}
+
+				ioElapse = tr.Elapse()
 			}
 		} else if len(h.conf.ResponseBodyBufferKey) != 0 {
 			buff, ok := t1.Value(h.conf.ResponseBodyBufferKey).([]byte)
@@ -418,7 +422,7 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 		}
 
 		logRequest(ht, t1, h.conf.ResponseCodeKey, h.conf.ResponseRemoteKey,
-			h.conf.ResponseDurationKey, bodyBytesSent)
+			h.conf.ResponseDurationKey, ioElapse, bodyBytesSent)
 	}
 
 	closeHTTPInputRequestBody := func(t1 task.Task, _ task.TaskStatus) {
@@ -568,7 +572,7 @@ func getClientReceivedCode(t task.Task, responseCodeKey string) int {
 }
 
 func logRequest(ht *httpTask, t task.Task, responseCodeKey, responseRemoteKey,
-	responseDurationKey string, bodyBytesSent int64) {
+	responseDurationKey string, ioElapse time.Duration, bodyBytesSent int64) {
 
 	var responseRemote string = ""
 	value := t.Value(responseRemoteKey)
@@ -579,13 +583,13 @@ func logRequest(ht *httpTask, t task.Task, responseCodeKey, responseRemoteKey,
 		}
 	}
 
-	var responseDuration time.Duration = 0
+	responseDuration := ioElapse
 	value = nil
 	value = t.Value(responseDurationKey)
 	if value != nil {
 		rd, ok := value.(time.Duration)
 		if ok {
-			responseDuration = rd
+			responseDuration += rd
 		}
 	}
 

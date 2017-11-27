@@ -373,8 +373,8 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) error {
 	// FIXME(shengdong): path.Clean() may have side-effect:
 	// For example: if PARAM is "" in url `/{PARAM}/`,
 	// then that url will be cleaned up to `/`. This may lead bugs.
-
 	req.URL.Path = path.Clean(req.URL.Path)
+
 	if len(h.conf.RequestHeaderKey) != 0 {
 		copyHeaderFromTask(t, h.conf.RequestHeaderKey, req.Header)
 	}
