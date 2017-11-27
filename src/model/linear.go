@@ -114,7 +114,7 @@ func (p *linearPipeline) Run() error {
 
 	tsk := NewTask()
 	var t task.Task
-	t, p.stopCancel = withCancel(tsk, task.CanceledByPipelineStop)
+	t, p.stopCancel = withCancel(tsk, task.CanceledByPipelineStopped)
 
 	pluginNames := p.conf.PluginNames()
 
@@ -252,7 +252,7 @@ func (p *linearPipeline) runPlugin(instance plugins.Plugin, input task.Task, tsk
 	originalCode := input.ResultCode()
 	rerun := false
 
-	t, canceller := withCancel(input, task.CanceledByPluginUpdate)
+	t, canceller := withCancel(input, task.CanceledByPluginUpdated)
 
 	p.rerunCancel = func() {
 		rerun = true
