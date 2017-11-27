@@ -11,8 +11,8 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -89,13 +89,6 @@ func (c *httpOutputConfig) Prepare(pipelineNames []string) error {
 	c.ResponseBodyIOKey = ts(c.ResponseBodyIOKey)
 	c.ResponseRemoteKey = ts(c.ResponseRemoteKey)
 	c.ResponseDurationKey = ts(c.ResponseDurationKey)
-
-	uri, err := url.ParseRequestURI(c.URLPattern)
-	if err != nil || !uri.IsAbs() || uri.Hostname() == "" ||
-		!common.StrInSlice(uri.Scheme, []string{"http", "https"}) {
-
-		return fmt.Errorf("invalid url: %s", c.URLPattern)
-	}
 
 	_, err = common.ScanTokens(c.URLPattern, false, nil)
 	if err != nil {
@@ -327,7 +320,7 @@ func (h *httpOutput) send(ctx pipelines.PipelineContext, t task.Task, req *http.
 
 func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) error {
 	// skip error check safely due to we ensured it in Prepare()
-	link, _ := ReplaceTokensInPattern(t, h.conf.URLPattern)
+	url, _ := ReplaceTokensInPattern(t, h.conf.URLPattern)
 
 	var length int64
 	var reader io.Reader
@@ -371,12 +364,17 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) error {
 		return nil
 	}
 
-	req, err := http.NewRequest(method, link, reader)
+	req, err := http.NewRequest(method, url, reader)
 	if err != nil {
 		t.SetError(err, task.ResultInternalServerError)
 		return nil
 	}
 
+	// FIXME(shengdong): path.Clean() may have side-effect:
+	// For example: if PARAM is "" in url `/{PARAM}/`,
+	// then that url will be cleaned up to `/`. This may lead bugs.
+
+	req.URL.Path = path.Clean(req.URL.Path)
 	if len(h.conf.RequestHeaderKey) != 0 {
 		copyHeaderFromTask(t, h.conf.RequestHeaderKey, req.Header)
 	}
@@ -450,7 +448,7 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) error {
 	}
 
 	if len(h.conf.ResponseRemoteKey) != 0 {
-		t.WithValue(h.conf.ResponseRemoteKey, link)
+		t.WithValue(h.conf.ResponseRemoteKey, req.URL.String())
 	}
 
 	if len(h.conf.ResponseDurationKey) != 0 {
