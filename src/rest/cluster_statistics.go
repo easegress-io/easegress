@@ -56,7 +56,7 @@ func (s *clusterStatisticsServer) Api() (*rest.Api, error) {
 	)
 
 	if err != nil {
-		logger.Errorf("[make router for cluster staticstics server failed: %v]", err)
+		logger.Errorf("[make router for cluster statistics server failed: %v]", err)
 		return nil, err
 	}
 

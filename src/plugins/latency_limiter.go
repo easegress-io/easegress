@@ -222,7 +222,7 @@ func getTaskFinishedCallbackInLatencyLimiter(ctx pipelines.PipelineContext, plug
 	latencyThresholdMSec uint32, pluginName string) task.TaskFinished {
 
 	return func(t1 task.Task, _ task.TaskStatus) {
-		var latency float64
+		var latency int64
 		var found bool
 
 		for _, name := range pluginsConcerned {
@@ -254,7 +254,7 @@ func getTaskFinishedCallbackInLatencyLimiter(ctx pipelines.PipelineContext, plug
 			return
 		}
 
-		if latency < float64(time.Duration(latencyThresholdMSec)*time.Millisecond) {
+		if latency < int64(time.Duration(latencyThresholdMSec)*time.Millisecond) {
 			counter.Decrease()
 		} else {
 			counter.Increase()

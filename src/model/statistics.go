@@ -220,7 +220,7 @@ type PipelineStatistics struct {
 	pipelineName string
 
 	pipelineThroughputRates1, pipelineThroughputRates5, pipelineThroughputRates15 metrics.EWMA
-	pipelineExecutionSample                                                       metrics.Sample
+	pipelineExecutionSample                                                       *common.HDRSample
 
 	pluginSuccessThroughputRates1, pluginSuccessThroughputRates5,
 	pluginSuccessThroughputRates15, pluginFailureThroughputRates1,
@@ -229,7 +229,8 @@ type PipelineStatistics struct {
 	pluginAllThroughputRates1, pluginAllThroughputRates5,
 	pluginAllThroughputRates15 map[string]metrics.EWMA
 
-	pluginSuccessExecutionSamples, pluginFailureExecutionSamples, pluginAllExecutionSamples map[string]metrics.Sample
+	pluginSuccessExecutionSamples, pluginFailureExecutionSamples,
+	pluginAllExecutionSamples map[string]*common.HDRSample
 
 	taskSuccessCount, taskFailureCount uint64
 
@@ -250,7 +251,7 @@ func NewPipelineStatistics(pipelineName string, pluginNames []string, m *Model) 
 		pipelineThroughputRates1:       metrics.NewEWMA1(),
 		pipelineThroughputRates5:       metrics.NewEWMA5(),
 		pipelineThroughputRates15:      metrics.NewEWMA15(),
-		pipelineExecutionSample:        metrics.NewExpDecaySample(514, 0.015),
+		pipelineExecutionSample:        common.NewHDRSample(time.Minute, 30),
 		pluginSuccessThroughputRates1:  make(map[string]metrics.EWMA),
 		pluginSuccessThroughputRates5:  make(map[string]metrics.EWMA),
 		pluginSuccessThroughputRates15: make(map[string]metrics.EWMA),
@@ -262,15 +263,15 @@ func NewPipelineStatistics(pipelineName string, pluginNames []string, m *Model) 
 		pluginAllThroughputRates5:  make(map[string]metrics.EWMA),
 		pluginAllThroughputRates15: make(map[string]metrics.EWMA),
 
-		pluginSuccessExecutionSamples:  make(map[string]metrics.Sample),
-		pluginFailureExecutionSamples:  make(map[string]metrics.Sample),
-		pluginAllExecutionSamples:      make(map[string]metrics.Sample),
+		pluginSuccessExecutionSamples: make(map[string]*common.HDRSample),
+		pluginFailureExecutionSamples: make(map[string]*common.HDRSample),
+		pluginAllExecutionSamples:     make(map[string]*common.HDRSample),
 
-		pipelineIndicators:             make(map[string]*statisticsIndicator),
-		pluginIndicators:               make(map[string]map[string][]*pluginStatisticsIndicator),
-		taskIndicators:                 make(map[string]*statisticsIndicator),
-		done:                           make(chan struct{}),
-		mod:                            m,
+		pipelineIndicators: make(map[string]*statisticsIndicator),
+		pluginIndicators:   make(map[string]map[string][]*pluginStatisticsIndicator),
+		taskIndicators:     make(map[string]*statisticsIndicator),
+		done:               make(chan struct{}),
+		mod:                m,
 		pipelineThroughputRateUpdatedCallbacks:  common.NewNamedCallbackSet(),
 		pipelineExecutionSampleUpdatedCallbacks: common.NewNamedCallbackSet(),
 		pluginThroughputRateUpdatedCallbacks:    common.NewNamedCallbackSet(),
@@ -328,11 +329,9 @@ func NewPipelineStatistics(pipelineName string, pluginNames []string, m *Model) 
 
 		go tickFun([]metrics.EWMA{ewma1, ewma5, ewma15})
 
-		// https://github.com/rcrowley/go-metrics/blob/master/sample_test.go#L62
-		// http://dimacs.rutgers.edu/~graham/pubs/papers/fwddecay.pdf
-		ret.pluginSuccessExecutionSamples[name] = metrics.NewExpDecaySample(514, 0.015)
-		ret.pluginFailureExecutionSamples[name] = metrics.NewExpDecaySample(514, 0.015)
-		ret.pluginAllExecutionSamples[name] = metrics.NewExpDecaySample(514, 0.015)
+		ret.pluginSuccessExecutionSamples[name] = common.NewHDRSample(time.Minute, 30)
+		ret.pluginFailureExecutionSamples[name] = common.NewHDRSample(time.Minute, 30)
+		ret.pluginAllExecutionSamples[name] = common.NewHDRSample(time.Minute, 30)
 	}
 
 	// Expose pipeline statistics values as indicators
@@ -351,50 +350,40 @@ func NewPipelineStatistics(pipelineName string, pluginNames []string, m *Model) 
 		func(pipelineName, indicatorName string) (interface{}, error) {
 			return ret.PipelineThroughputRate15()
 		})
-	ret.registerPipelineIndicator("EXECUTION_COUNT_ALL",
-		"Total execution count of the pipeline.",
+	ret.registerPipelineIndicator("EXECUTION_COUNT_LAST_1MIN_ALL",
+		"Total execution count of the pipeline in last minute.",
 		func(pipelineName, indicatorName string) (interface{}, error) {
 			return ret.PipelineExecutionCount()
 		})
-	ret.registerPipelineIndicator("EXECUTION_TIME_MAX_ALL",
-		"Maximal time of execution time of the pipeline in nanosecond.",
+	ret.registerPipelineIndicator("EXECUTION_TIME_MAX_LAST_1MIN_ALL",
+		"Maximal time of execution time of the pipeline in last minute in nanosecond.",
 		func(pipelineName, indicatorName string) (interface{}, error) {
 			return ret.PipelineExecutionTimeMax()
 		})
-	ret.registerPipelineIndicator("EXECUTION_TIME_MIN_ALL",
-		"Minimal time of execution time of the pipeline in nanosecond.",
+	ret.registerPipelineIndicator("EXECUTION_TIME_MIN_LAST_1MIN_ALL",
+		"Minimal time of execution time of the pipeline in last minute in nanosecond.",
 		func(pipelineName, indicatorName string) (interface{}, error) {
 			return ret.PipelineExecutionTimeMin()
 		})
-	ret.registerPipelineIndicator("EXECUTION_TIME_50_PERCENT_ALL",
-		"50% execution time of the pipeline in nanosecond.",
+	ret.registerPipelineIndicator("EXECUTION_TIME_50_PERCENT_LAST_1MIN_ALL",
+		"50% execution time of the pipeline in last 1 minute in nanosecond.",
 		func(pipelineName, indicatorName string) (interface{}, error) {
 			return ret.PipelineExecutionTimePercentile(0.5)
 		})
-	ret.registerPipelineIndicator("EXECUTION_TIME_90_PERCENT_ALL",
-		"90% execution time of the pipeline in nanosecond.",
+	ret.registerPipelineIndicator("EXECUTION_TIME_90_PERCENT_LAST_1MIN_ALL",
+		"90% execution time of the pipeline in last minute in nanosecond.",
 		func(pipelineName, indicatorName string) (interface{}, error) {
 			return ret.PipelineExecutionTimePercentile(0.9)
 		})
-	ret.registerPipelineIndicator("EXECUTION_TIME_99_PERCENT_ALL",
-		"99% execution time of the pipeline in nanosecond.",
+	ret.registerPipelineIndicator("EXECUTION_TIME_99_PERCENT_LAST_1MIN_ALL",
+		"99% execution time of the pipeline in last minute in nanosecond.",
 		func(pipelineName, indicatorName string) (interface{}, error) {
 			return ret.PipelineExecutionTimePercentile(0.99)
 		})
-	ret.registerPipelineIndicator("EXECUTION_TIME_STD_DEV_ALL",
-		"Standard deviation of execution time of the pipeline in nanosecond.",
+	ret.registerPipelineIndicator("EXECUTION_TIME_STD_DEV_LAST_1MIN_ALL",
+		"Standard deviation of execution time of the pipeline in last minute in nanosecond.",
 		func(pipelineName, indicatorName string) (interface{}, error) {
 			return ret.PipelineExecutionTimeStdDev()
-		})
-	ret.registerPipelineIndicator("EXECUTION_TIME_VARIANCE_ALL",
-		"Variance of execution time of the pipeline.",
-		func(pipelineName, indicatorName string) (interface{}, error) {
-			return ret.PipelineExecutionTimeVariance()
-		})
-	ret.registerPipelineIndicator("EXECUTION_TIME_SUM_ALL",
-		"Sum of execution time of the pipeline in nanosecond.",
-		func(pipelineName, indicatorName string) (interface{}, error) {
-			return ret.PipelineExecutionTimeSum()
 		})
 
 	// Expose common plugin statistics values as builtin plugin indicators
@@ -451,161 +440,137 @@ func NewPipelineStatistics(pipelineName string, pluginNames []string, m *Model) 
 				return ret.PluginThroughputRate15(pluginName, pipelines.FailureStatistics)
 			})
 		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
-			"EXECUTION_COUNT_ALL", "Total execution count of the plugin.",
+			"EXECUTION_COUNT_LAST_1MIN_ALL", "Total execution count of the plugin in last minute.",
 			func(pluginName, indicatorName string) (interface{}, error) {
 				return ret.PluginExecutionCount(pluginName, pipelines.AllStatistics)
 			})
 		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
-			"EXECUTION_COUNT_SUCCESS", "Successful execution count of the plugin.",
+			"EXECUTION_COUNT_LAST_1MIN_SUCCESS", "Successful execution count of the plugin in last minute.",
 			func(pluginName, indicatorName string) (interface{}, error) {
 				return ret.PluginExecutionCount(pluginName, pipelines.SuccessStatistics)
 			})
 		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
-			"EXECUTION_COUNT_FAILURE", "Failed execution count of the plugin.",
+			"EXECUTION_COUNT_LAST_1MIN_FAILURE", "Failed execution count of the plugin in last minute.",
 			func(pluginName, indicatorName string) (interface{}, error) {
 				return ret.PluginExecutionCount(pluginName, pipelines.FailureStatistics)
 			})
 		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
-			"EXECUTION_TIME_MAX_ALL", "Maximal time of execution time of the plugin in nanosecond.",
+			"EXECUTION_TIME_MAX_LAST_1MIN_ALL",
+			"Maximal time of execution time of the plugin in last minute in nanosecond.",
 			func(pluginName, indicatorName string) (interface{}, error) {
 				return ret.PluginExecutionTimeMax(pluginName, pipelines.AllStatistics)
 			})
 		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
-			"EXECUTION_TIME_MAX_SUCCESS",
-			"Maximal time of successful execution of the plugin in nanosecond.",
+			"EXECUTION_TIME_MAX_LAST_1MIN_SUCCESS",
+			"Maximal time of successful execution of the plugin in last minute in nanosecond.",
 			func(pluginName, indicatorName string) (interface{}, error) {
 				return ret.PluginExecutionTimeMax(pluginName, pipelines.SuccessStatistics)
 			})
 		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
-			"EXECUTION_TIME_MAX_FAILURE", "Maximal time of failure execution of the plugin in nanosecond.",
+			"EXECUTION_TIME_MAX_LAST_1MIN_FAILURE",
+				"Maximal time of failure execution of the plugin in last minute in nanosecond.",
 			func(pluginName, indicatorName string) (interface{}, error) {
 				return ret.PluginExecutionTimeMax(pluginName, pipelines.FailureStatistics)
 			})
 		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
-			"EXECUTION_TIME_MIN_ALL", "Minimal time of execution time of the plugin in nanosecond.",
+			"EXECUTION_TIME_MIN_LAST_1MIN_ALL",
+			"Minimal time of execution time of the plugin in last minute in nanosecond.",
 			func(pluginName, indicatorName string) (interface{}, error) {
 				return ret.PluginExecutionTimeMin(pluginName, pipelines.AllStatistics)
 			})
 		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
-			"EXECUTION_TIME_MIN_SUCCESS",
-			"Minimal time of successful execution of the plugin in nanosecond.",
+			"EXECUTION_TIME_MIN_LAST_1MIN_SUCCESS",
+			"Minimal time of successful execution of the plugin in last minute in nanosecond.",
 			func(pluginName, indicatorName string) (interface{}, error) {
 				return ret.PluginExecutionTimeMin(pluginName, pipelines.SuccessStatistics)
 			})
 		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
-			"EXECUTION_TIME_MIN_FAILURE", "Minimal time of failure execution of the plugin in nanosecond.",
+			"EXECUTION_TIME_MIN_LAST_1MIN_FAILURE",
+				"Minimal time of failure execution of the plugin in last minute in nanosecond.",
 			func(pluginName, indicatorName string) (interface{}, error) {
 				return ret.PluginExecutionTimeMin(pluginName, pipelines.FailureStatistics)
 			})
 		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
-			"EXECUTION_TIME_50_PERCENT_SUCCESS",
-			"50% successful execution time of the plugin in nanosecond.",
+			"EXECUTION_TIME_50_PERCENT_LAST_1MIN_SUCCESS",
+			"50% successful execution time of the plugin in last minute in nanosecond.",
 			func(pluginName, indicatorName string) (interface{}, error) {
 				return ret.PluginExecutionTimePercentile(
 					pluginName, pipelines.SuccessStatistics, 0.5)
 			})
 		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
-			"EXECUTION_TIME_50_PERCENT_FAILURE", "50% failure execution time of the plugin in nanosecond.",
+			"EXECUTION_TIME_50_PERCENT_LAST_1MIN_FAILURE",
+				"50% failure execution time of the plugin in last minute in nanosecond.",
 			func(pluginName, indicatorName string) (interface{}, error) {
 				return ret.PluginExecutionTimePercentile(
 					pluginName, pipelines.FailureStatistics, 0.5)
 			})
 		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
-			"EXECUTION_TIME_50_PERCENT_ALL",
-			"50% execution time of the plugin in nanosecond.",
+			"EXECUTION_TIME_50_PERCENT_LAST_1MIN_ALL",
+			"50% execution time of the plugin in last minute in nanosecond.",
 			func(pluginName, indicatorName string) (interface{}, error) {
 				return ret.PluginExecutionTimePercentile(
 					pluginName, pipelines.SuccessStatistics, 0.5)
 			})
 		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
-			"EXECUTION_TIME_90_PERCENT_SUCCESS",
-			"90% successful execution time of the plugin in nanosecond.",
+			"EXECUTION_TIME_90_PERCENT_LAST_1MIN_SUCCESS",
+			"90% successful execution time of the plugin in last minute in nanosecond.",
 			func(pluginName, indicatorName string) (interface{}, error) {
 				return ret.PluginExecutionTimePercentile(
 					pluginName, pipelines.SuccessStatistics, 0.9)
 			})
 		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
-			"EXECUTION_TIME_90_PERCENT_FAILURE", "90% failure execution time of the plugin in nanosecond.",
+			"EXECUTION_TIME_90_PERCENT_LAST_1MIN_FAILURE",
+				"90% failure execution time of the plugin in last minute in nanosecond.",
 			func(pluginName, indicatorName string) (interface{}, error) {
 				return ret.PluginExecutionTimePercentile(
 					pluginName, pipelines.FailureStatistics, 0.9)
 			})
 		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
-			"EXECUTION_TIME_90_PERCENT_ALL",
-			"90% execution time of the plugin in nanosecond.",
+			"EXECUTION_TIME_90_PERCENT_LAST_1MIN_ALL",
+			"90% execution time of the plugin in last minute in nanosecond.",
 			func(pluginName, indicatorName string) (interface{}, error) {
 				return ret.PluginExecutionTimePercentile(
 					pluginName, pipelines.AllStatistics, 0.9)
 			})
 		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
-			"EXECUTION_TIME_99_PERCENT_SUCCESS",
-			"99% successful execution time of the plugin in nanosecond.",
+			"EXECUTION_TIME_99_PERCENT_LAST_1MIN_SUCCESS",
+			"99% successful execution time of the plugin in last minute in nanosecond.",
 			func(pluginName, indicatorName string) (interface{}, error) {
 				return ret.PluginExecutionTimePercentile(
 					pluginName, pipelines.SuccessStatistics, 0.99)
 			})
 		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
-			"EXECUTION_TIME_99_PERCENT_FAILURE", "99% failure execution time of the plugin in nanosecond.",
+			"EXECUTION_TIME_99_PERCENT_LAST_1MIN_FAILURE",
+				"99% failure execution time of the plugin in last minute in nanosecond.",
 			func(pluginName, indicatorName string) (interface{}, error) {
 				return ret.PluginExecutionTimePercentile(
 					pluginName, pipelines.FailureStatistics, 0.99)
 			})
 		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
-			"EXECUTION_TIME_99_PERCENT_ALL",
-			"99% execution time of the plugin in nanosecond.",
+			"EXECUTION_TIME_99_PERCENT_LAST_1MIN_ALL",
+			"99% execution time of the plugin in last minute in nanosecond.",
 			func(pluginName, indicatorName string) (interface{}, error) {
 				return ret.PluginExecutionTimePercentile(
 					pluginName, pipelines.AllStatistics, 0.99)
 			})
 		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
-			"EXECUTION_TIME_STD_DEV_SUCCESS",
-			"Standard deviation of successful execution time of the plugin in nanosecond.",
+			"EXECUTION_TIME_STD_DEV_LAST_1MIN_SUCCESS",
+			"Standard deviation of successful execution time of the plugin in last minute in nanosecond.",
 			func(pluginName, indicatorName string) (interface{}, error) {
 				return ret.PluginExecutionTimeStdDev(pluginName, pipelines.SuccessStatistics)
 			})
 		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
-			"EXECUTION_TIME_STD_DEV_FAILURE",
-			"Standard deviation of failure execution time of the plugin in nanosecond.",
+			"EXECUTION_TIME_STD_DEV_LAST_1MIN_FAILURE",
+			"Standard deviation of failure execution time of the plugin in last minute in nanosecond.",
 			func(pluginName, indicatorName string) (interface{}, error) {
 				return ret.PluginExecutionTimeStdDev(pluginName, pipelines.FailureStatistics)
 			})
 		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
-			"EXECUTION_TIME_STD_DEV_ALL",
-			"Standard deviation of failure execution time of the plugin in nanosecond.",
+			"EXECUTION_TIME_STD_DEV_LAST_1MIN_ALL",
+			"Standard deviation of failure execution time of the plugin in last minute in nanosecond.",
 			func(pluginName, indicatorName string) (interface{}, error) {
 				return ret.PluginExecutionTimeStdDev(pluginName, pipelines.AllStatistics)
 			})
-		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
-			"EXECUTION_TIME_VARIANCE_SUCCESS", "Variance of successful execution time of the plugin.",
-			func(pluginName, indicatorName string) (interface{}, error) {
-				return ret.PluginExecutionTimeVariance(pluginName, pipelines.SuccessStatistics)
-			})
-		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
-			"EXECUTION_TIME_VARIANCE_FAILURE", "Variance of failure execution time of the plugin.",
-			func(pluginName, indicatorName string) (interface{}, error) {
-				return ret.PluginExecutionTimeVariance(pluginName, pipelines.FailureStatistics)
-			})
-		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
-			"EXECUTION_TIME_VARIANCE_ALL", "Variance of execution time of the plugin.",
-			func(pluginName, indicatorName string) (interface{}, error) {
-				return ret.PluginExecutionTimeVariance(pluginName, pipelines.AllStatistics)
-			})
-		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
-			"EXECUTION_TIME_SUM_SUCCESS", "Sum of successful execution time of the plugin in nanosecond.",
-			func(pluginName, indicatorName string) (interface{}, error) {
-				return ret.PluginExecutionTimeSum(pluginName, pipelines.SuccessStatistics)
-			})
-		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
-			"EXECUTION_TIME_SUM_FAILURE", "Sum of failure execution time of the plugin in nanosecond.",
-			func(pluginName, indicatorName string) (interface{}, error) {
-				return ret.PluginExecutionTimeSum(pluginName, pipelines.FailureStatistics)
-			})
-		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
-			"EXECUTION_TIME_SUM_ALL", "Sum of execution time of the plugin in nanosecond.",
-			func(pluginName, indicatorName string) (interface{}, error) {
-				return ret.PluginExecutionTimeSum(pluginName, pipelines.AllStatistics)
-			})
-
 	}
 
 	// Expose task statistics values as indicators
@@ -631,6 +596,21 @@ func NewPipelineStatistics(pipelineName string, pluginNames []string, m *Model) 
 func (ps *PipelineStatistics) Close() {
 	ps.RLock()
 	defer ps.RUnlock()
+
+	ps.pipelineExecutionSample.Close()
+
+	for _, s := range ps.pluginSuccessExecutionSamples {
+		s.Close()
+	}
+
+	for _, s := range ps.pluginFailureExecutionSamples {
+		s.Close()
+	}
+
+	for _, s := range ps.pluginAllExecutionSamples {
+		s.Close()
+	}
+
 	close(ps.done)
 }
 
@@ -658,20 +638,12 @@ func (ps *PipelineStatistics) PipelineExecutionTimeMin() (int64, error) {
 	return ps.pipelineExecutionSample.Min(), nil
 }
 
-func (ps *PipelineStatistics) PipelineExecutionTimePercentile(percentile float64) (float64, error) {
+func (ps *PipelineStatistics) PipelineExecutionTimePercentile(percentile float64) (int64, error) {
 	return ps.pipelineExecutionSample.Percentile(percentile), nil
 }
 
 func (ps *PipelineStatistics) PipelineExecutionTimeStdDev() (float64, error) {
 	return ps.pipelineExecutionSample.StdDev(), nil
-}
-
-func (ps *PipelineStatistics) PipelineExecutionTimeVariance() (float64, error) {
-	return ps.pipelineExecutionSample.Variance(), nil
-}
-
-func (ps *PipelineStatistics) PipelineExecutionTimeSum() (int64, error) {
-	return ps.pipelineExecutionSample.Sum(), nil
 }
 
 func (ps *PipelineStatistics) PluginThroughputRate1(pluginName string,
@@ -810,7 +782,7 @@ func (ps *PipelineStatistics) PluginExecutionTimeMin(pluginName string,
 }
 
 func (ps *PipelineStatistics) PluginExecutionTimePercentile(pluginName string,
-	kind pipelines.StatisticsKind, percentile float64) (float64, error) {
+	kind pipelines.StatisticsKind, percentile float64) (int64, error) {
 
 	ps.RLock()
 	defer ps.RUnlock()
@@ -864,66 +836,6 @@ func (ps *PipelineStatistics) PluginExecutionTimeStdDev(pluginName string,
 			return -1, fmt.Errorf("invalid plugin name")
 		}
 		return sample.StdDev(), nil
-	default:
-		return -1, fmt.Errorf("invalid plugin statistics kind %s", kind)
-	}
-}
-
-func (ps *PipelineStatistics) PluginExecutionTimeVariance(pluginName string,
-	kind pipelines.StatisticsKind) (float64, error) {
-
-	ps.RLock()
-	defer ps.RUnlock()
-
-	switch kind {
-	case pipelines.SuccessStatistics:
-		sample, exists := ps.pluginSuccessExecutionSamples[pluginName]
-		if !exists {
-			return -1, fmt.Errorf("invalid plugin name")
-		}
-		return sample.Variance(), nil
-	case pipelines.FailureStatistics:
-		sample, exists := ps.pluginFailureExecutionSamples[pluginName]
-		if !exists {
-			return -1, fmt.Errorf("invalid plugin name")
-		}
-		return sample.Variance(), nil
-	case pipelines.AllStatistics:
-		sample, exists := ps.pluginAllExecutionSamples[pluginName]
-		if !exists {
-			return -1, fmt.Errorf("invalid plugin name")
-		}
-		return sample.Variance(), nil
-	default:
-		return -1, fmt.Errorf("invalid plugin statistics kind %s", kind)
-	}
-}
-
-func (ps *PipelineStatistics) PluginExecutionTimeSum(pluginName string,
-	kind pipelines.StatisticsKind) (int64, error) {
-
-	ps.RLock()
-	defer ps.RUnlock()
-
-	switch kind {
-	case pipelines.SuccessStatistics:
-		sample, exists := ps.pluginSuccessExecutionSamples[pluginName]
-		if !exists {
-			return -1, fmt.Errorf("invalid plugin name")
-		}
-		return sample.Sum(), nil
-	case pipelines.FailureStatistics:
-		sample, exists := ps.pluginFailureExecutionSamples[pluginName]
-		if !exists {
-			return -1, fmt.Errorf("invalid plugin name")
-		}
-		return sample.Sum(), nil
-	case pipelines.AllStatistics:
-		sample, exists := ps.pluginFailureExecutionSamples[pluginName]
-		if !exists {
-			return -1, fmt.Errorf("invalid plugin name")
-		}
-		return sample.Sum(), nil
 	default:
 		return -1, fmt.Errorf("invalid plugin statistics kind %s", kind)
 	}

@@ -53,7 +53,7 @@ func (s *statisticsServer) Api() (*rest.Api, error) {
 	)
 
 	if err != nil {
-		logger.Errorf("[make router for staticstics server failed: %v]", err)
+		logger.Errorf("[make router for statistics server failed: %v]", err)
 		return nil, err
 	}
 
