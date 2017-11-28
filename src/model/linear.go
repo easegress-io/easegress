@@ -312,6 +312,7 @@ func (p *linearPipeline) cancelAndRerunRunningPlugin(updatedPlugin *Plugin) {
 
 	defer func() {
 		recover() // to prevent p.rerunCancel is nil
-		p.rerunCancel()
 	}()
+
+	p.rerunCancel()
 }
