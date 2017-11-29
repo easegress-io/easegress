@@ -38,7 +38,6 @@ import:
 - package: github.com/hashicorp/logutils
 - package: github.com/ghodss/yaml
 - package: github.com/allegro/bigcache
-- package: github.com/codahale/hdrhistogram
 - package: github.com/hexdecteam/easegateway-go-client
   subpackages:
   - rest/1.0/admin/v1

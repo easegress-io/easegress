@@ -220,7 +220,7 @@ type PipelineStatistics struct {
 	pipelineName string
 
 	pipelineThroughputRates1, pipelineThroughputRates5, pipelineThroughputRates15 metrics.EWMA
-	pipelineExecutionSample                                                       *common.HDRSample
+	pipelineExecutionSample                                                       *common.ExpDecaySample
 
 	pluginSuccessThroughputRates1, pluginSuccessThroughputRates5,
 	pluginSuccessThroughputRates15, pluginFailureThroughputRates1,
@@ -230,7 +230,7 @@ type PipelineStatistics struct {
 	pluginAllThroughputRates15 map[string]metrics.EWMA
 
 	pluginSuccessExecutionSamples, pluginFailureExecutionSamples,
-	pluginAllExecutionSamples map[string]*common.HDRSample
+	pluginAllExecutionSamples map[string]*common.ExpDecaySample
 
 	taskSuccessCount, taskFailureCount uint64
 
@@ -263,9 +263,9 @@ func NewPipelineStatistics(pipelineName string, pluginNames []string, m *Model) 
 		pluginAllThroughputRates5:  make(map[string]metrics.EWMA),
 		pluginAllThroughputRates15: make(map[string]metrics.EWMA),
 
-		pluginSuccessExecutionSamples: make(map[string]*common.HDRSample),
-		pluginFailureExecutionSamples: make(map[string]*common.HDRSample),
-		pluginAllExecutionSamples:     make(map[string]*common.HDRSample),
+		pluginSuccessExecutionSamples: make(map[string]*common.ExpDecaySample),
+		pluginFailureExecutionSamples: make(map[string]*common.ExpDecaySample),
+		pluginAllExecutionSamples:     make(map[string]*common.ExpDecaySample),
 
 		pipelineIndicators: make(map[string]*statisticsIndicator),
 		pluginIndicators:   make(map[string]map[string][]*pluginStatisticsIndicator),
@@ -638,7 +638,7 @@ func (ps *PipelineStatistics) PipelineExecutionTimeMin() (int64, error) {
 	return ps.pipelineExecutionSample.Min(), nil
 }
 
-func (ps *PipelineStatistics) PipelineExecutionTimePercentile(percentile float64) (int64, error) {
+func (ps *PipelineStatistics) PipelineExecutionTimePercentile(percentile float64) (float64, error) {
 	return ps.pipelineExecutionSample.Percentile(percentile), nil
 }
 
@@ -782,7 +782,7 @@ func (ps *PipelineStatistics) PluginExecutionTimeMin(pluginName string,
 }
 
 func (ps *PipelineStatistics) PluginExecutionTimePercentile(pluginName string,
-	kind pipelines.StatisticsKind, percentile float64) (int64, error) {
+	kind pipelines.StatisticsKind, percentile float64) (float64, error) {
 
 	ps.RLock()
 	defer ps.RUnlock()
