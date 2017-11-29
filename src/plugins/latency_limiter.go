@@ -106,7 +106,8 @@ func (l *latencyWindowLimiter) Run(ctx pipelines.PipelineContext, t task.Task) e
 			logger.Debugf("[latencyWindowLimiter inRate:%.1f, outRate:%.1f]", inRate, outRate)
 			// Probe: don't totally fuse requests because we need small amount of requests to probe the concerned target
 			if outRate > 10 || // out rate is big enough so don't need probe
-				rand.Intn(int(inRate)) >= 1 {
+				inRate >= 2 && // rand.Intn(1) will always return zero
+					rand.Intn(int(inRate)) >= 1 {
 				// service fusing
 				t.SetError(fmt.Errorf("service is unavaialbe caused by latency limit"),
 					task.ResultFlowControl)
