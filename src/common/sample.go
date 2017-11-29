@@ -32,6 +32,8 @@ func NewHDRSample(timeRange time.Duration, secondsForEachBucket int) *ExpDecaySa
 		idx++
 	}
 
+	s.stop = make(chan struct{})
+
 	switcher := func() {
 		for {
 			select {
