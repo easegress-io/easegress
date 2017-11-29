@@ -7,8 +7,8 @@ import (
 	"plugin"
 	"strings"
 
-	"github.com/hexdecteam/easegateway-types/plugins"
 	"github.com/hexdecteam/easegateway-types/pipelines"
+	"github.com/hexdecteam/easegateway-types/plugins"
 	"github.com/hexdecteam/easegateway-types/task"
 
 	"common"
@@ -255,12 +255,15 @@ func ReplaceTokensInPattern(t task.Task, pattern string) (string, error) {
 
 // limiter related utils
 
-const limiterFlowControlledThroughputRate1Key = "LimiterFlowControlledRateKey"
-const limiterInThroughputRate1Key = "LimiterInRateKey"
+const limiterInboundThroughputRate1Key = "limiterInboundThroughputRate1"
+const limiterFlowControlledThroughputRate1Key = "limiterFlowControlledThroughputRate1"
 
-func getInThroughputRate1(ctx pipelines.PipelineContext, pluginName string) (*common.ThroughputStatistic, error) {
+
+func getInboundThroughputRate1(ctx pipelines.PipelineContext,
+	pluginName string) (*common.ThroughputStatistic, error) {
+
 	bucket := ctx.DataBucket(pluginName, pipelines.DATA_BUCKET_FOR_ALL_PLUGIN_INSTANCE)
-	rate, err := bucket.QueryDataWithBindDefault(limiterInThroughputRate1Key, func() interface{} {
+	rate, err := bucket.QueryDataWithBindDefault(limiterInboundThroughputRate1Key, func() interface{} {
 		return common.NewThroughputStatistic(common.ThroughputRate1)
 	})
 	if err != nil {
@@ -272,7 +275,9 @@ func getInThroughputRate1(ctx pipelines.PipelineContext, pluginName string) (*co
 	return rate.(*common.ThroughputStatistic), nil
 }
 
-func getFlowControlledThroughputRate1(ctx pipelines.PipelineContext, pluginName string) (*common.ThroughputStatistic, error) {
+func getFlowControlledThroughputRate1(ctx pipelines.PipelineContext,
+	pluginName string) (*common.ThroughputStatistic, error) {
+
 	bucket := ctx.DataBucket(pluginName, pipelines.DATA_BUCKET_FOR_ALL_PLUGIN_INSTANCE)
 	rate, err := bucket.QueryDataWithBindDefault(limiterFlowControlledThroughputRate1Key, func() interface{} {
 		return common.NewThroughputStatistic(common.ThroughputRate1)
@@ -295,7 +300,7 @@ func getFlowControlledPercentage(ctx pipelines.PipelineContext, pluginName strin
 	if err != nil {
 		return 0, err
 	}
-	rate, err = getInThroughputRate1(ctx, pluginName)
+	rate, err = getInboundThroughputRate1(ctx, pluginName)
 	if err != nil {
 		return 0, err
 	}
@@ -307,27 +312,34 @@ func getFlowControlledPercentage(ctx pipelines.PipelineContext, pluginName strin
 }
 
 func registerPluginIndicatorForLimiter(ctx pipelines.PipelineContext, pluginName, pluginInstanceId string) {
-	_, err := ctx.Statistics().RegisterPluginIndicator(pluginName, pluginInstanceId, "THROUGHPUT_RATE_LAST_1MIN_FLOWCONTROLLED", "Flow controlled throughput rate of the plugin in last 1 minute.", func(pluginName, indicatorName string) (interface{}, error) {
-		rate, err := getFlowControlledThroughputRate1(ctx, pluginName)
-		if err != nil {
-			return nil, err
-		}
-		return rate.Get()
-	})
+	_, err := ctx.Statistics().RegisterPluginIndicator(pluginName, pluginInstanceId,
+		"THROUGHPUT_RATE_LAST_1MIN_FLOWCONTROLLED", "Flow controlled throughput rate of the plugin in last 1 minute.",
+		func(pluginName, indicatorName string) (interface{}, error) {
+			rate, err := getFlowControlledThroughputRate1(ctx, pluginName)
+			if err != nil {
+				return nil, err
+			}
+			return rate.Get()
+		})
 	if err != nil {
-		logger.Warnf("[BUG: register plugin indicator for pipeline %s plugin %s failed: %v]", ctx.PipelineName(), pluginName, err)
+		logger.Warnf("[BUG: register plugin indicator for pipeline %s plugin %s failed: %v]",
+			ctx.PipelineName(), pluginName, err)
 	}
 
-	// We don't use limiter plugin's THROUGHPUT_RATE_LAST_1MIN_ALL because it indicates the throughput rate after applying flow control
-	_, err = ctx.Statistics().RegisterPluginIndicator(pluginName, pluginInstanceId, "THROUGHPUT_RATE_LAST_1MIN_IN", "In(not flow controled) throughput rate of the plugin in last 1 minute.", func(pluginName, indicatorName string) (interface{}, error) {
-		rate, err := getInThroughputRate1(ctx, pluginName)
-		if err != nil {
-			return nil, err
-		}
-		return rate.Get()
-	})
+	// We don't use limiter plugin's THROUGHPUT_RATE_LAST_1MIN_ALL
+	// because it indicates the throughput rate after applying flow control
+	_, err = ctx.Statistics().RegisterPluginIndicator(pluginName, pluginInstanceId,
+		"THROUGHPUT_RATE_LAST_1MIN_INBOUND", "All inbound throughput rate of the plugin in last 1 minute.",
+		func(pluginName, indicatorName string) (interface{}, error) {
+			rate, err := getInboundThroughputRate1(ctx, pluginName)
+			if err != nil {
+				return nil, err
+			}
+			return rate.Get()
+		})
 	if err != nil {
-		logger.Warnf("[BUG: register plugin indicator for pipeline %s plugin %s failed: %v]", ctx.PipelineName(), pluginName, err)
+		logger.Warnf("[BUG: register plugin indicator for pipeline %s plugin %s failed: %v]",
+			ctx.PipelineName(), pluginName, err)
 	}
 }
 
@@ -341,7 +353,7 @@ func updateFlowControlledThroughputRate(ctx pipelines.PipelineContext, pluginNam
 }
 
 func updateInThroughputRate(ctx pipelines.PipelineContext, pluginName string) error {
-	inRate1, err := getInThroughputRate1(ctx, pluginName)
+	inRate1, err := getInboundThroughputRate1(ctx, pluginName)
 	if err != nil {
 		return err
 	}

@@ -99,7 +99,7 @@ func (l *latencyWindowLimiter) Run(ctx pipelines.PipelineContext, t task.Task) e
 
 		if l.conf.BackOffMSec < 1 {
 			inRate := 0.0
-			if r, err := getInThroughputRate1(ctx, l.Name()); err == nil {
+			if r, err := getInboundThroughputRate1(ctx, l.Name()); err == nil {
 				inRate, err = r.Get()
 			}
 			outRate, _ := ctx.Statistics().PluginThroughputRate1(l.Name(), pipelines.SuccessStatistics) // ignore error safely
