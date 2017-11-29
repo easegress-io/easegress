@@ -256,11 +256,11 @@ func ReplaceTokensInPattern(t task.Task, pattern string) (string, error) {
 // limiter related utils
 
 const limiterFlowControlledThroughputRate1Key = "LimiterFlowControlledRateKey"
-const limiterInKeyThroughputRate1 = "LimiterInRateKey"
+const limiterInThroughputRate1Key = "LimiterInRateKey"
 
 func getInThroughputRate1(ctx pipelines.PipelineContext, pluginName string) (*common.ThroughputStatistic, error) {
 	bucket := ctx.DataBucket(pluginName, pipelines.DATA_BUCKET_FOR_ALL_PLUGIN_INSTANCE)
-	rate, err := bucket.QueryDataWithBindDefault(limiterInKeyThroughputRate1, func() interface{} {
+	rate, err := bucket.QueryDataWithBindDefault(limiterInThroughputRate1Key, func() interface{} {
 		return common.NewThroughputStatistic(common.ThroughputRate1)
 	})
 	if err != nil {
@@ -286,7 +286,7 @@ func getFlowControlledThroughputRate1(ctx pipelines.PipelineContext, pluginName 
 	return rate.(*common.ThroughputStatistic), nil
 }
 
-func getFlowControlledMeter(ctx pipelines.PipelineContext, pluginName string) (int, error) {
+func getFlowControlledPercentage(ctx pipelines.PipelineContext, pluginName string) (int, error) {
 	rate, err := getFlowControlledThroughputRate1(ctx, pluginName)
 	if err != nil {
 		return 0, err

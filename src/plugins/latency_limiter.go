@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"fmt"
+	"math/rand"
 	"strings"
 	"time"
 
@@ -95,11 +96,22 @@ func (l *latencyWindowLimiter) Run(ctx pipelines.PipelineContext, t task.Task) e
 
 	if counter.Count() > uint64(l.conf.AllowTimes) {
 		go updateFlowControlledThroughputRate(ctx, l.Name())
+
 		if l.conf.BackOffMSec < 1 {
-			// service fusing
-			t.SetError(fmt.Errorf("service is unavaialbe caused by latency limit"),
-				task.ResultFlowControl)
-			return nil
+			inRate := 0.0
+			if r, err := getInThroughputRate1(ctx, l.Name()); err == nil {
+				inRate, err = r.Get()
+			}
+			outRate, _ := ctx.Statistics().PluginThroughputRate1(l.Name(), pipelines.SuccessStatistics) // ignore error safely
+			logger.Debugf("[latencyWindowLimiter inRate:%.1f, outRate:%.1f]", inRate, outRate)
+			// Probe: don't totally fuse requests because we need small amount of requests to probe the concerned target
+			if outRate > 10 || // out rate is big enough so don't need probe
+				rand.Intn(int(inRate)) >= 1 {
+				// service fusing
+				t.SetError(fmt.Errorf("service is unavaialbe caused by latency limit"),
+					task.ResultFlowControl)
+				return nil
+			}
 		}
 
 		select {
@@ -112,12 +124,12 @@ func (l *latencyWindowLimiter) Run(ctx pipelines.PipelineContext, t task.Task) e
 	}
 
 	if len(l.conf.FlowControlPercentageKey) != 0 {
-		meter, err := getFlowControlledMeter(ctx, l.Name())
+		percentage, err := getFlowControlledPercentage(ctx, l.Name())
 		if err != nil {
 			logger.Warnf("[BUG: query flow control percentage data for pipeline %s failed, "+
 				"ignored this output]", ctx.PipelineName(), err)
 		} else {
-			t.WithValue(l.conf.FlowControlPercentageKey, meter)
+			t.WithValue(l.conf.FlowControlPercentageKey, percentage)
 		}
 	}
 
