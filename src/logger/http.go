@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httputil"
+	"net/url"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -59,14 +60,21 @@ func HTTPAccess(req *http.Request, code int, bodyBytesSent int64,
 	if referer == "" {
 		referer = "-"
 	}
+
 	agent := req.Header.Get("User-Agent")
 	if agent == "" {
 		agent = "-"
+	} else {
+		if a, err := url.QueryUnescape(agent); err == nil {
+			agent = a
+		}
 	}
+
 	realIP := req.Header.Get("X-Forwarded-For")
 	if realIP == "" {
 		realIP = "-"
 	}
+
 	if upstreamAddr == "" {
 		upstreamAddr = "-"
 	}
