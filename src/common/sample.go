@@ -117,3 +117,21 @@ func (s *ExpDecaySample) Count() int64 {
 
 	return s.buckets[idx].Count()
 }
+
+func (s *ExpDecaySample) Variance() float64 {
+	s.bucketIdxLock.RLock()
+	defer s.bucketIdxLock.RUnlock()
+
+	idx := (s.bucketIdx + 1) % uint64(len(s.buckets))
+
+	return s.buckets[idx].Variance()
+}
+
+func (s *ExpDecaySample) Sum() int64 {
+	s.bucketIdxLock.RLock()
+	defer s.bucketIdxLock.RUnlock()
+
+	idx := (s.bucketIdx + 1) % uint64(len(s.buckets))
+
+	return s.buckets[idx].Sum()
+}
