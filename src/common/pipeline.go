@@ -8,7 +8,7 @@ import (
 type PipelineCommonConfig struct {
 	Name                              string   `json:"pipeline_name"`
 	Plugins                           []string `json:"plugin_names"`
-	ParallelismCount                  uint16   `json:"parallelism"`                    // up to 65535
+	ParallelismCount                  uint16   `json:"parallelism"`                    // up to 65535, zero means dynamic auto-schedule mode
 	CrossPipelineRequestBacklogLength uint16   `json:"cross_pipeline_request_backlog"` // up to 65535
 }
 
@@ -35,10 +35,6 @@ func (c *PipelineCommonConfig) Prepare() error {
 
 	if len(c.PluginNames()) == 0 {
 		return fmt.Errorf("pipeline is empty")
-	}
-
-	if c.Parallelism() < 1 {
-		return fmt.Errorf("invalid pipeline parallelism")
 	}
 
 	return nil

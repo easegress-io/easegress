@@ -29,6 +29,34 @@ func (i *Uint16Value) Get() interface{} { return uint16(*i) }
 
 func (i *Uint16Value) String() string { return strconv.FormatUint(uint64(*i), 10) }
 
+////
+
+type Uint32Value uint32
+
+func NewUint32Value(val uint32, p *uint32) *Uint32Value {
+	if p == nil {
+		p = new(uint32)
+	}
+	*p = val
+	return (*Uint32Value)(p)
+}
+
+func (i *Uint32Value) Set(s string) error {
+	v, err := strconv.ParseUint(s, 0, 32)
+	if err != nil {
+		return err
+	}
+
+	*i = Uint32Value(v)
+	return nil
+}
+
+func (i *Uint32Value) Get() interface{} { return uint32(*i) }
+
+func (i *Uint32Value) String() string { return strconv.FormatUint(uint64(*i), 10) }
+
+////
+
 type Uint64RangeValue struct {
 	v        *uint64
 	min, max uint64
@@ -68,5 +96,51 @@ func (i *Uint64RangeValue) String() string {
 		return strconv.FormatUint(0, 10) // zero value
 	} else {
 		return strconv.FormatUint(*i.v, 10)
+	}
+}
+
+////
+
+type Uint32RangeValue struct {
+	v        *uint32
+	min, max uint32
+}
+
+func NewUint32RangeValue(val uint32, p *uint32, min, max uint32) *Uint32RangeValue {
+	if p == nil {
+		p = new(uint32)
+	}
+	*p = val
+
+	return &Uint32RangeValue{
+		v:   p,
+		min: min,
+		max: max,
+	}
+}
+
+func (i *Uint32RangeValue) Set(s string) error {
+	v, err := strconv.ParseUint(s, 0, 32)
+	if err != nil {
+		return err
+	}
+
+	v1 := uint32(v)
+
+	if v1 < i.min || v1 > i.max {
+		return fmt.Errorf("value out of range [%d, %d]", i.min, i.max)
+	}
+
+	*i.v = v1
+	return nil
+}
+
+func (i *Uint32RangeValue) Get() interface{} { return *i.v }
+
+func (i *Uint32RangeValue) String() string {
+	if i.v == nil {
+		return strconv.FormatUint(0, 10) // zero value
+	} else {
+		return strconv.FormatUint(uint64(*i.v), 10)
 	}
 }

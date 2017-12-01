@@ -46,15 +46,15 @@ type jsonGidExtractor struct {
 	conf *jsonGidExtractorConfig
 }
 
-func JSONGidExtractorConstructor(conf plugins.Config) (plugins.Plugin, error) {
+func JSONGidExtractorConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, error) {
 	c, ok := conf.(*jsonGidExtractorConfig)
 	if !ok {
-		return nil, fmt.Errorf("config type want *jsonGidExtractorConfig got %T", conf)
+		return nil, plugins.ProcessPlugin, fmt.Errorf("config type want *jsonGidExtractorConfig got %T", conf)
 	}
 
 	return &jsonGidExtractor{
 		conf: c,
-	}, nil
+	}, plugins.ProcessPlugin, nil
 }
 
 func (e *jsonGidExtractor) Prepare(ctx pipelines.PipelineContext) {

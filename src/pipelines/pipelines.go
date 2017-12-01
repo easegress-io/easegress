@@ -4,7 +4,7 @@ type Pipeline interface {
 	Name() string
 	Prepare()
 	Run() error
-	Stop()
+	Stop(scheduled bool)
 	Close()
 }
 

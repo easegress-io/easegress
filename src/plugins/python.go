@@ -64,15 +64,15 @@ type python struct {
 	conf *pythonConfig
 }
 
-func pythonConstructor(conf plugins.Config) (plugins.Plugin, error) {
+func pythonConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, error) {
 	c, ok := conf.(*pythonConfig)
 	if !ok {
-		return nil, fmt.Errorf("config type want *pythonConfig got %T", conf)
+		return nil, plugins.ProcessPlugin, fmt.Errorf("config type want *pythonConfig got %T", conf)
 	}
 
 	base, err := newInterpreterRunner(&c.interpreterRunnerConfig)
 	if err != nil {
-		return nil, err
+		return nil, plugins.ProcessPlugin, err
 	}
 
 	p := &python{
@@ -82,7 +82,7 @@ func pythonConstructor(conf plugins.Config) (plugins.Plugin, error) {
 
 	p.interpreterRunner.executor = p
 
-	return p, nil
+	return p, plugins.ProcessPlugin, nil
 }
 
 func (p *python) command(code string) *exec.Cmd {

@@ -151,6 +151,7 @@ type Plugin struct {
 	constructor             plugins.Constructor
 	counter                 *pluginInstanceCounter
 	instance                *wrappedPlugin
+	pluginType              plugins.PluginType
 	instanceClosedCallbacks *common.NamedCallbackSet
 }
 
@@ -162,6 +163,7 @@ func newPlugin(typ string, conf plugins.Config,
 		typ:                     typ,
 		constructor:             constructor,
 		counter:                 counter,
+		pluginType:              plugins.UnknownType,
 		instanceClosedCallbacks: common.NewNamedCallbackSet(),
 	}
 }
@@ -184,11 +186,11 @@ func (p *Plugin) Config() plugins.Config {
 	return p.conf
 }
 
-func (p *Plugin) GetInstance(mod *Model) (plugins.Plugin, error) {
+func (p *Plugin) GetInstance(mod *Model) (plugins.Plugin, plugins.PluginType, error) {
 	p.RLock()
 	if p.instance != nil {
 		p.RUnlock()
-		return p.instance, nil
+		return p.instance, p.pluginType, nil
 	}
 
 	p.RUnlock()
@@ -198,17 +200,18 @@ func (p *Plugin) GetInstance(mod *Model) (plugins.Plugin, error) {
 
 	// DCL
 	if p.instance != nil {
-		return p.instance, nil
+		return p.instance, p.pluginType, nil
 	}
 
-	ori, err := p.constructor(p.conf)
+	ori, pluginType, err := p.constructor(p.conf)
 	if err != nil {
-		return nil, err
+		return nil, pluginType, err
 	}
 
 	instance := newWrappedPlugin(mod, ori)
 	p.instance = instance
-	return instance, nil
+	p.pluginType = pluginType
+	return instance, pluginType, nil
 }
 
 func (p *Plugin) AddInstanceClosedCallback(name string, callback PluginInstanceClosed, priority string) {

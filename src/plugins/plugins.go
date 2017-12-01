@@ -258,7 +258,6 @@ func ReplaceTokensInPattern(t task.Task, pattern string) (string, error) {
 const limiterInboundThroughputRate1Key = "limiterInboundThroughputRate1"
 const limiterFlowControlledThroughputRate1Key = "limiterFlowControlledThroughputRate1"
 
-
 func getInboundThroughputRate1(ctx pipelines.PipelineContext,
 	pluginName string) (*common.ThroughputStatistic, error) {
 

@@ -126,10 +126,10 @@ type httpServer struct {
 	closed   bool
 }
 
-func httpServerConstructor(conf plugins.Config) (plugins.Plugin, error) {
+func httpServerConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, error) {
 	c, ok := conf.(*httpServerConfig)
 	if !ok {
-		return nil, fmt.Errorf("config type want *httpServerConfig got %T", conf)
+		return nil, plugins.ProcessPlugin, fmt.Errorf("config type want *httpServerConfig got %T", conf)
 	}
 
 	h := &httpServer{
@@ -140,7 +140,7 @@ func httpServerConstructor(conf plugins.Config) (plugins.Plugin, error) {
 
 	ln, err := net.Listen("tcp", h.addr)
 	if err != nil {
-		return nil, err
+		return nil, plugins.ProcessPlugin, err
 	}
 
 	h.listener = netutil.LimitListener(&tcpKeepAliveListener{
@@ -154,26 +154,26 @@ func httpServerConstructor(conf plugins.Config) (plugins.Plugin, error) {
 		muxConf, ok := h.conf.muxConf.(*reMuxConfig)
 		if !ok {
 			logger.Errorf("[BUG: want *reMuxConfig got %T]", h.conf.muxConf)
-			return nil, fmt.Errorf("construct regexp mux failed: mux config type want *reMuxConfig got %T",
-				h.conf.muxConf)
+			return nil, plugins.ProcessPlugin, fmt.Errorf(
+				"construct regexp mux failed: mux config type want *reMuxConfig got %T", h.conf.muxConf)
 		}
 		h.mux, err = newREMux(muxConf)
 		if err != nil {
-			return nil, fmt.Errorf("construct regexp mux failed: %v", err)
+			return nil, plugins.ProcessPlugin, fmt.Errorf("construct regexp mux failed: %v", err)
 		}
 	case paramMuxType:
 		muxConf, ok := h.conf.muxConf.(*paramMuxConfig)
 		if !ok {
 			logger.Errorf("[BUG: want *paramMuxConfig got %T]", h.conf.muxConf)
-			return nil, fmt.Errorf("construct param mux failed: mux config type want *paramMuxConfig got %T",
-				h.conf.muxConf)
+			return nil, plugins.ProcessPlugin, fmt.Errorf(
+				"construct param mux failed: mux config type want *paramMuxConfig got %T", h.conf.muxConf)
 		}
 		h.mux, err = newParamMux(muxConf)
 		if err != nil {
-			return nil, fmt.Errorf("construct param mux failed: %v", err)
+			return nil, plugins.ProcessPlugin, fmt.Errorf("construct param mux failed: %v", err)
 		}
 	default:
-		return nil, fmt.Errorf("unsupported mux type") //defensive
+		return nil, plugins.ProcessPlugin, fmt.Errorf("unsupported mux type") //defensive
 	}
 
 	h.server = &http.Server{
@@ -226,10 +226,10 @@ func httpServerConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	if err != nil {
 		h.listener.Close()
 		h.closed = true
-		return nil, err
+		return nil, plugins.ProcessPlugin, err
 	}
 
-	return h, nil
+	return h, plugins.ProcessPlugin, nil
 }
 
 func (h *httpServer) Prepare(ctx pipelines.PipelineContext) {

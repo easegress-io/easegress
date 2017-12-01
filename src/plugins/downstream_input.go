@@ -34,15 +34,15 @@ type downstreamInput struct {
 	conf *downstreamInputConfig
 }
 
-func downstreamInputConstructor(conf plugins.Config) (plugins.Plugin, error) {
+func downstreamInputConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, error) {
 	c, ok := conf.(*downstreamInputConfig)
 	if !ok {
-		return nil, fmt.Errorf("config type want *downstreamInputConfig got %T", conf)
+		return nil, plugins.SourcePlugin, fmt.Errorf("config type want *downstreamInputConfig got %T", conf)
 	}
 
 	return &downstreamInput{
 		conf: c,
-	}, nil
+	}, plugins.SourcePlugin, nil
 }
 
 func (d *downstreamInput) Prepare(ctx pipelines.PipelineContext) {

@@ -69,10 +69,10 @@ type throughputRateLimiter struct {
 	instanceId string
 }
 
-func throughputRateLimiterConstructor(conf plugins.Config) (plugins.Plugin, error) {
+func throughputRateLimiterConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, error) {
 	c, ok := conf.(*throughputRateLimiterConfig)
 	if !ok {
-		return nil, fmt.Errorf("config type want *throughputRateLimiterConfig got %T", conf)
+		return nil, plugins.ProcessPlugin, fmt.Errorf("config type want *throughputRateLimiterConfig got %T", conf)
 	}
 
 	l := &throughputRateLimiter{
@@ -81,7 +81,7 @@ func throughputRateLimiterConstructor(conf plugins.Config) (plugins.Plugin, erro
 
 	l.instanceId = fmt.Sprintf("%p", l)
 
-	return l, nil
+	return l, plugins.ProcessPlugin, nil
 }
 
 func (l *throughputRateLimiter) Prepare(ctx pipelines.PipelineContext) {

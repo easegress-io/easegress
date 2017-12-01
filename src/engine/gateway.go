@@ -19,68 +19,17 @@ import (
 	"logger"
 	"model"
 	"option"
-	pipelines_gw "pipelines"
 	"plugins"
 )
 
-const (
-	PIPELINE_STOP_TIMEOUT_SECONDS = 30
-)
-
-type pipelineInstance struct {
-	instance pipelines_gw.Pipeline
-	stop     chan struct{}
-	done     chan struct{}
-}
-
-func newPipelineInstance(instance pipelines_gw.Pipeline) *pipelineInstance {
-	return &pipelineInstance{
-		instance: instance,
-		stop:     make(chan struct{}),
-		done:     make(chan struct{}),
-	}
-}
-
-func (pi *pipelineInstance) run() {
-	pi.instance.Prepare()
-
-loop:
-	for {
-		select {
-		case <-pi.stop:
-			break loop
-		default:
-			err := pi.instance.Run()
-			if err != nil {
-				logger.Errorf(
-					"[pipeline %s runs error and exits exceptionally: %v]",
-					pi.instance.Name(), err)
-				break loop
-			}
-		}
-	}
-
-	pi.instance.Close()
-	close(pi.done)
-}
-
-// use <-pi.terminate() to wait some time
-// use   pi.terminate() to leave it alone
-func (pi *pipelineInstance) terminate() chan struct{} {
-	pi.instance.Stop()
-	close(pi.stop)
-
-	return pi.done
-}
-
 type Gateway struct {
 	sync.Mutex
-	repo      config.Store
-	mod       *model.Model
-	gc        *cluster.GatewayCluster
-	pipelines map[string][]*pipelineInstance
-	done      chan error
-	startAt   time.Time
+	repo       config.Store
+	mod        *model.Model
+	gc         *cluster.GatewayCluster
+	schedulers map[string]pipelineScheduler
+	done       chan error
+	startAt    time.Time
 }
 
 func NewGateway() (*Gateway, error) {
@@ -120,11 +69,11 @@ func NewGateway() (*Gateway, error) {
 	}
 
 	return &Gateway{
-		repo:      repo,
-		mod:       mod,
-		gc:        gc,
-		pipelines: make(map[string][]*pipelineInstance),
-		done:      make(chan error, 1),
+		repo:       repo,
+		mod:        mod,
+		gc:         gc,
+		schedulers: make(map[string]pipelineScheduler, 100),
+		done:       make(chan error, 1),
 	}, nil
 }
 
@@ -177,19 +126,9 @@ func (gw *Gateway) Stop() {
 
 	logger.Infof("[stopping pipelines]")
 
-	for name, pipes := range gw.pipelines {
-		logger.Debugf("[stopping pipeline %s]", name)
-
-		for i, pi := range pipes {
-			select {
-			case <-pi.terminate():
-			case <-time.After(PIPELINE_STOP_TIMEOUT_SECONDS * time.Second):
-				logger.Warnf("[stopped pipeline %s-#%d timeout (%d seconds)]",
-					name, i+1, PIPELINE_STOP_TIMEOUT_SECONDS)
-			}
-		}
-
-		logger.Debugf("[stopped pipeline %s]", name)
+	for _, scheduler := range gw.schedulers {
+		scheduler.Stop()
+		scheduler.StopPipeline()
 	}
 
 	logger.Infof("[stopped pipelines]")
@@ -200,12 +139,12 @@ func (gw *Gateway) Stop() {
 
 	logger.Infof("[close pipeline contexts]")
 
-	for name := range gw.pipelines {
-		logger.Infof("[close pipeline context: %s]", name)
+	for _, scheduler := range gw.schedulers {
+		logger.Infof("[close pipeline context: %s]", scheduler.PipelineName())
 
-		deleted := gw.mod.DeletePipelineContext(name)
+		deleted := gw.mod.DeletePipelineContext(scheduler.PipelineName())
 		if !deleted {
-			logger.Errorf("[BUG: the pipeline %s has not context.]", name)
+			logger.Errorf("[BUG: the pipeline %s has not context.]", scheduler.PipelineName())
 		}
 	}
 
@@ -284,7 +223,11 @@ func (gw *Gateway) setupPipelineLifecycleControl() {
 }
 
 func (gw *Gateway) launchPipeline(newPipeline *model.Pipeline) {
-	logger.Infof("[launch pipeline: %s (parallelism=%d)]", newPipeline.Name(), newPipeline.Config().Parallelism())
+	if newPipeline.Config().Parallelism() == 0 { // dynamic mode
+		logger.Infof("[launch pipeline: %s (parallelism=dynamic)]", newPipeline.Name())
+	} else {
+		logger.Infof("[launch pipeline: %s (parallelism=%d)]", newPipeline.Name(), newPipeline.Config().Parallelism())
+	}
 
 	gw.Lock()
 	defer gw.Unlock()
@@ -295,29 +238,26 @@ func (gw *Gateway) launchPipeline(newPipeline *model.Pipeline) {
 		return
 	}
 
-	ctx := gw.mod.CreatePipelineContext(newPipeline.Config(), statistics)
+	var scheduler pipelineScheduler
 
-	preparedPlugins := uint32(len(newPipeline.Config().PluginNames()))
+	if newPipeline.Config().Parallelism() == 0 { // dynamic mode
+		scheduler = newDynamicPipelineScheduler(newPipeline)
+	} else { // pre-alloc mode
+		scheduler = newStaticPipelineScheduler(newPipeline)
+	}
+
+	ctx := gw.mod.CreatePipelineContext(newPipeline.Config(), statistics, scheduler.SourceInputTrigger())
+
+	pluginNames := newPipeline.Config().PluginNames()
+	preparedPlugins := uint32(len(pluginNames))
 
 	gw.mod.AddPluginUpdatedCallback(fmt.Sprintf("%s-rePreparePlugin", newPipeline.Name()),
-		gw.getRePreparePluginCallback(newPipeline.Config().PluginNames(), &preparedPlugins, ctx),
+		gw.getRePreparePluginCallback(pluginNames, &preparedPlugins, ctx),
 		common.NORMAL_PRIORITY_CALLBACK)
 
-	for i := uint16(0); i < newPipeline.Config().Parallelism(); i++ {
-		instance, err := newPipeline.GetInstance(ctx, statistics, gw.mod, &preparedPlugins)
-		if err != nil {
-			logger.Errorf("[launch pipeline %s-#%d failed: %v]", newPipeline.Name(), i, err)
-			return
-		}
+	scheduler.Start(ctx, statistics, gw.mod, &preparedPlugins)
 
-		p := newPipelineInstance(instance)
-
-		go p.run()
-
-		pipes := gw.pipelines[newPipeline.Name()]
-		pipes = append(pipes, p)
-		gw.pipelines[newPipeline.Name()] = pipes
-	}
+	gw.schedulers[newPipeline.Name()] = scheduler
 }
 
 func (gw *Gateway) relaunchPipelineStage1(updatedPipeline *model.Pipeline) {
@@ -335,19 +275,19 @@ func (gw *Gateway) terminatePipeline(deletedPipeline *model.Pipeline) {
 	gw.Lock()
 	defer gw.Unlock()
 
-	pipes, exists := gw.pipelines[deletedPipeline.Name()]
+	scheduler, exists := gw.schedulers[deletedPipeline.Name()]
 	if !exists {
 		logger.Errorf("[BUG: deleted pipeline %s didn't launched.]", deletedPipeline.Name())
 		return
 	}
 
-	for _, pi := range pipes {
-		<-pi.terminate()
-	}
+	scheduler.Stop()
+
+	scheduler.StopPipeline()
 
 	gw.mod.DeletePluginUpdatedCallback(fmt.Sprintf("%s-rePreparePlugin", deletedPipeline.Name()))
 
-	delete(gw.pipelines, deletedPipeline.Name())
+	delete(gw.schedulers, deletedPipeline.Name())
 }
 
 func (gw *Gateway) closePipelineContext(deletedPipeline *model.Pipeline) {
@@ -694,13 +634,14 @@ func (gw *Gateway) getRePreparePluginCallback(pluginNames []string, preparedPlug
 
 		atomic.StoreUint32(preparedPlugins, 0)
 
-		instance, err := gw.mod.GetPluginInstance(updatedPlugin.Name())
+		instance, _, err := gw.mod.GetPluginInstance(updatedPlugin.Name())
 		if err != nil {
 			logger.Warnf("[plugin %s get instance failed: %v]", updatedPlugin.Name(), err)
 		}
 
 		// This guarantees preparing the plugin instance only once.
 		instance.Prepare(ctx)
+
 		gw.mod.ReleasePluginInstance(instance)
 
 		atomic.StoreUint32(preparedPlugins, uint32(len(pluginNames)))

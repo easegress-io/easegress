@@ -192,6 +192,8 @@ func (t *Task) recover(errorPluginName string, lastStatus task.TaskStatus, t1 ta
 
 type cancelFunc func()
 
+var NoOpCancelFunc = func() {}
+
 type canceler interface {
 	cancel(removeFromParent bool, err error)
 	Cancel() <-chan struct{}

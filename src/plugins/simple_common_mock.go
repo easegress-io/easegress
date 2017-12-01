@@ -62,17 +62,17 @@ type simpleCommonMock struct {
 	conf *simpleCommonMockConfig
 }
 
-func simpleCommonMockConstructor(conf plugins.Config) (plugins.Plugin, error) {
+func simpleCommonMockConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, error) {
 	c, ok := conf.(*simpleCommonMockConfig)
 	if !ok {
-		return nil, fmt.Errorf("config type want *simpleCommonMockConfig got %T", conf)
+		return nil, plugins.ProcessPlugin, fmt.Errorf("config type want *simpleCommonMockConfig got %T", conf)
 	}
 
 	m := &simpleCommonMock{
 		conf: c,
 	}
 
-	return m, nil
+	return m, plugins.ProcessPlugin, nil
 }
 
 func (m *simpleCommonMock) Prepare(ctx pipelines.PipelineContext) {

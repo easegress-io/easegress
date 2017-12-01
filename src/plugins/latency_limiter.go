@@ -65,17 +65,17 @@ type latencyWindowLimiter struct {
 	conf *latencyLimiterConfig
 }
 
-func latencyLimiterConstructor(conf plugins.Config) (plugins.Plugin, error) {
+func latencyLimiterConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, error) {
 	c, ok := conf.(*latencyLimiterConfig)
 	if !ok {
-		return nil, fmt.Errorf("config type want *latencyWindowLimiterConfig got %T", conf)
+		return nil, plugins.ProcessPlugin, fmt.Errorf("config type want *latencyWindowLimiterConfig got %T", conf)
 	}
 
 	l := &latencyWindowLimiter{
 		conf: c,
 	}
 
-	return l, nil
+	return l, plugins.ProcessPlugin, nil
 }
 
 func (l *latencyWindowLimiter) Prepare(ctx pipelines.PipelineContext) {

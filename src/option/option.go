@@ -30,6 +30,10 @@ var (
 	PluginIODataFormatLengthLimit uint64
 	PluginPythonRootNamespace     bool
 	PluginShellRootNamespace      bool
+
+	PipelineInitParallelism uint32
+	PipelineMinParallelism  uint32
+	PipelineMaxParallelism  uint32
 )
 
 func init() {
@@ -74,6 +78,16 @@ func init() {
 	pluginShellRootNamespace := flag.Bool("plugin_shell_root_namespace", false,
 		"specify if to run shell script in root namespace without isolation")
 
+	pipelineInitParallelism := new(uint32)
+	flag.Var(common.NewUint32RangeValue(5, pipelineInitParallelism, 1, uint32(^uint16(0))), "pipeline_init_parallelism",
+		"specify initial parallelism for a pipeline running in dynamic schedule mode")
+	pipelineMinParallelism := new(uint32)
+	flag.Var(common.NewUint32Value(5, pipelineMinParallelism), "pipeline_min_parallelism",
+		"specify min parallelism for a pipeline running in dynamic schedule mode")
+	pipelineMaxParallelism := new(uint32)
+	flag.Var(common.NewUint32Value(1024, pipelineMaxParallelism), "pipeline_max_parallelism",
+		"specify max parallelism for a pipeline running in dynamic schedule mode, zero means no limit")
+
 	flag.Parse()
 
 	ClusterHost = *clusterHost
@@ -103,4 +117,8 @@ func init() {
 	PluginIODataFormatLengthLimit = *pluginIODataFormatLengthLimit
 	PluginPythonRootNamespace = *pluginPythonRootNamespace
 	PluginShellRootNamespace = *pluginShellRootNamespace
+
+	PipelineInitParallelism = *pipelineInitParallelism
+	PipelineMinParallelism = *pipelineMinParallelism
+	PipelineMaxParallelism = *pipelineMaxParallelism
 }

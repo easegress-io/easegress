@@ -47,15 +47,15 @@ type staticProbabilityLimiter struct {
 	conf *staticProbabilityLimiterConfig
 }
 
-func staticProbabilityLimiterConstructor(conf plugins.Config) (plugins.Plugin, error) {
+func staticProbabilityLimiterConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, error) {
 	c, ok := conf.(*staticProbabilityLimiterConfig)
 	if !ok {
-		return nil, fmt.Errorf("config type want *staticProbabilityLimiterConfig got %T", conf)
+		return nil, plugins.ProcessPlugin, fmt.Errorf("config type want *staticProbabilityLimiterConfig got %T", conf)
 	}
 
 	return &staticProbabilityLimiter{
 		conf: c,
-	}, nil
+	}, plugins.ProcessPlugin, nil
 }
 
 func (l *staticProbabilityLimiter) Prepare(ctx pipelines.PipelineContext) {

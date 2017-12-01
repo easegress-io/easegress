@@ -253,19 +253,19 @@ func (m *Model) GetPlugins(namePattern string, types []string) ([]*Plugin, error
 	return ret, nil
 }
 
-func (m *Model) GetPluginInstance(name string) (plugins.Plugin, error) {
+func (m *Model) GetPluginInstance(name string) (plugins.Plugin, plugins.PluginType, error) {
 	m.RLock()
 	defer m.RUnlock()
 
 	plugin, exists := m.plugins[name]
 	if exists {
-		instance, err := plugin.GetInstance(m)
+		instance, pluginType, err := plugin.GetInstance(m)
 		if err == nil {
 			m.pluginCounter.AddRef(instance)
 		}
-		return instance, err
+		return instance, pluginType, err
 	} else {
-		return nil, fmt.Errorf("plugin %s not found", name)
+		return nil, plugins.UnknownType, fmt.Errorf("plugin %s not found", name)
 	}
 }
 
@@ -574,10 +574,10 @@ func (m *Model) DeletePipelineUpdatedCallback(name string) {
 	m.Unlock()
 }
 
-func (m *Model) CreatePipelineContext(
-	conf pipelines_gw.Config, statistics pipelines.PipelineStatistics) pipelines.PipelineContext {
+func (m *Model) CreatePipelineContext(conf pipelines_gw.Config, statistics pipelines.PipelineStatistics,
+	trigger pipelines.SourceInputTrigger) pipelines.PipelineContext {
 
-	ctx := NewPipelineContext(conf, statistics, m)
+	ctx := NewPipelineContext(conf, statistics, m, trigger)
 
 	m.Lock()
 	defer m.Unlock()

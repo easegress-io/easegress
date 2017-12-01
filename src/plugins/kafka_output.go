@@ -72,10 +72,10 @@ type kafkaOutput struct {
 	producer sarama.SyncProducer
 }
 
-func kafkaOutputConstructor(conf plugins.Config) (plugins.Plugin, error) {
+func kafkaOutputConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, error) {
 	c, ok := conf.(*kafkaOutputConfig)
 	if !ok {
-		return nil, fmt.Errorf("config type want *kafkaOutputConfig got %T", conf)
+		return nil, plugins.SinkPlugin, fmt.Errorf("config type want *kafkaOutputConfig got %T", conf)
 	}
 
 	k := &kafkaOutput{
@@ -85,7 +85,7 @@ func kafkaOutputConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	err := k.connectBroker()
 	if err != nil {
 		logger.Errorf("[%v connect kafka brokers %v failed: %s]", k.Name(), k.conf.Brokers, err)
-		return nil, fmt.Errorf("kafka out of service")
+		return nil, plugins.SinkPlugin, fmt.Errorf("kafka out of service")
 	}
 
 	logger.Infof("[%v connect kafka broker(s) %v succeed]", k.Name(), k.conf.Brokers)
@@ -93,10 +93,10 @@ func kafkaOutputConstructor(conf plugins.Config) (plugins.Plugin, error) {
 	k.producer, err = sarama.NewSyncProducerFromClient(k.client)
 	if err != nil {
 		logger.Errorf("[%v new producer from %v failed: %s]", k.Name(), k.conf.Brokers, err)
-		return nil, fmt.Errorf("send message to kafka failed")
+		return nil, plugins.SinkPlugin, fmt.Errorf("send message to kafka failed")
 	}
 
-	return k, nil
+	return k, plugins.SinkPlugin, nil
 }
 
 func (o *kafkaOutput) Prepare(ctx pipelines.PipelineContext) {

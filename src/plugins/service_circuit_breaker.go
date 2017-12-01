@@ -82,10 +82,10 @@ type serviceCircuitBreaker struct {
 	instanceId string
 }
 
-func serviceCircuitBreakerConstructor(conf plugins.Config) (plugins.Plugin, error) {
+func serviceCircuitBreakerConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, error) {
 	c, ok := conf.(*serviceCircuitBreakerConfig)
 	if !ok {
-		return nil, fmt.Errorf("config type want *serviceCircuitBreakerConfig got %T", conf)
+		return nil, plugins.ProcessPlugin, fmt.Errorf("config type want *serviceCircuitBreakerConfig got %T", conf)
 	}
 
 	cb := &serviceCircuitBreaker{
@@ -94,7 +94,7 @@ func serviceCircuitBreakerConstructor(conf plugins.Config) (plugins.Plugin, erro
 
 	cb.instanceId = fmt.Sprintf("%p", cb)
 
-	return cb, nil
+	return cb, plugins.ProcessPlugin, nil
 }
 
 func (cb *serviceCircuitBreaker) Prepare(ctx pipelines.PipelineContext) {

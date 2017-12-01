@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -191,25 +192,27 @@ type httpInput struct {
 	conf                          *httpInputConfig
 	httpTaskChan                  chan *httpTask
 	instanceId                    string
-	queueLength                   uint64
 	waitQueueLengthIndicatorAdded bool
 	wipRequestCountIndicatorAdded bool
+	contextsLock                  sync.RWMutex
+	contexts                      map[string]pipelines.PipelineContext
 }
 
-func httpInputConstructor(conf plugins.Config) (plugins.Plugin, error) {
+func httpInputConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, error) {
 	c, ok := conf.(*httpInputConfig)
 	if !ok {
-		return nil, fmt.Errorf("config type want *HTTPInputConfig got %T", conf)
+		return nil, plugins.SourcePlugin, fmt.Errorf("config type want *HTTPInputConfig got %T", conf)
 	}
 
 	h := &httpInput{
 		conf:         c,
 		httpTaskChan: make(chan *httpTask, 32767),
+		contexts:     make(map[string]pipelines.PipelineContext),
 	}
 
 	h.instanceId = fmt.Sprintf("%p", h)
 
-	return h, nil
+	return h, plugins.SourcePlugin, nil
 }
 
 func (h *httpInput) toHTTPMuxEntries() []*plugins.HTTPMuxEntry {
@@ -249,7 +252,7 @@ func (h *httpInput) Prepare(ctx pipelines.PipelineContext) {
 	added, err := ctx.Statistics().RegisterPluginIndicator(h.Name(), h.instanceId, "WAIT_QUEUE_LENGTH",
 		"The length of wait queue which contains requests wait to be handled by a pipeline.",
 		func(pluginName, indicatorName string) (interface{}, error) {
-			return h.queueLength, nil
+			return h.getHTTPTaskQueueLength(), nil
 		})
 	if err != nil {
 		logger.Warnf("[BUG: register plugin %s indicator %s failed, "+
@@ -265,7 +268,7 @@ func (h *httpInput) Prepare(ctx pipelines.PipelineContext) {
 			if err != nil {
 				return nil, err
 			}
-			return *wipReqCount, nil
+			return atomic.LoadInt64(wipReqCount), nil
 		})
 	if err != nil {
 		logger.Warnf("[BUG: register plugin %s indicator %s failed, "+
@@ -273,6 +276,10 @@ func (h *httpInput) Prepare(ctx pipelines.PipelineContext) {
 	}
 
 	h.wipRequestCountIndicatorAdded = added
+
+	h.contextsLock.Lock()
+	h.contexts[ctx.PipelineName()] = ctx
+	h.contextsLock.Unlock()
 }
 
 func (h *httpInput) handler(w http.ResponseWriter, req *http.Request, urlParams map[string]string) {
@@ -304,10 +311,21 @@ func (h *httpInput) handler(w http.ResponseWriter, req *http.Request, urlParams 
 			}
 		}()
 		h.httpTaskChan <- &httpTask
-		atomic.AddUint64(&h.queueLength, 1)
+
+		h.contextsLock.RLock()
+
+		for _, ctx := range h.contexts {
+			ctx.TriggerSourceInput("httpTaskQueueLengthGetter", h.getHTTPTaskQueueLength)
+		}
+
+		h.contextsLock.RUnlock()
 	}()
 
 	<-httpTask.finishedChan
+}
+
+func (h *httpInput) getHTTPTaskQueueLength() uint32 {
+	return uint32(len(h.httpTaskChan))
 }
 
 func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, task.TaskResultCode) {
@@ -325,8 +343,6 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 		if !ok {
 			return fmt.Errorf("plugin %s has been closed", h.Name()),
 				task.ResultInternalServerError
-		}
-		for !atomic.CompareAndSwapUint64(&h.queueLength, h.queueLength, h.queueLength-1) {
 		}
 	case <-t.Cancel():
 		return fmt.Errorf("task is cancelled by %s", t.CancelCause()), task.ResultTaskCancelled
@@ -432,8 +448,7 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 	shrinkWipRequestCounter := func(t1 task.Task, _ task.TaskStatus) {
 		wipReqCount, err := getHTTPInputHandlingRequestCount(ctx, h.Name())
 		if err == nil {
-			for !atomic.CompareAndSwapUint64(wipReqCount, *wipReqCount, *wipReqCount-1) {
-			}
+			atomic.AddInt64(wipReqCount, -1)
 		}
 	}
 
@@ -464,7 +479,7 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 
 	wipReqCount, err := getHTTPInputHandlingRequestCount(ctx, h.Name())
 	if err == nil {
-		atomic.AddUint64(wipReqCount, 1)
+		atomic.AddInt64(wipReqCount, 1)
 	}
 
 	return nil, t.ResultCode()
@@ -502,6 +517,10 @@ func (h *httpInput) CleanUp(ctx pipelines.PipelineContext) {
 	if h.wipRequestCountIndicatorAdded {
 		ctx.Statistics().UnregisterPluginIndicator(h.Name(), h.instanceId, "WIP_REQUEST_COUNT")
 	}
+
+	h.contextsLock.Lock()
+	delete(h.contexts, ctx.PipelineName())
+	h.contextsLock.Unlock()
 }
 
 func (h *httpInput) Close() {
@@ -510,6 +529,30 @@ func (h *httpInput) Close() {
 		h.httpTaskChan = nil
 	}
 }
+
+////
+
+const (
+	httpInputHandlingRequestCountKey = "httpInputHandlingRequestCountKey"
+)
+
+func getHTTPInputHandlingRequestCount(ctx pipelines.PipelineContext, pluginName string) (*int64, error) {
+	bucket := ctx.DataBucket(pluginName, pipelines.DATA_BUCKET_FOR_ALL_PLUGIN_INSTANCE)
+	count, err := bucket.QueryDataWithBindDefault(httpInputHandlingRequestCountKey,
+		func() interface{} {
+			var handlingRequestCount int64
+			return &handlingRequestCount
+		})
+	if err != nil {
+		logger.Warnf("[BUG: query wip request counter for pipeline %s failed, "+
+			"ignored to calculate wip request: %v]", ctx.PipelineName(), err)
+		return nil, err
+	}
+
+	return count.(*int64), nil
+}
+
+////
 
 func (h *httpInput) closeResponseBody(t task.Task) {
 	if len(h.conf.ResponseBodyIOKey) == 0 {
@@ -525,30 +568,6 @@ func (h *httpInput) closeResponseBody(t task.Task) {
 		}
 	}
 }
-
-////
-
-const (
-	httpInputHandlingRequestCountKey = "httpInputHandlingRequestCountKey"
-)
-
-func getHTTPInputHandlingRequestCount(ctx pipelines.PipelineContext, pluginName string) (*uint64, error) {
-	bucket := ctx.DataBucket(pluginName, pipelines.DATA_BUCKET_FOR_ALL_PLUGIN_INSTANCE)
-	count, err := bucket.QueryDataWithBindDefault(httpInputHandlingRequestCountKey,
-		func() interface{} {
-			var handlingRequestCount uint64
-			return &handlingRequestCount
-		})
-	if err != nil {
-		logger.Warnf("[BUG: query wip request counter for pipeline %s failed, "+
-			"ignored to calculate wip request: %v]", ctx.PipelineName(), err)
-		return nil, err
-	}
-
-	return count.(*uint64), nil
-}
-
-////
 
 func getResponseCode(t task.Task, responseCodeKey string) int {
 	statusCode := task.ResultCodeToHTTPCode(t.ResultCode())

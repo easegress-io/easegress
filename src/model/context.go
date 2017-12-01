@@ -33,10 +33,15 @@ type pipelineContext struct {
 	buckets          map[string]*bucketItem
 	requestChanLock  sync.Mutex
 	requestChan      chan *pipelines.DownstreamRequest
+	trigger          pipelines.SourceInputTrigger
 }
 
-func NewPipelineContext(conf pipelines_gw.Config,
-	statistics pipelines.PipelineStatistics, m *Model) *pipelineContext {
+func NewPipelineContext(conf pipelines_gw.Config, statistics pipelines.PipelineStatistics,
+	m *Model, trigger pipelines.SourceInputTrigger) *pipelineContext {
+
+	if trigger == nil { // defensive
+		trigger = pipelines.NoOpSourceInputTrigger
+	}
 
 	c := &pipelineContext{
 		pipeName:         conf.PipelineName(),
@@ -46,6 +51,7 @@ func NewPipelineContext(conf pipelines_gw.Config,
 		mod:              m,
 		buckets:          make(map[string]*bucketItem),
 		requestChan:      make(chan *pipelines.DownstreamRequest, conf.CrossPipelineRequestBacklog()),
+		trigger:          trigger,
 	}
 
 	logger.Infof("[pipeline %s context is created]", conf.PipelineName())
@@ -59,10 +65,6 @@ func (pc *pipelineContext) PipelineName() string {
 
 func (pc *pipelineContext) PluginNames() []string {
 	return pc.plugNames
-}
-
-func (pc *pipelineContext) Parallelism() uint16 {
-	return pc.parallelismCount
 }
 
 func (pc *pipelineContext) Statistics() pipelines.PipelineStatistics {
@@ -173,6 +175,7 @@ func (pc *pipelineContext) CommitCrossPipelineRequest(
 
 			select {
 			case pc.requestChan <- request:
+				pc.TriggerSourceInput("crossPipelineRequestQueueLengthGetter", pc.getCrossPipelineRequestQueueLength)
 				err = nil
 			case <-cancel:
 				err = fmt.Errorf("request is canclled")
@@ -189,6 +192,10 @@ func (pc *pipelineContext) CommitCrossPipelineRequest(
 
 		return ctx.CommitCrossPipelineRequest(request, cancel)
 	}
+}
+
+func (pc *pipelineContext) getCrossPipelineRequestQueueLength() uint32 {
+	return uint32(len(pc.requestChan))
 }
 
 func (pc *pipelineContext) ClaimCrossPipelineRequest(cancel <-chan struct{}) *pipelines.DownstreamRequest {
@@ -227,6 +234,10 @@ func (pc *pipelineContext) CrossPipelineWIPRequestsCount(upstreamPipelineName st
 
 		return ctx.CrossPipelineWIPRequestsCount(upstreamPipelineName)
 	}
+}
+
+func (pc *pipelineContext) TriggerSourceInput(getterName string, getter pipelines.SourceInputQueueLengthGetter) {
+	pc.trigger(getterName, getter)
 }
 
 func (pc *pipelineContext) Close() {
