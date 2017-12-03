@@ -206,10 +206,10 @@ type httpOutput struct {
 	clients    []*http.Client
 }
 
-func httpOutputConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, error) {
+func httpOutputConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, bool, error) {
 	c, ok := conf.(*httpOutputConfig)
 	if !ok {
-		return nil, plugins.SinkPlugin, fmt.Errorf("config type want *httpOutputConfig got %T", conf)
+		return nil, plugins.SinkPlugin, false, fmt.Errorf("config type want *httpOutputConfig got %T", conf)
 	}
 
 	tlsConfig := new(tls.Config)
@@ -257,7 +257,7 @@ func httpOutputConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginT
 		tlsConfig.RootCAs = caCertPool
 	}
 
-	return h, plugins.SinkPlugin, nil
+	return h, plugins.SinkPlugin, false, nil
 }
 
 func (h *httpOutput) Prepare(ctx pipelines.PipelineContext) {

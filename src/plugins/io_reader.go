@@ -62,15 +62,16 @@ type ioReader struct {
 	conf *ioReaderConfig
 }
 
-func ioReaderConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, error) {
+func ioReaderConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, bool, error) {
 	c, ok := conf.(*ioReaderConfig)
 	if !ok {
-		return nil, plugins.ProcessPlugin, fmt.Errorf("config type want *ioReaderConfig got %T", conf)
+		return nil, plugins.ProcessPlugin, false, fmt.Errorf(
+			"config type want *ioReaderConfig got %T", conf)
 	}
 
 	return &ioReader{
 		conf: c,
-	}, plugins.ProcessPlugin, nil
+	}, plugins.ProcessPlugin, false, nil
 }
 
 func (r *ioReader) Prepare(ctx pipelines.PipelineContext) {

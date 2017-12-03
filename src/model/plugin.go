@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/hexdecteam/easegateway-types/pipelines"
 	"github.com/hexdecteam/easegateway-types/plugins"
@@ -17,11 +18,14 @@ import (
 // Plugin wrapper for plugin close and cleanup
 //
 
+type pluginInstanceClosed func()
+
 type wrappedPlugin struct {
 	mod                      *Model
 	ori                      plugins.Plugin
 	preparationLock          sync.RWMutex
 	preparedPipelineContexts map[string]pipelines.PipelineContext
+	closedCallbacks          *common.NamedCallbackSet
 }
 
 func newWrappedPlugin(mod *Model, ori plugins.Plugin) *wrappedPlugin {
@@ -29,6 +33,7 @@ func newWrappedPlugin(mod *Model, ori plugins.Plugin) *wrappedPlugin {
 		mod: mod,
 		ori: ori,
 		preparedPipelineContexts: make(map[string]pipelines.PipelineContext),
+		closedCallbacks:          common.NewNamedCallbackSet(),
 	}
 
 	go func() {
@@ -59,7 +64,7 @@ func (p *wrappedPlugin) Prepare(ctx pipelines.PipelineContext) {
 		return
 	}
 
-	logger.Debugf("[prepare plugin %s for pipeline %s]", p.Name(), ctx.PipelineName())
+	logger.Debugf("[prepare plugin %s for pipeline %s, %p]", p.Name(), ctx.PipelineName(), ctx)
 	p.ori.Prepare(ctx)
 	logger.Debugf("[plugin %s prepared for pipeline %s]", p.Name(), ctx.PipelineName())
 
@@ -75,7 +80,7 @@ func (p *wrappedPlugin) Name() string {
 }
 
 func (p *wrappedPlugin) CleanUp(ctx pipelines.PipelineContext) {
-	logger.Debugf("[cleaning plugin %s up from pipeline %s]", p.Name(), ctx.PipelineName())
+	logger.Debugf("[cleaning plugin %s up from pipeline %s, %p]", p.Name(), ctx.PipelineName(), ctx)
 	p.ori.CleanUp(ctx)
 	logger.Debugf("[cleaned plugin %s up from pipeline %s]", p.Name(), ctx.PipelineName())
 }
@@ -91,6 +96,10 @@ func (p *wrappedPlugin) Close() {
 	logger.Debugf("[closing plugin %s]", p.Name())
 	p.ori.Close()
 	logger.Debugf("[closed plugin %s]", p.Name())
+
+	for _, callback := range p.closedCallbacks.GetCallbacks() {
+		callback.Callback().(pluginInstanceClosed)()
+	}
 }
 
 func (p *wrappedPlugin) cleanUpAndClose() {
@@ -138,33 +147,40 @@ func (p *wrappedPlugin) cleanUpPreparedPipelineContext(pipeline *Pipeline) {
 	p.CleanUp(ctx)
 }
 
+func (p *wrappedPlugin) addClosedCallback(name string, callback pluginInstanceClosed, priority string) {
+	p.closedCallbacks = common.AddCallback(p.closedCallbacks, name, callback, priority)
+}
+
+func (p *wrappedPlugin) deleteClosedCallback(name string) {
+	p.closedCallbacks = common.DeleteCallback(p.closedCallbacks, name)
+}
+
 //
 // Plugin entry in model structure
 //
 
-type PluginInstanceClosed func(instance plugins.Plugin)
-
 type Plugin struct {
 	sync.RWMutex
-	typ                     string
-	conf                    plugins.Config
-	constructor             plugins.Constructor
-	counter                 *pluginInstanceCounter
-	instance                *wrappedPlugin
-	pluginType              plugins.PluginType
-	instanceClosedCallbacks *common.NamedCallbackSet
+	typ                string
+	conf               plugins.Config
+	constructor        plugins.Constructor
+	counter            *pluginInstanceCounter
+	instance           *wrappedPlugin
+	pluginType         plugins.PluginType
+	singleton          bool
+	singletonClosed    chan struct{}
+	instanceGeneration uint64
 }
 
 func newPlugin(typ string, conf plugins.Config,
 	constructor plugins.Constructor, counter *pluginInstanceCounter) *Plugin {
 
 	return &Plugin{
-		conf:                    conf,
-		typ:                     typ,
-		constructor:             constructor,
-		counter:                 counter,
-		pluginType:              plugins.UnknownType,
-		instanceClosedCallbacks: common.NewNamedCallbackSet(),
+		conf:        conf,
+		typ:         typ,
+		constructor: constructor,
+		counter:     counter,
+		pluginType:  plugins.UnknownType,
 	}
 }
 
@@ -186,11 +202,11 @@ func (p *Plugin) Config() plugins.Config {
 	return p.conf
 }
 
-func (p *Plugin) GetInstance(mod *Model) (plugins.Plugin, plugins.PluginType, error) {
+func (p *Plugin) GetInstance(mod *Model) (plugins.Plugin, plugins.PluginType, uint64, error) {
 	p.RLock()
 	if p.instance != nil {
 		p.RUnlock()
-		return p.instance, p.pluginType, nil
+		return p.instance, p.pluginType, atomic.LoadUint64(&p.instanceGeneration), nil
 	}
 
 	p.RUnlock()
@@ -200,30 +216,29 @@ func (p *Plugin) GetInstance(mod *Model) (plugins.Plugin, plugins.PluginType, er
 
 	// DCL
 	if p.instance != nil {
-		return p.instance, p.pluginType, nil
+		return p.instance, p.pluginType, atomic.LoadUint64(&p.instanceGeneration), nil
 	}
 
-	ori, pluginType, err := p.constructor(p.conf)
+	if p.singleton { // block and wait old plugin instances closes completely
+		<-p.singletonClosed
+	}
+
+	ori, pluginType, singleton, err := p.constructor(p.conf)
 	if err != nil {
-		return nil, pluginType, err
+		return nil, pluginType, 0, err
 	}
 
 	instance := newWrappedPlugin(mod, ori)
 	p.instance = instance
 	p.pluginType = pluginType
-	return instance, pluginType, nil
-}
+	p.singleton = singleton
+	if p.singleton {
+		p.singletonClosed = make(chan struct{})
+	}
 
-func (p *Plugin) AddInstanceClosedCallback(name string, callback PluginInstanceClosed, priority string) {
-	p.Lock()
-	p.instanceClosedCallbacks = common.AddCallback(p.instanceClosedCallbacks, name, callback, priority)
-	p.Unlock()
-}
+	atomic.AddUint64(&p.instanceGeneration, 1)
 
-func (p *Plugin) DeleteInstanceClosedCallback(name string) {
-	p.Lock()
-	p.instanceClosedCallbacks = common.DeleteCallback(p.instanceClosedCallbacks, name)
-	p.Unlock()
+	return instance, pluginType, atomic.LoadUint64(&p.instanceGeneration), nil
 }
 
 func (p *Plugin) DismissInstance(instance plugins.Plugin) {
@@ -250,36 +265,34 @@ func (p *Plugin) dismissInstance(instance plugins.Plugin) {
 	p.instance = nil
 
 	if inst != nil {
-		_, ok := p.counter.CompareRefAndFunc(
-			inst, 0, func() error { return p.closePluginInstance(inst) })
-		if !ok {
-			callBackName := fmt.Sprintf("%s-destroyOverduePluginInstance@%p", p.conf.PluginName(), inst)
-			p.counter.AddUpdateCallback(callBackName, p.destroyOverduePluginInstance(inst))
+		if p.singleton {
+			inst.addClosedCallback("pluginInstanceClosed",
+				func() { close(p.singletonClosed) }, // let p.GetInstance() continues
+				common.NORMAL_PRIORITY_CALLBACK)
 		}
+
+		p.counter.CompareRefAndFunc(inst, 0,
+			func() { inst.cleanUpAndClose() },
+			func() {
+				go func() {
+					for { // wait old plugin instance closes by spin
+						count, err := p.counter.RefCount(inst)
+						if err != nil {
+							logger.Errorf("[BUG: query reference count of plugin %s instance failed: %v]", inst.Name())
+							break
+						}
+
+						if count == 0 {
+							break
+						}
+
+						time.Sleep(time.Millisecond)
+					}
+
+					inst.cleanUpAndClose()
+				}()
+			})
 	}
-}
-
-func (p *Plugin) destroyOverduePluginInstance(instance plugins.Plugin) PluginRefCountUpdated {
-	return func(plugin plugins.Plugin, count int64, counter *pluginInstanceCounter) {
-		if instance == plugin && count == 0 {
-			p.closePluginInstance(plugin)
-
-			callBackName := fmt.Sprintf("%s-destroyOverduePluginInstance@%p", p.conf.PluginName(), plugin)
-			counter.DeleteUpdateCallback(callBackName)
-		}
-	}
-}
-
-func (p *Plugin) closePluginInstance(plugin plugins.Plugin) error {
-	(plugin.(*wrappedPlugin)).cleanUpAndClose()
-
-	tmp := p.instanceClosedCallbacks.CopyCallbacks()
-
-	for _, callback := range tmp {
-		callback.Callback().(PluginInstanceClosed)(plugin)
-	}
-
-	return nil
 }
 
 //
@@ -290,14 +303,12 @@ type PluginRefCountUpdated func(plugin plugins.Plugin, count int64, counter *plu
 
 type pluginInstanceCounter struct {
 	sync.RWMutex
-	count     map[plugins.Plugin]*int64
-	callbacks *common.NamedCallbackSet
+	count map[plugins.Plugin]*int64
 }
 
 func newPluginRefCounter() *pluginInstanceCounter {
 	return &pluginInstanceCounter{
-		count:     make(map[plugins.Plugin]*int64),
-		callbacks: common.NewNamedCallbackSet(),
+		count: make(map[plugins.Plugin]*int64),
 	}
 }
 
@@ -318,17 +329,7 @@ func (c *pluginInstanceCounter) AddRef(plugin plugins.Plugin) int64 {
 		c.Unlock()
 	}
 
-	value := atomic.AddInt64(count, 1)
-
-	c.RLock()
-	tmp := c.callbacks.CopyCallbacks()
-	c.RUnlock()
-
-	for _, callback := range tmp {
-		callback.Callback().(PluginRefCountUpdated)(plugin, value, c)
-	}
-
-	return value
+	return atomic.AddInt64(count, 1)
 }
 
 func (c *pluginInstanceCounter) DeleteRef(plugin plugins.Plugin) int64 {
@@ -340,39 +341,34 @@ func (c *pluginInstanceCounter) DeleteRef(plugin plugins.Plugin) int64 {
 	}
 	c.RUnlock()
 
-	value := atomic.AddInt64(count, -1)
+	return atomic.AddInt64(count, -1)
+}
 
+func (c *pluginInstanceCounter) RefCount(plugin plugins.Plugin) (int64, error) {
 	c.RLock()
-	tmp := c.callbacks.CopyCallbacks()
+	count, exists := c.count[plugin]
 	c.RUnlock()
 
-	for _, callback := range tmp {
-		callback.Callback().(PluginRefCountUpdated)(plugin, value, c)
+	if !exists {
+		return -1, fmt.Errorf("plugin not found")
 	}
 
-	return value
+	return atomic.LoadInt64(count), nil
 }
 
-func (c *pluginInstanceCounter) CompareRefAndFunc(plugin plugins.Plugin, count int64, fun func() error) (error, bool) {
-	c.RLock()
-	count1, exists := c.count[plugin]
-	c.RUnlock()
+func (c *pluginInstanceCounter) CompareRefAndFunc(plugin plugins.Plugin, count int64,
+	hitFunc func(), missFunc func()) (bool, error) {
 
-	if exists && atomic.LoadInt64(count1) == count {
-		return fun(), true
+	count1, err := c.RefCount(plugin)
+	if err != nil {
+		return false, err
 	}
 
-	return nil, false
-}
-
-func (c *pluginInstanceCounter) AddUpdateCallback(pluginName string, callback PluginRefCountUpdated) {
-	c.Lock()
-	c.callbacks = common.AddCallback(c.callbacks, pluginName, callback, common.NORMAL_PRIORITY_CALLBACK)
-	c.Unlock()
-}
-
-func (c *pluginInstanceCounter) DeleteUpdateCallback(pluginName string) {
-	c.Lock()
-	c.callbacks = common.DeleteCallback(c.callbacks, pluginName)
-	c.Unlock()
+	if count1 == count {
+		hitFunc()
+		return true, nil
+	} else {
+		missFunc()
+		return false, nil
+	}
 }

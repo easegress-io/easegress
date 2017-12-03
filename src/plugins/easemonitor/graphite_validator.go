@@ -42,15 +42,16 @@ type graphiteValidator struct {
 	conf *graphiteValidatorConfig
 }
 
-func GraphiteValidatorConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, error) {
+func GraphiteValidatorConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, bool, error) {
 	c, ok := conf.(*graphiteValidatorConfig)
 	if !ok {
-		return nil, plugins.ProcessPlugin, fmt.Errorf("config type want *graphiteValidatorConfig got %T", conf)
+		return nil, plugins.ProcessPlugin, false, fmt.Errorf(
+			"config type want *graphiteValidatorConfig got %T", conf)
 	}
 
 	return &graphiteValidator{
 		conf: c,
-	}, plugins.ProcessPlugin, nil
+	}, plugins.ProcessPlugin, false, nil
 }
 
 func (v *graphiteValidator) Prepare(ctx pipelines.PipelineContext) {

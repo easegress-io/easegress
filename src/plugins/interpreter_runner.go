@@ -90,10 +90,10 @@ type interpreterRunner struct {
 	conf     *interpreterRunnerConfig
 }
 
-func newInterpreterRunner(conf plugins.Config) (*interpreterRunner, error) {
+func newInterpreterRunner(conf plugins.Config) (*interpreterRunner, bool, error) {
 	c, ok := conf.(*interpreterRunnerConfig)
 	if !ok {
-		return nil, fmt.Errorf("config type want *interpreterRunnerConfig got %T", conf)
+		return nil, false, fmt.Errorf("config type want *interpreterRunnerConfig got %T", conf)
 	}
 
 	p := &interpreterRunner{
@@ -103,7 +103,7 @@ func newInterpreterRunner(conf plugins.Config) (*interpreterRunner, error) {
 	p.executor = p
 	p.workDir = path.Join(c.pluginWorkDir, fmt.Sprintf("instance-%p", p))
 
-	return p, nil
+	return p, false, nil
 }
 
 func (r *interpreterRunner) Prepare(ctx pipelines.PipelineContext) {

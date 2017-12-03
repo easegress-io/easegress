@@ -61,15 +61,16 @@ type jsonValidator struct {
 	conf *jsonValidatorConfig
 }
 
-func jsonValidatorConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, error) {
+func jsonValidatorConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, bool, error) {
 	c, ok := conf.(*jsonValidatorConfig)
 	if !ok {
-		return nil, plugins.ProcessPlugin, fmt.Errorf("config type want *jsonValidatorConfig got %T", conf)
+		return nil, plugins.ProcessPlugin, false, fmt.Errorf(
+			"config type want *jsonValidatorConfig got %T", conf)
 	}
 
 	return &jsonValidator{
 		conf: c,
-	}, plugins.ProcessPlugin, nil
+	}, plugins.ProcessPlugin, false, nil
 }
 
 func (v *jsonValidator) Prepare(ctx pipelines.PipelineContext) {

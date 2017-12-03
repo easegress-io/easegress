@@ -54,10 +54,11 @@ type httpHeaderCounter struct {
 	indicatorAdded bool
 }
 
-func httpHeaderCounterConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, error) {
+func httpHeaderCounterConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, bool, error) {
 	c, ok := conf.(*httpHeaderCounterConfig)
 	if !ok {
-		return nil, plugins.ProcessPlugin, fmt.Errorf("config type want *httpHeaderCounterConfig got %T", conf)
+		return nil, plugins.ProcessPlugin, false, fmt.Errorf(
+			"config type want *httpHeaderCounterConfig got %T", conf)
 	}
 
 	counter := &httpHeaderCounter{
@@ -66,7 +67,7 @@ func httpHeaderCounterConstructor(conf plugins.Config) (plugins.Plugin, plugins.
 
 	counter.instanceId = fmt.Sprintf("%p", counter)
 
-	return counter, plugins.ProcessPlugin, nil
+	return counter, plugins.ProcessPlugin, false, nil
 }
 
 func (c *httpHeaderCounter) Prepare(ctx pipelines.PipelineContext) {

@@ -65,15 +65,16 @@ type shell struct {
 	conf *shellConfig
 }
 
-func shellConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, error) {
+func shellConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, bool, error) {
 	c, ok := conf.(*shellConfig)
 	if !ok {
-		return nil, plugins.ProcessPlugin, fmt.Errorf("config type want *shellConfig got %T", conf)
+		return nil, plugins.ProcessPlugin, false, fmt.Errorf(
+			"config type want *shellConfig got %T", conf)
 	}
 
-	base, err := newInterpreterRunner(&c.interpreterRunnerConfig)
+	base, singleton, err := newInterpreterRunner(&c.interpreterRunnerConfig)
 	if err != nil {
-		return nil, plugins.ProcessPlugin, err
+		return nil, plugins.ProcessPlugin, singleton, err
 	}
 
 	p := &shell{
@@ -83,7 +84,7 @@ func shellConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, 
 
 	p.interpreterRunner.executor = p
 
-	return p, plugins.ProcessPlugin, nil
+	return p, plugins.ProcessPlugin, singleton, nil
 }
 
 func (p *shell) command(code string) *exec.Cmd {

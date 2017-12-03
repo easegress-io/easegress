@@ -210,6 +210,7 @@ func (gw *Gateway) SysResUsage() (*syscall.Rusage, error) {
 func (gw *Gateway) setupPipelineLifecycleControl() {
 	gw.mod.AddPipelineAddedCallback("launchPipeline", gw.launchPipeline,
 		common.NORMAL_PRIORITY_CALLBACK)
+
 	gw.mod.AddPipelineDeletedCallback("terminatePipeline", gw.terminatePipeline,
 		common.NORMAL_PRIORITY_CALLBACK)
 	gw.mod.AddPipelineDeletedCallback("closePipelineContext", gw.closePipelineContext,
@@ -633,17 +634,5 @@ func (gw *Gateway) getRePreparePluginCallback(pluginNames []string, preparedPlug
 		}
 
 		atomic.StoreUint32(preparedPlugins, 0)
-
-		instance, _, err := gw.mod.GetPluginInstance(updatedPlugin.Name())
-		if err != nil {
-			logger.Warnf("[plugin %s get instance failed: %v]", updatedPlugin.Name(), err)
-		}
-
-		// This guarantees preparing the plugin instance only once.
-		instance.Prepare(ctx)
-
-		gw.mod.ReleasePluginInstance(instance)
-
-		atomic.StoreUint32(preparedPlugins, uint32(len(pluginNames)))
 	}
 }

@@ -47,15 +47,16 @@ type graphiteGidExtractor struct {
 	conf *graphiteGidExtractorConfig
 }
 
-func GraphiteGidExtractorConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, error) {
+func GraphiteGidExtractorConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, bool, error) {
 	c, ok := conf.(*graphiteGidExtractorConfig)
 	if !ok {
-		return nil, plugins.ProcessPlugin, fmt.Errorf("config type want *graphiteGidExtractorConfig got %T", conf)
+		return nil, plugins.ProcessPlugin, false, fmt.Errorf(
+			"config type want *graphiteGidExtractorConfig got %T", conf)
 	}
 
 	return &graphiteGidExtractor{
 		conf: c,
-	}, plugins.ProcessPlugin, nil
+	}, plugins.ProcessPlugin, false, nil
 }
 
 func (e *graphiteGidExtractor) Prepare(ctx pipelines.PipelineContext) {

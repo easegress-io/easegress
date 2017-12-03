@@ -528,10 +528,10 @@ type upstreamOutput struct {
 	instanceId string
 }
 
-func upstreamOutputConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, error) {
+func upstreamOutputConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, bool, error) {
 	c, ok := conf.(*upstreamOutputConfig)
 	if !ok {
-		return nil, plugins.SinkPlugin, fmt.Errorf("config type want *upstreamOutputConfig got %T", conf)
+		return nil, plugins.SinkPlugin, false, fmt.Errorf("config type want *upstreamOutputConfig got %T", conf)
 	}
 
 	upstream := &upstreamOutput{
@@ -540,7 +540,7 @@ func upstreamOutputConstructor(conf plugins.Config) (plugins.Plugin, plugins.Plu
 
 	upstream.instanceId = fmt.Sprintf("%p", upstream)
 
-	return upstream, plugins.SinkPlugin, nil
+	return upstream, plugins.SinkPlugin, false, nil
 }
 
 func (u *upstreamOutput) Prepare(ctx pipelines.PipelineContext) {

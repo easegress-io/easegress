@@ -299,8 +299,8 @@ We need to set the limiter plugin to a certain position in the pipeline, general
 You can use follow [Administration API](./admin_api_ref.swagger.yaml) calls to setup the pipelines:
 
 ```
-$ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "downstream", "plugin_names":["httpserver", "httpinput", "limiter", "upstreamoutput", "ioreader"], "parallelism":2, "cross_pipeline_request_backlog":0, "wait_plugin_close":true}}'
-$ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"cross_pipeline_request_backlog":0, "parallelism":2, "pipeline_name": "upstream", "plugin_names":["downstreaminput", "httpoutput"], "wait_plugin_close":true}}'
+$ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"pipeline_name": "downstream", "plugin_names":["httpserver", "httpinput", "limiter", "upstreamoutput", "ioreader"], "parallelism":2, "cross_pipeline_request_backlog":0}}'
+$ curl http://127.0.0.1:9090/admin/v1/pipelines -X POST -i -H "Content-Type:application/json" -H "Accept:application/json" -w "\n" -d '{"type": "LinearPipeline", "config": {"cross_pipeline_request_backlog":0, "parallelism":2, "pipeline_name": "upstream", "plugin_names":["downstreaminput", "httpoutput"]}}'
 ```
 
 #### Test

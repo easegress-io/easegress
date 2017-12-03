@@ -55,10 +55,11 @@ type noMoreFailureLimiter struct {
 	instanceId string
 }
 
-func noMoreFailureLimiterConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, error) {
+func noMoreFailureLimiterConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, bool, error) {
 	c, ok := conf.(*noMoreFailureLimiterConfig)
 	if !ok {
-		return nil, plugins.ProcessPlugin, fmt.Errorf("config type want *noMoreFailureLimiterConfig got %T", conf)
+		return nil, plugins.ProcessPlugin, false, fmt.Errorf(
+			"config type want *noMoreFailureLimiterConfig got %T", conf)
 	}
 
 	l := &noMoreFailureLimiter{
@@ -67,7 +68,7 @@ func noMoreFailureLimiterConstructor(conf plugins.Config) (plugins.Plugin, plugi
 
 	l.instanceId = fmt.Sprintf("%p", l)
 
-	return l, plugins.ProcessPlugin, nil
+	return l, plugins.ProcessPlugin, false, nil
 }
 
 func (l *noMoreFailureLimiter) Prepare(ctx pipelines.PipelineContext) {

@@ -253,25 +253,23 @@ func (m *Model) GetPlugins(namePattern string, types []string) ([]*Plugin, error
 	return ret, nil
 }
 
-func (m *Model) GetPluginInstance(name string) (plugins.Plugin, plugins.PluginType, error) {
+func (m *Model) GetPluginInstance(name string) (plugins.Plugin, plugins.PluginType, uint64, error) {
 	m.RLock()
 	defer m.RUnlock()
 
 	plugin, exists := m.plugins[name]
 	if exists {
-		instance, pluginType, err := plugin.GetInstance(m)
+		instance, pluginType, gen, err := plugin.GetInstance(m)
 		if err == nil {
 			m.pluginCounter.AddRef(instance)
 		}
-		return instance, pluginType, err
+		return instance, pluginType, gen, err
 	} else {
-		return nil, plugins.UnknownType, fmt.Errorf("plugin %s not found", name)
+		return nil, plugins.UnknownType, 0, fmt.Errorf("plugin %s not found", name)
 	}
 }
 
 func (m *Model) ReleasePluginInstance(plugin plugins.Plugin) int64 {
-	m.RLock()
-	defer m.RUnlock()
 	return m.pluginCounter.DeleteRef(plugin)
 }
 

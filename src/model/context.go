@@ -258,7 +258,7 @@ func (pc *pipelineContext) Close() {
 		bucketItem.bucket.close()
 	}
 
-	logger.Infof("[pipeline %s context is closed]", pc.pipeName)
+	logger.Infof("[pipeline %s context is closed %p]", pc.pipeName, pc)
 }
 
 func (pc *pipelineContext) deletePipelineContextDataBucketWhenPluginDeleted(_ *Plugin) {

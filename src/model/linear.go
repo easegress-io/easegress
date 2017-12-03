@@ -17,7 +17,6 @@ import (
 
 type linearPipelineConfig struct {
 	common.PipelineCommonConfig
-	WaitPluginClose bool `json:"wait_plugin_close"`
 }
 
 func linearPipelineConfigConstructor() pipelines_gw.Config {
@@ -25,7 +24,6 @@ func linearPipelineConfigConstructor() pipelines_gw.Config {
 		PipelineCommonConfig: common.PipelineCommonConfig{
 			CrossPipelineRequestBacklogLength: 10240,
 		},
-		WaitPluginClose: true, // HTTPInput plugin needs this due to it has a global mux object
 	}
 }
 
@@ -41,7 +39,8 @@ type linearPipeline struct {
 	preparedPlugins                         *uint32
 	rerunCancel, stopCancel, scheduleCancel cancelFunc
 	started, stopped                        uint32
-	runningPlugin                           string
+	runningPluginName                       string
+	runningPluginGeneration                 uint64
 }
 
 func newLinearPipeline(ctx pipelines.PipelineContext, statistics *PipelineStatistics,
@@ -89,7 +88,7 @@ func (p *linearPipeline) Prepare() {
 
 	// Prepare all plugin first for, like, indicator exposing.
 	for i := 0; i < len(pluginNames) && atomic.LoadUint32(&p.stopped) == 0; i++ {
-		instance, _, err := p.mod.GetPluginInstance(pluginNames[i])
+		instance, _, _, err := p.mod.GetPluginInstance(pluginNames[i])
 		if err != nil {
 			// the preparation of follow plugin might depend on previous plugin
 			break
@@ -126,20 +125,16 @@ func (p *linearPipeline) Run() error {
 
 	for i := 0; i < len(pluginNames) && atomic.LoadUint32(&p.stopped) == 0; i++ {
 		// error here is acceptable to pipeline, so do not return and keep pipeline runs
-		instance, pluginType, err := p.mod.GetPluginInstance(pluginNames[i])
+		instance, pluginType, gen, err := p.mod.GetPluginInstance(pluginNames[i])
 		if err != nil {
 			logger.Warnf("[plugin %s get instance failed: %v]", pluginNames[i], err)
 			t.SetError(err, http.StatusServiceUnavailable)
-		} else {
+		} else if atomic.LoadUint32(p.preparedPlugins) == 0 {
+
 			// Plugin might be updated during the pipeline execution.
-			// Wait engine.RePreparePlugin callback finish by spin.
-			for atomic.LoadUint32(p.preparedPlugins) != uint32(len(pluginNames)) &&
-				atomic.LoadUint32(&p.stopped) == 0 {
+			instance.Prepare(p.ctx)
 
-				time.Sleep(time.Millisecond)
-			}
-
-			p.runningPlugin = pluginNames[i]
+			atomic.StoreUint32(p.preparedPlugins, uint32(len(pluginNames)))
 		}
 
 		switch t.Status() {
@@ -147,38 +142,11 @@ func (p *linearPipeline) Run() error {
 			tsk.start()
 			fallthrough
 		case task.Running:
-			var (
-				success, rerun bool
-				done           chan struct{}
-			)
+			var success, rerun bool
 
-			success, preempted, rerun = p.runPlugin(instance, pluginType, t, tsk)
-
-			if !success && p.conf.WaitPluginClose {
-				done = make(chan struct{})
-
-				if atomic.LoadUint32(&p.stopped) == 0 {
-					plugin, _ := p.mod.GetPlugin(pluginNames[i])
-					callbackName := fmt.Sprintf("%s@%p-pluginInstanceClosed@%p", p.Name(), p, instance)
-					plugin.AddInstanceClosedCallback(callbackName,
-						func(closedInstance plugins.Plugin) {
-							if closedInstance == instance {
-								plugin.DeleteInstanceClosedCallback(callbackName)
-								close(done)
-							}
-						},
-						common.NORMAL_PRIORITY_CALLBACK)
-				}
-			}
+			success, preempted, rerun = p.runPlugin(instance, pluginType, gen, t, tsk)
 
 			p.mod.ReleasePluginInstance(instance)
-
-			if !success && p.conf.WaitPluginClose {
-				if atomic.LoadUint32(&p.stopped) == 0 {
-					<-done
-				}
-				common.CloseChan(done)
-			}
 
 			if !success && rerun {
 				i--
@@ -262,7 +230,7 @@ func (p *linearPipeline) Stop(scheduled bool) {
 	}
 }
 
-func (p *linearPipeline) runPlugin(instance plugins.Plugin, pluginType plugins.PluginType,
+func (p *linearPipeline) runPlugin(instance plugins.Plugin, pluginType plugins.PluginType, gen uint64,
 	input task.Task, tsk *Task) (bool, bool, bool) {
 
 	var t task.Task = input
@@ -289,11 +257,15 @@ func (p *linearPipeline) runPlugin(instance plugins.Plugin, pluginType plugins.P
 		canceller()
 	}
 
+	p.runningPluginName = instance.Name()
+	p.runningPluginGeneration = gen
+
 	startAt := time.Now()
 	err := instance.Run(p.ctx, t)
 	finishAt := time.Now()
 
-	p.runningPlugin = ""
+	p.runningPluginName = ""
+	p.runningPluginGeneration = 0
 	p.rerunCancel = NoOpCancelFunc
 	p.scheduleCancel = NoOpCancelFunc
 
@@ -337,7 +309,8 @@ func (p *linearPipeline) runPlugin(instance plugins.Plugin, pluginType plugins.P
 }
 
 func (p *linearPipeline) cancelAndRerunRunningPlugin(updatedPlugin *Plugin) {
-	if p.runningPlugin != updatedPlugin.Name() {
+	if p.runningPluginName != updatedPlugin.Name() ||
+		p.runningPluginGeneration > atomic.LoadUint64(&updatedPlugin.instanceGeneration) {
 		return
 	}
 

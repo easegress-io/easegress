@@ -9,8 +9,8 @@ import (
 	"github.com/hexdecteam/easegateway-types/plugins"
 	"github.com/hexdecteam/easegateway-types/task"
 
-	"logger"
 	"common"
+	"logger"
 )
 
 type staticProbabilityLimiterConfig struct {
@@ -47,15 +47,16 @@ type staticProbabilityLimiter struct {
 	conf *staticProbabilityLimiterConfig
 }
 
-func staticProbabilityLimiterConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, error) {
+func staticProbabilityLimiterConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, bool, error) {
 	c, ok := conf.(*staticProbabilityLimiterConfig)
 	if !ok {
-		return nil, plugins.ProcessPlugin, fmt.Errorf("config type want *staticProbabilityLimiterConfig got %T", conf)
+		return nil, plugins.ProcessPlugin, false, fmt.Errorf(
+			"config type want *staticProbabilityLimiterConfig got %T", conf)
 	}
 
 	return &staticProbabilityLimiter{
 		conf: c,
-	}, plugins.ProcessPlugin, nil
+	}, plugins.ProcessPlugin, false, nil
 }
 
 func (l *staticProbabilityLimiter) Prepare(ctx pipelines.PipelineContext) {

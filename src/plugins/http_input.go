@@ -198,10 +198,11 @@ type httpInput struct {
 	contexts                      map[string]pipelines.PipelineContext
 }
 
-func httpInputConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, error) {
+func httpInputConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, bool, error) {
 	c, ok := conf.(*httpInputConfig)
 	if !ok {
-		return nil, plugins.SourcePlugin, fmt.Errorf("config type want *HTTPInputConfig got %T", conf)
+		return nil, plugins.SourcePlugin, false, fmt.Errorf(
+			"config type want *HTTPInputConfig got %T", conf)
 	}
 
 	h := &httpInput{
@@ -212,7 +213,7 @@ func httpInputConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginTy
 
 	h.instanceId = fmt.Sprintf("%p", h)
 
-	return h, plugins.SourcePlugin, nil
+	return h, plugins.SourcePlugin, false, nil
 }
 
 func (h *httpInput) toHTTPMuxEntries() []*plugins.HTTPMuxEntry {

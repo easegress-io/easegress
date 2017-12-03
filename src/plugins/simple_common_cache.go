@@ -64,15 +64,16 @@ type simpleCommonCache struct {
 	conf *simpleCommonCacheConfig
 }
 
-func simpleCommonCacheConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, error) {
+func simpleCommonCacheConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, bool, error) {
 	c, ok := conf.(*simpleCommonCacheConfig)
 	if !ok {
-		return nil, plugins.ProcessPlugin, fmt.Errorf("config type want *simpleCommonCacheConfig got %T", conf)
+		return nil, plugins.ProcessPlugin, false, fmt.Errorf(
+			"config type want *simpleCommonCacheConfig got %T", conf)
 	}
 
 	return &simpleCommonCache{
 		conf: c,
-	}, plugins.ProcessPlugin, nil
+	}, plugins.ProcessPlugin, false, nil
 }
 
 func (c *simpleCommonCache) Prepare(ctx pipelines.PipelineContext) {
