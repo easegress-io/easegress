@@ -251,7 +251,7 @@ func NewPipelineStatistics(pipelineName string, pluginNames []string, m *Model) 
 		pipelineThroughputRates1:       metrics.NewEWMA1(),
 		pipelineThroughputRates5:       metrics.NewEWMA5(),
 		pipelineThroughputRates15:      metrics.NewEWMA15(),
-		pipelineExecutionSample:        common.NewExpDecaySample(time.Minute, 30),
+		pipelineExecutionSample:        common.NewExpDecaySample(30*time.Second, 5),
 		pluginSuccessThroughputRates1:  make(map[string]metrics.EWMA),
 		pluginSuccessThroughputRates5:  make(map[string]metrics.EWMA),
 		pluginSuccessThroughputRates15: make(map[string]metrics.EWMA),
@@ -285,7 +285,7 @@ func NewPipelineStatistics(pipelineName string, pluginNames []string, m *Model) 
 			select {
 			case <-ticker.C:
 				for _, ewma := range ewmas {
-					ewma.Tick()
+					go ewma.Tick()
 				}
 			case <-ret.done:
 				ticker.Stop()
@@ -329,9 +329,9 @@ func NewPipelineStatistics(pipelineName string, pluginNames []string, m *Model) 
 
 		go tickFun([]metrics.EWMA{ewma1, ewma5, ewma15})
 
-		ret.pluginSuccessExecutionSamples[name] = common.NewExpDecaySample(time.Minute, 30)
-		ret.pluginFailureExecutionSamples[name] = common.NewExpDecaySample(time.Minute, 30)
-		ret.pluginAllExecutionSamples[name] = common.NewExpDecaySample(time.Minute, 30)
+		ret.pluginSuccessExecutionSamples[name] = common.NewExpDecaySample(30*time.Second, 5)
+		ret.pluginFailureExecutionSamples[name] = common.NewExpDecaySample(30*time.Second, 5)
+		ret.pluginAllExecutionSamples[name] = common.NewExpDecaySample(30*time.Second, 5)
 	}
 
 	// Expose pipeline statistics values as indicators
