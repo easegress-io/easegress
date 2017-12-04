@@ -17,7 +17,7 @@ type ExpDecaySample struct {
 	closed        bool
 }
 
-func NewHDRSample(timeRange time.Duration, secondsForEachBucket int) *ExpDecaySample {
+func NewExpDecaySample(timeRange time.Duration, secondsForEachBucket int) *ExpDecaySample {
 	if secondsForEachBucket == 0 {
 		secondsForEachBucket = int(timeRange / 2)
 	}
