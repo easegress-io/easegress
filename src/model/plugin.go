@@ -23,27 +23,24 @@ type pluginInstanceClosed func()
 type wrappedPlugin struct {
 	mod                      *Model
 	ori                      plugins.Plugin
+	generation               uint64
 	preparationLock          sync.RWMutex
 	preparedPipelineContexts map[string]pipelines.PipelineContext
 	closedCallbacks          *common.NamedCallbackSet
 }
 
-func newWrappedPlugin(mod *Model, ori plugins.Plugin) *wrappedPlugin {
-	p := &wrappedPlugin{
-		mod: mod,
-		ori: ori,
+func newWrappedPlugin(mod *Model, ori plugins.Plugin, gen uint64) *wrappedPlugin {
+	plugin := &wrappedPlugin{
+		mod:                      mod,
+		ori:                      ori,
+		generation:               gen,
 		preparedPipelineContexts: make(map[string]pipelines.PipelineContext),
 		closedCallbacks:          common.NewNamedCallbackSet(),
 	}
 
-	go func() {
-		callbackName := fmt.Sprintf("%s-cleanUpPreparedPipelineContextMapWhenPipelineUpdatedOrDeleted@%p", p.Name(), p)
+	logger.Debugf("[created plugin %s at %p]", plugin.Name(), ori)
 
-		p.mod.AddPipelineDeletedCallback(callbackName, p.cleanUpPreparedPipelineContext, "closePipelineContext")
-		p.mod.AddPipelineUpdatedCallback(callbackName, p.cleanUpPreparedPipelineContext, "relaunchPipelineStage2")
-	}()
-
-	return p
+	return plugin
 }
 
 func (p *wrappedPlugin) Prepare(ctx pipelines.PipelineContext) {
@@ -64,11 +61,21 @@ func (p *wrappedPlugin) Prepare(ctx pipelines.PipelineContext) {
 		return
 	}
 
-	logger.Debugf("[prepare plugin %s for pipeline %s, %p]", p.Name(), ctx.PipelineName(), ctx)
+	logger.Debugf("[prepare plugin %s for pipeline %s (plugin=%p, context=%p)]",
+		p.Name(), ctx.PipelineName(), p.ori, ctx)
+
 	p.ori.Prepare(ctx)
-	logger.Debugf("[plugin %s prepared for pipeline %s]", p.Name(), ctx.PipelineName())
+
+	logger.Debugf("[plugin %s prepared for pipeline %s (plugin=%p, context=%p)]",
+		p.Name(), ctx.PipelineName(), p.ori, ctx)
 
 	p.preparedPipelineContexts[ctx.PipelineName()] = ctx
+
+	pc, ok := ctx.(*pipelineContext)
+	if ok {
+		callbackName := fmt.Sprintf("%s-cleanUpPreparedPipelineContextMapWhenContextClosing@%p", p.Name(), p)
+		pc.addClosingCallback(callbackName, p.cleanUpPreparedPipelineContext, common.NORMAL_PRIORITY_CALLBACK)
+	}
 }
 
 func (p *wrappedPlugin) Run(ctx pipelines.PipelineContext, t task.Task) error {
@@ -80,22 +87,25 @@ func (p *wrappedPlugin) Name() string {
 }
 
 func (p *wrappedPlugin) CleanUp(ctx pipelines.PipelineContext) {
-	logger.Debugf("[cleaning plugin %s up from pipeline %s, %p]", p.Name(), ctx.PipelineName(), ctx)
+	pc, ok := ctx.(*pipelineContext)
+	if ok {
+		callbackName := fmt.Sprintf("%s-cleanUpPreparedPipelineContextMapWhenContextClosing@%p", p.Name(), p)
+		pc.deleteClosingCallback(callbackName)
+	}
+
+	logger.Debugf("[cleaning plugin %s up from pipeline %s (plugin=%p, context=%p)]",
+		p.Name(), ctx.PipelineName(), p.ori, ctx)
+
 	p.ori.CleanUp(ctx)
-	logger.Debugf("[cleaned plugin %s up from pipeline %s]", p.Name(), ctx.PipelineName())
+
+	logger.Debugf("[cleaned plugin %s up from pipeline %s (plugin=%p, context=%p)]",
+		p.Name(), ctx.PipelineName(), p.ori, ctx)
 }
 
 func (p *wrappedPlugin) Close() {
-	go func() {
-		callbackName := fmt.Sprintf("%s-cleanUpPreparedPipelineContextMapWhenPipelineUpdatedOrDeleted@%p", p.Name(), p)
-
-		p.mod.DeletePipelineDeletedCallback(callbackName)
-		p.mod.DeletePipelineUpdatedCallback(callbackName)
-	}()
-
-	logger.Debugf("[closing plugin %s]", p.Name())
+	logger.Debugf("[closing plugin %s at %p]", p.Name(), p.ori)
 	p.ori.Close()
-	logger.Debugf("[closed plugin %s]", p.Name())
+	logger.Debugf("[closed plugin %s at %p]", p.Name(), p.ori)
 
 	for _, callback := range p.closedCallbacks.GetCallbacks() {
 		callback.Callback().(pluginInstanceClosed)()
@@ -119,10 +129,10 @@ func (p *wrappedPlugin) cleanUpAndClose() {
 	p.Close()
 }
 
-func (p *wrappedPlugin) cleanUpPreparedPipelineContext(pipeline *Pipeline) {
+func (p *wrappedPlugin) cleanUpPreparedPipelineContext(ctx pipelines.PipelineContext) {
 	p.preparationLock.RLock()
 
-	ctx, exists := p.preparedPipelineContexts[pipeline.Name()]
+	ctx, exists := p.preparedPipelineContexts[ctx.PipelineName()]
 	if !exists {
 		// the plugin was not prepared on the pipeline
 		p.preparationLock.RUnlock()
@@ -134,13 +144,13 @@ func (p *wrappedPlugin) cleanUpPreparedPipelineContext(pipeline *Pipeline) {
 	p.preparationLock.Lock()
 
 	// DCL
-	ctx, exists = p.preparedPipelineContexts[pipeline.Name()]
+	ctx, exists = p.preparedPipelineContexts[ctx.PipelineName()]
 	if !exists {
 		p.preparationLock.Unlock()
 		return
 	}
 
-	delete(p.preparedPipelineContexts, pipeline.Name())
+	delete(p.preparedPipelineContexts, ctx.PipelineName())
 
 	p.preparationLock.Unlock()
 
@@ -169,7 +179,7 @@ type Plugin struct {
 	pluginType         plugins.PluginType
 	singleton          bool
 	singletonClosed    chan struct{}
-	instanceGeneration uint64
+	currentInstanceGen uint64
 }
 
 func newPlugin(typ string, conf plugins.Config,
@@ -202,11 +212,11 @@ func (p *Plugin) Config() plugins.Config {
 	return p.conf
 }
 
-func (p *Plugin) GetInstance(mod *Model) (plugins.Plugin, plugins.PluginType, uint64, error) {
+func (p *Plugin) GetInstance(mod *Model, prepareForNew bool) (plugins.Plugin, plugins.PluginType, uint64, error) {
 	p.RLock()
 	if p.instance != nil {
 		p.RUnlock()
-		return p.instance, p.pluginType, atomic.LoadUint64(&p.instanceGeneration), nil
+		return p.instance, p.pluginType, atomic.LoadUint64(&p.currentInstanceGen), nil
 	}
 
 	p.RUnlock()
@@ -216,10 +226,10 @@ func (p *Plugin) GetInstance(mod *Model) (plugins.Plugin, plugins.PluginType, ui
 
 	// DCL
 	if p.instance != nil {
-		return p.instance, p.pluginType, atomic.LoadUint64(&p.instanceGeneration), nil
+		return p.instance, p.pluginType, atomic.LoadUint64(&p.currentInstanceGen), nil
 	}
 
-	if p.singleton { // block and wait old plugin instances closes completely
+	if p.singleton { // block and wait old plugin instances close completely
 		<-p.singletonClosed
 	}
 
@@ -228,7 +238,7 @@ func (p *Plugin) GetInstance(mod *Model) (plugins.Plugin, plugins.PluginType, ui
 		return nil, pluginType, 0, err
 	}
 
-	instance := newWrappedPlugin(mod, ori)
+	instance := newWrappedPlugin(mod, ori, atomic.AddUint64(&p.currentInstanceGen, 1))
 	p.instance = instance
 	p.pluginType = pluginType
 	p.singleton = singleton
@@ -236,30 +246,33 @@ func (p *Plugin) GetInstance(mod *Model) (plugins.Plugin, plugins.PluginType, ui
 		p.singletonClosed = make(chan struct{})
 	}
 
-	atomic.AddUint64(&p.instanceGeneration, 1)
+	if prepareForNew {
+		// prepare new plugin instance on pipelines
+		mod.preparePluginInstance(instance)
+	}
 
-	return instance, pluginType, atomic.LoadUint64(&p.instanceGeneration), nil
+	return instance, pluginType, atomic.LoadUint64(&p.currentInstanceGen), nil
 }
 
-func (p *Plugin) DismissInstance(instance plugins.Plugin) {
+func (p *Plugin) DismissInstance(instance plugins.Plugin) (bool, uint64) {
 	p.Lock()
-	p.dismissInstance(instance)
-	p.Unlock()
+	defer p.Unlock()
+	return p.dismissInstance(instance)
 }
 
-func (p *Plugin) UpdateConfig(conf plugins.Config) {
+func (p *Plugin) UpdateConfig(conf plugins.Config) (bool, uint64) {
 	p.Lock()
 	defer p.Unlock()
 
 	p.conf = conf
-	p.dismissInstance(nil)
+	return p.dismissInstance(nil)
 }
 
-func (p *Plugin) dismissInstance(instance plugins.Plugin) {
+func (p *Plugin) dismissInstance(instance plugins.Plugin) (bool, uint64) {
 	inst := p.instance
 
 	if instance != nil && inst != instance {
-		return
+		return false, 0
 	}
 
 	p.instance = nil
@@ -292,7 +305,11 @@ func (p *Plugin) dismissInstance(instance plugins.Plugin) {
 					inst.cleanUpAndClose()
 				}()
 			})
+
+		return true, inst.generation
 	}
+
+	return false, 0
 }
 
 //

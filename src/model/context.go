@@ -18,25 +18,29 @@ import (
 // Pipeline context
 //
 
+type pipelineContextClosingCallback func(ctx pipelines.PipelineContext)
+
 type bucketItem struct {
 	bucket     *pipelineContextDataBucket
 	autoDelete bool
 }
 
 type pipelineContext struct {
-	pipeName         string
-	plugNames        []string
-	parallelismCount uint16
-	statistics       pipelines.PipelineStatistics
-	mod              *Model
-	bucketLock       sync.RWMutex // dedicated lock provides better performance
-	buckets          map[string]*bucketItem
-	requestChanLock  sync.Mutex
-	requestChan      chan *pipelines.DownstreamRequest
-	trigger          pipelines.SourceInputTrigger
+	pipeName             string
+	plugNames            []string
+	parallelismCount     uint16
+	statistics           pipelines.PipelineStatistics
+	mod                  *Model
+	bucketLock           sync.RWMutex // dedicated lock provides better performance
+	buckets              map[string]*bucketItem
+	requestChanLock      sync.Mutex
+	requestChan          chan *pipelines.DownstreamRequest
+	trigger              pipelines.SourceInputTrigger
+	closingCallbacksLock sync.RWMutex
+	closingCallbacks     *common.NamedCallbackSet
 }
 
-func NewPipelineContext(conf pipelines_gw.Config, statistics pipelines.PipelineStatistics,
+func newPipelineContext(conf pipelines_gw.Config, statistics pipelines.PipelineStatistics,
 	m *Model, trigger pipelines.SourceInputTrigger) *pipelineContext {
 
 	if trigger == nil { // defensive
@@ -52,9 +56,10 @@ func NewPipelineContext(conf pipelines_gw.Config, statistics pipelines.PipelineS
 		buckets:          make(map[string]*bucketItem),
 		requestChan:      make(chan *pipelines.DownstreamRequest, conf.CrossPipelineRequestBacklog()),
 		trigger:          trigger,
+		closingCallbacks: common.NewNamedCallbackSet(),
 	}
 
-	logger.Infof("[pipeline %s context is created]", conf.PipelineName())
+	logger.Infof("[pipeline %s context at %p is created]", conf.PipelineName(), c)
 
 	return c
 }
@@ -254,11 +259,17 @@ func (pc *pipelineContext) Close() {
 		pc.requestChan = nil // to make len() returns 0 in CrossPipelineWIPRequestsCount()
 	}
 
+	tmp := pc.closingCallbacks.CopyCallbacks()
+
+	for _, callback := range tmp {
+		callback.Callback().(pipelineContextClosingCallback)(pc)
+	}
+
 	for _, bucketItem := range pc.buckets {
 		bucketItem.bucket.close()
 	}
 
-	logger.Infof("[pipeline %s context is closed %p]", pc.pipeName, pc)
+	logger.Infof("[pipeline %s context at %p is closed]", pc.pipeName, pc)
 }
 
 func (pc *pipelineContext) deletePipelineContextDataBucketWhenPluginDeleted(_ *Plugin) {
@@ -287,6 +298,18 @@ func (pc *pipelineContext) deletePipelineContextDataBucketWhenPluginDeleted(_ *P
 	}
 
 	pc.buckets = updatedBucket
+}
+
+func (pc *pipelineContext) addClosingCallback(name string, callback pipelineContextClosingCallback, priority string) {
+	pc.closingCallbacksLock.Lock()
+	pc.closingCallbacks = common.AddCallback(pc.closingCallbacks, name, callback, priority)
+	pc.closingCallbacksLock.Unlock()
+}
+
+func (pc *pipelineContext) deleteClosingCallback(name string) {
+	pc.closingCallbacksLock.Lock()
+	pc.closingCallbacks = common.DeleteCallback(pc.closingCallbacks, name)
+	pc.closingCallbacksLock.Unlock()
 }
 
 //

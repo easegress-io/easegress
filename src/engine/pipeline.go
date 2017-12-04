@@ -28,9 +28,11 @@ func newPipelineInstance(instance pipelines_gw.Pipeline) *pipelineInstance {
 	}
 }
 
-func (pi *pipelineInstance) run() {
+func (pi *pipelineInstance) prepare() {
 	pi.instance.Prepare()
+}
 
+func (pi *pipelineInstance) run() {
 loop:
 	for {
 		select {
@@ -62,7 +64,7 @@ func (pi *pipelineInstance) terminate(scheduled bool) chan struct{} {
 type pipelineScheduler interface {
 	PipelineName() string
 	SourceInputTrigger() pipelines.SourceInputTrigger
-	Start(ctx pipelines.PipelineContext, statistics *model.PipelineStatistics, mod *model.Model, data interface{})
+	Start(ctx pipelines.PipelineContext, statistics *model.PipelineStatistics, mod *model.Model)
 	Stop()
 	StopPipeline()
 }
@@ -90,7 +92,7 @@ func (scheduler *commonPipelineScheduler) PipelineName() string {
 }
 
 func (scheduler *commonPipelineScheduler) startPipeline(parallelism uint32,
-	ctx pipelines.PipelineContext, statistics *model.PipelineStatistics, mod *model.Model, data interface{}) uint32 {
+	ctx pipelines.PipelineContext, statistics *model.PipelineStatistics, mod *model.Model) uint32 {
 
 	if parallelism == 0 { // defensive
 		parallelism = 1
@@ -115,7 +117,7 @@ func (scheduler *commonPipelineScheduler) startPipeline(parallelism uint32,
 	}
 
 	for idx := uint32(0); idx < parallelism; idx++ {
-		pipeline, err := scheduler.pipeline.GetInstance(ctx, statistics, mod, data)
+		pipeline, err := scheduler.pipeline.GetInstance(ctx, statistics, mod)
 		if err != nil {
 			logger.Errorf("[launch pipeline %s-#%d failed: %v]",
 				scheduler.PipelineName(), currentParallelism+idx+1, err)
@@ -127,6 +129,7 @@ func (scheduler *commonPipelineScheduler) startPipeline(parallelism uint32,
 		scheduler.instances = append(scheduler.instances, instance)
 		currentParallelism++
 
+		instance.prepare()
 		go instance.run()
 	}
 
@@ -137,10 +140,9 @@ func (scheduler *commonPipelineScheduler) stopPipelineInstance(idx int, instance
 	select {
 	case <-instance.terminate(scheduled): // wait until stop
 	case <-time.After(PIPELINE_STOP_TIMEOUT_SECONDS * time.Second):
-		logger.Warnf("[stopped pipeline %s-#%d timeout (%d seconds elapsed)]",
+		logger.Warnf("[stopped pipeline %s instance #%d timeout (%d seconds elapsed)]",
 			scheduler.PipelineName(), idx+1, PIPELINE_STOP_TIMEOUT_SECONDS)
 	}
-
 }
 
 func (scheduler *commonPipelineScheduler) StopPipeline() {
@@ -153,7 +155,7 @@ func (scheduler *commonPipelineScheduler) StopPipeline() {
 		scheduler.stopPipelineInstance(idx, instance, false)
 	}
 
-	logger.Debugf("[stopped pipeline %s (total=%d)]", scheduler.PipelineName(), len(scheduler.instances))
+	logger.Infof("[stopped pipeline %s (parallelism=%d)]", scheduler.PipelineName(), len(scheduler.instances))
 }
 
 ////
@@ -163,7 +165,6 @@ type dynamicPipelineScheduler struct {
 	ctx         pipelines.PipelineContext
 	statistics  *model.PipelineStatistics
 	mod         *model.Model
-	data        interface{}
 	triggers    int64
 	gettersLock sync.RWMutex
 	getters     map[string]pipelines.SourceInputQueueLengthGetter
@@ -183,7 +184,7 @@ func (scheduler *dynamicPipelineScheduler) SourceInputTrigger() pipelines.Source
 }
 
 func (scheduler *dynamicPipelineScheduler) Start(ctx pipelines.PipelineContext,
-	statistics *model.PipelineStatistics, mod *model.Model, data interface{}) {
+	statistics *model.PipelineStatistics, mod *model.Model) {
 
 	if !atomic.CompareAndSwapUint32(&scheduler.started, 0, 1) {
 		return // already started
@@ -193,9 +194,8 @@ func (scheduler *dynamicPipelineScheduler) Start(ctx pipelines.PipelineContext,
 	scheduler.ctx = ctx
 	scheduler.statistics = statistics
 	scheduler.mod = mod
-	scheduler.data = data
 
-	scheduler.startPipeline(option.PipelineInitParallelism, ctx, statistics, mod, data)
+	scheduler.startPipeline(option.PipelineInitParallelism, ctx, statistics, mod)
 
 	go scheduler.shrink()
 
@@ -244,7 +244,7 @@ func (scheduler *dynamicPipelineScheduler) trigger(getterName string, getter pip
 		}
 
 		parallelism := scheduler.startPipeline(
-			queueLength, scheduler.ctx, scheduler.statistics, scheduler.mod, scheduler.data)
+			queueLength, scheduler.ctx, scheduler.statistics, scheduler.mod)
 
 		logger.Debugf("[spawned pipeline instance(s) for pipeline %s (total=%d)]",
 			scheduler.PipelineName(), parallelism)
@@ -330,13 +330,13 @@ func (scheduler *staticPipelineScheduler) SourceInputTrigger() pipelines.SourceI
 }
 
 func (scheduler *staticPipelineScheduler) Start(ctx pipelines.PipelineContext,
-	statistics *model.PipelineStatistics, mod *model.Model, data interface{}) {
+	statistics *model.PipelineStatistics, mod *model.Model) {
 
 	if !atomic.CompareAndSwapUint32(&scheduler.started, 0, 1) {
 		return // already started
 	}
 
-	scheduler.startPipeline(uint32(scheduler.pipeline.Config().Parallelism()), ctx, statistics, mod, data)
+	scheduler.startPipeline(uint32(scheduler.pipeline.Config().Parallelism()), ctx, statistics, mod)
 
 	atomic.StoreUint32(&scheduler.stopped, 0)
 }

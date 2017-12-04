@@ -45,7 +45,7 @@ func (p *Pipeline) Config() pipelines_gw.Config {
 }
 
 func (p *Pipeline) GetInstance(ctx pipelines.PipelineContext, statistics *PipelineStatistics,
-	m *Model, data interface{}) (pipelines_gw.Pipeline, error) {
+	m *Model) (pipelines_gw.Pipeline, error) {
 
 	p.RLock()
 	defer p.RUnlock()
@@ -55,7 +55,7 @@ func (p *Pipeline) GetInstance(ctx pipelines.PipelineContext, statistics *Pipeli
 
 	// Copy config, e.g. plugin names, for every pipeline instances,
 	// updated pipeline doesn't impact any running task
-	return newLinearPipeline(ctx, statistics, p.config, m, data)
+	return newLinearPipeline(ctx, statistics, p.config, m)
 }
 
 func (p *Pipeline) UpdateConfig(conf pipelines_gw.Config) {

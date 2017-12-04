@@ -221,7 +221,7 @@ func httpServerConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginT
 
 	select {
 	case err = <-done:
-	default:
+	case <-time.After(500 * time.Millisecond): // wait fast failure of server startup, hate this
 	}
 
 	if err != nil {
@@ -244,11 +244,11 @@ func (h *httpServer) Prepare(ctx pipelines.PipelineContext) {
 }
 
 func (h *httpServer) Run(ctx pipelines.PipelineContext, t task.Task) error {
-	// FIXME(zhiyan): don't check for exceptional case, to help performance for normal case
+	/* FIXME(zhiyan): don't check for exceptional case, to help performance for normal case
 	if len(ctx.PluginNames()) == 1 { // only myself, wrong usage
 		// yield to help stupid operator correct this by pipeline update
 		time.Sleep(time.Millisecond)
-	}
+	} */
 
 	return nil
 }

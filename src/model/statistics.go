@@ -64,6 +64,7 @@ func (r *statRegistry) deletePipelineStatistics(pipeline *Pipeline) {
 	if exists {
 		go statistics.Close()
 	}
+
 	delete(r.statistics, pipeline.Name())
 	logger.Infof("[pipeline %s statistics is deleted]", pipeline.Name())
 }

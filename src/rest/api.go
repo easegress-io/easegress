@@ -178,11 +178,13 @@ func (s *Rest) Start() (<-chan error, string, error) {
 func (s *Rest) Stop() {
 	s.stopped = true
 
-	err := s.server.Shutdown(context.Background())
-	if err != nil {
-		logger.Errorf("[shut rest interface down failed: %s]", err)
-	} else {
-		logger.Debugf("[rest interface is shut down gracefully]")
+	if s.server != nil {
+		err := s.server.Shutdown(context.Background())
+		if err != nil {
+			logger.Errorf("[shut rest interface down failed: %s]", err)
+		} else {
+			logger.Debugf("[rest interface is shut down gracefully]")
+		}
 	}
 }
 

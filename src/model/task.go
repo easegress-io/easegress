@@ -26,7 +26,7 @@ type Task struct {
 	taskRecoveries          *common.NamedCallbackSet
 }
 
-func NewTask() *Task {
+func newTask() *Task {
 	return &Task{
 		status:                  task.Pending,
 		resultCode:              task.ResultOK,

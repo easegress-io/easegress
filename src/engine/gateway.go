@@ -7,11 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"syscall"
 	"time"
-
-	"github.com/hexdecteam/easegateway-types/pipelines"
 
 	cluster "cluster/gateway"
 	"common"
@@ -210,16 +207,9 @@ func (gw *Gateway) SysResUsage() (*syscall.Rusage, error) {
 func (gw *Gateway) setupPipelineLifecycleControl() {
 	gw.mod.AddPipelineAddedCallback("launchPipeline", gw.launchPipeline,
 		common.NORMAL_PRIORITY_CALLBACK)
-
 	gw.mod.AddPipelineDeletedCallback("terminatePipeline", gw.terminatePipeline,
 		common.NORMAL_PRIORITY_CALLBACK)
-	gw.mod.AddPipelineDeletedCallback("closePipelineContext", gw.closePipelineContext,
-		common.NORMAL_PRIORITY_CALLBACK)
-
-	// separated to 2 stages for plugin cleanup on the pipeline context
-	gw.mod.AddPipelineUpdatedCallback("relaunchPipelineStage1", gw.relaunchPipelineStage1,
-		common.NORMAL_PRIORITY_CALLBACK)
-	gw.mod.AddPipelineUpdatedCallback("relaunchPipelineStage2", gw.relaunchPipelineStage2,
+	gw.mod.AddPipelineUpdatedCallback("relaunchPipeline", gw.relaunchPipeline,
 		common.NORMAL_PRIORITY_CALLBACK)
 }
 
@@ -249,25 +239,9 @@ func (gw *Gateway) launchPipeline(newPipeline *model.Pipeline) {
 
 	ctx := gw.mod.CreatePipelineContext(newPipeline.Config(), statistics, scheduler.SourceInputTrigger())
 
-	pluginNames := newPipeline.Config().PluginNames()
-	preparedPlugins := uint32(len(pluginNames))
-
-	gw.mod.AddPluginUpdatedCallback(fmt.Sprintf("%s-rePreparePlugin", newPipeline.Name()),
-		gw.getRePreparePluginCallback(pluginNames, &preparedPlugins, ctx),
-		common.NORMAL_PRIORITY_CALLBACK)
-
-	scheduler.Start(ctx, statistics, gw.mod, &preparedPlugins)
+	scheduler.Start(ctx, statistics, gw.mod)
 
 	gw.schedulers[newPipeline.Name()] = scheduler
-}
-
-func (gw *Gateway) relaunchPipelineStage1(updatedPipeline *model.Pipeline) {
-	gw.terminatePipeline(updatedPipeline)
-}
-
-func (gw *Gateway) relaunchPipelineStage2(updatedPipeline *model.Pipeline) {
-	gw.closePipelineContext(updatedPipeline)
-	gw.launchPipeline(updatedPipeline)
 }
 
 func (gw *Gateway) terminatePipeline(deletedPipeline *model.Pipeline) {
@@ -286,19 +260,19 @@ func (gw *Gateway) terminatePipeline(deletedPipeline *model.Pipeline) {
 
 	scheduler.StopPipeline()
 
-	gw.mod.DeletePluginUpdatedCallback(fmt.Sprintf("%s-rePreparePlugin", deletedPipeline.Name()))
-
 	delete(gw.schedulers, deletedPipeline.Name())
-}
 
-func (gw *Gateway) closePipelineContext(deletedPipeline *model.Pipeline) {
-	logger.Infof("[close pipeline context: %s]", deletedPipeline.Name())
+	logger.Infof("[close pipeline %s context]", deletedPipeline.Name())
 
 	deleted := gw.mod.DeletePipelineContext(deletedPipeline.Name())
 	if !deleted {
 		logger.Errorf("[BUG: deleted pipeline %s has not context.]", deletedPipeline.Name())
-		return
 	}
+}
+
+func (gw *Gateway) relaunchPipeline(updatedPipeline *model.Pipeline) {
+	gw.terminatePipeline(updatedPipeline)
+	gw.launchPipeline(updatedPipeline)
 }
 
 func (gw *Gateway) loadPlugins() error {
@@ -381,7 +355,7 @@ func (gw *Gateway) deletePluginFromStorage(deletedPlugin *model.Plugin) {
 	}
 }
 
-func (gw *Gateway) updatePluginInStorage(updatedPlugin *model.Plugin) {
+func (gw *Gateway) updatePluginInStorage(updatedPlugin *model.Plugin, instanceDismissed bool, instanceGen uint64) {
 	spec := &config.PluginSpec{
 		Type:   updatedPlugin.Type(),
 		Config: updatedPlugin.Config(),
@@ -623,16 +597,4 @@ func (gw *Gateway) handleClusterOperation(seq uint64, operation *cluster.Operati
 	logger.Debugf("[cluster operation (sequence=%d) has been handled]", seq)
 
 	return nil, cluster.NoneOperationFailure
-}
-
-func (gw *Gateway) getRePreparePluginCallback(pluginNames []string, preparedPlugins *uint32,
-	ctx pipelines.PipelineContext) model.PluginUpdated {
-
-	return func(updatedPlugin *model.Plugin) {
-		if !common.StrInSlice(updatedPlugin.Name(), pluginNames) {
-			return
-		}
-
-		atomic.StoreUint32(preparedPlugins, 0)
-	}
 }
