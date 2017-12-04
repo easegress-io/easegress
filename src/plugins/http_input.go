@@ -361,7 +361,12 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 
 		var bodyBytesSent int64 = -1 // -1 indicates we can't provide a proper value
 		var ioElapse time.Duration
-		if len(h.conf.ResponseBodyIOKey) != 0 {
+		// Use customized ResponseBodyBuffer first
+		if len(h.conf.ResponseBodyBufferKey) != 0 && t1.Value(h.conf.ResponseBodyBufferKey) != nil {
+			buf := task.ToBytes(t1.Value(h.conf.ResponseBodyBufferKey), option.PluginIODataFormatLengthLimit)
+			ht.writer.Write(buf)
+			bodyBytesSent = int64(len(buf))
+		} else if len(h.conf.ResponseBodyIOKey) != 0 {
 			reader, ok := t1.Value(h.conf.ResponseBodyIOKey).(io.Reader)
 			if ok {
 				done := make(chan int, 1)
@@ -396,12 +401,6 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 				}
 
 				ioElapse = tr.Elapse()
-			}
-		} else if len(h.conf.ResponseBodyBufferKey) != 0 {
-			buff, ok := t1.Value(h.conf.ResponseBodyBufferKey).([]byte)
-			if ok {
-				ht.writer.Write(buff)
-				bodyBytesSent = int64(len(buff))
 			}
 		} else if !task.SuccessfulResult(t1.ResultCode()) && h.conf.RespondErr {
 			if strings.Contains(ht.request.Header.Get("Accept-Encoding"), "gzip") {

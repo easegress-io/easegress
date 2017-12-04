@@ -94,10 +94,10 @@ Plugin handles HTTP request and returns client with pipeline processed response.
 | request\_header\_key | string | The key name of HTTP request header stored in internal storage as the plugin output. | I/O | Yes | "" |
 | response\_header\_key | string | The key name of HTTP response header stored in internal storage as the plugin input. | I/O | Yes | "" |
 | request\_header\_names\_key | string | The name of HTTP request header name list stored in internal storage as the plugin output. | I/O | Yes | "" |
-| request\_body\_io\_key | string | The key name of HTTP request body io object stored in internal storage as the plugin output. | I/O | Yes | "" |
+| request\_body\_io\_key | string | The key name of HTTP request body io object stored in internal storage as the plugin output. The option will leveraged only when `response_body_buffer_key` option is not configured or empty | I/O | Yes | "" |
 | response\_code\_key | string | The key name of HTTP response status code value stored in internal storage as the plugin input. An empty value of the option means returning pipeline handling result code to client. | I/O | Yes | "" |
 | response\_body\_io\_key | string | The key name of HTTP response body io object stored in internal storage as the plugin input. | I/O | Yes | "" |
-| response\_body\_buffer\_key | string | The key name of HTTP response body buffer stored in internal storage as the plugin input. The option will be leveraged only when `response_body_io_key` option is empty. | I/O | Yes | "" |
+| response\_body\_buffer\_key | string | The key name of HTTP response body buffer stored in internal storage as the plugin input. Please note that gateway global option `plugin_io_data_format_len_limit`'s value should be equal or larger than response body buffer length. | I/O | Yes | "" |
 | response\_remote\_key | string | The key name of HTTP response remote address stored in internal storage as the plugin input. | I/O | Yes | "" |
 | response\_duration\_key | string | The key name of HTTP response process time stored in internal storage as the plugin input. | I/O | Yes | "" |
 
