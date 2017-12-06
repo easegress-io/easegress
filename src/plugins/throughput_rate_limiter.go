@@ -95,7 +95,7 @@ func (l *throughputRateLimiter) Run(ctx pipelines.PipelineContext, t task.Task) 
 		return nil
 	}
 
-	go updateInThroughputRate(ctx, l.Name()) // ignore error if it occurs
+	go updateInboundThroughputRate(ctx, l.Name()) // ignore error if it occurs
 
 	if limiter == nil {
 		t.SetError(fmt.Errorf("service is unavaialbe caused by throughput rate limit"), task.ResultFlowControl)

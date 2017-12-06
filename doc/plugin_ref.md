@@ -372,8 +372,9 @@ Plugin limits request rate based on historical latency statistics.
 | plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
 | plugins\_concerned | []string | Plugin name list, the execution time on 90% requests of each of them will be calculated, the result will be compared with the `latency_threshold_msec` option. | Functionality | No | N/A |
 | latency\_threshold\_msec | uint32 | The latency threshold in millisecond, when the latency is greater than it the request will be counted as one slow request. Normally, this value could be 1.5 * average-normal-response-time. | Functionality | Yes | 800 |
-| backoff\_msec | uint16 | How many milliseconds the request need to be delayed when the times of the slow request reached. Value 0 means there is not request could be delayed, respond StatusTooManyRequests immediately. Normally, this value could be 0.5 * average-normal-response-time. | Functionality | Yes | 100 |
-| allow\_times | uint32 | Allowed times of slow request before to perform backoff. | Functionality | Yes | 0 |
+| allow\_msec| uint16 | Allowed time in millisecond of slow request before to perform backoff. | Functionality | Yes | 1000 |
+| backoff\_timeout\_msec | int16 | The maximal wait time in millisecond of request back off. It's value must be in range [-1~10000]. Value 0 means there is not request could be backed off, respond StatusTooManyRequests immediately. Value -1 means there is no timeout when back off. Normally, this value could be 0.5 * average-normal-response-time. | Functionality | Yes | 1000 |
+| probe\_percentage | uint8 | The percentage of requests used to probe concerned plugins' latency. It's value must be in range [1~99]. | Functionality | Yes | 10 |
 | flow\_control\_percentage\_key | string | The key name of flow control percentage stored in internal storage as the plugin output. It's value is an integer in range [0~100]. Zero value means no flow control(0%) happend, 100 means all requests(100%) in last 1 min are flow controlled. | I/O | Yes | "" |
 
 ### I/O

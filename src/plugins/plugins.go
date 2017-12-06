@@ -351,7 +351,7 @@ func updateFlowControlledThroughputRate(ctx pipelines.PipelineContext, pluginNam
 	return nil
 }
 
-func updateInThroughputRate(ctx pipelines.PipelineContext, pluginName string) error {
+func updateInboundThroughputRate(ctx pipelines.PipelineContext, pluginName string) error {
 	inRate1, err := getInboundThroughputRate1(ctx, pluginName)
 	if err != nil {
 		return err
