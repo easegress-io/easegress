@@ -77,6 +77,7 @@ func (c *latencyLimiterConfig) Prepare(pipelineNames []string) error {
 
 type latencyWindowLimiter struct {
 	conf *latencyLimiterConfig
+	instanceId string
 }
 
 func latencyLimiterConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, error) {
@@ -88,6 +89,7 @@ func latencyLimiterConstructor(conf plugins.Config) (plugins.Plugin, plugins.Plu
 	l := &latencyWindowLimiter{
 		conf: c,
 	}
+	l.instanceId = fmt.Sprintf("%p", l)
 
 	return l, plugins.ProcessPlugin, nil
 }
@@ -99,21 +101,27 @@ func (l *latencyWindowLimiter) Prepare(ctx pipelines.PipelineContext) {
 
 // Probe: don't totally fuse outbound requests because we need small amount of requests to probe the concerned target
 func (l *latencyWindowLimiter) isProbe(outboundRate float64, inboundRate float64) bool {
-	if outboundRate >= 10 && 100*outboundRate/inboundRate > float64(l.conf.ProbePercentage) || // outbound rate is big enough so don't need probe
-		inboundRate >= 10 && // rand.Intn(1) will always return zero
-			rand.Int31n(100) >= int32(l.conf.ProbePercentage) {
+	curPercentage := 100 * outboundRate / inboundRate
+
+	// outbound rate is big enough compares to outboundRate
+	if curPercentage > float64(l.conf.ProbePercentage) && outboundRate >= 10 {
 		return false
 	}
-	return true
+
+	if inboundRate < 10 || // inboundRate is too small so we needs all requests to be probes
+		rand.Int31n(100) < int32(l.conf.ProbePercentage) {
+		return true
+	}
+	return false
 }
 
 func (l *latencyWindowLimiter) Run(ctx pipelines.PipelineContext, t task.Task) error {
 	t.AddFinishedCallback(fmt.Sprintf("%s-checkLatency", l.Name()),
-		getTaskFinishedCallbackInLatencyLimiter(ctx, l.conf.PluginsConcerned, l.conf.LatencyThresholdMSec, l.conf.AllowMSec, l.Name()))
+		getTaskFinishedCallbackInLatencyLimiter(ctx, l.conf, l.Name(), l.instanceId))
 
 	go updateInboundThroughputRate(ctx, l.Name()) // ignore error if it occurs
 
-	counter, err := getLatencyLimiterCounter(ctx, l.Name(), l.conf.AllowMSec)
+	counter, err := getLatencyLimiterCounter(ctx, l.Name(), l.instanceId, l.conf.AllowMSec)
 	if err != nil {
 		return nil
 	}
@@ -131,7 +139,7 @@ func (l *latencyWindowLimiter) Run(ctx pipelines.PipelineContext, t task.Task) e
 			"ignored to limit request: %v]", ctx.PipelineName(), err)
 	}
 
-	inboundRate, _ := r.Get()                                                                    // ignore error safely
+	inboundRate, _ := r.Get() // ignore error safely
 	// use l.conf.AllowMSec to avoid thrashing caused by network, upstream server gc or other factors
 	counterThreshold := uint64(float64(l.conf.AllowMSec) / 1000.0 * outboundRate)
 	count := counter.Count()
@@ -166,7 +174,7 @@ func (l *latencyWindowLimiter) Run(ctx pipelines.PipelineContext, t task.Task) e
 						task.ResultFlowControl)
 					return nil
 				case <-time.After(time.Duration(backOffStep) * time.Millisecond):
-					if counter.Count() < counterThreshold {
+					if counter.Count() < counterThreshold { // FIXME(shengdong): counterThreshold needs re-calculate
 						logger.Debugf("[successfully passed latency limiter after backed off]")
 						break LOOP
 					}
@@ -196,8 +204,8 @@ func (l *latencyWindowLimiter) Name() string {
 	return l.conf.PluginName()
 }
 
-func (h *latencyWindowLimiter) CleanUp(ctx pipelines.PipelineContext) {
-	// Nothing to do.
+func (l *latencyWindowLimiter) CleanUp(ctx pipelines.PipelineContext) {
+	ctx.DeleteBucket(l.Name(), l.instanceId)
 }
 
 func (l *latencyWindowLimiter) Close() {
@@ -240,7 +248,7 @@ func newLatencyLimiterCounter(ctx pipelines.PipelineContext, pluginName string, 
 						}
 						logger.Debugf("[increase counter: %d, counter max: %d, outboundRate: %.1f]", ret.counter, max, outboundRate)
 						ret.counter += 1
-						if ret.counter > max { // max is not a fixed number, so we may need to adjust ret.counter
+						if ret.counter > max {
 							ret.counter = max
 						}
 					}
@@ -286,8 +294,8 @@ func (c *latencyLimiterCounter) Close() error { // io.Closer stub
 	return nil
 }
 
-func getLatencyLimiterCounter(ctx pipelines.PipelineContext, pluginName string, allowMSec uint16) (*latencyLimiterCounter, error) {
-	bucket := ctx.DataBucket(pluginName, pipelines.DATA_BUCKET_FOR_ALL_PLUGIN_INSTANCE)
+func getLatencyLimiterCounter(ctx pipelines.PipelineContext, pluginName, instanceId string, allowMSec uint16) (*latencyLimiterCounter, error) {
+	bucket := ctx.DataBucket(pluginName, instanceId)
 	counter, err := bucket.QueryDataWithBindDefault(latencyLimiterCounterKey,
 		func() interface{} {
 			return newLatencyLimiterCounter(ctx, pluginName, 2*allowMSec) // maxCountMSec may needs tuned
@@ -301,14 +309,14 @@ func getLatencyLimiterCounter(ctx pipelines.PipelineContext, pluginName string, 
 	return counter.(*latencyLimiterCounter), nil
 }
 
-func getTaskFinishedCallbackInLatencyLimiter(ctx pipelines.PipelineContext, pluginsConcerned []string,
-	latencyThresholdMSec uint32, allowMSec uint16, pluginName string) task.TaskFinished {
+func getTaskFinishedCallbackInLatencyLimiter(ctx pipelines.PipelineContext,
+	conf *latencyLimiterConfig, pluginName, instanceId string) task.TaskFinished {
 
 	return func(t1 task.Task, _ task.TaskStatus) {
 		var latency float64
 		var found bool
-		latencyThreshold := float64(time.Duration(latencyThresholdMSec) * time.Millisecond)
-		for _, name := range pluginsConcerned {
+		latencyThreshold := float64(time.Duration(conf.LatencyThresholdMSec) * time.Millisecond)
+		for _, name := range conf.PluginsConcerned {
 			if !common.StrInSlice(name, ctx.PluginNames()) {
 				continue // ignore safely
 			}
@@ -333,7 +341,7 @@ func getTaskFinishedCallbackInLatencyLimiter(ctx pipelines.PipelineContext, plug
 			return
 		}
 
-		counter, err := getLatencyLimiterCounter(ctx, pluginName, allowMSec)
+		counter, err := getLatencyLimiterCounter(ctx, pluginName, instanceId, conf.AllowMSec)
 		if err != nil { // ignore error safely
 			return
 		}
