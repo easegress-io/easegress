@@ -384,9 +384,6 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 
 			writeStartAt := time.Now()
 			ht.writer.Write(buf)
-			if f, ok := ht.writer.(http.Flusher); ok {
-				f.Flush()
-			}
 			writeElapse = time.Now().Sub(writeStartAt)
 		} else if len(h.conf.ResponseBodyIOKey) != 0 {
 			reader, ok := t1.Value(h.conf.ResponseBodyIOKey).(io.Reader)
@@ -425,12 +422,6 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 
 				readElapse = tr.Elapse()
 				writeElapse = tw.Elapse()
-
-				if f, ok := ht.writer.(http.Flusher); ok {
-					writeStartAt := time.Now()
-					f.Flush()
-					writeElapse += time.Now().Sub(writeStartAt)
-				}
 			}
 		} else if !task.SuccessfulResult(t1.ResultCode()) && h.conf.RespondErr {
 			if strings.Contains(ht.request.Header.Get("Accept-Encoding"), "gzip") {
@@ -449,9 +440,6 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 
 				writeStartAt := time.Now()
 				ht.writer.Write(bytes)
-				if f, ok := ht.writer.(http.Flusher); ok {
-					f.Flush()
-				}
 				writeElapse = time.Now().Sub(writeStartAt)
 			}
 		}

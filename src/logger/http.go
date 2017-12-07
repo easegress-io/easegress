@@ -90,7 +90,7 @@ func HTTPAccess(req *http.Request, code int, bodyBytesSent int64,
 		code, bodyBytesSent, referer,
 		agent, realIP,
 		requestTime.Seconds(), upstreamResponseTime.Seconds(), upstreamAddr, upstreamCode,
-		clientWriteBodyTime)
+		clientWriteBodyTime.Seconds())
 
 	for _, l := range httpLog.getLoggers("http_access") {
 		l.Debugf(line)
