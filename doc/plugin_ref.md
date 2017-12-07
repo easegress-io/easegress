@@ -517,11 +517,12 @@ Plugin mocks a data for a failure request.
 |:--|:--|:--|:--:|:--:|:--|
 | plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
 | plugin\_concerned | string | Plugin processing failure will be considered to apply mock. | Functionality | No | N/A |
-| task\_error\_code\_concerned | string | What result code will be considered to apply mock. | Functionality | No | N/A |
+| finish\_task | bool | Whether to finish task after applying mock. | Functionality | No | false |
+| task\_error\_codes\_concerned | []string | What result codes will be considered to apply mock. | Functionality | No | N/A |
 | mock\_task\_data\_key | string | The key name of mock data to store as the plugin output. | I/O | No | N/A |
 | mock\_task\_data\_value | string | The mock data to store as the plugin output. | I/O | Yes | "" |
 
-Available task error result code:
+[Available task error result code](https://github.com/hexdecteam/easegateway-types/blob/master/task/result_code.go#L8):
 
 * ResultUnknownError
 * ResultServiceUnavailable
@@ -531,6 +532,7 @@ Available task error result code:
 * ResultBadInput
 * ResultRequesterGone
 * ResultFlowControl
+* ResultUnauthorized
 
 ### I/O
 

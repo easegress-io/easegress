@@ -175,12 +175,16 @@ func (t *Task) clearError(originalCode task.TaskResultCode) {
 func (t *Task) recover(errorPluginName string, lastStatus task.TaskStatus, t1 task.Task) bool {
 	// so don't call DeleteRecoveryFunc() in the callback
 	for _, namedCallback := range t.taskRecoveries.GetCallbacks() {
-		recovered := namedCallback.Callback().(task.TaskRecovery)(t1, errorPluginName)
+		recovered, finishTask := namedCallback.Callback().(task.TaskRecovery)(t1, errorPluginName)
 		if recovered {
 			if lastStatus == task.Running { // defensive
 				t.clearError(task.ResultOK)
 			}
-			t.setStatus(lastStatus)
+			if finishTask {
+				t.setStatus(task.Finished) // so caller will call tsk.finish(t)
+			} else {
+				t.setStatus(lastStatus)
+			}
 			return true
 		}
 	}
