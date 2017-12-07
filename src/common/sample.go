@@ -37,7 +37,7 @@ func NewExpDecaySample(timeRange time.Duration, secondsForEachBucket int) *ExpDe
 	switcher := func() {
 		for {
 			select {
-			case <-time.Tick(time.Second * time.Duration(secondsForEachBucket)):
+			case <-time.After(time.Second * time.Duration(secondsForEachBucket)):
 				s.bucketIdxLock.Lock()
 
 				s.buckets[s.bucketIdx].Clear()
@@ -65,11 +65,16 @@ func (s *ExpDecaySample) Close() {
 
 	close(s.stop)
 	s.closed = true
+
+	// defense, accelerate gc
+	for i := 0; i < len(s.buckets); i++ {
+		s.buckets[i].Clear()
+	}
 }
 
 func (s *ExpDecaySample) Update(v int64) {
-	for _, bucket := range s.buckets {
-		bucket.Update(v)
+	for i := 0; i < len(s.buckets); i++ {
+		s.buckets[i].Update(v)
 	}
 }
 
