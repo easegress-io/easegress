@@ -320,7 +320,7 @@ func (m *Model) getPluginInstance(name string, prepareForNew bool) (plugins.Plug
 		m.pluginCounter.AddRef(instance)
 	}
 
-	return instance, pluginType, gen, nil
+	return instance, pluginType, gen, err
 }
 
 func (m *Model) releasePluginInstance(plugin plugins.Plugin) int64 {
