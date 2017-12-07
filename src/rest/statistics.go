@@ -92,6 +92,13 @@ func (s *statisticsServer) retrievePluginIndicatorNames(w rest.ResponseWriter, r
 	}
 
 	indicatorNames := statistics.PluginIndicatorNames(pluginName)
+	if indicatorNames == nil {
+		msg := fmt.Sprintf("plugin %s statistics not found", pluginName)
+		rest.Error(w, msg, http.StatusNotFound)
+		logger.Warnf("[%s]", msg)
+		return
+	}
+
 	// Returns with stable order
 	sort.Strings(indicatorNames)
 
@@ -138,6 +145,13 @@ func (s *statisticsServer) retrievePluginIndicatorValue(w rest.ResponseWriter, r
 	}
 
 	indicatorNames := statistics.PluginIndicatorNames(pluginName)
+	if indicatorNames == nil {
+		msg := fmt.Sprintf("plugin %s statistics not found", pluginName)
+		rest.Error(w, msg, http.StatusNotFound)
+		logger.Warnf("[%s]", msg)
+		return
+	}
+
 	if !common.StrInSlice(indicatorName, indicatorNames) {
 		msg := fmt.Sprintf("indicator %s not found", indicatorName)
 		rest.Error(w, msg, http.StatusNotFound)
@@ -196,6 +210,13 @@ func (s *statisticsServer) retrievePluginIndicatorDesc(w rest.ResponseWriter, r 
 	}
 
 	indicatorNames := statistics.PluginIndicatorNames(pluginName)
+	if indicatorNames == nil {
+		msg := fmt.Sprintf("plugin %s statistics not found", pluginName)
+		rest.Error(w, msg, http.StatusNotFound)
+		logger.Warnf("[%s]", msg)
+		return
+	}
+
 	if !common.StrInSlice(indicatorName, indicatorNames) {
 		msg := fmt.Sprintf("indicator %s not found", indicatorName)
 		rest.Error(w, msg, http.StatusNotFound)

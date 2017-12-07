@@ -450,8 +450,14 @@ func (gc *GatewayCluster) statResult(filter interface{}) ([]byte, error, Cluster
 				PipelineStatNotFoundError
 		}
 
+		names := stat.PluginIndicatorNames(filter.PluginName)
+		if names == nil {
+			return nil, fmt.Errorf("plugin %s statistics not found", filter.PluginName),
+				PluginStatNotFoundError
+		}
+
 		r := new(ResultStatIndicatorNames)
-		r.Names = stat.PluginIndicatorNames(filter.PluginName)
+		r.Names = names
 
 		// returns with stable order
 		sort.Strings(r.Names)
@@ -465,6 +471,11 @@ func (gc *GatewayCluster) statResult(filter interface{}) ([]byte, error, Cluster
 		}
 
 		indicatorNames := stat.PluginIndicatorNames(filter.PluginName)
+		if indicatorNames == nil {
+			return nil, fmt.Errorf("plugin %s statistics not found", filter.PluginName),
+				PluginStatNotFoundError
+		}
+
 		if !common.StrInSlice(filter.IndicatorName, indicatorNames) {
 			return nil, fmt.Errorf("indicator %s not found", filter.IndicatorName),
 				RetrievePluginStatIndicatorNotFoundError
@@ -489,6 +500,11 @@ func (gc *GatewayCluster) statResult(filter interface{}) ([]byte, error, Cluster
 		}
 
 		indicatorNames := stat.PluginIndicatorNames(filter.PluginName)
+		if indicatorNames == nil {
+			return nil, fmt.Errorf("plugin %s statistics not found", filter.PluginName),
+				PluginStatNotFoundError
+		}
+
 		if !common.StrInSlice(filter.IndicatorName, indicatorNames) {
 			return nil, fmt.Errorf("indicator %s not found", filter.IndicatorName),
 				RetrievePluginStatIndicatorNotFoundError

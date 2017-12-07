@@ -33,7 +33,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: The statistics of pipeline instance not found by given name.
+          description: The statistics of pipeline or plugin instance not found by given name.
           schema:
             $ref: '#/definitions/Error'
         200:
@@ -72,7 +72,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: The statistics of pipeline instance or indicator not found by given name.
+          description: The statistics of pipeline or plugin instance or indicator not found by given name.
           schema:
             $ref: '#/definitions/Error'
         200:
@@ -111,7 +111,7 @@ paths:
           schema:
             $ref: '#/definitions/Error'
         404:
-          description: The statistics of pipeline instance or indicator not found by given name.
+          description: The statistics of pipeline or plugin instance or indicator not found by given name.
           schema:
             $ref: '#/definitions/Error'
         200:

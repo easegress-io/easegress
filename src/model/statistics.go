@@ -968,15 +968,15 @@ func (ps *PipelineStatistics) PipelineIndicatorDescription(indicatorName string)
 }
 
 func (ps *PipelineStatistics) PluginIndicatorNames(pluginName string) []string {
-	ret := make([]string, 0)
-
 	ps.RLock()
 	defer ps.RUnlock()
 
 	indicators, exists := ps.pluginIndicators[pluginName]
 	if !exists {
-		return ret
+		return nil
 	}
+
+	ret := make([]string, len(indicators))
 
 	for name := range indicators {
 		ret = append(ret, name)
