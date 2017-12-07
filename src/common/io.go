@@ -41,9 +41,23 @@ func (ir *InterruptibleReader) Close() {
 
 ////
 
-type TimeReader struct {
-	r        io.Reader
+type timeIO struct {
 	duration time.Duration
+}
+
+func (t *timeIO) Elapse() time.Duration {
+	return t.duration
+}
+
+func (t *timeIO) timeTrack(start time.Time) {
+	t.duration += time.Since(start)
+}
+
+////
+
+type TimeReader struct {
+	timeIO
+	r io.Reader
 }
 
 func NewTimeReader(r io.Reader) *TimeReader {
@@ -57,10 +71,20 @@ func (tr *TimeReader) Read(p []byte) (n int, err error) { // io.Reader stub
 	return tr.r.Read(p)
 }
 
-func (tr *TimeReader) Elapse() time.Duration {
-	return tr.duration
+////
+
+type TimeWriter struct {
+	timeIO
+	w io.Writer
 }
 
-func (tr *TimeReader) timeTrack(start time.Time) {
-	tr.duration += time.Since(start)
+func NewTimeWriter(w io.Writer) *TimeWriter {
+	return &TimeWriter{
+		w: w,
+	}
+}
+
+func (tw *TimeWriter) Write(p []byte) (n int, err error) { // io.Write stub
+	defer tw.timeTrack(time.Now())
+	return tw.w.Write(p)
 }

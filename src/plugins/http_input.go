@@ -376,21 +376,28 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 		// TODO: Take care other headers if inputted
 
 		var bodyBytesSent int64 = -1 // -1 indicates we can't provide a proper value
-		var ioElapse time.Duration
+		var readElapse, writeElapse time.Duration
 		// Use customized ResponseBodyBuffer first
 		if len(h.conf.ResponseBodyBufferKey) != 0 && t1.Value(h.conf.ResponseBodyBufferKey) != nil {
 			buf := task.ToBytes(t1.Value(h.conf.ResponseBodyBufferKey), option.PluginIODataFormatLengthLimit)
-			ht.writer.Write(buf)
 			bodyBytesSent = int64(len(buf))
+
+			writeStartAt := time.Now()
+			ht.writer.Write(buf)
+			if f, ok := ht.writer.(http.Flusher); ok {
+				f.Flush()
+			}
+			writeElapse = time.Now().Sub(writeStartAt)
 		} else if len(h.conf.ResponseBodyIOKey) != 0 {
 			reader, ok := t1.Value(h.conf.ResponseBodyIOKey).(io.Reader)
 			if ok {
 				done := make(chan int, 1)
 				ir := common.NewInterruptibleReader(reader)
 				tr := common.NewTimeReader(ir)
+				tw := common.NewTimeWriter(ht.writer)
 
 				go func() {
-					written, err := io.Copy(ht.writer, tr)
+					written, err := io.Copy(tw, tr)
 					if err != nil {
 						logger.Warnf("[load response body from reader in the task"+
 							" failed, response might be incomplete: %s]", err)
@@ -416,7 +423,14 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 					ir.Close()
 				}
 
-				ioElapse = tr.Elapse()
+				readElapse = tr.Elapse()
+				writeElapse = tw.Elapse()
+
+				if f, ok := ht.writer.(http.Flusher); ok {
+					writeStartAt := time.Now()
+					f.Flush()
+					writeElapse += time.Now().Sub(writeStartAt)
+				}
 			}
 		} else if !task.SuccessfulResult(t1.ResultCode()) && h.conf.RespondErr {
 			if strings.Contains(ht.request.Header.Get("Accept-Encoding"), "gzip") {
@@ -432,12 +446,18 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 				// ascii is a subset of utf-8
 				bytes := []byte(t1.Error().Error())
 				bodyBytesSent = int64(len(bytes))
+
+				writeStartAt := time.Now()
 				ht.writer.Write(bytes)
+				if f, ok := ht.writer.(http.Flusher); ok {
+					f.Flush()
+				}
+				writeElapse = time.Now().Sub(writeStartAt)
 			}
 		}
 
 		logRequest(ht, t1, h.conf.ResponseCodeKey, h.conf.ResponseRemoteKey,
-			h.conf.ResponseDurationKey, ioElapse, bodyBytesSent)
+			h.conf.ResponseDurationKey, readElapse, writeElapse, bodyBytesSent)
 	}
 
 	closeHTTPInputRequestBody := func(t1 task.Task, _ task.TaskStatus) {
@@ -590,7 +610,7 @@ func getClientReceivedCode(t task.Task, responseCodeKey string) int {
 }
 
 func logRequest(ht *httpTask, t task.Task, responseCodeKey, responseRemoteKey,
-	responseDurationKey string, ioElapse time.Duration, bodyBytesSent int64) {
+	responseDurationKey string, readElapse, writeElapse time.Duration, bodyBytesSent int64) {
 
 	var responseRemote string = ""
 	value := t.Value(responseRemoteKey)
@@ -601,7 +621,7 @@ func logRequest(ht *httpTask, t task.Task, responseCodeKey, responseRemoteKey,
 		}
 	}
 
-	responseDuration := ioElapse
+	responseDuration := readElapse
 	value = nil
 	value = t.Value(responseDurationKey)
 	if value != nil {
@@ -615,7 +635,7 @@ func logRequest(ht *httpTask, t task.Task, responseCodeKey, responseRemoteKey,
 	// or provide a method(e.g. AddUpstreamResponseTime) of task
 	logger.HTTPAccess(ht.request, getClientReceivedCode(t, responseCodeKey), bodyBytesSent,
 		time.Now().Sub(ht.receivedAt), responseDuration,
-		responseRemote, getResponseCode(t, responseCodeKey))
+		responseRemote, getResponseCode(t, responseCodeKey), writeElapse)
 
 	if !task.SuccessfulResult(t.ResultCode()) {
 		logger.Warnf("[http request processed unsuccessfully, "+
