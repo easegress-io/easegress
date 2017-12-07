@@ -85,7 +85,7 @@ func HTTPAccess(req *http.Request, code int, bodyBytesSent int64,
 			`%v %v "%s" `+
 			`"%s" "%s" `+
 			`%f %f %v %v . `+
-			`%v`,
+			`%f`,
 		req.RemoteAddr, time.Now().Local(), req.Method, req.URL.Path, req.Proto,
 		code, bodyBytesSent, referer,
 		agent, realIP,
