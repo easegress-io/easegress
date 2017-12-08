@@ -463,10 +463,10 @@ func (gc *GatewayCluster) handleRetrieve(req *cluster.RequestEvent) {
 		return
 	}
 
-	for _, payload := range membersRespBook {
+	for member, payload := range membersRespBook {
 		if bytes.Compare(respToCompare, payload) != 0 {
 			gc.respondRetrieveErr(req, RetrieveInconsistencyError,
-				"retrieve results from different members are inconsistent")
+				fmt.Sprintf("retrieve results from different members (%s, %s) are inconsistent", gc.conf.ClusterMemberName, member))
 			return
 		}
 	}
