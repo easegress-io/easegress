@@ -160,7 +160,8 @@ func (bw *bufWriter) Close() {
 		return
 	}
 
-	for len(bw.data) > 0 { // wait data write completely by spin
+	for len(bw.data) > 0 {
+		Debugf("[spin to wait log data writes completely]")
 		time.Sleep(time.Millisecond)
 	}
 

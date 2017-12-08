@@ -139,13 +139,13 @@ func NewGatewayCluster(conf Config, mod *model.Model) (*GatewayCluster, error) {
 	go gc.dispatch()
 
 	if len(conf.Peers) > 0 {
-		logger.Infof("[start to join peer memeber(s): %v]", conf.Peers)
+		logger.Infof("[start to join peer member(s): %v]", conf.Peers)
 
 		connected, err := basis.Join(conf.Peers)
 		if err != nil {
 			logger.Errorf("[join peer member(s) failed, running in standalone mode: %v]", err)
 		} else {
-			logger.Infof("[peer member(s) joinned, connected to %d memeber(s) totally]", connected)
+			logger.Infof("[peer member(s) joined, connected to %d member(s) totally]", connected)
 		}
 	}
 

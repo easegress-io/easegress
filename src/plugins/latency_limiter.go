@@ -76,7 +76,7 @@ func (c *latencyLimiterConfig) Prepare(pipelineNames []string) error {
 ////
 
 type latencyWindowLimiter struct {
-	conf *latencyLimiterConfig
+	conf       *latencyLimiterConfig
 	instanceId string
 }
 
@@ -282,7 +282,8 @@ func (c *latencyLimiterCounter) Count() uint64 {
 		return 0
 	}
 
-	for len(c.c) > 0 { // wait counter is updated completely by spin
+	for len(c.c) > 0 {
+		logger.Debugf("[spin to wait counter is updated completely]")
 		time.Sleep(time.Millisecond)
 	}
 

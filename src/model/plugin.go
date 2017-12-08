@@ -288,7 +288,7 @@ func (p *Plugin) dismissInstance(instance plugins.Plugin) (bool, uint64) {
 			func() { inst.cleanUpAndClose() },
 			func() {
 				go func() {
-					for { // wait old plugin instance closes by spin
+					for {
 						count, err := p.counter.RefCount(inst)
 						if err != nil {
 							logger.Errorf("[BUG: query reference count of plugin %s instance failed: %v]", inst.Name())
@@ -299,6 +299,7 @@ func (p *Plugin) dismissInstance(instance plugins.Plugin) (bool, uint64) {
 							break
 						}
 
+						logger.Debugf("[spin to wait wait old plugin instance closes]")
 						time.Sleep(time.Millisecond)
 					}
 
