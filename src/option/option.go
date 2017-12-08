@@ -11,15 +11,16 @@ import (
 
 var (
 	// cluster stuff
-	ClusterHost           string
-	ClusterGroup          string
-	MemberMode            string
-	MemberName            string
-	Peers                 []string
-	OPLogMaxSeqGapToPull  uint16
-	OPLogPullMaxCountOnce uint16
-	OPLogPullInterval     time.Duration
-	OPLogPullTimeout      time.Duration
+	ClusterHost             string
+	ClusterGroup            string
+	MemberMode              string
+	MemberName              string
+	Peers                   []string
+	OPLogMaxSeqGapToPull    uint16
+	OPLogPullMaxCountOnce   uint16
+	OPLogPullInterval       time.Duration
+	OPLogPullTimeout        time.Duration
+	ClusterDefaultOpTimeout time.Duration
 
 	RestHost                       string
 	Stage                          string
@@ -57,8 +58,11 @@ func init() {
 	flag.Var(common.NewUint16Value(10, opLogPullInterval), "oplog_pull_interval",
 		"specify interval of pulling operation logs in second")
 	opLogPullTimeout := new(uint16)
-	flag.Var(common.NewUint16Value(30, opLogPullTimeout), "oplog_pull_timeout",
+	flag.Var(common.NewUint16Value(120, opLogPullTimeout), "oplog_pull_timeout",
 		"specify timeout of pulling operation logs in second")
+	clusterDefaultOpTimeout := new(uint16)
+	flag.Var(common.NewUint16Value(120, clusterDefaultOpTimeout), "cluster_default_op_timeout",
+		"specify default timeout of cluster operation in second")
 
 	restHost := flag.String("rest_host", "localhost", "specify rest listen host")
 	stage := flag.String("stage", "debug", "sepcify runtime stage (debug, test, prod)")
@@ -98,6 +102,7 @@ func init() {
 	OPLogPullMaxCountOnce = *opLogPullMaxCountOnce
 	OPLogPullInterval = time.Duration(*opLogPullInterval) * time.Second
 	OPLogPullTimeout = time.Duration(*opLogPullTimeout) * time.Second
+	ClusterDefaultOpTimeout = time.Duration(*clusterDefaultOpTimeout) * time.Second
 	Peers = make([]string, 0)
 	for _, peer := range strings.Split(*peers, ",") {
 		peer = strings.TrimSpace(peer)

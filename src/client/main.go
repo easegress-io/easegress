@@ -255,8 +255,8 @@ var admincCmd = urfavecli.Command{
 		},
 		urfavecli.GenericFlag{
 			Name:  "timeout",
-			Usage: "Indicates request timeout limitation in senconds (10-65535)",
-			Value: common.NewUint16Value(30, nil),
+			Usage: "Indicates request timeout limitation in seconds (10-65535)",
+			Value: common.NewUint16Value(120, nil),
 		},
 		urfavecli.BoolFlag{
 			Name: "consistent",
@@ -352,8 +352,8 @@ var statcCmd = urfavecli.Command{
 		},
 		urfavecli.GenericFlag{
 			Name:  "timeout",
-			Usage: "Indicates request timeout limitation in senconds (10-65535)",
-			Value: common.NewUint16Value(30, nil),
+			Usage: "Indicates request timeout limitation in seconds (10-65535)",
+			Value: common.NewUint16Value(120, nil),
 		},
 	},
 	Subcommands: []urfavecli.Command{

@@ -87,7 +87,7 @@ type gatewayUpTimeRetrieveResponse struct {
 //
 
 type clusterRequest struct {
-	TimeoutSec uint16 `json:"timeout_sec"` // 10-65535, zero means using default value (30)
+	TimeoutSec uint16 `json:"timeout_sec"` // 10-65535, zero means using default value (option.ClusterDefaultOpTimeout)
 }
 
 //

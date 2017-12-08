@@ -67,7 +67,7 @@ func (gc *GatewayCluster) RetrieveGroup(group string) *GroupInfo {
 	}
 
 	groupMaxSeqStr := "UNKNOW"
-	groupMaxSeq, err := gc.QueryGroupMaxSeq(option.ClusterGroup, 10*time.Second)
+	groupMaxSeq, err := gc.QueryGroupMaxSeq(option.ClusterGroup, option.ClusterDefaultOpTimeout)
 	if err == nil {
 		groupMaxSeqStr = fmt.Sprintf("%d", groupMaxSeq)
 	}
@@ -121,7 +121,7 @@ func (gc *GatewayCluster) RetrieveMember(nodeName string) *MemberInfo {
 	}
 
 	groupMaxSeqStr := "UNKNOW"
-	groupMaxSeq, err := gc.QueryGroupMaxSeq(option.ClusterGroup, 10*time.Second)
+	groupMaxSeq, err := gc.QueryGroupMaxSeq(option.ClusterGroup, option.ClusterDefaultOpTimeout)
 	if err == nil {
 		groupMaxSeqStr = fmt.Sprintf("%d", groupMaxSeq)
 	}

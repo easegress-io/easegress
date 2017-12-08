@@ -12,6 +12,7 @@ import (
 	"common"
 	"engine"
 	"logger"
+	"option"
 )
 
 type clusterStatisticsServer struct {
@@ -103,7 +104,7 @@ func (s *clusterStatisticsServer) retrievePluginIndicatorNames(w rest.ResponseWr
 	}
 
 	if req.TimeoutSec == 0 {
-		req.TimeoutSec = 30
+		req.TimeoutSec = uint16(option.ClusterDefaultOpTimeout.Seconds())
 	} else if req.TimeoutSec < 10 {
 		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
 			req.TimeoutSec)
@@ -169,7 +170,7 @@ func (s *clusterStatisticsServer) retrievePluginIndicatorValue(w rest.ResponseWr
 	}
 
 	if req.TimeoutSec == 0 {
-		req.TimeoutSec = 30
+		req.TimeoutSec = uint16(option.ClusterDefaultOpTimeout.Seconds())
 	} else if req.TimeoutSec < 10 {
 		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
 			req.TimeoutSec)
@@ -236,7 +237,7 @@ func (s *clusterStatisticsServer) retrievePluginIndicatorDesc(w rest.ResponseWri
 	}
 
 	if req.TimeoutSec == 0 {
-		req.TimeoutSec = 30
+		req.TimeoutSec = uint16(option.ClusterDefaultOpTimeout.Seconds())
 	} else if req.TimeoutSec < 10 {
 		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
 			req.TimeoutSec)
@@ -287,7 +288,7 @@ func (s *clusterStatisticsServer) retrievePipelineIndicatorNames(w rest.Response
 	}
 
 	if req.TimeoutSec == 0 {
-		req.TimeoutSec = 30
+		req.TimeoutSec = uint16(option.ClusterDefaultOpTimeout.Seconds())
 	} else if req.TimeoutSec < 10 {
 		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
 			req.TimeoutSec)
@@ -345,7 +346,7 @@ func (s *clusterStatisticsServer) retrievePipelineIndicatorValue(w rest.Response
 	}
 
 	if req.TimeoutSec == 0 {
-		req.TimeoutSec = 30
+		req.TimeoutSec = uint16(option.ClusterDefaultOpTimeout.Seconds())
 	} else if req.TimeoutSec < 10 {
 		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
 			req.TimeoutSec)
@@ -403,7 +404,7 @@ func (s *clusterStatisticsServer) retrievePipelineIndicatorDesc(w rest.ResponseW
 	}
 
 	if req.TimeoutSec == 0 {
-		req.TimeoutSec = 30
+		req.TimeoutSec = uint16(option.ClusterDefaultOpTimeout.Seconds())
 	} else if req.TimeoutSec < 10 {
 		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
 			req.TimeoutSec)
@@ -453,7 +454,7 @@ func (s *clusterStatisticsServer) retrievePipelineTaskIndicatorNames(w rest.Resp
 	}
 
 	if req.TimeoutSec == 0 {
-		req.TimeoutSec = 30
+		req.TimeoutSec = uint16(option.ClusterDefaultOpTimeout.Seconds())
 	} else if req.TimeoutSec < 10 {
 		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
 			req.TimeoutSec)
@@ -510,7 +511,7 @@ func (s *clusterStatisticsServer) retrievePipelineTaskIndicatorValue(w rest.Resp
 	}
 
 	if req.TimeoutSec == 0 {
-		req.TimeoutSec = 30
+		req.TimeoutSec = uint16(option.ClusterDefaultOpTimeout.Seconds())
 	} else if req.TimeoutSec < 10 {
 		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
 			req.TimeoutSec)
@@ -568,7 +569,7 @@ func (s *clusterStatisticsServer) retrievePipelineTaskIndicatorDesc(w rest.Respo
 	}
 
 	if req.TimeoutSec == 0 {
-		req.TimeoutSec = 30
+		req.TimeoutSec = uint16(option.ClusterDefaultOpTimeout.Seconds())
 	} else if req.TimeoutSec < 10 {
 		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
 			req.TimeoutSec)

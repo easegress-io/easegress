@@ -266,7 +266,7 @@ func (gc *GatewayCluster) handleOperation(req *cluster.RequestEvent) {
 
 	future, err := gc.cluster.Request(requestName, requestPayload, &requestParam)
 	if err != nil {
-		logger.Errorf("[send operagtion relay message failed: %v]", err)
+		logger.Errorf("[send operation relay message failed: %v]", err)
 		gc.respondOperationErr(req, InternalServerError, err.Error())
 		return
 	}

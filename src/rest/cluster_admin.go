@@ -13,6 +13,7 @@ import (
 	"common"
 	"engine"
 	"logger"
+	"option"
 )
 
 type clusterAdminServer struct {
@@ -80,7 +81,7 @@ func (s *clusterAdminServer) retrieveOperationSequence(w rest.ResponseWriter, r 
 	}
 
 	if req.TimeoutSec == 0 {
-		req.TimeoutSec = 30
+		req.TimeoutSec = uint16(option.ClusterDefaultOpTimeout.Seconds())
 	} else if req.TimeoutSec < 10 {
 		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
 			req.TimeoutSec)
@@ -139,7 +140,7 @@ func (s *clusterAdminServer) createPlugin(w rest.ResponseWriter, r *rest.Request
 	}
 
 	if req.TimeoutSec == 0 {
-		req.TimeoutSec = 30
+		req.TimeoutSec = uint16(option.ClusterDefaultOpTimeout.Seconds())
 	} else if req.TimeoutSec < 10 {
 		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
 			req.TimeoutSec)
@@ -186,7 +187,7 @@ func (s *clusterAdminServer) retrievePlugins(w rest.ResponseWriter, r *rest.Requ
 	}
 
 	if req.TimeoutSec == 0 {
-		req.TimeoutSec = 30
+		req.TimeoutSec = uint16(option.ClusterDefaultOpTimeout.Seconds())
 	} else if req.TimeoutSec < 10 {
 		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
 			req.TimeoutSec)
@@ -236,7 +237,7 @@ func (s *clusterAdminServer) retrievePlugin(w rest.ResponseWriter, r *rest.Reque
 	}
 
 	if req.TimeoutSec == 0 {
-		req.TimeoutSec = 30
+		req.TimeoutSec = uint16(option.ClusterDefaultOpTimeout.Seconds())
 	} else if req.TimeoutSec < 10 {
 		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
 			req.TimeoutSec)
@@ -286,7 +287,7 @@ func (s *clusterAdminServer) updatePlugin(w rest.ResponseWriter, r *rest.Request
 	}
 
 	if req.TimeoutSec == 0 {
-		req.TimeoutSec = 30
+		req.TimeoutSec = uint16(option.ClusterDefaultOpTimeout.Seconds())
 	} else if req.TimeoutSec < 10 {
 		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
 			req.TimeoutSec)
@@ -341,7 +342,7 @@ func (s *clusterAdminServer) deletePlugin(w rest.ResponseWriter, r *rest.Request
 	}
 
 	if req.TimeoutSec == 0 {
-		req.TimeoutSec = 30
+		req.TimeoutSec = uint16(option.ClusterDefaultOpTimeout.Seconds())
 	} else if req.TimeoutSec < 10 {
 		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
 			req.TimeoutSec)
@@ -402,7 +403,7 @@ func (s *clusterAdminServer) createPipeline(w rest.ResponseWriter, r *rest.Reque
 	}
 
 	if req.TimeoutSec == 0 {
-		req.TimeoutSec = 30
+		req.TimeoutSec = uint16(option.ClusterDefaultOpTimeout.Seconds())
 	} else if req.TimeoutSec < 10 {
 		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
 			req.TimeoutSec)
@@ -449,7 +450,7 @@ func (s *clusterAdminServer) retrievePipelines(w rest.ResponseWriter, r *rest.Re
 	}
 
 	if req.TimeoutSec == 0 {
-		req.TimeoutSec = 30
+		req.TimeoutSec = uint16(option.ClusterDefaultOpTimeout.Seconds())
 	} else if req.TimeoutSec < 10 {
 		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
 			req.TimeoutSec)
@@ -499,7 +500,7 @@ func (s *clusterAdminServer) retrievePipeline(w rest.ResponseWriter, r *rest.Req
 	}
 
 	if req.TimeoutSec == 0 {
-		req.TimeoutSec = 30
+		req.TimeoutSec = uint16(option.ClusterDefaultOpTimeout.Seconds())
 	} else if req.TimeoutSec < 10 {
 		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
 			req.TimeoutSec)
@@ -549,7 +550,7 @@ func (s *clusterAdminServer) updatePipeline(w rest.ResponseWriter, r *rest.Reque
 	}
 
 	if req.TimeoutSec == 0 {
-		req.TimeoutSec = 30
+		req.TimeoutSec = uint16(option.ClusterDefaultOpTimeout.Seconds())
 	} else if req.TimeoutSec < 10 {
 		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
 			req.TimeoutSec)
@@ -604,7 +605,7 @@ func (s *clusterAdminServer) deletePipeline(w rest.ResponseWriter, r *rest.Reque
 	}
 
 	if req.TimeoutSec == 0 {
-		req.TimeoutSec = 30
+		req.TimeoutSec = uint16(option.ClusterDefaultOpTimeout.Seconds())
 	} else if req.TimeoutSec < 10 {
 		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
 			req.TimeoutSec)
@@ -651,7 +652,7 @@ func (s *clusterAdminServer) retrievePluginTypes(w rest.ResponseWriter, r *rest.
 	}
 
 	if req.TimeoutSec == 0 {
-		req.TimeoutSec = 30
+		req.TimeoutSec = uint16(option.ClusterDefaultOpTimeout.Seconds())
 	} else if req.TimeoutSec < 10 {
 		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
 			req.TimeoutSec)
@@ -692,7 +693,7 @@ func (s *clusterAdminServer) retrievePipelineTypes(w rest.ResponseWriter, r *res
 	}
 
 	if req.TimeoutSec == 0 {
-		req.TimeoutSec = 30
+		req.TimeoutSec = uint16(option.ClusterDefaultOpTimeout.Seconds())
 	} else if req.TimeoutSec < 10 {
 		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
 			req.TimeoutSec)
