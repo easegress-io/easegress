@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sort"
 
 	"github.com/hexdecteam/easegateway-types/pipelines"
 	"github.com/hexdecteam/easegateway-types/plugins"
@@ -271,7 +272,13 @@ func (m *Model) GetPlugins(namePattern string, types []string) ([]*Plugin, error
 
 	m.pluginsLock.RLock()
 
-	for _, plugin := range m.plugins {
+	keys := make([]string, 0, len(m.plugins))
+	for key, _ := range m.plugins {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		plugin := m.plugins[key]
 		if len(types) > 0 && !common.StrInSlice(plugin.Type(), types) {
 			continue
 		}
@@ -572,7 +579,13 @@ func (m *Model) GetPipelines(namePattern string, types []string) ([]*Pipeline, e
 	m.pipelinesLock.RLock()
 	defer m.pipelinesLock.RUnlock()
 
-	for _, pipeline := range m.pipelines {
+	keys := make([]string, 0, len(m.pipelines))
+	for key, _ := range m.pipelines {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		pipeline := m.pipelines[key]
 		if len(types) > 0 && !common.StrInSlice(pipeline.Type(), types) {
 			continue
 		}
