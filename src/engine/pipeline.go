@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"math"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -161,7 +162,12 @@ func (scheduler *commonPipelineScheduler) StopPipeline() {
 
 ////
 
-const SCHEDULER_DYNAMIC_LAUNCH_MIN_INTERVAL_MS = 100
+const (
+	SCHEDULER_DYNAMIC_SPAWN_MIN_INTERVAL_MS  = 100
+	SCHEDULER_DYNAMIC_FAST_SCALE_INTERVAL_MS = 1000
+	SCHEDULER_DYNAMIC_FAST_SCALE_RATIO       = 1.5
+	SCHEDULER_DYNAMIC_FAST_SCALE_MIN_COUNT   = 5
+)
 
 type inputEvent struct {
 	getterName  string
@@ -171,23 +177,25 @@ type inputEvent struct {
 
 type dynamicPipelineScheduler struct {
 	*commonPipelineScheduler
-	ctx         pipelines.PipelineContext
-	statistics  *model.PipelineStatistics
-	mod         *model.Model
-	gettersLock sync.RWMutex
-	getters     map[string]pipelines.SourceInputQueueLengthGetter
-	launchTimes map[string]time.Time
-	launchChan  chan *inputEvent
-	shrinkStop  chan struct{}
+	ctx            pipelines.PipelineContext
+	statistics     *model.PipelineStatistics
+	mod            *model.Model
+	gettersLock    sync.RWMutex
+	getters        map[string]pipelines.SourceInputQueueLengthGetter
+	launchChan     chan *inputEvent
+	shrinkStop     chan struct{}
+	launchTimes    map[string]time.Time
+	shrinkTimeLock sync.RWMutex
+	shrinkTime     time.Time
 }
 
 func newDynamicPipelineScheduler(pipeline *model.Pipeline) *dynamicPipelineScheduler {
 	return &dynamicPipelineScheduler{
 		commonPipelineScheduler: newCommonPipelineScheduler(pipeline),
 		getters:                 make(map[string]pipelines.SourceInputQueueLengthGetter, 1),
-		launchTimes:             make(map[string]time.Time, 1),
 		launchChan:              make(chan *inputEvent, 1024), // buffer for trigger() calls before scheduler starts
 		shrinkStop:              make(chan struct{}),
+		launchTimes:             make(map[string]time.Time, 1),
 	}
 }
 
@@ -212,7 +220,7 @@ func (scheduler *dynamicPipelineScheduler) Start(ctx pipelines.PipelineContext,
 	logger.Debugf("[initialized pipeline instance(s) for pipeline %s (total=%d)]",
 		scheduler.PipelineName(), parallelism)
 
-	go scheduler.launch()
+	go scheduler.spawn()
 	go scheduler.shrink()
 }
 
@@ -235,7 +243,7 @@ func (scheduler *dynamicPipelineScheduler) trigger(getterName string, getter pip
 	}
 }
 
-func (scheduler *dynamicPipelineScheduler) launch() {
+func (scheduler *dynamicPipelineScheduler) spawn() {
 	for {
 		select {
 		case info := <-scheduler.launchChan:
@@ -246,7 +254,7 @@ func (scheduler *dynamicPipelineScheduler) launch() {
 			now := time.Now()
 			lastScheduleAt := scheduler.launchTimes[info.getterName]
 
-			if now.Sub(lastScheduleAt).Seconds()*1000 < SCHEDULER_DYNAMIC_LAUNCH_MIN_INTERVAL_MS {
+			if now.Sub(lastScheduleAt).Seconds()*1000 < SCHEDULER_DYNAMIC_SPAWN_MIN_INTERVAL_MS {
 				// pipeline instance schedule needs time
 				continue
 			}
@@ -257,6 +265,22 @@ func (scheduler *dynamicPipelineScheduler) launch() {
 			scheduler.gettersLock.Lock()
 			scheduler.getters[info.getterName] = info.getter
 			scheduler.gettersLock.Unlock()
+
+			scheduler.shrinkTimeLock.RLock()
+
+			if now.Sub(scheduler.shrinkTime).Seconds()*1000 < SCHEDULER_DYNAMIC_FAST_SCALE_INTERVAL_MS {
+				// increase is close to decrease, which supposes last shrink reach the real/minimal parallelism
+				l := uint32(math.Ceil(float64(info.queueLength) * SCHEDULER_DYNAMIC_FAST_SCALE_RATIO)) // fast scale up
+				if l < SCHEDULER_DYNAMIC_FAST_SCALE_MIN_COUNT {
+					l = SCHEDULER_DYNAMIC_FAST_SCALE_MIN_COUNT
+				}
+
+				if l > info.queueLength { // defense overflow
+					info.queueLength = l
+				}
+			}
+
+			scheduler.shrinkTimeLock.RUnlock()
 
 			parallelism, delta := scheduler.startPipeline(
 				info.queueLength, scheduler.ctx, scheduler.statistics, scheduler.mod)
@@ -311,6 +335,10 @@ func (scheduler *dynamicPipelineScheduler) shrink() {
 			scheduler.instancesLock.Unlock()
 
 			scheduler.stopPipelineInstance(idx, instance, true)
+
+			scheduler.shrinkTimeLock.Lock()
+			scheduler.shrinkTime = time.Now()
+			scheduler.shrinkTimeLock.Unlock()
 
 			logger.Debugf("[shrank a pipeline instance for pipeline %s (total=%d, decrease=%d)]",
 				scheduler.PipelineName(), idx, 1)
