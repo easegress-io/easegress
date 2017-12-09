@@ -75,7 +75,7 @@ const PIPELINE_STOP_TIMEOUT_SECONDS = 30
 
 type commonPipelineScheduler struct {
 	pipeline         *model.Pipeline
-	instancesLock    sync.Mutex
+	instancesLock    sync.RWMutex
 	instances        []*pipelineInstance
 	started, stopped uint32
 }
@@ -157,7 +157,12 @@ func (scheduler *commonPipelineScheduler) StopPipeline() {
 		scheduler.stopPipelineInstance(idx, instance, false)
 	}
 
-	logger.Infof("[stopped pipeline %s (parallelism=%d)]", scheduler.PipelineName(), len(scheduler.instances))
+	currentParallelism := len(scheduler.instances)
+
+	// no managed instance, re-entry-able function
+	scheduler.instances = scheduler.instances[:0]
+
+	logger.Infof("[stopped pipeline %s (parallelism=%d)]", scheduler.PipelineName(), currentParallelism)
 }
 
 ////
@@ -297,16 +302,16 @@ func (scheduler *dynamicPipelineScheduler) shrink() {
 	for {
 		select {
 		case <-time.Tick(time.Second):
-			scheduler.instancesLock.Lock()
+			scheduler.instancesLock.RLock()
 
 			currentParallelism := uint32(len(scheduler.instances))
 
 			if currentParallelism <= option.PipelineMinParallelism {
-				scheduler.instancesLock.Unlock()
+				scheduler.instancesLock.RUnlock()
 				continue // keep minimal pipeline parallelism
 			}
 
-			scheduler.instancesLock.Unlock()
+			scheduler.instancesLock.RUnlock()
 
 			scheduler.gettersLock.RLock()
 
@@ -328,20 +333,32 @@ func (scheduler *dynamicPipelineScheduler) shrink() {
 
 			scheduler.instancesLock.Lock()
 
+			currentParallelism = uint32(len(scheduler.instances))
+
+			// DCL
+			if currentParallelism <= option.PipelineMinParallelism {
+				scheduler.instancesLock.Unlock()
+				continue // keep minimal pipeline parallelism
+			}
+
 			// pop from tail as stack
 			idx := int(currentParallelism) - 1
 			instance, scheduler.instances = scheduler.instances[idx], scheduler.instances[:idx]
 
 			scheduler.instancesLock.Unlock()
 
-			scheduler.stopPipelineInstance(idx, instance, true)
-
 			scheduler.shrinkTimeLock.Lock()
 			scheduler.shrinkTime = time.Now()
 			scheduler.shrinkTimeLock.Unlock()
 
+			scheduler.stopPipelineInstance(idx, instance, true)
+
+			scheduler.instancesLock.RLock()
+
 			logger.Debugf("[shrank a pipeline instance for pipeline %s (total=%d, decrease=%d)]",
-				scheduler.PipelineName(), idx, 1)
+				scheduler.PipelineName(), len(scheduler.instances), 1)
+
+			scheduler.instancesLock.RUnlock()
 		case <-scheduler.shrinkStop:
 			return
 		}
