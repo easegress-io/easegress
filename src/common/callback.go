@@ -1,7 +1,7 @@
 package common
 
 const (
-	CallbacksInitCapacity = 512
+	CallbacksInitCapacity = 20
 
 	NORMAL_PRIORITY_CALLBACK   = "__NoRmAl_PrIoRiTy_CaLlBaCk"
 	CRITICAL_PRIORITY_CALLBACK = "__CrItIcAl_PrIoRiTy_CaLlBaCk"
