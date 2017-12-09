@@ -273,7 +273,7 @@ func (m *Model) GetPlugins(namePattern string, types []string) ([]*Plugin, error
 	m.pluginsLock.RLock()
 	defer m.pluginsLock.RUnlock()
 
-	keys := make([]string, len(m.plugins))
+	keys := make([]string, 0, len(m.plugins))
 	for key := range m.plugins {
 		keys = append(keys, key)
 	}
@@ -580,7 +580,7 @@ func (m *Model) GetPipelines(namePattern string, types []string) ([]*Pipeline, e
 	m.pipelinesLock.RLock()
 	defer m.pipelinesLock.RUnlock()
 
-	keys := make([]string, len(m.pipelines))
+	keys := make([]string, 0, len(m.pipelines))
 
 	for key := range m.pipelines {
 		keys = append(keys, key)
