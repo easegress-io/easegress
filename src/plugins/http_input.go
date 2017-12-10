@@ -195,8 +195,7 @@ type httpInput struct {
 	instanceId                    string
 	waitQueueLengthIndicatorAdded bool
 	wipRequestCountIndicatorAdded bool
-	contextsLock                  sync.RWMutex
-	contexts                      map[string]pipelines.PipelineContext
+	contexts                      *sync.Map
 }
 
 func httpInputConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, bool, error) {
@@ -209,7 +208,7 @@ func httpInputConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginTy
 	h := &httpInput{
 		conf:         c,
 		httpTaskChan: make(chan *httpTask, 32767),
-		contexts:     make(map[string]pipelines.PipelineContext),
+		contexts:     new(sync.Map),
 	}
 
 	h.instanceId = fmt.Sprintf("%p", h)
@@ -279,9 +278,7 @@ func (h *httpInput) Prepare(ctx pipelines.PipelineContext) {
 
 	h.wipRequestCountIndicatorAdded = added
 
-	h.contextsLock.Lock()
-	h.contexts[ctx.PipelineName()] = ctx
-	h.contextsLock.Unlock()
+	h.contexts.Store(ctx.PipelineName(), ctx)
 }
 
 func (h *httpInput) handler(w http.ResponseWriter, req *http.Request, urlParams map[string]string,
@@ -317,13 +314,11 @@ func (h *httpInput) handler(w http.ResponseWriter, req *http.Request, urlParams 
 		}()
 		h.httpTaskChan <- &httpTask
 
-		h.contextsLock.RLock()
-
-		for _, ctx := range h.contexts {
-			ctx.TriggerSourceInput("httpTaskQueueLengthGetter", h.getHTTPTaskQueueLength)
-		}
-
-		h.contextsLock.RUnlock()
+		h.contexts.Range(func(key, value interface{}) bool {
+			value.(pipelines.PipelineContext).TriggerSourceInput(
+				"httpTaskQueueLengthGetter", h.getHTTPTaskQueueLength)
+			return true // iterate next
+		})
 	}()
 
 	<-httpTask.finishedChan
@@ -549,9 +544,7 @@ func (h *httpInput) CleanUp(ctx pipelines.PipelineContext) {
 		ctx.Statistics().UnregisterPluginIndicator(h.Name(), h.instanceId, "WIP_REQUEST_COUNT")
 	}
 
-	h.contextsLock.Lock()
-	delete(h.contexts, ctx.PipelineName())
-	h.contextsLock.Unlock()
+	h.contexts.Delete(ctx.PipelineName())
 }
 
 func (h *httpInput) Close() {
