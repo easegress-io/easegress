@@ -140,7 +140,7 @@ func (r *ioReader) read(t task.Task) (error, task.TaskResultCode, task.Task) {
 		reader1.Close()
 		return err, task.ResultBadInput, t
 	case <-t.Cancel():
-		reader1.Cancel()
+		reader1.Cancel(t.CancelCause())
 		return fmt.Errorf("task is cancelled by %s", t.CancelCause()), task.ResultTaskCancelled, t
 	}
 

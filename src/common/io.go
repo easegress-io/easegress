@@ -1,19 +1,47 @@
 package common
 
 import (
+	"fmt"
 	"io"
 	"time"
 )
 
-type InterruptibleReader struct {
-	r         io.Reader
+var interruptedError = fmt.Errorf("IO interrupted")
+
+type InterruptibleIO struct {
 	interrupt chan struct{}
+	err       error
+}
+
+func newInterruptibleIO() *InterruptibleIO {
+	return &InterruptibleIO{
+		interrupt: make(chan struct{}),
+		err:       interruptedError,
+	}
+}
+
+func (ii *InterruptibleIO) Cancel(err error) {
+	if err != nil {
+		ii.err = err
+	}
+	close(ii.interrupt)
+}
+
+func (ii *InterruptibleIO) Close() {
+	close(ii.interrupt)
+}
+
+////
+
+type InterruptibleReader struct {
+	*InterruptibleIO
+	r io.Reader
 }
 
 func NewInterruptibleReader(r io.Reader) *InterruptibleReader {
 	return &InterruptibleReader{
-		r:         r,
-		interrupt: make(chan struct{}),
+		InterruptibleIO: newInterruptibleIO(),
+		r:               r,
 	}
 }
 
@@ -25,18 +53,38 @@ func (ir *InterruptibleReader) Read(p []byte) (int, error) {
 	select {
 	case <-ir.interrupt:
 		ir.r = nil
-		return 0, io.EOF
+		return 0, ir.err
 	default:
 		return ir.r.Read(p)
 	}
 }
 
-func (ir *InterruptibleReader) Cancel() {
-	close(ir.interrupt)
+////
+
+type InterruptibleWriter struct {
+	*InterruptibleIO
+	w io.Writer
 }
 
-func (ir *InterruptibleReader) Close() {
-	close(ir.interrupt)
+func NewInterruptibleWriter(w io.Writer) *InterruptibleWriter {
+	return &InterruptibleWriter{
+		InterruptibleIO: newInterruptibleIO(),
+		w:               w,
+	}
+}
+
+func (iw *InterruptibleWriter) Write(p []byte) (n int, err error) {
+	if iw.w == nil {
+		return 0, io.EOF
+	}
+
+	select {
+	case <-iw.interrupt:
+		iw.w = nil
+		return 0, iw.err
+	default:
+		return iw.w.Write(p)
+	}
 }
 
 ////

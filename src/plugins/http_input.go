@@ -384,7 +384,7 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 		case closed := <-ht.writer.(http.CloseNotifier).CloseNotify():
 			if closed {
 				// 499 StatusClientClosed - same as nginx
-				t1.SetError(fmt.Errorf("client closed"), task.ResultRequesterGone)
+				t1.SetError(fmt.Errorf("client gone"), task.ResultRequesterGone)
 				return
 			}
 		default:
@@ -413,14 +413,15 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 			if ok {
 				done := make(chan int, 1)
 				ir := common.NewInterruptibleReader(reader)
+				iw := common.NewInterruptibleWriter(ht.writer)
 				tr := common.NewTimeReader(ir)
-				tw := common.NewTimeWriter(ht.writer)
+				tw := common.NewTimeWriter(iw)
 
 				go func() {
 					written, err := io.Copy(tw, tr)
 					if err != nil {
-						logger.Warnf("[load response body from reader in the task"+
-							" failed, response might be incomplete: %s]", err)
+						logger.Warnf("[read or write body failed, "+
+							"response might be incomplete: %s]", err)
 					} else {
 						bodyBytesSent = written
 					}
@@ -428,20 +429,35 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 				}()
 
 				select {
+				case closed := <-ht.writer.(http.CloseNotifier).CloseNotify():
+					if closed {
+						err := fmt.Errorf("client gone")
+						iw.Cancel(err)
+						ir.Close()
+						<-done
+
+						// 499 StatusClientClosed - same as nginx
+						t1.SetError(err, task.ResultRequesterGone)
+					}
 				case <-t1.Cancel():
 					if h.conf.FastClose {
-						ir.Cancel()
+						ir.Cancel(t1.CancelCause())
+						iw.Close()
+						<-done
+
 						logger.Warnf("[load response body from reader in the task" +
 							" has been cancelled, response might be incomplete]")
 					} else {
 						<-done
-						close(done)
 						ir.Close()
+						iw.Close()
 					}
 				case <-done:
-					close(done)
 					ir.Close()
+					iw.Close()
 				}
+
+				close(done)
 
 				readRespBodyElapse = tr.Elapse()
 				writeClientBodyElapse = tw.Elapse()
@@ -469,7 +485,7 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 
 		logRequest(ht, t1, h.conf.ResponseCodeKey, h.conf.ResponseRemoteKey,
 			h.conf.ResponseDurationKey, readRespBodyElapse, writeClientBodyElapse, body.Elapse(),
-				bodyBytesSent)
+			bodyBytesSent)
 	}
 
 	closeHTTPInputRequestBody := func(t1 task.Task, _ task.TaskStatus) {
@@ -602,7 +618,7 @@ func getClientReceivedCode(t task.Task, responseCodeKey string) int {
 
 func logRequest(ht *httpTask, t task.Task, responseCodeKey, responseRemoteKey,
 	responseDurationKey string, readRespBodyElapse, writeClientBodyElapse, readClientBodyElapse time.Duration,
-		bodyBytesSent int64) {
+	bodyBytesSent int64) {
 
 	var responseRemote string = ""
 	value := t.Value(responseRemoteKey)
