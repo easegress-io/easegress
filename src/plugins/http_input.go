@@ -355,6 +355,28 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 		logger.HTTPReqDump(ctx.PipelineName(), h.Name(), h.instanceId, t.StartAt().UnixNano(), ht.request)
 	}
 
+	vars, names := common.GenerateCGIEnv(ht.request)
+	for k, v := range vars {
+		t.WithValue(k, v)
+	}
+
+	if len(h.conf.RequestHeaderNamesKey) != 0 {
+		t.WithValue(h.conf.RequestHeaderNamesKey, names)
+	}
+
+	body := common.NewTimeReader(ht.request.Body)
+	if len(h.conf.RequestBodyIOKey) != 0 {
+		t.WithValue(h.conf.RequestBodyIOKey, body)
+	}
+
+	if len(h.conf.RequestHeaderKey) != 0 {
+		t.WithValue(h.conf.RequestHeaderKey, ht.request.Header)
+	}
+
+	for k, v := range ht.urlParams {
+		t.WithValue(k, v)
+	}
+
 	respondCallerAndLogRequest := func(t1 task.Task, _ task.TaskStatus) {
 		defer h.closeResponseBody(t1)
 
@@ -377,7 +399,7 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 		// TODO: Take care other headers if inputted
 
 		var bodyBytesSent int64 = -1 // -1 indicates we can't provide a proper value
-		var readElapse, writeElapse time.Duration
+		var readRespBodyElapse, writeClientBodyElapse time.Duration
 		// Use customized ResponseBodyBuffer first
 		if len(h.conf.ResponseBodyBufferKey) != 0 && t1.Value(h.conf.ResponseBodyBufferKey) != nil {
 			buf := task.ToBytes(t1.Value(h.conf.ResponseBodyBufferKey), option.PluginIODataFormatLengthLimit)
@@ -385,7 +407,7 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 
 			writeStartAt := time.Now()
 			ht.writer.Write(buf)
-			writeElapse = time.Now().Sub(writeStartAt)
+			writeClientBodyElapse = time.Now().Sub(writeStartAt)
 		} else if len(h.conf.ResponseBodyIOKey) != 0 {
 			reader, ok := t1.Value(h.conf.ResponseBodyIOKey).(io.Reader)
 			if ok {
@@ -421,8 +443,8 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 					ir.Close()
 				}
 
-				readElapse = tr.Elapse()
-				writeElapse = tw.Elapse()
+				readRespBodyElapse = tr.Elapse()
+				writeClientBodyElapse = tw.Elapse()
 			}
 		} else if !task.SuccessfulResult(t1.ResultCode()) && h.conf.RespondErr {
 			if strings.Contains(ht.request.Header.Get("Accept-Encoding"), "gzip") {
@@ -441,12 +463,13 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 
 				writeStartAt := time.Now()
 				ht.writer.Write(bytes)
-				writeElapse = time.Now().Sub(writeStartAt)
+				writeClientBodyElapse = time.Now().Sub(writeStartAt)
 			}
 		}
 
 		logRequest(ht, t1, h.conf.ResponseCodeKey, h.conf.ResponseRemoteKey,
-			h.conf.ResponseDurationKey, readElapse, writeElapse, bodyBytesSent)
+			h.conf.ResponseDurationKey, readRespBodyElapse, writeClientBodyElapse, body.Elapse(),
+				bodyBytesSent)
 	}
 
 	closeHTTPInputRequestBody := func(t1 task.Task, _ task.TaskStatus) {
@@ -459,27 +482,6 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 		if err == nil {
 			atomic.AddInt64(wipReqCount, -1)
 		}
-	}
-
-	vars, names := common.GenerateCGIEnv(ht.request)
-	for k, v := range vars {
-		t.WithValue(k, v)
-	}
-
-	if len(h.conf.RequestHeaderNamesKey) != 0 {
-		t.WithValue(h.conf.RequestHeaderNamesKey, names)
-	}
-
-	if len(h.conf.RequestBodyIOKey) != 0 {
-		t.WithValue(h.conf.RequestBodyIOKey, ht.request.Body)
-	}
-
-	if len(h.conf.RequestHeaderKey) != 0 {
-		t.WithValue(h.conf.RequestHeaderKey, ht.request.Header)
-	}
-
-	for k, v := range ht.urlParams {
-		t.WithValue(k, v)
 	}
 
 	t.AddFinishedCallback(fmt.Sprintf("%s-responseCallerAndLogRequest", h.Name()), respondCallerAndLogRequest)
@@ -599,7 +601,8 @@ func getClientReceivedCode(t task.Task, responseCodeKey string) int {
 }
 
 func logRequest(ht *httpTask, t task.Task, responseCodeKey, responseRemoteKey,
-	responseDurationKey string, readElapse, writeElapse time.Duration, bodyBytesSent int64) {
+	responseDurationKey string, readRespBodyElapse, writeClientBodyElapse, readClientBodyElapse time.Duration,
+		bodyBytesSent int64) {
 
 	var responseRemote string = ""
 	value := t.Value(responseRemoteKey)
@@ -610,7 +613,7 @@ func logRequest(ht *httpTask, t task.Task, responseCodeKey, responseRemoteKey,
 		}
 	}
 
-	responseDuration := readElapse
+	responseDuration := readRespBodyElapse
 	value = nil
 	value = t.Value(responseDurationKey)
 	if value != nil {
@@ -624,7 +627,7 @@ func logRequest(ht *httpTask, t task.Task, responseCodeKey, responseRemoteKey,
 	// or provide a method(e.g. AddUpstreamResponseTime) of task
 	logger.HTTPAccess(ht.request, getClientReceivedCode(t, responseCodeKey), bodyBytesSent,
 		time.Now().Sub(ht.receivedAt), responseDuration,
-		responseRemote, getResponseCode(t, responseCodeKey), writeElapse)
+		responseRemote, getResponseCode(t, responseCodeKey), writeClientBodyElapse, readClientBodyElapse)
 
 	if !task.SuccessfulResult(t.ResultCode()) {
 		logger.Warnf("[http request processed unsuccessfully, "+

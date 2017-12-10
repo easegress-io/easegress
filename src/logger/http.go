@@ -49,13 +49,13 @@ func (f *httpFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 
 func HTTPAccess(req *http.Request, code int, bodyBytesSent int64,
 	requestTime time.Duration, upstreamResponseTime time.Duration,
-	upstreamAddr string, upstreamCode int, clientWriteBodyTime time.Duration) {
+	upstreamAddr string, upstreamCode int, clientWriteBodyTime, clientReadBodyTime time.Duration) {
 	// mock nginx log_format:
 	// '$remote_addr - $remote_user [$time_local] "$request" '
 	// '$status $body_bytes_sent "$http_referer" '
 	// '"$http_user_agent" "$http_x_forwarded_for" '
 	// '$request_time $upstream_response_time $upstream_addr $upstream_status $pipe '
-	// '$client_write_body_time';
+	// '$client_write_body_time' '$client_read_body_time';
 
 	referer := req.Header.Get("Referer")
 	if referer == "" {
@@ -85,12 +85,12 @@ func HTTPAccess(req *http.Request, code int, bodyBytesSent int64,
 			`%v %v "%s" `+
 			`"%s" "%s" `+
 			`%f %f %v %v . `+
-			`%f`,
+			`%f %f`,
 		req.RemoteAddr, time.Now().Local(), req.Method, req.URL.Path, req.Proto,
 		code, bodyBytesSent, referer,
 		agent, realIP,
 		requestTime.Seconds(), upstreamResponseTime.Seconds(), upstreamAddr, upstreamCode,
-		clientWriteBodyTime.Seconds())
+		clientWriteBodyTime.Seconds(), clientReadBodyTime.Seconds())
 
 	for _, l := range httpLog.getLoggers("http_access") {
 		l.Debugf(line)
