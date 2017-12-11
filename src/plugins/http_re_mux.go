@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/allegro/bigcache"
 	"github.com/hexdecteam/easegateway-types/plugins"
@@ -130,6 +131,7 @@ func (m *reMux) dump() {
 }
 
 func (m *reMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	serveStartAt := time.Now()
 	var requestURL string
 	if m.conf.CacheKeyComplete {
 		requestURL = m.generateCompleteRequestURL(r)
@@ -204,7 +206,7 @@ func (m *reMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	entryServing.Handler(w, r, urlParams)
+	entryServing.Handler(w, r, urlParams, time.Now().Sub(serveStartAt))
 }
 
 func (m *reMux) AddFunc(pname string, entryAdding *plugins.HTTPMuxEntry) error {

@@ -15,7 +15,6 @@ import (
 type Task struct {
 	// FIXME: Add locking for task parallel handling when needed
 	// sync.RWMutex
-	data                    []byte
 	startAt                 *time.Time
 	finishAt                *time.Time
 	resultCode              task.TaskResultCode
@@ -30,7 +29,7 @@ func newTask() *Task {
 	return &Task{
 		status:                  task.Pending,
 		resultCode:              task.ResultOK,
-		values:                  make(map[string]interface{}, 50), // initialize with capacity
+		values:                  make(map[string]interface{}, 5), // initialize with capacity
 		statusFinishedCallbacks: common.NewNamedCallbackSet(),
 		taskRecoveries:          common.NewNamedCallbackSet(),
 	}

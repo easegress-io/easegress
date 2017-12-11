@@ -22,11 +22,12 @@ import (
 )
 
 type httpTask struct {
-	request      *http.Request
-	writer       http.ResponseWriter
-	receivedAt   time.Time
-	urlParams    map[string]string
-	finishedChan chan struct{}
+	request       *http.Request
+	writer        http.ResponseWriter
+	routeDuration time.Duration
+	receivedAt    time.Time
+	urlParams     map[string]string
+	finishedChan  chan struct{}
 }
 
 ////
@@ -283,7 +284,9 @@ func (h *httpInput) Prepare(ctx pipelines.PipelineContext) {
 	h.contextsLock.Unlock()
 }
 
-func (h *httpInput) handler(w http.ResponseWriter, req *http.Request, urlParams map[string]string) {
+func (h *httpInput) handler(w http.ResponseWriter, req *http.Request, urlParams map[string]string,
+	routeDuration time.Duration) {
+
 	if h.conf.Unzip && strings.Contains(req.Header.Get("Content-Encoding"), "gzip") {
 		var err error
 		req.Body, err = gzip.NewReader(req.Body)
@@ -294,11 +297,12 @@ func (h *httpInput) handler(w http.ResponseWriter, req *http.Request, urlParams 
 	}
 
 	httpTask := httpTask{
-		request:      req,
-		writer:       w,
-		receivedAt:   time.Now(),
-		urlParams:    urlParams,
-		finishedChan: make(chan struct{}),
+		request:       req,
+		writer:        w,
+		routeDuration: routeDuration,
+		receivedAt:    time.Now(),
+		urlParams:     urlParams,
+		finishedChan:  make(chan struct{}),
 	}
 
 	func() {
@@ -485,7 +489,7 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 
 		logRequest(ht, t1, h.conf.ResponseCodeKey, h.conf.ResponseRemoteKey,
 			h.conf.ResponseDurationKey, readRespBodyElapse, writeClientBodyElapse, body.Elapse(),
-			bodyBytesSent)
+			bodyBytesSent, ht.routeDuration)
 	}
 
 	closeHTTPInputRequestBody := func(t1 task.Task, _ task.TaskStatus) {
@@ -618,7 +622,7 @@ func getClientReceivedCode(t task.Task, responseCodeKey string) int {
 
 func logRequest(ht *httpTask, t task.Task, responseCodeKey, responseRemoteKey,
 	responseDurationKey string, readRespBodyElapse, writeClientBodyElapse, readClientBodyElapse time.Duration,
-	bodyBytesSent int64) {
+	bodyBytesSent int64, routeDuration time.Duration) {
 
 	var responseRemote string = ""
 	value := t.Value(responseRemoteKey)
@@ -639,11 +643,14 @@ func logRequest(ht *httpTask, t task.Task, responseCodeKey, responseRemoteKey,
 		}
 	}
 
+	requestTime := time.Now().Sub(ht.receivedAt) + routeDuration
+
 	// TODO: use variables(e.g. upstream_response_time_xxx) of each plugin
 	// or provide a method(e.g. AddUpstreamResponseTime) of task
 	logger.HTTPAccess(ht.request, getClientReceivedCode(t, responseCodeKey), bodyBytesSent,
-		time.Now().Sub(ht.receivedAt), responseDuration,
-		responseRemote, getResponseCode(t, responseCodeKey), writeClientBodyElapse, readClientBodyElapse)
+		requestTime, responseDuration, responseRemote,
+		getResponseCode(t, responseCodeKey), writeClientBodyElapse, readClientBodyElapse,
+		routeDuration)
 
 	if !task.SuccessfulResult(t.ResultCode()) {
 		logger.Warnf("[http request processed unsuccessfully, "+
