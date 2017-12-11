@@ -4,6 +4,7 @@ import (
 	"common"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net"
 	"net/http"
 	"os"
@@ -30,7 +31,7 @@ type httpServerConfig struct {
 	ConnKeepAlive    bool        `json:"keepalive"`
 	ConnKeepAliveSec uint16      `json:"keepalive_sec"` // up to 65535
 	// TODO: Adds keepalive_requests support
-	MaxSimulConns uint32 `json:"max_connections"` // up to 4294967295
+	MaxSimulConns uint32 `json:"max_connections"` // up to 2147483647 really
 
 	certFilePath, keyFilePath string
 	https                     bool
@@ -110,7 +111,8 @@ func (c *httpServerConfig) Prepare(pipelineNames []string) error {
 		return fmt.Errorf("invalid connection keep-alive period")
 	}
 
-	if c.MaxSimulConns == 0 {
+	if c.MaxSimulConns == 0 ||
+		c.MaxSimulConns > math.MaxInt32 { // defense overflow on make(chan, c.MaxSimulConns int)
 		return fmt.Errorf("invalid max simultaneous connection amount")
 	}
 
@@ -314,6 +316,8 @@ func (ln tcpKeepAliveListener) Accept() (c net.Conn, err error) {
 	tc.SetKeepAlive(ln.connKeepAlive)
 	if ln.connKeepAlive {
 		tc.SetKeepAlivePeriod(time.Duration(ln.connKeepAliveSec) * time.Second)
+		// The connection is TCP_NODELAY by default, meaning that data is
+		// sent as soon as possible after a Write.
 	}
 
 	return tc, nil
