@@ -355,7 +355,7 @@ func (scheduler *dynamicPipelineScheduler) shrink() {
 
 			scheduler.instancesLock.RLock()
 
-			logger.Debugf("[shrank a pipeline instance for pipeline %s (total=%d, decrease=%d)]",
+			logger.Infof("[shrank a pipeline instance for pipeline %s (total=%d, decrease=%d)]",
 				scheduler.PipelineName(), len(scheduler.instances), 1)
 
 			scheduler.instancesLock.RUnlock()
