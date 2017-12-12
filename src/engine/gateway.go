@@ -21,6 +21,7 @@ import (
 
 type Gateway struct {
 	sync.Mutex
+	runLock    sync.Mutex
 	repo       config.Store
 	mod        *model.Model
 	gc         *cluster.GatewayCluster
@@ -69,16 +70,25 @@ func NewGateway() (*Gateway, error) {
 		repo:       repo,
 		mod:        mod,
 		gc:         gc,
-		schedulers: make(map[string]pipelineScheduler, 100),
+		schedulers: make(map[string]pipelineScheduler),
 		done:       make(chan error, 1),
 	}, nil
 }
 
 func (gw *Gateway) Close() {
+	gw.runLock.Lock()
+	defer gw.runLock.Unlock()
+
+	gw.Lock()
+	defer gw.Unlock()
+
 	close(gw.done)
 }
 
 func (gw *Gateway) Run() (<-chan error, error) {
+	gw.runLock.Lock()
+	defer gw.runLock.Unlock()
+
 	if !gw.startAt.IsZero() {
 		return nil, fmt.Errorf("gateway already started")
 	}
@@ -105,6 +115,9 @@ func (gw *Gateway) Run() (<-chan error, error) {
 }
 
 func (gw *Gateway) Stop() {
+	gw.runLock.Lock()
+	defer gw.runLock.Unlock()
+
 	gw.Lock()
 	defer gw.Unlock()
 

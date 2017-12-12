@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/ant0ine/go-json-rest/rest"
@@ -48,6 +49,7 @@ func (cam *clusterAvailabilityMiddleware) MiddlewareFunc(h rest.HandlerFunc) res
 ////
 
 type Rest struct {
+	sync.Mutex
 	gateway *engine.Gateway
 	gc      *gateway.GatewayCluster
 	server  *http.Server
@@ -68,6 +70,9 @@ func NewRest(gateway *engine.Gateway) (*Rest, error) {
 }
 
 func (s *Rest) Start() (<-chan error, string, error) {
+	s.Lock()
+	defer s.Unlock()
+
 	listenAddr := fmt.Sprintf("%s:9090", option.RestHost)
 
 	adminServer, err := newAdminServer(s.gateway)
@@ -165,6 +170,7 @@ func (s *Rest) Start() (<-chan error, string, error) {
 			// server exits after closing channel, ignore safely
 			recover()
 		}()
+
 		err := s.server.Serve(tcpKeepAliveListener{ln.(*net.TCPListener)})
 		if err != nil && !s.stopped {
 			s.done <- err
@@ -176,6 +182,9 @@ func (s *Rest) Start() (<-chan error, string, error) {
 }
 
 func (s *Rest) Stop() {
+	s.Lock()
+	defer s.Unlock()
+
 	s.stopped = true
 
 	if s.server != nil {
@@ -185,10 +194,15 @@ func (s *Rest) Stop() {
 		} else {
 			logger.Debugf("[rest interface is shut down gracefully]")
 		}
+	} else {
+		s.done <- nil
 	}
 }
 
 func (s *Rest) Close() {
+	s.Lock()
+	defer s.Unlock()
+
 	close(s.done)
 }
 

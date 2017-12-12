@@ -182,15 +182,16 @@ func setupHeapDumpSignalHandler() {
 						}
 						defer f.Close()
 
-						logger.Debugf("[memory profiling started, heap dump to %s]",
+						logger.Debugf("[memory profiling started, heap dumps to %s]",
 							option.MemProfileFile)
 
 						// get up-to-date statistics
+						logger.Infof("[full gc is executing for heap dump, this may block the entire program]")
 						runtime.GC()
 
 						pprof.WriteHeapProfile(f)
 
-						logger.Infof("[memory profiling finished, heap dump to %s]",
+						logger.Infof("[memory profiling finished, heap dumps to %s]",
 							option.MemProfileFile)
 					}()
 				}
