@@ -296,9 +296,12 @@ func (scheduler *dynamicPipelineScheduler) spawn() {
 }
 
 func (scheduler *dynamicPipelineScheduler) shrink() {
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
 	for {
 		select {
-		case <-time.Tick(time.Second):
+		case <-ticker.C:
 			scheduler.instancesLock.RLock()
 
 			currentParallelism := uint32(len(scheduler.instances))
