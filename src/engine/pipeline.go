@@ -107,12 +107,9 @@ func (scheduler *commonPipelineScheduler) startPipeline(parallelism uint32,
 		return currentParallelism, 0 // scheduler is stop or reach the cap
 	}
 
-	if option.PipelineMaxParallelism > 0 {
-		left := option.PipelineMaxParallelism - currentParallelism
-
-		if parallelism > left {
-			parallelism = left
-		}
+	left := option.PipelineMaxParallelism - currentParallelism
+	if parallelism > left {
+		parallelism = left
 	}
 
 	idx := uint32(0)
