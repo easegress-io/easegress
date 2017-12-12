@@ -913,9 +913,11 @@ func (c *Cluster) cleanupMember() {
 		}
 	}
 
+	ticker := time.NewTicker(c.conf.MemberCleanupInterval)
+	defer ticker.Stop()
 	for {
 		select {
-		case <-time.After(c.conf.MemberCleanupInterval):
+		case <-ticker.C:
 			now := time.Now()
 
 			c.membersLock.Lock()
@@ -932,9 +934,11 @@ func (c *Cluster) cleanupMember() {
 }
 
 func (c *Cluster) reconnectFailedMembers() {
+	ticker := time.NewTicker(c.conf.FailedMemberReconnectInterval)
+	defer ticker.Stop()
 	for {
 		select {
-		case <-time.After(c.conf.FailedMemberReconnectInterval):
+		case <-ticker.C:
 			c.membersLock.RLock()
 
 			if c.failedMembers.Count() == 0 {

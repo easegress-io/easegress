@@ -111,10 +111,12 @@ func (gc *GatewayCluster) chooseMemberToPull() *cluster.Member {
 }
 
 func (gc *GatewayCluster) syncOpLogLoop() {
+	ticker := time.NewTicker(gc.conf.OPLogPullInterval)
+	defer ticker.Stop()
 LOOP:
 	for {
 		select {
-		case <-time.After(gc.conf.OPLogPullInterval):
+		case <-ticker.C:
 			gc.syncOpLog(gc.log.maxSeq()+1, uint64(gc.conf.OPLogPullMaxCountOnce))
 		case <-gc.stopChan:
 			break LOOP

@@ -33,11 +33,12 @@ func NewExpDecaySample(timeRange time.Duration, secondsForEachBucket int) *ExpDe
 	}
 
 	s.stop = make(chan struct{})
-
 	switcher := func() {
+		ticker := time.NewTicker(time.Second * time.Duration(secondsForEachBucket))
+		defer ticker.Stop()
 		for {
 			select {
-			case <-time.After(time.Second * time.Duration(secondsForEachBucket)):
+			case <- ticker.C:
 				s.bucketIdxLock.Lock()
 
 				s.buckets[s.bucketIdx].Clear()

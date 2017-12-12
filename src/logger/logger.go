@@ -117,9 +117,12 @@ func newBufWriter(w io.Writer) *bufWriter {
 	}
 
 	flusher := func() {
+		ticker := time.NewTicker(time.Second) // deadline is a parameter?
+		defer ticker.Stop()
+
 		for {
 			select {
-			case <-time.Tick(time.Second): // deadline is a parameter?
+			case <-ticker.C:
 				bw.wLock.Lock()
 				bw.w.Flush()
 				bw.wLock.Unlock()

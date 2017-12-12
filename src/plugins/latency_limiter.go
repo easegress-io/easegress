@@ -155,35 +155,8 @@ func (l *latencyWindowLimiter) Run(ctx pipelines.PipelineContext, t task.Task) e
 					task.ResultFlowControl)
 				return nil
 			}
-			var backOffTimeout <-chan time.Time
-			if l.conf.BackOffTimeoutMSec != -1 {
-				backOffTimeout = time.After(time.Duration(l.conf.BackOffTimeoutMSec) * time.Millisecond)
-			}
-
-			backOffStep := 10
-			if int(l.conf.BackOffTimeoutMSec) <= backOffStep {
-				backOffStep = 1
-			} else {
-				backOffStep = int(l.conf.BackOffTimeoutMSec / 10)
-			}
-			// wait until timeout, cancel or latency recoveryed
-		LOOP:
-			for {
-				select {
-				case <-backOffTimeout: // receive on a nil channel will always block
-					t.SetError(fmt.Errorf("service is unavailable caused by latency limit backoff timeout"),
-						task.ResultFlowControl)
-					return nil
-				case <-time.After(time.Duration(backOffStep) * time.Millisecond):
-					if counter.Count() < counterThreshold { // FIXME(shengdong): counterThreshold needs re-calculate
-						logger.Debugf("[successfully passed latency limiter after backed off]")
-						break LOOP
-					}
-				case <-t.Cancel():
-					err := fmt.Errorf("task is cancelled by %s", t.CancelCause())
-					t.SetError(err, task.ResultTaskCancelled)
-					return t.Error()
-				}
+			if retVal, needReturn := backOff(counter, l.conf.BackOffTimeoutMSec, counterThreshold, t); needReturn {
+				return retVal
 			}
 		}
 	}
@@ -211,6 +184,45 @@ func (l *latencyWindowLimiter) CleanUp(ctx pipelines.PipelineContext) {
 
 func (l *latencyWindowLimiter) Close() {
 	// Nothing to do.
+}
+
+////
+// wait until timeout, cancel or latency recoveryed
+func backOff(counter *latencyLimiterCounter, backOffTimeoutMSec int16, counterThreshold uint64, t task.Task) (error, bool) {
+	var backOffTimeout <-chan time.Time
+	if backOffTimeoutMSec != -1 {
+		timer := time.NewTimer(time.Duration(backOffTimeoutMSec) * time.Millisecond)
+		backOffTimeout = timer.C
+		defer timer.Stop()
+	}
+
+	 var backOffStep int
+	if int(backOffTimeoutMSec) <= backOffStep {
+		backOffStep = 1
+	} else {
+		backOffStep = int(backOffTimeoutMSec / 10)
+	}
+
+	backOffTicker := time.NewTicker(time.Duration(backOffStep) * time.Millisecond)
+	defer backOffTicker.Stop()
+
+	for {
+		select {
+		case <-backOffTimeout: // receive on a nil channel will always block
+			t.SetError(fmt.Errorf("service is unavailable caused by latency limit backoff timeout"),
+				task.ResultFlowControl)
+			return nil, true
+		case <-backOffTicker.C:
+			if counter.Count() < counterThreshold { // FIXME(shengdong): counterThreshold needs re-calculate
+				logger.Debugf("[successfully passed latency limiter after backed off]")
+				return nil, false
+			}
+		case <-t.Cancel():
+			err := fmt.Errorf("task is cancelled by %s", t.CancelCause())
+			t.SetError(err, task.ResultTaskCancelled)
+			return t.Error(), true
+		}
+	}
 }
 
 ////
