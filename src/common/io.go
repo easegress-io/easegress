@@ -136,3 +136,25 @@ func (tw *TimeWriter) Write(p []byte) (n int, err error) { // io.Write stub
 	defer tw.timeTrack(time.Now())
 	return tw.w.Write(p)
 }
+
+////
+
+type readerWithCloser struct {
+	reader io.Reader
+	closer io.Closer
+}
+
+func IOReaderToReaderCloser(reader io.Reader, closer io.Closer) *readerWithCloser {
+	return &readerWithCloser{
+		reader: reader,
+		closer: closer,
+	}
+}
+
+func (rwc *readerWithCloser) Read(p []byte) (n int, err error) { // io.Reader stub
+	return rwc.reader.Read(p)
+}
+
+func (rwc *readerWithCloser) Close() error { // io.Closer stub
+	return rwc.closer.Close()
+}

@@ -284,6 +284,11 @@ func (h *httpInput) Prepare(ctx pipelines.PipelineContext) {
 func (h *httpInput) handler(w http.ResponseWriter, req *http.Request, urlParams map[string]string,
 	routeDuration time.Duration) {
 
+	if req.ContentLength >= 0 { // content length is known
+		reader := io.LimitReader(req.Body, req.ContentLength)
+		req.Body = common.IOReaderToReaderCloser(reader, req.Body)
+	}
+
 	if h.conf.Unzip && strings.Contains(req.Header.Get("Content-Encoding"), "gzip") {
 		var err error
 		req.Body, err = gzip.NewReader(req.Body)
@@ -617,7 +622,7 @@ func logRequest(ht *httpTask, t task.Task, responseCodeKey, responseRemoteKey,
 	responseDurationKey string, readRespBodyElapse, writeClientBodyElapse, readClientBodyElapse time.Duration,
 	bodyBytesSent int64, routeDuration time.Duration) {
 
-	var responseRemote string = ""
+	var responseRemote = ""
 	value := t.Value(responseRemoteKey)
 	if value != nil {
 		rr, ok := value.(string)

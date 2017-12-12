@@ -14,7 +14,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -326,27 +325,12 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) error {
 	var reader io.Reader
 	if len(h.conf.RequestBodyIOKey) != 0 {
 		inputValue := t.Value(h.conf.RequestBodyIOKey)
-		input, ok := inputValue.(io.Reader)
+		ok := false
+		reader, ok = inputValue.(io.Reader)
 		if !ok {
 			t.SetError(fmt.Errorf("input %s got wrong value: %#v", h.conf.RequestBodyIOKey, inputValue),
 				task.ResultMissingInput)
 			return nil
-		}
-
-		// optimization and defensive for http proxy case
-		lenValue := t.Value("HTTP_CONTENT_LENGTH")
-		clen, ok := lenValue.(string)
-		if ok {
-			var err error
-			length, err = strconv.ParseInt(clen, 10, 64)
-			if err == nil && length >= 0 {
-				reader = io.LimitReader(input, length)
-			} else {
-				reader = input
-			}
-		} else {
-			// Request.ContentLength of 0 means either actually 0 or unknown
-			reader = input
 		}
 	} else {
 		// skip error check safely due to we ensured it in Prepare()
