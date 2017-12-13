@@ -17,6 +17,7 @@ import (
 type pipelineInstance struct {
 	instance pipelines_gw.Pipeline
 	stop     chan struct{}
+	stopped  chan struct{}
 	done     chan struct{}
 }
 
@@ -24,6 +25,7 @@ func newPipelineInstance(instance pipelines_gw.Pipeline) *pipelineInstance {
 	return &pipelineInstance{
 		instance: instance,
 		stop:     make(chan struct{}),
+		stopped:  make(chan struct{}),
 		done:     make(chan struct{}),
 	}
 }
@@ -49,13 +51,15 @@ loop:
 		}
 	}
 
+	close(pi.stopped)
 	pi.instance.Close()
 	close(pi.done)
 }
 
 func (pi *pipelineInstance) terminate(scheduled bool) chan struct{} {
-	pi.instance.Stop(scheduled)
 	close(pi.stop)
+	pi.instance.Stop(scheduled)
+	<-pi.stopped
 	return pi.done
 }
 
@@ -343,7 +347,6 @@ func (scheduler *dynamicPipelineScheduler) spawn() {
 			scheduler.launchChan <- &inputEvent{
 				queueLength: queueLength,
 			} // without getterName and getter
-
 		case <-scheduler.spawnStop:
 			return
 		}

@@ -27,6 +27,18 @@ func linearPipelineConfigConstructor() pipelines_gw.Config {
 	}
 }
 
+////
+
+type statisticsData struct {
+	startAt, finishAt time.Time
+	successful        bool
+}
+
+type pluginStatisticsData struct {
+	statisticsData
+	pluginName string
+}
+
 //
 // Linear pipeline implementation
 //
@@ -40,6 +52,10 @@ type linearPipeline struct {
 	started, stopped                        uint32
 	runningPluginName                       string
 	runningPluginGeneration                 uint64
+	pipelineAndTaskStatChan                 chan *statisticsData
+	pluginStatChan                          chan *pluginStatisticsData
+	statUpdaterStop                         chan struct{}
+	statUpdaterDone                         chan *struct{}
 }
 
 func newLinearPipeline(ctx pipelines.PipelineContext, statistics *PipelineStatistics,
@@ -62,14 +78,23 @@ func newLinearPipeline(ctx pipelines.PipelineContext, statistics *PipelineStatis
 		return nil, fmt.Errorf("model object is nil")
 	}
 
-	return &linearPipeline{
-		ctx:            ctx,
-		conf:           c,
-		statistics:     statistics,
-		mod:            m,
-		rerunCancel:    NoOpCancelFunc,
-		scheduleCancel: NoOpCancelFunc,
-	}, nil
+	pipeline := &linearPipeline{
+		ctx:                     ctx,
+		conf:                    c,
+		statistics:              statistics,
+		mod:                     m,
+		rerunCancel:             NoOpCancelFunc,
+		scheduleCancel:          NoOpCancelFunc,
+		pipelineAndTaskStatChan: make(chan *statisticsData, 10240),
+		pluginStatChan:          make(chan *pluginStatisticsData, 10240),
+		statUpdaterStop:         make(chan struct{}),
+		statUpdaterDone:         make(chan *struct{}),
+	}
+
+	go pipeline.pipelineAndTaskStatUpdater()
+	go pipeline.pluginStatUpdater()
+
+	return pipeline, nil
 }
 
 func (p *linearPipeline) Name() string {
@@ -167,23 +192,12 @@ func (p *linearPipeline) Run() error {
 		tsk.finish(t)
 	}
 
-	if !preempted {
-		go func() {
-			err1 := p.statistics.updatePipelineExecution(time.Now().Sub(startAt))
-			if err1 != nil {
-				logger.Errorf("[pipeline %s updates execution statistics failed: %v]", p.Name(), err1)
-			}
-
-			if t.Error() == nil {
-				err1 = p.statistics.updateTaskExecution(pipelines.SuccessStatistics)
-			} else {
-				err1 = p.statistics.updateTaskExecution(pipelines.FailureStatistics)
-			}
-
-			if err1 != nil {
-				logger.Errorf("[pipeline %s updates task execution statistics failed: %v]", p.Name(), err1)
-			}
-		}()
+	if !preempted && atomic.LoadUint32(&p.stopped) == 0 {
+		p.pipelineAndTaskStatChan <- &statisticsData{
+			startAt:    startAt,
+			finishAt:   time.Now(),
+			successful: t.Error() == nil,
+		}
 	}
 
 	return nil
@@ -203,16 +217,30 @@ func (p *linearPipeline) Stop(scheduled bool) {
 	}
 
 	if scheduled {
-		defer func() {
-			recover() // to prevent p.scheduleCancel() raises any issue in case of concurrent update/call
-		}()
+		func() {
+			defer func() {
+				recover() // to prevent p.scheduleCancel() raises any issue in case of concurrent update/call
+			}()
 
-		p.scheduleCancel()
+			p.scheduleCancel()
+		}()
 	} else {
 		if p.stopCancel != nil {
 			p.stopCancel()
 		}
 	}
+
+	// notify both updaters stop
+	close(p.statUpdaterStop)
+
+	// wait both updaters done
+	<-p.statUpdaterDone
+	<-p.statUpdaterDone
+
+	// close channels
+	close(p.statUpdaterDone)
+	close(p.pipelineAndTaskStatChan)
+	close(p.pluginStatChan)
 }
 
 func (p *linearPipeline) runPlugin(instance plugins.Plugin, pluginType plugins.PluginType, gen uint64,
@@ -254,20 +282,15 @@ func (p *linearPipeline) runPlugin(instance plugins.Plugin, pluginType plugins.P
 	p.rerunCancel = NoOpCancelFunc
 	p.scheduleCancel = NoOpCancelFunc
 
-	if !rerun && !preempted {
-		go func() {
-			var kind pipelines.StatisticsKind = pipelines.AllStatistics
-			if err != nil || t.Error() != nil {
-				kind = pipelines.FailureStatistics
-			} else {
-				kind = pipelines.SuccessStatistics
-			}
-
-			err1 := p.statistics.updatePluginExecution(instance.Name(), kind, finishAt.Sub(startAt))
-			if err1 != nil {
-				logger.Errorf("[plugin %s updates execution statistics failed: %v]", instance.Name(), err1)
-			}
-		}()
+	if !rerun && !preempted && atomic.LoadUint32(&p.stopped) == 0 {
+		p.pluginStatChan <- &pluginStatisticsData{
+			statisticsData: statisticsData{
+				startAt:    startAt,
+				finishAt:   finishAt,
+				successful: err != nil || t.Error() != nil,
+			},
+			pluginName: instance.Name(),
+		}
 	}
 
 	if err != nil {
@@ -305,4 +328,83 @@ func (p *linearPipeline) cancelAndRerunRunningPlugin(updatedPlugin *Plugin,
 	}()
 
 	p.rerunCancel()
+}
+
+func (p *linearPipeline) updatePipelineAndTaskStat(data *statisticsData) {
+	err := p.statistics.updatePipelineExecution(data.finishAt.Sub(data.startAt))
+	if err != nil {
+		logger.Errorf("[pipeline %s updates execution statistics failed: %v]", p.Name(), err)
+	}
+
+	if data.successful {
+		err = p.statistics.updateTaskExecution(pipelines.SuccessStatistics)
+	} else {
+		err = p.statistics.updateTaskExecution(pipelines.FailureStatistics)
+	}
+
+	if err != nil {
+		logger.Errorf("[pipeline %s updates task execution statistics failed: %v]", p.Name(), err)
+	}
+}
+
+func (p *linearPipeline) drainPipelineAndTaskStatData() {
+	for {
+		select {
+		case data := <-p.pipelineAndTaskStatChan:
+			p.updatePipelineAndTaskStat(data)
+		default:
+			return
+		}
+	}
+}
+
+func (p *linearPipeline) pipelineAndTaskStatUpdater() {
+	for {
+		select {
+		case data := <-p.pipelineAndTaskStatChan:
+			p.updatePipelineAndTaskStat(data)
+		case <-p.statUpdaterStop:
+			p.drainPipelineAndTaskStatData()
+			p.statUpdaterDone <- nil // notify done
+			return
+		}
+	}
+}
+
+func (p *linearPipeline) updatePluginStat(data *pluginStatisticsData) {
+	kind := pipelines.AllStatistics
+	if data.successful {
+		kind = pipelines.SuccessStatistics
+	} else {
+		kind = pipelines.FailureStatistics
+	}
+
+	err := p.statistics.updatePluginExecution(data.pluginName, kind, data.finishAt.Sub(data.startAt))
+	if err != nil {
+		logger.Errorf("[plugin %s updates execution statistics failed: %v]", data.pluginName, err)
+	}
+}
+
+func (p *linearPipeline) drainPluginStatData() {
+	for {
+		select {
+		case data := <-p.pluginStatChan:
+			p.updatePluginStat(data)
+		default:
+			return
+		}
+	}
+}
+
+func (p *linearPipeline) pluginStatUpdater() {
+	for {
+		select {
+		case data := <-p.pluginStatChan:
+			p.updatePluginStat(data)
+		case <-p.statUpdaterStop:
+			p.drainPluginStatData()
+			p.statUpdaterDone <- nil // notify done
+			return
+		}
+	}
 }

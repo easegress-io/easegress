@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"runtime/debug"
 	"runtime/pprof"
 	"syscall"
 
@@ -185,9 +186,10 @@ func setupHeapDumpSignalHandler() {
 						logger.Debugf("[memory profiling started, heap dumps to %s]",
 							option.MemProfileFile)
 
-						// get up-to-date statistics
 						logger.Infof("[full gc is executing for heap dump, this may block the entire program]")
-						runtime.GC()
+
+						runtime.GC()         // get up-to-date statistics
+						debug.FreeOSMemory() // help developer when using outside monitor tool
 
 						pprof.WriteHeapProfile(f)
 
