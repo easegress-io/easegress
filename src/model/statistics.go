@@ -976,7 +976,7 @@ func (ps *PipelineStatistics) PluginIndicatorNames(pluginName string) []string {
 		return nil
 	}
 
-	ret := make([]string, len(indicators))
+	ret := make([]string, 0, len(indicators))
 
 	for name := range indicators {
 		ret = append(ret, name)
