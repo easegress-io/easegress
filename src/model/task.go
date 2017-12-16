@@ -171,10 +171,10 @@ func (t *Task) clearError(originalCode task.TaskResultCode) {
 	t.setStatus(task.Running)
 }
 
-func (t *Task) recover(errorPluginName string, lastStatus task.TaskStatus, t1 task.Task) bool {
+func (t *Task) recover(errorPluginName string, errorPluginType string, lastStatus task.TaskStatus, t1 task.Task) bool {
 	// so don't call DeleteRecoveryFunc() in the callback
 	for _, namedCallback := range t.taskRecoveries.GetCallbacks() {
-		recovered, finishTask := namedCallback.Callback().(task.TaskRecovery)(t1, errorPluginName)
+		recovered, finishTask := namedCallback.Callback().(task.TaskRecovery)(t1, errorPluginName, errorPluginType)
 		if recovered {
 			if lastStatus == task.Running { // defensive
 				t.clearError(task.ResultOK)

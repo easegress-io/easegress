@@ -173,7 +173,7 @@ func (p *linearPipeline) Run() error {
 			if atomic.LoadUint32(&p.stopped) == 1 {
 				tsk.finish(t)
 			} else {
-				recovered := tsk.recover(pluginNames[i], task.Running, t)
+				recovered := tsk.recover(instance.Name(), instance.Type(), task.Running, t)
 				if !recovered {
 					logger.Warnf(msg)
 					tsk.finish(t)
@@ -243,7 +243,7 @@ func (p *linearPipeline) Stop(scheduled bool) {
 	close(p.pluginStatChan)
 }
 
-func (p *linearPipeline) runPlugin(instance plugins.Plugin, pluginType plugins.PluginType, gen uint64,
+func (p *linearPipeline) runPlugin(instance *wrappedPlugin, pluginType plugins.PluginType, gen uint64,
 	input task.Task, tsk *Task) (bool, bool, bool) {
 
 	var t task.Task = input

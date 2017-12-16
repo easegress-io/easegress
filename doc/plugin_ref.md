@@ -516,23 +516,17 @@ Plugin mocks a data for a failure request.
 | Parameter name | Data type (golang) | Description | Type | Optional | Default value (golang) |
 |:--|:--|:--|:--:|:--:|:--|
 | plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
-| plugin\_concerned | string | Plugin processing failure will be considered to apply mock. | Functionality | No | N/A |
+| plugins\_concerned | []string | These plugins's processing failure will be considered to apply mock. | Functionality | No | N/A |
+| plugin\_types\_concerned | []string | These plugin types's processing failure will be considered to apply mock. | Functionality | No | N/A |
 | finish\_task | bool | Whether to finish task after applying mock. | Functionality | No | false |
 | task\_error\_codes\_concerned | []string | What result codes will be considered to apply mock. | Functionality | No | N/A |
 | mock\_task\_data\_key | string | The key name of mock data to store as the plugin output. | I/O | No | N/A |
 | mock\_task\_data\_value | string | The mock data to store as the plugin output. | I/O | Yes | "" |
 
-[Available task error result code](https://github.com/hexdecteam/easegateway-types/blob/master/task/result_code.go#L8):
+[Available task error result code](https://github.com/hexdecteam/easegateway-types/blob/master/task/result_code.go#L8)
 
-* ResultUnknownError
-* ResultServiceUnavailable
-* ResultInternalServerError
-* ResultTaskCancelled
-* ResultMissingInput
-* ResultBadInput
-* ResultRequesterGone
-* ResultFlowControl
-* ResultUnauthorized
+[Available plugin types](../src/plugins/plugins.go#L28)
+
 
 ### I/O
 

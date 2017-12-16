@@ -80,7 +80,7 @@ func ValidType(t string) bool {
 }
 
 func GetAllTypes() []string {
-	types := make([]string, 0)
+	types := make([]string, 0, len(PLUGIN_ENTRIES))
 	for t := range PLUGIN_ENTRIES {
 		types = append(types, t)
 	}

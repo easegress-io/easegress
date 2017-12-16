@@ -13,7 +13,8 @@ import (
 
 type simpleCommonMockConfig struct {
 	common.PluginCommonConfig
-	PluginConcerned         string   `json:"plugin_concerned"`
+	PluginsConcerned        []string `json:"plugins_concerned"`
+	PluginTypesConcerned    []string `json:"plugin_types_concerned"`
 	TaskErrorCodesConcerned []string `json:"task_error_codes_concerned"`
 	FinishTask              bool     `json:"finish_task"`
 	// TODO: Supports multiple key and value pairs
@@ -34,13 +35,26 @@ func (c *simpleCommonMockConfig) Prepare(pipelineNames []string) error {
 	}
 
 	ts := strings.TrimSpace
-	c.PluginConcerned = ts(c.PluginConcerned)
 	c.MockTaskDataKey = ts(c.MockTaskDataKey)
 	c.MockTaskDataValue = ts(c.MockTaskDataValue)
 
-	if len(c.PluginConcerned) == 0 {
-		return fmt.Errorf("invalid plugin name")
+	if len(c.PluginsConcerned) == 0 && len(c.PluginTypesConcerned) == 0 {
+		return fmt.Errorf("either concerned plugins or types needs to be configured")
 	}
+
+	if len(c.PluginsConcerned) > 0 && len(c.PluginTypesConcerned) > 0 {
+		return fmt.Errorf("both concerned plugins and types are configured")
+	}
+
+	if len(c.PluginTypesConcerned) > 0 {
+		types := GetAllTypes()
+		for _, typ := range c.PluginTypesConcerned {
+			if !common.StrInSlice(typ, types) {
+				return fmt.Errorf("invalid concerned plugin types")
+			}
+		}
+	}
+
 	if len(c.TaskErrorCodesConcerned) == 0 {
 		return fmt.Errorf("empty task error codes")
 	}
@@ -85,9 +99,7 @@ func (m *simpleCommonMock) Prepare(ctx pipelines.PipelineContext) {
 
 func (m *simpleCommonMock) Run(ctx pipelines.PipelineContext, t task.Task) error {
 	t.AddRecoveryFunc(fmt.Sprintf("mockBrokenPlugin-%s", m.Name()),
-		getTaskRecoveryFuncInSimpleCommonMock(m.conf.PluginConcerned,
-			m.conf.taskErrorCodesConcerned, m.conf.FinishTask,
-			m.conf.MockTaskDataKey, m.conf.MockTaskDataValue))
+		getTaskRecoveryFuncInSimpleCommonMock(m.conf))
 	return nil
 }
 
@@ -105,25 +117,24 @@ func (m *simpleCommonMock) Close() {
 
 ////
 
-func getTaskRecoveryFuncInSimpleCommonMock(pluginConcerned string,
-	taskErrorCodesConcerned []task.TaskResultCode, finishTask bool, mockTaskDataKey,
-	mockTaskDataValue string) task.TaskRecovery {
+func getTaskRecoveryFuncInSimpleCommonMock(conf *simpleCommonMockConfig) task.TaskRecovery {
 
-	return func(t task.Task, errorPluginName string) (bool, bool) {
-		if errorPluginName != pluginConcerned {
+	return func(t task.Task, errorPluginName, errorPluginType string) (bool, bool) {
+		if len(conf.PluginsConcerned) > 0 && !common.StrInSlice(errorPluginName, conf.PluginsConcerned) ||
+			len(conf.PluginTypesConcerned) > 0 && !common.StrInSlice(errorPluginType, conf.PluginTypesConcerned) {
 			return false, false
 		}
 		recovered := false
-		for _, code := range taskErrorCodesConcerned {
+		for _, code := range conf.taskErrorCodesConcerned {
 			if t.ResultCode() == code {
 				recovered = true
 				break
 			}
 		}
 		if recovered {
-			t.WithValue(mockTaskDataKey, mockTaskDataValue)
+			t.WithValue(conf.MockTaskDataKey, conf.MockTaskDataValue)
 		}
 
-		return recovered, finishTask
+		return recovered, conf.FinishTask
 	}
 }

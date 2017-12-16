@@ -310,7 +310,7 @@ func (m *Model) preparePluginInstance(instance plugins.Plugin) {
 	}
 }
 
-func (m *Model) getPluginInstance(name string, prepareForNew bool) (plugins.Plugin,
+func (m *Model) getPluginInstance(name string, prepareForNew bool) (*wrappedPlugin,
 	plugins.PluginType, uint64, error) {
 
 	m.pluginsLock.RLock()
@@ -331,11 +331,11 @@ func (m *Model) getPluginInstance(name string, prepareForNew bool) (plugins.Plug
 	return instance, pluginType, gen, err
 }
 
-func (m *Model) releasePluginInstance(plugin plugins.Plugin) int64 {
+func (m *Model) releasePluginInstance(plugin *wrappedPlugin) int64 {
 	return m.pluginCounter.DeleteRef(plugin)
 }
 
-func (m *Model) dismissPluginInstance(instance plugins.Plugin) error {
+func (m *Model) dismissPluginInstance(instance *wrappedPlugin) error {
 	if instance == nil {
 		return fmt.Errorf("invalid plugin instance")
 	}

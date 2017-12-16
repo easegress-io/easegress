@@ -23,16 +23,18 @@ type pluginInstanceClosed func()
 type wrappedPlugin struct {
 	mod                      *Model
 	ori                      plugins.Plugin
+	typ                      string
 	generation               uint64
 	preparationLock          sync.RWMutex
 	preparedPipelineContexts map[string]pipelines.PipelineContext
 	closedCallbacks          *common.NamedCallbackSet
 }
 
-func newWrappedPlugin(mod *Model, ori plugins.Plugin, gen uint64) *wrappedPlugin {
+func newWrappedPlugin(mod *Model, ori plugins.Plugin, typ string, gen uint64) *wrappedPlugin {
 	plugin := &wrappedPlugin{
 		mod:                      mod,
 		ori:                      ori,
+		typ:                      typ,
 		generation:               gen,
 		preparedPipelineContexts: make(map[string]pipelines.PipelineContext),
 		closedCallbacks:          common.NewNamedCallbackSet(),
@@ -84,6 +86,10 @@ func (p *wrappedPlugin) Run(ctx pipelines.PipelineContext, t task.Task) error {
 
 func (p *wrappedPlugin) Name() string {
 	return p.ori.Name()
+}
+
+func (p *wrappedPlugin) Type() string {
+	return p.typ
 }
 
 func (p *wrappedPlugin) CleanUp(ctx pipelines.PipelineContext) {
@@ -201,8 +207,6 @@ func (p *Plugin) Name() string {
 }
 
 func (p *Plugin) Type() string {
-	p.RLock()
-	defer p.RUnlock()
 	return p.typ
 }
 
@@ -212,7 +216,7 @@ func (p *Plugin) Config() plugins.Config {
 	return p.conf
 }
 
-func (p *Plugin) GetInstance(mod *Model, prepareForNew bool) (plugins.Plugin, plugins.PluginType, uint64, error) {
+func (p *Plugin) GetInstance(mod *Model, prepareForNew bool) (*wrappedPlugin, plugins.PluginType, uint64, error) {
 	p.RLock()
 	if p.instance != nil {
 		p.RUnlock()
@@ -238,7 +242,7 @@ func (p *Plugin) GetInstance(mod *Model, prepareForNew bool) (plugins.Plugin, pl
 		return nil, pluginType, 0, err
 	}
 
-	instance := newWrappedPlugin(mod, ori, atomic.AddUint64(&p.currentInstanceGen, 1))
+	instance := newWrappedPlugin(mod, ori, p.Type(), atomic.AddUint64(&p.currentInstanceGen, 1))
 	p.instance = instance
 	p.pluginType = pluginType
 	p.singleton = singleton
@@ -254,7 +258,7 @@ func (p *Plugin) GetInstance(mod *Model, prepareForNew bool) (plugins.Plugin, pl
 	return instance, pluginType, atomic.LoadUint64(&p.currentInstanceGen), nil
 }
 
-func (p *Plugin) DismissInstance(instance plugins.Plugin) (bool, uint64) {
+func (p *Plugin) DismissInstance(instance *wrappedPlugin) (bool, uint64) {
 	p.Lock()
 	defer p.Unlock()
 	return p.dismissInstance(instance)
@@ -268,7 +272,7 @@ func (p *Plugin) UpdateConfig(conf plugins.Config) (bool, uint64) {
 	return p.dismissInstance(nil)
 }
 
-func (p *Plugin) dismissInstance(instance plugins.Plugin) (bool, uint64) {
+func (p *Plugin) dismissInstance(instance *wrappedPlugin) (bool, uint64) {
 	inst := p.instance
 
 	if instance != nil && inst != instance {
@@ -291,7 +295,7 @@ func (p *Plugin) dismissInstance(instance plugins.Plugin) (bool, uint64) {
 					for {
 						count, err := p.counter.RefCount(inst)
 						if err != nil {
-							logger.Errorf("[BUG: query reference count of plugin %s instance failed: %v]", inst.Name())
+							logger.Errorf("[BUG: query reference count of plugin %s instance failed: %v]", inst.Name(), err)
 							break
 						}
 
@@ -321,16 +325,16 @@ type PluginRefCountUpdated func(plugin plugins.Plugin, count int64, counter *plu
 
 type pluginInstanceCounter struct {
 	sync.RWMutex
-	count map[plugins.Plugin]*int64
+	count map[*wrappedPlugin]*int64
 }
 
 func newPluginRefCounter() *pluginInstanceCounter {
 	return &pluginInstanceCounter{
-		count: make(map[plugins.Plugin]*int64),
+		count: make(map[*wrappedPlugin]*int64),
 	}
 }
 
-func (c *pluginInstanceCounter) AddRef(plugin plugins.Plugin) int64 {
+func (c *pluginInstanceCounter) AddRef(plugin *wrappedPlugin) int64 {
 	c.RLock()
 	count, exists := c.count[plugin]
 	c.RUnlock()
@@ -350,7 +354,7 @@ func (c *pluginInstanceCounter) AddRef(plugin plugins.Plugin) int64 {
 	return atomic.AddInt64(count, 1)
 }
 
-func (c *pluginInstanceCounter) DeleteRef(plugin plugins.Plugin) int64 {
+func (c *pluginInstanceCounter) DeleteRef(plugin *wrappedPlugin) int64 {
 	c.RLock()
 	count, exists := c.count[plugin]
 	if !exists || atomic.LoadInt64(count) < 1 {
@@ -362,7 +366,7 @@ func (c *pluginInstanceCounter) DeleteRef(plugin plugins.Plugin) int64 {
 	return atomic.AddInt64(count, -1)
 }
 
-func (c *pluginInstanceCounter) RefCount(plugin plugins.Plugin) (int64, error) {
+func (c *pluginInstanceCounter) RefCount(plugin *wrappedPlugin) (int64, error) {
 	c.RLock()
 	count, exists := c.count[plugin]
 	c.RUnlock()
@@ -374,7 +378,7 @@ func (c *pluginInstanceCounter) RefCount(plugin plugins.Plugin) (int64, error) {
 	return atomic.LoadInt64(count), nil
 }
 
-func (c *pluginInstanceCounter) CompareRefAndFunc(plugin plugins.Plugin, count int64,
+func (c *pluginInstanceCounter) CompareRefAndFunc(plugin *wrappedPlugin, count int64,
 	hitFunc func(), missFunc func()) (bool, error) {
 
 	count1, err := c.RefCount(plugin)
