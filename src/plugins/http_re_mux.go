@@ -604,26 +604,16 @@ func (m *reMux) patternHasIntersection(s1, s2 string) bool {
 	lp2, complete2 := re2.LiteralPrefix()
 
 	if complete1 && complete2 {
-		if lp1 == lp2 {
-			return true
-		} else {
-			return false
-		}
+		return lp1 == lp2
 	}
 
 	if complete1 {
-		if re2.MatchString(lp1) {
-			return true
-		} else {
-			return false
-		}
+		re2WithStartAnchor, _ := compile(fmt.Sprintf("^%s", s2))
+		return re2WithStartAnchor.MatchString(lp1)
 	}
 	if complete2 {
-		if re1.MatchString(lp2) {
-			return true
-		} else {
-			return false
-		}
+		re1WithStartAnchor, _ := compile(fmt.Sprintf("^%s", s1))
+		return re1WithStartAnchor.MatchString(lp2)
 	}
 
 	minLen := len(lp1)
