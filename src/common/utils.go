@@ -184,24 +184,21 @@ func BoolFromStr(s string, def bool) bool {
 	}
 }
 
-func RemoveRepeatedRune(s string, needRemoveRune rune) string {
+func RemoveRepeatedByte(s string, needRemoveByte byte) string {
 	if len(s) < 2 {
 		return s
 	}
 
-	var repeatingRune rune
-	result := bytes.NewBuffer(nil)
-	for _, r := range s[:1] {
-		repeatingRune = r
-		result.WriteRune(r)
-	}
-	for _, r := range s[1:] {
-		if r != repeatingRune || r != needRemoveRune {
-			result.WriteRune(r)
+	out := NewLazybuf(s)
+	repeatingByte := s[0]
+	out.Append(repeatingByte)
+	for _, c := range []byte(s[1:]) {
+		if c != repeatingByte || c != needRemoveByte {
+			out.Append(c)
 		}
-		repeatingRune = r
+		repeatingByte = c
 	}
-	return result.String()
+	return out.String()
 }
 
 // Via: https://stackoverflow.com/a/466242/1705845

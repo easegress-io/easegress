@@ -91,7 +91,7 @@ func (c *httpInputConfig) Prepare(pipelineNames []string) error {
 	c.Port = ts(c.Port)
 	c.Path = ts(c.Path)
 	// Even in regular expression, squeezing `/v1//?` to `/v1/?` makes sense.
-	c.Path = common.RemoveRepeatedRune(c.Path, '/')
+	c.Path = common.RemoveRepeatedByte(c.Path, '/')
 	c.Query = ts(c.Query)
 	c.Fragment = ts(c.Fragment)
 

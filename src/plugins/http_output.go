@@ -12,7 +12,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -354,10 +353,13 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) error {
 		return nil
 	}
 
-	// FIXME(shengdong): path.Clean() may have side-effect:
+	if req.URL.Path == "" {
+		req.URL.Path = "/"
+	}
+	// FIXME: this operation may have side-effect:
 	// For example: if PARAM is "" in url `/{PARAM}/`,
 	// then that url will be cleaned up to `/`. This may lead bugs.
-	req.URL.Path = path.Clean(req.URL.Path)
+	req.URL.Path = common.RemoveRepeatedByte(req.URL.Path, '/')
 
 	if len(h.conf.RequestHeaderKey) != 0 {
 		copyHeaderFromTask(t, h.conf.RequestHeaderKey, req.Header)
