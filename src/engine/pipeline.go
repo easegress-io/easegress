@@ -170,7 +170,8 @@ func (scheduler *commonPipelineScheduler) StopPipeline() {
 ////
 
 const (
-	SCHEDULER_DYNAMIC_SPAWN_MIN_INTERVAL_MS  = 200
+	SCHEDULER_DYNAMIC_SPAWN_MIN_INTERVAL_MS  = 500
+	SCHEDULER_DYNAMIC_SPAWN_MAX_IN_EACH      = 500
 	SCHEDULER_DYNAMIC_FAST_SCALE_INTERVAL_MS = 1000
 	SCHEDULER_DYNAMIC_FAST_SCALE_RATIO       = 1.2
 	SCHEDULER_DYNAMIC_FAST_SCALE_MIN_COUNT   = 5
@@ -201,7 +202,7 @@ func newDynamicPipelineScheduler(pipeline *model.Pipeline) *dynamicPipelineSched
 	return &dynamicPipelineScheduler{
 		commonPipelineScheduler: newCommonPipelineScheduler(pipeline),
 		getters:                 make(map[string]pipelines.SourceInputQueueLengthGetter, 1),
-		launchChan:              make(chan *inputEvent, 1024), // buffer for trigger() calls before scheduler starts
+		launchChan:              make(chan *inputEvent, 128), // buffer for trigger() calls before scheduler starts
 		spawnStop:               make(chan struct{}),
 		shrinkStop:              make(chan struct{}),
 		launchTimes:             make(map[string]time.Time, 1),
@@ -246,10 +247,15 @@ func (scheduler *dynamicPipelineScheduler) trigger(getterName string, getter pip
 		return
 	}
 
-	scheduler.launchChan <- &inputEvent{
+	event := &inputEvent{
 		getterName:  getterName,
 		getter:      getter,
 		queueLength: queueLength,
+	}
+
+	select {
+	case scheduler.launchChan <- event:
+	default: // skip if busy, spawn() routine will redress
 	}
 }
 
@@ -295,6 +301,10 @@ func (scheduler *dynamicPipelineScheduler) launch() {
 				if l > info.queueLength { // defense overflow
 					info.queueLength = l
 				}
+			}
+
+			if info.queueLength > SCHEDULER_DYNAMIC_SPAWN_MAX_IN_EACH {
+				info.queueLength = SCHEDULER_DYNAMIC_SPAWN_MAX_IN_EACH
 			}
 
 			scheduler.shrinkTimeLock.RUnlock()
