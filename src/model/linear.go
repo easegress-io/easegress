@@ -56,6 +56,7 @@ type linearPipeline struct {
 	pluginStatChan                          chan *pluginStatisticsData
 	statUpdaterStop                         chan struct{}
 	statUpdaterDone                         chan *struct{}
+	done                                    chan struct{}
 }
 
 func newLinearPipeline(ctx pipelines.PipelineContext, statistics *PipelineStatistics,
@@ -84,11 +85,13 @@ func newLinearPipeline(ctx pipelines.PipelineContext, statistics *PipelineStatis
 		statistics:              statistics,
 		mod:                     m,
 		rerunCancel:             NoOpCancelFunc,
+		stopCancel:              NoOpCancelFunc,
 		scheduleCancel:          NoOpCancelFunc,
-		pipelineAndTaskStatChan: make(chan *statisticsData, 10240),
-		pluginStatChan:          make(chan *pluginStatisticsData, 10240),
+		pipelineAndTaskStatChan: make(chan *statisticsData, 1024),
+		pluginStatChan:          make(chan *pluginStatisticsData, 1024),
 		statUpdaterStop:         make(chan struct{}),
 		statUpdaterDone:         make(chan *struct{}),
+		done:                    make(chan struct{}),
 	}
 
 	go pipeline.pipelineAndTaskStatUpdater()
@@ -123,14 +126,12 @@ func (p *linearPipeline) Prepare() {
 
 func (p *linearPipeline) Run() error {
 	if atomic.LoadUint32(&p.stopped) == 1 {
-		return fmt.Errorf("pipeline is stopped")
+		return nil // pipeline is stopped before run
 	}
 
 	if !atomic.CompareAndSwapUint32(&p.started, 0, 1) {
 		return fmt.Errorf("pipeline is already started")
 	}
-
-	defer atomic.StoreUint32(&p.started, 0)
 
 	tsk := newTask()
 	var t task.Task
@@ -172,7 +173,7 @@ func (p *linearPipeline) Run() error {
 
 			if atomic.LoadUint32(&p.stopped) == 1 {
 				tsk.finish(t)
-			} else {
+			} else if instance != nil {
 				recovered := tsk.recover(instance.Name(), instance.Type(), task.Running, t)
 				if !recovered {
 					logger.Warnf(msg)
@@ -193,11 +194,22 @@ func (p *linearPipeline) Run() error {
 	}
 
 	if !preempted && atomic.LoadUint32(&p.stopped) == 0 {
-		p.pipelineAndTaskStatChan <- &statisticsData{
+		data := &statisticsData{
 			startAt:    startAt,
 			finishAt:   common.Now(),
 			successful: t.Error() == nil,
 		}
+
+		select {
+		case p.pipelineAndTaskStatChan <- data:
+		default: // skip update if busy
+		}
+	}
+
+	atomic.StoreUint32(&p.started, 0)
+
+	if atomic.LoadUint32(&p.stopped) == 1 {
+		close(p.done)
 	}
 
 	return nil
@@ -205,29 +217,35 @@ func (p *linearPipeline) Run() error {
 
 func (p *linearPipeline) Close() {
 	p.mod.DeletePluginUpdatedCallback(fmt.Sprintf("%s-cancelAndRerunRunningPlugin@%p", p.Name(), p))
+
+	close(p.statUpdaterDone)
+	close(p.pipelineAndTaskStatChan)
+	close(p.pluginStatChan)
+
+	common.CloseChan(p.done) // this is safe if close closed channel
 }
 
 func (p *linearPipeline) Stop(scheduled bool) {
-	if atomic.LoadUint32(&p.started) == 0 {
-		return // not start to run yet
-	}
-
 	if !atomic.CompareAndSwapUint32(&p.stopped, 0, 1) {
 		return // already stopped
 	}
 
-	if scheduled {
-		func() {
-			defer func() {
-				recover() // to prevent p.scheduleCancel() raises any issue in case of concurrent update/call
-			}()
-
-			p.scheduleCancel()
+	func() {
+		// to prevent p.scheduleCancel() / p.stopCancel() raises any issue in case of concurrent update/call
+		defer func() {
+			recover()
 		}()
-	} else {
-		if p.stopCancel != nil {
+
+		if scheduled {
+			p.scheduleCancel()
+		} else {
 			p.stopCancel()
 		}
+	}()
+
+	if atomic.LoadUint32(&p.started) == 1 {
+		// wait Run() exits
+		<-p.done
 	}
 
 	// notify both updaters stop
@@ -236,17 +254,12 @@ func (p *linearPipeline) Stop(scheduled bool) {
 	// wait both updaters done
 	<-p.statUpdaterDone
 	<-p.statUpdaterDone
-
-	// close channels
-	close(p.statUpdaterDone)
-	close(p.pipelineAndTaskStatChan)
-	close(p.pluginStatChan)
 }
 
 func (p *linearPipeline) runPlugin(instance *wrappedPlugin, pluginType plugins.PluginType, gen uint64,
 	input task.Task, tsk *Task) (bool, bool, bool) {
 
-	var t task.Task = input
+	var t = input
 	var canceller cancelFunc
 	preempted := false
 
@@ -283,13 +296,18 @@ func (p *linearPipeline) runPlugin(instance *wrappedPlugin, pluginType plugins.P
 	p.scheduleCancel = NoOpCancelFunc
 
 	if !rerun && !preempted && atomic.LoadUint32(&p.stopped) == 0 {
-		p.pluginStatChan <- &pluginStatisticsData{
+		data := &pluginStatisticsData{
 			statisticsData: statisticsData{
 				startAt:    startAt,
 				finishAt:   finishAt,
 				successful: err != nil || t.Error() != nil,
 			},
 			pluginName: instance.Name(),
+		}
+
+		select {
+		case p.pluginStatChan <- data:
+		default: // skip update if busy
 		}
 	}
 

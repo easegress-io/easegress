@@ -52,15 +52,17 @@ loop:
 		}
 	}
 
-	close(pi.stopped)
+	<-pi.stopped
 	pi.instance.Close()
 	close(pi.done)
 }
 
 func (pi *pipelineInstance) terminate(scheduled bool) chan struct{} {
 	close(pi.stop)
-	pi.instance.Stop(scheduled)
-	<-pi.stopped
+	go func() { // Stop() blocks until Run() exits
+		pi.instance.Stop(scheduled)
+		close(pi.stopped)
+	}()
 	return pi.done
 }
 
@@ -175,6 +177,7 @@ const (
 	SCHEDULER_DYNAMIC_FAST_SCALE_INTERVAL_MS = 1000
 	SCHEDULER_DYNAMIC_FAST_SCALE_RATIO       = 1.2
 	SCHEDULER_DYNAMIC_FAST_SCALE_MIN_COUNT   = 5
+	SCHEDULER_DYNAMIC_SHRINK_MIN_DELAY_MS    = 500
 )
 
 type inputEvent struct {
@@ -185,17 +188,19 @@ type inputEvent struct {
 
 type dynamicPipelineScheduler struct {
 	*commonPipelineScheduler
-	ctx            pipelines.PipelineContext
-	statistics     *model.PipelineStatistics
-	mod            *model.Model
-	gettersLock    sync.RWMutex
-	getters        map[string]pipelines.SourceInputQueueLengthGetter
-	launchChan     chan *inputEvent
-	spawnStop      chan struct{}
-	shrinkStop     chan struct{}
-	launchTimes    map[string]time.Time
-	shrinkTimeLock sync.RWMutex
-	shrinkTime     time.Time
+	ctx                     pipelines.PipelineContext
+	statistics              *model.PipelineStatistics
+	mod                     *model.Model
+	gettersLock             sync.RWMutex
+	getters                 map[string]pipelines.SourceInputQueueLengthGetter
+	launchChan              chan *inputEvent
+	spawnStop, spawnDone    chan struct{}
+	shrinkStop              chan struct{}
+	sourceLastScheduleTimes map[string]time.Time
+	launchTimeLock          sync.RWMutex
+	launchTime              time.Time
+	shrinkTimeLock          sync.RWMutex
+	shrinkTime              time.Time
 }
 
 func newDynamicPipelineScheduler(pipeline *model.Pipeline) *dynamicPipelineScheduler {
@@ -204,8 +209,9 @@ func newDynamicPipelineScheduler(pipeline *model.Pipeline) *dynamicPipelineSched
 		getters:                 make(map[string]pipelines.SourceInputQueueLengthGetter, 1),
 		launchChan:              make(chan *inputEvent, 128), // buffer for trigger() calls before scheduler starts
 		spawnStop:               make(chan struct{}),
+		spawnDone:               make(chan struct{}),
 		shrinkStop:              make(chan struct{}),
-		launchTimes:             make(map[string]time.Time, 1),
+		sourceLastScheduleTimes: make(map[string]time.Time, 1),
 	}
 }
 
@@ -236,14 +242,14 @@ func (scheduler *dynamicPipelineScheduler) Start(ctx pipelines.PipelineContext,
 }
 
 func (scheduler *dynamicPipelineScheduler) trigger(getterName string, getter pipelines.SourceInputQueueLengthGetter) {
-	if atomic.LoadUint32(&scheduler.stopped) == 1 {
-		// scheduler is stop
-		return
-	}
-
 	queueLength := getter()
 	if queueLength == 0 {
 		// current parallelism is enough
+		return
+	}
+
+	if atomic.LoadUint32(&scheduler.stopped) == 1 {
+		// scheduler is stop
 		return
 	}
 
@@ -270,22 +276,22 @@ func (scheduler *dynamicPipelineScheduler) launch() {
 			now := common.Now()
 
 			if info.getterName != "" && info.getter != nil { // calls from trigger()
-				lastScheduleAt := scheduler.launchTimes[info.getterName]
+				lastScheduleAt := scheduler.sourceLastScheduleTimes[info.getterName]
 
 				if now.Sub(lastScheduleAt).Seconds()*1000 < SCHEDULER_DYNAMIC_SPAWN_MIN_INTERVAL_MS {
 					// pipeline instance schedule needs time
 					continue
 				}
 
-				scheduler.launchTimes[info.getterName] = now
+				scheduler.sourceLastScheduleTimes[info.getterName] = now
 
 				// book for spawn and shrink
 				scheduler.gettersLock.Lock()
 				scheduler.getters[info.getterName] = info.getter
 				scheduler.gettersLock.Unlock()
 			} else { // calls from spawn()
-				for getterName := range scheduler.launchTimes {
-					scheduler.launchTimes[getterName] = now
+				for getterName := range scheduler.sourceLastScheduleTimes {
+					scheduler.sourceLastScheduleTimes[getterName] = now
 				}
 			}
 
@@ -313,6 +319,10 @@ func (scheduler *dynamicPipelineScheduler) launch() {
 				info.queueLength, scheduler.ctx, scheduler.statistics, scheduler.mod)
 
 			if delta > 0 {
+				scheduler.launchTimeLock.Lock()
+				scheduler.launchTime = common.Now()
+				scheduler.launchTimeLock.Unlock()
+
 				logger.Debugf("[spawned pipeline instance(s) for pipeline %s (total=%d, increase=%d)]",
 					scheduler.PipelineName(), parallelism, delta)
 			}
@@ -323,6 +333,7 @@ func (scheduler *dynamicPipelineScheduler) launch() {
 func (scheduler *dynamicPipelineScheduler) spawn() {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
+	defer close(scheduler.spawnDone)
 
 	for {
 		select {
@@ -410,6 +421,19 @@ func (scheduler *dynamicPipelineScheduler) shrink() {
 				continue // keep minimal pipeline parallelism
 			}
 
+			now := common.Now()
+
+			scheduler.launchTimeLock.RLock()
+
+			if now.Sub(scheduler.launchTime).Seconds()*1000 < SCHEDULER_DYNAMIC_SHRINK_MIN_DELAY_MS {
+				// just launched instance, need to wait it runs
+				scheduler.instancesLock.Unlock()
+				scheduler.launchTimeLock.RUnlock()
+				continue
+			}
+
+			scheduler.launchTimeLock.RUnlock()
+
 			// pop from tail as stack
 			idx := int(currentParallelism) - 1
 			instance, scheduler.instances = scheduler.instances[idx], scheduler.instances[:idx]
@@ -417,7 +441,7 @@ func (scheduler *dynamicPipelineScheduler) shrink() {
 			scheduler.instancesLock.Unlock()
 
 			scheduler.shrinkTimeLock.Lock()
-			scheduler.shrinkTime = common.Now()
+			scheduler.shrinkTime = now
 			scheduler.shrinkTimeLock.Unlock()
 
 			scheduler.stopPipelineInstance(idx, instance, true)
@@ -439,9 +463,12 @@ func (scheduler *dynamicPipelineScheduler) Stop() {
 		return // already stopped
 	}
 
-	close(scheduler.launchChan)
 	close(scheduler.spawnStop)
 	close(scheduler.shrinkStop)
+
+	<-scheduler.spawnDone
+
+	close(scheduler.launchChan)
 
 	atomic.StoreUint32(&scheduler.started, 0)
 }
