@@ -90,7 +90,7 @@ func init() {
 	flag.Var(common.NewUint32Value(5, pipelineMinParallelism), "pipeline_min_parallelism",
 		"specify min parallelism for a pipeline running in dynamic schedule mode")
 	pipelineMaxParallelism := new(uint32)
-	flag.Var(common.NewUint32RangeValue(2048, pipelineMaxParallelism, 1, 10240), "pipeline_max_parallelism",
+	flag.Var(common.NewUint32RangeValue(5120, pipelineMaxParallelism, 1, 102400), "pipeline_max_parallelism",
 		"specify max parallelism for a pipeline running in dynamic schedule mode")
 
 	flag.Parse()
