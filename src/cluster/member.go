@@ -4,6 +4,8 @@ import (
 	"math/rand"
 	"net"
 	"time"
+
+	"common"
 )
 
 func init() {
@@ -124,7 +126,7 @@ func (mob *memberOperationBook) save(msgType messageType, nodeName string, msgTi
 		mob.operations[nodeName] = &memberOperation{
 			msgType:     msgType,
 			messageTime: msgTime,
-			receiveTime: time.Now(),
+			receiveTime: common.Now(),
 		}
 		return true
 	}

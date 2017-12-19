@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"logger"
+	"common"
 )
 
 type RequestParam struct {
@@ -61,7 +62,7 @@ func createFuture(requestId uint64, requestTime logicalTime, memberCount int,
 	future := &Future{
 		requestId:       requestId,
 		requestTime:     requestTime,
-		requestDeadline: time.Now().Add(param.Timeout),
+		requestDeadline: common.Now().Add(param.Timeout),
 		responseBook:    make(map[string]struct{}),
 		responseStream:  make(chan *MemberResponse, memberCount*2),
 		ackStream:       make(chan string, memberCount*2),

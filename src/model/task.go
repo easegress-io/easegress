@@ -132,7 +132,7 @@ func (t *Task) start() error {
 		return fmt.Errorf("task is already started at %s", t.startAt.String())
 	}
 
-	now := time.Now()
+	now := common.Now()
 	t.startAt = &now
 	t.setStatus(task.Running)
 	return nil
@@ -147,7 +147,7 @@ func (t *Task) finish(latestTask task.Task) error {
 		t.startAt = &time.Time{} // task is finished before started, e.g. preparing plugin failed
 	}
 
-	now := time.Now()
+	now := common.Now()
 	t.finishAt = &now
 	t.setStatus(task.Finished)
 
@@ -378,5 +378,5 @@ func (c *timerTask) cancel(removeFromParent bool, err error) {
 ////
 
 func withTimeout(parent task.Task, timeout time.Duration) (task.Task, cancelFunc) {
-	return withDeadline(parent, time.Now().Add(timeout))
+	return withDeadline(parent, common.Now().Add(timeout))
 }

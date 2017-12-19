@@ -8,6 +8,7 @@ import (
 
 	"github.com/hexdecteam/easegateway-types/pipelines"
 
+	"common"
 	"logger"
 	"model"
 	"option"
@@ -260,7 +261,7 @@ func (scheduler *dynamicPipelineScheduler) launch() {
 				return // channel/scheduler closed, exit
 			}
 
-			now := time.Now()
+			now := common.Now()
 
 			if info.getterName != "" && info.getter != nil { // calls from trigger()
 				lastScheduleAt := scheduler.launchTimes[info.getterName]
@@ -406,7 +407,7 @@ func (scheduler *dynamicPipelineScheduler) shrink() {
 			scheduler.instancesLock.Unlock()
 
 			scheduler.shrinkTimeLock.Lock()
-			scheduler.shrinkTime = time.Now()
+			scheduler.shrinkTime = common.Now()
 			scheduler.shrinkTimeLock.Unlock()
 
 			scheduler.stopPipelineInstance(idx, instance, true)

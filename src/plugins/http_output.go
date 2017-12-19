@@ -287,7 +287,7 @@ func (h *httpOutput) send(ctx pipelines.PipelineContext, t task.Task, req *http.
 			recover()
 		}()
 
-		requestStartAt = time.Now()
+		requestStartAt = common.Now()
 		resp, err := h.clients[rand.Intn(HTTP_OUTPUT_CLIENT_COUNT)].Do(req)
 		if err != nil {
 			e <- err
@@ -298,7 +298,7 @@ func (h *httpOutput) send(ctx pipelines.PipelineContext, t task.Task, req *http.
 
 	select {
 	case resp := <-r:
-		responseDuration := time.Since(requestStartAt)
+		responseDuration := common.Since(requestStartAt)
 
 		if h.conf.dumpResp {
 			logger.HTTPRespDump(ctx.PipelineName(), h.Name(), h.instanceId, t.StartAt().UnixNano(), resp)

@@ -2,7 +2,6 @@ package plugins
 
 import (
 	"bytes"
-	"common"
 	"fmt"
 	"logger"
 	"net"
@@ -10,11 +9,12 @@ import (
 	"regexp"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/allegro/bigcache"
 	"github.com/hexdecteam/easegateway-types/plugins"
 	"github.com/ugorji/go/codec"
+
+	"common"
 )
 
 // For quickly substituting another implementation.
@@ -131,7 +131,7 @@ func (m *reMux) dump() {
 }
 
 func (m *reMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	serveStartAt := time.Now()
+	serveStartAt := common.Now()
 	var requestURL string
 	if m.conf.CacheKeyComplete {
 		requestURL = m.generateCompleteRequestURL(r)
@@ -206,7 +206,7 @@ func (m *reMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	entryServing.Handler(w, r, urlParams, time.Now().Sub(serveStartAt))
+	entryServing.Handler(w, r, urlParams, common.Since(serveStartAt))
 }
 
 func (m *reMux) AddFunc(pname string, entryAdding *plugins.HTTPMuxEntry) error {

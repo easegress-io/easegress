@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"common"
-
 	"github.com/hexdecteam/easegateway-go-client/rest/1.0/cluster/statistics/v1/pdu"
 	"github.com/urfave/cli"
+
+	"common"
 )
 
 func ClusterRetrievePluginIndicatorNames(c *cli.Context) error {
@@ -43,10 +43,10 @@ func ClusterRetrievePluginIndicatorNames(c *cli.Context) error {
 		}
 		timeout -= expiredTime
 
-		startTime := time.Now()
+		startTime := common.Now()
 		retrieveResp, apiResp, err := clusterStatApi().GetPluginIndicatorNames(
 			group, pipelineName, pluginName, req)
-		expiredTime = time.Now().Sub(startTime)
+		expiredTime = common.Since(startTime)
 
 		if err != nil {
 			errs.append(fmt.Errorf("%s-%s: %v", pipelineName, pluginName, err))
@@ -104,10 +104,10 @@ func ClusterGetPluginIndicatorValue(c *cli.Context) error {
 		}
 		timeout -= expiredTime
 
-		startTime := time.Now()
+		startTime := common.Now()
 		value, apiResp, err := clusterStatApi().GetPluginIndicatorValue(
 			group, pipelineName, pluginName, indicatorName, req)
-		expiredTime = time.Now().Sub(startTime)
+		expiredTime = common.Since(startTime)
 
 		if err != nil {
 			errs.append(fmt.Errorf("%s-%s-%s: %v",
@@ -169,10 +169,10 @@ func ClusterGetPluginIndicatorDesc(c *cli.Context) error {
 		}
 		timeout -= expiredTime
 
-		startTime := time.Now()
+		startTime := common.Now()
 		desc, apiResp, err := clusterStatApi().GetPluginIndicatorDesc(
 			group, pipelineName, pluginName, indicatorName, req)
-		expiredTime = time.Now().Sub(startTime)
+		expiredTime = common.Since(startTime)
 
 		if err != nil {
 			errs.append(fmt.Errorf("%s-%s-%s: %v",
@@ -225,9 +225,9 @@ func ClusterRetrievePipelineIndicatorNames(c *cli.Context) error {
 		}
 		timeout -= expiredTime
 
-		startTime := time.Now()
+		startTime := common.Now()
 		retrieveResp, apiResp, err := clusterStatApi().GetPipelineIndicatorNames(group, pipelineName, req)
-		expiredTime = time.Now().Sub(startTime)
+		expiredTime = common.Since(startTime)
 
 		if err != nil {
 			errs.append(fmt.Errorf("%s: %v", pipelineName, err))
@@ -281,10 +281,10 @@ func ClusterGetPipelineIndicatorValue(c *cli.Context) error {
 		}
 		timeout -= expiredTime
 
-		startTime := time.Now()
+		startTime := common.Now()
 		value, apiResp, err := clusterStatApi().GetPipelineIndicatorValue(
 			group, pipelineName, indicatorName, req)
-		expiredTime = time.Now().Sub(startTime)
+		expiredTime = common.Since(startTime)
 
 		if err != nil {
 			errs.append(fmt.Errorf("%s-%s: %v", pipelineName, indicatorName, err))
@@ -338,10 +338,10 @@ func ClusterGetPipelineIndicatorDesc(c *cli.Context) error {
 		}
 		timeout -= expiredTime
 
-		startTime := time.Now()
+		startTime := common.Now()
 		desc, apiResp, err := clusterStatApi().GetPipelineIndicatorDesc(
 			group, pipelineName, indicatorName, req)
-		expiredTime = time.Now().Sub(startTime)
+		expiredTime = common.Since(startTime)
 
 		if err != nil {
 			errs.append(fmt.Errorf("%s-%s: %v", pipelineName, indicatorName, err))
@@ -391,9 +391,9 @@ func ClusterRetrieveTaskIndicatorNames(c *cli.Context) error {
 		}
 		timeout -= expiredTime
 
-		startTime := time.Now()
+		startTime := common.Now()
 		retrieveResp, apiResp, err := clusterStatApi().GetTaskIndicatorNames(group, pipelineName, req)
-		expiredTime = time.Now().Sub(startTime)
+		expiredTime = common.Since(startTime)
 
 		if err != nil {
 			errs.append(fmt.Errorf("%s: %v", pipelineName, err))
@@ -447,10 +447,10 @@ func ClusterGetTaskIndicatorValue(c *cli.Context) error {
 		}
 		timeout -= expiredTime
 
-		startTime := time.Now()
+		startTime := common.Now()
 		value, apiResp, err := clusterStatApi().GetTaskIndicatorValue(
 			group, pipelineName, indicatorName, req)
-		expiredTime = time.Now().Sub(startTime)
+		expiredTime = common.Since(startTime)
 
 		if err != nil {
 			errs.append(fmt.Errorf("%s-%s: %v", pipelineName, indicatorName, err))
@@ -504,9 +504,9 @@ func ClusterGetTaskIndicatorDesc(c *cli.Context) error {
 		}
 		timeout -= expiredTime
 
-		startTime := time.Now()
+		startTime := common.Now()
 		desc, apiResp, err := clusterStatApi().GetTaskIndicatorDesc(group, pipelineName, indicatorName, req)
-		expiredTime = time.Now().Sub(startTime)
+		expiredTime = common.Since(startTime)
 
 		if err != nil {
 			errs.append(fmt.Errorf("%s-%s: %v", pipelineName, indicatorName, err))

@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"common"
-
 	"github.com/hexdecteam/easegateway-go-client/rest/1.0/cluster/admin/v1/pdu"
 	"github.com/urfave/cli"
+
+	"common"
 )
 
 func setLocalOperationSequence(group string, seq uint64) error {
@@ -147,9 +147,9 @@ func ClusterCreatePlugin(c *cli.Context) error {
 			continue
 		}
 
-		startTime := time.Now()
+		startTime := common.Now()
 		seq, err := getOperationSequence(group, uint16(timeout.Seconds()))
-		expiredTime := time.Now().Sub(startTime)
+		expiredTime := common.Since(startTime)
 
 		if err != nil {
 			errs.append(fmt.Errorf("%s: %v", file, err))
@@ -164,9 +164,9 @@ func ClusterCreatePlugin(c *cli.Context) error {
 
 		seq++
 
-		startTime = time.Now()
+		startTime = common.Now()
 		do(file, seq, data, uint16(timeout.Seconds()))
-		expiredTime = time.Now().Sub(startTime)
+		expiredTime = common.Since(startTime)
 
 		setLocalOperationSequence(group, seq)
 
@@ -215,9 +215,9 @@ func ClusterDeletePlugin(c *cli.Context) error {
 	timeout := time.Duration(timeoutSec) * time.Second
 
 	for i, pluginName := range args {
-		startTime := time.Now()
+		startTime := common.Now()
 		seq, err := getOperationSequence(group, uint16(timeout.Seconds()))
-		expiredTime := time.Now().Sub(startTime)
+		expiredTime := common.Since(startTime)
 
 		if err != nil {
 			errs.append(fmt.Errorf("%s: %v", pluginName, err))
@@ -232,9 +232,9 @@ func ClusterDeletePlugin(c *cli.Context) error {
 
 		seq++
 
-		startTime = time.Now()
+		startTime = common.Now()
 		do(pluginName, seq, uint16(timeout.Seconds()))
-		expiredTime = time.Now().Sub(startTime)
+		expiredTime = common.Since(startTime)
 
 		setLocalOperationSequence(group, seq+1)
 
@@ -312,9 +312,9 @@ func ClusterRetrievePlugins(c *cli.Context) error {
 		doAll(uint16(timeout.Seconds()))
 	} else {
 		for i, pluginName := range args {
-			startTime := time.Now()
+			startTime := common.Now()
 			do(pluginName, uint16(timeout.Seconds()))
-			expiredTime := time.Now().Sub(startTime)
+			expiredTime := common.Since(startTime)
 
 			if timeout <= expiredTime {
 				if i < len(args)-1 {
@@ -375,9 +375,9 @@ func ClusterUpdatePlugin(c *cli.Context) error {
 			continue
 		}
 
-		startTime := time.Now()
+		startTime := common.Now()
 		seq, err := getOperationSequence(group, uint16(timeout.Seconds()))
-		expiredTime := time.Now().Sub(startTime)
+		expiredTime := common.Since(startTime)
 
 		if err != nil {
 			errs.append(fmt.Errorf("%s: %v", file, err))
@@ -392,9 +392,9 @@ func ClusterUpdatePlugin(c *cli.Context) error {
 
 		seq++
 
-		startTime = time.Now()
+		startTime = common.Now()
 		do(file, seq, data, uint16(timeout.Seconds()))
-		expiredTime = time.Now().Sub(startTime)
+		expiredTime = common.Since(startTime)
 
 		setLocalOperationSequence(group, seq)
 
@@ -453,9 +453,9 @@ func ClusterCreatePipeline(c *cli.Context) error {
 			continue
 		}
 
-		startTime := time.Now()
+		startTime := common.Now()
 		seq, err := getOperationSequence(group, uint16(timeout.Seconds()))
-		expiredTime := time.Now().Sub(startTime)
+		expiredTime := common.Since(startTime)
 
 		if err != nil {
 			errs.append(fmt.Errorf("%s: %v", file, err))
@@ -470,9 +470,9 @@ func ClusterCreatePipeline(c *cli.Context) error {
 
 		seq++
 
-		startTime = time.Now()
+		startTime = common.Now()
 		do(file, seq, data, uint16(timeout.Seconds()))
-		expiredTime = time.Now().Sub(startTime)
+		expiredTime = common.Since(startTime)
 
 		setLocalOperationSequence(group, seq)
 
@@ -520,13 +520,13 @@ func ClusterDeletePipeline(c *cli.Context) error {
 	timeout := time.Duration(timeoutSec) * time.Second
 
 	for i, pipelineName := range args {
-		startTime := time.Now()
+		startTime := common.Now()
 		seq, err := getOperationSequence(group, uint16(timeout.Seconds()))
 		if err != nil {
 			errs.append(fmt.Errorf("%s: %v", pipelineName, err))
 			break
 		}
-		expiredTime := time.Now().Sub(startTime)
+		expiredTime := common.Since(startTime)
 		if timeout <= expiredTime {
 			errs.append(fmt.Errorf("timeout: skip to handle [%s]", strings.Join(args[i:], ", ")))
 			break
@@ -535,9 +535,9 @@ func ClusterDeletePipeline(c *cli.Context) error {
 
 		seq++
 
-		startTime = time.Now()
+		startTime = common.Now()
 		do(pipelineName, seq, uint16(timeout.Seconds()))
-		expiredTime = time.Now().Sub(startTime)
+		expiredTime = common.Since(startTime)
 
 		setLocalOperationSequence(group, seq+1)
 
@@ -615,9 +615,9 @@ func ClusterRetrievePipelines(c *cli.Context) error {
 		doAll(uint16(timeout.Seconds()))
 	} else {
 		for i, pipelineName := range args {
-			startTime := time.Now()
+			startTime := common.Now()
 			do(pipelineName, uint16(timeout.Seconds()))
-			expiredTime := time.Now().Sub(startTime)
+			expiredTime := common.Since(startTime)
 
 			if timeout <= expiredTime {
 				if i < len(args)-1 {
@@ -678,9 +678,9 @@ func ClusterUpdatePipeline(c *cli.Context) error {
 			continue
 		}
 
-		startTime := time.Now()
+		startTime := common.Now()
 		seq, err := getOperationSequence(group, uint16(timeout.Seconds()))
-		expiredTime := time.Now().Sub(startTime)
+		expiredTime := common.Since(startTime)
 
 		if err != nil {
 			errs.append(fmt.Errorf("%s: %v", file, err))
@@ -695,9 +695,9 @@ func ClusterUpdatePipeline(c *cli.Context) error {
 
 		seq++
 
-		startTime = time.Now()
+		startTime = common.Now()
 		do(file, seq, data, uint16(timeout.Seconds()))
-		expiredTime = time.Now().Sub(startTime)
+		expiredTime = common.Since(startTime)
 
 		setLocalOperationSequence(group, seq)
 

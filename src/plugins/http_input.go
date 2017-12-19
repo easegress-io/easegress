@@ -302,7 +302,7 @@ func (h *httpInput) handler(w http.ResponseWriter, req *http.Request, urlParams 
 		request:       req,
 		writer:        w,
 		routeDuration: routeDuration,
-		receivedAt:    time.Now(),
+		receivedAt:    common.Now(),
 		urlParams:     urlParams,
 		finishedChan:  make(chan struct{}),
 	}
@@ -411,7 +411,7 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 
 			writeStartAt := time.Now()
 			ht.writer.Write(buf)
-			writeClientBodyElapse = time.Now().Sub(writeStartAt)
+			writeClientBodyElapse = time.Since(writeStartAt)
 		} else if len(h.conf.ResponseBodyIOKey) != 0 {
 			reader, ok := t1.Value(h.conf.ResponseBodyIOKey).(io.Reader)
 			if ok {
@@ -483,7 +483,7 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 
 				writeStartAt := time.Now()
 				ht.writer.Write(bytes)
-				writeClientBodyElapse = time.Now().Sub(writeStartAt)
+				writeClientBodyElapse = time.Since(writeStartAt)
 			}
 		}
 
@@ -641,7 +641,7 @@ func logRequest(ht *httpTask, t task.Task, responseCodeKey, responseRemoteKey,
 		}
 	}
 
-	requestTime := time.Now().Sub(ht.receivedAt) + routeDuration
+	requestTime := common.Since(ht.receivedAt) + routeDuration
 
 	// TODO: use variables(e.g. upstream_response_time_xxx) of each plugin
 	// or provide a method(e.g. AddUpstreamResponseTime) of task

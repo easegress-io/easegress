@@ -208,7 +208,7 @@ func newPluginStatisticsIndicator(pluginName, pluginInstanceId, indicatorName, d
 			evaluator:     evaluator,
 		},
 		instanceId: pluginInstanceId,
-		version:    time.Now().Unix(),
+		version:    time.Now().UnixNano(),
 	}, nil
 }
 

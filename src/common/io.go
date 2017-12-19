@@ -98,7 +98,7 @@ func (t *timeIO) Elapse() time.Duration {
 }
 
 func (t *timeIO) timeTrack(start time.Time) {
-	t.duration += time.Since(start)
+	t.duration += Since(start)
 }
 
 ////
@@ -115,7 +115,7 @@ func NewTimeReader(r io.Reader) *TimeReader {
 }
 
 func (tr *TimeReader) Read(p []byte) (n int, err error) { // io.Reader stub
-	defer tr.timeTrack(time.Now())
+	defer tr.timeTrack(Now())
 	return tr.r.Read(p)
 }
 
@@ -133,7 +133,7 @@ func NewTimeWriter(w io.Writer) *TimeWriter {
 }
 
 func (tw *TimeWriter) Write(p []byte) (n int, err error) { // io.Write stub
-	defer tw.timeTrack(time.Now())
+	defer tw.timeTrack(Now())
 	return tw.w.Write(p)
 }
 

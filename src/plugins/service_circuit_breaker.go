@@ -125,13 +125,13 @@ func (cb *serviceCircuitBreaker) Run(ctx pipelines.PipelineContext, t task.Task)
 	case closed:
 		return nil
 	case open:
-		if time.Now().Sub(state.openAt).Seconds()*1e3 <= float64(cb.conf.RecoveryTimeMSec) {
+		if common.Since(state.openAt).Seconds()*1e3 <= float64(cb.conf.RecoveryTimeMSec) {
 			// service fusing
 			t.SetError(fmt.Errorf("service is unavaialbe caused by service fusing"),
 				task.ResultFlowControl)
 		} else { // recovery timeout, turns to half-open
 			state.status = halfOpen
-			state.halfOpenAt = time.Now()
+			state.halfOpenAt = common.Now()
 			state.openAt = time.Time{}
 			logger.Debugf("[service circuit breaker turns status from Open to %s "+
 				"(recovery %dms timeout)", state.status, cb.conf.RecoveryTimeMSec)
@@ -190,9 +190,9 @@ func (cb *serviceCircuitBreaker) getPluginExecutionSampleUpdatedCallback(
 		}
 
 		if newStatus == open {
-			state.openAt = time.Now()
+			state.openAt = common.Now()
 		} else if newStatus == halfOpen {
-			state.halfOpenAt = time.Now()
+			state.halfOpenAt = common.Now()
 		}
 
 		if state.status == halfOpen {
@@ -238,7 +238,7 @@ func getServiceCircuitBreakerStateData(ctx pipelines.PipelineContext, pluginsCon
 			status := nextStatus(ctx, pluginsConcerned, off, time.Time{}, tpsToEnablement,
 				tpsToBreak, tpsPercentToBreak, tpsToOpen)
 			if status == open {
-				openAt = time.Now()
+				openAt = common.Now()
 			}
 
 			return &circuitBreakerStateData{
@@ -335,7 +335,7 @@ func nextStatus(ctx pipelines.PipelineContext, pluginsConcerned []string, curren
 	case halfOpen: // check if turns to open or closed
 		// TODO: Uses execution count in the unit time to determine next status
 		// instead of using success tps if needed
-		if time.Now().Sub(halfOpenAt).Minutes() < 1 {
+		if common.Since(halfOpenAt).Minutes() < 1 {
 			ret = halfOpen
 			break
 		}

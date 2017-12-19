@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+
+	"common"
 )
 
 var (
@@ -87,7 +89,7 @@ func HTTPAccess(req *http.Request, code int, bodyBytesSent int64,
 			`"%s" "%s" `+
 			`%f %f %v %v . `+
 			`%f %f %f`,
-		req.RemoteAddr, time.Now().Local(), req.Method, req.URL.Path, req.Proto,
+		req.RemoteAddr, common.Now().Local(), req.Method, req.URL.Path, req.Proto,
 		code, bodyBytesSent, referer,
 		agent, realIP,
 		requestTime.Seconds(), upstreamResponseTime.Seconds(), upstreamAddr, upstreamCode,
@@ -107,7 +109,7 @@ func HTTPReqDump(pipelineName, pluginName, pluginInstanceId string, taskId int64
 
 	for _, l := range httpLog.getLoggers("http_dump") {
 		l.Debugf("%s/%s@%s/task#%d - - [%v]:\n%s]",
-			pipelineName, pluginName, pluginInstanceId, taskId, time.Now().Local(), dump)
+			pipelineName, pluginName, pluginInstanceId, taskId, common.Now().Local(), dump)
 	}
 }
 
@@ -120,6 +122,6 @@ func HTTPRespDump(pipelineName, pluginName, pluginInstanceId string, taskId int6
 
 	for _, l := range httpLog.getLoggers("http_dump") {
 		l.Debugf("%s/%s@%s/task#%d - - [%v]:\n%s]",
-			pipelineName, pluginName, pluginInstanceId, taskId, time.Now().Local(), dump)
+			pipelineName, pluginName, pluginInstanceId, taskId, common.Now().Local(), dump)
 	}
 }

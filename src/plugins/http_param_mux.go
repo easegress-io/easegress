@@ -1,15 +1,15 @@
 package plugins
 
 import (
-	"common"
 	"fmt"
 	"net/http"
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/hexdecteam/easegateway-types/plugins"
+
+	"common"
 )
 
 var supportedMethods = map[string]interface{}{
@@ -44,7 +44,7 @@ func (m *paramMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var path_params map[string]string
 	var e *plugins.HTTPMuxEntry
 
-	serveStartAt := time.Now()
+	serveStartAt := common.Now()
 
 	m.RLock()
 LOOP:
@@ -90,7 +90,7 @@ LOOP:
 		return
 	}
 
-	e.Handler(w, r, path_params, time.Now().Sub(serveStartAt))
+	e.Handler(w, r, path_params, common.Since(serveStartAt))
 }
 
 func (m *paramMux) sameRoutingRulesInDifferentGeneration(entry *plugins.HTTPMuxEntry,

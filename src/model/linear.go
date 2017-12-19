@@ -138,7 +138,7 @@ func (p *linearPipeline) Run() error {
 
 	pluginNames := p.conf.PluginNames()
 
-	startAt := time.Now()
+	startAt := common.Now()
 	var success, preempted, rerun bool
 
 	for i := 0; i < len(pluginNames) && atomic.LoadUint32(&p.stopped) == 0; i++ {
@@ -195,7 +195,7 @@ func (p *linearPipeline) Run() error {
 	if !preempted && atomic.LoadUint32(&p.stopped) == 0 {
 		p.pipelineAndTaskStatChan <- &statisticsData{
 			startAt:    startAt,
-			finishAt:   time.Now(),
+			finishAt:   common.Now(),
 			successful: t.Error() == nil,
 		}
 	}
@@ -273,9 +273,9 @@ func (p *linearPipeline) runPlugin(instance *wrappedPlugin, pluginType plugins.P
 	p.runningPluginGeneration = gen
 	p.runningPluginName = instance.Name()
 
-	startAt := time.Now()
+	startAt := common.Now()
 	err := instance.Run(p.ctx, t)
-	finishAt := time.Now()
+	finishAt := common.Now()
 
 	p.runningPluginName = ""
 	p.runningPluginGeneration = 0

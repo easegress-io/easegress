@@ -93,7 +93,7 @@ func (gw *Gateway) Run() (<-chan error, error) {
 		return nil, fmt.Errorf("gateway already started")
 	}
 
-	gw.startAt = time.Now()
+	gw.startAt = common.Now()
 
 	gw.setupPipelineLifecycleControl()
 
@@ -175,7 +175,7 @@ func (gw *Gateway) UpTime() time.Duration {
 	if gw.startAt.IsZero() { // not started
 		return 0
 	} else {
-		return time.Now().Sub(gw.startAt)
+		return common.Since(gw.startAt)
 	}
 }
 

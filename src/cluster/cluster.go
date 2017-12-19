@@ -376,7 +376,7 @@ func (c *Cluster) leaveNode(node *memberlist.Node) {
 	}
 
 	var event EventType
-	now := time.Now()
+	now := common.Now()
 
 	switch ms.Status {
 	case MemberLeaving:
@@ -918,7 +918,7 @@ func (c *Cluster) cleanupMember() {
 	for {
 		select {
 		case <-ticker.C:
-			now := time.Now()
+			now := common.Now()
 
 			c.membersLock.Lock()
 			removedMembers := c.failedMembers.cleanup(now)
