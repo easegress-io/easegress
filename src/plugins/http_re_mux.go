@@ -382,7 +382,7 @@ func (m *reMux) generatePathEndingRequestURL(r *http.Request) string {
 		host = r.Host
 	}
 	return fmt.Sprintf(`%s://%s:%s%s?#`,
-		scheme, host, port, r.URL.Path)
+		scheme, host, port, common.RemoveRepeatedByte(r.URL.Path, '/'))
 }
 
 func (m *reMux) generateCompleteRequestURL(r *http.Request) string {
@@ -395,8 +395,8 @@ func (m *reMux) generateCompleteRequestURL(r *http.Request) string {
 		host = r.Host
 	}
 	return fmt.Sprintf(`%s://%s:%s%s?%s#%s`,
-		scheme, host, port,
-		r.URL.Path, r.URL.RawQuery, r.URL.Fragment)
+		scheme, host, port, common.RemoveRepeatedByte(r.URL.Path, '/'),
+		r.URL.RawQuery, r.URL.Fragment)
 }
 
 func (m *reMux) generateREEntry(entryAdding *plugins.HTTPMuxEntry) *reEntry {
