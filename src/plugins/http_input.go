@@ -243,7 +243,7 @@ func (h *httpInput) Prepare(ctx pipelines.PipelineContext) {
 	mux := getHTTPServerMux(ctx, h.conf.ServerPluginName, true)
 	if mux != nil {
 		for _, entry := range h.toHTTPMuxEntries() {
-			err := mux.AddFunc(ctx.PipelineName(), entry)
+			err := mux.AddFunc(ctx, entry)
 			if err != nil {
 				logger.Errorf("[add handler to server %s failed: %v]", h.conf.ServerPluginName, err)
 			}
@@ -537,7 +537,7 @@ func (h *httpInput) CleanUp(ctx pipelines.PipelineContext) {
 	mux := getHTTPServerMux(ctx, h.conf.ServerPluginName, false)
 	if mux != nil {
 		for _, entry := range h.toHTTPMuxEntries() {
-			mux.DeleteFunc(ctx.PipelineName(), entry)
+			mux.DeleteFunc(ctx, entry)
 		}
 	}
 

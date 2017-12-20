@@ -238,7 +238,7 @@ func httpServerConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginT
 func (h *httpServer) Prepare(ctx pipelines.PipelineContext) {
 	pipeline_rtable := getPipelineRouteTable(ctx, h.Name())
 	if pipeline_rtable != nil {
-		h.mux.AddFuncs(ctx.PipelineName(), pipeline_rtable)
+		h.mux.AddFuncs(ctx, pipeline_rtable)
 	}
 
 	storeHTTPServerMux(ctx, h.Name(), h.mux)
@@ -266,7 +266,7 @@ func (h *httpServer) CleanUp(ctx pipelines.PipelineContext) {
 		return
 	}
 
-	pipeline_rtable := mux.DeleteFuncs(ctx.PipelineName())
+	pipeline_rtable := mux.DeleteFuncs(ctx)
 	if pipeline_rtable != nil {
 		storePipelineRouteTable(ctx, h.Name(), pipeline_rtable)
 	}

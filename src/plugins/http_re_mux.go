@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/allegro/bigcache"
+	"github.com/hexdecteam/easegateway-types/pipelines"
 	"github.com/hexdecteam/easegateway-types/plugins"
 	"github.com/ugorji/go/codec"
 
@@ -32,8 +33,7 @@ type reMux struct {
 	// The priorityEntries sorts by priority from smaller to bigger.
 	priorityEntries []*reEntry
 
-	cacheMutex sync.RWMutex
-	cache      *bigcache.BigCache
+	cache *bigcache.BigCache
 
 	conf *reMuxConfig
 }
@@ -209,8 +209,8 @@ func (m *reMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	entryServing.Handler(w, r, urlParams, common.Since(serveStartAt))
 }
 
-func (m *reMux) AddFunc(pname string, entryAdding *plugins.HTTPMuxEntry) error {
-	pname = strings.TrimSpace(pname)
+func (m *reMux) AddFunc(ctx pipelines.PipelineContext, entryAdding *plugins.HTTPMuxEntry) error {
+	pname := ctx.PipelineName()
 	if pname == "" {
 		return fmt.Errorf("empty pipeline name")
 	}
@@ -218,6 +218,11 @@ func (m *reMux) AddFunc(pname string, entryAdding *plugins.HTTPMuxEntry) error {
 	err := m.checkValidity(entryAdding)
 	if err != nil {
 		return err
+	}
+
+	if !common.StrInSlice(entryAdding.Instance.Name(), ctx.PluginNames()) {
+		return fmt.Errorf("plugin %s doesn't exist in pipeline %s",
+			entryAdding.Instance.Name(), pname)
 	}
 
 	m.Lock()
@@ -229,14 +234,14 @@ func (m *reMux) AddFunc(pname string, entryAdding *plugins.HTTPMuxEntry) error {
 	}
 
 	// Clear entries with same plugin but different generation.
-	var entriesClearing []*plugins.HTTPMuxEntry
+	// NOTICE: The change of m.pipelineEntries[pname] in _locklessDeleteFunc
+	// does not effect the whole iteration, because it changes the address of
+	// m.pipelineEntries[pname] to point a new slice but not the elements
+	// in the original place.
 	for _, entry := range m.pipelineEntries[pname] {
 		if m.samePluginDifferentGeneration(entry, entryAdding) {
-			entriesClearing = append(entriesClearing, entry.HTTPMuxEntry)
+			m._locklessDeleteFunc(pname, entry.HTTPMuxEntry)
 		}
-	}
-	for _, entry := range entriesClearing {
-		m._locklessDeleteFunc(pname, entry)
 	}
 
 	m._locklessAddFunc(pname, entryAdding)
@@ -246,8 +251,8 @@ func (m *reMux) AddFunc(pname string, entryAdding *plugins.HTTPMuxEntry) error {
 	return nil
 }
 
-func (m *reMux) AddFuncs(pname string, entriesAdding []*plugins.HTTPMuxEntry) error {
-	pname = strings.TrimSpace(pname)
+func (m *reMux) AddFuncs(ctx pipelines.PipelineContext, entriesAdding []*plugins.HTTPMuxEntry) error {
+	pname := ctx.PipelineName()
 	if pname == "" {
 		return fmt.Errorf("empty pipeline name")
 	}
@@ -261,6 +266,34 @@ func (m *reMux) AddFuncs(pname string, entriesAdding []*plugins.HTTPMuxEntry) er
 
 	m.Lock()
 	defer m.Unlock()
+
+	// Clean outdated enytries.
+	var entriesAddingExcludeOutdated []*plugins.HTTPMuxEntry
+	for _, entryAdding := range entriesAdding {
+		needExclude := false
+		for _, entry := range m.priorityEntries {
+			if m.samePluginDifferentGeneration(entry, entryAdding) {
+				needExclude = true
+				break
+			}
+		}
+		if !needExclude {
+			entriesAddingExcludeOutdated = append(
+				entriesAddingExcludeOutdated, entryAdding)
+		}
+	}
+	entriesAdding = entriesAddingExcludeOutdated
+
+	// Clean entries of dead plugins.
+	pluginNames := ctx.PluginNames()
+	var entriesAddingExcludeDead []*plugins.HTTPMuxEntry
+	for _, entry := range entriesAdding {
+		if common.StrInSlice(entry.Instance.Name(), pluginNames) {
+			entriesAddingExcludeDead = append(
+				entriesAddingExcludeDead, entry)
+		}
+	}
+	entriesAdding = entriesAddingExcludeDead
 
 	for _, entry := range entriesAdding {
 		err := m._locklessCheckConflict(entry)
@@ -278,8 +311,8 @@ func (m *reMux) AddFuncs(pname string, entriesAdding []*plugins.HTTPMuxEntry) er
 	return nil
 }
 
-func (m *reMux) DeleteFunc(pname string, entryDeleting *plugins.HTTPMuxEntry) {
-	pname = strings.TrimSpace(pname)
+func (m *reMux) DeleteFunc(ctx pipelines.PipelineContext, entryDeleting *plugins.HTTPMuxEntry) {
+	pname := ctx.PipelineName()
 	if pname == "" {
 		return
 	}
@@ -292,47 +325,13 @@ func (m *reMux) DeleteFunc(pname string, entryDeleting *plugins.HTTPMuxEntry) {
 	m.Lock()
 	defer m.Unlock()
 
-	for _, entry := range m.pipelineEntries[pname] {
-		if m.samePluginDifferentGeneration(entry, entryDeleting) {
-			return
-		}
-	}
-
 	m._locklessDeleteFunc(pname, entryDeleting)
 
 	m.clearCache()
 }
 
-func (m *reMux) _locklessDeleteFunc(pname string, entryDeleting *plugins.HTTPMuxEntry) {
-	var pipelineEntries []*reEntry
-	var entryDeleted *reEntry
-	for _, entry := range m.pipelineEntries[pname] {
-		if m.sameRoutingRules(entry, entryDeleting) {
-			entryDeleted = entry
-		} else {
-			pipelineEntries = append(pipelineEntries, entry)
-		}
-	}
-	m.pipelineEntries[pname] = pipelineEntries
-	if len(m.pipelineEntries[pname]) == 0 {
-		delete(m.pipelineEntries, pname)
-	}
-
-	if entryDeleted == nil {
-		return
-	}
-
-	var priorityEntries []*reEntry
-	for _, entry := range m.priorityEntries {
-		if entry != entryDeleted {
-			priorityEntries = append(priorityEntries, entry)
-		}
-	}
-	m.priorityEntries = priorityEntries
-}
-
-func (m *reMux) DeleteFuncs(pname string) []*plugins.HTTPMuxEntry {
-	pname = strings.TrimSpace(pname)
+func (m *reMux) DeleteFuncs(ctx pipelines.PipelineContext) []*plugins.HTTPMuxEntry {
+	pname := ctx.PipelineName()
 	if pname == "" {
 		return nil
 	}
@@ -648,13 +647,43 @@ func (m *reMux) _locklessAddFunc(pname string, entryAdding *plugins.HTTPMuxEntry
 	m.priorityEntries = priorityEntries
 }
 
+func (m *reMux) _locklessDeleteFunc(pname string, entryDeleting *plugins.HTTPMuxEntry) {
+	var pipelineEntries []*reEntry
+	var entryDeleted *reEntry
+	for _, entry := range m.pipelineEntries[pname] {
+		if m.sameEntry(entry, entryDeleting) {
+			entryDeleted = entry
+		} else {
+			pipelineEntries = append(pipelineEntries, entry)
+		}
+	}
+	m.pipelineEntries[pname] = pipelineEntries
+	if len(m.pipelineEntries[pname]) == 0 {
+		delete(m.pipelineEntries, pname)
+	}
+
+	if entryDeleted == nil {
+		return
+	}
+
+	var priorityEntries []*reEntry
+	for _, entry := range m.priorityEntries {
+		if entry != entryDeleted {
+			priorityEntries = append(priorityEntries, entry)
+		}
+	}
+	m.priorityEntries = priorityEntries
+}
+
 func (m *reMux) samePluginDifferentGeneration(entry *reEntry, entryChecking *plugins.HTTPMuxEntry) bool {
 	return entry.Instance.Name() == entryChecking.Instance.Name() &&
 		entry.Instance != entryChecking.Instance
 }
 
-func (m *reMux) sameRoutingRules(entry *reEntry, entryChecking *plugins.HTTPMuxEntry) bool {
-	return entry.HTTPURLPattern == entryChecking.HTTPURLPattern &&
+func (m *reMux) sameEntry(entry *reEntry, entryChecking *plugins.HTTPMuxEntry) bool {
+	return entry.Instance.Name() == entryChecking.Instance.Name() &&
+		entry.Instance == entryChecking.Instance &&
+		entry.HTTPURLPattern == entryChecking.HTTPURLPattern &&
 		entry.Method == entryChecking.Method &&
 		entry.Priority == entryChecking.Priority
 }

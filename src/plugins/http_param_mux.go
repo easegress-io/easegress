@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/hexdecteam/easegateway-types/pipelines"
 	"github.com/hexdecteam/easegateway-types/plugins"
 
 	"common"
@@ -31,11 +32,18 @@ type paramMuxConfig struct {
 
 type paramMux struct {
 	sync.RWMutex
+	//         pname      path       method
 	rtable map[string]map[string]map[string]*plugins.HTTPMuxEntry
 }
 
 func newParamMux(conf *paramMuxConfig) (*paramMux, error) {
 	return new(paramMux), nil
+}
+
+func (m *paramMux) dump() {
+	m.RLock()
+	fmt.Printf("%#v\n", m.rtable)
+	m.RUnlock()
 }
 
 func (m *paramMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -93,22 +101,26 @@ LOOP:
 	e.Handler(w, r, path_params, common.Since(serveStartAt))
 }
 
-func (m *paramMux) sameRoutingRulesInDifferentGeneration(entry *plugins.HTTPMuxEntry,
-	entryChecking *plugins.HTTPMuxEntry) bool {
-
-	return entry.Path == entryChecking.Path &&
-		entry.Method == entryChecking.Method &&
-		entry.Instance.Name() == entryChecking.Instance.Name() &&
+func (m *paramMux) samePluginDifferentGeneration(entry *plugins.HTTPMuxEntry, entryChecking *plugins.HTTPMuxEntry) bool {
+	return entry.Instance.Name() == entryChecking.Instance.Name() &&
 		entry.Instance != entryChecking.Instance
+}
+
+func (m *paramMux) sameEntry(entry *plugins.HTTPMuxEntry, entryChecking *plugins.HTTPMuxEntry) bool {
+	return entry.Instance.Name() == entryChecking.Instance.Name() &&
+		entry.Instance == entryChecking.Instance &&
+		entry.HTTPURLPattern == entryChecking.HTTPURLPattern &&
+		entry.Method == entryChecking.Method &&
+		entry.Priority == entryChecking.Priority
 }
 
 func (m *paramMux) validate(entryValidating *plugins.HTTPMuxEntry) error {
 	// we do not allow to register static path and parametric path on the same segment, for example
 	// client can not register the patterns `/user/jack` and `/user/{user}` on the same http method at the same time.
-	for pipeline, pipelineRTable := range m.rtable {
+	for pname, pipelineRTable := range m.rtable {
 		for p, methods := range pipelineRTable {
 			for _, entry := range methods {
-				if m.sameRoutingRulesInDifferentGeneration(entry, entryValidating) {
+				if m.samePluginDifferentGeneration(entry, entryValidating) {
 					return nil
 				}
 			}
@@ -119,7 +131,7 @@ func (m *paramMux) validate(entryValidating *plugins.HTTPMuxEntry) error {
 
 			if dup && methods[entryValidating.Method] != nil {
 				return fmt.Errorf("duplicated handler on %s %s in pipeline %s",
-					entryValidating.Method, entryValidating, pipeline)
+					entryValidating.Method, entryValidating, pname)
 			}
 		}
 	}
@@ -127,15 +139,15 @@ func (m *paramMux) validate(entryValidating *plugins.HTTPMuxEntry) error {
 	return nil
 }
 
-func (m *paramMux) _locklessAddFunc(pipeline string, entryAdding *plugins.HTTPMuxEntry) {
+func (m *paramMux) _locklessAddFunc(pname string, entryAdding *plugins.HTTPMuxEntry) {
 	if m.rtable == nil {
 		m.rtable = make(map[string]map[string]map[string]*plugins.HTTPMuxEntry)
 	}
 
-	pipelineRTable, exists := m.rtable[pipeline]
+	pipelineRTable, exists := m.rtable[pname]
 	if !exists {
 		pipelineRTable = make(map[string]map[string]*plugins.HTTPMuxEntry)
-		m.rtable[pipeline] = pipelineRTable
+		m.rtable[pname] = pipelineRTable
 	}
 
 	path_rules, exists := pipelineRTable[entryAdding.Path]
@@ -144,13 +156,33 @@ func (m *paramMux) _locklessAddFunc(pipeline string, entryAdding *plugins.HTTPMu
 		pipelineRTable[entryAdding.Path] = path_rules
 	}
 
-	entry, exists := path_rules[entryAdding.Method]
-	if exists { // just change generation
-		entry.Instance = entryAdding.Instance
-		entry.Headers = entryAdding.Headers
-		entry.Handler = entryAdding.Handler
-	} else {
-		path_rules[entryAdding.Method] = entryAdding
+	// Not only adding a new one but also covering existed entry.
+	path_rules[entryAdding.Method] = entryAdding
+}
+
+func (m *paramMux) _locklessDeleteFunc(pname string, entryDeleting *plugins.HTTPMuxEntry) {
+	pipelineRTable, exists := m.rtable[pname]
+	if !exists {
+		return
+	}
+	methods, exists := pipelineRTable[entryDeleting.Path]
+	if !exists {
+		return
+	}
+	entry, exists := methods[entryDeleting.Method]
+	if !exists {
+		return
+	}
+
+	// Can't delete the same routing rule from newer plugin.
+	if m.sameEntry(entry, entryDeleting) {
+		delete(pipelineRTable[entryDeleting.Path], entryDeleting.Method)
+		if len(pipelineRTable[entryDeleting.Path]) == 0 {
+			delete(pipelineRTable, entryDeleting.Path)
+		}
+		if len(pipelineRTable) == 0 {
+			delete(m.rtable, pname)
+		}
 	}
 }
 
@@ -186,14 +218,18 @@ func (m *paramMux) checkValidity(e *plugins.HTTPMuxEntry) error {
 	return nil
 }
 
-func (m *paramMux) AddFunc(pipeline string, entryAdding *plugins.HTTPMuxEntry) error {
-	ts := strings.TrimSpace
-	pipeline = ts(pipeline)
-	if pipeline == "" {
+func (m *paramMux) AddFunc(ctx pipelines.PipelineContext, entryAdding *plugins.HTTPMuxEntry) error {
+	pname := ctx.PipelineName()
+	if pname == "" {
 		return fmt.Errorf("empty pipeline name")
 	}
 
 	m.checkValidity(entryAdding)
+
+	if !common.StrInSlice(entryAdding.Instance.Name(), ctx.PluginNames()) {
+		return fmt.Errorf("plugin %s doesn't exist in pipeline %s",
+			entryAdding.Instance.Name(), pname)
+	}
 
 	m.Lock()
 	defer m.Unlock()
@@ -203,15 +239,29 @@ func (m *paramMux) AddFunc(pipeline string, entryAdding *plugins.HTTPMuxEntry) e
 		return err
 	}
 
-	m._locklessAddFunc(pipeline, entryAdding)
+	// Clean entries from the same plugin but different genrations.
+	for pname, pipelineRTable := range m.rtable {
+		var entriesToClean []*plugins.HTTPMuxEntry
+		for _, methods := range pipelineRTable {
+			for _, entry := range methods {
+				if m.samePluginDifferentGeneration(entry, entryAdding) {
+					entriesToClean = append(entriesToClean, entry)
+				}
+			}
+		}
+		for _, entry := range entriesToClean {
+			m._locklessDeleteFunc(pname, entry)
+		}
+	}
+
+	m._locklessAddFunc(pname, entryAdding)
 
 	return nil
 }
 
-func (m *paramMux) AddFuncs(pipeline string, entriesAdding []*plugins.HTTPMuxEntry) error {
-	ts := strings.TrimSpace
-	pipeline = ts(pipeline)
-	if len(pipeline) == 0 {
+func (m *paramMux) AddFuncs(ctx pipelines.PipelineContext, entriesAdding []*plugins.HTTPMuxEntry) error {
+	pname := ctx.PipelineName()
+	if len(pname) == 0 {
 		return fmt.Errorf("empty pipeline name")
 	}
 
@@ -222,6 +272,40 @@ func (m *paramMux) AddFuncs(pipeline string, entriesAdding []*plugins.HTTPMuxEnt
 	m.Lock()
 	defer m.Unlock()
 
+	// Clean outdated entries.
+	var entriesAddingExcludeOutdated []*plugins.HTTPMuxEntry
+	for _, entryAdding := range entriesAdding {
+		needExclude := false
+	LOOP:
+		for _, pipelineRTable := range m.rtable {
+			for _, methods := range pipelineRTable {
+				for _, entry := range methods {
+					if m.samePluginDifferentGeneration(
+						entry, entryAdding) {
+						needExclude = true
+						break LOOP
+					}
+				}
+			}
+		}
+		if !needExclude {
+			entriesAddingExcludeOutdated = append(
+				entriesAddingExcludeOutdated, entryAdding)
+		}
+	}
+	entriesAdding = entriesAddingExcludeOutdated
+
+	// Clean entries of dead plugins.
+	pluginNames := ctx.PluginNames()
+	var entriesAddingExcludeDead []*plugins.HTTPMuxEntry
+	for _, entry := range entriesAdding {
+		if common.StrInSlice(entry.Instance.Name(), pluginNames) {
+			entriesAddingExcludeDead = append(
+				entriesAddingExcludeDead, entry)
+		}
+	}
+	entriesAdding = entriesAddingExcludeDead
+
 	// full validation first
 	for _, entry := range entriesAdding {
 		err := m.validate(entry)
@@ -231,59 +315,34 @@ func (m *paramMux) AddFuncs(pipeline string, entriesAdding []*plugins.HTTPMuxEnt
 	}
 
 	for _, entry := range entriesAdding {
-		m._locklessAddFunc(pipeline, entry)
+		m._locklessAddFunc(pname, entry)
 	}
 
 	return nil
 }
 
-func (m *paramMux) DeleteFunc(pipeline string, entryDeleting *plugins.HTTPMuxEntry) {
-	ts := strings.TrimSpace
-	pipeline = ts(pipeline)
-	if pipeline == "" {
+func (m *paramMux) DeleteFunc(ctx pipelines.PipelineContext, entryDeleting *plugins.HTTPMuxEntry) {
+	pname := ctx.PipelineName()
+	if pname == "" {
 		return
 	}
 
 	m.Lock()
 	defer m.Unlock()
 
-	pipelineRTable, exists := m.rtable[pipeline]
-	if !exists {
-		return
-	}
-	methods, exists := pipelineRTable[entryDeleting.Path]
-	if !exists {
-		return
-	}
-	entry, exists := methods[entryDeleting.Method]
-	if !exists {
-		return
-	}
-
-	if m.sameRoutingRulesInDifferentGeneration(entry, entryDeleting) {
-		return // The older one has already been covered.
-	} else {
-		delete(pipelineRTable[entryDeleting.Path], entryDeleting.Method)
-		if len(pipelineRTable[entryDeleting.Path]) == 0 {
-			delete(pipelineRTable, entryDeleting.Path)
-		}
-		if len(pipelineRTable) == 0 {
-			delete(m.rtable, pipeline)
-		}
-	}
+	m._locklessDeleteFunc(pname, entryDeleting)
 }
 
-func (m *paramMux) DeleteFuncs(pipeline string) []*plugins.HTTPMuxEntry {
-	ts := strings.TrimSpace
-	pipeline = ts(pipeline)
-	if pipeline == "" {
+func (m *paramMux) DeleteFuncs(ctx pipelines.PipelineContext) []*plugins.HTTPMuxEntry {
+	pname := ctx.PipelineName()
+	if pname == "" {
 		return nil
 	}
 
 	m.Lock()
 	defer m.Unlock()
 
-	pipelineRTable := m.rtable[pipeline]
+	pipelineRTable := m.rtable[pname]
 
 	var entries []*plugins.HTTPMuxEntry
 	for _, methods := range pipelineRTable {
@@ -292,7 +351,7 @@ func (m *paramMux) DeleteFuncs(pipeline string) []*plugins.HTTPMuxEntry {
 		}
 	}
 
-	delete(m.rtable, pipeline)
+	delete(m.rtable, pname)
 	return entries
 }
 
