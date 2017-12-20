@@ -76,7 +76,7 @@ func NewGatewayCluster(conf Config, mod *model.Model) (*GatewayCluster, error) {
 		return nil, fmt.Errorf("oplog_pull_timeout must be greater than or equals to 10")
 	}
 
-	eventStream := make(chan cluster.Event)
+	eventStream := make(chan cluster.Event, 1024)
 
 	// TODO: choose config of under layer automatically
 	basisConf := cluster.DefaultLANConfig()
@@ -378,7 +378,7 @@ LOOP:
 			payload, known := membersRespBook[memberResp.ResponseNodeName]
 			if !known {
 				logger.Warnf("[received the response from an unexpexted node %s "+
-					"started durning the request %s]", memberResp.ResponseNodeName,
+					"started during the request %s]", memberResp.ResponseNodeName,
 					fmt.Sprintf("%s_relayed", requestName))
 				continue LOOP
 			}
