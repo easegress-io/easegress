@@ -11,6 +11,7 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -306,7 +307,11 @@ func (h *httpOutput) send(ctx pipelines.PipelineContext, t task.Task, req *http.
 
 		return resp, responseDuration, nil
 	case err := <-e:
-		t.SetError(err, task.ResultServiceUnavailable)
+		msg := err.Error()
+		if m, err := url.QueryUnescape(msg); err == nil {
+			msg = m
+		}
+		t.SetError(fmt.Errorf("%s", msg), task.ResultServiceUnavailable)
 		return nil, 0, err
 	case <-t.Cancel():
 		cancel()
