@@ -358,20 +358,28 @@ func (b *pipelineContextDataBucket) QueryData(key interface{}) interface{} {
 func (b *pipelineContextDataBucket) QueryDataWithBindDefault(key interface{},
 	defaultValueFunc pipelines.DefaultValueFunc) (interface{}, error) {
 
+	b.RLock()
+
+	value, exists := b.data[key]
+	if exists {
+		b.RUnlock()
+		return value, nil
+	}
+
+	b.RUnlock()
+
 	b.Lock()
 	defer b.Unlock()
 
-	var value interface{}
-
-	_value, exists := b.data[key]
-	if !exists {
+	value, exists = b.data[key]
+	if exists { // DCL
+		return value, nil
+	} else {
 		value = defaultValueFunc()
 		_, err := b.bindData(key, value)
 		if err != nil {
 			return nil, err
 		}
-	} else {
-		value = _value
 	}
 
 	return value, nil
