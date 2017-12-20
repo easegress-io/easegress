@@ -33,6 +33,7 @@ type Cluster struct {
 	leftMembers, failedMembers *memberStatusBook
 	memberOperations           *memberOperationBook
 
+	requestSendLock   sync.Mutex
 	requestLock       sync.RWMutex
 	futures           map[logicalTime]*Future
 	requestOperations *requestOperationBook
@@ -227,7 +228,16 @@ func (c *Cluster) Request(name string, payload []byte, param *RequestParam) (*Fu
 	h.Write([]byte(uuid))
 
 	requestId := h.Sum64()
+
+	c.requestSendLock.Lock()
+	defer c.requestSendLock.Unlock()
+
 	requestTime := c.requestClock.Time()
+
+	msg, err := c.createRequestMessage(requestId, name, requestTime, payload, param)
+	if err != nil {
+		return nil, err
+	}
 
 	future := createFuture(requestId, requestTime, c.memberList.NumMembers(), param,
 		func() {
@@ -241,7 +251,7 @@ func (c *Cluster) Request(name string, payload []byte, param *RequestParam) (*Fu
 	c.futures[requestTime] = future
 	c.requestLock.Unlock()
 
-	err = c.broadcastRequestMessage(requestId, name, requestTime, payload, param)
+	err = c.broadcastRequestMessage(msg)
 	if err != nil {
 		return nil, err
 	}
@@ -447,7 +457,7 @@ func (c *Cluster) updateNode(node *memberlist.Node) {
 
 func (c *Cluster) resolveNodeConflict(knownNode, otherNode *memberlist.Node) {
 	if c.conf.NodeName != knownNode.Name {
-		logger.Warnf("[dectcted node name %s conflict at %s:%d and %s:%d]", knownNode.Name,
+		logger.Warnf("[detected node name %s conflict at %s:%d and %s:%d]", knownNode.Name,
 			knownNode.Addr, knownNode.Port, otherNode.Addr, otherNode.Port)
 		return
 	}
@@ -588,7 +598,7 @@ func (c *Cluster) operateResponse(msg *messageResponse) bool {
 	}
 
 	if future.requestId != msg.RequestId {
-		logger.Warnf("[BUG: request id %d is mismatch with response %d, ignored]",
+		logger.Warnf("[request id %d is mismatch with the id in response %d, ignored]",
 			future.requestId, msg.RequestId)
 		return false
 	}
@@ -722,8 +732,8 @@ func (c *Cluster) broadcastMemberLeaveMessage(nodeName string) error {
 	return nil
 }
 
-func (c *Cluster) broadcastRequestMessage(requestId uint64, name string, requestTime logicalTime,
-	payload []byte, param *RequestParam) error {
+func (c *Cluster) createRequestMessage(requestId uint64, name string, requestTime logicalTime,
+	payload []byte, param *RequestParam) (*messageRequest, error) {
 
 	var flag uint32
 	if param.RequireAck {
@@ -732,7 +742,7 @@ func (c *Cluster) broadcastRequestMessage(requestId uint64, name string, request
 
 	source := c.memberList.LocalNode()
 
-	msg := messageRequest{
+	msg := &messageRequest{
 		RequestId:          requestId,
 		RequestName:        name,
 		RequestTime:        requestTime,
@@ -747,18 +757,22 @@ func (c *Cluster) broadcastRequestMessage(requestId uint64, name string, request
 
 	err := msg.applyFilters(param)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
+	return msg, nil
+}
+
+func (c *Cluster) broadcastRequestMessage(msg *messageRequest) error {
 	// handle operation message locally
-	c.operateRequest(&msg)
+	c.operateRequest(msg)
 
 	if !c.anyAlivePeerMembers() {
 		// no peer can respond
 		return nil
 	}
 
-	err = fanoutMessage(c.requestMessageSendQueue, &msg, requestMessage, nil) // need not to care if sending is done
+	err := fanoutMessage(c.requestMessageSendQueue, msg, requestMessage, nil) // need not to care if sending is done
 	if err != nil {
 		logger.Errorf("[broadcast request message failed: %v]", err)
 		return err
