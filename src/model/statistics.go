@@ -1306,13 +1306,14 @@ func (ps *PipelineStatistics) pluginThroughputRate(pluginName string, slot map[s
 }
 
 func (ps *PipelineStatistics) updatePipelineExecution(duration time.Duration) error {
+	/* FIXME(zhiyan): Disable the operations on exp-decay sample due to memory usage and lock cost issues, will back soon.
 	ps.pipelineExecutionSample.Update(int64(duration)) // safe conversion
 
 	// so don't call DeletePipelineExecutionSampleUpdatedCallback() in the callback
 	for _, callback := range ps.pipelineExecutionSampleUpdatedCallbacks.GetCallbacks() {
 		go callback.Callback().(pipelines.PipelineExecutionSampleUpdated)(ps.pipelineName, ps)
 	}
-
+	*/
 	ps.pipelineThroughputRates1.Update(1)
 	ps.pipelineThroughputRates5.Update(1)
 	ps.pipelineThroughputRates15.Update(1)
@@ -1332,6 +1333,7 @@ func (ps *PipelineStatistics) updatePluginExecution(pluginName string,
 		return fmt.Errorf("only supports update plugin success and failure statistics kinds")
 	}
 
+	/* FIXME(zhiyan): Disable the operations on exp-decay sample due to memory usage and lock cost issues, will back soon.
 	err := func() error {
 		ps.RLock()
 		defer ps.RUnlock()
@@ -1378,8 +1380,9 @@ func (ps *PipelineStatistics) updatePluginExecution(pluginName string,
 		go callback.Callback().(pipelines.PluginExecutionSampleUpdated)(pluginName, ps,
 			pipelines.AllStatistics)
 	}
+	*/
 
-	err = func() error {
+	err := func() error {
 		ps.RLock()
 		defer ps.RUnlock()
 
