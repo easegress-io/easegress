@@ -36,7 +36,24 @@ type clusterAvailabilityMiddleware struct {
 
 func (cam *clusterAvailabilityMiddleware) MiddlewareFunc(h rest.HandlerFunc) rest.HandlerFunc {
 	return func(w rest.ResponseWriter, r *rest.Request) {
-		if cam.gc == nil {
+		if cam.gc == nil || cam.gc.Stopped() {
+			rest.Error(w, "service unavailable", http.StatusServiceUnavailable)
+			return
+		}
+
+		// call the handler
+		h(w, r)
+	}
+}
+
+type standaloneAvailabilityMiddleware struct {
+	gc *gateway.GatewayCluster
+}
+
+func (sam *standaloneAvailabilityMiddleware) MiddlewareFunc(h rest.HandlerFunc) rest.HandlerFunc {
+	return func(w rest.ResponseWriter, r *rest.Request) {
+		if sam.gc != nil && !sam.gc.Stopped() && r.Method != "GET" {
+			// standalone admin api only supports retrieve operations when running in cluster mode
 			rest.Error(w, "service unavailable", http.StatusServiceUnavailable)
 			return
 		}
@@ -75,7 +92,7 @@ func (s *Rest) Start() (<-chan error, string, error) {
 
 	listenAddr := fmt.Sprintf("%s:9090", option.RestHost)
 
-	adminServer, err := newAdminServer(s.gateway)
+	adminServer, err := newAdminServer(s.gateway, s.gc)
 	if err != nil {
 		logger.Errorf("[create admin rest server failed: %v]", err)
 		return nil, listenAddr, err

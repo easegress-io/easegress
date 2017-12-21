@@ -65,6 +65,11 @@ paths:
             Plugin instance with the given name request parameter provided is already existing.
           schema:
             $ref: '#/definitions/Error'
+        503:
+          description: |
+            Non-retrieve operations are disallowed when running in cluster mode.
+          schema:
+            $ref: '#/definitions/Error'
         200:
           description: Plugin instance is created successfully.
     get:
@@ -108,6 +113,11 @@ paths:
             $ref: '#/definitions/Error'
         404:
           description: Plugin instance not found by given name.
+          schema:
+            $ref: '#/definitions/Error'
+        503:
+          description: |
+            Non-retrieve operations are disallowed when running in cluster mode.
           schema:
             $ref: '#/definitions/Error'
         200:
@@ -163,6 +173,11 @@ paths:
             one or more pipelines.
           schema:
             $ref: '#/definitions/Error'
+        503:
+          description: |
+            Non-retrieve operations are disallowed when running in cluster mode.
+          schema:
+            $ref: '#/definitions/Error'
         200:
           description: Plugin instance is deleted successfully.
   /pipelines:
@@ -189,6 +204,11 @@ paths:
         409:
           description: |
             Pipeline instance with the given name request parameter provided is already existing.
+          schema:
+            $ref: '#/definitions/Error'
+        503:
+          description: |
+            Non-retrieve operations are disallowed when running in cluster mode.
           schema:
             $ref: '#/definitions/Error'
         200:
@@ -238,6 +258,11 @@ paths:
             pipeline are not found.
           schema:
             $ref: '#/definitions/Error'
+        503:
+          description: |
+            Non-retrieve operations are disallowed when running in cluster mode.
+          schema:
+            $ref: '#/definitions/Error'
         200:
           description: Pipeline instance is updated successfully.
   /pipelines/{pipelineName}:
@@ -283,6 +308,11 @@ paths:
             $ref: '#/definitions/Error'
         404:
           description: Pipeline instance not found by given name.
+          schema:
+            $ref: '#/definitions/Error'
+        503:
+          description: |
+            Non-retrieve operations are disallowed when running in cluster mode.
           schema:
             $ref: '#/definitions/Error'
         200:

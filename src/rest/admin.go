@@ -10,6 +10,7 @@ import (
 
 	"github.com/ant0ine/go-json-rest/rest"
 
+	"cluster/gateway"
 	"common"
 	"config"
 	"engine"
@@ -20,11 +21,13 @@ import (
 
 type adminServer struct {
 	gateway *engine.Gateway
+	gc      *gateway.GatewayCluster
 }
 
-func newAdminServer(gateway *engine.Gateway) (*adminServer, error) {
+func newAdminServer(gateway *engine.Gateway, gc *gateway.GatewayCluster) (*adminServer, error) {
 	return &adminServer{
 		gateway: gateway,
+		gc:      gc,
 	}, nil
 }
 
@@ -53,7 +56,7 @@ func (s *adminServer) Api() (*rest.Api, error) {
 	}
 
 	api := rest.NewApi()
-	api.Use(RestStack...)
+	api.Use(append(RestStack, &standaloneAvailabilityMiddleware{gc: s.gc})...)
 	api.SetApp(router)
 
 	return api, nil
