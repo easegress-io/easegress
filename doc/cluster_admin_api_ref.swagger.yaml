@@ -33,6 +33,10 @@ paths:
           description: Handle the reqeuest failed by internal error.
           schema:
             $ref: '#/definitions/Error'
+        503:
+          description: All operations are disallowed when running in standalone mode.
+          schema:
+            $ref: '#/definitions/Error'
         400:
           description: |
             Invalid cluster operation sequence retrieve request parameter.
@@ -73,6 +77,10 @@ paths:
       responses:
         500:
           description: Handle the reqeuest failed by internal error.
+          schema:
+            $ref: '#/definitions/Error'
+        503:
+          description: All operations are disallowed when running in standalone mode.
           schema:
             $ref: '#/definitions/Error'
         400:
@@ -125,6 +133,10 @@ paths:
           description: Handle the reqeuest failed by internal error.
           schema:
             $ref: '#/definitions/Error'
+        503:
+          description: All operations are disallowed when running in standalone mode.
+          schema:
+            $ref: '#/definitions/Error'
         400:
           description: |
             Invalid cluster and pipeline types retrieve request parameter.
@@ -173,6 +185,10 @@ paths:
       responses:
         500:
           description: Handle the reqeuest failed by internal error.
+          schema:
+            $ref: '#/definitions/Error'
+        503:
+          description: All operations are disallowed when running in standalone mode.
           schema:
             $ref: '#/definitions/Error'
         400:
@@ -224,6 +240,10 @@ paths:
           description: Handle the reqeuest failed by internal error.
           schema:
             $ref: '#/definitions/Error'
+        503:
+          description: All operations are disallowed when running in standalone mode.
+          schema:
+            $ref: '#/definitions/Error'
         400:
           description: |
             Invalid cluster operation and plugin instances retrieve request parameter.
@@ -268,6 +288,10 @@ paths:
       responses:
         500:
           description: Handle the reqeuest failed by internal error.
+          schema:
+            $ref: '#/definitions/Error'
+        503:
+          description: All operations are disallowed when running in standalone mode.
           schema:
             $ref: '#/definitions/Error'
         400:
@@ -328,6 +352,10 @@ paths:
           description: Handle the reqeuest failed by internal error.
           schema:
             $ref: '#/definitions/Error'
+        503:
+          description: All operations are disallowed when running in standalone mode.
+          schema:
+            $ref: '#/definitions/Error'
         400:
           description: |
             Invalid cluster operation and plugin instance retrieve request parameter.
@@ -383,6 +411,10 @@ paths:
           description: Handle the reqeuest failed by internal error.
           schema:
             $ref: '#/definitions/Error'
+        503:
+          description: All operations are disallowed when running in standalone mode.
+          schema:
+            $ref: '#/definitions/Error'
         400:
           description: |
             Invalid cluster operation and plugin instance deletion request parameter.
@@ -436,6 +468,10 @@ paths:
           description: Handle the reqeuest failed by internal error.
           schema:
             $ref: '#/definitions/Error'
+        503:
+          description: All operations are disallowed when running in standalone mode.
+          schema:
+            $ref: '#/definitions/Error'
         400:
           description: |
             Invalid cluster operation and pipeline instance creation request parameter.
@@ -486,6 +522,10 @@ paths:
           description: Handle the reqeuest failed by internal error.
           schema:
             $ref: '#/definitions/Error'
+        503:
+          description: All operations are disallowed when running in standalone mode.
+          schema:
+            $ref: '#/definitions/Error'
         400:
           description: |
             Invalid cluster operation and pipeline instances retrieve request parameter.
@@ -530,6 +570,10 @@ paths:
       responses:
         500:
           description: Handle the reqeuest failed by internal error.
+          schema:
+            $ref: '#/definitions/Error'
+        503:
+          description: All operations are disallowed when running in standalone mode.
           schema:
             $ref: '#/definitions/Error'
         400:
@@ -591,6 +635,10 @@ paths:
           description: Handle the reqeuest failed by internal error.
           schema:
             $ref: '#/definitions/Error'
+        503:
+          description: All operations are disallowed when running in standalone mode.
+          schema:
+            $ref: '#/definitions/Error'
         400:
           description: |
             Invalid cluster operation and pipeline instance retrieve request parameter.
@@ -644,6 +692,10 @@ paths:
       responses:
         500:
           description: Handle the reqeuest failed by internal error.
+          schema:
+            $ref: '#/definitions/Error'
+        503:
+          description: All operations are disallowed when running in standalone mode.
           schema:
             $ref: '#/definitions/Error'
         400:

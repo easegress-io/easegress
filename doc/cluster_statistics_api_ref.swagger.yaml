@@ -44,6 +44,10 @@ paths:
           description: Handle the reqeuest failed by internal error.
           schema:
             $ref: '#/definitions/Error'
+        503:
+          description: All operations are disallowed when running in standalone mode.
+          schema:
+            $ref: '#/definitions/Error'
         400:
           description: |
             Invalid group name, timeout is less than 10s, invalid pipeline or plugin instance name to query.
@@ -102,6 +106,10 @@ paths:
       responses:
         500:
           description: Handle the reqeuest failed by internal error.
+          schema:
+            $ref: '#/definitions/Error'
+        503:
+          description: All operations are disallowed when running in standalone mode.
           schema:
             $ref: '#/definitions/Error'
         400:
@@ -169,6 +177,10 @@ paths:
           description: Handle the reqeuest failed by internal error.
           schema:
             $ref: '#/definitions/Error'
+        503:
+          description: All operations are disallowed when running in standalone mode.
+          schema:
+            $ref: '#/definitions/Error'
         400:
           description: |
             Invalid group name, timeout is less than 10s,
@@ -223,6 +235,10 @@ paths:
           description: Handle the reqeuest failed by internal error.
           schema:
             $ref: '#/definitions/Error'
+        503:
+          description: All operations are disallowed when running in standalone mode.
+          schema:
+            $ref: '#/definitions/Error'
         400:
           description: |
             Invalid group name, timeout is less than 10s, or invalid pipeline instance name to query.
@@ -275,6 +291,10 @@ paths:
       responses:
         500:
           description: Handle the reqeuest failed by internal error.
+          schema:
+            $ref: '#/definitions/Error'
+        503:
+          description: All operations are disallowed when running in standalone mode.
           schema:
             $ref: '#/definitions/Error'
         400:
@@ -336,6 +356,10 @@ paths:
           description: Handle the reqeuest failed by internal error.
           schema:
             $ref: '#/definitions/Error'
+        503:
+          description: All operations are disallowed when running in standalone mode.
+          schema:
+            $ref: '#/definitions/Error'
         400:
           description: |
             Invalid group name, timeout is less than 10s, or invalid pipeline or indicator name to query.
@@ -390,6 +414,10 @@ paths:
           description: Handle the reqeuest failed by internal error.
           schema:
             $ref: '#/definitions/Error'
+        503:
+          description: All operations are disallowed when running in standalone mode.
+          schema:
+            $ref: '#/definitions/Error'
         400:
           description: |
             Invalid group name, timeout is less than 10s, orinvalid pipeline instance name to query.
@@ -442,6 +470,10 @@ paths:
       responses:
         500:
           description: Handle the reqeuest failed by internal error.
+          schema:
+            $ref: '#/definitions/Error'
+        503:
+          description: All operations are disallowed when running in standalone mode.
           schema:
             $ref: '#/definitions/Error'
         400:
@@ -501,6 +533,10 @@ paths:
       responses:
         500:
           description: Handle the reqeuest failed by internal error.
+          schema:
+            $ref: '#/definitions/Error'
+        503:
+          description: All operations are disallowed when running in standalone mode.
           schema:
             $ref: '#/definitions/Error'
         400:
