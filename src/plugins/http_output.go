@@ -307,17 +307,23 @@ func (h *httpOutput) send(ctx pipelines.PipelineContext, t task.Task, req *http.
 
 		return resp, responseDuration, nil
 	case err := <-e:
+		responseDuration := common.Since(requestStartAt)
+
 		msg := err.Error()
 		if m, err := url.QueryUnescape(msg); err == nil {
 			msg = m
 		}
+
 		t.SetError(fmt.Errorf("%s", msg), task.ResultServiceUnavailable)
-		return nil, 0, err
+		return nil, responseDuration, err
 	case <-t.Cancel():
 		cancel()
+
+		responseDuration := common.Since(requestStartAt)
+
 		err := fmt.Errorf("task is cancelled by %s", t.CancelCause())
 		t.SetError(err, task.ResultTaskCancelled)
-		return nil, 0, err
+		return nil, responseDuration, err
 	}
 }
 
@@ -400,14 +406,17 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) error {
 	req.Host = req.Header.Get("Host") // https://github.com/golang/go/issues/7682
 
 	resp, responseDuration, err := h.send(ctx, t, req)
-	if err != nil {
-		if t.ResultCode() == task.ResultTaskCancelled &&
-			len(h.conf.RequestBodyIOKey) == 0 { // has no rewind for rerun plugin
+	if err != nil && t.ResultCode() == task.ResultTaskCancelled &&
+		len(h.conf.RequestBodyIOKey) == 0 { // has no rewind for rerun plugin
+		return t.Error()
+	}
 
-			return t.Error()
-		} else {
-			return nil
-		}
+	if len(h.conf.ResponseDurationKey) != 0 {
+		t.WithValue(h.conf.ResponseDurationKey, responseDuration)
+	}
+
+	if err != nil {
+		return nil
 	}
 
 	closeRespBody := func() {
@@ -440,10 +449,6 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) error {
 
 	if len(h.conf.ResponseRemoteKey) != 0 {
 		t.WithValue(h.conf.ResponseRemoteKey, req.URL.String())
-	}
-
-	if len(h.conf.ResponseDurationKey) != 0 {
-		t.WithValue(h.conf.ResponseDurationKey, responseDuration)
 	}
 
 	if len(h.conf.ExpectedResponseCodes) > 0 {
