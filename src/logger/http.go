@@ -81,6 +81,10 @@ func HTTPAccess(req *http.Request, code int, bodyBytesSent int64,
 
 	if upstreamAddr == "" {
 		upstreamAddr = "-"
+	} else {
+		if addr, err := url.QueryUnescape(upstreamAddr); err == nil {
+			upstreamAddr = addr
+		}
 	}
 
 	line := fmt.Sprintf(
