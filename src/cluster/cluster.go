@@ -686,10 +686,13 @@ func (c *Cluster) broadcastMemberJoinMessage() error {
 		return err
 	}
 
+	timer := time.NewTimer(c.conf.MessageSendTimeout)
+	defer timer.Stop()
+
 	select {
 	case <-sentNotify:
-	case <-time.After(c.conf.MessageSendTimeout):
-		fmt.Println("send timeout:", c.conf.MessageSendTimeout)
+		logger.Debugf("[member join message is sent to the peers]")
+	case <-timer.C:
 		return fmt.Errorf("broadcast member join message timeout")
 	case <-c.stop:
 		return fmt.Errorf("cluster stopped")
@@ -721,9 +724,13 @@ func (c *Cluster) broadcastMemberLeaveMessage(nodeName string) error {
 		return err
 	}
 
+	timer := time.NewTimer(c.conf.MessageSendTimeout)
+	defer timer.Stop()
+
 	select {
 	case <-sentNotify:
-	case <-time.After(c.conf.MessageSendTimeout):
+		logger.Debugf("[member leave message is sent to the peers]")
+	case <-timer.C:
 		return fmt.Errorf("broadcast member leave message timeout")
 	case <-c.stop:
 		return fmt.Errorf("cluster stopped")
@@ -768,15 +775,32 @@ func (c *Cluster) broadcastRequestMessage(msg *messageRequest) error {
 	c.operateRequest(msg)
 
 	if !c.anyAlivePeerMembers() {
+		logger.Warnf("[no peer can respond, request ignored]")
 		// no peer can respond
 		return nil
 	}
 
-	err := fanoutMessage(c.requestMessageSendQueue, msg, requestMessage, nil) // need not to care if sending is done
+	sentNotify := make(chan struct{})
+
+	err := fanoutMessage(c.requestMessageSendQueue, msg, requestMessage, sentNotify)
 	if err != nil {
 		logger.Errorf("[broadcast request message failed: %v]", err)
 		return err
 	}
+
+	go func() {
+		timer := time.NewTimer(msg.RequestTimeout)
+		defer timer.Stop()
+
+		select {
+		case <-sentNotify:
+			logger.Debugf("[request %s is sent to the peers]", msg.RequestName)
+		case <-timer.C:
+			logger.Warnf("[request %s is timeout before send to the peers]", msg.RequestName)
+		case <-c.stop:
+			// exits
+		}
+	}()
 
 	return nil
 }
