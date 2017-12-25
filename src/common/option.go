@@ -2,6 +2,7 @@ package common
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 )
 
@@ -143,4 +144,42 @@ func (i *Uint32RangeValue) String() string {
 	} else {
 		return strconv.FormatUint(uint64(*i.v), 10)
 	}
+}
+
+////
+
+type StringRegexValue struct {
+	s  *string
+	re *regexp.Regexp
+}
+
+func NewStringRegexValue(val string, p *string, r *regexp.Regexp) *StringRegexValue {
+	if p == nil {
+		p = new(string)
+	}
+	*p = val
+
+	return &StringRegexValue{
+		s:  p,
+		re: r,
+	}
+}
+
+func (s *StringRegexValue) Set(val string) error {
+	if s.re != nil && !s.re.Match([]byte(val)) {
+		return fmt.Errorf("invalid pattern, need to match %v", s.re)
+	}
+
+	*s.s = val
+	return nil
+}
+
+func (s *StringRegexValue) Get() interface{} { return *s.s }
+
+func (s *StringRegexValue) String() string {
+	if s.s == nil {
+		return ""
+	}
+
+	return *s.s
 }

@@ -18,9 +18,6 @@ import (
 	plugins_gw "plugins"
 )
 
-// safe characters for friendly url, rfc3986 section 2.3
-var PIPELINE_PLUGIN_NAME_REGEX = regexp.MustCompile(`^[A-Za-z0-9\-_\.~]+$`)
-
 type PluginAdded func(newPlugin *Plugin)
 type PluginDeleted func(deletedPlugin *Plugin)
 type PluginUpdated func(updatedPlugin *Plugin, instanceDismissed bool, instanceGen uint64)
@@ -131,7 +128,7 @@ func (m *Model) AddPlugin(typ string, conf plugins.Config,
 
 	pluginName := conf.PluginName()
 
-	if !PIPELINE_PLUGIN_NAME_REGEX.Match([]byte(pluginName)) {
+	if !common.URL_FRIENDLY_CHARACTERS_REGEX.Match([]byte(pluginName)) {
 		return nil, fmt.Errorf("plugin name %s is invalid", pluginName)
 	}
 
@@ -461,7 +458,7 @@ func (m *Model) DeletePluginUpdatedCallback(name string) {
 func (m *Model) AddPipeline(typ string, conf pipelines_gw.Config) (*Pipeline, error) {
 	pipelineName := conf.PipelineName()
 
-	if !PIPELINE_PLUGIN_NAME_REGEX.Match([]byte(pipelineName)) {
+	if !common.URL_FRIENDLY_CHARACTERS_REGEX.Match([]byte(pipelineName)) {
 		return nil, fmt.Errorf("pipeline name %s is invalid", pipelineName)
 	}
 

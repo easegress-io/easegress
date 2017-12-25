@@ -3,6 +3,7 @@ package common
 import (
 	"bytes"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -214,3 +215,6 @@ func NextNumberPowerOf2(v uint64) uint64 {
 	v++
 	return v
 }
+
+// safe characters for friendly url, rfc3986 section 2.3
+var URL_FRIENDLY_CHARACTERS_REGEX = regexp.MustCompile(`^[A-Za-z0-9\-_\.~]+$`)

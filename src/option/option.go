@@ -46,7 +46,9 @@ func init() {
 	clusterHost := flag.String("cluster_host", "localhost", "specify cluster listen host")
 	clusterGroup := flag.String("group", "default", "specify cluster group name")
 	memberMode := flag.String("mode", "read", "specify member mode (read or write)")
-	memberName := flag.String("name", hostName, "specify member name")
+	memberName := new(string)
+	flag.Var(common.NewStringRegexValue(hostName, memberName, common.URL_FRIENDLY_CHARACTERS_REGEX), "name",
+		"specify member name")
 	peers := flag.String("peers", "", "specify address list of peer members (separated by comma)")
 	opLogMaxSeqGapToPull := new(uint16)
 	flag.Var(common.NewUint16Value(5, opLogMaxSeqGapToPull), "oplog_max_seq_gap_to_pull",
