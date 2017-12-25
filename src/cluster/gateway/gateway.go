@@ -226,6 +226,12 @@ LOOP:
 					break
 				}
 
+				if event.Closed() {
+					logger.Warnf("[member %s received a closed request %s, it arrives too late, ignored]",
+						gc.clusterConf.NodeName, event.RequestName)
+					break
+				}
+
 				switch MessageType(event.RequestPayload[0]) {
 				case queryGroupMaxSeqMessage:
 					logger.Debugf("[member %s received queryGroupMaxSeqMessage message]",

@@ -45,7 +45,7 @@ func (t EventType) String() string {
 		return "RequestReceived"
 	}
 
-	return "Unknow"
+	return "Unknown"
 }
 
 ////
@@ -116,6 +116,12 @@ func createRequestEvent(c *Cluster, msg *messageRequest) *RequestEvent {
 
 func (e *RequestEvent) Type() EventType {
 	return RequestReceivedEvent
+}
+
+func (e *RequestEvent) Closed() bool {
+	e.Lock()
+	defer e.Unlock()
+	return e.closed
 }
 
 func (e *RequestEvent) flag(flag requestFlagType) bool {
