@@ -377,7 +377,7 @@ LOOP:
 
 			payload, known := membersRespBook[memberResp.ResponseNodeName]
 			if !known {
-				logger.Warnf("[received the response from an unexpexted node %s "+
+				logger.Warnf("[received the response from an unexpected node %s "+
 					"started during the request %s]", memberResp.ResponseNodeName,
 					fmt.Sprintf("%s_relayed", requestName))
 				continue LOOP

@@ -729,7 +729,7 @@ func (gc *GatewayCluster) handleStat(req *cluster.RequestEvent) {
 
 	ret := aggregateStatResponses(reqStat, validRespList)
 	if ret == nil {
-		gc.respondRetrieveErr(req, InternalServerError, "aggreate statistics for cluster memebers failed")
+		gc.respondRetrieveErr(req, InternalServerError, "aggregate statistics for cluster members failed")
 		return
 	}
 
