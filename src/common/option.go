@@ -148,6 +148,52 @@ func (i *Uint32RangeValue) String() string {
 
 ////
 
+type Uint16RangeValue struct {
+	v        *uint16
+	min, max uint16
+}
+
+func NewUint16RangeValue(val uint16, p *uint16, min, max uint16) *Uint16RangeValue {
+	if p == nil {
+		p = new(uint16)
+	}
+	*p = val
+
+	return &Uint16RangeValue{
+		v:   p,
+		min: min,
+		max: max,
+	}
+}
+
+func (i *Uint16RangeValue) Set(s string) error {
+	v, err := strconv.ParseUint(s, 0, 16)
+	if err != nil {
+		return err
+	}
+
+	v1 := uint16(v)
+
+	if v1 < i.min || v1 > i.max {
+		return fmt.Errorf("value out of range [%d, %d]", i.min, i.max)
+	}
+
+	*i.v = v1
+	return nil
+}
+
+func (i *Uint16RangeValue) Get() interface{} { return *i.v }
+
+func (i *Uint16RangeValue) String() string {
+	if i.v == nil {
+		return strconv.FormatUint(0, 10) // zero value
+	} else {
+		return strconv.FormatUint(uint64(*i.v), 10)
+	}
+}
+
+////
+
 type StringRegexValue struct {
 	s  *string
 	re *regexp.Regexp

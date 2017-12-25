@@ -33,7 +33,7 @@ type Config struct {
 
 	GossipNodes, IndirectCheckNodes uint
 
-	UDPBufferSize int
+	UDPBufferSize uint16
 
 	MessageSendTimeout, FailedMemberReconnectTimeout, MemberLeftRecordTimeout time.Duration
 	RecentMemberOperationTimeout                                              time.Duration
@@ -126,7 +126,7 @@ func createMemberListConfig(conf *Config, eventDelegate memberlist.EventDelegate
 		DisableTcpPings:         false,
 		DNSConfigPath:           "/etc/resolv.conf",
 		HandoffQueueDepth:       1024,
-		UDPBufferSize:           udpBufferSize,
+		UDPBufferSize:           int(udpBufferSize),
 		RetransmitMult:          gossipRetransmitMult,
 		SuspicionMult:           memberSuspicionMult,
 		SuspicionMaxTimeoutMult: memberSuspicionMaxTimeoutMult,

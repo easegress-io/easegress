@@ -21,6 +21,8 @@ var (
 	OPLogPullInterval       time.Duration
 	OPLogPullTimeout        time.Duration
 	ClusterDefaultOpTimeout time.Duration
+	PacketBufferBytes       uint16
+	GossipInterval          time.Duration
 
 	RestHost                       string
 	Stage                          string
@@ -65,9 +67,16 @@ func init() {
 	clusterDefaultOpTimeout := new(uint16)
 	flag.Var(common.NewUint16Value(120, clusterDefaultOpTimeout), "cluster_default_op_timeout",
 		"specify default timeout of cluster operation in second")
+	packetBufferBytes := new(uint16)
+	flag.Var(common.NewUint16RangeValue(4000, packetBufferBytes, 1400, 65500), "gossip_packet_size",
+		"specify the size of a gossip packet in byte (will be for UDP packet), it depends on your network's MTU")
+	gossipInterval := new(uint16)
+	flag.Var(common.NewUint16RangeValue(200, gossipInterval, 50, 60000), "gossip_interval",
+		"specify the interval between sending messages that need to be gossiped that "+
+			"haven't been able to piggyback on probing messages in millisecond")
 
 	restHost := flag.String("rest_host", "localhost", "specify rest listen host")
-	stage := flag.String("stage", "debug", "sepcify runtime stage (debug, test, prod)")
+	stage := flag.String("stage", "debug", "specify runtime stage (debug, test, prod)")
 	configHome := flag.String("config", common.CONFIG_HOME_DIR, "specify config home path")
 	logHome := flag.String("log", common.LOG_HOME_DIR, "specify log home path")
 	cpuProfileFile := flag.String("cpuprofile", "", "specify cpu profile output file, "+
@@ -106,6 +115,8 @@ func init() {
 	OPLogPullInterval = time.Duration(*opLogPullInterval) * time.Second
 	OPLogPullTimeout = time.Duration(*opLogPullTimeout) * time.Second
 	ClusterDefaultOpTimeout = time.Duration(*clusterDefaultOpTimeout) * time.Second
+	PacketBufferBytes = *packetBufferBytes
+	GossipInterval = time.Duration(*gossipInterval) * time.Millisecond
 	Peers = make([]string, 0)
 	for _, peer := range strings.Split(*peers, ",") {
 		peer = strings.TrimSpace(peer)

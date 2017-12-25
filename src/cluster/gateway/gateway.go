@@ -85,6 +85,8 @@ func NewGatewayCluster(conf Config, mod *model.Model) (*GatewayCluster, error) {
 	basisConf.NodeTags[modeTagKey] = conf.ClusterMemberMode.String()
 	basisConf.BindAddress = option.ClusterHost
 	basisConf.AdvertiseAddress = option.ClusterHost
+	basisConf.UDPBufferSize = option.PacketBufferBytes
+	basisConf.GossipInterval = option.GossipInterval
 
 	if common.StrInSlice(basisConf.AdvertiseAddress, []string{"127.0.0.1", "localhost", "0.0.0.0"}) {
 		return nil, fmt.Errorf("invalid advertise address %s, it should be reachable from peer",
@@ -139,11 +141,12 @@ func NewGatewayCluster(conf Config, mod *model.Model) (*GatewayCluster, error) {
 	go gc.dispatch()
 
 	if len(conf.Peers) > 0 {
-		logger.Infof("[start to join peer member(s): %v]", conf.Peers)
+		logger.Infof("[start to join peer member(s) (total=%d): %s]",
+			len(conf.Peers), strings.Join(conf.Peers, ", "))
 
 		connected, err := basis.Join(conf.Peers)
 		if err != nil {
-			logger.Errorf("[join peer member(s) failed, running in standalone mode: %v]", err)
+			logger.Errorf("[join peer member(s) failed: %v]", err)
 		} else {
 			logger.Infof("[peer member(s) joined, connected to %d member(s) totally]", connected)
 		}
