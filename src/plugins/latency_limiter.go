@@ -151,7 +151,7 @@ func (l *latencyWindowLimiter) Run(ctx pipelines.PipelineContext, t task.Task) e
 		if !l.isProbe(outboundRate, inboundRate) {
 			if l.conf.BackOffTimeoutMSec == 0 { // don't back off
 				// service fusing
-				t.SetError(fmt.Errorf("service is unavaialbe caused by latency limit"),
+				t.SetError(fmt.Errorf("service is unavailable caused by latency limit"),
 					task.ResultFlowControl)
 				return nil
 			}

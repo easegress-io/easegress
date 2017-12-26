@@ -99,7 +99,7 @@ func (l *throughputRateLimiter) Run(ctx pipelines.PipelineContext, t task.Task) 
 	go updateInboundThroughputRate(ctx, l.Name()) // ignore error if it occurs
 
 	if limiter == nil {
-		t.SetError(fmt.Errorf("service is unavaialbe caused by throughput rate limit"), task.ResultFlowControl)
+		t.SetError(fmt.Errorf("service is unavailable caused by throughput rate limit"), task.ResultFlowControl)
 		return nil
 	}
 
@@ -108,7 +108,7 @@ func (l *throughputRateLimiter) Run(ctx pipelines.PipelineContext, t task.Task) 
 
 		go updateFlowControlledThroughputRate(ctx, l.Name())
 		if l.conf.TimeoutMSec == 0 {
-			t.SetError(fmt.Errorf("service is unavaialbe caused by throughput rate limit (without queuing)"),
+			t.SetError(fmt.Errorf("service is unavailable caused by throughput rate limit (without queuing)"),
 				task.ResultFlowControl)
 			return nil
 		} else if l.conf.TimeoutMSec == -1 {
@@ -140,7 +140,7 @@ func (l *throughputRateLimiter) Run(ctx pipelines.PipelineContext, t task.Task) 
 				}
 			default: // task queuing timeout
 				// type of error is context.DeadlineExceeded or limiter predicts waiting would exceed context deadline
-				t.SetError(fmt.Errorf("service is unavaialbe caused by throughput rate limit (queuing timeout)"),
+				t.SetError(fmt.Errorf("service is unavailable caused by throughput rate limit (queuing timeout)"),
 					task.ResultFlowControl)
 			}
 		}

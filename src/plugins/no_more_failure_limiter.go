@@ -87,7 +87,7 @@ func (l *noMoreFailureLimiter) Run(ctx pipelines.PipelineContext, t task.Task) e
 
 	if *counter >= l.conf.FailureCountThreshold {
 		// TODO: Adds an option to allow operator provides a special output value as a parameter with task
-		t.SetError(fmt.Errorf("service is unavaialbe caused by failure limitation"), task.ResultFlowControl)
+		t.SetError(fmt.Errorf("service is unavailable caused by failure limitation"), task.ResultFlowControl)
 		atomic.StoreUint64(counter, l.conf.FailureCountThreshold) // to prevent overflow
 	}
 

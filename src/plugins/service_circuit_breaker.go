@@ -127,7 +127,7 @@ func (cb *serviceCircuitBreaker) Run(ctx pipelines.PipelineContext, t task.Task)
 	case open:
 		if common.Since(state.openAt).Seconds()*1e3 <= float64(cb.conf.RecoveryTimeMSec) {
 			// service fusing
-			t.SetError(fmt.Errorf("service is unavaialbe caused by service fusing"),
+			t.SetError(fmt.Errorf("service is unavailable caused by service fusing"),
 				task.ResultFlowControl)
 		} else { // recovery timeout, turns to half-open
 			state.status = halfOpen
