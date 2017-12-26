@@ -21,17 +21,18 @@ func initStd() {
 		LOG_STD_LEVEL = logrus.InfoLevel
 		LOG_STD_TTY_LEVEL = logrus.InfoLevel
 	}
+
 	formatter := &logrus.TextFormatter{
 		FullTimestamp: true,
 	}
 
 	std.registerIOLogger("stdio", os.Stdout, formatter, LOG_STD_TTY_LEVEL)
 
-	f, err := openLogFile(LOG_STD_FILE)
+	f, out, err := openBufferedLogFile(LOG_STD_FILE)
 	if err != nil {
 		Errorf("[open log file %s failed: %v]", LOG_STD_FILE, err)
 	} else {
-		std.registerFileLogger("stdio", f, f, LOG_STD_FILE, formatter, LOG_STD_LEVEL)
+		std.registerFileLogger("stdio", f, out, LOG_STD_FILE, formatter, LOG_STD_LEVEL)
 	}
 }
 

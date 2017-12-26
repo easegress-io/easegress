@@ -21,12 +21,14 @@ var (
 )
 
 func initHTTP() {
+	formatter := new(httpFormatter)
+
 	f, out, err := openBufferedLogFile(LOG_HTTP_ACCESS_FILE)
 	if err != nil {
 		Errorf("[open log file %s failed: %v]", LOG_HTTP_ACCESS_FILE, err)
+	} else {
+		httpLog.registerFileLogger("http_access", f, out, LOG_HTTP_ACCESS_FILE, formatter, LOG_HTTP_LEVEL)
 	}
-
-	httpLog.registerFileLogger("http_access", f, out, LOG_HTTP_ACCESS_FILE, &httpFormatter{}, LOG_HTTP_LEVEL)
 
 	// test example:
 	// req := httptest.NewRequest("POST", "https://127.0.0.1/api/sessions", nil)
@@ -39,7 +41,7 @@ func initHTTP() {
 		Errorf("[open log file %s failed: %v]", LOG_HTTP_DUMP_FILE, err)
 	} else {
 		// no buffer for performance, normally dump for debug or functional test only
-		httpLog.registerFileLogger("http_dump", f, f, LOG_HTTP_DUMP_FILE, &httpFormatter{}, LOG_HTTP_LEVEL)
+		httpLog.registerFileLogger("http_dump", f, f, LOG_HTTP_DUMP_FILE, formatter, LOG_HTTP_LEVEL)
 	}
 }
 

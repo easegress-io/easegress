@@ -99,6 +99,7 @@ func openLogFile(fileName string) (*os.File, error) {
 }
 
 type bufWriter struct {
+	fileName  string
 	w         *bufio.Writer
 	wLock     sync.Mutex
 	data      chan []byte // channel used as a write queue to smooth periodic flush peak
@@ -108,12 +109,13 @@ type bufWriter struct {
 	done      chan *struct{}
 }
 
-func newBufWriter(w io.Writer) *bufWriter {
+func newBufWriter(w io.Writer, fileName string) *bufWriter {
 	bw := &bufWriter{
-		w:    bufio.NewWriterSize(w, 512), // block size for general VFS
-		data: make(chan []byte, 2048),
-		stop: make(chan struct{}),
-		done: make(chan *struct{}),
+		fileName: fileName,
+		w:        bufio.NewWriterSize(w, 512), // block size for general VFS
+		data:     make(chan []byte, 2048),
+		stop:     make(chan struct{}),
+		done:     make(chan *struct{}),
 	}
 
 	flusher := func() {
@@ -164,7 +166,7 @@ func (bw *bufWriter) Close() {
 	}
 
 	for len(bw.data) > 0 {
-		Debugf("[spin to wait log data writes completely]")
+		Debugf("[spin to wait flushing log data to %s]", bw.fileName)
 		time.Sleep(time.Millisecond)
 	}
 
@@ -195,7 +197,7 @@ func openBufferedLogFile(fileName string) (*os.File, io.Writer, error) {
 		return nil, nil, err
 	}
 
-	out := newBufWriter(f)
+	out := newBufWriter(f, fileName)
 
 	return f, out, nil
 }
