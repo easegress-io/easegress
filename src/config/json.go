@@ -58,8 +58,7 @@ func NewJSONFileStore() (*JSONFileStore, error) {
 		if _, err := os.Stat(path); os.IsNotExist(err) {
 			file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0600)
 			if err != nil {
-				msg := fmt.Sprintf(
-					"[config:NewJSONFileStore] - [could not access storage file: %v]", err)
+				msg := fmt.Sprintf("[could not access storage file: %v]", err)
 				logger.Errorf(msg)
 				return nil, fmt.Errorf(msg)
 			}
@@ -98,7 +97,7 @@ func (s *JSONFileStore) GetAllPlugins() ([]*PluginSpec, error) {
 	for _, spec := range pluginRepo.PluginSpecs {
 		constructor, e := plugins_gw.GetConstructor(spec.Type)
 		if e != nil {
-			logger.Warnf("get plugin constructor failed, skipped: %v", e)
+			logger.Warnf("[get plugin constructor failed, skipped: %v]", e)
 			continue
 		}
 		spec.Constructor = constructor
