@@ -39,6 +39,8 @@ func (s *statisticsServer) Api() (*rest.Api, error) {
 			s.retrievePipelineIndicatorValue),
 		rest.Get(pav("/pipelines/#pipelineName/indicators/#indicatorName/desc"),
 			s.retrievePipelineIndicatorDesc),
+		rest.Get(pav("/pipelines/#pipelineName/indicators/value"),
+			s.retrievePipelineIndicatorsValue),
 
 		rest.Get(pav("/pipelines/#pipelineName/task/indicators"),
 			s.retrievePipelineTaskIndicatorNames),
@@ -365,6 +367,41 @@ func (s *statisticsServer) retrievePipelineIndicatorDesc(w rest.ResponseWriter, 
 
 		logger.Debugf("[indicator %s description of pipeline %s returned]", indicatorName, pipelineName)
 	}
+}
+
+func (s *statisticsServer) retrievePipelineIndicatorsValue(w rest.ResponseWriter, r *rest.Request) {
+	logger.Debugf("[retrieve pipeline statistics values from multiple indicators]")
+
+	pipelineName, err := url.QueryUnescape(r.PathParam("pipelineName"))
+	if err != nil || len(pipelineName) == 0 {
+		msg := "invalid pipeline name"
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
+		return
+	}
+
+	req := new(indicatorsValueRetrieveRequest)
+	err = r.DecodeJsonPayload(req)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%v]", err)
+		return
+	}
+
+	statistics := s.gateway.Model().StatRegistry().GetPipelineStatistics(pipelineName)
+	if statistics == nil {
+		msg := fmt.Sprintf("pipeline %s statistics not found", pipelineName)
+		rest.Error(w, msg, http.StatusNotFound)
+		logger.Warnf("[%s]", msg)
+		return
+	}
+
+	indicatorsValue := statistics.PipelineIndicatorsValue(req.IndicatorNames)
+	w.WriteJson(&indicatorsValueRetrieveResponse{
+		Values: indicatorsValue,
+	})
+
+	logger.Debugf("[statistics values of multiple indicators of pipeline %s returned]", pipelineName)
 }
 
 func (s *statisticsServer) retrievePipelineTaskIndicatorNames(w rest.ResponseWriter, r *rest.Request) {

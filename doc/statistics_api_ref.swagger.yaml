@@ -211,6 +211,39 @@ paths:
           description: The description of statistics indicator.
           schema:
             $ref: '#/definitions/PipelineIndicatorDescription'
+  /pipelines/{pipelineName}/indicators/value:
+    get:
+      summary: Retrieves Pipeline Statistics Values From Multiple Indicators
+      description: |
+        The Pipeline Statistics Indicators Value retrieve endpoint returns the values of given
+        multiple statistics indicators pipeline instance exposed.
+      parameters:
+        - name: pipelineName
+          in: path
+          description: Pipeline instance name to query.
+          required: true
+          type: string
+        - name: pipelineIndicatorsValueRetrieveRequest
+          in: body
+          schema:
+            $ref: '#/definitions/PipelineIndicatorsValueRetrieveRequest'
+          required: true
+          description: Statistics indicator names to query.
+      responses:
+        400:
+          description: |
+            Invalid statistics values retrieve request parameter. Including,
+            invalid pipeline instance name or invalid indicator names.
+          schema:
+            $ref: '#/definitions/Error'
+        404:
+          description: The statistics of pipeline instance not found by given name.
+          schema:
+            $ref: '#/definitions/Error'
+        200:
+          description: The values of statistics indicators.
+          schema:
+            $ref: '#/definitions/PipelineIndicatorsValue'
   /pipelines/{pipelineName}/task/indicators:
     get:
       summary: Retrieves Task Statistics Indicator Names
@@ -450,6 +483,28 @@ definitions:
         description: |
           A human readable description of the special plugin indicator type.
           Check Pipeline Reference document for more information.
+  PipelineIndicatorsValueRetrieveRequest:
+    type: object
+    required:
+      - indicator_names
+    properties:
+      indicator_names:
+        type: array
+        items:
+          type: string
+          description: The name of the indicator to query statistics value.
+  PipelineIndicatorsValue:
+    type: object
+    required:
+      - values
+    properties:
+      values:
+        type: object
+        additionalProperties:
+          type: object
+          description: |
+            A special value object of the pipeline indicator type.
+            Check Pipeline Reference document for more information.
   TaskIndicatorNames:
     type: object
     required:

@@ -950,9 +950,41 @@ func (ps *PipelineStatistics) PipelineIndicatorValue(indicatorName string) (inte
 			}
 
 		}()
+
 		ret, err = indicator.Evaluate()
 	}()
 	return ret, err
+}
+
+func (ps *PipelineStatistics) PipelineIndicatorsValue(indicatorNames []string) map[string]interface{} {
+	ps.RLock()
+	defer ps.RUnlock()
+
+	values := make(map[string]interface{}, len(indicatorNames))
+
+	for _, indicatorName := range indicatorNames {
+		indicator, exists := ps.pipelineIndicators[indicatorName]
+		if !exists {
+			values[indicatorName] = nil
+			continue
+		}
+
+		var err error
+
+		func() {
+			defer func() { // defensive
+				recover()
+			}()
+
+			values[indicatorName], err = indicator.Evaluate()
+			if err != nil {
+				logger.Warnf("[evaluate pipeline %s statistics indicator %s failed: %v]",
+					ps.pipelineName, indicatorName, err)
+			}
+		}()
+	}
+
+	return values
 }
 
 func (ps *PipelineStatistics) PipelineIndicatorDescription(indicatorName string) (string, error) {

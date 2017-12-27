@@ -64,12 +64,20 @@ type pipelineTypesRetrieveResponse struct {
 // Statistics API
 //
 
+type indicatorsValueRetrieveRequest struct {
+	IndicatorNames []string `json:"indicator_names"`
+}
+
 type indicatorNamesRetrieveResponse struct {
 	Names []string `json:"names"`
 }
 
 type indicatorValueRetrieveResponse struct {
 	Value interface{} `json:"value"`
+}
+
+type indicatorsValueRetrieveResponse struct {
+	Values map[string]interface{} `json:"values"`
 }
 
 type indicatorDescriptionRetrieveResponse struct {
@@ -193,6 +201,11 @@ type statisticsClusterRequest struct {
 	// TODO: aggregateStatResponses() returns result of each member as the part of aggregation result
 	// if the flag is turned on
 	Details bool `json:"details"`
+}
+
+type indicatorsValueRetrieveClusterRequest struct {
+	statisticsClusterRequest
+	indicatorsValueRetrieveRequest
 }
 
 //
