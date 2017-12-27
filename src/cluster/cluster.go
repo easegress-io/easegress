@@ -776,7 +776,6 @@ func (c *Cluster) broadcastRequestMessage(msg *messageRequest) error {
 
 	if !c.anyAlivePeerMembers() {
 		logger.Warnf("[no peer can respond, request ignored]")
-		// no peer can respond
 		return nil
 	}
 

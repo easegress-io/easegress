@@ -550,6 +550,35 @@ func (gc *GatewayCluster) StatPipelineIndicatorValue(group string, timeout time.
 	return ret, nil
 }
 
+func (gc *GatewayCluster) StatPipelineIndicatorsValue(group string, timeout time.Duration,
+	pipelineName string, indicatorNames []string) (*ResultStatIndicatorsValue, *ClusterError) {
+
+	if gc.Stopped() {
+		return nil, newClusterError("can not retrieve pipeline statistics indicators value due to cluster gone",
+			IssueMemberGoneError)
+	}
+
+	filter := FilterPipelineIndicatorsValue{
+		PipelineName:   pipelineName,
+		IndicatorNames: indicatorNames,
+	}
+
+	requestName := fmt.Sprintf("(group(%s)stat_pipleine_indicators_value)", group)
+
+	resp, err := gc.issueStat(group, timeout, requestName, &filter)
+	if err != nil {
+		return nil, err
+	}
+
+	ret, ok := resp.(*ResultStatIndicatorsValue)
+	if !ok {
+		logger.Errorf("[BUG: stat pipeline indicators value returns invalid result, got type %T]", resp)
+		return nil, newClusterError("stat pipeline indicators value returns invalid result", InternalServerError)
+	}
+
+	return ret, nil
+}
+
 func (gc *GatewayCluster) StatPipelineIndicatorDesc(group string, timeout time.Duration,
 	pipelineName, indicatorName string) (*ResultStatIndicatorDesc, *ClusterError) {
 

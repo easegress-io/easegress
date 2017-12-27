@@ -159,23 +159,25 @@ type (
 	ReqStat struct {
 		Timeout time.Duration
 
-		FilterPipelineIndicatorNames *FilterPipelineIndicatorNames
-		FilterPipelineIndicatorValue *FilterPipelineIndicatorValue
-		FilterPipelineIndicatorDesc  *FilterPipelineIndicatorDesc
-		FilterPluginIndicatorNames   *FilterPluginIndicatorNames
-		FilterPluginIndicatorValue   *FilterPluginIndicatorValue
-		FilterPluginIndicatorDesc    *FilterPluginIndicatorDesc
-		FilterTaskIndicatorNames     *FilterTaskIndicatorNames
-		FilterTaskIndicatorValue     *FilterTaskIndicatorValue
-		FilterTaskIndicatorDesc      *FilterTaskIndicatorDesc
+		FilterPipelineIndicatorNames  *FilterPipelineIndicatorNames
+		FilterPipelineIndicatorValue  *FilterPipelineIndicatorValue
+		FilterPipelineIndicatorsValue *FilterPipelineIndicatorsValue
+		FilterPipelineIndicatorDesc   *FilterPipelineIndicatorDesc
+		FilterPluginIndicatorNames    *FilterPluginIndicatorNames
+		FilterPluginIndicatorValue    *FilterPluginIndicatorValue
+		FilterPluginIndicatorDesc     *FilterPluginIndicatorDesc
+		FilterTaskIndicatorNames      *FilterTaskIndicatorNames
+		FilterTaskIndicatorValue      *FilterTaskIndicatorValue
+		FilterTaskIndicatorDesc       *FilterTaskIndicatorDesc
 	}
 	// Pack Header: statMessage | statRelayMessage
 	RespStat struct {
 		Err *ClusterError
 
-		Names []byte // json
-		Value []byte // json
-		Desc  []byte // json
+		Names  []byte // json
+		Value  []byte // json
+		Values []byte // json
+		Desc   []byte // json
 	}
 	FilterPipelineIndicatorNames struct {
 		PipelineName string
@@ -183,6 +185,10 @@ type (
 	FilterPipelineIndicatorValue struct {
 		PipelineName  string
 		IndicatorName string
+	}
+	FilterPipelineIndicatorsValue struct {
+		PipelineName   string
+		IndicatorNames []string
 	}
 	FilterPipelineIndicatorDesc struct {
 		PipelineName  string
@@ -218,6 +224,9 @@ type (
 	}
 	ResultStatIndicatorValue struct {
 		Value interface{} `json:"value"`
+	}
+	ResultStatIndicatorsValue struct {
+		Values map[string]interface{} `json:"values"`
 	}
 	ResultStatIndicatorDesc struct {
 		Desc interface{} `json:"desc"`

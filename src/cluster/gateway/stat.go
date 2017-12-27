@@ -57,6 +57,8 @@ func (gc *GatewayCluster) issueStat(group string, timeout time.Duration,
 		req.FilterPipelineIndicatorNames = filter
 	case *FilterPipelineIndicatorValue:
 		req.FilterPipelineIndicatorValue = filter
+	case *FilterPipelineIndicatorsValue:
+		req.FilterPipelineIndicatorsValue = filter
 	case *FilterPipelineIndicatorDesc:
 		req.FilterPipelineIndicatorDesc = filter
 	case *FilterPluginIndicatorNames:
@@ -158,6 +160,17 @@ func (gc *GatewayCluster) issueStat(group string, timeout time.Duration,
 			logger.Errorf("[BUG: unmarshal stat pipeline indicator value response failed: %v]", err)
 			return nil, newClusterError(
 				fmt.Sprintf("unmarshal stat pipeline indicator value response failed: %v", err),
+				InternalServerError)
+		}
+
+		return ret, nil
+	case *FilterPipelineIndicatorsValue:
+		ret := new(ResultStatIndicatorsValue)
+		err = json.Unmarshal(resp.Values, ret)
+		if err != nil {
+			logger.Errorf("[BUG: unmarshal stat pipeline indicators value response failed: %v]", err)
+			return nil, newClusterError(
+				fmt.Sprintf("unmarshal stat pipeline indicators value response failed: %v", err),
 				InternalServerError)
 		}
 
@@ -272,6 +285,22 @@ func unpackReqStat(payload []byte) (*ReqStat, error, ClusterErrorType) {
 		if emptyString(reqStat.FilterPipelineIndicatorValue.IndicatorName) {
 			return nil, fmt.Errorf("empty indicator name in filter to " +
 				"retrieve pipeline statistics indicator value"), InternalServerError
+		}
+	case reqStat.FilterPipelineIndicatorsValue != nil:
+		if emptyString(reqStat.FilterPipelineIndicatorsValue.PipelineName) {
+			return nil, fmt.Errorf("empty pipeline name in filter to retrieve " +
+				"pipeline statistics indicators value"), InternalServerError
+		}
+		if reqStat.FilterPipelineIndicatorsValue.IndicatorNames == nil ||
+			len(reqStat.FilterPipelineIndicatorsValue.IndicatorNames) == 0 {
+			return nil, fmt.Errorf("empty indicators name in filter to " +
+				"retrieve pipeline statistics indicators value"), InternalServerError
+		}
+		for _, indicatorName := range reqStat.FilterPipelineIndicatorsValue.IndicatorNames {
+			if emptyString(indicatorName) {
+				return nil, fmt.Errorf("empty indicator name in filter to " +
+					"retrieve pipeline statistics indicator value"), InternalServerError
+			}
 		}
 	case reqStat.FilterPipelineIndicatorDesc != nil:
 		if emptyString(reqStat.FilterPipelineIndicatorDesc.PipelineName) {
@@ -418,6 +447,17 @@ func (gc *GatewayCluster) statResult(filter interface{}) ([]byte, error, Cluster
 			return nil, fmt.Errorf("evaluate indicator %s value failed", filter.IndicatorName),
 				RetrievePipelineStatValueError
 		}
+
+		ret = r
+	case *FilterPipelineIndicatorsValue:
+		stat := statRegistry.GetPipelineStatistics(filter.PipelineName)
+		if stat == nil {
+			return nil, fmt.Errorf("pipeline %s statistics not found", filter.PipelineName),
+				PipelineStatNotFoundError
+		}
+
+		r := new(ResultStatIndicatorsValue)
+		r.Values = stat.PipelineIndicatorsValue(filter.IndicatorNames)
 
 		ret = r
 	case *FilterPipelineIndicatorDesc:
@@ -606,6 +646,8 @@ func (gc *GatewayCluster) getLocalStatResp(reqStat *ReqStat) (*RespStat, error, 
 		resp.Names, err, errType = gc.statResult(reqStat.FilterPipelineIndicatorNames)
 	case reqStat.FilterPipelineIndicatorValue != nil:
 		resp.Value, err, errType = gc.statResult(reqStat.FilterPipelineIndicatorValue)
+	case reqStat.FilterPipelineIndicatorsValue != nil:
+		resp.Values, err, errType = gc.statResult(reqStat.FilterPipelineIndicatorsValue)
 	case reqStat.FilterPipelineIndicatorDesc != nil:
 		resp.Desc, err, errType = gc.statResult(reqStat.FilterPipelineIndicatorDesc)
 	case reqStat.FilterPluginIndicatorNames != nil:
@@ -643,6 +685,7 @@ func (gc *GatewayCluster) handleStatRelay(req *cluster.RequestEvent) {
 
 	resp, err, errType := gc.getLocalStatResp(reqStat)
 	if err != nil {
+		logger.Warnf("[get local statistics failed: %v]", err)
 		gc.respondStatErr(req, errType, err.Error())
 		return
 	}
@@ -739,6 +782,10 @@ func (gc *GatewayCluster) handleStat(req *cluster.RequestEvent) {
 type stateAggregator func(values ...[]byte) interface{}
 
 func aggregateStatResponses(reqStat *ReqStat, respStats []*RespStat) *RespStat {
+	if len(respStats) == 1 {
+		return respStats[0]
+	}
+
 	var indicatorName string
 	var aggregator stateAggregator = nil
 
@@ -876,6 +923,57 @@ func aggregateStatResponses(reqStat *ReqStat, respStats []*RespStat) *RespStat {
 			return nil
 		}
 		return resp
+	case reqStat.FilterPipelineIndicatorsValue != nil:
+		indicatorsValues := make([]*ResultStatIndicatorsValue, 0)
+
+		for _, resp := range respStats {
+			r := new(ResultStatIndicatorsValue)
+			json.Unmarshal(resp.Values, r)
+			indicatorsValues = append(indicatorsValues, r)
+		}
+
+		result := new(ResultStatIndicatorsValue)
+		result.Values = make(map[string]interface{}, len(reqStat.FilterPipelineIndicatorsValue.IndicatorNames))
+
+		// TODO: Add node names about detailed list
+
+		for _, indicatorName := range reqStat.FilterPipelineIndicatorsValue.IndicatorNames {
+			if len(indicatorName) == 0 {
+				continue
+			}
+
+			aggregator = pipelineIndicatorAggregateMap[indicatorName]
+
+			// unknown indicators, use first value
+			if aggregator == nil {
+				if len(indicatorsValues) > 0 {
+					result.Values[indicatorName] = indicatorsValues[0].Values[indicatorName]
+				}
+				continue
+			}
+
+			// aggregate known indicators
+			values := make([][]byte, 0)
+			for _, indicatorsValue := range indicatorsValues {
+				valueBuff, err := json.Marshal(indicatorsValue.Values[indicatorName])
+				if err != nil {
+					continue
+				}
+				values = append(values, valueBuff)
+			}
+
+			if len(values) > 0 {
+				result.Values[indicatorName] = aggregator(values...)
+			}
+		}
+
+		resp := new(RespStat)
+		var err error
+		resp.Values, err = json.Marshal(result)
+		if err != nil {
+			return nil
+		}
+		return resp
 	}
 
 	return nil
@@ -891,7 +989,7 @@ func numericMax(typ interface{}, values ...[]byte) interface{} {
 	var ret interface{}
 	switch typ.(type) {
 	case float64:
-		var max float64 = math.NaN()
+		var max = math.NaN()
 		for _, value := range values {
 			var v float64
 			err := json.Unmarshal(value, &v)
@@ -955,7 +1053,7 @@ func numericMin(typ interface{}, values ...[]byte) interface{} {
 	var ret interface{}
 	switch typ.(type) {
 	case float64:
-		var min float64 = math.NaN()
+		var min = math.NaN()
 		for _, value := range values {
 			var v float64
 			err := json.Unmarshal(value, &v)
@@ -1229,20 +1327,20 @@ var pluginIndicatorAggregateMap = map[string]stateAggregator{
 	"EXECUTION_TIME_MIN_LAST_1MIN_SUCCESS": minInt64,
 	"EXECUTION_TIME_MIN_LAST_1MIN_FAILURE": minInt64,
 
-	"EXECUTION_TIME_50_PERCENT_LAST_1MIN_ALL": maxFloat64,
+	"EXECUTION_TIME_50_PERCENT_LAST_1MIN_ALL":     maxFloat64,
 	"EXECUTION_TIME_50_PERCENT_LAST_1MIN_SUCCESS": maxFloat64,
 	"EXECUTION_TIME_50_PERCENT_LAST_1MIN_FAILURE": maxFloat64,
-	"EXECUTION_TIME_90_PERCENT_LAST_1MIN_ALL": maxFloat64,
+	"EXECUTION_TIME_90_PERCENT_LAST_1MIN_ALL":     maxFloat64,
 	"EXECUTION_TIME_90_PERCENT_LAST_1MIN_SUCCESS": maxFloat64,
 	"EXECUTION_TIME_90_PERCENT_LAST_1MIN_FAILURE": maxFloat64,
-	"EXECUTION_TIME_99_PERCENT_LAST_1MIN_ALL": maxFloat64,
+	"EXECUTION_TIME_99_PERCENT_LAST_1MIN_ALL":     maxFloat64,
 	"EXECUTION_TIME_99_PERCENT_LAST_1MIN_SUCCESS": maxFloat64,
 	"EXECUTION_TIME_99_PERCENT_LAST_1MIN_FAILURE": maxFloat64,
 
-	"EXECUTION_TIME_STD_DEV_LAST_1MIN_ALL":  maxFloat64,
+	"EXECUTION_TIME_STD_DEV_LAST_1MIN_ALL":      maxFloat64,
 	"EXECUTION_TIME_STD_DEV_LAST_1MIN_SUCCESS":  maxFloat64,
 	"EXECUTION_TIME_STD_DEV_LAST_1MIN_FAILURE":  maxFloat64,
-	"EXECUTION_TIME_VARIANCE_LAST_1MIN_ALL": maxFloat64,
+	"EXECUTION_TIME_VARIANCE_LAST_1MIN_ALL":     maxFloat64,
 	"EXECUTION_TIME_VARIANCE_LAST_1MIN_SUCCESS": maxFloat64,
 	"EXECUTION_TIME_VARIANCE_LAST_1MIN_FAILURE": maxFloat64,
 

@@ -43,6 +43,8 @@ func (s *clusterStatisticsServer) Api() (*rest.Api, error) {
 			s.retrievePipelineIndicatorValue),
 		rest.Get(pav("/#group/pipelines/#pipelineName/indicators/#indicatorName/desc"),
 			s.retrievePipelineIndicatorDesc),
+		rest.Get(pav("/#group/pipelines/#pipelineName/indicators/value"),
+			s.retrievePipelineIndicatorsValue),
 
 		rest.Get(pav("/#group/pipelines/#pipelineName/task/indicators"),
 			s.retrievePipelineTaskIndicatorNames),
@@ -424,6 +426,56 @@ func (s *clusterStatisticsServer) retrievePipelineIndicatorDesc(w rest.ResponseW
 	w.WriteJson(ret)
 
 	logger.Debugf("[indicator %s description of pipeline %s returned from cluster]", indicatorName, pipelineName)
+}
+
+func (s *clusterStatisticsServer) retrievePipelineIndicatorsValue(w rest.ResponseWriter, r *rest.Request) {
+	logger.Debugf("[retrieve pipeline statistics values from multiple indicators from cluster]")
+
+	group, err := url.QueryUnescape(r.PathParam("group"))
+	if err != nil || len(group) == 0 {
+		msg := "invalid cluster group name"
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
+		return
+	}
+
+	pipelineName, err := url.QueryUnescape(r.PathParam("pipelineName"))
+	if err != nil || len(pipelineName) == 0 {
+		msg := "invalid pipeline name"
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
+		return
+	}
+
+	req := new(indicatorsValueRetrieveClusterRequest)
+	err = r.DecodeJsonPayload(req)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%v]", err)
+		return
+	}
+
+	if req.TimeoutSec == 0 {
+		req.TimeoutSec = uint16(option.ClusterDefaultOpTimeout.Seconds())
+	} else if req.TimeoutSec < 10 {
+		msg := fmt.Sprintf("timeout (%d second(s)) should greater than or equal to 10 senconds",
+			req.TimeoutSec)
+		rest.Error(w, msg, http.StatusBadRequest)
+		logger.Errorf("[%s]", msg)
+		return
+	}
+
+	ret, clusterErr := s.gc.StatPipelineIndicatorsValue(group, time.Duration(req.TimeoutSec)*time.Second,
+		pipelineName, req.IndicatorNames)
+	if clusterErr != nil {
+		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
+		logger.Warnf("[%s]", clusterErr.Error())
+		return
+	}
+
+	w.WriteJson(ret)
+
+	logger.Debugf("[statistics values of multiple indicators of pipeline %s returned from cluster]", pipelineName)
 }
 
 func (s *clusterStatisticsServer) retrievePipelineTaskIndicatorNames(w rest.ResponseWriter, r *rest.Request) {
