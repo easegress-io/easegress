@@ -46,7 +46,9 @@ func init() {
 	}
 
 	clusterHost := flag.String("cluster_host", "localhost", "specify cluster listen host")
-	clusterGroup := flag.String("group", "default", "specify cluster group name")
+	clusterGroup := new(string)
+	flag.Var(common.NewStringRegexValue("default", clusterGroup, common.URL_FRIENDLY_CHARACTERS_REGEX), "group",
+		"specify cluster group name")
 	memberMode := flag.String("mode", "read", "specify member mode (read or write)")
 	memberName := new(string)
 	flag.Var(common.NewStringRegexValue(hostName, memberName, common.URL_FRIENDLY_CHARACTERS_REGEX), "name",
