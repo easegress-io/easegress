@@ -64,7 +64,7 @@ func (s *clusterStatisticsServer) Api() (*rest.Api, error) {
 	}
 
 	api := rest.NewApi()
-	api.Use(append(RestStack, &clusterAvailabilityMiddleware{gc: s.gc})...)
+	api.Use(append(restStack, &clusterAvailabilityMiddleware{gc: s.gc})...)
 	api.SetApp(router)
 
 	return api, nil

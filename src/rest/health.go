@@ -1,6 +1,8 @@
 package rest
 
 import (
+	"net/http"
+
 	"github.com/ant0ine/go-json-rest/rest"
 
 	"common"
@@ -31,7 +33,7 @@ func (s *healthCheckServer) Api() (*rest.Api, error) {
 	}
 
 	api := rest.NewApi()
-	api.Use(RestStack...)
+	api.Use(restStack...)
 	api.SetApp(router)
 
 	return api, nil
@@ -39,7 +41,7 @@ func (s *healthCheckServer) Api() (*rest.Api, error) {
 
 func (s *healthCheckServer) existing(w rest.ResponseWriter, req *rest.Request) {
 	logger.Debugf("[check existing]")
-
+	w.WriteHeader(http.StatusOK)
 	logger.Debugf("[existing status returned]")
 }
 

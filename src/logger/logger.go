@@ -211,6 +211,7 @@ func init() {
 	initStd()
 	initHTTP()
 	initMemberList()
+	initREST()
 }
 
 ////

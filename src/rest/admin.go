@@ -56,7 +56,7 @@ func (s *adminServer) Api() (*rest.Api, error) {
 	}
 
 	api := rest.NewApi()
-	api.Use(append(RestStack, &standaloneAvailabilityMiddleware{gc: s.gc})...)
+	api.Use(append(restStack, &standaloneAvailabilityMiddleware{gc: s.gc})...)
 	api.SetApp(router)
 
 	return api, nil
@@ -125,6 +125,8 @@ func (s *adminServer) createPlugin(w rest.ResponseWriter, r *rest.Request) {
 		logger.Errorf("[%v]", err)
 		return
 	}
+
+	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[plugin %s created]", pluginName)
 }
@@ -248,6 +250,8 @@ func (s *adminServer) updatePlugin(w rest.ResponseWriter, r *rest.Request) {
 		return
 	}
 
+	w.WriteHeader(http.StatusOK)
+
 	logger.Debugf("[the config of plugin %s updated]", pluginName)
 }
 
@@ -290,6 +294,8 @@ func (s *adminServer) deletePlugin(w rest.ResponseWriter, r *rest.Request) {
 		logger.Errorf("[%s]", msg)
 		return
 	}
+
+	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[plugin %s deleted]", pluginName)
 }
@@ -350,6 +356,8 @@ func (s *adminServer) createPipeline(w rest.ResponseWriter, r *rest.Request) {
 		logger.Errorf("[%s]", err.Error())
 		return
 	}
+
+	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[pipeline %s created]", pipelineName)
 }
@@ -472,6 +480,8 @@ func (s *adminServer) updatePipeline(w rest.ResponseWriter, r *rest.Request) {
 		return
 	}
 
+	w.WriteHeader(http.StatusOK)
+
 	logger.Debugf("[the config of pipeline %s updated]", pipelineName)
 }
 
@@ -498,6 +508,8 @@ func (s *adminServer) deletePipeline(w rest.ResponseWriter, r *rest.Request) {
 		logger.Errorf("[%s]", err.Error())
 		return
 	}
+
+	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[pipeline %s deleted]", pipelineName)
 }

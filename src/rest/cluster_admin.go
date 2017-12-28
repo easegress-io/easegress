@@ -55,7 +55,7 @@ func (s *clusterAdminServer) Api() (*rest.Api, error) {
 	}
 
 	api := rest.NewApi()
-	api.Use(append(RestStack, &clusterAvailabilityMiddleware{gc: s.gc})...)
+	api.Use(append(restStack, &clusterAvailabilityMiddleware{gc: s.gc})...)
 	api.SetApp(router)
 
 	return api, nil
@@ -163,6 +163,8 @@ func (s *clusterAdminServer) createPlugin(w rest.ResponseWriter, r *rest.Request
 		logger.Errorf("[%s]", clusterErr.Error())
 		return
 	}
+
+	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("plugin created in cluster")
 }
@@ -311,6 +313,8 @@ func (s *clusterAdminServer) updatePlugin(w rest.ResponseWriter, r *rest.Request
 		return
 	}
 
+	w.WriteHeader(http.StatusOK)
+
 	logger.Debugf("plugin updated in cluster")
 }
 
@@ -365,6 +369,8 @@ func (s *clusterAdminServer) deletePlugin(w rest.ResponseWriter, r *rest.Request
 		logger.Errorf("[%s]", clusterErr.Error())
 		return
 	}
+
+	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[plugin %s deleted from cluster]", pluginName)
 }
@@ -426,6 +432,8 @@ func (s *clusterAdminServer) createPipeline(w rest.ResponseWriter, r *rest.Reque
 		logger.Errorf("[%s]", clusterErr.Error())
 		return
 	}
+
+	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("pipeline created in cluster")
 }
@@ -574,6 +582,8 @@ func (s *clusterAdminServer) updatePipeline(w rest.ResponseWriter, r *rest.Reque
 		return
 	}
 
+	w.WriteHeader(http.StatusOK)
+
 	logger.Debugf("pipeline updated in cluster")
 }
 
@@ -628,6 +638,8 @@ func (s *clusterAdminServer) deletePipeline(w rest.ResponseWriter, r *rest.Reque
 		logger.Errorf("[%s]", clusterErr.Error())
 		return
 	}
+
+	w.WriteHeader(http.StatusOK)
 
 	logger.Debugf("[pipeline %s deleted from cluster]", pipelineName)
 }

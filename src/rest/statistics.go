@@ -60,7 +60,7 @@ func (s *statisticsServer) Api() (*rest.Api, error) {
 	}
 
 	api := rest.NewApi()
-	api.Use(RestStack...)
+	api.Use(restStack...)
 	api.SetApp(router)
 
 	return api, nil
@@ -166,14 +166,15 @@ func (s *statisticsServer) retrievePluginIndicatorValue(w rest.ResponseWriter, r
 		msg := fmt.Sprintf("evaluate indicator %s value failed", indicatorName)
 		rest.Error(w, msg, http.StatusForbidden)
 		logger.Warnf("[%s: %v]", msg, err)
-	} else {
-		w.WriteJson(&indicatorValueRetrieveResponse{
-			Value: indicatorValue,
-		})
-
-		logger.Debugf("[indicator %s value of plugin %s in pipeline %s returned]",
-			indicatorName, pluginName, pipelineName)
+		return
 	}
+
+	w.WriteJson(&indicatorValueRetrieveResponse{
+		Value: indicatorValue,
+	})
+
+	logger.Debugf("[indicator %s value of plugin %s in pipeline %s returned]",
+		indicatorName, pluginName, pipelineName)
 }
 
 func (s *statisticsServer) retrievePluginIndicatorDesc(w rest.ResponseWriter, r *rest.Request) {
@@ -231,14 +232,15 @@ func (s *statisticsServer) retrievePluginIndicatorDesc(w rest.ResponseWriter, r 
 		msg := fmt.Sprintf("describe indicator %s failed", indicatorName)
 		rest.Error(w, msg, http.StatusForbidden)
 		logger.Warnf("[%s: %v]", msg, err)
-	} else {
-		w.WriteJson(&indicatorDescriptionRetrieveResponse{
-			Description: indicatorDesc,
-		})
-
-		logger.Debugf("[indicator %s description of plugin %s in pipeline %s returned]",
-			indicatorName, pluginName, pipelineName)
+		return
 	}
+
+	w.WriteJson(&indicatorDescriptionRetrieveResponse{
+		Description: indicatorDesc,
+	})
+
+	logger.Debugf("[indicator %s description of plugin %s in pipeline %s returned]",
+		indicatorName, pluginName, pipelineName)
 }
 
 func (s *statisticsServer) retrievePipelineIndicatorNames(w rest.ResponseWriter, r *rest.Request) {
@@ -311,13 +313,14 @@ func (s *statisticsServer) retrievePipelineIndicatorValue(w rest.ResponseWriter,
 		msg := fmt.Sprintf("evaluate indicator %s value failed", indicatorName)
 		rest.Error(w, msg, http.StatusForbidden)
 		logger.Warnf("[%s: %v]", msg, err)
-	} else {
-		w.WriteJson(&indicatorValueRetrieveResponse{
-			Value: indicatorValue,
-		})
-
-		logger.Debugf("[indicator %s value of pipeline %s returned]", indicatorName, pipelineName)
+		return
 	}
+
+	w.WriteJson(&indicatorValueRetrieveResponse{
+		Value: indicatorValue,
+	})
+
+	logger.Debugf("[indicator %s value of pipeline %s returned]", indicatorName, pipelineName)
 }
 
 func (s *statisticsServer) retrievePipelineIndicatorDesc(w rest.ResponseWriter, r *rest.Request) {
@@ -360,13 +363,14 @@ func (s *statisticsServer) retrievePipelineIndicatorDesc(w rest.ResponseWriter, 
 		msg := fmt.Sprintf("describe indicator %s failed", indicatorName)
 		rest.Error(w, msg, http.StatusForbidden)
 		logger.Warnf("[%s: %v]", msg, err)
-	} else {
-		w.WriteJson(&indicatorDescriptionRetrieveResponse{
-			Description: indicatorDesc,
-		})
-
-		logger.Debugf("[indicator %s description of pipeline %s returned]", indicatorName, pipelineName)
+		return
 	}
+
+	w.WriteJson(&indicatorDescriptionRetrieveResponse{
+		Description: indicatorDesc,
+	})
+
+	logger.Debugf("[indicator %s description of pipeline %s returned]", indicatorName, pipelineName)
 }
 
 func (s *statisticsServer) retrievePipelineIndicatorsValue(w rest.ResponseWriter, r *rest.Request) {
@@ -474,13 +478,14 @@ func (s *statisticsServer) retrievePipelineTaskIndicatorValue(w rest.ResponseWri
 		msg := fmt.Sprintf("evaluate indicator %s value failed", indicatorName)
 		rest.Error(w, msg, http.StatusForbidden)
 		logger.Warnf("[%s: %v]", msg, err)
-	} else {
-		w.WriteJson(&indicatorValueRetrieveResponse{
-			Value: indicatorValue,
-		})
-
-		logger.Debugf("[indicator %s value of task in pipeline %s returned]", indicatorName, pipelineName)
+		return
 	}
+
+	w.WriteJson(&indicatorValueRetrieveResponse{
+		Value: indicatorValue,
+	})
+
+	logger.Debugf("[indicator %s value of task in pipeline %s returned]", indicatorName, pipelineName)
 }
 
 func (s *statisticsServer) retrievePipelineTaskIndicatorDesc(w rest.ResponseWriter, r *rest.Request) {
@@ -523,18 +528,20 @@ func (s *statisticsServer) retrievePipelineTaskIndicatorDesc(w rest.ResponseWrit
 		msg := fmt.Sprintf("describe indicator %s failed", indicatorName)
 		rest.Error(w, msg, http.StatusForbidden)
 		logger.Warnf("[%s: %v]", msg, err)
-	} else {
-		w.WriteJson(&indicatorDescriptionRetrieveResponse{
-			Description: indicatorDesc,
-		})
-
-		logger.Debugf("[indicator %s description of task in pipeline %s returned]",
-			indicatorName, pipelineName)
+		return
 	}
+
+	w.WriteJson(&indicatorDescriptionRetrieveResponse{
+		Description: indicatorDesc,
+	})
+
+	logger.Debugf("[indicator %s description of task in pipeline %s returned]",
+		indicatorName, pipelineName)
 }
 
 func (s *statisticsServer) retrieveGatewayUpTime(w rest.ResponseWriter, r *rest.Request) {
 	logger.Debugf("[retrieve gateway uptime]")
+
 	w.WriteJson(&gatewayUpTimeRetrieveResponse{
 		UpTime: s.gateway.UpTime(),
 	})
@@ -550,11 +557,12 @@ func (s *statisticsServer) retrieveGatewaySysResUsage(w rest.ResponseWriter, r *
 		msg := fmt.Sprintf("get gateway system resource usage failed")
 		rest.Error(w, msg, http.StatusInternalServerError)
 		logger.Warnf("[%s: %v]", msg, err)
-	} else {
-		w.WriteJson(usage)
-
-		logger.Debugf("[gateway system resource usage returned]")
+		return
 	}
+
+	w.WriteJson(usage)
+
+	logger.Debugf("[gateway system resource usage returned]")
 }
 
 func (s *statisticsServer) retrieveGatewaySysAverageLoad(w rest.ResponseWriter, r *rest.Request) {
@@ -565,17 +573,18 @@ func (s *statisticsServer) retrieveGatewaySysAverageLoad(w rest.ResponseWriter, 
 		msg := fmt.Sprintf("get gateway system average load failed")
 		rest.Error(w, msg, http.StatusForbidden)
 		logger.Warnf("[%s: %v]", msg, err)
-	} else {
-		w.WriteJson(struct {
-			Load1  float64 `json:"load1"`
-			Load5  float64 `json:"load5"`
-			Load15 float64 `json:"load15"`
-		}{
-			Load1:  load1,
-			Load5:  load5,
-			Load15: load15,
-		})
-
-		logger.Debugf("[gateway system average load returned]")
+		return
 	}
+
+	w.WriteJson(struct {
+		Load1  float64 `json:"load1"`
+		Load5  float64 `json:"load5"`
+		Load15 float64 `json:"load15"`
+	}{
+		Load1:  load1,
+		Load5:  load5,
+		Load15: load15,
+	})
+
+	logger.Debugf("[gateway system average load returned]")
 }
