@@ -192,7 +192,7 @@ var statCmd = urfavecli.Command{
 				{
 					Name:   "value",
 					Usage:  "Retrieve pipeline indicator value",
-					Action: cli.GetPipelineIndicatorValue,
+					Action: cli.GetPipelineIndicatorsValue,
 				},
 				{
 					Name:   "desc",
@@ -394,7 +394,7 @@ var statcCmd = urfavecli.Command{
 				{
 					Name:   "value",
 					Usage:  "Retrieve pipeline indicator value",
-					Action: cli.ClusterGetPipelineIndicatorValue,
+					Action: cli.ClusterGetPipelineIndicatorsValue,
 				},
 				{
 					Name:   "desc",

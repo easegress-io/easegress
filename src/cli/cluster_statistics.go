@@ -250,7 +250,7 @@ func ClusterRetrievePipelineIndicatorNames(c *cli.Context) error {
 	return errs.Return()
 }
 
-func ClusterGetPipelineIndicatorValue(c *cli.Context) error {
+func ClusterGetPipelineIndicatorsValue(c *cli.Context) error {
 	args := c.Args()
 	group := c.GlobalString("group")
 	timeoutSec := uint16(*c.GlobalGeneric("timeout").(*common.Uint16Value))
@@ -267,41 +267,25 @@ func ClusterGetPipelineIndicatorValue(c *cli.Context) error {
 	}
 
 	pipelineName := args[0]
-	indicatorNames := args[1:]
 
-	var expiredTime time.Duration
-	for i, indicatorName := range indicatorNames {
-		req := new(pdu.StatisticsClusterRequest)
-		req.TimeoutSec = uint16(timeout.Seconds())
+	req := new(pdu.ClusterPipelineIndicatorsValueRequest)
+	req.TimeoutSec = uint16(timeout.Seconds())
+	req.IndicatorNames = args[1:]
 
-		if timeout <= expiredTime {
-			errs.append(fmt.Errorf(
-				"timeout: skip to handle [%s]", strings.Join(indicatorNames[i:], ", ")))
-			break
-		}
-		timeout -= expiredTime
-
-		startTime := common.Now()
-		value, apiResp, err := clusterStatApi().GetPipelineIndicatorValue(
-			group, pipelineName, indicatorName, req)
-		expiredTime = common.Since(startTime)
-
+	retrieveResp, apiResp, err := clusterStatApi().GetPipelineIndicatorsValue(
+		group, pipelineName, req)
+	if err != nil {
+		errs.append(fmt.Errorf("%s: %v", pipelineName, err))
+	} else if apiResp.Error != nil {
+		errs.append(fmt.Errorf("%s: %s", pipelineName, apiResp.Error.Error))
+	} else {
+		data, err := json.Marshal(retrieveResp.Values)
 		if err != nil {
-			errs.append(fmt.Errorf("%s-%s: %v", pipelineName, indicatorName, err))
-			continue
-		} else if apiResp.Error != nil {
-			errs.append(fmt.Errorf("%s-%s: %s", pipelineName, indicatorName, apiResp.Error.Error))
-			continue
+			errs.append(fmt.Errorf("%s: %v", pipelineName, err))
+		} else {
+			// TODO: make it pretty
+			fmt.Printf("%s\n", data)
 		}
-
-		data, err := json.Marshal(value)
-		if err != nil {
-			errs.append(fmt.Errorf("%s-%s: %v", pipelineName, indicatorName, err))
-			continue
-		}
-
-		// TODO: make it pretty
-		fmt.Printf("%s\n", data)
 	}
 
 	return errs.Return()

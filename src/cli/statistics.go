@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/hexdecteam/easegateway-go-client/rest/1.0/statistics/v1/pdu"
 	"github.com/urfave/cli"
 )
 
@@ -169,7 +170,7 @@ func RetrievePipelineIndicatorNames(c *cli.Context) error {
 	return errs.Return()
 }
 
-func GetPipelineIndicatorValue(c *cli.Context) error {
+func GetPipelineIndicatorsValue(c *cli.Context) error {
 	args := c.Args()
 
 	errs := &multipleErr{}
@@ -184,24 +185,22 @@ func GetPipelineIndicatorValue(c *cli.Context) error {
 
 	pipelineName := args[0]
 
-	for _, indicatorName := range args[1:] {
-		value, apiResp, err := statApi().GetPipelineIndicatorValue(pipelineName, indicatorName)
-		if err != nil {
-			errs.append(fmt.Errorf("%s-%s: %v", pipelineName, indicatorName, err))
-			continue
-		} else if apiResp.Error != nil {
-			errs.append(fmt.Errorf("%s-%s: %s", pipelineName, indicatorName, apiResp.Error.Error))
-			continue
-		}
+	req := new(pdu.PipelineIndicatorsValueRequest)
+	req.IndicatorNames = args[1:]
 
-		data, err := json.Marshal(value)
+	retrieveResp, apiResp, err := statApi().GetPipelineIndicatorsValue(pipelineName, req)
+	if err != nil {
+		errs.append(fmt.Errorf("%s: %v", pipelineName, err))
+	} else if apiResp.Error != nil {
+		errs.append(fmt.Errorf("%s: %s", pipelineName, apiResp.Error.Error))
+	} else {
+		data, err := json.Marshal(retrieveResp.Values)
 		if err != nil {
-			errs.append(fmt.Errorf("%s-%s: %v", pipelineName, indicatorName, err))
-			continue
+			errs.append(fmt.Errorf("%s: %v", pipelineName, err))
+		} else {
+			// TODO: make it pretty
+			fmt.Printf("%s\n", data)
 		}
-
-		// TODO: make it pretty
-		fmt.Printf("%s\n", data)
 	}
 
 	return errs.Return()
