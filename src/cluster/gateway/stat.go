@@ -3,7 +3,6 @@ package gateway
 import (
 	"encoding/json"
 	"fmt"
-	"math"
 	"math/rand"
 	"sort"
 	"time"
@@ -46,10 +45,11 @@ func (gc *GatewayCluster) chooseMemberToAggregateStat(group string) (*cluster.Me
 	return nil, fmt.Errorf("none of members is alive to aggregate statistics")
 }
 
-func (gc *GatewayCluster) issueStat(group string, timeout time.Duration,
+func (gc *GatewayCluster) issueStat(group string, timeout time.Duration, detail bool,
 	requestName string, filter interface{}) (interface{}, *ClusterError) {
 	req := &ReqStat{
 		Timeout: timeout,
+		Detail:  detail,
 	}
 
 	switch filter := filter.(type) {
@@ -291,8 +291,7 @@ func unpackReqStat(payload []byte) (*ReqStat, error, ClusterErrorType) {
 			return nil, fmt.Errorf("empty pipeline name in filter to retrieve " +
 				"pipeline statistics indicators value"), InternalServerError
 		}
-		if reqStat.FilterPipelineIndicatorsValue.IndicatorNames == nil ||
-			len(reqStat.FilterPipelineIndicatorsValue.IndicatorNames) == 0 {
+		if len(reqStat.FilterPipelineIndicatorsValue.IndicatorNames) == 0 {
 			return nil, fmt.Errorf("empty indicators name in filter to " +
 				"retrieve pipeline statistics indicators value"), InternalServerError
 		}
@@ -705,19 +704,18 @@ func (gc *GatewayCluster) handleStat(req *cluster.RequestEvent) {
 		return
 	}
 
-	var validRespList []*RespStat
+	validRespList := make(map[string]*RespStat)
 
-	localResp, err, errType := gc.getLocalStatResp(reqStat)
-	if err != nil {
-		logger.Warnf("[get local statistics failed: %v]", err)
+	localResp, localErr, localErrType := gc.getLocalStatResp(reqStat)
+	if localErr != nil {
+		logger.Warnf("[get local statistics failed: %v]", localErr)
 	}
 
 	if localResp != nil {
-		validRespList = append(validRespList, localResp)
+		validRespList[gc.NodeName()] = localResp
 	}
 
 	requestMembers := gc.RestAliveMembersInSameGroup()
-
 	if len(requestMembers) > 0 {
 		requestMemberNames := make([]string, 0)
 		for _, member := range requestMembers {
@@ -753,7 +751,7 @@ func (gc *GatewayCluster) handleStat(req *cluster.RequestEvent) {
 
 		gc.recordResp(requestName, future, membersRespBook)
 
-		for _, payload := range membersRespBook {
+		for memberName, payload := range membersRespBook {
 			if len(payload) == 0 {
 				continue
 			}
@@ -761,602 +759,25 @@ func (gc *GatewayCluster) handleStat(req *cluster.RequestEvent) {
 			resp := new(RespStat)
 			err := cluster.Unpack(payload[1:], resp)
 			if err != nil || resp.Err != nil {
-				// FIXME: when aggregateStatResponses() supports to return "details" for each member,
-				// provide error in the dedicated section of each member as the part of result
+				logger.Warnf("unpack payload from %s failed: %v", memberName, err)
 				continue
 			}
 
-			validRespList = append(validRespList, resp)
+			validRespList[memberName] = resp
 		}
 	}
 
-	ret := aggregateStatResponses(reqStat, validRespList)
-	if ret == nil {
-		gc.respondRetrieveErr(req, InternalServerError, "aggregate statistics for cluster members failed")
+	if len(validRespList) == 0 {
+		// Use local error info.
+		gc.respondStatErr(req, localErrType, localErr.Error())
 		return
-	}
-
-	gc.respondStat(req, ret)
-}
-
-type stateAggregator func(values ...[]byte) interface{}
-
-func aggregateStatResponses(reqStat *ReqStat, respStats []*RespStat) *RespStat {
-	if len(respStats) == 1 {
-		return respStats[0]
-	}
-
-	var indicatorName string
-	var aggregator stateAggregator = nil
-
-	switch {
-	case reqStat.FilterPipelineIndicatorNames != nil:
-		fallthrough
-	case reqStat.FilterPluginIndicatorNames != nil:
-		fallthrough
-	case reqStat.FilterTaskIndicatorNames != nil:
-		memory := make(map[string]struct{})
-		ret := new(ResultStatIndicatorNames)
-		ret.Names = make([]string, 0)
-
-		for _, resp := range respStats {
-			r := new(ResultStatIndicatorNames)
-			err := json.Unmarshal(resp.Names, r)
-			if err != nil {
-				continue
-			}
-
-			for _, name := range r.Names {
-				_, exists := memory[name]
-				if !exists {
-					ret.Names = append(ret.Names, name)
-					memory[name] = struct{}{}
-				}
-			}
-		}
-
-		// returns with stable order
-		sort.Strings(ret.Names)
-
-		retBuff, err := json.Marshal(ret)
+	} else {
+		ret, err := aggregateStatResponses(reqStat, validRespList)
 		if err != nil {
-			return nil
+			gc.respondRetrieveErr(req, InternalServerError,
+				fmt.Sprintf("aggregate statistics for cluster members failed: %v", err))
+			return
 		}
-
-		return &RespStat{
-			Names: retBuff,
-		}
-	case reqStat.FilterPipelineIndicatorDesc != nil:
-		fallthrough
-	case reqStat.FilterPluginIndicatorDesc != nil:
-		fallthrough
-	case reqStat.FilterTaskIndicatorDesc != nil:
-		for _, resp := range respStats {
-			r := new(ResultStatIndicatorDesc)
-			err := json.Unmarshal(resp.Desc, r)
-			if err != nil || r.Desc == nil {
-				continue
-			}
-
-			return &RespStat{
-				Desc: resp.Desc,
-			}
-		}
-
-		return nil
-	case reqStat.FilterPipelineIndicatorValue != nil:
-		if len(indicatorName) == 0 {
-			indicatorName = reqStat.FilterPipelineIndicatorValue.IndicatorName
-			if aggregator == nil {
-				aggregator = pipelineIndicatorAggregateMap[indicatorName]
-			}
-		}
-		fallthrough
-	case reqStat.FilterPluginIndicatorValue != nil:
-		if len(indicatorName) == 0 {
-			indicatorName = reqStat.FilterPluginIndicatorValue.IndicatorName
-			if aggregator == nil {
-				aggregator = pluginIndicatorAggregateMap[indicatorName]
-			}
-		}
-		fallthrough
-	case reqStat.FilterTaskIndicatorValue != nil:
-		if len(indicatorName) == 0 {
-			indicatorName = reqStat.FilterTaskIndicatorValue.IndicatorName
-			if aggregator == nil {
-				aggregator = taskIndicatorAggregateMap[indicatorName]
-			}
-		}
-
-		if len(indicatorName) == 0 {
-			return nil
-		}
-
-		indicatorValues := make([]*ResultStatIndicatorValue, 0)
-		for _, resp := range respStats {
-			r := new(ResultStatIndicatorValue)
-			err := json.Unmarshal(resp.Value, r)
-			if err != nil || r.Value == nil {
-				continue
-			}
-
-			indicatorValues = append(indicatorValues, r)
-		}
-
-		// TODO: Add node names about detailed list
-
-		// unknown indicators, just list values
-		if aggregator == nil {
-			retBuff, err := json.Marshal(indicatorValues)
-			if err != nil {
-				return nil
-			}
-
-			return &RespStat{
-				Value: retBuff,
-			}
-		}
-
-		// aggregate known indicators
-		values := make([][]byte, 0)
-		for _, value := range indicatorValues {
-			valueBuff, err := json.Marshal(value.Value)
-			if err != nil {
-				continue
-			}
-			values = append(values, valueBuff)
-		}
-		if len(values) == 0 {
-			return nil
-		}
-
-		result := new(ResultStatIndicatorValue)
-		result.Value = aggregator(values...)
-		if result.Value == nil {
-			return nil
-		}
-
-		resp := new(RespStat)
-		var err error
-		resp.Value, err = json.Marshal(result)
-		if err != nil {
-			return nil
-		}
-		return resp
-	case reqStat.FilterPipelineIndicatorsValue != nil:
-		indicatorsValues := make([]*ResultStatIndicatorsValue, 0)
-
-		for _, resp := range respStats {
-			r := new(ResultStatIndicatorsValue)
-			json.Unmarshal(resp.Values, r)
-			indicatorsValues = append(indicatorsValues, r)
-		}
-
-		result := new(ResultStatIndicatorsValue)
-		result.Values = make(map[string]interface{}, len(reqStat.FilterPipelineIndicatorsValue.IndicatorNames))
-
-		// TODO: Add node names about detailed list
-
-		for _, indicatorName := range reqStat.FilterPipelineIndicatorsValue.IndicatorNames {
-			if len(indicatorName) == 0 {
-				continue
-			}
-
-			aggregator = pipelineIndicatorAggregateMap[indicatorName]
-
-			// unknown indicators, use first value
-			if aggregator == nil {
-				if len(indicatorsValues) > 0 {
-					result.Values[indicatorName] = indicatorsValues[0].Values[indicatorName]
-				}
-				continue
-			}
-
-			// aggregate known indicators
-			values := make([][]byte, 0)
-			for _, indicatorsValue := range indicatorsValues {
-				valueBuff, err := json.Marshal(indicatorsValue.Values[indicatorName])
-				if err != nil {
-					continue
-				}
-				values = append(values, valueBuff)
-			}
-
-			if len(values) > 0 {
-				result.Values[indicatorName] = aggregator(values...)
-			}
-		}
-
-		resp := new(RespStat)
-		var err error
-		resp.Values, err = json.Marshal(result)
-		if err != nil {
-			return nil
-		}
-		return resp
+		gc.respondStat(req, ret)
 	}
-
-	return nil
-}
-
-func numericMax(typ interface{}, values ...[]byte) interface{} {
-	if len(values) == 0 {
-		// defensive programming
-		return nil
-	}
-
-	handledAny := false
-	var ret interface{}
-	switch typ.(type) {
-	case float64:
-		var max = math.NaN()
-		for _, value := range values {
-			var v float64
-			err := json.Unmarshal(value, &v)
-			if err != nil {
-				continue
-			}
-			if math.IsNaN(max) {
-				max = v
-			} else {
-				max = math.Max(max, v)
-			}
-			handledAny = true
-		}
-		ret = max
-	case uint64:
-		var max uint64 = 0
-		for _, value := range values {
-			var v uint64
-			err := json.Unmarshal(value, &v)
-			if err != nil {
-				continue
-			}
-			if v > max {
-				max = v
-			}
-			handledAny = true
-		}
-		ret = max
-	case int64:
-		var max int64 = math.MinInt64
-		for _, value := range values {
-			var v int64
-			err := json.Unmarshal(value, &v)
-			if err != nil {
-				continue
-			}
-			if v > max {
-				max = v
-			}
-			handledAny = true
-		}
-		ret = max
-	default:
-		return nil
-	}
-
-	if !handledAny {
-		return nil
-	}
-
-	return ret
-}
-
-func numericMin(typ interface{}, values ...[]byte) interface{} {
-	if len(values) == 0 {
-		// defensive programming
-		return nil
-	}
-
-	handledAny := false
-	var ret interface{}
-	switch typ.(type) {
-	case float64:
-		var min = math.NaN()
-		for _, value := range values {
-			var v float64
-			err := json.Unmarshal(value, &v)
-			if err != nil {
-				continue
-			}
-			if math.IsNaN(min) {
-				min = v
-			} else {
-				min = math.Min(min, v)
-			}
-			handledAny = true
-		}
-		ret = min
-	case uint64:
-		var min uint64 = math.MaxUint64
-		for _, value := range values {
-			var v uint64
-			err := json.Unmarshal(value, &v)
-			if err != nil {
-				continue
-			}
-			if v < min {
-				min = v
-			}
-			handledAny = true
-		}
-		ret = min
-	case int64:
-		var min int64 = math.MaxInt64
-		for _, value := range values {
-			var v int64
-			err := json.Unmarshal(value, &v)
-			if err != nil {
-				continue
-			}
-			if v < min {
-				min = v
-			}
-			handledAny = true
-		}
-		ret = min
-	default:
-		return nil
-	}
-
-	if !handledAny {
-		return nil
-	}
-
-	return ret
-}
-
-func numericSum(typ interface{}, values ...[]byte) interface{} {
-	if len(values) == 0 {
-		// defensive programming
-		return nil
-	}
-
-	handledAny := false
-	var ret interface{}
-	switch typ.(type) {
-	case float64:
-		var sum float64 = 0
-		for _, value := range values {
-			var v float64
-			err := json.Unmarshal(value, &v)
-			if err != nil {
-				continue
-			}
-			sum += v
-			handledAny = true
-		}
-		ret = sum
-	case uint64:
-		var sum uint64 = 0
-		for _, value := range values {
-			var v uint64
-			err := json.Unmarshal(value, &v)
-			if err != nil {
-				continue
-			}
-			sum += v
-			handledAny = true
-		}
-		ret = sum
-	case int64:
-		var sum int64 = 0
-		for _, value := range values {
-			var v int64
-			err := json.Unmarshal(value, &v)
-			if err != nil {
-				continue
-			}
-			sum += v
-			handledAny = true
-		}
-		ret = sum
-	default:
-		return nil
-	}
-
-	if !handledAny {
-		return nil
-	}
-
-	return ret
-}
-
-func numericAvg(typ interface{}, values ...[]byte) interface{} {
-	if len(values) == 0 {
-		// defensive programming
-		return nil
-	}
-
-	handledAny := false
-	var ret interface{}
-	switch typ.(type) {
-	case float64:
-		var sum float64 = 0
-		var count float64 = 0
-		for _, value := range values {
-			var v float64
-			err := json.Unmarshal(value, &v)
-			if err != nil {
-				continue
-			}
-			sum += v
-			count += 1
-			handledAny = true
-		}
-		if count == 0 {
-			return nil
-		}
-		ret = sum / count
-	case uint64:
-		var sum uint64 = 0
-		var count uint64 = 0
-		for _, value := range values {
-			var v uint64
-			err := json.Unmarshal(value, &v)
-			if err != nil {
-				continue
-			}
-			sum += v
-			count += 1
-			handledAny = true
-		}
-		if count == 0 {
-			return nil
-		}
-		ret = sum / count
-	case int64:
-		var sum int64 = 0
-		var count int64 = 0
-		for _, value := range values {
-			var v int64
-			err := json.Unmarshal(value, &v)
-			if err != nil {
-				continue
-			}
-			sum += v
-			count += 1
-			handledAny = true
-		}
-		if count == 0 {
-			return nil
-		}
-		ret = sum / count
-	default:
-		return nil
-	}
-
-	if !handledAny {
-		return nil
-	}
-
-	return ret
-}
-
-func maxFloat64(values ...[]byte) interface{} {
-	return numericMax(float64(0), values...)
-}
-
-func minFloat64(values ...[]byte) interface{} {
-	return numericMin(float64(0), values...)
-}
-
-func sumFloat64(values ...[]byte) interface{} {
-	return numericSum(float64(0), values...)
-}
-
-func avgFloat64(values ...[]byte) interface{} {
-	return numericAvg(float64(0), values...)
-}
-
-////
-
-func maxUint64(values ...[]byte) interface{} {
-	return numericMax(uint64(0), values...)
-}
-
-func minUint64(values ...[]byte) interface{} {
-	return numericMin(uint64(0), values...)
-}
-
-func sumUint64(values ...[]byte) interface{} {
-	return numericSum(uint64(0), values...)
-}
-
-func avgUint64(values ...[]byte) interface{} {
-	return numericAvg(uint64(0), values...)
-}
-
-////
-
-func maxInt64(values ...[]byte) interface{} {
-	return numericMax(int64(0), values...)
-}
-
-func minInt64(values ...[]byte) interface{} {
-	return numericMin(int64(0), values...)
-}
-
-func sumInt64(values ...[]byte) interface{} {
-	return numericSum(int64(0), values...)
-}
-
-func avgInt64(values ...[]byte) interface{} {
-	return numericAvg(int64(0), values...)
-}
-
-////
-
-var pipelineIndicatorAggregateMap = map[string]stateAggregator{
-	"THROUGHPUT_RATE_LAST_1MIN_ALL":  sumFloat64,
-	"THROUGHPUT_RATE_LAST_5MIN_ALL":  sumFloat64,
-	"THROUGHPUT_RATE_LAST_15MIN_ALL": sumFloat64,
-
-	"EXECUTION_COUNT_LAST_1MIN_ALL":    sumInt64,
-	"EXECUTION_TIME_MAX_LAST_1MIN_ALL": maxInt64,
-	"EXECUTION_TIME_MIN_LAST_1MIN_ALL": minInt64,
-
-	"EXECUTION_TIME_50_PERCENT_LAST_1MIN_ALL": maxFloat64,
-	"EXECUTION_TIME_90_PERCENT_LAST_1MIN_ALL": maxFloat64,
-	"EXECUTION_TIME_99_PERCENT_LAST_1MIN_ALL": maxFloat64,
-
-	"EXECUTION_TIME_STD_DEV_LAST_1MIN_ALL":  maxFloat64,
-	"EXECUTION_TIME_VARIANCE_LAST_1MIN_ALL": maxFloat64,
-}
-
-var pluginIndicatorAggregateMap = map[string]stateAggregator{
-	"THROUGHPUT_RATE_LAST_1MIN_ALL":      sumFloat64,
-	"THROUGHPUT_RATE_LAST_5MIN_ALL":      sumFloat64,
-	"THROUGHPUT_RATE_LAST_15MIN_ALL":     sumFloat64,
-	"THROUGHPUT_RATE_LAST_1MIN_SUCCESS":  sumFloat64,
-	"THROUGHPUT_RATE_LAST_5MIN_SUCCESS":  sumFloat64,
-	"THROUGHPUT_RATE_LAST_15MIN_SUCCESS": sumFloat64,
-	"THROUGHPUT_RATE_LAST_1MIN_FAILURE":  sumFloat64,
-	"THROUGHPUT_RATE_LAST_5MIN_FAILURE":  sumFloat64,
-	"THROUGHPUT_RATE_LAST_15MIN_FAILURE": sumFloat64,
-
-	"EXECUTION_COUNT_LAST_1MIN_ALL":     sumInt64,
-	"EXECUTION_COUNT_LAST_1MIN_SUCCESS": sumInt64,
-	"EXECUTION_COUNT_LAST_1MIN_FAILURE": sumInt64,
-
-	"EXECUTION_TIME_MAX_LAST_1MIN_ALL":     maxInt64,
-	"EXECUTION_TIME_MAX_LAST_1MIN_SUCCESS": maxInt64,
-	"EXECUTION_TIME_MAX_LAST_1MIN_FAILURE": maxInt64,
-	"EXECUTION_TIME_MIN_LAST_1MIN_ALL":     minInt64,
-	"EXECUTION_TIME_MIN_LAST_1MIN_SUCCESS": minInt64,
-	"EXECUTION_TIME_MIN_LAST_1MIN_FAILURE": minInt64,
-
-	"EXECUTION_TIME_50_PERCENT_LAST_1MIN_ALL":     maxFloat64,
-	"EXECUTION_TIME_50_PERCENT_LAST_1MIN_SUCCESS": maxFloat64,
-	"EXECUTION_TIME_50_PERCENT_LAST_1MIN_FAILURE": maxFloat64,
-	"EXECUTION_TIME_90_PERCENT_LAST_1MIN_ALL":     maxFloat64,
-	"EXECUTION_TIME_90_PERCENT_LAST_1MIN_SUCCESS": maxFloat64,
-	"EXECUTION_TIME_90_PERCENT_LAST_1MIN_FAILURE": maxFloat64,
-	"EXECUTION_TIME_99_PERCENT_LAST_1MIN_ALL":     maxFloat64,
-	"EXECUTION_TIME_99_PERCENT_LAST_1MIN_SUCCESS": maxFloat64,
-	"EXECUTION_TIME_99_PERCENT_LAST_1MIN_FAILURE": maxFloat64,
-
-	"EXECUTION_TIME_STD_DEV_LAST_1MIN_ALL":      maxFloat64,
-	"EXECUTION_TIME_STD_DEV_LAST_1MIN_SUCCESS":  maxFloat64,
-	"EXECUTION_TIME_STD_DEV_LAST_1MIN_FAILURE":  maxFloat64,
-	"EXECUTION_TIME_VARIANCE_LAST_1MIN_ALL":     maxFloat64,
-	"EXECUTION_TIME_VARIANCE_LAST_1MIN_SUCCESS": maxFloat64,
-	"EXECUTION_TIME_VARIANCE_LAST_1MIN_FAILURE": maxFloat64,
-
-	// plugin dedicated indicators
-
-	// http_input plugin
-	"WAIT_QUEUE_LENGTH": sumUint64,
-	"WIP_REQUEST_COUNT": sumUint64,
-
-	// http_counter plugin
-	"RECENT_HEADER_COUNT ": sumUint64,
-}
-
-var taskIndicatorAggregateMap = map[string]stateAggregator{
-	// task dedicated indicator
-	"EXECUTION_COUNT_ALL":     sumUint64,
-	"EXECUTION_COUNT_SUCCESS": sumUint64,
-	"EXECUTION_COUNT_FAILURE": sumUint64,
 }

@@ -228,6 +228,7 @@ type (
 	// Pack Header: statMessage | statRelayMessage
 	ReqStat struct {
 		Timeout time.Duration
+		Detail  bool // It is Leveraged by value[s] filters.
 
 		FilterPipelineIndicatorNames  *FilterPipelineIndicatorNames
 		FilterPipelineIndicatorValue  *FilterPipelineIndicatorValue
@@ -300,6 +301,11 @@ type (
 	}
 	ResultStatIndicatorDesc struct {
 		Desc interface{} `json:"desc"`
+	}
+	resultStatAggregateValue struct {
+		AggregatedResult interface{}            `json:"aggregated_result"`
+		AggregatorName   string                 `json:"aggregator_name"`
+		DetailValues     map[string]interface{} `json:"detail_values,omitempty"`
 	}
 	// TODO: add health stuff, including uptime, rusage, loadavg of a group.
 )

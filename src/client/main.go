@@ -43,7 +43,7 @@ func main() {
 	app.Usage = ""
 	app.Version = fmt.Sprintf("release=%s, commit=%s, repo=%s", version.RELEASE, version.COMMIT, version.REPO)
 	app.Compiled = time.Now()
-	app.Copyright = "(c) 2017 MegaEase.com"
+	app.Copyright = "(c) 2018 MegaEase.com"
 	app.Before = parseGlobalConfig
 
 	app.Flags = []urfavecli.Flag{
@@ -354,6 +354,10 @@ var statcCmd = urfavecli.Command{
 			Name:  "timeout",
 			Usage: "Indicates request timeout limitation in seconds (10-65535)",
 			Value: common.NewUint16Value(120, nil),
+		},
+		urfavecli.BoolFlag{
+			Name:  "detail",
+			Usage: "Indicates whether to display statistics in detail",
 		},
 	},
 	Subcommands: []urfavecli.Command{

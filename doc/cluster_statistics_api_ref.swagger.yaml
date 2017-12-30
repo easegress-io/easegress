@@ -628,7 +628,7 @@ definitions:
         minimum: 10
         maximum: 65535
         default: 120
-      details:
+      detail:
         type: boolean
         default: false
   ClusterPluginIndicatorNames:
@@ -674,6 +674,39 @@ definitions:
 # - THROUGHPUT_RATE_LAST_5MIN_ALL
 # - THROUGHPUT_RATE_LAST_5MIN_FAILURE
 # - THROUGHPUT_RATE_LAST_5MIN_SUCCESS
+  ClusterIndicatorValue:
+    type: object
+    description: |
+      A special value object of the pipeline indicator type.
+      Check Pipeline Reference document for more information.
+    properties:
+      aggregated_result:
+        # NOTICE: Swagger specification2.0/3.0.x doesn't support multiple types currently.
+        #         https://github.com/OAI/OpenAPI-Specification/blob/master/versions/3.0.1.md#properties
+        # type:
+        #   - "null"
+        #   - "boolean"
+        #   - "object"
+        #   - "array"
+        #   - "number"
+        #   - "string"
+        description: Aggregated result which could be any type.
+      aggregator_name:
+        type: string
+      detail_values:
+        type: object
+        description: An object of displaying the detailed value of every cluster member.
+        additionalProperties:
+          # NOTICE: Swagger specification2.0/3.0.x doesn't support multiple types currently.
+          #         https://github.com/OAI/OpenAPI-Specification/blob/master/versions/3.0.1.md#properties
+          # type:
+          #   - "null"
+          #   - "boolean"
+          #   - "object"
+          #   - "array"
+          #   - "number"
+          #   - "string"
+          description: Detailed result which could be any type.
   ClusterPluginIndicatorValue:
     type: object
     required:
@@ -681,9 +714,8 @@ definitions:
     properties:
       value:
         type: object
-        description: |
-          A special value object of the indicator type.
-          Check Plugin Reference document for more information.
+        additionalProperties:
+          $ref: '#/definitions/ClusterIndicatorValue'
   ClusterPluginIndicatorDescription:
     type: object
     required:
@@ -722,9 +754,8 @@ definitions:
     properties:
       value:
         type: object
-        description: |
-          A special value object of the pipeline indicator type.
-          Check Pipeline Reference document for more information.
+        additionalProperties:
+          $ref: '#/definitions/ClusterIndicatorValue'
   ClusterPipelineIndicatorDescription:
     type: object
     required:
@@ -745,7 +776,7 @@ definitions:
         minimum: 10
         maximum: 65535
         default: 120
-      details:
+      detail:
         type: boolean
         default: false
       indicator_names:
@@ -761,10 +792,7 @@ definitions:
       values:
         type: object
         additionalProperties:
-          type: object
-          description: |
-            A special value object of the pipeline indicator type.
-            Check Pipeline Reference document for more information.
+          $ref: '#/definitions/ClusterIndicatorValue'
   ClusterTaskIndicatorNames:
     type: object
     required:
@@ -785,9 +813,8 @@ definitions:
     properties:
       value:
         type: object
-        description: |
-          A special value object of the task indicator type.
-          Check Pipeline Reference document for more information.
+        additionalProperties:
+          $ref: '#/definitions/ClusterIndicatorValue'
   ClusterTaskIndicatorDescription:
     type: object
     required:

@@ -16,6 +16,7 @@ func ClusterRetrievePluginIndicatorNames(c *cli.Context) error {
 	args := c.Args()
 	group := c.GlobalString("group")
 	timeoutSec := uint16(*c.GlobalGeneric("timeout").(*common.Uint16Value))
+	detail := c.GlobalBool("detail")
 	timeout := time.Duration(timeoutSec) * time.Second
 
 	errs := &multipleErr{}
@@ -35,6 +36,7 @@ func ClusterRetrievePluginIndicatorNames(c *cli.Context) error {
 	for i, pluginName := range pluginNames {
 		req := new(pdu.StatisticsClusterRequest)
 		req.TimeoutSec = uint16(timeout.Seconds())
+		req.Detail = detail
 
 		if timeout <= expiredTime {
 			errs.append(fmt.Errorf(
@@ -73,6 +75,7 @@ func ClusterGetPluginIndicatorValue(c *cli.Context) error {
 	args := c.Args()
 	group := c.GlobalString("group")
 	timeoutSec := uint16(*c.GlobalGeneric("timeout").(*common.Uint16Value))
+	detail := c.GlobalBool("detail")
 	timeout := time.Duration(timeoutSec) * time.Second
 
 	errs := &multipleErr{}
@@ -96,6 +99,7 @@ func ClusterGetPluginIndicatorValue(c *cli.Context) error {
 	for i, indicatorName := range indicatorNames {
 		req := new(pdu.StatisticsClusterRequest)
 		req.TimeoutSec = uint16(timeout.Seconds())
+		req.Detail = detail
 
 		if timeout <= expiredTime {
 			errs.append(fmt.Errorf(
@@ -105,7 +109,7 @@ func ClusterGetPluginIndicatorValue(c *cli.Context) error {
 		timeout -= expiredTime
 
 		startTime := common.Now()
-		value, apiResp, err := clusterStatApi().GetPluginIndicatorValue(
+		retrieveResp, apiResp, err := clusterStatApi().GetPluginIndicatorValue(
 			group, pipelineName, pluginName, indicatorName, req)
 		expiredTime = common.Since(startTime)
 
@@ -120,7 +124,7 @@ func ClusterGetPluginIndicatorValue(c *cli.Context) error {
 			continue
 		}
 
-		data, err := json.Marshal(value)
+		data, err := json.Marshal(retrieveResp)
 		if err != nil {
 			errs.append(fmt.Errorf("%s-%s-%s: %v",
 				pipelineName, pluginName, indicatorName, err))
@@ -138,6 +142,7 @@ func ClusterGetPluginIndicatorDesc(c *cli.Context) error {
 	args := c.Args()
 	group := c.GlobalString("group")
 	timeoutSec := uint16(*c.GlobalGeneric("timeout").(*common.Uint16Value))
+	detail := c.GlobalBool("detail")
 	timeout := time.Duration(timeoutSec) * time.Second
 
 	errs := &multipleErr{}
@@ -161,6 +166,7 @@ func ClusterGetPluginIndicatorDesc(c *cli.Context) error {
 	for i, indicatorName := range indicatorNames {
 		req := new(pdu.StatisticsClusterRequest)
 		req.TimeoutSec = uint16(timeout.Seconds())
+		req.Detail = detail
 
 		if timeout <= expiredTime {
 			errs.append(fmt.Errorf(
@@ -170,7 +176,7 @@ func ClusterGetPluginIndicatorDesc(c *cli.Context) error {
 		timeout -= expiredTime
 
 		startTime := common.Now()
-		desc, apiResp, err := clusterStatApi().GetPluginIndicatorDesc(
+		retrieveResp, apiResp, err := clusterStatApi().GetPluginIndicatorDesc(
 			group, pipelineName, pluginName, indicatorName, req)
 		expiredTime = common.Since(startTime)
 
@@ -184,7 +190,7 @@ func ClusterGetPluginIndicatorDesc(c *cli.Context) error {
 			continue
 		}
 
-		data, err := json.Marshal(desc)
+		data, err := json.Marshal(retrieveResp)
 		if err != nil {
 			errs.append(fmt.Errorf("%s-%s-%s: %v",
 				pipelineName, pluginName, indicatorName, err))
@@ -202,6 +208,7 @@ func ClusterRetrievePipelineIndicatorNames(c *cli.Context) error {
 	args := c.Args()
 	group := c.GlobalString("group")
 	timeoutSec := uint16(*c.GlobalGeneric("timeout").(*common.Uint16Value))
+	detail := c.GlobalBool("detail")
 	timeout := time.Duration(timeoutSec) * time.Second
 
 	errs := &multipleErr{}
@@ -217,6 +224,7 @@ func ClusterRetrievePipelineIndicatorNames(c *cli.Context) error {
 	for i, pipelineName := range pipelineNames {
 		req := new(pdu.StatisticsClusterRequest)
 		req.TimeoutSec = uint16(timeout.Seconds())
+		req.Detail = detail
 
 		if timeout <= expiredTime {
 			errs.append(fmt.Errorf(
@@ -254,6 +262,7 @@ func ClusterGetPipelineIndicatorsValue(c *cli.Context) error {
 	args := c.Args()
 	group := c.GlobalString("group")
 	timeoutSec := uint16(*c.GlobalGeneric("timeout").(*common.Uint16Value))
+	detail := c.GlobalBool("detail")
 	timeout := time.Duration(timeoutSec) * time.Second
 
 	errs := &multipleErr{}
@@ -270,6 +279,7 @@ func ClusterGetPipelineIndicatorsValue(c *cli.Context) error {
 
 	req := new(pdu.ClusterPipelineIndicatorsValueRequest)
 	req.TimeoutSec = uint16(timeout.Seconds())
+	req.Detail = detail
 	req.IndicatorNames = args[1:]
 
 	retrieveResp, apiResp, err := clusterStatApi().GetPipelineIndicatorsValue(
@@ -279,7 +289,7 @@ func ClusterGetPipelineIndicatorsValue(c *cli.Context) error {
 	} else if apiResp.Error != nil {
 		errs.append(fmt.Errorf("%s: %s", pipelineName, apiResp.Error.Error))
 	} else {
-		data, err := json.Marshal(retrieveResp.Values)
+		data, err := json.Marshal(retrieveResp)
 		if err != nil {
 			errs.append(fmt.Errorf("%s: %v", pipelineName, err))
 		} else {
@@ -295,6 +305,7 @@ func ClusterGetPipelineIndicatorDesc(c *cli.Context) error {
 	args := c.Args()
 	group := c.GlobalString("group")
 	timeoutSec := uint16(*c.GlobalGeneric("timeout").(*common.Uint16Value))
+	detail := c.GlobalBool("detail")
 	timeout := time.Duration(timeoutSec) * time.Second
 
 	errs := &multipleErr{}
@@ -314,6 +325,7 @@ func ClusterGetPipelineIndicatorDesc(c *cli.Context) error {
 	for i, indicatorName := range indicatorNames {
 		req := new(pdu.StatisticsClusterRequest)
 		req.TimeoutSec = uint16(timeout.Seconds())
+		req.Detail = detail
 
 		if timeout <= expiredTime {
 			errs.append(fmt.Errorf(
@@ -323,7 +335,7 @@ func ClusterGetPipelineIndicatorDesc(c *cli.Context) error {
 		timeout -= expiredTime
 
 		startTime := common.Now()
-		desc, apiResp, err := clusterStatApi().GetPipelineIndicatorDesc(
+		retrieveResp, apiResp, err := clusterStatApi().GetPipelineIndicatorDesc(
 			group, pipelineName, indicatorName, req)
 		expiredTime = common.Since(startTime)
 
@@ -335,7 +347,7 @@ func ClusterGetPipelineIndicatorDesc(c *cli.Context) error {
 			continue
 		}
 
-		data, err := json.Marshal(desc)
+		data, err := json.Marshal(retrieveResp)
 		if err != nil {
 			errs.append(fmt.Errorf("%s-%s: %v", pipelineName, indicatorName, err))
 			continue
@@ -352,6 +364,7 @@ func ClusterRetrieveTaskIndicatorNames(c *cli.Context) error {
 	args := c.Args()
 	group := c.GlobalString("group")
 	timeoutSec := uint16(*c.GlobalGeneric("timeout").(*common.Uint16Value))
+	detail := c.GlobalBool("detail")
 	timeout := time.Duration(timeoutSec) * time.Second
 
 	errs := &multipleErr{}
@@ -367,6 +380,7 @@ func ClusterRetrieveTaskIndicatorNames(c *cli.Context) error {
 	for i, pipelineName := range pipelineNames {
 		req := new(pdu.StatisticsClusterRequest)
 		req.TimeoutSec = uint16(timeout.Seconds())
+		req.Detail = detail
 
 		if timeout <= expiredTime {
 			errs.append(fmt.Errorf(
@@ -404,6 +418,7 @@ func ClusterGetTaskIndicatorValue(c *cli.Context) error {
 	args := c.Args()
 	group := c.GlobalString("group")
 	timeoutSec := uint16(*c.GlobalGeneric("timeout").(*common.Uint16Value))
+	detail := c.GlobalBool("detail")
 	timeout := time.Duration(timeoutSec) * time.Second
 
 	errs := &multipleErr{}
@@ -423,6 +438,7 @@ func ClusterGetTaskIndicatorValue(c *cli.Context) error {
 	for i, indicatorName := range indicatorNames {
 		req := new(pdu.StatisticsClusterRequest)
 		req.TimeoutSec = uint16(timeout.Seconds())
+		req.Detail = detail
 
 		if timeout <= expiredTime {
 			errs.append(fmt.Errorf(
@@ -432,7 +448,7 @@ func ClusterGetTaskIndicatorValue(c *cli.Context) error {
 		timeout -= expiredTime
 
 		startTime := common.Now()
-		value, apiResp, err := clusterStatApi().GetTaskIndicatorValue(
+		retrieveResp, apiResp, err := clusterStatApi().GetTaskIndicatorValue(
 			group, pipelineName, indicatorName, req)
 		expiredTime = common.Since(startTime)
 
@@ -444,7 +460,7 @@ func ClusterGetTaskIndicatorValue(c *cli.Context) error {
 			continue
 		}
 
-		data, err := json.Marshal(value)
+		data, err := json.Marshal(retrieveResp)
 		if err != nil {
 			errs.append(fmt.Errorf("%s-%s: %v", pipelineName, indicatorName, err))
 			continue
@@ -461,6 +477,7 @@ func ClusterGetTaskIndicatorDesc(c *cli.Context) error {
 	args := c.Args()
 	group := c.GlobalString("group")
 	timeoutSec := uint16(*c.GlobalGeneric("timeout").(*common.Uint16Value))
+	detail := c.GlobalBool("detail")
 	timeout := time.Duration(timeoutSec) * time.Second
 
 	errs := &multipleErr{}
@@ -480,6 +497,7 @@ func ClusterGetTaskIndicatorDesc(c *cli.Context) error {
 	for i, indicatorName := range indicatorNames {
 		req := new(pdu.StatisticsClusterRequest)
 		req.TimeoutSec = uint16(timeout.Seconds())
+		req.Detail = detail
 
 		if timeout <= expiredTime {
 			errs.append(fmt.Errorf(
@@ -489,7 +507,7 @@ func ClusterGetTaskIndicatorDesc(c *cli.Context) error {
 		timeout -= expiredTime
 
 		startTime := common.Now()
-		desc, apiResp, err := clusterStatApi().GetTaskIndicatorDesc(group, pipelineName, indicatorName, req)
+		retrieveResp, apiResp, err := clusterStatApi().GetTaskIndicatorDesc(group, pipelineName, indicatorName, req)
 		expiredTime = common.Since(startTime)
 
 		if err != nil {
@@ -500,7 +518,7 @@ func ClusterGetTaskIndicatorDesc(c *cli.Context) error {
 			continue
 		}
 
-		data, err := json.Marshal(desc)
+		data, err := json.Marshal(retrieveResp)
 		if err != nil {
 			errs.append(fmt.Errorf("%s-%s: %v", pipelineName, indicatorName, err))
 			continue

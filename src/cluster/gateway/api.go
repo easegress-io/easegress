@@ -492,7 +492,7 @@ func (gc *GatewayCluster) RetrievePipelineTypes(group string, timeout time.Durat
 }
 
 // statistics
-func (gc *GatewayCluster) StatPipelineIndicatorNames(group string, timeout time.Duration,
+func (gc *GatewayCluster) StatPipelineIndicatorNames(group string, timeout time.Duration, detail bool,
 	pipelineName string) (*ResultStatIndicatorNames, *ClusterError) {
 
 	if gc.Stopped() {
@@ -506,7 +506,7 @@ func (gc *GatewayCluster) StatPipelineIndicatorNames(group string, timeout time.
 
 	requestName := fmt.Sprintf("(group(%s)stat_pipleine_indicator_names)", group)
 
-	resp, err := gc.issueStat(group, timeout, requestName, &filter)
+	resp, err := gc.issueStat(group, timeout, detail, requestName, &filter)
 	if err != nil {
 		return nil, err
 	}
@@ -521,7 +521,7 @@ func (gc *GatewayCluster) StatPipelineIndicatorNames(group string, timeout time.
 	return ret, nil
 }
 
-func (gc *GatewayCluster) StatPipelineIndicatorValue(group string, timeout time.Duration,
+func (gc *GatewayCluster) StatPipelineIndicatorValue(group string, timeout time.Duration, detail bool,
 	pipelineName, indicatorName string) (*ResultStatIndicatorValue, *ClusterError) {
 
 	if gc.Stopped() {
@@ -536,7 +536,7 @@ func (gc *GatewayCluster) StatPipelineIndicatorValue(group string, timeout time.
 
 	requestName := fmt.Sprintf("(group(%s)stat_pipleine_indicator_value)", group)
 
-	resp, err := gc.issueStat(group, timeout, requestName, &filter)
+	resp, err := gc.issueStat(group, timeout, detail, requestName, &filter)
 	if err != nil {
 		return nil, err
 	}
@@ -550,7 +550,7 @@ func (gc *GatewayCluster) StatPipelineIndicatorValue(group string, timeout time.
 	return ret, nil
 }
 
-func (gc *GatewayCluster) StatPipelineIndicatorsValue(group string, timeout time.Duration,
+func (gc *GatewayCluster) StatPipelineIndicatorsValue(group string, timeout time.Duration, detail bool,
 	pipelineName string, indicatorNames []string) (*ResultStatIndicatorsValue, *ClusterError) {
 
 	if gc.Stopped() {
@@ -565,7 +565,7 @@ func (gc *GatewayCluster) StatPipelineIndicatorsValue(group string, timeout time
 
 	requestName := fmt.Sprintf("(group(%s)stat_pipleine_indicators_value)", group)
 
-	resp, err := gc.issueStat(group, timeout, requestName, &filter)
+	resp, err := gc.issueStat(group, timeout, detail, requestName, &filter)
 	if err != nil {
 		return nil, err
 	}
@@ -579,7 +579,7 @@ func (gc *GatewayCluster) StatPipelineIndicatorsValue(group string, timeout time
 	return ret, nil
 }
 
-func (gc *GatewayCluster) StatPipelineIndicatorDesc(group string, timeout time.Duration,
+func (gc *GatewayCluster) StatPipelineIndicatorDesc(group string, timeout time.Duration, detail bool,
 	pipelineName, indicatorName string) (*ResultStatIndicatorDesc, *ClusterError) {
 
 	if gc.Stopped() {
@@ -595,7 +595,7 @@ func (gc *GatewayCluster) StatPipelineIndicatorDesc(group string, timeout time.D
 
 	requestName := fmt.Sprintf("(group(%s)stat_pipleine_indicator_desc)", group)
 
-	resp, err := gc.issueStat(group, timeout, requestName, &filter)
+	resp, err := gc.issueStat(group, timeout, detail, requestName, &filter)
 	if err != nil {
 		return nil, err
 	}
@@ -610,7 +610,7 @@ func (gc *GatewayCluster) StatPipelineIndicatorDesc(group string, timeout time.D
 	return ret, nil
 }
 
-func (gc *GatewayCluster) StatPluginIndicatorNames(group string, timeout time.Duration,
+func (gc *GatewayCluster) StatPluginIndicatorNames(group string, timeout time.Duration, detail bool,
 	pipelineName, pluginName string) (*ResultStatIndicatorNames, *ClusterError) {
 
 	if gc.Stopped() {
@@ -625,7 +625,7 @@ func (gc *GatewayCluster) StatPluginIndicatorNames(group string, timeout time.Du
 
 	requestName := fmt.Sprintf("(group(%s)stat_plugin_indicator_names)", group)
 
-	resp, err := gc.issueStat(group, timeout, requestName, &filter)
+	resp, err := gc.issueStat(group, timeout, detail, requestName, &filter)
 	if err != nil {
 		return nil, err
 	}
@@ -639,7 +639,7 @@ func (gc *GatewayCluster) StatPluginIndicatorNames(group string, timeout time.Du
 	return ret, nil
 }
 
-func (gc *GatewayCluster) StatPluginIndicatorValue(group string, timeout time.Duration,
+func (gc *GatewayCluster) StatPluginIndicatorValue(group string, timeout time.Duration, detail bool,
 	pipelineName, pluginName, indicatorName string) (*ResultStatIndicatorValue, *ClusterError) {
 
 	if gc.Stopped() {
@@ -655,7 +655,7 @@ func (gc *GatewayCluster) StatPluginIndicatorValue(group string, timeout time.Du
 
 	requestName := fmt.Sprintf("(group(%s)stat_plugin_indicator_value)", group)
 
-	resp, err := gc.issueStat(group, timeout, requestName, &filter)
+	resp, err := gc.issueStat(group, timeout, detail, requestName, &filter)
 	if err != nil {
 		return nil, err
 	}
@@ -669,7 +669,7 @@ func (gc *GatewayCluster) StatPluginIndicatorValue(group string, timeout time.Du
 	return ret, nil
 }
 
-func (gc *GatewayCluster) StatPluginIndicatorDesc(group string, timeout time.Duration,
+func (gc *GatewayCluster) StatPluginIndicatorDesc(group string, timeout time.Duration, detail bool,
 	pipelineName, pluginName, indicatorName string) (*ResultStatIndicatorDesc, *ClusterError) {
 
 	if gc.Stopped() {
@@ -686,7 +686,7 @@ func (gc *GatewayCluster) StatPluginIndicatorDesc(group string, timeout time.Dur
 
 	requestName := fmt.Sprintf("(group(%s)stat_plugin_indicator_desc)", group)
 
-	resp, err := gc.issueStat(group, timeout, requestName, &filter)
+	resp, err := gc.issueStat(group, timeout, detail, requestName, &filter)
 	if err != nil {
 		return nil, err
 	}
@@ -701,7 +701,7 @@ func (gc *GatewayCluster) StatPluginIndicatorDesc(group string, timeout time.Dur
 	return ret, nil
 }
 
-func (gc *GatewayCluster) StatTaskIndicatorNames(group string, timeout time.Duration,
+func (gc *GatewayCluster) StatTaskIndicatorNames(group string, timeout time.Duration, detail bool,
 	pipelineName string) (*ResultStatIndicatorNames, *ClusterError) {
 
 	if gc.Stopped() {
@@ -715,7 +715,7 @@ func (gc *GatewayCluster) StatTaskIndicatorNames(group string, timeout time.Dura
 
 	requestName := fmt.Sprintf("(group(%s)stat_task_indicator_names)", group)
 
-	resp, err := gc.issueStat(group, timeout, requestName, &filter)
+	resp, err := gc.issueStat(group, timeout, detail, requestName, &filter)
 	if err != nil {
 		return nil, err
 	}
@@ -729,7 +729,7 @@ func (gc *GatewayCluster) StatTaskIndicatorNames(group string, timeout time.Dura
 	return ret, nil
 }
 
-func (gc *GatewayCluster) StatTaskIndicatorValue(group string, timeout time.Duration,
+func (gc *GatewayCluster) StatTaskIndicatorValue(group string, timeout time.Duration, detail bool,
 	pipelineName, indicatorName string) (*ResultStatIndicatorValue, *ClusterError) {
 
 	if gc.Stopped() {
@@ -744,7 +744,7 @@ func (gc *GatewayCluster) StatTaskIndicatorValue(group string, timeout time.Dura
 
 	requestName := fmt.Sprintf("(group(%s)stat_task_indicator_value)", group)
 
-	resp, err := gc.issueStat(group, timeout, requestName, &filter)
+	resp, err := gc.issueStat(group, timeout, detail, requestName, &filter)
 	if err != nil {
 		return nil, err
 	}
@@ -758,7 +758,7 @@ func (gc *GatewayCluster) StatTaskIndicatorValue(group string, timeout time.Dura
 	return ret, nil
 }
 
-func (gc *GatewayCluster) StatTaskIndicatorDesc(group string, timeout time.Duration,
+func (gc *GatewayCluster) StatTaskIndicatorDesc(group string, timeout time.Duration, detail bool,
 	pipelineName, indicatorName string) (*ResultStatIndicatorDesc, *ClusterError) {
 
 	if gc.Stopped() {
@@ -774,7 +774,7 @@ func (gc *GatewayCluster) StatTaskIndicatorDesc(group string, timeout time.Durat
 
 	requestName := fmt.Sprintf("(group(%s)stat_task_indicator_desc)", group)
 
-	resp, err := gc.issueStat(group, timeout, requestName, &filter)
+	resp, err := gc.issueStat(group, timeout, detail, requestName, &filter)
 	if err != nil {
 		return nil, err
 	}

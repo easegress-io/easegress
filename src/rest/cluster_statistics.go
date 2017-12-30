@@ -115,7 +115,7 @@ func (s *clusterStatisticsServer) retrievePluginIndicatorNames(w rest.ResponseWr
 		return
 	}
 
-	ret, clusterErr := s.gc.StatPluginIndicatorNames(group, time.Duration(req.TimeoutSec)*time.Second,
+	ret, clusterErr := s.gc.StatPluginIndicatorNames(group, time.Duration(req.TimeoutSec)*time.Second, req.Detail,
 		pipelineName, pluginName)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
@@ -181,7 +181,7 @@ func (s *clusterStatisticsServer) retrievePluginIndicatorValue(w rest.ResponseWr
 		return
 	}
 
-	ret, clusterErr := s.gc.StatPluginIndicatorValue(group, time.Duration(req.TimeoutSec)*time.Second,
+	ret, clusterErr := s.gc.StatPluginIndicatorValue(group, time.Duration(req.TimeoutSec)*time.Second, req.Detail,
 		pipelineName, pluginName, indicatorName)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
@@ -248,7 +248,7 @@ func (s *clusterStatisticsServer) retrievePluginIndicatorDesc(w rest.ResponseWri
 		return
 	}
 
-	ret, clusterErr := s.gc.StatPluginIndicatorDesc(group, time.Duration(req.TimeoutSec)*time.Second,
+	ret, clusterErr := s.gc.StatPluginIndicatorDesc(group, time.Duration(req.TimeoutSec)*time.Second, req.Detail,
 		pipelineName, pluginName, indicatorName)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
@@ -299,7 +299,7 @@ func (s *clusterStatisticsServer) retrievePipelineIndicatorNames(w rest.Response
 		return
 	}
 
-	ret, clusterErr := s.gc.StatPipelineIndicatorNames(group, time.Duration(req.TimeoutSec)*time.Second,
+	ret, clusterErr := s.gc.StatPipelineIndicatorNames(group, time.Duration(req.TimeoutSec)*time.Second, req.Detail,
 		pipelineName)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
@@ -357,7 +357,7 @@ func (s *clusterStatisticsServer) retrievePipelineIndicatorValue(w rest.Response
 		return
 	}
 
-	ret, clusterErr := s.gc.StatPipelineIndicatorValue(group, time.Duration(req.TimeoutSec)*time.Second,
+	ret, clusterErr := s.gc.StatPipelineIndicatorValue(group, time.Duration(req.TimeoutSec)*time.Second, req.Detail,
 		pipelineName, indicatorName)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
@@ -415,7 +415,7 @@ func (s *clusterStatisticsServer) retrievePipelineIndicatorDesc(w rest.ResponseW
 		return
 	}
 
-	ret, clusterErr := s.gc.StatPipelineIndicatorDesc(group, time.Duration(req.TimeoutSec)*time.Second,
+	ret, clusterErr := s.gc.StatPipelineIndicatorDesc(group, time.Duration(req.TimeoutSec)*time.Second, req.Detail,
 		pipelineName, indicatorName)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
@@ -465,7 +465,7 @@ func (s *clusterStatisticsServer) retrievePipelineIndicatorsValue(w rest.Respons
 		return
 	}
 
-	ret, clusterErr := s.gc.StatPipelineIndicatorsValue(group, time.Duration(req.TimeoutSec)*time.Second,
+	ret, clusterErr := s.gc.StatPipelineIndicatorsValue(group, time.Duration(req.TimeoutSec)*time.Second, req.Detail,
 		pipelineName, req.IndicatorNames)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
@@ -515,7 +515,8 @@ func (s *clusterStatisticsServer) retrievePipelineTaskIndicatorNames(w rest.Resp
 		return
 	}
 
-	ret, clusterErr := s.gc.StatTaskIndicatorNames(group, time.Duration(req.TimeoutSec)*time.Second, pipelineName)
+	ret, clusterErr := s.gc.StatTaskIndicatorNames(group,
+		time.Duration(req.TimeoutSec)*time.Second, req.Detail, pipelineName)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
 		logger.Warnf("[%s]", clusterErr.Error())
@@ -572,7 +573,7 @@ func (s *clusterStatisticsServer) retrievePipelineTaskIndicatorValue(w rest.Resp
 		return
 	}
 
-	ret, clusterErr := s.gc.StatTaskIndicatorValue(group, time.Duration(req.TimeoutSec)*time.Second,
+	ret, clusterErr := s.gc.StatTaskIndicatorValue(group, time.Duration(req.TimeoutSec)*time.Second, req.Detail,
 		pipelineName, indicatorName)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
@@ -630,7 +631,7 @@ func (s *clusterStatisticsServer) retrievePipelineTaskIndicatorDesc(w rest.Respo
 		return
 	}
 
-	ret, clusterErr := s.gc.StatTaskIndicatorDesc(group, time.Duration(req.TimeoutSec)*time.Second,
+	ret, clusterErr := s.gc.StatTaskIndicatorDesc(group, time.Duration(req.TimeoutSec)*time.Second, req.Detail,
 		pipelineName, indicatorName)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
