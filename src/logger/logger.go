@@ -208,9 +208,9 @@ func getSourceInfo() string {
 }
 
 func init() {
-	initStd()
+	initStd(logrus.InfoLevel)
 	initHTTP()
-	initMemberList()
+	initMemberList(logrus.InfoLevel)
 	initREST()
 }
 

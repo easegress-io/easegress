@@ -1,4 +1,4 @@
-.PHONY: default build build_client build_server build_inventory run fmt clean \
+.PHONY: default build build_client build_server build_tool build_inventory run fmt clean \
 		depend vendor_get vendor_update vendor_clean \
 		build_client_alpine build_server_alpine build_server_ubuntu
 
@@ -24,14 +24,22 @@ GATEWAY_ALL_SRC_FILES = $(shell find ${MKFILE_DIR}src -type f -name "*.go")
 GATEWAY_CLIENT_SRC_FILES = $(shell find ${MKFILE_DIR}src/cli ${MKFILE_DIR}src/client -type f -name "*.go")
 GATEWAY_SERVER_SRC_FILES = $(filter-out ${GATEWAY_CLIENT_SRC_FILES},${GATEWAY_ALL_SRC_FILES})
 GATEWAY_INVENTORY_FILES=${MKFILE_DIR}src/inventory/*
+GATEWAY_TOOL_SRC_FILES=$(shell find ${MKFILE_DIR}src/tool/ ${MKFILE_DIR}src/cluster -type f -name "*.go")
 
 TARGET_GATEWAY_SERVER=${MKFILE_DIR}build/bin/easegateway-server
 TARGET_GATEWAY_CLIENT=${MKFILE_DIR}build/bin/easegateway-client
 TARGET_INVENTORY=${MKFILE_DIR}build/inventory
+TARGET_GATEWAY_TOOL=${MKFILE_DIR}build/bin/easegateway-tool
 
-TARGET=${TARGET_GATEWAY_SERVER} ${TARGET_GATEWAY_CLIENT} ${TARGET_INVENTORY}
+TARGET=${TARGET_GATEWAY_SERVER} ${TARGET_GATEWAY_CLIENT} ${TARGET_GATEWAY_TOOL} ${TARGET_INVENTORY}
 
 default: ${TARGET}
+
+${TARGET_GATEWAY_TOOL} : ${GATEWAY_TOOL_SRC_FILES}
+	@echo "-------------- building gateway tool ---------------"
+	cd ${MKFILE_DIR} && \
+		go build -i -v -ldflags "-s -w -X version.RELEASE=${RELEASE} -X version.COMMIT=${COMMIT} -X version.REPO=${GIT_REPO_INFO}" \
+			-o ${TARGET_GATEWAY_TOOL} ${MKFILE_DIR}src/tool/main.go
 
 ${TARGET_GATEWAY_SERVER} : ${GATEWAY_SERVER_SRC_FILES}
 	@echo "-------------- building gateway server ---------------"
@@ -55,6 +63,8 @@ build: default
 build_client: ${TARGET_GATEWAY_CLIENT}
 
 build_server: ${TARGET_GATEWAY_SERVER}
+
+build_tool: ${TARGET_GATEWAY_TOOL}
 
 build_inventory: ${TARGET_INVENTORY}
 

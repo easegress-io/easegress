@@ -9,37 +9,37 @@ import (
 	"runtime"
 
 	"github.com/sirupsen/logrus"
-
-	"option"
 )
 
 var (
 	LOG_MEMBERLIST_FILE      = "memberlist.log"
-	LOG_MEMBERLIST_LEVEL     = logrus.DebugLevel
-	LOG_MEMBERLIST_TTY_LEVEL = logrus.DebugLevel
+
+	LOG_MEMBER_LIST_SET_NAME = "memberlist"
 
 	memberList = newLoggerSet()
 
 	LOG_MEMBERLIST_REGEX = regexp.MustCompile(`.+? \[(DEBUG|WARN|ERR|INFO)\] (.*)`)
 )
 
-func initMemberList() {
-	if option.Stage == "prod" {
-		LOG_MEMBERLIST_TTY_LEVEL = logrus.InfoLevel
-		LOG_MEMBERLIST_LEVEL = logrus.InfoLevel
-	}
-
+func initMemberList(logLevel logrus.Level) {
 	formatter := &logrus.TextFormatter{
 		FullTimestamp: true,
 	}
 
-	memberList.registerIOLogger("memberlist", os.Stdout, formatter, LOG_MEMBERLIST_TTY_LEVEL)
+	memberList.registerIOLogger(LOG_MEMBER_LIST_SET_NAME, os.Stdout, formatter, logLevel)
 
 	f, err := openLogFile(LOG_MEMBERLIST_FILE)
 	if err != nil {
 		Errorf("[open log file %s failed: %v]", LOG_MEMBERLIST_FILE, err)
 	} else {
-		memberList.registerFileLogger("memberlist", f, f, LOG_MEMBERLIST_FILE, formatter, LOG_MEMBERLIST_LEVEL)
+		memberList.registerFileLogger(LOG_MEMBER_LIST_SET_NAME, f, f, LOG_MEMBERLIST_FILE, formatter, logLevel)
+	}
+}
+
+func SetMemberListLevel(level logrus.Level) {
+	loggers := memberList.getLoggers(LOG_MEMBER_LIST_SET_NAME)
+	for i, _ := range loggers {
+		loggers[i].SetLevel(level)
 	}
 }
 

@@ -4,15 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"logger"
 	"os"
-	"path/filepath"
 	"strconv"
 	"sync"
 
 	"github.com/dgraph-io/badger"
 
 	"common"
+	"logger"
 )
 
 type OperationAppended func(seq uint64, newOperation *Operation) (error, OperationFailureType)
@@ -28,18 +27,18 @@ type opLog struct {
 	sync.RWMutex
 	db                         *badger.DB
 	operationAppendedCallbacks *common.NamedCallbackSet
+	path string
 }
 
-func newOPLog() (*opLog, error) {
-	dir := filepath.Join(common.INVENTORY_HOME_DIR, "oplog")
-	err := os.MkdirAll(dir, 0700)
+func NewOPLog(path string) (*opLog, error) {
+	err := os.MkdirAll(path, 0700)
 	if err != nil {
 		return nil, err
 	}
 
 	new := false
 
-	fp, err := os.Open(dir)
+	fp, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
@@ -55,11 +54,11 @@ func newOPLog() (*opLog, error) {
 	}
 
 	opt := badger.DefaultOptions
-	opt.Dir = dir
-	opt.ValueDir = dir
+	opt.Dir = path
+	opt.ValueDir = path
 	opt.SyncWrites = true // consistence is more important than performance
 
-	logger.Debugf("[operation logs path: %s]", dir)
+	logger.Debugf("[operation logs path: %s]", path)
 
 	db, err := badger.Open(opt)
 	if err != nil {
@@ -69,6 +68,7 @@ func newOPLog() (*opLog, error) {
 	op := &opLog{
 		db: db,
 		operationAppendedCallbacks: common.NewNamedCallbackSet(),
+		path: path,
 	}
 
 	if new { // init max sequence to prevent fake read error
@@ -79,7 +79,7 @@ func newOPLog() (*opLog, error) {
 
 		err = txn.Commit(nil)
 		if err != nil {
-			logger.Errorf("[BUG: commit transaction failed: %v]", err)
+			logger.Errorf("[BUG: commit initial transaction failed: %v]", err)
 		}
 	}
 
@@ -88,7 +88,11 @@ func newOPLog() (*opLog, error) {
 	return op, nil
 }
 
-func (op *opLog) maxSeq() uint64 {
+func (op *opLog) Path() string {
+	return op.path
+}
+
+func (op *opLog) MaxSeq() uint64 {
 	op.RLock()
 	defer op.RUnlock()
 	txn := op.db.NewTransaction(false)
@@ -96,7 +100,7 @@ func (op *opLog) maxSeq() uint64 {
 	return op._locklessReadMaxSeq(txn)
 }
 
-func (op *opLog) append(startSeq uint64, operations []*Operation) (error, ClusterErrorType) {
+func (op *opLog) Append(startSeq uint64, operations []*Operation) (error, ClusterErrorType) {
 	if len(operations) == 0 {
 		return nil, NoneClusterError
 	}
@@ -162,6 +166,7 @@ func (op *opLog) append(startSeq uint64, operations []*Operation) (error, Cluste
 				case NoneOperationFailure:
 					logger.Errorf("[BUG: operation callback returns error without " +
 						"a certain failure type]")
+					clusterErrType = NoneOperationFailure
 				case OperationGeneralFailure:
 					clusterErrType = OperationGeneralFailureError
 				case OperationTargetNotFoundFailure:
@@ -174,7 +179,7 @@ func (op *opLog) append(startSeq uint64, operations []*Operation) (error, Cluste
 					clusterErrType = OperationUnknownFailureError
 				}
 
-				return err, clusterErrType
+				return fmt.Errorf("operation (sequence=%d) failed: %v", startSeq+uint64(idx), err), clusterErrType
 			}
 		}
 	}
@@ -182,13 +187,14 @@ func (op *opLog) append(startSeq uint64, operations []*Operation) (error, Cluste
 	err := txn.Commit(nil)
 	if err != nil {
 		logger.Errorf("[BUG: commit transaction failed: %v]", err)
+		return fmt.Errorf("commit transaction failed: %v", err), NoneClusterError
 	}
 
 	return nil, NoneClusterError
 }
 
 // retrieve logs whose sequence are [startSeq, MIN(max-sequence, startSeq + countLimit - 1)]
-func (op *opLog) retrieve(startSeq, countLimit uint64) ([]*Operation, error, ClusterErrorType) {
+func (op *opLog) Retrieve(startSeq, countLimit uint64) ([]*Operation, error, ClusterErrorType) {
 	// NOTICE: We never change recorded content, so it's unnecessary to use RLock.
 	txn := op.db.NewTransaction(false)
 	defer txn.Discard()
@@ -226,7 +232,7 @@ func (op *opLog) retrieve(startSeq, countLimit uint64) ([]*Operation, error, Clu
 		if err != nil {
 			logger.Errorf("[BUG: unmarshal operation (sequence=%d) %#v failed: %v]",
 				startSeq+uint64(idx), opBuff, err)
-			return nil, fmt.Errorf("marshal operation (sequence=%d) %#v failed: %v",
+			return nil, fmt.Errorf("unmarshal operation (sequence=%d) %#v failed: %v",
 				startSeq+uint64(idx), opBuff, err), InternalServerError
 		}
 
@@ -236,7 +242,7 @@ func (op *opLog) retrieve(startSeq, countLimit uint64) ([]*Operation, error, Clu
 	return ret, nil, NoneClusterError
 }
 
-func (op *opLog) close() error {
+func (op *opLog) Close() error {
 	return op.db.Close()
 }
 

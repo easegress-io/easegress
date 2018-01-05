@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -111,7 +112,7 @@ func NewGatewayCluster(conf Config, mod *model.Model) (*GatewayCluster, error) {
 		return nil, err
 	}
 
-	log, err := newOPLog()
+	log, err := NewOPLog(filepath.Join(common.INVENTORY_HOME_DIR, "oplog"))
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +202,7 @@ func (gc *GatewayCluster) internalStop(stopBasis bool) error {
 		}
 	}
 
-	err := gc.log.close()
+	err := gc.log.Close()
 	if err != nil {
 		return err
 	}
@@ -354,7 +355,7 @@ func (gc *GatewayCluster) RestAliveMembersInSameGroup() (ret []cluster.Member) {
 }
 
 func (gc *GatewayCluster) handleQueryGroupMaxSeq(req *cluster.RequestEvent) {
-	ms := gc.log.maxSeq()
+	ms := gc.log.MaxSeq()
 
 	payload, err := cluster.PackWithHeader(RespQueryGroupMaxSeq(ms), uint8(queryGroupMaxSeqMessage))
 	if err != nil {

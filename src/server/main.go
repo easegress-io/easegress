@@ -9,6 +9,8 @@ import (
 	"runtime/pprof"
 	"syscall"
 
+	"github.com/sirupsen/logrus"
+
 	"engine"
 	"logger"
 	"option"
@@ -20,6 +22,12 @@ import (
 func main() {
 	var exitCode int
 	var err error
+
+	if option.Stage == "prod" {
+		logger.SetMemberListLevel(logrus.InfoLevel)
+	} else {
+		logger.SetStdLevel(logrus.DebugLevel)
+	}
 
 	logger.Infof("[ease gateway server: release=%s, commit=%s, repo=%s]",
 		version.RELEASE, version.COMMIT, version.REPO)

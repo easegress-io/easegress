@@ -4,40 +4,40 @@ import (
 	"os"
 
 	"github.com/sirupsen/logrus"
-
-	"option"
 )
 
 var (
 	LOG_STD_FILE      = "gateway.log"
-	LOG_STD_LEVEL     = logrus.DebugLevel
-	LOG_STD_TTY_LEVEL = logrus.DebugLevel
+
+	LOG_STD_IO_SET_NAME = "stdio"
 
 	std = newLoggerSet()
 )
 
-func initStd() {
-	if option.Stage == "prod" {
-		LOG_STD_LEVEL = logrus.InfoLevel
-		LOG_STD_TTY_LEVEL = logrus.InfoLevel
-	}
-
+func initStd(logLevel logrus.Level) {
 	formatter := &logrus.TextFormatter{
 		FullTimestamp: true,
 	}
 
-	std.registerIOLogger("stdio", os.Stdout, formatter, LOG_STD_TTY_LEVEL)
+	std.registerIOLogger(LOG_STD_IO_SET_NAME, os.Stdout, formatter, logLevel)
 
 	f, out, err := openBufferedLogFile(LOG_STD_FILE)
 	if err != nil {
 		Errorf("[open log file %s failed: %v]", LOG_STD_FILE, err)
 	} else {
-		std.registerFileLogger("stdio", f, out, LOG_STD_FILE, formatter, LOG_STD_LEVEL)
+		std.registerFileLogger(LOG_STD_IO_SET_NAME, f, out, LOG_STD_FILE, formatter, logLevel)
+	}
+}
+
+func SetStdLevel(level logrus.Level) {
+	loggers := std.getLoggers(LOG_STD_IO_SET_NAME)
+	for i, _ := range loggers {
+		loggers[i].SetLevel(level)
 	}
 }
 
 func Debugf(format string, args ...interface{}) {
-	for _, logger := range std.getLoggers("stdio") {
+	for _, logger := range std.getLoggers(LOG_STD_IO_SET_NAME) {
 		logger.WithFields(logrus.Fields{
 			"source": getSourceInfo(),
 		}).Debugf(format, args...)
@@ -45,7 +45,7 @@ func Debugf(format string, args ...interface{}) {
 }
 
 func Infof(format string, args ...interface{}) {
-	for _, l := range std.getLoggers("stdio") {
+	for _, l := range std.getLoggers(LOG_STD_IO_SET_NAME) {
 		l.WithFields(logrus.Fields{
 			"source": getSourceInfo(),
 		}).Infof(format, args...)
@@ -53,7 +53,7 @@ func Infof(format string, args ...interface{}) {
 }
 
 func Warnf(format string, args ...interface{}) {
-	for _, l := range std.getLoggers("stdio") {
+	for _, l := range std.getLoggers(LOG_STD_IO_SET_NAME) {
 		l.WithFields(logrus.Fields{
 			"source": getSourceInfo(),
 		}).Warnf(format, args...)
@@ -61,7 +61,7 @@ func Warnf(format string, args ...interface{}) {
 }
 
 func Errorf(format string, args ...interface{}) {
-	for _, l := range std.getLoggers("stdio") {
+	for _, l := range std.getLoggers(LOG_STD_IO_SET_NAME) {
 		l.WithFields(logrus.Fields{
 			"source": getSourceInfo(),
 		}).Errorf(format, args...)

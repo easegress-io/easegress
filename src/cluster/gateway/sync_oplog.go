@@ -73,7 +73,7 @@ func (gc *GatewayCluster) handleOPLogPull(req *cluster.RequestEvent) {
 
 	resp := new(RespOPLogPull)
 	resp.StartSeq = reqOPLogPull.StartSeq
-	resp.SequentialOperations, err, _ = gc.log.retrieve(reqOPLogPull.StartSeq, reqOPLogPull.CountLimit)
+	resp.SequentialOperations, err, _ = gc.log.Retrieve(reqOPLogPull.StartSeq, reqOPLogPull.CountLimit)
 	if err != nil {
 		logger.Errorf("[retrieve sequential operation(s) from oplog failed: %v]", err)
 		// swallow the failure, requester will wait until timeout and retry later
@@ -117,7 +117,7 @@ LOOP:
 	for {
 		select {
 		case <-ticker.C:
-			gc.syncOpLog(gc.log.maxSeq()+1, uint64(gc.conf.OPLogPullMaxCountOnce))
+			gc.syncOpLog(gc.log.MaxSeq()+1, uint64(gc.conf.OPLogPullMaxCountOnce))
 		case <-gc.stopChan:
 			break LOOP
 		}
@@ -128,16 +128,16 @@ func (gc *GatewayCluster) syncOpLog(startSeq, countLimit uint64) {
 	gc.syncOpLogLock.Lock()
 	defer gc.syncOpLogLock.Unlock()
 
-	if startSeq+countLimit-1 <= gc.log.maxSeq() {
+	if startSeq+countLimit-1 <= gc.log.MaxSeq() {
 		// nothing to do, the log has been synced before acquire the lock
 		return
 	}
 
 	// adjust count limitation of sync in according to the latest max sequence after acquire the lock
-	countLimit -= gc.log.maxSeq() + 1 - startSeq
+	countLimit -= gc.log.MaxSeq() + 1 - startSeq
 
 	reqOPLogPull := ReqOPLogPull{
-		StartSeq:   gc.log.maxSeq() + 1, // operations are sequential in the log
+		StartSeq:   gc.log.MaxSeq() + 1, // operations are sequential in the log
 		CountLimit: countLimit,
 	}
 
@@ -186,7 +186,7 @@ func (gc *GatewayCluster) syncOpLog(startSeq, countLimit uint64) {
 			return
 		}
 
-		err, _ = gc.log.append(resp.StartSeq, resp.SequentialOperations)
+		err, _ = gc.log.Append(resp.StartSeq, resp.SequentialOperations)
 		if err != nil {
 			logger.Errorf("[append operation(s) to oplog failed: %v]", err)
 			return

@@ -1,8 +1,14 @@
 package gateway
 
 import (
-	"config"
+	"bytes"
+	"encoding/json"
+	"fmt"
 	"time"
+
+	"config"
+	"model"
+	"plugins"
 )
 
 // MessageType
@@ -60,6 +66,7 @@ type (
 		ContentUpdatePipeline *ContentUpdatePipeline
 		ContentDeletePipeline *ContentDeletePipeline
 	}
+
 	ContentCreatePlugin struct {
 		Type   string
 		Config []byte // json
@@ -83,6 +90,68 @@ type (
 		Name string
 	}
 )
+
+func validPluginConfig(typ string, byt []byte) (bool, error) {
+	conf, err := plugins.GetConfig(typ)
+	if err != nil {
+		return false, fmt.Errorf("Get plugin type %s config failed: %v", typ, err)
+	}
+	if err = json.Unmarshal(byt, conf); err != nil {
+		return false, fmt.Errorf("Unmarshal plugin config for type %s failed: %v", typ, err)
+	}
+
+	return true, nil
+}
+
+func validPipelineConfig(typ string, byt []byte) (bool, error) {
+	conf, err := model.GetPipelineConfig(typ)
+	if err != nil {
+		return false, fmt.Errorf("Get pipeline type %s config failed: %v", typ, err)
+	}
+	if err = json.Unmarshal(byt, conf); err != nil {
+		return false, fmt.Errorf("Unmarshal pipeline config for type %s failed: %v", typ, err)
+	}
+	return true, nil
+}
+
+// EG don't use customized MarshalJSON at the first beginning
+func (op *Operation) ToHumanReadableJSON() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	buf.WriteString(`{`)
+
+	if op.ContentCreatePlugin != nil {
+		if valid, err := validPluginConfig(op.ContentCreatePlugin.Type, op.ContentCreatePlugin.Config); !valid {
+			return nil, err
+		}
+		buf.WriteString(fmt.Sprintf(`"CreatePlugin": {"Type": "%s", "Config": %s}`, op.ContentCreatePlugin.Type, op.ContentCreatePlugin.Config))
+	}
+	if op.ContentUpdatePlugin != nil {
+		if valid, err := validPluginConfig(op.ContentUpdatePlugin.Type, op.ContentUpdatePlugin.Config); !valid {
+			return nil, err
+		}
+		buf.WriteString(fmt.Sprintf(`"UpdatePlugin": {"Type": "%s", "Config": %s}`, op.ContentUpdatePlugin.Type, op.ContentUpdatePlugin.Config))
+	}
+	if op.ContentDeletePlugin != nil {
+		buf.WriteString(fmt.Sprintf(`"DeletePlugin": %s`, op.ContentDeletePlugin.Name))
+	}
+	if op.ContentCreatePipeline != nil {
+		if valid, err := validPipelineConfig(op.ContentCreatePipeline.Type, op.ContentCreatePipeline.Config); !valid {
+			return nil, err
+		}
+		buf.WriteString(fmt.Sprintf(`"CreatePipeline": {"Type": "%s", "Config": %s}`, op.ContentCreatePipeline.Type, op.ContentCreatePipeline.Config))
+	}
+	if op.ContentUpdatePipeline != nil {
+		if valid, err := validPipelineConfig(op.ContentUpdatePipeline.Type, op.ContentUpdatePipeline.Config); !valid {
+			return nil, err
+		}
+		buf.WriteString(fmt.Sprintf(`"UpdatePipeline": {"Type": "%s", "Config": %s}`, op.ContentUpdatePipeline.Type, op.ContentUpdatePipeline.Config))
+	}
+	if op.ContentDeletePipeline != nil {
+		buf.WriteString(fmt.Sprintf(`"DeletePipeline": %s`, op.ContentDeletePipeline.Name))
+	}
+	buf.WriteString(`}`)
+	return buf.Bytes(), nil
+}
 
 // retrieveMessage | retrieveRelayMessage
 type (

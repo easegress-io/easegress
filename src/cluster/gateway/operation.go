@@ -172,7 +172,7 @@ func (gc *GatewayCluster) handleOperationRelay(req *cluster.RequestEvent) {
 		return
 	}
 
-	ms := gc.log.maxSeq()
+	ms := gc.log.MaxSeq()
 
 	if ms >= reqOperation.StartSeq {
 		goto SUCCESS // sync goroutine is so fast
@@ -191,7 +191,7 @@ func (gc *GatewayCluster) handleOperationRelay(req *cluster.RequestEvent) {
 
 	// ignore timeout handling on relayed request operation, which is controlled by under layer
 
-	err, errType = gc.log.append(reqOperation.StartSeq, []*Operation{reqOperation.Operation})
+	err, errType = gc.log.Append(reqOperation.StartSeq, []*Operation{reqOperation.Operation})
 	if err != nil {
 		switch errType {
 		case OperationSeqConflictError:
@@ -226,7 +226,7 @@ func (gc *GatewayCluster) handleOperation(req *cluster.RequestEvent) {
 		return
 	}
 
-	err, errType = gc.log.append(reqOperation.StartSeq, []*Operation{reqOperation.Operation})
+	err, errType = gc.log.Append(reqOperation.StartSeq, []*Operation{reqOperation.Operation})
 	if err != nil {
 		logger.Errorf("[append operation to oplog (completely or partially) failed: %v]", err)
 		gc.respondOperationErr(req, errType, err.Error())
