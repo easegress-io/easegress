@@ -7,13 +7,15 @@ import (
 	"github.com/urfave/cli"
 
 	"cluster/gateway"
+	"common"
 )
 
 type opLogs struct {
-	MaxSeq uint64 `json:"current_max_sequence"`
-	Path    string `json:"path"`
-	Begin  uint64 `json:"begin"`
-	Count  uint64 `json:"count"`
+	TimeStamp string `json:"timestamp"`
+	MaxSeq    uint64 `json:"current_max_sequence"`
+	Path      string `json:"path"`
+	Begin     uint64 `json:"begin"`
+	Count     uint64 `json:"count"`
 
 	Operations []json.RawMessage `json:"operations"`
 }
@@ -22,40 +24,45 @@ func RetrieveOpLog(c *cli.Context) error {
 	opLogPath := c.String("path")
 	opLog, err := gateway.NewOPLog(opLogPath)
 	if err != nil {
-		return cli.NewExitError(fmt.Sprintf("open oplog failed: %v", err), -1)
+		return cli.NewExitError(fmt.Sprintf("open oplog failed: %v", err), 2)
 	}
 	defer opLog.Close()
 
 	maxSeq := opLog.MaxSeq()
-	startSeq := c.Uint64("begin")
-	countLimit := c.Uint64("count")
-	if countLimit > maxSeq {
-		countLimit = maxSeq
+	begin := c.Uint64("begin")
+	if begin > maxSeq {
+		return cli.NewExitError(fmt.Sprintf("`begin` parameter invalid, it must be equal or lower than current max sequence: %d", maxSeq), 1)
+	}
+	count := c.Uint64("count")
+	if begin+count > maxSeq {
+		count = maxSeq - begin + 1
 	}
 
-	oplogs := new(opLogs)
-	oplogs.MaxSeq = maxSeq
-	oplogs.Path = opLog.Path()
-	oplogs.Begin = startSeq
-	oplogs.Count = countLimit
+	oplogs := opLogs{
+		TimeStamp: fmt.Sprintf("%s", common.Now().Local()),
+		MaxSeq:    maxSeq,
+		Path:      opLog.Path(),
+		Begin:     begin,
+		Count:     count,
+	}
 
-	operations, err, _ := opLog.Retrieve(startSeq, countLimit)
+	operations, err, _ := opLog.Retrieve(begin, count)
 	if err != nil {
-		return cli.NewExitError(fmt.Sprintf("retrieve failed: %v", err), -1)
+		return cli.NewExitError(fmt.Sprintf("retrieve oplog failed: %v", err), 3)
 	}
 
 	oplogs.Operations = make([]json.RawMessage, len(operations))
 	var byt []byte
 	for i, op := range operations {
 		if byt, err = op.ToHumanReadableJSON(); err != nil {
-			return cli.NewExitError(fmt.Sprintf("marshal operation %v failed: %v", op, err), -3)
+			byt = []byte(fmt.Sprintf("marshal operation failed: %v", err))
 		}
 		oplogs.Operations[i] = byt
 	}
 
 	if byt, err = json.Marshal(oplogs); err != nil {
-		return cli.NewExitError(fmt.Sprintf("marshal oplogs failed: %v", err), -3)
+		return cli.NewExitError(fmt.Sprintf("marshal oplogs failed: %v", err), 4)
 	}
-	fmt.Printf("%s", byt)
+	fmt.Printf("%s\n", byt)
 	return nil
 }

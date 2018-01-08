@@ -44,7 +44,7 @@ var oplogCmd = cli.Command{
 				cli.StringFlag{
 					Name:  "path",
 					Value: filepath.Join(common.INVENTORY_HOME_DIR, "oplog"),
-					Usage: "indicates oplog dir path",
+					Usage: "indicates oplog data path",
 				},
 			},
 			Action: oplog.RetrieveOpLog,

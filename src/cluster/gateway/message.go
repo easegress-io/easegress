@@ -114,7 +114,8 @@ func validPipelineConfig(typ string, byt []byte) (bool, error) {
 	return true, nil
 }
 
-// EG don't use customized MarshalJSON at the first beginning
+// Operation includes marshalled plugin configuration in json format,
+// we use that directly to prepare human readable json representation of the operation
 func (op *Operation) ToHumanReadableJSON() ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	buf.WriteString(`{`)

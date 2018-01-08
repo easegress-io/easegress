@@ -208,13 +208,18 @@ func getSourceInfo() string {
 }
 
 func init() {
-	initStd(logrus.InfoLevel)
 	initHTTP()
 	initMemberList(logrus.InfoLevel)
 	initREST()
+	initStd(logrus.InfoLevel)
 }
 
 ////
+
+func SetLogLevel(level logrus.Level) {
+	setMemberListLevel(level)
+	setStdLevel(level)
+}
 
 func ReOpenLogFiles() {
 	buff := bytes.NewBufferString("")

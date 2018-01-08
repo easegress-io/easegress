@@ -12,9 +12,9 @@ import (
 )
 
 var (
-	LOG_MEMBERLIST_FILE      = "memberlist.log"
+	LOG_MEMBERLIST_FILE = "memberlist.log"
 
-	LOG_MEMBER_LIST_SET_NAME = "memberlist"
+	LOG_MEMBERLIST_SET_NAME = "memberlist"
 
 	memberList = newLoggerSet()
 
@@ -26,19 +26,19 @@ func initMemberList(logLevel logrus.Level) {
 		FullTimestamp: true,
 	}
 
-	memberList.registerIOLogger(LOG_MEMBER_LIST_SET_NAME, os.Stdout, formatter, logLevel)
+	memberList.registerIOLogger(LOG_MEMBERLIST_SET_NAME, os.Stdout, formatter, logLevel)
 
 	f, err := openLogFile(LOG_MEMBERLIST_FILE)
 	if err != nil {
 		Errorf("[open log file %s failed: %v]", LOG_MEMBERLIST_FILE, err)
 	} else {
-		memberList.registerFileLogger(LOG_MEMBER_LIST_SET_NAME, f, f, LOG_MEMBERLIST_FILE, formatter, logLevel)
+		memberList.registerFileLogger(LOG_MEMBERLIST_SET_NAME, f, f, LOG_MEMBERLIST_FILE, formatter, logLevel)
 	}
 }
 
-func SetMemberListLevel(level logrus.Level) {
-	loggers := memberList.getLoggers(LOG_MEMBER_LIST_SET_NAME)
-	for i, _ := range loggers {
+func setMemberListLevel(level logrus.Level) {
+	loggers := memberList.getLoggers(LOG_MEMBERLIST_SET_NAME)
+	for i := range loggers {
 		loggers[i].SetLevel(level)
 	}
 }

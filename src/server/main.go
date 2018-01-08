@@ -11,6 +11,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"common"
 	"engine"
 	"logger"
 	"option"
@@ -23,11 +24,9 @@ func main() {
 	var exitCode int
 	var err error
 
-	if option.Stage == "prod" {
-		logger.SetMemberListLevel(logrus.InfoLevel)
-	} else {
-		logger.SetStdLevel(logrus.DebugLevel)
-	}
+	if common.StrInSlice(option.Stage, []string{"test", "debug"}) {
+		logger.SetLogLevel(logrus.DebugLevel)
+	} // else use default logger init level: Info
 
 	logger.Infof("[ease gateway server: release=%s, commit=%s, repo=%s]",
 		version.RELEASE, version.COMMIT, version.REPO)
