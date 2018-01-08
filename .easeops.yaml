@@ -1,0 +1,25 @@
+name: easegateway
+
+images:
+  - name: megaease/easegateway-server
+    script: release/build-server-image.sh
+    registry: cnhub.megaease.com
+    environment: easeapm-build-hk
+    publish: true
+    version:
+      major: server_alpine-0.1
+      minor: 0
+  - name: megaease/easegateway-client
+    script: release/build-client-image.sh
+    registry: cnhub.megaease.com
+    environment: easeapm-build-hk
+    publish: true
+    version:
+      major: client_alpine-0.1
+      minor: 0
+
+notifications:
+  emails:
+    - csdvpn@gmail.com
+    - lzy.dev@gmail.com
+    - g7tianyi@easestack.com
