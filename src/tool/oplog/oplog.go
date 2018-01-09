@@ -24,17 +24,21 @@ func RetrieveOpLog(c *cli.Context) error {
 	opLogPath := c.String("path")
 	opLog, err := gateway.NewOPLog(opLogPath)
 	if err != nil {
-		return cli.NewExitError(fmt.Sprintf("open oplog failed: %v", err), 2)
+		return cli.NewExitError(fmt.Sprintf("open oplog failed: %v", err), 1)
 	}
 	defer opLog.Close()
 
 	maxSeq := opLog.MaxSeq()
 	begin := c.Uint64("begin")
 	if begin > maxSeq {
-		return cli.NewExitError(fmt.Sprintf("`begin` parameter invalid, it must be equal or lower than current max sequence: %d", maxSeq), 1)
+		return cli.NewExitError(
+			fmt.Sprintf("`begin` parameter invalid, it must be equal or lower than current max sequence: %d", maxSeq),
+			3)
 	}
 	count := c.Uint64("count")
-	if begin+count > maxSeq {
+	if maxSeq == 0 {
+		count = 0
+	} else if begin+count > maxSeq {
 		count = maxSeq - begin + 1
 	}
 
@@ -46,9 +50,12 @@ func RetrieveOpLog(c *cli.Context) error {
 		Count:     count,
 	}
 
-	operations, err, _ := opLog.Retrieve(begin, count)
-	if err != nil {
-		return cli.NewExitError(fmt.Sprintf("retrieve oplog failed: %v", err), 3)
+	var operations []*gateway.Operation
+	if maxSeq > 0 {
+		operations, err, _ = opLog.Retrieve(begin, count)
+		if err != nil {
+			return cli.NewExitError(fmt.Sprintf("retrieve oplog failed: %v", err), 4)
+		}
 	}
 
 	oplogs.Operations = make([]json.RawMessage, len(operations))
@@ -61,8 +68,9 @@ func RetrieveOpLog(c *cli.Context) error {
 	}
 
 	if byt, err = json.Marshal(oplogs); err != nil {
-		return cli.NewExitError(fmt.Sprintf("marshal oplogs failed: %v", err), 4)
+		return cli.NewExitError(fmt.Sprintf("marshal oplogs failed: %v", err), 5)
 	}
+
 	fmt.Printf("%s\n", byt)
 	return nil
 }
