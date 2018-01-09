@@ -20,7 +20,7 @@ function err() {
 
 # ================================================================================
 
-log "Build easegateway image.."
+log "Build easegateway server image.."
 
 cd ${SCRIPTPATH}/..
 make vendor_clean
