@@ -27,16 +27,8 @@ func (gc *GatewayCluster) issueOperation(group string, timeout time.Duration, re
 			InternalServerError)
 	}
 
-	requestParam := cluster.RequestParam{
-		TargetNodeTags: map[string]string{
-			groupTagKey: group,
-			modeTagKey:  WriteMode.String(),
-		},
-		Timeout:            timeout,
-		ResponseRelayCount: 1, // fault tolerance on network issue
-	}
-
-	future, err := gc.cluster.Request(requestName, requestPayload, &requestParam)
+	requestParam := newRequestParam(nil, group, WriteMode, timeout)
+	future, err := gc.cluster.Request(requestName, requestPayload, requestParam)
 	if err != nil {
 		return newClusterError(fmt.Sprintf("issue operation (sequence=%d) failed: %v", req.StartSeq, err),
 			InternalServerError)
@@ -248,23 +240,14 @@ func (gc *GatewayCluster) handleOperation(req *cluster.RequestEvent) {
 	for _, member := range requestMembers {
 		requestMemberNames = append(requestMemberNames, member.NodeName)
 	}
-	requestParam := cluster.RequestParam{
-		TargetNodeNames: requestMemberNames,
-		// TargetNodeNames is enough but TargetNodeTags could make rule strict
-		TargetNodeTags: map[string]string{
-			groupTagKey: gc.localGroupName(),
-			modeTagKey:  ReadMode.String(),
-		},
-		Timeout:            reqOperation.Timeout,
-		ResponseRelayCount: 1, // fault tolerance on network issue
-	}
 
+	requestParam := newRequestParam(requestMemberNames, gc.localGroupName(), ReadMode, reqOperation.Timeout)
 	requestName := fmt.Sprintf("%s_relay", req.RequestName)
 	requestPayload := make([]byte, len(req.RequestPayload))
 	copy(requestPayload, req.RequestPayload)
 	requestPayload[0] = byte(operationRelayMessage)
 
-	future, err := gc.cluster.Request(requestName, requestPayload, &requestParam)
+	future, err := gc.cluster.Request(requestName, requestPayload, requestParam)
 	if err != nil {
 		logger.Errorf("[send operation relay message failed: %v]", err)
 		gc.respondOperationErr(req, InternalServerError, err.Error())

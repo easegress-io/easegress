@@ -167,18 +167,10 @@ func (gc *GatewayCluster) QueryGroupMaxSeq(group string, timeout time.Duration) 
 			InternalServerError)
 	}
 
-	requestParam := cluster.RequestParam{
-		TargetNodeTags: map[string]string{
-			groupTagKey: group,
-			modeTagKey:  WriteMode.String(),
-		},
-		Timeout:            timeout,
-		ResponseRelayCount: 1, // fault tolerance on network issue
-	}
-
+	requestParam := newRequestParam(nil, group, WriteMode, timeout)
 	requestName := fmt.Sprintf("(group:%s)query_group_max_sequence", group)
 
-	future, err := gc.cluster.Request(requestName, requestPayload, &requestParam)
+	future, err := gc.cluster.Request(requestName, requestPayload, requestParam)
 	if err != nil {
 		return 0, newClusterError(fmt.Sprintf("query max sequence failed: %v", err), InternalServerError)
 	}

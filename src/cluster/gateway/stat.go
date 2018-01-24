@@ -95,18 +95,8 @@ func (gc *GatewayCluster) issueStat(group string, timeout time.Duration, detail 
 			fmt.Sprintf("choose member to aggregate statistics failed: %v", err), InternalServerError)
 	}
 
-	requestParam := cluster.RequestParam{
-		TargetNodeNames: []string{targetMember.NodeName},
-		// TargetNodeNames is enough but TargetNodeTags could make rule strict
-		TargetNodeTags: map[string]string{
-			groupTagKey: group,
-			modeTagKey:  targetMember.NodeTags[modeTagKey],
-		},
-		Timeout:            timeout,
-		ResponseRelayCount: 1, // fault tolerance on network issue
-	}
-
-	future, err := gc.cluster.Request(requestName, requestPayload, &requestParam)
+	requestParam := newRequestParam([]string{targetMember.NodeName}, group, Mode(targetMember.NodeTags[modeTagKey]), timeout)
+	future, err := gc.cluster.Request(requestName, requestPayload, requestParam)
 	if err != nil {
 		return nil, newClusterError(
 			fmt.Sprintf("issue statistics aggregation failed: %v", err), InternalServerError)
@@ -722,22 +712,13 @@ func (gc *GatewayCluster) handleStat(req *cluster.RequestEvent) {
 			requestMemberNames = append(requestMemberNames, member.NodeName)
 		}
 
-		requestParam := cluster.RequestParam{
-			TargetNodeNames: requestMemberNames,
-			// TargetNodeNames is enough but TargetNodeTags could make rule strict
-			TargetNodeTags: map[string]string{
-				groupTagKey: gc.localGroupName(),
-			},
-			Timeout:            reqStat.Timeout,
-			ResponseRelayCount: 1, // fault tolerance on network issue
-		}
-
+		requestParam := newRequestParam(requestMemberNames, gc.localGroupName(), NilMode, reqStat.Timeout)
 		requestName := fmt.Sprintf("%s_relay", req.RequestName)
 		requestPayload := make([]byte, len(req.RequestPayload))
 		copy(requestPayload, req.RequestPayload)
 		requestPayload[0] = byte(statRelayMessage)
 
-		future, err := gc.cluster.Request(requestName, requestPayload, &requestParam)
+		future, err := gc.cluster.Request(requestName, requestPayload, requestParam)
 		if err != nil {
 			logger.Errorf("[send stat relay message failed: %v]", err)
 			gc.respondRetrieveErr(req, InternalServerError, err.Error())

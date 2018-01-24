@@ -154,19 +154,10 @@ func (gc *GatewayCluster) syncOpLog(startSeq, countLimit uint64) {
 		return
 	}
 
-	requestParam := cluster.RequestParam{
-		TargetNodeNames: []string{member.NodeName},
-		// TargetNodeNames is enough but TargetNodeTags could make rule strict
-		TargetNodeTags: map[string]string{
-			groupTagKey: gc.localGroupName(),
-			modeTagKey:  member.NodeTags[modeTagKey],
-		},
-		Timeout:            gc.conf.OPLogPullTimeout,
-		ResponseRelayCount: 1,
-	}
+	requestParam := newRequestParam([]string{member.NodeName}, gc.localGroupName(), Mode(member.NodeTags[modeTagKey]), gc.conf.OPLogPullTimeout)
 
 	future, _ := gc.cluster.Request(fmt.Sprintf("pull_oplog(StartSeq=%d,Count=%d)",
-		reqOPLogPull.StartSeq, reqOPLogPull.CountLimit), payload, &requestParam)
+		reqOPLogPull.StartSeq, reqOPLogPull.CountLimit), payload, requestParam)
 	select {
 	case memberResp, ok := <-future.Response():
 		if !ok {

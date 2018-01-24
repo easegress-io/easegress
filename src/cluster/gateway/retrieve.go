@@ -51,16 +51,8 @@ func (gc *GatewayCluster) issueRetrieve(group string, timeout time.Duration,
 			InternalServerError)
 	}
 
-	requestParam := cluster.RequestParam{
-		TargetNodeTags: map[string]string{
-			groupTagKey: group,
-			modeTagKey:  WriteMode.String(),
-		},
-		Timeout:            timeout,
-		ResponseRelayCount: 1, // fault tolerance on network issue
-	}
-
-	future, err := gc.cluster.Request(requestName, requestPayload, &requestParam)
+	requestParam := newRequestParam(nil, group, WriteMode, timeout)
+	future, err := gc.cluster.Request(requestName, requestPayload, requestParam)
 	if err != nil {
 		return nil, newClusterError(
 			fmt.Sprintf("issue retrieve failed: %v", err), InternalServerError)
@@ -414,23 +406,14 @@ func (gc *GatewayCluster) handleRetrieve(req *cluster.RequestEvent) {
 		requestMemberNames = append(requestMemberNames, member.NodeName)
 	}
 
-	requestParam := cluster.RequestParam{
-		TargetNodeNames: requestMemberNames,
-		// TargetNodeNames is enough but TargetNodeTags could make rule strict
-		TargetNodeTags: map[string]string{
-			groupTagKey: gc.localGroupName(),
-			modeTagKey:  ReadMode.String(),
-		},
-		Timeout:            reqRetrieve.Timeout,
-		ResponseRelayCount: 1, // fault tolerance on network issue
-	}
+	requestParam := newRequestParam(requestMemberNames, gc.localGroupName(), ReadMode, reqRetrieve.Timeout)
 
 	requestName := fmt.Sprintf("%s_relay", req.RequestName)
 	requestPayload := make([]byte, len(req.RequestPayload))
 	copy(requestPayload, req.RequestPayload)
 	requestPayload[0] = byte(retrieveRelayMessage)
 
-	future, err := gc.cluster.Request(requestName, requestPayload, &requestParam)
+	future, err := gc.cluster.Request(requestName, requestPayload, requestParam)
 	if err != nil {
 		logger.Errorf("[send retrieve relay message failed: %v]", err)
 		gc.respondRetrieveErr(req, InternalServerError, err.Error())

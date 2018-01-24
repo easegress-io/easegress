@@ -25,6 +25,7 @@ func (m Mode) String() string {
 const (
 	WriteMode Mode = "Write"
 	ReadMode  Mode = "Read"
+	NilMode   Mode = ""
 
 	groupTagKey = "group"
 	modeTagKey  = "mode"
