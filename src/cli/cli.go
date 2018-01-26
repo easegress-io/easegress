@@ -12,6 +12,7 @@ import (
 
 	admin_api "github.com/hexdecteam/easegateway-go-client/rest/1.0/admin/v1"
 	cluster_admin_api "github.com/hexdecteam/easegateway-go-client/rest/1.0/cluster/admin/v1"
+	cluster_health_api "github.com/hexdecteam/easegateway-go-client/rest/1.0/cluster/health/v1"
 	cluster_stat_api "github.com/hexdecteam/easegateway-go-client/rest/1.0/cluster/statistics/v1"
 	health_api "github.com/hexdecteam/easegateway-go-client/rest/1.0/health/v1"
 	stat_api "github.com/hexdecteam/easegateway-go-client/rest/1.0/statistics/v1"
@@ -119,6 +120,10 @@ func healthApi() *health_api.HealthApi {
 
 func clusterAdminApi() *cluster_admin_api.ClusterAdminApi {
 	return cluster_admin_api.NewClusterAdminApi(serviceAddress)
+}
+
+func clusterHealthApi() *cluster_health_api.ClusterHealthApi {
+	return cluster_health_api.NewClusterHealthApi(serviceAddress)
 }
 
 func clusterStatApi() *cluster_stat_api.ClusterStatisticsApi {

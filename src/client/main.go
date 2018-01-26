@@ -61,7 +61,7 @@ func main() {
 
 	app.Commands = []urfavecli.Command{
 		adminCmd, statCmd, healthCmd,
-		admincCmd, statcCmd,
+		admincCmd, statcCmd, healthcCmd,
 	}
 
 	err := app.Run(os.Args)
@@ -240,6 +240,88 @@ var healthCmd = urfavecli.Command{
 			Name:   "info",
 			Usage:  "Retrieve information of the gateway service instance",
 			Action: cli.Info,
+		},
+	},
+}
+
+var healthcCmd = urfavecli.Command{
+	Name:  "healthc",
+	Usage: "Cluster Health Interface",
+	Flags: []urfavecli.Flag{
+		urfavecli.GenericFlag{
+			Name:  "timeout",
+			Usage: "Indicates request timeout limitation in seconds (10-65535)",
+			Value: common.NewUint16Value(120, nil),
+		},
+	},
+	Subcommands: []urfavecli.Command{
+		{
+			Name:  "check",
+			Usage: "Check health of the gateway cluster",
+			Subcommands: []urfavecli.Command{
+				{
+					Name:   "cluster",
+					Usage:  "Check health of the gateway cluster",
+					Action: cli.ClusterHealthCheck,
+				},
+				{
+					Name:   "group",
+					Usage:  "Check health of the group",
+					Action: cli.ClusterGroupHealthCheck,
+				},
+			},
+		},
+		{
+			Name:  "info",
+			Usage: "Retrieve information of the gateway cluster",
+			Subcommands: []urfavecli.Command{
+				{
+					Name:  "ls",
+					Usage: "Retrieve list of groups or members in a gateway cluster",
+					Subcommands: []urfavecli.Command{
+						{
+							Name:   "groups",
+							Usage:  "Retrieve groups in gateway cluster",
+							Action: cli.ClusterGetGroups,
+						},
+						{
+							Name:  "members",
+							Usage: "Retrieve group members in gateway cluster",
+							Flags: []urfavecli.Flag{
+								urfavecli.StringFlag{
+									Name:  "group",
+									Usage: "Indicates group name in cluster the request perform to",
+									Value: "default",
+								},
+							},
+							Action: cli.ClusterGetMembers,
+						},
+					},
+				},
+				{
+					Name:  "get",
+					Usage: "Retrieve group or member detail",
+					Subcommands: []urfavecli.Command{
+						{
+							Name:   "group",
+							Usage:  "Retrieve group detail in gateway cluster",
+							Action: cli.ClusterGetGroup,
+						},
+						{
+							Name:  "member",
+							Usage: "Retrieve member detail in gateway cluster",
+							Flags: []urfavecli.Flag{
+								urfavecli.StringFlag{
+									Name:  "group",
+									Usage: "Indicates group name in cluster the request perform to",
+									Value: "default",
+								},
+							},
+							Action: cli.ClusterGetMember,
+						},
+					},
+				},
+			},
 		},
 	},
 }

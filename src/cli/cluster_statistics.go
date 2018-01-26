@@ -22,10 +22,10 @@ func ClusterRetrievePluginIndicatorNames(c *cli.Context) error {
 	errs := &multipleErr{}
 
 	if len(args) < 1 {
-		errs.append(fmt.Errorf("pipeline name requied"))
+		errs.append(fmt.Errorf("pipeline name required"))
 		return errs.Return()
 	} else if len(args) < 2 {
-		errs.append(fmt.Errorf("plugin name requied"))
+		errs.append(fmt.Errorf("plugin name required"))
 		return errs.Return()
 	}
 
