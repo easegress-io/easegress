@@ -2,204 +2,214 @@ package gateway
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
 	"cluster"
+	"common"
 	"logger"
-	"option"
 )
 
-// meta
-func (gc *GatewayCluster) RetrieveGroups() []string {
-	groups := make([]string, 0)
+// cluster infos
 
+// RetrieveGroupsList retrieve groups list from current node
+func (gc *GatewayCluster) RetrieveGroupsList() ([]string, *ClusterError) {
 	if gc.Stopped() {
-		return groups
-	}
-
-	totalMembers := gc.cluster.Members()
-	groupsBook := make(map[string]struct{})
-
-	for _, member := range totalMembers {
-		group := member.NodeTags[groupTagKey]
-		if _, ok := groupsBook[group]; ok {
-			continue
-		}
-		groupsBook[group] = struct{}{}
-
-		groups = append(groups, group)
-	}
-
-	sort.Strings(groups)
-	return groups
-}
-
-type GroupInfo struct {
-	Name        string   `json:"group_name"`
-	GroupMaxSeq string   `json:"group_operation_sequence"`
-	WriteNode   string   `json:"write_node"`
-	ReadNodes   []string `json:"read_nodes"`
-}
-
-func (gc *GatewayCluster) RetrieveGroup(group string) *GroupInfo {
-	if gc.Stopped() {
-		return nil
-	}
-
-	totalMembers := gc.cluster.Members()
-	groupInfo := &GroupInfo{
-		Name: group,
-	}
-	groupInfo.ReadNodes = make([]string, 0)
-
-	for _, member := range totalMembers {
-		if member.NodeTags[groupTagKey] != groupInfo.Name {
-			continue
-		}
-
-		if member.NodeTags[modeTagKey] == string(WriteMode) {
-			groupInfo.WriteNode = member.NodeName
-		} else {
-			groupInfo.ReadNodes = append(groupInfo.ReadNodes, member.NodeName)
-		}
-	}
-
-	groupMaxSeqStr := "UNKNOW"
-	groupMaxSeq, err := gc.QueryGroupMaxSeq(option.ClusterGroup, option.ClusterDefaultOpTimeout)
-	if err == nil {
-		groupMaxSeqStr = fmt.Sprintf("%d", groupMaxSeq)
-	}
-	groupInfo.GroupMaxSeq = groupMaxSeqStr
-
-	return groupInfo
-}
-
-func (gc *GatewayCluster) RetrieveMembers() []string {
-	members := make([]string, 0)
-
-	if gc.Stopped() {
-		return members
-	}
-
-	totalMembers := gc.cluster.Members()
-
-	for _, member := range totalMembers {
-		members = append(members, formatMember(&member))
-	}
-
-	sort.Strings(members)
-	return members
-}
-
-type MemberInfo struct {
-	Name                  string   `json:"node_name"`
-	Mode                  string   `json:"node_mode"`
-	Group                 string   `json:"group_name"`
-	GroupMaxSeq           string   `json:"group_operation_sequence"`
-	LocalMaxSeq           string   `json:"local_operation_sequence"`
-	Peers                 []string `json:"alive_peers_in_group"`
-	OPLogMaxSeqGapToPull  uint16   `json:"oplog_max_seq_gap_to_pull"`
-	OPLogPullMaxCountOnce uint16   `json:"oplog_pull_max_count_once"`
-	OPLogPullInterval     int      `json:"oplog_pull_interval_in_second"`
-	OPLogPullTimeout      int      `json:"oplog_pull_timeout_in_second"`
-}
-
-func formatMember(member *cluster.Member) string {
-	if member == nil {
-		return ""
-	}
-	return fmt.Sprintf("%s (%s:%d) (%s:%s)",
-		member.NodeName, member.Address.String(), member.Port,
-		member.NodeTags[groupTagKey], member.NodeTags[modeTagKey])
-}
-
-func (gc *GatewayCluster) RetrieveMember(nodeName string) *MemberInfo {
-	if gc.Stopped() {
-		return nil
-	}
-
-	groupMaxSeqStr := "UNKNOW"
-	groupMaxSeq, err := gc.QueryGroupMaxSeq(option.ClusterGroup, option.ClusterDefaultOpTimeout)
-	if err == nil {
-		groupMaxSeqStr = fmt.Sprintf("%d", groupMaxSeq)
-	}
-
-	// keep same datatype of group max sequence for client
-	localMaxSeqStr := fmt.Sprintf("%d", gc.OPLog().MaxSeq())
-
-	peers := make([]string, 0)
-	for _, member := range gc.RestAliveMembersInSameGroup() {
-		peers = append(peers, formatMember(&member))
-	}
-
-	return &MemberInfo{
-		Name:                  gc.NodeName(),
-		Mode:                  strings.ToLower(gc.Mode().String()),
-		Group:                 option.ClusterGroup,
-		GroupMaxSeq:           groupMaxSeqStr,
-		LocalMaxSeq:           localMaxSeqStr,
-		Peers:                 peers,
-		OPLogMaxSeqGapToPull:  option.OPLogMaxSeqGapToPull,
-		OPLogPullMaxCountOnce: option.OPLogPullMaxCountOnce,
-		OPLogPullInterval:     int(option.OPLogPullInterval.Seconds()),
-		OPLogPullTimeout:      int(option.OPLogPullTimeout.Seconds()),
-	}
-}
-
-// operation
-func (gc *GatewayCluster) QueryGroupMaxSeq(group string, timeout time.Duration) (uint64, *ClusterError) {
-	if gc.Stopped() {
-		return 0, newClusterError("can not query max operation sequence due to cluster gone",
+		return nil, newClusterError("can not query group info due to cluster gone",
 			IssueMemberGoneError)
 	}
 
-	req := new(ReqQueryGroupMaxSeq)
-	requestPayload, err := cluster.PackWithHeader(req, uint8(queryGroupMaxSeqMessage))
-	if err != nil {
-		logger.Errorf("[BUG: pack request (header=%d) to %#v failed: %v]",
-			uint8(queryGroupMaxSeqMessage), req, err)
+	groups := gc.groupsInCluster()
 
-		return 0, newClusterError(
-			fmt.Sprintf("pack request (header=%d) to %#v failed: %v",
-				uint8(queryGroupMaxSeqMessage), req, err),
-			InternalServerError)
-	}
-
-	requestParam := newRequestParam(nil, group, WriteMode, timeout)
-	requestName := fmt.Sprintf("(group:%s)query_group_max_sequence", group)
-
-	future, err := gc.cluster.Request(requestName, requestPayload, requestParam)
-	if err != nil {
-		return 0, newClusterError(fmt.Sprintf("query max sequence failed: %v", err), InternalServerError)
-	}
-
-	var memberResp *cluster.MemberResponse
-
-	select {
-	case r, ok := <-future.Response():
-		if !ok {
-			return 0, newClusterError("query max sequence in the group timeout", TimeoutError)
-		}
-		memberResp = r
-	case <-gc.stopChan:
-		return 0, newClusterError("the member gone during issuing max sequence query", IssueMemberGoneError)
-	}
-
-	if len(memberResp.Payload) == 0 {
-		return 0, newClusterError("query max sequence responds empty response", InternalServerError)
-	}
-
-	var resp RespQueryGroupMaxSeq
-	err = cluster.Unpack(memberResp.Payload[1:], &resp)
-	if err != nil {
-		return 0, newClusterError(fmt.Sprintf("unpack max sequence response failed: %v", err),
-			InternalServerError)
-	}
-
-	return uint64(resp), nil
+	return groups, nil
 }
+
+// RetrieveGroups retrieve all groups detail information from corresponding writer nodes
+func (gc *GatewayCluster) RetrieveGroups(timeout time.Duration) (map[string]*RespQueryGroup, *ClusterError) {
+	if gc.Stopped() {
+		return nil, newClusterError("can not query groups info due to cluster gone",
+			IssueMemberGoneError)
+	}
+
+	writerNames := gc.aliveNodesInCluster(WriteMode)
+	reqParam := newRequestParam(writerNames, "", WriteMode, timeout)
+	requestName := "(groups)query_groups"
+	req := new(ReqQueryGroup)
+	respPayloads, err, errType := gc.queryMultipleMembers(req, uint8(queryGroupMessage), requestName, reqParam)
+	if err != nil {
+		return nil, newClusterError(fmt.Sprintf("query groups info failed: %v", err), errType)
+	}
+
+	rets := make(map[string]*RespQueryGroup, len(respPayloads))
+	for name := range respPayloads {
+		var resp RespQueryGroup
+		err = cluster.Unpack(respPayloads[name][1:], &resp)
+		if err != nil {
+			return nil, newClusterError(fmt.Sprintf("unpack query group response failed: %v", err),
+				InternalServerError)
+		}
+		rets[name] = &resp
+	}
+	return rets, nil
+}
+
+// RetrieveGroup retrieve group detail information from writer node of specified group
+func (gc *GatewayCluster) RetrieveGroup(group string, timeout time.Duration) (*RespQueryGroupPayload, *ClusterError) {
+	if gc.Stopped() {
+		return nil, newClusterError("can not query group info due to cluster gone",
+			IssueMemberGoneError)
+	}
+
+	if !gc.groupExistInCluster(group) {
+		return nil, newClusterError(fmt.Sprintf("query group failed, group %s doesn't exist", group), QueryGroupNotFoundError)
+	}
+
+	reqParam := newRequestParam(nil, group, WriteMode, timeout)
+	requestName := fmt.Sprintf("(group:%s)query_group", group)
+	req := new(ReqQueryGroup)
+	respPayload, err, errType := gc.querySingleMember(req, uint8(queryGroupMessage), requestName, reqParam)
+	if err != nil {
+		return nil, newClusterError(fmt.Sprintf("query group(%s) info from writer failed: %v", group, err), errType)
+	}
+
+	var resp RespQueryGroup
+	err = cluster.Unpack(respPayload[1:], &resp)
+	if err != nil {
+		return nil, newClusterError(fmt.Sprintf("unpack query group response failed: %v", err),
+			InternalServerError)
+	}
+
+	return &resp.RespQueryGroupPayload, resp.Err
+}
+
+// RetrieveMembers retrieve member list from writer node of specified group
+func (gc *GatewayCluster) RetrieveMembersList(group string, timeout time.Duration) (*RespQueryMembersList, *ClusterError) {
+	if gc.Stopped() {
+		return nil, newClusterError("can not query members list due to cluster gone",
+			IssueMemberGoneError)
+	}
+
+	if !gc.groupExistInCluster(group) {
+		return nil, newClusterError(fmt.Sprintf("query member lists failed, group %s doesn't exist", group), QueryGroupNotFoundError)
+	}
+
+	reqParam := newRequestParam(nil, group, WriteMode, timeout)
+	requestName := fmt.Sprintf("(group:%s)query_members_list", group)
+	req := new(ReqQueryMembersList)
+	respPayload, err, errType := gc.querySingleMember(req, uint8(queryMembersListMessage), requestName, reqParam)
+	if err != nil {
+		return nil, newClusterError(fmt.Sprintf("query members list failed: %v", err), errType)
+	}
+
+	var resp RespQueryMembersList
+	err = cluster.Unpack(respPayload[1:], &resp)
+	if err != nil {
+		return nil, newClusterError(fmt.Sprintf("unpack query members response failed: %v", err),
+			InternalServerError)
+	}
+
+	return &resp, nil
+}
+
+// RetrieveMember retrieve member information from specified member
+func (gc *GatewayCluster) RetrieveMember(group, nodeName string, timeout time.Duration) (*RespQueryMember, *ClusterError) {
+	if gc.Stopped() {
+		return nil, newClusterError("can not query member information due to cluster gone",
+			IssueMemberGoneError)
+	}
+
+	// We can rely on member list information on group's writer node
+	if gc.localGroupName() == group && gc.Mode() == WriteMode &&
+		!common.StrInSlice(nodeName, gc.aliveNodesInCluster(NilMode)) {
+		return nil, newClusterError(fmt.Sprintf("member %s doesn't alive", nodeName), QueryMemberNotFoundError)
+	}
+
+	reqParam := newRequestParam([]string{nodeName}, group, NilMode, timeout)
+	requestName := fmt.Sprintf("(group:%s,member:%s)query_member_info", group, nodeName)
+	req := new(ReqQuerySeq)
+	respPayload, err, errType := gc.querySingleMember(req, uint8(queryMemberMessage), requestName, reqParam)
+	if err != nil {
+		return nil, newClusterError(fmt.Sprintf("query member %s information failed: %v", nodeName, err), errType)
+	}
+
+	var resp RespQueryMember
+	err = cluster.Unpack(respPayload[1:], &resp)
+	if err != nil {
+		return nil, newClusterError(fmt.Sprintf("unpack query member response failed: %v", err),
+			InternalServerError)
+	}
+
+	return &resp, nil
+}
+
+// health check
+
+func (gc *GatewayCluster) checkGroupHealth(queryGroup *RespQueryGroupPayload) (GroupStatus, string) {
+	status := Green
+	var desc string
+	writerExist := false
+	for _, m := range queryGroup.MembersInfo.AliveMembers {
+		if m.Mode == strings.ToLower(WriteMode.String()) {
+			writerExist = true
+			break
+		}
+	}
+	if !writerExist {
+		status = Red
+		desc = "Writer node doesn't alive!"
+	} else if !queryGroup.OpLogGroupInfo.OpLogStatus.Synced {
+		status = Yellow
+		desc = "some member(s)'s operation logs are unsynced!"
+	}
+	return status, desc
+}
+
+// RetrieveGroupHealthStatus retrieves health status of specified group
+func (gc *GatewayCluster) RetrieveGroupHealthStatus(group string, timeout time.Duration) (*RespQueryGroupHealthPayload, *ClusterError) {
+	groupInfo, err := gc.RetrieveGroup(group, timeout)
+	if err != nil {
+		return nil, err
+	}
+	status, desc := gc.checkGroupHealth(groupInfo)
+
+	resp := &RespQueryGroupHealthPayload{
+		ClusterResp: groupInfo.ClusterResp,
+		Status:      status,
+		Description: desc,
+	}
+	return resp, nil
+}
+
+func (gc *GatewayCluster) RetrieveClusterHealthStatus(timeout time.Duration) (*RespQueryGroupHealthPayload, *ClusterError) {
+	groupsInfo, err := gc.RetrieveGroups(timeout)
+	if err != nil {
+		return nil, err
+	}
+	status := Green
+	var desc string
+	for name, groupInfo := range groupsInfo {
+		if groupInfo.Err != nil {
+			return nil, newClusterError(fmt.Sprintf("query group %s failed: %v", name, groupInfo.Err.Message), groupInfo.Err.Type)
+		}
+		s, d := gc.checkGroupHealth(&groupInfo.RespQueryGroupPayload)
+		if s == Red {
+			status = s
+			desc = fmt.Sprintf("group(%s): %s", name, d)
+			break
+		} else if status == Green && s == Yellow {
+			status = s
+			desc = fmt.Sprintf("group(%s): %s", name, d)
+		}
+	}
+	resp := &RespQueryGroupHealthPayload{
+		ClusterResp: ClusterResp{common.Now()},
+		Status:      status,
+		Description: desc,
+	}
+	return resp, nil
+}
+
+// operation
 
 func (gc *GatewayCluster) CreatePlugin(group string, timeout time.Duration, startSeq uint64, syncAll bool,
 	typ string, conf []byte) *ClusterError {

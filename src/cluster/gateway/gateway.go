@@ -3,6 +3,7 @@ package gateway
 import (
 	"fmt"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -23,9 +24,9 @@ func (m Mode) String() string {
 }
 
 const (
+	NilMode   Mode = ""
 	WriteMode Mode = "Write"
 	ReadMode  Mode = "Read"
-	NilMode   Mode = ""
 
 	groupTagKey = "group"
 	modeTagKey  = "mode"
@@ -238,11 +239,26 @@ LOOP:
 				}
 
 				switch MessageType(event.RequestPayload[0]) {
-				case queryGroupMaxSeqMessage:
-					logger.Debugf("[member %s received queryGroupMaxSeqMessage message]",
+				case querySeqMessage:
+					logger.Debugf("[member %s received querySeqMessage message]",
 						gc.clusterConf.NodeName)
 
-					go gc.handleQueryGroupMaxSeq(event)
+					go gc.handleQuerySequence(event)
+				case queryMemberMessage:
+					logger.Debugf("[member %s received queryMemberMessage message]",
+						gc.clusterConf.NodeName)
+
+					go gc.handleQueryMember(event)
+				case queryMembersListMessage:
+					logger.Debugf("[member %s received queryMembersListMessage message]",
+						gc.clusterConf.NodeName)
+
+					go gc.handleQueryMembersList(event)
+				case queryGroupMessage:
+					logger.Debugf("[member %s received queryGroupMessage message]",
+						gc.clusterConf.NodeName)
+
+					go gc.handleQueryGroup(event)
 				case operationMessage:
 					if gc.Mode() == WriteMode {
 						logger.Debugf("[member %s received operationMessage message]",
@@ -327,10 +343,65 @@ LOOP:
 	}
 }
 
+func (gc *GatewayCluster) localMemberName() string {
+	return gc.conf.ClusterMemberName
+}
+
 func (gc *GatewayCluster) localGroupName() string {
 	return gc.cluster.GetConfig().NodeTags[groupTagKey]
 }
 
+func (gc *GatewayCluster) aliveNodesInCluster(mode Mode) []string {
+	nodes := make([]string, 0)
+	totalMembers := gc.cluster.Members()
+	nodesBook := make(map[string]struct{})
+
+	for _, member := range totalMembers {
+		memberMode := Mode(member.NodeTags[modeTagKey])
+		if member.Status == cluster.MemberAlive && (mode == NilMode || mode == memberMode) {
+			if _, ok := nodesBook[member.NodeName]; ok {
+				continue
+			}
+			nodesBook[member.NodeName] = struct{}{}
+			nodes = append(nodes, member.NodeName)
+		}
+	}
+
+	sort.Strings(nodes)
+	return nodes
+}
+
+func (gc *GatewayCluster) groupsInCluster() []string {
+	groups := make([]string, 0)
+	totalMembers := gc.cluster.Members()
+	groupsBook := make(map[string]struct{})
+
+	for _, member := range totalMembers {
+		group := member.NodeTags[groupTagKey]
+		if _, ok := groupsBook[group]; ok {
+			continue
+		}
+		groupsBook[group] = struct{}{}
+
+		groups = append(groups, group)
+	}
+	sort.Strings(groups)
+	return groups
+}
+
+func (gc *GatewayCluster) groupExistInCluster(group string) bool {
+	groups := gc.groupsInCluster()
+	exist := false
+	for _, name := range groups {
+		if group == name {
+			exist = true
+			break
+		}
+	}
+	return exist
+}
+
+// RestAliveMembersInSameGroup is used to retrieve rest alive members which is in the same group with current node
 func (gc *GatewayCluster) RestAliveMembersInSameGroup() (ret []cluster.Member) {
 	totalMembers := gc.cluster.Members()
 
@@ -355,22 +426,18 @@ func (gc *GatewayCluster) RestAliveMembersInSameGroup() (ret []cluster.Member) {
 	return ret
 }
 
-func (gc *GatewayCluster) handleQueryGroupMaxSeq(req *cluster.RequestEvent) {
-	ms := gc.log.MaxSeq()
-
-	payload, err := cluster.PackWithHeader(RespQueryGroupMaxSeq(ms), uint8(queryGroupMaxSeqMessage))
+func (gc *GatewayCluster) handleResp(req *cluster.RequestEvent, header uint8, resp interface{}) {
+	payload, err := cluster.PackWithHeader(resp, header)
 	if err != nil {
-		logger.Errorf("[BUG: PackWithHeader max sequence %d failed: %v]", ms, err)
+		logger.Errorf("[BUG: PackWithHeader %v failed: %v]", resp, err)
 		return
 	}
 
 	err = req.Respond(payload)
 	if err != nil {
-		logger.Errorf("[respond max sequence to request %s, node %s failed: %v]",
+		logger.Errorf("[respond to request %s, node %s failed: %v]",
 			req.RequestName, req.RequestNodeName, err)
 	}
-
-	logger.Debugf("[member %s responded queryGroupMaxSeqMessage message]", gc.clusterConf.NodeName)
 }
 
 // recordResp just records known response of member and ignore others.

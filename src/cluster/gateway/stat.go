@@ -48,8 +48,7 @@ func (gc *GatewayCluster) chooseMemberToAggregateStat(group string) (*cluster.Me
 func (gc *GatewayCluster) issueStat(group string, timeout time.Duration, detail bool,
 	requestName string, filter interface{}) (interface{}, *ClusterError) {
 	req := &ReqStat{
-		Timeout: timeout,
-		Detail:  detail,
+		Detail: detail,
 	}
 
 	switch filter := filter.(type) {
@@ -107,7 +106,7 @@ func (gc *GatewayCluster) issueStat(group string, timeout time.Duration, detail 
 	select {
 	case r, ok := <-future.Response():
 		if !ok {
-			return nil, newClusterError("issue statistics aggregation timeout", TimeoutError)
+			return nil, newClusterError(fmt.Sprintf("issue statistics aggregation timeout %.2fs", timeout.Seconds()), TimeoutError)
 		}
 		memberResp = r
 	case <-gc.stopChan:
@@ -712,7 +711,7 @@ func (gc *GatewayCluster) handleStat(req *cluster.RequestEvent) {
 			requestMemberNames = append(requestMemberNames, member.NodeName)
 		}
 
-		requestParam := newRequestParam(requestMemberNames, gc.localGroupName(), NilMode, reqStat.Timeout)
+		requestParam := newRequestParam(requestMemberNames, gc.localGroupName(), NilMode, req.Timeout())
 		requestName := fmt.Sprintf("%s_relay", req.RequestName)
 		requestPayload := make([]byte, len(req.RequestPayload))
 		copy(requestPayload, req.RequestPayload)

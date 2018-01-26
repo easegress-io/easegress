@@ -20,7 +20,8 @@ const (
 )
 
 type Cluster struct {
-	conf *Config
+	conf           *Config
+	memberListConf *memberlist.Config
 
 	nodeJoinLock   sync.Mutex
 	nodeStatusLock sync.RWMutex
@@ -126,11 +127,16 @@ func Create(conf Config) (*Cluster, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create memberlist failed: %v", err)
 	}
+	c.memberListConf = memberListConf
 
 	go c.cleanupMember()
 	go c.reconnectFailedMembers()
 
 	return c, nil
+}
+
+func (c *Cluster) GetMemberListConfig() memberlist.Config {
+	return *c.memberListConf
 }
 
 func (c *Cluster) GetConfig() Config {
@@ -279,7 +285,7 @@ func (c *Cluster) Members() []Member {
 	c.membersLock.RLock()
 	defer c.membersLock.RUnlock()
 
-	var ret []Member
+	ret := make([]Member, 0, len(c.members))
 	for _, ms := range c.members {
 		ret = append(ret, ms.Member)
 	}

@@ -26,6 +26,8 @@ const (
 	OperationUnknownFailureError
 	OperationPartiallyCompleteError
 
+	QueryPartiallyCompleteError
+
 	RetrieveInconsistencyError
 	RetrievePipelinesError
 	RetrievePluginsError
@@ -43,6 +45,9 @@ const (
 	RetrieveTaskStatIndicatorNotFoundError
 	RetrieveTaskStatValueError
 	RetrieveTaskStatDescError
+
+	QueryGroupNotFoundError
+	QueryMemberNotFoundError
 )
 
 func (t ClusterErrorType) HTTPStatusCode() int {
@@ -113,6 +118,13 @@ func (t ClusterErrorType) HTTPStatusCode() int {
 		ret = http.StatusForbidden
 	case RetrieveTaskStatDescError:
 		ret = http.StatusForbidden
+
+	case QueryGroupNotFoundError:
+		ret = http.StatusNotFound
+	case QueryMemberNotFoundError:
+		ret = http.StatusNotFound
+	case QueryPartiallyCompleteError:
+		ret = http.StatusPartialContent
 	}
 
 	return ret

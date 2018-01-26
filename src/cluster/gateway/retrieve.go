@@ -63,7 +63,7 @@ func (gc *GatewayCluster) issueRetrieve(group string, timeout time.Duration,
 	select {
 	case r, ok := <-future.Response():
 		if !ok {
-			return nil, newClusterError("issue retrieve timeout", TimeoutError)
+			return nil, newClusterError(fmt.Sprintf("issue retrieve timeout %.2fs", timeout.Seconds()), TimeoutError)
 		}
 		memberResp = r
 	case <-gc.stopChan:

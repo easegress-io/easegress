@@ -88,6 +88,7 @@ type RequestEvent struct {
 	requestNodeAddress   net.IP
 	requestNodePort      uint16
 	responseRelayCount   uint
+	requestTimeout       time.Duration
 	acknowledged, closed bool
 }
 
@@ -102,6 +103,7 @@ func createRequestEvent(c *Cluster, msg *messageRequest) *RequestEvent {
 		requestFlags:       msg.RequestFlags,
 		requestNodeAddress: msg.RequestNodeAddress,
 		requestNodePort:    msg.RequestNodePort,
+		requestTimeout:     msg.RequestTimeout,
 		responseRelayCount: msg.ResponseRelayCount,
 	}
 
@@ -112,6 +114,10 @@ func createRequestEvent(c *Cluster, msg *messageRequest) *RequestEvent {
 	})
 
 	return ret
+}
+
+func (e *RequestEvent) Timeout() time.Duration {
+	return e.requestTimeout
 }
 
 func (e *RequestEvent) Type() EventType {
@@ -133,7 +139,7 @@ func (e *RequestEvent) Respond(payload []byte) error {
 	defer e.Unlock()
 
 	if e.closed {
-		return fmt.Errorf("request is closed")
+		return fmt.Errorf("request is closed, timeout %.2fs", e.requestTimeout.Seconds())
 	}
 
 	if e.flag(notifyRequestFlag) {

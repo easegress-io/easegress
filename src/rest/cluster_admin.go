@@ -90,7 +90,7 @@ func (s *clusterAdminServer) retrieveOperationSequence(w rest.ResponseWriter, r 
 		return
 	}
 
-	seq, clusterErr := s.gc.QueryGroupMaxSeq(group, time.Duration(req.TimeoutSec)*time.Second)
+	seq, clusterErr := s.gc.QueryWriterSequence(group, time.Duration(req.TimeoutSec)*time.Second)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
 		logger.Errorf("[%s]", clusterErr.Error())
@@ -99,7 +99,7 @@ func (s *clusterAdminServer) retrieveOperationSequence(w rest.ResponseWriter, r 
 
 	w.WriteJson(clusterOperationSeqResponse{
 		Group:             group,
-		OperationSequence: seq,
+		OperationSequence: seq.Max,
 	})
 
 	logger.Debugf("[operation sequence %d returned from cluster]", seq)

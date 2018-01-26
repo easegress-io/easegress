@@ -1,9 +1,14 @@
 package rest
 
 import (
+	"fmt"
 	"time"
 
+	"common"
 	"config"
+
+	"github.com/emicklei/go-restful"
+	"option"
 )
 
 //
@@ -93,20 +98,51 @@ type gatewayUpTimeRetrieveResponse struct {
 //
 // Cluster API
 //
+type errorResponse struct {
+	ErrorMsg string `json:"Error"` // json tag as 'Error' to keep consistent with other API's error response
+}
 
 type clusterRequest struct {
-	TimeoutSec uint16 `json:"timeout_sec"` // 10-65535, zero means using default value (option.ClusterDefaultOpTimeout)
+	TimeoutSec uint16 `json:"timeout_sec" optional:"true" default:"120" description:"Timeout for cluster operations"` // 10-65535, zero means using default value (option.ClusterDefaultOpTimeout)
+}
+
+func getRequest(request *restful.Request) (*clusterRequest, error) {
+	req := new(clusterRequest)
+	err := request.ReadEntity(req)
+	if err != nil {
+		return nil, fmt.Errorf("decode request failed: %v", err)
+	}
+
+	if req.TimeoutSec == 0 {
+		req.TimeoutSec = uint16(option.ClusterDefaultOpTimeout.Seconds())
+	} else if req.TimeoutSec < 10 {
+		return nil, fmt.Errorf("timeout (%d second(s)) should greater than or equal to 10 senconds",
+			req.TimeoutSec)
+	}
+	return req, nil
 }
 
 //
-// Cluster meta API
+// Cluster info API
 //
+type ClusterResponse struct {
+	Time time.Time `json:"time" description:"Timestamp of the response"`
+}
+
 type clusterRetrieveGroupsResponse struct {
-	Groups []string `json:"groups"`
+	ClusterResponse
+	GroupsCount int      `json:"groups_count"`
+	Groups      []string `json:"groups"`
 }
 
-type clusterRetrieveMembersResponse struct {
-	Members []string `json:"members"`
+func newClusterRetrieveGroupsResponse(groups []string) *clusterRetrieveGroupsResponse {
+	return &clusterRetrieveGroupsResponse{
+		ClusterResponse: ClusterResponse{
+			Time: common.Now(),
+		},
+		GroupsCount: len(groups),
+		Groups:      groups,
+	}
 }
 
 //

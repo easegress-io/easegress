@@ -27,7 +27,7 @@ type opLog struct {
 	sync.RWMutex
 	db                         *badger.DB
 	operationAppendedCallbacks *common.NamedCallbackSet
-	path string
+	path                       string
 }
 
 func NewOPLog(path string) (*opLog, error) {
@@ -92,12 +92,26 @@ func (op *opLog) Path() string {
 	return op.path
 }
 
+// Size returns the size of oplog files in bytes.
+func (op *opLog) Size() uint64 {
+	lsm, vlog := op.db.Size()
+	return uint64(lsm + vlog)
+}
+
 func (op *opLog) MaxSeq() uint64 {
 	op.RLock()
 	defer op.RUnlock()
 	txn := op.db.NewTransaction(false)
 	defer txn.Discard()
 	return op._locklessReadMaxSeq(txn)
+}
+
+func (op *opLog) MinSeq() uint64 {
+	op.RLock()
+	defer op.RUnlock()
+	txn := op.db.NewTransaction(false)
+	defer txn.Discard()
+	return op._locklessReadMinSeq(txn)
 }
 
 func (op *opLog) Append(startSeq uint64, operations []*Operation) (error, ClusterErrorType) {
@@ -259,6 +273,15 @@ func (op *opLog) DeleteOPLogAppendedCallback(name string) {
 }
 
 ////
+
+// _locklessReadMinSeq is designed to be invoked by locked methods of opLog
+func (op *opLog) _locklessReadMinSeq(txn *badger.Txn) uint64 {
+	// FIXME(shengdong) implement this when we need oplog shrank
+	if op._locklessReadMaxSeq(txn) > 0 {
+		return 1
+	}
+	return 0
+}
 
 // _locklessReadMaxSeq is designed to be invoked by locked methods of opLog
 func (op *opLog) _locklessReadMaxSeq(txn *badger.Txn) uint64 {

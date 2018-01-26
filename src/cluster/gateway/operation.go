@@ -39,7 +39,7 @@ func (gc *GatewayCluster) issueOperation(group string, timeout time.Duration, re
 	select {
 	case r, ok := <-future.Response():
 		if !ok {
-			return newClusterError(fmt.Sprintf("request operation (sequence=%d) timeout", req.StartSeq),
+			return newClusterError(fmt.Sprintf("request operation (sequence=%d) timeout %.2fs", req.StartSeq, timeout.Seconds()),
 				TimeoutError)
 		}
 		memberResp = r
