@@ -495,7 +495,7 @@ func (gc *GatewayCluster) RetrievePipelineTypes(group string, timeout time.Durat
 
 // statistics
 func (gc *GatewayCluster) StatPipelineIndicatorNames(group string, timeout time.Duration, detail bool,
-	pipelineName string) (*ResultStatIndicatorNames, *ClusterError) {
+	pipelineName string) (StatResult, *ClusterError) {
 
 	if gc.Stopped() {
 		return nil, newClusterError("can not retrieve pipeline statistics indicator names due to cluster gone",
@@ -512,19 +512,11 @@ func (gc *GatewayCluster) StatPipelineIndicatorNames(group string, timeout time.
 	if err != nil {
 		return nil, err
 	}
-
-	ret, ok := resp.(*ResultStatIndicatorNames)
-	if !ok {
-		logger.Errorf("[BUG: stat pipeline indicator names returns invalid result, got type %T]", resp)
-		return nil, newClusterError("stat pipeline indicator names returns invalid result",
-			InternalServerError)
-	}
-
-	return ret, nil
+	return resp, nil
 }
 
 func (gc *GatewayCluster) StatPipelineIndicatorValue(group string, timeout time.Duration, detail bool,
-	pipelineName, indicatorName string) (*ResultStatIndicatorValue, *ClusterError) {
+	pipelineName, indicatorName string) (StatResult, *ClusterError) {
 
 	if gc.Stopped() {
 		return nil, newClusterError("can not retrieve pipeline statistics indicator value due to cluster gone",
@@ -543,17 +535,11 @@ func (gc *GatewayCluster) StatPipelineIndicatorValue(group string, timeout time.
 		return nil, err
 	}
 
-	ret, ok := resp.(*ResultStatIndicatorValue)
-	if !ok {
-		logger.Errorf("[BUG: stat pipeline indicator value returns invalid result, got type %T]", resp)
-		return nil, newClusterError("stat pipeline indicator value returns invalid result", InternalServerError)
-	}
-
-	return ret, nil
+	return resp, nil
 }
 
 func (gc *GatewayCluster) StatPipelineIndicatorsValue(group string, timeout time.Duration, detail bool,
-	pipelineName string, indicatorNames []string) (*ResultStatIndicatorsValue, *ClusterError) {
+	pipelineName string, indicatorNames []string) (StatResult, *ClusterError) {
 
 	if gc.Stopped() {
 		return nil, newClusterError("can not retrieve pipeline statistics indicators value due to cluster gone",
@@ -572,17 +558,11 @@ func (gc *GatewayCluster) StatPipelineIndicatorsValue(group string, timeout time
 		return nil, err
 	}
 
-	ret, ok := resp.(*ResultStatIndicatorsValue)
-	if !ok {
-		logger.Errorf("[BUG: stat pipeline indicators value returns invalid result, got type %T]", resp)
-		return nil, newClusterError("stat pipeline indicators value returns invalid result", InternalServerError)
-	}
-
-	return ret, nil
+	return resp, nil
 }
 
 func (gc *GatewayCluster) StatPipelineIndicatorDesc(group string, timeout time.Duration, detail bool,
-	pipelineName, indicatorName string) (*ResultStatIndicatorDesc, *ClusterError) {
+	pipelineName, indicatorName string) (StatResult, *ClusterError) {
 
 	if gc.Stopped() {
 		return nil, newClusterError(
@@ -602,18 +582,11 @@ func (gc *GatewayCluster) StatPipelineIndicatorDesc(group string, timeout time.D
 		return nil, err
 	}
 
-	ret, ok := resp.(*ResultStatIndicatorDesc)
-	if !ok {
-		logger.Errorf("[BUG: stat pipeline indicator description returns invalid result, got type %T]", resp)
-		return nil, newClusterError("stat pipeline indicator description returns invalid result",
-			InternalServerError)
-	}
-
-	return ret, nil
+	return resp, nil
 }
 
 func (gc *GatewayCluster) StatPluginIndicatorNames(group string, timeout time.Duration, detail bool,
-	pipelineName, pluginName string) (*ResultStatIndicatorNames, *ClusterError) {
+	pipelineName, pluginName string) (StatResult, *ClusterError) {
 
 	if gc.Stopped() {
 		return nil, newClusterError("can not retrieve plugin statistics indicator names due to cluster gone",
@@ -632,17 +605,11 @@ func (gc *GatewayCluster) StatPluginIndicatorNames(group string, timeout time.Du
 		return nil, err
 	}
 
-	ret, ok := resp.(*ResultStatIndicatorNames)
-	if !ok {
-		logger.Errorf("[BUG: stat plugin indicator names returns invalid result, got type %T]", resp)
-		return nil, newClusterError("stat plugin indicator names returns invalid result", InternalServerError)
-	}
-
-	return ret, nil
+	return resp, nil
 }
 
 func (gc *GatewayCluster) StatPluginIndicatorValue(group string, timeout time.Duration, detail bool,
-	pipelineName, pluginName, indicatorName string) (*ResultStatIndicatorValue, *ClusterError) {
+	pipelineName, pluginName, indicatorName string) (StatResult, *ClusterError) {
 
 	if gc.Stopped() {
 		return nil, newClusterError("can not retrieve plugin statistics indicator value due to cluster gone",
@@ -662,17 +629,11 @@ func (gc *GatewayCluster) StatPluginIndicatorValue(group string, timeout time.Du
 		return nil, err
 	}
 
-	ret, ok := resp.(*ResultStatIndicatorValue)
-	if !ok {
-		logger.Errorf("[BUG: stat plugin indicator value returns invalid result, got type %T]", resp)
-		return nil, newClusterError("stat plugin indicator value returns invalid result", InternalServerError)
-	}
-
-	return ret, nil
+	return resp, nil
 }
 
 func (gc *GatewayCluster) StatPluginIndicatorDesc(group string, timeout time.Duration, detail bool,
-	pipelineName, pluginName, indicatorName string) (*ResultStatIndicatorDesc, *ClusterError) {
+	pipelineName, pluginName, indicatorName string) (StatResult, *ClusterError) {
 
 	if gc.Stopped() {
 		return nil, newClusterError(
@@ -693,18 +654,11 @@ func (gc *GatewayCluster) StatPluginIndicatorDesc(group string, timeout time.Dur
 		return nil, err
 	}
 
-	ret, ok := resp.(*ResultStatIndicatorDesc)
-	if !ok {
-		logger.Errorf("[BUG: stat plugin indicator description returns invalid result, got type %T]", resp)
-		return nil, newClusterError("stat plugin indicator description returns invalid result",
-			InternalServerError)
-	}
-
-	return ret, nil
+	return resp, nil
 }
 
 func (gc *GatewayCluster) StatTaskIndicatorNames(group string, timeout time.Duration, detail bool,
-	pipelineName string) (*ResultStatIndicatorNames, *ClusterError) {
+	pipelineName string) (StatResult, *ClusterError) {
 
 	if gc.Stopped() {
 		return nil, newClusterError("can not retrieve task statistics indicator names due to cluster gone",
@@ -722,17 +676,11 @@ func (gc *GatewayCluster) StatTaskIndicatorNames(group string, timeout time.Dura
 		return nil, err
 	}
 
-	ret, ok := resp.(*ResultStatIndicatorNames)
-	if !ok {
-		logger.Errorf("[BUG: stat task indicator names returns invalid result, got type %T]", resp)
-		return nil, newClusterError("stat task indicator names returns invalid result", InternalServerError)
-	}
-
-	return ret, nil
+	return resp, nil
 }
 
 func (gc *GatewayCluster) StatTaskIndicatorValue(group string, timeout time.Duration, detail bool,
-	pipelineName, indicatorName string) (*ResultStatIndicatorValue, *ClusterError) {
+	pipelineName, indicatorName string) (StatResult, *ClusterError) {
 
 	if gc.Stopped() {
 		return nil, newClusterError("can not retrieve task statistics indicator value due to cluster gone",
@@ -751,17 +699,11 @@ func (gc *GatewayCluster) StatTaskIndicatorValue(group string, timeout time.Dura
 		return nil, err
 	}
 
-	ret, ok := resp.(*ResultStatIndicatorValue)
-	if !ok {
-		logger.Errorf("[BUG: stat task indicator value returns invalid result, got type %T]", resp)
-		return nil, newClusterError("stat task indicator value returns invalid result", InternalServerError)
-	}
-
-	return ret, nil
+	return resp, nil
 }
 
 func (gc *GatewayCluster) StatTaskIndicatorDesc(group string, timeout time.Duration, detail bool,
-	pipelineName, indicatorName string) (*ResultStatIndicatorDesc, *ClusterError) {
+	pipelineName, indicatorName string) (StatResult, *ClusterError) {
 
 	if gc.Stopped() {
 		return nil, newClusterError(
@@ -781,12 +723,5 @@ func (gc *GatewayCluster) StatTaskIndicatorDesc(group string, timeout time.Durat
 		return nil, err
 	}
 
-	ret, ok := resp.(*ResultStatIndicatorDesc)
-	if !ok {
-		logger.Errorf("[BUG: stat task indicator description returns invalid result, got type %T]", resp)
-		return nil, newClusterError("stat task indicator description returns invalid result",
-			InternalServerError)
-	}
-
-	return ret, nil
+	return resp, nil
 }
