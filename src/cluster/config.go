@@ -41,9 +41,11 @@ type Config struct {
 	RecentRequestBookSize                                                     uint
 
 	// Gossip message retransmits = GossipRetransmitMult * log(N+1)
-	// Gateway cluster Message retransmits equals to MessageRetransmitMult * log(N+1)
+	// Gateway cluster Message(member or request) retransmits = MessageRetransmitMult * log(N+1)
+	GossipRetransmitMult, MessageRetransmitMult uint
+
 	// Request timeout equals to GossipInterval * RequestTimeoutMult * log(N+1)
-	GossipRetransmitMult, MessageRetransmitMult, RequestTimeoutMult uint
+	RequestTimeoutMult uint
 
 	// Member suspicion timeout equals to MemberSuspicionMult * log(N+1) * ProbeInterval
 	// Max member suspicion timeout equals to member suspicion timeout * SuspicionMaxTimeoutMult

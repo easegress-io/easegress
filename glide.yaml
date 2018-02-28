@@ -30,6 +30,7 @@ import:
 - package: golang.org/x/net/netutil
 - package: github.com/urfave/cli
 - package: github.com/hashicorp/memberlist
+- package: github.com/hashicorp/logutils
 - package: github.com/dgraph-io/badger
   version: master
 - package: github.com/ugorji/go

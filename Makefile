@@ -68,6 +68,16 @@ build_tool: ${TARGET_GATEWAY_TOOL}
 
 build_inventory: ${TARGET_INVENTORY}
 
+# subnet sets up the require subnet for testing on darwin (osx) - you must run
+# this before running other tests if you are on osx.
+subnet::
+	@sh -c "'${MKFILE_DIR}/scripts/setup_test_subnet.sh'"
+
+# test runs the test suite
+## TODO (shengdong, zhiyan) make xargs exit when go test failed, tune @go list ./src/... | grep -v -E 'vendor' | xargs -n1 sh -c 'GOPATH=${GOPATH} go test "$@"|| exit 255'
+test:: subnet
+	@go list ./src/... | grep -v -E 'vendor' | xargs -n1 go test
+
 clean:
 	@rm -rf ${MKFILE_DIR}build && rm -rf ${MKFILE_DIR}rootfs/alpine/opt && rm -rf ${MKFILE_DIR}rootfs/ubuntu/opt
 	@rm -rf ${MKFILE_DIR}pkg
