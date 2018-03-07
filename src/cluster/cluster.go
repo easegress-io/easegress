@@ -659,7 +659,7 @@ func (c *Cluster) operateRelay(msg *messageRelay) bool {
 		return false
 	}
 
-	err := c.memberList.SendReliable(target, msg.RelayPayload)
+	err := c.sendBalance(target, msg.RelayPayload)
 	if err != nil {
 		logger.Warnf("[forward a relay message to target member (%s:%d) failed, ignored: %v]",
 			msg.TargetNodeAddress, msg.TargetNodePort, err)
@@ -1001,4 +1001,15 @@ func (c *Cluster) reconnectFailedMembers() {
 			return
 		}
 	}
+}
+
+func (c *Cluster) sendBalance(to *memberlist.Node, msg []byte) error {
+	size := len(msg)
+	if size < int(c.conf.UDPBufferSize) {
+		logger.Debugf("[send udp packet(%d bytes) to %v]", size, to.Address())
+		return c.memberList.SendBestEffort(to, msg)
+	}
+
+	logger.Debugf("[send tcp packet(%d bytes) to %v]", size, to.Address())
+	return c.memberList.SendReliable(to, msg)
 }

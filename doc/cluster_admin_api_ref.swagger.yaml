@@ -228,6 +228,18 @@ paths:
           required: true
           type: string
           description: Group name of cluster.
+        - name: page
+          required: false
+          in: query
+          type: integer
+          default: 1
+          description: Indicates result in which page.
+        - name: limit
+          required: false
+          in: query
+          type: integer
+          default: 5
+          description: Indicates result in how many plugins in every page.
         - name: pluginsRetrieveClusterRequest
           in: body
           schema:
@@ -247,7 +259,7 @@ paths:
         400:
           description: |
             Invalid cluster operation and plugin instances retrieve request parameter.
-            Including, invalid group name, timeout is less than 10s,
+            Including, invalid page and limit, invalid group name, timeout is less than 10s,
             invalid plugin type or invalid name pattern.
           schema:
             $ref: '#/definitions/Error'
@@ -510,6 +522,18 @@ paths:
           required: true
           type: string
           description: Group name of cluster.
+        - name: page
+          required: false
+          in: query
+          type: integer
+          default: 1
+          description: Indicates result in which page.
+        - name: limit
+          required: false
+          in: query
+          type: integer
+          default: 5
+          description: Indicates result in how many plugins in every page.
         - name: pipelinesRetrieveClusterRequest
           in: body
           schema:
@@ -529,7 +553,7 @@ paths:
         400:
           description: |
             Invalid cluster operation and pipeline instances retrieve request parameter.
-            Including, invalid group name, timeout is less than 10s,
+            Including, invalid page and limit, invalid group name, timeout is less than 10s,
             invalid pipeline type or invalid name pattern.
           schema:
             $ref: '#/definitions/Error'

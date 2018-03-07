@@ -17,10 +17,12 @@ import (
 
 // for api
 func (gc *GatewayCluster) issueRetrieve(group string, timeout time.Duration,
-	requestName string, syncAll bool, filter interface{}) (interface{}, *ClusterError) {
+	requestName string, syncAll bool, filter interface{}, page, limit uint32) (interface{}, *ClusterError) {
 	req := &ReqRetrieve{
 		RetrieveAllNodes: syncAll,
 		Timeout:          timeout,
+		Page:             page,
+		Limit:            limit,
 	}
 
 	switch filter := filter.(type) {
@@ -210,7 +212,7 @@ func (gc *GatewayCluster) respondRetrieveErr(req *cluster.RequestEvent, typ Clus
 	gc.respondRetrieve(req, resp)
 }
 
-func (gc *GatewayCluster) retrieveResult(filter interface{}) ([]byte, error, ClusterErrorType) {
+func (gc *GatewayCluster) retrieveResult(filter interface{}, page, limit uint32) ([]byte, error, ClusterErrorType) {
 	var ret interface{}
 
 	switch filter := filter.(type) {
@@ -236,8 +238,19 @@ func (gc *GatewayCluster) retrieveResult(filter interface{}) ([]byte, error, Clu
 		}
 
 		r := new(ResultRetrievePlugins)
-		r.Plugins = make([]config.PluginSpec, 0)
+		r.Pagination = paginationInfo{
+			Total: len(plugins),
+			Page:  page,
+			Limit: limit,
+		}
 
+		start, end, err := pagination(len(plugins), page, limit)
+		if err != nil {
+			logger.Debugf("[pagination error: %v]", err)
+		}
+		plugins = plugins[start:end]
+
+		r.Plugins = make([]config.PluginSpec, 0, len(plugins))
 		for _, plug := range plugins {
 			spec := config.PluginSpec{
 				Type:   plug.Type(),
@@ -269,8 +282,19 @@ func (gc *GatewayCluster) retrieveResult(filter interface{}) ([]byte, error, Clu
 		}
 
 		r := new(ResultRetrievePipelines)
-		r.Pipelines = make([]config.PipelineSpec, 0)
+		r.Pagination = paginationInfo{
+			Total: len(pipelines),
+			Page:  page,
+			Limit: limit,
+		}
 
+		start, end, err := pagination(len(pipelines), page, limit)
+		if err != nil {
+			logger.Debugf("[pagination error: %v]", err)
+		}
+		pipelines = pipelines[start:end]
+
+		r.Pipelines = make([]config.PipelineSpec, 0, len(pipelines))
 		for _, pipe := range pipelines {
 			spec := config.PipelineSpec{
 				Type:   pipe.Type(),
@@ -326,22 +350,28 @@ func (gc *GatewayCluster) getLocalRetrieveResp(reqRetrieve *ReqRetrieve) (*RespR
 	switch {
 	case reqRetrieve.FilterRetrievePlugin != nil:
 		ret.ResultRetrievePlugin, err, errType =
-			gc.retrieveResult(reqRetrieve.FilterRetrievePlugin)
+			gc.retrieveResult(reqRetrieve.FilterRetrievePlugin,
+				reqRetrieve.Page, reqRetrieve.Limit)
 	case reqRetrieve.FilterRetrievePlugins != nil:
 		ret.ResultRetrievePlugins, err, errType =
-			gc.retrieveResult(reqRetrieve.FilterRetrievePlugins)
+			gc.retrieveResult(reqRetrieve.FilterRetrievePlugins,
+				reqRetrieve.Page, reqRetrieve.Limit)
 	case reqRetrieve.FilterRetrievePipeline != nil:
 		ret.ResultRetrievePipeline, err, errType =
-			gc.retrieveResult(reqRetrieve.FilterRetrievePipeline)
+			gc.retrieveResult(reqRetrieve.FilterRetrievePipeline,
+				reqRetrieve.Page, reqRetrieve.Limit)
 	case reqRetrieve.FilterRetrievePipelines != nil:
 		ret.ResultRetrievePipelines, err, errType =
-			gc.retrieveResult(reqRetrieve.FilterRetrievePipelines)
+			gc.retrieveResult(reqRetrieve.FilterRetrievePipelines,
+				reqRetrieve.Page, reqRetrieve.Limit)
 	case reqRetrieve.FilterRetrievePluginTypes != nil:
 		ret.ResultRetrievePluginTypes, err, errType =
-			gc.retrieveResult(reqRetrieve.FilterRetrievePluginTypes)
+			gc.retrieveResult(reqRetrieve.FilterRetrievePluginTypes,
+				reqRetrieve.Page, reqRetrieve.Limit)
 	case reqRetrieve.FilterRetrievePipelineTypes != nil:
 		ret.ResultRetrievePipelineTypes, err, errType =
-			gc.retrieveResult(reqRetrieve.FilterRetrievePipelineTypes)
+			gc.retrieveResult(reqRetrieve.FilterRetrievePipelineTypes,
+				reqRetrieve.Page, reqRetrieve.Limit)
 	}
 
 	if err != nil {

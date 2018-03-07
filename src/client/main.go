@@ -370,6 +370,18 @@ var admincCmd = urfavecli.Command{
 					// TODO: add --type -t
 					Usage:  "Retrieve plugins",
 					Action: cli.ClusterRetrievePlugins,
+					Flags: []urfavecli.Flag{
+						urfavecli.GenericFlag{
+							Name:  "page",
+							Usage: "Indicates result in which page",
+							Value: common.NewUint32Value(common.DEFAULT_PAGE, nil),
+						},
+						urfavecli.GenericFlag{
+							Name:  "limit",
+							Usage: "Indicates result in how many plugins in every page",
+							Value: common.NewUint32Value(common.DEFAULT_LIMIT_PER_PAGE, nil),
+						},
+					},
 				},
 				{
 					Name: "update",
@@ -406,6 +418,18 @@ var admincCmd = urfavecli.Command{
 					// TODO: add --format (json, xml...)
 					Usage:  "Retrieve pipelines",
 					Action: cli.ClusterRetrievePipelines,
+					Flags: []urfavecli.Flag{
+						urfavecli.GenericFlag{
+							Name:  "page",
+							Usage: "Indicates result in which page",
+							Value: common.NewUint32Value(common.DEFAULT_PAGE, nil),
+						},
+						urfavecli.GenericFlag{
+							Name:  "limit",
+							Usage: "Indicates result in how many pipelines in every page",
+							Value: common.NewUint32Value(common.DEFAULT_LIMIT_PER_PAGE, nil),
+						},
+					},
 				},
 				{
 					Name: "update",

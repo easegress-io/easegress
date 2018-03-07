@@ -2,13 +2,16 @@ package rest
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	"common"
 	"config"
 
-	"github.com/emicklei/go-restful"
 	"option"
+
+	"github.com/ant0ine/go-json-rest/rest"
+	"github.com/emicklei/go-restful"
 )
 
 //
@@ -255,4 +258,42 @@ type buildInfo struct {
 	Release    string `json:"release"`
 	Build      string `json:"build"`
 	Repository string `json:"repository"`
+}
+
+// Query String
+func parsePagination(r *rest.Request) (page, limit uint32, err error) {
+	err = r.ParseForm()
+	if err != nil {
+		return 0, 0, err
+	}
+
+	p := r.Form.Get("page")
+	if p != "" {
+		page64, err := strconv.ParseUint(r.Form.Get("page"), 0, 32)
+		if err != nil {
+			return 0, 0, fmt.Errorf("parase page(uint32) failed: %v", err)
+		}
+		if page64 == 0 {
+			return 0, 0, fmt.Errorf("invalid zero value for page")
+		}
+		page = uint32(page64)
+	} else {
+		page = common.DEFAULT_PAGE
+	}
+
+	l := r.Form.Get("limit")
+	if l != "" {
+		limit64, err := strconv.ParseUint(r.Form.Get("limit"), 0, 32)
+		if err != nil {
+			return 0, 0, fmt.Errorf("parase limit(uint32) failed: %v", err)
+		}
+		if limit64 == 0 {
+			return 0, 0, fmt.Errorf("invalid zero value for limit")
+		}
+		limit = uint32(limit64)
+	} else {
+		limit = common.DEFAULT_LIMIT_PER_PAGE
+	}
+
+	return
 }

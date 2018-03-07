@@ -178,6 +178,14 @@ type (
 		// Consistency or Availability.
 		RetrieveAllNodes bool
 
+		// Pagination fields which only leverages retrieving plugins/pipelines.
+		// Both of page and limit start from 1.
+		// The defaul value(page=0, limit=0) means (page=1, limit=5).
+		// Notice it always returns empty result if one and only one
+		// of page and limit is 0.
+		Page  uint32
+		Limit uint32
+
 		// Below Filter* is Packed from corresponding struct
 		FilterRetrievePlugin        *FilterRetrievePlugin
 		FilterRetrievePlugins       *FilterRetrievePlugins
@@ -212,17 +220,26 @@ type (
 	}
 	FilterRetrievePluginTypes   struct{}
 	FilterRetrievePipelineTypes struct{}
-	ResultRetrievePlugin        struct {
+
+	paginationInfo struct {
+		Total int    `json:"total"`
+		Page  uint32 `json:"page"`
+		Limit uint32 `json:"limit"`
+	}
+
+	ResultRetrievePlugin struct {
 		Plugin config.PluginSpec `json:"plugin"`
 	}
 	ResultRetrievePlugins struct {
-		Plugins []config.PluginSpec `json:"plugins"`
+		Pagination paginationInfo      `json:"pagination"`
+		Plugins    []config.PluginSpec `json:"plugins"`
 	}
 	ResultRetrievePipeline struct {
 		Pipeline config.PipelineSpec `json:"pipeline"`
 	}
 	ResultRetrievePipelines struct {
-		Pipelines []config.PipelineSpec `json:"pipelines"`
+		Pagination paginationInfo        `json:"pagination"`
+		Pipelines  []config.PipelineSpec `json:"pipelines"`
 	}
 	ResultRetrievePluginTypes struct {
 		PluginTypes []string `json:"plugin_types"`

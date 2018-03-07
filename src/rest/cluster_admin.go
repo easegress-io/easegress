@@ -198,8 +198,15 @@ func (s *clusterAdminServer) retrievePlugins(w rest.ResponseWriter, r *rest.Requ
 		return
 	}
 
+	page, limit, err := parsePagination(r)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%v]", err)
+		return
+	}
+
 	ret, clusterErr := s.gc.RetrievePlugins(group, time.Duration(req.TimeoutSec)*time.Second, req.Consistent,
-		req.NamePattern, req.Types)
+		req.NamePattern, req.Types, page, limit)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
 		logger.Errorf("[%s]", clusterErr.Error())
@@ -467,8 +474,15 @@ func (s *clusterAdminServer) retrievePipelines(w rest.ResponseWriter, r *rest.Re
 		return
 	}
 
+	page, limit, err := parsePagination(r)
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusBadRequest)
+		logger.Errorf("[%v]", err)
+		return
+	}
+
 	ret, clusterErr := s.gc.RetrievePipelines(group, time.Duration(req.TimeoutSec)*time.Second, req.Consistent,
-		req.NamePattern, req.Types)
+		req.NamePattern, req.Types, page, limit)
 	if clusterErr != nil {
 		rest.Error(w, clusterErr.Error(), clusterErr.Type.HTTPStatusCode())
 		logger.Errorf("[%s]", clusterErr.Error())

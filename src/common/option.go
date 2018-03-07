@@ -6,6 +6,32 @@ import (
 	"strconv"
 )
 
+type Uint8Value uint8
+
+func NewUint8Value(val uint8, p *uint8) *Uint8Value {
+	if p == nil {
+		p = new(uint8)
+	}
+	*p = val
+	return (*Uint8Value)(p)
+}
+
+func (i *Uint8Value) Set(s string) error {
+	v, err := strconv.ParseUint(s, 0, 8)
+	if err != nil {
+		return err
+	}
+
+	*i = Uint8Value(v)
+	return nil
+}
+
+func (i *Uint8Value) Get() interface{} { return uint8(*i) }
+
+func (i *Uint8Value) String() string { return strconv.FormatUint(uint64(*i), 10) }
+
+////
+
 type Uint16Value uint16
 
 func NewUint16Value(val uint16, p *uint16) *Uint16Value {

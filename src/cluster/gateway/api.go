@@ -349,7 +349,8 @@ func (gc *GatewayCluster) RetrievePlugin(group string, timeout time.Duration, sy
 
 	requestName := fmt.Sprintf("(group:%s)retrive_plugin", group)
 
-	resp, err := gc.issueRetrieve(group, timeout, requestName, syncAll, &filter)
+	resp, err := gc.issueRetrieve(group, timeout, requestName, syncAll, &filter,
+		common.DEFAULT_PAGE, common.DEFAULT_LIMIT_PER_PAGE)
 	if err != nil {
 		return nil, err
 	}
@@ -364,7 +365,7 @@ func (gc *GatewayCluster) RetrievePlugin(group string, timeout time.Duration, sy
 }
 
 func (gc *GatewayCluster) RetrievePlugins(group string, timeout time.Duration, syncAll bool,
-	namePattern string, types []string) (*ResultRetrievePlugins, *ClusterError) {
+	namePattern string, types []string, page, limit uint32) (*ResultRetrievePlugins, *ClusterError) {
 
 	if gc.Stopped() {
 		return nil, newClusterError("can not retrieve plugins due to cluster gone", IssueMemberGoneError)
@@ -377,7 +378,7 @@ func (gc *GatewayCluster) RetrievePlugins(group string, timeout time.Duration, s
 
 	requestName := fmt.Sprintf("(group:%s)retrive_plugins", group)
 
-	resp, err := gc.issueRetrieve(group, timeout, requestName, syncAll, &filter)
+	resp, err := gc.issueRetrieve(group, timeout, requestName, syncAll, &filter, page, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -404,7 +405,8 @@ func (gc *GatewayCluster) RetrievePipeline(group string, timeout time.Duration, 
 
 	requestName := fmt.Sprintf("(group:%s)retrive_pipeline", group)
 
-	resp, err := gc.issueRetrieve(group, timeout, requestName, syncAll, &filter)
+	resp, err := gc.issueRetrieve(group, timeout, requestName, syncAll, &filter,
+		common.DEFAULT_PAGE, common.DEFAULT_LIMIT_PER_PAGE)
 	if err != nil {
 		return nil, err
 	}
@@ -419,7 +421,7 @@ func (gc *GatewayCluster) RetrievePipeline(group string, timeout time.Duration, 
 }
 
 func (gc *GatewayCluster) RetrievePipelines(group string, timeout time.Duration, syncAll bool,
-	namePattern string, types []string) (*ResultRetrievePipelines, *ClusterError) {
+	namePattern string, types []string, page, limit uint32) (*ResultRetrievePipelines, *ClusterError) {
 
 	if gc.Stopped() {
 		return nil, newClusterError("can not retrieve pipelines due to cluster gone", IssueMemberGoneError)
@@ -432,7 +434,7 @@ func (gc *GatewayCluster) RetrievePipelines(group string, timeout time.Duration,
 
 	requestName := fmt.Sprintf("(group:%s)retrive_pipelines", group)
 
-	resp, err := gc.issueRetrieve(group, timeout, requestName, syncAll, &filter)
+	resp, err := gc.issueRetrieve(group, timeout, requestName, syncAll, &filter, page, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -455,7 +457,8 @@ func (gc *GatewayCluster) RetrievePluginTypes(group string, timeout time.Duratio
 
 	requestName := fmt.Sprintf("(group:%s)retrive_plugin_types", group)
 
-	resp, err := gc.issueRetrieve(group, timeout, requestName, syncAll, &FilterRetrievePluginTypes{})
+	resp, err := gc.issueRetrieve(group, timeout, requestName, syncAll, &FilterRetrievePluginTypes{},
+		common.DEFAULT_PAGE, common.DEFAULT_LIMIT_PER_PAGE)
 	if err != nil {
 		return nil, err
 	}
@@ -479,7 +482,8 @@ func (gc *GatewayCluster) RetrievePipelineTypes(group string, timeout time.Durat
 
 	requestName := fmt.Sprintf("(group:%s)retrive_pipeline_types", group)
 
-	resp, err := gc.issueRetrieve(group, timeout, requestName, syncAll, &FilterRetrievePipelineTypes{})
+	resp, err := gc.issueRetrieve(group, timeout, requestName, syncAll, &FilterRetrievePipelineTypes{},
+		common.DEFAULT_PAGE, common.DEFAULT_LIMIT_PER_PAGE)
 	if err != nil {
 		return nil, err
 	}

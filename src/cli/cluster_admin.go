@@ -256,6 +256,8 @@ func ClusterRetrievePlugins(c *cli.Context) error {
 	group := c.GlobalString("group")
 	timeoutSec := uint16(*c.GlobalGeneric("timeout").(*common.Uint16Value))
 	consistent := c.GlobalBool("consistent")
+	page := c.Generic("page").(*common.Uint32Value).Get().(uint32)
+	limit := c.Generic("limit").(*common.Uint32Value).Get().(uint32)
 
 	errs := &multipleErr{}
 
@@ -287,6 +289,8 @@ func ClusterRetrievePlugins(c *cli.Context) error {
 		req := new(pdu.PluginsRetrieveClusterRequest)
 		req.TimeoutSec = t
 		req.Consistent = consistent
+		req.Page = page
+		req.Limit = limit
 		retrieveResp, apiResp, err := clusterAdminApi().GetPlugins(group, req)
 		if err != nil {
 			errs.append(fmt.Errorf("%v", err))
@@ -559,6 +563,8 @@ func ClusterRetrievePipelines(c *cli.Context) error {
 	group := c.GlobalString("group")
 	timeoutSec := uint16(*c.GlobalGeneric("timeout").(*common.Uint16Value))
 	consistent := c.GlobalBool("consistent")
+	page := c.Generic("page").(*common.Uint32Value).Get().(uint32)
+	limit := c.Generic("limit").(*common.Uint32Value).Get().(uint32)
 
 	errs := &multipleErr{}
 
@@ -590,6 +596,8 @@ func ClusterRetrievePipelines(c *cli.Context) error {
 		req := new(pdu.PipelinesRetrieveClusterRequest)
 		req.TimeoutSec = t
 		req.Consistent = consistent
+		req.Page = page
+		req.Limit = limit
 		retrieveResp, apiResp, err := clusterAdminApi().GetPipelines(group, req)
 		if err != nil {
 			errs.append(fmt.Errorf("%v", err))

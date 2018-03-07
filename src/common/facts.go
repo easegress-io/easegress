@@ -5,6 +5,11 @@ import (
 	"path/filepath"
 )
 
+const (
+	DEFAULT_PAGE  = 1
+	DEFAULT_LIMIT_PER_PAGE = 5
+)
+
 var (
 	BIN_IMAGE_DIR, _    = filepath.Abs(filepath.Dir(os.Args[0]))
 	WORKING_HOME_DIR, _ = filepath.Abs(filepath.Join(BIN_IMAGE_DIR, ".."))
