@@ -168,7 +168,7 @@ func DefaultLANConfig() *Config {
 		FailedMemberReconnectInterval: 30 * time.Second,
 		MemberCleanupInterval:         15 * time.Second,
 		GossipRetransmitMult:          4,
-		MessageRetransmitMult:         4,
+		MessageRetransmitMult:         7,
 		RequestTimeoutMult:            15,
 		MemberSuspicionMult:           5,
 		MemberSuspicionMaxTimeoutMult: 6,
@@ -200,7 +200,7 @@ func DefaultLocalConfig() *Config {
 	ret.TCPTimeout = time.Second
 	ret.IndirectCheckNodes = 1
 	ret.GossipRetransmitMult = 2
-	ret.MessageRetransmitMult = 2
+	ret.MessageRetransmitMult = 7
 	ret.MemberSuspicionMult = 3
 	ret.PushPullInterval = 15 * time.Second
 	ret.ProbeTimeout = 200 * time.Millisecond
