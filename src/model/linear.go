@@ -300,7 +300,7 @@ func (p *linearPipeline) runPlugin(instance *wrappedPlugin, pluginType plugins.P
 			statisticsData: statisticsData{
 				startAt:    startAt,
 				finishAt:   finishAt,
-				successful: err != nil || t.Error() != nil,
+				successful: err == nil && t.Error() == nil,
 			},
 			pluginName: instance.Name(),
 		}
