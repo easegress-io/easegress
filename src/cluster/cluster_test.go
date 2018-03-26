@@ -105,6 +105,9 @@ func initCluster(Nodes int, initEventChannel bool, cfg createConfig) ([]*Cluster
 // We use huge experiments to calculate the node unreached possibility under local environment
 // convergence possibility = 1 - nodesUnReachedPossibility
 func TestCluster_Convergence(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping cluster convergence test in short mode")
+	}
 	// checks ack is enough to demonstrate gossip convergence
 
 	// maybe we can make these variables as parameters of `go test` with default values

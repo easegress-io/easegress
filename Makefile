@@ -73,8 +73,10 @@ build_inventory: ${TARGET_INVENTORY}
 subnet::
 	@sh -c "'${MKFILE_DIR}/scripts/setup_test_subnet.sh'"
 
-# test runs the test suite
 ## TODO (shengdong, zhiyan) make xargs exit when go test failed, tune @go list ./src/... | grep -v -E 'vendor' | xargs -n1 sh -c 'GOPATH=${GOPATH} go test "$@"|| exit 255'
+quick_test:: subnet
+	@go list ./src/... | grep -v -E 'vendor' | xargs -n1 go test -short
+
 test:: subnet
 	@go list ./src/... | grep -v -E 'vendor' | xargs -n1 go test
 
