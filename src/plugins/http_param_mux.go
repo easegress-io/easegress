@@ -45,22 +45,21 @@ func (m *paramMux) dump() {
 	fmt.Printf("%#v\n", m.rtable)
 	m.RUnlock()
 }
-
-func (m *paramMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (m *paramMux) ServeHTTP(ctx plugins.HTTPCtx) {
 	match := false
 	wrongMethod := false
 	var path_params map[string]string
 	var e *plugins.HTTPMuxEntry
 
 	serveStartAt := common.Now()
-
+	header := ctx.RequestHeader()
 	m.RLock()
 LOOP:
 	for _, pipelineRTable := range m.rtable {
 		for pattern, methods := range pipelineRTable {
-			match, path_params, _ = parsePath(r.URL.Path, pattern)
+			match, path_params, _ = parsePath(header.Path(), pattern)
 			if match {
-				e = methods[r.Method]
+				e = methods[header.Method()]
 				if e == nil {
 					wrongMethod = true
 				} else {
@@ -73,9 +72,9 @@ LOOP:
 
 	if e == nil {
 		if wrongMethod {
-			w.WriteHeader(http.StatusMethodNotAllowed)
+			ctx.SetStatusCode(http.StatusMethodNotAllowed)
 		} else {
-			w.WriteHeader(http.StatusNotFound)
+			ctx.SetStatusCode(http.StatusNotFound)
 		}
 
 		return
@@ -84,7 +83,7 @@ LOOP:
 	errKeys := make([]string, 0)
 	for key, valuesEnum := range e.Headers {
 		errKeys = append(errKeys, key)
-		v := r.Header.Get(key)
+		v := header.Get(key)
 		for _, valueEnum := range valuesEnum {
 			if v == valueEnum {
 				errKeys = errKeys[:len(errKeys)-1]
@@ -94,11 +93,11 @@ LOOP:
 	}
 	if len(errKeys) > 0 {
 		headerErr := getHeaderError(errKeys...)
-		w.WriteHeader(headerErr.Code)
+		ctx.SetStatusCode(headerErr.Code)
 		return
 	}
 
-	e.Handler(w, r, path_params, common.Since(serveStartAt))
+	e.Handler(ctx, path_params, common.Since(serveStartAt))
 }
 
 func (m *paramMux) samePluginDifferentGeneration(entry *plugins.HTTPMuxEntry, entryChecking *plugins.HTTPMuxEntry) bool {

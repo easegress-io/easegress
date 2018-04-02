@@ -1,189 +1,202 @@
 package plugins
 
 import (
+	"net/http"
+	"net/url"
+	"reflect"
 	"testing"
 
+	"github.com/erikdubbelboer/fasthttp"
 	"github.com/hexdecteam/easegateway-types/plugins"
+
+	"common"
 )
 
-func TestParsePathNormally(t *testing.T) {
-	path := "/r/megaease/easegateway/tags/"
-	pattern := "/r/{user}/{repo}/tags/"
+func newFastRequestHeaderByPath(path string, t *testing.T) plugins.Header {
+	return newFastRequestHeader("http://localhost"+path, t)
+}
 
-	match, ret, err := parsePath(path, pattern)
-	if err != nil {
-		t.Fatalf("unexpected error %v", err)
+func newFastRequestHeader(uri string, t *testing.T) plugins.Header {
+	req := &fasthttp.Request{}
+	req.SetRequestURI(uri)
+	if u, err := url.Parse(uri); err != nil {
+		t.Fatalf("newFastRequestHeader url.Parse failed, url: %s, erro: %v", uri, err)
+	} else {
+		req.Header.SetHost(u.Host)
 	}
 
-	if !match || ret == nil || len(ret) != 2 {
-		t.Fatalf("unexpected parse return %v, %v, %v", match, ret, len(ret))
+	return common.NewFastRequestHeader(false, req.URI(), &req.Header)
+}
+
+func newNetRequestHeaderByPath(path string) plugins.Header {
+	return newNetRequestHeader("http://localhost" + path)
+}
+
+func newNetRequestHeader(url string) plugins.Header {
+	r, _ := http.NewRequest(http.MethodGet, url, nil /* body */)
+	return common.NewNetRequestHeader(r)
+}
+
+type parsePathTest struct {
+	header         plugins.Header
+	path           string
+	pattern        string
+	expectedErr    error
+	expectedMatch  bool
+	expectedParams map[string]string
+}
+
+var parsePathTests = []parsePathTest{
+	{
+		path:          "/r/megaease/easegateway/tags/",
+		pattern:       "/r/{user}/{repo}/tags/",
+		expectedMatch: true,
+		expectedParams: map[string]string{
+			"user": "megaease",
+			"repo": "easegateway",
+		},
+	},
+	{
+		path:          "/r/megaease/easegateway/tags/server-0.1",
+		pattern:       "/r/{user}/{repo}/tags/",
+		expectedMatch: false,
+		expectedParams: map[string]string{
+			"user": "megaease",
+			"repo": "easegateway",
+		},
+	},
+	{
+		path:          "/r/megaease/easegateway/tags/server-0.1",
+		pattern:       "/r/{user}/{repo}/{tag}",
+		expectedMatch: false,
+		expectedParams: map[string]string{
+			"user": "megaease",
+			"repo": "easegateway",
+			"tag":  "tags",
+		},
+	},
+	{
+		path:          "/r/megaease/easegateway/tags/server-0.1",
+		pattern:       "/r/{user}/{repo}/tags/{tag}",
+		expectedMatch: true,
+		expectedParams: map[string]string{
+			"user": "megaease",
+			"repo": "easegateway",
+			"tag":  "server-0.1",
+		},
+	},
+	{
+		path:          "/r/megaease/easegateway/tags/server-0.1/foo",
+		pattern:       "/r/{user}/{repo}/tags/{tag}",
+		expectedMatch: false,
+		expectedParams: map[string]string{
+			"user": "megaease",
+			"repo": "easegateway",
+			"tag":  "server-0.1",
+		},
+	},
+	{
+		path:          "/r/megaease/easegateway/tags/server-0.1?foo=bar",
+		pattern:       "/r/{user}/{repo}/tags/{tag}",
+		expectedMatch: true,
+		expectedParams: map[string]string{
+			"user": "megaease",
+			"repo": "easegateway",
+			"tag":  "server-0.1"},
+	},
+	/*
+		@zhiyan @longyun how about delete this test case ?
+		current implementation parsePath() don't has url.query as path
+		 {
+				path:          "/r/megaease/easegateway/tags/server-0.1?foo=bar",
+				pattern:       "/r/{user}/{repo}/tags/{tag}?{query}",
+				expectedMatch: true,
+				expectedParams: map[string]string{
+					"user":  "megaease",
+					"repo":  "easegateway",
+					"tag":   "server-0.1",
+					"query": "foo=bar",
+				},
+			},
+	*/
+	{
+		path:          "/r/megaease/easegateway/tags/server-0.1/",
+		pattern:       "/r/{user}/{repo}/tags/{tag}/{none}",
+		expectedMatch: false,
+		expectedParams: map[string]string{
+			"user": "megaease",
+			"repo": "easegateway",
+			"tag":  "server-0.1",
+		},
+	},
+	{
+		path:          "/r/megaease/easegateway/tags/server-0.1/foo",
+		pattern:       "/r/{user}/{repo}/tags/{tag}/foo/{none}",
+		expectedMatch: false,
+		expectedParams: map[string]string{
+			"user": "megaease",
+			"repo": "easegateway",
+			"tag":  "server-0.1",
+		},
+	},
+	{
+		path:          "/r/megaease/easegateway/tags/server-0.1/foo/bar",
+		pattern:       "/r/{user}/{repo}/tags/{tag}/foo/{bar}",
+		expectedMatch: true,
+		expectedParams: map[string]string{
+			"user": "megaease",
+			"repo": "easegateway",
+			"tag":  "server-0.1",
+			"bar":  "bar",
+		},
+	},
+	{
+		path:           "/r/megaease",
+		pattern:        "/r/megaease",
+		expectedMatch:  true,
+		expectedParams: map[string]string{},
+	},
+	{
+		path:          "/{foo}/bar",
+		pattern:       "/{foo}/{bar}",
+		expectedMatch: true,
+		expectedParams: map[string]string{
+			"foo": "{foo}",
+			"bar": "bar",
+		},
+	},
+}
+
+func testParsePathNormally(tests []parsePathTest, t *testing.T) {
+	for i, test := range tests {
+		match, params, err := parsePath(test.header.Path(), test.pattern)
+		path := test.header.Path()
+		pattern := test.pattern
+		if err != test.expectedErr {
+			t.Fatalf("#%d: \n expected err: %v, but got: %v", i, test.expectedErr, err)
+		}
+		if match != test.expectedMatch {
+			t.Fatalf("\n#%d: \n path: %s\n pattern: %s\n expected match: %v, but got: %v",
+				i, path, pattern, test.expectedMatch, match)
+		}
+		if err == nil /* && match */ && !reflect.DeepEqual(params, test.expectedParams) {
+			t.Fatalf("\n#%d: \n path: %s\n pattern: %s\n expected params: %v, but got: %v", i, path, pattern, test.expectedParams, params)
+		}
 	}
+}
 
-	if ret["user"] != "megaease" || ret["repo"] != "easegateway" {
-		t.Fatalf("unexpected parse result %v", ret)
+func TestFastHTTPParsePath(t *testing.T) {
+	for i := range parsePathTests {
+		parsePathTests[i].header = newFastRequestHeaderByPath(parsePathTests[i].path, t)
 	}
+	testParsePathNormally(parsePathTests, t)
+}
 
-	path = "/r/megaease/easegateway/tags/server-0.1"
-	pattern = "/r/{user}/{repo}/tags/"
-
-	match, ret, err = parsePath(path, pattern)
-	if err != nil {
-		t.Fatalf("unexpected error %v", err)
+func TestNetHTTPParsePath(t *testing.T) {
+	for i := range parsePathTests {
+		parsePathTests[i].header = newNetRequestHeaderByPath(parsePathTests[i].path)
 	}
-
-	if match {
-		t.Fatalf("unexpected parse return %v, %v, %v", match, ret, len(ret))
-	}
-
-	path = "/r/megaease/easegateway/tags/server-0.1"
-	pattern = "/r/{user}/{repo}/{tag}"
-
-	match, ret, err = parsePath(path, pattern)
-	if err != nil {
-		t.Fatalf("unexpected error %v", err)
-	}
-
-	if match {
-		t.Fatalf("unexpected parse return %v, %v, %v", match, ret, len(ret))
-	}
-
-	path = "/r/megaease/easegateway/tags/server-0.1"
-	pattern = "/r/{user}/{repo}/tags/{tag}"
-
-	match, ret, err = parsePath(path, pattern)
-	if err != nil {
-		t.Fatalf("unexpected error %v", err)
-	}
-
-	if !match || ret == nil || len(ret) != 3 {
-		t.Fatalf("unexpected parse return %v, %v, %v", match, ret, len(ret))
-	}
-
-	if ret["user"] != "megaease" || ret["repo"] != "easegateway" || ret["tag"] != "server-0.1" {
-		t.Fatalf("unexpected parse result %v", ret)
-	}
-
-	path = "/r/megaease/easegateway/tags/server-0.1/foo"
-	pattern = "/r/{user}/{repo}/tags/{tag}"
-
-	match, ret, err = parsePath(path, pattern)
-	if err != nil {
-		t.Fatalf("unexpected error %v", err)
-	}
-
-	if match {
-		t.Fatalf("unexpected parse return %v, %v, %v", match, ret, len(ret))
-	}
-
-	path = "/r/megaease/easegateway/tags/server-0.1?foo=bar"
-	pattern = "/r/{user}/{repo}/tags/{tag}"
-
-	match, ret, err = parsePath(path, pattern)
-	if err != nil {
-		t.Fatalf("unexpected error %v", err)
-	}
-
-	if match || ret == nil || len(ret) != 3 {
-		t.Fatalf("unexpected parse return %v, %v, %v", match, ret, len(ret))
-	}
-
-	if ret["user"] != "megaease" || ret["repo"] != "easegateway" || ret["tag"] != "server-0.1" {
-		t.Fatalf("unexpected parse result %v", ret)
-	}
-
-	path = "/r/megaease/easegateway/tags/server-0.1?foo=bar"
-	pattern = "/r/{user}/{repo}/tags/{tag}?{query}"
-
-	match, ret, err = parsePath(path, pattern)
-	if err != nil {
-		t.Fatalf("unexpected error %v", err)
-	}
-
-	if !match || ret == nil || len(ret) != 4 {
-		t.Fatalf("unexpected parse return %v, %v, %v", match, ret, len(ret))
-	}
-
-	if ret["user"] != "megaease" || ret["repo"] != "easegateway" ||
-		ret["tag"] != "server-0.1" || ret["query"] != "foo=bar" {
-		t.Fatalf("unexpected parse result %v", ret)
-	}
-
-	path = "/r/megaease/easegateway/tags/server-0.1/"
-	pattern = "/r/{user}/{repo}/tags/{tag}/{none}"
-
-	match, ret, err = parsePath(path, pattern)
-	if err != nil {
-		t.Fatalf("unexpected error %v", err)
-	}
-
-	if match || ret == nil || len(ret) != 3 {
-		t.Fatalf("unexpected parse return %v, %v, %v", match, ret, len(ret))
-	}
-
-	if ret["user"] != "megaease" || ret["repo"] != "easegateway" || ret["tag"] != "server-0.1" {
-		t.Fatalf("unexpected parse result %v", ret)
-	}
-
-	path = "/r/megaease/easegateway/tags/server-0.1/foo"
-	pattern = "/r/{user}/{repo}/tags/{tag}/foo/{none}"
-
-	match, ret, err = parsePath(path, pattern)
-	if err != nil {
-		t.Fatalf("unexpected error %v", err)
-	}
-
-	if match || ret == nil || len(ret) != 3 {
-		t.Fatalf("unexpected parse return %v, %v, %v", match, ret, len(ret))
-	}
-
-	if ret["user"] != "megaease" || ret["repo"] != "easegateway" || ret["tag"] != "server-0.1" {
-		t.Fatalf("unexpected parse result %v", ret)
-	}
-
-	path = "/r/megaease/easegateway/tags/server-0.1/foo/bar"
-	pattern = "/r/{user}/{repo}/tags/{tag}/foo/{bar}"
-
-	match, ret, err = parsePath(path, pattern)
-	if err != nil {
-		t.Fatalf("unexpected error %v", err)
-	}
-
-	if !match || ret == nil || len(ret) != 4 {
-		t.Fatalf("unexpected parse return %v, %v, %v", match, ret, len(ret))
-	}
-
-	if ret["user"] != "megaease" || ret["repo"] != "easegateway" ||
-		ret["tag"] != "server-0.1" || ret["bar"] != "bar" {
-		t.Fatalf("unexpected parse result %v", ret)
-	}
-
-	path = "/r/megaease"
-	pattern = "/r/megaease"
-
-	match, ret, err = parsePath(path, pattern)
-	if err != nil {
-		t.Fatalf("unexpected error %v", err)
-	}
-
-	if !match || ret == nil || len(ret) != 0 {
-		t.Fatalf("unexpected parse return %v, %v, %v", match, ret, len(ret))
-	}
-
-	path = "/{foo}/bar"
-	pattern = "/{foo}/{bar}"
-
-	match, ret, err = parsePath(path, pattern)
-	if err != nil {
-		t.Fatalf("unexpected error %v", err)
-	}
-
-	if !match || ret == nil || len(ret) != 2 {
-		t.Fatalf("unexpected parse return %v, %v, %v", match, ret, len(ret))
-	}
-
-	if ret["foo"] != "{foo}" || ret["bar"] != "bar" {
-		t.Fatalf("unexpected parse result %v", ret)
-	}
+	testParsePathNormally(parsePathTests, t)
 }
 
 func TestParsePathExceptionally(t *testing.T) {

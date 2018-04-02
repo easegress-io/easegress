@@ -28,9 +28,9 @@ var (
 	PLUGIN_ENTRIES = map[string]pluginEntry{
 		// generic plugins
 		"HTTPServer": {
-			httpServerConstructor, httpServerConfigConstructor},
+			httpServerConstructor, HTTPServerConfigConstructor},
 		"HTTPInput": {
-			httpInputConstructor, httpInputConfigConstructor},
+			httpInputConstructor, HTTPInputConfigConstructor},
 		"JSONValidator": {
 			jsonValidatorConstructor, jsonValidatorConfigConstructor},
 		"KafkaOutput": {
@@ -50,7 +50,7 @@ var (
 		"HTTPHeaderCounter": {
 			httpHeaderCounterConstructor, httpHeaderCounterConfigConstructor},
 		"HTTPOutput": {
-			httpOutputConstructor, httpOutputConfigConstructor},
+			httpOutputConstructor, HTTPOutputConfigConstructor},
 		"IOReader": {
 			ioReaderConstructor, ioReaderConfigConfigConstructor},
 		"SimpleCommonCache": {

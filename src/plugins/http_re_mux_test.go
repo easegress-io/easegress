@@ -6,6 +6,8 @@ import (
 	"github.com/hexdecteam/easegateway-types/plugins"
 )
 
+var defaultReMux = &reMux{}
+
 func TestREMuxDifferentGenerations(t *testing.T) {
 	m := mustNewREMux(t)
 	pluginA := "plugin-a"
@@ -221,4 +223,76 @@ func TestREMuxFatigue(t *testing.T) {
 		entryD4_1, entryD4_2, entryD4_3,
 	}
 	mustGetREMuxResult(t, m, resultPipelineEntries, resultPriorityEntries)
+}
+
+type generateURLTest struct {
+	url string
+	// generated
+	header                plugins.Header
+	expectedFullURL       string
+	expectedPathEndingURL string
+}
+
+var generateURLTests = []generateURLTest{
+	{
+		url: "http://localhost:8080//r/megaease/easegateway//tags",
+		// should remove repeated '/'
+		expectedFullURL:       "http://localhost:8080/r/megaease/easegateway/tags?#",
+		expectedPathEndingURL: "http://localhost:8080/r/megaease/easegateway/tags?#",
+	},
+	/* https url is hard to simulate, so we don't use https */
+	{
+		url: "http://www.megaease.com/r/megaease/easegateway/tags/server-0.1?foo=bar&com=true#head",
+		// should add default port
+		expectedFullURL:       "http://www.megaease.com:80/r/megaease/easegateway/tags/server-0.1?foo=bar&com=true#head",
+		expectedPathEndingURL: "http://www.megaease.com:80/r/megaease/easegateway/tags/server-0.1?#",
+	},
+}
+
+func testGenerateCompleteRequestURL(tests []generateURLTest, t *testing.T) {
+	for i, test := range tests {
+		url := defaultReMux.generateCompleteRequestURL(test.header)
+		if url != test.expectedFullURL {
+			t.Fatalf("#%d: \n url: %s\n expected url: %s\n, but got: %s",
+				i, test.url, test.expectedFullURL, url)
+		}
+	}
+}
+
+func testGeneratePathEndingRequestURL(tests []generateURLTest, t *testing.T) {
+	for i, test := range tests {
+		url := defaultReMux.generatePathEndingRequestURL(test.header)
+		if url != test.expectedPathEndingURL {
+			t.Fatalf("#%d: \n url: %s\n expected url: %s\n, but got: %s",
+				i, test.url, test.expectedPathEndingURL, url)
+		}
+	}
+}
+
+func TestFastGenerateCompleteRequestURL(t *testing.T) {
+	for i := range generateURLTests {
+		generateURLTests[i].header = newFastRequestHeader(generateURLTests[i].url, t)
+	}
+	testGenerateCompleteRequestURL(generateURLTests, t)
+}
+
+func TestFastGeneratePathEndingRequestURL(t *testing.T) {
+	for i := range generateURLTests {
+		generateURLTests[i].header = newFastRequestHeader(generateURLTests[i].url, t)
+	}
+	testGeneratePathEndingRequestURL(generateURLTests, t)
+}
+
+func TestNetGenerateCompleteRequestURL(t *testing.T) {
+	for i := range generateURLTests {
+		generateURLTests[i].header = newNetRequestHeader(generateURLTests[i].url)
+	}
+	testGenerateCompleteRequestURL(generateURLTests, t)
+}
+
+func TestNetGeneratePathEndingRequestURL(t *testing.T) {
+	for i := range generateURLTests {
+		generateURLTests[i].header = newNetRequestHeader(generateURLTests[i].url)
+	}
+	testGeneratePathEndingRequestURL(generateURLTests, t)
 }

@@ -4,22 +4,38 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net"
-	"net/http"
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/hexdecteam/easegateway-types/plugins"
 )
 
 var (
-	trailingPort = regexp.MustCompile(`:([0-9]+)$`)
+	TrailingPort = regexp.MustCompile(`:([0-9]+)$`)
 )
 
+func UpperCaseAndUnderscore(s string) string {
+	return strings.Map(upperCaseAndUnderscore, s)
+}
+
+func upperCaseAndUnderscore(r rune) rune {
+	switch {
+	case r >= 'a' && r <= 'z':
+		return r - ('a' - 'A')
+	case r == '-':
+		return '_'
+	}
+	return r
+}
+
 // https://tools.ietf.org/html/rfc3875#section-4.1
-func GenerateCGIEnv(req *http.Request) (map[string]string, []string) {
-	if req == nil {
+func GenerateCGIEnv(c plugins.HTTPCtx) (map[string]string, []string) {
+	if c == nil {
 		return nil, nil
 	}
 
+	header := c.RequestHeader()
 	var (
 		// 4.1.1 - 4.1.17
 		authType         string
@@ -42,7 +58,7 @@ func GenerateCGIEnv(req *http.Request) (map[string]string, []string) {
 	)
 
 	// 4.1.1
-	authValues := strings.Fields(req.Header.Get("Authorization"))
+	authValues := strings.Fields(header.Get("Authorization"))
 	if len(authValues) != 0 {
 		switch authValues[0] {
 		case "Basic", "Digest", "Bearer":
@@ -51,12 +67,12 @@ func GenerateCGIEnv(req *http.Request) (map[string]string, []string) {
 	}
 
 	// 4.1.2
-	if req.ContentLength > 0 {
-		contentLength = fmt.Sprintf("%d", req.ContentLength)
+	if header.ContentLength() > 0 {
+		contentLength = fmt.Sprintf("%d", header.ContentLength())
 	}
 
 	// 4.1.3
-	contentType = req.Header.Get("Content-Type")
+	contentType = header.Get("Content-Type")
 
 	// 4.1.4
 	gatewayInterface = "CGI/1.1"
@@ -65,18 +81,18 @@ func GenerateCGIEnv(req *http.Request) (map[string]string, []string) {
 	// FIXME: Corresponding to the definition of RFC,
 	// Currently the design chose req.URL.Path as value of PATH_INFO,
 	// but maybe there is more precise options.
-	pathInfo = req.URL.Path
+	pathInfo = header.Path()
 
 	// 4.1.6
 	pathTranslated = filepath.Join(CGI_HOME_DIR, pathInfo)
 
 	// 4.1.7
-	queryString = req.URL.RawQuery
+	queryString = header.QueryString()
 
 	// 4.1.8 & 4.1.9
-	remoteIP, _, err := net.SplitHostPort(req.RemoteAddr)
+	remoteIP, _, err := net.SplitHostPort(c.RemoteAddr())
 	if err != nil {
-		remoteAddr, remoteHost = req.RemoteAddr, req.RemoteAddr
+		remoteAddr, remoteHost = c.RemoteAddr(), c.RemoteAddr()
 	} else {
 		remoteAddr, remoteHost = remoteIP, remoteIP
 	}
@@ -99,24 +115,23 @@ func GenerateCGIEnv(req *http.Request) (map[string]string, []string) {
 	}
 
 	// 4.1.12
-	requestMethod = req.Method
+	requestMethod = header.Method()
 
 	// 4.1.13
 	// FIXEME: Currently got no idea about it.
 	scriptName = ""
 
 	// 4.1.14
-	serverName = req.Host
+	serverName = header.Host()
 
 	// 4.1.15
 	serverPort = "80"
-	if matches := trailingPort.FindStringSubmatch(req.Host); len(matches) != 0 {
+	if matches := TrailingPort.FindStringSubmatch(serverName); len(matches) != 0 {
 		serverPort = matches[1]
 	}
 
 	// 4.1.16
-	serverProtocol = req.Proto
-
+	serverProtocol = header.Proto()
 	// 4.1.17
 	serverSoftware = "ease-gateway"
 
@@ -144,13 +159,14 @@ func GenerateCGIEnv(req *http.Request) (map[string]string, []string) {
 	var names []string
 
 	// 4.1.18
-	for k, v := range req.Header {
-		k = UpperCaseAndUnderscore(k)
+	header.VisitAll(func(key, value string) {
+		k := UpperCaseAndUnderscore(key)
+		v := value
 		// NOTICE: Gateway seems not have this problem. because we
 		// not going to cover system environment.
 		// if k == "PROXY" {
-		// 	// https://github.com/golang/go/issues/16405
-		// 	continue
+		//	// https://github.com/golang/go/issues/16405
+		//	continue
 		// }
 		joinStr := ", "
 		if k == "COOKIE" {
@@ -158,22 +174,12 @@ func GenerateCGIEnv(req *http.Request) (map[string]string, []string) {
 		}
 		name := "HTTP_" + k
 		names = append(names, name)
-		env[name] = strings.Join(v, joinStr)
-	}
+		if env[name] == "" {
+			env[name] = v
+		} else {
+			env[name] = env[name] + joinStr + v
+		}
+	})
 
 	return env, names
-}
-
-func UpperCaseAndUnderscore(s string) string {
-	return strings.Map(upperCaseAndUnderscore, s)
-}
-
-func upperCaseAndUnderscore(r rune) rune {
-	switch {
-	case r >= 'a' && r <= 'z':
-		return r - ('a' - 'A')
-	case r == '-':
-		return '_'
-	}
-	return r
 }

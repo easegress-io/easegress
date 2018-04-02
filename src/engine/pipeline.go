@@ -68,7 +68,7 @@ func (pi *pipelineInstance) terminate(scheduled bool) chan struct{} {
 
 ////
 
-type pipelineScheduler interface {
+type PipelineScheduler interface {
 	PipelineName() string
 	SourceInputTrigger() pipelines.SourceInputTrigger
 	Start(ctx pipelines.PipelineContext, statistics *model.PipelineStatistics, mod *model.Model)
@@ -477,6 +477,16 @@ func (scheduler *dynamicPipelineScheduler) Stop() {
 
 type staticPipelineScheduler struct {
 	*commonPipelineScheduler
+}
+
+func CreatePipelineScheduler(pipeline *model.Pipeline) PipelineScheduler {
+	var scheduler PipelineScheduler
+	if pipeline.Config().Parallelism() == 0 { // dynamic mode
+		scheduler = newDynamicPipelineScheduler(pipeline)
+	} else { // pre-alloc mode
+		scheduler = newStaticPipelineScheduler(pipeline)
+	}
+	return scheduler
 }
 
 func newStaticPipelineScheduler(pipeline *model.Pipeline) *staticPipelineScheduler {

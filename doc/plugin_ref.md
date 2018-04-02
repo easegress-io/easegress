@@ -41,6 +41,7 @@ Plugin runs a HTTP server implemented based on golang net/http listens on a port
 | plugin\_name | string | The plugin instance name. | Functionality | No | N/A |
 | host | string | The host name or IP address of HTTP server to listen. | Functionality | Yes | "localhost" |
 | port | uint16 | The port number of HTTP server to listen. | Functionality | Yes | 10080 |
+| type | string | The http protocol implementation HTTP server supports. The available values are "nethttp" and "fasthttp". | Functionality | Yes | "nethttp" |
 | mux\_type | string | The mux type HTTP server to support. The available values are regexp and param. Regexp type routes incoming requests with scheme, host, port, path, query, fragment, method. Param type routes incoming requests with path and method. Both of them support parameters whose values are sent to the context of the task. | Functionality | Yes | regexp |
 | mux\_config | string | The mux config of the corresponding mux type. The concrete config fields reference is at [HTTP Mux Reference](./http_mux_ref.md). | Functionality | Yes | N/A |
 | cert\_file | string | The certificate file name HTTPS server used. The option is mandatory if HTTPS is expected as output protocol. | Functionality | Yes | "" |
@@ -51,6 +52,13 @@ Plugin runs a HTTP server implemented based on golang net/http listens on a port
 
 > NOTE:
 > About `host` option, the value `localhost` and `0.0.0.0` is different. Value `localhost` could be resolved to any IP address based on your local configuration in `/etc/hosts` file, generally it is configured to `127.0.0.1`.
+> About `type` option, fasthttp implementation will consumes more cpu and memory to achieve higher performance, more details please see the [nethttp vs fasthttp benchmark result doc](../benchmark/nethttp-vs-fasthttp/README.md).
+
+There are some defects when use "fasthttp" on "type" option:
+
+1. fasthttp server does't support HTTP2
+2. fasthttp server does't support `CloseNotifier`, so EG doesn't known client is gone until it try to write response data.
+
 
 ### I/O
 
@@ -222,6 +230,7 @@ Plugin outputs request data to a HTTP endpoint.
 | key\_file | string | The key file name HTTPS output used. The option is mandatory if HTTPS is expected as output protocol. | Functionality | Yes | "" |
 | ca\_file | string | The root certificate file name HTTPS output used. | Functionality | Yes | "" |
 | insecure\_tls | bool | The flag represents if the plugin does not check server certificate. | Functionality | Yes | false |
+| type | string | The http protocol implementation HTTP client supports. The available values are "nethttp" and "fasthttp". | Functionality | Yes | "nethttp" |
 | close\_body\_after\_pipeline | bool | The flag represents if to close the http body IO object after task finished the pipeline. | Functionality | Yes | false |
 | keepalive | string | The flag represents if the plugin configures keep-alive for an active connection. Three options are available `auto`, `yes`/`y`/`true`/`t`/`on`/`1` or `no`/`n`/`false`/`f`/`off`/`0` (case-insensitive). In `auto` option, the keep-alive feature will be applied according to the original request from http input plugin for http proxy case. | Functionality | Yes | "auto" |
 | keepalive\_sec | uint16 | The flag specifies the keep-alive period for an active network connection. Network protocols that do not support keep-alive ignore this option. | Functionality | Yes | 30 |
@@ -233,6 +242,15 @@ Plugin outputs request data to a HTTP endpoint.
 | response\_body\_io\_key | string | The key name of HTTP response body io object stored in internal storage as the plugin output. An empty value of the option means the plugin does not output HTTP response body io object.| I/O | Yes | "" |
 | response\_remote\_key | string | The key name of HTTP response remote address stored in internal storage as the plugin input. An empty value of the option means the plugin does not output HTTP reponse remote address. | I/O | Yes | "" |
 | response\_duration\_key | string | The key name of HTTP response process time stored in internal storage as the plugin output. An empty value of the option means the plugin does not output HTTP response process time. | I/O | Yes | "" |
+
+> NOTE:
+> it is recommended to configure same `type` option in httpoutput plugin and coordinate httpserver plugin.
+
+There is defect when use "fasthttp" on "type" option:
+
+fasthttp client can't detect the server's connection close when in keepalive mode, [see this issue](https://github.com/valyala/fasthttp/issues/189).
+EG use workaround: just retry sending the request on this error.
+
 
 ### I/O
 

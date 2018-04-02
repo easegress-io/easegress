@@ -16,6 +16,7 @@ import (
 	"github.com/ugorji/go/codec"
 
 	"common"
+	eghttp "http"
 )
 
 // For quickly substituting another implementation.
@@ -47,10 +48,10 @@ type reEntry struct {
 }
 
 func (entry *reEntry) String() string {
-	return fmt.Sprintf("[urlRE:%p, method:%s, priority:%d, instance:%p, headers: %v, handler:%p, pattern:%s]",
+	return fmt.Sprintf("[urlRE:%p, method:%s, priority:%d, instance:%p, headers: %v, handler:%p, pattern:%s, urlLiteral:%s]",
 		entry.urlRE, entry.Method, entry.Priority, entry.Instance, entry.Headers, entry.Handler,
 		fmt.Sprintf("%s://%s:%s%s?%s#%s", entry.Scheme, entry.Host, entry.Port,
-			entry.Path, entry.Query, entry.Fragment))
+			entry.Path, entry.Query, entry.Fragment), entry.urlLiteral)
 }
 
 func newREMux(conf *reMuxConfig) (*reMux, error) {
@@ -77,7 +78,7 @@ type cacheValue struct {
 func (m *reMux) clearCache() {
 	err := m.cache.Reset()
 	if err != nil {
-		fmt.Errorf("[BUG: reset cache failed: %v]", err)
+		logger.Errorf("[BUG: reset cache failed: %v]", err)
 	}
 }
 
@@ -130,13 +131,14 @@ func (m *reMux) dump() {
 	m.RUnlock()
 }
 
-func (m *reMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (m *reMux) ServeHTTP(c plugins.HTTPCtx) {
 	serveStartAt := common.Now()
+	header := c.RequestHeader()
 	var requestURL string
 	if m.conf.CacheKeyComplete {
-		requestURL = m.generateCompleteRequestURL(r)
+		requestURL = m.generateCompleteRequestURL(header)
 	} else {
-		requestURL = m.generatePathEndingRequestURL(r)
+		requestURL = m.generatePathEndingRequestURL(header)
 	}
 
 	matchURL := false
@@ -144,7 +146,7 @@ func (m *reMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	urlParams := make(map[string]string)
 	var entryServing *plugins.HTTPMuxEntry
 
-	keyCache := fmt.Sprintf("%s %s", r.Method, requestURL)
+	keyCache := fmt.Sprintf("%s %s", header.Method(), requestURL)
 	valueCache := m.getCache(keyCache)
 	m.RLock()
 	if valueCache != nil && valueCache.PriorityEntriesIndex < len(m.priorityEntries) {
@@ -164,7 +166,7 @@ func (m *reMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 
-				if r.Method == entry.Method {
+				if header.Method() == entry.Method {
 					matchMethod = true
 					entryServing = entry.HTTPMuxEntry
 					m.addCache(keyCache, &cacheValue{
@@ -180,11 +182,11 @@ func (m *reMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		m.RUnlock()
 
 		if !matchURL {
-			w.WriteHeader(http.StatusNotFound)
+			c.SetStatusCode(http.StatusNotFound)
 			return
 		}
 		if !matchMethod {
-			w.WriteHeader(http.StatusMethodNotAllowed)
+			c.SetStatusCode(http.StatusMethodNotAllowed)
 			return
 		}
 	}
@@ -192,7 +194,7 @@ func (m *reMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	errKeys := make([]string, 0)
 	for key, valuesEnum := range entryServing.Headers {
 		errKeys = append(errKeys, key)
-		v := r.Header.Get(key)
+		v := header.Get(key)
 		for _, valueEnum := range valuesEnum {
 			if v == valueEnum {
 				errKeys = errKeys[:len(errKeys)-1]
@@ -202,11 +204,11 @@ func (m *reMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(errKeys) > 0 {
 		headerErr := getHeaderError(errKeys...)
-		w.WriteHeader(headerErr.Code)
+		c.SetStatusCode(headerErr.Code)
 		return
 	}
 
-	entryServing.Handler(w, r, urlParams, common.Since(serveStartAt))
+	entryServing.Handler(c, urlParams, common.Since(serveStartAt))
 }
 
 func (m *reMux) AddFunc(ctx pipelines.PipelineContext, entryAdding *plugins.HTTPMuxEntry) error {
@@ -371,31 +373,24 @@ func (m *reMux) DeleteFuncs(ctx pipelines.PipelineContext) []*plugins.HTTPMuxEnt
 	return adaptionPipelineEntries
 }
 
-func (m *reMux) generatePathEndingRequestURL(r *http.Request) string {
-	scheme := "http"
-	if r.TLS != nil {
-		scheme = "https"
-	}
-	host, port, err := net.SplitHostPort(r.Host)
-	if err != nil {
-		host = r.Host
-	}
-	return fmt.Sprintf(`%s://%s:%s%s?#`,
-		scheme, host, port, common.RemoveRepeatedByte(r.URL.Path, '/'))
+func (m *reMux) generateCompleteRequestURL(h plugins.Header) string {
+	return h.FullURI()
 }
 
-func (m *reMux) generateCompleteRequestURL(r *http.Request) string {
-	scheme := "http"
-	if r.TLS != nil {
-		scheme = "https"
+func (m *reMux) generatePathEndingRequestURL(h plugins.Header) string {
+	scheme := h.Scheme()
+	host, _ /* port */, err := net.SplitHostPort(h.Host())
+	if err != nil { // h.Host() doesn't contain port
+		if h.Scheme() == "http" {
+			host = h.Host() + ":" + eghttp.DefaultHTTPPort
+		} else {
+			host = h.Host() + ":" + eghttp.DefaultHTTPSPort
+		}
+	} else {
+		host = h.Host()
 	}
-	host, port, err := net.SplitHostPort(r.Host)
-	if err != nil {
-		host = r.Host
-	}
-	return fmt.Sprintf(`%s://%s:%s%s?%s#%s`,
-		scheme, host, port, common.RemoveRepeatedByte(r.URL.Path, '/'),
-		r.URL.RawQuery, r.URL.Fragment)
+	return fmt.Sprintf(`%s://%s%s?#`,
+		scheme, host, common.RemoveRepeatedByte(h.Path(), '/'))
 }
 
 func (m *reMux) generateREEntry(entryAdding *plugins.HTTPMuxEntry) *reEntry {

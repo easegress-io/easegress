@@ -2,16 +2,11 @@ package plugins
 
 import (
 	"bytes"
-	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"math/rand"
-	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,11 +17,12 @@ import (
 	"github.com/hexdecteam/easegateway-types/task"
 
 	"common"
+	eghttp "http"
 	"logger"
 	"option"
 )
 
-type httpOutputConfig struct {
+type HTTPOutputConfig struct {
 	common.PluginCommonConfig
 	URLPattern               string            `json:"url_pattern"`
 	HeaderPatterns           map[string]string `json:"header_patterns"`
@@ -43,6 +39,7 @@ type httpOutputConfig struct {
 	ConnKeepAliveSec         uint16            `json:"keepalive_sec"` // up to 65535
 	DumpRequest              string            `json:"dump_request"`
 	DumpResponse             string            `json:"dump_response"`
+	Type                     string            `json:"type"`
 
 	RequestBodyIOKey    string `json:"request_body_io_key"`
 	RequestHeaderKey    string `json:"request_header_key"`
@@ -52,24 +49,26 @@ type httpOutputConfig struct {
 	ResponseRemoteKey   string `json:"response_remote_key"`
 	ResponseDurationKey string `json:"response_duration_key"`
 
+	typ               plugins.HTTPType
 	cert              *tls.Certificate
 	caCert            []byte
 	connKeepAlive     int16
 	dumpReq, dumpResp bool
 }
 
-func httpOutputConfigConstructor() plugins.Config {
-	return &httpOutputConfig{
+func HTTPOutputConfigConstructor() plugins.Config {
+	return &HTTPOutputConfig{
 		TimeoutSec:            120,
 		ExpectedResponseCodes: []int{http.StatusOK},
 		ConnKeepAlive:         "auto",
 		ConnKeepAliveSec:      30,
 		DumpRequest:           "auto",
 		DumpResponse:          "auto",
+		Type:                  eghttp.NetHTTPStr,
 	}
 }
 
-func (c *httpOutputConfig) Prepare(pipelineNames []string) error {
+func (c *HTTPOutputConfig) Prepare(pipelineNames []string) error {
 	err := c.PluginCommonConfig.Prepare(pipelineNames)
 	if err != nil {
 		return err
@@ -88,6 +87,7 @@ func (c *httpOutputConfig) Prepare(pipelineNames []string) error {
 	c.ResponseBodyIOKey = ts(c.ResponseBodyIOKey)
 	c.ResponseRemoteKey = ts(c.ResponseRemoteKey)
 	c.ResponseDurationKey = ts(c.ResponseDurationKey)
+	c.Type = ts(c.Type)
 
 	_, err = common.ScanTokens(c.URLPattern, false, nil)
 	if err != nil {
@@ -192,6 +192,11 @@ func (c *httpOutputConfig) Prepare(pipelineNames []string) error {
 		}
 	}
 
+	typ, err := eghttp.ParseHTTPType(c.Type)
+	if err != nil {
+		return fmt.Errorf("parse http implementation failed: %v", err)
+	}
+	c.typ = typ
 	return nil
 }
 
@@ -199,62 +204,30 @@ func (c *httpOutputConfig) Prepare(pipelineNames []string) error {
 
 const HTTP_OUTPUT_CLIENT_COUNT = 20
 
+var cancelledError = fmt.Errorf("task is canceled")
+
 type httpOutput struct {
-	conf       *httpOutputConfig
+	conf       *HTTPOutputConfig
 	instanceId string
-	clients    []*http.Client
+	clients    []client
 }
 
 func httpOutputConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, bool, error) {
-	c, ok := conf.(*httpOutputConfig)
+	c, ok := conf.(*HTTPOutputConfig)
 	if !ok {
-		return nil, plugins.SinkPlugin, false, fmt.Errorf("config type want *httpOutputConfig got %T", conf)
-	}
-
-	tlsConfig := new(tls.Config)
-	tlsConfig.InsecureSkipVerify = c.Insecure
-	keepAlivePeriod := c.ConnKeepAliveSec
-	if c.connKeepAlive == 0 {
-		keepAlivePeriod = 0 // disable keep-alive
+		return nil, plugins.SinkPlugin, false, fmt.Errorf("config type want *HTTPOutputConfig got %T", conf)
 	}
 
 	h := &httpOutput{
 		conf:    c,
-		clients: make([]*http.Client, HTTP_OUTPUT_CLIENT_COUNT),
+		clients: make([]client, HTTP_OUTPUT_CLIENT_COUNT),
 	}
 
 	for i := 0; i < HTTP_OUTPUT_CLIENT_COUNT; i++ {
-		h.clients[i] = &http.Client{
-			Timeout: time.Duration(c.TimeoutSec) * time.Second,
-			Transport: &http.Transport{
-				Proxy: http.ProxyFromEnvironment,
-				DialContext: (&net.Dialer{
-					Timeout:   10 * time.Second,
-					KeepAlive: time.Duration(keepAlivePeriod) * time.Second,
-					DualStack: true,
-				}).DialContext,
-				MaxIdleConns:          10240,
-				MaxIdleConnsPerHost:   512,
-				IdleConnTimeout:       90 * time.Second,
-				TLSHandshakeTimeout:   10 * time.Second,
-				ExpectContinueTimeout: 1 * time.Second,
-				TLSClientConfig:       tlsConfig,
-			},
-		}
+		h.clients[i] = createClient(c)
 	}
 
 	h.instanceId = fmt.Sprintf("%p", h)
-
-	if c.cert != nil {
-		tlsConfig.Certificates = []tls.Certificate{*c.cert}
-		tlsConfig.BuildNameToCertificate()
-	}
-
-	if c.caCert != nil {
-		caCertPool := x509.NewCertPool()
-		caCertPool.AppendCertsFromPEM(c.caCert)
-		tlsConfig.RootCAs = caCertPool
-	}
 
 	return h, plugins.SinkPlugin, false, nil
 }
@@ -263,81 +236,37 @@ func (h *httpOutput) Prepare(ctx pipelines.PipelineContext) {
 	// Nothing to do.
 }
 
-func (h *httpOutput) send(ctx pipelines.PipelineContext, t task.Task, req *http.Request) (
-	*http.Response, time.Duration, error) {
-
-	r := make(chan *http.Response)
-	e := make(chan error)
-
-	defer close(r)
-	defer close(e)
-
-	cancelCtx, cancel := context.WithCancel(context.Background())
-	req = req.WithContext(cancelCtx)
+func (h *httpOutput) send(ctx pipelines.PipelineContext, t task.Task, req request) (response, time.Duration, error) {
 
 	if h.conf.dumpReq {
-		logger.HTTPReqDump(ctx.PipelineName(), h.Name(), h.instanceId, t.StartAt().UnixNano(), req)
+		logger.HTTPReqDump(ctx.PipelineName(), h.Name(), h.instanceId, t.StartAt().UnixNano(), req.Dump)
 	}
 
-	var requestStartAt time.Time
-
-	go func() {
-		defer func() {
-			// channel e and r can be closed first before return by existing send()
-			// caused by task cancellation, the result or error of Do() can be ignored safely.
-			recover()
-		}()
-
-		requestStartAt = common.Now()
-		resp, err := h.clients[rand.Intn(HTTP_OUTPUT_CLIENT_COUNT)].Do(req)
-		if err != nil {
-			e <- err
+	resp, duration, err := req.Do(t)
+	if err != nil {
+		if err == cancelledError {
+			t.SetError(err, task.ResultTaskCancelled)
 		} else {
-			r <- resp
+			t.SetError(err, task.ResultServiceUnavailable)
 		}
-	}()
-
-	select {
-	case resp := <-r:
-		responseDuration := common.Since(requestStartAt)
-
+	} else {
 		if h.conf.dumpResp {
-			logger.HTTPRespDump(ctx.PipelineName(), h.Name(), h.instanceId, t.StartAt().UnixNano(), resp)
+			logger.HTTPRespDump(ctx.PipelineName(), h.Name(), h.instanceId, t.StartAt().UnixNano(), resp.Dump)
 		}
-
-		return resp, responseDuration, nil
-	case err := <-e:
-		responseDuration := common.Since(requestStartAt)
-
-		msg := err.Error()
-		if m, err := url.QueryUnescape(msg); err == nil {
-			msg = m
-		}
-
-		t.SetError(fmt.Errorf("%s", msg), task.ResultServiceUnavailable)
-		return nil, responseDuration, err
-	case <-t.Cancel():
-		cancel()
-
-		responseDuration := common.Since(requestStartAt)
-
-		err := fmt.Errorf("task is cancelled by %s", t.CancelCause())
-		t.SetError(err, task.ResultTaskCancelled)
-		return nil, responseDuration, err
 	}
+
+	return resp, duration, err
 }
 
 func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) error {
 	// skip error check safely due to we ensured it in Prepare()
 	url, _ := ReplaceTokensInPattern(t, h.conf.URLPattern)
 
-	var length int64
-	var reader io.Reader
+	var reader plugins.SizedReadCloser
 	if len(h.conf.RequestBodyIOKey) != 0 {
 		inputValue := t.Value(h.conf.RequestBodyIOKey)
 		ok := false
-		reader, ok = inputValue.(io.Reader)
-		if !ok {
+		if reader, ok = inputValue.(plugins.SizedReadCloser); !ok {
 			t.SetError(fmt.Errorf("input %s got wrong value: %#v", h.conf.RequestBodyIOKey, inputValue),
 				task.ResultMissingInput)
 			return nil
@@ -345,8 +274,8 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) error {
 	} else {
 		// skip error check safely due to we ensured it in Prepare()
 		body, _ := ReplaceTokensInPattern(t, h.conf.RequestBodyBufferPattern)
-		reader = bytes.NewBuffer([]byte(body))
-		length = int64(len(body))
+		byteBody := []byte(body)
+		reader = common.NewSizedReadCloser(ioutil.NopCloser(bytes.NewBuffer(byteBody)), int64(len(byteBody)))
 	}
 
 	// skip error check safely due to we ensured it in Prepare()
@@ -357,40 +286,42 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) error {
 		t.SetError(fmt.Errorf("invalid http method %s", method), task.ResultMissingInput)
 		return nil
 	}
+	client := h.clients[rand.Intn(HTTP_OUTPUT_CLIENT_COUNT)]
 
-	req, err := http.NewRequest(method, url, reader)
+	req, err := client.CreateRequest(method, url, reader)
 	if err != nil {
 		t.SetError(err, task.ResultInternalServerError)
 		return nil
 	}
 
-	if req.URL.Path == "" {
-		req.URL.Path = "/"
-	}
-	// FIXME: this operation may have side-effect:
-	// For example: if PARAM is "" in url `/{PARAM}/`,
-	// then that url will be cleaned up to `/`. This may lead bugs.
-	req.URL.Path = common.RemoveRepeatedByte(req.URL.Path, '/')
-
 	if len(h.conf.RequestHeaderKey) != 0 {
-		copyHeaderFromTask(t, h.conf.RequestHeaderKey, req.Header)
+		copyRequestHeaderFromTask(t, h.conf.RequestHeaderKey, req.Header())
 	}
 
-	req.ContentLength = length
 	if h.conf.connKeepAlive == 0 {
-		req.Header.Set("Connection", "close")
+		req.Header().Set("Connection", "close")
 	} else if h.conf.connKeepAlive == 1 {
-		req.Header.Set("Connection", "keep-alive")
+		req.Header().Set("Connection", "keep-alive")
 	} else { // h.conf.connKeepAlive == -1, auto mode
 		// http proxy case
 		keepAliveValue := t.Value("HTTP_CONNECTION")
-		keepAliveStr, ok := keepAliveValue.(string)
-		if ok {
-			req.Header.Set("Connection", strings.TrimSpace(keepAliveStr))
-		} else {
+		if keepAliveStr, ok := keepAliveValue.(string); ok {
+			v := strings.TrimSpace(keepAliveStr)
+			if strings.EqualFold(v, "keep-alive") {
+				req.Header().Set("Connection", "keep-alive")
+			} else {
+				req.Header().Set("Connection", "close")
+			}
+		} else { // Connection header doesn't exist in original request
 			// use default value of protocol:
 			// HTTP/1.1, keep-alive is enabled by default
 			// HTTP/1.0, keep-alive is disabled by default
+
+			// https://tools.ietf.org/html/rfc3875#section-4.1.16
+			serverProtocol := t.Value("SERVER_PROTOCOL")
+			if protocol, ok := serverProtocol.(string); ok && protocol == "HTTP/1.0" {
+				req.Header().Set("Connection", "close")
+			}
 		}
 	}
 
@@ -399,12 +330,9 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) error {
 		// skip error check safely due to we ensured it in Prepare()
 		name1, _ := ReplaceTokensInPattern(t, name)
 		value1, _ := ReplaceTokensInPattern(t, value)
-		req.Header.Set(name1, value1)
+		req.Header().Set(name1, value1)
 		i++
 	}
-
-	req.Host = req.Header.Get("Host") // https://github.com/golang/go/issues/7682
-
 	resp, responseDuration, err := h.send(ctx, t, req)
 	if err != nil && t.ResultCode() == task.ResultTaskCancelled &&
 		len(h.conf.RequestBodyIOKey) == 0 { // has no rewind for rerun plugin
@@ -421,7 +349,7 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) error {
 
 	closeRespBody := func() {
 		closeHTTPOutputResponseBody := func(t1 task.Task, _ task.TaskStatus) {
-			err := resp.Body.Close()
+			err := resp.BodyReadCloser().Close()
 			if err != nil {
 				logger.Errorf("[close response body failed: %v]", err)
 			}
@@ -436,11 +364,11 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) error {
 	}
 
 	if len(h.conf.ResponseBodyIOKey) != 0 {
-		t.WithValue(h.conf.ResponseBodyIOKey, resp.Body)
+		t.WithValue(h.conf.ResponseBodyIOKey, resp.BodyReadCloser())
 	}
 
 	if len(h.conf.ResponseHeaderKey) != 0 {
-		t.WithValue(h.conf.ResponseHeaderKey, resp.Header)
+		t.WithValue(h.conf.ResponseHeaderKey, resp.Header())
 	}
 
 	if len(h.conf.ResponseCodeKey) != 0 {
@@ -448,19 +376,19 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) error {
 	}
 
 	if len(h.conf.ResponseRemoteKey) != 0 {
-		t.WithValue(h.conf.ResponseRemoteKey, req.URL.String())
+		t.WithValue(h.conf.ResponseRemoteKey, url)
 	}
 
 	if len(h.conf.ExpectedResponseCodes) > 0 {
 		match := false
 		for _, expected := range h.conf.ExpectedResponseCodes {
-			if resp.StatusCode == expected {
+			if resp.StatusCode() == expected {
 				match = true
 				break
 			}
 		}
 		if !match {
-			err = fmt.Errorf("http upstream responded with unexpected status code (%d)", resp.StatusCode)
+			err = fmt.Errorf("http upstream responded with unexpected status code (%d)", resp.StatusCode())
 			t.SetError(err, task.ResultServiceUnavailable)
 			return nil
 		}
@@ -482,7 +410,6 @@ func (h *httpOutput) Close() {
 }
 
 ////
-
 func init() {
 	rand.Seed(time.Now().UnixNano())
 }

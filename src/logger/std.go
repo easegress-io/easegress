@@ -14,6 +14,22 @@ var (
 	std = newLoggerSet()
 )
 
+// this interface supports current std logger to be used
+// in other libraries, such as fasthttp.Server.Logger
+type Logger interface {
+	// Printf must have the same semantics as log.Printf.
+	Printf(format string, args ...interface{})
+}
+
+type logger struct {
+}
+
+var defaultStdLogger = &logger{}
+
+func (l *logger) Printf(format string, args ...interface{}) {
+	Errorf(format, args)
+}
+
 func initStd(logLevel logrus.Level) {
 	formatter := &logrus.TextFormatter{
 		FullTimestamp: true,
@@ -27,6 +43,10 @@ func initStd(logLevel logrus.Level) {
 	} else {
 		std.registerFileLogger(LOG_STD_SET_NAME, f, out, LOG_STD_FILE, formatter, logLevel)
 	}
+}
+
+func StdLogger() Logger {
+	return defaultStdLogger
 }
 
 func setStdLevel(level logrus.Level) {

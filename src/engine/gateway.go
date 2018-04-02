@@ -25,7 +25,7 @@ type Gateway struct {
 	repo       config.Store
 	mod        *model.Model
 	gc         *cluster.GatewayCluster
-	schedulers map[string]pipelineScheduler
+	schedulers map[string]PipelineScheduler
 	done       chan error
 	startAt    time.Time
 }
@@ -70,7 +70,7 @@ func NewGateway() (*Gateway, error) {
 		repo:       repo,
 		mod:        mod,
 		gc:         gc,
-		schedulers: make(map[string]pipelineScheduler),
+		schedulers: make(map[string]PipelineScheduler),
 		done:       make(chan error, 1),
 	}, nil
 }
@@ -242,13 +242,9 @@ func (gw *Gateway) launchPipeline(newPipeline *model.Pipeline) {
 		return
 	}
 
-	var scheduler pipelineScheduler
+	var scheduler PipelineScheduler
 
-	if newPipeline.Config().Parallelism() == 0 { // dynamic mode
-		scheduler = newDynamicPipelineScheduler(newPipeline)
-	} else { // pre-alloc mode
-		scheduler = newStaticPipelineScheduler(newPipeline)
-	}
+	scheduler = CreatePipelineScheduler(newPipeline)
 
 	ctx := gw.mod.CreatePipelineContext(newPipeline.Config(), statistics, scheduler.SourceInputTrigger())
 

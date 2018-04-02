@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -21,9 +22,14 @@ import (
 	"option"
 )
 
+var copyBufPool = sync.Pool{
+	New: func() interface{} {
+		return make([]byte, 4096)
+	},
+}
+
 type httpTask struct {
-	request       *http.Request
-	writer        http.ResponseWriter
+	ctx           plugins.HTTPCtx
 	routeDuration time.Duration
 	receivedAt    time.Time
 	urlParams     map[string]string
@@ -32,7 +38,7 @@ type httpTask struct {
 
 ////
 
-type httpInputConfig struct {
+type HTTPInputConfig struct {
 	common.PluginCommonConfig
 	ServerPluginName string              `json:"server_name"`
 	MuxType          muxType             `json:"mux_type"`
@@ -63,8 +69,8 @@ type httpInputConfig struct {
 	dumpReq bool
 }
 
-func httpInputConfigConstructor() plugins.Config {
-	return &httpInputConfig{
+func HTTPInputConfigConstructor() plugins.Config {
+	return &HTTPInputConfig{
 		ServerPluginName: "httpserver-default",
 		MuxType:          regexpMuxType,
 		Methods:          []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodHead},
@@ -73,7 +79,7 @@ func httpInputConfigConstructor() plugins.Config {
 	}
 }
 
-func (c *httpInputConfig) Prepare(pipelineNames []string) error {
+func (c *HTTPInputConfig) Prepare(pipelineNames []string) error {
 	err := c.PluginCommonConfig.Prepare(pipelineNames)
 	if err != nil {
 		return err
@@ -190,7 +196,7 @@ func (c *httpInputConfig) Prepare(pipelineNames []string) error {
 }
 
 type httpInput struct {
-	conf                          *httpInputConfig
+	conf                          *HTTPInputConfig
 	httpTaskChan                  chan *httpTask
 	instanceId                    string
 	waitQueueLengthIndicatorAdded bool
@@ -199,7 +205,7 @@ type httpInput struct {
 }
 
 func httpInputConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, bool, error) {
-	c, ok := conf.(*httpInputConfig)
+	c, ok := conf.(*HTTPInputConfig)
 	if !ok {
 		return nil, plugins.SourcePlugin, false, fmt.Errorf(
 			"config type want *HTTPInputConfig got %T", conf)
@@ -281,26 +287,11 @@ func (h *httpInput) Prepare(ctx pipelines.PipelineContext) {
 	h.contexts.Store(ctx.PipelineName(), ctx)
 }
 
-func (h *httpInput) handler(w http.ResponseWriter, req *http.Request, urlParams map[string]string,
+func (h *httpInput) handler(ctx plugins.HTTPCtx, urlParams map[string]string,
 	routeDuration time.Duration) {
 
-	if req.ContentLength >= 0 { // content length is known
-		reader := io.LimitReader(req.Body, req.ContentLength)
-		req.Body = common.IOReaderToReaderCloser(reader, req.Body)
-	}
-
-	if h.conf.Unzip && strings.Contains(req.Header.Get("Content-Encoding"), "gzip") {
-		var err error
-		req.Body, err = gzip.NewReader(req.Body)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-	}
-
 	httpTask := httpTask{
-		request:       req,
-		writer:        w,
+		ctx:           ctx,
 		routeDuration: routeDuration,
 		receivedAt:    common.Now(),
 		urlParams:     urlParams,
@@ -314,7 +305,7 @@ func (h *httpInput) handler(w http.ResponseWriter, req *http.Request, urlParams 
 			// use this way to ignore error since plugin will exit in anyway, and notice client.
 			err := recover()
 			if err != nil {
-				w.WriteHeader(http.StatusBadGateway)
+				ctx.SetStatusCode(http.StatusBadGateway)
 			}
 		}()
 		h.httpTaskChan <- &httpTask
@@ -342,13 +333,13 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 	if notifier == nil {
 		return fmt.Errorf("http server %s gone", h.conf.ServerPluginName), task.ResultServerGone
 	}
-
 	select {
 	case ht, ok = <-h.httpTaskChan:
 		if !ok {
 			return fmt.Errorf("plugin %s has been closed", h.Name()),
 				task.ResultInternalServerError
 		}
+
 	case <-t.Cancel():
 		return fmt.Errorf("task is cancelled by %s", t.CancelCause()), task.ResultTaskCancelled
 	case <-notifier:
@@ -356,10 +347,10 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 	}
 
 	if h.conf.dumpReq {
-		logger.HTTPReqDump(ctx.PipelineName(), h.Name(), h.instanceId, t.StartAt().UnixNano(), ht.request)
+		logger.HTTPReqDump(ctx.PipelineName(), h.Name(), h.instanceId, t.StartAt().UnixNano(), ht.ctx.DumpRequest)
 	}
 
-	vars, names := common.GenerateCGIEnv(ht.request)
+	vars, names := common.GenerateCGIEnv(ht.ctx)
 	for k, v := range vars {
 		t.WithValue(k, v)
 	}
@@ -368,13 +359,23 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 		t.WithValue(h.conf.RequestHeaderNamesKey, names)
 	}
 
-	body := common.NewTimeReader(ht.request.Body)
+	reader := ht.ctx.BodyReadCloser()
+	header := ht.ctx.RequestHeader()
+	if h.conf.Unzip && strings.Contains(header.Get("Content-Encoding"), "gzip") {
+		gzipReader, err := gzip.NewReader(reader)
+		if err != nil {
+			return fmt.Errorf("create gzip reader failed: %v", err), task.ResultBadInput
+		}
+		reader = common.NewSizedReadCloser(gzipReader, -1)
+	}
+
+	body := common.NewSizedTimeReader(reader)
 	if len(h.conf.RequestBodyIOKey) != 0 {
 		t.WithValue(h.conf.RequestBodyIOKey, body)
 	}
 
 	if len(h.conf.RequestHeaderKey) != 0 {
-		t.WithValue(h.conf.RequestHeaderKey, ht.request.Header)
+		t.WithValue(h.conf.RequestHeaderKey, ht.ctx.RequestHeader())
 	}
 
 	for k, v := range ht.urlParams {
@@ -383,9 +384,13 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 
 	respondCallerAndLogRequest := func(t1 task.Task, _ task.TaskStatus) {
 		defer h.closeResponseBody(t1)
+		var notifyCloseCh <-chan bool
 
+		if notifier := ht.ctx.CloseNotifier(); notifier != nil {
+			notifyCloseCh = notifier.CloseNotify()
+		}
 		select {
-		case closed := <-ht.writer.(http.CloseNotifier).CloseNotify():
+		case closed := <-notifyCloseCh:
 			if closed {
 				// 499 StatusClientClosed - same as nginx
 				t1.SetError(fmt.Errorf("client gone"), task.ResultRequesterGone)
@@ -395,10 +400,10 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 		}
 
 		if len(h.conf.ResponseHeaderKey) != 0 {
-			copyHeaderFromTask(t1, h.conf.ResponseHeaderKey, ht.writer.Header())
+			copyResponseHeaderFromTask(t1, h.conf.ResponseHeaderKey, ht.ctx.ResponseHeader())
 		}
 
-		ht.writer.WriteHeader(getClientReceivedCode(t1, h.conf.ResponseCodeKey))
+		ht.ctx.SetStatusCode(getClientReceivedCode(t1, h.conf.ResponseCodeKey))
 
 		// TODO: Take care other headers if inputted
 
@@ -410,19 +415,22 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 			bodyBytesSent = int64(len(buf))
 
 			writeStartAt := time.Now()
-			ht.writer.Write(buf)
+			ht.ctx.Write(buf)
 			writeClientBodyElapse = time.Since(writeStartAt)
 		} else if len(h.conf.ResponseBodyIOKey) != 0 {
-			reader, ok := t1.Value(h.conf.ResponseBodyIOKey).(io.Reader)
-			if ok {
+			if reader, ok := t1.Value(h.conf.ResponseBodyIOKey).(plugins.SizedReadCloser); ok {
 				done := make(chan int, 1)
 				ir := common.NewInterruptibleReader(reader)
-				iw := common.NewInterruptibleWriter(ht.writer)
+				iw := common.NewInterruptibleWriter(ht.ctx)
 				tr := common.NewTimeReader(ir)
 				tw := common.NewTimeWriter(iw)
-
+				if reader.Size() > 0 {
+					ht.ctx.SetContentLength(reader.Size())
+				}
 				go func() {
-					written, err := io.Copy(tw, tr)
+					vbuf := copyBufPool.Get()
+					buf := vbuf.([]byte)
+					written, err := io.CopyBuffer(tw, tr, buf)
 					if err != nil {
 						logger.Warnf("[read or write body failed, "+
 							"response might be incomplete: %s]", err)
@@ -433,15 +441,15 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 				}()
 
 				select {
-				case closed := <-ht.writer.(http.CloseNotifier).CloseNotify():
+				case closed := <-notifyCloseCh:
 					if closed {
 						err := fmt.Errorf("client gone")
 						iw.Cancel(err)
 						ir.Close()
 						<-done
 
+						t1.SetError(fmt.Errorf("client gone"), task.ResultRequesterGone)
 						// 499 StatusClientClosed - same as nginx
-						t1.SetError(err, task.ResultRequesterGone)
 					}
 				case <-t1.Cancel():
 					if h.conf.FastClose {
@@ -465,24 +473,27 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 
 				readRespBodyElapse = tr.Elapse()
 				writeClientBodyElapse = tw.Elapse()
+			} else if t1.Value(h.conf.ResponseBodyIOKey) != nil { // ignore empty response body
+				logger.Errorf("[expected ResponseBodyIOKey to be type plugins.SizedReadCloser, but got: %v, value: %+v]",
+					reflect.TypeOf(t1.Value(h.conf.ResponseBodyIOKey)), t1.Value(h.conf.ResponseBodyIOKey))
 			}
 		} else if !task.SuccessfulResult(t1.ResultCode()) && h.conf.RespondErr {
-			if strings.Contains(ht.request.Header.Get("Accept-Encoding"), "gzip") {
-				ht.writer.Header().Set("Content-Encoding", "gzip, deflate")
-				ht.writer.Header().Set("Content-Type", "application/x-gzip")
-				gz := gzip.NewWriter(ht.writer)
+			if strings.Contains(ht.ctx.RequestHeader().Get("Accept-Encoding"), "gzip") {
+				ht.ctx.ResponseHeader().Set("Content-Encoding", "gzip, deflate")
+				ht.ctx.ResponseHeader().Set("Content-Type", "application/x-gzip")
+				gz := gzip.NewWriter(ht.ctx)
 				bytes := []byte(t1.Error().Error())
 				written, _ := gz.Write(bytes) // ignore error
 				bodyBytesSent = int64(written)
 				gz.Close()
 			} else {
-				ht.writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
+				ht.ctx.ResponseHeader().Set("Content-Type", "text/plain; charset=utf-8")
 				// ascii is a subset of utf-8
 				bytes := []byte(t1.Error().Error())
 				bodyBytesSent = int64(len(bytes))
 
 				writeStartAt := time.Now()
-				ht.writer.Write(bytes)
+				ht.ctx.Write(bytes)
 				writeClientBodyElapse = time.Since(writeStartAt)
 			}
 		}
@@ -493,7 +504,7 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 	}
 
 	closeHTTPInputRequestBody := func(t1 task.Task, _ task.TaskStatus) {
-		ht.request.Body.Close()
+		ht.ctx.BodyReadCloser().Close()
 		close(ht.finishedChan)
 	}
 
@@ -645,7 +656,7 @@ func logRequest(ht *httpTask, t task.Task, responseCodeKey, responseRemoteKey,
 
 	// TODO: use variables(e.g. upstream_response_time_xxx) of each plugin
 	// or provide a method(e.g. AddUpstreamResponseTime) of task
-	logger.HTTPAccess(ht.request, getClientReceivedCode(t, responseCodeKey), bodyBytesSent,
+	logger.HTTPAccess(ht.ctx, getClientReceivedCode(t, responseCodeKey), bodyBytesSent,
 		requestTime, responseDuration, responseRemote,
 		getResponseCode(t, responseCodeKey), writeClientBodyElapse, readClientBodyElapse,
 		routeDuration)
@@ -656,18 +667,15 @@ func logRequest(ht *httpTask, t task.Task, responseCodeKey, responseRemoteKey,
 	}
 }
 
-func copyHeaderFromTask(t task.Task, key string, dst http.Header) {
-	respHeader, ok := t.Value(key).(http.Header)
-	if ok {
-		for k, v := range respHeader {
-			for _, vv := range v {
-				// Add appends to any existing values associated with key.
-				dst.Add(k, vv)
-			}
-		}
-	} else {
+////
+func copyResponseHeaderFromTask(t task.Task, key string, dst plugins.Header) {
+	if src, ok := t.Value(key).(plugins.Header); !ok {
 		// There are some normal cases that the header key is nil in task
 		// Because header key producer don't write them
-		logger.Debugf("[load header: %s in the task failed, value:%+v]", key, t.Value(key))
+		logger.Debugf("[load header: %s in the task failed, header is %+v]", key, t.Value(key))
+	} else {
+		if err := src.CopyTo(dst); err != nil {
+			logger.Warnf("[copyResponseHeaderFromTask failed: %v]", err)
+		}
 	}
 }

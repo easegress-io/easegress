@@ -37,6 +37,8 @@ import:
   subpackages:
   - codec
 - package: github.com/hashicorp/logutils
+- package: github.com/erikdubbelboer/fasthttp
+- package: github.com/valyala/bytebufferpool
 - package: github.com/ghodss/yaml
 - package: github.com/allegro/bigcache
 - package: github.com/emicklei/go-restful

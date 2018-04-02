@@ -153,7 +153,7 @@ func mockHTTPMuxEntry(scheme, host, port, path, query, fragment, method string,
 
 func mockHTTPInput(name string) *httpInput {
 	return &httpInput{
-		conf: &httpInputConfig{
+		conf: &HTTPInputConfig{
 			PluginCommonConfig: common.PluginCommonConfig{
 				Name: name,
 			},

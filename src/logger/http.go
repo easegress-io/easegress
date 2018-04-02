@@ -2,11 +2,10 @@ package logger
 
 import (
 	"fmt"
-	"net/http"
-	"net/http/httputil"
 	"net/url"
 	"time"
 
+	"github.com/hexdecteam/easegateway-types/plugins"
 	"github.com/sirupsen/logrus"
 
 	"common"
@@ -51,7 +50,7 @@ func (f *httpFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	return []byte(fmt.Sprintln(entry.Message)), nil
 }
 
-func HTTPAccess(req *http.Request, code int, bodyBytesSent int64,
+func HTTPAccess(ctx plugins.HTTPCtx, code int, bodyBytesSent int64,
 	requestTime time.Duration, upstreamResponseTime time.Duration,
 	upstreamAddr string, upstreamCode int, clientWriteBodyTime, clientReadBodyTime,
 	routeTime time.Duration) {
@@ -62,12 +61,13 @@ func HTTPAccess(req *http.Request, code int, bodyBytesSent int64,
 	// '$request_time $upstream_response_time $upstream_addr $upstream_status $pipe '
 	// '$client_write_body_time' '$client_read_body_time' '$route_time';
 
-	referer := req.Header.Get("Referer")
+	header := ctx.RequestHeader()
+	referer := header.Get("Referer")
 	if referer == "" {
 		referer = "-"
 	}
 
-	agent := req.Header.Get("User-Agent")
+	agent := header.Get("User-Agent")
 	if agent == "" {
 		agent = "-"
 	} else {
@@ -76,7 +76,7 @@ func HTTPAccess(req *http.Request, code int, bodyBytesSent int64,
 		}
 	}
 
-	realIP := req.Header.Get("X-Forwarded-For")
+	realIP := header.Get("X-Forwarded-For")
 	if realIP == "" {
 		realIP = "-"
 	}
@@ -89,13 +89,14 @@ func HTTPAccess(req *http.Request, code int, bodyBytesSent int64,
 		}
 	}
 
+	proto := header.Proto()
 	line := fmt.Sprintf(
 		`%v - - [%v] "%s %s %s" `+
 			`%v %v "%s" `+
 			`"%s" "%s" `+
 			`%f %f %v %v . `+
 			`%f %f %f`,
-		req.RemoteAddr, common.Now().Local(), req.Method, req.URL.Path, req.Proto,
+		ctx.RemoteAddr(), common.Now().Local(), header.Method(), header.Path(), proto,
 		code, bodyBytesSent, referer,
 		agent, realIP,
 		requestTime.Seconds(), upstreamResponseTime.Seconds(), upstreamAddr, upstreamCode,
@@ -106,8 +107,11 @@ func HTTPAccess(req *http.Request, code int, bodyBytesSent int64,
 	}
 }
 
-func HTTPReqDump(pipelineName, pluginName, pluginInstanceId string, taskId int64, req *http.Request) {
-	dump, err := httputil.DumpRequest(req, false /* do not dump request body */)
+type DumpRequest func() (string, error)
+type DumpResponse func() (string, error)
+
+func HTTPReqDump(pipelineName, pluginName, pluginInstanceId string, taskId int64, dump DumpRequest) {
+	s, err := dump()
 	if err != nil {
 		Warnf("[dump http request to log failed: %s]", err)
 		return
@@ -115,12 +119,12 @@ func HTTPReqDump(pipelineName, pluginName, pluginInstanceId string, taskId int64
 
 	for _, l := range httpLog.getLoggers("http_dump") {
 		l.Debugf("%s/%s@%s/task#%d - - [%v]:\n%s]",
-			pipelineName, pluginName, pluginInstanceId, taskId, common.Now().Local(), dump)
+			pipelineName, pluginName, pluginInstanceId, taskId, common.Now().Local(), s)
 	}
 }
 
-func HTTPRespDump(pipelineName, pluginName, pluginInstanceId string, taskId int64, resp *http.Response) {
-	dump, err := httputil.DumpResponse(resp, false /* do not dump response body */)
+func HTTPRespDump(pipelineName, pluginName, pluginInstanceId string, taskId int64, dump DumpResponse) {
+	s, err := dump()
 	if err != nil {
 		Warnf("[dump http response to log failed: %s]", err)
 		return
@@ -128,6 +132,6 @@ func HTTPRespDump(pipelineName, pluginName, pluginInstanceId string, taskId int6
 
 	for _, l := range httpLog.getLoggers("http_dump") {
 		l.Debugf("%s/%s@%s/task#%d - - [%v]:\n%s]",
-			pipelineName, pluginName, pluginInstanceId, taskId, common.Now().Local(), dump)
+			pipelineName, pluginName, pluginInstanceId, taskId, common.Now().Local(), s)
 	}
 }

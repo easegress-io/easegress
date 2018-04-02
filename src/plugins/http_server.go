@@ -12,15 +12,152 @@ import (
 	"strings"
 	"time"
 
+	"github.com/erikdubbelboer/fasthttp"
 	"github.com/hexdecteam/easegateway-types/pipelines"
 	"github.com/hexdecteam/easegateway-types/plugins"
 	"github.com/hexdecteam/easegateway-types/task"
 	"golang.org/x/net/netutil"
 
+	eghttp "http"
 	"logger"
 )
 
-type httpServerConfig struct {
+//////// HTTP server interface
+type server interface {
+	ServeTLS(certFile, keyFile string) error
+	Serve() error
+	Close() error
+	Listener() net.Listener
+}
+
+// leverages net/http server, implements server interface
+type netHTTPServer struct {
+	s *http.Server
+	l net.Listener
+	m plugins.HTTPMux
+}
+
+func newNetHTTPServer(c *HTTPServerConfig, l net.Listener, mux plugins.HTTPMux) *netHTTPServer {
+	ln := netutil.LimitListener(&tcpKeepAliveListener{
+		connKeepAlive:    c.ConnKeepAlive,
+		connKeepAliveSec: c.ConnKeepAliveSec,
+		tcpListener:      l.(*net.TCPListener),
+	}, int(c.MaxSimulConns))
+	s := http.Server{}
+	ns := &netHTTPServer{&s, ln, mux}
+
+	s.Handler = ns
+	s.SetKeepAlivesEnabled(c.ConnKeepAlive)
+	return ns
+}
+
+// implements http.Handler interface
+func (n *netHTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := n.createHTTPCtx(w, r)
+	n.m.ServeHTTP(ctx)
+}
+
+func (n *netHTTPServer) ServeTLS(certFile, keyFile string) error {
+	return n.s.ServeTLS(n.l, certFile, keyFile)
+}
+func (n *netHTTPServer) Serve() error {
+	return n.s.Serve(n.l)
+}
+
+func (n *netHTTPServer) Close() error {
+	return n.s.Close()
+}
+
+func (n *netHTTPServer) Listener() net.Listener {
+	return n.l
+}
+
+func (n *netHTTPServer) createHTTPCtx(w http.ResponseWriter, r *http.Request) plugins.HTTPCtx {
+	return &eghttp.NetHTTPCtx{
+		Req:    r,
+		Writer: w,
+	}
+}
+
+// leverages fasthttp server, implements server interface
+type fastHTTPServer struct {
+	s *fasthttp.Server
+	l net.Listener
+	m plugins.HTTPMux
+}
+
+func newFastHTTPServer(c *HTTPServerConfig, l net.Listener, mux plugins.HTTPMux) *fastHTTPServer {
+	s := fasthttp.Server{
+		Concurrency:  int(c.MaxSimulConns),
+		LogAllErrors: true,
+		// set logger to log errors into std logger
+		Logger: logger.StdLogger(),
+		// TODO(shengdong)
+		// open more options here? like Server.MaxRequestBodySize
+	}
+	if c.ConnKeepAlive {
+		// This also limits the maximum duration for idle keep-alive
+		// connections.
+		s.ReadTimeout = time.Duration(c.ConnKeepAliveSec) * time.Second
+	}
+	srv := &fastHTTPServer{&s, l, mux}
+	s.Handler = srv.ServeFastHTTP
+
+	return srv
+}
+
+// implements fasthttp.RequestHandler interface
+func (f *fastHTTPServer) ServeFastHTTP(c *fasthttp.RequestCtx) {
+	ctx := f.createHTTPCtx(c)
+	f.m.ServeHTTP(ctx)
+}
+
+func (f *fastHTTPServer) ServeTLS(certFile, keyFile string) error {
+	return f.s.ServeTLS(f.l, certFile, keyFile)
+}
+
+func (f *fastHTTPServer) Serve() error {
+	return f.s.Serve(f.l)
+}
+
+func (f *fastHTTPServer) Listener() net.Listener {
+	return f.l
+}
+
+// Unlike net/http.Server, fasthttp.Server doesn't have `Close()` function,
+// which close the listener innerly, so close listener here explicitly
+func (f *fastHTTPServer) Close() error {
+	if err := f.l.Close(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (f *fastHTTPServer) createHTTPCtx(c *fasthttp.RequestCtx) plugins.HTTPCtx {
+	return &eghttp.FastHTTPCtx{
+		Ctx:  c,
+		Req:  &c.Request,
+		Resp: &c.Response,
+	}
+}
+
+// server factory, creates concrete server interface implementations
+func createServer(c *HTTPServerConfig, mux plugins.HTTPMux) (server, error) {
+	addr := fmt.Sprintf("%s:%d", c.Host, c.Port)
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return nil, fmt.Errorf("listen at TCP %s failed: ", err)
+	}
+
+	if c.typ == eghttp.FastHTTP {
+		return newFastHTTPServer(c, ln, mux), nil
+	} else {
+		return newNetHTTPServer(c, ln, mux), nil
+	}
+}
+
+////////
+type HTTPServerConfig struct {
 	common.PluginCommonConfig
 	Host             string      `json:"host"`
 	Port             uint16      `json:"port"` // up to 65535
@@ -30,6 +167,8 @@ type httpServerConfig struct {
 	KeyFile          string      `json:"key_file"`
 	ConnKeepAlive    bool        `json:"keepalive"`
 	ConnKeepAliveSec uint16      `json:"keepalive_sec"` // up to 65535
+	Type             string      `json:"type"`
+	typ              plugins.HTTPType
 	// TODO: Adds keepalive_requests support
 	MaxSimulConns uint32 `json:"max_connections"` // up to 2147483647 really
 
@@ -38,11 +177,12 @@ type httpServerConfig struct {
 	muxConf                   interface{}
 }
 
-func httpServerConfigConstructor() plugins.Config {
-	return &httpServerConfig{
+func HTTPServerConfigConstructor() plugins.Config {
+	return &HTTPServerConfig{
 		Host:    "localhost",
 		Port:    10080,
 		MuxType: regexpMuxType,
+		Type:    eghttp.NetHTTPStr,
 		MuxConfig: reMuxConfig{
 			CacheKeyComplete: false,
 			CacheMaxCount:    1024,
@@ -53,7 +193,7 @@ func httpServerConfigConstructor() plugins.Config {
 	}
 }
 
-func (c *httpServerConfig) Prepare(pipelineNames []string) error {
+func (c *HTTPServerConfig) Prepare(pipelineNames []string) error {
 	err := c.PluginCommonConfig.Prepare(pipelineNames)
 	if err != nil {
 		return err
@@ -63,6 +203,7 @@ func (c *httpServerConfig) Prepare(pipelineNames []string) error {
 	c.Host = ts(c.Host)
 	c.CertFile = ts(c.CertFile)
 	c.KeyFile = ts(c.KeyFile)
+	c.Type = ts(c.Type)
 
 	if len(c.Host) == 0 {
 		return fmt.Errorf("invalid host")
@@ -86,6 +227,12 @@ func (c *httpServerConfig) Prepare(pipelineNames []string) error {
 	if c.Port == 0 {
 		return fmt.Errorf("invalid port")
 	}
+
+	typ, err := eghttp.ParseHTTPType(c.Type)
+	if err != nil {
+		return fmt.Errorf("parse http implementation failed: %v", err)
+	}
+	c.typ = typ
 
 	var muxConf interface{}
 	switch c.MuxType {
@@ -120,19 +267,18 @@ func (c *httpServerConfig) Prepare(pipelineNames []string) error {
 }
 
 type httpServer struct {
-	conf     *httpServerConfig
-	addr     string
-	listener net.Listener
-	server   *http.Server
-	mux      plugins.HTTPMux
-	closed   bool
+	conf   *HTTPServerConfig
+	addr   string
+	server server
+	mux    plugins.HTTPMux
+	closed bool
 }
 
 func httpServerConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, bool, error) {
-	c, ok := conf.(*httpServerConfig)
+	c, ok := conf.(*HTTPServerConfig)
 	if !ok {
 		return nil, plugins.ProcessPlugin, true, fmt.Errorf(
-			"config type want *httpServerConfig got %T", conf)
+			"config type want *HTTPServerConfig got %T", conf)
 	}
 
 	h := &httpServer{
@@ -140,18 +286,7 @@ func httpServerConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginT
 	}
 
 	h.addr = fmt.Sprintf("%s:%d", c.Host, c.Port)
-
-	ln, err := net.Listen("tcp", h.addr)
-	if err != nil {
-		return nil, plugins.ProcessPlugin, true, err
-	}
-
-	h.listener = netutil.LimitListener(&tcpKeepAliveListener{
-		connKeepAlive:    c.ConnKeepAlive,
-		connKeepAliveSec: c.ConnKeepAliveSec,
-		tcpListener:      ln.(*net.TCPListener),
-	}, int(c.MaxSimulConns))
-
+	var err error
 	switch h.conf.MuxType {
 	case regexpMuxType:
 		muxConf, ok := h.conf.muxConf.(*reMuxConfig)
@@ -178,14 +313,9 @@ func httpServerConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginT
 	default:
 		return nil, plugins.ProcessPlugin, true, fmt.Errorf("unsupported mux type") //defensive
 	}
-
-	h.server = &http.Server{
-		Handler: h.mux,
-	}
-
-	h.server.SetKeepAlivesEnabled(c.ConnKeepAlive)
-	if c.ConnKeepAlive {
-		h.server.IdleTimeout = time.Duration(c.ConnKeepAliveSec) * time.Second
+	h.server, err = createServer(c, h.mux)
+	if err != nil {
+		return nil, plugins.ProcessPlugin, true, fmt.Errorf("create http server failed: %s", err)
 	}
 
 	done := make(chan error)
@@ -203,7 +333,7 @@ func httpServerConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginT
 		logger.Infof("[https server %s is listening at %s]", c.Name, h.addr)
 
 		go func() {
-			err := h.server.ServeTLS(h.listener, c.certFilePath, c.keyFilePath)
+			err := h.server.ServeTLS(c.certFilePath, c.keyFilePath)
 			if !h.closed && err != nil {
 				logger.Errorf("[https server listens %s failed: %v]", h.addr, err)
 			}
@@ -213,7 +343,7 @@ func httpServerConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginT
 		logger.Infof("[http server %s is listening at %s]", c.Name, h.addr)
 
 		go func() {
-			err := h.server.Serve(h.listener)
+			err := h.server.Serve()
 			if !h.closed && err != nil {
 				logger.Errorf("[http server listens %s failed: %v]", h.addr, err)
 			}
@@ -227,7 +357,7 @@ func httpServerConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginT
 	}
 
 	if err != nil {
-		h.listener.Close()
+		h.server.Listener().Close()
 		h.closed = true
 		return nil, plugins.ProcessPlugin, true, err
 	}

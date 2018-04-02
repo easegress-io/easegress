@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	"time"
+
+	"github.com/hexdecteam/easegateway-types/plugins"
 )
 
 var interruptedError = fmt.Errorf("IO interrupted")
@@ -104,19 +106,52 @@ func (t *timeIO) timeTrack(start time.Time) {
 ////
 
 type TimeReader struct {
-	timeIO
-	r io.Reader
+	*timeIO
+	io.Reader
 }
 
 func NewTimeReader(r io.Reader) *TimeReader {
 	return &TimeReader{
-		r: r,
+		&timeIO{},
+		r,
 	}
 }
 
 func (tr *TimeReader) Read(p []byte) (n int, err error) { // io.Reader stub
 	defer tr.timeTrack(Now())
-	return tr.r.Read(p)
+	return tr.Reader.Read(p)
+}
+
+type sizedReadClose struct {
+	// use embedded type here to expose method of concrete type
+	io.ReadCloser
+	size int64
+}
+
+func NewSizedReadCloser(r io.ReadCloser, s int64) plugins.SizedReadCloser {
+	return &sizedReadClose{r, s}
+}
+
+//
+func (l *sizedReadClose) Size() int64 {
+	return l.size
+}
+
+////
+type SizedTimeReader struct {
+	// use embedded type to inherit(expose) methods of concrete type
+	plugins.SizedReadCloser
+	// use embedded type to inherit(expose) methods of concrete type
+	*timeIO
+}
+
+func NewSizedTimeReader(r plugins.SizedReadCloser) *SizedTimeReader {
+	return &SizedTimeReader{r, &timeIO{}}
+}
+
+func (tr *SizedTimeReader) Read(p []byte) (n int, err error) { // io.Reader stub
+	defer tr.timeTrack(Now())
+	return tr.SizedReadCloser.Read(p)
 }
 
 ////
@@ -135,26 +170,4 @@ func NewTimeWriter(w io.Writer) *TimeWriter {
 func (tw *TimeWriter) Write(p []byte) (n int, err error) { // io.Write stub
 	defer tw.timeTrack(Now())
 	return tw.w.Write(p)
-}
-
-////
-
-type readerWithCloser struct {
-	reader io.Reader
-	closer io.Closer
-}
-
-func IOReaderToReaderCloser(reader io.Reader, closer io.Closer) *readerWithCloser {
-	return &readerWithCloser{
-		reader: reader,
-		closer: closer,
-	}
-}
-
-func (rwc *readerWithCloser) Read(p []byte) (n int, err error) { // io.Reader stub
-	return rwc.reader.Read(p)
-}
-
-func (rwc *readerWithCloser) Close() error { // io.Closer stub
-	return rwc.closer.Close()
 }
