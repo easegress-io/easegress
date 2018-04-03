@@ -77,7 +77,7 @@ func (s *clusterHealthServer) GetHandler() http.Handler {
 		Reads(clusterRequest{}).
 		Writes(gateway.RespQueryGroupPayload{}).
 		Returns(200, "The group detailed information in a cluster.", gateway.RespQueryGroupPayload{}).
-		Returns(206, "The group detailed information in a cluster. But only partial group members respond the query", gateway.RespQueryGroupPayload{}).
+		Returns(206, "The group detailed information in a cluster. Only partial group members respond the query, other nodes timed out.", gateway.RespQueryGroupPayload{}).
 		Returns(400, "Invalid group name.", errorResponse{}).
 		Returns(404, "The group not found by given name.", errorResponse{}).
 		Returns(408, "Request timeout.", errorResponse{}).
@@ -125,7 +125,8 @@ func (s *clusterHealthServer) GetHandler() http.Handler {
 		Metadata(restfulspec.KeyOpenAPITags, healthTags).
 		Reads(clusterRequest{}).
 		Writes(gateway.RespQueryGroupHealthPayload{}).
-		Returns(200, "The specific group's health check status in a cluster.", gateway.RespQueryGroupHealthPayload{}).
+		Returns(200, "The health check status in a cluster.", gateway.RespQueryGroupHealthPayload{}).
+		Returns(206, "The health check status in a cluster. But only partial members respond the query, other nodes timed out.", gateway.RespQueryGroupPayload{}).
 		Returns(408, "Request timeout.", errorResponse{}).
 		Returns(500, "Handle the request failed by internal error.", errorResponse{}).
 		Returns(503, "All operations are disallowed when running in standalone mode.", errorResponse{}))
@@ -140,16 +141,18 @@ func (s *clusterHealthServer) GetHandler() http.Handler {
 		Reads(clusterRequest{}).
 		Writes(gateway.RespQueryGroupHealthPayload{}).
 		Returns(200, "The specific group's health check status in a cluster.", gateway.RespQueryGroupHealthPayload{}).
+		Returns(206, "The specific group's health check status in a cluster. Only partial group members respond the query, other nodes timed out.", gateway.RespQueryGroupPayload{}).
 		Returns(404, "The group not found by given name.", errorResponse{}).
 		Returns(500, "Handle the request failed by internal error.", errorResponse{}).
 		Returns(503, "All operations are disallowed when running in standalone mode.", errorResponse{}))
 
 	s.container.Add(ws)
 
+	// Visit http://rest-server-endpoint/prefix/v1/apidocs.json/
+	// Commonly it is http://localhost:9090/cluster/health/v1/apidocs.json
 	config := restfulspec.Config{
 		APIPath:                       common.PrefixAPIVersion("/apidocs.json"),
 		WebServices:                   s.container.RegisteredWebServices(),
-		WebServicesURL:                "http://localhost:9090/cluster/info",
 		PostBuildSwaggerObjectHandler: s.enrichSwaggerObject}
 
 	s.container.Add(restfulspec.NewOpenAPIService(config))
@@ -171,6 +174,8 @@ func (s *clusterHealthServer) healthCheckGroups(request *restful.Request, respon
 	if clusterErr != nil {
 		response.WriteHeaderAndJson(clusterErr.Type.HTTPStatusCode(), errorResponse{ErrorMsg: clusterErr.Message}, restful.MIME_JSON)
 		logger.Errorf("[healthCheckGroups failed: %s]", clusterErr.Message)
+	} else if health.TimeoutNodes != nil {
+		response.WriteHeaderAndJson(http.StatusPartialContent, health, restful.MIME_JSON)
 	} else {
 		response.WriteAsJson(health)
 	}
@@ -199,6 +204,8 @@ func (s *clusterHealthServer) healthCheckGroup(request *restful.Request, respons
 	if clusterErr != nil {
 		response.WriteHeaderAndJson(clusterErr.Type.HTTPStatusCode(), errorResponse{ErrorMsg: clusterErr.Message}, restful.MIME_JSON)
 		logger.Errorf("[retrieveGroup failed: %s]", clusterErr.Message)
+	} else if health.TimeoutNodes != nil {
+		response.WriteHeaderAndJson(http.StatusPartialContent, health, restful.MIME_JSON)
 	} else {
 		response.WriteAsJson(health)
 	}

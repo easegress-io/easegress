@@ -351,14 +351,87 @@ func (gc *GatewayCluster) localGroupName() string {
 	return gc.cluster.GetConfig().NodeTags[groupTagKey]
 }
 
-func (gc *GatewayCluster) aliveNodesInCluster(mode Mode) []string {
+// first return parameter contains writer node
+// second return parameter contains error if writer don't exist in specifc group
+func (gc *GatewayCluster) writerInGroup(g string) (string, error) {
+	totalMembers := gc.cluster.Members()
+	for _, member := range totalMembers {
+		if member.Status == cluster.MemberAlive {
+			group := member.NodeTags[groupTagKey]
+			nodeName := member.NodeName
+			mod := Mode(member.NodeTags[modeTagKey])
+			if mod == WriteMode && group == g {
+				return nodeName, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("writer doesn't exist in group: %s", g)
+}
+
+// choose writer first if possible, else use other node instead
+// return error if no peer exist in group
+func (gc *GatewayCluster) choosePeerForGroup(g string) (string, error) {
+	totalMembers := gc.cluster.Members()
+	var candidate string
+	for _, member := range totalMembers {
+		if member.Status == cluster.MemberAlive {
+			group := member.NodeTags[groupTagKey]
+			nodeName := member.NodeName
+			mod := Mode(member.NodeTags[modeTagKey])
+			if group == g {
+				if mod == WriteMode {
+					return nodeName, nil
+				} else {
+					candidate = nodeName
+				}
+			}
+		}
+	}
+	if candidate == "" {
+		return "", fmt.Errorf("group %s doesn't has any peer", g)
+	}
+	return candidate, nil
+}
+
+// first return parameter contains all writers node
+// second return parameter contains error if writer don't exist in specifc group
+func (gc *GatewayCluster) writerInEveryGroup() ([]string, error) {
+	totalMembers := gc.cluster.Members()
+	writerBook := make(map[string]string)
+	groupBook := make(map[string]struct{})
+
+	for _, member := range totalMembers {
+		if member.Status == cluster.MemberAlive {
+			group := member.NodeTags[groupTagKey]
+			nodeName := member.NodeName
+			mod := Mode(member.NodeTags[modeTagKey])
+			groupBook[group] = struct{}{}
+			if mod == WriteMode {
+				writerBook[group] = nodeName
+			}
+		}
+	}
+	nodes := make([]string, 0, len(writerBook))
+	for group := range groupBook {
+		if writer, exist := writerBook[group]; exist {
+			nodes = append(nodes, writer)
+		} else {
+			return nil, fmt.Errorf("writer doesn't exist in group: %s", group)
+		}
+	}
+	return nodes, nil
+}
+
+func (gc *GatewayCluster) aliveNodesInCluster(mode Mode, group string) []string {
 	nodes := make([]string, 0)
 	totalMembers := gc.cluster.Members()
 	nodesBook := make(map[string]struct{})
 
 	for _, member := range totalMembers {
 		memberMode := Mode(member.NodeTags[modeTagKey])
-		if member.Status == cluster.MemberAlive && (mode == NilMode || mode == memberMode) {
+		if member.Status == cluster.MemberAlive &&
+			(mode == NilMode || mode == memberMode) &&
+			(group == NoneGroup || group == member.NodeTags[groupTagKey]) {
 			if _, ok := nodesBook[member.NodeName]; ok {
 				continue
 			}
@@ -443,14 +516,16 @@ func (gc *GatewayCluster) handleResp(req *cluster.RequestEvent, header uint8, re
 // recordResp just records known response of member and ignore others.
 // It does its best to record response, and just exits when GatewayCluster stopped
 // or future got timeout, the caller could check membersRespBook to get the result.
+// it may failed(timeout) to receive response from members.
 func (gc *GatewayCluster) recordResp(requestName string, future *cluster.Future, membersRespBook map[string][]byte) {
 	memberRespCount := 0
 LOOP:
 	for memberRespCount < len(membersRespBook) {
 		select {
 		case memberResp, ok := <-future.Response():
-			if !ok {
-				break LOOP
+			memberRespCount++
+			if !ok { // timeout
+				continue LOOP // collect response from other member
 			}
 
 			payload, known := membersRespBook[memberResp.ResponseNodeName]
@@ -475,7 +550,6 @@ LOOP:
 			}
 
 			membersRespBook[memberResp.ResponseNodeName] = memberResp.Payload
-			memberRespCount++
 		case <-gc.stopChan:
 			break LOOP
 		}

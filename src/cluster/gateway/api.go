@@ -11,6 +11,7 @@ import (
 )
 
 // cluster infos
+var NoneGroup = ""
 
 // RetrieveGroupsList retrieve groups list from current node
 func (gc *GatewayCluster) RetrieveGroupsList() ([]string, *ClusterError) {
@@ -24,20 +25,31 @@ func (gc *GatewayCluster) RetrieveGroupsList() ([]string, *ClusterError) {
 	return groups, nil
 }
 
-// RetrieveGroups retrieve all groups detail information from corresponding writer nodes
+// RetrieveGroups retrieve all groups' detail information from group's corresponding writer node
+// return result `map[string]*RespQueryGroup`, key is corresponding writer's member name
+// may return non-nil `map[string]*RespQueryGroup` when partially complete, so caller can deal with the payloads
 func (gc *GatewayCluster) RetrieveGroups(timeout time.Duration) (map[string]*RespQueryGroup, *ClusterError) {
 	if gc.Stopped() {
 		return nil, newClusterError("can not query groups info due to cluster gone",
 			IssueMemberGoneError)
 	}
 
-	writerNames := gc.aliveNodesInCluster(WriteMode)
-	reqParam := newRequestParam(writerNames, "", WriteMode, timeout)
+	writers, err := gc.writerInEveryGroup()
+	if err != nil {
+		return nil, newClusterError(fmt.Sprintf("query groups failed: %v", err), QueryMemberNotFoundError)
+	}
+
+	reqParam := newRequestParam(writers, NoneGroup, WriteMode, timeout)
 	requestName := "(groups)query_groups"
 	req := new(ReqQueryGroup)
 	respPayloads, err, errType := gc.queryMultipleMembers(req, uint8(queryGroupMessage), requestName, reqParam)
+	var retErr *ClusterError
 	if err != nil {
-		return nil, newClusterError(fmt.Sprintf("query groups info failed: %v", err), errType)
+		if errType == QueryPartiallyCompleteError {
+			retErr = newClusterError(err.Error(), errType)
+		} else {
+			return nil, newClusterError(fmt.Sprintf("query groups info failed: %v", err), errType)
+		}
 	}
 
 	rets := make(map[string]*RespQueryGroup, len(respPayloads))
@@ -50,11 +62,14 @@ func (gc *GatewayCluster) RetrieveGroups(timeout time.Duration) (map[string]*Res
 		}
 		rets[name] = &resp
 	}
-	return rets, nil
+	return rets, retErr
 }
 
 // RetrieveGroup retrieve group detail information from writer node of specified group
+// If return parameter of *ClusterError.Type is QueryPartiallyCompleteError, then coordinate error
+// msg contains the timeout nodes
 func (gc *GatewayCluster) RetrieveGroup(group string, timeout time.Duration) (*RespQueryGroupPayload, *ClusterError) {
+	logger.Infof("retrieve group %s, timeout: %.3f", group, timeout.Seconds())
 	if gc.Stopped() {
 		return nil, newClusterError("can not query group info due to cluster gone",
 			IssueMemberGoneError)
@@ -63,8 +78,11 @@ func (gc *GatewayCluster) RetrieveGroup(group string, timeout time.Duration) (*R
 	if !gc.groupExistInCluster(group) {
 		return nil, newClusterError(fmt.Sprintf("query group failed, group %s doesn't exist", group), QueryGroupNotFoundError)
 	}
-
-	reqParam := newRequestParam(nil, group, WriteMode, timeout)
+	node, err := gc.writerInGroup(group)
+	if err != nil {
+		return nil, newClusterError(fmt.Sprintf("query group failed: %v", err), QueryMemberNotFoundError)
+	}
+	reqParam := newRequestParam([]string{node}, group, WriteMode, timeout)
 	requestName := fmt.Sprintf("(group:%s)query_group", group)
 	req := new(ReqQueryGroup)
 	respPayload, err, errType := gc.querySingleMember(req, uint8(queryGroupMessage), requestName, reqParam)
@@ -78,7 +96,9 @@ func (gc *GatewayCluster) RetrieveGroup(group string, timeout time.Duration) (*R
 		return nil, newClusterError(fmt.Sprintf("unpack query group response failed: %v", err),
 			InternalServerError)
 	}
-
+	if resp.Err != nil {
+		resp.RespQueryGroupPayload.TimeoutNodes = strings.Split(resp.Err.Message, ",")
+	}
 	return &resp.RespQueryGroupPayload, resp.Err
 }
 
@@ -92,13 +112,16 @@ func (gc *GatewayCluster) RetrieveMembersList(group string, timeout time.Duratio
 	if !gc.groupExistInCluster(group) {
 		return nil, newClusterError(fmt.Sprintf("query member lists failed, group %s doesn't exist", group), QueryGroupNotFoundError)
 	}
-
-	reqParam := newRequestParam(nil, group, WriteMode, timeout)
+	node, err := gc.choosePeerForGroup(group)
+	if err != nil {
+		return nil, newClusterError(fmt.Sprintf("query member lists for group %s failed: %v ", group, err), QueryMemberNotFoundError)
+	}
+	reqParam := newRequestParam([]string{node}, group, NilMode, timeout)
 	requestName := fmt.Sprintf("(group:%s)query_members_list", group)
 	req := new(ReqQueryMembersList)
 	respPayload, err, errType := gc.querySingleMember(req, uint8(queryMembersListMessage), requestName, reqParam)
 	if err != nil {
-		return nil, newClusterError(fmt.Sprintf("query members list failed: %v", err), errType)
+		return nil, newClusterError(fmt.Sprintf("query members list from writer failed: %v", err), errType)
 	}
 
 	var resp RespQueryMembersList
@@ -120,7 +143,7 @@ func (gc *GatewayCluster) RetrieveMember(group, nodeName string, timeout time.Du
 
 	// We can rely on member list information on group's writer node
 	if gc.localGroupName() == group && gc.Mode() == WriteMode &&
-		!common.StrInSlice(nodeName, gc.aliveNodesInCluster(NilMode)) {
+		!common.StrInSlice(nodeName, gc.aliveNodesInCluster(NilMode, group)) {
 		return nil, newClusterError(fmt.Sprintf("member %s doesn't alive", nodeName), QueryMemberNotFoundError)
 	}
 
@@ -167,8 +190,12 @@ func (gc *GatewayCluster) checkGroupHealth(queryGroup *RespQueryGroupPayload) (G
 // RetrieveGroupHealthStatus retrieves health status of specified group
 func (gc *GatewayCluster) RetrieveGroupHealthStatus(group string, timeout time.Duration) (*RespQueryGroupHealthPayload, *ClusterError) {
 	groupInfo, err := gc.RetrieveGroup(group, timeout)
+	var retErr *ClusterError
 	if err != nil {
-		return nil, err
+		if err.Type != QueryPartiallyCompleteError {
+			return nil, err
+		}
+		retErr = err
 	}
 	status, desc := gc.checkGroupHealth(groupInfo)
 
@@ -177,34 +204,54 @@ func (gc *GatewayCluster) RetrieveGroupHealthStatus(group string, timeout time.D
 		Status:      status,
 		Description: desc,
 	}
+	if retErr != nil {
+		resp.TimeoutNodes = strings.Split(retErr.Message, ",")
+	}
 	return resp, nil
 }
 
 func (gc *GatewayCluster) RetrieveClusterHealthStatus(timeout time.Duration) (*RespQueryGroupHealthPayload, *ClusterError) {
 	groupsInfo, err := gc.RetrieveGroups(timeout)
+	var timeoutNodes string
 	if err != nil {
-		return nil, err
+		if err.Type != QueryPartiallyCompleteError {
+			return nil, err
+		} else {
+			timeoutNodes = err.Message
+		}
 	}
 	status := Green
 	var desc string
-	for name, groupInfo := range groupsInfo {
+	for writerName, groupInfo := range groupsInfo {
 		if groupInfo.Err != nil {
-			return nil, newClusterError(fmt.Sprintf("query group %s failed: %v", name, groupInfo.Err.Message), groupInfo.Err.Type)
+			if groupInfo.Err.Type != QueryPartiallyCompleteError {
+				return nil, newClusterError(fmt.Sprintf("query group from writer %s failed: %v", writerName, groupInfo.Err.Message), groupInfo.Err.Type)
+			} else {
+				timeoutNodes = timeoutNodes + "," + groupInfo.Err.Message
+			}
 		}
 		s, d := gc.checkGroupHealth(&groupInfo.RespQueryGroupPayload)
-		if s == Red {
-			status = s
-			desc = fmt.Sprintf("group(%s): %s", name, d)
-			break
-		} else if status == Green && s == Yellow {
-			status = s
-			desc = fmt.Sprintf("group(%s): %s", name, d)
+		if s != Green { // choose more severe status
+			if len(desc) > 0 {
+				desc = fmt.Sprintf("%s; group(%s): %s", desc, groupInfo.RespQueryGroupPayload.GroupName, d)
+			} else {
+				desc = fmt.Sprintf("group(%s): %s", groupInfo.RespQueryGroupPayload.GroupName, d)
+			}
+			if status == Green {
+				status = s
+			} else if status != Red || s == Red {
+				status = s
+			}
 		}
 	}
 	resp := &RespQueryGroupHealthPayload{
 		ClusterResp: ClusterResp{common.Now()},
 		Status:      status,
 		Description: desc,
+	}
+
+	if timeoutNodes != "" {
+		resp.TimeoutNodes = strings.Split(timeoutNodes, ",")
 	}
 	return resp, nil
 }

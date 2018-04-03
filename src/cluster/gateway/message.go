@@ -1115,14 +1115,17 @@ type MemberInnerInfo struct {
 
 type RespQueryGroupPayload struct {
 	ClusterResp
+	GroupName      string         `json:"group_name" description:"Group name"`
 	OpLogGroupInfo OpLogGroupInfo `json:"oplog" description:"Group's operation log information"`
 	MembersInfo
+	TimeoutNodes []string `json:"timeout_nodes,omitempty" description:"Indicates timeout nodes if partially success"`
 }
 
 type RespQueryGroupHealthPayload struct {
 	ClusterResp
-	Status      GroupStatus `json:"status" description:"Indicates the group health status." enum:"green|yellow|red"`
-	Description string      `json:"description" description:"Indicates description of the status. For a green status, this value will be empty"`
+	Status       GroupStatus `json:"status" description:"Indicates the group health status." enum:"green|yellow|red"`
+	Description  string      `json:"description" description:"Indicates description of the status. For a green status, this value will be empty"`
+	TimeoutNodes []string    `json:"timeout_nodes,omitempty" description:"Indicates timeout nodes if partially success"`
 }
 
 // ReqQueryMember | ReqQueryMemberslist | ReqQueryGroup

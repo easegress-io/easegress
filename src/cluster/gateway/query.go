@@ -15,6 +15,7 @@ import (
 
 // QueryWriterSequence query oplog sequence information from writer node of specified group
 func (gc *GatewayCluster) QueryWriterSequence(group string, timeout time.Duration) (*RespQuerySeq, *ClusterError) {
+	logger.Debugf("query writer sequence for group: %s", group)
 	if gc.Stopped() {
 		return nil, newClusterError("can not query writer sequence due to cluster gone",
 			IssueMemberGoneError)
@@ -26,9 +27,9 @@ func (gc *GatewayCluster) QueryWriterSequence(group string, timeout time.Duratio
 	req := new(ReqQuerySeq)
 	respPayload, err, clusterErrorType := gc.querySingleMember(req, uint8(querySeqMessage), requestName, reqParam)
 	if err != nil {
-		return nil, newClusterError(
-			fmt.Sprintf("query group %s writer sequence failed: %v", group, err),
-			clusterErrorType)
+		errMsg := fmt.Sprintf("query writer sequence for group %s failed: %v", group, err)
+		logger.Warnf(errMsg)
+		return nil, newClusterError(errMsg, clusterErrorType)
 	}
 
 	var resp RespQuerySeq
@@ -38,12 +39,15 @@ func (gc *GatewayCluster) QueryWriterSequence(group string, timeout time.Duratio
 			InternalServerError)
 	}
 
+	logger.Debugf("query writer sequence for group %s finished", group)
 	return &resp, nil
 }
 
 // QueryGroupSequence query oplog sequence information on writer node for all reader nodes of specified group
 // Will return response and QueryPartiallyCompleteError if query is partially complete on readers
+// and then error contains the timeout nodes which causes partially complete
 func (gc *GatewayCluster) QueryReadersSequence(group string, timeout time.Duration) (map[string]*RespQuerySeq, *ClusterError) {
+	logger.Debugf("query readers sequence for group: %s", group)
 	if gc.Stopped() {
 		return nil, newClusterError("can not query readers sequence due to cluster gone",
 			IssueMemberGoneError)
@@ -53,7 +57,7 @@ func (gc *GatewayCluster) QueryReadersSequence(group string, timeout time.Durati
 			IssueMemberGoneError)
 	}
 
-	readers := gc.aliveNodesInCluster(ReadMode)
+	readers := gc.aliveNodesInCluster(ReadMode, group)
 	if len(readers) == 0 {
 		logger.Debugf("[no alive readers in group %s]", group)
 		return nil, nil
@@ -83,8 +87,10 @@ func (gc *GatewayCluster) QueryReadersSequence(group string, timeout time.Durati
 
 	// Query partially complete, return response in case caller need it
 	if queryErr != nil && clusterErrorType == QueryPartiallyCompleteError {
+		logger.Debugf("query readers sequence for group: %s partially complete, timeout nodes: %s", group, queryErr.Error())
 		return rets, newClusterError(queryErr.Error(), clusterErrorType)
 	}
+	logger.Debugf("query readers sequence for group: %s finished", group)
 	return rets, nil
 }
 
@@ -134,6 +140,7 @@ func (gc *GatewayCluster) handleQueryMembersList(req *cluster.RequestEvent) {
 
 func (gc *GatewayCluster) handleQueryGroup(req *cluster.RequestEvent) {
 	// TODO(shengdong) don we need more accurate timeout mechanism for intra-cluster communication?
+	logger.Debugf("handle query group")
 	opLogGroupInfo, err := gc.retrieveOpLogGroupInfo(gc.localGroupName(), req.Timeout()-2*time.Second)
 	var resp RespQueryGroup
 	if err != nil && err.Type != QueryPartiallyCompleteError {
@@ -144,6 +151,7 @@ func (gc *GatewayCluster) handleQueryGroup(req *cluster.RequestEvent) {
 		resp = RespQueryGroup{
 			RespQueryGroupPayload: RespQueryGroupPayload{
 				ClusterResp:    ClusterResp{common.Now()},
+				GroupName:      gc.localGroupName(),
 				MembersInfo:    *gc.getMembersInfo(),
 				OpLogGroupInfo: *opLogGroupInfo,
 			},
@@ -189,7 +197,9 @@ func (gc *GatewayCluster) getMembersInfo() *MembersInfo {
 }
 
 // retrieveOpLogGroupInfo retrieve operation log information for specific group
+// if return parameter of ClusterError.Type is QueryPartiallyCompleteError, then err msg is the timeout nodes
 func (gc *GatewayCluster) retrieveOpLogGroupInfo(group string, timeout time.Duration) (*OpLogGroupInfo, *ClusterError) {
+	logger.Debugf("retrieve oplog info for group: %s", group)
 	synced := false
 	maxSequence := int64(-1)
 	minSequence := int64(-1)
@@ -198,28 +208,34 @@ func (gc *GatewayCluster) retrieveOpLogGroupInfo(group string, timeout time.Dura
 	var readerError *ClusterError
 	var readersSeq map[string]*RespQuerySeq
 	var unSyncedMembers []string // default is nil
-	if writerError == nil {
-		maxSequence = int64(groupSeq.Max)
-		minSequence = int64(groupSeq.Min)
-		readersSeq, readerError = gc.QueryReadersSequence(group, timeout)
-		if readerError == nil || readerError.Type == QueryPartiallyCompleteError {
-			unSyncedMembers = make([]string, 0)
-			for name, seq := range readersSeq {
-				if int64(seq.Max) != maxSequence {
-					unSyncedMembers = append(unSyncedMembers, name)
-				}
-			}
-			if len(unSyncedMembers) == 0 {
-				synced = true
-			}
-		} else {
-			logger.Errorf("[%v]", readerError)
-			return nil, readerError
-		}
-	} else {
+	if writerError != nil {
 		logger.Errorf("[%v]", writerError)
 		return nil, writerError
 	}
+
+	maxSequence = int64(groupSeq.Max)
+	minSequence = int64(groupSeq.Min)
+	readersSeq, readerError = gc.QueryReadersSequence(group, timeout)
+
+	if readerError != nil {
+		if readerError.Type != QueryPartiallyCompleteError {
+			logger.Errorf("[%v]", readerError)
+			return nil, readerError
+		} else {
+			logger.Warnf("[query reader sequence partially complete, timeout nodes: %s]", readerError)
+		}
+	}
+
+	unSyncedMembers = make([]string, 0)
+	for name, seq := range readersSeq {
+		if int64(seq.Max) != maxSequence {
+			unSyncedMembers = append(unSyncedMembers, name)
+		}
+	}
+	if len(unSyncedMembers) == 0 {
+		synced = true
+	}
+
 	ret := &OpLogGroupInfo{
 		OpLogStatus: OpLogStatus{
 			Synced:      synced,
@@ -230,6 +246,7 @@ func (gc *GatewayCluster) retrieveOpLogGroupInfo(group string, timeout time.Dura
 		UnSyncedMembersCount: uint64(len(unSyncedMembers)),
 	}
 
+	logger.Debugf("retrieve oplog info for group: %s finished", group)
 	return ret, readerError
 }
 
@@ -286,6 +303,9 @@ func (gc *GatewayCluster) getMemberInnerInfo(timeout time.Duration) *MemberInner
 	return &memberInnerInfo
 }
 
+// return non-nil payloads when partially complete, so caller can deal with the payloads
+// if return parameter of ClusterErrorType is QueryPartiallyCompleteError, then coordinating
+// error contains the timeout nodes which causes partially complete
 func (gc *GatewayCluster) queryMultipleMembers(req interface{}, header uint8, requestName string, reqParam *cluster.RequestParam) (map[string][]byte, error, ClusterErrorType) {
 	memberCount := len(reqParam.TargetNodeNames)
 	if memberCount == 0 {
@@ -314,17 +334,20 @@ func (gc *GatewayCluster) queryMultipleMembers(req interface{}, header uint8, re
 
 	correctMemberRespCount := 0
 	payloads := make(map[string][]byte, memberCount)
+	timeoutNodes := make([]string, 0, memberCount)
 	for name, payload := range membersRespBook {
 		if len(payload) == 0 {
+			timeoutNodes = append(timeoutNodes, name)
 			continue
 		}
 		payloads[name] = payload
 		correctMemberRespCount++
 	}
-
-	if correctMemberRespCount > 0 && correctMemberRespCount < memberCount {
+	if correctMemberRespCount == 0 {
+		return nil, fmt.Errorf("members(%d) all failed to respond", memberCount), InternalServerError
+	} else if correctMemberRespCount < memberCount {
 		// return non-nil payloads when partially complete, so caller can deal with the payloads
-		return payloads, fmt.Errorf("partially succeed in %d of %d nodes", correctMemberRespCount, memberCount), QueryPartiallyCompleteError
+		return payloads, fmt.Errorf("%s", strings.Join(timeoutNodes, ",")), QueryPartiallyCompleteError
 	}
 
 	return payloads, nil, NoneClusterError

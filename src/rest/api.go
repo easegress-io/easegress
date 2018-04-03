@@ -126,6 +126,7 @@ func (s *Rest) Start() (<-chan error, string, error) {
 	http.Handle("/cluster/admin/", http.StripPrefix("/cluster/admin", clusterAdminApi.MakeHandler()))
 	http.Handle("/cluster/statistics/",
 		http.StripPrefix("/cluster/statistics", clusterStatisticsApi.MakeHandler()))
+	// So swagger doc api path in clusterHealthServer is prefixed with `/cluster/health/`
 	http.Handle("/cluster/health/", http.StripPrefix("/cluster/health", clusterHealthServer.GetHandler()))
 
 	ln, err := net.Listen("tcp", listenAddr)

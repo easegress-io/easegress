@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"logger"
 	"common"
+	"logger"
 )
 
 type RequestParam struct {
@@ -103,6 +103,8 @@ func (f *Future) Ack() <-chan string {
 	return f.ackStream
 }
 
+// failed to receive from this response channel
+// means responseStream is closed because of timeout
 func (f *Future) Response() <-chan *MemberResponse {
 	return f.responseStream
 }
