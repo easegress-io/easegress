@@ -65,7 +65,6 @@ func (gc *GatewayCluster) issueStat(group string, timeout time.Duration, detail 
 		return nil, newClusterError(
 			fmt.Sprintf("choose member to aggregate statistics failed: %v", err), InternalServerError)
 	}
-	logger.Warnf("targetMember: %s", targetMember)
 	requestParam := newRequestParam([]string{targetMember.NodeName}, group, Mode(targetMember.NodeTags[modeTagKey]), timeout)
 	future, err := gc.cluster.Request(requestName, requestPayload, requestParam)
 	if err != nil {

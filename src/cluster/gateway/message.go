@@ -958,7 +958,7 @@ func (r *ResultStatIndicatorsValue) Aggregate(detail bool, otherIndicatorsValue 
 		}
 
 		var aggregator common.StatAggregator
-		if aggregator != nil {
+		if aggregatorFunc != nil {
 			aggregator = aggregatorFunc()
 			aggregator.Aggregate(value) // ignore error safely
 		}
