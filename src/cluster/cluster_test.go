@@ -73,7 +73,7 @@ func initCluster(Nodes int, initEventChannel bool, cfg createConfig) ([]*Cluster
 			cfgs[i].EventStream = eventChs[i] // used as send channel
 		}
 		var err error
-		clusters[i], err = Create(cfgs[i])
+		clusters[i], err = Create(*cfgs[i])
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("create cluster err: %v", err)
 		}

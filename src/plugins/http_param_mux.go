@@ -129,7 +129,7 @@ func (m *paramMux) validate(entryValidating *plugins.HTTPMuxEntry) error {
 			}
 
 			if dup && methods[entryValidating.Method] != nil {
-				return fmt.Errorf("duplicated handler on %s %s in pipeline %s",
+				return fmt.Errorf("duplicated handler on %s %v in pipeline %s",
 					entryValidating.Method, entryValidating, pname)
 			}
 		}

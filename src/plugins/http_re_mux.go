@@ -485,7 +485,7 @@ func (m *reMux) checkValidity(e *plugins.HTTPMuxEntry) error {
 	if e.Scheme != "" {
 		schemeRE, err := compile(fmt.Sprintf("^%s$", e.Scheme))
 		if err != nil {
-			return fmt.Errorf("invalid scheme:", err)
+			return fmt.Errorf("invalid scheme: %v", err)
 		}
 		if !schemeRE.MatchString("http") && !schemeRE.MatchString("https") {
 			return fmt.Errorf("invalid scheme: can't match http/https (case-sensitive)")

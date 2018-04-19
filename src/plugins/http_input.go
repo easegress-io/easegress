@@ -403,8 +403,6 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 			copyResponseHeaderFromTask(t1, h.conf.ResponseHeaderKey, ht.ctx.ResponseHeader())
 		}
 
-		ht.ctx.SetStatusCode(getClientReceivedCode(t1, h.conf.ResponseCodeKey))
-
 		// TODO: Take care other headers if inputted
 
 		var bodyBytesSent int64 = -1 // -1 indicates we can't provide a proper value
@@ -413,7 +411,8 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 		if len(h.conf.ResponseBodyBufferKey) != 0 && t1.Value(h.conf.ResponseBodyBufferKey) != nil {
 			buf := task.ToBytes(t1.Value(h.conf.ResponseBodyBufferKey), option.PluginIODataFormatLengthLimit)
 			bodyBytesSent = int64(len(buf))
-
+			ht.ctx.SetContentLength(bodyBytesSent)
+			ht.ctx.SetStatusCode(getClientReceivedCode(t1, h.conf.ResponseCodeKey))
 			writeStartAt := time.Now()
 			ht.ctx.Write(buf)
 			writeClientBodyElapse = time.Since(writeStartAt)
@@ -427,6 +426,7 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 				if reader.Size() > 0 {
 					ht.ctx.SetContentLength(reader.Size())
 				}
+				ht.ctx.SetStatusCode(getClientReceivedCode(t1, h.conf.ResponseCodeKey))
 				go func() {
 					vbuf := copyBufPool.Get()
 					buf := vbuf.([]byte)
@@ -493,6 +493,7 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 				bodyBytesSent = int64(len(bytes))
 
 				writeStartAt := time.Now()
+				ht.ctx.SetContentLength(bodyBytesSent)
 				ht.ctx.Write(bytes)
 				writeClientBodyElapse = time.Since(writeStartAt)
 			}

@@ -162,6 +162,10 @@ func (f *FastRequestHeader) Set(k, v string) {
 	f.header.Set(k, v)
 }
 
+func (f *FastRequestHeader) Del(k string) {
+	f.header.Del(k)
+}
+
 // Add adds the given 'key: value' header.
 // Multiple headers with the same key may be added with this function.
 // Use Set for setting a single header for the given key.
@@ -301,6 +305,11 @@ func (f *NetRequestHeader) Set(k, v string) {
 	}
 }
 
+// Del deletes header with the given key
+func (f *NetRequestHeader) Del(k string) {
+	f.R.Header.Del(k)
+}
+
 // Add adds the given 'key: value' header.
 // Multiple headers with the same key may be added with this function.
 // Use Set for setting a single header for the given key.
@@ -343,6 +352,11 @@ func (f *NetResponseHeader) VisitAll(fun func(k, v string)) {
 // Set sets the given 'key: value' header.
 func (f *NetResponseHeader) Set(k, v string) {
 	f.H.Set(k, v)
+}
+
+// Del deletes header with the given key
+func (f *NetResponseHeader) Del(k string) {
+	f.H.Del(k)
 }
 
 // Add adds the given 'key: value' header.
@@ -402,6 +416,10 @@ func (f *FastResponseHeader) VisitAll(fun func(k, v string)) {
 
 func (f *FastResponseHeader) Set(k, v string) {
 	f.H.Set(k, v)
+}
+
+func (f *FastResponseHeader) Del(k string) {
+	f.H.Del(k)
 }
 
 func (f *FastResponseHeader) Add(k, v string) {

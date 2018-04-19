@@ -372,7 +372,7 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) error {
 	}
 
 	if len(h.conf.ResponseCodeKey) != 0 {
-		t.WithValue(h.conf.ResponseCodeKey, resp.StatusCode)
+		t.WithValue(h.conf.ResponseCodeKey, resp.StatusCode())
 	}
 
 	if len(h.conf.ResponseRemoteKey) != 0 {

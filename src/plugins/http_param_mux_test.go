@@ -9,7 +9,7 @@ import (
 	"github.com/erikdubbelboer/fasthttp"
 	"github.com/hexdecteam/easegateway-types/plugins"
 
-	"common"
+	eghttp "http"
 )
 
 func newFastRequestHeaderByPath(path string, t *testing.T) plugins.Header {
@@ -25,7 +25,7 @@ func newFastRequestHeader(uri string, t *testing.T) plugins.Header {
 		req.Header.SetHost(u.Host)
 	}
 
-	return common.NewFastRequestHeader(false, req.URI(), &req.Header)
+	return eghttp.NewFastRequestHeader(false, req.URI(), &req.Header)
 }
 
 func newNetRequestHeaderByPath(path string) plugins.Header {
@@ -34,7 +34,7 @@ func newNetRequestHeaderByPath(path string) plugins.Header {
 
 func newNetRequestHeader(url string) plugins.Header {
 	r, _ := http.NewRequest(http.MethodGet, url, nil /* body */)
-	return common.NewNetRequestHeader(r)
+	return eghttp.NewNetRequestHeader(r)
 }
 
 type parsePathTest struct {

@@ -99,7 +99,7 @@ func TestNumericMinAggregator(t *testing.T) {
 	wantResult := float64(-100)
 	gotResult := a.Result().(float64)
 	if gotResult != wantResult {
-		t.Fatalf("want %d, got %d", wantResult, gotResult)
+		t.Fatalf("want %v, got %v", wantResult, gotResult)
 	}
 }
 
