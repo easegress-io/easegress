@@ -2,7 +2,8 @@
   "type": "HTTPInput",
   "config": {
     "plugin_name": "http_input.metrics",
-    "url": "/v1/metrics",
+    "server_name": "http_server.default",
+    "path": "/v1/metrics",
     "methods": ["POST"],
     "headers_enum": {
       "Content-Encoding": [
@@ -19,7 +20,6 @@
     },
     "unzip": true,
     "respond_error": true,
-    "url_key": "",
     "request_body_io_key": "HTTP_REQUEST_BODY_IO",
     "response_code_key": "",
     "response_body_io_key": "",

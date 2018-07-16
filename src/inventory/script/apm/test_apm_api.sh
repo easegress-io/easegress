@@ -9,7 +9,7 @@ CA_FILE=${SCRIPTPATH}/../../cert/localhost-cert.pem
 echo '18.docker-test-system#20.docker-test-instance#11.52.69.164.6#11.docker-test.GenericJMX-tomcat_servlet.SpringApplication.count-milliseconds-processing 22613 1489377836
 18.docker-test-system#20.docker-test-instance#11.52.69.164.6#11.docker-test.GenericJMX-tomcat_servlet.StagemonitorFileServlet.count-requests 0 1489377836
 18.docker-test-system#20.docker-test-instance#11.52.69.164.6#11.docker-test.GenericJMX-tomcat_servlet.StagemonitorFileServlet.count-errors 0 1489377836' | \
-     http --verify ${CA_FILE} -v 'https://localhost:10443/v1/metrics' 'User-Agent: collectd/5.7.0' 'Content-Type: application/x-graphite'
+     http --verify ${CA_FILE} -v 'http://localhost:10080/v1/metrics' 'User-Agent: collectd/5.7.0' 'Content-Type: application/x-graphite'
 
 # filebeat
 echo '{
@@ -28,7 +28,7 @@ echo '{
     "source":"/var/log/test.log",
     "system":"system..",
     "type":"log"
-}' | http --verify ${CA_FILE} -v 'https://localhost:10443/v1/logs' 'User-Agent: filebeat/5.2.3' 'Content-Type: application/json'
+}' | http -v 'http://localhost:10080/v1/logs' 'User-Agent: filebeat/5.2.3' 'Content-Type: application/json'
 
 # easeagent metrics
 echo '{
@@ -58,7 +58,7 @@ echo '{
   "p98": 0.063017,
   "p99": 0.063017,
   "p999": 0.43349
-}' | http  --verify ${CA_FILE} -v 'https://localhost:10443/v1/app_metrics' 'User-Agent: easeagent/0.1.0' 'Content-Type: application/json'
+}' | http  -v 'http://localhost:10080/v1/app_metrics' 'User-Agent: easeagent/0.1.0' 'Content-Type: application/json'
 
 # easeagent requesttrace
 echo '{
@@ -72,7 +72,7 @@ echo '{
   "instance": "web1",
   "id": "4e7185db-b17d-49a8-ad44-e6dc1851a39a",
   "callStackJson":"{}"
-}' | http  --verify ${CA_FILE} -v 'https://localhost:10443/v1/app_requests' 'User-Agent: easeagent/0.1.0' 'Content-Type: application/json'
+}' | http -v 'http://localhost:10080/v1/app_requests' 'User-Agent: easeagent/0.1.0' 'Content-Type: application/json'
 
 # zipkin_spans
 echo '[
@@ -113,4 +113,4 @@ echo '[
 
     ]
   }
-]' | http  --verify ${CA_FILE} -v 'https://localhost:10443/v1/zipkin_spans' 'User-Agent: easeagent/0.1.0' 'Content-Type: application/json'
+]' | http -v 'http://localhost:10080/v1/zipkin_spans' 'User-Agent: easeagent/0.1.0' 'Content-Type: application/json'

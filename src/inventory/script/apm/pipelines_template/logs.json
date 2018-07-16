@@ -5,6 +5,7 @@
     "parallelism": 1,
     "wait_plugin_close": true,
     "plugin_names": [
+      "http_server.default",
 			"http_input.logs",
 			"io_reader.logs",
 			"json_validator.logs",
