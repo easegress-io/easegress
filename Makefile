@@ -38,19 +38,19 @@ default: ${TARGET}
 ${TARGET_GATEWAY_TOOL} : ${GATEWAY_TOOL_SRC_FILES}
 	@echo "-------------- building gateway tool ---------------"
 	cd ${MKFILE_DIR} && \
-		go build -i -v -ldflags "-s -w -X version.RELEASE=${RELEASE} -X version.COMMIT=${COMMIT} -X version.REPO=${GIT_REPO_INFO}" \
+		CGO_ENABLED=0 go build -i -v -ldflags "-s -w -X version.RELEASE=${RELEASE} -X version.COMMIT=${COMMIT} -X version.REPO=${GIT_REPO_INFO}" \
 			-o ${TARGET_GATEWAY_TOOL} ${MKFILE_DIR}src/tool/main.go
 
 ${TARGET_GATEWAY_SERVER} : ${GATEWAY_SERVER_SRC_FILES}
 	@echo "-------------- building gateway server ---------------"
 	cd ${MKFILE_DIR} && \
-		go build -i -v -ldflags "-s -w -X version.RELEASE=${RELEASE} -X version.COMMIT=${COMMIT} -X version.REPO=${GIT_REPO_INFO}" \
+		CGO_ENABLED=0 go build -i -v -ldflags "-s -w -X version.RELEASE=${RELEASE} -X version.COMMIT=${COMMIT} -X version.REPO=${GIT_REPO_INFO}" \
 			-o ${TARGET_GATEWAY_SERVER} ${MKFILE_DIR}src/server/main.go
 
 ${TARGET_GATEWAY_CLIENT} : ${GATEWAY_CLIENT_SRC_FILES}
 	@echo "-------------- building gateway client ---------------"
 	cd ${MKFILE_DIR} && \
-		go build -i -v -ldflags "-s -w -X version.RELEASE=${RELEASE} -X version.COMMIT=${COMMIT} -X version.REPO=${GIT_REPO_INFO}" \
+		CGO_ENABLED=0 go build -i -v -ldflags "-s -w -X version.RELEASE=${RELEASE} -X version.COMMIT=${COMMIT} -X version.REPO=${GIT_REPO_INFO}" \
 			-o ${TARGET_GATEWAY_CLIENT} ${MKFILE_DIR}src/client/main.go
 
 ${TARGET_INVENTORY} : ${GATEWAY_INVENTORY_FILES}
