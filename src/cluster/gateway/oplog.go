@@ -66,9 +66,9 @@ func NewOPLog(path string) (*opLog, error) {
 	}
 
 	op := &opLog{
-		db: db,
+		db:                         db,
 		operationAppendedCallbacks: common.NewNamedCallbackSet(),
-		path: path,
+		path:                       path,
 	}
 
 	if new { // init max sequence to prevent fake read error

@@ -38,7 +38,7 @@ func NewExpDecaySample(timeRange time.Duration, secondsForEachBucket int) *ExpDe
 		defer ticker.Stop()
 		for {
 			select {
-			case <- ticker.C:
+			case <-ticker.C:
 				s.bucketIdxLock.Lock()
 
 				s.buckets[s.bucketIdx].Clear()

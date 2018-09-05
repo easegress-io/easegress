@@ -29,15 +29,15 @@ func (c *PluginCommonConfig) Prepare(pipelineNames []string) error {
 type ThroughputStatisticType int
 
 const (
-	ThroughputRate1  ThroughputStatisticType = iota
+	ThroughputRate1 ThroughputStatisticType = iota
 	ThroughputRate5
 	ThroughputRate15
 )
 
 type ThroughputStatistic struct {
 	// EWMA is thread safe
-	ewma metrics.EWMA
-	done chan struct{}
+	ewma   metrics.EWMA
+	done   chan struct{}
 	closed bool
 }
 

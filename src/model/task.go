@@ -267,7 +267,8 @@ func withCancel(parent task.Task, err error) (task.Task, cancelFunc) {
 			c.cancel(true, task.Canceled)
 		} else {
 			c.cancel(true, err)
-		}}
+		}
+	}
 }
 
 type cancelTask struct {

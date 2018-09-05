@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	DEFAULT_PAGE  = 1
+	DEFAULT_PAGE           = 1
 	DEFAULT_LIMIT_PER_PAGE = 5
 )
 

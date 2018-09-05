@@ -137,21 +137,21 @@ func getHTTPProxyCfg(httpImpl httpImpl, proxyPath string, backendUrl, backendMet
 	httpOutputCfg.DumpRequest = "y"
 
 	pipelines := []*config.PipelineSpec{
-		&config.PipelineSpec{
+		{
 			Type:   "LinearPipeline",
 			Config: pipelineCfg,
 		},
 	}
 	plugins := []config.PluginSpec{
-		config.PluginSpec{
+		{
 			Type:   "HTTPServer",
 			Config: httpSrvCfg,
 		},
-		config.PluginSpec{
+		{
 			Type:   "HTTPInput",
 			Config: httpInputCfg,
 		},
-		config.PluginSpec{
+		{
 			Type:   "HTTPOutput",
 			Config: httpOutputCfg,
 		},

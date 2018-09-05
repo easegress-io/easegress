@@ -48,7 +48,7 @@ func TestAggregateTaskValue(t *testing.T) {
 
 	expected := &AggregatedResultStatIndicatorValue{
 		Value: map[string]*AggregatedValue{
-			"EXECUTION_COUNT_LAST_1MIN_ALL": &AggregatedValue{
+			"EXECUTION_COUNT_LAST_1MIN_ALL": {
 				AggregatedResult: int64(22),
 				AggregatorName:   "numeric_sum",
 			},

@@ -196,7 +196,7 @@ func backOff(counter *latencyLimiterCounter, backOffTimeoutMSec int16, counterTh
 		defer timer.Stop()
 	}
 
-	 var backOffStep int
+	var backOffStep int
 	if int(backOffTimeoutMSec) <= backOffStep {
 		backOffStep = 1
 	} else {

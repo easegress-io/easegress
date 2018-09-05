@@ -11,9 +11,9 @@ import (
 	"github.com/hexdecteam/easegateway-types/plugins"
 	"github.com/hexdecteam/easegateway-types/task"
 
+	"common"
 	"logger"
 	"option"
-	"common"
 )
 
 type simpleCommonCacheConfig struct {

@@ -331,7 +331,7 @@ type targetsPossibility struct {
 func newTargetsPossibility(targetLen int) *targetsPossibility {
 	possibility := make([]int, targetLen)
 	// initial possibility is 100%
-	for idx, _ := range possibility {
+	for idx := range possibility {
 		possibility[idx] = 100
 	}
 	return &targetsPossibility{

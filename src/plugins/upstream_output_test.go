@@ -164,7 +164,7 @@ var possibilityActions = []possibilityActionTest{
 	{
 		input: possibilityAction{
 			actions: []action{
-				action{
+				{
 					idx: 0,
 					op:  decrease,
 				},
@@ -176,35 +176,35 @@ var possibilityActions = []possibilityActionTest{
 	{
 		input: possibilityAction{
 			actions: []action{
-				action{
+				{
 					idx: 0,
 					op:  decrease,
 				},
-				action{
+				{
 					idx: 0,
 					op:  decrease,
 				},
-				action{
+				{
 					idx: 0,
 					op:  decrease,
 				},
-				action{
+				{
 					idx: 0,
 					op:  decrease,
 				},
-				action{
+				{
 					idx: 0,
 					op:  decrease,
 				},
-				action{
+				{
 					idx: 0,
 					op:  decrease,
 				},
-				action{
+				{
 					idx: 0,
 					op:  decrease,
 				},
-				action{
+				{
 					idx: 0,
 					op:  decrease,
 				},
@@ -217,27 +217,27 @@ var possibilityActions = []possibilityActionTest{
 	{
 		input: possibilityAction{
 			actions: []action{
-				action{
+				{
 					idx: 0,
 					op:  decrease, // 0->50
 				},
-				action{
+				{
 					idx: 1,
 					op:  decrease, // 1->50
 				},
-				action{
+				{
 					idx: 1,
 					op:  decrease, // 1->25
 				},
-				action{
+				{
 					idx: 1,
 					op:  decrease, // 1->12
 				},
-				action{
+				{
 					idx: 1,
 					op:  increase, // 1->50, fast recovery
 				},
-				action{
+				{
 					idx: 0,
 					op:  increase, // 0->100
 				},

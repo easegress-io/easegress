@@ -24,7 +24,7 @@ type shellConfig struct {
 func shellConfigConstructor() plugins.Config {
 	c := &shellConfig{
 		interpreterRunnerConfig: newInterpreterRunnerConfig("shell", SHELL_PLUGIN_WORK_DIR),
-		Type: "sh",
+		Type:                    "sh",
 	}
 
 	c.ExpectedExitCodes = []int{0}
