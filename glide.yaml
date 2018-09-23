@@ -1,25 +1,4 @@
-package: .
-ignore:
-# https://github.com/Masterminds/glide/issues/662
-# https://github.com/Masterminds/glide/issues/862
-- cli
-- cluster
-- common
-- config
-- engine
-- http
-- logger
-- model
-- option
-- pipelines
-- plugins
-- plugins/easemonitor
-- plugins/easenight/manifest
-- plugins/easenight/common
-- plugins/easenight/domain
-- rest
-- tool/oplog
-- version
+package: github.com/hexdecteam/easegateway
 import:
 - package: github.com/sirupsen/logrus
 - package: github.com/Shopify/sarama

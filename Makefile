@@ -2,130 +2,134 @@
 		depend vendor_get vendor_update vendor_clean \
 		build_client_alpine build_server_alpine build_server_ubuntu
 
+# Path Related
 MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 MKFILE_DIR := $(dir $(MKFILE_PATH))
 
-GOPATH := ${MKFILE_DIR}
-export GOPATH
-
-RELEASE?=0.1.0
-GIT_REPO_INFO=$(shell git config --get remote.origin.url)
-DOCKER_REPO_INFO?=megaeasegateway/easegateway
-
-ifndef COMMIT
-  COMMIT := git-$(shell git rev-parse --short HEAD)
+# Git Related
+GIT_REPO_INFO=$(shell cd ${MKFILE_DIR} && git config --get remote.origin.url)
+ifndef GIT_COMMIT
+  GIT_COMMIT := git-$(shell git rev-parse --short HEAD)
 endif
 
-DOCKER?=docker
+# Docker Related
+DOCKER=docker
+DOCKER_REPO_INFO?=megaeasegateway/easegateway
 
-GLIDE=${MKFILE_DIR}build/bin/glide
+# MISC
+RELEASE?=0.1.0
 
-GATEWAY_ALL_SRC_FILES = $(shell find ${MKFILE_DIR}src -type f -name "*.go")
-GATEWAY_CLIENT_SRC_FILES = $(shell find ${MKFILE_DIR}src/cli ${MKFILE_DIR}src/client -type f -name "*.go")
-GATEWAY_SERVER_SRC_FILES = $(filter-out ${GATEWAY_CLIENT_SRC_FILES},${GATEWAY_ALL_SRC_FILES})
-GATEWAY_INVENTORY_FILES=${MKFILE_DIR}src/inventory/*
-GATEWAY_TOOL_SRC_FILES=$(shell find ${MKFILE_DIR}src/tool/ ${MKFILE_DIR}src/cluster -type f -name "*.go")
+GLIDE=${GOPATH}/bin/glide
 
-TARGET_GATEWAY_SERVER=${MKFILE_DIR}build/bin/easegateway-server
-TARGET_GATEWAY_CLIENT=${MKFILE_DIR}build/bin/easegateway-client
-TARGET_INVENTORY=${MKFILE_DIR}build/inventory
-TARGET_GATEWAY_TOOL=${MKFILE_DIR}build/bin/easegateway-tool
+# Source Files
+ALL_FILES = $(shell find ${MKFILE_DIR}{cmd,pkg} -type f -name "*.go")
+CLIENT_FILES = $(shell find ${MKFILE_DIR}{cmd/client,pkg/cli,pkg/common} -type f -name "*.go")
+SERVER_FILES = $(shell find ${MKFILE_DIR}{cmd/server,pkg} -type f -name "*.go")
+TOOL_FILES = $(shell find ${MKFILE_DIR}{cmd/tool,pkg} -type f -name "*.go")
+INVENTORY_FILES=${MKFILE_DIR}inventory/*
 
-TARGET=${TARGET_GATEWAY_SERVER} ${TARGET_GATEWAY_CLIENT} ${TARGET_GATEWAY_TOOL} ${TARGET_INVENTORY}
+# Targets
+TARGET_SERVER=${GOPATH}/bin/easegateway-server
+TARGET_CLIENT=${GOPATH}/bin/easegateway-client
+TARGET_TOOL=${GOPATH}/bin/easegateway-tool
+TARGET_INVENTORY=${GOPATH}/inventory
+TARGET=${TARGET_SERVER} ${TARGET_CLIENT} ${TARGET_TOOL} ${TARGET_INVENTORY}
 
+
+# Rules
 default: ${TARGET}
-
-${TARGET_GATEWAY_TOOL} : ${GATEWAY_TOOL_SRC_FILES}
-	@echo "-------------- building gateway tool ---------------"
-	cd ${MKFILE_DIR} && \
-		CGO_ENABLED=0 go build -i -v -ldflags "-s -w -X version.RELEASE=${RELEASE} -X version.COMMIT=${COMMIT} -X version.REPO=${GIT_REPO_INFO}" \
-			-o ${TARGET_GATEWAY_TOOL} ${MKFILE_DIR}src/tool/main.go
-
-${TARGET_GATEWAY_SERVER} : ${GATEWAY_SERVER_SRC_FILES}
-	@echo "-------------- building gateway server ---------------"
-	cd ${MKFILE_DIR} && \
-		CGO_ENABLED=0 go build -i -v -ldflags "-s -w -X version.RELEASE=${RELEASE} -X version.COMMIT=${COMMIT} -X version.REPO=${GIT_REPO_INFO}" \
-			-o ${TARGET_GATEWAY_SERVER} ${MKFILE_DIR}src/server/main.go
-
-${TARGET_GATEWAY_CLIENT} : ${GATEWAY_CLIENT_SRC_FILES}
-	@echo "-------------- building gateway client ---------------"
-	cd ${MKFILE_DIR} && \
-		CGO_ENABLED=0 go build -i -v -ldflags "-s -w -X version.RELEASE=${RELEASE} -X version.COMMIT=${COMMIT} -X version.REPO=${GIT_REPO_INFO}" \
-			-o ${TARGET_GATEWAY_CLIENT} ${MKFILE_DIR}src/client/main.go
-
-${TARGET_INVENTORY} : ${GATEWAY_INVENTORY_FILES}
-	@echo "-------------- building inventory -------------"
-	cd ${MKFILE_DIR} && rm -rf ${TARGET_INVENTORY} && mkdir -p ${TARGET_INVENTORY} && \
-		cp -r ${GATEWAY_INVENTORY_FILES} ${TARGET_INVENTORY}
 
 build: default
 
-build_client: ${TARGET_GATEWAY_CLIENT}
+build_client: ${TARGET_CLIENT}
 
-build_server: ${TARGET_GATEWAY_SERVER}
+build_server: ${TARGET_SERVER}
 
-build_tool: ${TARGET_GATEWAY_TOOL}
+build_tool: ${TARGET_TOOL}
 
 build_inventory: ${TARGET_INVENTORY}
+
+build_client_alpine: ${TARGET_CLIENT} ${TARGET_INVENTORY}
+	@echo "build client docker image (from alpine)"
+	rm -rf ${MKFILE_DIR}rootfs/alpine/opt && \
+	mkdir -p ${MKFILE_DIR}rootfs/alpine/opt/easegateway/bin && \
+	cp ${TARGET_CLIENT} ${MKFILE_DIR}rootfs/alpine/opt/easegateway/bin && \
+	cp -r ${TARGET_INVENTORY} ${MKFILE_DIR}rootfs/alpine/opt/easegateway && \
+	cd ${MKFILE_DIR}rootfs/alpine && $(DOCKER) build -t ${DOCKER_REPO_INFO}:client-${RELEASE}_alpine -f ./Dockerfile.client .
+
+build_server_alpine: ${TARGET_SERVER} ${TARGET_INVENTORY}
+	@echo "build server docker image (from alpine)"
+	rm -rf ${MKFILE_DIR}rootfs/alpine/opt && \
+	mkdir -p ${MKFILE_DIR}rootfs/alpine/opt/easegateway/bin && \
+	cp ${TARGET_SERVER} ${MKFILE_DIR}rootfs/alpine/opt/easegateway/bin && \
+	cp -r ${TARGET_INVENTORY} ${MKFILE_DIR}rootfs/alpine/opt/easegateway && \
+	cd ${MKFILE_DIR}rootfs/alpine && $(DOCKER) build -t ${DOCKER_REPO_INFO}:server-${RELEASE}_alpine -f ./Dockerfile.server .
+
+build_server_ubuntu: ${TARGET_SERVER} ${TARGET_INVENTORY}
+	@echo "build server docker image (from ubuntu)"
+	rm -rf ${MKFILE_DIR}rootfs/ubuntu/opt && \
+	mkdir -p ${MKFILE_DIR}rootfs/ubuntu/opt/easegateway/bin && \
+	cp ${TARGET_SERVER} ${MKFILE_DIR}rootfs/ubuntu/opt/easegateway/bin && \
+	cp -r ${TARGET_INVENTORY} ${MKFILE_DIR}rootfs/ubuntu/opt/easegateway && \
+	cd ${MKFILE_DIR}rootfs/ubuntu && $(DOCKER) build -t ${DOCKER_REPO_INFO}:server-${RELEASE}_ubuntu -f ./Dockerfile.server .
 
 # subnet sets up the require subnet for testing on darwin (osx) - you must run
 # this before running other tests if you are on osx.
 subnet::
 	@sh -c "'${MKFILE_DIR}/scripts/setup_test_subnet.sh'"
 
-## TODO (shengdong, zhiyan) make xargs exit when go test failed, tune @go list ./src/... | grep -v -E 'vendor' | xargs -n1 sh -c 'GOPATH=${GOPATH} go test "$@"|| exit 255'
+## TODO (shengdong, zhiyan) make xargs exit when go test failed, tune @go list ./{cmd,pkg}/... | grep -v -E 'vendor' | xargs -n1 sh -c 'GOPATH=${GOPATH} go test "$@"|| exit 255'
 quick_test:: subnet
-	@go list ./src/... | grep -v -E 'vendor' | xargs -n1 go test -short
+	@go list ./{cmd,pkg}/... | grep -v -E 'vendor' | xargs -n1 go test -short
 
 test:: subnet
-	@go list ./src/... | grep -v -E 'vendor' | xargs -n1 go test
+	@go list ./{cmd,pkg}/... | grep -v -E 'vendor' | xargs -n1 go test
 
 clean:
-	@rm -rf ${MKFILE_DIR}build && rm -rf ${MKFILE_DIR}rootfs/alpine/opt && rm -rf ${MKFILE_DIR}rootfs/ubuntu/opt
-	@rm -rf ${MKFILE_DIR}pkg
+	rm -rf ${TARGET}
 
 run: build_server
-	${TARGET_GATEWAY_SERVER}
+	${TARGET_SERVER}
 
 fmt:
-	cd ${MKFILE_DIR} && go fmt ./src/...
+	cd ${MKFILE_DIR} && go fmt ./{cmd,pkg}/...
 
-depend:
-	GOBIN= GOPATH=${MKFILE_DIR}build go get -v github.com/Masterminds/glide
+depend: ${GLIDE}
 
 vendor_get: depend
-	${GLIDE} install
-	rm -rf ${MKFILE_DIR}src/vendor ${GLIDE} ${MKFILE_DIR}build/pkg ${MKFILE_DIR}build/src
-	ln -s ${MKFILE_DIR}vendor ${MKFILE_DIR}src/vendor
+	cd ${MKFILE_DIR} && ${GLIDE} install
 
 vendor_update: depend
-	rm -rf $(HOME)/.glide/cache
-	${GLIDE} update && ${GLIDE} install
-	rm -rf ${MKFILE_DIR}src/vendor ${GLIDE} ${MKFILE_DIR}build/pkg ${MKFILE_DIR}build/src
-	ln -s ${MKFILE_DIR}vendor ${MKFILE_DIR}src/vendor
+	cd ${MKFILE_DIR} && ${GLIDE} update
 
 vendor_clean:
-	rm -f ${MKFILE_DIR}glide.lock
-	rm -dRf ${MKFILE_DIR}src/vendor ${MKFILE_DIR}vendor
+	rm -rf ${MKFILE_DIR}glide.lock ${MKFILE_DIR}vendor
 
-build_client_alpine: ${TARGET_GATEWAY_CLIENT} ${TARGET_INVENTORY}
-	@echo "-------------- building gateway client docker image (from alpine) ---------------"
-	rm -rf ${MKFILE_DIR}rootfs/alpine/opt && \
-		mkdir -p ${MKFILE_DIR}rootfs/alpine/opt/easegateway/bin && cp ${TARGET_GATEWAY_CLIENT} ${MKFILE_DIR}rootfs/alpine/opt/easegateway/bin && \
-		cp -r ${TARGET_INVENTORY} ${MKFILE_DIR}rootfs/alpine/opt/easegateway && \
-		cd ${MKFILE_DIR}rootfs/alpine && $(DOCKER) build -t ${DOCKER_REPO_INFO}:client-${RELEASE}_alpine -f ./Dockerfile.client .
+${GLIDE} :
+	go get -v github.com/Masterminds/glide
 
-build_server_alpine: ${TARGET_GATEWAY_SERVER} ${TARGET_INVENTORY}
-	@echo "-------------- building gateway server docker image (from alpine) ---------------"
-	rm -rf ${MKFILE_DIR}rootfs/alpine/opt && \
-		mkdir -p ${MKFILE_DIR}rootfs/alpine/opt/easegateway/bin && cp ${TARGET_GATEWAY_SERVER} ${MKFILE_DIR}rootfs/alpine/opt/easegateway/bin && \
-		cp -r ${TARGET_INVENTORY} ${MKFILE_DIR}rootfs/alpine/opt/easegateway && \
-		cd ${MKFILE_DIR}rootfs/alpine && $(DOCKER) build -t ${DOCKER_REPO_INFO}:server-${RELEASE}_alpine -f ./Dockerfile.server .
+GO_LD_FLAGS= "-s -w -X version.RELEASE=${RELEASE} -X version.COMMIT=${GIT_COMMIT} -X version.REPO=${GIT_REPO_INFO}"
+${TARGET_SERVER} : ${SERVER_FILES}
+	@echo "build server"
+	cd ${MKFILE_DIR} && \
+	CGO_ENABLED=0 go build -i -v -ldflags ${GO_LD_FLAGS} \
+	-o ${TARGET_SERVER} ${MKFILE_DIR}cmd/server/main.go
 
-build_server_ubuntu: ${TARGET_GATEWAY_SERVER} ${TARGET_INVENTORY}
-	@echo "-------------- building gateway server docker image (from ubuntu) ---------------"
-	rm -rf ${MKFILE_DIR}rootfs/ubuntu/opt && \
-		mkdir -p ${MKFILE_DIR}rootfs/ubuntu/opt/easegateway/bin && cp ${TARGET_GATEWAY_SERVER} ${MKFILE_DIR}rootfs/ubuntu/opt/easegateway/bin && \
-		cp -r ${TARGET_INVENTORY} ${MKFILE_DIR}rootfs/ubuntu/opt/easegateway && \
-		cd ${MKFILE_DIR}rootfs/ubuntu && $(DOCKER) build -t ${DOCKER_REPO_INFO}:server-${RELEASE}_ubuntu -f ./Dockerfile.server .
+${TARGET_CLIENT} : ${CLIENT_FILES}
+	@echo "build client"
+	cd ${MKFILE_DIR} && \
+	CGO_ENABLED=0 go build -i -v -ldflags ${GO_LD_FLAGS} \
+	-o ${TARGET_CLIENT} ${MKFILE_DIR}cmd/client/main.go
 
+${TARGET_TOOL} : ${TOOL_FILES}
+	@echo "build tool"
+	cd ${MKFILE_DIR} && \
+	CGO_ENABLED=0 go build -i -v -ldflags ${GO_LD_FLAGS} \
+	-o ${TARGET_TOOL} ${MKFILE_DIR}cmd/tool/main.go
+
+${TARGET_INVENTORY} : ${INVENTORY_FILES}
+	@echo "build inventory"
+	cd ${MKFILE_DIR} && \
+	rm -rf ${TARGET_INVENTORY} && \
+	mkdir -p ${TARGET_INVENTORY} && \
+	cp -r ${INVENTORY_FILES} ${TARGET_INVENTORY}
