@@ -269,8 +269,8 @@ func getTPS(ctx pipelines.PipelineContext, pluginsConcerned []string,
 
 		tps, err := tpsQuerier(name, kind)
 		if err != nil {
-			logger.Warnf("[BUG: query plugin %s throughput rate failed (kinid=%s), "+
-				"ignored to consider the rate of this plugin: %v]", name, err)
+			logger.Warnf("[BUG: query plugin %s throughput rate failed (kind=%s), "+
+				"ignored to consider the rate of this plugin: %v]", name, kind, err)
 			continue
 		}
 
@@ -320,8 +320,8 @@ func nextStatus(ctx pipelines.PipelineContext, pluginsConcerned []string, curren
 			failureTps/allTps1*100 >= float64(tpsPercentToBreak) {
 			ret = open
 			logger.Debugf("[service circuit breaker turns status from %s to %s "+
-				"(failure tps % %f >= %f)", currentStatus, ret, failureTps/allTps1*100,
-				tpsPercentToBreak)
+				"(failure tps %f >= %f)", currentStatus, ret,
+				failureTps/allTps1*100, tpsPercentToBreak)
 		} else if allTps5 < tpsToEnablement {
 			ret = off
 			logger.Debugf("[service circuit breaker turns status from %s to %s "+

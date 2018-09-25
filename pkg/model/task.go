@@ -288,7 +288,7 @@ func newCancelTask(parent task.Task) *cancelTask {
 
 func (c *cancelTask) cancel(removeFromParent bool, err error) {
 	if err == nil {
-		fmt.Errorf("missing cancel error")
+		err = fmt.Errorf("<missing cancel error>")
 	}
 
 	c.Lock()

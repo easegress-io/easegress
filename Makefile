@@ -1,6 +1,7 @@
-.PHONY: default build build_client build_server build_tool build_inventory run fmt clean \
-		depend vendor_get vendor_update vendor_clean \
-		build_client_alpine build_server_alpine build_server_ubuntu
+.PHONY: default build build_client build_server build_tool build_inventory \
+		build_client_alpine build_server_alpine build_server_ubuntu \
+		run fmt vet clean \
+		depend vendor_get vendor_update vendor_clean
 
 # Path Related
 MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
@@ -93,6 +94,9 @@ run: build_server
 
 fmt:
 	cd ${MKFILE_DIR} && go fmt ./{cmd,pkg}/...
+
+vet:
+	cd ${MKFILE_DIR} && go vet ./{cmd,pkg}/...
 
 depend: ${GLIDE}
 

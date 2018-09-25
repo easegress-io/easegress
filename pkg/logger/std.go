@@ -27,7 +27,7 @@ type logger struct {
 var defaultStdLogger = &logger{}
 
 func (l *logger) Printf(format string, args ...interface{}) {
-	Errorf(format, args)
+	Errorf(format, args...)
 }
 
 func initStd(logLevel logrus.Level) {

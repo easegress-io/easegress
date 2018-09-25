@@ -155,7 +155,7 @@ func (l *throughputRateLimiter) Run(ctx pipelines.PipelineContext, t task.Task) 
 	if len(l.conf.FlowControlPercentageKey) != 0 {
 		percentage, err := getFlowControlledPercentage(ctx, l.Name())
 		if err != nil {
-			logger.Warnf("[BUG: query flow control percentage data for pipeline %s failed, "+
+			logger.Warnf("[BUG: query flow control percentage data for pipeline %s failed: %v, "+
 				"ignored this output]", ctx.PipelineName(), err)
 		} else {
 			t.WithValue(l.conf.FlowControlPercentageKey, percentage)

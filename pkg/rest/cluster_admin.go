@@ -491,7 +491,7 @@ func (s *clusterAdminServer) retrievePipelines(w rest.ResponseWriter, r *rest.Re
 
 	w.WriteJson(ret)
 
-	logger.Debugf("[retrieve pipelines name-pattern(%s) types(%s) succeed: %s]", req.NamePattern, req.Types, ret)
+	logger.Debugf("[retrieve pipelines name-pattern(%s) types(%s) succeed: %+v]", req.NamePattern, req.Types, ret)
 }
 
 func (s *clusterAdminServer) retrievePipeline(w rest.ResponseWriter, r *rest.Request) {
