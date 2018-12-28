@@ -5,16 +5,14 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hexdecteam/easegateway/pkg/common"
+	"github.com/megaease/easegateway/pkg/pipelines"
+	"github.com/megaease/easegateway/pkg/task"
 
-	"github.com/hexdecteam/easegateway-types/pipelines"
-	"github.com/hexdecteam/easegateway-types/plugins"
-	"github.com/hexdecteam/easegateway-types/task"
 	"github.com/xeipuuv/gojsonschema"
 )
 
 type jsonValidatorConfig struct {
-	common.PluginCommonConfig
+	PluginCommonConfig
 	Schema  string `json:"schema"`
 	Base64  bool   `json:"base64_encoded"`
 	DataKey string `json:"data_key"`
@@ -22,7 +20,7 @@ type jsonValidatorConfig struct {
 	schemaObj *gojsonschema.Schema
 }
 
-func jsonValidatorConfigConstructor() plugins.Config {
+func jsonValidatorConfigConstructor() Config {
 	return &jsonValidatorConfig{}
 }
 
@@ -61,16 +59,16 @@ type jsonValidator struct {
 	conf *jsonValidatorConfig
 }
 
-func jsonValidatorConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, bool, error) {
+func jsonValidatorConstructor(conf Config) (Plugin, PluginType, bool, error) {
 	c, ok := conf.(*jsonValidatorConfig)
 	if !ok {
-		return nil, plugins.ProcessPlugin, false, fmt.Errorf(
+		return nil, ProcessPlugin, false, fmt.Errorf(
 			"config type want *jsonValidatorConfig got %T", conf)
 	}
 
 	return &jsonValidator{
 		conf: c,
-	}, plugins.ProcessPlugin, false, nil
+	}, ProcessPlugin, false, nil
 }
 
 func (v *jsonValidator) Prepare(ctx pipelines.PipelineContext) {

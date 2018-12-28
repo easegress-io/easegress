@@ -7,24 +7,21 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hexdecteam/easegateway/pkg/common"
-	"github.com/hexdecteam/easegateway/pkg/logger"
-	"github.com/hexdecteam/easegateway/pkg/option"
-
-	"github.com/hexdecteam/easegateway-types/pipelines"
-	"github.com/hexdecteam/easegateway-types/plugins"
-	"github.com/hexdecteam/easegateway-types/task"
+	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/option"
+	"github.com/megaease/easegateway/pkg/pipelines"
+	"github.com/megaease/easegateway/pkg/task"
 )
 
 type simpleCommonCacheConfig struct {
-	common.PluginCommonConfig
+	PluginCommonConfig
 	HitKeys     []string `json:"hit_keys"`
 	CacheKey    string   `json:"cache_key"`
 	TTLSec      uint32   `json:"ttl_sec"` // up to 4294967295, zero means infinite time to live
 	FinishIfHit bool     `json:"finish_if_hit"`
 }
 
-func simpleCommonCacheConfigConstructor() plugins.Config {
+func simpleCommonCacheConfigConstructor() Config {
 	return &simpleCommonCacheConfig{
 		TTLSec:      600, // 10 minutes
 		FinishIfHit: true,
@@ -64,16 +61,16 @@ type simpleCommonCache struct {
 	conf *simpleCommonCacheConfig
 }
 
-func simpleCommonCacheConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, bool, error) {
+func simpleCommonCacheConstructor(conf Config) (Plugin, PluginType, bool, error) {
 	c, ok := conf.(*simpleCommonCacheConfig)
 	if !ok {
-		return nil, plugins.ProcessPlugin, false, fmt.Errorf(
+		return nil, ProcessPlugin, false, fmt.Errorf(
 			"config type want *simpleCommonCacheConfig got %T", conf)
 	}
 
 	return &simpleCommonCache{
 		conf: c,
-	}, plugins.ProcessPlugin, false, nil
+	}, ProcessPlugin, false, nil
 }
 
 func (c *simpleCommonCache) Prepare(ctx pipelines.PipelineContext) {

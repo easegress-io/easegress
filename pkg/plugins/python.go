@@ -5,11 +5,9 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/hexdecteam/easegateway/pkg/common"
-	"github.com/hexdecteam/easegateway/pkg/logger"
-	"github.com/hexdecteam/easegateway/pkg/option"
-
-	"github.com/hexdecteam/easegateway-types/plugins"
+	"github.com/megaease/easegateway/pkg/common"
+	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/option"
 )
 
 const PYTHON_PLUGIN_WORK_DIR = "/tmp/easegateway_python_plugin"
@@ -21,7 +19,7 @@ type pythonConfig struct {
 	cmd string
 }
 
-func pythonConfigConstructor() plugins.Config {
+func pythonConfigConstructor() Config {
 	c := &pythonConfig{
 		interpreterRunnerConfig: newInterpreterRunnerConfig("python", PYTHON_PLUGIN_WORK_DIR),
 		Version:                 "2",
@@ -64,16 +62,16 @@ type python struct {
 	conf *pythonConfig
 }
 
-func pythonConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, bool, error) {
+func pythonConstructor(conf Config) (Plugin, PluginType, bool, error) {
 	c, ok := conf.(*pythonConfig)
 	if !ok {
-		return nil, plugins.ProcessPlugin, false, fmt.Errorf(
+		return nil, ProcessPlugin, false, fmt.Errorf(
 			"config type want *pythonConfig got %T", conf)
 	}
 
 	base, singleton, err := newInterpreterRunner(&c.interpreterRunnerConfig)
 	if err != nil {
-		return nil, plugins.ProcessPlugin, singleton, err
+		return nil, ProcessPlugin, singleton, err
 	}
 
 	p := &python{
@@ -83,7 +81,7 @@ func pythonConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType,
 
 	p.interpreterRunner.executor = p
 
-	return p, plugins.ProcessPlugin, singleton, nil
+	return p, ProcessPlugin, singleton, nil
 }
 
 func (p *python) command(code string) *exec.Cmd {

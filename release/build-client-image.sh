@@ -23,7 +23,4 @@ function err() {
 log "Build easegateway client image.."
 
 cd ${SCRIPTPATH}/..
-make vendor_clean
-make vendor_get
-make clean
 make build_client_alpine

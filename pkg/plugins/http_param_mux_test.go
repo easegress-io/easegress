@@ -6,17 +6,14 @@ import (
 	"reflect"
 	"testing"
 
-	eghttp "github.com/hexdecteam/easegateway/pkg/http"
-
 	"github.com/erikdubbelboer/fasthttp"
-	"github.com/hexdecteam/easegateway-types/plugins"
 )
 
-func newFastRequestHeaderByPath(path string, t *testing.T) plugins.Header {
+func newFastRequestHeaderByPath(path string, t *testing.T) Header {
 	return newFastRequestHeader("http://localhost"+path, t)
 }
 
-func newFastRequestHeader(uri string, t *testing.T) plugins.Header {
+func newFastRequestHeader(uri string, t *testing.T) Header {
 	req := &fasthttp.Request{}
 	req.SetRequestURI(uri)
 	if u, err := url.Parse(uri); err != nil {
@@ -25,20 +22,20 @@ func newFastRequestHeader(uri string, t *testing.T) plugins.Header {
 		req.Header.SetHost(u.Host)
 	}
 
-	return eghttp.NewFastRequestHeader(false, req.URI(), &req.Header)
+	return NewFastRequestHeader(false, req.URI(), &req.Header)
 }
 
-func newNetRequestHeaderByPath(path string) plugins.Header {
+func newNetRequestHeaderByPath(path string) Header {
 	return newNetRequestHeader("http://localhost" + path)
 }
 
-func newNetRequestHeader(url string) plugins.Header {
+func newNetRequestHeader(url string) Header {
 	r, _ := http.NewRequest(http.MethodGet, url, nil /* body */)
-	return eghttp.NewNetRequestHeader(r)
+	return NewNetRequestHeader(r)
 }
 
 type parsePathTest struct {
-	header         plugins.Header
+	header         Header
 	path           string
 	pattern        string
 	expectedErr    error
@@ -432,7 +429,7 @@ func TestParamMuxDifferentGenerations(t *testing.T) {
 	mustAddFunc(t, m, ctx1, entryA1_1)
 	mustAddFunc(t, m, ctx1, entryA1_2)
 	mustAddFunc(t, m, ctx1, entryA2_1)
-	resultRTable := map[string]map[string]map[string]*plugins.HTTPMuxEntry{
+	resultRTable := map[string]map[string]map[string]*HTTPMuxEntry{
 		ctx1.PipelineName(): {
 			"/a": {
 				"GET": entryA2_1,
@@ -443,7 +440,7 @@ func TestParamMuxDifferentGenerations(t *testing.T) {
 
 	mustAddFunc(t, m, ctx1, entryA2_2)
 	mustAddFunc(t, m, ctx1, entryA2_3)
-	resultRTable = map[string]map[string]map[string]*plugins.HTTPMuxEntry{
+	resultRTable = map[string]map[string]map[string]*HTTPMuxEntry{
 		ctx1.PipelineName(): {
 			"/a": {
 				"GET":  entryA2_1,
@@ -474,7 +471,7 @@ func TestParamMuxCleanOutdatedEntries(t *testing.T) {
 	mustAddFunc(t, m, ctx2, entryA2_1)
 	mustAddFuncs(t, m, ctx2, pipelineEntries)
 
-	resultRTable := map[string]map[string]map[string]*plugins.HTTPMuxEntry{
+	resultRTable := map[string]map[string]map[string]*HTTPMuxEntry{
 		ctx2.PipelineName(): {
 			"/a": {
 				"GET": entryA2_1,
@@ -503,7 +500,7 @@ func TestParamMuxCleanDeadEntries(t *testing.T) {
 	// NOTICE: The absence of pluginB in ctx2 leads to clean all entryB*.
 	m.AddFuncs(ctx1_2, pipelineEntries)
 
-	resultRTable := map[string]map[string]map[string]*plugins.HTTPMuxEntry{
+	resultRTable := map[string]map[string]map[string]*HTTPMuxEntry{
 		ctx1_2.PipelineName(): {
 			"/a": {
 				"GET": entryA1_1,
@@ -608,7 +605,7 @@ func TestParamMuxFatigue(t *testing.T) {
 	messC()
 	messD()
 
-	resultRTable := map[string]map[string]map[string]*plugins.HTTPMuxEntry{
+	resultRTable := map[string]map[string]map[string]*HTTPMuxEntry{
 		ctx1.PipelineName(): {
 			"/a": {
 				"GET":  entryA2_1,
@@ -639,7 +636,7 @@ func TestParamMuxFatigue(t *testing.T) {
 	ctx1 = mockPipelineContext("pipeline-1", []string{pluginB})
 	mustAddFuncs(t, m, ctx1, pipelineEntries)
 
-	resultRTable = map[string]map[string]map[string]*plugins.HTTPMuxEntry{
+	resultRTable = map[string]map[string]map[string]*HTTPMuxEntry{
 		ctx1.PipelineName(): {
 			"/b": {
 				"GET": entryB2_1,

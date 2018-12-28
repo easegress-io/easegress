@@ -1,335 +1,79 @@
 package model
 
 import (
-	"encoding/json"
 	"fmt"
-	"regexp"
-	"sort"
-	"strings"
 	"sync"
 
-	"github.com/hexdecteam/easegateway/pkg/common"
-	"github.com/hexdecteam/easegateway/pkg/config"
-	"github.com/hexdecteam/easegateway/pkg/logger"
-	pipelines_gw "github.com/hexdecteam/easegateway/pkg/pipelines"
-	plugins_gw "github.com/hexdecteam/easegateway/pkg/plugins"
-
-	"github.com/hexdecteam/easegateway-types/pipelines"
-	"github.com/hexdecteam/easegateway-types/plugins"
+	"github.com/megaease/easegateway/pkg/common"
+	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/plugins"
+	"github.com/megaease/easegateway/pkg/store"
 )
 
-type PluginAdded func(newPlugin *Plugin)
-type PluginDeleted func(deletedPlugin *Plugin)
-type PluginUpdated func(updatedPlugin *Plugin, instanceDismissed bool, instanceGen uint64)
-type PipelineAdded func(newPipeline *Pipeline)
-type PipelineDeleted func(deletedPipeline *Pipeline)
-type PipelineUpdated func(updatedPipeline *Pipeline)
+type pluginUpdateInfo struct {
+	instanceDismissed  bool
+	instanceGeneration uint64
+	plugin             *Plugin
+}
 
 type Model struct {
-	sync.RWMutex
-	pluginsLock          sync.RWMutex
-	plugins              map[string]*Plugin
-	pluginCounter        *pluginInstanceCounter
-	pipelinesLock        sync.RWMutex
-	pipelines            map[string]*Pipeline
-	pipelineContextsLock sync.RWMutex
-	pipelineContexts     map[string]pipelines.PipelineContext
-	statistics           *statRegistry
+	pluginsLock    sync.RWMutex
+	plugins        map[string]*Plugin
+	pluginsCounter *pluginInstanceCounter
 
-	pluginCallbacksLock      sync.RWMutex
-	pluginAddedCallbacks     *common.NamedCallbackSet
-	pluginDeletedCallbacks   *common.NamedCallbackSet
-	pluginUpdatedCallbacks   *common.NamedCallbackSet
-	pipelineCallbacksLock    sync.RWMutex
-	pipelineAddedCallbacks   *common.NamedCallbackSet
-	pipelineDeletedCallbacks *common.NamedCallbackSet
-	pipelineUpdatedCallbacks *common.NamedCallbackSet
+	schedulersLock sync.RWMutex
+	schedulers     map[string]PipelineScheduler
+
+	store   store.Store
+	watcher *store.Watcher
 }
 
-func NewModel() *Model {
-	ret := &Model{
-		plugins:                  make(map[string]*Plugin),
-		pluginCounter:            newPluginRefCounter(),
-		pipelines:                make(map[string]*Pipeline),
-		pipelineContexts:         make(map[string]pipelines.PipelineContext),
-		pluginAddedCallbacks:     common.NewNamedCallbackSet(),
-		pluginDeletedCallbacks:   common.NewNamedCallbackSet(),
-		pluginUpdatedCallbacks:   common.NewNamedCallbackSet(),
-		pipelineAddedCallbacks:   common.NewNamedCallbackSet(),
-		pipelineDeletedCallbacks: common.NewNamedCallbackSet(),
-		pipelineUpdatedCallbacks: common.NewNamedCallbackSet(),
-	}
-
-	ret.statistics = newStatRegistry(ret)
-
-	return ret
-}
-
-func (m *Model) LoadPlugins(specs []*config.PluginSpec) error {
-	for _, spec := range specs {
-		buff, err := json.Marshal(spec.Config)
-		if err != nil {
-			logger.Errorf("[marshal plugin config failed: %v]", err)
-			return err
-		}
-
-		conf, err := plugins_gw.GetConfig(spec.Type)
-		if err != nil {
-			logger.Errorf("[construct plugin config failed: %v]", err)
-			return err
-		}
-
-		err = json.Unmarshal(buff, conf)
-		if err != nil {
-			logger.Errorf("[unmarshal plugin config failed: %v]", err)
-			return err
-		}
-
-		_, err = m.AddPlugin(spec.Type, conf, spec.Constructor)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (m *Model) LoadPipelines(specs []*config.PipelineSpec) error {
-	for _, spec := range specs {
-		buff, err := json.Marshal(spec.Config)
-		if err != nil {
-			logger.Errorf("[marshal pipeline config failed: %v]", err)
-			return err
-		}
-
-		conf, err := GetPipelineConfig(spec.Type)
-		if err != nil {
-			logger.Errorf("[construct pipeline config failed: %v]", err)
-			return err
-		}
-
-		err = json.Unmarshal(buff, conf)
-		if err != nil {
-			logger.Errorf("[unmarshal pipeline config failed: %v]", err)
-			return err
-		}
-
-		_, err = m.AddPipeline(spec.Type, conf)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (m *Model) AddPlugin(typ string, conf plugins.Config,
-	constructor plugins.Constructor) (*Plugin, error) {
-
-	pluginName := conf.PluginName()
-
-	if !common.URL_FRIENDLY_CHARACTERS_REGEX.Match([]byte(pluginName)) {
-		return nil, fmt.Errorf("plugin name %s is invalid", pluginName)
-	}
-
-	if !plugins_gw.ValidType(typ) {
-		return nil, fmt.Errorf("plugin type %s is invalid", typ)
-	}
-
-	m.Lock()
-	defer m.Unlock()
-
-	m.pluginsLock.Lock()
-
-	_, exists := m.plugins[pluginName]
-	if exists {
-		logger.Errorf("[add plugin %v failed: duplicated plugin]", pluginName)
-		m.pluginsLock.Unlock()
-		return nil, fmt.Errorf("duplicated plugin %s", pluginName)
-	}
-
-	m.pipelinesLock.RLock()
-
-	var pipelineNames []string
-	for pipelineName := range m.pipelines {
-		pipelineNames = append(pipelineNames, pipelineName)
-	}
-
-	m.pipelinesLock.RUnlock()
-
-	err := conf.Prepare(pipelineNames)
+func NewModel(store store.Store) (*Model, error) {
+	watcher, err := store.ClaimWatcher("model")
 	if err != nil {
-		m.pluginsLock.Unlock()
-		return nil, fmt.Errorf("prepare plugin %s failed: %v", pluginName, err)
+		return nil, fmt.Errorf("claim watcher failed: %v", err)
 	}
-
-	plugin := newPlugin(typ, conf, constructor, m.pluginCounter)
-	m.plugins[pluginName] = plugin
-
-	logger.Debugf("[%d:%v registered]", len(m.plugins), pluginName)
-
-	m.pluginsLock.Unlock()
-
-	m.pluginCallbacksLock.RLock()
-	tmp := m.pluginAddedCallbacks.CopyCallbacks()
-	m.pluginCallbacksLock.RUnlock()
-
-	for _, callback := range tmp {
-		callback.Callback().(PluginAdded)(plugin)
+	m := &Model{
+		plugins:        make(map[string]*Plugin),
+		pluginsCounter: newPluginRefCounter(),
+		schedulers:     make(map[string]PipelineScheduler),
+		store:          store,
+		watcher:        watcher,
 	}
-
-	return plugin, nil
+	go func() {
+		for diffSpec := range m.watcher.Watch() {
+			m.applyDiffSpec(diffSpec)
+		}
+	}()
+	return m, nil
 }
 
-func (m *Model) DeletePlugin(name string) error {
-	m.Lock()
-	defer m.Unlock()
+func (m *Model) preparePluginInstance(plugin plugins.Plugin) {
+	for _, ctx := range m.pipelineContexts() {
+		if common.StrInSlice(plugin.Name(), ctx.PluginNames()) {
+			plugin.Prepare(ctx)
+		}
+	}
+}
 
-	m.pluginsLock.Lock()
-
+func (m *Model) getPluginInstance(name string, prepareForNew bool) (*wrappedPlugin, plugins.PluginType, uint64, error) {
+	m.pluginsLock.RLock()
 	plugin, exists := m.plugins[name]
 	if !exists {
-		m.pluginsLock.Unlock()
-		return fmt.Errorf("plugin %s not found", name)
-	}
-
-	m.pipelinesLock.RLock()
-
-	for _, pipeline := range m.pipelines {
-		if common.StrInSlice(name, pipeline.Config().PluginNames()) {
-			m.pipelinesLock.RUnlock()
-			m.pluginsLock.Unlock()
-			return fmt.Errorf("plugin %s is used by one or more pipelines", name)
-		}
-	}
-
-	m.pipelinesLock.RUnlock()
-
-	delete(m.plugins, name)
-
-	m.pluginsLock.Unlock()
-
-	m.pluginCallbacksLock.RLock()
-	tmp := m.pluginDeletedCallbacks.CopyCallbacks()
-	m.pluginCallbacksLock.RUnlock()
-
-	for _, callback := range tmp {
-		callback.Callback().(PluginDeleted)(plugin)
-	}
-
-	return nil
-}
-
-func (m *Model) GetPlugin(name string) (*Plugin, int) {
-	m.RLock()
-	defer m.RUnlock()
-
-	m.pluginsLock.RLock()
-	defer m.pluginsLock.RUnlock()
-
-	plugin := m.plugins[name]
-	if plugin == nil {
-		return plugin, 0
-	}
-
-	m.pipelinesLock.RLock()
-
-	var refCount int
-	for _, pipeline := range m.pipelines {
-		if common.StrInSlice(name, pipeline.Config().PluginNames()) {
-			refCount++
-		}
-	}
-
-	m.pipelinesLock.RUnlock()
-
-	return plugin, refCount
-}
-
-func (m *Model) GetPlugins(namePattern string, types []string) ([]*Plugin, error) {
-	m.RLock()
-	defer m.RUnlock()
-
-	for _, t := range types {
-		if !plugins_gw.ValidType(t) {
-			return nil, fmt.Errorf("invalid plugin type %s", t)
-		}
-	}
-
-	if len(namePattern) == 0 {
-		namePattern = `.*`
-	}
-
-	var ret []*Plugin
-
-	r, err := regexp.Compile(namePattern)
-	if err != nil {
-		return ret, fmt.Errorf("invalid plugin name pattern: %v", err)
-	}
-
-	m.pluginsLock.RLock()
-	defer m.pluginsLock.RUnlock()
-
-	keys := make([]string, 0, len(m.plugins))
-	for key := range m.plugins {
-		keys = append(keys, key)
-	}
-
-	sort.Strings(keys)
-
-	for _, key := range keys {
-		plugin := m.plugins[key]
-		if len(types) > 0 && !common.StrInSlice(plugin.Type(), types) {
-			continue
-		}
-
-		if r.MatchString(plugin.Name()) {
-			ret = append(ret, plugin)
-		}
-	}
-
-	return ret, nil
-}
-
-func (m *Model) preparePluginInstance(instance plugins.Plugin) {
-	m.pipelinesLock.RLock()
-	defer m.pipelinesLock.RUnlock()
-
-	m.pipelineContextsLock.RLock()
-	defer m.pipelineContextsLock.RUnlock()
-
-	for pipelineName, ctx := range m.pipelineContexts {
-		pipeline, exists := m.pipelines[pipelineName]
-		if exists && // context might be closed asynchronously after pipeline gone
-			common.StrInSlice(instance.Name(), pipeline.Config().PluginNames()) {
-			instance.Prepare(ctx)
-		}
-	}
-}
-
-func (m *Model) getPluginInstance(name string, prepareForNew bool) (*wrappedPlugin,
-	plugins.PluginType, uint64, error) {
-
-	m.pluginsLock.RLock()
-
-	plugin, exists := m.plugins[name]
-	if !exists {
-		m.pluginsLock.RUnlock()
 		return nil, plugins.UnknownType, 0, fmt.Errorf("plugin %s not found", name)
 	}
-
 	m.pluginsLock.RUnlock()
 
 	instance, pluginType, gen, err := plugin.GetInstance(m, prepareForNew)
 	if err == nil {
-		m.pluginCounter.AddRef(instance)
+		m.pluginsCounter.AddRef(instance)
 	}
 
 	return instance, pluginType, gen, err
 }
 
 func (m *Model) releasePluginInstance(plugin *wrappedPlugin) int64 {
-	return m.pluginCounter.DeleteRef(plugin)
+	return m.pluginsCounter.DeleteRef(plugin)
 }
 
 func (m *Model) dismissPluginInstance(instance *wrappedPlugin) error {
@@ -341,380 +85,182 @@ func (m *Model) dismissPluginInstance(instance *wrappedPlugin) error {
 	defer m.pluginsLock.RUnlock()
 
 	plugin, exists := m.plugins[instance.Name()]
-	if exists {
-		plugin.DismissInstance(instance)
-		return nil
-	} else {
+	if !exists {
 		return fmt.Errorf("plugin %s not found", instance.Name())
 	}
 
+	plugin.DismissInstance(instance)
+
+	return nil
 }
 
-func (m *Model) DismissPluginInstanceByName(name string) error {
-	m.RLock()
-	defer m.RUnlock()
-
+func (m *Model) dismissPluginInstanceByName(name string) error {
 	m.pluginsLock.RLock()
 	defer m.pluginsLock.RUnlock()
 
 	plugin, exists := m.plugins[name]
-	if exists {
-		plugin.DismissInstance(nil)
-		return nil
-	} else {
+	if !exists {
 		return fmt.Errorf("plugin %s not found", name)
 	}
+
+	plugin.DismissInstance(nil)
+
+	return nil
 }
 
-func (m *Model) DismissAllPluginInstances() {
-	m.RLock()
-	defer m.RUnlock()
-
+func (m *Model) dismissAllPluginInstances() {
 	m.pluginsLock.RLock()
 	defer m.pluginsLock.RUnlock()
 
 	for _, plugin := range m.plugins {
-		plugin.DismissInstance(nil)
+		plugin.dismissInstance(nil)
 	}
 }
 
-func (m *Model) UpdatePluginConfig(conf plugins.Config) error {
-	m.Lock()
-	defer m.Unlock()
+func (m *Model) createPlugin(spec *store.PluginSpec) {
+	m.pluginsLock.Lock()
+	defer m.pluginsLock.Unlock()
 
-	pluginName := conf.PluginName()
+	if _, exists := m.plugins[spec.Name]; exists {
+		logger.Errorf("[BUG: plugin %s existed]", spec.Name)
+		return
+	}
 
-	m.pluginsLock.RLock()
-	plugin, exists := m.plugins[pluginName]
-	m.pluginsLock.RUnlock()
+	m.plugins[spec.Name] = newPlugin(spec, m.pluginsCounter)
+}
 
+func (m *Model) deletePlugin(name string) {
+	m.pluginsLock.Lock()
+	defer m.pluginsLock.Unlock()
+
+	plugin, exists := m.plugins[name]
 	if !exists {
-		return fmt.Errorf("plugin %s not found", pluginName)
+		logger.Errorf("[BUG: plugin %s not found]", name)
+		return
 	}
+	delete(m.plugins, name)
 
-	m.pipelinesLock.RLock()
-
-	var pipelineNames []string
-	for pipelineName := range m.pipelines {
-		pipelineNames = append(pipelineNames, pipelineName)
-	}
-
-	m.pipelinesLock.RUnlock()
-
-	err := conf.Prepare(pipelineNames)
-	if err != nil {
-		return fmt.Errorf("prepare plugin %s failed: %v", pluginName, err)
-	}
-
-	instanceDismissed, instanceGen := plugin.UpdateConfig(conf)
-
-	m.pluginCallbacksLock.RLock()
-	tmp := m.pluginUpdatedCallbacks.CopyCallbacks()
-	m.pluginCallbacksLock.RUnlock()
-
-	for _, callback := range tmp {
-		callback.Callback().(PluginUpdated)(plugin, instanceDismissed, instanceGen)
-	}
-
-	return nil
+	go func() {
+		for _, ctx := range m.pipelineContexts() {
+			ctx.pluginDeleteChan <- plugin
+		}
+	}()
 }
 
-func (m *Model) AddPluginAddedCallback(name string, callback PluginAdded, priority string) {
-	m.pluginCallbacksLock.Lock()
-	m.pluginAddedCallbacks = common.AddCallback(m.pluginAddedCallbacks, name, callback, priority)
-	m.pluginCallbacksLock.Unlock()
-}
+func (m *Model) updatePlugin(spec *store.PluginSpec) {
+	m.pluginsLock.Lock()
+	defer m.pluginsLock.Unlock()
 
-func (m *Model) DeletePluginAddedCallback(name string) {
-	m.pluginCallbacksLock.Lock()
-	m.pluginAddedCallbacks = common.DeleteCallback(m.pluginAddedCallbacks, name)
-	m.pluginCallbacksLock.Unlock()
-}
-
-func (m *Model) AddPluginDeletedCallback(name string, callback PluginDeleted, priority string) {
-	m.pluginCallbacksLock.Lock()
-	m.pluginDeletedCallbacks = common.AddCallback(m.pluginDeletedCallbacks, name, callback, priority)
-	m.pluginCallbacksLock.Unlock()
-}
-
-func (m *Model) DeletePluginDeletedCallback(name string) {
-	m.pluginCallbacksLock.Lock()
-	m.pluginDeletedCallbacks = common.DeleteCallback(m.pluginDeletedCallbacks, name)
-	m.pluginCallbacksLock.Unlock()
-}
-
-func (m *Model) AddPluginUpdatedCallback(name string, callback PluginUpdated, priority string) {
-	m.pluginCallbacksLock.Lock()
-	m.pluginUpdatedCallbacks = common.AddCallback(m.pluginUpdatedCallbacks, name, callback, priority)
-	m.pluginCallbacksLock.Unlock()
-}
-
-func (m *Model) DeletePluginUpdatedCallback(name string) {
-	m.pluginCallbacksLock.Lock()
-	m.pluginUpdatedCallbacks = common.DeleteCallback(m.pluginUpdatedCallbacks, name)
-	m.pluginCallbacksLock.Unlock()
-}
-
-func (m *Model) AddPipeline(typ string, conf pipelines_gw.Config) (*Pipeline, error) {
-	pipelineName := conf.PipelineName()
-
-	if !common.URL_FRIENDLY_CHARACTERS_REGEX.Match([]byte(pipelineName)) {
-		return nil, fmt.Errorf("pipeline name %s is invalid", pipelineName)
+	plugin, exists := m.plugins[spec.Name]
+	if !exists {
+		logger.Errorf("[BUG: plugin %s not found]", spec.Name)
+		return
 	}
 
-	if !pipelines_gw.ValidType(typ) {
-		return nil, fmt.Errorf("pipeline type %s is invalid", typ)
-	}
-
-	m.Lock()
-	defer m.Unlock()
-
-	m.pipelinesLock.Lock()
-
-	_, exists := m.pipelines[pipelineName]
-	if exists {
-		logger.Errorf("[add pipeline %v failed: duplicated pipeline]", pipelineName)
-		m.pipelinesLock.Unlock()
-		return nil, fmt.Errorf("duplicated pipeline %s", pipelineName)
-	}
-
-	err := conf.Prepare()
-	if err != nil {
-		m.pipelinesLock.Unlock()
-		return nil, fmt.Errorf("prepare pipeline %s failed: %v", pipelineName, err)
-	}
-
-	m.pluginsLock.RLock()
-
-	for _, pluginName := range conf.PluginNames() {
-		_, exists := m.plugins[pluginName]
-		if !exists {
-			if len(strings.TrimSpace(pluginName)) == 0 {
-				pluginName = "''"
+	dismissed, generation := plugin.UpdateConfig(spec.Config.(plugins.Config))
+	go func() {
+		for _, instances := range m.pipelineInstances() {
+			for _, instance := range instances {
+				instance.instance.pluginUpdateInfoChan <- &pluginUpdateInfo{
+					instanceDismissed:  dismissed,
+					instanceGeneration: generation,
+					plugin:             plugin,
+				}
 			}
-			m.pipelinesLock.Unlock()
-			m.pluginsLock.RUnlock()
-			return nil, fmt.Errorf("plugin %s not found", pluginName)
 		}
-	}
-
-	m.pluginsLock.RUnlock()
-
-	pipeline := newPipeline(typ, conf)
-	m.pipelines[pipelineName] = pipeline
-
-	logger.Debugf("[%d:%v registered]", len(m.pipelines), pipelineName)
-
-	m.pipelinesLock.Unlock()
-
-	m.pipelineCallbacksLock.RLock()
-	tmp := m.pipelineAddedCallbacks.CopyCallbacks()
-	m.pipelineCallbacksLock.RUnlock()
-
-	for _, callback := range tmp {
-		callback.Callback().(PipelineAdded)(pipeline)
-	}
-
-	return pipeline, nil
+	}()
 }
 
-func (m *Model) DeletePipeline(name string) error {
-	m.Lock()
-	defer m.Unlock()
+func (m *Model) createPipeline(spec *store.PipelineSpec) {
+	m.schedulersLock.Lock()
+	defer m.schedulersLock.Unlock()
 
-	m.pipelinesLock.Lock()
+	if _, exists := m.schedulers[spec.Name]; exists {
+		logger.Errorf("[BUG: pipeline scheduler %s existed]", spec.Name)
+		return
+	}
+	scheduler := CreatePipelineScheduler(spec, m)
+	m.schedulers[spec.Name] = scheduler
 
-	pipeline, exists := m.pipelines[name]
+	scheduler.Start()
+}
+
+func (m *Model) deletePipeline(name string) {
+	m.schedulersLock.Lock()
+	defer m.schedulersLock.Unlock()
+
+	scheduler, exists := m.schedulers[name]
 	if !exists {
-		m.pipelinesLock.Unlock()
-		return fmt.Errorf("pipeiline %s not found", name)
+		logger.Errorf("[BUG: pipeline scheduler %s not found]", name)
+		return
 	}
-
-	delete(m.pipelines, name)
-
-	m.pipelinesLock.Unlock()
-
-	m.pipelineCallbacksLock.RLock()
-	tmp := m.pipelineDeletedCallbacks.CopyCallbacks()
-	m.pipelineCallbacksLock.RUnlock()
-
-	for _, callback := range tmp {
-		callback.Callback().(PipelineDeleted)(pipeline)
-	}
-
-	return nil
+	scheduler.Stop()
+	delete(m.schedulers, name)
 }
 
-func (m *Model) GetPipeline(name string) *Pipeline {
-	m.RLock()
-	defer m.RUnlock()
-	m.pipelinesLock.RLock()
-	defer m.pipelinesLock.RUnlock()
-	return m.pipelines[name]
-}
+func (m *Model) updatePipeline(spec *store.PipelineSpec) {
+	m.schedulersLock.Lock()
+	defer m.schedulersLock.Unlock()
 
-func (m *Model) GetPipelines(namePattern string, types []string) ([]*Pipeline, error) {
-	m.RLock()
-	defer m.RUnlock()
-
-	for _, t := range types {
-		if !pipelines_gw.ValidType(t) {
-			return nil, fmt.Errorf("invalid pipeline type %s", t)
-		}
-	}
-
-	if len(namePattern) == 0 {
-		namePattern = `.*`
-	}
-
-	var ret []*Pipeline
-
-	r, err := regexp.Compile(namePattern)
-	if err != nil {
-		return ret, fmt.Errorf("invalid plugin name pattern: %v", err)
-	}
-
-	m.pipelinesLock.RLock()
-	defer m.pipelinesLock.RUnlock()
-
-	keys := make([]string, 0, len(m.pipelines))
-
-	for key := range m.pipelines {
-		keys = append(keys, key)
-	}
-
-	sort.Strings(keys)
-
-	for _, key := range keys {
-		pipeline := m.pipelines[key]
-		if len(types) > 0 && !common.StrInSlice(pipeline.Type(), types) {
-			continue
-		}
-
-		if r.MatchString(pipeline.Name()) {
-			ret = append(ret, pipeline)
-		}
-	}
-
-	return ret, nil
-}
-
-func (m *Model) UpdatePipelineConfig(conf pipelines_gw.Config) error {
-	pipelineName := conf.PipelineName()
-
-	err := conf.Prepare()
-	if err != nil {
-		return fmt.Errorf("prepare pipeline %s failed: %v", pipelineName, err)
-	}
-
-	m.Lock()
-	defer m.Unlock()
-
-	m.pipelinesLock.RLock()
-	pipeline, exists := m.pipelines[pipelineName]
-	m.pipelinesLock.RUnlock()
-
+	scheduler, exists := m.schedulers[spec.Name]
 	if !exists {
-		return fmt.Errorf("pipeline %s not found", pipelineName)
+		logger.Errorf("[BUG: pipeline scheduler %s not found]", spec.Name)
+		return
+	}
+	scheduler.Stop()
+
+	scheduler = CreatePipelineScheduler(spec, m)
+	m.schedulers[spec.Name] = CreatePipelineScheduler(spec, m)
+	scheduler.Start()
+}
+
+func (m *Model) pipelineContexts() map[string]*pipelineContext {
+	m.schedulersLock.RLock()
+	defer m.schedulersLock.RUnlock()
+
+	contexts := make(map[string]*pipelineContext)
+	for name, scheduler := range m.schedulers {
+		contexts[name] = scheduler.PipelineContext()
 	}
 
-	m.pluginsLock.RLock()
+	return contexts
+}
 
-	for _, pluginName := range conf.PluginNames() {
-		_, exists := m.plugins[pluginName]
-		if !exists {
-			if len(strings.TrimSpace(pluginName)) == 0 {
-				pluginName = "''"
-			}
-			m.pluginsLock.RUnlock()
-			return fmt.Errorf("plugin %s not found", pluginName)
-		}
+func (m *Model) pipelineInstances() map[string][]*pipelineInstance {
+	m.schedulersLock.RLock()
+	defer m.schedulersLock.RUnlock()
+
+	pipelineInstances := make(map[string][]*pipelineInstance)
+	for name, scheduler := range m.schedulers {
+		pipelineInstances[name] = scheduler.PipelineInstances()
 	}
 
-	m.pluginsLock.RUnlock()
+	return pipelineInstances
+}
 
-	pipeline.UpdateConfig(conf)
-
-	m.pipelineCallbacksLock.RLock()
-	tmp := m.pipelineUpdatedCallbacks.CopyCallbacks()
-	m.pipelineCallbacksLock.RUnlock()
-
-	for _, callback := range tmp {
-		callback.Callback().(PipelineUpdated)(pipeline)
+func (m *Model) applyDiffSpec(diffSpec *store.DiffSpec) {
+	for _, pluginSpec := range diffSpec.CreatedOrUpdatedPlugins {
+		m.createPlugin(pluginSpec)
+	}
+	for _, pipelineSpec := range diffSpec.CreatedOrUpdatedPipelines {
+		m.createPipeline(pipelineSpec)
 	}
 
-	return nil
-}
-
-func (m *Model) AddPipelineAddedCallback(name string, callback PipelineAdded, priority string) {
-	m.pipelineCallbacksLock.Lock()
-	m.pipelineAddedCallbacks = common.AddCallback(m.pipelineAddedCallbacks, name, callback, priority)
-	m.pipelineCallbacksLock.Unlock()
-}
-
-func (m *Model) DeletePipelineAddedCallback(name string) {
-	m.pipelineCallbacksLock.Lock()
-	m.pipelineAddedCallbacks = common.DeleteCallback(m.pipelineAddedCallbacks, name)
-	m.pipelineCallbacksLock.Unlock()
-}
-
-func (m *Model) AddPipelineDeletedCallback(name string, callback PipelineDeleted, priority string) {
-	m.pipelineCallbacksLock.Lock()
-	m.pipelineDeletedCallbacks = common.AddCallback(m.pipelineDeletedCallbacks, name, callback, priority)
-	m.pipelineCallbacksLock.Unlock()
-}
-
-func (m *Model) DeletePipelineDeletedCallback(name string) {
-	m.pipelineCallbacksLock.Lock()
-	m.pipelineDeletedCallbacks = common.DeleteCallback(m.pipelineDeletedCallbacks, name)
-	m.pipelineCallbacksLock.Unlock()
-}
-
-func (m *Model) AddPipelineUpdatedCallback(name string, callback PipelineUpdated, priority string) {
-	m.pipelineCallbacksLock.Lock()
-	m.pipelineUpdatedCallbacks = common.AddCallback(m.pipelineUpdatedCallbacks, name, callback, priority)
-	m.pipelineCallbacksLock.Unlock()
-}
-
-func (m *Model) DeletePipelineUpdatedCallback(name string) {
-	m.pipelineCallbacksLock.Lock()
-	m.pipelineUpdatedCallbacks = common.DeleteCallback(m.pipelineUpdatedCallbacks, name)
-	m.pipelineCallbacksLock.Unlock()
-}
-
-func (m *Model) CreatePipelineContext(conf pipelines_gw.Config, statistics pipelines.PipelineStatistics,
-	trigger pipelines.SourceInputTrigger) pipelines.PipelineContext {
-
-	ctx := newPipelineContext(conf, statistics, m, trigger)
-
-	m.pipelineContextsLock.Lock()
-	defer m.pipelineContextsLock.Unlock()
-
-	m.pipelineContexts[conf.PipelineName()] = ctx
-
-	return ctx
-}
-
-func (m *Model) DeletePipelineContext(name string) bool {
-	m.pipelineContextsLock.Lock()
-	defer m.pipelineContextsLock.Unlock()
-
-	ctx, exists := m.pipelineContexts[name]
-	if exists {
-		ctx.Close()
-
-		delete(m.pipelineContexts, name)
+	for _, name := range diffSpec.DeletedPipelines {
+		m.deletePipeline(name)
 	}
 
-	return exists
+	for _, name := range diffSpec.DeletedPlugins {
+		m.deletePlugin(name)
+	}
 }
 
-func (m *Model) GetPipelineContext(name string) pipelines.PipelineContext {
-	m.pipelineContextsLock.RLock()
-	defer m.pipelineContextsLock.RUnlock()
-	return m.pipelineContexts[name]
-}
-
-func (m *Model) StatRegistry() *statRegistry {
-	return m.statistics
+func (m *Model) Close() {
+	m.store.DeleteWatcher("model")
+	for name := range m.schedulers {
+		m.deletePipeline(name)
+	}
+	for name := range m.plugins {
+		m.deletePlugin(name)
+	}
 }

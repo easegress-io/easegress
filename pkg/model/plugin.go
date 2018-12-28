@@ -6,12 +6,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/hexdecteam/easegateway/pkg/common"
-	"github.com/hexdecteam/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/common"
+	"github.com/megaease/easegateway/pkg/store"
+	"github.com/megaease/easegateway/pkg/logger"
 
-	"github.com/hexdecteam/easegateway-types/pipelines"
-	"github.com/hexdecteam/easegateway-types/plugins"
-	"github.com/hexdecteam/easegateway-types/task"
+	"github.com/megaease/easegateway/pkg/pipelines"
+	"github.com/megaease/easegateway/pkg/plugins"
+	"github.com/megaease/easegateway/pkg/task"
 )
 
 //
@@ -188,13 +189,12 @@ type Plugin struct {
 	currentInstanceGen uint64
 }
 
-func newPlugin(typ string, conf plugins.Config,
-	constructor plugins.Constructor, counter *pluginInstanceCounter) *Plugin {
+func newPlugin(spec *store.PluginSpec, counter *pluginInstanceCounter) *Plugin {
 
 	return &Plugin{
-		conf:        conf,
-		typ:         typ,
-		constructor: constructor,
+		conf:        spec.Config.(plugins.Config),
+		typ:         spec.Type,
+		constructor: spec.Constructor,
 		counter:     counter,
 		pluginType:  plugins.UnknownType,
 	}

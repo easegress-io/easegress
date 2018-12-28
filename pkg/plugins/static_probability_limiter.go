@@ -5,20 +5,17 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/hexdecteam/easegateway/pkg/common"
-	"github.com/hexdecteam/easegateway/pkg/logger"
-
-	"github.com/hexdecteam/easegateway-types/pipelines"
-	"github.com/hexdecteam/easegateway-types/plugins"
-	"github.com/hexdecteam/easegateway-types/task"
+	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/pipelines"
+	"github.com/megaease/easegateway/pkg/task"
 )
 
 type staticProbabilityLimiterConfig struct {
-	common.PluginCommonConfig
+	PluginCommonConfig
 	PassPr float32 `json:"pass_pr"`
 }
 
-func staticProbabilityLimiterConfigConstructor() plugins.Config {
+func staticProbabilityLimiterConfigConstructor() Config {
 	return new(staticProbabilityLimiterConfig)
 }
 
@@ -47,16 +44,16 @@ type staticProbabilityLimiter struct {
 	conf *staticProbabilityLimiterConfig
 }
 
-func staticProbabilityLimiterConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, bool, error) {
+func staticProbabilityLimiterConstructor(conf Config) (Plugin, PluginType, bool, error) {
 	c, ok := conf.(*staticProbabilityLimiterConfig)
 	if !ok {
-		return nil, plugins.ProcessPlugin, false, fmt.Errorf(
+		return nil, ProcessPlugin, false, fmt.Errorf(
 			"config type want *staticProbabilityLimiterConfig got %T", conf)
 	}
 
 	return &staticProbabilityLimiter{
 		conf: c,
-	}, plugins.ProcessPlugin, false, nil
+	}, ProcessPlugin, false, nil
 }
 
 func (l *staticProbabilityLimiter) Prepare(ctx pipelines.PipelineContext) {

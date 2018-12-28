@@ -7,76 +7,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/hexdecteam/easegateway/pkg/common"
-	"github.com/hexdecteam/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/common"
+	"github.com/megaease/easegateway/pkg/store"
+	"github.com/megaease/easegateway/pkg/logger"
 
-	"github.com/hexdecteam/easegateway-types/pipelines"
+	"github.com/megaease/easegateway/pkg/pipelines"
 	"github.com/rcrowley/go-metrics"
 )
-
-//
-// Statistics registry
-//
-
-type statRegistry struct {
-	sync.RWMutex
-	statistics map[string]*PipelineStatistics
-	mod        *Model
-}
-
-func newStatRegistry(m *Model) *statRegistry {
-	ret := &statRegistry{
-		statistics: make(map[string]*PipelineStatistics),
-		mod:        m,
-	}
-
-	m.AddPipelineAddedCallback("addPipelineStatistics", ret.addPipelineStatistics,
-		common.NORMAL_PRIORITY_CALLBACK)
-	m.AddPipelineDeletedCallback("deletePipelineStatistics", ret.deletePipelineStatistics,
-		common.NORMAL_PRIORITY_CALLBACK)
-	m.AddPipelineUpdatedCallback("renewPipelineStatistics", ret.renewPipelineStatistics,
-		common.NORMAL_PRIORITY_CALLBACK)
-
-	return ret
-}
-
-func (r *statRegistry) GetPipelineStatistics(name string) *PipelineStatistics {
-	r.RLock()
-	defer r.RUnlock()
-	return r.statistics[name]
-}
-
-func (r *statRegistry) addPipelineStatistics(pipeline *Pipeline) {
-	r.Lock()
-	defer r.Unlock()
-
-	r.statistics[pipeline.Name()] = NewPipelineStatistics(
-		pipeline.config.PipelineName(), pipeline.Config().PluginNames(), r.mod)
-	logger.Infof("[pipeline %s statistics is created]", pipeline.Name())
-}
-
-func (r *statRegistry) deletePipelineStatistics(pipeline *Pipeline) {
-	r.Lock()
-	defer r.Unlock()
-
-	statistics, exists := r.statistics[pipeline.Name()]
-	// Defensive programming
-	if exists {
-		go statistics.Close()
-	}
-
-	delete(r.statistics, pipeline.Name())
-	logger.Infof("[pipeline %s statistics is deleted]", pipeline.Name())
-}
-
-func (r *statRegistry) renewPipelineStatistics(pipeline *Pipeline) {
-	r.deletePipelineStatistics(pipeline)
-	r.addPipelineStatistics(pipeline)
-}
-
-//
-// Statistics indicator
-//
 
 type statisticsIndicator struct {
 	name, indicatorName, desc string
@@ -212,10 +149,6 @@ func newPluginStatisticsIndicator(pluginName, pluginInstanceId, indicatorName, d
 	}, nil
 }
 
-//
-// Pipeline statistics
-//
-
 type PipelineStatistics struct {
 	sync.RWMutex
 	pipelineName string
@@ -246,9 +179,9 @@ type PipelineStatistics struct {
 	pluginThroughputRateUpdatedCallbacks, pluginExecutionSampleUpdatedCallbacks *common.NamedCallbackSet
 }
 
-func NewPipelineStatistics(pipelineName string, pluginNames []string, m *Model) *PipelineStatistics {
+func NewPipelineStatistics(spec *store.PipelineSpec, m *Model) *PipelineStatistics {
 	ret := &PipelineStatistics{
-		pipelineName:                   pipelineName,
+		pipelineName:                   spec.Name,
 		pipelineThroughputRates1:       metrics.NewEWMA1(),
 		pipelineThroughputRates5:       metrics.NewEWMA5(),
 		pipelineThroughputRates15:      metrics.NewEWMA15(),
@@ -299,7 +232,7 @@ func NewPipelineStatistics(pipelineName string, pluginNames []string, m *Model) 
 		ret.pipelineThroughputRates1, ret.pipelineThroughputRates5, ret.pipelineThroughputRates15,
 	})
 
-	for _, name := range pluginNames {
+	for _, name := range spec.Config.Plugins {
 		ewma1 := metrics.NewEWMA1()
 		ewma5 := metrics.NewEWMA5()
 		ewma15 := metrics.NewEWMA15()
@@ -393,7 +326,7 @@ func NewPipelineStatistics(pipelineName string, pluginNames []string, m *Model) 
 		})
 
 	// Expose common plugin statistics values as builtin plugin indicators
-	for _, pluginName := range pluginNames {
+	for _, pluginName := range spec.Config.Plugins {
 		ret.RegisterPluginIndicator(pluginName, pipelines.STATISTICS_INDICATOR_FOR_ALL_PLUGIN_INSTANCE,
 			"THROUGHPUT_RATE_LAST_1MIN_ALL", "Throughput rate of the plugin in last 1 minute.",
 			func(pluginName, indicatorName string) (interface{}, error) {

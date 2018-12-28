@@ -7,10 +7,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/hexdecteam/easegateway/pkg/common"
+	"github.com/megaease/easegateway/pkg/common"
 
-	"github.com/hexdecteam/easegateway-types/pipelines"
-	"github.com/hexdecteam/easegateway-types/plugins"
+	"github.com/megaease/easegateway/pkg/pipelines"
 )
 
 var supportedMethods = map[string]interface{}{
@@ -33,7 +32,7 @@ type paramMuxConfig struct {
 type paramMux struct {
 	sync.RWMutex
 	//         pname      path       method
-	rtable map[string]map[string]map[string]*plugins.HTTPMuxEntry
+	rtable map[string]map[string]map[string]*HTTPMuxEntry
 }
 
 func newParamMux(conf *paramMuxConfig) (*paramMux, error) {
@@ -45,11 +44,11 @@ func (m *paramMux) dump() {
 	fmt.Printf("%#v\n", m.rtable)
 	m.RUnlock()
 }
-func (m *paramMux) ServeHTTP(ctx plugins.HTTPCtx) {
+func (m *paramMux) ServeHTTP(ctx HTTPCtx) {
 	match := false
 	wrongMethod := false
 	var path_params map[string]string
-	var e *plugins.HTTPMuxEntry
+	var e *HTTPMuxEntry
 
 	serveStartAt := common.Now()
 	header := ctx.RequestHeader()
@@ -100,12 +99,12 @@ LOOP:
 	e.Handler(ctx, path_params, common.Since(serveStartAt))
 }
 
-func (m *paramMux) samePluginDifferentGeneration(entry *plugins.HTTPMuxEntry, entryChecking *plugins.HTTPMuxEntry) bool {
+func (m *paramMux) samePluginDifferentGeneration(entry *HTTPMuxEntry, entryChecking *HTTPMuxEntry) bool {
 	return entry.Instance.Name() == entryChecking.Instance.Name() &&
 		entry.Instance != entryChecking.Instance
 }
 
-func (m *paramMux) sameEntry(entry *plugins.HTTPMuxEntry, entryChecking *plugins.HTTPMuxEntry) bool {
+func (m *paramMux) sameEntry(entry *HTTPMuxEntry, entryChecking *HTTPMuxEntry) bool {
 	return entry.Instance.Name() == entryChecking.Instance.Name() &&
 		entry.Instance == entryChecking.Instance &&
 		entry.HTTPURLPattern == entryChecking.HTTPURLPattern &&
@@ -113,7 +112,7 @@ func (m *paramMux) sameEntry(entry *plugins.HTTPMuxEntry, entryChecking *plugins
 		entry.Priority == entryChecking.Priority
 }
 
-func (m *paramMux) validate(entryValidating *plugins.HTTPMuxEntry) error {
+func (m *paramMux) validate(entryValidating *HTTPMuxEntry) error {
 	// we do not allow to register static path and parametric path on the same segment, for example
 	// client can not register the patterns `/user/jack` and `/user/{user}` on the same http method at the same time.
 	for pname, pipelineRTable := range m.rtable {
@@ -138,20 +137,20 @@ func (m *paramMux) validate(entryValidating *plugins.HTTPMuxEntry) error {
 	return nil
 }
 
-func (m *paramMux) _locklessAddFunc(pname string, entryAdding *plugins.HTTPMuxEntry) {
+func (m *paramMux) _locklessAddFunc(pname string, entryAdding *HTTPMuxEntry) {
 	if m.rtable == nil {
-		m.rtable = make(map[string]map[string]map[string]*plugins.HTTPMuxEntry)
+		m.rtable = make(map[string]map[string]map[string]*HTTPMuxEntry)
 	}
 
 	pipelineRTable, exists := m.rtable[pname]
 	if !exists {
-		pipelineRTable = make(map[string]map[string]*plugins.HTTPMuxEntry)
+		pipelineRTable = make(map[string]map[string]*HTTPMuxEntry)
 		m.rtable[pname] = pipelineRTable
 	}
 
 	path_rules, exists := pipelineRTable[entryAdding.Path]
 	if !exists {
-		path_rules = make(map[string]*plugins.HTTPMuxEntry)
+		path_rules = make(map[string]*HTTPMuxEntry)
 		pipelineRTable[entryAdding.Path] = path_rules
 	}
 
@@ -159,7 +158,7 @@ func (m *paramMux) _locklessAddFunc(pname string, entryAdding *plugins.HTTPMuxEn
 	path_rules[entryAdding.Method] = entryAdding
 }
 
-func (m *paramMux) _locklessDeleteFunc(pname string, entryDeleting *plugins.HTTPMuxEntry) {
+func (m *paramMux) _locklessDeleteFunc(pname string, entryDeleting *HTTPMuxEntry) {
 	pipelineRTable, exists := m.rtable[pname]
 	if !exists {
 		return
@@ -185,7 +184,7 @@ func (m *paramMux) _locklessDeleteFunc(pname string, entryDeleting *plugins.HTTP
 	}
 }
 
-func (m *paramMux) checkValidity(e *plugins.HTTPMuxEntry) error {
+func (m *paramMux) checkValidity(e *HTTPMuxEntry) error {
 	if e == nil {
 		return fmt.Errorf("empty entry")
 	}
@@ -217,7 +216,7 @@ func (m *paramMux) checkValidity(e *plugins.HTTPMuxEntry) error {
 	return nil
 }
 
-func (m *paramMux) AddFunc(ctx pipelines.PipelineContext, entryAdding *plugins.HTTPMuxEntry) error {
+func (m *paramMux) AddFunc(ctx pipelines.PipelineContext, entryAdding *HTTPMuxEntry) error {
 	pname := ctx.PipelineName()
 	if pname == "" {
 		return fmt.Errorf("empty pipeline name")
@@ -240,7 +239,7 @@ func (m *paramMux) AddFunc(ctx pipelines.PipelineContext, entryAdding *plugins.H
 
 	// Clean entries from the same plugin but different genrations.
 	for pname, pipelineRTable := range m.rtable {
-		var entriesToClean []*plugins.HTTPMuxEntry
+		var entriesToClean []*HTTPMuxEntry
 		for _, methods := range pipelineRTable {
 			for _, entry := range methods {
 				if m.samePluginDifferentGeneration(entry, entryAdding) {
@@ -258,7 +257,7 @@ func (m *paramMux) AddFunc(ctx pipelines.PipelineContext, entryAdding *plugins.H
 	return nil
 }
 
-func (m *paramMux) AddFuncs(ctx pipelines.PipelineContext, entriesAdding []*plugins.HTTPMuxEntry) error {
+func (m *paramMux) AddFuncs(ctx pipelines.PipelineContext, entriesAdding []*HTTPMuxEntry) error {
 	pname := ctx.PipelineName()
 	if len(pname) == 0 {
 		return fmt.Errorf("empty pipeline name")
@@ -272,7 +271,7 @@ func (m *paramMux) AddFuncs(ctx pipelines.PipelineContext, entriesAdding []*plug
 	defer m.Unlock()
 
 	// Clean outdated entries.
-	var entriesAddingExcludeOutdated []*plugins.HTTPMuxEntry
+	var entriesAddingExcludeOutdated []*HTTPMuxEntry
 	for _, entryAdding := range entriesAdding {
 		needExclude := false
 	LOOP:
@@ -294,9 +293,9 @@ func (m *paramMux) AddFuncs(ctx pipelines.PipelineContext, entriesAdding []*plug
 	}
 	entriesAdding = entriesAddingExcludeOutdated
 
-	// Clean entries of dead plugins.
+	// Clean entries of dead
 	pluginNames := ctx.PluginNames()
-	var entriesAddingExcludeDead []*plugins.HTTPMuxEntry
+	var entriesAddingExcludeDead []*HTTPMuxEntry
 	for _, entry := range entriesAdding {
 		if common.StrInSlice(entry.Instance.Name(), pluginNames) {
 			entriesAddingExcludeDead = append(
@@ -320,7 +319,7 @@ func (m *paramMux) AddFuncs(ctx pipelines.PipelineContext, entriesAdding []*plug
 	return nil
 }
 
-func (m *paramMux) DeleteFunc(ctx pipelines.PipelineContext, entryDeleting *plugins.HTTPMuxEntry) {
+func (m *paramMux) DeleteFunc(ctx pipelines.PipelineContext, entryDeleting *HTTPMuxEntry) {
 	pname := ctx.PipelineName()
 	if pname == "" {
 		return
@@ -332,7 +331,7 @@ func (m *paramMux) DeleteFunc(ctx pipelines.PipelineContext, entryDeleting *plug
 	m._locklessDeleteFunc(pname, entryDeleting)
 }
 
-func (m *paramMux) DeleteFuncs(ctx pipelines.PipelineContext) []*plugins.HTTPMuxEntry {
+func (m *paramMux) DeleteFuncs(ctx pipelines.PipelineContext) []*HTTPMuxEntry {
 	pname := ctx.PipelineName()
 	if pname == "" {
 		return nil
@@ -343,7 +342,7 @@ func (m *paramMux) DeleteFuncs(ctx pipelines.PipelineContext) []*plugins.HTTPMux
 
 	pipelineRTable := m.rtable[pname]
 
-	var entries []*plugins.HTTPMuxEntry
+	var entries []*HTTPMuxEntry
 	for _, methods := range pipelineRTable {
 		for _, entry := range methods {
 			entries = append(entries, entry)

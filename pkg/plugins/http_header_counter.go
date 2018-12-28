@@ -6,21 +6,18 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hexdecteam/easegateway/pkg/common"
-	"github.com/hexdecteam/easegateway/pkg/logger"
-
-	"github.com/hexdecteam/easegateway-types/pipelines"
-	"github.com/hexdecteam/easegateway-types/plugins"
-	"github.com/hexdecteam/easegateway-types/task"
+	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/pipelines"
+	"github.com/megaease/easegateway/pkg/task"
 )
 
 type httpHeaderCounterConfig struct {
-	common.PluginCommonConfig
+	PluginCommonConfig
 	HeaderConcerned string `json:"header_concerned"`
 	ExpirationSec   uint32 `json:"expiration_sec"`
 }
 
-func httpHeaderCounterConfigConstructor() plugins.Config {
+func httpHeaderCounterConfigConstructor() Config {
 	return &httpHeaderCounterConfig{
 		ExpirationSec: 60,
 	}
@@ -54,10 +51,10 @@ type httpHeaderCounter struct {
 	indicatorAdded bool
 }
 
-func httpHeaderCounterConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, bool, error) {
+func httpHeaderCounterConstructor(conf Config) (Plugin, PluginType, bool, error) {
 	c, ok := conf.(*httpHeaderCounterConfig)
 	if !ok {
-		return nil, plugins.ProcessPlugin, false, fmt.Errorf(
+		return nil, ProcessPlugin, false, fmt.Errorf(
 			"config type want *httpHeaderCounterConfig got %T", conf)
 	}
 
@@ -67,7 +64,7 @@ func httpHeaderCounterConstructor(conf plugins.Config) (plugins.Plugin, plugins.
 
 	counter.instanceId = fmt.Sprintf("%p", counter)
 
-	return counter, plugins.ProcessPlugin, false, nil
+	return counter, ProcessPlugin, false, nil
 }
 
 func (c *httpHeaderCounter) Prepare(ctx pipelines.PipelineContext) {
@@ -93,7 +90,7 @@ func (c *httpHeaderCounter) Prepare(ctx pipelines.PipelineContext) {
 }
 
 func (c *httpHeaderCounter) count(ctx pipelines.PipelineContext, t task.Task) (error, task.TaskResultCode, task.Task) {
-	headerValue := t.Value("HTTP_" + common.UpperCaseAndUnderscore(c.conf.HeaderConcerned))
+	headerValue := t.Value("HTTP_" + UpperCaseAndUnderscore(c.conf.HeaderConcerned))
 	value, ok := headerValue.(string)
 	if !ok {
 		return fmt.Errorf("input %s got wrong value: %#v", c.conf.HeaderConcerned, headerValue),

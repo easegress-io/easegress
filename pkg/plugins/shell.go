@@ -5,11 +5,9 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/hexdecteam/easegateway/pkg/common"
-	"github.com/hexdecteam/easegateway/pkg/logger"
-	"github.com/hexdecteam/easegateway/pkg/option"
-
-	"github.com/hexdecteam/easegateway-types/plugins"
+	"github.com/megaease/easegateway/pkg/common"
+	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/option"
 )
 
 const SHELL_PLUGIN_WORK_DIR = "/tmp/easegateway_shell_plugin"
@@ -21,7 +19,7 @@ type shellConfig struct {
 	cmd string
 }
 
-func shellConfigConstructor() plugins.Config {
+func shellConfigConstructor() Config {
 	c := &shellConfig{
 		interpreterRunnerConfig: newInterpreterRunnerConfig("shell", SHELL_PLUGIN_WORK_DIR),
 		Type:                    "sh",
@@ -65,16 +63,16 @@ type shell struct {
 	conf *shellConfig
 }
 
-func shellConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, bool, error) {
+func shellConstructor(conf Config) (Plugin, PluginType, bool, error) {
 	c, ok := conf.(*shellConfig)
 	if !ok {
-		return nil, plugins.ProcessPlugin, false, fmt.Errorf(
+		return nil, ProcessPlugin, false, fmt.Errorf(
 			"config type want *shellConfig got %T", conf)
 	}
 
 	base, singleton, err := newInterpreterRunner(&c.interpreterRunnerConfig)
 	if err != nil {
-		return nil, plugins.ProcessPlugin, singleton, err
+		return nil, ProcessPlugin, singleton, err
 	}
 
 	p := &shell{
@@ -84,7 +82,7 @@ func shellConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, 
 
 	p.interpreterRunner.executor = p
 
-	return p, plugins.ProcessPlugin, singleton, nil
+	return p, ProcessPlugin, singleton, nil
 }
 
 func (p *shell) command(code string) *exec.Cmd {

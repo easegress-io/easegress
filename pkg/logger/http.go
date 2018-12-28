@@ -5,9 +5,8 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/hexdecteam/easegateway/pkg/common"
+	"github.com/megaease/easegateway/pkg/common"
 
-	"github.com/hexdecteam/easegateway-types/plugins"
 	"github.com/sirupsen/logrus"
 )
 
@@ -50,7 +49,8 @@ func (f *httpFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	return []byte(fmt.Sprintln(entry.Message)), nil
 }
 
-func HTTPAccess(ctx plugins.HTTPCtx, code int, bodyBytesSent int64,
+func HTTPAccess(remoteAddr, proto, method, path, referer, agent, realIP string,
+	code int, bodyBytesSent int64,
 	requestTime time.Duration, upstreamResponseTime time.Duration,
 	upstreamAddr string, upstreamCode int, clientWriteBodyTime, clientReadBodyTime,
 	routeTime time.Duration) {
@@ -61,13 +61,10 @@ func HTTPAccess(ctx plugins.HTTPCtx, code int, bodyBytesSent int64,
 	// '$request_time $upstream_response_time $upstream_addr $upstream_status $pipe '
 	// '$client_write_body_time' '$client_read_body_time' '$route_time';
 
-	header := ctx.RequestHeader()
-	referer := header.Get("Referer")
 	if referer == "" {
 		referer = "-"
 	}
 
-	agent := header.Get("User-Agent")
 	if agent == "" {
 		agent = "-"
 	} else {
@@ -76,7 +73,6 @@ func HTTPAccess(ctx plugins.HTTPCtx, code int, bodyBytesSent int64,
 		}
 	}
 
-	realIP := header.Get("X-Forwarded-For")
 	if realIP == "" {
 		realIP = "-"
 	}
@@ -89,14 +85,13 @@ func HTTPAccess(ctx plugins.HTTPCtx, code int, bodyBytesSent int64,
 		}
 	}
 
-	proto := header.Proto()
 	line := fmt.Sprintf(
 		`%v - - [%v] "%s %s %s" `+
 			`%v %v "%s" `+
 			`"%s" "%s" `+
 			`%f %f %v %v . `+
 			`%f %f %f`,
-		ctx.RemoteAddr(), common.Now().Local(), header.Method(), header.Path(), proto,
+		remoteAddr, common.Now().Local(), method, path, proto,
 		code, bodyBytesSent, referer,
 		agent, realIP,
 		requestTime.Seconds(), upstreamResponseTime.Seconds(), upstreamAddr, upstreamCode,

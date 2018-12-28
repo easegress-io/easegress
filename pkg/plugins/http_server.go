@@ -11,14 +11,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hexdecteam/easegateway/pkg/common"
-	eghttp "github.com/hexdecteam/easegateway/pkg/http"
-	"github.com/hexdecteam/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/option"
+
+	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/pipelines"
+	"github.com/megaease/easegateway/pkg/task"
 
 	"github.com/erikdubbelboer/fasthttp"
-	"github.com/hexdecteam/easegateway-types/pipelines"
-	"github.com/hexdecteam/easegateway-types/plugins"
-	"github.com/hexdecteam/easegateway-types/task"
 	"golang.org/x/net/netutil"
 )
 
@@ -34,10 +33,10 @@ type server interface {
 type netHTTPServer struct {
 	s *http.Server
 	l net.Listener
-	m plugins.HTTPMux
+	m HTTPMux
 }
 
-func newNetHTTPServer(c *HTTPServerConfig, l net.Listener, mux plugins.HTTPMux) *netHTTPServer {
+func newNetHTTPServer(c *HTTPServerConfig, l net.Listener, mux HTTPMux) *netHTTPServer {
 	ln := netutil.LimitListener(&tcpKeepAliveListener{
 		connKeepAlive:    c.ConnKeepAlive,
 		connKeepAliveSec: c.ConnKeepAliveSec,
@@ -72,8 +71,8 @@ func (n *netHTTPServer) Listener() net.Listener {
 	return n.l
 }
 
-func (n *netHTTPServer) createHTTPCtx(w http.ResponseWriter, r *http.Request) plugins.HTTPCtx {
-	return &eghttp.NetHTTPCtx{
+func (n *netHTTPServer) createHTTPCtx(w http.ResponseWriter, r *http.Request) HTTPCtx {
+	return &NetHTTPCtx{
 		Req:    r,
 		Writer: w,
 	}
@@ -83,10 +82,10 @@ func (n *netHTTPServer) createHTTPCtx(w http.ResponseWriter, r *http.Request) pl
 type fastHTTPServer struct {
 	s *fasthttp.Server
 	l net.Listener
-	m plugins.HTTPMux
+	m HTTPMux
 }
 
-func newFastHTTPServer(c *HTTPServerConfig, l net.Listener, mux plugins.HTTPMux) *fastHTTPServer {
+func newFastHTTPServer(c *HTTPServerConfig, l net.Listener, mux HTTPMux) *fastHTTPServer {
 	s := fasthttp.Server{
 		Concurrency:  int(c.MaxSimulConns),
 		LogAllErrors: true,
@@ -133,8 +132,8 @@ func (f *fastHTTPServer) Close() error {
 	return nil
 }
 
-func (f *fastHTTPServer) createHTTPCtx(c *fasthttp.RequestCtx) plugins.HTTPCtx {
-	return &eghttp.FastHTTPCtx{
+func (f *fastHTTPServer) createHTTPCtx(c *fasthttp.RequestCtx) HTTPCtx {
+	return &FastHTTPCtx{
 		Ctx:  c,
 		Req:  &c.Request,
 		Resp: &c.Response,
@@ -142,14 +141,14 @@ func (f *fastHTTPServer) createHTTPCtx(c *fasthttp.RequestCtx) plugins.HTTPCtx {
 }
 
 // server factory, creates concrete server interface implementations
-func createServer(c *HTTPServerConfig, mux plugins.HTTPMux) (server, error) {
+func createServer(c *HTTPServerConfig, mux HTTPMux) (server, error) {
 	addr := fmt.Sprintf("%s:%d", c.Host, c.Port)
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, fmt.Errorf("listen at TCP %s failed: ", err)
 	}
 
-	if c.typ == eghttp.FastHTTP {
+	if c.typ == FastHTTP {
 		return newFastHTTPServer(c, ln, mux), nil
 	} else {
 		return newNetHTTPServer(c, ln, mux), nil
@@ -158,7 +157,7 @@ func createServer(c *HTTPServerConfig, mux plugins.HTTPMux) (server, error) {
 
 ////////
 type HTTPServerConfig struct {
-	common.PluginCommonConfig
+	PluginCommonConfig
 	Host             string      `json:"host"`
 	Port             uint16      `json:"port"` // up to 65535
 	MuxType          muxType     `json:"mux_type"`
@@ -168,7 +167,7 @@ type HTTPServerConfig struct {
 	ConnKeepAlive    bool        `json:"keepalive"`
 	ConnKeepAliveSec uint16      `json:"keepalive_sec"` // up to 65535
 	Type             string      `json:"type"`
-	typ              plugins.HTTPType
+	typ              HTTPType
 	// TODO: Adds keepalive_requests support
 	MaxSimulConns uint32 `json:"max_connections"` // up to 2147483647 really
 
@@ -177,12 +176,12 @@ type HTTPServerConfig struct {
 	muxConf                   interface{}
 }
 
-func HTTPServerConfigConstructor() plugins.Config {
+func HTTPServerConfigConstructor() Config {
 	return &HTTPServerConfig{
 		Host:    "localhost",
 		Port:    10080,
 		MuxType: regexpMuxType,
-		Type:    eghttp.NetHTTPStr,
+		Type:    NetHTTPStr,
 		MuxConfig: reMuxConfig{
 			CacheKeyComplete: false,
 			CacheMaxCount:    1024,
@@ -210,8 +209,8 @@ func (c *HTTPServerConfig) Prepare(pipelineNames []string) error {
 	}
 
 	if len(c.CertFile) != 0 || len(c.KeyFile) != 0 {
-		c.certFilePath = filepath.Join(common.CERT_HOME_DIR, c.CertFile)
-		c.keyFilePath = filepath.Join(common.CERT_HOME_DIR, c.KeyFile)
+		c.certFilePath = filepath.Join(option.CertDir, c.CertFile)
+		c.keyFilePath = filepath.Join(option.CertDir, c.KeyFile)
 
 		if s, err := os.Stat(c.certFilePath); os.IsNotExist(err) || s.IsDir() {
 			return fmt.Errorf("cert file %s not found", c.CertFile)
@@ -228,7 +227,7 @@ func (c *HTTPServerConfig) Prepare(pipelineNames []string) error {
 		return fmt.Errorf("invalid port")
 	}
 
-	typ, err := eghttp.ParseHTTPType(c.Type)
+	typ, err := ParseHTTPType(c.Type)
 	if err != nil {
 		return fmt.Errorf("parse http implementation failed: %v", err)
 	}
@@ -270,14 +269,14 @@ type httpServer struct {
 	conf   *HTTPServerConfig
 	addr   string
 	server server
-	mux    plugins.HTTPMux
+	mux    HTTPMux
 	closed bool
 }
 
-func httpServerConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, bool, error) {
+func httpServerConstructor(conf Config) (Plugin, PluginType, bool, error) {
 	c, ok := conf.(*HTTPServerConfig)
 	if !ok {
-		return nil, plugins.ProcessPlugin, true, fmt.Errorf(
+		return nil, ProcessPlugin, true, fmt.Errorf(
 			"config type want *HTTPServerConfig got %T", conf)
 	}
 
@@ -292,30 +291,30 @@ func httpServerConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginT
 		muxConf, ok := h.conf.muxConf.(*reMuxConfig)
 		if !ok {
 			logger.Errorf("[BUG: want *reMuxConfig got %T]", h.conf.muxConf)
-			return nil, plugins.ProcessPlugin, true, fmt.Errorf(
+			return nil, ProcessPlugin, true, fmt.Errorf(
 				"construct regexp mux failed: mux config type want *reMuxConfig got %T", h.conf.muxConf)
 		}
 		h.mux, err = newREMux(muxConf)
 		if err != nil {
-			return nil, plugins.ProcessPlugin, true, fmt.Errorf("construct regexp mux failed: %v", err)
+			return nil, ProcessPlugin, true, fmt.Errorf("construct regexp mux failed: %v", err)
 		}
 	case paramMuxType:
 		muxConf, ok := h.conf.muxConf.(*paramMuxConfig)
 		if !ok {
 			logger.Errorf("[BUG: want *paramMuxConfig got %T]", h.conf.muxConf)
-			return nil, plugins.ProcessPlugin, true, fmt.Errorf(
+			return nil, ProcessPlugin, true, fmt.Errorf(
 				"construct param mux failed: mux config type want *paramMuxConfig got %T", h.conf.muxConf)
 		}
 		h.mux, err = newParamMux(muxConf)
 		if err != nil {
-			return nil, plugins.ProcessPlugin, true, fmt.Errorf("construct param mux failed: %v", err)
+			return nil, ProcessPlugin, true, fmt.Errorf("construct param mux failed: %v", err)
 		}
 	default:
-		return nil, plugins.ProcessPlugin, true, fmt.Errorf("unsupported mux type") //defensive
+		return nil, ProcessPlugin, true, fmt.Errorf("unsupported mux type") //defensive
 	}
 	h.server, err = createServer(c, h.mux)
 	if err != nil {
-		return nil, plugins.ProcessPlugin, true, fmt.Errorf("create http server failed: %s", err)
+		return nil, ProcessPlugin, true, fmt.Errorf("create http server failed: %s", err)
 	}
 
 	done := make(chan error)
@@ -359,10 +358,10 @@ func httpServerConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginT
 	if err != nil {
 		h.server.Listener().Close()
 		h.closed = true
-		return nil, plugins.ProcessPlugin, true, err
+		return nil, ProcessPlugin, true, err
 	}
 
-	return h, plugins.ProcessPlugin, true, nil
+	return h, ProcessPlugin, true, nil
 }
 
 func (h *httpServer) Prepare(ctx pipelines.PipelineContext) {
@@ -463,9 +462,9 @@ func (ln tcpKeepAliveListener) Addr() net.Addr {
 
 ////
 
-func storeHTTPServerMux(ctx pipelines.PipelineContext, pluginName string, mux plugins.HTTPMux) error {
+func storeHTTPServerMux(ctx pipelines.PipelineContext, pluginName string, mux HTTPMux) error {
 	bucket := ctx.DataBucket(pluginName, pipelines.DATA_BUCKET_FOR_ALL_PLUGIN_INSTANCE)
-	_, err := bucket.BindData(plugins.HTTP_SERVER_MUX_BUCKET_KEY, mux)
+	_, err := bucket.BindData(HTTP_SERVER_MUX_BUCKET_KEY, mux)
 	if err != nil {
 		logger.Warnf("[BUG: store the mux of http server %s for pipeline %s failed, "+
 			"ignored to provide mux: %v]", pluginName, ctx.PipelineName(), err)
@@ -475,11 +474,11 @@ func storeHTTPServerMux(ctx pipelines.PipelineContext, pluginName string, mux pl
 	return nil
 }
 
-func getHTTPServerMux(ctx pipelines.PipelineContext, pluginName string, required bool) plugins.HTTPMux {
+func getHTTPServerMux(ctx pipelines.PipelineContext, pluginName string, required bool) HTTPMux {
 	bucket := ctx.DataBucket(pluginName, pipelines.DATA_BUCKET_FOR_ALL_PLUGIN_INSTANCE)
-	mux := bucket.QueryData(plugins.HTTP_SERVER_MUX_BUCKET_KEY)
+	mux := bucket.QueryData(HTTP_SERVER_MUX_BUCKET_KEY)
 
-	ret, ok := mux.(plugins.HTTPMux)
+	ret, ok := mux.(HTTPMux)
 	if !ok && required {
 		logger.Errorf("[the mux of http server %s for pipeline %s is invalid]",
 			pluginName, ctx.PipelineName())
@@ -490,10 +489,10 @@ func getHTTPServerMux(ctx pipelines.PipelineContext, pluginName string, required
 }
 
 func storePipelineRouteTable(ctx pipelines.PipelineContext, pluginName string,
-	pipelineRTable []*plugins.HTTPMuxEntry) error {
+	pipelineRTable []*HTTPMuxEntry) error {
 
 	bucket := ctx.DataBucket(pluginName, pipelines.DATA_BUCKET_FOR_ALL_PLUGIN_INSTANCE)
-	_, err := bucket.BindData(plugins.HTTP_SERVER_PIPELINE_ROUTE_TABLE_BUCKET_KEY, pipelineRTable)
+	_, err := bucket.BindData(HTTP_SERVER_PIPELINE_ROUTE_TABLE_BUCKET_KEY, pipelineRTable)
 	if err != nil {
 		logger.Errorf("[BUG: store the route table of pipeline %s for http server %s failed: %v]",
 			ctx.PipelineName(), pluginName, err)
@@ -504,16 +503,16 @@ func storePipelineRouteTable(ctx pipelines.PipelineContext, pluginName string,
 }
 
 func getPipelineRouteTable(ctx pipelines.PipelineContext,
-	pluginName string) []*plugins.HTTPMuxEntry {
+	pluginName string) []*HTTPMuxEntry {
 
 	bucket := ctx.DataBucket(pluginName, pipelines.DATA_BUCKET_FOR_ALL_PLUGIN_INSTANCE)
-	pipelineRTable := bucket.QueryData(plugins.HTTP_SERVER_PIPELINE_ROUTE_TABLE_BUCKET_KEY)
+	pipelineRTable := bucket.QueryData(HTTP_SERVER_PIPELINE_ROUTE_TABLE_BUCKET_KEY)
 
 	if pipelineRTable == nil {
 		return nil
 	}
 
-	ret, ok := pipelineRTable.([]*plugins.HTTPMuxEntry)
+	ret, ok := pipelineRTable.([]*HTTPMuxEntry)
 	if !ok {
 		logger.Errorf("[the route table of pipeline %s for http server %s is invalid]",
 			ctx.PipelineName(), pluginName)
@@ -525,7 +524,7 @@ func getPipelineRouteTable(ctx pipelines.PipelineContext,
 
 func storeHTTPServerGoneNotifier(ctx pipelines.PipelineContext, pluginName string, notifier chan struct{}) error {
 	bucket := ctx.DataBucket(pluginName, pipelines.DATA_BUCKET_FOR_ALL_PLUGIN_INSTANCE)
-	_, err := bucket.BindData(plugins.HTTP_SERVER_GONE_NOTIFIER_BUCKET_KEY, notifier)
+	_, err := bucket.BindData(HTTP_SERVER_GONE_NOTIFIER_BUCKET_KEY, notifier)
 	if err != nil {
 		logger.Warnf("[BUG: store the close notifier of http server %s for pipeline %s failed, "+
 			"ignored to provide close notifier: %v]", pluginName, ctx.PipelineName(), err)
@@ -537,7 +536,7 @@ func storeHTTPServerGoneNotifier(ctx pipelines.PipelineContext, pluginName strin
 
 func getHTTPServerGoneNotifier(ctx pipelines.PipelineContext, pluginName string, required bool) chan struct{} {
 	bucket := ctx.DataBucket(pluginName, pipelines.DATA_BUCKET_FOR_ALL_PLUGIN_INSTANCE)
-	notifier := bucket.QueryData(plugins.HTTP_SERVER_GONE_NOTIFIER_BUCKET_KEY)
+	notifier := bucket.QueryData(HTTP_SERVER_GONE_NOTIFIER_BUCKET_KEY)
 
 	ret, ok := notifier.(chan struct{})
 	if !ok && required {

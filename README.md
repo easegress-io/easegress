@@ -1,4 +1,4 @@
-# EaseGateway [![Build Status](https://travis-ci.com/hexdecteam/easegateway.svg?token=bgrenfvQpzZ8JoKbi6uX&branch=master)](https://travis-ci.com/hexdecteam/easegateway) [![codecov](https://codecov.io/gh/hexdecteam/easegateway/branch/master/graph/badge.svg?token=HAR3ZmYoQG)](https://codecov.io/gh/hexdecteam/easegateway)
+# EaseGateway [![Build Status](https://travis-ci.com/megaease/easegateway.svg?token=bgrenfvQpzZ8JoKbi6uX&branch=master)](https://travis-ci.com/megaease/easegateway) [![codecov](https://codecov.io/gh/megaease/easegateway/branch/master/graph/badge.svg?token=HAR3ZmYoQG)](https://codecov.io/gh/megaease/easegateway)
 
 # Introduction
 
@@ -9,24 +9,15 @@ For more design details, please see [easegateway design](./doc/easegateway_desig
 
 ## Requirements
 
-1. Go version >= 1.9
+1. Go version >= 1.11 which needs go module.
 
 ## Make
-
-```shell
-make vendor_clean
-make vendor_get
-make clean
-make build
+make
+make vendor_from_mod # Copy source code from module to traditional vendor.
 ```
 
-Use `make vendor_update` to update local dependent packages if the file glide.yaml is updated. It's also used to keep latest code of the package could be updated. This command clears the glide local cache before the update.
-
-
-# Run
-```shell
-make run
-```
+## Run
+Makefile generates binaray `easegateway-server` and `easegateway-client` at `bin/`.
 
 # Security
 You can use [generate_cert.go](https://golang.org/src/crypto/tls/generate_cert.go) to generate certificate files.

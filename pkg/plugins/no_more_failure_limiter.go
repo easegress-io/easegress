@@ -5,16 +5,13 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/hexdecteam/easegateway/pkg/common"
-	"github.com/hexdecteam/easegateway/pkg/logger"
-
-	"github.com/hexdecteam/easegateway-types/pipelines"
-	"github.com/hexdecteam/easegateway-types/plugins"
-	"github.com/hexdecteam/easegateway-types/task"
+	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/pipelines"
+	"github.com/megaease/easegateway/pkg/task"
 )
 
 type noMoreFailureLimiterConfig struct {
-	common.PluginCommonConfig
+	PluginCommonConfig
 	FailureCountThreshold uint64 `json:"failure_count_threshold"` // up to 18446744073709551615
 
 	// TODO: Supports multiple key and value pairs
@@ -22,7 +19,7 @@ type noMoreFailureLimiterConfig struct {
 	FailureTaskDataValue string `json:"failure_task_data_value"`
 }
 
-func noMoreFailureLimiterConfigConstructor() plugins.Config {
+func noMoreFailureLimiterConfigConstructor() Config {
 	return &noMoreFailureLimiterConfig{
 		FailureCountThreshold: 1,
 	}
@@ -55,10 +52,10 @@ type noMoreFailureLimiter struct {
 	instanceId string
 }
 
-func noMoreFailureLimiterConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, bool, error) {
+func noMoreFailureLimiterConstructor(conf Config) (Plugin, PluginType, bool, error) {
 	c, ok := conf.(*noMoreFailureLimiterConfig)
 	if !ok {
-		return nil, plugins.ProcessPlugin, false, fmt.Errorf(
+		return nil, ProcessPlugin, false, fmt.Errorf(
 			"config type want *noMoreFailureLimiterConfig got %T", conf)
 	}
 
@@ -68,7 +65,7 @@ func noMoreFailureLimiterConstructor(conf plugins.Config) (plugins.Plugin, plugi
 
 	l.instanceId = fmt.Sprintf("%p", l)
 
-	return l, plugins.ProcessPlugin, false, nil
+	return l, ProcessPlugin, false, nil
 }
 
 func (l *noMoreFailureLimiter) Prepare(ctx pipelines.PipelineContext) {

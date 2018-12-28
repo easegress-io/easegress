@@ -541,7 +541,7 @@ Plugin mocks a data for a failure request.
 | mock\_task\_data\_key | string | The key name of mock data to store as the plugin output. | I/O | No | N/A |
 | mock\_task\_data\_value | string | The mock data to store as the plugin output. | I/O | Yes | "" |
 
-[Available task error result code](https://github.com/hexdecteam/easegateway-types/blob/master/task/result_code.go#L8)
+[Available task error result code](https://github.com/megaease/easegateway-types/blob/master/task/result_code.go#L8)
 
 [Available plugin types](../src/plugins/plugins.go#L28)
 

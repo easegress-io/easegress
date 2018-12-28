@@ -9,9 +9,9 @@ import (
 	"common"
 	"fmt"
 
-	"github.com/hexdecteam/easegateway-types/pipelines"
-	"github.com/hexdecteam/easegateway-types/plugins"
-	"github.com/hexdecteam/easegateway-types/task"
+	"github.com/megaease/easegateway-types/pipelines"
+	"github.com/megaease/easegateway-types/plugins"
+	"github.com/megaease/easegateway-types/task"
 )
 
 type helloConfig struct {

@@ -3,21 +3,18 @@ package plugins
 import (
 	"fmt"
 
-	"github.com/hexdecteam/easegateway/pkg/common"
-	"github.com/hexdecteam/easegateway/pkg/logger"
-
-	"github.com/hexdecteam/easegateway-types/pipelines"
-	"github.com/hexdecteam/easegateway-types/plugins"
-	"github.com/hexdecteam/easegateway-types/task"
+	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/pipelines"
+	"github.com/megaease/easegateway/pkg/task"
 )
 
 type downstreamInputConfig struct {
-	common.PluginCommonConfig
+	PluginCommonConfig
 
 	ResponseDataKeys []string `json:"response_data_keys"`
 }
 
-func downstreamInputConfigConstructor() plugins.Config {
+func downstreamInputConfigConstructor() Config {
 	return &downstreamInputConfig{}
 }
 
@@ -34,16 +31,16 @@ type downstreamInput struct {
 	conf *downstreamInputConfig
 }
 
-func downstreamInputConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, bool, error) {
+func downstreamInputConstructor(conf Config) (Plugin, PluginType, bool, error) {
 	c, ok := conf.(*downstreamInputConfig)
 	if !ok {
-		return nil, plugins.SourcePlugin, false, fmt.Errorf(
+		return nil, SourcePlugin, false, fmt.Errorf(
 			"config type want *downstreamInputConfig got %T", conf)
 	}
 
 	return &downstreamInput{
 		conf: c,
-	}, plugins.SourcePlugin, false, nil
+	}, SourcePlugin, false, nil
 }
 
 func (d *downstreamInput) Prepare(ctx pipelines.PipelineContext) {

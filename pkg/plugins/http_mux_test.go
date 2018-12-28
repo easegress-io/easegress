@@ -5,10 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/hexdecteam/easegateway/pkg/common"
-
-	"github.com/hexdecteam/easegateway-types/pipelines"
-	"github.com/hexdecteam/easegateway-types/plugins"
+	"github.com/megaease/easegateway/pkg/pipelines"
 )
 
 type fakePipelineContext struct {
@@ -67,8 +64,8 @@ func mustNewParamMux(t *testing.T) *paramMux {
 }
 
 func mustGetREMuxResult(t *testing.T, m *reMux,
-	pipelineEntries map[string][]*plugins.HTTPMuxEntry,
-	priorityEntries []*plugins.HTTPMuxEntry) {
+	pipelineEntries map[string][]*HTTPMuxEntry,
+	priorityEntries []*HTTPMuxEntry) {
 
 	if len(pipelineEntries) != len(m.pipelineEntries) {
 		goto FAILED
@@ -103,7 +100,7 @@ FAILED:
 }
 
 func mustGetParamMuxResult(t *testing.T, m *paramMux,
-	rtable map[string]map[string]map[string]*plugins.HTTPMuxEntry) {
+	rtable map[string]map[string]map[string]*HTTPMuxEntry) {
 
 	if len(m.rtable) != len(m.rtable) {
 		goto FAILED
@@ -133,9 +130,9 @@ FAILED:
 }
 
 func mockHTTPMuxEntry(scheme, host, port, path, query, fragment, method string,
-	priority uint32, instance *httpInput) *plugins.HTTPMuxEntry {
-	return &plugins.HTTPMuxEntry{
-		HTTPURLPattern: plugins.HTTPURLPattern{
+	priority uint32, instance *httpInput) *HTTPMuxEntry {
+	return &HTTPMuxEntry{
+		HTTPURLPattern: HTTPURLPattern{
 			Scheme:   scheme,
 			Host:     host,
 			Port:     port,
@@ -155,35 +152,35 @@ func mockHTTPMuxEntry(scheme, host, port, path, query, fragment, method string,
 func mockHTTPInput(name string) *httpInput {
 	return &httpInput{
 		conf: &HTTPInputConfig{
-			PluginCommonConfig: common.PluginCommonConfig{
+			PluginCommonConfig: PluginCommonConfig{
 				Name: name,
 			},
 		},
 	}
 }
 
-func mustAddFunc(t *testing.T, m plugins.HTTPMux,
-	ctx pipelines.PipelineContext, entry *plugins.HTTPMuxEntry) {
+func mustAddFunc(t *testing.T, m HTTPMux,
+	ctx pipelines.PipelineContext, entry *HTTPMuxEntry) {
 	err := m.AddFunc(ctx, entry)
 	if err != nil {
 		t.Fatalf("add entry %#v failed: %v", entry, err)
 	}
 }
 
-func mustAddFuncs(t *testing.T, m plugins.HTTPMux,
-	ctx pipelines.PipelineContext, pipelineEntries []*plugins.HTTPMuxEntry) {
+func mustAddFuncs(t *testing.T, m HTTPMux,
+	ctx pipelines.PipelineContext, pipelineEntries []*HTTPMuxEntry) {
 	err := m.AddFuncs(ctx, pipelineEntries)
 	if err != nil {
 		t.Fatalf("add entries %#v failed: %v", pipelineEntries, err)
 	}
 }
 
-func mustDeleteFunc(t *testing.T, m plugins.HTTPMux,
-	ctx pipelines.PipelineContext, entry *plugins.HTTPMuxEntry) {
+func mustDeleteFunc(t *testing.T, m HTTPMux,
+	ctx pipelines.PipelineContext, entry *HTTPMuxEntry) {
 	m.DeleteFunc(ctx, entry)
 }
 
-func mustDeleteFuncs(t *testing.T, m plugins.HTTPMux,
-	ctx pipelines.PipelineContext) []*plugins.HTTPMuxEntry {
+func mustDeleteFuncs(t *testing.T, m HTTPMux,
+	ctx pipelines.PipelineContext) []*HTTPMuxEntry {
 	return m.DeleteFuncs(ctx)
 }

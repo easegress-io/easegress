@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"os/signal"
 	"runtime"
@@ -9,222 +8,151 @@ import (
 	"runtime/pprof"
 	"syscall"
 
-	"github.com/hexdecteam/easegateway/pkg/common"
-	"github.com/hexdecteam/easegateway/pkg/engine"
-	"github.com/hexdecteam/easegateway/pkg/logger"
-	"github.com/hexdecteam/easegateway/pkg/option"
-	"github.com/hexdecteam/easegateway/pkg/plugins"
-	"github.com/hexdecteam/easegateway/pkg/rest"
-	"github.com/hexdecteam/easegateway/pkg/version"
-
-	"github.com/sirupsen/logrus"
+	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/model"
+	"github.com/megaease/easegateway/pkg/option"
+	"github.com/megaease/easegateway/pkg/store"
+	"github.com/megaease/easegateway/pkg/version"
 )
 
 func main() {
-	var exitCode int
-	var err error
+	logger.Infof("[%s]", version.Long)
 
-	if common.StrInSlice(option.Stage, []string{"test", "debug"}) {
-		logger.SetLogLevel(logrus.DebugLevel)
-	} // else use default logger init level: Info
+	dones := setupAsyncJobs()
 
-	logger.Infof("[ease gateway server: release=%s, commit=%s, repo=%s]",
-		version.RELEASE, version.COMMIT, version.REPO)
-
-	if option.ShowVersion {
-		os.Exit(exitCode)
+	store, err := store.New("group" /*TODO: delete group*/)
+	if err != nil {
+		logger.Errorf("[new store failed: %v]", err)
+		return
+	}
+	m, err := model.NewModel(store)
+	if err != nil {
+		logger.Errorf("[new model failed: %v]", err)
 	}
 
-	setupLogFileReopenSignalHandler()
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	var cpuProfile *os.File
-	if option.CpuProfileFile != "" {
-		cpuProfile, err = os.Create(option.CpuProfileFile)
+	sig := <-sigChan
+	go func() {
+		logger.Infof("[%s signal received, closing easegateway]", sig)
+		m.Close()
+		store.Close()
+		for _, done := range dones {
+			if done != nil {
+				done <- struct{}{}
+			}
+		}
+	}()
+
+	go func() {
+		sig := <-sigChan
+		logger.Infof("[%s signal received, closing easegateway immediately]", sig)
+		os.Exit(255)
+	}()
+
+	for _, done := range dones {
+		if done != nil {
+			<-done
+		}
+	}
+}
+
+func setupAsyncJobs() []chan struct{} {
+	logDone := setupLogFileReopen()
+	defer logger.CloseLogFiles()
+	cpuProfileDone := setupCPUProfile()
+	memProfileDone := setupMemoryoryProfile()
+
+	return []chan struct{}{logDone, cpuProfileDone, memProfileDone}
+}
+
+func setupLogFileReopen() chan struct{} {
+	done := make(chan struct{}, 1)
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGHUP)
+
+	go func() {
+		for {
+			select {
+			case sig := <-sigChan:
+				logger.Infof("[%s signal received, reopen log files]", sig)
+				logger.ReOpenLogFiles()
+			case <-done:
+				close(sigChan)
+				close(done)
+				return
+			}
+		}
+	}()
+
+	return done
+}
+
+func setupCPUProfile() chan struct{} {
+	if option.CPUProfileFile == "" {
+		return nil
+	}
+
+	done := make(chan struct{}, 1)
+
+	f, err := os.Create(option.CPUProfileFile)
+	if err != nil {
+		logger.Errorf("[create cpu profile failed: %v]", err)
+		os.Exit(1)
+	}
+	err = pprof.StartCPUProfile(f)
+	if err != nil {
+		logger.Errorf("[start cpu profile failed: %v]", err)
+		os.Exit(1)
+	}
+
+	logger.Infof("[cpu profile: %s]", option.CPUProfileFile)
+	go func() {
+		<-done
+		pprof.StopCPUProfile()
+		err := f.Close()
 		if err != nil {
-			logger.Errorf("[create cpu profile failed: %v]", err)
-			exitCode = 1
+			logger.Errorf("close %s failed: %v", option.CPUProfileFile, err)
+		}
+		close(done)
+	}()
+
+	return done
+}
+
+func setupMemoryoryProfile() chan struct{} {
+	if option.MemoryProfileFile == "" {
+		return nil
+	}
+
+	done := make(chan struct{}, 1)
+
+	// to include every allocated block in the profile
+	runtime.MemProfileRate = 1
+
+	go func() {
+		<-done
+		logger.Infof("[memory profile: %s]", option.MemoryProfileFile)
+		f, err := os.Create(option.MemoryProfileFile)
+		if err != nil {
+			logger.Errorf("[create memory profile failed: %v]", err)
 			return
 		}
 
-		pprof.StartCPUProfile(cpuProfile)
+		runtime.GC()         // get up-to-date statistics
+		debug.FreeOSMemory() // help developer when using outside monitor tool
 
-		logger.Infof("[cpu profiling started, profile output to %s]", option.CpuProfileFile)
-	}
-
-	defer func() {
-		if option.CpuProfileFile != "" {
-			pprof.StopCPUProfile()
-
-			if cpuProfile != nil {
-				cpuProfile.Close()
-			}
+		if err := pprof.WriteHeapProfile(f); err != nil {
+			logger.Errorf("[write memory file failed: %v]", err)
+			return
 		}
-
-		os.Exit(exitCode)
+		if err := f.Close(); err != nil {
+			logger.Errorf("[close memory file failed: %v]", err)
+			return
+		}
+		close(done)
 	}()
 
-	if option.MemProfileFile != "" {
-		// to include every allocated block in the profile
-		runtime.MemProfileRate = 1
-
-		setupHeapDumpSignalHandler()
-
-		logger.Infof("[memory profiling enabled, heap dump to %s]", option.CpuProfileFile)
-	}
-
-	err = plugins.LoadOutTreePluginTypes()
-	if err != nil {
-		logger.Errorf("[initialize out-tree plugin type failed: %v]", err)
-		exitCode = 2
-		return
-	}
-
-	gateway, err := engine.NewGateway()
-	if err != nil {
-		logger.Errorf("[initialize gateway engine failed: %v]", err)
-		exitCode = 3
-		return
-	}
-
-	api, err := rest.NewRest(gateway)
-	if err != nil {
-		logger.Errorf("[initialize rest interface failed: %v]", err)
-		exitCode = 4
-		return
-	}
-
-	setupExitSignalHandler(gateway, api)
-
-	done1, err := gateway.Run()
-	if err != nil {
-		logger.Errorf("[start gateway engine failed: %v]", err)
-		exitCode = 5
-		return
-	} else {
-		logger.Infof("[gateway engine started]")
-	}
-
-	done2, listenAddr, err := api.Start()
-	if err != nil {
-		logger.Errorf("[start rest interface at %s failed: %s]", listenAddr, err)
-		exitCode = 6
-		return
-	} else {
-		logger.Infof("[rest interface started at %s]", listenAddr)
-	}
-
-	var msg string
-	select {
-	case err = <-done1:
-		msg = "gateway engine"
-		<-done2
-	case err = <-done2:
-		msg = "api server"
-		<-done1
-	}
-
-	if err != nil {
-		msg = fmt.Sprintf("[exit from %s cause: %v]", msg, err)
-		logger.Warnf(msg)
-	}
-
-	// interrupt by signal
-	api.Close()
-	gateway.Close()
-
-	logger.Infof("[gateway exited normally]")
-
-	logger.CloseLogFiles()
-
-	return
-}
-
-func setupExitSignalHandler(gateway *engine.Gateway, api *rest.Rest) {
-	sigChannel := make(chan os.Signal, 1)
-	signal.Notify(sigChannel, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		for times := 0; sigChannel != nil; times++ {
-			sig := <-sigChannel
-			if sig == nil {
-				return // channel closed by normal exit process
-			}
-
-			switch times {
-			case 0:
-				go func() {
-					logger.Infof("[%s signal received, shutting down gateway]", sig)
-					api.Stop()     // stop management panel
-					gateway.Stop() // stop data panel
-					close(sigChannel)
-					sigChannel = nil
-				}()
-			case 1:
-				logger.Infof("[%s signal received, terminating gateway immediately]", sig)
-				close(sigChannel)
-				sigChannel = nil
-				os.Exit(255)
-			}
-		}
-	}()
-}
-
-func setupHeapDumpSignalHandler() {
-	sigChannel := make(chan os.Signal, 1)
-	signal.Notify(sigChannel, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-
-	go func() {
-		for {
-			sig := <-sigChannel
-			switch sig {
-			case syscall.SIGINT:
-				fallthrough
-			case syscall.SIGTERM:
-				return
-			case syscall.SIGQUIT:
-				if option.MemProfileFile != "" {
-					func() {
-						f, err := os.Create(option.MemProfileFile)
-						if err != nil {
-							logger.Errorf("[create heap dump file failed: %v]", err)
-						}
-						defer f.Close()
-
-						logger.Debugf("[memory profiling started, heap dumps to %s]",
-							option.MemProfileFile)
-
-						logger.Infof("[full gc is executing for heap dump, this may block the entire program]")
-
-						runtime.GC()         // get up-to-date statistics
-						debug.FreeOSMemory() // help developer when using outside monitor tool
-
-						pprof.WriteHeapProfile(f)
-
-						logger.Infof("[memory profiling finished, heap dumps to %s]",
-							option.MemProfileFile)
-					}()
-				}
-			}
-		}
-	}()
-}
-
-func setupLogFileReopenSignalHandler() {
-	sigChannel := make(chan os.Signal, 1)
-	signal.Notify(sigChannel, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
-
-	go func() {
-		for {
-			sig := <-sigChannel
-			switch sig {
-			case syscall.SIGINT:
-				fallthrough
-			case syscall.SIGTERM:
-				return
-			case syscall.SIGHUP:
-				logger.Infof("[%s signal received, reopen log files]", syscall.SIGHUP)
-				logger.ReOpenLogFiles()
-			}
-		}
-	}()
+	return done
 }

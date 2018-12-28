@@ -12,16 +12,16 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/hexdecteam/easegateway/pkg/common"
-	"github.com/hexdecteam/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/common"
+	"github.com/megaease/easegateway/pkg/logger"
 
-	"github.com/hexdecteam/easegateway-types/pipelines"
-	"github.com/hexdecteam/easegateway-types/plugins"
-	"github.com/hexdecteam/easegateway-types/task"
+	"github.com/megaease/easegateway/pkg/pipelines"
+
+	"github.com/megaease/easegateway/pkg/task"
 )
 
 type interpreterRunnerConfig struct {
-	common.PluginCommonConfig
+	PluginCommonConfig
 	Code               string `json:"code"`
 	Base64             bool   `json:"base64_encoded"`
 	InputBufferPattern string `json:"input_buffer_pattern"`
@@ -90,7 +90,7 @@ type interpreterRunner struct {
 	conf     *interpreterRunnerConfig
 }
 
-func newInterpreterRunner(conf plugins.Config) (*interpreterRunner, bool, error) {
+func newInterpreterRunner(conf Config) (*interpreterRunner, bool, error) {
 	c, ok := conf.(*interpreterRunnerConfig)
 	if !ok {
 		return nil, false, fmt.Errorf("config type want *interpreterRunnerConfig got %T", conf)

@@ -1,4 +1,4 @@
-package common
+package plugins
 
 import (
 	"encoding/base64"
@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/hexdecteam/easegateway-types/plugins"
+	"github.com/megaease/easegateway/pkg/option"
 )
 
 var (
@@ -30,7 +30,7 @@ func upperCaseAndUnderscore(r rune) rune {
 }
 
 // https://tools.ietf.org/html/rfc3875#section-4.1
-func GenerateCGIEnv(c plugins.HTTPCtx) (map[string]string, []string) {
+func GenerateCGIEnv(c HTTPCtx) (map[string]string, []string) {
 	if c == nil {
 		return nil, nil
 	}
@@ -84,7 +84,7 @@ func GenerateCGIEnv(c plugins.HTTPCtx) (map[string]string, []string) {
 	pathInfo = header.Path()
 
 	// 4.1.6
-	pathTranslated = filepath.Join(CGI_HOME_DIR, pathInfo)
+	pathTranslated = filepath.Join(option.CGIDir, pathInfo)
 
 	// 4.1.7
 	queryString = header.QueryString()

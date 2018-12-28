@@ -6,16 +6,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hexdecteam/easegateway/pkg/common"
-	"github.com/hexdecteam/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/common"
+	"github.com/megaease/easegateway/pkg/logger"
 
-	"github.com/hexdecteam/easegateway-types/pipelines"
-	"github.com/hexdecteam/easegateway-types/plugins"
-	"github.com/hexdecteam/easegateway-types/task"
+	"github.com/megaease/easegateway/pkg/pipelines"
+
+	"github.com/megaease/easegateway/pkg/task"
 )
 
 type serviceCircuitBreakerConfig struct {
-	common.PluginCommonConfig
+	PluginCommonConfig
 	PluginsConcerned []string `json:"plugins_concerned"`
 	// condition to enable circuit breaker
 	AllTPSThresholdToEnablement float64 `json:"all_tps_threshold_to_enable"`
@@ -28,7 +28,7 @@ type serviceCircuitBreakerConfig struct {
 	SuccessTPSThresholdToOpen float64 `json:"success_tps_threshold_to_open"`
 }
 
-func serviceCircuitBreakerConfigConstructor() plugins.Config {
+func serviceCircuitBreakerConfigConstructor() Config {
 	return &serviceCircuitBreakerConfig{
 		AllTPSThresholdToEnablement: 1,
 		FailureTPSThresholdToBreak:  1,
@@ -82,10 +82,10 @@ type serviceCircuitBreaker struct {
 	instanceId string
 }
 
-func serviceCircuitBreakerConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, bool, error) {
+func serviceCircuitBreakerConstructor(conf Config) (Plugin, PluginType, bool, error) {
 	c, ok := conf.(*serviceCircuitBreakerConfig)
 	if !ok {
-		return nil, plugins.ProcessPlugin, false, fmt.Errorf(
+		return nil, ProcessPlugin, false, fmt.Errorf(
 			"config type want *serviceCircuitBreakerConfig got %T", conf)
 	}
 
@@ -95,7 +95,7 @@ func serviceCircuitBreakerConstructor(conf plugins.Config) (plugins.Plugin, plug
 
 	cb.instanceId = fmt.Sprintf("%p", cb)
 
-	return cb, plugins.ProcessPlugin, false, nil
+	return cb, ProcessPlugin, false, nil
 }
 
 func (cb *serviceCircuitBreaker) Prepare(ctx pipelines.PipelineContext) {

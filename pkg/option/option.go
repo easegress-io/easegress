@@ -1,145 +1,269 @@
 package option
 
 import (
-	"flag"
-	"os"
+	"fmt"
+	"io/ioutil"
 	"strings"
-	"time"
 
-	"github.com/hexdecteam/easegateway/pkg/common"
+	"github.com/megaease/easegateway/pkg/common"
+	"github.com/megaease/easegateway/pkg/version"
+	"github.com/sirupsen/logrus"
+	yaml "gopkg.in/yaml.v2"
+
+	flags "github.com/jessevdk/go-flags"
 )
 
 var (
-	// cluster stuff
-	ClusterHost             string
-	ClusterGroup            string
-	MemberMode              string
-	MemberName              string
-	Peers                   []string
-	OPLogMaxSeqGapToPull    uint16
-	OPLogPullMaxCountOnce   uint16
-	OPLogPullInterval       time.Duration
-	OPLogPullTimeout        time.Duration
-	ClusterDefaultOpTimeout time.Duration
-	PacketBufferBytes       uint16
-	GossipInterval          time.Duration
+	Name     string
+	Mode     string
+	PeerURLs []string
+	APIURL   string
 
-	RestHost                       string
-	Stage                          string
-	ConfigHome, LogHome            string
-	CpuProfileFile, MemProfileFile string
-	ShowVersion                    bool
+	StoreDir string
 
-	PluginIODataFormatLengthLimit uint64
-	PluginPythonRootNamespace     bool
-	PluginShellRootNamespace      bool
+	LogDir      string
+	StdLogLevel string
+
+	CPUProfileFile    string
+	MemoryProfileFile string
 
 	PipelineInitParallelism uint32
 	PipelineMinParallelism  uint32
 	PipelineMaxParallelism  uint32
+
+	PluginIODataFormatLengthLimit uint64
+	PluginPythonRootNamespace     bool
+	PluginShellRootNamespace      bool
+	CGIDir                        string
+	CertDir                       string
 )
 
-func init() {
-	hostName, err := os.Hostname()
-	if err != nil {
-		hostName = "node0"
+func setGlobalFlag(s *server) {
+	Name = s.Name
+	Mode = s.Mode
+	PeerURLs = s.PeerURLs
+	APIURL = s.APIURL
+
+	StoreDir = s.StoreDir
+
+	LogDir = s.LogDir
+	StdLogLevel = s.StdLogLevel
+
+	CPUProfileFile = s.CPUProfileFile
+	MemoryProfileFile = s.MemoryProfileFile
+
+	PipelineInitParallelism = s.PipelineInitParallelism
+	PipelineMinParallelism = s.PipelineMinParallelism
+	PipelineMaxParallelism = s.PipelineMaxParallelism
+
+	PluginIODataFormatLengthLimit = s.PluginIODataFormatLengthLimit
+	PluginPythonRootNamespace = s.PluginPythonRootNamespace
+	PluginShellRootNamespace = s.PluginShellRootNamespace
+	CGIDir = s.CGIDir
+	CertDir = s.CertDir
+}
+
+type flagGroup interface {
+	validate() error
+}
+
+type meta struct {
+	Name     string   `yaml:"name" long:"name" description:"Human-readable name for this member."`
+	Mode     string   `yaml:"mode" long:"mode" description:"Cluster mode for this member.(write, read)"`
+	APIURL   string   `yaml:"api-url" long:"api-url" description:"URL to listen on for client traffic."`
+	PeerURLs []string `yaml:"peer-urls" long:"peer-urls" description:"List of URLs to listen on for peer traffic"`
+}
+
+func (m meta) validate() error {
+	if m.Name == "" {
+		return fmt.Errorf("empty name")
 	}
 
-	clusterHost := flag.String("cluster_host", "localhost", "specify cluster listen host")
-	clusterGroup := new(string)
-	flag.Var(common.NewStringRegexValue("default", clusterGroup, common.URL_FRIENDLY_CHARACTERS_REGEX), "group",
-		"specify cluster group name")
-	memberMode := flag.String("mode", "read", "specify member mode (read or write)")
-	memberName := new(string)
-	flag.Var(common.NewStringRegexValue(hostName, memberName, common.URL_FRIENDLY_CHARACTERS_REGEX), "name",
-		"specify member name")
-	peers := flag.String("peers", "", "specify address list of peer members (separated by comma)")
-	opLogMaxSeqGapToPull := new(uint16)
-	flag.Var(common.NewUint16Value(5, opLogMaxSeqGapToPull), "oplog_max_seq_gap_to_pull",
-		"specify max gap of sequence of operation logs deciding whether to wait for missing operations or not")
-	opLogPullMaxCountOnce := new(uint16)
-	flag.Var(common.NewUint16Value(5, opLogPullMaxCountOnce), "oplog_pull_max_count_once",
-		"specify max count of pulling operation logs once")
-	opLogPullInterval := new(uint16)
-	flag.Var(common.NewUint16Value(10, opLogPullInterval), "oplog_pull_interval",
-		"specify interval of pulling operation logs in second")
-	opLogPullTimeout := new(uint16)
-	flag.Var(common.NewUint16Value(120, opLogPullTimeout), "oplog_pull_timeout",
-		"specify timeout of pulling operation logs in second")
-	clusterDefaultOpTimeout := new(uint16)
-	flag.Var(common.NewUint16Value(120, clusterDefaultOpTimeout), "cluster_default_op_timeout",
-		"specify default timeout of cluster operation in second")
-	packetBufferBytes := new(uint16)
-	flag.Var(common.NewUint16RangeValue(4000, packetBufferBytes, 1400, 65500), "gossip_packet_size",
-		"specify the size of a gossip packet in byte (will be for UDP packet), it depends on your network's MTU")
-	gossipInterval := new(uint16)
-	flag.Var(common.NewUint16RangeValue(200, gossipInterval, 50, 60000), "gossip_interval",
-		"specify the interval between sending messages that need to be gossiped that "+
-			"haven't been able to piggyback on probing messages in millisecond")
+	switch strings.ToLower(m.Mode) {
+	case "read", "write":
+	default:
+		return fmt.Errorf("invalid mode(support write, read)")
+	}
 
-	restHost := flag.String("rest_host", "localhost", "specify rest listen host")
-	stage := flag.String("stage", "debug", "specify runtime stage (debug, test, prod)")
-	configHome := flag.String("config", common.CONFIG_HOME_DIR, "specify config home path")
-	logHome := flag.String("log", common.LOG_HOME_DIR, "specify log home path")
-	cpuProfileFile := flag.String("cpuprofile", "", "specify cpu profile output file, "+
-		"cpu profiling will be fully disabled if not provided")
-	memProfileFile := flag.String("memprofile", "", "specify heap dump file, "+
-		"memory profiling will be fully disabled if not provided")
-	showVersion := flag.Bool("version", false, "output version information")
+	if m.APIURL == "" {
+		return fmt.Errorf("empty api-url")
+	}
 
-	pluginIODataFormatLengthLimit := new(uint64)
-	flag.Var(common.NewUint64RangeValue(128, pluginIODataFormatLengthLimit, 1, 10000009), // limited by fmt precision
-		"plugin_io_data_format_len_limit", "specify length limit on plugin IO data formation output in byte unit")
-	pluginPythonRootNamespace := flag.Bool("plugin_python_root_namespace", false,
-		"specify if to run python code in root namespace without isolation")
-	pluginShellRootNamespace := flag.Bool("plugin_shell_root_namespace", false,
-		"specify if to run shell script in root namespace without isolation")
+	return nil
+}
 
-	pipelineInitParallelism := new(uint32)
-	flag.Var(common.NewUint32RangeValue(5, pipelineInitParallelism, 1, uint32(^uint16(0))),
-		"pipeline_init_parallelism",
-		"specify initial parallelism for a pipeline running in dynamic schedule mode")
-	pipelineMinParallelism := new(uint32)
-	flag.Var(common.NewUint32Value(5, pipelineMinParallelism), "pipeline_min_parallelism",
-		"specify min parallelism for a pipeline running in dynamic schedule mode")
-	pipelineMaxParallelism := new(uint32)
-	flag.Var(common.NewUint32RangeValue(5120, pipelineMaxParallelism, 1, 102400), "pipeline_max_parallelism",
-		"specify max parallelism for a pipeline running in dynamic schedule mode")
+type store struct {
+	StoreDir string `yaml:"store-dir" long:"store-dir" description:"Path to the store directory."`
+}
 
-	flag.Parse()
+func (s store) validate() error {
+	if s.StoreDir == "" {
+		return fmt.Errorf("empty store-dir")
+	}
 
-	ClusterHost = *clusterHost
-	ClusterGroup = *clusterGroup
-	MemberMode = *memberMode
-	MemberName = *memberName
-	OPLogMaxSeqGapToPull = *opLogMaxSeqGapToPull
-	OPLogPullMaxCountOnce = *opLogPullMaxCountOnce
-	OPLogPullInterval = time.Duration(*opLogPullInterval) * time.Second
-	OPLogPullTimeout = time.Duration(*opLogPullTimeout) * time.Second
-	ClusterDefaultOpTimeout = time.Duration(*clusterDefaultOpTimeout) * time.Second
-	PacketBufferBytes = *packetBufferBytes
-	GossipInterval = time.Duration(*gossipInterval) * time.Millisecond
-	Peers = make([]string, 0)
-	for _, peer := range strings.Split(*peers, ",") {
-		peer = strings.TrimSpace(peer)
-		if len(peer) > 0 {
-			Peers = append(Peers, peer)
+	return nil
+}
+
+type log struct {
+	LogDir      string `yaml:"log-dir" long:"log-dir" description:"Path to the log directory."`
+	StdLogLevel string `yaml:"std-log-level" long:"std-log-level" description:"Set standard log level"`
+}
+
+func (l log) validate() error {
+	if _, err := logrus.ParseLevel(l.StdLogLevel); err != nil {
+		return fmt.Errorf("invalid std-log-level: %v", err)
+	}
+	if l.LogDir == "" {
+		return fmt.Errorf("empty log-dir")
+	}
+
+	return nil
+}
+
+type profile struct {
+	CPUProfileFile    string `yaml:"cpu-profile-file" long:"cpu-profile-file" description:"Path to the CPU profile file."`
+	MemoryProfileFile string `yaml:"memory-profile-file" long:"memory-profile-file" description:"Path to the memory profile file."`
+}
+
+func (p profile) validate() error {
+	return nil
+}
+
+type pipeline struct {
+	PipelineInitParallelism uint32 `yaml:"pipeline-init-parallelism" long:"pipeline-init-parallelism" description:"Initial parallelism for a pipeline running in dynamic schedule mode."`
+	PipelineMinParallelism  uint32 `yaml:"pipeline-min-parallelism" long:"pipeline-min-parallelism" description:"Minimum parallelism for a pipeline running in dynamic schedule mode."`
+	PipelineMaxParallelism  uint32 `yaml:"pipeline-max-parallelism" long:"pipeline-max-parallelism" description:"Maximum parallelism for a pipeline running in dynamic schedule mode."`
+}
+
+func (p pipeline) validate() error {
+	if p.PipelineInitParallelism < 1 ||
+		p.PipelineInitParallelism > uint32(^uint16(0)) {
+		return fmt.Errorf("invalid pipeline-init-parallelism[1,%d]", ^uint16(0))
+	}
+
+	if p.PipelineMaxParallelism < 1 ||
+		p.PipelineMaxParallelism > 102400 {
+		return fmt.Errorf("incalid pipeline-max-parallelism[1,102400]")
+	}
+
+	if p.PipelineMinParallelism > p.PipelineMaxParallelism {
+		return fmt.Errorf("pipeline-min-parallelism %d > pipeline-max-parallelism %d",
+			p.PipelineMinParallelism, p.PipelineMaxParallelism)
+	}
+
+	return nil
+}
+
+type plugin struct {
+	PluginIODataFormatLengthLimit uint64 `yaml:"plugin-io-data-format-len-limit" long:"plugin-io-data-format-len-limit" description:"Bytes limitation on plugin IO data formation output."`
+	PluginPythonRootNamespace     bool   `yaml:"plugin-python-root-namespace" long:"plugin-python-root-namespace" description:"Run python code in root namespace without isolation."`
+	PluginShellRootNamespace      bool   `yaml:"plugin-shell-root-namespace" long:"plugin-shell-root-namespace" description:"Run shell code in root namespace without isolation."`
+
+	CGIDir  string `yaml:"cgi-dir" long:"cgi-dir" description:"Path to the CGI directory."`
+	CertDir string `yaml:"cert-dir" long:"cert-dir" description:"Path to the Certificate directory."`
+}
+
+func (p plugin) validate() error {
+	if p.PluginIODataFormatLengthLimit < 1 ||
+		p.PluginIODataFormatLengthLimit > 10000009 {
+		return fmt.Errorf("invalid plugin-io-data-format-len-limit[1,10000009]")
+	}
+
+	return nil
+}
+
+type server struct {
+	ShowVersion bool   `yaml:"-" short:"v" long:"version" description:"Print the version and exit."`
+	ShowConfig  bool   `yaml:"-" short:"c" long:"print-config" description:"Print the configuration."`
+	ConfigFile  string `yaml:"-" short:"f" long:"config-file" description:"Load server configuration from a file(yaml format), other command line flags will be ignored if specified."`
+
+	// If a config file is specified, below command line flags will be ignored.
+	meta     `yaml:",inline"`
+	store    `yaml:",inline"`
+	profile  `yaml:",inline"`
+	log      `yaml:",inline"`
+	pipeline `yaml:",inline"`
+	plugin   `yaml:",inline"`
+}
+
+func (s *server) validate() error {
+	flagGroups := []flagGroup{s.meta, s.store, s.profile, s.log, s.pipeline, s.plugin}
+	for _, fg := range flagGroups {
+		if err := fg.validate(); err != nil {
+			return err
 		}
 	}
 
-	RestHost = *restHost
-	Stage = *stage
-	ConfigHome = *configHome
-	LogHome = *logHome
-	CpuProfileFile = *cpuProfileFile
-	MemProfileFile = *memProfileFile
-	ShowVersion = *showVersion
+	return nil
+}
 
-	PluginIODataFormatLengthLimit = *pluginIODataFormatLengthLimit
-	PluginPythonRootNamespace = *pluginPythonRootNamespace
-	PluginShellRootNamespace = *pluginShellRootNamespace
+func init() {
+	// Set default value in one place.
+	s := &server{
+		meta: meta{
+			Name:     "member-001",
+			Mode:     "write",
+			APIURL:   "localhost:8080",
+			PeerURLs: nil,
+		},
+		store: store{
+			StoreDir: "./store",
+		},
+		log: log{
+			LogDir:      "./logs",
+			StdLogLevel: "INFO",
+		},
+		pipeline: pipeline{
+			PipelineInitParallelism: 1,
+			PipelineMinParallelism:  5,
+			PipelineMaxParallelism:  5120,
+		},
+		plugin: plugin{
+			PluginIODataFormatLengthLimit: 128,
+			PluginPythonRootNamespace:     false,
+			PluginShellRootNamespace:      false,
 
-	PipelineInitParallelism = *pipelineInitParallelism
-	PipelineMinParallelism = *pipelineMinParallelism
-	PipelineMaxParallelism = *pipelineMaxParallelism
+			CGIDir:  "./cgi",
+			CertDir: "./cert",
+		},
+	}
+
+	_, err := flags.NewParser(s, flags.HelpFlag|flags.PassDoubleDash).Parse()
+	if err != nil {
+		if err, ok := err.(*flags.Error); ok && err.Type == flags.ErrHelp {
+			common.Exit(0, err.Message)
+		}
+		common.Exit(1, err.Error())
+	}
+
+	if s.ShowVersion {
+		common.Exit(0, version.Short)
+	}
+
+	if s.ConfigFile != "" {
+		buff, err := ioutil.ReadFile(s.ConfigFile)
+		if err != nil {
+			common.Exit(1, fmt.Sprintf("read config file failed: %v", err))
+		}
+		err = yaml.Unmarshal(buff, s)
+		if err != nil {
+			common.Exit(1, fmt.Sprintf("unmarshal config file %s to yaml failed: %v",
+				s.ConfigFile, err))
+		}
+	}
+
+	if s.ShowConfig {
+		buff, err := yaml.Marshal(s)
+		if err != nil {
+			common.Exit(1, fmt.Sprintf("marshal config file %s to yaml failed: %v",
+				s.ConfigFile, err))
+		}
+		fmt.Printf("%s", buff)
+	}
+
+	if err := s.validate(); err != nil {
+		common.Exit(1, err.Error())
+	}
+
+	setGlobalFlag(s)
 }

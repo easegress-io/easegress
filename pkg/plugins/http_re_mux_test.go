@@ -2,8 +2,6 @@ package plugins
 
 import (
 	"testing"
-
-	"github.com/hexdecteam/easegateway-types/plugins"
 )
 
 var defaultReMux = &reMux{}
@@ -23,18 +21,18 @@ func TestREMuxDifferentGenerations(t *testing.T) {
 	mustAddFunc(t, m, ctx1, entryA1_1)
 	mustAddFunc(t, m, ctx1, entryA1_2)
 	mustAddFunc(t, m, ctx1, entryA2_1)
-	resultPipelineEntries := map[string][]*plugins.HTTPMuxEntry{
+	resultPipelineEntries := map[string][]*HTTPMuxEntry{
 		ctx1.PipelineName(): {entryA2_1},
 	}
-	resultPriorityEntries := []*plugins.HTTPMuxEntry{entryA2_1}
+	resultPriorityEntries := []*HTTPMuxEntry{entryA2_1}
 	mustGetREMuxResult(t, m, resultPipelineEntries, resultPriorityEntries)
 
 	mustAddFunc(t, m, ctx1, entryA2_2)
 	mustAddFunc(t, m, ctx1, entryA2_3)
-	resultPipelineEntries = map[string][]*plugins.HTTPMuxEntry{
+	resultPipelineEntries = map[string][]*HTTPMuxEntry{
 		ctx1.PipelineName(): {entryA2_1, entryA2_2, entryA2_3},
 	}
-	resultPriorityEntries = []*plugins.HTTPMuxEntry{entryA2_1, entryA2_2, entryA2_3}
+	resultPriorityEntries = []*HTTPMuxEntry{entryA2_1, entryA2_2, entryA2_3}
 	mustGetREMuxResult(t, m, resultPipelineEntries, resultPriorityEntries)
 }
 
@@ -57,10 +55,10 @@ func TestREMuxCleanOutdatedEntries(t *testing.T) {
 	mustAddFunc(t, m, ctx2, entryA2_1)
 	mustAddFuncs(t, m, ctx2, pipelineEntries)
 
-	resultPipelineEntries := map[string][]*plugins.HTTPMuxEntry{
+	resultPipelineEntries := map[string][]*HTTPMuxEntry{
 		ctx2.PipelineName(): {entryA2_1},
 	}
-	resultPriorityEntries := []*plugins.HTTPMuxEntry{entryA2_1}
+	resultPriorityEntries := []*HTTPMuxEntry{entryA2_1}
 	mustGetREMuxResult(t, m, resultPipelineEntries, resultPriorityEntries)
 }
 
@@ -83,10 +81,10 @@ func TestCleanDeadEntries(t *testing.T) {
 	// NOTICE: The absence of pluginB in ctx2 leads to clean all entryB*.
 	m.AddFuncs(ctx1_2, pipelineEntries)
 
-	resultPipelineEntries := map[string][]*plugins.HTTPMuxEntry{
+	resultPipelineEntries := map[string][]*HTTPMuxEntry{
 		ctx1_2.PipelineName(): {entryA1_1},
 	}
-	resultPriorityEntries := []*plugins.HTTPMuxEntry{entryA1_1}
+	resultPriorityEntries := []*HTTPMuxEntry{entryA1_1}
 	mustGetREMuxResult(t, m, resultPipelineEntries, resultPriorityEntries)
 }
 
@@ -185,7 +183,7 @@ func TestREMuxFatigue(t *testing.T) {
 	messC()
 	messD()
 
-	resultPipelineEntries := map[string][]*plugins.HTTPMuxEntry{
+	resultPipelineEntries := map[string][]*HTTPMuxEntry{
 		ctx1.PipelineName(): {
 			entryA2_1, entryA2_2,
 			entryB2_1,
@@ -195,7 +193,7 @@ func TestREMuxFatigue(t *testing.T) {
 			entryD4_1, entryD4_2, entryD4_3,
 		},
 	}
-	resultPriorityEntries := []*plugins.HTTPMuxEntry{
+	resultPriorityEntries := []*HTTPMuxEntry{
 		entryA2_1, entryA2_2,
 		entryB2_1,
 		entryC3_1, entryC3_2,
@@ -210,7 +208,7 @@ func TestREMuxFatigue(t *testing.T) {
 	ctx1 = mockPipelineContext("pipeline-1", []string{pluginB})
 	mustAddFuncs(t, m, ctx1, pipelineEntries)
 
-	resultPipelineEntries = map[string][]*plugins.HTTPMuxEntry{
+	resultPipelineEntries = map[string][]*HTTPMuxEntry{
 		ctx1.PipelineName(): {
 			entryB2_1,
 		},
@@ -218,7 +216,7 @@ func TestREMuxFatigue(t *testing.T) {
 			entryD4_1, entryD4_2, entryD4_3,
 		},
 	}
-	resultPriorityEntries = []*plugins.HTTPMuxEntry{
+	resultPriorityEntries = []*HTTPMuxEntry{
 		entryB2_1,
 		entryD4_1, entryD4_2, entryD4_3,
 	}
@@ -228,7 +226,7 @@ func TestREMuxFatigue(t *testing.T) {
 type generateURLTest struct {
 	url string
 	// generated
-	header                plugins.Header
+	header                Header
 	expectedFullURL       string
 	expectedPathEndingURL string
 }

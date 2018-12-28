@@ -9,13 +9,12 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/hexdecteam/easegateway/pkg/common"
-	eghttp "github.com/hexdecteam/easegateway/pkg/http"
-	"github.com/hexdecteam/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/common"
+	"github.com/megaease/easegateway/pkg/logger"
 
 	"github.com/allegro/bigcache"
-	"github.com/hexdecteam/easegateway-types/pipelines"
-	"github.com/hexdecteam/easegateway-types/plugins"
+	"github.com/megaease/easegateway/pkg/pipelines"
+
 	"github.com/ugorji/go/codec"
 )
 
@@ -40,7 +39,7 @@ type reMux struct {
 }
 
 type reEntry struct {
-	*plugins.HTTPMuxEntry
+	*HTTPMuxEntry
 
 	// Not necessary but for information complete.
 	urlLiteral string
@@ -131,7 +130,7 @@ func (m *reMux) dump() {
 	m.RUnlock()
 }
 
-func (m *reMux) ServeHTTP(c plugins.HTTPCtx) {
+func (m *reMux) ServeHTTP(c HTTPCtx) {
 	serveStartAt := common.Now()
 	header := c.RequestHeader()
 	var requestURL string
@@ -144,7 +143,7 @@ func (m *reMux) ServeHTTP(c plugins.HTTPCtx) {
 	matchURL := false
 	matchMethod := false
 	urlParams := make(map[string]string)
-	var entryServing *plugins.HTTPMuxEntry
+	var entryServing *HTTPMuxEntry
 
 	keyCache := fmt.Sprintf("%s %s", header.Method(), requestURL)
 	valueCache := m.getCache(keyCache)
@@ -211,7 +210,7 @@ func (m *reMux) ServeHTTP(c plugins.HTTPCtx) {
 	entryServing.Handler(c, urlParams, common.Since(serveStartAt))
 }
 
-func (m *reMux) AddFunc(ctx pipelines.PipelineContext, entryAdding *plugins.HTTPMuxEntry) error {
+func (m *reMux) AddFunc(ctx pipelines.PipelineContext, entryAdding *HTTPMuxEntry) error {
 	pname := ctx.PipelineName()
 	if pname == "" {
 		return fmt.Errorf("empty pipeline name")
@@ -253,7 +252,7 @@ func (m *reMux) AddFunc(ctx pipelines.PipelineContext, entryAdding *plugins.HTTP
 	return nil
 }
 
-func (m *reMux) AddFuncs(ctx pipelines.PipelineContext, entriesAdding []*plugins.HTTPMuxEntry) error {
+func (m *reMux) AddFuncs(ctx pipelines.PipelineContext, entriesAdding []*HTTPMuxEntry) error {
 	pname := ctx.PipelineName()
 	if pname == "" {
 		return fmt.Errorf("empty pipeline name")
@@ -270,7 +269,7 @@ func (m *reMux) AddFuncs(ctx pipelines.PipelineContext, entriesAdding []*plugins
 	defer m.Unlock()
 
 	// Clean outdated enytries.
-	var entriesAddingExcludeOutdated []*plugins.HTTPMuxEntry
+	var entriesAddingExcludeOutdated []*HTTPMuxEntry
 	for _, entryAdding := range entriesAdding {
 		needExclude := false
 		for _, entry := range m.priorityEntries {
@@ -286,9 +285,9 @@ func (m *reMux) AddFuncs(ctx pipelines.PipelineContext, entriesAdding []*plugins
 	}
 	entriesAdding = entriesAddingExcludeOutdated
 
-	// Clean entries of dead plugins.
+	// Clean entries of dead
 	pluginNames := ctx.PluginNames()
-	var entriesAddingExcludeDead []*plugins.HTTPMuxEntry
+	var entriesAddingExcludeDead []*HTTPMuxEntry
 	for _, entry := range entriesAdding {
 		if common.StrInSlice(entry.Instance.Name(), pluginNames) {
 			entriesAddingExcludeDead = append(
@@ -313,7 +312,7 @@ func (m *reMux) AddFuncs(ctx pipelines.PipelineContext, entriesAdding []*plugins
 	return nil
 }
 
-func (m *reMux) DeleteFunc(ctx pipelines.PipelineContext, entryDeleting *plugins.HTTPMuxEntry) {
+func (m *reMux) DeleteFunc(ctx pipelines.PipelineContext, entryDeleting *HTTPMuxEntry) {
 	pname := ctx.PipelineName()
 	if pname == "" {
 		return
@@ -332,7 +331,7 @@ func (m *reMux) DeleteFunc(ctx pipelines.PipelineContext, entryDeleting *plugins
 	m.clearCache()
 }
 
-func (m *reMux) DeleteFuncs(ctx pipelines.PipelineContext) []*plugins.HTTPMuxEntry {
+func (m *reMux) DeleteFuncs(ctx pipelines.PipelineContext) []*HTTPMuxEntry {
 	pname := ctx.PipelineName()
 	if pname == "" {
 		return nil
@@ -365,7 +364,7 @@ func (m *reMux) DeleteFuncs(ctx pipelines.PipelineContext) []*plugins.HTTPMuxEnt
 
 	m.clearCache()
 
-	var adaptionPipelineEntries []*plugins.HTTPMuxEntry
+	var adaptionPipelineEntries []*HTTPMuxEntry
 	for _, entry := range pipelineEntries {
 		adaptionPipelineEntries = append(adaptionPipelineEntries, entry.HTTPMuxEntry)
 	}
@@ -373,18 +372,18 @@ func (m *reMux) DeleteFuncs(ctx pipelines.PipelineContext) []*plugins.HTTPMuxEnt
 	return adaptionPipelineEntries
 }
 
-func (m *reMux) generateCompleteRequestURL(h plugins.Header) string {
+func (m *reMux) generateCompleteRequestURL(h Header) string {
 	return h.FullURI()
 }
 
-func (m *reMux) generatePathEndingRequestURL(h plugins.Header) string {
+func (m *reMux) generatePathEndingRequestURL(h Header) string {
 	scheme := h.Scheme()
 	host, _ /* port */, err := net.SplitHostPort(h.Host())
 	if err != nil { // h.Host() doesn't contain port
 		if h.Scheme() == "http" {
-			host = h.Host() + ":" + eghttp.DefaultHTTPPort
+			host = h.Host() + ":" + DefaultHTTPPort
 		} else {
-			host = h.Host() + ":" + eghttp.DefaultHTTPSPort
+			host = h.Host() + ":" + DefaultHTTPSPort
 		}
 	} else {
 		host = h.Host()
@@ -393,7 +392,7 @@ func (m *reMux) generatePathEndingRequestURL(h plugins.Header) string {
 		scheme, host, common.RemoveRepeatedByte(h.Path(), '/'))
 }
 
-func (m *reMux) generateREEntry(entryAdding *plugins.HTTPMuxEntry) *reEntry {
+func (m *reMux) generateREEntry(entryAdding *HTTPMuxEntry) *reEntry {
 	entry := new(reEntry)
 	entry.HTTPMuxEntry = entryAdding
 
@@ -439,7 +438,7 @@ func (m *reMux) generateREEntry(entryAdding *plugins.HTTPMuxEntry) *reEntry {
 	return entry
 }
 
-func (m *reMux) checkValidity(e *plugins.HTTPMuxEntry) error {
+func (m *reMux) checkValidity(e *HTTPMuxEntry) error {
 	if e == nil {
 		return fmt.Errorf("empty http mux entry")
 	}
@@ -523,7 +522,7 @@ func (m *reMux) checkValidity(e *plugins.HTTPMuxEntry) error {
 	return nil
 }
 
-func (m *reMux) _locklessCheckConflict(entryChecking *plugins.HTTPMuxEntry) error {
+func (m *reMux) _locklessCheckConflict(entryChecking *HTTPMuxEntry) error {
 	for _, entry := range m.priorityEntries {
 		if m.samePluginDifferentGeneration(entry, entryChecking) {
 			continue
@@ -538,7 +537,7 @@ func (m *reMux) _locklessCheckConflict(entryChecking *plugins.HTTPMuxEntry) erro
 	return nil
 }
 
-func (m *reMux) _locklessCheckConflictHelper(entry *reEntry, entryChecking *plugins.HTTPMuxEntry) error {
+func (m *reMux) _locklessCheckConflictHelper(entry *reEntry, entryChecking *HTTPMuxEntry) error {
 	dupPattern := entry.HTTPURLPattern == entryChecking.HTTPURLPattern
 	dupPriority := entry.Priority == entryChecking.Priority
 
@@ -621,7 +620,7 @@ func (m *reMux) patternHasIntersection(s1, s2 string) bool {
 	}
 }
 
-func (m *reMux) _locklessAddFunc(pname string, entryAdding *plugins.HTTPMuxEntry) {
+func (m *reMux) _locklessAddFunc(pname string, entryAdding *HTTPMuxEntry) {
 	entryNew := m.generateREEntry(entryAdding)
 	m.pipelineEntries[pname] = append(m.pipelineEntries[pname], entryNew)
 
@@ -642,7 +641,7 @@ func (m *reMux) _locklessAddFunc(pname string, entryAdding *plugins.HTTPMuxEntry
 	m.priorityEntries = priorityEntries
 }
 
-func (m *reMux) _locklessDeleteFunc(pname string, entryDeleting *plugins.HTTPMuxEntry) {
+func (m *reMux) _locklessDeleteFunc(pname string, entryDeleting *HTTPMuxEntry) {
 	var pipelineEntries []*reEntry
 	var entryDeleted *reEntry
 	for _, entry := range m.pipelineEntries[pname] {
@@ -670,12 +669,12 @@ func (m *reMux) _locklessDeleteFunc(pname string, entryDeleting *plugins.HTTPMux
 	m.priorityEntries = priorityEntries
 }
 
-func (m *reMux) samePluginDifferentGeneration(entry *reEntry, entryChecking *plugins.HTTPMuxEntry) bool {
+func (m *reMux) samePluginDifferentGeneration(entry *reEntry, entryChecking *HTTPMuxEntry) bool {
 	return entry.Instance.Name() == entryChecking.Instance.Name() &&
 		entry.Instance != entryChecking.Instance
 }
 
-func (m *reMux) sameEntry(entry *reEntry, entryChecking *plugins.HTTPMuxEntry) bool {
+func (m *reMux) sameEntry(entry *reEntry, entryChecking *HTTPMuxEntry) bool {
 	return entry.Instance.Name() == entryChecking.Instance.Name() &&
 		entry.Instance == entryChecking.Instance &&
 		entry.HTTPURLPattern == entryChecking.HTTPURLPattern &&

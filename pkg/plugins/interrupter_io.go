@@ -1,11 +1,11 @@
-package common
+package plugins
 
 import (
 	"fmt"
 	"io"
 	"time"
 
-	"github.com/hexdecteam/easegateway-types/plugins"
+	"github.com/megaease/easegateway/pkg/common"
 )
 
 var interruptedError = fmt.Errorf("IO interrupted")
@@ -100,7 +100,7 @@ func (t *timeIO) Elapse() time.Duration {
 }
 
 func (t *timeIO) timeTrack(start time.Time) {
-	t.duration += Since(start)
+	t.duration += common.Since(start)
 }
 
 ////
@@ -118,7 +118,7 @@ func NewTimeReader(r io.Reader) *TimeReader {
 }
 
 func (tr *TimeReader) Read(p []byte) (n int, err error) { // io.Reader stub
-	defer tr.timeTrack(Now())
+	defer tr.timeTrack(common.Now())
 	return tr.Reader.Read(p)
 }
 
@@ -128,7 +128,7 @@ type sizedReadClose struct {
 	size int64
 }
 
-func NewSizedReadCloser(r io.ReadCloser, s int64) plugins.SizedReadCloser {
+func NewSizedReadCloser(r io.ReadCloser, s int64) SizedReadCloser {
 	return &sizedReadClose{r, s}
 }
 
@@ -140,17 +140,17 @@ func (l *sizedReadClose) Size() int64 {
 ////
 type SizedTimeReader struct {
 	// use embedded type to inherit(expose) methods of concrete type
-	plugins.SizedReadCloser
+	SizedReadCloser
 	// use embedded type to inherit(expose) methods of concrete type
 	*timeIO
 }
 
-func NewSizedTimeReader(r plugins.SizedReadCloser) *SizedTimeReader {
+func NewSizedTimeReader(r SizedReadCloser) *SizedTimeReader {
 	return &SizedTimeReader{r, &timeIO{}}
 }
 
 func (tr *SizedTimeReader) Read(p []byte) (n int, err error) { // io.Reader stub
-	defer tr.timeTrack(Now())
+	defer tr.timeTrack(common.Now())
 	return tr.SizedReadCloser.Read(p)
 }
 
@@ -168,6 +168,6 @@ func NewTimeWriter(w io.Writer) *TimeWriter {
 }
 
 func (tw *TimeWriter) Write(p []byte) (n int, err error) { // io.Write stub
-	defer tw.timeTrack(Now())
+	defer tw.timeTrack(common.Now())
 	return tw.w.Write(p)
 }

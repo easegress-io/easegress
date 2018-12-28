@@ -5,17 +5,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hexdecteam/easegateway/pkg/common"
-	"github.com/hexdecteam/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/common"
+	"github.com/megaease/easegateway/pkg/logger"
 
 	"github.com/Shopify/sarama"
-	"github.com/hexdecteam/easegateway-types/pipelines"
-	"github.com/hexdecteam/easegateway-types/plugins"
-	"github.com/hexdecteam/easegateway-types/task"
+	"github.com/megaease/easegateway/pkg/pipelines"
+
+	"github.com/megaease/easegateway/pkg/task"
 )
 
 type kafkaOutputConfig struct {
-	common.PluginCommonConfig
+	PluginCommonConfig
 	Brokers  []string `json:"brokers"`
 	ClientID string   `json:"client_id"`
 	Topic    string   `json:"topic"`
@@ -24,7 +24,7 @@ type kafkaOutputConfig struct {
 	DataKey       string `json:"data_key"`
 }
 
-func kafkaOutputConfigConstructor() plugins.Config {
+func kafkaOutputConfigConstructor() Config {
 	return &kafkaOutputConfig{
 		ClientID: "easegateway",
 	}
@@ -72,10 +72,10 @@ type kafkaOutput struct {
 	producer sarama.SyncProducer
 }
 
-func kafkaOutputConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, bool, error) {
+func kafkaOutputConstructor(conf Config) (Plugin, PluginType, bool, error) {
 	c, ok := conf.(*kafkaOutputConfig)
 	if !ok {
-		return nil, plugins.SinkPlugin, false, fmt.Errorf(
+		return nil, SinkPlugin, false, fmt.Errorf(
 			"config type want *kafkaOutputConfig got %T", conf)
 	}
 
@@ -86,7 +86,7 @@ func kafkaOutputConstructor(conf plugins.Config) (plugins.Plugin, plugins.Plugin
 	err := k.connectBroker()
 	if err != nil {
 		logger.Errorf("[%v connect kafka brokers %v failed: %s]", k.Name(), k.conf.Brokers, err)
-		return nil, plugins.SinkPlugin, false, fmt.Errorf("kafka out of service")
+		return nil, SinkPlugin, false, fmt.Errorf("kafka out of service")
 	}
 
 	logger.Infof("[%v connect kafka broker(s) %v succeed]", k.Name(), k.conf.Brokers)
@@ -94,10 +94,10 @@ func kafkaOutputConstructor(conf plugins.Config) (plugins.Plugin, plugins.Plugin
 	k.producer, err = sarama.NewSyncProducerFromClient(k.client)
 	if err != nil {
 		logger.Errorf("[%v new producer from %v failed: %s]", k.Name(), k.conf.Brokers, err)
-		return nil, plugins.SinkPlugin, false, fmt.Errorf("send message to kafka failed")
+		return nil, SinkPlugin, false, fmt.Errorf("send message to kafka failed")
 	}
 
-	return k, plugins.SinkPlugin, false, nil
+	return k, SinkPlugin, false, nil
 }
 
 func (o *kafkaOutput) Prepare(ctx pipelines.PipelineContext) {

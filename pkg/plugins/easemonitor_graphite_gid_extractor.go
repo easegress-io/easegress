@@ -1,4 +1,4 @@
-package easemonitor
+package plugins
 
 import (
 	"bufio"
@@ -6,20 +6,18 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hexdecteam/easegateway/pkg/common"
-
-	"github.com/hexdecteam/easegateway-types/pipelines"
-	"github.com/hexdecteam/easegateway-types/plugins"
-	"github.com/hexdecteam/easegateway-types/task"
+	"github.com/megaease/easegateway/pkg/common"
+	"github.com/megaease/easegateway/pkg/pipelines"
+	"github.com/megaease/easegateway/pkg/task"
 )
 
 type graphiteGidExtractorConfig struct {
-	common.PluginCommonConfig
+	PluginCommonConfig
 	GidKey  string `json:"gid_key"`
 	DataKey string `json:"data_key"`
 }
 
-func GraphiteGidExtractorConfigConstructor() plugins.Config {
+func GraphiteGidExtractorConfigConstructor() Config {
 	return &graphiteGidExtractorConfig{}
 }
 
@@ -47,16 +45,16 @@ type graphiteGidExtractor struct {
 	conf *graphiteGidExtractorConfig
 }
 
-func GraphiteGidExtractorConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, bool, error) {
+func GraphiteGidExtractorConstructor(conf Config) (Plugin, PluginType, bool, error) {
 	c, ok := conf.(*graphiteGidExtractorConfig)
 	if !ok {
-		return nil, plugins.ProcessPlugin, false, fmt.Errorf(
+		return nil, ProcessPlugin, false, fmt.Errorf(
 			"config type want *graphiteGidExtractorConfig got %T", conf)
 	}
 
 	return &graphiteGidExtractor{
 		conf: c,
-	}, plugins.ProcessPlugin, false, nil
+	}, ProcessPlugin, false, nil
 }
 
 func (e *graphiteGidExtractor) Prepare(ctx pipelines.PipelineContext) {

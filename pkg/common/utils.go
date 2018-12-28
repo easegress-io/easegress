@@ -218,3 +218,11 @@ func NextNumberPowerOf2(v uint64) uint64 {
 
 // safe characters for friendly url, rfc3986 section 2.3
 var URL_FRIENDLY_CHARACTERS_REGEX = regexp.MustCompile(`^[A-Za-z0-9\-_\.~]+$`)
+
+func ValidateName(name string) error {
+	if !URL_FRIENDLY_CHARACTERS_REGEX.Match([]byte(name)) {
+		return fmt.Errorf("invalid name: %s", name)
+	}
+
+	return nil
+}

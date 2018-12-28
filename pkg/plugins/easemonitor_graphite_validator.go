@@ -1,4 +1,4 @@
-package easemonitor
+package plugins
 
 import (
 	"bufio"
@@ -6,19 +6,17 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hexdecteam/easegateway/pkg/common"
-
-	"github.com/hexdecteam/easegateway-types/pipelines"
-	"github.com/hexdecteam/easegateway-types/plugins"
-	"github.com/hexdecteam/easegateway-types/task"
+	"github.com/megaease/easegateway/pkg/common"
+	"github.com/megaease/easegateway/pkg/pipelines"
+	"github.com/megaease/easegateway/pkg/task"
 )
 
 type graphiteValidatorConfig struct {
-	common.PluginCommonConfig
+	PluginCommonConfig
 	DataKey string `json:"data_key"`
 }
 
-func GraphiteValidatorConfigConstructor() plugins.Config {
+func GraphiteValidatorConfigConstructor() Config {
 	return &graphiteValidatorConfig{}
 }
 
@@ -42,16 +40,16 @@ type graphiteValidator struct {
 	conf *graphiteValidatorConfig
 }
 
-func GraphiteValidatorConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, bool, error) {
+func GraphiteValidatorConstructor(conf Config) (Plugin, PluginType, bool, error) {
 	c, ok := conf.(*graphiteValidatorConfig)
 	if !ok {
-		return nil, plugins.ProcessPlugin, false, fmt.Errorf(
+		return nil, ProcessPlugin, false, fmt.Errorf(
 			"config type want *graphiteValidatorConfig got %T", conf)
 	}
 
 	return &graphiteValidator{
 		conf: c,
-	}, plugins.ProcessPlugin, false, nil
+	}, ProcessPlugin, false, nil
 }
 
 func (v *graphiteValidator) Prepare(ctx pipelines.PipelineContext) {

@@ -10,13 +10,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/hexdecteam/easegateway/pkg/common"
-	"github.com/hexdecteam/easegateway/pkg/logger"
-	"github.com/hexdecteam/easegateway/pkg/option"
+	"github.com/megaease/easegateway/pkg/common"
+	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/option"
+	"github.com/megaease/easegateway/pkg/pipelines"
 
-	"github.com/hexdecteam/easegateway-types/pipelines"
-	"github.com/hexdecteam/easegateway-types/plugins"
-	"github.com/hexdecteam/easegateway-types/task"
+	"github.com/megaease/easegateway/pkg/task"
 )
 
 type target struct {
@@ -385,7 +384,7 @@ func getTargetsPossibility(ctx pipelines.PipelineContext, pluginName, pluginInst
 ////
 
 type upstreamOutputConfig struct {
-	common.PluginCommonConfig
+	PluginCommonConfig
 	TargetPipelineNames []string `json:"target_pipelines"`
 	RoutePolicy         string   `json:"route_policy"`
 	TimeoutSec          uint16   `json:"timeout_sec"` // up to 65535, zero means no timeout
@@ -406,7 +405,7 @@ type upstreamOutputConfig struct {
 	filterRegexMapList []map[string]*regexp.Regexp
 }
 
-func upstreamOutputConfigConstructor() plugins.Config {
+func upstreamOutputConfigConstructor() Config {
 	return &upstreamOutputConfig{
 		RoutePolicy: "round_robin",
 	}
@@ -528,10 +527,10 @@ type upstreamOutput struct {
 	instanceId string
 }
 
-func upstreamOutputConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, bool, error) {
+func upstreamOutputConstructor(conf Config) (Plugin, PluginType, bool, error) {
 	c, ok := conf.(*upstreamOutputConfig)
 	if !ok {
-		return nil, plugins.SinkPlugin, false, fmt.Errorf("config type want *upstreamOutputConfig got %T", conf)
+		return nil, SinkPlugin, false, fmt.Errorf("config type want *upstreamOutputConfig got %T", conf)
 	}
 
 	upstream := &upstreamOutput{
@@ -540,7 +539,7 @@ func upstreamOutputConstructor(conf plugins.Config) (plugins.Plugin, plugins.Plu
 
 	upstream.instanceId = fmt.Sprintf("%p", upstream)
 
-	return upstream, plugins.SinkPlugin, false, nil
+	return upstream, SinkPlugin, false, nil
 }
 
 func (u *upstreamOutput) Prepare(ctx pipelines.PipelineContext) {

@@ -1,0 +1,17 @@
+name: member-001
+mode: write
+api-url: localhost:8080
+peer-urls: []
+store-dir: ./store
+cpu-profile-file: ""
+memory-profile-file: ""
+log-dir: ./logs
+std-log-level: INFO
+pipeline-init-parallelism: 1
+pipeline-min-parallelism: 5
+pipeline-max-parallelism: 5120
+plugin-io-data-format-len-limit: 128
+plugin-python-root-namespace: false
+plugin-shell-root-namespace: false
+cgi-dir: ./cgi
+cert-dir: ./cert

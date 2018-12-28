@@ -1,4 +1,4 @@
-package engine
+package model
 
 import (
 	"math"
@@ -6,23 +6,22 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/hexdecteam/easegateway/pkg/common"
-	"github.com/hexdecteam/easegateway/pkg/logger"
-	"github.com/hexdecteam/easegateway/pkg/model"
-	"github.com/hexdecteam/easegateway/pkg/option"
-	pipelines_gw "github.com/hexdecteam/easegateway/pkg/pipelines"
+	"github.com/megaease/easegateway/pkg/common"
+	"github.com/megaease/easegateway/pkg/store"
+	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/option"
 
-	"github.com/hexdecteam/easegateway-types/pipelines"
+	"github.com/megaease/easegateway/pkg/pipelines"
 )
 
 type pipelineInstance struct {
-	instance pipelines_gw.Pipeline
+	instance *Pipeline
 	stop     chan struct{}
 	stopped  chan struct{}
 	done     chan struct{}
 }
 
-func newPipelineInstance(instance pipelines_gw.Pipeline) *pipelineInstance {
+func newPipelineInstance(instance *Pipeline) *pipelineInstance {
 	return &pipelineInstance{
 		instance: instance,
 		stop:     make(chan struct{}),
@@ -70,8 +69,10 @@ func (pi *pipelineInstance) terminate(scheduled bool) chan struct{} {
 
 type PipelineScheduler interface {
 	PipelineName() string
+	PipelineContext() *pipelineContext
 	SourceInputTrigger() pipelines.SourceInputTrigger
-	Start(ctx pipelines.PipelineContext, statistics *model.PipelineStatistics, mod *model.Model)
+	PipelineInstances() []*pipelineInstance
+	Start()
 	Stop()
 	StopPipeline()
 }
@@ -81,24 +82,42 @@ type PipelineScheduler interface {
 const PIPELINE_STOP_TIMEOUT_SECONDS = 30
 
 type commonPipelineScheduler struct {
-	pipeline         *model.Pipeline
+	spec             *store.PipelineSpec
+	mod              *Model
+	stat             *PipelineStatistics
+	ctx              *pipelineContext
 	instancesLock    sync.RWMutex
 	instances        []*pipelineInstance
 	started, stopped uint32
 }
 
-func newCommonPipelineScheduler(pipeline *model.Pipeline) *commonPipelineScheduler {
-	return &commonPipelineScheduler{
-		pipeline: pipeline,
+func newCommonPipelineScheduler(spec *store.PipelineSpec, mod *Model,
+	trigger pipelines.SourceInputTrigger) *commonPipelineScheduler {
+	scheduler := &commonPipelineScheduler{
+		spec: spec,
+		mod:  mod,
+		stat: NewPipelineStatistics(spec, mod),
 	}
+	scheduler.ctx = newPipelineContext(spec, scheduler.stat, mod, trigger)
+
+	return scheduler
 }
 
 func (scheduler *commonPipelineScheduler) PipelineName() string {
-	return scheduler.pipeline.Name()
+	return scheduler.spec.Name
 }
 
-func (scheduler *commonPipelineScheduler) startPipeline(parallelism uint32,
-	ctx pipelines.PipelineContext, statistics *model.PipelineStatistics, mod *model.Model) (uint32, uint32) {
+func (scheduler *commonPipelineScheduler) PipelineContext() *pipelineContext {
+	return scheduler.ctx
+}
+
+func (scheduler *commonPipelineScheduler) PipelineInstances() []*pipelineInstance {
+	scheduler.instancesLock.RLock()
+	defer scheduler.instancesLock.RUnlock()
+	return scheduler.instances
+}
+
+func (scheduler *commonPipelineScheduler) startPipeline(parallelism uint32) (uint32, uint32) {
 
 	if parallelism == 0 { // defensive
 		parallelism = 1
@@ -121,7 +140,8 @@ func (scheduler *commonPipelineScheduler) startPipeline(parallelism uint32,
 
 	idx := uint32(0)
 	for idx < parallelism {
-		pipeline, err := scheduler.pipeline.GetInstance(ctx, statistics, mod)
+		pipeline, err := GetPipelineInstance(scheduler.spec, scheduler.ctx,
+			scheduler.stat, scheduler.mod)
 		if err != nil {
 			logger.Errorf("[launch pipeline %s-#%d failed: %v]",
 				scheduler.PipelineName(), currentParallelism+idx+1, err)
@@ -169,7 +189,10 @@ func (scheduler *commonPipelineScheduler) StopPipeline() {
 	logger.Infof("[stopped pipeline %s (parallelism=%d)]", scheduler.PipelineName(), currentParallelism)
 }
 
-////
+func (scheduler *commonPipelineScheduler) Close() {
+	scheduler.ctx.Close()
+	scheduler.stat.Close()
+}
 
 const (
 	SCHEDULER_DYNAMIC_SPAWN_MIN_INTERVAL_MS  = 500
@@ -188,9 +211,6 @@ type inputEvent struct {
 
 type dynamicPipelineScheduler struct {
 	*commonPipelineScheduler
-	ctx                     pipelines.PipelineContext
-	statistics              *model.PipelineStatistics
-	mod                     *model.Model
 	gettersLock             sync.RWMutex
 	getters                 map[string]pipelines.SourceInputQueueLengthGetter
 	launchChan              chan *inputEvent
@@ -203,9 +223,8 @@ type dynamicPipelineScheduler struct {
 	shrinkTime              time.Time
 }
 
-func newDynamicPipelineScheduler(pipeline *model.Pipeline) *dynamicPipelineScheduler {
-	return &dynamicPipelineScheduler{
-		commonPipelineScheduler: newCommonPipelineScheduler(pipeline),
+func newDynamicPipelineScheduler(spec *store.PipelineSpec, mod *Model) *dynamicPipelineScheduler {
+	scheduler := &dynamicPipelineScheduler{
 		getters:                 make(map[string]pipelines.SourceInputQueueLengthGetter, 1),
 		launchChan:              make(chan *inputEvent, 128), // buffer for trigger() calls before scheduler starts
 		spawnStop:               make(chan struct{}),
@@ -213,25 +232,21 @@ func newDynamicPipelineScheduler(pipeline *model.Pipeline) *dynamicPipelineSched
 		shrinkStop:              make(chan struct{}),
 		sourceLastScheduleTimes: make(map[string]time.Time, 1),
 	}
+	scheduler.commonPipelineScheduler = newCommonPipelineScheduler(spec, mod, scheduler.SourceInputTrigger())
+
+	return scheduler
 }
 
 func (scheduler *dynamicPipelineScheduler) SourceInputTrigger() pipelines.SourceInputTrigger {
 	return scheduler.trigger
 }
 
-func (scheduler *dynamicPipelineScheduler) Start(ctx pipelines.PipelineContext,
-	statistics *model.PipelineStatistics, mod *model.Model) {
-
+func (scheduler *dynamicPipelineScheduler) Start() {
 	if !atomic.CompareAndSwapUint32(&scheduler.started, 0, 1) {
 		return // already started
 	}
 
-	// book for delay schedule
-	scheduler.ctx = ctx
-	scheduler.statistics = statistics
-	scheduler.mod = mod
-
-	parallelism, _ := scheduler.startPipeline(option.PipelineInitParallelism, ctx, statistics, mod)
+	parallelism, _ := scheduler.startPipeline(option.PipelineInitParallelism)
 
 	logger.Debugf("[initialized pipeline instance(s) for pipeline %s (total=%d)]",
 		scheduler.PipelineName(), parallelism)
@@ -315,8 +330,7 @@ func (scheduler *dynamicPipelineScheduler) launch() {
 
 			scheduler.shrinkTimeLock.RUnlock()
 
-			parallelism, delta := scheduler.startPipeline(
-				info.queueLength, scheduler.ctx, scheduler.statistics, scheduler.mod)
+			parallelism, delta := scheduler.startPipeline(info.queueLength)
 
 			if delta > 0 {
 				scheduler.launchTimeLock.Lock()
@@ -471,43 +485,40 @@ func (scheduler *dynamicPipelineScheduler) Stop() {
 	close(scheduler.launchChan)
 
 	atomic.StoreUint32(&scheduler.started, 0)
-}
 
-////
+	scheduler.commonPipelineScheduler.Close()
+}
 
 type staticPipelineScheduler struct {
 	*commonPipelineScheduler
 }
 
-func CreatePipelineScheduler(pipeline *model.Pipeline) PipelineScheduler {
+func CreatePipelineScheduler(spec *store.PipelineSpec, mod *Model) PipelineScheduler {
 	var scheduler PipelineScheduler
-	if pipeline.Config().Parallelism() == 0 { // dynamic mode
-		scheduler = newDynamicPipelineScheduler(pipeline)
+	if spec.Config.Parallelism() == 0 { // dynamic mode
+		scheduler = newDynamicPipelineScheduler(spec, mod)
 	} else { // pre-alloc mode
-		scheduler = newStaticPipelineScheduler(pipeline)
+		scheduler = newStaticPipelineScheduler(spec, mod)
 	}
 	return scheduler
 }
 
-func newStaticPipelineScheduler(pipeline *model.Pipeline) *staticPipelineScheduler {
-	return &staticPipelineScheduler{
-		commonPipelineScheduler: newCommonPipelineScheduler(pipeline),
-	}
+func newStaticPipelineScheduler(spec *store.PipelineSpec, mod *Model) *staticPipelineScheduler {
+	scheduler := &staticPipelineScheduler{}
+	scheduler.commonPipelineScheduler = newCommonPipelineScheduler(spec, mod, scheduler.SourceInputTrigger())
+	return scheduler
 }
 
 func (scheduler *staticPipelineScheduler) SourceInputTrigger() pipelines.SourceInputTrigger {
 	return pipelines.NoOpSourceInputTrigger
 }
 
-func (scheduler *staticPipelineScheduler) Start(ctx pipelines.PipelineContext,
-	statistics *model.PipelineStatistics, mod *model.Model) {
-
+func (scheduler *staticPipelineScheduler) Start() {
 	if !atomic.CompareAndSwapUint32(&scheduler.started, 0, 1) {
 		return // already started
 	}
 
-	parallelism, _ := scheduler.startPipeline(
-		uint32(scheduler.pipeline.Config().Parallelism()), ctx, statistics, mod)
+	parallelism, _ := scheduler.startPipeline(uint32(scheduler.spec.Config.ParallelismCount))
 
 	logger.Debugf("[initialized pipeline instance(s) for pipeline %s (total=%d)]",
 		scheduler.PipelineName(), parallelism)
@@ -519,4 +530,6 @@ func (scheduler *staticPipelineScheduler) Stop() {
 	}
 
 	atomic.StoreUint32(&scheduler.started, 0)
+
+	scheduler.commonPipelineScheduler.Close()
 }

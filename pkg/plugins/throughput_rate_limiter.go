@@ -7,17 +7,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hexdecteam/easegateway/pkg/common"
-	"github.com/hexdecteam/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/pipelines"
+	"github.com/megaease/easegateway/pkg/task"
 
-	"github.com/hexdecteam/easegateway-types/pipelines"
-	"github.com/hexdecteam/easegateway-types/plugins"
-	"github.com/hexdecteam/easegateway-types/task"
 	"golang.org/x/time/rate"
 )
 
 type throughputRateLimiterConfig struct {
-	common.PluginCommonConfig
+	PluginCommonConfig
 	Tps                      string `json:"tps,omitempty"` // zero means no request could be processed, -1 means no limitation
 	TimeoutMSec              int64  `json:"timeout_msec"`  // up to 9223372036854775807, zero means no queuing, -1 means no timeout
 	FlowControlPercentageKey string `json:"flow_control_percentage_key"`
@@ -25,7 +23,7 @@ type throughputRateLimiterConfig struct {
 	tps float64
 }
 
-func throughputRateLimiterConfigConstructor() plugins.Config {
+func throughputRateLimiterConfigConstructor() Config {
 	return &throughputRateLimiterConfig{
 		TimeoutMSec: 200,
 	}
@@ -69,10 +67,10 @@ type throughputRateLimiter struct {
 	instanceId string
 }
 
-func throughputRateLimiterConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, bool, error) {
+func throughputRateLimiterConstructor(conf Config) (Plugin, PluginType, bool, error) {
 	c, ok := conf.(*throughputRateLimiterConfig)
 	if !ok {
-		return nil, plugins.ProcessPlugin, false, fmt.Errorf(
+		return nil, ProcessPlugin, false, fmt.Errorf(
 			"config type want *throughputRateLimiterConfig got %T", conf)
 	}
 
@@ -82,7 +80,7 @@ func throughputRateLimiterConstructor(conf plugins.Config) (plugins.Plugin, plug
 
 	l.instanceId = fmt.Sprintf("%p", l)
 
-	return l, plugins.ProcessPlugin, false, nil
+	return l, ProcessPlugin, false, nil
 }
 
 func (l *throughputRateLimiter) Prepare(ctx pipelines.PipelineContext) {

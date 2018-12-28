@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hexdecteam/easegateway/pkg/option"
+	"github.com/megaease/easegateway/pkg/option"
 
 	"github.com/sirupsen/logrus"
 )
@@ -83,14 +83,14 @@ func (l *loggerSet) getLoggers(typ string) []*logrus.Logger {
 }
 
 func openLogFile(fileName string) (*os.File, error) {
-	if _, err := os.Stat(option.LogHome); os.IsNotExist(err) {
-		err = os.Mkdir(option.LogHome, 0750)
+	if _, err := os.Stat(option.LogDir); os.IsNotExist(err) {
+		err = os.Mkdir(option.LogDir, 0750)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	f, err := os.OpenFile(filepath.Join(option.LogHome, fileName), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0640)
+	f, err := os.OpenFile(filepath.Join(option.LogDir, fileName), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0640)
 	if err != nil {
 		return nil, err
 	}
@@ -207,18 +207,21 @@ func getSourceInfo() string {
 	return fmt.Sprintf("%v#%v-%v", filepath.Base(file), line, runtime.FuncForPC(pc).Name())
 }
 
-func init() {
-	initHTTP()
-	initMemberList(logrus.InfoLevel)
-	initREST()
-	initStd(logrus.InfoLevel)
+func stringToLevel(s string) logrus.Level {
+	lvl, err := logrus.ParseLevel(s)
+	if err != nil {
+		return logrus.DebugLevel
+	}
+
+	return lvl
 }
 
-////
-
-func SetLogLevel(level logrus.Level) {
-	setMemberListLevel(level)
-	setStdLevel(level)
+func init() {
+	initHTTP()
+	initAPI()
+	// initMemberlist()
+	// initRaft()
+	initStd(stringToLevel(option.StdLogLevel))
 }
 
 func ReOpenLogFiles() {

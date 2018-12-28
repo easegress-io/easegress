@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hexdecteam/easegateway/pkg/common"
+	"github.com/megaease/easegateway/pkg/common"
 
-	"github.com/hexdecteam/easegateway-types/pipelines"
-	"github.com/hexdecteam/easegateway-types/plugins"
-	"github.com/hexdecteam/easegateway-types/task"
+	"github.com/megaease/easegateway/pkg/pipelines"
+
+	"github.com/megaease/easegateway/pkg/task"
 )
 
 type simpleCommonMockConfig struct {
-	common.PluginCommonConfig
+	PluginCommonConfig
 	PluginsConcerned        []string `json:"plugins_concerned"`
 	PluginTypesConcerned    []string `json:"plugin_types_concerned"`
 	TaskErrorCodesConcerned []string `json:"task_error_codes_concerned"`
@@ -24,7 +24,7 @@ type simpleCommonMockConfig struct {
 	taskErrorCodesConcerned []task.TaskResultCode
 }
 
-func simpleCommonMockConfigConstructor() plugins.Config {
+func simpleCommonMockConfigConstructor() Config {
 	return &simpleCommonMockConfig{}
 }
 
@@ -79,10 +79,10 @@ type simpleCommonMock struct {
 	conf *simpleCommonMockConfig
 }
 
-func simpleCommonMockConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, bool, error) {
+func simpleCommonMockConstructor(conf Config) (Plugin, PluginType, bool, error) {
 	c, ok := conf.(*simpleCommonMockConfig)
 	if !ok {
-		return nil, plugins.ProcessPlugin, false, fmt.Errorf(
+		return nil, ProcessPlugin, false, fmt.Errorf(
 			"config type want *simpleCommonMockConfig got %T", conf)
 	}
 
@@ -90,7 +90,7 @@ func simpleCommonMockConstructor(conf plugins.Config) (plugins.Plugin, plugins.P
 		conf: c,
 	}
 
-	return m, plugins.ProcessPlugin, false, nil
+	return m, ProcessPlugin, false, nil
 }
 
 func (m *simpleCommonMock) Prepare(ctx pipelines.PipelineContext) {

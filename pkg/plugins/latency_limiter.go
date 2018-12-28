@@ -6,16 +6,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hexdecteam/easegateway/pkg/common"
-	"github.com/hexdecteam/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/common"
+	"github.com/megaease/easegateway/pkg/logger"
 
-	"github.com/hexdecteam/easegateway-types/pipelines"
-	"github.com/hexdecteam/easegateway-types/plugins"
-	"github.com/hexdecteam/easegateway-types/task"
+	"github.com/megaease/easegateway/pkg/pipelines"
+
+	"github.com/megaease/easegateway/pkg/task"
 )
 
 type latencyLimiterConfig struct {
-	common.PluginCommonConfig
+	PluginCommonConfig
 	AllowMSec                uint16   `json:"allow_msec"`           // up to 65535
 	BackOffTimeoutMSec       int16    `json:"backoff_timeout_msec"` // zero means no queuing, -1 means no timeout
 	FlowControlPercentageKey string   `json:"flow_control_percentage_key"`
@@ -24,7 +24,7 @@ type latencyLimiterConfig struct {
 	ProbePercentage          uint8    `json:"probe_percentage"` // [1~99]
 }
 
-func latencyLimiterConfigConstructor() plugins.Config {
+func latencyLimiterConfigConstructor() Config {
 	return &latencyLimiterConfig{
 		LatencyThresholdMSec: 800,
 		BackOffTimeoutMSec:   1000,
@@ -80,10 +80,10 @@ type latencyWindowLimiter struct {
 	instanceId string
 }
 
-func latencyLimiterConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, bool, error) {
+func latencyLimiterConstructor(conf Config) (Plugin, PluginType, bool, error) {
 	c, ok := conf.(*latencyLimiterConfig)
 	if !ok {
-		return nil, plugins.ProcessPlugin, false, fmt.Errorf(
+		return nil, ProcessPlugin, false, fmt.Errorf(
 			"config type want *latencyWindowLimiterConfig got %T", conf)
 	}
 
@@ -92,7 +92,7 @@ func latencyLimiterConstructor(conf plugins.Config) (plugins.Plugin, plugins.Plu
 	}
 	l.instanceId = fmt.Sprintf("%p", l)
 
-	return l, plugins.ProcessPlugin, false, nil
+	return l, ProcessPlugin, false, nil
 }
 
 func (l *latencyWindowLimiter) Prepare(ctx pipelines.PipelineContext) {

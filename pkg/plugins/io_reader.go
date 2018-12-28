@@ -8,16 +8,16 @@ import (
 	"io/ioutil"
 	"strings"
 
-	"github.com/hexdecteam/easegateway/pkg/common"
-	"github.com/hexdecteam/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/common"
+	"github.com/megaease/easegateway/pkg/logger"
 
-	"github.com/hexdecteam/easegateway-types/pipelines"
-	"github.com/hexdecteam/easegateway-types/plugins"
-	"github.com/hexdecteam/easegateway-types/task"
+	"github.com/megaease/easegateway/pkg/pipelines"
+
+	"github.com/megaease/easegateway/pkg/task"
 )
 
 type ioReaderConfig struct {
-	common.PluginCommonConfig
+	PluginCommonConfig
 	LengthMax    int64  `json:"read_length_max"` // up to 9223372036854775807 ~= 8192 Pebibyte
 	Close        bool   `json:"close_after_read"`
 	Base64Coding string `json:"base64_coding"`
@@ -26,7 +26,7 @@ type ioReaderConfig struct {
 	OutputKey string `json:"output_key"`
 }
 
-func ioReaderConfigConfigConstructor() plugins.Config {
+func ioReaderConfigConfigConstructor() Config {
 	return &ioReaderConfig{
 		LengthMax: 1048576, // 1MiB
 		Close:     true,
@@ -62,16 +62,16 @@ type ioReader struct {
 	conf *ioReaderConfig
 }
 
-func ioReaderConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, bool, error) {
+func ioReaderConstructor(conf Config) (Plugin, PluginType, bool, error) {
 	c, ok := conf.(*ioReaderConfig)
 	if !ok {
-		return nil, plugins.ProcessPlugin, false, fmt.Errorf(
+		return nil, ProcessPlugin, false, fmt.Errorf(
 			"config type want *ioReaderConfig got %T", conf)
 	}
 
 	return &ioReader{
 		conf: c,
-	}, plugins.ProcessPlugin, false, nil
+	}, ProcessPlugin, false, nil
 }
 
 func (r *ioReader) Prepare(ctx pipelines.PipelineContext) {
@@ -86,7 +86,7 @@ func (r *ioReader) read(t task.Task) (error, task.TaskResultCode, task.Task) {
 			task.ResultMissingInput, t
 	}
 
-	reader1 := common.NewInterruptibleReader(input)
+	reader1 := NewInterruptibleReader(input)
 	var reader io.Reader = reader1
 	if r.conf.LengthMax > 0 {
 		reader = io.LimitReader(reader, r.conf.LengthMax)

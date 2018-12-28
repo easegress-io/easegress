@@ -13,13 +13,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/hexdecteam/easegateway/pkg/common"
-	"github.com/hexdecteam/easegateway/pkg/logger"
-	"github.com/hexdecteam/easegateway/pkg/option"
-
-	"github.com/hexdecteam/easegateway-types/pipelines"
-	"github.com/hexdecteam/easegateway-types/plugins"
-	"github.com/hexdecteam/easegateway-types/task"
+	"github.com/megaease/easegateway/pkg/common"
+	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/option"
+	"github.com/megaease/easegateway/pkg/pipelines"
+	"github.com/megaease/easegateway/pkg/task"
 )
 
 var copyBufPool = sync.Pool{
@@ -29,7 +27,7 @@ var copyBufPool = sync.Pool{
 }
 
 type httpTask struct {
-	ctx           plugins.HTTPCtx
+	ctx           HTTPCtx
 	routeDuration time.Duration
 	receivedAt    time.Time
 	urlParams     map[string]string
@@ -39,7 +37,7 @@ type httpTask struct {
 ////
 
 type HTTPInputConfig struct {
-	common.PluginCommonConfig
+	PluginCommonConfig
 	ServerPluginName string              `json:"server_name"`
 	MuxType          muxType             `json:"mux_type"`
 	Scheme           string              `json:"scheme"`
@@ -69,13 +67,13 @@ type HTTPInputConfig struct {
 	dumpReq bool
 }
 
-func HTTPInputConfigConstructor() plugins.Config {
+func HTTPInputConfigConstructor() Config {
 	return &HTTPInputConfig{
 		ServerPluginName: "httpserver-default",
 		MuxType:          regexpMuxType,
 		Methods:          []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodHead},
 		Unzip:            true,
-		DumpRequest:      "auto",
+		DumpRequest:      "false",
 	}
 }
 
@@ -171,16 +169,7 @@ func (c *HTTPInputConfig) Prepare(pipelineNames []string) error {
 		c.HeadersEnum[key] = value
 	}
 
-	c.DumpRequest = ts(c.DumpRequest)
-	if strings.ToLower(c.DumpRequest) == "auto" {
-		c.dumpReq = common.StrInSlice(option.Stage, []string{"debug", "test"})
-	} else if common.BoolFromStr(c.DumpRequest, false) {
-		c.dumpReq = true
-	} else if !common.BoolFromStr(c.DumpRequest, true) {
-		c.dumpReq = false
-	} else {
-		return fmt.Errorf("invalid http request dump option")
-	}
+	c.dumpReq = common.BoolFromStr(c.DumpRequest, false)
 
 	c.RequestHeaderNamesKey = ts(c.RequestHeaderNamesKey)
 	c.RequestBodyIOKey = ts(c.RequestBodyIOKey)
@@ -204,10 +193,10 @@ type httpInput struct {
 	contexts                      *sync.Map
 }
 
-func httpInputConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, bool, error) {
+func httpInputConstructor(conf Config) (Plugin, PluginType, bool, error) {
 	c, ok := conf.(*HTTPInputConfig)
 	if !ok {
-		return nil, plugins.SourcePlugin, false, fmt.Errorf(
+		return nil, SourcePlugin, false, fmt.Errorf(
 			"config type want *HTTPInputConfig got %T", conf)
 	}
 
@@ -219,14 +208,14 @@ func httpInputConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginTy
 
 	h.instanceId = fmt.Sprintf("%p", h)
 
-	return h, plugins.SourcePlugin, false, nil
+	return h, SourcePlugin, false, nil
 }
 
-func (h *httpInput) toHTTPMuxEntries() []*plugins.HTTPMuxEntry {
-	var entries []*plugins.HTTPMuxEntry
+func (h *httpInput) toHTTPMuxEntries() []*HTTPMuxEntry {
+	var entries []*HTTPMuxEntry
 	for _, method := range h.conf.Methods {
-		entry := &plugins.HTTPMuxEntry{
-			HTTPURLPattern: plugins.HTTPURLPattern{
+		entry := &HTTPMuxEntry{
+			HTTPURLPattern: HTTPURLPattern{
 				Scheme:   h.conf.Scheme,
 				Host:     h.conf.Host,
 				Port:     h.conf.Port,
@@ -287,7 +276,7 @@ func (h *httpInput) Prepare(ctx pipelines.PipelineContext) {
 	h.contexts.Store(ctx.PipelineName(), ctx)
 }
 
-func (h *httpInput) handler(ctx plugins.HTTPCtx, urlParams map[string]string,
+func (h *httpInput) handler(ctx HTTPCtx, urlParams map[string]string,
 	routeDuration time.Duration) {
 
 	httpTask := httpTask{
@@ -350,7 +339,7 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 		logger.HTTPReqDump(ctx.PipelineName(), h.Name(), h.instanceId, t.StartAt().UnixNano(), ht.ctx.DumpRequest)
 	}
 
-	vars, names := common.GenerateCGIEnv(ht.ctx)
+	vars, names := GenerateCGIEnv(ht.ctx)
 	for k, v := range vars {
 		t.WithValue(k, v)
 	}
@@ -366,10 +355,10 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 		if err != nil {
 			return fmt.Errorf("create gzip reader failed: %v", err), task.ResultBadInput
 		}
-		reader = common.NewSizedReadCloser(gzipReader, -1)
+		reader = NewSizedReadCloser(gzipReader, -1)
 	}
 
-	body := common.NewSizedTimeReader(reader)
+	body := NewSizedTimeReader(reader)
 	if len(h.conf.RequestBodyIOKey) != 0 {
 		t.WithValue(h.conf.RequestBodyIOKey, body)
 	}
@@ -417,12 +406,12 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 			ht.ctx.Write(buf)
 			writeClientBodyElapse = time.Since(writeStartAt)
 		} else if len(h.conf.ResponseBodyIOKey) != 0 {
-			if reader, ok := t1.Value(h.conf.ResponseBodyIOKey).(plugins.SizedReadCloser); ok {
+			if reader, ok := t1.Value(h.conf.ResponseBodyIOKey).(SizedReadCloser); ok {
 				done := make(chan int, 1)
-				ir := common.NewInterruptibleReader(reader)
-				iw := common.NewInterruptibleWriter(ht.ctx)
-				tr := common.NewTimeReader(ir)
-				tw := common.NewTimeWriter(iw)
+				ir := NewInterruptibleReader(reader)
+				iw := NewInterruptibleWriter(ht.ctx)
+				tr := NewTimeReader(ir)
+				tw := NewTimeWriter(iw)
 				if reader.Size() > 0 {
 					ht.ctx.SetContentLength(reader.Size())
 				}
@@ -474,7 +463,7 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 				readRespBodyElapse = tr.Elapse()
 				writeClientBodyElapse = tw.Elapse()
 			} else if t1.Value(h.conf.ResponseBodyIOKey) != nil { // ignore empty response body
-				logger.Errorf("[expected ResponseBodyIOKey to be type plugins.SizedReadCloser, but got: %v, value: %+v]",
+				logger.Errorf("[expected ResponseBodyIOKey to be type SizedReadCloser, but got: %v, value: %+v]",
 					reflect.TypeOf(t1.Value(h.conf.ResponseBodyIOKey)), t1.Value(h.conf.ResponseBodyIOKey))
 			}
 		} else if !task.SuccessfulResult(t1.ResultCode()) && h.conf.RespondErr {
@@ -657,7 +646,10 @@ func logRequest(ht *httpTask, t task.Task, responseCodeKey, responseRemoteKey,
 
 	// TODO: use variables(e.g. upstream_response_time_xxx) of each plugin
 	// or provide a method(e.g. AddUpstreamResponseTime) of task
-	logger.HTTPAccess(ht.ctx, getClientReceivedCode(t, responseCodeKey), bodyBytesSent,
+	header := ht.ctx.RequestHeader()
+	logger.HTTPAccess(ht.ctx.RemoteAddr(), header.Proto(), header.Method(), header.Path(),
+		header.Get("Referer"), header.Get("User-Agent"), header.Get("X-Forwarded-For"),
+		getClientReceivedCode(t, responseCodeKey), bodyBytesSent,
 		requestTime, responseDuration, responseRemote,
 		getResponseCode(t, responseCodeKey), writeClientBodyElapse, readClientBodyElapse,
 		routeDuration)
@@ -669,8 +661,8 @@ func logRequest(ht *httpTask, t task.Task, responseCodeKey, responseRemoteKey,
 }
 
 ////
-func copyResponseHeaderFromTask(t task.Task, key string, dst plugins.Header) {
-	if src, ok := t.Value(key).(plugins.Header); !ok {
+func copyResponseHeaderFromTask(t task.Task, key string, dst Header) {
+	if src, ok := t.Value(key).(Header); !ok {
 		// There are some normal cases that the header key is nil in task
 		// Because header key producer don't write them
 		logger.Debugf("[load header: %s in the task failed, header is %+v]", key, t.Value(key))

@@ -1,24 +1,21 @@
-package easemonitor
+package plugins
 
 import (
 	"encoding/json"
 	"fmt"
 	"strings"
 
-	"github.com/hexdecteam/easegateway/pkg/common"
-
-	"github.com/hexdecteam/easegateway-types/pipelines"
-	"github.com/hexdecteam/easegateway-types/plugins"
-	"github.com/hexdecteam/easegateway-types/task"
+	"github.com/megaease/easegateway/pkg/pipelines"
+	"github.com/megaease/easegateway/pkg/task"
 )
 
 type jsonGidExtractorConfig struct {
-	common.PluginCommonConfig
+	PluginCommonConfig
 	GidKey  string `json:"gid_key"`
 	DataKey string `json:"data_key"`
 }
 
-func JSONGidExtractorConfigConstructor() plugins.Config {
+func JSONGidExtractorConfigConstructor() Config {
 	return &jsonGidExtractorConfig{}
 }
 
@@ -46,16 +43,16 @@ type jsonGidExtractor struct {
 	conf *jsonGidExtractorConfig
 }
 
-func JSONGidExtractorConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, bool, error) {
+func JSONGidExtractorConstructor(conf Config) (Plugin, PluginType, bool, error) {
 	c, ok := conf.(*jsonGidExtractorConfig)
 	if !ok {
-		return nil, plugins.ProcessPlugin, false, fmt.Errorf(
+		return nil, ProcessPlugin, false, fmt.Errorf(
 			"config type want *jsonGidExtractorConfig got %T", conf)
 	}
 
 	return &jsonGidExtractor{
 		conf: c,
-	}, plugins.ProcessPlugin, false, nil
+	}, ProcessPlugin, false, nil
 }
 
 func (e *jsonGidExtractor) Prepare(ctx pipelines.PipelineContext) {

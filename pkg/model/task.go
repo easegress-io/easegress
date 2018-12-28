@@ -5,9 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hexdecteam/easegateway/pkg/common"
+	"github.com/megaease/easegateway/pkg/common"
 
-	"github.com/hexdecteam/easegateway-types/task"
+	"github.com/megaease/easegateway/pkg/task"
 )
 
 ////

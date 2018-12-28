@@ -7,11 +7,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/hexdecteam/easegateway/pkg/common"
-	"github.com/hexdecteam/easegateway/pkg/logger"
-	pipelines_gw "github.com/hexdecteam/easegateway/pkg/pipelines"
+	"github.com/megaease/easegateway/pkg/common"
+	"github.com/megaease/easegateway/pkg/store"
+	"github.com/megaease/easegateway/pkg/logger"
 
-	"github.com/hexdecteam/easegateway-types/pipelines"
+	"github.com/megaease/easegateway/pkg/pipelines"
 )
 
 //
@@ -38,9 +38,10 @@ type pipelineContext struct {
 	trigger              pipelines.SourceInputTrigger
 	closingCallbacksLock sync.RWMutex
 	closingCallbacks     *common.NamedCallbackSet
+	pluginDeleteChan     chan *Plugin
 }
 
-func newPipelineContext(conf pipelines_gw.Config, statistics pipelines.PipelineStatistics,
+func newPipelineContext(spec *store.PipelineSpec, statistics pipelines.PipelineStatistics,
 	m *Model, trigger pipelines.SourceInputTrigger) *pipelineContext {
 
 	if trigger == nil { // defensive
@@ -48,18 +49,21 @@ func newPipelineContext(conf pipelines_gw.Config, statistics pipelines.PipelineS
 	}
 
 	c := &pipelineContext{
-		pipeName:         conf.PipelineName(),
-		plugNames:        conf.PluginNames(),
-		parallelismCount: conf.Parallelism(),
+		pipeName:         spec.Name,
+		plugNames:        spec.Config.Plugins,
+		parallelismCount: spec.Config.ParallelismCount,
 		statistics:       statistics,
 		mod:              m,
 		buckets:          make(map[string]*bucketItem),
-		requestChan:      make(chan *pipelines.DownstreamRequest, conf.CrossPipelineRequestBacklog()),
+		requestChan:      make(chan *pipelines.DownstreamRequest, spec.Config.CrossPipelineRequestBacklogLength),
 		trigger:          trigger,
 		closingCallbacks: common.NewNamedCallbackSet(),
+		pluginDeleteChan: make(chan *Plugin, 1024),
 	}
 
-	logger.Infof("[pipeline %s context at %p is created]", conf.PipelineName(), c)
+	go c.deletePipelineContextDataBucketWhenPluginDeleted()
+
+	logger.Infof("[pipeline %s context at %p is created]", spec.Name, c)
 
 	return c
 }
@@ -112,12 +116,6 @@ func (pc *pipelineContext) DataBucket(pluginName, pluginInstanceId string) pipel
 	}
 
 	pc.bucketLock.Unlock()
-
-	if deleteWhenPluginDeleted {
-		pc.mod.AddPluginDeletedCallback(
-			fmt.Sprintf("%s-deletePipelineContextDataBucketWhenPluginDeleted@%p", pc.pipeName, pc),
-			pc.deletePipelineContextDataBucketWhenPluginDeleted, common.NORMAL_PRIORITY_CALLBACK)
-	} // else plugin takes the responsibility to delete bucket when the instance cleanup
 
 	return bucket
 }
@@ -189,7 +187,8 @@ func (pc *pipelineContext) CommitCrossPipelineRequest(
 			return
 		}()
 	} else { // cross to the correct pipeline context
-		ctx := pc.mod.GetPipelineContext(request.UpstreamPipelineName())
+		contexts := pc.mod.pipelineContexts()
+		ctx := contexts[request.UpstreamPipelineName()]
 		if ctx == nil {
 			return fmt.Errorf("the context of pipeline %s not found",
 				request.UpstreamPipelineName())
@@ -231,7 +230,8 @@ func (pc *pipelineContext) CrossPipelineWIPRequestsCount(upstreamPipelineName st
 	if upstreamPipelineName == pc.pipeName {
 		return len(pc.requestChan)
 	} else { // cross to the correct pipeline context
-		ctx := pc.mod.GetPipelineContext(upstreamPipelineName)
+		contexts := pc.mod.pipelineContexts()
+		ctx := contexts[upstreamPipelineName]
 		if ctx == nil {
 			logger.Warnf("[the context of upstream pipeline %s not found]", upstreamPipelineName)
 			return 0
@@ -246,9 +246,6 @@ func (pc *pipelineContext) TriggerSourceInput(getterName string, getter pipeline
 }
 
 func (pc *pipelineContext) Close() {
-	go pc.mod.DeletePluginDeletedCallback(
-		fmt.Sprintf("%s-deletePipelineContextDataBucketWhenPluginDeleted@%p", pc.pipeName, pc))
-
 	// to guarantee call close() on channel only once
 	pc.requestChanLock.Lock()
 	defer pc.requestChanLock.Unlock()
@@ -272,32 +269,34 @@ func (pc *pipelineContext) Close() {
 	logger.Infof("[pipeline %s context at %p is closed]", pc.pipeName, pc)
 }
 
-func (pc *pipelineContext) deletePipelineContextDataBucketWhenPluginDeleted(_ *Plugin) {
-	bucketInUsed := func(bucketKey string) bool {
-		// defensive the case plugin instance closes after it was deleted from model
-		for _, pluginName := range pc.PluginNames() {
-			if strings.HasPrefix(bucketKey, fmt.Sprintf("%s-", pluginName)) {
-				return true
+func (pc *pipelineContext) deletePipelineContextDataBucketWhenPluginDeleted() {
+	for {
+		<-pc.pluginDeleteChan
+		bucketInUsed := func(bucketKey string) bool {
+			// defensive the case plugin instance closes after it was deleted from model
+			for _, pluginName := range pc.PluginNames() {
+				if strings.HasPrefix(bucketKey, fmt.Sprintf("%s-", pluginName)) {
+					return true
+				}
+			}
+
+			return false
+		}
+
+		pc.bucketLock.Lock()
+
+		updatedBucket := make(map[string]*bucketItem)
+		for key, bucketItem := range pc.buckets {
+			if bucketInUsed(key) || !bucketItem.autoDelete {
+				updatedBucket[key] = bucketItem
+			} else {
+				bucketItem.bucket.close()
 			}
 		}
+		pc.buckets = updatedBucket
 
-		return false
+		pc.bucketLock.Unlock()
 	}
-
-	pc.bucketLock.Lock()
-	defer pc.bucketLock.Unlock()
-
-	updatedBucket := make(map[string]*bucketItem)
-
-	for key, bucketItem := range pc.buckets {
-		if bucketInUsed(key) || !bucketItem.autoDelete {
-			updatedBucket[key] = bucketItem
-		} else {
-			bucketItem.bucket.close()
-		}
-	}
-
-	pc.buckets = updatedBucket
 }
 
 func (pc *pipelineContext) addClosingCallback(name string, callback pipelineContextClosingCallback, priority string) {

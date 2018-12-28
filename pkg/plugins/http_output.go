@@ -12,18 +12,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hexdecteam/easegateway/pkg/common"
-	eghttp "github.com/hexdecteam/easegateway/pkg/http"
-	"github.com/hexdecteam/easegateway/pkg/logger"
-	"github.com/hexdecteam/easegateway/pkg/option"
-
-	"github.com/hexdecteam/easegateway-types/pipelines"
-	"github.com/hexdecteam/easegateway-types/plugins"
-	"github.com/hexdecteam/easegateway-types/task"
+	"github.com/megaease/easegateway/pkg/common"
+	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/option"
+	"github.com/megaease/easegateway/pkg/pipelines"
+	"github.com/megaease/easegateway/pkg/task"
 )
 
 type HTTPOutputConfig struct {
-	common.PluginCommonConfig
+	PluginCommonConfig
 	URLPattern               string            `json:"url_pattern"`
 	HeaderPatterns           map[string]string `json:"header_patterns"`
 	Close                    bool              `json:"close_body_after_pipeline"`
@@ -49,22 +46,22 @@ type HTTPOutputConfig struct {
 	ResponseRemoteKey   string `json:"response_remote_key"`
 	ResponseDurationKey string `json:"response_duration_key"`
 
-	typ               plugins.HTTPType
+	typ               HTTPType
 	cert              *tls.Certificate
 	caCert            []byte
 	connKeepAlive     int16
 	dumpReq, dumpResp bool
 }
 
-func HTTPOutputConfigConstructor() plugins.Config {
+func HTTPOutputConfigConstructor() Config {
 	return &HTTPOutputConfig{
 		TimeoutSec:            120,
 		ExpectedResponseCodes: []int{http.StatusOK},
 		ConnKeepAlive:         "auto",
 		ConnKeepAliveSec:      30,
-		DumpRequest:           "auto",
-		DumpResponse:          "auto",
-		Type:                  eghttp.NetHTTPStr,
+		DumpRequest:           "false",
+		DumpResponse:          "false",
+		Type:                  NetHTTPStr,
 	}
 }
 
@@ -133,27 +130,8 @@ func (c *HTTPOutputConfig) Prepare(pipelineNames []string) error {
 		return fmt.Errorf("invalid connection keep-alive period")
 	}
 
-	dumpFlag := func(flag, name string) (bool, error) {
-		if strings.ToLower(flag) == "auto" {
-			return common.StrInSlice(option.Stage, []string{"debug", "test"}), nil
-		} else if common.BoolFromStr(flag, false) {
-			return true, nil
-		} else if !common.BoolFromStr(flag, true) {
-			return false, nil
-		}
-
-		return false, fmt.Errorf("invalid http %s dump option", name)
-	}
-
-	c.dumpReq, err = dumpFlag(c.DumpRequest, "request")
-	if err != nil {
-		return err
-	}
-
-	c.dumpResp, err = dumpFlag(c.DumpResponse, "response")
-	if err != nil {
-		return err
-	}
+	c.dumpReq = common.BoolFromStr(c.DumpRequest, false)
+	c.dumpResp = common.BoolFromStr(c.DumpResponse, false)
 
 	_, err = common.ScanTokens(c.RequestBodyBufferPattern, false, nil)
 	if err != nil {
@@ -161,8 +139,8 @@ func (c *HTTPOutputConfig) Prepare(pipelineNames []string) error {
 	}
 
 	if len(c.CertFile) != 0 || len(c.KeyFile) != 0 {
-		certFilePath := filepath.Join(common.CERT_HOME_DIR, c.CertFile)
-		keyFilePath := filepath.Join(common.CERT_HOME_DIR, c.KeyFile)
+		certFilePath := filepath.Join(option.CertDir, c.CertFile)
+		keyFilePath := filepath.Join(option.CertDir, c.KeyFile)
 
 		if s, err := os.Stat(certFilePath); os.IsNotExist(err) || s.IsDir() {
 			return fmt.Errorf("cert file %s not found", c.CertFile)
@@ -180,7 +158,7 @@ func (c *HTTPOutputConfig) Prepare(pipelineNames []string) error {
 	}
 
 	if len(c.CAFile) != 0 {
-		caFilePath := filepath.Join(common.CERT_HOME_DIR, c.CAFile)
+		caFilePath := filepath.Join(option.CertDir, c.CAFile)
 
 		if s, err := os.Stat(caFilePath); os.IsNotExist(err) || s.IsDir() {
 			return fmt.Errorf("CA certificate file %s not found", c.CAFile)
@@ -192,7 +170,7 @@ func (c *HTTPOutputConfig) Prepare(pipelineNames []string) error {
 		}
 	}
 
-	typ, err := eghttp.ParseHTTPType(c.Type)
+	typ, err := ParseHTTPType(c.Type)
 	if err != nil {
 		return fmt.Errorf("parse http implementation failed: %v", err)
 	}
@@ -212,10 +190,10 @@ type httpOutput struct {
 	clients    []client
 }
 
-func httpOutputConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginType, bool, error) {
+func httpOutputConstructor(conf Config) (Plugin, PluginType, bool, error) {
 	c, ok := conf.(*HTTPOutputConfig)
 	if !ok {
-		return nil, plugins.SinkPlugin, false, fmt.Errorf("config type want *HTTPOutputConfig got %T", conf)
+		return nil, SinkPlugin, false, fmt.Errorf("config type want *HTTPOutputConfig got %T", conf)
 	}
 
 	h := &httpOutput{
@@ -229,7 +207,7 @@ func httpOutputConstructor(conf plugins.Config) (plugins.Plugin, plugins.PluginT
 
 	h.instanceId = fmt.Sprintf("%p", h)
 
-	return h, plugins.SinkPlugin, false, nil
+	return h, SinkPlugin, false, nil
 }
 
 func (h *httpOutput) Prepare(ctx pipelines.PipelineContext) {
@@ -262,11 +240,11 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) error {
 	// skip error check safely due to we ensured it in Prepare()
 	url, _ := ReplaceTokensInPattern(t, h.conf.URLPattern)
 
-	var reader plugins.SizedReadCloser
+	var reader SizedReadCloser
 	if len(h.conf.RequestBodyIOKey) != 0 {
 		inputValue := t.Value(h.conf.RequestBodyIOKey)
 		ok := false
-		if reader, ok = inputValue.(plugins.SizedReadCloser); !ok {
+		if reader, ok = inputValue.(SizedReadCloser); !ok {
 			t.SetError(fmt.Errorf("input %s got wrong value: %#v", h.conf.RequestBodyIOKey, inputValue),
 				task.ResultMissingInput)
 			return nil
@@ -275,7 +253,7 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) error {
 		// skip error check safely due to we ensured it in Prepare()
 		body, _ := ReplaceTokensInPattern(t, h.conf.RequestBodyBufferPattern)
 		byteBody := []byte(body)
-		reader = common.NewSizedReadCloser(ioutil.NopCloser(bytes.NewBuffer(byteBody)), int64(len(byteBody)))
+		reader = NewSizedReadCloser(ioutil.NopCloser(bytes.NewBuffer(byteBody)), int64(len(byteBody)))
 	}
 
 	// skip error check safely due to we ensured it in Prepare()
