@@ -87,7 +87,7 @@ func pythonConstructor(conf Config) (Plugin, PluginType, bool, error) {
 func (p *python) command(code string) *exec.Cmd {
 	ret := exec.Command(p.conf.cmd, "-c", code)
 
-	if !option.PluginPythonRootNamespace {
+	if !option.Global.PluginPythonRootNamespace {
 		ret.SysProcAttr = common.SysProcAttr()
 	}
 

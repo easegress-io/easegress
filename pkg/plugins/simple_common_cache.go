@@ -105,7 +105,7 @@ func (c *simpleCommonCache) cacheKey(t task.Task) uint32 {
 		}
 
 		h.Write([]byte(key))
-		h.Write([]byte(task.ToString(v, option.PluginIODataFormatLengthLimit)))
+		h.Write([]byte(task.ToString(v, option.Global.PluginIODataFormatLengthLimit)))
 	}
 
 	return h.Sum32()

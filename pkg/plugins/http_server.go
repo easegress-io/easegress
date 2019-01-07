@@ -209,8 +209,8 @@ func (c *HTTPServerConfig) Prepare(pipelineNames []string) error {
 	}
 
 	if len(c.CertFile) != 0 || len(c.KeyFile) != 0 {
-		c.certFilePath = filepath.Join(option.CertDir, c.CertFile)
-		c.keyFilePath = filepath.Join(option.CertDir, c.KeyFile)
+		c.certFilePath = filepath.Join(option.Global.CertDir, c.CertFile)
+		c.keyFilePath = filepath.Join(option.Global.CertDir, c.KeyFile)
 
 		if s, err := os.Stat(c.certFilePath); os.IsNotExist(err) || s.IsDir() {
 			return fmt.Errorf("cert file %s not found", c.CertFile)

@@ -84,7 +84,7 @@ func GenerateCGIEnv(c HTTPCtx) (map[string]string, []string) {
 	pathInfo = header.Path()
 
 	// 4.1.6
-	pathTranslated = filepath.Join(option.CGIDir, pathInfo)
+	pathTranslated = filepath.Join(option.Global.CGIDir, pathInfo)
 
 	// 4.1.7
 	queryString = header.QueryString()

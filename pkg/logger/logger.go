@@ -83,14 +83,14 @@ func (l *loggerSet) getLoggers(typ string) []*logrus.Logger {
 }
 
 func openLogFile(fileName string) (*os.File, error) {
-	if _, err := os.Stat(option.LogDir); os.IsNotExist(err) {
-		err = os.Mkdir(option.LogDir, 0750)
+	if _, err := os.Stat(option.Global.LogDir); os.IsNotExist(err) {
+		err = os.Mkdir(option.Global.LogDir, 0750)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	f, err := os.OpenFile(filepath.Join(option.LogDir, fileName), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0640)
+	f, err := os.OpenFile(filepath.Join(option.Global.LogDir, fileName), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0640)
 	if err != nil {
 		return nil, err
 	}
@@ -221,7 +221,7 @@ func init() {
 	initAPI()
 	// initMemberlist()
 	// initRaft()
-	initStd(stringToLevel(option.StdLogLevel))
+	initStd(stringToLevel(option.Global.StdLogLevel))
 }
 
 func ReOpenLogFiles() {

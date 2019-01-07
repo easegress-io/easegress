@@ -9,7 +9,7 @@ rootfs/ubuntu/opt
 
 # Dirs default config creates if not existed.
 logs
-store
+data
 
 # MacOS stuff.
 .DS_Store

@@ -1,8 +1,13 @@
 name: member-001
-mode: write
-api-url: localhost:8080
-peer-urls: []
-store-dir: ./store
+cluster-name: cluster-A
+cluster-role: writer
+force-new-cluster: false
+cluster-client-url: http://localhost:2379
+cluster-peer-url: http://localhost:2380
+cluster-join-url: ""
+api-url: http://localhost:2381
+data-dir: ./data
+wal-dir: ""
 cpu-profile-file: ""
 memory-profile-file: ""
 log-dir: ./logs

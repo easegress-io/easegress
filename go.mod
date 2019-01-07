@@ -11,11 +11,9 @@ require (
 	github.com/allegro/bigcache v1.1.0
 	github.com/aymerick/raymond v2.0.2+incompatible // indirect
 	github.com/coreos/bbolt v1.3.0 // indirect
-	github.com/coreos/etcd v3.3.10+incompatible // indirect
-	github.com/coreos/go-semver v0.2.0 // indirect
+	github.com/coreos/etcd v3.3.10+incompatible
 	github.com/coreos/go-systemd v0.0.0-20181031085051-9002847aa142 // indirect
 	github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f // indirect
-	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
 	github.com/eapache/go-resiliency v1.1.0 // indirect
 	github.com/eapache/go-xerial-snappy v0.0.0-20180814174437-776d5712da21 // indirect
 	github.com/eapache/queue v1.1.0 // indirect
@@ -24,15 +22,13 @@ require (
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/flosch/pongo2 v0.0.0-20180809100617-24195e6d38b0 // indirect
 	github.com/gavv/monotime v0.0.0-20171021193802-6f8212e8d10d // indirect
-	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/gogo/protobuf v1.2.0 // indirect
+	github.com/golang/groupcache v0.0.0-20181024230925-c65c006176ff // indirect
 	github.com/golang/snappy v0.0.0-20180518054509-2e65f85255db // indirect
 	github.com/google/btree v0.0.0-20180813153112-4030bb1f1f0c // indirect
 	github.com/google/go-querystring v1.0.0 // indirect
 	github.com/gopherjs/gopherjs v0.0.0-20181103185306-d547d1d9531e // indirect
 	github.com/gorilla/websocket v1.4.0 // indirect
-	github.com/grpc-ecosystem/go-grpc-middleware v1.0.0 // indirect
-	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.6.3 // indirect
 	github.com/imkira/go-interpol v1.1.0 // indirect
 	github.com/iris-contrib/blackfriday v2.0.0+incompatible // indirect
@@ -40,7 +36,6 @@ require (
 	github.com/iris-contrib/go.uuid v2.0.0+incompatible // indirect
 	github.com/iris-contrib/httpexpect v0.0.0-20180314041918-ebe99fcebbce // indirect
 	github.com/jessevdk/go-flags v1.4.0
-	github.com/jonboulle/clockwork v0.1.0 // indirect
 	github.com/json-iterator/go v1.1.5 // indirect
 	github.com/jtolds/gls v4.2.1+incompatible // indirect
 	github.com/juju/errors v0.0.0-20181118221551-089d3ea4e4d5 // indirect
@@ -53,8 +48,6 @@ require (
 	github.com/klauspost/compress v1.4.1 // indirect
 	github.com/klauspost/cpuid v1.2.0 // indirect
 	github.com/kr/pretty v0.1.0 // indirect
-	github.com/mattn/go-colorable v0.0.9 // indirect
-	github.com/mattn/go-isatty v0.0.4 // indirect
 	github.com/microcosm-cc/bluemonday v1.0.2 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.1 // indirect
@@ -70,22 +63,18 @@ require (
 	github.com/sirupsen/logrus v1.2.0
 	github.com/smartystreets/assertions v0.0.0-20180927180507-b2de0cb4f26d // indirect
 	github.com/smartystreets/goconvey v0.0.0-20181108003508-044398e4856c // indirect
-	github.com/soheilhy/cmux v0.1.4 // indirect
+	github.com/spf13/pflag v1.0.3 // indirect
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20171017195756-830351dc03c6 // indirect
-	github.com/ugorji/go/codec v0.0.0-20181209151446-772ced7fd4c2
+	github.com/ugorji/go v1.1.1
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	github.com/xeipuuv/gojsonschema v0.0.0-20181112162635-ac52e6811b56
-	github.com/xiang90/probing v0.0.0-20160813154853-07dd2e8dfe18 // indirect
 	github.com/yalp/jsonpath v0.0.0-20180802001716-5cc68e5049a0 // indirect
 	github.com/yudai/gojsondiff v1.0.0 // indirect
 	github.com/yudai/golcs v0.0.0-20170316035057-ecda9a501e82 // indirect
 	github.com/yudai/pp v2.0.1+incompatible // indirect
-	go.etcd.io/etcd v3.3.10+incompatible
-	go.uber.org/atomic v1.3.2 // indirect
-	go.uber.org/multierr v1.1.0 // indirect
-	go.uber.org/zap v1.9.1 // indirect
+	go.etcd.io/etcd v0.0.0-20190101173138-400b568fd63e
 	golang.org/x/crypto v0.0.0-20181203042331-505ab145d0a9 // indirect
 	golang.org/x/net v0.0.0-20181220203305-927f97764cc3
 	golang.org/x/sync v0.0.0-20181221193216-37e7f081c4d4 // indirect

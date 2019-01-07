@@ -189,7 +189,7 @@ func hashSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Task)
 			continue
 		}
 
-		h.Write([]byte(task.ToString(v, option.PluginIODataFormatLengthLimit)))
+		h.Write([]byte(task.ToString(v, option.Global.PluginIODataFormatLengthLimit)))
 	}
 	idx := int(h.Sum32() % uint32(len(u.conf.TargetPipelineNames)))
 	return &defaultSelection{
@@ -211,7 +211,7 @@ func filterSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Tas
 			r := u.conf.filterRegexMapList[idx][key]
 			v := t.Value(key)
 
-			if v == nil || !r.MatchString(task.ToString(v, option.PluginIODataFormatLengthLimit)) {
+			if v == nil || !r.MatchString(task.ToString(v, option.Global.PluginIODataFormatLengthLimit)) {
 				matched = false
 				break
 			}

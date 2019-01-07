@@ -133,7 +133,7 @@ func (scheduler *commonPipelineScheduler) startPipeline(parallelism uint32) (uin
 		return currentParallelism, 0 // scheduler is stop or reach the cap
 	}
 
-	left := option.PipelineMaxParallelism - currentParallelism
+	left := option.Global.PipelineMaxParallelism - currentParallelism
 	if parallelism > left {
 		parallelism = left
 	}
@@ -246,7 +246,7 @@ func (scheduler *dynamicPipelineScheduler) Start() {
 		return // already started
 	}
 
-	parallelism, _ := scheduler.startPipeline(option.PipelineInitParallelism)
+	parallelism, _ := scheduler.startPipeline(option.Global.PipelineInitParallelism)
 
 	logger.Debugf("[initialized pipeline instance(s) for pipeline %s (total=%d)]",
 		scheduler.PipelineName(), parallelism)
@@ -356,7 +356,7 @@ func (scheduler *dynamicPipelineScheduler) spawn() {
 
 			currentParallelism := uint32(len(scheduler.instances))
 
-			if currentParallelism == option.PipelineMaxParallelism {
+			if currentParallelism == option.Global.PipelineMaxParallelism {
 				scheduler.instancesLock.RUnlock()
 				continue // less than the cap of pipeline parallelism
 			}
@@ -400,7 +400,7 @@ func (scheduler *dynamicPipelineScheduler) shrink() {
 
 			currentParallelism := uint32(len(scheduler.instances))
 
-			if currentParallelism <= option.PipelineMinParallelism {
+			if currentParallelism <= option.Global.PipelineMinParallelism {
 				scheduler.instancesLock.RUnlock()
 				continue // keep minimal pipeline parallelism
 			}
@@ -430,7 +430,7 @@ func (scheduler *dynamicPipelineScheduler) shrink() {
 			currentParallelism = uint32(len(scheduler.instances))
 
 			// DCL
-			if currentParallelism <= option.PipelineMinParallelism {
+			if currentParallelism <= option.Global.PipelineMinParallelism {
 				scheduler.instancesLock.Unlock()
 				continue // keep minimal pipeline parallelism
 			}

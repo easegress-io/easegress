@@ -344,14 +344,14 @@ func GetConstructorConfig(t string) (Constructor, Config, error) {
 func LoadOutTreePluginTypes() error {
 	logger.Debugf("[load all out-tree plugin types]")
 
-	err := os.MkdirAll(option.CertDir, 0700)
+	err := os.MkdirAll(option.Global.CertDir, 0700)
 	if err != nil {
 		return fmt.Errorf(err.Error())
 	}
 
 	count := 0
 
-	err = filepath.Walk(option.CertDir, func(path string, info os.FileInfo, err error) error {
+	err = filepath.Walk(option.Global.CertDir, func(path string, info os.FileInfo, err error) error {
 		if info == nil {
 			logger.Warnf("[access %s failed, out-tree plugin types skipped in the file: %v]", path, err)
 			return filepath.SkipDir
@@ -477,7 +477,7 @@ func ReplaceTokensInPattern(t task.Task, pattern string) (string, error) {
 
 		v := t.Value(token)
 		if v != nil {
-			ret = task.ToString(v, option.PluginIODataFormatLengthLimit)
+			ret = task.ToString(v, option.Global.PluginIODataFormatLengthLimit)
 		}
 
 		// always do replacement even it is empty (no value found in the task with a certain data key)

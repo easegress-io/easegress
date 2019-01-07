@@ -88,7 +88,7 @@ func shellConstructor(conf Config) (Plugin, PluginType, bool, error) {
 func (p *shell) command(code string) *exec.Cmd {
 	ret := exec.Command(p.conf.cmd, "-c", code)
 
-	if !option.PluginShellRootNamespace {
+	if !option.Global.PluginShellRootNamespace {
 		ret.SysProcAttr = common.SysProcAttr()
 	}
 

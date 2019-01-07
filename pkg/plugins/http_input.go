@@ -398,7 +398,7 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 		var readRespBodyElapse, writeClientBodyElapse time.Duration
 		// Use customized ResponseBodyBuffer first
 		if len(h.conf.ResponseBodyBufferKey) != 0 && t1.Value(h.conf.ResponseBodyBufferKey) != nil {
-			buf := task.ToBytes(t1.Value(h.conf.ResponseBodyBufferKey), option.PluginIODataFormatLengthLimit)
+			buf := task.ToBytes(t1.Value(h.conf.ResponseBodyBufferKey), option.Global.PluginIODataFormatLengthLimit)
 			bodyBytesSent = int64(len(buf))
 			ht.ctx.SetContentLength(bodyBytesSent)
 			ht.ctx.SetStatusCode(getClientReceivedCode(t1, h.conf.ResponseCodeKey))
@@ -603,7 +603,7 @@ func getResponseCode(t task.Task, responseCodeKey string) int {
 	statusCode := task.ResultCodeToHTTPCode(t.ResultCode())
 	if len(responseCodeKey) != 0 {
 		code, err := strconv.Atoi(
-			task.ToString(t.Value(responseCodeKey), option.PluginIODataFormatLengthLimit))
+			task.ToString(t.Value(responseCodeKey), option.Global.PluginIODataFormatLengthLimit))
 		if err == nil {
 			statusCode = code
 		}

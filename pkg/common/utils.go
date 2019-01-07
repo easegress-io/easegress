@@ -3,6 +3,8 @@ package common
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -225,4 +227,21 @@ func ValidateName(name string) error {
 	}
 
 	return nil
+}
+
+func IsDirEmpty(name string) bool {
+	f, err := os.Open(name)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return true
+		}
+		return false
+	}
+	defer f.Close()
+
+	_, err = f.Readdirnames(1)
+	if err == io.EOF {
+		return true
+	}
+	return false
 }

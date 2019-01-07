@@ -139,8 +139,8 @@ func (c *HTTPOutputConfig) Prepare(pipelineNames []string) error {
 	}
 
 	if len(c.CertFile) != 0 || len(c.KeyFile) != 0 {
-		certFilePath := filepath.Join(option.CertDir, c.CertFile)
-		keyFilePath := filepath.Join(option.CertDir, c.KeyFile)
+		certFilePath := filepath.Join(option.Global.CertDir, c.CertFile)
+		keyFilePath := filepath.Join(option.Global.CertDir, c.KeyFile)
 
 		if s, err := os.Stat(certFilePath); os.IsNotExist(err) || s.IsDir() {
 			return fmt.Errorf("cert file %s not found", c.CertFile)
@@ -158,7 +158,7 @@ func (c *HTTPOutputConfig) Prepare(pipelineNames []string) error {
 	}
 
 	if len(c.CAFile) != 0 {
-		caFilePath := filepath.Join(option.CertDir, c.CAFile)
+		caFilePath := filepath.Join(option.Global.CertDir, c.CAFile)
 
 		if s, err := os.Stat(caFilePath); os.IsNotExist(err) || s.IsDir() {
 			return fmt.Errorf("CA certificate file %s not found", c.CAFile)

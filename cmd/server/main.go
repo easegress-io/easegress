@@ -8,6 +8,7 @@ import (
 	"runtime/pprof"
 	"syscall"
 
+	_ "github.com/megaease/easegateway/pkg/api"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/model"
 	"github.com/megaease/easegateway/pkg/option"
@@ -20,7 +21,7 @@ func main() {
 
 	dones := setupAsyncJobs()
 
-	store, err := store.New("group" /*TODO: delete group*/)
+	store, err := store.New()
 	if err != nil {
 		logger.Errorf("[new store failed: %v]", err)
 		return
@@ -90,13 +91,13 @@ func setupLogFileReopen() chan struct{} {
 }
 
 func setupCPUProfile() chan struct{} {
-	if option.CPUProfileFile == "" {
+	if option.Global.CPUProfileFile == "" {
 		return nil
 	}
 
 	done := make(chan struct{}, 1)
 
-	f, err := os.Create(option.CPUProfileFile)
+	f, err := os.Create(option.Global.CPUProfileFile)
 	if err != nil {
 		logger.Errorf("[create cpu profile failed: %v]", err)
 		os.Exit(1)
@@ -107,13 +108,13 @@ func setupCPUProfile() chan struct{} {
 		os.Exit(1)
 	}
 
-	logger.Infof("[cpu profile: %s]", option.CPUProfileFile)
+	logger.Infof("[cpu profile: %s]", option.Global.CPUProfileFile)
 	go func() {
 		<-done
 		pprof.StopCPUProfile()
 		err := f.Close()
 		if err != nil {
-			logger.Errorf("close %s failed: %v", option.CPUProfileFile, err)
+			logger.Errorf("close %s failed: %v", option.Global.CPUProfileFile, err)
 		}
 		close(done)
 	}()
@@ -122,7 +123,7 @@ func setupCPUProfile() chan struct{} {
 }
 
 func setupMemoryoryProfile() chan struct{} {
-	if option.MemoryProfileFile == "" {
+	if option.Global.MemoryProfileFile == "" {
 		return nil
 	}
 
@@ -133,8 +134,8 @@ func setupMemoryoryProfile() chan struct{} {
 
 	go func() {
 		<-done
-		logger.Infof("[memory profile: %s]", option.MemoryProfileFile)
-		f, err := os.Create(option.MemoryProfileFile)
+		logger.Infof("[memory profile: %s]", option.Global.MemoryProfileFile)
+		f, err := os.Create(option.Global.MemoryProfileFile)
 		if err != nil {
 			logger.Errorf("[create memory profile failed: %v]", err)
 			return
