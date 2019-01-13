@@ -37,7 +37,7 @@ func APIAccess(method, remoteAddr, path string, code int,
 	line := fmt.Sprintf("%s %s %s %v rx:%dB tx:%dB start:%v process:%v",
 		method, remoteAddr, path, code,
 		bodyBytedReceived, bodyBytesSent,
-		requestTime, processTime)
+		requestTime.Format(time.RFC3339), processTime)
 
 	for _, l := range apiLog.getLoggers("api_access") {
 		l.Debugf(line)

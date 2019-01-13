@@ -1,7 +1,8 @@
 package api
 
 import (
-	"strconv"
+	"net/http"
+	"runtime/debug"
 	"time"
 
 	"github.com/megaease/easegateway/pkg/common"
@@ -31,11 +32,41 @@ func newAPILogger() func(context.Context) {
 		remoteAddr = ctx.RemoteAddr()
 		path = ctx.Path()
 		code = ctx.GetStatusCode()
-		bodyBytesReceived, _ = strconv.ParseInt(ctx.GetHeader(context.ContentLengthHeaderKey), 10, 64)
-		bodyBytesSent = ctx.GetContentLength()
+		bodyBytesReceived = ctx.GetContentLength()
+		bodyBytesSent = int64(ctx.ResponseWriter().Written())
 
 		logger.APIAccess(method, remoteAddr, path, code,
 			bodyBytesReceived, bodyBytesSent,
 			startTime, processTime)
+	}
+}
+
+func newRecoverer() func(context.Context) {
+	return func(ctx context.Context) {
+		defer func() {
+			if err := recover(); err != nil {
+				if ctx.IsStopped() {
+					return
+				}
+
+				if err, ok := err.(clusterErr); ok {
+					handleAPIError(ctx, http.StatusServiceUnavailable, err)
+				} else {
+					logger.Errorf("[recovered from %s, stack trace:]\n%s\n",
+						ctx.HandlerName(), debug.Stack())
+					handleAPIError(ctx, http.StatusInternalServerError, err)
+				}
+			}
+		}()
+
+		ctx.Next()
+	}
+}
+
+func newJSONContentType() func(context.Context) {
+	return func(ctx context.Context) {
+		ctx.Header("Content-Type", "application/json")
+
+		ctx.Next()
 	}
 }

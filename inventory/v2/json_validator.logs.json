@@ -1,0 +1,10 @@
+{
+  "type": "JSONValidator",
+  "name": "json_validator.logs",
+  "config": {
+    "plugin_name": "json_validator.logs",
+    "schema": "{}",
+    "base64_encoded": false,
+    "data_key": "DATA"
+  }
+}

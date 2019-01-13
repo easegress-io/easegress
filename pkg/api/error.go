@@ -1,12 +1,28 @@
 package api
 
 import (
-	"fmt"
+	"encoding/json"
 
 	"github.com/kataras/iris"
 )
 
-func handlAPIError(ctx iris.Context, code int, err error) {
+type (
+	clusterErr error
+
+	APIErr struct {
+		Message string `json:"message"`
+		Code    int    `json:"code"`
+	}
+)
+
+func handleAPIError(ctx iris.Context, code int, err error) {
 	ctx.StatusCode(code)
-	ctx.WriteString(fmt.Sprintf(`{"code":%d,"message":%s}`, code, err.Error()))
+	buff, err := json.Marshal(APIErr{
+		Code:    code,
+		Message: err.Error(),
+	})
+	if err != nil {
+		panic(err)
+	}
+	ctx.Write(buff)
 }

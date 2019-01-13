@@ -217,11 +217,10 @@ func stringToLevel(s string) logrus.Level {
 }
 
 func init() {
+	initStd(stringToLevel(option.Global.StdLogLevel))
 	initHTTP()
 	initAPI()
-	// initMemberlist()
 	// initRaft()
-	initStd(stringToLevel(option.Global.StdLogLevel))
 }
 
 func ReOpenLogFiles() {

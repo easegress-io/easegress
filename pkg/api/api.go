@@ -1,41 +1,140 @@
 package api
 
 import (
-	"github.com/megaease/easegateway/pkg/store"
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"time"
+
+	"github.com/megaease/easegateway/pkg/cluster"
+	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/option"
 
 	"github.com/kataras/iris"
-	"github.com/kataras/iris/middleware/recover"
 )
 
 type apiEntry struct {
-	path    string
-	method  string
-	handler iris.Handler
+	Path    string       `json:"path"`
+	Method  string       `json:"method"`
+	Handler iris.Handler `json:"-"`
 }
 
 const (
-	APIPrefix = "/apis/v2/groups/{group:string}"
+	APIPrefix = "/apis/v2"
+
+	lockKey     = "/config/lock"
+	lockTimeout = 10 * time.Second
 )
 
 type APIServer struct {
-	app   *iris.Application
-	store store.Store
-	apis  []apiEntry
+	app     *iris.Application
+	cluster cluster.Cluster
+	mutex   cluster.Mutex
+	apis    []*apiEntry
+	logFile *os.File
 }
 
-func NewAPIServer(store store.Store) *APIServer {
+func MustNewAPIServer(cluster cluster.Cluster) *APIServer {
 	app := iris.New()
-	app.Use(recover.New())
-	app.Logger()
+	app.Use(newJSONContentType())
+	app.Use(newRecoverer())
 	app.Use(newAPILogger())
-	// app.Use(newRedirector(cluster))
+
+	logFile, err := os.Open(os.DevNull)
+	if err != nil {
+		logger.Errorf("[open %s failed: %v]", os.DevNull, err)
+		os.Exit(1)
+	}
+	app.Logger().SetOutput(logFile)
 
 	s := &APIServer{
-		app:   app,
-		store: store,
+		app:     app,
+		cluster: cluster,
+		mutex:   cluster.Mutex(lockKey, lockTimeout),
+		logFile: logFile,
 	}
-	s.apis = append(s.apis, pluginAPIs(s)...)
-	s.apis = append(s.apis, pipelineAPIs(s)...)
+
+	s.setupAPIs()
+
+	go func() {
+		err := app.Run(iris.Addr(option.Global.APIAddr))
+		if err == iris.ErrServerClosed {
+			return
+		}
+		if err != nil {
+			logger.Errorf("[run api app failed: %v]", err)
+			os.Exit(1)
+		}
+	}()
 
 	return s
+}
+
+func (s *APIServer) setupAPIs() {
+	listAPIsEntry := &apiEntry{
+		Path:    "",
+		Method:  "GET",
+		Handler: s.listAPIs,
+	}
+	s.apis = append(s.apis, listAPIsEntry)
+	s.setupMemberAPIs()
+	s.setupPluginAPIs()
+	s.setupPipelineAPIs()
+
+	for _, api := range s.apis {
+		api.Path = APIPrefix + api.Path
+		switch api.Method {
+		case "GET":
+			s.app.Get(api.Path, api.Handler)
+		case "HEAD":
+			s.app.Head(api.Path, api.Handler)
+		case "PUT":
+			s.app.Put(api.Path, api.Handler)
+		case "POST":
+			s.app.Post(api.Path, api.Handler)
+		case "PATCH":
+			s.app.Patch(api.Path, api.Handler)
+		case "DELETE":
+			s.app.Delete(api.Path, api.Handler)
+		case "CONNECT":
+			s.app.Connect(api.Path, api.Handler)
+		case "OPTIONS":
+			s.app.Options(api.Path, api.Handler)
+		case "TRACE":
+			s.app.Trace(api.Path, api.Handler)
+		}
+
+	}
+}
+
+func (s *APIServer) listAPIs(ctx iris.Context) {
+	buff, err := json.Marshal(s.apis)
+	if err != nil {
+		panic(fmt.Errorf("marshal %#v to json failed: %v", s.apis, err))
+	}
+
+	ctx.Write(buff)
+}
+
+func (s *APIServer) Close() {
+	s.app.Shutdown(context.Background())
+	err := s.logFile.Close()
+	if err != nil {
+		logger.Errorf("close log file failed: %v", err)
+	}
+}
+
+func (s *APIServer) Lock() {
+	err := s.mutex.Lock()
+	if err != nil {
+		clusterPanic(err)
+	}
+}
+
+func (s *APIServer) Unlock() {
+	err := s.mutex.Unlock()
+	if err != nil {
+		clusterPanic(err)
+	}
 }

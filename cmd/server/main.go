@@ -8,7 +8,8 @@ import (
 	"runtime/pprof"
 	"syscall"
 
-	_ "github.com/megaease/easegateway/pkg/api"
+	"github.com/megaease/easegateway/pkg/api"
+	"github.com/megaease/easegateway/pkg/cluster"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/model"
 	"github.com/megaease/easegateway/pkg/option"
@@ -17,19 +18,29 @@ import (
 )
 
 func main() {
+	defer logger.CloseLogFiles()
+
 	logger.Infof("[%s]", version.Long)
 
 	dones := setupAsyncJobs()
 
-	store, err := store.New()
+	cluster, err := cluster.New()
+	if err != nil {
+		logger.Errorf("[new cluster failed: %v]", err)
+		os.Exit(1)
+	}
+	store, err := store.New(cluster)
 	if err != nil {
 		logger.Errorf("[new store failed: %v]", err)
-		return
+		os.Exit(1)
 	}
-	m, err := model.NewModel(store)
+	model, err := model.NewModel(store)
 	if err != nil {
 		logger.Errorf("[new model failed: %v]", err)
+		os.Exit(1)
 	}
+
+	api := api.MustNewAPIServer(cluster)
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
@@ -37,8 +48,10 @@ func main() {
 	sig := <-sigChan
 	go func() {
 		logger.Infof("[%s signal received, closing easegateway]", sig)
-		m.Close()
+		api.Close()
+		model.Close()
 		store.Close()
+		cluster.Close()
 		for _, done := range dones {
 			if done != nil {
 				done <- struct{}{}
@@ -61,7 +74,6 @@ func main() {
 
 func setupAsyncJobs() []chan struct{} {
 	logDone := setupLogFileReopen()
-	defer logger.CloseLogFiles()
 	cpuProfileDone := setupCPUProfile()
 	memProfileDone := setupMemoryoryProfile()
 

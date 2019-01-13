@@ -24,25 +24,19 @@ type Model struct {
 	schedulersLock sync.RWMutex
 	schedulers     map[string]PipelineScheduler
 
-	store   store.Store
-	watcher *store.Watcher
+	store store.Store
 }
 
 func NewModel(store store.Store) (*Model, error) {
-	watcher, err := store.ClaimWatcher("model")
-	if err != nil {
-		return nil, fmt.Errorf("claim watcher failed: %v", err)
-	}
 	m := &Model{
 		plugins:        make(map[string]*Plugin),
 		pluginsCounter: newPluginRefCounter(),
 		schedulers:     make(map[string]PipelineScheduler),
 		store:          store,
-		watcher:        watcher,
 	}
 	go func() {
-		for diffSpec := range m.watcher.Watch() {
-			m.applyDiffSpec(diffSpec)
+		for event := range m.store.Watch() {
+			m.handlEvent(event)
 		}
 	}()
 	return m, nil
@@ -195,6 +189,7 @@ func (m *Model) deletePipeline(name string) {
 		return
 	}
 	scheduler.Stop()
+	scheduler.StopPipeline()
 	delete(m.schedulers, name)
 }
 
@@ -238,25 +233,33 @@ func (m *Model) pipelineInstances() map[string][]*pipelineInstance {
 	return pipelineInstances
 }
 
-func (m *Model) applyDiffSpec(diffSpec *store.DiffSpec) {
-	for _, pluginSpec := range diffSpec.CreatedOrUpdatedPlugins {
-		m.createPlugin(pluginSpec)
-	}
-	for _, pipelineSpec := range diffSpec.CreatedOrUpdatedPipelines {
-		m.createPipeline(pipelineSpec)
+func (m *Model) handlEvent(event *store.Event) {
+	for name, spec := range event.Plugins {
+		if spec != nil {
+			if _, exists := m.plugins[name]; !exists {
+				m.createPlugin(spec)
+			} else {
+				m.updatePlugin(spec)
+			}
+		} else {
+			m.deletePlugin(name)
+		}
 	}
 
-	for _, name := range diffSpec.DeletedPipelines {
-		m.deletePipeline(name)
-	}
-
-	for _, name := range diffSpec.DeletedPlugins {
-		m.deletePlugin(name)
+	for name, spec := range event.Pipelines {
+		if spec != nil {
+			if _, exists := m.schedulers[name]; !exists {
+				m.createPipeline(spec)
+			} else {
+				m.updatePipeline(spec)
+			}
+		} else {
+			m.deletePipeline(name)
+		}
 	}
 }
 
 func (m *Model) Close() {
-	m.store.DeleteWatcher("model")
 	for name := range m.schedulers {
 		m.deletePipeline(name)
 	}

@@ -3,36 +3,27 @@ package store
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"reflect"
 
+	"github.com/megaease/easegateway/pkg/cluster"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/pipelines"
 	"github.com/megaease/easegateway/pkg/plugins"
 )
 
+// Store is the middle level between cluster and model aka
+// external storage and memory runtime.
 type Store interface {
-	GetPlugin(name string) *PluginSpec
-	GetPipeline(name string) *PipelineSpec
-	ListPlugins() map[string]*PluginSpec
-	ListPipelines() map[string]*PipelineSpec
-	ListPluginPipelines() (map[string]*PluginSpec, map[string]*PipelineSpec)
-	CreatePlugin(pluginSpec *PluginSpec) error
-	CreatePipeline(pipelineSpec *PipelineSpec) error
-	DeletePlugin(name string) error
-	DeletePipeline(name string) error
-	UpdatePlugin(pluginSpec *PluginSpec) error
-	UpdatePipeline(pipelineSpec *PipelineSpec) error
-	ApplyDiff(diffSpec *DiffSpec) error
-	// AddWatcher adds a watcher of store,
-	// the store always sends the whole Spec at first time,
+	// Watch channel always sends the whole Spec at first time,
 	// then sends each change afterwards.
-	ClaimWatcher(name string) (*Watcher, error)
-	DeleteWatcher(name string)
+	Watch() <-chan *Event
+
 	Close()
 }
 
-func New() (Store, error) {
-	store, err := newJSONFileStore()
+func New(cluster cluster.Cluster) (Store, error) {
+	store, err := newJSONFileStore(cluster)
 	if err != nil {
 		return nil, err
 	}
@@ -54,17 +45,48 @@ type (
 		Config *pipelines.PipelineCommonConfig `json:"config"`
 	}
 
-	DiffSpec struct {
-		Total                     bool
-		CreatedOrUpdatedPipelines map[string]*PipelineSpec
-		DeletedPipelines          []string
-		CreatedOrUpdatedPlugins   map[string]*PluginSpec
-		DeletedPlugins            []string
-	}
-	Watcher struct {
-		diffSpecChan chan *DiffSpec
+	Event struct {
+		Pipelines map[string]*PipelineSpec
+		Plugins   map[string]*PluginSpec
 	}
 )
+
+func NewPluginSpec(value string) (*PluginSpec, error) {
+	spec := new(PluginSpec)
+	err := json.Unmarshal([]byte(value), spec)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal %s to json failed: %v",
+			value, err)
+	}
+	return spec, nil
+}
+
+func (spec *PluginSpec) Bootstrap(pipelineNames []string) error {
+	constructor, config, err := plugins.GetConstructorConfig(spec.Type)
+	if err != nil {
+		return fmt.Errorf("get contructor and config for plugin %s(type: %s) failed: %v",
+			spec.Name, spec.Type, err)
+	}
+
+	buff, err := json.Marshal(spec.Config)
+	if err != nil {
+		return fmt.Errorf("marshal %#v failed: %v", spec.Config, err)
+	}
+	err = json.Unmarshal(buff, config)
+	if err != nil {
+		return fmt.Errorf("unmarshal %s for config of plugin %s(type %s) failed: %v",
+			buff, spec.Name, spec.Type, err)
+	}
+	err = config.Prepare(pipelineNames)
+	if err != nil {
+		return fmt.Errorf("prepare config for plugin %s(type %s) failed: %v",
+			spec.Name, spec.Type, err)
+	}
+
+	spec.Constructor, spec.Config = constructor, config
+
+	return nil
+}
 
 // NOTICE: The field Config of PluginSepc could be map[string]interface{}
 // in general after unmarshal, but it would be converted the plugins.Config
@@ -85,20 +107,32 @@ func (spec *PluginSpec) equal(other *PluginSpec) bool {
 	return bytes.Equal(buff1, buff2)
 }
 
+func NewPipelineSpec(value string) (*PipelineSpec, error) {
+	spec := new(PipelineSpec)
+	err := json.Unmarshal([]byte(value), spec)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal %s to json failed: %v",
+			value, err)
+	}
+	return spec, nil
+}
+
+func (spec *PipelineSpec) Bootstrap(pluginNames map[string]struct{}) error {
+	err := spec.Config.Prepare()
+	if err != nil {
+		return fmt.Errorf("prepare config for pipeline %s failed: %v",
+			spec.Name, err)
+	}
+
+	for _, pluginName := range spec.Config.Plugins {
+		if _, exists := pluginNames[pluginName]; !exists {
+			return fmt.Errorf("plugin %s not found", pluginName)
+		}
+	}
+
+	return nil
+}
+
 func (spec *PipelineSpec) equal(other *PipelineSpec) bool {
 	return reflect.DeepEqual(spec, other)
-}
-
-func newWatcher() *Watcher {
-	return &Watcher{
-		diffSpecChan: make(chan *DiffSpec, 10),
-	}
-}
-
-func (w *Watcher) Watch() <-chan *DiffSpec {
-	return w.diffSpecChan
-}
-
-func (w *Watcher) close() {
-	close(w.diffSpecChan)
 }

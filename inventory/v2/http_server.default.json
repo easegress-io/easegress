@@ -1,0 +1,19 @@
+{
+  "type": "HTTPServer",
+  "name": "http_server.default",
+  "config": {
+    "host": "0.0.0.0",
+    "keepalive": true,
+    "keepalive_sec": 30,
+    "key_file": "",
+    "max_connections": 10240,
+    "mux_config": {
+      "cache_key_complete": false,
+      "cache_max_count": 1024
+    },
+    "mux_type": "regexp",
+    "plugin_name": "http_server.default",
+    "port": 10080,
+    "type": "nethttp"
+  }
+}

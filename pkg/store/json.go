@@ -6,32 +6,36 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"sync"
+	"strings"
+	"sync/atomic"
 	"time"
 
-	"github.com/megaease/easegateway/pkg/common"
+	"github.com/megaease/easegateway/pkg/cluster"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/option"
-	"github.com/megaease/easegateway/pkg/plugins"
+)
+
+const (
+	watchTimeout = 10 * time.Second
 )
 
 type (
 	jsonFileConfig struct {
-		sync.RWMutex `json:"-"`
-		Plugins      map[string]*PluginSpec   `json:"plugins"`
-		Pipelines    map[string]*PipelineSpec `json:"pipelines"`
+		Plugins   map[string]*PluginSpec   `json:"plugins"`
+		Pipelines map[string]*PipelineSpec `json:"pipelines"`
 	}
 	jsonFileStore struct {
-		watchersLock sync.Mutex
-		watchers     map[string]*Watcher
-		diffChan     chan *DiffSpec
+		cluster     cluster.Cluster
+		clusterChan <-chan map[string]*string
+		eventChan   chan *Event
+		closed      int32
 
 		configPath string
 		config     *jsonFileConfig
 	}
 )
 
-func newJSONFileStore() (*jsonFileStore, error) {
+func newJSONFileStore(c cluster.Cluster) (*jsonFileStore, error) {
 	configFile := "runtime_config.json"
 	configPath := filepath.Join(option.Global.DataDir, configFile)
 	logger.Debugf("[runtime config path: %s]", configPath)
@@ -42,7 +46,7 @@ func newJSONFileStore() (*jsonFileStore, error) {
 	}
 
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		f, err := os.OpenFile(configPath, os.O_WRONLY|os.O_CREATE, 0600)
+		f, err := os.OpenFile(configPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0640)
 		if err != nil {
 			return nil, fmt.Errorf("open file %s failed: %v", configPath, err)
 		}
@@ -50,39 +54,20 @@ func newJSONFileStore() (*jsonFileStore, error) {
 		f.Close()
 	}
 
-	buff, err := ioutil.ReadFile(configPath)
+	clusterChan, err := c.WatchPrefix(cluster.ConfigObjectPrefix)
 	if err != nil {
-		return nil, fmt.Errorf("read file %s failed: %v", configPath, err)
-	}
-
-	config := new(jsonFileConfig)
-	err = json.Unmarshal(buff, config)
-	if err != nil {
-		return nil, fmt.Errorf("unmarshal %s to json failed: %v", configPath, err)
+		return nil, fmt.Errorf("watch config objects failed: %v", err)
 	}
 
 	s := &jsonFileStore{
-		watchers:   make(map[string]*Watcher),
-		diffChan:   make(chan *DiffSpec, 100),
-		configPath: configPath,
+		cluster:     c,
+		clusterChan: clusterChan,
+		eventChan:   make(chan *Event, 10),
+		configPath:  configPath,
 		config: &jsonFileConfig{
 			Plugins:   make(map[string]*PluginSpec),
 			Pipelines: make(map[string]*PipelineSpec),
 		},
-	}
-
-	// To validate existed config.
-	for _, plugin := range config.Plugins {
-		err := s.createPlugin(plugin)
-		if err != nil {
-			return nil, err
-		}
-	}
-	for _, pipeline := range config.Pipelines {
-		err := s.createPipeline(pipeline)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	go s.notify()
@@ -90,31 +75,100 @@ func newJSONFileStore() (*jsonFileStore, error) {
 	return s, nil
 }
 
-func (s *jsonFileStore) Close() {
-	close(s.diffChan)
-	logger.Infof("[diff channel closed]")
-	s.watchersLock.Lock()
-	for name, watcher := range s.watchers {
-		watcher.close()
-		logger.Infof("[watcher %s closed]", name)
-	}
-	s.watchersLock.Unlock()
+func (s *jsonFileStore) Watch() <-chan *Event {
+	return s.eventChan
 }
 
 func (s *jsonFileStore) notify() {
-	for diffSpec := range s.diffChan {
-		s.watchersLock.Lock()
-		for name, watcher := range s.watchers {
-			select {
-			case <-time.After(100 * time.Millisecond):
-				logger.Errorf("[send diff to watcher %s timeout(100ms), close it]", name)
-				watcher.close()
-				delete(s.watchers, name)
-			case watcher.diffSpecChan <- diffSpec:
+	for {
+		kvs, ok := <-s.clusterChan
+		if !ok {
+			for {
+				if atomic.LoadInt32(&s.closed) == 1 {
+					return
+				}
+				clusterChan, err := s.cluster.WatchPrefix(cluster.ConfigObjectPrefix)
+				if err != nil {
+					logger.Errorf("[watch config objects failed(retry after %v): %v]",
+						watchTimeout, err)
+					<-time.After(watchTimeout)
+				}
+				s.clusterChan = clusterChan
 			}
 		}
-		s.watchersLock.Unlock()
+		s.kvsToEvent(kvs)
+		s.flush()
 	}
+}
+
+func (s *jsonFileStore) kvsToEvent(kvs map[string]*string) {
+	event := &Event{
+		Plugins:   make(map[string]*PluginSpec),
+		Pipelines: make(map[string]*PipelineSpec),
+	}
+	for k, v := range kvs {
+		if strings.HasPrefix(k, cluster.ConfigPluginPrefix) {
+			name := strings.TrimPrefix(k, cluster.ConfigPluginPrefix)
+			if v == nil {
+				delete(s.config.Plugins, name)
+				event.Plugins[name] = nil
+				continue
+			}
+			spec, err := NewPluginSpec(*v)
+			if err != nil {
+				logger.Errorf("[new plugin spec for %s failed: %v]", name, err)
+				continue
+			}
+			if name != spec.Name {
+				logger.Errorf("[plugin %s got spec with differnt name %s]",
+					name, spec.Name)
+				continue
+			}
+			s.config.Plugins[name], event.Plugins[name] = spec, spec
+		} else if strings.HasPrefix(k, cluster.ConfigPipelinePrefix) {
+			name := strings.TrimPrefix(k, cluster.ConfigPipelinePrefix)
+			if v == nil {
+				delete(s.config.Pipelines, name)
+				event.Pipelines[name] = nil
+				continue
+			}
+			spec, err := NewPipelineSpec(*v)
+			if err != nil {
+				logger.Errorf("[new pipeline spec for %s failed: %v]", name, err)
+				continue
+			}
+			if name != spec.Name {
+				logger.Errorf("[pipeline %s got spec with differnt name %s]",
+					name, spec.Name)
+				continue
+			}
+			s.config.Pipelines[name], event.Pipelines[name] = spec, spec
+		} else {
+			logger.Errorf("[get unexpected config key: %s]", k)
+		}
+	}
+
+	for _, spec := range event.Plugins {
+		if spec != nil {
+			err := spec.Bootstrap(s.pipelineNames())
+			if err != nil {
+				logger.Errorf("[plugin %s bootstrap failed: %v]",
+					spec.Name, err)
+			}
+		}
+	}
+
+	for _, spec := range s.config.Pipelines {
+		if spec != nil {
+			err := spec.Bootstrap(s.pluginNames())
+			if err != nil {
+				logger.Errorf("[pipeline %s bootstrap failed: %v]",
+					spec.Name, err)
+			}
+		}
+	}
+
+	s.eventChan <- event
 }
 
 // flush doesn't care concurrent problem, it's callers' duty.
@@ -124,12 +178,18 @@ func (s *jsonFileStore) flush() error {
 		return fmt.Errorf("marshal config to json failed: %v", err)
 	}
 
-	err = ioutil.WriteFile(s.configPath, buff, 0600)
+	err = ioutil.WriteFile(s.configPath, buff, 0640)
 	if err != nil {
 		return fmt.Errorf("write file %s failed: %v", s.configPath, err)
 	}
 
 	return nil
+}
+
+func (s *jsonFileStore) Close() {
+	atomic.StoreInt32(&s.closed, 1)
+	close(s.eventChan)
+	logger.Infof("[store closed]")
 }
 
 func (s *jsonFileStore) pipelineNames() []string {
@@ -141,446 +201,10 @@ func (s *jsonFileStore) pipelineNames() []string {
 	return names
 }
 
-func (s *jsonFileStore) isPluginRunning(pluginName string) bool {
-	for _, pipelineSpec := range s.config.Pipelines {
-		if common.StrInSlice(pluginName, pipelineSpec.Config.Plugins) {
-			return true
-		}
+func (s *jsonFileStore) pluginNames() map[string]struct{} {
+	names := make(map[string]struct{})
+	for name := range s.config.Plugins {
+		names[name] = struct{}{}
 	}
-
-	return false
-}
-
-func (s *jsonFileStore) ListPluginPipelines() (map[string]*PluginSpec, map[string]*PipelineSpec) {
-	s.config.RLock()
-	defer s.config.RUnlock()
-
-	plugins := make(map[string]*PluginSpec)
-	for name, pluginSpec := range s.config.Plugins {
-		plugins[name] = pluginSpec
-	}
-
-	pipelines := make(map[string]*PipelineSpec)
-	for name, pipelineSpec := range s.config.Pipelines {
-		pipelines[name] = pipelineSpec
-	}
-
-	return plugins, pipelines
-}
-
-func (s *jsonFileStore) ClaimWatcher(name string) (*Watcher, error) {
-	if name == "" {
-		return nil, fmt.Errorf("emtpy watcher name")
-	}
-
-	watcher := newWatcher()
-
-	s.watchersLock.Lock()
-	if _, exists := s.watchers[name]; exists {
-		return nil, fmt.Errorf("conflict watcher name: %s", name)
-	}
-	s.watchers[name] = watcher
-	s.watchersLock.Unlock()
-
-	// NOTICE: It relys on the size of diffSpecChan is larger than zero.
-	plugins, pipelines := s.ListPluginPipelines()
-	watcher.diffSpecChan <- &DiffSpec{
-		Total:                     true,
-		CreatedOrUpdatedPlugins:   plugins,
-		CreatedOrUpdatedPipelines: pipelines,
-	}
-
-	logger.Infof("[claimed watcher %s]", name)
-
-	return watcher, nil
-}
-
-func (s *jsonFileStore) DeleteWatcher(name string) {
-	s.watchersLock.Lock()
-	defer s.watchersLock.Unlock()
-
-	if watcher := s.watchers[name]; watcher != nil {
-		watcher.close()
-	}
-	delete(s.watchers, name)
-}
-
-func (s *jsonFileStore) GetPlugin(name string) *PluginSpec {
-	s.config.RLock()
-	defer s.config.RUnlock()
-
-	return s.config.Plugins[name]
-}
-
-func (s *jsonFileStore) GetPipeline(name string) *PipelineSpec {
-	s.config.RLock()
-	defer s.config.RUnlock()
-
-	return s.config.Pipelines[name]
-}
-
-func (s *jsonFileStore) ListPlugins() map[string]*PluginSpec {
-	s.config.RLock()
-	defer s.config.RUnlock()
-
-	plugins := make(map[string]*PluginSpec)
-	for name, pluginSpec := range s.config.Plugins {
-		plugins[name] = pluginSpec
-	}
-
-	return plugins
-}
-
-func (s *jsonFileStore) ListPipelines() map[string]*PipelineSpec {
-	s.config.RLock()
-	defer s.config.RUnlock()
-
-	pipelines := make(map[string]*PipelineSpec)
-	for name, pipelineSpec := range s.config.Pipelines {
-		pipelines[name] = pipelineSpec
-	}
-
-	return pipelines
-}
-
-func (s *jsonFileStore) CreatePlugin(pluginSpec *PluginSpec) error {
-	s.config.Lock()
-	defer s.config.Unlock()
-
-	err := s.createPlugin(pluginSpec)
-	if err != nil {
-		return err
-	}
-
-	s.flush()
-	s.diffChan <- &DiffSpec{
-		CreatedOrUpdatedPlugins: map[string]*PluginSpec{
-			pluginSpec.Name: pluginSpec,
-		},
-	}
-
-	return nil
-}
-
-func (s *jsonFileStore) createPlugin(pluginSpec *PluginSpec) error {
-	if err := common.ValidateName(pluginSpec.Name); err != nil {
-		return err
-	}
-	if _, exists := s.config.Plugins[pluginSpec.Name]; exists {
-		return fmt.Errorf("conflict name: %s", pluginSpec.Name)
-	}
-
-	constructor, config, err := plugins.GetConstructorConfig(pluginSpec.Type)
-	if err != nil {
-		return fmt.Errorf("get contructor and config for plugin %s(type: %s) failed: %v",
-			pluginSpec.Name, pluginSpec.Type, err)
-	}
-
-	buff, err := json.Marshal(pluginSpec.Config)
-	if err != nil {
-		return fmt.Errorf("marshal %#v failed: %v", pluginSpec.Config, err)
-	}
-	err = json.Unmarshal(buff, config)
-	if err != nil {
-		return fmt.Errorf("unmarshal %s for config of plugin %s(type %s) failed: %v",
-			buff, pluginSpec.Name, pluginSpec.Type, err)
-	}
-	err = config.Prepare(s.pipelineNames())
-	if err != nil {
-		return fmt.Errorf("prepare config for plugin %s(type %s) failed: %v",
-			pluginSpec.Name, pluginSpec.Type, err)
-	}
-
-	pluginSpec.Constructor, pluginSpec.Config = constructor, config
-	s.config.Plugins[pluginSpec.Name] = pluginSpec
-
-	return nil
-}
-
-func (s *jsonFileStore) CreatePipeline(pipelineSpec *PipelineSpec) error {
-	s.config.Lock()
-	defer s.config.Unlock()
-
-	err := s.createPipeline(pipelineSpec)
-	if err != nil {
-		return err
-	}
-
-	s.flush()
-	s.diffChan <- &DiffSpec{
-		CreatedOrUpdatedPipelines: map[string]*PipelineSpec{
-			pipelineSpec.Name: pipelineSpec,
-		},
-	}
-
-	return nil
-}
-
-func (s *jsonFileStore) createPipeline(pipelineSpec *PipelineSpec) error {
-	if err := common.ValidateName(pipelineSpec.Name); err != nil {
-		return err
-	}
-	if _, exists := s.config.Pipelines[pipelineSpec.Name]; exists {
-		return fmt.Errorf("conflict name: %s", pipelineSpec.Name)
-	}
-
-	err := pipelineSpec.Config.Prepare()
-	if err != nil {
-		return fmt.Errorf("prepare config for pipeline %s failed: %v",
-			pipelineSpec.Name, err)
-	}
-
-	for _, pluginName := range pipelineSpec.Config.Plugins {
-		if _, exists := s.config.Plugins[pluginName]; !exists {
-			return fmt.Errorf("plugin %s not found", pluginName)
-		}
-	}
-
-	s.config.Pipelines[pipelineSpec.Name] = pipelineSpec
-
-	return nil
-}
-
-func (s *jsonFileStore) DeletePlugin(name string) error {
-	s.config.Lock()
-	defer s.config.Unlock()
-
-	err := s.deletePlugin(name)
-	if err != nil {
-		return err
-	}
-
-	s.flush()
-	s.diffChan <- &DiffSpec{
-		DeletedPlugins: []string{name},
-	}
-
-	return nil
-}
-
-func (s *jsonFileStore) deletePlugin(name string) error {
-	if _, exists := s.config.Plugins[name]; !exists {
-		return fmt.Errorf("not found plugin %s", name)
-	}
-
-	if s.isPluginRunning(name) {
-		return fmt.Errorf("plugin is running")
-	}
-
-	delete(s.config.Plugins, name)
-
-	return nil
-}
-
-func (s *jsonFileStore) DeletePipeline(name string) error {
-	s.config.Lock()
-	defer s.config.Unlock()
-
-	err := s.deletePipeline(name)
-	if err != nil {
-		return err
-	}
-
-	s.flush()
-	s.diffChan <- &DiffSpec{
-		DeletedPipelines: []string{name},
-	}
-
-	return nil
-}
-
-func (s *jsonFileStore) deletePipeline(name string) error {
-	if _, exists := s.config.Pipelines[name]; !exists {
-		return fmt.Errorf("not found pipeline %s", name)
-	}
-
-	return nil
-}
-
-func (s *jsonFileStore) UpdatePlugin(pluginSpec *PluginSpec) error {
-	s.config.Lock()
-	defer s.config.Unlock()
-
-	err := s.updatePlugin(pluginSpec)
-	if err != nil {
-		return err
-	}
-
-	s.flush()
-	s.diffChan <- &DiffSpec{
-		CreatedOrUpdatedPlugins: map[string]*PluginSpec{
-			pluginSpec.Name: pluginSpec,
-		},
-	}
-
-	return nil
-}
-
-func (s *jsonFileStore) updatePlugin(pluginSpec *PluginSpec) error {
-	oldPluginSpec, exists := s.config.Plugins[pluginSpec.Name]
-	if !exists {
-		return fmt.Errorf("not found plugin %s", pluginSpec.Name)
-	}
-
-	if oldPluginSpec.Type != pluginSpec.Type {
-		return fmt.Errorf("type of plugin %s is %s, changed to %s",
-			pluginSpec.Name, oldPluginSpec.Type, pluginSpec.Type)
-	}
-
-	constructor, config, err := plugins.GetConstructorConfig(pluginSpec.Type)
-	if err != nil {
-		return fmt.Errorf("get contructor and config for plugin %s(type: %s) failed: %v",
-			pluginSpec.Name, pluginSpec.Type, err)
-	}
-
-	buff, err := json.Marshal(pluginSpec.Config)
-	if err != nil {
-		return fmt.Errorf("marshal %#v failed: %v", pluginSpec.Config, err)
-	}
-	err = json.Unmarshal(buff, config)
-	if err != nil {
-		return fmt.Errorf("unmarshal %s for config of plugin %s(type %s) failed: %v",
-			buff, pluginSpec.Name, pluginSpec.Type, err)
-	}
-	err = config.Prepare(s.pipelineNames())
-	if err != nil {
-		return fmt.Errorf("prepare config for plugin %s(type %s) failed: %v",
-			pluginSpec.Name, pluginSpec.Type, err)
-	}
-
-	pluginSpec.Constructor, pluginSpec.Config = constructor, config
-	s.config.Plugins[pluginSpec.Name] = pluginSpec
-
-	return nil
-}
-
-func (s *jsonFileStore) UpdatePipeline(pipelineSpec *PipelineSpec) error {
-	s.config.Lock()
-	defer s.config.Unlock()
-
-	err := s.updatePipeline(pipelineSpec)
-	if err != nil {
-		return err
-	}
-
-	s.flush()
-	s.diffChan <- &DiffSpec{
-		CreatedOrUpdatedPipelines: map[string]*PipelineSpec{
-			pipelineSpec.Name: pipelineSpec,
-		},
-	}
-
-	return nil
-}
-
-func (s *jsonFileStore) updatePipeline(pipelineSpec *PipelineSpec) error {
-	oldPipelineSpec, exists := s.config.Pipelines[pipelineSpec.Name]
-	if !exists {
-		return fmt.Errorf("not found pipeline %s", pipelineSpec.Name)
-	}
-
-	if oldPipelineSpec.Type != pipelineSpec.Type {
-		return fmt.Errorf("type of pipeline %s is %s, changed to %s",
-			pipelineSpec.Name, oldPipelineSpec.Type, pipelineSpec.Type)
-	}
-
-	err := pipelineSpec.Config.Prepare()
-	if err != nil {
-		return fmt.Errorf("prepare config for pipeline %s failed: %v",
-			pipelineSpec.Name, err)
-	}
-
-	for _, pluginName := range pipelineSpec.Config.Plugins {
-		if _, exists := s.config.Plugins[pluginName]; !exists {
-			return fmt.Errorf("plugin %s not found", pluginName)
-		}
-	}
-
-	s.config.Pipelines[pipelineSpec.Name] = pipelineSpec
-
-	return nil
-}
-
-func (s *jsonFileStore) adaptTotalDiffSpec(diffSpec *DiffSpec) {
-	if !diffSpec.Total {
-		return
-	}
-
-	for _, oldPluginSpec := range s.config.Plugins {
-		pluginSpec, exists := diffSpec.CreatedOrUpdatedPlugins[oldPluginSpec.Name]
-		if !exists {
-			diffSpec.DeletedPlugins = append(diffSpec.DeletedPlugins,
-				oldPluginSpec.Name)
-			continue
-		}
-		if oldPluginSpec.equal(pluginSpec) {
-			delete(diffSpec.CreatedOrUpdatedPlugins, pluginSpec.Name)
-		}
-	}
-
-	for _, oldPipelineSpec := range s.config.Pipelines {
-		pipelineSpec, exists := diffSpec.CreatedOrUpdatedPipelines[oldPipelineSpec.Name]
-		if !exists {
-			diffSpec.DeletedPipelines = append(diffSpec.DeletedPipelines,
-				oldPipelineSpec.Name)
-			continue
-		}
-		if oldPipelineSpec.equal(pipelineSpec) {
-			delete(diffSpec.CreatedOrUpdatedPipelines, pipelineSpec.Name)
-		}
-	}
-
-	diffSpec.Total = false
-}
-
-func (s *jsonFileStore) ApplyDiff(diffSpec *DiffSpec) error {
-	s.config.Lock()
-	defer s.config.Unlock()
-
-	s.adaptTotalDiffSpec(diffSpec)
-
-	for _, pluginSpec := range diffSpec.CreatedOrUpdatedPlugins {
-		createErr := s.createPlugin(pluginSpec)
-		if createErr != nil {
-			updateErr := s.updatePlugin(pluginSpec)
-			if updateErr != nil {
-				logger.Errorf("apply plugin failed: "+
-					"create: %v | update: %v", createErr, updateErr)
-				continue
-			}
-		}
-	}
-
-	for _, pipelineSpec := range diffSpec.CreatedOrUpdatedPipelines {
-		createErr := s.createPipeline(pipelineSpec)
-		if createErr != nil {
-			updateErr := s.updatePipeline(pipelineSpec)
-			if updateErr != nil {
-				logger.Errorf("apply pipeline failed: "+
-					"create: %v | update:%v", createErr, updateErr)
-				continue
-			}
-		}
-	}
-
-	for _, name := range diffSpec.DeletedPipelines {
-		err := s.deletePipeline(name)
-		if err != nil {
-			logger.Errorf("delete pipeline failed: %v", err)
-			continue
-		}
-	}
-
-	for _, name := range diffSpec.DeletedPlugins {
-		err := s.deletePlugin(name)
-		if err != nil {
-			logger.Errorf("delete plugin failed: %v", err)
-			continue
-		}
-	}
-
-	s.flush()
-	s.diffChan <- diffSpec
-
-	return nil
+	return names
 }

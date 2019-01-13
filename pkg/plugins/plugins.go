@@ -300,7 +300,15 @@ var (
 		"EaseMonitorJSONGidExtractor": {
 			JSONGidExtractorConstructor, JSONGidExtractorConfigConstructor},
 	}
+
+	PLUGIN_TYPES []string
 )
+
+func init() {
+	for t := range PLUGIN_ENTRIES {
+		PLUGIN_TYPES = append(PLUGIN_TYPES, t)
+	}
+}
 
 func ValidType(t string) bool {
 	_, ok := PLUGIN_ENTRIES[t]

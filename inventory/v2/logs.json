@@ -1,0 +1,15 @@
+{
+  "type": "LinearPipeline",
+  "name": "linear_pipeline.logs",
+  "config": {
+    "pipeline_name": "linear_pipeline.logs",
+    "parallelism": 100,
+    "wait_plugin_close": true,
+    "plugin_names": [
+      "http_server.default",
+			"http_input.logs",
+			"io_reader.logs",
+			"json_validator.logs"
+    ]
+  }
+}
