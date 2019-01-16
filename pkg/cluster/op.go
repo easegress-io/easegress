@@ -18,11 +18,23 @@ func (c *cluster) Put(key, value string) error {
 	return err
 }
 
+func (c *cluster) PutAndDeleteUnderLease(kvs map[string]*string) error {
+	return c.putAndDelete(kvs, true)
+}
+
 func (c *cluster) PutAndDelete(kvs map[string]*string) error {
+	return c.putAndDelete(kvs, false)
+}
+
+func (c *cluster) putAndDelete(kvs map[string]*string, underLease bool) error {
 	var ops []clientv3.Op
 	for k, v := range kvs {
 		if v != nil {
-			ops = append(ops, clientv3.OpPut(k, *v))
+			var opts []clientv3.OpOption
+			if underLease {
+				opts = append(opts, clientv3.WithLease(c.session.Lease()))
+			}
+			ops = append(ops, clientv3.OpPut(k, *v, opts...))
 		} else {
 			ops = append(ops, clientv3.OpDelete(k))
 		}

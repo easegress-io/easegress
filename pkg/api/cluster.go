@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/megaease/easegateway/pkg/option"
+	"github.com/megaease/easegateway/pkg/stat"
 	yaml "gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegateway/pkg/cluster"
@@ -239,4 +240,35 @@ func (s *APIServer) _pluginNames() map[string]struct{} {
 	}
 
 	return names
+}
+
+// The keys of result are pipelineName, memberName.
+func (s *APIServer) _listStats() map[string]map[string]stat.PipelineStat {
+	kvs, err := s.cluster.GetPrefix(cluster.StatPipelinePrefix)
+	if err != nil {
+		clusterPanic(err)
+	}
+
+	stats := make(map[string]map[string]stat.PipelineStat)
+
+	for key, value := range kvs {
+		names := strings.Split(strings.TrimPrefix(key, cluster.StatPipelinePrefix), "/")
+		if len(names) != 2 {
+			panic(fmt.Errorf("get invalid key %s", key))
+		}
+		pipelineName, memberName := names[0], names[1]
+
+		ps := new(stat.PipelineStat)
+		err := json.Unmarshal([]byte(value), ps)
+		if err != nil {
+			panic(fmt.Errorf("unmarshal %s to json failed: %v", value, err))
+		}
+
+		if stats[pipelineName] == nil {
+			stats[pipelineName] = make(map[string]stat.PipelineStat)
+		}
+		stats[pipelineName][memberName] = *ps
+	}
+
+	return stats
 }

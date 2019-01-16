@@ -12,8 +12,7 @@ import (
 	"github.com/megaease/easegateway/pkg/plugins"
 )
 
-// Store is the middle level between cluster and model aka
-// external storage and memory runtime.
+// Store is the middle level between cluster and model for config.
 type Store interface {
 	// Watch channel always sends the whole Spec at first time,
 	// then sends each change afterwards.

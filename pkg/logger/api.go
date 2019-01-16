@@ -8,7 +8,8 @@ import (
 )
 
 var (
-	LOG_API_ACCESS_FILE  = "api_access.log"
+	// rest_access.log is for backward compatibility.
+	LOG_API_ACCESS_FILE  = "rest_access.log"
 	LOG_API_ACCESS_LEVEL = logrus.DebugLevel
 
 	apiLog = newLoggerSet()

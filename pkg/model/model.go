@@ -6,6 +6,7 @@ import (
 
 	"github.com/megaease/easegateway/pkg/common"
 	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/pipelines"
 	"github.com/megaease/easegateway/pkg/plugins"
 	"github.com/megaease/easegateway/pkg/store"
 )
@@ -40,6 +41,18 @@ func NewModel(store store.Store) (*Model, error) {
 		}
 	}()
 	return m, nil
+}
+
+func (m *Model) PipelineStats() map[string]pipelines.PipelineStatistics {
+	m.schedulersLock.RLock()
+	defer m.schedulersLock.RUnlock()
+
+	stats := make(map[string]pipelines.PipelineStatistics)
+	for name, scheduler := range m.schedulers {
+		stats[name] = scheduler.PipelineContext().Statistics()
+	}
+
+	return stats
 }
 
 func (m *Model) preparePluginInstance(plugin plugins.Plugin) {

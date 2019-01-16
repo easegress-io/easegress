@@ -81,6 +81,7 @@ func (s *APIServer) setupAPIs() {
 	s.setupMemberAPIs()
 	s.setupPluginAPIs()
 	s.setupPipelineAPIs()
+	s.setupStatAPIs()
 
 	for _, api := range s.apis {
 		api.Path = APIPrefix + api.Path

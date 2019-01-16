@@ -13,6 +13,7 @@ import (
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/model"
 	"github.com/megaease/easegateway/pkg/option"
+	"github.com/megaease/easegateway/pkg/stat"
 	"github.com/megaease/easegateway/pkg/store"
 	"github.com/megaease/easegateway/pkg/version"
 )
@@ -40,6 +41,8 @@ func main() {
 		os.Exit(1)
 	}
 
+	stat := stat.NewStat(cluster, model)
+
 	api := api.MustNewAPIServer(cluster)
 
 	sigChan := make(chan os.Signal, 1)
@@ -49,6 +52,7 @@ func main() {
 	go func() {
 		logger.Infof("[%s signal received, closing easegateway]", sig)
 		api.Close()
+		stat.Close()
 		model.Close()
 		store.Close()
 		cluster.Close()

@@ -27,6 +27,9 @@ var (
 	ConfigPluginUsedPrefixFormat = "/config/relation/%s/usedby/"   // + plugin-name
 	ConfigPluginUsedKeyFormat    = "/config/relation/%s/usedby/%s" // + plugin-name pipeline-name
 
+	StatPipelinePrefix = "/runtime/stat/pipelines/"
+	StatPipelineFormat = "/runtime/stat/pipelines/%s/" + option.Global.Name // + pipeline-name
+
 	MemberConfigValue = option.GlobalYAML
 )
 
@@ -55,6 +58,7 @@ type Cluster interface {
 	// care the situation.
 	PutUnderLease(key, value string) error
 	PutAndDelete(map[string]*string) error
+	PutAndDeleteUnderLease(map[string]*string) error
 
 	Delete(key string) error
 	DeletePrefix(prefix string) error
