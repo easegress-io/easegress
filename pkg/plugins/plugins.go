@@ -350,7 +350,7 @@ func GetConstructorConfig(t string) (Constructor, Config, error) {
 // Out-tree plugin type loading
 
 func LoadOutTreePluginTypes() error {
-	logger.Debugf("[load all out-tree plugin types]")
+	logger.Debugf("load all out-tree plugin types")
 
 	err := os.MkdirAll(option.Global.CertDir, 0700)
 	if err != nil {
@@ -361,7 +361,7 @@ func LoadOutTreePluginTypes() error {
 
 	err = filepath.Walk(option.Global.CertDir, func(path string, info os.FileInfo, err error) error {
 		if info == nil {
-			logger.Warnf("[access %s failed, out-tree plugin types skipped in the file: %v]", path, err)
+			logger.Warnf("access %s failed, out-tree plugin types skipped in the file: %v", path, err)
 			return filepath.SkipDir
 		}
 
@@ -372,15 +372,15 @@ func LoadOutTreePluginTypes() error {
 		typeNames, failedTypeName, err := loadOutTreePluginTypes(path)
 		if err != nil {
 			if failedTypeName == "" {
-				logger.Errorf("[load out-tree plugin types from %s failed, skipped: %v]", path, err)
+				logger.Errorf("load out-tree plugin types from %s failed, skipped: %v", path, err)
 			} else {
-				logger.Errorf("[load out-tree plugin type %s from %s failed, skipped: %v]",
+				logger.Errorf("load out-tree plugin type %s from %s failed, skipped: %v",
 					failedTypeName, path, err)
 			}
 		}
 
 		for _, name := range typeNames {
-			logger.Debugf("[out-tree plugin type %s is loaded from %s successfully]", name, path)
+			logger.Debugf("out-tree plugin type %s is loaded from %s successfully", name, path)
 			count++
 		}
 
@@ -388,11 +388,11 @@ func LoadOutTreePluginTypes() error {
 	})
 
 	if err != nil {
-		logger.Errorf("[load out-tree plugin types failed: %v]", err)
+		logger.Errorf("load out-tree plugin types failed: %v", err)
 		return err
 	}
 
-	logger.Infof("[out-tree plugin types are loaded successfully (total=%d)]", count)
+	logger.Infof("out-tree plugin types are loaded successfully (total=%d)", count)
 	return nil
 }
 
@@ -423,7 +423,7 @@ func loadOutTreePluginTypes(path string) ([]string, string, error) {
 		// check if definition is existing
 		_, exists := PLUGIN_ENTRIES[name]
 		if exists {
-			logger.Warnf("[plugin type %s definied in %s is conflicting, skipped]", name, path)
+			logger.Warnf("plugin type %s definied in %s is conflicting, skipped", name, path)
 			continue
 		}
 
@@ -510,8 +510,8 @@ func getInboundThroughputRate1(ctx pipelines.PipelineContext,
 		return NewThroughputStatistic(ThroughputRate1)
 	})
 	if err != nil {
-		logger.Warnf("[BUG: query in-throughput rate data for pipeline %s failed, "+
-			"ignored statistic: %v]", ctx.PipelineName(), err)
+		logger.Warnf("BUG: query in-throughput rate data for pipeline %s failed, "+
+			"ignored statistic: %v", ctx.PipelineName(), err)
 		return nil, err
 	}
 
@@ -526,8 +526,8 @@ func getFlowControlledThroughputRate1(ctx pipelines.PipelineContext,
 		return NewThroughputStatistic(ThroughputRate1)
 	})
 	if err != nil {
-		logger.Warnf("[BUG: query flow controlled throughput rate data for pipeline %s failed, "+
-			"ignored statistic: %v]", ctx.PipelineName(), err)
+		logger.Warnf("BUG: query flow controlled throughput rate data for pipeline %s failed, "+
+			"ignored statistic: %v", ctx.PipelineName(), err)
 		return nil, err
 	}
 
@@ -565,7 +565,7 @@ func registerPluginIndicatorForLimiter(ctx pipelines.PipelineContext, pluginName
 			return rate.Get()
 		})
 	if err != nil {
-		logger.Warnf("[BUG: register plugin indicator for pipeline %s plugin %s failed: %v]",
+		logger.Warnf("BUG: register plugin indicator for pipeline %s plugin %s failed: %v",
 			ctx.PipelineName(), pluginName, err)
 	}
 
@@ -581,7 +581,7 @@ func registerPluginIndicatorForLimiter(ctx pipelines.PipelineContext, pluginName
 			return rate.Get()
 		})
 	if err != nil {
-		logger.Warnf("[BUG: register plugin indicator for pipeline %s plugin %s failed: %v]",
+		logger.Warnf("BUG: register plugin indicator for pipeline %s plugin %s failed: %v",
 			ctx.PipelineName(), pluginName, err)
 	}
 }

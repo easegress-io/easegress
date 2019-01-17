@@ -155,7 +155,7 @@ func weightedRandomSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t 
 		r -= uint64(u.conf.TargetPipelineWeights[idx])
 	}
 
-	logger.Errorf("[BUG: calculation in weighted random selector is wrong, should not reach here]")
+	logger.Errorf("BUG: calculation in weighted random selector is wrong, should not reach here")
 
 	return randomSelector(u, ctx, t)
 }
@@ -224,7 +224,7 @@ func filterSelector(u *upstreamOutput, ctx pipelines.PipelineContext, t task.Tas
 	}
 
 	if selectedIdx == -1 {
-		logger.Warnf("[no target pipeline matched the condition, filter selector chooses nothing]")
+		logger.Warnf("no target pipeline matched the condition, filter selector chooses nothing")
 		return nil
 	}
 
@@ -373,7 +373,7 @@ func getTargetsPossibility(ctx pipelines.PipelineContext, pluginName, pluginInst
 		return newTargetsPossibility(targetLen)
 	})
 	if err != nil {
-		logger.Warnf("[BUG: query state for pipeline %s failed, ignored to update targets possibility: %v]",
+		logger.Warnf("BUG: query state for pipeline %s failed, ignored to update targets possibility: %v",
 			ctx.PipelineName(), err)
 		return nil, err
 	}
@@ -444,7 +444,7 @@ func (c *upstreamOutputConfig) Prepare(pipelineNames []string) error {
 			c.TargetPipelineNames[idx] = ts(pipelineName)
 
 			if !common.StrInSlice(c.TargetPipelineNames[idx], pipelineNames) {
-				logger.Warnf("[upstream pipeline %s not found]", c.TargetPipelineNames[idx])
+				logger.Warnf("upstream pipeline %s not found", c.TargetPipelineNames[idx])
 			}
 
 			if useDefaultWeight {
@@ -504,7 +504,7 @@ func (c *upstreamOutputConfig) Prepare(pipelineNames []string) error {
 			c.TargetPipelineNames[idx] = ts(pipelineName)
 
 			if !common.StrInSlice(c.TargetPipelineNames[idx], pipelineNames) {
-				logger.Warnf("[upstream pipeline %s not found]", c.TargetPipelineNames[idx])
+				logger.Warnf("upstream pipeline %s not found", c.TargetPipelineNames[idx])
 			}
 
 			if useDefaultFlag {
@@ -514,7 +514,7 @@ func (c *upstreamOutputConfig) Prepare(pipelineNames []string) error {
 	}
 
 	if c.TimeoutSec == 0 {
-		logger.Warnf("[ZERO timeout has been applied, no task could be cancelled by timeout!]")
+		logger.Warnf("ZERO timeout has been applied, no task could be cancelled by timeout!")
 	}
 
 	c.selector = routeSelectors[c.RoutePolicy]
@@ -629,7 +629,7 @@ LOOP:
 		select {
 		case response := <-request.Response():
 			if response == nil {
-				logger.Errorf("[BUG: upstream pipeline %s returns nil response]",
+				logger.Errorf("BUG: upstream pipeline %s returns nil response",
 					response.UpstreamPipelineName)
 
 				t.SetError(fmt.Errorf("downstream received nil upstream response"),
@@ -638,8 +638,8 @@ LOOP:
 			}
 
 			if response.UpstreamPipelineName != request.UpstreamPipelineName() {
-				logger.Errorf("[BUG: upstream pipeline %s returns the response of "+
-					"cross pipeline request to the wrong downstream %s]",
+				logger.Errorf("BUG: upstream pipeline %s returns the response of "+
+					"cross pipeline request to the wrong downstream %s",
 					response.UpstreamPipelineName, ctx.PipelineName())
 
 				t.SetError(fmt.Errorf("downstream received wrong upstream response"),
@@ -706,8 +706,8 @@ func getTaskCount(ctx pipelines.PipelineContext, pluginName string) (*uint64, er
 			return &taskCount
 		})
 	if err != nil {
-		logger.Warnf("[BUG: query state data for pipeline %s failed, "+
-			"ignored to count task: %v]", ctx.PipelineName(), err)
+		logger.Warnf("BUG: query state data for pipeline %s failed, "+
+			"ignored to count task: %v", ctx.PipelineName(), err)
 		return nil, err
 	}
 
@@ -762,8 +762,8 @@ func getWeightedRoundRobinSelectorState(
 			}
 		})
 	if err != nil {
-		logger.Warnf("[BUG: query state data for pipeline %s failed, "+
-			"ignored to update state of weighted round robin selector: %v]", ctx.PipelineName(), err)
+		logger.Warnf("BUG: query state data for pipeline %s failed, "+
+			"ignored to update state of weighted round robin selector: %v", ctx.PipelineName(), err)
 		return nil, err
 	}
 
@@ -788,8 +788,8 @@ func getWeightSum(
 		})
 
 	if err != nil {
-		logger.Warnf("[BUG: query state data for pipeline %s failed, "+
-			"ignored to get state of weighted random selector: %v]", ctx.PipelineName(), err)
+		logger.Warnf("BUG: query state data for pipeline %s failed, "+
+			"ignored to get state of weighted random selector: %v", ctx.PipelineName(), err)
 		return 0, err
 	}
 

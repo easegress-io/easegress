@@ -94,12 +94,12 @@ func (spec *PluginSpec) Bootstrap(pipelineNames []string) error {
 func (spec *PluginSpec) equal(other *PluginSpec) bool {
 	buff1, err := json.Marshal(spec)
 	if err != nil {
-		logger.Errorf("[BUG: marshal %#v to json failed: %v]", spec, err)
+		logger.Errorf("BUG: marshal %#v to json failed: %v", spec, err)
 		return false
 	}
 	buff2, err := json.Marshal(other)
 	if err != nil {
-		logger.Errorf("[BUG: marshal %#v to json failed: %v]", other, err)
+		logger.Errorf("BUG: marshal %#v to json failed: %v", other, err)
 		return false
 	}
 

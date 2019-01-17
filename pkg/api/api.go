@@ -57,7 +57,7 @@ func MustNewAPIServer(cluster cluster.Cluster) *APIServer {
 			return
 		}
 		if err != nil {
-			logger.Errorf("[run api app failed: %v]", err)
+			logger.Errorf("run api app failed: %v", err)
 			os.Exit(1)
 		}
 	}()

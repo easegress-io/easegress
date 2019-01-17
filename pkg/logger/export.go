@@ -110,11 +110,11 @@ type DumpResponse func() (string, error)
 func HTTPReqDump(pipelineName, pluginName, pluginInstanceId string, taskId int64, dump DumpRequest) {
 	s, err := dump()
 	if err != nil {
-		Warnf("[dump http request to log failed: %s]", err)
+		Warnf("dump http request to log failed: %s", err)
 		return
 	}
 
-	entry := fmt.Sprintf("%s/%s@%s/task#%d - - [%v]:\n%s]",
+	entry := fmt.Sprintf("%s/%s@%s/task#%d - - [%v]:\n%s",
 		pipelineName, pluginName, pluginInstanceId, taskId, common.Now().Local(), s)
 
 	httpPluginDumpLogger.Debug(entry)
@@ -123,11 +123,11 @@ func HTTPReqDump(pipelineName, pluginName, pluginInstanceId string, taskId int64
 func HTTPRespDump(pipelineName, pluginName, pluginInstanceId string, taskId int64, dump DumpResponse) {
 	s, err := dump()
 	if err != nil {
-		Warnf("[dump http response to log failed: %s]", err)
+		Warnf("dump http response to log failed: %s", err)
 		return
 	}
 
-	entry := fmt.Sprintf("%s/%s@%s/task#%d - - [%v]:\n%s]",
+	entry := fmt.Sprintf("%s/%s@%s/task#%d - - [%v]:\n%s",
 		pipelineName, pluginName, pluginInstanceId, taskId, common.Now().Local(), s)
 
 	httpPluginDumpLogger.Debug(entry)

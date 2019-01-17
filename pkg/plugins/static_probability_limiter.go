@@ -30,11 +30,11 @@ func (c *staticProbabilityLimiterConfig) Prepare(pipelineNames []string) error {
 	}
 
 	if c.PassPr == 0 {
-		logger.Warnf("[ZERO passing probability has been applied, no request could be processed!]")
+		logger.Warnf("ZERO passing probability has been applied, no request could be processed!")
 	}
 
 	if c.PassPr == 1 {
-		logger.Warnf("[1.0 passing probability has been applied, no request could be limited!]")
+		logger.Warnf("1.0 passing probability has been applied, no request could be limited!")
 	}
 
 	return nil

@@ -38,7 +38,7 @@ type (
 func newJSONFileStore(c cluster.Cluster) (*jsonFileStore, error) {
 	configFile := "runtime_config.json"
 	configPath := filepath.Join(option.Global.DataDir, configFile)
-	logger.Debugf("[runtime config path: %s]", configPath)
+	logger.Debugf("runtime config path: %s", configPath)
 
 	err := os.MkdirAll(filepath.Dir(configPath), 0700)
 	if err != nil {
@@ -89,7 +89,7 @@ func (s *jsonFileStore) notify() {
 				}
 				clusterChan, err := s.cluster.WatchPrefix(cluster.ConfigObjectPrefix)
 				if err != nil {
-					logger.Errorf("[watch config objects failed(retry after %v): %v]",
+					logger.Errorf("watch config objects failed(retry after %v): %v",
 						watchTimeout, err)
 					<-time.After(watchTimeout)
 				}
@@ -116,11 +116,11 @@ func (s *jsonFileStore) kvsToEvent(kvs map[string]*string) {
 			}
 			spec, err := NewPluginSpec(*v)
 			if err != nil {
-				logger.Errorf("[new plugin spec for %s failed: %v]", name, err)
+				logger.Errorf("new plugin spec for %s failed: %v", name, err)
 				continue
 			}
 			if name != spec.Name {
-				logger.Errorf("[plugin %s got spec with differnt name %s]",
+				logger.Errorf("plugin %s got spec with differnt name %s",
 					name, spec.Name)
 				continue
 			}
@@ -134,17 +134,17 @@ func (s *jsonFileStore) kvsToEvent(kvs map[string]*string) {
 			}
 			spec, err := NewPipelineSpec(*v)
 			if err != nil {
-				logger.Errorf("[new pipeline spec for %s failed: %v]", name, err)
+				logger.Errorf("new pipeline spec for %s failed: %v", name, err)
 				continue
 			}
 			if name != spec.Name {
-				logger.Errorf("[pipeline %s got spec with differnt name %s]",
+				logger.Errorf("pipeline %s got spec with differnt name %s",
 					name, spec.Name)
 				continue
 			}
 			s.config.Pipelines[name], event.Pipelines[name] = spec, spec
 		} else {
-			logger.Errorf("[get unexpected config key: %s]", k)
+			logger.Errorf("get unexpected config key: %s", k)
 		}
 	}
 
@@ -152,7 +152,7 @@ func (s *jsonFileStore) kvsToEvent(kvs map[string]*string) {
 		if spec != nil {
 			err := spec.Bootstrap(s.pipelineNames())
 			if err != nil {
-				logger.Errorf("[plugin %s bootstrap failed: %v]",
+				logger.Errorf("plugin %s bootstrap failed: %v",
 					spec.Name, err)
 			}
 		}
@@ -162,7 +162,7 @@ func (s *jsonFileStore) kvsToEvent(kvs map[string]*string) {
 		if spec != nil {
 			err := spec.Bootstrap(s.pluginNames())
 			if err != nil {
-				logger.Errorf("[pipeline %s bootstrap failed: %v]",
+				logger.Errorf("pipeline %s bootstrap failed: %v",
 					spec.Name, err)
 			}
 		}
@@ -189,7 +189,7 @@ func (s *jsonFileStore) flush() error {
 func (s *jsonFileStore) Close() {
 	atomic.StoreInt32(&s.closed, 1)
 	close(s.eventChan)
-	logger.Infof("[store closed]")
+	logger.Infof("store closed")
 }
 
 func (s *jsonFileStore) pipelineNames() []string {

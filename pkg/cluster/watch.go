@@ -25,7 +25,7 @@ func (c *cluster) Watch(key string) (<-chan *string, error) {
 	go func() {
 		for resp := range watchResp {
 			if resp.Canceled {
-				logger.Infof("[watch key %s canceled]", key)
+				logger.Infof("watch key %s canceled", key)
 				break
 			}
 			if resp.IsProgressNotify() {
@@ -39,7 +39,7 @@ func (c *cluster) Watch(key string) (<-chan *string, error) {
 				case mvccpb.DELETE:
 					w <- nil
 				default:
-					logger.Errorf("[BUG: key %s received unknown event type %v]",
+					logger.Errorf("BUG: key %s received unknown event type %v",
 						key, event.Type)
 				}
 			}
@@ -74,7 +74,7 @@ func (c *cluster) WatchPrefix(prefix string) (<-chan map[string]*string, error) 
 	go func() {
 		for resp := range watchResp {
 			if resp.Canceled {
-				logger.Infof("[watch prefix %s canceled]", prefix)
+				logger.Infof("watch prefix %s canceled", prefix)
 				break
 			}
 			if resp.IsProgressNotify() {
@@ -92,7 +92,7 @@ func (c *cluster) WatchPrefix(prefix string) (<-chan map[string]*string, error) 
 						string(event.Kv.Key): nil,
 					}
 				default:
-					logger.Errorf("[BUG: prefix %s received unknown event type %v]",
+					logger.Errorf("BUG: prefix %s received unknown event type %v",
 						prefix, event.Type)
 				}
 			}

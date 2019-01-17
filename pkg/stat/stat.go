@@ -71,7 +71,7 @@ func (s *stat) update() {
 
 	err := s.cluster.PutAndDeleteUnderLease(kvs)
 	if err != nil {
-		logger.Errorf("[update stat failed: %v]", err)
+		logger.Errorf("update stat failed: %v", err)
 	}
 }
 

@@ -455,38 +455,38 @@ func (f *FastResponseHeader) SetContentLength(len int64) {
 // These below methods are currently not supported on NetResponseHeader because
 // current implementation don't need them
 func (f *NetResponseHeader) Proto() string {
-	logger.Warnf("[BUG: don't support this method on server side response header")
+	logger.Warnf("BUG: don't support this method on server side response header")
 	return ""
 }
 
 func (f *NetResponseHeader) Method() string {
-	logger.Warnf("[BUG: don't support this method on server side response header")
+	logger.Warnf("BUG: don't support this method on server side response header")
 	return ""
 }
 
 func (f *NetResponseHeader) Host() string {
-	logger.Warnf("[BUG: don't support this method on server side response header")
+	logger.Warnf("BUG: don't support this method on server side response header")
 	return ""
 }
 
 func (f *NetResponseHeader) Scheme() string {
-	logger.Warnf("[BUG: don't support this method on server side response header")
+	logger.Warnf("BUG: don't support this method on server side response header")
 	return ""
 }
 
 func (f *NetResponseHeader) Path() string {
-	logger.Warnf("[BUG: don't support this method on server side response header")
+	logger.Warnf("BUG: don't support this method on server side response header")
 	return ""
 }
 
 // full url, for example: http://www.google.com?s=megaease#title
 func (f *NetResponseHeader) FullURI() string {
-	logger.Warnf("[BUG: don't support this method on server side response header")
+	logger.Warnf("BUG: don't support this method on server side response header")
 	return ""
 }
 
 func (f *NetResponseHeader) QueryString() string {
-	logger.Warnf("[BUG: don't support this method on server side response header")
+	logger.Warnf("BUG: don't support this method on server side response header")
 	return ""
 }
 
@@ -502,38 +502,38 @@ func (f *FastResponseHeader) Get(k string) string {
 // These below methods are currently not supported on FastResponseHeader because
 // current implementation don't need them
 func (f *FastResponseHeader) Proto() string {
-	logger.Warnf("[BUG: don't support this method on server side response header")
+	logger.Warnf("BUG: don't support this method on server side response header")
 	return ""
 }
 
 func (f *FastResponseHeader) Method() string {
-	logger.Warnf("[BUG: don't support this method on server side response header")
+	logger.Warnf("BUG: don't support this method on server side response header")
 	return ""
 }
 
 func (f *FastResponseHeader) Host() string {
-	logger.Warnf("[BUG: don't support this method on server side response header")
+	logger.Warnf("BUG: don't support this method on server side response header")
 	return ""
 }
 
 func (f *FastResponseHeader) Scheme() string {
-	logger.Warnf("[BUG: don't support this method on server side response header")
+	logger.Warnf("BUG: don't support this method on server side response header")
 	return ""
 }
 
 func (f *FastResponseHeader) Path() string {
-	logger.Warnf("[BUG: don't support this method on server side response header")
+	logger.Warnf("BUG: don't support this method on server side response header")
 	return ""
 }
 
 // full url, for example: http://www.google.com?s=megaease#title
 func (f *FastResponseHeader) FullURI() string {
-	logger.Warnf("[BUG: don't support this method on server side response header")
+	logger.Warnf("BUG: don't support this method on server side response header")
 	return ""
 }
 
 func (f *FastResponseHeader) QueryString() string {
-	logger.Warnf("[BUG: don't support this method on server side response header")
+	logger.Warnf("BUG: don't support this method on server side response header")
 	return ""
 }
 
@@ -982,10 +982,10 @@ func copyRequestHeaderFromTask(t task.Task, key string, dst Header) {
 	if src, ok := t.Value(key).(Header); !ok {
 		// There are some normal cases that the header key is nil in task
 		// Because header key producer don't write them
-		logger.Debugf("[load header: %s in the task failed, header is %+v]", key, t.Value(key))
+		logger.Debugf("load header: %s in the task failed, header is %+v", key, t.Value(key))
 	} else {
 		if err := src.CopyTo(dst); err != nil {
-			logger.Warnf("[copyRequestHeaderFromTask failed: %v]", err)
+			logger.Warnf("copyRequestHeaderFromTask failed: %v", err)
 		}
 	}
 }

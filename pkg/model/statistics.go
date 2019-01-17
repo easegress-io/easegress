@@ -911,7 +911,7 @@ func (ps *PipelineStatistics) PipelineIndicatorsValue(indicatorNames []string) m
 
 			values[indicatorName], err = indicator.Evaluate()
 			if err != nil {
-				logger.Warnf("[evaluate pipeline %s statistics indicator %s failed: %v]",
+				logger.Warnf("evaluate pipeline %s statistics indicator %s failed: %v",
 					ps.pipelineName, indicatorName, err)
 			}
 		}()

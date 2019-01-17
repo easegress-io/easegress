@@ -51,7 +51,7 @@ func (c *simpleCommonCacheConfig) Prepare(pipelineNames []string) error {
 	}
 
 	if c.TTLSec == 0 {
-		logger.Warnf("[ZERO TTL has been applied, no cached item could be released!]")
+		logger.Warnf("ZERO TTL has been applied, no cached item could be released!")
 	}
 
 	return nil
@@ -245,8 +245,8 @@ func getSimpleCommonCacheState(ctx pipelines.PipelineContext, pluginName string)
 			}
 		})
 	if err != nil {
-		logger.Warnf("[BUG: query state data for pipeline %s failed, "+
-			"ignored to cache data: %v]", ctx.PipelineName(), err)
+		logger.Warnf("BUG: query state data for pipeline %s failed, "+
+			"ignored to cache data: %v", ctx.PipelineName(), err)
 		return nil, err
 	}
 

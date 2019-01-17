@@ -60,8 +60,8 @@ func (d *downstreamInput) Run(ctx pipelines.PipelineContext, t task.Task) error 
 	}
 
 	if request.UpstreamPipelineName() != ctx.PipelineName() {
-		logger.Errorf("[BUG: downstream pipeline %s sends the request of "+
-			"cross pipeline request to the wrong upstream %s]",
+		logger.Errorf("BUG: downstream pipeline %s sends the request of "+
+			"cross pipeline request to the wrong upstream %s",
 			request.DownstreamPipelineName(), ctx.PipelineName())
 
 		t.SetError(fmt.Errorf("upstream received wrong downstream request"), task.ResultInternalServerError)
@@ -87,7 +87,7 @@ func (d *downstreamInput) Run(ctx pipelines.PipelineContext, t task.Task) error 
 
 		err := request.Respond(response, t1.Cancel())
 		if err != nil {
-			logger.Warnf("[respond downstream pipeline %s failed: %v]",
+			logger.Warnf("respond downstream pipeline %s failed: %v",
 				request.DownstreamPipelineName(), err)
 		}
 	}

@@ -240,7 +240,7 @@ func (h *httpInput) Prepare(ctx pipelines.PipelineContext) {
 		for _, entry := range h.toHTTPMuxEntries() {
 			err := mux.AddFunc(ctx, entry)
 			if err != nil {
-				logger.Errorf("[add handler to server %s failed: %v]", h.conf.ServerPluginName, err)
+				logger.Errorf("add handler to server %s failed: %v", h.conf.ServerPluginName, err)
 			}
 		}
 	}
@@ -251,8 +251,8 @@ func (h *httpInput) Prepare(ctx pipelines.PipelineContext) {
 			return h.getHTTPTaskQueueLength(), nil
 		})
 	if err != nil {
-		logger.Warnf("[BUG: register plugin %s indicator %s failed, "+
-			"ignored to expose customized statistics indicator: %s]", h.Name(), "WAIT_QUEUE_LENGTH", err)
+		logger.Warnf("BUG: register plugin %s indicator %s failed, "+
+			"ignored to expose customized statistics indicator: %s", h.Name(), "WAIT_QUEUE_LENGTH", err)
 	}
 
 	h.waitQueueLengthIndicatorAdded = added
@@ -267,8 +267,8 @@ func (h *httpInput) Prepare(ctx pipelines.PipelineContext) {
 			return atomic.LoadInt64(wipReqCount), nil
 		})
 	if err != nil {
-		logger.Warnf("[BUG: register plugin %s indicator %s failed, "+
-			"ignored to expose customized statistics indicator: %s]", h.Name(), "WIP_REQUEST_COUNT", err)
+		logger.Warnf("BUG: register plugin %s indicator %s failed, "+
+			"ignored to expose customized statistics indicator: %s", h.Name(), "WIP_REQUEST_COUNT", err)
 	}
 
 	h.wipRequestCountIndicatorAdded = added
@@ -420,8 +420,8 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 					buf := vbuf.([]byte)
 					written, err := io.CopyBuffer(tw, tr, buf)
 					if err != nil {
-						logger.Warnf("[read or write body failed, "+
-							"response might be incomplete: %s]", err)
+						logger.Warnf("read or write body failed, "+
+							"response might be incomplete: %s", err)
 					} else {
 						bodyBytesSent = written
 					}
@@ -445,8 +445,8 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 						iw.Close()
 						<-done
 
-						logger.Warnf("[load response body from reader in the task" +
-							" has been cancelled, response might be incomplete]")
+						logger.Warnf("load response body from reader in the task" +
+							" has been cancelled, response might be incomplete")
 					} else {
 						<-done
 						ir.Close()
@@ -462,7 +462,7 @@ func (h *httpInput) receive(ctx pipelines.PipelineContext, t task.Task) (error, 
 				readRespBodyElapse = tr.Elapse()
 				writeClientBodyElapse = tw.Elapse()
 			} else if t1.Value(h.conf.ResponseBodyIOKey) != nil { // ignore empty response body
-				logger.Errorf("[expected ResponseBodyIOKey to be type SizedReadCloser, but got: %v, value: %+v]",
+				logger.Errorf("expected ResponseBodyIOKey to be type SizedReadCloser, but got: %v, value: %+v",
 					reflect.TypeOf(t1.Value(h.conf.ResponseBodyIOKey)), t1.Value(h.conf.ResponseBodyIOKey))
 			}
 		} else if !task.SuccessfulResult(t1.ResultCode()) && h.conf.RespondErr {
@@ -573,8 +573,8 @@ func getHTTPInputHandlingRequestCount(ctx pipelines.PipelineContext, pluginName 
 			return &handlingRequestCount
 		})
 	if err != nil {
-		logger.Warnf("[BUG: query wip request counter for pipeline %s failed, "+
-			"ignored to calculate wip request: %v]", ctx.PipelineName(), err)
+		logger.Warnf("BUG: query wip request counter for pipeline %s failed, "+
+			"ignored to calculate wip request: %v", ctx.PipelineName(), err)
 		return nil, err
 	}
 
@@ -592,7 +592,7 @@ func (h *httpInput) closeResponseBody(t task.Task) {
 	if ok {
 		err := closer.Close()
 		if err != nil {
-			logger.Errorf("[close response body io %s failed: %v]",
+			logger.Errorf("close response body io %s failed: %v",
 				h.conf.ResponseBodyIOKey, err)
 		}
 	}
@@ -654,8 +654,8 @@ func logRequest(ht *httpTask, t task.Task, responseCodeKey, responseRemoteKey,
 		routeDuration)
 
 	if !task.SuccessfulResult(t.ResultCode()) {
-		logger.Warnf("[http request processed unsuccessfully, "+
-			"result code: %d, error: %s]", task.ResultCodeToHTTPCode(t.ResultCode()), t.Error())
+		logger.Warnf("http request processed unsuccessfully, "+
+			"result code: %d, error: %s", task.ResultCodeToHTTPCode(t.ResultCode()), t.Error())
 	}
 }
 
@@ -664,10 +664,10 @@ func copyResponseHeaderFromTask(t task.Task, key string, dst Header) {
 	if src, ok := t.Value(key).(Header); !ok {
 		// There are some normal cases that the header key is nil in task
 		// Because header key producer don't write them
-		logger.Debugf("[load header: %s in the task failed, header is %+v]", key, t.Value(key))
+		logger.Debugf("load header: %s in the task failed, header is %+v", key, t.Value(key))
 	} else {
 		if err := src.CopyTo(dst); err != nil {
-			logger.Warnf("[copyResponseHeaderFromTask failed: %v]", err)
+			logger.Warnf("copyResponseHeaderFromTask failed: %v", err)
 		}
 	}
 }

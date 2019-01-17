@@ -47,7 +47,7 @@ type reEntry struct {
 }
 
 func (entry *reEntry) String() string {
-	return fmt.Sprintf("[urlRE:%p, method:%s, priority:%d, instance:%p, headers: %v, handler:%p, pattern:%s, urlLiteral:%s]",
+	return fmt.Sprintf("urlRE:%p, method:%s, priority:%d, instance:%p, headers: %v, handler:%p, pattern:%s, urlLiteral:%s",
 		entry.urlRE, entry.Method, entry.Priority, entry.Instance, entry.Headers, entry.Handler,
 		fmt.Sprintf("%s://%s:%s%s?%s#%s", entry.Scheme, entry.Host, entry.Port,
 			entry.Path, entry.Query, entry.Fragment), entry.urlLiteral)
@@ -59,7 +59,7 @@ func newREMux(conf *reMuxConfig) (*reMux, error) {
 	}
 	cache, err := bigcache.NewBigCache(cacheConfig)
 	if err != nil {
-		logger.Errorf("[BUG: new big cache failed: %v]", err)
+		logger.Errorf("BUG: new big cache failed: %v", err)
 		return nil, err
 	}
 	return &reMux{
@@ -77,7 +77,7 @@ type cacheValue struct {
 func (m *reMux) clearCache() {
 	err := m.cache.Reset()
 	if err != nil {
-		logger.Errorf("[BUG: reset cache failed: %v]", err)
+		logger.Errorf("BUG: reset cache failed: %v", err)
 	}
 }
 
@@ -86,13 +86,13 @@ func (m *reMux) addCache(key string, value *cacheValue) {
 	encoder := codec.NewEncoder(buff, &codec.MsgpackHandle{})
 	err := encoder.Encode(*value)
 	if err != nil {
-		logger.Errorf("[BUG: msgpack encode failed: %v]", err)
+		logger.Errorf("BUG: msgpack encode failed: %v", err)
 		return
 	}
 
 	err = m.cache.Set(key, buff.Bytes())
 	if err != nil {
-		logger.Errorf("[BUG: cache set failed: %v]", err)
+		logger.Errorf("BUG: cache set failed: %v", err)
 		return
 	}
 }
@@ -107,7 +107,7 @@ func (m *reMux) getCache(key string) *cacheValue {
 	decoder := codec.NewDecoder(bytes.NewReader(buff), &codec.MsgpackHandle{})
 	err = decoder.Decode(&value)
 	if err != nil {
-		logger.Errorf("[BUG: msgpack decode failed: %v]", err)
+		logger.Errorf("BUG: msgpack decode failed: %v", err)
 		return nil
 	}
 

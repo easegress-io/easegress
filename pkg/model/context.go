@@ -63,7 +63,7 @@ func newPipelineContext(spec *store.PipelineSpec, statistics pipelines.PipelineS
 
 	go c.deletePipelineContextDataBucketWhenPluginDeleted()
 
-	logger.Infof("[pipeline %s context at %p is created]", spec.Name, c)
+	logger.Infof("pipeline %s context at %p is created", spec.Name, c)
 
 	return c
 }
@@ -233,7 +233,7 @@ func (pc *pipelineContext) CrossPipelineWIPRequestsCount(upstreamPipelineName st
 		contexts := pc.mod.pipelineContexts()
 		ctx := contexts[upstreamPipelineName]
 		if ctx == nil {
-			logger.Warnf("[the context of upstream pipeline %s not found]", upstreamPipelineName)
+			logger.Warnf("the context of upstream pipeline %s not found", upstreamPipelineName)
 			return 0
 		}
 
@@ -266,7 +266,7 @@ func (pc *pipelineContext) Close() {
 		bucketItem.bucket.close()
 	}
 
-	logger.Infof("[pipeline %s context at %p is closed]", pc.pipeName, pc)
+	logger.Infof("pipeline %s context at %p is closed", pc.pipeName, pc)
 }
 
 func (pc *pipelineContext) deletePipelineContextDataBucketWhenPluginDeleted() {
@@ -402,7 +402,7 @@ func (b *pipelineContextDataBucket) close() {
 		if ok {
 			err := closer.Close()
 			if err != nil {
-				logger.Warnf("[close data in the data bucket of the pipeline %s failed, ignored: %v]",
+				logger.Warnf("close data in the data bucket of the pipeline %s failed, ignored: %v",
 					b.pipelineName, err)
 			}
 		}

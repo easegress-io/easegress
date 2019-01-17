@@ -39,7 +39,7 @@ func (c *noMoreFailureLimiterConfig) Prepare(pipelineNames []string) error {
 	}
 
 	if c.FailureCountThreshold == 0 {
-		logger.Warnf("[ZERO failure count threshold has been applied, no request could be processed!]")
+		logger.Warnf("ZERO failure count threshold has been applied, no request could be processed!")
 	}
 
 	return nil
@@ -118,8 +118,8 @@ func getNoMoreFailureCounter(ctx pipelines.PipelineContext, pluginName, pluginIn
 		})
 
 	if err != nil {
-		logger.Warnf("[BUG: query failure counter for pipeline %s failed, "+
-			"ignored to handle failure limitation: %v]", ctx.PipelineName(), err)
+		logger.Warnf("BUG: query failure counter for pipeline %s failed, "+
+			"ignored to handle failure limitation: %v", ctx.PipelineName(), err)
 		return nil, err
 	}
 

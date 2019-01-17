@@ -52,7 +52,7 @@ func newRecoverer() func(context.Context) {
 				if err, ok := err.(clusterErr); ok {
 					handleAPIError(ctx, http.StatusServiceUnavailable, err)
 				} else {
-					logger.Errorf("[recovered from %s, stack trace:]\n%s\n",
+					logger.Errorf("recovered from %s, stack trace:\n%s\n",
 						ctx.HandlerName(), debug.Stack())
 					handleAPIError(ctx, http.StatusInternalServerError, err)
 				}

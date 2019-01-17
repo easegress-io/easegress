@@ -65,7 +65,7 @@ func (c *interpreterRunnerConfig) Prepare(pipelineNames []string) error {
 	}
 
 	if c.TimeoutSec == 0 {
-		logger.Warnf("[ZERO timeout has been applied, no %s code could be terminated by execution timeout!]",
+		logger.Warnf("ZERO timeout has been applied, no %s code could be terminated by execution timeout!",
 			c.interpreterName)
 	}
 
@@ -114,7 +114,7 @@ func (r *interpreterRunner) Prepare(ctx pipelines.PipelineContext) {
 func (r *interpreterRunner) Run(ctx pipelines.PipelineContext, t task.Task) error {
 	cmd := r.executor.command(r.conf.executableCode)
 	if cmd == nil {
-		logger.Errorf("[BUG: %s interpreter did not provide valid command, skip to execution]",
+		logger.Errorf("BUG: %s interpreter did not provide valid command, skip to execution",
 			r.conf.interpreterName)
 		return nil
 	}
@@ -127,7 +127,7 @@ func (r *interpreterRunner) Run(ctx pipelines.PipelineContext, t task.Task) erro
 	if len(input) != 0 {
 		in, err := cmd.StdinPipe()
 		if err != nil {
-			logger.Errorf("[prepare stdin of command of %s interpreter failed: %v]", r.conf.interpreterName, err)
+			logger.Errorf("prepare stdin of command of %s interpreter failed: %v", r.conf.interpreterName, err)
 
 			t.SetError(err, task.ResultServiceUnavailable)
 			return nil
@@ -145,7 +145,7 @@ func (r *interpreterRunner) Run(ctx pipelines.PipelineContext, t task.Task) erro
 
 	err := cmd.Start()
 	if err != nil {
-		logger.Errorf("[launch %s interpreter failed: %v]", r.conf.interpreterName, err)
+		logger.Errorf("launch %s interpreter failed: %v", r.conf.interpreterName, err)
 
 		t.SetError(err, task.ResultServiceUnavailable)
 		return nil
@@ -173,7 +173,7 @@ func (r *interpreterRunner) Run(ctx pipelines.PipelineContext, t task.Task) erro
 		close(done)
 
 		if stdErr.Len() > 0 {
-			logger.Warnf("[%s code wrote stderr:\n%s\n]", r.conf.interpreterName, stdErr.String())
+			logger.Warnf("%s code wrote stderr:\n%s\n", r.conf.interpreterName, stdErr.String())
 		}
 
 		t = handleInterpreterResult(r.conf.interpreterName, err, r.conf.ExpectedExitCodes, stdOut, r.conf.OutputKey, t)
@@ -185,7 +185,7 @@ func (r *interpreterRunner) Run(ctx pipelines.PipelineContext, t task.Task) erro
 			close(done)
 		}()
 
-		logger.Errorf("[execute %s code timeout, terminated]", r.conf.interpreterName)
+		logger.Errorf("execute %s code timeout, terminated", r.conf.interpreterName)
 
 		err := fmt.Errorf("%s code execution timeout", r.conf.interpreterName)
 		t.SetError(err, task.ResultServiceUnavailable)
@@ -233,10 +233,10 @@ func handleInterpreterResult(interpreterName string, err error, expectedExitCode
 			if status, ok := exitErr.Sys().(syscall.WaitStatus); ok {
 				exitCode = status.ExitStatus()
 
-				logger.Debugf("[execute %s code exit code: %d]", interpreterName, exitCode)
+				logger.Debugf("execute %s code exit code: %d", interpreterName, exitCode)
 			}
 		} else {
-			logger.Errorf("[execute %s code failed: %v]", interpreterName, err)
+			logger.Errorf("execute %s code failed: %v", interpreterName, err)
 
 			t.SetError(err, task.ResultServiceUnavailable)
 			return t

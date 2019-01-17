@@ -129,7 +129,7 @@ func (m *Model) createPlugin(spec *store.PluginSpec) {
 	defer m.pluginsLock.Unlock()
 
 	if _, exists := m.plugins[spec.Name]; exists {
-		logger.Errorf("[BUG: plugin %s existed]", spec.Name)
+		logger.Errorf("BUG: plugin %s existed", spec.Name)
 		return
 	}
 
@@ -142,7 +142,7 @@ func (m *Model) deletePlugin(name string) {
 
 	plugin, exists := m.plugins[name]
 	if !exists {
-		logger.Errorf("[BUG: plugin %s not found]", name)
+		logger.Errorf("BUG: plugin %s not found", name)
 		return
 	}
 	delete(m.plugins, name)
@@ -160,7 +160,7 @@ func (m *Model) updatePlugin(spec *store.PluginSpec) {
 
 	plugin, exists := m.plugins[spec.Name]
 	if !exists {
-		logger.Errorf("[BUG: plugin %s not found]", spec.Name)
+		logger.Errorf("BUG: plugin %s not found", spec.Name)
 		return
 	}
 
@@ -183,7 +183,7 @@ func (m *Model) createPipeline(spec *store.PipelineSpec) {
 	defer m.schedulersLock.Unlock()
 
 	if _, exists := m.schedulers[spec.Name]; exists {
-		logger.Errorf("[BUG: pipeline scheduler %s existed]", spec.Name)
+		logger.Errorf("BUG: pipeline scheduler %s existed", spec.Name)
 		return
 	}
 	scheduler := CreatePipelineScheduler(spec, m)
@@ -198,7 +198,7 @@ func (m *Model) deletePipeline(name string) {
 
 	scheduler, exists := m.schedulers[name]
 	if !exists {
-		logger.Errorf("[BUG: pipeline scheduler %s not found]", name)
+		logger.Errorf("BUG: pipeline scheduler %s not found", name)
 		return
 	}
 	scheduler.Stop()
@@ -212,7 +212,7 @@ func (m *Model) updatePipeline(spec *store.PipelineSpec) {
 
 	scheduler, exists := m.schedulers[spec.Name]
 	if !exists {
-		logger.Errorf("[BUG: pipeline scheduler %s not found]", spec.Name)
+		logger.Errorf("BUG: pipeline scheduler %s not found", spec.Name)
 		return
 	}
 	scheduler.Stop()

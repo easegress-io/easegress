@@ -56,11 +56,11 @@ func (c *latencyLimiterConfig) Prepare(pipelineNames []string) error {
 	if c.BackOffTimeoutMSec < -1 {
 		return fmt.Errorf("invalid queuing timeout, must be >= -1")
 	} else if c.BackOffTimeoutMSec == -1 {
-		logger.Warnf("[INFINITE timeout of latency limit has been applied, " +
-			"no request could be timed out from back off!]")
+		logger.Warnf("INFINITE timeout of latency limit has been applied, " +
+			"no request could be timed out from back off!")
 	} else if c.BackOffTimeoutMSec == 0 {
-		logger.Warnf("[ZERO timeout of latency limit has been applied, " +
-			"no request could be backed off by limiter!]")
+		logger.Warnf("ZERO timeout of latency limit has been applied, " +
+			"no request could be backed off by limiter!")
 	} else if c.BackOffTimeoutMSec > 10000 {
 		return fmt.Errorf("invalid backoff timeout millisecond (requires less than or equal to 10 seconds)")
 	}
@@ -129,22 +129,22 @@ func (l *latencyWindowLimiter) Run(ctx pipelines.PipelineContext, t task.Task) e
 
 	r, err := getInboundThroughputRate1(ctx, l.Name())
 	if err != nil {
-		logger.Warnf("[BUG: query state data for pipeline %s failed, "+
-			"ignored to limit request: %v]", ctx.PipelineName(), err)
+		logger.Warnf("BUG: query state data for pipeline %s failed, "+
+			"ignored to limit request: %v", ctx.PipelineName(), err)
 		return nil
 	}
 
 	outboundRate, err := ctx.Statistics().PluginThroughputRate1(l.Name(), pipelines.AllStatistics)
 	if err != nil {
-		logger.Warnf("[BUG: query state data for pipeline %s failed, "+
-			"ignored to limit request: %v]", ctx.PipelineName(), err)
+		logger.Warnf("BUG: query state data for pipeline %s failed, "+
+			"ignored to limit request: %v", ctx.PipelineName(), err)
 	}
 
 	inboundRate, _ := r.Get() // ignore error safely
 	// use l.conf.AllowMSec to avoid thrashing caused by network, upstream server gc or other factors
 	counterThreshold := uint64(float64(l.conf.AllowMSec) / 1000.0 * outboundRate)
 	count := counter.Count()
-	logger.Debugf("[inboundRate: %.3f, outboundRate: %.3f, counter: %d, counterThreshold: %d]", inboundRate, outboundRate, counter.Count(), counterThreshold)
+	logger.Debugf("inboundRate: %.3f, outboundRate: %.3f, counter: %d, counterThreshold: %d", inboundRate, outboundRate, counter.Count(), counterThreshold)
 	if count > counterThreshold { // needs flow control
 		go updateFlowControlledThroughputRate(ctx, l.Name())
 
@@ -164,8 +164,8 @@ func (l *latencyWindowLimiter) Run(ctx pipelines.PipelineContext, t task.Task) e
 	if len(l.conf.FlowControlPercentageKey) != 0 {
 		percentage, err := getFlowControlledPercentage(ctx, l.Name())
 		if err != nil {
-			logger.Warnf("[BUG: query flow control percentage data for pipeline %s failed: %v, "+
-				"ignored this output]", ctx.PipelineName(), err)
+			logger.Warnf("BUG: query flow control percentage data for pipeline %s failed: %v, "+
+				"ignored this output", ctx.PipelineName(), err)
 		} else {
 			t.WithValue(l.conf.FlowControlPercentageKey, percentage)
 		}
@@ -214,7 +214,7 @@ func backOff(counter *latencyLimiterCounter, backOffTimeoutMSec int16, counterTh
 			return nil, true
 		case <-backOffTicker.C:
 			if counter.Count() < counterThreshold { // FIXME(shengdong): counterThreshold needs re-calculate
-				logger.Debugf("[successfully passed latency limiter after backed off]")
+				logger.Debugf("successfully passed latency limiter after backed off")
 				return nil, false
 			}
 		case <-t.Cancel():
@@ -259,7 +259,7 @@ func newLatencyLimiterCounter(ctx pipelines.PipelineContext, pluginName string, 
 						if max == 0 {
 							max = 1
 						}
-						logger.Debugf("[increase counter: %d, counter max: %d, outboundRate: %.1f]", ret.counter, max, outboundRate)
+						logger.Debugf("increase counter: %d, counter max: %d, outboundRate: %.1f", ret.counter, max, outboundRate)
 						ret.counter += 1
 						if ret.counter > max {
 							ret.counter = max
@@ -295,7 +295,7 @@ func (c *latencyLimiterCounter) Count() uint64 {
 	}
 
 	for len(c.c) > 0 {
-		logger.Debugf("[spin to wait counter is updated completely]")
+		logger.Debugf("spin to wait counter is updated completely")
 		time.Sleep(time.Millisecond)
 	}
 
@@ -315,8 +315,8 @@ func getLatencyLimiterCounter(ctx pipelines.PipelineContext, pluginName, instanc
 			return newLatencyLimiterCounter(ctx, pluginName, 2*allowMSec) // maxCountMSec may needs tuned
 		})
 	if err != nil {
-		logger.Warnf("[BUG: query state data for pipeline %s failed, "+
-			"ignored to limit request: %v]", ctx.PipelineName(), err)
+		logger.Warnf("BUG: query state data for pipeline %s failed, "+
+			"ignored to limit request: %v", ctx.PipelineName(), err)
 		return nil, err
 	}
 
@@ -338,11 +338,11 @@ func getTaskFinishedCallbackInLatencyLimiter(ctx pipelines.PipelineContext,
 			rt, err := ctx.Statistics().PluginExecutionTimePercentile(
 				name, pipelines.AllStatistics, 0.9) // value 90% is an option?
 			if err != nil {
-				logger.Warnf("[BUG: query plugin %s 90%% execution time failed, "+
-					"ignored to adjust exceptional latency counter: %v]", pluginName, err)
+				logger.Warnf("BUG: query plugin %s 90%% execution time failed, "+
+					"ignored to adjust exceptional latency counter: %v", pluginName, err)
 				return
 			}
-			logger.Debugf("[concerned plugin %s latency: %.1f, latencyThreshold:%.1f]", name, rt, latencyThreshold)
+			logger.Debugf("concerned plugin %s latency: %.1f, latencyThreshold:%.1f", name, rt, latencyThreshold)
 			if rt < 0 {
 				continue // doesn't make sense, defensive
 			}

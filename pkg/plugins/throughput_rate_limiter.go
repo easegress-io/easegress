@@ -52,11 +52,11 @@ func (c *throughputRateLimiterConfig) Prepare(pipelineNames []string) error {
 	}
 
 	if c.TimeoutMSec == 0 {
-		logger.Warnf("[ZERO timeout of throughput rate limit has been applied, " +
-			"no request could be queued by limiter!]")
+		logger.Warnf("ZERO timeout of throughput rate limit has been applied, " +
+			"no request could be queued by limiter!")
 	} else if c.TimeoutMSec == -1 {
-		logger.Warnf("[INFINITE timeout of throughput rate limit has been applied, " +
-			"no request could be timed out from queue!]")
+		logger.Warnf("INFINITE timeout of throughput rate limit has been applied, " +
+			"no request could be timed out from queue!")
 	}
 
 	return nil
@@ -134,7 +134,7 @@ func (l *throughputRateLimiter) Run(ctx pipelines.PipelineContext, t task.Task) 
 					t.SetError(fmt.Errorf("task is cancelled by %s", t.CancelCause()),
 						task.ResultTaskCancelled)
 				} else {
-					logger.Warnf("[BUG: limiter context was canceled but task still running]")
+					logger.Warnf("BUG: limiter context was canceled but task still running")
 				}
 			default: // task queuing timeout
 				// type of error is context.DeadlineExceeded or limiter predicts waiting would exceed context deadline
@@ -153,8 +153,8 @@ func (l *throughputRateLimiter) Run(ctx pipelines.PipelineContext, t task.Task) 
 	if len(l.conf.FlowControlPercentageKey) != 0 {
 		percentage, err := getFlowControlledPercentage(ctx, l.Name())
 		if err != nil {
-			logger.Warnf("[BUG: query flow control percentage data for pipeline %s failed: %v, "+
-				"ignored this output]", ctx.PipelineName(), err)
+			logger.Warnf("BUG: query flow control percentage data for pipeline %s failed: %v, "+
+				"ignored this output", ctx.PipelineName(), err)
 		} else {
 			t.WithValue(l.conf.FlowControlPercentageKey, percentage)
 		}
@@ -197,8 +197,8 @@ func getThroughputRateLimiter(ctx pipelines.PipelineContext, tps float64,
 			var limiter *rate.Limiter
 
 			if tps == 0 {
-				logger.Warnf("[ZERO throughput rate limit has been applied, " +
-					"no request could be processed!]")
+				logger.Warnf("ZERO throughput rate limit has been applied, " +
+					"no request could be processed!")
 			} else {
 				limiter = rate.NewLimiter(limit, int(limit)+1)
 			}
@@ -207,8 +207,8 @@ func getThroughputRateLimiter(ctx pipelines.PipelineContext, tps float64,
 		})
 
 	if err != nil {
-		logger.Warnf("[BUG: query state data for pipeline %s failed, "+
-			"ignored to limit throughput rate: %v]", ctx.PipelineName(), err)
+		logger.Warnf("BUG: query state data for pipeline %s failed, "+
+			"ignored to limit throughput rate: %v", ctx.PipelineName(), err)
 		return nil, err
 	}
 

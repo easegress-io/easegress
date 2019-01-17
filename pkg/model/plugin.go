@@ -41,7 +41,7 @@ func newWrappedPlugin(mod *Model, ori plugins.Plugin, typ string, gen uint64) *w
 		closedCallbacks:          common.NewNamedCallbackSet(),
 	}
 
-	logger.Debugf("[created plugin %s at %p]", plugin.Name(), ori)
+	logger.Debugf("created plugin %s at %p", plugin.Name(), ori)
 
 	return plugin
 }
@@ -64,12 +64,12 @@ func (p *wrappedPlugin) Prepare(ctx pipelines.PipelineContext) {
 		return
 	}
 
-	logger.Debugf("[prepare plugin %s for pipeline %s (plugin=%p, context=%p)]",
+	logger.Debugf("prepare plugin %s for pipeline %s (plugin=%p, context=%p)",
 		p.Name(), ctx.PipelineName(), p.ori, ctx)
 
 	p.ori.Prepare(ctx)
 
-	logger.Debugf("[plugin %s prepared for pipeline %s (plugin=%p, context=%p)]",
+	logger.Debugf("plugin %s prepared for pipeline %s (plugin=%p, context=%p)",
 		p.Name(), ctx.PipelineName(), p.ori, ctx)
 
 	p.preparedPipelineContexts[ctx.PipelineName()] = ctx
@@ -100,19 +100,19 @@ func (p *wrappedPlugin) CleanUp(ctx pipelines.PipelineContext) {
 		pc.deleteClosingCallback(callbackName)
 	}
 
-	logger.Debugf("[cleaning plugin %s up from pipeline %s (plugin=%p, context=%p)]",
+	logger.Debugf("cleaning plugin %s up from pipeline %s (plugin=%p, context=%p)",
 		p.Name(), ctx.PipelineName(), p.ori, ctx)
 
 	p.ori.CleanUp(ctx)
 
-	logger.Debugf("[cleaned plugin %s up from pipeline %s (plugin=%p, context=%p)]",
+	logger.Debugf("cleaned plugin %s up from pipeline %s (plugin=%p, context=%p)",
 		p.Name(), ctx.PipelineName(), p.ori, ctx)
 }
 
 func (p *wrappedPlugin) Close() {
-	logger.Debugf("[closing plugin %s at %p]", p.Name(), p.ori)
+	logger.Debugf("closing plugin %s at %p", p.Name(), p.ori)
 	p.ori.Close()
-	logger.Debugf("[closed plugin %s at %p]", p.Name(), p.ori)
+	logger.Debugf("closed plugin %s at %p", p.Name(), p.ori)
 
 	for _, callback := range p.closedCallbacks.GetCallbacks() {
 		callback.Callback().(pluginInstanceClosed)()
@@ -295,7 +295,7 @@ func (p *Plugin) dismissInstance(instance *wrappedPlugin) (bool, uint64) {
 					for {
 						count, err := p.counter.RefCount(inst)
 						if err != nil {
-							logger.Errorf("[BUG: query reference count of plugin %s instance failed: %v]",
+							logger.Errorf("BUG: query reference count of plugin %s instance failed: %v",
 								inst.Name(), err)
 							break
 						}
@@ -304,7 +304,7 @@ func (p *Plugin) dismissInstance(instance *wrappedPlugin) (bool, uint64) {
 							break
 						}
 
-						logger.Debugf("[spin to wait old plugin instance closes]")
+						logger.Debugf("spin to wait old plugin instance closes")
 						time.Sleep(time.Millisecond)
 					}
 

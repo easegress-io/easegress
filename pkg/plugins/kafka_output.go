@@ -85,15 +85,15 @@ func kafkaOutputConstructor(conf Config) (Plugin, PluginType, bool, error) {
 
 	err := k.connectBroker()
 	if err != nil {
-		logger.Errorf("[%v connect kafka brokers %v failed: %s]", k.Name(), k.conf.Brokers, err)
+		logger.Errorf("%v connect kafka brokers %v failed: %s", k.Name(), k.conf.Brokers, err)
 		return nil, SinkPlugin, false, fmt.Errorf("kafka out of service")
 	}
 
-	logger.Infof("[%v connect kafka broker(s) %v succeed]", k.Name(), k.conf.Brokers)
+	logger.Infof("%v connect kafka broker(s) %v succeed", k.Name(), k.conf.Brokers)
 
 	k.producer, err = sarama.NewSyncProducerFromClient(k.client)
 	if err != nil {
-		logger.Errorf("[%v new producer from %v failed: %s]", k.Name(), k.conf.Brokers, err)
+		logger.Errorf("%v new producer from %v failed: %s", k.Name(), k.conf.Brokers, err)
 		return nil, SinkPlugin, false, fmt.Errorf("send message to kafka failed")
 	}
 
@@ -174,7 +174,7 @@ func (o *kafkaOutput) output(t task.Task) (error, task.TaskResultCode, task.Task
 
 	_, _, err := o.producer.SendMessage(msg)
 	if err != nil {
-		logger.Warnf("[send message to topic (%s) failed]", o.conf.Topic)
+		logger.Warnf("send message to topic (%s) failed", o.conf.Topic)
 		return err, task.ResultServiceUnavailable, t
 	}
 
@@ -211,12 +211,12 @@ func (o *kafkaOutput) CleanUp(ctx pipelines.PipelineContext) {
 func (o *kafkaOutput) Close() {
 	err := o.producer.Close()
 	if err != nil {
-		logger.Errorf("[close produce failed: %v]", err)
+		logger.Errorf("close produce failed: %v", err)
 	}
 
 	err = nil
 	err = o.client.Close()
 	if err != nil {
-		logger.Errorf("[close client failed: %v]", err)
+		logger.Errorf("close client failed: %v", err)
 	}
 }

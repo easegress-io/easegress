@@ -48,7 +48,7 @@ func (c *ioReaderConfig) Prepare(pipelineNames []string) error {
 	}
 
 	if c.LengthMax < 1 {
-		logger.Warnf("[UNLIMITED read length has been applied, all data could be read in to memory!]")
+		logger.Warnf("UNLIMITED read length has been applied, all data could be read in to memory!")
 	}
 
 	if len(c.InputKey) == 0 {
@@ -153,7 +153,7 @@ func (r *ioReader) read(t task.Task) (error, task.TaskResultCode, task.Task) {
 		if ok {
 			err := input1.Close()
 			if err != nil {
-				logger.Warnf("[close io input reader failed, ignored: %v", err)
+				logger.Warnf("close io input reader failed, ignored: %v", err)
 			}
 		}
 	}

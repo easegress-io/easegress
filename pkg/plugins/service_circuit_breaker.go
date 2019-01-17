@@ -68,8 +68,8 @@ func (c *serviceCircuitBreakerConfig) Prepare(pipelineNames []string) error {
 	}
 
 	if c.FailureTPSThresholdToBreak == 0 || c.FailureTPSPercentThresholdToBreak == 0 {
-		logger.Warnf("[ZERO failure throughput rate or throughput rate percentage threshold " +
-			"has been applied, breaker will keep open or half-open!]")
+		logger.Warnf("ZERO failure throughput rate or throughput rate percentage threshold " +
+			"has been applied, breaker will keep open or half-open!")
 	}
 
 	return nil
@@ -133,7 +133,7 @@ func (cb *serviceCircuitBreaker) Run(ctx pipelines.PipelineContext, t task.Task)
 			state.status = halfOpen
 			state.halfOpenAt = common.Now()
 			state.openAt = time.Time{}
-			logger.Debugf("[service circuit breaker turns status from Open to %s "+
+			logger.Debugf("service circuit breaker turns status from Open to %s "+
 				"(recovery %dms timeout)", state.status, cb.conf.RecoveryTimeMSec)
 		}
 		return nil
@@ -248,8 +248,8 @@ func getServiceCircuitBreakerStateData(ctx pipelines.PipelineContext, pluginsCon
 		})
 
 	if err != nil {
-		logger.Warnf("[BUG: query state data for pipeline %s failed, "+
-			"ignored to handle service fusing: %v]", ctx.PipelineName(), err)
+		logger.Warnf("BUG: query state data for pipeline %s failed, "+
+			"ignored to handle service fusing: %v", ctx.PipelineName(), err)
 		return nil, err
 	}
 
@@ -269,8 +269,8 @@ func getTPS(ctx pipelines.PipelineContext, pluginsConcerned []string,
 
 		tps, err := tpsQuerier(name, kind)
 		if err != nil {
-			logger.Warnf("[BUG: query plugin %s throughput rate failed (kind=%s), "+
-				"ignored to consider the rate of this plugin: %v]", name, kind, err)
+			logger.Warnf("BUG: query plugin %s throughput rate failed (kind=%s), "+
+				"ignored to consider the rate of this plugin: %v", name, kind, err)
 			continue
 		}
 
@@ -299,7 +299,7 @@ func nextStatus(ctx pipelines.PipelineContext, pluginsConcerned []string, curren
 	case off: // check if turns to closed or open directly
 		if allTps5 >= tpsToEnablement {
 			ret = closed
-			logger.Debugf("[service circuit breaker turns status from %s to %s (all tps %f >= %f)",
+			logger.Debugf("service circuit breaker turns status from %s to %s (all tps %f >= %f)",
 				currentStatus, ret, allTps5, tpsToEnablement)
 		}
 		fallthrough
@@ -314,17 +314,17 @@ func nextStatus(ctx pipelines.PipelineContext, pluginsConcerned []string, curren
 		// tpsToBreak equals to zero means no request could be processed, allows operator to stop all request
 		if tpsToBreak >= 0 && failureTps >= tpsToBreak {
 			ret = open
-			logger.Debugf("[service circuit breaker turns status from %s to %s "+
+			logger.Debugf("service circuit breaker turns status from %s to %s "+
 				"(failure tps %f >= %f)", currentStatus, ret, failureTps, tpsToBreak)
 		} else if (tpsPercentToBreak >= 0 || tpsPercentToBreak <= 100) &&
 			failureTps/allTps1*100 >= float64(tpsPercentToBreak) {
 			ret = open
-			logger.Debugf("[service circuit breaker turns status from %s to %s "+
+			logger.Debugf("service circuit breaker turns status from %s to %s "+
 				"(failure tps %f >= %f)", currentStatus, ret,
 				failureTps/allTps1*100, tpsPercentToBreak)
 		} else if allTps5 < tpsToEnablement {
 			ret = off
-			logger.Debugf("[service circuit breaker turns status from %s to %s "+
+			logger.Debugf("service circuit breaker turns status from %s to %s "+
 				"(all tps %f < %f)", currentStatus, ret, allTps5, tpsToEnablement)
 		} else {
 			ret = closed
@@ -345,11 +345,11 @@ func nextStatus(ctx pipelines.PipelineContext, pluginsConcerned []string, curren
 			pipelines.SuccessStatistics)
 		if successTps >= tpsToOpen {
 			ret = closed
-			logger.Debugf("[service circuit breaker turns from status %s to %s "+
+			logger.Debugf("service circuit breaker turns from status %s to %s "+
 				"(success tps %f >= %f)", currentStatus, ret, successTps, tpsToOpen)
 		} else {
 			ret = open
-			logger.Debugf("[service circuit breaker turns status from %s to %s "+
+			logger.Debugf("service circuit breaker turns status from %s to %s "+
 				"(success tps %f < %f)", currentStatus, ret, successTps, tpsToOpen)
 		}
 	}

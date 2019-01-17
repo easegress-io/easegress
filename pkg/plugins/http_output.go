@@ -113,7 +113,7 @@ func (c *HTTPOutputConfig) Prepare(pipelineNames []string) error {
 	}
 
 	if c.TimeoutSec == 0 {
-		logger.Warnf("[ZERO timeout has been applied, no request could be cancelled by timeout!]")
+		logger.Warnf("ZERO timeout has been applied, no request could be cancelled by timeout!")
 	}
 
 	if strings.ToLower(c.ConnKeepAlive) == "auto" {
@@ -329,7 +329,7 @@ func (h *httpOutput) Run(ctx pipelines.PipelineContext, t task.Task) error {
 		closeHTTPOutputResponseBody := func(t1 task.Task, _ task.TaskStatus) {
 			err := resp.BodyReadCloser().Close()
 			if err != nil {
-				logger.Errorf("[close response body failed: %v]", err)
+				logger.Errorf("close response body failed: %v", err)
 			}
 		}
 

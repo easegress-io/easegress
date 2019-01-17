@@ -44,7 +44,7 @@ loop:
 			err := pi.instance.Run()
 			if err != nil {
 				logger.Errorf(
-					"[pipeline %s runs error and exits exceptionally: %v]",
+					"pipeline %s runs error and exits exceptionally: %v",
 					pi.instance.Name(), err)
 				break loop
 			}
@@ -143,7 +143,7 @@ func (scheduler *commonPipelineScheduler) startPipeline(parallelism uint32) (uin
 		pipeline, err := GetPipelineInstance(scheduler.spec, scheduler.ctx,
 			scheduler.stat, scheduler.mod)
 		if err != nil {
-			logger.Errorf("[launch pipeline %s-#%d failed: %v]",
+			logger.Errorf("launch pipeline %s-#%d failed: %v",
 				scheduler.PipelineName(), currentParallelism+idx+1, err)
 
 			return currentParallelism, idx
@@ -166,13 +166,13 @@ func (scheduler *commonPipelineScheduler) stopPipelineInstance(idx int, instance
 	select {
 	case <-instance.terminate(scheduled): // wait until stop
 	case <-time.After(PIPELINE_STOP_TIMEOUT_SECONDS * time.Second):
-		logger.Warnf("[stopped pipeline %s instance #%d timeout (%d seconds elapsed)]",
+		logger.Warnf("stopped pipeline %s instance #%d timeout (%d seconds elapsed)",
 			scheduler.PipelineName(), idx+1, PIPELINE_STOP_TIMEOUT_SECONDS)
 	}
 }
 
 func (scheduler *commonPipelineScheduler) StopPipeline() {
-	logger.Debugf("[stopping pipeline %s]", scheduler.PipelineName())
+	logger.Debugf("stopping pipeline %s", scheduler.PipelineName())
 
 	scheduler.instancesLock.Lock()
 	defer scheduler.instancesLock.Unlock()
@@ -186,7 +186,7 @@ func (scheduler *commonPipelineScheduler) StopPipeline() {
 	// no managed instance, re-entry-able function
 	scheduler.instances = scheduler.instances[:0]
 
-	logger.Infof("[stopped pipeline %s (parallelism=%d)]", scheduler.PipelineName(), currentParallelism)
+	logger.Infof("stopped pipeline %s (parallelism=%d)", scheduler.PipelineName(), currentParallelism)
 }
 
 func (scheduler *commonPipelineScheduler) Close() {
@@ -248,7 +248,7 @@ func (scheduler *dynamicPipelineScheduler) Start() {
 
 	parallelism, _ := scheduler.startPipeline(option.Global.PipelineInitParallelism)
 
-	logger.Debugf("[initialized pipeline instance(s) for pipeline %s (total=%d)]",
+	logger.Debugf("initialized pipeline instance(s) for pipeline %s (total=%d)",
 		scheduler.PipelineName(), parallelism)
 
 	go scheduler.launch()
@@ -337,7 +337,7 @@ func (scheduler *dynamicPipelineScheduler) launch() {
 				scheduler.launchTime = common.Now()
 				scheduler.launchTimeLock.Unlock()
 
-				logger.Debugf("[spawned pipeline instance(s) for pipeline %s (total=%d, increase=%d)]",
+				logger.Debugf("spawned pipeline instance(s) for pipeline %s (total=%d, increase=%d)",
 					scheduler.PipelineName(), parallelism, delta)
 			}
 		}
@@ -462,7 +462,7 @@ func (scheduler *dynamicPipelineScheduler) shrink() {
 
 			scheduler.instancesLock.RLock()
 
-			logger.Infof("[shrank a pipeline instance for pipeline %s (total=%d, decrease=%d)]",
+			logger.Infof("shrank a pipeline instance for pipeline %s (total=%d, decrease=%d)",
 				scheduler.PipelineName(), len(scheduler.instances), 1)
 
 			scheduler.instancesLock.RUnlock()
@@ -520,7 +520,7 @@ func (scheduler *staticPipelineScheduler) Start() {
 
 	parallelism, _ := scheduler.startPipeline(uint32(scheduler.spec.Config.ParallelismCount))
 
-	logger.Debugf("[initialized pipeline instance(s) for pipeline %s (total=%d)]",
+	logger.Debugf("initialized pipeline instance(s) for pipeline %s (total=%d)",
 		scheduler.PipelineName(), parallelism)
 }
 

@@ -51,7 +51,7 @@ func (c *shellConfig) Prepare(pipelineNames []string) error {
 
 	cmd := exec.Command(c.cmd, "-c", "")
 	if cmd.Run() != nil {
-		logger.Warnf("[shell interpreter (type=%s) is not ready, shell plugin will runs unsuccessfully!]",
+		logger.Warnf("shell interpreter (type=%s) is not ready, shell plugin will runs unsuccessfully!",
 			c.Type)
 	}
 

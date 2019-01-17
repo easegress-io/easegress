@@ -290,7 +290,7 @@ func httpServerConstructor(conf Config) (Plugin, PluginType, bool, error) {
 	case regexpMuxType:
 		muxConf, ok := h.conf.muxConf.(*reMuxConfig)
 		if !ok {
-			logger.Errorf("[BUG: want *reMuxConfig got %T]", h.conf.muxConf)
+			logger.Errorf("BUG: want *reMuxConfig got %T", h.conf.muxConf)
 			return nil, ProcessPlugin, true, fmt.Errorf(
 				"construct regexp mux failed: mux config type want *reMuxConfig got %T", h.conf.muxConf)
 		}
@@ -301,7 +301,7 @@ func httpServerConstructor(conf Config) (Plugin, PluginType, bool, error) {
 	case paramMuxType:
 		muxConf, ok := h.conf.muxConf.(*paramMuxConfig)
 		if !ok {
-			logger.Errorf("[BUG: want *paramMuxConfig got %T]", h.conf.muxConf)
+			logger.Errorf("BUG: want *paramMuxConfig got %T", h.conf.muxConf)
 			return nil, ProcessPlugin, true, fmt.Errorf(
 				"construct param mux failed: mux config type want *paramMuxConfig got %T", h.conf.muxConf)
 		}
@@ -329,22 +329,22 @@ func httpServerConstructor(conf Config) (Plugin, PluginType, bool, error) {
 	}
 
 	if c.https {
-		logger.Infof("[https server %s is listening at %s]", c.Name, h.addr)
+		logger.Infof("https server %s is listening at %s", c.Name, h.addr)
 
 		go func() {
 			err := h.server.ServeTLS(c.certFilePath, c.keyFilePath)
 			if !h.closed && err != nil {
-				logger.Errorf("[https server listens %s failed: %v]", h.addr, err)
+				logger.Errorf("https server listens %s failed: %v", h.addr, err)
 			}
 			server_startup_notifier(err)
 		}()
 	} else {
-		logger.Infof("[http server %s is listening at %s]", c.Name, h.addr)
+		logger.Infof("http server %s is listening at %s", c.Name, h.addr)
 
 		go func() {
 			err := h.server.Serve()
 			if !h.closed && err != nil {
-				logger.Errorf("[http server listens %s failed: %v]", h.addr, err)
+				logger.Errorf("http server listens %s failed: %v", h.addr, err)
 			}
 			server_startup_notifier(err)
 		}()
@@ -411,9 +411,9 @@ func (h *httpServer) Close() {
 
 	err := h.server.Close()
 	if err != nil {
-		logger.Errorf("[shut server listens at %s down failed: %v]", h.addr, err)
+		logger.Errorf("shut server listens at %s down failed: %v", h.addr, err)
 	} else {
-		logger.Infof("[server listens at %s is shut down]", h.addr)
+		logger.Infof("server listens at %s is shut down", h.addr)
 	}
 
 	// wait close really by spin
@@ -466,8 +466,8 @@ func storeHTTPServerMux(ctx pipelines.PipelineContext, pluginName string, mux HT
 	bucket := ctx.DataBucket(pluginName, pipelines.DATA_BUCKET_FOR_ALL_PLUGIN_INSTANCE)
 	_, err := bucket.BindData(HTTP_SERVER_MUX_BUCKET_KEY, mux)
 	if err != nil {
-		logger.Warnf("[BUG: store the mux of http server %s for pipeline %s failed, "+
-			"ignored to provide mux: %v]", pluginName, ctx.PipelineName(), err)
+		logger.Warnf("BUG: store the mux of http server %s for pipeline %s failed, "+
+			"ignored to provide mux: %v", pluginName, ctx.PipelineName(), err)
 		return err
 	}
 
@@ -480,7 +480,7 @@ func getHTTPServerMux(ctx pipelines.PipelineContext, pluginName string, required
 
 	ret, ok := mux.(HTTPMux)
 	if !ok && required {
-		logger.Errorf("[the mux of http server %s for pipeline %s is invalid]",
+		logger.Errorf("the mux of http server %s for pipeline %s is invalid",
 			pluginName, ctx.PipelineName())
 		return nil
 	}
@@ -494,7 +494,7 @@ func storePipelineRouteTable(ctx pipelines.PipelineContext, pluginName string,
 	bucket := ctx.DataBucket(pluginName, pipelines.DATA_BUCKET_FOR_ALL_PLUGIN_INSTANCE)
 	_, err := bucket.BindData(HTTP_SERVER_PIPELINE_ROUTE_TABLE_BUCKET_KEY, pipelineRTable)
 	if err != nil {
-		logger.Errorf("[BUG: store the route table of pipeline %s for http server %s failed: %v]",
+		logger.Errorf("BUG: store the route table of pipeline %s for http server %s failed: %v",
 			ctx.PipelineName(), pluginName, err)
 		return err
 	}
@@ -514,7 +514,7 @@ func getPipelineRouteTable(ctx pipelines.PipelineContext,
 
 	ret, ok := pipelineRTable.([]*HTTPMuxEntry)
 	if !ok {
-		logger.Errorf("[the route table of pipeline %s for http server %s is invalid]",
+		logger.Errorf("the route table of pipeline %s for http server %s is invalid",
 			ctx.PipelineName(), pluginName)
 		return nil
 	}
@@ -526,8 +526,8 @@ func storeHTTPServerGoneNotifier(ctx pipelines.PipelineContext, pluginName strin
 	bucket := ctx.DataBucket(pluginName, pipelines.DATA_BUCKET_FOR_ALL_PLUGIN_INSTANCE)
 	_, err := bucket.BindData(HTTP_SERVER_GONE_NOTIFIER_BUCKET_KEY, notifier)
 	if err != nil {
-		logger.Warnf("[BUG: store the close notifier of http server %s for pipeline %s failed, "+
-			"ignored to provide close notifier: %v]", pluginName, ctx.PipelineName(), err)
+		logger.Warnf("BUG: store the close notifier of http server %s for pipeline %s failed, "+
+			"ignored to provide close notifier: %v", pluginName, ctx.PipelineName(), err)
 		return err
 	}
 
@@ -540,7 +540,7 @@ func getHTTPServerGoneNotifier(ctx pipelines.PipelineContext, pluginName string,
 
 	ret, ok := notifier.(chan struct{})
 	if !ok && required {
-		logger.Errorf("[the close notifier of http server %s for pipeline %s is invalid]",
+		logger.Errorf("the close notifier of http server %s for pipeline %s is invalid",
 			pluginName, ctx.PipelineName())
 		return nil
 	}

@@ -178,10 +178,10 @@ func createEtcdServer(initCluster string) (*embed.Etcd, error) {
 	<-server.Server.ReadyNotify()
 	go func() {
 		err := <-server.Err()
-		logger.Errorf("[etcd server run failed: %v]", err)
+		logger.Errorf("etcd server run failed: %v", err)
 		server.Close()
 	}()
-	logger.Infof("[etcd server started successfully]")
+	logger.Infof("etcd server started successfully")
 
 	return server, nil
 }
@@ -207,35 +207,35 @@ func (c *cluster) Close() {
 
 	err := c.session.Close()
 	if err != nil {
-		logger.Errorf("[etcd session close faield: %v]", err)
+		logger.Errorf("etcd session close faield: %v", err)
 	} else {
-		logger.Infof("[etcd session close successfully]")
+		logger.Infof("etcd session close successfully")
 	}
 
 	closeClient := func() {
 		err = c.client.Close()
 		if err != nil {
-			logger.Errorf("[etcd client close faield: %v]", err)
+			logger.Errorf("etcd client close faield: %v", err)
 		} else {
-			logger.Infof("[etcd client close successfully]")
+			logger.Infof("etcd client close successfully")
 		}
 	}
 
 	if c.server != nil {
 		listResp, err := c.client.MemberList(ctx())
 		if err != nil {
-			logger.Errorf("[list member failed: %v]", err)
+			logger.Errorf("list member failed: %v", err)
 		} else if len(listResp.Members) > 1 {
 			_, err := c.client.MemberRemove(ctx(), uint64(c.server.Server.ID()))
 			if err != nil {
-				logger.Errorf("[remove member %s failed: %v]",
+				logger.Errorf("remove member %s failed: %v",
 					option.Global.Name, err)
 			}
 		}
 		closeClient()
 		c.server.Close()
 		<-c.server.Server.StopNotify()
-		logger.Infof("[etcd server close successfully]")
+		logger.Infof("etcd server close successfully")
 	} else {
 		closeClient()
 	}
@@ -256,7 +256,7 @@ func (c *cluster) registerService() error {
 			return err
 		}
 
-		logger.Infof("[register service at %s]", MemberConfigKey)
+		logger.Infof("register service at %s", MemberConfigKey)
 		return nil
 	}
 
@@ -272,14 +272,14 @@ func (c *cluster) registerService() error {
 				return
 			}
 
-			logger.Errorf("[lease %016x expired or revoked]", c.session.Lease())
+			logger.Errorf("lease %016x expired or revoked", c.session.Lease())
 
 			for {
 				err := register()
 				if err == nil {
 					break
 				}
-				logger.Errorf("[register service failed(retry after %v): %v]",
+				logger.Errorf("register service failed(retry after %v): %v",
 					registerTimeout, err)
 				<-time.After(registerTimeout)
 			}

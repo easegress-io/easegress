@@ -93,7 +93,7 @@ func (p *Pipeline) Prepare() {
 	for i := 0; i < len(pluginNames) && atomic.LoadUint32(&p.stopped) == 0; i++ {
 		instance, _, _, err := p.mod.getPluginInstance(pluginNames[i], false)
 		if err != nil {
-			logger.Warnf("[plugin %s get instance failed: %v]", pluginNames[i], err)
+			logger.Warnf("plugin %s get instance failed: %v", pluginNames[i], err)
 			break // the preparation of follow plugin might depend on previous plugin
 		}
 
@@ -127,7 +127,7 @@ func (p *Pipeline) Run() error {
 		// error here is acceptable to pipeline, so do not return and keep pipeline runs
 		instance, pluginType, gen, err := p.mod.getPluginInstance(pluginNames[i], true)
 		if err != nil {
-			logger.Warnf("[plugin %s get instance failed: %v]", pluginNames[i], err)
+			logger.Warnf("plugin %s get instance failed: %v", pluginNames[i], err)
 			t.SetError(err, http.StatusServiceUnavailable)
 		}
 
@@ -149,7 +149,7 @@ func (p *Pipeline) Run() error {
 		switch t.Status() {
 		case task.ResponseImmediately:
 			msg := fmt.Sprintf(
-				"[plugin %s in pipeline %s execution failure, resultcode=%d, error=\"%s\"]",
+				"plugin %s in pipeline %s execution failure, resultcode=%d, error=\"%s\"",
 				pluginNames[i], p.conf.Name, t.ResultCode(), t.Error())
 
 			if atomic.LoadUint32(&p.stopped) == 1 {
@@ -297,7 +297,7 @@ func (p *Pipeline) runPlugin(instance *wrappedPlugin, pluginType plugins.PluginT
 			tsk.clearError(originalCode)
 		} else if !preempted {
 			if atomic.LoadUint32(&p.stopped) == 0 {
-				logger.Warnf("[plugin %s encountered failure itself can't cover: %v]", instance.Name(), err)
+				logger.Warnf("plugin %s encountered failure itself can't cover: %v", instance.Name(), err)
 			}
 
 			if t.Error() == nil { // do not overwrite plugin gives error
@@ -342,7 +342,7 @@ func (p *Pipeline) cancelAndRerunRunningPlugin() {
 func (p *Pipeline) updatePipelineAndTaskStat(data *statisticsData) {
 	err := p.statistics.updatePipelineExecution(data.finishAt.Sub(data.startAt))
 	if err != nil {
-		logger.Errorf("[pipeline %s updates execution statistics failed: %v]", p.Name(), err)
+		logger.Errorf("pipeline %s updates execution statistics failed: %v", p.Name(), err)
 	}
 
 	if data.successful {
@@ -352,7 +352,7 @@ func (p *Pipeline) updatePipelineAndTaskStat(data *statisticsData) {
 	}
 
 	if err != nil {
-		logger.Errorf("[pipeline %s updates task execution statistics failed: %v]", p.Name(), err)
+		logger.Errorf("pipeline %s updates task execution statistics failed: %v", p.Name(), err)
 	}
 }
 
@@ -390,7 +390,7 @@ func (p *Pipeline) updatePluginStat(data *pluginStatisticsData) {
 
 	err := p.statistics.updatePluginExecution(data.pluginName, kind, data.finishAt.Sub(data.startAt))
 	if err != nil {
-		logger.Errorf("[plugin %s updates execution statistics failed: %v]", data.pluginName, err)
+		logger.Errorf("plugin %s updates execution statistics failed: %v", data.pluginName, err)
 	}
 }
 

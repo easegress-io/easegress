@@ -21,24 +21,24 @@ import (
 func main() {
 	defer logger.Close()
 
-	logger.Infof("[%s]", version.Long)
+	logger.Infof("%s", version.Long)
 
 	cpuProfileDone := setupCPUProfile()
 	memProfileDone := setupMemoryoryProfile()
 
 	cluster, err := cluster.New()
 	if err != nil {
-		logger.Errorf("[new cluster failed: %v]", err)
+		logger.Errorf("new cluster failed: %v", err)
 		os.Exit(1)
 	}
 	store, err := store.New(cluster)
 	if err != nil {
-		logger.Errorf("[new store failed: %v]", err)
+		logger.Errorf("new store failed: %v", err)
 		os.Exit(1)
 	}
 	model, err := model.NewModel(store)
 	if err != nil {
-		logger.Errorf("[new model failed: %v]", err)
+		logger.Errorf("new model failed: %v", err)
 		os.Exit(1)
 	}
 
@@ -52,11 +52,11 @@ func main() {
 	sig := <-sigChan
 	go func() {
 		sig := <-sigChan
-		logger.Infof("[%s signal received, closing easegateway immediately]", sig)
+		logger.Infof("%s signal received, closing easegateway immediately", sig)
 		os.Exit(255)
 	}()
 
-	logger.Infof("[%s signal received, closing easegateway]", sig)
+	logger.Infof("%s signal received, closing easegateway", sig)
 
 	api.Close()
 	stat.Close()
@@ -83,16 +83,16 @@ func setupCPUProfile() chan struct{} {
 
 	f, err := os.Create(option.Global.CPUProfileFile)
 	if err != nil {
-		logger.Errorf("[create cpu profile failed: %v]", err)
+		logger.Errorf("create cpu profile failed: %v", err)
 		os.Exit(1)
 	}
 	err = pprof.StartCPUProfile(f)
 	if err != nil {
-		logger.Errorf("[start cpu profile failed: %v]", err)
+		logger.Errorf("start cpu profile failed: %v", err)
 		os.Exit(1)
 	}
 
-	logger.Infof("[cpu profile: %s]", option.Global.CPUProfileFile)
+	logger.Infof("cpu profile: %s", option.Global.CPUProfileFile)
 	go func() {
 		<-done
 		pprof.StopCPUProfile()
@@ -118,10 +118,10 @@ func setupMemoryoryProfile() chan struct{} {
 
 	go func() {
 		<-done
-		logger.Infof("[memory profile: %s]", option.Global.MemoryProfileFile)
+		logger.Infof("memory profile: %s", option.Global.MemoryProfileFile)
 		f, err := os.Create(option.Global.MemoryProfileFile)
 		if err != nil {
-			logger.Errorf("[create memory profile failed: %v]", err)
+			logger.Errorf("create memory profile failed: %v", err)
 			return
 		}
 
@@ -129,11 +129,11 @@ func setupMemoryoryProfile() chan struct{} {
 		debug.FreeOSMemory() // help developer when using outside monitor tool
 
 		if err := pprof.WriteHeapProfile(f); err != nil {
-			logger.Errorf("[write memory file failed: %v]", err)
+			logger.Errorf("write memory file failed: %v", err)
 			return
 		}
 		if err := f.Close(); err != nil {
-			logger.Errorf("[close memory file failed: %v]", err)
+			logger.Errorf("close memory file failed: %v", err)
 			return
 		}
 		close(done)
