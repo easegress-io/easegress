@@ -1,7 +1,7 @@
 package cluster
 
 import (
-	"github.com/coreos/etcd/clientv3"
+	"go.etcd.io/etcd/clientv3"
 )
 
 // PutUnderLease stores data which will be eliminated when the lease expired or revoked,

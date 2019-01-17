@@ -3,8 +3,8 @@ package cluster
 import (
 	"github.com/megaease/easegateway/pkg/logger"
 
-	"github.com/coreos/etcd/clientv3"
-	"github.com/coreos/etcd/mvcc/mvccpb"
+	"go.etcd.io/etcd/clientv3"
+	"go.etcd.io/etcd/mvcc/mvccpb"
 )
 
 func (c *cluster) Watch(key string) (<-chan *string, error) {

@@ -7,13 +7,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/coreos/etcd/clientv3/concurrency"
-
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/option"
 
-	"github.com/coreos/etcd/clientv3"
-	"github.com/coreos/etcd/embed"
+	"go.etcd.io/etcd/clientv3"
+	"go.etcd.io/etcd/clientv3/concurrency"
+	"go.etcd.io/etcd/embed"
 )
 
 // Cluster store tree layout.

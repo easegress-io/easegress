@@ -10,7 +10,6 @@ import (
 
 	"github.com/megaease/easegateway/pkg/common"
 	"github.com/megaease/easegateway/pkg/version"
-	"github.com/sirupsen/logrus"
 	yaml "gopkg.in/yaml.v2"
 
 	flags "github.com/jessevdk/go-flags"
@@ -33,9 +32,9 @@ func init() {
 		APIAddr:          "localhost:2381",
 
 		DataDir: "./data",
-		LogDir:  "./logs",
 
-		StdLogLevel: "INFO",
+		LogDir: "./logs",
+		Debug:  false,
 
 		PipelineInitParallelism: 1,
 		PipelineMinParallelism:  5,
@@ -115,8 +114,8 @@ type Options struct {
 	WALDir  string `json:"wal-dir" yaml:"wal-dir" long:"wal-dir" description:"Path to the WAL directory."`
 
 	// log
-	LogDir      string `json:"log-dir" yaml:"log-dir" long:"log-dir" description:"Path to the log directory."`
-	StdLogLevel string `json:"std-log-level" yaml:"std-log-level" long:"std-log-level" description:"Set standard log level."`
+	LogDir string `json:"log-dir" yaml:"log-dir" long:"log-dir" description:"Path to the log directory."`
+	Debug  bool   `json:"debug" yaml:"debug" long:"debug" description:"Flag to set lowest log level from INFO downgrade DEBUG."`
 
 	// profile
 	CPUProfileFile    string `json:"cpu-profile-file" yaml:"cpu-profile-file" long:"cpu-profile-file" description:"Path to the CPU profile file."`
@@ -219,9 +218,6 @@ func (o *Options) validate() error {
 	}
 
 	// log
-	if _, err := logrus.ParseLevel(o.StdLogLevel); err != nil {
-		return fmt.Errorf("invalid std-log-level: %v", err)
-	}
 	if o.LogDir == "" {
 		return fmt.Errorf("empty log-dir")
 	}

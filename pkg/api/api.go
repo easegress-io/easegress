@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"time"
 
@@ -32,7 +33,6 @@ type APIServer struct {
 	cluster cluster.Cluster
 	mutex   cluster.Mutex
 	apis    []*apiEntry
-	logFile *os.File
 }
 
 func MustNewAPIServer(cluster cluster.Cluster) *APIServer {
@@ -41,18 +41,12 @@ func MustNewAPIServer(cluster cluster.Cluster) *APIServer {
 	app.Use(newRecoverer())
 	app.Use(newAPILogger())
 
-	logFile, err := os.Open(os.DevNull)
-	if err != nil {
-		logger.Errorf("[open %s failed: %v]", os.DevNull, err)
-		os.Exit(1)
-	}
-	app.Logger().SetOutput(logFile)
+	app.Logger().SetOutput(ioutil.Discard)
 
 	s := &APIServer{
 		app:     app,
 		cluster: cluster,
 		mutex:   cluster.Mutex(lockKey, lockTimeout),
-		logFile: logFile,
 	}
 
 	s.setupAPIs()
@@ -120,10 +114,6 @@ func (s *APIServer) listAPIs(ctx iris.Context) {
 
 func (s *APIServer) Close() {
 	s.app.Shutdown(context.Background())
-	err := s.logFile.Close()
-	if err != nil {
-		logger.Errorf("close log file failed: %v", err)
-	}
 }
 
 func (s *APIServer) Lock() {

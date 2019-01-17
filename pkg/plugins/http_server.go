@@ -90,7 +90,7 @@ func newFastHTTPServer(c *HTTPServerConfig, l net.Listener, mux HTTPMux) *fastHT
 		Concurrency:  int(c.MaxSimulConns),
 		LogAllErrors: true,
 		// set logger to log errors into std logger
-		Logger: logger.StdLogger(),
+		Logger: logger.HTTPServerLogger(),
 		// TODO(shengdong)
 		// open more options here? like Server.MaxRequestBodySize
 	}

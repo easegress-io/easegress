@@ -6,47 +6,51 @@ import (
 	"time"
 
 	"github.com/megaease/easegateway/pkg/common"
-
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 var (
-	LOG_HTTP_ACCESS_FILE = "http_access.log"
-	LOG_HTTP_DUMP_FILE   = "http_dump.log"
-	LOG_HTTP_LEVEL       = logrus.DebugLevel
-
-	httpLog = newLoggerSet()
+	Debugf logfFunc
+	Infof  logfFunc
+	Warnf  logfFunc
+	Errorf logfFunc
 )
 
-func initHTTP() {
-	formatter := new(httpFormatter)
+type httpServerLogger struct {
+	defaultLogger *zap.SugaredLogger
+}
 
-	f, out, err := openBufferedLogFile(LOG_HTTP_ACCESS_FILE)
-	if err != nil {
-		Errorf("[open log file %s failed: %v]", LOG_HTTP_ACCESS_FILE, err)
-	} else {
-		httpLog.registerFileLogger("http_access", f, out, LOG_HTTP_ACCESS_FILE, formatter, LOG_HTTP_LEVEL)
-	}
+func (l *httpServerLogger) Printf(template string, args ...interface{}) {
+	l.defaultLogger.Errorf(template, args...)
+}
 
-	// test example:
-	// req := httptest.NewRequest("POST", "https://127.0.0.1/api/sessions", nil)
-	// req.Header.Set("Referer", "http://easeteam.com/login")
-	// req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.75 Safari/537.36")
-	// HTTPAccess(req, 504, 585, time.Duration(150*time.Millisecond))
-
-	f, err = openLogFile(LOG_HTTP_DUMP_FILE)
-	if err != nil {
-		Errorf("[open log file %s failed: %v]", LOG_HTTP_DUMP_FILE, err)
-	} else {
-		// no buffer for performance, normally dump for debug or functional test only
-		httpLog.registerFileLogger("http_dump", f, f, LOG_HTTP_DUMP_FILE, formatter, LOG_HTTP_LEVEL)
+func HTTPServerLogger() *httpServerLogger {
+	return &httpServerLogger{
+		defaultLogger: defaultLogger,
 	}
 }
 
-type httpFormatter struct{}
+func Close() {
+	defaultLogger.Sync()
+	stderrLogger.Sync()
+	gatewayLogger.Sync()
+	httpPluginAccessLogger.Sync()
+	httpPluginDumpLogger.Sync()
+	restAPILogger.Sync()
+}
 
-func (f *httpFormatter) Format(entry *logrus.Entry) ([]byte, error) {
-	return []byte(fmt.Sprintln(entry.Message)), nil
+func APIAccess(
+	method, remoteAddr, path string,
+	code int,
+	bodyBytedReceived, bodyBytesSent int64,
+	requestTime time.Time,
+	processTime time.Duration) {
+	entry := fmt.Sprintf("%s %s %s %v rx:%dB tx:%dB start:%v process:%v",
+		method, remoteAddr, path, code,
+		bodyBytedReceived, bodyBytesSent,
+		requestTime.Format(time.RFC3339), processTime)
+
+	restAPILogger.Debug(entry)
 }
 
 func HTTPAccess(remoteAddr, proto, method, path, referer, agent, realIP string,
@@ -97,9 +101,7 @@ func HTTPAccess(remoteAddr, proto, method, path, referer, agent, realIP string,
 		requestTime.Seconds(), upstreamResponseTime.Seconds(), upstreamAddr, upstreamCode,
 		clientWriteBodyTime.Seconds(), clientReadBodyTime.Seconds(), routeTime.Seconds())
 
-	for _, l := range httpLog.getLoggers("http_access") {
-		l.Debugf(line)
-	}
+	httpPluginAccessLogger.Debug(line)
 }
 
 type DumpRequest func() (string, error)
@@ -112,10 +114,10 @@ func HTTPReqDump(pipelineName, pluginName, pluginInstanceId string, taskId int64
 		return
 	}
 
-	for _, l := range httpLog.getLoggers("http_dump") {
-		l.Debugf("%s/%s@%s/task#%d - - [%v]:\n%s]",
-			pipelineName, pluginName, pluginInstanceId, taskId, common.Now().Local(), s)
-	}
+	entry := fmt.Sprintf("%s/%s@%s/task#%d - - [%v]:\n%s]",
+		pipelineName, pluginName, pluginInstanceId, taskId, common.Now().Local(), s)
+
+	httpPluginDumpLogger.Debug(entry)
 }
 
 func HTTPRespDump(pipelineName, pluginName, pluginInstanceId string, taskId int64, dump DumpResponse) {
@@ -125,8 +127,8 @@ func HTTPRespDump(pipelineName, pluginName, pluginInstanceId string, taskId int6
 		return
 	}
 
-	for _, l := range httpLog.getLoggers("http_dump") {
-		l.Debugf("%s/%s@%s/task#%d - - [%v]:\n%s]",
-			pipelineName, pluginName, pluginInstanceId, taskId, common.Now().Local(), s)
-	}
+	entry := fmt.Sprintf("%s/%s@%s/task#%d - - [%v]:\n%s]",
+		pipelineName, pluginName, pluginInstanceId, taskId, common.Now().Local(), s)
+
+	httpPluginDumpLogger.Debug(entry)
 }

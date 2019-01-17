@@ -11,7 +11,7 @@ wal-dir: ""
 cpu-profile-file: ""
 memory-profile-file: ""
 log-dir: ./logs
-std-log-level: INFO
+debug: false
 pipeline-init-parallelism: 1
 pipeline-min-parallelism: 5
 pipeline-max-parallelism: 5120

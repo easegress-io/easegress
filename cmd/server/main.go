@@ -19,11 +19,12 @@ import (
 )
 
 func main() {
-	defer logger.CloseLogFiles()
+	defer logger.Close()
 
 	logger.Infof("[%s]", version.Long)
 
-	dones := setupAsyncJobs()
+	cpuProfileDone := setupCPUProfile()
+	memProfileDone := setupMemoryoryProfile()
 
 	cluster, err := cluster.New()
 	if err != nil {
@@ -50,60 +51,27 @@ func main() {
 
 	sig := <-sigChan
 	go func() {
-		logger.Infof("[%s signal received, closing easegateway]", sig)
-		api.Close()
-		stat.Close()
-		model.Close()
-		store.Close()
-		cluster.Close()
-		for _, done := range dones {
-			if done != nil {
-				done <- struct{}{}
-			}
-		}
-	}()
-
-	go func() {
 		sig := <-sigChan
 		logger.Infof("[%s signal received, closing easegateway immediately]", sig)
 		os.Exit(255)
 	}()
 
-	for _, done := range dones {
-		if done != nil {
-			<-done
-		}
+	logger.Infof("[%s signal received, closing easegateway]", sig)
+
+	api.Close()
+	stat.Close()
+	model.Close()
+	store.Close()
+	cluster.Close()
+
+	if cpuProfileDone != nil {
+		cpuProfileDone <- struct{}{}
+		<-cpuProfileDone
 	}
-}
-
-func setupAsyncJobs() []chan struct{} {
-	logDone := setupLogFileReopen()
-	cpuProfileDone := setupCPUProfile()
-	memProfileDone := setupMemoryoryProfile()
-
-	return []chan struct{}{logDone, cpuProfileDone, memProfileDone}
-}
-
-func setupLogFileReopen() chan struct{} {
-	done := make(chan struct{}, 1)
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGHUP)
-
-	go func() {
-		for {
-			select {
-			case sig := <-sigChan:
-				logger.Infof("[%s signal received, reopen log files]", sig)
-				logger.ReOpenLogFiles()
-			case <-done:
-				close(sigChan)
-				close(done)
-				return
-			}
-		}
-	}()
-
-	return done
+	if memProfileDone != nil {
+		memProfileDone <- struct{}{}
+		<-memProfileDone
+	}
 }
 
 func setupCPUProfile() chan struct{} {

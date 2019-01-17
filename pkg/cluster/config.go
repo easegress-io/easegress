@@ -3,10 +3,11 @@ package cluster
 import (
 	"fmt"
 	"net/url"
+	"path/filepath"
 
 	"github.com/megaease/easegateway/pkg/option"
 
-	"github.com/coreos/etcd/embed"
+	"go.etcd.io/etcd/embed"
 )
 
 func generateEtcdConfig(initCluster string) *embed.Config {
@@ -27,8 +28,8 @@ func generateEtcdConfig(initCluster string) *embed.Config {
 	ec.AutoCompactionMode = "periodic"
 	ec.AutoCompactionRetention = "24h"
 	// https://github.com/etcd-io/etcd/issues/10364
-	// ec.Logger = "zap"
-	// ec.LogOutputs = []string{filepath.Join(option.Global.LogDir, "etcd.log")}
+	ec.Logger = "zap"
+	ec.LogOutputs = []string{filepath.Join(option.Global.LogDir, "etcd.log")}
 
 	if option.Global.ClusterJoinURL == "" {
 		// Bootstrap a new cluster.
