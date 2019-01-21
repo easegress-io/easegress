@@ -3,7 +3,7 @@
 SCRIPTPATH="$(cd "$(dirname "$0")"; pwd -P)"
 echo "SCRIPTPATH: ${SCRIPTPATH}"
 
-CLIENT=${SCRIPTPATH}/../../../bin/easegateway-client
+CLIENT=${SCRIPTPATH}/../../../bin/egwctl
 
 ADDRESS="$1"
 if [ -z "${ADDRESS}" ]; then

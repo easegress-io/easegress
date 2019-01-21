@@ -28,7 +28,7 @@ SERVER_FILES = $(shell find ${MKFILE_DIR}{cmd/server,pkg} -type f -name "*.go")
 
 # Targets
 TARGET_SERVER=${MKFILE_DIR}bin/easegateway-server
-TARGET_CLIENT=${MKFILE_DIR}bin/easegateway-client
+TARGET_CLIENT=${MKFILE_DIR}bin/egwctl
 TARGET=${TARGET_SERVER} ${TARGET_CLIENT}
 
 # Rules

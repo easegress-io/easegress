@@ -3,7 +3,7 @@
 ## How to set sensible cross_pipeline_request_backlog for pipeline
 
 ## How to see whether the changes for pipeline or plugins has been successfully applied or not?
-1. You can check the exit code of the easegateway-client whether it exited successfully.
+1. You can check the exit code of the egwctl whether it exited successfully.
 2. You can use `pipeline ls` or `plugin ls` to check the latest configuration manually. 
 
 NOTE: when you are operating cluster, you can choose the priority of your administration operation:

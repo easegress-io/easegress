@@ -12,66 +12,66 @@ func init() {
 }
 
 var exampleUsage = `  # List APIs.
-  easegateway-client api list
+  egwctl api list
 
   # List member information.
-  easegateway-client member list
+  egwctl member list
 
   # List plugin types.
-  easegateway-client plugin types
+  egwctl plugin types
 
   # Create a plugin from a json file.
-  easegateway-client plugin create -f http_server.json
+  egwctl plugin create -f http_server.json
 
   # Create a plugin from stdout.
-  cat http_server.json | easegateway-client plugin create
+  cat http_server.json | egwctl plugin create
 
   # Delete a plugin.
-  easegateway-client plugin delete http_server
+  egwctl plugin delete http_server
 
   # Get a plugin.
-  easegateway-client plugin get http_server
+  egwctl plugin get http_server
 
   # List plugins.
-  easegateway-client plugin list
+  egwctl plugin list
 
   # Update a plugin from a json file.
-  easegateway-client plugin update -f http_server_2.json
+  egwctl plugin update -f http_server_2.json
 
   # Update a plugin from stdout.
-  echo http_server_2.json | easegateway-client plugin update
+  echo http_server_2.json | egwctl plugin update
 
   # Create a pipeline from a json file.
-  easegateway-client pipeline create -f http_proxy_pipeline.json
+  egwctl pipeline create -f http_proxy_pipeline.json
 
   # Create a pipeline from stdout.
-  cat http_server.json | easegateway-client pipeline create
+  cat http_server.json | egwctl pipeline create
 
   # Delete a pipeline.
-  easegateway-client pipeline delete http_proxy_pipeline
+  egwctl pipeline delete http_proxy_pipeline
 
   # Get a pipeline.
-  easegateway-client pipeline get http_proxy_pipeline
+  egwctl pipeline get http_proxy_pipeline
 
   # List pipelines.
-  easegateway-client pipeline list
+  egwctl pipeline list
 
   # Update a pipeline from a json file.
-  easegateway-client pipeline update -f http_proxy_pipeline_2.json
+  egwctl pipeline update -f http_proxy_pipeline_2.json
 
   # Update a pipeline from stdout.
-  echo http_proxy_pipeline_2.json | easegateway-client pipeline update
+  echo http_proxy_pipeline_2.json | egwctl pipeline update
 
   # Statistics pipeline.
-  easegateway-client stats
+  egwctl stats
 `
 
 func main() {
 	rootCmd := &cobra.Command{
-		Use:        "easegateway-client",
+		Use:        "egwctl",
 		Short:      "A command line client for EaseStack.",
 		Example:    exampleUsage,
-		SuggestFor: []string{"easegateway-client"},
+		SuggestFor: []string{"egwctl"},
 	}
 
 	completionCmd := &cobra.Command{

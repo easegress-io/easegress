@@ -20,7 +20,7 @@ make vendor_from_mod # Copy source code from module to traditional vendor.
 
 ### Run
 
-Makefile generates binaray `easegateway-server` and `easegateway-client` at `bin/`.
+Makefile generates binaray `easegateway-server` and `egwctl` at `bin/`.
 
 ### Security
 
