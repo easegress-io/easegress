@@ -23,12 +23,16 @@ func (s *APIServer) setupStatAPIs() {
 type (
 	ListStatResp struct {
 		//	pipelineName memberName
-		Values map[string]map[string]stat.Stat `json:"values"`
+		Values map[string]map[string]stat.PipelineStat `json:"values"`
 	}
 )
 
 func (s *APIServer) listStat(ctx iris.Context) {
-	resp := s._listStats()
+	values := s._listStats()
+
+	resp := ListStatResp{
+		Values: values,
+	}
 
 	buff, err := json.Marshal(resp)
 	if err != nil {

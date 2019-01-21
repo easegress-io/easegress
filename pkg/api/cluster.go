@@ -5,14 +5,13 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/megaease/easegateway/pkg/cluster"
 	"github.com/megaease/easegateway/pkg/option"
 	"github.com/megaease/easegateway/pkg/stat"
-	yaml "gopkg.in/yaml.v2"
-
-	"github.com/megaease/easegateway/pkg/cluster"
 	"github.com/megaease/easegateway/pkg/store"
 
 	"github.com/kataras/iris"
+	yaml "gopkg.in/yaml.v2"
 )
 
 func clusterPanic(err error) {
