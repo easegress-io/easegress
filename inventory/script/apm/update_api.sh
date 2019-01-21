@@ -3,7 +3,7 @@
 SCRIPTPATH="$(cd "$(dirname "$0")"; pwd -P)"
 echo "SCRIPTPATH: ${SCRIPTPATH}"
 
-CLIENT=${SCRIPTPATH}/../../../bin/egwctl
+CLIENT=${SCRIPTPATH}/../../../bin/egctl
 
 if [[ ! -x ${CLIENT} ]]
 then

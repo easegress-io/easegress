@@ -12,66 +12,66 @@ func init() {
 }
 
 var exampleUsage = `  # List APIs.
-  egwctl api list
+  egctl api list
 
   # List member information.
-  egwctl member list
+  egctl member list
 
   # List plugin types.
-  egwctl plugin types
+  egctl plugin types
 
   # Create a plugin from a json file.
-  egwctl plugin create -f http_server.json
+  egctl plugin create -f http_server.json
 
   # Create a plugin from stdout.
-  cat http_server.json | egwctl plugin create
+  cat http_server.json | egctl plugin create
 
   # Delete a plugin.
-  egwctl plugin delete http_server
+  egctl plugin delete http_server
 
   # Get a plugin.
-  egwctl plugin get http_server
+  egctl plugin get http_server
 
   # List plugins.
-  egwctl plugin list
+  egctl plugin list
 
   # Update a plugin from a json file.
-  egwctl plugin update -f http_server_2.json
+  egctl plugin update -f http_server_2.json
 
   # Update a plugin from stdout.
-  echo http_server_2.json | egwctl plugin update
+  echo http_server_2.json | egctl plugin update
 
   # Create a pipeline from a json file.
-  egwctl pipeline create -f http_proxy_pipeline.json
+  egctl pipeline create -f http_proxy_pipeline.json
 
   # Create a pipeline from stdout.
-  cat http_server.json | egwctl pipeline create
+  cat http_server.json | egctl pipeline create
 
   # Delete a pipeline.
-  egwctl pipeline delete http_proxy_pipeline
+  egctl pipeline delete http_proxy_pipeline
 
   # Get a pipeline.
-  egwctl pipeline get http_proxy_pipeline
+  egctl pipeline get http_proxy_pipeline
 
   # List pipelines.
-  egwctl pipeline list
+  egctl pipeline list
 
   # Update a pipeline from a json file.
-  egwctl pipeline update -f http_proxy_pipeline_2.json
+  egctl pipeline update -f http_proxy_pipeline_2.json
 
   # Update a pipeline from stdout.
-  echo http_proxy_pipeline_2.json | egwctl pipeline update
+  echo http_proxy_pipeline_2.json | egctl pipeline update
 
   # Statistics pipeline.
-  egwctl stats
+  egctl stats
 `
 
 func main() {
 	rootCmd := &cobra.Command{
-		Use:        "egwctl",
+		Use:        "egctl",
 		Short:      "A command line client for EaseStack.",
 		Example:    exampleUsage,
-		SuggestFor: []string{"egwctl"},
+		SuggestFor: []string{"egctl"},
 	}
 
 	completionCmd := &cobra.Command{

@@ -9,7 +9,7 @@ images:
     version:
       major: server_alpine-0.1
       minor: 0
-  - name: megaease/egwctl
+  - name: megaease/egctl
     script: release/build-client-image.sh
     registry: cnhub.megaease.com
     environment: easeapm-build-hk

@@ -2,6 +2,6 @@
 
 SCRIPTPATH="$(cd "$(dirname "$0")"; pwd -P)"
 
-CLIENT=${SCRIPTPATH}/../../../bin/egwctl
+CLIENT=${SCRIPTPATH}/../../../bin/egctl
 
 ${CLIENT} admin pipeline update "$@"
