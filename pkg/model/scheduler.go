@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/megaease/easegateway/pkg/common"
-	"github.com/megaease/easegateway/pkg/store"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/option"
+	"github.com/megaease/easegateway/pkg/store"
 
 	"github.com/megaease/easegateway/pkg/pipelines"
 )

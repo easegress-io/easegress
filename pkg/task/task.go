@@ -35,7 +35,7 @@ const (
 type TaskResultCode uint
 
 type TaskFinished func(task Task, originalStatus TaskStatus)
-type TaskRecovery func(task Task, errorPluginName, errorPluginType string) (recovered , finishTask bool)
+type TaskRecovery func(task Task, errorPluginName, errorPluginType string) (recovered, finishTask bool)
 
 type Task interface {
 	// Finish sets status to `Finishing`

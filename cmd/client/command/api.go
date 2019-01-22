@@ -1,7 +1,6 @@
 package command
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/spf13/cobra"
@@ -9,25 +8,22 @@ import (
 
 func APICmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "api list",
-		Short: "List available APIs",
-		Run:   apiListFunc,
+		Use:   "api",
+		Short: "View EaseGateway APIs",
 	}
 
+	cmd.AddCommand(listAPICmd())
 	return cmd
 }
 
-func apiListFunc(cmd *cobra.Command, args []string) {
-	req, err := http.NewRequest(http.MethodGet, makeURL(apiURL), nil)
-	if err != nil {
-		ExitWithError(err)
+func listAPICmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List EaseGateway APIs",
+		Run: func(cmd *cobra.Command, args []string) {
+			handleRequest(http.MethodGet, makeURL(apiURL), nil, cmd)
+		},
 	}
 
-	_, body, err := handleRequest(req)
-	if err != nil {
-		ExitWithErrorf("list apis failed: %v", err)
-	}
-
-	// TODO: make it pretty?
-	fmt.Printf("%s", body)
+	return cmd
 }

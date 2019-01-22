@@ -1,9 +1,16 @@
 package command
 
 import (
+	"bufio"
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
+	"strings"
+
+	"github.com/spf13/cobra"
 )
 
 type GlobalFlags struct {
@@ -23,8 +30,8 @@ const (
 	pluginURL      = apiURL + "/plugins/%s"
 	pluginTypesURL = apiURL + "/plugin-types"
 
-	pipelinesURL = apiURL + "/plugins"
-	pipelineURL  = apiURL + "/plugins/%s"
+	pipelinesURL = apiURL + "/pipelines"
+	pipelineURL  = apiURL + "/pipelines/%s"
 
 	statsURL = apiURL + "/stats"
 )
@@ -37,23 +44,95 @@ func successfulStatusCode(code int) bool {
 	return code >= 200 && code < 300
 }
 
-func handleRequest(req *http.Request) (int, []byte, error) {
+func handleRequest(httpMethod string, url string, reqBody []byte, cmd *cobra.Command) {
+	req, err := http.NewRequest(httpMethod, url, bytes.NewReader(reqBody))
+	if err != nil {
+		ExitWithError(err)
+	}
+
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return 0, nil, fmt.Errorf("do request failed: %v", err)
+		ExitWithErrorf("%s failed: %v", cmd.Short, err)
 	}
+	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return 0, nil, fmt.Errorf("read response body failed: %v", err)
-	}
-	err = resp.Body.Close()
-	if err != nil {
-		return 0, nil, fmt.Errorf("close response body failed: %v", err)
+		ExitWithErrorf("%s failed: %v", cmd.Short, err)
 	}
 
+	prettyJSON := printPrettyJson(body)
+	fmt.Println(prettyJSON)
+
 	if !successfulStatusCode(resp.StatusCode) {
-		return resp.StatusCode, body, fmt.Errorf("code %d, message: %s", resp.StatusCode, string(body))
+		ExitWithErrorf("%s failed, http status code: %d", cmd.Short, resp.StatusCode)
 	}
-	return resp.StatusCode, body, nil
+
+}
+
+func printPrettyJson(body []byte) string {
+	var prettyJSON []byte
+	var jsonObj interface{} = nil
+	err := json.Unmarshal(body, &jsonObj)
+	if err != nil {
+		ExitWithErrorf("Marshal failed: %v", err)
+	}
+	prettyJSON, err = json.MarshalIndent(jsonObj, "", "\t")
+	if err != nil {
+		ExitWithErrorf("Marchal indent failed: %v", err)
+	}
+	return string(prettyJSON)
+}
+
+type (
+	PluginSpec struct {
+		Type string `json:"type"`
+		Name string `json:"name"`
+	}
+
+	PipelineSpec struct {
+		Type string `json:"type"`
+		Name string `json:"name"`
+	}
+)
+
+func readFromFileOrStdin(specFile string, cmd *cobra.Command) ([]byte, string) {
+	var jsonText []byte
+	var err error
+	if specFile != "" {
+		jsonText, err = ioutil.ReadFile(specFile)
+		if err != nil {
+			ExitWithErrorf("%s failed: %v", cmd.Short, err)
+		}
+	} else {
+		reader := bufio.NewReader(os.Stdin)
+		jsonText, err = ioutil.ReadAll(reader)
+		if err != nil {
+			ExitWithErrorf("%s failed: %v", cmd.Short, err)
+		}
+	}
+
+	if strings.Contains(cmd.CommandPath(), "plugin") {
+		spec := new(PipelineSpec)
+		err := json.Unmarshal(jsonText, &spec)
+		if err != nil {
+			ExitWithErrorf("%s failed, invalid spec: %v", cmd.Short, err)
+		}
+
+		return jsonText, spec.Name
+	}
+
+	if strings.Contains(cmd.CommandPath(), "pipeline") {
+		spec := new(PipelineSpec)
+		err := json.Unmarshal(jsonText, &spec)
+		if err != nil {
+			ExitWithErrorf("%s failed, invalid spec: %v", cmd.Short, err)
+		}
+
+		return jsonText, spec.Name
+	}
+
+	// should never come here
+	ExitWithErrorf("Only 'plugin' and 'pipeline' cmd supported, but got: %s", cmd.Use)
+	return nil, ""
 }

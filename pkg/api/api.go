@@ -71,6 +71,7 @@ func (s *APIServer) setupAPIs() {
 		Method:  "GET",
 		Handler: s.listAPIs,
 	}
+
 	s.apis = append(s.apis, listAPIsEntry)
 	s.setupMemberAPIs()
 	s.setupPluginAPIs()

@@ -27,40 +27,40 @@ var exampleUsage = `  # List APIs.
   cat http_server.json | egctl plugin create
 
   # Delete a plugin.
-  egctl plugin delete http_server
+  egctl plugin delete <plugin name>
 
   # Get a plugin.
-  egctl plugin get http_server
+  egctl plugin get <plugin name>
 
   # List plugins.
   egctl plugin list
 
   # Update a plugin from a json file.
-  egctl plugin update -f http_server_2.json
+  egctl plugin update -f <http_server_2.json>
 
   # Update a plugin from stdout.
   echo http_server_2.json | egctl plugin update
 
   # Create a pipeline from a json file.
-  egctl pipeline create -f http_proxy_pipeline.json
+  egctl pipeline create -f <http_proxy_pipeline.json>
 
   # Create a pipeline from stdout.
   cat http_server.json | egctl pipeline create
 
   # Delete a pipeline.
-  egctl pipeline delete http_proxy_pipeline
+  egctl pipeline delete <http_proxy_pipeline>
 
   # Get a pipeline.
-  egctl pipeline get http_proxy_pipeline
+  egctl pipeline get <http_proxy_pipeline>
 
   # List pipelines.
   egctl pipeline list
 
   # Update a pipeline from a json file.
-  egctl pipeline update -f http_proxy_pipeline_2.json
+  egctl pipeline update -f <http_proxy_pipeline_2.json>
 
   # Update a pipeline from stdout.
-  echo http_proxy_pipeline_2.json | egctl pipeline update
+  echo <http_proxy_pipeline_2.json> | egctl pipeline update
 
   # Statistics pipeline.
   egctl stats
@@ -69,7 +69,7 @@ var exampleUsage = `  # List APIs.
 func main() {
 	rootCmd := &cobra.Command{
 		Use:        "egctl",
-		Short:      "A command line client for EaseStack.",
+		Short:      "A command line admin tool for EaseGateway.",
 		Example:    exampleUsage,
 		SuggestFor: []string{"egctl"},
 	}
@@ -84,7 +84,7 @@ func main() {
 			case "zsh":
 				rootCmd.GenZshCompletion(os.Stdout)
 			default:
-				command.ExitWithErrorf("unsupported shell %s", args[0])
+				command.ExitWithErrorf("unsupported shell %s, expecting bash or zsh", args[0])
 			}
 		},
 		Args: cobra.ExactArgs(1),
@@ -92,10 +92,10 @@ func main() {
 
 	rootCmd.AddCommand(
 		command.APICmd(),
-		// command.PluginCmd(),
-		// command.PipelineCmd(),
-		// command.Stat(),
-		// command.Member(),
+		command.PluginCmd(),
+		command.PipelineCmd(),
+		command.StatCmd(),
+		command.MemberCmd(),
 		completionCmd,
 	)
 
