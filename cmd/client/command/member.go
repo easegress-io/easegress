@@ -9,7 +9,7 @@ import (
 func MemberCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "member",
-		Short: "View or operate EaseGateway members",
+		Short: "View EaseGateway members",
 	}
 
 	cmd.AddCommand(listMemberCmd())
