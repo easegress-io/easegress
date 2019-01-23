@@ -99,7 +99,7 @@ func getPipelineCmd() *cobra.Command {
 func listPipelineCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "List installed pipelines",
+		Short: "List all pipelines",
 		Run: func(cmd *cobra.Command, args []string) {
 			handleRequest(http.MethodGet, makeURL(pipelinesURL), nil, cmd)
 		},

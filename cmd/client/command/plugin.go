@@ -112,7 +112,7 @@ func getPluginCmd() *cobra.Command {
 func listPluginCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "List installed plugins",
+		Short: "List all plugins",
 		Run: func(cmd *cobra.Command, args []string) {
 			handleRequest(http.MethodGet, makeURL(pluginsURL), nil, cmd)
 		},
