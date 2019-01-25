@@ -272,7 +272,9 @@ func (m *Model) handlEvent(event *store.Event) {
 	}
 }
 
-func (m *Model) Close() {
+func (m *Model) Close(wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	for name := range m.schedulers {
 		m.deletePipeline(name)
 	}

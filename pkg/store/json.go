@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -186,7 +187,9 @@ func (s *jsonFileStore) flush() error {
 	return nil
 }
 
-func (s *jsonFileStore) Close() {
+func (s *jsonFileStore) Close(wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	atomic.StoreInt32(&s.closed, 1)
 	close(s.eventChan)
 	logger.Infof("store closed")

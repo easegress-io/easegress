@@ -3,6 +3,7 @@ package stat
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/megaease/easegateway/pkg/logger"
@@ -19,7 +20,7 @@ type PipelineStat struct {
 
 // Stat is the middle level between cluster and model for statistics.
 type Stat interface {
-	Close()
+	Close(wg *sync.WaitGroup)
 }
 
 type stat struct {
@@ -75,6 +76,8 @@ func (s *stat) update() {
 	}
 }
 
-func (s *stat) Close() {
+func (s *stat) Close(wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	close(s.done)
 }

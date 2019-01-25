@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/megaease/easegateway/pkg/cluster"
@@ -113,7 +114,9 @@ func (s *APIServer) listAPIs(ctx iris.Context) {
 	ctx.Write(buff)
 }
 
-func (s *APIServer) Close() {
+func (s *APIServer) Close(wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	s.app.Shutdown(context.Background())
 }
 

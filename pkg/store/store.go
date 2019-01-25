@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"sync"
 
 	"github.com/megaease/easegateway/pkg/cluster"
 	"github.com/megaease/easegateway/pkg/logger"
@@ -18,7 +19,7 @@ type Store interface {
 	// then sends each change afterwards.
 	Watch() <-chan *Event
 
-	Close()
+	Close(wg *sync.WaitGroup)
 }
 
 func New(cluster cluster.Cluster) (Store, error) {

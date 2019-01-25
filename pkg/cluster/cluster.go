@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -69,7 +70,7 @@ type Cluster interface {
 	Mutex(name string, timeout time.Duration) Mutex
 
 	Leader() string
-	Close()
+	Close(wg *sync.WaitGroup)
 }
 
 type cluster struct {
@@ -202,7 +203,9 @@ func createEtcdClient(endpoints []string) (*clientv3.Client, error) {
 	return client, nil
 }
 
-func (c *cluster) Close() {
+func (c *cluster) Close(wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	atomic.StoreInt32(&c.closed, 1)
 
 	err := c.session.Close()
