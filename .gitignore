@@ -13,3 +13,6 @@ data
 
 # MacOS stuff.
 .DS_Store
+
+# GoLand IDE
+.idea/
