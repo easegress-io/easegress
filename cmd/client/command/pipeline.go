@@ -28,8 +28,8 @@ func createPipelineCmd() *cobra.Command {
 		Use:   "create",
 		Short: "Create a pipeline from a json file or stdin",
 		Run: func(cmd *cobra.Command, args []string) {
-			jsonText, _ := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPost, makeURL(pipelinesURL), jsonText, cmd)
+			buff, _ := readFromFileOrStdin(specFile, cmd)
+			handleRequest(http.MethodPost, makeURL(pipelinesURL), buff, cmd)
 		},
 	}
 
@@ -44,8 +44,8 @@ func updatePipelineCmd() *cobra.Command {
 		Use:   "update",
 		Short: "Update a pipeline from a json file or stdin",
 		Run: func(cmd *cobra.Command, args []string) {
-			jsonText, name := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPut, makeURL(pipelineURL, name), jsonText, cmd)
+			buff, name := readFromFileOrStdin(specFile, cmd)
+			handleRequest(http.MethodPut, makeURL(pipelineURL, name), buff, cmd)
 		},
 	}
 
