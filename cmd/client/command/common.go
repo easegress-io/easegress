@@ -1,6 +1,7 @@
 package command
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -9,13 +10,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
 )
 
 type GlobalFlags struct {
-	Server       string
-	OutputFormat string
+	Server string
 }
 
 var (
@@ -62,9 +61,8 @@ func handleRequest(httpMethod string, url string, reqBody []byte, cmd *cobra.Com
 		ExitWithErrorf("%s failed: %v", cmd.Short, err)
 	}
 
-	if len(body) != 0 {
-		printBody(body)
-	}
+	prettyJSON := printPrettyJson(body)
+	fmt.Println(prettyJSON)
 
 	if !successfulStatusCode(resp.StatusCode) {
 		ExitWithErrorf("%s failed, http status code: %d", cmd.Short, resp.StatusCode)
@@ -72,27 +70,18 @@ func handleRequest(httpMethod string, url string, reqBody []byte, cmd *cobra.Com
 
 }
 
-func printBody(body []byte) {
-	var obj interface{}
-	err := json.Unmarshal(body, &obj)
+func printPrettyJson(body []byte) string {
+	var prettyJSON []byte
+	var jsonObj interface{} = nil
+	err := json.Unmarshal(body, &jsonObj)
 	if err != nil {
-		ExitWithErrorf("unmarshal json failed: %v", err)
+		ExitWithErrorf("Marshal failed: %v", err)
 	}
-	var output []byte
-	switch CommandlineGlobalFlags.OutputFormat {
-	case "yaml":
-		output, err = yaml.Marshal(obj)
-		if err != nil {
-			ExitWithErrorf("marchal yaml failed: %v", err)
-		}
-	case "json":
-		output, err = json.MarshalIndent(obj, "", "\t")
-		if err != nil {
-			ExitWithErrorf("marchal json failed: %v", err)
-		}
+	prettyJSON, err = json.MarshalIndent(jsonObj, "", "\t")
+	if err != nil {
+		ExitWithErrorf("Marchal indent failed: %v", err)
 	}
-
-	fmt.Printf("%s\n", output)
+	return string(prettyJSON)
 }
 
 type (
@@ -108,40 +97,39 @@ type (
 )
 
 func readFromFileOrStdin(specFile string, cmd *cobra.Command) ([]byte, string) {
-	var buff []byte
+	var jsonText []byte
 	var err error
 	if specFile != "" {
-		buff, err = ioutil.ReadFile(specFile)
+		jsonText, err = ioutil.ReadFile(specFile)
 		if err != nil {
 			ExitWithErrorf("%s failed: %v", cmd.Short, err)
 		}
 	} else {
-		buff, err = ioutil.ReadAll(os.Stdin)
+		reader := bufio.NewReader(os.Stdin)
+		jsonText, err = ioutil.ReadAll(reader)
 		if err != nil {
 			ExitWithErrorf("%s failed: %v", cmd.Short, err)
 		}
 	}
 
-	buff, _ = yaml.YAMLToJSON(buff)
-
 	if strings.Contains(cmd.CommandPath(), "plugin") {
 		spec := new(PipelineSpec)
-		err := json.Unmarshal(buff, &spec)
+		err := json.Unmarshal(jsonText, &spec)
 		if err != nil {
 			ExitWithErrorf("%s failed, invalid spec: %v", cmd.Short, err)
 		}
 
-		return buff, spec.Name
+		return jsonText, spec.Name
 	}
 
 	if strings.Contains(cmd.CommandPath(), "pipeline") {
 		spec := new(PipelineSpec)
-		err := json.Unmarshal(buff, &spec)
+		err := json.Unmarshal(jsonText, &spec)
 		if err != nil {
 			ExitWithErrorf("%s failed, invalid spec: %v", cmd.Short, err)
 		}
 
-		return buff, spec.Name
+		return jsonText, spec.Name
 	}
 
 	// should never come here

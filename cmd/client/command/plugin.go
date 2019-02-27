@@ -41,8 +41,8 @@ func createPluginCmd() *cobra.Command {
 		Use:   "create",
 		Short: "Create a plugin from a json file or stdin",
 		Run: func(cmd *cobra.Command, args []string) {
-			buff, _ := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPost, makeURL(pluginsURL), buff, cmd)
+			jsonText, _ := readFromFileOrStdin(specFile, cmd)
+			handleRequest(http.MethodPost, makeURL(pluginsURL), jsonText, cmd)
 		},
 	}
 
@@ -57,8 +57,8 @@ func updatePluginCmd() *cobra.Command {
 		Use:   "update",
 		Short: "Update a plugin from a json file or stdin",
 		Run: func(cmd *cobra.Command, args []string) {
-			buff, name := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPut, makeURL(pluginURL, name), buff, cmd)
+			jsonText, name := readFromFileOrStdin(specFile, cmd)
+			handleRequest(http.MethodPut, makeURL(pluginURL, name), jsonText, cmd)
 		},
 	}
 

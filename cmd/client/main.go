@@ -72,14 +72,6 @@ func main() {
 		Short:      "A command line admin tool for EaseGateway.",
 		Example:    exampleUsage,
 		SuggestFor: []string{"egctl"},
-		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			switch command.CommandlineGlobalFlags.OutputFormat {
-			case "yaml", "json":
-			default:
-				command.ExitWithErrorf("unsupported output format: %s",
-					command.CommandlineGlobalFlags.OutputFormat)
-			}
-		},
 	}
 
 	completionCmd := &cobra.Command{
@@ -109,8 +101,6 @@ func main() {
 
 	rootCmd.PersistentFlags().StringVar(&command.CommandlineGlobalFlags.Server,
 		"server", "localhost:2381", "The address of the EaseGateway endpoint")
-	rootCmd.PersistentFlags().StringVarP(&command.CommandlineGlobalFlags.OutputFormat,
-		"output", "o", "json", "Output format(json, yaml)")
 
 	err := rootCmd.Execute()
 	if err != nil {
