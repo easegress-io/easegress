@@ -14,6 +14,7 @@
     "mux_type": "regexp",
     "plugin_name": "http_server.default",
     "port": 10080,
+    "reuse_port": false,
     "type": "nethttp"
   }
 }

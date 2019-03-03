@@ -18,6 +18,7 @@ import (
 	"github.com/megaease/easegateway/pkg/task"
 
 	"github.com/erikdubbelboer/fasthttp"
+	reuseport "github.com/libp2p/go-reuseport"
 	"golang.org/x/net/netutil"
 )
 
@@ -142,8 +143,18 @@ func (f *fastHTTPServer) createHTTPCtx(c *fasthttp.RequestCtx) HTTPCtx {
 
 // server factory, creates concrete server interface implementations
 func createServer(c *HTTPServerConfig, mux HTTPMux) (server, error) {
-	addr := fmt.Sprintf("%s:%d", c.Host, c.Port)
-	ln, err := net.Listen("tcp", addr)
+	var (
+		addr = fmt.Sprintf("%s:%d", c.Host, c.Port)
+		ln   net.Listener
+		err  error
+	)
+
+	if c.ReusePort {
+		ln, err = reuseport.Listen("tcp", addr)
+	} else {
+		ln, err = net.Listen("tcp", addr)
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("listen at TCP %s failed: ", err)
 	}
@@ -160,6 +171,7 @@ type HTTPServerConfig struct {
 	PluginCommonConfig
 	Host             string      `json:"host"`
 	Port             uint16      `json:"port"` // up to 65535
+	ReusePort        bool        `json:"reuse_port"`
 	MuxType          muxType     `json:"mux_type"`
 	MuxConfig        interface{} `json:"mux_config"`
 	CertFile         string      `json:"cert_file"`
@@ -178,10 +190,11 @@ type HTTPServerConfig struct {
 
 func HTTPServerConfigConstructor() Config {
 	return &HTTPServerConfig{
-		Host:    "localhost",
-		Port:    10080,
-		MuxType: regexpMuxType,
-		Type:    NetHTTPStr,
+		Host:      "localhost",
+		Port:      10080,
+		ReusePort: false,
+		MuxType:   regexpMuxType,
+		Type:      NetHTTPStr,
 		MuxConfig: reMuxConfig{
 			CacheKeyComplete: false,
 			CacheMaxCount:    1024,
