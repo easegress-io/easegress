@@ -6,13 +6,13 @@ import (
 	"io/ioutil"
 	"net"
 	"net/url"
-	"strings"
+
+	"gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegateway/pkg/common"
 	"github.com/megaease/easegateway/pkg/version"
-	yaml "gopkg.in/yaml.v2"
 
-	flags "github.com/jessevdk/go-flags"
+	"github.com/jessevdk/go-flags"
 )
 
 var (
@@ -33,8 +33,9 @@ func init() {
 
 		DataDir: "./data",
 
-		LogDir: "./logs",
-		Debug:  false,
+		LogDir:  "./logs",
+		ConfDir: "./conf",
+		Debug:   false,
 
 		PipelineInitParallelism: 1,
 		PipelineMinParallelism:  5,
@@ -101,11 +102,11 @@ type Options struct {
 
 	// meta
 	Name             string `json:"name" yaml:"name" long:"name" description:"Human-readable name for this member."`
-	ClusterName      string `json:"cluter-name" yaml:"cluster-name" long:"cluster-name" description:"Human-readable name for the new cluster, ignored while joining an existed cluster."`
-	ClusterRole      string `json:"cluter-role" yaml:"cluster-role" long:"cluster-role" description:"Cluster role for this member. (reader, writer)"`
+	ClusterName      string `json:"cluster-name" yaml:"cluster-name" long:"cluster-name" description:"Human-readable name for the new cluster, ignored while joining an existed cluster."`
+	ClusterRole      string `json:"cluster-role" yaml:"cluster-role" long:"cluster-role" description:"Cluster role for this member. (reader, writer)"`
 	ForceNewCluster  bool   `json:"force-new-cluster" yaml:"force-new-cluster" long:"force-new-cluster" description:"It starts a new cluster even if previously started; unsafe."`
-	ClusterClientURL string `json:"cluter-client-url" yaml:"cluster-client-url" long:"cluter-client-url" description:"URL to listen on for cluster client traffic."`
-	ClusterPeerURL   string `json:"cluter-peer-url" yaml:"cluster-peer-url" long:"cluter-peer-url" description:"URL to listen on for cluster peer traffic."`
+	ClusterClientURL string `json:"cluster-client-url" yaml:"cluster-client-url" long:"cluter-client-url" description:"URL to listen on for cluster client traffic."`
+	ClusterPeerURL   string `json:"cluster-peer-url" yaml:"cluster-peer-url" long:"cluter-peer-url" description:"URL to listen on for cluster peer traffic."`
 	ClusterJoinURL   string `json:"cluster-join-url" yaml:"cluster-join-url" long:"cluster-join-url" description:"URL of one member in the existed cluster to join."`
 	APIAddr          string `json:"api-addr" yaml:"api-addr" long:"api-addr" description:"Address([host]:port) to listen on for administration traffic."`
 
@@ -115,7 +116,11 @@ type Options struct {
 
 	// log
 	LogDir string `json:"log-dir" yaml:"log-dir" long:"log-dir" description:"Path to the log directory."`
-	Debug  bool   `json:"debug" yaml:"debug" long:"debug" description:"Flag to set lowest log level from INFO downgrade DEBUG."`
+
+	//conf
+	ConfDir string `json:"conf-dir" yaml:"conf-dir" long:"conf-dir" description:"Path to the log directory."`
+
+	Debug bool `json:"debug" yaml:"debug" long:"debug" description:"Flag to set lowest log level from INFO downgrade DEBUG."`
 
 	// profile
 	CPUProfileFile    string `json:"cpu-profile-file" yaml:"cpu-profile-file" long:"cpu-profile-file" description:"Path to the CPU profile file."`
@@ -132,6 +137,9 @@ type Options struct {
 	PluginShellRootNamespace      bool   `json:"plugin-shell-root-namespace" yaml:"plugin-shell-root-namespace" long:"plugin-shell-root-namespace" description:"Run shell code in root namespace without isolation."`
 	CGIDir                        string `json:"cgi-dir" yaml:"cgi-dir" long:"cgi-dir" description:"Path to the CGI directory."`
 	CertDir                       string `json:"cert-dir" yaml:"cert-dir" long:"cert-dir" description:"Path to the Certificate directory."`
+
+	// go test may fail with out '-t', reference: https://github.com/alecthomas/kingpin/issues/167
+	Placeholder string `json:"-" yaml:"-" short:"t" long:"test" description:"not used yet"`
 }
 
 func (o *Options) validate() error {
@@ -201,20 +209,6 @@ func (o *Options) validate() error {
 		if o.WALDir != "" && !common.IsDirEmpty(o.WALDir) {
 			dirs = append(dirs, o.WALDir)
 		}
-		if len(dirs) != 0 {
-			if o.ClusterJoinURL == "" {
-				if !o.ForceNewCluster {
-					return fmt.Errorf("%s is not empty, "+
-						"use flag force-new-cluster to clean historical member info(data is inherited), "+
-						"or backup/clean the directory",
-						strings.Join(dirs, ","))
-				}
-			} else {
-				return fmt.Errorf("%s is not empty, will be conflict with joining an existed cluster"+
-					"please backup/clean the directory",
-					strings.Join(dirs, ","))
-			}
-		}
 	}
 
 	// log
@@ -248,4 +242,13 @@ func (o *Options) validate() error {
 	}
 
 	return nil
+}
+
+func (o *Options) Marshal() (string, error) {
+	buff, err := yaml.Marshal(o)
+	if err != nil {
+		return "", err
+	}
+
+	return string(buff), nil
 }

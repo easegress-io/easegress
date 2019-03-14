@@ -6,6 +6,8 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/megaease/easegateway/pkg/option"
+
 	"github.com/megaease/easegateway/pkg/api"
 	"github.com/megaease/easegateway/pkg/cluster"
 	"github.com/megaease/easegateway/pkg/logger"
@@ -27,7 +29,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	cluster, err := cluster.New()
+	cluster, err := cluster.NewCluster(*option.Global)
 	if err != nil {
 		logger.Errorf("new cluster failed: %v", err)
 		os.Exit(1)
