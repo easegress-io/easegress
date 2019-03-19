@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"go.etcd.io/etcd/clientv3"
@@ -62,28 +64,28 @@ func NewCluster(opt option.Options) (*cluster, error) {
 	c := &cluster{}
 
 	knownMembers := newMembers()
-	err = knownMembers.loadFromfile(filepath.Join(opt.ConfDir, KNOWN_MEMBERS_CFG_FILE))
+	err = knownMembers.loadFromFile(filepath.Join(opt.ConfDir, KNOWN_MEMBERS_CFG_FILE))
 	switch {
 	case opt.ClusterRole == "writer":
 		switch {
 		case len(knownMembers.Members) > 0:
-			opt.ClusterJoinURL = "do not use when there's known members"
-			logger.Infof("Node %s start... as peer2peer elector from known members", opt.ClusterPeerURL)
+			opt.ClusterJoinURLs = "do not use when there's known members"
+			logger.Infof("Node %s start... as peer2peer elector from known members", opt.ClusterClientURL)
 			err = c.startEtcdSErverAndElection(knownMembers, opt)
-		case opt.ClusterJoinURL == "":
-			logger.Infof("Node %s start... as bootstrap leader, accept other joiners", opt.ClusterPeerURL)
+		case opt.ClusterJoinURLs == "":
+			logger.Infof("Node %s start... as bootstrap leader, accept other joiners", opt.ClusterClientURL)
 			err = c.startBootstrapEtcdServer(opt)
-		case opt.ClusterJoinURL != "":
-			logger.Infof("Node %s start... as fresh joiner to the bootstrap leader", opt.ClusterPeerURL)
+		case opt.ClusterJoinURLs != "":
+			logger.Infof("Node %s start... as fresh joiner to the bootstrap leader", opt.ClusterClientURL)
 			err = c.joinEtcdClusterAndRetry(opt, 30)
 		}
 	case opt.ClusterRole == "reader":
 		switch {
 		case len(knownMembers.Members) > 0:
-			logger.Infof("Node %s start... as reader by connecting to known members ", opt.ClusterPeerURL)
+			logger.Infof("Node %s start... as reader by connecting to known members ", opt.ClusterClientURL)
 			err = c.subscribe2EtcdclusterByKnownMembers(knownMembers, opt)
 		case len(knownMembers.Members) == 0:
-			logger.Infof("Node %s start... as fresh reader by connecting to bootstrap leaser", opt.ClusterPeerURL)
+			logger.Infof("Node %s start... as fresh reader by connecting to bootstrap leaser", opt.ClusterClientURL)
 			err = c.subscribe2Etcdcluster(opt)
 		}
 	default:
@@ -173,11 +175,11 @@ func (c *cluster) joinEtcdClusterAndRetry(opt option.Options, retries int) error
 	var err error
 	err = c.joinEtcdCluster(opt)
 	if err == nil {
-		logger.Infof("Node %s joined cluster %s ", opt.ClusterPeerURL, opt.ClusterName)
+		logger.Infof("Node %s joined cluster %s ", opt.ClusterClientURL, opt.ClusterName)
 		return nil
 	}
 
-	logger.Errorf("Node %s failed to join cluster %s ", opt.ClusterPeerURL, opt.ClusterName)
+	logger.Errorf("Node %s failed to join cluster %s ", opt.ClusterClientURL, opt.ClusterName)
 
 	if retries > 0 {
 		time.Sleep(time.Second)
@@ -188,7 +190,7 @@ func (c *cluster) joinEtcdClusterAndRetry(opt option.Options, retries int) error
 }
 
 func (c *cluster) joinEtcdCluster(opt option.Options) error {
-	err := c.createEtcdClient([]string{opt.ClusterJoinURL})
+	err := c.createEtcdClient(strings.Split(opt.ClusterJoinURLs, ","))
 	if err != nil {
 		return err
 	}
@@ -280,18 +282,18 @@ func (c *cluster) registerService(opt option.Options) error {
 func (c *cluster) learnEtcdMembers(ctx context.Context, opt option.Options) {
 	filename := filepath.Join(opt.ConfDir, KNOWN_MEMBERS_CFG_FILE)
 	var knownMembers = newMembers()
-	knownMembers.loadFromfile(filename)
+	knownMembers.loadFromFile(filename)
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Errorf("Node %s broken, abort to update etcd knownMembers", opt.Name)
+			logger.Errorf("Node %s is shuting down, abort to update etcd knownMembers", opt.Name)
 			break
 		case <-time.After(2 * time.Second):
 			listCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 			listResp, err := c.client.MemberList(listCtx)
 			cancel()
 			if err != nil {
-				logger.Errorf("Node %s failed to update etcd knownMembers", opt.Name)
+				logger.Errorf("Node %s failed to update etcd knownMembers, error: %v", opt.Name, err)
 				continue
 			}
 
@@ -301,7 +303,7 @@ func (c *cluster) learnEtcdMembers(ctx context.Context, opt option.Options) {
 					PeerListener: strings.Join(m.PeerURLs, ",")})
 			}
 
-			if newMembers == knownMembers {
+			if newMembers.Md5() == knownMembers.Md5() {
 				continue
 			}
 
@@ -311,7 +313,7 @@ func (c *cluster) learnEtcdMembers(ctx context.Context, opt option.Options) {
 					opt.Name, filename, err)
 			} else {
 				knownMembers = newMembers
-				logger.Debugf("Node %s saved etcd knownMembers into file %s ",
+				logger.Infof("Node %s saved etcd knownMembers into file %s ",
 					opt.Name, filename)
 			}
 		}
@@ -330,7 +332,7 @@ func (c *cluster) startBootstrapEtcdServer(opt option.Options) error {
 func (c *cluster) subscribe2Etcdcluster(opt option.Options) error {
 	var err error
 	for i := 0; i < 30; i++ {
-		err = c.createEtcdClient([]string{opt.ClusterJoinURL})
+		err = c.createEtcdClient(strings.Split(opt.ClusterJoinURLs, ","))
 		if err == nil {
 			return nil
 		} else {
@@ -357,4 +359,44 @@ func (c *cluster) subscribe2EtcdclusterByKnownMembers(knownMembers *members, opt
 	}
 
 	return err
+}
+
+func (c *cluster) Leader() string {
+
+	//a reader has no server
+	if c.server == nil {
+		return ""
+	}
+
+	leaderID := c.server.Server.Leader()
+	members := c.server.Server.Cluster().Members()
+	for _, member := range members {
+		if member.ID == leaderID {
+			return member.Name
+		}
+	}
+
+	return ""
+}
+
+func (c *cluster) Close(wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	atomic.StoreInt32(&c.closed, 1)
+
+	err := c.session.Close()
+	if err != nil {
+		logger.Errorf("etcd session close faield: %v", err)
+	} else {
+		logger.Infof("etcd session close successfully")
+	}
+
+	c.client.Close()
+
+	//Only a writer owns an etcd server
+	if c.server != nil {
+		c.server.Close()
+		<-c.server.Server.StopNotify()
+		logger.Infof("etcd server close successfully")
+	}
 }

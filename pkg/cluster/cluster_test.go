@@ -207,8 +207,13 @@ func defineCluster(clusterName string, portChannel string) ([]*cluster, []option
 		options[i].APIAddr = "http://127.0.0.1:" + portChannel + "600" + strconv.Itoa(i)
 
 		// i == 0 means the bootstrap writer, which has no joinUrl
-		if i > 0 {
-			options[i].ClusterJoinURL = options[0].ClusterPeerURL
+		if i == 1 || i == 2 {
+			options[i].ClusterJoinURLs = options[0].ClusterPeerURL
+		}
+
+		// readers
+		if i >= 3 {
+			options[i].ClusterJoinURLs = options[1].ClusterPeerURL + "," + options[1].ClusterPeerURL
 		}
 
 		if i >= 3 {

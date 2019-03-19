@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/url"
+	"strings"
 
 	"gopkg.in/yaml.v2"
 
@@ -107,7 +108,7 @@ type Options struct {
 	ForceNewCluster  bool   `json:"force-new-cluster" yaml:"force-new-cluster" long:"force-new-cluster" description:"It starts a new cluster even if previously started; unsafe."`
 	ClusterClientURL string `json:"cluster-client-url" yaml:"cluster-client-url" long:"cluter-client-url" description:"URL to listen on for cluster client traffic."`
 	ClusterPeerURL   string `json:"cluster-peer-url" yaml:"cluster-peer-url" long:"cluter-peer-url" description:"URL to listen on for cluster peer traffic."`
-	ClusterJoinURL   string `json:"cluster-join-url" yaml:"cluster-join-url" long:"cluster-join-url" description:"URL of one member in the existed cluster to join."`
+	ClusterJoinURLs  string `json:"cluster-join-urls" yaml:"cluster-join-urls" long:"cluster-join-urls" description:"One or more URLs of the writers in cluster to join, delimited by ',' without whitespaces"`
 	APIAddr          string `json:"api-addr" yaml:"api-addr" long:"api-addr" description:"Address([host]:port) to listen on for administration traffic."`
 
 	// store
@@ -152,7 +153,7 @@ func (o *Options) validate() error {
 	}
 
 	if o.ClusterName == "" {
-		if o.ClusterJoinURL == "" {
+		if o.ClusterJoinURLs == "" {
 			return fmt.Errorf("empty cluster-name for a new cluster")
 		}
 	} else if err := common.ValidateName(o.ClusterName); err != nil {
@@ -161,10 +162,13 @@ func (o *Options) validate() error {
 
 	switch o.ClusterRole {
 	case "reader":
-		_, err := url.Parse(o.ClusterJoinURL)
-		if err != nil {
-			return fmt.Errorf("invalid cluster-join-url: %v", err)
+		for _, urlText := range strings.Split(o.ClusterJoinURLs, ",") {
+			_, err := url.Parse(urlText)
+			if err != nil {
+				return fmt.Errorf("invalid cluster-join-urls: %v", err)
+			}
 		}
+
 	case "writer":
 		_, err := url.Parse(o.ClusterPeerURL)
 		if err != nil {
@@ -175,14 +179,18 @@ func (o *Options) validate() error {
 			return fmt.Errorf("invalid cluster-client-url: %v", err)
 		}
 
-		if o.ClusterJoinURL != "" {
+		if o.ClusterJoinURLs != "" {
 			if o.ForceNewCluster {
 				return fmt.Errorf("force new cluster is conflict with join an existed cluster")
 			}
-			_, err = url.Parse(o.ClusterJoinURL)
-			if err != nil {
-				return fmt.Errorf("invalid cluster-join-url: %v", err)
+
+			for _, urlText := range strings.Split(o.ClusterJoinURLs, ",") {
+				_, err := url.Parse(urlText)
+				if err != nil {
+					return fmt.Errorf("invalid cluster-join-urls: %v", err)
+				}
 			}
+			_, err = url.Parse(o.ClusterJoinURLs)
 		}
 	default:
 		return fmt.Errorf("invalid cluster-role(support writer, reader)")
