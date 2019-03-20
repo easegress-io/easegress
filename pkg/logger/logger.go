@@ -12,13 +12,11 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-func Init() {
+func init() {
 	initDefault()
 	initHTTPPlugin()
 	initRestAPI()
 }
-
-type logfFunc func(template string, args ...interface{})
 
 const (
 	gatewayFilename          = "gateway.log"
@@ -77,11 +75,6 @@ func initDefault() {
 
 	defaultCore := zapcore.NewTee(gatewayCore, stderrCore)
 	defaultLogger = zap.New(defaultCore, opts...).Sugar()
-
-	Debugf = defaultLogger.Debugf
-	Infof = defaultLogger.Infof
-	Warnf = defaultLogger.Warnf
-	Errorf = defaultLogger.Errorf
 }
 
 func initHTTPPlugin() {

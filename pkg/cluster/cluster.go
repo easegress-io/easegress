@@ -27,16 +27,12 @@ var (
 	MemberStatusPrefix = "/runtime/members/status/"
 	MemberConfigKey    string
 
-	ConfigObjectPrefix           = "/config/objects/"
-	ConfigPluginPrefix           = "/config/objects/plugins/"      // + plugin-name
-	ConfigPipelinePrefix         = "/config/objects/pipelines/"    // + pipeline-name
-	ConfigPluginUsedPrefixFormat = "/config/relation/%s/usedby/"   // + plugin-name
-	ConfigPluginUsedKeyFormat    = "/config/relation/%s/usedby/%s" // + plugin-name pipeline-name
+	MemberConfigValue = option.GlobalYAML
 
-	StatPipelinePrefix = "/runtime/stat/pipelines/"
-	StatPipelineFormat string // + pipeline-name
+	ConfigObjectPrefix = "/config/objects/"
 
-	MemberConfigValue string = option.GlobalYAML
+	StatusObjectPrefixFormat = "/status/objects/%s/"                      // + objectName
+	StatusObjectFormat       = "/status/objects/%s/" + option.Global.Name // + objectName
 )
 
 const (
@@ -68,14 +64,13 @@ type cluster struct {
 // The instance can be a writer or reader, depending on the config in opt.
 //
 // New return a new `cluster` instance immediately
-func New(opt option.Options) (c *cluster, done chan struct{}, err error) {
-	c = &cluster{}
-	done = make(chan struct{})
+func New(opt option.Options) (Cluster, chan struct{}, error) {
+	c := &cluster{}
+	done := make(chan struct{})
 
 	c.etcdTimeoutInMilli = time.Duration(opt.EtcdRequestTimeoutInMilli)
 	c.name = opt.Name
 	MemberConfigKey = MemberConfigPrefix + opt.Name
-	StatPipelineFormat = "/runtime/stat/pipelines/%s/" + opt.Name // + pipeline-name
 	MemberConfigValue = option.GlobalYAML
 
 	knownMembers := newMembers()
@@ -86,22 +81,22 @@ func New(opt option.Options) (c *cluster, done chan struct{}, err error) {
 		switch {
 		case hasLearntMembers(knownMembers):
 			opt.ClusterJoinURLs = "do not use when there's known members"
-			logger.Infof("etcd member %s start... as peer2peer elector from known members", opt.Name)
+			logger.Infof("etcd member %s start as peer2peer elector from known members", opt.Name)
 			go c.startEtcdSErverAndElection(knownMembers, opt, done)
 		case isBoostrapLeader(opt):
-			logger.Infof("etcd member %s start... as bootstrap leader, accept other joiners", opt.Name)
+			logger.Infof("etcd member %s start as bootstrap leader, accept other joiners", opt.Name)
 			go c.startBootstrapEtcdServer(opt, done)
 		default:
-			logger.Infof("etcd member %s start... as fresh joiner to the bootstrap leader", opt.Name)
+			logger.Infof("etcd member %s start as fresh joiner to the bootstrap leader", opt.Name)
 			go c.joinEtcdClusterAndRetry(opt, done)
 		}
 	case opt.ClusterRole == "reader":
 		switch {
 		case hasLearntMembers(knownMembers):
-			logger.Infof("etcd member %s start... as reader by connecting to known members ", opt.Name)
+			logger.Infof("etcd member %s start as reader by connecting to known members ", opt.Name)
 			go c.subscribe2EtcdclusterByKnownMembers(knownMembers, opt, done)
 		default:
-			logger.Infof("etcd member %s start... as fresh reader by connecting to bootstrap leaser", opt.Name)
+			logger.Infof("etcd member %s start as fresh reader by connecting to bootstrap leaser", opt.Name)
 			go c.subscribe2Etcdcluster(opt, done)
 		}
 	default:
@@ -146,7 +141,7 @@ func (c *cluster) createEtcdCluster(opt option.Options, initCluster string, know
 	var err error
 	err = c.createEtcdServer(opt, initCluster)
 	if err != nil {
-		logger.Errorf("Node %s failed start etcd instance  %s, err: %v",
+		logger.Errorf("node %s failed start etcd instance  %s, err: %v",
 			opt.Name, opt.ClusterName, err)
 		return err
 	}
@@ -156,7 +151,7 @@ func (c *cluster) createEtcdCluster(opt option.Options, initCluster string, know
 		return err
 	}
 
-	logger.Infof("Node %s succeeded start etcd instance in cluster %s",
+	logger.Infof("node %s succeeded start etcd instance in cluster %s",
 		opt.Name, opt.ClusterName)
 	close(done)
 	return nil
@@ -177,7 +172,7 @@ func (c *cluster) createEtcdServer(opt option.Options, initCluster string) error
 	go func() {
 		err = <-c.server.Err()
 		c.server.Close()
-		logger.Errorf("Node %s closed for error: %s", c.server.Config().Name, err.Error())
+		logger.Errorf("node %s closed for error: %s", c.server.Config().Name, err.Error())
 	}()
 
 	return nil
@@ -210,14 +205,14 @@ func (c *cluster) joinEtcdClusterAndRetry(opt option.Options, done chan struct{}
 		var err error
 		err = c.joinEtcdCluster(opt)
 		if err == nil {
-			logger.Infof("Node %s joined cluster %s ", opt.Name, opt.ClusterName)
+			logger.Infof("node %s joined cluster %s ", opt.Name, opt.ClusterName)
 			close(done)
 			return
 		}
 
 		count++
 		if count%10 == 0 {
-			logger.Errorf("Node %s failed to join cluster %s, having retried for %d times, the last error: %s ", opt.Name, opt.ClusterName, count, err)
+			logger.Errorf("node %s failed to join cluster %s, having retried for %d times, the last error: %s ", opt.Name, opt.ClusterName, count, err)
 		}
 
 		time.Sleep(1 * time.Second)
@@ -298,7 +293,7 @@ func (c *cluster) registerService(opt option.Options, done chan struct{}) {
 
 	for {
 		if err != nil && count%10 == 0 {
-			logger.Errorf("Failed to register easegateway member %s  at %s, having retried %d times, the last error: %s",
+			logger.Errorf("failed to register easegateway member %s  at %s, having retried %d times, the last error: %s",
 				opt.Name, MemberConfigKey, count, err)
 		}
 
@@ -325,7 +320,7 @@ func (c *cluster) registerService(opt option.Options, done chan struct{}) {
 
 		atomic.StoreInt32(&c.started, 1)
 
-		logger.Infof("Register easegateway member %s at %s", opt.Name, MemberConfigKey)
+		logger.Infof("register easegateway member %s at %s", opt.Name, MemberConfigKey)
 		return
 	}
 }
@@ -336,18 +331,19 @@ func (c *cluster) learnEtcdMembers(ctx context.Context, opt option.Options) {
 	filename := filepath.Join(opt.ConfDir, KNOWN_MEMBERS_CFG_FILE)
 	var knownMembers = newMembers()
 	knownMembers.loadFromFile(filename)
+LOOP:
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Errorf("Node %s is shutting down, abort to update etcd knownMembers", opt.Name)
-			break
+			logger.Infof("node %s is shutting down, abort to update etcd knownMembers", opt.Name)
+			break LOOP
 		case <-time.After(2 * time.Second):
 			ctx, cancel := context.WithTimeout(context.Background(), c.etcdTimeoutInMilli*time.Millisecond)
 			listResp, err := c.client.MemberList(ctx)
 			cancel()
 			if err != nil {
-				logger.Errorf("Node %s failed to update etcd knownMembers, error: %v", opt.Name, err)
-				continue
+				logger.Errorf("node %s failed to update etcd knownMembers, error: %v", opt.Name, err)
+				continue LOOP
 			}
 
 			var newMembers = newMembers()
@@ -357,16 +353,16 @@ func (c *cluster) learnEtcdMembers(ctx context.Context, opt option.Options) {
 			}
 
 			if newMembers.Sum256() == knownMembers.Sum256() {
-				continue
+				continue LOOP
 			}
 
 			err = newMembers.save2file(filename)
 			if err != nil {
-				logger.Errorf("Node %s failed to save etcd knownMembers into file %s, err: %v",
+				logger.Errorf("node %s failed to save etcd knownMembers into file %s, err: %v",
 					opt.Name, filename, err)
 			} else {
 				knownMembers = newMembers
-				logger.Infof("Node %s saved etcd knownMembers into file %s ",
+				logger.Infof("node %s saved etcd knownMembers into file %s ",
 					opt.Name, filename)
 			}
 		}

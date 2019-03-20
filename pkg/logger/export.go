@@ -10,12 +10,25 @@ import (
 	"go.uber.org/zap"
 )
 
-var (
-	Debugf logfFunc
-	Infof  logfFunc
-	Warnf  logfFunc
-	Errorf logfFunc
-)
+// Debugf is the wrapper of default logger Debugf.
+func Debugf(template string, args ...interface{}) {
+	defaultLogger.Debugf(template, args...)
+}
+
+// Infof is the wrapper of default logger Infof.
+func Infof(template string, args ...interface{}) {
+	defaultLogger.Infof(template, args...)
+}
+
+// Warnf is the wrapper of default logger Warnf.
+func Warnf(template string, args ...interface{}) {
+	defaultLogger.Infof(template, args...)
+}
+
+// Errorf is the wrapper of default logger Errorf.
+func Errorf(template string, args ...interface{}) {
+	defaultLogger.Errorf(template, args...)
+}
 
 type httpServerLogger struct {
 	defaultLogger *zap.SugaredLogger
@@ -54,7 +67,12 @@ func APIAccess(
 	restAPILogger.Debug(entry)
 }
 
-func HTTPAccess(remoteAddr, proto, method, path, referer, agent, realIP string,
+func HTTPAccess(line string) {
+	httpPluginAccessLogger.Debug(line)
+}
+
+// Deprecated: replaced by HTTPContext.
+func NginxHTTPAccess(remoteAddr, proto, method, path, referer, agent, realIP string,
 	code int, bodyBytesSent int64,
 	requestTime time.Duration, upstreamResponseTime time.Duration,
 	upstreamAddr string, upstreamCode int, clientWriteBodyTime, clientReadBodyTime,

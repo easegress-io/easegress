@@ -16,6 +16,12 @@ import (
 	"github.com/megaease/easegateway/pkg/version"
 )
 
+func init() {
+	Global = New()
+	ParseFlags(Global)
+	InitConfig(Global)
+}
+
 var (
 	Global     *Options
 	GlobalYAML string
@@ -38,16 +44,7 @@ func New() *Options {
 		ConfDir: "./conf",
 		Debug:   false,
 
-		PipelineInitParallelism: 1,
-		PipelineMinParallelism:  5,
-		PipelineMaxParallelism:  5120,
-
-		PluginIODataFormatLengthLimit: 128,
-		PluginPythonRootNamespace:     false,
-		PluginShellRootNamespace:      false,
-		CGIDir:                        "./cgi",
-		CertDir:                       "./cert",
-		EtcdRequestTimeoutInMilli:     1000,
+		EtcdRequestTimeoutInMilli: 1000,
 	}
 }
 
@@ -138,18 +135,6 @@ type Options struct {
 	CPUProfileFile    string `json:"cpu-profile-file" yaml:"cpu-profile-file" long:"cpu-profile-file" description:"Path to the CPU profile file."`
 	MemoryProfileFile string `json:"memory-profile-file" yaml:"memory-profile-file" long:"memory-profile-file" description:"Path to the memory profile file."`
 
-	// pipeline
-	PipelineInitParallelism uint32 `json:"pipeline-init-parallelism" yaml:"pipeline-init-parallelism" long:"pipeline-init-parallelism" description:"Initial parallelism for a pipeline running in dynamic schedule mode."`
-	PipelineMinParallelism  uint32 `json:"pipeline-min-parallelism" yaml:"pipeline-min-parallelism" long:"pipeline-min-parallelism" description:"Minimum parallelism for a pipeline running in dynamic schedule mode."`
-	PipelineMaxParallelism  uint32 `json:"pipeline-max-parallelism" yaml:"pipeline-max-parallelism" long:"pipeline-max-parallelism" description:"Maximum parallelism for a pipeline running in dynamic schedule mode."`
-
-	// plugin
-	PluginIODataFormatLengthLimit uint64 `json:"plugin-io-data-format-len-limit" yaml:"plugin-io-data-format-len-limit" long:"plugin-io-data-format-len-limit" description:"Bytes limitation on plugin IO data formation output."`
-	PluginPythonRootNamespace     bool   `json:"plugin-python-root-namespace" yaml:"plugin-python-root-namespace" long:"plugin-python-root-namespace" description:"Run python code in root namespace without isolation."`
-	PluginShellRootNamespace      bool   `json:"plugin-shell-root-namespace" yaml:"plugin-shell-root-namespace" long:"plugin-shell-root-namespace" description:"Run shell code in root namespace without isolation."`
-	CGIDir                        string `json:"cgi-dir" yaml:"cgi-dir" long:"cgi-dir" description:"Path to the CGI directory."`
-	CertDir                       string `json:"cert-dir" yaml:"cert-dir" long:"cert-dir" description:"Path to the Certificate directory."`
-
 	// etcd
 	EtcdRequestTimeoutInMilli int64 `json:"etcd-request-timeout-in-milli" yaml:"etcd-request-timeout-in-milli" long:"etcd-request-timeout-in-milli" description:"Timeout in milli seconds to access the etcd server."`
 
@@ -232,27 +217,6 @@ func (o *Options) validate() error {
 	// profile
 	// nothing to validate
 
-	// pipeline
-	if o.PipelineInitParallelism < 1 ||
-		o.PipelineInitParallelism > uint32(^uint16(0)) {
-		return fmt.Errorf("invalid pipeline-init-parallelism[1,%d]", ^uint16(0))
-	}
-
-	if o.PipelineMaxParallelism < 1 ||
-		o.PipelineMaxParallelism > 102400 {
-		return fmt.Errorf("incalid pipeline-max-parallelism[1,102400]")
-	}
-
-	if o.PipelineMinParallelism > o.PipelineMaxParallelism {
-		return fmt.Errorf("pipeline-min-parallelism %d > pipeline-max-parallelism %d",
-			o.PipelineMinParallelism, o.PipelineMaxParallelism)
-	}
-
-	// plugin
-	if o.PluginIODataFormatLengthLimit < 1 ||
-		o.PluginIODataFormatLengthLimit > 10000009 {
-		return fmt.Errorf("invalid plugin-io-data-format-len-limit[1,10000009]")
-	}
 	// meta
 	if o.Name == "" {
 		name, err := generateMemberName(o.APIAddr)

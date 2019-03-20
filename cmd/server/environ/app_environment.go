@@ -30,16 +30,6 @@ func InitDirs(opt option.Options) error {
 		return err
 	}
 
-	err = os.MkdirAll(ExpandDir(opt.CGIDir), 0750)
-	if err != nil {
-		return err
-	}
-
-	err = os.MkdirAll(ExpandDir(opt.CertDir), 0750)
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -83,7 +73,7 @@ func HouseKeepMemberBackups(confDir string) {
 		for i := 0; i < len(filenames)-BACKUP_RETAINS; i++ {
 			err := os.Remove(filepath.Join(confDir, filenames[i]))
 			if err != nil {
-				logger.Errorf("Failed to remove file %s, error: %s", filenames[i], err)
+				logger.Errorf("Failed to remove file %s, error: %v", filenames[i], err)
 			}
 		}
 

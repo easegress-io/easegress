@@ -1,23 +1,32 @@
 package api
 
 import (
-	"encoding/json"
-
 	"github.com/kataras/iris"
+
+	yaml "gopkg.in/yaml.v2"
 )
 
 type (
-	clusterErr error
+	clusterErr string
 
+	// APIErr is the standard return of error.
 	APIErr struct {
-		Message string `json:"message"`
-		Code    int    `json:"code"`
+		Code    int    `yaml:"code"`
+		Message string `yaml:"message"`
 	}
 )
 
+func (ce clusterErr) Error() string {
+	return string(ce)
+}
+
+func clusterPanic(err error) {
+	panic(clusterErr(err.Error()))
+}
+
 func handleAPIError(ctx iris.Context, code int, err error) {
 	ctx.StatusCode(code)
-	buff, err := json.Marshal(APIErr{
+	buff, err := yaml.Marshal(APIErr{
 		Code:    code,
 		Message: err.Error(),
 	})
