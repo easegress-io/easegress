@@ -59,7 +59,7 @@ var a = Context("With a 5-node Cluster", func() {
 				var err error
 				go func(j int) {
 					defer GinkgoRecover()
-					clusters[j], err = NewCluster(options[j])
+					clusters[j], err = New(options[j])
 					Expect(err).To(BeNil(), "Node %d, should start successfully", j)
 					wait.Done()
 				}(i)
@@ -116,7 +116,7 @@ var a = Context("With a 5-node Cluster", func() {
 
 		By("Restart a node", func() {
 			var err error
-			clusters[1], err = NewCluster(options[1])
+			clusters[1], err = New(options[1])
 			Expect(err).To(BeNil(), "The node should restart successfully")
 			time.Sleep(2 * time.Second)
 		})
@@ -156,7 +156,7 @@ var a = Context("With a 5-node Cluster", func() {
 				go func(j int) {
 					defer GinkgoRecover()
 					var err error
-					clusters[j], err = NewCluster(options[j])
+					clusters[j], err = New(options[j])
 					Expect(err).To(BeNil(), "Node %d should start successfully", j)
 					wait.Done()
 				}(i)

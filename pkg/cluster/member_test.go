@@ -28,7 +28,7 @@ var _ = Describe("Etcd Members", func() {
 
 	})
 
-	FSpecify("With members", func() {
+	Specify("With members", func() {
 		By("Save the members to a file", func() {
 			err := members.save2file(filename)
 			Expect(err).To(BeNil())
@@ -41,7 +41,7 @@ var _ = Describe("Etcd Members", func() {
 			Expect(err).To(BeNil())
 			x := reloaded == members
 			fmt.Println(x)
-			Expect(reloaded.Md5()).To(Equal(members.Md5()), "The loaded data from %s, should be the same as the original.", filename)
+			Expect(reloaded.Sum256()).To(Equal(members.Sum256()), "The loaded data from %s, should be the same as the original.", filename)
 		})
 
 		By("Add a member", func() {

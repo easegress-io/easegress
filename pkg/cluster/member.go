@@ -1,7 +1,7 @@
 package cluster
 
 import (
-	"crypto/md5"
+	"crypto/sha256"
 	"io/ioutil"
 	"os"
 	"sort"
@@ -12,7 +12,7 @@ import (
 )
 
 type members struct {
-	Members []member `yaml:"nodes"`
+	Members []member `yaml:"members"`
 }
 
 type member struct {
@@ -40,8 +40,9 @@ func (m *members) save2file(filename string) error {
 			return err
 		}
 
-		bakupFilename := filename + "." + time.Now().Format("2006-01-02T15:04:05.999") + ".bak"
-		err = ioutil.WriteFile(bakupFilename, bytes, 0644)
+		// review: save to a backup dir
+		backupFilename := filename + "." + time.Now().Format("2006-01-02T15:04:05.999") + ".bak"
+		err = ioutil.WriteFile(backupFilename, bytes, 0644)
 		if err != nil {
 			return err
 		}
@@ -59,12 +60,12 @@ func (m *members) save2file(filename string) error {
 }
 
 func (m *members) loadFromFile(filename string) error {
-	bytes, err := ioutil.ReadFile(filename)
+	content, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return err
 	}
 
-	err = yaml.Unmarshal(bytes, m)
+	err = yaml.Unmarshal(content, m)
 	return err
 }
 
@@ -85,7 +86,7 @@ func (m *members) Less(i, j int) bool {
 
 }
 
-func (m *members) Md5() [16]byte {
+func (m *members) Sum256() [sha256.Size]byte {
 	sort.Sort(m)
 	str := strings.Builder{}
 	for _, item := range m.Members {
@@ -93,5 +94,5 @@ func (m *members) Md5() [16]byte {
 		str.WriteString(item.PeerListener)
 	}
 
-	return md5.Sum([]byte(str.String()))
+	return sha256.Sum256([]byte(str.String()))
 }

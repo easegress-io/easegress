@@ -56,10 +56,10 @@ type cluster struct {
 	canceLearnEtcdMembers context.CancelFunc
 }
 
-//Create a etcd instance and start to serve.
+// New creates an etcd instance and start to serve.
 //
 // The instance can be a writer or reader, depending on the config in opt.
-func NewCluster(opt option.Options) (*cluster, error) {
+func New(opt option.Options) (*cluster, error) {
 	var err error
 	c := &cluster{}
 
@@ -68,28 +68,28 @@ func NewCluster(opt option.Options) (*cluster, error) {
 	switch {
 	case opt.ClusterRole == "writer":
 		switch {
-		case len(knownMembers.Members) > 0:
+		case hasLearntMembers(knownMembers):
 			opt.ClusterJoinURLs = "do not use when there's known members"
-			logger.Infof("Node %s start... as peer2peer elector from known members", opt.ClusterClientURL)
+			logger.Infof("etcd member %s start... as peer2peer elector from known members", opt.ClusterClientURL)
 			err = c.startEtcdSErverAndElection(knownMembers, opt)
-		case opt.ClusterJoinURLs == "":
-			logger.Infof("Node %s start... as bootstrap leader, accept other joiners", opt.ClusterClientURL)
+		case isBoostrapLeader(opt):
+			logger.Infof("etcd member %s start... as bootstrap leader, accept other joiners", opt.ClusterClientURL)
 			err = c.startBootstrapEtcdServer(opt)
-		case opt.ClusterJoinURLs != "":
-			logger.Infof("Node %s start... as fresh joiner to the bootstrap leader", opt.ClusterClientURL)
+		case isFollower(opt):
+			logger.Infof("etcd member %s start... as fresh joiner to the bootstrap leader", opt.ClusterClientURL)
 			err = c.joinEtcdClusterAndRetry(opt, 30)
 		}
 	case opt.ClusterRole == "reader":
 		switch {
-		case len(knownMembers.Members) > 0:
-			logger.Infof("Node %s start... as reader by connecting to known members ", opt.ClusterClientURL)
+		case hasLearntMembers(knownMembers):
+			logger.Infof("etcd member %s start... as reader by connecting to known members ", opt.ClusterClientURL)
 			err = c.subscribe2EtcdclusterByKnownMembers(knownMembers, opt)
-		case len(knownMembers.Members) == 0:
-			logger.Infof("Node %s start... as fresh reader by connecting to bootstrap leaser", opt.ClusterClientURL)
+		default:
+			logger.Infof("etcd member %s start... as fresh reader by connecting to bootstrap leaser", opt.ClusterClientURL)
 			err = c.subscribe2Etcdcluster(opt)
 		}
 	default:
-		return nil, fmt.Errorf("unknown opt.CluserRole: %s", opt.ClusterRole)
+		return nil, fmt.Errorf("unknown etcd property opt.CluserRole: %s", opt.ClusterRole)
 	}
 
 	if err != nil {
@@ -108,6 +108,25 @@ func NewCluster(opt option.Options) (*cluster, error) {
 	}()
 
 	return c, nil
+}
+
+// isFollower returns `true` if the member is a etcd follower.
+// Only a writer can check if it's a `follower` or `boostrapleader`
+func isFollower(opt option.Options) bool {
+	return opt.ClusterJoinURLs != ""
+}
+
+// isBoostrapLeader returns `true` if the member is a etcd boostrap leader.
+// A bootstrapLeader will start a new etcd cluster and elect itself as leader, waiting other followers to join.
+// Only a writer can check if it's a `follower` or `boostrap leader`.
+func isBoostrapLeader(opt option.Options) bool {
+	return opt.ClusterJoinURLs == ""
+}
+
+// hasLearntMembers returns `true` if the node access the etcd cluster and learned all the members in the etcd cluster.
+// The node needn't to depends on the single boostrap leader since it can connect to any of the members.
+func hasLearntMembers(knownMembers *members) bool {
+	return len(knownMembers.Members) > 0
 }
 
 func (c *cluster) createEtcdCluster(opt option.Options, initCluster string, knownMembers *members) error {
@@ -130,7 +149,7 @@ func (c *cluster) createEtcdCluster(opt option.Options, initCluster string, know
 }
 
 func (c *cluster) createEtcdServer(opt option.Options, initCluster string, knownMembers *members) error {
-	ec, err := generateEtcdConfigFromOption(opt, initCluster, knownMembers)
+	ec, err := generateEtcdConfigFromOption(opt, initCluster)
 	if err != nil {
 		return err
 	}
@@ -143,7 +162,6 @@ func (c *cluster) createEtcdServer(opt option.Options, initCluster string, known
 	<-c.server.Server.ReadyNotify()
 	go func() {
 		err = <-c.server.Err()
-		c.canceLearnEtcdMembers()
 		c.server.Close()
 		logger.Errorf("Node %s closed for error: %s", c.server.Config().Name, err.Error())
 	}()
@@ -224,7 +242,7 @@ func pbMembers2KnownMembers(pbmembers []*pb.Member) *members {
 }
 
 func buildInitClusterParam(knownMembers *members, opt option.Options) []string {
-	initCluster := make([]string, 0, 5)
+	initCluster := make([]string, 0)
 	for _, member := range knownMembers.Members {
 		name := member.Name
 		if name == "" {
@@ -303,7 +321,7 @@ func (c *cluster) learnEtcdMembers(ctx context.Context, opt option.Options) {
 					PeerListener: strings.Join(m.PeerURLs, ",")})
 			}
 
-			if newMembers.Md5() == knownMembers.Md5() {
+			if newMembers.Sum256() == knownMembers.Sum256() {
 				continue
 			}
 
@@ -383,6 +401,8 @@ func (c *cluster) Close(wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	atomic.StoreInt32(&c.closed, 1)
+
+	c.canceLearnEtcdMembers()
 
 	err := c.session.Close()
 	if err != nil {

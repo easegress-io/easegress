@@ -8,12 +8,11 @@ import (
 	"net/url"
 	"strings"
 
-	"gopkg.in/yaml.v2"
+	flags "github.com/jessevdk/go-flags"
+	yaml "gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegateway/pkg/common"
 	"github.com/megaease/easegateway/pkg/version"
-
-	"github.com/jessevdk/go-flags"
 )
 
 var (
@@ -119,7 +118,7 @@ type Options struct {
 	LogDir string `json:"log-dir" yaml:"log-dir" long:"log-dir" description:"Path to the log directory."`
 
 	//conf
-	ConfDir string `json:"conf-dir" yaml:"conf-dir" long:"conf-dir" description:"Path to the log directory."`
+	ConfDir string `json:"conf-dir" yaml:"conf-dir" long:"conf-dir" description:"Path to the configuration directory."`
 
 	Debug bool `json:"debug" yaml:"debug" long:"debug" description:"Flag to set lowest log level from INFO downgrade DEBUG."`
 

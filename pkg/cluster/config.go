@@ -12,7 +12,7 @@ import (
 	"go.etcd.io/etcd/embed"
 )
 
-func generateEtcdConfigFromOption(opt option.Options, initCluster string, knownMembers *members) (*embed.Config, error) {
+func generateEtcdConfigFromOption(opt option.Options, initCluster string) (*embed.Config, error) {
 	ec := embed.NewConfig()
 
 	peerURL, err := url.Parse(opt.ClusterPeerURL)
