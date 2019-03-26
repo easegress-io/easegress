@@ -10,6 +10,7 @@ import (
 	"github.com/megaease/easegateway/pkg/cluster"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/model"
+	"github.com/megaease/easegateway/pkg/option"
 	"github.com/megaease/easegateway/pkg/profile"
 	"github.com/megaease/easegateway/pkg/stat"
 	"github.com/megaease/easegateway/pkg/store"
@@ -27,7 +28,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	cluster, err := cluster.New()
+	cluster, err := cluster.New(*option.Global)
 	if err != nil {
 		logger.Errorf("new cluster failed: %v", err)
 		os.Exit(1)
