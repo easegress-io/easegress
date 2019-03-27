@@ -28,7 +28,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	cluster, err := cluster.New(*option.Global)
+	cluster, done, err := cluster.New(*option.Global)
+	<-done
 	if err != nil {
 		logger.Errorf("new cluster failed: %v", err)
 		os.Exit(1)

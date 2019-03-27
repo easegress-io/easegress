@@ -27,4 +27,6 @@ type Cluster interface {
 
 	Leader() string
 	Close(wg *sync.WaitGroup)
+
+	Started() bool
 }

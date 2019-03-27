@@ -53,61 +53,60 @@ type cluster struct {
 	client                *clientv3.Client
 	session               *concurrency.Session
 	closed                int32
+	started               bool
 	canceLearnEtcdMembers context.CancelFunc
 }
 
 // New creates an etcd instance and start to serve.
 //
 // The instance can be a writer or reader, depending on the config in opt.
-func New(opt option.Options) (*cluster, error) {
-	var err error
-	c := &cluster{}
+//
+// New return immedialte
+func New(opt option.Options) (c *cluster, done chan struct{}, err error) {
+	c = &cluster{}
+	done = make(chan struct{})
 
 	knownMembers := newMembers()
-	err = knownMembers.loadFromFile(filepath.Join(opt.ConfDir, KNOWN_MEMBERS_CFG_FILE))
+	_ = knownMembers.loadFromFile(filepath.Join(opt.ConfDir, KNOWN_MEMBERS_CFG_FILE))
+
 	switch {
 	case opt.ClusterRole == "writer":
 		switch {
 		case hasLearntMembers(knownMembers):
 			opt.ClusterJoinURLs = "do not use when there's known members"
 			logger.Infof("etcd member %s start... as peer2peer elector from known members", opt.ClusterClientURL)
-			err = c.startEtcdSErverAndElection(knownMembers, opt)
+			go c.startEtcdSErverAndElection(knownMembers, opt, done)
 		case isBoostrapLeader(opt):
 			logger.Infof("etcd member %s start... as bootstrap leader, accept other joiners", opt.ClusterClientURL)
-			err = c.startBootstrapEtcdServer(opt)
-		case isFollower(opt):
+			go c.startBootstrapEtcdServer(opt, done)
+		default:
 			logger.Infof("etcd member %s start... as fresh joiner to the bootstrap leader", opt.ClusterClientURL)
-			err = c.joinEtcdClusterAndRetry(opt, 30)
+			go c.joinEtcdClusterAndRetry(opt, done)
 		}
 	case opt.ClusterRole == "reader":
 		switch {
 		case hasLearntMembers(knownMembers):
 			logger.Infof("etcd member %s start... as reader by connecting to known members ", opt.ClusterClientURL)
-			err = c.subscribe2EtcdclusterByKnownMembers(knownMembers, opt)
+			go c.subscribe2EtcdclusterByKnownMembers(knownMembers, opt, done)
 		default:
 			logger.Infof("etcd member %s start... as fresh reader by connecting to bootstrap leaser", opt.ClusterClientURL)
-			err = c.subscribe2Etcdcluster(opt)
+			go c.subscribe2Etcdcluster(opt, done)
 		}
 	default:
-		return nil, fmt.Errorf("unknown etcd property opt.CluserRole: %s", opt.ClusterRole)
+		close(done)
+		return nil, done, fmt.Errorf("unknown etcd property opt.CluserRole: %s", opt.ClusterRole)
 	}
 
-	if err != nil {
-		return nil, err
-	}
+	c.registerService(opt, done)
 
-	err = c.registerService(opt)
-	if err != nil {
-		return nil, err
-	}
-
-	go func() {
+	go func(done chan struct{}) {
+		<-done
 		var canceLearnCtx context.Context
 		canceLearnCtx, c.canceLearnEtcdMembers = context.WithCancel(context.Background())
 		c.learnEtcdMembers(canceLearnCtx, opt)
-	}()
+	}(done)
 
-	return c, nil
+	return c, done, nil
 }
 
 // isFollower returns `true` if the member is a etcd follower.
@@ -129,7 +128,7 @@ func hasLearntMembers(knownMembers *members) bool {
 	return len(knownMembers.Members) > 0
 }
 
-func (c *cluster) createEtcdCluster(opt option.Options, initCluster string, knownMembers *members) error {
+func (c *cluster) createEtcdCluster(opt option.Options, initCluster string, knownMembers *members, done chan struct{}) error {
 	var err error
 	err = c.createEtcdServer(opt, initCluster, knownMembers)
 	if err != nil {
@@ -145,6 +144,7 @@ func (c *cluster) createEtcdCluster(opt option.Options, initCluster string, know
 
 	logger.Infof("Node %s succeeded start etcd instance in cluster %s",
 		opt.ClusterPeerURL, opt.ClusterName)
+	close(done)
 	return nil
 }
 
@@ -189,22 +189,25 @@ func (c *cluster) createEtcdClient(endpoints []string) error {
 func ctx() context.Context {
 	return context.Background()
 }
-func (c *cluster) joinEtcdClusterAndRetry(opt option.Options, retries int) error {
-	var err error
-	err = c.joinEtcdCluster(opt)
-	if err == nil {
-		logger.Infof("Node %s joined cluster %s ", opt.ClusterClientURL, opt.ClusterName)
-		return nil
+
+func (c *cluster) joinEtcdClusterAndRetry(opt option.Options, done chan struct{}) {
+	count := 0
+	for {
+		var err error
+		err = c.joinEtcdCluster(opt)
+		if err == nil {
+			logger.Infof("Node %s joined cluster %s ", opt.APIAddr, opt.ClusterName)
+			close(done)
+			return
+		}
+
+		count++
+		if count%10 == 0 {
+			logger.Errorf("Node %s failed to join cluster %s, having retried for %d times ", opt.APIAddr, opt.ClusterName, 10)
+		}
+
+		time.Sleep(1 * time.Second)
 	}
-
-	logger.Errorf("Node %s failed to join cluster %s ", opt.ClusterClientURL, opt.ClusterName)
-
-	if retries > 0 {
-		time.Sleep(time.Second)
-		return c.joinEtcdClusterAndRetry(opt, retries-1)
-	}
-
-	return err
 }
 
 func (c *cluster) joinEtcdCluster(opt option.Options) error {
@@ -265,34 +268,54 @@ func containsMember(members []*pb.Member, memberName string) bool {
 	return false
 }
 
-// Register the conf at /runtime/members/config/<memberName>
-func (c *cluster) registerService(opt option.Options) error {
-	var err error
-	c.session, err = concurrency.NewSession(c.client,
-		concurrency.WithTTL(sessionTTL))
-	if err != nil {
-		return err
-	}
+// registerService registers the conf at /runtime/members/config/<memberName>
+//
+// It will also mark the cluster `started` and ready to serve.
+func (c *cluster) registerService(opt option.Options, done chan struct{}) {
+	var (
+		count      = 0
+		err        error
+		memberName string
+	)
 
-	value, err := opt.Marshal()
-	if err != nil {
-		return err
-	}
+	<-done
 
-	memberName, err := generateMemberName(opt.ClusterPeerURL)
-	if err != nil {
-		return err
-	}
+	for {
+		if err != nil && count%10 == 0 {
+			logger.Errorf("Failed to register easegateway member %s  at %s, having retried %d times, the last error: %s",
+				memberName, MemberConfigKey, 10, err)
+		}
 
-	_, err = c.client.Put(context.Background(), MemberConfigKey+memberName, value)
-	if err != nil {
-		logger.Errorf("Failed to register easegateway member %s  at %s",
-			memberName, MemberConfigKey)
-		return err
-	}
+		c.session, err = concurrency.NewSession(c.client,
+			concurrency.WithTTL(sessionTTL))
+		if err != nil {
+			count++
+			continue
+		}
 
-	logger.Infof("Register easegateway member %s at %s", memberName, MemberConfigKey)
-	return nil
+		value, err := opt.Marshal()
+		if err != nil {
+			count++
+			continue
+		}
+
+		memberName, err := generateMemberName(opt.ClusterPeerURL)
+		if err != nil {
+			count++
+			continue
+		}
+
+		_, err = c.client.Put(context.Background(), MemberConfigKey+memberName, value)
+		if err != nil {
+			count++
+			continue
+		}
+
+		c.started = true
+
+		logger.Infof("Register easegateway member %s at %s", memberName, MemberConfigKey)
+		return
+	}
 }
 
 // Update and save etcd members under opt.ConfLog.
@@ -338,45 +361,55 @@ func (c *cluster) learnEtcdMembers(ctx context.Context, opt option.Options) {
 	}
 }
 
-func (c *cluster) startEtcdSErverAndElection(knownMembers *members, opt option.Options) error {
+func (c *cluster) startEtcdSErverAndElection(knownMembers *members, opt option.Options, done chan struct{}) error {
 	initCluster := buildInitClusterParam(knownMembers, opt)
-	return c.createEtcdCluster(opt, strings.Join(initCluster, ","), knownMembers)
+	return c.createEtcdCluster(opt, strings.Join(initCluster, ","), knownMembers, done)
 }
 
-func (c *cluster) startBootstrapEtcdServer(opt option.Options) error {
-	return c.createEtcdCluster(opt, "", newMembers())
+func (c *cluster) startBootstrapEtcdServer(opt option.Options, done chan struct{}) error {
+	return c.createEtcdCluster(opt, "", newMembers(), done)
 }
 
-func (c *cluster) subscribe2Etcdcluster(opt option.Options) error {
-	var err error
-	for i := 0; i < 30; i++ {
-		err = c.createEtcdClient(strings.Split(opt.ClusterJoinURLs, ","))
+func (c *cluster) subscribe2Etcdcluster(opt option.Options, done chan struct{}) {
+	count := 0
+	for {
+		err := c.createEtcdClient(strings.Split(opt.ClusterJoinURLs, ","))
 		if err == nil {
-			return nil
-		} else {
-			time.Sleep(time.Second)
+			close(done)
+			return
 		}
+
+		count++
+		if count%10 == 0 {
+			logger.Errorf("etcd client %s failed to connect to the etcd cluster %s,  for %d times.the last error: %s", opt.APIAddr, opt.ClusterName, 10, err)
+		}
+
+		time.Sleep(time.Second)
 	}
-	return err
 }
 
-func (c *cluster) subscribe2EtcdclusterByKnownMembers(knownMembers *members, options option.Options) error {
+func (c *cluster) subscribe2EtcdclusterByKnownMembers(knownMembers *members, opt option.Options, done chan struct{}) {
 	endpoints := make([]string, 0, 5)
 	for _, m := range knownMembers.Members {
 		endpoints = append(endpoints, m.PeerListener)
 	}
 
 	var err error
-	for i := 0; i < 30; i++ {
+	count := 0
+	for {
 		err = c.createEtcdClient(endpoints)
 		if err == nil {
-			return nil
-		} else {
-			time.Sleep(time.Second)
+			close(done)
+			return
 		}
-	}
 
-	return err
+		count++
+		if count%10 == 0 {
+			logger.Errorf("etcd client %s failed to connect to the etcd cluster %s,  for %d times.the last error: %s", opt.APIAddr, opt.ClusterName, 10, err)
+		}
+
+		time.Sleep(time.Second)
+	}
 }
 
 func (c *cluster) Leader() string {
@@ -419,4 +452,8 @@ func (c *cluster) Close(wg *sync.WaitGroup) {
 		<-c.server.Server.StopNotify()
 		logger.Infof("etcd server close successfully")
 	}
+}
+
+func (c *cluster) Started() bool {
+	return c.started
 }

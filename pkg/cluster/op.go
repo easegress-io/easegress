@@ -1,12 +1,18 @@
 package cluster
 
 import (
+	"fmt"
+
 	"go.etcd.io/etcd/clientv3"
 )
 
 // PutUnderLease stores data which will be eliminated when the lease expired or revoked,
 // so the caller should update the data periodically.
 func (c *cluster) PutUnderLease(key, value string) error {
+	if !c.started {
+		return fmt.Errorf("etcd cluster not started yet")
+	}
+
 	_, err := c.client.Put(ctx(), key, value,
 		clientv3.WithLease(c.session.Lease()))
 
@@ -14,15 +20,27 @@ func (c *cluster) PutUnderLease(key, value string) error {
 }
 
 func (c *cluster) Put(key, value string) error {
+	if !c.started {
+		return fmt.Errorf("etcd cluster not started yet")
+	}
+
 	_, err := c.client.Put(ctx(), key, value)
 	return err
 }
 
 func (c *cluster) PutAndDeleteUnderLease(kvs map[string]*string) error {
+	if !c.started {
+		return fmt.Errorf("etcd cluster not started yet")
+	}
+
 	return c.putAndDelete(kvs, true)
 }
 
 func (c *cluster) PutAndDelete(kvs map[string]*string) error {
+	if !c.started {
+		return fmt.Errorf("etcd cluster not started yet")
+	}
+
 	return c.putAndDelete(kvs, false)
 }
 
@@ -44,16 +62,28 @@ func (c *cluster) putAndDelete(kvs map[string]*string, underLease bool) error {
 }
 
 func (c *cluster) Delete(key string) error {
+	if !c.started {
+		return fmt.Errorf("etcd cluster not started yet")
+	}
+
 	_, err := c.client.Delete(ctx(), key)
 	return err
 }
 
 func (c *cluster) DeletePrefix(prefix string) error {
+	if !c.started {
+		return fmt.Errorf("etcd cluster not started yet")
+	}
+
 	_, err := c.client.Delete(ctx(), prefix, clientv3.WithPrefix())
 	return err
 }
 
 func (c *cluster) Get(key string) (*string, error) {
+	if !c.started {
+		return nil, fmt.Errorf("etcd cluster not started yet")
+	}
+
 	resp, err := c.client.Get(ctx(), key)
 	if err != nil {
 		return nil, err
@@ -68,6 +98,10 @@ func (c *cluster) Get(key string) (*string, error) {
 }
 
 func (c *cluster) GetPrefix(prefix string) (map[string]string, error) {
+	if !c.started {
+		return nil, fmt.Errorf("etcd cluster not started yet")
+	}
+
 	resp, err := c.client.Get(ctx(), prefix, clientv3.WithPrefix())
 	if err != nil {
 		return nil, err
