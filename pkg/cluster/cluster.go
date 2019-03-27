@@ -53,7 +53,7 @@ type cluster struct {
 	client                *clientv3.Client
 	session               *concurrency.Session
 	closed                int32
-	started               bool
+	started               int32
 	canceLearnEtcdMembers context.CancelFunc
 }
 
@@ -61,7 +61,7 @@ type cluster struct {
 //
 // The instance can be a writer or reader, depending on the config in opt.
 //
-// New return immedialte
+// New return a new `cluster` instance immediately
 func New(opt option.Options) (c *cluster, done chan struct{}, err error) {
 	c = &cluster{}
 	done = make(chan struct{})
@@ -203,7 +203,7 @@ func (c *cluster) joinEtcdClusterAndRetry(opt option.Options, done chan struct{}
 
 		count++
 		if count%10 == 0 {
-			logger.Errorf("Node %s failed to join cluster %s, having retried for %d times ", opt.APIAddr, opt.ClusterName, 10)
+			logger.Errorf("Node %s failed to join cluster %s, having retried for %d times ", opt.APIAddr, opt.ClusterName, count)
 		}
 
 		time.Sleep(1 * time.Second)
@@ -283,7 +283,7 @@ func (c *cluster) registerService(opt option.Options, done chan struct{}) {
 	for {
 		if err != nil && count%10 == 0 {
 			logger.Errorf("Failed to register easegateway member %s  at %s, having retried %d times, the last error: %s",
-				memberName, MemberConfigKey, 10, err)
+				memberName, MemberConfigKey, count, err)
 		}
 
 		c.session, err = concurrency.NewSession(c.client,
@@ -311,7 +311,7 @@ func (c *cluster) registerService(opt option.Options, done chan struct{}) {
 			continue
 		}
 
-		c.started = true
+		atomic.StoreInt32(&c.started, 1)
 
 		logger.Infof("Register easegateway member %s at %s", memberName, MemberConfigKey)
 		return
@@ -381,10 +381,10 @@ func (c *cluster) subscribe2Etcdcluster(opt option.Options, done chan struct{}) 
 
 		count++
 		if count%10 == 0 {
-			logger.Errorf("etcd client %s failed to connect to the etcd cluster %s,  for %d times.the last error: %s", opt.APIAddr, opt.ClusterName, 10, err)
+			logger.Errorf("etcd client %s failed to connect to the etcd cluster %s,  for %d times.the last error: %s", opt.APIAddr, opt.ClusterName, count, err)
 		}
 
-		time.Sleep(time.Second)
+		time.Sleep(1 * time.Second)
 	}
 }
 
@@ -405,7 +405,7 @@ func (c *cluster) subscribe2EtcdclusterByKnownMembers(knownMembers *members, opt
 
 		count++
 		if count%10 == 0 {
-			logger.Errorf("etcd client %s failed to connect to the etcd cluster %s,  for %d times.the last error: %s", opt.APIAddr, opt.ClusterName, 10, err)
+			logger.Errorf("etcd client %s failed to connect to the etcd cluster %s,  for %d times.the last error: %s", opt.APIAddr, opt.ClusterName, count, err)
 		}
 
 		time.Sleep(time.Second)
@@ -433,6 +433,7 @@ func (c *cluster) Leader() string {
 func (c *cluster) Close(wg *sync.WaitGroup) {
 	defer wg.Done()
 
+	atomic.StoreInt32(&c.started, 0)
 	atomic.StoreInt32(&c.closed, 1)
 
 	c.canceLearnEtcdMembers()
@@ -455,5 +456,6 @@ func (c *cluster) Close(wg *sync.WaitGroup) {
 }
 
 func (c *cluster) Started() bool {
-	return c.started
+	value := atomic.LoadInt32(&c.started)
+	return value != 0
 }

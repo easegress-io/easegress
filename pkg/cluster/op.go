@@ -9,8 +9,8 @@ import (
 // PutUnderLease stores data which will be eliminated when the lease expired or revoked,
 // so the caller should update the data periodically.
 func (c *cluster) PutUnderLease(key, value string) error {
-	if !c.started {
-		return fmt.Errorf("etcd cluster not started yet")
+	if !c.Started() {
+		return fmt.Errorf("etcd cluster not Started() yet")
 	}
 
 	_, err := c.client.Put(ctx(), key, value,
@@ -20,8 +20,8 @@ func (c *cluster) PutUnderLease(key, value string) error {
 }
 
 func (c *cluster) Put(key, value string) error {
-	if !c.started {
-		return fmt.Errorf("etcd cluster not started yet")
+	if !c.Started() {
+		return fmt.Errorf("etcd cluster not Started() yet")
 	}
 
 	_, err := c.client.Put(ctx(), key, value)
@@ -29,16 +29,16 @@ func (c *cluster) Put(key, value string) error {
 }
 
 func (c *cluster) PutAndDeleteUnderLease(kvs map[string]*string) error {
-	if !c.started {
-		return fmt.Errorf("etcd cluster not started yet")
+	if !c.Started() {
+		return fmt.Errorf("etcd cluster not Started() yet")
 	}
 
 	return c.putAndDelete(kvs, true)
 }
 
 func (c *cluster) PutAndDelete(kvs map[string]*string) error {
-	if !c.started {
-		return fmt.Errorf("etcd cluster not started yet")
+	if !c.Started() {
+		return fmt.Errorf("etcd cluster not Started() yet")
 	}
 
 	return c.putAndDelete(kvs, false)
@@ -62,8 +62,8 @@ func (c *cluster) putAndDelete(kvs map[string]*string, underLease bool) error {
 }
 
 func (c *cluster) Delete(key string) error {
-	if !c.started {
-		return fmt.Errorf("etcd cluster not started yet")
+	if !c.Started() {
+		return fmt.Errorf("etcd cluster not Started() yet")
 	}
 
 	_, err := c.client.Delete(ctx(), key)
@@ -71,8 +71,8 @@ func (c *cluster) Delete(key string) error {
 }
 
 func (c *cluster) DeletePrefix(prefix string) error {
-	if !c.started {
-		return fmt.Errorf("etcd cluster not started yet")
+	if !c.Started() {
+		return fmt.Errorf("etcd cluster not Started() yet")
 	}
 
 	_, err := c.client.Delete(ctx(), prefix, clientv3.WithPrefix())
@@ -80,8 +80,8 @@ func (c *cluster) DeletePrefix(prefix string) error {
 }
 
 func (c *cluster) Get(key string) (*string, error) {
-	if !c.started {
-		return nil, fmt.Errorf("etcd cluster not started yet")
+	if !c.Started() {
+		return nil, fmt.Errorf("etcd cluster not Started() yet")
 	}
 
 	resp, err := c.client.Get(ctx(), key)
@@ -98,8 +98,8 @@ func (c *cluster) Get(key string) (*string, error) {
 }
 
 func (c *cluster) GetPrefix(prefix string) (map[string]string, error) {
-	if !c.started {
-		return nil, fmt.Errorf("etcd cluster not started yet")
+	if !c.Started() {
+		return nil, fmt.Errorf("etcd cluster not Started() yet")
 	}
 
 	resp, err := c.client.Get(ctx(), prefix, clientv3.WithPrefix())
