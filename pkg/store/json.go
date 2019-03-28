@@ -42,11 +42,6 @@ func newJSONFileStore(c cluster.Cluster) (*jsonFileStore, error) {
 	configPath := filepath.Join(option.Global.DataDir, configFile)
 	logger.Debugf("runtime config path: %s", configPath)
 
-	err := os.MkdirAll(filepath.Dir(configPath), 0700)
-	if err != nil {
-		return nil, err
-	}
-
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		f, err := os.OpenFile(configPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0640)
 		if err != nil {

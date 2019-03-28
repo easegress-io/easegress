@@ -352,14 +352,9 @@ func GetConstructorConfig(t string) (Constructor, Config, error) {
 func LoadOutTreePluginTypes() error {
 	logger.Debugf("load all out-tree plugin types")
 
-	err := os.MkdirAll(option.Global.CertDir, 0700)
-	if err != nil {
-		return fmt.Errorf(err.Error())
-	}
-
 	count := 0
 
-	err = filepath.Walk(option.Global.CertDir, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(option.Global.CertDir, func(path string, info os.FileInfo, err error) error {
 		if info == nil {
 			logger.Warnf("access %s failed, out-tree plugin types skipped in the file: %v", path, err)
 			return filepath.SkipDir

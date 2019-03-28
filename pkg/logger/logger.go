@@ -1,7 +1,6 @@
 package logger
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -14,7 +13,6 @@ import (
 )
 
 func Init() {
-	initLogsDir()
 	initDefault()
 	initHTTPPlugin()
 	initRestAPI()
@@ -37,14 +35,6 @@ var (
 	httpPluginDumpLogger   *zap.Logger
 	restAPILogger          *zap.Logger
 )
-
-func initLogsDir() {
-	err := os.MkdirAll(option.Global.LogDir, 0750)
-	if err != nil {
-		common.Exit(1, fmt.Sprintf("mkdir %s failed: %v",
-			option.Global.LogDir, err))
-	}
-}
 
 func initDefault() {
 	timeEncoder := func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
