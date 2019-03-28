@@ -3,9 +3,7 @@ package cluster
 import (
 	"fmt"
 	"net/url"
-	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/megaease/easegateway/pkg/option"
 
@@ -25,10 +23,7 @@ func generateEtcdConfigFromOption(opt option.Options, initCluster string) (*embe
 		return nil, err
 	}
 
-	ec.Name, err = generateMemberName(opt.ClusterPeerURL)
-	if err != nil {
-		return nil, err
-	}
+	ec.Name = opt.Name
 
 	ec.Dir = opt.DataDir
 	ec.WalDir = opt.WALDir
@@ -56,21 +51,4 @@ func generateEtcdConfigFromOption(opt option.Options, initCluster string) (*embe
 	}
 
 	return ec, nil
-}
-
-func generateMemberName(peerUrl string) (string, error) {
-	hostname, err := os.Hostname()
-	if err != nil {
-		return "", err
-	}
-	peerURL, err := url.Parse(peerUrl)
-	if err != nil {
-		return "", err
-	}
-
-	memberName := hostname + "-" + peerURL.Host
-	memberName = strings.Replace(memberName, ",", "-", -1)
-	memberName = strings.Replace(memberName, "=", "-", -1)
-	return memberName, nil
-
 }

@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-func init() {
+func Init() {
 	initLogsDir()
 	initDefault()
 	initHTTPPlugin()

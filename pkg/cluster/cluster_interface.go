@@ -5,6 +5,27 @@ import (
 	"time"
 )
 
+const (
+	// Keep alive hearbeat interval in seconds
+	KEEP_ALIVE_INTERVAL = 5 * time.Second
+)
+
+type MemberStatus struct {
+	// the name as an etcd member, only writer has a name
+	Name string `yaml:name`
+	// the id as an etcd member, only writer has an id
+	Id uint64 `yaml:id`
+
+	// writer | reader
+	Role string `yaml:role`
+
+	// leader | follower | subscriber | offline
+	EtcdStatus string `yaml:etcd_status`
+
+	// keepalive timestamp
+	KeepaliveTime int64 `yaml:keepalive_time`
+}
+
 type Cluster interface {
 	Get(key string) (*string, error)
 	GetPrefix(prefix string) (map[string]string, error)
@@ -29,4 +50,8 @@ type Cluster interface {
 	Close(wg *sync.WaitGroup)
 
 	Started() bool
+
+	PurgeMember(member string) error
+
+	MemberStatus() MemberStatus
 }

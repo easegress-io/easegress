@@ -1,7 +1,9 @@
 package cluster
 
 import (
+	"context"
 	"fmt"
+	"time"
 
 	"go.etcd.io/etcd/clientv3"
 )
@@ -13,8 +15,9 @@ func (c *cluster) PutUnderLease(key, value string) error {
 		return fmt.Errorf("etcd cluster not Started() yet")
 	}
 
-	_, err := c.client.Put(ctx(), key, value,
-		clientv3.WithLease(c.session.Lease()))
+	ctx, cancel := context.WithTimeout(context.Background(), c.etcdTimeoutInMilli*time.Millisecond)
+	_, err := c.client.Put(ctx, key, value, clientv3.WithLease(c.session.Lease()))
+	cancel()
 
 	return err
 }
@@ -24,7 +27,9 @@ func (c *cluster) Put(key, value string) error {
 		return fmt.Errorf("etcd cluster not Started() yet")
 	}
 
-	_, err := c.client.Put(ctx(), key, value)
+	ctx, cancel := context.WithTimeout(context.Background(), c.etcdTimeoutInMilli*time.Millisecond)
+	defer cancel()
+	_, err := c.client.Put(ctx, key, value)
 	return err
 }
 
@@ -34,6 +39,7 @@ func (c *cluster) PutAndDeleteUnderLease(kvs map[string]*string) error {
 	}
 
 	return c.putAndDelete(kvs, true)
+
 }
 
 func (c *cluster) PutAndDelete(kvs map[string]*string) error {
@@ -57,7 +63,9 @@ func (c *cluster) putAndDelete(kvs map[string]*string, underLease bool) error {
 			ops = append(ops, clientv3.OpDelete(k))
 		}
 	}
-	_, err := c.client.Txn(ctx()).Then(ops...).Commit()
+	ctx, cancel := context.WithTimeout(context.Background(), c.etcdTimeoutInMilli*time.Millisecond)
+	defer cancel()
+	_, err := c.client.Txn(ctx).Then(ops...).Commit()
 	return err
 }
 
@@ -66,7 +74,9 @@ func (c *cluster) Delete(key string) error {
 		return fmt.Errorf("etcd cluster not Started() yet")
 	}
 
-	_, err := c.client.Delete(ctx(), key)
+	ctx, cancel := context.WithTimeout(context.Background(), c.etcdTimeoutInMilli*time.Millisecond)
+	defer cancel()
+	_, err := c.client.Delete(ctx, key)
 	return err
 }
 
@@ -75,7 +85,9 @@ func (c *cluster) DeletePrefix(prefix string) error {
 		return fmt.Errorf("etcd cluster not Started() yet")
 	}
 
-	_, err := c.client.Delete(ctx(), prefix, clientv3.WithPrefix())
+	ctx, cancel := context.WithTimeout(context.Background(), c.etcdTimeoutInMilli*time.Millisecond)
+	defer cancel()
+	_, err := c.client.Delete(ctx, prefix, clientv3.WithPrefix())
 	return err
 }
 
@@ -84,7 +96,9 @@ func (c *cluster) Get(key string) (*string, error) {
 		return nil, fmt.Errorf("etcd cluster not Started() yet")
 	}
 
-	resp, err := c.client.Get(ctx(), key)
+	ctx, cancel := context.WithTimeout(context.Background(), c.etcdTimeoutInMilli*time.Millisecond)
+	resp, err := c.client.Get(ctx, key)
+	cancel()
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +116,9 @@ func (c *cluster) GetPrefix(prefix string) (map[string]string, error) {
 		return nil, fmt.Errorf("etcd cluster not Started() yet")
 	}
 
-	resp, err := c.client.Get(ctx(), prefix, clientv3.WithPrefix())
+	ctx, cancel := context.WithTimeout(context.Background(), c.etcdTimeoutInMilli*time.Millisecond)
+	defer cancel()
+	resp, err := c.client.Get(ctx, prefix, clientv3.WithPrefix())
 	if err != nil {
 		return nil, err
 	}

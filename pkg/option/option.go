@@ -6,10 +6,11 @@ import (
 	"io/ioutil"
 	"net"
 	"net/url"
+	"os"
 	"strings"
 
-	flags "github.com/jessevdk/go-flags"
-	yaml "gopkg.in/yaml.v2"
+	"github.com/jessevdk/go-flags"
+	"gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegateway/pkg/common"
 	"github.com/megaease/easegateway/pkg/version"
@@ -21,11 +22,10 @@ var (
 	GlobalJSON string
 )
 
-func init() {
-	// Set default value in one place.
-	Global = &Options{
-		Name:             "member-001",
-		ClusterName:      "cluster-A",
+func New() *Options {
+	return &Options{
+		Name:             "",
+		ClusterName:      "",
 		ClusterRole:      "writer",
 		ClusterClientURL: "http://localhost:2379",
 		ClusterPeerURL:   "http://localhost:2380",
@@ -46,47 +46,57 @@ func init() {
 		PluginShellRootNamespace:      false,
 		CGIDir:                        "./cgi",
 		CertDir:                       "./cert",
+		EtcdRequestTimeoutInMilli:     1000,
 	}
+}
 
-	_, err := flags.NewParser(Global, flags.HelpFlag|flags.PassDoubleDash).Parse()
+// ParseFlags parses the command line options.
+//
+// This function will forcely abort the process if any errors
+func ParseFlags(opt *Options) {
+	_, err := flags.NewParser(opt, flags.HelpFlag|flags.PassDoubleDash).Parse()
 	if err != nil {
 		if err, ok := err.(*flags.Error); ok && err.Type == flags.ErrHelp {
 			common.Exit(0, err.Message)
 		}
 		common.Exit(1, err.Error())
 	}
+}
 
-	if Global.ShowVersion {
+func InitConfig(opt *Options) {
+	// Set default value in one place.
+
+	if opt.ShowVersion {
 		common.Exit(0, version.Short)
 	}
 
-	if Global.ConfigFile != "" {
-		buff, err := ioutil.ReadFile(Global.ConfigFile)
+	if opt.ConfigFile != "" {
+		buff, err := ioutil.ReadFile(opt.ConfigFile)
 		if err != nil {
 			common.Exit(1, fmt.Sprintf("read config file failed: %v", err))
 		}
-		err = yaml.Unmarshal(buff, Global)
+		err = yaml.Unmarshal(buff, opt)
 		if err != nil {
 			common.Exit(1, fmt.Sprintf("unmarshal config file %s to yaml failed: %v",
-				Global.ConfigFile, err))
+				opt.ConfigFile, err))
 		}
 	}
 
-	err = Global.validate()
+	err := opt.validate()
 	if err != nil {
 		common.Exit(1, err.Error())
 	}
 
-	buff, err := json.Marshal(Global)
+	buff, err := json.Marshal(opt)
 	if err != nil {
 		common.Exit(1, fmt.Sprintf("marshal config to json failed: %v", err))
 	}
 
-	buff, err = yaml.Marshal(Global)
+	buff, err = yaml.Marshal(opt)
 	if err != nil {
 		common.Exit(1, fmt.Sprintf("marshal config to yaml failed: %v", err))
 	}
-	if Global.ShowConfig {
+	if opt.ShowConfig {
 		fmt.Printf("%s", buff)
 	}
 
@@ -138,23 +148,17 @@ type Options struct {
 	CGIDir                        string `json:"cgi-dir" yaml:"cgi-dir" long:"cgi-dir" description:"Path to the CGI directory."`
 	CertDir                       string `json:"cert-dir" yaml:"cert-dir" long:"cert-dir" description:"Path to the Certificate directory."`
 
+	// etcd
+	EtcdRequestTimeoutInMilli int64 `json:"etcd-request-timeout-in-milli" yaml:"etcd-request-timeout-in-milli" long:"etcd-request-timeout-in-milli" description:"Timeout in milli seconds to access the etcd server."`
+
 	// go test may fail with out '-t', reference: https://github.com/alecthomas/kingpin/issues/167
 	Placeholder string `json:"-" yaml:"-" short:"t" long:"test" description:"not used yet"`
 }
 
 func (o *Options) validate() error {
-	// meta
-	if o.Name == "" {
-		return fmt.Errorf("empty name")
-	}
-	if err := common.ValidateName(o.Name); err != nil {
-		return err
-	}
 
 	if o.ClusterName == "" {
-		if o.ClusterJoinURLs == "" {
-			return fmt.Errorf("empty cluster-name for a new cluster")
-		}
+		return fmt.Errorf("empty cluster-name")
 	} else if err := common.ValidateName(o.ClusterName); err != nil {
 		return err
 	}
@@ -247,6 +251,17 @@ func (o *Options) validate() error {
 		o.PluginIODataFormatLengthLimit > 10000009 {
 		return fmt.Errorf("invalid plugin-io-data-format-len-limit[1,10000009]")
 	}
+	// meta
+	if o.Name == "" {
+		name, err := generateMemberName(o.APIAddr)
+		if err != nil {
+			return err
+		}
+		o.Name = name
+	}
+	if err := common.ValidateName(o.Name); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -258,4 +273,18 @@ func (o *Options) Marshal() (string, error) {
 	}
 
 	return string(buff), nil
+}
+
+func generateMemberName(apiAddr string) (string, error) {
+	hostname, err := os.Hostname()
+	if err != nil {
+		return "", err
+	}
+
+	memberName := hostname + "-" + apiAddr
+	memberName = strings.Replace(memberName, ",", "-", -1)
+	memberName = strings.Replace(memberName, ":", "-", -1)
+	memberName = strings.Replace(memberName, "=", "-", -1)
+	return memberName, nil
+
 }

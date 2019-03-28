@@ -26,6 +26,7 @@ const (
 	apiURL = "/apis/v2"
 
 	membersURL = apiURL + "/members"
+	memberURL  = apiURL + "/members/%s"
 
 	pluginsURL     = apiURL + "/plugins"
 	pluginURL      = apiURL + "/plugins/%s"

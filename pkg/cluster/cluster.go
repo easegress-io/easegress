@@ -4,14 +4,17 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/ghodss/yaml"
 	"go.etcd.io/etcd/clientv3"
 	"go.etcd.io/etcd/clientv3/concurrency"
 	"go.etcd.io/etcd/embed"
+	"go.etcd.io/etcd/etcdserver/api/v2stats"
 	pb "go.etcd.io/etcd/etcdserver/etcdserverpb"
 
 	"github.com/megaease/easegateway/pkg/logger"
@@ -21,7 +24,8 @@ import (
 // Cluster store tree layout.
 var (
 	MemberConfigPrefix = "/runtime/members/config/"
-	MemberConfigKey    = "/runtime/members/config/" + option.Global.Name
+	MemberStatusPrefix = "/runtime/members/status/"
+	MemberConfigKey    string
 
 	ConfigObjectPrefix           = "/config/objects/"
 	ConfigPluginPrefix           = "/config/objects/plugins/"      // + plugin-name
@@ -30,9 +34,9 @@ var (
 	ConfigPluginUsedKeyFormat    = "/config/relation/%s/usedby/%s" // + plugin-name pipeline-name
 
 	StatPipelinePrefix = "/runtime/stat/pipelines/"
-	StatPipelineFormat = "/runtime/stat/pipelines/%s/" + option.Global.Name // + pipeline-name
+	StatPipelineFormat string // + pipeline-name
 
-	MemberConfigValue = option.GlobalYAML
+	MemberConfigValue string = option.GlobalYAML
 )
 
 const (
@@ -55,6 +59,8 @@ type cluster struct {
 	closed                int32
 	started               int32
 	canceLearnEtcdMembers context.CancelFunc
+	etcdTimeoutInMilli    time.Duration
+	name                  string
 }
 
 // New creates an etcd instance and start to serve.
@@ -65,6 +71,12 @@ type cluster struct {
 func New(opt option.Options) (c *cluster, done chan struct{}, err error) {
 	c = &cluster{}
 	done = make(chan struct{})
+
+	c.etcdTimeoutInMilli = time.Duration(opt.EtcdRequestTimeoutInMilli)
+	c.name = opt.Name
+	MemberConfigKey = MemberConfigPrefix + opt.Name
+	StatPipelineFormat = "/runtime/stat/pipelines/%s/" + opt.Name // + pipeline-name
+	MemberConfigValue = option.GlobalYAML
 
 	knownMembers := newMembers()
 	_ = knownMembers.loadFromFile(filepath.Join(opt.ConfDir, KNOWN_MEMBERS_CFG_FILE))
@@ -98,6 +110,8 @@ func New(opt option.Options) (c *cluster, done chan struct{}, err error) {
 	}
 
 	c.registerService(opt, done)
+
+	go etcd_heartbeat(c)
 
 	go func(done chan struct{}) {
 		<-done
@@ -186,7 +200,7 @@ func (c *cluster) createEtcdClient(endpoints []string) error {
 	return nil
 }
 
-func ctx() context.Context {
+func newCtx() context.Context {
 	return context.Background()
 }
 
@@ -216,15 +230,18 @@ func (c *cluster) joinEtcdCluster(opt option.Options) error {
 		return err
 	}
 
-	listResp, err := c.client.MemberList(ctx())
+	ctx, cancel := context.WithTimeout(context.Background(), c.etcdTimeoutInMilli*time.Millisecond)
+	defer cancel()
+	listResp, err := c.client.MemberList(ctx)
 	if err != nil {
 		return err
 	}
 	pbMembers := listResp.Members
 
-	memberName, err := generateMemberName(opt.ClusterPeerURL)
-	if !containsMember(listResp.Members, memberName) {
-		addResp, err := c.client.MemberAdd(ctx(), []string{opt.ClusterPeerURL})
+	if !containsMember(listResp.Members, opt.Name) {
+		ctx, cancel := context.WithTimeout(context.Background(), c.etcdTimeoutInMilli*time.Millisecond)
+		defer cancel()
+		addResp, err := c.client.MemberAdd(ctx, []string{opt.ClusterPeerURL})
 		if err != nil {
 			return err
 		}
@@ -249,7 +266,7 @@ func buildInitClusterParam(knownMembers *members, opt option.Options) []string {
 	for _, member := range knownMembers.Members {
 		name := member.Name
 		if name == "" {
-			name, _ = generateMemberName(opt.ClusterPeerURL)
+			name = opt.Name
 		}
 		initCluster = append(initCluster,
 			fmt.Sprintf("%s=%s", name, member.PeerListener))
@@ -273,9 +290,8 @@ func containsMember(members []*pb.Member, memberName string) bool {
 // It will also mark the cluster `started` and ready to serve.
 func (c *cluster) registerService(opt option.Options, done chan struct{}) {
 	var (
-		count      = 0
-		err        error
-		memberName string
+		count = 0
+		err   error
 	)
 
 	<-done
@@ -283,7 +299,7 @@ func (c *cluster) registerService(opt option.Options, done chan struct{}) {
 	for {
 		if err != nil && count%10 == 0 {
 			logger.Errorf("Failed to register easegateway member %s  at %s, having retried %d times, the last error: %s",
-				memberName, MemberConfigKey, count, err)
+				opt.Name, MemberConfigKey, count, err)
 		}
 
 		c.session, err = concurrency.NewSession(c.client,
@@ -299,13 +315,9 @@ func (c *cluster) registerService(opt option.Options, done chan struct{}) {
 			continue
 		}
 
-		memberName, err := generateMemberName(opt.ClusterPeerURL)
-		if err != nil {
-			count++
-			continue
-		}
-
-		_, err = c.client.Put(context.Background(), MemberConfigKey+memberName, value)
+		ctx, cancel := context.WithTimeout(context.Background(), c.etcdTimeoutInMilli*time.Millisecond)
+		_, err = c.client.Put(ctx, MemberConfigKey, value)
+		cancel()
 		if err != nil {
 			count++
 			continue
@@ -313,7 +325,7 @@ func (c *cluster) registerService(opt option.Options, done chan struct{}) {
 
 		atomic.StoreInt32(&c.started, 1)
 
-		logger.Infof("Register easegateway member %s at %s", memberName, MemberConfigKey)
+		logger.Infof("Register easegateway member %s at %s", opt.Name, MemberConfigKey)
 		return
 	}
 }
@@ -330,8 +342,8 @@ func (c *cluster) learnEtcdMembers(ctx context.Context, opt option.Options) {
 			logger.Errorf("Node %s is shuting down, abort to update etcd knownMembers", opt.Name)
 			break
 		case <-time.After(2 * time.Second):
-			listCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-			listResp, err := c.client.MemberList(listCtx)
+			ctx, cancel := context.WithTimeout(context.Background(), c.etcdTimeoutInMilli*time.Millisecond)
+			listResp, err := c.client.MemberList(ctx)
 			cancel()
 			if err != nil {
 				logger.Errorf("Node %s failed to update etcd knownMembers, error: %v", opt.Name, err)
@@ -458,4 +470,91 @@ func (c *cluster) Close(wg *sync.WaitGroup) {
 func (c *cluster) Started() bool {
 	value := atomic.LoadInt32(&c.started)
 	return value != 0
+}
+
+func (c *cluster) PurgeMember(member string) error {
+	if !c.Started() {
+		return fmt.Errorf("cluster not ready yet")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), c.etcdTimeoutInMilli*time.Millisecond)
+	defer cancel()
+	listResp, err := c.client.MemberList(ctx)
+	if err != nil {
+		return err
+	}
+
+	// todo: refuse to remove etcd member if the node is still active
+
+	var id uint64
+	for _, m := range listResp.Members {
+		if m.Name == member {
+			id = m.ID
+			break
+		}
+
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), c.etcdTimeoutInMilli*time.Millisecond)
+	defer cancel()
+	_, err = c.client.MemberRemove(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *cluster) MemberStatus() MemberStatus {
+	m := MemberStatus{}
+	m.KeepaliveTime = time.Now().Unix()
+	m.Name = c.name
+
+	if c.server != nil {
+		m.Role = "writer"
+	} else {
+		m.Role = "reader"
+	}
+
+	if !c.Started() {
+		m.EtcdStatus = "offline"
+		return m
+	}
+
+	if c.server != nil {
+		buff := c.server.Server.SelfStats()
+		state := v2stats.ServerStats{}
+		yaml.Unmarshal(buff, &state)
+
+		m.Name = state.Name
+		m.Id, _ = strconv.ParseUint(state.ID, 16, 64)
+
+		switch state.State.String() {
+		case "StateFollower":
+			m.EtcdStatus = "follower"
+		case "StateLeader":
+			m.EtcdStatus = "leader"
+		default:
+			m.EtcdStatus = "offline"
+		}
+
+		// This is a strange workaround, looks `SelfSates` not accurate or delayed
+		// SelfSate may show it's follower even it's a leader
+		if c.server.Server.Lead() == m.Id {
+			m.EtcdStatus = "leader"
+		}
+
+	} else {
+		ctx, cancel := context.WithTimeout(context.Background(), c.etcdTimeoutInMilli*time.Millisecond)
+		defer cancel()
+		err := c.client.Sync(ctx)
+
+		if err != nil {
+			m.EtcdStatus = "offline"
+		} else {
+			m.EtcdStatus = "subscriber"
+		}
+	}
+
+	return m
 }

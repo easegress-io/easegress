@@ -8,7 +8,7 @@ import (
 )
 
 func (c *cluster) Watch(key string) (<-chan *string, error) {
-	getResp, err := c.client.Get(ctx(), key)
+	getResp, err := c.client.Get(newCtx(), key)
 	if err != nil {
 		return nil, err
 	}
@@ -19,7 +19,7 @@ func (c *cluster) Watch(key string) (<-chan *string, error) {
 		w <- &value
 	}
 
-	watchResp := c.client.Watch(ctx(), key,
+	watchResp := c.client.Watch(newCtx(), key,
 		clientv3.WithRev(getResp.Header.Revision+1))
 
 	go func() {
@@ -52,7 +52,7 @@ func (c *cluster) Watch(key string) (<-chan *string, error) {
 }
 
 func (c *cluster) WatchPrefix(prefix string) (<-chan map[string]*string, error) {
-	getResp, err := c.client.Get(ctx(), prefix, clientv3.WithPrefix())
+	getResp, err := c.client.Get(newCtx(), prefix, clientv3.WithPrefix())
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +67,7 @@ func (c *cluster) WatchPrefix(prefix string) (<-chan map[string]*string, error) 
 		w <- kvs
 	}
 
-	watchResp := c.client.Watch(ctx(), prefix,
+	watchResp := c.client.Watch(newCtx(), prefix,
 		clientv3.WithRev(getResp.Header.Revision+1),
 		clientv3.WithPrefix())
 

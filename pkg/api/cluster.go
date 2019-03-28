@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/megaease/easegateway/pkg/cluster"
 	"github.com/megaease/easegateway/pkg/option"
@@ -25,6 +26,11 @@ func (s *APIServer) setupMemberAPIs() {
 			Method:  "GET",
 			Handler: s.listMembers,
 		},
+		{
+			Path:    "/members/{member:string}",
+			Method:  "DELETE",
+			Handler: s.purgeMember,
+		},
 	}
 
 	s.apis = append(s.apis, memberAPIs...)
@@ -36,8 +42,9 @@ type (
 	}
 
 	ListMemberResp struct {
-		Leader  string   `json:"leader"`
-		Members []Member `json:"members"`
+		Leader  string                 `json:"leader"`
+		Members []Member               `json:"members"`
+		Status  []cluster.MemberStatus `json:status`
 	}
 )
 
@@ -58,9 +65,29 @@ func (s *APIServer) listMembers(ctx iris.Context) {
 		var o option.Options
 		err := yaml.Unmarshal([]byte(v), &o)
 		if err != nil {
-			panic(fmt.Errorf("unmarshal %s to yaml failed: %v", v, err))
+			panic(fmt.Errorf("unmarshal %s to options failed: %v", v, err))
 		}
 		resp.Members = append(resp.Members, Member{Options: o})
+	}
+
+	kv, err = s.cluster.GetPrefix(cluster.MemberStatusPrefix)
+	if err != nil {
+		clusterPanic(err)
+	}
+
+	for _, v := range kv {
+		var s cluster.MemberStatus
+
+		err := yaml.Unmarshal([]byte(v), &s)
+		if err != nil {
+			panic(fmt.Errorf("unmarshal %s to member status failed: %v", v, err))
+		}
+
+		if time.Unix(s.KeepaliveTime, 0).Add(cluster.KEEP_ALIVE_INTERVAL * 2).Before(time.Now()) {
+			s.EtcdStatus = "offline"
+		}
+
+		resp.Status = append(resp.Status, s)
 	}
 
 	buff, err := json.Marshal(resp)
@@ -69,6 +96,15 @@ func (s *APIServer) listMembers(ctx iris.Context) {
 	}
 
 	ctx.Write(buff)
+}
+
+func (s *APIServer) purgeMember(ctx iris.Context) {
+	member := ctx.Params().Get("member")
+	err := s.cluster.PurgeMember(member)
+	if err != nil {
+		panic(fmt.Errorf("failed to purge member : %s, error: %s", member, err))
+	}
+
 }
 
 func (s *APIServer) _getPlugin(name string) *store.PluginSpec {

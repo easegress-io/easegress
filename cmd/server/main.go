@@ -18,6 +18,10 @@ import (
 )
 
 func main() {
+	option.Global = option.New()
+	option.ParseFlags(option.Global)
+	option.InitConfig(option.Global)
+	logger.Init()
 	defer logger.Close()
 
 	logger.Infof("%s", version.Long)
@@ -29,6 +33,8 @@ func main() {
 	}
 
 	cluster, done, err := cluster.New(*option.Global)
+
+	// todo: this blocking will be removed
 	<-done
 	if err != nil {
 		logger.Errorf("new cluster failed: %v", err)
