@@ -507,7 +507,7 @@ func (c *cluster) PurgeMember(member string) error {
 
 func (c *cluster) MemberStatus() MemberStatus {
 	m := MemberStatus{}
-	m.KeepaliveTime = time.Now().Unix()
+	m.LastHeartbeatTime = time.Now().Unix()
 	m.Name = c.name
 
 	if c.server != nil {

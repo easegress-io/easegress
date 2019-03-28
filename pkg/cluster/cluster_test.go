@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/megaease/easegateway/cmd/server/environ"
 	"github.com/megaease/easegateway/pkg/logger"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -258,12 +259,8 @@ func defineCluster(clusterName string, portChannel string) ([]*cluster, []option
 
 		// clear all data that may be produce in previous test
 		os.RemoveAll(filepath.Join("/tmp/egtest", clusterName, options[i].Name))
+		environ.InitDirs(options[i])
 
-		os.MkdirAll(options[i].DataDir, 0755)
-		os.MkdirAll(options[i].LogDir, 0755)
-		os.MkdirAll(options[i].CGIDir, 0755)
-		os.MkdirAll(options[i].CertDir, 0755)
-		os.MkdirAll(options[i].ConfDir, 0755)
 	}
 
 	return clusters, options

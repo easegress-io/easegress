@@ -17,6 +17,9 @@ var exampleUsage = `  # List APIs.
   # List member information.
   egctl member list
 
+  # Purge a easegateway member
+  egctl member purge <member name>
+
   # List plugin types.
   egctl plugin types
 

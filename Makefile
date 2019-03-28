@@ -32,7 +32,7 @@ TARGET_CLIENT=${MKFILE_DIR}bin/egctl
 TARGET=${TARGET_SERVER} ${TARGET_CLIENT}
 
 # Rules
-build: ${TARGET}
+build: fmt ${TARGET}
 
 build_client: ${TARGET_CLIENT}
 

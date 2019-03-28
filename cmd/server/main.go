@@ -6,6 +6,8 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/megaease/easegateway/cmd/server/environ"
+
 	"github.com/megaease/easegateway/pkg/api"
 	"github.com/megaease/easegateway/pkg/cluster"
 	"github.com/megaease/easegateway/pkg/logger"
@@ -26,16 +28,21 @@ func main() {
 
 	logger.Infof("%s", version.Long)
 
+	err := environ.InitDirs(*option.Global)
+	if err != nil {
+		logger.Errorf("Failed to create directories, error: %s", err)
+		os.Exit(1)
+	}
+	go environ.HouseKeepMemberBackups(environ.ExpandDir(option.Global.ConfDir))
+
 	profile, err := profile.New()
 	if err != nil {
 		logger.Errorf("new profile failed: %v", err)
 		os.Exit(1)
 	}
 
-	cluster, done, err := cluster.New(*option.Global)
+	cluster, _, err := cluster.New(*option.Global)
 
-	// todo: this blocking will be removed
-	<-done
 	if err != nil {
 		logger.Errorf("new cluster failed: %v", err)
 		os.Exit(1)

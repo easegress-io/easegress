@@ -83,7 +83,7 @@ func (s *APIServer) listMembers(ctx iris.Context) {
 			panic(fmt.Errorf("unmarshal %s to member status failed: %v", v, err))
 		}
 
-		if time.Unix(s.KeepaliveTime, 0).Add(cluster.KEEP_ALIVE_INTERVAL * 2).Before(time.Now()) {
+		if time.Unix(s.LastHeartbeatTime, 0).Add(cluster.KEEP_ALIVE_INTERVAL * 2).Before(time.Now()) {
 			s.EtcdStatus = "offline"
 		}
 
