@@ -13,10 +13,7 @@ import (
 	"github.com/megaease/easegateway/pkg/option"
 )
 
-<<<<<<< HEAD
-=======
 // InitDirs initialize the sub directories. This does not use logger for errors since the logger dir not created yet.
->>>>>>> c0bf116... init dirs and housekeep overdue members.yaml.xxxxx.back files
 func InitDirs(opt option.Options) error {
 	err := os.MkdirAll(ExpandDir(opt.DataDir), 0750)
 	if err != nil {
@@ -70,12 +67,7 @@ func HouseKeepMemberBackups(confDir string) {
 
 		var filenames = make([]string, 0)
 		for _, f := range files {
-
-<<<<<<< HEAD
-			logger.Infof("dir: %s, filename: ", confDir, f.Name())
-=======
 			logger.Debugf("dir: %s, filename: %s", confDir, f.Name())
->>>>>>> c0bf116... init dirs and housekeep overdue members.yaml.xxxxx.back files
 			matched, err := regexp.MatchString("^members\\.yaml.*bak$", f.Name())
 			if err != nil {
 				logger.Errorf("Failed to list backup files of members.yaml, error: %s", err)

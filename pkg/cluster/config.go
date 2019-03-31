@@ -39,7 +39,7 @@ func generateEtcdConfigFromOption(opt option.Options, initCluster string) (*embe
 	ec.Logger = "zap"
 	ec.LogOutputs = []string{filepath.Join(opt.LogDir, "etcd.log")}
 
-	if opt.ClusterJoinURLs == "" {
+	if opt.IsBootstrapWriter {
 		// Bootstrap a new cluster.
 		ec.ClusterState = embed.ClusterStateFlagNew
 		ec.InitialCluster = fmt.Sprintf("%s=%s", ec.Name, opt.ClusterPeerURL)

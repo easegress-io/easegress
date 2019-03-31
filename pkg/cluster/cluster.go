@@ -133,7 +133,7 @@ func isFollower(opt option.Options) bool {
 // A bootstrapLeader will start a new etcd cluster and elect itself as leader, waiting other followers to join.
 // Only a writer can check if it's a `follower` or `boostrap leader`.
 func isBoostrapLeader(opt option.Options) bool {
-	return opt.ClusterJoinURLs == ""
+	return opt.IsBootstrapWriter
 }
 
 // hasLearntMembers returns `true` if the node access the etcd cluster and learned all the members in the etcd cluster.
@@ -147,7 +147,7 @@ func (c *cluster) createEtcdCluster(opt option.Options, initCluster string, know
 	err = c.createEtcdServer(opt, initCluster)
 	if err != nil {
 		logger.Errorf("Node %s failed start etcd instance  %s, err: %v",
-			opt.ClusterPeerURL, opt.ClusterName, err)
+			opt.Name, opt.ClusterName, err)
 		return err
 	}
 
@@ -157,7 +157,7 @@ func (c *cluster) createEtcdCluster(opt option.Options, initCluster string, know
 	}
 
 	logger.Infof("Node %s succeeded start etcd instance in cluster %s",
-		opt.ClusterPeerURL, opt.ClusterName)
+		opt.Name, opt.ClusterName)
 	close(done)
 	return nil
 }

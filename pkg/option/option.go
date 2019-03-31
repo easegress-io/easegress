@@ -24,12 +24,13 @@ var (
 
 func New() *Options {
 	return &Options{
-		Name:             "",
-		ClusterName:      "",
-		ClusterRole:      "writer",
-		ClusterClientURL: "http://localhost:2379",
-		ClusterPeerURL:   "http://localhost:2380",
-		APIAddr:          "localhost:2381",
+		Name:              "",
+		ClusterName:       "",
+		ClusterRole:       "writer",
+		ClusterClientURL:  "http://localhost:2379",
+		ClusterPeerURL:    "http://localhost:2380",
+		APIAddr:           "localhost:2381",
+		IsBootstrapWriter: false,
 
 		DataDir: "./data",
 
@@ -104,9 +105,10 @@ func InitConfig(opt *Options) {
 }
 
 type Options struct {
-	ShowVersion bool   `json:"-" yaml:"-" short:"v" long:"version" description:"Print the version and exit."`
-	ShowConfig  bool   `json:"-" yaml:"-" short:"c" long:"print-config" description:"Print the configuration."`
-	ConfigFile  string `json:"-" yaml:"-" short:"f" long:"config-file" description:"Load server configuration from a file(yaml format), other command line flags will be ignored if specified."`
+	ShowVersion       bool   `json:"-" yaml:"-" short:"v" long:"version" description:"Print the version and exit."`
+	ShowConfig        bool   `json:"-" yaml:"-" short:"c" long:"print-config" description:"Print the configuration."`
+	ConfigFile        string `json:"-" yaml:"-" short:"f" long:"config-file" description:"Load server configuration from a file(yaml format), other command line flags will be ignored if specified."`
+	IsBootstrapWriter bool   `json:"-" yaml:"-" short:"b" long:"is-bootstrap-writer" description:"Instruct the node to create the genesis embedded etcd server. This flag can only be set on ONE node during the installation. It will take no effect after the initialization finished and will be ignored."`
 
 	// If a config file is specified, below command line flags will be ignored.
 
