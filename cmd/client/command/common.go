@@ -2,12 +2,10 @@ package command
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
-	"strings"
 
 	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
@@ -23,19 +21,15 @@ var (
 )
 
 const (
-	apiURL = "/apis/v2"
+	apiURL = "/apis/v3"
 
 	membersURL = apiURL + "/members"
 	memberURL  = apiURL + "/members/%s"
 
-	pluginsURL     = apiURL + "/plugins"
-	pluginURL      = apiURL + "/plugins/%s"
-	pluginTypesURL = apiURL + "/plugin-types"
-
-	pipelinesURL = apiURL + "/pipelines"
-	pipelineURL  = apiURL + "/pipelines/%s"
-
-	statsURL = apiURL + "/stats"
+	objectKindsURL  = apiURL + "/object-kinds"
+	objectsURL      = apiURL + "/objects"
+	objectURL       = apiURL + "/objects/%s"
+	objectStatusURL = apiURL + "/objects/%s/status"
 )
 
 func makeURL(urlTemplate string, a ...interface{}) string {
@@ -74,39 +68,20 @@ func handleRequest(httpMethod string, url string, reqBody []byte, cmd *cobra.Com
 }
 
 func printBody(body []byte) {
-	var obj interface{}
-	err := json.Unmarshal(body, &obj)
-	if err != nil {
-		ExitWithErrorf("unmarshal json failed: %v", err)
-	}
 	var output []byte
 	switch CommandlineGlobalFlags.OutputFormat {
 	case "yaml":
-		output, err = yaml.Marshal(obj)
-		if err != nil {
-			ExitWithErrorf("marchal yaml failed: %v", err)
-		}
+		output = body
 	case "json":
-		output, err = json.MarshalIndent(obj, "", "\t")
+		var err error
+		output, err = yaml.YAMLToJSON(body)
 		if err != nil {
-			ExitWithErrorf("marchal json failed: %v", err)
+			ExitWithErrorf("yaml %s to json failed: %v", body, err)
 		}
 	}
 
-	fmt.Printf("%s\n", output)
+	fmt.Printf("%s", output)
 }
-
-type (
-	PluginSpec struct {
-		Type string `json:"type"`
-		Name string `json:"name"`
-	}
-
-	PipelineSpec struct {
-		Type string `json:"type"`
-		Name string `json:"name"`
-	}
-)
 
 func readFromFileOrStdin(specFile string, cmd *cobra.Command) ([]byte, string) {
 	var buff []byte
@@ -123,30 +98,14 @@ func readFromFileOrStdin(specFile string, cmd *cobra.Command) ([]byte, string) {
 		}
 	}
 
-	jsonText, _ := yaml.YAMLToJSON(buff)
-
-	if strings.Contains(cmd.CommandPath(), "plugin") {
-		spec := new(PipelineSpec)
-		err := json.Unmarshal(jsonText, &spec)
-		if err != nil {
-			ExitWithErrorf("%s failed, invalid spec: %v", cmd.Short, err)
-		}
-
-		return jsonText, spec.Name
+	var spec struct {
+		Kind string `yaml:"kind"`
+		Name string `yaml:"name"`
+	}
+	err = yaml.Unmarshal(buff, &spec)
+	if err != nil {
+		ExitWithErrorf("%s failed, invalid spec: %v", cmd.Short, err)
 	}
 
-	if strings.Contains(cmd.CommandPath(), "pipeline") {
-		spec := new(PipelineSpec)
-		err := json.Unmarshal(jsonText, &spec)
-		if err != nil {
-			ExitWithErrorf("%s failed, invalid spec: %v", cmd.Short, err)
-		}
-
-		return jsonText, spec.Name
-	}
-
-	// should never come here
-	ExitWithErrorf("Only 'plugin' and 'pipeline' cmd supported, but got: %s", cmd.Use)
-
-	return nil, ""
+	return buff, spec.Name
 }

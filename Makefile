@@ -10,7 +10,7 @@ MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 MKFILE_DIR := $(dir $(MKFILE_PATH))
 
 # Version
-RELEASE?=2.0.0
+RELEASE?=3.0.0
 # Git Related
 GIT_REPO_INFO=$(shell cd ${MKFILE_DIR} && git config --get remote.origin.url)
 ifndef GIT_COMMIT
@@ -32,7 +32,7 @@ TARGET_CLIENT=${MKFILE_DIR}bin/egctl
 TARGET=${TARGET_SERVER} ${TARGET_CLIENT}
 
 # Rules
-build: fmt ${TARGET}
+build: ${TARGET}
 
 build_client: ${TARGET_CLIENT}
 
