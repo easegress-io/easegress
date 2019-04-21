@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"runtime/debug"
 	"time"
@@ -49,23 +50,16 @@ func newRecoverer() func(context.Context) {
 					return
 				}
 
-				if err, ok := err.(clusterErr); ok {
-					handleAPIError(ctx, http.StatusServiceUnavailable, err)
+				logger.Errorf("recover from error: %v", err)
+				if ce, ok := err.(clusterErr); ok {
+					handleAPIError(ctx, http.StatusServiceUnavailable, ce)
 				} else {
 					logger.Errorf("recovered from %s, stack trace:\n%s\n",
 						ctx.HandlerName(), debug.Stack())
-					handleAPIError(ctx, http.StatusInternalServerError, err)
+					handleAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("%v", err))
 				}
 			}
 		}()
-
-		ctx.Next()
-	}
-}
-
-func newJSONContentType() func(context.Context) {
-	return func(ctx context.Context) {
-		ctx.Header("Content-Type", "application/json")
 
 		ctx.Next()
 	}

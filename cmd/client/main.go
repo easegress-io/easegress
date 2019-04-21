@@ -17,53 +17,35 @@ var exampleUsage = `  # List APIs.
   # List member information.
   egctl member list
 
-  # List plugin types.
-  egctl plugin types
+  # Purge a easegateway member
+  egctl member purge <member name>
 
-  # Create a plugin from a json file.
-  egctl plugin create -f <plugin_spec.json>
+  # List object kinds.
+  egctl object kinds
 
-  # Create a plugin from stdout.
-  cat <plugin_spec.json> | egctl plugin create
+  # Create an object from a yaml file.
+  egctl object create -f <object_spec.yaml>
 
-  # Delete a plugin.
-  egctl plugin delete <plugin_name>
+  # Create an object from stdout.
+  cat <object_spec.yaml> | egctl object create
 
-  # Get a plugin.
-  egctl plugin get <plugin_name>
+  # Delete an object.
+  egctl object delete <object_name>
 
-  # List plugins.
-  egctl plugin list
+  # Get an object.
+  egctl object get <object_name>
 
-  # Update a plugin from a json file.
-  egctl plugin update -f <new_plugin_spec.json>
+  # List objects.
+  egctl object list
 
-  # Update a plugin from stdout.
-  echo <new_plugin_spec.json> | egctl plugin update
+  # Update an object from a yaml file.
+  egctl object update -f <new_object_spec.yaml>
 
-  # Create a pipeline from a json file.
-  egctl pipeline create -f <pipeline_spec.json>
+  # Update an object from stdout.
+  cat <new_object_spec.yaml> | egctl object update
 
-  # Create a pipeline from stdout.
-  cat <pipeline_spec.json> | egctl pipeline create
-
-  # Delete a pipeline.
-  egctl pipeline delete <pipeline_name>
-
-  # Get a pipeline.
-  egctl pipeline get <pipeline_name>
-
-  # List pipelines.
-  egctl pipeline list
-
-  # Update a pipeline from a json file.
-  egctl pipeline update -f <new_pipeline_spec.json>
-
-  # Update a pipeline from stdout.
-  echo <new_pipeline_spec.json> | egctl pipeline update
-
-  # Statistics pipeline.
-  egctl stats
+  # Get object status
+  egctl object status <object_name>
 `
 
 func main() {
@@ -100,9 +82,7 @@ func main() {
 
 	rootCmd.AddCommand(
 		command.APICmd(),
-		command.PluginCmd(),
-		command.PipelineCmd(),
-		command.StatCmd(),
+		command.ObjectCmd(),
 		command.MemberCmd(),
 		completionCmd,
 	)
@@ -110,7 +90,7 @@ func main() {
 	rootCmd.PersistentFlags().StringVar(&command.CommandlineGlobalFlags.Server,
 		"server", "localhost:2381", "The address of the EaseGateway endpoint")
 	rootCmd.PersistentFlags().StringVarP(&command.CommandlineGlobalFlags.OutputFormat,
-		"output", "o", "json", "Output format(json, yaml)")
+		"output", "o", "yaml", "Output format(json, yaml)")
 
 	err := rootCmd.Execute()
 	if err != nil {

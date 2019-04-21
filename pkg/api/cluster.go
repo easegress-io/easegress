@@ -1,29 +1,29 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/megaease/easegateway/pkg/cluster"
 	"github.com/megaease/easegateway/pkg/option"
-	"github.com/megaease/easegateway/pkg/stat"
-	"github.com/megaease/easegateway/pkg/store"
+	"github.com/megaease/easegateway/pkg/registry"
 
 	"github.com/kataras/iris"
 	yaml "gopkg.in/yaml.v2"
 )
 
-func clusterPanic(err error) {
-	panic(clusterErr(err))
-}
-
-func (s *APIServer) setupMemberAPIs() {
+func (s *Server) setupMemberAPIs() {
 	memberAPIs := []*apiEntry{
 		{
 			Path:    "/members",
 			Method:  "GET",
 			Handler: s.listMembers,
+		},
+		{
+			Path:    "/members/{member:string}",
+			Method:  "DELETE",
+			Handler: s.purgeMember,
 		},
 	}
 
@@ -31,20 +31,23 @@ func (s *APIServer) setupMemberAPIs() {
 }
 
 type (
+	// Member is the member info.
 	Member struct {
 		option.Options `json:",inline"`
 	}
 
-	ListMemberResp struct {
-		Leader  string   `json:"leader"`
-		Members []Member `json:"members"`
+	// ListMembersResp is the response of list member.
+	ListMembersResp struct {
+		Leader  string                 `yaml:"leader"`
+		Members []Member               `yaml:"members"`
+		Status  []cluster.MemberStatus `yaml:"status"`
 	}
 )
 
 // These methods which operate with cluster guarantee atomicity.
 
-func (s *APIServer) listMembers(ctx iris.Context) {
-	resp := ListMemberResp{
+func (s *Server) listMembers(ctx iris.Context) {
+	resp := ListMembersResp{
 		Leader:  s.cluster.Leader(),
 		Members: make([]Member, 0),
 	}
@@ -58,21 +61,50 @@ func (s *APIServer) listMembers(ctx iris.Context) {
 		var o option.Options
 		err := yaml.Unmarshal([]byte(v), &o)
 		if err != nil {
-			panic(fmt.Errorf("unmarshal %s to yaml failed: %v", v, err))
+			panic(fmt.Errorf("unmarshal %s to options failed: %v", v, err))
 		}
 		resp.Members = append(resp.Members, Member{Options: o})
 	}
 
-	buff, err := json.Marshal(resp)
+	kv, err = s.cluster.GetPrefix(cluster.MemberStatusPrefix)
 	if err != nil {
-		panic(fmt.Errorf("marshal %#v to json failed: %v", resp, err))
+		clusterPanic(err)
+	}
+
+	for _, v := range kv {
+		var s cluster.MemberStatus
+
+		err := yaml.Unmarshal([]byte(v), &s)
+		if err != nil {
+			panic(fmt.Errorf("unmarshal %s to member status failed: %v", v, err))
+		}
+
+		if time.Unix(s.LastHeartbeatTime, 0).Add(cluster.KEEP_ALIVE_INTERVAL * 2).Before(time.Now()) {
+			s.EtcdStatus = "offline"
+		}
+
+		resp.Status = append(resp.Status, s)
+	}
+
+	buff, err := yaml.Marshal(resp)
+	if err != nil {
+		panic(fmt.Errorf("marshal %#v to yaml failed: %v", resp, err))
 	}
 
 	ctx.Write(buff)
 }
 
-func (s *APIServer) _getPlugin(name string) *store.PluginSpec {
-	value, err := s.cluster.Get(cluster.ConfigPluginPrefix + name)
+func (s *Server) purgeMember(ctx iris.Context) {
+	member := ctx.Params().Get("member")
+	err := s.cluster.PurgeMember(member)
+	if err != nil {
+		clusterPanic(fmt.Errorf("failed to purge member : %s, error: %s", member, err))
+	}
+
+}
+
+func (s *Server) _getObject(name string) registry.Spec {
+	value, err := s.cluster.Get(cluster.ConfigObjectPrefix + name)
 	if err != nil {
 		clusterPanic(err)
 	}
@@ -81,193 +113,58 @@ func (s *APIServer) _getPlugin(name string) *store.PluginSpec {
 		return nil
 	}
 
-	spec, err := store.NewPluginSpec(*value)
+	spec, err := registry.SpecFromYAML(*value)
 	if err != nil {
-		panic(err)
-	}
-	return spec
-}
-
-func (s *APIServer) _listPlugins() []*store.PluginSpec {
-	kvs, err := s.cluster.GetPrefix(cluster.ConfigPluginPrefix)
-	if err != nil {
-		clusterPanic(err)
-	}
-
-	plugins := make([]*store.PluginSpec, 0, len(kvs))
-	for _, v := range kvs {
-		spec, err := store.NewPluginSpec(v)
-		if err != nil {
-			panic(err)
-		}
-		plugins = append(plugins, spec)
-	}
-
-	return plugins
-}
-
-func (s *APIServer) _putPlugin(spec *store.PluginSpec) {
-	value, err := json.Marshal(spec)
-	if err != nil {
-		panic(err)
-	}
-	err = s.cluster.Put(cluster.ConfigPluginPrefix+spec.Name, string(value))
-	if err != nil {
-		clusterPanic(err)
-	}
-}
-
-func (s *APIServer) _deletePlugin(name string) {
-	err := s.cluster.Delete(cluster.ConfigPluginPrefix + name)
-	if err != nil {
-		clusterPanic(err)
-	}
-}
-
-func (s *APIServer) _getPipeline(name string) *store.PipelineSpec {
-	value, err := s.cluster.Get(cluster.ConfigPipelinePrefix + name)
-	if err != nil {
-		clusterPanic(err)
-	}
-
-	if value == nil {
-		return nil
-	}
-
-	spec, err := store.NewPipelineSpec(*value)
-	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("bad spec(err: %v) from yaml: %s", err, *value))
 	}
 
 	return spec
 }
 
-func (s *APIServer) _putPipeline(oldSpec, spec *store.PipelineSpec) {
-	v, err := json.Marshal(spec)
-	if err != nil {
-		panic(err)
-	}
-	value := string(v)
-
-	kvs := make(map[string]*string)
-	kvs[cluster.ConfigPipelinePrefix+spec.Name] = &value
-
-	for _, pluginName := range spec.Config.Plugins {
-		key := fmt.Sprintf(cluster.ConfigPluginUsedKeyFormat, pluginName, spec.Name)
-		emptyValue := ""
-		kvs[key] = &emptyValue
-	}
-	if oldSpec != nil {
-		for _, oldPluginName := range oldSpec.Config.Plugins {
-			if _, exists := kvs[oldPluginName]; !exists {
-				kvs[oldPluginName] = nil
-			}
-		}
-	}
-
-	err = s.cluster.PutAndDelete(kvs)
-	if err != nil {
-		clusterPanic(err)
-	}
-}
-
-func (s *APIServer) _deletePipeline(spec *store.PipelineSpec) {
-	kvs := make(map[string]*string)
-
-	kvs[cluster.ConfigPipelinePrefix+spec.Name] = nil
-	for _, pluginName := range spec.Config.Plugins {
-		key := fmt.Sprintf(cluster.ConfigPluginUsedKeyFormat, pluginName, spec.Name)
-		kvs[key] = nil
-	}
-
-	err := s.cluster.PutAndDelete(kvs)
-	if err != nil {
-		clusterPanic(err)
-	}
-}
-
-func (s *APIServer) _listPipelines() []*store.PipelineSpec {
-	kvs, err := s.cluster.GetPrefix(cluster.ConfigPipelinePrefix)
+func (s *Server) _listObjects() []registry.Spec {
+	kvs, err := s.cluster.GetPrefix(cluster.ConfigObjectPrefix)
 	if err != nil {
 		clusterPanic(err)
 	}
 
-	pipelines := make([]*store.PipelineSpec, 0, len(kvs))
+	specs := make([]registry.Spec, 0, len(kvs))
 	for _, v := range kvs {
-		spec, err := store.NewPipelineSpec(v)
+		spec, err := registry.SpecFromYAML(v)
 		if err != nil {
-			panic(err)
+			panic(fmt.Errorf("bad spec(err: %v) from yaml: %s", err, v))
 		}
-		pipelines = append(pipelines, spec)
+		specs = append(specs, spec)
 	}
 
-	return pipelines
+	return specs
 }
 
-func (s *APIServer) _pluginUsedByPipelines(name string) []string {
-	prefix := fmt.Sprintf(cluster.ConfigPluginUsedPrefixFormat, name)
+func (s *Server) _putObject(spec registry.Spec) {
+	err := s.cluster.Put(cluster.ConfigObjectPrefix+spec.GetName(),
+		registry.YAMLFromSpec(spec))
+	if err != nil {
+		clusterPanic(err)
+	}
+}
+
+func (s *Server) _deleteObject(name string) {
+	err := s.cluster.Delete(cluster.ConfigObjectPrefix + name)
+	if err != nil {
+		clusterPanic(err)
+	}
+}
+
+func (s *Server) _getObjectStatus(name string) map[string]string {
+	prefix := fmt.Sprintf(cluster.StatusObjectPrefixFormat, name)
 	kvs, err := s.cluster.GetPrefix(prefix)
 	if err != nil {
 		clusterPanic(err)
 	}
 
-	pipelines := make([]string, 0, len(kvs))
-	for k := range kvs {
-		pipelines = append(pipelines, strings.TrimPrefix(k, prefix))
+	statuses := make(map[string]string)
+	for k, v := range kvs {
+		statuses[strings.TrimPrefix(k, prefix)] = v
 	}
 
-	return pipelines
-}
-
-func (s *APIServer) _pipelineNames() []string {
-	pipelines := s._listPipelines()
-
-	names := make([]string, 0, len(pipelines))
-	for _, spec := range pipelines {
-		names = append(names, spec.Name)
-	}
-
-	return names
-}
-
-func (s *APIServer) _pluginNames() map[string]struct{} {
-	plugins := s._listPlugins()
-
-	names := make(map[string]struct{})
-	for _, spec := range plugins {
-		names[spec.Name] = struct{}{}
-	}
-
-	return names
-}
-
-// The keys of result are pipelineName, memberName.
-func (s *APIServer) _listStats() map[string]map[string]stat.PipelineStat {
-	kvs, err := s.cluster.GetPrefix(cluster.StatPipelinePrefix)
-	if err != nil {
-		clusterPanic(err)
-	}
-
-	stats := make(map[string]map[string]stat.PipelineStat)
-
-	for key, value := range kvs {
-		names := strings.Split(strings.TrimPrefix(key, cluster.StatPipelinePrefix), "/")
-		if len(names) != 2 {
-			panic(fmt.Errorf("get invalid key %s", key))
-		}
-		pipelineName, memberName := names[0], names[1]
-
-		ps := new(stat.PipelineStat)
-		err := json.Unmarshal([]byte(value), ps)
-		if err != nil {
-			panic(fmt.Errorf("unmarshal %s to json failed: %v", value, err))
-		}
-
-		if stats[pipelineName] == nil {
-			stats[pipelineName] = make(map[string]stat.PipelineStat)
-		}
-		stats[pipelineName][memberName] = *ps
-	}
-
-	return stats
+	return statuses
 }

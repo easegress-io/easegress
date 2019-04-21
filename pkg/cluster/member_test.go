@@ -1,7 +1,6 @@
 package cluster
 
 import (
-	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -39,8 +38,6 @@ var _ = Describe("Etcd Members", func() {
 			reloaded := newMembers()
 			err := reloaded.loadFromFile(filename)
 			Expect(err).To(BeNil())
-			x := reloaded == members
-			fmt.Println(x)
 			Expect(reloaded.Sum256()).To(Equal(members.Sum256()), "The loaded data from %s, should be the same as the original.", filename)
 		})
 

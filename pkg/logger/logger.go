@@ -1,7 +1,6 @@
 package logger
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -14,13 +13,10 @@ import (
 )
 
 func init() {
-	initLogsDir()
 	initDefault()
 	initHTTPPlugin()
 	initRestAPI()
 }
-
-type logfFunc func(template string, args ...interface{})
 
 const (
 	gatewayFilename          = "gateway.log"
@@ -37,14 +33,6 @@ var (
 	httpPluginDumpLogger   *zap.Logger
 	restAPILogger          *zap.Logger
 )
-
-func initLogsDir() {
-	err := os.MkdirAll(option.Global.LogDir, 0750)
-	if err != nil {
-		common.Exit(1, fmt.Sprintf("mkdir %s failed: %v",
-			option.Global.LogDir, err))
-	}
-}
 
 func initDefault() {
 	timeEncoder := func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
@@ -87,11 +75,6 @@ func initDefault() {
 
 	defaultCore := zapcore.NewTee(gatewayCore, stderrCore)
 	defaultLogger = zap.New(defaultCore, opts...).Sugar()
-
-	Debugf = defaultLogger.Debugf
-	Infof = defaultLogger.Infof
-	Warnf = defaultLogger.Warnf
-	Errorf = defaultLogger.Errorf
 }
 
 func initHTTPPlugin() {

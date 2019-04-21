@@ -23,12 +23,12 @@ type mutex struct {
 }
 
 func (m *mutex) Lock() error {
-	ctx, _ := context.WithTimeout(ctx(), m.timeout)
+	ctx, _ := context.WithTimeout(newCtx(), m.timeout)
 	return m.m.Lock(ctx)
 }
 
 func (m *mutex) Unlock() error {
-	return m.m.Unlock(ctx())
+	return m.m.Unlock(newCtx())
 }
 
 func (c *cluster) Mutex(name string, timeout time.Duration) Mutex {

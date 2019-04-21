@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -12,39 +11,41 @@ import (
 	"github.com/megaease/easegateway/pkg/cluster"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/option"
+	yaml "gopkg.in/yaml.v2"
 
 	"github.com/kataras/iris"
 )
 
 type apiEntry struct {
-	Path    string       `json:"path"`
-	Method  string       `json:"method"`
-	Handler iris.Handler `json:"-"`
+	Path    string       `yaml:"path"`
+	Method  string       `yaml:"method"`
+	Handler iris.Handler `yaml:"-"`
 }
 
 const (
-	APIPrefix = "/apis/v2"
+	// APIPrefix is the prefix of api.
+	APIPrefix = "/apis/v3"
 
 	lockKey     = "/config/lock"
 	lockTimeout = 10 * time.Second
 )
 
-type APIServer struct {
+// Server is the api server.
+type Server struct {
 	app     *iris.Application
 	cluster cluster.Cluster
 	mutex   cluster.Mutex
 	apis    []*apiEntry
 }
 
-func MustNewAPIServer(cluster cluster.Cluster) *APIServer {
+func MustNewServer(cluster cluster.Cluster) *Server {
 	app := iris.New()
-	app.Use(newJSONContentType())
 	app.Use(newRecoverer())
 	app.Use(newAPILogger())
 
 	app.Logger().SetOutput(ioutil.Discard)
 
-	s := &APIServer{
+	s := &Server{
 		app:     app,
 		cluster: cluster,
 		mutex:   cluster.Mutex(lockKey, lockTimeout),
@@ -66,7 +67,7 @@ func MustNewAPIServer(cluster cluster.Cluster) *APIServer {
 	return s
 }
 
-func (s *APIServer) setupAPIs() {
+func (s *Server) setupAPIs() {
 	listAPIsEntry := &apiEntry{
 		Path:    "",
 		Method:  "GET",
@@ -75,9 +76,7 @@ func (s *APIServer) setupAPIs() {
 
 	s.apis = append(s.apis, listAPIsEntry)
 	s.setupMemberAPIs()
-	s.setupPluginAPIs()
-	s.setupPipelineAPIs()
-	s.setupStatAPIs()
+	s.setupObjectAPIs()
 
 	for _, api := range s.apis {
 		api.Path = APIPrefix + api.Path
@@ -105,29 +104,30 @@ func (s *APIServer) setupAPIs() {
 	}
 }
 
-func (s *APIServer) listAPIs(ctx iris.Context) {
-	buff, err := json.Marshal(s.apis)
+func (s *Server) listAPIs(ctx iris.Context) {
+	buff, err := yaml.Marshal(s.apis)
 	if err != nil {
-		panic(fmt.Errorf("marshal %#v to json failed: %v", s.apis, err))
+		panic(fmt.Errorf("marshal %#v to yaml failed: %v", s.apis, err))
 	}
 
+	ctx.Header("Content-Type", "text/vnd.yaml")
 	ctx.Write(buff)
 }
 
-func (s *APIServer) Close(wg *sync.WaitGroup) {
+func (s *Server) Close(wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	s.app.Shutdown(context.Background())
 }
 
-func (s *APIServer) Lock() {
+func (s *Server) Lock() {
 	err := s.mutex.Lock()
 	if err != nil {
 		clusterPanic(err)
 	}
 }
 
-func (s *APIServer) Unlock() {
+func (s *Server) Unlock() {
 	err := s.mutex.Unlock()
 	if err != nil {
 		clusterPanic(err)

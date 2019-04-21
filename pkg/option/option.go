@@ -6,14 +6,21 @@ import (
 	"io/ioutil"
 	"net"
 	"net/url"
+	"os"
 	"strings"
 
-	flags "github.com/jessevdk/go-flags"
-	yaml "gopkg.in/yaml.v2"
+	"github.com/jessevdk/go-flags"
+	"gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegateway/pkg/common"
 	"github.com/megaease/easegateway/pkg/version"
 )
+
+func init() {
+	Global = New()
+	ParseFlags(Global)
+	InitConfig(Global)
+}
 
 var (
 	Global     *Options
@@ -21,15 +28,15 @@ var (
 	GlobalJSON string
 )
 
-func init() {
-	// Set default value in one place.
-	Global = &Options{
-		Name:             "member-001",
-		ClusterName:      "cluster-A",
-		ClusterRole:      "writer",
-		ClusterClientURL: "http://localhost:2379",
-		ClusterPeerURL:   "http://localhost:2380",
-		APIAddr:          "localhost:2381",
+func New() *Options {
+	return &Options{
+		Name:              "",
+		ClusterName:       "",
+		ClusterRole:       "writer",
+		ClusterClientURL:  "http://localhost:2379",
+		ClusterPeerURL:    "http://localhost:2380",
+		APIAddr:           "localhost:2381",
+		IsBootstrapWriter: false,
 
 		DataDir: "./data",
 
@@ -37,56 +44,57 @@ func init() {
 		ConfDir: "./conf",
 		Debug:   false,
 
-		PipelineInitParallelism: 1,
-		PipelineMinParallelism:  5,
-		PipelineMaxParallelism:  5120,
-
-		PluginIODataFormatLengthLimit: 128,
-		PluginPythonRootNamespace:     false,
-		PluginShellRootNamespace:      false,
-		CGIDir:                        "./cgi",
-		CertDir:                       "./cert",
+		EtcdRequestTimeoutInMilli: 1000,
 	}
+}
 
-	_, err := flags.NewParser(Global, flags.HelpFlag|flags.PassDoubleDash).Parse()
+// ParseFlags parses the command line options.
+//
+// This function will forcely abort the process if any errors
+func ParseFlags(opt *Options) {
+	_, err := flags.NewParser(opt, flags.HelpFlag|flags.PassDoubleDash).Parse()
 	if err != nil {
 		if err, ok := err.(*flags.Error); ok && err.Type == flags.ErrHelp {
 			common.Exit(0, err.Message)
 		}
 		common.Exit(1, err.Error())
 	}
+}
 
-	if Global.ShowVersion {
+func InitConfig(opt *Options) {
+	// Set default value in one place.
+
+	if opt.ShowVersion {
 		common.Exit(0, version.Short)
 	}
 
-	if Global.ConfigFile != "" {
-		buff, err := ioutil.ReadFile(Global.ConfigFile)
+	if opt.ConfigFile != "" {
+		buff, err := ioutil.ReadFile(opt.ConfigFile)
 		if err != nil {
 			common.Exit(1, fmt.Sprintf("read config file failed: %v", err))
 		}
-		err = yaml.Unmarshal(buff, Global)
+		err = yaml.Unmarshal(buff, opt)
 		if err != nil {
 			common.Exit(1, fmt.Sprintf("unmarshal config file %s to yaml failed: %v",
-				Global.ConfigFile, err))
+				opt.ConfigFile, err))
 		}
 	}
 
-	err = Global.validate()
+	err := opt.validate()
 	if err != nil {
 		common.Exit(1, err.Error())
 	}
 
-	buff, err := json.Marshal(Global)
+	buff, err := json.Marshal(opt)
 	if err != nil {
 		common.Exit(1, fmt.Sprintf("marshal config to json failed: %v", err))
 	}
 
-	buff, err = yaml.Marshal(Global)
+	buff, err = yaml.Marshal(opt)
 	if err != nil {
 		common.Exit(1, fmt.Sprintf("marshal config to yaml failed: %v", err))
 	}
-	if Global.ShowConfig {
+	if opt.ShowConfig {
 		fmt.Printf("%s", buff)
 	}
 
@@ -94,9 +102,10 @@ func init() {
 }
 
 type Options struct {
-	ShowVersion bool   `json:"-" yaml:"-" short:"v" long:"version" description:"Print the version and exit."`
-	ShowConfig  bool   `json:"-" yaml:"-" short:"c" long:"print-config" description:"Print the configuration."`
-	ConfigFile  string `json:"-" yaml:"-" short:"f" long:"config-file" description:"Load server configuration from a file(yaml format), other command line flags will be ignored if specified."`
+	ShowVersion       bool   `json:"-" yaml:"-" short:"v" long:"version" description:"Print the version and exit."`
+	ShowConfig        bool   `json:"-" yaml:"-" short:"c" long:"print-config" description:"Print the configuration."`
+	ConfigFile        string `json:"-" yaml:"-" short:"f" long:"config-file" description:"Load server configuration from a file(yaml format), other command line flags will be ignored if specified."`
+	IsBootstrapWriter bool   `json:"-" yaml:"-" short:"b" long:"is-bootstrap-writer" description:"Instruct the node to create the genesis embedded etcd server. This flag can only be set on ONE node during the installation. It will take no effect after the initialization finished and will be ignored."`
 
 	// If a config file is specified, below command line flags will be ignored.
 
@@ -126,35 +135,17 @@ type Options struct {
 	CPUProfileFile    string `json:"cpu-profile-file" yaml:"cpu-profile-file" long:"cpu-profile-file" description:"Path to the CPU profile file."`
 	MemoryProfileFile string `json:"memory-profile-file" yaml:"memory-profile-file" long:"memory-profile-file" description:"Path to the memory profile file."`
 
-	// pipeline
-	PipelineInitParallelism uint32 `json:"pipeline-init-parallelism" yaml:"pipeline-init-parallelism" long:"pipeline-init-parallelism" description:"Initial parallelism for a pipeline running in dynamic schedule mode."`
-	PipelineMinParallelism  uint32 `json:"pipeline-min-parallelism" yaml:"pipeline-min-parallelism" long:"pipeline-min-parallelism" description:"Minimum parallelism for a pipeline running in dynamic schedule mode."`
-	PipelineMaxParallelism  uint32 `json:"pipeline-max-parallelism" yaml:"pipeline-max-parallelism" long:"pipeline-max-parallelism" description:"Maximum parallelism for a pipeline running in dynamic schedule mode."`
-
-	// plugin
-	PluginIODataFormatLengthLimit uint64 `json:"plugin-io-data-format-len-limit" yaml:"plugin-io-data-format-len-limit" long:"plugin-io-data-format-len-limit" description:"Bytes limitation on plugin IO data formation output."`
-	PluginPythonRootNamespace     bool   `json:"plugin-python-root-namespace" yaml:"plugin-python-root-namespace" long:"plugin-python-root-namespace" description:"Run python code in root namespace without isolation."`
-	PluginShellRootNamespace      bool   `json:"plugin-shell-root-namespace" yaml:"plugin-shell-root-namespace" long:"plugin-shell-root-namespace" description:"Run shell code in root namespace without isolation."`
-	CGIDir                        string `json:"cgi-dir" yaml:"cgi-dir" long:"cgi-dir" description:"Path to the CGI directory."`
-	CertDir                       string `json:"cert-dir" yaml:"cert-dir" long:"cert-dir" description:"Path to the Certificate directory."`
+	// etcd
+	EtcdRequestTimeoutInMilli int64 `json:"etcd-request-timeout-in-milli" yaml:"etcd-request-timeout-in-milli" long:"etcd-request-timeout-in-milli" description:"Timeout in milli seconds to access the etcd server."`
 
 	// go test may fail with out '-t', reference: https://github.com/alecthomas/kingpin/issues/167
 	Placeholder string `json:"-" yaml:"-" short:"t" long:"test" description:"not used yet"`
 }
 
 func (o *Options) validate() error {
-	// meta
-	if o.Name == "" {
-		return fmt.Errorf("empty name")
-	}
-	if err := common.ValidateName(o.Name); err != nil {
-		return err
-	}
 
 	if o.ClusterName == "" {
-		if o.ClusterJoinURLs == "" {
-			return fmt.Errorf("empty cluster-name for a new cluster")
-		}
+		return fmt.Errorf("empty cluster-name")
 	} else if err := common.ValidateName(o.ClusterName); err != nil {
 		return err
 	}
@@ -226,26 +217,16 @@ func (o *Options) validate() error {
 	// profile
 	// nothing to validate
 
-	// pipeline
-	if o.PipelineInitParallelism < 1 ||
-		o.PipelineInitParallelism > uint32(^uint16(0)) {
-		return fmt.Errorf("invalid pipeline-init-parallelism[1,%d]", ^uint16(0))
+	// meta
+	if o.Name == "" {
+		name, err := generateMemberName(o.APIAddr)
+		if err != nil {
+			return err
+		}
+		o.Name = name
 	}
-
-	if o.PipelineMaxParallelism < 1 ||
-		o.PipelineMaxParallelism > 102400 {
-		return fmt.Errorf("incalid pipeline-max-parallelism[1,102400]")
-	}
-
-	if o.PipelineMinParallelism > o.PipelineMaxParallelism {
-		return fmt.Errorf("pipeline-min-parallelism %d > pipeline-max-parallelism %d",
-			o.PipelineMinParallelism, o.PipelineMaxParallelism)
-	}
-
-	// plugin
-	if o.PluginIODataFormatLengthLimit < 1 ||
-		o.PluginIODataFormatLengthLimit > 10000009 {
-		return fmt.Errorf("invalid plugin-io-data-format-len-limit[1,10000009]")
+	if err := common.ValidateName(o.Name); err != nil {
+		return err
 	}
 
 	return nil
@@ -258,4 +239,18 @@ func (o *Options) Marshal() (string, error) {
 	}
 
 	return string(buff), nil
+}
+
+func generateMemberName(apiAddr string) (string, error) {
+	hostname, err := os.Hostname()
+	if err != nil {
+		return "", err
+	}
+
+	memberName := hostname + "-" + apiAddr
+	memberName = strings.Replace(memberName, ",", "-", -1)
+	memberName = strings.Replace(memberName, ":", "-", -1)
+	memberName = strings.Replace(memberName, "=", "-", -1)
+	return memberName, nil
+
 }
