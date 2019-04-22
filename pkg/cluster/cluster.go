@@ -21,18 +21,25 @@ import (
 	"github.com/megaease/easegateway/pkg/option"
 )
 
+func initGlobalFromOption(opt *option.Options) {
+	MemberConfigKey = MemberConfigPrefix + opt.Name
+	MemberConfigValue = opt.YAML()
+	StatusObjectFormat = "/status/objects/%s/" + opt.Name
+}
+
 // Cluster store tree layout.
 var (
 	MemberConfigPrefix = "/runtime/members/config/"
 	MemberStatusPrefix = "/runtime/members/status/"
-	MemberConfigKey    string
-
-	MemberConfigValue = option.GlobalYAML
 
 	ConfigObjectPrefix = "/config/objects/"
 
-	StatusObjectPrefixFormat = "/status/objects/%s/"                      // + objectName
-	StatusObjectFormat       = "/status/objects/%s/" + option.Global.Name // + objectName
+	StatusObjectPrefixFormat = "/status/objects/%s/" // + objectName
+
+	// Global vars assigned from initGlobalFromOption
+	MemberConfigKey    string
+	MemberConfigValue  string
+	StatusObjectFormat string
 )
 
 const (
@@ -64,14 +71,14 @@ type cluster struct {
 // The instance can be a writer or reader, depending on the config in opt.
 //
 // New return a new `cluster` instance immediately
-func New(opt option.Options) (Cluster, chan struct{}, error) {
+func New(opt *option.Options) (Cluster, chan struct{}, error) {
+	initGlobalFromOption(opt)
+
 	c := &cluster{}
 	done := make(chan struct{})
 
 	c.etcdTimeoutInMilli = time.Duration(opt.EtcdRequestTimeoutInMilli)
 	c.name = opt.Name
-	MemberConfigKey = MemberConfigPrefix + opt.Name
-	MemberConfigValue = option.GlobalYAML
 
 	knownMembers := newMembers()
 	_ = knownMembers.loadFromFile(filepath.Join(opt.ConfDir, KNOWN_MEMBERS_CFG_FILE))
@@ -120,14 +127,14 @@ func New(opt option.Options) (Cluster, chan struct{}, error) {
 
 // isFollower returns `true` if the member is a etcd follower.
 // Only a writer can check if it's a `follower` or `boostrapleader`
-func isFollower(opt option.Options) bool {
+func isFollower(opt *option.Options) bool {
 	return opt.ClusterJoinURLs != ""
 }
 
 // isBoostrapLeader returns `true` if the member is a etcd boostrap leader.
 // A bootstrapLeader will start a new etcd cluster and elect itself as leader, waiting other followers to join.
 // Only a writer can check if it's a `follower` or `boostrap leader`.
-func isBoostrapLeader(opt option.Options) bool {
+func isBoostrapLeader(opt *option.Options) bool {
 	return opt.IsBootstrapWriter
 }
 
@@ -137,7 +144,7 @@ func hasLearntMembers(knownMembers *members) bool {
 	return len(knownMembers.Members) > 0
 }
 
-func (c *cluster) createEtcdCluster(opt option.Options, initCluster string, knownMembers *members, done chan struct{}) error {
+func (c *cluster) createEtcdCluster(opt *option.Options, initCluster string, knownMembers *members, done chan struct{}) error {
 	var err error
 	err = c.createEtcdServer(opt, initCluster)
 	if err != nil {
@@ -157,7 +164,7 @@ func (c *cluster) createEtcdCluster(opt option.Options, initCluster string, know
 	return nil
 }
 
-func (c *cluster) createEtcdServer(opt option.Options, initCluster string) error {
+func (c *cluster) createEtcdServer(opt *option.Options, initCluster string) error {
 	ec, err := generateEtcdConfigFromOption(opt, initCluster)
 	if err != nil {
 		return err
@@ -199,7 +206,7 @@ func newCtx() context.Context {
 	return context.Background()
 }
 
-func (c *cluster) joinEtcdClusterAndRetry(opt option.Options, done chan struct{}) {
+func (c *cluster) joinEtcdClusterAndRetry(opt *option.Options, done chan struct{}) {
 	count := 0
 	for {
 		var err error
@@ -219,7 +226,7 @@ func (c *cluster) joinEtcdClusterAndRetry(opt option.Options, done chan struct{}
 	}
 }
 
-func (c *cluster) joinEtcdCluster(opt option.Options) error {
+func (c *cluster) joinEtcdCluster(opt *option.Options) error {
 	err := c.createEtcdClient(strings.Split(opt.ClusterJoinURLs, ","))
 	if err != nil {
 		return err
@@ -256,7 +263,7 @@ func pbMembers2KnownMembers(pbmembers []*pb.Member) *members {
 	return members
 }
 
-func buildInitClusterParam(knownMembers *members, opt option.Options) []string {
+func buildInitClusterParam(knownMembers *members, opt *option.Options) []string {
 	initCluster := make([]string, 0)
 	for _, member := range knownMembers.Members {
 		name := member.Name
@@ -283,7 +290,7 @@ func containsMember(members []*pb.Member, memberName string) bool {
 // registerService registers the conf at /runtime/members/config/<memberName>
 //
 // It will also mark the cluster `started` and ready to serve.
-func (c *cluster) registerService(opt option.Options, done chan struct{}) {
+func (c *cluster) registerService(opt *option.Options, done chan struct{}) {
 	var (
 		count = 0
 		err   error
@@ -304,14 +311,8 @@ func (c *cluster) registerService(opt option.Options, done chan struct{}) {
 			continue
 		}
 
-		value, err := opt.Marshal()
-		if err != nil {
-			count++
-			continue
-		}
-
 		ctx, cancel := context.WithTimeout(context.Background(), c.etcdTimeoutInMilli*time.Millisecond)
-		_, err = c.client.Put(ctx, MemberConfigKey, value)
+		_, err = c.client.Put(ctx, MemberConfigKey, opt.YAML())
 		cancel()
 		if err != nil {
 			count++
@@ -327,7 +328,7 @@ func (c *cluster) registerService(opt option.Options, done chan struct{}) {
 
 // Update and save etcd members under opt.ConfLog.
 // This function will be run in a job periodically
-func (c *cluster) learnEtcdMembers(ctx context.Context, opt option.Options) {
+func (c *cluster) learnEtcdMembers(ctx context.Context, opt *option.Options) {
 	filename := filepath.Join(opt.ConfDir, KNOWN_MEMBERS_CFG_FILE)
 	var knownMembers = newMembers()
 	knownMembers.loadFromFile(filename)
@@ -369,16 +370,16 @@ LOOP:
 	}
 }
 
-func (c *cluster) startEtcdSErverAndElection(knownMembers *members, opt option.Options, done chan struct{}) error {
+func (c *cluster) startEtcdSErverAndElection(knownMembers *members, opt *option.Options, done chan struct{}) error {
 	initCluster := buildInitClusterParam(knownMembers, opt)
 	return c.createEtcdCluster(opt, strings.Join(initCluster, ","), knownMembers, done)
 }
 
-func (c *cluster) startBootstrapEtcdServer(opt option.Options, done chan struct{}) error {
+func (c *cluster) startBootstrapEtcdServer(opt *option.Options, done chan struct{}) error {
 	return c.createEtcdCluster(opt, "", newMembers(), done)
 }
 
-func (c *cluster) subscribe2Etcdcluster(opt option.Options, done chan struct{}) {
+func (c *cluster) subscribe2Etcdcluster(opt *option.Options, done chan struct{}) {
 	count := 0
 	for {
 		err := c.createEtcdClient(strings.Split(opt.ClusterJoinURLs, ","))
@@ -396,7 +397,7 @@ func (c *cluster) subscribe2Etcdcluster(opt option.Options, done chan struct{}) 
 	}
 }
 
-func (c *cluster) subscribe2EtcdclusterByKnownMembers(knownMembers *members, opt option.Options, done chan struct{}) {
+func (c *cluster) subscribe2EtcdclusterByKnownMembers(knownMembers *members, opt *option.Options, done chan struct{}) {
 	endpoints := make([]string, 0, 5)
 	for _, m := range knownMembers.Members {
 		endpoints = append(endpoints, m.PeerListener)

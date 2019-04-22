@@ -44,7 +44,8 @@ func HTTPServerLogger() *httpServerLogger {
 	}
 }
 
-func Close() {
+// Sync syncs all logs, must be called after calling Init().
+func Sync() {
 	defaultLogger.Sync()
 	stderrLogger.Sync()
 	gatewayLogger.Sync()
