@@ -10,13 +10,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/megaease/easegateway/cmd/server/environ"
+	"github.com/megaease/easegateway/cmd/server/env"
 	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/option"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"go.etcd.io/etcd/pkg/types"
-
-	"github.com/megaease/easegateway/pkg/option"
 )
 
 func TestCluster(t *testing.T) {
@@ -28,15 +28,22 @@ const (
 	NODE_NUM = 5
 )
 
+func newTestCluster(opt *option.Options) (*cluster, chan struct{}, error) {
+	cls, done, err := New(opt)
+	return cls.(*cluster), done, err
+}
+
 var a = Context("With a 5-node Cluster", func() {
 
 	var (
 		clusters    []*cluster
-		options     []option.Options
+		options     []*option.Options
 		randomOrder []int
 	)
 
 	BeforeEach(func() {
+		logger.Init(option.New())
+
 		By("Shuffle the starting order", func() {
 			for i := 0; i < NODE_NUM; i++ {
 				randomOrder = append(randomOrder, i)
@@ -48,23 +55,24 @@ var a = Context("With a 5-node Cluster", func() {
 		})
 	})
 
+	AfterEach(func() {
+		logger.Sync()
+	})
+
 	Specify("All nodes should be up", func(done Done) {
 
 		By("Define a test cluster", func() {
-			option.Global = option.New()
 			clusters, options = defineCluster("cluster-bootstrap", "3")
-			logger.Init()
 		})
 
 		By("Start all the node in any order ", func() {
 			wait := &sync.WaitGroup{}
 			wait.Add(NODE_NUM)
 			for _, i := range randomOrder {
-				var err error
 				go func(j int) {
 					defer GinkgoRecover()
-					var etcdDone chan struct{}
-					clusters[j], etcdDone, err = New(options[j])
+					cls, etcdDone, err := newTestCluster(options[j])
+					clusters[j] = cls
 					<-etcdDone
 					Expect(err).To(BeNil(), "Node %d, should start successfully", j)
 					wait.Done()
@@ -121,9 +129,8 @@ var a = Context("With a 5-node Cluster", func() {
 		})
 
 		By("Restart a node", func() {
-			var err error
-			var etcdDone chan struct{}
-			clusters[1], etcdDone, err = New(options[1])
+			cls, etcdDone, err := newTestCluster(options[1])
+			clusters[1] = cls
 			<-etcdDone
 			Expect(err).To(BeNil(), "The node should restart successfully")
 			time.Sleep(2 * time.Second)
@@ -163,9 +170,8 @@ var a = Context("With a 5-node Cluster", func() {
 			for _, i := range randomOrder {
 				go func(j int) {
 					defer GinkgoRecover()
-					var err error
-					var etcdDone chan struct{}
-					clusters[j], etcdDone, err = New(options[j])
+					cls, etcdDone, err := newTestCluster(options[j])
+					clusters[j] = cls
 					<-etcdDone
 					Expect(err).To(BeNil(), "Node %d should start successfully", j)
 					wait.Done()
@@ -216,13 +222,12 @@ var a = Context("With a 5-node Cluster", func() {
 // Define a 5-node cluster for test. 0,1,2: writer, 3,4: reader.
 // The cluster will be deployed under /tmp/<clusterName>
 // portChannel is 3-9, the port is portChanel<40><node idx>, eg. 4401
-func defineCluster(clusterName string, portChannel string) ([]*cluster, []option.Options) {
+func defineCluster(clusterName string, portChannel string) ([]*cluster, []*option.Options) {
 
 	clusters := make([]*cluster, NODE_NUM)
-	options := make([]option.Options, NODE_NUM)
-
+	options := make([]*option.Options, NODE_NUM)
 	for i := 0; i < NODE_NUM; i++ {
-		options[i] = *option.Global
+		options[i] = option.New()
 
 		// verify default Name
 		if i%2 == 0 {
@@ -253,17 +258,13 @@ func defineCluster(clusterName string, portChannel string) ([]*cluster, []option
 			options[i].ClusterRole = "writer"
 		}
 
-		option.InitConfig(&options[i])
-
 		options[i].DataDir = filepath.Join("/tmp/egtest", clusterName, options[i].Name, "data")
 		options[i].LogDir = filepath.Join("/tmp/egtest", clusterName, options[i].Name, "logs")
-		options[i].CGIDir = filepath.Join("/tmp/egtest", clusterName, options[i].Name, "cgi")
-		options[i].CertDir = filepath.Join("/tmp/egtest", clusterName, options[i].Name, "cert")
 		options[i].ConfDir = filepath.Join("/tmp/egtest", clusterName, options[i].Name, "conf")
 
 		// clear all data that may be produce in previous test
 		os.RemoveAll(filepath.Join("/tmp/egtest", clusterName, options[i].Name))
-		environ.InitDirs(options[i])
+		env.Init(options[i])
 
 	}
 

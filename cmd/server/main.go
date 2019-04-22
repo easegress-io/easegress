@@ -6,9 +6,10 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/megaease/easegateway/cmd/server/environ"
+	"github.com/megaease/easegateway/cmd/server/env"
 	"github.com/megaease/easegateway/pkg/api"
 	"github.com/megaease/easegateway/pkg/cluster"
+	"github.com/megaease/easegateway/pkg/common"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/option"
 	"github.com/megaease/easegateway/pkg/profile"
@@ -17,24 +18,33 @@ import (
 )
 
 func main() {
-	defer logger.Close()
+	opt := option.New()
+	msg, err := opt.Parse()
+	if err != nil {
+		common.Exit(1, err.Error())
+	}
+	if msg != "" {
+		common.Exit(0, msg)
+	}
+
+	logger.Init(opt)
+	defer logger.Sync()
 
 	logger.Infof("%s", version.Long)
 
-	err := environ.InitDirs(*option.Global)
+	err = env.Init(opt)
 	if err != nil {
-		logger.Errorf("Failed to create directories, error: %s", err)
+		logger.Errorf("failed to init env: %v", err)
 		os.Exit(1)
 	}
-	go environ.HouseKeepMemberBackups(environ.ExpandDir(option.Global.ConfDir))
 
-	profile, err := profile.New()
+	profile, err := profile.New(opt)
 	if err != nil {
 		logger.Errorf("new profile failed: %v", err)
 		os.Exit(1)
 	}
 
-	cls, _, err := cluster.New(*option.Global)
+	cls, _, err := cluster.New(opt)
 	if err != nil {
 		logger.Errorf("new cluster failed: %v", err)
 		os.Exit(1)
@@ -45,7 +55,7 @@ func main() {
 		logger.Errorf("new scheduler failed: %v", err)
 	}
 
-	api := api.MustNewServer(cls)
+	api := api.MustNewServer(opt, cls)
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)

@@ -1,4 +1,4 @@
-package environ
+package env
 
 // environ package provides some scaffold functions.
 // These functions are undertaken by installation scripts or housekeeping scripts of a unix/linux service.

@@ -12,16 +12,21 @@ import (
 	"github.com/megaease/easegateway/pkg/option"
 )
 
+// Profile is the Profile interface.
 type Profile interface {
 	Close(wg *sync.WaitGroup)
 }
 
 type profile struct {
 	cpuFile *os.File
+	opt     *option.Options
 }
 
-func New() (Profile, error) {
-	p := &profile{}
+// New creates a profile.
+func New(opt *option.Options) (Profile, error) {
+	p := &profile{
+		opt: opt,
+	}
 
 	err := p.startCPUProfile()
 	if err != nil {
@@ -32,11 +37,11 @@ func New() (Profile, error) {
 }
 
 func (p *profile) startCPUProfile() error {
-	if option.Global.CPUProfileFile == "" {
+	if p.opt.CPUProfileFile == "" {
 		return nil
 	}
 
-	f, err := os.Create(option.Global.CPUProfileFile)
+	f, err := os.Create(p.opt.CPUProfileFile)
 	if err != nil {
 		return fmt.Errorf("create cpu profile failed: %v", err)
 	}
@@ -47,21 +52,21 @@ func (p *profile) startCPUProfile() error {
 
 	p.cpuFile = f
 
-	logger.Infof("cpu profile: %s", option.Global.CPUProfileFile)
+	logger.Infof("cpu profile: %s", p.opt.CPUProfileFile)
 
 	return nil
 }
 
 func (p *profile) memoryProfile() {
-	if option.Global.MemoryProfileFile == "" {
+	if p.opt.MemoryProfileFile == "" {
 		return
 	}
 
 	// to include every allocated block in the profile
 	runtime.MemProfileRate = 1
 
-	logger.Infof("memory profile: %s", option.Global.MemoryProfileFile)
-	f, err := os.Create(option.Global.MemoryProfileFile)
+	logger.Infof("memory profile: %s", p.opt.MemoryProfileFile)
+	f, err := os.Create(p.opt.MemoryProfileFile)
 	if err != nil {
 		logger.Errorf("create memory profile failed: %v", err)
 		return
@@ -87,7 +92,7 @@ func (p *profile) Close(wg *sync.WaitGroup) {
 		pprof.StopCPUProfile()
 		err := p.cpuFile.Close()
 		if err != nil {
-			logger.Errorf("close %s failed: %v", option.Global.CPUProfileFile, err)
+			logger.Errorf("close %s failed: %v", p.opt.CPUProfileFile, err)
 		}
 	}
 

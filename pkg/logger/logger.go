@@ -12,10 +12,11 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-func init() {
-	initDefault()
-	initHTTPPlugin()
-	initRestAPI()
+// Init initializes logger.
+func Init(opt *option.Options) {
+	initDefault(opt)
+	initHTTPPlugin(opt)
+	initRestAPI(opt)
 }
 
 const (
@@ -34,7 +35,7 @@ var (
 	restAPILogger          *zap.Logger
 )
 
-func initDefault() {
+func initDefault(opt *option.Options) {
 	timeEncoder := func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 		enc.AppendString(t.Format(time.RFC3339))
 	}
@@ -54,11 +55,11 @@ func initDefault() {
 	}
 
 	lowestLevel := zap.InfoLevel
-	if option.Global.Debug {
+	if opt.Debug {
 		lowestLevel = zap.DebugLevel
 	}
 
-	fr, err := newFileReopener(filepath.Join(option.Global.LogDir, gatewayFilename))
+	fr, err := newFileReopener(filepath.Join(opt.LogDir, gatewayFilename))
 	if err != nil {
 		common.Exit(1, err.Error())
 	}
@@ -77,16 +78,16 @@ func initDefault() {
 	defaultLogger = zap.New(defaultCore, opts...).Sugar()
 }
 
-func initHTTPPlugin() {
-	httpPluginAccessLogger = newPlainLogger(httpPluginAccessFilename)
-	httpPluginDumpLogger = newPlainLogger(httpPluginDumpFilename)
+func initHTTPPlugin(opt *option.Options) {
+	httpPluginAccessLogger = newPlainLogger(opt, httpPluginAccessFilename)
+	httpPluginDumpLogger = newPlainLogger(opt, httpPluginDumpFilename)
 }
 
-func initRestAPI() {
-	restAPILogger = newPlainLogger(restAPIFilename)
+func initRestAPI(opt *option.Options) {
+	restAPILogger = newPlainLogger(opt, restAPIFilename)
 }
 
-func newPlainLogger(filename string) *zap.Logger {
+func newPlainLogger(opt *option.Options, filename string) *zap.Logger {
 	encoderConfig := zapcore.EncoderConfig{
 		TimeKey:       "",
 		LevelKey:      "",
@@ -97,7 +98,7 @@ func newPlainLogger(filename string) *zap.Logger {
 		LineEnding:    zapcore.DefaultLineEnding,
 	}
 
-	fr, err := newFileReopener(filepath.Join(option.Global.LogDir, filename))
+	fr, err := newFileReopener(filepath.Join(opt.LogDir, filename))
 	if err != nil {
 		common.Exit(1, err.Error())
 	}

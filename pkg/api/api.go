@@ -11,9 +11,9 @@ import (
 	"github.com/megaease/easegateway/pkg/cluster"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/option"
-	yaml "gopkg.in/yaml.v2"
 
 	"github.com/kataras/iris"
+	yaml "gopkg.in/yaml.v2"
 )
 
 type apiEntry struct {
@@ -38,7 +38,8 @@ type Server struct {
 	apis    []*apiEntry
 }
 
-func MustNewServer(cluster cluster.Cluster) *Server {
+// MustNewServer creates an api server.
+func MustNewServer(opt *option.Options, cluster cluster.Cluster) *Server {
 	app := iris.New()
 	app.Use(newRecoverer())
 	app.Use(newAPILogger())
@@ -54,7 +55,7 @@ func MustNewServer(cluster cluster.Cluster) *Server {
 	s.setupAPIs()
 
 	go func() {
-		err := app.Run(iris.Addr(option.Global.APIAddr))
+		err := app.Run(iris.Addr(opt.APIAddr))
 		if err == iris.ErrServerClosed {
 			return
 		}
