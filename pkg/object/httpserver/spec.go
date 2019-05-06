@@ -51,7 +51,7 @@ type (
 		Path       string   `yaml:"path,omitempty" v:"omitempty,prefix=/"`
 		PathPrefix string   `yaml:"pathPrefix,omitempty" v:"omitempty,prefix=/"`
 		PathRegexp string   `yaml:"pathRegexp,omitempty" v:"omitempty,regexp"`
-		Methods    []string `yaml:"methods,omitempty" v:"dive,httpmethod"`
+		Methods    []string `yaml:"methods,omitempty" v:"unique,dive,httpmethod"`
 		Backend    string   `yaml:"backend" v:"required"`
 
 		pathRE *regexp.Regexp

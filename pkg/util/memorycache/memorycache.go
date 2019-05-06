@@ -58,7 +58,7 @@ func New(spec *Spec) *MemoryCache {
 
 // Close closes MemoryCache.
 func (mc *MemoryCache) Close() {
-	// NOTICE: No need to call the below method, just leave them to GC.
+	// NOTE: No need to call the below method, just leave them to GC.
 	// mc.cache.Flush()
 }
 

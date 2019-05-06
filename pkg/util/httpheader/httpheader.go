@@ -14,7 +14,7 @@ type (
 	AdaptSpec struct {
 		Del []string `yaml:"del" v:"unique,dive,required"`
 
-		// NOTICE: Set and Add allow empty value.
+		// NOTE: Set and Add allow empty value.
 		Set map[string]string `yaml:"set" v:"dive,keys,required,endkeys"`
 		Add map[string]string `yaml:"add" v:"dive,keys,required,endkeys"`
 	}

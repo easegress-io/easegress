@@ -35,7 +35,7 @@ type (
 	}
 )
 
-// NOTICE: We can't use sync.Pool to recycle context.
+// NOTE: We can't use sync.Pool to recycle context.
 // Reference: https://github.com/gin-gonic/gin/issues/1731
 func newHTTPContext(startTime *time.Time, stdw http.ResponseWriter, stdr *http.Request) *httpContext {
 	stdctx, cancelFunc := stdcontext.WithCancel(stdr.Context())

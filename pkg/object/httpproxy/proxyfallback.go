@@ -29,8 +29,8 @@ type (
 
 		ForRateLimiter           bool  `yaml:"forRateLimiter"`
 		ForCircuitBreaker        bool  `yaml:"forCircuitBreaker"`
-		ForCandidateBackendCodes []int `yaml:"forCandidateBackendCodes" v:"omitempty,dive,httpcode"`
-		ForBackendCodes          []int `yaml:"forBackendCodes" v:"omitempty,dive,httpcode"`
+		ForCandidateBackendCodes []int `yaml:"forCandidateBackendCodes" v:"dive,httpcode"`
+		ForBackendCodes          []int `yaml:"forBackendCodes" v:"dive,httpcode"`
 	}
 
 	proxyFallbackRuntime struct {

@@ -94,7 +94,7 @@ func (cb *CircuitBreaker) Protect(ctx context.HTTPContext, handler func(ctx cont
 		for _, fc := range cb.spec.FailureCodes {
 			if fc == code {
 				failureCode = code
-				// NOTICE: The error is never used, just show it in here.
+				// NOTE: The error is never used, just show it in here.
 				return nil, fmt.Errorf("failureCode: %d", code)
 			}
 		}
@@ -102,7 +102,7 @@ func (cb *CircuitBreaker) Protect(ctx context.HTTPContext, handler func(ctx cont
 		return nil, nil
 	})
 
-	// NOTICE: Just count the failure code, the CircuitBreaker is not open yet.
+	// NOTE: Just count the failure code, the CircuitBreaker is not open yet.
 	if failureCode != -1 {
 		return nil
 	}

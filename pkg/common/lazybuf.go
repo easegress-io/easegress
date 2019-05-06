@@ -1,6 +1,6 @@
 package common
 
-// NOTICE: Copy from path/path.go in standard library.
+// NOTE: Copy from path/path.go in standard library.
 
 // A Lazybuf is a lazily constructed path buffer.
 // It supports append, reading previously appended bytes,

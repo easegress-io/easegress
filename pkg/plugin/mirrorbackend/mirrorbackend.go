@@ -42,13 +42,18 @@ func New(spec *Spec, runtime *Runtime) *MirrorBackend {
 	if spec.Filter != nil {
 		filter = httpfilter.New(spec.Filter)
 	}
-	return &MirrorBackend{
+
+	mb := &MirrorBackend{
 		spec: spec,
 
 		client:  http.DefaultClient,
 		backend: httpbackend.New(&spec.Spec),
 		filter:  filter,
 	}
+
+	runtime.mb = mb
+
+	return mb
 }
 
 // Close closes MirrorBackend.

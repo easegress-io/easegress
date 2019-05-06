@@ -148,7 +148,7 @@ func (r *Runtime) reload(spec *Spec) {
 }
 
 // Status returns Status genreated by Runtime.
-// NOTICE: Caller must not call Status while reloading.
+// NOTE: Caller must not call Status while reloading.
 func (r *Runtime) Status() *Status {
 	status := &Status{
 		TPS: uint64(r.rate1.Rate()),

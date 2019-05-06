@@ -110,7 +110,7 @@ func (r *Runtime) fsm() {
 			r.handleEventReload(e)
 		case *eventClose:
 			r.handleEventClose(e)
-			// NOTICE: We don't close hs.eventChan,
+			// NOTE: We don't close hs.eventChan,
 			// in case of panic of any other goroutines
 			// to send event to it later.
 			return
@@ -125,7 +125,7 @@ func (r *Runtime) handleEventStart(e *eventStart) {
 }
 
 func (r *Runtime) reload(nextSpec *Spec) {
-	// NOTICE: Due to the mechanism of scheduler,
+	// NOTE: Due to the mechanism of scheduler,
 	// nextSpec must not be nil, just defensive programming here.
 	switch {
 	case r.spec == nil && nextSpec == nil:
@@ -162,7 +162,7 @@ func (r *Runtime) setError(err error) {
 	if err == nil {
 		r.err.Store(errNil)
 	} else {
-		// NOTICE: For type safe.
+		// NOTE: For type safe.
 		r.err.Store(fmt.Errorf("%v", err))
 	}
 }
@@ -234,7 +234,7 @@ func (r *Runtime) closeServer() {
 	if r.server == nil {
 		return
 	}
-	// NOTICE: It's safe to shutdown serve failed server.
+	// NOTE: It's safe to shutdown serve failed server.
 	ctx, cancelFunc := serverShutdownContext()
 	defer cancelFunc()
 	err := r.server.Shutdown(ctx)
