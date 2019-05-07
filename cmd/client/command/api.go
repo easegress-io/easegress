@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// APICmd defines API command.
 func APICmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "api",

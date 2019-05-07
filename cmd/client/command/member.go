@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// MemberCmd defines member command.
 func MemberCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "member",

@@ -14,6 +14,9 @@ func init() {
 var exampleUsage = `  # List APIs.
   egctl api list
 
+  # Probe health.
+  egctl health
+
   # List member information.
   egctl member list
 
@@ -82,6 +85,7 @@ func main() {
 
 	rootCmd.AddCommand(
 		command.APICmd(),
+		command.HealthCmd(),
 		command.ObjectCmd(),
 		command.MemberCmd(),
 		completionCmd,
