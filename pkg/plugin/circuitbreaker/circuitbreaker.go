@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/megaease/easegateway/pkg/context"
+	"github.com/megaease/easegateway/pkg/logger"
 
 	"github.com/sony/gobreaker"
 )
@@ -29,9 +30,9 @@ type (
 		V string `yaml:"-" v:"parent"`
 
 		FailureCodes                   []int   `yaml:"failureCodes" v:"gte=1,unique,dive,httpcode"`
-		CountPeriodSeconds             uint16  `yaml:"countPeriodSeconds" v:"gte=1"`
+		CountPeriod                    string  `yaml:"countPeriod" v:"required,duration,dmin=1s"`
 		ToClosedConsecutiveCounts      uint32  `yaml:"toClosedConsecutiveCounts" v:"gte=1"`
-		ToHalfOpenSeconds              uint16  `yaml:"toHalfOpenSeconds" v:"gte=1"`
+		ToHalfOpenTimeout              string  `yaml:"toHalfOpenTimeout" v:"required,duration,dmin=1s"`
 		ToOpenFailureCounts            *uint32 `yaml:"toOpenFailureCounts" v:"omitempty,gte=1"`
 		ToOpenFailureConsecutiveCounts *uint32 `yaml:"toOpenFailureConsecutiveCounts" v:"omitempty,gte=1"`
 	}
@@ -52,10 +53,21 @@ func (s Spec) Validate() error {
 
 // New creates a CircuitBreaker.
 func New(spec *Spec, runtime *Runtime) *CircuitBreaker {
+	interval, err := time.ParseDuration(spec.CountPeriod)
+	if err != nil {
+		logger.Errorf("BUG: parse CountPeriod %s to duration failed: %v",
+			spec.CountPeriod, err)
+	}
+	timeout, err := time.ParseDuration(spec.ToHalfOpenTimeout)
+	if err != nil {
+		logger.Errorf("BUG: parse ToHalfOpenTimeout %s to duration failed: %v",
+			spec.CountPeriod, err)
+	}
+
 	st := gobreaker.Settings{
 		MaxRequests: spec.ToClosedConsecutiveCounts,
-		Interval:    time.Duration(spec.CountPeriodSeconds) * time.Second,
-		Timeout:     time.Duration(spec.ToHalfOpenSeconds) * time.Second,
+		Interval:    interval,
+		Timeout:     timeout,
 	}
 	st.ReadyToTrip = func(counts gobreaker.Counts) bool {
 		if spec.ToOpenFailureCounts != nil &&

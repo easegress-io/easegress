@@ -70,7 +70,7 @@ LOOP:
 			if vv.re != nil && vv.re.MatchString(value) {
 				continue LOOP
 			}
-			return fmt.Errorf("header %s is invalid", key)
+			return fmt.Errorf("header %s:%s is invalid", key, value)
 		}
 		return fmt.Errorf("header %s not found", key)
 	}
