@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/megaease/easegateway/pkg/context"
+	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/util/httpheader"
 
 	cache "github.com/patrickmn/go-cache"
@@ -27,11 +28,11 @@ type (
 
 	// Spec describes the MemoryCache.
 	Spec struct {
-		ExpirationSeconds uint32   `yaml:"expirationSeconds" v:"gte=1"`
-		MaxEntryBytes     uint32   `yaml:"maxEntryBytes" v:"gte=1"`
-		Size              uint32   `yaml:"size" v:"gte=1"`
-		Codes             []int    `yaml:"codes" v:"gte=1,unique,dive,httpcode"`
-		Methods           []string `yaml:"methods" v:"gte=1,unique"`
+		Expiration    string   `yaml:"expiration" v:"required,duration,dmin=1s"`
+		MaxEntryBytes uint32   `yaml:"maxEntryBytes" v:"gte=1"`
+		Size          uint32   `yaml:"size" v:"gte=1"`
+		Codes         []int    `yaml:"codes" v:"gte=1,unique,dive,httpcode"`
+		Methods       []string `yaml:"methods" v:"gte=1,unique"`
 	}
 
 	cacheEntry struct {
@@ -43,7 +44,12 @@ type (
 
 // New creates a MemoryCache.
 func New(spec *Spec) *MemoryCache {
-	expiration := time.Duration(spec.ExpirationSeconds) * time.Second
+	expiration, err := time.ParseDuration(spec.Expiration)
+	if err != nil {
+		logger.Errorf("BUG: parse duraion %s failed: %v", spec.Expiration, err)
+		expiration = 10 * time.Second
+	}
+
 	cleanupInterval := expiration * cleanupIntervalFactor
 	if cleanupInterval < cleanupIntervalMin {
 		cleanupInterval = cleanupIntervalMin

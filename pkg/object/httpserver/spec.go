@@ -17,7 +17,7 @@ type (
 		registry.MetaSpec `yaml:",inline"`
 		Port              uint16 `yaml:"port" v:"gte=1"`
 		KeepAlive         bool   `yaml:"keepAlive"`
-		KeepAliveSeconds  uint16 `yaml:"keepAliveSeconds"`
+		KeepAliveTimeout  string `yaml:"keepAliveTimeout" v:"omitempty,duration,dmin=1s"`
 		MaxConnections    uint32 `yaml:"maxConnections" v:"gte=1"`
 		HTTPS             bool   `yaml:"https"`
 		CertBase64        string `yaml:"certBase64" v:"omitempty,base64"`

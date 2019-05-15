@@ -215,7 +215,7 @@ func (s *Scheduler) reloadHTTPProxy(spec registry.Spec) {
 }
 
 func (s *Scheduler) handleSyncStatus() {
-	servers, proxies := make(map[string]*string), make(map[string]*string)
+	kvs := make(map[string]*string)
 	for name, su := range s.serverUnits {
 		status := su.runtime.Status()
 		buff, err := yaml.Marshal(status)
@@ -226,7 +226,7 @@ func (s *Scheduler) handleSyncStatus() {
 		}
 		key := fmt.Sprintf(cluster.StatusObjectFormat, name)
 		value := string(buff)
-		servers[key] = &value
+		kvs[key] = &value
 	}
 	for name, pu := range s.proxyUnits {
 		status := pu.runtime.Status()
@@ -238,16 +238,12 @@ func (s *Scheduler) handleSyncStatus() {
 		}
 		key := fmt.Sprintf(cluster.StatusObjectFormat, name)
 		value := string(buff)
-		proxies[key] = &value
+		kvs[key] = &value
 	}
 
-	err := s.cls.PutAndDeleteUnderLease(servers)
+	err := s.cls.PutAndDeleteUnderLease(kvs)
 	if err != nil {
-		logger.Errorf("sync httpserver runtime failed: %v", err)
-	}
-	err = s.cls.PutAndDeleteUnderLease(proxies)
-	if err != nil {
-		logger.Errorf("sync httpproxy runtime failed: %v", err)
+		logger.Errorf("sync runtime failed: %v", err)
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/megaease/easegateway/pkg/common"
 	"github.com/megaease/easegateway/pkg/logger"
@@ -88,6 +89,10 @@ func init() {
 	Register("httpcode", httpCode, "{0} '{1}' is an invalid http code")
 	Register("prefix", prefix, "{0} '{1}' has not prefix '{2}'")
 	Register("regexp", _regexp, "{0} '{1}' is an invalid regexp")
+	Register("timerfc3339", timerfc3339, "{0} '{1}' is an invalid time")
+	Register("duration", duration, "{0} '{1}' is an invalid duration")
+	Register("dmin", dmin, "{0} '{1}' must be greater than or equal to {2}")
+	Register("dmax", dmax, "{0} '{1}' must be less than or equal to {2}")
 }
 
 func getYAMLName(field reflect.StructField) string {
@@ -171,4 +176,44 @@ func _regexp(fl validator.FieldLevel) bool {
 	}
 	_, err := regexp.Compile(s)
 	return err == nil
+}
+
+func timerfc3339(fl validator.FieldLevel) bool {
+	s := fl.Field().String()
+	_, err := time.Parse(time.RFC3339, s)
+	return err == nil
+}
+
+func duration(fl validator.FieldLevel) bool {
+	s := fl.Field().String()
+	_, err := time.ParseDuration(s)
+	return err == nil
+}
+
+func dmin(fl validator.FieldLevel) bool {
+	min, err := time.ParseDuration(fl.Param())
+	if err != nil {
+		panic(fmt.Errorf("Bad field param %s: %v", fl.Param(), err))
+	}
+
+	d, err := time.ParseDuration(fl.Field().String())
+	if err != nil {
+		panic(fmt.Errorf("Bad field value %s: %v", fl.Field().String(), err))
+	}
+
+	return min <= d
+}
+
+func dmax(fl validator.FieldLevel) bool {
+	max, err := time.ParseDuration(fl.Param())
+	if err != nil {
+		panic(fmt.Errorf("Bad field param %s: %v", fl.Param(), err))
+	}
+
+	d, err := time.ParseDuration(fl.Field().String())
+	if err != nil {
+		panic(fmt.Errorf("Bad field value %s: %v", fl.Field().String(), err))
+	}
+
+	return d <= max
 }

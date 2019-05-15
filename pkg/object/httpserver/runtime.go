@@ -15,6 +15,8 @@ import (
 )
 
 const (
+	defaultKeepAliveTimeout = 60 * time.Second
+
 	checkFailedTimeout = 10 * time.Second
 
 	stateNil     stateType = "nil"
@@ -185,6 +187,17 @@ func (r *Runtime) needRestartServer(nextSpec *Spec) bool {
 }
 
 func (r *Runtime) startServer() {
+	keepAliveTimeout := defaultKeepAliveTimeout
+	if r.spec.KeepAliveTimeout != "" {
+		t, err := time.ParseDuration(r.spec.KeepAliveTimeout)
+		if err != nil {
+			logger.Errorf("BUG: parse duration %s failed: %v",
+				r.spec.KeepAliveTimeout, err)
+		} else {
+			keepAliveTimeout = t
+		}
+	}
+
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", r.spec.Port))
 	if err != nil {
 		r.setState(stateFailed)
@@ -199,7 +212,7 @@ func (r *Runtime) startServer() {
 	srv := &http.Server{
 		Addr:        fmt.Sprintf(":%d", r.spec.Port),
 		Handler:     mux,
-		IdleTimeout: time.Duration(r.spec.KeepAliveSeconds) * time.Second,
+		IdleTimeout: keepAliveTimeout,
 	}
 	srv.SetKeepAlivesEnabled(r.spec.KeepAlive)
 

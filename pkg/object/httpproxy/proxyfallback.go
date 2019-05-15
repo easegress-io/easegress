@@ -9,7 +9,9 @@ import (
 )
 
 const (
-	fallbackPluginRateLimiter fallbackPlugin = iota
+	// plugins not supported to fallback
+	fallbackPluginNil fallbackPlugin = iota
+	fallbackPluginRateLimiter
 	fallbackPluginCircuitBreaker
 	fallbackPluginCandidateBackend
 	fallbackPluginBackend
@@ -49,43 +51,46 @@ func newProxyFallback(spec *proxyFallbackSpec, runtime *proxyFallbackRuntime) *p
 	}
 }
 
-func (f *proxyFallback) tryFallback(ctx context.HTTPContext, pt fallbackPlugin, err error) bool {
+// getFallbackErr tries to fallback, return fallbackErr if succeed, otherwise nil.
+func (f *proxyFallback) getFallbackErr(ctx context.HTTPContext, pt fallbackPlugin, err error) (fallbackErr error) {
 SWITCH:
 	switch pt {
+	case fallbackPluginNil:
+		return nil
 	case fallbackPluginRateLimiter:
 		if !f.spec.ForRateLimiter {
-			return false
+			return nil
 		}
-		err = fmt.Errorf("rateLimiter failed: %v", err)
+		fallbackErr = fmt.Errorf("fallback for rateLimiter failed: %v", err)
 	case fallbackPluginCircuitBreaker:
 		if !f.spec.ForCircuitBreaker {
-			return false
+			return nil
 		}
-		err = fmt.Errorf("circuitBreaker failed: %v", err)
+		fallbackErr = fmt.Errorf("fallback for circuitBreaker failed: %v", err)
 	case fallbackPluginCandidateBackend:
 		for _, code := range f.spec.ForCandidateBackendCodes {
 			if code == ctx.Response().StatusCode() {
-				err = fmt.Errorf("candidateBackend failure code: %d", code)
+				fallbackErr = fmt.Errorf("fallback for candidateBackend failure code: %d", code)
 				break SWITCH
 			}
 		}
-		return false
+		return nil
 	case fallbackPluginBackend:
 		for _, code := range f.spec.ForBackendCodes {
 			if code == ctx.Response().StatusCode() {
-				err = fmt.Errorf("backend failure code: %d", code)
+				fallbackErr = fmt.Errorf("fallback backend failure code: %d", code)
 				break SWITCH
 			}
 		}
-		return false
+		return nil
 	default:
 		logger.Errorf("BUG: unknown falbackPlugin: %v", pt)
+		return nil
 	}
 
 	f.fallback.Fallback(ctx)
-	ctx.Cancel(err)
 
-	return true
+	return
 }
 
 func (f *proxyFallback) close() {

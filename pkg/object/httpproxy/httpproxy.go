@@ -152,7 +152,7 @@ func (hp *HTTPProxy) preHandle(ctx context.HTTPContext) {
 		if err != nil {
 			w.SetStatusCode(http.StatusTooManyRequests)
 			// NOTE: Return regardless of result.
-			hp.tryFallback(ctx, fallbackPluginRateLimiter, err)
+			hp.handlePluginErr(ctx, fallbackPluginRateLimiter, err)
 			return
 		}
 	}
@@ -176,13 +176,13 @@ func (hp *HTTPProxy) handle(ctx context.HTTPContext) {
 		err := hp.circuitBreaker.Protect(ctx, handler)
 		if err != nil {
 			ctx.Response().SetStatusCode(http.StatusServiceUnavailable)
-			hp.tryFallback(ctx, fallbackPluginCircuitBreaker, err)
+			hp.handlePluginErr(ctx, fallbackPluginCircuitBreaker, err)
 		} else {
-			hp.tryFallback(ctx, pt, nil /*error*/)
+			hp.handlePluginErr(ctx, pt, nil /*error*/)
 		}
 	} else {
 		handler(ctx)
-		hp.tryFallback(ctx, pt, nil /*error*/)
+		hp.handlePluginErr(ctx, pt, nil /*error*/)
 	}
 
 }
@@ -193,11 +193,16 @@ func (hp *HTTPProxy) postHandle(ctx context.HTTPContext) {
 	}
 }
 
-func (hp *HTTPProxy) tryFallback(ctx context.HTTPContext, pt fallbackPlugin, err error) {
+func (hp *HTTPProxy) handlePluginErr(ctx context.HTTPContext, pt fallbackPlugin, err error) {
+	cancelErr := err
 	if hp.fallback != nil {
-		hp.fallback.tryFallback(ctx, pt, err)
-	} else if err != nil {
-		ctx.Cancel(err)
+		fallbackErr := hp.fallback.getFallbackErr(ctx, pt, err)
+		if fallbackErr != nil {
+			cancelErr = fallbackErr
+		}
+	}
+	if cancelErr != nil {
+		ctx.Cancel(cancelErr)
 	}
 }
 
