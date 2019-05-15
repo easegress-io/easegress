@@ -19,10 +19,14 @@ type (
 
 // New creates a Backend.
 func New(spec *Spec, runtime *Runtime) *Backend {
-	return &Backend{
+	b := &Backend{
 		spec:    spec,
 		backend: httpbackend.New(spec),
 	}
+
+	runtime.b = b
+
+	return b
 }
 
 // Close closes Backend.

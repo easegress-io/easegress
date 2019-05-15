@@ -175,7 +175,7 @@ func (s *Server) listObjects(ctx iris.Context) {
 	// No need to lock.
 
 	specs := s._listObjects()
-	// NOTICE: Keep it consistent.
+	// NOTE: Keep it consistent.
 	sort.Sort(specsToSort(specs))
 
 	buff := bytes.NewBuffer(nil)
@@ -196,7 +196,7 @@ func (s *Server) getObjectStatus(ctx iris.Context) {
 		return
 	}
 
-	// NOTICE: Maybe inconsistent, the object was deleted already here.
+	// NOTE: Maybe inconsistent, the object was deleted already here.
 	statuses := s._getObjectStatus(name)
 
 	buff, err := yaml.Marshal(statuses)
@@ -219,7 +219,7 @@ func (s *Server) listObjectKinds(ctx iris.Context) {
 		objKinds = append(objKinds, obj.Kind())
 	}
 
-	// NOTICE: Keep it consistent.
+	// NOTE: Keep it consistent.
 	sort.Strings(objKinds)
 
 	buff, err := yaml.Marshal(objKinds)

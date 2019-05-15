@@ -24,11 +24,15 @@ type (
 
 // New creates a CandidateBackend.
 func New(spec *Spec, runtime *Runtime) *CandidateBackend {
-	return &CandidateBackend{
+	cb := &CandidateBackend{
 		spec:    spec,
 		backend: httpbackend.New(&spec.Spec),
 		filter:  httpfilter.New(spec.Filter),
 	}
+
+	runtime.cb = cb
+
+	return cb
 }
 
 // Close closes CandidateBackend.

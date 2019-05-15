@@ -63,7 +63,7 @@ func (w *httpResponse) flushBody() {
 
 	defer func() {
 		if body, ok := w.body.(io.ReadCloser); ok {
-			// NOTICE: Need to be read to completion and closed.
+			// NOTE: Need to be read to completion and closed.
 			// Reference: https://golang.org/pkg/net/http/#Response
 			err := body.Close()
 			if err != nil {
@@ -97,7 +97,7 @@ func (w *httpResponse) flushBody() {
 		case nil:
 			// Switch to chunked mode (EaseGateway defined).
 			// Reference: https://gist.github.com/CMCDragonkai/6bfade6431e9ffb7fe88
-			// NOTICE: Golang server will adjust it according to the content length.
+			// NOTE: Golang server will adjust it according to the content length.
 			// if !chunkedMode {
 			// 	chunkedMode = true
 			// 	w.Header().Del("Content-Length")
@@ -129,7 +129,7 @@ func (w *httpResponse) FlushedBodyBytes() int64 {
 }
 
 func (w *httpResponse) finish() {
-	// NOTICE: WriteHeader must be called at most one time.
+	// NOTE: WriteHeader must be called at most one time.
 	w.std.WriteHeader(w.StatusCode())
 	w.flushBody()
 }

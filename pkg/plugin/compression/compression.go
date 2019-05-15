@@ -89,7 +89,7 @@ func (c *Compression) alreadyGziped(ctx context.HTTPContext) bool {
 func (c *Compression) acceptGzip(ctx context.HTTPContext) bool {
 	acceptEncodings := ctx.Request().Header().GetAll(httpheader.KeyAcceptEncoding)
 
-	// NOTICE: EaseGateway does not support parsing qvalue for performace.
+	// NOTE: EaseGateway does not support parsing qvalue for performace.
 	// Reference: https://tools.ietf.org/html/rfc2616#section-14.3
 	if len(acceptEncodings) > 0 {
 		for _, ae := range acceptEncodings {

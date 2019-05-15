@@ -140,7 +140,7 @@ func (hp *HTTPProxy) preHandle(ctx context.HTTPContext) {
 	if hp.validator != nil {
 		err := hp.validator.Validate(ctx)
 		if err != nil {
-			// NOTICE: No fallback for invalid traffic.
+			// NOTE: No fallback for invalid traffic.
 			w.SetStatusCode(http.StatusBadRequest)
 			ctx.Cancel(fmt.Errorf("validate failed: %v", err))
 			return
@@ -151,7 +151,7 @@ func (hp *HTTPProxy) preHandle(ctx context.HTTPContext) {
 		err := hp.rateLimiter.Limit(ctx)
 		if err != nil {
 			w.SetStatusCode(http.StatusTooManyRequests)
-			// NOTICE: Return regardless of result.
+			// NOTE: Return regardless of result.
 			hp.tryFallback(ctx, fallbackPluginRateLimiter, err)
 			return
 		}

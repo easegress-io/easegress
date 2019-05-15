@@ -3,10 +3,14 @@ package candidatebackend
 type (
 
 	// Runtime contains runtime info of CandidateBackend.
-	Runtime struct{}
+	Runtime struct {
+		cb *CandidateBackend
+	}
 
 	// Status contains status info of CandidateBackend.
-	Status struct{}
+	Status struct {
+		Codes map[string]map[int]uint64 `yaml:"codes"`
+	}
 )
 
 // NewRuntime creates a CandidateBackend runtime.
@@ -16,7 +20,9 @@ func NewRuntime() *Runtime {
 
 // Status returns status.
 func (r *Runtime) Status() *Status {
-	return nil
+	return &Status{
+		Codes: r.cb.backend.Codes(),
+	}
 }
 
 // Close closes Runtime.

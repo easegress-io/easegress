@@ -19,7 +19,7 @@ type (
 	ValueFilter struct {
 		V string `yaml:"-" v:"parent"`
 
-		// NOTICE: It allows empty value.
+		// NOTE: It allows empty value.
 		Values []string `yaml:"values" v:"unique"`
 		Regexp string   `yaml:"regexp" v:"omitempty,regexp"`
 		re     *regexp.Regexp
