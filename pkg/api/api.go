@@ -78,6 +78,7 @@ func (s *Server) setupAPIs() {
 	s.apis = append(s.apis, listAPIsEntry)
 	s.setupMemberAPIs()
 	s.setupObjectAPIs()
+	s.setupHealthAPIs()
 
 	for _, api := range s.apis {
 		api.Path = APIPrefix + api.Path
@@ -105,6 +106,15 @@ func (s *Server) setupAPIs() {
 	}
 }
 
+func (s *Server) setupHealthAPIs() {
+	s.apis = append(s.apis, &apiEntry{
+		// https://stackoverflow.com/a/43381061/1705845
+		Path:    "/healthz",
+		Method:  "GET",
+		Handler: func(iris.Context) { /* 200 by default */ },
+	})
+}
+
 func (s *Server) listAPIs(ctx iris.Context) {
 	buff, err := yaml.Marshal(s.apis)
 	if err != nil {
@@ -115,12 +125,14 @@ func (s *Server) listAPIs(ctx iris.Context) {
 	ctx.Write(buff)
 }
 
+// Close closes Server.
 func (s *Server) Close(wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	s.app.Shutdown(context.Background())
 }
 
+// Lock locks cluster operations.
 func (s *Server) Lock() {
 	err := s.mutex.Lock()
 	if err != nil {
@@ -128,6 +140,7 @@ func (s *Server) Lock() {
 	}
 }
 
+// Unlock unlocks cluster operations.
 func (s *Server) Unlock() {
 	err := s.mutex.Unlock()
 	if err != nil {

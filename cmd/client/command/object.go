@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// ObjectCmd defines object command.
 func ObjectCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "object",

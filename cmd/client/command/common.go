@@ -23,6 +23,8 @@ var (
 const (
 	apiURL = "/apis/v3"
 
+	healthURL = apiURL + "/healthz"
+
 	membersURL = apiURL + "/members"
 	memberURL  = apiURL + "/members/%s"
 
