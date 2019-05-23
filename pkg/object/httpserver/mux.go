@@ -1,6 +1,7 @@
 package httpserver
 
 import (
+	"fmt"
 	"net/http"
 	"regexp"
 	"strings"
@@ -13,13 +14,14 @@ import (
 )
 
 // TODO:
-// 1. Add fixed size(in case of memory explosion) to cache mux.
-// 2. Rewrites
+// 1. Rewrites
 
 type (
 	mux struct {
 		spec     *Spec
 		handlers *sync.Map
+
+		cache *cache
 
 		rules atomic.Value // []*muxRule
 	}
@@ -127,7 +129,12 @@ func (mp *muxPath) matchMethod(r *http.Request) bool {
 
 func newMux(spec *Spec, handlers *sync.Map) *mux {
 	m := &mux{handlers: handlers}
+	if spec.CacheSize > 0 {
+		m.cache = newCache(spec.CacheSize)
+	}
+
 	m.reloadRules(spec)
+
 	return m
 }
 
@@ -152,8 +159,33 @@ func (m *mux) reloadRules(spec *Spec) {
 func (m *mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	startTime := time.Now()
 
-	rules := m.rules.Load().([]*muxRule)
+	handleRequest := func(ci *cacheItem) {
+		m.putCacheItem(r, ci)
 
+		switch {
+		case ci.notFound:
+			w.WriteHeader(http.StatusNotFound)
+		case ci.methodNotAllowed:
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		case ci.backend != "":
+			handler, exists := m.handlers.Load(ci.backend)
+			if exists {
+				ctx := newHTTPContext(&startTime, w, r)
+				handler.(Handler).Handle(ctx)
+				ctx.finish()
+			} else {
+				w.WriteHeader(http.StatusServiceUnavailable)
+			}
+		}
+	}
+
+	ci := m.getCacheItem(r)
+	if ci != nil {
+		handleRequest(ci)
+		return
+	}
+
+	rules := m.rules.Load().([]*muxRule)
 	for _, rule := range rules {
 		if !rule.match(r) {
 			continue
@@ -163,20 +195,35 @@ func (m *mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			if path.matchMethod(r) {
-				handler, exists := m.handlers.Load(path.backend)
-				if exists {
-					ctx := newHTTPContext(&startTime, w, r)
-					handler.(Handler).Handle(ctx)
-					ctx.finish()
-				} else {
-					w.WriteHeader(http.StatusServiceUnavailable)
-				}
+				handleRequest(&cacheItem{backend: path.backend})
 			} else {
-				w.WriteHeader(http.StatusMethodNotAllowed)
+				handleRequest(&cacheItem{methodNotAllowed: true})
 			}
 			return
 		}
 	}
 
-	w.WriteHeader(http.StatusNotFound)
+	handleRequest(&cacheItem{notFound: true})
+}
+
+func (m *mux) getCacheItem(r *http.Request) *cacheItem {
+	if m.cache == nil {
+		return nil
+	}
+
+	key := fmt.Sprintf("%s%s", r.Method, r.URL.Path)
+	return m.cache.get(key)
+}
+
+func (m *mux) putCacheItem(r *http.Request, ci *cacheItem) {
+	if m.cache == nil {
+		return
+	}
+
+	key := fmt.Sprintf("%s%s", r.Method, r.URL.Path)
+	if !ci.cached {
+		ci.cached = true
+		// NOTE: It's fine to cover the existed item because of conccurently updating cache.
+		m.cache.put(key, ci)
+	}
 }
