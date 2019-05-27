@@ -22,6 +22,7 @@ type (
 		HTTPS             bool   `yaml:"https"`
 		CertBase64        string `yaml:"certBase64" v:"omitempty,base64"`
 		KeyBase64         string `yaml:"keyBase64" v:"omitempty,base64"`
+		CacheSize         uint32 `yaml:"cacheSize" v:"omitempty"`
 
 		// TODO: Rewrites
 		Rewrites []Rewrite `yaml:"rewrites" v:"dive"`
