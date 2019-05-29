@@ -108,8 +108,19 @@ func (ctx *httpContext) Cancelled() bool {
 	return ctx.err != nil || ctx.stdctx.Err() != nil
 }
 
+func (ctx *httpContext) Duration() time.Duration {
+	if ctx.endTime != nil {
+		return ctx.endTime.Sub(*ctx.startTime)
+	}
+
+	return time.Now().Sub(*ctx.startTime)
+}
+
 func (ctx *httpContext) finish() {
 	ctx.w.finish()
+
+	endTime := time.Now()
+	ctx.endTime = &endTime
 
 	for _, fn := range ctx.finishFuncs {
 		fn()
@@ -120,8 +131,6 @@ func (ctx *httpContext) finish() {
 
 func (ctx *httpContext) Log() string {
 	stdr := ctx.r.std
-
-	ctxDuration := time.Now().Sub(*ctx.startTime)
 
 	// log format:
 	// [startTime]
@@ -139,6 +148,6 @@ func (ctx *httpContext) Log() string {
 		"[%s]",
 		ctx.startTime.Format(time.RFC3339),
 		stdr.RemoteAddr, ctx.r.RealIP(), stdr.Method, stdr.RequestURI, stdr.Proto, ctx.w.code,
-		ctxDuration, ctx.r.body.Count(), ctx.w.bodyWritten,
+		ctx.Duration(), ctx.r.body.Count(), ctx.w.bodyWritten,
 		strings.Join(ctx.tags, " | "))
 }

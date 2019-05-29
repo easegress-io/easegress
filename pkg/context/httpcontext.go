@@ -3,6 +3,7 @@ package context
 import (
 	stdcontext "context"
 	"io"
+	"time"
 
 	"github.com/megaease/easegateway/pkg/util/httpheader"
 )
@@ -17,8 +18,9 @@ type (
 		Cancel(err error)
 		Cancelled() bool
 
-		OnFinish(func())   // For setting final client statistics, etc.
-		AddTag(tag string) // For debug, log, etc.
+		Duration() time.Duration // For log, sample, etc.
+		OnFinish(func())         // For setting final client statistics, etc.
+		AddTag(tag string)       // For debug, log, etc.
 
 		Log() string
 	}

@@ -14,8 +14,6 @@ import (
 	"github.com/megaease/easegateway/pkg/plugin/ratelimiter"
 	"github.com/megaease/easegateway/pkg/plugin/validator"
 	"github.com/megaease/easegateway/pkg/registry"
-
-	metrics "github.com/rcrowley/go-metrics"
 )
 
 func init() {
@@ -30,8 +28,9 @@ const (
 type (
 	// HTTPProxy is Object HTTPProxy.
 	HTTPProxy struct {
-		spec  *Spec
-		rate1 metrics.EWMA
+		spec *Spec
+
+		runtime *Runtime
 
 		fallback *proxyFallback
 
@@ -68,8 +67,8 @@ func New(spec *Spec, runtime *Runtime) *HTTPProxy {
 	runtime.reload(spec)
 
 	hp := &HTTPProxy{
-		spec:  spec,
-		rate1: runtime.rate1,
+		spec:    spec,
+		runtime: runtime,
 	}
 
 	if spec.Fallback != nil {
@@ -118,7 +117,8 @@ func DefaultSpec() registry.Spec {
 // Handle handles all incoming traffic.
 func (hp *HTTPProxy) Handle(ctx context.HTTPContext) {
 	defer ctx.OnFinish(func() {
-		hp.rate1.Update(1)
+		hp.runtime.rate1.Update(1)
+		hp.runtime.durationSampler.Update(ctx.Duration())
 	})
 
 	hp.preHandle(ctx)
