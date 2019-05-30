@@ -16,6 +16,12 @@ import (
 	yaml "gopkg.in/yaml.v2"
 )
 
+func aboutText() string {
+	return fmt.Sprintf(`Copyright © 2017 - %d MegaEase(https://megaease.com). All rights reserved.
+Powered by open-source software: Etcd(https://etcd.io), Apache License 2.0.
+`, time.Now().Year())
+}
+
 type apiEntry struct {
 	Path    string       `yaml:"path"`
 	Method  string       `yaml:"method"`
@@ -79,6 +85,7 @@ func (s *Server) setupAPIs() {
 	s.setupMemberAPIs()
 	s.setupObjectAPIs()
 	s.setupHealthAPIs()
+	s.setupAboutAPIs()
 
 	for _, api := range s.apis {
 		api.Path = APIPrefix + api.Path
@@ -112,6 +119,17 @@ func (s *Server) setupHealthAPIs() {
 		Path:    "/healthz",
 		Method:  "GET",
 		Handler: func(iris.Context) { /* 200 by default */ },
+	})
+}
+
+func (s *Server) setupAboutAPIs() {
+	s.apis = append(s.apis, &apiEntry{
+		Path:   "/about",
+		Method: "GET",
+		Handler: func(ctx iris.Context) {
+			ctx.Header("Content-Type", "text/plain")
+			ctx.WriteString(aboutText())
+		},
 	})
 }
 
