@@ -2,6 +2,7 @@ package v
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"reflect"
 	"regexp"
@@ -93,6 +94,7 @@ func init() {
 	Register("duration", duration, "{0} '{1}' is an invalid duration")
 	Register("dmin", dmin, "{0} '{1}' must be greater than or equal to {2}")
 	Register("dmax", dmax, "{0} '{1}' must be less than or equal to {2}")
+	Register("ipcidr", ipcidr, "{0} '{1}' is an invalid ip or cidr")
 }
 
 func getYAMLName(field reflect.StructField) string {
@@ -216,4 +218,19 @@ func dmax(fl validator.FieldLevel) bool {
 	}
 
 	return d <= max
+}
+
+func ipcidr(fl validator.FieldLevel) bool {
+	s := fl.Field().String()
+	ip := net.ParseIP(s)
+	if ip != nil {
+		return true
+	}
+
+	_, _, err := net.ParseCIDR(s)
+	if err != nil {
+		return false
+	}
+
+	return true
 }

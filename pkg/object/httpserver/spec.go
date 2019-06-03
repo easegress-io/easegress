@@ -7,6 +7,7 @@ import (
 	"regexp"
 
 	"github.com/megaease/easegateway/pkg/registry"
+	"github.com/megaease/easegateway/pkg/util/ipfilter"
 )
 
 type (
@@ -27,7 +28,8 @@ type (
 		// TODO: Rewrites
 		Rewrites []Rewrite `yaml:"rewrites" v:"dive"`
 
-		Rules []Rule `yaml:"rules" v:"dive"`
+		IPFilter *ipfilter.Spec `yaml:"ipFilter" v:"omitempty"`
+		Rules    []Rule         `yaml:"rules" v:"dive"`
 	}
 
 	// Rewrite is entry of rewrite rule.
@@ -40,20 +42,22 @@ type (
 
 	// Rule is first level entry of router.
 	Rule struct {
-		Host       string `yaml:"host"`
-		HostRegexp string `yaml:"hostRegexp" v:"omitempty,regexp"`
-		Paths      []Path `yaml:"paths" v:"dive"`
+		IPFilter   *ipfilter.Spec `yaml:"ipFilter" v:"omitempty"`
+		Host       string         `yaml:"host"`
+		HostRegexp string         `yaml:"hostRegexp" v:"omitempty,regexp"`
+		Paths      []Path         `yaml:"paths" v:"dive"`
 
 		hostRE *regexp.Regexp
 	}
 
 	// Path is second level entry of router.
 	Path struct {
-		Path       string   `yaml:"path,omitempty" v:"omitempty,prefix=/"`
-		PathPrefix string   `yaml:"pathPrefix,omitempty" v:"omitempty,prefix=/"`
-		PathRegexp string   `yaml:"pathRegexp,omitempty" v:"omitempty,regexp"`
-		Methods    []string `yaml:"methods,omitempty" v:"unique,dive,httpmethod"`
-		Backend    string   `yaml:"backend" v:"required"`
+		IPFilter   *ipfilter.Spec `yaml:"ipFilter" v:"omitempty"`
+		Path       string         `yaml:"path,omitempty" v:"omitempty,prefix=/"`
+		PathPrefix string         `yaml:"pathPrefix,omitempty" v:"omitempty,prefix=/"`
+		PathRegexp string         `yaml:"pathRegexp,omitempty" v:"omitempty,regexp"`
+		Methods    []string       `yaml:"methods,omitempty" v:"unique,dive,httpmethod"`
+		Backend    string         `yaml:"backend" v:"required"`
 
 		pathRE *regexp.Regexp
 	}
