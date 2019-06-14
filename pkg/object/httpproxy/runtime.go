@@ -11,6 +11,7 @@ import (
 	"github.com/megaease/easegateway/pkg/plugin/mirrorbackend"
 	"github.com/megaease/easegateway/pkg/plugin/ratelimiter"
 	"github.com/megaease/easegateway/pkg/plugin/validator"
+	"github.com/megaease/easegateway/pkg/util/sampler"
 
 	metrics "github.com/rcrowley/go-metrics"
 )
@@ -19,8 +20,10 @@ type (
 
 	// Runtime contains all runtime info of HTTPProxy.
 	Runtime struct {
-		rate1 metrics.EWMA
-		done  chan struct{}
+		rate1           metrics.EWMA
+		durationSampler *sampler.DurationSampler
+
+		done chan struct{}
 
 		fallback *proxyFallbackRuntime
 
@@ -37,6 +40,10 @@ type (
 	// Status contains all status gernerated by runtime, for displaying to users.
 	Status struct {
 		TPS uint64 `yaml:"tps"`
+		P50 string `yaml:"p50"`
+		P90 string `yaml:"p90"`
+		P95 string `yaml:"p95"`
+		P99 string `yaml:"p99"`
 
 		Fallback *proxyFallbackStatus `yaml:"fallback,omitempty"`
 
@@ -68,8 +75,9 @@ func NewRuntime() *Runtime {
 	}()
 
 	return &Runtime{
-		rate1: rate1,
-		done:  done,
+		rate1:           rate1,
+		durationSampler: sampler.NewDurationSampler(),
+		done:            done,
 	}
 }
 
@@ -152,6 +160,10 @@ func (r *Runtime) reload(spec *Spec) {
 func (r *Runtime) Status() *Status {
 	status := &Status{
 		TPS: uint64(r.rate1.Rate()),
+		P50: r.durationSampler.P50().String(),
+		P90: r.durationSampler.P90().String(),
+		P95: r.durationSampler.P95().String(),
+		P99: r.durationSampler.P99().String(),
 	}
 
 	if r.fallback != nil {
