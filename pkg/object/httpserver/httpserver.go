@@ -24,7 +24,6 @@ type (
 // DefaultSpec returns HTTPServer default spec.
 func DefaultSpec() registry.Spec {
 	return &Spec{
-		Port:             10080,
 		KeepAlive:        true,
 		KeepAliveTimeout: "60s",
 		MaxConnections:   10240,

@@ -11,8 +11,8 @@ type (
 	// pathAdaptorSpec describes rules for adapting path.
 	pathAdaptorSpec struct {
 		Replace       string         `yaml:"replace"`
-		AddPrefix     string         `yaml:"addPrefix"`
-		TrimPrefix    string         `yaml:"trimPrefix"`
+		AddPrefix     string         `yaml:"addPrefix" v:"omitempty,prefix=/"`
+		TrimPrefix    string         `yaml:"trimPrefix" v:"omitempty,prefix=/"`
 		RegexpReplace *RegexpReplace `yaml:"regexpReplace"`
 	}
 

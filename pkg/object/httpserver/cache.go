@@ -3,6 +3,7 @@ package httpserver
 import (
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/util/ipfilter"
 )
 
 type (
@@ -13,6 +14,7 @@ type (
 	cacheItem struct {
 		cached bool
 
+		ipFilterChan     *ipfilter.IPFilters
 		notFound         bool
 		methodNotAllowed bool
 		backend          string

@@ -36,6 +36,8 @@ func generateEtcdConfigFromOption(opt *option.Options, initCluster string) (*emb
 	ec.AutoCompactionMode = "periodic"
 	ec.AutoCompactionRetention = "24h"
 	// https://github.com/etcd-io/etcd/issues/10364
+	// FIXME: Upgrade all etcd package after it jumps into v3.4.
+	// Reference: https://github.com/etcd-io/etcd/blob/master/Documentation/op-guide/configuration.md#logging-flags
 	ec.Logger = "zap"
 	ec.LogOutputs = []string{filepath.Join(opt.LogDir, "etcd.log")}
 

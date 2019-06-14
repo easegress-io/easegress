@@ -19,7 +19,7 @@ const (
 )
 
 type (
-	// MemoryCache is plugin MemoryCache.
+	// MemoryCache is an utility MemoryCache.
 	MemoryCache struct {
 		spec *Spec
 
@@ -32,7 +32,7 @@ type (
 		MaxEntryBytes uint32   `yaml:"maxEntryBytes" v:"gte=1"`
 		Size          uint32   `yaml:"size" v:"gte=1"`
 		Codes         []int    `yaml:"codes" v:"gte=1,unique,dive,httpcode"`
-		Methods       []string `yaml:"methods" v:"gte=1,unique"`
+		Methods       []string `yaml:"methods" v:"gte=1,unique,dive,httpmethod"`
 	}
 
 	cacheEntry struct {

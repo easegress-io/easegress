@@ -68,7 +68,7 @@ type (
 	// instantly calling back after getting real response.
 	ResponseGotFunc = func(ctx context.HTTPContext)
 
-	// HTTPBackend is the command HTTPBackend.
+	// HTTPBackend is the common HTTPBackend.
 	HTTPBackend struct {
 		spec *Spec
 
