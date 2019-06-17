@@ -183,7 +183,7 @@ func (c *cluster) getReady() error {
 		return nil
 	}
 
-	if c.members.knownMembersLen() > 1 {
+	if !c.opt.ForceNewCluster && c.members.knownMembersLen() > 1 {
 		client, _ := c.getClient()
 		if client != nil {
 			err := c.addSelfToCluster()
@@ -211,6 +211,49 @@ func (c *cluster) getReady() error {
 	err = c.initLease()
 	if err != nil {
 		return fmt.Errorf("init lease failed: %v", err)
+	}
+
+	return nil
+}
+
+func (c *cluster) addSelfToCluster() error {
+	client, err := c.getClient()
+	if err != nil {
+		return err
+	}
+
+	respList, err := client.MemberList(c.requestContext())
+	if err != nil {
+		return err
+	}
+
+	self := c.members.self()
+
+	for _, member := range respList.Members {
+		if self.Name == member.Name {
+			_, err := client.MemberRemove(c.requestContext(), member.ID)
+			if err != nil {
+				return err
+			}
+			logger.Infof("remove %s from member list", self.Name)
+			break
+		}
+	}
+
+	respAdd, err := client.MemberAdd(c.requestContext(), []string{c.opt.ClusterPeerURL})
+	if err != nil {
+		return err
+	}
+	logger.Infof("add %s to member list", self.Name)
+
+	c.members.updateClusterMembers(respAdd.Members)
+
+	if !common.IsDirEmpty(c.opt.AbsDataDir) {
+		logger.Infof("backup and clean %s", c.opt.AbsDataDir)
+		err = common.BackupAndCleanDir(c.opt.AbsDataDir)
+		if err != nil {
+			logger.Errorf("backup and clean %s failed: %v", c.opt.AbsDataDir, err)
+		}
 	}
 
 	return nil
@@ -388,8 +431,20 @@ func (c *cluster) getServer() (*embed.Etcd, error) {
 }
 
 func closeEtcdServer(s *embed.Etcd) {
-	s.Close()
-	<-s.Server.StopNotify()
+	select {
+	case <-s.Server.ReadyNotify():
+		s.Close()
+		<-s.Server.StopNotify()
+	default:
+		s.Server.HardStop()
+		logger.Infof("hard stop server")
+	}
+	for _, client := range s.Clients {
+		client.Close()
+	}
+	for _, peer := range s.Peers {
+		peer.Close()
+	}
 }
 
 func (c *cluster) startServer() (done, timeout chan struct{}, err error) {
@@ -451,55 +506,6 @@ func (c *cluster) closeServer() {
 	}
 
 	closeEtcdServer(c.server)
-}
-
-func (c *cluster) addSelfToCluster() error {
-	client, err := c.getClient()
-	if err != nil {
-		return err
-	}
-
-	respList, err := client.MemberList(c.requestContext())
-	if err != nil {
-		return err
-	}
-
-	self := c.members.self()
-
-	for _, member := range respList.Members {
-		if self.isMe(member) {
-			c.members.updateClusterMembers(respList.Members)
-			return nil
-		}
-	}
-
-	for _, member := range respList.Members {
-		if self.isOlderMe(member) {
-			_, err := client.MemberRemove(c.requestContext(), member.ID)
-			if err != nil {
-				return err
-			}
-			logger.Infof("remove then add %s "+
-				"because it got different id %x from local store %x",
-				self.Name, member.ID, self.ID)
-			break
-		}
-	}
-
-	respAdd, err := client.MemberAdd(c.requestContext(), []string{c.opt.ClusterPeerURL})
-	if err != nil {
-		return err
-	}
-
-	c.members.updateClusterMembers(respAdd.Members)
-
-	logger.Infof("backup and clean %s", c.opt.AbsDataDir)
-	err = common.BackupAndCleanDir(c.opt.AbsDataDir)
-	if err != nil {
-		logger.Errorf("backup clean %s failed: %v", c.opt.AbsDataDir, err)
-	}
-
-	return nil
 }
 
 func (c *cluster) heartbeat() {
