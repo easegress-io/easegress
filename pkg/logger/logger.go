@@ -20,10 +20,10 @@ func Init(opt *option.Options) {
 }
 
 const (
-	gatewayFilename          = "gateway.log"
-	httpPluginAccessFilename = "http_access.log"
-	httpPluginDumpFilename   = "http_dump.log"
-	restAPIFilename          = "rest_access.log"
+	stdoutFilename           = "stdout.log"
+	pluginHTTPAccessFilename = "plugin_http_access.log"
+	pluginHTTPDumpFilename   = "plugin_http_dump.log"
+	adminAPIFilename         = "admin_api.log"
 )
 
 var (
@@ -59,7 +59,7 @@ func initDefault(opt *option.Options) {
 		lowestLevel = zap.DebugLevel
 	}
 
-	fr, err := newFileReopener(filepath.Join(opt.LogDir, gatewayFilename))
+	fr, err := newFileReopener(filepath.Join(opt.AbsLogDir, stdoutFilename))
 	if err != nil {
 		common.Exit(1, err.Error())
 	}
@@ -79,12 +79,12 @@ func initDefault(opt *option.Options) {
 }
 
 func initHTTPPlugin(opt *option.Options) {
-	httpPluginAccessLogger = newPlainLogger(opt, httpPluginAccessFilename)
-	httpPluginDumpLogger = newPlainLogger(opt, httpPluginDumpFilename)
+	httpPluginAccessLogger = newPlainLogger(opt, pluginHTTPAccessFilename)
+	httpPluginDumpLogger = newPlainLogger(opt, pluginHTTPDumpFilename)
 }
 
 func initRestAPI(opt *option.Options) {
-	restAPILogger = newPlainLogger(opt, restAPIFilename)
+	restAPILogger = newPlainLogger(opt, adminAPIFilename)
 }
 
 func newPlainLogger(opt *option.Options, filename string) *zap.Logger {
@@ -98,7 +98,7 @@ func newPlainLogger(opt *option.Options, filename string) *zap.Logger {
 		LineEnding:    zapcore.DefaultLineEnding,
 	}
 
-	fr, err := newFileReopener(filepath.Join(opt.LogDir, filename))
+	fr, err := newFileReopener(filepath.Join(opt.AbsLogDir, filename))
 	if err != nil {
 		common.Exit(1, err.Error())
 	}

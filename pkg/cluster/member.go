@@ -1,98 +1,403 @@
 package cluster
 
 import (
-	"crypto/sha256"
+	"bytes"
+	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
-	"time"
+	"sync"
 
+	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/option"
+
+	pb "go.etcd.io/etcd/etcdserver/etcdserverpb"
 	yaml "gopkg.in/yaml.v2"
 )
 
-type members struct {
-	Members []member `yaml:"members"`
-}
-
-type member struct {
-	Name         string `yaml:"name"`
-	PeerListener string `yaml:"peer_listener"`
-}
-
 const (
-	KNOWN_MEMBERS_CFG_FILE = "members.yaml"
+	membersFilename       = "members.yaml"
+	membersBackupFilename = "members.bak.yaml"
 )
 
-func newMembers() *members {
-	members := new(members)
-	members.Members = make([]member, 0, 1)
+type (
+	members struct {
+		sync.RWMutex `yaml:"-"`
 
-	return members
-}
+		opt        *option.Options
+		file       string
+		backupFile string
+		lastBuff   []byte
 
-func (m *members) save2file(filename string) error {
+		selfIDChanged bool
 
-	_, err := os.Stat(filename)
-	if err == nil {
-		bytes, err := ioutil.ReadFile(filename)
-		if err != nil {
-			return err
-		}
+		ClusterMembers *membersSlice `yaml:"clusterMembers"`
+		KnownMembers   *membersSlice `yaml:"knownMembers"`
+	}
 
-		// review: save to a backup dir
-		backupFilename := filename + "." + time.Now().Format("2006-01-02T15:04:05.999") + ".bak"
-		err = ioutil.WriteFile(backupFilename, bytes, 0644)
-		if err != nil {
-			return err
+	// membersSlice carrys unique members whose PeerURL is the primary id.
+	membersSlice []*member
+
+	member struct {
+		ID      uint64 `yaml:"id"`
+		Name    string `yaml:"name"`
+		PeerURL string `yaml:"peerURL"`
+	}
+)
+
+func newMembers(opt *option.Options) (*members, error) {
+	m := &members{
+		opt:        opt,
+		file:       filepath.Join(opt.AbsMemberDir, membersFilename),
+		backupFile: filepath.Join(opt.AbsMemberDir, membersBackupFilename),
+
+		ClusterMembers: newMemberSlices(),
+		KnownMembers:   newMemberSlices(),
+	}
+
+	initMS := make(membersSlice, 0)
+	if opt.ClusterPeerURL != "" {
+		initMS = append(initMS, &member{
+			Name:    opt.Name,
+			PeerURL: opt.ClusterPeerURL,
+		})
+	}
+	m.ClusterMembers.update(initMS)
+
+	if opt.ClusterJoinURLs != "" {
+		peerURLs := strings.Split(opt.ClusterJoinURLs, ",")
+		for _, peerURL := range peerURLs {
+			initMS = append(initMS, &member{
+				PeerURL: peerURL,
+			})
 		}
 	}
-	bytes, _ := yaml.Marshal(m)
-	err = ioutil.WriteFile(filename+".tmp", bytes, 0644)
+	m.KnownMembers.update(initMS)
+
+	err := m.load()
+	if err != nil {
+		return nil, err
+	}
+
+	return m, nil
+}
+
+func (m *members) fileExist() bool {
+	_, err := os.Stat(m.file)
+	return !os.IsNotExist(err)
+}
+
+func (m *members) load() error {
+	if !m.fileExist() {
+		return nil
+	}
+
+	buff, err := ioutil.ReadFile(m.file)
 	if err != nil {
 		return err
 	}
 
-	os.Rename(filename+".tmp", filename)
-
-	return err
-
-}
-
-func (m *members) loadFromFile(filename string) error {
-	content, err := ioutil.ReadFile(filename)
+	membersToLoad := &members{}
+	err = yaml.Unmarshal(buff, membersToLoad)
 	if err != nil {
 		return err
 	}
 
-	err = yaml.Unmarshal(content, m)
-	return err
+	m.ClusterMembers.update(*membersToLoad.ClusterMembers)
+	m.KnownMembers.update(*membersToLoad.KnownMembers)
+
+	return nil
 }
 
-func (m *members) Len() int {
-	return len(m.Members)
-}
-
-func (m *members) Swap(i, j int) {
-	m.Members[i], m.Members[j] = m.Members[j], m.Members[i]
-}
-
-func (m *members) Less(i, j int) bool {
-	if m.Members[i].Name != m.Members[j].Name {
-		return m.Members[i].Name < m.Members[j].Name
+// store protected by callers.
+func (m *members) store() {
+	buff, err := yaml.Marshal(m)
+	if err != nil {
+		logger.Errorf("BUG: get yaml of %#v failed: %v", m.KnownMembers, err)
+	}
+	if bytes.Equal(m.lastBuff, buff) {
+		return
 	}
 
-	return m.Members[i].PeerListener < m.Members[j].PeerListener
-
-}
-
-func (m *members) Sum256() [sha256.Size]byte {
-	sort.Sort(m)
-	str := strings.Builder{}
-	for _, item := range m.Members {
-		str.WriteString(item.Name)
-		str.WriteString(item.PeerListener)
+	if m.fileExist() {
+		err := os.Rename(m.file, m.backupFile)
+		if err != nil {
+			logger.Errorf("rename %s to %s failed: %v",
+				m.file, m.backupFile, err)
+			return
+		}
 	}
 
-	return sha256.Sum256([]byte(str.String()))
+	err = ioutil.WriteFile(m.file, buff, 0644)
+	if err != nil {
+		logger.Errorf("write file %s failed: %v", m.file, err)
+	} else {
+		m.lastBuff = buff
+		logger.Infof("store clusterMembers: %s", m.ClusterMembers)
+		logger.Infof("store knownMembers  : %s", m.KnownMembers)
+	}
+}
+
+func (m *members) self() *member {
+	m.RLock()
+	defer m.RUnlock()
+	return m._self()
+}
+
+func (m *members) _self() *member {
+	// NOTE: use clusterMembers before KnownMembers
+	// owing to getting real-time ID if possible.
+	s := m.ClusterMembers.getByName(m.opt.Name)
+	if s != nil {
+		return s
+	}
+
+	s = m.KnownMembers.getByName(m.opt.Name)
+	if s != nil {
+		return s
+	}
+
+	logger.Errorf("BUG: can't get self from cluster members: %s "+
+		"knownMembers: %s", m.ClusterMembers, m.KnownMembers)
+	return &member{
+		Name:    m.opt.Name,
+		PeerURL: m.opt.ClusterPeerURL,
+	}
+}
+
+func (m *members) _selfWithoutID() *member {
+	s := m._self()
+	s.ID = 0
+	return s
+}
+
+func (m *members) isSelfIDChanged() bool {
+	return m.selfIDChanged
+}
+
+func (m *members) clusterMembersLen() int {
+	m.RLock()
+	defer m.RUnlock()
+	return m.ClusterMembers.Len()
+}
+
+func (m *members) updateClusterMembers(pbMembers []*pb.Member) {
+	m.Lock()
+	defer m.Unlock()
+
+	olderSelfID := m._self().ID
+
+	ms := pbMembersToMembersSlice(pbMembers)
+	// NOTE: The member list of result of MemberAdd carrys empty name
+	// of the adding member which is myself.
+	ms.update(membersSlice{m._selfWithoutID()})
+	m.ClusterMembers.replace(ms)
+
+	selfID := m._self().ID
+	if selfID != olderSelfID {
+		logger.Infof("self ID changed from %x to %x", olderSelfID, selfID)
+		m.selfIDChanged = true
+	}
+
+	// NOTE: KnownMembers store members as many as possible
+	m.KnownMembers.update(*m.ClusterMembers)
+
+	m.store()
+}
+
+func (m *members) knownMembersLen() int {
+	m.RLock()
+	defer m.RUnlock()
+	return m.KnownMembers.Len()
+}
+
+// NOTE: Maybe use it in future in case of connecting
+// one member purged but running at another etcd cluster.
+func (m *members) deleteKnownMember(name string) {
+	m.Lock()
+	defer m.Unlock()
+
+	// NOTE: It's fine to delete myself,
+	// becasue it will restore myself in newMembers while restarting.
+	m.KnownMembers.deleteByName(name)
+	m.store()
+}
+
+func (m *members) knownPeerURLs() []string {
+	m.RLock()
+	defer m.RUnlock()
+
+	return m.KnownMembers.peerURLs()
+}
+
+func (m *members) initCluster() string {
+	m.RLock()
+	defer m.RUnlock()
+
+	return m.ClusterMembers.initCluster()
+}
+
+func pbMembersToMembersSlice(pbMembers []*pb.Member) membersSlice {
+	ms := make(membersSlice, 0)
+	for _, pbMember := range pbMembers {
+		var peerURL string
+		if len(pbMember.PeerURLs) > 0 {
+			peerURL = pbMember.PeerURLs[0]
+		}
+		ms = append(ms, &member{
+			ID:      pbMember.ID,
+			Name:    pbMember.Name,
+			PeerURL: peerURL,
+		})
+	}
+	return ms
+}
+
+func newMemberSlices() *membersSlice {
+	return &membersSlice{}
+}
+
+func (ms membersSlice) Len() int           { return len(ms) }
+func (ms membersSlice) Swap(i, j int)      { ms[i], ms[j] = ms[j], ms[i] }
+func (ms membersSlice) Less(i, j int) bool { return ms[i].Name < ms[j].Name }
+
+func (ms membersSlice) String() string {
+	ss := make([]string, 0)
+	for _, member := range ms {
+		name := "<emptyName>"
+		if member.Name != "" {
+			name = member.Name
+		}
+		ss = append(ss, fmt.Sprintf("%s(%x)=%s", name, member.ID, member.PeerURL))
+	}
+
+	return strings.Join(ss, ",")
+}
+
+func (ms membersSlice) peerURLs() []string {
+	ss := make([]string, 0)
+	for _, m := range ms {
+		ss = append(ss, m.PeerURL)
+	}
+	return ss
+}
+
+func (ms membersSlice) initCluster() string {
+	ss := make([]string, 0)
+	for _, m := range ms {
+		if m.Name != "" {
+			ss = append(ss, fmt.Sprintf("%s=%s", m.Name, m.PeerURL))
+		}
+	}
+	return strings.Join(ss, ",")
+}
+
+// update adds the member if there is not the member.
+// updates the Name(not empty) of the member with the same PeerURL.
+func (ms *membersSlice) update(updateMembers membersSlice) {
+	for _, updateMember := range updateMembers {
+		if updateMember.PeerURL == "" {
+			continue
+		}
+		found := false
+		for _, m := range *ms {
+			if m.PeerURL == updateMember.PeerURL {
+				found = true
+				if updateMember.Name != "" {
+					m.Name = updateMember.Name
+				}
+				if updateMember.ID != 0 {
+					m.ID = updateMember.ID
+				}
+			}
+		}
+		if !found {
+			*ms = append(*ms, updateMember)
+		}
+	}
+
+	sort.Sort(*ms)
+}
+
+// replace replaces membersSlice with the replaceMembers.
+func (ms *membersSlice) replace(replaceMembers membersSlice) {
+	*ms = replaceMembers
+}
+
+func (ms *membersSlice) getByName(name string) *member {
+	if name == "" {
+		return nil
+	}
+	for _, m := range *ms {
+		if m.Name == name {
+			return &member{
+				ID:      m.ID,
+				Name:    m.Name,
+				PeerURL: m.PeerURL,
+			}
+		}
+	}
+
+	return nil
+}
+
+func (ms *membersSlice) getByPeerURL(peerURL string) *member {
+	if peerURL == "" {
+		return nil
+	}
+	for _, m := range *ms {
+		if m.PeerURL == peerURL {
+			return &member{
+				ID:      m.ID,
+				Name:    m.Name,
+				PeerURL: m.PeerURL,
+			}
+		}
+	}
+
+	return nil
+}
+
+func (ms *membersSlice) deleteByName(name string) {
+	msDeleted := make(membersSlice, 0)
+	for _, m := range *ms {
+		if m.Name == name {
+			continue
+		}
+		msDeleted = append(msDeleted, m)
+	}
+	*ms = msDeleted
+}
+
+func (ms *membersSlice) deleteByPeerURL(peerURL string) {
+	msDeleted := make(membersSlice, 0)
+	for _, m := range *ms {
+		if m.PeerURL == peerURL {
+			continue
+		}
+		msDeleted = append(msDeleted, m)
+	}
+	*ms = msDeleted
+}
+
+func (m *member) isMe(pbMember *pb.Member) bool {
+	if m.ID != 0 && m.ID == pbMember.ID {
+		return true
+	}
+
+	if m.ID == 0 && m.Name == pbMember.Name {
+		return true
+	}
+
+	return false
+}
+
+func (m *member) isOlderMe(pbMember *pb.Member) bool {
+	if m.Name == pbMember.Name && m.ID != 0 && m.ID != pbMember.ID {
+		return true
+	}
+
+	return false
 }
