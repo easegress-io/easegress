@@ -165,12 +165,16 @@ func (s *Scheduler) handleKvs(kvs map[string]*string) {
 
 func (s *Scheduler) handleDelete(name string) {
 	if su, exists := s.serverUnits[name]; exists {
+		key := fmt.Sprintf(cluster.StatusObjectFormat, name)
+		s.cls.Delete(key)
 		su.close()
 		delete(s.serverUnits, name)
 		return
 	}
 
 	if pu, exists := s.proxyUnits[name]; exists {
+		key := fmt.Sprintf(cluster.StatusObjectFormat, name)
+		s.cls.Delete(key)
 		pu.close()
 		delete(s.proxyUnits, name)
 		return
