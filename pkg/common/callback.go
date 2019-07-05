@@ -43,7 +43,7 @@ type namedCallbackWithIdx struct {
 type NamedCallbackSet struct {
 	// critical callback takes low index, normal callback takes high index
 	callbacks []*NamedCallback                 // index for access by order
-	names     map[string]*namedCallbackWithIdx // index for access by callback name
+	names     map[string]*namedCallbackWithIdx // index for access by callback constant
 
 }
 
