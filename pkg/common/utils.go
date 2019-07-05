@@ -223,7 +223,7 @@ var URL_FRIENDLY_CHARACTERS_REGEX = regexp.MustCompile(`^[A-Za-z0-9\-_\.~]{1,253
 
 func ValidateName(name string) error {
 	if !URL_FRIENDLY_CHARACTERS_REGEX.Match([]byte(name)) {
-		return fmt.Errorf("invalid name: %s", name)
+		return fmt.Errorf("invalid constant: %s", name)
 	}
 
 	return nil

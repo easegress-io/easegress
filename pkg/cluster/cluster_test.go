@@ -229,7 +229,7 @@ func defineCluster(clusterName string, portChannel string) ([]*cluster, []*optio
 	for i := 0; i < NODE_NUM; i++ {
 		options[i] = option.New()
 
-		// verify default Name
+		// verify default name
 		if i%2 == 0 {
 			options[i].Name = "egtest-" + strconv.Itoa(i)
 		}
