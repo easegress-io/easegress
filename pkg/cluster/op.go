@@ -1,104 +1,105 @@
 package cluster
 
 import (
-	"context"
-	"fmt"
-	"time"
-
 	"go.etcd.io/etcd/clientv3"
 )
 
-// PutUnderLease stores data which will be eliminated when the lease expired or revoked,
-// so the caller should update the data periodically.
+// PutUnderLease stores data under lease.
+// The lifecycle of lease is the same with the member,
+// it will be revoked after purging the member.
 func (c *cluster) PutUnderLease(key, value string) error {
-	if !c.Started() {
-		return fmt.Errorf("etcd cluster not Started() yet")
+	client, err := c.getClient()
+	if err != nil {
+		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), c.etcdTimeoutInMilli*time.Millisecond)
-	_, err := c.client.Put(ctx, key, value, clientv3.WithLease(c.session.Lease()))
-	cancel()
+	lease, err := c.getLease()
+	if err != nil {
+		return err
+	}
+
+	_, err = client.Put(c.requestContext(), key, value, clientv3.WithLease(lease))
 
 	return err
 }
 
 func (c *cluster) Put(key, value string) error {
-	if !c.Started() {
-		return fmt.Errorf("etcd cluster not Started() yet")
+	client, err := c.getClient()
+	if err != nil {
+		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), c.etcdTimeoutInMilli*time.Millisecond)
-	defer cancel()
-	_, err := c.client.Put(ctx, key, value)
+	_, err = client.Put(c.requestContext(), key, value)
+
 	return err
 }
 
 func (c *cluster) PutAndDeleteUnderLease(kvs map[string]*string) error {
-	if !c.Started() {
-		return fmt.Errorf("etcd cluster not Started() yet")
-	}
-
 	return c.putAndDelete(kvs, true)
-
 }
 
 func (c *cluster) PutAndDelete(kvs map[string]*string) error {
-	if !c.Started() {
-		return fmt.Errorf("etcd cluster not Started() yet")
-	}
-
 	return c.putAndDelete(kvs, false)
 }
 
 func (c *cluster) putAndDelete(kvs map[string]*string, underLease bool) error {
+	client, err := c.getClient()
+	if err != nil {
+		return err
+	}
+
+	lease, err := c.getLease()
+	if err != nil {
+		return err
+	}
+
 	var ops []clientv3.Op
 	for k, v := range kvs {
 		if v != nil {
 			var opts []clientv3.OpOption
 			if underLease {
-				opts = append(opts, clientv3.WithLease(c.session.Lease()))
+				opts = append(opts, clientv3.WithLease(lease))
 			}
 			ops = append(ops, clientv3.OpPut(k, *v, opts...))
 		} else {
 			ops = append(ops, clientv3.OpDelete(k))
 		}
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), c.etcdTimeoutInMilli*time.Millisecond)
-	defer cancel()
-	_, err := c.client.Txn(ctx).Then(ops...).Commit()
+
+	_, err = client.Txn(c.requestContext()).Then(ops...).Commit()
+
 	return err
 }
 
 func (c *cluster) Delete(key string) error {
-	if !c.Started() {
-		return fmt.Errorf("etcd cluster not Started() yet")
+	client, err := c.getClient()
+	if err != nil {
+		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), c.etcdTimeoutInMilli*time.Millisecond)
-	defer cancel()
-	_, err := c.client.Delete(ctx, key)
+	_, err = client.Delete(c.requestContext(), key)
+
 	return err
 }
 
 func (c *cluster) DeletePrefix(prefix string) error {
-	if !c.Started() {
-		return fmt.Errorf("etcd cluster not Started() yet")
+	client, err := c.getClient()
+	if err != nil {
+		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), c.etcdTimeoutInMilli*time.Millisecond)
-	defer cancel()
-	_, err := c.client.Delete(ctx, prefix, clientv3.WithPrefix())
+	_, err = client.Delete(c.requestContext(), prefix, clientv3.WithPrefix())
+
 	return err
 }
 
 func (c *cluster) Get(key string) (*string, error) {
-	if !c.Started() {
-		return nil, fmt.Errorf("etcd cluster not Started() yet")
+	client, err := c.getClient()
+	if err != nil {
+		return nil, err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), c.etcdTimeoutInMilli*time.Millisecond)
-	resp, err := c.client.Get(ctx, key)
-	cancel()
+	resp, err := client.Get(c.requestContext(), key)
 	if err != nil {
 		return nil, err
 	}
@@ -106,19 +107,18 @@ func (c *cluster) Get(key string) (*string, error) {
 	if len(resp.Kvs) == 0 {
 		return nil, nil
 	}
-
 	value := string(resp.Kvs[0].Value)
+
 	return &value, nil
 }
 
 func (c *cluster) GetPrefix(prefix string) (map[string]string, error) {
-	if !c.Started() {
-		return nil, fmt.Errorf("etcd cluster not Started() yet")
+	client, err := c.getClient()
+	if err != nil {
+		return nil, err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), c.etcdTimeoutInMilli*time.Millisecond)
-	defer cancel()
-	resp, err := c.client.Get(ctx, prefix, clientv3.WithPrefix())
+	resp, err := client.Get(c.requestContext(), prefix, clientv3.WithPrefix())
 	if err != nil {
 		return nil, err
 	}

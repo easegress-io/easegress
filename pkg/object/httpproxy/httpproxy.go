@@ -47,7 +47,6 @@ type (
 	// Spec describes the HTTPProxy.
 	Spec struct {
 		registry.MetaSpec `yaml:",inline"`
-		Server            string `yaml:"server" v:"required"`
 
 		Fallback *proxyFallbackSpec `yaml:"fallback,omitempty"`
 

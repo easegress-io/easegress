@@ -1,7 +1,6 @@
 package scheduler
 
 import (
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -34,6 +33,7 @@ type (
 	// Scheduler is the brain to schedule all http objects.
 	Scheduler struct {
 		cls        cluster.Cluster
+		prefix     string
 		configChan <-chan map[string]*string
 
 		serverUnits map[string]*serverUnit
@@ -80,25 +80,26 @@ func (pu *proxyUnit) close() {
 	pu.runtime.Close()
 }
 
-// New creates a Scheduler.
-func New(cls cluster.Cluster) (*Scheduler, error) {
+// MustNew creates a Scheduler.
+func MustNew(cls cluster.Cluster) *Scheduler {
 	s := &Scheduler{
 		cls:         cls,
+		prefix:      cls.Layout().ConfigObjectPrefix(),
 		serverUnits: make(map[string]*serverUnit),
 		proxyUnits:  make(map[string]*proxyUnit),
 		handlers:    &sync.Map{},
 		done:        make(chan struct{}),
 	}
 
-	configChan, err := s.cls.WatchPrefix(cluster.ConfigObjectPrefix)
+	configChan, err := s.cls.WatchPrefix(s.prefix)
 	if err != nil {
-		return nil, fmt.Errorf("watch config objects failed: %v", err)
+		logger.Errorf("scheduler watch config objects failed: %v", err)
 	}
 	s.configChan = configChan
 
 	go s.schedule()
 
-	return s, nil
+	return s
 }
 
 func (s *Scheduler) schedule() {
@@ -114,6 +115,7 @@ func (s *Scheduler) schedule() {
 			if ok {
 				s.handleKvs(kvs)
 			} else {
+				logger.Errorf("watch %s failed", s.prefix)
 				s.handleWatchFailed()
 			}
 		}
@@ -122,7 +124,7 @@ func (s *Scheduler) schedule() {
 
 func (s *Scheduler) handleRewatchIfNeed() {
 	if s.configChan == nil {
-		configChan, err := s.cls.WatchPrefix(cluster.ConfigObjectPrefix)
+		configChan, err := s.cls.WatchPrefix(s.prefix)
 		if err != nil {
 			logger.Errorf("watch config objects failed: %v", err)
 		} else {
@@ -137,7 +139,7 @@ func (s *Scheduler) handleWatchFailed() {
 
 func (s *Scheduler) handleKvs(kvs map[string]*string) {
 	for k, v := range kvs {
-		name := strings.TrimPrefix(k, cluster.ConfigObjectPrefix)
+		name := strings.TrimPrefix(k, s.cls.Layout().ConfigObjectPrefix())
 		if v == nil {
 			s.handleDelete(name)
 			continue
@@ -165,18 +167,16 @@ func (s *Scheduler) handleKvs(kvs map[string]*string) {
 
 func (s *Scheduler) handleDelete(name string) {
 	if su, exists := s.serverUnits[name]; exists {
-		key := fmt.Sprintf(cluster.StatusObjectFormat, name)
-		s.cls.Delete(key)
 		su.close()
 		delete(s.serverUnits, name)
+		s.cls.Delete(s.cls.Layout().StatusObjectKey(name))
 		return
 	}
 
 	if pu, exists := s.proxyUnits[name]; exists {
-		key := fmt.Sprintf(cluster.StatusObjectFormat, name)
-		s.cls.Delete(key)
 		pu.close()
 		delete(s.proxyUnits, name)
+		s.cls.Delete(s.cls.Layout().StatusObjectKey(name))
 		return
 	}
 }
@@ -228,7 +228,7 @@ func (s *Scheduler) handleSyncStatus() {
 				status, err)
 			continue
 		}
-		key := fmt.Sprintf(cluster.StatusObjectFormat, name)
+		key := s.cls.Layout().StatusObjectKey(name)
 		value := string(buff)
 		kvs[key] = &value
 	}
@@ -240,7 +240,7 @@ func (s *Scheduler) handleSyncStatus() {
 				status, err)
 			continue
 		}
-		key := fmt.Sprintf(cluster.StatusObjectFormat, name)
+		key := s.cls.Layout().StatusObjectKey(name)
 		value := string(buff)
 		kvs[key] = &value
 	}

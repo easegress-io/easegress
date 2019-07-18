@@ -25,9 +25,6 @@ type (
 		KeyBase64         string `yaml:"keyBase64" v:"omitempty,base64"`
 		CacheSize         uint32 `yaml:"cacheSize" v:"omitempty"`
 
-		// TODO: Rewrites
-		Rewrites []Rewrite `yaml:"rewrites" v:"dive"`
-
 		IPFilter *ipfilter.Spec `yaml:"ipFilter" v:"omitempty"`
 		Rules    []Rule         `yaml:"rules" v:"dive"`
 	}

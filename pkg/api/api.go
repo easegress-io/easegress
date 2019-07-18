@@ -32,16 +32,17 @@ const (
 	// APIPrefix is the prefix of api.
 	APIPrefix = "/apis/v3"
 
-	lockKey     = "/config/lock"
-	lockTimeout = 10 * time.Second
+	lockKey = "/config/lock"
 )
 
 // Server is the api server.
 type Server struct {
 	app     *iris.Application
 	cluster cluster.Cluster
-	mutex   cluster.Mutex
 	apis    []*apiEntry
+
+	mutex      cluster.Mutex
+	mutexMutex sync.Mutex
 }
 
 // MustNewServer creates an api server.
@@ -55,7 +56,11 @@ func MustNewServer(opt *option.Options, cluster cluster.Cluster) *Server {
 	s := &Server{
 		app:     app,
 		cluster: cluster,
-		mutex:   cluster.Mutex(lockKey, lockTimeout),
+	}
+
+	_, err := s.getMutex()
+	if err != nil {
+		logger.Errorf("get cluster mutex %s failed: %v", lockKey, err)
 	}
 
 	s.setupAPIs()
@@ -150,9 +155,32 @@ func (s *Server) Close(wg *sync.WaitGroup) {
 	s.app.Shutdown(context.Background())
 }
 
+func (s *Server) getMutex() (cluster.Mutex, error) {
+	s.mutexMutex.Lock()
+	defer s.mutexMutex.Unlock()
+
+	if s.mutex != nil {
+		return s.mutex, nil
+	}
+
+	mutex, err := s.cluster.Mutex(lockKey)
+	if err != nil {
+		return nil, err
+	}
+
+	s.mutex = mutex
+
+	return s.mutex, nil
+}
+
 // Lock locks cluster operations.
 func (s *Server) Lock() {
-	err := s.mutex.Lock()
+	mutex, err := s.getMutex()
+	if err != nil {
+		clusterPanic(err)
+	}
+
+	err = mutex.Lock()
 	if err != nil {
 		clusterPanic(err)
 	}
@@ -160,7 +188,12 @@ func (s *Server) Lock() {
 
 // Unlock unlocks cluster operations.
 func (s *Server) Unlock() {
-	err := s.mutex.Unlock()
+	mutex, err := s.getMutex()
+	if err != nil {
+		clusterPanic(err)
+	}
+
+	err = mutex.Unlock()
 	if err != nil {
 		clusterPanic(err)
 	}

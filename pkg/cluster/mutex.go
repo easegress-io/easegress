@@ -7,11 +7,7 @@ import (
 	"go.etcd.io/etcd/clientv3/concurrency"
 )
 
-const (
-	// mutex config
-	mutexTTL = 10 // Second
-)
-
+// Mutex is a cluster level mutex.
 type Mutex interface {
 	Lock() error
 	Unlock() error
@@ -23,17 +19,27 @@ type mutex struct {
 }
 
 func (m *mutex) Lock() error {
-	ctx, _ := context.WithTimeout(newCtx(), m.timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), m.timeout)
+	defer cancel()
+
 	return m.m.Lock(ctx)
 }
 
 func (m *mutex) Unlock() error {
-	return m.m.Unlock(newCtx())
+	ctx, cancel := context.WithTimeout(context.Background(), m.timeout)
+	defer cancel()
+
+	return m.m.Unlock(ctx)
 }
 
-func (c *cluster) Mutex(name string, timeout time.Duration) Mutex {
-	m := &mutex{timeout: timeout}
-	m.m = concurrency.NewMutex(c.session, name)
+func (c *cluster) Mutex(name string) (Mutex, error) {
+	session, err := c.getSession()
+	if err != nil {
+		return nil, err
+	}
 
-	return m
+	return &mutex{
+		m:       concurrency.NewMutex(session, name),
+		timeout: c.requestTimeout,
+	}, nil
 }

@@ -1,64 +1,149 @@
 package cluster
 
 import (
-	"io/ioutil"
-	"math/rand"
+	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
-	"strconv"
+	"reflect"
+	"sort"
+	"testing"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"github.com/megaease/easegateway/pkg/env"
+	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/option"
+
+	"github.com/phayes/freeport"
+	pb "go.etcd.io/etcd/etcdserver/etcdserverpb"
 )
 
-var _ = Describe("Etcd Members", func() {
-	var (
-		members  = newMembers()
-		filename = filepath.Join(os.TempDir(), "members.yaml")
-	)
+const tempDir = "/tmp/eg-test"
 
-	BeforeEach(func() {
-		randPort := strconv.Itoa(rand.Intn(10000) + 1024)
-		members.Members = append(members.Members, member{Name: "host1-127.0.0.1:" + randPort, PeerListener: "http://127.0.0.1:" + randPort})
-		members.Members = append(members.Members, member{Name: "m2", PeerListener: "http://127.0.0.1:2390"})
+var memberCounter = 0
 
-		os.RemoveAll(filename)
-
+func TestMain(m *testing.M) {
+	absLogDir := filepath.Join(tempDir, "global-log")
+	os.MkdirAll(absLogDir, 0755)
+	logger.Init(&option.Options{
+		Name:      "member-for-log",
+		AbsLogDir: absLogDir,
 	})
 
-	Specify("With members", func() {
-		By("Save the members to a file", func() {
-			err := members.save2file(filename)
-			Expect(err).To(BeNil())
-			Expect(filename).To(BeAnExistingFile(), "Members should be save to file %s", filename)
-		})
+	code := m.Run()
 
-		By("Load from the file immediately", func() {
-			reloaded := newMembers()
-			err := reloaded.loadFromFile(filename)
-			Expect(err).To(BeNil())
-			Expect(reloaded.Sum256()).To(Equal(members.Sum256()), "The loaded data from %s, should be the same as the original.", filename)
-		})
+	logger.Sync()
+	os.RemoveAll(tempDir)
 
-		By("Add a member", func() {
-			members.Members = append(members.Members, member{Name: "m3", PeerListener: "http://127.0.0.1:2390"})
-			err := members.save2file(filename)
-			Expect(err).To(BeNil())
+	os.Exit(code)
+}
 
-			info, err := ioutil.ReadDir(os.TempDir())
-			Expect(err).To(BeNil())
+func mockTestOpt() *option.Options {
+	ports, err := freeport.GetFreePorts(3)
+	if err != nil {
+		panic(fmt.Errorf("get 3 free ports failed: %v", err))
+	}
 
-			foundBackupFile := false
-			for _, f := range info {
-				foundBackupFile, err = regexp.Match("members\\.yaml.*\\.bak", []byte(f.Name()))
-				if foundBackupFile {
-					break
-				}
+	memberCounter++
+	name := fmt.Sprintf("test-member-%03d", memberCounter)
+
+	opt := &option.Options{
+		Name:                  name,
+		ClusterName:           "test-cluster",
+		ClusterRole:           "writer",
+		ClusterRequestTimeout: "10s",
+		ClusterClientURL:      fmt.Sprintf("http://localhost:%d", ports[0]),
+		ClusterPeerURL:        fmt.Sprintf("http://localhost:%d", ports[1]),
+		APIAddr:               fmt.Sprintf("localhost:%d", ports[2]),
+
+		HomeDir:   filepath.Join(tempDir, name),
+		DataDir:   "data",
+		LogDir:    "log",
+		MemberDir: "member",
+
+		Debug: false,
+	}
+	_, err = opt.Parse()
+	if err != nil {
+		panic(fmt.Errorf("parse option failed: %v", err))
+	}
+
+	return opt
+}
+
+func mockMembers(count int) ([]*option.Options, membersSlice, []*pb.Member) {
+	opts := make([]*option.Options, count)
+	members := make(membersSlice, count)
+	pbMembers := make([]*pb.Member, count)
+	for i := 0; i < count; i++ {
+		opt := mockTestOpt()
+
+		id := uint64(i + 1)
+
+		opts[i] = opt
+		members[i] = &member{
+			ID:      id,
+			Name:    opt.Name,
+			PeerURL: opt.ClusterPeerURL,
+		}
+		pbMembers[i] = &pb.Member{
+			ID:         id,
+			Name:       opt.Name,
+			PeerURLs:   []string{opt.ClusterPeerURL},
+			ClientURLs: []string{opt.ClusterClientURL},
+		}
+
+		env.InitServerDir(opt)
+	}
+
+	sort.Sort(members)
+
+	return opts, members, pbMembers
+}
+
+func TestUpdateClusterMembers(t *testing.T) {
+	opts, ms, pbMembers := mockMembers(9)
+
+	newTestMembers := func() *members {
+		m, err := newMembers(opts[0])
+		if err != nil {
+			panic(fmt.Errorf("new memebrs failed: %v", err))
+		}
+		return m
+	}
+
+	tests := []struct {
+		name  string
+		want  membersSlice
+		input []*pb.Member
+	}{
+		{
+			name:  "1 member",
+			want:  membersSlice{ms[0]},
+			input: pbMembers[0:1],
+		},
+		{
+			name:  "5 member",
+			want:  ms[0:5],
+			input: pbMembers[0:5],
+		},
+		{
+			name:  "9 member",
+			want:  ms[0:9],
+			input: pbMembers[0:9],
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := newTestMembers()
+
+			m.updateClusterMembers(tt.input)
+			got := m.ClusterMembers
+			fmt.Printf("got : %+v\n", *got)
+			fmt.Printf("want: %+v\n", tt.want)
+
+			if !reflect.DeepEqual(*got, tt.want) {
+				t.Fatalf("ClusterMembers want %v, got %v", tt.want, got)
 			}
-
-			Expect(foundBackupFile).To(BeTrue(), "A backup file should be generated")
-
 		})
-	})
-})
+	}
+}

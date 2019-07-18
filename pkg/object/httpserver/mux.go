@@ -14,9 +14,6 @@ import (
 	"github.com/megaease/easegateway/pkg/util/ipfilter"
 )
 
-// TODO:
-// 1. Rewrites
-
 type (
 	mux struct {
 		spec     *Spec
