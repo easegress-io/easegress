@@ -5,13 +5,15 @@ import (
 	"net/url"
 	"path/filepath"
 
-	"github.com/megaease/easegateway/pkg/option"
+	"github.com/megaease/easegateway/pkg/common"
 
+	"github.com/megaease/easegateway/pkg/logger"
 	"go.etcd.io/etcd/embed"
 )
 
-func generateEtcdConfigFromOption(opt *option.Options, initCluster string) (*embed.Config, error) {
+func (c *cluster) prepareEtcdConfig() (*embed.Config, error) {
 	ec := embed.NewConfig()
+	opt := c.opt
 
 	peerURL, err := url.Parse(opt.ClusterPeerURL)
 	if err != nil {
@@ -25,8 +27,8 @@ func generateEtcdConfigFromOption(opt *option.Options, initCluster string) (*emb
 
 	ec.Name = opt.Name
 
-	ec.Dir = opt.DataDir
-	ec.WalDir = opt.WALDir
+	ec.Dir = opt.AbsDataDir
+	ec.WalDir = opt.AbsWALDir
 	ec.InitialClusterToken = opt.ClusterName
 	ec.EnableV2 = false
 	ec.LPUrls = []url.URL{*peerURL}
@@ -39,18 +41,23 @@ func generateEtcdConfigFromOption(opt *option.Options, initCluster string) (*emb
 	// FIXME: Upgrade all etcd package after it jumps into v3.4.
 	// Reference: https://github.com/etcd-io/etcd/blob/master/Documentation/op-guide/configuration.md#logging-flags
 	ec.Logger = "zap"
-	ec.LogOutputs = []string{filepath.Join(opt.LogDir, "etcd.log")}
+	ec.LogOutputs = []string{filepath.Join(opt.AbsLogDir, "etcd.log")}
 
-	if opt.IsBootstrapWriter {
-		// Bootstrap a new cluster.
+	ec.ClusterState = embed.ClusterStateFlagExisting
+	if c.opt.ForceNewCluster {
 		ec.ClusterState = embed.ClusterStateFlagNew
-		ec.InitialCluster = fmt.Sprintf("%s=%s", ec.Name, opt.ClusterPeerURL)
-		ec.ForceNewCluster = opt.ForceNewCluster
+		ec.ForceNewCluster = true
+		self := c.members.self()
+		ec.InitialCluster = fmt.Sprintf("%s=%s", self.Name, self.PeerURL)
 	} else {
-		// Add this member to the existed cluster.
-		ec.ClusterState = embed.ClusterStateFlagExisting
-		ec.InitialCluster = initCluster
+		if c.members.ClusterMembers.Len() == 1 && common.IsDirEmpty(c.opt.AbsDataDir) {
+			ec.ClusterState = embed.ClusterStateFlagNew
+		}
+		ec.InitialCluster = c.members.initCluster()
 	}
+
+	logger.Infof("etcd config: init-cluster:%s cluster-state:%s force-new-cluster:%v",
+		ec.InitialCluster, ec.ClusterState, ec.ForceNewCluster)
 
 	return ec, nil
 }

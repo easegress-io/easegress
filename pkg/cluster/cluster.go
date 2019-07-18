@@ -2,193 +2,239 @@ package cluster
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
-	"github.com/ghodss/yaml"
-	"go.etcd.io/etcd/clientv3"
-	"go.etcd.io/etcd/clientv3/concurrency"
-	"go.etcd.io/etcd/embed"
-	"go.etcd.io/etcd/etcdserver/api/v2stats"
-	pb "go.etcd.io/etcd/etcdserver/etcdserverpb"
+	"github.com/megaease/easegateway/pkg/common"
 
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/option"
-)
 
-func initGlobalFromOption(opt *option.Options) {
-	MemberConfigKey = MemberConfigPrefix + opt.Name
-	MemberConfigValue = opt.YAML()
-	StatusObjectFormat = "/status/objects/%s/" + opt.Name
-}
-
-// Cluster store tree layout.
-var (
-	MemberConfigPrefix = "/runtime/members/config/"
-	MemberStatusPrefix = "/runtime/members/status/"
-
-	ConfigObjectPrefix = "/config/objects/"
-
-	StatusObjectPrefixFormat = "/status/objects/%s/" // + objectName
-
-	// Global vars assigned from initGlobalFromOption
-	MemberConfigKey    string
-	MemberConfigValue  string
-	StatusObjectFormat string
+	"go.etcd.io/etcd/clientv3"
+	"go.etcd.io/etcd/clientv3/concurrency"
+	"go.etcd.io/etcd/embed"
+	yaml "gopkg.in/yaml.v2"
 )
 
 const (
+	// HeartbeatInterval is the interval for heartbeat.
+	HeartbeatInterval = 5 * time.Second
+
+	// waitServerTimeout is the timeout for waiting server to start.
+	waitServerTimeout = 5 * time.Second
+
 	// client config
 	autoSyncInterval     = 1 * time.Minute
 	dialTimeout          = 10 * time.Second
 	dialKeepAliveTime    = 1 * time.Minute
 	dialKeepAliveTimeout = 1 * time.Minute
 
+	// session config
+	sessionTTL = 10 // Second
+
 	// lease config
-	sessionTTL      = 60 // Second
-	registerTimeout = 10 * time.Second
+	leaseTTL = clientv3.MaxLeaseTTL // 9000000000Second=285Year
 )
 
+type (
+	// MemberStatus is the member status.
+	MemberStatus struct {
+		Options option.Options `yaml:"options"`
+
+		// RFC3339 format
+		LastHeartbeatTime string `yaml:"lastHeartbeatTime"`
+
+		// Etcd is non-nil only it is a writer.
+		Etcd *EtcdStatus `yaml:"etcd,omitempty"`
+	}
+
+	// EtcdStatus is the etcd status,
+	// and extracts fields from server.Server.SelfStats.
+	EtcdStatus struct {
+		ID        string `yaml:"id"`
+		StartTime string `yaml:"startTime"`
+		State     string `yaml:"state"`
+	}
+
+	// etcdStats aims to extract fields from server.Server.SelfStats.
+	etcdStats struct {
+		ID        string    `json:"id"`
+		State     string    `json:"state"`
+		StartTime time.Time `json:"startTime"`
+	}
+)
+
+func strTolease(s string) (clientv3.LeaseID, error) {
+	lease, err := strconv.ParseInt(s, 16, 64)
+	if err != nil {
+		return 0, err
+	}
+	return clientv3.LeaseID(lease), nil
+}
+
+func newEtcdStats(buff []byte) (*etcdStats, error) {
+	stats := etcdStats{}
+	err := json.Unmarshal(buff, &stats)
+	if err != nil {
+		return nil, err
+	}
+
+	return &stats, nil
+}
+
+func (s *etcdStats) toEtcdStatus() *EtcdStatus {
+	return &EtcdStatus{
+		ID:        s.ID,
+		State:     strings.TrimPrefix(s.State, "State"),
+		StartTime: s.StartTime.Format(time.RFC3339),
+	}
+}
+
 type cluster struct {
-	Cluster
-	server                *embed.Etcd
-	client                *clientv3.Client
-	session               *concurrency.Session
-	closed                int32
-	started               int32
-	canceLearnEtcdMembers context.CancelFunc
-	etcdTimeoutInMilli    time.Duration
-	name                  string
+	opt            *option.Options
+	requestTimeout time.Duration
+
+	layout *Layout
+
+	members *members
+
+	server       *embed.Etcd
+	client       *clientv3.Client
+	lease        *clientv3.LeaseID
+	session      *concurrency.Session
+	serverMutex  sync.RWMutex
+	clientMutex  sync.RWMutex
+	leaseMutex   sync.RWMutex
+	sessionMutex sync.RWMutex
+
+	done chan struct{}
 }
 
-// New creates an etcd instance and start to serve.
-//
-// The instance can be a writer or reader, depending on the config in opt.
-//
-// New return a new `cluster` instance immediately
-func New(opt *option.Options) (Cluster, chan struct{}, error) {
-	initGlobalFromOption(opt)
-
-	c := &cluster{}
-	done := make(chan struct{})
-
-	c.etcdTimeoutInMilli = time.Duration(opt.EtcdRequestTimeoutInMilli)
-	c.name = opt.Name
-
-	knownMembers := newMembers()
-	_ = knownMembers.loadFromFile(filepath.Join(opt.ConfDir, KNOWN_MEMBERS_CFG_FILE))
-
-	switch {
-	case opt.ClusterRole == "writer":
-		switch {
-		case hasLearntMembers(knownMembers):
-			opt.ClusterJoinURLs = "do not use when there's known members"
-			logger.Infof("etcd member %s start as peer2peer elector from known members", opt.Name)
-			go c.startEtcdSErverAndElection(knownMembers, opt, done)
-		case isBoostrapLeader(opt):
-			logger.Infof("etcd member %s start as bootstrap leader, accept other joiners", opt.Name)
-			go c.startBootstrapEtcdServer(opt, done)
-		default:
-			logger.Infof("etcd member %s start as fresh joiner to the bootstrap leader", opt.Name)
-			go c.joinEtcdClusterAndRetry(opt, done)
-		}
-	case opt.ClusterRole == "reader":
-		switch {
-		case hasLearntMembers(knownMembers):
-			logger.Infof("etcd member %s start as reader by connecting to known members ", opt.Name)
-			go c.subscribe2EtcdclusterByKnownMembers(knownMembers, opt, done)
-		default:
-			logger.Infof("etcd member %s start as fresh reader by connecting to bootstrap leaser", opt.Name)
-			go c.subscribe2Etcdcluster(opt, done)
-		}
-	default:
-		close(done)
-		return nil, done, fmt.Errorf("unknown etcd property opt.CluserRole: %s", opt.ClusterRole)
-	}
-
-	c.registerService(opt, done)
-
-	go etcd_heartbeat(c)
-
-	go func(done chan struct{}) {
-		<-done
-		var canceLearnCtx context.Context
-		canceLearnCtx, c.canceLearnEtcdMembers = context.WithCancel(context.Background())
-		c.learnEtcdMembers(canceLearnCtx, opt)
-	}(done)
-
-	return c, done, nil
-}
-
-// isFollower returns `true` if the member is a etcd follower.
-// Only a writer can check if it's a `follower` or `boostrapleader`
-func isFollower(opt *option.Options) bool {
-	return opt.ClusterJoinURLs != ""
-}
-
-// isBoostrapLeader returns `true` if the member is a etcd boostrap leader.
-// A bootstrapLeader will start a new etcd cluster and elect itself as leader, waiting other followers to join.
-// Only a writer can check if it's a `follower` or `boostrap leader`.
-func isBoostrapLeader(opt *option.Options) bool {
-	return opt.IsBootstrapWriter
-}
-
-// hasLearntMembers returns `true` if the node access the etcd cluster and learned all the members in the etcd cluster.
-// The node needn't to depends on the single boostrap leader since it can connect to any of the members.
-func hasLearntMembers(knownMembers *members) bool {
-	return len(knownMembers.Members) > 0
-}
-
-func (c *cluster) createEtcdCluster(opt *option.Options, initCluster string, knownMembers *members, done chan struct{}) error {
-	var err error
-	err = c.createEtcdServer(opt, initCluster)
+// New creates a cluster asynchronously,
+// return non-nil err only if reaching hard limit.
+func New(opt *option.Options) (Cluster, error) {
+	// defensive programming
+	requestTimeout, err := time.ParseDuration(opt.ClusterRequestTimeout)
 	if err != nil {
-		logger.Errorf("node %s failed start etcd instance  %s, err: %v",
-			opt.Name, opt.ClusterName, err)
-		return err
+		return nil, fmt.Errorf("invalid cluster request timeout: %v", err)
 	}
 
-	err = c.createEtcdClient([]string{opt.ClusterClientURL})
+	members, err := newMembers(opt)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("new members failed: %v", err)
 	}
 
-	logger.Infof("node %s succeeded start etcd instance in cluster %s",
-		opt.Name, opt.ClusterName)
-	close(done)
-	return nil
+	c := &cluster{
+		opt:            opt,
+		requestTimeout: requestTimeout,
+		members:        members,
+		done:           make(chan struct{}),
+	}
+
+	c.initLayout()
+
+	go c.run()
+
+	return c, nil
 }
 
-func (c *cluster) createEtcdServer(opt *option.Options, initCluster string) error {
-	ec, err := generateEtcdConfigFromOption(opt, initCluster)
-	if err != nil {
-		return err
-	}
-
-	c.server, err = embed.StartEtcd(ec)
-	if err != nil {
-		return err
-	}
-
-	<-c.server.Server.ReadyNotify()
+// requestContext returns context with request timeout,
+// please use it immediately in case of incorrect timeout.
+func (c *cluster) requestContext() context.Context {
+	ctx, cancel := context.WithTimeout(context.Background(), c.requestTimeout)
 	go func() {
-		err = <-c.server.Err()
-		c.server.Close()
-		logger.Errorf("node %s closed for error: %s", c.server.Config().Name, err.Error())
+		time.Sleep(c.requestTimeout)
+		cancel()
 	}()
+	return ctx
+}
+
+func (c *cluster) run() {
+	for {
+		err := c.getReady()
+		if err != nil {
+			logger.Errorf("%v", err)
+			time.Sleep(HeartbeatInterval)
+			continue
+		}
+
+		break
+	}
+
+	logger.Infof("cluster is ready")
+
+	c.heartbeat()
+}
+
+func (c *cluster) getReady() error {
+	if c.opt.ClusterRole == "reader" {
+		_, err := c.getClient()
+		if err != nil {
+			return err
+		}
+		err = c.initLease()
+		if err != nil {
+			return fmt.Errorf("init lease failed: %v", err)
+		}
+		return nil
+	}
+
+	if c.members.knownMembersLen() > 1 {
+		client, _ := c.getClient()
+		if client != nil {
+			err := c.addSelfToCluster()
+			if err != nil {
+				logger.Errorf("add self to cluster failed: %v", err)
+			}
+		}
+	}
+
+	done, timeout, err := c.startServer()
+	if err != nil {
+		return fmt.Errorf("start server failed: %v", err)
+	}
+
+	select {
+	case <-done:
+		_, err = c.getClient()
+		if err != nil {
+			return err
+		}
+	case <-timeout:
+		return fmt.Errorf("start server timeout")
+	}
+
+	err = c.initLease()
+	if err != nil {
+		return fmt.Errorf("init lease failed: %v", err)
+	}
 
 	return nil
 }
 
-func (c *cluster) createEtcdClient(endpoints []string) error {
-	var err error
-	c.client, err = clientv3.New(clientv3.Config{
-		Endpoints:            endpoints,
+func (c *cluster) getClient() (*clientv3.Client, error) {
+	c.clientMutex.RLock()
+	if c.client != nil {
+		client := c.client
+		c.clientMutex.RUnlock()
+		return client, nil
+	}
+	c.clientMutex.RUnlock()
+
+	c.clientMutex.Lock()
+	defer c.clientMutex.Unlock()
+
+	// DCL
+	if c.client != nil {
+		return c.client, nil
+	}
+
+	client, err := clientv3.New(clientv3.Config{
+		Endpoints:            c.members.knownPeerURLs(),
 		AutoSyncInterval:     autoSyncInterval,
 		DialTimeout:          dialTimeout,
 		DialKeepAliveTime:    dialKeepAliveTime,
@@ -196,362 +242,381 @@ func (c *cluster) createEtcdClient(endpoints []string) error {
 	})
 
 	if err != nil {
-		return fmt.Errorf("create etcd client failed: %v", err)
+		return nil, fmt.Errorf("create client failed: %v", err)
+	}
+
+	logger.Infof("client is ready")
+
+	c.client = client
+
+	return client, nil
+}
+
+func (c *cluster) closeClient() {
+	c.clientMutex.Lock()
+	defer c.clientMutex.Unlock()
+
+	if c.client == nil {
+		return
+	}
+
+	err := c.client.Close()
+	if err != nil {
+		logger.Errorf("close client failed: %v", err)
+	}
+
+	c.client = nil
+}
+
+func (c *cluster) getLease() (clientv3.LeaseID, error) {
+	c.leaseMutex.RLock()
+	defer c.leaseMutex.RUnlock()
+	if c.lease == nil {
+		return 0, fmt.Errorf("lease is not ready")
+	}
+	return *c.lease, nil
+}
+
+func (c *cluster) initLease() error {
+	_, err := c.getLease()
+	if err == nil {
+		return nil
+	}
+
+	leaseStr, err := c.Get(c.Layout().Lease())
+	if err != nil {
+		return err
+	}
+
+	if leaseStr != nil {
+		lease, err := strTolease(*leaseStr)
+		if err != nil {
+			logger.Errorf("BUG: parse lease %s failed: %v", *leaseStr, err)
+			return err
+		}
+
+		c.leaseMutex.Lock()
+		c.lease = &lease
+		logger.Infof("lease is ready")
+		c.leaseMutex.Unlock()
+
+		return nil
+	}
+
+	client, err := c.getClient()
+	if err != nil {
+		return err
+	}
+
+	respGrant, err := client.Lease.Grant(c.requestContext(), leaseTTL)
+	if err != nil {
+		return err
+	}
+	lease := respGrant.ID
+
+	// NOTE: In case of deadlock with calling PutUnderLease below.
+	c.leaseMutex.Lock()
+	c.lease = &lease
+	logger.Infof("lease is ready")
+	c.leaseMutex.Unlock()
+
+	err = c.PutUnderLease(c.Layout().Lease(), fmt.Sprintf("%x", lease))
+	if err != nil {
+		return fmt.Errorf("put lease to %s failed: %v",
+			c.Layout().Lease(), err)
 	}
 
 	return nil
 }
 
-func newCtx() context.Context {
-	return context.Background()
+func (c *cluster) getSession() (*concurrency.Session, error) {
+	c.sessionMutex.RLock()
+	if c.session != nil {
+		session := c.session
+		c.sessionMutex.RUnlock()
+		return session, nil
+	}
+	c.sessionMutex.RUnlock()
+
+	c.sessionMutex.Lock()
+	defer c.sessionMutex.Unlock()
+
+	// DCL
+	if c.session != nil {
+		return c.session, nil
+	}
+
+	client, err := c.getClient()
+	if err != nil {
+		return nil, err
+	}
+
+	session, err := concurrency.NewSession(client,
+		concurrency.WithTTL(sessionTTL))
+	if err != nil {
+		return nil, fmt.Errorf("create session failed: %v", err)
+	}
+
+	logger.Infof("session is ready")
+
+	return session, nil
 }
 
-func (c *cluster) joinEtcdClusterAndRetry(opt *option.Options, done chan struct{}) {
-	count := 0
-	for {
-		var err error
-		err = c.joinEtcdCluster(opt)
-		if err == nil {
-			logger.Infof("node %s joined cluster %s ", opt.Name, opt.ClusterName)
-			close(done)
+func (c *cluster) closeSession() {
+	c.sessionMutex.Lock()
+	defer c.sessionMutex.Unlock()
+
+	if c.session == nil {
+		return
+	}
+
+	err := c.session.Close()
+	if err != nil {
+		logger.Errorf("close session failed: %v", err)
+	}
+
+	c.session = nil
+}
+
+func (c *cluster) getServer() (*embed.Etcd, error) {
+	c.serverMutex.RLock()
+	defer c.serverMutex.RUnlock()
+	if c.server == nil {
+		return nil, fmt.Errorf("server is not ready")
+	}
+	return c.server, nil
+}
+
+func closeEtcdServer(s *embed.Etcd) {
+	s.Close()
+	<-s.Server.StopNotify()
+}
+
+func (c *cluster) startServer() (done, timeout chan struct{}, err error) {
+	c.serverMutex.Lock()
+	defer c.serverMutex.Unlock()
+
+	done, timeout = make(chan struct{}), make(chan struct{})
+	if c.server != nil {
+		close(done)
+		return done, timeout, nil
+	}
+
+	etcdConfig, err := c.prepareEtcdConfig()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	server, err := embed.StartEtcd(etcdConfig)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	monitorServer := func(s *embed.Etcd) {
+		select {
+		case err := <-s.Err():
+			logger.Errorf("%s serve faield: %v",
+				c.server.Config().Name, err.Error())
+			closeEtcdServer(s)
+		case <-c.done:
 			return
 		}
+	}
 
-		count++
-		if count%10 == 0 {
-			logger.Errorf("node %s failed to join cluster %s, having retried for %d times, the last error: %s ", opt.Name, opt.ClusterName, count, err)
+	go func() {
+		select {
+		case <-c.done:
+			return
+		case <-server.Server.ReadyNotify():
+			c.server = server
+			go monitorServer(c.server)
+			logger.Infof("server is ready")
+			close(done)
+		case <-time.After(waitServerTimeout):
+			closeEtcdServer(server)
+			close(timeout)
 		}
+	}()
 
-		time.Sleep(1 * time.Second)
+	return done, timeout, nil
+
+}
+
+func (c *cluster) closeServer() {
+	c.serverMutex.Lock()
+	defer c.serverMutex.Unlock()
+
+	if c.server == nil {
+		return
+	}
+
+	closeEtcdServer(c.server)
+}
+
+func (c *cluster) addSelfToCluster() error {
+	client, err := c.getClient()
+	if err != nil {
+		return err
+	}
+
+	respList, err := client.MemberList(c.requestContext())
+	if err != nil {
+		return err
+	}
+
+	self := c.members.self()
+
+	for _, member := range respList.Members {
+		if self.isMe(member) {
+			c.members.updateClusterMembers(respList.Members)
+			return nil
+		}
+	}
+
+	for _, member := range respList.Members {
+		if self.isOlderMe(member) {
+			_, err := client.MemberRemove(c.requestContext(), member.ID)
+			if err != nil {
+				return err
+			}
+			logger.Infof("remove then add %s "+
+				"because it got different id %x from local store %x",
+				self.Name, member.ID, self.ID)
+			break
+		}
+	}
+
+	respAdd, err := client.MemberAdd(c.requestContext(), []string{c.opt.ClusterPeerURL})
+	if err != nil {
+		return err
+	}
+
+	c.members.updateClusterMembers(respAdd.Members)
+
+	logger.Infof("backup and clean %s", c.opt.AbsDataDir)
+	err = common.BackupAndCleanDir(c.opt.AbsDataDir)
+	if err != nil {
+		logger.Errorf("backup clean %s failed: %v", c.opt.AbsDataDir, err)
+	}
+
+	return nil
+}
+
+func (c *cluster) heartbeat() {
+	for {
+		select {
+		case <-time.After(HeartbeatInterval):
+			err := c.syncStatus()
+			if err != nil {
+				logger.Errorf("sync status failed: %v", err)
+			}
+			err = c.updateMembers()
+			if err != nil {
+				logger.Errorf("update members failed: %v", err)
+			}
+		case <-c.done:
+			return
+		}
 	}
 }
 
-func (c *cluster) joinEtcdCluster(opt *option.Options) error {
-	err := c.createEtcdClient(strings.Split(opt.ClusterJoinURLs, ","))
-	if err != nil {
-		return err
+func (c *cluster) syncStatus() error {
+	status := MemberStatus{
+		Options: *c.opt,
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), c.etcdTimeoutInMilli*time.Millisecond)
-	defer cancel()
-	listResp, err := c.client.MemberList(ctx)
-	if err != nil {
-		return err
-	}
-	pbMembers := listResp.Members
-
-	if !containsMember(listResp.Members, opt.Name) {
-		ctx, cancel := context.WithTimeout(context.Background(), c.etcdTimeoutInMilli*time.Millisecond)
-		defer cancel()
-		addResp, err := c.client.MemberAdd(ctx, []string{opt.ClusterPeerURL})
+	if c.opt.ClusterRole == "writer" {
+		server, err := c.getServer()
 		if err != nil {
 			return err
 		}
-		pbMembers = addResp.Members
-	}
 
-	initCluster := buildInitClusterParam(pbMembers2KnownMembers(pbMembers), opt)
-	err = c.createEtcdServer(opt, strings.Join(initCluster, ","))
-	return err
-}
-
-func pbMembers2KnownMembers(pbmembers []*pb.Member) *members {
-	members := newMembers()
-	for _, m := range pbmembers {
-		members.Members = append(members.Members, member{Name: m.Name, PeerListener: strings.Join(m.PeerURLs, ",")})
-	}
-	return members
-}
-
-func buildInitClusterParam(knownMembers *members, opt *option.Options) []string {
-	initCluster := make([]string, 0)
-	for _, member := range knownMembers.Members {
-		name := member.Name
-		if name == "" {
-			name = opt.Name
+		buff := server.Server.SelfStats()
+		stats, err := newEtcdStats(buff)
+		if err != nil {
+			return err
 		}
-		initCluster = append(initCluster,
-			fmt.Sprintf("%s=%s", name, member.PeerListener))
+		status.Etcd = stats.toEtcdStatus()
 	}
 
-	return initCluster
+	status.LastHeartbeatTime = time.Now().Format(time.RFC3339)
+
+	buff, err := yaml.Marshal(status)
+	if err != nil {
+		return err
+	}
+
+	return c.PutUnderLease(c.Layout().StatusMemberKey(), string(buff))
 }
 
-func containsMember(members []*pb.Member, memberName string) bool {
-	for _, member := range members {
+func (c *cluster) updateMembers() error {
+	client, err := c.getClient()
+	if err != nil {
+		return err
+	}
+
+	resp, err := client.MemberList(c.requestContext())
+	if err != nil {
+		return err
+	}
+
+	c.members.updateClusterMembers(resp.Members)
+
+	return nil
+}
+
+func (c *cluster) PurgeMember(memberName string) error {
+	client, err := c.getClient()
+	if err != nil {
+		return err
+	}
+
+	// remove etcd member if there is it.
+	respList, err := client.MemberList(c.requestContext())
+	if err != nil {
+		return err
+	}
+	var id *uint64
+	for _, member := range respList.Members {
 		if member.Name == memberName {
-			return true
+			id = &member.ID
 		}
 	}
-
-	return false
-}
-
-// registerService registers the conf at /runtime/members/config/<memberName>
-//
-// It will also mark the cluster `started` and ready to serve.
-func (c *cluster) registerService(opt *option.Options, done chan struct{}) {
-	var (
-		count = 0
-		err   error
-	)
-
-	<-done
-
-	for {
-		if err != nil && count%10 == 0 {
-			logger.Errorf("failed to register easegateway member %s  at %s, having retried %d times, the last error: %s",
-				opt.Name, MemberConfigKey, count, err)
-		}
-
-		c.session, err = concurrency.NewSession(c.client,
-			concurrency.WithTTL(sessionTTL))
+	if id != nil {
+		_, err = client.MemberRemove(c.requestContext(), *id)
 		if err != nil {
-			count++
-			continue
-		}
-
-		ctx, cancel := context.WithTimeout(context.Background(), c.etcdTimeoutInMilli*time.Millisecond)
-		_, err = c.client.Put(ctx, MemberConfigKey, opt.YAML())
-		cancel()
-		if err != nil {
-			count++
-			continue
-		}
-
-		atomic.StoreInt32(&c.started, 1)
-
-		logger.Infof("register easegateway member %s at %s", opt.Name, MemberConfigKey)
-		return
-	}
-}
-
-// Update and save etcd members under opt.ConfLog.
-// This function will be run in a job periodically
-func (c *cluster) learnEtcdMembers(ctx context.Context, opt *option.Options) {
-	filename := filepath.Join(opt.ConfDir, KNOWN_MEMBERS_CFG_FILE)
-	var knownMembers = newMembers()
-	knownMembers.loadFromFile(filename)
-LOOP:
-	for {
-		select {
-		case <-ctx.Done():
-			logger.Infof("node %s is shutting down, abort to update etcd knownMembers", opt.Name)
-			break LOOP
-		case <-time.After(2 * time.Second):
-			ctx, cancel := context.WithTimeout(context.Background(), c.etcdTimeoutInMilli*time.Millisecond)
-			listResp, err := c.client.MemberList(ctx)
-			cancel()
-			if err != nil {
-				logger.Errorf("node %s failed to update etcd knownMembers, error: %v", opt.Name, err)
-				continue LOOP
-			}
-
-			var newMembers = newMembers()
-			for _, m := range listResp.Members {
-				newMembers.Members = append(newMembers.Members, member{Name: m.Name,
-					PeerListener: strings.Join(m.PeerURLs, ",")})
-			}
-
-			if newMembers.Sum256() == knownMembers.Sum256() {
-				continue LOOP
-			}
-
-			err = newMembers.save2file(filename)
-			if err != nil {
-				logger.Errorf("node %s failed to save etcd knownMembers into file %s, err: %v",
-					opt.Name, filename, err)
-			} else {
-				knownMembers = newMembers
-				logger.Infof("node %s saved etcd knownMembers into file %s ",
-					opt.Name, filename)
-			}
-		}
-	}
-}
-
-func (c *cluster) startEtcdSErverAndElection(knownMembers *members, opt *option.Options, done chan struct{}) error {
-	initCluster := buildInitClusterParam(knownMembers, opt)
-	return c.createEtcdCluster(opt, strings.Join(initCluster, ","), knownMembers, done)
-}
-
-func (c *cluster) startBootstrapEtcdServer(opt *option.Options, done chan struct{}) error {
-	return c.createEtcdCluster(opt, "", newMembers(), done)
-}
-
-func (c *cluster) subscribe2Etcdcluster(opt *option.Options, done chan struct{}) {
-	count := 0
-	for {
-		err := c.createEtcdClient(strings.Split(opt.ClusterJoinURLs, ","))
-		if err == nil {
-			close(done)
-			return
-		}
-
-		count++
-		if count%10 == 0 {
-			logger.Errorf("etcd client %s failed to connect to the etcd cluster %s,  for %d times.the last error: %s", opt.APIAddr, opt.ClusterName, count, err)
-		}
-
-		time.Sleep(1 * time.Second)
-	}
-}
-
-func (c *cluster) subscribe2EtcdclusterByKnownMembers(knownMembers *members, opt *option.Options, done chan struct{}) {
-	endpoints := make([]string, 0, 5)
-	for _, m := range knownMembers.Members {
-		endpoints = append(endpoints, m.PeerListener)
-	}
-
-	var err error
-	count := 0
-	for {
-		err = c.createEtcdClient(endpoints)
-		if err == nil {
-			close(done)
-			return
-		}
-
-		count++
-		if count%10 == 0 {
-			logger.Errorf("etcd client %s failed to connect to the etcd cluster %s,  for %d times.the last error: %s", opt.APIAddr, opt.ClusterName, count, err)
-		}
-
-		time.Sleep(time.Second)
-	}
-}
-
-func (c *cluster) Leader() string {
-
-	//a reader has no server
-	if c.server == nil {
-		return ""
-	}
-
-	leaderID := c.server.Server.Leader()
-	members := c.server.Server.Cluster().Members()
-	for _, member := range members {
-		if member.ID == leaderID {
-			return member.Name
+			return err
 		}
 	}
 
-	return ""
+	// remove all stuff under the lease of the member.
+	leaseKey := c.Layout().OtherLease(memberName)
+	leaseStr, err := c.Get(leaseKey)
+	if err != nil {
+		return err
+	}
+	if leaseStr == nil {
+		return fmt.Errorf("%s not found", leaseKey)
+	}
+	lease, err := strTolease(*leaseStr)
+	if err != nil {
+		return err
+	}
+
+	_, err = client.Lease.Revoke(c.requestContext(), lease)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (c *cluster) Close(wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	atomic.StoreInt32(&c.started, 0)
-	atomic.StoreInt32(&c.closed, 1)
+	close(c.done)
 
-	c.canceLearnEtcdMembers()
-
-	err := c.session.Close()
-	if err != nil {
-		logger.Errorf("etcd session close faield: %v", err)
-	} else {
-		logger.Infof("etcd session close successfully")
-	}
-
-	c.client.Close()
-
-	//Only a writer owns an etcd server
-	if c.server != nil {
-		c.server.Close()
-		<-c.server.Server.StopNotify()
-		logger.Infof("etcd server close successfully")
-	}
-}
-
-func (c *cluster) Started() bool {
-	value := atomic.LoadInt32(&c.started)
-	return value != 0
-}
-
-func (c *cluster) PurgeMember(member string) error {
-	if !c.Started() {
-		return fmt.Errorf("cluster not ready yet")
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), c.etcdTimeoutInMilli*time.Millisecond)
-	defer cancel()
-	listResp, err := c.client.MemberList(ctx)
-	if err != nil {
-		return err
-	}
-
-	// todo: refuse to remove etcd member if the node is still active
-
-	var id uint64
-	for _, m := range listResp.Members {
-		if m.Name == member {
-			id = m.ID
-			break
-		}
-
-	}
-
-	ctx, cancel = context.WithTimeout(context.Background(), c.etcdTimeoutInMilli*time.Millisecond)
-	defer cancel()
-	_, err = c.client.MemberRemove(ctx, id)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (c *cluster) MemberStatus() MemberStatus {
-	m := MemberStatus{}
-	m.LastHeartbeatTime = time.Now().Unix()
-	m.Name = c.name
-
-	if c.server != nil {
-		m.Role = "writer"
-	} else {
-		m.Role = "reader"
-	}
-
-	if !c.Started() {
-		m.EtcdStatus = "offline"
-		return m
-	}
-
-	if c.server != nil {
-		buff := c.server.Server.SelfStats()
-		state := v2stats.ServerStats{}
-		yaml.Unmarshal(buff, &state)
-
-		m.Name = state.Name
-		m.Id, _ = strconv.ParseUint(state.ID, 16, 64)
-
-		switch state.State.String() {
-		case "StateFollower":
-			m.EtcdStatus = "follower"
-		case "StateLeader":
-			m.EtcdStatus = "leader"
-		default:
-			m.EtcdStatus = "offline"
-		}
-
-		// This is a strange workaround, looks `SelfSates` not accurate or delayed
-		// SelfSate may show it's follower even it's a leader
-		if c.server.Server.Lead() == m.Id {
-			m.EtcdStatus = "leader"
-		}
-
-	} else {
-		ctx, cancel := context.WithTimeout(context.Background(), c.etcdTimeoutInMilli*time.Millisecond)
-		defer cancel()
-		err := c.client.Sync(ctx)
-
-		if err != nil {
-			m.EtcdStatus = "offline"
-		} else {
-			m.EtcdStatus = "subscriber"
-		}
-	}
-
-	return m
+	c.closeSession()
+	c.closeClient()
+	c.closeServer()
 }

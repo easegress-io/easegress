@@ -2,10 +2,12 @@ package cluster
 
 import (
 	"sync"
-	"time"
 )
 
+// Cluster is the open cluster interface.
 type Cluster interface {
+	Layout() *Layout
+
 	Get(key string) (*string, error)
 	GetPrefix(prefix string) (map[string]string, error)
 
@@ -23,14 +25,9 @@ type Cluster interface {
 	Watch(key string) (<-chan *string, error)
 	WatchPrefix(prefix string) (<-chan map[string]*string, error)
 
-	Mutex(name string, timeout time.Duration) Mutex
+	Mutex(name string) (Mutex, error)
 
-	Leader() string
 	Close(wg *sync.WaitGroup)
 
-	Started() bool
-
 	PurgeMember(member string) error
-
-	MemberStatus() MemberStatus
 }

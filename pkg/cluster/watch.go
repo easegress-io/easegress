@@ -1,6 +1,8 @@
 package cluster
 
 import (
+	stdcontext "context"
+
 	"github.com/megaease/easegateway/pkg/logger"
 
 	"go.etcd.io/etcd/clientv3"
@@ -8,7 +10,12 @@ import (
 )
 
 func (c *cluster) Watch(key string) (<-chan *string, error) {
-	getResp, err := c.client.Get(newCtx(), key)
+	client, err := c.getClient()
+	if err != nil {
+		return nil, err
+	}
+
+	getResp, err := client.Get(c.requestContext(), key)
 	if err != nil {
 		return nil, err
 	}
@@ -19,10 +26,13 @@ func (c *cluster) Watch(key string) (<-chan *string, error) {
 		w <- &value
 	}
 
-	watchResp := c.client.Watch(newCtx(), key,
+	// NOTE: can't use Context with timeout here.
+	ctx, cancel := stdcontext.WithCancel(stdcontext.Background())
+	watchResp := client.Watch(ctx, key,
 		clientv3.WithRev(getResp.Header.Revision+1))
 
 	go func() {
+		defer cancel()
 		for resp := range watchResp {
 			if resp.Canceled {
 				logger.Infof("watch key %s canceled", key)
@@ -52,7 +62,12 @@ func (c *cluster) Watch(key string) (<-chan *string, error) {
 }
 
 func (c *cluster) WatchPrefix(prefix string) (<-chan map[string]*string, error) {
-	getResp, err := c.client.Get(newCtx(), prefix, clientv3.WithPrefix())
+	client, err := c.getClient()
+	if err != nil {
+		return nil, err
+	}
+
+	getResp, err := client.Get(c.requestContext(), prefix, clientv3.WithPrefix())
 	if err != nil {
 		return nil, err
 	}
@@ -67,14 +82,17 @@ func (c *cluster) WatchPrefix(prefix string) (<-chan map[string]*string, error) 
 		w <- kvs
 	}
 
-	watchResp := c.client.Watch(newCtx(), prefix,
+	// NOTE: can't use Context with timeout here.
+	ctx, cancel := stdcontext.WithCancel(stdcontext.Background())
+	watchResp := client.Watch(ctx, prefix,
 		clientv3.WithRev(getResp.Header.Revision+1),
 		clientv3.WithPrefix())
 
 	go func() {
+		defer cancel()
 		for resp := range watchResp {
 			if resp.Canceled {
-				logger.Infof("watch prefix %s canceled", prefix)
+				logger.Errorf("watch prefix %s canceled: %v", prefix, resp.Err())
 				break
 			}
 			if resp.IsProgressNotify() {
