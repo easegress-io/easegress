@@ -20,8 +20,13 @@ var unitNewFuncs = map[string]unitNewFunc{
 type (
 	unitNewFunc func(spec registry.Spec, handlers *sync.Map) (unit, error)
 
+	status interface {
+		// In second
+		InjectTimestamp(uint64)
+	}
+
 	unit interface {
-		status() interface{}
+		status() status
 		reload(spec registry.Spec)
 		close()
 	}
@@ -58,7 +63,7 @@ func newServerUnit(spec registry.Spec, handlers *sync.Map) (unit, error) {
 	}, nil
 }
 
-func (su *serverUnit) status() interface{} {
+func (su *serverUnit) status() status {
 	return su.runtime.Status()
 }
 
@@ -95,7 +100,7 @@ func newProxyUnit(spec registry.Spec, handlers *sync.Map) (unit, error) {
 	return pu, nil
 }
 
-func (pu *proxyUnit) status() interface{} {
+func (pu *proxyUnit) status() status {
 	return pu.runtime.Status()
 }
 
@@ -134,7 +139,7 @@ func newSeckillUnit(spec registry.Spec, handlers *sync.Map) (unit, error) {
 	return pu, nil
 }
 
-func (pu *seckillUnit) status() interface{} {
+func (pu *seckillUnit) status() status {
 	return pu.runtime.Status()
 }
 

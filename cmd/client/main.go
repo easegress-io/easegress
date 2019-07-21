@@ -47,8 +47,11 @@ var exampleUsage = `  # List APIs.
   # Update an object from stdout.
   cat <new_object_spec.yaml> | egctl object update
 
+  # list objects status
+  egctl object status list
+
   # Get object status
-  egctl object status <object_name>
+  egctl object status get <object_name>
 `
 
 func main() {

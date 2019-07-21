@@ -109,17 +109,11 @@ func New(spec *Spec, runtime *Runtime) *HTTPProxy {
 
 // DefaultSpec returns HTTPProxy default spec.
 func DefaultSpec() registry.Spec {
-	// FIXME: Do we need provide default spec if spec has some empty subspec.
 	return &Spec{}
 }
 
 // Handle handles all incoming traffic.
 func (hp *HTTPProxy) Handle(ctx context.HTTPContext) {
-	defer ctx.OnFinish(func() {
-		hp.runtime.rate1.Update(1)
-		hp.runtime.durationSampler.Update(ctx.Duration())
-	})
-
 	hp.preHandle(ctx)
 	if ctx.Cancelled() {
 		return

@@ -44,6 +44,8 @@ type (
 		Header() *httpheader.HTTPHeader
 
 		Body() io.Reader
+
+		Size() uint64 // bytes
 	}
 
 	// HTTPReponse is all operations for HTTP response.
@@ -56,5 +58,7 @@ type (
 		SetBody(body io.Reader)
 		Body() io.Reader
 		OnFlushBody(func(body []byte, complete bool) (newBody []byte))
+
+		Size() uint64 // bytes
 	}
 )

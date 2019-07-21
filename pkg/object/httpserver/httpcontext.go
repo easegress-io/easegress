@@ -148,6 +148,6 @@ func (ctx *httpContext) Log() string {
 		"[%s]",
 		ctx.startTime.Format(time.RFC3339),
 		stdr.RemoteAddr, ctx.r.RealIP(), stdr.Method, stdr.RequestURI, stdr.Proto, ctx.w.code,
-		ctx.Duration(), ctx.r.body.Count(), ctx.w.bodyWritten,
+		ctx.Duration(), ctx.r.Size(), ctx.w.Size(),
 		strings.Join(ctx.tags, " | "))
 }

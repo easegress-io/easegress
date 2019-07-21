@@ -1,5 +1,9 @@
 package mirrorbackend
 
+import (
+	"github.com/megaease/easegateway/pkg/util/httpbackend"
+)
+
 type (
 
 	// Runtime contains runtime info of MirrorBackend.
@@ -8,9 +12,7 @@ type (
 	}
 
 	// Status contains status info of MirrorBackend.
-	Status struct {
-		Codes map[string]map[int]uint64 `yaml:"codes"`
-	}
+	Status = httpbackend.Status
 )
 
 // NewRuntime creates a MirrorBackend runtime.
@@ -20,9 +22,7 @@ func NewRuntime() *Runtime {
 
 // Status returns status.
 func (r *Runtime) Status() *Status {
-	return &Status{
-		Codes: r.mb.backend.Codes(),
-	}
+	return r.mb.backend.Status()
 }
 
 // Close closes Runtime.

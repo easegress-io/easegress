@@ -30,7 +30,9 @@ func New(spec *Spec, runtime *Runtime) *Backend {
 }
 
 // Close closes Backend.
-func (b *Backend) Close() {}
+func (b *Backend) Close() {
+	b.backend.Close()
+}
 
 // Handle handles HTTPContext.
 func (b *Backend) Handle(ctx context.HTTPContext) {

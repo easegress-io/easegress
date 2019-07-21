@@ -1,5 +1,9 @@
 package candidatebackend
 
+import (
+	"github.com/megaease/easegateway/pkg/util/httpbackend"
+)
+
 type (
 
 	// Runtime contains runtime info of CandidateBackend.
@@ -8,9 +12,7 @@ type (
 	}
 
 	// Status contains status info of CandidateBackend.
-	Status struct {
-		Codes map[string]map[int]uint64 `yaml:"codes"`
-	}
+	Status = httpbackend.Status
 )
 
 // NewRuntime creates a CandidateBackend runtime.
@@ -20,9 +22,7 @@ func NewRuntime() *Runtime {
 
 // Status returns status.
 func (r *Runtime) Status() *Status {
-	return &Status{
-		Codes: r.cb.backend.Codes(),
-	}
+	return r.cb.backend.Status()
 }
 
 // Close closes Runtime.

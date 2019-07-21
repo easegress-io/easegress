@@ -8,7 +8,8 @@ import "fmt"
 const (
 	leaseFormat              = "/leases/%s" //+memberName
 	statusMemberPrefix       = "/status/members/"
-	statusMemberFormat       = "/status/members/%s"    // +memberName
+	statusMemberFormat       = "/status/members/%s" // +memberName
+	statusObjectPrefix       = "/status/objects/"
 	statusObjectPrefixFormat = "/status/objects/%s/"   // +objectName
 	statusObjectFormat       = "/status/objects/%s/%s" // +objectName +memberName
 	configObjectPrefix       = "/config/objects/"
@@ -57,6 +58,11 @@ func (l *Layout) StatusMemberKey() string {
 // OtherStatusMemberKey returns the key of given member status.
 func (l *Layout) OtherStatusMemberKey(memberName string) string {
 	return fmt.Sprintf(statusMemberFormat, memberName)
+}
+
+// StatusObjectsPrefix returns the prefix of objects status.
+func (l *Layout) StatusObjectsPrefix() string {
+	return statusObjectPrefix
 }
 
 // StatusObjectPrefix returns the prefix of object status.

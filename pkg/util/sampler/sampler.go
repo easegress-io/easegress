@@ -13,6 +13,10 @@ type (
 	}
 )
 
+func nanoToMilli(f float64) uint64 {
+	return uint64(f) / 1000000
+}
+
 // NewDurationSampler creates a DurationSampler.
 func NewDurationSampler() *DurationSampler {
 	return &DurationSampler{
@@ -26,22 +30,28 @@ func (ds *DurationSampler) Update(d time.Duration) {
 	ds.sample.Update(int64(d))
 }
 
-// P50 returns the duration greater than 50%.
-func (ds *DurationSampler) P50() time.Duration {
-	return time.Duration(ds.sample.Percentile(0.5))
+// P50 returns the duration in millisecond greater than 50%.
+func (ds *DurationSampler) P50() uint64 {
+	return nanoToMilli(ds.sample.Percentile(0.5))
 }
 
-// P90 returns the duration greater than 90%.
-func (ds *DurationSampler) P90() time.Duration {
-	return time.Duration(ds.sample.Percentile(0.9))
+// P95 returns the duration in millisecond greater than 95%.
+func (ds *DurationSampler) P95() uint64 {
+	return nanoToMilli(ds.sample.Percentile(0.95))
 }
 
-// P95 returns the duration greater than 95%.
-func (ds *DurationSampler) P95() time.Duration {
-	return time.Duration(ds.sample.Percentile(0.95))
+// P99 returns the duration in millisecond greater than 99%.
+func (ds *DurationSampler) P99() uint64 {
+	return nanoToMilli(ds.sample.Percentile(0.99))
 }
 
-// P99 returns the duration greater than 99%.
-func (ds *DurationSampler) P99() time.Duration {
-	return time.Duration(ds.sample.Percentile(0.99))
+// P50P95P99 wraps other stat functions in calling once.
+func (ds *DurationSampler) P50P95P99() (uint64, uint64, uint64) {
+	ps := ds.sample.Percentiles([]float64{0.5, 0.95, 0.99})
+	return nanoToMilli(ps[0]), nanoToMilli(ps[2]), nanoToMilli(ps[2])
+}
+
+// Count return total count of DurationSampler.
+func (ds *DurationSampler) Count() uint64 {
+	return uint64(ds.sample.Count())
 }

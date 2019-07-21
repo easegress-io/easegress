@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/megaease/easegateway/pkg/registry"
+
+	yaml "gopkg.in/yaml.v2"
 )
 
 func (s *Server) _purgeMember(memberName string) {
@@ -65,17 +67,51 @@ func (s *Server) _deleteObject(name string) {
 	}
 }
 
-func (s *Server) _getObjectStatus(name string) map[string]string {
+func (s *Server) _getStatusObject(name string) map[string]string {
 	prefix := s.cluster.Layout().StatusObjectPrefix(name)
 	kvs, err := s.cluster.GetPrefix(prefix)
 	if err != nil {
 		clusterPanic(err)
 	}
 
-	statuses := make(map[string]string)
+	status := make(map[string]string)
 	for k, v := range kvs {
-		statuses[strings.TrimPrefix(k, prefix)] = v
+		// NOTE: Here omitting the step yaml.Unmarshal in _listStatusObjects.
+		status[strings.TrimPrefix(k, prefix)] = v
 	}
 
-	return statuses
+	return status
+}
+
+func (s *Server) _listStatusObjects() map[string]map[string]interface{} {
+	prefix := s.cluster.Layout().StatusObjectsPrefix()
+	kvs, err := s.cluster.GetPrefix(prefix)
+	if err != nil {
+		clusterPanic(err)
+	}
+
+	status := make(map[string]map[string]interface{})
+	for k, v := range kvs {
+		k = strings.TrimPrefix(k, prefix)
+
+		om := strings.Split(k, "/")
+		if len(om) != 2 {
+			clusterPanic(fmt.Errorf("the key %s can't be split into two fields by /", k))
+		}
+		objectName, memberName := om[0], om[1]
+		_, exists := status[objectName]
+		if !exists {
+			status[objectName] = make(map[string]interface{})
+		}
+
+		// NOTE: This needs top-level of the status to be a map.
+		i := map[string]interface{}{}
+		err = yaml.Unmarshal([]byte(v), &i)
+		if err != nil {
+			clusterPanic(fmt.Errorf("unmarshal %s to yaml failed: %v", v, err))
+		}
+		status[objectName][memberName] = i
+	}
+
+	return status
 }
