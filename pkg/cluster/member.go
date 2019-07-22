@@ -381,23 +381,3 @@ func (ms *membersSlice) deleteByPeerURL(peerURL string) {
 	}
 	*ms = msDeleted
 }
-
-func (m *member) isMe(pbMember *pb.Member) bool {
-	if m.ID != 0 && m.ID == pbMember.ID {
-		return true
-	}
-
-	if m.ID == 0 && m.Name == pbMember.Name {
-		return true
-	}
-
-	return false
-}
-
-func (m *member) isOlderMe(pbMember *pb.Member) bool {
-	if m.Name == pbMember.Name && m.ID != 0 && m.ID != pbMember.ID {
-		return true
-	}
-
-	return false
-}
