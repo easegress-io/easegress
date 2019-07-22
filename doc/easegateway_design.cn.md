@@ -1,3 +1,4 @@
+
 # 1 集群
 
 做为网关集群，需要满足以下特性：
@@ -38,19 +39,18 @@ EaseGateway作为流量接入中间件，不可避免地需要动态扩缩容，
 
 如果为Writer：
 
-1. 如果KnownMembers多于1个，则获取Client，如果成功则将自己添加到集群中
+1. 如果没有指定force-new-cluster且KnownMembers多于1个，则试图获取Client，失败则跳到第2步，成功则进入子步骤，其中任意一步失败则退出：
    1. 获取MemberList
-   2. 如果自己已在MemberList（ID一致）则返回，判断时要考虑ID为0的情况
-   3. 如果MemberList有相同Name但ID不一致则将老的Member删除，判断时要考虑ID为0的情况
-   4. 将自己添加到MemberList
-   5. 更新ClusterMembers
-   6. 备份并清空Server的Data目录
+   2. 如果MemberList有自己，则删除
+   3. 将自己添加到MemberList
+   4. 更新ClusterMembers
+   5. 备份并清空Server的Data目录
 2. 异步启动Server
 3. 如果Server启动完成，则确认Client已获取
 4. 如果Server启动超时，则跳转到步骤1
 5. 初始化Lease
 
-步骤1里将自己添加到集群，在所有节点down掉的情况下，第一个重新启动的节点会在此步骤阻塞一段时间并失败，但并不影响整个集群的重新启动。
+在所有节点down掉的情况下，第一个重新启动的节点步骤1里的子步骤里阻塞一段时间并失败，然后去启动Server，并不影响整个集群的重新启动。
 
 ## 1.3 缩容
 
@@ -64,3 +64,4 @@ EaseGateway作为流量接入中间件，不可避免地需要动态扩缩容，
 - 静态的启动参数：方便管理员快速远程查看
 - 此次心跳时间：间隔为5s，客户端可以认为如果获取的心跳时间已经在10s之前，则该节点出现故障，需要排查
 - Etcd状态（仅Writer）：ID，启动时间、State（Leader，PreCandidate，Candidate，Follower）
+
