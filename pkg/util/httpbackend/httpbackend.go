@@ -19,6 +19,7 @@ import (
 	"github.com/megaease/easegateway/pkg/util/durationreadcloser"
 	"github.com/megaease/easegateway/pkg/util/httpadaptor"
 	"github.com/megaease/easegateway/pkg/util/httpheader"
+	"github.com/megaease/easegateway/pkg/util/httpstat"
 	"github.com/megaease/easegateway/pkg/util/memorycache"
 )
 
@@ -72,8 +73,8 @@ type (
 	HTTPBackend struct {
 		spec *Spec
 
-		servers     []Server
-		codeCounter *codeCounter
+		servers  []Server
+		httpStat *httpstat.HTTPStat
 
 		responseGotFuncs []ResponseGotFunc
 
@@ -109,6 +110,8 @@ type (
 		Policy        string `yaml:"policy" v:"required,oneof=roundRobin random ipHash headerHash"`
 		HeaderHashKey string `yaml:"headerHashKey"`
 	}
+
+	Status = httpstat.Status
 )
 
 // Validate validates Spec.
@@ -175,7 +178,7 @@ func New(spec *Spec) *HTTPBackend {
 	return &HTTPBackend{
 		spec:        spec,
 		servers:     servers,
-		codeCounter: newCodeCounter(servers),
+		httpStat:    httpstat.New(),
 		client:      globalClient,
 		adaptor:     adaptor,
 		memoryCache: memoryCache,
@@ -240,9 +243,9 @@ func (b *HTTPBackend) adaptResponse(ctx context.HTTPContext) {
 	}
 }
 
-// Codes returns status codes.
-func (b *HTTPBackend) Codes() map[string]map[int]uint64 {
-	return b.codeCounter.codes()
+// Status returns HTTPBackend status.
+func (b *HTTPBackend) Status() *Status {
+	return b.httpStat.Status()
 }
 
 // OnResponseGot registers ResponseGotFunc.
@@ -296,7 +299,6 @@ func (b *HTTPBackend) HandleWithResponse(ctx context.HTTPContext) {
 		ctx.AddTag(fmt.Sprintf("backendErr:%s", err.Error()))
 		return
 	}
-	b.codeCounter.count(server, resp.StatusCode)
 
 	w.SetStatusCode(resp.StatusCode)
 	ctx.AddTag(fmt.Sprintf("backendCode:%d", resp.StatusCode))
@@ -311,6 +313,7 @@ func (b *HTTPBackend) HandleWithResponse(ctx context.HTTPContext) {
 	ctx.OnFinish(func() {
 		totalDuration := firstByteTime.Sub(startTime) + body.Duration()
 		ctx.AddTag(fmt.Sprintf("backendDuration:%v", totalDuration))
+		b.httpStat.Stat(ctx)
 	})
 }
 
@@ -335,7 +338,9 @@ func (b *HTTPBackend) HandleWithoutResponse(ctx context.HTTPContext) {
 		ctx.AddTag(fmt.Sprintf("mirrorBackendFailed:%v", err))
 		return
 	}
-	b.codeCounter.count(server, resp.StatusCode)
+	ctx.OnFinish(func() {
+		b.httpStat.Stat(ctx)
+	})
 
 	go func() {
 		// NOTE: Need to be read to completion and closed.
@@ -344,3 +349,6 @@ func (b *HTTPBackend) HandleWithoutResponse(ctx context.HTTPContext) {
 		io.Copy(ioutil.Discard, resp.Body)
 	}()
 }
+
+// Close closes HTTPBackend.
+func (b *HTTPBackend) Close() {}

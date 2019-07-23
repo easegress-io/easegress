@@ -142,9 +142,12 @@ func (s *Scheduler) handleKvs(kvs map[string]*string) {
 }
 
 func (s *Scheduler) handleSyncStatus() {
+	timestamp := uint64(time.Now().Unix())
 	kvs := make(map[string]*string)
 	for name, unit := range s.units {
 		status := unit.status()
+		status.InjectTimestamp(timestamp)
+
 		buff, err := yaml.Marshal(status)
 		if err != nil {
 			logger.Errorf("BUG: marshal %#v to yaml failed: %v",

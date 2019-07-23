@@ -11,12 +11,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type GlobalFlags struct {
-	Server       string
-	OutputFormat string
-}
+type (
+	// GlobalFlags is the global flags for the whole client.
+	GlobalFlags struct {
+		Server       string
+		OutputFormat string
+	}
+
+	// APIErr is the standard return of error.
+	APIErr struct {
+		Code    int    `yaml:"code"`
+		Message string `yaml:"message"`
+	}
+)
 
 var (
+	// CommandlineGlobalFlags is the singleton of GlobalFlags.
 	CommandlineGlobalFlags GlobalFlags
 )
 
@@ -25,13 +35,15 @@ const (
 
 	healthURL = apiURL + "/healthz"
 
-	membersURL = apiURL + "/members"
-	memberURL  = apiURL + "/members/%s"
+	membersURL = apiURL + "/status/members"
+	memberURL  = apiURL + "/status/members/%s"
 
-	objectKindsURL  = apiURL + "/object-kinds"
-	objectsURL      = apiURL + "/objects"
-	objectURL       = apiURL + "/objects/%s"
-	objectStatusURL = apiURL + "/objects/%s/status"
+	objectKindsURL = apiURL + "/object-kinds"
+	objectsURL     = apiURL + "/objects"
+	objectURL      = apiURL + "/objects/%s"
+
+	statusObjectURL  = apiURL + "/status/objects/%s"
+	statusObjectsURL = apiURL + "/status/objects"
 )
 
 func makeURL(urlTemplate string, a ...interface{}) string {
@@ -59,14 +71,19 @@ func handleRequest(httpMethod string, url string, reqBody []byte, cmd *cobra.Com
 		ExitWithErrorf("%s failed: %v", cmd.Short, err)
 	}
 
+	if !successfulStatusCode(resp.StatusCode) {
+		msg := string(body)
+		apiErr := &APIErr{}
+		err = yaml.Unmarshal(body, apiErr)
+		if err == nil {
+			msg = apiErr.Message
+		}
+		ExitWithErrorf("%d: %s", apiErr.Code, msg)
+	}
+
 	if len(body) != 0 {
 		printBody(body)
 	}
-
-	if !successfulStatusCode(resp.StatusCode) {
-		ExitWithErrorf("%s failed, http status code: %d", cmd.Short, resp.StatusCode)
-	}
-
 }
 
 func printBody(body []byte) {

@@ -12,12 +12,12 @@ import (
 func (s *Server) setupMemberAPIs() {
 	memberAPIs := []*apiEntry{
 		{
-			Path:    "/members",
+			Path:    "/status/members",
 			Method:  "GET",
 			Handler: s.listMembers,
 		},
 		{
-			Path:    "/members/{member:string}",
+			Path:    "/status/members/{member:string}",
 			Method:  "DELETE",
 			Handler: s.purgeMember,
 		},

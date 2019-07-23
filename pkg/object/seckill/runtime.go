@@ -38,9 +38,14 @@ type (
 
 	// Status contains all status gernerated by runtime, for displaying to users.
 	Status struct {
+		Timestamp uint64 `yaml:"timestamp"`
+
 		Error string `yaml:"error,omitempty"`
 	}
 )
+
+// InjectTimestamp injects timestamp.
+func (s *Status) InjectTimestamp(t uint64) { s.Timestamp = t }
 
 // NewRuntime creates an Seckill runtime.
 func NewRuntime(handlers *sync.Map) *Runtime {

@@ -58,7 +58,9 @@ func New(spec *Spec, runtime *Runtime) *MirrorBackend {
 
 // Close closes MirrorBackend.
 // Nothing to do.
-func (cb *MirrorBackend) Close() {}
+func (cb *MirrorBackend) Close() {
+	cb.backend.Close()
+}
 
 // Handle handles HTTPContext.
 func (cb *MirrorBackend) Handle(ctx context.HTTPContext) {

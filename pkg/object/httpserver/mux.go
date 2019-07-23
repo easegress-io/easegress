@@ -11,13 +11,17 @@ import (
 
 	"github.com/megaease/easegateway/pkg/common"
 	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/util/httpstat"
 	"github.com/megaease/easegateway/pkg/util/ipfilter"
+	"github.com/megaease/easegateway/pkg/util/topn"
 )
 
 type (
 	mux struct {
 		spec     *Spec
 		handlers *sync.Map
+		httpStat *httpstat.HTTPStat
+		topN     *topn.TopN
 
 		rules atomic.Value // *muxRules
 	}
@@ -224,8 +228,13 @@ func (mp *muxPath) matchMethod(ctx *httpContext) bool {
 	return common.StrInSlice(ctx.r.Method(), mp.methods)
 }
 
-func newMux(spec *Spec, handlers *sync.Map) *mux {
-	m := &mux{handlers: handlers}
+func newMux(spec *Spec, handlers *sync.Map,
+	httpStat *httpstat.HTTPStat, topN *topn.TopN) *mux {
+	m := &mux{
+		handlers: handlers,
+		httpStat: httpStat,
+		topN:     topN,
+	}
 
 	m.reloadRules(spec)
 
@@ -273,6 +282,10 @@ func (m *mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	startTime := time.Now()
 	ctx := newHTTPContext(&startTime, w, r)
 	defer ctx.finish()
+	ctx.OnFinish(func() {
+		m.httpStat.Stat(ctx)
+		m.topN.Stat(ctx)
+	})
 
 	handleIPNotAllow := func() {
 		ctx.AddTag(fmt.Sprintf("ip not allow"))

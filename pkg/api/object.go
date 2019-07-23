@@ -17,8 +17,14 @@ import (
 )
 
 const (
-	ObjectPrefix      = "/objects"
+	// ObjectPrefix is the object prefix.
+	ObjectPrefix = "/objects"
+
+	// ObjectKindsPrefix is the object-kinds prefix.
 	ObjectKindsPrefix = "/object-kinds"
+
+	// StatusObjectPrefix is the prefix of object status.
+	StatusObjectPrefix = "/status/objects"
 )
 
 func (s *Server) setupObjectAPIs() {
@@ -58,9 +64,14 @@ func (s *Server) setupObjectAPIs() {
 		},
 
 		&apiEntry{
-			Path:    ObjectPrefix + "/{name:string}/status",
+			Path:    StatusObjectPrefix,
 			Method:  "GET",
-			Handler: s.getObjectStatus,
+			Handler: s.listStatusObjects,
+		},
+		&apiEntry{
+			Path:    StatusObjectPrefix + "/{name:string}",
+			Method:  "GET",
+			Handler: s.getStatusObject,
 		},
 	)
 
@@ -187,23 +198,39 @@ func (s *Server) listObjects(ctx iris.Context) {
 	ctx.Write(buff.Bytes())
 }
 
-func (s *Server) getObjectStatus(ctx iris.Context) {
+func (s *Server) getStatusObject(ctx iris.Context) {
 	name := ctx.Params().Get("name")
 
 	spec := s._getObject(name)
+
 	if spec == nil {
 		handleAPIError(ctx, iris.StatusNotFound, fmt.Errorf("not found"))
 		return
 	}
 
 	// NOTE: Maybe inconsistent, the object was deleted already here.
-	statuses := s._getObjectStatus(name)
+	status := s._getStatusObject(name)
 
-	buff, err := yaml.Marshal(statuses)
+	buff, err := yaml.Marshal(status)
 	if err != nil {
-		panic(fmt.Errorf("marshal %#v to yaml failed: %v", statuses, err))
+		panic(fmt.Errorf("marshal %#v to yaml failed: %v", status, err))
 	}
 
+	ctx.Header("Content-Type", "text/vnd.yaml")
+	ctx.Write(buff)
+}
+
+func (s *Server) listStatusObjects(ctx iris.Context) {
+	// No need to lock.
+
+	status := s._listStatusObjects()
+
+	buff, err := yaml.Marshal(status)
+	if err != nil {
+		panic(fmt.Errorf("marshal %#v to yaml failed: %v", status, err))
+	}
+
+	ctx.Header("Content-Type", "text/vnd.yaml")
 	ctx.Write(buff)
 }
 

@@ -114,8 +114,9 @@ func getObjectCmd() *cobra.Command {
 
 func listObjectsCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List all objects",
+		Use:     "list",
+		Short:   "List all objects",
+		Example: "egctl object list",
 		Run: func(cmd *cobra.Command, args []string) {
 			handleRequest(http.MethodGet, makeURL(objectsURL), nil, cmd)
 		},
@@ -127,8 +128,21 @@ func listObjectsCmd() *cobra.Command {
 func statusObjectCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "status",
+		Aliases: []string{"stat"},
+		Short:   "View status of object",
+	}
+
+	cmd.AddCommand(getStatusObjectCmd())
+	cmd.AddCommand(listStatusObjectsCmd())
+
+	return cmd
+}
+
+func getStatusObjectCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "get",
 		Short:   "Get status of an object",
-		Example: "egctl object status <object_name>",
+		Example: "egctl object status get <object_name>",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return errors.New("requires one object name to be retrieved")
@@ -138,7 +152,20 @@ func statusObjectCmd() *cobra.Command {
 		},
 
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodGet, makeURL(objectStatusURL, args[0]), nil, cmd)
+			handleRequest(http.MethodGet, makeURL(statusObjectURL, args[0]), nil, cmd)
+		},
+	}
+
+	return cmd
+}
+
+func listStatusObjectsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "list",
+		Short:   "List all status of objects",
+		Example: "egctl object status list",
+		Run: func(cmd *cobra.Command, args []string) {
+			handleRequest(http.MethodGet, makeURL(statusObjectsURL), nil, cmd)
 		},
 	}
 
