@@ -7,7 +7,7 @@ import (
 
 // ReaderCounter is counter for io.Reader
 type ReaderCounter struct {
-	count  int64
+	count  uint64
 	reader io.Reader
 }
 
@@ -20,13 +20,13 @@ func New(r io.Reader) *ReaderCounter {
 
 func (counter *ReaderCounter) Read(buf []byte) (int, error) {
 	n, err := counter.reader.Read(buf)
-	atomic.AddInt64(&counter.count, int64(n))
+	atomic.AddUint64(&counter.count, uint64(n))
 	return n, err
 }
 
 // Count function return counted bytes
-func (counter *ReaderCounter) Count() int64 {
-	return atomic.LoadInt64(&counter.count)
+func (counter *ReaderCounter) Count() uint64 {
+	return atomic.LoadUint64(&counter.count)
 }
 
 // Reset resets internal count and reader.

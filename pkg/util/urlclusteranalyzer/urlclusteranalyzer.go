@@ -1,4 +1,4 @@
-package common
+package urlclusteranalyzer
 
 import (
 	"strings"
@@ -10,13 +10,14 @@ const (
 	maxLayers = 256
 )
 
+// URLClusterAnalyzer is url cluster analyzer.
 type URLClusterAnalyzer struct {
 	slots []*field `yaml:"slots"`
 	mutex *sync.Mutex
 }
 
 type field struct {
-	constant        string   `yaml:"constant""`
+	constant        string   `yaml:"constant"`
 	subFields       []*field `yaml:"subFields"`
 	variableField   *field   `yaml:"variableField"`
 	isVariableField bool     `yaml:"isVariableField"`
@@ -35,7 +36,8 @@ func newField(name string) *field {
 	return f
 }
 
-func NewUrlClusterAnalyzer() *URLClusterAnalyzer {
+// New creates a URLClusterAnalyzer.
+func New() *URLClusterAnalyzer {
 	u := &URLClusterAnalyzer{
 		mutex: &sync.Mutex{},
 		slots: make([]*field, maxLayers),
@@ -47,10 +49,10 @@ func NewUrlClusterAnalyzer() *URLClusterAnalyzer {
 	return u
 }
 
-// Extract the pattern of a Restful url path.
-//  A field of the path occurs more than 20 distinct values will be consider as a variables.
-//  e.g input: /com/megaease/users/123/friends/456
-//  output: /com/megaease/users/*/friends/*
+// GetPattern extracts the pattern of a Restful url path.
+// A field of the path occurs more than 20 distinct values will be consider as a variables.
+// e.g input: /com/megaease/users/123/friends/456
+// output: /com/megaease/users/*/friends/*
 func (u *URLClusterAnalyzer) GetPattern(urlPath string) string {
 	if urlPath == "" {
 		return ""

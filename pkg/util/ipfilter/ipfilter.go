@@ -1,7 +1,6 @@
 package ipfilter
 
 import (
-	"fmt"
 	"net"
 	"strings"
 
@@ -85,19 +84,16 @@ func (f *IPFilter) Allow(ipstr string) bool {
 
 	ip := net.ParseIP(ipstr)
 	if ip == nil {
-		fmt.Println("nil ip")
 		return defaultResult
 	}
 
 	allowed, err := f.allowRanger.Contains(ip)
 	if err != nil {
-		fmt.Printf("allowRanger contains err: %v", err)
 		return defaultResult
 	}
 
 	blocked, err := f.blockRanger.Contains(ip)
 	if err != nil {
-		fmt.Printf("blockRanger contains err: %v", err)
 		return defaultResult
 	}
 

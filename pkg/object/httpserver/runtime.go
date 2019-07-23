@@ -11,6 +11,9 @@ import (
 
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/util/httpstat"
+	"github.com/megaease/easegateway/pkg/util/topn"
+
 	"golang.org/x/net/netutil"
 )
 
@@ -23,6 +26,8 @@ const (
 	stateFailed            = "failed"
 	stateRunning           = "running"
 	stateClosed            = "closed"
+
+	topNum = 10
 )
 
 var (
@@ -53,12 +58,20 @@ type (
 		// status
 		state atomic.Value // stateType
 		err   atomic.Value // error
+
+		httpStat *httpstat.HTTPStat
+		topN     *topn.TopN
 	}
 
 	// Status contains all status gernerated by runtime, for displaying to users.
 	Status struct {
+		Timestamp uint64 `yaml:"timestamp"`
+
 		State stateType `yaml:"state"`
 		Error string    `yaml:"error,omitempty"`
+
+		*httpstat.Status
+		TopN *topn.Status `yaml:"topN"`
 	}
 
 	// Handler is handler handling HTTPContext.
@@ -67,11 +80,16 @@ type (
 	}
 )
 
+// InjectTimestamp injects timestamp.
+func (s *Status) InjectTimestamp(t uint64) { s.Timestamp = t }
+
 // NewRuntime creates an HTTPServer Runtime.
 func NewRuntime(handlers *sync.Map) *Runtime {
 	r := &Runtime{
 		handlers:  handlers,
 		eventChan: make(chan interface{}, 10),
+		httpStat:  httpstat.New(),
+		topN:      topn.New(topNum),
 	}
 
 	r.setState(stateNil)
@@ -93,8 +111,10 @@ func (r *Runtime) Close() {
 // Status returns HTTPServer Status.
 func (r *Runtime) Status() *Status {
 	return &Status{
-		State: r.getState(),
-		Error: r.getError().Error(),
+		State:  r.getState(),
+		Error:  r.getError().Error(),
+		Status: r.httpStat.Status(),
+		TopN:   r.topN.Status(),
 	}
 }
 
@@ -208,7 +228,7 @@ func (r *Runtime) startServer() {
 
 	limitListener := netutil.LimitListener(listener, int(r.spec.MaxConnections))
 
-	mux := newMux(r.spec, r.handlers)
+	mux := newMux(r.spec, r.handlers, r.httpStat, r.topN)
 	srv := &http.Server{
 		Addr:        fmt.Sprintf(":%d", r.spec.Port),
 		Handler:     mux,

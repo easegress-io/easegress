@@ -26,7 +26,7 @@ type (
 		header *httpheader.HTTPHeader
 
 		body           io.Reader
-		bodyWritten    int64
+		bodyWritten    uint64
 		bodyFlushFuncs []BodyFlushFunc
 	}
 )
@@ -78,7 +78,7 @@ func (w *httpResponse) flushBody() {
 			logger.Warnf("copy body failed: %v", err)
 			return false
 		}
-		w.bodyWritten += written
+		w.bodyWritten += uint64(written)
 		return true
 	}
 
@@ -124,7 +124,7 @@ func (w *httpResponse) flushBody() {
 	}
 }
 
-func (w *httpResponse) FlushedBodyBytes() int64 {
+func (w *httpResponse) FlushedBodyBytes() uint64 {
 	return w.bodyWritten
 }
 
@@ -132,4 +132,8 @@ func (w *httpResponse) finish() {
 	// NOTE: WriteHeader must be called at most one time.
 	w.std.WriteHeader(w.StatusCode())
 	w.flushBody()
+}
+
+func (w *httpResponse) Size() uint64 {
+	return w.bodyWritten
 }

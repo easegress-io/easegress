@@ -37,7 +37,9 @@ func New(spec *Spec, runtime *Runtime) *CandidateBackend {
 
 // Close closes CandidateBackend.
 // Nothing to do.
-func (cb *CandidateBackend) Close() {}
+func (cb *CandidateBackend) Close() {
+	cb.backend.Close()
+}
 
 // Handle handles HTTPContext.
 func (cb *CandidateBackend) Handle(ctx context.HTTPContext) {

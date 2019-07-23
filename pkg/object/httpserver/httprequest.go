@@ -60,3 +60,7 @@ func (r *httpRequest) Header() *httpheader.HTTPHeader {
 func (r *httpRequest) Body() io.Reader {
 	return r.body
 }
+
+func (r *httpRequest) Size() uint64 {
+	return r.body.Count()
+}
