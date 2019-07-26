@@ -156,7 +156,7 @@ func (s Spec) pickServers() []Server {
 
 // Validate validates LoadBalance.
 func (lb LoadBalance) Validate() error {
-	if lb.Policy == policyHeaderHash && len(lb.HeaderHashKey) == 0 {
+	if lb.Policy == policyHeaderHash && lb.HeaderHashKey == "" {
 		return fmt.Errorf("headerHash needs to speficy headerHashKey")
 	}
 
