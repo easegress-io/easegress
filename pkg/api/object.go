@@ -1,7 +1,6 @@
 package api
 
 import (
-	"bytes"
 	"fmt"
 	"io/ioutil"
 	"sort"
@@ -189,13 +188,13 @@ func (s *Server) listObjects(ctx iris.Context) {
 	// NOTE: Keep it consistent.
 	sort.Sort(specsToSort(specs))
 
-	buff := bytes.NewBuffer(nil)
-	for _, spec := range specs {
-		buff.WriteString(registry.YAMLFromSpec(spec))
+	buff, err := yaml.Marshal(specs)
+	if err != nil {
+		panic(fmt.Errorf("marshal %#v to yaml failed: %v", specs, err))
 	}
 
 	ctx.Header("Content-Type", "text/vnd.yaml")
-	ctx.Write(buff.Bytes())
+	ctx.Write(buff)
 }
 
 func (s *Server) getStatusObject(ctx iris.Context) {

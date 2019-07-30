@@ -73,7 +73,7 @@ func Objects() []Object {
 func unmarshal(y string, i interface{}) error {
 	err := yaml.Unmarshal([]byte(y), i)
 	if err != nil {
-		return err
+		return fmt.Errorf("unmarshal failed: %v", err)
 	}
 	return v.Struct(i)
 }

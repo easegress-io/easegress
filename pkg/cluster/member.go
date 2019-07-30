@@ -159,8 +159,10 @@ func (m *members) _self() *member {
 		return s
 	}
 
-	logger.Errorf("BUG: can't get self from cluster members: %s "+
-		"knownMembers: %s", m.ClusterMembers, m.KnownMembers)
+	if m.opt.ClusterRole == "writer" {
+		logger.Errorf("BUG: can't get self from cluster members: %s "+
+			"knownMembers: %s", m.ClusterMembers, m.KnownMembers)
+	}
 	return &member{
 		Name:    m.opt.Name,
 		PeerURL: m.opt.ClusterPeerURL,
