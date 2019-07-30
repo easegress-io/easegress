@@ -2,7 +2,6 @@ package httpfilter
 
 import (
 	"fmt"
-	"hash/fnv"
 	"math/rand"
 	"regexp"
 	"time"
@@ -10,10 +9,11 @@ import (
 	"github.com/megaease/easegateway/pkg/common"
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/util/hashtool"
 )
 
 func init() {
-	rand.Seed(time.Now().Unix())
+	rand.Seed(time.Now().UnixNano())
 }
 
 const (
@@ -135,26 +135,20 @@ func (hf *HTTPFilter) filterHeader(ctx context.HTTPContext) bool {
 	return false
 }
 
-func (hf *HTTPFilter) hash32Once(key string) uint32 {
-	hash := fnv.New32a()
-	hash.Write([]byte(key))
-	return hash.Sum32()
-}
-
 func (hf *HTTPFilter) filterProbability(ctx context.HTTPContext) bool {
 	prob := hf.spec.Probability
 
 	var result uint32
 	switch prob.Policy {
 	case policyIPHash:
-		result = hf.hash32Once(ctx.Request().RealIP())
+		result = hashtool.Hash32(ctx.Request().RealIP())
 	case policyHeaderHash:
-		result = hf.hash32Once(ctx.Request().Header().Get(prob.HeaderHashKey))
+		result = hashtool.Hash32(ctx.Request().Header().Get(prob.HeaderHashKey))
 	case policyRandom:
 		result = uint32(rand.Int31n(1000))
 	default:
 		logger.Errorf("BUG: unsupported probability policy: %s", prob.Policy)
-		result = hf.hash32Once(ctx.Request().RealIP())
+		result = hashtool.Hash32(ctx.Request().RealIP())
 	}
 
 	if result%1000 < prob.PerMill {

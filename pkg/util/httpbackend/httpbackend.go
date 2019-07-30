@@ -3,17 +3,13 @@ package httpbackend
 import (
 	"crypto/tls"
 	"fmt"
-	"hash/fnv"
 	"io"
 	"io/ioutil"
-	"math/rand"
 	"net"
 	"net/http"
 	"net/http/httptrace"
-	"sync/atomic"
 	"time"
 
-	"github.com/megaease/easegateway/pkg/common"
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/util/durationreadcloser"
@@ -21,13 +17,6 @@ import (
 	"github.com/megaease/easegateway/pkg/util/httpheader"
 	"github.com/megaease/easegateway/pkg/util/httpstat"
 	"github.com/megaease/easegateway/pkg/util/memorycache"
-)
-
-const (
-	policyRoundRobin = "roundRobin"
-	policyRandom     = "random"
-	policyIPHash     = "ipHash"
-	policyHeaderHash = "headerHash"
 )
 
 var (
@@ -60,10 +49,6 @@ var (
 	}
 )
 
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
-
 type (
 	// ResponseGotFunc is the function type for
 	// instantly calling back after getting real response.
@@ -73,7 +58,7 @@ type (
 	HTTPBackend struct {
 		spec *Spec
 
-		servers  []Server
+		servers  *servers
 		httpStat *httpstat.HTTPStat
 
 		responseGotFuncs []ResponseGotFunc
@@ -91,73 +76,32 @@ type (
 		V string `yaml:"-" v:"parent"`
 
 		ServersTags []string          `yaml:"serversTags" v:"unique,dive,required"`
-		Servers     []Server          `yaml:"servers" v:"required,dive"`
+		Servers     []*Server         `yaml:"servers" v:"required,dive"`
 		LoadBalance *LoadBalance      `yaml:"loadBalance" v:"required"`
 		Adaptor     *httpadaptor.Spec `yaml:"adaptor"`
 		MemoryCache *memorycache.Spec `yaml:"memoryCache"`
 	}
 
-	// Server is backend server.
-	Server struct {
-		URL  string   `yaml:"url" v:"required,url"`
-		Tags []string `yaml:"tags" v:"unique,dive,required"`
-	}
-
-	// LoadBalance is load balance for multiple servers.
-	LoadBalance struct {
-		V string `yaml:"-" v:"parent"`
-
-		Policy        string `yaml:"policy" v:"required,oneof=roundRobin random ipHash headerHash"`
-		HeaderHashKey string `yaml:"headerHashKey"`
-	}
-
+	// Status wraps httpstat.Status.
 	Status = httpstat.Status
 )
 
 // Validate validates Spec.
 func (s Spec) Validate() error {
-	servers := s.pickServers()
-	if len(servers) == 0 {
+	serversGotWeight := 0
+	for _, server := range s.Servers {
+		if server.Weight > 0 {
+			serversGotWeight++
+		}
+	}
+	if serversGotWeight > 0 && serversGotWeight < len(s.Servers) {
+		return fmt.Errorf("not all servers have weight(%d/%d)",
+			serversGotWeight, len(s.Servers))
+	}
+
+	servers := newServers(&s)
+	if servers.len() == 0 {
 		return fmt.Errorf("serversTags picks none of servers")
-	}
-
-	return nil
-}
-
-// pickServers picks servers by serversTag.
-func (s Spec) pickServers() []Server {
-	var serverHasTag bool
-	for _, server := range s.Servers {
-		if len(server.Tags) != 0 {
-			serverHasTag = true
-			break
-		}
-	}
-	if len(s.ServersTags) == 0 && !serverHasTag {
-		return s.Servers
-	}
-
-	servers := make([]Server, 0)
-	for _, server := range s.Servers {
-		allFound := true
-		for _, tag := range s.ServersTags {
-			if !common.StrInSlice(tag, server.Tags) {
-				allFound = false
-				break
-			}
-		}
-		if allFound {
-			servers = append(servers, server)
-		}
-	}
-
-	return servers
-}
-
-// Validate validates LoadBalance.
-func (lb LoadBalance) Validate() error {
-	if lb.Policy == policyHeaderHash && lb.HeaderHashKey == "" {
-		return fmt.Errorf("headerHash needs to speficy headerHashKey")
 	}
 
 	return nil
@@ -174,7 +118,7 @@ func New(spec *Spec) *HTTPBackend {
 		memoryCache = memorycache.New(spec.MemoryCache)
 	}
 
-	servers := spec.pickServers()
+	servers := newServers(spec)
 	return &HTTPBackend{
 		spec:        spec,
 		servers:     servers,
@@ -183,48 +127,6 @@ func New(spec *Spec) *HTTPBackend {
 		adaptor:     adaptor,
 		memoryCache: memoryCache,
 	}
-}
-
-func (b *HTTPBackend) nextServer(ctx context.HTTPContext) *Server {
-	switch b.spec.LoadBalance.Policy {
-	case policyRoundRobin:
-		return b.roundRobin(ctx)
-	case policyRandom:
-		return b.random(ctx)
-	case policyIPHash:
-		return b.ipHash(ctx)
-	case policyHeaderHash:
-		return b.headerHash(ctx)
-	}
-
-	logger.Errorf("BUG: unknown load balance policy: %s", b.spec.LoadBalance.Policy)
-
-	return b.roundRobin(ctx)
-}
-
-func (b *HTTPBackend) roundRobin(ctx context.HTTPContext) *Server {
-	count := atomic.AddUint64(&b.count, 1)
-	return &b.servers[int(count)%len(b.servers)]
-}
-
-func (b *HTTPBackend) random(ctx context.HTTPContext) *Server {
-	return &b.servers[rand.Intn(len(b.servers))]
-}
-
-func (b *HTTPBackend) hash32Once(key string) uint32 {
-	hash := fnv.New32a()
-	hash.Write([]byte(key))
-	return hash.Sum32()
-}
-func (b *HTTPBackend) ipHash(ctx context.HTTPContext) *Server {
-	sum32 := int(b.hash32Once(ctx.Request().RealIP()))
-	return &b.servers[sum32%len(b.servers)]
-}
-
-func (b *HTTPBackend) headerHash(ctx context.HTTPContext) *Server {
-	value := ctx.Request().Header().Get(b.spec.LoadBalance.HeaderHashKey)
-	sum32 := int(b.hash32Once(value))
-	return &b.servers[sum32%len(b.servers)]
 }
 
 func (b *HTTPBackend) adaptRequest(ctx context.HTTPContext, headerInPlace bool) (
@@ -265,7 +167,7 @@ func (b *HTTPBackend) HandleWithResponse(ctx context.HTTPContext) {
 	r := ctx.Request()
 	w := ctx.Response()
 
-	server := b.nextServer(ctx)
+	server := b.servers.next(ctx)
 	ctx.AddTag(fmt.Sprintf("backendAddr:%s", server.URL))
 
 	method, path, header := b.adaptRequest(ctx, true /*headerInPlace*/)
@@ -321,7 +223,7 @@ func (b *HTTPBackend) HandleWithResponse(ctx context.HTTPContext) {
 func (b *HTTPBackend) HandleWithoutResponse(ctx context.HTTPContext) {
 	r := ctx.Request()
 
-	server := b.nextServer(ctx)
+	server := b.servers.next(ctx)
 	ctx.AddTag(fmt.Sprintf("mirrorBackendAddr:%s", server.URL))
 
 	method, path, header := b.adaptRequest(ctx, false /*headerInPlace*/)
