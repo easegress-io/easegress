@@ -25,7 +25,7 @@ const (
 	HeartbeatInterval = 5 * time.Second
 
 	// waitServerTimeout is the timeout for waiting server to start.
-	waitServerTimeout = 5 * time.Second
+	waitServerTimeout = 10 * time.Second
 
 	// client config
 	autoSyncInterval     = 1 * time.Minute
