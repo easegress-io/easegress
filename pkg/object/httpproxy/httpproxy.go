@@ -11,6 +11,7 @@ import (
 	"github.com/megaease/easegateway/pkg/plugin/circuitbreaker"
 	"github.com/megaease/easegateway/pkg/plugin/compression"
 	"github.com/megaease/easegateway/pkg/plugin/mirrorbackend"
+	"github.com/megaease/easegateway/pkg/plugin/mock"
 	"github.com/megaease/easegateway/pkg/plugin/ratelimiter"
 	"github.com/megaease/easegateway/pkg/plugin/validator"
 	"github.com/megaease/easegateway/pkg/registry"
@@ -39,6 +40,7 @@ type (
 		circuitBreaker   *circuitbreaker.CircuitBreaker
 		adaptor          *adaptor.Adaptor
 		mirrorBackend    *mirrorbackend.MirrorBackend
+		mock             *mock.Mock
 		candidateBackend *candidatebackend.CandidateBackend
 		backend          *backend.Backend
 		compression      *compression.Compression
@@ -55,6 +57,7 @@ type (
 		CircuitBreaker   *circuitbreaker.Spec   `yaml:"circuitBreaker,omitempty"`
 		Adaptor          *adaptor.Spec          `yaml:"adaptor,omitempty"`
 		MirrorBackend    *mirrorbackend.Spec    `yaml:"mirrorBackend,omitempty"`
+		Mock             *mock.Spec             `yaml:"mock,omitempty"`
 		CandidateBackend *candidatebackend.Spec `yaml:"candidateBackend,omitempty"`
 		Backend          *backend.Spec          `yaml:"backend" v:"required"`
 		Compression      *compression.Spec      `yaml:"compression,omitempty"`
@@ -88,6 +91,10 @@ func New(spec *Spec, runtime *Runtime) *HTTPProxy {
 	}
 	if spec.MirrorBackend != nil {
 		hp.mirrorBackend = mirrorbackend.New(spec.MirrorBackend, runtime.mirrorBackend)
+	}
+
+	if spec.Mock != nil {
+		hp.mock = mock.New(spec.Mock, runtime.mock)
 	}
 
 	if spec.CandidateBackend != nil {
@@ -160,6 +167,11 @@ func (hp *HTTPProxy) preHandle(ctx context.HTTPContext) {
 }
 
 func (hp *HTTPProxy) handle(ctx context.HTTPContext) {
+	if hp.mock != nil {
+		hp.mock.Mock(ctx)
+		return
+	}
+
 	pt, handler := fallbackPluginBackend, hp.backend.Handle
 	if hp.candidateBackend != nil && hp.candidateBackend.Filter(ctx) {
 		pt, handler = fallbackPluginCandidateBackend, hp.candidateBackend.Handle

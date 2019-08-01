@@ -29,14 +29,6 @@ type (
 		Rules    []Rule         `yaml:"rules" v:"dive"`
 	}
 
-	// Rewrite is entry of rewrite rule.
-	Rewrite struct {
-		Regexp  string `yaml:"regexp" v:"required,regexp"`
-		Replace string `yaml:"replace" v:"required"`
-
-		re *regexp.Regexp
-	}
-
 	// Rule is first level entry of router.
 	Rule struct {
 		IPFilter   *ipfilter.Spec `yaml:"ipFilter" v:"omitempty"`

@@ -7,6 +7,7 @@ import (
 	"github.com/megaease/easegateway/pkg/plugin/circuitbreaker"
 	"github.com/megaease/easegateway/pkg/plugin/compression"
 	"github.com/megaease/easegateway/pkg/plugin/mirrorbackend"
+	"github.com/megaease/easegateway/pkg/plugin/mock"
 	"github.com/megaease/easegateway/pkg/plugin/ratelimiter"
 	"github.com/megaease/easegateway/pkg/plugin/validator"
 )
@@ -22,6 +23,7 @@ type (
 		circuitBreaker   *circuitbreaker.Runtime
 		adaptor          *adaptor.Runtime
 		mirrorBackend    *mirrorbackend.Runtime
+		mock             *mock.Runtime
 		candidateBackend *candidatebackend.Runtime
 		backend          *backend.Runtime
 		compression      *compression.Runtime
@@ -38,6 +40,7 @@ type (
 		CircuitBreaker   *circuitbreaker.Status   `yaml:"circuitBreaker,omitempty"`
 		Adaptor          *adaptor.Status          `yaml:"adaptor,omitempty"`
 		MirrorBackend    *mirrorbackend.Status    `yaml:"mirrorBackend,omitempty"`
+		Mock             *mock.Status             `yaml:"mock,omitempty"`
 		CandidateBackend *candidatebackend.Status `yaml:"candidateBackend,omitempty"`
 		Backend          *backend.Status          `yaml:"backend,omitempty"`
 		Compression      *compression.Status      `yaml:"compression,omitempty"`
@@ -99,6 +102,14 @@ func (r *Runtime) reload(spec *Spec) {
 	case spec.MirrorBackend == nil && r.mirrorBackend != nil:
 		r.mirrorBackend.Close()
 		r.mirrorBackend = nil
+	}
+
+	switch {
+	case spec.Mock != nil && r.mock == nil:
+		r.mock = mock.NewRuntime()
+	case spec.Mock == nil && r.mock != nil:
+		r.mock.Close()
+		r.mock = nil
 	}
 
 	switch {
