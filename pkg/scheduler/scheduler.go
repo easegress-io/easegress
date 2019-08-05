@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -27,6 +28,9 @@ type (
 		units         map[string]unit
 		handlers      *sync.Map // map[string]httpserver.Handler
 
+		first     bool
+		firstDone chan struct{}
+
 		done chan struct{}
 	}
 )
@@ -39,6 +43,8 @@ func MustNew(cls cluster.Cluster) *Scheduler {
 		redeleteUnits: make(map[string]struct{}),
 		units:         make(map[string]unit),
 		handlers:      &sync.Map{},
+		first:         true,
+		firstDone:     make(chan struct{}),
 		done:          make(chan struct{}),
 	}
 
@@ -88,12 +94,21 @@ func (s *Scheduler) handleWatchFailed() {
 	s.configChan = nil
 }
 
+func (s Scheduler) keyToName(k string) string {
+	return strings.TrimPrefix(k, s.cls.Layout().ConfigObjectPrefix())
+}
+
 func (s *Scheduler) handleKvs(kvs map[string]*string) {
-	// TODO: In the every first time,
-	// it should create all Seckills synchronically for loading massive redis data,
-	// then HTTPProxy, HTTPServer.
+	if s.first {
+		defer func() {
+			s.first = false
+			close(s.firstDone)
+		}()
+	}
+
+	specs := make([]registry.Spec, 0)
 	for k, v := range kvs {
-		name := strings.TrimPrefix(k, s.cls.Layout().ConfigObjectPrefix())
+		name := s.keyToName(k)
 		unit, exists := s.units[name]
 		if v == nil {
 			if exists {
@@ -116,11 +131,18 @@ func (s *Scheduler) handleKvs(kvs map[string]*string) {
 		}
 
 		if name != spec.GetName() {
-			logger.Errorf("BUG: inconsistent name in path and spec: %s, %s",
+			logger.Errorf("BUG: inconsistent name in key and spec: %s, %s",
 				name, spec.GetName())
 			continue
 		}
 
+		specs = append(specs, spec)
+	}
+
+	sort.Sort(specsInOrder(specs))
+	for _, spec := range specs {
+		name := spec.GetName()
+		unit, exists := s.units[name]
 		if exists {
 			unit.reload(spec)
 			continue
@@ -132,7 +154,7 @@ func (s *Scheduler) handleKvs(kvs map[string]*string) {
 			continue
 		}
 
-		newUnit, err := newFunc(spec, s.handlers)
+		newUnit, err := newFunc(spec, s.handlers, s.first /*first*/)
 		if err != nil {
 			logger.Errorf("BUG: %v", err)
 			continue
@@ -172,6 +194,12 @@ func (s *Scheduler) handleSyncStatus() {
 	} else {
 		s.redeleteUnits = make(map[string]struct{})
 	}
+}
+
+// FirstDone returns the firstDone channel,
+// which will be closed after creating all objects at first time.
+func (s *Scheduler) FirstDone() chan struct{} {
+	return s.firstDone
 }
 
 // Close closes Scheduler.
