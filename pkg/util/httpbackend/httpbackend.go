@@ -172,6 +172,9 @@ func (b *HTTPBackend) HandleWithResponse(ctx context.HTTPContext) {
 
 	method, path, header := b.adaptRequest(ctx, true /*headerInPlace*/)
 	url := server.URL + path
+	if r.Query() != "" {
+		url += "?" + r.Query()
+	}
 	req, err := http.NewRequest(method, url, r.Body())
 	if err != nil {
 		logger.Errorf("BUG: new request failed: %v", err)
@@ -228,6 +231,9 @@ func (b *HTTPBackend) HandleWithoutResponse(ctx context.HTTPContext) {
 
 	method, path, header := b.adaptRequest(ctx, false /*headerInPlace*/)
 	url := server.URL + path
+	if r.Query() != "" {
+		url += "?" + r.Query()
+	}
 	req, err := http.NewRequest(method, url, r.Body())
 	if err != nil {
 		logger.Errorf("BUG: new request failed: %v", err)
