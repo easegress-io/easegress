@@ -88,13 +88,13 @@ GO_LD_FLAGS= "-s -w -X github.com/megaease/easegateway/pkg/version.RELEASE=${REL
 ${TARGET_SERVER} : ${SERVER_FILES}
 	@echo "build server"
 	cd ${MKFILE_DIR} && \
-	CGO_ENABLED=0 go build -i -v -ldflags ${GO_LD_FLAGS} \
+	CGO_ENABLED=0 go build -v -ldflags ${GO_LD_FLAGS} \
 	-o ${TARGET_SERVER} ${MKFILE_DIR}cmd/server/main.go
 
 ${TARGET_CLIENT} : ${CLIENT_FILES}
 	@echo "build client"
 	cd ${MKFILE_DIR} && \
-	CGO_ENABLED=0 go build -i -v -ldflags ${GO_LD_FLAGS} \
+	CGO_ENABLED=0 go build -v -ldflags ${GO_LD_FLAGS} \
 	-o ${TARGET_CLIENT} ${MKFILE_DIR}cmd/client/main.go
 
 ${TARGET_INVENTORY} : ${INVENTORY_FILES}
