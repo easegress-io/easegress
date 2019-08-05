@@ -91,7 +91,7 @@ func (s Spec) Validate() error {
 }
 
 // New creates an Seckill.
-func New(spec *Spec, runtime *Runtime) *Seckill {
+func New(spec *Spec, runtime *Runtime, syncLoading bool) *Seckill {
 	runtime.reload(spec)
 
 	startTime, err := time.Parse(time.RFC3339, spec.StartTime)

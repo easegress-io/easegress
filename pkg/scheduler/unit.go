@@ -17,8 +17,30 @@ var unitNewFuncs = map[string]unitNewFunc{
 	seckill.Kind:    newSeckillUnit,
 }
 
+func (s specsInOrder) Len() int      { return len(s) }
+func (s specsInOrder) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+func (s specsInOrder) Less(i, j int) bool {
+	return scoreOfSpec(s[i]) < scoreOfSpec(s[j])
+}
+func scoreOfSpec(spec registry.Spec) int {
+	switch spec.GetKind() {
+	case seckill.Kind:
+		return 0
+	case httpproxy.Kind:
+		return 1
+	case httpserver.Kind:
+		return 2
+	}
+
+	logger.Errorf("BUG: unsupported spec kind: %s", spec.GetKind())
+	return 0
+}
+
 type (
-	unitNewFunc func(spec registry.Spec, handlers *sync.Map) (unit, error)
+	specsInOrder []registry.Spec
+
+	unitNewFunc func(spec registry.Spec,
+		handlers *sync.Map, first bool) (unit, error)
 
 	status interface {
 		// In second
@@ -51,7 +73,7 @@ type (
 	}
 )
 
-func newServerUnit(spec registry.Spec, handlers *sync.Map) (unit, error) {
+func newServerUnit(spec registry.Spec, handlers *sync.Map, first bool) (unit, error) {
 	serverSpec, ok := spec.(*httpserver.Spec)
 	if !ok {
 		return nil, fmt.Errorf("want *httpserver.Spec, got %T", spec)
@@ -83,7 +105,7 @@ func (su *serverUnit) close() {
 	su.runtime.Close()
 }
 
-func newProxyUnit(spec registry.Spec, handlers *sync.Map) (unit, error) {
+func newProxyUnit(spec registry.Spec, handlers *sync.Map, first bool) (unit, error) {
 	proxySpec, ok := spec.(*httpproxy.Spec)
 	if !ok {
 		return nil, fmt.Errorf("want *httpproxy.Spec, got %T", spec)
@@ -122,41 +144,41 @@ func (pu *proxyUnit) close() {
 	pu.runtime.Close()
 }
 
-func newSeckillUnit(spec registry.Spec, handlers *sync.Map) (unit, error) {
+func newSeckillUnit(spec registry.Spec, handlers *sync.Map, first bool) (unit, error) {
 	seckillSpec, ok := spec.(*seckill.Spec)
 	if !ok {
 		return nil, fmt.Errorf("want *seckill.Spec, got %T", spec)
 	}
 	runtime := seckill.NewRuntime(handlers)
-	pu := &seckillUnit{
+	su := &seckillUnit{
 		name:     spec.GetName(),
-		seckill:  seckill.New(seckillSpec, runtime),
+		seckill:  seckill.New(seckillSpec, runtime, first),
 		runtime:  runtime,
 		handlers: handlers,
 	}
-	handlers.Store(pu.name, pu.seckill)
+	handlers.Store(su.name, su.seckill)
 
-	return pu, nil
+	return su, nil
 }
 
-func (pu *seckillUnit) status() status {
-	return pu.runtime.Status()
+func (su *seckillUnit) status() status {
+	return su.runtime.Status()
 }
 
-func (pu *seckillUnit) reload(spec registry.Spec) {
+func (su *seckillUnit) reload(spec registry.Spec) {
 	seckillSpec, ok := spec.(*seckill.Spec)
 	if !ok {
 		logger.Errorf("BUG: want *seckill.Spec, got %T", spec)
 	}
 
-	olderSeckill := pu.seckill
-	pu.seckill = seckill.New(seckillSpec, pu.runtime)
-	pu.handlers.Store(pu.name, pu.seckill)
+	olderSeckill := su.seckill
+	su.seckill = seckill.New(seckillSpec, su.runtime, false /*syncLoading*/)
+	su.handlers.Store(su.name, su.seckill)
 	olderSeckill.Close()
 }
 
-func (pu *seckillUnit) close() {
-	pu.handlers.Delete(pu.seckill)
-	pu.seckill.Close()
-	pu.runtime.Close()
+func (su *seckillUnit) close() {
+	su.handlers.Delete(su.seckill)
+	su.seckill.Close()
+	su.runtime.Close()
 }
