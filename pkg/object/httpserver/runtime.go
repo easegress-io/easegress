@@ -2,7 +2,6 @@ package httpserver
 
 import (
 	"fmt"
-	"net"
 	"net/http"
 	"reflect"
 	"sync"
@@ -10,6 +9,7 @@ import (
 	"time"
 
 	"github.com/megaease/easegateway/pkg/context"
+	gracenet "github.com/megaease/easegateway/pkg/grace/net"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/util/httpstat"
 	"github.com/megaease/easegateway/pkg/util/topn"
@@ -32,6 +32,7 @@ const (
 
 var (
 	errNil = fmt.Errorf("")
+	gnet   = gracenet.Gnet
 )
 
 type (
@@ -218,7 +219,7 @@ func (r *Runtime) startServer() {
 		}
 	}
 
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", r.spec.Port))
+	listener, err := gnet.Listen("tcp", fmt.Sprintf(":%d", r.spec.Port))
 	if err != nil {
 		r.setState(stateFailed)
 		r.setError(err)

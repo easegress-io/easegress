@@ -16,3 +16,6 @@ data
 
 # GoLand IDE
 .idea/
+
+# vscode
+.vscode/

@@ -1,6 +1,7 @@
 package httpserver
 
 import (
+	"github.com/megaease/easegateway/pkg/logger"
 	"time"
 
 	"github.com/megaease/easegateway/pkg/registry"
@@ -46,10 +47,12 @@ func New(spec *Spec, runtime *Runtime, blockToReady bool) *HTTPServer {
 	if blockToReady {
 		for {
 			time.Sleep(blockTimeout)
+logger.Infof("blockToReady %s",runtime.Status().Error)
 			if runtime.Status().State == stateRunning {
 				break
 			}
 		}
+logger.Infof("blockToReady break:%d",spec.Port)
 	}
 
 	return hs
