@@ -1,4 +1,4 @@
-package compression
+package backend
 
 import (
 	"bytes"
@@ -28,30 +28,24 @@ type (
 		complete bool
 	}
 
-	// Compression is plugin Compression.
-	Compression struct {
-		spec *Spec
+	// compression is plugin compression.
+	compression struct {
+		spec *CompressionSpec
 	}
 
-	// Spec describes the Compression.
-	Spec struct {
+	// CompressionSpec describes the compression.
+	CompressionSpec struct {
 		MinLength uint32 `yaml:"minLength"`
 	}
 )
 
-// New creates a Compression.
-func New(spec *Spec, runtime *Runtime) *Compression {
-	return &Compression{
+func newcompression(spec *CompressionSpec) *compression {
+	return &compression{
 		spec: spec,
 	}
 }
 
-// Close closes Compression.
-// Nothing to do.
-func (c *Compression) Close() {}
-
-// Compress compresses HTTPContext Response.
-func (c *Compression) Compress(ctx context.HTTPContext) {
+func (c *compression) compress(ctx context.HTTPContext) {
 	if !c.acceptGzip(ctx) {
 		return
 	}
@@ -64,10 +58,13 @@ func (c *Compression) Compress(ctx context.HTTPContext) {
 	if cl != -1 && cl < int(c.spec.MinLength) {
 		return
 	}
+	w := ctx.Response()
+	if w.Body() == nil {
+		return
+	}
 
 	ctx.Response().Header().Del(httpheader.KeyContentLength)
 
-	w := ctx.Response()
 	w.Header().Set(httpheader.KeyContentEncoding, "gzip")
 	w.Header().Add(httpheader.KeyVary, httpheader.KeyContentEncoding)
 
@@ -76,7 +73,7 @@ func (c *Compression) Compress(ctx context.HTTPContext) {
 	w.SetBody(newGzipBody(w.Body()))
 }
 
-func (c *Compression) alreadyGziped(ctx context.HTTPContext) bool {
+func (c *compression) alreadyGziped(ctx context.HTTPContext) bool {
 	for _, ce := range ctx.Response().Header().GetAll(httpheader.KeyContentEncoding) {
 		if strings.Contains(ce, "gzip") {
 			return true
@@ -86,7 +83,7 @@ func (c *Compression) alreadyGziped(ctx context.HTTPContext) bool {
 	return false
 }
 
-func (c *Compression) acceptGzip(ctx context.HTTPContext) bool {
+func (c *compression) acceptGzip(ctx context.HTTPContext) bool {
 	acceptEncodings := ctx.Request().Header().GetAll(httpheader.KeyAcceptEncoding)
 
 	// NOTE: EaseGateway does not support parsing qvalue for performace.
@@ -104,7 +101,7 @@ func (c *Compression) acceptGzip(ctx context.HTTPContext) bool {
 	return true
 }
 
-func (c *Compression) parseContentLength(ctx context.HTTPContext) int {
+func (c *compression) parseContentLength(ctx context.HTTPContext) int {
 	contentLength := ctx.Response().Header().Get(httpheader.KeyContentLength)
 	if contentLength == "" {
 		return -1

@@ -4,7 +4,29 @@ import (
 	"strings"
 
 	"github.com/megaease/easegateway/pkg/context"
+	"github.com/megaease/easegateway/pkg/object/httppipeline"
 )
+
+const (
+	// Kind is the kind of Mock.
+	Kind = "Mock"
+
+	resultMocked = "mocked"
+)
+
+func init() {
+	httppipeline.Register(&httppipeline.PluginRecord{
+		Kind:            Kind,
+		DefaultSpecFunc: DefaultSpec,
+		NewFunc:         New,
+		Results:         []string{resultMocked},
+	})
+}
+
+// DefaultSpec returns default spec.
+func DefaultSpec() *Spec {
+	return &Spec{}
+}
 
 type (
 	// Mock is plugin Mock.
@@ -14,7 +36,11 @@ type (
 	}
 
 	// Spec describes the Mock.
-	Spec []*Rule
+	Spec struct {
+		httppipeline.PluginMeta `yaml:",inline"`
+
+		Rules []*Rule `yaml:"rules"`
+	}
 
 	// Rule is the mock rule.
 	Rule struct {
@@ -27,7 +53,7 @@ type (
 )
 
 // New creates a Mock.
-func New(spec *Spec, runtime *Runtime) *Mock {
+func New(spec *Spec, prev *Mock) *Mock {
 	return &Mock{
 		spec: spec,
 	}
@@ -37,8 +63,8 @@ func New(spec *Spec, runtime *Runtime) *Mock {
 // Nothing to do.
 func (f *Mock) Close() {}
 
-// Mock fallabcks HTTPContext.
-func (f *Mock) Mock(ctx context.HTTPContext) {
+// Handle mocks HTTPContext.
+func (f *Mock) Handle(ctx context.HTTPContext) (result string) {
 	path := ctx.Request().Path()
 	w := ctx.Response()
 
@@ -48,9 +74,10 @@ func (f *Mock) Mock(ctx context.HTTPContext) {
 			w.Header().Set(key, value)
 		}
 		w.SetBody(strings.NewReader(rule.Body))
+		result = resultMocked
 	}
 
-	for _, rule := range *f.spec {
+	for _, rule := range f.spec.Rules {
 		if rule.Path == "" && rule.PathPrefix == "" {
 			mock(rule)
 			return
@@ -61,4 +88,6 @@ func (f *Mock) Mock(ctx context.HTTPContext) {
 			return
 		}
 	}
+
+	return ""
 }

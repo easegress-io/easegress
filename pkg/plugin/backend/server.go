@@ -1,4 +1,4 @@
-package httpbackend
+package backend
 
 import (
 	"fmt"
@@ -28,19 +28,19 @@ type (
 	servers struct {
 		count      uint64
 		weightsSum int
-		servers    []*Server
-		lb         *LoadBalance
+		servers    []*server
+		lb         *loadBalance
 	}
 
-	// Server is backend server.
-	Server struct {
+	// server is backend server.
+	server struct {
 		URL    string   `yaml:"url" v:"required,url"`
 		Tags   []string `yaml:"tags" v:"unique,dive,required"`
 		Weight int      `yaml:"weight" v:"gte=0,lte=100"`
 	}
 
-	// LoadBalance is load balance for multiple servers.
-	LoadBalance struct {
+	// loadBalance is load balance for multiple servers.
+	loadBalance struct {
 		V string `yaml:"-" v:"parent"`
 
 		Policy        string `yaml:"policy" v:"required,oneof=roundRobin random weightedRandom ipHash headerHash"`
@@ -48,8 +48,12 @@ type (
 	}
 )
 
+func (s *server) String() string {
+	return fmt.Sprintf("%s,%v,%d", s.URL, s.Tags, s.Weight)
+}
+
 // Validate validates LoadBalance.
-func (lb LoadBalance) Validate() error {
+func (lb loadBalance) Validate() error {
 	if lb.Policy == policyHeaderHash && len(lb.HeaderHashKey) == 0 {
 		return fmt.Errorf("headerHash needs to speficy headerHashKey")
 	}
@@ -57,7 +61,7 @@ func (lb LoadBalance) Validate() error {
 	return nil
 }
 
-func newServers(spec *Spec) *servers {
+func newServers(spec *poolSpec) *servers {
 	s := &servers{
 		lb: spec.LoadBalance,
 	}
@@ -68,7 +72,7 @@ func newServers(spec *Spec) *servers {
 		return s
 	}
 
-	servers := make([]*Server, 0)
+	servers := make([]*server, 0)
 	for _, server := range spec.Servers {
 		for _, tag := range spec.ServersTags {
 			if common.StrInSlice(tag, server.Tags) {
@@ -92,7 +96,7 @@ func (s *servers) len() int {
 	return len(s.servers)
 }
 
-func (s *servers) next(ctx context.HTTPContext) *Server {
+func (s *servers) next(ctx context.HTTPContext) *server {
 	switch s.lb.Policy {
 	case policyRoundRobin:
 		return s.roundRobin(ctx)
@@ -111,16 +115,16 @@ func (s *servers) next(ctx context.HTTPContext) *Server {
 	return s.roundRobin(ctx)
 }
 
-func (s *servers) roundRobin(ctx context.HTTPContext) *Server {
+func (s *servers) roundRobin(ctx context.HTTPContext) *server {
 	count := atomic.AddUint64(&s.count, 1)
 	return s.servers[int(count)%len(s.servers)]
 }
 
-func (s *servers) random(ctx context.HTTPContext) *Server {
+func (s *servers) random(ctx context.HTTPContext) *server {
 	return s.servers[rand.Intn(len(s.servers))]
 }
 
-func (s *servers) weightedRandom(ctx context.HTTPContext) *Server {
+func (s *servers) weightedRandom(ctx context.HTTPContext) *server {
 	randomWeight := rand.Intn(s.weightsSum)
 	for _, server := range s.servers {
 		randomWeight -= server.Weight
@@ -135,12 +139,12 @@ func (s *servers) weightedRandom(ctx context.HTTPContext) *Server {
 	return s.random(ctx)
 }
 
-func (s *servers) ipHash(ctx context.HTTPContext) *Server {
+func (s *servers) ipHash(ctx context.HTTPContext) *server {
 	sum32 := int(hashtool.Hash32(ctx.Request().RealIP()))
 	return s.servers[sum32%len(s.servers)]
 }
 
-func (s *servers) headerHash(ctx context.HTTPContext) *Server {
+func (s *servers) headerHash(ctx context.HTTPContext) *server {
 	value := ctx.Request().Header().Get(s.lb.HeaderHashKey)
 	sum32 := int(hashtool.Hash32(value))
 	return s.servers[sum32%len(s.servers)]

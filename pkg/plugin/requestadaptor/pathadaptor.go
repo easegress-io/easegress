@@ -1,4 +1,4 @@
-package httpadaptor
+package requestadaptor
 
 import (
 	"regexp"

@@ -1,7 +1,8 @@
-package circuitbreaker
+package backend
 
 import (
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/megaease/easegateway/pkg/context"
@@ -11,35 +12,31 @@ import (
 )
 
 const (
-	stateClosed   state = "closed"
-	stateHalfOpen       = "halfOpen"
-	stateOpen           = "open"
+	stateClosed   = "closed"
+	stateHalfOpen = "halfOpen"
+	stateOpen     = "open"
 )
 
 type (
-	state string
-
-	// CircuitBreaker is plugin CircuitBreaker.
-	CircuitBreaker struct {
-		spec *Spec
+	circuitBreaker struct {
+		spec *circuitBreakerSpec
 		cb   *gobreaker.CircuitBreaker
 	}
 
-	// Spec describes the CircuitBreaker.
-	Spec struct {
+	circuitBreakerSpec struct {
 		V string `yaml:"-" v:"parent"`
 
-		FailureCodes                   []int   `yaml:"failureCodes" v:"gte=1,unique,dive,httpcode"`
 		CountPeriod                    string  `yaml:"countPeriod" v:"required,duration,dmin=1s"`
 		ToClosedConsecutiveCounts      uint32  `yaml:"toClosedConsecutiveCounts" v:"gte=1"`
 		ToHalfOpenTimeout              string  `yaml:"toHalfOpenTimeout" v:"required,duration,dmin=1s"`
 		ToOpenFailureCounts            *uint32 `yaml:"toOpenFailureCounts" v:"omitempty,gte=1"`
 		ToOpenFailureConsecutiveCounts *uint32 `yaml:"toOpenFailureConsecutiveCounts" v:"omitempty,gte=1"`
+
+		failureCodes []int
 	}
 )
 
-// Validate validates Spec.
-func (s Spec) Validate() error {
+func (s circuitBreakerSpec) Validate() error {
 	if s.ToOpenFailureCounts == nil &&
 		s.ToOpenFailureConsecutiveCounts == nil {
 		return fmt.Errorf("toOpenFailureCounts," +
@@ -51,8 +48,10 @@ func (s Spec) Validate() error {
 	return nil
 }
 
-// New creates a CircuitBreaker.
-func New(spec *Spec, runtime *Runtime) *CircuitBreaker {
+// newCircuitBreaker creates a CircuitBreaker.
+func newCircuitBreaker(spec *circuitBreakerSpec, failureCodes []int) *circuitBreaker {
+	spec.failureCodes = failureCodes
+
 	interval, err := time.ParseDuration(spec.CountPeriod)
 	if err != nil {
 		logger.Errorf("BUG: parse CountPeriod %s to duration failed: %v",
@@ -82,30 +81,24 @@ func New(spec *Spec, runtime *Runtime) *CircuitBreaker {
 		return false
 	}
 
-	cb := &CircuitBreaker{
+	cb := &circuitBreaker{
 		spec: spec,
 		cb:   gobreaker.NewCircuitBreaker(st),
 	}
 
-	runtime.cb = cb
-
 	return cb
 }
 
-// Close closes CircuitBreaker.
-// Nothing to do.
-func (cb *CircuitBreaker) Close() {}
-
 // Protect protects Handler.
-func (cb *CircuitBreaker) Protect(ctx context.HTTPContext, handler func(ctx context.HTTPContext)) error {
-	failureCode := -1
+func (cb *circuitBreaker) protect(ctx context.HTTPContext, handler func(ctx context.HTTPContext)) error {
+	handled := false
 	_, err := cb.cb.Execute(func() (interface{}, error) {
+		handled = true
 		handler(ctx)
 
 		code := ctx.Response().StatusCode()
-		for _, fc := range cb.spec.FailureCodes {
+		for _, fc := range cb.spec.failureCodes {
 			if fc == code {
-				failureCode = code
 				// NOTE: The error is never used, just show it in here.
 				return nil, fmt.Errorf("failureCode: %d", code)
 			}
@@ -114,15 +107,17 @@ func (cb *CircuitBreaker) Protect(ctx context.HTTPContext, handler func(ctx cont
 		return nil, nil
 	})
 
-	// NOTE: Just count the failure code, the CircuitBreaker is not open yet.
-	if failureCode != -1 {
-		return nil
+	// Only for opening circuitBreaker.
+	if err != nil && !handled {
+		ctx.Response().SetStatusCode(http.StatusServiceUnavailable)
+		ctx.AddTag(fmt.Sprintf("circuitBreaker:%v", err))
+		return err
 	}
 
-	return err
+	return nil
 }
 
-func (cb *CircuitBreaker) state() state {
+func (cb *circuitBreaker) status() string {
 	switch cb.cb.State() {
 	case gobreaker.StateClosed:
 		return stateClosed

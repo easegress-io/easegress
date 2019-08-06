@@ -11,6 +11,8 @@ import (
 type (
 	httpRequest struct {
 		std    *http.Request
+		method string
+		path   string
 		header *httpheader.HTTPHeader
 		body   *readercounter.ReaderCounter
 		realIP string
@@ -22,7 +24,11 @@ func (r *httpRequest) RealIP() string {
 }
 
 func (r *httpRequest) Method() string {
-	return r.std.Method
+	return r.method
+}
+
+func (r *httpRequest) SetMethod(method string) {
+	r.method = method
 }
 
 func (r *httpRequest) Scheme() string {
@@ -34,7 +40,11 @@ func (r *httpRequest) Host() string {
 }
 
 func (r *httpRequest) Path() string {
-	return r.std.URL.Path
+	return r.path
+}
+
+func (r *httpRequest) SetPath(path string) {
+	r.path = path
 }
 
 func (r *httpRequest) EscapedPath() string {
