@@ -80,7 +80,7 @@ func newServerUnit(spec registry.Spec, handlers *sync.Map, first bool) (unit, er
 	}
 	runtime := httpserver.NewRuntime(handlers)
 	return &serverUnit{
-		server:  httpserver.New(serverSpec, runtime),
+		server:  httpserver.New(serverSpec, runtime, first),
 		runtime: runtime,
 	}, nil
 }
@@ -96,7 +96,7 @@ func (su *serverUnit) reload(spec registry.Spec) {
 	}
 
 	olderServer := su.server
-	su.server = httpserver.New(serverSpec, su.runtime)
+	su.server = httpserver.New(serverSpec, su.runtime, false /*blockToReady*/)
 	olderServer.Close()
 }
 

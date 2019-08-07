@@ -1,6 +1,8 @@
 package httpserver
 
 import (
+	"time"
+
 	"github.com/megaease/easegateway/pkg/registry"
 )
 
@@ -11,6 +13,8 @@ func init() {
 const (
 	// Kind is HTTPServer kind.
 	Kind = "HTTPServer"
+
+	blockTimeout = 100 * time.Millisecond
 )
 
 type (
@@ -31,13 +35,22 @@ func DefaultSpec() registry.Spec {
 }
 
 // New creates an HTTPServer.
-func New(spec *Spec, runtime *Runtime) *HTTPServer {
+func New(spec *Spec, runtime *Runtime, blockToReady bool) *HTTPServer {
 	hs := &HTTPServer{
 		spec:    spec,
 		runtime: runtime,
 	}
 
 	runtime.eventChan <- &eventReload{nextSpec: spec}
+
+	if blockToReady {
+		for {
+			time.Sleep(blockTimeout)
+			if runtime.Status().State == stateRunning {
+				break
+			}
+		}
+	}
 
 	return hs
 }
