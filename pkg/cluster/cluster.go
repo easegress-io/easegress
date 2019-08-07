@@ -162,6 +162,8 @@ func (c *cluster) run() {
 		break
 	}
 
+	logger.Infof("cluster is ready")
+
 	c.heartbeat()
 }
 
