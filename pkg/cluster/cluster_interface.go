@@ -28,7 +28,7 @@ type Cluster interface {
 	Mutex(name string) (Mutex, error)
 
 	CloseServer(wg *sync.WaitGroup)
-	StartServer() (chan struct{},chan struct{},error)
+	StartServer() (chan struct{}, chan struct{}, error)
 
 	Close(wg *sync.WaitGroup)
 

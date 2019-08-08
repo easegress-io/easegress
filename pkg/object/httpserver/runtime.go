@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/megaease/easegateway/pkg/context"
-	gracenet "github.com/megaease/easegateway/pkg/grace/net"
+	"github.com/megaease/easegateway/pkg/graceupdate"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/util/httpstat"
 	"github.com/megaease/easegateway/pkg/util/topn"
@@ -32,7 +32,7 @@ const (
 
 var (
 	errNil = fmt.Errorf("")
-	gnet   = gracenet.Gnet
+	gnet   = graceupdate.Global
 )
 
 type (

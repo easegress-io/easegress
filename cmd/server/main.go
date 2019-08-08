@@ -11,7 +11,7 @@ import (
 	"github.com/megaease/easegateway/pkg/cluster"
 	"github.com/megaease/easegateway/pkg/common"
 	"github.com/megaease/easegateway/pkg/env"
-	gracenet "github.com/megaease/easegateway/pkg/grace/net"
+	"github.com/megaease/easegateway/pkg/graceupdate"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/option"
 	"github.com/megaease/easegateway/pkg/profile"
@@ -20,8 +20,8 @@ import (
 )
 
 func main() {
-	//flag for graceful update child proc
-	didInherit := os.Getenv("EG_LISTEN_FDS") != ""
+	// LISTEN_FDS is flag for graceful update child proc
+	didInherit := os.Getenv("LISTEN_FDS") != ""
 	ppid := os.Getppid()
 	opt := option.New()
 
@@ -33,7 +33,7 @@ func main() {
 		common.Exit(0, msg)
 	}
 
-	//graceful update ,disable force-new-cluster
+	// disable force-new-cluster for graceful update
 	if didInherit {
 		opt.ForceNewCluster = false
 	}
@@ -60,7 +60,6 @@ func main() {
 	sdl := scheduler.MustNew(cls)
 	api := egapi.MustNewServer(opt, cls)
 
-	// send sigterm to ori proc
 	if didInherit && ppid != 1 {
 		<-sdl.FirstDone()
 		if err := syscall.Kill(ppid, syscall.SIGTERM); err != nil {
@@ -68,55 +67,56 @@ func main() {
 		}
 	}
 
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGUSR2)
-	for {
-		sig := <-sigChan
-		switch sig {
-		case syscall.SIGINT, syscall.SIGTERM:
+	sigUsr2 := make(chan os.Signal, 1)
+	signal.Notify(sigUsr2, syscall.SIGUSR2)
+	go func() {
+		sig := <-sigUsr2
+		logger.Infof("%s signal received, graceful update easegateway", sig)
+		wg := &sync.WaitGroup{}
+		wg.Add(2)
+		api.Close(wg)
+		cls.CloseServer(wg)
+		wg.Wait()
+		gnet := graceupdate.Global
+		if pid, err := gnet.StartProcess(); err != nil {
+			logger.Errorf("graceful update failed: %v", err)
+			cls.StartServer()
+			api = egapi.MustNewServer(opt, cls)
+		} else {
+			childdone := make(chan error, 1)
 			go func() {
-				sig := <-sigChan
-				logger.Infof("%s signal received, closing easegateway immediately", sig)
-				os.Exit(255)
-			}()
-			logger.Infof("%s signal received, closing easegateway", sig)
-			wg := &sync.WaitGroup{}
-			wg.Add(4)
-			api.Close(wg)
-			sdl.Close(wg)
-			cls.Close(wg)
-			profile.Close(wg)
-			wg.Wait()
-			return
-		case syscall.SIGUSR2:
-			logger.Infof("%s signal received, graceful update easegateway", sig)
-			//Stop ori proc api and etcd server
-			wg := &sync.WaitGroup{}
-			wg.Add(2)
-			api.Close(wg)
-			cls.CloseServer(wg)
-			wg.Wait()
-			Net := gracenet.Gnet
-			if process, err := Net.StartProcess(); err != nil {
-				logger.Errorf("graceful update failed: %v", err)
-				//child proc err,restart api and etcd
-				cls.StartServer()
-				api = egapi.MustNewServer(opt, cls)
-			} else {
-				childdone := make(chan error, 1)
-				go func() {
-					_, error := process.Wait()
-					childdone <- error
+				process, err := os.FindProcess(pid)
+				if err != nil {
+					cls.StartServer()
+					api = egapi.MustNewServer(opt, cls)
+				} else {
+					_, werr := process.Wait()
+					childdone <- werr
 					select {
 					case err := <-childdone:
 						logger.Errorf("child proc exited: %v", err)
-						//child proc exit before ori proc, restart api and etcd
 						cls.StartServer()
 						api = egapi.MustNewServer(opt, cls)
 					}
-				}()
-			}
+				}
+			}()
 		}
-	}
+	}()
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	sig := <-sigChan
+	go func() {
+		sig := <-sigChan
+		logger.Infof("%s signal received, closing easegateway immediately", sig)
+		os.Exit(255)
+	}()
+	logger.Infof("%s signal received, closing easegateway", sig)
+	wg := &sync.WaitGroup{}
+	wg.Add(4)
+	api.Close(wg)
+	sdl.Close(wg)
+	cls.Close(wg)
+	profile.Close(wg)
+	wg.Wait()
 
 }
