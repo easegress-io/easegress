@@ -14,6 +14,7 @@ import (
 	"github.com/megaease/easegateway/pkg/graceupdate"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/option"
+	"github.com/megaease/easegateway/pkg/pidfile"
 	"github.com/megaease/easegateway/pkg/profile"
 	"github.com/megaease/easegateway/pkg/scheduler"
 	"github.com/megaease/easegateway/pkg/version"
@@ -33,19 +34,21 @@ func main() {
 		common.Exit(0, msg)
 	}
 
+	logger.Init(opt)
+	defer logger.Sync()
+	logger.Infof("%s", version.Long)
+
 	// disable force-new-cluster for graceful update
 	if didInherit {
 		opt.ForceNewCluster = false
+	} else {
+		pidfile.Write(opt)
 	}
 	err = env.InitServerDir(opt)
 	if err != nil {
 		log.Printf("failed to init env: %v", err)
 		os.Exit(1)
 	}
-
-	logger.Init(opt)
-	defer logger.Sync()
-	logger.Infof("%s", version.Long)
 
 	profile, err := profile.New(opt)
 	if err != nil {
@@ -65,6 +68,7 @@ func main() {
 		if err := syscall.Kill(ppid, syscall.SIGTERM); err != nil {
 			logger.Errorf("failed to close parent: %s", err)
 		}
+		pidfile.Write(opt)
 	}
 
 	sigUsr2 := make(chan os.Signal, 1)

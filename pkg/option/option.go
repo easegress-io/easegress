@@ -57,6 +57,9 @@ type Options struct {
 	CPUProfileFile    string `yaml:"cpu-profile-file" long:"cpu-profile-file" description:"Path to the CPU profile file."`
 	MemoryProfileFile string `yaml:"memory-profile-file" long:"memory-profile-file" description:"Path to the memory profile file."`
 
+	// pidfile
+	PidFile string `yaml:"pid-file" long:"pid-file" description:"Path to file for systemctl PidFile."`
+
 	// go test may fail with out '-t', reference: https://github.com/alecthomas/kingpin/issues/167
 	Placeholder string `yaml:"-" short:"t" long:"test" description:"not used yet"`
 }

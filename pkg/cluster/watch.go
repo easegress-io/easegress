@@ -78,9 +78,10 @@ func (c *cluster) WatchPrefix(prefix string) (<-chan map[string]*string, error) 
 		value := string(kv.Value)
 		kvs[string(kv.Key)] = &value
 	}
-	if len(kvs) != 0 {
-		w <- kvs
-	}
+
+	// NOTE: Even kvs is empty, for close firstDone of scheduler
+	// in case of there is no config.
+	w <- kvs
 
 	// NOTE: can't use Context with timeout here.
 	ctx, cancel := stdcontext.WithCancel(stdcontext.Background())
