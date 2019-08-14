@@ -59,7 +59,7 @@ func TestPickServers(t *testing.T) {
 				{
 					URL:    "http://127.0.0.1:9090",
 					Tags:   []string{"v1"},
-					Weight: 1,
+					Weight: 0,
 				},
 			},
 		},
@@ -80,11 +80,11 @@ func TestPickServers(t *testing.T) {
 			want: []*Server{
 				{URL: "http://127.0.0.1:9090", Weight: 33},
 				{URL: "http://127.0.0.1:9090", Weight: 1},
-				{URL: "http://127.0.0.1:9090", Weight: 1},
+				{URL: "http://127.0.0.1:9090", Weight: 0},
 				{
 					URL:    "http://127.0.0.1:9090",
 					Tags:   []string{"green"},
-					Weight: 1,
+					Weight: 0,
 				},
 			},
 		},
@@ -111,17 +111,17 @@ func TestPickServers(t *testing.T) {
 				{
 					URL:    "http://127.0.0.1:9090",
 					Tags:   []string{"v1", "green"},
-					Weight: 1,
+					Weight: 0,
 				},
 				{
 					URL:    "http://127.0.0.1:9090",
 					Tags:   []string{"v1"},
-					Weight: 1,
+					Weight: 0,
 				},
 				{
 					URL:    "http://127.0.0.1:9090",
 					Tags:   []string{"v1", "v3"},
-					Weight: 1,
+					Weight: 0,
 				},
 			},
 		},
@@ -148,25 +148,34 @@ func TestPickServers(t *testing.T) {
 					},
 					{
 						URL:  "http://127.0.0.1:9090",
+						Tags: []string{"blue"},
+					},
+					{
+						URL:  "http://127.0.0.1:9090",
 						Tags: []string{"v1", "v3"},
 					},
 				},
 			},
 			want: []*Server{
 				{
-					URL:    "http://127.0.0.1:9090",
-					Tags:   []string{"d1", "v1", "green"},
-					Weight: 1,
+					URL:  "http://127.0.0.1:9090",
+					Tags: []string{"d1", "v1", "green"},
 				},
 				{
-					URL:    "http://127.0.0.1:9090",
-					Tags:   []string{"v1", "d1", "green"},
-					Weight: 1,
+					URL:  "http://127.0.0.1:9090",
+					Tags: []string{"v1", "d1", "green"},
 				},
 				{
-					URL:    "http://127.0.0.1:9090",
-					Tags:   []string{"green", "d1", "v1"},
-					Weight: 1,
+					URL:  "http://127.0.0.1:9090",
+					Tags: []string{"green", "d1", "v1"},
+				},
+				{
+					URL:  "http://127.0.0.1:9090",
+					Tags: []string{"v1"},
+				},
+				{
+					URL:  "http://127.0.0.1:9090",
+					Tags: []string{"v1", "v3"},
 				},
 			},
 		},

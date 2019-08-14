@@ -70,15 +70,11 @@ func newServers(spec *Spec) *servers {
 
 	servers := make([]*Server, 0)
 	for _, server := range spec.Servers {
-		allFound := true
 		for _, tag := range spec.ServersTags {
-			if !common.StrInSlice(tag, server.Tags) {
-				allFound = false
+			if common.StrInSlice(tag, server.Tags) {
+				servers = append(servers, server)
 				break
 			}
-		}
-		if allFound {
-			servers = append(servers, server)
 		}
 	}
 	s.servers = servers
