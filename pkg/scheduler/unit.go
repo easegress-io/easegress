@@ -7,14 +7,12 @@ import (
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httpproxy"
 	"github.com/megaease/easegateway/pkg/object/httpserver"
-	"github.com/megaease/easegateway/pkg/object/seckill"
 	"github.com/megaease/easegateway/pkg/registry"
 )
 
 var unitNewFuncs = map[string]unitNewFunc{
 	httpserver.Kind: newServerUnit,
 	httpproxy.Kind:  newProxyUnit,
-	seckill.Kind:    newSeckillUnit,
 }
 
 func (s specsInOrder) Len() int      { return len(s) }
@@ -24,8 +22,6 @@ func (s specsInOrder) Less(i, j int) bool {
 }
 func scoreOfSpec(spec registry.Spec) int {
 	switch spec.GetKind() {
-	case seckill.Kind:
-		return 0
 	case httpproxy.Kind:
 		return 1
 	case httpserver.Kind:
@@ -62,13 +58,6 @@ type (
 		name     string
 		proxy    *httpproxy.HTTPProxy
 		runtime  *httpproxy.Runtime
-		handlers *sync.Map
-	}
-
-	seckillUnit struct {
-		name     string
-		seckill  *seckill.Seckill
-		runtime  *seckill.Runtime
 		handlers *sync.Map
 	}
 )
@@ -142,43 +131,4 @@ func (pu *proxyUnit) close() {
 	pu.handlers.Delete(pu.proxy)
 	pu.proxy.Close()
 	pu.runtime.Close()
-}
-
-func newSeckillUnit(spec registry.Spec, handlers *sync.Map, first bool) (unit, error) {
-	seckillSpec, ok := spec.(*seckill.Spec)
-	if !ok {
-		return nil, fmt.Errorf("want *seckill.Spec, got %T", spec)
-	}
-	runtime := seckill.NewRuntime(handlers)
-	su := &seckillUnit{
-		name:     spec.GetName(),
-		seckill:  seckill.New(seckillSpec, runtime, first),
-		runtime:  runtime,
-		handlers: handlers,
-	}
-	handlers.Store(su.name, su.seckill)
-
-	return su, nil
-}
-
-func (su *seckillUnit) status() status {
-	return su.runtime.Status()
-}
-
-func (su *seckillUnit) reload(spec registry.Spec) {
-	seckillSpec, ok := spec.(*seckill.Spec)
-	if !ok {
-		logger.Errorf("BUG: want *seckill.Spec, got %T", spec)
-	}
-
-	olderSeckill := su.seckill
-	su.seckill = seckill.New(seckillSpec, su.runtime, false /*syncLoading*/)
-	su.handlers.Store(su.name, su.seckill)
-	olderSeckill.Close()
-}
-
-func (su *seckillUnit) close() {
-	su.handlers.Delete(su.seckill)
-	su.seckill.Close()
-	su.runtime.Close()
 }
