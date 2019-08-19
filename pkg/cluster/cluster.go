@@ -33,9 +33,6 @@ const (
 	dialKeepAliveTime    = 1 * time.Minute
 	dialKeepAliveTimeout = 1 * time.Minute
 
-	// session config
-	sessionTTL = 10 // Second
-
 	// lease config
 	leaseTTL = clientv3.MaxLeaseTTL // 9000000000Second=285Year
 )
@@ -394,8 +391,13 @@ func (c *cluster) getSession() (*concurrency.Session, error) {
 		return nil, err
 	}
 
+	lease, err := c.getLease()
+	if err != nil {
+		return nil, err
+	}
+
 	session, err := concurrency.NewSession(client,
-		concurrency.WithTTL(sessionTTL))
+		concurrency.WithLease(lease))
 	if err != nil {
 		return nil, fmt.Errorf("create session failed: %v", err)
 	}
