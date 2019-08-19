@@ -50,12 +50,11 @@ func newRecoverer() func(context.Context) {
 					return
 				}
 
-				logger.Errorf("recover from error: %v", err)
+				logger.Errorf("recovered from %s, err: %v, stack trace:\n%s\n",
+					ctx.HandlerName(), err, debug.Stack())
 				if ce, ok := err.(clusterErr); ok {
 					handleAPIError(ctx, http.StatusServiceUnavailable, ce)
 				} else {
-					logger.Errorf("recovered from %s, stack trace:\n%s\n",
-						ctx.HandlerName(), debug.Stack())
 					handleAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("%v", err))
 				}
 			}
