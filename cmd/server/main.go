@@ -21,11 +21,7 @@ import (
 )
 
 func main() {
-	// LISTEN_FDS is flag for graceful update child proc
-	didInherit := os.Getenv("LISTEN_FDS") != ""
-	ppid := os.Getppid()
 	opt := option.New()
-
 	msg, err := opt.Parse()
 	if err != nil {
 		common.Exit(1, err.Error())
@@ -34,20 +30,21 @@ func main() {
 		common.Exit(0, msg)
 	}
 
+	err = env.InitServerDir(opt)
+	if err != nil {
+		log.Printf("failed to init env: %v", err)
+		os.Exit(1)
+	}
+
 	logger.Init(opt)
 	defer logger.Sync()
 	logger.Infof("%s", version.Long)
 
 	// disable force-new-cluster for graceful update
-	if didInherit {
+	if graceupdate.IsInherit() {
 		opt.ForceNewCluster = false
 	} else {
 		pidfile.Write(opt)
-	}
-	err = env.InitServerDir(opt)
-	if err != nil {
-		log.Printf("failed to init env: %v", err)
-		os.Exit(1)
 	}
 
 	profile, err := profile.New(opt)
@@ -63,49 +60,23 @@ func main() {
 	sdl := scheduler.MustNew(cls)
 	api := egapi.MustNewServer(opt, cls)
 
-	if didInherit && ppid != 1 {
-		<-sdl.FirstDone()
-		if err := syscall.Kill(ppid, syscall.SIGTERM); err != nil {
-			logger.Errorf("failed to close parent: %s", err)
-		}
+	if graceupdate.CallOriProcessTerm(sdl.FirstDone()) {
 		pidfile.Write(opt)
 	}
 
-	sigUsr2 := make(chan os.Signal, 1)
-	signal.Notify(sigUsr2, syscall.SIGUSR2)
-	go func() {
-		sig := <-sigUsr2
-		logger.Infof("%s signal received, graceful update easegateway", sig)
+	closeCls := func() {
 		wg := &sync.WaitGroup{}
 		wg.Add(2)
 		api.Close(wg)
 		cls.CloseServer(wg)
 		wg.Wait()
-		gnet := graceupdate.Global
-		if pid, err := gnet.StartProcess(); err != nil {
-			logger.Errorf("graceful update failed: %v", err)
-			cls.StartServer()
-			api = egapi.MustNewServer(opt, cls)
-		} else {
-			childdone := make(chan error, 1)
-			go func() {
-				process, err := os.FindProcess(pid)
-				if err != nil {
-					cls.StartServer()
-					api = egapi.MustNewServer(opt, cls)
-				} else {
-					_, werr := process.Wait()
-					childdone <- werr
-					select {
-					case err := <-childdone:
-						logger.Errorf("child proc exited: %v", err)
-						cls.StartServer()
-						api = egapi.MustNewServer(opt, cls)
-					}
-				}
-			}()
-		}
-	}()
+	}
+	restartCls := func() {
+		cls.StartServer()
+		api = egapi.MustNewServer(opt, cls)
+	}
+	graceupdate.NotifySigUsr2(closeCls, restartCls)
+
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	sig := <-sigChan
@@ -115,6 +86,7 @@ func main() {
 		os.Exit(255)
 	}()
 	logger.Infof("%s signal received, closing easegateway", sig)
+
 	wg := &sync.WaitGroup{}
 	wg.Add(4)
 	api.Close(wg)
@@ -122,5 +94,4 @@ func main() {
 	cls.Close(wg)
 	profile.Close(wg)
 	wg.Wait()
-
 }
