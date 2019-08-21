@@ -48,6 +48,8 @@ func newHTTPContext(startTime *time.Time, stdw http.ResponseWriter, stdr *http.R
 
 		r: &httpRequest{
 			std:    stdr,
+			method: stdr.Method,
+			path:   stdr.URL.Path,
 			header: httpheader.New(stdr.Header),
 			body:   readercounter.New(stdr.Body),
 			realIP: realip.FromRequest(stdr),

@@ -2,19 +2,19 @@ package httpproxy
 
 import (
 	"fmt"
-	"net/http"
 
 	"github.com/megaease/easegateway/pkg/context"
-	"github.com/megaease/easegateway/pkg/plugin/adaptor"
+	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/object/httppipeline"
 	"github.com/megaease/easegateway/pkg/plugin/backend"
-	"github.com/megaease/easegateway/pkg/plugin/candidatebackend"
-	"github.com/megaease/easegateway/pkg/plugin/circuitbreaker"
-	"github.com/megaease/easegateway/pkg/plugin/compression"
-	"github.com/megaease/easegateway/pkg/plugin/mirrorbackend"
-	"github.com/megaease/easegateway/pkg/plugin/mock"
+	"github.com/megaease/easegateway/pkg/plugin/fallback"
 	"github.com/megaease/easegateway/pkg/plugin/ratelimiter"
+	"github.com/megaease/easegateway/pkg/plugin/requestadaptor"
+	"github.com/megaease/easegateway/pkg/plugin/responseadaptor"
 	"github.com/megaease/easegateway/pkg/plugin/validator"
 	"github.com/megaease/easegateway/pkg/registry"
+
+	"gopkg.in/yaml.v2"
 )
 
 func init() {
@@ -31,84 +31,93 @@ type (
 	HTTPProxy struct {
 		spec *Spec
 
-		runtime *Runtime
-
-		fallback *proxyFallback
-
-		validator        *validator.Validator
-		rateLimiter      *ratelimiter.RateLimiter
-		circuitBreaker   *circuitbreaker.CircuitBreaker
-		adaptor          *adaptor.Adaptor
-		mirrorBackend    *mirrorbackend.MirrorBackend
-		mock             *mock.Mock
-		candidateBackend *candidatebackend.CandidateBackend
-		backend          *backend.Backend
-		compression      *compression.Compression
+		pipeline *httppipeline.HTTPPipeline
 	}
 
 	// Spec describes the HTTPProxy.
 	Spec struct {
+		V string `yaml:"-" v:"parent"`
+
 		registry.MetaSpec `yaml:",inline"`
 
-		Fallback *proxyFallbackSpec `yaml:"fallback,omitempty"`
-
-		Validator        *validator.Spec        `yaml:"validator,omitempty"`
-		RateLimiter      *ratelimiter.Spec      `yaml:"rateLimiter,omitempty"`
-		CircuitBreaker   *circuitbreaker.Spec   `yaml:"circuitBreaker,omitempty"`
-		Adaptor          *adaptor.Spec          `yaml:"adaptor,omitempty"`
-		MirrorBackend    *mirrorbackend.Spec    `yaml:"mirrorBackend,omitempty"`
-		Mock             *mock.Spec             `yaml:"mock,omitempty"`
-		CandidateBackend *candidatebackend.Spec `yaml:"candidateBackend,omitempty"`
-		Backend          *backend.Spec          `yaml:"backend" v:"required"`
-		Compression      *compression.Spec      `yaml:"compression,omitempty"`
+		Validator       *validator.Spec       `yaml:"validator,omitempty"`
+		Fallback        *fallback.Spec        `yaml:"fallback,omitempty"`
+		RateLimiter     *ratelimiter.Spec     `yaml:"rateLimiter,omitempty"`
+		RequestAdaptor  *requestadaptor.Spec  `yaml:"requestAdaptor,omitempty"`
+		Backend         *backend.Spec         `yaml:"backend" v:"required"`
+		ResponseAdaptor *responseadaptor.Spec `yaml:"responseAdaptor"`
 	}
 )
 
-// New creates an HTTPProxy.
-func New(spec *Spec, runtime *Runtime) *HTTPProxy {
-	runtime.reload(spec)
+// Validate validates Spec.
+func (spec Spec) Validate() error {
+	// NOTE: The tag of v parent may be behind backend.
+	if spec.Backend == nil {
+		return fmt.Errorf("backend is required")
+	}
+	return spec.toHTTPPipelineSpec().Validate()
+}
 
-	hp := &HTTPProxy{
-		spec:    spec,
-		runtime: runtime,
+func (spec Spec) toHTTPPipelineSpec() *httppipeline.Spec {
+	pipelineSpec := &httppipeline.Spec{
+		MetaSpec: registry.MetaSpec{
+			Name: spec.Name,
+			Kind: httppipeline.Kind,
+		},
 	}
 
-	if spec.Fallback != nil {
-		hp.fallback = newProxyFallback(spec.Fallback, runtime.fallback)
+	transformSpec := func(name, kind string, i interface{}) map[string]interface{} {
+		buff, err := yaml.Marshal(i)
+		if err != nil {
+			logger.Errorf("BUG: marshal %#v to yaml failed: %v", i, err)
+			return nil
+		}
+
+		m := make(map[string]interface{})
+		err = yaml.Unmarshal(buff, &m)
+		if err != nil {
+			logger.Errorf("BUG: unmarshal %s to %T failed: %v",
+				buff, m, err)
+			return nil
+		}
+
+		m["name"], m["kind"] = name, kind
+
+		return m
 	}
 
 	if spec.Validator != nil {
-		hp.validator = validator.New(spec.Validator, runtime.validator)
+		pipelineSpec.Plugins = append(pipelineSpec.Plugins,
+			transformSpec("validator", validator.Kind, spec.Validator))
+	}
+	if spec.Fallback != nil {
+		pipelineSpec.Plugins = append(pipelineSpec.Plugins,
+			transformSpec("fallback", fallback.Kind, spec.Fallback))
 	}
 	if spec.RateLimiter != nil {
-		hp.rateLimiter = ratelimiter.New(spec.RateLimiter, runtime.rateLimiter)
+		pipelineSpec.Plugins = append(pipelineSpec.Plugins,
+			transformSpec("rateLimiter", ratelimiter.Kind, spec.RateLimiter))
 	}
-	if spec.CircuitBreaker != nil {
-		hp.circuitBreaker = circuitbreaker.New(spec.CircuitBreaker, runtime.circuitBreaker)
-	}
-	if spec.Adaptor != nil {
-		hp.adaptor = adaptor.New(spec.Adaptor, runtime.adaptor)
-	}
-	if spec.MirrorBackend != nil {
-		hp.mirrorBackend = mirrorbackend.New(spec.MirrorBackend, runtime.mirrorBackend)
+	if spec.RequestAdaptor != nil {
+		pipelineSpec.Plugins = append(pipelineSpec.Plugins,
+			transformSpec("requestAdaptor", requestadaptor.Kind, spec.RequestAdaptor))
 	}
 
-	if spec.Mock != nil {
-		hp.mock = mock.New(spec.Mock, runtime.mock)
+	pipelineSpec.Plugins = append(pipelineSpec.Plugins,
+		transformSpec("backend", backend.Kind, spec.Backend))
+
+	if spec.ResponseAdaptor != nil {
+		pipelineSpec.Plugins = append(pipelineSpec.Plugins,
+			transformSpec("responseAdaptor", responseadaptor.Kind, spec.ResponseAdaptor))
 	}
 
-	if spec.CandidateBackend != nil {
-		hp.candidateBackend = candidatebackend.New(spec.CandidateBackend, runtime.candidateBackend)
-	}
+	return pipelineSpec
+}
 
-	hp.backend = backend.New(spec.Backend, runtime.backend)
-
-	if spec.Compression != nil {
-		hp.compression = compression.New(spec.Compression, runtime.compression)
-		if hp.candidateBackend != nil {
-			hp.candidateBackend.OnResponseGot(hp.compression.Compress)
-		}
-		hp.backend.OnResponseGot(hp.compression.Compress)
+// New creates an HTTPProxy.
+func New(spec *Spec, r *Runtime) *HTTPProxy {
+	hp := &HTTPProxy{
+		pipeline: httppipeline.New(spec.toHTTPPipelineSpec(), r.pipeline),
 	}
 
 	return hp
@@ -121,123 +130,10 @@ func DefaultSpec() registry.Spec {
 
 // Handle handles all incoming traffic.
 func (hp *HTTPProxy) Handle(ctx context.HTTPContext) {
-	hp.preHandle(ctx)
-	if ctx.Cancelled() {
-		return
-	}
-
-	hp.handle(ctx)
-	if ctx.Cancelled() {
-		return
-	}
-
-	hp.postHandle(ctx)
-}
-
-func (hp *HTTPProxy) preHandle(ctx context.HTTPContext) {
-	w := ctx.Response()
-
-	if hp.validator != nil {
-		err := hp.validator.Validate(ctx)
-		if err != nil {
-			// NOTE: No fallback for invalid traffic.
-			w.SetStatusCode(http.StatusBadRequest)
-			ctx.Cancel(fmt.Errorf("validate failed: %v", err))
-			return
-		}
-	}
-
-	if hp.rateLimiter != nil {
-		err := hp.rateLimiter.Limit(ctx)
-		if err != nil {
-			w.SetStatusCode(http.StatusTooManyRequests)
-			// NOTE: Return regardless of result.
-			hp.handlePluginErr(ctx, fallbackPluginRateLimiter, err)
-			return
-		}
-	}
-
-	if hp.adaptor != nil {
-		hp.adaptor.AdaptRequest(ctx)
-	}
-
-	if hp.mirrorBackend != nil {
-		hp.mirrorBackend.Handle(ctx)
-	}
-}
-
-func (hp *HTTPProxy) handle(ctx context.HTTPContext) {
-	if hp.mock != nil {
-		hp.mock.Mock(ctx)
-		return
-	}
-
-	pt, handler := fallbackPluginBackend, hp.backend.Handle
-	if hp.candidateBackend != nil && hp.candidateBackend.Filter(ctx) {
-		pt, handler = fallbackPluginCandidateBackend, hp.candidateBackend.Handle
-	}
-
-	if hp.circuitBreaker != nil {
-		err := hp.circuitBreaker.Protect(ctx, handler)
-		if err != nil {
-			ctx.Response().SetStatusCode(http.StatusServiceUnavailable)
-			hp.handlePluginErr(ctx, fallbackPluginCircuitBreaker, err)
-		} else {
-			hp.handlePluginErr(ctx, pt, nil /*error*/)
-		}
-	} else {
-		handler(ctx)
-		hp.handlePluginErr(ctx, pt, nil /*error*/)
-	}
-
-}
-
-func (hp *HTTPProxy) postHandle(ctx context.HTTPContext) {
-	if hp.adaptor != nil {
-		hp.adaptor.AdaptResponse(ctx)
-	}
-}
-
-func (hp *HTTPProxy) handlePluginErr(ctx context.HTTPContext, pt fallbackPlugin, err error) {
-	cancelErr := err
-	if hp.fallback != nil {
-		fallbackErr := hp.fallback.getFallbackErr(ctx, pt, err)
-		if fallbackErr != nil {
-			cancelErr = fallbackErr
-		}
-	}
-	if cancelErr != nil {
-		ctx.Cancel(cancelErr)
-	}
+	hp.pipeline.Handle(ctx)
 }
 
 // Close closes HTTPProxy.
 func (hp *HTTPProxy) Close() {
-	if hp.fallback != nil {
-		hp.fallback.close()
-	}
-	if hp.validator != nil {
-		hp.validator.Close()
-	}
-	if hp.rateLimiter != nil {
-		hp.rateLimiter.Close()
-	}
-	if hp.circuitBreaker != nil {
-		hp.circuitBreaker.Close()
-	}
-	if hp.adaptor != nil {
-		hp.adaptor.Close()
-	}
-	if hp.mirrorBackend != nil {
-		hp.mirrorBackend.Close()
-	}
-	if hp.candidateBackend != nil {
-		hp.candidateBackend.Close()
-	}
-
-	hp.backend.Close()
-
-	if hp.compression != nil {
-		hp.compression.Close()
-	}
+	hp.pipeline.Close()
 }

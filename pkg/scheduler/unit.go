@@ -5,14 +5,16 @@ import (
 	"sync"
 
 	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/object/httppipeline"
 	"github.com/megaease/easegateway/pkg/object/httpproxy"
 	"github.com/megaease/easegateway/pkg/object/httpserver"
 	"github.com/megaease/easegateway/pkg/registry"
 )
 
 var unitNewFuncs = map[string]unitNewFunc{
-	httpserver.Kind: newServerUnit,
-	httpproxy.Kind:  newProxyUnit,
+	httpserver.Kind:   newServerUnit,
+	httpproxy.Kind:    newProxyUnit,
+	httppipeline.Kind: newPipelineUnit,
 }
 
 func (s specsInOrder) Len() int      { return len(s) }
@@ -22,6 +24,8 @@ func (s specsInOrder) Less(i, j int) bool {
 }
 func scoreOfSpec(spec registry.Spec) int {
 	switch spec.GetKind() {
+	case httppipeline.Kind:
+		return 0
 	case httpproxy.Kind:
 		return 1
 	case httpserver.Kind:
@@ -58,6 +62,13 @@ type (
 		name     string
 		proxy    *httpproxy.HTTPProxy
 		runtime  *httpproxy.Runtime
+		handlers *sync.Map
+	}
+
+	pipelineUnit struct {
+		name     string
+		pipeline *httppipeline.HTTPPipeline
+		runtime  *httppipeline.Runtime
 		handlers *sync.Map
 	}
 )
@@ -130,5 +141,44 @@ func (pu *proxyUnit) reload(spec registry.Spec) {
 func (pu *proxyUnit) close() {
 	pu.handlers.Delete(pu.proxy)
 	pu.proxy.Close()
+	pu.runtime.Close()
+}
+
+func newPipelineUnit(spec registry.Spec, handlers *sync.Map, first bool) (unit, error) {
+	pipelineSpec, ok := spec.(*httppipeline.Spec)
+	if !ok {
+		return nil, fmt.Errorf("want *httppipeline.Spec, got %T", spec)
+	}
+	runtime := httppipeline.NewRuntime()
+	pu := &pipelineUnit{
+		name:     spec.GetName(),
+		pipeline: httppipeline.New(pipelineSpec, runtime),
+		runtime:  runtime,
+		handlers: handlers,
+	}
+	handlers.Store(pu.name, pu.pipeline)
+
+	return pu, nil
+}
+
+func (pu *pipelineUnit) status() status {
+	return pu.runtime.Status()
+}
+
+func (pu *pipelineUnit) reload(spec registry.Spec) {
+	pipelineSpec, ok := spec.(*httppipeline.Spec)
+	if !ok {
+		logger.Errorf("BUG: want *httppipeline.Spec, got %T", spec)
+	}
+
+	olderPipeline := pu.pipeline
+	pu.pipeline = httppipeline.New(pipelineSpec, pu.runtime)
+	pu.handlers.Store(pu.name, pu.pipeline)
+	olderPipeline.Close()
+}
+
+func (pu *pipelineUnit) close() {
+	pu.handlers.Delete(pu.pipeline)
+	pu.pipeline.Close()
 	pu.runtime.Close()
 }

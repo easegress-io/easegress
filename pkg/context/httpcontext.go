@@ -30,11 +30,13 @@ type (
 		RealIP() string
 
 		Method() string
+		SetMethod(method string)
 
 		// URL
 		Scheme() string
 		Host() string
 		Path() string
+		SetPath(path string)
 		EscapedPath() string
 		Query() string
 		Fragment() string

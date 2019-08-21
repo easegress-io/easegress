@@ -1,45 +1,55 @@
 package fallback
 
 import (
-	"bytes"
-
 	"github.com/megaease/easegateway/pkg/context"
+	"github.com/megaease/easegateway/pkg/object/httppipeline"
+	"github.com/megaease/easegateway/pkg/util/fallback"
 )
+
+const (
+	// Kind is the kind of Fallback.
+	Kind = "Fallback"
+
+	resultFallback = "fallback"
+)
+
+func init() {
+	httppipeline.Register(&httppipeline.PluginRecord{
+		Kind:            Kind,
+		DefaultSpecFunc: DefaultSpec,
+		NewFunc:         New,
+		Results:         []string{resultFallback},
+	})
+}
+
+// DefaultSpec returns default spec.
+func DefaultSpec() *Spec {
+	return &Spec{}
+}
 
 type (
 	// Fallback is plugin Fallback.
 	Fallback struct {
-		spec     *Spec
-		mockBody []byte
+		f *fallback.Fallback
 	}
 
 	// Spec describes the Fallback.
 	Spec struct {
-		MockCode    int               `yaml:"mockCode" v:"required,httpcode"`
-		MockHeaders map[string]string `yaml:"mockHeaders" v:"dive,keys,required,endkeys,required"`
-		MockBody    string            `yaml:"mockBody"`
+		httppipeline.PluginMeta `yaml:",inline"`
+		fallback.Spec           `yaml:",inline"`
 	}
 )
 
 // New creates a Fallback.
-func New(spec *Spec, runtime *Runtime) *Fallback {
+func New(spec *Spec) *Fallback {
 	return &Fallback{
-		spec:     spec,
-		mockBody: []byte(spec.MockBody),
+		f: fallback.New(&spec.Spec),
 	}
 }
 
-// Close closes Fallback.
-// Nothing to do.
-func (f *Fallback) Close() {}
-
-// Fallback fallabcks HTTPContext.
-func (f *Fallback) Fallback(ctx context.HTTPContext) {
-	w := ctx.Response()
-
-	w.SetStatusCode(f.spec.MockCode)
-	for key, value := range f.spec.MockHeaders {
-		w.Header().Set(key, value)
-	}
-	w.SetBody(bytes.NewReader(f.mockBody))
+// Handle fallabcks HTTPContext.
+// It always returns fallback.
+func (f *Fallback) Handle(ctx context.HTTPContext) string {
+	f.f.Fallback(ctx)
+	return resultFallback
 }
