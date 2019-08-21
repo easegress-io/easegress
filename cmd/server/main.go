@@ -7,12 +7,14 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/megaease/easegateway/pkg/api"
+	egapi "github.com/megaease/easegateway/pkg/api"
 	"github.com/megaease/easegateway/pkg/cluster"
 	"github.com/megaease/easegateway/pkg/common"
 	"github.com/megaease/easegateway/pkg/env"
+	"github.com/megaease/easegateway/pkg/graceupdate"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/option"
+	"github.com/megaease/easegateway/pkg/pidfile"
 	"github.com/megaease/easegateway/pkg/profile"
 	"github.com/megaease/easegateway/pkg/scheduler"
 	"github.com/megaease/easegateway/pkg/version"
@@ -38,6 +40,13 @@ func main() {
 	defer logger.Sync()
 	logger.Infof("%s", version.Long)
 
+	// disable force-new-cluster for graceful update
+	if graceupdate.IsInherit() {
+		opt.ForceNewCluster = false
+	} else {
+		pidfile.Write(opt)
+	}
+
 	profile, err := profile.New(opt)
 	if err != nil {
 		logger.Errorf("new profile failed: %v", err)
@@ -49,7 +58,24 @@ func main() {
 		os.Exit(1)
 	}
 	sdl := scheduler.MustNew(cls)
-	api := api.MustNewServer(opt, cls)
+	api := egapi.MustNewServer(opt, cls)
+
+	if graceupdate.CallOriProcessTerm(sdl.FirstDone()) {
+		pidfile.Write(opt)
+	}
+
+	closeCls := func() {
+		wg := &sync.WaitGroup{}
+		wg.Add(2)
+		api.Close(wg)
+		cls.CloseServer(wg)
+		wg.Wait()
+	}
+	restartCls := func() {
+		cls.StartServer()
+		api = egapi.MustNewServer(opt, cls)
+	}
+	graceupdate.NotifySigUsr2(closeCls, restartCls)
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)

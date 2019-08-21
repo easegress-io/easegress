@@ -508,6 +508,16 @@ func (c *cluster) closeServer() {
 	}
 
 	closeEtcdServer(c.server)
+	c.server = nil
+}
+
+func (c *cluster) CloseServer(wg *sync.WaitGroup) {
+	defer wg.Done()
+	c.closeServer()
+}
+
+func (c *cluster) StartServer() (done, timeout chan struct{}, err error) {
+	return c.startServer()
 }
 
 func (c *cluster) heartbeat() {
