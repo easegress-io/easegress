@@ -96,7 +96,7 @@ func (ctx *httpContext) Value(key interface{}) interface{} {
 
 func (ctx *httpContext) Cancel(err error) {
 	if !ctx.Cancelled() {
-		ctx.AddTag(fmt.Sprintf("cancelErr:%s", err))
+		ctx.AddTag(fmt.Sprintf("cancelErr: %s", err))
 		ctx.err = err
 		ctx.cancelFunc()
 	}
@@ -119,6 +119,7 @@ func (ctx *httpContext) Duration() time.Duration {
 }
 
 func (ctx *httpContext) finish() {
+	ctx.r.finish()
 	ctx.w.finish()
 
 	endTime := time.Now()

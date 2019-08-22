@@ -14,6 +14,9 @@ import (
 	"github.com/megaease/easegateway/pkg/plugin/validator"
 	"github.com/megaease/easegateway/pkg/registry"
 
+	// TODO: Move the import to pkg/registry/registry.go
+	_ "github.com/megaease/easegateway/pkg/plugin/remoteplugin"
+
 	"gopkg.in/yaml.v2"
 )
 

@@ -27,7 +27,13 @@ func New(src http.Header) *HTTPHeader {
 
 // Reset resets internal src http.Header.
 func (h *HTTPHeader) Reset(src http.Header) {
-	h.h = src
+	for key := range h.h {
+		delete(h.h, key)
+	}
+
+	for key, values := range src {
+		h.h[key] = values
+	}
 }
 
 // Copy copies HTTPHeader to a whole new HTTPHeader.

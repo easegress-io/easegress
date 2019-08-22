@@ -1,0 +1,7 @@
+name: http-pipeline-remote-exmaple
+kind: HTTPPipeline
+
+plugins:
+  - name: remotePlugin
+    kind: RemotePlugin
+    url: http://127.0.0.1:7878

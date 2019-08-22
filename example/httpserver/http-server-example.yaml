@@ -1,0 +1,16 @@
+kind: HTTPServer
+name: http-server-example
+port: 10080
+https: false
+keepAlive: true
+keepAliveTimeout: 75s
+maxConnection: 10240
+cacheSize: 0
+rules:
+  - paths:
+    - pathPrefix: /pipeline
+      backend: http-pipeline-example
+    - pathPrefix: /proxy
+      backend: http-proxy-example
+    - pathPrefix: /remote
+      backend: remote-pipeline

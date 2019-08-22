@@ -46,6 +46,7 @@ type (
 		Header() *httpheader.HTTPHeader
 
 		Body() io.Reader
+		SetBody(io.Reader)
 
 		Size() uint64 // bytes
 	}

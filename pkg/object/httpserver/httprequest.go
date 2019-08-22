@@ -10,12 +10,13 @@ import (
 
 type (
 	httpRequest struct {
-		std    *http.Request
-		method string
-		path   string
-		header *httpheader.HTTPHeader
-		body   *readercounter.ReaderCounter
-		realIP string
+		std      *http.Request
+		method   string
+		path     string
+		header   *httpheader.HTTPHeader
+		body     *readercounter.ReaderCounter
+		bodySize uint64
+		realIP   string
 	}
 )
 
@@ -71,6 +72,25 @@ func (r *httpRequest) Body() io.Reader {
 	return r.body
 }
 
+func (r *httpRequest) SetBody(reader io.Reader) {
+	if r.bodySize == 0 {
+		// NOTE: Always store original body size.
+		r.bodySize = r.body.Count()
+	}
+	r.body = readercounter.New(reader)
+}
+
 func (r *httpRequest) Size() uint64 {
+	if r.bodySize != 0 {
+		// NOTE: Always load original body size.
+		return r.bodySize
+	}
 	return r.body.Count()
+}
+
+func (r *httpRequest) finish() {
+	// NOTE: We don't use this line in case of large flow attack.
+	// io.Copy(ioutil.Discard, r.std.Body)
+
+	r.std.Body.Close()
 }

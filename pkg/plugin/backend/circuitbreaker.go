@@ -110,7 +110,7 @@ func (cb *circuitBreaker) protect(ctx context.HTTPContext, handler func(ctx cont
 	// Only for opening circuitBreaker.
 	if err != nil && !handled {
 		ctx.Response().SetStatusCode(http.StatusServiceUnavailable)
-		ctx.AddTag(fmt.Sprintf("circuitBreaker:%v", err))
+		ctx.AddTag(fmt.Sprintf("circuitBreaker: %v", err))
 		return err
 	}
 

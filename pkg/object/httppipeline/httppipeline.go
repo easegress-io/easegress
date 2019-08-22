@@ -279,7 +279,7 @@ func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) {
 			nextPluginName = hp.runningPlugins[i+1].meta.Name
 		}
 	}
-	ctx.AddTag(fmt.Sprintf("httppipeline: %s", strings.Join(pipeline, ",")))
+	ctx.AddTag(fmt.Sprintf("pipeline: %s", strings.Join(pipeline, ",")))
 }
 
 func (hp *HTTPPipeline) getRunningPlugin(name string) *runningPlugin {

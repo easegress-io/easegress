@@ -292,7 +292,7 @@ func (b *Backend) Handle(ctx context.HTTPContext) (result string) {
 	if b.mirrorPool != nil && b.mirrorPool.filter.Filter(ctx) {
 		result, err := b.mirrorPool.handleWithoutResponse(ctx)
 		if err != nil {
-			ctx.AddTag(fmt.Sprintf("mirrorBackendFailed:%v", err))
+			ctx.AddTag(fmt.Sprintf("mirrorBackendFailed: %v", err))
 		}
 		defer func() {
 			res := <-result
@@ -355,7 +355,7 @@ func (p *pool) handle(ctx context.HTTPContext) {
 	w := ctx.Response()
 
 	server := p.servers.next(ctx)
-	ctx.AddTag(fmt.Sprintf("backendAddr:%s", server.URL))
+	ctx.AddTag(fmt.Sprintf("backendAddr: %s", server.URL))
 
 	url := server.URL + r.Path()
 	if r.Query() != "" {
@@ -365,7 +365,7 @@ func (p *pool) handle(ctx context.HTTPContext) {
 	if err != nil {
 		logger.Errorf("BUG: new request failed: %v", err)
 		w.SetStatusCode(http.StatusInternalServerError)
-		ctx.AddTag(fmt.Sprintf("backendBug:%s", err.Error()))
+		ctx.AddTag(fmt.Sprintf("backendBug: %v", err))
 		return
 	}
 	req.Header = r.Header().Std()
@@ -387,19 +387,19 @@ func (p *pool) handle(ctx context.HTTPContext) {
 	resp, err := globalClient.Do(req)
 	if err != nil {
 		w.SetStatusCode(http.StatusServiceUnavailable)
-		ctx.AddTag(fmt.Sprintf("backendErr:%s", err.Error()))
+		ctx.AddTag(fmt.Sprintf("backendErr: %v", err))
 		return
 	}
 
 	w.SetStatusCode(resp.StatusCode)
-	ctx.AddTag(fmt.Sprintf("backendCode:%d", resp.StatusCode))
+	ctx.AddTag(fmt.Sprintf("backendCode: %d", resp.StatusCode))
 	w.Header().AddFromStd(resp.Header)
 	body := durationreadcloser.New(resp.Body)
 	w.SetBody(body)
 
 	ctx.OnFinish(func() {
 		totalDuration := firstByteTime.Sub(startTime) + body.Duration()
-		ctx.AddTag(fmt.Sprintf("backendDuration:%v", totalDuration))
+		ctx.AddTag(fmt.Sprintf("backendDuration: %v", totalDuration))
 		p.httpStat.Stat(ctx)
 	})
 }
@@ -409,7 +409,7 @@ func (p *pool) handleWithoutResponse(ctx context.HTTPContext) (chan string, erro
 	r := ctx.Request()
 
 	server := p.servers.next(ctx)
-	ctx.AddTag(fmt.Sprintf("mirrorBackendAddr:%s", server.URL))
+	ctx.AddTag(fmt.Sprintf("mirrorBackendAddr: %s", server.URL))
 
 	url := server.URL + r.Path()
 	if r.Query() != "" {
