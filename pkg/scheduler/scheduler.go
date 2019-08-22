@@ -9,12 +9,13 @@ import (
 	"github.com/megaease/easegateway/pkg/cluster"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/registry"
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v2"
 )
 
 const (
 	// To sync status, and rewatch configChan if need.
-	pollingTimeout = 5 * time.Second
+	checkStatusInterval = 5 * time.Second
+	checkWatchInterval  = 3 * time.Second
 )
 
 type (
@@ -61,21 +62,30 @@ func MustNew(cls cluster.Cluster) *Scheduler {
 
 func (s *Scheduler) schedule() {
 	for {
-		select {
-		case <-s.done:
-			s.close()
-			return
-		case <-time.After(pollingTimeout):
-			s.handleSyncStatus()
-			s.handleRewatchIfNeed()
-		case kvs, ok := <-s.configChan:
-			if ok {
-				s.handleKvs(kvs)
-			} else {
-				logger.Errorf("watch %s failed", s.prefix)
-				s.handleWatchFailed()
+		func() {
+			defer func() {
+				if err := recover(); err != nil {
+					logger.Errorf("schedule() failed, err: %v", err)
+				}
+			}()
+
+			select {
+			case <-s.done:
+				s.close()
+				return
+			case <-time.After(checkStatusInterval):
+				s.handleSyncStatus()
+			case <-time.After(checkWatchInterval):
+				s.handleRewatchIfNeed()
+			case kvs, ok := <-s.configChan:
+				if ok {
+					s.handleKvs(kvs)
+				} else {
+					logger.Errorf("watch %s failed", s.prefix)
+					s.handleWatchFailed()
+				}
 			}
-		}
+		}()
 	}
 }
 
