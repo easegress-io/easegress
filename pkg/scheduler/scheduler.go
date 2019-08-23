@@ -62,30 +62,22 @@ func MustNew(cls cluster.Cluster) *Scheduler {
 
 func (s *Scheduler) schedule() {
 	for {
-		func() {
-			defer func() {
-				if err := recover(); err != nil {
-					logger.Errorf("schedule() failed, err: %v", err)
-				}
-			}()
-
-			select {
-			case <-s.done:
-				s.close()
-				return
-			case <-time.After(checkStatusInterval):
-				s.handleSyncStatus()
-			case <-time.After(checkWatchInterval):
-				s.handleRewatchIfNeed()
-			case kvs, ok := <-s.configChan:
-				if ok {
-					s.handleKvs(kvs)
-				} else {
-					logger.Errorf("watch %s failed", s.prefix)
-					s.handleWatchFailed()
-				}
+		select {
+		case <-s.done:
+			s.close()
+			return
+		case <-time.After(checkStatusInterval):
+			s.handleSyncStatus()
+		case <-time.After(checkWatchInterval):
+			s.handleRewatchIfNeed()
+		case kvs, ok := <-s.configChan:
+			if ok {
+				s.handleKvs(kvs)
+			} else {
+				logger.Errorf("watch %s failed", s.prefix)
+				s.handleWatchFailed()
 			}
-		}()
+		}
 	}
 }
 
@@ -109,6 +101,12 @@ func (s Scheduler) keyToName(k string) string {
 }
 
 func (s *Scheduler) handleKvs(kvs map[string]*string) {
+	defer func() {
+		if err := recover(); err != nil {
+			logger.Errorf("handleKvs() failed, err: %v", err)
+		}
+	}()
+
 	if s.first {
 		defer func() {
 			s.first = false
@@ -174,6 +172,12 @@ func (s *Scheduler) handleKvs(kvs map[string]*string) {
 }
 
 func (s *Scheduler) handleSyncStatus() {
+	defer func() {
+		if err := recover(); err != nil {
+			logger.Errorf("handleSyncStatus() failed, err: %v", err)
+		}
+	}()
+
 	timestamp := uint64(time.Now().Unix())
 	kvs := make(map[string]*string)
 	for name, unit := range s.units {
