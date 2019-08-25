@@ -4,20 +4,18 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/megaease/easegateway/pkg/common"
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/registry"
+	"github.com/megaease/easegateway/pkg/object/httpserver"
+	"github.com/megaease/easegateway/pkg/scheduler"
 	"github.com/megaease/easegateway/pkg/v"
 
-	"gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v2"
 )
-
-func init() {
-	registry.Register(Kind, DefaultSpec)
-}
 
 const (
 	// Kind is HTTPPipeline kind.
@@ -26,6 +24,15 @@ const (
 	// LabelEND is the built-in label for jumping of flow.
 	LabelEND = "END"
 )
+
+func init() {
+	scheduler.Register(&scheduler.ObjectRecord{
+		Kind:              Kind,
+		DefaultSpecFunc:   DefaultSpec,
+		NewFunc:           New,
+		DependObjectKinds: []string{httpserver.Kind},
+	})
+}
 
 type (
 	// HTTPPipeline is Object HTTPPipeline.
@@ -52,10 +59,6 @@ type (
 	// Plugin is the common interface for plugins handling HTTP traffic.
 	Plugin interface {
 		Handle(context.HTTPContext) (result string)
-	}
-
-	// Closer is the common interface for plugins, which could not be implemented.
-	Closer interface {
 		Close()
 	}
 
@@ -63,7 +66,7 @@ type (
 	Spec struct {
 		V string `yaml:"-" v:"parent"`
 
-		registry.MetaSpec `yaml:",inline"`
+		scheduler.ObjectMeta `yaml:",inline"`
 
 		Flow    []Flow                   `yaml:"flow"`
 		Plugins []map[string]interface{} `yaml:"plugins" v:"required"`
@@ -74,17 +77,24 @@ type (
 		Plugin string            `yaml:"plugin" v:"required"`
 		JumpIf map[string]string `yaml:"jumpIf"`
 	}
+
+	// Status contains all status gernerated by runtime, for displaying to users.
+	Status struct {
+		Timestamp uint64 `yaml:"timestamp"`
+
+		Plugins map[string]interface{} `yaml:"plugins"`
+	}
 )
 
 // DefaultSpec returns HTTPPipeline default spec.
-func DefaultSpec() registry.Spec {
+func DefaultSpec() *Spec {
 	return &Spec{}
 }
 
 func marshal(i interface{}) []byte {
 	buff, err := yaml.Marshal(i)
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("marsharl %#v failed: %v", i, err))
 	}
 	return buff
 }
@@ -174,14 +184,14 @@ func (s Spec) Validate() (err error) {
 }
 
 // New creates an HTTPPipeline
-func New(spec *Spec, r *Runtime) *HTTPPipeline {
+func New(spec *Spec, prev *HTTPPipeline, handlers *sync.Map) (tmp *HTTPPipeline) {
+	hp := &HTTPPipeline{spec: spec}
+
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Errorf("BUG: %v", err)
 		}
 	}()
-
-	hp := &HTTPPipeline{spec: spec}
 
 	runningPlugins := make([]*runningPlugin, 0)
 	if len(spec.Flow) == 0 {
@@ -226,17 +236,15 @@ func New(spec *Spec, r *Runtime) *HTTPPipeline {
 		defaultPluginSpec := reflect.ValueOf(pr.DefaultSpecFunc).Call(nil)[0].Interface()
 		unmarshal(buff, defaultPluginSpec)
 
-		in := []reflect.Value{reflect.ValueOf(defaultPluginSpec)}
-		if pr.needPrev {
-			var prevValue reflect.Value
-			prevPlugin := r.curr.getRunningPlugin(meta.Name)
-			if prevPlugin == nil {
-				prevValue = reflect.New(pr.pluginType).Elem()
-			} else {
+		prevValue := reflect.New(pr.pluginType).Elem()
+		if prev != nil {
+			prevPlugin := prev.getRunningPlugin(meta.Name)
+			if prevPlugin != nil {
 				prevValue = reflect.ValueOf(prevPlugin.plugin)
 			}
-			in = append(in, prevValue)
 		}
+		in := []reflect.Value{reflect.ValueOf(defaultPluginSpec), prevValue}
+
 		plugin := reflect.ValueOf(pr.NewFunc).Call(in)[0].Interface().(Plugin)
 
 		runningPlugin.plugin, runningPlugin.meta, runningPlugin.pr = plugin, meta, pr
@@ -244,7 +252,15 @@ func New(spec *Spec, r *Runtime) *HTTPPipeline {
 
 	hp.runningPlugins = runningPlugins
 
-	r.reload(hp)
+	if prev != nil {
+		for _, runningPlugin := range prev.runningPlugins {
+			if hp.getRunningPlugin(runningPlugin.meta.Name) == nil {
+				runningPlugin.plugin.Close()
+			}
+		}
+	}
+
+	handlers.Store(spec.Name, hp)
 
 	return hp
 }
@@ -292,6 +308,25 @@ func (hp *HTTPPipeline) getRunningPlugin(name string) *runningPlugin {
 	return nil
 }
 
+// Status returns Status genreated by Runtime.
+// NOTE: Caller must not call Status while Newing.
+func (hp *HTTPPipeline) Status() *Status {
+	s := &Status{
+		Plugins: make(map[string]interface{}),
+	}
+
+	for _, runningPlugin := range hp.runningPlugins {
+		pluginStatus := reflect.ValueOf(runningPlugin.plugin).
+			MethodByName("Status").Call(nil)[0].Interface()
+		s.Plugins[runningPlugin.meta.Name] = pluginStatus
+	}
+
+	return s
+}
+
 // Close closes HTTPPipeline.
 func (hp *HTTPPipeline) Close() {
+	for _, runningPlugin := range hp.runningPlugins {
+		runningPlugin.plugin.Close()
+	}
 }

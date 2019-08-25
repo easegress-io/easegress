@@ -47,7 +47,7 @@ type (
 )
 
 // New creates a Validator.
-func New(spec *Spec) *Validator {
+func New(spec *Spec, prev *Validator) *Validator {
 	return &Validator{
 		spec:    spec,
 		headers: httpheader.NewValidator(spec.Headers),
@@ -64,3 +64,9 @@ func (v *Validator) Handle(ctx context.HTTPContext) string {
 	}
 	return ""
 }
+
+// Status returns status.
+func (v *Validator) Status() interface{} { return nil }
+
+// Close closes Validator.
+func (v *Validator) Close() {}

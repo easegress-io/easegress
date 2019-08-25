@@ -2,32 +2,36 @@ package httpproxy
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
+	"github.com/megaease/easegateway/pkg/object/httpserver"
 	"github.com/megaease/easegateway/pkg/plugin/backend"
 	"github.com/megaease/easegateway/pkg/plugin/fallback"
 	"github.com/megaease/easegateway/pkg/plugin/ratelimiter"
 	"github.com/megaease/easegateway/pkg/plugin/requestadaptor"
 	"github.com/megaease/easegateway/pkg/plugin/responseadaptor"
 	"github.com/megaease/easegateway/pkg/plugin/validator"
-	"github.com/megaease/easegateway/pkg/registry"
-
-	// TODO: Move the import to pkg/registry/registry.go
-	_ "github.com/megaease/easegateway/pkg/plugin/remoteplugin"
+	"github.com/megaease/easegateway/pkg/scheduler"
 
 	"gopkg.in/yaml.v2"
 )
-
-func init() {
-	registry.Register(Kind, DefaultSpec)
-}
 
 const (
 	// Kind is HTTPProxy kind.
 	Kind = "HTTPProxy"
 )
+
+func init() {
+	scheduler.Register(&scheduler.ObjectRecord{
+		Kind:              Kind,
+		DefaultSpecFunc:   DefaultSpec,
+		NewFunc:           New,
+		DependObjectKinds: []string{httpserver.Kind, httppipeline.Kind},
+	})
+}
 
 type (
 	// HTTPProxy is Object HTTPProxy.
@@ -41,7 +45,7 @@ type (
 	Spec struct {
 		V string `yaml:"-" v:"parent"`
 
-		registry.MetaSpec `yaml:",inline"`
+		scheduler.ObjectMeta `yaml:",inline"`
 
 		Validator       *validator.Spec       `yaml:"validator,omitempty"`
 		Fallback        *fallback.Spec        `yaml:"fallback,omitempty"`
@@ -50,6 +54,9 @@ type (
 		Backend         *backend.Spec         `yaml:"backend" v:"required"`
 		ResponseAdaptor *responseadaptor.Spec `yaml:"responseAdaptor"`
 	}
+
+	// Status is the wrapper of httppipeline.Status.
+	Status = httppipeline.Status
 )
 
 // Validate validates Spec.
@@ -63,7 +70,7 @@ func (spec Spec) Validate() error {
 
 func (spec Spec) toHTTPPipelineSpec() *httppipeline.Spec {
 	pipelineSpec := &httppipeline.Spec{
-		MetaSpec: registry.MetaSpec{
+		ObjectMeta: scheduler.ObjectMeta{
 			Name: spec.Name,
 			Kind: httppipeline.Kind,
 		},
@@ -118,22 +125,32 @@ func (spec Spec) toHTTPPipelineSpec() *httppipeline.Spec {
 }
 
 // New creates an HTTPProxy.
-func New(spec *Spec, r *Runtime) *HTTPProxy {
+func New(spec *Spec, prev *HTTPProxy, handlers *sync.Map) *HTTPProxy {
+	var prevPipeline *httppipeline.HTTPPipeline
+	if prev != nil {
+		prevPipeline = prev.pipeline
+	}
 	hp := &HTTPProxy{
-		pipeline: httppipeline.New(spec.toHTTPPipelineSpec(), r.pipeline),
+		pipeline: httppipeline.New(spec.toHTTPPipelineSpec(), prevPipeline, handlers),
 	}
 
 	return hp
 }
 
 // DefaultSpec returns HTTPProxy default spec.
-func DefaultSpec() registry.Spec {
+func DefaultSpec() *Spec {
 	return &Spec{}
 }
 
 // Handle handles all incoming traffic.
 func (hp *HTTPProxy) Handle(ctx context.HTTPContext) {
 	hp.pipeline.Handle(ctx)
+}
+
+// Status returns Status genreated by Runtime.
+// NOTE: Caller must not call Status while reloading.
+func (hp *HTTPProxy) Status() *Status {
+	return hp.pipeline.Status()
 }
 
 // Close closes HTTPProxy.

@@ -46,7 +46,7 @@ type (
 )
 
 // New creates an HTTPAdaptor.
-func New(spec *Spec) *RequestAdaptor {
+func New(spec *Spec, prev *RequestAdaptor) *RequestAdaptor {
 	var pathAdaptor *pathAdaptor
 	if spec.Path != nil {
 		pathAdaptor = newPathAdaptor(spec.Path)
@@ -82,3 +82,9 @@ func (ra *RequestAdaptor) Handle(ctx context.HTTPContext) string {
 
 	return ""
 }
+
+// Status returns status.
+func (ra *RequestAdaptor) Status() interface{} { return nil }
+
+// Close closes RequestAdaptor.
+func (ra *RequestAdaptor) Close() {}

@@ -9,7 +9,7 @@ import (
 	_ "github.com/megaease/easegateway/pkg/object/httpproxy"
 	_ "github.com/megaease/easegateway/pkg/object/httpserver"
 
-	"github.com/megaease/easegateway/pkg/registry"
+	"github.com/megaease/easegateway/pkg/scheduler"
 
 	"github.com/kataras/iris"
 	yaml "gopkg.in/yaml.v2"
@@ -77,13 +77,13 @@ func (s *Server) setupObjectAPIs() {
 	s.apis = append(s.apis, objAPIs...)
 }
 
-func (s *Server) readObjectSpec(ctx iris.Context) (registry.Spec, error) {
+func (s *Server) readObjectSpec(ctx iris.Context) (scheduler.Spec, error) {
 	body, err := ioutil.ReadAll(ctx.Request().Body)
 	if err != nil {
 		return nil, fmt.Errorf("read body failed: %v", err)
 	}
 
-	spec, err := registry.SpecFromYAML(string(body))
+	spec, err := scheduler.SpecFromYAML(string(body))
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +150,7 @@ func (s *Server) getObject(ctx iris.Context) {
 
 	// Reference: https://mailarchive.ietf.org/arch/msg/media-types/e9ZNC0hDXKXeFlAVRWxLCCaG9GI
 	ctx.Header("Content-Type", "text/vnd.yaml")
-	ctx.Write([]byte(registry.YAMLFromSpec(spec)))
+	ctx.Write([]byte(scheduler.YAMLFromSpec(spec)))
 }
 
 func (s *Server) updateObject(ctx iris.Context) {
@@ -233,24 +233,17 @@ func (s *Server) listStatusObjects(ctx iris.Context) {
 	ctx.Write(buff)
 }
 
-type specsToSort []registry.Spec
+type specsToSort []scheduler.Spec
 
 func (s specsToSort) Less(i, j int) bool { return s[i].GetName() < s[j].GetName() }
 func (s specsToSort) Len() int           { return len(s) }
 func (s specsToSort) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
 func (s *Server) listObjectKinds(ctx iris.Context) {
-	var objKinds []string
-	for _, obj := range registry.Objects() {
-		objKinds = append(objKinds, obj.Kind())
-	}
-
-	// NOTE: Keep it consistent.
-	sort.Strings(objKinds)
-
-	buff, err := yaml.Marshal(objKinds)
+	kinds := scheduler.ObjectKinds()
+	buff, err := yaml.Marshal(kinds)
 	if err != nil {
-		panic(fmt.Errorf("marshal %#v to yaml failed: %v", objKinds, err))
+		panic(fmt.Errorf("marshal %#v to yaml failed: %v", kinds, err))
 	}
 
 	ctx.Write(buff)

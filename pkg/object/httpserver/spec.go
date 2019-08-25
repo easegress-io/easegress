@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/megaease/easegateway/pkg/registry"
+	"github.com/megaease/easegateway/pkg/scheduler"
 	"github.com/megaease/easegateway/pkg/util/ipfilter"
 )
 
@@ -15,15 +15,15 @@ type (
 	Spec struct {
 		V string `yaml:"-" v:"parent"`
 
-		registry.MetaSpec `yaml:",inline"`
-		Port              uint16 `yaml:"port" v:"gte=1"`
-		KeepAlive         bool   `yaml:"keepAlive"`
-		KeepAliveTimeout  string `yaml:"keepAliveTimeout" v:"omitempty,duration,dmin=1s"`
-		MaxConnections    uint32 `yaml:"maxConnections" v:"gte=1"`
-		HTTPS             bool   `yaml:"https"`
-		CertBase64        string `yaml:"certBase64" v:"omitempty,base64"`
-		KeyBase64         string `yaml:"keyBase64" v:"omitempty,base64"`
-		CacheSize         uint32 `yaml:"cacheSize" v:"omitempty"`
+		scheduler.ObjectMeta `yaml:",inline"`
+		Port                 uint16 `yaml:"port" v:"gte=1"`
+		KeepAlive            bool   `yaml:"keepAlive"`
+		KeepAliveTimeout     string `yaml:"keepAliveTimeout" v:"omitempty,duration,dmin=1s"`
+		MaxConnections       uint32 `yaml:"maxConnections" v:"gte=1"`
+		HTTPS                bool   `yaml:"https"`
+		CertBase64           string `yaml:"certBase64" v:"omitempty,base64"`
+		KeyBase64            string `yaml:"keyBase64" v:"omitempty,base64"`
+		CacheSize            uint32 `yaml:"cacheSize" v:"omitempty"`
 
 		IPFilter *ipfilter.Spec `yaml:"ipFilter" v:"omitempty"`
 		Rules    []Rule         `yaml:"rules" v:"dive"`

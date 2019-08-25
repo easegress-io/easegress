@@ -41,7 +41,7 @@ type (
 )
 
 // New creates a Fallback.
-func New(spec *Spec) *Fallback {
+func New(spec *Spec, prev *Fallback) *Fallback {
 	return &Fallback{
 		f: fallback.New(&spec.Spec),
 	}
@@ -53,3 +53,9 @@ func (f *Fallback) Handle(ctx context.HTTPContext) string {
 	f.f.Fallback(ctx)
 	return resultFallback
 }
+
+// Status returns Status.
+func (f *Fallback) Status() interface{} { return nil }
+
+// Close closes Fallback.
+func (f *Fallback) Close() {}

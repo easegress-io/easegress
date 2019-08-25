@@ -18,6 +18,9 @@ import (
 	"github.com/megaease/easegateway/pkg/profile"
 	"github.com/megaease/easegateway/pkg/scheduler"
 	"github.com/megaease/easegateway/pkg/version"
+
+	// For register stuff.
+	_ "github.com/megaease/easegateway/pkg/registry"
 )
 
 func main() {

@@ -40,7 +40,7 @@ type (
 )
 
 // New creates an HTTPAdaptor.
-func New(spec *Spec) *ResponseAdaptor {
+func New(spec *Spec, prev *ResponseAdaptor) *ResponseAdaptor {
 	return &ResponseAdaptor{
 		spec: spec,
 	}
@@ -51,3 +51,9 @@ func (ra *ResponseAdaptor) Handle(ctx context.HTTPContext) string {
 	ctx.Response().Header().Adapt(ra.spec.Header)
 	return ""
 }
+
+// Status returns status.
+func (ra *ResponseAdaptor) Status() interface{} { return nil }
+
+// Close closes ResponseAdaptor.
+func (ra *ResponseAdaptor) Close() {}

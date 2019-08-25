@@ -205,7 +205,7 @@ func (s poolSpec) Validate() error {
 }
 
 // New creates a Backend.
-func New(spec *Spec) *Backend {
+func New(spec *Spec, prev *Backend) *Backend {
 	b := &Backend{
 		spec:     spec,
 		mainPool: newPool(spec.MainPool, spec.FailureCodes),
@@ -267,6 +267,9 @@ func (b *Backend) Status() *Status {
 	}
 	return s
 }
+
+// Close closes Backend.
+func (b *Backend) Close() {}
 
 func (b *Backend) fallbackForCircuitBreaker(ctx context.HTTPContext) bool {
 	if b.fallback != nil && b.spec.Fallback.ForCircuitBreaker {

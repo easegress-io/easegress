@@ -310,7 +310,12 @@ func (m *mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		case ci.backend != "":
 			handler, exists := m.handlers.Load(ci.backend)
 			if exists {
-				handler.(Handler).Handle(ctx)
+				handler, ok := handler.(Handler)
+				if !ok {
+					ctx.AddTag(fmt.Sprintf("BUG: backend %s is not handler", ci.backend))
+				} else {
+					handler.Handle(ctx)
+				}
 			} else {
 				ctx.AddTag(fmt.Sprintf("backend %s not found", ci.backend))
 				ctx.w.SetStatusCode(http.StatusServiceUnavailable)

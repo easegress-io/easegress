@@ -59,12 +59,8 @@ func New(spec *Spec, prev *Mock) *Mock {
 	}
 }
 
-// Close closes Mock.
-// Nothing to do.
-func (f *Mock) Close() {}
-
 // Handle mocks HTTPContext.
-func (f *Mock) Handle(ctx context.HTTPContext) (result string) {
+func (m *Mock) Handle(ctx context.HTTPContext) (result string) {
 	path := ctx.Request().Path()
 	w := ctx.Response()
 
@@ -77,7 +73,7 @@ func (f *Mock) Handle(ctx context.HTTPContext) (result string) {
 		result = resultMocked
 	}
 
-	for _, rule := range f.spec.Rules {
+	for _, rule := range m.spec.Rules {
 		if rule.Path == "" && rule.PathPrefix == "" {
 			mock(rule)
 			return
@@ -91,3 +87,11 @@ func (f *Mock) Handle(ctx context.HTTPContext) (result string) {
 
 	return ""
 }
+
+// Status returns status.
+func (m *Mock) Status() interface{} {
+	return nil
+}
+
+// Close closes Mock.
+func (m *Mock) Close() {}
