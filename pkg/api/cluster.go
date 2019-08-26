@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/megaease/easegateway/pkg/registry"
+	"github.com/megaease/easegateway/pkg/scheduler"
 
 	yaml "gopkg.in/yaml.v2"
 )
@@ -16,7 +16,7 @@ func (s *Server) _purgeMember(memberName string) {
 	}
 }
 
-func (s *Server) _getObject(name string) registry.Spec {
+func (s *Server) _getObject(name string) scheduler.Spec {
 	value, err := s.cluster.Get(s.cluster.Layout().ConfigObjectKey(name))
 	if err != nil {
 		clusterPanic(err)
@@ -26,7 +26,7 @@ func (s *Server) _getObject(name string) registry.Spec {
 		return nil
 	}
 
-	spec, err := registry.SpecFromYAML(*value)
+	spec, err := scheduler.SpecFromYAML(*value)
 	if err != nil {
 		panic(fmt.Errorf("bad spec(err: %v) from yaml: %s", err, *value))
 	}
@@ -34,15 +34,15 @@ func (s *Server) _getObject(name string) registry.Spec {
 	return spec
 }
 
-func (s *Server) _listObjects() []registry.Spec {
+func (s *Server) _listObjects() []scheduler.Spec {
 	kvs, err := s.cluster.GetPrefix(s.cluster.Layout().ConfigObjectPrefix())
 	if err != nil {
 		clusterPanic(err)
 	}
 
-	specs := make([]registry.Spec, 0, len(kvs))
+	specs := make([]scheduler.Spec, 0, len(kvs))
 	for _, v := range kvs {
-		spec, err := registry.SpecFromYAML(v)
+		spec, err := scheduler.SpecFromYAML(v)
 		if err != nil {
 			panic(fmt.Errorf("bad spec(err: %v) from yaml: %s", err, v))
 		}
@@ -52,9 +52,9 @@ func (s *Server) _listObjects() []registry.Spec {
 	return specs
 }
 
-func (s *Server) _putObject(spec registry.Spec) {
+func (s *Server) _putObject(spec scheduler.Spec) {
 	err := s.cluster.Put(s.cluster.Layout().ConfigObjectKey(spec.GetName()),
-		registry.YAMLFromSpec(spec))
+		scheduler.YAMLFromSpec(spec))
 	if err != nil {
 		clusterPanic(err)
 	}

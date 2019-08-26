@@ -47,8 +47,7 @@ type (
 	eventReload struct{ nextSpec *Spec }
 	eventClose  struct{ done chan struct{} }
 
-	// Runtime contains all runtime info of HTTPServer.
-	Runtime struct {
+	runtime struct {
 		handlers  *sync.Map
 		spec      *Spec
 		server    *http.Server
@@ -81,12 +80,8 @@ type (
 	}
 )
 
-// InjectTimestamp injects timestamp.
-func (s *Status) InjectTimestamp(t uint64) { s.Timestamp = t }
-
-// NewRuntime creates an HTTPServer Runtime.
-func NewRuntime(handlers *sync.Map) *Runtime {
-	r := &Runtime{
+func newRuntime(handlers *sync.Map) *runtime {
+	r := &runtime{
 		handlers:  handlers,
 		eventChan: make(chan interface{}, 10),
 		httpStat:  httpstat.New(),
@@ -102,15 +97,15 @@ func NewRuntime(handlers *sync.Map) *Runtime {
 	return r
 }
 
-// Close closes Runtime.
-func (r *Runtime) Close() {
+// Close closes runtime.
+func (r *runtime) Close() {
 	done := make(chan struct{})
 	r.eventChan <- &eventClose{done: done}
 	<-done
 }
 
 // Status returns HTTPServer Status.
-func (r *Runtime) Status() *Status {
+func (r *runtime) Status() *Status {
 	return &Status{
 		State:  r.getState(),
 		Error:  r.getError().Error(),
@@ -119,8 +114,8 @@ func (r *Runtime) Status() *Status {
 	}
 }
 
-// FSM is the finite-state-machine for the Runtime.
-func (r *Runtime) fsm() {
+// FSM is the finite-state-machine for the runtime.
+func (r *runtime) fsm() {
 	for e := range r.eventChan {
 		switch e := e.(type) {
 		case *eventStart:
@@ -143,11 +138,11 @@ func (r *Runtime) fsm() {
 	}
 }
 
-func (r *Runtime) handleEventStart(e *eventStart) {
+func (r *runtime) handleEventStart(e *eventStart) {
 	r.startServer()
 }
 
-func (r *Runtime) reload(nextSpec *Spec) {
+func (r *runtime) reload(nextSpec *Spec) {
 	// NOTE: Due to the mechanism of scheduler,
 	// nextSpec must not be nil, just defensive programming here.
 	switch {
@@ -173,15 +168,15 @@ func (r *Runtime) reload(nextSpec *Spec) {
 	}
 }
 
-func (r *Runtime) setState(state stateType) {
+func (r *runtime) setState(state stateType) {
 	r.state.Store(state)
 }
 
-func (r *Runtime) getState() stateType {
+func (r *runtime) getState() stateType {
 	return r.state.Load().(stateType)
 }
 
-func (r *Runtime) setError(err error) {
+func (r *runtime) setError(err error) {
 	if err == nil {
 		r.err.Store(errNil)
 	} else {
@@ -190,7 +185,7 @@ func (r *Runtime) setError(err error) {
 	}
 }
 
-func (r *Runtime) getError() error {
+func (r *runtime) getError() error {
 	err := r.err.Load()
 	if err == nil {
 		return nil
@@ -198,7 +193,7 @@ func (r *Runtime) getError() error {
 	return err.(error)
 }
 
-func (r *Runtime) needRestartServer(nextSpec *Spec) bool {
+func (r *runtime) needRestartServer(nextSpec *Spec) bool {
 	x := *r.spec
 	y := *nextSpec
 	x.Rules, y.Rules = nil, nil
@@ -207,7 +202,7 @@ func (r *Runtime) needRestartServer(nextSpec *Spec) bool {
 	return !reflect.DeepEqual(x, y)
 }
 
-func (r *Runtime) startServer() {
+func (r *runtime) startServer() {
 	keepAliveTimeout := defaultKeepAliveTimeout
 	if r.spec.KeepAliveTimeout != "" {
 		t, err := time.ParseDuration(r.spec.KeepAliveTimeout)
@@ -264,7 +259,7 @@ func (r *Runtime) startServer() {
 	}(r.spec.HTTPS, r.startNum)
 }
 
-func (r *Runtime) closeServer() {
+func (r *runtime) closeServer() {
 	if r.server == nil {
 		return
 	}
@@ -278,7 +273,7 @@ func (r *Runtime) closeServer() {
 	}
 }
 
-func (r *Runtime) checkFailed() {
+func (r *runtime) checkFailed() {
 	ticker := time.NewTicker(checkFailedTimeout)
 	for range ticker.C {
 		state := r.getState()
@@ -291,13 +286,13 @@ func (r *Runtime) checkFailed() {
 	}
 }
 
-func (r *Runtime) handleEventCheckFailed(e *eventCheckFailed) {
+func (r *runtime) handleEventCheckFailed(e *eventCheckFailed) {
 	if r.getState() == stateFailed {
 		r.startServer()
 	}
 }
 
-func (r *Runtime) handleEventServeFailed(e *eventServeFailed) {
+func (r *runtime) handleEventServeFailed(e *eventServeFailed) {
 	if r.startNum > e.startNum {
 		return
 	}
@@ -305,11 +300,11 @@ func (r *Runtime) handleEventServeFailed(e *eventServeFailed) {
 	r.setError(e.err)
 }
 
-func (r *Runtime) handleEventReload(e *eventReload) {
+func (r *runtime) handleEventReload(e *eventReload) {
 	r.reload(e.nextSpec)
 }
 
-func (r *Runtime) handleEventClose(e *eventClose) {
+func (r *runtime) handleEventClose(e *eventClose) {
 	r.closeServer()
 	close(e.done)
 }

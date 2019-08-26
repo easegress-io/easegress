@@ -1,6 +1,8 @@
 package scheduler
 
 import (
+	"reflect"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"sync"
@@ -8,14 +10,12 @@ import (
 
 	"github.com/megaease/easegateway/pkg/cluster"
 	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/registry"
+
 	"gopkg.in/yaml.v2"
 )
 
 const (
-	// To sync status, and rewatch configChan if need.
-	checkStatusInterval = 5 * time.Second
-	checkWatchInterval  = 3 * time.Second
+	pollTimouet = 5 * time.Second
 )
 
 type (
@@ -25,28 +25,57 @@ type (
 		prefix     string
 		configChan <-chan map[string]*string
 
-		redeleteUnits map[string]struct{}
-		units         map[string]unit
-		handlers      *sync.Map // map[string]httpserver.Handler
+		redeleteStatus map[string]struct{}
+		runningObjects map[string]*runningObject
+		handlers       *sync.Map // map[string]httpserver.Handler
 
 		first     bool
 		firstDone chan struct{}
 
 		done chan struct{}
 	}
+
+	runningObject struct {
+		object Object
+		spec   Spec
+		or     *ObjectRecord
+	}
+
+	runningPluginsByDepend []*runningObject
 )
+
+func (r runningPluginsByDepend) Len() int      { return len(r) }
+func (r runningPluginsByDepend) Swap(i, j int) { r[i], r[j] = r[j], r[i] }
+func (r runningPluginsByDepend) Less(i, j int) bool {
+	iKind, iDependKinds := r[i].or.Kind, r[i].or.DependObjectKinds
+	jKind, jDependKinds := r[j].or.Kind, r[j].or.DependObjectKinds
+
+	for _, jDependKind := range jDependKinds {
+		if iKind == jDependKind {
+			return true
+		}
+	}
+
+	for _, iDependKind := range iDependKinds {
+		if jKind == iDependKind {
+			return false
+		}
+	}
+
+	return iKind < jKind
+}
 
 // MustNew creates a Scheduler.
 func MustNew(cls cluster.Cluster) *Scheduler {
 	s := &Scheduler{
-		cls:           cls,
-		prefix:        cls.Layout().ConfigObjectPrefix(),
-		redeleteUnits: make(map[string]struct{}),
-		units:         make(map[string]unit),
-		handlers:      &sync.Map{},
-		first:         true,
-		firstDone:     make(chan struct{}),
-		done:          make(chan struct{}),
+		cls:            cls,
+		prefix:         cls.Layout().ConfigObjectPrefix(),
+		redeleteStatus: make(map[string]struct{}),
+		runningObjects: make(map[string]*runningObject),
+		handlers:       &sync.Map{},
+		first:          true,
+		firstDone:      make(chan struct{}),
+		done:           make(chan struct{}),
 	}
 
 	configChan, err := s.cls.WatchPrefix(s.prefix)
@@ -66,9 +95,8 @@ func (s *Scheduler) schedule() {
 		case <-s.done:
 			s.close()
 			return
-		case <-time.After(checkStatusInterval):
+		case <-time.After(pollTimouet):
 			s.handleSyncStatus()
-		case <-time.After(checkWatchInterval):
 			s.handleRewatchIfNeed()
 		case kvs, ok := <-s.configChan:
 			if ok {
@@ -103,7 +131,8 @@ func (s Scheduler) keyToName(k string) string {
 func (s *Scheduler) handleKvs(kvs map[string]*string) {
 	defer func() {
 		if err := recover(); err != nil {
-			logger.Errorf("handleKvs() failed, err: %v", err)
+			logger.Errorf("recover from handleKvs, err: %v, stack trace:\n%s\n",
+				err, debug.Stack())
 		}
 	}()
 
@@ -114,75 +143,82 @@ func (s *Scheduler) handleKvs(kvs map[string]*string) {
 		}()
 	}
 
-	specs := make([]registry.Spec, 0)
+	runningObjects := make([]*runningObject, 0)
 	for k, v := range kvs {
 		name := s.keyToName(k)
-		unit, exists := s.units[name]
 		if v == nil {
-			if exists {
-				unit.close()
-				delete(s.units, name)
+			if runningObject, exists := s.runningObjects[name]; exists {
+				runningObject.object.Close()
+				delete(s.runningObjects, name)
 				err := s.cls.Delete(s.cls.Layout().StatusObjectKey(name))
 				// NOTE: The Delete operation might not succeed,
 				// but we can't redo it here infinitely.
 				if err != nil {
-					s.redeleteUnits[name] = struct{}{}
+					s.redeleteStatus[name] = struct{}{}
 				}
 			}
 			continue
 		}
 
-		spec, err := registry.SpecFromYAML(*v)
+		spec, err := SpecFromYAML(*v)
 		if err != nil {
-			logger.Errorf("BUG: bad spec(err: %s): %v", err, *v)
+			logger.Errorf("BUG: spec from yaml failed: %s: %v", *v, err)
 			continue
 		}
-
 		if name != spec.GetName() {
 			logger.Errorf("BUG: inconsistent name in key and spec: %s, %s",
 				name, spec.GetName())
 			continue
 		}
-
-		specs = append(specs, spec)
-	}
-
-	sort.Sort(specsInOrder(specs))
-	for _, spec := range specs {
-		name := spec.GetName()
-		unit, exists := s.units[name]
-		if exists {
-			unit.reload(spec)
-			continue
-		}
-
-		newFunc, ok := unitNewFuncs[spec.GetKind()]
-		if !ok {
+		or, exists := objectBook[spec.GetKind()]
+		if !exists {
 			logger.Errorf("BUG: unsupported kind: %s", spec.GetKind())
 			continue
 		}
 
-		newUnit, err := newFunc(spec, s.handlers, s.first /*first*/)
-		if err != nil {
-			logger.Errorf("BUG: %v", err)
-			continue
+		runningObjects = append(runningObjects, &runningObject{
+			spec: spec,
+			or:   or,
+		})
+	}
+
+	sort.Sort(runningPluginsByDepend(runningObjects))
+
+	for _, runningObject := range runningObjects {
+		name := runningObject.spec.GetName()
+
+		var prevValue reflect.Value
+		prevObject := s.runningObjects[name]
+		if prevObject == nil {
+			prevValue = reflect.New(runningObject.or.objectType).Elem()
+		} else {
+			prevValue = reflect.ValueOf(prevObject.object)
 		}
-		s.units[name] = newUnit
+		in := []reflect.Value{
+			reflect.ValueOf(runningObject.spec),
+			prevValue,
+			reflect.ValueOf(s.handlers),
+		}
+		runningObject.object = reflect.ValueOf(runningObject.or.NewFunc).
+			Call(in)[0].Interface().(Object)
+		s.runningObjects[name] = runningObject
 	}
 }
 
 func (s *Scheduler) handleSyncStatus() {
 	defer func() {
 		if err := recover(); err != nil {
-			logger.Errorf("handleSyncStatus() failed, err: %v", err)
+			logger.Errorf("recover from handleSyncStatus, err: %v, stack trace:\n%s\n",
+				err, debug.Stack())
 		}
 	}()
 
 	timestamp := uint64(time.Now().Unix())
 	kvs := make(map[string]*string)
-	for name, unit := range s.units {
-		status := unit.status()
-		status.InjectTimestamp(timestamp)
+	for name, runningObject := range s.runningObjects {
+		status := reflect.ValueOf(runningObject.object).
+			MethodByName("Status").Call(nil)[0].Interface()
+		reflect.ValueOf(status).Elem().FieldByName("Timestamp").SetUint(timestamp)
 
 		buff, err := yaml.Marshal(status)
 		if err != nil {
@@ -195,8 +231,8 @@ func (s *Scheduler) handleSyncStatus() {
 		kvs[key] = &value
 	}
 
-	for name := range s.redeleteUnits {
-		if _, exists := s.units[name]; exists {
+	for name := range s.redeleteStatus {
+		if _, exists := s.runningObjects[name]; exists {
 			continue
 		}
 		kvs[name] = nil
@@ -206,7 +242,7 @@ func (s *Scheduler) handleSyncStatus() {
 	if err != nil {
 		logger.Errorf("sync runtime failed: %v", err)
 	} else {
-		s.redeleteUnits = make(map[string]struct{})
+		s.redeleteStatus = make(map[string]struct{})
 	}
 }
 
@@ -224,8 +260,8 @@ func (s *Scheduler) Close(wg *sync.WaitGroup) {
 }
 
 func (s *Scheduler) close() {
-	for _, unit := range s.units {
-		unit.close()
+	for _, runningObject := range s.runningObjects {
+		runningObject.object.Close()
 	}
 
 	close(s.done)

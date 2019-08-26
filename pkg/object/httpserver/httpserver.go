@@ -1,14 +1,12 @@
 package httpserver
 
 import (
+	"sync"
 	"time"
 
-	"github.com/megaease/easegateway/pkg/registry"
+	"github.com/megaease/easegateway/pkg/context"
+	"github.com/megaease/easegateway/pkg/scheduler"
 )
-
-func init() {
-	registry.Register(Kind, DefaultSpec)
-}
 
 const (
 	// Kind is HTTPServer kind.
@@ -17,16 +15,25 @@ const (
 	blockTimeout = 100 * time.Millisecond
 )
 
+func init() {
+	scheduler.Register(&scheduler.ObjectRecord{
+		Kind:              Kind,
+		DefaultSpecFunc:   DefaultSpec,
+		NewFunc:           New,
+		DependObjectKinds: []string{},
+	})
+}
+
 type (
 	// HTTPServer is Object HTTPServer.
 	HTTPServer struct {
 		spec    *Spec
-		runtime *Runtime
+		runtime *runtime
 	}
 )
 
 // DefaultSpec returns HTTPServer default spec.
-func DefaultSpec() registry.Spec {
+func DefaultSpec() *Spec {
 	return &Spec{
 		KeepAlive:        true,
 		KeepAliveTimeout: "60s",
@@ -35,29 +42,29 @@ func DefaultSpec() registry.Spec {
 }
 
 // New creates an HTTPServer.
-func New(spec *Spec, runtime *Runtime, blockToReady bool) *HTTPServer {
+func New(spec *Spec, prev *HTTPServer, handlers *sync.Map) *HTTPServer {
 	hs := &HTTPServer{
-		spec:    spec,
-		runtime: runtime,
+		spec: spec,
+	}
+	if hs.runtime == nil {
+		hs.runtime = newRuntime(handlers)
+	} else {
+		hs.runtime = prev.runtime
 	}
 
-	runtime.eventChan <- &eventReload{nextSpec: spec}
-
-	if blockToReady {
-		for {
-			time.Sleep(blockTimeout)
-			if runtime.Status().State == stateRunning {
-				break
-			}
-		}
-	}
+	hs.runtime.eventChan <- &eventReload{nextSpec: spec}
 
 	return hs
+}
+
+// Handle is a dummy placeholder for scheduler.Object
+func (hs *HTTPServer) Handle(context.HTTPContext) {}
+
+// Status is the wrapper of runtime's Status.
+func (hs *HTTPServer) Status() *Status {
+	return hs.runtime.Status()
 }
 
 // Close closes HTTPServer.
 // Nothing to do.
 func (hs *HTTPServer) Close() {}
-
-// Kind returns HTTPServer.
-func (hs *HTTPServer) Kind() string { return "HTTPServer" }

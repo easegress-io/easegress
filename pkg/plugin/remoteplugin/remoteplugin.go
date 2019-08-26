@@ -116,7 +116,7 @@ type (
 )
 
 // New creates a RemotePlugin.
-func New(spec *Spec) *RemotePlugin {
+func New(spec *Spec, prev *RemotePlugin) *RemotePlugin {
 	return &RemotePlugin{
 		spec: spec,
 	}
@@ -188,6 +188,12 @@ func (rp *RemotePlugin) Handle(ctx context.HTTPContext) (result string) {
 
 	return ""
 }
+
+// Status returns status.
+func (rp *RemotePlugin) Status() interface{} { return nil }
+
+// Close closes RemotePlugin.
+func (rp *RemotePlugin) Close() {}
 
 func (rp *RemotePlugin) marshalHTTPContext(ctx context.HTTPContext, reqBody, respBody []byte) []byte {
 	r, w := ctx.Request(), ctx.Response()
