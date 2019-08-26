@@ -134,6 +134,9 @@ func New(spec *Spec, prev *HTTPProxy, handlers *sync.Map) *HTTPProxy {
 		pipeline: httppipeline.New(spec.toHTTPPipelineSpec(), prevPipeline, handlers),
 	}
 
+	// NOTE: It's expected to cover what httppipeline.New stored into handlers.
+	handlers.Store(spec.Name, hp)
+
 	return hp
 }
 

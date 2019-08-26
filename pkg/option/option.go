@@ -17,6 +17,12 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+var (
+	// Global needs be assigned by server/main.go,
+	// referenced by any other packages if needed.
+	Global *Options
+)
+
 // Options is the startup options.
 type Options struct {
 	yamlStr string

@@ -46,7 +46,8 @@ func New(spec *Spec, prev *HTTPServer, handlers *sync.Map) *HTTPServer {
 	hs := &HTTPServer{
 		spec: spec,
 	}
-	if hs.runtime == nil {
+
+	if prev == nil {
 		hs.runtime = newRuntime(handlers)
 	} else {
 		hs.runtime = prev.runtime
@@ -66,5 +67,6 @@ func (hs *HTTPServer) Status() *Status {
 }
 
 // Close closes HTTPServer.
-// Nothing to do.
-func (hs *HTTPServer) Close() {}
+func (hs *HTTPServer) Close() {
+	hs.runtime.Close()
+}

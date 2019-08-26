@@ -68,6 +68,14 @@ func (r *httpRequest) Header() *httpheader.HTTPHeader {
 	return r.header
 }
 
+func (r *httpRequest) Cookie(name string) (*http.Cookie, error) {
+	return r.std.Cookie(name)
+}
+
+func (r *httpRequest) Cookies() []*http.Cookie {
+	return r.std.Cookies()
+}
+
 func (r *httpRequest) Body() io.Reader {
 	return r.body
 }
