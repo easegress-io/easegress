@@ -24,6 +24,9 @@ const (
 	pluginHTTPAccessFilename = "plugin_http_access.log"
 	pluginHTTPDumpFilename   = "plugin_http_dump.log"
 	adminAPIFilename         = "admin_api.log"
+
+	// EtcdClientFilename is the filename of etcd client log.
+	EtcdClientFilename = "etcd_client.log"
 )
 
 var (
@@ -35,12 +38,30 @@ var (
 	restAPILogger          *zap.Logger
 )
 
-func initDefault(opt *option.Options) {
+// EtcdClientLoggerConfig generates the config ofetcd client logger.
+func EtcdClientLoggerConfig(opt *option.Options) *zap.Config {
+	encoderConfig := defaultEncoderConfig()
+
+	level := zap.NewAtomicLevel()
+	level.SetLevel(zapcore.DebugLevel)
+
+	outputPaths := []string{filepath.Join(opt.AbsLogDir, EtcdClientFilename)}
+
+	return &zap.Config{
+		Level:            level,
+		Encoding:         "console",
+		EncoderConfig:    encoderConfig,
+		OutputPaths:      outputPaths,
+		ErrorOutputPaths: outputPaths,
+	}
+}
+
+func defaultEncoderConfig() zapcore.EncoderConfig {
 	timeEncoder := func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 		enc.AppendString(t.Format(time.RFC3339))
 	}
 
-	encoderConfig := zapcore.EncoderConfig{
+	return zapcore.EncoderConfig{
 		TimeKey:        "time",
 		LevelKey:       "level",
 		NameKey:        "", // no need
@@ -53,6 +74,10 @@ func initDefault(opt *option.Options) {
 		EncodeDuration: zapcore.StringDurationEncoder,
 		EncodeCaller:   zapcore.ShortCallerEncoder,
 	}
+}
+
+func initDefault(opt *option.Options) {
+	encoderConfig := defaultEncoderConfig()
 
 	lowestLevel := zap.InfoLevel
 	if opt.Debug {

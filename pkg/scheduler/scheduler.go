@@ -240,7 +240,7 @@ func (s *Scheduler) handleSyncStatus() {
 
 	err := s.cls.PutAndDeleteUnderLease(kvs)
 	if err != nil {
-		logger.Errorf("sync runtime failed: %v", err)
+		logger.Errorf("sync runtime failed: put status failed: %v", err)
 	} else {
 		s.redeleteStatus = make(map[string]struct{})
 	}
