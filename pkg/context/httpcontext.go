@@ -3,6 +3,7 @@ package context
 import (
 	stdcontext "context"
 	"io"
+	"net/http"
 	"time"
 
 	"github.com/megaease/easegateway/pkg/util/httpheader"
@@ -44,6 +45,8 @@ type (
 		Proto() string
 
 		Header() *httpheader.HTTPHeader
+		Cookie(name string) (*http.Cookie, error)
+		Cookies() []*http.Cookie
 
 		Body() io.Reader
 		SetBody(io.Reader)
@@ -57,6 +60,7 @@ type (
 		SetStatusCode(code int)
 
 		Header() *httpheader.HTTPHeader
+		SetCookie(cookie *http.Cookie)
 
 		SetBody(body io.Reader)
 		Body() io.Reader

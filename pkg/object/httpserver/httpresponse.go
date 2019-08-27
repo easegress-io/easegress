@@ -43,6 +43,10 @@ func (w *httpResponse) Header() *httpheader.HTTPHeader {
 	return w.header
 }
 
+func (w *httpResponse) SetCookie(cookie *http.Cookie) {
+	http.SetCookie(w.std, cookie)
+}
+
 func (w *httpResponse) Body() io.Reader {
 	return w.body
 }
