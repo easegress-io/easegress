@@ -130,7 +130,7 @@ type (
 
 	poolStatus struct {
 		Stat           *httpstat.Status `yaml:"stat"`
-		CircuitBreaker string           `yalm:"circuitBreaker,omitempty"`
+		CircuitBreaker string           `yaml:"circuitBreaker,omitempty"`
 	}
 
 	// Status wraps httpstat.Status.
