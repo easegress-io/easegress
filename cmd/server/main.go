@@ -97,4 +97,6 @@ func main() {
 	cls.Close(wg)
 	profile.Close(wg)
 	wg.Wait()
+
+	pidfile.Close()
 }

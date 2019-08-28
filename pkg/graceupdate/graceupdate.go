@@ -16,12 +16,13 @@ var (
 	ppid       = os.Getppid()
 )
 
-// IsInherit : return true if it's update child process
+// IsInherit returns if I am the child process
+// on gracefully updating process.
 func IsInherit() bool {
 	return didInherit
 }
 
-// CallOriProcessTerm : When new server ready, notice ori process to exit
+// CallOriProcessTerm notifies parent process to exist.
 func CallOriProcessTerm(done chan struct{}) bool {
 	if didInherit && ppid != 1 {
 		<-done
@@ -34,7 +35,7 @@ func CallOriProcessTerm(done chan struct{}) bool {
 	return false
 }
 
-// NotifySigUsr2 : Set Signal usr2 notify
+// NotifySigUsr2 handles signal SIGUSR2 to gracefaully update.
 func NotifySigUsr2(closeCls func(), restartCls func()) {
 	sigUsr2 := make(chan os.Signal, 1)
 	signal.Notify(sigUsr2, syscall.SIGUSR2)
