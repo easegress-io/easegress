@@ -50,8 +50,14 @@ func (c *cluster) prepareEtcdConfig() (*embed.Config, error) {
 		self := c.members.self()
 		ec.InitialCluster = fmt.Sprintf("%s=%s", self.Name, self.PeerURL)
 	} else {
-		if c.members.ClusterMembers.Len() == 1 && common.IsDirEmpty(c.opt.AbsDataDir) {
-			ec.ClusterState = embed.ClusterStateFlagNew
+		if c.opt.ClusterJoinURLs == "" {
+			if c.members.clusterMembersLen() == 1 &&
+				common.IsDirEmpty(c.opt.AbsDataDir) {
+				ec.ClusterState = embed.ClusterStateFlagNew
+			}
+		} else if c.members.clusterMembersLen() == 1 {
+			return nil, fmt.Errorf("join mode with only one cluster member: %v",
+				*c.members.ClusterMembers)
 		}
 		ec.InitialCluster = c.members.initCluster()
 	}
