@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 
 	"github.com/megaease/easegateway/pkg/common"
-
 	"github.com/megaease/easegateway/pkg/logger"
+
 	"go.etcd.io/etcd/embed"
 )
 
@@ -35,13 +35,10 @@ func (c *cluster) prepareEtcdConfig() (*embed.Config, error) {
 	ec.APUrls = []url.URL{*peerURL}
 	ec.LCUrls = []url.URL{*clientURL}
 	ec.ACUrls = []url.URL{*clientURL}
-	ec.AutoCompactionMode = "periodic"
+	ec.AutoCompactionMode = embed.CompactorModePeriodic
 	ec.AutoCompactionRetention = "24h"
-	// https://github.com/etcd-io/etcd/issues/10364
-	// FIXME: Upgrade all etcd package after it jumps into v3.4.
-	// Reference: https://github.com/etcd-io/etcd/blob/master/Documentation/op-guide/configuration.md#logging-flags
 	ec.Logger = "zap"
-	ec.LogOutputs = []string{filepath.Join(opt.AbsLogDir, "etcd.log")}
+	ec.LogOutputs = []string{filepath.Join(opt.AbsLogDir, "etcd_server.log")}
 
 	ec.ClusterState = embed.ClusterStateFlagExisting
 	if c.opt.ForceNewCluster {

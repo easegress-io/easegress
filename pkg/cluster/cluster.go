@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/megaease/easegateway/pkg/common"
-
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/option"
 
@@ -273,12 +272,18 @@ func (c *cluster) getClient() (*clientv3.Client, error) {
 		return c.client, nil
 	}
 
+	endpoints := c.members.knownPeerURLs()
+	if c.opt.ForceNewCluster {
+		endpoints = []string{c.members.self().PeerURL}
+	}
+	logger.Infof("client connect with endpoints: %v", endpoints)
 	client, err := clientv3.New(clientv3.Config{
-		Endpoints:            c.members.knownPeerURLs(),
+		Endpoints:            endpoints,
 		AutoSyncInterval:     autoSyncInterval,
 		DialTimeout:          dialTimeout,
 		DialKeepAliveTime:    dialKeepAliveTime,
 		DialKeepAliveTimeout: dialKeepAliveTimeout,
+		LogConfig:            logger.EtcdClientLoggerConfig(c.opt),
 	})
 
 	if err != nil {
@@ -564,7 +569,11 @@ func (c *cluster) syncStatus() error {
 		return err
 	}
 
-	return c.PutUnderLease(c.Layout().StatusMemberKey(), string(buff))
+	err = c.PutUnderLease(c.Layout().StatusMemberKey(), string(buff))
+	if err != nil {
+		return fmt.Errorf("put status failed: %v", err)
+	}
+	return nil
 }
 
 func (c *cluster) updateMembers() error {

@@ -9,7 +9,7 @@ For more design details, please see [easegateway design](./doc/easegateway_desig
 
 ### Requirements
 
-- Go version >= 1.11 which needs go module.
+- Go version >= 1.12.
 
 ### Make
 
