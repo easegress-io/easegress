@@ -179,6 +179,15 @@ func (m *members) isSelfIDChanged() bool {
 	return m.selfIDChanged
 }
 
+func (m *members) clusterMember() *membersSlice {
+	m.RLock()
+	defer m.RUnlock()
+
+	copied := m.ClusterMembers.copy()
+
+	return &copied
+}
+
 func (m *members) clusterMembersLen() int {
 	m.RLock()
 	defer m.RUnlock()
@@ -264,6 +273,16 @@ func newMemberSlices() *membersSlice {
 func (ms membersSlice) Len() int           { return len(ms) }
 func (ms membersSlice) Swap(i, j int)      { ms[i], ms[j] = ms[j], ms[i] }
 func (ms membersSlice) Less(i, j int) bool { return ms[i].Name < ms[j].Name }
+
+func (ms membersSlice) copy() membersSlice {
+	copied := make(membersSlice, len(ms))
+	for i := 0; i < len(copied); i++ {
+		member := *ms[i]
+		copied[i] = &member
+	}
+
+	return copied
+}
 
 func (ms membersSlice) String() string {
 	ss := make([]string, 0)
