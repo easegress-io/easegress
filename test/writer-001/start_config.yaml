@@ -1,0 +1,14 @@
+name: writer-001
+cluster-name: cluster-test
+cluster-role: writer
+cluster-client-url: http://127.0.0.1:12379
+cluster-peer-url: http://127.0.0.1:12380
+cluster-join-urls:
+api-addr: 127.0.0.1:12381
+data-dir: ./data
+wal-dir: ""
+cpu-profile-file:
+memory-profile-file:
+log-dir: ./log
+member-dir: ./member
+std-log-level: INFO
