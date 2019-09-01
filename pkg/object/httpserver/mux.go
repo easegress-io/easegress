@@ -228,15 +228,14 @@ func (mp *muxPath) matchMethod(ctx *httpContext) bool {
 	return common.StrInSlice(ctx.r.Method(), mp.methods)
 }
 
-func newMux(spec *Spec, handlers *sync.Map,
-	httpStat *httpstat.HTTPStat, topN *topn.TopN) *mux {
+func newMux(handlers *sync.Map, httpStat *httpstat.HTTPStat, topN *topn.TopN) *mux {
 	m := &mux{
 		handlers: handlers,
 		httpStat: httpStat,
 		topN:     topN,
 	}
 
-	m.reloadRules(spec)
+	m.rules.Store(&muxRules{})
 
 	return m
 }

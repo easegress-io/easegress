@@ -88,6 +88,8 @@ func newRuntime(handlers *sync.Map) *runtime {
 		topN:      topn.New(topNum),
 	}
 
+	r.mux = newMux(r.handlers, r.httpStat, r.topN)
+
 	r.setState(stateNil)
 	r.setError(errNil)
 
@@ -143,6 +145,10 @@ func (r *runtime) handleEventStart(e *eventStart) {
 }
 
 func (r *runtime) reload(nextSpec *Spec) {
+	if nextSpec != nil {
+		r.mux.reloadRules(nextSpec)
+	}
+
 	// NOTE: Due to the mechanism of scheduler,
 	// nextSpec must not be nil, just defensive programming here.
 	switch {
@@ -163,7 +169,6 @@ func (r *runtime) reload(nextSpec *Spec) {
 			r.startServer()
 		} else {
 			r.spec = nextSpec
-			r.mux.reloadRules(r.spec)
 		}
 	}
 }
@@ -224,10 +229,9 @@ func (r *runtime) startServer() {
 
 	limitListener := netutil.LimitListener(listener, int(r.spec.MaxConnections))
 
-	mux := newMux(r.spec, r.handlers, r.httpStat, r.topN)
 	srv := &http.Server{
 		Addr:        fmt.Sprintf(":%d", r.spec.Port),
-		Handler:     mux,
+		Handler:     r.mux,
 		IdleTimeout: keepAliveTimeout,
 	}
 	srv.SetKeepAlivesEnabled(r.spec.KeepAlive)
@@ -238,7 +242,6 @@ func (r *runtime) startServer() {
 	}
 
 	r.server = srv
-	r.mux = mux
 	r.startNum++
 	r.setState(stateRunning)
 	r.setError(nil)
