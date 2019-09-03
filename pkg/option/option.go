@@ -14,7 +14,7 @@ import (
 	"github.com/megaease/easegateway/pkg/version"
 
 	"github.com/jessevdk/go-flags"
-	"gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v2"
 )
 
 var (

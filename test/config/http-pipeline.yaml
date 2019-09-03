@@ -77,7 +77,6 @@ plugins:
             regexp: ""
     candidatePool:
       circuitBreaker:
-        failureCodes: [500, 501, 502, 503]
         countPeriod: 10s
         toClosedConsecutiveCounts: 7
         toHalfOpenTimeout: 10s
@@ -98,7 +97,6 @@ plugins:
             regexp: ""
     mainPool:
       circuitBreaker:
-        failureCodes: [500, 501, 502, 503]
         countPeriod: 10s
         toClosedConsecutiveCounts: 7
         toHalfOpenTimeout: 10s
