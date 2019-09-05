@@ -2,6 +2,7 @@ package httpheader
 
 import (
 	"net/http"
+	"net/textproto"
 )
 
 type (
@@ -65,6 +66,7 @@ func (h *HTTPHeader) Get(key string) string {
 
 // GetAll gets all values of the key.
 func (h *HTTPHeader) GetAll(key string) []string {
+	key = textproto.CanonicalMIMEHeaderKey(key)
 	return h.h[key]
 }
 
