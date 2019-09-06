@@ -25,8 +25,10 @@ func main() {
 ===============
 URL   : %s
 Header: %v
-Body  : %s
-`, url, req.Header, body)
+Body  : %s`, url, req.Header, body)
+
+		// fmt.Printf("%s: %d bytes body received, %d bytes body sent\n",
+		// 	req.Host, len(body), len(content))
 
 		io.WriteString(w, content)
 	}

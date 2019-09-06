@@ -1,11 +1,13 @@
-package httpserver
+package context
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 
 	"github.com/megaease/easegateway/pkg/util/httpheader"
 	"github.com/megaease/easegateway/pkg/util/readercounter"
+	"github.com/tomasen/realip"
 )
 
 type (
@@ -15,10 +17,33 @@ type (
 		path     string
 		header   *httpheader.HTTPHeader
 		body     *readercounter.ReaderCounter
+		metaSize uint64
 		bodySize uint64
 		realIP   string
 	}
 )
+
+func newHTTPRequest(stdr *http.Request) *httpRequest {
+	hq := &httpRequest{
+		std:    stdr,
+		method: stdr.Method,
+		path:   stdr.URL.Path,
+		header: httpheader.New(stdr.Header),
+		body:   readercounter.New(stdr.Body),
+		realIP: realip.FromRequest(stdr),
+	}
+
+	// Reference: https://tools.ietf.org/html/rfc2616#section-5
+	// NOTE: We don't use httputil.DumpRequest because it does not
+	// completely output plain HTTP Request.
+	meta := fmt.Sprintf("%s %s %s\r\n%s\r\n",
+		stdr.Method, stdr.URL.RequestURI(), stdr.Proto,
+		hq.Header().Dump())
+
+	hq.metaSize = uint64(len(meta))
+
+	return hq
+}
 
 func (r *httpRequest) RealIP() string {
 	return r.realIP
@@ -91,9 +116,9 @@ func (r *httpRequest) SetBody(reader io.Reader) {
 func (r *httpRequest) Size() uint64 {
 	if r.bodySize != 0 {
 		// NOTE: Always load original body size.
-		return r.bodySize
+		return r.metaSize + r.bodySize
 	}
-	return r.body.Count()
+	return r.metaSize + r.body.Count()
 }
 
 func (r *httpRequest) finish() {

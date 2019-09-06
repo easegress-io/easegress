@@ -7,9 +7,9 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/megaease/easegateway/pkg/common"
+	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/util/httpstat"
 	"github.com/megaease/easegateway/pkg/util/ipfilter"
@@ -86,7 +86,7 @@ func newIPFilter(spec *ipfilter.Spec) *ipfilter.IPFilter {
 	return ipfilter.New(spec)
 }
 
-func (mr *muxRules) pass(ctx *httpContext) bool {
+func (mr *muxRules) pass(ctx context.HTTPContext) bool {
 	if mr.ipFilter == nil {
 		return true
 	}
@@ -94,22 +94,22 @@ func (mr *muxRules) pass(ctx *httpContext) bool {
 	return mr.ipFilter.AllowHTTPContext(ctx)
 }
 
-func (mr *muxRules) getCacheItem(ctx *httpContext) *cacheItem {
+func (mr *muxRules) getCacheItem(ctx context.HTTPContext) *cacheItem {
 	if mr.cache == nil {
 		return nil
 	}
 
-	r := ctx.r
+	r := ctx.Request()
 	key := fmt.Sprintf("%s%s", r.Method(), r.Path())
 	return mr.cache.get(key)
 }
 
-func (mr *muxRules) putCacheItem(ctx *httpContext, ci *cacheItem) {
+func (mr *muxRules) putCacheItem(ctx context.HTTPContext, ci *cacheItem) {
 	if mr.cache == nil {
 		return
 	}
 
-	r := ctx.r
+	r := ctx.Request()
 	key := fmt.Sprintf("%s%s", r.Method(), r.Path())
 	if !ci.cached {
 		ci.cached = true
@@ -142,7 +142,7 @@ func newMuxRule(parentIPFilters *ipfilter.IPFilters, rule *Rule, paths []*muxPat
 	}
 }
 
-func (mr *muxRule) pass(ctx *httpContext) bool {
+func (mr *muxRule) pass(ctx context.HTTPContext) bool {
 	if mr.ipFilter == nil {
 		return true
 	}
@@ -150,8 +150,8 @@ func (mr *muxRule) pass(ctx *httpContext) bool {
 	return mr.ipFilter.AllowHTTPContext(ctx)
 }
 
-func (mr *muxRule) match(ctx *httpContext) bool {
-	r := ctx.r
+func (mr *muxRule) match(ctx context.HTTPContext) bool {
+	r := ctx.Request()
 
 	if mr.host == "" && mr.hostRE == nil {
 		return true
@@ -192,7 +192,7 @@ func newMuxPath(parentIPFilters *ipfilter.IPFilters, path *Path) *muxPath {
 	}
 }
 
-func (mp *muxPath) pass(ctx *httpContext) bool {
+func (mp *muxPath) pass(ctx context.HTTPContext) bool {
 	if mp.ipFilter == nil {
 		return true
 	}
@@ -200,8 +200,8 @@ func (mp *muxPath) pass(ctx *httpContext) bool {
 	return mp.ipFilter.AllowHTTPContext(ctx)
 }
 
-func (mp *muxPath) matchPath(ctx *httpContext) bool {
-	r := ctx.r
+func (mp *muxPath) matchPath(ctx context.HTTPContext) bool {
+	r := ctx.Request()
 
 	if mp.path == "" && mp.pathPrefix == "" && mp.pathRE == nil {
 		return true
@@ -220,12 +220,12 @@ func (mp *muxPath) matchPath(ctx *httpContext) bool {
 	return false
 }
 
-func (mp *muxPath) matchMethod(ctx *httpContext) bool {
+func (mp *muxPath) matchMethod(ctx context.HTTPContext) bool {
 	if len(mp.methods) == 0 {
 		return true
 	}
 
-	return common.StrInSlice(ctx.r.Method(), mp.methods)
+	return common.StrInSlice(ctx.Request().Method(), mp.methods)
 }
 
 func newMux(handlers *sync.Map, httpStat *httpstat.HTTPStat, topN *topn.TopN) *mux {
@@ -275,20 +275,21 @@ func (m *mux) reloadRules(spec *Spec) {
 	m.rules.Store(rules)
 }
 
-func (m *mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (m *mux) ServeHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 	rules := m.rules.Load().(*muxRules)
 
-	startTime := time.Now()
-	ctx := newHTTPContext(&startTime, w, r)
-	defer ctx.finish()
+	ctx := context.New(stdw, stdr)
+	defer ctx.Finish()
 	ctx.OnFinish(func() {
-		m.httpStat.Stat(ctx)
+		m.httpStat.Stat(ctx.StatMetric())
 		m.topN.Stat(ctx)
 	})
 
+	w := ctx.Response()
+
 	handleIPNotAllow := func() {
 		ctx.AddTag(fmt.Sprintf("ip not allow"))
-		ctx.w.SetStatusCode(http.StatusForbidden)
+		w.SetStatusCode(http.StatusForbidden)
 	}
 
 	handleCacheItem := func(ci *cacheItem) {
@@ -303,9 +304,9 @@ func (m *mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		switch {
 		case ci.notFound:
-			ctx.w.SetStatusCode(http.StatusNotFound)
+			w.SetStatusCode(http.StatusNotFound)
 		case ci.methodNotAllowed:
-			ctx.w.SetStatusCode(http.StatusMethodNotAllowed)
+			w.SetStatusCode(http.StatusMethodNotAllowed)
 		case ci.backend != "":
 			handler, exists := m.handlers.Load(ci.backend)
 			if exists {
@@ -317,7 +318,7 @@ func (m *mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				}
 			} else {
 				ctx.AddTag(fmt.Sprintf("backend %s not found", ci.backend))
-				ctx.w.SetStatusCode(http.StatusServiceUnavailable)
+				w.SetStatusCode(http.StatusServiceUnavailable)
 			}
 		}
 	}

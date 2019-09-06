@@ -33,3 +33,13 @@ func (counter *ReaderCounter) Count() uint64 {
 func (counter *ReaderCounter) Reset(r io.Reader) {
 	counter.count, counter.reader = 0, r
 }
+
+// Close wraps Close if existed
+func (counter *ReaderCounter) Close() error {
+	closer, ok := counter.reader.(io.Closer)
+	if ok {
+		return closer.Close()
+	}
+
+	return nil
+}

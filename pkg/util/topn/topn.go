@@ -66,7 +66,8 @@ func (t *TopN) Stat(ctx context.HTTPContext) {
 			atomic.AddUint64(&t.mlen, 1)
 		}
 	}
-	httpStat.(*httpstat.HTTPStat).Stat(ctx)
+
+	httpStat.(*httpstat.HTTPStat).Stat(ctx.StatMetric())
 }
 
 // Status returns TopN Status.
