@@ -1,13 +1,13 @@
 package pidfile
 
 import (
+	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/option"
-
-	expidfile "github.com/megaease/pidfile"
 )
 
 const (
@@ -18,27 +18,15 @@ var (
 	pidfilePath string
 )
 
-// Write pidfile. if config pid-file is empty, skip it
+// Write writes pidfile.
 func Write(opt *option.Options) error {
 	pidfilePath = filepath.Join(opt.AbsHomeDir, pidfileName)
 
-	expidfile.SetPidfilePath(pidfilePath)
-
-	if err := expidfile.Write(); err != nil {
-		logger.Errorf("pidfile write error: %s", err)
+	err := ioutil.WriteFile(pidfilePath, []byte(fmt.Sprintf("%d", os.Getpid())), 0644)
+	if err != nil {
+		logger.Errorf("write %s failed: %s", err)
 		return err
 	}
 
 	return nil
-}
-
-// Close cleans the pid file.
-func Close() {
-	if pidfilePath == "" {
-		return
-	}
-	err := os.Remove(pidfilePath)
-	if err != nil {
-		logger.Errorf("remove %s failed: %v", pidfilePath, err)
-	}
 }

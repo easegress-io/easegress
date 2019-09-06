@@ -47,7 +47,11 @@ func main() {
 	if graceupdate.IsInherit() {
 		opt.ForceNewCluster = false
 	} else {
-		pidfile.Write(opt)
+		err := pidfile.Write(opt)
+		if err != nil {
+			logger.Errorf("write pidfile failed: %v", err)
+			os.Exit(1)
+		}
 	}
 
 	profile, err := profile.New(opt)
@@ -97,6 +101,4 @@ func main() {
 	cls.Close(wg)
 	profile.Close(wg)
 	wg.Wait()
-
-	pidfile.Close()
 }
