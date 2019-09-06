@@ -18,7 +18,8 @@ const (
 	// Kind is the kind of RateLimiter.
 	Kind = "RateLimiter"
 
-	resultTimeout = "timeout"
+	resultTimeout  = "timeout"
+	resultFallback = "fallback"
 )
 
 func init() {
@@ -121,6 +122,7 @@ func (rl *RateLimiter) Handle(ctx context.HTTPContext) string {
 	if err != nil {
 		if rl.fallback != nil {
 			rl.fallback.Fallback(ctx)
+			return resultFallback
 		}
 		ctx.Response().SetStatusCode(http.StatusTooManyRequests)
 		return resultTimeout
