@@ -23,6 +23,9 @@ const (
 	// HeartbeatInterval is the interval for heartbeat.
 	HeartbeatInterval = 5 * time.Second
 
+	defragNormalInterval = 1 * time.Hour
+	defragFailedInterval = 1 * time.Minute
+
 	// waitServerTimeout is the timeout for waiting server to start.
 	waitServerTimeout = 10 * time.Second
 
@@ -43,6 +46,8 @@ type (
 
 		// RFC3339 format
 		LastHeartbeatTime string `yaml:"lastHeartbeatTime"`
+
+		LastDefragTime string `yaml:"lastDefragTime,omitempty"`
 
 		// Etcd is non-nil only it is a writer.
 		Etcd *EtcdStatus `yaml:"etcd,omitempty"`
@@ -149,6 +154,17 @@ func (c *cluster) requestContext() context.Context {
 	return ctx
 }
 
+// longRequestContext takes 3 times longer than requestContext.
+func (c *cluster) longRequestContext() context.Context {
+	requestTimeout := 3 * c.requestTimeout
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+	go func() {
+		time.Sleep(requestTimeout)
+		cancel()
+	}()
+	return ctx
+}
+
 func (c *cluster) run() {
 	for {
 		err := c.getReady()
@@ -162,6 +178,11 @@ func (c *cluster) run() {
 	}
 
 	logger.Infof("cluster is ready")
+
+	// FIXME: @miaojun Please care this routine in graceful update.
+	if c.opt.ClusterRole == "writer" {
+		go c.defrag()
+	}
 
 	c.heartbeat()
 }
@@ -537,6 +558,33 @@ func (c *cluster) heartbeat() {
 			if err != nil {
 				logger.Errorf("update members failed: %v", err)
 			}
+		case <-c.done:
+			return
+		}
+	}
+}
+
+func (c *cluster) defrag() {
+	defragInterval := defragNormalInterval
+	for {
+		select {
+		case <-time.After(defragInterval):
+			client, err := c.getClient()
+			if err != nil {
+				defragInterval = defragFailedInterval
+				logger.Errorf("defrag failed: get client failed: %v", err)
+			}
+
+			// NOTICE: It need longer time than normal ones.
+			_, err = client.Defragment(c.longRequestContext(), c.opt.ClusterPeerURL)
+			if err != nil {
+				defragInterval = defragFailedInterval
+				logger.Errorf("defrag failed: %v", err)
+				continue
+			}
+
+			logger.Infof("defrag successfully")
+			defragInterval = defragNormalInterval
 		case <-c.done:
 			return
 		}

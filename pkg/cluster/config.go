@@ -11,6 +11,25 @@ import (
 	"go.etcd.io/etcd/embed"
 )
 
+const (
+	logFilename = "etcd_server.log"
+
+	// Reference:
+	// https://github.com/etcd-io/etcd/blob/master/Documentation/op-guide/maintenance.md#space-quota
+	// https://github.com/etcd-io/etcd/blob/master/Documentation/dev-guide/limit.md#storage-size-limit
+	// 8GB
+	quotaBackendBytes = 8 * 1024 * 1024 * 1024
+
+	maxTxnOps       = 10240
+	maxRequestBytes = 10 * 1024 * 1024 // 10MB
+)
+
+var (
+	// https://github.com/megaease/easegateway/issues/393
+	autoCompactionRetention = "10"
+	autoCompactionMode      = embed.CompactorModeRevision
+)
+
 func (c *cluster) prepareEtcdConfig() (*embed.Config, error) {
 	ec := embed.NewConfig()
 	opt := c.opt
@@ -35,10 +54,13 @@ func (c *cluster) prepareEtcdConfig() (*embed.Config, error) {
 	ec.APUrls = []url.URL{*peerURL}
 	ec.LCUrls = []url.URL{*clientURL}
 	ec.ACUrls = []url.URL{*clientURL}
-	ec.AutoCompactionMode = embed.CompactorModePeriodic
-	ec.AutoCompactionRetention = "24h"
+	ec.AutoCompactionMode = autoCompactionMode
+	ec.AutoCompactionRetention = autoCompactionRetention
+	ec.QuotaBackendBytes = quotaBackendBytes
+	ec.MaxTxnOps = maxTxnOps
+	ec.MaxRequestBytes = maxRequestBytes
 	ec.Logger = "zap"
-	ec.LogOutputs = []string{filepath.Join(opt.AbsLogDir, "etcd_server.log")}
+	ec.LogOutputs = []string{filepath.Join(opt.AbsLogDir, logFilename)}
 
 	ec.ClusterState = embed.ClusterStateFlagExisting
 	if c.opt.ForceNewCluster {
