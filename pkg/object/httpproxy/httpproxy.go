@@ -16,7 +16,7 @@ import (
 	"github.com/megaease/easegateway/pkg/plugin/validator"
 	"github.com/megaease/easegateway/pkg/scheduler"
 
-	"gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v2"
 )
 
 const (
