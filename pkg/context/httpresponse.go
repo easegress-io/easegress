@@ -1,17 +1,19 @@
-package httpserver
+package context
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/util/httpheader"
 )
 
 var (
-	bodyFlushBuffSize = int64(os.Getpagesize())
+	bodyFlushBuffSize = 8 * int64(os.Getpagesize())
 )
 
 type (
@@ -20,7 +22,8 @@ type (
 	BodyFlushFunc = func(body []byte, complete bool) (newBody []byte)
 
 	httpResponse struct {
-		std http.ResponseWriter
+		stdr *http.Request
+		std  http.ResponseWriter
 
 		code   int
 		header *httpheader.HTTPHeader
@@ -30,6 +33,15 @@ type (
 		bodyFlushFuncs []BodyFlushFunc
 	}
 )
+
+func newHTTPResponse(stdw http.ResponseWriter, stdr *http.Request) *httpResponse {
+	return &httpResponse{
+		stdr:   stdr,
+		std:    stdw,
+		code:   http.StatusOK,
+		header: httpheader.New(stdw.Header()),
+	}
+}
 
 func (w *httpResponse) StatusCode() int {
 	return w.code
@@ -139,5 +151,17 @@ func (w *httpResponse) finish() {
 }
 
 func (w *httpResponse) Size() uint64 {
-	return w.bodyWritten
+	text := http.StatusText(w.StatusCode())
+	if text == "" {
+		text = "status code " + strconv.Itoa(w.StatusCode())
+	}
+
+	// Reference: https://tools.ietf.org/html/rfc2616#section-6
+	// NOTE: We don't use httputil.DumpResponse because it does not
+	// completely output plain HTTP Request.
+	meta := fmt.Sprintf("%s %d %s\r\n%s\r\n\r\n",
+		w.stdr.Proto, w.StatusCode(), text,
+		w.Header().Dump())
+
+	return uint64(len(meta)) + w.bodyWritten
 }

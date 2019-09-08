@@ -17,7 +17,7 @@ import (
 // TODO: Expose more options: compression level, mime types.
 
 var (
-	bodyFlushSize = int64(os.Getpagesize())
+	bodyFlushSize = 8 * int64(os.Getpagesize())
 )
 
 type (
@@ -135,6 +135,9 @@ func (gb *gzipBody) Read(p []byte) (int, error) {
 	}
 
 	n, err := gb.buff.Read(p)
+	if err == io.EOF && !gb.complete {
+		err = nil
+	}
 
 	return n, err
 }
@@ -143,6 +146,7 @@ func (gb *gzipBody) pull() {
 	_, err := io.CopyN(gb.gw, gb.body, bodyFlushSize)
 	switch err {
 	case nil:
+		// Nothing to do.
 	case io.EOF:
 		err := gb.gw.Close()
 		if err != nil {

@@ -2,6 +2,7 @@ package backend
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -90,11 +91,12 @@ func newCircuitBreaker(spec *circuitBreakerSpec, failureCodes []int) *circuitBre
 }
 
 // Protect protects Handler.
-func (cb *circuitBreaker) protect(ctx context.HTTPContext, handler func(ctx context.HTTPContext)) error {
+func (cb *circuitBreaker) protect(ctx context.HTTPContext, reqBody io.Reader,
+	handler func(ctx context.HTTPContext, reqBody io.Reader)) error {
 	handled := false
 	_, err := cb.cb.Execute(func() (interface{}, error) {
 		handled = true
-		handler(ctx)
+		handler(ctx, reqBody)
 
 		code := ctx.Response().StatusCode()
 		for _, fc := range cb.spec.failureCodes {

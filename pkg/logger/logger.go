@@ -7,6 +7,7 @@ import (
 
 	"github.com/megaease/easegateway/pkg/common"
 	"github.com/megaease/easegateway/pkg/option"
+	"github.com/megaease/easegateway/pkg/util/timetool"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -58,7 +59,7 @@ func EtcdClientLoggerConfig(opt *option.Options) *zap.Config {
 
 func defaultEncoderConfig() zapcore.EncoderConfig {
 	timeEncoder := func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
-		enc.AppendString(t.Format(time.RFC3339))
+		enc.AppendString(t.Format(timetool.RFC3339Milli))
 	}
 
 	return zapcore.EncoderConfig{

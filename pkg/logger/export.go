@@ -6,8 +6,6 @@ import (
 	"time"
 
 	"github.com/megaease/easegateway/pkg/common"
-
-	"go.uber.org/zap"
 )
 
 // Debugf is the wrapper of default logger Debugf.
@@ -30,20 +28,6 @@ func Errorf(template string, args ...interface{}) {
 	defaultLogger.Errorf(template, args...)
 }
 
-type httpServerLogger struct {
-	defaultLogger *zap.SugaredLogger
-}
-
-func (l *httpServerLogger) Printf(template string, args ...interface{}) {
-	l.defaultLogger.Errorf(template, args...)
-}
-
-func HTTPServerLogger() *httpServerLogger {
-	return &httpServerLogger{
-		defaultLogger: defaultLogger,
-	}
-}
-
 // Sync syncs all logs, must be called after calling Init().
 func Sync() {
 	defaultLogger.Sync()
@@ -54,6 +38,7 @@ func Sync() {
 	restAPILogger.Sync()
 }
 
+// APIAccess logs admin api log.
 func APIAccess(
 	method, remoteAddr, path string,
 	code int,
@@ -68,11 +53,12 @@ func APIAccess(
 	restAPILogger.Debug(entry)
 }
 
+// HTTPAccess logs http access log.
 func HTTPAccess(line string) {
 	httpPluginAccessLogger.Debug(line)
 }
 
-// Deprecated: replaced by HTTPContext.
+// NginxHTTPAccess is deprecated, replaced by HTTPAccess.
 func NginxHTTPAccess(remoteAddr, proto, method, path, referer, agent, realIP string,
 	code int, bodyBytesSent int64,
 	requestTime time.Duration, upstreamResponseTime time.Duration,
@@ -122,33 +108,4 @@ func NginxHTTPAccess(remoteAddr, proto, method, path, referer, agent, realIP str
 		clientWriteBodyTime.Seconds(), clientReadBodyTime.Seconds(), routeTime.Seconds())
 
 	httpPluginAccessLogger.Debug(line)
-}
-
-type DumpRequest func() (string, error)
-type DumpResponse func() (string, error)
-
-func HTTPReqDump(pipelineName, pluginName, pluginInstanceId string, taskId int64, dump DumpRequest) {
-	s, err := dump()
-	if err != nil {
-		Warnf("dump http request to log failed: %s", err)
-		return
-	}
-
-	entry := fmt.Sprintf("%s/%s@%s/task#%d - - [%v]:\n%s",
-		pipelineName, pluginName, pluginInstanceId, taskId, common.Now().Local(), s)
-
-	httpPluginDumpLogger.Debug(entry)
-}
-
-func HTTPRespDump(pipelineName, pluginName, pluginInstanceId string, taskId int64, dump DumpResponse) {
-	s, err := dump()
-	if err != nil {
-		Warnf("dump http response to log failed: %s", err)
-		return
-	}
-
-	entry := fmt.Sprintf("%s/%s@%s/task#%d - - [%v]:\n%s",
-		pipelineName, pluginName, pluginInstanceId, taskId, common.Now().Local(), s)
-
-	httpPluginDumpLogger.Debug(entry)
 }

@@ -8,6 +8,8 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptrace"
+	"strconv"
+	"sync"
 	"time"
 
 	"github.com/megaease/easegateway/pkg/context"
@@ -18,6 +20,7 @@ import (
 	"github.com/megaease/easegateway/pkg/util/httpfilter"
 	"github.com/megaease/easegateway/pkg/util/httpstat"
 	"github.com/megaease/easegateway/pkg/util/memorycache"
+	"github.com/megaease/easegateway/pkg/util/readercounter"
 )
 
 const (
@@ -87,6 +90,9 @@ type (
 	}
 
 	pool struct {
+		tagPrefix     string
+		writeResponse bool
+
 		filter *httpfilter.HTTPFilter
 
 		servers        *servers
@@ -207,8 +213,9 @@ func (s poolSpec) Validate() error {
 // New creates a Backend.
 func New(spec *Spec, prev *Backend) *Backend {
 	b := &Backend{
-		spec:     spec,
-		mainPool: newPool(spec.MainPool, spec.FailureCodes),
+		spec: spec,
+		mainPool: newPool(spec.MainPool, "backend#main",
+			true /*writeResponse*/, spec.FailureCodes),
 	}
 
 	if spec.Fallback != nil {
@@ -216,10 +223,12 @@ func New(spec *Spec, prev *Backend) *Backend {
 	}
 
 	if spec.CandidatePool != nil {
-		b.candidatePool = newPool(spec.CandidatePool, spec.FailureCodes)
+		b.candidatePool = newPool(spec.CandidatePool, "backend#candidate",
+			true /*writeResponse*/, spec.FailureCodes)
 	}
 	if spec.MirrorPool != nil {
-		b.mirrorPool = newPool(spec.MirrorPool, spec.FailureCodes)
+		b.mirrorPool = newPool(spec.MirrorPool, "backend#mirror",
+			false /*writeResponse*/, spec.FailureCodes)
 	}
 
 	if spec.Compression != nil {
@@ -229,7 +238,8 @@ func New(spec *Spec, prev *Backend) *Backend {
 	return b
 }
 
-func newPool(spec *poolSpec, failureCodes []int) *pool {
+func newPool(spec *poolSpec, tagPrefix string,
+	writeResponse bool, failureCodes []int) *pool {
 	var filter *httpfilter.HTTPFilter
 	if spec.Filter != nil {
 		filter = httpfilter.New(spec.Filter)
@@ -246,6 +256,9 @@ func newPool(spec *poolSpec, failureCodes []int) *pool {
 	}
 
 	return &pool{
+		tagPrefix:     tagPrefix,
+		writeResponse: writeResponse,
+
 		filter:         filter,
 		servers:        newServers(spec),
 		httpStat:       httpstat.New(),
@@ -293,15 +306,16 @@ func (b *Backend) fallbackForCodes(ctx context.HTTPContext) bool {
 // Handle handles HTTPContext.
 func (b *Backend) Handle(ctx context.HTTPContext) (result string) {
 	if b.mirrorPool != nil && b.mirrorPool.filter.Filter(ctx) {
-		result, err := b.mirrorPool.handleWithoutResponse(ctx)
-		if err != nil {
-			ctx.AddTag(fmt.Sprintf("mirrorBackendFailed: %v", err))
-		}
-		defer func() {
-			res := <-result
-			if res != "" {
-				ctx.AddTag(fmt.Sprintf("mirrorBackendResult: %s", res))
-			}
+		master, slave := newMasterSlaveReader(ctx.Request().Body())
+		ctx.Request().SetBody(master)
+
+		wg := &sync.WaitGroup{}
+		defer wg.Wait()
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+			b.mirrorPool.handle(ctx, slave)
 		}()
 	}
 
@@ -317,15 +331,14 @@ func (b *Backend) Handle(ctx context.HTTPContext) (result string) {
 	}
 
 	if p.circuitBreaker != nil {
-		if p.circuitBreaker.protect(ctx, p.handle) != nil {
+		if p.circuitBreaker.protect(ctx, ctx.Request().Body(), p.handle) != nil {
 			if b.fallbackForCircuitBreaker(ctx) {
 				return resultFallback
 			}
 			return resultCircuitBreaker
 		}
 	} else {
-		// TODO: fix handle failed situation, such as connection refused.
-		p.handle(ctx)
+		p.handle(ctx, ctx.Request().Body())
 	}
 
 	if b.fallbackForCodes(ctx) {
@@ -353,22 +366,33 @@ func (p *pool) status() *poolStatus {
 	return s
 }
 
-func (p *pool) handle(ctx context.HTTPContext) {
+func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader) {
+	var tags []string
+	defer func() {
+		ctx.Lock()
+		defer ctx.Unlock()
+		for _, tag := range tags {
+			ctx.AddTag(tag)
+		}
+	}()
+
+	// Phase 1: Prepare Request
+
 	r := ctx.Request()
 	w := ctx.Response()
 
 	server := p.servers.next(ctx)
-	ctx.AddTag(fmt.Sprintf("backendAddr: %s", server.URL))
+	tags = append(tags, fmt.Sprintf("%s#addr: %s", p.tagPrefix, server.URL))
 
 	url := server.URL + r.Path()
 	if r.Query() != "" {
 		url += "?" + r.Query()
 	}
-	req, err := http.NewRequest(r.Method(), url, r.Body())
+	req, err := http.NewRequest(r.Method(), url, reqBody)
 	if err != nil {
 		logger.Errorf("BUG: new request failed: %v", err)
 		w.SetStatusCode(http.StatusInternalServerError)
-		ctx.AddTag(fmt.Sprintf("backendBug: %v", err))
+		tags = append(tags, fmt.Sprintf("%s#bug: new request failed: %v", p.tagPrefix, err))
 		return
 	}
 	req.Header = r.Header().Std()
@@ -387,62 +411,77 @@ func (p *pool) handle(ctx context.HTTPContext) {
 	}
 	req = req.WithContext(httptrace.WithClientTrace(ctx, trace))
 
+	// Phase 2: Do Request
+	// NOTE: This call will concusme a lot of time,
+	// so we must call it conccurently without lock.
+
 	resp, err := globalClient.Do(req)
 	if err != nil {
+		ctx.Lock()
+		defer ctx.Unlock()
 		w.SetStatusCode(http.StatusServiceUnavailable)
-		ctx.AddTag(fmt.Sprintf("backendErr: %v", err))
+
+		tags = append(tags, fmt.Sprintf("%s do request failed: %v", p.tagPrefix, err))
 		return
 	}
 
-	w.SetStatusCode(resp.StatusCode)
-	ctx.AddTag(fmt.Sprintf("backendCode: %d", resp.StatusCode))
-	w.Header().AddFromStd(resp.Header)
-	body := durationreadcloser.New(resp.Body)
-	w.SetBody(body)
+	// Phase 3: Register callback function to do statistics.
+	// NOTE: Normally only two goroutine(main/cadidate and mirror) try to get lock,
+	// so it's fine to use coarse-grained lock.
+
+	counterBody := readercounter.New(resp.Body)
+	durationBody := durationreadcloser.New(counterBody)
+
+	ctx.Lock()
+	defer ctx.Unlock()
 
 	ctx.OnFinish(func() {
-		totalDuration := firstByteTime.Sub(startTime) + body.Duration()
-		ctx.AddTag(fmt.Sprintf("backendDuration: %v", totalDuration))
-		p.httpStat.Stat(ctx)
-	})
-}
+		totalDuration := firstByteTime.Sub(startTime) + durationBody.Duration()
+		ctx.AddTag(fmt.Sprintf("%s#duration: %v", p.tagPrefix, totalDuration))
 
-// handleWithoutResponse handles HTTPContext without response.
-func (p *pool) handleWithoutResponse(ctx context.HTTPContext) (chan string, error) {
-	r := ctx.Request()
-
-	server := p.servers.next(ctx)
-	ctx.AddTag(fmt.Sprintf("mirrorBackendAddr: %s", server.URL))
-
-	url := server.URL + r.Path()
-	if r.Query() != "" {
-		url += "?" + r.Query()
-	}
-	req, err := http.NewRequest(r.Method(), url, r.Body())
-	if err != nil {
-		logger.Errorf("BUG: new request failed: %v", err)
-		return nil, fmt.Errorf("new request failed: %v", err)
-	}
-	req.Header = r.Header().Std()
-
-	result := make(chan string)
-	go func() {
-		// NOTE: The Do func will consume a lot of time
-		// if the server is slow. So we'd better do it asynchronously.
-		resp, err := globalClient.Do(req)
-		if err != nil {
-			result <- fmt.Sprintf("mirrorBackendFailed:%v", err)
-			return
+		text := http.StatusText(w.StatusCode())
+		if text == "" {
+			text = "status code " + strconv.Itoa(w.StatusCode())
 		}
-		result <- ""
-		ctx.OnFinish(func() {
-			p.httpStat.Stat(ctx)
-		})
-		// NOTE: Need to be read to completion and closed.
-		// Reference: https://golang.org/pkg/net/http/#Response
-		defer resp.Body.Close()
-		io.Copy(ioutil.Discard, resp.Body)
-	}()
+		// NOTE: We don't use httputil.DumpResponse because it does not
+		// completely output plain HTTP Request.
+		respMeta := fmt.Sprintf("%s %d %s\r\n%s\r\n\r\n",
+			resp.Proto, resp.StatusCode, text,
+			w.Header().Dump())
 
-	return result, nil
+		respMetaSize := uint64(len(respMeta))
+
+		metric := &httpstat.Metric{
+			StatusCode: resp.StatusCode,
+			// NOTE: While writeResponse is false, Duration does not include
+			// time for reading body.
+			Duration: totalDuration,
+			ReqSize:  ctx.Request().Size(),
+			// NOTE: While writeResponse is false, RespSize is always 0.
+			RespSize: respMetaSize + counterBody.Count(),
+		}
+		if !p.writeResponse {
+			metric.RespSize = 0
+		}
+		p.httpStat.Stat(metric)
+	})
+
+	// Phase 4: Pass Through Response or Discard it.
+
+	if p.writeResponse {
+		tags = append(tags, fmt.Sprintf("%s#code: %d", p.tagPrefix, resp.StatusCode))
+
+		w.SetStatusCode(resp.StatusCode)
+		w.Header().AddFromStd(resp.Header)
+		w.SetBody(durationBody)
+	} else {
+		go func() {
+			// NOTE: Need to be read to completion and closed.
+			// Reference: https://golang.org/pkg/net/http/#Response
+			// And we do NOT do statistics of duration and respSize
+			// for it, because we can't wait for it to finish.
+			defer resp.Body.Close()
+			io.Copy(ioutil.Discard, resp.Body)
+		}()
+	}
 }

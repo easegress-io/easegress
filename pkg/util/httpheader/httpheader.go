@@ -1,8 +1,10 @@
 package httpheader
 
 import (
+	"fmt"
 	"net/http"
 	"net/textproto"
+	"strings"
 )
 
 type (
@@ -87,6 +89,16 @@ func (h *HTTPHeader) VisitAll(fn func(key, value string)) {
 			fn(key, value)
 		}
 	}
+}
+
+// Dump dumps HTTPHeader in RFC format.
+func (h *HTTPHeader) Dump() string {
+	var headers []string
+	h.VisitAll(func(key, value string) {
+		headers = append(headers, fmt.Sprintf("%s: %s", key, value))
+	})
+
+	return strings.Join(headers, "\r\n")
 }
 
 // AddFrom adds values from another HTTPHeader.
