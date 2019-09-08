@@ -8,6 +8,5 @@ SCRIPTFILE=`basename $0`
 for MEMBER_PATH in writer-00{1,2,3} reader-00{4,5}
 do
 	echo "stop ${MEMBER_PATH}"
-	PIDFILE_PATH=${SCRIPTPATH}/${MEMBER_PATH}/easegateway.pid
-	[ -f ${PIDFILE_PATH} ] && kill -s SIGINT `cat ${PIDFILE_PATH}`
+	${SCRIPTPATH}/${MEMBER_PATH}/stop.sh -f
 done

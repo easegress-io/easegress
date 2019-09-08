@@ -6,6 +6,6 @@ popd > /dev/null
 SCRIPTFILE=`basename $0`
 
 ${SCRIPTPATH}/stop.sh
-sleep 5 # Waiting for closing
+sleep 1 # Waiting for closing
 ${SCRIPTPATH}/start.sh
 

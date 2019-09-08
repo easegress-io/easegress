@@ -5,10 +5,10 @@ pushd $APPDIR > /dev/null
 APPDIR=`pwd`
 
 server=$APPDIR/bin/easegateway-server
-stdfile=$APPDIR/logs/stdout.log
+stdfile=$APPDIR/log/stdout.log
 cfgfile=$APPDIR/conf/config.yaml
 
-mkdir -p $APPDIR/logs
+mkdir -p $APPDIR/log
 
 pid=`ps -eo pid,args | grep "$server" | grep -v grep | awk '{print $1}'`
 if [ "$pid" != "" ]; then
