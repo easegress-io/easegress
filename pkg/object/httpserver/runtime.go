@@ -67,6 +67,8 @@ type (
 	Status struct {
 		Timestamp uint64 `yaml:"timestamp"`
 
+		Health string `yaml:"health"`
+
 		State stateType `yaml:"state"`
 		Error string    `yaml:"error,omitempty"`
 
@@ -108,7 +110,11 @@ func (r *runtime) Close() {
 
 // Status returns HTTPServer Status.
 func (r *runtime) Status() *Status {
+	state := r.getState()
+	health := string(state)
+
 	return &Status{
+		Health: health,
 		State:  r.getState(),
 		Error:  r.getError().Error(),
 		Status: r.httpStat.Status(),

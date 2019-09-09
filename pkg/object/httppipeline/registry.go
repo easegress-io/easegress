@@ -3,9 +3,43 @@ package httppipeline
 import (
 	"fmt"
 	"reflect"
+
+	"github.com/megaease/easegateway/pkg/context"
 )
 
 type (
+	// Plugin is the common interface for plugins handling HTTP traffic.
+	// All Plugins need to implement Handle and Close.
+	//
+	// Every Plugin registers itself in its package function init().
+	// It must give the information below:
+	//
+	// 1. Kind: A unique name represented its kind.
+	// 2. DefaultSpecFunc: A function returns its default Spec.
+	//   2.1 Spec must be a struct with two string fields: Name, Kind.
+	// 3. NewFunc: A function returns its running instance.
+	//   3.1 First input argument must be the type of its Spec.
+	//   3.2 Second input argument must be the type of itself,
+	//       which is its previous generation after Spec updated.
+	//   3.3 The one and only one output argument is the type of itself.
+	// 4. Results: All possible results the Handle would return.
+	//   4.1 No need to register empty string which won't
+	//     break the HTTPPipeline by default.
+	//
+	// And the registry will check more for the Plugin itself.
+	// 1. It must implement function Status
+	//   1.1 It has one and only one output argument in any types.
+	Plugin interface {
+		Handle(context.HTTPContext) (result string)
+		Close()
+	}
+
+	// PluginMeta describes metadata of Plugin.
+	PluginMeta struct {
+		Name string `yaml:"name,omitempty"`
+		Kind string `yaml:"kind,omitempty"`
+	}
+
 	// PluginRecord is the record for booking plugin.
 	PluginRecord struct {
 		Kind string
@@ -86,6 +120,8 @@ func Register(pr *PluginRecord) {
 	// Results
 	results := make(map[string]struct{})
 	for _, result := range pr.Results {
+		assert(result == "", false, fmt.Errorf("empty result"))
+
 		_, exists := results[result]
 		assert(exists, false, fmt.Errorf("repeated result: %s", result))
 		results[result] = struct{}{}

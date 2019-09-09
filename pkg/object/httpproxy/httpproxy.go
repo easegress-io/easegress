@@ -158,5 +158,6 @@ func (hp *HTTPProxy) Status() *Status {
 
 // Close closes HTTPProxy.
 func (hp *HTTPProxy) Close() {
+	// NOTE: The HTTPPipleine.Close will Delete myself in handlers.
 	hp.pipeline.Close()
 }

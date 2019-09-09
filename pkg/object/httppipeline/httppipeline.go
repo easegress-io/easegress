@@ -39,6 +39,7 @@ type (
 	HTTPPipeline struct {
 		spec *Spec
 
+		handlers       *sync.Map
 		runningPlugins []*runningPlugin
 	}
 
@@ -48,18 +49,6 @@ type (
 		plugin Plugin
 		meta   *PluginMeta
 		pr     *PluginRecord
-	}
-
-	// PluginMeta describes metadata of Plugin.
-	PluginMeta struct {
-		Name string `yaml:"name,omitempty"`
-		Kind string `yaml:"kind,omitempty"`
-	}
-
-	// Plugin is the common interface for plugins handling HTTP traffic.
-	Plugin interface {
-		Handle(context.HTTPContext) (result string)
-		Close()
 	}
 
 	// Spec describes the HTTPPipeline.
@@ -81,6 +70,8 @@ type (
 	// Status contains all status gernerated by runtime, for displaying to users.
 	Status struct {
 		Timestamp uint64 `yaml:"timestamp"`
+
+		Health string `yaml:"health"`
 
 		Plugins map[string]interface{} `yaml:"plugins"`
 	}
@@ -185,7 +176,10 @@ func (s Spec) Validate() (err error) {
 
 // New creates an HTTPPipeline
 func New(spec *Spec, prev *HTTPPipeline, handlers *sync.Map) (tmp *HTTPPipeline) {
-	hp := &HTTPPipeline{spec: spec}
+	hp := &HTTPPipeline{
+		spec:     spec,
+		handlers: handlers,
+	}
 
 	defer func() {
 		if err := recover(); err != nil {
@@ -260,7 +254,7 @@ func New(spec *Spec, prev *HTTPPipeline, handlers *sync.Map) (tmp *HTTPPipeline)
 		}
 	}
 
-	handlers.Store(spec.Name, hp)
+	hp.handlers.Store(spec.Name, hp)
 
 	return hp
 }
@@ -326,6 +320,7 @@ func (hp *HTTPPipeline) Status() *Status {
 
 // Close closes HTTPPipeline.
 func (hp *HTTPPipeline) Close() {
+	hp.handlers.Delete(hp.spec.Name)
 	for _, runningPlugin := range hp.runningPlugins {
 		runningPlugin.plugin.Close()
 	}

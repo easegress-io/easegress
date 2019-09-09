@@ -8,7 +8,43 @@ import (
 )
 
 type (
+
 	// Object is the common interface for object handling HTTP traffic.
+	// All Objects need to implement Close.
+	//
+	// Every Object registers itself in its package function init().
+	// It must give the information below:
+	//
+	// 1. Kind: A unique name represented its kind.
+	// 2. DefaultSpecFunc: A function returns its default Spec.
+	//   2.1 Spec must be a struct with two string fields: Name, Kind.
+	// 3. NewFunc: A function returns its running instance.
+	//   3.1 First input argument must be the type of its Spec.
+	//   3.2 Second input argument must be the type of itself,
+	//       which is its previous generation after Spec updated.
+	//   3.3 Third input argument must be the type *sync.Map,
+	//       which is the global handlers of built-in Object HTTPServer (see below).
+	//   3.4 The one and only one output argument is the type of itself.
+	// 4. DependObjectKinds: A string slice to declare its depending objects.
+	//   4.1 It doesn't allow depending cycle.
+	//
+	// And the registry will check more for the Object itself.
+	// 1. It must implement function Status.
+	//   1.1 It has one and only one output argument in any struct types.
+	//   1.2 The returning struct type must have fields
+	//       that Timestamp in uint64, Health in any types.
+	// 2. It must implement function Close to clean its resources.
+	//
+	// In more detail, there is a built-in Object HTTPServer that could send
+	// HTTP traffic to any Objects implemented Handler:
+	//
+	// Handler interface {
+	//         Handle(context.HTTPContext)
+	// }
+	//
+	// The built-in Objects HTTPPipeline, HTTPProxy(which wrapped HTTPPipeline) implement
+	// the Handler interface, store themselves into global handlers in NewFunc,
+	// delete themselves in function Close.
 	Object interface {
 		Close()
 	}
@@ -122,8 +158,11 @@ func Register(or *ObjectRecord) {
 	assert(timestampField.Type.Kind(), reflect.Uint64,
 		fmt.Errorf("invalid Status with not uint64 Timestamp: %s",
 			timestampField.Type.Kind()))
+	_, exists = statusType.Elem().FieldByName("Health")
+	assert(exists, true, fmt.Errorf("invalid Status with no field Health"))
+	// NOTE: The field Health could be any types.
 
-	// DependObjecKinds
+	// DependObjectKinds
 	dependKinds := make(map[string]struct{})
 	for _, dependKind := range or.DependObjectKinds {
 		_, exists := dependKinds[dependKind]
