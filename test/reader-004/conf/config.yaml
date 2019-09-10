@@ -1,5 +1,5 @@
 name: reader-004
-cluster-name: cluster-A
+cluster-name: cluster-test
 cluster-role: reader
 cluster-client-url:
 cluster-peer-url:

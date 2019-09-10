@@ -1,10 +1,10 @@
-name: writer-003
-cluster-name: cluster-test-2
+name: writer-007
+cluster-name: cluster-test
 cluster-role: writer
-cluster-client-url: http://127.0.0.1:32379
-cluster-peer-url: http://127.0.0.1:32380
+cluster-client-url: http://127.0.0.1:32779
+cluster-peer-url: http://127.0.0.1:32780
 cluster-join-urls: http://127.0.0.1:12380
-api-addr: 127.0.0.1:32381
+api-addr: 127.0.0.1:32781
 data-dir: ./data
 wal-dir: ""
 cpu-profile-file:

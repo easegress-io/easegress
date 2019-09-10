@@ -5,7 +5,7 @@ pushd $APPDIR > /dev/null
 APPDIR=`pwd`
 
 server=$APPDIR/bin/easegateway-server
-stdfile=$APPDIR/log/stdout.log
+stdfile=$APPDIR/log/std.log
 cfgfile=$APPDIR/conf/config.yaml
 
 mkdir -p $APPDIR/log
