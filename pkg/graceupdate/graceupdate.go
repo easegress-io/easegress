@@ -43,8 +43,6 @@ func NotifySigUsr2(closeCls func(), restartCls func()) {
 		sig := <-sigUsr2
 		closeCls()
 		logger.Infof("%s signal received, graceful update easegateway", sig)
-		// logger.Infof("sleep for 5 seconds to wait etcd cluster carlmdown ...")
-		// time.Sleep(5 * time.Second)
 		if pid, err := Global.StartProcess(); err != nil {
 			logger.Errorf("graceful update failed: %v", err)
 			restartCls()

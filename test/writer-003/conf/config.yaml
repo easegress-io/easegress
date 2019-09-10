@@ -1,5 +1,5 @@
 name: writer-003
-cluster-name: cluster-test
+cluster-name: cluster-test-2
 cluster-role: writer
 cluster-client-url: http://127.0.0.1:32379
 cluster-peer-url: http://127.0.0.1:32380

@@ -14,6 +14,10 @@ const (
 	statusObjectFormat       = "/status/objects/%s/%s" // +objectName +memberName
 	configObjectPrefix       = "/config/objects/"
 	configObjectFormat       = "/config/objects/%s" // +objectName
+
+	// the cluster name of this eg group will be registered under this path in etcd
+	// any new member(reader or writer ) will be rejected if it is configured a different cluster name
+	clusterNameKey = "/eg/cluster/name"
 )
 
 type (

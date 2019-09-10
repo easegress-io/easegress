@@ -37,6 +37,7 @@ const (
 
 	// lease config
 	leaseTTL = clientv3.MaxLeaseTTL // 9000000000Second=285Year
+
 )
 
 type (
@@ -166,15 +167,14 @@ func (c *cluster) longRequestContext() context.Context {
 }
 
 func (c *cluster) run() {
-
 	logger.Infof("starting etcd cluster ...")
 	for i := 0; ; i++ {
 		err := c.getReady()
 		if err != nil {
-			logger.Errorf("failed to start cluster, retry count: %d, err:  %v", i, err)
+			logger.Errorf("failed start cluster(%d retries): %v", i, err)
 			if i > 3 {
-				logger.Errorf("[%s] failed to start etcd server too many times, contact the admin to check if other members online. \n" +
-					"start other members if they're not online.\n" +
+				logger.Errorf("[%s] failed to start etcd server too many times, contact the admin to check if other members online. " +
+					"start other members if they're not online. " +
 					"if other members are online, try to purge this node, clean and re-join it back.")
 			}
 			time.Sleep(HeartbeatInterval)
@@ -200,6 +200,12 @@ func (c *cluster) getReady() error {
 		if err != nil {
 			return err
 		}
+
+		err = c.checkClusterName()
+		if err != nil {
+			return err
+		}
+
 		err = c.initLease()
 		if err != nil {
 			return fmt.Errorf("init lease failed: %v", err)
@@ -259,25 +265,50 @@ func (c *cluster) addSelfToCluster() error {
 			found = true
 			break
 		} else if self.Name == member.Name && self.ID != member.ID {
-			logger.Errorf("conflict id, local name: %s, local id: %d, etcd name: %s, etcd id: %d"+
+			err := fmt.Errorf("conflict id, local name: %s, local id: %d, etcd name: %s, etcd id: %d. "+
 				"contact the admin to purge this node, clean and re-join it back.",
 				self.Name, self.ID, member.Name, member.ID)
-			panic("conflict etcd ids")
+			logger.Errorf("%v", err)
+			panic(err.Error())
 		} else if self.ID == member.ID && self.Name != member.Name {
-			logger.Errorf("conflict name, local name: %s, local id: %d, etcd name: %s, etcd id: %d"+
+			err := fmt.Errorf("conflict name, local name: %s, local id: %d, etcd name: %s, etcd id: %d. "+
 				"contact the admin to purge this node, clean and re-join it back.",
 				self.Name, self.ID, member.Name, member.ID)
-			panic("conflict etcd names")
+			logger.Errorf("%v", err)
+			panic(err.Error())
 		}
 	}
 
-	if ! found {
+	if !found {
+		err := c.checkClusterName()
+		if err != nil {
+			return err
+		}
+
 		respAdd, err := client.MemberAdd(c.requestContext(), []string{c.opt.ClusterPeerURL})
 		if err != nil {
 			return err
 		}
 		logger.Infof("add %s to member list", self.Name)
 		c.members.updateClusterMembers(respAdd.Members)
+	}
+
+	return nil
+}
+
+// checkClusterName checks if the local configured cluster name matches the cluster name in etcd
+// this function will panic and abort the process. this is an expected behavior.
+func (c *cluster) checkClusterName() error {
+	v, err := c.Get(clusterNameKey)
+	if err != nil {
+		logger.Errorf("failed to check cluster name")
+		return err
+	}
+
+	if c.opt.ClusterName != *v {
+		err := fmt.Errorf("cluster name mismatch, local: %s, etcd: %s", c.opt.ClusterName, *v)
+		logger.Errorf("%v", err)
+		panic(err)
 	}
 
 	return nil
@@ -515,7 +546,7 @@ func (c *cluster) startServer() (done, timeout chan struct{}, err error) {
 	monitorServer := func(s *embed.Etcd) {
 		select {
 		case err := <-s.Err():
-			logger.Errorf("%s serve faield: %v",
+			logger.Errorf("etcd server, %s serve failed: %v",
 				c.server.Config().Name, err.Error())
 			closeEtcdServer(s)
 		case <-c.done:
@@ -529,6 +560,14 @@ func (c *cluster) startServer() (done, timeout chan struct{}, err error) {
 			return
 		case <-server.Server.ReadyNotify():
 			c.server = server
+			if c.server.Config().IsNewCluster() {
+				err := c.Put(clusterNameKey, c.opt.ClusterName)
+				if err != nil {
+					newerr := fmt.Errorf("register cluster name [%s] failed: e%v", c.opt.ClusterName, err)
+					logger.Errorf("%v", newerr)
+					panic(newerr.Error())
+				}
+			}
 			go monitorServer(c.server)
 			logger.Infof("server is ready")
 			close(done)
