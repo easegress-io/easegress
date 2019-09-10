@@ -16,7 +16,7 @@ import (
 	"go.etcd.io/etcd/clientv3"
 	"go.etcd.io/etcd/clientv3/concurrency"
 	"go.etcd.io/etcd/embed"
-	"gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v2"
 )
 
 const (
@@ -37,7 +37,6 @@ const (
 
 	// lease config
 	leaseTTL = clientv3.MaxLeaseTTL // 9000000000Second=285Year
-
 )
 
 type (
@@ -167,15 +166,16 @@ func (c *cluster) longRequestContext() context.Context {
 }
 
 func (c *cluster) run() {
-	logger.Infof("starting etcd cluster ...")
+	logger.Infof("starting etcd cluster")
 	for i := 0; ; i++ {
 		err := c.getReady()
 		if err != nil {
-			logger.Errorf("failed start cluster(%d retries): %v", i, err)
+			logger.Errorf("start cluster failed (%d retries): %v", i, err)
 			if i > 3 {
-				logger.Errorf("[%s] failed to start etcd server too many times, contact the admin to check if other members online. " +
-					"start other members if they're not online. " +
-					"if other members are online, try to purge this node, clean and re-join it back.")
+				logger.Errorf("failed start many times(%d), "+
+					"start others if they're not online, "+
+					"otherwise purge this member, clean data directory "+
+					"and rejoin it back.", i+1)
 			}
 			time.Sleep(HeartbeatInterval)
 			continue
@@ -186,7 +186,6 @@ func (c *cluster) run() {
 
 	logger.Infof("cluster is ready")
 
-	// FIXME: @miaojun Please care this routine in graceful update.
 	if c.opt.ClusterRole == "writer" {
 		go c.defrag()
 	}
@@ -265,17 +264,17 @@ func (c *cluster) addSelfToCluster() error {
 			found = true
 			break
 		} else if self.Name == member.Name && self.ID != member.ID {
-			err := fmt.Errorf("conflict id, local name: %s, local id: %d, etcd name: %s, etcd id: %d. "+
-				"contact the admin to purge this node, clean and re-join it back.",
-				self.Name, self.ID, member.Name, member.ID)
+			err := fmt.Errorf("conflict id with same name %s: local(%x) != existed(%x). "+
+				"purge this node, clean data directory, and rejoin it back.",
+				self.Name, self.ID, member.ID)
 			logger.Errorf("%v", err)
-			panic(err.Error())
+			panic(err)
 		} else if self.ID == member.ID && self.Name != member.Name {
-			err := fmt.Errorf("conflict name, local name: %s, local id: %d, etcd name: %s, etcd id: %d. "+
-				"contact the admin to purge this node, clean and re-join it back.",
-				self.Name, self.ID, member.Name, member.ID)
+			err := fmt.Errorf("conflict name with same id %x: local(%s) != existed(%s). "+
+				"purge this node, clean data directory, and rejoin it back.",
+				self.ID, self.Name, member.Name)
 			logger.Errorf("%v", err)
-			panic(err.Error())
+			panic(err)
 		}
 	}
 
@@ -287,7 +286,7 @@ func (c *cluster) addSelfToCluster() error {
 
 		respAdd, err := client.MemberAdd(c.requestContext(), []string{c.opt.ClusterPeerURL})
 		if err != nil {
-			return err
+			return fmt.Errorf("add member failed: %v", err)
 		}
 		logger.Infof("add %s to member list", self.Name)
 		c.members.updateClusterMembers(respAdd.Members)
@@ -296,17 +295,18 @@ func (c *cluster) addSelfToCluster() error {
 	return nil
 }
 
-// checkClusterName checks if the local configured cluster name matches the cluster name in etcd
-// this function will panic and abort the process. this is an expected behavior.
+// checkClusterName checks if the local configured cluster name
+// matches the existed cluster name in etcd.
+// This function returns error if it can't check,
+// panics if it checked and found the names are not the same.
 func (c *cluster) checkClusterName() error {
-	v, err := c.Get(clusterNameKey)
+	v, err := c.Get(c.Layout().ClusterNameKey())
 	if err != nil {
-		logger.Errorf("failed to check cluster name")
-		return err
+		return fmt.Errorf("failed to check cluster name: %v", err)
 	}
 
 	if c.opt.ClusterName != *v {
-		err := fmt.Errorf("cluster name mismatch, local: %s, etcd: %s", c.opt.ClusterName, *v)
+		err := fmt.Errorf("cluster names mismatch, local(%s) != existed(%s)", c.opt.ClusterName, *v)
 		logger.Errorf("%v", err)
 		panic(err)
 	}
@@ -314,6 +314,8 @@ func (c *cluster) checkClusterName() error {
 	return nil
 }
 
+// removeAndBackupEtcdData is DEPRECATED,
+// will be deleted when it's sure that we won't need it.
 func (c *cluster) removeAndBackupEtcdData() {
 	if !common.IsDirEmpty(c.opt.AbsDataDir) {
 		logger.Infof("backup and clean %s", c.opt.AbsDataDir)
@@ -546,7 +548,7 @@ func (c *cluster) startServer() (done, timeout chan struct{}, err error) {
 	monitorServer := func(s *embed.Etcd) {
 		select {
 		case err := <-s.Err():
-			logger.Errorf("etcd server, %s serve failed: %v",
+			logger.Errorf("etcd server %s serve failed: %v",
 				c.server.Config().Name, err.Error())
 			closeEtcdServer(s)
 		case <-c.done:
@@ -563,9 +565,10 @@ func (c *cluster) startServer() (done, timeout chan struct{}, err error) {
 			if c.server.Config().IsNewCluster() {
 				err := c.Put(clusterNameKey, c.opt.ClusterName)
 				if err != nil {
-					newerr := fmt.Errorf("register cluster name [%s] failed: e%v", c.opt.ClusterName, err)
-					logger.Errorf("%v", newerr)
-					panic(newerr.Error())
+					err = fmt.Errorf("register cluster name %s failed: %v",
+						c.opt.ClusterName, err)
+					logger.Errorf("%v", err)
+					panic(err)
 				}
 			}
 			go monitorServer(c.server)

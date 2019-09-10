@@ -58,7 +58,7 @@ func HTTPAccess(line string) {
 	httpPluginAccessLogger.Debug(line)
 }
 
-// NginxHTTPAccess is deprecated, replaced by HTTPAccess.
+// NginxHTTPAccess is DEPRECATED, replaced by HTTPAccess.
 func NginxHTTPAccess(remoteAddr, proto, method, path, referer, agent, realIP string,
 	code int, bodyBytesSent int64,
 	requestTime time.Duration, upstreamResponseTime time.Duration,

@@ -1,4 +1,7 @@
 name: writer-003
+# The different cluster-name is about to test
+# joining a existed cluster with a different name
+# will panic and exit as expected.
 cluster-name: cluster-test-2
 cluster-role: writer
 cluster-client-url: http://127.0.0.1:32379
