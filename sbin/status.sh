@@ -39,7 +39,7 @@ NC='\033[0m' # No Color
             last=`echo $line | awk '{print $2}' | sed -e 's/\+.*$//' -e 's/"//g' `
             timestamp=`date -j -f "%Y-%m-%dT%H:%M:%S" "$last" +%s`
             now=`date  +%s`
-            if [ $((now - timestamp))  -le 10 ]
+            if [ $((now - timestamp))  -le 6 ]
             then
                 status="online"
             else

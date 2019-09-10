@@ -16,7 +16,7 @@ import (
 	"go.etcd.io/etcd/clientv3"
 	"go.etcd.io/etcd/clientv3/concurrency"
 	"go.etcd.io/etcd/embed"
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -166,10 +166,17 @@ func (c *cluster) longRequestContext() context.Context {
 }
 
 func (c *cluster) run() {
-	for {
+
+	logger.Infof("starting etcd cluster ...")
+	for i := 0; ; i++ {
 		err := c.getReady()
 		if err != nil {
-			logger.Errorf("%v", err)
+			logger.Errorf("failed to start cluster, retry count: %d, err:  %v", i, err)
+			if i > 3 {
+				logger.Errorf("[%s] failed to start etcd server too many times, contact the admin to check if other members online. \n" +
+					"start other members if they're not online.\n" +
+					"if other members are online, try to purge this node, clean and re-join it back.")
+			}
 			time.Sleep(HeartbeatInterval)
 			continue
 		}
@@ -246,34 +253,44 @@ func (c *cluster) addSelfToCluster() error {
 
 	self := c.members.self()
 
+	found := false
 	for _, member := range respList.Members {
-		if self.Name == member.Name {
-			_, err := client.MemberRemove(c.requestContext(), member.ID)
-			if err != nil {
-				return err
-			}
-			logger.Infof("remove %s from member list", self.Name)
+		if self.Name == member.Name && self.ID == member.ID {
+			found = true
 			break
+		} else if self.Name == member.Name && self.ID != member.ID {
+			logger.Errorf("conflict id, local name: %s, local id: %d, etcd name: %s, etcd id: %d"+
+				"contact the admin to purge this node, clean and re-join it back.",
+				self.Name, self.ID, member.Name, member.ID)
+			panic("conflict etcd ids")
+		} else if self.ID == member.ID && self.Name != member.Name {
+			logger.Errorf("conflict name, local name: %s, local id: %d, etcd name: %s, etcd id: %d"+
+				"contact the admin to purge this node, clean and re-join it back.",
+				self.Name, self.ID, member.Name, member.ID)
+			panic("conflict etcd names")
 		}
 	}
 
-	respAdd, err := client.MemberAdd(c.requestContext(), []string{c.opt.ClusterPeerURL})
-	if err != nil {
-		return err
+	if ! found {
+		respAdd, err := client.MemberAdd(c.requestContext(), []string{c.opt.ClusterPeerURL})
+		if err != nil {
+			return err
+		}
+		logger.Infof("add %s to member list", self.Name)
+		c.members.updateClusterMembers(respAdd.Members)
 	}
-	logger.Infof("add %s to member list", self.Name)
 
-	c.members.updateClusterMembers(respAdd.Members)
+	return nil
+}
 
+func (c *cluster) removeAndBackupEtcdData() {
 	if !common.IsDirEmpty(c.opt.AbsDataDir) {
 		logger.Infof("backup and clean %s", c.opt.AbsDataDir)
-		err = common.BackupAndCleanDir(c.opt.AbsDataDir)
+		err := common.BackupAndCleanDir(c.opt.AbsDataDir)
 		if err != nil {
 			logger.Errorf("backup and clean %s failed: %v", c.opt.AbsDataDir, err)
 		}
 	}
-
-	return nil
 }
 
 func (c *cluster) getClient() (*clientv3.Client, error) {
