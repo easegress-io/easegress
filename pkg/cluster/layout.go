@@ -39,6 +39,11 @@ func (c *cluster) Layout() *Layout {
 	return c.layout
 }
 
+// ClusterNameKey returns the key of the cluster name.
+func (l *Layout) ClusterNameKey() string {
+	return clusterNameKey
+}
+
 // Lease returns the key of own member lease.
 func (l *Layout) Lease() string {
 	return fmt.Sprintf(leaseFormat, l.memberName)
