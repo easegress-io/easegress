@@ -11,6 +11,7 @@ REPOPATH=${SCRIPTPATH}/..
 CONFIG_PATH=${SCRIPTPATH}/config
 for CONFIG_FILE in ${CONFIG_PATH}/*.yaml
 do
-	echo "update object: ${CONFIG_FILE}"
-	$SCRIPTPATH/writer-001/egctl.sh object update -f ${CONFIG_FILE}
+	OBJECT_NAME=`echo ${CONFIG_FILE} | sed -e "s%^${CONFIG_PATH}/%%" -e "s%\.yaml$%%"`
+	echo "delete object: ${OBJECT_NAME}"
+	$SCRIPTPATH/writer-001/egctl.sh object delete ${OBJECT_NAME}
 done

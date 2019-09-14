@@ -64,7 +64,7 @@ func main() {
 		logger.Errorf("new cluster failed: %v", err)
 		os.Exit(1)
 	}
-	sdl := scheduler.MustNew(cls)
+	sdl := scheduler.MustNew(opt, cls)
 	api := egapi.MustNewServer(opt, cls)
 
 	if graceupdate.CallOriProcessTerm(sdl.FirstDone()) {

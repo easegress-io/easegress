@@ -4,28 +4,25 @@ import (
 	"reflect"
 	"runtime/debug"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/megaease/easegateway/pkg/cluster"
 	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/option"
 
 	yaml "gopkg.in/yaml.v2"
 )
 
 const (
-	pollTimouet = 5 * time.Second
+	syncStatusInterval = 5 * time.Second
 )
 
 type (
 	// Scheduler is the brain to schedule all http objects.
 	Scheduler struct {
-		cls        cluster.Cluster
-		prefix     string
-		configChan <-chan map[string]*string
+		storage *storage
 
-		redeleteStatus map[string]struct{}
 		runningObjects map[string]*runningObject
 		handlers       *sync.Map // map[string]httpserver.Handler
 
@@ -37,6 +34,7 @@ type (
 
 	runningObject struct {
 		object Object
+		config string
 		spec   Spec
 		or     *ObjectRecord
 	}
@@ -66,23 +64,15 @@ func (r runningPluginsByDepend) Less(i, j int) bool {
 }
 
 // MustNew creates a Scheduler.
-func MustNew(cls cluster.Cluster) *Scheduler {
+func MustNew(opt *option.Options, cls cluster.Cluster) *Scheduler {
 	s := &Scheduler{
-		cls:            cls,
-		prefix:         cls.Layout().ConfigObjectPrefix(),
-		redeleteStatus: make(map[string]struct{}),
+		storage:        newStorage(opt, cls),
 		runningObjects: make(map[string]*runningObject),
 		handlers:       &sync.Map{},
 		first:          true,
 		firstDone:      make(chan struct{}),
 		done:           make(chan struct{}),
 	}
-
-	configChan, err := s.cls.WatchPrefix(s.prefix)
-	if err != nil {
-		logger.Errorf("scheduler watch config objects failed: %v", err)
-	}
-	s.configChan = configChan
 
 	go s.schedule()
 
@@ -95,40 +85,38 @@ func (s *Scheduler) schedule() {
 		case <-s.done:
 			s.close()
 			return
-		case <-time.After(pollTimouet):
-			s.handleSyncStatus()
-			s.handleRewatchIfNeed()
-		case kvs, ok := <-s.configChan:
-			if ok {
-				s.handleKvs(kvs)
-			} else {
-				logger.Errorf("watch %s failed", s.prefix)
-				s.handleWatchFailed()
-			}
+		case <-time.After(syncStatusInterval):
+			s.syncStatus()
+		case config := <-s.storage.watchConfig():
+			s.handleConfig(config)
 		}
 	}
 }
 
-func (s *Scheduler) handleRewatchIfNeed() {
-	if s.configChan == nil {
-		configChan, err := s.cls.WatchPrefix(s.prefix)
-		if err != nil {
-			logger.Errorf("watch config objects failed: %v", err)
-		} else {
-			s.configChan = configChan
+func (s *Scheduler) diffConfig(config map[string]string) (
+	createOrUpdate, del map[string]string) {
+
+	createOrUpdate, del = make(map[string]string), make(map[string]string)
+
+	for k, v := range config {
+		runningObject, exist := s.runningObjects[k]
+		if !exist {
+			createOrUpdate[k] = v
+		} else if v != runningObject.config {
+			createOrUpdate[k] = v
 		}
 	}
+
+	for name := range s.runningObjects {
+		if _, exists := config[name]; !exists {
+			del[name] = ""
+		}
+	}
+
+	return
 }
 
-func (s *Scheduler) handleWatchFailed() {
-	s.configChan = nil
-}
-
-func (s Scheduler) keyToName(k string) string {
-	return strings.TrimPrefix(k, s.cls.Layout().ConfigObjectPrefix())
-}
-
-func (s *Scheduler) handleKvs(kvs map[string]*string) {
+func (s *Scheduler) handleConfig(config map[string]string) {
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Errorf("recover from handleKvs, err: %v, stack trace:\n%s\n",
@@ -143,28 +131,26 @@ func (s *Scheduler) handleKvs(kvs map[string]*string) {
 		}()
 	}
 
+	createOrupdate, del := s.diffConfig(config)
+
+	for name := range del {
+		runningObject, exists := s.runningObjects[name]
+		if !exists {
+			logger.Errorf("BUG: delete %s not found", name)
+			continue
+		}
+		runningObject.object.Close()
+		delete(s.runningObjects, name)
+	}
+
 	runningObjects := make([]*runningObject, 0)
-	for k, v := range kvs {
-		name := s.keyToName(k)
-		if v == nil {
-			if runningObject, exists := s.runningObjects[name]; exists {
-				runningObject.object.Close()
-				delete(s.runningObjects, name)
-				err := s.cls.Delete(s.cls.Layout().StatusObjectKey(name))
-				// NOTE: The Delete operation might not succeed,
-				// but we can't redo it here infinitely.
-				if err != nil {
-					s.redeleteStatus[name] = struct{}{}
-				}
-			}
+	for name, v := range createOrupdate {
+		spec, err := SpecFromYAML(v)
+		if err != nil {
+			logger.Errorf("BUG: spec from yaml failed: %s: %v", v, err)
 			continue
 		}
 
-		spec, err := SpecFromYAML(*v)
-		if err != nil {
-			logger.Errorf("BUG: spec from yaml failed: %s: %v", *v, err)
-			continue
-		}
 		if name != spec.GetName() {
 			logger.Errorf("BUG: inconsistent name in key and spec: %s, %s",
 				name, spec.GetName())
@@ -177,8 +163,9 @@ func (s *Scheduler) handleKvs(kvs map[string]*string) {
 		}
 
 		runningObjects = append(runningObjects, &runningObject{
-			spec: spec,
-			or:   or,
+			config: v,
+			spec:   spec,
+			or:     or,
 		})
 	}
 
@@ -205,7 +192,7 @@ func (s *Scheduler) handleKvs(kvs map[string]*string) {
 	}
 }
 
-func (s *Scheduler) handleSyncStatus() {
+func (s *Scheduler) syncStatus() {
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Errorf("recover from handleSyncStatus, err: %v, stack trace:\n%s\n",
@@ -214,7 +201,7 @@ func (s *Scheduler) handleSyncStatus() {
 	}()
 
 	timestamp := uint64(time.Now().Unix())
-	kvs := make(map[string]*string)
+	statuses := make(map[string]string)
 	for name, runningObject := range s.runningObjects {
 		status := reflect.ValueOf(runningObject.object).
 			MethodByName("Status").Call(nil)[0].Interface()
@@ -226,24 +213,10 @@ func (s *Scheduler) handleSyncStatus() {
 				status, err)
 			continue
 		}
-		key := s.cls.Layout().StatusObjectKey(name)
-		value := string(buff)
-		kvs[key] = &value
+		statuses[name] = string(buff)
 	}
 
-	for name := range s.redeleteStatus {
-		if _, exists := s.runningObjects[name]; exists {
-			continue
-		}
-		kvs[name] = nil
-	}
-
-	err := s.cls.PutAndDeleteUnderLease(kvs)
-	if err != nil {
-		logger.Errorf("sync runtime failed: put status failed: %v", err)
-	} else {
-		s.redeleteStatus = make(map[string]struct{})
-	}
+	s.storage.syncStatus(statuses)
 }
 
 // FirstDone returns the firstDone channel,
@@ -260,6 +233,8 @@ func (s *Scheduler) Close(wg *sync.WaitGroup) {
 }
 
 func (s *Scheduler) close() {
+	s.storage.close()
+
 	for _, runningObject := range s.runningObjects {
 		runningObject.object.Close()
 	}
