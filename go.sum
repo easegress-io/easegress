@@ -167,6 +167,8 @@ github.com/matttproud/golang_protobuf_extensions v1.0.1 h1:4hp9jkHxhMHkqkrB3Ix0j
 github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5Ld7szi9bcBfOoFv/3dc6xSMkL2PC0=
 github.com/megaease/grace v0.0.0-20180706040059-75cf19382434 h1:+aJ/dHgkTIsVb3TCJ9P1L1xb3eG+t6FRxpNn8M3UA5k=
 github.com/megaease/grace v0.0.0-20180706040059-75cf19382434/go.mod h1:mOR6MVYQ6zGyuz9Y2or/VJ6QWueTL3erxWfIwyCmiIg=
+github.com/megaease/grace v1.0.0 h1:b44R3j6e/iaN62F4ZUnru9nzL1VaIcxxUZjSPVtTVzI=
+github.com/megaease/grace v1.0.0/go.mod h1:mOR6MVYQ6zGyuz9Y2or/VJ6QWueTL3erxWfIwyCmiIg=
 github.com/microcosm-cc/bluemonday v1.0.2 h1:5lPfLTTAvAbtS0VqT+94yOtFnGfUWYyx0+iToC3Os3s=
 github.com/microcosm-cc/bluemonday v1.0.2/go.mod h1:iVP4YcDBq+n/5fb23BhYFvIMq/leAFZyRl6bYmGDlGc=
 github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=

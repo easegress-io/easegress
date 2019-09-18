@@ -111,6 +111,7 @@ func (s *storage) poll() {
 func (s *storage) pullConfig(deltas ...map[string]*string) {
 	newConfig := make(map[string]string)
 
+	deltasCount := 0
 	for _, delta := range deltas {
 		if len(delta) == 0 {
 			kvs, err := s.cls.GetPrefix(s.prefix)
@@ -133,18 +134,21 @@ func (s *storage) pullConfig(deltas ...map[string]*string) {
 				newConfig[k] = *v
 			}
 		}
+		deltasCount++
 	}
 
-	if !reflect.DeepEqual(s.config, newConfig) {
-		for k := range s.config {
-			if _, exists := newConfig[k]; !exists {
-				s.statusToDelete[k] = struct{}{}
-			}
-		}
-		s.config = newConfig
-		s.configChan <- s.copyConfig()
-		s.storeConfig()
+	if deltasCount == 0 || reflect.DeepEqual(s.config, newConfig) {
+		return
 	}
+
+	for k := range s.config {
+		if _, exists := newConfig[k]; !exists {
+			s.statusToDelete[k] = struct{}{}
+		}
+	}
+	s.config = newConfig
+	s.configChan <- s.copyConfig()
+	s.storeConfig()
 }
 
 func (s *storage) watchPrefixIfNeed() {
