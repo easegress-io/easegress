@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -56,7 +57,18 @@ func newStorage(opt *option.Options, cls cluster.Cluster) *storage {
 		done: make(chan struct{}),
 	}
 
-	s.pullConfig(nil)
+	var deltas []map[string]*string
+	config, err := s.loadConfig()
+	if err != nil {
+		logger.Errorf("load config failed: %v", err)
+	} else {
+		deltas = append(deltas, s.configToDelta(config))
+	}
+
+	// Local file, then Etcd server.
+	deltas = append(deltas, nil)
+	s.pullConfig(deltas...)
+
 	s.watchPrefixIfNeed()
 
 	go s.poll()
@@ -93,28 +105,33 @@ func (s *storage) poll() {
 
 }
 
-func (s *storage) pullConfig(delta map[string]*string) {
+// pullConfig applies deltas to the config by order.
+// If the element delta is nil, it pulls all config
+// from remote storage.
+func (s *storage) pullConfig(deltas ...map[string]*string) {
 	newConfig := make(map[string]string)
 
-	if len(delta) == 0 {
-		kvs, err := s.cls.GetPrefix(s.prefix)
-		if err != nil {
-			logger.Errorf("pull config failed: %v", err)
-			return
-		}
-		for k, v := range kvs {
-			k = strings.TrimPrefix(k, s.prefix)
-			newConfig[k] = v
-		}
-	} else {
-		newConfig = s.copyConfig()
-		for k, v := range delta {
-			k = strings.TrimPrefix(k, s.prefix)
-			if v == nil {
-				delete(newConfig, k)
+	for _, delta := range deltas {
+		if len(delta) == 0 {
+			kvs, err := s.cls.GetPrefix(s.prefix)
+			if err != nil {
+				logger.Errorf("pull config failed: %v", err)
 				continue
 			}
-			newConfig[k] = *v
+			for k, v := range kvs {
+				k = strings.TrimPrefix(k, s.prefix)
+				newConfig[k] = v
+			}
+		} else {
+			newConfig = s.copyConfig()
+			for k, v := range delta {
+				k = strings.TrimPrefix(k, s.prefix)
+				if v == nil {
+					delete(newConfig, k)
+					continue
+				}
+				newConfig[k] = *v
+			}
 		}
 	}
 
@@ -171,6 +188,39 @@ func (s *storage) handleWatchFailed() {
 		s.watcher.Close()
 	}
 	s.watcher, s.prefixChan = nil, nil
+}
+
+func (s *storage) configToDelta(config map[string]string) map[string]*string {
+	delta := make(map[string]*string)
+	for k, v := range config {
+		k = s.prefix + k
+		value := v
+		delta[k] = &value
+	}
+
+	return delta
+}
+
+// loadConfig loads config from the local file.
+func (s *storage) loadConfig() (map[string]string, error) {
+	if _, err := os.Stat(s.configfilePath); os.IsNotExist(err) {
+		// NOTE: This is not an error.
+		logger.Infof("%s not exist", s.configfilePath)
+		return nil, nil
+	}
+
+	buff, err := ioutil.ReadFile(s.configfilePath)
+	if err != nil {
+		return nil, fmt.Errorf("%s read failed: %v", s.configfilePath, err)
+	}
+
+	config := make(map[string]string)
+	err = yaml.Unmarshal(buff, &config)
+	if err != nil {
+		return nil, fmt.Errorf("%s unmarshal to yaml failed: %v", s.configfilePath, err)
+	}
+
+	return config, nil
 }
 
 func (s *storage) storeConfig() {

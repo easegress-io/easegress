@@ -65,7 +65,7 @@ type (
 
 	// Status contains all status gernerated by runtime, for displaying to users.
 	Status struct {
-		Timestamp uint64 `yaml:"timestamp"`
+		Timestamp int64 `yaml:"timestamp"`
 
 		Health string `yaml:"health"`
 

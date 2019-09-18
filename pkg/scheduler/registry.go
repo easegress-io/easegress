@@ -32,7 +32,7 @@ type (
 	// 1. It must implement function Status.
 	//   1.1 It has one and only one output argument in any struct types.
 	//   1.2 The returning struct type must have fields
-	//       that Timestamp in uint64, Health in any types.
+	//       that Timestamp in int64, Health in any types.
 	// 2. It must implement function Close to clean its resources.
 	//
 	// In more detail, there is a built-in Object HTTPServer that could send
@@ -51,7 +51,7 @@ type (
 
 	// StatusMeta is the fundamental struct for all objects' status.
 	StatusMeta struct {
-		Timestamp uint64 `yaml:"timestamp"`
+		Timestamp int64 `yaml:"timestamp"`
 	}
 
 	// ObjectRecord is the record for booking object.
@@ -155,8 +155,8 @@ func Register(or *ObjectRecord) {
 		fmt.Errorf("non struct Status elem: %s", statusType.Elem().Kind()))
 	timestampField, exists := statusType.Elem().FieldByName("Timestamp")
 	assert(exists, true, fmt.Errorf("invalid Status with no field Timestamp"))
-	assert(timestampField.Type.Kind(), reflect.Uint64,
-		fmt.Errorf("invalid Status with not uint64 Timestamp: %s",
+	assert(timestampField.Type.Kind(), reflect.Int64,
+		fmt.Errorf("invalid Status with not int64 Timestamp: %s",
 			timestampField.Type.Kind()))
 	_, exists = statusType.Elem().FieldByName("Health")
 	assert(exists, true, fmt.Errorf("invalid Status with no field Health"))

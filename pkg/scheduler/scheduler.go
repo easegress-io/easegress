@@ -200,12 +200,12 @@ func (s *Scheduler) syncStatus() {
 		}
 	}()
 
-	timestamp := uint64(time.Now().Unix())
+	timestamp := time.Now().Unix()
 	statuses := make(map[string]string)
 	for name, runningObject := range s.runningObjects {
 		status := reflect.ValueOf(runningObject.object).
 			MethodByName("Status").Call(nil)[0].Interface()
-		reflect.ValueOf(status).Elem().FieldByName("Timestamp").SetUint(timestamp)
+		reflect.ValueOf(status).Elem().FieldByName("Timestamp").SetInt(timestamp)
 
 		buff, err := yaml.Marshal(status)
 		if err != nil {
