@@ -110,8 +110,7 @@ func (r *runtime) Close() {
 
 // Status returns HTTPServer Status.
 func (r *runtime) Status() *Status {
-	state := r.getState()
-	health := string(state)
+	health := r.getError().Error()
 
 	return &Status{
 		Health: health,
