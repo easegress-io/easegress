@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -235,8 +234,9 @@ func (c *cluster) getReady() error {
 			return err
 		}
 	case <-timeout:
-		logger.Errorf("start server timeout in %v, abort the process", waitServerTimeout)
-		os.Exit(1)
+		err := fmt.Errorf("start server timeout(%v)", waitServerTimeout)
+		logger.Errorf("%v", err)
+		panic(err)
 	}
 
 	err = c.initLease()
