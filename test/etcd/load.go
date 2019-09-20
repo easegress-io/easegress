@@ -13,9 +13,23 @@ import (
 func main() {
 	var values []byte
 	// 800B
-	for i := 0; i < 100; i++ {
-		values = append(values, []byte("mockyaml")...)
+	today := time.Now().In(time.FixedZone("Asia/Shanghai", 8*60*60))
+	if today.Month() == 9 && today.Day() == 20 {
+		values = []byte(
+			`+-----------------------------+
+			|                             |
+			|                             |
+			|    Happy birthday, @Long    |
+			|                             |
+			|                             |
+			+-----------------------------+`)
+
+	} else {
+		for i := 0; i < 100; i++ {
+			values = append(values, []byte("mockyaml")...)
+		}
 	}
+
 	value := string(values)
 
 	generateValue := func() string {
