@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -27,7 +28,7 @@ const (
 	defragFailedInterval = 1 * time.Minute
 
 	// waitServerTimeout is the timeout for waiting server to start.
-	waitServerTimeout = 10 * time.Second
+	waitServerTimeout = 10 * time.Minute
 
 	// client config
 	autoSyncInterval     = 1 * time.Minute
@@ -234,7 +235,8 @@ func (c *cluster) getReady() error {
 			return err
 		}
 	case <-timeout:
-		return fmt.Errorf("start server timeout")
+		logger.Errorf("start server timeout in %v, abort the process", waitServerTimeout)
+		os.Exit(1)
 	}
 
 	err = c.initLease()
