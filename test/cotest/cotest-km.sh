@@ -27,9 +27,10 @@ while true ;
 do
 	gethost host
 	getcommand cmd
-	ssh $host $cmd
-	intv=`expr $minintv + $RANDOM % $randintv`
 	now=`date "+%Y%m%d %H:%M:%S"`
 	echo "$host: $cmd ($now)"
+	ssh $host $cmd
+	intv=`expr $minintv + $RANDOM % $randintv`
+	echo "next command will execute after $intv seconds"
 	sleep $intv
 done
