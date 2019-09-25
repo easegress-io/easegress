@@ -9,7 +9,6 @@ import (
 
 	"github.com/megaease/easegateway/pkg/common"
 	"github.com/megaease/easegateway/pkg/context"
-	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httpserver"
 	"github.com/megaease/easegateway/pkg/scheduler"
 	"github.com/megaease/easegateway/pkg/v"
@@ -180,12 +179,6 @@ func New(spec *Spec, prev *HTTPPipeline, handlers *sync.Map) (tmp *HTTPPipeline)
 		spec:     spec,
 		handlers: handlers,
 	}
-
-	defer func() {
-		if err := recover(); err != nil {
-			logger.Errorf("BUG: %v", err)
-		}
-	}()
 
 	runningPlugins := make([]*runningPlugin, 0)
 	if len(spec.Flow) == 0 {

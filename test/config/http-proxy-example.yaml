@@ -23,6 +23,7 @@ validator:
 #     X-Fallback: Okay
 #   mockBody: '{"message": "The feature turned off, please try it later."}'
 rateLimiter:
+  maxConcurrent: 10
   tps: 20000
   timeout: 50ms
   fallback:

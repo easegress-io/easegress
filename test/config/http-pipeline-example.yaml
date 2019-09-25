@@ -38,6 +38,7 @@ plugins:
     mockBody: '{"message": "The feature turned off, please try it later."}'
   - name: rateLimiter
     kind: RateLimiter
+    maxConcurrent: 10
     tps: 20000
     timeout: 50ms
     fallback:

@@ -20,6 +20,8 @@ const (
 
 	resultTimeout  = "timeout"
 	resultFallback = "fallback"
+
+	maxChanSize = 10000
 )
 
 func init() {
@@ -43,18 +45,21 @@ type (
 
 		fallback *fallback.Fallback
 
-		limiter *rate.Limiter
-		rate1   metrics.EWMA
-		done    chan struct{}
+		concurrentGuard chan struct{}
+		limiter         *rate.Limiter
+		rate1           metrics.EWMA
+		done            chan struct{}
 	}
 
 	// Spec describes RateLimiter.
 	Spec struct {
 		httppipeline.PluginMeta `yaml:",inline"`
 
-		TPS      uint32         `yaml:"tps" v:"gte=1"`
-		Timeout  string         `yaml:"timeout" v:"omitempty,duration,dmin=1ms"`
-		Fallback *fallback.Spec `yaml:"fallback"`
+		// MaxConcurrent is the max concurrent active requests.
+		MaxConcurrent int32          `yaml:"maxConcurrent" v:"lte=10000"`
+		TPS           uint32         `yaml:"tps" v:"gte=1"`
+		Timeout       string         `yaml:"timeout" v:"omitempty,duration,dmin=1ms"`
+		Fallback      *fallback.Spec `yaml:"fallback"`
 
 		timeout *time.Duration
 	}
@@ -83,6 +88,14 @@ func New(spec *Spec, prev *RateLimiter) *RateLimiter {
 	}
 
 	if prev == nil {
+		if spec.MaxConcurrent > 0 {
+			rl.concurrentGuard = make(chan struct{}, maxChanSize)
+			initSize := maxChanSize - spec.MaxConcurrent
+			for i := int32(0); i < initSize; i++ {
+				rl.concurrentGuard <- struct{}{}
+			}
+		}
+
 		rl.limiter = rate.NewLimiter(rate.Limit(spec.TPS), 1)
 		rl.rate1 = metrics.NewEWMA1()
 		rl.done = make(chan struct{})
@@ -99,6 +112,38 @@ func New(spec *Spec, prev *RateLimiter) *RateLimiter {
 		return rl
 	}
 
+	switch {
+	case prev.concurrentGuard == nil && spec.MaxConcurrent > 0:
+		rl.concurrentGuard = make(chan struct{}, maxChanSize)
+		initSize := maxChanSize - spec.MaxConcurrent
+		for i := int32(0); i < initSize; i++ {
+			rl.concurrentGuard <- struct{}{}
+		}
+	case prev.concurrentGuard != nil && spec.MaxConcurrent > 0:
+		rl.concurrentGuard = prev.concurrentGuard
+		adjustSize := spec.MaxConcurrent - prev.spec.MaxConcurrent
+		switch {
+		case adjustSize < 0:
+			adjustSize = -adjustSize
+			go func() {
+				for i := int32(0); i < adjustSize; i++ {
+					rl.concurrentGuard <- struct{}{}
+				}
+			}()
+		case adjustSize > 0:
+			go func() {
+				for i := int32(0); i < adjustSize; i++ {
+					<-rl.concurrentGuard
+				}
+			}()
+		}
+	case prev.concurrentGuard != nil && spec.MaxConcurrent == 0:
+		// Nothing to do.
+		// We can't close prev.conccurentGuard in case of panic of running goroutine.
+	case prev.concurrentGuard == nil && spec.MaxConcurrent == 0:
+		// Nothing to do, just list all possible situations.
+	}
+
 	rl.limiter = prev.limiter
 	rl.limiter.SetLimit(rate.Limit(spec.TPS))
 	rl.rate1 = prev.rate1
@@ -111,10 +156,32 @@ func New(spec *Spec, prev *RateLimiter) *RateLimiter {
 func (rl *RateLimiter) Handle(ctx context.HTTPContext) string {
 	defer rl.rate1.Update(1)
 
+	startTime := time.Now()
+	if rl.concurrentGuard != nil {
+		timeoutChan := (<-chan time.Time)(nil)
+		if rl.spec.timeout != nil {
+			timeoutChan = time.After(*rl.spec.timeout)
+		}
+		select {
+		case rl.concurrentGuard <- struct{}{}:
+			ctx.OnFinish(func() {
+				<-rl.concurrentGuard
+			})
+		case <-timeoutChan:
+			return resultTimeout
+		}
+	}
+
 	var rlCtx stdcontext.Context = ctx
 	if rl.spec.timeout != nil {
+		timeout := *rl.spec.timeout
+		timeout -= time.Now().Sub(startTime)
+		if timeout <= 0 {
+			return resultTimeout
+		}
+
 		var cancel stdcontext.CancelFunc
-		rlCtx, cancel = stdcontext.WithTimeout(rlCtx, *rl.spec.timeout)
+		rlCtx, cancel = stdcontext.WithTimeout(rlCtx, timeout)
 		defer cancel()
 	}
 
