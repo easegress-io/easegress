@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -196,7 +197,8 @@ func (ctx *httpContext) Finish() {
 		func() {
 			defer func() {
 				if err := recover(); err != nil {
-					logger.Errorf("failed to handle finish actions for %s: %v", ctx.Request().Path(), err)
+					logger.Errorf("failed to handle finish actions for %s: %v, stack trace: \n%s\n",
+						ctx.Request().Path(), err, debug.Stack())
 				}
 			}()
 
