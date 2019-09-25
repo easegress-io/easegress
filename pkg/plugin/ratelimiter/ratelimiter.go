@@ -88,12 +88,10 @@ func New(spec *Spec, prev *RateLimiter) *RateLimiter {
 	}
 
 	if prev == nil {
-		if spec.MaxConcurrent > 0 {
-			rl.concurrentGuard = make(chan struct{}, maxChanSize)
-			initSize := maxChanSize - spec.MaxConcurrent
-			for i := int32(0); i < initSize; i++ {
-				rl.concurrentGuard <- struct{}{}
-			}
+		rl.concurrentGuard = make(chan struct{}, maxChanSize)
+		initSize := maxChanSize - spec.MaxConcurrent
+		for i := int32(0); i < initSize; i++ {
+			rl.concurrentGuard <- struct{}{}
 		}
 
 		rl.limiter = rate.NewLimiter(rate.Limit(spec.TPS), 1)
@@ -112,36 +110,22 @@ func New(spec *Spec, prev *RateLimiter) *RateLimiter {
 		return rl
 	}
 
+	rl.concurrentGuard = prev.concurrentGuard
+	adjustSize := spec.MaxConcurrent - prev.spec.MaxConcurrent
 	switch {
-	case prev.concurrentGuard == nil && spec.MaxConcurrent > 0:
-		rl.concurrentGuard = make(chan struct{}, maxChanSize)
-		initSize := maxChanSize - spec.MaxConcurrent
-		for i := int32(0); i < initSize; i++ {
-			rl.concurrentGuard <- struct{}{}
-		}
-	case prev.concurrentGuard != nil && spec.MaxConcurrent > 0:
-		rl.concurrentGuard = prev.concurrentGuard
-		adjustSize := spec.MaxConcurrent - prev.spec.MaxConcurrent
-		switch {
-		case adjustSize < 0:
-			adjustSize = -adjustSize
-			go func() {
-				for i := int32(0); i < adjustSize; i++ {
-					rl.concurrentGuard <- struct{}{}
-				}
-			}()
-		case adjustSize > 0:
-			go func() {
-				for i := int32(0); i < adjustSize; i++ {
-					<-rl.concurrentGuard
-				}
-			}()
-		}
-	case prev.concurrentGuard != nil && spec.MaxConcurrent == 0:
-		// Nothing to do.
-		// We can't close prev.conccurentGuard in case of panic of running goroutine.
-	case prev.concurrentGuard == nil && spec.MaxConcurrent == 0:
-		// Nothing to do, just list all possible situations.
+	case adjustSize < 0:
+		adjustSize = -adjustSize
+		go func() {
+			for i := int32(0); i < adjustSize; i++ {
+				rl.concurrentGuard <- struct{}{}
+			}
+		}()
+	case adjustSize > 0:
+		go func() {
+			for i := int32(0); i < adjustSize; i++ {
+				<-rl.concurrentGuard
+			}
+		}()
 	}
 
 	rl.limiter = prev.limiter
@@ -157,19 +141,17 @@ func (rl *RateLimiter) Handle(ctx context.HTTPContext) string {
 	defer rl.rate1.Update(1)
 
 	startTime := time.Now()
-	if rl.concurrentGuard != nil {
-		timeoutChan := (<-chan time.Time)(nil)
-		if rl.spec.timeout != nil {
-			timeoutChan = time.After(*rl.spec.timeout)
-		}
-		select {
-		case rl.concurrentGuard <- struct{}{}:
-			ctx.OnFinish(func() {
-				<-rl.concurrentGuard
-			})
-		case <-timeoutChan:
-			return resultTimeout
-		}
+	timeoutChan := (<-chan time.Time)(nil)
+	if rl.spec.timeout != nil {
+		timeoutChan = time.After(*rl.spec.timeout)
+	}
+	select {
+	case rl.concurrentGuard <- struct{}{}:
+		ctx.OnFinish(func() {
+			<-rl.concurrentGuard
+		})
+	case <-timeoutChan:
+		return resultTimeout
 	}
 
 	var rlCtx stdcontext.Context = ctx

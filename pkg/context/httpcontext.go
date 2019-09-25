@@ -193,7 +193,13 @@ func (ctx *httpContext) Finish() {
 	ctx.endTime = &endTime
 
 	for _, fn := range ctx.finishFuncs {
-		fn()
+		func() {
+			fn()
+			err := recover()
+			if err != nil {
+				logger.Errorf("failed to invoke finish actions: %v", err)
+			}
+		}()
 	}
 
 	logger.HTTPAccess(ctx.Log())
