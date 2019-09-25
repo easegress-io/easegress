@@ -194,11 +194,13 @@ func (ctx *httpContext) Finish() {
 
 	for _, fn := range ctx.finishFuncs {
 		func() {
+			defer func() {
+				if err := recover(); err != nil {
+					logger.Errorf("failed to handle finish actions for %s: %v", ctx.Request().Path(), err)
+				}
+			}()
+
 			fn()
-			err := recover()
-			if err != nil {
-				logger.Errorf("failed to invoke finish actions: %v", err)
-			}
 		}()
 	}
 
