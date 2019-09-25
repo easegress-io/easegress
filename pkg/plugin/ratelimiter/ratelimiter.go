@@ -61,7 +61,8 @@ type (
 		Timeout       string         `yaml:"timeout" v:"omitempty,duration,dmin=1ms"`
 		Fallback      *fallback.Spec `yaml:"fallback"`
 
-		timeout *time.Duration
+		timeout       *time.Duration
+		maxConcurrent int32
 	}
 
 	// Status contains status info of RateLimiter.
@@ -82,6 +83,12 @@ func New(spec *Spec, prev *RateLimiter) *RateLimiter {
 		}
 	}
 
+	if spec.MaxConcurrent <= 0 {
+		spec.maxConcurrent = maxChanSize
+	} else {
+		spec.maxConcurrent = spec.MaxConcurrent
+	}
+
 	rl := &RateLimiter{spec: spec}
 	if spec.Fallback != nil {
 		rl.fallback = fallback.New(spec.Fallback)
@@ -89,7 +96,7 @@ func New(spec *Spec, prev *RateLimiter) *RateLimiter {
 
 	if prev == nil {
 		rl.concurrentGuard = make(chan struct{}, maxChanSize)
-		initSize := maxChanSize - spec.MaxConcurrent
+		initSize := maxChanSize - spec.maxConcurrent
 		for i := int32(0); i < initSize; i++ {
 			rl.concurrentGuard <- struct{}{}
 		}
@@ -111,7 +118,7 @@ func New(spec *Spec, prev *RateLimiter) *RateLimiter {
 	}
 
 	rl.concurrentGuard = prev.concurrentGuard
-	adjustSize := spec.MaxConcurrent - prev.spec.MaxConcurrent
+	adjustSize := spec.maxConcurrent - prev.spec.maxConcurrent
 	switch {
 	case adjustSize < 0:
 		adjustSize = -adjustSize
