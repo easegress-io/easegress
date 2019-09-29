@@ -1,3 +1,4 @@
+SHELL:=/bin/bash
 .PHONY: build build_client build_server \
 		build_client_alpine build_server_alpine build_server_ubuntu \
 		run fmt vet clean \
