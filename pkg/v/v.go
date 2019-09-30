@@ -163,8 +163,12 @@ func httpMethod(fl validator.FieldLevel) bool {
 }
 
 func httpCode(fl validator.FieldLevel) bool {
-	txt := http.StatusText(int(fl.Field().Int()))
-	return len(txt) != 0
+	code := fl.Field().Int()
+	// Referece: https://tools.ietf.org/html/rfc7231#section-6
+	if code < 100 || code >= 600 {
+		return false
+	}
+	return true
 }
 
 func prefix(fl validator.FieldLevel) bool {
