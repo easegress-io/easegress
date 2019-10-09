@@ -1,7 +1,6 @@
 package httpserver
 
 import (
-	"fmt"
 	"net/http"
 	"regexp"
 	"strings"
@@ -13,6 +12,7 @@ import (
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/util/httpstat"
 	"github.com/megaease/easegateway/pkg/util/ipfilter"
+	"github.com/megaease/easegateway/pkg/util/stringtool"
 	"github.com/megaease/easegateway/pkg/util/topn"
 )
 
@@ -100,7 +100,7 @@ func (mr *muxRules) getCacheItem(ctx context.HTTPContext) *cacheItem {
 	}
 
 	r := ctx.Request()
-	key := fmt.Sprintf("%s%s", r.Method(), r.Path())
+	key := stringtool.Cat(r.Method(), r.Path())
 	return mr.cache.get(key)
 }
 
@@ -110,7 +110,7 @@ func (mr *muxRules) putCacheItem(ctx context.HTTPContext, ci *cacheItem) {
 	}
 
 	r := ctx.Request()
-	key := fmt.Sprintf("%s%s", r.Method(), r.Path())
+	key := stringtool.Cat(r.Method(), r.Path())
 	if !ci.cached {
 		ci.cached = true
 		// NOTE: It's fine to cover the existed item because of conccurently updating cache.
@@ -288,7 +288,7 @@ func (m *mux) ServeHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 	w := ctx.Response()
 
 	handleIPNotAllow := func() {
-		ctx.AddTag(fmt.Sprintf("ip not allow"))
+		ctx.AddTag(stringtool.Cat("ip ", ctx.Request().RealIP(), " not allow"))
 		w.SetStatusCode(http.StatusForbidden)
 	}
 
@@ -312,12 +312,12 @@ func (m *mux) ServeHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 			if exists {
 				handler, ok := handler.(Handler)
 				if !ok {
-					ctx.AddTag(fmt.Sprintf("BUG: backend %s is not handler", ci.backend))
+					ctx.AddTag(stringtool.Cat("BUG: backend ", ci.backend, " is not handler"))
 				} else {
 					handler.Handle(ctx)
 				}
 			} else {
-				ctx.AddTag(fmt.Sprintf("backend %s not found", ci.backend))
+				ctx.AddTag(stringtool.Cat("backend ", ci.backend, " not found"))
 				w.SetStatusCode(http.StatusServiceUnavailable)
 			}
 		}

@@ -2,7 +2,7 @@ package fallback
 
 import (
 	"bytes"
-	"fmt"
+	"strconv"
 
 	"github.com/megaease/easegateway/pkg/util/httpheader"
 
@@ -31,7 +31,7 @@ func New(spec *Spec) *Fallback {
 		spec:     spec,
 		mockBody: []byte(spec.MockBody),
 	}
-	f.bodyLenth = fmt.Sprintf("%d", len(f.mockBody))
+	f.bodyLenth = strconv.Itoa(len(f.mockBody))
 	return f
 }
 

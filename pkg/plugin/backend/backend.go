@@ -21,6 +21,7 @@ import (
 	"github.com/megaease/easegateway/pkg/util/httpstat"
 	"github.com/megaease/easegateway/pkg/util/memorycache"
 	"github.com/megaease/easegateway/pkg/util/readercounter"
+	"github.com/megaease/easegateway/pkg/util/stringtool"
 )
 
 const (
@@ -382,7 +383,7 @@ func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader) {
 	w := ctx.Response()
 
 	server := p.servers.next(ctx)
-	tags = append(tags, fmt.Sprintf("%s#addr: %s", p.tagPrefix, server.URL))
+	tags = append(tags, stringtool.Cat(p.tagPrefix, "#addr: ", server.URL))
 
 	url := server.URL + r.Path()
 	if r.Query() != "" {
@@ -392,7 +393,7 @@ func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader) {
 	if err != nil {
 		logger.Errorf("BUG: new request failed: %v", err)
 		w.SetStatusCode(http.StatusInternalServerError)
-		tags = append(tags, fmt.Sprintf("%s#bug: new request failed: %v", p.tagPrefix, err))
+		tags = append(tags, stringtool.Cat(p.tagPrefix, "#bug: new request failed: ", err.Error()))
 		return
 	}
 	req.Header = r.Header().Std()
@@ -421,7 +422,7 @@ func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader) {
 		defer ctx.Unlock()
 		w.SetStatusCode(http.StatusServiceUnavailable)
 
-		tags = append(tags, fmt.Sprintf("%s do request failed: %v", p.tagPrefix, err))
+		tags = append(tags, stringtool.Cat(p.tagPrefix, " do request failed: ", err.Error()))
 		return
 	}
 
@@ -437,7 +438,7 @@ func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader) {
 
 	ctx.OnFinish(func() {
 		totalDuration := firstByteTime.Sub(startTime) + durationBody.Duration()
-		ctx.AddTag(fmt.Sprintf("%s#duration: %v", p.tagPrefix, totalDuration))
+		ctx.AddTag(stringtool.Cat(p.tagPrefix, "#duration: ", totalDuration.String()))
 
 		text := http.StatusText(w.StatusCode())
 		if text == "" {
@@ -445,9 +446,8 @@ func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader) {
 		}
 		// NOTE: We don't use httputil.DumpResponse because it does not
 		// completely output plain HTTP Request.
-		respMeta := fmt.Sprintf("%s %d %s\r\n%s\r\n\r\n",
-			resp.Proto, resp.StatusCode, text,
-			w.Header().Dump())
+		respMeta := stringtool.Cat(resp.Proto, " ", strconv.Itoa(resp.StatusCode), " ", text, "\r\n",
+			w.Header().Dump(), "\r\n\r\n")
 
 		respMetaSize := uint64(len(respMeta))
 
@@ -469,7 +469,7 @@ func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader) {
 	// Phase 4: Pass Through Response or Discard it.
 
 	if p.writeResponse {
-		tags = append(tags, fmt.Sprintf("%s#code: %d", p.tagPrefix, resp.StatusCode))
+		tags = append(tags, stringtool.Cat(p.tagPrefix, "#code: ", strconv.Itoa(w.StatusCode())))
 
 		w.SetStatusCode(resp.StatusCode)
 		w.Header().AddFromStd(resp.Header)

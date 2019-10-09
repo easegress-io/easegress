@@ -8,6 +8,7 @@ import (
 
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/util/stringtool"
 
 	"github.com/sony/gobreaker"
 )
@@ -112,7 +113,7 @@ func (cb *circuitBreaker) protect(ctx context.HTTPContext, reqBody io.Reader,
 	// Only for opening circuitBreaker.
 	if err != nil && !handled {
 		ctx.Response().SetStatusCode(http.StatusServiceUnavailable)
-		ctx.AddTag(fmt.Sprintf("circuitBreaker: %v", err))
+		ctx.AddTag(stringtool.Cat("circuitBreaker: ", err.Error()))
 		return err
 	}
 

@@ -2,7 +2,6 @@ package context
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/util/httpheader"
+	"github.com/megaease/easegateway/pkg/util/stringtool"
 )
 
 var (
@@ -159,9 +159,8 @@ func (w *httpResponse) Size() uint64 {
 	// Reference: https://tools.ietf.org/html/rfc2616#section-6
 	// NOTE: We don't use httputil.DumpResponse because it does not
 	// completely output plain HTTP Request.
-	meta := fmt.Sprintf("%s %d %s\r\n%s\r\n\r\n",
-		w.stdr.Proto, w.StatusCode(), text,
-		w.Header().Dump())
+	meta := stringtool.Cat(w.stdr.Proto, " ", strconv.Itoa(w.StatusCode()), " ", text, "\r\n",
+		w.Header().Dump(), "\r\n\r\n")
 
 	return uint64(len(meta)) + w.bodyWritten
 }

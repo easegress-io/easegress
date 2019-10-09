@@ -1,12 +1,12 @@
 package validator
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
 	"github.com/megaease/easegateway/pkg/util/httpheader"
+	"github.com/megaease/easegateway/pkg/util/stringtool"
 )
 
 const (
@@ -59,7 +59,7 @@ func (v *Validator) Handle(ctx context.HTTPContext) string {
 	err := v.headers.Validate(ctx.Request().Header())
 	if err != nil {
 		ctx.Response().SetStatusCode(http.StatusBadRequest)
-		ctx.AddTag(fmt.Sprintf("validator: %v", err))
+		ctx.AddTag(stringtool.Cat("validator: ", err.Error()))
 		return resultInvalid
 	}
 	return ""

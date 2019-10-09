@@ -1,12 +1,12 @@
 package context
 
 import (
-	"fmt"
 	"io"
 	"net/http"
 
 	"github.com/megaease/easegateway/pkg/util/httpheader"
 	"github.com/megaease/easegateway/pkg/util/readercounter"
+	"github.com/megaease/easegateway/pkg/util/stringtool"
 	"github.com/tomasen/realip"
 )
 
@@ -36,9 +36,8 @@ func newHTTPRequest(stdr *http.Request) *httpRequest {
 	// Reference: https://tools.ietf.org/html/rfc2616#section-5
 	// NOTE: We don't use httputil.DumpRequest because it does not
 	// completely output plain HTTP Request.
-	meta := fmt.Sprintf("%s %s %s\r\n%s\r\n",
-		stdr.Method, stdr.URL.RequestURI(), stdr.Proto,
-		hq.Header().Dump())
+	meta := stringtool.Cat(stdr.Method, " ", stdr.URL.RequestURI(), " ", stdr.Proto, "\r\n",
+		hq.Header().Dump(), "\r\n\r\n")
 
 	hq.metaSize = uint64(len(meta))
 

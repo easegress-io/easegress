@@ -11,6 +11,7 @@ import (
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/object/httpserver"
 	"github.com/megaease/easegateway/pkg/scheduler"
+	"github.com/megaease/easegateway/pkg/util/stringtool"
 	"github.com/megaease/easegateway/pkg/v"
 
 	yaml "gopkg.in/yaml.v2"
@@ -266,8 +267,8 @@ func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) {
 		}
 		startTime := time.Now()
 		result := runningPlugin.plugin.Handle(ctx)
-		pipeline = append(pipeline, fmt.Sprintf("%s(%v)",
-			nextPluginName, time.Now().Sub(startTime)))
+		pipeline = append(pipeline, stringtool.Cat(nextPluginName,
+			"(", time.Now().Sub(startTime).String(), ")"))
 		if result != "" {
 			jumpIf := runningPlugin.jumpIf
 			if len(jumpIf) == 0 {
@@ -282,7 +283,7 @@ func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) {
 			nextPluginName = hp.runningPlugins[i+1].meta.Name
 		}
 	}
-	ctx.AddTag(fmt.Sprintf("pipeline: %s", strings.Join(pipeline, ",")))
+	ctx.AddTag(stringtool.Cat("pipeline: ", strings.Join(pipeline, ",")))
 }
 
 func (hp *HTTPPipeline) getRunningPlugin(name string) *runningPlugin {

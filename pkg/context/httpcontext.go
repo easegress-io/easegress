@@ -13,6 +13,7 @@ import (
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/util/httpheader"
 	"github.com/megaease/easegateway/pkg/util/httpstat"
+	"github.com/megaease/easegateway/pkg/util/stringtool"
 	"github.com/megaease/easegateway/pkg/util/timetool"
 )
 
@@ -164,7 +165,7 @@ func (ctx *httpContext) Value(key interface{}) interface{} {
 
 func (ctx *httpContext) Cancel(err error) {
 	if !ctx.Cancelled() {
-		ctx.AddTag(fmt.Sprintf("cancelErr: %s", err))
+		ctx.AddTag(stringtool.Cat("cancelErr: ", err.Error()))
 		ctx.err = err
 		ctx.cancelFunc()
 	}

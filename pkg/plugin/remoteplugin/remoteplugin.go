@@ -13,6 +13,7 @@ import (
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
+	"github.com/megaease/easegateway/pkg/util/stringtool"
 )
 
 const (
@@ -148,6 +149,8 @@ func (rp *RemotePlugin) Handle(ctx context.HTTPContext) (result string) {
 	defer func() {
 		if err := recover(); err != nil {
 			w.SetStatusCode(http.StatusServiceUnavailable)
+			// NOTE: We don't use stringtool.Cat because err needs
+			// the internal reflection of fmt.Sprintf.
 			ctx.AddTag(fmt.Sprintf("remotePluginErr: %s: %v", errPrefix, err))
 			result = resultFailed
 		}
@@ -166,7 +169,7 @@ func (rp *RemotePlugin) Handle(ctx context.HTTPContext) (result string) {
 	if err != nil {
 		logger.Errorf("BUG: new request failed: %v", err)
 		w.SetStatusCode(http.StatusInternalServerError)
-		ctx.AddTag(fmt.Sprintf("remotePluginBug:%s", err.Error()))
+		ctx.AddTag(stringtool.Cat("remotePluginBug: ", err.Error()))
 		return resultFailed
 	}
 

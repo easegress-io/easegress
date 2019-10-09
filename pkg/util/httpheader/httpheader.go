@@ -1,10 +1,11 @@
 package httpheader
 
 import (
-	"fmt"
 	"net/http"
 	"net/textproto"
 	"strings"
+
+	"github.com/megaease/easegateway/pkg/util/stringtool"
 )
 
 type (
@@ -95,7 +96,7 @@ func (h *HTTPHeader) VisitAll(fn func(key, value string)) {
 func (h *HTTPHeader) Dump() string {
 	var headers []string
 	h.VisitAll(func(key, value string) {
-		headers = append(headers, fmt.Sprintf("%s: %s", key, value))
+		headers = append(headers, stringtool.Cat(key, ": ", value))
 	})
 
 	return strings.Join(headers, "\r\n")

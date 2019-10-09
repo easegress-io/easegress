@@ -2,13 +2,13 @@ package memorycache
 
 import (
 	"bytes"
-	"fmt"
 	"strings"
 	"time"
 
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/util/httpheader"
+	"github.com/megaease/easegateway/pkg/util/stringtool"
 
 	cache "github.com/patrickmn/go-cache"
 )
@@ -64,7 +64,7 @@ func New(spec *Spec) *MemoryCache {
 
 func (mc *MemoryCache) key(ctx context.HTTPContext) string {
 	r := ctx.Request()
-	return fmt.Sprintf("%s%s%s%s", r.Scheme(), r.Host(), r.Path(), r.Method())
+	return stringtool.Cat(r.Scheme(), r.Host(), r.Path(), r.Method())
 }
 
 // Load tries to load cache for HTTPContext.
