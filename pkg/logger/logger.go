@@ -28,6 +28,13 @@ const (
 
 	// EtcdClientFilename is the filename of etcd client log.
 	EtcdClientFilename = "etcd_client.log"
+
+	// no cache for system log
+	systemLogMaxCacheCount = 0
+
+	// NOTE: Under some pressure, it's easy to produce more than 1024 log entries
+	// within cacheTimeout(2s), so it's reasonalble to flush them at this moment.
+	trafficLogMaxCacheCount = 1024
 )
 
 var (
@@ -85,7 +92,7 @@ func initDefault(opt *option.Options) {
 		lowestLevel = zap.DebugLevel
 	}
 
-	fr, err := newFileReopener(filepath.Join(opt.AbsLogDir, stdoutFilename))
+	lf, err := newLogFile(filepath.Join(opt.AbsLogDir, stdoutFilename), systemLogMaxCacheCount)
 	if err != nil {
 		common.Exit(1, err.Error())
 	}
@@ -96,7 +103,7 @@ func initDefault(opt *option.Options) {
 	stderrCore := zapcore.NewCore(zapcore.NewConsoleEncoder(encoderConfig), stderrSyncer, lowestLevel)
 	stderrLogger = zap.New(stderrCore, opts...).Sugar()
 
-	gatewaySyncer := zapcore.AddSync(fr)
+	gatewaySyncer := zapcore.AddSync(lf)
 	gatewayCore := zapcore.NewCore(zapcore.NewConsoleEncoder(encoderConfig), gatewaySyncer, lowestLevel)
 	gatewayLogger = zap.New(gatewayCore, opts...).Sugar()
 
@@ -105,15 +112,15 @@ func initDefault(opt *option.Options) {
 }
 
 func initHTTPPlugin(opt *option.Options) {
-	httpPluginAccessLogger = newPlainLogger(opt, pluginHTTPAccessFilename)
-	httpPluginDumpLogger = newPlainLogger(opt, pluginHTTPDumpFilename)
+	httpPluginAccessLogger = newPlainLogger(opt, pluginHTTPAccessFilename, trafficLogMaxCacheCount)
+	httpPluginDumpLogger = newPlainLogger(opt, pluginHTTPDumpFilename, trafficLogMaxCacheCount)
 }
 
 func initRestAPI(opt *option.Options) {
-	restAPILogger = newPlainLogger(opt, adminAPIFilename)
+	restAPILogger = newPlainLogger(opt, adminAPIFilename, systemLogMaxCacheCount)
 }
 
-func newPlainLogger(opt *option.Options, filename string) *zap.Logger {
+func newPlainLogger(opt *option.Options, filename string, maxCacheCount uint32) *zap.Logger {
 	encoderConfig := zapcore.EncoderConfig{
 		TimeKey:       "",
 		LevelKey:      "",
@@ -124,7 +131,7 @@ func newPlainLogger(opt *option.Options, filename string) *zap.Logger {
 		LineEnding:    zapcore.DefaultLineEnding,
 	}
 
-	fr, err := newFileReopener(filepath.Join(opt.AbsLogDir, filename))
+	fr, err := newLogFile(filepath.Join(opt.AbsLogDir, filename), maxCacheCount)
 	if err != nil {
 		common.Exit(1, err.Error())
 	}
