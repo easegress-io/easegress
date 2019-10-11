@@ -262,6 +262,19 @@ func (c *cluster) addSelfToCluster() error {
 
 	found := false
 	for _, member := range respList.Members {
+		// Reference: https://github.com/etcd-io/etcd/blob/b7bf33bf5d1cbb1092b542fc4f3cdc911ccc3eaa/etcdctl/ctlv3/command/printer.go#L164-L167
+		if len(member.Name) == 0 {
+			_, err := client.MemberRemove(c.requestContext(), member.ID)
+			if err != nil {
+				err = fmt.Errorf("remove unhealthy etcd member %x failed: %v",
+					member.ID, err)
+				panic(err)
+			} else {
+				logger.Warnf("remove unhealthy etcd memebr %x for adding self to cluster",
+					member.ID)
+			}
+		}
+
 		if self.Name == member.Name && self.ID == member.ID {
 			found = true
 			break

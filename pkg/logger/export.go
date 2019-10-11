@@ -20,7 +20,7 @@ func Infof(template string, args ...interface{}) {
 
 // Warnf is the wrapper of default logger Warnf.
 func Warnf(template string, args ...interface{}) {
-	defaultLogger.Infof(template, args...)
+	defaultLogger.Warnf(template, args...)
 }
 
 // Errorf is the wrapper of default logger Errorf.
