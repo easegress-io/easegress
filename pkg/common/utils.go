@@ -13,15 +13,6 @@ import (
 
 const TOKEN_ESCAPE_CHAR string = `\`
 
-func StrInSlice(a string, list []string) bool {
-	for _, b := range list {
-		if b == a {
-			return true
-		}
-	}
-	return false
-}
-
 // GraphiteSplit slices s into all substrings separated by sep
 // returns a slice of the substrings without length prefix separated by lensep.
 // The routine does its best to split without error returned.
@@ -174,19 +165,6 @@ var (
 	TRUE_STRINGS  = []string{"1", "t", "true", "on", "y", "yes"}
 	FALSE_STRINGS = []string{"0", "f", "false", "off", "n", "no"}
 )
-
-func BoolFromStr(s string, def bool) bool {
-	s = strings.TrimSpace(s)
-	s = strings.ToLower(s)
-
-	if StrInSlice(s, TRUE_STRINGS) {
-		return true
-	} else if StrInSlice(s, FALSE_STRINGS) {
-		return false
-	} else {
-		return def
-	}
-}
 
 func RemoveRepeatedByte(s string, needRemoveByte byte) string {
 	if len(s) < 2 {

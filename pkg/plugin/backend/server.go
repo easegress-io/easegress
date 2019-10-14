@@ -6,10 +6,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/megaease/easegateway/pkg/common"
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/util/hashtool"
+	"github.com/megaease/easegateway/pkg/util/stringtool"
 )
 
 func init() {
@@ -75,7 +75,7 @@ func newServers(spec *poolSpec) *servers {
 	servers := make([]*server, 0)
 	for _, server := range spec.Servers {
 		for _, tag := range spec.ServersTags {
-			if common.StrInSlice(tag, server.Tags) {
+			if stringtool.StrInSlice(tag, server.Tags) {
 				servers = append(servers, server)
 				break
 			}

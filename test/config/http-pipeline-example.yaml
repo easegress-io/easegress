@@ -6,6 +6,7 @@ flow:
   - plugin: validator
     jumpIf: { invalid: END }
   # - plugin: fallback
+  - plugin: urlRateLimiter
   - plugin: rateLimiter
   - plugin: requestAdaptor
   - plugin: backend
@@ -36,6 +37,25 @@ plugins:
       Content-Type: applicaion/json
       X-Fallback: Okay
     mockBody: '{"message": "The feature turned off, please try it later."}'
+  - name: urlRateLimiter
+    kind: URLRateLimiter
+    # fallback:
+    #   mockCode: 201
+    #   mockHeaders:
+    #   mockBody: '{"message": "Single service can not take the pressure."}'
+    paths:
+    - path: /pipeline/activity/1
+      pathPrefix:
+      pathRegexp:
+      headers:
+        X-User-Id:
+          values:
+          regexp: \d+
+      tps: 80
+      timeout: 1s
+    - pathPrefix: /pipeline/activity/2
+      tps: 30
+      timeout: 100ms
   - name: rateLimiter
     kind: RateLimiter
     maxConcurrent: 10

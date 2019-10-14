@@ -13,6 +13,7 @@ import (
 	"github.com/megaease/easegateway/pkg/plugin/ratelimiter"
 	"github.com/megaease/easegateway/pkg/plugin/requestadaptor"
 	"github.com/megaease/easegateway/pkg/plugin/responseadaptor"
+	"github.com/megaease/easegateway/pkg/plugin/urlratelimiter"
 	"github.com/megaease/easegateway/pkg/plugin/validator"
 	"github.com/megaease/easegateway/pkg/scheduler"
 
@@ -49,6 +50,7 @@ type (
 
 		Validator       *validator.Spec       `yaml:"validator,omitempty"`
 		Fallback        *fallback.Spec        `yaml:"fallback,omitempty"`
+		URLRateLimiter  *urlratelimiter.Spec  `yaml:"urlRateLimiter,omitempty"`
 		RateLimiter     *ratelimiter.Spec     `yaml:"rateLimiter,omitempty"`
 		RequestAdaptor  *requestadaptor.Spec  `yaml:"requestAdaptor,omitempty"`
 		Backend         *backend.Spec         `yaml:"backend" v:"required"`
@@ -103,6 +105,10 @@ func (spec Spec) toHTTPPipelineSpec() *httppipeline.Spec {
 	if spec.Fallback != nil {
 		pipelineSpec.Plugins = append(pipelineSpec.Plugins,
 			transformSpec("fallback", fallback.Kind, spec.Fallback))
+	}
+	if spec.URLRateLimiter != nil {
+		pipelineSpec.Plugins = append(pipelineSpec.Plugins,
+			transformSpec("urlRateLimiter", urlratelimiter.Kind, spec.URLRateLimiter))
 	}
 	if spec.RateLimiter != nil {
 		pipelineSpec.Plugins = append(pipelineSpec.Plugins,

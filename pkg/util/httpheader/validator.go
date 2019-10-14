@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/megaease/easegateway/pkg/common"
 	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/util/stringtool"
 )
 
 type (
@@ -64,7 +64,7 @@ LOOP:
 	for key, vv := range *v.spec {
 		values := h.GetAll(key)
 		for _, value := range values {
-			if common.StrInSlice(value, vv.Values) {
+			if stringtool.StrInSlice(value, vv.Values) {
 				continue LOOP
 			}
 			if vv.re != nil && vv.re.MatchString(value) {

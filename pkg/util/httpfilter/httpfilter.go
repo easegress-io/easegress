@@ -6,10 +6,10 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/megaease/easegateway/pkg/common"
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/util/hashtool"
+	"github.com/megaease/easegateway/pkg/util/stringtool"
 )
 
 func init() {
@@ -122,7 +122,7 @@ func (hf *HTTPFilter) filterHeader(ctx context.HTTPContext) bool {
 	for key, vf := range hf.spec.Headers {
 		values := h.GetAll(key)
 		for _, value := range values {
-			if common.StrInSlice(value, vf.Values) {
+			if stringtool.StrInSlice(value, vf.Values) {
 				return true
 			}
 			if vf.re != nil && vf.re.MatchString(value) {

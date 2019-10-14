@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/megaease/easegateway/pkg/common"
 	"github.com/megaease/easegateway/pkg/context"
+	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httpserver"
 	"github.com/megaease/easegateway/pkg/scheduler"
 	"github.com/megaease/easegateway/pkg/util/stringtool"
@@ -159,7 +159,7 @@ func (s Spec) Validate() (err error) {
 			panic(fmt.Errorf("plugin %s not found", f.Plugin))
 		}
 		for result, label := range f.JumpIf {
-			if !common.StrInSlice(result, pr.Results) {
+			if !stringtool.StrInSlice(result, pr.Results) {
 				panic(fmt.Errorf("plugin %s: result %s is not in %v",
 					f.Plugin, result, pr.Results))
 			}
@@ -270,6 +270,11 @@ func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) {
 		pipeline = append(pipeline, stringtool.Cat(nextPluginName,
 			"(", time.Now().Sub(startTime).String(), ")"))
 		if result != "" {
+			if !stringtool.StrInSlice(result, runningPlugin.pr.Results) {
+				logger.Errorf("BUG: invalid result %s not in %v",
+					result, runningPlugin.pr.Results)
+			}
+
 			jumpIf := runningPlugin.jumpIf
 			if len(jumpIf) == 0 {
 				break

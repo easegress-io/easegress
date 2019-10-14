@@ -7,7 +7,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/megaease/easegateway/pkg/common"
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/util/httpstat"
@@ -225,7 +224,7 @@ func (mp *muxPath) matchMethod(ctx context.HTTPContext) bool {
 		return true
 	}
 
-	return common.StrInSlice(ctx.Request().Method(), mp.methods)
+	return stringtool.StrInSlice(ctx.Request().Method(), mp.methods)
 }
 
 func newMux(handlers *sync.Map, httpStat *httpstat.HTTPStat, topN *topn.TopN) *mux {

@@ -36,7 +36,13 @@ func unmarshal(y string, i interface{}) error {
 	if err != nil {
 		return fmt.Errorf("unmarshal failed: %v", err)
 	}
-	return v.Struct(i)
+
+	err = v.Struct(i)
+	if err != nil {
+		return fmt.Errorf("validate struct failed: %v", err)
+	}
+
+	return nil
 }
 
 // SpecFromYAML validates and generates object Spec from yaml.

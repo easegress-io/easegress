@@ -29,7 +29,7 @@ func init() {
 		Kind:            Kind,
 		DefaultSpecFunc: DefaultSpec,
 		NewFunc:         New,
-		Results:         []string{resultTimeout},
+		Results:         []string{resultTimeout, resultFallback},
 	})
 }
 
