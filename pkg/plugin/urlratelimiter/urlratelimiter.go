@@ -46,6 +46,8 @@ type (
 
 	// Spec describes URLRateLimiter.
 	Spec struct {
+		V string `yaml:"-" v:"parent"`
+
 		httppipeline.PluginMeta `yaml:",inline"`
 
 		Fallback *fallback.Spec `yaml:"fallback"`
@@ -79,6 +81,22 @@ type (
 	}
 )
 
+// Validate validates Spec.
+func (s Spec) Validate() error {
+	for i := 0; i < len(s.Paths)-1; i++ {
+		for j := i + 1; j < len(s.Paths); j++ {
+			x, y := s.Paths[i], s.Paths[j]
+			if x.sameTraffic(y) {
+				return fmt.Errorf("same traffic in different paths[%d] and paths[%d]",
+					i, j)
+			}
+		}
+	}
+
+	return nil
+}
+
+// Validate validates pathSpec.
 func (s pathSpec) Validate() error {
 	if s.Path == "" && s.PathPrefix == "" &&
 		s.PathRegexp == "" && s.Headers == nil {
@@ -86,6 +104,22 @@ func (s pathSpec) Validate() error {
 	}
 
 	return nil
+}
+
+func (s *pathSpec) sameTraffic(other *pathSpec) bool {
+	trafficSpec := func(spec *pathSpec) *pathSpec {
+		return &pathSpec{
+			Path:       spec.Path,
+			PathPrefix: spec.PathPrefix,
+			PathRegexp: spec.PathRegexp,
+			Headers:    spec.Headers,
+		}
+	}
+
+	x := trafficSpec(s)
+	y := trafficSpec(other)
+
+	return reflect.DeepEqual(x, y)
 }
 
 func (s *pathSpec) init() {
@@ -132,20 +166,8 @@ func newPath(spec *pathSpec, fallbackSpec *fallback.Spec, prev *path) *path {
 	return p
 }
 
-func (p *path) sameTraffic(nextSpec *pathSpec) bool {
-	trafficSpec := func(spec *pathSpec) *pathSpec {
-		return &pathSpec{
-			Path:       spec.Path,
-			PathPrefix: spec.PathPrefix,
-			PathRegexp: spec.PathRegexp,
-			Headers:    spec.Headers,
-		}
-	}
-
-	x := trafficSpec(p.spec)
-	y := trafficSpec(nextSpec)
-
-	return reflect.DeepEqual(x, y)
+func (p *path) sameTraffic(other *pathSpec) bool {
+	return p.spec.sameTraffic(other)
 }
 
 func (p *path) match(ctx context.HTTPContext) bool {
@@ -192,17 +214,12 @@ func New(spec *Spec, prev *URLRateLimiter) *URLRateLimiter {
 		return url
 	}
 
-	pathsToClose := make(map[*path]struct{})
-	for _, path := range prev.paths {
-		pathsToClose[path] = struct{}{}
-	}
-
 	for _, pathSpec := range spec.Paths {
 		var prevPath *path
-		for _, path := range prev.paths {
-			if path.sameTraffic(pathSpec) {
-				delete(pathsToClose, path)
+		for i, path := range prev.paths {
+			if path != nil && path.sameTraffic(pathSpec) {
 				prevPath = path
+				prev.paths[i] = nil
 				break
 			}
 		}
@@ -210,8 +227,10 @@ func New(spec *Spec, prev *URLRateLimiter) *URLRateLimiter {
 		url.paths = append(url.paths, newPath(pathSpec, spec.Fallback, prevPath))
 	}
 
-	for path := range pathsToClose {
-		path.close()
+	for _, path := range prev.paths {
+		if path != nil {
+			path.close()
+		}
 	}
 
 	return url
