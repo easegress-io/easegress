@@ -144,8 +144,18 @@ func New(spec *Spec, prev *RateLimiter) *RateLimiter {
 }
 
 // Handle limits HTTPContext.
-func (rl *RateLimiter) Handle(ctx context.HTTPContext) string {
-	defer rl.rate1.Update(1)
+func (rl *RateLimiter) Handle(ctx context.HTTPContext) (result string) {
+	defer func() {
+		if result == resultTimeout {
+			ctx.Response().SetStatusCode(http.StatusTooManyRequests)
+			if rl.fallback != nil {
+				rl.fallback.Fallback(ctx)
+				result = resultFallback
+			}
+		}
+
+		rl.rate1.Update(1)
+	}()
 
 	startTime := time.Now()
 	timeoutChan := (<-chan time.Time)(nil)
@@ -176,11 +186,6 @@ func (rl *RateLimiter) Handle(ctx context.HTTPContext) string {
 
 	err := rl.limiter.Wait(rlCtx)
 	if err != nil {
-		if rl.fallback != nil {
-			rl.fallback.Fallback(ctx)
-			return resultFallback
-		}
-		ctx.Response().SetStatusCode(http.StatusTooManyRequests)
 		return resultTimeout
 	}
 
