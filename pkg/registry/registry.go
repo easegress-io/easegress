@@ -14,6 +14,6 @@ import (
 	_ "github.com/megaease/easegateway/pkg/plugin/remoteplugin"
 	_ "github.com/megaease/easegateway/pkg/plugin/requestadaptor"
 	_ "github.com/megaease/easegateway/pkg/plugin/responseadaptor"
-	_ "github.com/megaease/easegateway/pkg/plugin/validator"
 	_ "github.com/megaease/easegateway/pkg/plugin/urlratelimiter"
+	_ "github.com/megaease/easegateway/pkg/plugin/validator"
 )

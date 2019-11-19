@@ -10,6 +10,7 @@ import (
 	"github.com/megaease/easegateway/pkg/cluster"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/option"
+	"github.com/megaease/easegateway/pkg/util/timetool"
 
 	yaml "gopkg.in/yaml.v2"
 )
@@ -22,6 +23,7 @@ type (
 	// Scheduler is the brain to schedule all http objects.
 	Scheduler struct {
 		storage *storage
+		timer   *timetool.DistributedTimer
 
 		runningObjects map[string]*runningObject
 		handlers       *sync.Map // map[string]httpserver.Handler
@@ -67,6 +69,7 @@ func (r runningPluginsByDepend) Less(i, j int) bool {
 func MustNew(opt *option.Options, cls cluster.Cluster) *Scheduler {
 	s := &Scheduler{
 		storage:        newStorage(opt, cls),
+		timer:          timetool.NewDistributedTimer(nextSyncStatusDuration),
 		runningObjects: make(map[string]*runningObject),
 		handlers:       &sync.Map{},
 		first:          true,
@@ -85,8 +88,8 @@ func (s *Scheduler) schedule() {
 		case <-s.done:
 			s.close()
 			return
-		case <-time.After(syncStatusInterval):
-			s.syncStatus()
+		case t := <-s.timer.C:
+			s.syncStatus(t.Unix())
 		case config := <-s.storage.watchConfig():
 			s.handleConfig(config)
 		}
@@ -209,9 +212,7 @@ func (s *Scheduler) handleConfig(config map[string]string) {
 	}
 }
 
-func (s *Scheduler) syncStatus() {
-
-	timestamp := time.Now().Unix()
+func (s *Scheduler) syncStatus(unitTimestamp int64) {
 	statuses := make(map[string]string)
 	for name, runningObject := range s.runningObjects {
 		func() {
@@ -224,7 +225,7 @@ func (s *Scheduler) syncStatus() {
 
 			status := reflect.ValueOf(runningObject.object).
 				MethodByName("Status").Call(nil)[0].Interface()
-			reflect.ValueOf(status).Elem().FieldByName("Timestamp").SetInt(timestamp)
+			reflect.ValueOf(status).Elem().FieldByName("Timestamp").SetInt(unitTimestamp)
 
 			buff, err := yaml.Marshal(status)
 			if err != nil {
@@ -254,6 +255,7 @@ func (s *Scheduler) Close(wg *sync.WaitGroup) {
 
 func (s *Scheduler) close() {
 	s.storage.close()
+	s.timer.Close()
 
 	for _, runningObject := range s.runningObjects {
 		runningObject.object.Close()
