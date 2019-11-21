@@ -11,7 +11,7 @@ var wg sync.WaitGroup
 
 func TestURLClusterAnalyzer(t *testing.T) {
 
-	urlClusterAnalyzer := NewUrlClusterAnalyzer()
+	urlClusterAnalyzer := New()
 
 	p := urlClusterAnalyzer.GetPattern("")
 	fmt.Println(p)

@@ -1,0 +1,30 @@
+pipeline {
+    agent any
+    stages {
+        stage('Pull') {
+            steps {
+                sshPublisher failOnError: true, publishers: [sshPublisherDesc(configName: 'km05', transfers: [sshTransfer(cleanRemote: false, excludes: '', execCommand: 'export BUILDDIR=${HOME}/backdemo/easegateway;if [ ! -d ${BUILDDIR} ];then mkdir -p ${BUILDDIR}; cd ${BUILDDIR}; git init; git remote add origin ssh://git@github.com/megaease/easegateway.git; fi;cd ${BUILDDIR};GIT_SSH_COMMAND="ssh -i ../../jenkins/keys/egserver.key" git pull', execTimeout: 600000, flatten: false, makeEmptyDirs: false, noDefaultExcludes: false, patternSeparator: '[, ]+', remoteDirectory: '${HOME}', remoteDirectorySDF: false, removePrefix: '', sourceFiles: '')], usePromotionTimestamp: false, useWorkspaceInPromotion: false, verbose: false)]
+            }
+        }
+        stage('Pullconfig') {
+            steps {
+                sshPublisher failOnError: true, publishers: [sshPublisherDesc(configName: 'km05', transfers: [sshTransfer(cleanRemote: false, excludes: '', execCommand: 'export BUILDDIR=${HOME}/backdemo/easegateway;export CONFIGDIR=${HOME}/backdemo/easegateway-configuration;if [ ! -d ${CONFIGDIR} ];then mkdir -p ${CONFIGDIR}; cd ${CONFIGDIR}; git init; git remote add origin ssh://git@github.com/danfu3000/easegateway-configuration.git; fi;cd ${CONFIGDIR};GIT_SSH_COMMAND="ssh -i ../../jenkins/keys/kmtest-configuration" git pull origin km; cp *.env ${BUILDDIR}/', execTimeout: 600000, flatten: false, makeEmptyDirs: false, noDefaultExcludes: false, patternSeparator: '[, ]+', remoteDirectory: '${HOME}', remoteDirectorySDF: false, removePrefix: '', sourceFiles: '')], usePromotionTimestamp: false, useWorkspaceInPromotion: false, verbose: false)]
+            }
+        }
+        stage('Buildtest') {
+            steps {
+                sshPublisher failOnError: true, publishers: [sshPublisherDesc(configName: 'km05', transfers: [sshTransfer(cleanRemote: false, excludes: '', execCommand: 'export BUILDDIR=${HOME}/backdemo/easegateway;cd ${BUILDDIR};source ${HOME}/.profile;make test', execTimeout: 600000, flatten: false, makeEmptyDirs: false, noDefaultExcludes: false, patternSeparator: '[, ]+', remoteDirectory: '${HOME}', remoteDirectorySDF: false, removePrefix: '', sourceFiles: '')], usePromotionTimestamp: false, useWorkspaceInPromotion: false, verbose: false)]
+            }
+        }
+        stage('Build') {
+            steps {
+                sshPublisher failOnError: true, publishers: [sshPublisherDesc(configName: 'km05', transfers: [sshTransfer(cleanRemote: false, excludes: '', execCommand: 'export BUILDDIR=${HOME}/backdemo/easegateway;export PRODLABDIR=${HOME}/backdemo/prodlab/bin;cd ${BUILDDIR};source ${HOME}/.profile;make;if [ ! -d ${PRODLABDIR} ];then mkdir -p ${PRODLABDIR}; fi;cp ${BUILDDIR}/bin/easegateway-server ${PRODLABDIR}/easegateway-server.${BUILD_ID};cp ${BUILDDIR}/bin/egctl ${PRODLABDIR}/egctl.${BUILD_ID}', execTimeout: 600000, flatten: false, makeEmptyDirs: false, noDefaultExcludes: false, patternSeparator: '[, ]+', remoteDirectory: '${HOME}', remoteDirectorySDF: false, removePrefix: '', sourceFiles: '')], usePromotionTimestamp: false, useWorkspaceInPromotion: false, verbose: false)]
+            }
+        }
+        stage('Deploy') {
+            steps {
+                sshPublisher failOnError: true, publishers: [sshPublisherDesc(configName: 'km05', transfers: [sshTransfer(cleanRemote: false, excludes: '', execCommand: 'export BUILDDIR=${HOME}/backdemo/easegateway;export BUILD_ID=${BUILD_ID};${BUILDDIR}/scripts/deploy-easegateway.sh', execTimeout: 600000, flatten: false, makeEmptyDirs: false, noDefaultExcludes: false, patternSeparator: '[, ]+', remoteDirectory: '${HOME}', remoteDirectorySDF: false, removePrefix: '', sourceFiles: '')], usePromotionTimestamp: false, useWorkspaceInPromotion: false, verbose: false)]
+            }
+        }
+    }
+}
