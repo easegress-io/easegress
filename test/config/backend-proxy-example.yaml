@@ -1,0 +1,27 @@
+name: backend-proxy-example
+kind: HTTPProxy
+# By order: validator, fallback, rateLimiter, requestAdaptor, backend, responseAdaptor
+backend:
+  mainPool:
+    servers:
+    - url: http://127.0.0.1:9098
+    memoryCache:
+      codes:
+        - 204
+      expiration: 10s
+      maxEntryBytes: 1024
+      methods:
+        - GET
+      size: 10240
+    loadBalance:
+      policy: roundRobin
+  mirrorPool:
+    filter:
+      probability:
+        perMill: 30
+        policy: random
+    loadBalance:
+      policy: roundRobin
+    servers:
+      - url: http://127.0.0.1:9099
+        weight: 10

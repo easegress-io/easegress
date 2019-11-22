@@ -2,8 +2,13 @@
 2. Setup `deploy.env` , It's configuation deploy host and directory, and health status check api.(The file move to easegateway-configuration repo)
 ```
 DEPLOY_ENV=km
-BUILDDIR=/home/ubuntu/backdemo/easegateway
-DEPLOYDIR=/home/ubuntu/easegateway
+DEPLOY_ENV=km
+if [ "$BUILDDIR" = "" ];then
+    BUILDDIR=${HOME}/backdemo/easegateway
+fi
+if [ "$PRODLABDIR" = "" ];then
+    PRODLABDIR=${HOME}/backdemo/prodlab/bin
+fi
 # set path to store execute product file version
 PRODLABDIR=/home/ubuntu/backdemo/prodlab/bin
 # ssh host array, one host per row

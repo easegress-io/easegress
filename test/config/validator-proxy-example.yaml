@@ -1,0 +1,15 @@
+name: validator-proxy-example
+kind: HTTPProxy
+# By order: validator, fallback, rateLimiter, requestAdaptor, backend, responseAdaptor
+backend:
+  mainPool:
+    servers:
+    - url: http://127.0.0.1:9098
+    loadBalance:
+      policy: roundRobin
+  compression:
+    minLength: 1024
+validator:
+  headers:
+    IsValid:
+      regexp: "^yes$"

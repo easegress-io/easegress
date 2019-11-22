@@ -1,0 +1,11 @@
+kind: HTTPServer
+name: validator-server-example
+port: 10080
+https: false
+keepAlive: true
+keepAliveTimeout: 75s
+maxConnection: 10240
+cacheSize: 0
+rules:
+  - paths:
+    - backend: validator-proxy-example

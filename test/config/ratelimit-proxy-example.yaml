@@ -1,0 +1,17 @@
+name: ratelimit-proxy-example
+kind: HTTPProxy
+# By order: validator, fallback, rateLimiter, requestAdaptor, backend, responseAdaptor
+rateLimiter:
+  maxConcurrent: 1000
+  tps: 100
+  timeout: 100ms
+  fallback:
+    mockCode: 513
+    mockHeaders:
+    mockBody: '{"message": "Traffic jam, please try it later."}'
+backend:
+  mainPool:
+    servers:
+    - url: http://127.0.0.1:9098
+    loadBalance:
+      policy: roundRobin

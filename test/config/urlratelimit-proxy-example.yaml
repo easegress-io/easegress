@@ -1,0 +1,21 @@
+name: urlratelimit-proxy-example
+kind: HTTPProxy
+# By order: validator, fallback, rateLimiter, requestAdaptor, backend, responseAdaptor
+urlRateLimiter:
+  fallback:
+     mockCode: 513
+     mockHeaders:
+     mockBody: '{"message": "Single service can not take the pressure."}'
+  paths:
+  - pathPrefix: /urlratelimit/activity/1
+    tps: 80
+    timeout: 500ms
+  - pathPrefix: /urlratelimit/activity/2
+    tps: 50
+    timeout: 500ms
+backend:
+  mainPool:
+    servers:
+    - url: http://127.0.0.1:9098
+    loadBalance:
+      policy: roundRobin

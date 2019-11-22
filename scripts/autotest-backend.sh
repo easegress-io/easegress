@@ -36,44 +36,34 @@ function checkports(){
 }
 function buildbackend(){
     cd ${BACKENDDIR}
-    go build mirror.go
+    go build ratelimit.go
     if [ $? -ne 0 ];then
         echo "build mirror error"
         return 1
     fi
-    go build remote.go
-    if [ $? -ne 0 ];then
-        echo "build remote error"
-        return 1
-    fi
-    mv mirror backend_mirror
-    mv remote backend_remote
+    mv ratelimit backend_ratelimit
     echo "build backend successed."
     return 0
 }
 
 function runbackend(){
     cd ${BACKENDDIR}
-    nohup ./backend_mirror &
+    nohup ./backend_ratelimit>${BACKENDDIR}/backend1.res 2>&1 &
     if [ $? -ne 0 ];then
-        echo "run mirror error"
+        echo "run backend1 error"
         return 1
     fi
-    nohup ./backend_remote &
+    # backend2 for mirrorPool
+    nohup ./backend_ratelimit -p 9099 >${BACKENDDIR}/backend2.res 2>&1 &
     if [ $? -ne 0 ];then
-        echo "run remote error"
+        echo "run backend2 error"
         return 1
     fi
-    echo "run backend successed."
     return 0
 }
 
 function termbackend(){
-    PID=`ps -ef|grep backend_mirror|grep -v grep|awk '{print $2}'`
-    if [ "$PID" != "" ];then
-        echo $PID|xargs kill -9
-    fi
-    PID=`ps -ef|grep backend_remote|grep -v grep|awk '{print $2}'`
+    PID=`ps -ef|grep backend_ratelimit|grep -v grep|awk '{print $2}'`
     if [ "$PID" != "" ];then
         echo $PID|xargs kill -9
     fi
@@ -84,7 +74,7 @@ function termbackend(){
 function createobject(){
     cd ${CONFIGDIR}
     rm -f generate*.yaml
-    grep "^name:" http*.yaml|sed -E 's/.*name: (.*)/\1/'|while read objname
+    grep "^name:" backend*.yaml|sed -E 's/.*name: (.*)/\1/'|while read objname
     do
         sed -E "s#http://127.0.0.1#${BACKENDHOST}#" ${objname}.yaml > generate-${objname}.yaml
         if [ $? -ne 0 ];then
@@ -107,7 +97,7 @@ function createobject(){
 function deleteobject(){
     cd ${CONFIGDIR}
     rm -f generate*.yaml
-    grep "^name:" http*.yaml|sed -E 's/.*name: (.*)/\1/'|while read objname
+    grep "^name:" backend*.yaml|sed -E 's/.*name: (.*)/\1/'|while read objname
     do
         ${EG1_EGCTL} --server ${EG1_API} object delete ${objname}
         if [ $? -ne 0 ];then
@@ -123,25 +113,9 @@ function deleteobject(){
 }
 
 function checkobject(){
-    curl -v ${TESTHOST}:10080/pipeline?epoch="$(date +%s)" \
-         -H 'Content-Type: application/json' \
-         -H 'X-Filter: candidate' \
-         -d 'I am pipeline requester'
+    curl -v ${TESTHOST}:10080/retelimit
     if [ $? -ne 0 ];then
-        echo "check object pipeline error"
-        return 1
-    fi
-    curl -v ${TESTHOST}:10080/proxy?epoch="$(date +%s)" \
-         -H 'Content-Type: application/json' \
-         -H 'X-Filter: mirror' \
-         -d 'I am proxy requester'
-    if [ $? -ne 0 ];then
-        echo "check object proxy error"
-        return 1
-    fi
-    curl -v ${TESTHOST}:10080/remote
-    if [ $? -ne 0 ];then
-        echo "test object remote error"
+        echo "check object retelimit error"
         return 1
     fi
     echo "check object success"
@@ -150,7 +124,7 @@ function checkobject(){
 
 function testobject(){
     cd ${BUILDDIR}/scripts
-    ./autotest-cotest-pipeline.sh
+    ./autotest-cotest-backend.sh
     if [ $? -ne 0 ];then
         return 1
     fi

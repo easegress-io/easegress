@@ -150,7 +150,7 @@ function checkobject(){
 
 function testobject(){
     cd ${BUILDDIR}/scripts
-    ./autotest-cotest-pipeline.sh
+    ./autotest-cotest-graceupdate.sh
     if [ $? -ne 0 ];then
         return 1
     fi
