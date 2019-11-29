@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"fmt"
 	"reflect"
 	"runtime/debug"
 	"sort"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"github.com/megaease/easegateway/pkg/cluster"
+	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/option"
 	"github.com/megaease/easegateway/pkg/util/timetool"
@@ -18,6 +20,41 @@ import (
 const (
 	syncStatusInterval = 5 * time.Second
 )
+
+var (
+	globalScheduler *Scheduler
+)
+
+// InitGlobalScheduler initialize the single instance of Scheduler at runtime.
+// This function must be invoked in the main() immediately after the Scheduler instance created.
+// The reason not to use a singleton mode is to be unit test friendly.
+//
+func InitGlobalScheduler(sdl *Scheduler) {
+	if globalScheduler != nil {
+		panic("global scheduler has been initialized")
+	}
+
+	globalScheduler = sdl
+}
+
+// GetHandler returns a registered pipeline or object.
+// The invoker should get the handler before usage each time. Do not hold the handler as the pipeline/object may be
+// recreated at runtime.
+//
+func SendHTTPRequet(targetHTTPHandler string, httpContext context.HTTPContext) (err error) {
+	if globalScheduler == nil {
+		return fmt.Errorf("global scheduler not initialized yet")
+	}
+
+	handler, ok := globalScheduler.handlers.Load(targetHTTPHandler)
+	if !ok {
+		return fmt.Errorf("target http object or pipeline not found: %s", targetHTTPHandler)
+
+	}
+
+	handler.(HTTPHandler).Handle(httpContext)
+	return nil
+}
 
 type (
 	// Scheduler is the brain to schedule all http objects.

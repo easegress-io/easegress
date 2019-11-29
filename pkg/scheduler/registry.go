@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"sort"
 	"sync"
+
+	"github.com/megaease/easegateway/pkg/context"
 )
 
 type (
@@ -47,6 +49,11 @@ type (
 	// delete themselves in function Close.
 	Object interface {
 		Close()
+	}
+
+	// HTTPHandler is the handler handling HTTPContext.
+	HTTPHandler interface {
+		Handle(ctx context.HTTPContext)
 	}
 
 	// StatusMeta is the fundamental struct for all objects' status.

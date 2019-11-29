@@ -65,6 +65,7 @@ func main() {
 		os.Exit(1)
 	}
 	sdl := scheduler.MustNew(opt, cls)
+	scheduler.InitGlobalScheduler(sdl)
 	api := egapi.MustNewServer(opt, cls)
 
 	if graceupdate.CallOriProcessTerm(sdl.FirstDone()) {

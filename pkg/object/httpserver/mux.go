@@ -9,6 +9,7 @@ import (
 
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/scheduler"
 	"github.com/megaease/easegateway/pkg/util/httpstat"
 	"github.com/megaease/easegateway/pkg/util/ipfilter"
 	"github.com/megaease/easegateway/pkg/util/stringtool"
@@ -309,7 +310,7 @@ func (m *mux) ServeHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 		case ci.backend != "":
 			handler, exists := m.handlers.Load(ci.backend)
 			if exists {
-				handler, ok := handler.(Handler)
+				handler, ok := handler.(scheduler.HTTPHandler)
 				if !ok {
 					ctx.AddTag(stringtool.Cat("BUG: backend ", ci.backend, " is not handler"))
 				} else {

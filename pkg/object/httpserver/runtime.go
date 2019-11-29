@@ -8,7 +8,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/graceupdate"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/util/httpstat"
@@ -76,10 +75,6 @@ type (
 		TopN *topn.Status `yaml:"topN"`
 	}
 
-	// Handler is handler handling HTTPContext.
-	Handler interface {
-		Handle(context.HTTPContext)
-	}
 )
 
 func newRuntime(handlers *sync.Map) *runtime {
