@@ -1,5 +1,10 @@
+@Library('JenkinsHelper') _
 pipeline {
     agent any
+    environment {
+        PROJECT_DIR = "${WORKSPACE}/"
+        USER_CREDENTIALS_ID = "jenkinsuser"
+    }
     stages {
         stage('Pull') {
             steps {
@@ -8,7 +13,7 @@ pipeline {
         }
         stage('Pullconfig') {
             steps {
-                sshPublisher failOnError: true, publishers: [sshPublisherDesc(configName: 'km05', transfers: [sshTransfer(cleanRemote: false, excludes: '', execCommand: 'export BUILDDIR=${HOME}/backdemo/easegateway;export CONFIGDIR=${HOME}/backdemo/easegateway-configuration;if [ ! -d ${CONFIGDIR} ];then mkdir -p ${CONFIGDIR}; cd ${CONFIGDIR}; git init; git remote add origin ssh://git@github.com/danfu3000/easegateway-configuration.git; fi;cd ${CONFIGDIR};GIT_SSH_COMMAND="ssh -i ../../jenkins/keys/kmtest-configuration" git pull origin km; cp *.env ${BUILDDIR}/', execTimeout: 600000, flatten: false, makeEmptyDirs: false, noDefaultExcludes: false, patternSeparator: '[, ]+', remoteDirectory: '${HOME}', remoteDirectorySDF: false, removePrefix: '', sourceFiles: '')], usePromotionTimestamp: false, useWorkspaceInPromotion: false, verbose: false)]
+                sshPublisher failOnError: true, publishers: [sshPublisherDesc(configName: 'km05', transfers: [sshTransfer(cleanRemote: false, excludes: '', execCommand: 'export BUILDDIR=${HOME}/backdemo/easegateway;export CONFIGDIR=${HOME}/backdemo/easegateway-configuration;if [ ! -d ${CONFIGDIR} ];then mkdir -p ${CONFIGDIR}; cd ${CONFIGDIR}; git init; git remote add origin ssh://git@github.com/danfu3000/easegateway-configuration.git; fi;cd ${CONFIGDIR};GIT_SSH_COMMAND="ssh -i ../../jenkins/keys/kmtest-configuration" git pull origin km; cp *.env ${BUILDDIR}/scripts/', execTimeout: 600000, flatten: false, makeEmptyDirs: false, noDefaultExcludes: false, patternSeparator: '[, ]+', remoteDirectory: '${HOME}', remoteDirectorySDF: false, removePrefix: '', sourceFiles: '')], usePromotionTimestamp: false, useWorkspaceInPromotion: false, verbose: false)]
             }
         }
         stage('Buildtest') {
@@ -24,6 +29,23 @@ pipeline {
         stage('Deploy') {
             steps {
                 sshPublisher failOnError: true, publishers: [sshPublisherDesc(configName: 'km05', transfers: [sshTransfer(cleanRemote: false, excludes: '', execCommand: 'export BUILDDIR=${HOME}/backdemo/easegateway;export BUILD_ID=${BUILD_ID};${BUILDDIR}/scripts/deploy-easegateway.sh', execTimeout: 600000, flatten: false, makeEmptyDirs: false, noDefaultExcludes: false, patternSeparator: '[, ]+', remoteDirectory: '${HOME}', remoteDirectorySDF: false, removePrefix: '', sourceFiles: '')], usePromotionTimestamp: false, useWorkspaceInPromotion: false, verbose: false)]
+            }
+        }
+    }
+    post {
+        success {
+            script {
+                def level = 'good'
+                def subject = "[TASK:${env.JOB_NAME} SUCCESS]Deploy megaease/easegateway in environment:km"
+                helper.notifySlack level, env, subject
+            }
+        }
+
+        failure {
+            script {
+                def level = 'danger'
+                def subject = "[TASK:${env.JOB_NAME} FAILED]Deploy megaease/easegateway in environment:km"
+                helper.notifySlack level, env, subject
             }
         }
     }
