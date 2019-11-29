@@ -63,6 +63,7 @@ type (
 		Header() *httpheader.HTTPHeader
 		Cookie(name string) (*http.Cookie, error)
 		Cookies() []*http.Cookie
+		AddCookie(cookie *http.Cookie)
 
 		Body() io.Reader
 		SetBody(io.Reader)

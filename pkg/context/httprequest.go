@@ -100,6 +100,10 @@ func (r *httpRequest) Cookies() []*http.Cookie {
 	return r.std.Cookies()
 }
 
+func (r *httpRequest) AddCookie(cookie *http.Cookie) {
+	r.std.AddCookie(cookie)
+}
+
 func (r *httpRequest) Body() io.Reader {
 	return r.body
 }
