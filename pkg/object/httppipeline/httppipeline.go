@@ -75,7 +75,75 @@ type (
 
 		Plugins map[string]interface{} `yaml:"plugins"`
 	}
+
+	// PipelineContext contains the context of the HTTPPipeline.
+	PipelineContext struct {
+		PluginStats []*PluginStat
+	}
+
+	// PluginStat records the statistics of the running plugin.
+	PluginStat struct {
+		Name     string
+		Kind     string
+		Result   string
+		Duration time.Duration
+	}
 )
+
+func (ps *PluginStat) log() string {
+	result := ps.Result
+	if result != "" {
+		result += ","
+	}
+	return stringtool.Cat(ps.Name, "(", result, ps.Duration.String(), ")")
+}
+
+func (ctx *PipelineContext) log() string {
+	if len(ctx.PluginStats) == 0 {
+		return "<empty>"
+	}
+
+	logs := make([]string, len(ctx.PluginStats))
+	for i, pluginStat := range ctx.PluginStats {
+		logs[i] = pluginStat.log()
+	}
+
+	return strings.Join(logs, "->")
+}
+
+var (
+	// context.HTTPContext: *PipelineContext
+	runningContexts sync.Map = sync.Map{}
+)
+
+func newAndSetPipelineContext(ctx context.HTTPContext) *PipelineContext {
+	pipeCtx := &PipelineContext{}
+
+	runningContexts.Store(ctx, pipeCtx)
+
+	return pipeCtx
+}
+
+// GetPipelineContext returns the corresponding PipelineContext of the HTTPContext,
+// and a bool flag to represent it succeed or not.
+func GetPipelineContext(ctx context.HTTPContext) (*PipelineContext, bool) {
+	value, ok := runningContexts.Load(ctx)
+	if !ok {
+		return nil, false
+	}
+
+	pipeCtx, ok := value.(*PipelineContext)
+	if !ok {
+		logger.Errorf("BUG: want *PipelineContext, got %T", value)
+		return nil, false
+	}
+
+	return pipeCtx, true
+}
+
+func deletePipelineContext(ctx context.HTTPContext) {
+	runningContexts.Delete(ctx)
+}
 
 // DefaultSpec returns HTTPPipeline default spec.
 func DefaultSpec() *Spec {
@@ -255,20 +323,32 @@ func New(spec *Spec, prev *HTTPPipeline, handlers *sync.Map) (tmp *HTTPPipeline)
 
 // Handle handles all incoming traffic.
 func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) {
-	pipeline := []string{}
+	pipeCtx := newAndSetPipelineContext(ctx)
+	defer deletePipelineContext(ctx)
+
 	nextPluginName := hp.runningPlugins[0].meta.Name
 	for i := 0; i < len(hp.runningPlugins); i++ {
 		if nextPluginName == LabelEND {
 			break
 		}
+
 		runningPlugin := hp.runningPlugins[i]
 		if nextPluginName != runningPlugin.meta.Name {
 			continue
 		}
+
 		startTime := time.Now()
 		result := runningPlugin.plugin.Handle(ctx)
-		pipeline = append(pipeline, stringtool.Cat(nextPluginName,
-			"(", time.Now().Sub(startTime).String(), ")"))
+		handleDuration := time.Now().Sub(startTime)
+
+		pluginStat := &PluginStat{
+			Name:     runningPlugin.meta.Name,
+			Kind:     runningPlugin.meta.Kind,
+			Result:   result,
+			Duration: handleDuration,
+		}
+		pipeCtx.PluginStats = append(pipeCtx.PluginStats, pluginStat)
+
 		if result != "" {
 			if !stringtool.StrInSlice(result, runningPlugin.pr.Results) {
 				logger.Errorf("BUG: invalid result %s not in %v",
@@ -288,7 +368,8 @@ func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) {
 			nextPluginName = hp.runningPlugins[i+1].meta.Name
 		}
 	}
-	ctx.AddTag(stringtool.Cat("pipeline: ", strings.Join(pipeline, ",")))
+
+	ctx.AddTag(stringtool.Cat("pipeline: ", pipeCtx.log()))
 }
 
 func (hp *HTTPPipeline) getRunningPlugin(name string) *runningPlugin {
