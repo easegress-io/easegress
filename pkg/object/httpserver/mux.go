@@ -55,6 +55,7 @@ type (
 		pathRE     *regexp.Regexp
 		methods    []string
 		backend    string
+		headers    []*Header
 	}
 )
 
@@ -179,6 +180,10 @@ func newMuxPath(parentIPFilters *ipfilter.IPFilters, path *Path) *muxPath {
 		}
 	}
 
+	for _, p := range path.Headers {
+		p.initHeaderRoute()
+	}
+
 	return &muxPath{
 		ipFilter:      newIPFilter(path.IPFilter),
 		ipFilterChain: newIPFilterChain(parentIPFilters, path.IPFilter),
@@ -189,6 +194,7 @@ func newMuxPath(parentIPFilters *ipfilter.IPFilters, path *Path) *muxPath {
 		pathRE:     pathRE,
 		methods:    path.Methods,
 		backend:    path.Backend,
+		headers:    path.Headers,
 	}
 }
 
@@ -226,6 +232,23 @@ func (mp *muxPath) matchMethod(ctx context.HTTPContext) bool {
 	}
 
 	return stringtool.StrInSlice(ctx.Request().Method(), mp.methods)
+}
+
+func (mp *muxPath) matchHeaders(ctx context.HTTPContext) (ci *cacheItem, ok bool) {
+	for _, h := range mp.headers {
+		v := ctx.Request().Header().Get(h.Key)
+		if stringtool.StrInSlice(v, h.Values){
+			ci = &cacheItem{ipFilterChan: mp.ipFilterChain, backend: h.Backend}
+			return ci, true
+		}
+
+		if h.Regexp != "" && h.headerRE.MatchString(v) {
+			ci = &cacheItem{ipFilterChan: mp.ipFilterChain, backend: h.Backend}
+			return ci, true
+		}
+	}
+
+	return nil, false
 }
 
 func newMux(handlers *sync.Map, httpStat *httpstat.HTTPStat, topN *topn.TopN) *mux {
@@ -285,81 +308,96 @@ func (m *mux) ServeHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 		m.topN.Stat(ctx)
 	})
 
-	w := ctx.Response()
-
-	handleIPNotAllow := func() {
-		ctx.AddTag(stringtool.Cat("ip ", ctx.Request().RealIP(), " not allow"))
-		w.SetStatusCode(http.StatusForbidden)
-	}
-
-	handleCacheItem := func(ci *cacheItem) {
-		rules.putCacheItem(ctx, ci)
-
-		if ci.ipFilterChan != nil {
-			if !ci.ipFilterChan.AllowHTTPContext(ctx) {
-				handleIPNotAllow()
-				return
-			}
-		}
-
-		switch {
-		case ci.notFound:
-			w.SetStatusCode(http.StatusNotFound)
-		case ci.methodNotAllowed:
-			w.SetStatusCode(http.StatusMethodNotAllowed)
-		case ci.backend != "":
-			handler, exists := m.handlers.Load(ci.backend)
-			if exists {
-				handler, ok := handler.(scheduler.HTTPHandler)
-				if !ok {
-					ctx.AddTag(stringtool.Cat("BUG: backend ", ci.backend, " is not handler"))
-				} else {
-					handler.Handle(ctx)
-				}
-			} else {
-				ctx.AddTag(stringtool.Cat("backend ", ci.backend, " not found"))
-				w.SetStatusCode(http.StatusServiceUnavailable)
-			}
-		}
-	}
-
 	ci := rules.getCacheItem(ctx)
 	if ci != nil {
-		handleCacheItem(ci)
+		m.handleRequestWithCache(rules, ctx, ci)
 		return
 	}
 
 	if !rules.pass(ctx) {
-		handleIPNotAllow()
+		m.handleIPNotAllow(ctx)
 		return
 	}
 
-	for _, rule := range rules.rules {
-		if !rule.match(ctx) {
+	for _, host := range rules.rules {
+		if !host.match(ctx) {
 			continue
 		}
-		if !rule.pass(ctx) {
-			handleIPNotAllow()
+
+		if !host.pass(ctx) {
+			m.handleIPNotAllow(ctx)
 			return
 		}
 
-		for _, path := range rule.paths {
+		for _, path := range host.paths {
 			if !path.matchPath(ctx) {
 				continue
 			}
 
-			if path.matchMethod(ctx) {
-				if !path.pass(ctx) {
-					handleIPNotAllow()
-					return
-				}
-				handleCacheItem(&cacheItem{ipFilterChan: path.ipFilterChain, backend: path.backend})
-			} else {
-				handleCacheItem(&cacheItem{ipFilterChan: path.ipFilterChain, methodNotAllowed: true})
+			if !path.matchMethod(ctx) {
+				ci = &cacheItem{ipFilterChan: path.ipFilterChain, methodNotAllowed: true}
+				rules.putCacheItem(ctx, ci)
+				m.handleRequestWithCache(rules, ctx, ci)
+				return
 			}
+
+			if !path.pass(ctx) {
+				m.handleIPNotAllow(ctx)
+				return
+			}
+
+			ci, ok := path.matchHeaders(ctx)
+			if ok {
+				// NOTE: must not cache the route by header
+				m.handleRequestWithCache(rules, ctx, ci)
+				return
+			}
+
+			ci = &cacheItem{ipFilterChan: path.ipFilterChain, backend: path.backend}
+			rules.putCacheItem(ctx, ci)
+			m.handleRequestWithCache(rules, ctx, ci)
 			return
 		}
 	}
 
-	handleCacheItem(&cacheItem{ipFilterChan: rules.ipFilterChan, notFound: true})
+	ci = &cacheItem{ipFilterChan: rules.ipFilterChan, notFound: true}
+	rules.putCacheItem(ctx, ci)
+	m.handleRequestWithCache(rules, ctx, ci)
+}
+
+func (m *mux) handleIPNotAllow(ctx context.HTTPContext) {
+	ctx.AddTag(stringtool.Cat("ip ", ctx.Request().RealIP(), " not allow"))
+	ctx.Response().SetStatusCode(http.StatusForbidden)
+}
+
+func (m *mux) handleRequestWithCache(rules *muxRules, ctx context.HTTPContext, ci *cacheItem) {
+	if ci.ipFilterChan != nil {
+		if !ci.ipFilterChan.AllowHTTPContext(ctx) {
+			m.handleIPNotAllow(ctx)
+			return
+		}
+	}
+
+	switch {
+	case ci.notFound:
+		ctx.Response().SetStatusCode(http.StatusNotFound)
+	case ci.methodNotAllowed:
+		ctx.Response().SetStatusCode(http.StatusMethodNotAllowed)
+	case ci.backend != "":
+		rawHandler, exists := m.handlers.Load(ci.backend)
+		if !exists {
+			ctx.AddTag(stringtool.Cat("backend ", ci.backend, " not found"))
+			ctx.Response().SetStatusCode(http.StatusServiceUnavailable)
+			return
+		}
+
+		handler, ok := rawHandler.(scheduler.HTTPHandler)
+		if !ok {
+			ctx.AddTag(stringtool.Cat("BUG: backend ", ci.backend, " is not a http handler"))
+			ctx.Response().SetStatusCode(http.StatusServiceUnavailable)
+			return
+		}
+
+		handler.Handle(ctx)
+	}
 }

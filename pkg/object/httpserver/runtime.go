@@ -74,7 +74,6 @@ type (
 		*httpstat.Status
 		TopN *topn.Status `yaml:"topN"`
 	}
-
 )
 
 func newRuntime(handlers *sync.Map) *runtime {

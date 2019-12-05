@@ -47,8 +47,23 @@ type (
 		PathRegexp string         `yaml:"pathRegexp,omitempty" v:"omitempty,regexp"`
 		Methods    []string       `yaml:"methods,omitempty" v:"unique,dive,httpmethod"`
 		Backend    string         `yaml:"backend" v:"required"`
+		Headers    []*Header      `yaml:"headers" v:"dive"`
 
 		pathRE *regexp.Regexp
+	}
+
+	// Header is the third level entry of router. A header entry is always under a specific path entry, that is to mean
+	// the headers entry will only be checked after a path entry matched. However, the headers entry has a higher priority
+	// than the path entry itself.
+	Header struct {
+		V string `yaml:"-" v:"parent"`
+
+		Key     string   `yaml:"key" v:"required"`
+		Values  []string `yaml:"values,omitempty" v:"omitempty"`
+		Regexp  string   `yaml:"regexp,omitempty" v:"omitempty,regexp"`
+		Backend string   `yaml:"backend" v:"required"`
+
+		headerRE *regexp.Regexp
 	}
 )
 
@@ -80,4 +95,16 @@ func (spec *Spec) tlsConfig() (*tls.Config, error) {
 	}
 
 	return &tls.Config{Certificates: []tls.Certificate{cert}}, nil
+}
+
+func (h *Header) initHeaderRoute() {
+	h.headerRE = regexp.MustCompile(h.Regexp)
+}
+
+func (h Header) Validate() error {
+	if (h.Values == nil || len(h.Values) == 0) && h.Regexp == "" {
+		return fmt.Errorf("both of values and regexp are empty for key: %s", h.Key)
+	}
+
+	return nil
 }

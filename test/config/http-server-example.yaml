@@ -14,3 +14,15 @@ rules:
       backend: http-proxy-example
     - pathPrefix: /remote
       backend: remote-pipeline
+      headers:
+      - key: X-Activity-No
+        values: [ "123456", "124456" ]
+        backend: remote-pipeline1
+      - key: X-Activity-No
+        values: [ "224456" ]
+        regexp: ^224.*$
+        backend: remote-pipeline2
+      - key: X-Activity-No
+        regexp: ^324.*$
+        backend: remote-pipeline2
+
