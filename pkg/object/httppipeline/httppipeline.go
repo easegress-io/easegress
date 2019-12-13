@@ -169,8 +169,8 @@ func unmarshal(buff []byte, i interface{}) {
 func (s Spec) Validate() (err error) {
 	errPrefix := "plugins"
 	defer func() {
-		if err1 := recover(); err1 != nil {
-			err = fmt.Errorf("%s: %v", errPrefix, err1)
+		if r := recover(); r != nil {
+			err = fmt.Errorf("%s: %s", errPrefix, r)
 		}
 	}()
 
@@ -180,9 +180,9 @@ func (s Spec) Validate() (err error) {
 
 		meta := &PluginMeta{}
 		unmarshal(buff, meta)
-		err := v.Struct(meta)
-		if err != nil {
-			panic(err)
+		vr := v.Validate(meta)
+		if !vr.Valid() {
+			panic(vr)
 		}
 		if meta.Name == LabelEND {
 			panic(fmt.Errorf("can't use %s(built-in label) for plugin name", LabelEND))
@@ -200,11 +200,11 @@ func (s Spec) Validate() (err error) {
 
 		pluginSpec := reflect.ValueOf(pr.DefaultSpecFunc).Call(nil)[0].Interface()
 		unmarshal(buff, pluginSpec)
-		err = v.Struct(pluginSpec)
-		if err != nil {
-			panic(err)
+		vr = v.Validate(pluginSpec)
+		if !vr.Valid() {
+			panic(vr)
 		}
-
+		err = nil
 		if pr == nil {
 			panic(fmt.Errorf("plugin kind %s not found", plugin["kind"]))
 		}

@@ -1,250 +1,153 @@
 package v
 
 import (
+	"encoding/json"
 	"fmt"
-	"net"
-	"net/http"
 	"reflect"
-	"regexp"
-	"strings"
-	"time"
 
-	"github.com/megaease/easegateway/pkg/common"
-	"github.com/megaease/easegateway/pkg/logger"
-
-	localesen "github.com/go-playground/locales/en"
-	unitran "github.com/go-playground/universal-translator"
-	validator "gopkg.in/go-playground/validator.v9"
-	tranen "gopkg.in/go-playground/validator.v9/translations/en"
-)
-
-const (
-	validatorTag           = "v"
-	validateParentTagValue = "parent"
-)
-
-var (
-	globalValidator  *validator.Validate
-	globalTranslator unitran.Translator
+	yamljsontool "github.com/ghodss/yaml"
+	genjs "github.com/megaease/jsonschema"
+	loadjs "github.com/xeipuuv/gojsonschema"
+	"gopkg.in/yaml.v2"
 )
 
 type (
-	// ValidateFunc is the type of validate func.
-	ValidateFunc = validator.Func
+	schemaMeta struct {
+		schema *loadjs.Schema
 
-	// Validator is the type which can be validated, it must be struct.
-	// We will call its method Validate if the struct put v's tag parent on
-	// a must string field as below.
-	//
-	// Spec struct {
-	// 	V string `v:"parent"`
-	// }
-	Validator interface {
-		Validate() error
+		jsonFormat []byte
+		yamlFormat []byte
 	}
 )
 
-// Struct validates struct type value.
-func Struct(v interface{}) error {
-	err := globalValidator.Struct(v)
-	if err == nil {
-		return nil
+var (
+	globalReflector = &genjs.Reflector{
+		RequiredFromJSONSchemaTags: true,
+	}
+	schemaMetas = map[reflect.Type]*schemaMeta{}
+)
+
+// Validate validates by json schema rules.
+func Validate(v interface{}) *ValidateRecorder {
+	vr := &ValidateRecorder{}
+
+	sm, err := getSchemaMeta(v)
+	if err != nil {
+		vr.recordSystem(fmt.Errorf("get schema meta for %T failed: %v", v, err))
+		return vr
 	}
 
-	// defensive programming
-	ve, ok := err.(validator.ValidationErrors)
-	if !ok {
-		return err
+	yamlBuff, err := yaml.Marshal(v)
+	if err != nil {
+		vr.recordSystem(fmt.Errorf("marshal %#v to yaml failed: %v", v, err))
+		return vr
 	}
 
-	var errs []string
-	for _, fe := range ve {
-		var err string
-		if fe.Tag() == "parent" {
-			err = fe.Value().(string)
-		} else {
-			err = fe.Translate(globalTranslator)
+	jsonBuff, err := yamljsontool.YAMLToJSON(yamlBuff)
+	if err != nil {
+		vr.recordSystem(fmt.Errorf("transform %s to json failed: %v", yamlBuff, err))
+		return vr
+	}
+
+	docLoader := loadjs.NewBytesLoader(jsonBuff)
+
+	result, err := sm.schema.Validate(docLoader)
+	vr.recordJSONSchema(result)
+
+	val := reflect.ValueOf(v)
+	traverseGo(&val, nil, vr.recordFormat)
+	traverseGo(&val, nil, vr.recordGeneral)
+
+	return vr
+}
+
+func getSchemaMeta(v interface{}) (*schemaMeta, error) {
+	t := reflect.TypeOf(v)
+	sm, exists := schemaMetas[t]
+	if exists {
+		return sm, nil
+	}
+
+	var err error
+
+	sm = &schemaMeta{}
+	schema := globalReflector.ReflectFromType(t)
+	if _, ok := getFormatFunc(schema.Format); !ok {
+		return nil, fmt.Errorf("%T got unsupported format: %s", v, schema.Format)
+	}
+	for _, t := range schema.Definitions {
+		if _, ok := getFormatFunc(t.Format); !ok {
+			return nil, fmt.Errorf("%T got unsupported format: %s", v, t.Format)
 		}
-		errs = append(errs, err)
+
 	}
 
-	return fmt.Errorf("%s", strings.Join(errs, "\n"))
-}
-
-func init() {
-	globalValidator = validator.New()
-
-	enTran := localesen.New()
-	uniTran := unitran.New(enTran)
-	globalTranslator, _ = uniTran.GetTranslator("en")
-
-	tranen.RegisterDefaultTranslations(globalValidator, globalTranslator)
-
-	globalValidator.SetTagName(validatorTag)
-	globalValidator.RegisterTagNameFunc(getYAMLName)
-
-	Register("parent", parent, "" /*be translated in validateSpec*/)
-
-	Register("urlname", urlName, "{0} '{1}' is an invalid url name")
-	Register("httpmethod", httpMethod, "{0} '{1}' is an invalid http method")
-	Register("httpcode", httpCode, "{0} '{1}' is an invalid http code")
-	Register("prefix", prefix, "{0} '{1}' has not prefix '{2}'")
-	Register("regexp", _regexp, "{0} '{1}' is an invalid regexp")
-	Register("timerfc3339", timerfc3339, "{0} '{1}' is an invalid time")
-	Register("duration", duration, "{0} '{1}' is an invalid duration")
-	Register("dmin", dmin, "{0} '{1}' must be greater than or equal to {2}")
-	Register("dmax", dmax, "{0} '{1}' must be less than or equal to {2}")
-	Register("ipcidr", ipcidr, "{0} '{1}' is an invalid ip or cidr")
-	Register("hostport", hostport, "{0} '{1}' is an invalid hostport")
-}
-
-func getYAMLName(field reflect.StructField) string {
-	name := strings.SplitN(field.Tag.Get("yaml"), ",", 2)[0]
-	if name == "" {
-		return field.Name
-	}
-	return name
-}
-
-// Register registers validate function, but we suggest put them in this package together.
-func Register(name string, fn ValidateFunc, errText string) {
-	globalValidator.RegisterValidation(name, fn)
-
-	registerTran := func(uniTran unitran.Translator) error {
-		return uniTran.Add(name, errText, true)
-	}
-	tran := func(uniTran unitran.Translator, fe validator.FieldError) string {
-		t, _ := uniTran.T(name, fe.Field(),
-			fmt.Sprintf("%v", fe.Value()),
-			fe.Param())
-		return t
-	}
-
-	globalValidator.RegisterTranslation(name, globalTranslator, registerTran, tran)
-}
-
-// parent validates the parent struct of the field, must be string which
-// is used to propagate error message.
-func parent(fl validator.FieldLevel) bool {
-	v, ok := fl.Parent().Interface().(Validator)
-	if !ok {
-		logger.Errorf("BUG: %v is not Validator\n", fl.Parent().Type())
-		return true
-	}
-
-	err := v.Validate()
+	sm.jsonFormat, err = json.Marshal(schema)
 	if err != nil {
-		fl.Field().SetString(err.Error())
-		return false
+		return nil, fmt.Errorf("marshal %#v to json failed: %v", sm.schema, err)
 	}
 
-	return true
-}
-
-func urlName(fl validator.FieldLevel) bool {
-	return common.URL_FRIENDLY_CHARACTERS_REGEX.MatchString(fl.Field().String())
-}
-
-func httpMethod(fl validator.FieldLevel) bool {
-	switch fl.Field().String() {
-	case http.MethodGet,
-		http.MethodHead,
-		http.MethodPost,
-		http.MethodPut,
-		http.MethodPatch,
-		http.MethodDelete,
-		http.MethodConnect,
-		http.MethodOptions,
-		http.MethodTrace:
-		return true
-	default:
-		return false
-	}
-}
-
-func httpCode(fl validator.FieldLevel) bool {
-	code := fl.Field().Int()
-	// Referece: https://tools.ietf.org/html/rfc7231#section-6
-	if code < 100 || code >= 600 {
-		return false
-	}
-	return true
-}
-
-func prefix(fl validator.FieldLevel) bool {
-	return strings.HasPrefix(fl.Field().String(), fl.Param())
-}
-
-func _regexp(fl validator.FieldLevel) bool {
-	s := fl.Field().String()
-	// Use omitempty if empty string is allowed.
-	if len(s) == 0 {
-		return false
-	}
-	_, err := regexp.Compile(s)
-	return err == nil
-}
-
-func timerfc3339(fl validator.FieldLevel) bool {
-	s := fl.Field().String()
-	_, err := time.Parse(time.RFC3339, s)
-	return err == nil
-}
-
-func duration(fl validator.FieldLevel) bool {
-	s := fl.Field().String()
-	_, err := time.ParseDuration(s)
-	return err == nil
-}
-
-func dmin(fl validator.FieldLevel) bool {
-	min, err := time.ParseDuration(fl.Param())
+	sm.yamlFormat, err = yamljsontool.JSONToYAML(sm.jsonFormat)
 	if err != nil {
-		panic(fmt.Errorf("Bad field param %s: %v", fl.Param(), err))
+		return nil, fmt.Errorf("transform json %s to yaml failed: %v", sm.jsonFormat, err)
 	}
 
-	d, err := time.ParseDuration(fl.Field().String())
+	sm.schema, err = loadjs.NewSchema(loadjs.NewBytesLoader(sm.jsonFormat))
 	if err != nil {
-		panic(fmt.Errorf("Bad field value %s: %v", fl.Field().String(), err))
+		return nil, fmt.Errorf("new schema from %s failed: %v", sm.jsonFormat, err)
 	}
 
-	return min <= d
+	schemaMetas[t] = sm
+
+	return sm, nil
 }
 
-func dmax(fl validator.FieldLevel) bool {
-	max, err := time.ParseDuration(fl.Param())
-	if err != nil {
-		panic(fmt.Errorf("Bad field param %s: %v", fl.Param(), err))
+// traverseGo recursively traverses the golang data structure with the rules below:
+//
+// 1. It traverses fields of the embeded struct.
+// 2. It does not traverse unexported subfields of the struct.
+// 3. It pass nil to the argument StructField when it's not a struct field.
+// 4. It stops when encoutering nil.
+func traverseGo(val *reflect.Value, field *reflect.StructField, fn func(*reflect.Value, *reflect.StructField)) {
+	t := val.Type()
+
+	switch t.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface,
+		reflect.Map, reflect.Slice, reflect.Ptr:
+		if val.IsNil() {
+			return
+		}
 	}
 
-	d, err := time.ParseDuration(fl.Field().String())
-	if err != nil {
-		panic(fmt.Errorf("Bad field value %s: %v", fl.Field().String(), err))
+	fn(val, field)
+
+	switch t.Kind() {
+	case reflect.Struct:
+		for i := 0; i < t.NumField(); i++ {
+			subfield, subval := t.Field(i), val.Field(i)
+			// unexported
+			if subfield.PkgPath != "" {
+				continue
+			}
+			if subfield.Type.Kind() == reflect.Ptr && subval.IsNil() {
+				continue
+			}
+			traverseGo(&subval, &subfield, fn)
+		}
+	case reflect.Array, reflect.Slice:
+		for i := 0; i < val.Len(); i++ {
+			subval := val.Index(i)
+			traverseGo(&subval, nil, fn)
+		}
+	case reflect.Map:
+		iter := val.MapRange()
+		for iter.Next() {
+			k, v := iter.Key(), iter.Value()
+			traverseGo(&k, nil, fn)
+			traverseGo(&v, nil, fn)
+		}
+	case reflect.Ptr:
+		child := val.Elem()
+		traverseGo(&child, nil, fn)
 	}
-
-	return d <= max
-}
-
-func ipcidr(fl validator.FieldLevel) bool {
-	s := fl.Field().String()
-	ip := net.ParseIP(s)
-	if ip != nil {
-		return true
-	}
-
-	_, _, err := net.ParseCIDR(s)
-	if err != nil {
-		return false
-	}
-
-	return true
-}
-
-func hostport(fl validator.FieldLevel) bool {
-	s := fl.Field().String()
-	_, _, err := net.SplitHostPort(s)
-	if err != nil {
-		return false
-	}
-	return true
 }

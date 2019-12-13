@@ -20,8 +20,8 @@ type (
 	// ObjectMeta is the fundamental specification for all objects
 	// which want to be scheduled.
 	ObjectMeta struct {
-		Name string `yaml:"name" v:"required,urlname"`
-		Kind string `yaml:"kind" v:"required"`
+		Name string `yaml:"name" jsonschema:"required,format=urlname"`
+		Kind string `yaml:"kind" jsonschema:"required"`
 	}
 )
 
@@ -37,9 +37,9 @@ func unmarshal(y string, i interface{}) error {
 		return fmt.Errorf("unmarshal failed: %v", err)
 	}
 
-	err = v.Struct(i)
-	if err != nil {
-		return fmt.Errorf("validate struct failed: %v", err)
+	vr := v.Validate(i)
+	if !vr.Valid() {
+		return fmt.Errorf("validate failed: \n%s", vr)
 	}
 
 	return nil

@@ -13,41 +13,46 @@ import (
 type (
 	// Spec describes the HTTPServer.
 	Spec struct {
-		V string `yaml:"-" v:"parent"`
-
 		scheduler.ObjectMeta `yaml:",inline"`
-		Port                 uint16 `yaml:"port" v:"gte=1"`
-		KeepAlive            bool   `yaml:"keepAlive"`
-		KeepAliveTimeout     string `yaml:"keepAliveTimeout" v:"omitempty,duration,dmin=1s"`
-		MaxConnections       uint32 `yaml:"maxConnections" v:"gte=1"`
-		HTTPS                bool   `yaml:"https"`
-		CertBase64           string `yaml:"certBase64" v:"omitempty,base64"`
-		KeyBase64            string `yaml:"keyBase64" v:"omitempty,base64"`
-		CacheSize            uint32 `yaml:"cacheSize" v:"omitempty"`
+		Port                 uint16 `yaml:"port" jsonschema:"required,minimum=1"`
+		KeepAlive            bool   `yaml:"keepAlive" jsonschema:"required"`
+		KeepAliveTimeout     string `yaml:"keepAliveTimeout" jsonschema:"omitempty,format=duration"`
+		MaxConnections       uint32 `yaml:"maxConnections" jsonschema:"omitempty,minimum=1"`
+		HTTPS                bool   `yaml:"https" jsonschema:"required"`
+		CertBase64           string `yaml:"certBase64" jsonschema:"omitempty,format=base64"`
+		KeyBase64            string `yaml:"keyBase64" jsonschema:"omitempty,format=base64"`
+		CacheSize            uint32 `yaml:"cacheSize" jsonschema:"omitempty"`
 
-		IPFilter *ipfilter.Spec `yaml:"ipFilter" v:"omitempty"`
-		Rules    []Rule         `yaml:"rules" v:"dive"`
+		IPFilter *ipfilter.Spec `yaml:"ipFilter,omitempty" jsonschema:"omitempty"`
+		Rules    []Rule         `yaml:"rules" jsonschema:"omitempty"`
 	}
 
 	// Rule is first level entry of router.
 	Rule struct {
-		IPFilter   *ipfilter.Spec `yaml:"ipFilter" v:"omitempty"`
-		Host       string         `yaml:"host"`
-		HostRegexp string         `yaml:"hostRegexp" v:"omitempty,regexp"`
-		Paths      []Path         `yaml:"paths" v:"dive"`
+		// NOTICE: If the field is a pointer, it must have `omitempty` in tag `yaml`
+		// when it has `omitempty` in tag `jsonschema`.
+		// Otherwise it will output null value, which is invalid in json schema (the type is object).
+		// the original reason is the jsonscheme(genjs) has not support multiple types.
+		// Reference: https://github.com/alecthomas/jsonschema/issues/30
+		// In the future if we have the scienrio where we need marshal the field, but omitempty
+		// in the schema, we are suppose to support multuple types on our own.
+		IPFilter   *ipfilter.Spec `yaml:"ipFilter,omitempty" jsonschema:"omitempty"`
+		Host       string         `yaml:"host" jsonschema:"omitempty"`
+		HostRegexp string         `yaml:"hostRegexp" jsonschema:"omitempty,format=regexp"`
+		Paths      []Path         `yaml:"paths" jsonschema:"omitempty"`
 
 		hostRE *regexp.Regexp
 	}
 
 	// Path is second level entry of router.
 	Path struct {
-		IPFilter   *ipfilter.Spec `yaml:"ipFilter" v:"omitempty"`
-		Path       string         `yaml:"path,omitempty" v:"omitempty,prefix=/"`
-		PathPrefix string         `yaml:"pathPrefix,omitempty" v:"omitempty,prefix=/"`
-		PathRegexp string         `yaml:"pathRegexp,omitempty" v:"omitempty,regexp"`
-		Methods    []string       `yaml:"methods,omitempty" v:"unique,dive,httpmethod"`
-		Backend    string         `yaml:"backend" v:"required"`
-		Headers    []*Header      `yaml:"headers" v:"dive"`
+		IPFilter   *ipfilter.Spec `yaml:"ipFilter,omitempty" jsonschema:"omitempty"`
+		Path       string         `yaml:"path,omitempty" jsonschema:"omitempty,pattern=^/"`
+		PathPrefix string         `yaml:"pathPrefix,omitempty" jsonschema:"omitempty,pattern=^/"`
+		PathRegexp string         `yaml:"pathRegexp,omitempty" jsonschema:"omitempty,format=regexp"`
+		Methods    []string       `yaml:"methods,omitempty" jsonschema:"omitempty,uniqueItems=true,format=httpmethod-array"`
+		Backend    string         `yaml:"backend" jsonschema:"required"`
+		Headers    []*Header      `yaml:"headers" jsonschema:"omitempty"`
 
 		pathRE *regexp.Regexp
 	}
@@ -56,12 +61,10 @@ type (
 	// the headers entry will only be checked after a path entry matched. However, the headers entry has a higher priority
 	// than the path entry itself.
 	Header struct {
-		V string `yaml:"-" v:"parent"`
-
-		Key     string   `yaml:"key" v:"required"`
-		Values  []string `yaml:"values,omitempty" v:"omitempty"`
-		Regexp  string   `yaml:"regexp,omitempty" v:"omitempty,regexp"`
-		Backend string   `yaml:"backend" v:"required"`
+		Key     string   `yaml:"key" jsonschema:"required"`
+		Values  []string `yaml:"values,omitempty" jsonschema:"omitempty,uniqueItems=true"`
+		Regexp  string   `yaml:"regexp,omitempty" jsonschema:"omitempty,format=regexp"`
+		Backend string   `yaml:"backend" jsonschema:"required"`
 
 		headerRE *regexp.Regexp
 	}
@@ -71,10 +74,10 @@ type (
 func (spec *Spec) Validate() error {
 	if spec.HTTPS {
 		if spec.CertBase64 == "" {
-			return fmt.Errorf("cert is empty when https enabled")
+			return fmt.Errorf("certBase64 is empty when https enabled")
 		}
 		if spec.KeyBase64 == "" {
-			return fmt.Errorf("key is empty when https enabled")
+			return fmt.Errorf("keyBase64 is empty when https enabled")
 		}
 		_, err := spec.tlsConfig()
 		if err != nil {
@@ -85,7 +88,7 @@ func (spec *Spec) Validate() error {
 	return nil
 }
 
-func (spec *Spec) tlsConfig() (*tls.Config, error) {
+func (spec Spec) tlsConfig() (*tls.Config, error) {
 	certPem, _ := base64.StdEncoding.DecodeString(spec.CertBase64)
 	keyPem, _ := base64.StdEncoding.DecodeString(spec.KeyBase64)
 
@@ -101,8 +104,9 @@ func (h *Header) initHeaderRoute() {
 	h.headerRE = regexp.MustCompile(h.Regexp)
 }
 
-func (h Header) Validate() error {
-	if (h.Values == nil || len(h.Values) == 0) && h.Regexp == "" {
+// Validate validates Header.
+func (h *Header) Validate() error {
+	if len(h.Values) == 0 && h.Regexp == "" {
 		return fmt.Errorf("both of values and regexp are empty for key: %s", h.Key)
 	}
 
