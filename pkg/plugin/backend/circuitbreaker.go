@@ -26,13 +26,11 @@ type (
 	}
 
 	circuitBreakerSpec struct {
-		V string `yaml:"-" v:"parent"`
-
-		CountPeriod                    string  `yaml:"countPeriod" v:"required,duration,dmin=1s"`
-		ToClosedConsecutiveCounts      uint32  `yaml:"toClosedConsecutiveCounts" v:"gte=1"`
-		ToHalfOpenTimeout              string  `yaml:"toHalfOpenTimeout" v:"required,duration,dmin=1s"`
-		ToOpenFailureCounts            *uint32 `yaml:"toOpenFailureCounts" v:"omitempty,gte=1"`
-		ToOpenFailureConsecutiveCounts *uint32 `yaml:"toOpenFailureConsecutiveCounts" v:"omitempty,gte=1"`
+		CountPeriod                    string  `yaml:"countPeriod" jsonschema:"required,format=duration"`
+		ToClosedConsecutiveCounts      uint32  `yaml:"toClosedConsecutiveCounts" jsonschema:"omitempty,minimum=1"`
+		ToHalfOpenTimeout              string  `yaml:"toHalfOpenTimeout" jsonschema:"required,format=duration"`
+		ToOpenFailureCounts            *uint32 `yaml:"toOpenFailureCounts" jsonschema:"omitempty,minimum=1"`
+		ToOpenFailureConsecutiveCounts *uint32 `yaml:"toOpenFailureConsecutiveCounts" jsonschema:"omitempty,minimum=1"`
 
 		failureCodes []int
 	}

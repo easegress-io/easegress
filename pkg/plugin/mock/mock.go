@@ -44,11 +44,11 @@ type (
 
 	// Rule is the mock rule.
 	Rule struct {
-		Path       string            `yaml:"path,omitempty" v:"omitempty,prefix=/"`
-		PathPrefix string            `yaml:"pathPrefix,omitempty" v:"omitempty,prefix=/"`
-		Code       int               `yaml:"code" v:"required,omitempty,httpcode"`
-		Headers    map[string]string `yaml:"headers" v:"dive,keys,required,endkeys,required"`
-		Body       string            `yaml:"body"`
+		Path       string            `yaml:"path,omitempty" jsonschema:"omitempty,pattern=^/"`
+		PathPrefix string            `yaml:"pathPrefix,omitempty" jsonschema:"omitempty,pattern=^/"`
+		Code       int               `yaml:"code" jsonschema:"omitempty,format=httpcode"`
+		Headers    map[string]string `yaml:"headers" jsonschema:"required"`
+		Body       string            `yaml:"body" jsonschema:"omitempty"`
 	}
 )
 

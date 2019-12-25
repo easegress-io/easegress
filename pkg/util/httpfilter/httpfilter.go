@@ -25,19 +25,15 @@ const (
 type (
 	// Spec describes HTTPFilter.
 	Spec struct {
-		V string `yaml:"-" v:"parent"`
-
-		Headers     map[string]*ValueFilter `yaml:"headers" v:"dive,keys,required,endkeys,required"`
-		Probability *Probability            `yaml:"probability" v:"omitempty"`
+		Headers     map[string]*ValueFilter `yaml:"headers" jsonschema:"omitempty"`
+		Probability *Probability            `yaml:"probability,omitempty" jsonschema:"omitempty"`
 	}
 
 	// ValueFilter describes value.
 	ValueFilter struct {
-		V string `yaml:"-" v:"parent"`
-
 		// NOTE: It allows empty value.
-		Values []string `yaml:"values" v:"unique"`
-		Regexp string   `yaml:"regexp" v:"omitempty,regexp"`
+		Values []string `yaml:"values" jsonschema:"omitempty,uniqueItems=true"`
+		Regexp string   `yaml:"regexp" jsonschema:"omitempty,format=regexp"`
 		re     *regexp.Regexp
 	}
 
@@ -48,11 +44,9 @@ type (
 
 	// Probability filters HTTP traffic by probability.
 	Probability struct {
-		V string `yaml:"-" v:"parent"`
-
-		PerMill       uint32 `yaml:"perMill" v:"required,gte=1,lte=1000"`
-		Policy        string `yaml:"policy" v:"required,oneof=ipHash headerHash random"`
-		HeaderHashKey string `yaml:"headerHashKey"`
+		PerMill       uint32 `yaml:"perMill" jsonschema:"required,minimum=1,maximum=1000"`
+		Policy        string `yaml:"policy" jsonschema:"required,enum=ipHash,enum=headerHash,enum=random"`
+		HeaderHashKey string `yaml:"headerHashKey" jsonschema:"omitempty"`
 	}
 )
 

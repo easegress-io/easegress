@@ -38,9 +38,9 @@ type (
 	Spec struct {
 		httppipeline.PluginMeta `yaml:",inline"`
 
-		Method string                `yaml:"method" v:"omitempty,httpmethod"`
-		Path   *pathAdaptorSpec      `yaml:"path"`
-		Header *httpheader.AdaptSpec `yaml:"header"`
+		Method string                `yaml:"method" jsonschema:"omitempty,format=httpmethod"`
+		Path   *pathAdaptorSpec      `yaml:"path,omitempty" jsonschema:"omitempty"`
+		Header *httpheader.AdaptSpec `yaml:"header,omitempty" jsonschema:"omitempty"`
 	}
 )
 

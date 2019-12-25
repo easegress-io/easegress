@@ -175,6 +175,8 @@ github.com/megaease/jsonschema v0.0.0-20191211053743-0b338a21baef h1:qhwwsmzp4I7
 github.com/megaease/jsonschema v0.0.0-20191211053743-0b338a21baef/go.mod h1:dV5GJ+oE0GyckvTBIAx9+R1BmuRKFyodhJwI6biLFYI=
 github.com/megaease/jsonschema v0.0.0-20191211073545-a8a752dfb14d h1:248bGnAMXoPfhj/m2LHbdEhbkjvi1hDg5ei4poFCDyE=
 github.com/megaease/jsonschema v0.0.0-20191211073545-a8a752dfb14d/go.mod h1:dV5GJ+oE0GyckvTBIAx9+R1BmuRKFyodhJwI6biLFYI=
+github.com/megaease/jsonschema v0.0.0-20191219141102-f25f9e864ae5 h1:q2BraFOPlsFDB0dDS8g97+TvJwLDy0BD7Jc2+itJLtk=
+github.com/megaease/jsonschema v0.0.0-20191219141102-f25f9e864ae5/go.mod h1:dV5GJ+oE0GyckvTBIAx9+R1BmuRKFyodhJwI6biLFYI=
 github.com/microcosm-cc/bluemonday v1.0.2 h1:5lPfLTTAvAbtS0VqT+94yOtFnGfUWYyx0+iToC3Os3s=
 github.com/microcosm-cc/bluemonday v1.0.2/go.mod h1:iVP4YcDBq+n/5fb23BhYFvIMq/leAFZyRl6bYmGDlGc=
 github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=

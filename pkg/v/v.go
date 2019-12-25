@@ -6,9 +6,9 @@ import (
 	"reflect"
 
 	yamljsontool "github.com/ghodss/yaml"
+	"github.com/megaease/easegateway/pkg/common"
 	genjs "github.com/megaease/jsonschema"
 	loadjs "github.com/xeipuuv/gojsonschema"
-	"gopkg.in/yaml.v2"
 )
 
 type (
@@ -18,41 +18,58 @@ type (
 		jsonFormat []byte
 		yamlFormat []byte
 	}
+	// ContentValidator is used to validate by data content.
+	ContentValidator interface {
+		Validate([]byte) error
+	}
 )
 
 var (
 	globalReflector = &genjs.Reflector{
+		DefinitionNameWithPackage:  true,
+		AllowAdditionalProperties:  true,
 		RequiredFromJSONSchemaTags: true,
 	}
 	schemaMetas = map[reflect.Type]*schemaMeta{}
 )
 
-// Validate validates by json schema rules.
-func Validate(v interface{}) *ValidateRecorder {
+// Validate validates by json schema rules, custom formats and general methods.
+func Validate(v interface{}, yamlBuff []byte) *ValidateRecorder {
 	vr := &ValidateRecorder{}
 
-	sm, err := getSchemaMeta(v)
-	if err != nil {
-		vr.recordSystem(fmt.Errorf("get schema meta for %T failed: %v", v, err))
-		return vr
+	if yamlBuff != nil {
+		sm, err := getSchemaMeta(v)
+		if err != nil {
+			vr.recordSystem(fmt.Errorf("get schema meta for %T failed: %v", v, err))
+			return vr
+		}
+
+		jsonBuff, err := yamljsontool.YAMLToJSON(yamlBuff)
+		if err != nil {
+			vr.recordSystem(fmt.Errorf("transform %s to json failed: %v", yamlBuff, err))
+			return vr
+		}
+
+		trimJSONBuff, err := common.JSONTrimNull(jsonBuff)
+		if err != nil {
+			vr.recordSystem(fmt.Errorf("trim null from %s failed: %v", jsonBuff, err))
+			return vr
+		}
+
+		docLoader := loadjs.NewBytesLoader(trimJSONBuff)
+		result, err := sm.schema.Validate(docLoader)
+		vr.recordJSONSchema(result)
+
+		cv, ok := reflect.ValueOf(v).Interface().(ContentValidator)
+		if ok {
+			err = cv.Validate(yamlBuff)
+			if err != nil {
+				vr.GeneralErrs = append(vr.GeneralErrs, err.Error())
+			}
+			// if a custom ContentValidator is executed, `custom format validation` and `general validation` are not executed.
+			return vr
+		}
 	}
-
-	yamlBuff, err := yaml.Marshal(v)
-	if err != nil {
-		vr.recordSystem(fmt.Errorf("marshal %#v to yaml failed: %v", v, err))
-		return vr
-	}
-
-	jsonBuff, err := yamljsontool.YAMLToJSON(yamlBuff)
-	if err != nil {
-		vr.recordSystem(fmt.Errorf("transform %s to json failed: %v", yamlBuff, err))
-		return vr
-	}
-
-	docLoader := loadjs.NewBytesLoader(jsonBuff)
-
-	result, err := sm.schema.Validate(docLoader)
-	vr.recordJSONSchema(result)
 
 	val := reflect.ValueOf(v)
 	traverseGo(&val, nil, vr.recordFormat)

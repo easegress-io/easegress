@@ -105,16 +105,14 @@ type (
 
 	// Spec describes the Backend.
 	Spec struct {
-		V string `yaml:"-" v:"parent"`
-
 		httppipeline.PluginMeta `yaml:",inline"`
 
-		Fallback      *fallbackSpec    `yaml:"fallback"`
-		MainPool      *poolSpec        `yaml:"mainPool" v:"required"`
-		CandidatePool *poolSpec        `yaml:"candidatePool" v:"omitempty"`
-		MirrorPool    *poolSpec        `yaml:"mirrorPool" v:"omitempty"`
-		FailureCodes  []int            `yaml:"failureCodes" v:"omitempty,dive,httpcode"`
-		Compression   *CompressionSpec `yaml:"compression"`
+		Fallback      *fallbackSpec    `yaml:"fallback,omitempty" jsonschema:"omitempty"`
+		MainPool      *poolSpec        `yaml:"mainPool" jsonschema:"required"`
+		CandidatePool *poolSpec        `yaml:"candidatePool,omitempty" jsonschema:"omitempty"`
+		MirrorPool    *poolSpec        `yaml:"mirrorPool,omitempty" jsonschema:"omitempty"`
+		FailureCodes  []int            `yaml:"failureCodes" jsonschema:"omitempty,uniqueItems=true,format=httpcode-array"`
+		Compression   *CompressionSpec `yaml:"compression,omitempty" jsonschema:"omitempty"`
 	}
 
 	fallbackSpec struct {
@@ -125,14 +123,12 @@ type (
 
 	// poolSpec decribes a pool of servers.
 	poolSpec struct {
-		V string `yaml:"-" v:"parent"`
-
-		Filter         *httpfilter.Spec    `yaml:"filter,omitempty"`
-		ServersTags    []string            `yaml:"serversTags" v:"unique,dive,required"`
-		Servers        []*server           `yaml:"servers" v:"required,dive"`
-		LoadBalance    *loadBalance        `yaml:"loadBalance" v:"required"`
-		MemoryCache    *memorycache.Spec   `yaml:"memoryCache,omitempty"`
-		CircuitBreaker *circuitBreakerSpec `yaml:"circuitBreaker,omitempty"`
+		Filter         *httpfilter.Spec    `yaml:"filter,omitempty" jsonschema:"omitempty"`
+		ServersTags    []string            `yaml:"serversTags" jsonschema:"omitempty,uniqueItems=true"`
+		Servers        []*server           `yaml:"servers" jsonschema:"required,minItems=1"`
+		LoadBalance    *loadBalance        `yaml:"loadBalance" jsonschema:"required"`
+		MemoryCache    *memorycache.Spec   `yaml:"memoryCache,omitempty" jsonschema:"omitempty"`
+		CircuitBreaker *circuitBreakerSpec `yaml:"circuitBreaker,omitempty" jsonschema:"omitempty"`
 	}
 
 	poolStatus struct {

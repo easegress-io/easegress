@@ -10,16 +10,16 @@ import (
 type (
 	// pathAdaptorSpec describes rules for adapting path.
 	pathAdaptorSpec struct {
-		Replace       string         `yaml:"replace"`
-		AddPrefix     string         `yaml:"addPrefix" v:"omitempty,prefix=/"`
-		TrimPrefix    string         `yaml:"trimPrefix" v:"omitempty,prefix=/"`
-		RegexpReplace *RegexpReplace `yaml:"regexpReplace"`
+		Replace       string         `yaml:"replace,omitempty" jsonschema:"omitempty"`
+		AddPrefix     string         `yaml:"addPrefix,omitempty" jsonschema:"omitempty,pattern=^/"`
+		TrimPrefix    string         `yaml:"trimPrefix,omitempty" jsonschema:"omitempty,pattern=^/"`
+		RegexpReplace *RegexpReplace `yaml:"regexpReplace,omitempty" jsonschema:"omitempty"`
 	}
 
 	// RegexpReplace use regexp-replace pair to rewrite path.
 	RegexpReplace struct {
-		Regexp  string `yaml:"regexp" v:"required,regexp"`
-		Replace string `yaml:"replace" v:"required"`
+		Regexp  string `yaml:"regexp" jsonschema:"required,format=regexp"`
+		Replace string `yaml:"replace"`
 
 		re *regexp.Regexp
 	}

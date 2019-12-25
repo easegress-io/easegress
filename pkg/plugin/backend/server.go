@@ -34,17 +34,15 @@ type (
 
 	// server is backend server.
 	server struct {
-		URL    string   `yaml:"url" v:"required,url"`
-		Tags   []string `yaml:"tags" v:"unique,dive,required"`
-		Weight int      `yaml:"weight" v:"gte=0,lte=100"`
+		URL    string   `yaml:"url" jsonschema:"required,format=url"`
+		Tags   []string `yaml:"tags" jsonschema:"omitempty,uniqueItems=true"`
+		Weight int      `yaml:"weight" jsonschema:"omitempty,minimum=0,maximum=100"`
 	}
 
 	// loadBalance is load balance for multiple servers.
 	loadBalance struct {
-		V string `yaml:"-" v:"parent"`
-
-		Policy        string `yaml:"policy" v:"required,oneof=roundRobin random weightedRandom ipHash headerHash"`
-		HeaderHashKey string `yaml:"headerHashKey"`
+		Policy        string `yaml:"policy" jsonschema:"required,enum=roundRobin,enum=random,enum=weightedRandom,enum=ipHash,enum=headerHash"`
+		HeaderHashKey string `yaml:"headerHashKey" jsonschema:"omitempty"`
 	}
 )
 

@@ -45,7 +45,7 @@ require (
 	github.com/klauspost/cpuid v1.2.0 // indirect
 	github.com/leodido/go-urn v1.1.0 // indirect
 	github.com/megaease/grace v1.0.0
-	github.com/megaease/jsonschema v0.0.0-20191211073545-a8a752dfb14d
+	github.com/megaease/jsonschema v0.0.0-20191219141102-f25f9e864ae5
 	github.com/microcosm-cc/bluemonday v1.0.2 // indirect
 	github.com/moul/http2curl v1.0.0 // indirect
 	github.com/onsi/ginkgo v1.7.0 // indirect

@@ -42,7 +42,7 @@ type (
 	Spec struct {
 		httppipeline.PluginMeta `yaml:",inline"`
 
-		Headers *httpheader.ValidatorSpec `yaml:"headers" v:"required,dive,keys,required,endkeys,required"`
+		Headers *httpheader.ValidatorSpec `yaml:"headers" jsonschema:"required"`
 	}
 )
 

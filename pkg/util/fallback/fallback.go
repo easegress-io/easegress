@@ -19,9 +19,9 @@ type (
 
 	// Spec describes the Fallback.
 	Spec struct {
-		MockCode    int               `yaml:"mockCode" v:"required,httpcode"`
-		MockHeaders map[string]string `yaml:"mockHeaders" v:"dive,keys,required,endkeys,required"`
-		MockBody    string            `yaml:"mockBody"`
+		MockCode    int               `yaml:"mockCode" jsonschema:"required,format=httpcode"`
+		MockHeaders map[string]string `yaml:"mockHeaders" jsonschema:"omitempty"`
+		MockBody    string            `yaml:"mockBody" jsonschema:"omitempty"`
 	}
 )
 

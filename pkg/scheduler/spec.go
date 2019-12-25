@@ -37,7 +37,7 @@ func unmarshal(y string, i interface{}) error {
 		return fmt.Errorf("unmarshal failed: %v", err)
 	}
 
-	vr := v.Validate(i)
+	vr := v.Validate(i, []byte(y))
 	if !vr.Valid() {
 		return fmt.Errorf("validate failed: \n%s", vr)
 	}
@@ -60,6 +60,7 @@ func SpecFromYAML(y string) (Spec, error) {
 	}
 
 	defaultSpec := reflect.ValueOf(or.DefaultSpecFunc).Call(nil)[0].Interface()
+
 	err = unmarshal(y, defaultSpec)
 	if err != nil {
 		return nil, err

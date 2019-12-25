@@ -53,18 +53,16 @@ type (
 
 	// Spec describes the HTTPPipeline.
 	Spec struct {
-		V string `yaml:"-" v:"parent"`
-
 		scheduler.ObjectMeta `yaml:",inline"`
 
-		Flow    []Flow                   `yaml:"flow"`
-		Plugins []map[string]interface{} `yaml:"plugins" v:"required"`
+		Flow    []Flow                   `yaml:"flow" jsonschema:"omitempty"`
+		Plugins []map[string]interface{} `yaml:"plugins" jsonschema:"-"`
 	}
 
 	// Flow controls the flow of pipeline.
 	Flow struct {
-		Plugin string            `yaml:"plugin" v:"required"`
-		JumpIf map[string]string `yaml:"jumpIf"`
+		Plugin string            `yaml:"plugin" jsonschema:"required,format=urlname"`
+		JumpIf map[string]string `yaml:"jumpIf" jsonschema:"omitempty"`
 	}
 
 	// Status contains all status gernerated by runtime, for displaying to users.
@@ -165,8 +163,39 @@ func unmarshal(buff []byte, i interface{}) {
 	}
 }
 
+func extractPluginsData(config []byte) interface{} {
+	var whole map[string]interface{}
+	unmarshal(config, &whole)
+	return whole["plugins"]
+}
+
+func convertToPluginBuffs(obj interface{}) map[string][]byte {
+	var plugins []map[string]interface{}
+	unmarshal(marshal(obj), &plugins)
+
+	rst := make(map[string][]byte)
+	for _, p := range plugins {
+		buff := marshal(p)
+		meta := &PluginMeta{}
+		unmarshal(buff, meta)
+		rst[meta.Name] = buff
+	}
+	return rst
+}
+
+func validatePluginMeta(meta *PluginMeta) error {
+	if len(meta.Name) == 0 {
+		return fmt.Errorf("plugin name is required")
+	}
+	if len(meta.Kind) == 0 {
+		return fmt.Errorf("plugin kind is required")
+	}
+
+	return nil
+}
+
 // Validate validates Spec.
-func (s Spec) Validate() (err error) {
+func (s Spec) Validate(config []byte) (err error) {
 	errPrefix := "plugins"
 	defer func() {
 		if r := recover(); r != nil {
@@ -174,15 +203,21 @@ func (s Spec) Validate() (err error) {
 		}
 	}()
 
+	pluginsData := extractPluginsData(config)
+	if pluginsData == nil {
+		return fmt.Errorf("validate failed: plugins is required")
+	}
+	pluginBuffs := convertToPluginBuffs(pluginsData)
+
 	pluginRecords := make(map[string]*PluginRecord)
 	for _, plugin := range s.Plugins {
 		buff := marshal(plugin)
 
 		meta := &PluginMeta{}
 		unmarshal(buff, meta)
-		vr := v.Validate(meta)
-		if !vr.Valid() {
-			panic(vr)
+		err := validatePluginMeta(meta)
+		if err != nil {
+			panic(err)
 		}
 		if meta.Name == LabelEND {
 			panic(fmt.Errorf("can't use %s(built-in label) for plugin name", LabelEND))
@@ -200,7 +235,7 @@ func (s Spec) Validate() (err error) {
 
 		pluginSpec := reflect.ValueOf(pr.DefaultSpecFunc).Call(nil)[0].Interface()
 		unmarshal(buff, pluginSpec)
-		vr = v.Validate(pluginSpec)
+		vr := v.Validate(pluginSpec, pluginBuffs[meta.Name])
 		if !vr.Valid() {
 			panic(vr)
 		}

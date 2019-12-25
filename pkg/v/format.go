@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"regexp"
 	"time"
 )
@@ -15,6 +16,7 @@ var (
 		"httpmethod":       httpMethod,
 		"httpmethod-array": httpMethodArray,
 		"httpcode":         httpCode,
+		"httpcode-array":   httpCodeArray,
 		"timerfc3339":      timerfc3339,
 		"duration":         duration,
 		"ipcidr":           ipcidr,
@@ -22,6 +24,7 @@ var (
 		"hostport":         hostport,
 		"regexp":           _regexp,
 		"base64":           _base64,
+		"url":              _url,
 	}
 
 	urlCharsRegexp = regexp.MustCompile(`^[A-Za-z0-9\-_\.~]{1,253}$`)
@@ -94,6 +97,17 @@ func httpCode(v interface{}) error {
 	return nil
 }
 
+func httpCodeArray(v interface{}) error {
+	for _, method := range v.([]int) {
+		err := httpCode(method)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func timerfc3339(v interface{}) error {
 	s := v.(string)
 	_, err := time.Parse(time.RFC3339, s)
@@ -162,6 +176,16 @@ func _base64(v interface{}) error {
 	_, err := base64.StdEncoding.DecodeString(s)
 	if err != nil {
 		return fmt.Errorf("invalid base64: %v", err)
+	}
+
+	return nil
+}
+
+func _url(v interface{}) error {
+	s := v.(string)
+	_, err := url.Parse(s)
+	if err != nil {
+		return fmt.Errorf("invalid url: %v", err)
 	}
 
 	return nil

@@ -28,11 +28,11 @@ type (
 
 	// Spec describes the MemoryCache.
 	Spec struct {
-		Expiration    string   `yaml:"expiration" v:"required,duration,dmin=1s"`
-		MaxEntryBytes uint32   `yaml:"maxEntryBytes" v:"gte=1"`
-		Size          uint32   `yaml:"size" v:"gte=1"`
-		Codes         []int    `yaml:"codes" v:"gte=1,unique,dive,httpcode"`
-		Methods       []string `yaml:"methods" v:"gte=1,unique,dive,httpmethod"`
+		Expiration    string   `yaml:"expiration" jsonschema:"required,format=duration"`
+		MaxEntryBytes uint32   `yaml:"maxEntryBytes" jsonschema:"required,minimum=1"`
+		Size          uint32   `yaml:"size" jsonschema:"required,minimum=1"`
+		Codes         []int    `yaml:"codes" jsonschema:"required,minItems=1,uniqueItems=true,format=httpcode-array"`
+		Methods       []string `yaml:"methods" jsonschema:"required,minItems=1,uniqueItems=true,format=httpmethod-array"`
 	}
 
 	cacheEntry struct {

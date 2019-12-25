@@ -56,10 +56,10 @@ type (
 		httppipeline.PluginMeta `yaml:",inline"`
 
 		// MaxConcurrent is the max concurrent active requests.
-		MaxConcurrent int32          `yaml:"maxConcurrent" v:"lte=10000"`
-		TPS           uint32         `yaml:"tps" v:"gte=1"`
-		Timeout       string         `yaml:"timeout" v:"omitempty,duration,dmin=1ms"`
-		Fallback      *fallback.Spec `yaml:"fallback"`
+		MaxConcurrent int32          `yaml:"maxConcurrent" jsonschema:"omitempty,maximum=10000"`
+		TPS           uint32         `yaml:"tps" jsonschema:"required,minimum=1"`
+		Timeout       string         `yaml:"timeout" jsonschema:"omitempty,format=duration"`
+		Fallback      *fallback.Spec `yaml:"fallback" jsonschema:"omitempty"`
 
 		timeout       *time.Duration
 		maxConcurrent int32

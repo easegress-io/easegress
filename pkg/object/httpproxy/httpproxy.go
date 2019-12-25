@@ -44,17 +44,15 @@ type (
 
 	// Spec describes the HTTPProxy.
 	Spec struct {
-		V string `yaml:"-" v:"parent"`
-
 		scheduler.ObjectMeta `yaml:",inline"`
 
-		Validator       *validator.Spec       `yaml:"validator,omitempty"`
-		Fallback        *fallback.Spec        `yaml:"fallback,omitempty"`
-		URLRateLimiter  *urlratelimiter.Spec  `yaml:"urlRateLimiter,omitempty"`
-		RateLimiter     *ratelimiter.Spec     `yaml:"rateLimiter,omitempty"`
-		RequestAdaptor  *requestadaptor.Spec  `yaml:"requestAdaptor,omitempty"`
-		Backend         *backend.Spec         `yaml:"backend" v:"required"`
-		ResponseAdaptor *responseadaptor.Spec `yaml:"responseAdaptor"`
+		Validator       *validator.Spec       `yaml:"validator,omitempty" jsonschema:"omitempty"`
+		Fallback        *fallback.Spec        `yaml:"fallback,omitempty" jsonschema:"omitempty"`
+		URLRateLimiter  *urlratelimiter.Spec  `yaml:"urlRateLimiter,omitempty" jsonschema:"omitempty"`
+		RateLimiter     *ratelimiter.Spec     `yaml:"rateLimiter,omitempty" jsonschema:"omitempty"`
+		RequestAdaptor  *requestadaptor.Spec  `yaml:"requestAdaptor,omitempty" jsonschema:"omitempty"`
+		Backend         *backend.Spec         `yaml:"backend" jsonschema:"required"`
+		ResponseAdaptor *responseadaptor.Spec `yaml:"responseAdaptor,omitempty" jsonschema:"omitempty"`
 	}
 
 	// Status is the wrapper of httppipeline.Status.
@@ -67,7 +65,12 @@ func (spec Spec) Validate() error {
 	if spec.Backend == nil {
 		return fmt.Errorf("backend is required")
 	}
-	return spec.toHTTPPipelineSpec().Validate()
+	pipeline := spec.toHTTPPipelineSpec()
+	buff, err := yaml.Marshal(pipeline)
+	if err != nil {
+		return fmt.Errorf("BUG: marshal %#v to yaml failed: %v", pipeline, err)
+	}
+	return pipeline.Validate(buff)
 }
 
 func (spec Spec) toHTTPPipelineSpec() *httppipeline.Spec {

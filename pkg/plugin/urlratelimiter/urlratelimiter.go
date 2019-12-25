@@ -46,12 +46,10 @@ type (
 
 	// Spec describes URLRateLimiter.
 	Spec struct {
-		V string `yaml:"-" v:"parent"`
-
 		httppipeline.PluginMeta `yaml:",inline"`
 
-		Fallback *fallback.Spec `yaml:"fallback"`
-		Paths    []*pathSpec    `yaml:"paths" v:"required,dive"`
+		Fallback *fallback.Spec `yaml:"fallback,omitempty" jsonschema:"omitempty"`
+		Paths    []*pathSpec    `yaml:"paths" jsonschema:"required,minItems=1"`
 	}
 
 	// Status contains status info of URLRateLimiter.
@@ -66,15 +64,13 @@ type (
 	}
 
 	pathSpec struct {
-		V string `yaml:"-" v:"parent"`
+		Path       string                    `yaml:"path,omitempty" jsonschema:"omitempty,pattern=^/"`
+		PathPrefix string                    `yaml:"pathPrefix,omitempty" jsonschema:"omitempty,pattern=^/"`
+		PathRegexp string                    `yaml:"pathRegexp,omitempty" jsonschema:"omitempty,format=regexp"`
+		Headers    *httpheader.ValidatorSpec `yaml:"headers,omitempty" jsonschema:"omitempty"`
 
-		Path       string                    `yaml:"path,omitempty" v:"omitempty,prefix=/"`
-		PathPrefix string                    `yaml:"pathPrefix,omitempty" v:"omitempty,prefix=/"`
-		PathRegexp string                    `yaml:"pathRegexp,omitempty" v:"omitempty,regexp"`
-		Headers    *httpheader.ValidatorSpec `yaml:"headers,omitempty" v:"omitempty,dive,keys,required,endkeys,required"`
-
-		TPS     uint32 `yaml:"tps" v:"gte=1"`
-		Timeout string `yaml:"timeout" v:"omitempty,duration,dmin=1ms"`
+		TPS     uint32 `yaml:"tps" jsonschema:"required,minimum=1"`
+		Timeout string `yaml:"timeout" jsonschema:"omitempty,format=duration"`
 
 		pathRE           *regexp.Regexp
 		headersValidator *httpheader.Validator

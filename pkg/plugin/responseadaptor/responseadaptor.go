@@ -35,7 +35,7 @@ type (
 	Spec struct {
 		httppipeline.PluginMeta `yaml:",inline"`
 
-		Header *httpheader.AdaptSpec `yaml:"header" v:"required"`
+		Header *httpheader.AdaptSpec `yaml:"header" jsonschema:"required"`
 	}
 )
 

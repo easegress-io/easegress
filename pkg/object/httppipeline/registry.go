@@ -36,8 +36,8 @@ type (
 
 	// PluginMeta describes metadata of Plugin.
 	PluginMeta struct {
-		Name string `yaml:"name,omitempty"`
-		Kind string `yaml:"kind,omitempty"`
+		Name string `yaml:"name,omitempty" jsonschema:"omitempty,format=urlname"`
+		Kind string `yaml:"kind,omitempty" jsonschema:"omitempty"`
 	}
 
 	// PluginRecord is the record for booking plugin.

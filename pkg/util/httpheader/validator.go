@@ -14,11 +14,9 @@ type (
 
 	// ValueValidator is the entity to validate value.
 	ValueValidator struct {
-		V string `yaml:"-" v:"parent"`
-
 		// NOTE: It allows empty value.
-		Values []string `yaml:"values" v:"unique"`
-		Regexp string   `yaml:"regexp" v:"omitempty,regexp"`
+		Values []string `yaml:"values" jsonschema:"omitempty,uniqueItems=true"`
+		Regexp string   `yaml:"regexp" jsonschema:"omitempty,format=regexp"`
 		re     *regexp.Regexp
 	}
 

@@ -83,7 +83,7 @@ type (
 	Spec struct {
 		httppipeline.PluginMeta `yaml:",inline"`
 
-		URL string `yaml:"url" v:"required,uri"`
+		URL string `yaml:"url" jsonschema:"required,format=uri"`
 	}
 
 	contextEntity struct {
