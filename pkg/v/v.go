@@ -25,17 +25,21 @@ type (
 )
 
 var (
-	globalReflector = &genjs.Reflector{
+	validateReflector = &genjs.Reflector{
 		DefinitionNameWithPackage:  true,
 		AllowAdditionalProperties:  true,
 		RequiredFromJSONSchemaTags: true,
 	}
-	schemaMetas = map[reflect.Type]*schemaMeta{}
+	generateReflector = &genjs.Reflector{
+		DefinitionNameWithPackage:  true,
+		RequiredFromJSONSchemaTags: true,
+	}
+	reflectorSchemaMetas = map[*genjs.Reflector]map[reflect.Type]*schemaMeta{}
 )
 
 // GetSchemaInYAML returns the json schema of t in yaml format.
 func GetSchemaInYAML(t reflect.Type) ([]byte, error) {
-	sm, err := getSchemaMeta(t)
+	sm, err := getSchemaMeta(generateReflector, t)
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +49,7 @@ func GetSchemaInYAML(t reflect.Type) ([]byte, error) {
 
 // GetSchemaInJSON return the json schema of t in json format.
 func GetSchemaInJSON(t reflect.Type) ([]byte, error) {
-	sm, err := getSchemaMeta(t)
+	sm, err := getSchemaMeta(generateReflector, t)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +62,7 @@ func Validate(v interface{}, yamlBuff []byte) *ValidateRecorder {
 	vr := &ValidateRecorder{}
 
 	if yamlBuff != nil {
-		sm, err := getSchemaMeta(reflect.TypeOf(v))
+		sm, err := getSchemaMeta(validateReflector, reflect.TypeOf(v))
 		if err != nil {
 			vr.recordSystem(fmt.Errorf("get schema meta for %T failed: %v", v, err))
 			return vr
@@ -98,7 +102,12 @@ func Validate(v interface{}, yamlBuff []byte) *ValidateRecorder {
 	return vr
 }
 
-func getSchemaMeta(t reflect.Type) (*schemaMeta, error) {
+func getSchemaMeta(reflector *genjs.Reflector, t reflect.Type) (*schemaMeta, error) {
+	schemaMetas, exists := reflectorSchemaMetas[reflector]
+	if !exists {
+		schemaMetas = make(map[reflect.Type]*schemaMeta)
+		reflectorSchemaMetas[reflector] = schemaMetas
+	}
 	sm, exists := schemaMetas[t]
 	if exists {
 		return sm, nil
@@ -107,7 +116,7 @@ func getSchemaMeta(t reflect.Type) (*schemaMeta, error) {
 	var err error
 
 	sm = &schemaMeta{}
-	schema := globalReflector.ReflectFromType(t)
+	schema := reflector.ReflectFromType(t)
 	if _, ok := getFormatFunc(schema.Format); !ok {
 		return nil, fmt.Errorf("%v got unsupported format: %s", t, schema.Format)
 	}
