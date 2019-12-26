@@ -14,7 +14,7 @@ import (
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/option"
 
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -38,7 +38,8 @@ type (
 		statusChan     chan map[string]string
 		statusToDelete map[string]struct{}
 
-		done chan struct{}
+		first bool
+		done  chan struct{}
 	}
 )
 
@@ -54,7 +55,8 @@ func newStorage(opt *option.Options, cls cluster.Cluster) *storage {
 		statusChan:     make(chan map[string]string, 10),
 		statusToDelete: make(map[string]struct{}),
 
-		done: make(chan struct{}),
+		first: true,
+		done:  make(chan struct{}),
 	}
 
 	var deltas []map[string]*string
@@ -138,6 +140,12 @@ func (s *storage) pullConfig(deltas ...map[string]*string) {
 	}
 
 	if deltasCount == 0 || reflect.DeepEqual(s.config, newConfig) {
+		// s.first for graceful update new process first run,
+		// even deltasCount is zero, also need set firstDone to notify all objects ready
+		if s.first {
+			s.first = false
+			s.configChan <- s.copyConfig()
+		}
 		return
 	}
 
