@@ -11,8 +11,12 @@ else
   echo "Can't found deploy.env file"
   exit 1
 fi
-cp ${BUILDDIR}/bin/easegateway-server ${PRODLABDIR}/easegateway-server.${BUILD_ID}
-cp ${BUILDDIR}/bin/egctl ${PRODLABDIR}/egctl.${BUILD_ID}
+if [ -n "${ROLLBACK_ID}" ];then
+  BUILD_ID=${ROLLBACK_ID}
+else
+  cp ${BUILDDIR}/bin/easegateway-server ${PRODLABDIR}/easegateway-server.${BUILD_ID}
+  cp ${BUILDDIR}/bin/egctl ${PRODLABDIR}/egctl.${BUILD_ID}
+fi
 
 for i in "${DEPLOYHOST[@]}";
 do
