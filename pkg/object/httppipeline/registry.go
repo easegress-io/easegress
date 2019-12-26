@@ -49,14 +49,24 @@ type (
 		NewFunc interface{}
 		Results []string
 
-		pluginType reflect.Type
-		specType   reflect.Type
+		Description string
+
+		PluginType reflect.Type
+		SpecType   reflect.Type
 	}
 )
 
 var (
 	pluginBook = map[string]*PluginRecord{}
 )
+
+func (pr *PluginRecord) copy() *PluginRecord {
+	pr1 := *pr
+	results := make([]string, len(pr.Results))
+	reflect.Copy(reflect.ValueOf(results), reflect.ValueOf(pr.Results))
+	pr1.Results = results
+	return &pr1
+}
 
 // Register registers plugins scheduled by HTTPPipeline.
 func Register(pr *PluginRecord) {
@@ -83,21 +93,21 @@ func Register(pr *PluginRecord) {
 	assertFunc("DefaultSpecFunc", specFuncType, 0, 1)
 
 	// Spec
-	pr.specType = specFuncType.Out(0)
-	assert(pr.specType.Kind(), reflect.Ptr, fmt.Errorf("non pointer spec"))
-	assert(pr.specType.Elem().Kind(), reflect.Struct,
-		fmt.Errorf("non struct spec elem: %s", pr.specType.Elem().Kind()))
-	nameField, exists := pr.specType.Elem().FieldByName("Name")
+	pr.SpecType = specFuncType.Out(0)
+	assert(pr.SpecType.Kind(), reflect.Ptr, fmt.Errorf("non pointer spec"))
+	assert(pr.SpecType.Elem().Kind(), reflect.Struct,
+		fmt.Errorf("non struct spec elem: %s", pr.SpecType.Elem().Kind()))
+	nameField, exists := pr.SpecType.Elem().FieldByName("Name")
 	assert(exists, true, fmt.Errorf("no Name field in spec"))
 	assert(nameField.Type.Kind(), reflect.String, fmt.Errorf("Name field which is not string"))
-	kindField, exists := pr.specType.Elem().FieldByName("Kind")
+	kindField, exists := pr.SpecType.Elem().FieldByName("Kind")
 	assert(exists, true, fmt.Errorf("no Kind field in spec"))
 	assert(kindField.Type.Kind(), reflect.String, fmt.Errorf("Kind field which is not string"))
 
 	// NewFunc
 	newFuncType := reflect.TypeOf(pr.NewFunc)
 	assertFunc("NewFunc", newFuncType, 2, 1)
-	assert(newFuncType.In(0), pr.specType,
+	assert(newFuncType.In(0), pr.SpecType,
 		fmt.Errorf("conflict NewFunc and DefaultSpecFunc: "+
 			"1st input argument of NewFunc is different type from "+
 			"output argument of DefaultSpecFunc"))
@@ -106,13 +116,13 @@ func Register(pr *PluginRecord) {
 			"2nd input argument is different type from output argument of NewFunc"))
 
 	// Plugin
-	pr.pluginType = newFuncType.Out(0)
+	pr.PluginType = newFuncType.Out(0)
 	pluginType := reflect.TypeOf((*Plugin)(nil)).Elem()
-	assert(pr.pluginType.Implements(pluginType), true,
+	assert(pr.PluginType.Implements(pluginType), true,
 		fmt.Errorf("invalid plugin: not implement httppipeline.Plugin"))
 
 	// StatusFunc
-	statusMethod, exists := pr.pluginType.MethodByName("Status")
+	statusMethod, exists := pr.PluginType.MethodByName("Status")
 	assert(exists, true, fmt.Errorf("no func Status"))
 	// NOTE: Method always has more than one argument, the first one is the receiver.
 	assertFunc("Status", statusMethod.Type, 1, 1)
@@ -128,4 +138,15 @@ func Register(pr *PluginRecord) {
 	}
 
 	pluginBook[pr.Kind] = pr
+}
+
+// GetPluginBook copies the plugin book.
+func GetPluginBook() map[string]*PluginRecord {
+	result := map[string]*PluginRecord{}
+
+	for kind, pr := range pluginBook {
+		result[kind] = pr.copy()
+	}
+
+	return result
 }

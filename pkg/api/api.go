@@ -89,6 +89,7 @@ func (s *Server) setupAPIs() {
 	s.apis = append(s.apis, listAPIsEntry)
 	s.setupMemberAPIs()
 	s.setupObjectAPIs()
+	s.setupMetadaAPIs()
 	s.setupHealthAPIs()
 	s.setupAboutAPIs()
 

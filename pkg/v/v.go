@@ -33,12 +33,32 @@ var (
 	schemaMetas = map[reflect.Type]*schemaMeta{}
 )
 
+// GetSchemaInYAML returns the json schema of t in yaml format.
+func GetSchemaInYAML(t reflect.Type) ([]byte, error) {
+	sm, err := getSchemaMeta(t)
+	if err != nil {
+		return nil, err
+	}
+
+	return sm.yamlFormat, nil
+}
+
+// GetSchemaInJSON return the json schema of t in json format.
+func GetSchemaInJSON(t reflect.Type) ([]byte, error) {
+	sm, err := getSchemaMeta(t)
+	if err != nil {
+		return nil, err
+	}
+
+	return sm.jsonFormat, nil
+}
+
 // Validate validates by json schema rules, custom formats and general methods.
 func Validate(v interface{}, yamlBuff []byte) *ValidateRecorder {
 	vr := &ValidateRecorder{}
 
 	if yamlBuff != nil {
-		sm, err := getSchemaMeta(v)
+		sm, err := getSchemaMeta(reflect.TypeOf(v))
 		if err != nil {
 			vr.recordSystem(fmt.Errorf("get schema meta for %T failed: %v", v, err))
 			return vr
@@ -78,8 +98,7 @@ func Validate(v interface{}, yamlBuff []byte) *ValidateRecorder {
 	return vr
 }
 
-func getSchemaMeta(v interface{}) (*schemaMeta, error) {
-	t := reflect.TypeOf(v)
+func getSchemaMeta(t reflect.Type) (*schemaMeta, error) {
 	sm, exists := schemaMetas[t]
 	if exists {
 		return sm, nil
@@ -90,11 +109,11 @@ func getSchemaMeta(v interface{}) (*schemaMeta, error) {
 	sm = &schemaMeta{}
 	schema := globalReflector.ReflectFromType(t)
 	if _, ok := getFormatFunc(schema.Format); !ok {
-		return nil, fmt.Errorf("%T got unsupported format: %s", v, schema.Format)
+		return nil, fmt.Errorf("%v got unsupported format: %s", t, schema.Format)
 	}
-	for _, t := range schema.Definitions {
-		if _, ok := getFormatFunc(t.Format); !ok {
-			return nil, fmt.Errorf("%T got unsupported format: %s", v, t.Format)
+	for _, definition := range schema.Definitions {
+		if _, ok := getFormatFunc(definition.Format); !ok {
+			return nil, fmt.Errorf("%v got unsupported format: %s", t, definition.Format)
 		}
 
 	}

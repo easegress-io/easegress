@@ -327,7 +327,7 @@ func New(spec *Spec, prev *HTTPPipeline, handlers *sync.Map) (tmp *HTTPPipeline)
 		defaultPluginSpec := reflect.ValueOf(pr.DefaultSpecFunc).Call(nil)[0].Interface()
 		unmarshal(buff, defaultPluginSpec)
 
-		prevValue := reflect.New(pr.pluginType).Elem()
+		prevValue := reflect.New(pr.PluginType).Elem()
 		if prev != nil {
 			prevPlugin := prev.getRunningPlugin(meta.Name)
 			if prevPlugin != nil {
