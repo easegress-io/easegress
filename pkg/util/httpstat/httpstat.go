@@ -72,7 +72,7 @@ func (hs *HTTPStat) Stat(m *Metric) {
 	hs.count++
 }
 
-// Status returns HTTPStat Status, and resets tps and p50/p95/p99.
+// Status returns HTTPStat Status, and resets all metrics.
 func (hs *HTTPStat) Status() *Status {
 	hs.mutex.Lock()
 	defer hs.mutex.Unlock()
@@ -88,8 +88,10 @@ func (hs *HTTPStat) Status() *Status {
 	}
 	status.P50, status.P95, status.P99 = hs.durationSampler.P50P95P99()
 
+	hs.cc = newCodeCounter()
 	hs.rate1 = metrics.NewEWMA1()
 	hs.durationSampler = sampler.NewDurationSampler()
+	hs.count, hs.reqSize, hs.respSize = 0, 0, 0
 
 	return status
 }

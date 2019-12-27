@@ -3,25 +3,19 @@ package topn
 import (
 	"sort"
 	"sync"
-	"sync/atomic"
 
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/util/httpstat"
 	"github.com/megaease/easegateway/pkg/util/urlclusteranalyzer"
 )
 
-const (
-	maxN = 500
-)
-
 type (
 	// TopN is the statistics tool for HTTP traffic.
 	TopN struct {
-		n int
+		sync.Mutex
 
-		m    sync.Map // map[string]*httpstat.HTTPStat
-		mlen uint64
-
+		n   int
+		m   map[string]*httpstat.HTTPStat
 		uca *urlclusteranalyzer.URLClusterAnalyzer
 	}
 
@@ -43,46 +37,42 @@ func (s Status) Less(i, j int) bool { return s[i].Status.Count > s[j].Status.Cou
 func New(n int) *TopN {
 	return &TopN{
 		n:   n,
+		m:   make(map[string]*httpstat.HTTPStat),
 		uca: urlclusteranalyzer.New(),
 	}
 }
 
 // Stat stats the ctx.
 func (t *TopN) Stat(ctx context.HTTPContext) {
-	if atomic.LoadUint64(&t.mlen) >= maxN {
-		return
-	}
-
 	pattern := t.uca.GetPattern(ctx.Request().Path())
 
-	// NOTE: Not use LoadOrStore in the first time
-	// for reducing massive construction of HTTPStat.
-	httpStat, exists := t.m.Load(pattern)
+	t.Lock()
+
+	httpStat, exists := t.m[pattern]
 	if !exists {
 		httpStat = httpstat.New()
-		var loaded bool
-		httpStat, loaded = t.m.LoadOrStore(pattern, httpStat)
-		if !loaded {
-			atomic.AddUint64(&t.mlen, 1)
-		}
+		t.m[pattern] = httpStat
 	}
 
-	httpStat.(*httpstat.HTTPStat).Stat(ctx.StatMetric())
+	t.Unlock()
+
+	httpStat.Stat(ctx.StatMetric())
 }
 
-// Status returns TopN Status.
+// Status returns TopN Status, and resets all metrics.
 func (t *TopN) Status() *Status {
-	status := make(Status, 0)
-	t.m.Range(func(key, value interface{}) bool {
-		pattern := key.(string)
-		httpStat := value.(*httpstat.HTTPStat)
+	t.Lock()
+	m := t.m
+	t.m = make(map[string]*httpstat.HTTPStat)
+	t.Unlock()
 
+	status := make(Status, 0)
+	for pattern, httpStat := range m {
 		status = append(status, &Item{
 			Path:   pattern,
 			Status: httpStat.Status(),
 		})
-		return true
-	})
+	}
 
 	sort.Sort(status)
 	n := len(status)
