@@ -1,13 +1,13 @@
-package common
+package jsontool
 
 import (
 	"encoding/json"
 	"fmt"
 )
 
-// JSONTrimNull removes null values from JSON data.
+// TrimNull removes null values from JSON data.
 // This is for backward compatibility. Null values in the original yaml configuration file was ignored by the yaml parsing functions.
-func JSONTrimNull(data []byte) ([]byte, error) {
+func TrimNull(data []byte) ([]byte, error) {
 	if data == nil {
 		return nil, fmt.Errorf("input data can't be nil")
 	}

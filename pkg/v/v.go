@@ -6,9 +6,10 @@ import (
 	"reflect"
 
 	yamljsontool "github.com/ghodss/yaml"
-	"github.com/megaease/easegateway/pkg/common"
 	genjs "github.com/megaease/jsonschema"
 	loadjs "github.com/xeipuuv/gojsonschema"
+
+	"github.com/megaease/easegateway/pkg/util/jsontool"
 )
 
 type (
@@ -74,7 +75,7 @@ func Validate(v interface{}, yamlBuff []byte) *ValidateRecorder {
 			return vr
 		}
 
-		trimJSONBuff, err := common.JSONTrimNull(jsonBuff)
+		trimJSONBuff, err := jsontool.TrimNull(jsonBuff)
 		if err != nil {
 			vr.recordSystem(fmt.Errorf("trim null from %s failed: %v", jsonBuff, err))
 			return vr

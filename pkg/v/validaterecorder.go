@@ -10,7 +10,7 @@ import (
 	"github.com/megaease/easegateway/pkg/logger"
 
 	loadjs "github.com/xeipuuv/gojsonschema"
-	"gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v2"
 )
 
 type (
