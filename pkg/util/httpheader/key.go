@@ -11,4 +11,8 @@ const (
 	KeyContentLength = "Content-Length"
 	// KeyVary is the key of Vary.
 	KeyVary = "Vary"
+
+	// KeyXForwardedFor is the key of X-Forwarded-For.
+	KeyXForwardedFor = "X-Forwarded-For"
 )
+

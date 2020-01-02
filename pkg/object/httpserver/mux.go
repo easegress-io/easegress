@@ -1,6 +1,7 @@
 package httpserver
 
 import (
+	"github.com/megaease/easegateway/pkg/util/httpheader"
 	"net/http"
 	"regexp"
 	"strings"
@@ -237,7 +238,7 @@ func (mp *muxPath) matchMethod(ctx context.HTTPContext) bool {
 func (mp *muxPath) matchHeaders(ctx context.HTTPContext) (ci *cacheItem, ok bool) {
 	for _, h := range mp.headers {
 		v := ctx.Request().Header().Get(h.Key)
-		if stringtool.StrInSlice(v, h.Values){
+		if stringtool.StrInSlice(v, h.Values) {
 			ci = &cacheItem{ipFilterChan: mp.ipFilterChain, backend: h.Backend}
 			return ci, true
 		}
@@ -398,6 +399,25 @@ func (m *mux) handleRequestWithCache(rules *muxRules, ctx context.HTTPContext, c
 			return
 		}
 
+		if m.spec.XForwardedFor {
+			m.appendXForwardedFor(ctx)
+		}
+
 		handler.Handle(ctx)
+	}
+}
+
+func (m *mux) appendXForwardedFor(ctx context.HTTPContext) {
+	v := ctx.Request().Header().Get(httpheader.KeyXForwardedFor)
+	ip := ctx.Request().RealIP()
+
+	if v == "" {
+		ctx.Request().Header().Add(httpheader.KeyXForwardedFor, ip)
+		return
+	}
+
+	if !strings.Contains(v, ip) {
+		v = stringtool.Cat(v, ",", ip)
+		ctx.Request().Header().Set(httpheader.KeyXForwardedFor, v)
 	}
 }

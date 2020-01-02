@@ -22,6 +22,7 @@ type (
 		CertBase64           string `yaml:"certBase64" jsonschema:"omitempty,format=base64"`
 		KeyBase64            string `yaml:"keyBase64" jsonschema:"omitempty,format=base64"`
 		CacheSize            uint32 `yaml:"cacheSize" jsonschema:"omitempty"`
+		XForwardedFor        bool   `yaml:"xForwardedFor" jsonschema:"omitempty"`
 
 		IPFilter *ipfilter.Spec `yaml:"ipFilter,omitempty" jsonschema:"omitempty"`
 		Rules    []Rule         `yaml:"rules" jsonschema:"omitempty"`
