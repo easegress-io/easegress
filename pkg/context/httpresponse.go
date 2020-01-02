@@ -164,3 +164,7 @@ func (w *httpResponse) Size() uint64 {
 
 	return uint64(len(meta)) + w.bodyWritten
 }
+
+func (w *httpResponse) Std() http.ResponseWriter {
+	return w.std
+}

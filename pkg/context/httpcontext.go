@@ -68,6 +68,8 @@ type (
 		Body() io.Reader
 		SetBody(io.Reader)
 
+		Std() *http.Request
+
 		Size() uint64 // bytes
 	}
 
@@ -82,6 +84,8 @@ type (
 		SetBody(body io.Reader)
 		Body() io.Reader
 		OnFlushBody(func(body []byte, complete bool) (newBody []byte))
+
+		Std() http.ResponseWriter
 
 		Size() uint64 // bytes
 	}

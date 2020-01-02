@@ -8,6 +8,7 @@ import (
 
 	// Plugins
 	_ "github.com/megaease/easegateway/pkg/plugin/backend"
+	_ "github.com/megaease/easegateway/pkg/plugin/corsadaptor"
 	_ "github.com/megaease/easegateway/pkg/plugin/fallback"
 	_ "github.com/megaease/easegateway/pkg/plugin/mock"
 	_ "github.com/megaease/easegateway/pkg/plugin/ratelimiter"

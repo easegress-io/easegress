@@ -9,6 +9,7 @@ import (
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
 	"github.com/megaease/easegateway/pkg/object/httpserver"
 	"github.com/megaease/easegateway/pkg/plugin/backend"
+	"github.com/megaease/easegateway/pkg/plugin/corsadaptor"
 	"github.com/megaease/easegateway/pkg/plugin/fallback"
 	"github.com/megaease/easegateway/pkg/plugin/ratelimiter"
 	"github.com/megaease/easegateway/pkg/plugin/requestadaptor"
@@ -48,6 +49,7 @@ type (
 
 		Validator       *validator.Spec       `yaml:"validator,omitempty" jsonschema:"omitempty"`
 		Fallback        *fallback.Spec        `yaml:"fallback,omitempty" jsonschema:"omitempty"`
+		CORSAdaptor     *corsadaptor.Spec     `yaml:"corsAdaptor,omitempty" jsonschema:"omitempty"`
 		URLRateLimiter  *urlratelimiter.Spec  `yaml:"urlRateLimiter,omitempty" jsonschema:"omitempty"`
 		RateLimiter     *ratelimiter.Spec     `yaml:"rateLimiter,omitempty" jsonschema:"omitempty"`
 		RequestAdaptor  *requestadaptor.Spec  `yaml:"requestAdaptor,omitempty" jsonschema:"omitempty"`
@@ -108,6 +110,10 @@ func (spec Spec) toHTTPPipelineSpec() *httppipeline.Spec {
 	if spec.Fallback != nil {
 		pipelineSpec.Plugins = append(pipelineSpec.Plugins,
 			transformSpec("fallback", fallback.Kind, spec.Fallback))
+	}
+	if spec.CORSAdaptor != nil {
+		pipelineSpec.Plugins = append(pipelineSpec.Plugins,
+			transformSpec("corsAdaptor", corsadaptor.Kind, spec.CORSAdaptor))
 	}
 	if spec.URLRateLimiter != nil {
 		pipelineSpec.Plugins = append(pipelineSpec.Plugins,

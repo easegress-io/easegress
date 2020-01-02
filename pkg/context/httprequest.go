@@ -130,3 +130,7 @@ func (r *httpRequest) finish() {
 
 	r.std.Body.Close()
 }
+
+func (r *httpRequest) Std() *http.Request {
+	return r.std
+}
