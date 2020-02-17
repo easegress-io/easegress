@@ -81,8 +81,8 @@ func Register(pr *PluginRecord) {
 	}
 	assertFunc := func(name string, t reflect.Type, numIn, numOut int) {
 		assert(t.Kind(), reflect.Func, fmt.Errorf("%s: not func", name))
-		assert(t.NumIn(), numIn, fmt.Errorf("%s: input arguments: want %d in, got %d", name, numIn, t.NumIn()))
-		assert(t.NumOut(), numOut, fmt.Errorf("%s: input arguments: want %d in, got %d", name, numOut, t.NumOut()))
+		assert(t.NumIn(), numIn, fmt.Errorf("%s: input arguments: want %d, got %d", name, numIn, t.NumIn()))
+		assert(t.NumOut(), numOut, fmt.Errorf("%s: output arguments: want %d, got %d", name, numOut, t.NumOut()))
 	}
 
 	prExisted, exists := pluginBook[pr.Kind]

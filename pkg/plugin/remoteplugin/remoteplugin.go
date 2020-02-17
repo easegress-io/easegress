@@ -20,7 +20,8 @@ const (
 	// Kind is the kind of RemotePlugin.
 	Kind = "RemotePlugin"
 
-	resultFailed = "failed"
+	resultFailed          = "failed"
+	resultResponseAlready = "responseAlready"
 
 	// 64KB
 	maxBobyBytes = 64 * 1024
@@ -33,7 +34,7 @@ func init() {
 		Kind:            Kind,
 		DefaultSpecFunc: DefaultSpec,
 		NewFunc:         New,
-		Results:         []string{resultFailed},
+		Results:         []string{resultFailed, resultResponseAlready},
 	})
 }
 
@@ -87,8 +88,8 @@ type (
 	}
 
 	contextEntity struct {
-		Request  requestEntity  `json:"request"`
-		Response responseEntity `json:"response"`
+		Request  *requestEntity  `json:"request"`
+		Response *responseEntity `json:"response"`
 	}
 
 	requestEntity struct {
@@ -187,7 +188,11 @@ func (rp *RemotePlugin) Handle(ctx context.HTTPContext) (result string) {
 	ctxBuff = rp.limitRead(resp.Body, maxContextBytes)
 
 	errPrefix = "unmarshal context"
-	rp.unmarshalHTTPContext(ctxBuff, ctx)
+	responseAlready := rp.unmarshalHTTPContext(ctxBuff, ctx)
+
+	if responseAlready {
+		return resultResponseAlready
+	}
 
 	return ""
 }
@@ -201,7 +206,7 @@ func (rp *RemotePlugin) Close() {}
 func (rp *RemotePlugin) marshalHTTPContext(ctx context.HTTPContext, reqBody, respBody []byte) []byte {
 	r, w := ctx.Request(), ctx.Response()
 	ctxEntity := contextEntity{
-		Request: requestEntity{
+		Request: &requestEntity{
 			RealIP:   r.RealIP(),
 			Method:   r.Method(),
 			Scheme:   r.Scheme(),
@@ -213,7 +218,7 @@ func (rp *RemotePlugin) marshalHTTPContext(ctx context.HTTPContext, reqBody, res
 			Header:   r.Header().Std(),
 			Body:     reqBody,
 		},
-		Response: responseEntity{
+		Response: &responseEntity{
 			StatusCode: w.StatusCode(),
 			Header:     w.Header().Std(),
 			Body:       respBody,
@@ -228,7 +233,7 @@ func (rp *RemotePlugin) marshalHTTPContext(ctx context.HTTPContext, reqBody, res
 	return buff
 }
 
-func (rp *RemotePlugin) unmarshalHTTPContext(buff []byte, ctx context.HTTPContext) {
+func (rp *RemotePlugin) unmarshalHTTPContext(buff []byte, ctx context.HTTPContext) (reponseAlready bool) {
 	ctxEntity := &contextEntity{}
 
 	err := json.Unmarshal(buff, ctxEntity)
@@ -244,7 +249,15 @@ func (rp *RemotePlugin) unmarshalHTTPContext(buff []byte, ctx context.HTTPContex
 	r.Header().Reset(re.Header)
 	r.SetBody(bytes.NewReader(re.Body))
 
+	if we == nil {
+		return false
+	} else if we.StatusCode < 200 || we.StatusCode >= 600 {
+		panic(fmt.Errorf("invalid status code: %d", we.StatusCode))
+	}
+
 	w.SetStatusCode(we.StatusCode)
 	w.Header().Reset(we.Header)
 	w.SetBody(bytes.NewReader(we.Body))
+
+	return true
 }
