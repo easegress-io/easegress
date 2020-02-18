@@ -13,7 +13,7 @@ const (
 	// Kind is kind of CORSAdaptor.
 	Kind = "CORSAdaptor"
 
-	resultFallback = "fallback"
+	resultPreflighted = "preflighted"
 )
 
 func init() {
@@ -21,7 +21,7 @@ func init() {
 		Kind:            Kind,
 		DefaultSpecFunc: DefaultSpec,
 		NewFunc:         New,
-		Results:         []string{resultFallback},
+		Results:         []string{resultPreflighted},
 	})
 }
 
@@ -72,7 +72,7 @@ func (f *CORSAdaptor) Handle(ctx context.HTTPContext) string {
 	headerAllowMethod := r.Header().Get("Access-Control-Request-Method")
 	if method == http.MethodOptions && headerAllowMethod != "" {
 		f.cors.HandlerFunc(w.Std(), r.Std())
-		return resultFallback
+		return resultPreflighted
 	}
 	return ""
 }
