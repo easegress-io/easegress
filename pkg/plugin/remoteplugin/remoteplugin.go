@@ -208,9 +208,9 @@ func (rp *RemotePlugin) Handle(ctx context.HTTPContext) (result string) {
 	ctxBuff = rp.limitRead(resp.Body, maxContextBytes)
 
 	errPrefix = "unmarshal context"
-	responseAlready := rp.unmarshalHTTPContext(ctxBuff, ctx)
+	rp.unmarshalHTTPContext(ctxBuff, ctx)
 
-	if responseAlready {
+	if resp.StatusCode == 205 {
 		return resultResponseAlready
 	}
 
@@ -253,7 +253,7 @@ func (rp *RemotePlugin) marshalHTTPContext(ctx context.HTTPContext, reqBody, res
 	return buff
 }
 
-func (rp *RemotePlugin) unmarshalHTTPContext(buff []byte, ctx context.HTTPContext) (reponseAlready bool) {
+func (rp *RemotePlugin) unmarshalHTTPContext(buff []byte, ctx context.HTTPContext) {
 	ctxEntity := &contextEntity{}
 
 	err := json.Unmarshal(buff, ctxEntity)
@@ -266,18 +266,21 @@ func (rp *RemotePlugin) unmarshalHTTPContext(buff []byte, ctx context.HTTPContex
 
 	r.SetMethod(re.Method)
 	r.SetPath(re.Path)
+	r.SetQuery(re.Query)
 	r.Header().Reset(re.Header)
 	r.SetBody(bytes.NewReader(re.Body))
 
 	if we == nil {
-		return false
-	} else if we.StatusCode < 200 || we.StatusCode >= 600 {
+		return
+	}
+
+	if we.StatusCode < 200 || we.StatusCode >= 600 {
 		panic(fmt.Errorf("invalid status code: %d", we.StatusCode))
+		return
 	}
 
 	w.SetStatusCode(we.StatusCode)
 	w.Header().Reset(we.Header)
 	w.SetBody(bytes.NewReader(we.Body))
 
-	return true
 }

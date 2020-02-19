@@ -56,6 +56,7 @@ type (
 		SetPath(path string)
 		EscapedPath() string
 		Query() string
+		SetQuery(query string)
 		Fragment() string
 
 		Proto() string

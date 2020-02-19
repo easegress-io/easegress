@@ -80,6 +80,10 @@ func (r *httpRequest) Query() string {
 	return r.std.URL.RawQuery
 }
 
+func (r *httpRequest) SetQuery(query string) {
+	r.std.URL.RawQuery = query
+}
+
 func (r *httpRequest) Fragment() string {
 	return r.std.URL.Fragment
 }
