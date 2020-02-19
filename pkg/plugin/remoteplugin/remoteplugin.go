@@ -2,6 +2,7 @@ package remoteplugin
 
 import (
 	"bytes"
+	stdcontext "context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -71,7 +72,6 @@ var (
 // DefaultSpec returns default spec.
 func DefaultSpec() *Spec {
 	return &Spec{}
-
 }
 
 type (
@@ -84,7 +84,10 @@ type (
 	Spec struct {
 		httppipeline.PluginMeta `yaml:",inline"`
 
-		URL string `yaml:"url" jsonschema:"required,format=uri"`
+		URL     string `yaml:"url" jsonschema:"required,format=uri"`
+		Timeout string `yaml:"timeout" jsonschema:"omitempty,format=duration"`
+
+		timeout time.Duration
 	}
 
 	contextEntity struct {
@@ -119,6 +122,12 @@ type (
 
 // New creates a RemotePlugin.
 func New(spec *Spec, prev *RemotePlugin) *RemotePlugin {
+	var err error
+	spec.timeout, err = time.ParseDuration(spec.Timeout)
+	if err != nil {
+		logger.Errorf("BUG: parse duration %s failed: %v", spec.Timeout, err)
+	}
+
 	return &RemotePlugin{
 		spec: spec,
 	}
@@ -166,7 +175,18 @@ func (rp *RemotePlugin) Handle(ctx context.HTTPContext) (result string) {
 	errPrefix = "marshal context"
 	ctxBuff := rp.marshalHTTPContext(ctx, reqBody, respBody)
 
-	req, err := http.NewRequest(http.MethodPost, rp.spec.URL, bytes.NewReader(ctxBuff))
+	var (
+		req *http.Request
+		err error
+	)
+
+	if rp.spec.timeout > 0 {
+		timeoutCtx, _ := stdcontext.WithTimeout(stdcontext.Background(), rp.spec.timeout)
+		req, err = http.NewRequestWithContext(timeoutCtx, http.MethodPost, rp.spec.URL, bytes.NewReader(ctxBuff))
+	} else {
+		req, err = http.NewRequest(http.MethodPost, rp.spec.URL, bytes.NewReader(ctxBuff))
+	}
+
 	if err != nil {
 		logger.Errorf("BUG: new request failed: %v", err)
 		w.SetStatusCode(http.StatusInternalServerError)

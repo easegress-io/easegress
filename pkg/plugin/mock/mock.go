@@ -2,8 +2,10 @@ package mock
 
 import (
 	"strings"
+	"time"
 
 	"github.com/megaease/easegateway/pkg/context"
+	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
 )
 
@@ -49,11 +51,22 @@ type (
 		Code       int               `yaml:"code" jsonschema:"omitempty,format=httpcode"`
 		Headers    map[string]string `yaml:"headers" jsonschema:"required"`
 		Body       string            `yaml:"body" jsonschema:"omitempty"`
+		Delay      string            `yaml:"delay" jsonschema:"omitempty,format=duration"`
+
+		delay      time.Duration
 	}
 )
 
 // New creates a Mock.
 func New(spec *Spec, prev *Mock) *Mock {
+	for _, r := range spec.Rules {
+		var err error
+		r.delay, err = time.ParseDuration(r.Delay)
+		if err != nil {
+			logger.Errorf("BUG: parse duration %s failed: %v", r.delay, err)
+		}
+	}
+
 	return &Mock{
 		spec: spec,
 	}
@@ -71,6 +84,11 @@ func (m *Mock) Handle(ctx context.HTTPContext) (result string) {
 		}
 		w.SetBody(strings.NewReader(rule.Body))
 		result = resultMocked
+
+		if rule.delay > 0 {
+			logger.Debugf("delay for %v ...", rule.delay)
+			time.Sleep(rule.delay)
+		}
 	}
 
 	for _, rule := range m.spec.Rules {
