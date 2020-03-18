@@ -161,8 +161,6 @@ github.com/matttproud/golang_protobuf_extensions v1.0.1 h1:4hp9jkHxhMHkqkrB3Ix0j
 github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5Ld7szi9bcBfOoFv/3dc6xSMkL2PC0=
 github.com/megaease/grace v1.0.0 h1:b44R3j6e/iaN62F4ZUnru9nzL1VaIcxxUZjSPVtTVzI=
 github.com/megaease/grace v1.0.0/go.mod h1:mOR6MVYQ6zGyuz9Y2or/VJ6QWueTL3erxWfIwyCmiIg=
-github.com/megaease/jsonschema v0.0.0-20191211073545-a8a752dfb14d h1:248bGnAMXoPfhj/m2LHbdEhbkjvi1hDg5ei4poFCDyE=
-github.com/megaease/jsonschema v0.0.0-20191211073545-a8a752dfb14d/go.mod h1:dV5GJ+oE0GyckvTBIAx9+R1BmuRKFyodhJwI6biLFYI=
 github.com/megaease/jsonschema v0.0.0-20191219141102-f25f9e864ae5 h1:q2BraFOPlsFDB0dDS8g97+TvJwLDy0BD7Jc2+itJLtk=
 github.com/megaease/jsonschema v0.0.0-20191219141102-f25f9e864ae5/go.mod h1:dV5GJ+oE0GyckvTBIAx9+R1BmuRKFyodhJwI6biLFYI=
 github.com/microcosm-cc/bluemonday v1.0.2 h1:5lPfLTTAvAbtS0VqT+94yOtFnGfUWYyx0+iToC3Os3s=

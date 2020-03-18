@@ -5,6 +5,7 @@ SHELL:=/bin/bash
 		mod_update vendor_from_mod vendor_clean test
 
 export GO111MODULE=on
+export GOPROXY=https://goproxy.io
 
 # Path Related
 MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
