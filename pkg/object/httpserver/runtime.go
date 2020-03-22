@@ -12,8 +12,6 @@ import (
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/util/httpstat"
 	"github.com/megaease/easegateway/pkg/util/topn"
-
-	"golang.org/x/net/netutil"
 )
 
 const (
@@ -58,8 +56,9 @@ type (
 		state atomic.Value // stateType
 		err   atomic.Value // error
 
-		httpStat *httpstat.HTTPStat
-		topN     *topn.TopN
+		httpStat      *httpstat.HTTPStat
+		topN          *topn.TopN
+		limitListener *LimitListener
 	}
 
 	// Status contains all status gernerated by runtime, for displaying to users.
@@ -148,6 +147,11 @@ func (r *runtime) reload(nextSpec *Spec) {
 		r.mux.reloadRules(nextSpec)
 	}
 
+	// r.limitListener does not created just after the process started and the config load for the first time.
+	if nextSpec != nil && r.limitListener != nil {
+		r.limitListener.SetMaxConnection(nextSpec.MaxConnections)
+	}
+
 	// NOTE: Due to the mechanism of scheduler,
 	// nextSpec must not be nil, just defensive programming here.
 	switch {
@@ -202,6 +206,8 @@ func (r *runtime) needRestartServer(nextSpec *Spec) bool {
 	y := *nextSpec
 	x.Rules, y.Rules = nil, nil
 
+	x.MaxConnections, y.MaxConnections = 0, 0
+
 	// The update of rules need not to shutdown server.
 	return !reflect.DeepEqual(x, y)
 }
@@ -226,7 +232,8 @@ func (r *runtime) startServer() {
 		return
 	}
 
-	limitListener := netutil.LimitListener(listener, int(r.spec.MaxConnections))
+	limitListener := NewLimitListener(listener, r.spec.MaxConnections)
+	r.limitListener = limitListener
 
 	srv := &http.Server{
 		Addr:        fmt.Sprintf(":%d", r.spec.Port),
