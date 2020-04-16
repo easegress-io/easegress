@@ -468,7 +468,7 @@ func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader) {
 	// Phase 4: Pass Through Response or Discard it.
 
 	if p.writeResponse {
-		tags = append(tags, stringtool.Cat(p.tagPrefix, "#code: ", strconv.Itoa(w.StatusCode())))
+		tags = append(tags, stringtool.Cat(p.tagPrefix, "#code: ", strconv.Itoa(resp.StatusCode)))
 
 		w.SetStatusCode(resp.StatusCode)
 		w.Header().AddFromStd(resp.Header)
