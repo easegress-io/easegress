@@ -123,9 +123,11 @@ type (
 // New creates a RemotePlugin.
 func New(spec *Spec, prev *RemotePlugin) *RemotePlugin {
 	var err error
-	spec.timeout, err = time.ParseDuration(spec.Timeout)
-	if err != nil {
-		logger.Errorf("BUG: parse duration %s failed: %v", spec.Timeout, err)
+	if spec.Timeout != "" {
+		spec.timeout, err = time.ParseDuration(spec.Timeout)
+		if err != nil {
+			logger.Errorf("BUG: parse duration %s failed: %v", spec.Timeout, err)
+		}
 	}
 
 	return &RemotePlugin{

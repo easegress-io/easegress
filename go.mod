@@ -73,7 +73,6 @@ require (
 	github.com/yudai/pp v2.0.1+incompatible // indirect
 	go.etcd.io/etcd v0.0.0-20190830150955-898bd1351fcf
 	go.uber.org/zap v1.10.0
-	golang.org/x/net v0.0.0-20190813141303-74dc4d7220e7 // indirect
 	golang.org/x/time v0.0.0-20181108054448-85acf8d2951c
 	google.golang.org/genproto v0.0.0-20190111180523-db91494dd46c // indirect
 	gopkg.in/mgo.v2 v2.0.0-20180705113604-9856a29383ce // indirect
