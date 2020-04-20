@@ -48,7 +48,7 @@ func (ds *DurationSampler) P99() uint64 {
 // P50P95P99 wraps other stat functions in calling once.
 func (ds *DurationSampler) P50P95P99() (uint64, uint64, uint64) {
 	ps := ds.sample.Percentiles([]float64{0.5, 0.95, 0.99})
-	return nanoToMilli(ps[0]), nanoToMilli(ps[2]), nanoToMilli(ps[2])
+	return nanoToMilli(ps[0]), nanoToMilli(ps[1]), nanoToMilli(ps[2])
 }
 
 // Count return total count of DurationSampler.

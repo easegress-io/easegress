@@ -31,6 +31,7 @@ type (
 		stdcontext.Context
 		Cancel(err error)
 		Cancelled() bool
+		ClientDisconnected() bool
 
 		Duration() time.Duration // For log, sample, etc.
 		OnFinish(func())         // For setting final client statistics, etc.
@@ -106,9 +107,10 @@ type (
 		r *httpRequest
 		w *httpResponse
 
-		stdctx     stdcontext.Context
-		cancelFunc stdcontext.CancelFunc
-		err        error
+		originalReqCtx stdcontext.Context
+		stdctx         stdcontext.Context
+		cancelFunc     stdcontext.CancelFunc
+		err            error
 	}
 )
 
@@ -116,16 +118,18 @@ type (
 // NOTE: We can't use sync.Pool to recycle context.
 // Reference: https://github.com/gin-gonic/gin/issues/1731
 func New(stdw http.ResponseWriter, stdr *http.Request) HTTPContext {
-	stdctx, cancelFunc := stdcontext.WithCancel(stdr.Context())
+	originalReqCtx := stdr.Context()
+	stdctx, cancelFunc := stdcontext.WithCancel(originalReqCtx)
 	stdr = stdr.WithContext(stdctx)
 
 	startTime := time.Now()
 	return &httpContext{
-		startTime:  &startTime,
-		stdctx:     stdctx,
-		cancelFunc: cancelFunc,
-		r:          newHTTPRequest(stdr),
-		w:          newHTTPResponse(stdw, stdr),
+		startTime:      &startTime,
+		originalReqCtx: originalReqCtx,
+		stdctx:         stdctx,
+		cancelFunc:     cancelFunc,
+		r:              newHTTPRequest(stdr),
+		w:              newHTTPResponse(stdw, stdr),
 	}
 }
 
@@ -193,7 +197,17 @@ func (ctx *httpContext) Duration() time.Duration {
 	return time.Now().Sub(*ctx.startTime)
 }
 
+func (ctx *httpContext) ClientDisconnected() bool {
+	return ctx.originalReqCtx.Err() != nil
+}
+
 func (ctx *httpContext) Finish() {
+	if ctx.ClientDisconnected() {
+		ctx.AddTag(fmt.Sprintf("client closed connection: change code %d to 499",
+			ctx.w.StatusCode()))
+		ctx.w.SetStatusCode(499 /* consistent with nginx */)
+	}
+
 	ctx.r.finish()
 	ctx.w.finish()
 

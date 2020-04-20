@@ -91,11 +91,15 @@ func newCircuitBreaker(spec *circuitBreakerSpec, failureCodes []int) *circuitBre
 
 // Protect protects Handler.
 func (cb *circuitBreaker) protect(ctx context.HTTPContext, reqBody io.Reader,
-	handler func(ctx context.HTTPContext, reqBody io.Reader)) error {
-	handled := false
+	handler func(ctx context.HTTPContext, reqBody io.Reader) string) (string, error) {
+
+	var handled bool
+	var result string
 	_, err := cb.cb.Execute(func() (interface{}, error) {
 		handled = true
-		handler(ctx, reqBody)
+		result = handler(ctx, reqBody)
+		// NOTE: The circuitBreaker aims to protect real backend server,
+		// so it's unnecessary to record non-empty result.
 
 		code := ctx.Response().StatusCode()
 		for _, fc := range cb.spec.failureCodes {
@@ -112,10 +116,10 @@ func (cb *circuitBreaker) protect(ctx context.HTTPContext, reqBody io.Reader,
 	if err != nil && !handled {
 		ctx.Response().SetStatusCode(http.StatusServiceUnavailable)
 		ctx.AddTag(stringtool.Cat("circuitBreaker: ", err.Error()))
-		return err
+		return result, err
 	}
 
-	return nil
+	return result, nil
 }
 
 func (cb *circuitBreaker) status() string {

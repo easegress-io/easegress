@@ -3,25 +3,14 @@ package backend
 import (
 	"crypto/tls"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
-	"net/http/httptrace"
-	"strconv"
 	"sync"
 	"time"
 
 	"github.com/megaease/easegateway/pkg/context"
-	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
-	"github.com/megaease/easegateway/pkg/util/durationreadcloser"
 	"github.com/megaease/easegateway/pkg/util/fallback"
-	"github.com/megaease/easegateway/pkg/util/httpfilter"
-	"github.com/megaease/easegateway/pkg/util/httpstat"
-	"github.com/megaease/easegateway/pkg/util/memorycache"
-	"github.com/megaease/easegateway/pkg/util/readercounter"
-	"github.com/megaease/easegateway/pkg/util/stringtool"
 )
 
 const (
@@ -30,6 +19,9 @@ const (
 
 	resultCircuitBreaker = "circuitBreaker"
 	resultFallback       = "fallback"
+	resultInternalError  = "interalError"
+	resultClientError    = "clientError"
+	resultServerError    = "serverError"
 )
 
 func init() {
@@ -37,7 +29,13 @@ func init() {
 		Kind:            Kind,
 		DefaultSpecFunc: DefaultSpec,
 		NewFunc:         New,
-		Results:         []string{resultCircuitBreaker, resultFallback},
+		Results: []string{
+			resultCircuitBreaker,
+			resultFallback,
+			resultInternalError,
+			resultClientError,
+			resultServerError,
+		},
 	})
 }
 
@@ -93,19 +91,6 @@ type (
 		compression *compression
 	}
 
-	pool struct {
-		tagPrefix     string
-		writeResponse bool
-
-		filter *httpfilter.HTTPFilter
-
-		servers        *servers
-		httpStat       *httpstat.HTTPStat
-		count          uint64 // for roundRobin
-		memoryCache    *memorycache.MemoryCache
-		circuitBreaker *circuitBreaker
-	}
-
 	// Spec describes the Backend.
 	Spec struct {
 		httppipeline.PluginMeta `yaml:",inline"`
@@ -122,21 +107,6 @@ type (
 		ForCodes          bool `yaml:"forCodes"`
 		ForCircuitBreaker bool `yaml:"forCircuitBreaker"`
 		fallback.Spec     `yaml:",inline"`
-	}
-
-	// poolSpec decribes a pool of servers.
-	poolSpec struct {
-		Filter         *httpfilter.Spec    `yaml:"filter,omitempty" jsonschema:"omitempty"`
-		ServersTags    []string            `yaml:"serversTags" jsonschema:"omitempty,uniqueItems=true"`
-		Servers        []*server           `yaml:"servers" jsonschema:"required,minItems=1"`
-		LoadBalance    *loadBalance        `yaml:"loadBalance" jsonschema:"required"`
-		MemoryCache    *memorycache.Spec   `yaml:"memoryCache,omitempty" jsonschema:"omitempty"`
-		CircuitBreaker *circuitBreakerSpec `yaml:"circuitBreaker,omitempty" jsonschema:"omitempty"`
-	}
-
-	poolStatus struct {
-		Stat           *httpstat.Status `yaml:"stat"`
-		CircuitBreaker string           `yaml:"circuitBreaker,omitempty"`
 	}
 
 	// Status wraps httpstat.Status.
@@ -189,27 +159,6 @@ func (s Spec) Validate() error {
 	return nil
 }
 
-// Validate validates poolSpec.
-func (s poolSpec) Validate() error {
-	serversGotWeight := 0
-	for _, server := range s.Servers {
-		if server.Weight > 0 {
-			serversGotWeight++
-		}
-	}
-	if serversGotWeight > 0 && serversGotWeight < len(s.Servers) {
-		return fmt.Errorf("not all servers have weight(%d/%d)",
-			serversGotWeight, len(s.Servers))
-	}
-
-	servers := newServers(&s)
-	if servers.len() == 0 {
-		return fmt.Errorf("serversTags picks none of servers")
-	}
-
-	return nil
-}
-
 // New creates a Backend.
 func New(spec *Spec, prev *Backend) *Backend {
 	b := &Backend{
@@ -236,35 +185,6 @@ func New(spec *Spec, prev *Backend) *Backend {
 	}
 
 	return b
-}
-
-func newPool(spec *poolSpec, tagPrefix string,
-	writeResponse bool, failureCodes []int) *pool {
-	var filter *httpfilter.HTTPFilter
-	if spec.Filter != nil {
-		filter = httpfilter.New(spec.Filter)
-	}
-
-	var memoryCache *memorycache.MemoryCache
-	if spec.MemoryCache != nil {
-		memoryCache = memorycache.New(spec.MemoryCache)
-	}
-
-	var cb *circuitBreaker
-	if spec.CircuitBreaker != nil {
-		cb = newCircuitBreaker(spec.CircuitBreaker, failureCodes)
-	}
-
-	return &pool{
-		tagPrefix:     tagPrefix,
-		writeResponse: writeResponse,
-
-		filter:         filter,
-		servers:        newServers(spec),
-		httpStat:       httpstat.New(),
-		memoryCache:    memoryCache,
-		circuitBreaker: cb,
-	}
 }
 
 // Status returns Backend status.
@@ -304,7 +224,7 @@ func (b *Backend) fallbackForCodes(ctx context.HTTPContext) bool {
 }
 
 // Handle handles HTTPContext.
-func (b *Backend) Handle(ctx context.HTTPContext) (result string) {
+func (b *Backend) Handle(ctx context.HTTPContext) string {
 	if b.mirrorPool != nil && b.mirrorPool.filter.Filter(ctx) {
 		master, slave := newMasterSlaveReader(ctx.Request().Body())
 		ctx.Request().SetBody(master)
@@ -327,18 +247,25 @@ func (b *Backend) Handle(ctx context.HTTPContext) (result string) {
 	}
 
 	if p.memoryCache != nil && p.memoryCache.Load(ctx) {
-		return
+		return ""
 	}
 
+	var result string
 	if p.circuitBreaker != nil {
-		if p.circuitBreaker.protect(ctx, ctx.Request().Body(), p.handle) != nil {
+		var err error
+		result, err = p.circuitBreaker.protect(ctx, ctx.Request().Body(), p.handle)
+		if err != nil {
 			if b.fallbackForCircuitBreaker(ctx) {
 				return resultFallback
 			}
 			return resultCircuitBreaker
 		}
 	} else {
-		p.handle(ctx, ctx.Request().Body())
+		result = p.handle(ctx, ctx.Request().Body())
+	}
+
+	if result != "" {
+		return result
 	}
 
 	if b.fallbackForCodes(ctx) {
@@ -355,132 +282,5 @@ func (b *Backend) Handle(ctx context.HTTPContext) (result string) {
 		p.memoryCache.Store(ctx)
 	}
 
-	return
-}
-
-func (p *pool) status() *poolStatus {
-	s := &poolStatus{Stat: p.httpStat.Status()}
-	if p.circuitBreaker != nil {
-		s.CircuitBreaker = p.circuitBreaker.status()
-	}
-	return s
-}
-
-func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader) {
-	var tags []string
-	defer func() {
-		ctx.Lock()
-		defer ctx.Unlock()
-		for _, tag := range tags {
-			ctx.AddTag(tag)
-		}
-	}()
-
-	// Phase 1: Prepare Request
-
-	r := ctx.Request()
-	w := ctx.Response()
-
-	server := p.servers.next(ctx)
-	tags = append(tags, stringtool.Cat(p.tagPrefix, "#addr: ", server.URL))
-
-	url := server.URL + r.Path()
-	if r.Query() != "" {
-		url += "?" + r.Query()
-	}
-	req, err := http.NewRequest(r.Method(), url, reqBody)
-	if err != nil {
-		logger.Errorf("BUG: new request failed: %v", err)
-		w.SetStatusCode(http.StatusInternalServerError)
-		tags = append(tags, stringtool.Cat(p.tagPrefix, "#bug: new request failed: ", err.Error()))
-		return
-	}
-	req.Header = r.Header().Std()
-
-	var (
-		startTime     time.Time
-		firstByteTime time.Time
-	)
-	trace := &httptrace.ClientTrace{
-		GetConn: func(_ string) {
-			startTime = time.Now()
-		},
-		GotFirstResponseByte: func() {
-			firstByteTime = time.Now()
-		},
-	}
-	req = req.WithContext(httptrace.WithClientTrace(ctx, trace))
-
-	// Phase 2: Do Request
-	// NOTE: This call will concusme a lot of time,
-	// so we must call it conccurently without lock.
-
-	resp, err := globalClient.Do(req)
-	if err != nil {
-		ctx.Lock()
-		defer ctx.Unlock()
-		w.SetStatusCode(http.StatusServiceUnavailable)
-
-		tags = append(tags, stringtool.Cat(p.tagPrefix, " do request failed: ", err.Error()))
-		return
-	}
-
-	// Phase 3: Register callback function to do statistics.
-	// NOTE: Normally only two goroutine(main/cadidate and mirror) try to get lock,
-	// so it's fine to use coarse-grained lock.
-
-	counterBody := readercounter.New(resp.Body)
-	durationBody := durationreadcloser.New(counterBody)
-
-	ctx.Lock()
-	defer ctx.Unlock()
-
-	ctx.OnFinish(func() {
-		totalDuration := firstByteTime.Sub(startTime) + durationBody.Duration()
-		ctx.AddTag(stringtool.Cat(p.tagPrefix, "#duration: ", totalDuration.String()))
-
-		text := http.StatusText(w.StatusCode())
-		if text == "" {
-			text = "status code " + strconv.Itoa(w.StatusCode())
-		}
-		// NOTE: We don't use httputil.DumpResponse because it does not
-		// completely output plain HTTP Request.
-		respMeta := stringtool.Cat(resp.Proto, " ", strconv.Itoa(resp.StatusCode), " ", text, "\r\n",
-			w.Header().Dump(), "\r\n\r\n")
-
-		respMetaSize := uint64(len(respMeta))
-
-		metric := &httpstat.Metric{
-			StatusCode: resp.StatusCode,
-			// NOTE: While writeResponse is false, Duration does not include
-			// time for reading body.
-			Duration: totalDuration,
-			ReqSize:  ctx.Request().Size(),
-			// NOTE: While writeResponse is false, RespSize is always 0.
-			RespSize: respMetaSize + counterBody.Count(),
-		}
-		if !p.writeResponse {
-			metric.RespSize = 0
-		}
-		p.httpStat.Stat(metric)
-	})
-
-	// Phase 4: Pass Through Response or Discard it.
-
-	if p.writeResponse {
-		tags = append(tags, stringtool.Cat(p.tagPrefix, "#code: ", strconv.Itoa(resp.StatusCode)))
-
-		w.SetStatusCode(resp.StatusCode)
-		w.Header().AddFromStd(resp.Header)
-		w.SetBody(durationBody)
-	} else {
-		go func() {
-			// NOTE: Need to be read to completion and closed.
-			// Reference: https://golang.org/pkg/net/http/#Response
-			// And we do NOT do statistics of duration and respSize
-			// for it, because we can't wait for it to finish.
-			defer resp.Body.Close()
-			io.Copy(ioutil.Discard, resp.Body)
-		}()
-	}
+	return ""
 }

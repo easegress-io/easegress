@@ -147,6 +147,7 @@ func New(spec *Spec, prev *RateLimiter) *RateLimiter {
 func (rl *RateLimiter) Handle(ctx context.HTTPContext) (result string) {
 	defer func() {
 		if result == resultTimeout {
+			// NOTE: The HTTPContext will set 499 by itself if client is Disconnected.
 			ctx.Response().SetStatusCode(http.StatusTooManyRequests)
 			if rl.fallback != nil {
 				rl.fallback.Fallback(ctx)

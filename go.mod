@@ -60,6 +60,7 @@ require (
 	github.com/sony/gobreaker v0.0.0-20181109014844-d928aaea92e1
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/pflag v1.0.3 // indirect
+	github.com/tcnksm/go-httpstat v0.2.1-0.20191008022543-e866bb274419
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5 // indirect
 	github.com/tomasen/realip v0.0.0-20180522021738-f0c99a92ddce
 	github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f // indirect
@@ -72,7 +73,7 @@ require (
 	github.com/yudai/pp v2.0.1+incompatible // indirect
 	go.etcd.io/etcd v0.0.0-20190830150955-898bd1351fcf
 	go.uber.org/zap v1.10.0
-	golang.org/x/net v0.0.0-20190813141303-74dc4d7220e7
+	golang.org/x/net v0.0.0-20190813141303-74dc4d7220e7 // indirect
 	golang.org/x/time v0.0.0-20181108054448-85acf8d2951c
 	google.golang.org/genproto v0.0.0-20190111180523-db91494dd46c // indirect
 	gopkg.in/mgo.v2 v2.0.0-20180705113604-9856a29383ce // indirect

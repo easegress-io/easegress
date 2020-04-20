@@ -161,7 +161,6 @@ func (w *httpResponse) Size() uint64 {
 	// completely output plain HTTP Request.
 	meta := stringtool.Cat(w.stdr.Proto, " ", strconv.Itoa(w.StatusCode()), " ", text, "\r\n",
 		w.Header().Dump(), "\r\n\r\n")
-
 	return uint64(len(meta)) + w.bodyWritten
 }
 
