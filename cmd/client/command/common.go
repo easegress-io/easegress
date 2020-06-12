@@ -7,8 +7,9 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/ghodss/yaml"
+	yamljsontool "github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
+	yaml "gopkg.in/yaml.v2"
 )
 
 type (
@@ -93,7 +94,7 @@ func printBody(body []byte) {
 		output = body
 	case "json":
 		var err error
-		output, err = yaml.YAMLToJSON(body)
+		output, err = yamljsontool.YAMLToJSON(body)
 		if err != nil {
 			ExitWithErrorf("yaml %s to json failed: %v", body, err)
 		}

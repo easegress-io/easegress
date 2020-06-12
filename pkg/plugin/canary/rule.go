@@ -1,9 +1,9 @@
 package canary
 
 import (
-	"github.com/ghodss/yaml"
-
 	"github.com/megaease/easegateway/pkg/context"
+
+	yaml "gopkg.in/yaml.v2"
 )
 
 // Rule is the A/B testing rule specified by user.

@@ -278,7 +278,6 @@ func (rp *RemotePlugin) unmarshalHTTPContext(buff []byte, ctx context.HTTPContex
 
 	if we.StatusCode < 200 || we.StatusCode >= 600 {
 		panic(fmt.Errorf("invalid status code: %d", we.StatusCode))
-		return
 	}
 
 	w.SetStatusCode(we.StatusCode)
