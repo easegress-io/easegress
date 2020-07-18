@@ -25,4 +25,5 @@ rules:
       - key: X-Activity-No
         regexp: ^324.*$
         backend: remote-pipeline2
-
+    - path: /func
+      backend: func-mirror

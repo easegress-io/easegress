@@ -1,0 +1,6 @@
+kind: Function
+name: func-mirror
+url: http://localhost:9091
+cron:
+  withSecond: true
+  spec: '* * * * * *'

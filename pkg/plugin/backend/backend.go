@@ -95,15 +95,16 @@ type (
 	Spec struct {
 		httppipeline.PluginMeta `yaml:",inline"`
 
-		Fallback      *fallbackSpec    `yaml:"fallback,omitempty" jsonschema:"omitempty"`
-		MainPool      *poolSpec        `yaml:"mainPool" jsonschema:"required"`
-		CandidatePool *poolSpec        `yaml:"candidatePool,omitempty" jsonschema:"omitempty"`
-		MirrorPool    *poolSpec        `yaml:"mirrorPool,omitempty" jsonschema:"omitempty"`
+		Fallback      *FallbackSpec    `yaml:"fallback,omitempty" jsonschema:"omitempty"`
+		MainPool      *PoolSpec        `yaml:"mainPool" jsonschema:"required"`
+		CandidatePool *PoolSpec        `yaml:"candidatePool,omitempty" jsonschema:"omitempty"`
+		MirrorPool    *PoolSpec        `yaml:"mirrorPool,omitempty" jsonschema:"omitempty"`
 		FailureCodes  []int            `yaml:"failureCodes" jsonschema:"omitempty,uniqueItems=true,format=httpcode-array"`
 		Compression   *CompressionSpec `yaml:"compression,omitempty" jsonschema:"omitempty"`
 	}
 
-	fallbackSpec struct {
+	// FallbackSpec describes the fallback policy.
+	FallbackSpec struct {
 		ForCodes          bool `yaml:"forCodes"`
 		ForCircuitBreaker bool `yaml:"forCircuitBreaker"`
 		fallback.Spec     `yaml:",inline"`
@@ -111,9 +112,9 @@ type (
 
 	// Status wraps httpstat.Status.
 	Status struct {
-		MainPool      *poolStatus `yaml:"mainPool"`
-		CandidatePool *poolStatus `yaml:"candidatePool,omitempty"`
-		MirrorPool    *poolStatus `yaml:"mirrorPool,omitempty"`
+		MainPool      *PoolStatus `yaml:"mainPool"`
+		CandidatePool *PoolStatus `yaml:"candidatePool,omitempty"`
+		MirrorPool    *PoolStatus `yaml:"mirrorPool,omitempty"`
 	}
 )
 

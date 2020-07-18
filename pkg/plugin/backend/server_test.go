@@ -8,18 +8,18 @@ import (
 func TestPickservers(t *testing.T) {
 	type fields struct {
 		serversTags []string
-		servers     []*server
+		servers     []*Server
 	}
 	tests := []struct {
 		name   string
 		fields fields
-		want   []*server
+		want   []*Server
 	}{
 		{
 			name: "pickNone",
 			fields: fields{
 				serversTags: []string{"v2"},
-				servers: []*server{
+				servers: []*Server{
 					{
 						URL:  "http://127.0.0.1:9090",
 						Tags: []string{"green"},
@@ -34,13 +34,13 @@ func TestPickservers(t *testing.T) {
 					},
 				},
 			},
-			want: []*server{},
+			want: []*Server{},
 		},
 		{
 			name: "pickSome",
 			fields: fields{
 				serversTags: []string{"v1"},
-				servers: []*server{
+				servers: []*Server{
 					{
 						URL:  "http://127.0.0.1:9090",
 						Tags: []string{"green"},
@@ -55,7 +55,7 @@ func TestPickservers(t *testing.T) {
 					},
 				},
 			},
-			want: []*server{
+			want: []*Server{
 				{
 					URL:  "http://127.0.0.1:9091",
 					Tags: []string{"v1"},
@@ -66,7 +66,7 @@ func TestPickservers(t *testing.T) {
 			name: "pickAll1",
 			fields: fields{
 				serversTags: nil,
-				servers: []*server{
+				servers: []*Server{
 					{URL: "http://127.0.0.1:9091", Weight: 33},
 					{URL: "http://127.0.0.1:9092", Weight: 1},
 					{URL: "http://127.0.0.1:9093", Weight: 0},
@@ -76,7 +76,7 @@ func TestPickservers(t *testing.T) {
 					},
 				},
 			},
-			want: []*server{
+			want: []*Server{
 				{URL: "http://127.0.0.1:9091", Weight: 33},
 				{URL: "http://127.0.0.1:9092", Weight: 1},
 				{URL: "http://127.0.0.1:9093", Weight: 0},
@@ -90,7 +90,7 @@ func TestPickservers(t *testing.T) {
 			name: "pickAll2",
 			fields: fields{
 				serversTags: []string{"v1"},
-				servers: []*server{
+				servers: []*Server{
 					{
 						URL:  "http://127.0.0.1:9091",
 						Tags: []string{"v1", "green"},
@@ -105,7 +105,7 @@ func TestPickservers(t *testing.T) {
 					},
 				},
 			},
-			want: []*server{
+			want: []*Server{
 				{
 					URL:  "http://127.0.0.1:9091",
 					Tags: []string{"v1", "green"},
@@ -124,7 +124,7 @@ func TestPickservers(t *testing.T) {
 			name: "pickMultiTags",
 			fields: fields{
 				serversTags: []string{"v1", "green"},
-				servers: []*server{
+				servers: []*Server{
 					{
 						URL:  "http://127.0.0.1:9090",
 						Tags: []string{"d1", "v1", "green"},
@@ -147,7 +147,7 @@ func TestPickservers(t *testing.T) {
 					},
 				},
 			},
-			want: []*server{
+			want: []*Server{
 				{
 					URL:  "http://127.0.0.1:9090",
 					Tags: []string{"d1", "v1", "green"},
@@ -174,7 +174,7 @@ func TestPickservers(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			spec := &poolSpec{
+			spec := &PoolSpec{
 				ServersTags: tt.fields.serversTags,
 				Servers:     tt.fields.servers,
 			}
