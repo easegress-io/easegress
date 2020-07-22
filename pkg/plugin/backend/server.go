@@ -17,49 +17,49 @@ func init() {
 }
 
 const (
-	policyRoundRobin     = "roundRobin"
-	policyRandom         = "random"
-	policyWeightedRandom = "weightedRandom"
-	policyIPHash         = "ipHash"
-	policyHeaderHash     = "headerHash"
+	PolicyRoundRobin     = "roundRobin"
+	PolicyRandom         = "random"
+	PolicyWeightedRandom = "weightedRandom"
+	PolicyIPHash         = "ipHash"
+	PolicyHeaderHash     = "headerHash"
 )
 
 type (
 	servers struct {
 		count      uint64
 		weightsSum int
-		servers    []*server
-		lb         *loadBalance
+		servers    []*Server
+		lb         *LoadBalance
 	}
 
-	// server is backend server.
-	server struct {
+	// Server is backend server.
+	Server struct {
 		URL    string   `yaml:"url" jsonschema:"required,format=url"`
 		Tags   []string `yaml:"tags" jsonschema:"omitempty,uniqueItems=true"`
 		Weight int      `yaml:"weight" jsonschema:"omitempty,minimum=0,maximum=100"`
 	}
 
-	// loadBalance is load balance for multiple servers.
-	loadBalance struct {
+	// LoadBalance is load balance for multiple servers.
+	LoadBalance struct {
 		Policy        string `yaml:"policy" jsonschema:"required,enum=roundRobin,enum=random,enum=weightedRandom,enum=ipHash,enum=headerHash"`
 		HeaderHashKey string `yaml:"headerHashKey" jsonschema:"omitempty"`
 	}
 )
 
-func (s *server) String() string {
+func (s *Server) String() string {
 	return fmt.Sprintf("%s,%v,%d", s.URL, s.Tags, s.Weight)
 }
 
 // Validate validates LoadBalance.
-func (lb loadBalance) Validate() error {
-	if lb.Policy == policyHeaderHash && len(lb.HeaderHashKey) == 0 {
+func (lb LoadBalance) Validate() error {
+	if lb.Policy == PolicyHeaderHash && len(lb.HeaderHashKey) == 0 {
 		return fmt.Errorf("headerHash needs to speficy headerHashKey")
 	}
 
 	return nil
 }
 
-func newServers(spec *poolSpec) *servers {
+func newServers(spec *PoolSpec) *servers {
 	s := &servers{
 		lb: spec.LoadBalance,
 	}
@@ -70,7 +70,7 @@ func newServers(spec *poolSpec) *servers {
 		return s
 	}
 
-	servers := make([]*server, 0)
+	servers := make([]*Server, 0)
 	for _, server := range spec.Servers {
 		for _, tag := range spec.ServersTags {
 			if stringtool.StrInSlice(tag, server.Tags) {
@@ -94,17 +94,17 @@ func (s *servers) len() int {
 	return len(s.servers)
 }
 
-func (s *servers) next(ctx context.HTTPContext) *server {
+func (s *servers) next(ctx context.HTTPContext) *Server {
 	switch s.lb.Policy {
-	case policyRoundRobin:
+	case PolicyRoundRobin:
 		return s.roundRobin(ctx)
-	case policyRandom:
+	case PolicyRandom:
 		return s.random(ctx)
-	case policyWeightedRandom:
+	case PolicyWeightedRandom:
 		return s.weightedRandom(ctx)
-	case policyIPHash:
+	case PolicyIPHash:
 		return s.ipHash(ctx)
-	case policyHeaderHash:
+	case PolicyHeaderHash:
 		return s.headerHash(ctx)
 	}
 
@@ -113,16 +113,16 @@ func (s *servers) next(ctx context.HTTPContext) *server {
 	return s.roundRobin(ctx)
 }
 
-func (s *servers) roundRobin(ctx context.HTTPContext) *server {
+func (s *servers) roundRobin(ctx context.HTTPContext) *Server {
 	count := atomic.AddUint64(&s.count, 1)
 	return s.servers[int(count)%len(s.servers)]
 }
 
-func (s *servers) random(ctx context.HTTPContext) *server {
+func (s *servers) random(ctx context.HTTPContext) *Server {
 	return s.servers[rand.Intn(len(s.servers))]
 }
 
-func (s *servers) weightedRandom(ctx context.HTTPContext) *server {
+func (s *servers) weightedRandom(ctx context.HTTPContext) *Server {
 	randomWeight := rand.Intn(s.weightsSum)
 	for _, server := range s.servers {
 		randomWeight -= server.Weight
@@ -137,12 +137,12 @@ func (s *servers) weightedRandom(ctx context.HTTPContext) *server {
 	return s.random(ctx)
 }
 
-func (s *servers) ipHash(ctx context.HTTPContext) *server {
+func (s *servers) ipHash(ctx context.HTTPContext) *Server {
 	sum32 := int(hashtool.Hash32(ctx.Request().RealIP()))
 	return s.servers[sum32%len(s.servers)]
 }
 
-func (s *servers) headerHash(ctx context.HTTPContext) *server {
+func (s *servers) headerHash(ctx context.HTTPContext) *Server {
 	value := ctx.Request().Header().Get(s.lb.HeaderHashKey)
 	sum32 := int(hashtool.Hash32(value))
 	return s.servers[sum32%len(s.servers)]

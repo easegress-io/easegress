@@ -25,7 +25,7 @@ type (
 	}
 )
 
-func (p *pool) newRequest(ctx context.HTTPContext, server *server, reqBody io.Reader) (*request, error) {
+func (p *pool) newRequest(ctx context.HTTPContext, server *Server, reqBody io.Reader) (*request, error) {
 	req := &request{
 		statResult: &httpstat.Result{},
 	}

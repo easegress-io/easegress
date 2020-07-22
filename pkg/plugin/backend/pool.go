@@ -31,24 +31,25 @@ type (
 		circuitBreaker *circuitBreaker
 	}
 
-	// poolSpec decribes a pool of servers.
-	poolSpec struct {
+	// PoolSpec decribes a pool of servers.
+	PoolSpec struct {
 		Filter         *httpfilter.Spec    `yaml:"filter,omitempty" jsonschema:"omitempty"`
 		ServersTags    []string            `yaml:"serversTags" jsonschema:"omitempty,uniqueItems=true"`
-		Servers        []*server           `yaml:"servers" jsonschema:"required,minItems=1"`
-		LoadBalance    *loadBalance        `yaml:"loadBalance" jsonschema:"required"`
+		Servers        []*Server           `yaml:"servers" jsonschema:"required,minItems=1"`
+		LoadBalance    *LoadBalance        `yaml:"loadBalance" jsonschema:"required"`
 		MemoryCache    *memorycache.Spec   `yaml:"memoryCache,omitempty" jsonschema:"omitempty"`
 		CircuitBreaker *circuitBreakerSpec `yaml:"circuitBreaker,omitempty" jsonschema:"omitempty"`
 	}
 
-	poolStatus struct {
+	// PoolStatus is the status of Pool.
+	PoolStatus struct {
 		Stat           *httpstat.Status `yaml:"stat"`
 		CircuitBreaker string           `yaml:"circuitBreaker,omitempty"`
 	}
 )
 
 // Validate validates poolSpec.
-func (s poolSpec) Validate() error {
+func (s PoolSpec) Validate() error {
 	serversGotWeight := 0
 	for _, server := range s.Servers {
 		if server.Weight > 0 {
@@ -68,7 +69,7 @@ func (s poolSpec) Validate() error {
 	return nil
 }
 
-func newPool(spec *poolSpec, tagPrefix string,
+func newPool(spec *PoolSpec, tagPrefix string,
 	writeResponse bool, failureCodes []int) *pool {
 	var filter *httpfilter.HTTPFilter
 	if spec.Filter != nil {
@@ -97,8 +98,8 @@ func newPool(spec *poolSpec, tagPrefix string,
 	}
 }
 
-func (p *pool) status() *poolStatus {
-	s := &poolStatus{Stat: p.httpStat.Status()}
+func (p *pool) status() *PoolStatus {
+	s := &PoolStatus{Stat: p.httpStat.Status()}
 	if p.circuitBreaker != nil {
 		s.CircuitBreaker = p.circuitBreaker.status()
 	}
@@ -165,7 +166,7 @@ func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader) string {
 	return ""
 }
 
-func (p *pool) prepareRequest(ctx context.HTTPContext, server *server, reqBody io.Reader) (req *request, err error) {
+func (p *pool) prepareRequest(ctx context.HTTPContext, server *Server, reqBody io.Reader) (req *request, err error) {
 	return p.newRequest(ctx, server, reqBody)
 }
 

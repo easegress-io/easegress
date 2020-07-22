@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/megaease/easegateway/pkg/util/codecounter"
 	"github.com/megaease/easegateway/pkg/util/sampler"
 
 	metrics "github.com/rcrowley/go-metrics"
@@ -19,7 +20,7 @@ type (
 		durationSampler *sampler.DurationSampler
 		reqSize         uint64
 		respSize        uint64
-		cc              *codeCounter
+		cc              *codecounter.CodeCounter
 	}
 
 	// Metric is the package of statistics at once.
@@ -46,7 +47,7 @@ type (
 // New creates an HTTPStat.
 func New() *HTTPStat {
 	hs := &HTTPStat{
-		cc:              newCodeCounter(),
+		cc:              codecounter.New(),
 		rate1:           metrics.NewEWMA1(),
 		durationSampler: sampler.NewDurationSampler(),
 	}
@@ -64,7 +65,7 @@ func (hs *HTTPStat) Stat(m *Metric) {
 	defer hs.mutex.Unlock()
 
 	hs.rate1.Update(1)
-	hs.cc.count(m.StatusCode)
+	hs.cc.Count(m.StatusCode)
 	hs.durationSampler.Update(m.Duration)
 
 	hs.reqSize += m.ReqSize
@@ -84,11 +85,11 @@ func (hs *HTTPStat) Status() *Status {
 		Count:    hs.count,
 		ReqSize:  hs.reqSize,
 		RespSize: hs.respSize,
-		Codes:    hs.cc.codes(),
+		Codes:    hs.cc.Codes(),
 	}
 	status.P50, status.P95, status.P99 = hs.durationSampler.P50P95P99()
 
-	hs.cc = newCodeCounter()
+	hs.cc = codecounter.New()
 	hs.rate1 = metrics.NewEWMA1()
 	hs.durationSampler = sampler.NewDurationSampler()
 	hs.count, hs.reqSize, hs.respSize = 0, 0, 0
