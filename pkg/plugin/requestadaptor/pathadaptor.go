@@ -8,8 +8,8 @@ import (
 )
 
 type (
-	// pathAdaptorSpec describes rules for adapting path.
-	pathAdaptorSpec struct {
+	// PathAdaptorSpec describes rules for adapting path.
+	PathAdaptorSpec struct {
 		Replace       string         `yaml:"replace,omitempty" jsonschema:"omitempty"`
 		AddPrefix     string         `yaml:"addPrefix,omitempty" jsonschema:"omitempty,pattern=^/"`
 		TrimPrefix    string         `yaml:"trimPrefix,omitempty" jsonschema:"omitempty,pattern=^/"`
@@ -24,13 +24,14 @@ type (
 		re *regexp.Regexp
 	}
 
-	pathAdaptor struct {
-		spec *pathAdaptorSpec
+	// PathAdaptor is the adaptor to adapt the path.
+	PathAdaptor struct {
+		spec *PathAdaptorSpec
 	}
 )
 
 // newPathAdaptor creates a pathAdaptor.
-func newPathAdaptor(spec *pathAdaptorSpec) *pathAdaptor {
+func newPathAdaptor(spec *PathAdaptorSpec) *PathAdaptor {
 	if spec.RegexpReplace != nil {
 		var err error
 		spec.RegexpReplace.re, err = regexp.Compile(spec.RegexpReplace.Regexp)
@@ -40,13 +41,13 @@ func newPathAdaptor(spec *pathAdaptorSpec) *pathAdaptor {
 		}
 	}
 
-	return &pathAdaptor{
+	return &PathAdaptor{
 		spec: spec,
 	}
 }
 
 // Adapt adapts path.
-func (a *pathAdaptor) Adapt(path string) string {
+func (a *PathAdaptor) Adapt(path string) string {
 	if len(a.spec.Replace) != 0 {
 		return a.spec.Replace
 	}

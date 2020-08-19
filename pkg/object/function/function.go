@@ -8,7 +8,9 @@ import (
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httpserver"
 	"github.com/megaease/easegateway/pkg/plugin/backend"
+	"github.com/megaease/easegateway/pkg/plugin/requestadaptor"
 	"github.com/megaease/easegateway/pkg/scheduler"
+	"github.com/megaease/easegateway/pkg/util/httpheader"
 	"github.com/megaease/easegateway/pkg/util/httpstat"
 	"github.com/megaease/easegateway/pkg/v"
 
@@ -37,16 +39,25 @@ type (
 
 		handlers *sync.Map
 
-		backend *backend.Backend
-		cron    *Cron
+		backend        *backend.Backend
+		cron           *Cron
+		requestAdaptor *requestadaptor.RequestAdaptor
 	}
 
 	// Spec describes the Function.
 	Spec struct {
 		scheduler.ObjectMeta `yaml:",inline"`
 
-		URL  string    `yaml:"url" jsonschema:"required"`
-		Cron *CronSpec `yaml:"cron" jsonschema:"omitempty"`
+		URL            string               `yaml:"url" jsonschema:"required"`
+		Cron           *CronSpec            `yaml:"cron" jsonschema:"omitempty"`
+		RequestAdaptor *RequestAdapotorSpec `yaml:"requestAdaptor" jsonschema:"omitempty"`
+	}
+
+	// RequestAdapotorSpec describes the RequestAdaptor.
+	RequestAdapotorSpec struct {
+		Method string                          `yaml:"method" jsonschema:"omitempty,format=httpmethod"`
+		Path   *requestadaptor.PathAdaptorSpec `yaml:"path,omitempty" jsonschema:"omitempty"`
+		Header *httpheader.AdaptSpec           `yaml:"header,omitempty" jsonschema:"omitempty"`
 	}
 
 	// Status is the status of Function.
@@ -99,6 +110,18 @@ func (spec Spec) backendSpec() *backend.Spec {
 	}
 }
 
+func (spec Spec) requestAdaptorSpec() *requestadaptor.Spec {
+	if spec.RequestAdaptor == nil {
+		return &requestadaptor.Spec{}
+	}
+
+	return &requestadaptor.Spec{
+		Method: spec.RequestAdaptor.Method,
+		Path:   spec.RequestAdaptor.Path,
+		Header: spec.RequestAdaptor.Header,
+	}
+}
+
 // New creates an Function.
 func New(spec *Spec, prev *Function, handlers *sync.Map) *Function {
 	var prevBackend *backend.Backend
@@ -106,10 +129,19 @@ func New(spec *Spec, prev *Function, handlers *sync.Map) *Function {
 		prevBackend = prev.backend
 	}
 
+	var prevRequestAdaptor *requestadaptor.RequestAdaptor
+	if prev != nil {
+		prevRequestAdaptor = prev.requestAdaptor
+	}
+
 	f := &Function{
 		spec:     spec,
 		handlers: handlers,
 		backend:  backend.New(spec.backendSpec(), prevBackend),
+	}
+
+	if spec.RequestAdaptor != nil {
+		f.requestAdaptor = requestadaptor.New(spec.requestAdaptorSpec(), prevRequestAdaptor)
 	}
 
 	if spec.Cron != nil {
@@ -128,6 +160,9 @@ func DefaultSpec() *Spec {
 
 // Handle handles all HTTP incoming traffic.
 func (f *Function) Handle(ctx context.HTTPContext) {
+	if f.requestAdaptor != nil {
+		f.requestAdaptor.Handle(ctx)
+	}
 	f.backend.Handle(ctx)
 }
 
@@ -146,6 +181,10 @@ func (f *Function) Status() *Status {
 
 // Close closes Function.
 func (f *Function) Close() {
+	if f.requestAdaptor != nil {
+		f.requestAdaptor.Close()
+	}
+
 	if f.cron != nil {
 		f.cron.Close()
 	}

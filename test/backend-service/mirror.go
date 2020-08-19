@@ -23,9 +23,10 @@ func main() {
 
 		content := fmt.Sprintf(`Your Request
 ===============
+Method: %s
 URL   : %s
 Header: %v
-Body  : %s`, url, req.Header, body)
+Body  : %s`, req.Method, url, req.Header, body)
 
 		// fmt.Printf("%s: %d bytes body received, %d bytes body sent\n",
 		// 	req.Host, len(body), len(content))

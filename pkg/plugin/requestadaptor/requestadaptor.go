@@ -31,7 +31,7 @@ type (
 	RequestAdaptor struct {
 		spec *Spec
 
-		pathAdaptor *pathAdaptor
+		pathAdaptor *PathAdaptor
 	}
 
 	// Spec is HTTPAdaptor Spec.
@@ -39,14 +39,14 @@ type (
 		httppipeline.PluginMeta `yaml:",inline"`
 
 		Method string                `yaml:"method" jsonschema:"omitempty,format=httpmethod"`
-		Path   *pathAdaptorSpec      `yaml:"path,omitempty" jsonschema:"omitempty"`
+		Path   *PathAdaptorSpec      `yaml:"path,omitempty" jsonschema:"omitempty"`
 		Header *httpheader.AdaptSpec `yaml:"header,omitempty" jsonschema:"omitempty"`
 	}
 )
 
 // New creates an HTTPAdaptor.
 func New(spec *Spec, prev *RequestAdaptor) *RequestAdaptor {
-	var pathAdaptor *pathAdaptor
+	var pathAdaptor *PathAdaptor
 	if spec.Path != nil {
 		pathAdaptor = newPathAdaptor(spec.Path)
 	}
