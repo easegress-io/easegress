@@ -15,9 +15,12 @@ import (
 
 type (
 	request struct {
+		server     *Server
 		std        *http.Request
 		statResult *httpstat.Result
-		endTime    *time.Time
+		createTime time.Time
+		_startTime *time.Time
+		_endTime   *time.Time
 	}
 
 	resultState struct {
@@ -27,6 +30,8 @@ type (
 
 func (p *pool) newRequest(ctx context.HTTPContext, server *Server, reqBody io.Reader) (*request, error) {
 	req := &request{
+		createTime: time.Now(),
+		server:     server,
 		statResult: &httpstat.Result{},
 	}
 
@@ -49,24 +54,50 @@ func (p *pool) newRequest(ctx context.HTTPContext, server *Server, reqBody io.Re
 	return req, nil
 }
 
+func (r *request) start() {
+	if r._startTime != nil {
+		logger.Errorf("BUG: started already")
+		return
+	}
+
+	now := time.Now()
+	r._startTime = &now
+}
+
+func (r *request) startTime() time.Time {
+	if r._startTime == nil {
+		return r.createTime
+	}
+
+	return *r._startTime
+}
+
+func (r *request) endTime() time.Time {
+	if r._endTime == nil {
+		return time.Now()
+	}
+
+	return *r._endTime
+}
+
 func (r *request) finish() {
-	if r.endTime != nil {
-		logger.Errorf("finished alreyad")
+	if r._endTime != nil {
+		logger.Errorf("BUG: finished already")
 		return
 	}
 
 	now := time.Now()
 	r.statResult.End(now)
-	r.endTime = &now
+	r._endTime = &now
 }
 
 func (r *request) total() time.Duration {
-	if r.endTime == nil {
-		logger.Errorf("call total before finish")
+	if r._endTime == nil {
+		logger.Errorf("BUG: call total before finish")
 		return r.statResult.Total(time.Now())
 	}
 
-	return r.statResult.Total(*r.endTime)
+	return r.statResult.Total(*r._endTime)
 }
 
 func (r *request) detail() string {

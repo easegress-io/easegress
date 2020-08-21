@@ -7,7 +7,7 @@ import (
 	sem2 "github.com/megaease/easegateway/pkg/util/sem"
 )
 
-// LimitListener returns a Listener that accepts at most n simultaneous
+// NewLimitListener returns a Listener that accepts at most n simultaneous
 // connections from the provided Listener.
 func NewLimitListener(l net.Listener, n uint32) *LimitListener {
 	return &LimitListener{
@@ -17,6 +17,7 @@ func NewLimitListener(l net.Listener, n uint32) *LimitListener {
 	}
 }
 
+// LimitListener is the Listener to limit connections.
 type LimitListener struct {
 	net.Listener
 	sem       *sem2.Semaphore
@@ -37,6 +38,7 @@ func (l *LimitListener) acquire() bool {
 }
 func (l *LimitListener) release() { l.sem.Release() }
 
+// Accept accepts one conneciton.
 func (l *LimitListener) Accept() (net.Conn, error) {
 	acquired := l.acquire()
 	// If the semaphore isn't acquired because the listener was closed, expect
@@ -51,10 +53,12 @@ func (l *LimitListener) Accept() (net.Conn, error) {
 	return &limitListenerConn{Conn: c, release: l.release}, nil
 }
 
+// SetMaxConnection sets max connection.
 func (l *LimitListener) SetMaxConnection(n uint32) {
 	l.sem.SetMaxCount(n)
 }
 
+// Close closes LimitListener.
 func (l *LimitListener) Close() error {
 	err := l.Listener.Close()
 	l.closeOnce.Do(func() { close(l.done) })

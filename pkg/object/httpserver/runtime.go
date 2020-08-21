@@ -204,9 +204,14 @@ func (r *runtime) getError() error {
 func (r *runtime) needRestartServer(nextSpec *Spec) bool {
 	x := *r.spec
 	y := *nextSpec
-	x.Rules, y.Rules = nil, nil
 
+	// The change of options below need not restart the HTTP server.
 	x.MaxConnections, y.MaxConnections = 0, 0
+	x.CacheSize, y.CacheSize = 0, 0
+	x.XForwardedFor, y.XForwardedFor = false, false
+	x.Tracing, y.Tracing = nil, nil
+	x.IPFilter, y.IPFilter = nil, nil
+	x.Rules, y.Rules = nil, nil
 
 	// The update of rules need not to shutdown server.
 	return !reflect.DeepEqual(x, y)

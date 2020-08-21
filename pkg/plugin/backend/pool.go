@@ -129,6 +129,9 @@ func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader) string {
 
 	resp, err := p.doRequest(ctx, req)
 	if err != nil {
+		// NOTE: May add option to cancel the tracing if failed here.
+		// ctx.Span().Cancel()
+
 		addTag("trace", req.detail())
 		if ctx.ClientDisconnected() {
 			// NOTE: The HTTPContext will set 499 by itself if client is Disconnected.
@@ -171,6 +174,8 @@ func (p *pool) prepareRequest(ctx context.HTTPContext, server *Server, reqBody i
 }
 
 func (p *pool) doRequest(ctx context.HTTPContext, req *request) (*http.Response, error) {
+	req.start()
+
 	resp, err := globalClient.Do(req.std)
 	if err != nil {
 		return nil, err
@@ -181,11 +186,15 @@ func (p *pool) doRequest(ctx context.HTTPContext, req *request) (*http.Response,
 func (p *pool) statRequestResponse(ctx context.HTTPContext, req *request, resp *http.Response) io.Reader {
 	var count int
 
+	startTime := req.startTime()
+	span := ctx.Span().NewChildWithStart(req.server.URL, startTime)
+
 	callbackBody := callbackreader.New(resp.Body)
 	callbackBody.OnAfter(func(num int, p []byte, n int, err error) ([]byte, int, error) {
 		count += n
 		if err == io.EOF {
 			req.finish()
+			span.Finish()
 		}
 
 		return p, n, err

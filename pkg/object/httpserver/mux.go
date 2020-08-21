@@ -1,8 +1,8 @@
 package httpserver
 
 import (
-	"github.com/megaease/easegateway/pkg/util/httpheader"
 	"net/http"
+	"reflect"
 	"regexp"
 	"strings"
 	"sync"
@@ -11,6 +11,8 @@ import (
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/scheduler"
+	"github.com/megaease/easegateway/pkg/tracing"
+	"github.com/megaease/easegateway/pkg/util/httpheader"
 	"github.com/megaease/easegateway/pkg/util/httpstat"
 	"github.com/megaease/easegateway/pkg/util/ipfilter"
 	"github.com/megaease/easegateway/pkg/util/stringtool"
@@ -19,7 +21,6 @@ import (
 
 type (
 	mux struct {
-		spec     *Spec
 		handlers *sync.Map
 		httpStat *httpstat.HTTPStat
 		topN     *topn.TopN
@@ -28,8 +29,10 @@ type (
 	}
 
 	muxRules struct {
+		spec  *Spec
 		cache *cache
 
+		tracer       *tracing.Tracing
 		ipFilter     *ipfilter.IPFilter
 		ipFilterChan *ipfilter.IPFilters
 
@@ -259,18 +262,37 @@ func newMux(handlers *sync.Map, httpStat *httpstat.HTTPStat, topN *topn.TopN) *m
 		topN:     topN,
 	}
 
-	m.rules.Store(&muxRules{})
+	m.rules.Store(&muxRules{spec: &Spec{}, tracer: tracing.NoopTracing})
 
 	return m
 }
 
 func (m *mux) reloadRules(spec *Spec) {
-	m.spec = spec
+	tracer := tracing.NoopTracing
+	oldRules := m.rules.Load().(*muxRules)
+	if !reflect.DeepEqual(oldRules.spec.Tracing, spec.Tracing) {
+		defer func() {
+			err := oldRules.tracer.Close()
+			if err != nil {
+				logger.Errorf("close tracing failed: %v", err)
+			}
+		}()
+		tracer0, err := tracing.New(spec.Tracing)
+		if err != nil {
+			logger.Errorf("create tracing failed: %v", err)
+		} else {
+			tracer = tracer0
+		}
+	} else if oldRules.tracer != nil {
+		tracer = oldRules.tracer
+	}
 
 	rules := &muxRules{
+		spec:         spec,
 		ipFilter:     newIPFilter(spec.IPFilter),
 		ipFilterChan: newIPFilterChain(nil, spec.IPFilter),
 		rules:        make([]*muxRule, len(spec.Rules)),
+		tracer:       tracer,
 	}
 
 	if spec.CacheSize > 0 {
@@ -302,9 +324,10 @@ func (m *mux) reloadRules(spec *Spec) {
 func (m *mux) ServeHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 	rules := m.rules.Load().(*muxRules)
 
-	ctx := context.New(stdw, stdr)
+	ctx := context.New(stdw, stdr, rules.tracer, rules.spec.Name)
 	defer ctx.Finish()
 	ctx.OnFinish(func() {
+		ctx.Span().Finish()
 		m.httpStat.Stat(ctx.StatMetric())
 		m.topN.Stat(ctx)
 	})
@@ -399,7 +422,7 @@ func (m *mux) handleRequestWithCache(rules *muxRules, ctx context.HTTPContext, c
 			return
 		}
 
-		if m.spec.XForwardedFor {
+		if rules.spec.XForwardedFor {
 			m.appendXForwardedFor(ctx)
 		}
 

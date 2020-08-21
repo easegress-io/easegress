@@ -11,10 +11,12 @@ import (
 	"time"
 
 	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/tracing"
 	"github.com/megaease/easegateway/pkg/util/httpheader"
 	"github.com/megaease/easegateway/pkg/util/httpstat"
 	"github.com/megaease/easegateway/pkg/util/stringtool"
 	"github.com/megaease/easegateway/pkg/util/timetool"
+	"github.com/opentracing/opentracing-go"
 )
 
 type (
@@ -24,6 +26,8 @@ type (
 	HTTPContext interface {
 		Lock()
 		Unlock()
+
+		Span() tracing.Span
 
 		Request() HTTPRequest
 		Response() HTTPReponse
@@ -107,6 +111,8 @@ type (
 		r *httpRequest
 		w *httpResponse
 
+		tracer         opentracing.Tracer
+		span           tracing.Span
 		originalReqCtx stdcontext.Context
 		stdctx         stdcontext.Context
 		cancelFunc     stdcontext.CancelFunc
@@ -117,7 +123,8 @@ type (
 // New creates an HTTPContext.
 // NOTE: We can't use sync.Pool to recycle context.
 // Reference: https://github.com/gin-gonic/gin/issues/1731
-func New(stdw http.ResponseWriter, stdr *http.Request) HTTPContext {
+func New(stdw http.ResponseWriter, stdr *http.Request,
+	tracer *tracing.Tracing, spanName string) HTTPContext {
 	originalReqCtx := stdr.Context()
 	stdctx, cancelFunc := stdcontext.WithCancel(originalReqCtx)
 	stdr = stdr.WithContext(stdctx)
@@ -125,6 +132,8 @@ func New(stdw http.ResponseWriter, stdr *http.Request) HTTPContext {
 	startTime := time.Now()
 	return &httpContext{
 		startTime:      &startTime,
+		tracer:         tracer,
+		span:           tracing.NewSpan(tracer, spanName),
 		originalReqCtx: originalReqCtx,
 		stdctx:         stdctx,
 		cancelFunc:     cancelFunc,
@@ -139,6 +148,10 @@ func (ctx *httpContext) Lock() {
 
 func (ctx *httpContext) Unlock() {
 	ctx.mutex.Unlock()
+}
+
+func (ctx *httpContext) Span() tracing.Span {
+	return ctx.span
 }
 
 func (ctx *httpContext) AddTag(tag string) {
