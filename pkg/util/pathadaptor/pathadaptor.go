@@ -1,4 +1,4 @@
-package requestadaptor
+package pathadaptor
 
 import (
 	"regexp"
@@ -8,8 +8,8 @@ import (
 )
 
 type (
-	// PathAdaptorSpec describes rules for adapting path.
-	PathAdaptorSpec struct {
+	// Spec describes rules for PathAdaptor.
+	Spec struct {
 		Replace       string         `yaml:"replace,omitempty" jsonschema:"omitempty"`
 		AddPrefix     string         `yaml:"addPrefix,omitempty" jsonschema:"omitempty,pattern=^/"`
 		TrimPrefix    string         `yaml:"trimPrefix,omitempty" jsonschema:"omitempty,pattern=^/"`
@@ -24,14 +24,14 @@ type (
 		re *regexp.Regexp
 	}
 
-	// PathAdaptor is the adaptor to adapt the path.
+	// PathAdaptor is the path Adaptor.
 	PathAdaptor struct {
-		spec *PathAdaptorSpec
+		spec *Spec
 	}
 )
 
-// newPathAdaptor creates a pathAdaptor.
-func newPathAdaptor(spec *PathAdaptorSpec) *PathAdaptor {
+// New creates a pathAdaptor.
+func New(spec *Spec) *PathAdaptor {
 	if spec.RegexpReplace != nil {
 		var err error
 		spec.RegexpReplace.re, err = regexp.Compile(spec.RegexpReplace.Regexp)
@@ -47,22 +47,22 @@ func newPathAdaptor(spec *PathAdaptorSpec) *PathAdaptor {
 }
 
 // Adapt adapts path.
-func (a *PathAdaptor) Adapt(path string) string {
-	if len(a.spec.Replace) != 0 {
-		return a.spec.Replace
+func (pa *PathAdaptor) Adapt(path string) string {
+	if len(pa.spec.Replace) != 0 {
+		return pa.spec.Replace
 	}
 
-	if len(a.spec.AddPrefix) != 0 {
-		return a.spec.AddPrefix + path
+	if len(pa.spec.AddPrefix) != 0 {
+		return pa.spec.AddPrefix + path
 	}
 
-	if len(a.spec.TrimPrefix) != 0 {
-		return strings.TrimPrefix(path, a.spec.TrimPrefix)
+	if len(pa.spec.TrimPrefix) != 0 {
+		return strings.TrimPrefix(path, pa.spec.TrimPrefix)
 	}
 
-	if a.spec.RegexpReplace != nil && a.spec.RegexpReplace.re != nil {
-		return a.spec.RegexpReplace.re.ReplaceAllString(path,
-			a.spec.RegexpReplace.Replace)
+	if pa.spec.RegexpReplace != nil && pa.spec.RegexpReplace.re != nil {
+		return pa.spec.RegexpReplace.re.ReplaceAllString(path,
+			pa.spec.RegexpReplace.Replace)
 	}
 
 	return path

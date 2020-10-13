@@ -132,6 +132,7 @@ func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader) string {
 		// NOTE: May add option to cancel the tracing if failed here.
 		// ctx.Span().Cancel()
 
+		addTag("doRequestErr", fmt.Sprintf("%v", err))
 		addTag("trace", req.detail())
 		if ctx.ClientDisconnected() {
 			// NOTE: The HTTPContext will set 499 by itself if client is Disconnected.

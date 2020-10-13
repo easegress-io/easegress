@@ -4,6 +4,7 @@ import (
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
 	"github.com/megaease/easegateway/pkg/util/httpheader"
+	"github.com/megaease/easegateway/pkg/util/pathadaptor"
 	"github.com/megaease/easegateway/pkg/util/stringtool"
 )
 
@@ -31,7 +32,7 @@ type (
 	RequestAdaptor struct {
 		spec *Spec
 
-		pathAdaptor *PathAdaptor
+		pa *pathadaptor.PathAdaptor
 	}
 
 	// Spec is HTTPAdaptor Spec.
@@ -39,21 +40,21 @@ type (
 		httppipeline.PluginMeta `yaml:",inline"`
 
 		Method string                `yaml:"method" jsonschema:"omitempty,format=httpmethod"`
-		Path   *PathAdaptorSpec      `yaml:"path,omitempty" jsonschema:"omitempty"`
+		Path   *pathadaptor.Spec     `yaml:"path,omitempty" jsonschema:"omitempty"`
 		Header *httpheader.AdaptSpec `yaml:"header,omitempty" jsonschema:"omitempty"`
 	}
 )
 
 // New creates an HTTPAdaptor.
 func New(spec *Spec, prev *RequestAdaptor) *RequestAdaptor {
-	var pathAdaptor *PathAdaptor
+	var pa *pathadaptor.PathAdaptor
 	if spec.Path != nil {
-		pathAdaptor = newPathAdaptor(spec.Path)
+		pa = pathadaptor.New(spec.Path)
 	}
 
 	return &RequestAdaptor{
-		spec:        spec,
-		pathAdaptor: pathAdaptor,
+		spec: spec,
+		pa:   pa,
 	}
 }
 
@@ -67,8 +68,8 @@ func (ra *RequestAdaptor) Handle(ctx context.HTTPContext) string {
 			method, " adapted to ", ra.spec.Method))
 		r.SetMethod(ra.spec.Method)
 	}
-	if ra.pathAdaptor != nil {
-		adaptedPath := ra.pathAdaptor.Adapt(path)
+	if ra.pa != nil {
+		adaptedPath := ra.pa.Adapt(path)
 		if adaptedPath != path {
 			ctx.AddTag(stringtool.Cat("requestAdaptor: path ",
 				path, " adapted to ", adaptedPath))

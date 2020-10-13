@@ -8,6 +8,7 @@ import (
 	_ "github.com/megaease/easegateway/pkg/object/httpserver"
 
 	// Plugins
+	_ "github.com/megaease/easegateway/pkg/plugin/apiaggregator"
 	_ "github.com/megaease/easegateway/pkg/plugin/backend"
 	_ "github.com/megaease/easegateway/pkg/plugin/bridge"
 	_ "github.com/megaease/easegateway/pkg/plugin/corsadaptor"

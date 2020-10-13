@@ -12,6 +12,7 @@ import (
 	"github.com/megaease/easegateway/pkg/scheduler"
 	"github.com/megaease/easegateway/pkg/util/httpheader"
 	"github.com/megaease/easegateway/pkg/util/httpstat"
+	"github.com/megaease/easegateway/pkg/util/pathadaptor"
 	"github.com/megaease/easegateway/pkg/v"
 
 	cron "github.com/robfig/cron/v3"
@@ -55,9 +56,9 @@ type (
 
 	// RequestAdapotorSpec describes the RequestAdaptor.
 	RequestAdapotorSpec struct {
-		Method string                          `yaml:"method" jsonschema:"omitempty,format=httpmethod"`
-		Path   *requestadaptor.PathAdaptorSpec `yaml:"path,omitempty" jsonschema:"omitempty"`
-		Header *httpheader.AdaptSpec           `yaml:"header,omitempty" jsonschema:"omitempty"`
+		Method string                `yaml:"method" jsonschema:"omitempty,format=httpmethod"`
+		Path   *pathadaptor.Spec     `yaml:"path,omitempty" jsonschema:"omitempty"`
+		Header *httpheader.AdaptSpec `yaml:"header,omitempty" jsonschema:"omitempty"`
 	}
 
 	// Status is the status of Function.
