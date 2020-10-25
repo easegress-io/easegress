@@ -25,7 +25,7 @@ type (
 	}
 )
 
-func newMasterSlaveReader(r io.Reader) (io.Reader, io.Reader) {
+func newMasterSlaveReader(r io.Reader) (io.ReadCloser, io.Reader) {
 	buffChan := make(chan []byte, 10)
 	mr := &masterReader{
 		r:        r,
@@ -53,6 +53,14 @@ func (mr *masterReader) Read(p []byte) (n int, err error) {
 	}
 
 	return n, err
+}
+
+func (mr *masterReader) Close() error {
+	if closer, ok := mr.r.(io.ReadCloser); ok {
+		return closer.Close()
+	}
+
+	return nil
 }
 
 func (sr *slaveReader) Read(p []byte) (int, error) {

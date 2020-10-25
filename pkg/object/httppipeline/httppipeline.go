@@ -10,6 +10,7 @@ import (
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httpserver"
+	"github.com/megaease/easegateway/pkg/object/serviceregistry/etcdserviceregistry"
 	"github.com/megaease/easegateway/pkg/scheduler"
 	"github.com/megaease/easegateway/pkg/util/stringtool"
 	"github.com/megaease/easegateway/pkg/v"
@@ -30,7 +31,7 @@ func init() {
 		Kind:              Kind,
 		DefaultSpecFunc:   DefaultSpec,
 		NewFunc:           New,
-		DependObjectKinds: []string{httpserver.Kind},
+		DependObjectKinds: []string{httpserver.Kind, etcdserviceregistry.Kind},
 	})
 }
 

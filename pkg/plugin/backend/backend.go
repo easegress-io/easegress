@@ -203,7 +203,17 @@ func (b *Backend) Status() *Status {
 }
 
 // Close closes Backend.
-func (b *Backend) Close() {}
+func (b *Backend) Close() {
+	b.mainPool.close()
+
+	if b.candidatePool != nil {
+		b.candidatePool.close()
+	}
+
+	if b.mirrorPool != nil {
+		b.mirrorPool.close()
+	}
+}
 
 func (b *Backend) fallbackForCircuitBreaker(ctx context.HTTPContext) bool {
 	if b.fallback != nil && b.spec.Fallback.ForCircuitBreaker {
@@ -225,14 +235,21 @@ func (b *Backend) fallbackForCodes(ctx context.HTTPContext) bool {
 }
 
 // Handle handles HTTPContext.
-func (b *Backend) Handle(ctx context.HTTPContext) string {
+func (b *Backend) Handle(ctx context.HTTPContext) (result string) {
 	if b.mirrorPool != nil && b.mirrorPool.filter.Filter(ctx) {
 		master, slave := newMasterSlaveReader(ctx.Request().Body())
 		ctx.Request().SetBody(master)
 
 		wg := &sync.WaitGroup{}
-		defer wg.Wait()
 		wg.Add(1)
+		defer func() {
+			if result == "" {
+				// NOTE: Waiting for mirrorPool finishing
+				// only if mainPool/candidatePool handled
+				// with normal result.
+				wg.Wait()
+			}
+		}()
 
 		go func() {
 			defer wg.Done()
@@ -251,7 +268,6 @@ func (b *Backend) Handle(ctx context.HTTPContext) string {
 		return ""
 	}
 
-	var result string
 	if p.circuitBreaker != nil {
 		var err error
 		result, err = p.circuitBreaker.protect(ctx, ctx.Request().Body(), p.handle)

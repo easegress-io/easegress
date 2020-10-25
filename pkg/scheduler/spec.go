@@ -37,7 +37,12 @@ func unmarshal(y string, i interface{}) error {
 		return fmt.Errorf("unmarshal failed: %v", err)
 	}
 
-	vr := v.Validate(i, []byte(y))
+	yamlBuff, err := yaml.Marshal(i)
+	if err != nil {
+		return fmt.Errorf("marshal %#v failed: %v", i, err)
+	}
+
+	vr := v.Validate(i, yamlBuff)
 	if !vr.Valid() {
 		return fmt.Errorf("validate failed: \n%s", vr)
 	}
@@ -50,7 +55,7 @@ func SpecFromYAML(y string) (Spec, error) {
 	meta := ObjectMeta{}
 	err := unmarshal(y, &meta)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("1: %v", err)
 	}
 
 	kind := meta.GetKind()
@@ -63,7 +68,7 @@ func SpecFromYAML(y string) (Spec, error) {
 
 	err = unmarshal(y, defaultSpec)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("2: %v", err)
 	}
 
 	spec, ok := defaultSpec.(Spec)

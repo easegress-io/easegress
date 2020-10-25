@@ -369,7 +369,7 @@ func (c *cluster) getClient() (*clientv3.Client, error) {
 		DialTimeout:          dialTimeout,
 		DialKeepAliveTime:    dialKeepAliveTime,
 		DialKeepAliveTimeout: dialKeepAliveTimeout,
-		LogConfig:            logger.EtcdClientLoggerConfig(c.opt),
+		LogConfig:            logger.EtcdClientLoggerConfig(c.opt, logger.EtcdClientFilename),
 	})
 
 	if err != nil {

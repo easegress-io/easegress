@@ -6,6 +6,9 @@ import (
 	_ "github.com/megaease/easegateway/pkg/object/httppipeline"
 	_ "github.com/megaease/easegateway/pkg/object/httpproxy"
 	_ "github.com/megaease/easegateway/pkg/object/httpserver"
+	_ "github.com/megaease/easegateway/pkg/object/serviceregistry/consulserviceregistry"
+	_ "github.com/megaease/easegateway/pkg/object/serviceregistry/etcdserviceregistry"
+	_ "github.com/megaease/easegateway/pkg/object/serviceregistry/eurekaserviceregistry"
 
 	// Plugins
 	_ "github.com/megaease/easegateway/pkg/plugin/apiaggregator"

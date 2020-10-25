@@ -46,14 +46,14 @@ var (
 	restAPILogger          *zap.Logger
 )
 
-// EtcdClientLoggerConfig generates the config ofetcd client logger.
-func EtcdClientLoggerConfig(opt *option.Options) *zap.Config {
+// EtcdClientLoggerConfig generates the config of etcd client logger.
+func EtcdClientLoggerConfig(opt *option.Options, filename string) *zap.Config {
 	encoderConfig := defaultEncoderConfig()
 
 	level := zap.NewAtomicLevel()
 	level.SetLevel(zapcore.DebugLevel)
 
-	outputPaths := []string{filepath.Join(opt.AbsLogDir, EtcdClientFilename)}
+	outputPaths := []string{filepath.Join(opt.AbsLogDir, filename)}
 
 	return &zap.Config{
 		Level:            level,
