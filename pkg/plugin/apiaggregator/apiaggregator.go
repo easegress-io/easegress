@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"sync"
 	"time"
@@ -14,6 +15,8 @@ import (
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
+	"github.com/megaease/easegateway/pkg/scheduler"
+	"github.com/megaease/easegateway/pkg/tracing"
 	"github.com/megaease/easegateway/pkg/util/httpheader"
 	"github.com/megaease/easegateway/pkg/util/pathadaptor"
 )
@@ -53,18 +56,25 @@ type (
 		httppipeline.PluginMeta `yaml:",inline"`
 
 		// MaxBodyBytes in [0, 10MB]
-		MaxBodyBytes   int64      `yaml:"maxBodyBytes" jsonschema:"omitempty,minimum=0,maximum=102400"`
-		PartialSucceed bool       `yaml:"partialSucceed"`
-		Timeout        string     `yaml:"timeout" jsonschema:"omitempty,format=duration"`
-		MergeResponse  bool       `yaml:"mergeResponse"`
-		APIs           []*APISpec `yaml:"apis" jsonschema:"required"`
+		MaxBodyBytes   int64  `yaml:"maxBodyBytes" jsonschema:"omitempty,minimum=0,maximum=102400"`
+		PartialSucceed bool   `yaml:"partialSucceed"`
+		Timeout        string `yaml:"timeout" jsonschema:"omitempty,format=duration"`
+		MergeResponse  bool   `yaml:"mergeResponse"`
+
+		// User describes HTTP service target via an existing HTTPProxy
+		APIProxys []*APIProxy `yaml:"apiproxys" jsonschema:"required"`
 
 		timeout *time.Duration
 	}
 
-	// APISpec describes the single API.
-	APISpec struct {
-		URL         string                `yaml:"url" jsonschema:"required,format=url"`
+	// APIProxy describes the single API in EG's HTTPProxy object.
+	APIProxy struct {
+		// HTTPProxy's name in EG
+		HTTPProxyName string `yaml:"httpproxyname" jsonschema:"required"`
+		// The target API's URL
+		URL string `yaml:"url" jsonschema:"required,format=url"`
+
+		// Describes details about the request-target
 		Method      string                `yaml:"method" jsonschema:"omitempty,format=httpmethod"`
 		Path        *pathadaptor.Spec     `yaml:"path,omitempty" jsonschema:"omitempty"`
 		Header      *httpheader.AdaptSpec `yaml:"header,omitempty" jsonschema:"omitempty"`
@@ -91,16 +101,16 @@ func New(spec *Spec, prev *APIAggregator) *APIAggregator {
 		}
 	}
 
-	for _, api := range spec.APIs {
-		_url, err := url.Parse(api.URL)
+	for _, proxy := range spec.APIProxys {
+		_url, err := url.Parse(proxy.URL)
 		if err != nil {
-			logger.Errorf("BUG: parse url %s failed: %v", api.URL, err)
+			logger.Errorf("BUG: proxy parse url %s failed: %v", proxy.URL, err)
 		} else {
-			api.url = _url
+			proxy.url = _url
 		}
 
-		if api.Path != nil {
-			api.pa = pathadaptor.New(api.Path)
+		if proxy.Path != nil {
+			proxy.pa = pathadaptor.New(proxy.Path)
 		}
 	}
 
@@ -111,6 +121,7 @@ func New(spec *Spec, prev *APIAggregator) *APIAggregator {
 
 // Handle limits HTTPContext.
 func (aa *APIAggregator) Handle(ctx context.HTTPContext) (result string) {
+
 	buff := bytes.NewBuffer(nil)
 	if aa.spec.MaxBodyBytes > 0 {
 		written, err := io.CopyN(buff, ctx.Request().Body(), aa.spec.MaxBodyBytes+1)
@@ -124,82 +135,132 @@ func (aa *APIAggregator) Handle(ctx context.HTTPContext) (result string) {
 		}
 	}
 
-	reqs := make([]*http.Request, len(aa.spec.APIs))
-	for i, api := range aa.spec.APIs {
-		var stdctx stdcontext.Context = ctx
-		if aa.spec.timeout != nil {
-			// NOTE: Cancel function could be omiited here.
-			stdctx, _ = stdcontext.WithTimeout(stdctx, *aa.spec.timeout)
-		}
+	wg := &sync.WaitGroup{}
+	wg.Add(len(aa.spec.APIProxys))
 
-		method := ctx.Request().Method()
-		if api.Method != "" {
-			method = api.Method
-		}
+	httpResps := make([]context.HTTPReponse, len(aa.spec.APIProxys))
+	// Using scheduler to call HTTPProxy object's Handle function
+	for i, proxy := range aa.spec.APIProxys {
+		req, err := aa.newHTTPReq(ctx, proxy, buff)
 
-		url := *api.url
-		if api.pa != nil {
-			url.Path = api.pa.Adapt(url.Path)
-		}
-
-		var body io.Reader
-		if !api.DisableBody {
-			body = bytes.NewReader(buff.Bytes())
-		}
-
-		var err error
-		reqs[i], err = http.NewRequestWithContext(stdctx, method, url.String(), body)
 		if err != nil {
-			logger.Errorf("BUG: new request failed %v", err)
+			logger.Errorf("BUG: new HTTPProxy request failed %v proxyname[%d]", err, aa.spec.APIProxys[i].HTTPProxyName)
 			return resultFailed
 		}
+
+		go func(i int, name string, req *http.Request) {
+			defer wg.Done()
+			copyCtx, err := aa.newCtx(ctx, req, buff)
+
+			if err != nil {
+				httpResps[i] = nil
+				return
+			}
+			err = scheduler.SendHTTPRequet(name, copyCtx)
+			if err != nil {
+				httpResps[i] = nil
+			} else {
+				httpResps[i] = copyCtx.Response()
+			}
+
+		}(i, proxy.HTTPProxyName, req)
 	}
 
-	wg := &sync.WaitGroup{}
-	wg.Add(len(reqs))
-	resps := make([]*http.Response, len(reqs))
-	for i, req := range reqs {
-		go func(i int, req *http.Request) {
-			defer wg.Done()
-			resp, err := http.DefaultClient.Do(req)
-			if err != nil {
-				resps[i] = nil
-			} else {
-				resps[i] = resp
-			}
-		}(i, req)
-	}
 	wg.Wait()
 
-	for _, resp := range resps {
+	for _, resp := range httpResps {
 		_resp := resp
+
 		if resp != nil {
-			defer _resp.Body.Close()
+			if body, ok := _resp.Body().(io.ReadCloser); ok {
+				defer body.Close()
+			}
 		}
 	}
 
-	var data map[string][]byte
-	for i, resp := range resps {
+	data := make(map[string][]byte)
+
+	// Get all HTTPProxy response' body
+	for i, resp := range httpResps {
 		if resp == nil && !aa.spec.PartialSucceed {
-			ctx.AddTag(fmt.Sprintf("apiAggregator: failed in api %s",
-				aa.spec.APIs[i].url))
-			return resultFailed
-		}
-		respBody := bytes.NewBuffer(nil)
-
-		written, err := io.CopyN(respBody, resp.Body, aa.spec.MaxBodyBytes)
-		if written > aa.spec.MaxBodyBytes {
-			ctx.AddTag(fmt.Sprintf("apiAggregator: response body exceed %dB", aa.spec.MaxBodyBytes))
-			return resultFailed
-		}
-		if err != io.EOF {
-			ctx.AddTag(fmt.Sprintf("apiAggregator: read response body failed: %v", err))
+			ctx.AddTag(fmt.Sprintf("apiAggregator: failed in HTTPProxy %s",
+				aa.spec.APIProxys[i].HTTPProxyName))
 			return resultFailed
 		}
 
-		data[aa.spec.APIs[i].URL] = respBody.Bytes()
+		// call HTTPProxy could be succesfful even with a no exist backend
+		// so resp is not nil, but resp.Body() is nil.
+		if resp != nil && resp.Body() != nil {
+			if res := aa.copyHTTPBody2Map(resp.Body(), ctx, data, aa.spec.APIProxys[i].HTTPProxyName); len(res) != 0 {
+				return res
+			}
+		}
 	}
 
+	return aa.formatResponse(ctx, data)
+
+}
+
+func (aa *APIAggregator) newCtx(ctx context.HTTPContext, req *http.Request, buff *bytes.Buffer) (context.HTTPContext, error) {
+	// Construct a new context for the HTTPProxy
+	// responseWriter is an HTTP responseRecorder, no the original context's real
+	// repsonseWriter, or these Proxys will overwriten each others
+	w := httptest.NewRecorder()
+	var stdctx stdcontext.Context = ctx
+	if aa.spec.timeout != nil {
+		stdctx, _ = stdcontext.WithTimeout(stdctx, *aa.spec.timeout)
+	}
+
+	copyCtx := context.New(w, req, tracing.NoopTracing, "no trace")
+
+	return copyCtx, nil
+}
+
+func (aa *APIAggregator) newHTTPReq(ctx context.HTTPContext, proxy *APIProxy, buff *bytes.Buffer) (*http.Request, error) {
+	var stdctx stdcontext.Context = ctx
+	if aa.spec.timeout != nil {
+		// NOTE: Cancel function could be omiited here.
+		stdctx, _ = stdcontext.WithTimeout(stdctx, *aa.spec.timeout)
+	}
+
+	method := ctx.Request().Method()
+	if proxy.Method != "" {
+		method = proxy.Method
+	}
+
+	url := proxy.url
+	if proxy.pa != nil {
+		url.Path = proxy.pa.Adapt(url.Path)
+	}
+
+	var body io.Reader
+	if !proxy.DisableBody {
+		body = bytes.NewReader(buff.Bytes())
+	}
+
+	return http.NewRequestWithContext(stdctx, method, url.String(), body)
+
+}
+
+func (aa *APIAggregator) copyHTTPBody2Map(body io.Reader, ctx context.HTTPContext, data map[string][]byte, name string) string {
+	respBody := bytes.NewBuffer(nil)
+
+	written, err := io.CopyN(respBody, body, aa.spec.MaxBodyBytes)
+	if written > aa.spec.MaxBodyBytes {
+		ctx.AddTag(fmt.Sprintf("apiAggregator: response body exceed %dB", aa.spec.MaxBodyBytes))
+		return resultFailed
+	}
+	if err != io.EOF {
+		ctx.AddTag(fmt.Sprintf("apiAggregator: read response body failed: %v", err))
+		return resultFailed
+	}
+
+	data[name] = respBody.Bytes()
+
+	return ""
+}
+
+func (aa *APIAggregator) formatResponse(ctx context.HTTPContext, data map[string][]byte) string {
 	if aa.spec.MergeResponse {
 		result := map[string]interface{}{}
 		for _, resp := range data {
@@ -214,6 +275,7 @@ func (aa *APIAggregator) Handle(ctx context.HTTPContext) (result string) {
 		if err != nil {
 			ctx.AddTag(fmt.Sprintf("apiAggregator: marshal %#v to json failed: %v",
 				result, err))
+			logger.Errorf("apiAggregator: marshal %#v to json failed: %v", result, err)
 			return resultFailed
 		}
 
@@ -228,6 +290,7 @@ func (aa *APIAggregator) Handle(ctx context.HTTPContext) (result string) {
 					resp, err))
 				return resultFailed
 			}
+			result = append(result, ele)
 		}
 		buff, err := jsoniter.Marshal(result)
 		if err != nil {
