@@ -33,12 +33,14 @@ type (
 
 	// PoolSpec decribes a pool of servers.
 	PoolSpec struct {
-		Filter         *httpfilter.Spec    `yaml:"filter,omitempty" jsonschema:"omitempty"`
-		ServersTags    []string            `yaml:"serversTags" jsonschema:"omitempty,uniqueItems=true"`
-		Servers        []*Server           `yaml:"servers" jsonschema:"required,minItems=1"`
-		LoadBalance    *LoadBalance        `yaml:"loadBalance" jsonschema:"required"`
-		MemoryCache    *memorycache.Spec   `yaml:"memoryCache,omitempty" jsonschema:"omitempty"`
-		CircuitBreaker *circuitBreakerSpec `yaml:"circuitBreaker,omitempty" jsonschema:"omitempty"`
+		Filter          *httpfilter.Spec    `yaml:"filter,omitempty" jsonschema:"omitempty"`
+		ServersTags     []string            `yaml:"serversTags" jsonschema:"omitempty,uniqueItems=true"`
+		Servers         []*Server           `yaml:"servers" jsonschema:"omitempty"`
+		ServiceRegistry string              `yaml:"serviceRegistry" jsonschema:"omitempty"`
+		ServiceName     string              `yaml:"serviceName" jsonschema:"omitempty"`
+		LoadBalance     *LoadBalance        `yaml:"loadBalance" jsonschema:"required"`
+		MemoryCache     *memorycache.Spec   `yaml:"memoryCache,omitempty" jsonschema:"omitempty"`
+		CircuitBreaker  *circuitBreakerSpec `yaml:"circuitBreaker,omitempty" jsonschema:"omitempty"`
 	}
 
 	// PoolStatus is the status of Pool.
@@ -50,6 +52,10 @@ type (
 
 // Validate validates poolSpec.
 func (s PoolSpec) Validate() error {
+	if s.ServiceName == "" && len(s.Servers) == 0 {
+		return fmt.Errorf("both serviceName and servers are empty")
+	}
+
 	serversGotWeight := 0
 	for _, server := range s.Servers {
 		if server.Weight > 0 {
@@ -61,9 +67,11 @@ func (s PoolSpec) Validate() error {
 			serversGotWeight, len(s.Servers))
 	}
 
-	servers := newServers(&s)
-	if servers.len() == 0 {
-		return fmt.Errorf("serversTags picks none of servers")
+	if s.ServiceName == "" {
+		servers := newStaticServers(s.Servers, s.ServersTags, *s.LoadBalance)
+		if servers.len() == 0 {
+			return fmt.Errorf("serversTags picks none of servers")
+		}
 	}
 
 	return nil
@@ -115,7 +123,12 @@ func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader) string {
 
 	w := ctx.Response()
 
-	server := p.servers.next(ctx)
+	server, err := p.servers.next(ctx)
+	if err != nil {
+		addTag("serverErr", err.Error())
+		w.SetStatusCode(http.StatusServiceUnavailable)
+		return resultInternalError
+	}
 	addTag("addr", server.URL)
 
 	req, err := p.prepareRequest(ctx, server, reqBody)
@@ -202,6 +215,11 @@ func (p *pool) statRequestResponse(ctx context.HTTPContext, req *request, resp *
 	})
 
 	ctx.OnFinish(func() {
+		if !p.writeResponse {
+			req.finish()
+			span.Finish()
+		}
+
 		ctx.AddTag(stringtool.Cat(p.tagPrefix, fmt.Sprintf("#duration: %s", req.total())))
 
 		metric := &httpstat.Metric{
@@ -234,4 +252,8 @@ func responseMetaSize(resp *http.Response) int {
 		headerDump, "\r\n\r\n")
 
 	return len(respMeta)
+}
+
+func (p *pool) close() {
+	p.servers.close()
 }

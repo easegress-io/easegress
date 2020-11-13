@@ -1,0 +1,5 @@
+kind: ConsulServiceRegistry
+name: consul-service-registry-example
+address: '127.0.0.1:8500'
+scheme: http
+syncInterval: 10s

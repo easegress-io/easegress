@@ -104,6 +104,8 @@ backend:
       toHalfOpenTimeout: 10s
       toOpenFailureCounts: 10
       toOpenFailureConsecutiveCounts: 4
+    serviceName: service-001
+    serviceRegistry: eureka-service-registry-example
     serversTags: ["v2"]
     servers:
     - url: http://127.0.0.1:9095

@@ -174,11 +174,10 @@ func TestPickservers(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			spec := &PoolSpec{
-				ServersTags: tt.fields.serversTags,
-				Servers:     tt.fields.servers,
-			}
-			got := newServers(spec).servers
+			ss := newStaticServers(tt.fields.servers,
+				tt.fields.serversTags,
+				LoadBalance{Policy: PolicyRoundRobin})
+			got := ss.servers
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("got %+v, want %+v", got, tt.want)
 			}

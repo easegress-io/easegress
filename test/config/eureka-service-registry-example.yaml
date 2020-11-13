@@ -1,0 +1,4 @@
+kind: EurekaServiceRegistry
+name: eureka-service-registry-example
+endpoints: ['http://127.0.0.1:8761/eureka']
+syncInterval: 10s
