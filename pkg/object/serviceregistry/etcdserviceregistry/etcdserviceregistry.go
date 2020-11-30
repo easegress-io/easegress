@@ -74,7 +74,7 @@ func (spec Spec) Validate() error {
 
 // New creates an EtcdServiceRegistry.
 func New(spec *Spec, prev *EtcdServiceRegistry, handlers *sync.Map) *EtcdServiceRegistry {
-	esr := &EtcdServiceRegistry{
+	etcd := &EtcdServiceRegistry{
 		spec:       spec,
 		serversNum: map[string]int{},
 		done:       make(chan struct{}),
@@ -83,100 +83,100 @@ func New(spec *Spec, prev *EtcdServiceRegistry, handlers *sync.Map) *EtcdService
 		prev.Close()
 	}
 
-	_, err := esr.getClient()
+	_, err := etcd.getClient()
 	if err != nil {
 		logger.Errorf("%s get etcd client failed: %v", spec.Name, err)
 	}
 
-	go esr.run()
+	go etcd.run()
 
-	return esr
+	return etcd
 }
 
-func (esr *EtcdServiceRegistry) getClient() (*clientv3.Client, error) {
-	esr.clientMutex.RLock()
-	if esr.client != nil {
-		client := esr.client
-		esr.clientMutex.RUnlock()
+func (etcd *EtcdServiceRegistry) getClient() (*clientv3.Client, error) {
+	etcd.clientMutex.RLock()
+	if etcd.client != nil {
+		client := etcd.client
+		etcd.clientMutex.RUnlock()
 		return client, nil
 	}
-	esr.clientMutex.RUnlock()
+	etcd.clientMutex.RUnlock()
 
-	return esr.buildClient()
+	return etcd.buildClient()
 }
 
-func (esr *EtcdServiceRegistry) buildClient() (*clientv3.Client, error) {
-	esr.clientMutex.Lock()
-	defer esr.clientMutex.Unlock()
+func (etcd *EtcdServiceRegistry) buildClient() (*clientv3.Client, error) {
+	etcd.clientMutex.Lock()
+	defer etcd.clientMutex.Unlock()
 
 	// DCL
-	if esr.client != nil {
-		return esr.client, nil
+	if etcd.client != nil {
+		return etcd.client, nil
 	}
 
 	client, err := clientv3.New(clientv3.Config{
-		Endpoints:            esr.spec.Endpoints,
+		Endpoints:            etcd.spec.Endpoints,
 		AutoSyncInterval:     1 * time.Minute,
 		DialTimeout:          10 * time.Second,
 		DialKeepAliveTime:    1 * time.Minute,
 		DialKeepAliveTimeout: 1 * time.Minute,
-		LogConfig:            logger.EtcdClientLoggerConfig(option.Global, "object_"+esr.spec.Name),
+		LogConfig:            logger.EtcdClientLoggerConfig(option.Global, "object_"+etcd.spec.Name),
 	})
 
 	if err != nil {
 		return nil, err
 	}
 
-	esr.client = client
+	etcd.client = client
 
 	return client, nil
 }
 
-func (esr *EtcdServiceRegistry) closeClient() {
-	esr.clientMutex.Lock()
-	defer esr.clientMutex.Unlock()
+func (etcd *EtcdServiceRegistry) closeClient() {
+	etcd.clientMutex.Lock()
+	defer etcd.clientMutex.Unlock()
 
-	if esr.client == nil {
+	if etcd.client == nil {
 		return
 	}
-	err := esr.client.Close()
+	err := etcd.client.Close()
 	if err != nil {
-		logger.Errorf("%s close etdc client failed: %v", esr.spec.Name, err)
+		logger.Errorf("%s close etdc client failed: %v", etcd.spec.Name, err)
 	}
-	esr.client = nil
+	etcd.client = nil
 }
 
-func (esr *EtcdServiceRegistry) run() {
-	cacheTimeout, err := time.ParseDuration(esr.spec.CacheTimeout)
+func (etcd *EtcdServiceRegistry) run() {
+	cacheTimeout, err := time.ParseDuration(etcd.spec.CacheTimeout)
 	if err != nil {
 		logger.Errorf("BUG: parse duration %s failed: %v",
-			esr.spec.CacheTimeout, err)
+			etcd.spec.CacheTimeout, err)
 		return
 	}
 
-	esr.update()
+	etcd.update()
 
 	for {
 		select {
-		case <-esr.done:
+		case <-etcd.done:
 			return
 		case <-time.After(cacheTimeout):
-			esr.update()
+			etcd.update()
 		}
 	}
 }
 
-func (esr *EtcdServiceRegistry) update() {
-	client, err := esr.getClient()
+func (etcd *EtcdServiceRegistry) update() {
+	client, err := etcd.getClient()
 	if err != nil {
 		logger.Errorf("%s get etcd client failed: %v",
-			esr.spec.Name, err)
+			etcd.spec.Name, err)
 		return
 	}
-	resp, err := client.Get(context.Background(), esr.spec.Prefix, clientv3.WithPrefix())
+	resp, err := client.Get(context.Background(), etcd.spec.Prefix, clientv3.WithPrefix())
 	if err != nil {
 		logger.Errorf("%s pull services failed: %v",
-			esr.spec.Name, err)
+			etcd.spec.Name, err)
 		return
 	}
 
@@ -199,27 +199,27 @@ func (esr *EtcdServiceRegistry) update() {
 		serversNum[server.ServiceName]++
 	}
 
-	serviceregistry.Global.ReplaceServers(esr.spec.Name, servers)
+	serviceregistry.Global.ReplaceServers(etcd.spec.Name, servers)
 
-	esr.statusMutex.Lock()
-	esr.serversNum = serversNum
-	esr.statusMutex.Unlock()
+	etcd.statusMutex.Lock()
+	etcd.serversNum = serversNum
+	etcd.statusMutex.Unlock()
 }
 
 // Status returns status of EtcdServiceRegister.
-func (esr *EtcdServiceRegistry) Status() *Status {
+func (etcd *EtcdServiceRegistry) Status() *Status {
 	s := &Status{}
 
-	_, err := esr.getClient()
+	_, err := etcd.getClient()
 	if err != nil {
 		s.Health = err.Error()
 	} else {
 		s.Health = "ready"
 	}
 
-	esr.statusMutex.Lock()
-	serversNum := esr.serversNum
-	esr.statusMutex.Unlock()
+	etcd.statusMutex.Lock()
+	serversNum := etcd.serversNum
+	etcd.statusMutex.Unlock()
 
 	s.ServersNum = serversNum
 
@@ -227,9 +227,9 @@ func (esr *EtcdServiceRegistry) Status() *Status {
 }
 
 // Close closes EtcdServiceRegistry.
-func (esr *EtcdServiceRegistry) Close() {
-	esr.closeClient()
-	close(esr.done)
+func (etcd *EtcdServiceRegistry) Close() {
+	etcd.closeClient()
+	close(etcd.done)
 
-	serviceregistry.Global.CloseRegistry(esr.spec.Name)
+	serviceregistry.Global.CloseRegistry(etcd.spec.Name)
 }

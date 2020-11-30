@@ -9,6 +9,7 @@ import (
 	_ "github.com/megaease/easegateway/pkg/object/serviceregistry/consulserviceregistry"
 	_ "github.com/megaease/easegateway/pkg/object/serviceregistry/etcdserviceregistry"
 	_ "github.com/megaease/easegateway/pkg/object/serviceregistry/eurekaserviceregistry"
+	_ "github.com/megaease/easegateway/pkg/object/serviceregistry/zookeeperserviceregistry"
 
 	// Plugins
 	_ "github.com/megaease/easegateway/pkg/plugin/apiaggregator"
