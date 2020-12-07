@@ -1,7 +1,10 @@
 package responseadaptor
 
 import (
+	"bytes"
+
 	"github.com/megaease/easegateway/pkg/context"
+	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
 	"github.com/megaease/easegateway/pkg/util/httpheader"
 )
@@ -36,6 +39,8 @@ type (
 		httppipeline.PluginMeta `yaml:",inline"`
 
 		Header *httpheader.AdaptSpec `yaml:"header" jsonschema:"required"`
+
+		Body string `yaml:"body" jsonschema:"omitempty"`
 	}
 )
 
@@ -48,7 +53,21 @@ func New(spec *Spec, prev *ResponseAdaptor) *ResponseAdaptor {
 
 // Handle adapts response.
 func (ra *ResponseAdaptor) Handle(ctx context.HTTPContext) string {
-	ctx.Response().Header().Adapt(ra.spec.Header)
+	hte := ctx.Template()
+	ctx.Response().Header().Adapt(ra.spec.Header, hte)
+
+	if len(ra.spec.Body) != 0 {
+		if hte.HasTemplates(ra.spec.Body) {
+			if body, err := hte.Render(ra.spec.Body); err != nil {
+				logger.Errorf("BUG responseadaptor render body faile , template %s , err %v",
+					ra.spec.Body, err)
+			} else {
+				ctx.Response().SetBody(bytes.NewReader([]byte(body)))
+			}
+		} else {
+			ctx.Response().SetBody(bytes.NewReader([]byte(ra.spec.Body)))
+		}
+	}
 	return ""
 }
 

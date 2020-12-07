@@ -1,0 +1,63 @@
+name: http-pipeline-orchestration
+kind: HTTPPipeline
+# Built-in labels are `END` which can't be used by plugins.
+flow:
+  - plugin: aggregatorOne  
+  - plugin: requestAdaptorTwo
+  - plugin: aggregatorTwo
+  - plugin: requestAdaptorThree
+  - plugin: aggregatorThree
+  - plugin: responseAdaptor
+
+plugins:
+  - apiproxys:
+      - httpproxyname: http-proxy-agg
+        url: http://127.0.0.1:8009
+    kind: APIAggregator
+    maxBodyBytes: 10240
+    mergeResponse: true 
+    name: aggregatorOne
+    partialSucceed: true
+  - name: requestAdaptorTwo
+    kind: RequestAdaptor
+    method: ""
+    path: null
+    header:
+      del: []
+      set:
+        X-Adapt-Key: goodplanTwo
+      add: {}
+    body: "[[plugin.aggregatorOne.rsp.body]]"
+  - apiproxys:
+      - httpproxyname: http-proxy-agg-2
+        url: http://127.0.0.1:8008
+    kind: APIAggregator
+    maxBodyBytes: 10240
+    mergeResponse: true 
+    name: aggregatorTwo
+    partialSucceed: true
+  - name: requestAdaptorThree
+    kind: RequestAdaptor
+    method: ""
+    path: null
+    header:
+      del: []
+      set:
+      add: {}
+    body: "[[plugin.aggregatorTwo.rsp.body]]"
+  - apiproxys:
+      - httpproxyname: http-proxy-agg-3
+        url: http://127.0.0.1:8007
+    kind: APIAggregator
+    maxBodyBytes: 10240
+    mergeResponse: true 
+    name: aggregatorThree
+    partialSucceed: true
+  - name: responseAdaptor
+    kind: ResponseAdaptor
+    header:
+      del: []
+      set:
+      add:
+        X-Proxy-Name-Three: "[[plugin.aggregatorThree.rsp.body.name]]"
+    body: "{\"name1\": \"[[plugin.aggregatorOne.rsp.body.value]]\",\"name2\":\"[[plugin.aggregatorTwo.rsp.body.value]]\",\"name3\":\"[[plugin.aggregatorThree.rsp.body.reqfromabove]]\"}"

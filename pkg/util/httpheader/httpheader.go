@@ -5,7 +5,9 @@ import (
 	"net/textproto"
 	"strings"
 
+	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/util/stringtool"
+	"github.com/megaease/easegateway/pkg/util/texttemplate"
 )
 
 type (
@@ -132,17 +134,53 @@ func (h *HTTPHeader) SetFromStd(src http.Header) {
 	h.SetFrom(New(src))
 }
 
-// Adapt adapts HTTPHeader according to AdaptSpec.
-func (h *HTTPHeader) Adapt(as *AdaptSpec) {
+func renderTemplate(input string, te texttemplate.TemplateEngine) (output string, ok bool) {
+	ok = false
+	if te.HasTemplates(input) {
+		var err error
+		output, err = te.Render(input)
+		if err != nil {
+			logger.Errorf("BUG, render header value %s failed err %v", input, err)
+			return
+		} else {
+			ok = true
+		}
+	}
+	return
+}
+
+// Adapt adapts HTTPHeader according to AdaptSpec. Using templateEngine if value contain
+// any valid template
+func (h *HTTPHeader) Adapt(as *AdaptSpec, te texttemplate.TemplateEngine) {
 	for _, key := range as.Del {
+		if newKey, ok := renderTemplate(key, te); ok {
+			key = newKey
+		}
 		h.Del(key)
 	}
 
 	for key, value := range as.Set {
+
+		if newKey, ok := renderTemplate(key, te); ok {
+			key = newKey
+		}
+
+		if newValue, ok := renderTemplate(value, te); ok {
+			value = newValue
+		}
+
 		h.Set(key, value)
 	}
 
 	for key, value := range as.Add {
+		if newKey, ok := renderTemplate(key, te); ok {
+			key = newKey
+		}
+
+		if newValue, ok := renderTemplate(value, te); ok {
+			value = newValue
+		}
+
 		h.Add(key, value)
 	}
 }

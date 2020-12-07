@@ -1,7 +1,10 @@
 package requestadaptor
 
 import (
+	"bytes"
+
 	"github.com/megaease/easegateway/pkg/context"
+	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
 	"github.com/megaease/easegateway/pkg/util/httpheader"
 	"github.com/megaease/easegateway/pkg/util/pathadaptor"
@@ -42,6 +45,7 @@ type (
 		Method string                `yaml:"method" jsonschema:"omitempty,format=httpmethod"`
 		Path   *pathadaptor.Spec     `yaml:"path,omitempty" jsonschema:"omitempty"`
 		Header *httpheader.AdaptSpec `yaml:"header,omitempty" jsonschema:"omitempty"`
+		Body   string                `yaml:"body" jsonschema:"omitempty"`
 	}
 )
 
@@ -76,8 +80,22 @@ func (ra *RequestAdaptor) Handle(ctx context.HTTPContext) string {
 		}
 		r.SetPath(adaptedPath)
 	}
+	hte := ctx.Template()
 	if ra.spec.Header != nil {
-		header.Adapt(ra.spec.Header)
+		header.Adapt(ra.spec.Header, hte)
+	}
+
+	if len(ra.spec.Body) != 0 {
+		if hte.HasTemplates(ra.spec.Body) {
+			if body, err := hte.Render(ra.spec.Body); err != nil {
+				logger.Errorf("BUG resquest render body faile , template %s , err %v",
+					ra.spec.Body, err)
+			} else {
+				ctx.Request().SetBody(bytes.NewReader([]byte(body)))
+			}
+		} else {
+			ctx.Request().SetBody(bytes.NewReader([]byte(ra.spec.Body)))
+		}
 	}
 
 	return ""

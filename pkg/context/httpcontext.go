@@ -15,6 +15,7 @@ import (
 	"github.com/megaease/easegateway/pkg/util/httpheader"
 	"github.com/megaease/easegateway/pkg/util/httpstat"
 	"github.com/megaease/easegateway/pkg/util/stringtool"
+	"github.com/megaease/easegateway/pkg/util/texttemplate"
 	"github.com/megaease/easegateway/pkg/util/timetool"
 	"github.com/opentracing/opentracing-go"
 )
@@ -45,6 +46,10 @@ type (
 		Log() string
 
 		Finish()
+
+		Template() texttemplate.TemplateEngine
+		SaveReqToTemplate(pluginName string) error
+		SaveRspToTemplate(pluginName string) error
 	}
 
 	// HTTPRequest is all operations for HTTP request.
@@ -111,6 +116,7 @@ type (
 		r *httpRequest
 		w *httpResponse
 
+		ht             *HTTPTemplate
 		tracer         opentracing.Tracer
 		span           tracing.Span
 		originalReqCtx stdcontext.Context
@@ -139,6 +145,7 @@ func New(stdw http.ResponseWriter, stdr *http.Request,
 		cancelFunc:     cancelFunc,
 		r:              newHTTPRequest(stdr),
 		w:              newHTTPResponse(stdw, stdr),
+		ht:             newHTTPTemplate(),
 	}
 }
 
@@ -273,4 +280,19 @@ func (ctx *httpContext) Log() string {
 		stdr.RemoteAddr, ctx.r.RealIP(), stdr.Method, stdr.RequestURI, stdr.Proto, ctx.w.code,
 		ctx.Duration(), ctx.r.Size(), ctx.w.Size(),
 		strings.Join(ctx.tags, " | "))
+}
+
+// Template returns HTTPTemplate rely interface
+func (ctx *httpContext) Template() texttemplate.TemplateEngine {
+	return ctx.ht.Engine
+}
+
+// SaveHTTPReqToTemplate stores http request related info into HTTP template engine
+func (ctx *httpContext) SaveReqToTemplate(pluginName string) error {
+	return ctx.ht.SaveRequest(pluginName, ctx)
+}
+
+// SaveHTTPRspToTemplate stores http response related info into HTTP template engine
+func (ctx *httpContext) SaveRspToTemplate(pluginName string) error {
+	return ctx.ht.SaveResponse(pluginName, ctx)
 }

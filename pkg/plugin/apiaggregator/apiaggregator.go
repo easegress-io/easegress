@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"sync"
 	"time"
 
@@ -71,8 +70,6 @@ type (
 	APIProxy struct {
 		// HTTPProxy's name in EG
 		HTTPProxyName string `yaml:"httpproxyname" jsonschema:"required"`
-		// The target API's URL
-		URL string `yaml:"url" jsonschema:"required,format=url"`
 
 		// Describes details about the request-target
 		Method      string                `yaml:"method" jsonschema:"omitempty,format=httpmethod"`
@@ -80,8 +77,7 @@ type (
 		Header      *httpheader.AdaptSpec `yaml:"header,omitempty" jsonschema:"omitempty"`
 		DisableBody bool                  `yaml:"disableBody" jsonschema:"omitempty"`
 
-		url *url.URL
-		pa  *pathadaptor.PathAdaptor
+		pa *pathadaptor.PathAdaptor
 	}
 
 	// Status contains status info of APIAggregator.
@@ -102,12 +98,6 @@ func New(spec *Spec, prev *APIAggregator) *APIAggregator {
 	}
 
 	for _, proxy := range spec.APIProxys {
-		_url, err := url.Parse(proxy.URL)
-		if err != nil {
-			logger.Errorf("BUG: proxy parse url %s failed: %v", proxy.URL, err)
-		} else {
-			proxy.url = _url
-		}
 
 		if proxy.Path != nil {
 			proxy.pa = pathadaptor.New(proxy.Path)
@@ -228,7 +218,7 @@ func (aa *APIAggregator) newHTTPReq(ctx context.HTTPContext, proxy *APIProxy, bu
 		method = proxy.Method
 	}
 
-	url := proxy.url
+	url := ctx.Request().Std().URL
 	if proxy.pa != nil {
 		url.Path = proxy.pa.Adapt(url.Path)
 	}

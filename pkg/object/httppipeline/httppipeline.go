@@ -373,9 +373,23 @@ func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) {
 			continue
 		}
 
+		// Todo: need to add more intelligence template scaning, if not need to render
+		//      then SaveHTTPReqToTemplate will do nothing, coming at next pr
+		if err := ctx.SaveReqToTemplate(runningPlugin.meta.Name); err != nil {
+			logger.Errorf("save http req failed, dict is %#v err is %v",
+				ctx.Template().GetDict(), err)
+		}
+
 		startTime := time.Now()
 		result := runningPlugin.plugin.Handle(ctx)
 		handleDuration := time.Now().Sub(startTime)
+
+		// Todo: need to add more intelligence template scaning, if not need to render
+		//      then SaveHTTPRspToTemplate will do nothing, coming at next pr
+		if err := ctx.SaveRspToTemplate(runningPlugin.meta.Name); err != nil {
+			logger.Errorf("save http rsp failed, dict is %#v err is %v",
+				ctx.Template().GetDict(), err)
+		}
 
 		pluginStat := &PluginStat{
 			Name:     runningPlugin.meta.Name,
