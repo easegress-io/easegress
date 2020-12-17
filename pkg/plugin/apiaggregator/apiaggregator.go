@@ -156,7 +156,7 @@ func (aa *APIAggregator) Handle(ctx context.HTTPContext) (result string) {
 				httpResps[i] = nil
 				return
 			}
-			err = scheduler.SendHTTPRequet(name, copyCtx)
+			err = scheduler.Global.SendHTTPRequet(name, copyCtx)
 			if err != nil {
 				httpResps[i] = nil
 			} else {

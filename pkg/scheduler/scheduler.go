@@ -6,7 +6,6 @@ import (
 	"runtime/debug"
 	"sort"
 	"sync"
-	"time"
 
 	"github.com/megaease/easegateway/pkg/cluster"
 	"github.com/megaease/easegateway/pkg/context"
@@ -18,11 +17,12 @@ import (
 )
 
 const (
-	syncStatusInterval = 5 * time.Second
+	maxStatusesRecordCount = 10
 )
 
 var (
-	globalScheduler *Scheduler
+	// Global is the globsl singleton scheduler.
+	Global *Scheduler
 )
 
 // InitGlobalScheduler initialize the single instance of Scheduler at runtime.
@@ -30,30 +30,11 @@ var (
 // The reason not to use a singleton mode is to be unit test friendly.
 //
 func InitGlobalScheduler(sdl *Scheduler) {
-	if globalScheduler != nil {
+	if Global != nil {
 		panic("global scheduler has been initialized")
 	}
 
-	globalScheduler = sdl
-}
-
-// GetHandler returns a registered pipeline or object.
-// The invoker should get the handler before usage each time. Do not hold the handler as the pipeline/object may be
-// recreated at runtime.
-//
-func SendHTTPRequet(targetHTTPHandler string, httpContext context.HTTPContext) (err error) {
-	if globalScheduler == nil {
-		return fmt.Errorf("global scheduler not initialized yet")
-	}
-
-	handler, ok := globalScheduler.handlers.Load(targetHTTPHandler)
-	if !ok {
-		return fmt.Errorf("target http object or pipeline not found: %s", targetHTTPHandler)
-
-	}
-
-	handler.(HTTPHandler).Handle(httpContext)
-	return nil
+	Global = sdl
 }
 
 type (
@@ -65,10 +46,20 @@ type (
 		runningObjects map[string]*runningObject
 		handlers       *sync.Map // map[string]httpserver.Handler
 
+		// sorted by timestamp in ascending order
+		statusesRecords      []*StatusesRecord
+		StatusesRecordsMutex sync.RWMutex
+
 		first     bool
 		firstDone chan struct{}
 
 		done chan struct{}
+	}
+
+	// StatusesRecord is the history record for status of every running object.
+	StatusesRecord struct {
+		Statuses     map[string]interface{}
+		UnixTimestmp int64
 	}
 
 	runningObject struct {
@@ -117,6 +108,18 @@ func MustNew(opt *option.Options, cls cluster.Cluster) *Scheduler {
 	go s.schedule()
 
 	return s
+}
+
+// SendHTTPRequet sent the http context to another object which must be an HTTPHandler.
+func (s *Scheduler) SendHTTPRequet(targetHTTPHandler string, httpContext context.HTTPContext) (err error) {
+	handler, ok := s.handlers.Load(targetHTTPHandler)
+	if !ok {
+		return fmt.Errorf("target http object or pipeline not found: %s", targetHTTPHandler)
+
+	}
+
+	handler.(HTTPHandler).Handle(httpContext)
+	return nil
 }
 
 func (s *Scheduler) schedule() {
@@ -249,8 +252,12 @@ func (s *Scheduler) handleConfig(config map[string]string) {
 	}
 }
 
-func (s *Scheduler) syncStatus(unitTimestamp int64) {
+func (s *Scheduler) syncStatus(unixTimestamp int64) {
 	statuses := make(map[string]string)
+	statusesRecord := &StatusesRecord{
+		Statuses:     map[string]interface{}{},
+		UnixTimestmp: unixTimestamp,
+	}
 	for name, runningObject := range s.runningObjects {
 		func() {
 			defer func() {
@@ -262,7 +269,9 @@ func (s *Scheduler) syncStatus(unitTimestamp int64) {
 
 			status := reflect.ValueOf(runningObject.object).
 				MethodByName("Status").Call(nil)[0].Interface()
-			reflect.ValueOf(status).Elem().FieldByName("Timestamp").SetInt(unitTimestamp)
+			reflect.ValueOf(status).Elem().FieldByName("Timestamp").SetInt(unixTimestamp)
+
+			statusesRecord.Statuses[name] = status
 
 			buff, err := yaml.Marshal(status)
 			if err != nil {
@@ -274,7 +283,32 @@ func (s *Scheduler) syncStatus(unitTimestamp int64) {
 		}()
 	}
 
+	s.addStatusesRecord(statusesRecord)
+
 	s.storage.syncStatus(statuses)
+}
+
+func (s *Scheduler) addStatusesRecord(statusesRecord *StatusesRecord) {
+	s.StatusesRecordsMutex.Lock()
+	defer s.StatusesRecordsMutex.Unlock()
+
+	s.statusesRecords = append(s.statusesRecords, statusesRecord)
+	if len(s.statusesRecords) > maxStatusesRecordCount {
+		s.statusesRecords = s.statusesRecords[1:]
+	}
+}
+
+// GetStatusesRecords return the latest statuses records.
+func (s *Scheduler) GetStatusesRecords() []*StatusesRecord {
+	s.StatusesRecordsMutex.RLock()
+	defer s.StatusesRecordsMutex.RUnlock()
+
+	records := make([]*StatusesRecord, len(s.statusesRecords))
+	for i, record := range s.statusesRecords {
+		records[i] = record
+	}
+
+	return records
 }
 
 // FirstDone returns the firstDone channel,

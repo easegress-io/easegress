@@ -28,8 +28,8 @@ func init() {
 
 A Bridge Plugin route requests to from one pipeline to other pipelines or http proxies under a http server.
 
-1. The upstream plugin set the target pipeline/proxy to the http header,  'X-Easegateway-Bridge-Dest'. 
-2. Bridge will extract the value from 'X-Easegateway-Bridge-Dest' and try to match in the configuration. 
+1. The upstream plugin set the target pipeline/proxy to the http header,  'X-Easegateway-Bridge-Dest'.
+2. Bridge will extract the value from 'X-Easegateway-Bridge-Dest' and try to match in the configuration.
    It will send the request if a dest matched. abort the process if no match.
 3. Bridge will select the first dest from the plugin configuration if there's no header named 'X-Easegateway-Bridge-Dest'`,
 	})
@@ -41,7 +41,7 @@ func DefaultSpec() *Spec {
 }
 
 type (
-	// Mock is plugin Mock.
+	// Bridge is plugin Bridge.
 	Bridge struct {
 		spec *Spec
 	}
@@ -75,7 +75,7 @@ func (m *Bridge) Handle(ctx context.HTTPContext) (result string) {
 	dest := r.Header().Get(bridgeDestHeader)
 	if dest == "" {
 		logger.Warnf("dest not defined, will choose the first dest: %s", m.spec.Destinations[0])
-		err := scheduler.SendHTTPRequet(m.spec.Destinations[0], ctx)
+		err := scheduler.Global.SendHTTPRequet(m.spec.Destinations[0], ctx)
 		if err != nil {
 			logger.Errorf("failed to invoke %s", m.spec.Destinations[0])
 			return invokeDestFailed
@@ -87,7 +87,7 @@ func (m *Bridge) Handle(ctx context.HTTPContext) (result string) {
 	for _, d := range m.spec.Destinations {
 		if d == dest {
 			r.Header().Del(bridgeDestHeader)
-			err := scheduler.SendHTTPRequet(d, ctx)
+			err := scheduler.Global.SendHTTPRequet(d, ctx)
 			if err != nil {
 				logger.Errorf("failed to invoke %s", m.spec.Destinations[0])
 				return invokeDestFailed

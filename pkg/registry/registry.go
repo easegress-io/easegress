@@ -3,6 +3,7 @@ package registry
 import (
 	// Objects
 	_ "github.com/megaease/easegateway/pkg/object/function"
+	_ "github.com/megaease/easegateway/pkg/object/easemonitormetrics"
 	_ "github.com/megaease/easegateway/pkg/object/httppipeline"
 	_ "github.com/megaease/easegateway/pkg/object/httpproxy"
 	_ "github.com/megaease/easegateway/pkg/object/httpserver"

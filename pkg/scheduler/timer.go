@@ -5,11 +5,13 @@ import (
 )
 
 const (
-	syncStatusPaceInUnixSeconds = 5
+	// SyncStatusPaceInUnixSeconds must be 5s because the rates of http stat.
+	// https://github.com/rcrowley/go-metrics/blob/3113b8401b8a98917cde58f8bbd42a1b1c03b1fd/ewma.go#L98-L99
+	SyncStatusPaceInUnixSeconds = 5
 )
 
 func nextSyncStatusDuration() time.Duration {
-	return nextDuration(time.Now(), syncStatusPaceInUnixSeconds)
+	return nextDuration(time.Now(), SyncStatusPaceInUnixSeconds)
 }
 
 // nextDuration returns the next duration after t,

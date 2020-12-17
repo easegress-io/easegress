@@ -4,6 +4,7 @@ require (
 	github.com/ArthurHlt/go-eureka-client v1.1.0
 	github.com/Joker/jade v1.0.0 // indirect
 	github.com/Shopify/goreferrer v0.0.0-20181106222321-ec9c9a553398 // indirect
+	github.com/Shopify/sarama v1.27.2
 	github.com/ajg/form v0.0.0-20160822230020-523a5da1a92f // indirect
 	github.com/aymerick/raymond v2.0.2+incompatible // indirect
 	github.com/coreos/go-systemd v0.0.0-20181031085051-9002847aa142 // indirect
@@ -22,6 +23,7 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-zookeeper/zk v1.0.2
 	github.com/golang/groupcache v0.0.0-20181024230925-c65c006176ff // indirect
+	github.com/golang/snappy v0.0.2 // indirect
 	github.com/google/go-querystring v1.0.0 // indirect
 	github.com/google/uuid v1.1.0 // indirect
 	github.com/gopherjs/gopherjs v0.0.0-20181103185306-d547d1d9531e // indirect
@@ -43,7 +45,7 @@ require (
 	github.com/kataras/golog v0.0.0-20180321173939-03be10146386 // indirect
 	github.com/kataras/iris v11.1.0+incompatible
 	github.com/kataras/pio v0.0.0-20180511174041-a9733b5b6b83 // indirect
-	github.com/klauspost/compress v1.4.1
+	github.com/klauspost/compress v1.11.3
 	github.com/klauspost/cpuid v1.2.0 // indirect
 	github.com/megaease/grace v1.0.0
 	github.com/megaease/jsonschema v0.0.0-20191219141102-f25f9e864ae5
@@ -54,8 +56,9 @@ require (
 	github.com/openzipkin/zipkin-go v0.2.2
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
+	github.com/pierrec/lz4 v2.6.0+incompatible // indirect
 	github.com/pkg/errors v0.8.1 // indirect
-	github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a
+	github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rs/cors v1.7.0
 	github.com/ryanuber/columnize v2.1.0+incompatible // indirect
@@ -79,6 +82,8 @@ require (
 	github.com/yudai/pp v2.0.1+incompatible // indirect
 	go.etcd.io/etcd v0.0.0-20190830150955-898bd1351fcf
 	go.uber.org/zap v1.10.0
+	golang.org/x/crypto v0.0.0-20201208171446-5f87f3452ae9 // indirect
+	golang.org/x/net v0.0.0-20201209123823-ac852fbbde11 // indirect
 	golang.org/x/time v0.0.0-20181108054448-85acf8d2951c
 	google.golang.org/genproto v0.0.0-20190111180523-db91494dd46c // indirect
 	gopkg.in/mgo.v2 v2.0.0-20180705113604-9856a29383ce // indirect

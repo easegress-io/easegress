@@ -13,8 +13,8 @@ type (
 	}
 )
 
-func nanoToMilli(f float64) uint64 {
-	return uint64(f) / 1000000
+func nanoToMilli(f float64) float64 {
+	return f / 1000000
 }
 
 // NewDurationSampler creates a DurationSampler.
@@ -30,28 +30,57 @@ func (ds *DurationSampler) Update(d time.Duration) {
 	ds.sample.Update(int64(d))
 }
 
+// P25 returns the duration in millisecond greater than 25%.
+func (ds *DurationSampler) P25() float64 {
+	return nanoToMilli(ds.sample.Percentile(0.25))
+}
+
 // P50 returns the duration in millisecond greater than 50%.
-func (ds *DurationSampler) P50() uint64 {
+func (ds *DurationSampler) P50() float64 {
 	return nanoToMilli(ds.sample.Percentile(0.5))
 }
 
+// P75 returns the duration in millisecond greater than 75%.
+func (ds *DurationSampler) P75() float64 {
+	return nanoToMilli(ds.sample.Percentile(0.75))
+}
+
 // P95 returns the duration in millisecond greater than 95%.
-func (ds *DurationSampler) P95() uint64 {
+func (ds *DurationSampler) P95() float64 {
 	return nanoToMilli(ds.sample.Percentile(0.95))
 }
 
+// P98 returns the duration in millisecond greater than 98%.
+func (ds *DurationSampler) P98() float64 {
+	return nanoToMilli(ds.sample.Percentile(0.98))
+}
+
 // P99 returns the duration in millisecond greater than 99%.
-func (ds *DurationSampler) P99() uint64 {
+func (ds *DurationSampler) P99() float64 {
 	return nanoToMilli(ds.sample.Percentile(0.99))
 }
 
-// P50P95P99 wraps other stat functions in calling once.
-func (ds *DurationSampler) P50P95P99() (uint64, uint64, uint64) {
-	ps := ds.sample.Percentiles([]float64{0.5, 0.95, 0.99})
-	return nanoToMilli(ps[0]), nanoToMilli(ps[1]), nanoToMilli(ps[2])
+// P999 returns the duration in millisecond greater than 99.9%.
+func (ds *DurationSampler) P999() float64 {
+	return nanoToMilli(ds.sample.Percentile(0.999))
+}
+
+// Percentiles returns 7 metrics by order:
+// P25, P50, P75, P95, P98, P99, P999
+func (ds *DurationSampler) Percentiles() []float64 {
+	ps := ds.sample.Percentiles([]float64{
+		0.25, 0.5, 0.75,
+		0.95, 0.98, 0.99,
+		0.999,
+	})
+	for i, p := range ps {
+		ps[i] = nanoToMilli(p)
+	}
+
+	return ps
 }
 
 // Count return total count of DurationSampler.
-func (ds *DurationSampler) Count() uint64 {
-	return uint64(ds.sample.Count())
+func (ds *DurationSampler) Count() float64 {
+	return float64(ds.sample.Count())
 }

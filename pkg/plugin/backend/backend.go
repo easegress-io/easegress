@@ -162,6 +162,10 @@ func (s Spec) Validate() error {
 
 // New creates a Backend.
 func New(spec *Spec, prev *Backend) *Backend {
+	if prev != nil {
+		prev.Close()
+	}
+
 	b := &Backend{
 		spec: spec,
 		mainPool: newPool(spec.MainPool, "backend#main",
