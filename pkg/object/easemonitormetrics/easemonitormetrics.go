@@ -9,6 +9,7 @@ import (
 
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
+	"github.com/megaease/easegateway/pkg/object/httpserver"
 	"github.com/megaease/easegateway/pkg/option"
 	"github.com/megaease/easegateway/pkg/plugin/backend"
 	"github.com/megaease/easegateway/pkg/scheduler"
@@ -83,6 +84,8 @@ type (
 		System    string `json:"system"`
 		Service   string `json:"service"`
 		Type      string `json:"type"`
+		Resource  string `json:"resource"`
+		URL       string `json:"url,omitempty"`
 	}
 
 	// RequestMetrics is the metrics of http request.
@@ -251,39 +254,30 @@ func (emm *EaseMonitorMetrics) run() {
 func (emm *EaseMonitorMetrics) record2Messages(record *scheduler.StatusesRecord) []*sarama.ProducerMessage {
 	reqMetrics := []*RequestMetrics{}
 	codeMetrics := []*StatusCodeMetrics{}
+
 	for objectName, status := range record.Statuses {
-		pipelineStatus, ok := status.(*httppipeline.Status)
-		if !ok {
+		baseFields := &GlobalFields{
+			Timestamp: record.UnixTimestmp * 1000,
+			Category:  "application",
+			HostName:  option.Global.Name,
+			HostIpv4:  hostIPv4,
+			System:    option.Global.ClusterName,
+			Service:   objectName,
+		}
+
+		switch status := status.(type) {
+		case *httppipeline.Status:
+			reqs, codes := emm.httpPipeline2Metrics(baseFields, status)
+			reqMetrics = append(reqMetrics, reqs...)
+			codeMetrics = append(codeMetrics, codes...)
+		case *httpserver.Status:
+			reqs, codes := emm.httpServer2Metrics(baseFields, status)
+			reqMetrics = append(reqMetrics, reqs...)
+			codeMetrics = append(codeMetrics, codes...)
+		default:
 			continue
 		}
 
-		for pluginName, pluginStatus := range pipelineStatus.Plugins {
-			backendStatus, ok := pluginStatus.(*backend.Status)
-			if !ok {
-				continue
-			}
-
-			if backendStatus.MainPool != nil {
-				req, codes := emm.adaptHTTPStatus(objectName, pluginName, "mainPool",
-					record.UnixTimestmp, backendStatus.MainPool.Stat)
-				reqMetrics = append(reqMetrics, req)
-				codeMetrics = append(codeMetrics, codes...)
-			}
-
-			if backendStatus.CandidatePool != nil {
-				req, codes := emm.adaptHTTPStatus(objectName, pluginName, "candidatePool",
-					record.UnixTimestmp, backendStatus.CandidatePool.Stat)
-				reqMetrics = append(reqMetrics, req)
-				codeMetrics = append(codeMetrics, codes...)
-			}
-
-			if backendStatus.MirrorPool != nil {
-				req, codes := emm.adaptHTTPStatus(objectName, pluginName, "mirrorPool",
-					record.UnixTimestmp, backendStatus.MirrorPool.Stat)
-				reqMetrics = append(reqMetrics, req)
-				codeMetrics = append(codeMetrics, codes...)
-			}
-		}
 	}
 
 	metrics := [][]byte{}
@@ -313,21 +307,75 @@ func (emm *EaseMonitorMetrics) record2Messages(record *scheduler.StatusesRecord)
 	return messages
 }
 
-func (emm *EaseMonitorMetrics) adaptHTTPStatus(objectName, pluginName, poolName string,
-	unixTimestamp int64, s *httpstat.Status) (*RequestMetrics, []*StatusCodeMetrics) {
+func (emm *EaseMonitorMetrics) httpPipeline2Metrics(
+	baseFields *GlobalFields, pipelineStatus *httppipeline.Status) (
+	reqMetrics []*RequestMetrics, codeMetrics []*StatusCodeMetrics) {
 
-	gf := GlobalFields{
-		Timestamp: unixTimestamp * 1000,
-		Category:  "application",
-		HostName:  option.Global.Name,
-		HostIpv4:  hostIPv4,
-		System:    option.Global.ClusterName,
-		Service:   fmt.Sprintf("%s/%s/%s", objectName, pluginName, poolName),
+	for pluginName, pluginStatus := range pipelineStatus.Plugins {
+		backendStatus, ok := pluginStatus.(*backend.Status)
+		if !ok {
+			continue
+		}
+
+		baseFieldsBackend := *baseFields
+		baseFieldsBackend.Resource = "BACKEND"
+
+		if backendStatus.MainPool != nil {
+			baseFieldsBackend.Service = baseFields.Service + "/" + pluginName + "/mainPool"
+			req, codes := emm.httpStat2Metrics(&baseFieldsBackend, backendStatus.MainPool.Stat)
+			reqMetrics = append(reqMetrics, req)
+			codeMetrics = append(codeMetrics, codes...)
+		}
+
+		if backendStatus.CandidatePool != nil {
+			baseFieldsBackend.Service = baseFields.Service + "/" + pluginName + "/candidatePool"
+			req, codes := emm.httpStat2Metrics(&baseFieldsBackend, backendStatus.MainPool.Stat)
+			reqMetrics = append(reqMetrics, req)
+			codeMetrics = append(codeMetrics, codes...)
+		}
+
+		if backendStatus.MirrorPool != nil {
+			baseFieldsBackend.Service = baseFields.Service + "/" + pluginName + "/mirrorPool"
+			req, codes := emm.httpStat2Metrics(&baseFieldsBackend, backendStatus.MainPool.Stat)
+			reqMetrics = append(reqMetrics, req)
+			codeMetrics = append(codeMetrics, codes...)
+		}
+
 	}
 
-	gf.Type = "eg-http-request"
+	return
+}
+
+func (emm *EaseMonitorMetrics) httpServer2Metrics(
+	baseFields *GlobalFields, serverStatus *httpserver.Status) (
+	reqMetrics []*RequestMetrics, codeMetrics []*StatusCodeMetrics) {
+
+	if serverStatus.Status != nil {
+		baseFieldsServer := *baseFields
+		baseFieldsServer.Resource = "SERVER"
+		req, codes := emm.httpStat2Metrics(&baseFieldsServer, serverStatus.Status)
+		reqMetrics = append(reqMetrics, req)
+		codeMetrics = append(codeMetrics, codes...)
+	}
+
+	for _, item := range *serverStatus.TopN {
+		baseFieldsServerTopN := *baseFields
+		baseFieldsServerTopN.Resource = "SERVER_TOPN"
+		baseFieldsServerTopN.URL = item.Path
+		req, codes := emm.httpStat2Metrics(&baseFieldsServerTopN, serverStatus.Status)
+		reqMetrics = append(reqMetrics, req)
+		codeMetrics = append(codeMetrics, codes...)
+	}
+
+	return
+}
+
+func (emm *EaseMonitorMetrics) httpStat2Metrics(baseFields *GlobalFields, s *httpstat.Status) (
+	*RequestMetrics, []*StatusCodeMetrics) {
+
+	baseFields.Type = "eg-http-request"
 	rm := &RequestMetrics{
-		GlobalFields: gf,
+		GlobalFields: *baseFields,
 
 		Count: s.Count,
 		M1:    s.M1,
@@ -359,11 +407,11 @@ func (emm *EaseMonitorMetrics) adaptHTTPStatus(objectName, pluginName, poolName 
 		RespSize: s.RespSize,
 	}
 
-	gf.Type = "eg-http-status-code"
+	baseFields.Type = "eg-http-status-code"
 	codes := []*StatusCodeMetrics{}
 	for code, count := range s.Codes {
 		codes = append(codes, &StatusCodeMetrics{
-			GlobalFields: gf,
+			GlobalFields: *baseFields,
 			Code:         code,
 			Count:        count,
 		})
@@ -388,8 +436,10 @@ func (emm *EaseMonitorMetrics) Status() *Status {
 
 // Close closes EaseMonitorMetrics.
 func (emm *EaseMonitorMetrics) Close() {
-	emm.closeClient()
+	// NOTE: close the channel first in case of
+	// using closed client in the run().
 	close(emm.done)
+	emm.closeClient()
 }
 
 func getHostIPv4() string {
