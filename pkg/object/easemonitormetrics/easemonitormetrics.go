@@ -176,10 +176,13 @@ func (emm *EaseMonitorMetrics) getClient() (sarama.AsyncProducer, error) {
 
 	// NOTE: Default config is good enough for now.
 	config := sarama.NewConfig()
+	config.ClientID = emm.spec.Name
+	config.Version = sarama.V0_10_2_0
 
 	producer, err := sarama.NewAsyncProducer(emm.spec.Kafka.Brokers, config)
 	if err != nil {
-		return nil, fmt.Errorf("start Sarama producer failed: %v", err)
+		return nil, fmt.Errorf("start sarama producer failed(brokers: %v): %v",
+			emm.spec.Kafka.Brokers, err)
 	}
 
 	go func() {
