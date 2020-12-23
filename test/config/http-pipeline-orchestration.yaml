@@ -1,4 +1,4 @@
-name: http-pipeline-orchestration
+name: http-pipeline-orchestration-v2
 kind: HTTPPipeline
 # Built-in labels are `END` which can't be used by plugins.
 flow:
@@ -12,7 +12,6 @@ flow:
 plugins:
   - apiproxys:
       - httpproxyname: http-proxy-agg
-        url: http://127.0.0.1:8009
     kind: APIAggregator
     maxBodyBytes: 10240
     mergeResponse: true 
@@ -25,12 +24,11 @@ plugins:
     header:
       del: []
       set:
-        X-Adapt-Key: goodplanTwo
+        valid : "[[plugin.aggregatorOne.req.proto]]"
       add: {}
     body: "[[plugin.aggregatorOne.rsp.body]]"
   - apiproxys:
       - httpproxyname: http-proxy-agg-2
-        url: http://127.0.0.1:8008
     kind: APIAggregator
     maxBodyBytes: 10240
     mergeResponse: true 
@@ -43,11 +41,11 @@ plugins:
     header:
       del: []
       set:
-      add: {}
+      add: 
+        adaptor-three: "[[plugin.aggregatorTwo.req.method]]"
     body: "[[plugin.aggregatorTwo.rsp.body]]"
   - apiproxys:
       - httpproxyname: http-proxy-agg-3
-        url: http://127.0.0.1:8007
     kind: APIAggregator
     maxBodyBytes: 10240
     mergeResponse: true 
@@ -58,6 +56,9 @@ plugins:
     header:
       del: []
       set:
+        Key-by-aggreone: "[[plugin.aggregatorOne.req.method]]"
       add:
         X-Proxy-Name-Three: "[[plugin.aggregatorThree.rsp.body.name]]"
-    body: "{\"name1\": \"[[plugin.aggregatorOne.rsp.body.value]]\",\"name2\":\"[[plugin.aggregatorTwo.rsp.body.value]]\",\"name3\":\"[[plugin.aggregatorThree.rsp.body.reqfromabove]]\"}"
+        Rsp-adaptor: "[[plugin.aggregatorTwo.req.method]]"
+    body: "{\"name1\": \"[[plugin.aggregatorOne.rsp.body.value]]\",\"name2\":\"[[plugin.aggregatorTwo.rsp.body.value]]\",\"name3\":\"[[plugin.aggregatorThree.rsp.body.reqfromabove]]\",\"req1\":\"[[plugin.aggregatorOne.req.body.aa]]\",\"req2\":\"[[plugin.aggregatorTwo.req.scheme]]\", \"req3\":\"[[plugin.aggregatorThree.req.proto]]\",\"req1host\":\"[[plugin.aggregatorOne.req.host]]\", \"req2path\":\"[[plugin.aggregatorTwo.req.path]]\"}"
+      

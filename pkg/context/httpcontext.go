@@ -48,6 +48,7 @@ type (
 		Finish()
 
 		Template() texttemplate.TemplateEngine
+		SetTemplate(ht *HTTPTemplate)
 		SaveReqToTemplate(pluginName string) error
 		SaveRspToTemplate(pluginName string) error
 	}
@@ -145,7 +146,7 @@ func New(stdw http.ResponseWriter, stdr *http.Request,
 		cancelFunc:     cancelFunc,
 		r:              newHTTPRequest(stdr),
 		w:              newHTTPResponse(stdw, stdr),
-		ht:             newHTTPTemplate(),
+		ht:             NewHTTPTemplateDummy(),
 	}
 }
 
@@ -285,6 +286,11 @@ func (ctx *httpContext) Log() string {
 // Template returns HTTPTemplate rely interface
 func (ctx *httpContext) Template() texttemplate.TemplateEngine {
 	return ctx.ht.Engine
+}
+
+// SetTempalte sets the http template initinaled by other module
+func (ctx *httpContext) SetTemplate(ht *HTTPTemplate) {
+	ctx.ht = ht
 }
 
 // SaveHTTPReqToTemplate stores http request related info into HTTP template engine

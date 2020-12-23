@@ -42,6 +42,7 @@ type (
 
 		handlers       *sync.Map
 		runningPlugins []*runningPlugin
+		ht             *context.HTTPTemplate
 	}
 
 	runningPlugin struct {
@@ -314,6 +315,7 @@ func New(spec *Spec, prev *HTTPPipeline, handlers *sync.Map) (tmp *HTTPPipeline)
 		}
 	}
 
+	var pluginBuffs []context.PluginBuff
 	for _, runningPlugin := range runningPlugins {
 		buff := marshal(runningPlugin.spec)
 
@@ -340,6 +342,15 @@ func New(spec *Spec, prev *HTTPPipeline, handlers *sync.Map) (tmp *HTTPPipeline)
 		plugin := reflect.ValueOf(pr.NewFunc).Call(in)[0].Interface().(Plugin)
 
 		runningPlugin.plugin, runningPlugin.meta, runningPlugin.pr = plugin, meta, pr
+
+		pluginBuffs = append(pluginBuffs, context.PluginBuff{Name: meta.Name, Buff: buff})
+	}
+
+	// creating a valid httptemplates
+	var err error
+	hp.ht, err = context.NewHTTPTemplate(pluginBuffs)
+	if err != nil {
+		panic(fmt.Errorf("create http template failed %v", err))
 	}
 
 	hp.runningPlugins = runningPlugins
@@ -362,6 +373,9 @@ func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) {
 	pipeCtx := newAndSetPipelineContext(ctx)
 	defer deletePipelineContext(ctx)
 
+	// Here is the truly initialed HTTPTemplate by HTTPPipeline's plugin
+	// specs
+	ctx.SetTemplate(hp.ht)
 	nextPluginName := hp.runningPlugins[0].meta.Name
 	for i := 0; i < len(hp.runningPlugins); i++ {
 		if nextPluginName == LabelEND {
@@ -373,8 +387,6 @@ func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) {
 			continue
 		}
 
-		// Todo: need to add more intelligence template scaning, if not need to render
-		//      then SaveHTTPReqToTemplate will do nothing, coming at next pr
 		if err := ctx.SaveReqToTemplate(runningPlugin.meta.Name); err != nil {
 			logger.Errorf("save http req failed, dict is %#v err is %v",
 				ctx.Template().GetDict(), err)
@@ -384,8 +396,6 @@ func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) {
 		result := runningPlugin.plugin.Handle(ctx)
 		handleDuration := time.Now().Sub(startTime)
 
-		// Todo: need to add more intelligence template scaning, if not need to render
-		//      then SaveHTTPRspToTemplate will do nothing, coming at next pr
 		if err := ctx.SaveRspToTemplate(runningPlugin.meta.Name); err != nil {
 			logger.Errorf("save http rsp failed, dict is %#v err is %v",
 				ctx.Template().GetDict(), err)

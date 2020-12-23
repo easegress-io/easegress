@@ -48,6 +48,10 @@ type TemplateEngine interface {
 	// return map's key is the template, the value is the matched and rendered metaTemplate
 	ExtractTemplateRuleMap(input string) map[string]string
 
+	// ExtractTemplateRuleMap extracts templates from input string
+	// return map's key is the template, the value is the matched and rendered metaTemplate or empty
+	ExtractRawTemplateRuleMap(input string) map[string]string
+
 	// HasTemplates checks whether has templates in input string or not
 	HasTemplates(input string) bool
 
@@ -72,6 +76,12 @@ func (DummyTemplate) Render(input string) (string, error) {
 
 // ExtractTemplateRuleMap dummy implement
 func (DummyTemplate) ExtractTemplateRuleMap(input string) map[string]string {
+	m := make(map[string]string, 0)
+	return m
+}
+
+// ExtractTemplateRuleMap dummy implement
+func (DummyTemplate) ExtractRawTemplateRuleMap(input string) map[string]string {
 	m := make(map[string]string, 0)
 	return m
 }
@@ -149,6 +159,11 @@ func New(beginToken, endToken, seperator string, metaTemplates []string) (Templa
 	}
 
 	return t, nil
+}
+
+// NewDummyTemplate returns a dummy template implement
+func NewDummyTemplate() TemplateEngine {
+	return DummyTemplate{}
 }
 
 // GetDict return the dictionary of texttemplate
@@ -340,6 +355,25 @@ func (t TextTemplate) ExtractTemplateRuleMap(input string) map[string]string {
 
 		if len(metaTemplate) != 0 {
 			m[v] = metaTemplate
+		}
+	}
+
+	return m
+}
+
+// ExtractRawTemplateRuleMap extracts all candidate templates (valid/invalid)
+// from input string
+func (t TextTemplate) ExtractRawTemplateRuleMap(input string) map[string]string {
+	results := t.extractVarsAroundToken(input)
+	m := map[string]string{}
+
+	for _, v := range results {
+		metaTemplate := t.MatchMetaTemplate(v)
+
+		if len(metaTemplate) != 0 {
+			m[v] = metaTemplate
+		} else {
+			m[v] = ""
 		}
 	}
 

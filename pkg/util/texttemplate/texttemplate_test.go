@@ -437,3 +437,65 @@ func TestNewTextTemplateExtractTemplateRuleMapEmpty(t *testing.T) {
 		t.Fatalf("extract from input %s no match except, should be empty", input)
 	}
 }
+
+func TestNewTextTemplateExtractRawTemplateRuleMapEmpty(t *testing.T) {
+
+	tt, err := NewDefault([]string{
+		"plugin.{}.req.path",
+		"plugin.{}.req.method",
+		"plugin.{}.req.body",
+		"plugin.{}.req.scheme",
+		"plugin.{}.req.proto",
+		"plugin.{}.req.host",
+		"plugin.{}.req.body.{gjson}",
+		"plugin.{}.req.header.{}",
+		"plugin.{}.rsp.statuscode",
+		"plugin.{}.rsp.body.{gjson}",
+	})
+
+	if err != nil {
+		t.Fatalf("new engine failed err %v", err)
+	}
+
+	input := "xxx00011111[["
+
+	m := map[string]string{}
+	if m = tt.ExtractRawTemplateRuleMap(input); len(m) != 0 {
+		t.Fatalf("extract from input %s no match except, should be empty", input)
+	}
+
+	input = "[[plugin.abc.req[[]"
+	if m = tt.ExtractRawTemplateRuleMap(input); len(m) != 0 {
+		t.Fatalf("extract from input %s no match except, should be empty", input)
+	}
+
+	input = "xxxxx[[plugin.abc.req]"
+	if m = tt.ExtractRawTemplateRuleMap(input); len(m) != 0 {
+		t.Fatalf("extract from input %s no match except, should be empty", input)
+	}
+
+	input = "[[plugin.abc.req]"
+	if m = tt.ExtractRawTemplateRuleMap(input); len(m) != 0 {
+		t.Fatalf("extract from input %s no match except, should be empty", input)
+	}
+
+	input = "[[plugin.abc.req]]"
+	if m = tt.ExtractRawTemplateRuleMap(input); len(m) == 0 {
+		t.Fatalf("extract from input %s no match except, should not be empty", input)
+	}
+
+	input = "[[plugin.abc.red]]"
+	if m = tt.ExtractRawTemplateRuleMap(input); len(m) == 0 {
+		t.Fatalf("extract from input %s no match except, should not be empty", input)
+	}
+
+	input = "[[plugin.abc.red]] -- [[plugin.abc.req.host]]"
+	if m = tt.ExtractRawTemplateRuleMap(input); len(m) != 2 {
+		t.Fatalf("extract from input %s no match except, should extract two target", input)
+	}
+
+	input = "[[plugin.abc.red]] -- [[plugin.abc.req.nono]] -- [[plugin.abc.rsp.yes]]!!"
+	if m = tt.ExtractRawTemplateRuleMap(input); len(m) != 3 {
+		t.Fatalf("extract from input %s no match except, should extract two target", input)
+	}
+}
