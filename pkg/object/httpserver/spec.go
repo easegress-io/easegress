@@ -15,6 +15,7 @@ type (
 	// Spec describes the HTTPServer.
 	Spec struct {
 		scheduler.ObjectMeta `yaml:",inline"`
+		HTTP3                bool          `yaml:"http3" jsonschema:"omitempty"`
 		Port                 uint16        `yaml:"port" jsonschema:"required,minimum=1"`
 		KeepAlive            bool          `yaml:"keepAlive" jsonschema:"required"`
 		KeepAliveTimeout     string        `yaml:"keepAliveTimeout" jsonschema:"omitempty,format=duration"`
@@ -75,6 +76,10 @@ type (
 
 // Validate validates HTTPServerSpec.
 func (spec *Spec) Validate() error {
+	if spec.HTTP3 && !spec.HTTPS {
+		return fmt.Errorf("https is disabled when http3 enabled")
+	}
+
 	if spec.HTTPS {
 		if spec.CertBase64 == "" {
 			return fmt.Errorf("certBase64 is empty when https enabled")
