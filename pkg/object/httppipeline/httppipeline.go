@@ -212,6 +212,7 @@ func (s Spec) Validate(config []byte) (err error) {
 	pluginBuffs := convertToPluginBuffs(pluginsData)
 
 	pluginRecords := make(map[string]*PluginRecord)
+	var templatePluginBuffs []context.PluginBuff
 	for _, plugin := range s.Plugins {
 		buff := marshal(plugin)
 
@@ -245,6 +246,13 @@ func (s Spec) Validate(config []byte) (err error) {
 		if pr == nil {
 			panic(fmt.Errorf("plugin kind %s not found", plugin["kind"]))
 		}
+		templatePluginBuffs = append(templatePluginBuffs, context.PluginBuff{Name: meta.Name, Buff: pluginBuffs[meta.Name]})
+	}
+
+	// validate http template inside plugin specs
+	_, err = context.NewHTTPTemplate(templatePluginBuffs)
+	if err != nil {
+		panic(fmt.Errorf("plugin has invalid httptemplate: %v", err))
 	}
 
 	errPrefix = "flow"
