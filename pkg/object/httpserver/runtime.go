@@ -12,6 +12,8 @@ import (
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/util/httpstat"
 	"github.com/megaease/easegateway/pkg/util/topn"
+
+	"github.com/lucas-clemente/quic-go/http3"
 )
 
 const (
@@ -48,6 +50,7 @@ type (
 		handlers  *sync.Map
 		spec      *Spec
 		server    *http.Server
+		server3   *http3.Server
 		mux       *mux
 		startNum  uint64
 		eventChan chan interface{}
@@ -257,30 +260,56 @@ func (r *runtime) startServer() {
 	r.setState(stateRunning)
 	r.setError(nil)
 
-	go func(https bool, startNum uint64) {
-		var err error
-		if https {
-			err = r.server.ServeTLS(limitListener, "", "")
-		} else {
-			err = r.server.Serve(limitListener)
+	if r.spec.HTTP3 {
+		r.server3 = &http3.Server{
+			Server: r.server,
 		}
-		if err != http.ErrServerClosed {
-			r.eventChan <- &eventServeFailed{
-				err:      err,
-				startNum: startNum,
-			}
+		go r.runHTTP3Server(r.startNum)
+	} else {
+		go r.runHTTP1And2Server(limitListener, r.spec.HTTPS, r.startNum)
+	}
+}
+
+func (r *runtime) runHTTP3Server(startNum uint64) {
+	err := r.server3.ListenAndServe()
+	if err != http.ErrServerClosed {
+		r.eventChan <- &eventServeFailed{
+			err:      err,
+			startNum: startNum,
 		}
-	}(r.spec.HTTPS, r.startNum)
+	}
+}
+
+func (r *runtime) runHTTP1And2Server(limitListener *LimitListener, https bool, startNum uint64) {
+	var err error
+	if https {
+		err = r.server.ServeTLS(limitListener, "", "")
+	} else {
+		err = r.server.Serve(limitListener)
+	}
+	if err != http.ErrServerClosed {
+		r.eventChan <- &eventServeFailed{
+			err:      err,
+			startNum: startNum,
+		}
+	}
 }
 
 func (r *runtime) closeServer() {
 	if r.server == nil {
 		return
 	}
-	// NOTE: It's safe to shutdown serve failed server.
-	ctx, cancelFunc := serverShutdownContext()
-	defer cancelFunc()
-	err := r.server.Shutdown(ctx)
+
+	var err error
+	if r.server3 != nil {
+		err = r.server3.CloseGracefully(serverShutdownTimeout)
+	} else {
+		// NOTE: It's safe to shutdown serve failed server.
+		ctx, cancelFunc := serverShutdownContext()
+		defer cancelFunc()
+		err = r.server.Shutdown(ctx)
+	}
+
 	if err != nil {
 		logger.Warnf("shutdown httpserver %s failed: %v",
 			r.spec.Name, err)
