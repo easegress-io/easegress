@@ -97,6 +97,11 @@ func (s *Server) readObjectSpec(ctx iris.Context) (scheduler.Spec, error) {
 	return spec, err
 }
 
+func (s *Server) upgradeConfigVersion(ctx iris.Context) {
+	version := s._plusOneVersion()
+	ctx.ResponseWriter().Header().Set(ConfigVersionKey, fmt.Sprintf("%d", version))
+}
+
 func (s *Server) createObject(ctx iris.Context) {
 	spec, err := s.readObjectSpec(ctx)
 	if err != nil {
@@ -116,6 +121,7 @@ func (s *Server) createObject(ctx iris.Context) {
 	}
 
 	s._putObject(spec)
+	s.upgradeConfigVersion(ctx)
 
 	ctx.StatusCode(iris.StatusCreated)
 	location := fmt.Sprintf("%s/%s", ctx.Path(), name)
@@ -135,6 +141,7 @@ func (s *Server) deleteObject(ctx iris.Context) {
 	}
 
 	s._deleteObject(name)
+	s.upgradeConfigVersion(ctx)
 }
 
 func (s *Server) getObject(ctx iris.Context) {
@@ -179,6 +186,7 @@ func (s *Server) updateObject(ctx iris.Context) {
 	}
 
 	s._putObject(spec)
+	s.upgradeConfigVersion(ctx)
 }
 
 func (s *Server) listObjects(ctx iris.Context) {

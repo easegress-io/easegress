@@ -14,6 +14,7 @@ const (
 	statusObjectFormat       = "/status/objects/%s/%s" // +objectName +memberName
 	configObjectPrefix       = "/config/objects/"
 	configObjectFormat       = "/config/objects/%s" // +objectName
+	configVersion            = "/config/version"
 
 	// the cluster name of this eg group will be registered under this path in etcd
 	// any new member(reader or writer ) will be rejected if it is configured a different cluster name
@@ -92,4 +93,9 @@ func (l *Layout) ConfigObjectPrefix() string {
 // ConfigObjectKey returns the key of object config.
 func (l *Layout) ConfigObjectKey(name string) string {
 	return fmt.Sprintf(configObjectFormat, name)
+}
+
+// ConfigVersion returns the key of config version.
+func (l *Layout) ConfigVersion() string {
+	return configVersion
 }

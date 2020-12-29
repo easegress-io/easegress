@@ -33,6 +33,9 @@ const (
 	APIPrefix = "/apis/v3"
 
 	lockKey = "/config/lock"
+
+	// ConfigVersionKey is the key of header for config version.
+	ConfigVersionKey = "X-Config-Version"
 )
 
 // Server is the api server.
@@ -48,15 +51,17 @@ type Server struct {
 // MustNewServer creates an api server.
 func MustNewServer(opt *option.Options, cluster cluster.Cluster) *Server {
 	app := iris.New()
-	app.Use(newRecoverer())
-	app.Use(newAPILogger())
-
-	app.Logger().SetOutput(ioutil.Discard)
 
 	s := &Server{
 		app:     app,
 		cluster: cluster,
 	}
+
+	app.Use(newConfigVersionAttacher(s))
+	app.Use(newRecoverer())
+	app.Use(newAPILogger())
+
+	app.Logger().SetOutput(ioutil.Discard)
 
 	_, err := s.getMutex()
 	if err != nil {

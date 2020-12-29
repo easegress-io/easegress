@@ -63,3 +63,13 @@ func newRecoverer() func(context.Context) {
 		ctx.Next()
 	}
 }
+
+func newConfigVersionAttacher(s *Server) func(context.Context) {
+	return func(ctx context.Context) {
+		// NOTE: It needs to add the header before the next handlers
+		// write the body to the network.
+		version := s._getVersion()
+		ctx.ResponseWriter().Header().Set(ConfigVersionKey, fmt.Sprintf("%d", version))
+		ctx.Next()
+	}
+}

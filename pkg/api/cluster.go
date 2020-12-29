@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/megaease/easegateway/pkg/scheduler"
@@ -14,6 +15,37 @@ func (s *Server) _purgeMember(memberName string) {
 	if err != nil {
 		clusterPanic(fmt.Errorf("purge member %s failed: %s", memberName, err))
 	}
+}
+
+func (s *Server) _getVersion() int64 {
+	value, err := s.cluster.Get(s.cluster.Layout().ConfigVersion())
+	if err != nil {
+		clusterPanic(err)
+	}
+
+	if value == nil {
+		return 0
+	}
+
+	version, err := strconv.ParseInt(*value, 10, 64)
+	if err != nil {
+		panic(fmt.Errorf("parse version %s to int failed: %v", *value, err))
+	}
+
+	return version
+}
+
+func (s *Server) _plusOneVersion() int64 {
+	version := s._getVersion()
+	version++
+	value := fmt.Sprintf("%d", version)
+
+	err := s.cluster.Put(s.cluster.Layout().ConfigVersion(), value)
+	if err != nil {
+		clusterPanic(err)
+	}
+
+	return version
 }
 
 func (s *Server) _getObject(name string) scheduler.Spec {
