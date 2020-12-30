@@ -62,17 +62,16 @@ func (t *TopN) Stat(ctx context.HTTPContext) {
 // Status returns TopN Status, and resets all metrics.
 func (t *TopN) Status() *Status {
 	t.Lock()
-	m := t.m
-	t.m = make(map[string]*httpstat.HTTPStat)
-	t.Unlock()
 
 	status := make(Status, 0)
-	for pattern, httpStat := range m {
+	for pattern, httpStat := range t.m {
 		status = append(status, &Item{
 			Path:   pattern,
 			Status: httpStat.Status(),
 		})
 	}
+
+	t.Unlock()
 
 	sort.Sort(status)
 	n := len(status)
