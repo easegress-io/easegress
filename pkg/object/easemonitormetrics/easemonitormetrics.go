@@ -365,7 +365,7 @@ func (emm *EaseMonitorMetrics) httpServer2Metrics(
 		baseFieldsServerTopN := *baseFields
 		baseFieldsServerTopN.Resource = "SERVER_TOPN"
 		baseFieldsServerTopN.URL = item.Path
-		req, codes := emm.httpStat2Metrics(&baseFieldsServerTopN, serverStatus.Status)
+		req, codes := emm.httpStat2Metrics(&baseFieldsServerTopN, item.Status)
 		reqMetrics = append(reqMetrics, req)
 		codeMetrics = append(codeMetrics, codes...)
 	}
