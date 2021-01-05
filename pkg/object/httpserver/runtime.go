@@ -232,17 +232,6 @@ func (r *runtime) startServer() {
 		}
 	}
 
-	listener, err := gnet.Listen("tcp", fmt.Sprintf(":%d", r.spec.Port))
-	if err != nil {
-		r.setState(stateFailed)
-		r.setError(err)
-
-		return
-	}
-
-	limitListener := NewLimitListener(listener, r.spec.MaxConnections)
-	r.limitListener = limitListener
-
 	srv := &http.Server{
 		Addr:        fmt.Sprintf(":%d", r.spec.Port),
 		Handler:     r.mux,
@@ -266,6 +255,16 @@ func (r *runtime) startServer() {
 		}
 		go r.runHTTP3Server(r.startNum)
 	} else {
+		listener, err := gnet.Listen("tcp", fmt.Sprintf(":%d", r.spec.Port))
+		if err != nil {
+			r.setState(stateFailed)
+			r.setError(err)
+
+			return
+		}
+
+		limitListener := NewLimitListener(listener, r.spec.MaxConnections)
+		r.limitListener = limitListener
 		go r.runHTTP1And2Server(limitListener, r.spec.HTTPS, r.startNum)
 	}
 }
@@ -300,19 +299,22 @@ func (r *runtime) closeServer() {
 		return
 	}
 
-	var err error
 	if r.server3 != nil {
-		err = r.server3.CloseGracefully(serverShutdownTimeout)
+		err := r.server3.Close()
+		if err != nil {
+			logger.Warnf("shutdown http3 server %s failed: %v",
+				r.spec.Name, err)
+		}
 	} else {
 		// NOTE: It's safe to shutdown serve failed server.
 		ctx, cancelFunc := serverShutdownContext()
 		defer cancelFunc()
-		err = r.server.Shutdown(ctx)
-	}
+		err := r.server.Shutdown(ctx)
 
-	if err != nil {
-		logger.Warnf("shutdown httpserver %s failed: %v",
-			r.spec.Name, err)
+		if err != nil {
+			logger.Warnf("shutdown http1/2 server %s failed: %v",
+				r.spec.Name, err)
+		}
 	}
 }
 
