@@ -51,9 +51,9 @@ type (
 		Code       int               `yaml:"code" jsonschema:"omitempty,format=httpcode"`
 		Headers    map[string]string `yaml:"headers" jsonschema:"required"`
 		Body       string            `yaml:"body" jsonschema:"omitempty"`
-		Delay      string            `yaml:"delay" jsonschema:"omitempty,format=duration"`
+		Delay      string            `yaml:"delay" jsonschema:"required,format=duration"`
 
-		delay      time.Duration
+		delay time.Duration
 	}
 )
 
@@ -63,7 +63,7 @@ func New(spec *Spec, prev *Mock) *Mock {
 		var err error
 		r.delay, err = time.ParseDuration(r.Delay)
 		if err != nil {
-			logger.Errorf("BUG: parse duration %s failed: %v", r.delay, err)
+			logger.Errorf("BUG: parse duration %s failed: %v", r.Delay, err)
 		}
 	}
 
