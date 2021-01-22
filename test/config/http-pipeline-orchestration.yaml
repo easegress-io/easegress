@@ -1,4 +1,4 @@
-name: http-pipeline-orchestration-v2
+name: http-pipeline-orchestration
 kind: HTTPPipeline
 # Built-in labels are `END` which can't be used by plugins.
 flow:
