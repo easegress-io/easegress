@@ -36,32 +36,52 @@ type (
 		spec *Spec
 
 		headers *httpheader.Validator
+		jwt     *JWTValidator
 	}
 
 	// Spec describes the Validator.
 	Spec struct {
 		httppipeline.PluginMeta `yaml:",inline"`
 
-		Headers *httpheader.ValidatorSpec `yaml:"headers" jsonschema:"required"`
+		Headers *httpheader.ValidatorSpec `yaml:"headers,omitempty" jsonschema:"omitempty"`
+		JWT     *JWTValidatorSpec         `yaml:"jwt,omitempty" jsonschema:"omitempty"`
 	}
 )
 
 // New creates a Validator.
 func New(spec *Spec, prev *Validator) *Validator {
-	return &Validator{
-		spec:    spec,
-		headers: httpheader.NewValidator(spec.Headers),
+	v := &Validator{spec: spec}
+	if spec.Headers != nil {
+		v.headers = httpheader.NewValidator(spec.Headers)
 	}
+	if spec.JWT != nil {
+		v.jwt = NewJWTValidator(spec.JWT)
+	}
+	return v
 }
 
 // Handle validates HTTPContext.
 func (v *Validator) Handle(ctx context.HTTPContext) string {
-	err := v.headers.Validate(ctx.Request().Header())
-	if err != nil {
-		ctx.Response().SetStatusCode(http.StatusBadRequest)
-		ctx.AddTag(stringtool.Cat("validator: ", err.Error()))
-		return resultInvalid
+	req := ctx.Request()
+
+	if v.headers != nil {
+		err := v.headers.Validate(req.Header())
+		if err != nil {
+			ctx.Response().SetStatusCode(http.StatusBadRequest)
+			ctx.AddTag(stringtool.Cat("header validator: ", err.Error()))
+			return resultInvalid
+		}
 	}
+
+	if v.jwt != nil {
+		err := v.jwt.Validate(req)
+		if err != nil {
+			ctx.Response().SetStatusCode(http.StatusForbidden)
+			ctx.AddTag(stringtool.Cat("JWT validator: ", err.Error()))
+			return resultInvalid
+		}
+	}
+
 	return ""
 }
 
