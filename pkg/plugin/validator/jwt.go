@@ -30,13 +30,16 @@ type JWTValidator struct {
 
 // Validate validates a hte authorization header of a http request
 func (v *JWTValidator) Validate(req context.HTTPRequest) error {
+	const prefix = "Bearer "
+
 	authHdr := req.Header().Get("Authorization")
-	if !strings.HasPrefix(authHdr, "Bearer ") {
+	if !strings.HasPrefix(authHdr, prefix) {
 		return fmt.Errorf("Unexpected authrization header: %s", authHdr)
 	}
 
-	// jwt.Parse does everything incuding parse and verification
-	_, e := jwt.Parse(authHdr[7:], func(token *jwt.Token) (interface{}, error) {
+	token := authHdr[len(prefix):]
+	// jwt.Parse does everything incuding parsing and verification
+	_, e := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
 		if alg := token.Method.Alg(); alg != v.Algorithm {
 			return nil, fmt.Errorf("Unexpected signing method: %v", alg)
 		}
