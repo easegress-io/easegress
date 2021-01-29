@@ -14,5 +14,8 @@ validator:
     IsValid:
       regexp: "^yes$"
   jwt:
+    # If this option is set and the cookie exists, its value is used as the token string,
+    # otherwise, the Authorization header is used.
+    cookie: auth
     algorithm: HS256
     secret: 6d79736563726574 # mysecret in hex
