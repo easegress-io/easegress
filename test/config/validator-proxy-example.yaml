@@ -19,3 +19,7 @@ validator:
     cookieName: auth
     algorithm: HS256
     secret: 6d79736563726574 # mysecret in hex
+  signature:
+    accessKeys:
+      AKID: SECRET
+    excludeBody: false

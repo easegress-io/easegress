@@ -6,6 +6,7 @@ import (
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
 	"github.com/megaease/easegateway/pkg/util/httpheader"
+	"github.com/megaease/easegateway/pkg/util/signer"
 	"github.com/megaease/easegateway/pkg/util/stringtool"
 )
 
@@ -37,26 +38,35 @@ type (
 
 		headers *httpheader.Validator
 		jwt     *JWTValidator
+		signer  *signer.Signer
 	}
 
 	// Spec describes the Validator.
 	Spec struct {
 		httppipeline.PluginMeta `yaml:",inline"`
 
-		Headers *httpheader.ValidatorSpec `yaml:"headers,omitempty" jsonschema:"omitempty"`
-		JWT     *JWTValidatorSpec         `yaml:"jwt,omitempty" jsonschema:"omitempty"`
+		Headers   *httpheader.ValidatorSpec `yaml:"headers,omitempty" jsonschema:"omitempty"`
+		JWT       *JWTValidatorSpec         `yaml:"jwt,omitempty" jsonschema:"omitempty"`
+		Signature *signer.Spec              `yaml:"signature,omitempty" jsonschema:"omitempty"`
 	}
 )
 
 // New creates a Validator.
 func New(spec *Spec, prev *Validator) *Validator {
 	v := &Validator{spec: spec}
+
 	if spec.Headers != nil {
 		v.headers = httpheader.NewValidator(spec.Headers)
 	}
+
 	if spec.JWT != nil {
 		v.jwt = NewJWTValidator(spec.JWT)
 	}
+
+	if spec.Signature != nil {
+		v.signer = signer.CreateFromSpec(spec.Signature)
+	}
+
 	return v
 }
 
@@ -78,6 +88,15 @@ func (v *Validator) Handle(ctx context.HTTPContext) string {
 		if err != nil {
 			ctx.Response().SetStatusCode(http.StatusForbidden)
 			ctx.AddTag(stringtool.Cat("JWT validator: ", err.Error()))
+			return resultInvalid
+		}
+	}
+
+	if v.signer != nil {
+		err := v.signer.Verify(req.Std())
+		if err != nil {
+			ctx.Response().SetStatusCode(http.StatusForbidden)
+			ctx.AddTag(stringtool.Cat("signature validator: ", err.Error()))
 			return resultInvalid
 		}
 	}
