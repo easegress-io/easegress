@@ -33,8 +33,8 @@ func Sync() {
 	defaultLogger.Sync()
 	stderrLogger.Sync()
 	gatewayLogger.Sync()
-	httpPluginAccessLogger.Sync()
-	httpPluginDumpLogger.Sync()
+	httpFilterAccessLogger.Sync()
+	httpFilterDumpLogger.Sync()
 	restAPILogger.Sync()
 }
 
@@ -55,7 +55,7 @@ func APIAccess(
 
 // HTTPAccess logs http access log.
 func HTTPAccess(line string) {
-	httpPluginAccessLogger.Debug(line)
+	httpFilterAccessLogger.Debug(line)
 }
 
 // NginxHTTPAccess is DEPRECATED, replaced by HTTPAccess.
@@ -107,5 +107,5 @@ func NginxHTTPAccess(remoteAddr, proto, method, path, referer, agent, realIP str
 		requestTime.Seconds(), upstreamResponseTime.Seconds(), upstreamAddr, upstreamCode,
 		clientWriteBodyTime.Seconds(), clientReadBodyTime.Seconds(), routeTime.Seconds())
 
-	httpPluginAccessLogger.Debug(line)
+	httpFilterAccessLogger.Debug(line)
 }

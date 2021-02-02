@@ -17,65 +17,65 @@ const (
 	// ObjectMetadataPrefix is the object metadata prefix.
 	ObjectMetadataPrefix = "/metadata/objects"
 
-	// PluginMetaPrefix is the plugin of HTTPPipeline metadata prefix.
-	PluginMetaPrefix = "/metadata/objects/httppipeline/plugins"
+	// FilterMetaPrefix is the filter of HTTPPipeline metadata prefix.
+	FilterMetaPrefix = "/metadata/objects/httppipeline/filters"
 )
 
 var (
-	pluginBook  = map[string]*httppipeline.PluginRecord{}
-	pluginKinds []string
+	filterBook  = map[string]*httppipeline.FilterRecord{}
+	filterKinds []string
 )
 
 func (s *Server) setupMetadaAPIs() {
-	pluginBook = httppipeline.GetPluginBook()
-	for kind, pr := range pluginBook {
-		pluginBook[kind] = pr
-		pluginKinds = append(pluginKinds, kind)
+	filterBook = httppipeline.GetFilterBook()
+	for kind, pr := range filterBook {
+		filterBook[kind] = pr
+		filterKinds = append(filterKinds, kind)
 		sort.Strings(pr.Results)
 	}
-	sort.Strings(pluginKinds)
+	sort.Strings(filterKinds)
 
 	metadataAPIs := make([]*apiEntry, 0)
 	metadataAPIs = append(metadataAPIs,
 		&apiEntry{
-			Path:    PluginMetaPrefix,
+			Path:    FilterMetaPrefix,
 			Method:  "GET",
-			Handler: s.listPlugins,
+			Handler: s.listFilters,
 		},
 		&apiEntry{
-			Path:    PluginMetaPrefix + "/{kind:string}" + "/description",
+			Path:    FilterMetaPrefix + "/{kind:string}" + "/description",
 			Method:  "GET",
-			Handler: s.getPluginDescription,
+			Handler: s.getFilterDescription,
 		},
 		&apiEntry{
-			Path:    PluginMetaPrefix + "/{kind:string}" + "/schema",
+			Path:    FilterMetaPrefix + "/{kind:string}" + "/schema",
 			Method:  "GET",
-			Handler: s.getPluginSchema,
+			Handler: s.getFilterSchema,
 		},
 		&apiEntry{
-			Path:    PluginMetaPrefix + "/{kind:string}" + "/results",
+			Path:    FilterMetaPrefix + "/{kind:string}" + "/results",
 			Method:  "GET",
-			Handler: s.getPluginResults,
+			Handler: s.getFilterResults,
 		},
 	)
 
 	s.apis = append(s.apis, metadataAPIs...)
 }
 
-func (s *Server) listPlugins(ctx iris.Context) {
-	buff, err := yaml.Marshal(pluginKinds)
+func (s *Server) listFilters(ctx iris.Context) {
+	buff, err := yaml.Marshal(filterKinds)
 	if err != nil {
-		panic(fmt.Errorf("marshal %#v to yaml failed: %v", pluginKinds, err))
+		panic(fmt.Errorf("marshal %#v to yaml failed: %v", filterKinds, err))
 	}
 
 	ctx.Header("Content-Type", "text/vnd.yaml")
 	ctx.Write(buff)
 }
 
-func (s *Server) getPluginDescription(ctx iris.Context) {
+func (s *Server) getFilterDescription(ctx iris.Context) {
 	kind := ctx.Params().Get("kind")
 
-	pr, exits := pluginBook[kind]
+	pr, exits := filterBook[kind]
 	if !exits {
 		handleAPIError(ctx, iris.StatusNotFound, fmt.Errorf("not found"))
 		return
@@ -84,11 +84,11 @@ func (s *Server) getPluginDescription(ctx iris.Context) {
 	ctx.WriteString(pr.Description)
 }
 
-func (s *Server) getPluginSchema(ctx iris.Context) {
+func (s *Server) getFilterSchema(ctx iris.Context) {
 
 	kind := ctx.Params().Get("kind")
 
-	pr, exits := pluginBook[kind]
+	pr, exits := filterBook[kind]
 	if !exits {
 		handleAPIError(ctx, iris.StatusNotFound, fmt.Errorf("not found"))
 		return
@@ -103,10 +103,10 @@ func (s *Server) getPluginSchema(ctx iris.Context) {
 	ctx.Write(buff)
 }
 
-func (s *Server) getPluginResults(ctx iris.Context) {
+func (s *Server) getFilterResults(ctx iris.Context) {
 	kind := ctx.Params().Get("kind")
 
-	pr, exits := pluginBook[kind]
+	pr, exits := filterBook[kind]
 	if !exits {
 		handleAPIError(ctx, iris.StatusNotFound, fmt.Errorf("not found"))
 		return

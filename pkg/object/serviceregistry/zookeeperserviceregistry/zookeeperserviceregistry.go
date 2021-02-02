@@ -8,7 +8,7 @@ import (
 
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/serviceregistry"
-	"github.com/megaease/easegateway/pkg/scheduler"
+	"github.com/megaease/easegateway/pkg/supervisor"
 
 	zookeeper "github.com/go-zookeeper/zk"
 )
@@ -19,7 +19,7 @@ const (
 )
 
 func init() {
-	scheduler.Register(&scheduler.ObjectRecord{
+	supervisor.Register(&supervisor.ObjectRecord{
 		Kind:              Kind,
 		DefaultSpecFunc:   DefaultSpec,
 		NewFunc:           New,
@@ -43,7 +43,7 @@ type (
 
 	// Spec describes the ZookeeperServiceRegistry.
 	Spec struct {
-		scheduler.ObjectMeta `yaml:",inline"`
+		supervisor.ObjectMeta `yaml:",inline"`
 
 		ConnTimeout  string   `yaml:"conntimeout" jsonschema:"required,format=duration"`
 		ZKServices   []string `yaml:"zkservices" jsonschema:"required,uniqueItems=true"`

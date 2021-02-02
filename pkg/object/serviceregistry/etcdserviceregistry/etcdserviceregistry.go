@@ -9,7 +9,7 @@ import (
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/serviceregistry"
 	"github.com/megaease/easegateway/pkg/option"
-	"github.com/megaease/easegateway/pkg/scheduler"
+	"github.com/megaease/easegateway/pkg/supervisor"
 
 	"go.etcd.io/etcd/clientv3"
 )
@@ -20,7 +20,7 @@ const (
 )
 
 func init() {
-	scheduler.Register(&scheduler.ObjectRecord{
+	supervisor.Register(&supervisor.ObjectRecord{
 		Kind:              Kind,
 		DefaultSpecFunc:   DefaultSpec,
 		NewFunc:           New,
@@ -44,7 +44,7 @@ type (
 
 	// Spec describes the EtcdServiceRegistry.
 	Spec struct {
-		scheduler.ObjectMeta `yaml:",inline"`
+		supervisor.ObjectMeta `yaml:",inline"`
 
 		Endpoints    []string `yaml:"endpoints" jsonschema:"required,uniqueItems=true"`
 		Prefix       string   `yaml:"prefix" jsonschema:"required,pattern=^/"`

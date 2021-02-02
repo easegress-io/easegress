@@ -6,7 +6,7 @@ import (
 
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/serviceregistry"
-	"github.com/megaease/easegateway/pkg/scheduler"
+	"github.com/megaease/easegateway/pkg/supervisor"
 
 	"github.com/hashicorp/consul/api"
 )
@@ -17,7 +17,7 @@ const (
 )
 
 func init() {
-	scheduler.Register(&scheduler.ObjectRecord{
+	supervisor.Register(&supervisor.ObjectRecord{
 		Kind:              Kind,
 		DefaultSpecFunc:   DefaultSpec,
 		NewFunc:           New,
@@ -41,7 +41,7 @@ type (
 
 	// Spec describes the ConsulServiceRegistry.
 	Spec struct {
-		scheduler.ObjectMeta `yaml:",inline"`
+		supervisor.ObjectMeta `yaml:",inline"`
 
 		Address      string   `yaml:"address" jsonschema:"required"`
 		Scheme       string   `yaml:"scheme" jsonschema:"omitempty,enum=http,enum=https"`

@@ -155,7 +155,7 @@ func (r *runtime) reload(nextSpec *Spec) {
 		r.limitListener.SetMaxConnection(nextSpec.MaxConnections)
 	}
 
-	// NOTE: Due to the mechanism of scheduler,
+	// NOTE: Due to the mechanism of supervisor,
 	// nextSpec must not be nil, just defensive programming here.
 	switch {
 	case r.spec == nil && nextSpec == nil:

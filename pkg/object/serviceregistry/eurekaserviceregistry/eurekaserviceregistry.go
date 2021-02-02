@@ -7,7 +7,7 @@ import (
 
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/serviceregistry"
-	"github.com/megaease/easegateway/pkg/scheduler"
+	"github.com/megaease/easegateway/pkg/supervisor"
 
 	"github.com/ArthurHlt/go-eureka-client/eureka"
 )
@@ -18,7 +18,7 @@ const (
 )
 
 func init() {
-	scheduler.Register(&scheduler.ObjectRecord{
+	supervisor.Register(&supervisor.ObjectRecord{
 		Kind:              Kind,
 		DefaultSpecFunc:   DefaultSpec,
 		NewFunc:           New,
@@ -42,7 +42,7 @@ type (
 
 	// Spec describes the EurekaServiceRegistry.
 	Spec struct {
-		scheduler.ObjectMeta `yaml:",inline"`
+		supervisor.ObjectMeta `yaml:",inline"`
 
 		Endpoints    []string `yaml:"endpoints" jsonschema:"required,uniqueItems=true"`
 		SyncInterval string   `yaml:"syncInterval" jsonschema:"required,format=duration"`

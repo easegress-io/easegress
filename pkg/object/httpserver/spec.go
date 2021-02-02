@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/megaease/easegateway/pkg/scheduler"
+	"github.com/megaease/easegateway/pkg/supervisor"
 	"github.com/megaease/easegateway/pkg/tracing"
 	"github.com/megaease/easegateway/pkg/util/ipfilter"
 )
@@ -14,18 +14,18 @@ import (
 type (
 	// Spec describes the HTTPServer.
 	Spec struct {
-		scheduler.ObjectMeta `yaml:",inline"`
-		HTTP3                bool          `yaml:"http3" jsonschema:"omitempty"`
-		Port                 uint16        `yaml:"port" jsonschema:"required,minimum=1"`
-		KeepAlive            bool          `yaml:"keepAlive" jsonschema:"required"`
-		KeepAliveTimeout     string        `yaml:"keepAliveTimeout" jsonschema:"omitempty,format=duration"`
-		MaxConnections       uint32        `yaml:"maxConnections" jsonschema:"omitempty,minimum=1"`
-		HTTPS                bool          `yaml:"https" jsonschema:"required"`
-		CertBase64           string        `yaml:"certBase64" jsonschema:"omitempty,format=base64"`
-		KeyBase64            string        `yaml:"keyBase64" jsonschema:"omitempty,format=base64"`
-		CacheSize            uint32        `yaml:"cacheSize" jsonschema:"omitempty"`
-		XForwardedFor        bool          `yaml:"xForwardedFor" jsonschema:"omitempty"`
-		Tracing              *tracing.Spec `yaml:"tracing" jsonschema:"omitempty"`
+		supervisor.ObjectMeta `yaml:",inline"`
+		HTTP3                 bool          `yaml:"http3" jsonschema:"omitempty"`
+		Port                  uint16        `yaml:"port" jsonschema:"required,minimum=1"`
+		KeepAlive             bool          `yaml:"keepAlive" jsonschema:"required"`
+		KeepAliveTimeout      string        `yaml:"keepAliveTimeout" jsonschema:"omitempty,format=duration"`
+		MaxConnections        uint32        `yaml:"maxConnections" jsonschema:"omitempty,minimum=1"`
+		HTTPS                 bool          `yaml:"https" jsonschema:"required"`
+		CertBase64            string        `yaml:"certBase64" jsonschema:"omitempty,format=base64"`
+		KeyBase64             string        `yaml:"keyBase64" jsonschema:"omitempty,format=base64"`
+		CacheSize             uint32        `yaml:"cacheSize" jsonschema:"omitempty"`
+		XForwardedFor         bool          `yaml:"xForwardedFor" jsonschema:"omitempty"`
+		Tracing               *tracing.Spec `yaml:"tracing" jsonschema:"omitempty"`
 
 		IPFilter *ipfilter.Spec `yaml:"ipFilter,omitempty" jsonschema:"omitempty"`
 		Rules    []Rule         `yaml:"rules" jsonschema:"omitempty"`

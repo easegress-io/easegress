@@ -10,7 +10,7 @@ import (
 
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/scheduler"
+	"github.com/megaease/easegateway/pkg/supervisor"
 	"github.com/megaease/easegateway/pkg/tracing"
 	"github.com/megaease/easegateway/pkg/util/httpheader"
 	"github.com/megaease/easegateway/pkg/util/httpstat"
@@ -415,7 +415,7 @@ func (m *mux) handleRequestWithCache(rules *muxRules, ctx context.HTTPContext, c
 			return
 		}
 
-		handler, ok := rawHandler.(scheduler.HTTPHandler)
+		handler, ok := rawHandler.(supervisor.HTTPHandler)
 		if !ok {
 			ctx.AddTag(stringtool.Cat("BUG: backend ", ci.backend, " is not a http handler"))
 			ctx.Response().SetStatusCode(http.StatusServiceUnavailable)

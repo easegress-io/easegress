@@ -10,7 +10,7 @@ import (
 )
 
 type (
-	// Fallback is plugin Fallback.
+	// Fallback is filter Fallback.
 	Fallback struct {
 		spec      *Spec
 		mockBody  []byte

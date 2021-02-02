@@ -7,12 +7,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/megaease/easegateway/pkg/filter/backend"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
 	"github.com/megaease/easegateway/pkg/object/httpserver"
 	"github.com/megaease/easegateway/pkg/option"
-	"github.com/megaease/easegateway/pkg/plugin/backend"
-	"github.com/megaease/easegateway/pkg/scheduler"
+	"github.com/megaease/easegateway/pkg/supervisor"
 	"github.com/megaease/easegateway/pkg/util/httpstat"
 
 	"github.com/Shopify/sarama"
@@ -29,7 +29,7 @@ var (
 )
 
 func init() {
-	scheduler.Register(&scheduler.ObjectRecord{
+	supervisor.Register(&supervisor.ObjectRecord{
 		Kind:              Kind,
 		DefaultSpecFunc:   DefaultSpec,
 		NewFunc:           New,
@@ -58,7 +58,7 @@ type (
 
 	// Spec describes the EaseMonitorMetrics.
 	Spec struct {
-		scheduler.ObjectMeta `yaml:",inline"`
+		supervisor.ObjectMeta `yaml:",inline"`
 
 		Kafka *KafkaSpec `yaml:"kafka" jsonschema:"required"`
 	}
@@ -227,7 +227,7 @@ func (emm *EaseMonitorMetrics) run() {
 		select {
 		case <-emm.done:
 			return
-		case <-time.After(scheduler.SyncStatusPaceInUnixSeconds * time.Second):
+		case <-time.After(supervisor.SyncStatusPaceInUnixSeconds * time.Second):
 			client, err := emm.getClient()
 			if err != nil {
 				logger.Errorf("%s get kafka producer failed: %v",
@@ -235,7 +235,7 @@ func (emm *EaseMonitorMetrics) run() {
 				continue
 			}
 
-			records := scheduler.Global.GetStatusesRecords()
+			records := supervisor.Global.GetStatusesRecords()
 			for _, record := range records {
 				if record.UnixTimestmp <= emm.latestTimestamp {
 					continue
@@ -254,7 +254,7 @@ func (emm *EaseMonitorMetrics) run() {
 	}
 }
 
-func (emm *EaseMonitorMetrics) record2Messages(record *scheduler.StatusesRecord) []*sarama.ProducerMessage {
+func (emm *EaseMonitorMetrics) record2Messages(record *supervisor.StatusesRecord) []*sarama.ProducerMessage {
 	reqMetrics := []*RequestMetrics{}
 	codeMetrics := []*StatusCodeMetrics{}
 
@@ -314,8 +314,8 @@ func (emm *EaseMonitorMetrics) httpPipeline2Metrics(
 	baseFields *GlobalFields, pipelineStatus *httppipeline.Status) (
 	reqMetrics []*RequestMetrics, codeMetrics []*StatusCodeMetrics) {
 
-	for pluginName, pluginStatus := range pipelineStatus.Plugins {
-		backendStatus, ok := pluginStatus.(*backend.Status)
+	for filterName, filterStatus := range pipelineStatus.Filters {
+		backendStatus, ok := filterStatus.(*backend.Status)
 		if !ok {
 			continue
 		}
@@ -324,21 +324,21 @@ func (emm *EaseMonitorMetrics) httpPipeline2Metrics(
 		baseFieldsBackend.Resource = "BACKEND"
 
 		if backendStatus.MainPool != nil {
-			baseFieldsBackend.Service = baseFields.Service + "/" + pluginName + "/mainPool"
+			baseFieldsBackend.Service = baseFields.Service + "/" + filterName + "/mainPool"
 			req, codes := emm.httpStat2Metrics(&baseFieldsBackend, backendStatus.MainPool.Stat)
 			reqMetrics = append(reqMetrics, req)
 			codeMetrics = append(codeMetrics, codes...)
 		}
 
 		if backendStatus.CandidatePool != nil {
-			baseFieldsBackend.Service = baseFields.Service + "/" + pluginName + "/candidatePool"
+			baseFieldsBackend.Service = baseFields.Service + "/" + filterName + "/candidatePool"
 			req, codes := emm.httpStat2Metrics(&baseFieldsBackend, backendStatus.MainPool.Stat)
 			reqMetrics = append(reqMetrics, req)
 			codeMetrics = append(codeMetrics, codes...)
 		}
 
 		if backendStatus.MirrorPool != nil {
-			baseFieldsBackend.Service = baseFields.Service + "/" + pluginName + "/mirrorPool"
+			baseFieldsBackend.Service = baseFields.Service + "/" + filterName + "/mirrorPool"
 			req, codes := emm.httpStat2Metrics(&baseFieldsBackend, backendStatus.MainPool.Stat)
 			reqMetrics = append(reqMetrics, req)
 			codeMetrics = append(codeMetrics, codes...)

@@ -12,22 +12,22 @@ import (
 )
 
 const (
-	pluginReqPath       = "plugin.%s.req.path"
-	pluginReqMethod     = "plugin.%s.req.method"
-	pluginReqBody       = "plugin.%s.req.body"
-	pluginReqScheme     = "plugin.%s.req.scheme"
-	pluginReqProto      = "plugin.%s.req.proto"
-	pluginReqhost       = "plugin.%s.req.host"
-	pluginReqheader     = "plugin.%s.req.header.%s"
-	pluginRspStatusCode = "plugin.%s.rsp.statuscode"
-	pluginRspBody       = "plugin.%s.rsp.body"
+	filterReqPath       = "filter.%s.req.path"
+	filterReqMethod     = "filter.%s.req.method"
+	filterReqBody       = "filter.%s.req.body"
+	filterReqScheme     = "filter.%s.req.scheme"
+	filterReqProto      = "filter.%s.req.proto"
+	filterReqhost       = "filter.%s.req.host"
+	filterReqheader     = "filter.%s.req.header.%s"
+	filterRspStatusCode = "filter.%s.rsp.statuscode"
+	filterRspBody       = "filter.%s.rsp.body"
 
 	defaultMaxBodySize = 10240
 	defaultTagNum      = 4
 
-	pluginNameTagIndex   = 1
-	pluginReqRspTagIndex = 2
-	pluginValueTagIndex  = 3
+	filterNameTagIndex   = 1
+	filterReqRspTagIndex = 2
+	filterValueTagIndex  = 3
 )
 
 type (
@@ -36,23 +36,23 @@ type (
 		Engine        texttemplate.TemplateEngine
 		metaTemplates []string
 
-		// store the plugin name and its
+		// store the filter name and its
 		// calling function lists
-		pluginExecFuncs map[string]pluginDictFuncs
+		filterExecFuncs map[string]filterDictFuncs
 
-		// the dependency order array of plugins
-		pluginsOrder []string
+		// the dependency order array of filters
+		filtersOrder []string
 	}
 
 	setDictFunc func(*HTTPTemplate, string, HTTPContext) error
 
-	pluginDictFuncs struct {
+	filterDictFuncs struct {
 		reqFuncs []setDictFunc
 		rspFuncs []setDictFunc
 	}
 
-	// PluginBuff stores plugin's name and its YAML bytes
-	PluginBuff struct {
+	// FilterBuff stores filter's name and its YAML bytes
+	FilterBuff struct {
 		Name string
 		Buff []byte
 	}
@@ -60,16 +60,16 @@ type (
 
 var (
 	metaTemplates = []string{
-		"plugin.{}.req.method",
-		"plugin.{}.req.body",
-		"plugin.{}.req.scheme",
-		"plugin.{}.req.path",
-		"plugin.{}.req.proto",
-		"plugin.{}.req.host",
-		"plugin.{}.req.body.{gjson}",
-		"plugin.{}.req.header.{}",
-		"plugin.{}.rsp.statuscode",
-		"plugin.{}.rsp.body.{gjson}",
+		"filter.{}.req.method",
+		"filter.{}.req.body",
+		"filter.{}.req.scheme",
+		"filter.{}.req.path",
+		"filter.{}.req.proto",
+		"filter.{}.req.host",
+		"filter.{}.req.body.{gjson}",
+		"filter.{}.req.header.{}",
+		"filter.{}.rsp.statuscode",
+		"filter.{}.rsp.body.{gjson}",
 	}
 
 	tagsFuncMap = map[string]setDictFunc{
@@ -86,7 +86,7 @@ var (
 )
 
 // NewHTTPTemplate returns a default HTTPTemplate
-func NewHTTPTemplate(pluginBuffs []PluginBuff) (*HTTPTemplate, error) {
+func NewHTTPTemplate(filterBuffs []FilterBuff) (*HTTPTemplate, error) {
 	engine, err := texttemplate.NewDefault(metaTemplates)
 	if err != nil {
 		logger.Errorf("init http template fail [%v]", err)
@@ -96,41 +96,41 @@ func NewHTTPTemplate(pluginBuffs []PluginBuff) (*HTTPTemplate, error) {
 	e := HTTPTemplate{
 		Engine:          engine,
 		metaTemplates:   metaTemplates,
-		pluginExecFuncs: map[string]pluginDictFuncs{},
+		filterExecFuncs: map[string]filterDictFuncs{},
 	}
 
-	pluginFuncTags := map[string][]string{}
-	// validates the plugin's YAML spec for dependency checking
-	// and template format,e.g., if plugin1 has a template said '[[plugin.plugin2.rsp.data]],
-	// but it appears before plugin2, then it's an invalidate dependency cause we can't get
-	// the rsp form plugin2 in the execution period of plugin1. At last it will build up
-	// executing function arraies for every plugins.
-	for _, pluginBuff := range pluginBuffs {
-		e.pluginsOrder = append(e.pluginsOrder, pluginBuff.Name)
-		templatesMap := e.Engine.ExtractRawTemplateRuleMap(string(pluginBuff.Buff))
+	filterFuncTags := map[string][]string{}
+	// validates the filter's YAML spec for dependency checking
+	// and template format,e.g., if filter1 has a template said '[[filter.filter2.rsp.data]],
+	// but it appears before filter2, then it's an invalidate dependency cause we can't get
+	// the rsp form filter2 in the execution period of filter1. At last it will build up
+	// executing function arraies for every filters.
+	for _, filterBuff := range filterBuffs {
+		e.filtersOrder = append(e.filtersOrder, filterBuff.Name)
+		templatesMap := e.Engine.ExtractRawTemplateRuleMap(string(filterBuff.Buff))
 		if len(templatesMap) == 0 {
 			continue
 		}
-		dependPlugins := []string{}
+		dependFilters := []string{}
 		for template, renderMeta := range templatesMap {
 			// no matched and rendered meta template
 			if len(renderMeta) == 0 {
-				err = fmt.Errorf("plugin %s template [[%s]] check failed, unregonized", pluginBuff.Name, template)
+				err = fmt.Errorf("filter %s template [[%s]] check failed, unregonized", filterBuff.Name, template)
 				break
 			}
 
 			tags := strings.Split(renderMeta, texttemplate.DefaultSepertor)
 			if len(tags) < defaultTagNum {
-				err = fmt.Errorf("plugin %s template [[%s]] check failed,its render metaTemplate [[%s]] is invalid",
-					pluginBuff.Name, template, renderMeta)
+				err = fmt.Errorf("filter %s template [[%s]] check failed,its render metaTemplate [[%s]] is invalid",
+					filterBuff.Name, template, renderMeta)
 				break
 			} else {
-				dependPluginName := tags[pluginNameTagIndex]
-				dependPlugins = append(dependPlugins, dependPluginName)
-				funcTag := tags[pluginReqRspTagIndex] + texttemplate.DefaultSepertor +
-					tags[pluginValueTagIndex]
+				dependFilterName := tags[filterNameTagIndex]
+				dependFilters = append(dependFilters, dependFilterName)
+				funcTag := tags[filterReqRspTagIndex] + texttemplate.DefaultSepertor +
+					tags[filterValueTagIndex]
 
-				funcTags := pluginFuncTags[dependPluginName]
+				funcTags := filterFuncTags[dependFilterName]
 				found := false
 				for _, v := range funcTags {
 					if funcTag == v {
@@ -139,21 +139,21 @@ func NewHTTPTemplate(pluginBuffs []PluginBuff) (*HTTPTemplate, error) {
 					}
 				}
 				if !found {
-					pluginFuncTags[dependPluginName] = append(funcTags, funcTag)
+					filterFuncTags[dependFilterName] = append(funcTags, funcTag)
 				}
 			}
 		}
 		if err != nil {
 			return nil, err
 		}
-		// get its all rely plugins and make sure these targets have already show
+		// get its all rely filters and make sure these targets have already show
 		// up, and couldn't rely on itself.
-		if err = e.validatePluginDependency(pluginBuff.Name, dependPlugins); err != nil {
+		if err = e.validateFilterDependency(filterBuff.Name, dependFilters); err != nil {
 			return nil, err
 		}
 	}
 
-	e.storePluginExecFuncs(pluginFuncTags)
+	e.storeFilterExecFuncs(filterFuncTags)
 
 	return &e, nil
 }
@@ -162,7 +162,7 @@ func NewHTTPTemplate(pluginBuffs []PluginBuff) (*HTTPTemplate, error) {
 func NewHTTPTemplateDummy() *HTTPTemplate {
 	return &HTTPTemplate{
 		Engine:          texttemplate.NewDummyTemplate(),
-		pluginExecFuncs: map[string]pluginDictFuncs{},
+		filterExecFuncs: map[string]filterDictFuncs{},
 	}
 }
 
@@ -184,12 +184,12 @@ func readBody(body io.Reader, maxBodySize int64) (*bytes.Buffer, error) {
 }
 
 // SaveRequest transfors HTTPRequest related fields into template engine's dictionary
-func (e *HTTPTemplate) SaveRequest(pluginName string, ctx HTTPContext) error {
+func (e *HTTPTemplate) SaveRequest(filterName string, ctx HTTPContext) error {
 	var (
-		execFuncs pluginDictFuncs
+		execFuncs filterDictFuncs
 		ok        bool
 	)
-	if execFuncs, ok = e.pluginExecFuncs[pluginName]; !ok {
+	if execFuncs, ok = e.filterExecFuncs[filterName]; !ok {
 		return nil
 	}
 
@@ -198,9 +198,9 @@ func (e *HTTPTemplate) SaveRequest(pluginName string, ctx HTTPContext) error {
 	}
 
 	for _, f := range execFuncs.reqFuncs {
-		if err := f(e, pluginName, ctx); err != nil {
-			logger.Errorf("plugin %s execute HTTP template req func %v failed err %v",
-				pluginName, f, err)
+		if err := f(e, filterName, ctx); err != nil {
+			logger.Errorf("filter %s execute HTTP template req func %v failed err %v",
+				filterName, f, err)
 			return err
 		}
 	}
@@ -209,12 +209,12 @@ func (e *HTTPTemplate) SaveRequest(pluginName string, ctx HTTPContext) error {
 }
 
 // SaveResponse transfors HTTPResonse related fields into template engine's dictionary
-func (e *HTTPTemplate) SaveResponse(pluginName string, ctx HTTPContext) error {
+func (e *HTTPTemplate) SaveResponse(filterName string, ctx HTTPContext) error {
 	var (
-		execFuncs pluginDictFuncs
+		execFuncs filterDictFuncs
 		ok        bool
 	)
-	if execFuncs, ok = e.pluginExecFuncs[pluginName]; !ok {
+	if execFuncs, ok = e.filterExecFuncs[filterName]; !ok {
 		return nil
 	}
 
@@ -223,9 +223,9 @@ func (e *HTTPTemplate) SaveResponse(pluginName string, ctx HTTPContext) error {
 	}
 
 	for _, f := range execFuncs.rspFuncs {
-		if err := f(e, pluginName, ctx); err != nil {
-			logger.Errorf("plugin %s execute HTTP template rsp func %v failed err %v",
-				pluginName, f, err)
+		if err := f(e, filterName, ctx); err != nil {
+			logger.Errorf("filter %s execute HTTP template rsp func %v failed err %v",
+				filterName, f, err)
 			return err
 		}
 	}
@@ -238,38 +238,38 @@ func (e *HTTPTemplate) Render(input string) (string, error) {
 	return e.Engine.Render(input)
 }
 
-func (e *HTTPTemplate) validatePluginDependency(pluginName string, dependPlugins []string) error {
+func (e *HTTPTemplate) validateFilterDependency(filterName string, dependFilters []string) error {
 	var err error
-	for _, name := range dependPlugins {
-		if pluginName == name {
-			err = fmt.Errorf("plugin %s template check failed, rely on itself", pluginName)
+	for _, name := range dependFilters {
+		if filterName == name {
+			err = fmt.Errorf("filter %s template check failed, rely on itself", filterName)
 			break
 		}
 		found := false
-		for _, existPlugin := range e.pluginsOrder {
-			if existPlugin == name {
+		for _, existFilter := range e.filtersOrder {
+			if existFilter == name {
 				found = true
 				break
 			}
 		}
 
 		if !found {
-			err = fmt.Errorf("plugin %s template check failed, rely on a havn't executed plugin %s ",
-				pluginName, name)
+			err = fmt.Errorf("filter %s template check failed, rely on a havn't executed filter %s ",
+				filterName, name)
 			break
 		}
 	}
 	return err
 }
 
-func (e *HTTPTemplate) storePluginExecFuncs(pluginFuncTags map[string][]string) {
-	for pluginName, funcTags := range pluginFuncTags {
+func (e *HTTPTemplate) storeFilterExecFuncs(filterFuncTags map[string][]string) {
+	for filterName, funcTags := range filterFuncTags {
 		var (
-			execFuncs pluginDictFuncs
+			execFuncs filterDictFuncs
 			ok        bool
 		)
-		if execFuncs, ok = e.pluginExecFuncs[pluginName]; !ok {
-			e.pluginExecFuncs[pluginName] = pluginDictFuncs{}
+		if execFuncs, ok = e.filterExecFuncs[filterName]; !ok {
+			e.filterExecFuncs[filterName] = filterDictFuncs{}
 		}
 
 		for _, funcTag := range funcTags {
@@ -281,71 +281,71 @@ func (e *HTTPTemplate) storePluginExecFuncs(pluginFuncTags map[string][]string) 
 				}
 			}
 		}
-		e.pluginExecFuncs[pluginName] = execFuncs
+		e.filterExecFuncs[filterName] = execFuncs
 	}
 }
 
-func saveRspStatuscode(e *HTTPTemplate, pluginName string, ctx HTTPContext) error {
-	return e.Engine.SetDict(fmt.Sprintf(pluginRspStatusCode, pluginName), strconv.Itoa(ctx.Response().StatusCode()))
+func saveRspStatuscode(e *HTTPTemplate, filterName string, ctx HTTPContext) error {
+	return e.Engine.SetDict(fmt.Sprintf(filterRspStatusCode, filterName), strconv.Itoa(ctx.Response().StatusCode()))
 }
 
-func saveReqHost(e *HTTPTemplate, pluginName string, ctx HTTPContext) error {
-	return e.Engine.SetDict(fmt.Sprintf(pluginReqhost, pluginName), ctx.Request().Host())
+func saveReqHost(e *HTTPTemplate, filterName string, ctx HTTPContext) error {
+	return e.Engine.SetDict(fmt.Sprintf(filterReqhost, filterName), ctx.Request().Host())
 }
 
-func saveReqPath(e *HTTPTemplate, pluginName string, ctx HTTPContext) error {
-	return e.Engine.SetDict(fmt.Sprintf(pluginReqPath, pluginName), ctx.Request().Path())
+func saveReqPath(e *HTTPTemplate, filterName string, ctx HTTPContext) error {
+	return e.Engine.SetDict(fmt.Sprintf(filterReqPath, filterName), ctx.Request().Path())
 }
-func saveReqProto(e *HTTPTemplate, pluginName string, ctx HTTPContext) error {
-	return e.Engine.SetDict(fmt.Sprintf(pluginReqProto, pluginName), ctx.Request().Proto())
-}
-
-func saveReqScheme(e *HTTPTemplate, pluginName string, ctx HTTPContext) error {
-	return e.Engine.SetDict(fmt.Sprintf(pluginReqScheme, pluginName), ctx.Request().Scheme())
+func saveReqProto(e *HTTPTemplate, filterName string, ctx HTTPContext) error {
+	return e.Engine.SetDict(fmt.Sprintf(filterReqProto, filterName), ctx.Request().Proto())
 }
 
-func saveReqMethod(e *HTTPTemplate, pluginName string, ctx HTTPContext) error {
-	return e.Engine.SetDict(fmt.Sprintf(pluginReqMethod, pluginName), ctx.Request().Method())
+func saveReqScheme(e *HTTPTemplate, filterName string, ctx HTTPContext) error {
+	return e.Engine.SetDict(fmt.Sprintf(filterReqScheme, filterName), ctx.Request().Scheme())
 }
 
-func saveReqBody(e *HTTPTemplate, pluginName string, ctx HTTPContext) error {
+func saveReqMethod(e *HTTPTemplate, filterName string, ctx HTTPContext) error {
+	return e.Engine.SetDict(fmt.Sprintf(filterReqMethod, filterName), ctx.Request().Method())
+}
+
+func saveReqBody(e *HTTPTemplate, filterName string, ctx HTTPContext) error {
 	bodyBuff, err := readBody(ctx.Request().Body(), defaultMaxBodySize)
 
 	if err != nil {
 		logger.Errorf("httptemplate save HTTP request  body failed err %v", err)
 		return err
 	}
-	e.Engine.SetDict(fmt.Sprintf(pluginReqBody, pluginName), string(bodyBuff.Bytes()))
+	e.Engine.SetDict(fmt.Sprintf(filterReqBody, filterName), string(bodyBuff.Bytes()))
 	// Reset back into Request's Body
 	ctx.Request().SetBody(bodyBuff)
 
 	return nil
 }
 
-func saveReqHeader(e *HTTPTemplate, pluginName string, ctx HTTPContext) error {
+func saveReqHeader(e *HTTPTemplate, filterName string, ctx HTTPContext) error {
 	// Set the HTTP request Header
 	for k, v := range ctx.Request().Std().Header {
 		if len(v) > 0 {
 			if len(v) == 1 {
-				e.Engine.SetDict(fmt.Sprintf(pluginReqheader, pluginName, k), v[0])
+				e.Engine.SetDict(fmt.Sprintf(filterReqheader, filterName, k), v[0])
 			} else {
 				// one header field with multiple values, join them with "," according to
 				// https://stackoverflow.com/q/3096888/1705845
-				e.Engine.SetDict(fmt.Sprintf(pluginReqheader, pluginName, k), strings.Join(v, ","))
+				e.Engine.SetDict(fmt.Sprintf(filterReqheader, filterName, k), strings.Join(v, ","))
 			}
 		}
 	}
 	return nil
 }
 
-func saveRspBody(e *HTTPTemplate, pluginName string, ctx HTTPContext) error {
+func saveRspBody(e *HTTPTemplate, filterName string, ctx HTTPContext) error {
 	bodyBuff, err := readBody(ctx.Response().Body(), defaultMaxBodySize)
 
 	if err != nil {
 		logger.Errorf("httptemplate save HTTP response body failed err %v", err)
 		return err
 	}
-	e.Engine.SetDict(fmt.Sprintf(pluginRspBody, pluginName), string(bodyBuff.Bytes()))
+	e.Engine.SetDict(fmt.Sprintf(filterRspBody, filterName), string(bodyBuff.Bytes()))
 	ctx.Response().SetBody(bodyBuff)
 	return nil
 }

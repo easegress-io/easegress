@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/megaease/easegateway/pkg/context"
-	"github.com/megaease/easegateway/pkg/scheduler"
+	"github.com/megaease/easegateway/pkg/supervisor"
 )
 
 const (
@@ -16,7 +16,7 @@ const (
 )
 
 func init() {
-	scheduler.Register(&scheduler.ObjectRecord{
+	supervisor.Register(&supervisor.ObjectRecord{
 		Kind:              Kind,
 		DefaultSpecFunc:   DefaultSpec,
 		NewFunc:           New,
@@ -58,7 +58,7 @@ func New(spec *Spec, prev *HTTPServer, handlers *sync.Map) *HTTPServer {
 	return hs
 }
 
-// Handle is a dummy placeholder for scheduler.Object
+// Handle is a dummy placeholder for supervisor.Object
 func (hs *HTTPServer) Handle(context.HTTPContext) {}
 
 // Status is the wrapper of runtime's Status.

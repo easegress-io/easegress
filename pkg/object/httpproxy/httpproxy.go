@@ -5,18 +5,18 @@ import (
 	"sync"
 
 	"github.com/megaease/easegateway/pkg/context"
+	"github.com/megaease/easegateway/pkg/filter/backend"
+	"github.com/megaease/easegateway/pkg/filter/corsadaptor"
+	"github.com/megaease/easegateway/pkg/filter/fallback"
+	"github.com/megaease/easegateway/pkg/filter/ratelimiter"
+	"github.com/megaease/easegateway/pkg/filter/requestadaptor"
+	"github.com/megaease/easegateway/pkg/filter/responseadaptor"
+	"github.com/megaease/easegateway/pkg/filter/urlratelimiter"
+	"github.com/megaease/easegateway/pkg/filter/validator"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
 	"github.com/megaease/easegateway/pkg/object/httpserver"
-	"github.com/megaease/easegateway/pkg/plugin/backend"
-	"github.com/megaease/easegateway/pkg/plugin/corsadaptor"
-	"github.com/megaease/easegateway/pkg/plugin/fallback"
-	"github.com/megaease/easegateway/pkg/plugin/ratelimiter"
-	"github.com/megaease/easegateway/pkg/plugin/requestadaptor"
-	"github.com/megaease/easegateway/pkg/plugin/responseadaptor"
-	"github.com/megaease/easegateway/pkg/plugin/urlratelimiter"
-	"github.com/megaease/easegateway/pkg/plugin/validator"
-	"github.com/megaease/easegateway/pkg/scheduler"
+	"github.com/megaease/easegateway/pkg/supervisor"
 
 	yaml "gopkg.in/yaml.v2"
 )
@@ -27,7 +27,7 @@ const (
 )
 
 func init() {
-	scheduler.Register(&scheduler.ObjectRecord{
+	supervisor.Register(&supervisor.ObjectRecord{
 		Kind:              Kind,
 		DefaultSpecFunc:   DefaultSpec,
 		NewFunc:           New,
@@ -45,7 +45,7 @@ type (
 
 	// Spec describes the HTTPProxy.
 	Spec struct {
-		scheduler.ObjectMeta `yaml:",inline"`
+		supervisor.ObjectMeta `yaml:",inline"`
 
 		Validator       *validator.Spec       `yaml:"validator,omitempty" jsonschema:"omitempty"`
 		Fallback        *fallback.Spec        `yaml:"fallback,omitempty" jsonschema:"omitempty"`
@@ -77,7 +77,7 @@ func (spec Spec) Validate() error {
 
 func (spec Spec) toHTTPPipelineSpec() *httppipeline.Spec {
 	pipelineSpec := &httppipeline.Spec{
-		ObjectMeta: scheduler.ObjectMeta{
+		ObjectMeta: supervisor.ObjectMeta{
 			Name: spec.Name,
 			Kind: httppipeline.Kind,
 		},
@@ -104,35 +104,35 @@ func (spec Spec) toHTTPPipelineSpec() *httppipeline.Spec {
 	}
 
 	if spec.Validator != nil {
-		pipelineSpec.Plugins = append(pipelineSpec.Plugins,
+		pipelineSpec.Filters = append(pipelineSpec.Filters,
 			transformSpec("validator", validator.Kind, spec.Validator))
 	}
 	if spec.Fallback != nil {
-		pipelineSpec.Plugins = append(pipelineSpec.Plugins,
+		pipelineSpec.Filters = append(pipelineSpec.Filters,
 			transformSpec("fallback", fallback.Kind, spec.Fallback))
 	}
 	if spec.CORSAdaptor != nil {
-		pipelineSpec.Plugins = append(pipelineSpec.Plugins,
+		pipelineSpec.Filters = append(pipelineSpec.Filters,
 			transformSpec("corsAdaptor", corsadaptor.Kind, spec.CORSAdaptor))
 	}
 	if spec.URLRateLimiter != nil {
-		pipelineSpec.Plugins = append(pipelineSpec.Plugins,
+		pipelineSpec.Filters = append(pipelineSpec.Filters,
 			transformSpec("urlRateLimiter", urlratelimiter.Kind, spec.URLRateLimiter))
 	}
 	if spec.RateLimiter != nil {
-		pipelineSpec.Plugins = append(pipelineSpec.Plugins,
+		pipelineSpec.Filters = append(pipelineSpec.Filters,
 			transformSpec("rateLimiter", ratelimiter.Kind, spec.RateLimiter))
 	}
 	if spec.RequestAdaptor != nil {
-		pipelineSpec.Plugins = append(pipelineSpec.Plugins,
+		pipelineSpec.Filters = append(pipelineSpec.Filters,
 			transformSpec("requestAdaptor", requestadaptor.Kind, spec.RequestAdaptor))
 	}
 
-	pipelineSpec.Plugins = append(pipelineSpec.Plugins,
+	pipelineSpec.Filters = append(pipelineSpec.Filters,
 		transformSpec("backend", backend.Kind, spec.Backend))
 
 	if spec.ResponseAdaptor != nil {
-		pipelineSpec.Plugins = append(pipelineSpec.Plugins,
+		pipelineSpec.Filters = append(pipelineSpec.Filters,
 			transformSpec("responseAdaptor", responseadaptor.Kind, spec.ResponseAdaptor))
 	}
 

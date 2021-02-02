@@ -8,10 +8,10 @@ import (
 )
 
 type (
-	// Plugin is the common interface for plugins handling HTTP traffic.
-	// All Plugins need to implement Handle and Close.
+	// Filter is the common interface for filters handling HTTP traffic.
+	// All Filters need to implement Handle and Close.
 	//
-	// Every Plugin registers itself in its package function init().
+	// Every Filter registers itself in its package function init().
 	// It must give the information below:
 	//
 	// 1. Kind: A unique name represented its kind.
@@ -26,57 +26,57 @@ type (
 	//   4.1 No need to register empty string which won't
 	//     break the HTTPPipeline by default.
 	//
-	// And the registry will check more for the Plugin itself.
+	// And the registry will check more for the Filter itself.
 	// 1. It must implement function Status
 	//   1.1 It has one and only one output argument in any types.
-	Plugin interface {
+	Filter interface {
 		Handle(context.HTTPContext) (result string)
 		Close()
 	}
 
-	// PluginMeta describes metadata of Plugin.
-	PluginMeta struct {
+	// FilterMeta describes metadata of Filter.
+	FilterMeta struct {
 		Name string `yaml:"name,omitempty" jsonschema:"omitempty,format=urlname"`
 		Kind string `yaml:"kind,omitempty" jsonschema:"omitempty"`
 	}
 
-	// PluginRecord is the record for booking plugin.
-	PluginRecord struct {
+	// FilterRecord is the record for booking filter.
+	FilterRecord struct {
 		Kind string
-		// func DefaultSpec() *PluginSpec
+		// func DefaultSpec() *FilterSpec
 		DefaultSpecFunc interface{}
-		// func New(spec *PluginSpec, prev *Plugin) *Plugin
+		// func New(spec *FilterSpec, prev *Filter) *Filter
 		NewFunc interface{}
 		Results []string
 
 		Description string
 
-		PluginType reflect.Type
+		FilterType reflect.Type
 		SpecType   reflect.Type
 	}
 )
 
 var (
-	pluginBook = map[string]*PluginRecord{}
+	filterBook = map[string]*FilterRecord{}
 )
 
-func (pr *PluginRecord) copy() *PluginRecord {
-	pr1 := *pr
-	results := make([]string, len(pr.Results))
-	reflect.Copy(reflect.ValueOf(results), reflect.ValueOf(pr.Results))
-	pr1.Results = results
-	return &pr1
+func (fr *FilterRecord) copy() *FilterRecord {
+	fr1 := *fr
+	results := make([]string, len(fr.Results))
+	reflect.Copy(reflect.ValueOf(results), reflect.ValueOf(fr.Results))
+	fr1.Results = results
+	return &fr1
 }
 
-// Register registers plugins scheduled by HTTPPipeline.
-func Register(pr *PluginRecord) {
-	if pr.Kind == "" {
+// Register registers filters scheduled by HTTPPipeline.
+func Register(fr *FilterRecord) {
+	if fr.Kind == "" {
 		panic("empty kind")
 	}
 
 	assert := func(x, y interface{}, err error) {
 		if !reflect.DeepEqual(x, y) {
-			panic(fmt.Errorf("%s: %v", pr.Kind, err))
+			panic(fmt.Errorf("%s: %v", fr.Kind, err))
 		}
 	}
 	assertFunc := func(name string, t reflect.Type, numIn, numOut int) {
@@ -85,29 +85,29 @@ func Register(pr *PluginRecord) {
 		assert(t.NumOut(), numOut, fmt.Errorf("%s: output arguments: want %d, got %d", name, numOut, t.NumOut()))
 	}
 
-	prExisted, exists := pluginBook[pr.Kind]
-	assert(exists, false, fmt.Errorf("conflict kind: %s: %#v", pr.Kind, prExisted))
+	prExisted, exists := filterBook[fr.Kind]
+	assert(exists, false, fmt.Errorf("conflict kind: %s: %#v", fr.Kind, prExisted))
 
 	// SpecFunc
-	specFuncType := reflect.TypeOf(pr.DefaultSpecFunc)
+	specFuncType := reflect.TypeOf(fr.DefaultSpecFunc)
 	assertFunc("DefaultSpecFunc", specFuncType, 0, 1)
 
 	// Spec
-	pr.SpecType = specFuncType.Out(0)
-	assert(pr.SpecType.Kind(), reflect.Ptr, fmt.Errorf("non pointer spec"))
-	assert(pr.SpecType.Elem().Kind(), reflect.Struct,
-		fmt.Errorf("non struct spec elem: %s", pr.SpecType.Elem().Kind()))
-	nameField, exists := pr.SpecType.Elem().FieldByName("Name")
+	fr.SpecType = specFuncType.Out(0)
+	assert(fr.SpecType.Kind(), reflect.Ptr, fmt.Errorf("non pointer spec"))
+	assert(fr.SpecType.Elem().Kind(), reflect.Struct,
+		fmt.Errorf("non struct spec elem: %s", fr.SpecType.Elem().Kind()))
+	nameField, exists := fr.SpecType.Elem().FieldByName("Name")
 	assert(exists, true, fmt.Errorf("no Name field in spec"))
 	assert(nameField.Type.Kind(), reflect.String, fmt.Errorf("Name field which is not string"))
-	kindField, exists := pr.SpecType.Elem().FieldByName("Kind")
+	kindField, exists := fr.SpecType.Elem().FieldByName("Kind")
 	assert(exists, true, fmt.Errorf("no Kind field in spec"))
 	assert(kindField.Type.Kind(), reflect.String, fmt.Errorf("Kind field which is not string"))
 
 	// NewFunc
-	newFuncType := reflect.TypeOf(pr.NewFunc)
+	newFuncType := reflect.TypeOf(fr.NewFunc)
 	assertFunc("NewFunc", newFuncType, 2, 1)
-	assert(newFuncType.In(0), pr.SpecType,
+	assert(newFuncType.In(0), fr.SpecType,
 		fmt.Errorf("conflict NewFunc and DefaultSpecFunc: "+
 			"1st input argument of NewFunc is different type from "+
 			"output argument of DefaultSpecFunc"))
@@ -115,21 +115,21 @@ func Register(pr *PluginRecord) {
 		fmt.Errorf("invalid NewFunc "+
 			"2nd input argument is different type from output argument of NewFunc"))
 
-	// Plugin
-	pr.PluginType = newFuncType.Out(0)
-	pluginType := reflect.TypeOf((*Plugin)(nil)).Elem()
-	assert(pr.PluginType.Implements(pluginType), true,
-		fmt.Errorf("invalid plugin: not implement httppipeline.Plugin"))
+	// Filter
+	fr.FilterType = newFuncType.Out(0)
+	filterType := reflect.TypeOf((*Filter)(nil)).Elem()
+	assert(fr.FilterType.Implements(filterType), true,
+		fmt.Errorf("invalid filter: not implement httppipeline.Filter"))
 
 	// StatusFunc
-	statusMethod, exists := pr.PluginType.MethodByName("Status")
+	statusMethod, exists := fr.FilterType.MethodByName("Status")
 	assert(exists, true, fmt.Errorf("no func Status"))
 	// NOTE: Method always has more than one argument, the first one is the receiver.
 	assertFunc("Status", statusMethod.Type, 1, 1)
 
 	// Results
 	results := make(map[string]struct{})
-	for _, result := range pr.Results {
+	for _, result := range fr.Results {
 		assert(result == "", false, fmt.Errorf("empty result"))
 
 		_, exists := results[result]
@@ -137,15 +137,15 @@ func Register(pr *PluginRecord) {
 		results[result] = struct{}{}
 	}
 
-	pluginBook[pr.Kind] = pr
+	filterBook[fr.Kind] = fr
 }
 
-// GetPluginBook copies the plugin book.
-func GetPluginBook() map[string]*PluginRecord {
-	result := map[string]*PluginRecord{}
+// GetFilterBook copies the filter book.
+func GetFilterBook() map[string]*FilterRecord {
+	result := map[string]*FilterRecord{}
 
-	for kind, pr := range pluginBook {
-		result[kind] = pr.copy()
+	for kind, fr := range filterBook {
+		result[kind] = fr.copy()
 	}
 
 	return result

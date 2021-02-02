@@ -9,7 +9,7 @@ import (
 	_ "github.com/megaease/easegateway/pkg/object/httpproxy"
 	_ "github.com/megaease/easegateway/pkg/object/httpserver"
 
-	"github.com/megaease/easegateway/pkg/scheduler"
+	"github.com/megaease/easegateway/pkg/supervisor"
 
 	"github.com/kataras/iris"
 	yaml "gopkg.in/yaml.v2"
@@ -77,13 +77,13 @@ func (s *Server) setupObjectAPIs() {
 	s.apis = append(s.apis, objAPIs...)
 }
 
-func (s *Server) readObjectSpec(ctx iris.Context) (scheduler.Spec, error) {
+func (s *Server) readObjectSpec(ctx iris.Context) (supervisor.Spec, error) {
 	body, err := ioutil.ReadAll(ctx.Request().Body)
 	if err != nil {
 		return nil, fmt.Errorf("read body failed: %v", err)
 	}
 
-	spec, err := scheduler.SpecFromYAML(string(body))
+	spec, err := supervisor.SpecFromYAML(string(body))
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +157,7 @@ func (s *Server) getObject(ctx iris.Context) {
 
 	// Reference: https://mailarchive.ietf.org/arch/msg/media-types/e9ZNC0hDXKXeFlAVRWxLCCaG9GI
 	ctx.Header("Content-Type", "text/vnd.yaml")
-	ctx.Write([]byte(scheduler.YAMLFromSpec(spec)))
+	ctx.Write([]byte(supervisor.YAMLFromSpec(spec)))
 }
 
 func (s *Server) updateObject(ctx iris.Context) {
@@ -241,14 +241,14 @@ func (s *Server) listStatusObjects(ctx iris.Context) {
 	ctx.Write(buff)
 }
 
-type specsToSort []scheduler.Spec
+type specsToSort []supervisor.Spec
 
 func (s specsToSort) Less(i, j int) bool { return s[i].GetName() < s[j].GetName() }
 func (s specsToSort) Len() int           { return len(s) }
 func (s specsToSort) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
 func (s *Server) listObjectKinds(ctx iris.Context) {
-	kinds := scheduler.ObjectKinds()
+	kinds := supervisor.ObjectKinds()
 	buff, err := yaml.Marshal(kinds)
 	if err != nil {
 		panic(fmt.Errorf("marshal %#v to yaml failed: %v", kinds, err))

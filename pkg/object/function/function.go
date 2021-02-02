@@ -5,11 +5,11 @@ import (
 	"sync"
 
 	"github.com/megaease/easegateway/pkg/context"
+	"github.com/megaease/easegateway/pkg/filter/backend"
+	"github.com/megaease/easegateway/pkg/filter/requestadaptor"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httpserver"
-	"github.com/megaease/easegateway/pkg/plugin/backend"
-	"github.com/megaease/easegateway/pkg/plugin/requestadaptor"
-	"github.com/megaease/easegateway/pkg/scheduler"
+	"github.com/megaease/easegateway/pkg/supervisor"
 	"github.com/megaease/easegateway/pkg/util/httpheader"
 	"github.com/megaease/easegateway/pkg/util/httpstat"
 	"github.com/megaease/easegateway/pkg/util/pathadaptor"
@@ -25,7 +25,7 @@ const (
 )
 
 func init() {
-	scheduler.Register(&scheduler.ObjectRecord{
+	supervisor.Register(&supervisor.ObjectRecord{
 		Kind:              Kind,
 		DefaultSpecFunc:   DefaultSpec,
 		NewFunc:           New,
@@ -47,7 +47,7 @@ type (
 
 	// Spec describes the Function.
 	Spec struct {
-		scheduler.ObjectMeta `yaml:",inline"`
+		supervisor.ObjectMeta `yaml:",inline"`
 
 		URL            string               `yaml:"url" jsonschema:"required"`
 		Cron           *CronSpec            `yaml:"cron" jsonschema:"omitempty"`

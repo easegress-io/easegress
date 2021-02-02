@@ -16,14 +16,14 @@ import (
 // Init initializes logger.
 func Init(opt *option.Options) {
 	initDefault(opt)
-	initHTTPPlugin(opt)
+	initHTTPFilter(opt)
 	initRestAPI(opt)
 }
 
 const (
 	stdoutFilename           = "stdout.log"
-	pluginHTTPAccessFilename = "plugin_http_access.log"
-	pluginHTTPDumpFilename   = "plugin_http_dump.log"
+	filterHTTPAccessFilename = "filter_http_access.log"
+	filterHTTPDumpFilename   = "filter_http_dump.log"
 	adminAPIFilename         = "admin_api.log"
 
 	// EtcdClientFilename is the filename of etcd client log.
@@ -41,8 +41,8 @@ var (
 	defaultLogger          *zap.SugaredLogger // equal stderrLogger + gatewayLogger
 	stderrLogger           *zap.SugaredLogger
 	gatewayLogger          *zap.SugaredLogger
-	httpPluginAccessLogger *zap.Logger
-	httpPluginDumpLogger   *zap.Logger
+	httpFilterAccessLogger *zap.Logger
+	httpFilterDumpLogger   *zap.Logger
 	restAPILogger          *zap.Logger
 )
 
@@ -111,9 +111,9 @@ func initDefault(opt *option.Options) {
 	defaultLogger = zap.New(defaultCore, opts...).Sugar()
 }
 
-func initHTTPPlugin(opt *option.Options) {
-	httpPluginAccessLogger = newPlainLogger(opt, pluginHTTPAccessFilename, trafficLogMaxCacheCount)
-	httpPluginDumpLogger = newPlainLogger(opt, pluginHTTPDumpFilename, trafficLogMaxCacheCount)
+func initHTTPFilter(opt *option.Options) {
+	httpFilterAccessLogger = newPlainLogger(opt, filterHTTPAccessFilename, trafficLogMaxCacheCount)
+	httpFilterDumpLogger = newPlainLogger(opt, filterHTTPDumpFilename, trafficLogMaxCacheCount)
 }
 
 func initRestAPI(opt *option.Options) {

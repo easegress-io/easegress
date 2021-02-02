@@ -11,7 +11,7 @@ import (
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httpserver"
 	"github.com/megaease/easegateway/pkg/object/serviceregistry/etcdserviceregistry"
-	"github.com/megaease/easegateway/pkg/scheduler"
+	"github.com/megaease/easegateway/pkg/supervisor"
 	"github.com/megaease/easegateway/pkg/util/stringtool"
 	"github.com/megaease/easegateway/pkg/v"
 
@@ -27,7 +27,7 @@ const (
 )
 
 func init() {
-	scheduler.Register(&scheduler.ObjectRecord{
+	supervisor.Register(&supervisor.ObjectRecord{
 		Kind:              Kind,
 		DefaultSpecFunc:   DefaultSpec,
 		NewFunc:           New,
@@ -41,29 +41,29 @@ type (
 		spec *Spec
 
 		handlers       *sync.Map
-		runningPlugins []*runningPlugin
+		runningFilters []*runningFilter
 		ht             *context.HTTPTemplate
 	}
 
-	runningPlugin struct {
+	runningFilter struct {
 		spec   map[string]interface{}
 		jumpIf map[string]string
-		plugin Plugin
-		meta   *PluginMeta
-		pr     *PluginRecord
+		filter Filter
+		meta   *FilterMeta
+		fr     *FilterRecord
 	}
 
 	// Spec describes the HTTPPipeline.
 	Spec struct {
-		scheduler.ObjectMeta `yaml:",inline"`
+		supervisor.ObjectMeta `yaml:",inline"`
 
 		Flow    []Flow                   `yaml:"flow" jsonschema:"omitempty"`
-		Plugins []map[string]interface{} `yaml:"plugins" jsonschema:"-"`
+		Filters []map[string]interface{} `yaml:"filters" jsonschema:"-"`
 	}
 
 	// Flow controls the flow of pipeline.
 	Flow struct {
-		Plugin string            `yaml:"plugin" jsonschema:"required,format=urlname"`
+		Filter string            `yaml:"filter" jsonschema:"required,format=urlname"`
 		JumpIf map[string]string `yaml:"jumpIf" jsonschema:"omitempty"`
 	}
 
@@ -73,16 +73,16 @@ type (
 
 		Health string `yaml:"health"`
 
-		Plugins map[string]interface{} `yaml:"plugins"`
+		Filters map[string]interface{} `yaml:"filters"`
 	}
 
 	// PipelineContext contains the context of the HTTPPipeline.
 	PipelineContext struct {
-		PluginStats []*PluginStat
+		FilterStats []*FilterStat
 	}
 
-	// PluginStat records the statistics of the running plugin.
-	PluginStat struct {
+	// FilterStat records the statistics of the running filter.
+	FilterStat struct {
 		Name     string
 		Kind     string
 		Result   string
@@ -90,7 +90,7 @@ type (
 	}
 )
 
-func (ps *PluginStat) log() string {
+func (ps *FilterStat) log() string {
 	result := ps.Result
 	if result != "" {
 		result += ","
@@ -99,13 +99,13 @@ func (ps *PluginStat) log() string {
 }
 
 func (ctx *PipelineContext) log() string {
-	if len(ctx.PluginStats) == 0 {
+	if len(ctx.FilterStats) == 0 {
 		return "<empty>"
 	}
 
-	logs := make([]string, len(ctx.PluginStats))
-	for i, pluginStat := range ctx.PluginStats {
-		logs[i] = pluginStat.log()
+	logs := make([]string, len(ctx.FilterStats))
+	for i, filterStat := range ctx.FilterStats {
+		logs[i] = filterStat.log()
 	}
 
 	return strings.Join(logs, "->")
@@ -165,32 +165,32 @@ func unmarshal(buff []byte, i interface{}) {
 	}
 }
 
-func extractPluginsData(config []byte) interface{} {
+func extractFiltersData(config []byte) interface{} {
 	var whole map[string]interface{}
 	unmarshal(config, &whole)
-	return whole["plugins"]
+	return whole["filters"]
 }
 
-func convertToPluginBuffs(obj interface{}) map[string][]byte {
-	var plugins []map[string]interface{}
-	unmarshal(marshal(obj), &plugins)
+func convertToFilterBuffs(obj interface{}) map[string][]byte {
+	var filters []map[string]interface{}
+	unmarshal(marshal(obj), &filters)
 
 	rst := make(map[string][]byte)
-	for _, p := range plugins {
+	for _, p := range filters {
 		buff := marshal(p)
-		meta := &PluginMeta{}
+		meta := &FilterMeta{}
 		unmarshal(buff, meta)
 		rst[meta.Name] = buff
 	}
 	return rst
 }
 
-func validatePluginMeta(meta *PluginMeta) error {
+func validateFilterMeta(meta *FilterMeta) error {
 	if len(meta.Name) == 0 {
-		return fmt.Errorf("plugin name is required")
+		return fmt.Errorf("filter name is required")
 	}
 	if len(meta.Kind) == 0 {
-		return fmt.Errorf("plugin kind is required")
+		return fmt.Errorf("filter kind is required")
 	}
 
 	return nil
@@ -198,90 +198,90 @@ func validatePluginMeta(meta *PluginMeta) error {
 
 // Validate validates Spec.
 func (s Spec) Validate(config []byte) (err error) {
-	errPrefix := "plugins"
+	errPrefix := "filters"
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("%s: %s", errPrefix, r)
 		}
 	}()
 
-	pluginsData := extractPluginsData(config)
-	if pluginsData == nil {
-		return fmt.Errorf("validate failed: plugins is required")
+	filtersData := extractFiltersData(config)
+	if filtersData == nil {
+		return fmt.Errorf("validate failed: filters is required")
 	}
-	pluginBuffs := convertToPluginBuffs(pluginsData)
+	filterBuffs := convertToFilterBuffs(filtersData)
 
-	pluginRecords := make(map[string]*PluginRecord)
-	var templatePluginBuffs []context.PluginBuff
-	for _, plugin := range s.Plugins {
-		buff := marshal(plugin)
+	filterRecords := make(map[string]*FilterRecord)
+	var templateFilterBuffs []context.FilterBuff
+	for _, filter := range s.Filters {
+		buff := marshal(filter)
 
-		meta := &PluginMeta{}
+		meta := &FilterMeta{}
 		unmarshal(buff, meta)
-		err := validatePluginMeta(meta)
+		err := validateFilterMeta(meta)
 		if err != nil {
 			panic(err)
 		}
 		if meta.Name == LabelEND {
-			panic(fmt.Errorf("can't use %s(built-in label) for plugin name", LabelEND))
+			panic(fmt.Errorf("can't use %s(built-in label) for filter name", LabelEND))
 		}
 
-		if _, exists := pluginRecords[meta.Name]; exists {
+		if _, exists := filterRecords[meta.Name]; exists {
 			panic(fmt.Errorf("conflict name: %s", meta.Name))
 		}
 
-		pr, exists := pluginBook[meta.Kind]
+		fr, exists := filterBook[meta.Kind]
 		if !exists {
-			panic(fmt.Errorf("plugins: unsuppoted kind %s", meta.Kind))
+			panic(fmt.Errorf("filters: unsuppoted kind %s", meta.Kind))
 		}
-		pluginRecords[meta.Name] = pr
+		filterRecords[meta.Name] = fr
 
-		pluginSpec := reflect.ValueOf(pr.DefaultSpecFunc).Call(nil)[0].Interface()
-		unmarshal(buff, pluginSpec)
-		vr := v.Validate(pluginSpec, pluginBuffs[meta.Name])
+		filterSpec := reflect.ValueOf(fr.DefaultSpecFunc).Call(nil)[0].Interface()
+		unmarshal(buff, filterSpec)
+		vr := v.Validate(filterSpec, filterBuffs[meta.Name])
 		if !vr.Valid() {
 			panic(vr)
 		}
 		err = nil
-		if pr == nil {
-			panic(fmt.Errorf("plugin kind %s not found", plugin["kind"]))
+		if fr == nil {
+			panic(fmt.Errorf("filter kind %s not found", filter["kind"]))
 		}
-		templatePluginBuffs = append(templatePluginBuffs, context.PluginBuff{Name: meta.Name, Buff: pluginBuffs[meta.Name]})
+		templateFilterBuffs = append(templateFilterBuffs, context.FilterBuff{Name: meta.Name, Buff: filterBuffs[meta.Name]})
 	}
 
-	// validate http template inside plugin specs
-	_, err = context.NewHTTPTemplate(templatePluginBuffs)
+	// validate http template inside filter specs
+	_, err = context.NewHTTPTemplate(templateFilterBuffs)
 	if err != nil {
-		panic(fmt.Errorf("plugin has invalid httptemplate: %v", err))
+		panic(fmt.Errorf("filter has invalid httptemplate: %v", err))
 	}
 
 	errPrefix = "flow"
 
-	plugins := make(map[string]struct{})
+	filters := make(map[string]struct{})
 	for _, f := range s.Flow {
-		if _, exists := plugins[f.Plugin]; exists {
-			panic(fmt.Errorf("repeated plugin %s", f.Plugin))
+		if _, exists := filters[f.Filter]; exists {
+			panic(fmt.Errorf("repeated filter %s", f.Filter))
 		}
 	}
 
 	labelsValid := map[string]struct{}{LabelEND: struct{}{}}
 	for i := len(s.Flow) - 1; i >= 0; i-- {
 		f := s.Flow[i]
-		pr, exists := pluginRecords[f.Plugin]
+		fr, exists := filterRecords[f.Filter]
 		if !exists {
-			panic(fmt.Errorf("plugin %s not found", f.Plugin))
+			panic(fmt.Errorf("filter %s not found", f.Filter))
 		}
 		for result, label := range f.JumpIf {
-			if !stringtool.StrInSlice(result, pr.Results) {
-				panic(fmt.Errorf("plugin %s: result %s is not in %v",
-					f.Plugin, result, pr.Results))
+			if !stringtool.StrInSlice(result, fr.Results) {
+				panic(fmt.Errorf("filter %s: result %s is not in %v",
+					f.Filter, result, fr.Results))
 			}
 			if _, exists := labelsValid[label]; !exists {
-				panic(fmt.Errorf("plugin %s: label %s not found",
-					f.Plugin, label))
+				panic(fmt.Errorf("filter %s: label %s not found",
+					f.Filter, label))
 			}
 		}
-		labelsValid[f.Plugin] = struct{}{}
+		labelsValid[f.Filter] = struct{}{}
 	}
 
 	return nil
@@ -294,79 +294,79 @@ func New(spec *Spec, prev *HTTPPipeline, handlers *sync.Map) (tmp *HTTPPipeline)
 		handlers: handlers,
 	}
 
-	runningPlugins := make([]*runningPlugin, 0)
+	runningFilters := make([]*runningFilter, 0)
 	if len(spec.Flow) == 0 {
-		for _, pluginSpec := range spec.Plugins {
-			runningPlugins = append(runningPlugins, &runningPlugin{
-				spec: pluginSpec,
+		for _, filterSpec := range spec.Filters {
+			runningFilters = append(runningFilters, &runningFilter{
+				spec: filterSpec,
 			})
 		}
 	} else {
 		for _, f := range spec.Flow {
-			var pluginSpec map[string]interface{}
-			for _, ps := range spec.Plugins {
+			var filterSpec map[string]interface{}
+			for _, ps := range spec.Filters {
 				buff := marshal(ps)
-				meta := &PluginMeta{}
+				meta := &FilterMeta{}
 				unmarshal(buff, meta)
-				if meta.Name == f.Plugin {
-					pluginSpec = ps
+				if meta.Name == f.Filter {
+					filterSpec = ps
 					break
 				}
 			}
-			if pluginSpec == nil {
-				panic(fmt.Errorf("flow plugin %s not found in plugins", f.Plugin))
+			if filterSpec == nil {
+				panic(fmt.Errorf("flow filter %s not found in filters", f.Filter))
 			}
-			runningPlugins = append(runningPlugins, &runningPlugin{
-				spec:   pluginSpec,
+			runningFilters = append(runningFilters, &runningFilter{
+				spec:   filterSpec,
 				jumpIf: f.JumpIf,
 			})
 		}
 	}
 
-	var pluginBuffs []context.PluginBuff
-	for _, runningPlugin := range runningPlugins {
-		buff := marshal(runningPlugin.spec)
+	var filterBuffs []context.FilterBuff
+	for _, runningFilter := range runningFilters {
+		buff := marshal(runningFilter.spec)
 
-		meta := &PluginMeta{}
+		meta := &FilterMeta{}
 		unmarshal(buff, meta)
 
-		pr, exists := pluginBook[meta.Kind]
+		fr, exists := filterBook[meta.Kind]
 		if !exists {
 			panic(fmt.Errorf("kind %s not found", meta.Kind))
 		}
 
-		defaultPluginSpec := reflect.ValueOf(pr.DefaultSpecFunc).Call(nil)[0].Interface()
-		unmarshal(buff, defaultPluginSpec)
+		defaultFilterSpec := reflect.ValueOf(fr.DefaultSpecFunc).Call(nil)[0].Interface()
+		unmarshal(buff, defaultFilterSpec)
 
-		prevValue := reflect.New(pr.PluginType).Elem()
+		prevValue := reflect.New(fr.FilterType).Elem()
 		if prev != nil {
-			prevPlugin := prev.getRunningPlugin(meta.Name)
-			if prevPlugin != nil {
-				prevValue = reflect.ValueOf(prevPlugin.plugin)
+			prevFilter := prev.getRunningFilter(meta.Name)
+			if prevFilter != nil {
+				prevValue = reflect.ValueOf(prevFilter.filter)
 			}
 		}
-		in := []reflect.Value{reflect.ValueOf(defaultPluginSpec), prevValue}
+		in := []reflect.Value{reflect.ValueOf(defaultFilterSpec), prevValue}
 
-		plugin := reflect.ValueOf(pr.NewFunc).Call(in)[0].Interface().(Plugin)
+		filter := reflect.ValueOf(fr.NewFunc).Call(in)[0].Interface().(Filter)
 
-		runningPlugin.plugin, runningPlugin.meta, runningPlugin.pr = plugin, meta, pr
+		runningFilter.filter, runningFilter.meta, runningFilter.fr = filter, meta, fr
 
-		pluginBuffs = append(pluginBuffs, context.PluginBuff{Name: meta.Name, Buff: buff})
+		filterBuffs = append(filterBuffs, context.FilterBuff{Name: meta.Name, Buff: buff})
 	}
 
 	// creating a valid httptemplates
 	var err error
-	hp.ht, err = context.NewHTTPTemplate(pluginBuffs)
+	hp.ht, err = context.NewHTTPTemplate(filterBuffs)
 	if err != nil {
 		panic(fmt.Errorf("create http template failed %v", err))
 	}
 
-	hp.runningPlugins = runningPlugins
+	hp.runningFilters = runningFilters
 
 	if prev != nil {
-		for _, runningPlugin := range prev.runningPlugins {
-			if hp.getRunningPlugin(runningPlugin.meta.Name) == nil {
-				runningPlugin.plugin.Close()
+		for _, runningFilter := range prev.runningFilters {
+			if hp.getRunningFilter(runningFilter.meta.Name) == nil {
+				runningFilter.filter.Close()
 			}
 		}
 	}
@@ -381,69 +381,69 @@ func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) {
 	pipeCtx := newAndSetPipelineContext(ctx)
 	defer deletePipelineContext(ctx)
 
-	// Here is the truly initialed HTTPTemplate by HTTPPipeline's plugin
+	// Here is the truly initialed HTTPTemplate by HTTPPipeline's filter
 	// specs
 	ctx.SetTemplate(hp.ht)
-	nextPluginName := hp.runningPlugins[0].meta.Name
-	for i := 0; i < len(hp.runningPlugins); i++ {
-		if nextPluginName == LabelEND {
+	nextFilterName := hp.runningFilters[0].meta.Name
+	for i := 0; i < len(hp.runningFilters); i++ {
+		if nextFilterName == LabelEND {
 			break
 		}
 
-		runningPlugin := hp.runningPlugins[i]
-		if nextPluginName != runningPlugin.meta.Name {
+		runningFilter := hp.runningFilters[i]
+		if nextFilterName != runningFilter.meta.Name {
 			continue
 		}
 
-		if err := ctx.SaveReqToTemplate(runningPlugin.meta.Name); err != nil {
+		if err := ctx.SaveReqToTemplate(runningFilter.meta.Name); err != nil {
 			logger.Errorf("save http req failed, dict is %#v err is %v",
 				ctx.Template().GetDict(), err)
 		}
 
 		startTime := time.Now()
-		result := runningPlugin.plugin.Handle(ctx)
+		result := runningFilter.filter.Handle(ctx)
 		handleDuration := time.Now().Sub(startTime)
 
-		if err := ctx.SaveRspToTemplate(runningPlugin.meta.Name); err != nil {
+		if err := ctx.SaveRspToTemplate(runningFilter.meta.Name); err != nil {
 			logger.Errorf("save http rsp failed, dict is %#v err is %v",
 				ctx.Template().GetDict(), err)
 		}
 
-		pluginStat := &PluginStat{
-			Name:     runningPlugin.meta.Name,
-			Kind:     runningPlugin.meta.Kind,
+		filterStat := &FilterStat{
+			Name:     runningFilter.meta.Name,
+			Kind:     runningFilter.meta.Kind,
 			Result:   result,
 			Duration: handleDuration,
 		}
-		pipeCtx.PluginStats = append(pipeCtx.PluginStats, pluginStat)
+		pipeCtx.FilterStats = append(pipeCtx.FilterStats, filterStat)
 
 		if result != "" {
-			if !stringtool.StrInSlice(result, runningPlugin.pr.Results) {
+			if !stringtool.StrInSlice(result, runningFilter.fr.Results) {
 				logger.Errorf("BUG: invalid result %s not in %v",
-					result, runningPlugin.pr.Results)
+					result, runningFilter.fr.Results)
 			}
 
-			jumpIf := runningPlugin.jumpIf
+			jumpIf := runningFilter.jumpIf
 			if len(jumpIf) == 0 {
 				break
 			}
 			var exists bool
-			nextPluginName, exists = jumpIf[result]
+			nextFilterName, exists = jumpIf[result]
 			if !exists {
 				break
 			}
-		} else if i < len(hp.runningPlugins)-1 {
-			nextPluginName = hp.runningPlugins[i+1].meta.Name
+		} else if i < len(hp.runningFilters)-1 {
+			nextFilterName = hp.runningFilters[i+1].meta.Name
 		}
 	}
 
 	ctx.AddTag(stringtool.Cat("pipeline: ", pipeCtx.log()))
 }
 
-func (hp *HTTPPipeline) getRunningPlugin(name string) *runningPlugin {
-	for _, plugin := range hp.runningPlugins {
-		if plugin.meta.Name == name {
-			return plugin
+func (hp *HTTPPipeline) getRunningFilter(name string) *runningFilter {
+	for _, filter := range hp.runningFilters {
+		if filter.meta.Name == name {
+			return filter
 		}
 	}
 
@@ -454,13 +454,13 @@ func (hp *HTTPPipeline) getRunningPlugin(name string) *runningPlugin {
 // NOTE: Caller must not call Status while Newing.
 func (hp *HTTPPipeline) Status() *Status {
 	s := &Status{
-		Plugins: make(map[string]interface{}),
+		Filters: make(map[string]interface{}),
 	}
 
-	for _, runningPlugin := range hp.runningPlugins {
-		pluginStatus := reflect.ValueOf(runningPlugin.plugin).
+	for _, runningFilter := range hp.runningFilters {
+		filterStatus := reflect.ValueOf(runningFilter.filter).
 			MethodByName("Status").Call(nil)[0].Interface()
-		s.Plugins[runningPlugin.meta.Name] = pluginStatus
+		s.Filters[runningFilter.meta.Name] = filterStatus
 	}
 
 	return s
@@ -469,7 +469,7 @@ func (hp *HTTPPipeline) Status() *Status {
 // Close closes HTTPPipeline.
 func (hp *HTTPPipeline) Close() {
 	hp.handlers.Delete(hp.spec.Name)
-	for _, runningPlugin := range hp.runningPlugins {
-		runningPlugin.plugin.Close()
+	for _, runningFilter := range hp.runningFilters {
+		runningFilter.filter.Close()
 	}
 }
