@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
-	"sync"
 	"sync/atomic"
 
 	"github.com/megaease/easegateway/pkg/context"
@@ -21,7 +20,7 @@ import (
 
 type (
 	mux struct {
-		handlers *sync.Map
+		super    *supervisor.Supervisor
 		httpStat *httpstat.HTTPStat
 		topN     *topn.TopN
 
@@ -255,9 +254,9 @@ func (mp *muxPath) matchHeaders(ctx context.HTTPContext) (ci *cacheItem, ok bool
 	return nil, false
 }
 
-func newMux(handlers *sync.Map, httpStat *httpstat.HTTPStat, topN *topn.TopN) *mux {
+func newMux(super *supervisor.Supervisor, httpStat *httpstat.HTTPStat, topN *topn.TopN) *mux {
 	m := &mux{
-		handlers: handlers,
+		super:    super,
 		httpStat: httpStat,
 		topN:     topN,
 	}
@@ -408,14 +407,14 @@ func (m *mux) handleRequestWithCache(rules *muxRules, ctx context.HTTPContext, c
 	case ci.methodNotAllowed:
 		ctx.Response().SetStatusCode(http.StatusMethodNotAllowed)
 	case ci.backend != "":
-		rawHandler, exists := m.handlers.Load(ci.backend)
+		ro, exists := m.super.GetRunningObject(ci.backend, supervisor.CategoryPipeline)
 		if !exists {
 			ctx.AddTag(stringtool.Cat("backend ", ci.backend, " not found"))
 			ctx.Response().SetStatusCode(http.StatusServiceUnavailable)
 			return
 		}
 
-		handler, ok := rawHandler.(supervisor.HTTPHandler)
+		handler, ok := ro.Instance().(HTTPHandler)
 		if !ok {
 			ctx.AddTag(stringtool.Cat("BUG: backend ", ci.backend, " is not a http handler"))
 			ctx.Response().SetStatusCode(http.StatusServiceUnavailable)

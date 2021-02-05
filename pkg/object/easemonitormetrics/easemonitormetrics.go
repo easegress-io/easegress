@@ -11,6 +11,7 @@ import (
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
 	"github.com/megaease/easegateway/pkg/object/httpserver"
+	"github.com/megaease/easegateway/pkg/object/statussynccontroller"
 	"github.com/megaease/easegateway/pkg/option"
 	"github.com/megaease/easegateway/pkg/supervisor"
 	"github.com/megaease/easegateway/pkg/util/httpstat"
@@ -29,12 +30,7 @@ var (
 )
 
 func init() {
-	supervisor.Register(&supervisor.ObjectRecord{
-		Kind:              Kind,
-		DefaultSpecFunc:   DefaultSpec,
-		NewFunc:           New,
-		DependObjectKinds: nil,
-	})
+	supervisor.Register(&EaseMonitorMetrics{})
 
 	hostIPv4 = getHostIPv4()
 	if hostIPv4 == "" {
@@ -47,6 +43,8 @@ type (
 	EaseMonitorMetrics struct {
 		spec *Spec
 
+		ssc *statussynccontroller.StatusSyncController
+
 		// sarama.AsyncProducer
 		client      atomic.Value
 		clientMutex sync.Mutex
@@ -58,7 +56,7 @@ type (
 
 	// Spec describes the EaseMonitorMetrics.
 	Spec struct {
-		supervisor.ObjectMeta `yaml:",inline"`
+		supervisor.ObjectMetaSpec `yaml:",inline"`
 
 		Kafka *KafkaSpec `yaml:"kafka" jsonschema:"required"`
 	}
@@ -71,8 +69,7 @@ type (
 
 	// Status is the status of EaseMonitorMetrics.
 	Status struct {
-		Timestamp int64  `json:"timestamp"`
-		Health    string `json:"health"`
+		Health string `json:"health"`
 	}
 
 	// GlobalFields is the global fieilds of EaseMonitor metrics.
@@ -131,8 +128,18 @@ type (
 	}
 )
 
-// DefaultSpec returns EaseMonitorMetrics default spec.
-func DefaultSpec() *Spec {
+// Category returns the category of EaseMonitorMetrics.
+func (emm *EaseMonitorMetrics) Category() supervisor.ObjectCategory {
+	return supervisor.CategoryBusinessController
+}
+
+// Kind returns the kind of EaseMonitorMetrics.
+func (emm *EaseMonitorMetrics) Kind() string {
+	return "EaseMonitorMetrics"
+}
+
+// DefaultSpec returns the default spec of EaseMonitorMetrics.
+func (emm *EaseMonitorMetrics) DefaultSpec() supervisor.ObjectSpec {
 	return &Spec{
 		Kafka: &KafkaSpec{
 			Brokers: []string{"localhost:9092"},
@@ -140,29 +147,30 @@ func DefaultSpec() *Spec {
 	}
 }
 
-// Validate validates Spec.
-func (spec Spec) Validate() error {
-	return nil
-}
+// Renew renews EaseMonitorMetrics.
+func (emm *EaseMonitorMetrics) Renew(spec supervisor.ObjectSpec,
+	previousGeneration supervisor.Object, super *supervisor.Supervisor) {
 
-// New creates an EaseMonitorMetrics.
-func New(spec *Spec, prev *EaseMonitorMetrics, handlers *sync.Map) *EaseMonitorMetrics {
-	emm := &EaseMonitorMetrics{
-		spec: spec,
-		done: make(chan struct{}),
+	if previousGeneration != nil {
+		previousGeneration.Close()
 	}
-	if prev != nil {
-		prev.Close()
+
+	ssc, exists := super.GetRunningObject((&statussynccontroller.StatusSyncController{}).Kind(),
+		supervisor.CategorySystemController)
+	if !exists {
+		logger.Errorf("BUG: status sync controller not found")
 	}
+
+	emm.ssc = ssc.Instance().(*statussynccontroller.StatusSyncController)
+	emm.spec = spec.(*Spec)
+	emm.done = make(chan struct{})
 
 	_, err := emm.getClient()
 	if err != nil {
-		logger.Errorf("%s get kafka producer client failed: %v", spec.Name, err)
+		logger.Errorf("%s get kafka producer client failed: %v", emm.spec.Name, err)
 	}
 
 	go emm.run()
-
-	return emm
 }
 
 func (emm *EaseMonitorMetrics) getClient() (sarama.AsyncProducer, error) {
@@ -227,7 +235,7 @@ func (emm *EaseMonitorMetrics) run() {
 		select {
 		case <-emm.done:
 			return
-		case <-time.After(supervisor.SyncStatusPaceInUnixSeconds * time.Second):
+		case <-time.After(statussynccontroller.SyncStatusPaceInUnixSeconds * time.Second):
 			client, err := emm.getClient()
 			if err != nil {
 				logger.Errorf("%s get kafka producer failed: %v",
@@ -235,7 +243,7 @@ func (emm *EaseMonitorMetrics) run() {
 				continue
 			}
 
-			records := supervisor.Global.GetStatusesRecords()
+			records := emm.ssc.GetStatusesRecords()
 			for _, record := range records {
 				if record.UnixTimestmp <= emm.latestTimestamp {
 					continue
@@ -254,7 +262,7 @@ func (emm *EaseMonitorMetrics) run() {
 	}
 }
 
-func (emm *EaseMonitorMetrics) record2Messages(record *supervisor.StatusesRecord) []*sarama.ProducerMessage {
+func (emm *EaseMonitorMetrics) record2Messages(record *statussynccontroller.StatusesRecord) []*sarama.ProducerMessage {
 	reqMetrics := []*RequestMetrics{}
 	codeMetrics := []*StatusCodeMetrics{}
 
@@ -268,7 +276,13 @@ func (emm *EaseMonitorMetrics) record2Messages(record *supervisor.StatusesRecord
 			Service:   objectName,
 		}
 
-		switch status := status.(type) {
+		globalStatus, ok := status.(*statussynccontroller.UniservalStatus)
+		if !ok {
+			logger.Errorf("BUG: %s want %T, got %T", emm.spec.Name,
+				&statussynccontroller.UniservalStatus{}, status)
+		}
+
+		switch status := globalStatus.ObjectStatus.(type) {
 		case *httppipeline.Status:
 			reqs, codes := emm.httpPipeline2Metrics(baseFields, status)
 			reqMetrics = append(reqMetrics, reqs...)
@@ -424,8 +438,12 @@ func (emm *EaseMonitorMetrics) httpStat2Metrics(baseFields *GlobalFields, s *htt
 }
 
 // Status returns status of EtcdServiceRegister.
-func (emm *EaseMonitorMetrics) Status() *Status {
+func (emm *EaseMonitorMetrics) Status() interface{} {
 	s := &Status{}
+
+	if emm.spec == nil {
+		return s
+	}
 
 	_, err := emm.getClient()
 	if err != nil {

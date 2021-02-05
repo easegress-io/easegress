@@ -66,11 +66,11 @@ func main() {
 		logger.Errorf("new cluster failed: %v", err)
 		os.Exit(1)
 	}
-	sdl := supervisor.MustNew(opt, cls)
-	supervisor.InitGlobalSupervisor(sdl)
+	super := supervisor.MustNew(opt, cls)
+	supervisor.InitGlobalSupervisor(super)
 	api := egapi.MustNewServer(opt, cls)
 
-	if graceupdate.CallOriProcessTerm(sdl.FirstDone()) {
+	if graceupdate.CallOriProcessTerm(super.FirstHandleDone()) {
 		pidfile.Write(opt)
 	}
 
@@ -100,7 +100,7 @@ func main() {
 	wg := &sync.WaitGroup{}
 	wg.Add(4)
 	api.Close(wg)
-	sdl.Close(wg)
+	super.Close(wg)
 	cls.Close(wg)
 	profile.Close(wg)
 	wg.Wait()

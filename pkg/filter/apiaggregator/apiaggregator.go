@@ -14,6 +14,7 @@ import (
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
+	"github.com/megaease/easegateway/pkg/object/httpserver"
 	"github.com/megaease/easegateway/pkg/supervisor"
 	"github.com/megaease/easegateway/pkg/tracing"
 	"github.com/megaease/easegateway/pkg/util/httpheader"
@@ -146,11 +147,17 @@ func (aa *APIAggregator) Handle(ctx context.HTTPContext) (result string) {
 				httpResps[i] = nil
 				return
 			}
-			err = supervisor.Global.SendHTTPRequet(name, copyCtx)
-			if err != nil {
+			ro, exists := supervisor.Global.GetRunningObject(name, supervisor.CategoryPipeline)
+			if !exists {
 				httpResps[i] = nil
 			} else {
-				httpResps[i] = copyCtx.Response()
+				handler, ok := ro.Instance().(httpserver.HTTPHandler)
+				if !ok {
+					httpResps[i] = nil
+				} else {
+					handler.Handle(copyCtx)
+					httpResps[i] = copyCtx.Response()
+				}
 			}
 
 		}(i, proxy.HTTPProxyName, req)

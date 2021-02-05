@@ -77,7 +77,7 @@ func (s *Server) setupObjectAPIs() {
 	s.apis = append(s.apis, objAPIs...)
 }
 
-func (s *Server) readObjectSpec(ctx iris.Context) (supervisor.Spec, error) {
+func (s *Server) readObjectSpec(ctx iris.Context) (supervisor.ObjectSpec, error) {
 	body, err := ioutil.ReadAll(ctx.Request().Body)
 	if err != nil {
 		return nil, fmt.Errorf("read body failed: %v", err)
@@ -241,7 +241,7 @@ func (s *Server) listStatusObjects(ctx iris.Context) {
 	ctx.Write(buff)
 }
 
-type specsToSort []supervisor.Spec
+type specsToSort []supervisor.ObjectSpec
 
 func (s specsToSort) Less(i, j int) bool { return s[i].GetName() < s[j].GetName() }
 func (s specsToSort) Len() int           { return len(s) }

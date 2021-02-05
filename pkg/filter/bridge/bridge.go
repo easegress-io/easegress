@@ -4,6 +4,7 @@ import (
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
+	"github.com/megaease/easegateway/pkg/object/httpserver"
 	"github.com/megaease/easegateway/pkg/supervisor"
 )
 
@@ -73,31 +74,40 @@ func (m *Bridge) Handle(ctx context.HTTPContext) (result string) {
 
 	r := ctx.Request()
 	dest := r.Header().Get(bridgeDestHeader)
+	found := false
 	if dest == "" {
 		logger.Warnf("dest not defined, will choose the first dest: %s", m.spec.Destinations[0])
-		err := supervisor.Global.SendHTTPRequet(m.spec.Destinations[0], ctx)
-		if err != nil {
-			logger.Errorf("failed to invoke %s", m.spec.Destinations[0])
-			return invokeDestFailed
-		}
-
-		return ""
-	}
-
-	for _, d := range m.spec.Destinations {
-		if d == dest {
-			r.Header().Del(bridgeDestHeader)
-			err := supervisor.Global.SendHTTPRequet(d, ctx)
-			if err != nil {
-				logger.Errorf("failed to invoke %s", m.spec.Destinations[0])
-				return invokeDestFailed
+		dest = m.spec.Destinations[0]
+		found = true
+	} else {
+		for _, d := range m.spec.Destinations {
+			if d == dest {
+				r.Header().Del(bridgeDestHeader)
+				found = true
+				break
 			}
-			return ""
 		}
 	}
 
-	logger.Errorf("dest not found: %s", dest)
-	return destNotFound
+	if !found {
+		logger.Errorf("dest not found: %s", dest)
+		return destNotFound
+	}
+
+	ro, exists := supervisor.Global.GetRunningObject(dest, supervisor.CategoryPipeline)
+	if !exists {
+		logger.Errorf("failed invok %s", m.spec.Destinations[0])
+		return invokeDestFailed
+	}
+
+	handler, ok := ro.Instance().(httpserver.HTTPHandler)
+	if !ok {
+		logger.Errorf("%s is not a handler", m.spec.Destinations[0])
+		return invokeDestFailed
+	}
+
+	handler.Handle(ctx)
+	return ""
 }
 
 // Status returns status.

@@ -12,17 +12,15 @@ import (
 )
 
 const (
-	// Kind is ConsulServiceRegistry kind.
+	// Category is the category of ConsulServiceRegistry.
+	Category = supervisor.CategoryBusinessController
+
+	// Kind is the kind of ConsulServiceRegistry.
 	Kind = "ConsulServiceRegistry"
 )
 
 func init() {
-	supervisor.Register(&supervisor.ObjectRecord{
-		Kind:              Kind,
-		DefaultSpecFunc:   DefaultSpec,
-		NewFunc:           New,
-		DependObjectKinds: nil,
-	})
+	supervisor.Register(&ConsulServiceRegistry{})
 }
 
 type (
@@ -41,7 +39,7 @@ type (
 
 	// Spec describes the ConsulServiceRegistry.
 	Spec struct {
-		supervisor.ObjectMeta `yaml:",inline"`
+		supervisor.ObjectMetaSpec `yaml:",inline"`
 
 		Address      string   `yaml:"address" jsonschema:"required"`
 		Scheme       string   `yaml:"scheme" jsonschema:"omitempty,enum=http,enum=https"`
@@ -54,14 +52,23 @@ type (
 
 	// Status is the status of ConsulServiceRegistry.
 	Status struct {
-		Timestamp  int64          `yaml:"timestamp"`
 		Health     string         `yaml:"health"`
 		ServersNum map[string]int `yaml:"serversNum"`
 	}
 )
 
-// DefaultSpec returns ConsulServiceRegistry default spec.
-func DefaultSpec() *Spec {
+// Category returns the category of ConsulServiceRegistry.
+func (csr *ConsulServiceRegistry) Category() supervisor.ObjectCategory {
+	return Category
+}
+
+// Kind returns the kind of ConsulServiceRegistry.
+func (csr *ConsulServiceRegistry) Kind() string {
+	return Kind
+}
+
+// DefaultSpec returns the default spec of ConsulServiceRegistry.
+func (csr *ConsulServiceRegistry) DefaultSpec() supervisor.ObjectSpec {
 	return &Spec{
 		Address:      "127.0.0.1:8500",
 		Scheme:       "http",
@@ -69,30 +76,24 @@ func DefaultSpec() *Spec {
 	}
 }
 
-// Validate validates Spec.
-func (spec Spec) Validate() error {
-	return nil
-}
+// Renew renews ConsulServiceRegistry.
+func (csr *ConsulServiceRegistry) Renew(spec supervisor.ObjectSpec,
+	previousGeneration supervisor.Object, super *supervisor.Supervisor) {
 
-// New creates an ConsulServiceRegistry.
-func New(spec *Spec, prev *ConsulServiceRegistry, handlers *sync.Map) *ConsulServiceRegistry {
-	csr := &ConsulServiceRegistry{
-		spec:       spec,
-		serversNum: map[string]int{},
-		done:       make(chan struct{}),
+	if previousGeneration != nil {
+		previousGeneration.Close()
 	}
-	if prev != nil {
-		prev.Close()
-	}
+
+	csr.spec = spec.(*Spec)
+	csr.serversNum = map[string]int{}
+	csr.done = make(chan struct{})
 
 	_, err := csr.getClient()
 	if err != nil {
-		logger.Errorf("%s get consul client failed: %v", spec.Name, err)
+		logger.Errorf("%s get consul client failed: %v", csr.spec.Name, err)
 	}
 
 	go csr.run()
-
-	return csr
 }
 
 func (csr *ConsulServiceRegistry) getClient() (*api.Client, error) {
@@ -233,8 +234,12 @@ func (csr *ConsulServiceRegistry) update() {
 }
 
 // Status returns status of ConsulServiceRegister.
-func (csr *ConsulServiceRegistry) Status() *Status {
+func (csr *ConsulServiceRegistry) Status() interface{} {
 	s := &Status{}
+
+	if csr.spec == nil {
+		return s
+	}
 
 	_, err := csr.getClient()
 	if err != nil {

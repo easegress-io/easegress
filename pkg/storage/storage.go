@@ -1,4 +1,4 @@
-package supervisor
+package storage
 
 import (
 	"bytes"
@@ -25,7 +25,8 @@ const (
 )
 
 type (
-	storage struct {
+	// Storage is the system component to interact with local and remote storage.
+	Storage struct {
 		cls        cluster.Cluster
 		watcher    cluster.Watcher
 		prefix     string
@@ -43,8 +44,9 @@ type (
 	}
 )
 
-func newStorage(opt *option.Options, cls cluster.Cluster) *storage {
-	s := &storage{
+// New creates a Storage.
+func New(opt *option.Options, cls cluster.Cluster) *Storage {
+	s := &Storage{
 		cls:    cls,
 		prefix: cls.Layout().ConfigObjectPrefix(),
 
@@ -78,7 +80,18 @@ func newStorage(opt *option.Options, cls cluster.Cluster) *storage {
 	return s
 }
 
-func (s *storage) poll() {
+// WatchConfig return the channel to watch the change of config,
+// the channel always output full config.
+func (s *Storage) WatchConfig() <-chan map[string]string {
+	return s.configChan
+}
+
+// SyncStatus synchronizes the status.
+func (s *Storage) SyncStatus(statuses map[string]string) {
+	s.statusChan <- statuses
+}
+
+func (s *Storage) poll() {
 	nextPullAllConfig := time.NewTicker(pullAllConfigTimeout)
 	defer nextPullAllConfig.Stop()
 
@@ -109,8 +122,8 @@ func (s *storage) poll() {
 
 // pullConfig applies deltas to the config by order.
 // If the element delta is nil, it pulls all config
-// from remote storage.
-func (s *storage) pullConfig(deltas ...map[string]*string) {
+// from remote Storage.
+func (s *Storage) pullConfig(deltas ...map[string]*string) {
 	newConfig := make(map[string]string)
 
 	deltasCount := 0
@@ -159,7 +172,7 @@ func (s *storage) pullConfig(deltas ...map[string]*string) {
 	s.storeConfig()
 }
 
-func (s *storage) watchPrefixIfNeed() {
+func (s *Storage) watchPrefixIfNeed() {
 	if s.watcher != nil {
 		return
 	}
@@ -191,18 +204,18 @@ func (s *storage) watchPrefixIfNeed() {
 	s.prefixChan = prefixChan
 }
 
-func (s *storage) closeWatcher() {
+func (s *Storage) closeWatcher() {
 	s.handleWatchFailed()
 }
 
-func (s *storage) handleWatchFailed() {
+func (s *Storage) handleWatchFailed() {
 	if s.watcher != nil {
 		s.watcher.Close()
 	}
 	s.watcher, s.prefixChan = nil, nil
 }
 
-func (s *storage) configToDelta(config map[string]string) map[string]*string {
+func (s *Storage) configToDelta(config map[string]string) map[string]*string {
 	delta := make(map[string]*string)
 	for k, v := range config {
 		k = s.prefix + k
@@ -214,7 +227,7 @@ func (s *storage) configToDelta(config map[string]string) map[string]*string {
 }
 
 // loadConfig loads config from the local file.
-func (s *storage) loadConfig() (map[string]string, error) {
+func (s *Storage) loadConfig() (map[string]string, error) {
 	if _, err := os.Stat(s.configfilePath); os.IsNotExist(err) {
 		// NOTE: This is not an error.
 		logger.Infof("%s not exist", s.configfilePath)
@@ -235,7 +248,7 @@ func (s *storage) loadConfig() (map[string]string, error) {
 	return config, nil
 }
 
-func (s *storage) storeConfig() {
+func (s *Storage) storeConfig() {
 	buff := bytes.NewBuffer(nil)
 	buff.WriteString(fmt.Sprintf("# %s\n", time.Now().Format(time.RFC3339)))
 
@@ -253,7 +266,7 @@ func (s *storage) storeConfig() {
 	}
 }
 
-func (s *storage) copyConfig() map[string]string {
+func (s *Storage) copyConfig() map[string]string {
 	config := make(map[string]string)
 	for k, v := range s.config {
 		config[k] = v
@@ -261,15 +274,7 @@ func (s *storage) copyConfig() map[string]string {
 	return config
 }
 
-func (s *storage) watchConfig() <-chan map[string]string {
-	return s.configChan
-}
-
-func (s *storage) syncStatus(statuses map[string]string) {
-	s.statusChan <- statuses
-}
-
-func (s *storage) handlSyncStatus(statuses map[string]string) {
+func (s *Storage) handlSyncStatus(statuses map[string]string) {
 	kvs := make(map[string]*string)
 	for k, v := range statuses {
 		if _, exists := s.config[k]; exists {
@@ -294,6 +299,7 @@ func (s *storage) handlSyncStatus(statuses map[string]string) {
 	}
 }
 
-func (s *storage) close() {
+// Close closes storage.
+func (s *Storage) Close() {
 	close(s.done)
 }

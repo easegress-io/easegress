@@ -13,17 +13,15 @@ import (
 )
 
 const (
-	// Kind is EurekaServiceRegistry kind.
+	// Category is the category of EurekaServiceRegistry.
+	Category = supervisor.CategoryBusinessController
+
+	// Kind is the kind of EurekaServiceRegistry.
 	Kind = "EurekaServiceRegistry"
 )
 
 func init() {
-	supervisor.Register(&supervisor.ObjectRecord{
-		Kind:              Kind,
-		DefaultSpecFunc:   DefaultSpec,
-		NewFunc:           New,
-		DependObjectKinds: nil,
-	})
+	supervisor.Register(&EurekaServiceRegistry{})
 }
 
 type (
@@ -42,7 +40,7 @@ type (
 
 	// Spec describes the EurekaServiceRegistry.
 	Spec struct {
-		supervisor.ObjectMeta `yaml:",inline"`
+		supervisor.ObjectMetaSpec `yaml:",inline"`
 
 		Endpoints    []string `yaml:"endpoints" jsonschema:"required,uniqueItems=true"`
 		SyncInterval string   `yaml:"syncInterval" jsonschema:"required,format=duration"`
@@ -50,44 +48,47 @@ type (
 
 	// Status is the status of EurekaServiceRegistry.
 	Status struct {
-		Timestamp  int64          `yaml:"timestamp"`
 		Health     string         `yaml:"health"`
 		ServersNum map[string]int `yaml:"serversNum"`
 	}
 )
 
-// DefaultSpec returns EurekaServiceRegistry default spec.
-func DefaultSpec() *Spec {
+// Category returns the category of EurekaServiceRegistry.
+func (esr *EurekaServiceRegistry) Category() supervisor.ObjectCategory {
+	return Category
+}
+
+// Kind returns the kind of EurekaServiceRegistry.
+func (esr *EurekaServiceRegistry) Kind() string {
+	return Kind
+}
+
+// DefaultSpec returns the default spec of EurekaServiceRegistry.
+func (esr *EurekaServiceRegistry) DefaultSpec() supervisor.ObjectSpec {
 	return &Spec{
 		Endpoints:    []string{"http://127.0.0.1:8761/eureka"},
 		SyncInterval: "10s",
 	}
 }
 
-// Validate validates Spec.
-func (spec Spec) Validate() error {
-	return nil
-}
+// Renew renews EurekaServiceRegistry.
+func (esr *EurekaServiceRegistry) Renew(spec supervisor.ObjectSpec,
+	previousGeneration supervisor.Object, super *supervisor.Supervisor) {
 
-// New creates an EurekaServiceRegistry.
-func New(spec *Spec, prev *EurekaServiceRegistry, handlers *sync.Map) *EurekaServiceRegistry {
-	esr := &EurekaServiceRegistry{
-		spec:       spec,
-		serversNum: map[string]int{},
-		done:       make(chan struct{}),
+	if previousGeneration != nil {
+		previousGeneration.Close()
 	}
-	if prev != nil {
-		prev.Close()
-	}
+
+	esr.spec = spec.(*Spec)
+	esr.serversNum = make(map[string]int)
+	esr.done = make(chan struct{})
 
 	_, err := esr.getClient()
 	if err != nil {
-		logger.Errorf("%s get consul client failed: %v", spec.Name, err)
+		logger.Errorf("%s get consul client failed: %v", esr.spec.Name, err)
 	}
 
 	go esr.run()
-
-	return esr
 }
 
 func (esr *EurekaServiceRegistry) getClient() (*eureka.Client, error) {
@@ -200,8 +201,12 @@ func (esr *EurekaServiceRegistry) update() {
 }
 
 // Status returns status of EurekaServiceRegister.
-func (esr *EurekaServiceRegistry) Status() *Status {
+func (esr *EurekaServiceRegistry) Status() interface{} {
 	s := &Status{}
+
+	if esr.spec == nil {
+		return s
+	}
 
 	_, err := esr.getClient()
 	if err != nil {

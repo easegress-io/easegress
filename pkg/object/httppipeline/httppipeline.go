@@ -9,8 +9,6 @@ import (
 
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/object/httpserver"
-	"github.com/megaease/easegateway/pkg/object/serviceregistry/etcdserviceregistry"
 	"github.com/megaease/easegateway/pkg/supervisor"
 	"github.com/megaease/easegateway/pkg/util/stringtool"
 	"github.com/megaease/easegateway/pkg/v"
@@ -19,7 +17,10 @@ import (
 )
 
 const (
-	// Kind is HTTPPipeline kind.
+	// Category is the category of HTTPPipeline.
+	Category = supervisor.CategoryPipeline
+
+	// Kind is the kind of HTTPPipeline.
 	Kind = "HTTPPipeline"
 
 	// LabelEND is the built-in label for jumping of flow.
@@ -27,12 +28,7 @@ const (
 )
 
 func init() {
-	supervisor.Register(&supervisor.ObjectRecord{
-		Kind:              Kind,
-		DefaultSpecFunc:   DefaultSpec,
-		NewFunc:           New,
-		DependObjectKinds: []string{httpserver.Kind, etcdserviceregistry.Kind},
-	})
+	supervisor.Register(&HTTPPipeline{})
 }
 
 type (
@@ -40,7 +36,6 @@ type (
 	HTTPPipeline struct {
 		spec *Spec
 
-		handlers       *sync.Map
 		runningFilters []*runningFilter
 		ht             *context.HTTPTemplate
 	}
@@ -55,7 +50,7 @@ type (
 
 	// Spec describes the HTTPPipeline.
 	Spec struct {
-		supervisor.ObjectMeta `yaml:",inline"`
+		supervisor.ObjectMetaSpec `yaml:",inline"`
 
 		Flow    []Flow                   `yaml:"flow" jsonschema:"omitempty"`
 		Filters []map[string]interface{} `yaml:"filters" jsonschema:"-"`
@@ -69,8 +64,6 @@ type (
 
 	// Status contains all status gernerated by runtime, for displaying to users.
 	Status struct {
-		Timestamp int64 `yaml:"timestamp"`
-
 		Health string `yaml:"health"`
 
 		Filters map[string]interface{} `yaml:"filters"`
@@ -143,11 +136,6 @@ func GetPipelineContext(ctx context.HTTPContext) (*PipelineContext, bool) {
 
 func deletePipelineContext(ctx context.HTTPContext) {
 	runningContexts.Delete(ctx)
-}
-
-// DefaultSpec returns HTTPPipeline default spec.
-func DefaultSpec() *Spec {
-	return &Spec{}
 }
 
 func marshal(i interface{}) []byte {
@@ -287,24 +275,38 @@ func (s Spec) Validate(config []byte) (err error) {
 	return nil
 }
 
-// New creates an HTTPPipeline
-func New(spec *Spec, prev *HTTPPipeline, handlers *sync.Map) (tmp *HTTPPipeline) {
-	hp := &HTTPPipeline{
-		spec:     spec,
-		handlers: handlers,
-	}
+// Category returns the category of HTTPPipeline.
+func (hp *HTTPPipeline) Category() supervisor.ObjectCategory {
+	return Category
+}
+
+// Kind returns the kind of HTTPPipeline.
+func (hp *HTTPPipeline) Kind() string {
+	return Kind
+}
+
+// DefaultSpec returns the default spec of HTTPPipeline.
+func (hp *HTTPPipeline) DefaultSpec() supervisor.ObjectSpec {
+	return &Spec{}
+}
+
+// Renew renews HTTPPipeline.
+func (hp *HTTPPipeline) Renew(spec supervisor.ObjectSpec,
+	previousGeneration supervisor.Object, super *supervisor.Supervisor) {
+
+	hp.spec = spec.(*Spec)
 
 	runningFilters := make([]*runningFilter, 0)
-	if len(spec.Flow) == 0 {
-		for _, filterSpec := range spec.Filters {
+	if len(hp.spec.Flow) == 0 {
+		for _, filterSpec := range hp.spec.Filters {
 			runningFilters = append(runningFilters, &runningFilter{
 				spec: filterSpec,
 			})
 		}
 	} else {
-		for _, f := range spec.Flow {
+		for _, f := range hp.spec.Flow {
 			var filterSpec map[string]interface{}
-			for _, ps := range spec.Filters {
+			for _, ps := range hp.spec.Filters {
 				buff := marshal(ps)
 				meta := &FilterMeta{}
 				unmarshal(buff, meta)
@@ -339,8 +341,8 @@ func New(spec *Spec, prev *HTTPPipeline, handlers *sync.Map) (tmp *HTTPPipeline)
 		unmarshal(buff, defaultFilterSpec)
 
 		prevValue := reflect.New(fr.FilterType).Elem()
-		if prev != nil {
-			prevFilter := prev.getRunningFilter(meta.Name)
+		if previousGeneration != nil {
+			prevFilter := previousGeneration.(*HTTPPipeline).getRunningFilter(meta.Name)
 			if prevFilter != nil {
 				prevValue = reflect.ValueOf(prevFilter.filter)
 			}
@@ -363,17 +365,13 @@ func New(spec *Spec, prev *HTTPPipeline, handlers *sync.Map) (tmp *HTTPPipeline)
 
 	hp.runningFilters = runningFilters
 
-	if prev != nil {
-		for _, runningFilter := range prev.runningFilters {
+	if previousGeneration != nil {
+		for _, runningFilter := range previousGeneration.(*HTTPPipeline).runningFilters {
 			if hp.getRunningFilter(runningFilter.meta.Name) == nil {
 				runningFilter.filter.Close()
 			}
 		}
 	}
-
-	hp.handlers.Store(spec.Name, hp)
-
-	return hp
 }
 
 // Handle handles all incoming traffic.
@@ -451,8 +449,7 @@ func (hp *HTTPPipeline) getRunningFilter(name string) *runningFilter {
 }
 
 // Status returns Status genreated by Runtime.
-// NOTE: Caller must not call Status while Newing.
-func (hp *HTTPPipeline) Status() *Status {
+func (hp *HTTPPipeline) Status() interface{} {
 	s := &Status{
 		Filters: make(map[string]interface{}),
 	}
@@ -468,7 +465,6 @@ func (hp *HTTPPipeline) Status() *Status {
 
 // Close closes HTTPPipeline.
 func (hp *HTTPPipeline) Close() {
-	hp.handlers.Delete(hp.spec.Name)
 	for _, runningFilter := range hp.runningFilters {
 		runningFilter.filter.Close()
 	}

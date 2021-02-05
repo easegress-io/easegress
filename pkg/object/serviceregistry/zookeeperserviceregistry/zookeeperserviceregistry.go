@@ -1,4 +1,4 @@
-package ZookeeperServiceRegistry
+package zookeeperserviceregistry
 
 import (
 	"encoding/json"
@@ -14,17 +14,15 @@ import (
 )
 
 const (
-	// Kind is ZookeeperServiceRegistry kind.
+	// Category is the category of ZookeeperServiceRegistry.
+	Category = supervisor.CategoryBusinessController
+
+	// Kind is the kind of ZookeeperServiceRegistry.
 	Kind = "ZookeeperServiceRegistry"
 )
 
 func init() {
-	supervisor.Register(&supervisor.ObjectRecord{
-		Kind:              Kind,
-		DefaultSpecFunc:   DefaultSpec,
-		NewFunc:           New,
-		DependObjectKinds: nil,
-	})
+	supervisor.Register(&ZookeeperServiceRegistry{})
 }
 
 type (
@@ -43,7 +41,7 @@ type (
 
 	// Spec describes the ZookeeperServiceRegistry.
 	Spec struct {
-		supervisor.ObjectMeta `yaml:",inline"`
+		supervisor.ObjectMetaSpec `yaml:",inline"`
 
 		ConnTimeout  string   `yaml:"conntimeout" jsonschema:"required,format=duration"`
 		ZKServices   []string `yaml:"zkservices" jsonschema:"required,uniqueItems=true"`
@@ -53,14 +51,23 @@ type (
 
 	// Status is the status of ZookeeperServiceRegistry.
 	Status struct {
-		Timestamp  int64          `yaml:"timestamp"`
 		Health     string         `yaml:"health"`
 		ServersNum map[string]int `yaml:"serversNum"`
 	}
 )
 
-// DefaultSpec returns ZookeeperServiceRegistry default spec.
-func DefaultSpec() *Spec {
+// Category returns the category of ZookeeperServiceRegistry.
+func (zk *ZookeeperServiceRegistry) Category() supervisor.ObjectCategory {
+	return Category
+}
+
+// Kind returns the kind of ZookeeperServiceRegistry.
+func (zk *ZookeeperServiceRegistry) Kind() string {
+	return Kind
+}
+
+// DefaultSpec returns the default spec of ZookeeperServiceRegistry.
+func (zk *ZookeeperServiceRegistry) DefaultSpec() supervisor.ObjectSpec {
 	return &Spec{
 		ZKServices:   []string{"127.0.0.1:2181"},
 		SyncInterval: "10s",
@@ -69,30 +76,24 @@ func DefaultSpec() *Spec {
 	}
 }
 
-// Validate validates Spec.
-func (spec Spec) Validate() error {
-	return nil
-}
+// Renew renews ZookeeperServiceRegistry.
+func (zk *ZookeeperServiceRegistry) Renew(spec supervisor.ObjectSpec,
+	previousGeneration supervisor.Object, super *supervisor.Supervisor) {
 
-// New creates an ZookeeperServiceRegistry.
-func New(spec *Spec, prev *ZookeeperServiceRegistry, handlers *sync.Map) *ZookeeperServiceRegistry {
-	zk := &ZookeeperServiceRegistry{
-		spec:       spec,
-		serversNum: map[string]int{},
-		done:       make(chan struct{}),
+	if previousGeneration != nil {
+		previousGeneration.Close()
 	}
-	if prev != nil {
-		prev.Close()
-	}
+
+	zk.spec = spec.(*Spec)
+	zk.serversNum = make(map[string]int)
+	zk.done = make(chan struct{})
 
 	_, err := zk.getConn()
 	if err != nil {
-		logger.Errorf("%s get zookeeper conn failed: %v", spec.Name, err)
+		logger.Errorf("%s get zookeeper conn failed: %v", zk.spec.Name, err)
 	}
 
 	go zk.run()
-
-	return zk
 }
 
 func (zk *ZookeeperServiceRegistry) getConn() (*zookeeper.Conn, error) {
@@ -229,12 +230,18 @@ func (zk *ZookeeperServiceRegistry) update() {
 }
 
 // Status returns status of EurekaServiceRegister.
-func (zk *ZookeeperServiceRegistry) Status() *Status {
-	s := &Status{Health: "ready"}
+func (zk *ZookeeperServiceRegistry) Status() interface{} {
+	s := &Status{}
+
+	if zk.spec == nil {
+		return s
+	}
 
 	_, err := zk.getConn()
 	if err != nil {
 		s.Health = err.Error()
+	} else {
+		s.Health = "ready"
 	}
 
 	zk.statusMutex.Lock()

@@ -64,7 +64,8 @@ require (
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/pflag v1.0.3 // indirect
 	github.com/tcnksm/go-httpstat v0.2.1-0.20191008022543-e866bb274419
-	github.com/tidwall/gjson v1.6.3
+	github.com/tidwall/gjson v1.6.8
+	github.com/tidwall/sjson v1.1.5 // indirect
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5 // indirect
 	github.com/tomasen/realip v0.0.0-20180522021738-f0c99a92ddce
 	github.com/valyala/fasttemplate v1.2.1
@@ -83,6 +84,7 @@ require (
 	golang.org/x/time v0.0.0-20181108054448-85acf8d2951c
 	gopkg.in/mgo.v2 v2.0.0-20180705113604-9856a29383ce // indirect
 	gopkg.in/yaml.v2 v2.3.0
+	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 )
 
 go 1.13

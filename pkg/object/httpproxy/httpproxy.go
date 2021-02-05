@@ -2,7 +2,6 @@ package httpproxy
 
 import (
 	"fmt"
-	"sync"
 
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/filter/backend"
@@ -15,24 +14,21 @@ import (
 	"github.com/megaease/easegateway/pkg/filter/validator"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
-	"github.com/megaease/easegateway/pkg/object/httpserver"
 	"github.com/megaease/easegateway/pkg/supervisor"
 
 	yaml "gopkg.in/yaml.v2"
 )
 
 const (
-	// Kind is HTTPProxy kind.
+	// Category is the category of HTTPProxy.
+	Category = supervisor.CategoryPipeline
+
+	// Kind is the kind of HTTPProxy.
 	Kind = "HTTPProxy"
 )
 
 func init() {
-	supervisor.Register(&supervisor.ObjectRecord{
-		Kind:              Kind,
-		DefaultSpecFunc:   DefaultSpec,
-		NewFunc:           New,
-		DependObjectKinds: []string{httpserver.Kind, httppipeline.Kind},
-	})
+	supervisor.Register(&HTTPProxy{})
 }
 
 type (
@@ -45,7 +41,7 @@ type (
 
 	// Spec describes the HTTPProxy.
 	Spec struct {
-		supervisor.ObjectMeta `yaml:",inline"`
+		supervisor.ObjectMetaSpec `yaml:",inline"`
 
 		Validator       *validator.Spec       `yaml:"validator,omitempty" jsonschema:"omitempty"`
 		Fallback        *fallback.Spec        `yaml:"fallback,omitempty" jsonschema:"omitempty"`
@@ -77,7 +73,7 @@ func (spec Spec) Validate() error {
 
 func (spec Spec) toHTTPPipelineSpec() *httppipeline.Spec {
 	pipelineSpec := &httppipeline.Spec{
-		ObjectMeta: supervisor.ObjectMeta{
+		ObjectMetaSpec: supervisor.ObjectMetaSpec{
 			Name: spec.Name,
 			Kind: httppipeline.Kind,
 		},
@@ -139,25 +135,33 @@ func (spec Spec) toHTTPPipelineSpec() *httppipeline.Spec {
 	return pipelineSpec
 }
 
-// New creates an HTTPProxy.
-func New(spec *Spec, prev *HTTPProxy, handlers *sync.Map) *HTTPProxy {
-	var prevPipeline *httppipeline.HTTPPipeline
-	if prev != nil {
-		prevPipeline = prev.pipeline
-	}
-	hp := &HTTPProxy{
-		pipeline: httppipeline.New(spec.toHTTPPipelineSpec(), prevPipeline, handlers),
-	}
-
-	// NOTE: It's expected to cover what httppipeline.New stored into handlers.
-	handlers.Store(spec.Name, hp)
-
-	return hp
+// Category returns the category of HTTPProxy.
+func (hp *HTTPProxy) Category() supervisor.ObjectCategory {
+	return Category
 }
 
-// DefaultSpec returns HTTPProxy default spec.
-func DefaultSpec() *Spec {
+// Kind returns the kind of HTTPProxy.
+func (hp *HTTPProxy) Kind() string {
+	return Kind
+}
+
+// DefaultSpec returns the default spec of HTTPProxy.
+func (hp *HTTPProxy) DefaultSpec() supervisor.ObjectSpec {
 	return &Spec{}
+}
+
+// Renew renews HTTPProxy.
+func (hp *HTTPProxy) Renew(spec supervisor.ObjectSpec,
+	previousGeneration supervisor.Object, super *supervisor.Supervisor) {
+
+	var prevPipeline supervisor.Object
+	if previousGeneration != nil {
+		prevPipeline = previousGeneration.(*HTTPProxy).pipeline
+	}
+
+	hp.spec = spec.(*Spec)
+	hp.pipeline = &httppipeline.HTTPPipeline{}
+	hp.pipeline.Renew(hp.spec.toHTTPPipelineSpec(), prevPipeline, super)
 }
 
 // Handle handles all incoming traffic.
@@ -167,7 +171,11 @@ func (hp *HTTPProxy) Handle(ctx context.HTTPContext) {
 
 // Status returns Status genreated by Runtime.
 // NOTE: Caller must not call Status while reloading.
-func (hp *HTTPProxy) Status() *Status {
+func (hp *HTTPProxy) Status() interface{} {
+	if hp.pipeline == nil {
+		return &httppipeline.Status{}
+	}
+
 	return hp.pipeline.Status()
 }
 

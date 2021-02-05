@@ -15,17 +15,15 @@ import (
 )
 
 const (
-	// Kind is EtcdServiceRegistry kind.
+	// Category is the category of EtcdServiceRegistry.
+	Category = supervisor.CategoryBusinessController
+
+	// Kind is the kind of EtcdServiceRegistry.
 	Kind = "EtcdServiceRegistry"
 )
 
 func init() {
-	supervisor.Register(&supervisor.ObjectRecord{
-		Kind:              Kind,
-		DefaultSpecFunc:   DefaultSpec,
-		NewFunc:           New,
-		DependObjectKinds: nil,
-	})
+	supervisor.Register(&EtcdServiceRegistry{})
 }
 
 type (
@@ -44,7 +42,7 @@ type (
 
 	// Spec describes the EtcdServiceRegistry.
 	Spec struct {
-		supervisor.ObjectMeta `yaml:",inline"`
+		supervisor.ObjectMetaSpec `yaml:",inline"`
 
 		Endpoints    []string `yaml:"endpoints" jsonschema:"required,uniqueItems=true"`
 		Prefix       string   `yaml:"prefix" jsonschema:"required,pattern=^/"`
@@ -53,44 +51,47 @@ type (
 
 	// Status is the status of EtcdServiceRegistry.
 	Status struct {
-		Timestamp  int64          `yaml:"timestamp"`
 		Health     string         `yaml:"health"`
 		ServersNum map[string]int `yaml:"serversNum"`
 	}
 )
 
-// DefaultSpec returns EtcdServiceRegistry default spec.
-func DefaultSpec() *Spec {
+// Category returns the category of EtcdServiceRegistry.
+func (etcd *EtcdServiceRegistry) Category() supervisor.ObjectCategory {
+	return Category
+}
+
+// Kind returns the kind of EtcdServiceRegistry.
+func (etcd *EtcdServiceRegistry) Kind() string {
+	return Kind
+}
+
+// DefaultSpec returns the default spec of EtcdServiceRegistry.
+func (etcd *EtcdServiceRegistry) DefaultSpec() supervisor.ObjectSpec {
 	return &Spec{
 		Prefix:       "/services/",
 		CacheTimeout: "60s",
 	}
 }
 
-// Validate validates Spec.
-func (spec Spec) Validate() error {
-	return nil
-}
+// Renew renews EtcdServiceRegistry.
+func (etcd *EtcdServiceRegistry) Renew(spec supervisor.ObjectSpec,
+	previousGeneration supervisor.Object, super *supervisor.Supervisor) {
 
-// New creates an EtcdServiceRegistry.
-func New(spec *Spec, prev *EtcdServiceRegistry, handlers *sync.Map) *EtcdServiceRegistry {
-	etcd := &EtcdServiceRegistry{
-		spec:       spec,
-		serversNum: map[string]int{},
-		done:       make(chan struct{}),
+	if previousGeneration != nil {
+		previousGeneration.Close()
 	}
-	if prev != nil {
-		prev.Close()
-	}
+
+	etcd.spec = spec.(*Spec)
+	etcd.serversNum = map[string]int{}
+	etcd.done = make(chan struct{})
 
 	_, err := etcd.getClient()
 	if err != nil {
-		logger.Errorf("%s get etcd client failed: %v", spec.Name, err)
+		logger.Errorf("%s get etcd client failed: %v", etcd.spec.Name, err)
 	}
 
 	go etcd.run()
-
-	return etcd
 }
 
 func (etcd *EtcdServiceRegistry) getClient() (*clientv3.Client, error) {
@@ -207,8 +208,12 @@ func (etcd *EtcdServiceRegistry) update() {
 }
 
 // Status returns status of EtcdServiceRegister.
-func (etcd *EtcdServiceRegistry) Status() *Status {
+func (etcd *EtcdServiceRegistry) Status() interface{} {
 	s := &Status{}
+
+	if etcd.spec == nil {
+		return s
+	}
 
 	_, err := etcd.getClient()
 	if err != nil {

@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
-	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/megaease/easegateway/pkg/graceupdate"
 	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/supervisor"
 	"github.com/megaease/easegateway/pkg/util/httpstat"
 	"github.com/megaease/easegateway/pkg/util/topn"
 
@@ -47,7 +47,7 @@ type (
 	eventClose  struct{ done chan struct{} }
 
 	runtime struct {
-		handlers  *sync.Map
+		super     *supervisor.Supervisor
 		spec      *Spec
 		server    *http.Server
 		server3   *http3.Server
@@ -66,8 +66,6 @@ type (
 
 	// Status contains all status gernerated by runtime, for displaying to users.
 	Status struct {
-		Timestamp int64 `yaml:"timestamp"`
-
 		Health string `yaml:"health"`
 
 		State stateType `yaml:"state"`
@@ -78,15 +76,15 @@ type (
 	}
 )
 
-func newRuntime(handlers *sync.Map) *runtime {
+func newRuntime(super *supervisor.Supervisor) *runtime {
 	r := &runtime{
-		handlers:  handlers,
+		super:     super,
 		eventChan: make(chan interface{}, 10),
 		httpStat:  httpstat.New(),
 		topN:      topn.New(topNum),
 	}
 
-	r.mux = newMux(r.handlers, r.httpStat, r.topN)
+	r.mux = newMux(super, r.httpStat, r.topN)
 
 	r.setState(stateNil)
 	r.setError(errNil)

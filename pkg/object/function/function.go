@@ -2,13 +2,11 @@ package function
 
 import (
 	"fmt"
-	"sync"
 
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/filter/backend"
 	"github.com/megaease/easegateway/pkg/filter/requestadaptor"
 	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/object/httpserver"
 	"github.com/megaease/easegateway/pkg/supervisor"
 	"github.com/megaease/easegateway/pkg/util/httpheader"
 	"github.com/megaease/easegateway/pkg/util/httpstat"
@@ -20,25 +18,27 @@ import (
 )
 
 const (
-	// Kind is Function kind.
+	// Category is the category of Function.
+	Category = supervisor.CategoryPipeline
+
+	// Kind is the kind of Function.
 	Kind = "Function"
+
+	// withoutSecondOpt is the standard cron format of unix.
+	withoutSecondOpt = cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor
+	withSecondOpt    = cron.Second | withoutSecondOpt
+	// optionalSecondOpt is not used for now.
+	optionalSecondOpt = cron.SecondOptional | withSecondOpt
 )
 
 func init() {
-	supervisor.Register(&supervisor.ObjectRecord{
-		Kind:              Kind,
-		DefaultSpecFunc:   DefaultSpec,
-		NewFunc:           New,
-		DependObjectKinds: []string{httpserver.Kind},
-	})
+	supervisor.Register(&Function{})
 }
 
 type (
 	// Function is Object Function.
 	Function struct {
 		spec *Spec
-
-		handlers *sync.Map
 
 		backend        *backend.Backend
 		cron           *Cron
@@ -47,7 +47,7 @@ type (
 
 	// Spec describes the Function.
 	Spec struct {
-		supervisor.ObjectMeta `yaml:",inline"`
+		supervisor.ObjectMetaSpec `yaml:",inline"`
 
 		URL            string               `yaml:"url" jsonschema:"required"`
 		Cron           *CronSpec            `yaml:"cron" jsonschema:"omitempty"`
@@ -63,20 +63,11 @@ type (
 
 	// Status is the status of Function.
 	Status struct {
-		Timestamp int64  `yaml:"timestamp"`
-		Health    string `yaml:"health"`
+		Health string `yaml:"health"`
 
 		HTTP *httpstat.Status `yaml:"http"`
 		Cron *CronStatus      `yaml:"cron"`
 	}
-)
-
-const (
-	// withoutSecondOpt is the standard cron format of unix.
-	withoutSecondOpt = cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor
-	withSecondOpt    = cron.Second | withoutSecondOpt
-	// optionalSecondOpt is not used for now.
-	optionalSecondOpt = cron.SecondOptional | withSecondOpt
 )
 
 // Validate validates Spec.
@@ -123,40 +114,45 @@ func (spec Spec) requestAdaptorSpec() *requestadaptor.Spec {
 	}
 }
 
-// New creates an Function.
-func New(spec *Spec, prev *Function, handlers *sync.Map) *Function {
+// Category returns the category of Function.
+func (f *Function) Category() supervisor.ObjectCategory {
+	return Category
+}
+
+// Kind returns the kind of Function.
+func (f *Function) Kind() string {
+	return Kind
+}
+
+// DefaultSpec returns the default spec of Function.
+func (f *Function) DefaultSpec() supervisor.ObjectSpec {
+	return &Spec{}
+}
+
+// Renew renews Function.
+func (f *Function) Renew(spec supervisor.ObjectSpec,
+	previousGeneration supervisor.Object, super *supervisor.Supervisor) {
+
 	var prevBackend *backend.Backend
-	if prev != nil {
-		prevBackend = prev.backend
+	if previousGeneration != nil {
+		prevBackend = previousGeneration.(*Function).backend
 	}
 
 	var prevRequestAdaptor *requestadaptor.RequestAdaptor
-	if prev != nil {
-		prevRequestAdaptor = prev.requestAdaptor
+	if previousGeneration != nil {
+		prevRequestAdaptor = previousGeneration.(*Function).requestAdaptor
 	}
 
-	f := &Function{
-		spec:     spec,
-		handlers: handlers,
-		backend:  backend.New(spec.backendSpec(), prevBackend),
+	f.spec = spec.(*Spec)
+	f.backend = backend.New(f.spec.backendSpec(), prevBackend)
+
+	if f.spec.RequestAdaptor != nil {
+		f.requestAdaptor = requestadaptor.New(f.spec.requestAdaptorSpec(), prevRequestAdaptor)
 	}
 
-	if spec.RequestAdaptor != nil {
-		f.requestAdaptor = requestadaptor.New(spec.requestAdaptorSpec(), prevRequestAdaptor)
+	if f.spec.Cron != nil {
+		f.cron = NewCron(f.spec.URL, f.spec.Cron)
 	}
-
-	if spec.Cron != nil {
-		f.cron = NewCron(spec.URL, spec.Cron)
-	}
-
-	f.handlers.Store(spec.Name, f)
-
-	return f
-}
-
-// DefaultSpec returns Function default spec.
-func DefaultSpec() *Spec {
-	return &Spec{}
 }
 
 // Handle handles all HTTP incoming traffic.
@@ -168,10 +164,14 @@ func (f *Function) Handle(ctx context.HTTPContext) {
 }
 
 // Status returns Status genreated by Runtime.
-func (f *Function) Status() *Status {
-	s := &Status{
-		HTTP: f.backend.Status().MainPool.Stat,
+func (f *Function) Status() interface{} {
+	s := &Status{}
+
+	if f.spec == nil {
+		return s
 	}
+
+	s.HTTP = f.backend.Status().MainPool.Stat
 
 	if f.cron != nil {
 		s.Cron = f.cron.Status()
@@ -190,6 +190,5 @@ func (f *Function) Close() {
 		f.cron.Close()
 	}
 
-	f.handlers.Delete(f.spec.Name)
 	f.backend.Close()
 }
