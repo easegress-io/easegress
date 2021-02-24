@@ -1,20 +1,20 @@
 name: http-pipeline-orchestration
 kind: HTTPPipeline
-# Built-in labels are `END` which can't be used by plugins.
+# Built-in labels are `END` which can't be used by filters.
 flow:
-  - plugin: aggregatorOne  
-  - plugin: requestAdaptorTwo
-  - plugin: aggregatorTwo
-  - plugin: requestAdaptorThree
-  - plugin: aggregatorThree
-  - plugin: responseAdaptor
+  - filter: aggregatorOne
+  - filter: requestAdaptorTwo
+  - filter: aggregatorTwo
+  - filter: requestAdaptorThree
+  - filter: aggregatorThree
+  - filter: responseAdaptor
 
-plugins:
+filters:
   - apiproxys:
       - httpproxyname: http-proxy-agg
     kind: APIAggregator
     maxBodyBytes: 10240
-    mergeResponse: true 
+    mergeResponse: true
     name: aggregatorOne
     partialSucceed: true
   - name: requestAdaptorTwo
@@ -24,14 +24,14 @@ plugins:
     header:
       del: []
       set:
-        valid : "[[plugin.aggregatorOne.req.proto]]"
+        valid : "[[filter.aggregatorOne.req.proto]]"
       add: {}
-    body: "[[plugin.aggregatorOne.rsp.body]]"
+    body: "[[filter.aggregatorOne.rsp.body]]"
   - apiproxys:
       - httpproxyname: http-proxy-agg-2
     kind: APIAggregator
-    maxBodyBytes: 10240
-    mergeResponse: true 
+    maxBodyBytes: 102400
+    mergeResponse: true
     name: aggregatorTwo
     partialSucceed: true
   - name: requestAdaptorThree
@@ -41,14 +41,14 @@ plugins:
     header:
       del: []
       set:
-      add: 
-        adaptor-three: "[[plugin.aggregatorTwo.req.method]]"
-    body: "[[plugin.aggregatorTwo.rsp.body]]"
+      add:
+        adaptor-three: "[[filter.aggregatorTwo.req.method]]"
+    body: "[[filter.aggregatorTwo.rsp.body]]"
   - apiproxys:
       - httpproxyname: http-proxy-agg-3
     kind: APIAggregator
     maxBodyBytes: 10240
-    mergeResponse: true 
+    mergeResponse: true
     name: aggregatorThree
     partialSucceed: true
   - name: responseAdaptor
@@ -56,9 +56,9 @@ plugins:
     header:
       del: []
       set:
-        Key-by-aggreone: "[[plugin.aggregatorOne.req.method]]"
+        Key-by-aggreone: "[[filter.aggregatorOne.req.method]]"
       add:
-        X-Proxy-Name-Three: "[[plugin.aggregatorThree.rsp.body.name]]"
-        Rsp-adaptor: "[[plugin.aggregatorTwo.req.method]]"
-    body: "{\"name1\": \"[[plugin.aggregatorOne.rsp.body.value]]\",\"name2\":\"[[plugin.aggregatorTwo.rsp.body.value]]\",\"name3\":\"[[plugin.aggregatorThree.rsp.body.reqfromabove]]\",\"req1\":\"[[plugin.aggregatorOne.req.body.aa]]\",\"req2\":\"[[plugin.aggregatorTwo.req.scheme]]\", \"req3\":\"[[plugin.aggregatorThree.req.proto]]\",\"req1host\":\"[[plugin.aggregatorOne.req.host]]\", \"req2path\":\"[[plugin.aggregatorTwo.req.path]]\"}"
-      
+        X-Proxy-Name-Three: "[[filter.aggregatorThree.rsp.body.name]]"
+        Rsp-adaptor: "[[filter.aggregatorTwo.req.method]]"
+    body: "{\"name1\": \"[[filter.aggregatorOne.rsp.body.value]]\",\"name2\":\"[[filter.aggregatorTwo.rsp.body.value]]\",\"name3\":\"[[filter.aggregatorThree.rsp.body.reqfromabove]]\",\"req1\":\"[[filter.aggregatorOne.req.body.aa]]\",\"req2\":\"[[filter.aggregatorTwo.req.scheme]]\", \"req3\":\"[[filter.aggregatorThree.req.proto]]\",\"req1host\":\"[[filter.aggregatorOne.req.host]]\", \"req2path\":\"[[filter.aggregatorTwo.req.path]]\"}"
+

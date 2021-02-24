@@ -5,6 +5,7 @@ import (
 
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
+	"github.com/megaease/easegateway/pkg/supervisor"
 	"github.com/megaease/easegateway/pkg/util/httpheader"
 	"github.com/megaease/easegateway/pkg/util/signer"
 	"github.com/megaease/easegateway/pkg/util/stringtool"
@@ -17,24 +18,20 @@ const (
 	resultInvalid = "invalid"
 )
 
-func init() {
-	httppipeline.Register(&httppipeline.FilterRecord{
-		Kind:            Kind,
-		DefaultSpecFunc: DefaultSpec,
-		NewFunc:         New,
-		Results:         []string{resultInvalid},
-	})
-}
+var (
+	results = []string{resultInvalid}
+)
 
-// DefaultSpec returns default spec.
-func DefaultSpec() *Spec {
-	return &Spec{}
+func init() {
+	httppipeline.Register(&Validator{})
 }
 
 type (
 	// Validator is filter Validator.
 	Validator struct {
-		spec *Spec
+		super    *supervisor.Supervisor
+		pipeSpec *httppipeline.FilterSpec
+		spec     *Spec
 
 		headers *httpheader.Validator
 		jwt     *JWTValidator
@@ -43,31 +40,58 @@ type (
 
 	// Spec describes the Validator.
 	Spec struct {
-		httppipeline.FilterMeta `yaml:",inline"`
-
 		Headers   *httpheader.ValidatorSpec `yaml:"headers,omitempty" jsonschema:"omitempty"`
 		JWT       *JWTValidatorSpec         `yaml:"jwt,omitempty" jsonschema:"omitempty"`
 		Signature *signer.Spec              `yaml:"signature,omitempty" jsonschema:"omitempty"`
 	}
 )
 
-// New creates a Validator.
-func New(spec *Spec, prev *Validator) *Validator {
-	v := &Validator{spec: spec}
+// Kind returns the kind of Validator.
+func (v *Validator) Kind() string {
+	return Kind
+}
 
-	if spec.Headers != nil {
-		v.headers = httpheader.NewValidator(spec.Headers)
+// DefaultSpec returns default spec of Validator.
+func (v *Validator) DefaultSpec() interface{} {
+	return &Spec{}
+}
+
+// Description returns the description of Validator.
+func (v *Validator) Description() string {
+	return "Validator validates http request."
+}
+
+// Results returns the results of Validator.
+func (v *Validator) Results() []string {
+	return results
+}
+
+// Init initializes Validator.
+func (v *Validator) Init(pipeSpec *httppipeline.FilterSpec, super *supervisor.Supervisor) {
+	v.pipeSpec, v.spec, v.super = pipeSpec, pipeSpec.FilterSpec().(*Spec), super
+	v.reload()
+}
+
+// Inherit inherits previous generation of Validator.
+func (v *Validator) Inherit(pipeSpec *httppipeline.FilterSpec,
+	previousGeneration httppipeline.Filter, super *supervisor.Supervisor) {
+
+	previousGeneration.Close()
+	v.Init(pipeSpec, super)
+}
+
+func (v *Validator) reload() {
+	if v.spec.Headers != nil {
+		v.headers = httpheader.NewValidator(v.spec.Headers)
 	}
 
-	if spec.JWT != nil {
-		v.jwt = NewJWTValidator(spec.JWT)
+	if v.spec.JWT != nil {
+		v.jwt = NewJWTValidator(v.spec.JWT)
 	}
 
-	if spec.Signature != nil {
-		v.signer = signer.CreateFromSpec(spec.Signature)
+	if v.spec.Signature != nil {
+		v.signer = signer.CreateFromSpec(v.spec.Signature)
 	}
-
-	return v
 }
 
 // Handle validates HTTPContext.

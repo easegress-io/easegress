@@ -3,7 +3,6 @@ package httpserver
 import (
 	"time"
 
-	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/supervisor"
 )
 
@@ -24,14 +23,7 @@ func init() {
 type (
 	// HTTPServer is Object HTTPServer.
 	HTTPServer struct {
-		spec    *Spec
 		runtime *runtime
-	}
-
-	// HTTPHandler is the common handler for the all backends
-	// which handle the traffic from HTTPServer.
-	HTTPHandler interface {
-		Handle(ctx context.HTTPContext)
 	}
 )
 
@@ -46,7 +38,7 @@ func (hs *HTTPServer) Kind() string {
 }
 
 // DefaultSpec returns the default spec of HTTPServer.
-func (hs *HTTPServer) DefaultSpec() supervisor.ObjectSpec {
+func (hs *HTTPServer) DefaultSpec() interface{} {
 	return &Spec{
 		KeepAlive:        true,
 		KeepAliveTimeout: "60s",
@@ -54,31 +46,33 @@ func (hs *HTTPServer) DefaultSpec() supervisor.ObjectSpec {
 	}
 }
 
-// Renew renews HTTPServer.
-func (hs *HTTPServer) Renew(spec supervisor.ObjectSpec,
-	previousGeneration supervisor.Object, super *supervisor.Supervisor) {
+// Init initilizes HTTPServer.
+func (hs *HTTPServer) Init(superSpec *supervisor.Spec, super *supervisor.Supervisor) {
+	hs.runtime = newRuntime(super)
 
-	hs.spec = spec.(*Spec)
-
-	if previousGeneration == nil {
-		hs.runtime = newRuntime(super)
-	} else {
-		hs.runtime = previousGeneration.(*HTTPServer).runtime
+	hs.runtime.eventChan <- &eventReload{
+		nextSuperSpec: superSpec,
+		super:         super,
 	}
-
-	hs.runtime.eventChan <- &eventReload{nextSpec: hs.spec}
 }
 
-// Handle is a dummy placeholder for supervisor.Object
-func (hs *HTTPServer) Handle(context.HTTPContext) {}
+// Inherit inherits previous generation of HTTPServer.
+func (hs *HTTPServer) Inherit(superSpec *supervisor.Spec,
+	previousGeneration supervisor.Object, super *supervisor.Supervisor) {
+
+	hs.runtime = previousGeneration.(*HTTPServer).runtime
+
+	hs.runtime.eventChan <- &eventReload{
+		nextSuperSpec: superSpec,
+		super:         super,
+	}
+}
 
 // Status is the wrapper of runtime's Status.
-func (hs *HTTPServer) Status() interface{} {
-	if hs.runtime == nil {
-		return &Status{}
+func (hs *HTTPServer) Status() *supervisor.Status {
+	return &supervisor.Status{
+		ObjectStatus: hs.runtime.Status(),
 	}
-
-	return hs.runtime.Status()
 }
 
 // Close closes HTTPServer.

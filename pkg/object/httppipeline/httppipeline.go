@@ -11,7 +11,6 @@ import (
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/supervisor"
 	"github.com/megaease/easegateway/pkg/util/stringtool"
-	"github.com/megaease/easegateway/pkg/v"
 
 	yaml "gopkg.in/yaml.v2"
 )
@@ -34,24 +33,23 @@ func init() {
 type (
 	// HTTPPipeline is Object HTTPPipeline.
 	HTTPPipeline struct {
-		spec *Spec
+		super     *supervisor.Supervisor
+		superSpec *supervisor.Spec
+		spec      *Spec
 
 		runningFilters []*runningFilter
 		ht             *context.HTTPTemplate
 	}
 
 	runningFilter struct {
-		spec   map[string]interface{}
-		jumpIf map[string]string
-		filter Filter
-		meta   *FilterMeta
-		fr     *FilterRecord
+		spec       *FilterSpec
+		jumpIf     map[string]string
+		rootFilter Filter
+		filter     Filter
 	}
 
 	// Spec describes the HTTPPipeline.
 	Spec struct {
-		supervisor.ObjectMetaSpec `yaml:",inline"`
-
 		Flow    []Flow                   `yaml:"flow" jsonschema:"omitempty"`
 		Filters []map[string]interface{} `yaml:"filters" jsonschema:"-"`
 	}
@@ -166,19 +164,23 @@ func convertToFilterBuffs(obj interface{}) map[string][]byte {
 	rst := make(map[string][]byte)
 	for _, p := range filters {
 		buff := marshal(p)
-		meta := &FilterMeta{}
+		meta := &FilterMetaSpec{}
 		unmarshal(buff, meta)
 		rst[meta.Name] = buff
 	}
 	return rst
 }
 
-func validateFilterMeta(meta *FilterMeta) error {
+func (meta *FilterMetaSpec) validate() error {
 	if len(meta.Name) == 0 {
 		return fmt.Errorf("filter name is required")
 	}
 	if len(meta.Kind) == 0 {
 		return fmt.Errorf("filter kind is required")
+	}
+
+	if meta.Name == LabelEND {
+		return fmt.Errorf("can't use %s(built-in label) for filter name", LabelEND)
 	}
 
 	return nil
@@ -199,42 +201,23 @@ func (s Spec) Validate(config []byte) (err error) {
 	}
 	filterBuffs := convertToFilterBuffs(filtersData)
 
-	filterRecords := make(map[string]*FilterRecord)
+	filterSpecs := make(map[string]*FilterSpec)
 	var templateFilterBuffs []context.FilterBuff
-	for _, filter := range s.Filters {
-		buff := marshal(filter)
-
-		meta := &FilterMeta{}
-		unmarshal(buff, meta)
-		err := validateFilterMeta(meta)
+	for _, filterSpec := range s.Filters {
+		spec, err := newFilterSpecInternal(filterSpec)
 		if err != nil {
 			panic(err)
 		}
-		if meta.Name == LabelEND {
-			panic(fmt.Errorf("can't use %s(built-in label) for filter name", LabelEND))
-		}
 
-		if _, exists := filterRecords[meta.Name]; exists {
-			panic(fmt.Errorf("conflict name: %s", meta.Name))
+		if _, exists := filterSpecs[spec.Name()]; exists {
+			panic(fmt.Errorf("conflict name: %s", spec.Name()))
 		}
+		filterSpecs[spec.Name()] = spec
 
-		fr, exists := filterBook[meta.Kind]
-		if !exists {
-			panic(fmt.Errorf("filters: unsuppoted kind %s", meta.Kind))
-		}
-		filterRecords[meta.Name] = fr
-
-		filterSpec := reflect.ValueOf(fr.DefaultSpecFunc).Call(nil)[0].Interface()
-		unmarshal(buff, filterSpec)
-		vr := v.Validate(filterSpec, filterBuffs[meta.Name])
-		if !vr.Valid() {
-			panic(vr)
-		}
-		err = nil
-		if fr == nil {
-			panic(fmt.Errorf("filter kind %s not found", filter["kind"]))
-		}
-		templateFilterBuffs = append(templateFilterBuffs, context.FilterBuff{Name: meta.Name, Buff: filterBuffs[meta.Name]})
+		templateFilterBuffs = append(templateFilterBuffs, context.FilterBuff{
+			Name: spec.Name(),
+			Buff: filterBuffs[spec.Name()],
+		})
 	}
 
 	// validate http template inside filter specs
@@ -252,17 +235,18 @@ func (s Spec) Validate(config []byte) (err error) {
 		}
 	}
 
-	labelsValid := map[string]struct{}{LabelEND: struct{}{}}
+	labelsValid := map[string]struct{}{LabelEND: {}}
 	for i := len(s.Flow) - 1; i >= 0; i-- {
 		f := s.Flow[i]
-		fr, exists := filterRecords[f.Filter]
+		spec, exists := filterSpecs[f.Filter]
 		if !exists {
 			panic(fmt.Errorf("filter %s not found", f.Filter))
 		}
+		expectedResults := spec.RootFilter().Results()
 		for result, label := range f.JumpIf {
-			if !stringtool.StrInSlice(result, fr.Results) {
+			if !stringtool.StrInSlice(result, expectedResults) {
 				panic(fmt.Errorf("filter %s: result %s is not in %v",
-					f.Filter, result, fr.Results))
+					f.Filter, result, expectedResults))
 			}
 			if _, exists := labelsValid[label]; !exists {
 				panic(fmt.Errorf("filter %s: label %s not found",
@@ -286,40 +270,59 @@ func (hp *HTTPPipeline) Kind() string {
 }
 
 // DefaultSpec returns the default spec of HTTPPipeline.
-func (hp *HTTPPipeline) DefaultSpec() supervisor.ObjectSpec {
+func (hp *HTTPPipeline) DefaultSpec() interface{} {
 	return &Spec{}
 }
 
-// Renew renews HTTPPipeline.
-func (hp *HTTPPipeline) Renew(spec supervisor.ObjectSpec,
+// Init initilizes HTTPPipeline.
+func (hp *HTTPPipeline) Init(superSpec *supervisor.Spec, super *supervisor.Supervisor) {
+	hp.superSpec, hp.spec, hp.super = superSpec, superSpec.ObjectSpec().(*Spec), super
+	hp.reload(nil /*no previous generation*/)
+}
+
+// Inherit inherits previous generation of HTTPPipeline.
+func (hp *HTTPPipeline) Inherit(superSpec *supervisor.Spec,
 	previousGeneration supervisor.Object, super *supervisor.Supervisor) {
 
-	hp.spec = spec.(*Spec)
+	hp.superSpec, hp.spec, hp.super = superSpec, superSpec.ObjectSpec().(*Spec), super
+	hp.reload(previousGeneration.(*HTTPPipeline))
 
+	// NOTE: It's filters' responsibility to inherit and clean their resources.
+	// previousGeneration.Close()
+}
+
+func (hp *HTTPPipeline) reload(previousGeneration *HTTPPipeline) {
 	runningFilters := make([]*runningFilter, 0)
 	if len(hp.spec.Flow) == 0 {
 		for _, filterSpec := range hp.spec.Filters {
+			spec, err := newFilterSpecInternal(filterSpec)
+			if err != nil {
+				panic(err)
+			}
+
 			runningFilters = append(runningFilters, &runningFilter{
-				spec: filterSpec,
+				spec: spec,
 			})
 		}
 	} else {
 		for _, f := range hp.spec.Flow {
-			var filterSpec map[string]interface{}
-			for _, ps := range hp.spec.Filters {
-				buff := marshal(ps)
-				meta := &FilterMeta{}
-				unmarshal(buff, meta)
-				if meta.Name == f.Filter {
-					filterSpec = ps
+			var spec *FilterSpec
+			for _, filterSpec := range hp.spec.Filters {
+				var err error
+				spec, err = newFilterSpecInternal(filterSpec)
+				if err != nil {
+					panic(err)
+				}
+				if spec.Name() == f.Filter {
 					break
 				}
 			}
-			if filterSpec == nil {
+			if spec == nil {
 				panic(fmt.Errorf("flow filter %s not found in filters", f.Filter))
 			}
+
 			runningFilters = append(runningFilters, &runningFilter{
-				spec:   filterSpec,
+				spec:   spec,
 				jumpIf: f.JumpIf,
 			})
 		}
@@ -327,33 +330,33 @@ func (hp *HTTPPipeline) Renew(spec supervisor.ObjectSpec,
 
 	var filterBuffs []context.FilterBuff
 	for _, runningFilter := range runningFilters {
-		buff := marshal(runningFilter.spec)
-
-		meta := &FilterMeta{}
-		unmarshal(buff, meta)
-
-		fr, exists := filterBook[meta.Kind]
+		name, kind := runningFilter.spec.Name(), runningFilter.spec.Kind()
+		rootFilter, exists := filterRegistry[kind]
 		if !exists {
-			panic(fmt.Errorf("kind %s not found", meta.Kind))
+			panic(fmt.Errorf("kind %s not found", kind))
 		}
 
-		defaultFilterSpec := reflect.ValueOf(fr.DefaultSpecFunc).Call(nil)[0].Interface()
-		unmarshal(buff, defaultFilterSpec)
-
-		prevValue := reflect.New(fr.FilterType).Elem()
+		var prevInstance Filter
 		if previousGeneration != nil {
-			prevFilter := previousGeneration.(*HTTPPipeline).getRunningFilter(meta.Name)
-			if prevFilter != nil {
-				prevValue = reflect.ValueOf(prevFilter.filter)
+			runningFilter := previousGeneration.getRunningFilter(name)
+			if runningFilter != nil {
+				prevInstance = runningFilter.filter
 			}
 		}
-		in := []reflect.Value{reflect.ValueOf(defaultFilterSpec), prevValue}
 
-		filter := reflect.ValueOf(fr.NewFunc).Call(in)[0].Interface().(Filter)
+		filter := reflect.New(reflect.TypeOf(rootFilter).Elem()).Interface().(Filter)
+		if prevInstance == nil {
+			filter.Init(runningFilter.spec, hp.super)
+		} else {
+			filter.Inherit(runningFilter.spec, prevInstance, hp.super)
+		}
 
-		runningFilter.filter, runningFilter.meta, runningFilter.fr = filter, meta, fr
+		runningFilter.filter, runningFilter.rootFilter = filter, rootFilter
 
-		filterBuffs = append(filterBuffs, context.FilterBuff{Name: meta.Name, Buff: buff})
+		filterBuffs = append(filterBuffs, context.FilterBuff{
+			Name: name,
+			Buff: []byte(runningFilter.spec.YAMLConfig()),
+		})
 	}
 
 	// creating a valid httptemplates
@@ -364,14 +367,6 @@ func (hp *HTTPPipeline) Renew(spec supervisor.ObjectSpec,
 	}
 
 	hp.runningFilters = runningFilters
-
-	if previousGeneration != nil {
-		for _, runningFilter := range previousGeneration.(*HTTPPipeline).runningFilters {
-			if hp.getRunningFilter(runningFilter.meta.Name) == nil {
-				runningFilter.filter.Close()
-			}
-		}
-	}
 }
 
 // Handle handles all incoming traffic.
@@ -382,18 +377,18 @@ func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) {
 	// Here is the truly initialed HTTPTemplate by HTTPPipeline's filter
 	// specs
 	ctx.SetTemplate(hp.ht)
-	nextFilterName := hp.runningFilters[0].meta.Name
+	nextFilterName := hp.runningFilters[0].spec.Name()
 	for i := 0; i < len(hp.runningFilters); i++ {
 		if nextFilterName == LabelEND {
 			break
 		}
 
 		runningFilter := hp.runningFilters[i]
-		if nextFilterName != runningFilter.meta.Name {
+		if nextFilterName != runningFilter.spec.Name() {
 			continue
 		}
 
-		if err := ctx.SaveReqToTemplate(runningFilter.meta.Name); err != nil {
+		if err := ctx.SaveReqToTemplate(runningFilter.spec.Name()); err != nil {
 			logger.Errorf("save http req failed, dict is %#v err is %v",
 				ctx.Template().GetDict(), err)
 		}
@@ -402,23 +397,23 @@ func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) {
 		result := runningFilter.filter.Handle(ctx)
 		handleDuration := time.Now().Sub(startTime)
 
-		if err := ctx.SaveRspToTemplate(runningFilter.meta.Name); err != nil {
+		if err := ctx.SaveRspToTemplate(runningFilter.spec.Name()); err != nil {
 			logger.Errorf("save http rsp failed, dict is %#v err is %v",
 				ctx.Template().GetDict(), err)
 		}
 
 		filterStat := &FilterStat{
-			Name:     runningFilter.meta.Name,
-			Kind:     runningFilter.meta.Kind,
+			Name:     runningFilter.spec.Name(),
+			Kind:     runningFilter.spec.Kind(),
 			Result:   result,
 			Duration: handleDuration,
 		}
 		pipeCtx.FilterStats = append(pipeCtx.FilterStats, filterStat)
 
 		if result != "" {
-			if !stringtool.StrInSlice(result, runningFilter.fr.Results) {
+			if !stringtool.StrInSlice(result, runningFilter.rootFilter.Results()) {
 				logger.Errorf("BUG: invalid result %s not in %v",
-					result, runningFilter.fr.Results)
+					result, runningFilter.rootFilter.Results())
 			}
 
 			jumpIf := runningFilter.jumpIf
@@ -431,7 +426,7 @@ func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) {
 				break
 			}
 		} else if i < len(hp.runningFilters)-1 {
-			nextFilterName = hp.runningFilters[i+1].meta.Name
+			nextFilterName = hp.runningFilters[i+1].spec.Name()
 		}
 	}
 
@@ -440,7 +435,7 @@ func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) {
 
 func (hp *HTTPPipeline) getRunningFilter(name string) *runningFilter {
 	for _, filter := range hp.runningFilters {
-		if filter.meta.Name == name {
+		if filter.spec.Name() == name {
 			return filter
 		}
 	}
@@ -449,18 +444,18 @@ func (hp *HTTPPipeline) getRunningFilter(name string) *runningFilter {
 }
 
 // Status returns Status genreated by Runtime.
-func (hp *HTTPPipeline) Status() interface{} {
+func (hp *HTTPPipeline) Status() *supervisor.Status {
 	s := &Status{
 		Filters: make(map[string]interface{}),
 	}
 
 	for _, runningFilter := range hp.runningFilters {
-		filterStatus := reflect.ValueOf(runningFilter.filter).
-			MethodByName("Status").Call(nil)[0].Interface()
-		s.Filters[runningFilter.meta.Name] = filterStatus
+		s.Filters[runningFilter.spec.Name()] = runningFilter.filter.Status()
 	}
 
-	return s
+	return &supervisor.Status{
+		ObjectStatus: s,
+	}
 }
 
 // Close closes HTTPPipeline.

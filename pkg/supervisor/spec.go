@@ -3,81 +3,80 @@ package supervisor
 import (
 	"fmt"
 
-	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/v"
 
 	yaml "gopkg.in/yaml.v2"
 )
 
 type (
-	// ObjectSpec is the common interface for all object spec.
-	ObjectSpec interface {
-		GetName() string
-		GetKind() string
+	// Spec is the universal spec for all objects.
+	Spec struct {
+		yamlConfig string
+		meta       *MetaSpec
+		objectSpec interface{}
 	}
 
-	// ObjectMetaSpec is the basic spec for all objects.
-	ObjectMetaSpec struct {
+	// MetaSpec is metadata for all specs.
+	MetaSpec struct {
 		Name string `yaml:"name" jsonschema:"required,format=urlname"`
 		Kind string `yaml:"kind" jsonschema:"required"`
 	}
 )
 
-// GetName returns name.
-func (s *ObjectMetaSpec) GetName() string { return s.Name }
+func newSpecInternal(meta *MetaSpec, objectSpec interface{}) *Spec {
+	return &Spec{
+		meta:       meta,
+		objectSpec: objectSpec,
+	}
+}
 
-// GetKind returns kind.
-func (s *ObjectMetaSpec) GetKind() string { return s.Kind }
-
-func unmarshal(y string, i interface{}) error {
-	err := yaml.Unmarshal([]byte(y), i)
-	if err != nil {
-		return fmt.Errorf("unmarshal failed: %v", err)
+// NewSpec creates a spec and validates it.
+func NewSpec(yamlConfig string) (*Spec, error) {
+	s := &Spec{
+		yamlConfig: yamlConfig,
 	}
 
-	yamlBuff, err := yaml.Marshal(i)
+	meta := &MetaSpec{}
+	err := yaml.Unmarshal([]byte(yamlConfig), meta)
 	if err != nil {
-		return fmt.Errorf("marshal %#v failed: %v", i, err)
+		return nil, fmt.Errorf("unmarshal failed: %v", err)
 	}
-
-	vr := v.Validate(i, yamlBuff)
+	vr := v.Validate(meta, []byte(yamlConfig))
 	if !vr.Valid() {
-		return fmt.Errorf("validate failed: \n%s", vr)
+		return nil, fmt.Errorf("validate failed: \n%s", vr)
 	}
 
-	return nil
-}
-
-// SpecFromYAML validates and generates object Spec from yaml.
-func SpecFromYAML(y string) (ObjectSpec, error) {
-	meta := ObjectMetaSpec{}
-	err := unmarshal(y, &meta)
-	if err != nil {
-		return nil, fmt.Errorf("%v", err)
-	}
-
-	kind := meta.GetKind()
-	o, exists := objectRegistry[kind]
+	rootObject, exists := objectRegistry[meta.Kind]
 	if !exists {
-		return nil, fmt.Errorf("kind %s not found", kind)
+		return nil, fmt.Errorf("kind %s not found", meta.Kind)
 	}
 
-	spec := o.DefaultSpec()
+	s.meta, s.objectSpec = meta, rootObject.DefaultSpec()
 
-	err = unmarshal(y, spec)
+	err = yaml.Unmarshal([]byte(yamlConfig), s.objectSpec)
 	if err != nil {
-		return nil, fmt.Errorf("%v", err)
+		return nil, fmt.Errorf("unmarshal failed: %v", err)
+	}
+	vr = v.Validate(s.objectSpec, []byte(yamlConfig))
+	if !vr.Valid() {
+		return nil, fmt.Errorf("validate failed: \n%s", vr)
 	}
 
-	return spec, nil
+	return s, nil
 }
 
-// YAMLFromSpec is an utility to transfer spec to yaml.
-func YAMLFromSpec(spec ObjectSpec) string {
-	y, err := yaml.Marshal(spec)
-	if err != nil {
-		logger.Errorf("BUG: marshal %#v to yaml failed: %v", err)
-		return ""
-	}
-	return string(y)
+// Name returns name.
+func (s *Spec) Name() string { return s.meta.Name }
+
+// Kind returns kind.
+func (s *Spec) Kind() string { return s.meta.Kind }
+
+// YAMLConfig returns the config in yaml format.
+func (s *Spec) YAMLConfig() string {
+	return s.yamlConfig
+}
+
+// ObjectSpec returns the object spec.
+func (s *Spec) ObjectSpec() interface{} {
+	return s.objectSpec
 }

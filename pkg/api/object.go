@@ -5,10 +5,6 @@ import (
 	"io/ioutil"
 	"sort"
 
-	// Ensure registered.
-	_ "github.com/megaease/easegateway/pkg/object/httpproxy"
-	_ "github.com/megaease/easegateway/pkg/object/httpserver"
-
 	"github.com/megaease/easegateway/pkg/supervisor"
 
 	"github.com/kataras/iris"
@@ -77,20 +73,20 @@ func (s *Server) setupObjectAPIs() {
 	s.apis = append(s.apis, objAPIs...)
 }
 
-func (s *Server) readObjectSpec(ctx iris.Context) (supervisor.ObjectSpec, error) {
+func (s *Server) readObjectSpec(ctx iris.Context) (*supervisor.Spec, error) {
 	body, err := ioutil.ReadAll(ctx.Request().Body)
 	if err != nil {
 		return nil, fmt.Errorf("read body failed: %v", err)
 	}
 
-	spec, err := supervisor.SpecFromYAML(string(body))
+	spec, err := supervisor.NewSpec(string(body))
 	if err != nil {
 		return nil, err
 	}
 
 	name := ctx.Params().Get("name")
 
-	if name != "" && name != spec.GetName() {
+	if name != "" && name != spec.Name() {
 		return nil, fmt.Errorf("inconsistent name in url and spec ")
 	}
 
@@ -109,14 +105,14 @@ func (s *Server) createObject(ctx iris.Context) {
 		return
 	}
 
-	name := spec.GetName()
+	name := spec.Name()
 
 	s.Lock()
 	defer s.Unlock()
 
 	existedSpec := s._getObject(name)
 	if existedSpec != nil {
-		handleAPIError(ctx, iris.StatusConflict, fmt.Errorf("conflict name"))
+		handleAPIError(ctx, iris.StatusConflict, fmt.Errorf("conflict name: %s", name))
 		return
 	}
 
@@ -157,7 +153,7 @@ func (s *Server) getObject(ctx iris.Context) {
 
 	// Reference: https://mailarchive.ietf.org/arch/msg/media-types/e9ZNC0hDXKXeFlAVRWxLCCaG9GI
 	ctx.Header("Content-Type", "text/vnd.yaml")
-	ctx.Write([]byte(supervisor.YAMLFromSpec(spec)))
+	ctx.Write([]byte(spec.YAMLConfig()))
 }
 
 func (s *Server) updateObject(ctx iris.Context) {
@@ -167,7 +163,7 @@ func (s *Server) updateObject(ctx iris.Context) {
 		return
 	}
 
-	name := spec.GetName()
+	name := spec.Name()
 
 	s.Lock()
 	defer s.Unlock()
@@ -178,10 +174,10 @@ func (s *Server) updateObject(ctx iris.Context) {
 		return
 	}
 
-	if existedSpec.GetKind() != spec.GetKind() {
+	if existedSpec.Kind() != spec.Kind() {
 		handleAPIError(ctx, iris.StatusBadRequest,
 			fmt.Errorf("different kinds: %s, %s",
-				existedSpec.GetKind(), spec.GetKind()))
+				existedSpec.Kind(), spec.Kind()))
 		return
 	}
 
@@ -192,13 +188,13 @@ func (s *Server) updateObject(ctx iris.Context) {
 func (s *Server) listObjects(ctx iris.Context) {
 	// No need to lock.
 
-	specs := s._listObjects()
+	specs := specList(s._listObjects())
 	// NOTE: Keep it consistent.
-	sort.Sort(specsToSort(specs))
+	sort.Sort(specs)
 
-	buff, err := yaml.Marshal(specs)
+	buff, err := specs.Marshal()
 	if err != nil {
-		panic(fmt.Errorf("marshal %#v to yaml failed: %v", specs, err))
+		panic(err)
 	}
 
 	ctx.Header("Content-Type", "text/vnd.yaml")
@@ -241,11 +237,30 @@ func (s *Server) listStatusObjects(ctx iris.Context) {
 	ctx.Write(buff)
 }
 
-type specsToSort []supervisor.ObjectSpec
+type specList []*supervisor.Spec
 
-func (s specsToSort) Less(i, j int) bool { return s[i].GetName() < s[j].GetName() }
-func (s specsToSort) Len() int           { return len(s) }
-func (s specsToSort) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s specList) Less(i, j int) bool { return s[i].Name() < s[j].Name() }
+func (s specList) Len() int           { return len(s) }
+func (s specList) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s specList) Marshal() ([]byte, error) {
+	specs := []map[string]interface{}{}
+	for _, spec := range s {
+		var m map[string]interface{}
+		err := yaml.Unmarshal([]byte(spec.YAMLConfig()), &m)
+		if err != nil {
+			return nil, fmt.Errorf("unmarshal %s to yaml failed: %v",
+				spec.YAMLConfig(), err)
+		}
+		specs = append(specs, m)
+	}
+
+	buff, err := yaml.Marshal(specs)
+	if err != nil {
+		return nil, fmt.Errorf("marshal %#v to yaml failed: %v", specs, err)
+	}
+
+	return buff, nil
+}
 
 func (s *Server) listObjectKinds(ctx iris.Context) {
 	kinds := supervisor.ObjectKinds()

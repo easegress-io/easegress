@@ -16,22 +16,34 @@ type (
 		Kind() string
 
 		// DefaultSpec returns the default spec.
-		DefaultSpec() ObjectSpec
+		// It must return a pointer to point a struct.
+		DefaultSpec() interface{}
 
-		// Renew renews itself with inputing its previous generation.
-		// previousGeneration must be the same type of itself.
-		// It keeps hot-update or not on its own.
-		Renew(spec ObjectSpec, previousGeneration Object, supervisor *Supervisor)
+		// Init initializes the Obejct.
+		Init(superSpec *Spec, super *Supervisor)
+
+		// Inherit also initializes the Object.
+		// But it needs to handle the lifecycle of the previous generation.
+		// So it's own responsibility for the object to inherit and clean the previous generation stuff.
+		// The supervisor won't call Close for the previous generation.
+		Inherit(superSpec *Spec, previousGeneration Object, super *Supervisor)
 
 		// Status returns its runtime status.
-		// 1. It must return a pointer to the struct without nil.
-		// 2. The struct must not have the field named `Timestamp`,
-		//    which is universally used by StatusSyncController.
-		// 3. It needs to run safely anytime, even before the object hasn't renewed ever.
-		Status() interface{}
+		Status() *Status
 
-		// Close closes itself. It must be called only after renewed.
+		// Close closes itself. It is called by deleting.
+		// Supervisor won't call Close for previous generation in Update.
 		Close()
+	}
+
+	// Status is the universal status for all objects.
+	Status struct {
+		// If the ObjectStatus contains field `timestamp`,
+		// it will be covered by the top-level Timestamp here.
+		ObjectStatus interface{}
+		// Timestamp is the global unix timestamp, the object
+		// needs not to set it on its own.
+		Timestamp int64
 	}
 
 	// TrafficGate is the object in category of TrafficGate.
@@ -132,23 +144,6 @@ func Register(o Object) {
 	}
 	if specType.Elem().Kind() != reflect.Struct {
 		panic(fmt.Errorf("%s spec elem: want a struct, got %s", o.Kind(), specType.Elem().Kind()))
-	}
-
-	// Checking status type
-	status := o.Status()
-	if status == nil {
-		panic(fmt.Errorf("%s status: want an available pointer, got nil", o.Kind()))
-	}
-	statusType := reflect.TypeOf(status)
-	if statusType.Kind() != reflect.Ptr {
-		panic(fmt.Errorf("%s status: want a pointer, got %s", o.Kind(), statusType.Kind()))
-	}
-	if statusType.Elem().Kind() != reflect.Struct {
-		panic(fmt.Errorf("%s status elem: want a struct, got %s", o.Kind(), statusType.Elem().Kind()))
-	}
-	_, existed = statusType.Elem().FieldByName("Timestamp")
-	if existed {
-		panic(fmt.Errorf("%s status: a struct with filed Timestamp", o.Kind()))
 	}
 
 	objectRegistry[o.Kind()] = o

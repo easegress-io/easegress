@@ -6,6 +6,7 @@ import (
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
+	"github.com/megaease/easegateway/pkg/supervisor"
 	"github.com/megaease/easegateway/pkg/util/httpheader"
 )
 
@@ -14,41 +15,66 @@ const (
 	Kind = "ResponseAdaptor"
 )
 
-func init() {
-	httppipeline.Register(&httppipeline.FilterRecord{
-		Kind:            Kind,
-		DefaultSpecFunc: DefaultSpec,
-		NewFunc:         New,
-		Results:         nil,
-	})
-}
+var (
+	results = []string{}
+)
 
-// DefaultSpec returns default spec.
-func DefaultSpec() *Spec {
-	return &Spec{}
+func init() {
+	httppipeline.Register(&ResponseAdaptor{})
 }
 
 type (
 	// ResponseAdaptor is filter ResponseAdaptor.
 	ResponseAdaptor struct {
-		spec *Spec
+		super    *supervisor.Supervisor
+		pipeSpec *httppipeline.FilterSpec
+		spec     *Spec
 	}
 
 	// Spec is HTTPAdaptor Spec.
 	Spec struct {
-		httppipeline.FilterMeta `yaml:",inline"`
-
 		Header *httpheader.AdaptSpec `yaml:"header" jsonschema:"required"`
 
 		Body string `yaml:"body" jsonschema:"omitempty"`
 	}
 )
 
-// New creates an HTTPAdaptor.
-func New(spec *Spec, prev *ResponseAdaptor) *ResponseAdaptor {
-	return &ResponseAdaptor{
-		spec: spec,
-	}
+// Kind returns the kind of ResponseAdaptor.
+func (ra *ResponseAdaptor) Kind() string {
+	return Kind
+}
+
+// DefaultSpec returns default spec of ResponseAdaptor.
+func (ra *ResponseAdaptor) DefaultSpec() interface{} {
+	return &Spec{}
+}
+
+// Description returns the description of ResponseAdaptor.
+func (ra *ResponseAdaptor) Description() string {
+	return "ResponseAdaptor adapts response."
+}
+
+// Results returns the results of ResponseAdaptor.
+func (ra *ResponseAdaptor) Results() []string {
+	return results
+}
+
+// Init initializes ResponseAdaptor.
+func (ra *ResponseAdaptor) Init(pipeSpec *httppipeline.FilterSpec, super *supervisor.Supervisor) {
+	ra.pipeSpec, ra.spec, ra.super = pipeSpec, pipeSpec.FilterSpec().(*Spec), super
+	ra.reload()
+}
+
+// Inherit inherits previous generation of ResponseAdaptor.
+func (ra *ResponseAdaptor) Inherit(pipeSpec *httppipeline.FilterSpec,
+	previousGeneration httppipeline.Filter, super *supervisor.Supervisor) {
+
+	previousGeneration.Close()
+	ra.Init(pipeSpec, super)
+}
+
+func (ra *ResponseAdaptor) reload() {
+	// Nothing to do.
 }
 
 // Handle adapts response.

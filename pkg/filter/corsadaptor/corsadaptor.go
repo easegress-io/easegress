@@ -5,6 +5,7 @@ import (
 
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
+	"github.com/megaease/easegateway/pkg/supervisor"
 
 	"github.com/rs/cors"
 )
@@ -16,32 +17,26 @@ const (
 	resultPreflighted = "preflighted"
 )
 
-func init() {
-	httppipeline.Register(&httppipeline.FilterRecord{
-		Kind:            Kind,
-		DefaultSpecFunc: DefaultSpec,
-		NewFunc:         New,
-		Results:         []string{resultPreflighted},
-	})
-}
+var (
+	results = []string{resultPreflighted}
+)
 
-// DefaultSpec return default spes.
-func DefaultSpec() *Spec {
-	return &Spec{}
+func init() {
+	httppipeline.Register(&CORSAdaptor{})
 }
 
 type (
 	// CORSAdaptor is filter for CORS request.
 	CORSAdaptor struct {
-		spec *Spec
+		super    *supervisor.Supervisor
+		pipeSpec *httppipeline.FilterSpec
+		spec     *Spec
 
 		cors *cors.Cors
 	}
 
 	// Spec is describes of CORSAdaptor.
 	Spec struct {
-		httppipeline.FilterMeta `yaml:",inline"`
-
 		AllowedOrigins   []string `yaml:"allowedOrigins" jsonschema:"omitempty"`
 		AllowedMethods   []string `yaml:"allowedMethods" jsonschema:"omitempty,uniqueItems=true,format=httpmethod-array"`
 		AllowedHeaders   []string `yaml:"allowedHeaders" jsonschema:"omitempty"`
@@ -50,35 +45,67 @@ type (
 	}
 )
 
-// New for create a CORSAdaptor.
-func New(spec *Spec, prev *CORSAdaptor) *CORSAdaptor {
-	return &CORSAdaptor{
-		spec: spec,
-		cors: cors.New(cors.Options{
-			AllowedOrigins:   spec.AllowedOrigins,
-			AllowedMethods:   spec.AllowedMethods,
-			AllowedHeaders:   spec.AllowedHeaders,
-			AllowCredentials: spec.AllowCredentials,
-			ExposedHeaders:   spec.ExposedHeaders,
-		}),
-	}
+// Kind returns the kind of CORSAdaptor.
+func (a *CORSAdaptor) Kind() string {
+	return Kind
 }
 
-// Handle for handles simple cross-origin requests or directs.
-func (f *CORSAdaptor) Handle(ctx context.HTTPContext) string {
+// DefaultSpec returns default spec of CORSAdaptor.
+func (a *CORSAdaptor) DefaultSpec() interface{} {
+	return &Spec{}
+}
+
+// Description returns the description of CORSAdaptor.
+func (a *CORSAdaptor) Description() string {
+	return "CORSAdaptor adapts CORS stuff."
+}
+
+// Results returns the results of CORSAdaptor.
+func (a *CORSAdaptor) Results() []string {
+	return results
+}
+
+// Init initializes CORSAdaptor.
+func (a *CORSAdaptor) Init(pipeSpec *httppipeline.FilterSpec, super *supervisor.Supervisor) {
+	a.pipeSpec, a.spec, a.super = pipeSpec, pipeSpec.FilterSpec().(*Spec), super
+	a.reload()
+}
+
+// Inherit inherits previous generation of APIAggregator.
+func (a *CORSAdaptor) Inherit(pipeSpec *httppipeline.FilterSpec,
+	previousGeneration httppipeline.Filter, super *supervisor.Supervisor) {
+
+	previousGeneration.Close()
+	a.Init(pipeSpec, super)
+}
+
+func (a *CORSAdaptor) reload() {
+	a.cors = cors.New(cors.Options{
+		AllowedOrigins:   a.spec.AllowedOrigins,
+		AllowedMethods:   a.spec.AllowedMethods,
+		AllowedHeaders:   a.spec.AllowedHeaders,
+		AllowCredentials: a.spec.AllowCredentials,
+		ExposedHeaders:   a.spec.ExposedHeaders,
+	})
+}
+
+// Handle handles simple cross-origin requests or directs.
+func (a *CORSAdaptor) Handle(ctx context.HTTPContext) string {
 	r := ctx.Request()
 	w := ctx.Response()
 	method := r.Method()
 	headerAllowMethod := r.Header().Get("Access-Control-Request-Method")
 	if method == http.MethodOptions && headerAllowMethod != "" {
-		f.cors.HandlerFunc(w.Std(), r.Std())
+		a.cors.HandlerFunc(w.Std(), r.Std())
 		return resultPreflighted
 	}
 	return ""
 }
 
 // Status return status.
-func (f *CORSAdaptor) Status() interface{} { return nil }
+func (a *CORSAdaptor) Status() interface{} {
+	return nil
+}
 
-// Close close CORSAdaptor.
-func (f *CORSAdaptor) Close() {}
+// Close closes CORSAdaptor.
+func (a *CORSAdaptor) Close() {}

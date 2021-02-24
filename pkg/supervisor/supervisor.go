@@ -48,24 +48,23 @@ type (
 	// RunningObject is the running object.
 	RunningObject struct {
 		object Object
-		config string
-		spec   ObjectSpec
+		spec   *Spec
 	}
 )
 
 func newRunningObjectFromConfig(config string) (*RunningObject, error) {
-	spec, err := SpecFromYAML(config)
+	spec, err := NewSpec(config)
 	if err != nil {
-		return nil, fmt.Errorf("spec from yaml failed: %s: %v", config, err)
+		return nil, fmt.Errorf("create spec failed: %s: %v", config, err)
 	}
 
 	return newRunningObjectFromSpec(spec)
 }
 
-func newRunningObjectFromSpec(spec ObjectSpec) (*RunningObject, error) {
-	registerObject, exists := objectRegistry[spec.GetKind()]
+func newRunningObjectFromSpec(spec *Spec) (*RunningObject, error) {
+	registerObject, exists := objectRegistry[spec.Kind()]
 	if !exists {
-		return nil, fmt.Errorf("unsupported kind: %s", spec.GetKind())
+		return nil, fmt.Errorf("unsupported kind: %s", spec.Kind())
 	}
 
 	obj := reflect.New(reflect.TypeOf(registerObject).Elem()).Interface()
@@ -75,7 +74,6 @@ func newRunningObjectFromSpec(spec ObjectSpec) (*RunningObject, error) {
 	}
 
 	return &RunningObject{
-		config: YAMLFromSpec(spec),
 		spec:   spec,
 		object: object,
 	}, nil
@@ -87,30 +85,35 @@ func (ro *RunningObject) Instance() Object {
 }
 
 // Spec returns the spec of the object.
-func (ro *RunningObject) Spec() ObjectSpec {
+func (ro *RunningObject) Spec() *Spec {
 	return ro.spec
 }
 
-// Config returns the raw config of the object.
-func (ro *RunningObject) Config() string {
-	return ro.config
-}
-
-func (ro *RunningObject) renewWithRecovery(prevInstance Object, super *Supervisor) {
+func (ro *RunningObject) initWithRecovery(super *Supervisor) {
 	defer func() {
 		if err := recover(); err != nil {
-			logger.Errorf("%s: recover from renew, err: %v, stack trace:\n%s\n",
-				ro.spec.GetName(), err, debug.Stack())
+			logger.Errorf("%s: recover from init, err: %v, stack trace:\n%s\n",
+				ro.spec.Name(), err, debug.Stack())
 		}
 	}()
-	ro.Instance().Renew(ro.Spec(), prevInstance, super)
+	ro.Instance().Init(ro.Spec(), super)
+}
+
+func (ro *RunningObject) inheritWithRecovery(previousGeneration Object, super *Supervisor) {
+	defer func() {
+		if err := recover(); err != nil {
+			logger.Errorf("%s: recover from update, err: %v, stack trace:\n%s\n",
+				ro.spec.Name(), err, debug.Stack())
+		}
+	}()
+	ro.Instance().Inherit(ro.Spec(), previousGeneration, super)
 }
 
 func (ro *RunningObject) closeWithRecovery() {
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Errorf("%s: recover from close, err: %v, stack trace:\n%s\n",
-				ro.spec.GetName(), err, debug.Stack())
+				ro.spec.Name(), err, debug.Stack())
 		}
 	}()
 
@@ -160,16 +163,21 @@ func (s *Supervisor) initSystemControllers() {
 			continue
 		}
 
-		spec := rootObject.DefaultSpec()
+		meta := &MetaSpec{
+			// NOTE: Use kind to be the name since the system controller is unique.
+			Name: kind,
+			Kind: kind,
+		}
+		spec := newSpecInternal(meta, rootObject.DefaultSpec())
 		ro, err := newRunningObjectFromSpec(spec)
 		if err != nil {
 			panic(err)
 		}
 
-		ro.renewWithRecovery(nil, s)
+		ro.initWithRecovery(s)
 		s.runningCategories[CategorySystemController].runningObjects[kind] = ro
 
-		logger.Infof("create %s", spec.GetName())
+		logger.Infof("create system controller %s", spec.Name())
 	}
 }
 
@@ -222,7 +230,7 @@ func (s *Supervisor) applyConfigInCategory(config map[string]string, category Ob
 		prev, exists := rc.runningObjects[name]
 		if exists {
 			// No need to update if the config not changed.
-			if yamlConfig == prev.Config() {
+			if yamlConfig == prev.spec.YAMLConfig() {
 				continue
 			}
 			prevInstance = prev.Instance()
@@ -236,21 +244,21 @@ func (s *Supervisor) applyConfigInCategory(config map[string]string, category Ob
 		if ro.object.Category() != category {
 			continue
 		}
-		if name != ro.Spec().GetName() {
+		if name != ro.Spec().Name() {
 			logger.Errorf("BUG: key and spec got different names: %s vs %s",
-				name, ro.Spec().GetName())
+				name, ro.Spec().Name())
 			continue
 		}
 
-		ro.renewWithRecovery(prevInstance, s)
-
-		rc.runningObjects[name] = ro
-
 		if prevInstance == nil {
+			ro.initWithRecovery(s)
 			logger.Infof("create %s", name)
 		} else {
+			ro.inheritWithRecovery(prevInstance, s)
 			logger.Infof("update %s", name)
 		}
+
+		rc.runningObjects[name] = ro
 	}
 }
 
@@ -340,7 +348,7 @@ func (s *Supervisor) close() {
 		rc.mutex.Lock()
 		for _, ro := range rc.runningObjects {
 			ro.closeWithRecovery()
-			logger.Infof("delete %s", ro.spec.GetName())
+			logger.Infof("delete %s", ro.spec.Name())
 		}
 		rc.mutex.Unlock()
 	}

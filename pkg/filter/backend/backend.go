@@ -10,6 +10,7 @@ import (
 
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
+	"github.com/megaease/easegateway/pkg/supervisor"
 	"github.com/megaease/easegateway/pkg/util/fallback"
 )
 
@@ -24,24 +25,18 @@ const (
 	resultServerError    = "serverError"
 )
 
-func init() {
-	httppipeline.Register(&httppipeline.FilterRecord{
-		Kind:            Kind,
-		DefaultSpecFunc: DefaultSpec,
-		NewFunc:         New,
-		Results: []string{
-			resultCircuitBreaker,
-			resultFallback,
-			resultInternalError,
-			resultClientError,
-			resultServerError,
-		},
-	})
-}
+var (
+	results = []string{
+		resultCircuitBreaker,
+		resultFallback,
+		resultInternalError,
+		resultClientError,
+		resultServerError,
+	}
+)
 
-// DefaultSpec returns default spec.
-func DefaultSpec() *Spec {
-	return &Spec{}
+func init() {
+	httppipeline.Register(&Backend{})
 }
 
 var (
@@ -80,7 +75,9 @@ var (
 type (
 	// Backend is the filter Backend.
 	Backend struct {
-		spec *Spec
+		super    *supervisor.Supervisor
+		pipeSpec *httppipeline.FilterSpec
+		spec     *Spec
 
 		fallback *fallback.Fallback
 
@@ -93,7 +90,7 @@ type (
 
 	// Spec describes the Backend.
 	Spec struct {
-		httppipeline.FilterMeta `yaml:",inline"`
+		httppipeline.FilterMetaSpec `yaml:",inline"`
 
 		Fallback      *FallbackSpec    `yaml:"fallback,omitempty" jsonschema:"omitempty"`
 		MainPool      *PoolSpec        `yaml:"mainPool" jsonschema:"required"`
@@ -110,7 +107,7 @@ type (
 		fallback.Spec     `yaml:",inline"`
 	}
 
-	// Status wraps httpstat.Status.
+	// Status is the status of Backend.
 	Status struct {
 		MainPool      *PoolStatus `yaml:"mainPool"`
 		CandidatePool *PoolStatus `yaml:"candidatePool,omitempty"`
@@ -160,40 +157,64 @@ func (s Spec) Validate() error {
 	return nil
 }
 
-// New creates a Backend.
-func New(spec *Spec, prev *Backend) *Backend {
-	if prev != nil {
-		prev.Close()
+// Kind returns the kind of Backend.
+func (b *Backend) Kind() string {
+	return Kind
+}
+
+// DefaultSpec returns the default spec of Backend.
+func (b *Backend) DefaultSpec() interface{} {
+	return &Spec{}
+}
+
+// Description returns the description of Backend.
+func (b *Backend) Description() string {
+	return "Backend sets the proxy of backend servers"
+}
+
+// Results returns the results of Backend.
+func (b *Backend) Results() []string {
+	return results
+}
+
+// Init initializes Backend.
+func (b *Backend) Init(pipeSpec *httppipeline.FilterSpec, super *supervisor.Supervisor) {
+	b.pipeSpec, b.spec, b.super = pipeSpec, pipeSpec.FilterSpec().(*Spec), super
+	b.reload()
+}
+
+// Inherit inherits previous generation of Backend.
+func (b *Backend) Inherit(pipeSpec *httppipeline.FilterSpec,
+	previousGeneration httppipeline.Filter, super *supervisor.Supervisor) {
+
+	previousGeneration.Close()
+	b.Init(pipeSpec, super)
+}
+
+func (b *Backend) reload() {
+	b.mainPool = newPool(b.spec.MainPool, "backend#main",
+		true /*writeResponse*/, b.spec.FailureCodes)
+
+	if b.spec.Fallback != nil {
+		b.fallback = fallback.New(&b.spec.Fallback.Spec)
 	}
 
-	b := &Backend{
-		spec: spec,
-		mainPool: newPool(spec.MainPool, "backend#main",
-			true /*writeResponse*/, spec.FailureCodes),
+	if b.spec.CandidatePool != nil {
+		b.candidatePool = newPool(b.spec.CandidatePool, "backend#candidate",
+			true /*writeResponse*/, b.spec.FailureCodes)
+	}
+	if b.spec.MirrorPool != nil {
+		b.mirrorPool = newPool(b.spec.MirrorPool, "backend#mirror",
+			false /*writeResponse*/, b.spec.FailureCodes)
 	}
 
-	if spec.Fallback != nil {
-		b.fallback = fallback.New(&spec.Fallback.Spec)
+	if b.spec.Compression != nil {
+		b.compression = newcompression(b.spec.Compression)
 	}
-
-	if spec.CandidatePool != nil {
-		b.candidatePool = newPool(spec.CandidatePool, "backend#candidate",
-			true /*writeResponse*/, spec.FailureCodes)
-	}
-	if spec.MirrorPool != nil {
-		b.mirrorPool = newPool(spec.MirrorPool, "backend#mirror",
-			false /*writeResponse*/, spec.FailureCodes)
-	}
-
-	if spec.Compression != nil {
-		b.compression = newcompression(spec.Compression)
-	}
-
-	return b
 }
 
 // Status returns Backend status.
-func (b *Backend) Status() *Status {
+func (b *Backend) Status() interface{} {
 	s := &Status{
 		MainPool: b.mainPool.status(),
 	}

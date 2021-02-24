@@ -2,11 +2,13 @@ package api
 
 import (
 	"fmt"
+	"reflect"
 	"sort"
 
-	"github.com/kataras/iris"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
 	"github.com/megaease/easegateway/pkg/v"
+
+	"github.com/kataras/iris"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -21,17 +23,32 @@ const (
 	FilterMetaPrefix = "/metadata/objects/httppipeline/filters"
 )
 
+type (
+	// FilterMeta is the metadata of filter.
+	FilterMeta struct {
+		Kind        string
+		Results     []string
+		SpecType    reflect.Type
+		Description string
+	}
+)
+
 var (
-	filterBook  = map[string]*httppipeline.FilterRecord{}
-	filterKinds []string
+	filterMetaBook = map[string]*FilterMeta{}
+	filterKinds    []string
 )
 
 func (s *Server) setupMetadaAPIs() {
-	filterBook = httppipeline.GetFilterBook()
-	for kind, pr := range filterBook {
-		filterBook[kind] = pr
+	filterRegistry := httppipeline.GetFilterRegistry()
+	for kind, f := range filterRegistry {
+		filterMetaBook[kind] = &FilterMeta{
+			Kind:        kind,
+			Results:     f.Results(),
+			SpecType:    reflect.TypeOf(f.DefaultSpec()),
+			Description: f.Description(),
+		}
 		filterKinds = append(filterKinds, kind)
-		sort.Strings(pr.Results)
+		sort.Strings(filterMetaBook[kind].Results)
 	}
 	sort.Strings(filterKinds)
 
@@ -75,28 +92,27 @@ func (s *Server) listFilters(ctx iris.Context) {
 func (s *Server) getFilterDescription(ctx iris.Context) {
 	kind := ctx.Params().Get("kind")
 
-	pr, exits := filterBook[kind]
+	fm, exits := filterMetaBook[kind]
 	if !exits {
 		handleAPIError(ctx, iris.StatusNotFound, fmt.Errorf("not found"))
 		return
 	}
 
-	ctx.WriteString(pr.Description)
+	ctx.WriteString(fm.Description)
 }
 
 func (s *Server) getFilterSchema(ctx iris.Context) {
-
 	kind := ctx.Params().Get("kind")
 
-	pr, exits := filterBook[kind]
+	fm, exits := filterMetaBook[kind]
 	if !exits {
 		handleAPIError(ctx, iris.StatusNotFound, fmt.Errorf("not found"))
 		return
 	}
 
-	buff, err := v.GetSchemaInYAML(pr.SpecType)
+	buff, err := v.GetSchemaInYAML(fm.SpecType)
 	if err != nil {
-		panic(fmt.Errorf("get schema for %v failed: %v", pr.Kind, err))
+		panic(fmt.Errorf("get schema for %v failed: %v", fm.Kind, err))
 	}
 
 	ctx.Header("Content-Type", "text/vnd.yaml")
@@ -106,15 +122,15 @@ func (s *Server) getFilterSchema(ctx iris.Context) {
 func (s *Server) getFilterResults(ctx iris.Context) {
 	kind := ctx.Params().Get("kind")
 
-	pr, exits := filterBook[kind]
+	fm, exits := filterMetaBook[kind]
 	if !exits {
 		handleAPIError(ctx, iris.StatusNotFound, fmt.Errorf("not found"))
 		return
 	}
 
-	buff, err := yaml.Marshal(pr.Results)
+	buff, err := yaml.Marshal(fm.Results)
 	if err != nil {
-		panic(fmt.Errorf("marshal %#v to yaml failed: %v", pr.Results, err))
+		panic(fmt.Errorf("marshal %#v to yaml failed: %v", fm.Results, err))
 	}
 
 	ctx.Header("Content-Type", "text/vnd.yaml")

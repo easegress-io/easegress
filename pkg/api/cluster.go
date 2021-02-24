@@ -48,7 +48,7 @@ func (s *Server) _plusOneVersion() int64 {
 	return version
 }
 
-func (s *Server) _getObject(name string) supervisor.ObjectSpec {
+func (s *Server) _getObject(name string) *supervisor.Spec {
 	value, err := s.cluster.Get(s.cluster.Layout().ConfigObjectKey(name))
 	if err != nil {
 		clusterPanic(err)
@@ -58,7 +58,7 @@ func (s *Server) _getObject(name string) supervisor.ObjectSpec {
 		return nil
 	}
 
-	spec, err := supervisor.SpecFromYAML(*value)
+	spec, err := supervisor.NewSpec(*value)
 	if err != nil {
 		panic(fmt.Errorf("bad spec(err: %v) from yaml: %s", err, *value))
 	}
@@ -66,15 +66,15 @@ func (s *Server) _getObject(name string) supervisor.ObjectSpec {
 	return spec
 }
 
-func (s *Server) _listObjects() []supervisor.ObjectSpec {
+func (s *Server) _listObjects() []*supervisor.Spec {
 	kvs, err := s.cluster.GetPrefix(s.cluster.Layout().ConfigObjectPrefix())
 	if err != nil {
 		clusterPanic(err)
 	}
 
-	specs := make([]supervisor.ObjectSpec, 0, len(kvs))
+	specs := make([]*supervisor.Spec, 0, len(kvs))
 	for _, v := range kvs {
-		spec, err := supervisor.SpecFromYAML(v)
+		spec, err := supervisor.NewSpec(v)
 		if err != nil {
 			panic(fmt.Errorf("bad spec(err: %v) from yaml: %s", err, v))
 		}
@@ -84,9 +84,9 @@ func (s *Server) _listObjects() []supervisor.ObjectSpec {
 	return specs
 }
 
-func (s *Server) _putObject(spec supervisor.ObjectSpec) {
-	err := s.cluster.Put(s.cluster.Layout().ConfigObjectKey(spec.GetName()),
-		supervisor.YAMLFromSpec(spec))
+func (s *Server) _putObject(spec *supervisor.Spec) {
+	err := s.cluster.Put(s.cluster.Layout().ConfigObjectKey(spec.Name()),
+		spec.YAMLConfig())
 	if err != nil {
 		clusterPanic(err)
 	}

@@ -26,7 +26,9 @@ type (
 	// StatusSyncController is a system controller to synchronize
 	// status of every object to remote storage.
 	StatusSyncController struct {
-		super *supervisor.Supervisor
+		super     *supervisor.Supervisor
+		superSpec *supervisor.Spec
+		spec      *Spec
 
 		storage *storage.Storage
 		timer   *timetool.DistributedTimer
@@ -39,25 +41,17 @@ type (
 
 	// Spec describes StatusSyncController.
 	Spec struct {
-		supervisor.ObjectMetaSpec `yaml:",inline"`
 	}
 
 	// StatusesRecord is the history record for status of every running object.
 	StatusesRecord struct {
-		Statuses     map[string]interface{}
+		Statuses     map[string]*supervisor.Status
 		UnixTimestmp int64
-	}
-
-	// UniservalStatus wraps ObjectStatus with necessary information.
-	UniservalStatus struct {
-		ObjectStatus interface{}
-		Timestamp    int64
 	}
 )
 
-// MarshalInYAML marshals UniservalStatus to yaml.
-func (us *UniservalStatus) MarshalInYAML() ([]byte, error) {
-	buff, err := yaml.Marshal(us.ObjectStatus)
+func marshalStatus(status *supervisor.Status) ([]byte, error) {
+	buff, err := yaml.Marshal(status.ObjectStatus)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +62,7 @@ func (us *UniservalStatus) MarshalInYAML() ([]byte, error) {
 		return nil, err
 	}
 
-	m["timestamp"] = us.Timestamp
+	m["timestamp"] = status.Timestamp
 
 	buff, err = yaml.Marshal(m)
 	if err != nil {
@@ -93,25 +87,27 @@ func (ssc *StatusSyncController) Kind() string {
 }
 
 // DefaultSpec returns the default spec of StatusSyncController.
-func (ssc *StatusSyncController) DefaultSpec() supervisor.ObjectSpec {
-	return &Spec{
-		ObjectMetaSpec: supervisor.ObjectMetaSpec{
-			// NOTE: Use unique kind to be the global controller name.
-			Name: ssc.Kind(),
-			Kind: ssc.Kind(),
-		},
-	}
+func (ssc *StatusSyncController) DefaultSpec() interface{} {
+	return &Spec{}
 }
 
-// Renew renews StatusSyncController.
-func (ssc *StatusSyncController) Renew(spec supervisor.ObjectSpec, previousGeneration supervisor.Object, super *supervisor.Supervisor) {
-	if previousGeneration != nil {
-		previousGeneration.Close()
-	}
+// Init initializes StatusSyncController.
+func (ssc *StatusSyncController) Init(superSpec *supervisor.Spec, super *supervisor.Supervisor) {
+	ssc.superSpec, ssc.spec, ssc.super = superSpec, superSpec.ObjectSpec().(*Spec), super
+	ssc.reload()
+}
 
-	ssc.super = super
+// Inherit inherits previous generation of StatusSyncController.
+func (ssc *StatusSyncController) Inherit(spec *supervisor.Spec,
+	previousGeneration supervisor.Object, super *supervisor.Supervisor) {
+
+	previousGeneration.Close()
+	ssc.Init(spec, super)
+}
+
+func (ssc *StatusSyncController) reload() {
 	ssc.timer = timetool.NewDistributedTimer(nextSyncStatusDuration)
-	ssc.storage = storage.New(super.Options(), super.Cluster())
+	ssc.storage = storage.New(ssc.super.Options(), ssc.super.Cluster())
 	ssc.done = make(chan struct{})
 
 	go ssc.run()
@@ -129,8 +125,10 @@ func (ssc *StatusSyncController) run() {
 }
 
 // Status returns the status of StatusSyncController.
-func (ssc *StatusSyncController) Status() interface{} {
-	return &struct{}{}
+func (ssc *StatusSyncController) Status() *supervisor.Status {
+	return &supervisor.Status{
+		ObjectStatus: struct{}{},
+	}
 }
 
 // Close closes StatusSyncController.
@@ -143,7 +141,7 @@ func (ssc *StatusSyncController) Close() {
 func (ssc *StatusSyncController) syncStatus(unixTimestamp int64) {
 	statuses := make(map[string]string)
 	statusesRecord := &StatusesRecord{
-		Statuses:     map[string]interface{}{},
+		Statuses:     make(map[string]*supervisor.Status),
 		UnixTimestmp: unixTimestamp,
 	}
 
@@ -155,20 +153,17 @@ func (ssc *StatusSyncController) syncStatus(unixTimestamp int64) {
 			}
 		}()
 
-		name := runningObject.Spec().GetName()
+		name := runningObject.Spec().Name()
 
-		objectStatus := runningObject.Instance().Status()
-		universalStatus := &UniservalStatus{
-			ObjectStatus: objectStatus,
-			Timestamp:    unixTimestamp,
-		}
+		status := runningObject.Instance().Status()
+		status.Timestamp = unixTimestamp
 
-		statusesRecord.Statuses[name] = universalStatus
+		statusesRecord.Statuses[name] = status
 
-		buff, err := universalStatus.MarshalInYAML()
+		buff, err := marshalStatus(status)
 		if err != nil {
 			logger.Errorf("BUG: marshal %#v to yaml failed: %v",
-				universalStatus, err)
+				status, err)
 			return false
 		}
 		statuses[name] = string(buff)

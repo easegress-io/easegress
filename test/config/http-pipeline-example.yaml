@@ -1,19 +1,19 @@
 name: http-pipeline-example
 kind: HTTPPipeline
 
-# Built-in labels are `END` which can't be used by plugins.
+# Built-in labels are `END` which can't be used by filters.
 flow:
-  - plugin: validator
+  - filter: validator
     jumpIf: { invalid: END }
-  # - plugin: fallback
-  - plugin: urlRateLimiter
-  - plugin: rateLimiter
-  - plugin: requestAdaptor
-  - plugin: backend
+  # - filter: fallback
+  - filter: urlRateLimiter
+  - filter: rateLimiter
+  - filter: requestAdaptor
+  - filter: backend
     jumpIf: { fallback: END }
-  - plugin: responseAdaptor
+  - filter: responseAdaptor
 
-plugins:
+filters:
   - name: validator
     kind: Validator
     headers:
@@ -29,6 +29,7 @@ plugins:
         - ""
         - mirror
         - candidate
+        - hacking
         regexp: ""
   - name: fallback
     kind: Fallback
@@ -58,8 +59,8 @@ plugins:
       timeout: 100ms
   - name: rateLimiter
     kind: RateLimiter
-    maxConcurrent: 10
-    tps: 20000
+    maxConcurrent: 100
+    tps: 2000
     timeout: 50ms
     fallback:
       mockCode: 200

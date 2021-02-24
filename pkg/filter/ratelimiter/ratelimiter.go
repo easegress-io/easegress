@@ -8,6 +8,7 @@ import (
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
+	"github.com/megaease/easegateway/pkg/supervisor"
 	"github.com/megaease/easegateway/pkg/util/fallback"
 
 	metrics "github.com/rcrowley/go-metrics"
@@ -24,24 +25,20 @@ const (
 	maxChanSize = 10000
 )
 
-func init() {
-	httppipeline.Register(&httppipeline.FilterRecord{
-		Kind:            Kind,
-		DefaultSpecFunc: DefaultSpec,
-		NewFunc:         New,
-		Results:         []string{resultTimeout, resultFallback},
-	})
-}
+var (
+	results = []string{resultTimeout, resultFallback}
+)
 
-// DefaultSpec returns default spec.
-func DefaultSpec() *Spec {
-	return &Spec{}
+func init() {
+	httppipeline.Register(&RateLimiter{})
 }
 
 type (
 	// RateLimiter is the entity to complete rate limiting.
 	RateLimiter struct {
-		spec *Spec
+		super    *supervisor.Supervisor
+		pipeSpec *httppipeline.FilterSpec
+		spec     *Spec
 
 		fallback *fallback.Fallback
 
@@ -53,8 +50,6 @@ type (
 
 	// Spec describes RateLimiter.
 	Spec struct {
-		httppipeline.FilterMeta `yaml:",inline"`
-
 		// MaxConcurrent is the max concurrent active requests.
 		MaxConcurrent int32          `yaml:"maxConcurrent" jsonschema:"omitempty,maximum=10000"`
 		TPS           uint32         `yaml:"tps" jsonschema:"required,minimum=1"`
@@ -71,37 +66,72 @@ type (
 	}
 )
 
-// New creates a RateLimiter.
-func New(spec *Spec, prev *RateLimiter) *RateLimiter {
-	if spec.Timeout != "" {
-		timeout, err := time.ParseDuration(spec.Timeout)
+// Kind returns the kind of RateLimiter.
+func (rl *RateLimiter) Kind() string {
+	return Kind
+}
+
+// DefaultSpec returns default spec of RateLimiter.
+func (rl *RateLimiter) DefaultSpec() interface{} {
+	return &Spec{}
+}
+
+// Description returns the description of RateLimiter.
+func (rl *RateLimiter) Description() string {
+	return "RateLimiter do the rate limiting."
+}
+
+// Results returns the results of RateLimiter.
+func (rl *RateLimiter) Results() []string {
+	return results
+}
+
+// Init initializes RateLimiter.
+func (rl *RateLimiter) Init(pipeSpec *httppipeline.FilterSpec, super *supervisor.Supervisor) {
+	rl.pipeSpec, rl.spec, rl.super = pipeSpec, pipeSpec.FilterSpec().(*Spec), super
+	rl.reload(nil /*no previous generation*/)
+}
+
+// Inherit inherits previous generation of APIAggregator.
+func (rl *RateLimiter) Inherit(pipeSpec *httppipeline.FilterSpec,
+	previousGeneration httppipeline.Filter, super *supervisor.Supervisor) {
+
+	rl.pipeSpec, rl.spec, rl.super = pipeSpec, pipeSpec.FilterSpec().(*Spec), super
+	rl.reload(previousGeneration.(*RateLimiter))
+
+	// NOTE: Inherited already, can't close here.
+	// previousGeneration.Close()
+}
+
+func (rl *RateLimiter) reload(previousGeneration *RateLimiter) {
+	if rl.spec.Timeout != "" {
+		timeout, err := time.ParseDuration(rl.spec.Timeout)
 		if err != nil {
 			logger.Errorf("BUG: parse durantion %s failed: %v",
-				spec.Timeout, err)
+				rl.spec.Timeout, err)
 		} else {
-			spec.timeout = &timeout
+			rl.spec.timeout = &timeout
 		}
 	}
 
-	if spec.MaxConcurrent <= 0 {
-		spec.maxConcurrent = maxChanSize
+	if rl.spec.MaxConcurrent <= 0 {
+		rl.spec.maxConcurrent = maxChanSize
 	} else {
-		spec.maxConcurrent = spec.MaxConcurrent
+		rl.spec.maxConcurrent = rl.spec.MaxConcurrent
 	}
 
-	rl := &RateLimiter{spec: spec}
-	if spec.Fallback != nil {
-		rl.fallback = fallback.New(spec.Fallback)
+	if rl.spec.Fallback != nil {
+		rl.fallback = fallback.New(rl.spec.Fallback)
 	}
 
-	if prev == nil {
+	if previousGeneration == nil {
 		rl.concurrentGuard = make(chan struct{}, maxChanSize)
-		initSize := maxChanSize - spec.maxConcurrent
+		initSize := maxChanSize - rl.spec.maxConcurrent
 		for i := int32(0); i < initSize; i++ {
 			rl.concurrentGuard <- struct{}{}
 		}
 
-		rl.limiter = rate.NewLimiter(rate.Limit(spec.TPS), 1)
+		rl.limiter = rate.NewLimiter(rate.Limit(rl.spec.TPS), 1)
 		rl.rate1 = metrics.NewEWMA1()
 		rl.done = make(chan struct{})
 		go func() {
@@ -114,11 +144,12 @@ func New(spec *Spec, prev *RateLimiter) *RateLimiter {
 				}
 			}
 		}()
-		return rl
+
+		return
 	}
 
-	rl.concurrentGuard = prev.concurrentGuard
-	adjustSize := spec.maxConcurrent - prev.spec.maxConcurrent
+	rl.concurrentGuard = previousGeneration.concurrentGuard
+	adjustSize := rl.spec.maxConcurrent - previousGeneration.spec.maxConcurrent
 	switch {
 	case adjustSize < 0:
 		adjustSize = -adjustSize
@@ -135,12 +166,10 @@ func New(spec *Spec, prev *RateLimiter) *RateLimiter {
 		}()
 	}
 
-	rl.limiter = prev.limiter
-	rl.limiter.SetLimit(rate.Limit(spec.TPS))
-	rl.rate1 = prev.rate1
-	rl.done = prev.done
-
-	return rl
+	rl.limiter = previousGeneration.limiter
+	rl.limiter.SetLimit(rate.Limit(rl.spec.TPS))
+	rl.rate1 = previousGeneration.rate1
+	rl.done = previousGeneration.done
 }
 
 // Handle limits HTTPContext.
@@ -193,8 +222,8 @@ func (rl *RateLimiter) Handle(ctx context.HTTPContext) (result string) {
 	return ""
 }
 
-// Status returns RateLimiter status.
-func (rl *RateLimiter) Status() *Status {
+// Status returns status.
+func (rl *RateLimiter) Status() interface{} {
 	return &Status{
 		TPS: uint64(rl.rate1.Rate()),
 	}

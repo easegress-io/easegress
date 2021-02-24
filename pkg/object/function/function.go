@@ -7,6 +7,7 @@ import (
 	"github.com/megaease/easegateway/pkg/filter/backend"
 	"github.com/megaease/easegateway/pkg/filter/requestadaptor"
 	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/object/httppipeline"
 	"github.com/megaease/easegateway/pkg/supervisor"
 	"github.com/megaease/easegateway/pkg/util/httpheader"
 	"github.com/megaease/easegateway/pkg/util/httpstat"
@@ -38,7 +39,9 @@ func init() {
 type (
 	// Function is Object Function.
 	Function struct {
-		spec *Spec
+		super     *supervisor.Supervisor
+		superSpec *supervisor.Spec
+		spec      *Spec
 
 		backend        *backend.Backend
 		cron           *Cron
@@ -47,8 +50,6 @@ type (
 
 	// Spec describes the Function.
 	Spec struct {
-		supervisor.ObjectMetaSpec `yaml:",inline"`
-
 		URL            string               `yaml:"url" jsonschema:"required"`
 		Cron           *CronSpec            `yaml:"cron" jsonschema:"omitempty"`
 		RequestAdaptor *RequestAdapotorSpec `yaml:"requestAdaptor" jsonschema:"omitempty"`
@@ -72,16 +73,16 @@ type (
 
 // Validate validates Spec.
 func (spec Spec) Validate() error {
-	backendSpec := spec.backendSpec()
-	buff, err := yaml.Marshal(backendSpec)
+	pipeSpec := spec.backendPipeSpec()
+	buff, err := yaml.Marshal(pipeSpec)
 	if err != nil {
 		err = fmt.Errorf("BUG: marshal %#v to yaml failed: %v",
-			backendSpec, err)
+			pipeSpec, err)
 		logger.Errorf(err.Error())
 		return err
 	}
 
-	vr := v.Validate(backendSpec, buff)
+	vr := v.Validate(pipeSpec, buff)
 	if !vr.Valid() {
 		return fmt.Errorf("%s", vr.Error())
 	}
@@ -89,8 +90,12 @@ func (spec Spec) Validate() error {
 	return nil
 }
 
-func (spec Spec) backendSpec() *backend.Spec {
-	return &backend.Spec{
+func (spec Spec) backendPipeSpec() *httppipeline.FilterSpec {
+	meta := &httppipeline.FilterMetaSpec{
+		Kind: backend.Kind,
+		Name: "backend",
+	}
+	filterSpec := &backend.Spec{
 		MainPool: &backend.PoolSpec{
 			Servers: []*backend.Server{
 				{
@@ -100,18 +105,32 @@ func (spec Spec) backendSpec() *backend.Spec {
 			LoadBalance: &backend.LoadBalance{Policy: backend.PolicyRoundRobin},
 		},
 	}
-}
 
-func (spec Spec) requestAdaptorSpec() *requestadaptor.Spec {
-	if spec.RequestAdaptor == nil {
-		return &requestadaptor.Spec{}
+	pipeSpec, err := httppipeline.NewFilterSpec(meta, filterSpec)
+	if err != nil {
+		panic(err)
 	}
 
-	return &requestadaptor.Spec{
+	return pipeSpec
+}
+
+func (spec Spec) requestAdaptorPipeSpec() *httppipeline.FilterSpec {
+	meta := &httppipeline.FilterMetaSpec{
+		Kind: requestadaptor.Kind,
+		Name: "urlratelimiter",
+	}
+	filterSpec := &requestadaptor.Spec{
 		Method: spec.RequestAdaptor.Method,
 		Path:   spec.RequestAdaptor.Path,
 		Header: spec.RequestAdaptor.Header,
 	}
+
+	pipeSpec, err := httppipeline.NewFilterSpec(meta, filterSpec)
+	if err != nil {
+		panic(err)
+	}
+
+	return pipeSpec
 }
 
 // Category returns the category of Function.
@@ -125,29 +144,31 @@ func (f *Function) Kind() string {
 }
 
 // DefaultSpec returns the default spec of Function.
-func (f *Function) DefaultSpec() supervisor.ObjectSpec {
+func (f *Function) DefaultSpec() interface{} {
 	return &Spec{}
 }
 
-// Renew renews Function.
-func (f *Function) Renew(spec supervisor.ObjectSpec,
+// Init initializes Function.
+func (f *Function) Init(superSpec *supervisor.Spec, super *supervisor.Supervisor) {
+	f.superSpec, f.spec, f.super = superSpec, superSpec.ObjectSpec().(*Spec), super
+	f.reload()
+}
+
+// Inherit inherits previous generation of Function.
+func (f *Function) Inherit(superSpec *supervisor.Spec,
 	previousGeneration supervisor.Object, super *supervisor.Supervisor) {
 
-	var prevBackend *backend.Backend
-	if previousGeneration != nil {
-		prevBackend = previousGeneration.(*Function).backend
-	}
+	previousGeneration.Close()
+	f.Init(superSpec, super)
+}
 
-	var prevRequestAdaptor *requestadaptor.RequestAdaptor
-	if previousGeneration != nil {
-		prevRequestAdaptor = previousGeneration.(*Function).requestAdaptor
-	}
-
-	f.spec = spec.(*Spec)
-	f.backend = backend.New(f.spec.backendSpec(), prevBackend)
+func (f *Function) reload() {
+	f.backend = &backend.Backend{}
+	f.backend.Init(f.spec.backendPipeSpec(), f.super)
 
 	if f.spec.RequestAdaptor != nil {
-		f.requestAdaptor = requestadaptor.New(f.spec.requestAdaptorSpec(), prevRequestAdaptor)
+		f.requestAdaptor = &requestadaptor.RequestAdaptor{}
+		f.requestAdaptor.Init(f.spec.requestAdaptorPipeSpec(), f.super)
 	}
 
 	if f.spec.Cron != nil {
@@ -164,20 +185,18 @@ func (f *Function) Handle(ctx context.HTTPContext) {
 }
 
 // Status returns Status genreated by Runtime.
-func (f *Function) Status() interface{} {
-	s := &Status{}
-
-	if f.spec == nil {
-		return s
+func (f *Function) Status() *supervisor.Status {
+	s := &Status{
+		HTTP: f.backend.Status().(*backend.Status).MainPool.Stat,
 	}
-
-	s.HTTP = f.backend.Status().MainPool.Stat
 
 	if f.cron != nil {
 		s.Cron = f.cron.Status()
 	}
 
-	return s
+	return &supervisor.Status{
+		ObjectStatus: s,
+	}
 }
 
 // Close closes Function.

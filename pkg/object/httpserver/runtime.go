@@ -43,11 +43,15 @@ type (
 		startNum uint64
 		err      error
 	}
-	eventReload struct{ nextSpec *Spec }
-	eventClose  struct{ done chan struct{} }
+	eventReload struct {
+		nextSuperSpec *supervisor.Spec
+		super         *supervisor.Supervisor
+	}
+	eventClose struct{ done chan struct{} }
 
 	runtime struct {
 		super     *supervisor.Supervisor
+		superSpec *supervisor.Spec
 		spec      *Spec
 		server    *http.Server
 		server3   *http3.Server
@@ -84,7 +88,7 @@ func newRuntime(super *supervisor.Supervisor) *runtime {
 		topN:      topn.New(topNum),
 	}
 
-	r.mux = newMux(super, r.httpStat, r.topN)
+	r.mux = newMux(r.httpStat, r.topN)
 
 	r.setState(stateNil)
 	r.setError(errNil)
@@ -143,10 +147,11 @@ func (r *runtime) handleEventStart(e *eventStart) {
 	r.startServer()
 }
 
-func (r *runtime) reload(nextSpec *Spec) {
-	if nextSpec != nil {
-		r.mux.reloadRules(nextSpec)
-	}
+func (r *runtime) reload(nextSuperSpec *supervisor.Spec, super *supervisor.Supervisor) {
+	r.superSpec, r.super = nextSuperSpec, super
+	r.mux.reloadRules(nextSuperSpec, super)
+
+	nextSpec := nextSuperSpec.ObjectSpec().(*Spec)
 
 	// r.limitListener does not created just after the process started and the config load for the first time.
 	if nextSpec != nil && r.limitListener != nil {
@@ -301,7 +306,7 @@ func (r *runtime) closeServer() {
 		err := r.server3.Close()
 		if err != nil {
 			logger.Warnf("shutdown http3 server %s failed: %v",
-				r.spec.Name, err)
+				r.superSpec.Name(), err)
 		}
 	} else {
 		// NOTE: It's safe to shutdown serve failed server.
@@ -311,7 +316,7 @@ func (r *runtime) closeServer() {
 
 		if err != nil {
 			logger.Warnf("shutdown http1/2 server %s failed: %v",
-				r.spec.Name, err)
+				r.superSpec.Name(), err)
 		}
 	}
 }
@@ -344,7 +349,7 @@ func (r *runtime) handleEventServeFailed(e *eventServeFailed) {
 }
 
 func (r *runtime) handleEventReload(e *eventReload) {
-	r.reload(e.nextSpec)
+	r.reload(e.nextSuperSpec, e.super)
 }
 
 func (r *runtime) handleEventClose(e *eventClose) {

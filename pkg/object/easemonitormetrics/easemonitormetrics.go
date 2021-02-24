@@ -41,7 +41,9 @@ func init() {
 type (
 	// EaseMonitorMetrics is Object EaseMonitorMetrics.
 	EaseMonitorMetrics struct {
-		spec *Spec
+		super     *supervisor.Supervisor
+		superSpec *supervisor.Spec
+		spec      *Spec
 
 		ssc *statussynccontroller.StatusSyncController
 
@@ -56,8 +58,6 @@ type (
 
 	// Spec describes the EaseMonitorMetrics.
 	Spec struct {
-		supervisor.ObjectMetaSpec `yaml:",inline"`
-
 		Kafka *KafkaSpec `yaml:"kafka" jsonschema:"required"`
 	}
 
@@ -139,7 +139,7 @@ func (emm *EaseMonitorMetrics) Kind() string {
 }
 
 // DefaultSpec returns the default spec of EaseMonitorMetrics.
-func (emm *EaseMonitorMetrics) DefaultSpec() supervisor.ObjectSpec {
+func (emm *EaseMonitorMetrics) DefaultSpec() interface{} {
 	return &Spec{
 		Kafka: &KafkaSpec{
 			Brokers: []string{"localhost:9092"},
@@ -147,27 +147,33 @@ func (emm *EaseMonitorMetrics) DefaultSpec() supervisor.ObjectSpec {
 	}
 }
 
-// Renew renews EaseMonitorMetrics.
-func (emm *EaseMonitorMetrics) Renew(spec supervisor.ObjectSpec,
+// Init initialzes EaseMonitorMetrics.
+func (emm *EaseMonitorMetrics) Init(superSpec *supervisor.Spec, super *supervisor.Supervisor) {
+	emm.superSpec, emm.spec, emm.super = superSpec, superSpec.ObjectSpec().(*Spec), super
+	emm.reload()
+}
+
+// Inherit inherits previous generation of EaseMonitorMetrics.
+func (emm *EaseMonitorMetrics) Inherit(superSpec *supervisor.Spec,
 	previousGeneration supervisor.Object, super *supervisor.Supervisor) {
 
-	if previousGeneration != nil {
-		previousGeneration.Close()
-	}
+	previousGeneration.Close()
+	emm.Init(superSpec, super)
+}
 
-	ssc, exists := super.GetRunningObject((&statussynccontroller.StatusSyncController{}).Kind(),
+func (emm *EaseMonitorMetrics) reload() {
+	ssc, exists := emm.super.GetRunningObject((&statussynccontroller.StatusSyncController{}).Kind(),
 		supervisor.CategorySystemController)
 	if !exists {
 		logger.Errorf("BUG: status sync controller not found")
 	}
 
 	emm.ssc = ssc.Instance().(*statussynccontroller.StatusSyncController)
-	emm.spec = spec.(*Spec)
 	emm.done = make(chan struct{})
 
 	_, err := emm.getClient()
 	if err != nil {
-		logger.Errorf("%s get kafka producer client failed: %v", emm.spec.Name, err)
+		logger.Errorf("%s get kafka producer client failed: %v", emm.superSpec.Name(), err)
 	}
 
 	go emm.run()
@@ -184,7 +190,7 @@ func (emm *EaseMonitorMetrics) getClient() (sarama.AsyncProducer, error) {
 
 	// NOTE: Default config is good enough for now.
 	config := sarama.NewConfig()
-	config.ClientID = emm.spec.Name
+	config.ClientID = emm.superSpec.Name()
 	config.Version = sarama.V0_10_2_0
 
 	producer, err := sarama.NewAsyncProducer(emm.spec.Kafka.Brokers, config)
@@ -209,7 +215,7 @@ func (emm *EaseMonitorMetrics) getClient() (sarama.AsyncProducer, error) {
 
 	emm.client.Store(producer)
 
-	logger.Infof("%s build kafka producer successfully", emm.spec.Name)
+	logger.Infof("%s build kafka producer successfully", emm.superSpec.Name())
 
 	return producer, nil
 }
@@ -226,7 +232,7 @@ func (emm *EaseMonitorMetrics) closeClient() {
 
 	err := client.Close()
 	if err != nil {
-		logger.Errorf("%s close kafka producer failed: %v", emm.spec.Name, err)
+		logger.Errorf("%s close kafka producer failed: %v", emm.superSpec.Name(), err)
 	}
 }
 
@@ -239,7 +245,7 @@ func (emm *EaseMonitorMetrics) run() {
 			client, err := emm.getClient()
 			if err != nil {
 				logger.Errorf("%s get kafka producer failed: %v",
-					emm.spec.Name, err)
+					emm.superSpec.Name(), err)
 				continue
 			}
 
@@ -276,13 +282,7 @@ func (emm *EaseMonitorMetrics) record2Messages(record *statussynccontroller.Stat
 			Service:   objectName,
 		}
 
-		globalStatus, ok := status.(*statussynccontroller.UniservalStatus)
-		if !ok {
-			logger.Errorf("BUG: %s want %T, got %T", emm.spec.Name,
-				&statussynccontroller.UniservalStatus{}, status)
-		}
-
-		switch status := globalStatus.ObjectStatus.(type) {
+		switch status := status.ObjectStatus.(type) {
 		case *httppipeline.Status:
 			reqs, codes := emm.httpPipeline2Metrics(baseFields, status)
 			reqMetrics = append(reqMetrics, reqs...)
@@ -438,12 +438,8 @@ func (emm *EaseMonitorMetrics) httpStat2Metrics(baseFields *GlobalFields, s *htt
 }
 
 // Status returns status of EtcdServiceRegister.
-func (emm *EaseMonitorMetrics) Status() interface{} {
+func (emm *EaseMonitorMetrics) Status() *supervisor.Status {
 	s := &Status{}
-
-	if emm.spec == nil {
-		return s
-	}
 
 	_, err := emm.getClient()
 	if err != nil {
@@ -452,7 +448,7 @@ func (emm *EaseMonitorMetrics) Status() interface{} {
 		s.Health = "ready"
 	}
 
-	return s
+	return &supervisor.Status{ObjectStatus: s}
 }
 
 // Close closes EaseMonitorMetrics.

@@ -14,7 +14,7 @@ import (
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
-	"github.com/megaease/easegateway/pkg/object/httpserver"
+	"github.com/megaease/easegateway/pkg/protocol"
 	"github.com/megaease/easegateway/pkg/supervisor"
 	"github.com/megaease/easegateway/pkg/tracing"
 	"github.com/megaease/easegateway/pkg/util/httpheader"
@@ -28,33 +28,24 @@ const (
 	resultFailed = "failed"
 )
 
-func init() {
-	httppipeline.Register(&httppipeline.FilterRecord{
-		Kind:            Kind,
-		DefaultSpecFunc: DefaultSpec,
-		NewFunc:         New,
-		Results:         []string{resultFailed},
-	})
-}
+var (
+	results = []string{resultFailed}
+)
 
-// DefaultSpec returns default spec.
-func DefaultSpec() *Spec {
-	return &Spec{
-		Timeout:      "60s",
-		MaxBodyBytes: 10240,
-	}
+func init() {
+	httppipeline.Register(&APIAggregator{})
 }
 
 type (
 	// APIAggregator is the entity to complete rate limiting.
 	APIAggregator struct {
-		spec *Spec
+		super    *supervisor.Supervisor
+		pipeSpec *httppipeline.FilterSpec
+		spec     *Spec
 	}
 
 	// Spec describes APIAggregator.
 	Spec struct {
-		httppipeline.FilterMeta `yaml:",inline"`
-
 		// MaxBodyBytes in [0, 10MB]
 		MaxBodyBytes   int64  `yaml:"maxBodyBytes" jsonschema:"omitempty,minimum=0,maximum=102400"`
 		PartialSucceed bool   `yaml:"partialSucceed"`
@@ -80,39 +71,65 @@ type (
 
 		pa *pathadaptor.PathAdaptor
 	}
-
-	// Status contains status info of APIAggregator.
-	Status struct {
-	}
 )
 
-// New creates a APIAggregator.
-func New(spec *Spec, prev *APIAggregator) *APIAggregator {
-	if spec.Timeout != "" {
-		timeout, err := time.ParseDuration(spec.Timeout)
+// Kind returns the kind of APIAggregator.
+func (aa *APIAggregator) Kind() string {
+	return Kind
+}
+
+// DefaultSpec returns default spec of APIAggregator.
+func (aa *APIAggregator) DefaultSpec() interface{} {
+	return &Spec{
+		Timeout:      "60s",
+		MaxBodyBytes: 10240,
+	}
+}
+
+// Description returns the description of APIAggregator.
+func (aa *APIAggregator) Description() string {
+	return "APIAggregator aggregates apis."
+}
+
+// Results returns the results of APIAggregator.
+func (aa *APIAggregator) Results() []string {
+	return results
+}
+
+// Init initializes APIAggregator.
+func (aa *APIAggregator) Init(pipeSpec *httppipeline.FilterSpec, super *supervisor.Supervisor) {
+	aa.pipeSpec, aa.spec, aa.super = pipeSpec, pipeSpec.FilterSpec().(*Spec), super
+	aa.reload()
+}
+
+// Inherit inherits previous generation of APIAggregator.
+func (aa *APIAggregator) Inherit(pipeSpec *httppipeline.FilterSpec,
+	previousGeneration httppipeline.Filter, super *supervisor.Supervisor) {
+
+	previousGeneration.Close()
+	aa.Init(pipeSpec, super)
+}
+
+func (aa *APIAggregator) reload() {
+	if aa.spec.Timeout != "" {
+		timeout, err := time.ParseDuration(aa.spec.Timeout)
 		if err != nil {
 			logger.Errorf("BUG: parse duration %s failed: %v",
-				spec.Timeout, err)
+				aa.spec.Timeout, err)
 		} else {
-			spec.timeout = &timeout
+			aa.spec.timeout = &timeout
 		}
 	}
 
-	for _, proxy := range spec.APIProxys {
-
+	for _, proxy := range aa.spec.APIProxys {
 		if proxy.Path != nil {
 			proxy.pa = pathadaptor.New(proxy.Path)
 		}
-	}
-
-	return &APIAggregator{
-		spec: spec,
 	}
 }
 
 // Handle limits HTTPContext.
 func (aa *APIAggregator) Handle(ctx context.HTTPContext) (result string) {
-
 	buff := bytes.NewBuffer(nil)
 	if aa.spec.MaxBodyBytes > 0 {
 		written, err := io.CopyN(buff, ctx.Request().Body(), aa.spec.MaxBodyBytes+1)
@@ -151,7 +168,7 @@ func (aa *APIAggregator) Handle(ctx context.HTTPContext) (result string) {
 			if !exists {
 				httpResps[i] = nil
 			} else {
-				handler, ok := ro.Instance().(httpserver.HTTPHandler)
+				handler, ok := ro.Instance().(protocol.HTTPHandler)
 				if !ok {
 					httpResps[i] = nil
 				} else {
@@ -302,8 +319,8 @@ func (aa *APIAggregator) formatResponse(ctx context.HTTPContext, data map[string
 	return ""
 }
 
-// Status returns APIAggregator status.
-func (aa *APIAggregator) Status() *Status {
+// Status returns status.
+func (aa *APIAggregator) Status() interface{} {
 	return nil
 }
 

@@ -28,7 +28,9 @@ func init() {
 type (
 	// ZookeeperServiceRegistry is Object ZookeeperServiceRegistry.
 	ZookeeperServiceRegistry struct {
-		spec *Spec
+		super     *supervisor.Supervisor
+		superSpec *supervisor.Spec
+		spec      *Spec
 
 		connMutex sync.RWMutex
 		conn      *zookeeper.Conn
@@ -41,7 +43,9 @@ type (
 
 	// Spec describes the ZookeeperServiceRegistry.
 	Spec struct {
-		supervisor.ObjectMetaSpec `yaml:",inline"`
+		super     *supervisor.Supervisor
+		superSpec *supervisor.Spec
+		spec      *Spec
 
 		ConnTimeout  string   `yaml:"conntimeout" jsonschema:"required,format=duration"`
 		ZKServices   []string `yaml:"zkservices" jsonschema:"required,uniqueItems=true"`
@@ -67,7 +71,7 @@ func (zk *ZookeeperServiceRegistry) Kind() string {
 }
 
 // DefaultSpec returns the default spec of ZookeeperServiceRegistry.
-func (zk *ZookeeperServiceRegistry) DefaultSpec() supervisor.ObjectSpec {
+func (zk *ZookeeperServiceRegistry) DefaultSpec() interface{} {
 	return &Spec{
 		ZKServices:   []string{"127.0.0.1:2181"},
 		SyncInterval: "10s",
@@ -76,21 +80,27 @@ func (zk *ZookeeperServiceRegistry) DefaultSpec() supervisor.ObjectSpec {
 	}
 }
 
-// Renew renews ZookeeperServiceRegistry.
-func (zk *ZookeeperServiceRegistry) Renew(spec supervisor.ObjectSpec,
+// Init initilizes ZookeeperServiceRegistry.
+func (zk *ZookeeperServiceRegistry) Init(superSpec *supervisor.Spec, super *supervisor.Supervisor) {
+	zk.superSpec, zk.spec, zk.super = superSpec, superSpec.ObjectSpec().(*Spec), super
+	zk.reload()
+}
+
+// Inherit inherits previous generation of ZookeeperServiceRegistry.
+func (zk *ZookeeperServiceRegistry) Inherit(superSpec *supervisor.Spec,
 	previousGeneration supervisor.Object, super *supervisor.Supervisor) {
 
-	if previousGeneration != nil {
-		previousGeneration.Close()
-	}
+	previousGeneration.Close()
+	zk.Init(superSpec, super)
+}
 
-	zk.spec = spec.(*Spec)
+func (zk *ZookeeperServiceRegistry) reload() {
 	zk.serversNum = make(map[string]int)
 	zk.done = make(chan struct{})
 
 	_, err := zk.getConn()
 	if err != nil {
-		logger.Errorf("%s get zookeeper conn failed: %v", zk.spec.Name, err)
+		logger.Errorf("%s get zookeeper conn failed: %v", zk.superSpec.Name(), err)
 	}
 
 	go zk.run()
@@ -182,14 +192,14 @@ func (zk *ZookeeperServiceRegistry) update() {
 	conn, err := zk.getConn()
 	if err != nil {
 		logger.Errorf("%s get zookeeper conn failed: %v",
-			zk.spec.Name, err)
+			zk.superSpec.Name(), err)
 		return
 	}
 
 	childs, _, err := conn.Children(zk.spec.Prefix)
 
 	if err != nil {
-		logger.Errorf("%s get path: %s children failed: %v", zk.spec.Name, zk.spec.Prefix, err)
+		logger.Errorf("%s get path: %s children failed: %v", zk.superSpec.Name(), zk.spec.Prefix, err)
 		return
 	}
 
@@ -205,7 +215,7 @@ func (zk *ZookeeperServiceRegistry) update() {
 				continue
 			}
 
-			logger.Errorf("%s get child path %s failed: %v", zk.spec.Name, fullPath, err)
+			logger.Errorf("%s get child path %s failed: %v", zk.superSpec.Name(), fullPath, err)
 			return
 		}
 
@@ -214,15 +224,15 @@ func (zk *ZookeeperServiceRegistry) update() {
 		//       serviceregistry.Server JSON format directly.
 		err = json.Unmarshal(data, server)
 		if err != nil {
-			logger.Errorf("BUG %s unmarshal fullpath %s failed %v", zk.spec.Name, fullPath, err)
+			logger.Errorf("BUG %s unmarshal fullpath %s failed %v", zk.superSpec.Name(), fullPath, err)
 			return
 		}
-		logger.Debugf("zk %s fullpath %s server is  %v", zk.spec.Name, fullPath, server)
+		logger.Debugf("zk %s fullpath %s server is  %v", zk.superSpec.Name(), fullPath, server)
 		serversNum[fullPath]++
 		servers = append(servers, server)
 	}
 
-	serviceregistry.Global.ReplaceServers(zk.spec.Name, servers)
+	serviceregistry.Global.ReplaceServers(zk.superSpec.Name(), servers)
 
 	zk.statusMutex.Lock()
 	zk.serversNum = serversNum
@@ -230,12 +240,8 @@ func (zk *ZookeeperServiceRegistry) update() {
 }
 
 // Status returns status of EurekaServiceRegister.
-func (zk *ZookeeperServiceRegistry) Status() interface{} {
+func (zk *ZookeeperServiceRegistry) Status() *supervisor.Status {
 	s := &Status{}
-
-	if zk.spec == nil {
-		return s
-	}
 
 	_, err := zk.getConn()
 	if err != nil {
@@ -248,7 +254,9 @@ func (zk *ZookeeperServiceRegistry) Status() interface{} {
 	s.ServersNum = zk.serversNum
 	zk.statusMutex.Unlock()
 
-	return s
+	return &supervisor.Status{
+		ObjectStatus: s,
+	}
 }
 
 // Close closes ZookeeperServiceRegistry.
@@ -256,5 +264,5 @@ func (zk *ZookeeperServiceRegistry) Close() {
 	zk.closeConn()
 	close(zk.done)
 
-	serviceregistry.Global.CloseRegistry(zk.spec.Name)
+	serviceregistry.Global.CloseRegistry(zk.superSpec.Name())
 }

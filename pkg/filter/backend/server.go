@@ -19,11 +19,16 @@ func init() {
 }
 
 const (
-	PolicyRoundRobin     = "roundRobin"
-	PolicyRandom         = "random"
+	// PolicyRoundRobin is the policy of round robin.
+	PolicyRoundRobin = "roundRobin"
+	// PolicyRandom is the policy of random.
+	PolicyRandom = "random"
+	// PolicyWeightedRandom is the policy of weighted random.
 	PolicyWeightedRandom = "weightedRandom"
-	PolicyIPHash         = "ipHash"
-	PolicyHeaderHash     = "headerHash"
+	// PolicyIPHash is the policy of ip hash.
+	PolicyIPHash = "ipHash"
+	// PolicyHeaderHash is the policy of header hash.
+	PolicyHeaderHash = "headerHash"
 
 	retryTimeout = 3 * time.Second
 )

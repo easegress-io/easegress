@@ -6,6 +6,7 @@ import (
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
+	"github.com/megaease/easegateway/pkg/supervisor"
 	"github.com/megaease/easegateway/pkg/util/httpheader"
 	"github.com/megaease/easegateway/pkg/util/pathadaptor"
 	"github.com/megaease/easegateway/pkg/util/stringtool"
@@ -16,32 +17,26 @@ const (
 	Kind = "RequestAdaptor"
 )
 
-func init() {
-	httppipeline.Register(&httppipeline.FilterRecord{
-		Kind:            Kind,
-		DefaultSpecFunc: DefaultSpec,
-		NewFunc:         New,
-		Results:         nil,
-	})
-}
+var (
+	results = []string{}
+)
 
-// DefaultSpec returns default spec.
-func DefaultSpec() *Spec {
-	return &Spec{}
+func init() {
+	httppipeline.Register(&RequestAdaptor{})
 }
 
 type (
 	// RequestAdaptor is filter RequestAdaptor.
 	RequestAdaptor struct {
-		spec *Spec
+		super    *supervisor.Supervisor
+		pipeSpec *httppipeline.FilterSpec
+		spec     *Spec
 
 		pa *pathadaptor.PathAdaptor
 	}
 
 	// Spec is HTTPAdaptor Spec.
 	Spec struct {
-		httppipeline.FilterMeta `yaml:",inline"`
-
 		Method string                `yaml:"method" jsonschema:"omitempty,format=httpmethod"`
 		Path   *pathadaptor.Spec     `yaml:"path,omitempty" jsonschema:"omitempty"`
 		Header *httpheader.AdaptSpec `yaml:"header,omitempty" jsonschema:"omitempty"`
@@ -49,16 +44,43 @@ type (
 	}
 )
 
-// New creates an HTTPAdaptor.
-func New(spec *Spec, prev *RequestAdaptor) *RequestAdaptor {
-	var pa *pathadaptor.PathAdaptor
-	if spec.Path != nil {
-		pa = pathadaptor.New(spec.Path)
-	}
+// Kind returns the kind of RequestAdaptor.
+func (ra *RequestAdaptor) Kind() string {
+	return Kind
+}
 
-	return &RequestAdaptor{
-		spec: spec,
-		pa:   pa,
+// DefaultSpec returns default spec of RequestAdaptor.
+func (ra *RequestAdaptor) DefaultSpec() interface{} {
+	return &Spec{}
+}
+
+// Description returns the description of RequestAdaptor.
+func (ra *RequestAdaptor) Description() string {
+	return "RequestAdaptor adapts request."
+}
+
+// Results returns the results of RequestAdaptor.
+func (ra *RequestAdaptor) Results() []string {
+	return results
+}
+
+// Init initializes RequestAdaptor.
+func (ra *RequestAdaptor) Init(pipeSpec *httppipeline.FilterSpec, super *supervisor.Supervisor) {
+	ra.pipeSpec, ra.spec, ra.super = pipeSpec, pipeSpec.FilterSpec().(*Spec), super
+	ra.reload()
+}
+
+// Inherit inherits previous generation of RequestAdaptor.
+func (ra *RequestAdaptor) Inherit(pipeSpec *httppipeline.FilterSpec,
+	previousGeneration httppipeline.Filter, super *supervisor.Supervisor) {
+
+	previousGeneration.Close()
+	ra.Init(pipeSpec, super)
+}
+
+func (ra *RequestAdaptor) reload() {
+	if ra.spec.Path != nil {
+		ra.pa = pathadaptor.New(ra.spec.Path)
 	}
 }
 

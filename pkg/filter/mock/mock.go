@@ -7,6 +7,7 @@ import (
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
+	"github.com/megaease/easegateway/pkg/supervisor"
 )
 
 const (
@@ -16,31 +17,26 @@ const (
 	resultMocked = "mocked"
 )
 
-func init() {
-	httppipeline.Register(&httppipeline.FilterRecord{
-		Kind:            Kind,
-		DefaultSpecFunc: DefaultSpec,
-		NewFunc:         New,
-		Results:         []string{resultMocked},
-	})
-}
+var (
+	results = []string{resultMocked}
+)
 
-// DefaultSpec returns default spec.
-func DefaultSpec() *Spec {
-	return &Spec{}
+func init() {
+	httppipeline.Register(&Mock{})
 }
 
 type (
 	// Mock is filter Mock.
 	Mock struct {
-		spec *Spec
+		super    *supervisor.Supervisor
+		pipeSpec *httppipeline.FilterSpec
+		spec     *Spec
+
 		body []byte
 	}
 
 	// Spec describes the Mock.
 	Spec struct {
-		httppipeline.FilterMeta `yaml:",inline"`
-
 		Rules []*Rule `yaml:"rules"`
 	}
 
@@ -57,18 +53,47 @@ type (
 	}
 )
 
-// New creates a Mock.
-func New(spec *Spec, prev *Mock) *Mock {
-	for _, r := range spec.Rules {
+// Kind returns the kind of Mock.
+func (m *Mock) Kind() string {
+	return Kind
+}
+
+// DefaultSpec returns default spec of Mock.
+func (m *Mock) DefaultSpec() interface{} {
+	return &Spec{}
+}
+
+// Description returns the description of Mock.
+func (m *Mock) Description() string {
+	return "Mock mocks the response."
+}
+
+// Results returns the results of Mock.
+func (m *Mock) Results() []string {
+	return results
+}
+
+// Init initializes Mock.
+func (m *Mock) Init(pipeSpec *httppipeline.FilterSpec, super *supervisor.Supervisor) {
+	m.pipeSpec, m.spec, m.super = pipeSpec, pipeSpec.FilterSpec().(*Spec), super
+	m.reload()
+}
+
+// Inherit inherits previous generation of Mock.
+func (m *Mock) Inherit(pipeSpec *httppipeline.FilterSpec,
+	previousGeneration httppipeline.Filter, super *supervisor.Supervisor) {
+
+	previousGeneration.Close()
+	m.Init(pipeSpec, super)
+}
+
+func (m *Mock) reload() {
+	for _, r := range m.spec.Rules {
 		var err error
 		r.delay, err = time.ParseDuration(r.Delay)
 		if err != nil {
 			logger.Errorf("BUG: parse duration %s failed: %v", r.Delay, err)
 		}
-	}
-
-	return &Mock{
-		spec: spec,
 	}
 }
 

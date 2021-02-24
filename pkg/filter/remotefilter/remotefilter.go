@@ -14,6 +14,7 @@ import (
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
+	"github.com/megaease/easegateway/pkg/supervisor"
 	"github.com/megaease/easegateway/pkg/util/stringtool"
 )
 
@@ -30,13 +31,12 @@ const (
 	maxContextBytes = 3 * maxBobyBytes
 )
 
+var (
+	results = []string{resultFailed, resultResponseAlready}
+)
+
 func init() {
-	httppipeline.Register(&httppipeline.FilterRecord{
-		Kind:            Kind,
-		DefaultSpecFunc: DefaultSpec,
-		NewFunc:         New,
-		Results:         []string{resultFailed, resultResponseAlready},
-	})
+	httppipeline.Register(&RemoteFilter{})
 }
 
 var (
@@ -69,21 +69,36 @@ var (
 	}
 )
 
+// Kind returns the kind of RemoteFilter.
+func (rf *RemoteFilter) Kind() string {
+	return Kind
+}
+
 // DefaultSpec returns default spec.
-func DefaultSpec() *Spec {
+func (rf *RemoteFilter) DefaultSpec() interface{} {
 	return &Spec{}
+}
+
+// Description returns the description of RemoteFilter.
+func (rf *RemoteFilter) Description() string {
+	return "RemoteFilter invokes remote apis."
+}
+
+// Results returns the results of RemoteFilter.
+func (rf *RemoteFilter) Results() []string {
+	return results
 }
 
 type (
 	// RemoteFilter is the filter making remote service acting like internal filter.
 	RemoteFilter struct {
-		spec *Spec
+		super    *supervisor.Supervisor
+		pipeSpec *httppipeline.FilterSpec
+		spec     *Spec
 	}
 
 	// Spec describes RemoteFilter.
 	Spec struct {
-		httppipeline.FilterMeta `yaml:",inline"`
-
 		URL     string `yaml:"url" jsonschema:"required,format=uri"`
 		Timeout string `yaml:"timeout" jsonschema:"omitempty,format=duration"`
 
@@ -120,22 +135,31 @@ type (
 	}
 )
 
-// New creates a RemoteFilter.
-func New(spec *Spec, prev *RemoteFilter) *RemoteFilter {
-	var err error
-	if spec.Timeout != "" {
-		spec.timeout, err = time.ParseDuration(spec.Timeout)
-		if err != nil {
-			logger.Errorf("BUG: parse duration %s failed: %v", spec.Timeout, err)
-		}
-	}
+// Init initializes RemoteFilter.
+func (rf *RemoteFilter) Init(pipeSpec *httppipeline.FilterSpec, super *supervisor.Supervisor) {
+	rf.pipeSpec, rf.spec, rf.super = pipeSpec, pipeSpec.FilterSpec().(*Spec), super
+	rf.reload()
+}
 
-	return &RemoteFilter{
-		spec: spec,
+// Inherit inherits previous generation of RemoteFilter.
+func (rf *RemoteFilter) Inherit(pipeSpec *httppipeline.FilterSpec,
+	previousGeneration httppipeline.Filter, super *supervisor.Supervisor) {
+
+	previousGeneration.Close()
+	rf.Init(pipeSpec, super)
+}
+
+func (rf *RemoteFilter) reload() {
+	var err error
+	if rf.spec.Timeout != "" {
+		rf.spec.timeout, err = time.ParseDuration(rf.spec.Timeout)
+		if err != nil {
+			logger.Errorf("BUG: parse duration %s failed: %v", rf.spec.Timeout, err)
+		}
 	}
 }
 
-func (rp *RemoteFilter) limitRead(reader io.Reader, n int64) []byte {
+func (rf *RemoteFilter) limitRead(reader io.Reader, n int64) []byte {
 	if reader == nil {
 		return nil
 	}
@@ -154,7 +178,7 @@ func (rp *RemoteFilter) limitRead(reader io.Reader, n int64) []byte {
 }
 
 // Handle handles HTTPContext by calling remote service.
-func (rp *RemoteFilter) Handle(ctx context.HTTPContext) (result string) {
+func (rf *RemoteFilter) Handle(ctx context.HTTPContext) (result string) {
 	r, w := ctx.Request(), ctx.Response()
 
 	var errPrefix string
@@ -169,24 +193,24 @@ func (rp *RemoteFilter) Handle(ctx context.HTTPContext) (result string) {
 	}()
 
 	errPrefix = "read request body"
-	reqBody := rp.limitRead(r.Body(), maxBobyBytes)
+	reqBody := rf.limitRead(r.Body(), maxBobyBytes)
 
 	errPrefix = "read response body"
-	respBody := rp.limitRead(w.Body(), maxBobyBytes)
+	respBody := rf.limitRead(w.Body(), maxBobyBytes)
 
 	errPrefix = "marshal context"
-	ctxBuff := rp.marshalHTTPContext(ctx, reqBody, respBody)
+	ctxBuff := rf.marshalHTTPContext(ctx, reqBody, respBody)
 
 	var (
 		req *http.Request
 		err error
 	)
 
-	if rp.spec.timeout > 0 {
-		timeoutCtx, _ := stdcontext.WithTimeout(stdcontext.Background(), rp.spec.timeout)
-		req, err = http.NewRequestWithContext(timeoutCtx, http.MethodPost, rp.spec.URL, bytes.NewReader(ctxBuff))
+	if rf.spec.timeout > 0 {
+		timeoutCtx, _ := stdcontext.WithTimeout(stdcontext.Background(), rf.spec.timeout)
+		req, err = http.NewRequestWithContext(timeoutCtx, http.MethodPost, rf.spec.URL, bytes.NewReader(ctxBuff))
 	} else {
-		req, err = http.NewRequest(http.MethodPost, rp.spec.URL, bytes.NewReader(ctxBuff))
+		req, err = http.NewRequest(http.MethodPost, rf.spec.URL, bytes.NewReader(ctxBuff))
 	}
 
 	if err != nil {
@@ -207,10 +231,10 @@ func (rp *RemoteFilter) Handle(ctx context.HTTPContext) (result string) {
 	}
 
 	errPrefix = "read remote body"
-	ctxBuff = rp.limitRead(resp.Body, maxContextBytes)
+	ctxBuff = rf.limitRead(resp.Body, maxContextBytes)
 
 	errPrefix = "unmarshal context"
-	rp.unmarshalHTTPContext(ctxBuff, ctx)
+	rf.unmarshalHTTPContext(ctxBuff, ctx)
 
 	if resp.StatusCode == 205 {
 		return resultResponseAlready
@@ -220,12 +244,12 @@ func (rp *RemoteFilter) Handle(ctx context.HTTPContext) (result string) {
 }
 
 // Status returns status.
-func (rp *RemoteFilter) Status() interface{} { return nil }
+func (rf *RemoteFilter) Status() interface{} { return nil }
 
 // Close closes RemoteFilter.
-func (rp *RemoteFilter) Close() {}
+func (rf *RemoteFilter) Close() {}
 
-func (rp *RemoteFilter) marshalHTTPContext(ctx context.HTTPContext, reqBody, respBody []byte) []byte {
+func (rf *RemoteFilter) marshalHTTPContext(ctx context.HTTPContext, reqBody, respBody []byte) []byte {
 	r, w := ctx.Request(), ctx.Response()
 	ctxEntity := contextEntity{
 		Request: &requestEntity{
@@ -255,7 +279,7 @@ func (rp *RemoteFilter) marshalHTTPContext(ctx context.HTTPContext, reqBody, res
 	return buff
 }
 
-func (rp *RemoteFilter) unmarshalHTTPContext(buff []byte, ctx context.HTTPContext) {
+func (rf *RemoteFilter) unmarshalHTTPContext(buff []byte, ctx context.HTTPContext) {
 	ctxEntity := &contextEntity{}
 
 	err := json.Unmarshal(buff, ctxEntity)

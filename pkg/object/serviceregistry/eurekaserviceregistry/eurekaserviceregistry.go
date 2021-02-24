@@ -9,7 +9,7 @@ import (
 	"github.com/megaease/easegateway/pkg/object/serviceregistry"
 	"github.com/megaease/easegateway/pkg/supervisor"
 
-	"github.com/ArthurHlt/go-eureka-client/eureka"
+	eurekaapi "github.com/ArthurHlt/go-eureka-client/eureka"
 )
 
 const (
@@ -27,10 +27,12 @@ func init() {
 type (
 	// EurekaServiceRegistry is Object EurekaServiceRegistry.
 	EurekaServiceRegistry struct {
-		spec *Spec
+		super     *supervisor.Supervisor
+		superSpec *supervisor.Spec
+		spec      *Spec
 
 		clientMutex sync.RWMutex
-		client      *eureka.Client
+		client      *eurekaapi.Client
 
 		statusMutex sync.Mutex
 		serversNum  map[string]int
@@ -40,8 +42,6 @@ type (
 
 	// Spec describes the EurekaServiceRegistry.
 	Spec struct {
-		supervisor.ObjectMetaSpec `yaml:",inline"`
-
 		Endpoints    []string `yaml:"endpoints" jsonschema:"required,uniqueItems=true"`
 		SyncInterval string   `yaml:"syncInterval" jsonschema:"required,format=duration"`
 	}
@@ -54,114 +54,120 @@ type (
 )
 
 // Category returns the category of EurekaServiceRegistry.
-func (esr *EurekaServiceRegistry) Category() supervisor.ObjectCategory {
+func (eureka *EurekaServiceRegistry) Category() supervisor.ObjectCategory {
 	return Category
 }
 
 // Kind returns the kind of EurekaServiceRegistry.
-func (esr *EurekaServiceRegistry) Kind() string {
+func (eureka *EurekaServiceRegistry) Kind() string {
 	return Kind
 }
 
 // DefaultSpec returns the default spec of EurekaServiceRegistry.
-func (esr *EurekaServiceRegistry) DefaultSpec() supervisor.ObjectSpec {
+func (eureka *EurekaServiceRegistry) DefaultSpec() interface{} {
 	return &Spec{
 		Endpoints:    []string{"http://127.0.0.1:8761/eureka"},
 		SyncInterval: "10s",
 	}
 }
 
-// Renew renews EurekaServiceRegistry.
-func (esr *EurekaServiceRegistry) Renew(spec supervisor.ObjectSpec,
+// Init initilizes EurekaServiceRegistry.
+func (eureka *EurekaServiceRegistry) Init(superSpec *supervisor.Spec, super *supervisor.Supervisor) {
+	eureka.superSpec, eureka.spec, eureka.super = superSpec, superSpec.ObjectSpec().(*Spec), super
+	eureka.reload()
+}
+
+// Inherit inherits previous generation of EurekaServiceRegistry.
+func (eureka *EurekaServiceRegistry) Inherit(superSpec *supervisor.Spec,
 	previousGeneration supervisor.Object, super *supervisor.Supervisor) {
 
-	if previousGeneration != nil {
-		previousGeneration.Close()
-	}
-
-	esr.spec = spec.(*Spec)
-	esr.serversNum = make(map[string]int)
-	esr.done = make(chan struct{})
-
-	_, err := esr.getClient()
-	if err != nil {
-		logger.Errorf("%s get consul client failed: %v", esr.spec.Name, err)
-	}
-
-	go esr.run()
+	previousGeneration.Close()
+	eureka.Init(superSpec, super)
 }
 
-func (esr *EurekaServiceRegistry) getClient() (*eureka.Client, error) {
-	esr.clientMutex.RLock()
-	if esr.client != nil {
-		client := esr.client
-		esr.clientMutex.RUnlock()
+func (eureka *EurekaServiceRegistry) reload() {
+	eureka.serversNum = make(map[string]int)
+	eureka.done = make(chan struct{})
+
+	_, err := eureka.getClient()
+	if err != nil {
+		logger.Errorf("%s get eureka client failed: %v", eureka.superSpec.Name(), err)
+	}
+
+	go eureka.run()
+}
+
+func (eureka *EurekaServiceRegistry) getClient() (*eurekaapi.Client, error) {
+	eureka.clientMutex.RLock()
+	if eureka.client != nil {
+		client := eureka.client
+		eureka.clientMutex.RUnlock()
 		return client, nil
 	}
-	esr.clientMutex.RUnlock()
+	eureka.clientMutex.RUnlock()
 
-	return esr.buildClient()
+	return eureka.buildClient()
 }
 
-func (esr *EurekaServiceRegistry) buildClient() (*eureka.Client, error) {
-	esr.clientMutex.Lock()
-	defer esr.clientMutex.Unlock()
+func (eureka *EurekaServiceRegistry) buildClient() (*eurekaapi.Client, error) {
+	eureka.clientMutex.Lock()
+	defer eureka.clientMutex.Unlock()
 
 	// DCL
-	if esr.client != nil {
-		return esr.client, nil
+	if eureka.client != nil {
+		return eureka.client, nil
 	}
 
-	client := eureka.NewClient(esr.spec.Endpoints)
+	client := eurekaapi.NewClient(eureka.spec.Endpoints)
 
-	esr.client = client
+	eureka.client = client
 
 	return client, nil
 }
 
-func (esr *EurekaServiceRegistry) closeClient() {
-	esr.clientMutex.Lock()
-	defer esr.clientMutex.Unlock()
+func (eureka *EurekaServiceRegistry) closeClient() {
+	eureka.clientMutex.Lock()
+	defer eureka.clientMutex.Unlock()
 
-	if esr.client == nil {
+	if eureka.client == nil {
 		return
 	}
 
-	esr.client = nil
+	eureka.client = nil
 }
 
-func (esr *EurekaServiceRegistry) run() {
-	syncInterval, err := time.ParseDuration(esr.spec.SyncInterval)
+func (eureka *EurekaServiceRegistry) run() {
+	syncInterval, err := time.ParseDuration(eureka.spec.SyncInterval)
 	if err != nil {
 		logger.Errorf("BUG: parse duration %s failed: %v",
-			esr.spec.SyncInterval, err)
+			eureka.spec.SyncInterval, err)
 		return
 	}
 
-	esr.update()
+	eureka.update()
 
 	for {
 		select {
-		case <-esr.done:
+		case <-eureka.done:
 			return
 		case <-time.After(syncInterval):
-			esr.update()
+			eureka.update()
 		}
 	}
 }
 
-func (esr *EurekaServiceRegistry) update() {
-	client, err := esr.getClient()
+func (eureka *EurekaServiceRegistry) update() {
+	client, err := eureka.getClient()
 	if err != nil {
-		logger.Errorf("%s get consul client failed: %v",
-			esr.spec.Name, err)
+		logger.Errorf("%s get eureka client failed: %v",
+			eureka.superSpec.Name(), err)
 		return
 	}
 
 	apps, err := client.GetApplications()
 	if err != nil {
 		logger.Errorf("%s get services failed: %v",
-			esr.spec.Name, err)
+			eureka.superSpec.Name(), err)
 		return
 	}
 
@@ -193,41 +199,39 @@ func (esr *EurekaServiceRegistry) update() {
 		}
 	}
 
-	serviceregistry.Global.ReplaceServers(esr.spec.Name, servers)
+	serviceregistry.Global.ReplaceServers(eureka.superSpec.Name(), servers)
 
-	esr.statusMutex.Lock()
-	esr.serversNum = serversNum
-	esr.statusMutex.Unlock()
+	eureka.statusMutex.Lock()
+	eureka.serversNum = serversNum
+	eureka.statusMutex.Unlock()
 }
 
 // Status returns status of EurekaServiceRegister.
-func (esr *EurekaServiceRegistry) Status() interface{} {
+func (eureka *EurekaServiceRegistry) Status() *supervisor.Status {
 	s := &Status{}
 
-	if esr.spec == nil {
-		return s
-	}
-
-	_, err := esr.getClient()
+	_, err := eureka.getClient()
 	if err != nil {
 		s.Health = err.Error()
 	} else {
 		s.Health = "ready"
 	}
 
-	esr.statusMutex.Lock()
-	serversNum := esr.serversNum
-	esr.statusMutex.Unlock()
+	eureka.statusMutex.Lock()
+	serversNum := eureka.serversNum
+	eureka.statusMutex.Unlock()
 
 	s.ServersNum = serversNum
 
-	return s
+	return &supervisor.Status{
+		ObjectStatus: s,
+	}
 }
 
 // Close closes EurekaServiceRegistry.
-func (esr *EurekaServiceRegistry) Close() {
-	esr.closeClient()
-	close(esr.done)
+func (eureka *EurekaServiceRegistry) Close() {
+	eureka.closeClient()
+	close(eureka.done)
 
-	serviceregistry.Global.CloseRegistry(esr.spec.Name)
+	serviceregistry.Global.CloseRegistry(eureka.superSpec.Name())
 }
