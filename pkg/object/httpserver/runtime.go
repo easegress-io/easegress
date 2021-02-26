@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
-	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/megaease/easegateway/pkg/graceupdate"
 	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/supervisor"
 	"github.com/megaease/easegateway/pkg/util/httpstat"
 	"github.com/megaease/easegateway/pkg/util/topn"
 
@@ -43,11 +43,15 @@ type (
 		startNum uint64
 		err      error
 	}
-	eventReload struct{ nextSpec *Spec }
-	eventClose  struct{ done chan struct{} }
+	eventReload struct {
+		nextSuperSpec *supervisor.Spec
+		super         *supervisor.Supervisor
+	}
+	eventClose struct{ done chan struct{} }
 
 	runtime struct {
-		handlers  *sync.Map
+		super     *supervisor.Supervisor
+		superSpec *supervisor.Spec
 		spec      *Spec
 		server    *http.Server
 		server3   *http3.Server
@@ -66,8 +70,6 @@ type (
 
 	// Status contains all status gernerated by runtime, for displaying to users.
 	Status struct {
-		Timestamp int64 `yaml:"timestamp"`
-
 		Health string `yaml:"health"`
 
 		State stateType `yaml:"state"`
@@ -78,15 +80,15 @@ type (
 	}
 )
 
-func newRuntime(handlers *sync.Map) *runtime {
+func newRuntime(super *supervisor.Supervisor) *runtime {
 	r := &runtime{
-		handlers:  handlers,
+		super:     super,
 		eventChan: make(chan interface{}, 10),
 		httpStat:  httpstat.New(),
 		topN:      topn.New(topNum),
 	}
 
-	r.mux = newMux(r.handlers, r.httpStat, r.topN)
+	r.mux = newMux(r.httpStat, r.topN)
 
 	r.setState(stateNil)
 	r.setError(errNil)
@@ -145,17 +147,18 @@ func (r *runtime) handleEventStart(e *eventStart) {
 	r.startServer()
 }
 
-func (r *runtime) reload(nextSpec *Spec) {
-	if nextSpec != nil {
-		r.mux.reloadRules(nextSpec)
-	}
+func (r *runtime) reload(nextSuperSpec *supervisor.Spec, super *supervisor.Supervisor) {
+	r.superSpec, r.super = nextSuperSpec, super
+	r.mux.reloadRules(nextSuperSpec, super)
+
+	nextSpec := nextSuperSpec.ObjectSpec().(*Spec)
 
 	// r.limitListener does not created just after the process started and the config load for the first time.
 	if nextSpec != nil && r.limitListener != nil {
 		r.limitListener.SetMaxConnection(nextSpec.MaxConnections)
 	}
 
-	// NOTE: Due to the mechanism of scheduler,
+	// NOTE: Due to the mechanism of supervisor,
 	// nextSpec must not be nil, just defensive programming here.
 	switch {
 	case r.spec == nil && nextSpec == nil:
@@ -303,7 +306,7 @@ func (r *runtime) closeServer() {
 		err := r.server3.Close()
 		if err != nil {
 			logger.Warnf("shutdown http3 server %s failed: %v",
-				r.spec.Name, err)
+				r.superSpec.Name(), err)
 		}
 	} else {
 		// NOTE: It's safe to shutdown serve failed server.
@@ -313,7 +316,7 @@ func (r *runtime) closeServer() {
 
 		if err != nil {
 			logger.Warnf("shutdown http1/2 server %s failed: %v",
-				r.spec.Name, err)
+				r.superSpec.Name(), err)
 		}
 	}
 }
@@ -346,7 +349,7 @@ func (r *runtime) handleEventServeFailed(e *eventServeFailed) {
 }
 
 func (r *runtime) handleEventReload(e *eventReload) {
-	r.reload(e.nextSpec)
+	r.reload(e.nextSuperSpec, e.super)
 }
 
 func (r *runtime) handleEventClose(e *eventClose) {

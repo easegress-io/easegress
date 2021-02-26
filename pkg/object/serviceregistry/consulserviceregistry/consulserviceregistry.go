@@ -6,29 +6,29 @@ import (
 
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/serviceregistry"
-	"github.com/megaease/easegateway/pkg/scheduler"
+	"github.com/megaease/easegateway/pkg/supervisor"
 
 	"github.com/hashicorp/consul/api"
 )
 
 const (
-	// Kind is ConsulServiceRegistry kind.
+	// Category is the category of ConsulServiceRegistry.
+	Category = supervisor.CategoryBusinessController
+
+	// Kind is the kind of ConsulServiceRegistry.
 	Kind = "ConsulServiceRegistry"
 )
 
 func init() {
-	scheduler.Register(&scheduler.ObjectRecord{
-		Kind:              Kind,
-		DefaultSpecFunc:   DefaultSpec,
-		NewFunc:           New,
-		DependObjectKinds: nil,
-	})
+	supervisor.Register(&ConsulServiceRegistry{})
 }
 
 type (
 	// ConsulServiceRegistry is Object ConsulServiceRegistry.
 	ConsulServiceRegistry struct {
-		spec *Spec
+		super     *supervisor.Supervisor
+		superSpec *supervisor.Spec
+		spec      *Spec
 
 		clientMutex sync.RWMutex
 		client      *api.Client
@@ -41,8 +41,6 @@ type (
 
 	// Spec describes the ConsulServiceRegistry.
 	Spec struct {
-		scheduler.ObjectMeta `yaml:",inline"`
-
 		Address      string   `yaml:"address" jsonschema:"required"`
 		Scheme       string   `yaml:"scheme" jsonschema:"omitempty,enum=http,enum=https"`
 		Datacenter   string   `yaml:"datacenter" jsonschema:"omitempty"`
@@ -54,14 +52,23 @@ type (
 
 	// Status is the status of ConsulServiceRegistry.
 	Status struct {
-		Timestamp  int64          `yaml:"timestamp"`
 		Health     string         `yaml:"health"`
 		ServersNum map[string]int `yaml:"serversNum"`
 	}
 )
 
-// DefaultSpec returns ConsulServiceRegistry default spec.
-func DefaultSpec() *Spec {
+// Category returns the category of ConsulServiceRegistry.
+func (c *ConsulServiceRegistry) Category() supervisor.ObjectCategory {
+	return Category
+}
+
+// Kind returns the kind of ConsulServiceRegistry.
+func (c *ConsulServiceRegistry) Kind() string {
+	return Kind
+}
+
+// DefaultSpec returns the default spec of ConsulServiceRegistry.
+func (c *ConsulServiceRegistry) DefaultSpec() interface{} {
 	return &Spec{
 		Address:      "127.0.0.1:8500",
 		Scheme:       "http",
@@ -69,66 +76,66 @@ func DefaultSpec() *Spec {
 	}
 }
 
-// Validate validates Spec.
-func (spec Spec) Validate() error {
-	return nil
+// Init initilizes ConsulServiceRegistry.
+func (c *ConsulServiceRegistry) Init(superSpec *supervisor.Spec, super *supervisor.Supervisor) {
+	c.superSpec, c.spec, c.super = superSpec, superSpec.ObjectSpec().(*Spec), super
+	c.reload()
 }
 
-// New creates an ConsulServiceRegistry.
-func New(spec *Spec, prev *ConsulServiceRegistry, handlers *sync.Map) *ConsulServiceRegistry {
-	csr := &ConsulServiceRegistry{
-		spec:       spec,
-		serversNum: map[string]int{},
-		done:       make(chan struct{}),
-	}
-	if prev != nil {
-		prev.Close()
-	}
+// Inherit inherits previous generation of ConsulServiceRegistry.
+func (c *ConsulServiceRegistry) Inherit(superSpec *supervisor.Spec,
+	previousGeneration supervisor.Object, super *supervisor.Supervisor) {
 
-	_, err := csr.getClient()
+	previousGeneration.Close()
+	c.Init(superSpec, super)
+}
+
+func (c *ConsulServiceRegistry) reload() {
+	c.serversNum = map[string]int{}
+	c.done = make(chan struct{})
+
+	_, err := c.getClient()
 	if err != nil {
-		logger.Errorf("%s get consul client failed: %v", spec.Name, err)
+		logger.Errorf("%s get consul client failed: %v", c.superSpec.Name(), err)
 	}
 
-	go csr.run()
-
-	return csr
+	go c.run()
 }
 
-func (csr *ConsulServiceRegistry) getClient() (*api.Client, error) {
-	csr.clientMutex.RLock()
-	if csr.client != nil {
-		client := csr.client
-		csr.clientMutex.RUnlock()
+func (c *ConsulServiceRegistry) getClient() (*api.Client, error) {
+	c.clientMutex.RLock()
+	if c.client != nil {
+		client := c.client
+		c.clientMutex.RUnlock()
 		return client, nil
 	}
-	csr.clientMutex.RUnlock()
+	c.clientMutex.RUnlock()
 
-	return csr.buildClient()
+	return c.buildClient()
 }
 
-func (csr *ConsulServiceRegistry) buildClient() (*api.Client, error) {
-	csr.clientMutex.Lock()
-	defer csr.clientMutex.Unlock()
+func (c *ConsulServiceRegistry) buildClient() (*api.Client, error) {
+	c.clientMutex.Lock()
+	defer c.clientMutex.Unlock()
 
 	// DCL
-	if csr.client != nil {
-		return csr.client, nil
+	if c.client != nil {
+		return c.client, nil
 	}
 
 	config := api.DefaultConfig()
-	config.Address = csr.spec.Address
+	config.Address = c.spec.Address
 	if config.Scheme != "" {
-		config.Scheme = csr.spec.Scheme
+		config.Scheme = c.spec.Scheme
 	}
 	if config.Datacenter != "" {
-		config.Datacenter = csr.spec.Datacenter
+		config.Datacenter = c.spec.Datacenter
 	}
 	if config.Token != "" {
-		config.Token = csr.spec.Token
+		config.Token = c.spec.Token
 	}
 	if config.Namespace != "" {
-		config.Namespace = csr.spec.Namespace
+		config.Namespace = c.spec.Namespace
 	}
 
 	client, err := api.NewClient(config)
@@ -137,60 +144,60 @@ func (csr *ConsulServiceRegistry) buildClient() (*api.Client, error) {
 		return nil, err
 	}
 
-	csr.client = client
+	c.client = client
 
 	return client, nil
 }
 
-func (csr *ConsulServiceRegistry) closeClient() {
-	csr.clientMutex.Lock()
-	defer csr.clientMutex.Unlock()
+func (c *ConsulServiceRegistry) closeClient() {
+	c.clientMutex.Lock()
+	defer c.clientMutex.Unlock()
 
-	if csr.client == nil {
+	if c.client == nil {
 		return
 	}
 
-	csr.client = nil
+	c.client = nil
 }
 
-func (csr *ConsulServiceRegistry) run() {
-	syncInterval, err := time.ParseDuration(csr.spec.SyncInterval)
+func (c *ConsulServiceRegistry) run() {
+	syncInterval, err := time.ParseDuration(c.spec.SyncInterval)
 	if err != nil {
 		logger.Errorf("BUG: parse duration %s failed: %v",
-			csr.spec.SyncInterval, err)
+			c.spec.SyncInterval, err)
 		return
 	}
 
-	csr.update()
+	c.update()
 
 	for {
 		select {
-		case <-csr.done:
+		case <-c.done:
 			return
 		case <-time.After(syncInterval):
-			csr.update()
+			c.update()
 		}
 	}
 }
 
-func (csr *ConsulServiceRegistry) update() {
-	client, err := csr.getClient()
+func (c *ConsulServiceRegistry) update() {
+	client, err := c.getClient()
 	if err != nil {
 		logger.Errorf("%s get consul client failed: %v",
-			csr.spec.Name, err)
+			c.superSpec.Name(), err)
 		return
 	}
 
 	q := &api.QueryOptions{
-		Namespace:  csr.spec.Namespace,
-		Datacenter: csr.spec.Datacenter,
+		Namespace:  c.spec.Namespace,
+		Datacenter: c.spec.Datacenter,
 	}
 	catalog := client.Catalog()
 
 	resp, _, err := catalog.Services(q)
 	if err != nil {
 		logger.Errorf("%s pull catalog services failed: %v",
-			csr.spec.Name, err)
+			c.superSpec.Name(), err)
 		return
 	}
 
@@ -198,10 +205,10 @@ func (csr *ConsulServiceRegistry) update() {
 	serversNum := map[string]int{}
 	for serviceName := range resp {
 		services, _, err := catalog.ServiceMultipleTags(serviceName,
-			csr.spec.ServiceTags, q)
+			c.spec.ServiceTags, q)
 		if err != nil {
 			logger.Errorf("%s pull catalog service %s failed: %v",
-				csr.spec.Name, serviceName, err)
+				c.superSpec.Name(), serviceName, err)
 			continue
 		}
 		for _, service := range services {
@@ -225,37 +232,39 @@ func (csr *ConsulServiceRegistry) update() {
 		}
 	}
 
-	serviceregistry.Global.ReplaceServers(csr.spec.Name, servers)
+	serviceregistry.Global.ReplaceServers(c.superSpec.Name(), servers)
 
-	csr.statusMutex.Lock()
-	csr.serversNum = serversNum
-	csr.statusMutex.Unlock()
+	c.statusMutex.Lock()
+	c.serversNum = serversNum
+	c.statusMutex.Unlock()
 }
 
 // Status returns status of ConsulServiceRegister.
-func (csr *ConsulServiceRegistry) Status() *Status {
+func (c *ConsulServiceRegistry) Status() *supervisor.Status {
 	s := &Status{}
 
-	_, err := csr.getClient()
+	_, err := c.getClient()
 	if err != nil {
 		s.Health = err.Error()
 	} else {
 		s.Health = "ready"
 	}
 
-	csr.statusMutex.Lock()
-	serversNum := csr.serversNum
-	csr.statusMutex.Unlock()
+	c.statusMutex.Lock()
+	serversNum := c.serversNum
+	c.statusMutex.Unlock()
 
 	s.ServersNum = serversNum
 
-	return s
+	return &supervisor.Status{
+		ObjectStatus: s,
+	}
 }
 
 // Close closes ConsulServiceRegistry.
-func (csr *ConsulServiceRegistry) Close() {
-	csr.closeClient()
-	close(csr.done)
+func (c *ConsulServiceRegistry) Close() {
+	c.closeClient()
+	close(c.done)
 
-	serviceregistry.Global.CloseRegistry(csr.spec.Name)
+	serviceregistry.Global.CloseRegistry(c.superSpec.Name())
 }

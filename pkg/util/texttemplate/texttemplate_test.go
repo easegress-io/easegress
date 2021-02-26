@@ -7,53 +7,53 @@ import (
 func TestNewTextTemplateSucc(t *testing.T) {
 
 	tt, err := NewDefault([]string{
-		"plugin.{}.req.path",
-		"plugin.{}.req.method",
-		"plugin.{}.req.body",
-		"plugin.{}.req.scheme",
-		"plugin.{}.req.proto",
-		"plugin.{}.req.host",
-		"plugin.{}.req.body.{gjson}",
-		"plugin.{}.req.header.{}",
-		"plugin.{}.rsp.statuscode",
-		"plugin.{}.rsp.body.{gjson}",
+		"filter.{}.req.path",
+		"filter.{}.req.method",
+		"filter.{}.req.body",
+		"filter.{}.req.scheme",
+		"filter.{}.req.proto",
+		"filter.{}.req.host",
+		"filter.{}.req.body.{gjson}",
+		"filter.{}.req.header.{}",
+		"filter.{}.rsp.statuscode",
+		"filter.{}.rsp.body.{gjson}",
 	})
 
 	if err != nil {
 		t.Errorf("new engine failed err %v", err)
 	}
 
-	if res := tt.MatchMetaTemplate("plugin.abc.req.body"); len(res) == 0 {
-		t.Errorf("input %s match template %s", "plugin.abc.req.body", res)
+	if res := tt.MatchMetaTemplate("filter.abc.req.body"); len(res) == 0 {
+		t.Errorf("input %s match template %s", "filter.abc.req.body", res)
 	}
 
-	if err = tt.SetDict("plugin.abc.req.body", "kkk"); err != nil {
+	if err = tt.SetDict("filter.abc.req.body", "kkk"); err != nil {
 		t.Errorf("set failed err =%v", err)
 	}
 
-	if s, err := tt.Render("xxx-[[plugin.abc.req.body]]--yyy"); s != "xxx-kkk--yyy" || err != nil {
+	if s, err := tt.Render("xxx-[[filter.abc.req.body]]--yyy"); s != "xxx-kkk--yyy" || err != nil {
 		t.Errorf("rendering fail , result is %s except xxx-kkk--yyy", s)
 	}
 }
 func TestNewTextTemplateRenderGJSON(t *testing.T) {
 
 	tt, err := NewDefault([]string{
-		"plugin.{}.req.path",
-		"plugin.{}.req.method",
-		"plugin.{}.req.body",
-		"plugin.{}.req.body.{gjson}",
-		"plugin.{}.req.header.{}",
+		"filter.{}.req.path",
+		"filter.{}.req.method",
+		"filter.{}.req.body",
+		"filter.{}.req.body.{gjson}",
+		"filter.{}.req.header.{}",
 	})
 
 	if err != nil {
 		t.Errorf("new engine failed err %v", err)
 	}
 
-	if err = tt.SetDict("plugin.abc.req.body", "{\"aaa\":\"bbb\", \"kkk\":\"hhh\", \"t\":{\"jjj\":\"qqq\"}}"); err != nil {
+	if err = tt.SetDict("filter.abc.req.body", "{\"aaa\":\"bbb\", \"kkk\":\"hhh\", \"t\":{\"jjj\":\"qqq\"}}"); err != nil {
 		t.Errorf("set failed err %v", err)
 	}
 
-	input := "001010-[[plugin.abc.req.body.aaa]]--02020"
+	input := "001010-[[filter.abc.req.body.aaa]]--02020"
 	except := "001010-bbb--02020"
 
 	if s, err := tt.Render(input); s != except || err != nil {
@@ -62,7 +62,7 @@ func TestNewTextTemplateRenderGJSON(t *testing.T) {
 		t.Fatalf("input %s, excpet %s , after rending %s ", input, except, s)
 	}
 
-	input = "001010-[[plugin.abc.req.body.kkk]]--02020"
+	input = "001010-[[filter.abc.req.body.kkk]]--02020"
 	except = "001010-hhh--02020"
 
 	if s, err := tt.Render(input); s != except || err != nil {
@@ -72,7 +72,7 @@ func TestNewTextTemplateRenderGJSON(t *testing.T) {
 
 	}
 
-	input = "001010-[[plugin.abc.req.body.t.jjj]]--02020"
+	input = "001010-[[filter.abc.req.body.t.jjj]]--02020"
 	except = "001010-qqq--02020"
 
 	if s, err := tt.Render(input); s != except || err != nil {
@@ -85,26 +85,26 @@ func TestNewTextTemplateRenderGJSON(t *testing.T) {
 func TestNewTextTemplateRenderWildCard(t *testing.T) {
 
 	tt, err := NewDefault([]string{
-		"plugin.{}.req.path",
-		"plugin.{}.req.method",
-		"plugin.{}.req.body",
-		"plugin.{}.req.body.{gjson}",
-		"plugin.{}.req.header.{}",
+		"filter.{}.req.path",
+		"filter.{}.req.method",
+		"filter.{}.req.body",
+		"filter.{}.req.body.{gjson}",
+		"filter.{}.req.header.{}",
 	})
 
 	if err != nil {
 		t.Errorf("new engine failed err %v", err)
 	}
 
-	if err := tt.SetDict("plugin.abc.req.header.X-forward", "a.b.com"); err != nil {
+	if err := tt.SetDict("filter.abc.req.header.X-forward", "a.b.com"); err != nil {
 		t.Errorf("set failed err =%v", err)
 	}
 
-	if err = tt.SetDict("plugin.abc.req.header.Y-forward", "q.m.com"); err != nil {
+	if err = tt.SetDict("filter.abc.req.header.Y-forward", "q.m.com"); err != nil {
 		t.Errorf("set failed err =%v", err)
 	}
 
-	input := "001010-[[plugin.abc.req.header.X-forward]]--02020"
+	input := "001010-[[filter.abc.req.header.X-forward]]--02020"
 	except := "001010-a.b.com--02020"
 
 	if s, err := tt.Render(input); s != except || err != nil {
@@ -113,7 +113,7 @@ func TestNewTextTemplateRenderWildCard(t *testing.T) {
 		t.Fatalf("input %s, excpet %s , after rending %s ", input, except, s)
 	}
 
-	input = "001010-[[plugin.abc.req.header.Y-forward]]--02020"
+	input = "001010-[[filter.abc.req.header.Y-forward]]--02020"
 	except = "001010-q.m.com--02020"
 
 	if s, err := tt.Render(input); s != except || err != nil {
@@ -127,9 +127,9 @@ func TestNewTextTemplateRenderWildCard(t *testing.T) {
 func TestNewTextTemplateErrGJSON(t *testing.T) {
 
 	tt, err := NewDefault([]string{
-		"plugin.{}.req.header.{}",
-		"plugin.{}.rsp.statuscode",
-		"plugin.{}.req.{gjson}.body",
+		"filter.{}.req.header.{}",
+		"filter.{}.rsp.statuscode",
+		"filter.{}.req.{gjson}.body",
 	})
 
 	if err == nil {
@@ -140,9 +140,9 @@ func TestNewTextTemplateErrGJSON(t *testing.T) {
 func TestNewTextTemplateErrGJSONBegin(t *testing.T) {
 
 	tt, err := NewDefault([]string{
-		"plugin.{}.req.header.{}",
-		"plugin.{}.rsp.statuscode",
-		"{gjson}.plugin.{}.req.body",
+		"filter.{}.req.header.{}",
+		"filter.{}.rsp.statuscode",
+		"{gjson}.filter.{}.req.body",
 	})
 
 	t.Logf("New engine invalid, excpet err [%v]", err)
@@ -154,9 +154,9 @@ func TestNewTextTemplateErrGJSONBegin(t *testing.T) {
 func TestNewTextTemplateErrWidecardConfilct(t *testing.T) {
 
 	tt, err := NewDefault([]string{
-		"plugin.{}.req.header.{}",
-		"plugin.{}.rsp.statuscode",
-		"plugin.abc.req.header",
+		"filter.{}.req.header.{}",
+		"filter.{}.rsp.statuscode",
+		"filter.abc.req.header",
 	})
 
 	t.Logf("New engine invalid, excpet err [%v]", err)
@@ -168,10 +168,10 @@ func TestNewTextTemplateErrWidecardConfilct(t *testing.T) {
 func TestNewTextTemplateErrGJSONMiddle(t *testing.T) {
 
 	tt, err := NewDefault([]string{
-		"plugin.{}.req.header.{}",
-		"plugin.{}.rsp.statuscode",
-		"plugin.{}.rsp.statuscode",
-		"plugin.{}.{gjson}.header",
+		"filter.{}.req.header.{}",
+		"filter.{}.rsp.statuscode",
+		"filter.{}.rsp.statuscode",
+		"filter.{}.{gjson}.header",
 	})
 
 	t.Logf("New engine invalid, excpet err [%v]", err)
@@ -193,7 +193,7 @@ func TestNewTextTemplateWithEmpty(t *testing.T) {
 func TestNewTextTemplateWithWidecarFirstLevel(t *testing.T) {
 
 	tt, err := NewDefault([]string{
-		"plugin",
+		"filter",
 		"name",
 		"key",
 		"{}",
@@ -208,10 +208,10 @@ func TestNewTextTemplateWithWidecarFirstLevel(t *testing.T) {
 func TestNewTextTemplateWithWidecarLastLevel(t *testing.T) {
 
 	tt, err := NewDefault([]string{
-		"plugin.req.http",
-		"plugin.req.name",
-		"plugin.req.url",
-		"plugin.req.{}",
+		"filter.req.http",
+		"filter.req.name",
+		"filter.req.url",
+		"filter.req.{}",
 	})
 
 	t.Logf("New engine invalid, excpet err [%v]", err)
@@ -223,33 +223,33 @@ func TestNewTextTemplateWithWidecarLastLevel(t *testing.T) {
 func TestNewTextTemplateValidate(t *testing.T) {
 
 	tt, err := NewDefault([]string{
-		"plugin.{}.req.path",
-		"plugin.{}.req.method",
-		"plugin.{}.req.body",
-		"plugin.{}.req.scheme",
-		"plugin.{}.req.proto",
-		"plugin.{}.req.host",
-		"plugin.{}.req.body.{gjson}",
-		"plugin.{}.req.header.{}",
-		"plugin.{}.rsp.statuscode",
-		"plugin.{}.rsp.body.{gjson}",
+		"filter.{}.req.path",
+		"filter.{}.req.method",
+		"filter.{}.req.body",
+		"filter.{}.req.scheme",
+		"filter.{}.req.proto",
+		"filter.{}.req.host",
+		"filter.{}.req.body.{gjson}",
+		"filter.{}.req.header.{}",
+		"filter.{}.rsp.statuscode",
+		"filter.{}.rsp.body.{gjson}",
 	})
 
 	if err != nil {
 		t.Errorf("new engine failed err %v", err)
 	}
 
-	input := "try to ...[[plugin.abc.req]]"
+	input := "try to ...[[filter.abc.req]]"
 	if tt.HasTemplates(input) == false {
 		t.Fatalf("except match template, but failed %s", input)
 	}
 
-	input = "try to ...plugin.abc.req"
+	input = "try to ...filter.abc.req"
 	if tt.HasTemplates(input) == true {
 		t.Fatalf("except not match template, but succ input [%s]", input)
 	}
 
-	input = "try to ...[[plugin.abc.tkg]]..."
+	input = "try to ...[[filter.abc.tkg]]..."
 	if tt.HasTemplates(input) == true {
 		t.Fatalf("except not match template, but succ input [%s]", input)
 	}
@@ -263,13 +263,13 @@ func TestNewTextTemplateValidate(t *testing.T) {
 
 func TestNewTextTemplateMatchTemplate(t *testing.T) {
 	tt, err := NewDefault([]string{
-		"plugin.{}.req.path",
-		"plugin.{}.req.method",
-		"plugin.{}.req.body",
-		"plugin.{}.req.scheme",
-		"plugin.{}.req.proto",
-		"plugin.{}.req.host",
-		"plugin.{}.req.host.{}",
+		"filter.{}.req.path",
+		"filter.{}.req.method",
+		"filter.{}.req.body",
+		"filter.{}.req.scheme",
+		"filter.{}.req.proto",
+		"filter.{}.req.host",
+		"filter.{}.req.host.{}",
 	})
 
 	if err != nil {
@@ -315,22 +315,22 @@ func TestNewTextTemplateMatchTemplate(t *testing.T) {
 		t.Fatalf("except not match template, but succ input [%s]", result)
 	}
 
-	input = "plugin.name.."
+	input = "filter.name.."
 	if result := tt.MatchMetaTemplate(input); len(result) != 0 {
 		t.Fatalf("except not match template, but input [%s]", result)
 	}
 
-	input = "plugin.name.req"
+	input = "filter.name.req"
 	if result := tt.MatchMetaTemplate(input); len(result) == 0 {
 		t.Fatalf("except match template, but failed input [%s]", result)
 	}
 
-	input = "plugin.name.req.host"
+	input = "filter.name.req.host"
 	if result := tt.MatchMetaTemplate(input); len(result) == 0 {
 		t.Fatalf("except match template, but failed input [%s]", result)
 	}
 
-	input = "plugin.name.req.host.abb"
+	input = "filter.name.req.host.abb"
 	if result := tt.MatchMetaTemplate(input); len(result) == 0 {
 		t.Fatalf("except match template, but failed input [%s]", result)
 	}
@@ -338,33 +338,33 @@ func TestNewTextTemplateMatchTemplate(t *testing.T) {
 func TestNewTextTemplateExtractTemplateRuleMap(t *testing.T) {
 
 	tt, err := NewDefault([]string{
-		"plugin.{}.req.path",
-		"plugin.{}.req.method",
-		"plugin.{}.req.body",
-		"plugin.{}.req.scheme",
-		"plugin.{}.req.proto",
-		"plugin.{}.req.host",
-		"plugin.{}.req.body.{gjson}",
-		"plugin.{}.req.header.{}",
-		"plugin.{}.rsp.statuscode",
-		"plugin.{}.rsp.body.{gjson}",
+		"filter.{}.req.path",
+		"filter.{}.req.method",
+		"filter.{}.req.body",
+		"filter.{}.req.scheme",
+		"filter.{}.req.proto",
+		"filter.{}.req.host",
+		"filter.{}.req.body.{gjson}",
+		"filter.{}.req.header.{}",
+		"filter.{}.rsp.statuscode",
+		"filter.{}.rsp.body.{gjson}",
 	})
 
 	if err != nil {
 		t.Fatalf("new engine failed err %v", err)
 	}
 
-	input := "xxx000[[plugin.abc.req.path]]xxx,yyy[[plugin.0.rsp.statuscode]],fff[[plugin.3.req.body.jjj.qqq.ddd]]"
+	input := "xxx000[[filter.abc.req.path]]xxx,yyy[[filter.0.rsp.statuscode]],fff[[filter.3.req.body.jjj.qqq.ddd]]"
 
 	m := map[string]string{}
 	if m = tt.ExtractTemplateRuleMap(input); len(m) == 0 {
 		t.Fatalf("extract from input %s faile, nothing matched", input)
 	}
 
-	key1 := "plugin.abc.req.path"
-	key2 := "plugin.0.rsp.statuscode"
-	key3 := "plugin.3.req.body.jjj.qqq.ddd"
-	value3 := "plugin.3.req.body.{gjson}"
+	key1 := "filter.abc.req.path"
+	key2 := "filter.0.rsp.statuscode"
+	key3 := "filter.3.req.body.jjj.qqq.ddd"
+	value3 := "filter.3.req.body.{gjson}"
 
 	if k, exist := m[key1]; !exist {
 		t.Errorf("extract from key1 :%s from input %s faile, nothing matched", key1, input)
@@ -390,7 +390,7 @@ func TestNewTextTemplateExtractTemplateRuleMap(t *testing.T) {
 		}
 	}
 
-	input = "[[plugin.abc.req.path]]xxx,yyy[[plugin.0.rsp.statuscode]],fff[[plugin.3.req.body.jjj.qqq.ddd]]"
+	input = "[[filter.abc.req.path]]xxx,yyy[[filter.0.rsp.statuscode]],fff[[filter.3.req.body.jjj.qqq.ddd]]"
 	if m = tt.ExtractTemplateRuleMap(input); len(m) == 0 {
 		t.Fatalf("extract from input %s faile, nothing matched", input)
 	}
@@ -399,16 +399,16 @@ func TestNewTextTemplateExtractTemplateRuleMap(t *testing.T) {
 func TestNewTextTemplateExtractTemplateRuleMapEmpty(t *testing.T) {
 
 	tt, err := NewDefault([]string{
-		"plugin.{}.req.path",
-		"plugin.{}.req.method",
-		"plugin.{}.req.body",
-		"plugin.{}.req.scheme",
-		"plugin.{}.req.proto",
-		"plugin.{}.req.host",
-		"plugin.{}.req.body.{gjson}",
-		"plugin.{}.req.header.{}",
-		"plugin.{}.rsp.statuscode",
-		"plugin.{}.rsp.body.{gjson}",
+		"filter.{}.req.path",
+		"filter.{}.req.method",
+		"filter.{}.req.body",
+		"filter.{}.req.scheme",
+		"filter.{}.req.proto",
+		"filter.{}.req.host",
+		"filter.{}.req.body.{gjson}",
+		"filter.{}.req.header.{}",
+		"filter.{}.rsp.statuscode",
+		"filter.{}.rsp.body.{gjson}",
 	})
 
 	if err != nil {
@@ -422,17 +422,17 @@ func TestNewTextTemplateExtractTemplateRuleMapEmpty(t *testing.T) {
 		t.Fatalf("extract from input %s no match except, should be empty", input)
 	}
 
-	input = "[[plugin.abc.req[[]"
+	input = "[[filter.abc.req[[]"
 	if m = tt.ExtractTemplateRuleMap(input); len(m) != 0 {
 		t.Fatalf("extract from input %s no match except, should be empty", input)
 	}
 
-	input = "xxxxx[[plugin.abc.req]"
+	input = "xxxxx[[filter.abc.req]"
 	if m = tt.ExtractTemplateRuleMap(input); len(m) != 0 {
 		t.Fatalf("extract from input %s no match except, should be empty", input)
 	}
 
-	input = "[[plugin.abc.req]"
+	input = "[[filter.abc.req]"
 	if m = tt.ExtractTemplateRuleMap(input); len(m) != 0 {
 		t.Fatalf("extract from input %s no match except, should be empty", input)
 	}
@@ -441,16 +441,16 @@ func TestNewTextTemplateExtractTemplateRuleMapEmpty(t *testing.T) {
 func TestNewTextTemplateExtractRawTemplateRuleMapEmpty(t *testing.T) {
 
 	tt, err := NewDefault([]string{
-		"plugin.{}.req.path",
-		"plugin.{}.req.method",
-		"plugin.{}.req.body",
-		"plugin.{}.req.scheme",
-		"plugin.{}.req.proto",
-		"plugin.{}.req.host",
-		"plugin.{}.req.body.{gjson}",
-		"plugin.{}.req.header.{}",
-		"plugin.{}.rsp.statuscode",
-		"plugin.{}.rsp.body.{gjson}",
+		"filter.{}.req.path",
+		"filter.{}.req.method",
+		"filter.{}.req.body",
+		"filter.{}.req.scheme",
+		"filter.{}.req.proto",
+		"filter.{}.req.host",
+		"filter.{}.req.body.{gjson}",
+		"filter.{}.req.header.{}",
+		"filter.{}.rsp.statuscode",
+		"filter.{}.rsp.body.{gjson}",
 	})
 
 	if err != nil {
@@ -464,37 +464,37 @@ func TestNewTextTemplateExtractRawTemplateRuleMapEmpty(t *testing.T) {
 		t.Fatalf("extract from input %s no match except, should be empty", input)
 	}
 
-	input = "[[plugin.abc.req[[]"
+	input = "[[filter.abc.req[[]"
 	if m = tt.ExtractRawTemplateRuleMap(input); len(m) != 0 {
 		t.Fatalf("extract from input %s no match except, should be empty", input)
 	}
 
-	input = "xxxxx[[plugin.abc.req]"
+	input = "xxxxx[[filter.abc.req]"
 	if m = tt.ExtractRawTemplateRuleMap(input); len(m) != 0 {
 		t.Fatalf("extract from input %s no match except, should be empty", input)
 	}
 
-	input = "[[plugin.abc.req]"
+	input = "[[filter.abc.req]"
 	if m = tt.ExtractRawTemplateRuleMap(input); len(m) != 0 {
 		t.Fatalf("extract from input %s no match except, should be empty", input)
 	}
 
-	input = "[[plugin.abc.req]]"
+	input = "[[filter.abc.req]]"
 	if m = tt.ExtractRawTemplateRuleMap(input); len(m) == 0 {
 		t.Fatalf("extract from input %s no match except, should not be empty", input)
 	}
 
-	input = "[[plugin.abc.red]]"
+	input = "[[filter.abc.red]]"
 	if m = tt.ExtractRawTemplateRuleMap(input); len(m) == 0 {
 		t.Fatalf("extract from input %s no match except, should not be empty", input)
 	}
 
-	input = "[[plugin.abc.red]] -- [[plugin.abc.req.host]]"
+	input = "[[filter.abc.red]] -- [[filter.abc.req.host]]"
 	if m = tt.ExtractRawTemplateRuleMap(input); len(m) != 2 {
 		t.Fatalf("extract from input %s no match except, should extract two target", input)
 	}
 
-	input = "[[plugin.abc.red]] -- [[plugin.abc.req.nono]] -- [[plugin.abc.rsp.yes]]!!"
+	input = "[[filter.abc.red]] -- [[filter.abc.req.nono]] -- [[filter.abc.rsp.yes]]!!"
 	if m = tt.ExtractRawTemplateRuleMap(input); len(m) != 3 {
 		t.Fatalf("extract from input %s no match except, should extract two target", input)
 	}

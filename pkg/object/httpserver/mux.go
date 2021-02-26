@@ -5,12 +5,12 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
-	"sync"
 	"sync/atomic"
 
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/scheduler"
+	"github.com/megaease/easegateway/pkg/protocol"
+	"github.com/megaease/easegateway/pkg/supervisor"
 	"github.com/megaease/easegateway/pkg/tracing"
 	"github.com/megaease/easegateway/pkg/util/httpheader"
 	"github.com/megaease/easegateway/pkg/util/httpstat"
@@ -21,7 +21,6 @@ import (
 
 type (
 	mux struct {
-		handlers *sync.Map
 		httpStat *httpstat.HTTPStat
 		topN     *topn.TopN
 
@@ -29,7 +28,10 @@ type (
 	}
 
 	muxRules struct {
-		spec  *Spec
+		super     *supervisor.Supervisor
+		superSpec *supervisor.Spec
+		spec      *Spec
+
 		cache *cache
 
 		tracer       *tracing.Tracing
@@ -255,9 +257,8 @@ func (mp *muxPath) matchHeaders(ctx context.HTTPContext) (ci *cacheItem, ok bool
 	return nil, false
 }
 
-func newMux(handlers *sync.Map, httpStat *httpstat.HTTPStat, topN *topn.TopN) *mux {
+func newMux(httpStat *httpstat.HTTPStat, topN *topn.TopN) *mux {
 	m := &mux{
-		handlers: handlers,
 		httpStat: httpStat,
 		topN:     topN,
 	}
@@ -267,7 +268,9 @@ func newMux(handlers *sync.Map, httpStat *httpstat.HTTPStat, topN *topn.TopN) *m
 	return m
 }
 
-func (m *mux) reloadRules(spec *Spec) {
+func (m *mux) reloadRules(superSpec *supervisor.Spec, super *supervisor.Supervisor) {
+	spec := superSpec.ObjectSpec().(*Spec)
+
 	tracer := tracing.NoopTracing
 	oldRules := m.rules.Load().(*muxRules)
 	if !reflect.DeepEqual(oldRules.spec.Tracing, spec.Tracing) {
@@ -288,6 +291,8 @@ func (m *mux) reloadRules(spec *Spec) {
 	}
 
 	rules := &muxRules{
+		super:        super,
+		superSpec:    superSpec,
 		spec:         spec,
 		ipFilter:     newIPFilter(spec.IPFilter),
 		ipFilterChan: newIPFilterChain(nil, spec.IPFilter),
@@ -324,7 +329,7 @@ func (m *mux) reloadRules(spec *Spec) {
 func (m *mux) ServeHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 	rules := m.rules.Load().(*muxRules)
 
-	ctx := context.New(stdw, stdr, rules.tracer, rules.spec.Name)
+	ctx := context.New(stdw, stdr, rules.tracer, rules.superSpec.Name())
 	defer ctx.Finish()
 	ctx.OnFinish(func() {
 		ctx.Span().Finish()
@@ -408,14 +413,14 @@ func (m *mux) handleRequestWithCache(rules *muxRules, ctx context.HTTPContext, c
 	case ci.methodNotAllowed:
 		ctx.Response().SetStatusCode(http.StatusMethodNotAllowed)
 	case ci.backend != "":
-		rawHandler, exists := m.handlers.Load(ci.backend)
+		ro, exists := rules.super.GetRunningObject(ci.backend, supervisor.CategoryPipeline)
 		if !exists {
 			ctx.AddTag(stringtool.Cat("backend ", ci.backend, " not found"))
 			ctx.Response().SetStatusCode(http.StatusServiceUnavailable)
 			return
 		}
 
-		handler, ok := rawHandler.(scheduler.HTTPHandler)
+		handler, ok := ro.Instance().(protocol.HTTPHandler)
 		if !ok {
 			ctx.AddTag(stringtool.Cat("BUG: backend ", ci.backend, " is not a http handler"))
 			ctx.Response().SetStatusCode(http.StatusServiceUnavailable)

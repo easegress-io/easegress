@@ -15,4 +15,3 @@ const (
 	// KeyXForwardedFor is the key of X-Forwarded-For.
 	KeyXForwardedFor = "X-Forwarded-For"
 )
-

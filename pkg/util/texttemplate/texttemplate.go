@@ -11,8 +11,8 @@ import (
 // The complete fomat of template sentence  is
 // ${beginToken}${tag1}${seperator}${tag2}${seperator}...${endtoken}
 // e.g., if beginToken is '[[', endtoken is ']]', seperator is '.'
-// [[plugin.{}.req.body.{gjson}]]
-// [[plugin.{}.req.body.{gjson}]]
+// [[filter.{}.req.body.{gjson}]]
+// [[filter.{}.req.body.{gjson}]]
 // TemplateEngine is the abstract implementer
 // Template is the part of user's input string's which we want the TempalteEngine to render it
 // MetaTemplate is the description collections for TemplateEngine to identify user's valid template rules
@@ -33,7 +33,7 @@ const (
 )
 
 type node struct {
-	Value    string // The tag,e.g. 'plugin', 'req'
+	Value    string // The tag,e.g. 'filter', 'req'
 	Children []*node
 }
 
@@ -272,10 +272,10 @@ func (t *TextTemplate) buildTemplateTree() error {
 
 // MatchMetaTemplate travels the metaTemplate syntax tree and return the frist match template
 // if matched found
-//   e.g. template is "plugin.abc.req.body.friends.#(last=="Murphy").first" match "plugin.{}.req.body.{gjson}"
-//   	will return "plugin.abc.req.body.{gjson}"
-//   e.g. template is "pluign.abc.req.body" match "plugin.{}.req.body"
-//   	will return "plugin.abc.req.body"
+//   e.g. template is "filter.abc.req.body.friends.#(last=="Murphy").first" match "filter.{}.req.body.{gjson}"
+//   	will return "filter.abc.req.body.{gjson}"
+//   e.g. template is "filter.abc.req.body" match "filter.{}.req.body"
+//   	will return "filter.abc.req.body"
 // if not any template matched found, then return ""
 func (t TextTemplate) MatchMetaTemplate(template string) string {
 	tags := strings.Split(template, t.seperator)

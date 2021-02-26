@@ -1,4 +1,4 @@
-package ZookeeperServiceRegistry
+package zookeeperserviceregistry
 
 import (
 	"encoding/json"
@@ -8,29 +8,29 @@ import (
 
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/serviceregistry"
-	"github.com/megaease/easegateway/pkg/scheduler"
+	"github.com/megaease/easegateway/pkg/supervisor"
 
 	zookeeper "github.com/go-zookeeper/zk"
 )
 
 const (
-	// Kind is ZookeeperServiceRegistry kind.
+	// Category is the category of ZookeeperServiceRegistry.
+	Category = supervisor.CategoryBusinessController
+
+	// Kind is the kind of ZookeeperServiceRegistry.
 	Kind = "ZookeeperServiceRegistry"
 )
 
 func init() {
-	scheduler.Register(&scheduler.ObjectRecord{
-		Kind:              Kind,
-		DefaultSpecFunc:   DefaultSpec,
-		NewFunc:           New,
-		DependObjectKinds: nil,
-	})
+	supervisor.Register(&ZookeeperServiceRegistry{})
 }
 
 type (
 	// ZookeeperServiceRegistry is Object ZookeeperServiceRegistry.
 	ZookeeperServiceRegistry struct {
-		spec *Spec
+		super     *supervisor.Supervisor
+		superSpec *supervisor.Spec
+		spec      *Spec
 
 		connMutex sync.RWMutex
 		conn      *zookeeper.Conn
@@ -43,7 +43,9 @@ type (
 
 	// Spec describes the ZookeeperServiceRegistry.
 	Spec struct {
-		scheduler.ObjectMeta `yaml:",inline"`
+		super     *supervisor.Supervisor
+		superSpec *supervisor.Spec
+		spec      *Spec
 
 		ConnTimeout  string   `yaml:"conntimeout" jsonschema:"required,format=duration"`
 		ZKServices   []string `yaml:"zkservices" jsonschema:"required,uniqueItems=true"`
@@ -53,14 +55,23 @@ type (
 
 	// Status is the status of ZookeeperServiceRegistry.
 	Status struct {
-		Timestamp  int64          `yaml:"timestamp"`
 		Health     string         `yaml:"health"`
 		ServersNum map[string]int `yaml:"serversNum"`
 	}
 )
 
-// DefaultSpec returns ZookeeperServiceRegistry default spec.
-func DefaultSpec() *Spec {
+// Category returns the category of ZookeeperServiceRegistry.
+func (zk *ZookeeperServiceRegistry) Category() supervisor.ObjectCategory {
+	return Category
+}
+
+// Kind returns the kind of ZookeeperServiceRegistry.
+func (zk *ZookeeperServiceRegistry) Kind() string {
+	return Kind
+}
+
+// DefaultSpec returns the default spec of ZookeeperServiceRegistry.
+func (zk *ZookeeperServiceRegistry) DefaultSpec() interface{} {
 	return &Spec{
 		ZKServices:   []string{"127.0.0.1:2181"},
 		SyncInterval: "10s",
@@ -69,30 +80,30 @@ func DefaultSpec() *Spec {
 	}
 }
 
-// Validate validates Spec.
-func (spec Spec) Validate() error {
-	return nil
+// Init initilizes ZookeeperServiceRegistry.
+func (zk *ZookeeperServiceRegistry) Init(superSpec *supervisor.Spec, super *supervisor.Supervisor) {
+	zk.superSpec, zk.spec, zk.super = superSpec, superSpec.ObjectSpec().(*Spec), super
+	zk.reload()
 }
 
-// New creates an ZookeeperServiceRegistry.
-func New(spec *Spec, prev *ZookeeperServiceRegistry, handlers *sync.Map) *ZookeeperServiceRegistry {
-	zk := &ZookeeperServiceRegistry{
-		spec:       spec,
-		serversNum: map[string]int{},
-		done:       make(chan struct{}),
-	}
-	if prev != nil {
-		prev.Close()
-	}
+// Inherit inherits previous generation of ZookeeperServiceRegistry.
+func (zk *ZookeeperServiceRegistry) Inherit(superSpec *supervisor.Spec,
+	previousGeneration supervisor.Object, super *supervisor.Supervisor) {
+
+	previousGeneration.Close()
+	zk.Init(superSpec, super)
+}
+
+func (zk *ZookeeperServiceRegistry) reload() {
+	zk.serversNum = make(map[string]int)
+	zk.done = make(chan struct{})
 
 	_, err := zk.getConn()
 	if err != nil {
-		logger.Errorf("%s get zookeeper conn failed: %v", spec.Name, err)
+		logger.Errorf("%s get zookeeper conn failed: %v", zk.superSpec.Name(), err)
 	}
 
 	go zk.run()
-
-	return zk
 }
 
 func (zk *ZookeeperServiceRegistry) getConn() (*zookeeper.Conn, error) {
@@ -181,14 +192,14 @@ func (zk *ZookeeperServiceRegistry) update() {
 	conn, err := zk.getConn()
 	if err != nil {
 		logger.Errorf("%s get zookeeper conn failed: %v",
-			zk.spec.Name, err)
+			zk.superSpec.Name(), err)
 		return
 	}
 
 	childs, _, err := conn.Children(zk.spec.Prefix)
 
 	if err != nil {
-		logger.Errorf("%s get path: %s children failed: %v", zk.spec.Name, zk.spec.Prefix, err)
+		logger.Errorf("%s get path: %s children failed: %v", zk.superSpec.Name(), zk.spec.Prefix, err)
 		return
 	}
 
@@ -204,7 +215,7 @@ func (zk *ZookeeperServiceRegistry) update() {
 				continue
 			}
 
-			logger.Errorf("%s get child path %s failed: %v", zk.spec.Name, fullPath, err)
+			logger.Errorf("%s get child path %s failed: %v", zk.superSpec.Name(), fullPath, err)
 			return
 		}
 
@@ -213,15 +224,15 @@ func (zk *ZookeeperServiceRegistry) update() {
 		//       serviceregistry.Server JSON format directly.
 		err = json.Unmarshal(data, server)
 		if err != nil {
-			logger.Errorf("BUG %s unmarshal fullpath %s failed %v", zk.spec.Name, fullPath, err)
+			logger.Errorf("BUG %s unmarshal fullpath %s failed %v", zk.superSpec.Name(), fullPath, err)
 			return
 		}
-		logger.Debugf("zk %s fullpath %s server is  %v", zk.spec.Name, fullPath, server)
+		logger.Debugf("zk %s fullpath %s server is  %v", zk.superSpec.Name(), fullPath, server)
 		serversNum[fullPath]++
 		servers = append(servers, server)
 	}
 
-	serviceregistry.Global.ReplaceServers(zk.spec.Name, servers)
+	serviceregistry.Global.ReplaceServers(zk.superSpec.Name(), servers)
 
 	zk.statusMutex.Lock()
 	zk.serversNum = serversNum
@@ -229,19 +240,23 @@ func (zk *ZookeeperServiceRegistry) update() {
 }
 
 // Status returns status of EurekaServiceRegister.
-func (zk *ZookeeperServiceRegistry) Status() *Status {
-	s := &Status{Health: "ready"}
+func (zk *ZookeeperServiceRegistry) Status() *supervisor.Status {
+	s := &Status{}
 
 	_, err := zk.getConn()
 	if err != nil {
 		s.Health = err.Error()
+	} else {
+		s.Health = "ready"
 	}
 
 	zk.statusMutex.Lock()
 	s.ServersNum = zk.serversNum
 	zk.statusMutex.Unlock()
 
-	return s
+	return &supervisor.Status{
+		ObjectStatus: s,
+	}
 }
 
 // Close closes ZookeeperServiceRegistry.
@@ -249,5 +264,5 @@ func (zk *ZookeeperServiceRegistry) Close() {
 	zk.closeConn()
 	close(zk.done)
 
-	serviceregistry.Global.CloseRegistry(zk.spec.Name)
+	serviceregistry.Global.CloseRegistry(zk.superSpec.Name())
 }

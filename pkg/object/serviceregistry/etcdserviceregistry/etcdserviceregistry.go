@@ -1,4 +1,4 @@
-package etcdserviceregistry
+package eserviceregistry
 
 import (
 	"context"
@@ -9,29 +9,29 @@ import (
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/serviceregistry"
 	"github.com/megaease/easegateway/pkg/option"
-	"github.com/megaease/easegateway/pkg/scheduler"
+	"github.com/megaease/easegateway/pkg/supervisor"
 
 	"go.etcd.io/etcd/clientv3"
 )
 
 const (
-	// Kind is EtcdServiceRegistry kind.
+	// Category is the category of EtcdServiceRegistry.
+	Category = supervisor.CategoryBusinessController
+
+	// Kind is the kind of EtcdServiceRegistry.
 	Kind = "EtcdServiceRegistry"
 )
 
 func init() {
-	scheduler.Register(&scheduler.ObjectRecord{
-		Kind:              Kind,
-		DefaultSpecFunc:   DefaultSpec,
-		NewFunc:           New,
-		DependObjectKinds: nil,
-	})
+	supervisor.Register(&EtcdServiceRegistry{})
 }
 
 type (
 	// EtcdServiceRegistry is Object EtcdServiceRegistry.
 	EtcdServiceRegistry struct {
-		spec *Spec
+		super     *supervisor.Supervisor
+		superSpec *supervisor.Spec
+		spec      *Spec
 
 		clientMutex sync.RWMutex
 		client      *clientv3.Client
@@ -44,8 +44,6 @@ type (
 
 	// Spec describes the EtcdServiceRegistry.
 	Spec struct {
-		scheduler.ObjectMeta `yaml:",inline"`
-
 		Endpoints    []string `yaml:"endpoints" jsonschema:"required,uniqueItems=true"`
 		Prefix       string   `yaml:"prefix" jsonschema:"required,pattern=^/"`
 		CacheTimeout string   `yaml:"cacheTimeout" jsonschema:"required,format=duration"`
@@ -53,130 +51,139 @@ type (
 
 	// Status is the status of EtcdServiceRegistry.
 	Status struct {
-		Timestamp  int64          `yaml:"timestamp"`
 		Health     string         `yaml:"health"`
 		ServersNum map[string]int `yaml:"serversNum"`
 	}
 )
 
-// DefaultSpec returns EtcdServiceRegistry default spec.
-func DefaultSpec() *Spec {
+// Category returns the category of EtcdServiceRegistry.
+func (e *EtcdServiceRegistry) Category() supervisor.ObjectCategory {
+	return Category
+}
+
+// Kind returns the kind of EtcdServiceRegistry.
+func (e *EtcdServiceRegistry) Kind() string {
+	return Kind
+}
+
+// DefaultSpec returns the default spec of EtcdServiceRegistry.
+func (e *EtcdServiceRegistry) DefaultSpec() interface{} {
 	return &Spec{
 		Prefix:       "/services/",
 		CacheTimeout: "60s",
 	}
 }
 
-// Validate validates Spec.
-func (spec Spec) Validate() error {
-	return nil
+// Init initilizes EtcdServiceRegistry.
+func (e *EtcdServiceRegistry) Init(superSpec *supervisor.Spec, super *supervisor.Supervisor) {
+	e.superSpec, e.spec, e.super = superSpec, superSpec.ObjectSpec().(*Spec), super
+	e.reload()
 }
 
-// New creates an EtcdServiceRegistry.
-func New(spec *Spec, prev *EtcdServiceRegistry, handlers *sync.Map) *EtcdServiceRegistry {
-	etcd := &EtcdServiceRegistry{
-		spec:       spec,
-		serversNum: map[string]int{},
-		done:       make(chan struct{}),
-	}
-	if prev != nil {
-		prev.Close()
-	}
+// Inherit inherits previous generation of EtcdServiceRegistry.
+func (e *EtcdServiceRegistry) Inherit(superSpec *supervisor.Spec,
+	previousGeneration supervisor.Object, super *supervisor.Supervisor) {
 
-	_, err := etcd.getClient()
+	previousGeneration.Close()
+	e.Init(superSpec, super)
+}
+
+func (e *EtcdServiceRegistry) reload() {
+	e.serversNum = map[string]int{}
+	e.done = make(chan struct{})
+
+	_, err := e.getClient()
 	if err != nil {
-		logger.Errorf("%s get etcd client failed: %v", spec.Name, err)
+		logger.Errorf("%s get etcd client failed: %v", e.superSpec.Name(), err)
 	}
 
-	go etcd.run()
-
-	return etcd
+	go e.run()
 }
 
-func (etcd *EtcdServiceRegistry) getClient() (*clientv3.Client, error) {
-	etcd.clientMutex.RLock()
-	if etcd.client != nil {
-		client := etcd.client
-		etcd.clientMutex.RUnlock()
+func (e *EtcdServiceRegistry) getClient() (*clientv3.Client, error) {
+	e.clientMutex.RLock()
+	if e.client != nil {
+		client := e.client
+		e.clientMutex.RUnlock()
 		return client, nil
 	}
-	etcd.clientMutex.RUnlock()
+	e.clientMutex.RUnlock()
 
-	return etcd.buildClient()
+	return e.buildClient()
 }
 
-func (etcd *EtcdServiceRegistry) buildClient() (*clientv3.Client, error) {
-	etcd.clientMutex.Lock()
-	defer etcd.clientMutex.Unlock()
+func (e *EtcdServiceRegistry) buildClient() (*clientv3.Client, error) {
+	e.clientMutex.Lock()
+	defer e.clientMutex.Unlock()
 
 	// DCL
-	if etcd.client != nil {
-		return etcd.client, nil
+	if e.client != nil {
+		return e.client, nil
 	}
 
 	client, err := clientv3.New(clientv3.Config{
-		Endpoints:            etcd.spec.Endpoints,
+		Endpoints:            e.spec.Endpoints,
 		AutoSyncInterval:     1 * time.Minute,
 		DialTimeout:          10 * time.Second,
 		DialKeepAliveTime:    1 * time.Minute,
 		DialKeepAliveTimeout: 1 * time.Minute,
-		LogConfig:            logger.EtcdClientLoggerConfig(option.Global, "object_"+etcd.spec.Name),
+		LogConfig:            logger.EtcdClientLoggerConfig(option.Global, "object_"+e.superSpec.Name()),
 	})
 
 	if err != nil {
 		return nil, err
 	}
 
-	etcd.client = client
+	e.client = client
 
 	return client, nil
 }
 
-func (etcd *EtcdServiceRegistry) closeClient() {
-	etcd.clientMutex.Lock()
-	defer etcd.clientMutex.Unlock()
+func (e *EtcdServiceRegistry) closeClient() {
+	e.clientMutex.Lock()
+	defer e.clientMutex.Unlock()
 
-	if etcd.client == nil {
+	if e.client == nil {
 		return
 	}
-	err := etcd.client.Close()
+	err := e.client.Close()
 	if err != nil {
-		logger.Errorf("%s close etdc client failed: %v", etcd.spec.Name, err)
+		logger.Errorf("%s close etcd client failed: %v", e.superSpec.Name(), err)
 	}
-	etcd.client = nil
+	e.client = nil
 }
 
-func (etcd *EtcdServiceRegistry) run() {
-	cacheTimeout, err := time.ParseDuration(etcd.spec.CacheTimeout)
+func (e *EtcdServiceRegistry) run() {
+	cacheTimeout, err := time.ParseDuration(e.spec.CacheTimeout)
 	if err != nil {
 		logger.Errorf("BUG: parse duration %s failed: %v",
-			etcd.spec.CacheTimeout, err)
+			e.spec.CacheTimeout, err)
 		return
 	}
 
-	etcd.update()
+	e.update()
 
 	for {
 		select {
-		case <-etcd.done:
+		case <-e.done:
 			return
 		case <-time.After(cacheTimeout):
-			etcd.update()
+			e.update()
 		}
 	}
 }
 
-func (etcd *EtcdServiceRegistry) update() {
-	client, err := etcd.getClient()
+func (e *EtcdServiceRegistry) update() {
+	client, err := e.getClient()
 	if err != nil {
 		logger.Errorf("%s get etcd client failed: %v",
-			etcd.spec.Name, err)
+			e.superSpec.Name(), err)
 		return
 	}
-	resp, err := client.Get(context.Background(), etcd.spec.Prefix, clientv3.WithPrefix())
+	resp, err := client.Get(context.Background(), e.spec.Prefix, clientv3.WithPrefix())
 	if err != nil {
 		logger.Errorf("%s pull services failed: %v",
-			etcd.spec.Name, err)
+			e.superSpec.Name(), err)
 		return
 	}
 
@@ -199,37 +206,39 @@ func (etcd *EtcdServiceRegistry) update() {
 		serversNum[server.ServiceName]++
 	}
 
-	serviceregistry.Global.ReplaceServers(etcd.spec.Name, servers)
+	serviceregistry.Global.ReplaceServers(e.superSpec.Name(), servers)
 
-	etcd.statusMutex.Lock()
-	etcd.serversNum = serversNum
-	etcd.statusMutex.Unlock()
+	e.statusMutex.Lock()
+	e.serversNum = serversNum
+	e.statusMutex.Unlock()
 }
 
 // Status returns status of EtcdServiceRegister.
-func (etcd *EtcdServiceRegistry) Status() *Status {
+func (e *EtcdServiceRegistry) Status() *supervisor.Status {
 	s := &Status{}
 
-	_, err := etcd.getClient()
+	_, err := e.getClient()
 	if err != nil {
 		s.Health = err.Error()
 	} else {
 		s.Health = "ready"
 	}
 
-	etcd.statusMutex.Lock()
-	serversNum := etcd.serversNum
-	etcd.statusMutex.Unlock()
+	e.statusMutex.Lock()
+	serversNum := e.serversNum
+	e.statusMutex.Unlock()
 
 	s.ServersNum = serversNum
 
-	return s
+	return &supervisor.Status{
+		ObjectStatus: s,
+	}
 }
 
 // Close closes EtcdServiceRegistry.
-func (etcd *EtcdServiceRegistry) Close() {
-	etcd.closeClient()
-	close(etcd.done)
+func (e *EtcdServiceRegistry) Close() {
+	e.closeClient()
+	close(e.done)
 
-	serviceregistry.Global.CloseRegistry(etcd.spec.Name)
+	serviceregistry.Global.CloseRegistry(e.superSpec.Name())
 }

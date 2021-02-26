@@ -49,8 +49,8 @@ type (
 
 		Template() texttemplate.TemplateEngine
 		SetTemplate(ht *HTTPTemplate)
-		SaveReqToTemplate(pluginName string) error
-		SaveRspToTemplate(pluginName string) error
+		SaveReqToTemplate(filterName string) error
+		SaveRspToTemplate(filterName string) error
 	}
 
 	// HTTPRequest is all operations for HTTP request.
@@ -294,11 +294,11 @@ func (ctx *httpContext) SetTemplate(ht *HTTPTemplate) {
 }
 
 // SaveHTTPReqToTemplate stores http request related info into HTTP template engine
-func (ctx *httpContext) SaveReqToTemplate(pluginName string) error {
-	return ctx.ht.SaveRequest(pluginName, ctx)
+func (ctx *httpContext) SaveReqToTemplate(filterName string) error {
+	return ctx.ht.SaveRequest(filterName, ctx)
 }
 
 // SaveHTTPRspToTemplate stores http response related info into HTTP template engine
-func (ctx *httpContext) SaveRspToTemplate(pluginName string) error {
-	return ctx.ht.SaveResponse(pluginName, ctx)
+func (ctx *httpContext) SaveRspToTemplate(filterName string) error {
+	return ctx.ht.SaveResponse(filterName, ctx)
 }

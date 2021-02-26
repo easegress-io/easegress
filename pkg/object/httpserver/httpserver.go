@@ -1,39 +1,44 @@
 package httpserver
 
 import (
-	"sync"
 	"time"
 
-	"github.com/megaease/easegateway/pkg/context"
-	"github.com/megaease/easegateway/pkg/scheduler"
+	"github.com/megaease/easegateway/pkg/supervisor"
 )
 
 const (
-	// Kind is HTTPServer kind.
+	// Category is the category of HTTPServer.
+	Category = supervisor.CategoryTrafficGate
+
+	// Kind is the kind of HTTPServer.
 	Kind = "HTTPServer"
 
 	blockTimeout = 100 * time.Millisecond
 )
 
 func init() {
-	scheduler.Register(&scheduler.ObjectRecord{
-		Kind:              Kind,
-		DefaultSpecFunc:   DefaultSpec,
-		NewFunc:           New,
-		DependObjectKinds: []string{},
-	})
+	supervisor.Register(&HTTPServer{})
 }
 
 type (
 	// HTTPServer is Object HTTPServer.
 	HTTPServer struct {
-		spec    *Spec
 		runtime *runtime
 	}
 )
 
-// DefaultSpec returns HTTPServer default spec.
-func DefaultSpec() *Spec {
+// Category returns the category of HTTPServer.
+func (hs *HTTPServer) Category() supervisor.ObjectCategory {
+	return Category
+}
+
+// Kind returns the kind of HTTPServer.
+func (hs *HTTPServer) Kind() string {
+	return Kind
+}
+
+// DefaultSpec returns the default spec of HTTPServer.
+func (hs *HTTPServer) DefaultSpec() interface{} {
 	return &Spec{
 		KeepAlive:        true,
 		KeepAliveTimeout: "60s",
@@ -41,29 +46,33 @@ func DefaultSpec() *Spec {
 	}
 }
 
-// New creates an HTTPServer.
-func New(spec *Spec, prev *HTTPServer, handlers *sync.Map) *HTTPServer {
-	hs := &HTTPServer{
-		spec: spec,
+// Init initilizes HTTPServer.
+func (hs *HTTPServer) Init(superSpec *supervisor.Spec, super *supervisor.Supervisor) {
+	hs.runtime = newRuntime(super)
+
+	hs.runtime.eventChan <- &eventReload{
+		nextSuperSpec: superSpec,
+		super:         super,
 	}
-
-	if prev == nil {
-		hs.runtime = newRuntime(handlers)
-	} else {
-		hs.runtime = prev.runtime
-	}
-
-	hs.runtime.eventChan <- &eventReload{nextSpec: spec}
-
-	return hs
 }
 
-// Handle is a dummy placeholder for scheduler.Object
-func (hs *HTTPServer) Handle(context.HTTPContext) {}
+// Inherit inherits previous generation of HTTPServer.
+func (hs *HTTPServer) Inherit(superSpec *supervisor.Spec,
+	previousGeneration supervisor.Object, super *supervisor.Supervisor) {
+
+	hs.runtime = previousGeneration.(*HTTPServer).runtime
+
+	hs.runtime.eventChan <- &eventReload{
+		nextSuperSpec: superSpec,
+		super:         super,
+	}
+}
 
 // Status is the wrapper of runtime's Status.
-func (hs *HTTPServer) Status() *Status {
-	return hs.runtime.Status()
+func (hs *HTTPServer) Status() *supervisor.Status {
+	return &supervisor.Status{
+		ObjectStatus: hs.runtime.Status(),
+	}
 }
 
 // Close closes HTTPServer.
