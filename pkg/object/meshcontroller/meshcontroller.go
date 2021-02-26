@@ -18,12 +18,26 @@ type (
 		super     *supervisor.Supervisor
 		superSpec *supervisor.Spec
 		spec      *Spec
+		master    *Master
+		worker    *Worker
+		Role      string
 
 		done chan struct{}
 	}
 
 	// Spec describes MeshController.
 	Spec struct {
+
+		// Role as master's configurations start ---
+		// ServiceWatchInterval is the interval for watcing all service instance heartbeat record
+		ServiceWatchInterval string `yaml:"WatchInterval" jsonschema:"required,format=duration"`
+		// Rule as master's configurations end ------
+
+		// Role as slave's configurations start -----
+		// HeartbeatInterval is the interval for one service instance reports its hearbeat
+		HeartbeatInterval string `yaml:"WatchInterval" jsonschema:"required,format=duration"`
+
+		// Rule as slave's configurations end ------
 	}
 )
 
@@ -65,6 +79,13 @@ func (ssc *MeshController) reload() {
 }
 
 func (ssc *MeshController) run() {
+
+	if ssc.Role == meshRoleMaster {
+		go ssc.master.Run()
+	} else if ssc.Role == meshRoleWorker {
+		go ssc.worker.Run()
+	}
+
 	for {
 		select {
 		case <-ssc.done:
@@ -82,5 +103,11 @@ func (ssc *MeshController) Status() *supervisor.Status {
 
 // Close closes MeshController.
 func (ssc *MeshController) Close() {
+	if ssc.Role == meshRoleMaster {
+		ssc.master.Close()
+	} else if ssc.Role == meshRoleWorker {
+		ssc.worker.Close()
+	}
+
 	close(ssc.done)
 }
