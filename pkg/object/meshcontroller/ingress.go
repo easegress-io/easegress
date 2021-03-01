@@ -18,10 +18,22 @@ func genHTTPServerName(serviceName string) string {
 // IngressServer control one ingress pipeline and one HTTPServer
 type IngressServer struct {
 	store MeshStorage
+
+	// only one ingress need to watch
+	watchIngressPipelineName []string
+
+	// InstanceRealPort is the Java process realy listening port
+	InstanceRealPort uint32
+}
+
+// SetIngressPipelinePort sets the real Java process listening port provided by
+// registry request
+func (ings *IngressServer) SetIngressPipelinePort(port uint32) {
+	ings.InstanceRealPort = port
 }
 
 // createIngress creates one default pipeline and httpservice for ingress
-func (is *IngressServer) createIngress(serviceName string, instanceID string, instancePort uint32) error {
+func (ings *IngressServer) createIngress(serviceName string, instanceID string, instancePort uint32) error {
 	var (
 		err            error
 		pipelineSpec   string
@@ -30,7 +42,7 @@ func (is *IngressServer) createIngress(serviceName string, instanceID string, in
 		HTTPServerName string = genHTTPServerName(serviceName)
 	)
 
-	if pipelineSpec, err = is.store.Get(pipelineName); err != nil {
+	if pipelineSpec, err = ings.store.Get(pipelineName); err != nil {
 		logger.Errorf("read service %s's ingress pipeline spec failed, %v", serviceName, err)
 		return err
 	}
@@ -39,7 +51,7 @@ func (is *IngressServer) createIngress(serviceName string, instanceID string, in
 	// TODO: call supervisor to create pipeline if the Pipeline exist locally, do nothing
 
 	// call supervisor to create httpservice
-	if HTTPServerSpec, err = is.store.Get(HTTPServerName); err != nil {
+	if HTTPServerSpec, err = ings.store.Get(HTTPServerName); err != nil {
 		logger.Errorf("read service %s's ingress HTTPServer spec failed, %v", serviceName, err)
 		return err
 	}
@@ -51,7 +63,13 @@ func (is *IngressServer) createIngress(serviceName string, instanceID string, in
 	return err
 }
 
-func (mb *MeshController) updateIngress(specs map[string]string) error {
+func (ings *IngressServer) updateIngress(specs map[string]string) error {
+	var err error
+
+	return err
+}
+
+func (ings *IngressServer) deleteIngress() error {
 	var err error
 
 	return err

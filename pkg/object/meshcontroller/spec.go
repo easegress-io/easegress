@@ -30,15 +30,19 @@ const (
 	meshServiceInstanceEtcdLockPrefix = "/mesh/lock/instances/%s" // +instanceID, for locking one service instances's record
 )
 
+var (
+
+	// ErrParamNotMatch means RESTful request URL's object name or other fields are not matched in this request's body
+	ErrParamNotMatch = fmt.Errorf("param in url and body's spec not matched")
+)
+
 type (
 
 	// Spec describes MeshController.
 	Spec struct {
 
-		// Role as master's configurations start ---
 		// ServiceWatchInterval is the interval for watcing all service instance heartbeat record
 		ServiceWatchInterval string `yaml:"watchInterval" jsonschema:"required,format=duration"`
-		// Rule as master's configurations end ------
 
 		// Role as slave's configurations start -----
 		// HeartbeatInterval is the interval for one service instance reports its hearbeat
@@ -46,7 +50,8 @@ type (
 
 		RegistryType string `yaml:"RegistryType" jsonschema:"required"`
 
-		// Rule as slave's configurations end ------
+		// SerivceName indicates which serivce the worker(sidecar) stands for
+		ServiceName string `yaml:"serivceName"`
 	}
 
 	// MeshServiceSpec describes the mesh service basic info, its name, which tenant it belongs to

@@ -5,6 +5,7 @@ type (
 	MeshStorage interface {
 		Get(key string) (string, error)
 		Set(key, val string) error
+		Delete(key string) error
 
 		AcquireLock(key string, expireSecond int) error
 		GetWithPrefix(prefix string) ([]record, error)
@@ -24,7 +25,7 @@ type (
 	}
 )
 
-// Get gets
+// Get gets ETCD one record by provided 'key'
 func (mec *mockEtcdClient) Get(key string) (string, error) {
 	var (
 		val string
@@ -37,6 +38,14 @@ func (mec *mockEtcdClient) Get(key string) (string, error) {
 func (mec *mockEtcdClient) Set(key string, val string) error {
 	var err error
 
+	return err
+}
+
+// Delete deletes ETCD key by provided 'key'
+func (mec *mockEtcdClient) Delete(key string) error {
+	var (
+		err error
+	)
 	return err
 }
 

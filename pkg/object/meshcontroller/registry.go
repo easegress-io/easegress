@@ -20,14 +20,15 @@ const (
 	RegistryTypeEureka = "eureka"
 	// RegistryTypeConsul indicates a Consul registry center
 	RegistryTypeConsul = "consul"
+
+	// SerivceStatusUp indicates this service instance can accept ingress traffic
+	SerivceStatusUp = "UP"
+
+	// SerivceStatusOutOfSerivce indicates this service can't accept ingress traffic
+	SerivceStatusOutOfSerivce = "OUT_OF_SERVICE"
 )
 
 type (
-	// RegistryCenter provids registry implement constract for different protocols,e.g. Consul, Eureka
-	RegistryCenter interface {
-		// Registry accepts RESTful POST/PUT body and transform them into
-		Registry(body []byte) error
-	}
 
 	// ServiceInstance one registry info of serivce
 	ServiceInstance struct {
@@ -50,8 +51,7 @@ type (
 		RegistryType string
 		Registried   bool
 
-		store      MeshStorage
-		ingressSvc *IngressServer
+		store MeshStorage
 	}
 )
 
@@ -60,39 +60,23 @@ type (
 // into one routine.
 // Todo: Consider to split this routien for other None RESTful POST body
 //       format in future.
-func (rcs *RegistryCenterServer) RegistryServiceInstance(reqBody []byte) error {
-	var err error
-
+func (rcs *RegistryCenterServer) RegistryServiceInstance(ins *ServiceInstance, service *MeshServiceSpec, sidecar *SidecarSpec, ings *IngressServer) {
 	// valid the input
 	if rcs.Registried == true {
 		// already registried
-		return nil
+		return
 	}
 
-	var ins *ServiceInstance
-	if ins, err = rcs.decodeByEurekaFormat(reqBody); err == nil {
-		// registry from eureke
-	} else if ins, err = rcs.decodeByConsulFormat(reqBody); err == nil {
-		// registry from consul
-	} else {
-		return fmt.Errorf("unkonw registry request, %v ", string(reqBody))
-	}
-
-	var service *MeshServiceSpec
-	var sidecar *SidecarSpec
-	// Get mesh service and sidecar spec
-
-	// Modify to accept traffic from sidecar
 	insPort := ins.Port
 	ins.Port = uint32(sidecar.IngressPort)
 	ins.Tenant = service.RegisterTenant
 
-	go rcs.registry(ins, insPort)
+	go rcs.registry(ins, insPort, ings)
 
-	return err
+	return
 }
 
-func (rcs *RegistryCenterServer) registry(ins *ServiceInstance, insPort uint32) {
+func (rcs *RegistryCenterServer) registry(ins *ServiceInstance, insPort uint32, ings *IngressServer) {
 	var (
 		err      error
 		tryTimes int = 0
@@ -102,10 +86,13 @@ func (rcs *RegistryCenterServer) registry(ins *ServiceInstance, insPort uint32) 
 	for {
 		tryTimes++
 
-		if err = rcs.ingressSvc.createIngress(ins.ServiceName, ins.InstanceID, insPort); err != nil {
+		if err = ings.createIngress(ins.ServiceName, ins.InstanceID, insPort); err != nil {
 			logger.Errorf("service %s try to create ingress failed, err %v, times %d", ins.ServiceName, err, tryTimes)
 			continue
 		}
+
+		// set this instance status up
+		ins.Status = SerivceStatusUp
 
 		if err = rcs.registryIntoEtcd(ins); err != nil {
 			logger.Errorf("service %s try to create ingress failed, err %v, times %d", ins.ServiceName, err, tryTimes)
@@ -164,6 +151,27 @@ func (rcs *RegistryCenterServer) decodeByEurekaFormat(body []byte) (*ServiceInst
 	return nil, err
 }
 
+func (rcs *RegistryCenterServer) decodeBody(reqBody []byte) (*ServiceInstance, error) {
+	var (
+		ins *ServiceInstance
+		err error
+	)
+	if rcs.RegistryType == RegistryTypeEureka {
+		if ins, err = rcs.decodeByEurekaFormat(reqBody); err != nil {
+			return nil, err
+		}
+	} else if rcs.RegistryType == RegistryTypeConsul {
+		if ins, err = rcs.decodeByConsulFormat(reqBody); err != nil {
+			return nil, err
+		}
+	} else {
+		return nil, fmt.Errorf("unkonw registry request, %v ", string(reqBody))
+	}
+
+	return ins, err
+
+}
+
 // registryIntoEtcd writes instance record into etcd
 func (rcs *RegistryCenterServer) registryIntoEtcd(ins *ServiceInstance) error {
 	var err error
@@ -174,19 +182,24 @@ func (rcs *RegistryCenterServer) registryIntoEtcd(ins *ServiceInstance) error {
 	}
 
 	lockID := fmt.Sprint(meshServiceInstanceEtcdLockPrefix, ins.InstanceID)
+
+	lockReleaseFunc := func() {
+		if err = rcs.store.ReleaseLock(lockID); err != nil {
+			logger.Errorf("release lock ID %s failed err %v", lockID, err)
+			err = nil
+		}
+	}
+
 	if err = rcs.store.AcquireLock(lockID, defaultRegistryExpireSecond); err != nil {
 		logger.Errorf("require lock %s failed %v")
 		return err
 	}
+
+	defer lockReleaseFunc()
+
 	name := fmt.Sprintf(meshServiceInstancePrefix, ins.ServiceName, ins.InstanceID)
 	if err = rcs.store.Set(name, string(buff)); err != nil {
 		return err
-	}
-
-	if err = rcs.store.ReleaseLock(lockID); err != nil {
-		logger.Errorf("release lock ID %s failed err %v", lockID, err)
-		// reset err to nil to ignore the lock relese problem, we have done the desired resgistry task
-		err = nil
 	}
 
 	return err

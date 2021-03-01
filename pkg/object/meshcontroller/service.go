@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kataras/iris"
 	"github.com/megaease/easegateway/pkg/logger"
 	"gopkg.in/yaml.v2"
 )
@@ -99,29 +98,88 @@ func (mss *MeshServiceServer) GetTenantSpec(tenant string) (string, error) {
 }
 
 // GetSerivceInstances get whole service Instances from ETCD
-func (mss *MeshServiceServer) GetSerivceInstances(serviceName string) error {
-	var err error
-	// TODO
-	return err
+func (mss *MeshServiceServer) GetSerivceInstances(serviceName, ID string) (*ServiceInstance, error) {
+	var (
+		err     error
+		ins     *ServiceInstance
+		insYAML string
+	)
+
+	insYAML, err = mss.store.Get(fmt.Sprintf(meshServiceInstancePrefix, serviceName, ID))
+
+	if err != nil {
+		return nil, err
+	}
+
+	err = yaml.Unmarshal([]byte(insYAML), ins)
+
+	return ins, err
+
 }
 
 // DeleteSerivceInstance deletes one service registry instance
-func (mss *MeshServiceServer) DeleteSerivceInstance(serviceName, instanceID string) (*ServiceInstance, error) {
-	var err error
+func (mss *MeshServiceServer) DeleteSerivceInstance(serviceName, ID string) error {
 
-	return nil, err
+	return mss.store.Delete(fmt.Sprintf(meshServiceInstancePrefix, serviceName, ID))
 
 }
 
-// UpdateServiceInstanceLeases  updates one instance's status field
-func (mss *MeshServiceServer) UpdateServiceInstanceLeases(ctx iris.Context) error {
+// UpdateServiceInstance  updates one instance's status field
+func (mss *MeshServiceServer) UpdateServiceInstanceLeases(serviceName, ID string, leases int64) error {
 
-	// TODO
-	return nil
+	updateLeases := func(ins *ServiceInstance) {
+		if ins.Leases != leases {
+			ins.Leases = leases
+		}
+	}
+
+	err := mss.updateSerivceInstanceWithLock(serviceName, ID, updateLeases)
+	return err
 }
 
-// UpdateServiceInstanceStaus  updates one instance's status field
-func (mss *MeshServiceServer) UpdateServiceInstanceStaus(ctx iris.Context) error {
-	// TOOD
-	return nil
+// UpdateServiceInstanceStatus  updates one instance's status field
+func (mss *MeshServiceServer) UpdateServiceInstanceStatus(serviceName, ID, status string) error {
+
+	updateStatus := func(ins *ServiceInstance) {
+		if ins.Status != status {
+			ins.Status = status
+		}
+
+	}
+
+	err := mss.updateSerivceInstanceWithLock(serviceName, ID, updateStatus)
+	return err
+}
+
+func (mss *MeshServiceServer) updateSerivceInstanceWithLock(serviceName, ID string, updateFunc func(old *ServiceInstance)) error {
+	var (
+		err error
+		ins *ServiceInstance
+	)
+
+	lockID := fmt.Sprint(meshServiceInstanceEtcdLockPrefix, ID)
+	lockReleaseFunc := func() {
+		if err = mss.store.ReleaseLock(lockID); err != nil {
+			logger.Errorf("release lock ID %s failed err %v", lockID, err)
+			err = nil
+		}
+	}
+
+	if err = mss.store.AcquireLock(lockID, defaultRegistryExpireSecond); err != nil {
+		logger.Errorf("require lock %s failed %v")
+		return err
+	}
+
+	defer lockReleaseFunc()
+
+	if ins, err = mss.GetSerivceInstances(serviceName, ID); err != nil {
+
+		return fmt.Errorf("get serivce :%s , instacne %s failed, err : %v", serviceName, ID, err)
+	}
+
+	updateFunc(ins)
+	var insYAML []byte
+	insYAML, err = yaml.Marshal(ins)
+	err = mss.store.Set(fmt.Sprintf(meshServiceInstancePrefix, serviceName, ID), string(insYAML))
+	return err
 }
