@@ -1,5 +1,7 @@
 package meshcontroller
 
+import "fmt"
+
 const (
 	meshRoleMaster = "master"
 	meshRoleWorker = "worker"
@@ -15,10 +17,10 @@ const (
 	meshServiceObservabilityPrefix = "/mesh/service/%s/observability" // + serviceName(its value is the observability spec)
 
 	// traffic gate about
-	meshServiceIngressHTTPServerPrefix = "/mesh/service/%s/ingress/httpserver"  // +serviceName (its value is the ingress httpserver spec)
-	meshServiceIngressPipelinePrefix   = "/mesh/service/%s/ingress/pipeline/%s" // +serviceName (its value is the ingress pipeline spec)
-	meshServiceEgressHTTPServerPrefix  = "/mesh/service/%s/egress/httpserver"   // +serviceName (its value is the egress httpserver spec)
-	meshServiceEgressPipelinePrefix    = "/mesh/service/%s/egress/pipeline/%s"  //+serviceName + RPC target serviceName(which service's this pipeline point to)
+	meshServiceIngressHTTPServerPrefix = "/mesh/service/%s/ingress/httpserver" // +serviceName (its value is the ingress httpserver spec)
+	meshServiceIngressPipelinePrefix   = "/mesh/service/%s/ingress/pipeline"   // +serviceName (its value is the ingress pipeline spec)
+	meshServiceEgressHTTPServerPrefix  = "/mesh/service/%s/egress/httpserver"  // +serviceName (its value is the egress httpserver spec)
+	meshServiceEgressPipelinePrefix    = "/mesh/service/%s/egress/pipeline/%s" //+serviceName + RPC target serviceName(which service's this pipeline point to)
 
 	// registry about
 	meshServiceInstancePrefix         = "/mesh/service/%s/instance/%s"           // +serviceName + instanceID( its value is one instance registry info)
@@ -29,6 +31,23 @@ const (
 )
 
 type (
+
+	// Spec describes MeshController.
+	Spec struct {
+
+		// Role as master's configurations start ---
+		// ServiceWatchInterval is the interval for watcing all service instance heartbeat record
+		ServiceWatchInterval string `yaml:"watchInterval" jsonschema:"required,format=duration"`
+		// Rule as master's configurations end ------
+
+		// Role as slave's configurations start -----
+		// HeartbeatInterval is the interval for one service instance reports its hearbeat
+		HeartbeatInterval string `yaml:"heartbeatInterval" jsonschema:"required,format=duration"`
+
+		RegistryType string `yaml:"RegistryType" jsonschema:"required"`
+
+		// Rule as slave's configurations end ------
+	}
 
 	// MeshServiceSpec describes the mesh service basic info, its name, which tenant it belongs to
 	MeshServiceSpec struct {
@@ -59,6 +78,10 @@ type (
 )
 
 // Validate validates Spec.
-func (spec Spec) Validate() error {
+func (spec *Spec) Validate() error {
+
+	if spec.RegistryType != RegistryTypeConsul && spec.RegistryType != RegistryTypeEureka {
+		return fmt.Errorf("unknow registry center type :%s", spec.RegistryType)
+	}
 	return nil
 }

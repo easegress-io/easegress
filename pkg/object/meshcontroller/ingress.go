@@ -15,6 +15,7 @@ func genHTTPServerName(serviceName string) string {
 	return fmt.Sprintf(meshServiceIngressHTTPServerPrefix, serviceName)
 }
 
+// IngressServer control one ingress pipeline and one HTTPServer
 type IngressServer struct {
 	store MeshStorage
 }
@@ -43,7 +44,7 @@ func (is *IngressServer) createIngress(serviceName string, instanceID string, in
 		return err
 	}
 
-	logger.Debugf("get HTTP server secp %s", HTTPServerSpec)
+	logger.Debugf("get HTTP server spec %s", HTTPServerSpec)
 
 	// TODO: call supervisor to create HTTPServer, if the HTTPServer exist locally, do nothing
 
@@ -54,5 +55,4 @@ func (mb *MeshController) updateIngress(specs map[string]string) error {
 	var err error
 
 	return err
-
 }

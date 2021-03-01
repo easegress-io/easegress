@@ -6,6 +6,7 @@ import (
 	"github.com/megaease/easegateway/pkg/logger"
 )
 
+// Master is the role of EG for mesh control plane
 type Master struct {
 	mss   *MeshServiceServer
 	store MeshStorage
@@ -24,7 +25,7 @@ func NewMaster() *Master {
 func (m *Master) watchServicesHeartbeat() {
 
 	// Get all serivces
-	m.mss.WatchAllSerivceInstanceHeartbeat()
+	m.mss.WatchSerivceInstancesHeartbeat()
 	// find one serivce instance
 
 	// read heartbeat, if more than 30s (configurable), then set the instance to OUT_OF_SERVICE
@@ -51,7 +52,7 @@ func (m *Master) Run() {
 	}
 }
 
-// Close close the master
-func (w *Master) Close() {
-	w.done <- struct{}{}
+// Close closes the master
+func (m *Master) Close() {
+	m.done <- struct{}{}
 }

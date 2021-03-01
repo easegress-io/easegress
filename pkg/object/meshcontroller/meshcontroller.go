@@ -24,21 +24,6 @@ type (
 
 		done chan struct{}
 	}
-
-	// Spec describes MeshController.
-	Spec struct {
-
-		// Role as master's configurations start ---
-		// ServiceWatchInterval is the interval for watcing all service instance heartbeat record
-		ServiceWatchInterval string `yaml:"WatchInterval" jsonschema:"required,format=duration"`
-		// Rule as master's configurations end ------
-
-		// Role as slave's configurations start -----
-		// HeartbeatInterval is the interval for one service instance reports its hearbeat
-		HeartbeatInterval string `yaml:"WatchInterval" jsonschema:"required,format=duration"`
-
-		// Rule as slave's configurations end ------
-	}
 )
 
 func init() {

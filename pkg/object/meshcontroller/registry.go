@@ -15,9 +15,20 @@ import (
 
 const (
 	defaultRegistryExpireSecond = 2 * 60 // default registry routine expire time, 2 minutes
+
+	// RegistryTypeEureka indicates a Eureka registry center
+	RegistryTypeEureka = "eureka"
+	// RegistryTypeConsul indicates a Consul registry center
+	RegistryTypeConsul = "consul"
 )
 
 type (
+	// RegistryCenter provids registry implement constract for different protocols,e.g. Consul, Eureka
+	RegistryCenter interface {
+		// Registry accepts RESTful POST/PUT body and transform them into
+		Registry(body []byte) error
+	}
+
 	// ServiceInstance one registry info of serivce
 	ServiceInstance struct {
 		// Provide by registry client
@@ -35,10 +46,12 @@ type (
 
 	// RegistryCenterServer handle all registry about logic
 	RegistryCenterServer struct {
-		store MeshStorage
+		// Currently we supports Eureka/Consul
+		RegistryType string
+		Registried   bool
 
+		store      MeshStorage
 		ingressSvc *IngressServer
-		Registried bool
 	}
 )
 
@@ -67,7 +80,7 @@ func (rcs *RegistryCenterServer) RegistryServiceInstance(reqBody []byte) error {
 
 	var service *MeshServiceSpec
 	var sidecar *SidecarSpec
-	// Get mesh service and sidecar  spec
+	// Get mesh service and sidecar spec
 
 	// Modify to accept traffic from sidecar
 	insPort := ins.Port
