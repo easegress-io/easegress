@@ -39,12 +39,6 @@ type (
 	IngressServer struct {
 		store MeshStorage
 		super *supervisor.Supervisor
-
-		// only one ingress need to watch
-		watchIngressPipelineName []string
-
-		// InstanceRealPort is the Java process realy listening port
-		InstanceRealPort uint32
 	}
 )
 
@@ -61,16 +55,14 @@ func (ings *IngressServer) HandleIngressOpMsg(msg IngressMsg) error {
 		err := ings.createIngress(msg)
 		return err
 
+	case opTypeUpdate:
+		err := ings.updateIngress(msg)
+		return err
+
 	default:
 	}
 
 	return nil
-}
-
-// SetIngressPipelinePort sets the real Java process listening port provided by
-// registry request
-func (ings *IngressServer) SetIngressPipelinePort(port uint32) {
-	ings.InstanceRealPort = port
 }
 
 // createIngress creates one default pipeline and httpservice for ingress
@@ -85,7 +77,7 @@ func (ings *IngressServer) createIngress(msg IngressMsg) error {
 	return err
 }
 
-func (ings *IngressServer) updateIngress() error {
+func (ings *IngressServer) updateIngress(mgs IngressMsg) error {
 	var err error
 
 	return err
