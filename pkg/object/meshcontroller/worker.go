@@ -79,9 +79,8 @@ func (w *Worker) run() {
 		return
 	}
 
-	var doneHeartBeat chan struct{}
-	var doneWatchSpec chan struct{}
-
+	doneHeartBeat := make(chan struct{})
+	doneWatchSpec := make(chan struct{})
 	go w.watchHeartbeat(watchInterval, doneHeartBeat)
 	go w.watchSpecs(specUpdateInterval, doneWatchSpec)
 
@@ -89,8 +88,8 @@ func (w *Worker) run() {
 		select {
 
 		case <-w.done:
-			doneHeartBeat <- struct{}{}
-			doneWatchSpec <- struct{}{}
+			close(doneHeartBeat)
+			close(doneWatchSpec)
 			return
 		}
 	}
@@ -108,8 +107,6 @@ func (w *Worker) Registry(ctx iris.Context) error {
 	if err != nil {
 		return err
 	}
-
-	w.ings.SetIngressPipelinePort(ins.Port)
 
 	serviceSpec, err := w.mss.GetServiceSpec(w.spec.ServiceName)
 
@@ -169,5 +166,5 @@ func (w *Worker) Status() *supervisor.Status {
 
 // Close close the worker
 func (w *Worker) Close() {
-	w.done <- struct{}{}
+	close(w.done)
 }
