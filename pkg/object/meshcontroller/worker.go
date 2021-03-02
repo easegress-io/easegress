@@ -11,6 +11,10 @@ import (
 	"github.com/megaease/easegateway/pkg/supervisor"
 )
 
+const (
+	defaultIngressChannelBuffer = 100
+)
+
 // Worker is a sidecar in service mesh
 type Worker struct {
 	// ServiceName indicates which service this work servers to
@@ -30,27 +34,31 @@ type Worker struct {
 	ings *IngressServer
 	engs *EgressServer
 
-	mux sync.Mutex
+	ingsChan chan IngressMsg
+	mux      sync.Mutex
 
 	done chan struct{}
 }
 
 // NewWorker returns a initialized worker
 func NewWorker(spec *Spec, super *supervisor.Supervisor) *Worker {
+
+	ingressNotifyChan := make(chan IngressMsg, defaultIngressChannelBuffer)
+
 	store := &mockEtcdClient{}
-	registryCenterServer := NewDefaultRegistryCenterServer(spec.RegistryType, store)
-	serviceServer := NewDefaultMeshServiceServer(store)
+	registryCenterServer := NewDefaultRegistryCenterServer(spec.RegistryType, store, ingressNotifyChan)
+	serviceServer := NewDefaultMeshServiceServer(store, ingressNotifyChan)
 	ingressServer := NewDefualtIngressServer(store, super)
 
 	w := &Worker{
 		ServiceName:       spec.ServiceName,
 		HeartbeatInterval: spec.HeartbeatInterval,
 
-		rcs:  registryCenterServer,
-		mss:  serviceServer,
-		ings: ingressServer,
+		rcs:      registryCenterServer,
+		mss:      serviceServer,
+		ings:     ingressServer,
+		ingsChan: ingressNotifyChan,
 	}
-
 	return w
 }
 
@@ -114,7 +122,7 @@ func (w *Worker) Registry(ctx iris.Context) error {
 		return err
 	}
 
-	w.rcs.RegistryServiceInstance(ins, serviceSpec, sidecarSpec, w.ings)
+	w.rcs.RegistryServiceInstance(ins, serviceSpec, sidecarSpec)
 
 	return err
 }
@@ -140,6 +148,10 @@ func (w *Worker) watchSpecs(interval time.Duration, done chan struct{}) {
 		case <-time.After(interval):
 			if err := w.mss.CheckSpecs(); err != nil {
 				logger.Errorf("worker check local instance heartbeat failed, err :%v", err)
+			}
+		case msg := <-w.ingsChan:
+			if err := w.ings.HandleIngressOpMsg(msg); err != nil {
+				logger.Errorf("work handle ingress msg failed,msg : %v, err :  %v ", msg, err)
 			}
 		case <-done:
 			return

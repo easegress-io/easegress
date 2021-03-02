@@ -14,19 +14,21 @@ type MeshServiceServer struct {
 	store MeshStorage
 
 	// store keys to watch
-	watchIngressSpecNames map[string]string
+	watchIngressSpecNames map[string](chan storeOpMsg)
+	watchEgressSpecNames  map[string](chan storeOpMsg)
 
-	watchEgressSpecNames map[string]string
-
-	mux sync.Mutex
+	ingressNotifyChan chan IngressMsg
+	mux               sync.Mutex
 }
 
 // NewDefaultMeshServiceServer retusn a initialized MeshServiceServer
-func NewDefaultMeshServiceServer(store MeshStorage) *MeshServiceServer {
+func NewDefaultMeshServiceServer(store MeshStorage, ingressNotifyChan chan IngressMsg) *MeshServiceServer {
 	return &MeshServiceServer{
 		store:                 store,
-		watchIngressSpecNames: make(map[string]string),
-		watchEgressSpecNames:  make(map[string]string),
+		watchIngressSpecNames: make(map[string](chan storeOpMsg)),
+		watchEgressSpecNames:  make(map[string](chan storeOpMsg)),
+
+		ingressNotifyChan: ingressNotifyChan,
 	}
 }
 
@@ -37,30 +39,31 @@ func (mss *MeshServiceServer) CheckSpecs() error {
 	return nil
 }
 
-func (mss *MeshServiceServer) addWatchIngressSpecName(name string) {
+func (mss *MeshServiceServer) addWatchIngressSpecName(name string) error {
 	mss.mux.Lock()
 	defer mss.mux.Unlock()
-
-	mss.watchIngressSpecNames[name] = ""
+	var err error
+	if mss.watchIngressSpecNames[name], err = mss.store.WatchKey(name); err != nil {
+		logger.Errorf("[BUG]failed to watch ingress speca name : %s", name)
+		return err
+	}
+	return nil
 }
 
 func (mss *MeshServiceServer) checkIngressSpecs() {
+	// iterate all wanted keys
 	for k, v := range mss.watchIngressSpecNames {
-		spec, err := mss.store.Get(k)
-		if err != nil {
-			if err != ErrKeyNoExist {
-				logger.Errorf("chcek ingress specs failed, name %s name, err %v")
-			} else {
-
-			}
-		}
-
-		// has diff
-		if spec != v {
-
+		select {
+		case msg := <-v:
+			logger.Debugf("ingress key :%s has operation %v ", k, msg)
+			// notify ingress
+			mss.ingressNotifyChan <- IngressMsg{storeMsg: msg}
+		default:
+			// for not blocking read
 		}
 	}
 
+	return
 }
 
 func (mss *MeshServiceServer) checkEgressSpecs() {
@@ -75,7 +78,6 @@ func (mss *MeshServiceServer) CheckLocalInstaceHearbeat(serviceName string) erro
 	)
 
 	//[TODO] call Java process agent with JMX, check it alive
-	// er
 
 	if alive == true {
 		// update store heart beat record
@@ -166,7 +168,7 @@ func (mss *MeshServiceServer) GetSerivceInstance(serviceName, ID string) (*Servi
 		insYAML string
 	)
 
-	insYAML, err = mss.store.Get(fmt.Sprintf(meshServiceInstancePrefix, serviceName))
+	insYAML, err = mss.store.Get(fmt.Sprintf(meshServiceInstancePrefix, serviceName, ID))
 	if err != nil {
 		return nil, err
 	}

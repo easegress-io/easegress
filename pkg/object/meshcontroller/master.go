@@ -25,7 +25,7 @@ type Master struct {
 // NewMaster return a initialized master
 func NewMaster(spec *Spec, super *supervisor.Supervisor) *Master {
 	store := &mockEtcdClient{}
-	serviceServer := NewDefaultMeshServiceServer(store)
+	serviceServer := NewDefaultMeshServiceServer(store, nil)
 
 	return &Master{
 		super:                super,

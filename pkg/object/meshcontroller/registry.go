@@ -14,6 +14,7 @@ import (
 
 	"github.com/megaease/easegateway/pkg/common"
 	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/supervisor"
 )
 
 const (
@@ -56,14 +57,17 @@ type (
 		RegistryType string
 		Registried   bool
 
-		store MeshStorage
+		store         MeshStorage
+		super         *supervisor.Supervisor
+		notifyIngress chan IngressMsg
 	}
 )
 
-func NewDefaultRegistryCenterServer(registryType string, store MeshStorage) *RegistryCenterServer {
+func NewDefaultRegistryCenterServer(registryType string, store MeshStorage, notifyIngress chan IngressMsg) *RegistryCenterServer {
 	return &RegistryCenterServer{
-		RegistryType: registryType,
-		store:        store,
+		RegistryType:  registryType,
+		store:         store,
+		notifyIngress: notifyIngress,
 	}
 }
 
@@ -72,7 +76,7 @@ func NewDefaultRegistryCenterServer(registryType string, store MeshStorage) *Reg
 // into one routine.
 // Todo: Consider to split this routien for other None RESTful POST body
 //       format in future.
-func (rcs *RegistryCenterServer) RegistryServiceInstance(ins *ServiceInstance, service *MeshServiceSpec, sidecar *SidecarSpec, ings *IngressServer) {
+func (rcs *RegistryCenterServer) RegistryServiceInstance(ins *ServiceInstance, service *MeshServiceSpec, sidecar *SidecarSpec) {
 	// valid the input
 	if rcs.Registried == true {
 		// already registried
@@ -84,23 +88,36 @@ func (rcs *RegistryCenterServer) RegistryServiceInstance(ins *ServiceInstance, s
 	ins.Tenant = service.RegisterTenant
 
 	// registry this instance asynchronously
-	go rcs.registry(ins, insPort, ings)
+	go rcs.registry(ins, insPort)
 
 	return
 }
 
-func (rcs *RegistryCenterServer) registry(ins *ServiceInstance, insPort uint32, ings *IngressServer) {
+func (rcs *RegistryCenterServer) registry(ins *ServiceInstance, insPort uint32) {
 	var (
 		err      error
 		tryTimes int = 0
 	)
 
+	msg := IngressMsg{
+		storeMsg: storeOpMsg{
+			op: opTypeCreate,
+		},
+		instancePort: insPort,
+		serviceName:  ins.ServiceName,
+	}
+
+	// notify ingress server by chan
+	rcs.notifyIngress <- msg
+
 	// level triggered, loop unitl it success
 	for {
 		tryTimes++
 
-		if err = ings.createIngress(ins.ServiceName, ins.InstanceID, insPort); err != nil {
-			logger.Errorf("service %s try to create ingress failed, err %v, times %d", ins.ServiceName, err, tryTimes)
+		// check the ingress pipeline and http server object exists
+		if _, exists := rcs.super.GetRunningObject(genIngressHTTPSvrObjectName(ins.ServiceName), supervisor.CategoryPipeline); exists != true {
+			continue
+		} else if _, exists := rcs.super.GetRunningObject(genIngressHTTPSvrObjectName(ins.InstanceID), supervisor.CategoryTrafficGate); exists != true {
 			continue
 		}
 

@@ -3,20 +3,38 @@ package meshcontroller
 import (
 	"fmt"
 
-	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/supervisor"
 )
 
-func genIngreePipelineName(serviceName string) string {
+// genereate the EG running object name
+func genIngressPipelineObjectName(serviceName string) string {
+	name := fmt.Sprintf("mesh-service-ingress-%s-pipeline", serviceName)
+	return name
+}
+func genIngressHTTPSvrObjectName(serviceName string) string {
+	name := fmt.Sprintf("mesh-service-ingress-%s-httpserver", serviceName)
+	return name
+}
+
+// generate the mesh spec pipeline name
+func genIngreePipelineSpecName(serviceName string) string {
 	return fmt.Sprintf(meshServiceIngressPipelinePrefix, serviceName)
 }
 
-func genHTTPServerName(serviceName string) string {
+func genHTTPServerSpecName(serviceName string) string {
 
 	return fmt.Sprintf(meshServiceIngressHTTPServerPrefix, serviceName)
 }
 
 type (
+	IngressMsg struct {
+		storeMsg storeOpMsg // original store notify operatons
+
+		// for creating request
+		serviceName  string
+		instancePort uint32
+	}
+
 	// IngressServer control one ingress pipeline and one HTTPServer
 	IngressServer struct {
 		store MeshStorage
@@ -37,6 +55,18 @@ func NewDefualtIngressServer(store MeshStorage, super *supervisor.Supervisor) *I
 	}
 }
 
+func (ings *IngressServer) HandleIngressOpMsg(msg IngressMsg) error {
+	switch msg.storeMsg.op {
+	case opTypeCreate:
+		err := ings.createIngress(msg)
+		return err
+
+	default:
+	}
+
+	return nil
+}
+
 // SetIngressPipelinePort sets the real Java process listening port provided by
 // registry request
 func (ings *IngressServer) SetIngressPipelinePort(port uint32) {
@@ -44,37 +74,18 @@ func (ings *IngressServer) SetIngressPipelinePort(port uint32) {
 }
 
 // createIngress creates one default pipeline and httpservice for ingress
-func (ings *IngressServer) createIngress(serviceName string, instanceID string, instancePort uint32) error {
-	var (
-		err            error
-		pipelineSpec   string
-		pipelineName   string = genIngreePipelineName(serviceName)
-		HTTPServerSpec string
-		HTTPServerName string = genHTTPServerName(serviceName)
-	)
+func (ings *IngressServer) createIngress(msg IngressMsg) error {
+	var err error
+	// get ingress pipeline spec
 
-	if pipelineSpec, err = ings.store.Get(pipelineName); err != nil {
-		logger.Errorf("read service %s's ingress pipeline spec failed, %v", serviceName, err)
-		return err
-	}
+	//[TODO]: call supervisor to create pipeline if the Pipeline exist locally, do nothing
 
-	logger.Debugf("get pipeline secp %s", pipelineSpec)
-	// TODO: call supervisor to create pipeline if the Pipeline exist locally, do nothing
-
-	// call supervisor to create httpservice
-	if HTTPServerSpec, err = ings.store.Get(HTTPServerName); err != nil {
-		logger.Errorf("read service %s's ingress HTTPServer spec failed, %v", serviceName, err)
-		return err
-	}
-
-	logger.Debugf("get HTTP server spec %s", HTTPServerSpec)
-
-	// TODO: call supervisor to create HTTPServer, if the HTTPServer exist locally, do nothing
+	//[TODO]: call supervisor to create HTTPServer, if the HTTPServer exist locally, do nothing
 
 	return err
 }
 
-func (ings *IngressServer) updateIngress(specs map[string]string) error {
+func (ings *IngressServer) updateIngress() error {
 	var err error
 
 	return err
