@@ -1,5 +1,17 @@
 package meshcontroller
 
+import "fmt"
+
+const (
+	opTypeCreate = "create"
+	opTypeUpdate = "update"
+	opTypeDelete = "delete"
+)
+
+var (
+	ErrKeyNoExist = fmt.Errorf("key no exist")
+)
+
 type (
 	// MeshStorage is for describing basic storage requires
 	MeshStorage interface {
@@ -11,10 +23,11 @@ type (
 		GetWithPrefix(prefix string) ([]record, error)
 
 		ReleaseLock(key string) error
-		WatchKey(key string, notifyChan chan map[string]*string) error
+		WatchWithPrefix(prefix string) (chan storeOpMsg, error)
+		WatchKey(key string) (chan storeOpMsg, error)
 	}
 
-	// MockEtcdClient
+	// MockEtcdClient mocks ETCD storage operations
 	mockEtcdClient struct {
 		endpoints []string
 	}
@@ -22,6 +35,11 @@ type (
 	record struct {
 		key string
 		val string
+	}
+
+	storeOpMsg struct {
+		op     string // operation type, "create/update/delete"
+		record record
 	}
 )
 
@@ -73,8 +91,24 @@ func (mec *mockEtcdClient) ReleaseLock(key string) error {
 	return err
 }
 
-func (mec *mockEtcdClient) WatchKey(key string, notifyChan chan map[string]*string) error {
-	var err error
+// Watchkey watch one key
+func (mec *mockEtcdClient) WatchKey(key string) (chan storeOpMsg, error) {
+	var (
+		err   error
+		opMsg chan storeOpMsg
+	)
+	opMsg = make(chan storeOpMsg)
 
-	return err
+	return opMsg, err
+}
+
+// WatchWithPrefix wathc multiple keys with provided prefix
+func (mec *mockEtcdClient) WatchWithPrefix(prefix string) (chan storeOpMsg, error) {
+	var (
+		err   error
+		opMsg chan storeOpMsg
+	)
+	opMsg = make(chan storeOpMsg)
+
+	return opMsg, err
 }

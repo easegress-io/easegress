@@ -2,30 +2,90 @@ package meshcontroller
 
 import (
 	"fmt"
-	"time"
+	"sync"
 
 	"github.com/megaease/easegateway/pkg/logger"
 	"gopkg.in/yaml.v2"
 )
 
-// MeshServiceServer handle mesh service about logic, its resilience/sidecar/... config  apply
+// MeshServiceServer handle mesh service about logic, its resilience/sidecar/... configs
+// apply
 type MeshServiceServer struct {
 	store MeshStorage
+
+	// store keys to watch
+	watchIngressSpecNames map[string]string
+
+	watchEgressSpecNames map[string]string
+
+	mux sync.Mutex
 }
 
-// WatchLocalInstaceHearbeat communicate with Java process and check its health
-func (mss *MeshServiceServer) WatchLocalInstaceHearbeat(inveral time.Duration) error {
+// NewDefaultMeshServiceServer retusn a initialized MeshServiceServer
+func NewDefaultMeshServiceServer(store MeshStorage) *MeshServiceServer {
+	return &MeshServiceServer{
+		store:                 store,
+		watchIngressSpecNames: make(map[string]string),
+		watchEgressSpecNames:  make(map[string]string),
+	}
+}
 
-	for {
-		// TODO
+// CheckSpecs checks specified specs for one services
+func (mss *MeshServiceServer) CheckSpecs() error {
+	mss.checkIngressSpecs()
+	mss.checkEgressSpecs()
+	return nil
+}
+
+func (mss *MeshServiceServer) addWatchIngressSpecName(name string) {
+	mss.mux.Lock()
+	defer mss.mux.Unlock()
+
+	mss.watchIngressSpecNames[name] = ""
+}
+
+func (mss *MeshServiceServer) checkIngressSpecs() {
+	for k, v := range mss.watchIngressSpecNames {
+		spec, err := mss.store.Get(k)
+		if err != nil {
+			if err != ErrKeyNoExist {
+				logger.Errorf("chcek ingress specs failed, name %s name, err %v")
+			} else {
+
+			}
+		}
+
+		// has diff
+		if spec != v {
+
+		}
 	}
 
-	return nil
+}
+
+func (mss *MeshServiceServer) checkEgressSpecs() {
+
+}
+
+// CheckLocalInstaceHearbeat communicate with Java process and check its health
+func (mss *MeshServiceServer) CheckLocalInstaceHearbeat(serviceName string) error {
+	var (
+		err   error
+		alive bool
+	)
+
+	//[TODO] call Java process agent with JMX, check it alive
+	// er
+
+	if alive == true {
+		// update store heart beat record
+	}
+
+	return err
 }
 
 // WatchSerivceInstancesHeartbeat watchs all service instances heart beat in mesh
 func (mss *MeshServiceServer) WatchSerivceInstancesHeartbeat() error {
-
 	// Get all serivces
 	// find one serivce instance
 
@@ -34,8 +94,9 @@ func (mss *MeshServiceServer) WatchSerivceInstancesHeartbeat() error {
 }
 
 // CreateDefaultSpecs generate a mesh service's default specs, including
-//   resilience, observability, loadBalance, and sidecar spec.
-//   also, it will create a default
+// resilience, observability, loadBalance, and sidecar spec.
+// also, it will create a default ingress HTTPPipeline spec and HTTPservice spec
+// and wrtie them into storage at last.
 func (mss *MeshServiceServer) CreateDefaultSpecs(serviceName, tenant string) error {
 	var (
 		err           error
@@ -97,16 +158,15 @@ func (mss *MeshServiceServer) GetTenantSpec(tenant string) (string, error) {
 	return tenantSpec, err
 }
 
-// GetSerivceInstances get whole service Instances from ETCD
-func (mss *MeshServiceServer) GetSerivceInstances(serviceName, ID string) (*ServiceInstance, error) {
+// GetSerivceInstances get one service Instances from storage by provided ID
+func (mss *MeshServiceServer) GetSerivceInstance(serviceName, ID string) (*ServiceInstance, error) {
 	var (
 		err     error
 		ins     *ServiceInstance
 		insYAML string
 	)
 
-	insYAML, err = mss.store.Get(fmt.Sprintf(meshServiceInstancePrefix, serviceName, ID))
-
+	insYAML, err = mss.store.Get(fmt.Sprintf(meshServiceInstancePrefix, serviceName))
 	if err != nil {
 		return nil, err
 	}
@@ -117,16 +177,40 @@ func (mss *MeshServiceServer) GetSerivceInstances(serviceName, ID string) (*Serv
 
 }
 
+// GetSerivceInstances get whole service Instances from storage
+func (mss *MeshServiceServer) GetSerivceInstances(serviceName string) ([]*ServiceInstance, error) {
+	var (
+		err      error
+		insList  []*ServiceInstance
+		insYAMLs []record
+	)
+
+	insYAMLs, err = mss.store.GetWithPrefix(fmt.Sprintf(meshServiceInstanceListPrefix, serviceName))
+
+	if err != nil {
+		return insList, err
+	}
+
+	for _, v := range insYAMLs {
+		var ins *ServiceInstance
+		if err = yaml.Unmarshal([]byte(v.val), ins); err != nil {
+			logger.Errorf("[BUG] unmarsh service :%s, record key :%s , val %s failed, err %v", serviceName, v.key, v.val, err)
+			continue
+		}
+		insList = append(insList, ins)
+	}
+
+	return insList, nil
+
+}
+
 // DeleteSerivceInstance deletes one service registry instance
 func (mss *MeshServiceServer) DeleteSerivceInstance(serviceName, ID string) error {
-
 	return mss.store.Delete(fmt.Sprintf(meshServiceInstancePrefix, serviceName, ID))
-
 }
 
 // UpdateServiceInstance  updates one instance's status field
 func (mss *MeshServiceServer) UpdateServiceInstanceLeases(serviceName, ID string, leases int64) error {
-
 	updateLeases := func(ins *ServiceInstance) {
 		if ins.Leases != leases {
 			ins.Leases = leases
@@ -139,7 +223,6 @@ func (mss *MeshServiceServer) UpdateServiceInstanceLeases(serviceName, ID string
 
 // UpdateServiceInstanceStatus  updates one instance's status field
 func (mss *MeshServiceServer) UpdateServiceInstanceStatus(serviceName, ID, status string) error {
-
 	updateStatus := func(ins *ServiceInstance) {
 		if ins.Status != status {
 			ins.Status = status
@@ -172,7 +255,7 @@ func (mss *MeshServiceServer) updateSerivceInstanceWithLock(serviceName, ID stri
 
 	defer lockReleaseFunc()
 
-	if ins, err = mss.GetSerivceInstances(serviceName, ID); err != nil {
+	if ins, err = mss.GetSerivceInstance(serviceName, ID); err != nil {
 
 		return fmt.Errorf("get serivce :%s , instacne %s failed, err : %v", serviceName, ID, err)
 	}

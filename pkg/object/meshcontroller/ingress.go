@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/supervisor"
 )
 
 func genIngreePipelineName(serviceName string) string {
@@ -15,15 +16,25 @@ func genHTTPServerName(serviceName string) string {
 	return fmt.Sprintf(meshServiceIngressHTTPServerPrefix, serviceName)
 }
 
-// IngressServer control one ingress pipeline and one HTTPServer
-type IngressServer struct {
-	store MeshStorage
+type (
+	// IngressServer control one ingress pipeline and one HTTPServer
+	IngressServer struct {
+		store MeshStorage
+		super *supervisor.Supervisor
 
-	// only one ingress need to watch
-	watchIngressPipelineName []string
+		// only one ingress need to watch
+		watchIngressPipelineName []string
 
-	// InstanceRealPort is the Java process realy listening port
-	InstanceRealPort uint32
+		// InstanceRealPort is the Java process realy listening port
+		InstanceRealPort uint32
+	}
+)
+
+func NewDefualtIngressServer(store MeshStorage, super *supervisor.Supervisor) *IngressServer {
+	return &IngressServer{
+		store: store,
+		super: super,
+	}
 }
 
 // SetIngressPipelinePort sets the real Java process listening port provided by

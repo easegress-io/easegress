@@ -8,16 +8,22 @@ import (
 
 	"github.com/kataras/iris"
 	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/supervisor"
 )
 
 // Worker is a sidecar in service mesh
 type Worker struct {
-	ServiceName       string
+	// ServiceName indicates which service this work servers to
+	ServiceName string
+	// HeartbeatInterval is the interval for loal Java process's alive heartbeat
 	HeartbeatInterval string
-	// InstancePort is the Java Process's listening port
-	InstancePort uint32
+	// SpecUpdateInterval  is
+	SpecUpdateInterval string
 	// Registried indicated whether the serivce instance registried or not
 	Registried bool
+
+	// InstanceID is this work
+	InstanceID string
 
 	rcs  *RegistryCenterServer
 	mss  *MeshServiceServer
@@ -29,23 +35,17 @@ type Worker struct {
 	done chan struct{}
 }
 
-// NewWorker news a mesh worker by spec
-func NewWorker(spec *Spec) *Worker {
-
+// NewWorker returns a initialized worker
+func NewWorker(spec *Spec, super *supervisor.Supervisor) *Worker {
 	store := &mockEtcdClient{}
-	registryCenterServer := &RegistryCenterServer{
-		RegistryType: spec.RegistryType,
-		store:        store,
-	}
+	registryCenterServer := NewDefaultRegistryCenterServer(spec.RegistryType, store)
+	serviceServer := NewDefaultMeshServiceServer(store)
+	ingressServer := NewDefualtIngressServer(store, super)
 
-	serviceServer := &MeshServiceServer{
-		store: store,
-	}
-
-	ingressServer := &IngressServer{
-		store: store,
-	}
 	w := &Worker{
+		ServiceName:       spec.ServiceName,
+		HeartbeatInterval: spec.HeartbeatInterval,
+
 		rcs:  registryCenterServer,
 		mss:  serviceServer,
 		ings: ingressServer,
@@ -63,20 +63,30 @@ func (w *Worker) Run() {
 		return
 	}
 
-	// watch the local instance heartbeat
-	go w.watchInstanceHeartbeat(watchInterval)
+	specUpdateInterval, err := time.ParseDuration(w.SpecUpdateInterval)
+	if err != nil {
+		logger.Errorf("BUG: parse spec update duration %s failed: %v",
+			w.SpecUpdateInterval, err)
+		return
+	}
 
-	// watch the corrspoding instance record, if delete or updated, should modify the ingress
-	go w.watchServiceInstancesRecord(watchInterval)
+	var doneHeartBeat chan struct{}
+	var doneWatchSpec chan struct{}
+
+	go w.watchHeartbeat(watchInterval, doneHeartBeat)
+	go w.watchSpecs(specUpdateInterval, doneWatchSpec)
+
 	for {
 		select {
+
 		case <-w.done:
+			doneHeartBeat <- struct{}{}
+			doneWatchSpec <- struct{}{}
 			return
 		}
 	}
 }
 
-//
 // Registry is a HTTP handler for worker
 func (w *Worker) Registry(ctx iris.Context) error {
 	body, err := ioutil.ReadAll(ctx.Request().Body)
@@ -109,17 +119,32 @@ func (w *Worker) Registry(ctx iris.Context) error {
 	return err
 }
 
-// watchInstanceHeartBeat
-func (w *Worker) watchInstanceHeartbeat(interval time.Duration) {
+// watchHeartBeat
+func (w *Worker) watchHeartbeat(interval time.Duration, done chan struct{}) {
+	for {
+		select {
+		case <-time.After(interval):
+			if err := w.mss.CheckLocalInstaceHearbeat(w.ServiceName); err != nil {
+				logger.Errorf("worker check local instance heartbeat failed, err :%v", err)
+			}
+		case <-done:
+			return
+		}
+	}
 
-	w.mss.WatchLocalInstaceHearbeat(interval)
-
-	return
 }
 
-func (w *Worker) watchServiceInstancesRecord(interval time.Duration) {
-	// get all service instances
-
+func (w *Worker) watchSpecs(interval time.Duration, done chan struct{}) {
+	for {
+		select {
+		case <-time.After(interval):
+			if err := w.mss.CheckSpecs(); err != nil {
+				logger.Errorf("worker check local instance heartbeat failed, err :%v", err)
+			}
+		case <-done:
+			return
+		}
+	}
 }
 
 // Close close the worker

@@ -23,6 +23,7 @@ const (
 	meshServiceEgressPipelinePrefix    = "/mesh/service/%s/egress/pipeline/%s" //+serviceName + RPC target serviceName(which service's this pipeline point to)
 
 	// registry about
+	meshServiceInstanceListPrefix     = "/mesh/service/%s/instance"              // +serviceName  ( its value is whole instance registry list )
 	meshServiceInstancePrefix         = "/mesh/service/%s/instance/%s"           // +serviceName + instanceID( its value is one instance registry info)
 	meshServiceInstanceHearbeatPrefix = "/mesh/service/%s/instance/%s/heartbeat" // + serviceName + instanceID (its value is one instance heartbeat info)
 	meshTenantServiceListPrefix       = "/mesh/tenant/%s"                        // +tenantName (its value is a service name list belongs to this tenant)
@@ -31,7 +32,6 @@ const (
 )
 
 var (
-
 	// ErrParamNotMatch means RESTful request URL's object name or other fields are not matched in this request's body
 	ErrParamNotMatch = fmt.Errorf("param in url and body's spec not matched")
 )
@@ -40,11 +40,9 @@ type (
 
 	// Spec describes MeshController.
 	Spec struct {
+		// SpecUpdateInterval is the interval for serivce updated spec to be applied into EG sidecar
+		SpecUpdateInterval string `yaml:"specUpdateInterval" jsonschema:"required,format=duration"`
 
-		// ServiceWatchInterval is the interval for watcing all service instance heartbeat record
-		ServiceWatchInterval string `yaml:"watchInterval" jsonschema:"required,format=duration"`
-
-		// Role as slave's configurations start -----
 		// HeartbeatInterval is the interval for one service instance reports its hearbeat
 		HeartbeatInterval string `yaml:"heartbeatInterval" jsonschema:"required,format=duration"`
 
@@ -67,6 +65,7 @@ type (
 
 		ServicesList []string `yaml:"servicesList" jsonschema:"required"`
 		CreateTime   int64    `yaml:"createTime" jsonschema:"omitempty"`
+		Desc         string   `yaml:"desc" jsonschema:"omitempty"`
 	}
 
 	// Resilience
@@ -84,7 +83,6 @@ type (
 
 // Validate validates Spec.
 func (spec *Spec) Validate() error {
-
 	if spec.RegistryType != RegistryTypeConsul && spec.RegistryType != RegistryTypeEureka {
 		return fmt.Errorf("unknow registry center type :%s", spec.RegistryType)
 	}

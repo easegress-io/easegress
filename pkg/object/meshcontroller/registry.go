@@ -5,12 +5,15 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"time"
+
+	"gopkg.in/yaml.v2"
 
 	"github.com/ArthurHlt/go-eureka-client/eureka"
 	consul "github.com/hashicorp/consul/api"
+
 	"github.com/megaease/easegateway/pkg/common"
 	"github.com/megaease/easegateway/pkg/logger"
-	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -26,6 +29,8 @@ const (
 
 	// SerivceStatusOutOfSerivce indicates this service can't accept ingress traffic
 	SerivceStatusOutOfSerivce = "OUT_OF_SERVICE"
+
+	defaultLeasesSeconds = 3600 * 24 * 365 // default one year leases
 )
 
 type (
@@ -55,6 +60,13 @@ type (
 	}
 )
 
+func NewDefaultRegistryCenterServer(registryType string, store MeshStorage) *RegistryCenterServer {
+	return &RegistryCenterServer{
+		RegistryType: registryType,
+		store:        store,
+	}
+}
+
 // RegistryServiceInstance accepts Java Process's registry request in Eureka/Consul Format
 // cause Eureka/Consul registry format are both with HTTP and POST body, we can combine them
 // into one routine.
@@ -67,10 +79,11 @@ func (rcs *RegistryCenterServer) RegistryServiceInstance(ins *ServiceInstance, s
 		return
 	}
 
-	insPort := ins.Port
+	insPort := ins.Port // the original Java processing listening port
 	ins.Port = uint32(sidecar.IngressPort)
 	ins.Tenant = service.RegisterTenant
 
+	// registry this instance asynchronously
 	go rcs.registry(ins, insPort, ings)
 
 	return
@@ -93,6 +106,8 @@ func (rcs *RegistryCenterServer) registry(ins *ServiceInstance, insPort uint32, 
 
 		// set this instance status up
 		ins.Status = SerivceStatusUp
+		ins.Leases = defaultLeasesSeconds
+		ins.RegistryTime = time.Now().Unix()
 
 		if err = rcs.registryIntoEtcd(ins); err != nil {
 			logger.Errorf("service %s try to create ingress failed, err %v, times %d", ins.ServiceName, err, tryTimes)
@@ -125,6 +140,9 @@ func (rcs *RegistryCenterServer) decodeByConsulFormat(body []byte) (*ServiceInst
 	ins.IP = reg.Address
 	ins.Port = uint32(reg.Port)
 	ins.ServiceName = reg.Name
+	if ins.InstanceID, err = common.UUID(); err != nil {
+		logger.Errorf("[BUG] generate uuid failed, %v", err)
+	}
 
 	return nil, err
 }
