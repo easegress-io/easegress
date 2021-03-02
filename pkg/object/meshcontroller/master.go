@@ -5,33 +5,44 @@ import (
 	"io/ioutil"
 	"time"
 
-	"github.com/kataras/iris"
-	"gopkg.in/yaml.v2"
-
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/supervisor"
+
+	"github.com/kataras/iris"
+	"gopkg.in/yaml.v2"
 )
 
-// Master is the role of EG for mesh control plane
-type Master struct {
-	super *supervisor.Supervisor
-	mss   *MeshServiceServer
+type (
+	// Master is the master role of EaseGateway for mesh control plane.
+	Master struct {
+		super     *supervisor.Supervisor
+		superSpec *supervisor.Spec
+		spec      *Spec
 
-	ServiceWatchInterval string
+		mss                  *MeshServiceServer
+		serviceWatchInterval string
 
-	done chan struct{}
-}
+		done chan struct{}
+	}
+)
 
-// NewMaster return a initialized master
-func NewMaster(spec *Spec, super *supervisor.Supervisor) *Master {
+// NewMaster creates an initialized master
+func NewMaster(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Master {
 	store := &mockEtcdClient{}
 	serviceServer := NewDefaultMeshServiceServer(store, nil)
 
-	return &Master{
-		super:                super,
-		mss:                  serviceServer,
-		ServiceWatchInterval: spec.SpecUpdateInterval,
+	m := &Master{
+		super:     super,
+		superSpec: superSpec,
+		spec:      superSpec.ObjectSpec().(*Spec),
+
+		mss:  serviceServer,
+		done: make(chan struct{}),
 	}
+
+	go m.run()
+
+	return m
 }
 
 func (m *Master) watchServicesHeartbeat() {
@@ -40,12 +51,11 @@ func (m *Master) watchServicesHeartbeat() {
 	return
 }
 
-// Run is the entry of the Master role controller
-func (m *Master) Run() {
-	watchInterval, err := time.ParseDuration(m.ServiceWatchInterval)
+func (m *Master) run() {
+	watchInterval, err := time.ParseDuration(m.spec.SpecUpdateInterval)
 	if err != nil {
 		logger.Errorf("BUG: parse duration %s failed: %v",
-			m.ServiceWatchInterval, err)
+			m.spec.SpecUpdateInterval, err)
 		return
 	}
 
@@ -61,7 +71,7 @@ func (m *Master) Run() {
 
 // Close closes the master
 func (m *Master) Close() {
-	m.done <- struct{}{}
+	close(m.done)
 }
 
 // UpdateSerivceInstanceLeases updates one serivce registry reord's lease
@@ -172,7 +182,7 @@ func (m *Master) GetTenant(ctx iris.Context) error {
 	return nil
 }
 
-// GetServiceInstancesList
+// GetSerivceInstanceList returns services instance list.
 func (m *Master) GetSerivceInstanceList(ctx iris.Context) error {
 	serviceName := ctx.Params().Get("service_name")
 
@@ -199,4 +209,11 @@ func (m *Master) GetSerivceInstanceList(ctx iris.Context) error {
 	ctx.Write(buff)
 
 	return nil
+}
+
+// Status returns the status of master.
+func (m *Master) Status() *supervisor.Status {
+	return &supervisor.Status{
+		ObjectStatus: nil,
+	}
 }

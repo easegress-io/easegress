@@ -17,17 +17,13 @@ const (
 
 // Worker is a sidecar in service mesh
 type Worker struct {
-	// ServiceName indicates which service this work servers to
-	ServiceName string
-	// HeartbeatInterval is the interval for loal Java process's alive heartbeat
-	HeartbeatInterval string
-	// SpecUpdateInterval  is
-	SpecUpdateInterval string
-	// Registried indicated whether the serivce instance registried or not
-	Registried bool
+	super     *supervisor.Supervisor
+	superSpec *supervisor.Spec
+	spec      *Spec
 
-	// InstanceID is this work
-	InstanceID string
+	registried bool
+
+	instanceID string
 
 	rcs  *RegistryCenterServer
 	mss  *MeshServiceServer
@@ -41,8 +37,8 @@ type Worker struct {
 }
 
 // NewWorker returns a initialized worker
-func NewWorker(spec *Spec, super *supervisor.Supervisor) *Worker {
-
+func NewWorker(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
+	spec := superSpec.ObjectSpec().(*Spec)
 	ingressNotifyChan := make(chan IngressMsg, defaultIngressChannelBuffer)
 
 	store := &mockEtcdClient{}
@@ -51,30 +47,35 @@ func NewWorker(spec *Spec, super *supervisor.Supervisor) *Worker {
 	ingressServer := NewDefualtIngressServer(store, super)
 
 	w := &Worker{
-		ServiceName:       spec.ServiceName,
-		HeartbeatInterval: spec.HeartbeatInterval,
+		super:     super,
+		superSpec: superSpec,
+		spec:      spec,
 
 		rcs:      registryCenterServer,
 		mss:      serviceServer,
 		ings:     ingressServer,
 		ingsChan: ingressNotifyChan,
+
+		done: make(chan struct{}),
 	}
+
+	go w.run()
+
 	return w
 }
 
-// Run is the entry of the Master role controller
-func (w *Worker) Run() {
-	watchInterval, err := time.ParseDuration(w.HeartbeatInterval)
+func (w *Worker) run() {
+	watchInterval, err := time.ParseDuration(w.spec.HeartbeatInterval)
 	if err != nil {
 		logger.Errorf("BUG: parse heartbeat duration %s failed: %v",
-			w.HeartbeatInterval, err)
+			w.spec.HeartbeatInterval, err)
 		return
 	}
 
-	specUpdateInterval, err := time.ParseDuration(w.SpecUpdateInterval)
+	specUpdateInterval, err := time.ParseDuration(w.spec.SpecUpdateInterval)
 	if err != nil {
 		logger.Errorf("BUG: parse spec update duration %s failed: %v",
-			w.SpecUpdateInterval, err)
+			w.spec.SpecUpdateInterval, err)
 		return
 	}
 
@@ -110,13 +111,13 @@ func (w *Worker) Registry(ctx iris.Context) error {
 
 	w.ings.SetIngressPipelinePort(ins.Port)
 
-	serviceSpec, err := w.mss.GetServiceSpec(w.ServiceName)
+	serviceSpec, err := w.mss.GetServiceSpec(w.spec.ServiceName)
 
 	if err != nil {
 		return err
 	}
 
-	sidecarSpec, err := w.mss.GetSidecarSepc(w.ServiceName)
+	sidecarSpec, err := w.mss.GetSidecarSepc(w.spec.ServiceName)
 
 	if err != nil {
 		return err
@@ -132,7 +133,7 @@ func (w *Worker) watchHeartbeat(interval time.Duration, done chan struct{}) {
 	for {
 		select {
 		case <-time.After(interval):
-			if err := w.mss.CheckLocalInstaceHearbeat(w.ServiceName); err != nil {
+			if err := w.mss.CheckLocalInstaceHearbeat(w.spec.ServiceName); err != nil {
 				logger.Errorf("worker check local instance heartbeat failed, err :%v", err)
 			}
 		case <-done:
@@ -156,6 +157,13 @@ func (w *Worker) watchSpecs(interval time.Duration, done chan struct{}) {
 		case <-done:
 			return
 		}
+	}
+}
+
+// Status returns the status of worker.
+func (w *Worker) Status() *supervisor.Status {
+	return &supervisor.Status{
+		ObjectStatus: nil,
 	}
 }
 

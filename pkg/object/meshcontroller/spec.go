@@ -46,10 +46,10 @@ type (
 		// HeartbeatInterval is the interval for one service instance reports its heartbeat
 		HeartbeatInterval string `yaml:"heartbeatInterval" jsonschema:"required,format=duration"`
 
-		RegistryType string `yaml:"RegistryType" jsonschema:"required"`
+		RegistryType string `yaml:"registryType" jsonschema:"required"`
 
 		// ServiceName indicates which services the worker(sidecar) stands for
-		ServiceName string `yaml:"serviceName"`
+		ServiceName string `yaml:"serviceName" jsonschema:"required"`
 	}
 
 	// MeshServiceSpec describes the mesh service basic info, its name, which tenant it belongs to

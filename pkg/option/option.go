@@ -35,14 +35,15 @@ type Options struct {
 	// If a config file is specified, below command line flags will be ignored.
 
 	// meta
-	Name                  string `yaml:"name" long:"name" description:"Human-readable name for this member."`
-	ClusterName           string `yaml:"cluster-name" long:"cluster-name" description:"Human-readable name for the new cluster, ignored while joining an existed cluster."`
-	ClusterRole           string `yaml:"cluster-role" long:"cluster-role" description:"Cluster role for this member. (reader, writer)"`
-	ClusterRequestTimeout string `yaml:"cluster-request-timeout" long:"cluster-request-timeout" description:"Timeout to handle request to the cluster."`
-	ClusterClientURL      string `yaml:"cluster-client-url" long:"cluter-client-url" description:"URL to listen on for cluster client traffic."`
-	ClusterPeerURL        string `yaml:"cluster-peer-url" long:"cluter-peer-url" description:"URL to listen on for cluster peer traffic."`
-	ClusterJoinURLs       string `yaml:"cluster-join-urls" long:"cluster-join-urls" description:"One or more URLs of the writers in cluster to join, delimited by ',' without whitespaces"`
-	APIAddr               string `yaml:"api-addr" long:"api-addr" description:"Address([host]:port) to listen on for administration traffic."`
+	Name                  string            `yaml:"name" long:"name" description:"Human-readable name for this member."`
+	Labels                map[string]string `yaml:"labels" long:"labels" description:"The labels for each instance of EaseGateway."`
+	ClusterName           string            `yaml:"cluster-name" long:"cluster-name" description:"Human-readable name for the new cluster, ignored while joining an existed cluster."`
+	ClusterRole           string            `yaml:"cluster-role" long:"cluster-role" description:"Cluster role for this member. (reader, writer)"`
+	ClusterRequestTimeout string            `yaml:"cluster-request-timeout" long:"cluster-request-timeout" description:"Timeout to handle request to the cluster."`
+	ClusterClientURL      string            `yaml:"cluster-client-url" long:"cluter-client-url" description:"URL to listen on for cluster client traffic."`
+	ClusterPeerURL        string            `yaml:"cluster-peer-url" long:"cluter-peer-url" description:"URL to listen on for cluster peer traffic."`
+	ClusterJoinURLs       string            `yaml:"cluster-join-urls" long:"cluster-join-urls" description:"One or more URLs of the writers in cluster to join, delimited by ',' without whitespaces"`
+	APIAddr               string            `yaml:"api-addr" long:"api-addr" description:"Address([host]:port) to listen on for administration traffic."`
 
 	HomeDir   string `yaml:"home-dir" long:"home-dir" description:"Path to the home directory."`
 	DataDir   string `yaml:"data-dir" long:"data-dir" description:"Path to the data directory."`

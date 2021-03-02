@@ -62,6 +62,10 @@ func marshalStatus(status *supervisor.Status) ([]byte, error) {
 		return nil, err
 	}
 
+	if m == nil {
+		m = map[string]interface{}{}
+	}
+
 	m["timestamp"] = status.Timestamp
 
 	buff, err = yaml.Marshal(m)

@@ -6,6 +6,7 @@ import (
 	_ "github.com/megaease/easegateway/pkg/object/function"
 	_ "github.com/megaease/easegateway/pkg/object/httppipeline"
 	_ "github.com/megaease/easegateway/pkg/object/httpserver"
+	_ "github.com/megaease/easegateway/pkg/object/meshcontroller"
 	_ "github.com/megaease/easegateway/pkg/object/serviceregistry/consulserviceregistry"
 	_ "github.com/megaease/easegateway/pkg/object/serviceregistry/etcdserviceregistry"
 	_ "github.com/megaease/easegateway/pkg/object/serviceregistry/eurekaserviceregistry"
