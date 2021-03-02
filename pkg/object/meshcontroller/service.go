@@ -3,32 +3,37 @@ package meshcontroller
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/megaease/easegateway/pkg/logger"
 	"gopkg.in/yaml.v2"
 )
 
-// MeshServiceServer handle mesh service about logic, its resilience/sidecar/... configs
-// apply
-type MeshServiceServer struct {
-	store MeshStorage
+type (
+	// MeshServiceServer handle mesh service about logic, its resilience/sidecar/... configs
+	// apply into EG's pipeline , httpserver, and update these object continually
+	MeshServiceServer struct {
+		store        MeshStorage
+		AliveSeconds int64
 
-	// store keys to watch
-	watchIngressSpecNames map[string](chan storeOpMsg)
-	watchEgressSpecNames  map[string](chan storeOpMsg)
+		// store keys to watch
+		watchIngressSpecNames map[string](chan storeOpMsg)
+		watchEgressSpecNames  map[string](chan storeOpMsg)
 
-	ingressNotifyChan chan IngressMsg
-	mux               sync.Mutex
-}
+		ingressNotifyChan chan IngressMsg
+		mux               sync.Mutex
+	}
+)
 
 // NewDefaultMeshServiceServer retusn a initialized MeshServiceServer
-func NewDefaultMeshServiceServer(store MeshStorage, ingressNotifyChan chan IngressMsg) *MeshServiceServer {
+func NewDefaultMeshServiceServer(store MeshStorage, aliveSeconds int64, ingressNotifyChan chan IngressMsg) *MeshServiceServer {
 	return &MeshServiceServer{
 		store:                 store,
+		AliveSeconds:          aliveSeconds,
 		watchIngressSpecNames: make(map[string](chan storeOpMsg)),
 		watchEgressSpecNames:  make(map[string](chan storeOpMsg)),
-
-		ingressNotifyChan: ingressNotifyChan,
+		ingressNotifyChan:     ingressNotifyChan,
+		mux:                   sync.Mutex{},
 	}
 }
 
@@ -44,7 +49,7 @@ func (mss *MeshServiceServer) addWatchIngressSpecName(name string) error {
 	defer mss.mux.Unlock()
 	var err error
 	if mss.watchIngressSpecNames[name], err = mss.store.WatchKey(name); err != nil {
-		logger.Errorf("[BUG]failed to watch ingress speca name : %s", name)
+		logger.Errorf("BUG failed to watch ingress spec name : %s", name)
 		return err
 	}
 	return nil
@@ -57,7 +62,12 @@ func (mss *MeshServiceServer) checkIngressSpecs() {
 		case msg := <-v:
 			logger.Debugf("ingress key :%s has operation %v ", k, msg)
 			// notify ingress
-			mss.ingressNotifyChan <- IngressMsg{storeMsg: msg}
+			if mss.ingressNotifyChan == nil {
+				logger.Errorf("BUG, using notify ingress without init it, should not be called in master role")
+				return
+			} else {
+				mss.ingressNotifyChan <- IngressMsg{storeMsg: msg}
+			}
 		default:
 			// for not blocking read
 		}
@@ -70,10 +80,48 @@ func (mss *MeshServiceServer) checkEgressSpecs() {
 
 }
 
-// CheckLocalInstaceHearbeat communicate with Java process and check its health
-func (mss *MeshServiceServer) CheckLocalInstaceHearbeat(serviceName string) error {
+func (mss *MeshServiceServer) setServiceInstanceHeartbeat(serviceName, ID string, heartbeat *HeartbeatSpec) error {
+	key := fmt.Sprintf(meshServiceInstanceHeartbeatPrefix, serviceName, ID)
+	if newHeartbeat, err := yaml.Marshal(heartbeat); err != nil {
+		logger.Errorf("BUG, service :%s marahsal yaml failed, heartbeat : %v , err : %v", serviceName, heartbeat, err)
+		return err
+	} else {
+		if err = mss.store.Set(key, string(newHeartbeat)); err != nil {
+			logger.Errorf("service :%s , set store failed, key %s, err :%v", serviceName, key, err)
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (mss *MeshServiceServer) getServiceInstanceHeartbeat(serviceName, ID string) (*HeartbeatSpec, error) {
 	var (
-		err   error
+		err           error
+		heartbeatYAML string
+		heartbeat     HeartbeatSpec
+	)
+	key := fmt.Sprintf(meshServiceInstanceHeartbeatPrefix, serviceName, ID)
+	if heartbeatYAML, err = mss.store.Get(key); err != nil {
+		if err == ErrKeyNoExist {
+			//
+		} else {
+			logger.Errorf("get service : %s's heartbeat %s from store failed, err :%v", serviceName, key, err)
+		}
+		return &heartbeat, err
+	} else {
+		if err = yaml.Unmarshal([]byte(heartbeatYAML), &heartbeat); err != nil {
+			logger.Errorf("BUG, serivce : %s ummarshal yaml failed, spec :%s, err : %v", serviceName, heartbeatYAML, err)
+			return &heartbeat, err
+		}
+	}
+
+	return &heartbeat, err
+}
+
+// CheckLocalInstaceHeartbeat communicate with Java process and check its health
+func (mss *MeshServiceServer) CheckLocalInstaceHeartbeat(serviceName, ID string) error {
+	var (
 		alive bool
 	)
 
@@ -81,17 +129,71 @@ func (mss *MeshServiceServer) CheckLocalInstaceHearbeat(serviceName string) erro
 
 	if alive == true {
 		// update store heart beat record
+		heartbeat, err := mss.getServiceInstanceHeartbeat(serviceName, ID)
+		if err != nil && err != ErrKeyNoExist {
+			return err
+		}
+
+		heartbeat.LastActiveTime = time.Now().Unix()
+
+		return mss.setServiceInstanceHeartbeat(serviceName, ID, heartbeat)
+
+	} else {
+		// do nothing, master will notice this irregular
+		// and cause the update of Egress's Pipelines which are relied
+		// on this instance
 	}
 
-	return err
+	return nil
 }
 
 // WatchSerivceInstancesHeartbeat watchs all service instances heart beat in mesh
 func (mss *MeshServiceServer) WatchSerivceInstancesHeartbeat() error {
-	// Get all serivces
-	// find one serivce instance
+	// Get all tenants
+	tenantSpecs, err := mss.store.GetWithPrefix(meshTenantListPrefix)
+	if err != nil && err != ErrKeyNoExist {
+		logger.Errorf("get all tenant failed, err :%v", err)
+		return err
+	}
 
-	// read heartbeat, if more than 30s (configurable), then set the instance to OUT_OF_SERVICE
+	var services []string
+	for _, v := range tenantSpecs {
+		var tenant TenantSpec
+		if err = yaml.Unmarshal([]byte(v.val), &tenant); err != nil {
+			logger.Errorf("BUG, unmarshal tenat : %s, spe : %s failed, err : %v", v.key, v.val, err)
+			continue
+		} else {
+			// Get all serivces from one tenant
+			services = append(services, tenant.ServicesList...)
+		}
+	}
+
+	var allIns []*ServiceInstance
+	// find  all serivce instance
+	for _, v := range services {
+		insList, err := mss.GetSerivceInstances(v)
+		if err != nil && err != ErrKeyNoExist {
+			logger.Errorf("get serivce :%s, instance list failed, err :%v", v, err)
+			continue
+		}
+
+		allIns = append(allIns, insList...)
+	}
+
+	// read heartbeat record, if more than 60 seconds(configurable) after it has been pulled up,
+	//  then set the instance to OUT_OF_SERVICE
+	currTimeStamp := time.Now().Unix()
+	for _, v := range allIns {
+		heartbeat, err := mss.getServiceInstanceHeartbeat(v.ServiceName, v.InstanceID)
+
+		if err != nil || currTimeStamp-heartbeat.LastActiveTime > mss.AliveSeconds {
+			err = mss.UpdateServiceInstanceStatus(v.ServiceName, v.InstanceID, SerivceStatusOutOfSerivce)
+			if err != nil {
+				logger.Errorf("all service instance alive check failed, serivce :%s, ID :%s, err :%v", v.ServiceName, v.InstanceID, err)
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -108,7 +210,6 @@ func (mss *MeshServiceServer) CreateDefaultSpecs(serviceName, tenant string) err
 
 	// generate default resilience spec,
 
-	//
 	mss.store.Set(fmt.Sprint(meshServiceResiliencePrefix, serviceName), resilenceSpec)
 
 	return err
@@ -153,7 +254,7 @@ func (mss *MeshServiceServer) GetTenantSpec(tenant string) (string, error) {
 		tenantSpec string
 	)
 
-	if tenantSpec, err = mss.store.Get(fmt.Sprint(meshTenantServiceListPrefix, tenant)); err != nil {
+	if tenantSpec, err = mss.store.Get(fmt.Sprint(meshTenantPrefix, tenant)); err != nil {
 		logger.Errorf("get tenant: %s spec failed, %v", tenant, err)
 	}
 
@@ -189,14 +290,14 @@ func (mss *MeshServiceServer) GetSerivceInstances(serviceName string) ([]*Servic
 
 	insYAMLs, err = mss.store.GetWithPrefix(fmt.Sprintf(meshServiceInstanceListPrefix, serviceName))
 
-	if err != nil {
+	if err != nil && err != ErrKeyNoExist {
 		return insList, err
 	}
 
 	for _, v := range insYAMLs {
 		var ins *ServiceInstance
 		if err = yaml.Unmarshal([]byte(v.val), ins); err != nil {
-			logger.Errorf("[BUG] unmarsh service :%s, record key :%s , val %s failed, err %v", serviceName, v.key, v.val, err)
+			logger.Errorf("BUG unmarsh service :%s, record key :%s , val %s failed, err %v", serviceName, v.key, v.val, err)
 			continue
 		}
 		insList = append(insList, ins)
@@ -229,7 +330,6 @@ func (mss *MeshServiceServer) UpdateServiceInstanceStatus(serviceName, ID, statu
 		if ins.Status != status {
 			ins.Status = status
 		}
-
 	}
 
 	err := mss.updateSerivceInstanceWithLock(serviceName, ID, updateStatus)
