@@ -76,11 +76,11 @@ func NewDefaultRegistryCenterServer(registryType string, store MeshStorage, noti
 // into one routine.
 // Todo: Consider to split this routien for other None RESTful POST body
 //       format in future.
-func (rcs *RegistryCenterServer) RegistryServiceInstance(ins *ServiceInstance, service *MeshServiceSpec, sidecar *SidecarSpec) {
+func (rcs *RegistryCenterServer) RegistryServiceInstance(ins *ServiceInstance, service *MeshServiceSpec, sidecar *SidecarSpec) string {
 	// valid the input
 	if rcs.Registried == true {
 		// already registried
-		return
+		return ""
 	}
 
 	insPort := ins.Port // the original Java processing listening port
@@ -90,7 +90,7 @@ func (rcs *RegistryCenterServer) RegistryServiceInstance(ins *ServiceInstance, s
 	// registry this instance asynchronously
 	go rcs.registry(ins, insPort)
 
-	return
+	return ins.InstanceID
 }
 
 func (rcs *RegistryCenterServer) registry(ins *ServiceInstance, insPort uint32) {
@@ -123,7 +123,7 @@ func (rcs *RegistryCenterServer) registry(ins *ServiceInstance, insPort uint32) 
 
 		// set this instance status up
 		ins.Status = SerivceStatusUp
-		ins.Leases = defaultLeasesSeconds
+		ins.Leases = time.Now().Unix() + defaultLeasesSeconds
 		ins.RegistryTime = time.Now().Unix()
 
 		if err = rcs.registryIntoEtcd(ins); err != nil {
@@ -158,7 +158,7 @@ func (rcs *RegistryCenterServer) decodeByConsulFormat(body []byte) (*ServiceInst
 	ins.Port = uint32(reg.Port)
 	ins.ServiceName = reg.Name
 	if ins.InstanceID, err = common.UUID(); err != nil {
-		logger.Errorf("[BUG] generate uuid failed, %v", err)
+		logger.Errorf("BUG generate uuid failed, %v", err)
 	}
 
 	return nil, err
@@ -180,7 +180,7 @@ func (rcs *RegistryCenterServer) decodeByEurekaFormat(body []byte) (*ServiceInst
 	ins.IP = eurekaIns.IpAddr
 	ins.Port = uint32(eurekaIns.Port.Port)
 	if ins.InstanceID, err = common.UUID(); err != nil {
-		logger.Errorf("[BUG] generate uuid failed, %v", err)
+		logger.Errorf("BUG generate uuid failed, %v", err)
 	}
 
 	return nil, err

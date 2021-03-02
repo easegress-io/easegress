@@ -29,7 +29,8 @@ type (
 // NewMaster creates an initialized master
 func NewMaster(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Master {
 	store := &mockEtcdClient{}
-	serviceServer := NewDefaultMeshServiceServer(store, nil)
+	spec := superSpec.ObjectSpec().(*Spec)
+	serviceServer := NewDefaultMeshServiceServer(store, spec.AliveSeconds, nil)
 
 	m := &Master{
 		super:     super,
@@ -173,7 +174,7 @@ func (m *Master) GetTenant(ctx iris.Context) error {
 	if err != nil {
 		ctx.StatusCode(iris.StatusInternalServerError)
 		err = fmt.Errorf("marshal %#v to yaml failed: %v", tenant, err)
-		logger.Errorf("[BUG] %v", err)
+		logger.Errorf("BUG %v", err)
 		return err
 	}
 
@@ -201,7 +202,7 @@ func (m *Master) GetSerivceInstanceList(ctx iris.Context) error {
 	if err != nil {
 		ctx.StatusCode(iris.StatusInternalServerError)
 		err = fmt.Errorf("marshal %#v to yaml failed: %v", insList, err)
-		logger.Errorf("[BUG] %v", err)
+		logger.Errorf("BUG %v", err)
 		return err
 	}
 

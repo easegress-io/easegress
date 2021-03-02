@@ -23,10 +23,11 @@ const (
 	meshServiceEgressPipelinePrefix    = "/mesh/service/%s/egress/pipeline/%s" //+serviceName + RPC target serviceName(which service's this pipeline point to)
 
 	// registry about
-	meshServiceInstanceListPrefix      = "/mesh/service/%s/instance"              // +serviceName  ( its value is whole instance registry list )
-	meshServiceInstancePrefix          = "/mesh/service/%s/instance/%s"           // +serviceName + instanceID( its value is one instance registry info)
-	meshServiceInstanceHeartbeatPrefix = "/mesh/service/%s/instance/%s/heartbeat" // + serviceName + instanceID (its value is one instance heartbeat info)
-	meshTenantServiceListPrefix        = "/mesh/tenant/%s"                        // +tenantName (its value is a service name list belongs to this tenant)
+	meshServiceInstanceListPrefix      = "/mesh/service/%s/instance"     // +serviceName  ( its value is whole instance registry list )
+	meshServiceInstancePrefix          = "/mesh/service/%s/instance/%s"  // +serviceName + instanceID( its value is one instance registry info)
+	meshServiceInstanceHeartbeatPrefix = "/mesh/service/%s/heartbeat/%s" // + serviceName + instanceID (its value is one instance heartbeat info)
+	meshTenantPrefix                   = "/mesh/tenant/%s"               // +tenantName (its value is a service name list belongs to this tenant)
+	meshTenantListPrefix               = "/mesh/tenant"                  //  the prefix for get all tenant
 
 	meshServiceInstanceEtcdLockPrefix = "/mesh/lock/instances/%s" // +instanceID, for locking one service instances's record
 )
@@ -40,12 +41,19 @@ type (
 
 	// Spec describes MeshController.
 	Spec struct {
+
+		//------------------------ Master uses fields ---------------------------------------------------------
+		// AliveSeconds is the validate seconds for time pass since one serivce instance's last activity time
+		AliveSeconds int64 `yaml:"aliveSeconds" jsonschema:"required"`
+
+		//------------------------- Worker uses fields ---------------------------------------------------------
 		// SpecUpdateInterval is the interval for service updated spec to be applied into EG sidecar
 		SpecUpdateInterval string `yaml:"specUpdateInterval" jsonschema:"required,format=duration"`
 
 		// HeartbeatInterval is the interval for one service instance reports its heartbeat
 		HeartbeatInterval string `yaml:"heartbeatInterval" jsonschema:"required,format=duration"`
 
+		// RegistryTime indicates which protocol the registry center accepts
 		RegistryType string `yaml:"registryType" jsonschema:"required"`
 
 		// ServiceName indicates which services the worker(sidecar) stands for
@@ -68,6 +76,10 @@ type (
 		Desc         string   `yaml:"desc" jsonschema:"omitempty"`
 	}
 
+	// HeartbeatSpec describes one serivce instance's heartbeat info
+	HeartbeatSpec struct {
+		LastActiveTime int64 `yaml:"lastActive" jsonschema:"required"`
+	}
 	// Resilience
 
 	// SidecarSpec is the sidecar spec

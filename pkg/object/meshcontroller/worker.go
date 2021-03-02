@@ -43,7 +43,7 @@ func NewWorker(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker
 
 	store := &mockEtcdClient{}
 	registryCenterServer := NewDefaultRegistryCenterServer(spec.RegistryType, store, ingressNotifyChan)
-	serviceServer := NewDefaultMeshServiceServer(store, ingressNotifyChan)
+	serviceServer := NewDefaultMeshServiceServer(store, spec.AliveSeconds, ingressNotifyChan)
 	ingressServer := NewDefualtIngressServer(store, super)
 
 	w := &Worker{
@@ -120,7 +120,7 @@ func (w *Worker) Registry(ctx iris.Context) error {
 		return err
 	}
 
-	w.rcs.RegistryServiceInstance(ins, serviceSpec, sidecarSpec)
+	w.instanceID = w.rcs.RegistryServiceInstance(ins, serviceSpec, sidecarSpec)
 
 	return err
 }
@@ -130,7 +130,7 @@ func (w *Worker) watchHeartbeat(interval time.Duration, done chan struct{}) {
 	for {
 		select {
 		case <-time.After(interval):
-			if err := w.mss.CheckLocalInstaceHearbeat(w.spec.ServiceName); err != nil {
+			if err := w.mss.CheckLocalInstaceHeartbeat(w.spec.ServiceName, w.instanceID); err != nil {
 				logger.Errorf("worker check local instance heartbeat failed, err :%v", err)
 			}
 		case <-done:
@@ -149,7 +149,7 @@ func (w *Worker) watchSpecs(interval time.Duration, done chan struct{}) {
 			}
 		case msg := <-w.ingsChan:
 			if err := w.ings.HandleIngressOpMsg(msg); err != nil {
-				logger.Errorf("work handle ingress msg failed,msg : %v, err :  %v ", msg, err)
+				logger.Errorf("worker handle ingress msg failed,msg : %v, err :  %v ", msg, err)
 			}
 		case <-done:
 			return
