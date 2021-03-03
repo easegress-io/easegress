@@ -46,7 +46,7 @@ func NewWorker(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker
 	store := &mockEtcdClient{}
 	registryCenterServer := NewRegistryCenterServer(spec.RegistryType, store, ingressNotifyChan)
 	serviceServer := NewMeshServiceServer(store, spec.AliveSeconds, ingressNotifyChan)
-	ingressServer := NewIngressServer(store)
+	ingressServer := NewIngressServer(store, super)
 
 	w := &Worker{
 		super:     super,

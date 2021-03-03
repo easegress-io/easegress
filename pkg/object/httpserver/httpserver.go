@@ -45,7 +45,7 @@ func (s *SupervisorMapper) Get(name string) (protocol.HTTPHandler, bool) {
 		return nil, false
 	} else {
 		if handler, ok := ro.Instance().(protocol.HTTPHandler); !ok {
-			logger.Errorf("BUG: pipeline :%s is not a HTTPHandler", name)
+			logger.Errorf("BUG: %s is not a HTTPHandler", name)
 			return nil, false
 		} else {
 			return handler, true

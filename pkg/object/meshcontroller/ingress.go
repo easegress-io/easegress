@@ -6,6 +6,7 @@ import (
 
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
 	"github.com/megaease/easegateway/pkg/object/httpserver"
+	"github.com/megaease/easegateway/pkg/supervisor"
 )
 
 // genereate the EG running object name, which will be applied into
@@ -41,6 +42,7 @@ type (
 	// IngressServer control one ingress pipeline and one HTTPServer
 	IngressServer struct {
 		store MeshStorage
+		super *supervisor.Supervisor
 
 		// running EG objects, accept user traffic
 		Pipelines  map[string]*httppipeline.HTTPPipeline
@@ -51,9 +53,10 @@ type (
 )
 
 // NewIngressServer creates a initialized ingress server
-func NewIngressServer(store MeshStorage) *IngressServer {
+func NewIngressServer(store MeshStorage, super *supervisor.Supervisor) *IngressServer {
 	return &IngressServer{
 		store:      store,
+		super:      super,
 		Pipelines:  make(map[string]*httppipeline.HTTPPipeline),
 		HTTPServer: nil,
 		mux:        sync.Mutex{},
