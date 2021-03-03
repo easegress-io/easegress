@@ -63,7 +63,8 @@ type (
 	}
 )
 
-func NewDefaultRegistryCenterServer(registryType string, store MeshStorage, notifyIngress chan IngressMsg) *RegistryCenterServer {
+// NewRegistryCenterServer
+func NewRegistryCenterServer(registryType string, store MeshStorage, notifyIngress chan IngressMsg) *RegistryCenterServer {
 	return &RegistryCenterServer{
 		RegistryType:  registryType,
 		store:         store,

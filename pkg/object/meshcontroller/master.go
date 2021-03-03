@@ -30,7 +30,7 @@ type (
 func NewMaster(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Master {
 	store := &mockEtcdClient{}
 	spec := superSpec.ObjectSpec().(*Spec)
-	serviceServer := NewDefaultMeshServiceServer(store, spec.AliveSeconds, nil)
+	serviceServer := NewMeshServiceServer(store, spec.AliveSeconds, nil)
 
 	m := &Master{
 		super:     super,

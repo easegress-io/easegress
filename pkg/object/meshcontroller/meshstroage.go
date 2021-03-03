@@ -37,6 +37,7 @@ type (
 		val string
 	}
 
+	// Basic store operation messgage
 	storeOpMsg struct {
 		op     string // operation type, "create/update/delete"
 		record record

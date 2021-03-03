@@ -25,8 +25,8 @@ type (
 	}
 )
 
-// NewDefaultMeshServiceServer retusn a initialized MeshServiceServer
-func NewDefaultMeshServiceServer(store MeshStorage, aliveSeconds int64, ingressNotifyChan chan IngressMsg) *MeshServiceServer {
+// NewMeshServiceServer retusn a initialized MeshServiceServer
+func NewMeshServiceServer(store MeshStorage, aliveSeconds int64, ingressNotifyChan chan IngressMsg) *MeshServiceServer {
 	return &MeshServiceServer{
 		store:                 store,
 		AliveSeconds:          aliveSeconds,

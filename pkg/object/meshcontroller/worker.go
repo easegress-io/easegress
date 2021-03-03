@@ -13,6 +13,7 @@ import (
 
 const (
 	defaultIngressChannelBuffer = 100
+	defaultEngressChannelBuffer = 200
 )
 
 // Worker is a sidecar in service mesh
@@ -29,6 +30,7 @@ type Worker struct {
 	mux        sync.Mutex
 
 	ingsChan chan IngressMsg
+	engsChan chan EngressMsg
 	done     chan struct{}
 }
 
@@ -36,11 +38,12 @@ type Worker struct {
 func NewWorker(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 	spec := superSpec.ObjectSpec().(*Spec)
 	ingressNotifyChan := make(chan IngressMsg, defaultIngressChannelBuffer)
+	engressNotifyChan := make(chan EngressMsg, defaultEngressChannelBuffer)
 
 	store := &mockEtcdClient{}
-	registryCenterServer := NewDefaultRegistryCenterServer(spec.RegistryType, store, ingressNotifyChan)
-	serviceServer := NewDefaultMeshServiceServer(store, spec.AliveSeconds, ingressNotifyChan)
-	ingressServer := NewDefualtIngressServer(store, super)
+	registryCenterServer := NewRegistryCenterServer(spec.RegistryType, store, ingressNotifyChan)
+	serviceServer := NewMeshServiceServer(store, spec.AliveSeconds, ingressNotifyChan)
+	ingressServer := NewIngressServer(store, super)
 
 	w := &Worker{
 		super:     super,
@@ -51,6 +54,7 @@ func NewWorker(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker
 		mss:      serviceServer,
 		ings:     ingressServer,
 		ingsChan: ingressNotifyChan,
+		engsChan: engressNotifyChan,
 
 		done: make(chan struct{}),
 	}
