@@ -22,12 +22,6 @@ Powered by open-source software: Etcd(https://etcd.io), Apache License 2.0.
 `, time.Now().Year())
 }
 
-type apiEntry struct {
-	Path    string       `yaml:"path"`
-	Method  string       `yaml:"method"`
-	Handler iris.Handler `yaml:"-"`
-}
-
 const (
 	// APIPrefix is the prefix of api.
 	APIPrefix = "/apis/v3"
@@ -38,15 +32,25 @@ const (
 	ConfigVersionKey = "X-Config-Version"
 )
 
-// Server is the api server.
-type Server struct {
-	app     *iris.Application
-	cluster cluster.Cluster
-	apis    []*apiEntry
+type (
+	// Server is the api server.
+	Server struct {
+		app       *iris.Application
+		cluster   cluster.Cluster
+		apisMutex sync.RWMutex
+		apis      []*APIEntry
 
-	mutex      cluster.Mutex
-	mutexMutex sync.Mutex
-}
+		mutex      cluster.Mutex
+		mutexMutex sync.Mutex
+	}
+
+	// APIEntry is the entry of API.
+	APIEntry struct {
+		Path    string       `yaml:"path"`
+		Method  string       `yaml:"method"`
+		Handler iris.Handler `yaml:"-"`
+	}
+)
 
 // MustNewServer creates an api server.
 func MustNewServer(opt *option.Options, cluster cluster.Cluster) *Server {
@@ -71,6 +75,8 @@ func MustNewServer(opt *option.Options, cluster cluster.Cluster) *Server {
 	s.setupAPIs()
 
 	go func() {
+		logger.Infof("api server running in %s", opt.APIAddr)
+
 		err := app.Run(iris.Addr(opt.APIAddr))
 		if err == iris.ErrServerClosed {
 			return
@@ -85,20 +91,32 @@ func MustNewServer(opt *option.Options, cluster cluster.Cluster) *Server {
 }
 
 func (s *Server) setupAPIs() {
-	listAPIsEntry := &apiEntry{
-		Path:    "",
-		Method:  "GET",
-		Handler: s.listAPIs,
-	}
-
-	s.apis = append(s.apis, listAPIsEntry)
+	s.setupListAPIs()
 	s.setupMemberAPIs()
 	s.setupObjectAPIs()
 	s.setupMetadaAPIs()
 	s.setupHealthAPIs()
 	s.setupAboutAPIs()
+}
 
-	for _, api := range s.apis {
+func (s *Server) setupListAPIs() {
+	listAPIs := []*APIEntry{
+		{
+
+			Path:    "",
+			Method:  "GET",
+			Handler: s.listAPIs,
+		},
+	}
+
+	s.RegisterAPIs(listAPIs)
+}
+
+// RegisterAPIs registers APIs.
+func (s *Server) RegisterAPIs(apis []*APIEntry) {
+	s.apis = append(s.apis, apis...)
+
+	for _, api := range apis {
 		api.Path = APIPrefix + api.Path
 		switch api.Method {
 		case "GET":
@@ -125,23 +143,31 @@ func (s *Server) setupAPIs() {
 }
 
 func (s *Server) setupHealthAPIs() {
-	s.apis = append(s.apis, &apiEntry{
-		// https://stackoverflow.com/a/43381061/1705845
-		Path:    "/healthz",
-		Method:  "GET",
-		Handler: func(iris.Context) { /* 200 by default */ },
-	})
+	healthAPIs := []*APIEntry{
+		{
+			// https://stackoverflow.com/a/43381061/1705845
+			Path:    "/healthz",
+			Method:  "GET",
+			Handler: func(iris.Context) { /* 200 by default */ },
+		},
+	}
+
+	s.RegisterAPIs(healthAPIs)
 }
 
 func (s *Server) setupAboutAPIs() {
-	s.apis = append(s.apis, &apiEntry{
-		Path:   "/about",
-		Method: "GET",
-		Handler: func(ctx iris.Context) {
-			ctx.Header("Content-Type", "text/plain")
-			ctx.WriteString(aboutText())
+	aboutAPIs := []*APIEntry{
+		{
+			Path:   "/about",
+			Method: "GET",
+			Handler: func(ctx iris.Context) {
+				ctx.Header("Content-Type", "text/plain")
+				ctx.WriteString(aboutText())
+			},
 		},
-	})
+	}
+
+	s.RegisterAPIs(aboutAPIs)
 }
 
 func (s *Server) listAPIs(ctx iris.Context) {

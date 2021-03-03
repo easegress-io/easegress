@@ -23,54 +23,54 @@ const (
 )
 
 func (s *Server) setupObjectAPIs() {
-	objAPIs := make([]*apiEntry, 0)
+	objAPIs := make([]*APIEntry, 0)
 	objAPIs = append(objAPIs,
-		&apiEntry{
+		&APIEntry{
 			Path:    ObjectKindsPrefix,
 			Method:  "GET",
 			Handler: s.listObjectKinds,
 		},
 
-		&apiEntry{
+		&APIEntry{
 			Path:    ObjectPrefix,
 			Method:  "POST",
 			Handler: s.createObject,
 		},
-		&apiEntry{
+		&APIEntry{
 			Path:    ObjectPrefix,
 			Method:  "GET",
 			Handler: s.listObjects,
 		},
 
-		&apiEntry{
+		&APIEntry{
 			Path:    ObjectPrefix + "/{name:string}",
 			Method:  "GET",
 			Handler: s.getObject,
 		},
-		&apiEntry{
+		&APIEntry{
 			Path:    ObjectPrefix + "/{name:string}",
 			Method:  "PUT",
 			Handler: s.updateObject,
 		},
-		&apiEntry{
+		&APIEntry{
 			Path:    ObjectPrefix + "/{name:string}",
 			Method:  "DELETE",
 			Handler: s.deleteObject,
 		},
 
-		&apiEntry{
+		&APIEntry{
 			Path:    StatusObjectPrefix,
 			Method:  "GET",
 			Handler: s.listStatusObjects,
 		},
-		&apiEntry{
+		&APIEntry{
 			Path:    StatusObjectPrefix + "/{name:string}",
 			Method:  "GET",
 			Handler: s.getStatusObject,
 		},
 	)
 
-	s.apis = append(s.apis, objAPIs...)
+	s.RegisterAPIs(objAPIs)
 }
 
 func (s *Server) readObjectSpec(ctx iris.Context) (*supervisor.Spec, error) {

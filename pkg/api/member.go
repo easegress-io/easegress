@@ -10,7 +10,7 @@ import (
 )
 
 func (s *Server) setupMemberAPIs() {
-	memberAPIs := []*apiEntry{
+	memberAPIs := []*APIEntry{
 		{
 			Path:    "/status/members",
 			Method:  "GET",
@@ -23,7 +23,7 @@ func (s *Server) setupMemberAPIs() {
 		},
 	}
 
-	s.apis = append(s.apis, memberAPIs...)
+	s.RegisterAPIs(memberAPIs)
 }
 
 type (
