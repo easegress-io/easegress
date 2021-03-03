@@ -114,6 +114,9 @@ func (s *Server) setupListAPIs() {
 
 // RegisterAPIs registers APIs.
 func (s *Server) RegisterAPIs(apis []*APIEntry) {
+	s.apisMutex.Lock()
+	defer s.apisMutex.Unlock()
+
 	s.apis = append(s.apis, apis...)
 
 	for _, api := range apis {
@@ -171,6 +174,9 @@ func (s *Server) setupAboutAPIs() {
 }
 
 func (s *Server) listAPIs(ctx iris.Context) {
+	s.apisMutex.RLock()
+	defer s.apisMutex.RUnlock()
+
 	buff, err := yaml.Marshal(s.apis)
 	if err != nil {
 		panic(fmt.Errorf("marshal %#v to yaml failed: %v", s.apis, err))
