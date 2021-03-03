@@ -119,7 +119,7 @@ func (mss *MeshServiceServer) getServiceInstanceHeartbeat(serviceName, ID string
 	return &heartbeat, err
 }
 
-// CheckLocalInstaceHeartbeat communicate with Java process and check its health
+// CheckLocalInstaceHeartbeat communicate with Java process and check its health.
 func (mss *MeshServiceServer) CheckLocalInstaceHeartbeat(serviceName, ID string) error {
 	var (
 		alive bool
@@ -147,7 +147,7 @@ func (mss *MeshServiceServer) CheckLocalInstaceHeartbeat(serviceName, ID string)
 	return nil
 }
 
-// WatchSerivceInstancesHeartbeat watchs all service instances heart beat in mesh
+// WatchSerivceInstancesHeartbeat watchs all service instances heart beat in mesh.
 func (mss *MeshServiceServer) WatchSerivceInstancesHeartbeat() error {
 	// Get all tenants
 	tenantSpecs, err := mss.store.GetWithPrefix(meshTenantListPrefix)
@@ -216,7 +216,7 @@ func (mss *MeshServiceServer) CreateDefaultSpecs(serviceName, tenant string) err
 
 }
 
-// GetServiceSpec gets meshserivce spec from etcd
+// GetServiceSpec gets meshserivce spec from store.
 func (mss *MeshServiceServer) GetServiceSpec(serviceName string) (*MeshServiceSpec, error) {
 	var (
 		err     error
@@ -247,7 +247,7 @@ func (mss *MeshServiceServer) GetSidecarSepc(serviceName string) (*SidecarSpec, 
 	return sidecar, err
 }
 
-// GetTenantSpec gets tenant basic info and its service name list
+// GetTenantSpec gets tenant basic info and its service name list.
 func (mss *MeshServiceServer) GetTenantSpec(tenant string) (string, error) {
 	var (
 		err        error
@@ -261,7 +261,7 @@ func (mss *MeshServiceServer) GetTenantSpec(tenant string) (string, error) {
 	return tenantSpec, err
 }
 
-// GetSerivceInstances get one service Instances from storage by provided ID
+// GetSerivceInstances get one service Instances from storage by provided ID.
 func (mss *MeshServiceServer) GetSerivceInstance(serviceName, ID string) (*ServiceInstance, error) {
 	var (
 		err     error
@@ -280,7 +280,7 @@ func (mss *MeshServiceServer) GetSerivceInstance(serviceName, ID string) (*Servi
 
 }
 
-// GetSerivceInstances get whole service Instances from storage
+// GetSerivceInstances get whole service Instances from store.
 func (mss *MeshServiceServer) GetSerivceInstances(serviceName string) ([]*ServiceInstance, error) {
 	var (
 		err      error
@@ -307,12 +307,12 @@ func (mss *MeshServiceServer) GetSerivceInstances(serviceName string) ([]*Servic
 
 }
 
-// DeleteSerivceInstance deletes one service registry instance
+// DeleteSerivceInstance deletes one service registry instance.
 func (mss *MeshServiceServer) DeleteSerivceInstance(serviceName, ID string) error {
 	return mss.store.Delete(fmt.Sprintf(meshServiceInstancePrefix, serviceName, ID))
 }
 
-// UpdateServiceInstance  updates one instance's status field
+// UpdateServiceInstance  updates one instance's status field.
 func (mss *MeshServiceServer) UpdateServiceInstanceLeases(serviceName, ID string, leases int64) error {
 	updateLeases := func(ins *ServiceInstance) {
 		if ins.Leases != leases {
@@ -324,7 +324,7 @@ func (mss *MeshServiceServer) UpdateServiceInstanceLeases(serviceName, ID string
 	return err
 }
 
-// UpdateServiceInstanceStatus  updates one instance's status field
+// UpdateServiceInstanceStatus  updates one instance's status field.
 func (mss *MeshServiceServer) UpdateServiceInstanceStatus(serviceName, ID, status string) error {
 	updateStatus := func(ins *ServiceInstance) {
 		if ins.Status != status {

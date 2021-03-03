@@ -74,7 +74,7 @@ func NewDefaultRegistryCenterServer(registryType string, store MeshStorage, noti
 // RegistryServiceInstance accepts Java Process's registry request in Eureka/Consul Format
 // cause Eureka/Consul registry format are both with HTTP and POST body, we can combine them
 // into one routine.
-// Todo: Consider to split this routien for other None RESTful POST body
+// Todo: Consider to split this routine for other None RESTful POST body
 //       format in future.
 func (rcs *RegistryCenterServer) RegistryServiceInstance(ins *ServiceInstance, service *MeshServiceSpec, sidecar *SidecarSpec) string {
 	// valid the input
@@ -98,7 +98,6 @@ func (rcs *RegistryCenterServer) registry(ins *ServiceInstance, insPort uint32) 
 		err      error
 		tryTimes int = 0
 	)
-
 	msg := IngressMsg{
 		storeMsg: storeOpMsg{
 			op: opTypeCreate,
@@ -126,14 +125,13 @@ func (rcs *RegistryCenterServer) registry(ins *ServiceInstance, insPort uint32) 
 		ins.Leases = time.Now().Unix() + defaultLeasesSeconds
 		ins.RegistryTime = time.Now().Unix()
 
-		if err = rcs.registryIntoEtcd(ins); err != nil {
+		if err = rcs.registryIntoStore(ins); err != nil {
 			logger.Errorf("service %s try to create ingress failed, err %v, times %d", ins.ServiceName, err, tryTimes)
 			continue
 		}
 
 		rcs.Registried = true
 		logger.Debugf("service %s , instanceID %s, regitry succ, try time %d", ins.ServiceName, ins.InstanceID, tryTimes)
-
 		break
 	}
 
@@ -141,7 +139,7 @@ func (rcs *RegistryCenterServer) registry(ins *ServiceInstance, insPort uint32) 
 }
 
 // decodeByConsulFormat accepts Java Process's registry request in Consul Format
-// then transfer it into eashMesh's format
+// then transfer it into eashMesh's format.
 func (rcs *RegistryCenterServer) decodeByConsulFormat(body []byte) (*ServiceInstance, error) {
 	var (
 		err error
@@ -165,7 +163,7 @@ func (rcs *RegistryCenterServer) decodeByConsulFormat(body []byte) (*ServiceInst
 }
 
 // decodeByEurekaFormat accepts Java Process's registry request in Consul Format
-// then transfer it into eashMesh's format
+// then transfer it into eashMesh's format.
 func (rcs *RegistryCenterServer) decodeByEurekaFormat(body []byte) (*ServiceInstance, error) {
 	var (
 		err       error
@@ -207,8 +205,8 @@ func (rcs *RegistryCenterServer) decodeBody(reqBody []byte) (*ServiceInstance, e
 
 }
 
-// registryIntoEtcd writes instance record into etcd
-func (rcs *RegistryCenterServer) registryIntoEtcd(ins *ServiceInstance) error {
+// registryIntoStore writes instance record into store.
+func (rcs *RegistryCenterServer) registryIntoStore(ins *ServiceInstance) error {
 	var err error
 	buff, err := yaml.Marshal(ins)
 	if err != nil {

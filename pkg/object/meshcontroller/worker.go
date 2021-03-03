@@ -21,19 +21,15 @@ type Worker struct {
 	superSpec *supervisor.Spec
 	spec      *Spec
 
-	registried bool
-
 	instanceID string
-
-	rcs  *RegistryCenterServer
-	mss  *MeshServiceServer
-	ings *IngressServer
-	engs *EgressServer
+	rcs        *RegistryCenterServer
+	mss        *MeshServiceServer
+	ings       *IngressServer
+	engs       *EgressServer
+	mux        sync.Mutex
 
 	ingsChan chan IngressMsg
-	mux      sync.Mutex
-
-	done chan struct{}
+	done     chan struct{}
 }
 
 // NewWorker returns a initialized worker
@@ -103,24 +99,25 @@ func (w *Worker) Registry(ctx iris.Context) error {
 	}
 
 	ins, err := w.rcs.decodeBody(body)
-
 	if err != nil {
 		return err
 	}
 
 	serviceSpec, err := w.mss.GetServiceSpec(w.spec.ServiceName)
-
 	if err != nil {
 		return err
 	}
 
 	sidecarSpec, err := w.mss.GetSidecarSepc(w.spec.ServiceName)
-
 	if err != nil {
 		return err
 	}
 
-	w.instanceID = w.rcs.RegistryServiceInstance(ins, serviceSpec, sidecarSpec)
+	if ID := w.rcs.RegistryServiceInstance(ins, serviceSpec, sidecarSpec); len(ID) != 0 {
+		w.mux.Lock()
+		defer w.mux.Unlock()
+		w.instanceID = ID
+	}
 
 	return err
 }

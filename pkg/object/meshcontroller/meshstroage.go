@@ -13,7 +13,7 @@ var (
 )
 
 type (
-	// MeshStorage is for describing basic storage requires
+	// MeshStorage is for describing basic storage APIs.
 	MeshStorage interface {
 		Get(key string) (string, error)
 		Set(key, val string) error
@@ -27,7 +27,7 @@ type (
 		WatchKey(key string) (chan storeOpMsg, error)
 	}
 
-	// MockEtcdClient mocks ETCD storage operations
+	// MockEtcdClient mocks ETCD storage operations.
 	mockEtcdClient struct {
 		endpoints []string
 	}
@@ -43,7 +43,7 @@ type (
 	}
 )
 
-// Get gets ETCD one record by provided 'key'
+// Get gets ETCD one record by provided 'key'.
 func (mec *mockEtcdClient) Get(key string) (string, error) {
 	var (
 		val string
@@ -52,14 +52,14 @@ func (mec *mockEtcdClient) Get(key string) (string, error) {
 	return val, err
 }
 
-// Set writes ETCD according to provided 'key' and 'val'
+// Set writes ETCD according to provided 'key' and 'val'.
 func (mec *mockEtcdClient) Set(key string, val string) error {
 	var err error
 
 	return err
 }
 
-// Delete deletes ETCD key by provided 'key'
+// Delete deletes ETCD key by provided 'key'.
 func (mec *mockEtcdClient) Delete(key string) error {
 	var (
 		err error
@@ -67,14 +67,14 @@ func (mec *mockEtcdClient) Delete(key string) error {
 	return err
 }
 
-// AcquireLock acquires a lock for specified key
+// AcquireLock acquires a lock for specified key.
 func (mec *mockEtcdClient) AcquireLock(key string, expireSecond int) error {
 	var err error
 
 	return err
 }
 
-// GetPrefix gets matched key-value pairs with provided prefix
+// GetPrefix gets matched key-value pairs with provided prefix.
 func (mec *mockEtcdClient) GetWithPrefix(prefix string) ([]record, error) {
 	var (
 		records []record
@@ -84,14 +84,14 @@ func (mec *mockEtcdClient) GetWithPrefix(prefix string) ([]record, error) {
 	return records, err
 }
 
-// Releaselock releases the lock for specified key
+// Releaselock releases the lock for specified key.
 func (mec *mockEtcdClient) ReleaseLock(key string) error {
 	var err error
 
 	return err
 }
 
-// Watchkey watch one key
+// Watchkey watch one key.
 func (mec *mockEtcdClient) WatchKey(key string) (chan storeOpMsg, error) {
 	var (
 		err   error
@@ -102,7 +102,7 @@ func (mec *mockEtcdClient) WatchKey(key string) (chan storeOpMsg, error) {
 	return opMsg, err
 }
 
-// WatchWithPrefix wathc multiple keys with provided prefix
+// WatchWithPrefix wathc multiple keys with provided prefix.
 func (mec *mockEtcdClient) WatchWithPrefix(prefix string) (chan storeOpMsg, error) {
 	var (
 		err   error
