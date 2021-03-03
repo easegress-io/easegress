@@ -3,6 +3,8 @@ package httpserver
 import (
 	"time"
 
+	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/protocol"
 	"github.com/megaease/easegateway/pkg/supervisor"
 )
 
@@ -28,7 +30,7 @@ type (
 
 	// MuxMapper gets HTTP handler pipeline with mutex
 	MuxMapper interface {
-		Get(name string) (*supervisor.RunningObject, bool)
+		Get(name string) (protocol.HTTPHandler, bool)
 	}
 
 	// SupervisorMapper calls supervisor for getting pipeline.
@@ -38,8 +40,17 @@ type (
 )
 
 // Get gets pipeline from EG's running object
-func (s *SupervisorMapper) Get(name string) (*supervisor.RunningObject, bool) {
-	return s.super.GetRunningObject(name, supervisor.CategoryPipeline)
+func (s *SupervisorMapper) Get(name string) (protocol.HTTPHandler, bool) {
+	if ro, exist := s.super.GetRunningObject(name, supervisor.CategoryPipeline); exist == false {
+		return nil, false
+	} else {
+		if handler, ok := ro.Instance().(protocol.HTTPHandler); !ok {
+			logger.Errorf("BUG: pipeline :%s is not a HTTPHandler", name)
+			return nil, false
+		} else {
+			return handler, true
+		}
+	}
 }
 
 // Category returns the category of HTTPServer.

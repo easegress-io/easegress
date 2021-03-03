@@ -9,7 +9,6 @@ import (
 
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/protocol"
 	"github.com/megaease/easegateway/pkg/supervisor"
 	"github.com/megaease/easegateway/pkg/tracing"
 	"github.com/megaease/easegateway/pkg/util/httpheader"
@@ -24,8 +23,8 @@ type (
 		httpStat *httpstat.HTTPStat
 		topN     *topn.TopN
 
-		rules          atomic.Value // *muxRules
-		pipelineMapper atomic.Value // MuxMapper
+		rules     atomic.Value // *muxRules
+		muxMapper atomic.Value // MuxMapper
 	}
 
 	muxRules struct {
@@ -265,13 +264,9 @@ func newMux(httpStat *httpstat.HTTPStat, topN *topn.TopN, mapper MuxMapper) *mux
 	}
 
 	m.rules.Store(&muxRules{spec: &Spec{}, tracer: tracing.NoopTracing})
-	m.pipelineMapper.Store(mapper)
+	m.muxMapper.Store(mapper)
 
 	return m
-}
-
-func (m *mux) reloadMapper(mapper MuxMapper) {
-	m.pipelineMapper.Store(mapper)
 }
 
 func (m *mux) reloadRules(superSpec *supervisor.Spec, super *supervisor.Supervisor) {
@@ -419,22 +414,15 @@ func (m *mux) handleRequestWithCache(rules *muxRules, ctx context.HTTPContext, c
 	case ci.methodNotAllowed:
 		ctx.Response().SetStatusCode(http.StatusMethodNotAllowed)
 	case ci.backend != "":
-		mapper, ok := m.pipelineMapper.Load().(MuxMapper)
+		mapper, ok := m.muxMapper.Load().(MuxMapper)
 		if !ok {
 			ctx.AddTag(stringtool.Cat("BUG: mapper is not a MuxMapper"))
 			ctx.Response().SetStatusCode(http.StatusServiceUnavailable)
 			return
 		}
-		ro, exists := mapper.Get(ci.backend)
+		handler, exists := mapper.Get(ci.backend)
 		if !exists {
 			ctx.AddTag(stringtool.Cat("backend ", ci.backend, " not found"))
-			ctx.Response().SetStatusCode(http.StatusServiceUnavailable)
-			return
-		}
-
-		handler, ok := ro.Instance().(protocol.HTTPHandler)
-		if !ok {
-			ctx.AddTag(stringtool.Cat("BUG: backend ", ci.backend, " is not a http handler"))
 			ctx.Response().SetStatusCode(http.StatusServiceUnavailable)
 			return
 		}
