@@ -21,7 +21,7 @@ type (
 		watchEgressSpecNames  map[string](chan storeOpMsg)
 
 		ingressNotifyChan chan IngressMsg
-		mux               sync.Mutex
+		mux               sync.RWMutex
 	}
 )
 
@@ -33,7 +33,7 @@ func NewMeshServiceServer(store MeshStorage, aliveSeconds int64, ingressNotifyCh
 		watchIngressSpecNames: make(map[string](chan storeOpMsg)),
 		watchEgressSpecNames:  make(map[string](chan storeOpMsg)),
 		ingressNotifyChan:     ingressNotifyChan,
-		mux:                   sync.Mutex{},
+		mux:                   sync.RWMutex{},
 	}
 }
 
@@ -44,30 +44,50 @@ func (mss *MeshServiceServer) CheckSpecs() error {
 	return nil
 }
 
-func (mss *MeshServiceServer) addWatchIngressSpecName(name string) error {
+// addWatchIngressSpecNames
+func (mss *MeshServiceServer) addWatchIngressSpecNames(serviceName string) error {
+	var err error
+	httpServerName := genIngreePipelineSpecName(serviceName)
+	pipelineName := genIngreePipelineSpecName(serviceName)
+
 	mss.mux.Lock()
 	defer mss.mux.Unlock()
-	var err error
-	if mss.watchIngressSpecNames[name], err = mss.store.WatchKey(name); err != nil {
-		logger.Errorf("BUG failed to watch ingress spec name : %s", name)
-		return err
+
+	// add watch ingress HTTPServer spec
+	if _, ok := mss.watchIngressSpecNames[httpServerName]; !ok {
+		if mss.watchIngressSpecNames[httpServerName], err = mss.store.WatchKey(httpServerName); err != nil {
+			logger.Errorf("BUG failed to watch ingress http server spec name: %s, err: %v", httpServerName, err)
+			return err
+		}
 	}
+
+	// add watch ingress HTTPPipeline spec
+	if _, ok := mss.watchIngressSpecNames[pipelineName]; !ok {
+		if mss.watchIngressSpecNames[pipelineName], err = mss.store.WatchKey(pipelineName); err != nil {
+			logger.Errorf("BUG failed to watch ingress pipeline spec name : %s, err :%v", pipelineName)
+			return err
+		}
+	}
+
 	return nil
 }
 
 func (mss *MeshServiceServer) checkIngressSpecs() {
-	// iterate all wanted keys
+	mss.mux.RLock()
+	defer mss.mux.RUnlock()
+
+	// iterate all wanted ingress related keys
 	for k, v := range mss.watchIngressSpecNames {
+		if mss.ingressNotifyChan == nil {
+			logger.Errorf("BUG, using notify ingress without init it, should not be called in master role")
+			continue
+		}
+
 		select {
 		case msg := <-v:
 			logger.Debugf("ingress key :%s has operation %v ", k, msg)
 			// notify ingress
-			if mss.ingressNotifyChan == nil {
-				logger.Errorf("BUG, using notify ingress without init it, should not be called in master role")
-				return
-			} else {
-				mss.ingressNotifyChan <- IngressMsg{storeMsg: msg}
-			}
+			mss.ingressNotifyChan <- IngressMsg{storeMsg: msg}
 		default:
 			// for not blocking read
 		}

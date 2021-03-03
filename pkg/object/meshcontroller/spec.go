@@ -17,6 +17,9 @@ const (
 	meshServiceObservabilityPrefix = "/mesh/service/%s/observability" // + serviceName(its value is the observability spec)
 
 	// traffic gate about
+	// these specs transform basic specs above into EG understandable object specs, e.g.
+	//    LoadBalanceSpec => Pipeline's proxy filter spec
+	//    SidecarSpec => HTTPServer spec
 	meshServiceIngressHTTPServerPrefix = "/mesh/service/%s/ingress/httpserver" // +serviceName (its value is the ingress httpserver spec)
 	meshServiceIngressPipelinePrefix   = "/mesh/service/%s/ingress/pipeline"   // +serviceName (its value is the ingress pipeline spec)
 	meshServiceEgressHTTPServerPrefix  = "/mesh/service/%s/egress/httpserver"  // +serviceName (its value is the egress httpserver spec)
@@ -124,6 +127,7 @@ type (
 		Kafka          ObservabilityMetricDetailSpec `yaml:"kafka" josnschema:"required"`
 		Redis          ObservabilityMetricDetailSpec `yaml:"redis" josnschema:"required"`
 	}
+
 	ObservabilityMetricDetailSpec struct {
 		Enabled  bool   `yaml:"enabled" josnschema:"required"`
 		Interval int    `yaml:"interval" josnschema:"required"`

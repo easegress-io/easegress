@@ -14,6 +14,7 @@ import (
 const (
 	defaultIngressChannelBuffer = 100
 	defaultEngressChannelBuffer = 200
+	defaultWatchRetryTimeSecond = 2
 )
 
 // Worker is a sidecar in service mesh
@@ -109,18 +110,23 @@ func (w *Worker) Registry(ctx iris.Context) error {
 
 	serviceSpec, err := w.mss.GetServiceSpec(w.spec.ServiceName)
 	if err != nil {
+		ctx.StatusCode(iris.StatusInternalServerError)
 		return err
 	}
 
 	sidecarSpec, err := w.mss.GetSidecarSepc(w.spec.ServiceName)
 	if err != nil {
+		ctx.StatusCode(iris.StatusInternalServerError)
 		return err
 	}
 
 	if ID := w.rcs.RegistryServiceInstance(ins, serviceSpec, sidecarSpec); len(ID) != 0 {
 		w.mux.Lock()
 		defer w.mux.Unlock()
+
 		w.instanceID = ID
+		// asynchronous add watch ingress spec keys
+		go w.addWatchIngressSpecNames(ins.ServiceName)
 	}
 
 	return err
@@ -141,6 +147,22 @@ func (w *Worker) watchHeartbeat(interval time.Duration, done chan struct{}) {
 
 }
 
+// addWatchIngressSpecsNames calls meshServiceServer to add Ingress's
+// HTTPServer and Pipeline spec name into watch list
+func (w *Worker) addWatchIngressSpecNames(serviceName string) {
+	for {
+		if err := w.mss.addWatchIngressSpecNames(serviceName); err == nil {
+			break
+		} else {
+			// retry add watch spec names
+			logger.Errorf("worker add service :%s, ingress watch spec names failed, err :%v", serviceName, err)
+			time.Sleep(defaultWatchRetryTimeSecond * time.Second)
+		}
+	}
+}
+
+// watchSpecs calls meshServiceServer check specs udpate/create/delete opertion
+// and apply this modification into memory
 func (w *Worker) watchSpecs(interval time.Duration, done chan struct{}) {
 	for {
 		select {

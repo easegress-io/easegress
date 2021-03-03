@@ -6,7 +6,8 @@ import (
 	"github.com/megaease/easegateway/pkg/supervisor"
 )
 
-// genereate the EG running object name
+// genereate the EG running object name, which will be applied into
+// memory
 func genIngressPipelineObjectName(serviceName string) string {
 	name := fmt.Sprintf("mesh-service-ingress-%s-pipeline", serviceName)
 	return name
@@ -42,7 +43,8 @@ type (
 	}
 )
 
-func NewDefualtIngressServer(store MeshStorage, super *supervisor.Supervisor) *IngressServer {
+// NewIngressServer creates a initialized ingress server
+func NewIngressServer(store MeshStorage, super *supervisor.Supervisor) *IngressServer {
 	return &IngressServer{
 		store: store,
 		super: super,
