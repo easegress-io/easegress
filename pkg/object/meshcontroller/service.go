@@ -219,7 +219,7 @@ func (mss *MeshServiceServer) WatchSerivceInstancesHeartbeat() error {
 
 // CreateDefaultSpecs generate a mesh service's default specs, including
 // resilience, observability, loadBalance, and sidecar spec.
-// also, it will create a default ingress HTTPPipeline spec and HTTPservice spec
+// also, it will create a default ingress/egress HTTPPipeline spec and HTTPservice spec
 // and wrtie them into storage at last.
 func (mss *MeshServiceServer) CreateDefaultSpecs(serviceName, tenant string) error {
 	var (
@@ -229,7 +229,6 @@ func (mss *MeshServiceServer) CreateDefaultSpecs(serviceName, tenant string) err
 	// create default basic specs when
 
 	// generate default resilience spec,
-
 	mss.store.Set(fmt.Sprint(meshServiceResiliencePrefix, serviceName), resilenceSpec)
 
 	return err

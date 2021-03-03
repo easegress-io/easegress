@@ -48,7 +48,6 @@ func (mc *MeshController) DefaultSpec() interface{} {
 		HeartbeatInterval:  "5s",
 		RegistryType:       "consul",
 	}
-
 }
 
 // Init initializes MeshController.

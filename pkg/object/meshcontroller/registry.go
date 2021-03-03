@@ -14,7 +14,6 @@ import (
 
 	"github.com/megaease/easegateway/pkg/common"
 	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/supervisor"
 )
 
 const (
@@ -58,12 +57,11 @@ type (
 		Registried   bool
 
 		store         MeshStorage
-		super         *supervisor.Supervisor
 		notifyIngress chan IngressMsg
 	}
 )
 
-// NewRegistryCenterServer
+// NewRegistryCenterServer creates a initialized registry center server
 func NewRegistryCenterServer(registryType string, store MeshStorage, notifyIngress chan IngressMsg) *RegistryCenterServer {
 	return &RegistryCenterServer{
 		RegistryType:  registryType,
@@ -115,11 +113,11 @@ func (rcs *RegistryCenterServer) registry(ins *ServiceInstance, insPort uint32) 
 		tryTimes++
 
 		// check the ingress pipeline and http server object exists
-		if _, exists := rcs.super.GetRunningObject(genIngressHTTPSvrObjectName(ins.ServiceName), supervisor.CategoryPipeline); exists != true {
+		/*if _, exists := rcs.super.GetRunningObject(genIngressHTTPSvrObjectName(ins.ServiceName), supervisor.CategoryPipeline); exists != true {
 			continue
 		} else if _, exists := rcs.super.GetRunningObject(genIngressHTTPSvrObjectName(ins.InstanceID), supervisor.CategoryTrafficGate); exists != true {
 			continue
-		}
+		}*/
 
 		// set this instance status up
 		ins.Status = SerivceStatusUp

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/kataras/iris"
+
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/supervisor"
 )
@@ -23,6 +24,7 @@ type Worker struct {
 	superSpec *supervisor.Spec
 	spec      *Spec
 
+	// handle worker inner logic
 	instanceID string
 	rcs        *RegistryCenterServer
 	mss        *MeshServiceServer
@@ -44,7 +46,7 @@ func NewWorker(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker
 	store := &mockEtcdClient{}
 	registryCenterServer := NewRegistryCenterServer(spec.RegistryType, store, ingressNotifyChan)
 	serviceServer := NewMeshServiceServer(store, spec.AliveSeconds, ingressNotifyChan)
-	ingressServer := NewIngressServer(store, super)
+	ingressServer := NewIngressServer(store)
 
 	w := &Worker{
 		super:     super,
@@ -102,7 +104,6 @@ func (w *Worker) Registry(ctx iris.Context) error {
 	if err != nil {
 		return fmt.Errorf("read body failed: %v", err)
 	}
-
 	ins, err := w.rcs.decodeBody(body)
 	if err != nil {
 		return err

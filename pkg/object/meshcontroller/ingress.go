@@ -2,8 +2,10 @@ package meshcontroller
 
 import (
 	"fmt"
+	"sync"
 
-	"github.com/megaease/easegateway/pkg/supervisor"
+	"github.com/megaease/easegateway/pkg/object/httppipeline"
+	"github.com/megaease/easegateway/pkg/object/httpserver"
 )
 
 // genereate the EG running object name, which will be applied into
@@ -39,15 +41,22 @@ type (
 	// IngressServer control one ingress pipeline and one HTTPServer
 	IngressServer struct {
 		store MeshStorage
-		super *supervisor.Supervisor
+
+		// running EG objects, accept user traffic
+		Pipelines  map[string]*httppipeline.HTTPPipeline
+		HTTPServer *httpserver.HTTPServer
+
+		mux sync.Mutex
 	}
 )
 
 // NewIngressServer creates a initialized ingress server
-func NewIngressServer(store MeshStorage, super *supervisor.Supervisor) *IngressServer {
+func NewIngressServer(store MeshStorage) *IngressServer {
 	return &IngressServer{
-		store: store,
-		super: super,
+		store:      store,
+		Pipelines:  make(map[string]*httppipeline.HTTPPipeline),
+		HTTPServer: nil,
+		mux:        sync.Mutex{},
 	}
 }
 
@@ -71,10 +80,6 @@ func (ings *IngressServer) HandleIngressOpMsg(msg IngressMsg) error {
 func (ings *IngressServer) createIngress(msg IngressMsg) error {
 	var err error
 	// get ingress pipeline spec
-
-	//[TODO]: call supervisor to create pipeline if the Pipeline exist locally, do nothing
-
-	//[TODO]: call supervisor to create HTTPServer, if the HTTPServer exist locally, do nothing
 
 	return err
 }
