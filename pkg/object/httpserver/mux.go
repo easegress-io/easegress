@@ -24,7 +24,8 @@ type (
 		httpStat *httpstat.HTTPStat
 		topN     *topn.TopN
 
-		rules atomic.Value // *muxRules
+		rules          atomic.Value // *muxRules
+		pipelineMapper atomic.Value // MuxMapper
 	}
 
 	muxRules struct {
@@ -257,15 +258,20 @@ func (mp *muxPath) matchHeaders(ctx context.HTTPContext) (ci *cacheItem, ok bool
 	return nil, false
 }
 
-func newMux(httpStat *httpstat.HTTPStat, topN *topn.TopN) *mux {
+func newMux(httpStat *httpstat.HTTPStat, topN *topn.TopN, mapper MuxMapper) *mux {
 	m := &mux{
 		httpStat: httpStat,
 		topN:     topN,
 	}
 
 	m.rules.Store(&muxRules{spec: &Spec{}, tracer: tracing.NoopTracing})
+	m.pipelineMapper.Store(mapper)
 
 	return m
+}
+
+func (m *mux) reloadMapper(mapper MuxMapper) {
+	m.pipelineMapper.Store(mapper)
 }
 
 func (m *mux) reloadRules(superSpec *supervisor.Spec, super *supervisor.Supervisor) {
@@ -413,7 +419,13 @@ func (m *mux) handleRequestWithCache(rules *muxRules, ctx context.HTTPContext, c
 	case ci.methodNotAllowed:
 		ctx.Response().SetStatusCode(http.StatusMethodNotAllowed)
 	case ci.backend != "":
-		ro, exists := rules.super.GetRunningObject(ci.backend, supervisor.CategoryPipeline)
+		mapper, ok := m.pipelineMapper.Load().(MuxMapper)
+		if !ok {
+			ctx.AddTag(stringtool.Cat("BUG: mapper is not a MuxMapper"))
+			ctx.Response().SetStatusCode(http.StatusServiceUnavailable)
+			return
+		}
+		ro, exists := mapper.Get(ci.backend)
 		if !exists {
 			ctx.AddTag(stringtool.Cat("backend ", ci.backend, " not found"))
 			ctx.Response().SetStatusCode(http.StatusServiceUnavailable)

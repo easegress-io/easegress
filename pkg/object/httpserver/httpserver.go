@@ -25,7 +25,22 @@ type (
 	HTTPServer struct {
 		runtime *runtime
 	}
+
+	// MuxMapper gets HTTP handler pipeline with mutex
+	MuxMapper interface {
+		Get(name string) (*supervisor.RunningObject, bool)
+	}
+
+	// SupervisorMapper calls supervisor for getting pipeline.
+	SupervisorMapper struct {
+		super *supervisor.Supervisor
+	}
 )
+
+// Get gets pipeline from EG's running object
+func (s *SupervisorMapper) Get(name string) (*supervisor.RunningObject, bool) {
+	return s.super.GetRunningObject(name, supervisor.CategoryPipeline)
+}
 
 // Category returns the category of HTTPServer.
 func (hs *HTTPServer) Category() supervisor.ObjectCategory {
@@ -78,4 +93,9 @@ func (hs *HTTPServer) Status() *supervisor.Status {
 // Close closes HTTPServer.
 func (hs *HTTPServer) Close() {
 	hs.runtime.Close()
+}
+
+// InjectMuxMapper inject a new mux mapper to route, it will cover the default map of supervisor.
+func (hs *HTTPServer) InjectMuxMapper(mapper MuxMapper) {
+	hs.runtime.SetMuxMapper(mapper)
 }

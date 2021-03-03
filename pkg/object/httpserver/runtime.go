@@ -50,14 +50,15 @@ type (
 	eventClose struct{ done chan struct{} }
 
 	runtime struct {
-		super     *supervisor.Supervisor
-		superSpec *supervisor.Spec
-		spec      *Spec
-		server    *http.Server
-		server3   *http3.Server
-		mux       *mux
-		startNum  uint64
-		eventChan chan interface{}
+		super          *supervisor.Supervisor
+		superSpec      *supervisor.Spec
+		spec           *Spec
+		server         *http.Server
+		server3        *http3.Server
+		mux            *mux
+		startNum       uint64
+		eventChan      chan interface{}
+		pipelineMapper MuxMapper
 
 		// status
 		state atomic.Value // stateType
@@ -88,8 +89,11 @@ func newRuntime(super *supervisor.Supervisor) *runtime {
 		topN:      topn.New(topNum),
 	}
 
-	r.mux = newMux(r.httpStat, r.topN)
-
+	// default mapper is the supervisor warpper
+	r.pipelineMapper = &SupervisorMapper{
+		super: super,
+	}
+	r.mux = newMux(r.httpStat, r.topN, r.pipelineMapper)
 	r.setState(stateNil)
 	r.setError(errNil)
 
@@ -117,6 +121,10 @@ func (r *runtime) Status() *Status {
 		Status: r.httpStat.Status(),
 		TopN:   r.topN.Status(),
 	}
+}
+
+func (r *runtime) SetMuxMapper(mapper MuxMapper) {
+	r.mux.reloadMapper(mapper)
 }
 
 // FSM is the finite-state-machine for the runtime.
