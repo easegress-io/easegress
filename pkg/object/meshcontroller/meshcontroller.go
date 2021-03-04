@@ -2,6 +2,9 @@ package meshcontroller
 
 import (
 	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/object/meshcontroller/master"
+	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
+	"github.com/megaease/easegateway/pkg/object/meshcontroller/worker"
 	"github.com/megaease/easegateway/pkg/option"
 	"github.com/megaease/easegateway/pkg/supervisor"
 )
@@ -12,6 +15,9 @@ const (
 
 	// Kind is the kind of MeshController.
 	Kind = "MeshController"
+
+	meshRoleMaster = "master"
+	meshRoleWorker = "worker"
 )
 
 type (
@@ -19,11 +25,11 @@ type (
 	MeshController struct {
 		super     *supervisor.Supervisor
 		superSpec *supervisor.Spec
-		spec      *Spec
+		spec      *spec.Admin
 
 		role   string
-		master *Master
-		worker *Worker
+		master *master.Master
+		worker *worker.Worker
 	}
 )
 
@@ -43,16 +49,15 @@ func (mc *MeshController) Kind() string {
 
 // DefaultSpec returns the default spec of MeshController.
 func (mc *MeshController) DefaultSpec() interface{} {
-	return &Spec{
-		SpecUpdateInterval: "10s",
-		HeartbeatInterval:  "5s",
-		RegistryType:       "consul",
+	return &spec.Admin{
+		HeartbeatInterval: "5s",
+		RegistryType:      "consul",
 	}
 }
 
 // Init initializes MeshController.
 func (mc *MeshController) Init(superSpec *supervisor.Spec, super *supervisor.Supervisor) {
-	mc.superSpec, mc.spec, mc.super = superSpec, superSpec.ObjectSpec().(*Spec), super
+	mc.superSpec, mc.spec, mc.super = superSpec, superSpec.ObjectSpec().(*spec.Admin), super
 	mc.reload()
 }
 
@@ -79,7 +84,7 @@ func (mc *MeshController) reload() {
 	}
 
 	if mc.role == meshRoleMaster {
-		mc.master = NewMaster(mc.superSpec, mc.super)
+		mc.master = master.New(mc.superSpec, mc.super)
 		return
 	}
 

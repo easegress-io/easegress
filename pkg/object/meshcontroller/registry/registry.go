@@ -1,4 +1,4 @@
-package meshcontroller
+package registry
 
 import (
 	"bytes"
@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"time"
 
-	"gopkg.in/yaml.v2"
+	"github.com/megaease/easegateway/pkg/common"
+	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/object/meshcontroller/storage"
 
 	"github.com/ArthurHlt/go-eureka-client/eureka"
 	consul "github.com/hashicorp/consul/api"
-
-	"github.com/megaease/easegateway/pkg/common"
-	"github.com/megaease/easegateway/pkg/logger"
+	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -56,13 +56,13 @@ type (
 		RegistryType string
 		Registried   bool
 
-		store         MeshStorage
+		store         storage.Storage
 		notifyIngress chan IngressMsg
 	}
 )
 
 // NewRegistryCenterServer creates a initialized registry center server
-func NewRegistryCenterServer(registryType string, store MeshStorage, notifyIngress chan IngressMsg) *RegistryCenterServer {
+func NewRegistryCenterServer(registryType string, store storage.Storage, notifyIngress chan IngressMsg) *RegistryCenterServer {
 	return &RegistryCenterServer{
 		RegistryType:  registryType,
 		store:         store,

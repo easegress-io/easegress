@@ -1,4 +1,4 @@
-package meshcontroller
+package master
 
 import (
 	"fmt"
@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/object/meshcontroller/storage"
 	"gopkg.in/yaml.v2"
 )
 
@@ -13,7 +14,7 @@ type (
 	// MeshServiceServer handle mesh service about logic, its resilience/sidecar/... configs
 	// apply into EG's pipeline , httpserver, and update these object continually
 	MeshServiceServer struct {
-		store        MeshStorage
+		store        storage.Storage
 		AliveSeconds int64
 
 		// store keys to watch
@@ -26,7 +27,7 @@ type (
 )
 
 // NewMeshServiceServer retusn a initialized MeshServiceServer
-func NewMeshServiceServer(store MeshStorage, aliveSeconds int64, ingressNotifyChan chan IngressMsg) *MeshServiceServer {
+func NewMeshServiceServer(store storage.Storage, aliveSeconds int64, ingressNotifyChan chan IngressMsg) *MeshServiceServer {
 	return &MeshServiceServer{
 		store:                 store,
 		AliveSeconds:          aliveSeconds,

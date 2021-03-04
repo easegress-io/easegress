@@ -1,4 +1,4 @@
-package meshcontroller
+package master
 
 import (
 	"fmt"
@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
+	"github.com/megaease/easegateway/pkg/object/meshcontroller/storage"
 	"github.com/megaease/easegateway/pkg/supervisor"
 
 	"github.com/kataras/iris"
@@ -17,7 +19,7 @@ type (
 	Master struct {
 		super     *supervisor.Supervisor
 		superSpec *supervisor.Spec
-		spec      *Spec
+		spec      *spec.Admin
 
 		mss                  *MeshServiceServer
 		serviceWatchInterval string
@@ -26,16 +28,22 @@ type (
 	}
 )
 
-// NewMaster creates an initialized master
-func NewMaster(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Master {
-	store := &mockEtcdClient{}
-	spec := superSpec.ObjectSpec().(*Spec)
-	serviceServer := NewMeshServiceServer(store, spec.AliveSeconds, nil)
+// New creates a mesh master.
+func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Master {
+	storage := storage.New(superSpec.Name(), super.Cluster())
+	adminSpec := superSpec.ObjectSpec().(*spec.Admin)
+
+	heartbeatInterval, err := time.ParseDuration(adminSpec.HeartbeatInterval)
+	if err != nil {
+		logger.Errorf("BUG: parse %s to duration failed: %v", adminSpec.HeartbeatInterval, err)
+	}
+
+	serviceServer := NewMeshServiceServer(storage, int64(heartbeatInterval.Seconds()), nil)
 
 	m := &Master{
 		super:     super,
 		superSpec: superSpec,
-		spec:      superSpec.ObjectSpec().(*Spec),
+		spec:      adminSpec,
 
 		mss:  serviceServer,
 		done: make(chan struct{}),

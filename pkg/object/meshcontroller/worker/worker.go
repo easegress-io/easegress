@@ -1,4 +1,4 @@
-package meshcontroller
+package worker
 
 import (
 	"fmt"
@@ -37,8 +37,8 @@ type Worker struct {
 	done     chan struct{}
 }
 
-// NewWorker returns a initialized worker
-func NewWorker(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
+// New creates a mesh worker.
+func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 	spec := superSpec.ObjectSpec().(*Spec)
 	ingressNotifyChan := make(chan IngressMsg, defaultIngressChannelBuffer)
 	engressNotifyChan := make(chan EngressMsg, defaultEngressChannelBuffer)
