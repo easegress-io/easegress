@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/object/meshcontroller/registry"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/storage"
 	"github.com/megaease/easegateway/pkg/supervisor"
@@ -38,7 +39,10 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Master {
 		logger.Errorf("BUG: parse %s to duration failed: %v", adminSpec.HeartbeatInterval, err)
 	}
 
-	serviceServer := NewMeshServiceServer(storage, int64(heartbeatInterval.Seconds()), nil)
+	// if 2 times of heartbeatInterval for judgeing whether a service is
+	// alive or not
+	aliveSeconds := 2 * int64(heartbeatInterval.Seconds())
+	serviceServer := NewMeshServiceServer(storage, aliveSeconds)
 
 	m := &Master{
 		super:     super,
@@ -61,10 +65,10 @@ func (m *Master) watchServicesHeartbeat() {
 }
 
 func (m *Master) run() {
-	watchInterval, err := time.ParseDuration(m.spec.SpecUpdateInterval)
+	watchInterval, err := time.ParseDuration(m.spec.HeartbeatInterval)
 	if err != nil {
 		logger.Errorf("BUG: parse duration %s failed: %v",
-			m.spec.SpecUpdateInterval, err)
+			m.spec.HeartbeatInterval, err)
 		return
 	}
 
@@ -99,14 +103,14 @@ func (m *Master) UpdateSerivceInstanceLeases(ctx iris.Context) error {
 		return fmt.Errorf("read body failed: %v", err)
 	}
 
-	var ins *ServiceInstance
+	var ins *registry.ServiceInstance
 	if err := yaml.Unmarshal(body, &ins); err != nil {
 		return fmt.Errorf("unmarshal service: %s's instance body failed, err %s ", serviceName, err)
 	}
 
 	if ins.ServiceName != serviceName || ins.InstanceID != ID {
 		ctx.StatusCode(iris.StatusBadRequest)
-		return ErrParamNotMatch
+		return spec.ErrParamNotMatch
 	}
 
 	if err = m.mss.UpdateServiceInstanceLeases(ins.ServiceName, ins.InstanceID, ins.Leases); err != nil {
@@ -132,14 +136,14 @@ func (m *Master) UpdateSerivceInstanceStatus(ctx iris.Context) error {
 		return fmt.Errorf("read body failed: %v", err)
 	}
 
-	var ins *ServiceInstance
+	var ins *registry.ServiceInstance
 	if err := yaml.Unmarshal(body, &ins); err != nil {
 		return fmt.Errorf("unmarshal service: %s's instance body failed, err %s ", serviceName, err)
 	}
 
 	if ins.ServiceName != serviceName || ins.InstanceID != ID {
 		ctx.StatusCode(iris.StatusBadRequest)
-		return ErrParamNotMatch
+		return spec.ErrParamNotMatch
 	}
 
 	if err = m.mss.UpdateServiceInstanceStatus(ins.ServiceName, ins.InstanceID, ins.Status); err != nil {
@@ -177,7 +181,7 @@ func (m *Master) GetTenant(ctx iris.Context) error {
 		return fmt.Errorf("invalidate input , tenant name:%s", tenantName)
 	}
 
-	tenant, err := m.mss.GetTenantSpec(tenantName)
+	tenant, err := m.mss.GetTenant(tenantName)
 	buff, err := yaml.Marshal(tenant)
 	if err != nil {
 		ctx.StatusCode(iris.StatusInternalServerError)

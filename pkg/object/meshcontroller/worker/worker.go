@@ -10,6 +10,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/object/meshcontroller/layout"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/registry"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/storage"
@@ -106,7 +107,7 @@ func (w *Worker) Registry(ctx iris.Context) error {
 		return err
 	}
 
-	serviceYAML, err := w.store.Get(fmt.Sprint(storage.ServiceSpecFormat, w.serviceName))
+	serviceYAML, err := w.store.Get(layout.GenServerKey(w.serviceName))
 	if err != nil {
 		return err
 	}
@@ -153,7 +154,7 @@ func (w *Worker) CheckLocalInstaceHeartbeat() error {
 
 	//[TODO] call Java process agent with JMX, check it alive
 	if alive == true {
-		heartBeatYAML, err := w.store.Get(fmt.Sprintf(storage.ServiceInstanceHeartbeatFormat, w.serviceName, w.instanceID))
+		heartBeatYAML, err := w.store.Get(layout.GenServiceHeartbeatKey(w.serviceName, w.instanceID))
 		if err != nil {
 			logger.Errorf("get serivce %s, instace :%s , heartbeat failed, err : %v", w.serviceName, w.instanceID, err)
 		}
@@ -170,7 +171,7 @@ func (w *Worker) CheckLocalInstaceHeartbeat() error {
 			return err
 		}
 
-		err = w.store.Put(fmt.Sprintf(storage.ServiceInstanceHeartbeatFormat, w.serviceName, w.instanceID), string(buff))
+		err = w.store.Put(layout.GenServiceHeartbeatKey(w.serviceName, w.instanceID), string(buff))
 		return err
 	} else {
 		// do nothing, master will notice this irregular

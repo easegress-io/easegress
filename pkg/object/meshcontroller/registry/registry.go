@@ -9,6 +9,7 @@ import (
 
 	"github.com/megaease/easegateway/pkg/common"
 	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/object/meshcontroller/layout"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/storage"
 
@@ -209,7 +210,7 @@ func (rcs *RegistryCenterServer) registryIntoStore(ins *ServiceInstance) error {
 
 	logger.Errorf("buff is %s", string(buff))
 
-	name := fmt.Sprintf(storage.ServiceInstanceFormat, rcs.serviceName, ins.InstanceID)
+	name := layout.GenServiceInstanceKey(rcs.serviceName, ins.InstanceID)
 	if err = rcs.store.Put(name, string(buff)); err != nil {
 		return err
 	}
