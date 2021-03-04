@@ -40,6 +40,7 @@ func GenTenantKey(tenant string) string {
 	return fmt.Sprintf(tenantFormat, tenant)
 }
 
+// GetTenantPrefix gets the tenant storage prefix
 func GetTenantPrefix() string {
 	return tenantPrefix
 }

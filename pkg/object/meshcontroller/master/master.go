@@ -39,7 +39,7 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Master {
 		logger.Errorf("BUG: parse %s to duration failed: %v", adminSpec.HeartbeatInterval, err)
 	}
 
-	// if 2 times of heartbeatInterval for judgeing whether a service is
+	// 2 times of heartbeatInterval for judging whether a service is
 	// alive or not
 	aliveSeconds := 2 * int64(heartbeatInterval.Seconds())
 	serviceServer := NewMeshServiceServer(storage, aliveSeconds)
