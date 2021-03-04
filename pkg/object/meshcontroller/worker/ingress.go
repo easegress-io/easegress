@@ -22,17 +22,12 @@ func genIngressHTTPSvrObjectName(serviceName string) string {
 }
 
 type (
-	IngressMsg struct {
-
-		// for creating request
-		serviceName  string
-		instancePort uint32
-	}
 
 	// IngressServer control one ingress pipeline and one HTTPServer
 	IngressServer struct {
-		store storage.Storage
-		super *supervisor.Supervisor
+		store       storage.Storage
+		super       *supervisor.Supervisor
+		serviceName string
 
 		// running EG objects, accept user traffic
 		Pipelines  map[string]*httppipeline.HTTPPipeline
@@ -53,20 +48,15 @@ func NewIngressServer(store storage.Storage, super *supervisor.Supervisor) *Ingr
 	}
 }
 
-func (ings *IngressServer) HandleIngressOpMsg(msg IngressMsg) error {
-
-	return nil
-}
-
 // createIngress creates one default pipeline and httpservice for ingress
-func (ings *IngressServer) createIngress(msg IngressMsg) error {
+func (ings *IngressServer) createIngress() error {
 	var err error
 	// get ingress pipeline spec
 
 	return err
 }
 
-func (ings *IngressServer) updateIngress(mgs IngressMsg) error {
+func (ings *IngressServer) updateIngress() error {
 	var err error
 
 	return err
@@ -76,4 +66,14 @@ func (ings *IngressServer) deleteIngress() error {
 	var err error
 
 	return err
+}
+
+//  CheckIngressReady checks ingress's pipeline and httpserver
+//   are created or not
+func (ings *IngressServer) CheckIngressReady(serviceName string) bool {
+	ings.mux.Lock()
+	defer ings.mux.Unlock()
+	_, pipelineReady := ings.Pipelines[genIngressPipelineObjectName(serviceName)]
+
+	return pipelineReady && (ings.HTTPServer != nil)
 }

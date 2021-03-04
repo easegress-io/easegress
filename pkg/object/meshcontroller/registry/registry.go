@@ -55,7 +55,8 @@ type (
 	RegistryCenterServer struct {
 		// Currently we supports Eureka/Consul
 		RegistryType string
-		Registried   bool
+		registried   bool
+		serviceName  string
 
 		store storage.Storage
 		// notifyIngress chan IngressMsg
@@ -63,11 +64,17 @@ type (
 )
 
 // NewRegistryCenterServer creates a initialized registry center server
-func NewRegistryCenterServer(registryType string, store storage.Storage) *RegistryCenterServer {
+func NewRegistryCenterServer(registryType string, serviceName string, store storage.Storage) *RegistryCenterServer {
 	return &RegistryCenterServer{
 		RegistryType: registryType,
 		store:        store,
+		serviceName:  serviceName,
 	}
+}
+
+// Registried returns whether service registry task done
+func (rcs *RegistryCenterServer) Registried() bool {
+	return rcs.registried
 }
 
 // RegistryServiceInstance accepts Java Process's registry request in Eureka/Consul Format
@@ -75,9 +82,9 @@ func NewRegistryCenterServer(registryType string, store storage.Storage) *Regist
 // into one routine.
 // Todo: Consider to split this routine for other None RESTful POST body
 //       format in future.
-func (rcs *RegistryCenterServer) RegistryServiceInstance(ins *ServiceInstance, service *spec.Service) string {
+func (rcs *RegistryCenterServer) RegistryServiceInstance(ins *ServiceInstance, service *spec.Service, fn func(string) bool) string {
 	// valid the input
-	if rcs.Registried == true {
+	if rcs.registried == true {
 		// already registried
 		return ""
 	}
@@ -87,31 +94,24 @@ func (rcs *RegistryCenterServer) RegistryServiceInstance(ins *ServiceInstance, s
 	ins.Tenant = service.RegisterTenant
 
 	// registry this instance asynchronously
-	go rcs.registry(ins, insPort)
+	go rcs.registry(ins, insPort, fn)
 
 	return ins.InstanceID
 }
 
-func (rcs *RegistryCenterServer) registry(ins *ServiceInstance, insPort uint32) {
+func (rcs *RegistryCenterServer) registry(ins *ServiceInstance, insPort uint32, fn func(string) bool) {
 	var (
 		err      error
 		tryTimes int = 0
 	)
 
-	// notify ingress server by chan
-	//rcs.notifyIngress <- msg
-
 	// level triggered, loop unitl it success
 	for {
 		tryTimes++
-
 		// check the ingress pipeline and http server object exists
-		/*if _, exists := rcs.super.GetRunningObject(genIngressHTTPSvrObjectName(ins.ServiceName), supervisor.CategoryPipeline); exists != true {
+		if fn(rcs.serviceName) == false {
 			continue
-		} else if _, exists := rcs.super.GetRunningObject(genIngressHTTPSvrObjectName(ins.InstanceID), supervisor.CategoryTrafficGate); exists != true {
-			continue
-		}*/
-
+		}
 		// set this instance status up
 		ins.Status = SerivceStatusUp
 		ins.Leases = time.Now().Unix() + defaultLeasesSeconds
@@ -122,7 +122,7 @@ func (rcs *RegistryCenterServer) registry(ins *ServiceInstance, insPort uint32) 
 			continue
 		}
 
-		rcs.Registried = true
+		rcs.registried = true
 		logger.Debugf("service %s , instanceID %s, regitry succ, try time %d", ins.ServiceName, ins.InstanceID, tryTimes)
 		break
 	}
@@ -146,7 +146,7 @@ func (rcs *RegistryCenterServer) decodeByConsulFormat(body []byte) (*ServiceInst
 
 	ins.IP = reg.Address
 	ins.Port = uint32(reg.Port)
-	ins.ServiceName = reg.Name
+	ins.ServiceName = rcs.serviceName
 	if ins.InstanceID, err = common.UUID(); err != nil {
 		logger.Errorf("BUG generate uuid failed, %v", err)
 	}
@@ -169,6 +169,7 @@ func (rcs *RegistryCenterServer) decodeByEurekaFormat(body []byte) (*ServiceInst
 
 	ins.IP = eurekaIns.IpAddr
 	ins.Port = uint32(eurekaIns.Port.Port)
+	ins.ServiceName = rcs.serviceName
 	if ins.InstanceID, err = common.UUID(); err != nil {
 		logger.Errorf("BUG generate uuid failed, %v", err)
 	}
@@ -207,26 +208,10 @@ func (rcs *RegistryCenterServer) registryIntoStore(ins *ServiceInstance) error {
 	}
 
 	logger.Errorf("buff is %s", string(buff))
-	/*lockID := fmt.Sprint(meshServiceInstanceEtcdLockPrefix, ins.InstanceID)
 
-	lockReleaseFunc := func() {
-		if err = rcs.store.ReleaseLock(lockID); err != nil {
-			logger.Errorf("release lock ID %s failed err %v", lockID, err)
-			err = nil
-		}
-	}
-
-	if err = rcs.store.AcquireLock(lockID, defaultRegistryExpireSecond); err != nil {
-		logger.Errorf("require lock %s failed %v")
+	name := fmt.Sprintf(storage.ServiceInstanceFormat, rcs.serviceName, ins.InstanceID)
+	if err = rcs.store.Put(name, string(buff)); err != nil {
 		return err
 	}
-
-	defer lockReleaseFunc()
-
-	name := fmt.Sprintf(meshServiceInstancePrefix, ins.ServiceName, ins.InstanceID)
-	if err = rcs.store.Set(name, string(buff)); err != nil {
-		return err
-	}
-	*/
 	return err
 }
