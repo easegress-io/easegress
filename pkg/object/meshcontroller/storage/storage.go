@@ -8,14 +8,14 @@ import (
 )
 
 const (
-	serviceSpecFormat = "/mesh/services/%s/spec" // +serviceName
+	ServiceSpecFormat = "/mesh/services/%s/spec" // +serviceName
 
-	serviceInstancePrefixFormat    = "/mesh/services/%s/instances"    // +serviceName
-	serviceInstanceFormat          = "/mesh/services/%s/instances/%s" // +serviceName +instanceID
-	serviceInstanceHeartbeatFormat = "/mesh/services/%s/heartbeat/%s" // +serviceName +instanceID
+	ServiceInstancePrefixFormat    = "/mesh/services/%s/instances"    // +serviceName
+	ServiceInstanceFormat          = "/mesh/services/%s/instances/%s" // +serviceName +instanceID
+	ServiceInstanceHeartbeatFormat = "/mesh/services/%s/heartbeat/%s" // +serviceName +instanceID
 
-	tenantFormat = "/mesh/tenants/%s" // +tenantName
-	tenantPrefix = "/mesh/tenants"
+	TenantFormat = "/mesh/tenants/%s" // +tenantName
+	TenantPrefix = "/mesh/tenants"
 )
 
 type (

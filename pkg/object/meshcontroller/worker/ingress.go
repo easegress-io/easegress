@@ -7,6 +7,7 @@ import (
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
 	"github.com/megaease/easegateway/pkg/object/httpserver"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/storage"
+	"github.com/megaease/easegateway/pkg/supervisor"
 )
 
 // genereate the EG running object name, which will be applied into
@@ -20,19 +21,8 @@ func genIngressHTTPSvrObjectName(serviceName string) string {
 	return name
 }
 
-// generate the mesh spec pipeline name
-func genIngreePipelineSpecName(serviceName string) string {
-	return fmt.Sprintf(meshServiceIngressPipelinePrefix, serviceName)
-}
-
-func genHTTPServerSpecName(serviceName string) string {
-
-	return fmt.Sprintf(meshServiceIngressHTTPServerPrefix, serviceName)
-}
-
 type (
 	IngressMsg struct {
-		storeMsg storeOpMsg // original store notify operatons
 
 		// for creating request
 		serviceName  string
@@ -42,6 +32,7 @@ type (
 	// IngressServer control one ingress pipeline and one HTTPServer
 	IngressServer struct {
 		store storage.Storage
+		super *supervisor.Supervisor
 
 		// running EG objects, accept user traffic
 		Pipelines  map[string]*httppipeline.HTTPPipeline
@@ -52,7 +43,7 @@ type (
 )
 
 // NewIngressServer creates a initialized ingress server
-func NewIngressServer(store storage.Storage) *IngressServer {
+func NewIngressServer(store storage.Storage, super *supervisor.Supervisor) *IngressServer {
 	return &IngressServer{
 		store:      store,
 		super:      super,
@@ -63,17 +54,6 @@ func NewIngressServer(store storage.Storage) *IngressServer {
 }
 
 func (ings *IngressServer) HandleIngressOpMsg(msg IngressMsg) error {
-	switch msg.storeMsg.op {
-	case opTypeCreate:
-		err := ings.createIngress(msg)
-		return err
-
-	case opTypeUpdate:
-		err := ings.updateIngress(msg)
-		return err
-
-	default:
-	}
 
 	return nil
 }

@@ -88,7 +88,7 @@ func (mc *MeshController) reload() {
 		return
 	}
 
-	mc.worker = NewWorker(mc.superSpec, mc.super)
+	mc.worker = worker.New(mc.superSpec, mc.super)
 }
 
 // Status returns the status of MeshController.

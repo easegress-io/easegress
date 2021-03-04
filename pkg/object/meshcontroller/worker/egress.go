@@ -14,12 +14,6 @@ type (
 		Pipelines  map[string]*httppipeline.HTTPPipeline
 		HTTPServer *httpserver.HTTPServer
 	}
-
-	// EngressMsg is the engress notify message wrappered with basic
-	// store message
-	EngressMsg struct {
-		storeMsg storeOpMsg // original store notify operatons
-	}
 )
 
 // NewEgressServer creates a initialized egress server

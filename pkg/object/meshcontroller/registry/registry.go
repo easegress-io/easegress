@@ -9,6 +9,7 @@ import (
 
 	"github.com/megaease/easegateway/pkg/common"
 	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/storage"
 
 	"github.com/ArthurHlt/go-eureka-client/eureka"
@@ -56,17 +57,16 @@ type (
 		RegistryType string
 		Registried   bool
 
-		store         storage.Storage
-		notifyIngress chan IngressMsg
+		store storage.Storage
+		// notifyIngress chan IngressMsg
 	}
 )
 
 // NewRegistryCenterServer creates a initialized registry center server
-func NewRegistryCenterServer(registryType string, store storage.Storage, notifyIngress chan IngressMsg) *RegistryCenterServer {
+func NewRegistryCenterServer(registryType string, store storage.Storage) *RegistryCenterServer {
 	return &RegistryCenterServer{
-		RegistryType:  registryType,
-		store:         store,
-		notifyIngress: notifyIngress,
+		RegistryType: registryType,
+		store:        store,
 	}
 }
 
@@ -75,7 +75,7 @@ func NewRegistryCenterServer(registryType string, store storage.Storage, notifyI
 // into one routine.
 // Todo: Consider to split this routine for other None RESTful POST body
 //       format in future.
-func (rcs *RegistryCenterServer) RegistryServiceInstance(ins *ServiceInstance, service *MeshServiceSpec, sidecar *SidecarSpec) string {
+func (rcs *RegistryCenterServer) RegistryServiceInstance(ins *ServiceInstance, service *spec.Service) string {
 	// valid the input
 	if rcs.Registried == true {
 		// already registried
@@ -83,7 +83,7 @@ func (rcs *RegistryCenterServer) RegistryServiceInstance(ins *ServiceInstance, s
 	}
 
 	insPort := ins.Port // the original Java processing listening port
-	ins.Port = uint32(sidecar.IngressPort)
+	ins.Port = uint32(service.Sidecar.IngressPort)
 	ins.Tenant = service.RegisterTenant
 
 	// registry this instance asynchronously
@@ -97,16 +97,9 @@ func (rcs *RegistryCenterServer) registry(ins *ServiceInstance, insPort uint32) 
 		err      error
 		tryTimes int = 0
 	)
-	msg := IngressMsg{
-		storeMsg: storeOpMsg{
-			op: opTypeCreate,
-		},
-		instancePort: insPort,
-		serviceName:  ins.ServiceName,
-	}
 
 	// notify ingress server by chan
-	rcs.notifyIngress <- msg
+	//rcs.notifyIngress <- msg
 
 	// level triggered, loop unitl it success
 	for {
@@ -183,7 +176,7 @@ func (rcs *RegistryCenterServer) decodeByEurekaFormat(body []byte) (*ServiceInst
 	return nil, err
 }
 
-func (rcs *RegistryCenterServer) decodeBody(reqBody []byte) (*ServiceInstance, error) {
+func (rcs *RegistryCenterServer) DecodeBody(reqBody []byte) (*ServiceInstance, error) {
 	var (
 		ins *ServiceInstance
 		err error
@@ -213,7 +206,8 @@ func (rcs *RegistryCenterServer) registryIntoStore(ins *ServiceInstance) error {
 		return err
 	}
 
-	lockID := fmt.Sprint(meshServiceInstanceEtcdLockPrefix, ins.InstanceID)
+	logger.Errorf("buff is %s", string(buff))
+	/*lockID := fmt.Sprint(meshServiceInstanceEtcdLockPrefix, ins.InstanceID)
 
 	lockReleaseFunc := func() {
 		if err = rcs.store.ReleaseLock(lockID); err != nil {
@@ -233,6 +227,6 @@ func (rcs *RegistryCenterServer) registryIntoStore(ins *ServiceInstance) error {
 	if err = rcs.store.Set(name, string(buff)); err != nil {
 		return err
 	}
-
+	*/
 	return err
 }
