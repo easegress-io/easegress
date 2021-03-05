@@ -43,7 +43,8 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 	spec := superSpec.ObjectSpec().(*spec.Admin)
 	serviceName := option.Global.Labels["mesh_servicename"]
 	store := storage.New(superSpec.Name(), super.Cluster())
-	registryCenterServer := registrycenter.NewRegistryCenterServer(spec.RegistryType, serviceName, store)
+	registryCenterServer := registrycenter.NewRegistryCenterServer(spec.RegistryType,
+		serviceName, store)
 	ingressServer := NewIngressServer(super)
 
 	w := &Worker{
@@ -80,7 +81,7 @@ func (w *Worker) run() {
 	doneHeartBeat := make(chan struct{})
 	doneWatchSpec := make(chan struct{})
 	go w.heartbeat(watchInterval, doneHeartBeat)
-	go w.watchSpecs(doneWatchSpec)
+	go w.watchEvents(doneWatchSpec)
 
 	for {
 		select {
@@ -112,7 +113,7 @@ func (w *Worker) heartbeat(interval time.Duration, done chan struct{}) {
 
 }
 
-// checkLocalInstanceHeartbeat communicates with Java process and check its health.
+// checkLocalInstanceHeartbeat communicates with Java process locally and check its health.
 func (w *Worker) checkLocalInstanceHeartbeat() error {
 	var alive bool
 
@@ -120,35 +121,42 @@ func (w *Worker) checkLocalInstanceHeartbeat() error {
 	if alive == true {
 		heartBeatYAML, err := w.store.Get(layout.GenServiceHeartbeatKey(w.serviceName, w.instanceID))
 		if err != nil {
-			logger.Errorf("get serivce %s, instace :%s , heartbeat failed, err : %v", w.serviceName, w.instanceID, err)
+			logger.Errorf("get serivce %s, instace :%s , heartbeat failed, err : %v",
+				w.serviceName, w.instanceID, err)
+			return err
 		}
 
 		var heartbeat spec.Heartbeat
 		if heartBeatYAML != nil {
 			if err := yaml.Unmarshal([]byte(*heartBeatYAML), &heartbeat); err != nil {
+				logger.Errorf("BUG: unmarsh service :%s, heartbeat :%s, failed, err %s",
+					w.serviceName, *heartBeatYAML, err)
 				return err
 			}
 		}
 		var buff []byte
 		heartbeat.LastActiveTime = time.Now().Unix()
 		if buff, err = yaml.Marshal(&heartbeat); err != nil {
+			logger.Errorf("BUG: marsh service :%s, heartbeat :%v, failed, err %s",
+				w.serviceName, heartbeat, err)
 			return err
 		}
 
-		err = w.store.Put(layout.GenServiceHeartbeatKey(w.serviceName, w.instanceID), string(buff))
-		return err
-	} else {
-		// do nothing, master will notice this irregular
-		// and cause the update of Egress's Pipelines which are relied
-		// on this instance
+		return w.store.Put(layout.GenServiceHeartbeatKey(w.serviceName, w.instanceID), string(buff))
 	}
+
+	// do nothing, master will notice this irregular
+	// and cause the update of Egress's Pipelines which are relied
+	// on this instance
 
 	return nil
 }
 
-// watchSpecs calls meshServiceServer check specs udpate/create/delete opertion
-// and apply this modification into memory
-func (w *Worker) watchSpecs(done chan struct{}) {
+// watchEvents checks worker's using
+//   1. ingress/egress specs's udpate
+//   2. service instance record operation
+// by calling Informer, then apply modification into ingress/egerss server
+func (w *Worker) watchEvents(done chan struct{}) {
 	for {
 		select {
 		case <-done:

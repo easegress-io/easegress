@@ -164,9 +164,9 @@ func (rcs *Server) decodeByEurekaFormat(body []byte) (*spec.ServiceInstance, err
 	return nil, err
 }
 
-// DecodeBody decode Eureka/Consul registry request body according to the
+// DecodeRegistryBody decodes Eureka/Consul registry request body according to the
 // registry type in config
-func (rcs *Server) DecodeBody(reqBody []byte) (*spec.ServiceInstance, error) {
+func (rcs *Server) DecodeRegistryBody(reqBody []byte) (*spec.ServiceInstance, error) {
 	var (
 		ins *spec.ServiceInstance
 		err error

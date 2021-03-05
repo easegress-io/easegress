@@ -23,7 +23,7 @@ type (
 		Pipelines  map[string]*httppipeline.HTTPPipeline
 		HTTPServer *httpserver.HTTPServer
 
-		mux sync.Mutex
+		mux sync.RWMutex
 	}
 )
 
@@ -33,16 +33,26 @@ func NewIngressServer(super *supervisor.Supervisor) *IngressServer {
 		super:      super,
 		Pipelines:  make(map[string]*httppipeline.HTTPPipeline),
 		HTTPServer: nil,
-		mux:        sync.Mutex{},
+		mux:        sync.RWMutex{},
 	}
 }
 
 // Get gets pipeline object for HTTPServer, it implements HTTPServer's MuxMapper interface
 func (ings *IngressServer) Get(name string) (protocol.HTTPHandler, bool) {
-	ings.mux.Lock()
-	defer ings.mux.Unlock()
+	ings.mux.RLock()
+	defer ings.mux.RUnlock()
 	p, ok := ings.Pipelines[name]
 	return p, ok
+}
+
+// CheckIngressReady checks ingress's pipeline and httpserver
+// are created or not
+func (ings *IngressServer) CheckIngressReady() bool {
+	ings.mux.RLock()
+	defer ings.mux.RUnlock()
+	_, pipelineReady := ings.Pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)]
+
+	return pipelineReady && (ings.HTTPServer != nil)
 }
 
 // createIngress creates local sdefault pipeline for ingress
@@ -85,7 +95,7 @@ func (ings *IngressServer) createIngress(service *spec.Service, port uint32) err
 	return nil
 }
 
-// UpdateIngressPipeline accepts new pipeline specs , and call it to update
+// UpdateIngressPipeline accepts new pipeline specs, and uses it to update
 // ingress's HTTPPipeline with inheritance
 func (ings *IngressServer) UpdateIngressPipeline(newSpec string) error {
 	ings.mux.Lock()
@@ -106,14 +116,4 @@ func (ings *IngressServer) UpdateIngressPipeline(newSpec string) error {
 	ings.Pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)] = &newPipeline
 
 	return err
-}
-
-// CheckIngressReady checks ingress's pipeline and httpserver
-// are created or not
-func (ings *IngressServer) CheckIngressReady() bool {
-	ings.mux.Lock()
-	defer ings.mux.Unlock()
-	_, pipelineReady := ings.Pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)]
-
-	return pipelineReady && (ings.HTTPServer != nil)
 }
