@@ -34,48 +34,6 @@ type (
 	}
 )
 
-// The default yaml config of ingress pipeline
-var (
-	defaultIngressPipeline = `
-name: %s 
-kind: HTTPPipeline
-flow:
-  - filter: %s 
-filters:
-  - name: %s 
-    kind: Backend
-    mainPool:
-      servers:
-      - url: %s 
-`
-	defaultIngressHTTPServer = `
-kind: HTTPServer
-name: %s 
-port: %d 
-rules:
-  - paths:
-    - path: /
-      backend: %s, 
-`
-)
-
-// genereate the EG running object name, which will be applied into
-// memory
-func genIngressPipelineObjectName(serviceName string) string {
-	name := fmt.Sprintf("mesh-ingress-%s-pipeline", serviceName)
-	return name
-}
-
-func genIngressBackendFilterName(serviceName string) string {
-	name := fmt.Sprintf("mesh-ingress-%s-backend", serviceName)
-	return name
-}
-
-func genIngressHTTPSvrObjectName(serviceName string) string {
-	name := fmt.Sprintf("mesh-ingress-%s-httpserver", serviceName)
-	return name
-}
-
 // NewIngressServer creates a initialized ingress server
 func NewIngressServer(store storage.Storage, super *supervisor.Supervisor) *IngressServer {
 	return &IngressServer{
@@ -95,37 +53,29 @@ func (ings *IngressServer) Get(name string) (protocol.HTTPHandler, bool) {
 }
 
 // createIngress creates one default pipeline for ingress
-func (ings *IngressServer) createIngress(sidecar *spec.Sidecar) error {
+func (ings *IngressServer) createIngress(server *spec.Service, port uint32) error {
 	ings.mux.Lock()
 	defer ings.mux.Unlock()
-	if _, ok := ings.Pipelines[genIngressPipelineObjectName(ings.serviceName)]; ok {
+	if _, ok := ings.Pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)]; ok {
 		// already been created
 	} else {
-		// get ingress pipeline spec
-		addr := fmt.Sprintf("%s://%s:%d", defaultIngressSchema, defaultIngressIP, ings.port)
-
-		pipelineSpec := fmt.Sprintf(defaultIngressPipeline, genIngressPipelineObjectName(ings.serviceName),
-			genIngressBackendFilterName(ings.serviceName),
-			genIngressBackendFilterName(ings.serviceName),
-			addr)
-
+		// gen ingress pipeline default spec
+		pipelineSpec := server.GenDefaultIngressPipelineYAML(port)
 		var pipeline httppipeline.HTTPPipeline
 		superSpec, err := supervisor.NewSpec(pipelineSpec)
 		if err != nil {
 			logger.Errorf("BUG, gen ingress pipeline spec :%s , new super spec failed:%v", pipelineSpec, err)
 			return err
 		}
-
 		pipeline.Init(superSpec, ings.super)
-		ings.Pipelines[genIngressPipelineObjectName(ings.serviceName)] = &pipeline
+		ings.Pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)] = &pipeline
 	}
 
 	if ings.HTTPServer != nil {
 		// already been created
 	} else {
-		httpsvrSpec := fmt.Sprintf(defaultIngressHTTPServer, genIngressHTTPSvrObjectName(ings.serviceName),
-			sidecar.IngressPort, genIngressPipelineObjectName(ings.serviceName))
 		var httpsvr httpserver.HTTPServer
+		httpsvrSpec := server.GenDefaultIngressHTTPServerYAML()
 		superSpec, err := supervisor.NewSpec(httpsvrSpec)
 		if err != nil {
 			logger.Errorf("BUG, gen ingress httpsvr spec :%s , new super spec failed:%v", httpsvrSpec, err)
@@ -142,13 +92,13 @@ func (ings *IngressServer) createIngress(sidecar *spec.Sidecar) error {
 	return nil
 }
 
-// UdpateIngressPipeline accepts PipelineUpdater, and call it to update
+// UdpateIngressPipeline accepts new pipeline specs , and call it to update
 // ingress's HTTPPipeline with inheritance
 func (ings *IngressServer) UpdateIngressPipeline(newSpec string) error {
 	var err error
 	ings.mux.Lock()
 	defer ings.mux.Unlock()
-	pipeline, ok := ings.Pipelines[genIngressPipelineObjectName(ings.serviceName)]
+	pipeline, ok := ings.Pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)]
 	if !ok {
 		return fmt.Errorf("ingress pipeline havn't been created yet")
 	}
@@ -161,8 +111,7 @@ func (ings *IngressServer) UpdateIngressPipeline(newSpec string) error {
 	var newPipeline httppipeline.HTTPPipeline
 	// safely close previous generation and create new pipeline
 	newPipeline.Inherit(superSpec, pipeline, ings.super)
-
-	ings.Pipelines[genIngressPipelineObjectName(ings.serviceName)] = &newPipeline
+	ings.Pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)] = &newPipeline
 
 	return err
 }
@@ -172,7 +121,7 @@ func (ings *IngressServer) UpdateIngressPipeline(newSpec string) error {
 func (ings *IngressServer) CheckIngressReady() bool {
 	ings.mux.Lock()
 	defer ings.mux.Unlock()
-	_, pipelineReady := ings.Pipelines[genIngressPipelineObjectName(ings.serviceName)]
+	_, pipelineReady := ings.Pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)]
 
 	return pipelineReady && (ings.HTTPServer != nil)
 }

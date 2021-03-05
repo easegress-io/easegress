@@ -6,6 +6,7 @@ import (
 
 	"github.com/kataras/iris"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/layout"
+	"github.com/megaease/easegateway/pkg/object/meshcontroller/registry"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
 	"gopkg.in/yaml.v2"
 )
@@ -30,14 +31,19 @@ func (w *Worker) Registry(ctx iris.Context) error {
 		return err
 	}
 
-	if ID := w.rcs.RegistryServiceInstance(ins, &service, w.ings.CheckIngressReady); len(ID) != 0 {
+	if ID, port, err := w.rcs.RegistryServiceInstance(ins, &service, w.ings.CheckIngressReady); err == nil {
 		w.mux.Lock()
 		defer w.mux.Unlock()
 		// let worker know its instance identity
 		w.instanceID = ID
 		// asynchronous create ingress
-		go w.createIngress(&service.Sidecar)
+		go w.createIngress(&service, port)
+	} else {
+		if err != registry.ErrAlreadyRegistried {
+			ctx.StatusCode(iris.StatusInternalServerError)
+			return err
+		}
 	}
 
-	return err
+	return nil
 }

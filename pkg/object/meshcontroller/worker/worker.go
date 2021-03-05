@@ -113,10 +113,10 @@ func (w *Worker) watchHeartbeat(interval time.Duration, done chan struct{}) {
 
 // createIngress calls ingress server create default HTTPServer and pipeline
 // loop until succ
-func (w *Worker) createIngress(sidecar *spec.Sidecar) {
+func (w *Worker) createIngress(service *spec.Service, port uint32) {
 	var err error
 	for {
-		if err = w.ings.createIngress(sidecar); err != nil {
+		if err = w.ings.createIngress(service, port); err != nil {
 			logger.Errorf("worker create ingress failed: %v", err)
 			time.Sleep(1 * time.Second)
 		} else {

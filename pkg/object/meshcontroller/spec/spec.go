@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
-	"github.com/megaease/easegateway/pkg/object/httpserver"
 	"github.com/megaease/easegateway/pkg/supervisor"
 	"gopkg.in/yaml.v2"
 )
@@ -19,6 +18,29 @@ const (
 var (
 	// ErrParamNotMatch means RESTful request URL's object name or other fields are not matched in this request's body
 	ErrParamNotMatch = fmt.Errorf("param in url and body's spec not matched")
+
+	// The default yaml config of ingress pipeline
+	DefaultIngressPipelineYAML = `
+name: %s 
+kind: HTTPPipeline
+flow:
+  - filter: %s 
+filters:
+  - name: %s 
+    kind: Backend
+    mainPool:
+      servers:
+      - url: %s 
+`
+	DefaultIngressHTTPServerYAML = `
+kind: HTTPServer
+name: %s 
+port: %d 
+rules:
+  - paths:
+    - path: /
+      backend: %s, 
+`
 )
 
 type (
@@ -130,8 +152,28 @@ func (a Admin) Validate() error {
 	return nil
 }
 
-// ToPipelineSepc will transfer
-func (s *Service) ToPipelineSpec() (*supervisor.Spec, error) {
+// GenIngressPipelineObjectName generates the EG running egress pipeline object name
+func GenIngressPipelineObjectName(serviceName string) string {
+	name := fmt.Sprintf("mesh-ingress-%s-pipeline", serviceName)
+	return name
+}
+
+// GenIngressBackendFilterName generates the EG running ingress backend filter name
+func GenIngressBackendFilterName(serviceName string) string {
+	name := fmt.Sprintf("mesh-ingress-%s-backend", serviceName)
+	return name
+}
+
+// GenIngressHTTPSvrObjectName generates the EG running ingress HTTPServer object name
+func GenIngressHTTPSvrObjectName(serviceName string) string {
+	name := fmt.Sprintf("mesh-ingress-%s-httpserver", serviceName)
+	return name
+}
+
+// ToPipelineSepc will transfer service spec for a ingress pipeline
+// about how to handle inner traffic , between Worker(Sidecar) and
+// java process
+func (s *Service) ToIngressPipelineSpec() (*supervisor.Spec, error) {
 	var pipeline httppipeline.HTTPPipeline
 
 	//[TODO]
@@ -147,18 +189,38 @@ func (s *Service) ToPipelineSpec() (*supervisor.Spec, error) {
 	return supervisor.NewSpec(string(buff))
 }
 
-func (s *Service) ToHTTPServerSpec() (*supervisor.Spec, error) {
-	var httpsvr httpserver.HTTPServer
+// ToPipelineSepc will transfer service spec for a engress pipeline
+// about other rely serivce how to request this service
+func (s *Service) ToEgressPipelineSpec() (*supervisor.Spec, error) {
+	var pipeline httppipeline.HTTPPipeline
 
 	//[TODO]
 	// generate a complete pipeline according to the service structure
+	// e.g. Server Arequests ServiceB, call serviceB.ToEgressServerSpec() to
+	// get a pipeline spec, and apply into ServiceA's memory
 
 	var (
 		buff []byte
 		err  error
 	)
-	if buff, err = yaml.Marshal(httpsvr); err != nil {
+	if buff, err = yaml.Marshal(pipeline); err != nil {
 		return nil, err
 	}
 	return supervisor.NewSpec(string(buff))
+}
+
+func (s *Service) GenDefaultIngressPipelineYAML(port uint32) string {
+	addr := fmt.Sprintf("%s://%s:%d", s.Sidecar.IngressProtocol, s.Sidecar.Address, port)
+
+	pipelineSpec := fmt.Sprintf(DefaultIngressPipelineYAML, GenIngressPipelineObjectName(s.Name),
+		GenIngressBackendFilterName(s.Name),
+		GenIngressBackendFilterName(s.Name),
+		addr)
+	return pipelineSpec
+}
+
+func (s *Service) GenDefaultIngressHTTPServerYAML() string {
+	httpsvrSpec := fmt.Sprintf(DefaultIngressHTTPServerYAML, GenIngressHTTPSvrObjectName(s.Name),
+		s.Sidecar.IngressPort, GenIngressPipelineObjectName(s.Name))
+	return httpsvrSpec
 }

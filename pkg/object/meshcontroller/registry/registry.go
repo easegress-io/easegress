@@ -63,6 +63,9 @@ type (
 	}
 )
 
+// ErrAlreadyRegistried indicateds this instances has already been registried
+var ErrAlreadyRegistried = fmt.Errorf("serivce already registrired")
+
 // NewRegistryCenterServer creates a initialized registry center server
 func NewRegistryCenterServer(registryType string, serviceName string, store storage.Storage) *RegistryCenterServer {
 	return &RegistryCenterServer{
@@ -82,11 +85,11 @@ func (rcs *RegistryCenterServer) Registried() bool {
 // into one routine.
 // Todo: Consider to split this routine for other None RESTful POST body
 //       format in future.
-func (rcs *RegistryCenterServer) RegistryServiceInstance(ins *ServiceInstance, service *spec.Service, fn func() bool) string {
+func (rcs *RegistryCenterServer) RegistryServiceInstance(ins *ServiceInstance, service *spec.Service, fn func() bool) (string, uint32, error) {
 	// valid the input
 	if rcs.registried == true {
 		// already registried
-		return ""
+		return "", 0, ErrAlreadyRegistried
 	}
 
 	insPort := ins.Port // the original Java processing listening port
@@ -94,12 +97,12 @@ func (rcs *RegistryCenterServer) RegistryServiceInstance(ins *ServiceInstance, s
 	ins.Tenant = service.RegisterTenant
 
 	// registry this instance asynchronously
-	go rcs.registry(ins, insPort, fn)
+	go rcs.registry(ins, fn)
 
-	return ins.InstanceID
+	return ins.InstanceID, insPort, nil
 }
 
-func (rcs *RegistryCenterServer) registry(ins *ServiceInstance, insPort uint32, fn func() bool) {
+func (rcs *RegistryCenterServer) registry(ins *ServiceInstance, fn func() bool) {
 	var (
 		err      error
 		tryTimes int = 0
