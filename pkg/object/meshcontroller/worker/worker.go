@@ -39,7 +39,7 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 	store := storage.New(superSpec.Name(), super.Cluster())
 	registryCenterServer := registrycenter.NewRegistryCenterServer(spec.RegistryType,
 		serviceName, store)
-	ingressServer := NewIngressServer(super)
+	ingressServer := NewIngressServer(super, serviceName)
 
 	w := &Worker{
 		super:       super,

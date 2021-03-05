@@ -28,12 +28,13 @@ type (
 )
 
 // NewIngressServer creates a initialized ingress server
-func NewIngressServer(super *supervisor.Supervisor) *IngressServer {
+func NewIngressServer(super *supervisor.Supervisor, serviceName string) *IngressServer {
 	return &IngressServer{
-		super:      super,
-		Pipelines:  make(map[string]*httppipeline.HTTPPipeline),
-		HTTPServer: nil,
-		mux:        sync.RWMutex{},
+		super:       super,
+		Pipelines:   make(map[string]*httppipeline.HTTPPipeline),
+		HTTPServer:  nil,
+		serviceName: serviceName,
+		mux:         sync.RWMutex{},
 	}
 }
 
@@ -95,9 +96,9 @@ func (ings *IngressServer) createIngress(service *spec.Service, port uint32) err
 	return nil
 }
 
-// UpdateIngressPipeline accepts new pipeline specs, and uses it to update
+// UpdatePipeline accepts new pipeline specs, and uses it to update
 // ingress's HTTPPipeline with inheritance
-func (ings *IngressServer) UpdateIngressPipeline(newSpec string) error {
+func (ings *IngressServer) UpdatePipeline(newSpec string) error {
 	ings.mux.Lock()
 	defer ings.mux.Unlock()
 	pipeline, ok := ings.Pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)]

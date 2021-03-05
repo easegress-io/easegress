@@ -33,14 +33,23 @@ filters:
       - url: %s 
 `
 	// DefaultIngressHTTPServerYAML is the default yaml config of ingress HTTPServer
+	// all ingress traffic will be routed to local java process by path prefix '/' match
 	DefaultIngressHTTPServerYAML = `
 kind: HTTPServer
 name: %s 
 port: %d 
 rules:
   - paths:
-    - path: /
+    - pathPrefix: /
       backend: %s, 
+`
+	// DefaultEgressHTTPServerYAML is the default yaml config of egress HTTPServer
+	// it doesn't contain any rules as Ingress's spec, cause these rules will dynamically
+	// add/remove when Java business process needs to invoke RPC requests.
+	DefaultEgressHTTPServerYAML = `
+kind: HTTPServer
+name: %s 
+port: %d 	
 `
 )
 
@@ -186,6 +195,12 @@ func GenIngressHTTPSvrObjectName(serviceName string) string {
 	return name
 }
 
+// GenEgressHTTPSvrObjectName generates the EG running egress HTTPServer object name
+func GenEgressHTTPSvrObjectName(serviceName string) string {
+	name := fmt.Sprintf("mesh-egress-%s-httpserver", serviceName)
+	return name
+}
+
 // ToIngressPipelineSpec will transfer service spec for a ingress pipeline
 // about how to handle inner traffic , between Worker(Sidecar) and
 // java process
@@ -243,4 +258,12 @@ func (s *Service) GenDefaultIngressHTTPServerYAML() string {
 	httpsvrSpec := fmt.Sprintf(DefaultIngressHTTPServerYAML, GenIngressHTTPSvrObjectName(s.Name),
 		s.Sidecar.IngressPort, GenIngressPipelineObjectName(s.Name))
 	return httpsvrSpec
+}
+
+// GenDefaultEgressHTTPServerYAML generates default egress HTTP server with Service's Sidecar spe
+func (s *Service) GenDefaultEgressHTTPServerYAML() string {
+	httpsvcSpec := fmt.Sprintf(DefaultEgressHTTPServerYAML, GenEgressHTTPSvrObjectName(s.Name),
+		s.Sidecar.EgressPort)
+
+	return httpsvcSpec
 }
