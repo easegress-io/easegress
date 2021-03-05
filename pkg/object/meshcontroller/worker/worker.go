@@ -100,7 +100,7 @@ func (w *Worker) watchHeartbeat(interval time.Duration, done chan struct{}) {
 		case <-time.After(interval):
 			// once its instanceID and serivceName be setted,
 			if w.rcs.Registried() {
-				if err := w.CheckLocalInstaceHeartbeat(); err != nil {
+				if err := w.checkLocalInstaceHeartbeat(); err != nil {
 					logger.Errorf("worker check local instance heartbeat failed, err :%v", err)
 				}
 			}
@@ -111,24 +111,8 @@ func (w *Worker) watchHeartbeat(interval time.Duration, done chan struct{}) {
 
 }
 
-// createIngress calls ingress server create default HTTPServer and pipeline
-// loop until succ
-func (w *Worker) createIngress(service *spec.Service, port uint32) {
-	var err error
-	for {
-		if err = w.ings.createIngress(service, port); err != nil {
-			logger.Errorf("worker create ingress failed: %v", err)
-			time.Sleep(1 * time.Second)
-		} else {
-			break
-		}
-	}
-
-	return
-}
-
-// CheckLocalInstaceHeartbeat communicate with Java process and check its health.
-func (w *Worker) CheckLocalInstaceHeartbeat() error {
+// checkLocalInstaceHeartbeat communicate with Java process and check its health.
+func (w *Worker) checkLocalInstaceHeartbeat() error {
 	var alive bool
 
 	//[TODO] call Java process agent with JMX, check it alive

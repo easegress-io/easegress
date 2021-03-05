@@ -196,7 +196,7 @@ func (s *Service) ToEgressPipelineSpec() (*supervisor.Spec, error) {
 
 	//[TODO]
 	// generate a complete pipeline according to the service structure
-	// e.g. Server Arequests ServiceB, call serviceB.ToEgressServerSpec() to
+	// e.g. ServerA requests ServiceB, call serviceB.ToEgressServerSpec() to
 	// get a pipeline spec, and apply into ServiceA's memory
 
 	var (
