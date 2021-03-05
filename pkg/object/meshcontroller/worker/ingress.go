@@ -37,7 +37,7 @@ func NewIngressServer(super *supervisor.Supervisor) *IngressServer {
 	}
 }
 
-// Get gets pipeline for HTTPServer, it implements HTTPServer's MuxMapper interface
+// Get gets pipeline object for HTTPServer, it implements HTTPServer's MuxMapper interface
 func (ings *IngressServer) Get(name string) (protocol.HTTPHandler, bool) {
 	ings.mux.Lock()
 	defer ings.mux.Unlock()
@@ -45,15 +45,15 @@ func (ings *IngressServer) Get(name string) (protocol.HTTPHandler, bool) {
 	return p, ok
 }
 
-// createIngress creates one default pipeline for ingress
-func (ings *IngressServer) createIngress(server *spec.Service, port uint32) error {
+// createIngress creates local sdefault pipeline for ingress
+func (ings *IngressServer) createIngress(service *spec.Service, port uint32) error {
 	ings.mux.Lock()
 	defer ings.mux.Unlock()
 	if _, ok := ings.Pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)]; ok {
 		// already been created
 	} else {
 		// gen ingress pipeline default spec
-		pipelineSpec := server.GenDefaultIngressPipelineYAML(port)
+		pipelineSpec := service.GenDefaultIngressPipelineYAML(port)
 		var pipeline httppipeline.HTTPPipeline
 		superSpec, err := supervisor.NewSpec(pipelineSpec)
 		if err != nil {
@@ -68,7 +68,7 @@ func (ings *IngressServer) createIngress(server *spec.Service, port uint32) erro
 		// already been created
 	} else {
 		var httpsvr httpserver.HTTPServer
-		httpsvrSpec := server.GenDefaultIngressHTTPServerYAML()
+		httpsvrSpec := service.GenDefaultIngressHTTPServerYAML()
 		superSpec, err := supervisor.NewSpec(httpsvrSpec)
 		if err != nil {
 			logger.Errorf("BUG, gen ingress httpsvr spec :%s , new super spec failed:%v", httpsvrSpec, err)
@@ -85,10 +85,9 @@ func (ings *IngressServer) createIngress(server *spec.Service, port uint32) erro
 	return nil
 }
 
-// UdpateIngressPipeline accepts new pipeline specs , and call it to update
+// UpdateIngressPipeline accepts new pipeline specs , and call it to update
 // ingress's HTTPPipeline with inheritance
 func (ings *IngressServer) UpdateIngressPipeline(newSpec string) error {
-	var err error
 	ings.mux.Lock()
 	defer ings.mux.Unlock()
 	pipeline, ok := ings.Pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)]
@@ -109,8 +108,8 @@ func (ings *IngressServer) UpdateIngressPipeline(newSpec string) error {
 	return err
 }
 
-//  CheckIngressReady checks ingress's pipeline and httpserver
-//   are created or not
+// CheckIngressReady checks ingress's pipeline and httpserver
+// are created or not
 func (ings *IngressServer) CheckIngressReady() bool {
 	ings.mux.Lock()
 	defer ings.mux.Unlock()

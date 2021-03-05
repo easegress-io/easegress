@@ -6,7 +6,7 @@ import (
 
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/layout"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/registry"
+	"github.com/megaease/easegateway/pkg/object/meshcontroller/registrycenter"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/storage"
 	"gopkg.in/yaml.v2"
@@ -94,7 +94,7 @@ func (mss *MeshServiceServer) WatchSerivceInstancesHeartbeat() error {
 		}
 	}
 
-	var allIns []*registry.ServiceInstance
+	var allIns []*spec.ServiceInstance
 	// find  all serivce instance
 	for _, v := range services {
 		insList, err := mss.GetSerivceInstances(v)
@@ -115,7 +115,7 @@ func (mss *MeshServiceServer) WatchSerivceInstancesHeartbeat() error {
 		heartbeat, err := mss.getServiceInstanceHeartbeat(v.ServiceName, v.InstanceID)
 
 		if err != nil || currTimeStamp-heartbeat.LastActiveTime > mss.AliveSeconds {
-			err = mss.UpdateServiceInstanceStatus(v.ServiceName, v.InstanceID, registry.SerivceStatusOutOfSerivce)
+			err = mss.UpdateServiceInstanceStatus(v.ServiceName, v.InstanceID, registrycenter.SerivceStatusOutOfSerivce)
 			if err != nil {
 				logger.Errorf("all service instance alive check failed, serivce :%s, ID :%s, err :%v", v.ServiceName, v.InstanceID, err)
 			}
@@ -178,8 +178,8 @@ func (mss *MeshServiceServer) GetTenant(tenantName string) (*spec.Tenant, error)
 }
 
 // GetSerivceInstances get whole service Instances from store.
-func (mss *MeshServiceServer) GetSerivceInstances(serviceName string) (map[string]*registry.ServiceInstance, error) {
-	insList := make(map[string]*registry.ServiceInstance)
+func (mss *MeshServiceServer) GetSerivceInstances(serviceName string) (map[string]*spec.ServiceInstance, error) {
+	insList := make(map[string]*spec.ServiceInstance)
 
 	insYAMLs, err := mss.store.GetPrefix(layout.GenServiceInstancePrefix(serviceName))
 	if err != nil {
@@ -187,7 +187,7 @@ func (mss *MeshServiceServer) GetSerivceInstances(serviceName string) (map[strin
 	}
 
 	for k, v := range insYAMLs {
-		var ins *registry.ServiceInstance
+		var ins *spec.ServiceInstance
 		if err = yaml.Unmarshal([]byte(v), ins); err != nil {
 			logger.Errorf("BUG unmarsh service :%s, record key :%s , val %s failed, err %v", serviceName, k, v, err)
 			continue
@@ -206,7 +206,7 @@ func (mss *MeshServiceServer) DeleteSerivceInstance(serviceName, ID string) erro
 
 // UpdateServiceInstance  updates one instance's status field.
 func (mss *MeshServiceServer) UpdateServiceInstanceLeases(serviceName, ID string, leases int64) error {
-	updateLeases := func(ins *registry.ServiceInstance) {
+	updateLeases := func(ins *spec.ServiceInstance) {
 		if ins.Leases != leases {
 			ins.Leases = leases
 		}
@@ -218,7 +218,7 @@ func (mss *MeshServiceServer) UpdateServiceInstanceLeases(serviceName, ID string
 
 // UpdateServiceInstanceStatus  updates one instance's status field.
 func (mss *MeshServiceServer) UpdateServiceInstanceStatus(serviceName, ID, status string) error {
-	updateStatus := func(ins *registry.ServiceInstance) {
+	updateStatus := func(ins *spec.ServiceInstance) {
 		if ins.Status != status {
 			ins.Status = status
 		}
@@ -227,7 +227,7 @@ func (mss *MeshServiceServer) UpdateServiceInstanceStatus(serviceName, ID, statu
 	err := mss.updateSerivceInstance(serviceName, ID, updateStatus)
 	return err
 }
-func (mss *MeshServiceServer) updateSerivceInstance(serviceName, ID string, fn func(ins *registry.ServiceInstance)) error {
+func (mss *MeshServiceServer) updateSerivceInstance(serviceName, ID string, fn func(ins *spec.ServiceInstance)) error {
 	var err error
 
 	return err

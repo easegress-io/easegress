@@ -8,7 +8,7 @@ import (
 	"github.com/kataras/iris"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/layout"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/registry"
+	"github.com/megaease/easegateway/pkg/object/meshcontroller/registrycenter"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
 	"gopkg.in/yaml.v2"
 )
@@ -66,7 +66,7 @@ func (w *Worker) Registry(ctx iris.Context) error {
 		// let worker know its instance identity
 		w.instanceID = ID
 	} else {
-		if err != registry.ErrAlreadyRegistried {
+		if err != registrycenter.ErrAlreadyRegistried {
 			ctx.StatusCode(iris.StatusInternalServerError)
 			return err
 		}

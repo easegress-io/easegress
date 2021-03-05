@@ -8,7 +8,7 @@ import (
 
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/layout"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/registry"
+	"github.com/megaease/easegateway/pkg/object/meshcontroller/registrycenter"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/storage"
 	"github.com/megaease/easegateway/pkg/option"
@@ -30,7 +30,7 @@ type Worker struct {
 	instanceID  string
 	serviceName string
 	store       storage.Storage
-	rcs         *registry.RegistryCenterServer
+	rcs         *registrycenter.Server
 	ings        *IngressServer
 	engs        *EgressServer
 	mux         sync.Mutex
@@ -43,7 +43,7 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 	spec := superSpec.ObjectSpec().(*spec.Admin)
 	serviceName := option.Global.Labels["mesh_servicename"]
 	store := storage.New(superSpec.Name(), super.Cluster())
-	registryCenterServer := registry.NewRegistryCenterServer(spec.RegistryType, serviceName, store)
+	registryCenterServer := registrycenter.NewRegistryCenterServer(spec.RegistryType, serviceName, store)
 	ingressServer := NewIngressServer(super)
 
 	w := &Worker{
@@ -93,7 +93,7 @@ func (w *Worker) run() {
 	}
 }
 
-// heartbeat check local instance's java process's aliveness and
+// heartbeat checks local instance's java process's aliveness and
 // update its heartbeat recored
 func (w *Worker) heartbeat(interval time.Duration, done chan struct{}) {
 	for {
@@ -112,7 +112,7 @@ func (w *Worker) heartbeat(interval time.Duration, done chan struct{}) {
 
 }
 
-// checkLocalInstanceHeartbeat communicate with Java process and check its health.
+// checkLocalInstanceHeartbeat communicates with Java process and check its health.
 func (w *Worker) checkLocalInstanceHeartbeat() error {
 	var alive bool
 
