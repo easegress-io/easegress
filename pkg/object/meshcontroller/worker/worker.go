@@ -100,7 +100,7 @@ func (w *Worker) watchHeartbeat(interval time.Duration, done chan struct{}) {
 		case <-time.After(interval):
 			// once its instanceID and serivceName be setted,
 			if w.rcs.Registried() {
-				if err := w.checkLocalInstaceHeartbeat(); err != nil {
+				if err := w.checkLocalInstanceHeartbeat(); err != nil {
 					logger.Errorf("worker check local instance heartbeat failed, err :%v", err)
 				}
 			}
@@ -111,8 +111,8 @@ func (w *Worker) watchHeartbeat(interval time.Duration, done chan struct{}) {
 
 }
 
-// checkLocalInstaceHeartbeat communicate with Java process and check its health.
-func (w *Worker) checkLocalInstaceHeartbeat() error {
+// checkLocalInstanceHeartbeat communicate with Java process and check its health.
+func (w *Worker) checkLocalInstanceHeartbeat() error {
 	var alive bool
 
 	//[TODO] call Java process agent with JMX, check it alive
