@@ -96,7 +96,8 @@ func (w *Worker) run() {
 	}
 }
 
-// Registry is a HTTP handler for worker
+// Registry is a HTTP handler for worker, handling
+//  java business process's Eureka/Consul registry RESTful request
 func (w *Worker) Registry(ctx iris.Context) error {
 	body, err := ioutil.ReadAll(ctx.Request().Body)
 	if err != nil {
@@ -106,12 +107,10 @@ func (w *Worker) Registry(ctx iris.Context) error {
 	if err != nil {
 		return err
 	}
-
 	serviceYAML, err := w.store.Get(layout.GenServerKey(w.serviceName))
 	if err != nil {
 		return err
 	}
-
 	var service spec.Service
 	if err = yaml.Unmarshal([]byte(*serviceYAML), &service); err != nil {
 		return err
@@ -120,11 +119,10 @@ func (w *Worker) Registry(ctx iris.Context) error {
 	if ID := w.rcs.RegistryServiceInstance(ins, &service, w.ings.CheckIngressReady); len(ID) != 0 {
 		w.mux.Lock()
 		defer w.mux.Unlock()
-
-		// let worker know its identity
+		// let worker know its instance identity
 		w.instanceID = ID
-		// asynchronous add watch ingress spec keys
-		go w.addWatchIngressSpecs()
+		// asynchronous create ingress
+		go w.createIngress(&service.Sidecar)
 	}
 
 	return err
@@ -146,6 +144,22 @@ func (w *Worker) watchHeartbeat(interval time.Duration, done chan struct{}) {
 		}
 	}
 
+}
+
+// createIngress calls ingress server create default HTTPServer and pipeline
+// loop until succ
+func (w *Worker) createIngress(sidecar *spec.Sidecar) {
+	var err error
+	for {
+		if err = w.ings.createIngress(sidecar); err != nil {
+			logger.Errorf("worker create ingress failed: %v", err)
+			time.Sleep(1 * time.Second)
+		} else {
+			break
+		}
+	}
+
+	return
 }
 
 // CheckLocalInstaceHeartbeat communicate with Java process and check its health.
@@ -185,15 +199,7 @@ func (w *Worker) CheckLocalInstaceHeartbeat() error {
 // addWatchIngressSpecsNames calls meshServiceServer to add Ingress's
 // HTTPServer and Pipeline spec name into watch list
 func (w *Worker) addWatchIngressSpecs() {
-	/*for {
-		if err := w.mss.addWatchIngressSpecNames(serviceName); err == nil {
-			break
-		} else {
-			// retry add watch spec names
-			logger.Errorf("worker add service :%s, ingress watch spec names failed, err :%v", serviceName, err)
-			time.Sleep(defaultWatchRetryTimeSecond * time.Second)
-		}
-	}*/
+
 }
 
 // watchSpecs calls meshServiceServer check specs udpate/create/delete opertion

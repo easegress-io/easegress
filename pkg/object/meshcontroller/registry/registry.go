@@ -19,8 +19,6 @@ import (
 )
 
 const (
-	defaultRegistryExpireSecond = 2 * 60 // default registry routine expire time, 2 minutes
-
 	// RegistryTypeEureka indicates a Eureka registry center
 	RegistryTypeEureka = "eureka"
 	// RegistryTypeConsul indicates a Consul registry center
@@ -32,7 +30,8 @@ const (
 	// SerivceStatusOutOfSerivce indicates this service can't accept ingress traffic
 	SerivceStatusOutOfSerivce = "OUT_OF_SERVICE"
 
-	defaultLeasesSeconds = 3600 * 24 * 365 // default one year leases
+	defaultLeasesSeconds        = 3600 * 24 * 365 // default one year leases
+	defaultRegistryExpireSecond = 2 * 60          // default registry routine expire time, 2 minutes
 )
 
 type (
@@ -83,7 +82,7 @@ func (rcs *RegistryCenterServer) Registried() bool {
 // into one routine.
 // Todo: Consider to split this routine for other None RESTful POST body
 //       format in future.
-func (rcs *RegistryCenterServer) RegistryServiceInstance(ins *ServiceInstance, service *spec.Service, fn func(string) bool) string {
+func (rcs *RegistryCenterServer) RegistryServiceInstance(ins *ServiceInstance, service *spec.Service, fn func() bool) string {
 	// valid the input
 	if rcs.registried == true {
 		// already registried
@@ -100,7 +99,7 @@ func (rcs *RegistryCenterServer) RegistryServiceInstance(ins *ServiceInstance, s
 	return ins.InstanceID
 }
 
-func (rcs *RegistryCenterServer) registry(ins *ServiceInstance, insPort uint32, fn func(string) bool) {
+func (rcs *RegistryCenterServer) registry(ins *ServiceInstance, insPort uint32, fn func() bool) {
 	var (
 		err      error
 		tryTimes int = 0
@@ -110,7 +109,7 @@ func (rcs *RegistryCenterServer) registry(ins *ServiceInstance, insPort uint32, 
 	for {
 		tryTimes++
 		// check the ingress pipeline and http server object exists
-		if fn(rcs.serviceName) == false {
+		if fn() == false {
 			continue
 		}
 		// set this instance status up
