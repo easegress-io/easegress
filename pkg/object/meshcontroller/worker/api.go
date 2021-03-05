@@ -58,13 +58,13 @@ func (w *Worker) Registry(ctx iris.Context) error {
 		return err
 	}
 
+	// asynchronous create ingress
+	go w.createIngress(&service, port)
 	if ID, port, err := w.rcs.RegistryServiceInstance(ins, &service, w.ings.CheckIngressReady); err == nil {
 		w.mux.Lock()
 		defer w.mux.Unlock()
 		// let worker know its instance identity
 		w.instanceID = ID
-		// asynchronous create ingress
-		go w.createIngress(&service, port)
 	} else {
 		if err != registry.ErrAlreadyRegistried {
 			ctx.StatusCode(iris.StatusInternalServerError)

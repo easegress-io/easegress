@@ -80,26 +80,24 @@ func (rcs *RegistryCenterServer) Registried() bool {
 	return rcs.registried
 }
 
-// RegistryServiceInstance accepts Java Process's registry request in Eureka/Consul Format
-// cause Eureka/Consul registry format are both with HTTP and POST body, we can combine them
-// into one routine.
-// Todo: Consider to split this routine for other None RESTful POST body
-//       format in future.
-func (rcs *RegistryCenterServer) RegistryServiceInstance(ins *ServiceInstance, service *spec.Service, fn func() bool) (string, uint32, error) {
+// RegistryServiceInstance changes instance port and tenatn and stores
+// them, it will asynchronously check ingress ready or not
+func (rcs *RegistryCenterServer) RegistryServiceInstance(ins *ServiceInstance, service *spec.Service, fn func() bool) (string, error) {
 	// valid the input
 	if rcs.registried == true {
 		// already registried
-		return "", 0, ErrAlreadyRegistried
+		return "", ErrAlreadyRegistried
 	}
 
-	insPort := ins.Port // the original Java processing listening port
+	// change the original Java processing listening port
+	// to siecar ingress port
 	ins.Port = uint32(service.Sidecar.IngressPort)
 	ins.Tenant = service.RegisterTenant
 
 	// registry this instance asynchronously
 	go rcs.registry(ins, fn)
 
-	return ins.InstanceID, insPort, nil
+	return ins.InstanceID, nil
 }
 
 func (rcs *RegistryCenterServer) registry(ins *ServiceInstance, fn func() bool) {

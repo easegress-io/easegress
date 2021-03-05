@@ -44,7 +44,7 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 	serviceName := option.Global.Labels["mesh_servicename"]
 	store := storage.New(superSpec.Name(), super.Cluster())
 	registryCenterServer := registry.NewRegistryCenterServer(spec.RegistryType, serviceName, store)
-	ingressServer := NewIngressServer(store, super)
+	ingressServer := NewIngressServer(super)
 
 	w := &Worker{
 		super:       super,
@@ -79,7 +79,7 @@ func (w *Worker) run() {
 
 	doneHeartBeat := make(chan struct{})
 	doneWatchSpec := make(chan struct{})
-	go w.watchHeartbeat(watchInterval, doneHeartBeat)
+	go w.Heartbeat(watchInterval, doneHeartBeat)
 	go w.watchSpecs(doneWatchSpec)
 
 	for {
@@ -93,12 +93,13 @@ func (w *Worker) run() {
 	}
 }
 
-// watchHeartBeat
-func (w *Worker) watchHeartbeat(interval time.Duration, done chan struct{}) {
+// Heartbeat check local instance's java process's aliveness and
+// update its heartbeat recored
+func (w *Worker) Heartbeat(interval time.Duration, done chan struct{}) {
 	for {
 		select {
 		case <-time.After(interval):
-			// once its instanceID and serivceName be setted,
+			// once it registried itself successfully,
 			if w.rcs.Registried() {
 				if err := w.checkLocalInstanceHeartbeat(); err != nil {
 					logger.Errorf("worker check local instance heartbeat failed, err :%v", err)

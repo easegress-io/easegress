@@ -8,7 +8,6 @@ import (
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
 	"github.com/megaease/easegateway/pkg/object/httpserver"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/storage"
 	"github.com/megaease/easegateway/pkg/protocol"
 	"github.com/megaease/easegateway/pkg/supervisor"
 )
@@ -16,7 +15,6 @@ import (
 type (
 	// IngressServer control one ingress pipeline and one HTTPServer
 	IngressServer struct {
-		store       storage.Storage
 		super       *supervisor.Supervisor
 		serviceName string
 		port        uint32
@@ -30,9 +28,8 @@ type (
 )
 
 // NewIngressServer creates a initialized ingress server
-func NewIngressServer(store storage.Storage, super *supervisor.Supervisor) *IngressServer {
+func NewIngressServer(super *supervisor.Supervisor) *IngressServer {
 	return &IngressServer{
-		store:      store,
 		super:      super,
 		Pipelines:  make(map[string]*httppipeline.HTTPPipeline),
 		HTTPServer: nil,
@@ -40,6 +37,7 @@ func NewIngressServer(store storage.Storage, super *supervisor.Supervisor) *Ingr
 	}
 }
 
+// Get gets pipeline for HTTPServer, it implements HTTPServer's MuxMapper interface
 func (ings *IngressServer) Get(name string) (protocol.HTTPHandler, bool) {
 	ings.mux.Lock()
 	defer ings.mux.Unlock()
