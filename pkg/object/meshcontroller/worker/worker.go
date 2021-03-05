@@ -1,12 +1,9 @@
 package worker
 
 import (
-	"fmt"
-	"io/ioutil"
 	"sync"
 	"time"
 
-	"github.com/kataras/iris"
 	"gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegateway/pkg/logger"
@@ -96,38 +93,6 @@ func (w *Worker) run() {
 	}
 }
 
-// Registry is a HTTP handler for worker, handling
-//  java business process's Eureka/Consul registry RESTful request
-func (w *Worker) Registry(ctx iris.Context) error {
-	body, err := ioutil.ReadAll(ctx.Request().Body)
-	if err != nil {
-		return fmt.Errorf("read body failed: %v", err)
-	}
-	ins, err := w.rcs.DecodeBody(body)
-	if err != nil {
-		return err
-	}
-	serviceYAML, err := w.store.Get(layout.GenServerKey(w.serviceName))
-	if err != nil {
-		return err
-	}
-	var service spec.Service
-	if err = yaml.Unmarshal([]byte(*serviceYAML), &service); err != nil {
-		return err
-	}
-
-	if ID := w.rcs.RegistryServiceInstance(ins, &service, w.ings.CheckIngressReady); len(ID) != 0 {
-		w.mux.Lock()
-		defer w.mux.Unlock()
-		// let worker know its instance identity
-		w.instanceID = ID
-		// asynchronous create ingress
-		go w.createIngress(&service.Sidecar)
-	}
-
-	return err
-}
-
 // watchHeartBeat
 func (w *Worker) watchHeartbeat(interval time.Duration, done chan struct{}) {
 	for {
@@ -194,12 +159,6 @@ func (w *Worker) CheckLocalInstaceHeartbeat() error {
 	}
 
 	return nil
-}
-
-// addWatchIngressSpecsNames calls meshServiceServer to add Ingress's
-// HTTPServer and Pipeline spec name into watch list
-func (w *Worker) addWatchIngressSpecs() {
-
 }
 
 // watchSpecs calls meshServiceServer check specs udpate/create/delete opertion

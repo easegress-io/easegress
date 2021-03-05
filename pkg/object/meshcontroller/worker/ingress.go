@@ -32,14 +32,9 @@ type (
 
 		mux sync.Mutex
 	}
-
-	PipelineUpdater interface {
-		// Update updates the original pipeline and return its new spec
-		Update(p *httppipeline.HTTPPipeline) string
-	}
 )
 
-// The default yaml config of ingress pipelien
+// The default yaml config of ingress pipeline
 var (
 	defaultIngressPipeline = `
 name: %s 
@@ -107,7 +102,7 @@ func (ings *IngressServer) createIngress(sidecar *spec.Sidecar) error {
 		// already been created
 	} else {
 		// get ingress pipeline spec
-		addr := fmt.Sprintf("%s//%s:%d", defaultIngressSchema, defaultIngressIP, ings.port)
+		addr := fmt.Sprintf("%s://%s:%d", defaultIngressSchema, defaultIngressIP, ings.port)
 
 		pipelineSpec := fmt.Sprintf(defaultIngressPipeline, genIngressPipelineObjectName(ings.serviceName),
 			genIngressBackendFilterName(ings.serviceName),
@@ -149,7 +144,7 @@ func (ings *IngressServer) createIngress(sidecar *spec.Sidecar) error {
 
 // UdpateIngressPipeline accepts PipelineUpdater, and call it to update
 // ingress's HTTPPipeline with inheritance
-func (ings *IngressServer) UpdateIngressPipeline(updater PipelineUpdater) error {
+func (ings *IngressServer) UpdateIngressPipeline(newSpec string) error {
 	var err error
 	ings.mux.Lock()
 	defer ings.mux.Unlock()
@@ -158,7 +153,6 @@ func (ings *IngressServer) UpdateIngressPipeline(updater PipelineUpdater) error 
 		return fmt.Errorf("ingress pipeline havn't been created yet")
 	}
 
-	newSpec := updater.Update(ings.Pipelines[genIngressPipelineObjectName(ings.serviceName)])
 	superSpec, err := supervisor.NewSpec(newSpec)
 	if err != nil {
 		logger.Errorf("BUG, update ingress pipeline spec :%s , new super spec failed:%v", newSpec, err)

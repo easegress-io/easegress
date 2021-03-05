@@ -2,6 +2,11 @@ package spec
 
 import (
 	"fmt"
+
+	"github.com/megaease/easegateway/pkg/object/httppipeline"
+	"github.com/megaease/easegateway/pkg/object/httpserver"
+	"github.com/megaease/easegateway/pkg/supervisor"
+	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -123,4 +128,37 @@ func (a Admin) Validate() error {
 	}
 
 	return nil
+}
+
+// ToPipelineSepc will transfer
+func (s *Service) ToPipelineSpec() (*supervisor.Spec, error) {
+	var pipeline httppipeline.HTTPPipeline
+
+	//[TODO]
+	// generate a complete pipeline according to the service structure
+
+	var (
+		buff []byte
+		err  error
+	)
+	if buff, err = yaml.Marshal(pipeline); err != nil {
+		return nil, err
+	}
+	return supervisor.NewSpec(string(buff))
+}
+
+func (s *Service) ToHTTPServerSpec() (*supervisor.Spec, error) {
+	var httpsvr httpserver.HTTPServer
+
+	//[TODO]
+	// generate a complete pipeline according to the service structure
+
+	var (
+		buff []byte
+		err  error
+	)
+	if buff, err = yaml.Marshal(httpsvr); err != nil {
+		return nil, err
+	}
+	return supervisor.NewSpec(string(buff))
 }
