@@ -206,8 +206,8 @@ func (s *Service) ToIngressPipelineSpec() (*supervisor.Spec, error) {
 }
 
 // ToEgressPipelineSpec will transfer service spec for a engress pipeline
-// about other rely serivce how to request this service. It needs insList for
-// egress backend filter's ip pool
+// about other rely serivce how to request this service. It needs service instance
+// list for fill egress backend filter's IP pool
 func (s *Service) ToEgressPipelineSpec(insList []*ServiceInstance) (*supervisor.Spec, error) {
 	var pipeline httppipeline.HTTPPipeline
 

@@ -15,12 +15,6 @@ import (
 	"github.com/megaease/easegateway/pkg/supervisor"
 )
 
-const (
-	defaultIngressChannelBuffer = 100
-	defaultEngressChannelBuffer = 200
-	defaultWatchRetryTimeSecond = 2
-)
-
 // Worker is a sidecar in service mesh
 type Worker struct {
 	super     *supervisor.Supervisor
@@ -95,12 +89,12 @@ func (w *Worker) run() {
 }
 
 // heartbeat checks local instance's java process's aliveness and
-// update its heartbeat recored
+// update its heartbeat recored.
 func (w *Worker) heartbeat(interval time.Duration, done chan struct{}) {
 	for {
 		select {
 		case <-time.After(interval):
-			// once it registried itself successfully,
+			// only check after worker registry itself successfully
 			if w.rcs.Registried() {
 				if err := w.checkLocalInstanceHeartbeat(); err != nil {
 					logger.Errorf("worker check local instance heartbeat failed, err :%v", err)
@@ -153,7 +147,7 @@ func (w *Worker) checkLocalInstanceHeartbeat() error {
 }
 
 // watchEvents checks worker's using
-//   1. ingress/egress specs's udpate
+//   1. ingress/egress specs's udpate/delete
 //   2. service instance record operation
 // by calling Informer, then apply modification into ingress/egerss server
 func (w *Worker) watchEvents(done chan struct{}) {

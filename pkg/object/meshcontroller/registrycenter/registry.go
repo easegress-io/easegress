@@ -30,8 +30,7 @@ const (
 	// SerivceStatusOutOfSerivce indicates this service can't accept ingress traffic
 	SerivceStatusOutOfSerivce = "OUT_OF_SERVICE"
 
-	defaultLeasesSeconds        = 3600 * 24 * 365 // default one year leases
-	defaultRegistryExpireSecond = 2 * 60          // default registry routine expire time, 2 minutes
+	defaultLeasesSeconds = 3600 * 24 * 365 // default one year leases
 )
 
 type (

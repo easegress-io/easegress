@@ -204,29 +204,28 @@ func (mss *MeshServiceServer) DeleteSerivceInstance(serviceName, ID string) erro
 	return mss.store.Delete(layout.GenServiceInstanceKey(serviceName, ID))
 }
 
-// UpdateServiceInstance  updates one instance's status field.
+// UpdateServiceInstanceLeases updates one instance's status field.
 func (mss *MeshServiceServer) UpdateServiceInstanceLeases(serviceName, ID string, leases int64) error {
 	updateLeases := func(ins *spec.ServiceInstance) {
 		if ins.Leases != leases {
 			ins.Leases = leases
 		}
 	}
-
 	err := mss.updateSerivceInstance(serviceName, ID, updateLeases)
 	return err
 }
 
-// UpdateServiceInstanceStatus  updates one instance's status field.
+// UpdateServiceInstanceStatus updates one instance's status field.
 func (mss *MeshServiceServer) UpdateServiceInstanceStatus(serviceName, ID, status string) error {
 	updateStatus := func(ins *spec.ServiceInstance) {
 		if ins.Status != status {
 			ins.Status = status
 		}
 	}
-
 	err := mss.updateSerivceInstance(serviceName, ID, updateStatus)
 	return err
 }
+
 func (mss *MeshServiceServer) updateSerivceInstance(serviceName, ID string, fn func(ins *spec.ServiceInstance)) error {
 	var err error
 

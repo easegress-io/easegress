@@ -13,7 +13,7 @@ import (
 )
 
 type (
-	// IngressServer control one ingress pipeline and one HTTPServer
+	// IngressServer manages one ingress pipeline and one HTTPServer
 	IngressServer struct {
 		super       *supervisor.Supervisor
 		serviceName string
@@ -102,7 +102,7 @@ func (ings *IngressServer) UpdateIngressPipeline(newSpec string) error {
 	defer ings.mux.Unlock()
 	pipeline, ok := ings.Pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)]
 	if !ok {
-		return fmt.Errorf("ingress pipeline havn't been created yet")
+		return fmt.Errorf("service :%s's ingress pipeline havn't been created yet", ings.serviceName)
 	}
 
 	superSpec, err := supervisor.NewSpec(newSpec)
