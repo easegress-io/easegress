@@ -19,7 +19,7 @@ var (
 	// ErrParamNotMatch means RESTful request URL's object name or other fields are not matched in this request's body
 	ErrParamNotMatch = fmt.Errorf("param in url and body's spec not matched")
 
-	// The default yaml config of ingress pipeline
+	// DefaultIngressPipelineYAML is the default yaml config of ingress pipeline
 	DefaultIngressPipelineYAML = `
 name: %s 
 kind: HTTPPipeline
@@ -32,6 +32,7 @@ filters:
       servers:
       - url: %s 
 `
+	// DefaultIngressHTTPServerYAML is the default yaml config of ingress HTTPServer
 	DefaultIngressHTTPServerYAML = `
 kind: HTTPServer
 name: %s 
@@ -139,6 +140,21 @@ type (
 	Heartbeat struct {
 		LastActiveTime int64 `yaml:"lastActive"`
 	}
+
+	// ServiceInstance one registry info of serivce
+	ServiceInstance struct {
+		// Provide by registry client
+		ServiceName string `yaml:"serviceName" jsonschema:"required"`
+		InstanceID  string `yaml:"instanceID" jsonschema:"required"`
+		IP          string `yaml:"IP" jsonschema:"required"`
+		Port        uint32 `yaml:"port" jsonschema:"required"`
+		Tenant      string `yaml:"tenat" jsonschema:"required"`
+
+		// Set by heartbeat timer event or API
+		Status       string `yaml:"status" jsonschema:"omitempty"`
+		Leases       int64  `yaml:"timestamp" jsonschema:"omitempty"`
+		RegistryTime int64  `yaml:"registryTime" jsonschema:"omitempty"`
+	}
 )
 
 // Validate validates Spec.
@@ -170,7 +186,7 @@ func GenIngressHTTPSvrObjectName(serviceName string) string {
 	return name
 }
 
-// ToPipelineSepc will transfer service spec for a ingress pipeline
+// ToIngressPipelineSpec will transfer service spec for a ingress pipeline
 // about how to handle inner traffic , between Worker(Sidecar) and
 // java process
 func (s *Service) ToIngressPipelineSpec() (*supervisor.Spec, error) {
@@ -189,9 +205,10 @@ func (s *Service) ToIngressPipelineSpec() (*supervisor.Spec, error) {
 	return supervisor.NewSpec(string(buff))
 }
 
-// ToPipelineSepc will transfer service spec for a engress pipeline
-// about other rely serivce how to request this service
-func (s *Service) ToEgressPipelineSpec() (*supervisor.Spec, error) {
+// ToEgressPipelineSpec will transfer service spec for a engress pipeline
+// about other rely serivce how to request this service. It needs insList for
+// egress backend filter's ip pool
+func (s *Service) ToEgressPipelineSpec(insList []*ServiceInstance) (*supervisor.Spec, error) {
 	var pipeline httppipeline.HTTPPipeline
 
 	//[TODO]
@@ -209,6 +226,8 @@ func (s *Service) ToEgressPipelineSpec() (*supervisor.Spec, error) {
 	return supervisor.NewSpec(string(buff))
 }
 
+// GenDefaultIngressPipelineYAML generates a default ingress pipeline yaml with
+// provided java process's listerning port
 func (s *Service) GenDefaultIngressPipelineYAML(port uint32) string {
 	addr := fmt.Sprintf("%s://%s:%d", s.Sidecar.IngressProtocol, s.Sidecar.Address, port)
 
@@ -219,6 +238,7 @@ func (s *Service) GenDefaultIngressPipelineYAML(port uint32) string {
 	return pipelineSpec
 }
 
+// GenDefaultIngressHTTPServerYAML generates default ingress HTTP server with Service's Sidecar spec
 func (s *Service) GenDefaultIngressHTTPServerYAML() string {
 	httpsvrSpec := fmt.Sprintf(DefaultIngressHTTPServerYAML, GenIngressHTTPSvrObjectName(s.Name),
 		s.Sidecar.IngressPort, GenIngressPipelineObjectName(s.Name))

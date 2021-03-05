@@ -35,22 +35,6 @@ const (
 )
 
 type (
-
-	// ServiceInstance one registry info of serivce
-	ServiceInstance struct {
-		// Provide by registry client
-		ServiceName string `yaml:"serviceName" jsonschema:"required"`
-		InstanceID  string `yaml:"instanceID" jsonschema:"required"`
-		IP          string `yaml:"IP" jsonschema:"required"`
-		Port        uint32 `yaml:"port" jsonschema:"required"`
-		Tenant      string `yaml:"tenat" jsonschema:"required"`
-
-		// Set by heartbeat timer event or API
-		Status       string `yaml:"status" jsonschema:"omitempty"`
-		Leases       int64  `yaml:"timestamp" jsonschema:"omitempty"`
-		RegistryTime int64  `yaml:"registryTime" jsonschema:"omitempty"`
-	}
-
 	// RegistryCenterServer handle all registry about logic
 	RegistryCenterServer struct {
 		// Currently we supports Eureka/Consul
@@ -82,7 +66,7 @@ func (rcs *RegistryCenterServer) Registried() bool {
 
 // RegistryServiceInstance changes instance port and tenatn and stores
 // them, it will asynchronously check ingress ready or not
-func (rcs *RegistryCenterServer) RegistryServiceInstance(ins *ServiceInstance, service *spec.Service, fn func() bool) (string, error) {
+func (rcs *RegistryCenterServer) RegistryServiceInstance(ins *spec.ServiceInstance, service *spec.Service, fn func() bool) (string, error) {
 	// valid the input
 	if rcs.registried == true {
 		// already registried
@@ -100,7 +84,7 @@ func (rcs *RegistryCenterServer) RegistryServiceInstance(ins *ServiceInstance, s
 	return ins.InstanceID, nil
 }
 
-func (rcs *RegistryCenterServer) registry(ins *ServiceInstance, fn func() bool) {
+func (rcs *RegistryCenterServer) registry(ins *spec.ServiceInstance, fn func() bool) {
 	var (
 		err      error
 		tryTimes int = 0
@@ -133,11 +117,11 @@ func (rcs *RegistryCenterServer) registry(ins *ServiceInstance, fn func() bool) 
 
 // decodeByConsulFormat accepts Java Process's registry request in Consul Format
 // then transfer it into eashMesh's format.
-func (rcs *RegistryCenterServer) decodeByConsulFormat(body []byte) (*ServiceInstance, error) {
+func (rcs *RegistryCenterServer) decodeByConsulFormat(body []byte) (*spec.ServiceInstance, error) {
 	var (
 		err error
 		reg *consul.AgentServiceRegistration
-		ins *ServiceInstance
+		ins *spec.ServiceInstance
 	)
 
 	dec := json.NewDecoder(bytes.NewReader(body))
@@ -157,11 +141,11 @@ func (rcs *RegistryCenterServer) decodeByConsulFormat(body []byte) (*ServiceInst
 
 // decodeByEurekaFormat accepts Java Process's registry request in Consul Format
 // then transfer it into eashMesh's format.
-func (rcs *RegistryCenterServer) decodeByEurekaFormat(body []byte) (*ServiceInstance, error) {
+func (rcs *RegistryCenterServer) decodeByEurekaFormat(body []byte) (*spec.ServiceInstance, error) {
 	var (
 		err       error
 		eurekaIns *eureka.InstanceInfo
-		ins       *ServiceInstance
+		ins       *spec.ServiceInstance
 	)
 
 	if err = xml.Unmarshal(body, eurekaIns); err != nil {
@@ -178,9 +162,11 @@ func (rcs *RegistryCenterServer) decodeByEurekaFormat(body []byte) (*ServiceInst
 	return nil, err
 }
 
-func (rcs *RegistryCenterServer) DecodeBody(reqBody []byte) (*ServiceInstance, error) {
+// DecodeBody decode Eureka/Consul registry request body according to the
+// registry type in config
+func (rcs *RegistryCenterServer) DecodeBody(reqBody []byte) (*spec.ServiceInstance, error) {
 	var (
-		ins *ServiceInstance
+		ins *spec.ServiceInstance
 		err error
 	)
 	if rcs.RegistryType == RegistryTypeEureka {
@@ -200,7 +186,7 @@ func (rcs *RegistryCenterServer) DecodeBody(reqBody []byte) (*ServiceInstance, e
 }
 
 // registryIntoStore writes instance record into store.
-func (rcs *RegistryCenterServer) registryIntoStore(ins *ServiceInstance) error {
+func (rcs *RegistryCenterServer) registryIntoStore(ins *spec.ServiceInstance) error {
 	var err error
 	buff, err := yaml.Marshal(ins)
 	if err != nil {

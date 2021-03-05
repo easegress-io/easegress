@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 
 	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/registry"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
 
 	"github.com/kataras/iris"
@@ -28,7 +27,7 @@ func (m *Master) UpdateSerivceInstanceLeases(ctx iris.Context) error {
 		return fmt.Errorf("read body failed: %v", err)
 	}
 
-	var ins *registry.ServiceInstance
+	var ins *spec.ServiceInstance
 	if err := yaml.Unmarshal(body, &ins); err != nil {
 		return fmt.Errorf("unmarshal service: %s's instance body failed, err %s ", serviceName, err)
 	}
@@ -61,7 +60,7 @@ func (m *Master) UpdateSerivceInstanceStatus(ctx iris.Context) error {
 		return fmt.Errorf("read body failed: %v", err)
 	}
 
-	var ins *registry.ServiceInstance
+	var ins *spec.ServiceInstance
 	if err := yaml.Unmarshal(body, &ins); err != nil {
 		return fmt.Errorf("unmarshal service: %s's instance body failed, err %s ", serviceName, err)
 	}
