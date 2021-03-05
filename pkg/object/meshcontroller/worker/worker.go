@@ -79,7 +79,7 @@ func (w *Worker) run() {
 
 	doneHeartBeat := make(chan struct{})
 	doneWatchSpec := make(chan struct{})
-	go w.Heartbeat(watchInterval, doneHeartBeat)
+	go w.heartbeat(watchInterval, doneHeartBeat)
 	go w.watchSpecs(doneWatchSpec)
 
 	for {
@@ -93,9 +93,9 @@ func (w *Worker) run() {
 	}
 }
 
-// Heartbeat check local instance's java process's aliveness and
+// heartbeat check local instance's java process's aliveness and
 // update its heartbeat recored
-func (w *Worker) Heartbeat(interval time.Duration, done chan struct{}) {
+func (w *Worker) heartbeat(interval time.Duration, done chan struct{}) {
 	for {
 		select {
 		case <-time.After(interval):
