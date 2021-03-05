@@ -13,11 +13,6 @@ import (
 	"github.com/megaease/easegateway/pkg/supervisor"
 )
 
-const (
-	defaultIngressSchema = "http"
-	defaultIngressIP     = "127.0.0.1"
-)
-
 type (
 	// IngressServer control one ingress pipeline and one HTTPServer
 	IngressServer struct {
