@@ -43,7 +43,7 @@ func (w *Worker) Registry(ctx iris.Context) error {
 		return err
 	}
 
-	serviceYAML, err := w.store.Get(layout.GenServerKey(w.serviceName))
+	serviceYAML, err := w.store.Get(layout.ServiceKey(w.serviceName))
 	if err != nil {
 		ctx.StatusCode(iris.StatusInternalServerError)
 		return err

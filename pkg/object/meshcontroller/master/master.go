@@ -16,8 +16,8 @@ type (
 		superSpec *supervisor.Spec
 		spec      *spec.Admin
 
-		mss                  *MeshServiceServer
-		serviceWatchInterval string
+		store   storage.Storage
+		service *masterService
 
 		done chan struct{}
 	}
@@ -25,27 +25,19 @@ type (
 
 // New creates a mesh master.
 func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Master {
-	storage := storage.New(superSpec.Name(), super.Cluster())
+	store := storage.New(superSpec.Name(), super.Cluster())
 	adminSpec := superSpec.ObjectSpec().(*spec.Admin)
-
-	heartbeatInterval, err := time.ParseDuration(adminSpec.HeartbeatInterval)
-	if err != nil {
-		logger.Errorf("BUG: parse %s to duration failed: %v", adminSpec.HeartbeatInterval, err)
-	}
-
-	// 2 times of heartbeatInterval for judging whether a service is
-	// alive or not
-	aliveSeconds := 2 * int64(heartbeatInterval.Seconds())
-	serviceServer := NewMeshServiceServer(storage, aliveSeconds)
 
 	m := &Master{
 		super:     super,
 		superSpec: superSpec,
 		spec:      adminSpec,
 
-		mss:  serviceServer,
-		done: make(chan struct{}),
+		store:   store,
+		service: newMasterService(superSpec, store),
 	}
+
+	m.registerAPIs()
 
 	go m.run()
 
@@ -53,9 +45,7 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Master {
 }
 
 func (m *Master) watchServicesHeartbeat() {
-	m.mss.WatchSerivceInstancesHeartbeat()
-
-	return
+	m.service.WatchSerivceInstancesHeartbeat()
 }
 
 func (m *Master) run() {

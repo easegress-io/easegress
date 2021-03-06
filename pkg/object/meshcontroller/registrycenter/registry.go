@@ -197,7 +197,7 @@ func (rcs *Server) registryIntoStore(ins *spec.ServiceInstance) error {
 
 	logger.Errorf("buff is %s", string(buff))
 
-	name := layout.GenServiceInstanceKey(rcs.serviceName, ins.InstanceID)
+	name := layout.ServiceInstanceKey(rcs.serviceName, ins.InstanceID)
 	if err = rcs.store.Put(name, string(buff)); err != nil {
 		return err
 	}

@@ -3,8 +3,10 @@ package spec
 import (
 	"fmt"
 
+	"github.com/megaease/easegateway/pkg/filter/backend"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
 	"github.com/megaease/easegateway/pkg/supervisor"
+	"github.com/megaease/easegateway/pkg/util/httpfilter"
 	"gopkg.in/yaml.v2"
 )
 
@@ -21,35 +23,35 @@ var (
 
 	// DefaultIngressPipelineYAML is the default yaml config of ingress pipeline
 	DefaultIngressPipelineYAML = `
-name: %s 
+name: %s
 kind: HTTPPipeline
 flow:
-  - filter: %s 
+  - filter: %s
 filters:
-  - name: %s 
+  - name: %s
     kind: Backend
     mainPool:
       servers:
-      - url: %s 
+      - url: %s
 `
 	// DefaultIngressHTTPServerYAML is the default yaml config of ingress HTTPServer
 	// all ingress traffic will be routed to local java process by path prefix '/' match
 	DefaultIngressHTTPServerYAML = `
 kind: HTTPServer
-name: %s 
-port: %d 
+name: %s
+port: %d
 rules:
   - paths:
     - pathPrefix: /
-      backend: %s, 
+      backend: %s,
 `
 	// DefaultEgressHTTPServerYAML is the default yaml config of egress HTTPServer
 	// it doesn't contain any rules as Ingress's spec, cause these rules will dynamically
 	// add/remove when Java business process needs to invoke RPC requests.
 	DefaultEgressHTTPServerYAML = `
 kind: HTTPServer
-name: %s 
-port: %d 	
+name: %s
+port: %d
 `
 )
 
@@ -64,24 +66,27 @@ type (
 
 	// Service contains the information of service.
 	Service struct {
-		Name           string `yaml:"name" json:"name,omitempty"`
-		RegisterTenant string `yaml:"registerTenant" json:"register_tenant,omitempty"`
+		Name           string `yaml:"name" jsonschema:"required"`
+		RegisterTenant string `yaml:"registerTenant" jsonschema:"required"`
 
-		Resilience    Resilience    `yaml:"resilience" jsonschema:"omitempty"`
-		Canary        Canary        `yaml:"canary" jsonschema:"canary"`
-		LoadBalance   LoadBalance   `yaml:"loadBalance" jsonschema:"load"`
-		Sidecar       Sidecar       `yaml:"sidecar"`
-		Observability Observability `yaml:"observability"`
+		Resilience    *Resilience    `yaml:"resilience" jsonschema:"omitempty"`
+		Canary        *Canary        `yaml:"canary" jsonschema:"omitempty"`
+		LoadBalance   *LoadBalance   `yaml:"loadBalance" jsonschema:"omitempty"`
+		Sidecar       *Sidecar       `yaml:"sidecar" jsonschema:"omitempty"`
+		Observability *Observability `yaml:"observability" jsonschema:"omitempty"`
 	}
 
 	// Resilience is the spec of service resilience.
 	Resilience struct{}
 
 	// Canary is the spec of service canary.
-	Canary struct{}
+	Canary struct {
+		ServiceLabels []string         `yaml:"serviceLabels" jsonschema:"omitempty"`
+		Filter        *httpfilter.Spec `yaml:"filter" jsonschema:"required"`
+	}
 
 	// LoadBalance is the spec of service load balance.
-	LoadBalance struct{}
+	LoadBalance backend.LoadBalance
 
 	// Sidecar is the spec of service sidecar.
 	Sidecar struct {

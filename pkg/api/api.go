@@ -52,6 +52,11 @@ type (
 	}
 )
 
+var (
+	// GlobalServer is the global api server.
+	GlobalServer *Server
+)
+
 // MustNewServer creates an api server.
 func MustNewServer(opt *option.Options, cluster cluster.Cluster) *Server {
 	app := iris.New()
@@ -86,6 +91,8 @@ func MustNewServer(opt *option.Options, cluster cluster.Cluster) *Server {
 			os.Exit(1)
 		}
 	}()
+
+	GlobalServer = s
 
 	return s
 }
@@ -215,12 +222,12 @@ func (s *Server) getMutex() (cluster.Mutex, error) {
 func (s *Server) Lock() {
 	mutex, err := s.getMutex()
 	if err != nil {
-		clusterPanic(err)
+		ClusterPanic(err)
 	}
 
 	err = mutex.Lock()
 	if err != nil {
-		clusterPanic(err)
+		ClusterPanic(err)
 	}
 }
 
@@ -228,11 +235,11 @@ func (s *Server) Lock() {
 func (s *Server) Unlock() {
 	mutex, err := s.getMutex()
 	if err != nil {
-		clusterPanic(err)
+		ClusterPanic(err)
 	}
 
 	err = mutex.Unlock()
 	if err != nil {
-		clusterPanic(err)
+		ClusterPanic(err)
 	}
 }

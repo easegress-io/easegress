@@ -113,7 +113,7 @@ func (w *Worker) checkLocalInstanceHeartbeat() error {
 
 	//[TODO] call Java process agent with JMX, check it alive
 	if alive == true {
-		heartBeatYAML, err := w.store.Get(layout.GenServiceHeartbeatKey(w.serviceName, w.instanceID))
+		heartBeatYAML, err := w.store.Get(layout.ServiceHeartbeatKey(w.serviceName, w.instanceID))
 		if err != nil {
 			logger.Errorf("get serivce %s, instace :%s , heartbeat failed, err : %v",
 				w.serviceName, w.instanceID, err)
@@ -136,7 +136,7 @@ func (w *Worker) checkLocalInstanceHeartbeat() error {
 			return err
 		}
 
-		return w.store.Put(layout.GenServiceHeartbeatKey(w.serviceName, w.instanceID), string(buff))
+		return w.store.Put(layout.ServiceHeartbeatKey(w.serviceName, w.instanceID), string(buff))
 	}
 
 	// do nothing, master will notice this irregular

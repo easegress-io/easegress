@@ -101,7 +101,7 @@ func (s *Server) upgradeConfigVersion(ctx iris.Context) {
 func (s *Server) createObject(ctx iris.Context) {
 	spec, err := s.readObjectSpec(ctx)
 	if err != nil {
-		handleAPIError(ctx, iris.StatusBadRequest, err)
+		HandleAPIError(ctx, iris.StatusBadRequest, err)
 		return
 	}
 
@@ -112,7 +112,7 @@ func (s *Server) createObject(ctx iris.Context) {
 
 	existedSpec := s._getObject(name)
 	if existedSpec != nil {
-		handleAPIError(ctx, iris.StatusConflict, fmt.Errorf("conflict name: %s", name))
+		HandleAPIError(ctx, iris.StatusConflict, fmt.Errorf("conflict name: %s", name))
 		return
 	}
 
@@ -132,7 +132,7 @@ func (s *Server) deleteObject(ctx iris.Context) {
 
 	spec := s._getObject(name)
 	if spec == nil {
-		handleAPIError(ctx, iris.StatusNotFound, fmt.Errorf("not found"))
+		HandleAPIError(ctx, iris.StatusNotFound, fmt.Errorf("not found"))
 		return
 	}
 
@@ -147,7 +147,7 @@ func (s *Server) getObject(ctx iris.Context) {
 
 	spec := s._getObject(name)
 	if spec == nil {
-		handleAPIError(ctx, iris.StatusNotFound, fmt.Errorf("not found"))
+		HandleAPIError(ctx, iris.StatusNotFound, fmt.Errorf("not found"))
 		return
 	}
 
@@ -159,7 +159,7 @@ func (s *Server) getObject(ctx iris.Context) {
 func (s *Server) updateObject(ctx iris.Context) {
 	spec, err := s.readObjectSpec(ctx)
 	if err != nil {
-		handleAPIError(ctx, iris.StatusBadRequest, err)
+		HandleAPIError(ctx, iris.StatusBadRequest, err)
 		return
 	}
 
@@ -170,12 +170,12 @@ func (s *Server) updateObject(ctx iris.Context) {
 
 	existedSpec := s._getObject(name)
 	if existedSpec == nil {
-		handleAPIError(ctx, iris.StatusNotFound, fmt.Errorf("not found"))
+		HandleAPIError(ctx, iris.StatusNotFound, fmt.Errorf("not found"))
 		return
 	}
 
 	if existedSpec.Kind() != spec.Kind() {
-		handleAPIError(ctx, iris.StatusBadRequest,
+		HandleAPIError(ctx, iris.StatusBadRequest,
 			fmt.Errorf("different kinds: %s, %s",
 				existedSpec.Kind(), spec.Kind()))
 		return
@@ -207,7 +207,7 @@ func (s *Server) getStatusObject(ctx iris.Context) {
 	spec := s._getObject(name)
 
 	if spec == nil {
-		handleAPIError(ctx, iris.StatusNotFound, fmt.Errorf("not found"))
+		HandleAPIError(ctx, iris.StatusNotFound, fmt.Errorf("not found"))
 		return
 	}
 

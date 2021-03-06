@@ -13,14 +13,14 @@ import (
 func (s *Server) _purgeMember(memberName string) {
 	err := s.cluster.PurgeMember(memberName)
 	if err != nil {
-		clusterPanic(fmt.Errorf("purge member %s failed: %s", memberName, err))
+		ClusterPanic(fmt.Errorf("purge member %s failed: %s", memberName, err))
 	}
 }
 
 func (s *Server) _getVersion() int64 {
 	value, err := s.cluster.Get(s.cluster.Layout().ConfigVersion())
 	if err != nil {
-		clusterPanic(err)
+		ClusterPanic(err)
 	}
 
 	if value == nil {
@@ -42,7 +42,7 @@ func (s *Server) _plusOneVersion() int64 {
 
 	err := s.cluster.Put(s.cluster.Layout().ConfigVersion(), value)
 	if err != nil {
-		clusterPanic(err)
+		ClusterPanic(err)
 	}
 
 	return version
@@ -51,7 +51,7 @@ func (s *Server) _plusOneVersion() int64 {
 func (s *Server) _getObject(name string) *supervisor.Spec {
 	value, err := s.cluster.Get(s.cluster.Layout().ConfigObjectKey(name))
 	if err != nil {
-		clusterPanic(err)
+		ClusterPanic(err)
 	}
 
 	if value == nil {
@@ -69,7 +69,7 @@ func (s *Server) _getObject(name string) *supervisor.Spec {
 func (s *Server) _listObjects() []*supervisor.Spec {
 	kvs, err := s.cluster.GetPrefix(s.cluster.Layout().ConfigObjectPrefix())
 	if err != nil {
-		clusterPanic(err)
+		ClusterPanic(err)
 	}
 
 	specs := make([]*supervisor.Spec, 0, len(kvs))
@@ -88,14 +88,14 @@ func (s *Server) _putObject(spec *supervisor.Spec) {
 	err := s.cluster.Put(s.cluster.Layout().ConfigObjectKey(spec.Name()),
 		spec.YAMLConfig())
 	if err != nil {
-		clusterPanic(err)
+		ClusterPanic(err)
 	}
 }
 
 func (s *Server) _deleteObject(name string) {
 	err := s.cluster.Delete(s.cluster.Layout().ConfigObjectKey(name))
 	if err != nil {
-		clusterPanic(err)
+		ClusterPanic(err)
 	}
 }
 
@@ -103,7 +103,7 @@ func (s *Server) _getStatusObject(name string) map[string]string {
 	prefix := s.cluster.Layout().StatusObjectPrefix(name)
 	kvs, err := s.cluster.GetPrefix(prefix)
 	if err != nil {
-		clusterPanic(err)
+		ClusterPanic(err)
 	}
 
 	status := make(map[string]string)
@@ -119,7 +119,7 @@ func (s *Server) _listStatusObjects() map[string]map[string]interface{} {
 	prefix := s.cluster.Layout().StatusObjectsPrefix()
 	kvs, err := s.cluster.GetPrefix(prefix)
 	if err != nil {
-		clusterPanic(err)
+		ClusterPanic(err)
 	}
 
 	status := make(map[string]map[string]interface{})
@@ -128,7 +128,7 @@ func (s *Server) _listStatusObjects() map[string]map[string]interface{} {
 
 		om := strings.Split(k, "/")
 		if len(om) != 2 {
-			clusterPanic(fmt.Errorf("the key %s can't be split into two fields by /", k))
+			ClusterPanic(fmt.Errorf("the key %s can't be split into two fields by /", k))
 		}
 		objectName, memberName := om[0], om[1]
 		_, exists := status[objectName]
@@ -140,7 +140,7 @@ func (s *Server) _listStatusObjects() map[string]map[string]interface{} {
 		i := map[string]interface{}{}
 		err = yaml.Unmarshal([]byte(v), &i)
 		if err != nil {
-			clusterPanic(fmt.Errorf("unmarshal %s to yaml failed: %v", v, err))
+			ClusterPanic(fmt.Errorf("unmarshal %s to yaml failed: %v", v, err))
 		}
 		status[objectName][memberName] = i
 	}

@@ -94,7 +94,7 @@ func (s *Server) getFilterDescription(ctx iris.Context) {
 
 	fm, exits := filterMetaBook[kind]
 	if !exits {
-		handleAPIError(ctx, iris.StatusNotFound, fmt.Errorf("not found"))
+		HandleAPIError(ctx, iris.StatusNotFound, fmt.Errorf("not found"))
 		return
 	}
 
@@ -106,7 +106,7 @@ func (s *Server) getFilterSchema(ctx iris.Context) {
 
 	fm, exits := filterMetaBook[kind]
 	if !exits {
-		handleAPIError(ctx, iris.StatusNotFound, fmt.Errorf("not found"))
+		HandleAPIError(ctx, iris.StatusNotFound, fmt.Errorf("not found"))
 		return
 	}
 
@@ -124,7 +124,7 @@ func (s *Server) getFilterResults(ctx iris.Context) {
 
 	fm, exits := filterMetaBook[kind]
 	if !exits {
-		handleAPIError(ctx, iris.StatusNotFound, fmt.Errorf("not found"))
+		HandleAPIError(ctx, iris.StatusNotFound, fmt.Errorf("not found"))
 		return
 	}
 

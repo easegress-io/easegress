@@ -15,32 +15,32 @@ const (
 	tenantPrefix = "/mesh/tenants"
 )
 
-// GenServerKey generates storage serivce key
-func GenServerKey(serviceName string) string {
+// ServiceKey returns serivce key.
+func ServiceKey(serviceName string) string {
 	return fmt.Sprintf(serviceSpecFormat, serviceName)
 }
 
-// GenServiceInstanceKey generates storage instance key
-func GenServiceInstanceKey(serviceName, instanceID string) string {
+// ServiceInstanceKey returns service instance key.
+func ServiceInstanceKey(serviceName, instanceID string) string {
 	return fmt.Sprintf(serviceInstanceFormat, serviceName, instanceID)
 }
 
-// GenServiceInstancePrefix generates one serivce's storage instance prefix
-func GenServiceInstancePrefix(serviceName string) string {
+// ServiceInstancePrefix returns prefix of the serivce instances.
+func ServiceInstancePrefix(serviceName string) string {
 	return fmt.Sprintf(serviceInstancePrefixFormat, serviceName)
 }
 
-// GenServiceHeartbeatKey generates storage instance hearbeat key
-func GenServiceHeartbeatKey(serviceName, instanceID string) string {
+// ServiceHeartbeatKey returns service instance hearbeat key.
+func ServiceHeartbeatKey(serviceName, instanceID string) string {
 	return fmt.Sprintf(serviceInstanceFormat, serviceName, instanceID)
 }
 
-// GenTenantKey generates storage tenant key
-func GenTenantKey(tenant string) string {
+// TenantKey returns tenant key.
+func TenantKey(tenant string) string {
 	return fmt.Sprintf(tenantFormat, tenant)
 }
 
-// GetTenantPrefix gets the tenant storage prefix
-func GetTenantPrefix() string {
+// TenantPrefix returns tenant prefix.
+func TenantPrefix() string {
 	return tenantPrefix
 }
