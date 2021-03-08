@@ -57,6 +57,8 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 		done: make(chan struct{}),
 	}
 
+	w.registerAPIs()
+
 	go w.run()
 
 	return w

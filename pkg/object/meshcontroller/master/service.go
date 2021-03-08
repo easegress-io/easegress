@@ -298,10 +298,12 @@ func (s *masterService) DeleteSerivceInstance(serviceName, ID string) error {
 
 // UpdateServiceInstanceLeases updates one instance's status field.
 func (s *masterService) UpdateServiceInstanceLeases(serviceName, ID string, leases int64) error {
-	updateLeases := func(ins *spec.ServiceInstance) {
+	updateLeases := func(ins *spec.ServiceInstance) bool {
 		if ins.Leases != leases {
 			ins.Leases = leases
+			return true
 		}
+		return false
 	}
 	err := s.updateSerivceInstance(serviceName, ID, updateLeases)
 	return err
@@ -309,17 +311,50 @@ func (s *masterService) UpdateServiceInstanceLeases(serviceName, ID string, leas
 
 // UpdateServiceInstanceStatus updates one instance's status field.
 func (s *masterService) UpdateServiceInstanceStatus(serviceName, ID, status string) error {
-	updateStatus := func(ins *spec.ServiceInstance) {
+	updateStatus := func(ins *spec.ServiceInstance) bool {
 		if ins.Status != status {
 			ins.Status = status
+			return true
 		}
+		return false
 	}
 	err := s.updateSerivceInstance(serviceName, ID, updateStatus)
 	return err
 }
 
-func (s *masterService) updateSerivceInstance(serviceName, ID string, fn func(ins *spec.ServiceInstance)) error {
-	var err error
+func (s *masterService) updateSerivceInstance(serviceName, ID string, fn func(ins *spec.ServiceInstance) bool) error {
+	if err := s.store.Lock(); err != nil {
+		logger.Errorf("serivce:%s, updated instance :%s , lock failed, err:%v", serviceName, ID, err)
+		return err
+	}
 
-	return err
+	unlock := func() {
+		if err := s.store.Unlock(); err != nil {
+			logger.Errorf("service:%s, updated instance %s, unlock failed, err:%v",
+				serviceName, ID, err)
+		}
+	}
+
+	defer unlock()
+	instanceYAML, err := s.store.Get(layout.ServiceInstanceKey(serviceName, ID))
+	if err != nil {
+		logger.Errorf("serivce:%s, get instance :%s failed, err :%v", serviceName, ID, err)
+		return err
+	}
+	var ins spec.ServiceInstance
+	if err = yaml.Unmarshal([]byte(*instanceYAML), &ins); err != nil {
+		logger.Errorf("BUG,serivce:%s, marshal instance :%s failed, err :%v", serviceName, ID, err)
+		return err
+	}
+	// if need to update store
+	if fn(&ins) {
+		updatedInstance, err := yaml.Marshal(&ins)
+		if err != nil {
+			logger.Errorf("BUG,service:%s, instacne :%s , marshal failed, err:%v", serviceName, ID, err)
+			return err
+		}
+		err = s.store.Put(layout.ServiceInstanceKey(serviceName, ID), string(updatedInstance))
+	}
+
+	return nil
 }
