@@ -32,7 +32,7 @@ func (m *Master) registerAPIs() {
 		{
 			Path:    MeshServicePrefix,
 			Method:  "GET",
-			Handler: m.getServices,
+			Handler: m.getServiceList,
 		},
 		{
 			Path:    MeshServicePrefix,
@@ -114,6 +114,22 @@ func (m *Master) registerAPIs() {
 			Method:  "GET",
 			Handler: m.getTenant,
 		},
+
+		{
+			Path:    MeshServicePrefix + "/observability/metric",
+			Method:  "PUT",
+			Handler: m.updateObservabilityMetric,
+		},
+		{
+			Path:    MeshServicePrefix + "/observability/tracing",
+			Method:  "PUT",
+			Handler: m.updateObservabilityTracing,
+		},
+		{
+			Path:    MeshServicePrefix + "/observability/outputServer",
+			Method:  "PUT",
+			Handler: m.updateObservabilityOutputServer,
+		},
 	}
 
 	api.GlobalServer.RegisterAPIs(meshAPIs)
@@ -181,7 +197,7 @@ func (m *Master) _putServiceSpec(serviceSpec *spec.Service) {
 	}
 }
 
-func (m *Master) getServices(ctx iris.Context) {
+func (m *Master) getServiceList(ctx iris.Context) {
 	serviceName, err := m.readServiceName(ctx)
 	if err != nil {
 		api.HandleAPIError(ctx, http.StatusBadRequest, err)
@@ -680,4 +696,109 @@ func (m *Master) getSerivceInstanceList(ctx iris.Context) {
 	ctx.Write(buff)
 
 	return
+}
+
+func (m *Master) updateObservabilityOutputServer(ctx iris.Context) {
+	outputServerSpec := &spec.ObservabilityOutputServer{}
+	serviceName, _spec, err := m.readSpec(ctx, outputServerSpec)
+	if err != nil {
+		api.HandleAPIError(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	outputServer, ok := _spec.(*spec.ObservabilityOutputServer)
+	if !ok {
+		panic(fmt.Errorf("want *spec.ObservabilityOutputServer, got %T", _spec))
+	}
+
+	m.storageLock()
+	defer m.storageUnlock()
+
+	serviceSpec := m._getServiceSpec(serviceName)
+	if serviceSpec == nil {
+		api.HandleAPIError(ctx, http.StatusNotFound,
+			fmt.Errorf("service %s not found", serviceName))
+		return
+	}
+
+	if serviceSpec.Observability == nil {
+		api.HandleAPIError(ctx, http.StatusConflict,
+			fmt.Errorf("observability of service %s not found", serviceName))
+		return
+	}
+
+	serviceSpec.Observability.OutputServer = outputServer
+	m._putServiceSpec(serviceSpec)
+
+	ctx.StatusCode(http.StatusOK)
+}
+
+func (m *Master) updateObservabilityMetric(ctx iris.Context) {
+	metricSpec := &spec.ObservabilityMetric{}
+
+	serviceName, _spec, err := m.readSpec(ctx, metricSpec)
+	if err != nil {
+		api.HandleAPIError(ctx, http.StatusBadRequest, err)
+		return
+	}
+	metric, ok := _spec.(*spec.ObservabilityMetric)
+	if !ok {
+		panic(fmt.Errorf("want *spec.ObservabilityMetric, got %T", _spec))
+	}
+
+	m.storageLock()
+	defer m.storageUnlock()
+
+	serviceSpec := m._getServiceSpec(serviceName)
+	if serviceSpec == nil {
+		api.HandleAPIError(ctx, http.StatusNotFound,
+			fmt.Errorf("service %s not found", serviceName))
+		return
+	}
+
+	if serviceSpec.Observability == nil {
+		api.HandleAPIError(ctx, http.StatusConflict,
+			fmt.Errorf("observability of service %s not found", serviceName))
+		return
+	}
+
+	serviceSpec.Observability.Metric = metric
+	m._putServiceSpec(serviceSpec)
+
+	ctx.StatusCode(http.StatusOK)
+}
+
+func (m *Master) updateObservabilityTracing(ctx iris.Context) {
+	tracingSpec := &spec.ObservabilityTracing{}
+
+	serviceName, _spec, err := m.readSpec(ctx, tracingSpec)
+	if err != nil {
+		api.HandleAPIError(ctx, http.StatusBadRequest, err)
+		return
+	}
+	tracing, ok := _spec.(*spec.ObservabilityTracing)
+	if !ok {
+		panic(fmt.Errorf("want *spec.ObservabilityTracing, got %T", _spec))
+	}
+
+	m.storageLock()
+	defer m.storageUnlock()
+
+	serviceSpec := m._getServiceSpec(serviceName)
+	if serviceSpec == nil {
+		api.HandleAPIError(ctx, http.StatusNotFound,
+			fmt.Errorf("service %s not found", serviceName))
+		return
+	}
+
+	if serviceSpec.Observability == nil {
+		api.HandleAPIError(ctx, http.StatusConflict,
+			fmt.Errorf("observability of service %s not found", serviceName))
+		return
+	}
+
+	serviceSpec.Observability.Tracing = tracing
+	m._putServiceSpec(serviceSpec)
+
+	ctx.StatusCode(http.StatusOK)
 }
