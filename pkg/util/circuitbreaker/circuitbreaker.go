@@ -16,20 +16,15 @@ const (
 	TimeBased
 )
 
-// result types
-const (
-	unknown uint8 = iota
-	success
-	slow
-	failure
-)
-
 type (
+	// CallResult is the result (success/failure/slow) of a call
+	CallResult uint8
+
 	// Window defines the interface of a window
 	Window interface {
 		Total() uint32
 		Reset()
-		PushResult(result uint8)
+		Push(result CallResult)
 		FailureRate() uint8
 		SlowRate() uint8
 	}
@@ -40,7 +35,7 @@ type (
 		slow      uint32
 		failure   uint32
 		bucketIdx int
-		bucket    []uint8
+		bucket    []CallResult
 	}
 
 	timeBasedWindowBucket struct {
@@ -60,10 +55,18 @@ type (
 	}
 )
 
+// call results
+const (
+	CallResultUnknown CallResult = iota
+	CallResultSuccess
+	CallResultSlow
+	CallResultFailure
+)
+
 // NewCountBasedWindow creates a new count based window with `size` buckets
 func NewCountBasedWindow(size uint32) *CountBasedWindow {
 	cbw := &CountBasedWindow{
-		bucket: make([]uint8, size),
+		bucket: make([]CallResult, size),
 	}
 	return cbw
 }
@@ -72,7 +75,7 @@ func NewCountBasedWindow(size uint32) *CountBasedWindow {
 func (cbw *CountBasedWindow) Reset() {
 	size := len(cbw.bucket)
 	*cbw = CountBasedWindow{
-		bucket: make([]uint8, size),
+		bucket: make([]CallResult, size),
 	}
 }
 
@@ -81,27 +84,27 @@ func (cbw *CountBasedWindow) Total() uint32 {
 	return cbw.total
 }
 
-// PushResult pushes a new result into the window and may evict existing
+// Push pushes a new result into the window and may evict existing
 // results if needed
-func (cbw *CountBasedWindow) PushResult(result uint8) {
-	// evict existing bucket, note bucket default value is 'unknown',
+func (cbw *CountBasedWindow) Push(result CallResult) {
+	// evict existing bucket, note bucket default value is 'CallResultUnknown',
 	// so evict does not happen when there are free buckets.
 	switch cbw.bucket[cbw.bucketIdx] {
-	case success:
+	case CallResultSuccess:
 		cbw.total--
-	case slow:
+	case CallResultSlow:
 		cbw.slow--
 		cbw.total--
-	case failure:
+	case CallResultFailure:
 		cbw.failure--
 		cbw.total--
 	}
 
 	cbw.total++
 	switch result {
-	case slow:
+	case CallResultSlow:
 		cbw.slow++
-	case failure:
+	case CallResultFailure:
 		cbw.failure++
 	}
 
@@ -184,9 +187,9 @@ func (tbw *TimeBasedWindow) evict(now time.Time) {
 	}
 }
 
-// PushResult pushes a new result into the window and may evict existing
+// Push pushes a new result into the window and may evict existing
 // results if needed
-func (tbw *TimeBasedWindow) PushResult(result uint8) {
+func (tbw *TimeBasedWindow) Push(result CallResult) {
 	now := nowFunc()
 
 	tbw.evict(now)
@@ -198,12 +201,11 @@ func (tbw *TimeBasedWindow) PushResult(result uint8) {
 
 	tbw.total++
 	bucket.total++
-	switch result {
-	case slow:
+
+	if result == CallResultSlow {
 		tbw.slow++
 		bucket.slow++
-
-	case failure:
+	} else if result == CallResultFailure {
 		tbw.failure++
 		bucket.failure++
 	}
@@ -219,16 +221,10 @@ func (tbw *TimeBasedWindow) SlowRate() uint8 {
 	return uint8(tbw.slow * 100 / tbw.total)
 }
 
-// circuit breaker states
-const (
-	Disabled = iota
-	Closed
-	HalfOpen
-	Open
-	ForceOpen
-)
-
 type (
+	// State is circuit breaker state
+	State uint8
+
 	// Policy defines the policy of a circuit breaker
 	Policy struct {
 		FailureRateThreshold                  uint8         `yaml:"failureRateThreshold"`
@@ -246,11 +242,20 @@ type (
 	CircuitBreaker struct {
 		lock                    sync.Mutex
 		policy                  *Policy
-		state                   uint8
+		state                   State
 		transitTime             time.Time
 		window                  Window
 		numberOfCallsInHalfOpen uint32
 	}
+)
+
+// circuit breaker states
+const (
+	StateDisabled State = iota
+	StateClosed
+	StateHalfOpen
+	StateOpen
+	StateForceOpen
 )
 
 // NewPolicy create and initialize a policy with default configuration
@@ -276,7 +281,7 @@ func New(policy *Policy) *CircuitBreaker {
 }
 
 // SetState sets the state of the circuit breaker to `state`
-func (cb *CircuitBreaker) SetState(state uint8) {
+func (cb *CircuitBreaker) SetState(state State) {
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
 
@@ -285,14 +290,14 @@ func (cb *CircuitBreaker) SetState(state uint8) {
 	}
 
 	switch state {
-	case Disabled, ForceOpen:
+	case StateDisabled, StateForceOpen:
 		cb.state = state
 		cb.transitTime = nowFunc()
-	case Open:
+	case StateOpen:
 		cb.transitToOpen()
-	case Closed:
+	case StateClosed:
 		cb.transitToClosed()
-	case HalfOpen:
+	case StateHalfOpen:
 		cb.transitToHalfOpen()
 	default:
 		panic("unknown target state")
@@ -300,12 +305,12 @@ func (cb *CircuitBreaker) SetState(state uint8) {
 }
 
 // State returns the state of the circuit breaker
-func (cb *CircuitBreaker) State() uint8 {
+func (cb *CircuitBreaker) State() State {
 	return cb.state
 }
 
 func (cb *CircuitBreaker) transitToClosed() {
-	cb.state = Closed
+	cb.state = StateClosed
 	// recreate the window to remove all existing results to avoid jitter
 	if cb.policy.SlidingWindowType == CountBased {
 		cb.window = NewCountBasedWindow(cb.policy.SlidingWindowSize)
@@ -316,7 +321,7 @@ func (cb *CircuitBreaker) transitToClosed() {
 }
 
 func (cb *CircuitBreaker) transitToHalfOpen() {
-	cb.state = HalfOpen
+	cb.state = StateHalfOpen
 	// always use count based window in half open state to avoid results being evicted
 	cb.window = NewCountBasedWindow(cb.policy.PermittedNumberOfCallsInHalfOpenState)
 	cb.numberOfCallsInHalfOpen = 0
@@ -324,7 +329,7 @@ func (cb *CircuitBreaker) transitToHalfOpen() {
 }
 
 func (cb *CircuitBreaker) transitToOpen() {
-	cb.state = Open
+	cb.state = StateOpen
 	cb.transitTime = nowFunc()
 }
 
@@ -335,12 +340,12 @@ func (cb *CircuitBreaker) AcquirePermission() bool {
 	defer cb.lock.Unlock()
 
 	// always return true when disabled
-	if cb.state == Disabled {
+	if cb.state == StateDisabled {
 		return true
 	}
 
 	// always return false when force open
-	if cb.state == ForceOpen {
+	if cb.state == StateForceOpen {
 		return false
 	}
 
@@ -349,13 +354,13 @@ func (cb *CircuitBreaker) AcquirePermission() bool {
 	// that's even no new result were recorded, state may transit from closed to
 	// open if may sucess results are evicted by time. but we just rely on the
 	// state here and leave state transition to RecordResult to keep code simple.
-	if cb.state == Closed {
+	if cb.state == StateClosed {
 		return true
 	}
 
 	// when state is open, return false if open duration is less than
 	// WaitDurationInOpenState. transit to half open otherwise
-	if cb.state == Open {
+	if cb.state == StateOpen {
 		if nowFunc().Sub(cb.transitTime) < cb.policy.WaitDurationInOpenState {
 			return false
 		}
@@ -383,26 +388,26 @@ func (cb *CircuitBreaker) AcquirePermission() bool {
 // RecordResult records the result in window
 func (cb *CircuitBreaker) RecordResult(err error, d time.Duration) {
 	// calculate call result
-	result := success
+	result := CallResultSuccess
 	if err != nil {
-		result = failure
+		result = CallResultFailure
 	} else if d >= cb.policy.SlowCallDurationThreshold {
-		result = slow
+		result = CallResultSlow
 	}
 
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
 
 	// don't record result in these states
-	if cb.state == Disabled || cb.state == Open || cb.state == ForceOpen {
+	if cb.state == StateDisabled || cb.state == StateOpen || cb.state == StateForceOpen {
 		return
 	}
 
-	cb.window.PushResult(result)
+	cb.window.Push(result)
 
 	// check if enough results were collected
 	minNumOfCalls := cb.policy.MinimumNumberOfCalls
-	if cb.state == HalfOpen {
+	if cb.state == StateHalfOpen {
 		minNumOfCalls = cb.policy.PermittedNumberOfCallsInHalfOpenState
 	}
 	if cb.window.Total() < minNumOfCalls {
@@ -417,7 +422,7 @@ func (cb *CircuitBreaker) RecordResult(err error, d time.Duration) {
 		cb.transitToOpen()
 	} else if cb.window.SlowRate() >= cb.policy.SlowCallRateThreshold {
 		cb.transitToOpen()
-	} else if cb.state == HalfOpen {
+	} else if cb.state == StateHalfOpen {
 		cb.transitToClosed()
 	}
 }

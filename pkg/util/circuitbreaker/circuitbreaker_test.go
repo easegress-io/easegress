@@ -42,7 +42,7 @@ func runSharedCases(t *testing.T, cb *CircuitBreaker) {
 	}
 
 	// state should transit to open now
-	if cb.State() != Open {
+	if cb.State() != StateOpen {
 		t.Errorf("circuit breaker state should be Open")
 	}
 	if cb.AcquirePermission() {
@@ -57,14 +57,14 @@ func runSharedCases(t *testing.T, cb *CircuitBreaker) {
 		if !cb.AcquirePermission() {
 			t.Errorf("acquire permission should succeeded, i = %d", i)
 		}
-		if cb.State() != HalfOpen {
+		if cb.State() != StateHalfOpen {
 			t.Errorf("circuit breaker state should be HalfOpen")
 		}
 		cb.RecordResult(nil, time.Millisecond)
 	}
 
 	// state should transit to closed now
-	if cb.State() != Closed {
+	if cb.State() != StateClosed {
 		t.Errorf("circuit breaker state should be Closed")
 	}
 	if !cb.AcquirePermission() {
@@ -87,7 +87,7 @@ func runSharedCases(t *testing.T, cb *CircuitBreaker) {
 	}
 
 	// state should transit to open now
-	if cb.State() != Open {
+	if cb.State() != StateOpen {
 		t.Errorf("circuit breaker state should be Open")
 	}
 	if cb.AcquirePermission() {
@@ -102,14 +102,14 @@ func runSharedCases(t *testing.T, cb *CircuitBreaker) {
 		if !cb.AcquirePermission() {
 			t.Errorf("acquire permission should succeeded, i = %d", i)
 		}
-		if cb.State() != HalfOpen {
+		if cb.State() != StateHalfOpen {
 			t.Errorf("circuit breaker state should be HalfOpen")
 		}
 		cb.RecordResult(nil, 11*time.Millisecond)
 	}
 
 	// state should transit to open now
-	if cb.State() != Open {
+	if cb.State() != StateOpen {
 		t.Errorf("circuit breaker state should be Open")
 	}
 	if cb.AcquirePermission() {
@@ -134,13 +134,13 @@ func TestCountBased(t *testing.T) {
 	runSharedCases(t, cb)
 
 	// transit to closed
-	cb.SetState(Closed)
+	cb.SetState(StateClosed)
 	// insert 12 success results
 	for i := 0; i < 12; i++ {
 		if !cb.AcquirePermission() {
 			t.Errorf("acquire permission should succeeded, i = %d", i)
 		}
-		if cb.State() != Closed {
+		if cb.State() != StateClosed {
 			t.Errorf("circuit breaker state should be Closed")
 		}
 		cb.RecordResult(nil, time.Millisecond)
@@ -150,13 +150,13 @@ func TestCountBased(t *testing.T) {
 		if !cb.AcquirePermission() {
 			t.Errorf("acquire permission should succeeded, i = %d", i)
 		}
-		if cb.State() != Closed {
+		if cb.State() != StateClosed {
 			t.Errorf("circuit breaker state should be Closed")
 		}
 		cb.RecordResult(err, time.Millisecond)
 	}
 	// state should transit to open now
-	if cb.State() != Open {
+	if cb.State() != StateOpen {
 		t.Errorf("circuit breaker state should be Open")
 	}
 }
@@ -176,15 +176,15 @@ func TestTimeBased(t *testing.T) {
 
 	cb := New(&policy)
 	runSharedCases(t, cb)
-	// transit to closed
 
-	cb.SetState(Closed)
+	// transit to closed
+	cb.SetState(StateClosed)
 	// insert 12 success results
 	for i := 0; i < 12; i++ {
 		if !cb.AcquirePermission() {
 			t.Errorf("acquire permission should succeeded, i = %d", i)
 		}
-		if cb.State() != Closed {
+		if cb.State() != StateClosed {
 			t.Errorf("circuit breaker state should be Closed")
 		}
 		cb.RecordResult(nil, time.Millisecond)
@@ -195,13 +195,13 @@ func TestTimeBased(t *testing.T) {
 		if !cb.AcquirePermission() {
 			t.Errorf("acquire permission should succeeded, i = %d", i)
 		}
-		if cb.State() != Closed {
+		if cb.State() != StateClosed {
 			t.Errorf("circuit breaker state should be Closed")
 		}
 		cb.RecordResult(err, time.Millisecond)
 	}
 	// state should be closed
-	if cb.State() != Closed {
+	if cb.State() != StateClosed {
 		t.Errorf("circuit breaker state should be Closed")
 	}
 	// evicts some success results
@@ -209,7 +209,7 @@ func TestTimeBased(t *testing.T) {
 	// add a new success result
 	cb.RecordResult(nil, time.Millisecond)
 	// state should be open now
-	if cb.State() != Open {
+	if cb.State() != StateOpen {
 		t.Errorf("circuit breaker state should be Open")
 	}
 }
