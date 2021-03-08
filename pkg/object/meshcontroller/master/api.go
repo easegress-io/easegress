@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"github.com/megaease/easegateway/pkg/api"
-	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/layout"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
 	"github.com/megaease/easegateway/pkg/v"
@@ -21,6 +20,12 @@ const (
 
 	// MeshServicePrefix is the mesh service prefix
 	MeshServicePrefix = MeshPrefix + "/services/{serviceName:string}"
+
+	// MeshRegistryPrefix is the mesh service registry prefix
+	MeshRegistryPrefix = MeshPrefix + "/registry/{serviceName:string}/{instanceID:string}"
+
+	// MeshTenantPrefix is the mesh tenant prefix
+	MeshTenantPrefix = MeshPrefix + "/tenant/{tenantName:string}"
 )
 
 func (m *Master) registerAPIs() {
@@ -64,6 +69,31 @@ func (m *Master) registerAPIs() {
 			Path:    MeshServicePrefix + "/canary",
 			Method:  "DELETE",
 			Handler: m.deleteLoadBalance,
+		},
+		{
+			Path:    MeshRegistryPrefix,
+			Method:  "DELETE",
+			Handler: m.deleteServiceInstance,
+		},
+		{
+			Path:    MeshRegistryPrefix,
+			Method:  "GET",
+			Handler: m.getSerivceInstanceList,
+		},
+		{
+			Path:    MeshRegistryPrefix,
+			Method:  "PUT",
+			Handler: m.updateSerivceInstanceLeases,
+		},
+		{
+			Path:    MeshRegistryPrefix,
+			Method:  "PUT",
+			Handler: m.updateSerivceInstanceStatus,
+		},
+		{
+			Path:    MeshTenantPrefix,
+			Method:  "GET",
+			Handler: m.getTenant,
 		},
 	}
 
@@ -406,139 +436,151 @@ func (m *Master) deleteLoadBalance(ctx iris.Context) {
 	ctx.StatusCode(http.StatusOK)
 }
 
-// UpdateSerivceInstanceLeases updates one serivce registry reord's lease
-func (m *Master) UpdateSerivceInstanceLeases(ctx iris.Context) error {
-	serviceName := ctx.Params().Get("service_name")
-	ID := ctx.Params().Get("instance_id")
+// updateSerivceInstanceLeases updates one serivce registry reord's lease
+func (m *Master) updateSerivceInstanceLeases(ctx iris.Context) {
+	serviceName := ctx.Params().Get("serviceName")
+	ID := ctx.Params().Get("instanceID")
 
 	if len(serviceName) == 0 || len(ID) == 0 {
-		ctx.StatusCode(iris.StatusBadRequest)
-		return fmt.Errorf("invalidate input , serivceName :%s, ID :%s ", serviceName, ID)
+		api.HandleAPIError(ctx, http.StatusBadRequest,
+			fmt.Errorf("invalidate input , serivce name :%s, ID :%s ", serviceName, ID))
+
+		return
 	}
 
 	body, err := ioutil.ReadAll(ctx.Request().Body)
 	if err != nil {
-		ctx.StatusCode(iris.StatusInternalServerError)
-		return fmt.Errorf("read body failed: %v", err)
+		api.HandleAPIError(ctx, http.StatusInternalServerError,
+			fmt.Errorf("read body failed: %v", err))
+		return
 	}
 
 	var ins *spec.ServiceInstance
 	if err := yaml.Unmarshal(body, &ins); err != nil {
-		return fmt.Errorf("unmarshal service: %s's instance body failed, err %s ", serviceName, err)
+		api.HandleAPIError(ctx, http.StatusInternalServerError,
+			fmt.Errorf("unmarshal service: %s's instance body failed, err %s ", serviceName, err))
+		return
 	}
 
 	if ins.ServiceName != serviceName || ins.InstanceID != ID {
-		ctx.StatusCode(iris.StatusBadRequest)
-		return spec.ErrParamNotMatch
+		api.HandleAPIError(ctx, http.StatusBadRequest,
+			fmt.Errorf("url service name %s, instatnce id %s, yaml service name %s, instance id %s not matched",
+				ins.ServiceName, serviceName, ins.InstanceID, ID))
+		return
 	}
 
 	if err = m.service.UpdateServiceInstanceLeases(ins.ServiceName, ins.InstanceID, ins.Leases); err != nil {
-		ctx.StatusCode(iris.StatusInternalServerError)
-		return err
+		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
+		return
 	}
-	return nil
+	return
 }
 
-// UpdateSerivceInstanceStatus updates one serivce registry reord's status
-func (m *Master) UpdateSerivceInstanceStatus(ctx iris.Context) error {
-	serviceName := ctx.Params().Get("service_name")
-	ID := ctx.Params().Get("instance_id")
+// updateSerivceInstanceStatus updates one serivce registry reord's status
+func (m *Master) updateSerivceInstanceStatus(ctx iris.Context) {
+	serviceName := ctx.Params().Get("serviceName")
+	ID := ctx.Params().Get("instanceID")
 
 	if len(serviceName) == 0 || len(ID) == 0 {
-		ctx.StatusCode(iris.StatusBadRequest)
-		return fmt.Errorf("invalidate input , serivce name :%s, ID :%s ", serviceName, ID)
+		api.HandleAPIError(ctx, http.StatusBadRequest,
+			fmt.Errorf("invalidate input , serivce name :%s, ID :%s ", serviceName, ID))
+		return
 	}
 
 	body, err := ioutil.ReadAll(ctx.Request().Body)
 	if err != nil {
-		ctx.StatusCode(iris.StatusInternalServerError)
-		return fmt.Errorf("read body failed: %v", err)
+		api.HandleAPIError(ctx, http.StatusInternalServerError,
+			fmt.Errorf("read body failed: %v", err))
+		return
 	}
 
 	var ins *spec.ServiceInstance
 	if err := yaml.Unmarshal(body, &ins); err != nil {
-		return fmt.Errorf("unmarshal service: %s's instance body failed, err %s ", serviceName, err)
+		api.HandleAPIError(ctx, http.StatusInternalServerError,
+			fmt.Errorf("unmarshal service: %s's instance body failed, err %s ", serviceName, err))
+		return
 	}
 
 	if ins.ServiceName != serviceName || ins.InstanceID != ID {
-		ctx.StatusCode(iris.StatusBadRequest)
-		return spec.ErrParamNotMatch
+		api.HandleAPIError(ctx, http.StatusBadRequest, spec.ErrParamNotMatch)
+		return
 	}
 
 	if err = m.service.UpdateServiceInstanceStatus(ins.ServiceName, ins.InstanceID, ins.Status); err != nil {
-		ctx.StatusCode(iris.StatusInternalServerError)
-		return err
+		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
+		return
 	}
 
-	return nil
+	return
 }
 
-// DeleteServiceInstance deletes one service registry instance
-func (m *Master) DeleteServiceInstance(ctx iris.Context) error {
-	serviceName := ctx.Params().Get("service_name")
-	ID := ctx.Params().Get("instance_id")
+// deleteServiceInstance deletes one service registry instance
+func (m *Master) deleteServiceInstance(ctx iris.Context) {
+	serviceName := ctx.Params().Get("serviceName")
+	ID := ctx.Params().Get("instanceID")
 
 	if len(serviceName) == 0 || len(ID) == 0 {
-		ctx.StatusCode(iris.StatusBadRequest)
-		return fmt.Errorf("invalidate input , serivce name :%s, ID :%s ", serviceName, ID)
+		api.HandleAPIError(ctx, http.StatusBadRequest,
+			fmt.Errorf("invalidate input , serivce name :%s, ID :%s ", serviceName, ID))
+		return
 	}
 
 	if err := m.service.DeleteSerivceInstance(serviceName, ID); err != nil {
-		ctx.StatusCode(iris.StatusInternalServerError)
+		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
 
-		return err
+		return
 	}
 
-	return nil
+	return
 }
 
-// GetTenant gets services name list and its metadata for one specified tenant
-func (m *Master) GetTenant(ctx iris.Context) error {
-	tenantName := ctx.Params().Get("tenant_name")
+// getTenant gets services name list and its metadata for one specified tenant
+func (m *Master) getTenant(ctx iris.Context) {
+	tenantName := ctx.Params().Get("tenantName")
 	if len(tenantName) == 0 {
-		ctx.StatusCode(iris.StatusBadRequest)
-		return fmt.Errorf("invalidate input , tenant name:%s", tenantName)
+		api.HandleAPIError(ctx, http.StatusBadRequest,
+			fmt.Errorf("invalidate input , tenant name:%s", tenantName))
+		return
 	}
 
 	tenant, err := m.service.GetTenant(tenantName)
 	buff, err := yaml.Marshal(tenant)
 	if err != nil {
-		ctx.StatusCode(iris.StatusInternalServerError)
-		err = fmt.Errorf("marshal %#v to yaml failed: %v", tenant, err)
-		logger.Errorf("BUG %v", err)
-		return err
+		api.HandleAPIError(ctx, http.StatusInternalServerError,
+			fmt.Errorf("marshal %#v to yaml failed: %v", tenant, err))
+		return
 	}
 
 	ctx.Header("Content-Type", "text/vnd.yaml")
 	ctx.Write(buff)
-	return nil
+	return
 }
 
-// GetSerivceInstanceList returns services instance list.
-func (m *Master) GetSerivceInstanceList(ctx iris.Context) error {
-	serviceName := ctx.Params().Get("service_name")
+// getSerivceInstanceList returns services instance list.
+func (m *Master) getSerivceInstanceList(ctx iris.Context) {
+	serviceName := ctx.Params().Get("serviceName")
 
 	if len(serviceName) == 0 {
-		ctx.StatusCode(iris.StatusBadRequest)
-		return fmt.Errorf("invalidate input , serivce name :%s ", serviceName)
+		api.HandleAPIError(ctx, http.StatusBadRequest,
+			fmt.Errorf("invalidate input , serivce name :%s ", serviceName))
+		return
 	}
 
 	insList, err := m.service.GetSerivceInstances(serviceName)
 	if err != nil {
-		ctx.StatusCode(iris.StatusInternalServerError)
-		return err
+		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
+		return
 	}
 
 	buff, err := yaml.Marshal(insList)
 	if err != nil {
-		ctx.StatusCode(iris.StatusInternalServerError)
-		err = fmt.Errorf("marshal %#v to yaml failed: %v", insList, err)
-		logger.Errorf("BUG %v", err)
-		return err
+		api.HandleAPIError(ctx, http.StatusInternalServerError,
+			fmt.Errorf("marshal %#v to yaml failed: %v", insList, err))
+		return
 	}
 
 	ctx.Header("Content-Type", "text/vnd.yaml")
 	ctx.Write(buff)
 
-	return nil
+	return
 }
