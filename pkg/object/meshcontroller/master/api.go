@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"github.com/megaease/easegateway/pkg/api"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/layout"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
 	"github.com/megaease/easegateway/pkg/v"
 
@@ -30,6 +29,26 @@ const (
 
 func (m *Master) registerAPIs() {
 	meshAPIs := []*api.APIEntry{
+		{
+			Path:    MeshServicePrefix,
+			Method:  "GET",
+			Handler: m.getServices,
+		},
+		{
+			Path:    MeshServicePrefix,
+			Method:  "POST",
+			Handler: m.createService,
+		},
+		{
+			Path:    MeshServicePrefix,
+			Method:  "PUT",
+			Handler: m.updateService,
+		},
+		{
+			Path:    MeshServicePrefix,
+			Method:  "DELETE",
+			Handler: m.deleteService,
+		},
 		{
 			Path:    MeshServicePrefix + "/canary",
 			Method:  "GET",
@@ -148,34 +167,112 @@ func (m *Master) readSpec(ctx iris.Context, spec interface{}) (string, interface
 }
 
 func (m *Master) _getServiceSpec(serviceName string) *spec.Service {
-	serviceBuff, err := m.store.Get(layout.ServiceKey(serviceName))
+	service, err := m.service.GetService(serviceName)
 	if err != nil {
 		api.ClusterPanic(err)
 	}
-	if serviceBuff == nil {
-		return nil
-	}
-
-	serviceSpec := &spec.Service{}
-	yaml.Unmarshal([]byte(*serviceBuff), serviceSpec)
-
-	if err != nil {
-		panic(fmt.Errorf("unmarshal %s to service failed: %v", *serviceBuff, err))
-	}
-
-	return serviceSpec
+	return service
 }
 
 func (m *Master) _putServiceSpec(serviceSpec *spec.Service) {
-	serviceBuff, err := yaml.Marshal(serviceSpec)
-	if err != nil {
-		panic(fmt.Errorf("marshal %#v to yaml failed: %v", serviceSpec, err))
-	}
-
-	err = m.store.Put(layout.ServiceKey(serviceSpec.Name), string(serviceBuff))
+	err := m.service.UpdateServiceSpec(serviceSpec)
 	if err != nil {
 		api.ClusterPanic(err)
 	}
+}
+
+func (m *Master) getServices(ctx iris.Context) {
+	serviceName, err := m.readServiceName(ctx)
+	if err != nil {
+		api.HandleAPIError(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	svcList, err := m.service.GetServiceList(serviceName)
+	if err != nil {
+		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
+	buff, err := yaml.Marshal(svcList)
+	if err != nil {
+		api.HandleAPIError(ctx, http.StatusInternalServerError,
+			fmt.Errorf("marshal %#v to yaml failed: %v", svcList, err))
+		return
+	}
+	ctx.Header("Content-Type", "text/vnd.yaml")
+	ctx.Write(buff)
+
+}
+
+func (m *Master) createService(ctx iris.Context) {
+	serviceSpec := &spec.Service{}
+
+	serviceName, _spec, err := m.readSpec(ctx, serviceSpec)
+	if err != nil {
+		api.HandleAPIError(ctx, http.StatusBadRequest, err)
+		return
+	}
+	_, ok := _spec.(*spec.Service)
+	if !ok {
+		panic(fmt.Errorf("want *spec.Service, got %T", _spec))
+	}
+
+	oldService := m._getServiceSpec(serviceName)
+	if oldService != nil {
+		api.HandleAPIError(ctx, http.StatusBadRequest,
+			fmt.Errorf("service %s already exists", serviceName))
+		return
+	}
+
+	m.storageLock()
+	defer m.storageUnlock()
+
+	err = m.service.CreateService(serviceSpec)
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+
+	ctx.Header("Location", ctx.Path())
+	ctx.StatusCode(http.StatusCreated)
+}
+
+func (m *Master) updateService(ctx iris.Context) {
+
+	serviceSpec := &spec.Service{}
+	_, _spec, err := m.readSpec(ctx, serviceSpec)
+	if err != nil {
+		api.HandleAPIError(ctx, http.StatusBadRequest, err)
+		return
+	}
+	_, ok := _spec.(*spec.Service)
+	if !ok {
+		panic(fmt.Errorf("want *spec.Service, got %T", _spec))
+	}
+
+	m.storageLock()
+	defer m.storageUnlock()
+
+	m._putServiceSpec(serviceSpec)
+	ctx.StatusCode(http.StatusOK)
+}
+
+func (m *Master) deleteService(ctx iris.Context) {
+	serviceName, err := m.readServiceName(ctx)
+	if err != nil {
+		api.HandleAPIError(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	m.storageLock()
+	defer m.storageUnlock()
+
+	err = m.service.DeleteService(serviceName)
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+	ctx.StatusCode(http.StatusOK)
+
 }
 
 func (m *Master) getCanary(ctx iris.Context) {

@@ -144,27 +144,108 @@ func (s *masterService) CreateDefaultSpecs(serviceName, tenant string) error {
 		//resilenceSpec string
 	)
 	// create default basic specs when
+	serviceSpec := spec.Service{
+		Name:           serviceName,
+		RegisterTenant: tenant,
+		Resilience:     &spec.Resilience{},
+		Canary:         &spec.Canary{},
+		LoadBalance:    &spec.LoadBalance{},
+		Sidecar:        &spec.Sidecar{},
+		Observability:  &spec.Observability{},
+	}
 
 	// generate default resilience spec,
+
+	specBytes, err := yaml.Marshal(serviceSpec)
+	if err != nil {
+		logger.Errorf("Mmarshal default service spec failed, err : %v", serviceName, err)
+	}
+	err = s.store.Put(layout.ServiceKey(serviceName), string(specBytes))
 
 	return err
 
 }
 
-// GetServiceSpec gets meshserivce spec from store.
-func (s *masterService) GetServiceSpec(serviceName string) (*spec.Service, error) {
+func (s *masterService) CreateService(serviceSpec *spec.Service) error {
 	var (
-		err     error
-		service *spec.Service
-		spec    *string
+		err error
 	)
-	if spec, err = s.store.Get(layout.ServiceKey(serviceName)); err != nil {
+	serviceSpecBytes, err := yaml.Marshal(serviceSpec)
+	if err != nil {
+		logger.Errorf("Unmarshal ServiceSpec: %s,failed, err : %v", serviceSpec, err)
+		return err
+
+	}
+
+	err = s.store.Put(layout.ServiceKey(serviceSpec.Name), string(serviceSpecBytes))
+	if err != nil {
+		logger.Errorf("Service %s create failed, err :%v", serviceSpec.Name, err)
+		return err
+
+	}
+	return nil
+}
+
+// GetService gets meshserivce spec from store.
+func (s *masterService) GetService(serviceName string) (*spec.Service, error) {
+	var (
+		err         error
+		service     *spec.Service
+		serviceSpec *string
+	)
+	if serviceSpec, err = s.store.Get(layout.ServiceKey(serviceName)); err != nil {
+		logger.Errorf("Get %s ServiceSpec failed, err :%v", serviceName, err)
 		return service, err
 	}
 
-	err = yaml.Unmarshal([]byte(*spec), service)
+	err = yaml.Unmarshal([]byte(*serviceSpec), service)
+	if err != nil {
+		logger.Errorf("BUG, unmarshal Service : %s,failed, err : %v", serviceName, err)
+	}
 	return service, err
+}
 
+// GetServices gets meshserivce spec from store.
+func (s *masterService) GetServiceList(serviceName string) (map[string]*spec.Service, error) {
+
+	svcList := make(map[string]*spec.Service)
+	svcYAMLs, err := s.store.GetPrefix(layout.ServiceKey(serviceName))
+	if err != nil {
+		return svcList, err
+	}
+
+	for k, v := range svcYAMLs {
+		var ins *spec.Service
+		if err = yaml.Unmarshal([]byte(v), ins); err != nil {
+			logger.Errorf("BUG unmarsh service :%s, record key :%s , val %s failed, err %v", serviceName, k, v, err)
+			continue
+		}
+		svcList[k] = ins
+	}
+
+	return svcList, nil
+}
+
+func (s *masterService) UpdateServiceSpec(serviceSpec *spec.Service) error {
+	var err error
+
+	serviceSpecBytes, err := yaml.Marshal(serviceSpec)
+	if err != nil {
+		logger.Errorf("Unmarshal ServiceSpec: %s,failed, err : %v", serviceSpec, err)
+		return err
+	}
+
+	err = s.store.Put(layout.ServiceKey(serviceSpec.Name), string(serviceSpecBytes))
+	if err != nil {
+		logger.Errorf("Service %s update failed, err :%v", serviceSpec.Name, err)
+		return err
+	}
+
+	return nil
+}
+
+func (s *masterService) DeleteService(serviceName string) error {
+	return s.store.Delete(layout.ServiceKey(serviceName))
 }
 
 // GetSidecarSepc gets meshserivce sidecar spec from etcd

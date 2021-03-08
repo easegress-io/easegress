@@ -101,7 +101,7 @@ type (
 	// Observability is the spec of service observability.
 	Observability struct {
 		Enabled         bool   `yaml:"enabled" jsonschema:"required"`
-		BootstrapServer string `yaml:"discoveryType" jsonschema:"required"`
+		BootstrapServer string `yaml:"bootstrapServer" jsonschema:"required"`
 
 		Tracing *ObservabilityTracing `yaml:"tracing" jsonschema:"omitempty"`
 		Metric  *ObservabilityMetric  `yaml:"metric" jsonschema:"omitempty"`
