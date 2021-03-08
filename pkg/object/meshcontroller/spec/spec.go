@@ -152,7 +152,7 @@ type (
 
 	// Heartbeat contains the information of heartbeat from one serivce instance.
 	Heartbeat struct {
-		LastActiveTime int64 `yaml:"lastActive"`
+		LastActiveTime int64 `yaml:"lastActiveTime"`
 	}
 
 	// ServiceInstance one registry info of serivce

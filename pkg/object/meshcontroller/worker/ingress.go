@@ -17,13 +17,15 @@ type (
 	IngressServer struct {
 		super       *supervisor.Supervisor
 		serviceName string
-		port        uint32
+		//Note: this is the Java business process's listening port
+		//      not the ingress HTTPServer's port
+		port uint32
+		mux  sync.RWMutex
 
-		// running EG objects, accept user traffic
+		// running EG objects, accept other service instances' traffic
+		// in mesh and hand over to local Java business process
 		Pipelines  map[string]*httppipeline.HTTPPipeline
 		HTTPServer *httpserver.HTTPServer
-
-		mux sync.RWMutex
 	}
 )
 
@@ -56,7 +58,7 @@ func (ings *IngressServer) CheckIngressReady() bool {
 	return pipelineReady && (ings.HTTPServer != nil)
 }
 
-// createIngress creates local sdefault pipeline for ingress
+// createIngress creates local default pipeline and HTTPServer for ingress
 func (ings *IngressServer) createIngress(service *spec.Service, port uint32) error {
 	ings.mux.Lock()
 	defer ings.mux.Unlock()

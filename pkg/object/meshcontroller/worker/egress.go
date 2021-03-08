@@ -14,14 +14,14 @@ import (
 type (
 	// EgressServer handle egress traffic gate
 	EgressServer struct {
-		// running EG objects, accept user traffic
+		// running EG objects, through Egress to visit other
+		// service instances in mesh
 		Pipelines  map[string]*httppipeline.HTTPPipeline
 		HTTPServer *httpserver.HTTPServer
-		super      *supervisor.Supervisor
 
+		super       *supervisor.Supervisor
 		serviceName string
-
-		mux sync.RWMutex
+		mux         sync.RWMutex
 	}
 )
 
@@ -59,6 +59,7 @@ func (egs *EgressServer) deletePipeline(reqServiceName string) error {
 	// [TODO]
 	return nil
 }
+
 func (egs *EgressServer) createHTTPServer(service *spec.Service) error {
 	egs.mux.Lock()
 	defer egs.mux.Unlock()

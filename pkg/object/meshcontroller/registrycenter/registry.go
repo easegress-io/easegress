@@ -88,7 +88,7 @@ func (rcs *Server) RegistryServiceInstance(ins *spec.ServiceInstance, service *s
 func (rcs *Server) registry(ins *spec.ServiceInstance, fn func() bool) {
 	var (
 		err      error
-		tryTimes int = 0
+		tryTimes uint64 = 0
 	)
 
 	// level triggered, loop unitl it success
@@ -104,12 +104,12 @@ func (rcs *Server) registry(ins *spec.ServiceInstance, fn func() bool) {
 		ins.RegistryTime = time.Now().Unix()
 
 		if err = rcs.registryIntoStore(ins); err != nil {
-			logger.Errorf("service %s try to create ingress failed, err %v, times %d", ins.ServiceName, err, tryTimes)
+			logger.Errorf("service:%s try to create ingress failed, err:%v, try times:%d", ins.ServiceName, err, tryTimes)
 			continue
 		}
 
 		rcs.registried = true
-		logger.Debugf("service %s , instanceID %s, regitry succ, try time %d", ins.ServiceName, ins.InstanceID, tryTimes)
+		logger.Debugf("service:%s , instanceID:%s, regitry succ, try times:%d", ins.ServiceName, ins.InstanceID, tryTimes)
 		break
 	}
 
@@ -157,7 +157,7 @@ func (rcs *Server) decodeByEurekaFormat(body []byte) (*spec.ServiceInstance, err
 	ins.Port = uint32(eurekaIns.Port.Port)
 	ins.ServiceName = rcs.serviceName
 	if ins.InstanceID, err = common.UUID(); err != nil {
-		logger.Errorf("BUG generate uuid failed, %v", err)
+		logger.Errorf("BUG generate uuid failed, err:%v", err)
 	}
 
 	return nil, err
@@ -179,7 +179,7 @@ func (rcs *Server) DecodeRegistryBody(reqBody []byte) (*spec.ServiceInstance, er
 			return nil, err
 		}
 	} else {
-		return nil, fmt.Errorf("unkonw registry request, %v ", string(reqBody))
+		return nil, fmt.Errorf("unkonw registry request, req body:%s", string(reqBody))
 	}
 
 	return ins, err
@@ -191,14 +191,14 @@ func (rcs *Server) registryIntoStore(ins *spec.ServiceInstance) error {
 	var err error
 	buff, err := yaml.Marshal(ins)
 	if err != nil {
-		logger.Errorf("marshal registry instance %#v to yaml failed: %v", ins, err)
+		logger.Errorf("marshal registry instance:%#v to yaml failed, err:%v", ins, err)
 		return err
 	}
 
-	logger.Errorf("buff is %s", string(buff))
 
 	name := layout.ServiceInstanceKey(rcs.serviceName, ins.InstanceID)
 	if err = rcs.store.Put(name, string(buff)); err != nil {
+		logger.Errorf("registrycenter, put service:%s into store failed, err:%v", ins.ServiceName, err)
 		return err
 	}
 	return err
