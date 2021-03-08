@@ -1,6 +1,7 @@
 package circuitbreaker
 
 import (
+	"fmt"
 	"sync"
 	"time"
 )
@@ -8,6 +9,10 @@ import (
 var (
 	// for unit testing cases to mock 'time.Now' only
 	nowFunc = time.Now
+
+	// ErrRejected is returned by 'Execute' if the function call is
+	// rejected by the CircuitBreaker
+	ErrRejected = fmt.Errorf("call rejected")
 )
 
 // sliding window types
@@ -246,6 +251,12 @@ type (
 		transitTime             time.Time
 		window                  Window
 		numberOfCallsInHalfOpen uint32
+		// stateID is the id of current state, it increases every time
+		// the state changes. the id is returned by AcquirePermission
+		// and must be passed back to RecordResult which will then use
+		// it to detect wether state changed or not, and if changed, the
+		// result is discarded as it does not belong to current state.
+		stateID uint32
 	}
 )
 
@@ -293,6 +304,7 @@ func (cb *CircuitBreaker) SetState(state State) {
 	case StateDisabled, StateForceOpen:
 		cb.state = state
 		cb.transitTime = nowFunc()
+		cb.stateID++
 	case StateOpen:
 		cb.transitToOpen()
 	case StateClosed:
@@ -318,6 +330,7 @@ func (cb *CircuitBreaker) transitToClosed() {
 		cb.window = NewTimeBasedWindow(cb.policy.SlidingWindowSize)
 	}
 	cb.transitTime = nowFunc()
+	cb.stateID++
 }
 
 func (cb *CircuitBreaker) transitToHalfOpen() {
@@ -326,27 +339,30 @@ func (cb *CircuitBreaker) transitToHalfOpen() {
 	cb.window = NewCountBasedWindow(cb.policy.PermittedNumberOfCallsInHalfOpenState)
 	cb.numberOfCallsInHalfOpen = 0
 	cb.transitTime = nowFunc()
+	cb.stateID++
 }
 
 func (cb *CircuitBreaker) transitToOpen() {
 	cb.state = StateOpen
 	cb.transitTime = nowFunc()
+	cb.stateID++
 }
 
-// AcquirePermission acquires a permission from the circuit breaker,
-// return true if approved and false if rejected
-func (cb *CircuitBreaker) AcquirePermission() bool {
+// AcquirePermission acquires a permission from the circuit breaker
+// returns true & stateID if the request is permitted
+// returns false & stateID if the request is rejected
+func (cb *CircuitBreaker) AcquirePermission() (bool, uint32) {
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
 
 	// always return true when disabled
 	if cb.state == StateDisabled {
-		return true
+		return true, cb.stateID
 	}
 
 	// always return false when force open
 	if cb.state == StateForceOpen {
-		return false
+		return false, cb.stateID
 	}
 
 	// always return true when closed.
@@ -355,14 +371,14 @@ func (cb *CircuitBreaker) AcquirePermission() bool {
 	// open if may sucess results are evicted by time. but we just rely on the
 	// state here and leave state transition to RecordResult to keep code simple.
 	if cb.state == StateClosed {
-		return true
+		return true, cb.stateID
 	}
 
 	// when state is open, return false if open duration is less than
 	// WaitDurationInOpenState. transit to half open otherwise
 	if cb.state == StateOpen {
 		if nowFunc().Sub(cb.transitTime) < cb.policy.WaitDurationInOpenState {
-			return false
+			return false, cb.stateID
 		}
 		// after WaitDurationInOpenState, transit to half open
 		cb.transitToHalfOpen()
@@ -373,20 +389,20 @@ func (cb *CircuitBreaker) AcquirePermission() bool {
 	if cb.policy.MaxWaitDurationInHalfOpenState <= 0 &&
 		nowFunc().Sub(cb.transitTime) > cb.policy.MaxWaitDurationInHalfOpenState {
 		cb.transitToOpen()
-		return false
+		return false, cb.stateID
 	}
 
 	// circuit breaker is in half open state
 	if cb.numberOfCallsInHalfOpen < cb.policy.PermittedNumberOfCallsInHalfOpenState {
 		cb.numberOfCallsInHalfOpen++
-		return true
+		return true, cb.stateID
 	}
 
-	return false
+	return false, cb.stateID
 }
 
 // RecordResult records the result in window
-func (cb *CircuitBreaker) RecordResult(err error, d time.Duration) {
+func (cb *CircuitBreaker) RecordResult(stateID uint32, err error, d time.Duration) {
 	// calculate call result
 	result := CallResultSuccess
 	if err != nil {
@@ -397,6 +413,11 @@ func (cb *CircuitBreaker) RecordResult(err error, d time.Duration) {
 
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
+
+	// the result does not belong to current state and should be discarded
+	if stateID != cb.stateID {
+		return
+	}
 
 	// don't record result in these states
 	if cb.state == StateDisabled || cb.state == StateOpen || cb.state == StateForceOpen {
@@ -424,5 +445,44 @@ func (cb *CircuitBreaker) RecordResult(err error, d time.Duration) {
 		cb.transitToOpen()
 	} else if cb.state == StateHalfOpen {
 		cb.transitToClosed()
+	}
+}
+
+// Execute executes the given function if the CircuitBreaker accepts it and
+// returns the result of the function, and ErrRejected is returned if the
+// CircuitBreaker rejects the request.
+// If a panic occurs in the function, CircuitBreaker regards it as an error
+// and causes the same panic again.
+func (cb *CircuitBreaker) Execute(fn func() (interface{}, error)) (interface{}, error) {
+	permitted, stateID := cb.AcquirePermission()
+	if !permitted {
+		return nil, ErrRejected
+	}
+
+	start := nowFunc()
+
+	defer func() {
+		if e := recover(); e != nil {
+			d := nowFunc().Sub(start)
+			err, ok := e.(error)
+			if !ok {
+				err = fmt.Errorf("unknown error: %v", e)
+			}
+			cb.RecordResult(stateID, err, d)
+			panic(e)
+		}
+	}()
+
+	res, e := fn()
+	cb.RecordResult(stateID, e, nowFunc().Sub(start))
+
+	return res, e
+}
+
+// Decorate decorates the given function `fn` and returns a new function,
+// calling the new function is equivalent to call `cb.Execute(fn)`
+func (cb *CircuitBreaker) Decorate(fn func() (interface{}, error)) func() (interface{}, error) {
+	return func() (interface{}, error) {
+		return cb.Execute(fn)
 	}
 }
