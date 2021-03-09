@@ -123,15 +123,15 @@ func runSharedCases(t *testing.T, cb *CircuitBreaker) {
 
 func TestCountBased(t *testing.T) {
 	policy := Policy{
-		FailureRateThreshold:                  50,
-		SlowCallRateThreshold:                 60,
-		SlidingWindowType:                     CountBased,
-		SlidingWindowSize:                     20,
-		PermittedNumberOfCallsInHalfOpenState: 5,
-		MinimumNumberOfCalls:                  10,
-		SlowCallDurationThreshold:             time.Millisecond * 10,
-		MaxWaitDurationInHalfOpenState:        5 * time.Second,
-		WaitDurationInOpenState:               5 * time.Second,
+		FailureRateThreshold:             50,
+		SlowCallRateThreshold:            60,
+		SlidingWindowType:                CountBased,
+		SlidingWindowSize:                20,
+		PermittedNumberOfCallsInHalfOpen: 5,
+		MinimumNumberOfCalls:             10,
+		SlowCallDurationThreshold:        time.Millisecond * 10,
+		MaxWaitDurationInHalfOpen:        5 * time.Second,
+		WaitDurationInOpen:               5 * time.Second,
 	}
 
 	cb := New(&policy)
@@ -167,15 +167,15 @@ func TestCountBased(t *testing.T) {
 
 func TestTimeBased(t *testing.T) {
 	policy := Policy{
-		FailureRateThreshold:                  50,
-		SlowCallRateThreshold:                 60,
-		SlidingWindowType:                     TimeBased,
-		SlidingWindowSize:                     20,
-		PermittedNumberOfCallsInHalfOpenState: 5,
-		MinimumNumberOfCalls:                  10,
-		SlowCallDurationThreshold:             time.Millisecond * 10,
-		MaxWaitDurationInHalfOpenState:        5 * time.Second,
-		WaitDurationInOpenState:               5 * time.Second,
+		FailureRateThreshold:             50,
+		SlowCallRateThreshold:            60,
+		SlidingWindowType:                TimeBased,
+		SlidingWindowSize:                20,
+		PermittedNumberOfCallsInHalfOpen: 5,
+		MinimumNumberOfCalls:             10,
+		SlowCallDurationThreshold:        time.Millisecond * 10,
+		MaxWaitDurationInHalfOpen:        5 * time.Second,
+		WaitDurationInOpen:               5 * time.Second,
 	}
 
 	cb := New(&policy)

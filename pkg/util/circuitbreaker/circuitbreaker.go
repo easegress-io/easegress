@@ -232,16 +232,19 @@ type (
 
 	// Policy defines the policy of a circuit breaker
 	Policy struct {
-		FailureRateThreshold                  uint8         `yaml:"failureRateThreshold"`
-		SlowCallRateThreshold                 uint8         `yaml:"slowCallRateThreshold"`
-		SlidingWindowType                     uint8         `yaml:"slidingWindowType"`
-		SlidingWindowSize                     uint32        `yaml:"slidingWindowSize"`
-		PermittedNumberOfCallsInHalfOpenState uint32        `yaml:"permittedNumberOfCallsInHalfOpenState"`
-		MinimumNumberOfCalls                  uint32        `yaml:"minimumNumberOfCalls"`
-		SlowCallDurationThreshold             time.Duration `yaml:"slowCallDurationThreshold"`
-		MaxWaitDurationInHalfOpenState        time.Duration `yaml:"maxWaitDurationInHalfOpenState"`
-		WaitDurationInOpenState               time.Duration `yaml:"waitDurationInOpenState"`
+		FailureRateThreshold             uint8
+		SlowCallRateThreshold            uint8
+		SlidingWindowType                uint8
+		SlidingWindowSize                uint32
+		PermittedNumberOfCallsInHalfOpen uint32
+		MinimumNumberOfCalls             uint32
+		SlowCallDurationThreshold        time.Duration
+		MaxWaitDurationInHalfOpen        time.Duration
+		WaitDurationInOpen               time.Duration
 	}
+
+	// StateListenerFunc is a listener function to listen state transit event
+	StateListenerFunc func(oldState, newState State)
 
 	// CircuitBreaker defines a circuit breaker
 	CircuitBreaker struct {
@@ -256,7 +259,8 @@ type (
 		// and must be passed back to RecordResult which will then use
 		// it to detect wether state changed or not, and if changed, the
 		// result is discarded as it does not belong to current state.
-		stateID uint32
+		stateID  uint32
+		listener StateListenerFunc
 	}
 )
 
@@ -272,22 +276,22 @@ const (
 // NewPolicy create and initialize a policy with default configuration
 func NewPolicy() *Policy {
 	return &Policy{
-		FailureRateThreshold:                  50,
-		SlowCallRateThreshold:                 100,
-		SlidingWindowType:                     CountBased,
-		SlidingWindowSize:                     100,
-		PermittedNumberOfCallsInHalfOpenState: 10,
-		MinimumNumberOfCalls:                  100,
-		SlowCallDurationThreshold:             time.Minute,
-		MaxWaitDurationInHalfOpenState:        0,
-		WaitDurationInOpenState:               time.Minute,
+		FailureRateThreshold:             50,
+		SlowCallRateThreshold:            100,
+		SlidingWindowType:                CountBased,
+		SlidingWindowSize:                100,
+		PermittedNumberOfCallsInHalfOpen: 10,
+		MinimumNumberOfCalls:             100,
+		SlowCallDurationThreshold:        time.Minute,
+		MaxWaitDurationInHalfOpen:        0,
+		WaitDurationInOpen:               time.Minute,
 	}
 }
 
 // New creates a circuit breaker based on `policy`,
 func New(policy *Policy) *CircuitBreaker {
 	cb := &CircuitBreaker{policy: policy}
-	cb.transitToClosed()
+	cb.transitTo(StateClosed)
 	return cb
 }
 
@@ -295,57 +299,50 @@ func New(policy *Policy) *CircuitBreaker {
 func (cb *CircuitBreaker) SetState(state State) {
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
+	cb.transitTo(state)
+}
 
-	if state == cb.state {
+// SetStateListener sets a state listener for the CircuitBreaker
+func (cb *CircuitBreaker) SetStateListener(listener StateListenerFunc) {
+	cb.lock.Lock()
+	defer cb.lock.Unlock()
+	cb.listener = listener
+}
+
+// transitTo sets the state of the CircuitBreaker to `state`
+func (cb *CircuitBreaker) transitTo(state State) {
+	oldState := cb.state
+	if state == oldState {
 		return
 	}
 
-	switch state {
-	case StateDisabled, StateForceOpen:
-		cb.state = state
-		cb.transitTime = nowFunc()
-		cb.stateID++
-	case StateOpen:
-		cb.transitToOpen()
-	case StateClosed:
-		cb.transitToClosed()
-	case StateHalfOpen:
-		cb.transitToHalfOpen()
-	default:
-		panic("unknown target state")
+	cb.state = state
+	cb.transitTime = nowFunc()
+	cb.stateID++
+
+	if state == StateClosed {
+		// recreate the window to remove all existing results to avoid jitter
+		if cb.policy.SlidingWindowType == CountBased {
+			cb.window = NewCountBasedWindow(cb.policy.SlidingWindowSize)
+		} else {
+			cb.window = NewTimeBasedWindow(cb.policy.SlidingWindowSize)
+		}
+	} else if state == StateHalfOpen {
+		// always use count based window in half open state to avoid results being evicted
+		cb.window = NewCountBasedWindow(cb.policy.PermittedNumberOfCallsInHalfOpen)
+		cb.numberOfCallsInHalfOpen = 0
+	}
+
+	if cb.listener != nil {
+		// create a new goroutine as current function is called inside a lock, and we don't
+		// know how much time the listener function will take
+		go cb.listener(oldState, state)
 	}
 }
 
 // State returns the state of the circuit breaker
 func (cb *CircuitBreaker) State() State {
 	return cb.state
-}
-
-func (cb *CircuitBreaker) transitToClosed() {
-	cb.state = StateClosed
-	// recreate the window to remove all existing results to avoid jitter
-	if cb.policy.SlidingWindowType == CountBased {
-		cb.window = NewCountBasedWindow(cb.policy.SlidingWindowSize)
-	} else {
-		cb.window = NewTimeBasedWindow(cb.policy.SlidingWindowSize)
-	}
-	cb.transitTime = nowFunc()
-	cb.stateID++
-}
-
-func (cb *CircuitBreaker) transitToHalfOpen() {
-	cb.state = StateHalfOpen
-	// always use count based window in half open state to avoid results being evicted
-	cb.window = NewCountBasedWindow(cb.policy.PermittedNumberOfCallsInHalfOpenState)
-	cb.numberOfCallsInHalfOpen = 0
-	cb.transitTime = nowFunc()
-	cb.stateID++
-}
-
-func (cb *CircuitBreaker) transitToOpen() {
-	cb.state = StateOpen
-	cb.transitTime = nowFunc()
-	cb.stateID++
 }
 
 // AcquirePermission acquires a permission from the circuit breaker
@@ -377,25 +374,24 @@ func (cb *CircuitBreaker) AcquirePermission() (bool, uint32) {
 	// when state is open, return false if open duration is less than
 	// WaitDurationInOpenState. transit to half open otherwise
 	if cb.state == StateOpen {
-		if nowFunc().Sub(cb.transitTime) < cb.policy.WaitDurationInOpenState {
+		if nowFunc().Sub(cb.transitTime) < cb.policy.WaitDurationInOpen {
 			return false, cb.stateID
 		}
-		// after WaitDurationInOpenState, transit to half open
-		cb.transitToHalfOpen()
-	}
-
-	// if state is still half open after MaxWaitDurationInHalfOpenState,
-	// transit back to open
-	if cb.policy.MaxWaitDurationInHalfOpenState <= 0 &&
-		nowFunc().Sub(cb.transitTime) > cb.policy.MaxWaitDurationInHalfOpenState {
-		cb.transitToOpen()
-		return false, cb.stateID
+		cb.transitTo(StateHalfOpen)
 	}
 
 	// circuit breaker is in half open state
-	if cb.numberOfCallsInHalfOpen < cb.policy.PermittedNumberOfCallsInHalfOpenState {
+	if cb.numberOfCallsInHalfOpen < cb.policy.PermittedNumberOfCallsInHalfOpen {
 		cb.numberOfCallsInHalfOpen++
 		return true, cb.stateID
+	}
+
+	// if state is still half open after MaxWaitDurationInHalfOpenState, transit
+	// back to open. note, to avoid switch to open without permit enough calls,
+	// we need to do this after the check of numberOfCallsInHalfOpen.
+	if cb.policy.MaxWaitDurationInHalfOpen > 0 &&
+		nowFunc().Sub(cb.transitTime) > cb.policy.MaxWaitDurationInHalfOpen {
+		cb.transitTo(StateOpen)
 	}
 
 	return false, cb.stateID
@@ -419,17 +415,17 @@ func (cb *CircuitBreaker) RecordResult(stateID uint32, err error, d time.Duratio
 		return
 	}
 
-	// don't record result in these states
-	if cb.state == StateDisabled || cb.state == StateOpen || cb.state == StateForceOpen {
-		return
-	}
+	// as the CircuitBreaker only permit calls in Closed & HalfOpen state,
+	// after the stateID check, state can only be Closed & HalfOpen now.
 
 	cb.window.Push(result)
 
 	// check if enough results were collected
 	minNumOfCalls := cb.policy.MinimumNumberOfCalls
 	if cb.state == StateHalfOpen {
-		minNumOfCalls = cb.policy.PermittedNumberOfCallsInHalfOpenState
+		if minNumOfCalls > cb.policy.PermittedNumberOfCallsInHalfOpen {
+			minNumOfCalls = cb.policy.PermittedNumberOfCallsInHalfOpen
+		}
 	}
 	if cb.window.Total() < minNumOfCalls {
 		return
@@ -440,11 +436,11 @@ func (cb *CircuitBreaker) RecordResult(stateID uint32, err error, d time.Duratio
 	// is success as existing success results may be evicted by time.
 	// note half open state always use a count based window.
 	if cb.window.FailureRate() >= cb.policy.FailureRateThreshold {
-		cb.transitToOpen()
+		cb.transitTo(StateOpen)
 	} else if cb.window.SlowRate() >= cb.policy.SlowCallRateThreshold {
-		cb.transitToOpen()
+		cb.transitTo(StateOpen)
 	} else if cb.state == StateHalfOpen {
-		cb.transitToClosed()
+		cb.transitTo(StateClosed)
 	}
 }
 
@@ -477,12 +473,4 @@ func (cb *CircuitBreaker) Execute(fn func() (interface{}, error)) (interface{}, 
 	cb.RecordResult(stateID, e, nowFunc().Sub(start))
 
 	return res, e
-}
-
-// Decorate decorates the given function `fn` and returns a new function,
-// calling the new function is equivalent to call `cb.Execute(fn)`
-func (cb *CircuitBreaker) Decorate(fn func() (interface{}, error)) func() (interface{}, error) {
-	return func() (interface{}, error) {
-		return cb.Execute(fn)
-	}
 }
