@@ -14,28 +14,33 @@ import (
 )
 
 type (
+	// OAuth2TokenIntrospect defines the validator configuration for OAuth2 token introspection
+	OAuth2TokenIntrospect struct {
+		EndPoint     string `yaml:"endPoint" jsonschema:"required"`
+		BasicAuth    string `yaml:"basicAuth" jsonschema:"omitempty"`
+		ClientID     string `yaml:"clientId" jsonschema:"omitempty"`
+		ClientSecret string `yaml:"clientSecret" jsonschema:"omitempty"`
+		InsecureTLS  bool   `yaml:"insecureTls"`
+	}
+
+	// OAuth2JWT defines the validator configuration for OAuth2 self encoded access token
+	OAuth2JWT struct {
+		Algorithm string `yaml:"algorithm" jsonschema:"enum=HS256,enum=HS384,enum=HS512"`
+		// Secret is in hex encoding
+		Secret      string `yaml:"secret" jsonschema:"required,pattern=^[A-Fa-f0-9]+$"`
+		secretBytes []byte
+	}
+
 	// OAuth2ValidatorSpec defines the configuration of OAuth2 validator
 	OAuth2ValidatorSpec struct {
-		TokenIntrospect *struct {
-			EndPoint     string `yaml:"endPoint"`
-			BasicAuth    string `yaml:"basicAuth" jsonschema:"omitempty"`
-			ClientID     string `yaml:"clientId" jsonschema:"omitempty"`
-			ClientSecret string `yaml:"clientSecret" jsonschema:"omitempty"`
-			InsecureTLS  bool   `yaml:"insecureTls"`
-		} `yaml:"tokenIntrospect" jsonschema:"omitempty"`
-
-		JWT *struct {
-			Algorithm string `yaml:"algorithm" jsonschema:"enum=HS256,enum=HS384,enum=HS512"`
-			// Secret is in hex encoding
-			Secret      string `yaml:"secret" jsonschema:"required,pattern=^[A-Fa-f0-9]+$"`
-			secretBytes []byte
-		} `yaml:"jwt" jsonschema:"omitempty"`
+		TokenIntrospect *OAuth2TokenIntrospect `yaml:"tokenIntrospect" jsonschema:"omitempty"`
+		JWT             *OAuth2JWT             `yaml:"jwt" jsonschema:"omitempty"`
 	}
 
 	// OAuth2Validator defines the OAuth2 validator
 	OAuth2Validator struct {
-		spec     *OAuth2ValidatorSpec
-		httpClnt *http.Client
+		spec   *OAuth2ValidatorSpec
+		client *http.Client
 	}
 
 	tokenInfo struct {
@@ -62,9 +67,9 @@ func NewOAuth2Validator(spec *OAuth2ValidatorSpec) *OAuth2Validator {
 	if spec.TokenIntrospect != nil {
 		if spec.TokenIntrospect.InsecureTLS {
 			cfg := tls.Config{InsecureSkipVerify: true}
-			v.httpClnt = &http.Client{Transport: &http.Transport{TLSClientConfig: &cfg}}
+			v.client = &http.Client{Transport: &http.Transport{TLSClientConfig: &cfg}}
 		} else {
-			v.httpClnt = http.DefaultClient
+			v.client = http.DefaultClient
 		}
 	}
 	return v
@@ -88,7 +93,7 @@ func (v *OAuth2Validator) introspectToken(tokenStr string) (*tokenInfo, error) {
 		r.Header.Set("Authorization", "Basic "+v.spec.TokenIntrospect.BasicAuth)
 	}
 
-	resp, e := v.httpClnt.Do(r)
+	resp, e := v.client.Do(r)
 	if e != nil {
 		return nil, e
 	}

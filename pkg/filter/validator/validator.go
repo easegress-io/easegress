@@ -98,8 +98,6 @@ func (v *Validator) reload() {
 	if v.spec.OAuth2 != nil {
 		v.oauth2 = NewOAuth2Validator(v.spec.OAuth2)
 	}
-
-	return v
 }
 
 // Handle validates HTTPContext.
