@@ -21,6 +21,11 @@ import (
 )
 
 type (
+	// HandlerFunc is function to send request and receive response
+	HandlerFunc func() string
+	// HandlerWrapperFunc wraps a HandlerFunc and returns the wrapped function
+	HandlerWrapperFunc func(fn HandlerFunc) HandlerFunc
+
 	// HTTPContext is all context of an HTTP processing.
 	// It is not goroutine-safe, callers must use Lock/Unlock
 	// to protect it by themselves.
@@ -51,6 +56,9 @@ type (
 		SetTemplate(ht *HTTPTemplate)
 		SaveReqToTemplate(filterName string) error
 		SaveRspToTemplate(filterName string) error
+
+		AddHandlerWrapper(tag string, wrapper HandlerWrapperFunc)
+		ExecuteHandlerWithWrapper(fn HandlerFunc) string
 	}
 
 	// HTTPRequest is all operations for HTTP request.
@@ -106,13 +114,19 @@ type (
 	// when HTTPContext is finishing.
 	FinishFunc = func()
 
+	handlerWrapper struct {
+		Tag     string
+		Wrapper HandlerWrapperFunc
+	}
+
 	httpContext struct {
 		mutex sync.Mutex
 
-		startTime   *time.Time
-		endTime     *time.Time
-		finishFuncs []FinishFunc
-		tags        []string
+		startTime       *time.Time
+		endTime         *time.Time
+		finishFuncs     []FinishFunc
+		tags            []string
+		handlerWrappers []handlerWrapper
 
 		r *httpRequest
 		w *httpResponse
@@ -148,6 +162,21 @@ func New(stdw http.ResponseWriter, stdr *http.Request,
 		w:              newHTTPResponse(stdw, stdr),
 		ht:             NewHTTPTemplateDummy(),
 	}
+}
+
+func (ctx *httpContext) AddHandlerWrapper(tag string, wrapper HandlerWrapperFunc) {
+	ctx.handlerWrappers = append(ctx.handlerWrappers, handlerWrapper{
+		Tag:     tag,
+		Wrapper: wrapper,
+	})
+}
+
+func (ctx *httpContext) ExecuteHandlerWithWrapper(fn HandlerFunc) string {
+	for i := len(ctx.handlerWrappers) - 1; i >= 0; i-- {
+		wrapper := ctx.handlerWrappers[i]
+		fn = wrapper.Wrapper(fn)
+	}
+	return fn()
 }
 
 func (ctx *httpContext) Lock() {
