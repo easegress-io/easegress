@@ -24,29 +24,26 @@ type (
 
 		filter *httpfilter.HTTPFilter
 
-		servers        *servers
-		httpStat       *httpstat.HTTPStat
-		count          uint64 // for roundRobin
-		memoryCache    *memorycache.MemoryCache
-		circuitBreaker *circuitBreaker
+		servers     *servers
+		httpStat    *httpstat.HTTPStat
+		count       uint64 // for roundRobin
+		memoryCache *memorycache.MemoryCache
 	}
 
 	// PoolSpec decribes a pool of servers.
 	PoolSpec struct {
-		Filter          *httpfilter.Spec    `yaml:"filter,omitempty" jsonschema:"omitempty"`
-		ServersTags     []string            `yaml:"serversTags" jsonschema:"omitempty,uniqueItems=true"`
-		Servers         []*Server           `yaml:"servers" jsonschema:"omitempty"`
-		ServiceRegistry string              `yaml:"serviceRegistry" jsonschema:"omitempty"`
-		ServiceName     string              `yaml:"serviceName" jsonschema:"omitempty"`
-		LoadBalance     *LoadBalance        `yaml:"loadBalance" jsonschema:"required"`
-		MemoryCache     *memorycache.Spec   `yaml:"memoryCache,omitempty" jsonschema:"omitempty"`
-		CircuitBreaker  *circuitBreakerSpec `yaml:"circuitBreaker,omitempty" jsonschema:"omitempty"`
+		Filter          *httpfilter.Spec  `yaml:"filter,omitempty" jsonschema:"omitempty"`
+		ServersTags     []string          `yaml:"serversTags" jsonschema:"omitempty,uniqueItems=true"`
+		Servers         []*Server         `yaml:"servers" jsonschema:"omitempty"`
+		ServiceRegistry string            `yaml:"serviceRegistry" jsonschema:"omitempty"`
+		ServiceName     string            `yaml:"serviceName" jsonschema:"omitempty"`
+		LoadBalance     *LoadBalance      `yaml:"loadBalance" jsonschema:"required"`
+		MemoryCache     *memorycache.Spec `yaml:"memoryCache,omitempty" jsonschema:"omitempty"`
 	}
 
 	// PoolStatus is the status of Pool.
 	PoolStatus struct {
-		Stat           *httpstat.Status `yaml:"stat"`
-		CircuitBreaker string           `yaml:"circuitBreaker,omitempty"`
+		Stat *httpstat.Status `yaml:"stat"`
 	}
 )
 
@@ -89,28 +86,19 @@ func newPool(spec *PoolSpec, tagPrefix string,
 		memoryCache = memorycache.New(spec.MemoryCache)
 	}
 
-	var cb *circuitBreaker
-	if spec.CircuitBreaker != nil {
-		cb = newCircuitBreaker(spec.CircuitBreaker, failureCodes)
-	}
-
 	return &pool{
 		tagPrefix:     tagPrefix,
 		writeResponse: writeResponse,
 
-		filter:         filter,
-		servers:        newServers(spec),
-		httpStat:       httpstat.New(),
-		memoryCache:    memoryCache,
-		circuitBreaker: cb,
+		filter:      filter,
+		servers:     newServers(spec),
+		httpStat:    httpstat.New(),
+		memoryCache: memoryCache,
 	}
 }
 
 func (p *pool) status() *PoolStatus {
 	s := &PoolStatus{Stat: p.httpStat.Status()}
-	if p.circuitBreaker != nil {
-		s.CircuitBreaker = p.circuitBreaker.status()
-	}
 	return s
 }
 

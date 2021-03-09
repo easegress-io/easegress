@@ -18,16 +18,14 @@ const (
 	// Kind is the kind of Backend.
 	Kind = "Backend"
 
-	resultCircuitBreaker = "circuitBreaker"
-	resultFallback       = "fallback"
-	resultInternalError  = "interalError"
-	resultClientError    = "clientError"
-	resultServerError    = "serverError"
+	resultFallback      = "fallback"
+	resultInternalError = "interalError"
+	resultClientError   = "clientError"
+	resultServerError   = "serverError"
 )
 
 var (
 	results = []string{
-		resultCircuitBreaker,
 		resultFallback,
 		resultInternalError,
 		resultClientError,
@@ -137,20 +135,11 @@ func (s Spec) Validate() error {
 		if s.MirrorPool.MemoryCache != nil {
 			return fmt.Errorf("memoryCache must be empty in mirrorPool")
 		}
-		if s.MirrorPool.CircuitBreaker != nil {
-			return fmt.Errorf("circuitBreaker must be empty in mirrorPool")
-		}
 	}
 
 	if len(s.FailureCodes) == 0 {
 		if s.Fallback != nil {
 			return fmt.Errorf("fallback needs failureCodes")
-		}
-		if s.MainPool.CircuitBreaker != nil {
-			return fmt.Errorf("circuitBreaker need failureCodes")
-		}
-		if s.CandidatePool != nil && s.CandidatePool.CircuitBreaker != nil {
-			return fmt.Errorf("circuitBreaker need failureCodes")
 		}
 	}
 
@@ -293,18 +282,9 @@ func (b *Backend) Handle(ctx context.HTTPContext) (result string) {
 		return ""
 	}
 
-	if p.circuitBreaker != nil {
-		var err error
-		result, err = p.circuitBreaker.protect(ctx, ctx.Request().Body(), p.handle)
-		if err != nil {
-			if b.fallbackForCircuitBreaker(ctx) {
-				return resultFallback
-			}
-			return resultCircuitBreaker
-		}
-	} else {
-		result = p.handle(ctx, ctx.Request().Body())
-	}
+	result = ctx.ExecuteHandlerWithWrapper(func() string {
+		return p.handle(ctx, ctx.Request().Body())
+	})
 
 	if result != "" {
 		return result

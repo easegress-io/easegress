@@ -60,7 +60,6 @@ require (
 	github.com/ryanuber/columnize v2.1.0+incompatible // indirect
 	github.com/smartystreets/assertions v0.0.0-20180927180507-b2de0cb4f26d // indirect
 	github.com/smartystreets/goconvey v0.0.0-20181108003508-044398e4856c // indirect
-	github.com/sony/gobreaker v0.0.0-20181109014844-d928aaea92e1
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/pflag v1.0.3 // indirect
 	github.com/tcnksm/go-httpstat v0.2.1-0.20191008022543-e866bb274419
