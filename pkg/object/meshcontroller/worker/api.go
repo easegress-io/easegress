@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"encoding/xml"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -19,6 +20,9 @@ import (
 const (
 	// MeshPrefix is the mesh prefix.
 	MeshPrefix = "/mesh"
+
+	// MeshEurekaPrefix is the mesh eureka registry center prefix.
+	MeshEurekaPrefix = "/mesh/registry/eureka"
 )
 
 func (w *Worker) registerAPIs() {
@@ -29,11 +33,68 @@ func (w *Worker) registerAPIs() {
 			Method:  "PUT",
 			Handler: w.registry,
 		},
+
+		// Eureka registry/discovery APIs
 		{
-			// for eureka POST RESTful API
-			Path:    MeshPrefix,
+			// for eureka registry RESTful API
+			Path:    MeshEurekaPrefix + "/apps/{serviceName:string}",
 			Method:  "POST",
 			Handler: w.registry,
+		},
+		{
+			Path:    MeshEurekaPrefix + "/apps/{serviceName:string}/{instanceID:string}",
+			Method:  "DELETE",
+			Handler: w.emptyImplement,
+		},
+		{
+			Path:    MeshEurekaPrefix + "/apps/{serviceName:string}/{instanceID:string}",
+			Method:  "PUT",
+			Handler: w.emptyImplement,
+		},
+		{
+			Path:    MeshEurekaPrefix + "/apps",
+			Method:  "GET",
+			Handler: w.apps,
+		},
+		{
+			Path:    MeshEurekaPrefix + "/apps/{serviceName:string}",
+			Method:  "GET",
+			Handler: w.app,
+		},
+		{
+			Path:    MeshEurekaPrefix + "/apps/{serviceName:string}/{instanceID:string}",
+			Method:  "GET",
+			Handler: w.getAppInstance,
+		},
+		{
+			Path:    MeshEurekaPrefix + "/apps/instances/{instanceID:string}",
+			Method:  "GET",
+			Handler: w.getInstance,
+		},
+		{
+			Path:    MeshEurekaPrefix + "/apps/{serviceName:string}/{instanceID:string}/status",
+			Method:  "PUT",
+			Handler: w.emptyImplement,
+		},
+		{
+			Path:    MeshEurekaPrefix + "/apps/{serviceName:string}/{instanceID:string}/status",
+			Method:  "DELETE",
+			Handler: w.emptyImplement,
+		},
+		{
+			Path:    MeshEurekaPrefix + "/apps/{serviceName:string}/{instanceID:string}/metadata",
+			Method:  "PUT",
+			Handler: w.emptyImplement,
+		},
+		{
+			Path:    MeshEurekaPrefix + "/vips/{vipAddress:string}",
+			Method:  "GET",
+			Handler: w.emptyImplement,
+		},
+		{
+			Path:    MeshEurekaPrefix + "/svips/{svipAddress:string}",
+			Method:  "GET",
+			Handler: w.emptyImplement,
 		},
 	}
 
@@ -56,7 +117,7 @@ func (w *Worker) createIngress(service *spec.Service, port uint32) {
 	return
 }
 
-// Registry is a HTTP handler for worker, handling
+// registry is a HTTP handler for worker, handling
 // java business process's Eureka/Consul registry RESTful request
 func (w *Worker) registry(ctx iris.Context) {
 	body, err := ioutil.ReadAll(ctx.Request().Body)
@@ -102,21 +163,111 @@ func (w *Worker) registry(ctx iris.Context) {
 			return
 		}
 	}
+
+	// according to eureka APIs list
+	// https://github.com/Netflix/eureka/wiki/Eureka-REST-operations
+	if w.rcs.RegistryType == spec.RegistryTypeEureka {
+		ctx.StatusCode(http.StatusNoContent)
+	}
 	return
 }
 
-// Discovery is a HTTP handler for worker, handling
-// java business process's Eureka/Consul discovery RESTful request
-func (w *Worker) Discovery(ctx iris.Context) {
-	body, err := ioutil.ReadAll(ctx.Request().Body)
+// apps is a HTTP handler for worker, handling
+// java business process's Eureka discovery RESTful request
+func (w *Worker) apps(ctx iris.Context) {
+	var (
+		err          error
+		serviceInfos []*registrycenter.ServiceRegistryInfo
+	)
+	if serviceInfos, err = w.rcs.Discovery(); err != nil {
+		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
+		return
+	}
+	apps := w.rcs.ToEurekaApps(serviceInfos)
+	buff, err := xml.Marshal(apps)
 	if err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest,
-			fmt.Errorf("discovery read body failed: %v", err))
+		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
-	// [TODO] call registrycenter's discovery implement
-	logger.Debugf("discovery request body [%s]", body)
+	ctx.Header("Content-Type", "text/xml")
+	ctx.Write(buff)
 
+	return
+}
+
+// app is a HTTP handler for worker, handling
+// java business process's Eureka discovery RESTful request
+func (w *Worker) app(ctx iris.Context) {
+	serviceName := ctx.Params().Get("serviceName")
+	if serviceName == "" {
+		api.HandleAPIError(ctx, http.StatusBadRequest, fmt.Errorf("empty service name(app)"))
+		return
+	}
+	var (
+		err         error
+		serviceInfo *registrycenter.ServiceRegistryInfo
+	)
+
+	if serviceInfo, err = w.rcs.DiscoveryService(serviceName); err != nil {
+		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
+	app := w.rcs.ToEurekaApp(serviceInfo)
+	buff, err := xml.Marshal(app)
+	if err != nil {
+		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
+	ctx.Header("Content-Type", "text/xml")
+	ctx.Write(buff)
+
+	return
+}
+
+func (w *Worker) emptyImplement(ctx iris.Context) {
+	// empty implement, easemesh don't need to implement
+	// this eurka API, including, delete, heartbeat
+	return
+}
+
+func (w *Worker) getAppInstance(ctx iris.Context) {
+	serviceName := ctx.Params().Get("serviceName")
+	if serviceName == "" {
+		api.HandleAPIError(ctx, http.StatusBadRequest, fmt.Errorf("empty service name(app)"))
+		return
+	}
+	instanceID := ctx.Params().Get("instanceID")
+	if instanceID == "" {
+		api.HandleAPIError(ctx, http.StatusBadRequest, fmt.Errorf("empty instanceID"))
+		return
+	}
+
+	serviceInfo, err := w.rcs.DiscoveryService(serviceName)
+	if err != nil {
+		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
+	if serviceInfo.Service.Name == serviceName && instanceID == serviceInfo.Ins.InstanceID {
+		ins := w.rcs.ToEurekaInstanceInfo(serviceInfo)
+		buff, err := xml.Marshal(ins)
+		if err != nil {
+			api.HandleAPIError(ctx, http.StatusInternalServerError, err)
+			return
+		}
+		ctx.Header("Content-Type", "text/xml")
+		ctx.Write(buff)
+	}
+
+	ctx.StatusCode(http.StatusNotFound)
+	return
+}
+
+func (w *Worker) getInstance(ctx iris.Context) {
+	// [TODO] all app return the same instance, don't know how to
+	// implement this api here, should check the eureka client's implements
 	return
 }

@@ -44,6 +44,11 @@ func (egs *EgressServer) Get(name string) (protocol.HTTPHandler, bool) {
 	return p, ok
 }
 
+func (egs *EgressServer) createEgress() error {
+
+	return nil
+}
+
 //
 func (egs *EgressServer) createPipeline(reqServiceName string) error {
 	// [TODO]

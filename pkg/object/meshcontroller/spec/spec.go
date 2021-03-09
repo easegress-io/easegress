@@ -15,6 +15,10 @@ const (
 	RegistryTypeConsul = "consul"
 	// RegistryTypeEureka is the eureka registry type.
 	RegistryTypeEureka = "eureka"
+
+	// GlobalTenant is the reserved name of the system scope tenant,
+	// its services can be accessable in mesh wide.
+	GlobalTenant = "global"
 )
 
 var (
@@ -166,7 +170,6 @@ type (
 		InstanceID  string `yaml:"instanceID" jsonschema:"required"`
 		IP          string `yaml:"IP" jsonschema:"required"`
 		Port        uint32 `yaml:"port" jsonschema:"required"`
-		Tenant      string `yaml:"tenat" jsonschema:"required"`
 
 		// Set by heartbeat timer event or API
 		Status       string `yaml:"status" jsonschema:"omitempty"`
@@ -229,9 +232,14 @@ func (s *Service) ToIngressPipelineSpec() (*supervisor.Spec, error) {
 	return supervisor.NewSpec(string(buff))
 }
 
+// EgressAddr formats sidecar's address according to the sidecar spec.
+func (s *Service) EgressAddr() string {
+	return fmt.Sprintf("%s://%s:%d", s.Sidecar.IngressProtocol, s.Sidecar.Address, s.Sidecar.EgressPort)
+}
+
 // ToEgressPipelineSpec will transfer service spec for a engress pipeline
-// about other rely serivce how to request this service. It needs service instance
-// list for fill egress backend filter's IP pool
+// about how other relied serivces request it. It accpets service instances
+// list to fill egress backend filter's IP pool.
 func (s *Service) ToEgressPipelineSpec(insList []*ServiceInstance) (*supervisor.Spec, error) {
 	var pipeline httppipeline.HTTPPipeline
 

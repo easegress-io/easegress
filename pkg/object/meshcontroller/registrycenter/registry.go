@@ -40,14 +40,21 @@ type (
 		RegistryType string
 		registried   bool
 		serviceName  string
+		instanceID   string
 
 		store storage.Storage
 		// notifyIngress chan IngressMsg
 	}
 )
 
-// ErrAlreadyRegistried indicateds this instances has already been registried
-var ErrAlreadyRegistried = fmt.Errorf("serivce already registrired")
+var (
+	// ErrAlreadyRegistried indicates this instance has already been registried
+	ErrAlreadyRegistried = fmt.Errorf("serivce already registrired")
+	// ErrNoRegistriedYet indicates this instance haven't registered successfully yet
+	ErrNoRegistriedYet = fmt.Errorf("serivce not registrired yet")
+	// ErrServiceNotFound indicates could find target service in same tenant or in global tenant
+	ErrServiceNotFound = fmt.Errorf("can't find service in same tenant or in global tenant")
+)
 
 // NewRegistryCenterServer creates a initialized registry center server
 func NewRegistryCenterServer(registryType string, serviceName string, store storage.Storage) *Server {
@@ -55,6 +62,7 @@ func NewRegistryCenterServer(registryType string, serviceName string, store stor
 		RegistryType: registryType,
 		store:        store,
 		serviceName:  serviceName,
+		registried:   false,
 	}
 }
 
@@ -75,7 +83,6 @@ func (rcs *Server) RegistryServiceInstance(ins *spec.ServiceInstance, service *s
 	// change the original Java processing listening port
 	// to siecar ingress port
 	ins.Port = uint32(service.Sidecar.IngressPort)
-	ins.Tenant = service.RegisterTenant
 
 	// registry this instance asynchronously
 	go rcs.registry(ins, fn)
@@ -109,6 +116,7 @@ func (rcs *Server) registry(ins *spec.ServiceInstance, fn func() bool) {
 		}
 
 		rcs.registried = true
+		rcs.instanceID = ins.InstanceID
 		logger.Debugf("service:%s , instanceID:%s, regitry succ, try times:%d", ins.ServiceName, ins.InstanceID, tryTimes)
 		break
 	}
@@ -150,6 +158,7 @@ func (rcs *Server) decodeByEurekaFormat(body []byte) (*spec.ServiceInstance, err
 	)
 
 	if err = xml.Unmarshal(body, eurekaIns); err != nil {
+		logger.Errorf("decode eureka body:%s, failed, err:%v", string(body), err)
 		return ins, err
 	}
 
@@ -194,7 +203,6 @@ func (rcs *Server) registryIntoStore(ins *spec.ServiceInstance) error {
 		logger.Errorf("marshal registry instance:%#v to yaml failed, err:%v", ins, err)
 		return err
 	}
-
 
 	name := layout.ServiceInstanceKey(rcs.serviceName, ins.InstanceID)
 	if err = rcs.store.Put(name, string(buff)); err != nil {
