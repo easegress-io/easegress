@@ -124,6 +124,7 @@ type (
 
 	// ObservabilityTracingDetail is the tracing detail of observability.
 	ObservabilityTracingDetail struct {
+		Enabled       bool   `yaml:"enabled" jsonschema:"required"`
 		ServicePrefix string `yaml:"servicePrefix" jsonschema:"required"`
 	}
 
