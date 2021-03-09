@@ -21,13 +21,14 @@ type Worker struct {
 	superSpec *supervisor.Spec
 	spec      *spec.Admin
 	// handle worker inner logic
-	instanceID  string
-	serviceName string
-	store       storage.Storage
-	rcs         *registrycenter.Server
-	ings        *IngressServer
-	engs        *EgressServer
-	mux         sync.Mutex
+	instanceID          string
+	serviceName         string
+	store               storage.Storage
+	rcs                 *registrycenter.Server
+	ings                *IngressServer
+	engs                *EgressServer
+	observabilityServer *ObservabilityManager
+	mux                 sync.Mutex
 
 	done chan struct{}
 }
@@ -40,6 +41,7 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 	registryCenterServer := registrycenter.NewRegistryCenterServer(spec.RegistryType,
 		serviceName, store)
 	ingressServer := NewIngressServer(super, serviceName)
+	observabilityServer := NewObservabilityServer(serviceName)
 
 	w := &Worker{
 		super:       super,
@@ -48,8 +50,9 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 		store:       store,
 		serviceName: serviceName,
 
-		rcs:  registryCenterServer,
-		ings: ingressServer,
+		rcs:                 registryCenterServer,
+		ings:                ingressServer,
+		observabilityServer: observabilityServer,
 
 		done: make(chan struct{}),
 	}

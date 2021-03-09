@@ -58,13 +58,13 @@ type (
 	}
 
 	listRequestBody struct {
-		Type      JMXRequestOperationType `json:"type"`
-		Mbean     string                  `json:"mbean"`
+		Type  JMXRequestOperationType `json:"type"`
+		Mbean string                  `json:"mbean"`
 	}
 
 	searchRequestBody struct {
-		Type      JMXRequestOperationType `json:"type"`
-		Mbean     string                  `json:"mbean"`
+		Type  JMXRequestOperationType `json:"type"`
+		Mbean string                  `json:"mbean"`
 	}
 
 	JolokiaClient struct {
@@ -114,7 +114,7 @@ func (client *JolokiaClient) handleRequest(requestBody []byte) (*JolokiaResponse
 
 }
 
-func (client *JolokiaClient) execute(requestBody interface{})(interface{}, error) {
+func (client *JolokiaClient) execute(requestBody interface{}) (interface{}, error) {
 	var err error
 	body, err := json.Marshal(requestBody)
 	if err != nil {
@@ -176,11 +176,10 @@ func (client *JolokiaClient) ExecuteMbeanOperation(mbean string, operation strin
 	return result, nil
 }
 
-
 func (client *JolokiaClient) ListMbean(mbean string) (interface{}, error) {
 	requestBody := listRequestBody{
-		Type:      jmxMbeanList,
-		Mbean:     mbean,
+		Type:  jmxMbeanList,
+		Mbean: mbean,
 	}
 
 	result, err := client.execute(requestBody)
@@ -190,11 +189,10 @@ func (client *JolokiaClient) ListMbean(mbean string) (interface{}, error) {
 	return result, nil
 }
 
-
 func (client *JolokiaClient) SearchMbeans(pattern string) (interface{}, error) {
 	requestBody := searchRequestBody{
-		Type:      jmxMbeanSearch,
-		Mbean:     pattern,
+		Type:  jmxMbeanSearch,
+		Mbean: pattern,
 	}
 
 	result, err := client.execute(requestBody)
