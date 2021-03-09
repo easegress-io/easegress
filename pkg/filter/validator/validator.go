@@ -36,6 +36,7 @@ type (
 		headers *httpheader.Validator
 		jwt     *JWTValidator
 		signer  *signer.Signer
+		oauth2  *OAuth2Validator
 	}
 
 	// Spec describes the Validator.
@@ -43,6 +44,7 @@ type (
 		Headers   *httpheader.ValidatorSpec `yaml:"headers,omitempty" jsonschema:"omitempty"`
 		JWT       *JWTValidatorSpec         `yaml:"jwt,omitempty" jsonschema:"omitempty"`
 		Signature *signer.Spec              `yaml:"signature,omitempty" jsonschema:"omitempty"`
+		OAuth2    *OAuth2ValidatorSpec      `yaml:"oauth2,omitempty" jsonschema:"omitempty"`
 	}
 )
 
@@ -92,6 +94,10 @@ func (v *Validator) reload() {
 	if v.spec.Signature != nil {
 		v.signer = signer.CreateFromSpec(v.spec.Signature)
 	}
+
+	if v.spec.OAuth2 != nil {
+		v.oauth2 = NewOAuth2Validator(v.spec.OAuth2)
+	}
 }
 
 // Handle validates HTTPContext.
@@ -121,6 +127,15 @@ func (v *Validator) Handle(ctx context.HTTPContext) string {
 		if err != nil {
 			ctx.Response().SetStatusCode(http.StatusForbidden)
 			ctx.AddTag(stringtool.Cat("signature validator: ", err.Error()))
+			return resultInvalid
+		}
+	}
+
+	if v.oauth2 != nil {
+		err := v.oauth2.Validate(req)
+		if err != nil {
+			ctx.Response().SetStatusCode(http.StatusForbidden)
+			ctx.AddTag(stringtool.Cat("oauth2 validator: ", err.Error()))
 			return resultInvalid
 		}
 	}

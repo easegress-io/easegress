@@ -23,3 +23,9 @@ validator:
     accessKeys:
       AKID: SECRET
     excludeBody: false
+  oauth2:
+    tokenIntrospect:
+      endPoint: https://127.0.0.1:8443/auth/realms/test/protocol/openid-connect/token/introspect
+      clientId: easegateway
+      clientSecret: 42620d18-871d-465f-912a-ebcef17ecb82
+      insecureTls: false
