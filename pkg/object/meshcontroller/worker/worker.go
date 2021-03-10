@@ -41,6 +41,7 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 	registryCenterServer := registrycenter.NewRegistryCenterServer(spec.RegistryType,
 		serviceName, store)
 	ingressServer := NewIngressServer(super, serviceName)
+	egressServer := NewEgressServer(super, serviceName, store)
 	observabilityServer := NewObservabilityServer(serviceName)
 
 	w := &Worker{
@@ -52,6 +53,7 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 
 		rcs:                 registryCenterServer,
 		ings:                ingressServer,
+		egs:                 egressServer,
 		observabilityServer: observabilityServer,
 
 		done: make(chan struct{}),
@@ -149,6 +151,46 @@ func (w *Worker) checkLocalInstanceHeartbeat() error {
 	// on this instance
 
 	return nil
+}
+
+// getSerivceInstances get whole service Instances from store.
+func getSerivceInstances(serviceName string, store storage.Storage) ([]*spec.ServiceInstance, error) {
+	var insList []*spec.ServiceInstance
+
+	insYAMLs, err := store.GetPrefix(layout.ServiceInstancePrefix(serviceName))
+	if err != nil {
+		return insList, err
+	}
+
+	for k, v := range insYAMLs {
+		var ins *spec.ServiceInstance
+		if err = yaml.Unmarshal([]byte(v), ins); err != nil {
+			logger.Errorf("BUG unmarsh service :%s,  instanceID:%s , val:%s failed, err:%v", serviceName, k, v, err)
+			continue
+		}
+		insList = append(insList, ins)
+	}
+
+	return insList, nil
+}
+
+func getService(serviceName string, store storage.Storage) (*spec.Service, error) {
+	var (
+		service *spec.Service
+		err     error
+	)
+	serviceSpec, err := store.Get(layout.ServiceKey(serviceName))
+	if err != nil {
+		logger.Errorf("Get %s ServiceSpec failed, err :%v", serviceName, err)
+		return nil, err
+	}
+
+	err = yaml.Unmarshal([]byte(*serviceSpec), service)
+	if err != nil {
+		logger.Errorf("BUG, unmarshal Service : %s,failed, err : %v", serviceName, err)
+		return nil, err
+	}
+	return service, nil
 }
 
 // watchEvents checks worker's using

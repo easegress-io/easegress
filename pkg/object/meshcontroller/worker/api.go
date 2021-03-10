@@ -128,28 +128,6 @@ func (w *Worker) createEgress(service *spec.Service) {
 	}
 }
 
-// getSerivceInstances get whole service Instances from store.
-func (w *Worker) getSerivceInstances(serviceName string) ([]*spec.ServiceInstance, error) {
-	var insList []*spec.ServiceInstance
-
-	insYAMLs, err := w.store.GetPrefix(layout.ServiceInstancePrefix(serviceName))
-	if err != nil {
-		return insList, err
-	}
-
-	for k, v := range insYAMLs {
-		var ins *spec.ServiceInstance
-		if err = yaml.Unmarshal([]byte(v), ins); err != nil {
-			logger.Errorf("BUG unmarsh service :%s,  instanceID:%s , val:%s failed, err:%v", serviceName, k, v, err)
-			continue
-		}
-		insList = append(insList, ins)
-	}
-
-	return insList, nil
-
-}
-
 // registry is a HTTP handler for worker, handling
 // java business process's Eureka/Consul registry RESTful request
 func (w *Worker) registry(ctx iris.Context) {
@@ -243,19 +221,6 @@ func (w *Worker) app(ctx iris.Context) {
 	if serviceInfo, err = w.rcs.DiscoveryService(serviceName); err != nil {
 		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
 		return
-	}
-
-	// create egress
-	if serviceName != w.serviceName {
-		ins, err := w.getSerivceInstances(serviceName)
-		if err != nil {
-			api.HandleAPIError(ctx, http.StatusInternalServerError, err)
-			return
-		}
-		if err = w.egs.addEgress(serviceInfo.Service, ins); err != nil {
-			api.HandleAPIError(ctx, http.StatusInternalServerError, err)
-			return
-		}
 	}
 
 	app := w.rcs.ToEurekaApp(serviceInfo)

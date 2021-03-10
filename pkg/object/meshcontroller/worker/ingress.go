@@ -24,8 +24,8 @@ type (
 
 		// running EG objects, accept other service instances' traffic
 		// in mesh and hand over to local Java business process
-		Pipelines  map[string]*httppipeline.HTTPPipeline
-		HTTPServer *httpserver.HTTPServer
+		pipelines  map[string]*httppipeline.HTTPPipeline
+		httpServer *httpserver.HTTPServer
 	}
 )
 
@@ -33,36 +33,36 @@ type (
 func NewIngressServer(super *supervisor.Supervisor, serviceName string) *IngressServer {
 	return &IngressServer{
 		super:       super,
-		Pipelines:   make(map[string]*httppipeline.HTTPPipeline),
-		HTTPServer:  nil,
+		pipelines:   make(map[string]*httppipeline.HTTPPipeline),
+		httpServer:  nil,
 		serviceName: serviceName,
 		mux:         sync.RWMutex{},
 	}
 }
 
-// Get gets pipeline object for HTTPServer, it implements HTTPServer's MuxMapper interface
+// Get gets pipeline object for httpServer, it implements httpServer's MuxMapper interface
 func (ings *IngressServer) Get(name string) (protocol.HTTPHandler, bool) {
 	ings.mux.RLock()
 	defer ings.mux.RUnlock()
-	p, ok := ings.Pipelines[name]
+	p, ok := ings.pipelines[name]
 	return p, ok
 }
 
-// Ready checks ingress's pipeline and httpserver
+// Ready checks ingress's pipeline and httpServer
 // are created or not
 func (ings *IngressServer) Ready() bool {
 	ings.mux.RLock()
 	defer ings.mux.RUnlock()
-	_, pipelineReady := ings.Pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)]
+	_, pipelineReady := ings.pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)]
 
-	return pipelineReady && (ings.HTTPServer != nil)
+	return pipelineReady && (ings.httpServer != nil)
 }
 
-// createIngress creates local default pipeline and HTTPServer for ingress
+// createIngress creates local default pipeline and httpServer for ingress
 func (ings *IngressServer) createIngress(service *spec.Service, port uint32) error {
 	ings.mux.Lock()
 	defer ings.mux.Unlock()
-	if _, ok := ings.Pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)]; ok {
+	if _, ok := ings.pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)]; ok {
 		// already been created
 	} else {
 		// gen ingress pipeline default spec
@@ -74,10 +74,10 @@ func (ings *IngressServer) createIngress(service *spec.Service, port uint32) err
 			return err
 		}
 		pipeline.Init(superSpec, ings.super)
-		ings.Pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)] = &pipeline
+		ings.pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)] = &pipeline
 	}
 
-	if ings.HTTPServer != nil {
+	if ings.httpServer != nil {
 		// already been created
 	} else {
 		var httpsvr httpserver.HTTPServer
@@ -88,11 +88,11 @@ func (ings *IngressServer) createIngress(service *spec.Service, port uint32) err
 			return err
 		}
 		httpsvr.Init(superSpec, ings.super)
-		// for HTTPServer get running pipeline at traffic handing, since ingress server don't
-		// call supervisior for creating HTTPServer and HTTPPipeline. Should find pipelines by
+		// for httpServer get running pipeline at traffic handing, since ingress server don't
+		// call supervisior for creating httpServer and HTTPPipeline. Should find pipelines by
 		// using ingress server itself.
 		httpsvr.InjectMuxMapper(ings)
-		ings.HTTPServer = &httpsvr
+		ings.httpServer = &httpsvr
 	}
 
 	return nil
@@ -103,7 +103,7 @@ func (ings *IngressServer) createIngress(service *spec.Service, port uint32) err
 func (ings *IngressServer) UpdatePipeline(newSpec string) error {
 	ings.mux.Lock()
 	defer ings.mux.Unlock()
-	pipeline, ok := ings.Pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)]
+	pipeline, ok := ings.pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)]
 	if !ok {
 		return fmt.Errorf("service :%s's ingress pipeline havn't been created yet", ings.serviceName)
 	}
@@ -116,7 +116,7 @@ func (ings *IngressServer) UpdatePipeline(newSpec string) error {
 	var newPipeline httppipeline.HTTPPipeline
 	// safely close previous generation and create new pipeline
 	newPipeline.Inherit(superSpec, pipeline, ings.super)
-	ings.Pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)] = &newPipeline
+	ings.pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)] = &newPipeline
 
 	return err
 }

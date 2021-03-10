@@ -56,6 +56,10 @@ rules:
 kind: HTTPServer
 name: %s
 port: %d
+rules:
+  - paths:
+    - pathPrefix: / 
+      backend: %s,
 `
 )
 
@@ -213,6 +217,13 @@ func GenEgressHTTPSvrObjectName(serviceName string) string {
 	return name
 }
 
+// GenEgressHTTPProtocolHandlerName generates the Mesh Egress
+// HTTP protocol
+func GenEgressHTTPProtocolHandlerName(serviceName string) string {
+	name := fmt.Sprintf("mesh-egress-%s", serviceName)
+	return name
+}
+
 // ToIngressPipelineSpec will transfer service spec for a ingress pipeline
 // about how to handle inner traffic , between Worker(Sidecar) and
 // java process
@@ -280,7 +291,7 @@ func (s *Service) GenDefaultIngressHTTPServerYAML() string {
 // GenDefaultEgressHTTPServerYAML generates default egress HTTP server with Service's Sidecar spe
 func (s *Service) GenDefaultEgressHTTPServerYAML() string {
 	httpsvcSpec := fmt.Sprintf(DefaultEgressHTTPServerYAML, GenEgressHTTPSvrObjectName(s.Name),
-		s.Sidecar.EgressPort)
+		s.Sidecar.EgressPort, GenEgressHTTPProtocolHandlerName(s.Name))
 
 	return httpsvcSpec
 }
