@@ -41,6 +41,7 @@ type (
 		registried   bool
 		serviceName  string
 		instanceID   string
+		tenant       string
 
 		store storage.Storage
 		// notifyIngress chan IngressMsg
@@ -73,7 +74,8 @@ func (rcs *Server) Registried() bool {
 
 // RegistryServiceInstance changes instance port and tenatn and stores
 // them, it will asynchronously check ingress ready or not
-func (rcs *Server) RegistryServiceInstance(ins *spec.ServiceInstance, service *spec.Service, fn func() bool) (string, error) {
+func (rcs *Server) RegistryServiceInstance(ins *spec.ServiceInstance, service *spec.Service,
+	ingressReady func() bool, egressReady func() bool) (string, error) {
 	// valid the input
 	if rcs.registried == true {
 		// already registried
@@ -85,14 +87,15 @@ func (rcs *Server) RegistryServiceInstance(ins *spec.ServiceInstance, service *s
 	ins.Port = uint32(service.Sidecar.IngressPort)
 
 	// registry this instance asynchronously
-	go rcs.registry(ins, fn)
+	go rcs.registry(ins, service, ingressReady, egressReady)
 
 	return ins.InstanceID, nil
 }
 
 // registry stores serviceInstance record after Ingress successfully create
 // its pipeline and HTTPServer
-func (rcs *Server) registry(ins *spec.ServiceInstance, fn func() bool) {
+func (rcs *Server) registry(ins *spec.ServiceInstance, service *spec.Service,
+	ingressReady func() bool, egressReady func() bool) {
 	var (
 		err      error
 		tryTimes uint64 = 0
@@ -101,8 +104,8 @@ func (rcs *Server) registry(ins *spec.ServiceInstance, fn func() bool) {
 	// level triggered, loop unitl it success
 	for {
 		tryTimes++
-		// check the ingress pipeline and http server object exists
-		if fn() == false {
+		// check the ingress/egress ready or not
+		if ingressReady() == false || egressReady() == false {
 			continue
 		}
 		// set this instance status up
@@ -117,6 +120,7 @@ func (rcs *Server) registry(ins *spec.ServiceInstance, fn func() bool) {
 
 		rcs.registried = true
 		rcs.instanceID = ins.InstanceID
+		rcs.tenant = service.RegisterTenant
 		logger.Debugf("service:%s , instanceID:%s, regitry succ, try times:%d", ins.ServiceName, ins.InstanceID, tryTimes)
 		break
 	}

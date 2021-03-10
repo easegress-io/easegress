@@ -2,6 +2,7 @@ package registrycenter
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/layout"
@@ -15,16 +16,43 @@ var serviceNoFoundFormat = "can't find %s service in tenant :%s and global"
 //  and its instance lists
 type ServiceRegistryInfo struct {
 	Service *spec.Service
-	Ins     *spec.ServiceInstance
+	Ins     *spec.ServiceInstance   // indicates local egress
+	RealIns []*spec.ServiceInstance // trully instance list in mesh
+}
+
+// UniqInstanceID creates a virutal uniq ID for every visible
+// service in mesh
+func UniqInstanceID(serviceName string) string {
+	return fmt.Sprintf("ins-%s-01", serviceName)
+}
+
+// GetServiceName split instanceID by '-' then return second
+// field as the service name
+func GetServiceName(instanceID string) string {
+	names := strings.Split(instanceID, "-")
+
+	if len(names) != 3 {
+		return ""
+	}
+	return names[2]
 }
 
 // defaultInstance creates default egress instance point to the sidecar's egress port
-func (rcs *Server) defaultInstance(serviceName string, service *spec.Service) *spec.ServiceInstance {
+func (rcs *Server) defaultInstance(service *spec.Service) *spec.ServiceInstance {
 	return &spec.ServiceInstance{
-		ServiceName: serviceName,
-		InstanceID:  rcs.instanceID,
+		ServiceName: service.Name,
+		InstanceID:  UniqInstanceID(service.Name),
 		IP:          service.Sidecar.Address,
 		Port:        uint32(service.Sidecar.EgressPort),
+	}
+}
+
+func (rcs *Server) discoverySelf(service *spec.Service) *spec.ServiceInstance {
+	return &spec.ServiceInstance{
+		ServiceName: rcs.serviceName,
+		InstanceID:  UniqInstanceID(rcs.serviceName),
+		IP:          service.Sidecar.Address,
+		Port:        uint32(service.Sidecar.IngressPort),
 	}
 }
 
@@ -75,57 +103,32 @@ func (rcs *Server) getTenants(tenantNames []string) (map[string]*spec.Tenant, er
 	return tenants, err
 }
 
-func (rcs *Server) getBasicInfo() (map[string]*spec.Tenant, *spec.Service, error) {
-	var (
-		err     error
-		tenants map[string]*spec.Tenant = make(map[string]*spec.Tenant)
-		service *spec.Service
-	)
-
-	if rcs.registried == false {
-		logger.Errorf("registry center receive discovery req before it registries successful")
-		return tenants, service, err
-	}
-
-	if service, err = rcs.getService(rcs.serviceName); err != nil {
-		return tenants, service, err
-	}
-
-	if tenants, err = rcs.getTenants([]string{spec.GlobalTenant, service.RegisterTenant}); err != nil {
-		logger.Errorf("get tenants: %vfailed, err:%v ", []string{spec.GlobalTenant, service.RegisterTenant}, err)
-		return tenants, service, err
-	}
-
-	return tenants, service, nil
-}
-
 // DiscoveryService gets one service specs with default instance
 func (rcs *Server) DiscoveryService(serviceName string) (*ServiceRegistryInfo, error) {
 	var serviceInfo *ServiceRegistryInfo
-
 	if rcs.registried == false {
 		return serviceInfo, ErrNoRegistriedYet
 	}
 
-	tenants, service, err := rcs.getBasicInfo()
+	tenants, err := rcs.getTenants([]string{spec.GlobalTenant, rcs.tenant})
 	if err != nil {
 		return serviceInfo, err
 	}
 
+	service, err := rcs.getService(serviceName)
+	if err != nil {
+		return nil, err
+	}
 	// discovery itself
 	if serviceName == rcs.serviceName {
+
 		return &ServiceRegistryInfo{
 			Service: service,
-			Ins:     rcs.defaultInstance(rcs.serviceName, service),
+			Ins:     rcs.discoverySelf(service),
 		}, nil
 	}
 
-	var (
-		inGlobal      bool = false
-		inSameTenant  bool = false
-		targetService *spec.Service
-	)
-
+	var inGlobal bool = false
 	if tenants[spec.GlobalTenant] != nil {
 		for _, v := range tenants[spec.GlobalTenant].ServicesList {
 			if v == serviceName {
@@ -135,31 +138,19 @@ func (rcs *Server) DiscoveryService(serviceName string) (*ServiceRegistryInfo, e
 		}
 	}
 
-	if tenants[service.RegisterTenant] == nil {
-		err = fmt.Errorf("service %s, registered to unknow tenant %s", rcs.serviceName, service.RegisterTenant)
+	if tenants[rcs.tenant] == nil {
+		err = fmt.Errorf("service %s, registered to unknow tenant %s", rcs.serviceName, rcs.tenant)
 		logger.Errorf("%v", err)
 		return serviceInfo, err
-
-	}
-	if !inGlobal {
-		for _, v := range tenants[service.RegisterTenant].ServicesList {
-			if v == serviceName {
-				inSameTenant = true
-				break
-			}
-		}
 	}
 
-	if !inGlobal && !inSameTenant {
+	if !inGlobal && service.RegisterTenant != rcs.tenant {
 		return nil, ErrServiceNotFound
-	}
-	if targetService, err = rcs.getService(serviceName); err != nil {
-		return nil, err
 	}
 
 	return &ServiceRegistryInfo{
-		Service: targetService,
-		Ins:     rcs.defaultInstance(serviceName, service),
+		Service: service,
+		Ins:     rcs.defaultInstance(service),
 	}, nil
 }
 
@@ -168,10 +159,13 @@ func (rcs *Server) DiscoveryService(serviceName string) (*ServiceRegistryInfo, e
 func (rcs *Server) Discovery() ([]*ServiceRegistryInfo, error) {
 	var (
 		serviceInfos    []*ServiceRegistryInfo
-		visableServices []string
+		visibleServices []string
 	)
+	if rcs.registried == false {
+		return serviceInfos, ErrNoRegistriedYet
+	}
 
-	tenants, service, err := rcs.getBasicInfo()
+	tenants, err := rcs.getTenants([]string{spec.GlobalTenant, rcs.tenant})
 	if err != nil {
 		return serviceInfos, err
 	}
@@ -179,31 +173,31 @@ func (rcs *Server) Discovery() ([]*ServiceRegistryInfo, error) {
 	if tenants[spec.GlobalTenant] != nil {
 		for _, v := range tenants[spec.GlobalTenant].ServicesList {
 			if v != rcs.serviceName {
-				visableServices = append(visableServices, v)
+				visibleServices = append(visibleServices, v)
 			}
 		}
 	}
 
-	if tenants[service.RegisterTenant] == nil {
-		err = fmt.Errorf("service %s, registered to unknow tenant %s", rcs.serviceName, service.RegisterTenant)
+	if tenants[rcs.tenant] == nil {
+		err = fmt.Errorf("service %s, registered to unknow tenant %s", rcs.serviceName, rcs.tenant)
 		logger.Errorf("%v", err)
 		return serviceInfos, err
 	} else {
-		for _, v := range tenants[service.RegisterTenant].ServicesList {
+		for _, v := range tenants[rcs.tenant].ServicesList {
 			if v != rcs.serviceName {
-				visableServices = append(visableServices, v)
+				visibleServices = append(visibleServices, v)
 			}
 		}
 	}
 
-	for _, v := range visableServices {
+	for _, v := range visibleServices {
 		if service, err := rcs.getService(v); err != nil {
 			logger.Errorf("worker:%s get service :%s, failed , err:%v", rcs.serviceName, v, err)
 			continue
 		} else {
 			serviceInfos = append(serviceInfos, &ServiceRegistryInfo{
 				Service: service,
-				Ins:     rcs.defaultInstance(service.Name, service),
+				Ins:     rcs.defaultInstance(service),
 			})
 		}
 	}

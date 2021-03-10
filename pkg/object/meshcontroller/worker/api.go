@@ -34,9 +34,8 @@ func (w *Worker) registerAPIs() {
 			Handler: w.registry,
 		},
 
-		// Eureka registry/discovery APIs
+		// Eureka registry/discovery RESTful APIs
 		{
-			// for eureka registry RESTful API
 			Path:    MeshEurekaPrefix + "/apps/{serviceName:string}",
 			Method:  "POST",
 			Handler: w.registry,
@@ -117,6 +116,40 @@ func (w *Worker) createIngress(service *spec.Service, port uint32) {
 	return
 }
 
+func (w *Worker) createEgress(service *spec.Service) {
+	var err error
+	for {
+		if err = w.egs.createEgress(service); err != nil {
+			logger.Errorf("worker create egress failed: %v", err)
+			time.Sleep(1 * time.Second)
+		} else {
+			break
+		}
+	}
+}
+
+// getSerivceInstances get whole service Instances from store.
+func (w *Worker) getSerivceInstances(serviceName string) ([]*spec.ServiceInstance, error) {
+	var insList []*spec.ServiceInstance
+
+	insYAMLs, err := w.store.GetPrefix(layout.ServiceInstancePrefix(serviceName))
+	if err != nil {
+		return insList, err
+	}
+
+	for k, v := range insYAMLs {
+		var ins *spec.ServiceInstance
+		if err = yaml.Unmarshal([]byte(v), ins); err != nil {
+			logger.Errorf("BUG unmarsh service :%s,  instanceID:%s , val:%s failed, err:%v", serviceName, k, v, err)
+			continue
+		}
+		insList = append(insList, ins)
+	}
+
+	return insList, nil
+
+}
+
 // registry is a HTTP handler for worker, handling
 // java business process's Eureka/Consul registry RESTful request
 func (w *Worker) registry(ctx iris.Context) {
@@ -150,9 +183,11 @@ func (w *Worker) registry(ctx iris.Context) {
 		return
 	}
 
-	// asynchronous create ingress
+	// asynchronous create ingress/egress
 	go w.createIngress(&service, ins.Port)
-	if ID, err := w.rcs.RegistryServiceInstance(ins, &service, w.ings.CheckIngressReady); err == nil {
+	go w.createEgress(&service)
+
+	if ID, err := w.rcs.RegistryServiceInstance(ins, &service, w.ings.Ready, w.egs.Ready); err == nil {
 		w.mux.Lock()
 		defer w.mux.Unlock()
 		// let worker know its instance identity
@@ -172,8 +207,6 @@ func (w *Worker) registry(ctx iris.Context) {
 	return
 }
 
-// apps is a HTTP handler for worker, handling
-// java business process's Eureka discovery RESTful request
 func (w *Worker) apps(ctx iris.Context) {
 	var (
 		err          error
@@ -196,8 +229,6 @@ func (w *Worker) apps(ctx iris.Context) {
 	return
 }
 
-// app is a HTTP handler for worker, handling
-// java business process's Eureka discovery RESTful request
 func (w *Worker) app(ctx iris.Context) {
 	serviceName := ctx.Params().Get("serviceName")
 	if serviceName == "" {
@@ -212,6 +243,19 @@ func (w *Worker) app(ctx iris.Context) {
 	if serviceInfo, err = w.rcs.DiscoveryService(serviceName); err != nil {
 		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
 		return
+	}
+
+	// create egress
+	if serviceName != w.serviceName {
+		ins, err := w.getSerivceInstances(serviceName)
+		if err != nil {
+			api.HandleAPIError(ctx, http.StatusInternalServerError, err)
+			return
+		}
+		if err = w.egs.addEgress(serviceInfo.Service, ins); err != nil {
+			api.HandleAPIError(ctx, http.StatusInternalServerError, err)
+			return
+		}
 	}
 
 	app := w.rcs.ToEurekaApp(serviceInfo)
@@ -267,7 +311,29 @@ func (w *Worker) getAppInstance(ctx iris.Context) {
 }
 
 func (w *Worker) getInstance(ctx iris.Context) {
-	// [TODO] all app return the same instance, don't know how to
-	// implement this api here, should check the eureka client's implements
+	instanceID := ctx.Params().Get("instanceID")
+	if instanceID == "" {
+		api.HandleAPIError(ctx, http.StatusBadRequest, fmt.Errorf("empty instanceID"))
+		return
+	}
+	serviceName := registrycenter.GetServiceName(instanceID)
+	if len(serviceName) == 0 {
+		api.HandleAPIError(ctx, http.StatusBadRequest, fmt.Errorf("unknow instanceID:%s", instanceID))
+		return
+	}
+
+	serviceInfo, err := w.rcs.DiscoveryService(serviceName)
+	if err != nil {
+		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
+		return
+	}
+	ins := w.rcs.ToEurekaInstanceInfo(serviceInfo)
+	buff, err := xml.Marshal(ins)
+	if err != nil {
+		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
+		return
+	}
+	ctx.Header("Content-Type", "text/xml")
+	ctx.Write(buff)
 	return
 }

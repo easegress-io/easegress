@@ -48,9 +48,9 @@ func (ings *IngressServer) Get(name string) (protocol.HTTPHandler, bool) {
 	return p, ok
 }
 
-// CheckIngressReady checks ingress's pipeline and httpserver
+// Ready checks ingress's pipeline and httpserver
 // are created or not
-func (ings *IngressServer) CheckIngressReady() bool {
+func (ings *IngressServer) Ready() bool {
 	ings.mux.RLock()
 	defer ings.mux.RUnlock()
 	_, pipelineReady := ings.Pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)]

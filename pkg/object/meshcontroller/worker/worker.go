@@ -26,7 +26,7 @@ type Worker struct {
 	store               storage.Storage
 	rcs                 *registrycenter.Server
 	ings                *IngressServer
-	engs                *EgressServer
+	egs                 *EgressServer
 	observabilityServer *ObservabilityManager
 	mux                 sync.Mutex
 
