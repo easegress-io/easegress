@@ -36,7 +36,7 @@ type Worker struct {
 // New creates a mesh worker.
 func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 	spec := superSpec.ObjectSpec().(*spec.Admin)
-	serviceName := option.Global.Labels["mesh_servicename"]
+	serviceName := option.Global.Labels["mesh-servicename"]
 	store := storage.New(superSpec.Name(), super.Cluster())
 	registryCenterServer := registrycenter.NewRegistryCenterServer(spec.RegistryType,
 		serviceName, store)

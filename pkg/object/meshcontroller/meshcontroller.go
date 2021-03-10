@@ -70,25 +70,20 @@ func (mc *MeshController) Inherit(spec *supervisor.Spec,
 }
 
 func (mc *MeshController) reload() {
-	role := option.Global.Labels["mesh_role"]
-	switch role {
-	case meshRoleMaster:
+	//using mesh-servicename filed to judge whethe
+	service := option.Global.Labels["mesh-servicename"]
+
+	if len(service) == 0 {
 		logger.Infof("%s running in master role", mc.superSpec.Name())
 		mc.role = meshRoleMaster
-	case meshRoleWorker:
-		logger.Infof("%s running in worker role", mc.superSpec.Name())
-		mc.role = meshRoleWorker
-	default:
-		logger.Infof("%s running in master role (default mode)", mc.superSpec.Name())
-		mc.role = meshRoleMaster
-	}
-
-	if mc.role == meshRoleMaster {
 		mc.master = master.New(mc.superSpec, mc.super)
 		return
 	}
 
+	logger.Infof("%s running in worker role", mc.superSpec.Name())
+	mc.role = meshRoleWorker
 	mc.worker = worker.New(mc.superSpec, mc.super)
+	return
 }
 
 // Status returns the status of MeshController.
