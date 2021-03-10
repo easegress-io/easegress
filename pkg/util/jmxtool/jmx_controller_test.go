@@ -2,8 +2,8 @@ package jmxtool
 
 import (
 	"fmt"
+	"github.com/fatih/structs"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
-	"strconv"
 	"testing"
 )
 
@@ -66,7 +66,10 @@ func TestExecuteMbeanOperation(t *testing.T) {
 		BootstrapServer: "128.0.0.1",
 	}
 
-	observabilityTracingDetail := spec.ObservabilityTracingDetail{ServicePrefix: "agent"}
+	observabilityTracingDetail := spec.ObservabilityTracingDetail{
+		Enabled:       true,
+		ServicePrefix: "agent",
+	}
 
 	observability.Tracing = &spec.ObservabilityTracing{
 		Topic:        "KAFKA",
@@ -93,15 +96,7 @@ func TestExecuteMbeanOperation(t *testing.T) {
 		Kafka:          observabilityMetricDetail,
 	}
 
-	m := make(map[string]string)
-	m["outputserver.enabled"] = strconv.FormatBool(observability.OutputServer.Enabled)
-	m["outputserver.bootstrapserver"] = observability.OutputServer.BootstrapServer
-	m["tracing.topic"] = observability.Tracing.Topic
-	m["outputserver.sampledbyqps"] = strconv.Itoa(observability.Tracing.SampledByQPS)
-	m["outputserver.tracing.kafka.serviceprefix"] = observability.Tracing.Kafka.ServicePrefix
-	m["outputserver.Metric.Rabbit.Enabled"] = strconv.FormatBool(observability.Metric.Rabbit.Enabled)
-	m["outputserver.Metric.Rabbit.Interval"] = strconv.Itoa(observability.Metric.Rabbit.Interval)
-	m["outputserver.Metric.Rabbit.Topic"] = observability.Metric.Rabbit.Topic
+	m := structs.Map(observability)
 
 	args := []interface{}{m}
 	operation, err := client.ExecuteMbeanOperation("com.easeagent.jmx:type=SystemConfig", "updateConfigs", args)
