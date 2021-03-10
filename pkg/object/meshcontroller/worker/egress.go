@@ -123,7 +123,6 @@ func (egs *EgressServer) createHTTPServer(service *spec.Service) error {
 // Handle handles all egress traffic and route to desired
 // pipeline according to the "mesh_rpc_service" field in header
 func (egs *EgressServer) Handle(ctx context.HTTPContext) {
-
 	serviceName := ctx.Request().Header().Get(egressRPCKey)
 
 	if len(serviceName) == 0 {
@@ -134,29 +133,32 @@ func (egs *EgressServer) Handle(ctx context.HTTPContext) {
 	}
 
 	egs.mux.Lock()
-	defer egs.mux.Unlock()
 	pipeline, ok := egs.pipelines[serviceName]
 
 	// create one pipeline
 	if !ok {
 		service, err := getService(serviceName, egs.store)
 		if err != nil {
+			egs.mux.Unlock()
 			ctx.Response().SetStatusCode(http.StatusInternalServerError)
 			return
 		}
 		ins, err := getSerivceInstances(serviceName, egs.store)
 		if err != nil {
+			egs.mux.Unlock()
 			ctx.Response().SetStatusCode(http.StatusInternalServerError)
 			return
 		}
 		if err = egs.addEgress(service, ins); err != nil {
+			egs.mux.Unlock()
 			ctx.Response().SetStatusCode(http.StatusInternalServerError)
 			return
 		}
 		pipeline = egs.pipelines[serviceName]
 	}
 
-	go pipeline.Handle(ctx)
+	egs.mux.Unlock()
+	pipeline.Handle(ctx)
 
 	return
 }
