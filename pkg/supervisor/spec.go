@@ -43,7 +43,7 @@ func NewSpec(yamlConfig string) (*Spec, error) {
 	}
 	vr := v.Validate(meta, []byte(yamlConfig))
 	if !vr.Valid() {
-		return nil, fmt.Errorf("validate failed: \n%s", vr)
+		return nil, fmt.Errorf("validate metadata failed: \n%s", vr)
 	}
 
 	rootObject, exists := objectRegistry[meta.Kind]
@@ -59,7 +59,7 @@ func NewSpec(yamlConfig string) (*Spec, error) {
 	}
 	vr = v.Validate(s.objectSpec, []byte(yamlConfig))
 	if !vr.Valid() {
-		return nil, fmt.Errorf("validate failed: \n%s", vr)
+		return nil, fmt.Errorf("validate spec failed: \n%s", vr)
 	}
 
 	return s, nil

@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/megaease/easegateway/pkg/util/jsontool"
+
 	yamljsontool "github.com/ghodss/yaml"
 	genjs "github.com/megaease/jsonschema"
 	loadjs "github.com/xeipuuv/gojsonschema"
-
-	"github.com/megaease/easegateway/pkg/util/jsontool"
 )
 
 type (
