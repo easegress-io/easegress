@@ -119,6 +119,13 @@ func (egs *EgressServer) GetPipeline(serviceName string) (*httppipeline.HTTPPipe
 
 	egs.mux.Lock()
 	defer egs.mux.Unlock()
+	// double check, in case other goroutine has
+	// create the pipeline already
+	pipeline, ok := egs.pipelines[serviceName]
+	if ok {
+		return pipeline, nil
+	}
+
 	// create one pipeline
 	service, err := getService(serviceName, egs.store)
 	if err != nil {
