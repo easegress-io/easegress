@@ -17,7 +17,7 @@ import (
 
 var errEgressHTTPServerNotExist = fmt.Errorf("egress http server not exist")
 
-const egressRPCKey = "mesh_rpc_service"
+const egressRPCKey = "X-MESH-RPC-SERVICE"
 
 type (
 	// EgressServer handle egress traffic gate
@@ -115,32 +115,35 @@ func (egs *EgressServer) UpdatePipeline(service *spec.Service, ins []*spec.Servi
 // GetPipeline gets one local pipeline, if it not exist locally but can be discovried,
 // create it.
 func (egs *EgressServer) GetPipeline(serviceName string) (*httppipeline.HTTPPipeline, error) {
+	egs.mux.RLock()
+	pipeline, ok := egs.pipelines[serviceName]
+	egs.mux.RUnlock()
+	if ok {
+		return pipeline, nil
+	}
+
 	egs.mux.Lock()
 	defer egs.mux.Unlock()
-	pipeline, ok := egs.pipelines[serviceName]
-
 	// create one pipeline
-	if !ok {
-		service, err := getService(serviceName, egs.store)
-		if err != nil {
-			return nil, err
-		}
-
-		ins, err := getSerivceInstances(serviceName, egs.store)
-		if err != nil {
-			return nil, err
-		}
-		if err = egs.addPipeline(service, ins); err != nil {
-			return nil, err
-		}
-		pipeline = egs.pipelines[serviceName]
+	service, err := getService(serviceName, egs.store)
+	if err != nil {
+		return nil, err
 	}
+
+	ins, err := getSerivceInstances(serviceName, egs.store)
+	if err != nil {
+		return nil, err
+	}
+	if err = egs.addPipeline(service, ins); err != nil {
+		return nil, err
+	}
+	pipeline = egs.pipelines[serviceName]
 
 	return pipeline, nil
 }
 
 // Handle handles all egress traffic and route to desired
-// pipeline according to the "mesh_rpc_service" field in header
+// pipeline according to the "X-MESH-RPC-SERVICE" field in header
 func (egs *EgressServer) Handle(ctx context.HTTPContext) {
 	serviceName := ctx.Request().Header().Get(egressRPCKey)
 
