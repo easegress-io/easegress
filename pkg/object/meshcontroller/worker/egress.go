@@ -87,22 +87,17 @@ func (egs *EgressServer) addPipeline(service *spec.Service, ins []*spec.ServiceI
 	}
 
 	if egs.pipelines[service.Name] == nil {
-		if err := egs.createPipeline(service, ins); err != nil {
+		var pipeline httppipeline.HTTPPipeline
+		superSpec, err := service.ToEgressPipelineSpec(ins)
+		if err != nil {
+			logger.Errorf("serivce :%#v, with instances :%#v create pipeline spec failed,err:%v ",
+				service, ins, err)
 			return err
 		}
-	}
-	return nil
-}
 
-func (egs *EgressServer) createPipeline(service *spec.Service, ins []*spec.ServiceInstance) error {
-	var pipeline httppipeline.HTTPPipeline
-	superSpec, err := service.ToEgressPipelineSpec(ins)
-	if err != nil {
-		return err
+		pipeline.Init(superSpec, egs.super)
+		egs.pipelines[service.Name] = &pipeline
 	}
-
-	pipeline.Init(superSpec, egs.super)
-	egs.pipelines[service.Name] = &pipeline
 	return nil
 }
 
