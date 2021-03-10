@@ -34,10 +34,13 @@ func (rcs *Server) ToEurekaApp(serviceInfo *ServiceRegistryInfo) *eureka.Applica
 // ToEurekaApps transfors registry center's serivce info to eureka's apps
 func (rcs *Server) ToEurekaApps(serviceInfos []*ServiceRegistryInfo) *eureka.Applications {
 	var apps eureka.Applications
+	delta := "" // according to eureka's client populateInstanceCountMap function
 	for _, v := range serviceInfos {
 		app := rcs.ToEurekaApp(v)
+		delta += eureka.UP + "_1_"
 		apps.Applications = append(apps.Applications, *app)
 	}
+	apps.AppsHashcode = delta
 
 	return &apps
 }

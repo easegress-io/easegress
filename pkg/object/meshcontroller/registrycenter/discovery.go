@@ -10,14 +10,11 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-var serviceNoFoundFormat = "can't find %s service in tenant :%s and global"
-
-// ServiceRegistryInfo contains service spec,
-//  and its instance lists
+// ServiceRegistryInfo contains service's spec,
+//  and its instance, which is the sidecar+egress port address
 type ServiceRegistryInfo struct {
 	Service *spec.Service
-	Ins     *spec.ServiceInstance   // indicates local egress
-	RealIns []*spec.ServiceInstance // trully instance list in mesh
+	Ins     *spec.ServiceInstance // indicates local egress
 }
 
 // UniqInstanceID creates a virutal uniq ID for every visible
@@ -44,15 +41,6 @@ func (rcs *Server) defaultInstance(service *spec.Service) *spec.ServiceInstance 
 		InstanceID:  UniqInstanceID(service.Name),
 		IP:          service.Sidecar.Address,
 		Port:        uint32(service.Sidecar.EgressPort),
-	}
-}
-
-func (rcs *Server) discoverySelf(service *spec.Service) *spec.ServiceInstance {
-	return &spec.ServiceInstance{
-		ServiceName: rcs.serviceName,
-		InstanceID:  UniqInstanceID(rcs.serviceName),
-		IP:          service.Sidecar.Address,
-		Port:        uint32(service.Sidecar.IngressPort),
 	}
 }
 
@@ -122,14 +110,6 @@ func (rcs *Server) DiscoveryService(serviceName string) (*ServiceRegistryInfo, e
 	service, err := rcs.getService(serviceName)
 	if err != nil {
 		return nil, err
-	}
-	// discovery itself
-	if serviceName == rcs.serviceName {
-
-		return &ServiceRegistryInfo{
-			Service: service,
-			Ins:     rcs.discoverySelf(service),
-		}, nil
 	}
 
 	var inGlobal bool = false

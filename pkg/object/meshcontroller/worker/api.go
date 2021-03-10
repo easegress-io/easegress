@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"bytes"
 	"encoding/xml"
 	"fmt"
 	"io/ioutil"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"github.com/kataras/iris"
+	"google.golang.org/protobuf/internal/encoding/json"
 	"gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegateway/pkg/api"
@@ -21,17 +23,35 @@ const (
 	// MeshPrefix is the mesh prefix.
 	MeshPrefix = "/mesh"
 
+	// MeshConsulPrefix is the mesh  consul registry center prefix.
+	MeshConsulPrefix = "/mesh/registry/consul"
+
 	// MeshEurekaPrefix is the mesh eureka registry center prefix.
 	MeshEurekaPrefix = "/mesh/registry/eureka"
 )
 
 func (w *Worker) registerAPIs() {
 	meshWorkerAPIs := []*api.APIEntry{
+		// for consul registry/discovery RESTful APIs
 		{
-			// for consule put RESTful API
-			Path:    MeshPrefix,
+			Path:    MeshConsulPrefix + "v1/catalog/register",
 			Method:  "PUT",
 			Handler: w.registry,
+		},
+		{
+			Path:    MeshConsulPrefix + "v1/catalog/deregister",
+			Method:  "DELETE",
+			Handler: w.emptyImplement,
+		},
+		{
+			Path:    MeshConsulPrefix + "v1/catalog/services",
+			Method:  "GET",
+			Handler: w.catalogServices,
+		},
+		{
+			Path:    MeshConsulPrefix + "v1/catalog/service/{serviceName:string}",
+			Method:  "GET",
+			Handler: w.catalogService,
 		},
 
 		// Eureka registry/discovery RESTful APIs
@@ -182,6 +202,59 @@ func (w *Worker) registry(ctx iris.Context) {
 	if w.rcs.RegistryType == spec.RegistryTypeEureka {
 		ctx.StatusCode(http.StatusNoContent)
 	}
+	return
+}
+
+func (w *Worker) catalogServices(ctx iris.Context) {
+	var (
+		err          error
+		serviceInfos []*registrycenter.ServiceRegistryInfo
+	)
+	if serviceInfos, err = w.rcs.Discovery(); err != nil {
+		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
+		return
+	}
+	catalogServices := w.rcs.ToConsulCatalogServices(serviceInfos)
+
+	buf := bytes.NewBuffer(nil)
+	enc := json.NewEncoder(buf)
+	if err := enc.Encode(catalogServices); err != nil {
+		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
+	ctx.Header("Content-Type", "text/xml")
+	ctx.Write(buff)
+	return
+}
+
+func (w *Worker) catalogService(ctx iris.Context) {
+	serviceName := ctx.Params().Get("serviceName")
+	if serviceName == "" {
+		api.HandleAPIError(ctx, http.StatusBadRequest, fmt.Errorf("empty service name"))
+		return
+	}
+	var (
+		err         error
+		serviceInfo *registrycenter.ServiceRegistryInfo
+	)
+
+	if serviceInfo, err = w.rcs.DiscoveryService(serviceName); err != nil {
+		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
+	catalogService := w.rcs.ToConsulCatalogService(serviceInfo)
+
+	buf := bytes.NewBuffer(nil)
+	enc := json.NewEncoder(buf)
+	if err := enc.Encode(catalogServices); err != nil {
+		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
+	ctx.Header("Content-Type", "text/xml")
+	ctx.Write(buff)
 	return
 }
 

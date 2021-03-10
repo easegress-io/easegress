@@ -70,7 +70,7 @@ func (rcs *Server) RegistryServiceInstance(ins *spec.ServiceInstance, service *s
 	// valid the input
 	if rcs.registried == true {
 		// already registried
-		return "", ErrAlreadyRegistried
+		return "", spec.ErrAlreadyRegistried
 	}
 
 	// change the original Java processing listening port
