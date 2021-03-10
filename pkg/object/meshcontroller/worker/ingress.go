@@ -58,8 +58,8 @@ func (ings *IngressServer) Ready() bool {
 	return pipelineReady && (ings.httpServer != nil)
 }
 
-// createIngress creates local default pipeline and httpServer for ingress
-func (ings *IngressServer) createIngress(service *spec.Service, port uint32) error {
+// CreateIngress creates local default pipeline and httpServer for ingress
+func (ings *IngressServer) CreateIngress(service *spec.Service, port uint32) error {
 	ings.mux.Lock()
 	defer ings.mux.Unlock()
 	if _, ok := ings.pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)]; ok {

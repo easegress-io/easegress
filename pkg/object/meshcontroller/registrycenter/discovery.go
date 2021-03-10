@@ -68,6 +68,10 @@ func (rcs *Server) getService(serviceName string) (*spec.Service, error) {
 		return nil, err
 	}
 
+	if len(*serviceSpec) == 0 {
+		return nil, spec.ErrServiceNotFound
+	}
+
 	err = yaml.Unmarshal([]byte(*serviceSpec), service)
 	if err != nil {
 		logger.Errorf("BUG, unmarshal Service : %s,failed, err : %v", rcs.serviceName, err)
@@ -107,7 +111,7 @@ func (rcs *Server) getTenants(tenantNames []string) (map[string]*spec.Tenant, er
 func (rcs *Server) DiscoveryService(serviceName string) (*ServiceRegistryInfo, error) {
 	var serviceInfo *ServiceRegistryInfo
 	if rcs.registried == false {
-		return serviceInfo, ErrNoRegistriedYet
+		return serviceInfo, spec.ErrNoRegistriedYet
 	}
 
 	tenants, err := rcs.getTenants([]string{spec.GlobalTenant, rcs.tenant})
@@ -145,7 +149,7 @@ func (rcs *Server) DiscoveryService(serviceName string) (*ServiceRegistryInfo, e
 	}
 
 	if !inGlobal && service.RegisterTenant != rcs.tenant {
-		return nil, ErrServiceNotFound
+		return nil, spec.ErrServiceNotFound
 	}
 
 	return &ServiceRegistryInfo{
@@ -162,7 +166,7 @@ func (rcs *Server) Discovery() ([]*ServiceRegistryInfo, error) {
 		visibleServices []string
 	)
 	if rcs.registried == false {
-		return serviceInfos, ErrNoRegistriedYet
+		return serviceInfos, spec.ErrNoRegistriedYet
 	}
 
 	tenants, err := rcs.getTenants([]string{spec.GlobalTenant, rcs.tenant})

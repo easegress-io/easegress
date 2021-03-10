@@ -185,6 +185,10 @@ func getService(serviceName string, store storage.Storage) (*spec.Service, error
 		return nil, err
 	}
 
+	if len(*serviceSpec) == 0 {
+		return nil, spec.ErrServiceNotFound
+	}
+
 	err = yaml.Unmarshal([]byte(*serviceSpec), service)
 	if err != nil {
 		logger.Errorf("BUG, unmarshal Service : %s,failed, err : %v", serviceName, err)

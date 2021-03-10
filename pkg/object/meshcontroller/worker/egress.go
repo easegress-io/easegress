@@ -52,14 +52,22 @@ func (egs *EgressServer) Get(name string) (protocol.HTTPHandler, bool) {
 	return egs, true
 }
 
-func (egs *EgressServer) createEgress(service *spec.Service) error {
+// CreateEgress creates a default Egress HTTPServer
+func (egs *EgressServer) CreateEgress(service *spec.Service) error {
 	egs.mux.Lock()
 	defer egs.mux.Unlock()
 
 	if egs.httpServer == nil {
-		if err := egs.createHTTPServer(service); err != nil {
+		var httpsvr httpserver.HTTPServer
+		httpsvrSpec := service.GenDefaultEgressHTTPServerYAML()
+		superSpec, err := supervisor.NewSpec(httpsvrSpec)
+		if err != nil {
+			logger.Errorf("BUG, gen egress httpsvr spec :%s , new super spec failed:%v", httpsvrSpec, err)
 			return err
 		}
+		httpsvr.Init(superSpec, egs.super)
+		httpsvr.InjectMuxMapper(egs)
+		egs.httpServer = &httpsvr
 	}
 	return nil
 }
@@ -72,11 +80,7 @@ func (egs *EgressServer) Ready() bool {
 	return egs.httpServer != nil
 }
 
-func (egs *EgressServer) addEgress(service *spec.Service, ins []*spec.ServiceInstance) error {
-	if service.Name == egs.serviceName {
-		return nil
-	}
-
+func (egs *EgressServer) addPipeline(service *spec.Service, ins []*spec.ServiceInstance) error {
 	if egs.httpServer == nil {
 		logger.Errorf("egress, add one service :%s before create egress successfully", service.Name)
 		return errEgressHTTPServerNotExist
@@ -87,11 +91,9 @@ func (egs *EgressServer) addEgress(service *spec.Service, ins []*spec.ServiceIns
 			return err
 		}
 	}
-
 	return nil
 }
 
-//
 func (egs *EgressServer) createPipeline(service *spec.Service, ins []*spec.ServiceInstance) error {
 	var pipeline httppipeline.HTTPPipeline
 	superSpec, err := service.ToEgressPipelineSpec(ins)
@@ -104,20 +106,37 @@ func (egs *EgressServer) createPipeline(service *spec.Service, ins []*spec.Servi
 	return nil
 }
 
-func (egs *EgressServer) createHTTPServer(service *spec.Service) error {
+// UpdatePipeline updates a local pipeline according to the informer
+func (egs *EgressServer) UpdatePipeline(service *spec.Service, ins []*spec.ServiceInstance) error {
+	// [TODO]
+	return nil
+}
+
+// GetPipeline gets one local pipeline, if it not exist locally but can be discovried,
+// create it.
+func (egs *EgressServer) GetPipeline(serviceName string) (*httppipeline.HTTPPipeline, error) {
 	egs.mux.Lock()
 	defer egs.mux.Unlock()
-	var httpsvr httpserver.HTTPServer
-	httpsvrSpec := service.GenDefaultEgressHTTPServerYAML()
-	superSpec, err := supervisor.NewSpec(httpsvrSpec)
-	if err != nil {
-		logger.Errorf("BUG, gen egress httpsvr spec :%s , new super spec failed:%v", httpsvrSpec, err)
-		return err
+	pipeline, ok := egs.pipelines[serviceName]
+
+	// create one pipeline
+	if !ok {
+		service, err := getService(serviceName, egs.store)
+		if err != nil {
+			return nil, err
+		}
+
+		ins, err := getSerivceInstances(serviceName, egs.store)
+		if err != nil {
+			return nil, err
+		}
+		if err = egs.addPipeline(service, ins); err != nil {
+			return nil, err
+		}
+		pipeline = egs.pipelines[serviceName]
 	}
-	httpsvr.Init(superSpec, egs.super)
-	httpsvr.InjectMuxMapper(egs)
-	egs.httpServer = &httpsvr
-	return nil
+
+	return pipeline, nil
 }
 
 // Handle handles all egress traffic and route to desired
@@ -132,32 +151,18 @@ func (egs *EgressServer) Handle(ctx context.HTTPContext) {
 		return
 	}
 
-	egs.mux.Lock()
-	pipeline, ok := egs.pipelines[serviceName]
-
-	// create one pipeline
-	if !ok {
-		service, err := getService(serviceName, egs.store)
-		if err != nil {
-			egs.mux.Unlock()
+	pipeline, err := egs.GetPipeline(serviceName)
+	if err != nil {
+		if err == spec.ErrServiceNotFound {
+			logger.Errorf("egress handle rpc unknow service:%s", serviceName)
+			ctx.Response().SetStatusCode(http.StatusNotFound)
+		} else {
+			logger.Errorf("egress handle rpc service:%s, get pipeline failed:%v", serviceName, err)
 			ctx.Response().SetStatusCode(http.StatusInternalServerError)
-			return
 		}
-		ins, err := getSerivceInstances(serviceName, egs.store)
-		if err != nil {
-			egs.mux.Unlock()
-			ctx.Response().SetStatusCode(http.StatusInternalServerError)
-			return
-		}
-		if err = egs.addEgress(service, ins); err != nil {
-			egs.mux.Unlock()
-			ctx.Response().SetStatusCode(http.StatusInternalServerError)
-			return
-		}
-		pipeline = egs.pipelines[serviceName]
+		return
 	}
 
-	egs.mux.Unlock()
 	pipeline.Handle(ctx)
 
 	return

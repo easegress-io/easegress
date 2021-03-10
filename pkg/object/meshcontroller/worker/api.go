@@ -105,7 +105,7 @@ func (w *Worker) registerAPIs() {
 func (w *Worker) createIngress(service *spec.Service, port uint32) {
 	var err error
 	for {
-		if err = w.ings.createIngress(service, port); err != nil {
+		if err = w.ings.CreateIngress(service, port); err != nil {
 			logger.Errorf("worker create ingress failed: %v", err)
 			time.Sleep(1 * time.Second)
 		} else {
@@ -119,7 +119,7 @@ func (w *Worker) createIngress(service *spec.Service, port uint32) {
 func (w *Worker) createEgress(service *spec.Service) {
 	var err error
 	for {
-		if err = w.egs.createEgress(service); err != nil {
+		if err = w.egs.CreateEgress(service); err != nil {
 			logger.Errorf("worker create egress failed: %v", err)
 			time.Sleep(1 * time.Second)
 		} else {
@@ -171,7 +171,7 @@ func (w *Worker) registry(ctx iris.Context) {
 		// let worker know its instance identity
 		w.instanceID = ID
 	} else {
-		if err != registrycenter.ErrAlreadyRegistried {
+		if err != spec.ErrAlreadyRegistried {
 			api.HandleAPIError(ctx, http.StatusInternalServerError, err)
 			return
 		}

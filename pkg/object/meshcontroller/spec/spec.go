@@ -24,6 +24,12 @@ const (
 var (
 	// ErrParamNotMatch means RESTful request URL's object name or other fields are not matched in this request's body
 	ErrParamNotMatch = fmt.Errorf("param in url and body's spec not matched")
+	// ErrAlreadyRegistried indicates this instance has already been registried
+	ErrAlreadyRegistried = fmt.Errorf("serivce already registrired")
+	// ErrNoRegistriedYet indicates this instance haven't registered successfully yet
+	ErrNoRegistriedYet = fmt.Errorf("serivce not registrired yet")
+	// ErrServiceNotFound indicates could find target service in same tenant or in global tenant
+	ErrServiceNotFound = fmt.Errorf("can't find service in same tenant or in global tenant")
 
 	// DefaultIngressPipelineYAML is the default yaml config of ingress pipeline
 	DefaultIngressPipelineYAML = `

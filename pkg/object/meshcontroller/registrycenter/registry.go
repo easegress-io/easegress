@@ -48,15 +48,6 @@ type (
 	}
 )
 
-var (
-	// ErrAlreadyRegistried indicates this instance has already been registried
-	ErrAlreadyRegistried = fmt.Errorf("serivce already registrired")
-	// ErrNoRegistriedYet indicates this instance haven't registered successfully yet
-	ErrNoRegistriedYet = fmt.Errorf("serivce not registrired yet")
-	// ErrServiceNotFound indicates could find target service in same tenant or in global tenant
-	ErrServiceNotFound = fmt.Errorf("can't find service in same tenant or in global tenant")
-)
-
 // NewRegistryCenterServer creates a initialized registry center server
 func NewRegistryCenterServer(registryType string, serviceName string, store storage.Storage) *Server {
 	return &Server{
