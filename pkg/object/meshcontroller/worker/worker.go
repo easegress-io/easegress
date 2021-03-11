@@ -80,7 +80,7 @@ func (w *Worker) run() {
 	}
 
 	if len(w.serviceName) == 0 {
-		logger.Errorf("mesh servie name is empty!")
+		logger.Errorf("mesh service name is empty!")
 		return
 	}
 
@@ -140,6 +140,8 @@ func (w *Worker) checkLocalInstanceHeartbeat() error {
 			alive = true
 		} else {
 			alive = false
+			logger.Errorf("worker check heartbeat without HTTP 200, serviceName:%s, instancdID:%s, probeURL:%s, statuscode:%d",
+				w.serviceName, w.instanceID, w.aliveProbe, resp.StatusCode)
 		}
 	}
 
