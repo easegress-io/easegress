@@ -46,6 +46,10 @@ type (
 		store storage.Storage
 		// notifyIngress chan IngressMsg
 	}
+
+	// Ready is a function to check Ingress/Egress ready for work
+	// or not
+	Ready func() bool
 )
 
 // NewRegistryCenterServer creates a initialized registry center server
@@ -66,7 +70,7 @@ func (rcs *Server) Registried() bool {
 // RegistryServiceInstance changes instance port and tenatn and stores
 // them, it will asynchronously check ingress ready or not
 func (rcs *Server) RegistryServiceInstance(ins *spec.ServiceInstance, service *spec.Service,
-	ingressReady func() bool, egressReady func() bool) (string, error) {
+	ingressReady Ready, egressReady Ready) (string, error) {
 	// valid the input
 	if rcs.registried == true {
 		// already registried
@@ -86,7 +90,7 @@ func (rcs *Server) RegistryServiceInstance(ins *spec.ServiceInstance, service *s
 // registry stores serviceInstance record after Ingress successfully create
 // its pipeline and HTTPServer
 func (rcs *Server) registry(ins *spec.ServiceInstance, service *spec.Service,
-	ingressReady func() bool, egressReady func() bool) {
+	ingressReady Ready, egressReady Ready) {
 	var (
 		err      error
 		tryTimes uint64 = 0

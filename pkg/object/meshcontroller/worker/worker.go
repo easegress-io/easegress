@@ -1,6 +1,8 @@
 package worker
 
 import (
+	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,6 +25,7 @@ type Worker struct {
 	// handle worker inner logic
 	instanceID          string
 	serviceName         string
+	aliveProbe          string
 	store               storage.Storage
 	rcs                 *registrycenter.Server
 	ings                *IngressServer
@@ -37,6 +40,7 @@ type Worker struct {
 func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 	spec := superSpec.ObjectSpec().(*spec.Admin)
 	serviceName := option.Global.Labels["mesh-servicename"]
+	aliveProbe := option.Global.Labels["alive-probe"]
 	store := storage.New(superSpec.Name(), super.Cluster())
 	registryCenterServer := registrycenter.NewRegistryCenterServer(spec.RegistryType,
 		serviceName, store)
@@ -50,6 +54,7 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 		spec:        spec,
 		store:       store,
 		serviceName: serviceName,
+		aliveProbe:  aliveProbe,
 
 		rcs:                 registryCenterServer,
 		ings:                ingressServer,
@@ -76,6 +81,11 @@ func (w *Worker) run() {
 
 	if len(w.serviceName) == 0 {
 		logger.Errorf("mesh servie name is empty!")
+		return
+	}
+
+	if len(w.aliveProbe) == 0 || strings.HasPrefix(w.aliveProbe, "http://") {
+		logger.Errorf("mesh worker alive check probe :[%s] is invalide!", w.aliveProbe)
 		return
 	}
 
@@ -114,11 +124,25 @@ func (w *Worker) heartbeat(interval time.Duration, done chan struct{}) {
 
 }
 
-// checkLocalInstanceHeartbeat communicates with Java process locally and check its health.
+// checkLocalInstanceHeartbeat using alive-probe URL to check
+// local Java process's alive, then update local instance's hearbeat.
 func (w *Worker) checkLocalInstanceHeartbeat() error {
 	var alive bool
+	resp, err := http.Get(w.aliveProbe)
+	if err != nil {
+		logger.Errorf("worker check service %s, instanceID :%s, heartbeat failed, probe url :%s, err :%v",
+			w.serviceName, w.instanceID, w.aliveProbe, err)
+		alive = false
+	} else {
+		if resp.StatusCode == http.StatusOK {
+			logger.Infof("worker check heartbeat succ, serviceName:%s, instancdID:%s, probeURL:%s",
+				w.serviceName, w.instanceID, w.aliveProbe)
+			alive = true
+		} else {
+			alive = false
+		}
+	}
 
-	//[TODO] call Java process agent with JMX, check it alive
 	if alive == true {
 		heartBeatYAML, err := w.store.Get(layout.ServiceHeartbeatKey(w.serviceName, w.instanceID))
 		if err != nil {

@@ -2,6 +2,7 @@ package worker
 
 import (
 	"bytes"
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"io/ioutil"
@@ -9,7 +10,6 @@ import (
 	"time"
 
 	"github.com/kataras/iris"
-	"google.golang.org/protobuf/internal/encoding/json"
 	"gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegateway/pkg/api"
@@ -214,17 +214,17 @@ func (w *Worker) catalogServices(ctx iris.Context) {
 		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
 		return
 	}
-	catalogServices := w.rcs.ToConsulCatalogServices(serviceInfos)
+	catalogServices := w.rcs.ToConsulServices(serviceInfos)
 
-	buf := bytes.NewBuffer(nil)
-	enc := json.NewEncoder(buf)
+	buff := bytes.NewBuffer(nil)
+	enc := json.NewEncoder(buff)
 	if err := enc.Encode(catalogServices); err != nil {
 		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
 	ctx.Header("Content-Type", "text/xml")
-	ctx.Write(buff)
+	ctx.Write(buff.Bytes())
 	return
 }
 
@@ -246,15 +246,15 @@ func (w *Worker) catalogService(ctx iris.Context) {
 
 	catalogService := w.rcs.ToConsulCatalogService(serviceInfo)
 
-	buf := bytes.NewBuffer(nil)
-	enc := json.NewEncoder(buf)
-	if err := enc.Encode(catalogServices); err != nil {
+	buff := bytes.NewBuffer(nil)
+	enc := json.NewEncoder(buff)
+	if err := enc.Encode(catalogService); err != nil {
 		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
 	ctx.Header("Content-Type", "text/xml")
-	ctx.Write(buff)
+	ctx.Write(buff.Bytes())
 	return
 }
 
