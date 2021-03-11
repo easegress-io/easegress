@@ -104,6 +104,24 @@ func (egs *EgressServer) addPipeline(service *spec.Service, ins []*spec.ServiceI
 // UpdatePipeline updates a local pipeline according to the informer
 func (egs *EgressServer) UpdatePipeline(service *spec.Service, ins []*spec.ServiceInstanceSpec) error {
 	// [TODO]
+	egs.mux.Lock()
+	defer egs.mux.Unlock()
+
+	pipeline, ok := egs.pipelines[service.Name]
+	if !ok {
+		return fmt.Errorf("service :%s's egress pipeline havn't been created yet", service.Name)
+	}
+
+	superSpec, err := service.ToEgressPipelineSpec(ins)
+	if err != nil {
+		logger.Errorf("BUG, update egress pipeline servcie:%#v ,ins:%#v, failed:%v", service, ins, err)
+		return err
+	}
+	var newPipeline httppipeline.HTTPPipeline
+	// safely close previous generation and create new pipeline
+	newPipeline.Inherit(superSpec, pipeline, egs.super)
+	egs.pipelines[service.Name] = &newPipeline
+
 	return nil
 }
 
