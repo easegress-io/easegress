@@ -103,7 +103,6 @@ func (egs *EgressServer) addPipeline(service *spec.Service, ins []*spec.ServiceI
 
 // UpdatePipeline updates a local pipeline according to the informer
 func (egs *EgressServer) UpdatePipeline(service *spec.Service, ins []*spec.ServiceInstanceSpec) error {
-	// [TODO]
 	egs.mux.Lock()
 	defer egs.mux.Unlock()
 
