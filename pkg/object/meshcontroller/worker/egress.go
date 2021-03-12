@@ -80,7 +80,7 @@ func (egs *EgressServer) Ready() bool {
 	return egs.httpServer != nil
 }
 
-func (egs *EgressServer) addPipeline(service *spec.Service, ins []*spec.ServiceInstance) error {
+func (egs *EgressServer) addPipeline(service *spec.Service, ins []*spec.ServiceInstanceSpec) error {
 	if egs.httpServer == nil {
 		logger.Errorf("egress, add one service :%s before create egress successfully", service.Name)
 		return errEgressHTTPServerNotExist
@@ -102,7 +102,7 @@ func (egs *EgressServer) addPipeline(service *spec.Service, ins []*spec.ServiceI
 }
 
 // UpdatePipeline updates a local pipeline according to the informer
-func (egs *EgressServer) UpdatePipeline(service *spec.Service, ins []*spec.ServiceInstance) error {
+func (egs *EgressServer) UpdatePipeline(service *spec.Service, ins []*spec.ServiceInstanceSpec) error {
 	// [TODO]
 	return nil
 }

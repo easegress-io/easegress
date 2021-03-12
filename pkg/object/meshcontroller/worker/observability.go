@@ -11,11 +11,15 @@ const (
 	easeAgentConfigManager = "com.megaease.easeagent:type=ConfigManager"
 )
 
-type ObservabilityManager struct {
-	serviceName   string
-	jolokiaClient *jmxtool.JolokiaClient
-}
+type (
+	// ObservabilityManager is the manager for observability.
+	ObservabilityManager struct {
+		serviceName   string
+		jolokiaClient *jmxtool.JolokiaClient
+	}
+)
 
+// NewObservabilityServer creates an ObservabilityServer.
 func NewObservabilityServer(serviceName string) *ObservabilityManager {
 	client := jmxtool.NewJolokiaClient("localhost", "8778", "jolokia")
 	return &ObservabilityManager{
@@ -24,6 +28,7 @@ func NewObservabilityServer(serviceName string) *ObservabilityManager {
 	}
 }
 
+// UpdateObservability updates observability.
 func (server *ObservabilityManager) UpdateObservability(serviceName string, newObservability *spec.Observability) error {
 	paramsMap := structs.Map(newObservability)
 	args := []interface{}{paramsMap}

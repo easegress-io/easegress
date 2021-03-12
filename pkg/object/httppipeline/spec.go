@@ -71,7 +71,11 @@ func newFilterSpecInternal(spec map[string]interface{}) (*FilterSpec, error) {
 		return nil, fmt.Errorf("unmarshal failed: %v", err)
 	}
 
-	v.Validate(s.filterSpec, []byte(yamlConfig))
+	vr := v.Validate(s.filterSpec, []byte(yamlConfig))
+	if !vr.Valid() {
+		return nil, fmt.Errorf("%v", vr.Error())
+	}
+
 	return s, nil
 }
 

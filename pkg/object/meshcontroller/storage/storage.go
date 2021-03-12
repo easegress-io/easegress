@@ -7,17 +7,6 @@ import (
 	"github.com/megaease/easegateway/pkg/logger"
 )
 
-const (
-	ServiceSpecFormat = "/mesh/services/%s/spec" // +serviceName
-
-	ServiceInstancePrefixFormat    = "/mesh/services/%s/instances"    // +serviceName
-	ServiceInstanceFormat          = "/mesh/services/%s/instances/%s" // +serviceName +instanceID
-	ServiceInstanceHeartbeatFormat = "/mesh/services/%s/heartbeat/%s" // +serviceName +instanceID
-
-	TenantFormat = "/mesh/tenants/%s" // +tenantName
-	TenantPrefix = "/mesh/tenants"
-)
-
 type (
 	// Storage is the interface to contain storage APIs.
 	Storage interface {

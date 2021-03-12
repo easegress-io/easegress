@@ -5,42 +5,66 @@ import (
 )
 
 const (
-	serviceSpecFormat = "/mesh/services/%s/spec" // +serviceName
+	serviceSpecPrefix = "/mesh/service-spec/"
+	serviceSpec       = "/mesh/service-spec/%s" // +serviceName
 
-	serviceInstancePrefixFormat    = "/mesh/services/%s/instances"    // +serviceName
-	serviceInstanceFormat          = "/mesh/services/%s/instances/%s" // +serviceName +instanceID
-	serviceInstanceHeartbeatFormat = "/mesh/services/%s/heartbeat/%s" // +serviceName +instanceID
+	allServiceInstanceSpecPrefix   = "/mesh/service-instances/spec/"
+	allServiceInstanceStatusPrefix = "/mesh/service-instances/status/"
+	serviceInstanceSpecPrefix      = "/mesh/service-instances/spec/%s/"     // +serviceName
+	serviceInstanceStatusPrefix    = "/mesh/service-instances/status/%s/"   // +serviceName
+	serviceInstanceSpec            = "/mesh/service-instances/spec/%s/%s"   // +serviceName +instanceID
+	serviceInstanceStatus          = "/mesh/service-instances/status/%s/%s" // +serviceName +instanceID
 
-	tenantFormat = "/mesh/tenants/%s" // +tenantName
-	tenantPrefix = "/mesh/tenants"
+	tenant       = "/mesh/tenants/%s" // +tenantName
+	tenantPrefix = "/mesh/tenants/"
 )
 
-// ServiceKey returns serivce key.
-func ServiceKey(serviceName string) string {
-	return fmt.Sprintf(serviceSpecFormat, serviceName)
+// ServiceSpecPrefix returns the prefix of service.
+func ServiceSpecPrefix() string {
+	return serviceSpecPrefix
 }
 
-// ServiceInstanceKey returns service instance key.
-func ServiceInstanceKey(serviceName, instanceID string) string {
-	return fmt.Sprintf(serviceInstanceFormat, serviceName, instanceID)
+// ServiceSpecKey returns the key of service spec.
+func ServiceSpecKey(serviceName string) string {
+	return fmt.Sprintf(serviceSpec, serviceName)
 }
 
-// ServiceInstancePrefix returns prefix of the serivce instances.
-func ServiceInstancePrefix(serviceName string) string {
-	return fmt.Sprintf(serviceInstancePrefixFormat, serviceName)
+// ServiceInstanceSpecKey returns the key of service instance spec.
+func ServiceInstanceSpecKey(serviceName, instanceID string) string {
+	return fmt.Sprintf(serviceInstanceSpec, serviceName, instanceID)
 }
 
-// ServiceHeartbeatKey returns service instance hearbeat key.
-func ServiceHeartbeatKey(serviceName, instanceID string) string {
-	return fmt.Sprintf(serviceInstanceFormat, serviceName, instanceID)
+// ServiceInstanceStatusKey returns the key of service instance status.
+func ServiceInstanceStatusKey(serviceName, instanceID string) string {
+	return fmt.Sprintf(serviceInstanceStatus, serviceName, instanceID)
 }
 
-// TenantKey returns tenant key.
-func TenantKey(tenant string) string {
-	return fmt.Sprintf(tenantFormat, tenant)
+// ServiceInstanceSpecPrefix returns the prefix of serivce instance specs.
+func ServiceInstanceSpecPrefix(serviceName string) string {
+	return fmt.Sprintf(serviceInstanceSpecPrefix, serviceName)
 }
 
-// TenantPrefix returns tenant prefix.
+// ServiceInstanceStatusPrefix returns the prefix of serivce instance statuses.
+func ServiceInstanceStatusPrefix(serviceName string) string {
+	return fmt.Sprintf(serviceInstanceStatusPrefix, serviceName)
+}
+
+// AllServiceInstanceSpecPrefix returns the prefix of all service instance specs.
+func AllServiceInstanceSpecPrefix() string {
+	return allServiceInstanceSpecPrefix
+}
+
+// AllServiceInstanceStatusPrefix returns the prefix of all service instance statuses.
+func AllServiceInstanceStatusPrefix() string {
+	return allServiceInstanceStatusPrefix
+}
+
+// TenantSpecKey returns the key of tenant spec.
+func TenantSpecKey(t string) string {
+	return fmt.Sprintf(tenant, t)
+}
+
+// TenantPrefix returns the prefix of tenant.
 func TenantPrefix() string {
 	return tenantPrefix
 }

@@ -114,7 +114,7 @@ func (w *Worker) heartbeat(interval time.Duration, done chan struct{}) {
 			// only check after worker registry itself successfully
 			if w.rcs.Registried() {
 				if err := w.checkLocalInstanceHeartbeat(); err != nil {
-					logger.Errorf("worker check local instance heartbeat failed, err :%v", err)
+					logger.Errorf("worker check local instance heartbeat failed: %v", err)
 				}
 			}
 		case <-done:
@@ -144,30 +144,28 @@ func (w *Worker) checkLocalInstanceHeartbeat() error {
 	}
 
 	if alive == true {
-		heartBeatYAML, err := w.store.Get(layout.ServiceHeartbeatKey(w.serviceName, w.instanceID))
+		value, err := w.store.Get(layout.ServiceInstanceStatusKey(w.serviceName, w.instanceID))
 		if err != nil {
-			logger.Errorf("get serivce %s, instace :%s , heartbeat failed, err : %v",
-				w.serviceName, w.instanceID, err)
+			logger.Errorf("get serivce %s/%s failed: %v", w.serviceName, w.instanceID, err)
 			return err
 		}
 
-		var heartbeat spec.Heartbeat
-		if heartBeatYAML != nil {
-			if err := yaml.Unmarshal([]byte(*heartBeatYAML), &heartbeat); err != nil {
-				logger.Errorf("BUG: unmarsh service :%s, heartbeat :%s, failed, err %s",
-					w.serviceName, *heartBeatYAML, err)
+		status := &spec.ServiceInstanceStatus{}
+		if value != nil {
+			if err := yaml.Unmarshal([]byte(*value), status); err != nil {
+				logger.Errorf("BUG: unmarshal %s to yaml failed: %s", *value, err)
 				return err
 			}
 		}
 		var buff []byte
-		heartbeat.LastActiveTime = time.Now().Unix()
-		if buff, err = yaml.Marshal(&heartbeat); err != nil {
-			logger.Errorf("BUG: marsh service :%s, heartbeat :%v, failed, err %s",
-				w.serviceName, heartbeat, err)
+		status.LastHeartbeatTime = time.Now().Format(time.RFC3339)
+		if buff, err = yaml.Marshal(status); err != nil {
+			logger.Errorf("BUG: marshal %#v to yaml failed: %v",
+				w.serviceName, status, err)
 			return err
 		}
 
-		return w.store.Put(layout.ServiceHeartbeatKey(w.serviceName, w.instanceID), string(buff))
+		return w.store.Put(layout.ServiceInstanceStatusKey(w.serviceName, w.instanceID), string(buff))
 	}
 
 	// do nothing, master will notice this irregular
@@ -178,18 +176,18 @@ func (w *Worker) checkLocalInstanceHeartbeat() error {
 }
 
 // getSerivceInstances get whole service Instances from store.
-func getSerivceInstances(serviceName string, store storage.Storage) ([]*spec.ServiceInstance, error) {
-	var insList []*spec.ServiceInstance
+func getSerivceInstances(serviceName string, store storage.Storage) ([]*spec.ServiceInstanceSpec, error) {
+	var insList []*spec.ServiceInstanceSpec
 
-	insYAMLs, err := store.GetPrefix(layout.ServiceInstancePrefix(serviceName))
+	insYAMLs, err := store.GetPrefix(layout.ServiceInstanceSpecPrefix(serviceName))
 	if err != nil {
 		return insList, err
 	}
 
-	for k, v := range insYAMLs {
-		var ins *spec.ServiceInstance
+	for _, v := range insYAMLs {
+		var ins *spec.ServiceInstanceSpec
 		if err = yaml.Unmarshal([]byte(v), ins); err != nil {
-			logger.Errorf("BUG unmarsh service :%s,  instanceID:%s , val:%s failed, err:%v", serviceName, k, v, err)
+			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
 			continue
 		}
 		insList = append(insList, ins)
@@ -203,9 +201,9 @@ func getService(serviceName string, store storage.Storage) (*spec.Service, error
 		service *spec.Service
 		err     error
 	)
-	serviceSpec, err := store.Get(layout.ServiceKey(serviceName))
+	serviceSpec, err := store.Get(layout.ServiceSpecKey(serviceName))
 	if err != nil {
-		logger.Errorf("Get %s ServiceSpec failed, err :%v", serviceName, err)
+		logger.Errorf("get %s failed: %v", serviceName, err)
 		return nil, err
 	}
 
@@ -215,7 +213,7 @@ func getService(serviceName string, store storage.Storage) (*spec.Service, error
 
 	err = yaml.Unmarshal([]byte(*serviceSpec), service)
 	if err != nil {
-		logger.Errorf("BUG, unmarshal Service : %s,failed, err : %v", serviceName, err)
+		logger.Errorf("BUG: unmarshal %s to yaml failed: %v", serviceName, err)
 		return nil, err
 	}
 	return service, nil

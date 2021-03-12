@@ -3,10 +3,8 @@ package master
 import (
 	"fmt"
 	"io/ioutil"
-	"net/http"
 
 	"github.com/megaease/easegateway/pkg/api"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
 	"github.com/megaease/easegateway/pkg/v"
 
 	"github.com/kataras/iris"
@@ -17,119 +15,82 @@ const (
 	// MeshPrefix is the mesh prefix.
 	MeshPrefix = "/mesh"
 
-	// MeshServicePrefix is the mesh service prefix
-	MeshServicePrefix = MeshPrefix + "/services/{serviceName:string}"
+	// MeshTenantPrefix is the mesh tenant prefix.
+	MeshTenantPrefix = "/mesh/tenants"
 
-	// MeshRegistryPrefix is the mesh service registry prefix
-	MeshRegistryPrefix = MeshPrefix + "/registry/{serviceName:string}/{instanceID:string}"
+	// MeshTenantPath is the mesh tenant path.
+	MeshTenantPath = "/mesh/tenants/{tenantName:string}"
 
-	// MeshTenantPrefix is the mesh tenant prefix
-	MeshTenantPrefix = MeshPrefix + "/tenant/{tenantName:string}"
+	// MeshServicePrefix is mesh service prefix.
+	MeshServicePrefix = "/mesh/services"
+
+	// MeshServicePath is the mesh service path.
+	MeshServicePath = "/mesh/services/{serviceName:string}"
+
+	// MeshServiceCanaryPath is the mesh service canary path.
+	MeshServiceCanaryPath = "/mesh/services/{serviceName:string}/canary"
+
+	// MeshServiceLoadBalancePath is the mesh service load balance path.
+	MeshServiceLoadBalancePath = "/mesh/services/{serviceName:string}/loadbalance"
+
+	// MeshServiceOutputServerPath is the mesh service output server path.
+	MeshServiceOutputServerPath = "/mesh/services/{serviceName:string}/outputserver"
+
+	// MeshServiceTracingsPath is the mesh service tracings path.
+	MeshServiceTracingsPath = "/mesh/services/{serviceName:string}/tracings"
+
+	// MeshServiceMetricsPath is the mesh service metrics path.
+	MeshServiceMetricsPath = "/mesh/services/{serviceName:string}/metrics"
+
+	// MeshServiceInstancePrefix is the mesh service prefix.
+	MeshServiceInstancePrefix = "/mesh/serviceinstances"
+
+	// MeshServiceInstancePath is the mesh service path.
+	MeshServiceInstancePath = "/mesh/serviceinstances/{serviceName:string}/{instanceID:string}"
 )
 
 func (m *Master) registerAPIs() {
 	meshAPIs := []*api.APIEntry{
-		{
-			Path:    MeshServicePrefix,
-			Method:  "GET",
-			Handler: m.getServiceList,
-		},
-		{
-			Path:    MeshServicePrefix,
-			Method:  "POST",
-			Handler: m.createService,
-		},
-		{
-			Path:    MeshServicePrefix,
-			Method:  "PUT",
-			Handler: m.updateService,
-		},
-		{
-			Path:    MeshServicePrefix,
-			Method:  "DELETE",
-			Handler: m.deleteService,
-		},
-		{
-			Path:    MeshServicePrefix + "/canary",
-			Method:  "GET",
-			Handler: m.getCanary,
-		},
-		{
-			Path:    MeshServicePrefix + "/canary",
-			Method:  "POST",
-			Handler: m.createCanary,
-		},
-		{
-			Path:    MeshServicePrefix + "/canary",
-			Method:  "PUT",
-			Handler: m.updateCanary,
-		},
-		{
-			Path:    MeshServicePrefix + "/canary",
-			Method:  "DELETE",
-			Handler: m.deleteCanary,
-		},
-		{
-			Path:    MeshServicePrefix + "/loadbalance",
-			Method:  "GET",
-			Handler: m.getLoadBalance,
-		},
-		{
-			Path:    MeshServicePrefix + "/canary",
-			Method:  "POST",
-			Handler: m.createLoadBalance,
-		},
-		{
-			Path:    MeshServicePrefix + "/canary",
-			Method:  "PUT",
-			Handler: m.updateLoadBalance,
-		},
-		{
-			Path:    MeshServicePrefix + "/canary",
-			Method:  "DELETE",
-			Handler: m.deleteLoadBalance,
-		},
-		{
-			Path:    MeshRegistryPrefix,
-			Method:  "DELETE",
-			Handler: m.deleteServiceInstance,
-		},
-		{
-			Path:    MeshRegistryPrefix,
-			Method:  "GET",
-			Handler: m.getSerivceInstanceList,
-		},
-		{
-			Path:    MeshRegistryPrefix,
-			Method:  "PUT",
-			Handler: m.updateSerivceInstanceLeases,
-		},
-		{
-			Path:    MeshRegistryPrefix,
-			Method:  "PUT",
-			Handler: m.updateSerivceInstanceStatus,
-		},
-		{
-			Path:    MeshTenantPrefix,
-			Method:  "GET",
-			Handler: m.getTenant,
-		},
+		{Path: MeshTenantPrefix, Method: "GET", Handler: m.listTenants},
+		{Path: MeshTenantPath, Method: "POST", Handler: m.createTenant},
+		{Path: MeshTenantPath, Method: "GET", Handler: m.getTenant},
+		{Path: MeshTenantPath, Method: "PUT", Handler: m.updateTenant},
+		{Path: MeshTenantPath, Method: "DELETE", Handler: m.deleteTenant},
 
-		{
-			Path:    MeshServicePrefix + "/observability/metric",
-			Method:  "PUT",
-			Handler: m.updateObservabilityMetric,
-		},
-		{
-			Path:    MeshServicePrefix + "/observability/tracing",
-			Method:  "PUT",
-			Handler: m.updateObservabilityTracing,
-		},
-		{
-			Path:    MeshServicePrefix + "/observability/outputServer",
-			Method:  "PUT",
-			Handler: m.updateObservabilityOutputServer,
-		},
+		{Path: MeshServicePrefix, Method: "GET", Handler: m.listServices},
+		{Path: MeshServicePath, Method: "POST", Handler: m.createService},
+		{Path: MeshServicePath, Method: "GET", Handler: m.getService},
+		{Path: MeshServicePath, Method: "PUT", Handler: m.updateService},
+		{Path: MeshServicePath, Method: "DELETE", Handler: m.deleteService},
+
+		{Path: MeshServiceInstancePrefix, Method: "GET", Handler: m.listServiceInstanceSpecs},
+		{Path: MeshServiceInstancePath, Method: "GET", Handler: m.getServiceInstanceSpec},
+		{Path: MeshServiceInstancePath, Method: "DELETE", Handler: m.offlineSerivceInstance},
+
+		{Path: MeshServiceCanaryPath, Method: "POST", Handler: m.createPartOfService(canaryMeta)},
+		{Path: MeshServiceCanaryPath, Method: "GET", Handler: m.getPartOfService(canaryMeta)},
+		{Path: MeshServiceCanaryPath, Method: "PUT", Handler: m.updatePartOfService(canaryMeta)},
+		{Path: MeshServiceCanaryPath, Method: "DELETE", Handler: m.deletePartOfService(canaryMeta)},
+
+		{Path: MeshServiceLoadBalancePath, Method: "POST", Handler: m.createPartOfService(loadBalanceMeta)},
+		{Path: MeshServiceLoadBalancePath, Method: "GET", Handler: m.getPartOfService(loadBalanceMeta)},
+		{Path: MeshServiceLoadBalancePath, Method: "PUT", Handler: m.updatePartOfService(loadBalanceMeta)},
+		{Path: MeshServiceLoadBalancePath, Method: "DELETE", Handler: m.deletePartOfService(loadBalanceMeta)},
+
+		{Path: MeshServiceOutputServerPath, Method: "POST", Handler: m.createPartOfService(outputServerMeta)},
+		{Path: MeshServiceOutputServerPath, Method: "GET", Handler: m.getPartOfService(outputServerMeta)},
+		{Path: MeshServiceOutputServerPath, Method: "PUT", Handler: m.updatePartOfService(outputServerMeta)},
+		{Path: MeshServiceOutputServerPath, Method: "DELETE", Handler: m.deletePartOfService(outputServerMeta)},
+
+		{Path: MeshServiceTracingsPath, Method: "POST", Handler: m.createPartOfService(tracingsMeta)},
+		{Path: MeshServiceTracingsPath, Method: "GET", Handler: m.getPartOfService(tracingsMeta)},
+		{Path: MeshServiceTracingsPath, Method: "PUT", Handler: m.updatePartOfService(tracingsMeta)},
+		{Path: MeshServiceTracingsPath, Method: "DELETE", Handler: m.deletePartOfService(tracingsMeta)},
+
+		{Path: MeshServiceMetricsPath, Method: "POST", Handler: m.createPartOfService(metricsMeta)},
+		{Path: MeshServiceMetricsPath, Method: "GET", Handler: m.getPartOfService(metricsMeta)},
+		{Path: MeshServiceMetricsPath, Method: "PUT", Handler: m.updatePartOfService(metricsMeta)},
+		{Path: MeshServiceMetricsPath, Method: "DELETE", Handler: m.deletePartOfService(metricsMeta)},
 	}
 
 	api.GlobalServer.RegisterAPIs(meshAPIs)
@@ -149,656 +110,21 @@ func (m *Master) storageUnlock() {
 	}
 }
 
-func (m *Master) readServiceName(ctx iris.Context) (string, error) {
-	serviceName := ctx.Params().Get("serviceName")
-	if serviceName == "" {
-		return "", fmt.Errorf("empty service name")
-	}
-
-	return serviceName, nil
-}
-
-func (m *Master) readSpec(ctx iris.Context, spec interface{}) (string, interface{}, error) {
-	serviceName, err := m.readServiceName(ctx)
-	if err != nil {
-		return "", nil, err
-	}
-
+func (m *Master) readSpec(ctx iris.Context, spec interface{}) error {
 	body, err := ioutil.ReadAll(ctx.Request().Body)
 	if err != nil {
-		return "", nil, fmt.Errorf("read body failed: %v", err)
+		return fmt.Errorf("read body failed: %v", err)
 	}
 
 	err = yaml.Unmarshal(body, spec)
 	if err != nil {
-		return "", nil, fmt.Errorf("unmarshal %#v to yaml: %v", spec, err)
+		return fmt.Errorf("unmarshal %#v to yaml: %v", spec, err)
 	}
 
 	vr := v.Validate(spec, body)
 	if !vr.Valid() {
-		return "", nil, fmt.Errorf("validate failed: \n%s", vr)
+		return fmt.Errorf("validate failed: \n%s", vr)
 	}
 
-	return serviceName, spec, err
-}
-
-func (m *Master) _getServiceSpec(serviceName string) *spec.Service {
-	service, err := m.service.GetService(serviceName)
-	if err != nil {
-		api.ClusterPanic(err)
-	}
-	return service
-}
-
-func (m *Master) _putServiceSpec(serviceSpec *spec.Service) {
-	err := m.service.UpdateServiceSpec(serviceSpec)
-	if err != nil {
-		api.ClusterPanic(err)
-	}
-}
-
-func (m *Master) getServiceList(ctx iris.Context) {
-	serviceName, err := m.readServiceName(ctx)
-	if err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
-		return
-	}
-
-	svcList, err := m.service.GetServiceList(serviceName)
-	if err != nil {
-		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
-		return
-	}
-
-	buff, err := yaml.Marshal(svcList)
-	if err != nil {
-		api.HandleAPIError(ctx, http.StatusInternalServerError,
-			fmt.Errorf("marshal %#v to yaml failed: %v", svcList, err))
-		return
-	}
-	ctx.Header("Content-Type", "text/vnd.yaml")
-	ctx.Write(buff)
-
-}
-
-func (m *Master) createService(ctx iris.Context) {
-	serviceSpec := &spec.Service{}
-
-	serviceName, _spec, err := m.readSpec(ctx, serviceSpec)
-	if err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
-		return
-	}
-	_, ok := _spec.(*spec.Service)
-	if !ok {
-		panic(fmt.Errorf("want *spec.Service, got %T", _spec))
-	}
-
-	oldService := m._getServiceSpec(serviceName)
-	if oldService != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest,
-			fmt.Errorf("service %s already exists", serviceName))
-		return
-	}
-
-	m.storageLock()
-	defer m.storageUnlock()
-
-	err = m.service.CreateService(serviceSpec)
-	if err != nil {
-		api.ClusterPanic(err)
-	}
-
-	ctx.Header("Location", ctx.Path())
-	ctx.StatusCode(http.StatusCreated)
-}
-
-func (m *Master) updateService(ctx iris.Context) {
-
-	serviceSpec := &spec.Service{}
-	_, _spec, err := m.readSpec(ctx, serviceSpec)
-	if err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
-		return
-	}
-	_, ok := _spec.(*spec.Service)
-	if !ok {
-		panic(fmt.Errorf("want *spec.Service, got %T", _spec))
-	}
-
-	m.storageLock()
-	defer m.storageUnlock()
-
-	m._putServiceSpec(serviceSpec)
-	ctx.StatusCode(http.StatusOK)
-}
-
-func (m *Master) deleteService(ctx iris.Context) {
-	serviceName, err := m.readServiceName(ctx)
-	if err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
-		return
-	}
-
-	m.storageLock()
-	defer m.storageUnlock()
-
-	err = m.service.DeleteService(serviceName)
-	if err != nil {
-		api.ClusterPanic(err)
-	}
-	ctx.StatusCode(http.StatusOK)
-
-}
-
-func (m *Master) getCanary(ctx iris.Context) {
-	serviceName, err := m.readServiceName(ctx)
-	if err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
-		return
-	}
-
-	// NOTE: No need to lock.
-	serviceSpec := m._getServiceSpec(serviceName)
-	if serviceSpec == nil {
-		api.HandleAPIError(ctx, http.StatusNotFound,
-			fmt.Errorf("service %s not found", serviceName))
-		return
-	}
-
-	if serviceSpec.Canary == nil {
-		api.HandleAPIError(ctx, http.StatusNotFound,
-			fmt.Errorf("canary of service %s not found", serviceName))
-		return
-	}
-
-	buff, err := yaml.Marshal(serviceSpec.Canary)
-	if err != nil {
-		panic(err)
-	}
-	ctx.Header("Content-Type", "text/vnd.yaml")
-	ctx.Write(buff)
-}
-
-func (m *Master) createCanary(ctx iris.Context) {
-	canarySpec := &spec.Canary{}
-
-	serviceName, _spec, err := m.readSpec(ctx, canarySpec)
-	if err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
-		return
-	}
-	canary, ok := _spec.(*spec.Canary)
-	if !ok {
-		panic(fmt.Errorf("want *spec.Canary, got %T", _spec))
-	}
-
-	m.storageLock()
-	defer m.storageUnlock()
-
-	serviceSpec := m._getServiceSpec(serviceName)
-	if serviceSpec == nil {
-		api.HandleAPIError(ctx, http.StatusNotFound,
-			fmt.Errorf("service %s not found", serviceName))
-		return
-	}
-
-	if serviceSpec.Canary != nil {
-		api.HandleAPIError(ctx, http.StatusConflict,
-			fmt.Errorf("canary of service %s already exited", serviceName))
-		return
-	}
-
-	serviceSpec.Canary = canary
-	m._putServiceSpec(serviceSpec)
-
-	ctx.Header("Location", ctx.Path())
-	ctx.StatusCode(http.StatusCreated)
-}
-
-func (m *Master) updateCanary(ctx iris.Context) {
-	canarySpec := &spec.Canary{}
-
-	serviceName, _spec, err := m.readSpec(ctx, canarySpec)
-	if err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
-		return
-	}
-	canary, ok := _spec.(*spec.Canary)
-	if !ok {
-		panic(fmt.Errorf("want *spec.Canary, got %T", _spec))
-	}
-
-	m.storageLock()
-	defer m.storageUnlock()
-
-	serviceSpec := m._getServiceSpec(serviceName)
-	if serviceSpec == nil {
-		api.HandleAPIError(ctx, http.StatusNotFound,
-			fmt.Errorf("service %s not found", serviceName))
-		return
-	}
-
-	if serviceSpec.Canary == nil {
-		api.HandleAPIError(ctx, http.StatusConflict,
-			fmt.Errorf("canary of service %s not found", serviceName))
-		return
-	}
-
-	serviceSpec.Canary = canary
-	m._putServiceSpec(serviceSpec)
-
-	ctx.StatusCode(http.StatusOK)
-}
-
-func (m *Master) deleteCanary(ctx iris.Context) {
-	serviceName, err := m.readServiceName(ctx)
-	if err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
-		return
-	}
-
-	m.storageLock()
-	defer m.storageUnlock()
-
-	serviceSpec := m._getServiceSpec(serviceName)
-	if serviceSpec == nil {
-		api.HandleAPIError(ctx, http.StatusNotFound,
-			fmt.Errorf("service %s not found", serviceName))
-		return
-	}
-
-	if serviceSpec.Canary == nil {
-		api.HandleAPIError(ctx, http.StatusConflict,
-			fmt.Errorf("canary of service %s not found", serviceName))
-		return
-	}
-
-	serviceSpec.Canary = nil
-	m._putServiceSpec(serviceSpec)
-
-	ctx.StatusCode(http.StatusOK)
-}
-
-func (m *Master) getLoadBalance(ctx iris.Context) {
-	serviceName, err := m.readServiceName(ctx)
-	if err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
-		return
-	}
-
-	// NOTE: No need to lock.
-	serviceSpec := m._getServiceSpec(serviceName)
-	if serviceSpec == nil {
-		api.HandleAPIError(ctx, http.StatusNotFound,
-			fmt.Errorf("service %s not found", serviceName))
-		return
-	}
-
-	if serviceSpec.LoadBalance == nil {
-		api.HandleAPIError(ctx, http.StatusNotFound,
-			fmt.Errorf("loadBalance of service %s not found", serviceName))
-		return
-	}
-
-	buff, err := yaml.Marshal(serviceSpec.LoadBalance)
-	if err != nil {
-		panic(err)
-	}
-	ctx.Header("Content-Type", "text/vnd.yaml")
-	ctx.Write(buff)
-}
-
-func (m *Master) createLoadBalance(ctx iris.Context) {
-	loadBalanceSpec := &spec.LoadBalance{}
-
-	serviceName, _spec, err := m.readSpec(ctx, loadBalanceSpec)
-	if err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
-		return
-	}
-	loadBalance, ok := _spec.(*spec.LoadBalance)
-	if !ok {
-		panic(fmt.Errorf("want *spec.LoadBalance, got %T", _spec))
-	}
-
-	m.storageLock()
-	defer m.storageUnlock()
-
-	serviceSpec := m._getServiceSpec(serviceName)
-	if serviceSpec == nil {
-		api.HandleAPIError(ctx, http.StatusNotFound,
-			fmt.Errorf("service %s not found", serviceName))
-		return
-	}
-
-	if serviceSpec.LoadBalance != nil {
-		api.HandleAPIError(ctx, http.StatusConflict,
-			fmt.Errorf("loadBalance of service %s already exited", serviceName))
-		return
-	}
-
-	serviceSpec.LoadBalance = loadBalance
-	m._putServiceSpec(serviceSpec)
-
-	ctx.Header("Location", ctx.Path())
-	ctx.StatusCode(http.StatusCreated)
-}
-
-func (m *Master) updateLoadBalance(ctx iris.Context) {
-	loadBalanceSpec := &spec.LoadBalance{}
-
-	serviceName, _spec, err := m.readSpec(ctx, loadBalanceSpec)
-	if err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
-		return
-	}
-	loadBalance, ok := _spec.(*spec.LoadBalance)
-	if !ok {
-		panic(fmt.Errorf("want *spec.LoadBalance, got %T", _spec))
-	}
-
-	m.storageLock()
-	defer m.storageUnlock()
-
-	serviceSpec := m._getServiceSpec(serviceName)
-	if serviceSpec == nil {
-		api.HandleAPIError(ctx, http.StatusNotFound,
-			fmt.Errorf("service %s not found", serviceName))
-		return
-	}
-
-	if serviceSpec.LoadBalance == nil {
-		api.HandleAPIError(ctx, http.StatusConflict,
-			fmt.Errorf("loadBalance of service %s not found", serviceName))
-		return
-	}
-
-	serviceSpec.LoadBalance = loadBalance
-	m._putServiceSpec(serviceSpec)
-
-	ctx.StatusCode(http.StatusOK)
-}
-
-func (m *Master) deleteLoadBalance(ctx iris.Context) {
-	serviceName, err := m.readServiceName(ctx)
-	if err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
-		return
-	}
-
-	m.storageLock()
-	defer m.storageUnlock()
-
-	serviceSpec := m._getServiceSpec(serviceName)
-	if serviceSpec == nil {
-		api.HandleAPIError(ctx, http.StatusNotFound,
-			fmt.Errorf("service %s not found", serviceName))
-		return
-	}
-
-	if serviceSpec.LoadBalance == nil {
-		api.HandleAPIError(ctx, http.StatusConflict,
-			fmt.Errorf("loadBalance of service %s not found", serviceName))
-		return
-	}
-
-	serviceSpec.LoadBalance = nil
-	m._putServiceSpec(serviceSpec)
-
-	ctx.StatusCode(http.StatusOK)
-}
-
-// updateSerivceInstanceLeases updates one serivce registry reord's lease
-func (m *Master) updateSerivceInstanceLeases(ctx iris.Context) {
-	serviceName := ctx.Params().Get("serviceName")
-	ID := ctx.Params().Get("instanceID")
-
-	if len(serviceName) == 0 || len(ID) == 0 {
-		api.HandleAPIError(ctx, http.StatusBadRequest,
-			fmt.Errorf("invalidate input , serivce name :%s, ID :%s ", serviceName, ID))
-
-		return
-	}
-
-	body, err := ioutil.ReadAll(ctx.Request().Body)
-	if err != nil {
-		api.HandleAPIError(ctx, http.StatusInternalServerError,
-			fmt.Errorf("read body failed: %v", err))
-		return
-	}
-
-	var ins *spec.ServiceInstance
-	if err := yaml.Unmarshal(body, &ins); err != nil {
-		api.HandleAPIError(ctx, http.StatusInternalServerError,
-			fmt.Errorf("unmarshal service: %s's instance body failed, err %s ", serviceName, err))
-		return
-	}
-
-	if ins.ServiceName != serviceName || ins.InstanceID != ID {
-		api.HandleAPIError(ctx, http.StatusBadRequest,
-			fmt.Errorf("url service name %s, instatnce id %s, yaml service name %s, instance id %s not matched",
-				ins.ServiceName, serviceName, ins.InstanceID, ID))
-		return
-	}
-
-	if err = m.service.UpdateServiceInstanceLeases(ins.ServiceName, ins.InstanceID, ins.Leases); err != nil {
-		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
-		return
-	}
-	return
-}
-
-// updateSerivceInstanceStatus updates one serivce registry reord's status
-func (m *Master) updateSerivceInstanceStatus(ctx iris.Context) {
-	serviceName := ctx.Params().Get("serviceName")
-	ID := ctx.Params().Get("instanceID")
-
-	if len(serviceName) == 0 || len(ID) == 0 {
-		api.HandleAPIError(ctx, http.StatusBadRequest,
-			fmt.Errorf("invalidate input , serivce name :%s, ID :%s ", serviceName, ID))
-		return
-	}
-
-	body, err := ioutil.ReadAll(ctx.Request().Body)
-	if err != nil {
-		api.HandleAPIError(ctx, http.StatusInternalServerError,
-			fmt.Errorf("read body failed: %v", err))
-		return
-	}
-
-	var ins *spec.ServiceInstance
-	if err := yaml.Unmarshal(body, &ins); err != nil {
-		api.HandleAPIError(ctx, http.StatusInternalServerError,
-			fmt.Errorf("unmarshal service: %s's instance body failed, err %s ", serviceName, err))
-		return
-	}
-
-	if ins.ServiceName != serviceName || ins.InstanceID != ID {
-		api.HandleAPIError(ctx, http.StatusBadRequest, spec.ErrParamNotMatch)
-		return
-	}
-
-	if err = m.service.UpdateServiceInstanceStatus(ins.ServiceName, ins.InstanceID, ins.Status); err != nil {
-		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
-		return
-	}
-
-	return
-}
-
-// deleteServiceInstance deletes one service registry instance
-func (m *Master) deleteServiceInstance(ctx iris.Context) {
-	serviceName := ctx.Params().Get("serviceName")
-	ID := ctx.Params().Get("instanceID")
-
-	if len(serviceName) == 0 || len(ID) == 0 {
-		api.HandleAPIError(ctx, http.StatusBadRequest,
-			fmt.Errorf("invalidate input , serivce name :%s, ID :%s ", serviceName, ID))
-		return
-	}
-
-	if err := m.service.DeleteSerivceInstance(serviceName, ID); err != nil {
-		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
-
-		return
-	}
-
-	return
-}
-
-// getTenant gets services name list and its metadata for one specified tenant
-func (m *Master) getTenant(ctx iris.Context) {
-	tenantName := ctx.Params().Get("tenantName")
-	if len(tenantName) == 0 {
-		api.HandleAPIError(ctx, http.StatusBadRequest,
-			fmt.Errorf("invalidate input , tenant name:%s", tenantName))
-		return
-	}
-
-	tenant, err := m.service.GetTenant(tenantName)
-	buff, err := yaml.Marshal(tenant)
-	if err != nil {
-		api.HandleAPIError(ctx, http.StatusInternalServerError,
-			fmt.Errorf("marshal %#v to yaml failed: %v", tenant, err))
-		return
-	}
-
-	ctx.Header("Content-Type", "text/vnd.yaml")
-	ctx.Write(buff)
-	return
-}
-
-// getSerivceInstanceList returns services instance list.
-func (m *Master) getSerivceInstanceList(ctx iris.Context) {
-	serviceName := ctx.Params().Get("serviceName")
-
-	if len(serviceName) == 0 {
-		api.HandleAPIError(ctx, http.StatusBadRequest,
-			fmt.Errorf("invalidate input , serivce name :%s ", serviceName))
-		return
-	}
-
-	insList, err := m.service.GetSerivceInstances(serviceName)
-	if err != nil {
-		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
-		return
-	}
-
-	buff, err := yaml.Marshal(insList)
-	if err != nil {
-		api.HandleAPIError(ctx, http.StatusInternalServerError,
-			fmt.Errorf("marshal %#v to yaml failed: %v", insList, err))
-		return
-	}
-
-	ctx.Header("Content-Type", "text/vnd.yaml")
-	ctx.Write(buff)
-
-	return
-}
-
-func (m *Master) updateObservabilityOutputServer(ctx iris.Context) {
-	outputServerSpec := &spec.ObservabilityOutputServer{}
-	serviceName, _spec, err := m.readSpec(ctx, outputServerSpec)
-	if err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
-		return
-	}
-
-	outputServer, ok := _spec.(*spec.ObservabilityOutputServer)
-	if !ok {
-		panic(fmt.Errorf("want *spec.ObservabilityOutputServer, got %T", _spec))
-	}
-
-	m.storageLock()
-	defer m.storageUnlock()
-
-	serviceSpec := m._getServiceSpec(serviceName)
-	if serviceSpec == nil {
-		api.HandleAPIError(ctx, http.StatusNotFound,
-			fmt.Errorf("service %s not found", serviceName))
-		return
-	}
-
-	if serviceSpec.Observability == nil {
-		api.HandleAPIError(ctx, http.StatusConflict,
-			fmt.Errorf("observability of service %s not found", serviceName))
-		return
-	}
-
-	serviceSpec.Observability.OutputServer = outputServer
-	m._putServiceSpec(serviceSpec)
-
-	ctx.StatusCode(http.StatusOK)
-}
-
-func (m *Master) updateObservabilityMetric(ctx iris.Context) {
-	metricSpec := &spec.ObservabilityMetric{}
-
-	serviceName, _spec, err := m.readSpec(ctx, metricSpec)
-	if err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
-		return
-	}
-	metric, ok := _spec.(*spec.ObservabilityMetric)
-	if !ok {
-		panic(fmt.Errorf("want *spec.ObservabilityMetric, got %T", _spec))
-	}
-
-	m.storageLock()
-	defer m.storageUnlock()
-
-	serviceSpec := m._getServiceSpec(serviceName)
-	if serviceSpec == nil {
-		api.HandleAPIError(ctx, http.StatusNotFound,
-			fmt.Errorf("service %s not found", serviceName))
-		return
-	}
-
-	if serviceSpec.Observability == nil {
-		api.HandleAPIError(ctx, http.StatusConflict,
-			fmt.Errorf("observability of service %s not found", serviceName))
-		return
-	}
-
-	serviceSpec.Observability.Metric = metric
-	m._putServiceSpec(serviceSpec)
-
-	ctx.StatusCode(http.StatusOK)
-}
-
-func (m *Master) updateObservabilityTracing(ctx iris.Context) {
-	tracingSpec := &spec.ObservabilityTracing{}
-
-	serviceName, _spec, err := m.readSpec(ctx, tracingSpec)
-	if err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
-		return
-	}
-	tracing, ok := _spec.(*spec.ObservabilityTracing)
-	if !ok {
-		panic(fmt.Errorf("want *spec.ObservabilityTracing, got %T", _spec))
-	}
-
-	m.storageLock()
-	defer m.storageUnlock()
-
-	serviceSpec := m._getServiceSpec(serviceName)
-	if serviceSpec == nil {
-		api.HandleAPIError(ctx, http.StatusNotFound,
-			fmt.Errorf("service %s not found", serviceName))
-		return
-	}
-
-	if serviceSpec.Observability == nil {
-		api.HandleAPIError(ctx, http.StatusConflict,
-			fmt.Errorf("observability of service %s not found", serviceName))
-		return
-	}
-
-	serviceSpec.Observability.Tracing = tracing
-	m._putServiceSpec(serviceSpec)
-
-	ctx.StatusCode(http.StatusOK)
+	return nil
 }

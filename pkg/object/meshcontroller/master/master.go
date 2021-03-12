@@ -1,6 +1,7 @@
 package master
 
 import (
+	"runtime/debug"
 	"time"
 
 	"github.com/megaease/easegateway/pkg/logger"
@@ -20,6 +21,10 @@ type (
 		service *masterService
 
 		done chan struct{}
+	}
+
+	// Status is the status of mesh master.
+	Status struct {
 	}
 )
 
@@ -44,10 +49,6 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Master {
 	return m
 }
 
-func (m *Master) watchServicesHeartbeat() {
-	m.service.WatchSerivceInstancesHeartbeat()
-}
-
 func (m *Master) run() {
 	watchInterval, err := time.ParseDuration(m.spec.HeartbeatInterval)
 	if err != nil {
@@ -61,7 +62,16 @@ func (m *Master) run() {
 		case <-m.done:
 			return
 		case <-time.After(watchInterval):
-			m.watchServicesHeartbeat()
+			func() {
+				defer func() {
+					if err := recover(); err != nil {
+						logger.Errorf("failed to check instance heartbeat %v, stack trace: \n%s\n",
+							err, debug.Stack())
+					}
+
+				}()
+				m.service.checkInstancesHeartbeat()
+			}()
 		}
 	}
 }
@@ -74,6 +84,6 @@ func (m *Master) Close() {
 // Status returns the status of master.
 func (m *Master) Status() *supervisor.Status {
 	return &supervisor.Status{
-		ObjectStatus: nil,
+		ObjectStatus: m.service.status(),
 	}
 }

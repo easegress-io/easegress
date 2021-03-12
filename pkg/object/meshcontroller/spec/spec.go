@@ -64,7 +64,7 @@ name: %s
 port: %d
 rules:
   - paths:
-    - pathPrefix: / 
+    - pathPrefix: /
       backend: %s,
 `
 )
@@ -115,45 +115,46 @@ type (
 	// Observability is the spec of service observability.
 	Observability struct {
 		OutputServer *ObservabilityOutputServer `yaml:"outputServer" jsonschema:"omitempty"`
-		Tracing      *ObservabilityTracing      `yaml:"tracing" jsonschema:"omitempty"`
-		Metric       *ObservabilityMetric       `yaml:"metric" jsonschema:"omitempty"`
+		Tracings     *ObservabilityTracings     `yaml:"tracings" jsonschema:"omitempty"`
+		Metrics      *ObservabilityMetrics      `yaml:"metrics" jsonschema:"omitempty"`
 	}
 
+	// ObservabilityOutputServer is the output server of observability.
 	ObservabilityOutputServer struct {
 		Enabled         bool   `yaml:"enabled" jsonschema:"required"`
 		BootstrapServer string `yaml:"bootstrapServer" jsonschema:"required"`
 	}
 
-	// ObservabilityTracing is the tracing of observability.
-	ObservabilityTracing struct {
-		Topic        string                     `yaml:"topic" jsonschema:"required"`
-		SampledByQPS int                        `yaml:"sampledByQPS" jsonschema:"required"`
-		Request      ObservabilityTracingDetail `yaml:"request" jsonschema:"required"`
-		RemoteInvoke ObservabilityTracingDetail `yaml:"remoteInvoke" jsonschema:"required"`
-		Kafka        ObservabilityTracingDetail `yaml:"kafka" jsonschema:"required"`
-		Jdbc         ObservabilityTracingDetail `yaml:"jdbc" jsonschema:"required"`
-		Redis        ObservabilityTracingDetail `yaml:"redis" jsonschema:"required"`
-		Rabbit       ObservabilityTracingDetail `yaml:"rabbit" jsonschema:"required"`
+	// ObservabilityTracings is the tracings of observability.
+	ObservabilityTracings struct {
+		Topic        string                      `yaml:"topic" jsonschema:"required"`
+		SampledByQPS int                         `yaml:"sampledByQPS" jsonschema:"required"`
+		Request      ObservabilityTracingsDetail `yaml:"request" jsonschema:"required"`
+		RemoteInvoke ObservabilityTracingsDetail `yaml:"remoteInvoke" jsonschema:"required"`
+		Kafka        ObservabilityTracingsDetail `yaml:"kafka" jsonschema:"required"`
+		Jdbc         ObservabilityTracingsDetail `yaml:"jdbc" jsonschema:"required"`
+		Redis        ObservabilityTracingsDetail `yaml:"redis" jsonschema:"required"`
+		Rabbit       ObservabilityTracingsDetail `yaml:"rabbit" jsonschema:"required"`
 	}
 
-	// ObservabilityTracingDetail is the tracing detail of observability.
-	ObservabilityTracingDetail struct {
+	// ObservabilityTracingsDetail is the tracing detail of observability.
+	ObservabilityTracingsDetail struct {
 		Enabled       bool   `yaml:"enabled" jsonschema:"required"`
 		ServicePrefix string `yaml:"servicePrefix" jsonschema:"required"`
 	}
 
-	// ObservabilityMetric is the metric of observability.
-	ObservabilityMetric struct {
-		Request        ObservabilityMetricDetail `yaml:"request" jsonschema:"required"`
-		JdbcStatement  ObservabilityMetricDetail `yaml:"jdbcStatement" jsonschema:"required"`
-		JdbcConnection ObservabilityMetricDetail `yaml:"jdbcConnection" jsonschema:"required"`
-		Rabbit         ObservabilityMetricDetail `yaml:"rabbit" jsonschema:"required"`
-		Kafka          ObservabilityMetricDetail `yaml:"kafka" jsonschema:"required"`
-		Redis          ObservabilityMetricDetail `yaml:"redis" jsonschema:"required"`
+	// ObservabilityMetrics is the metrics of observability.
+	ObservabilityMetrics struct {
+		Request        ObservabilityMetricsDetail `yaml:"request" jsonschema:"required"`
+		JdbcStatement  ObservabilityMetricsDetail `yaml:"jdbcStatement" jsonschema:"required"`
+		JdbcConnection ObservabilityMetricsDetail `yaml:"jdbcConnection" jsonschema:"required"`
+		Rabbit         ObservabilityMetricsDetail `yaml:"rabbit" jsonschema:"required"`
+		Kafka          ObservabilityMetricsDetail `yaml:"kafka" jsonschema:"required"`
+		Redis          ObservabilityMetricsDetail `yaml:"redis" jsonschema:"required"`
 	}
 
-	// ObservabilityMetricDetail is the metric detail of observability.
-	ObservabilityMetricDetail struct {
+	// ObservabilityMetricsDetail is the metrics detail of observability.
+	ObservabilityMetricsDetail struct {
 		Enabled  bool   `yaml:"enabled" jsonschema:"required"`
 		Interval int    `yaml:"interval" jsonschema:"required"`
 		Topic    string `yaml:"topic" jsonschema:"required"`
@@ -163,18 +164,14 @@ type (
 	Tenant struct {
 		Name string `yaml:"name"`
 
-		ServicesList []string `yaml:"servicesList"`
-		CreateTime   int64    `yaml:"createTime"`
-		Description  string   `yaml:"description"`
+		Services []string `yaml:"services"`
+		// Format: RFC3339
+		CreateTime  string `yaml:"createTime"`
+		Description string `yaml:"description"`
 	}
 
-	// Heartbeat contains the information of heartbeat from one serivce instance.
-	Heartbeat struct {
-		LastActiveTime int64 `yaml:"lastActiveTime"`
-	}
-
-	// ServiceInstance one registry info of serivce
-	ServiceInstance struct {
+	// ServiceInstanceSpec is the spec of service instance.
+	ServiceInstanceSpec struct {
 		// Provide by registry client
 		ServiceName string `yaml:"serviceName" jsonschema:"required"`
 		InstanceID  string `yaml:"instanceID" jsonschema:"required"`
@@ -185,6 +182,12 @@ type (
 		Status       string `yaml:"status" jsonschema:"omitempty"`
 		Leases       int64  `yaml:"timestamp" jsonschema:"omitempty"`
 		RegistryTime int64  `yaml:"registryTime" jsonschema:"omitempty"`
+	}
+
+	// ServiceInstanceStatus is the status of service instance.
+	ServiceInstanceStatus struct {
+		// RFC3339 format
+		LastHeartbeatTime string `yaml:"lastHeartbeatTime" jsonschema:"required,format=timerfc3339"`
 	}
 )
 
@@ -257,7 +260,7 @@ func (s *Service) EgressAddr() string {
 // ToEgressPipelineSpec will transfer service spec for a engress pipeline
 // about how other relied serivces request it. It accpets service instances
 // list to fill egress backend filter's IP pool.
-func (s *Service) ToEgressPipelineSpec(insList []*ServiceInstance) (*supervisor.Spec, error) {
+func (s *Service) ToEgressPipelineSpec(insList []*ServiceInstanceSpec) (*supervisor.Spec, error) {
 	var pipeline httppipeline.HTTPPipeline
 
 	//[TODO]
