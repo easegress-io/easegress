@@ -1,4 +1,4 @@
-package resilience
+package circuitbreaker
 
 import (
 	"fmt"
@@ -20,6 +20,7 @@ type (
 
 	// URLRule defines the match rule of a http request
 	URLRule struct {
+		ID        string      `yaml:"id" jsonschema:"required"`
 		Methods   []string    `yaml:"methods" jsonschema:"omitempty,uniqueItems=true"`
 		URL       StringMatch `yaml:"url" jsonschema:"required"`
 		PolicyRef string      `yaml:"policyRef" jsonschema:"omitempty"`

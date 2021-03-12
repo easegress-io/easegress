@@ -1,4 +1,4 @@
-package resilience
+package circuitbreaker
 
 import (
 	"fmt"
@@ -7,12 +7,27 @@ import (
 	"time"
 
 	"github.com/megaease/easegateway/pkg/context"
-	"github.com/megaease/easegateway/pkg/util/circuitbreaker"
+	"github.com/megaease/easegateway/pkg/object/httppipeline"
+	"github.com/megaease/easegateway/pkg/supervisor"
+	libcb "github.com/megaease/easegateway/pkg/util/circuitbreaker"
 )
 
+const (
+	// Kind is the kind of CircuitBreaker.
+	Kind = "CircuitBreaker"
+)
+
+var (
+	results = []string{}
+)
+
+func init() {
+	httppipeline.Register(&CircuitBreaker{})
+}
+
 type (
-	// CircuitBreakerPolicy defines the policy of a circuit breaker
-	CircuitBreakerPolicy struct {
+	// Policy defines the policy of a circuit breaker
+	Policy struct {
 		Name                             string `yaml:"name" jsonschema:"required"`
 		SlidingWindowType                string `yaml:"slidingWindowType" jsonschema:"omitempty" jsonschema:"omitempty,enum=COUNT_BASED,enum=TIME_BASED"`
 		CountingNetworkException         bool   `yaml:"countingNetworkException"`
@@ -30,25 +45,32 @@ type (
 	// CircuitBreakerURLRule defines the circuit breaker rule for a URL pattern
 	CircuitBreakerURLRule struct {
 		URLRule `yaml:",inline"`
-		policy  *CircuitBreakerPolicy
-		cb      *circuitbreaker.CircuitBreaker
+		policy  *Policy
+		cb      *libcb.CircuitBreaker
 	}
 
-	// CircuitBreakerSpec is the configuration of a circuit breaker
-	CircuitBreakerSpec struct {
-		Policies         []*CircuitBreakerPolicy  `yaml:"policies" jsonschema:"required"`
+	// Spec is the configuration of a circuit breaker
+	Spec struct {
+		Policies         []*Policy                `yaml:"policies" jsonschema:"required"`
 		DefaultPolicyRef string                   `yaml:"defaultPolicyRef" jsonschema:"omitempty"`
 		URLs             []*CircuitBreakerURLRule `yaml:"urls" jsonschema:"required"`
 	}
 
 	// CircuitBreaker defines the circuit breaker
 	CircuitBreaker struct {
-		spec *CircuitBreakerSpec
+		super    *supervisor.Supervisor
+		pipeSpec *httppipeline.FilterSpec
+		spec     *Spec
+	}
+
+	// Status is the status of CircuitBreaker.
+	Status struct {
+		Health string `yaml:"health"`
 	}
 )
 
-// Validate implements custom validation for CircuitBreakerSpec
-func (spec CircuitBreakerSpec) Validate() error {
+// Validate implements custom validation for Spec
+func (spec Spec) Validate() error {
 URLLoop:
 	for _, u := range spec.URLs {
 		name := u.PolicyRef
@@ -69,10 +91,10 @@ URLLoop:
 }
 
 func (url *CircuitBreakerURLRule) createCircuitBreaker() {
-	policy := circuitbreaker.Policy{
+	policy := libcb.Policy{
 		FailureRateThreshold:             url.policy.FailureRateThreshold,
 		SlowCallRateThreshold:            url.policy.SlowCallRateThreshold,
-		SlidingWindowType:                circuitbreaker.CountBased,
+		SlidingWindowType:                libcb.CountBased,
 		SlidingWindowSize:                url.policy.SlidingWindowSize,
 		PermittedNumberOfCallsInHalfOpen: url.policy.PermittedNumberOfCallsInHalfOpen,
 		MinimumNumberOfCalls:             url.policy.MinimumNumberOfCalls,
@@ -87,7 +109,7 @@ func (url *CircuitBreakerURLRule) createCircuitBreaker() {
 	}
 
 	if strings.ToUpper(url.policy.SlidingWindowType) == "TIME_BASED" {
-		policy.SlidingWindowType = circuitbreaker.TimeBased
+		policy.SlidingWindowType = libcb.TimeBased
 	}
 
 	if policy.SlidingWindowSize == 0 {
@@ -118,27 +140,44 @@ func (url *CircuitBreakerURLRule) createCircuitBreaker() {
 		policy.WaitDurationInOpen = time.Minute
 	}
 
-	url.cb = circuitbreaker.New(&policy)
-	url.cb.SetStateListener(func(oldState, newState circuitbreaker.State) {
+	url.cb = libcb.New(&policy)
+	url.cb.SetStateListener(func(event *libcb.Event) {
 		// TODO: log state change event
 	})
 }
 
-// NewCircuitBreaker creates a new circuit breaker from spec
-func NewCircuitBreaker(spec *CircuitBreakerSpec) *CircuitBreaker {
-	cb := &CircuitBreaker{spec: spec}
+// Kind returns the kind of CircuitBreaker.
+func (cb *CircuitBreaker) Kind() string {
+	return Kind
+}
 
-	for _, u := range spec.URLs {
+// DefaultSpec returns the default spec of CircuitBreaker.
+func (cb *CircuitBreaker) DefaultSpec() interface{} {
+	return &Spec{}
+}
+
+// Description returns the description of CircuitBreaker
+func (cb *CircuitBreaker) Description() string {
+	return "CircuitBreaker implements a circuit breaker for http request."
+}
+
+// Results returns the results of CircuitBreaker.
+func (cb *CircuitBreaker) Results() []string {
+	return results
+}
+
+func (cb *CircuitBreaker) reload() {
+	for _, u := range cb.spec.URLs {
 		if u.URL.RegEx != "" {
 			u.URL.re = regexp.MustCompile(u.URL.RegEx)
 		}
 
 		name := u.PolicyRef
 		if name == "" {
-			name = spec.DefaultPolicyRef
+			name = cb.spec.DefaultPolicyRef
 		}
 
-		for _, p := range spec.Policies {
+		for _, p := range cb.spec.Policies {
 			if p.Name == name {
 				u.policy = p
 				break
@@ -147,8 +186,20 @@ func NewCircuitBreaker(spec *CircuitBreakerSpec) *CircuitBreaker {
 
 		u.createCircuitBreaker()
 	}
+}
 
-	return cb
+// Init initializes CircuitBreaker.
+func (cb *CircuitBreaker) Init(pipeSpec *httppipeline.FilterSpec, super *supervisor.Supervisor) {
+	cb.pipeSpec = pipeSpec
+	cb.spec = pipeSpec.FilterSpec().(*Spec)
+	cb.super = super
+	cb.reload()
+}
+
+// Inherit inherits previous generation of CircuitBreaker.
+func (cb *CircuitBreaker) Inherit(pipeSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter, super *supervisor.Supervisor) {
+	previousGeneration.Close()
+	cb.Init(pipeSpec, super)
 }
 
 // Handle handles HTTP request
@@ -202,4 +253,13 @@ func (cb *CircuitBreaker) Handle(ctx context.HTTPContext) string {
 		break
 	}
 	return ""
+}
+
+// Status returns Status genreated by Runtime.
+func (cb *CircuitBreaker) Status() interface{} {
+	return nil
+}
+
+// Close closes CircuitBreaker.
+func (cb *CircuitBreaker) Close() {
 }

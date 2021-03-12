@@ -243,8 +243,15 @@ type (
 		WaitDurationInOpen               time.Duration
 	}
 
+	Event struct {
+		Time     time.Time
+		OldState State
+		NewState State
+		Reason   string
+	}
+
 	// StateListenerFunc is a listener function to listen state transit event
-	StateListenerFunc func(oldState, newState State)
+	EventListenerFunc func(event *Event)
 
 	// CircuitBreaker defines a circuit breaker
 	CircuitBreaker struct {
@@ -260,7 +267,7 @@ type (
 		// it to detect wether state changed or not, and if changed, the
 		// result is discarded as it does not belong to current state.
 		stateID  uint32
-		listener StateListenerFunc
+		listener EventListenerFunc
 	}
 )
 
@@ -291,7 +298,7 @@ func NewPolicy() *Policy {
 // New creates a circuit breaker based on `policy`,
 func New(policy *Policy) *CircuitBreaker {
 	cb := &CircuitBreaker{policy: policy}
-	cb.transitTo(StateClosed)
+	cb.transitTo(StateClosed, "initialization")
 	return cb
 }
 
@@ -299,18 +306,18 @@ func New(policy *Policy) *CircuitBreaker {
 func (cb *CircuitBreaker) SetState(state State) {
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
-	cb.transitTo(state)
+	cb.transitTo(state, "manually triggered")
 }
 
-// SetStateListener sets a state listener for the CircuitBreaker
-func (cb *CircuitBreaker) SetStateListener(listener StateListenerFunc) {
+// SetStateListener sets an event listener for the CircuitBreaker
+func (cb *CircuitBreaker) SetStateListener(listener EventListenerFunc) {
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
 	cb.listener = listener
 }
 
 // transitTo sets the state of the CircuitBreaker to `state`
-func (cb *CircuitBreaker) transitTo(state State) {
+func (cb *CircuitBreaker) transitTo(state State, reason string) {
 	oldState := cb.state
 	if state == oldState {
 		return
@@ -334,9 +341,15 @@ func (cb *CircuitBreaker) transitTo(state State) {
 	}
 
 	if cb.listener != nil {
-		// create a new goroutine as current function is called inside a lock, and we don't
-		// know how much time the listener function will take
-		go cb.listener(oldState, state)
+		event := &Event{
+			Time:     cb.transitTime,
+			OldState: oldState,
+			NewState: state,
+			Reason:   reason,
+		}
+		// create a new goroutine as current function is called inside a lock
+		// and we don't know how much time the listener function will cost
+		go cb.listener(event)
 	}
 }
 
@@ -377,7 +390,7 @@ func (cb *CircuitBreaker) AcquirePermission() (bool, uint32) {
 		if nowFunc().Sub(cb.transitTime) < cb.policy.WaitDurationInOpen {
 			return false, cb.stateID
 		}
-		cb.transitTo(StateHalfOpen)
+		cb.transitTo(StateHalfOpen, "wait duration in open state elapsed")
 	}
 
 	// circuit breaker is in half open state
@@ -391,7 +404,7 @@ func (cb *CircuitBreaker) AcquirePermission() (bool, uint32) {
 	// we need to do this after the check of numberOfCallsInHalfOpen.
 	if cb.policy.MaxWaitDurationInHalfOpen > 0 &&
 		nowFunc().Sub(cb.transitTime) > cb.policy.MaxWaitDurationInHalfOpen {
-		cb.transitTo(StateOpen)
+		cb.transitTo(StateOpen, "max wait duration in half open state elapsed")
 	}
 
 	return false, cb.stateID
@@ -435,12 +448,12 @@ func (cb *CircuitBreaker) RecordResult(stateID uint32, err error, d time.Duratio
 	// but for time based window, state may transit to open even if result
 	// is success as existing success results may be evicted by time.
 	// note half open state always use a count based window.
-	if cb.window.FailureRate() >= cb.policy.FailureRateThreshold {
-		cb.transitTo(StateOpen)
-	} else if cb.window.SlowRate() >= cb.policy.SlowCallRateThreshold {
-		cb.transitTo(StateOpen)
+	if r := cb.window.FailureRate(); r >= cb.policy.FailureRateThreshold {
+		cb.transitTo(StateOpen, fmt.Sprintf("high failure rate: %d", r))
+	} else if r = cb.window.SlowRate(); r >= cb.policy.SlowCallRateThreshold {
+		cb.transitTo(StateOpen, fmt.Sprintf("high slow call rate: %d", r))
 	} else if cb.state == StateHalfOpen {
-		cb.transitTo(StateClosed)
+		cb.transitTo(StateClosed, "recovery")
 	}
 }
 
