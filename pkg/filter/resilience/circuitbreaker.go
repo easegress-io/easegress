@@ -2,7 +2,8 @@ package resilience
 
 import (
 	"fmt"
-	"sort"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/megaease/easegateway/pkg/context"
@@ -12,25 +13,25 @@ import (
 type (
 	// CircuitBreakerPolicy defines the policy of a circuit breaker
 	CircuitBreakerPolicy struct {
-		Name                             string        `yaml:"name" jsonschema:"required"`
-		SlidingWindowType                string        `yaml:"slidingWindowType" jsonschema:"omitempty" jsonschema:"omitempty,enum=COUNT_BASED,enum=TIME_BASED"`
-		CountingNetworkException         bool          `yaml:"countingNetworkException"`
-		FailureRateThreshold             uint8         `yaml:"failureRateThreshold" jsonschema:"omitempty,minimum=1,maximum=100"`
-		SlowCallRateThreshold            uint8         `yaml:"slowCallRateThreshold" jsonschema:"omitempty,minimum=1,maximum=100"`
-		SlidingWindowSize                uint32        `yaml:"slidingWindowSize" jsonschema:"omitempty,minimum=1"`
-		PermittedNumberOfCallsInHalfOpen uint32        `yaml:"permittedNumberOfCallsInHalfOpenState" jsonschema:"omitempty"`
-		MinimumNumberOfCalls             uint32        `yaml:"minimumNumberOfCalls" jsonschema:"omitempty"`
-		SlowCallDurationThreshold        time.Duration `yaml:"slowCallDurationThreshold" jsonschema:"omitempty,format=duration"`
-		MaxWaitDurationInHalfOpen        time.Duration `yaml:"maxWaitDurationInHalfOpenState" jsonschema:"omitempty,format=duration"`
-		WaitDurationInOpen               time.Duration `yaml:"waitDurationInOpenState" jsonschema:"omitempty,format=duration"`
-		ExceptionalStatusCode            []int         `yaml:"exceptionalStatusCode" jsonschema:"omitempty,uniqueItems=true"`
+		Name                             string `yaml:"name" jsonschema:"required"`
+		SlidingWindowType                string `yaml:"slidingWindowType" jsonschema:"omitempty" jsonschema:"omitempty,enum=COUNT_BASED,enum=TIME_BASED"`
+		CountingNetworkException         bool   `yaml:"countingNetworkException"`
+		FailureRateThreshold             uint8  `yaml:"failureRateThreshold" jsonschema:"omitempty,minimum=1,maximum=100"`
+		SlowCallRateThreshold            uint8  `yaml:"slowCallRateThreshold" jsonschema:"omitempty,minimum=1,maximum=100"`
+		SlidingWindowSize                uint32 `yaml:"slidingWindowSize" jsonschema:"omitempty,minimum=1"`
+		PermittedNumberOfCallsInHalfOpen uint32 `yaml:"permittedNumberOfCallsInHalfOpenState" jsonschema:"omitempty"`
+		MinimumNumberOfCalls             uint32 `yaml:"minimumNumberOfCalls" jsonschema:"omitempty"`
+		SlowCallDurationThreshold        string `yaml:"slowCallDurationThreshold" jsonschema:"omitempty,format=duration"`
+		MaxWaitDurationInHalfOpen        string `yaml:"maxWaitDurationInHalfOpenState" jsonschema:"omitempty,format=duration"`
+		WaitDurationInOpen               string `yaml:"waitDurationInOpenState" jsonschema:"omitempty,format=duration"`
+		ExceptionalStatusCode            []int  `yaml:"exceptionalStatusCode" jsonschema:"omitempty,uniqueItems=true"`
 	}
 
 	// CircuitBreakerURLRule defines the circuit breaker rule for a URL pattern
 	CircuitBreakerURLRule struct {
-		URLRule
-		policy *CircuitBreakerPolicy
-		cb     *circuitbreaker.CircuitBreaker
+		URLRule `yaml:",inline"`
+		policy  *CircuitBreakerPolicy
+		cb      *circuitbreaker.CircuitBreaker
 	}
 
 	// CircuitBreakerSpec is the configuration of a circuit breaker
@@ -47,7 +48,7 @@ type (
 )
 
 // Validate implements custom validation for CircuitBreakerSpec
-func (spec *CircuitBreakerSpec) Validate() error {
+func (spec CircuitBreakerSpec) Validate() error {
 URLLoop:
 	for _, u := range spec.URLs {
 		name := u.PolicyRef
@@ -75,9 +76,6 @@ func (url *CircuitBreakerURLRule) createCircuitBreaker() {
 		SlidingWindowSize:                url.policy.SlidingWindowSize,
 		PermittedNumberOfCallsInHalfOpen: url.policy.PermittedNumberOfCallsInHalfOpen,
 		MinimumNumberOfCalls:             url.policy.MinimumNumberOfCalls,
-		SlowCallDurationThreshold:        url.policy.SlowCallDurationThreshold,
-		MaxWaitDurationInHalfOpen:        url.policy.MaxWaitDurationInHalfOpen,
-		WaitDurationInOpen:               url.policy.WaitDurationInOpen,
 	}
 
 	if policy.FailureRateThreshold == 0 {
@@ -88,11 +86,11 @@ func (url *CircuitBreakerURLRule) createCircuitBreaker() {
 		policy.SlowCallRateThreshold = 100
 	}
 
-	if url.policy.SlidingWindowType == "TIME_BASED" {
+	if strings.ToUpper(url.policy.SlidingWindowType) == "TIME_BASED" {
 		policy.SlidingWindowType = circuitbreaker.TimeBased
 	}
 
-	if url.policy.SlidingWindowSize == 0 {
+	if policy.SlidingWindowSize == 0 {
 		policy.SlidingWindowSize = 100
 	}
 
@@ -104,28 +102,37 @@ func (url *CircuitBreakerURLRule) createCircuitBreaker() {
 		policy.MinimumNumberOfCalls = 100
 	}
 
-	if policy.SlowCallDurationThreshold <= 0 {
+	if d := url.policy.SlowCallDurationThreshold; d != "" {
+		policy.SlowCallDurationThreshold, _ = time.ParseDuration(d)
+	} else {
 		policy.SlowCallDurationThreshold = time.Minute
 	}
 
-	if policy.MaxWaitDurationInHalfOpen < 0 {
-		policy.MaxWaitDurationInHalfOpen = 0
+	if d := url.policy.MaxWaitDurationInHalfOpen; d != "" {
+		policy.MaxWaitDurationInHalfOpen, _ = time.ParseDuration(d)
 	}
 
-	if policy.WaitDurationInOpen <= 0 {
+	if d := url.policy.WaitDurationInOpen; d != "" {
+		policy.WaitDurationInOpen, _ = time.ParseDuration(d)
+	} else {
 		policy.WaitDurationInOpen = time.Minute
 	}
 
 	url.cb = circuitbreaker.New(&policy)
+	url.cb.SetStateListener(func(oldState, newState circuitbreaker.State) {
+		// TODO: log state change event
+	})
 }
 
 // NewCircuitBreaker creates a new circuit breaker from spec
 func NewCircuitBreaker(spec *CircuitBreakerSpec) *CircuitBreaker {
-	for _, p := range spec.Policies {
-		sort.Ints(p.ExceptionalStatusCode)
-	}
+	cb := &CircuitBreaker{spec: spec}
 
 	for _, u := range spec.URLs {
+		if u.URL.RegEx != "" {
+			u.URL.re = regexp.MustCompile(u.URL.RegEx)
+		}
+
 		name := u.PolicyRef
 		if name == "" {
 			name = spec.DefaultPolicyRef
@@ -139,14 +146,9 @@ func NewCircuitBreaker(spec *CircuitBreakerSpec) *CircuitBreaker {
 		}
 
 		u.createCircuitBreaker()
-		u.cb.SetStateListener(func(url *CircuitBreakerURLRule) func(oldState, newState circuitbreaker.State) {
-			return func(oldState, newState circuitbreaker.State) {
-				// TODO: log state change event
-			}
-		}(u))
 	}
 
-	return &CircuitBreaker{spec: spec}
+	return cb
 }
 
 // Handle handles HTTP request
@@ -167,7 +169,7 @@ func (cb *CircuitBreaker) Handle(ctx context.HTTPContext) string {
 
 				defer func() {
 					if e := recover(); e != nil {
-						d := time.Now().Sub(start)
+						d := time.Since(start)
 						err, ok := e.(error)
 						if !ok {
 							err = fmt.Errorf("unknown error: %v", e)
@@ -177,20 +179,23 @@ func (cb *CircuitBreaker) Handle(ctx context.HTTPContext) string {
 					}
 				}()
 
-				var err error
 				result := fn()
-				duration := time.Now().Sub(start)
+				duration := time.Since(start)
 				if result != "" {
-					err = fmt.Errorf("result is: %s", result)
-				} else {
-					code := ctx.Response().StatusCode()
-					idx := sort.SearchInts(u.policy.ExceptionalStatusCode, code)
-					if idx < len(u.policy.ExceptionalStatusCode) && u.policy.ExceptionalStatusCode[idx] == code {
-						err = fmt.Errorf("status code is: %d", code)
+					err := fmt.Errorf("result is: %s", result)
+					u.cb.RecordResult(stateID, err, duration)
+					return result
+				}
+
+				code := ctx.Response().StatusCode()
+				for _, c := range u.policy.ExceptionalStatusCode {
+					if code == c {
+						err := fmt.Errorf("status code is: %d", code)
+						u.cb.RecordResult(stateID, err, duration)
+						break
 					}
 				}
 
-				u.cb.RecordResult(stateID, err, duration)
 				return result
 			}
 		})

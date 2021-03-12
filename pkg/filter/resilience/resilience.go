@@ -49,7 +49,7 @@ type (
 )
 
 // Validate implements custom validation for Spec
-func (spec *Spec) Validate() error {
+func (spec Spec) Validate() error {
 	if spec.CircuitBreaker != nil {
 		return nil
 	}

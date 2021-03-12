@@ -3,6 +3,7 @@ package httppipeline
 import (
 	"fmt"
 
+	"github.com/megaease/easegateway/pkg/v"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -70,6 +71,7 @@ func newFilterSpecInternal(spec map[string]interface{}) (*FilterSpec, error) {
 		return nil, fmt.Errorf("unmarshal failed: %v", err)
 	}
 
+	v.Validate(s.filterSpec, []byte(yamlConfig))
 	return s, nil
 }
 

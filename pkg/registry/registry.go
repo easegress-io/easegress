@@ -22,6 +22,7 @@ import (
 	_ "github.com/megaease/easegateway/pkg/filter/ratelimiter"
 	_ "github.com/megaease/easegateway/pkg/filter/remotefilter"
 	_ "github.com/megaease/easegateway/pkg/filter/requestadaptor"
+	_ "github.com/megaease/easegateway/pkg/filter/resilience"
 	_ "github.com/megaease/easegateway/pkg/filter/responseadaptor"
 	_ "github.com/megaease/easegateway/pkg/filter/urlratelimiter"
 	_ "github.com/megaease/easegateway/pkg/filter/validator"

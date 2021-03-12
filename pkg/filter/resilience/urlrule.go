@@ -1,6 +1,7 @@
 package resilience
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -11,20 +12,39 @@ import (
 type (
 	// StringMatch defines the match rule of a string
 	StringMatch struct {
-		Exact  string `yaml:"exact"`
-		Prefix string `yaml:"prefix"`
-		RegEx  string `yaml:"regex"`
+		Exact  string `yaml:"exact" jsonschema:"omitempty"`
+		Prefix string `yaml:"prefix" jsonschema:"omitempty"`
+		RegEx  string `yaml:"regex" jsonschema:"omitempty"`
 		re     *regexp.Regexp
 	}
 
 	// URLRule defines the match rule of a http request
 	URLRule struct {
-		Methods   []string    `yaml:"methods" jsonschema:"omitempty"`
+		Methods   []string    `yaml:"methods" jsonschema:"omitempty,uniqueItems=true"`
 		URL       StringMatch `yaml:"url" jsonschema:"required"`
 		PolicyRef string      `yaml:"policyRef" jsonschema:"omitempty"`
 	}
 )
 
+// Validate validates the StringMatch object
+func (sm StringMatch) Validate() error {
+	if sm.RegEx != "" {
+		_, e := regexp.Compile(sm.RegEx)
+		return e
+	}
+
+	if sm.Exact != "" {
+		return nil
+	}
+
+	if sm.Prefix != "" {
+		return nil
+	}
+
+	return fmt.Errorf("at least one pattern must be configured")
+}
+
+// Match matches a URL to the rule
 func (r *URLRule) Match(req context.HTTPRequest) bool {
 	if len(r.Methods) > 0 && r.Methods[0] != "*" {
 		if !stringtool.StrInSlice(req.Method(), r.Methods) {
@@ -33,7 +53,6 @@ func (r *URLRule) Match(req context.HTTPRequest) bool {
 	}
 
 	path := req.Path()
-	// TODO: if u == "" {}
 
 	if r.URL.Exact != "" && path == r.URL.Exact {
 		return true
@@ -43,13 +62,8 @@ func (r *URLRule) Match(req context.HTTPRequest) bool {
 		return true
 	}
 
-	if r.URL.RegEx == "" {
-		return false
-	}
-
 	if r.URL.re == nil {
-		// TODO: handle panic
-		r.URL.re = regexp.MustCompile(r.URL.RegEx)
+		return false
 	}
 
 	return r.URL.re.MatchString(path)
