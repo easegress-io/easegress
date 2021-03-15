@@ -33,10 +33,10 @@ const (
 	// GJSONScopeServiceCanary is the scope of service canary.
 	ServiceCanary GJSONInformScope = "canary"
 
-	// ScopeServiceLoadBalance is the scope of service loadbalance.
-	ScopeServiceLoadBalance GJSONInformScope = "loadBalance"
+	// ServiceLoadBalance is the scope of service loadbalance.
+	ServiceLoadBalance GJSONInformScope = "loadBalance"
 
-	// ScopeServiceLoadBalance is the scope of service loadbalance.
+	// ServiceCircuitBreaker is the scope of service resielience's circuritBreaker part.
 	ServiceCircuitBreaker GJSONInformScope = "resilience.circuitBreaker"
 )
 
@@ -123,8 +123,9 @@ type (
 
 	// meshInformer is the informer for mesh usage
 	meshInformer struct {
-		store storage.Storage
-		dict  map[string]closer
+		store  storage.Storage
+		dict   map[string]closer
+		closed bool
 
 		done  chan struct{}
 		mutex sync.Mutex
@@ -134,6 +135,9 @@ type (
 var (
 	// ErrAlreadyWatched is the error when calling informer to watch the same name/prefix again.
 	ErrAlreadyWatched = fmt.Errorf("already watched")
+
+	// ErrWatchInClosedInforemer is the error when calling a closed informer to watch.
+	ErrWatchInClosedInforemer = fmt.Errorf("informer already been closed")
 
 	// ErrRecordNotFound is the errro when can't find the desired key from storage.
 	ErrRecordNotFound = fmt.Errorf("record not found")
@@ -170,8 +174,7 @@ func (inf *meshInformer) StopWatchOneKey(dictName string) {
 	defer inf.mutex.Unlock()
 
 	if v, ok := inf.dict[dictName]; ok {
-		v.watcher.Close()
-		close(v.done)
+		v.Close()
 		delete(inf.dict, dictName)
 	}
 	return
@@ -275,7 +278,7 @@ func (inf *meshInformer) OnSerivceSpecs(servicePrefix string, fn ServiceSpecsFun
 	return inf.OnSpecs(servicePrefix, dictKey, specsFunc)
 }
 
-// OnServiceInstanceSpecs watchs one service all instance reorders
+// OnServiceInstanceSpecs watchs one service all instance recorders
 func (inf *meshInformer) OnServiceInstanceSpecs(serviceName string, fn ServiceInstanceSpecsFunc) error {
 	instancePrefix := layout.ServiceInstanceSpecPrefix(serviceName)
 	dictKey := fmt.Sprintf("service-instance-%s", serviceName)
@@ -297,7 +300,7 @@ func (inf *meshInformer) OnServiceInstanceSpecs(serviceName string, fn ServiceIn
 	return inf.OnSpecs(instancePrefix, dictKey, specsFunc)
 }
 
-// OnServiceInstanceStatuses watchs service instance status reorders with the same prefix
+// OnServiceInstanceStatuses watchs service instance status recorders with same prefix
 func (inf *meshInformer) OnServiceInstanceStatuses(instanceStatusPrefix string, fn ServiceInstanceStatusesFunc) error {
 	dictKey := fmt.Sprintf("service-instance-status-prefix-%s", instanceStatusPrefix)
 
@@ -318,7 +321,7 @@ func (inf *meshInformer) OnServiceInstanceStatuses(instanceStatusPrefix string, 
 	return inf.OnSpecs(instanceStatusPrefix, dictKey, specsFunc)
 }
 
-// OnTenantSpecs watchs tenants reorders with the same prefix
+// OnTenantSpecs watchs tenants recorders with the same prefix
 func (inf *meshInformer) OnTenantSpecs(tenantPrefix string, fn TenantSpecsFunc) error {
 	dictKey := fmt.Sprintf("tenant-prefix-%s", tenantPrefix)
 
@@ -371,6 +374,10 @@ func (inf *meshInformer) compare(scope GJSONInformScope, origin, new string) boo
 func (inf *meshInformer) onSpecPart(storeKey, dictKey string, gjsonScope GJSONInformScope, fn specHandleFunc) error {
 	inf.mutex.Lock()
 	defer inf.mutex.Unlock()
+	if inf.closed == true {
+		return ErrWatchInClosedInforemer
+	}
+
 	if _, ok := inf.dict[dictKey]; ok {
 		logger.Infof("already watching key:%s", dictKey)
 		return ErrAlreadyWatched
@@ -411,6 +418,10 @@ func (inf *meshInformer) onSpecPart(storeKey, dictKey string, gjsonScope GJSONIn
 func (inf *meshInformer) OnSpecs(storePrefix, dictKey string, fn specsHandleFunc) error {
 	inf.mutex.Lock()
 	defer inf.mutex.Unlock()
+
+	if inf.closed == true {
+		return ErrWatchInClosedInforemer
+	}
 	if _, ok := inf.dict[dictKey]; ok {
 		logger.Infof("already wathed prefix:%s", dictKey)
 		return ErrAlreadyWatched
@@ -445,10 +456,14 @@ func (inf *meshInformer) run() {
 	for {
 		select {
 		case <-inf.done:
+			inf.mutex.Lock()
+			defer inf.mutex.Unlock()
 			// close all watching goroutine
 			for _, v := range inf.dict {
 				v.Close()
 			}
+			inf.closed = true
+			return
 		}
 	}
 }
