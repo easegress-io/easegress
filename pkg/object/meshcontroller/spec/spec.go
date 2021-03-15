@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/megaease/easegateway/pkg/filter/backend"
-	"github.com/megaease/easegateway/pkg/filter/circuitbreaker"
+	"github.com/megaease/easegateway/pkg/filter/resilience/circuitbreaker"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
 	"github.com/megaease/easegateway/pkg/supervisor"
 	"github.com/megaease/easegateway/pkg/util/httpfilter"

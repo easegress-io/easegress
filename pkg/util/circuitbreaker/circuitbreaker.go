@@ -250,7 +250,7 @@ type (
 		Reason   string
 	}
 
-	// StateListenerFunc is a listener function to listen state transit event
+	// EventListenerFunc is a listener function to listen state transit event
 	EventListenerFunc func(event *Event)
 
 	// CircuitBreaker defines a circuit breaker

@@ -2,11 +2,12 @@ package circuitbreaker
 
 import (
 	"fmt"
-	"regexp"
+	"reflect"
 	"strings"
 	"time"
 
 	"github.com/megaease/easegateway/pkg/context"
+	"github.com/megaease/easegateway/pkg/filter/resilience"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
 	"github.com/megaease/easegateway/pkg/supervisor"
@@ -43,18 +44,18 @@ type (
 		ExceptionalStatusCode            []int  `yaml:"exceptionalStatusCode" jsonschema:"omitempty,uniqueItems=true"`
 	}
 
-	// CircuitBreakerURLRule defines the circuit breaker rule for a URL pattern
-	CircuitBreakerURLRule struct {
-		URLRule `yaml:",inline"`
-		policy  *Policy
-		cb      *libcb.CircuitBreaker
+	// URLRule defines the circuit breaker rule for a URL pattern
+	URLRule struct {
+		resilience.URLRule `yaml:",inline"`
+		policy             *Policy
+		cb                 *libcb.CircuitBreaker
 	}
 
 	// Spec is the configuration of a circuit breaker
 	Spec struct {
-		Policies         []*Policy                `yaml:"policies" jsonschema:"required"`
-		DefaultPolicyRef string                   `yaml:"defaultPolicyRef" jsonschema:"omitempty"`
-		URLs             []*CircuitBreakerURLRule `yaml:"urls" jsonschema:"required"`
+		Policies         []*Policy  `yaml:"policies" jsonschema:"required"`
+		DefaultPolicyRef string     `yaml:"defaultPolicyRef" jsonschema:"omitempty"`
+		URLs             []*URLRule `yaml:"urls" jsonschema:"required"`
 	}
 
 	// CircuitBreaker defines the circuit breaker
@@ -91,7 +92,7 @@ URLLoop:
 	return nil
 }
 
-func (url *CircuitBreakerURLRule) createCircuitBreaker() {
+func (url *URLRule) createCircuitBreaker() {
 	policy := libcb.Policy{
 		FailureRateThreshold:             url.policy.FailureRateThreshold,
 		SlowCallRateThreshold:            url.policy.SlowCallRateThreshold,
@@ -164,10 +165,21 @@ func (cb *CircuitBreaker) Results() []string {
 	return results
 }
 
-func (cb *CircuitBreaker) createCircuitBreakerForURL(u *CircuitBreakerURLRule) {
-	if u.URL.RegEx != "" {
-		u.URL.re = regexp.MustCompile(u.URL.RegEx)
-	}
+func (cb *CircuitBreaker) setStateListenerForURL(u *URLRule) {
+	u.cb.SetStateListener(func(event *libcb.Event) {
+		logger.Infof("state of circuit breaker '%s' on URL(%s) transited from %s to %s at %d, reason: %s",
+			cb.pipeSpec.Name(),
+			u.ID(),
+			event.OldState,
+			event.NewState,
+			event.Time.Local().UnixNano()/1e6,
+			event.Reason,
+		)
+	})
+}
+
+func (cb *CircuitBreaker) createCircuitBreakerForURL(u *URLRule) {
+	u.Init()
 
 	name := u.PolicyRef
 	if name == "" {
@@ -182,21 +194,60 @@ func (cb *CircuitBreaker) createCircuitBreakerForURL(u *CircuitBreakerURLRule) {
 	}
 
 	u.createCircuitBreaker()
-	u.cb.SetStateListener(func(event *libcb.Event) {
-		logger.Infof("state of circuit breaker '%s' on URL(%s) transited from %s to %s at %d, reason: %s",
-			cb.pipeSpec.Name(),
-			u.ID,
-			event.OldState,
-			event.NewState,
-			event.Time.Local().UnixNano()/1e6,
-			event.Reason,
-		)
-	})
+	cb.setStateListenerForURL(u)
 }
 
-func (cb *CircuitBreaker) reload() {
-	for _, u := range cb.spec.URLs {
-		cb.createCircuitBreakerForURL(u)
+func (cb *CircuitBreaker) isSamePolicy(spec1, spec2 *Spec, policyName string) bool {
+	if policyName == "" {
+		if spec1.DefaultPolicyRef != spec2.DefaultPolicyRef {
+			return false
+		}
+		policyName = spec1.DefaultPolicyRef
+	}
+
+	var p1, p2 *Policy
+	for _, p := range spec1.Policies {
+		if p.Name == policyName {
+			p1 = p
+			break
+		}
+	}
+
+	for _, p := range spec2.Policies {
+		if p.Name == policyName {
+			p2 = p
+			break
+		}
+	}
+
+	return reflect.DeepEqual(p1, p2)
+}
+
+func (cb *CircuitBreaker) reload(previousGeneration *CircuitBreaker) {
+	if previousGeneration == nil {
+		for _, u := range cb.spec.URLs {
+			cb.createCircuitBreakerForURL(u)
+		}
+		return
+	}
+
+OuterLoop:
+	for _, url := range cb.spec.URLs {
+		for _, prev := range previousGeneration.spec.URLs {
+			if !url.DeepEqual(&prev.URLRule) {
+				continue
+			}
+			if !cb.isSamePolicy(cb.spec, previousGeneration.spec, url.PolicyRef) {
+				continue
+			}
+
+			url.Init()
+			url.cb = prev.cb
+			prev.cb = nil
+			cb.setStateListenerForURL(url)
+			continue OuterLoop
+		}
+		cb.createCircuitBreakerForURL(url)
 	}
 }
 
@@ -205,13 +256,15 @@ func (cb *CircuitBreaker) Init(pipeSpec *httppipeline.FilterSpec, super *supervi
 	cb.pipeSpec = pipeSpec
 	cb.spec = pipeSpec.FilterSpec().(*Spec)
 	cb.super = super
-	cb.reload()
+	cb.reload(nil)
 }
 
 // Inherit inherits previous generation of CircuitBreaker.
 func (cb *CircuitBreaker) Inherit(pipeSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter, super *supervisor.Supervisor) {
-	previousGeneration.Close()
-	cb.Init(pipeSpec, super)
+	cb.pipeSpec = pipeSpec
+	cb.spec = pipeSpec.FilterSpec().(*Spec)
+	cb.super = super
+	cb.reload(previousGeneration.(*CircuitBreaker))
 }
 
 // Handle handles HTTP request
