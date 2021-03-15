@@ -245,8 +245,8 @@ type (
 
 	Event struct {
 		Time     time.Time
-		OldState State
-		NewState State
+		OldState string
+		NewState string
 		Reason   string
 	}
 
@@ -280,6 +280,16 @@ const (
 	StateForceOpen
 )
 
+var (
+	stateStrings = []string{
+		"Disabled",
+		"Closed",
+		"HalfOpen",
+		"Open",
+		"ForceOpen",
+	}
+)
+
 // NewPolicy create and initialize a policy with default configuration
 func NewPolicy() *Policy {
 	return &Policy{
@@ -306,7 +316,7 @@ func New(policy *Policy) *CircuitBreaker {
 func (cb *CircuitBreaker) SetState(state State) {
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
-	cb.transitTo(state, "manually triggered")
+	cb.transitTo(state, "force transition")
 }
 
 // SetStateListener sets an event listener for the CircuitBreaker
@@ -343,8 +353,8 @@ func (cb *CircuitBreaker) transitTo(state State, reason string) {
 	if cb.listener != nil {
 		event := &Event{
 			Time:     cb.transitTime,
-			OldState: oldState,
-			NewState: state,
+			OldState: stateStrings[oldState],
+			NewState: stateStrings[state],
 			Reason:   reason,
 		}
 		// create a new goroutine as current function is called inside a lock

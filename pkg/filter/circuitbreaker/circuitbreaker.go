@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/megaease/easegateway/pkg/context"
+	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
 	"github.com/megaease/easegateway/pkg/supervisor"
 	libcb "github.com/megaease/easegateway/pkg/util/circuitbreaker"
@@ -141,9 +142,6 @@ func (url *CircuitBreakerURLRule) createCircuitBreaker() {
 	}
 
 	url.cb = libcb.New(&policy)
-	url.cb.SetStateListener(func(event *libcb.Event) {
-		// TODO: log state change event
-	})
 }
 
 // Kind returns the kind of CircuitBreaker.
@@ -166,25 +164,39 @@ func (cb *CircuitBreaker) Results() []string {
 	return results
 }
 
+func (cb *CircuitBreaker) createCircuitBreakerForURL(u *CircuitBreakerURLRule) {
+	if u.URL.RegEx != "" {
+		u.URL.re = regexp.MustCompile(u.URL.RegEx)
+	}
+
+	name := u.PolicyRef
+	if name == "" {
+		name = cb.spec.DefaultPolicyRef
+	}
+
+	for _, p := range cb.spec.Policies {
+		if p.Name == name {
+			u.policy = p
+			break
+		}
+	}
+
+	u.createCircuitBreaker()
+	u.cb.SetStateListener(func(event *libcb.Event) {
+		logger.Infof("state of circuit breaker '%s' on URL(%s) transited from %s to %s at %d, reason: %s",
+			cb.pipeSpec.Name(),
+			u.ID,
+			event.OldState,
+			event.NewState,
+			event.Time.Local().UnixNano()/1e6,
+			event.Reason,
+		)
+	})
+}
+
 func (cb *CircuitBreaker) reload() {
 	for _, u := range cb.spec.URLs {
-		if u.URL.RegEx != "" {
-			u.URL.re = regexp.MustCompile(u.URL.RegEx)
-		}
-
-		name := u.PolicyRef
-		if name == "" {
-			name = cb.spec.DefaultPolicyRef
-		}
-
-		for _, p := range cb.spec.Policies {
-			if p.Name == name {
-				u.policy = p
-				break
-			}
-		}
-
-		u.createCircuitBreaker()
+		cb.createCircuitBreakerForURL(u)
 	}
 }
 
