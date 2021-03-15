@@ -410,7 +410,7 @@ func (inf *meshInformer) onSpecPart(storeKey, dictKey string, gjsonScope GJSONIn
 		done:    closeChan,
 		watcher: watcher,
 	}
-	go inf.watch(ch, *s, dictKey, gjsonScope, fn, closeChan)
+	go inf.watch(ch, dictKey, *s, gjsonScope, fn, closeChan)
 
 	return nil
 }
