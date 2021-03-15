@@ -33,7 +33,7 @@ type Worker struct {
 	inf                 informer.Informer
 	egs                 *EgressServer
 	observabilityServer *ObservabilityManager
-	mutex                 sync.Mutex
+	mutex               sync.Mutex
 
 	egressWatch chan string
 	done        chan struct{}
@@ -53,7 +53,9 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 	egressWatch := make(chan string, defaultWathChanBuffer)
 	egressServer := NewEgressServer(super, serviceName, store, egressWatch)
 	observabilityServer := NewObservabilityServer(serviceName)
-	inf := informer.NewServiceInformer(store)
+
+	done := make(chan struct{})
+	inf := informer.NewMeshInformer(store, done)
 
 	w := &Worker{
 		super:       super,
@@ -109,6 +111,7 @@ func (w *Worker) run() {
 		case <-w.done:
 			close(doneHeartBeat)
 			close(doneWatchSpec)
+			w.inf.Close()
 			return
 		}
 	}
@@ -235,60 +238,51 @@ func getService(serviceName string, store storage.Storage) (*spec.Service, error
 // addEgressWatch adds one egress service spec and instance list wathcing by using
 // informer
 func (w *Worker) addEgressWatch(serviceName string) {
-	handleService := func(event informer.InformEvent, value string) {
+	handleSerivceSpec := func(event informer.InformEvent, service *spec.Service) bool {
 		switch event {
 		case informer.EventDelete:
-			logger.Infof("worker handle egress service:%s's spec delete event", serviceName)
 			w.egs.DeletePipeline(serviceName)
+			return false
 		case informer.EventUpdate:
 			logger.Infof("worker handle egress service:%s's spec update event", serviceName)
-			var service spec.Service
-			err := yaml.Unmarshal([]byte(value), &service)
-			if err != nil {
-				logger.Errorf("BUG, egresss add watching by informer failed, yaml unmsarshal service:[%s] failed, err:%v", value, err)
-				return
-			}
 
 			ins, err := getSerivceInstances(service.Name, w.store)
 			if err != nil {
 				logger.Errorf("egresss add watching by informer failed, get service:[%s] instance list failed, err:%v", serviceName, err)
-				return
+				return true
 			}
-			if err := w.egs.UpdatePipeline(&service, ins); err != nil {
+			if err := w.egs.UpdatePipeline(service, ins); err != nil {
 				logger.Errorf("egress update pipeline by informer failed, update serivce:%s's failed, err:%v", serviceName, err)
 			}
 		}
+		return true
 	}
-	if err := w.inf.OnScope(serviceName, informer.ScopeService, handleService); err != nil {
+	if err := w.inf.OnPartOfServiceSpec(serviceName, informer.AllParts, handleSerivceSpec); err != nil {
 		if err != informer.ErrAlreadyWatched {
 			logger.Errorf("worker add egress scope watching failed, service:%s, err:%v", serviceName, err)
 			return
 		}
 	}
 
-	handleServiceInstance := func(value map[string]string) {
+	handleServiceInstances := func(insMap map[string]*spec.ServiceInstanceSpec) bool {
 		logger.Infof("worker handle egress service:%s's spec update event", serviceName)
 		service, err := getService(serviceName, w.store)
 		if err != nil {
 			logger.Errorf("worker add egress watching by informer failed, get service:%s spec failed, err:%v", serviceName, err)
-			return
+			return true
 		}
 		var insList []*spec.ServiceInstanceSpec
-		for _, v := range value {
-			var ins *spec.ServiceInstanceSpec
-			if err = yaml.Unmarshal([]byte(v), ins); err != nil {
-				logger.Errorf("BUG: egress update by informer, unmarshal %s to yaml failed: %v", v, err)
-				continue
-			}
-			insList = append(insList, ins)
+		for _, v := range insMap {
+			insList = append(insList, v)
 		}
 		if err := w.egs.UpdatePipeline(service, insList); err != nil {
 			logger.Errorf("worker update pipeline by informer failed,update service:%s failed, err:%v", serviceName, err)
 		}
 
+		return true
 	}
 
-	if err := w.inf.OnPrefix(serviceName, handleServiceInstance); err != nil {
+	if err := w.inf.OnServiceInstanceSpecs(serviceName, handleServiceInstances); err != nil {
 		if err != informer.ErrAlreadyWatched {
 			logger.Errorf("worker add egress prefix watching failed, service:%s, err:%v", serviceName, err)
 			return
@@ -301,30 +295,24 @@ func (w *Worker) addEgressWatch(serviceName string) {
 // addWatchIngress will watch ingress spec after worker registried itself successfully.
 func (w *Worker) addWatchIngress() {
 	// add watch ingress
-	handleServiceObservability := func(event informer.InformEvent, value string) {
+	handleServiceObservability := func(event informer.InformEvent, service *spec.Service) bool {
 		switch event {
 		case informer.EventDelete:
 			logger.Infof("worker handle ingress service:%s's spec delete event", w.serviceName)
-			return
+			return false
 		case informer.EventUpdate:
 			logger.Infof("worker handle ingress service:%s's spec update event", w.serviceName)
-			var service spec.Service
-			err := yaml.Unmarshal([]byte(value), &service)
-			if err != nil {
-				logger.Errorf("BUG, egresss add watching by informer failed, yaml unmsarshal service:[%s] failed, err:%v", value, err)
-				return
-			}
 
 			if err := w.observabilityServer.UpdateObservability(w.serviceName, service.Observability); err != nil {
 				logger.Errorf("worker call observability server to notify Java process failed, observability spec:%#v,err:%v ", service.Observability, err)
 			}
 		}
-		return
+		return true
 	}
 
-	if err := w.inf.OnScope(w.serviceName, informer.ScopeServiceObservability, handleServiceObservability); err != nil {
+	if err := w.inf.OnPartOfServiceSpec(w.serviceName, informer.ServiceObservability, handleServiceObservability); err != nil {
 		if err != informer.ErrAlreadyWatched {
-			logger.Errorf("worker add ingress socpe:%s faile, err:%v", informer.ScopeServiceObservability, err)
+			logger.Errorf("worker add ingress socpe:%s faile, err:%v", informer.ServiceObservability, err)
 		}
 	}
 	return
