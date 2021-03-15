@@ -146,10 +146,11 @@ var (
 // NewMeshInformer creates an Informer to watch service event.
 func NewMeshInformer(store storage.Storage, done chan struct{}) Informer {
 	inf := &meshInformer{
-		store: store,
-		dict:  make(map[string]closer),
-		mutex: sync.Mutex{},
-		done:  done,
+		store:  store,
+		dict:   make(map[string]closer),
+		mutex:  sync.Mutex{},
+		done:   done,
+		closed: false,
 	}
 
 	go inf.run()
