@@ -54,8 +54,7 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 	egressServer := NewEgressServer(super, serviceName, store, egressWatch)
 	observabilityServer := NewObservabilityServer(serviceName)
 
-	done := make(chan struct{})
-	inf := informer.NewMeshInformer(store, done)
+	inf := informer.NewInformer(store)
 
 	w := &Worker{
 		super:       super,
@@ -105,16 +104,10 @@ func (w *Worker) run() {
 	go w.heartbeat(watchInterval, doneHeartBeat)
 	go w.watchEvents(doneWatchSpec)
 
-	for {
-		select {
-
-		case <-w.done:
-			close(doneHeartBeat)
-			close(doneWatchSpec)
-			w.inf.Close()
-			return
-		}
-	}
+	<-w.done
+	close(doneHeartBeat)
+	close(doneWatchSpec)
+	w.inf.Close()
 }
 
 // heartbeat checks local instance's java process's aliveness and
@@ -159,7 +152,7 @@ func (w *Worker) checkLocalInstanceHeartbeat() error {
 		}
 	}
 
-	if alive == true {
+	if alive {
 		value, err := w.store.Get(layout.ServiceInstanceStatusKey(w.serviceName, w.instanceID))
 		if err != nil {
 			logger.Errorf("worker gets serivce %s/%s status failed: %v", w.serviceName, w.instanceID, err)
@@ -238,7 +231,7 @@ func getService(serviceName string, store storage.Storage) (*spec.Service, error
 // addEgressWatch adds one egress service spec and instance list wathcing by using
 // informer
 func (w *Worker) addEgressWatch(serviceName string) {
-	handleSerivceSpec := func(event informer.InformEvent, service *spec.Service) bool {
+	handleSerivceSpec := func(event informer.Event, service *spec.Service) bool {
 		switch event {
 		case informer.EventDelete:
 			w.egs.DeletePipeline(serviceName)
@@ -288,14 +281,12 @@ func (w *Worker) addEgressWatch(serviceName string) {
 			return
 		}
 	}
-
-	return
 }
 
 // addWatchIngress will watch ingress spec after worker registried itself successfully.
 func (w *Worker) addWatchIngress() {
 	// add watch ingress
-	handleServiceObservability := func(event informer.InformEvent, service *spec.Service) bool {
+	handleServiceObservability := func(event informer.Event, service *spec.Service) bool {
 		switch event {
 		case informer.EventDelete:
 			logger.Infof("worker handle ingress service:%s's spec delete event", w.serviceName)
@@ -315,7 +306,6 @@ func (w *Worker) addWatchIngress() {
 			logger.Errorf("worker add ingress socpe:%s faile, err:%v", informer.ServiceObservability, err)
 		}
 	}
-	return
 }
 
 // watchEvents checks worker's using

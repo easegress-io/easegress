@@ -176,15 +176,14 @@ type (
 	// ServiceInstanceSpec is the spec of service instance.
 	ServiceInstanceSpec struct {
 		// Provide by registry client
-		ServiceName string `yaml:"serviceName" jsonschema:"required"`
-		InstanceID  string `yaml:"instanceID" jsonschema:"required"`
-		IP          string `yaml:"IP" jsonschema:"required"`
-		Port        uint32 `yaml:"port" jsonschema:"required"`
+		ServiceName  string `yaml:"serviceName" jsonschema:"required"`
+		InstanceID   string `yaml:"instanceID" jsonschema:"required"`
+		IP           string `yaml:"IP" jsonschema:"required"`
+		Port         uint32 `yaml:"port" jsonschema:"required"`
+		RegistryTime int64  `yaml:"registryTime" jsonschema:"omitempty"`
 
 		// Set by heartbeat timer event or API
-		Status       string `yaml:"status" jsonschema:"omitempty"`
-		Leases       int64  `yaml:"timestamp" jsonschema:"omitempty"`
-		RegistryTime int64  `yaml:"registryTime" jsonschema:"omitempty"`
+		Status string `yaml:"status" jsonschema:"omitempty"`
 	}
 
 	// ServiceInstanceStatus is the status of service instance.

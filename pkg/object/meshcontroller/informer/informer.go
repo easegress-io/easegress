@@ -8,7 +8,6 @@ import (
 	"github.com/tidwall/gjson"
 	"gopkg.in/yaml.v2"
 
-	"github.com/megaease/easegateway/pkg/cluster"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/layout"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
@@ -16,383 +15,340 @@ import (
 )
 
 const (
+	// TODO: Support EventCreate.
+
 	// EventUpdate is the update infrom event.
 	EventUpdate = "Update"
 	// EventDelete is the delete infrom event.
 	EventDelete = "Delete"
 
-	// AllParts is the scope of the whole structure.
-	AllParts GJSONInformScope = ""
+	// AllParts is the path of the whole structure.
+	AllParts GJSONPath = ""
 
-	// ScopeServiceObservability  is the scope of service observability.
-	ServiceObservability GJSONInformScope = "observability"
+	// ServiceObservability  is the path of service observability.
+	ServiceObservability GJSONPath = "observability"
 
-	// ScopeServiceResilience is the scope of service resilience.
-	ServiceResilience GJSONInformScope = "resilience"
+	// ServiceResilience is the path of service resilience.
+	ServiceResilience GJSONPath = "resilience"
 
-	// GJSONScopeServiceCanary is the scope of service canary.
-	ServiceCanary GJSONInformScope = "canary"
+	// ServiceCanary is the path of service canary.
+	ServiceCanary GJSONPath = "canary"
 
-	// ServiceLoadBalance is the scope of service loadbalance.
-	ServiceLoadBalance GJSONInformScope = "loadBalance"
+	// ServiceLoadBalance is the path of service loadbalance.
+	ServiceLoadBalance GJSONPath = "loadBalance"
 
-	// ServiceCircuitBreaker is the scope of service resielience's circuritBreaker part.
-	ServiceCircuitBreaker GJSONInformScope = "resilience.circuitBreaker"
+	// ServiceCircuitBreaker is the path of service resielience's circuritBreaker part.
+	ServiceCircuitBreaker GJSONPath = "resilience.circuitBreaker"
 )
 
 type (
-	// InformEvent is the type of inform event.
-	InformEvent string
+	// Event is the type of inform event.
+	Event string
 
-	// GJSONInformScope is the type of inform scope, in gjson syntax.
-	GJSONInformScope string
+	// GJSONPath is the type of inform path, in gjson syntax.
+	GJSONPath string
 
-	specHandleFunc  func(event InformEvent, value string) bool
+	specHandleFunc  func(event Event, value string) bool
 	specsHandleFunc func(map[string]string) bool
 
-	// ServiceSpecFunc is the handle function when target service's spec changed
-	// return value: true , keep on watching
-	//			     false, stop watching
-	ServiceSpecFunc func(event InformEvent, value *spec.Service) bool
+	// The returning boolean flag of all callback functions means
+	// if the stuff continues to be watched.
 
-	// ServiceSpecsFunc is the handle function when target services
-	// specs with same prefix changed
-	// return value: true , keep on watching
-	//			     false, stop watching
+	// ServiceSpecFunc is the callback function type for service spec.
+	ServiceSpecFunc func(event Event, serviceSpec *spec.Service) bool
+
+	// ServiceSpecFunc is the callback function type for service specs.
 	ServiceSpecsFunc func(value map[string]*spec.Service) bool
 
-	// ServicesInstanceFunc is the handle function when target service instance's spec changed
-	// return value: true , keep on watching
-	//			     false, stop watching
-	ServicesInstanceFunc func(event InformEvent, value *spec.ServiceInstanceSpec) bool
+	// ServiceInstanceSpecFunc is the callback function type for service instance spec.
+	ServicesInstanceSpecFunc func(event Event, instanceSpec *spec.ServiceInstanceSpec) bool
 
-	// ServiceInstanceSpecsFunc is the handle function when target service instance
-	// specs with same prefix changed
-	// return value: true , keep on watching
-	//			     false, stop watching
+	// ServiceInstanceSpecFunc is the callback function type for service instance specs.
 	ServiceInstanceSpecsFunc func(value map[string]*spec.ServiceInstanceSpec) bool
 
-	// ServiceInstanceStatusFunc is the handle function when target service instance
-	// status spec  changed
-	// return value: true , keep on watching
-	//			     false, stop watching
-	ServiceInstanceStatusFunc func(event InformEvent, value *spec.ServiceInstanceStatus) bool
+	// ServiceInstanceStatusFunc is the callback function type for service instance status.
+	ServiceInstanceStatusFunc func(event Event, value *spec.ServiceInstanceStatus) bool
 
-	// ServiceInstanceStatusesFunc is the handle function when target service instance
-	// specs with same prefix changed
-	// return value: true , keep on watching
-	//			     false, stop watching
+	// ServiceInstanceStatusesFunc is the callback function type for service instance statuses.
 	ServiceInstanceStatusesFunc func(value map[string]*spec.ServiceInstanceStatus) bool
 
-	// TenantFunc is the handle function when target tenant's spec changed
-	// return value: true , keep on watching
-	//			     false, stop watching
-	TenantFunc func(event InformEvent, value *spec.Tenant) bool
+	// TenantSpecFunc is the callback function type for tenant spec.
+	TenantSpecFunc func(event Event, value *spec.Tenant) bool
 
-	// ServiceInstanceStatusSpecsFunc is the handle function when same service instance status records
-	// changed.
-	// return value: true , keep on watching
-	//			     false, stop watching
+	// TenantSpecsFunc is the callback function type for tenant specs.
 	TenantSpecsFunc func(value map[string]*spec.Tenant) bool
 
 	// Informer is the interface for informing two type of storage changed for every Mesh spec structure.
-	//  1. Based on one record's gjson field compared
-	//  2. Based on same prefix's records modification
+	//  1. Based on comparison between old and new part of entry.
+	//  2. Based on comparison on entries with the same prefix.
 	Informer interface {
-		OnPartOfServiceSpec(serviceName string, gjsonScope GJSONInformScope, fn ServiceSpecFunc) error
+		OnPartOfServiceSpec(serviceName string, gjsonPath GJSONPath, fn ServiceSpecFunc) error
 		OnSerivceSpecs(servicePrefix string, fn ServiceSpecsFunc) error
 
-		OnPartOfInstanceSpec(serviceName, instanceID string, gjsonScope GJSONInformScope, fn ServicesInstanceFunc) error
+		OnPartOfInstanceSpec(serviceName, instanceID string, gjsonPath GJSONPath, fn ServicesInstanceSpecFunc) error
 		OnServiceInstanceSpecs(serviceName string, fn ServiceInstanceSpecsFunc) error
 
-		OnPartOfServiceInstanceStatus(serviceName, instanceID string, gjsonScope GJSONInformScope, fn ServiceInstanceStatusFunc) error
+		OnPartOfServiceInstanceStatus(serviceName, instanceID string, gjsonPath GJSONPath, fn ServiceInstanceStatusFunc) error
 		OnServiceInstanceStatuses(instanceStatusPrefix string, fn ServiceInstanceStatusesFunc) error
 
-		OnPartOfTenantSpec(tenantName string, gjsonScope GJSONInformScope, fn TenantFunc) error
+		OnPartOfTenantSpec(tenantName string, gjsonPath GJSONPath, fn TenantSpecFunc) error
 		OnTenantSpecs(tenantPrefix string, fn TenantSpecsFunc) error
 
 		Close()
 	}
 
-	// closer is a closer which handles one watching
-	// resource closing
-	closer struct {
-		done    chan struct{}
-		watcher cluster.Watcher
-	}
-
 	// meshInformer is the informer for mesh usage
 	meshInformer struct {
-		store  storage.Storage
-		dict   map[string]closer
-		closed bool
+		mutex    sync.Mutex
+		store    storage.Storage
+		watchers map[string]storage.Watcher
 
-		done  chan struct{}
-		mutex sync.Mutex
+		closed bool
+		done   chan struct{}
 	}
 )
 
 var (
-	// ErrAlreadyWatched is the error when calling informer to watch the same name/prefix again.
+	// ErrAlreadyWatched is the error when watch the same entry again.
 	ErrAlreadyWatched = fmt.Errorf("already watched")
 
-	// ErrWatchInClosedInforemer is the error when calling a closed informer to watch.
-	ErrWatchInClosedInforemer = fmt.Errorf("informer already been closed")
+	// ErrClosed is the error when watching a closed informer.
+	ErrClosed = fmt.Errorf("informer already been closed")
 
-	// ErrRecordNotFound is the errro when can't find the desired key from storage.
-	ErrRecordNotFound = fmt.Errorf("record not found")
+	// ErrNotFound is the error when watching an entry which is not found.
+	ErrNotFound = fmt.Errorf("not found")
 )
 
-// NewMeshInformer creates an Informer to watch service event.
-func NewMeshInformer(store storage.Storage, done chan struct{}) Informer {
+// NewInformer creates an informer.
+func NewInformer(store storage.Storage) Informer {
 	inf := &meshInformer{
-		store:  store,
-		dict:   make(map[string]closer),
-		mutex:  sync.Mutex{},
-		done:   done,
-		closed: false,
+		store:    store,
+		watchers: make(map[string]storage.Watcher),
+		mutex:    sync.Mutex{},
+		done:     make(chan struct{}),
 	}
 
-	go inf.run()
 	return inf
 }
 
-// Close closes the channel and call storage's watchre's Close()
-func (c *closer) Close() {
-	close(c.done)
-	c.watcher.Close()
-}
-
-// Close closes the informer
-func (inf *meshInformer) Close() {
-	close(inf.done)
-}
-
-// StopWatchOneKey will call one key's closer to close and then delete it from
-// informer's dictionary
-func (inf *meshInformer) StopWatchOneKey(dictName string) {
+func (inf *meshInformer) stopWatchOneKey(key string) {
 	inf.mutex.Lock()
 	defer inf.mutex.Unlock()
 
-	if v, ok := inf.dict[dictName]; ok {
-		v.Close()
-		delete(inf.dict, dictName)
+	if watcher, exists := inf.watchers[key]; exists {
+		watcher.Close()
+		delete(inf.watchers, key)
 	}
-	return
 }
 
-// OnPartOfServiceSpec watchs one service's spec by given gjsonScope
-func (inf *meshInformer) OnPartOfServiceSpec(serviceName string, gjsonScope GJSONInformScope, fn ServiceSpecFunc) error {
+// OnPartOfServiceSpec watchs one service's spec by given gjsonPath.
+func (inf *meshInformer) OnPartOfServiceSpec(serviceName string, gjsonPath GJSONPath, fn ServiceSpecFunc) error {
 	storeKey := layout.ServiceSpecKey(serviceName)
-	dictKey := fmt.Sprintf("service-%s-%s", serviceName, gjsonScope)
+	watcherKey := fmt.Sprintf("service-spec-%s-%s", serviceName, gjsonPath)
 
-	specFunc := func(event InformEvent, value string) bool {
-		var service spec.Service
-		if err := yaml.Unmarshal([]byte(value), service); err != nil {
-			if err != nil {
-				logger.Errorf("BUG, informer  yaml unmsarshal service:[%s] failed, err:%v", value, err)
-				// keep on watching
-				return true
+	specFunc := func(event Event, value string) bool {
+		var serviceSpec *spec.Service
+		if event != EventDelete {
+			if err := yaml.Unmarshal([]byte(value), serviceSpec); err != nil {
+				if err != nil {
+					logger.Errorf("BUG: unmarshal %s to yaml failed: %v", value, err)
+					return true
+				}
 			}
 		}
-		return fn(event, &service)
+		return fn(event, serviceSpec)
 	}
 
-	return inf.onSpecPart(storeKey, dictKey, gjsonScope, specFunc)
+	return inf.onSpecPart(storeKey, watcherKey, gjsonPath, specFunc)
 }
 
-// OnPartOfInstanceSpec watchs one service's instance spec by given gjsonScope
-func (inf *meshInformer) OnPartOfInstanceSpec(serviceName, instanceID string, gjsonScope GJSONInformScope, fn ServicesInstanceFunc) error {
-	dictKey := fmt.Sprintf("service-instance-%s-%s-%s", serviceName, instanceID, gjsonScope)
+// OnPartOfInstanceSpec watchs one service's instance spec by given gjsonPath.
+func (inf *meshInformer) OnPartOfInstanceSpec(serviceName, instanceID string, gjsonPath GJSONPath, fn ServicesInstanceSpecFunc) error {
 	storeKey := layout.ServiceInstanceSpecKey(serviceName, instanceID)
+	watcherKey := fmt.Sprintf("service-instance-spec-%s-%s-%s", serviceName, instanceID, gjsonPath)
 
-	specFunc := func(event InformEvent, value string) bool {
-		var ins spec.ServiceInstanceSpec
-		if err := yaml.Unmarshal([]byte(value), &ins); err != nil {
-			if err != nil {
-				logger.Errorf("BUG, informer  yaml unmsarshal service:[%s], instacne :[%s] failed, err:%v", serviceName, instanceID, value, err)
-				return true
+	specFunc := func(event Event, value string) bool {
+		var instanceSpec *spec.ServiceInstanceSpec
+		if event != EventDelete {
+			if err := yaml.Unmarshal([]byte(value), instanceSpec); err != nil {
+				if err != nil {
+					logger.Errorf("BUG: unmarshal %s to yaml failed: %v", value, err)
+					return true
+				}
 			}
 		}
-		return fn(event, &ins)
+		return fn(event, instanceSpec)
 	}
 
-	return inf.onSpecPart(storeKey, dictKey, gjsonScope, specFunc)
+	return inf.onSpecPart(storeKey, watcherKey, gjsonPath, specFunc)
 }
 
-// OnPartOfServiceInstanceStatus watches one service instance status spec by given gjsonScope
-func (inf *meshInformer) OnPartOfServiceInstanceStatus(serviceName, instanceID string, gjsonScope GJSONInformScope, fn ServiceInstanceStatusFunc) error {
+// OnPartOfServiceInstanceStatus watches one service instance status spec by given gjsonPath
+func (inf *meshInformer) OnPartOfServiceInstanceStatus(serviceName, instanceID string, gjsonPath GJSONPath, fn ServiceInstanceStatusFunc) error {
 	storeKey := layout.ServiceInstanceStatusKey(serviceName, instanceID)
-	dictKey := fmt.Sprintf("service-instance-status-%s", serviceName)
+	watcherKey := fmt.Sprintf("service-instance-status-%s-%s-%s", serviceName, instanceID, gjsonPath)
 
-	specFunc := func(event InformEvent, value string) bool {
-		var ins spec.ServiceInstanceStatus
-		if err := yaml.Unmarshal([]byte(value), &ins); err != nil {
-			if err != nil {
-				logger.Errorf("BUG, informer  yaml unmsarshal service:[%s], instacne status:[%s] failed, err:%v", serviceName, instanceID, value, err)
-				return true
+	specFunc := func(event Event, value string) bool {
+		var instanceStatus *spec.ServiceInstanceStatus
+		if event != EventDelete {
+			if err := yaml.Unmarshal([]byte(value), instanceStatus); err != nil {
+				if err != nil {
+					logger.Errorf("BUG: unmarshal %s to yaml failed: %v", value, err)
+					return true
+				}
 			}
 		}
-		return fn(event, &ins)
+		return fn(event, instanceStatus)
 	}
 
-	return inf.onSpecPart(storeKey, dictKey, gjsonScope, specFunc)
+	return inf.onSpecPart(storeKey, watcherKey, gjsonPath, specFunc)
 }
 
-// OnPartOfTenantSpec watches one tenant status spec by gieven gjsonScope
-func (inf *meshInformer) OnPartOfTenantSpec(tenant string, gjsonScope GJSONInformScope, fn TenantFunc) error {
+// OnPartOfTenantSpec watches one tenant status spec by gieven gjsonPath
+func (inf *meshInformer) OnPartOfTenantSpec(tenant string, gjsonPath GJSONPath, fn TenantSpecFunc) error {
 	storeKey := layout.TenantSpecKey(tenant)
-	dictKey := fmt.Sprintf("tenant-%s", tenant)
+	watcherKey := fmt.Sprintf("tenant-%s", tenant)
 
-	specFunc := func(event InformEvent, value string) bool {
-		var t spec.Tenant
-		if err := yaml.Unmarshal([]byte(value), &t); err != nil {
-			if err != nil {
-				logger.Errorf("BUG, informer  yaml unmsarshal tenant:[%s], value:[%s] failed, err:%v", tenant, value, err)
-				return true
+	specFunc := func(event Event, value string) bool {
+		var tenantSpec *spec.Tenant
+		if event != EventDelete {
+			if err := yaml.Unmarshal([]byte(value), tenantSpec); err != nil {
+				if err != nil {
+					logger.Errorf("BUG: unmarshal %s to yaml failed: %v", value, err)
+					return true
+				}
 			}
 		}
-		return fn(event, &t)
+		return fn(event, tenantSpec)
 	}
 
-	return inf.onSpecPart(storeKey, dictKey, gjsonScope, specFunc)
+	return inf.onSpecPart(storeKey, watcherKey, gjsonPath, specFunc)
 }
 
-// OnSerivceSpecs watches serveral services' specs by given prefix
+// OnSerivceSpecs watches service specs with the prefix.
 func (inf *meshInformer) OnSerivceSpecs(servicePrefix string, fn ServiceSpecsFunc) error {
-	dictKey := fmt.Sprintf("service-prefix-%s", servicePrefix)
+	watcherKey := fmt.Sprintf("prefix-service-%s", servicePrefix)
 
-	specsFunc := func(services map[string]string) bool {
-		var svcMap map[string]*spec.Service = make(map[string]*spec.Service)
-		for k, v := range services {
-			var service spec.Service
-			if err := yaml.Unmarshal([]byte(v), &service); err != nil {
-				logger.Errorf("BUG, informer yaml unmsarshal service:[%s], val:[%s], failed, err:%v", k, v, err)
+	specsFunc := func(kvs map[string]string) bool {
+		services := make(map[string]*spec.Service)
+		for k, v := range kvs {
+			service := &spec.Service{}
+			if err := yaml.Unmarshal([]byte(v), service); err != nil {
+				logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
 				continue
 			}
-			svcMap[k] = &service
+			services[k] = service
 		}
 
-		return fn(svcMap)
+		return fn(services)
 	}
 
-	return inf.OnSpecs(servicePrefix, dictKey, specsFunc)
+	return inf.onSpecs(servicePrefix, watcherKey, specsFunc)
 }
 
 // OnServiceInstanceSpecs watchs one service all instance recorders
 func (inf *meshInformer) OnServiceInstanceSpecs(serviceName string, fn ServiceInstanceSpecsFunc) error {
 	instancePrefix := layout.ServiceInstanceSpecPrefix(serviceName)
-	dictKey := fmt.Sprintf("service-instance-%s", serviceName)
+	watcherKey := fmt.Sprintf("prefix-service-instance-spec-%s", serviceName)
 
-	specsFunc := func(serviceInstances map[string]string) bool {
-		var insMap map[string]*spec.ServiceInstanceSpec = make(map[string]*spec.ServiceInstanceSpec)
-		for k, v := range serviceInstances {
-			var serviceIns spec.ServiceInstanceSpec
-			if err := yaml.Unmarshal([]byte(v), &serviceIns); err != nil {
-				logger.Errorf("BUG, informer yaml unmsarshal service:[%s], instance:[%s],val:[%s], failed, err:%v", serviceName, k, v, err)
+	specsFunc := func(kvs map[string]string) bool {
+		instanceSpecs := make(map[string]*spec.ServiceInstanceSpec)
+		for k, v := range kvs {
+			instanceSpec := &spec.ServiceInstanceSpec{}
+			if err := yaml.Unmarshal([]byte(v), instanceSpec); err != nil {
+				logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
 				continue
 			}
-			insMap[k] = &serviceIns
+			instanceSpecs[k] = instanceSpec
 		}
 
-		return fn(insMap)
+		return fn(instanceSpecs)
 	}
 
-	return inf.OnSpecs(instancePrefix, dictKey, specsFunc)
+	return inf.onSpecs(instancePrefix, watcherKey, specsFunc)
 }
 
 // OnServiceInstanceStatuses watchs service instance status recorders with same prefix
 func (inf *meshInformer) OnServiceInstanceStatuses(instanceStatusPrefix string, fn ServiceInstanceStatusesFunc) error {
-	dictKey := fmt.Sprintf("service-instance-status-prefix-%s", instanceStatusPrefix)
+	watcherKey := fmt.Sprintf("prefix-service-instance-status-%s", instanceStatusPrefix)
 
-	specsFunc := func(serviceInstanceStatuses map[string]string) bool {
-		var insMap map[string]*spec.ServiceInstanceStatus = make(map[string]*spec.ServiceInstanceStatus)
-		for k, v := range serviceInstanceStatuses {
-			var serviceInsStatus spec.ServiceInstanceStatus
-			if err := yaml.Unmarshal([]byte(v), &serviceInsStatus); err != nil {
-				logger.Errorf("BUG, informer yaml unmsarshal service instance prefix:[%s], instancestatus:[%s],val:[%s], failed, err:%v", instanceStatusPrefix, k, v, err)
+	specsFunc := func(kvs map[string]string) bool {
+		instanceStatuses := make(map[string]*spec.ServiceInstanceStatus)
+		for k, v := range kvs {
+			instanceStatus := &spec.ServiceInstanceStatus{}
+			if err := yaml.Unmarshal([]byte(v), instanceStatus); err != nil {
+				logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
 				continue
 			}
-			insMap[k] = &serviceInsStatus
+			instanceStatuses[k] = instanceStatus
 		}
 
-		return fn(insMap)
+		return fn(instanceStatuses)
 	}
 
-	return inf.OnSpecs(instanceStatusPrefix, dictKey, specsFunc)
+	return inf.onSpecs(instanceStatusPrefix, watcherKey, specsFunc)
 }
 
 // OnTenantSpecs watchs tenants recorders with the same prefix
 func (inf *meshInformer) OnTenantSpecs(tenantPrefix string, fn TenantSpecsFunc) error {
-	dictKey := fmt.Sprintf("tenant-prefix-%s", tenantPrefix)
+	watcherKey := fmt.Sprintf("prefix-tenant-%s", tenantPrefix)
 
-	specsFunc := func(tenants map[string]string) bool {
-		var tenantMap map[string]*spec.Tenant = make(map[string]*spec.Tenant)
-		for k, v := range tenants {
-			var tenant spec.Tenant
-			if err := yaml.Unmarshal([]byte(v), &tenant); err != nil {
-				logger.Errorf("BUG, informer yaml unmsarshal tenant prrefix:[%s], tenant:[%s],val:[%s], failed, err:%v", tenantPrefix, k, v, err)
+	specsFunc := func(kvs map[string]string) bool {
+		tenants := make(map[string]*spec.Tenant)
+		for k, v := range kvs {
+			tenantSpec := &spec.Tenant{}
+			if err := yaml.Unmarshal([]byte(v), tenantSpec); err != nil {
+				logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
 				continue
 			}
-			tenantMap[k] = &tenant
+			tenants[k] = tenantSpec
 		}
 
-		return fn(tenantMap)
+		return fn(tenants)
 	}
 
-	return inf.OnSpecs(tenantPrefix, dictKey, specsFunc)
+	return inf.onSpecs(tenantPrefix, watcherKey, specsFunc)
 }
 
-func (inf *meshInformer) compare(scope GJSONInformScope, origin, new string) bool {
-	originSvc, err := yamljsontool.YAMLToJSON([]byte(origin))
+func (inf *meshInformer) comparePart(path GJSONPath, old, new string) bool {
+	if path == AllParts {
+		return old == new
+	}
+
+	oldJSON, err := yamljsontool.YAMLToJSON([]byte(old))
 	if err != nil {
-		logger.Errorf("BUG, mesh informer using yamljsontool YAMLtoJSON faile, val:%s, err:v", origin, err)
+		logger.Errorf("BUG: transform yaml %s to json failed: %v", old, err)
 		return true
 	}
 
-	newSvc, err := yamljsontool.YAMLToJSON([]byte(new))
+	newJSON, err := yamljsontool.YAMLToJSON([]byte(new))
 	if err != nil {
-		logger.Errorf("BUG, mesh informer using yamljsontool YAMLtoJSON faile, val:%s, err:v", new, err)
+		logger.Errorf("BUG: transform yaml %s to json failed: %v", new, err)
 		return true
 	}
 
-	// compare the whole json string
-	if scope == AllParts {
-		return string(originSvc) == string(newSvc)
-	}
-
-	// using gjson to extract desired field
-	if gjson.Get(string(originSvc), string(scope)) == gjson.Get(string(newSvc), string(scope)) {
-		return true
-	}
-
-	return false
+	return gjson.Get(string(oldJSON), string(path)) == gjson.Get(string(newJSON), string(path))
 }
 
-// onSpecPart will call back fn when given scope of field change in desired structure's JSON
-// (describe by gsjsonScope parameter).
-// Scope select support gjson syntax.
-func (inf *meshInformer) onSpecPart(storeKey, dictKey string, gjsonScope GJSONInformScope, fn specHandleFunc) error {
+func (inf *meshInformer) onSpecPart(storeKey, watcherKey string, gjsonPath GJSONPath, fn specHandleFunc) error {
 	inf.mutex.Lock()
 	defer inf.mutex.Unlock()
-	if inf.closed == true {
-		return ErrWatchInClosedInforemer
+
+	if inf.closed {
+		return ErrClosed
 	}
 
-	if _, ok := inf.dict[dictKey]; ok {
-		logger.Infof("already watching key:%s", dictKey)
+	if _, ok := inf.watchers[watcherKey]; ok {
+		logger.Errorf("already watched key: %s", watcherKey)
 		return ErrAlreadyWatched
 	}
 
-	var (
-		s   *string
-		err error
-	)
-	if s, err = inf.store.Get(storeKey); err != nil {
+	value, err := inf.store.Get(storeKey)
+	if err != nil {
 		return err
 	}
-	if len(*s) == 0 {
-		return ErrRecordNotFound
+	if value == nil {
+		return ErrNotFound
 	}
 
 	watcher, err := inf.store.Watcher()
@@ -405,26 +361,23 @@ func (inf *meshInformer) onSpecPart(storeKey, dictKey string, gjsonScope GJSONIn
 		return err
 	}
 
-	closeChan := make(chan struct{})
-	inf.dict[dictKey] = closer{
-		done:    closeChan,
-		watcher: watcher,
-	}
-	go inf.watch(ch, dictKey, *s, gjsonScope, fn, closeChan)
+	inf.watchers[watcherKey] = watcher
+
+	go inf.watch(ch, watcherKey, *value, gjsonPath, fn)
 
 	return nil
 }
 
-// OnSpecs will call back fn when given name service's instance list changed
-func (inf *meshInformer) OnSpecs(storePrefix, dictKey string, fn specsHandleFunc) error {
+func (inf *meshInformer) onSpecs(storePrefix, watcherKey string, fn specsHandleFunc) error {
 	inf.mutex.Lock()
 	defer inf.mutex.Unlock()
 
-	if inf.closed == true {
-		return ErrWatchInClosedInforemer
+	if inf.closed {
+		return ErrClosed
 	}
-	if _, ok := inf.dict[dictKey]; ok {
-		logger.Infof("already wathed prefix:%s", dictKey)
+
+	if _, exists := inf.watchers[watcherKey]; exists {
+		logger.Infof("already watched prefix: %s", watcherKey)
 		return ErrAlreadyWatched
 	}
 
@@ -443,82 +396,62 @@ func (inf *meshInformer) OnSpecs(storePrefix, dictKey string, fn specsHandleFunc
 		return err
 	}
 
-	closeChan := make(chan struct{})
-	inf.dict[dictKey] = closer{
-		done:    closeChan,
-		watcher: watcher,
-	}
-	go inf.watchPrefix(ch, dictKey, originMap, fn, closeChan)
+	inf.watchers[watcherKey] = watcher
+
+	go inf.watchPrefix(ch, watcherKey, originMap, fn)
 
 	return nil
 }
 
-func (inf *meshInformer) run() {
-	for {
-		select {
-		case <-inf.done:
-			inf.mutex.Lock()
-			defer inf.mutex.Unlock()
-			// close all watching goroutine
-			for _, v := range inf.dict {
-				v.Close()
-			}
-			inf.closed = true
-			return
-		}
+func (inf *meshInformer) Close() {
+	inf.mutex.Lock()
+	defer inf.mutex.Unlock()
+
+	for _, watcher := range inf.watchers {
+		watcher.Close()
 	}
+
+	inf.closed = true
 }
 
-func (inf *meshInformer) watch(ch <-chan *string, dictKey, specYAML string, scope GJSONInformScope, fn specHandleFunc, closeChan chan struct{}) {
-	for {
-		select {
-		case <-closeChan:
-			logger.Infof("watching dictKey :%s closed", dictKey)
-			return
-		case newSpecYAML := <-ch:
-			if newSpecYAML == nil {
-				if fn(EventDelete, "") == false {
-					// handler want to cancle watching this key
-					inf.StopWatchOneKey(dictKey)
-				}
+func (inf *meshInformer) watch(ch <-chan *string, watcherKey,
+	oldValue string, path GJSONPath, fn specHandleFunc) {
+
+	for value := range ch {
+		var continueWatch bool
+
+		if value == nil {
+			continueWatch = fn(EventDelete, "")
+		} else {
+			if !inf.comparePart(path, oldValue, *value) {
+				oldValue = *value
+			}
+		}
+
+		if !continueWatch {
+			inf.stopWatchOneKey(watcherKey)
+		}
+	}
+
+}
+
+func (inf *meshInformer) watchPrefix(ch <-chan map[string]*string, watcherKey string,
+	kvs map[string]string, fn specsHandleFunc) {
+
+	for changedKvs := range ch {
+		for k, v := range changedKvs {
+			var continueWatch bool
+
+			if v == nil {
+				delete(kvs, k)
+				fn(kvs)
 			} else {
-				if !inf.compare(scope, specYAML, *newSpecYAML) {
-					specYAML = *newSpecYAML
-					if fn(EventUpdate, specYAML) == false {
-						// handler want to cancle watching this key
-						inf.StopWatchOneKey(dictKey)
-					}
-				}
+				kvs[k] = *v
+				continueWatch = fn(kvs)
 			}
-		}
-	}
 
-}
-
-func (inf *meshInformer) watchPrefix(ch <-chan map[string]*string, dictKey string, originMap map[string]string, fn specsHandleFunc, closeChan chan struct{}) {
-	for {
-		select {
-		case <-closeChan:
-			logger.Infof("watching prefix %s closed", dictKey)
-			return
-		case changeMap := <-ch:
-			// only one key in changeMap
-			for k, v := range changeMap {
-				// delete
-				if v == nil {
-					if _, ok := originMap[k]; ok {
-						delete(originMap, k)
-						if fn(originMap) == false {
-							inf.StopWatchOneKey(dictKey)
-						}
-					}
-				} else {
-					// add or update
-					originMap[k] = *v
-					if fn(originMap) == false {
-						inf.StopWatchOneKey(dictKey)
-					}
-				}
+			if !continueWatch {
+				inf.stopWatchOneKey(watcherKey)
 			}
 		}
 	}

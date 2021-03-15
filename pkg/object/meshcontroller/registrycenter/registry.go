@@ -105,7 +105,6 @@ func (rcs *Server) registry(ins *spec.ServiceInstanceSpec, service *spec.Service
 		}
 		// set this instance status up
 		ins.Status = SerivceStatusUp
-		ins.Leases = time.Now().Unix() + defaultLeasesSeconds
 		ins.RegistryTime = time.Now().Unix()
 
 		if err = rcs.registryIntoStore(ins); err != nil {
