@@ -141,7 +141,7 @@ func (inf *meshInformer) stopWatchOneKey(key string) {
 	}
 }
 
-// OnPartOfServiceSpec watchs one service's spec by given gjsonPath.
+// OnPartOfServiceSpec watches one service's spec by given gjsonPath.
 func (inf *meshInformer) OnPartOfServiceSpec(serviceName string, gjsonPath GJSONPath, fn ServiceSpecFunc) error {
 	storeKey := layout.ServiceSpecKey(serviceName)
 	watcherKey := fmt.Sprintf("service-spec-%s-%s", serviceName, gjsonPath)
@@ -162,7 +162,7 @@ func (inf *meshInformer) OnPartOfServiceSpec(serviceName string, gjsonPath GJSON
 	return inf.onSpecPart(storeKey, watcherKey, gjsonPath, specFunc)
 }
 
-// OnPartOfInstanceSpec watchs one service's instance spec by given gjsonPath.
+// OnPartOfInstanceSpec watches one service's instance spec by given gjsonPath.
 func (inf *meshInformer) OnPartOfInstanceSpec(serviceName, instanceID string, gjsonPath GJSONPath, fn ServicesInstanceSpecFunc) error {
 	storeKey := layout.ServiceInstanceSpecKey(serviceName, instanceID)
 	watcherKey := fmt.Sprintf("service-instance-spec-%s-%s-%s", serviceName, instanceID, gjsonPath)
@@ -183,7 +183,7 @@ func (inf *meshInformer) OnPartOfInstanceSpec(serviceName, instanceID string, gj
 	return inf.onSpecPart(storeKey, watcherKey, gjsonPath, specFunc)
 }
 
-// OnPartOfServiceInstanceStatus watches one service instance status spec by given gjsonPath
+// OnPartOfServiceInstanceStatus watches one service instance status spec by given gjsonPath.
 func (inf *meshInformer) OnPartOfServiceInstanceStatus(serviceName, instanceID string, gjsonPath GJSONPath, fn ServiceInstanceStatusFunc) error {
 	storeKey := layout.ServiceInstanceStatusKey(serviceName, instanceID)
 	watcherKey := fmt.Sprintf("service-instance-status-%s-%s-%s", serviceName, instanceID, gjsonPath)
@@ -204,7 +204,7 @@ func (inf *meshInformer) OnPartOfServiceInstanceStatus(serviceName, instanceID s
 	return inf.onSpecPart(storeKey, watcherKey, gjsonPath, specFunc)
 }
 
-// OnPartOfTenantSpec watches one tenant status spec by gieven gjsonPath
+// OnPartOfTenantSpec watches one tenant status spec by given gjsonPath.
 func (inf *meshInformer) OnPartOfTenantSpec(tenant string, gjsonPath GJSONPath, fn TenantSpecFunc) error {
 	storeKey := layout.TenantSpecKey(tenant)
 	watcherKey := fmt.Sprintf("tenant-%s", tenant)
@@ -246,7 +246,7 @@ func (inf *meshInformer) OnSerivceSpecs(servicePrefix string, fn ServiceSpecsFun
 	return inf.onSpecs(servicePrefix, watcherKey, specsFunc)
 }
 
-// OnServiceInstanceSpecs watchs one service all instance recorders
+// OnServiceInstanceSpecs watches one service all instance specs.
 func (inf *meshInformer) OnServiceInstanceSpecs(serviceName string, fn ServiceInstanceSpecsFunc) error {
 	instancePrefix := layout.ServiceInstanceSpecPrefix(serviceName)
 	watcherKey := fmt.Sprintf("prefix-service-instance-spec-%s", serviceName)
@@ -268,7 +268,7 @@ func (inf *meshInformer) OnServiceInstanceSpecs(serviceName string, fn ServiceIn
 	return inf.onSpecs(instancePrefix, watcherKey, specsFunc)
 }
 
-// OnServiceInstanceStatuses watchs service instance status recorders with same prefix
+// OnServiceInstanceStatuses watches service instance statuses with the same prefix.
 func (inf *meshInformer) OnServiceInstanceStatuses(instanceStatusPrefix string, fn ServiceInstanceStatusesFunc) error {
 	watcherKey := fmt.Sprintf("prefix-service-instance-status-%s", instanceStatusPrefix)
 
@@ -289,7 +289,7 @@ func (inf *meshInformer) OnServiceInstanceStatuses(instanceStatusPrefix string, 
 	return inf.onSpecs(instanceStatusPrefix, watcherKey, specsFunc)
 }
 
-// OnTenantSpecs watchs tenants recorders with the same prefix
+// OnTenantSpecs watches tenant specs with the same prefix.
 func (inf *meshInformer) OnTenantSpecs(tenantPrefix string, fn TenantSpecsFunc) error {
 	watcherKey := fmt.Sprintf("prefix-tenant-%s", tenantPrefix)
 
@@ -391,14 +391,14 @@ func (inf *meshInformer) onSpecs(storePrefix, watcherKey string, fn specsHandleF
 		return err
 	}
 
-	var originMap map[string]string = make(map[string]string)
-	if originMap, err = inf.store.GetPrefix(storePrefix); err != nil {
+	kvs, err := inf.store.GetPrefix(storePrefix)
+	if err != nil {
 		return err
 	}
 
 	inf.watchers[watcherKey] = watcher
 
-	go inf.watchPrefix(ch, watcherKey, originMap, fn)
+	go inf.watchPrefix(ch, watcherKey, kvs, fn)
 
 	return nil
 }
