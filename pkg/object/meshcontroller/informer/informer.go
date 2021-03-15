@@ -54,9 +54,9 @@ type (
 	// value is the updated result for the same prefix in storage
 	PrefixFunc func(value map[string]string)
 
-	// Informer is the interface for informing two type of storge changed.
+	// Informer is the interface for informing two type of storage changed.
 	//  1. Based on one record's gjson field compared
-	//  2. Based on same storage prefix's records changed
+	//  2. Based on same prefix's records changed
 	Informer interface {
 		OnScope(name string, gjsonScope GJSONInformScope, fn ScopeFunc) error
 		OnPrefix(prefix string, fn PrefixFunc) error
@@ -68,6 +68,11 @@ type (
 
 		mutex sync.Mutex
 	}
+)
+
+var (
+	// ErrAlreadyWatched is the error when calling informer to watch the same name/prefix
+	ErrAlreadyWatched = fmt.Errorf("already watched")
 )
 
 // NewServiceInformer creates an Informer to watch service event.
@@ -106,7 +111,6 @@ func (inf *ServiceInformer) compare(scope GJSONInformScope, origin, new string) 
 }
 
 func (inf *ServiceInformer) watch(ch <-chan *string, svcYAML string, scope GJSONInformScope, fn ScopeFunc) {
-
 	for {
 		select {
 		case newSvcYAML := <-ch:
@@ -155,7 +159,8 @@ func (inf *ServiceInformer) OnScope(name string, gjsonScope GJSONInformScope, fn
 	inf.mutex.Lock()
 	defer inf.mutex.Unlock()
 	if _, ok := inf.dict[key]; ok {
-		return fmt.Errorf("already watching service:%s, scope:%s", name, gjsonScope)
+		logger.Infof("already watching service:%s, scope:%s", name, gjsonScope)
+		return ErrAlreadyWatched
 	}
 
 	var (
@@ -192,7 +197,8 @@ func (inf *ServiceInformer) OnPrefix(name string, fn PrefixFunc) error {
 	prefix := layout.ServiceInstanceSpecPrefix(name)
 	key := fmt.Sprintf("prefix-%s", prefix)
 	if _, ok := inf.dict[key]; ok {
-		return fmt.Errorf("already watching service:%s, prefix:%s", name, prefix)
+		logger.Infof("already wathed service:%s, prefix:%s", name, prefix)
+		return ErrAlreadyWatched
 	}
 
 	watcher, err := inf.store.Watcher()

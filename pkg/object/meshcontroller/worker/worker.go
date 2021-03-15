@@ -9,6 +9,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/object/meshcontroller/informer"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/layout"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/registrycenter"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
@@ -29,12 +30,16 @@ type Worker struct {
 	store               storage.Storage
 	rcs                 *registrycenter.Server
 	ings                *IngressServer
+	inf                 informer.Informer
 	egs                 *EgressServer
 	observabilityServer *ObservabilityManager
 	mutex                 sync.Mutex
 
-	done chan struct{}
+	egressWatch chan string
+	done        chan struct{}
 }
+
+var defaultWathChanBuffer = 100
 
 // New creates a mesh worker.
 func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
@@ -45,8 +50,10 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 	registryCenterServer := registrycenter.NewRegistryCenterServer(spec.RegistryType,
 		serviceName, store)
 	ingressServer := NewIngressServer(super, serviceName)
-	egressServer := NewEgressServer(super, serviceName, store)
+	egressWatch := make(chan string, defaultWathChanBuffer)
+	egressServer := NewEgressServer(super, serviceName, store, egressWatch)
 	observabilityServer := NewObservabilityServer(serviceName)
+	inf := informer.NewServiceInformer(store)
 
 	w := &Worker{
 		super:       super,
@@ -60,8 +67,10 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 		ings:                ingressServer,
 		egs:                 egressServer,
 		observabilityServer: observabilityServer,
+		inf:                 inf,
 
-		done: make(chan struct{}),
+		egressWatch: egressWatch,
+		done:        make(chan struct{}),
 	}
 
 	w.registerAPIs()
@@ -114,8 +123,10 @@ func (w *Worker) heartbeat(interval time.Duration, done chan struct{}) {
 			// only check after worker registry itself successfully
 			if w.rcs.Registried() {
 				if err := w.checkLocalInstanceHeartbeat(); err != nil {
-					logger.Errorf("worker check local instance heartbeat failed: %v", err)
+					logger.Errorf("worker checks local instance heartbeat failed: %v", err)
 				}
+				// add watch self's spec for ingress
+				w.addWatchIngress()
 			}
 		case <-done:
 			return
@@ -130,17 +141,17 @@ func (w *Worker) checkLocalInstanceHeartbeat() error {
 	var alive bool
 	resp, err := http.Get(w.aliveProbe)
 	if err != nil {
-		logger.Errorf("worker check service %s, instanceID :%s, heartbeat failed, probe url :%s, err :%v",
+		logger.Errorf("worker checks service %s, instanceID :%s, heartbeat failed, probe url :%s, err :%v",
 			w.serviceName, w.instanceID, w.aliveProbe, err)
 		alive = false
 	} else {
 		if resp.StatusCode == http.StatusOK {
-			logger.Infof("worker check heartbeat succ, serviceName:%s, instancdID:%s, probeURL:%s",
+			logger.Infof("worker checks heartbeat succ, serviceName:%s, instancdID:%s, probeURL:%s",
 				w.serviceName, w.instanceID, w.aliveProbe)
 			alive = true
 		} else {
 			alive = false
-			logger.Errorf("worker check heartbeat without HTTP 200, serviceName:%s, instancdID:%s, probeURL:%s, statuscode:%d",
+			logger.Errorf("worker checks heartbeat without HTTP 200, serviceName:%s, instancdID:%s, probeURL:%s, statuscode:%d",
 				w.serviceName, w.instanceID, w.aliveProbe, resp.StatusCode)
 		}
 	}
@@ -148,7 +159,7 @@ func (w *Worker) checkLocalInstanceHeartbeat() error {
 	if alive == true {
 		value, err := w.store.Get(layout.ServiceInstanceStatusKey(w.serviceName, w.instanceID))
 		if err != nil {
-			logger.Errorf("get serivce %s/%s failed: %v", w.serviceName, w.instanceID, err)
+			logger.Errorf("worker gets serivce %s/%s status failed: %v", w.serviceName, w.instanceID, err)
 			return err
 		}
 
@@ -205,7 +216,7 @@ func getService(serviceName string, store storage.Storage) (*spec.Service, error
 	)
 	serviceSpec, err := store.Get(layout.ServiceSpecKey(serviceName))
 	if err != nil {
-		logger.Errorf("get %s failed: %v", serviceName, err)
+		logger.Errorf("worker gets %s failed: %v", serviceName, err)
 		return nil, err
 	}
 
@@ -221,13 +232,114 @@ func getService(serviceName string, store storage.Storage) (*spec.Service, error
 	return service, nil
 }
 
+// addEgressWatch adds one egress service spec and instance list wathcing by using
+// informer
+func (w *Worker) addEgressWatch(serviceName string) {
+	handleService := func(event informer.InformEvent, value string) {
+		switch event {
+		case informer.EventDelete:
+			logger.Infof("worker handle egress service:%s's spec delete event", serviceName)
+			w.egs.DeletePipeline(serviceName)
+		case informer.EventUpdate:
+			logger.Infof("worker handle egress service:%s's spec update event", serviceName)
+			var service spec.Service
+			err := yaml.Unmarshal([]byte(value), &service)
+			if err != nil {
+				logger.Errorf("BUG, egresss add watching by informer failed, yaml unmsarshal service:[%s] failed, err:%v", value, err)
+				return
+			}
+
+			ins, err := getSerivceInstances(service.Name, w.store)
+			if err != nil {
+				logger.Errorf("egresss add watching by informer failed, get service:[%s] instance list failed, err:%v", serviceName, err)
+				return
+			}
+			if err := w.egs.UpdatePipeline(&service, ins); err != nil {
+				logger.Errorf("egress update pipeline by informer failed, update serivce:%s's failed, err:%v", serviceName, err)
+			}
+		}
+	}
+	if err := w.inf.OnScope(serviceName, informer.ScopeService, handleService); err != nil {
+		if err != informer.ErrAlreadyWatched {
+			logger.Errorf("worker add egress scope watching failed, service:%s, err:%v", serviceName, err)
+			return
+		}
+	}
+
+	handleServiceInstance := func(value map[string]string) {
+		logger.Infof("worker handle egress service:%s's spec update event", serviceName)
+		service, err := getService(serviceName, w.store)
+		if err != nil {
+			logger.Errorf("worker add egress watching by informer failed, get service:%s spec failed, err:%v", serviceName, err)
+			return
+		}
+		var insList []*spec.ServiceInstanceSpec
+		for _, v := range value {
+			var ins *spec.ServiceInstanceSpec
+			if err = yaml.Unmarshal([]byte(v), ins); err != nil {
+				logger.Errorf("BUG: egress update by informer, unmarshal %s to yaml failed: %v", v, err)
+				continue
+			}
+			insList = append(insList, ins)
+		}
+		if err := w.egs.UpdatePipeline(service, insList); err != nil {
+			logger.Errorf("worker update pipeline by informer failed,update service:%s failed, err:%v", serviceName, err)
+		}
+
+	}
+
+	if err := w.inf.OnPrefix(serviceName, handleServiceInstance); err != nil {
+		if err != informer.ErrAlreadyWatched {
+			logger.Errorf("worker add egress prefix watching failed, service:%s, err:%v", serviceName, err)
+			return
+		}
+	}
+
+	return
+}
+
+// addWatchIngress will watch ingress spec after worker registried itself successfully.
+func (w *Worker) addWatchIngress() {
+	// add watch ingress
+	handleServiceObservability := func(event informer.InformEvent, value string) {
+		switch event {
+		case informer.EventDelete:
+			logger.Infof("worker handle ingress service:%s's spec delete event", w.serviceName)
+			return
+		case informer.EventUpdate:
+			logger.Infof("worker handle ingress service:%s's spec update event", w.serviceName)
+			var service spec.Service
+			err := yaml.Unmarshal([]byte(value), &service)
+			if err != nil {
+				logger.Errorf("BUG, egresss add watching by informer failed, yaml unmsarshal service:[%s] failed, err:%v", value, err)
+				return
+			}
+
+			if err := w.observabilityServer.UpdateObservability(w.serviceName, service.Observability); err != nil {
+				logger.Errorf("worker call observability server to notify Java process failed, observability spec:%#v,err:%v ", service.Observability, err)
+			}
+		}
+		return
+	}
+
+	if err := w.inf.OnScope(w.serviceName, informer.ScopeServiceObservability, handleServiceObservability); err != nil {
+		if err != informer.ErrAlreadyWatched {
+			logger.Errorf("worker add ingress socpe:%s faile, err:%v", informer.ScopeServiceObservability, err)
+		}
+	}
+	return
+}
+
 // watchEvents checks worker's using
-//   1. ingress/egress specs's udpate/delete
-//   2. service instance record operation
-// by calling Informer, then apply modification into ingress/egerss server
+// egress service specs's udpate/delete, instance list udpated
+// by calling Informer, then apply modification into egress server
 func (w *Worker) watchEvents(done chan struct{}) {
+	// watch egress watch chain continuously, because it will dynamically changed
+	// according to Java processes RPC behaviour
 	for {
 		select {
+		case name := <-w.egressWatch:
+			w.addEgressWatch(name)
 		case <-done:
 			return
 		}
