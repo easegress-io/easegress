@@ -20,7 +20,7 @@ type (
 		//Note: this is the Java business process's listening port
 		//      not the ingress HTTPServer's port
 		port uint32
-		mux  sync.RWMutex
+		mutex  sync.RWMutex
 
 		// running EG objects, accept other service instances' traffic
 		// in mesh and hand over to local Java business process
@@ -36,14 +36,14 @@ func NewIngressServer(super *supervisor.Supervisor, serviceName string) *Ingress
 		pipelines:   make(map[string]*httppipeline.HTTPPipeline),
 		httpServer:  nil,
 		serviceName: serviceName,
-		mux:         sync.RWMutex{},
+		mutex:         sync.RWMutex{},
 	}
 }
 
 // Get gets pipeline object for httpServer, it implements httpServer's MuxMapper interface
 func (ings *IngressServer) Get(name string) (protocol.HTTPHandler, bool) {
-	ings.mux.RLock()
-	defer ings.mux.RUnlock()
+	ings.mutex.RLock()
+	defer ings.mutex.RUnlock()
 	p, ok := ings.pipelines[name]
 	return p, ok
 }
@@ -51,8 +51,8 @@ func (ings *IngressServer) Get(name string) (protocol.HTTPHandler, bool) {
 // Ready checks ingress's pipeline and httpServer
 // are created or not
 func (ings *IngressServer) Ready() bool {
-	ings.mux.RLock()
-	defer ings.mux.RUnlock()
+	ings.mutex.RLock()
+	defer ings.mutex.RUnlock()
 	_, pipelineReady := ings.pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)]
 
 	return pipelineReady && (ings.httpServer != nil)
@@ -60,8 +60,8 @@ func (ings *IngressServer) Ready() bool {
 
 // CreateIngress creates local default pipeline and httpServer for ingress
 func (ings *IngressServer) CreateIngress(service *spec.Service, port uint32) error {
-	ings.mux.Lock()
-	defer ings.mux.Unlock()
+	ings.mutex.Lock()
+	defer ings.mutex.Unlock()
 	if _, ok := ings.pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)]; ok {
 		// already been created
 	} else {
@@ -101,8 +101,8 @@ func (ings *IngressServer) CreateIngress(service *spec.Service, port uint32) err
 // UpdatePipeline accepts new pipeline specs, and uses it to update
 // ingress's HTTPPipeline with inheritance
 func (ings *IngressServer) UpdatePipeline(newSpec string) error {
-	ings.mux.Lock()
-	defer ings.mux.Unlock()
+	ings.mutex.Lock()
+	defer ings.mutex.Unlock()
 	pipeline, ok := ings.pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)]
 	if !ok {
 		return fmt.Errorf("service :%s's ingress pipeline havn't been created yet", ings.serviceName)

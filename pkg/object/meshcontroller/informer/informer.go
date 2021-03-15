@@ -66,7 +66,7 @@ type (
 		store storage.Storage
 		dict  map[string]bool
 
-		mux sync.Mutex
+		mutex sync.Mutex
 	}
 )
 
@@ -75,7 +75,7 @@ func NewServiceInformer(store storage.Storage) Informer {
 	return &ServiceInformer{
 		store: store,
 		dict:  make(map[string]bool),
-		mux:   sync.Mutex{},
+		mutex:   sync.Mutex{},
 	}
 }
 
@@ -152,8 +152,8 @@ func (inf *ServiceInformer) watchPrefix(ch <-chan map[string]*string, insList ma
 // Scope select support gjson syntax.
 func (inf *ServiceInformer) OnScope(name string, gjsonScope GJSONInformScope, fn ScopeFunc) error {
 	key := fmt.Sprintf("%s-%s", name, gjsonScope)
-	inf.mux.Lock()
-	defer inf.mux.Unlock()
+	inf.mutex.Lock()
+	defer inf.mutex.Unlock()
 	if _, ok := inf.dict[key]; ok {
 		return fmt.Errorf("already watching service:%s, scope:%s", name, gjsonScope)
 	}
@@ -187,8 +187,8 @@ func (inf *ServiceInformer) OnScope(name string, gjsonScope GJSONInformScope, fn
 
 // OnPrefix will call back fn when given name service's instance list changed
 func (inf *ServiceInformer) OnPrefix(name string, fn PrefixFunc) error {
-	inf.mux.Lock()
-	defer inf.mux.Unlock()
+	inf.mutex.Lock()
+	defer inf.mutex.Unlock()
 	prefix := layout.ServiceInstanceSpecPrefix(name)
 	key := fmt.Sprintf("prefix-%s", prefix)
 	if _, ok := inf.dict[key]; ok {

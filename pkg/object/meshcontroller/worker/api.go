@@ -186,8 +186,8 @@ func (w *Worker) registry(ctx iris.Context) {
 	go w.createEgress(&service)
 
 	if ID, err := w.rcs.RegistryServiceInstance(ins, &service, w.ings.Ready, w.egs.Ready); err == nil {
-		w.mux.Lock()
-		defer w.mux.Unlock()
+		w.mutex.Lock()
+		defer w.mutex.Unlock()
 		// let worker know its instance identity
 		w.instanceID = ID
 	} else {

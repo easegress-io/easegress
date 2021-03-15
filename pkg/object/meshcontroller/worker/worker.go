@@ -31,7 +31,7 @@ type Worker struct {
 	ings                *IngressServer
 	egs                 *EgressServer
 	observabilityServer *ObservabilityManager
-	mux                 sync.Mutex
+	mutex                 sync.Mutex
 
 	done chan struct{}
 }

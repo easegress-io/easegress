@@ -30,7 +30,7 @@ type (
 		super       *supervisor.Supervisor
 		serviceName string
 		store       storage.Storage
-		mux         sync.RWMutex
+		mutex         sync.RWMutex
 	}
 )
 
@@ -42,7 +42,7 @@ func NewEgressServer(super *supervisor.Supervisor, serviceName string, store sto
 		serviceName: serviceName,
 		store:       store,
 		super:       super,
-		mux:         sync.RWMutex{},
+		mutex:         sync.RWMutex{},
 	}
 }
 
@@ -54,8 +54,8 @@ func (egs *EgressServer) Get(name string) (protocol.HTTPHandler, bool) {
 
 // CreateEgress creates a default Egress HTTPServer
 func (egs *EgressServer) CreateEgress(service *spec.Service) error {
-	egs.mux.Lock()
-	defer egs.mux.Unlock()
+	egs.mutex.Lock()
+	defer egs.mutex.Unlock()
 
 	if egs.httpServer == nil {
 		var httpsvr httpserver.HTTPServer
@@ -75,8 +75,8 @@ func (egs *EgressServer) CreateEgress(service *spec.Service) error {
 // Ready checks Egress HTTPServer has been created or not.
 // Pipeline will dynamicly added into Egress
 func (egs *EgressServer) Ready() bool {
-	egs.mux.RLock()
-	defer egs.mux.RUnlock()
+	egs.mutex.RLock()
+	defer egs.mutex.RUnlock()
 	return egs.httpServer != nil
 }
 
@@ -103,8 +103,8 @@ func (egs *EgressServer) addPipeline(service *spec.Service, ins []*spec.ServiceI
 
 // UpdatePipeline updates a local pipeline according to the informer
 func (egs *EgressServer) UpdatePipeline(service *spec.Service, ins []*spec.ServiceInstanceSpec) error {
-	egs.mux.Lock()
-	defer egs.mux.Unlock()
+	egs.mutex.Lock()
+	defer egs.mutex.Unlock()
 
 	pipeline, ok := egs.pipelines[service.Name]
 	if !ok {
@@ -127,15 +127,15 @@ func (egs *EgressServer) UpdatePipeline(service *spec.Service, ins []*spec.Servi
 // GetPipeline gets one local pipeline, if it not exist locally but can be discovried,
 // create it.
 func (egs *EgressServer) GetPipeline(serviceName string) (*httppipeline.HTTPPipeline, error) {
-	egs.mux.RLock()
+	egs.mutex.RLock()
 	pipeline, ok := egs.pipelines[serviceName]
-	egs.mux.RUnlock()
+	egs.mutex.RUnlock()
 	if ok {
 		return pipeline, nil
 	}
 
-	egs.mux.Lock()
-	defer egs.mux.Unlock()
+	egs.mutex.Lock()
+	defer egs.mutex.Unlock()
 	// double check, in case other goroutine has
 	// create the pipeline already
 	pipeline, ok = egs.pipelines[serviceName]
