@@ -1,0 +1,114 @@
+@Library(value = 'JenkinsHelper', changelog = false) _
+
+pipeline {
+    agent any
+
+    parameters {
+        string(name: 'dockerFile', defaultValue: params.dockerFile ?: 'resources/rootfs/Dockerfile', description: 'Dockerfile path')
+        string(name: 'ORGNIZATION', defaultValue: params.ORGNIZATION ?: 'megaease', description: 'orgnize name')
+        string(name: 'SUDO', defaultValue: params.SUDO ?: 'true', description: 'Is need sudo?')
+        string(name: 'BRANCH_NAME', defaultValue: params.BRANCH_NAME ?: '', description: 'clone the specified branch')
+        string(name: 'ENV_NAME', defaultValue: params.ENV_NAME ?: '', description: 'clone the specified branch')
+        string(name: 'PROJECT_NAME', defaultValue: params.PROJECT_NAME ?: '', description: '')
+        string(name: 'IMAGE_NAME', defaultValue: params.IMAGE_NAME ?: '', description: '')
+        string(name: 'IMAGE_TAG', defaultValue: params.IMAGE_TAG ?: 'latest', description: '')
+        booleanParam(name: 'EXECUTE_UNIT_TEST', defaultValue: params.EXECUTE_UNIT_TEST ?: false, description: 'Whether to execute unit tests')
+        booleanParam(name: 'USE_SSHKEY', defaultValue: params.USE_SSHKEY ?: false, description: 'use ssh key to pull code')
+        string(name: 'BUILD_UNITTEST_CMD', defaultValue: params.BUILD_UNITTEST_CMD ?: "", description: 'cmd for build unit test ')
+    }
+
+    environment {
+        BUILDDIR = "${HOME}/backdemo/"
+        PROJECT_NAME = "${params.PROJECT_NAME}"
+        PROJECT_DIR = "${HOME}/backdemo/${PROJECT_NAME}-${BUILD_TIMESTAMP}"
+        GIT_SSH_COMMAND = "ssh -i ${HOME}/repository-keys/${PROJECT_NAME}-key.rsa"
+        IMAGE_NAME = "${params.ORGNIZATION}/${IMAGE_NAME}:${IMAGE_TAG}"
+        SUDO_CMD = "${params.SUDO == 'true' ? 'sudo' : ' '}"
+    }
+
+    stages {
+
+        stage("Init Config") {
+            steps {
+                script {
+                    def configs = helper.loadConfigFile("${ENV_NAME}")
+                    env.REGISTRY_URL = configs.registry.url
+                    env.EASESTACK_STACK_ID = configs.easestack.stack_id
+                    env.EASESTACK_ENDPOINT = configs.easestack.endpoint
+                }
+            }
+        }
+        stage('代码 Clone') {
+            steps {
+                script {
+                    withCredentials([string(credentialsId: "${TOKEN_CREDENTIALS_ID}", variable: 'TOKEN')]) {
+                        sh "if [ ! -d ${BUILDDIR} ];then mkdir -p ${BUILDDIR};fi;"
+                        if ("${params.BRANCH_NAME}") {
+                            if (params.USE_SSHKEY)
+                                sh "cd ${BUILDDIR};git clone --depth=1 --branch=${params.BRANCH_NAME} ssh://git@github.com/${params.ORGNIZATION}/${PROJECT_NAME}.git ${PROJECT_DIR};cd ${PROJECT_DIR};git checkout ${params.BRANCH_NAME};"
+                            else
+                                sh "cd ${BUILDDIR};git clone --depth=1 --branch=${params.BRANCH_NAME} https://${TOKEN}@github.com/${params.ORGNIZATION}/${PROJECT_NAME}.git ${PROJECT_DIR};cd ${PROJECT_DIR};git checkout ${params.BRANCH_NAME};"
+                        } else {
+                            if (params.USE_SSHKEY)
+                                sh "cd ${BUILDDIR};git clone ssh://git@github.com/${params.ORGNIZATION}/${PROJECT_NAME}.git ${PROJECT_DIR};cd ${PROJECT_DIR};git checkout ${GIT_BRANCH};"
+                            else
+                                sh "cd ${BUILDDIR};git clone https://${TOKEN}@github.com/${params.ORGNIZATION}/${PROJECT_NAME}.git ${PROJECT_DIR};cd ${PROJECT_DIR};git checkout ${GIT_BRANCH};"
+                        }
+                    }
+                }
+            }
+        }
+
+
+        stage('镜像构建') {
+            steps {
+                script {
+                    sh """${SUDO_CMD} ${PROJECT_DIR}/${params.dockerFile}/release/build-server-image.sh --network host"""
+                }
+            }
+            post {
+                success {
+                    script {
+                        helper.postBuildImage(env, true)
+                    }
+
+                }
+                failure {
+                    script {
+                        helper.postBuildImage(env, false)
+                    }
+                }
+            }
+        }
+
+        stage('镜像发布') {
+            steps {
+                script {
+                    sh "cd ${env.PROJECT_DIR}; ${SUDO_CMD} docker push ${env.IMAGE_NAME};"
+                }
+            }
+            post {
+                success {
+                    script {
+                        helper.postPublishImage(env, true)
+                    }
+
+                }
+                failure {
+                    script {
+                        helper.postPublishImage(env, false)
+                    }
+                }
+            }
+        }
+
+    }
+//    post {
+//        always {
+//            script {
+//                sh """if [ ! -z "`docker images|grep ${env.IMAGE_NAME}`" ];then docker rmi ${env.IMAGE_TAG}; fi"""
+//                sh "if [ -d ${PROJECT_DIR} ];then rm -rf ${PROJECT_DIR}; fi"
+//            }
+//        }
+//    }
+}
