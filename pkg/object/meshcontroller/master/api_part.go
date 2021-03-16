@@ -128,6 +128,7 @@ func (m *Master) getPartOfService(meta *partMeta) iris.Handler {
 		if !existed {
 			api.HandleAPIError(ctx, http.StatusNotFound,
 				fmt.Errorf("%s of service %s not found", meta.partName, serviceName))
+			return
 		}
 
 		buff, err := yaml.Marshal(part)
@@ -167,7 +168,7 @@ func (m *Master) createPartOfService(meta *partMeta) iris.Handler {
 		_, existed := meta.partOf(serviceSpec)
 		if existed {
 			api.HandleAPIError(ctx, http.StatusConflict,
-				fmt.Errorf("%s of service existed", meta.partName, serviceName))
+				fmt.Errorf("%s of service %s existed", meta.partName, serviceName))
 			return
 		}
 
@@ -208,7 +209,7 @@ func (m *Master) updatePartOfService(meta *partMeta) iris.Handler {
 		_, existed := meta.partOf(serviceSpec)
 		if !existed {
 			api.HandleAPIError(ctx, http.StatusNotFound,
-				fmt.Errorf("%s of service found", meta.partName, serviceName))
+				fmt.Errorf("%s of service %s found", meta.partName, serviceName))
 			return
 		}
 
@@ -238,7 +239,7 @@ func (m *Master) deletePartOfService(meta *partMeta) iris.Handler {
 		_, existed := meta.partOf(serviceSpec)
 		if !existed {
 			api.HandleAPIError(ctx, http.StatusNotFound,
-				fmt.Errorf("%s of service found", meta.partName, serviceName))
+				fmt.Errorf("%s of service %s found", meta.partName, serviceName))
 			return
 		}
 

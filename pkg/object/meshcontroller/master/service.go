@@ -26,8 +26,6 @@ type (
 		maxHeartbeatTimeout time.Duration
 
 		store storage.Storage
-
-		failedServiceInstances []string
 	}
 )
 

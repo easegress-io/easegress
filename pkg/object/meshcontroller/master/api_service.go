@@ -8,6 +8,7 @@ import (
 	"github.com/kataras/iris"
 	"github.com/megaease/easegateway/pkg/api"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
+	"github.com/megaease/easegateway/pkg/util/stringtool"
 
 	"gopkg.in/yaml.v2"
 )
@@ -57,6 +58,7 @@ func (m *Master) createService(ctx iris.Context) {
 	if serviceName != serviceSpec.Name {
 		api.HandleAPIError(ctx, http.StatusBadRequest,
 			fmt.Errorf("name conflict: %s %s", serviceName, serviceSpec.Name))
+		return
 	}
 
 	m.storageLock()
@@ -68,7 +70,17 @@ func (m *Master) createService(ctx iris.Context) {
 		return
 	}
 
+	tenantSpec := m.service.getTenantSpec(serviceSpec.RegisterTenant)
+	if tenantSpec == nil {
+		api.HandleAPIError(ctx, http.StatusBadRequest,
+			fmt.Errorf("tenant %s not found", serviceSpec.RegisterTenant))
+		return
+	}
+
+	tenantSpec.Services = append(tenantSpec.Services, serviceSpec.RegisterTenant)
+
 	m.service.putServiceSpec(serviceSpec)
+	m.service.putTenantSpec(tenantSpec)
 
 	ctx.Header("Location", ctx.Path())
 	ctx.StatusCode(http.StatusCreated)
@@ -112,6 +124,7 @@ func (m *Master) updateService(ctx iris.Context) {
 	if serviceName != serviceSpec.Name {
 		api.HandleAPIError(ctx, http.StatusBadRequest,
 			fmt.Errorf("name conflict: %s %s", serviceName, serviceSpec.Name))
+		return
 	}
 
 	m.storageLock()
@@ -121,6 +134,25 @@ func (m *Master) updateService(ctx iris.Context) {
 	if oldSpec == nil {
 		api.HandleAPIError(ctx, http.StatusNotFound, fmt.Errorf("%s not found", serviceName))
 		return
+	}
+
+	if serviceSpec.RegisterTenant != oldSpec.RegisterTenant {
+		newTenantSpec := m.service.getTenantSpec(serviceSpec.RegisterTenant)
+		if newTenantSpec == nil {
+			api.HandleAPIError(ctx, http.StatusBadRequest,
+				fmt.Errorf("tenant %s not found", serviceSpec.RegisterTenant))
+			return
+		}
+		newTenantSpec.Services = append(newTenantSpec.Services, serviceSpec.RegisterTenant)
+
+		oldTenantSpec := m.service.getTenantSpec(oldSpec.RegisterTenant)
+		if oldTenantSpec == nil {
+			panic(fmt.Errorf("tenant %s not found", oldSpec.RegisterTenant))
+		}
+		oldTenantSpec.Services = stringtool.DeleteStrInSlice(oldTenantSpec.Services, serviceName)
+
+		m.service.putTenantSpec(newTenantSpec)
+		m.service.putTenantSpec(oldTenantSpec)
 	}
 
 	m.service.putServiceSpec(serviceSpec)
@@ -142,5 +174,13 @@ func (m *Master) deleteService(ctx iris.Context) {
 		return
 	}
 
+	tenantSpec := m.service.getTenantSpec(oldSpec.RegisterTenant)
+	if tenantSpec == nil {
+		panic(fmt.Errorf("tenant %s not found", oldSpec.RegisterTenant))
+	}
+
+	tenantSpec.Services = stringtool.DeleteStrInSlice(tenantSpec.Services, serviceName)
+
+	m.service.putTenantSpec(tenantSpec)
 	m.service.deleteServiceSpec(serviceName)
 }

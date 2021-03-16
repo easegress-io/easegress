@@ -30,3 +30,15 @@ func StrInSlice(str string, slice []string) bool {
 
 	return false
 }
+
+// DeleteStrInSlice deletes the matched string in the slice.
+func DeleteStrInSlice(slice []string, str string) []string {
+	result := []string{}
+	for _, s := range slice {
+		if s != str {
+			result = append(result, s)
+		}
+	}
+
+	return result
+}

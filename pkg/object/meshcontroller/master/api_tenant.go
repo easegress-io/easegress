@@ -57,6 +57,13 @@ func (m *Master) createTenant(ctx iris.Context) {
 	if tenantName != tenantSpec.Name {
 		api.HandleAPIError(ctx, http.StatusBadRequest,
 			fmt.Errorf("name conflict: %s %s", tenantName, tenantSpec.Name))
+		return
+	}
+
+	if len(tenantSpec.Services) > 0 {
+		api.HandleAPIError(ctx, http.StatusBadRequest,
+			fmt.Errorf("services are not empty"))
+		return
 	}
 
 	m.storageLock()
@@ -112,6 +119,19 @@ func (m *Master) updateTenant(ctx iris.Context) {
 	if tenantName != tenantSpec.Name {
 		api.HandleAPIError(ctx, http.StatusBadRequest,
 			fmt.Errorf("name conflict: %s %s", tenantName, tenantSpec.Name))
+		return
+	}
+
+	if len(tenantSpec.Services) > 0 {
+		api.HandleAPIError(ctx, http.StatusBadRequest,
+			fmt.Errorf("services are not empty"))
+		return
+	}
+
+	if tenantSpec.CreatedAt == "" {
+		api.HandleAPIError(ctx, http.StatusBadRequest,
+			fmt.Errorf("createdAt are not empty"))
+		return
 	}
 
 	m.storageLock()
@@ -122,6 +142,9 @@ func (m *Master) updateTenant(ctx iris.Context) {
 		api.HandleAPIError(ctx, http.StatusNotFound, fmt.Errorf("%s not found", tenantName))
 		return
 	}
+
+	// NOTE: The fields below can't be updated.
+	tenantSpec.Services, tenantSpec.CreatedAt = oldSpec.Services, oldSpec.CreatedAt
 
 	m.service.putTenantSpec(tenantSpec)
 }
@@ -145,6 +168,7 @@ func (m *Master) deleteTenant(ctx iris.Context) {
 	if len(oldSpec.Services) != 0 {
 		api.HandleAPIError(ctx, http.StatusBadRequest,
 			fmt.Errorf("%s got services: %v", tenantName, oldSpec.Services))
+		return
 	}
 
 	m.service.deleteTenantSpec(tenantName)

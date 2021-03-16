@@ -169,7 +169,7 @@ type (
 
 		Services []string `yaml:"services"`
 		// Format: RFC3339
-		CreateTime  string `yaml:"createTime"`
+		CreatedAt   string `yaml:"createdAt"`
 		Description string `yaml:"description"`
 	}
 
