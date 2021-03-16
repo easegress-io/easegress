@@ -107,7 +107,7 @@ func (rcs *Server) registry(ins *spec.ServiceInstanceSpec, service *spec.Service
 			ins.RegistryTime = time.Now().Format(time.RFC3339)
 
 			if err = rcs.put(ins); err != nil {
-				logger.Errorf("create service:%s ingress failed, err:%v, try times:%d", ins.ServiceName, err, tryTimes)
+				logger.Errorf("registry put service:%s failed, err:%v, try times:%d", ins.ServiceName, err, tryTimes)
 				continue
 			}
 

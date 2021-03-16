@@ -7,14 +7,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"time"
 
 	"github.com/kataras/iris"
-	"gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegateway/pkg/api"
 	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/layout"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/registrycenter"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
 )
@@ -120,36 +117,6 @@ func (w *Worker) registerAPIs() {
 	api.GlobalServer.RegisterAPIs(meshWorkerAPIs)
 }
 
-// createIngress calls ingress server create default HTTPServer and pipeline
-// loop until succ
-func (w *Worker) createIngress(service *spec.Service, port uint32) {
-	var err error
-	for {
-		if err = w.ings.CreateIngress(service, port); err != nil {
-			logger.Errorf("create ingress failed: %v", err)
-			time.Sleep(1 * time.Second)
-		} else {
-			break
-		}
-	}
-
-	return
-}
-
-func (w *Worker) createEgress(service *spec.Service) {
-	var err error
-	for {
-		if err = w.egs.CreateEgress(service); err != nil {
-			logger.Errorf("create egress failed: %v", err)
-			time.Sleep(1 * time.Second)
-		} else {
-			break
-		}
-	}
-}
-
-// registry is a HTTP handler for worker, handling
-// java business process's Eureka/Consul registry RESTful request
 func (w *Worker) registry(ctx iris.Context) {
 	body, err := ioutil.ReadAll(ctx.Request().Body)
 	if err != nil {
@@ -163,29 +130,32 @@ func (w *Worker) registry(ctx iris.Context) {
 		return
 	}
 
-	serviceYAML, err := w.store.Get(layout.ServiceSpecKey(w.serviceName))
+	service, err := getService(ins.ServiceName, w.store)
 	if err != nil {
+		if err == spec.ErrServiceNotFound {
+			logger.Errorf("registry to unknow service:%s", ins.ServiceName)
+			api.HandleAPIError(ctx, http.StatusBadRequest, err)
+			return
+		} else {
+			logger.Errorf("get service:%s failed, err:%v", ins.ServiceName, err)
+			api.HandleAPIError(ctx, http.StatusInternalServerError, err)
+			return
+		}
+	}
+
+	if err := w.ings.CreateIngress(service, ins.Port); err != nil {
+		logger.Errorf("create service:%s ingress failed: %v", ins.ServiceName, err)
 		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
-	if serviceYAML == nil {
-		err := fmt.Errorf("registry into not exist service :%s", w.serviceName)
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
-		return
-	}
-
-	var service spec.Service
-	if err = yaml.Unmarshal([]byte(*serviceYAML), &service); err != nil {
+	if err := w.egs.CreateEgress(service); err != nil {
+		logger.Errorf("create service:%s egress failed: %v", ins.ServiceName, err)
 		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
-	// asynchronous create ingress/egress
-	go w.createIngress(&service, ins.Port)
-	go w.createEgress(&service)
-
-	if ID, err := w.rcs.Registry(ins, &service, w.ings.Ready, w.egs.Ready); err == nil {
+	if ID, err := w.rcs.Registry(ins, service, w.ings.Ready, w.egs.Ready); err == nil {
 		w.mutex.Lock()
 		defer w.mutex.Unlock()
 		// let worker know its instance identity
@@ -196,7 +166,6 @@ func (w *Worker) registry(ctx iris.Context) {
 			return
 		}
 	}
-
 	// according to eureka APIs list
 	// https://github.com/Netflix/eureka/wiki/Eureka-REST-operations
 	if w.rcs.RegistryType == spec.RegistryTypeEureka {
