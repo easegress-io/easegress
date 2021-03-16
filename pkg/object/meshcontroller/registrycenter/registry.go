@@ -27,7 +27,7 @@ const (
 	// SerivceStatusUp indicates this service instance can accept ingress traffic
 	SerivceStatusUp = "UP"
 
-	// SerivceStatusOutOfSerivce indicates this service can't accept ingress traffic
+	// SerivceStatusOutOfSerivce indicates this service instance can't accept ingress traffic
 	SerivceStatusOutOfSerivce = "OUT_OF_SERVICE"
 )
 
@@ -45,11 +45,11 @@ type (
 		store storage.Storage
 	}
 
-	// Ready is a function to check Ingress/Egress ready to work
-	Ready func() bool
+	// ReadyFunc is a function to check Ingress/Egress ready to work
+	ReadyFunc func() bool
 )
 
-// NewRegistryCenterServer creates a initialized registry center server
+// NewRegistryCenterServer creates a initialized registry center server.
 func NewRegistryCenterServer(registryType string, serviceName string, store storage.Storage) *Server {
 	return &Server{
 		RegistryType: registryType,
@@ -60,19 +60,20 @@ func NewRegistryCenterServer(registryType string, serviceName string, store stor
 	}
 }
 
-// Registried checks whether service registry or not
+// Registried checks whether service registry or not.
 func (rcs *Server) Registried() bool {
 	return rcs.registried
 }
 
+// Close closes the registry center.
 func (rcs *Server) Close() {
 	close(rcs.done)
 }
 
-// Registry changes instance port and adds tenant
-// It will asynchronously check ingress/egress ready or not
+// Registry changes instance port and adds tenant.
+// It will asynchronously check ingress/egress ready or not.
 func (rcs *Server) Registry(ins *spec.ServiceInstanceSpec, service *spec.Service,
-	ingressReady Ready, egressReady Ready) (string, error) {
+	ingressReady ReadyFunc, egressReady ReadyFunc) (string, error) {
 	if rcs.registried == true {
 		return "", spec.ErrAlreadyRegistried
 	}
@@ -85,7 +86,7 @@ func (rcs *Server) Registry(ins *spec.ServiceInstanceSpec, service *spec.Service
 }
 
 func (rcs *Server) registry(ins *spec.ServiceInstanceSpec, service *spec.Service,
-	ingressReady Ready, egressReady Ready) {
+	ingressReady ReadyFunc, egressReady ReadyFunc) {
 	var (
 		err      error
 		tryTimes uint64 = 0
@@ -113,7 +114,7 @@ func (rcs *Server) registry(ins *spec.ServiceInstanceSpec, service *spec.Service
 			rcs.registried = true
 			rcs.instanceID = ins.InstanceID
 			rcs.tenant = service.RegisterTenant
-			logger.Debugf("registry succ, service:%s , instanceID:%s, regitry succ, try times:%d", ins.ServiceName, ins.InstanceID, tryTimes)
+			logger.Infof("registry succ, service:%s, instanceID:%s, regitry succ, try times:%d", ins.ServiceName, ins.InstanceID, tryTimes)
 			return
 		}
 	}
@@ -164,7 +165,7 @@ func (rcs *Server) decodeByEurekaFormat(body []byte) (*spec.ServiceInstanceSpec,
 }
 
 // DecodeRegistryBody decodes Eureka/Consul registry request body according to the
-// registry type in config
+// registry type in config.
 func (rcs *Server) DecodeRegistryBody(reqBody []byte) (*spec.ServiceInstanceSpec, error) {
 	var (
 		ins *spec.ServiceInstanceSpec

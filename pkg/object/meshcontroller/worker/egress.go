@@ -29,12 +29,12 @@ type (
 		serviceName string
 		store       storage.Storage
 		mutex       sync.RWMutex
-		notifyChan  chan<- string
+		watch       chan<- string
 	}
 )
 
 // NewEgressServer creates a initialized egress server
-func NewEgressServer(super *supervisor.Supervisor, serviceName string, store storage.Storage, notifyChan chan<- string) *EgressServer {
+func NewEgressServer(super *supervisor.Supervisor, serviceName string, store storage.Storage, watch chan<- string) *EgressServer {
 	return &EgressServer{
 		pipelines:   make(map[string]*httppipeline.HTTPPipeline),
 		httpServer:  nil,
@@ -42,7 +42,7 @@ func NewEgressServer(super *supervisor.Supervisor, serviceName string, store sto
 		store:       store,
 		super:       super,
 		mutex:       sync.RWMutex{},
-		notifyChan:  notifyChan,
+		watch:       watch,
 	}
 }
 
@@ -138,7 +138,7 @@ func (egs *EgressServer) getPipeline(serviceName string) (*httppipeline.HTTPPipe
 	pipeline, ok := egs.pipelines[serviceName]
 	egs.mutex.RUnlock()
 	if ok {
-		egs.notifyChan <- serviceName
+		egs.watch <- serviceName
 		return pipeline, nil
 	}
 
@@ -148,7 +148,7 @@ func (egs *EgressServer) getPipeline(serviceName string) (*httppipeline.HTTPPipe
 	// created the pipeline already
 	pipeline, ok = egs.pipelines[serviceName]
 	if ok {
-		egs.notifyChan <- serviceName
+		egs.watch <- serviceName
 		return pipeline, nil
 	}
 
@@ -165,7 +165,7 @@ func (egs *EgressServer) getPipeline(serviceName string) (*httppipeline.HTTPPipe
 		return nil, err
 	}
 	pipeline = egs.pipelines[serviceName]
-	egs.notifyChan <- serviceName
+	egs.watch <- serviceName
 	return pipeline, nil
 }
 

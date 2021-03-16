@@ -35,7 +35,7 @@ type Worker struct {
 	observabilityServer *ObservabilityManager
 	mutex               sync.Mutex
 
-	egressWatch chan string
+	egressEvent chan string
 	done        chan struct{}
 }
 
@@ -50,8 +50,8 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 	registryCenterServer := registrycenter.NewRegistryCenterServer(spec.RegistryType,
 		serviceName, store)
 	ingressServer := NewIngressServer(super, serviceName)
-	egressWatch := make(chan string, defaultWathChanBuffer)
-	egressServer := NewEgressServer(super, serviceName, store, egressWatch)
+	egressEvent := make(chan string, defaultWathChanBuffer)
+	egressServer := NewEgressServer(super, serviceName, store, egressEvent)
 	observabilityServer := NewObservabilityServer(serviceName)
 
 	inf := informer.NewInformer(store)
@@ -70,7 +70,7 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 		observabilityServer: observabilityServer,
 		inf:                 inf,
 
-		egressWatch: egressWatch,
+		egressEvent: egressEvent,
 		done:        make(chan struct{}),
 	}
 
@@ -100,13 +100,13 @@ func (w *Worker) run() {
 	}
 
 	doneHeartBeat := make(chan struct{})
-	doneWatchSpec := make(chan struct{})
+	doneWatchEvent := make(chan struct{})
 	go w.heartbeat(watchInterval, doneHeartBeat)
-	go w.watchEvents(doneWatchSpec)
+	go w.watchEvent(doneWatchEvent)
 
 	<-w.done
 	close(doneHeartBeat)
-	close(doneWatchSpec)
+	close(doneWatchEvent)
 	w.inf.Close()
 	w.rcs.Close()
 }
@@ -116,11 +116,10 @@ func (w *Worker) heartbeat(interval time.Duration, done chan struct{}) {
 		select {
 		case <-time.After(interval):
 			if w.rcs.Registried() {
-				if err := w.checkLocalInstanceHeartbeat(); err != nil {
+				if err := w.updateHearbeat(); err != nil {
 					logger.Errorf("check local instance heartbeat failed:%v", err)
 				}
-				// add watch self's spec for ingress
-				w.addWatchIngress()
+				w.addIngressWatching()
 			}
 		case <-done:
 			return
@@ -128,7 +127,7 @@ func (w *Worker) heartbeat(interval time.Duration, done chan struct{}) {
 	}
 }
 
-func (w *Worker) checkLocalInstanceHeartbeat() error {
+func (w *Worker) updateHearbeat() error {
 	var alive bool
 	resp, err := http.Get(w.aliveProbe)
 	if err != nil {
@@ -161,6 +160,7 @@ func (w *Worker) checkLocalInstanceHeartbeat() error {
 				return err
 			}
 		}
+
 		var buff []byte
 		status.LastHeartbeatTime = time.Now().Format(time.RFC3339)
 		if buff, err = yaml.Marshal(status); err != nil {
@@ -168,7 +168,6 @@ func (w *Worker) checkLocalInstanceHeartbeat() error {
 				w.serviceName, status, err)
 			return err
 		}
-
 		return w.store.Put(layout.ServiceInstanceStatusKey(w.serviceName, w.instanceID), string(buff))
 	}
 
@@ -218,7 +217,7 @@ func getService(serviceName string, store storage.Storage) (*spec.Service, error
 	return service, nil
 }
 
-func (w *Worker) addEgressWatch(serviceName string) {
+func (w *Worker) addEgressWatching(serviceName string) {
 	handleSerivceSpec := func(event informer.Event, service *spec.Service) bool {
 		switch event {
 		case informer.EventDelete:
@@ -226,7 +225,6 @@ func (w *Worker) addEgressWatch(serviceName string) {
 			return false
 		case informer.EventUpdate:
 			logger.Infof("handle informer egress service:%s's spec update event", serviceName)
-
 			ins, err := getSerivceInstances(service.Name, w.store)
 			if err != nil {
 				logger.Errorf("handle informer egress failed, get service:[%s] instance list failed, err:%v", serviceName, err)
@@ -271,7 +269,7 @@ func (w *Worker) addEgressWatch(serviceName string) {
 	}
 }
 
-func (w *Worker) addWatchIngress() {
+func (w *Worker) addIngressWatching() {
 	handleServiceObservability := func(event informer.Event, service *spec.Service) bool {
 		switch event {
 		case informer.EventDelete:
@@ -295,13 +293,11 @@ func (w *Worker) addWatchIngress() {
 	}
 }
 
-func (w *Worker) watchEvents(done chan struct{}) {
-	// watch egress watch chan continuously, because it will dynamically changed
-	// according to Java processes RPC behaviour
+func (w *Worker) watchEvent(done chan struct{}) {
 	for {
 		select {
-		case name := <-w.egressWatch:
-			w.addEgressWatch(name)
+		case name := <-w.egressEvent:
+			w.addEgressWatching(name)
 		case <-done:
 			return
 		}

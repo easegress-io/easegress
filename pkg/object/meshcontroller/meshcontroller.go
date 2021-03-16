@@ -70,7 +70,6 @@ func (mc *MeshController) Inherit(spec *supervisor.Spec,
 }
 
 func (mc *MeshController) reload() {
-	//using mesh-servicename filed to judge whethe
 	service := option.Global.Labels["mesh-servicename"]
 
 	if len(service) == 0 {
