@@ -22,7 +22,7 @@ pipeline {
         PROJECT_NAME = "${params.PROJECT_NAME}"
         PROJECT_DIR = "${HOME}/backdemo/${PROJECT_NAME}-${BUILD_TIMESTAMP}"
         GIT_SSH_COMMAND = "ssh -i ${HOME}/repository-keys/${PROJECT_NAME}-key.rsa"
-        IMAGE_NAME = "${params.ORGNIZATION}/${IMAGE_NAME}:${IMAGE_TAG}"
+        IMAGE_NAME = "${IMAGE_NAME}:${IMAGE_TAG}"
         SUDO_CMD = "${params.SUDO == 'true' ? 'sudo' : ' '}"
     }
 
@@ -63,7 +63,7 @@ pipeline {
         stage('镜像构建') {
             steps {
                 script {
-                    sh """${SUDO_CMD} ${PROJECT_DIR}/${params.dockerFile}/release/build-server-image.sh --network host"""
+                    sh """${SUDO_CMD} ${PROJECT_DIR}/release/build-server-image.sh"""
                 }
             }
             post {
