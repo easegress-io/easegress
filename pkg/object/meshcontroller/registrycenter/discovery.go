@@ -53,7 +53,7 @@ func (rcs *Server) getService(serviceName string) (*spec.Service, error) {
 	// find which service inside the same tenant
 	serviceSpec, err := rcs.store.Get(layout.ServiceSpecKey(rcs.serviceName))
 	if err != nil {
-		logger.Errorf("Get %s ServiceSpec failed, err :%v", rcs.serviceName, err)
+		logger.Errorf("get service:%s failed, err :%v", rcs.serviceName, err)
 		return nil, err
 	}
 
@@ -63,7 +63,7 @@ func (rcs *Server) getService(serviceName string) (*spec.Service, error) {
 
 	err = yaml.Unmarshal([]byte(*serviceSpec), service)
 	if err != nil {
-		logger.Errorf("BUG, unmarshal Service : %s,failed, err : %v", rcs.serviceName, err)
+		logger.Errorf("BUG: unmarshal service : %s,failed, err : %v", rcs.serviceName, err)
 		return nil, err
 	}
 	return service, nil
@@ -79,7 +79,7 @@ func (rcs *Server) getTenants(tenantNames []string) (map[string]*spec.Tenant, er
 		var tenant spec.Tenant
 		tenantSpec, err := rcs.store.Get(layout.TenantSpecKey(v))
 		if err != nil {
-			logger.Errorf("Get %s ServiceSpec failed, err :%v", rcs.serviceName, err)
+			logger.Errorf("get service:%s failed, err :%v", rcs.serviceName, err)
 			return tenants, err
 		}
 		if len(*tenantSpec) == 0 {
@@ -124,7 +124,7 @@ func (rcs *Server) DiscoveryService(serviceName string) (*ServiceRegistryInfo, e
 	}
 
 	if tenants[rcs.tenant] == nil {
-		err = fmt.Errorf("service %s, registered to unknow tenant %s", rcs.serviceName, rcs.tenant)
+		err = fmt.Errorf("BUG: can't find service:%s's registry tenant:%s", rcs.serviceName, rcs.tenant)
 		logger.Errorf("%v", err)
 		return serviceInfo, err
 	}
@@ -164,7 +164,7 @@ func (rcs *Server) Discovery() ([]*ServiceRegistryInfo, error) {
 	}
 
 	if tenants[rcs.tenant] == nil {
-		err = fmt.Errorf("service %s, registered to unknow tenant %s", rcs.serviceName, rcs.tenant)
+		err = fmt.Errorf("BUG: can't find service:%s's registry tenant:%s", rcs.serviceName, rcs.tenant)
 		logger.Errorf("%v", err)
 		return serviceInfos, err
 	}
@@ -177,7 +177,7 @@ func (rcs *Server) Discovery() ([]*ServiceRegistryInfo, error) {
 
 	for _, v := range visibleServices {
 		if service, err := rcs.getService(v); err != nil {
-			logger.Errorf("worker:%s get service :%s, failed , err:%v", rcs.serviceName, v, err)
+			logger.Errorf("get service :%s, failed , err:%v", rcs.serviceName, err)
 			continue
 		} else {
 			serviceInfos = append(serviceInfos, &ServiceRegistryInfo{

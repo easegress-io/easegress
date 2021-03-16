@@ -108,14 +108,14 @@ func (rcs *Server) registry(ins *spec.ServiceInstanceSpec, service *spec.Service
 		ins.RegistryTime = time.Now().Unix()
 
 		if err = rcs.registryIntoStore(ins); err != nil {
-			logger.Errorf("service:%s try to create ingress failed, err:%v, try times:%d", ins.ServiceName, err, tryTimes)
+			logger.Errorf("create service:%s ingress failed, err:%v, try times:%d", ins.ServiceName, err, tryTimes)
 			continue
 		}
 
 		rcs.registried = true
 		rcs.instanceID = ins.InstanceID
 		rcs.tenant = service.RegisterTenant
-		logger.Debugf("service:%s , instanceID:%s, regitry succ, try times:%d", ins.ServiceName, ins.InstanceID, tryTimes)
+		logger.Debugf("registry succ, service:%s , instanceID:%s, regitry succ, try times:%d", ins.ServiceName, ins.InstanceID, tryTimes)
 		break
 	}
 
@@ -140,7 +140,7 @@ func (rcs *Server) decodeByConsulFormat(body []byte) (*spec.ServiceInstanceSpec,
 	ins.Port = uint32(reg.Port)
 	ins.ServiceName = rcs.serviceName
 	if ins.InstanceID, err = common.UUID(); err != nil {
-		logger.Errorf("BUG generate uuid failed, %v", err)
+		logger.Errorf("BUG: generate uuid failed, %v", err)
 	}
 
 	return nil, err
@@ -164,7 +164,7 @@ func (rcs *Server) decodeByEurekaFormat(body []byte) (*spec.ServiceInstanceSpec,
 	ins.Port = uint32(eurekaIns.Port.Port)
 	ins.ServiceName = rcs.serviceName
 	if ins.InstanceID, err = common.UUID(); err != nil {
-		logger.Errorf("BUG generate uuid failed, err:%v", err)
+		logger.Errorf("BUG: generate uuid failed, err:%v", err)
 	}
 
 	return nil, err
@@ -186,7 +186,7 @@ func (rcs *Server) DecodeRegistryBody(reqBody []byte) (*spec.ServiceInstanceSpec
 			return nil, err
 		}
 	} else {
-		return nil, fmt.Errorf("unkonw registry request, req body:%s", string(reqBody))
+		return nil, fmt.Errorf("can't find registry request type, req body:%s", string(reqBody))
 	}
 
 	return ins, err
@@ -198,13 +198,13 @@ func (rcs *Server) registryIntoStore(ins *spec.ServiceInstanceSpec) error {
 	var err error
 	buff, err := yaml.Marshal(ins)
 	if err != nil {
-		logger.Errorf("marshal registry instance:%#v to yaml failed, err:%v", ins, err)
+		logger.Errorf("BUG: marshal registry instance:%#v to yaml failed, err:%v", ins, err)
 		return err
 	}
 
 	name := layout.ServiceInstanceSpecKey(rcs.serviceName, ins.InstanceID)
 	if err = rcs.store.Put(name, string(buff)); err != nil {
-		logger.Errorf("registrycenter, put service:%s into store failed, err:%v", ins.ServiceName, err)
+		logger.Errorf("put service:%s failed, err:%v", ins.ServiceName, err)
 		return err
 	}
 	return err

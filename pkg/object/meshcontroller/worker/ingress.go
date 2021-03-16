@@ -19,8 +19,8 @@ type (
 		serviceName string
 		//Note: this is the Java business process's listening port
 		//      not the ingress HTTPServer's port
-		port uint32
-		mutex  sync.RWMutex
+		port  uint32
+		mutex sync.RWMutex
 
 		// running EG objects, accept other service instances' traffic
 		// in mesh and hand over to local Java business process
@@ -36,7 +36,7 @@ func NewIngressServer(super *supervisor.Supervisor, serviceName string) *Ingress
 		pipelines:   make(map[string]*httppipeline.HTTPPipeline),
 		httpServer:  nil,
 		serviceName: serviceName,
-		mutex:         sync.RWMutex{},
+		mutex:       sync.RWMutex{},
 	}
 }
 
@@ -70,7 +70,7 @@ func (ings *IngressServer) CreateIngress(service *spec.Service, port uint32) err
 		var pipeline httppipeline.HTTPPipeline
 		superSpec, err := supervisor.NewSpec(pipelineSpec)
 		if err != nil {
-			logger.Errorf("BUG, gen ingress pipeline spec :%s , new super spec failed:%v", pipelineSpec, err)
+			logger.Errorf("BUG: gen ingress pipeline spec :%s , new super spec failed:%v", pipelineSpec, err)
 			return err
 		}
 		pipeline.Init(superSpec, ings.super)
@@ -84,7 +84,7 @@ func (ings *IngressServer) CreateIngress(service *spec.Service, port uint32) err
 		httpsvrSpec := service.GenDefaultIngressHTTPServerYAML()
 		superSpec, err := supervisor.NewSpec(httpsvrSpec)
 		if err != nil {
-			logger.Errorf("BUG, gen ingress httpsvr spec :%s , new super spec failed:%v", httpsvrSpec, err)
+			logger.Errorf("BUG: gen ingress httpsvr spec :%s , new super spec failed:%v", httpsvrSpec, err)
 			return err
 		}
 		httpsvr.Init(superSpec, ings.super)
@@ -105,7 +105,7 @@ func (ings *IngressServer) UpdatePipeline(newSpec string) error {
 	defer ings.mutex.Unlock()
 	pipeline, ok := ings.pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)]
 	if !ok {
-		return fmt.Errorf("service :%s's ingress pipeline havn't been created yet", ings.serviceName)
+		return fmt.Errorf("can't find service:%s's ingress pipeline", ings.serviceName)
 	}
 
 	superSpec, err := supervisor.NewSpec(newSpec)

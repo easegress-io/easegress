@@ -30,7 +30,7 @@ type (
 		super       *supervisor.Supervisor
 		serviceName string
 		store       storage.Storage
-		mutex         sync.RWMutex
+		mutex       sync.RWMutex
 		notifyChan  chan<- string
 	}
 )
@@ -43,7 +43,7 @@ func NewEgressServer(super *supervisor.Supervisor, serviceName string, store sto
 		serviceName: serviceName,
 		store:       store,
 		super:       super,
-		mutex:         sync.RWMutex{},
+		mutex:       sync.RWMutex{},
 		notifyChan:  notifyChan,
 	}
 }
@@ -84,7 +84,7 @@ func (egs *EgressServer) Ready() bool {
 
 func (egs *EgressServer) addPipeline(service *spec.Service, ins []*spec.ServiceInstanceSpec) error {
 	if egs.httpServer == nil {
-		logger.Errorf("egress, add one service :%s before create egress successfully", service.Name)
+		logger.Errorf("add one service :%s before create egress successfully", service.Name)
 		return errEgressHTTPServerNotExist
 	}
 
@@ -92,7 +92,7 @@ func (egs *EgressServer) addPipeline(service *spec.Service, ins []*spec.ServiceI
 		var pipeline httppipeline.HTTPPipeline
 		superSpec, err := service.ToEgressPipelineSpec(ins)
 		if err != nil {
-			logger.Errorf("serivce :%#v, with instances :%#v create pipeline spec failed,err:%v ",
+			logger.Errorf("to egress pipeline spec failed, serivce :%#v, with instances :%#v ,err:%v ",
 				service, ins, err)
 			return err
 		}
@@ -123,12 +123,12 @@ func (egs *EgressServer) UpdatePipeline(service *spec.Service, ins []*spec.Servi
 
 	pipeline, ok := egs.pipelines[service.Name]
 	if !ok {
-		return fmt.Errorf("service :%s's egress pipeline havn't been created yet", service.Name)
+		return fmt.Errorf("can't find service:%s's egress pipeline", service.Name)
 	}
 
 	superSpec, err := service.ToEgressPipelineSpec(ins)
 	if err != nil {
-		logger.Errorf("BUG, update egress pipeline servcie:%#v ,ins:%#v, failed:%v", service, ins, err)
+		logger.Errorf("BUG: update egress pipeline servcie:%#v ,ins:%#v, failed:%v", service, ins, err)
 		return err
 	}
 	var newPipeline httppipeline.HTTPPipeline
@@ -184,7 +184,7 @@ func (egs *EgressServer) Handle(ctx context.HTTPContext) {
 	serviceName := ctx.Request().Header().Get(egressRPCKey)
 
 	if len(serviceName) == 0 {
-		logger.Errorf("egress handle rpc without setting serivce name in %s, header:%#v",
+		logger.Errorf("handle egress rpc without setting serivce name in %s, header:%#v",
 			egressRPCKey, ctx.Request().Header())
 		ctx.Response().SetStatusCode(http.StatusNotFound)
 		return
@@ -193,10 +193,10 @@ func (egs *EgressServer) Handle(ctx context.HTTPContext) {
 	pipeline, err := egs.GetPipeline(serviceName)
 	if err != nil {
 		if err == spec.ErrServiceNotFound {
-			logger.Errorf("egress handle rpc unknow service:%s", serviceName)
+			logger.Errorf("handle egress rpc unknow service:%s", serviceName)
 			ctx.Response().SetStatusCode(http.StatusNotFound)
 		} else {
-			logger.Errorf("egress handle rpc service:%s, get pipeline failed:%v", serviceName, err)
+			logger.Errorf("handle egress rpc service:%s, get pipeline failed:%v", serviceName, err)
 			ctx.Response().SetStatusCode(http.StatusInternalServerError)
 		}
 		return
