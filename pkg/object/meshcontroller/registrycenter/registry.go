@@ -29,8 +29,6 @@ const (
 
 	// SerivceStatusOutOfSerivce indicates this service can't accept ingress traffic
 	SerivceStatusOutOfSerivce = "OUT_OF_SERVICE"
-
-	defaultLeasesSeconds = 3600 * 24 * 365 // default one year leases
 )
 
 type (
@@ -42,13 +40,12 @@ type (
 		serviceName  string
 		instanceID   string
 		tenant       string
+		done         chan struct{}
 
 		store storage.Storage
-		// notifyIngress chan IngressMsg
 	}
 
-	// Ready is a function to check Ingress/Egress ready for work
-	// or not
+	// Ready is a function to check Ingress/Egress ready to work
 	Ready func() bool
 )
 
@@ -59,36 +56,34 @@ func NewRegistryCenterServer(registryType string, serviceName string, store stor
 		store:        store,
 		serviceName:  serviceName,
 		registried:   false,
+		done:         make(chan struct{}),
 	}
 }
 
-// Registried returns whether service registry task done
+// Registried checks whether service registry or not
 func (rcs *Server) Registried() bool {
 	return rcs.registried
 }
 
-// RegistryServiceInstance changes instance port and tenatn and stores
-// them, it will asynchronously check ingress ready or not
-func (rcs *Server) RegistryServiceInstance(ins *spec.ServiceInstanceSpec, service *spec.Service,
+func (rcs *Server) Close() {
+	close(rcs.done)
+}
+
+// Registry changes instance port and adds tenant
+// It will asynchronously check ingress/egress ready or not
+func (rcs *Server) Registry(ins *spec.ServiceInstanceSpec, service *spec.Service,
 	ingressReady Ready, egressReady Ready) (string, error) {
-	// valid the input
 	if rcs.registried == true {
-		// already registried
 		return "", spec.ErrAlreadyRegistried
 	}
 
-	// change the original Java processing listening port
-	// to siecar ingress port
 	ins.Port = uint32(service.Sidecar.IngressPort)
 
-	// registry this instance asynchronously
 	go rcs.registry(ins, service, ingressReady, egressReady)
 
 	return ins.InstanceID, nil
 }
 
-// registry stores serviceInstance record after Ingress successfully create
-// its pipeline and HTTPServer
 func (rcs *Server) registry(ins *spec.ServiceInstanceSpec, service *spec.Service,
 	ingressReady Ready, egressReady Ready) {
 	var (
@@ -96,34 +91,34 @@ func (rcs *Server) registry(ins *spec.ServiceInstanceSpec, service *spec.Service
 		tryTimes uint64 = 0
 	)
 
-	// level triggered, loop unitl it success
 	for {
-		tryTimes++
-		// check the ingress/egress ready or not
-		if ingressReady() == false || egressReady() == false {
-			continue
-		}
-		// set this instance status up
-		ins.Status = SerivceStatusUp
-		ins.RegistryTime = time.Now().Unix()
+		select {
+		case <-rcs.done:
+			return
+		default:
+			// level triggered, loop unitl it success
+			tryTimes++
+			if ingressReady() == false || egressReady() == false {
+				continue
+			}
 
-		if err = rcs.registryIntoStore(ins); err != nil {
-			logger.Errorf("create service:%s ingress failed, err:%v, try times:%d", ins.ServiceName, err, tryTimes)
-			continue
-		}
+			ins.Status = SerivceStatusUp
+			ins.RegistryTime = time.Now().Format(time.RFC3339)
 
-		rcs.registried = true
-		rcs.instanceID = ins.InstanceID
-		rcs.tenant = service.RegisterTenant
-		logger.Debugf("registry succ, service:%s , instanceID:%s, regitry succ, try times:%d", ins.ServiceName, ins.InstanceID, tryTimes)
-		break
+			if err = rcs.put(ins); err != nil {
+				logger.Errorf("create service:%s ingress failed, err:%v, try times:%d", ins.ServiceName, err, tryTimes)
+				continue
+			}
+
+			rcs.registried = true
+			rcs.instanceID = ins.InstanceID
+			rcs.tenant = service.RegisterTenant
+			logger.Debugf("registry succ, service:%s , instanceID:%s, regitry succ, try times:%d", ins.ServiceName, ins.InstanceID, tryTimes)
+			return
+		}
 	}
-
-	return
 }
 
-// decodeByConsulFormat accepts Java Process's registry request in Consul Format
-// then transfer it into eashMesh's format.
 func (rcs *Server) decodeByConsulFormat(body []byte) (*spec.ServiceInstanceSpec, error) {
 	var (
 		err error
@@ -146,8 +141,6 @@ func (rcs *Server) decodeByConsulFormat(body []byte) (*spec.ServiceInstanceSpec,
 	return nil, err
 }
 
-// decodeByEurekaFormat accepts Java Process's registry request in Consul Format
-// then transfer it into eashMesh's format.
 func (rcs *Server) decodeByEurekaFormat(body []byte) (*spec.ServiceInstanceSpec, error) {
 	var (
 		err       error
@@ -177,24 +170,19 @@ func (rcs *Server) DecodeRegistryBody(reqBody []byte) (*spec.ServiceInstanceSpec
 		ins *spec.ServiceInstanceSpec
 		err error
 	)
-	if rcs.RegistryType == RegistryTypeEureka {
-		if ins, err = rcs.decodeByEurekaFormat(reqBody); err != nil {
-			return nil, err
-		}
-	} else if rcs.RegistryType == RegistryTypeConsul {
-		if ins, err = rcs.decodeByConsulFormat(reqBody); err != nil {
-			return nil, err
-		}
-	} else {
-		return nil, fmt.Errorf("can't find registry request type, req body:%s", string(reqBody))
+	switch rcs.RegistryType {
+	case RegistryTypeEureka:
+		ins, err = rcs.decodeByEurekaFormat(reqBody)
+	case RegistryTypeConsul:
+		ins, err = rcs.decodeByConsulFormat(reqBody)
+	default:
+		return nil, fmt.Errorf("BUG: can't recognize registry type:%s, req body:%s", rcs.RegistryType, (reqBody))
 	}
 
 	return ins, err
-
 }
 
-// registryIntoStore writes instance record into store.
-func (rcs *Server) registryIntoStore(ins *spec.ServiceInstanceSpec) error {
+func (rcs *Server) put(ins *spec.ServiceInstanceSpec) error {
 	var err error
 	buff, err := yaml.Marshal(ins)
 	if err != nil {

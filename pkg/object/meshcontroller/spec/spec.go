@@ -180,7 +180,7 @@ type (
 		InstanceID   string `yaml:"instanceID" jsonschema:"required"`
 		IP           string `yaml:"IP" jsonschema:"required"`
 		Port         uint32 `yaml:"port" jsonschema:"required"`
-		RegistryTime int64  `yaml:"registryTime" jsonschema:"omitempty"`
+		RegistryTime string `yaml:"registryTime" jsonschema:"omitempty"`
 
 		// Set by heartbeat timer event or API
 		Status string `yaml:"status" jsonschema:"omitempty"`

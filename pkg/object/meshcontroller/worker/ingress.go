@@ -48,8 +48,7 @@ func (ings *IngressServer) Get(name string) (protocol.HTTPHandler, bool) {
 	return p, ok
 }
 
-// Ready checks ingress's pipeline and httpServer
-// are created or not
+// Ready checks ingress's pipeline and HTTPServer are created or not
 func (ings *IngressServer) Ready() bool {
 	ings.mutex.RLock()
 	defer ings.mutex.RUnlock()
@@ -62,10 +61,7 @@ func (ings *IngressServer) Ready() bool {
 func (ings *IngressServer) CreateIngress(service *spec.Service, port uint32) error {
 	ings.mutex.Lock()
 	defer ings.mutex.Unlock()
-	if _, ok := ings.pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)]; ok {
-		// already been created
-	} else {
-		// gen ingress pipeline default spec
+	if _, ok := ings.pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)]; !ok {
 		pipelineSpec := service.GenDefaultIngressPipelineYAML(port)
 		var pipeline httppipeline.HTTPPipeline
 		superSpec, err := supervisor.NewSpec(pipelineSpec)
@@ -73,13 +69,12 @@ func (ings *IngressServer) CreateIngress(service *spec.Service, port uint32) err
 			logger.Errorf("BUG: gen ingress pipeline spec :%s , new super spec failed:%v", pipelineSpec, err)
 			return err
 		}
+
 		pipeline.Init(superSpec, ings.super)
 		ings.pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)] = &pipeline
 	}
 
-	if ings.httpServer != nil {
-		// already been created
-	} else {
+	if ings.httpServer == nil {
 		var httpsvr httpserver.HTTPServer
 		httpsvrSpec := service.GenDefaultIngressHTTPServerYAML()
 		superSpec, err := supervisor.NewSpec(httpsvrSpec)
@@ -87,10 +82,8 @@ func (ings *IngressServer) CreateIngress(service *spec.Service, port uint32) err
 			logger.Errorf("BUG: gen ingress httpsvr spec :%s , new super spec failed:%v", httpsvrSpec, err)
 			return err
 		}
+
 		httpsvr.Init(superSpec, ings.super)
-		// for httpServer get running pipeline at traffic handing, since ingress server don't
-		// call supervisior for creating httpServer and HTTPPipeline. Should find pipelines by
-		// using ingress server itself.
 		httpsvr.InjectMuxMapper(ings)
 		ings.httpServer = &httpsvr
 	}
@@ -110,11 +103,11 @@ func (ings *IngressServer) UpdatePipeline(newSpec string) error {
 
 	superSpec, err := supervisor.NewSpec(newSpec)
 	if err != nil {
-		logger.Errorf("BUG, update ingress pipeline spec :%s , new super spec failed:%v", newSpec, err)
+		logger.Errorf("BUG: update ingress pipeline spec :%s , new super spec failed:%v", newSpec, err)
 		return err
 	}
+
 	var newPipeline httppipeline.HTTPPipeline
-	// safely close previous generation and create new pipeline
 	newPipeline.Inherit(superSpec, pipeline, ings.super)
 	ings.pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)] = &newPipeline
 

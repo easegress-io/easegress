@@ -20,10 +20,8 @@ var errEgressHTTPServerNotExist = fmt.Errorf("egress http server not exist")
 const egressRPCKey = "X-MESH-RPC-SERVICE"
 
 type (
-	// EgressServer handle egress traffic gate
+	// EgressServer manages one/many ingress pipelines and one HTTPServer
 	EgressServer struct {
-		// running EG objects, through Egress to visit other
-		// service instances in mesh
 		pipelines  map[string]*httppipeline.HTTPPipeline
 		httpServer *httpserver.HTTPServer
 
@@ -48,13 +46,13 @@ func NewEgressServer(super *supervisor.Supervisor, serviceName string, store sto
 	}
 }
 
-// Get gets egressServer itself as the default backend
-// egress server will handle the pipeline routing inside
+// Get gets egressServer itself as the default backend.
+// egress server will handle the pipeline routing by itself.
 func (egs *EgressServer) Get(name string) (protocol.HTTPHandler, bool) {
 	return egs, true
 }
 
-// CreateEgress creates a default Egress HTTPServer
+// CreateEgress creates a default Egress HTTPServer.
 func (egs *EgressServer) CreateEgress(service *spec.Service) error {
 	egs.mutex.Lock()
 	defer egs.mutex.Unlock()
@@ -75,7 +73,7 @@ func (egs *EgressServer) CreateEgress(service *spec.Service) error {
 }
 
 // Ready checks Egress HTTPServer has been created or not.
-// Pipeline will dynamicly added into Egress
+// Not need to check pipelines, cause they will be dynamicly added.
 func (egs *EgressServer) Ready() bool {
 	egs.mutex.RLock()
 	defer egs.mutex.RUnlock()
@@ -103,20 +101,17 @@ func (egs *EgressServer) addPipeline(service *spec.Service, ins []*spec.ServiceI
 	return nil
 }
 
-// DeletePipeline delete one Egress pipeline accoring to the serviceName
+// DeletePipeline deletes one Egress pipeline accoring to the serviceName.
 func (egs *EgressServer) DeletePipeline(serviceName string) {
 	egs.mutex.Lock()
 	defer egs.mutex.Unlock()
 
-	if _, ok := egs.pipelines[serviceName]; ok {
-		delete(egs.pipelines, serviceName)
-		return
-	}
+	delete(egs.pipelines, serviceName)
 
 	return
 }
 
-// UpdatePipeline updates a local pipeline according to the informer
+// UpdatePipeline updates a local pipeline according to the informer.
 func (egs *EgressServer) UpdatePipeline(service *spec.Service, ins []*spec.ServiceInstanceSpec) error {
 	egs.mutex.Lock()
 	defer egs.mutex.Unlock()
@@ -132,16 +127,13 @@ func (egs *EgressServer) UpdatePipeline(service *spec.Service, ins []*spec.Servi
 		return err
 	}
 	var newPipeline httppipeline.HTTPPipeline
-	// safely close previous generation and create new pipeline
 	newPipeline.Inherit(superSpec, pipeline, egs.super)
 	egs.pipelines[service.Name] = &newPipeline
 
 	return nil
 }
 
-// GetPipeline gets one local pipeline, if it not exist locally but can be discovried,
-// create it.
-func (egs *EgressServer) GetPipeline(serviceName string) (*httppipeline.HTTPPipeline, error) {
+func (egs *EgressServer) getPipeline(serviceName string) (*httppipeline.HTTPPipeline, error) {
 	egs.mutex.RLock()
 	pipeline, ok := egs.pipelines[serviceName]
 	egs.mutex.RUnlock()
@@ -153,13 +145,13 @@ func (egs *EgressServer) GetPipeline(serviceName string) (*httppipeline.HTTPPipe
 	egs.mutex.Lock()
 	defer egs.mutex.Unlock()
 	// double check, in case other goroutine has
-	// create the pipeline already
+	// created the pipeline already
 	pipeline, ok = egs.pipelines[serviceName]
 	if ok {
+		egs.notifyChan <- serviceName
 		return pipeline, nil
 	}
 
-	// create one pipeline
 	service, err := getService(serviceName, egs.store)
 	if err != nil {
 		return nil, err
@@ -173,13 +165,12 @@ func (egs *EgressServer) GetPipeline(serviceName string) (*httppipeline.HTTPPipe
 		return nil, err
 	}
 	pipeline = egs.pipelines[serviceName]
-
 	egs.notifyChan <- serviceName
 	return pipeline, nil
 }
 
-// Handle handles all egress traffic and route to desired
-// pipeline according to the "X-MESH-RPC-SERVICE" field in header
+// Handle handles all egress traffic and route to desired pipeline according
+// to the "X-MESH-RPC-SERVICE" field in header.
 func (egs *EgressServer) Handle(ctx context.HTTPContext) {
 	serviceName := ctx.Request().Header().Get(egressRPCKey)
 
@@ -190,7 +181,7 @@ func (egs *EgressServer) Handle(ctx context.HTTPContext) {
 		return
 	}
 
-	pipeline, err := egs.GetPipeline(serviceName)
+	pipeline, err := egs.getPipeline(serviceName)
 	if err != nil {
 		if err == spec.ErrServiceNotFound {
 			logger.Errorf("handle egress rpc unknow service:%s", serviceName)
