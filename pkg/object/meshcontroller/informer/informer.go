@@ -271,7 +271,7 @@ func (inf *meshInformer) OnServiceInstanceSpecs(serviceName string, fn ServiceIn
 // OnServiceInstanceStatuses watches service instance statuses with the same prefix.
 func (inf *meshInformer) OnServiceInstanceStatuses(serviceName string, fn ServiceInstanceStatusesFunc) error {
 	watcherKey := fmt.Sprintf("prefix-service-instance-status-%s", serviceName)
-	instacneStatusPrefix := layout.ServiceInstanceStatusPrefix(serviceName)
+	instanceStatusPrefix := layout.ServiceInstanceStatusPrefix(serviceName)
 
 	specsFunc := func(kvs map[string]string) bool {
 		instanceStatuses := make(map[string]*spec.ServiceInstanceStatus)
@@ -287,7 +287,7 @@ func (inf *meshInformer) OnServiceInstanceStatuses(serviceName string, fn Servic
 		return fn(instanceStatuses)
 	}
 
-	return inf.onSpecs(instacneStatusPrefix, watcherKey, specsFunc)
+	return inf.onSpecs(instanceStatusPrefix, watcherKey, specsFunc)
 }
 
 // OnTenantSpecs watches tenant specs with the same prefix.
