@@ -89,7 +89,7 @@ type (
 		OnServiceInstanceSpecs(serviceName string, fn ServiceInstanceSpecsFunc) error
 
 		OnPartOfServiceInstanceStatus(serviceName, instanceID string, gjsonPath GJSONPath, fn ServiceInstanceStatusFunc) error
-		OnServiceInstanceStatuses(instanceStatusPrefix string, fn ServiceInstanceStatusesFunc) error
+		OnServiceInstanceStatuses(serviceName string, fn ServiceInstanceStatusesFunc) error
 
 		OnPartOfTenantSpec(tenantName string, gjsonPath GJSONPath, fn TenantSpecFunc) error
 		OnTenantSpecs(tenantPrefix string, fn TenantSpecsFunc) error
@@ -269,8 +269,9 @@ func (inf *meshInformer) OnServiceInstanceSpecs(serviceName string, fn ServiceIn
 }
 
 // OnServiceInstanceStatuses watches service instance statuses with the same prefix.
-func (inf *meshInformer) OnServiceInstanceStatuses(instanceStatusPrefix string, fn ServiceInstanceStatusesFunc) error {
-	watcherKey := fmt.Sprintf("prefix-service-instance-status-%s", instanceStatusPrefix)
+func (inf *meshInformer) OnServiceInstanceStatuses(serviceName string, fn ServiceInstanceStatusesFunc) error {
+	watcherKey := fmt.Sprintf("prefix-service-instance-status-%s", serviceName)
+	instacneStatusPrefix := layout.ServiceInstanceStatusPrefix(serviceName)
 
 	specsFunc := func(kvs map[string]string) bool {
 		instanceStatuses := make(map[string]*spec.ServiceInstanceStatus)
@@ -286,7 +287,7 @@ func (inf *meshInformer) OnServiceInstanceStatuses(instanceStatusPrefix string, 
 		return fn(instanceStatuses)
 	}
 
-	return inf.onSpecs(instanceStatusPrefix, watcherKey, specsFunc)
+	return inf.onSpecs(instacneStatusPrefix, watcherKey, specsFunc)
 }
 
 // OnTenantSpecs watches tenant specs with the same prefix.
@@ -425,6 +426,7 @@ func (inf *meshInformer) watch(ch <-chan *string, watcherKey,
 		} else {
 			if !inf.comparePart(path, oldValue, *value) {
 				oldValue = *value
+				continueWatch = fn(EventUpdate, oldValue)
 			}
 		}
 
@@ -432,7 +434,6 @@ func (inf *meshInformer) watch(ch <-chan *string, watcherKey,
 			inf.stopWatchOneKey(watcherKey)
 		}
 	}
-
 }
 
 func (inf *meshInformer) watchPrefix(ch <-chan map[string]*string, watcherKey string,
@@ -444,7 +445,7 @@ func (inf *meshInformer) watchPrefix(ch <-chan map[string]*string, watcherKey st
 
 			if v == nil {
 				delete(kvs, k)
-				fn(kvs)
+				continueWatch = fn(kvs)
 			} else {
 				kvs[k] = *v
 				continueWatch = fn(kvs)
