@@ -96,12 +96,26 @@ func (rl *RateLimiter) SetStateListener(listener EventListenerFunc) {
 	rl.listener = listener
 }
 
+func (rl *RateLimiter) notifyListener(tm time.Time, state State) {
+	if rl.listener != nil {
+		event := Event{
+			Time:  tm,
+			State: stateStrings[state],
+		}
+		go rl.listener(&event)
+	}
+}
+
 // AcquirePermission acquires a permission from the rate limiter.
 // returns true if the request is permitted and false otherwise.
 // when permitted, the caller should wait returned duration before action.
 func (rl *RateLimiter) AcquirePermission() (bool, time.Duration) {
 	rl.lock.Lock()
 	defer rl.lock.Unlock()
+
+	if rl.state == StateDisabled {
+		return true, 0
+	}
 
 	now := nowFunc()
 
@@ -133,29 +147,16 @@ func (rl *RateLimiter) AcquirePermission() (bool, time.Duration) {
 	if tokens < rl.policy.LimitForPeriod {
 		if rl.state != StateNormal {
 			rl.state = StateNormal
-			if rl.listener != nil {
-				event := Event{
-					Time:  now,
-					State: stateStrings[rl.state],
-				}
-				go rl.listener(&event)
-			}
+			rl.notifyListener(now, rl.state)
 		}
 		return true, 0
 	}
 
-	// no free tokens in current cycle, we can permit the request,
-	// but we need also return a duration which the caller must wait
-	// before proceed.
+	// no free tokens in current cycle, we can permit the request, but we need also
+	// return a duration which the caller must wait before proceed.
 	if rl.state != StateLimiting {
 		rl.state = StateLimiting
-		if rl.listener != nil {
-			event := Event{
-				Time:  now,
-				State: stateStrings[rl.state],
-			}
-			go rl.listener(&event)
-		}
+		rl.notifyListener(now, rl.state)
 	}
 
 	var timeToWait time.Duration
@@ -169,10 +170,6 @@ func (rl *RateLimiter) AcquirePermission() (bool, time.Duration) {
 // WaitPermission waits a permission from the rate limiter
 // returns true if the request is permitted and false if timed out
 func (rl *RateLimiter) WaitPermission() bool {
-	if rl.state == StateDisabled {
-		return true
-	}
-
 	permitted, d := rl.AcquirePermission()
 	if d > 0 {
 		time.Sleep(d)

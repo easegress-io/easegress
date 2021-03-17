@@ -41,7 +41,7 @@ type (
 		SlowCallDurationThreshold        string `yaml:"slowCallDurationThreshold" jsonschema:"omitempty,format=duration"`
 		MaxWaitDurationInHalfOpen        string `yaml:"maxWaitDurationInHalfOpenState" jsonschema:"omitempty,format=duration"`
 		WaitDurationInOpen               string `yaml:"waitDurationInOpenState" jsonschema:"omitempty,format=duration"`
-		ExceptionalStatusCode            []int  `yaml:"exceptionalStatusCode" jsonschema:"omitempty,uniqueItems=true"`
+		ExceptionalStatusCode            []int  `yaml:"exceptionalStatusCode" jsonschema:"omitempty,uniqueItems=true,format=httpcode-array"`
 	}
 
 	// URLRule defines the circuit breaker rule for a URL pattern
@@ -197,7 +197,7 @@ func (cb *CircuitBreaker) createCircuitBreakerForURL(u *URLRule) {
 	cb.setStateListenerForURL(u)
 }
 
-func (cb *CircuitBreaker) isSamePolicy(spec1, spec2 *Spec, policyName string) bool {
+func isSamePolicy(spec1, spec2 *Spec, policyName string) bool {
 	if policyName == "" {
 		if spec1.DefaultPolicyRef != spec2.DefaultPolicyRef {
 			return false
@@ -237,7 +237,7 @@ OuterLoop:
 			if !url.DeepEqual(&prev.URLRule) {
 				continue
 			}
-			if !cb.isSamePolicy(cb.spec, previousGeneration.spec, url.PolicyRef) {
+			if !isSamePolicy(cb.spec, previousGeneration.spec, url.PolicyRef) {
 				continue
 			}
 

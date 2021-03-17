@@ -14,14 +14,14 @@ type (
 	StringMatch struct {
 		Exact  string `yaml:"exact" jsonschema:"omitempty"`
 		Prefix string `yaml:"prefix" jsonschema:"omitempty"`
-		RegEx  string `yaml:"regex" jsonschema:"omitempty"`
+		RegEx  string `yaml:"regex" jsonschema:"omitempty,format=regexp"`
 		re     *regexp.Regexp
 	}
 
 	// URLRule defines the match rule of a http request
 	URLRule struct {
 		id        string
-		Methods   []string    `yaml:"methods" jsonschema:"omitempty,uniqueItems=true"`
+		Methods   []string    `yaml:"methods" jsonschema:"omitempty,uniqueItems=true,format=httpmethod-array"`
 		URL       StringMatch `yaml:"url" jsonschema:"required"`
 		PolicyRef string      `yaml:"policyRef" jsonschema:"omitempty"`
 	}
@@ -29,16 +29,15 @@ type (
 
 // Validate validates the StringMatch object
 func (sm StringMatch) Validate() error {
-	if sm.RegEx != "" {
-		_, e := regexp.Compile(sm.RegEx)
-		return e
-	}
-
 	if sm.Exact != "" {
 		return nil
 	}
 
 	if sm.Prefix != "" {
+		return nil
+	}
+
+	if sm.RegEx != "" {
 		return nil
 	}
 
