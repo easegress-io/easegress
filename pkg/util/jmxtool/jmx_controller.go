@@ -107,7 +107,7 @@ func (client *JolokiaClient) handleRequest(requestBody []byte) (*JolokiaResponse
 		return nil, err
 	}
 	if jolokiaResponse.Status != 200 {
-		return nil, fmt.Errorf("status:%d, %s", jolokiaResponse.Status, jolokiaResponse.Error)
+		return nil, fmt.Errorf("status: %d %s", jolokiaResponse.Status, jolokiaResponse.Error)
 	}
 
 	return &jolokiaResponse, nil
@@ -139,7 +139,7 @@ func (client *JolokiaClient) GetMbeanAttribute(mbean string, attribute string, p
 
 	result, err := client.execute(requestBody)
 	if err != nil {
-		return nil, fmt.Errorf("Read Mbean Attribute faield:  %v", err)
+		return nil, fmt.Errorf("read Mbean Attribute faield: %v", err)
 	}
 	return result, err
 }
@@ -156,7 +156,7 @@ func (client *JolokiaClient) SetMbeanAttribute(mbean string, attribute string, p
 
 	result, err := client.execute(requestBody)
 	if err != nil {
-		return nil, fmt.Errorf("Write Mbean Attribute faield:  %v", err)
+		return nil, fmt.Errorf("write Mbean Attribute faield: %v", err)
 	}
 	return result, nil
 }
@@ -171,7 +171,7 @@ func (client *JolokiaClient) ExecuteMbeanOperation(mbean string, operation strin
 
 	result, err := client.execute(requestBody)
 	if err != nil {
-		return nil, fmt.Errorf("Executee Mbean Operation faield:  %v", err)
+		return nil, fmt.Errorf("executee Mbean Operation faield: %v", err)
 	}
 	return result, nil
 }
@@ -184,7 +184,7 @@ func (client *JolokiaClient) ListMbean(mbean string) (interface{}, error) {
 
 	result, err := client.execute(requestBody)
 	if err != nil {
-		return nil, fmt.Errorf("List Mbean faield:  %v", err)
+		return nil, fmt.Errorf("list Mbean faield: %v", err)
 	}
 	return result, nil
 }
@@ -197,7 +197,7 @@ func (client *JolokiaClient) SearchMbeans(pattern string) (interface{}, error) {
 
 	result, err := client.execute(requestBody)
 	if err != nil {
-		return nil, fmt.Errorf("Search Mbean faield:  %v", err)
+		return nil, fmt.Errorf("search Mbean faield: %v", err)
 	}
 	return result, nil
 }

@@ -135,10 +135,6 @@ func (egs *EgressServer) DeletePipeline(serviceName string) {
 	egs.mutex.Lock()
 	defer egs.mutex.Unlock()
 
-	if egs.closed {
-		return
-	}
-
 	if p, ok := egs.pipelines[serviceName]; ok {
 		p.Close()
 		delete(egs.pipelines, serviceName)
@@ -214,7 +210,6 @@ func (egs *EgressServer) Handle(ctx context.HTTPContext) {
 	}
 
 	pipeline.Handle(ctx)
-	return
 }
 
 // Close closes the Egress HTTPServer and Pipelines

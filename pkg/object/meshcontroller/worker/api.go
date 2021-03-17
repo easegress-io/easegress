@@ -31,22 +31,22 @@ func (w *Worker) registerAPIs() {
 	meshWorkerAPIs := []*api.APIEntry{
 		// for consul registry/discovery RESTful APIs
 		{
-			Path:    MeshConsulPrefix + "v1/catalog/register",
+			Path:    MeshConsulPrefix + "/v1/catalog/register",
 			Method:  "PUT",
 			Handler: w.registry,
 		},
 		{
-			Path:    MeshConsulPrefix + "v1/catalog/deregister",
+			Path:    MeshConsulPrefix + "/v1/catalog/deregister",
 			Method:  "DELETE",
-			Handler: w.emptyImplement,
+			Handler: w.emptyHandler,
 		},
 		{
-			Path:    MeshConsulPrefix + "v1/catalog/services",
+			Path:    MeshConsulPrefix + "/v1/catalog/services",
 			Method:  "GET",
 			Handler: w.catalogServices,
 		},
 		{
-			Path:    MeshConsulPrefix + "v1/catalog/service/{serviceName:string}",
+			Path:    MeshConsulPrefix + "/v1/catalog/service/{serviceName:string}",
 			Method:  "GET",
 			Handler: w.catalogService,
 		},
@@ -60,12 +60,12 @@ func (w *Worker) registerAPIs() {
 		{
 			Path:    MeshEurekaPrefix + "/apps/{serviceName:string}/{instanceID:string}",
 			Method:  "DELETE",
-			Handler: w.emptyImplement,
+			Handler: w.emptyHandler,
 		},
 		{
 			Path:    MeshEurekaPrefix + "/apps/{serviceName:string}/{instanceID:string}",
 			Method:  "PUT",
-			Handler: w.emptyImplement,
+			Handler: w.emptyHandler,
 		},
 		{
 			Path:    MeshEurekaPrefix + "/apps",
@@ -90,27 +90,27 @@ func (w *Worker) registerAPIs() {
 		{
 			Path:    MeshEurekaPrefix + "/apps/{serviceName:string}/{instanceID:string}/status",
 			Method:  "PUT",
-			Handler: w.emptyImplement,
+			Handler: w.emptyHandler,
 		},
 		{
 			Path:    MeshEurekaPrefix + "/apps/{serviceName:string}/{instanceID:string}/status",
 			Method:  "DELETE",
-			Handler: w.emptyImplement,
+			Handler: w.emptyHandler,
 		},
 		{
 			Path:    MeshEurekaPrefix + "/apps/{serviceName:string}/{instanceID:string}/metadata",
 			Method:  "PUT",
-			Handler: w.emptyImplement,
+			Handler: w.emptyHandler,
 		},
 		{
 			Path:    MeshEurekaPrefix + "/vips/{vipAddress:string}",
 			Method:  "GET",
-			Handler: w.emptyImplement,
+			Handler: w.emptyHandler,
 		},
 		{
 			Path:    MeshEurekaPrefix + "/svips/{svipAddress:string}",
 			Method:  "GET",
-			Handler: w.emptyImplement,
+			Handler: w.emptyHandler,
 		},
 	}
 
@@ -124,7 +124,7 @@ func (w *Worker) registry(ctx iris.Context) {
 			fmt.Errorf("read body failed: %v", err))
 		return
 	}
-	ins, err := w.rcs.DecodeRegistryBody(body)
+	ins, err := w.registryServer.DecodeRegistryBody(body)
 	if err != nil {
 		api.HandleAPIError(ctx, http.StatusBadRequest, err)
 		return
@@ -143,23 +143,23 @@ func (w *Worker) registry(ctx iris.Context) {
 		}
 	}
 
-	if ID, err := w.rcs.Registry(ins, service, w.ings.Ready, w.egs.Ready); err == nil {
+	if ID, err := w.registryServer.Registry(ins, service, w.ingressServer.Ready, w.egressServer.Ready); err == nil {
 		w.mutex.Lock()
 		defer w.mutex.Unlock()
 		// let worker know its instance identity
 		w.instanceID = ID
 	} else {
-		if err != spec.ErrAlreadyRegistried {
+		if err != spec.ErrAlreadyRegistered {
 			api.HandleAPIError(ctx, http.StatusInternalServerError, err)
 			return
 		}
 	}
-	// according to eureka APIs list
+
+	// NOTE: According to eureka APIs list:
 	// https://github.com/Netflix/eureka/wiki/Eureka-REST-operations
-	if w.rcs.RegistryType == spec.RegistryTypeEureka {
+	if w.registryServer.RegistryType == spec.RegistryTypeEureka {
 		ctx.StatusCode(http.StatusNoContent)
 	}
-	return
 }
 
 func (w *Worker) catalogServices(ctx iris.Context) {
@@ -167,11 +167,11 @@ func (w *Worker) catalogServices(ctx iris.Context) {
 		err          error
 		serviceInfos []*registrycenter.ServiceRegistryInfo
 	)
-	if serviceInfos, err = w.rcs.Discovery(); err != nil {
+	if serviceInfos, err = w.registryServer.Discovery(); err != nil {
 		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
 		return
 	}
-	catalogServices := w.rcs.ToConsulServices(serviceInfos)
+	catalogServices := w.registryServer.ToConsulServices(serviceInfos)
 
 	buff := bytes.NewBuffer(nil)
 	enc := json.NewEncoder(buff)
@@ -182,7 +182,6 @@ func (w *Worker) catalogServices(ctx iris.Context) {
 
 	ctx.Header("Content-Type", "text/xml")
 	ctx.Write(buff.Bytes())
-	return
 }
 
 func (w *Worker) catalogService(ctx iris.Context) {
@@ -196,12 +195,12 @@ func (w *Worker) catalogService(ctx iris.Context) {
 		serviceInfo *registrycenter.ServiceRegistryInfo
 	)
 
-	if serviceInfo, err = w.rcs.DiscoveryService(serviceName); err != nil {
+	if serviceInfo, err = w.registryServer.DiscoveryService(serviceName); err != nil {
 		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
-	catalogService := w.rcs.ToConsulCatalogService(serviceInfo)
+	catalogService := w.registryServer.ToConsulCatalogService(serviceInfo)
 
 	buff := bytes.NewBuffer(nil)
 	enc := json.NewEncoder(buff)
@@ -212,7 +211,6 @@ func (w *Worker) catalogService(ctx iris.Context) {
 
 	ctx.Header("Content-Type", "text/xml")
 	ctx.Write(buff.Bytes())
-	return
 }
 
 func (w *Worker) apps(ctx iris.Context) {
@@ -220,11 +218,11 @@ func (w *Worker) apps(ctx iris.Context) {
 		err          error
 		serviceInfos []*registrycenter.ServiceRegistryInfo
 	)
-	if serviceInfos, err = w.rcs.Discovery(); err != nil {
+	if serviceInfos, err = w.registryServer.Discovery(); err != nil {
 		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
 		return
 	}
-	apps := w.rcs.ToEurekaApps(serviceInfos)
+	apps := w.registryServer.ToEurekaApps(serviceInfos)
 	buff, err := xml.Marshal(apps)
 	if err != nil {
 		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
@@ -233,8 +231,6 @@ func (w *Worker) apps(ctx iris.Context) {
 
 	ctx.Header("Content-Type", "text/xml")
 	ctx.Write(buff)
-
-	return
 }
 
 func (w *Worker) app(ctx iris.Context) {
@@ -248,12 +244,12 @@ func (w *Worker) app(ctx iris.Context) {
 		serviceInfo *registrycenter.ServiceRegistryInfo
 	)
 
-	if serviceInfo, err = w.rcs.DiscoveryService(serviceName); err != nil {
+	if serviceInfo, err = w.registryServer.DiscoveryService(serviceName); err != nil {
 		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
-	app := w.rcs.ToEurekaApp(serviceInfo)
+	app := w.registryServer.ToEurekaApp(serviceInfo)
 	buff, err := xml.Marshal(app)
 	if err != nil {
 		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
@@ -262,14 +258,11 @@ func (w *Worker) app(ctx iris.Context) {
 
 	ctx.Header("Content-Type", "text/xml")
 	ctx.Write(buff)
-
-	return
 }
 
-func (w *Worker) emptyImplement(ctx iris.Context) {
-	// empty implement, easemesh don't need to implement
-	// this eurka API, including, delete, heartbeat
-	return
+func (w *Worker) emptyHandler(ctx iris.Context) {
+	// EaseMesh does not need to implement some APIS like
+	// delete, heartbeat of Eureka.
 }
 
 func (w *Worker) getAppInstance(ctx iris.Context) {
@@ -284,14 +277,14 @@ func (w *Worker) getAppInstance(ctx iris.Context) {
 		return
 	}
 
-	serviceInfo, err := w.rcs.DiscoveryService(serviceName)
+	serviceInfo, err := w.registryServer.DiscoveryService(serviceName)
 	if err != nil {
 		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
 	if serviceInfo.Service.Name == serviceName && instanceID == serviceInfo.Ins.InstanceID {
-		ins := w.rcs.ToEurekaInstanceInfo(serviceInfo)
+		ins := w.registryServer.ToEurekaInstanceInfo(serviceInfo)
 		buff, err := xml.Marshal(ins)
 		if err != nil {
 			api.HandleAPIError(ctx, http.StatusInternalServerError, err)
@@ -302,7 +295,6 @@ func (w *Worker) getAppInstance(ctx iris.Context) {
 	}
 
 	ctx.StatusCode(http.StatusNotFound)
-	return
 }
 
 func (w *Worker) getInstance(ctx iris.Context) {
@@ -317,12 +309,12 @@ func (w *Worker) getInstance(ctx iris.Context) {
 		return
 	}
 
-	serviceInfo, err := w.rcs.DiscoveryService(serviceName)
+	serviceInfo, err := w.registryServer.DiscoveryService(serviceName)
 	if err != nil {
 		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
 		return
 	}
-	ins := w.rcs.ToEurekaInstanceInfo(serviceInfo)
+	ins := w.registryServer.ToEurekaInstanceInfo(serviceInfo)
 	buff, err := xml.Marshal(ins)
 	if err != nil {
 		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
@@ -330,5 +322,4 @@ func (w *Worker) getInstance(ctx iris.Context) {
 	}
 	ctx.Header("Content-Type", "text/xml")
 	ctx.Write(buff)
-	return
 }

@@ -1,8 +1,9 @@
 package worker
 
 import (
+	"fmt"
+
 	"github.com/fatih/structs"
-	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
 	"github.com/megaease/easegateway/pkg/util/jmxtool"
 )
@@ -32,10 +33,11 @@ func NewObservabilityServer(serviceName string) *ObservabilityManager {
 func (server *ObservabilityManager) UpdateObservability(serviceName string, newObservability *spec.Observability) error {
 	paramsMap := structs.Map(newObservability)
 	args := []interface{}{paramsMap}
-	result, err := server.jolokiaClient.ExecuteMbeanOperation(easeAgentConfigManager, "updateObservability", args)
+
+	_, err := server.jolokiaClient.ExecuteMbeanOperation(easeAgentConfigManager, "updateObservability", args)
 	if err != nil {
-		logger.Errorf("UpdateObservability service :%s observability failed, Observability : %v , Result: %v,err : %v", serviceName, newObservability, result, err)
-		return err
+		return fmt.Errorf("updateObservability service %s observability failed: %v", serviceName, err)
 	}
+
 	return nil
 }

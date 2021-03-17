@@ -36,7 +36,7 @@ type (
 	Server struct {
 		// Currently we supports Eureka/Consul
 		RegistryType string
-		registried   bool
+		registered   bool
 		serviceName  string
 		instanceID   string
 		tenant       string
@@ -55,14 +55,14 @@ func NewRegistryCenterServer(registryType string, serviceName string, store stor
 		RegistryType: registryType,
 		store:        store,
 		serviceName:  serviceName,
-		registried:   false,
+		registered:   false,
 		done:         make(chan struct{}),
 	}
 }
 
-// Registried checks whether service registry or not.
-func (rcs *Server) Registried() bool {
-	return rcs.registried
+// Registered checks whether service registry or not.
+func (rcs *Server) Registered() bool {
+	return rcs.registered
 }
 
 // Close closes the registry center.
@@ -74,8 +74,8 @@ func (rcs *Server) Close() {
 // It will asynchronously check ingress/egress ready or not.
 func (rcs *Server) Registry(ins *spec.ServiceInstanceSpec, service *spec.Service,
 	ingressReady ReadyFunc, egressReady ReadyFunc) (string, error) {
-	if rcs.registried == true {
-		return "", spec.ErrAlreadyRegistried
+	if rcs.registered == true {
+		return "", spec.ErrAlreadyRegistered
 	}
 
 	ins.Port = uint32(service.Sidecar.IngressPort)
@@ -111,7 +111,7 @@ func (rcs *Server) registry(ins *spec.ServiceInstanceSpec, service *spec.Service
 				continue
 			}
 
-			rcs.registried = true
+			rcs.registered = true
 			rcs.instanceID = ins.InstanceID
 			rcs.tenant = service.RegisterTenant
 			logger.Infof("registry succ, service:%s, instanceID:%s, regitry succ, try times:%d", ins.ServiceName, ins.InstanceID, tryTimes)

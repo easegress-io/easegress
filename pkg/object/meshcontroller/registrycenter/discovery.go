@@ -99,8 +99,8 @@ func (rcs *Server) getTenants(tenantNames []string) (map[string]*spec.Tenant, er
 // DiscoveryService gets one service specs with default instance
 func (rcs *Server) DiscoveryService(serviceName string) (*ServiceRegistryInfo, error) {
 	var serviceInfo *ServiceRegistryInfo
-	if rcs.registried == false {
-		return serviceInfo, spec.ErrNoRegistriedYet
+	if rcs.registered == false {
+		return serviceInfo, spec.ErrNoRegisteredYet
 	}
 
 	tenants, err := rcs.getTenants([]string{spec.GlobalTenant, rcs.tenant})
@@ -146,8 +146,8 @@ func (rcs *Server) Discovery() ([]*ServiceRegistryInfo, error) {
 		serviceInfos    []*ServiceRegistryInfo
 		visibleServices []string
 	)
-	if rcs.registried == false {
-		return serviceInfos, spec.ErrNoRegistriedYet
+	if rcs.registered == false {
+		return serviceInfos, spec.ErrNoRegisteredYet
 	}
 
 	tenants, err := rcs.getTenants([]string{spec.GlobalTenant, rcs.tenant})

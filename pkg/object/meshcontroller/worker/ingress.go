@@ -20,11 +20,11 @@ type (
 	IngressServer struct {
 		super       *supervisor.Supervisor
 		serviceName string
-		//Note: this is the Java business process's listening port
-		//      not the ingress HTTPServer's port
-		port   uint32
-		mutex  sync.RWMutex
-		closed bool
+
+		// port is the Java business process's listening port
+		// not the ingress HTTPServer's port
+		port  uint32
+		mutex sync.RWMutex
 
 		// running EG objects, accept other service instances' traffic
 		// in mesh and hand over to local Java business process
@@ -48,9 +48,6 @@ func NewIngressServer(super *supervisor.Supervisor, serviceName string) *Ingress
 func (ings *IngressServer) Get(name string) (protocol.HTTPHandler, bool) {
 	ings.mutex.RLock()
 	defer ings.mutex.RUnlock()
-	if ings.closed {
-		return nil, false
-	}
 
 	p, ok := ings.pipelines[name]
 	return p, ok
@@ -62,16 +59,13 @@ func (ings *IngressServer) Ready() bool {
 	defer ings.mutex.RUnlock()
 	_, pipelineReady := ings.pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)]
 
-	return pipelineReady && (ings.httpServer != nil) && !ings.closed
+	return pipelineReady && (ings.httpServer != nil)
 }
 
 // CreateIngress creates local default pipeline and httpServer for ingress
 func (ings *IngressServer) CreateIngress(service *spec.Service, port uint32) error {
 	ings.mutex.Lock()
 	defer ings.mutex.Unlock()
-	if ings.closed {
-		return ErrIngressClosed
-	}
 
 	if _, ok := ings.pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)]; !ok {
 		pipelineSpec := service.GenDefaultIngressPipelineYAML(port)
@@ -108,9 +102,6 @@ func (ings *IngressServer) CreateIngress(service *spec.Service, port uint32) err
 func (ings *IngressServer) UpdatePipeline(newSpec string) error {
 	ings.mutex.Lock()
 	defer ings.mutex.Unlock()
-	if ings.closed {
-		return ErrIngressClosed
-	}
 
 	pipeline, ok := ings.pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)]
 	if !ok {
@@ -134,7 +125,7 @@ func (ings *IngressServer) UpdatePipeline(newSpec string) error {
 func (ings *IngressServer) Close() {
 	ings.mutex.Lock()
 	defer ings.mutex.Unlock()
-	ings.closed = true
+
 	ings.httpServer.Close()
 	for _, v := range ings.pipelines {
 		v.Close()
