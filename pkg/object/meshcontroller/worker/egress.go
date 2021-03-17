@@ -15,7 +15,10 @@ import (
 	"github.com/megaease/easegateway/pkg/supervisor"
 )
 
-var errEgressHTTPServerNotExist = fmt.Errorf("egress http server not exist")
+var (
+	// ErrEgressClosed is the error when operating in a closed Egress server
+	ErrEgressClosed = fmt.Errorf("egress has been closed")
+)
 
 const egressRPCKey = "X-MESH-RPC-SERVICE"
 
@@ -30,6 +33,7 @@ type (
 		store       storage.Storage
 		mutex       sync.RWMutex
 		watch       chan<- string
+		closed      bool
 	}
 )
 
@@ -49,6 +53,11 @@ func NewEgressServer(super *supervisor.Supervisor, serviceName string, store sto
 // Get gets egressServer itself as the default backend.
 // egress server will handle the pipeline routing by itself.
 func (egs *EgressServer) Get(name string) (protocol.HTTPHandler, bool) {
+	egs.mutex.RLock()
+	defer egs.mutex.RUnlock()
+	if egs.closed {
+		return nil, false
+	}
 	return egs, true
 }
 
@@ -56,6 +65,9 @@ func (egs *EgressServer) Get(name string) (protocol.HTTPHandler, bool) {
 func (egs *EgressServer) CreateEgress(service *spec.Service) error {
 	egs.mutex.Lock()
 	defer egs.mutex.Unlock()
+	if egs.closed {
+		return ErrEgressClosed
+	}
 
 	if egs.httpServer == nil {
 		var httpsvr httpserver.HTTPServer
@@ -77,28 +89,45 @@ func (egs *EgressServer) CreateEgress(service *spec.Service) error {
 func (egs *EgressServer) Ready() bool {
 	egs.mutex.RLock()
 	defer egs.mutex.RUnlock()
-	return egs.httpServer != nil
+	return egs.httpServer != nil && !egs.closed
 }
 
-func (egs *EgressServer) addPipeline(service *spec.Service, ins []*spec.ServiceInstanceSpec) error {
-	if egs.httpServer == nil {
-		logger.Errorf("add one service :%s before create egress successfully", service.Name)
-		return errEgressHTTPServerNotExist
+func (egs *EgressServer) _getPipeline(serviceName string) (*httppipeline.HTTPPipeline, error) {
+	if egs.closed {
+		return nil, ErrEgressClosed
 	}
 
-	if egs.pipelines[service.Name] == nil {
-		var pipeline httppipeline.HTTPPipeline
-		superSpec, err := service.ToEgressPipelineSpec(ins)
-		if err != nil {
-			logger.Errorf("to egress pipeline spec failed, serivce :%#v, with instances :%#v ,err:%v ",
-				service, ins, err)
-			return err
-		}
-
-		pipeline.Init(superSpec, egs.super)
-		egs.pipelines[service.Name] = &pipeline
+	pipeline, ok := egs.pipelines[serviceName]
+	if ok {
+		egs.watch <- serviceName
+		return pipeline, nil
 	}
-	return nil
+
+	return nil, nil
+}
+
+func (egs *EgressServer) addPipeline(serviceName string) (*httppipeline.HTTPPipeline, error) {
+	service, err := getService(serviceName, egs.store)
+	if err != nil {
+		return nil, err
+	}
+
+	ins, err := getSerivceInstances(serviceName, egs.store)
+	if err != nil {
+		return nil, err
+	}
+
+	var pipeline httppipeline.HTTPPipeline
+	superSpec, err := service.ToEgressPipelineSpec(ins)
+	if err != nil {
+		logger.Errorf("to egress pipeline spec failed, serivce :%#v, with instances :%#v ,err:%v ",
+			service, ins, err)
+		return nil, err
+	}
+
+	pipeline.Init(superSpec, egs.super)
+	egs.pipelines[service.Name] = &pipeline
+	return &pipeline, nil
 }
 
 // DeletePipeline deletes one Egress pipeline accoring to the serviceName.
@@ -106,7 +135,14 @@ func (egs *EgressServer) DeletePipeline(serviceName string) {
 	egs.mutex.Lock()
 	defer egs.mutex.Unlock()
 
-	delete(egs.pipelines, serviceName)
+	if egs.closed {
+		return
+	}
+
+	if p, ok := egs.pipelines[serviceName]; ok {
+		p.Close()
+		delete(egs.pipelines, serviceName)
+	}
 
 	return
 }
@@ -116,8 +152,11 @@ func (egs *EgressServer) UpdatePipeline(service *spec.Service, ins []*spec.Servi
 	egs.mutex.Lock()
 	defer egs.mutex.Unlock()
 
-	pipeline, ok := egs.pipelines[service.Name]
-	if !ok {
+	pipeline, err := egs._getPipeline(service.Name)
+	if err != nil {
+		return err
+	}
+	if pipeline == nil {
 		return fmt.Errorf("can't find service:%s's egress pipeline", service.Name)
 	}
 
@@ -134,39 +173,20 @@ func (egs *EgressServer) UpdatePipeline(service *spec.Service, ins []*spec.Servi
 }
 
 func (egs *EgressServer) getPipeline(serviceName string) (*httppipeline.HTTPPipeline, error) {
-	egs.mutex.RLock()
-	pipeline, ok := egs.pipelines[serviceName]
-	egs.mutex.RUnlock()
-	if ok {
-		egs.watch <- serviceName
-		return pipeline, nil
-	}
-
 	egs.mutex.Lock()
 	defer egs.mutex.Unlock()
-	// double check, in case other goroutine has
-	// created the pipeline already
-	pipeline, ok = egs.pipelines[serviceName]
-	if ok {
-		egs.watch <- serviceName
-		return pipeline, nil
-	}
 
-	service, err := getService(serviceName, egs.store)
+	pipeline, err := egs._getPipeline(serviceName)
 	if err != nil {
 		return nil, err
+	} else {
+		if pipeline != nil {
+			return pipeline, nil
+		}
 	}
 
-	ins, err := getSerivceInstances(serviceName, egs.store)
-	if err != nil {
-		return nil, err
-	}
-	if err = egs.addPipeline(service, ins); err != nil {
-		return nil, err
-	}
-	pipeline = egs.pipelines[serviceName]
-	egs.watch <- serviceName
-	return pipeline, nil
+	pipeline, err = egs.addPipeline(serviceName)
+	return pipeline, err
 }
 
 // Handle handles all egress traffic and route to desired pipeline according
@@ -194,6 +214,17 @@ func (egs *EgressServer) Handle(ctx context.HTTPContext) {
 	}
 
 	pipeline.Handle(ctx)
-
 	return
+}
+
+// Close closes the Egress HTTPServer and Pipelines
+func (egs *EgressServer) Close() {
+	egs.mutex.Lock()
+	defer egs.mutex.Unlock()
+
+	egs.closed = true
+	egs.httpServer.Close()
+	for _, v := range egs.pipelines {
+		v.Close()
+	}
 }

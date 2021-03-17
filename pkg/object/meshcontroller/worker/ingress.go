@@ -12,6 +12,9 @@ import (
 	"github.com/megaease/easegateway/pkg/supervisor"
 )
 
+// ErrIngressClosed is the error when operating in a closed Ingress server
+var ErrIngressClosed = fmt.Errorf("ingress has been closed")
+
 type (
 	// IngressServer manages one ingress pipeline and one HTTPServer
 	IngressServer struct {
@@ -19,8 +22,9 @@ type (
 		serviceName string
 		//Note: this is the Java business process's listening port
 		//      not the ingress HTTPServer's port
-		port  uint32
-		mutex sync.RWMutex
+		port   uint32
+		mutex  sync.RWMutex
+		closed bool
 
 		// running EG objects, accept other service instances' traffic
 		// in mesh and hand over to local Java business process
@@ -44,6 +48,10 @@ func NewIngressServer(super *supervisor.Supervisor, serviceName string) *Ingress
 func (ings *IngressServer) Get(name string) (protocol.HTTPHandler, bool) {
 	ings.mutex.RLock()
 	defer ings.mutex.RUnlock()
+	if ings.closed {
+		return nil, false
+	}
+
 	p, ok := ings.pipelines[name]
 	return p, ok
 }
@@ -54,13 +62,17 @@ func (ings *IngressServer) Ready() bool {
 	defer ings.mutex.RUnlock()
 	_, pipelineReady := ings.pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)]
 
-	return pipelineReady && (ings.httpServer != nil)
+	return pipelineReady && (ings.httpServer != nil) && !ings.closed
 }
 
 // CreateIngress creates local default pipeline and httpServer for ingress
 func (ings *IngressServer) CreateIngress(service *spec.Service, port uint32) error {
 	ings.mutex.Lock()
 	defer ings.mutex.Unlock()
+	if ings.closed {
+		return ErrIngressClosed
+	}
+
 	if _, ok := ings.pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)]; !ok {
 		pipelineSpec := service.GenDefaultIngressPipelineYAML(port)
 		var pipeline httppipeline.HTTPPipeline
@@ -96,6 +108,10 @@ func (ings *IngressServer) CreateIngress(service *spec.Service, port uint32) err
 func (ings *IngressServer) UpdatePipeline(newSpec string) error {
 	ings.mutex.Lock()
 	defer ings.mutex.Unlock()
+	if ings.closed {
+		return ErrIngressClosed
+	}
+
 	pipeline, ok := ings.pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)]
 	if !ok {
 		return fmt.Errorf("can't find service:%s's ingress pipeline", ings.serviceName)
@@ -112,4 +128,15 @@ func (ings *IngressServer) UpdatePipeline(newSpec string) error {
 	ings.pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)] = &newPipeline
 
 	return err
+}
+
+// Close closes the Ingress HTTPServer and Pipeline
+func (ings *IngressServer) Close() {
+	ings.mutex.Lock()
+	defer ings.mutex.Unlock()
+	ings.closed = true
+	ings.httpServer.Close()
+	for _, v := range ings.pipelines {
+		v.Close()
+	}
 }

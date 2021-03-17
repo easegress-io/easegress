@@ -109,6 +109,8 @@ func (w *Worker) run() {
 	close(doneWatchEvent)
 	w.inf.Close()
 	w.rcs.Close()
+	w.ings.Close()
+	w.egs.Close()
 }
 
 func (w *Worker) heartbeat(interval time.Duration, done chan struct{}) {
