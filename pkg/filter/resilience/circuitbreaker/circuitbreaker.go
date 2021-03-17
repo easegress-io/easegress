@@ -172,7 +172,7 @@ func (cb *CircuitBreaker) setStateListenerForURL(u *URLRule) {
 			u.ID(),
 			event.OldState,
 			event.NewState,
-			event.Time.Local().UnixNano()/1e6,
+			event.Time.UnixNano()/1e6,
 			event.Reason,
 		)
 	})
@@ -267,55 +267,59 @@ func (cb *CircuitBreaker) Inherit(pipeSpec *httppipeline.FilterSpec, previousGen
 	cb.reload(previousGeneration.(*CircuitBreaker))
 }
 
+func (cb *CircuitBreaker) handle(ctx context.HTTPContext, u *URLRule) string {
+	permitted, stateID := u.cb.AcquirePermission()
+	if !permitted {
+		return "circuitBreaker"
+	}
+
+	wrapper := func(fn context.HandlerFunc) context.HandlerFunc {
+		return func() string {
+			start := time.Now()
+
+			defer func() {
+				if e := recover(); e != nil {
+					d := time.Since(start)
+					err, ok := e.(error)
+					if !ok {
+						err = fmt.Errorf("unknown error: %v", e)
+					}
+					u.cb.RecordResult(stateID, err, d)
+					panic(e)
+				}
+			}()
+
+			result := fn()
+			duration := time.Since(start)
+			if result != "" {
+				err := fmt.Errorf("result is: %s", result)
+				u.cb.RecordResult(stateID, err, duration)
+				return result
+			}
+
+			code := ctx.Response().StatusCode()
+			for _, c := range u.policy.ExceptionalStatusCode {
+				if code == c {
+					err := fmt.Errorf("status code is: %d", code)
+					u.cb.RecordResult(stateID, err, duration)
+					break
+				}
+			}
+
+			return result
+		}
+	}
+
+	ctx.AddHandlerWrapper("circuitBreaker", wrapper)
+	return ""
+}
+
 // Handle handles HTTP request
 func (cb *CircuitBreaker) Handle(ctx context.HTTPContext) string {
 	for _, u := range cb.spec.URLs {
-		if !u.Match(ctx.Request()) {
-			continue
+		if u.Match(ctx.Request()) {
+			return cb.handle(ctx, u)
 		}
-
-		permitted, stateID := u.cb.AcquirePermission()
-		if !permitted {
-			return "circuitBreaker"
-		}
-
-		ctx.AddHandlerWrapper("circuitBreaker", func(fn context.HandlerFunc) context.HandlerFunc {
-			return func() string {
-				start := time.Now()
-
-				defer func() {
-					if e := recover(); e != nil {
-						d := time.Since(start)
-						err, ok := e.(error)
-						if !ok {
-							err = fmt.Errorf("unknown error: %v", e)
-						}
-						u.cb.RecordResult(stateID, err, d)
-						panic(e)
-					}
-				}()
-
-				result := fn()
-				duration := time.Since(start)
-				if result != "" {
-					err := fmt.Errorf("result is: %s", result)
-					u.cb.RecordResult(stateID, err, duration)
-					return result
-				}
-
-				code := ctx.Response().StatusCode()
-				for _, c := range u.policy.ExceptionalStatusCode {
-					if code == c {
-						err := fmt.Errorf("status code is: %d", code)
-						u.cb.RecordResult(stateID, err, duration)
-						break
-					}
-				}
-
-				return result
-			}
-		})
-		break
 	}
 	return ""
 }

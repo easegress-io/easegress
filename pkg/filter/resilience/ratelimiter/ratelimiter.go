@@ -129,7 +129,7 @@ func (rl *RateLimiter) setStateListenerForURL(u *URLRule) {
 			rl.pipeSpec.Name(),
 			u.ID(),
 			event.State,
-			event.Time.Local().UnixNano()/1e6,
+			event.Time.UnixNano()/1e6,
 		)
 	})
 }
