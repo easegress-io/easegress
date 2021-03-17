@@ -2,6 +2,7 @@ package worker
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -23,10 +24,13 @@ type Worker struct {
 	super     *supervisor.Supervisor
 	superSpec *supervisor.Spec
 	spec      *spec.Admin
-	// handle worker inner logic
-	instanceID          string
-	serviceName         string
-	aliveProbe          string
+
+	// set by labels
+	instanceID      string
+	serviceName     string
+	aliveProbe      string
+	applicationPort uint32
+
 	store               storage.Storage
 	rcs                 *registrycenter.Server
 	ings                *IngressServer
@@ -39,13 +43,22 @@ type Worker struct {
 	done        chan struct{}
 }
 
+const (
+	labelsApplictionPort = "application-port"
+	labelsAliveProbe     = "alive-probe"
+	labelsServiceName    = "mesh-servicename"
+)
+
 var defaultWathChanBuffer = 100
 
 // New creates a mesh worker.
 func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 	spec := superSpec.ObjectSpec().(*spec.Admin)
-	serviceName := option.Global.Labels["mesh-servicename"]
-	aliveProbe := option.Global.Labels["alive-probe"]
+
+	serviceName := option.Global.Labels[labelsServiceName]
+	aliveProbe := option.Global.Labels[labelsAliveProbe]
+	applicationPort, _ := strconv.Atoi(option.Global.Labels[labelsApplictionPort])
+
 	store := storage.New(superSpec.Name(), super.Cluster())
 	registryCenterServer := registrycenter.NewRegistryCenterServer(spec.RegistryType,
 		serviceName, store)
@@ -53,16 +66,16 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 	egressEvent := make(chan string, defaultWathChanBuffer)
 	egressServer := NewEgressServer(super, serviceName, store, egressEvent)
 	observabilityServer := NewObservabilityServer(serviceName)
-
 	inf := informer.NewInformer(store)
 
 	w := &Worker{
-		super:       super,
-		superSpec:   superSpec,
-		spec:        spec,
-		store:       store,
-		serviceName: serviceName,
-		aliveProbe:  aliveProbe,
+		super:           super,
+		superSpec:       superSpec,
+		spec:            spec,
+		store:           store,
+		serviceName:     serviceName,
+		aliveProbe:      aliveProbe,
+		applicationPort: uint32(applicationPort),
 
 		rcs:                 registryCenterServer,
 		ings:                ingressServer,
@@ -90,12 +103,18 @@ func (w *Worker) run() {
 	}
 
 	if len(w.serviceName) == 0 {
-		logger.Errorf("mesh service name is empty!")
+		logger.Errorf("check mesh service name failed, empty!")
 		return
 	}
 
 	if len(w.aliveProbe) == 0 || strings.HasPrefix(w.aliveProbe, "http://") {
-		logger.Errorf("check alive probe:[%s] is invalide!", w.aliveProbe)
+		logger.Errorf("check alive probe:[%s] failed, invalide!", w.aliveProbe)
+		return
+	}
+
+	if w.applicationPort == 0 {
+		logger.Errorf("check java process port:[%d] failed, value in start labels:[%s], invalide!",
+			w.applicationPort, option.Global.Labels[labelsApplictionPort])
 		return
 	}
 
@@ -117,6 +136,8 @@ func (w *Worker) heartbeat(interval time.Duration, done chan struct{}) {
 	for {
 		select {
 		case <-time.After(interval):
+			w.initTrafficGate()
+
 			if w.rcs.Registried() {
 				if err := w.updateHearbeat(); err != nil {
 					logger.Errorf("check local instance heartbeat failed:%v", err)
@@ -126,6 +147,24 @@ func (w *Worker) heartbeat(interval time.Duration, done chan struct{}) {
 		case <-done:
 			return
 		}
+	}
+}
+
+func (w *Worker) initTrafficGate() {
+	service, err := getService(w.serviceName, w.store)
+	if err != nil {
+		logger.Errorf("get worker's service:%s failed,err:%v", w.serviceName, err)
+		return
+	}
+
+	if err := w.ings.CreateIngress(service, w.applicationPort); err != nil {
+		logger.Errorf("create ingress failed: %v", w.serviceName, err)
+		return
+	}
+
+	if err := w.egs.CreateEgress(service); err != nil {
+		logger.Errorf("create egress failed: %v", w.serviceName, err)
+		return
 	}
 }
 

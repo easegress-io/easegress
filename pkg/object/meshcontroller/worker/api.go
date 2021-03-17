@@ -143,18 +143,6 @@ func (w *Worker) registry(ctx iris.Context) {
 		}
 	}
 
-	if err := w.ings.CreateIngress(service, ins.Port); err != nil {
-		logger.Errorf("create service:%s ingress failed: %v", ins.ServiceName, err)
-		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
-		return
-	}
-
-	if err := w.egs.CreateEgress(service); err != nil {
-		logger.Errorf("create service:%s egress failed: %v", ins.ServiceName, err)
-		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
-		return
-	}
-
 	if ID, err := w.rcs.Registry(ins, service, w.ings.Ready, w.egs.Ready); err == nil {
 		w.mutex.Lock()
 		defer w.mutex.Unlock()
