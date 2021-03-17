@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"runtime/debug"
 	"strconv"
 	"sync"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/informer"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/layout"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/registrycenter"
+	"github.com/megaease/easegateway/pkg/object/meshcontroller/service"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/storage"
 	"github.com/megaease/easegateway/pkg/option"
@@ -35,6 +37,7 @@ type (
 		applicationPort uint32
 
 		store    storage.Storage
+		service  *service.Service
 		informer informer.Informer
 
 		registryServer       *registrycenter.Server
@@ -67,11 +70,12 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 	}
 
 	store := storage.New(superSpec.Name(), super.Cluster())
+	_service := service.New(superSpec, store)
 	registryCenterServer := registrycenter.NewRegistryCenterServer(spec.RegistryType,
 		serviceName, store)
 	ingressServer := NewIngressServer(super, serviceName)
 	egressEvent := make(chan string, egressEventChanSize)
-	egressServer := NewEgressServer(super, serviceName, store, egressEvent)
+	egressServer := NewEgressServer(superSpec, super, serviceName, store, egressEvent)
 	observabilityManager := NewObservabilityServer(serviceName)
 	inf := informer.NewInformer(store)
 
@@ -86,6 +90,7 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 		applicationPort: uint32(applicationPort),
 
 		store:    store,
+		service:  _service,
 		informer: inf,
 
 		registryServer:       registryCenterServer,
@@ -138,44 +143,59 @@ func (w *Worker) run() {
 func (w *Worker) heartbeat() {
 	observabilityReady, trafficGateReady := false, false
 
+	routine := func() {
+		defer func() {
+			if err := recover(); err != nil {
+				logger.Errorf("%s: recover from: %v, stack trace:\n%s\n",
+					w.superSpec.Name(), err, debug.Stack())
+			}
+		}()
+
+		if !trafficGateReady {
+			err := w.initTrafficGate()
+			if err != nil {
+				logger.Errorf("init traffic gate failed: %v", err)
+			} else {
+				trafficGateReady = true
+			}
+		}
+
+		if w.registryServer.Registered() {
+			if !observabilityReady {
+				err := w.informObservability()
+				if err != nil {
+					logger.Errorf(err.Error())
+				} else {
+					observabilityReady = true
+				}
+			}
+
+			err := w.updateHearbeat()
+			if err != nil {
+				logger.Errorf("update heartbeart failed: %v", err)
+			}
+		}
+	}
+
 	for {
 		select {
 		case <-w.done:
 			return
 		case <-time.After(w.heartbeatInterval):
-			if !trafficGateReady {
-				err := w.initTrafficGate()
-				if err != nil {
-					logger.Errorf("init traffic gate failed: %v", err)
-				} else {
-					trafficGateReady = true
-				}
+			// FIXME: Can we just use option.Name instead of registy?
+			w.mutex.Lock()
+			if w.instanceID == "" {
+				continue
 			}
+			w.mutex.Unlock()
 
-			if w.registryServer.Registered() {
-				if !observabilityReady {
-					err := w.informObservability()
-					if err != nil {
-						logger.Errorf(err.Error())
-					} else {
-						observabilityReady = true
-					}
-				}
-
-				err := w.updateHearbeat()
-				if err != nil {
-					logger.Errorf("update heartbeart failed: %v", err)
-				}
-			}
+			routine()
 		}
 	}
 }
 
 func (w *Worker) initTrafficGate() error {
-	service, err := getService(w.serviceName, w.store)
-	if err != nil {
-		return fmt.Errorf("get service %s failed: %v", w.serviceName, err)
-	}
+	service := w.service.GetServiceSpec(w.serviceName)
 
 	if err := w.ingressServer.CreateIngress(service, w.applicationPort); err != nil {
 		return fmt.Errorf("create ingress for service %s failed: %v", w.serviceName, err)
@@ -208,7 +228,10 @@ func (w *Worker) updateHearbeat() error {
 		return fmt.Errorf("get serivce %s instance %s status failed: %v", w.serviceName, w.instanceID, err)
 	}
 
-	status := &spec.ServiceInstanceStatus{}
+	status := &spec.ServiceInstanceStatus{
+		ServiceName: w.serviceName,
+		InstanceID:  w.instanceID,
+	}
 	if value != nil {
 		err := yaml.Unmarshal([]byte(*value), status)
 		if err != nil {
@@ -229,49 +252,6 @@ func (w *Worker) updateHearbeat() error {
 	return w.store.Put(layout.ServiceInstanceStatusKey(w.serviceName, w.instanceID), string(buff))
 }
 
-func getSerivceInstances(serviceName string, store storage.Storage) ([]*spec.ServiceInstanceSpec, error) {
-	var insList []*spec.ServiceInstanceSpec
-
-	insYAMLs, err := store.GetPrefix(layout.ServiceInstanceSpecPrefix(serviceName))
-	if err != nil {
-		return insList, err
-	}
-
-	for _, v := range insYAMLs {
-		var ins *spec.ServiceInstanceSpec
-		if err = yaml.Unmarshal([]byte(v), ins); err != nil {
-			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
-			continue
-		}
-		insList = append(insList, ins)
-	}
-
-	return insList, nil
-}
-
-func getService(serviceName string, store storage.Storage) (*spec.Service, error) {
-	var (
-		service *spec.Service
-		err     error
-	)
-	serviceSpec, err := store.Get(layout.ServiceSpecKey(serviceName))
-	if err != nil {
-		logger.Errorf("get %s failed: %v", serviceName, err)
-		return nil, err
-	}
-
-	if len(*serviceSpec) == 0 {
-		return nil, spec.ErrServiceNotFound
-	}
-
-	err = yaml.Unmarshal([]byte(*serviceSpec), service)
-	if err != nil {
-		logger.Errorf("BUG: unmarshal %s to yaml failed: %v", serviceName, err)
-		return nil, err
-	}
-	return service, nil
-}
-
 func (w *Worker) addEgressWatching(serviceName string) {
 	handleSerivceSpec := func(event informer.Event, service *spec.Service) bool {
 		switch event {
@@ -280,12 +260,9 @@ func (w *Worker) addEgressWatching(serviceName string) {
 			return false
 		case informer.EventUpdate:
 			logger.Infof("handle informer egress service:%s's spec update event", serviceName)
-			ins, err := getSerivceInstances(service.Name, w.store)
-			if err != nil {
-				logger.Errorf("handle informer egress failed, get service:[%s] instance list failed, err:%v", serviceName, err)
-				return true
-			}
-			if err := w.egressServer.UpdatePipeline(service, ins); err != nil {
+			instanceSpecs := w.service.ListServiceInstanceSpecs(service.Name)
+
+			if err := w.egressServer.UpdatePipeline(service, instanceSpecs); err != nil {
 				logger.Errorf("handle informer egress failed, update serivce:%s's failed, err:%v", serviceName, err)
 			}
 		}
@@ -298,18 +275,15 @@ func (w *Worker) addEgressWatching(serviceName string) {
 		}
 	}
 
-	handleServiceInstances := func(insMap map[string]*spec.ServiceInstanceSpec) bool {
+	handleServiceInstances := func(instanceKvs map[string]*spec.ServiceInstanceSpec) bool {
 		logger.Infof("handle informer egress service:%s's spec update event", serviceName)
-		service, err := getService(serviceName, w.store)
-		if err != nil {
-			logger.Errorf("hanlde informer egress failed, get service:%s spec failed, err:%v", serviceName, err)
-			return true
+		serviceSpec := w.service.GetServiceSpec(serviceName)
+
+		var instanceSpecs []*spec.ServiceInstanceSpec
+		for _, v := range instanceKvs {
+			instanceSpecs = append(instanceSpecs, v)
 		}
-		var insList []*spec.ServiceInstanceSpec
-		for _, v := range insMap {
-			insList = append(insList, v)
-		}
-		if err := w.egressServer.UpdatePipeline(service, insList); err != nil {
+		if err := w.egressServer.UpdatePipeline(serviceSpec, instanceSpecs); err != nil {
 			logger.Errorf("handle informer egress failed, update service:%s failed, err:%v", serviceName, err)
 		}
 

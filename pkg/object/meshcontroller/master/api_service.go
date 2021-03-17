@@ -29,7 +29,7 @@ func (m *Master) readServiceName(ctx iris.Context) (string, error) {
 }
 
 func (m *Master) listServices(ctx iris.Context) {
-	specs := m.service.listServiceSpecs()
+	specs := m.service.ListServiceSpecs()
 
 	sort.Sort(servicesByOrder(specs))
 
@@ -61,16 +61,16 @@ func (m *Master) createService(ctx iris.Context) {
 		return
 	}
 
-	m.storageLock()
-	defer m.storageUnlock()
+	m.service.Lock()
+	defer m.service.Unlock()
 
-	oldSpec := m.service.getServiceSpec(serviceName)
+	oldSpec := m.service.GetServiceSpec(serviceName)
 	if oldSpec != nil {
 		api.HandleAPIError(ctx, http.StatusConflict, fmt.Errorf("%s existed", serviceName))
 		return
 	}
 
-	tenantSpec := m.service.getTenantSpec(serviceSpec.RegisterTenant)
+	tenantSpec := m.service.GetTenantSpec(serviceSpec.RegisterTenant)
 	if tenantSpec == nil {
 		api.HandleAPIError(ctx, http.StatusBadRequest,
 			fmt.Errorf("tenant %s not found", serviceSpec.RegisterTenant))
@@ -79,8 +79,8 @@ func (m *Master) createService(ctx iris.Context) {
 
 	tenantSpec.Services = append(tenantSpec.Services, serviceSpec.RegisterTenant)
 
-	m.service.putServiceSpec(serviceSpec)
-	m.service.putTenantSpec(tenantSpec)
+	m.service.PutServiceSpec(serviceSpec)
+	m.service.PutTenantSpec(tenantSpec)
 
 	ctx.Header("Location", ctx.Path())
 	ctx.StatusCode(http.StatusCreated)
@@ -93,7 +93,7 @@ func (m *Master) getService(ctx iris.Context) {
 		return
 	}
 
-	serviceSpec := m.service.getServiceSpec(serviceName)
+	serviceSpec := m.service.GetServiceSpec(serviceName)
 	if serviceSpec == nil {
 		api.HandleAPIError(ctx, http.StatusNotFound, fmt.Errorf("%s not found", serviceName))
 		return
@@ -127,17 +127,17 @@ func (m *Master) updateService(ctx iris.Context) {
 		return
 	}
 
-	m.storageLock()
-	defer m.storageUnlock()
+	m.service.Lock()
+	defer m.service.Unlock()
 
-	oldSpec := m.service.getServiceSpec(serviceName)
+	oldSpec := m.service.GetServiceSpec(serviceName)
 	if oldSpec == nil {
 		api.HandleAPIError(ctx, http.StatusNotFound, fmt.Errorf("%s not found", serviceName))
 		return
 	}
 
 	if serviceSpec.RegisterTenant != oldSpec.RegisterTenant {
-		newTenantSpec := m.service.getTenantSpec(serviceSpec.RegisterTenant)
+		newTenantSpec := m.service.GetTenantSpec(serviceSpec.RegisterTenant)
 		if newTenantSpec == nil {
 			api.HandleAPIError(ctx, http.StatusBadRequest,
 				fmt.Errorf("tenant %s not found", serviceSpec.RegisterTenant))
@@ -145,17 +145,17 @@ func (m *Master) updateService(ctx iris.Context) {
 		}
 		newTenantSpec.Services = append(newTenantSpec.Services, serviceSpec.RegisterTenant)
 
-		oldTenantSpec := m.service.getTenantSpec(oldSpec.RegisterTenant)
+		oldTenantSpec := m.service.GetTenantSpec(oldSpec.RegisterTenant)
 		if oldTenantSpec == nil {
 			panic(fmt.Errorf("tenant %s not found", oldSpec.RegisterTenant))
 		}
 		oldTenantSpec.Services = stringtool.DeleteStrInSlice(oldTenantSpec.Services, serviceName)
 
-		m.service.putTenantSpec(newTenantSpec)
-		m.service.putTenantSpec(oldTenantSpec)
+		m.service.PutTenantSpec(newTenantSpec)
+		m.service.PutTenantSpec(oldTenantSpec)
 	}
 
-	m.service.putServiceSpec(serviceSpec)
+	m.service.PutServiceSpec(serviceSpec)
 }
 
 func (m *Master) deleteService(ctx iris.Context) {
@@ -165,22 +165,22 @@ func (m *Master) deleteService(ctx iris.Context) {
 		return
 	}
 
-	m.storageLock()
-	defer m.storageUnlock()
+	m.service.Lock()
+	defer m.service.Unlock()
 
-	oldSpec := m.service.getServiceSpec(serviceName)
+	oldSpec := m.service.GetServiceSpec(serviceName)
 	if oldSpec == nil {
 		api.HandleAPIError(ctx, http.StatusNotFound, fmt.Errorf("%s not found", serviceName))
 		return
 	}
 
-	tenantSpec := m.service.getTenantSpec(oldSpec.RegisterTenant)
+	tenantSpec := m.service.GetTenantSpec(oldSpec.RegisterTenant)
 	if tenantSpec == nil {
 		panic(fmt.Errorf("tenant %s not found", oldSpec.RegisterTenant))
 	}
 
 	tenantSpec.Services = stringtool.DeleteStrInSlice(tenantSpec.Services, serviceName)
 
-	m.service.putTenantSpec(tenantSpec)
-	m.service.deleteServiceSpec(serviceName)
+	m.service.PutTenantSpec(tenantSpec)
+	m.service.DeleteServiceSpec(serviceName)
 }

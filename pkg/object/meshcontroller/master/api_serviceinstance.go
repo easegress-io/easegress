@@ -36,12 +36,7 @@ func (m *Master) readServiceInstanceInfo(ctx iris.Context) (string, string, erro
 }
 
 func (m *Master) listServiceInstanceSpecs(ctx iris.Context) {
-	instanceSpecs := m.service.listServiceInstanceSpecs()
-
-	var specs []*spec.ServiceInstanceSpec
-	for _, instanceSpec := range instanceSpecs {
-		specs = append(specs, instanceSpec)
-	}
+	specs := m.service.ListAllServiceInstanceSpecs()
 
 	sort.Sort(serviceInstancesByOrder(specs))
 
@@ -61,7 +56,7 @@ func (m *Master) getServiceInstanceSpec(ctx iris.Context) {
 		return
 	}
 
-	serviceSpec := m.service.getServiceInstanceSpec(serviceName, instanceID)
+	serviceSpec := m.service.GetServiceInstanceSpec(serviceName, instanceID)
 	if serviceSpec == nil {
 		api.HandleAPIError(ctx, http.StatusNotFound, fmt.Errorf("%s/%s not found", serviceName, instanceID))
 		return
@@ -83,15 +78,15 @@ func (m *Master) offlineSerivceInstance(ctx iris.Context) {
 		return
 	}
 
-	m.storageLock()
-	defer m.storageUnlock()
+	m.service.Lock()
+	defer m.service.Unlock()
 
-	instanceSpec := m.service.getServiceInstanceSpec(serviceName, instanceID)
+	instanceSpec := m.service.GetServiceInstanceSpec(serviceName, instanceID)
 	if instanceSpec == nil {
 		api.HandleAPIError(ctx, http.StatusNotFound, fmt.Errorf("%s/%s not found", serviceName, instanceID))
 		return
 	}
 
 	instanceSpec.Status = registrycenter.SerivceStatusOutOfSerivce
-	m.service.putServiceInstanceSpec(instanceSpec)
+	m.service.PutServiceInstanceSpec(instanceSpec)
 }

@@ -190,6 +190,8 @@ type (
 
 	// ServiceInstanceStatus is the status of service instance.
 	ServiceInstanceStatus struct {
+		ServiceName string `yaml:"serviceName" jsonschema:"required"`
+		InstanceID  string `yaml:"instanceID" jsonschema:"required"`
 		// RFC3339 format
 		LastHeartbeatTime string `yaml:"lastHeartbeatTime" jsonschema:"required,format=timerfc3339"`
 	}

@@ -23,7 +23,8 @@ type (
 
 		// port is the Java business process's listening port
 		// not the ingress HTTPServer's port
-		port  uint32
+		// NOTE: Not used for now.
+		// port  uint32
 		mutex sync.RWMutex
 
 		// running EG objects, accept other service instances' traffic

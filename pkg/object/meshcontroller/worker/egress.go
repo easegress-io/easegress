@@ -9,6 +9,7 @@ import (
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
 	"github.com/megaease/easegateway/pkg/object/httpserver"
+	"github.com/megaease/easegateway/pkg/object/meshcontroller/service"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/storage"
 	"github.com/megaease/easegateway/pkg/protocol"
@@ -31,6 +32,7 @@ type (
 		super       *supervisor.Supervisor
 		serviceName string
 		store       storage.Storage
+		service     *service.Service
 		mutex       sync.RWMutex
 		watch       chan<- string
 		closed      bool
@@ -38,14 +40,15 @@ type (
 )
 
 // NewEgressServer creates a initialized egress server
-func NewEgressServer(super *supervisor.Supervisor, serviceName string, store storage.Storage, watch chan<- string) *EgressServer {
+func NewEgressServer(superSpec *supervisor.Spec, super *supervisor.Supervisor,
+	serviceName string, store storage.Storage, watch chan<- string) *EgressServer {
+
 	return &EgressServer{
 		pipelines:   make(map[string]*httppipeline.HTTPPipeline),
-		httpServer:  nil,
 		serviceName: serviceName,
 		store:       store,
+		service:     service.New(superSpec, store),
 		super:       super,
-		mutex:       sync.RWMutex{},
 		watch:       watch,
 	}
 }
@@ -107,21 +110,15 @@ func (egs *EgressServer) _getPipeline(serviceName string) (*httppipeline.HTTPPip
 }
 
 func (egs *EgressServer) addPipeline(serviceName string) (*httppipeline.HTTPPipeline, error) {
-	service, err := getService(serviceName, egs.store)
-	if err != nil {
-		return nil, err
-	}
+	service := egs.service.GetServiceSpec(serviceName)
 
-	ins, err := getSerivceInstances(serviceName, egs.store)
-	if err != nil {
-		return nil, err
-	}
+	instanceSpec := egs.service.ListServiceInstanceSpecs(serviceName)
 
 	var pipeline httppipeline.HTTPPipeline
-	superSpec, err := service.ToEgressPipelineSpec(ins)
+	superSpec, err := service.ToEgressPipelineSpec(instanceSpec)
 	if err != nil {
-		logger.Errorf("to egress pipeline spec failed, serivce :%#v, with instances :%#v ,err:%v ",
-			service, ins, err)
+		logger.Errorf("service %s to instance %#v egress pipeline spec failed: %v ",
+			service, instanceSpec, err)
 		return nil, err
 	}
 
@@ -139,8 +136,6 @@ func (egs *EgressServer) DeletePipeline(serviceName string) {
 		p.Close()
 		delete(egs.pipelines, serviceName)
 	}
-
-	return
 }
 
 // UpdatePipeline updates a local pipeline according to the informer.

@@ -117,7 +117,7 @@ func (m *Master) getPartOfService(meta *partMeta) iris.Handler {
 		}
 
 		// NOTE: No need to lock.
-		serviceSpec := m.service.getServiceSpec(serviceName)
+		serviceSpec := m.service.GetServiceSpec(serviceName)
 		if serviceSpec == nil {
 			api.HandleAPIError(ctx, http.StatusNotFound,
 				fmt.Errorf("service %s not found", serviceName))
@@ -155,10 +155,10 @@ func (m *Master) createPartOfService(meta *partMeta) iris.Handler {
 			return
 		}
 
-		m.storageLock()
-		defer m.storageUnlock()
+		m.service.Lock()
+		defer m.service.Unlock()
 
-		serviceSpec := m.service.getServiceSpec(serviceName)
+		serviceSpec := m.service.GetServiceSpec(serviceName)
 		if serviceSpec == nil {
 			api.HandleAPIError(ctx, http.StatusNotFound,
 				fmt.Errorf("service %s not found", serviceName))
@@ -174,7 +174,7 @@ func (m *Master) createPartOfService(meta *partMeta) iris.Handler {
 
 		meta.setPart(serviceSpec, part)
 
-		m.service.putServiceSpec(serviceSpec)
+		m.service.PutServiceSpec(serviceSpec)
 
 		ctx.Header("Location", ctx.Path())
 		ctx.StatusCode(http.StatusCreated)
@@ -196,10 +196,10 @@ func (m *Master) updatePartOfService(meta *partMeta) iris.Handler {
 			return
 		}
 
-		m.storageLock()
-		defer m.storageUnlock()
+		m.service.Lock()
+		defer m.service.Unlock()
 
-		serviceSpec := m.service.getServiceSpec(serviceName)
+		serviceSpec := m.service.GetServiceSpec(serviceName)
 		if serviceSpec == nil {
 			api.HandleAPIError(ctx, http.StatusNotFound,
 				fmt.Errorf("service %s not found", serviceName))
@@ -214,7 +214,7 @@ func (m *Master) updatePartOfService(meta *partMeta) iris.Handler {
 		}
 
 		meta.setPart(serviceSpec, part)
-		m.service.putServiceSpec(serviceSpec)
+		m.service.PutServiceSpec(serviceSpec)
 	}
 }
 
@@ -226,10 +226,10 @@ func (m *Master) deletePartOfService(meta *partMeta) iris.Handler {
 			return
 		}
 
-		m.storageLock()
-		defer m.storageUnlock()
+		m.service.Lock()
+		defer m.service.Unlock()
 
-		serviceSpec := m.service.getServiceSpec(serviceName)
+		serviceSpec := m.service.GetServiceSpec(serviceName)
 		if serviceSpec == nil {
 			api.HandleAPIError(ctx, http.StatusNotFound,
 				fmt.Errorf("service %s not found", serviceName))
@@ -244,6 +244,6 @@ func (m *Master) deletePartOfService(meta *partMeta) iris.Handler {
 		}
 
 		meta.setPart(serviceSpec, nil)
-		m.service.putServiceSpec(serviceSpec)
+		m.service.PutServiceSpec(serviceSpec)
 	}
 }

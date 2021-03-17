@@ -11,7 +11,6 @@ import (
 	"github.com/kataras/iris"
 
 	"github.com/megaease/easegateway/pkg/api"
-	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/registrycenter"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
 )
@@ -130,29 +129,20 @@ func (w *Worker) registry(ctx iris.Context) {
 		return
 	}
 
-	service, err := getService(ins.ServiceName, w.store)
-	if err != nil {
-		if err == spec.ErrServiceNotFound {
-			logger.Errorf("registry to unknow service:%s", ins.ServiceName)
-			api.HandleAPIError(ctx, http.StatusBadRequest, err)
-			return
-		} else {
-			logger.Errorf("get service:%s failed, err:%v", ins.ServiceName, err)
-			api.HandleAPIError(ctx, http.StatusInternalServerError, err)
-			return
-		}
+	service := w.service.GetServiceSpec(ins.ServiceName)
+	if service == nil {
+		err := fmt.Errorf("registry to unknown service %s", ins.ServiceName)
+		api.HandleAPIError(ctx, http.StatusBadRequest, err)
+		return
 	}
 
-	if ID, err := w.registryServer.Registry(ins, service, w.ingressServer.Ready, w.egressServer.Ready); err == nil {
+	if id, err := w.registryServer.Registry(ins, service, w.ingressServer.Ready, w.egressServer.Ready); err == nil {
 		w.mutex.Lock()
 		defer w.mutex.Unlock()
-		// let worker know its instance identity
-		w.instanceID = ID
-	} else {
-		if err != spec.ErrAlreadyRegistered {
-			api.HandleAPIError(ctx, http.StatusInternalServerError, err)
-			return
-		}
+		w.instanceID = id
+	} else if err != spec.ErrAlreadyRegistered {
+		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
+		return
 	}
 
 	// NOTE: According to eureka APIs list:

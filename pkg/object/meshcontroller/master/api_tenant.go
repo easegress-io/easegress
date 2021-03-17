@@ -28,7 +28,7 @@ func (m *Master) readTenantName(ctx iris.Context) (string, error) {
 }
 
 func (m *Master) listTenants(ctx iris.Context) {
-	specs := m.service.listTenantSpecs()
+	specs := m.service.ListTenantSpecs()
 
 	sort.Sort(tenantsByOrder(specs))
 
@@ -66,16 +66,16 @@ func (m *Master) createTenant(ctx iris.Context) {
 		return
 	}
 
-	m.storageLock()
-	defer m.storageUnlock()
+	m.service.Lock()
+	defer m.service.Unlock()
 
-	oldSpec := m.service.getTenantSpec(tenantName)
+	oldSpec := m.service.GetTenantSpec(tenantName)
 	if oldSpec != nil {
 		api.HandleAPIError(ctx, http.StatusConflict, fmt.Errorf("%s existed", tenantName))
 		return
 	}
 
-	m.service.putTenantSpec(tenantSpec)
+	m.service.PutTenantSpec(tenantSpec)
 
 	ctx.Header("Location", ctx.Path())
 	ctx.StatusCode(http.StatusCreated)
@@ -88,7 +88,7 @@ func (m *Master) getTenant(ctx iris.Context) {
 		return
 	}
 
-	tenantSpec := m.service.getTenantSpec(tenantName)
+	tenantSpec := m.service.GetTenantSpec(tenantName)
 	if tenantSpec == nil {
 		api.HandleAPIError(ctx, http.StatusNotFound, fmt.Errorf("%s not found", tenantName))
 		return
@@ -134,10 +134,10 @@ func (m *Master) updateTenant(ctx iris.Context) {
 		return
 	}
 
-	m.storageLock()
-	defer m.storageUnlock()
+	m.service.Lock()
+	defer m.service.Unlock()
 
-	oldSpec := m.service.getTenantSpec(tenantName)
+	oldSpec := m.service.GetTenantSpec(tenantName)
 	if oldSpec == nil {
 		api.HandleAPIError(ctx, http.StatusNotFound, fmt.Errorf("%s not found", tenantName))
 		return
@@ -146,7 +146,7 @@ func (m *Master) updateTenant(ctx iris.Context) {
 	// NOTE: The fields below can't be updated.
 	tenantSpec.Services, tenantSpec.CreatedAt = oldSpec.Services, oldSpec.CreatedAt
 
-	m.service.putTenantSpec(tenantSpec)
+	m.service.PutTenantSpec(tenantSpec)
 }
 
 func (m *Master) deleteTenant(ctx iris.Context) {
@@ -156,10 +156,10 @@ func (m *Master) deleteTenant(ctx iris.Context) {
 		return
 	}
 
-	m.storageLock()
-	defer m.storageUnlock()
+	m.service.Lock()
+	defer m.service.Unlock()
 
-	oldSpec := m.service.getTenantSpec(tenantName)
+	oldSpec := m.service.GetTenantSpec(tenantName)
 	if oldSpec == nil {
 		api.HandleAPIError(ctx, http.StatusNotFound, fmt.Errorf("%s not found", tenantName))
 		return
@@ -171,5 +171,5 @@ func (m *Master) deleteTenant(ctx iris.Context) {
 		return
 	}
 
-	m.service.deleteTenantSpec(tenantName)
+	m.service.DeleteTenantSpec(tenantName)
 }

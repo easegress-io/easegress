@@ -96,20 +96,6 @@ func (m *Master) registerAPIs() {
 	api.GlobalServer.RegisterAPIs(meshAPIs)
 }
 
-func (m *Master) storageLock() {
-	err := m.store.Lock()
-	if err != nil {
-		api.ClusterPanic(err)
-	}
-}
-
-func (m *Master) storageUnlock() {
-	err := m.store.Unlock()
-	if err != nil {
-		api.ClusterPanic(err)
-	}
-}
-
 func (m *Master) readSpec(ctx iris.Context, spec interface{}) error {
 	body, err := ioutil.ReadAll(ctx.Request().Body)
 	if err != nil {

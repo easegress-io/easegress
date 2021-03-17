@@ -4,21 +4,27 @@ import (
 	"runtime/debug"
 	"time"
 
+	"github.com/megaease/easegateway/pkg/api"
 	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/object/meshcontroller/layout"
+	"github.com/megaease/easegateway/pkg/object/meshcontroller/registrycenter"
+	"github.com/megaease/easegateway/pkg/object/meshcontroller/service"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/storage"
 	"github.com/megaease/easegateway/pkg/supervisor"
+	"gopkg.in/yaml.v2"
 )
 
 type (
 	// Master is the master role of EaseGateway for mesh control plane.
 	Master struct {
-		super     *supervisor.Supervisor
-		superSpec *supervisor.Spec
-		spec      *spec.Admin
+		super               *supervisor.Supervisor
+		superSpec           *supervisor.Spec
+		spec                *spec.Admin
+		maxHeartbeatTimeout time.Duration
 
 		store   storage.Storage
-		service *masterService
+		service *service.Service
 
 		done chan struct{}
 	}
@@ -39,8 +45,15 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Master {
 		spec:      adminSpec,
 
 		store:   store,
-		service: newMasterService(superSpec, store),
+		service: service.New(superSpec, store),
 	}
+
+	heartbeat, err := time.ParseDuration(m.spec.HeartbeatInterval)
+	if err != nil {
+		logger.Errorf("BUG: parse heartbeat interval %s to duration failed: %v",
+			m.spec.HeartbeatInterval, err)
+	}
+	m.maxHeartbeatTimeout = heartbeat * 2
 
 	m.registerAPIs()
 
@@ -70,10 +83,62 @@ func (m *Master) run() {
 					}
 
 				}()
-				m.service.checkInstancesHeartbeat()
+				m.checkInstancesHeartbeat()
 			}()
 		}
 	}
+}
+
+func (m *Master) checkInstancesHeartbeat() {
+	statuses := m.service.ListAllServiceInstanceStatuses()
+	specs := m.service.ListAllServiceInstanceSpecs()
+
+	failedInstances := []*spec.ServiceInstanceSpec{}
+	now := time.Now()
+	for _, status := range statuses {
+		var _spec *spec.ServiceInstanceSpec
+		for _, s := range specs {
+			if s.ServiceName == status.ServiceName && s.InstanceID == status.InstanceID {
+				_spec = s
+			}
+		}
+		if _spec == nil {
+			logger.Errorf("BUG: %s/%s got no spec", status.ServiceName, status.InstanceID)
+			continue
+		}
+
+		lastHeartbeatTime, err := time.Parse(time.RFC3339, status.LastHeartbeatTime)
+		if err != nil {
+			logger.Errorf("BUG: parse last heartbeat time %s failed: %v", status.LastHeartbeatTime, err)
+			continue
+		}
+
+		gap := now.Sub(lastHeartbeatTime)
+		if gap > m.maxHeartbeatTimeout {
+			failedInstances = append(failedInstances, _spec)
+		}
+	}
+
+	m.handleFailedInstances(failedInstances)
+}
+
+func (m *Master) handleFailedInstances(failedInstances []*spec.ServiceInstanceSpec) {
+	for _, _spec := range failedInstances {
+		_spec.Status = registrycenter.SerivceStatusOutOfSerivce
+
+		buff, err := yaml.Marshal(_spec)
+		if err != nil {
+			logger.Errorf("BUG: marshal %#v to yaml failed: %v", _spec, err)
+			continue
+		}
+
+		key := layout.ServiceInstanceSpecKey(_spec.ServiceName, _spec.InstanceID)
+		err = m.store.Put(key, string(buff))
+		if err != nil {
+			api.ClusterPanic(err)
+		}
+	}
+
 }
 
 // Close closes the master
@@ -84,6 +149,6 @@ func (m *Master) Close() {
 // Status returns the status of master.
 func (m *Master) Status() *supervisor.Status {
 	return &supervisor.Status{
-		ObjectStatus: m.service.status(),
+		ObjectStatus: nil,
 	}
 }

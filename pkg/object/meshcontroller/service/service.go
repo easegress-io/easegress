@@ -1,15 +1,11 @@
-package master
+package service
 
 import (
 	"fmt"
-	"strings"
-	"sync"
-	"time"
 
 	"github.com/megaease/easegateway/pkg/api"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/layout"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/registrycenter"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/storage"
 	"github.com/megaease/easegateway/pkg/supervisor"
@@ -18,90 +14,43 @@ import (
 )
 
 type (
-	masterService struct {
-		mutex sync.RWMutex
-
-		superSpec           *supervisor.Spec
-		spec                *spec.Admin
-		maxHeartbeatTimeout time.Duration
+	// Service is the business layer between mesh and store.
+	// It is not concurrently safe, the users need to do it by themselves.
+	Service struct {
+		superSpec *supervisor.Spec
+		spec      *spec.Admin
 
 		store storage.Storage
 	}
 )
 
-func newMasterService(superSpec *supervisor.Spec, store storage.Storage) *masterService {
-	s := &masterService{
+func New(superSpec *supervisor.Spec, store storage.Storage) *Service {
+	s := &Service{
 		superSpec: superSpec,
 		spec:      superSpec.ObjectSpec().(*spec.Admin),
 		store:     store,
 	}
 
-	heartbeat, err := time.ParseDuration(s.spec.HeartbeatInterval)
-	if err != nil {
-		logger.Errorf("BUG: parse heartbeat interval %s to duration failed: %v",
-			s.spec.HeartbeatInterval, err)
-	}
-
-	s.maxHeartbeatTimeout = heartbeat * 2
-
 	return s
 }
 
-func (s *masterService) checkInstancesHeartbeat() {
-	statuses := s.listServiceInstanceStatuses()
-	specs := s.listServiceInstanceSpecs()
-
-	failedInstances := []*spec.ServiceInstanceSpec{}
-	now := time.Now()
-	for instanceKey, status := range statuses {
-		_spec, existed := specs[instanceKey]
-		if !existed {
-			logger.Errorf("BUG: %s got no spec", instanceKey)
-			continue
-		}
-
-		lastHeartbeatTime, err := time.Parse(time.RFC3339, status.LastHeartbeatTime)
-		if err != nil {
-			logger.Errorf("BUG: parse %s last heartbeat time failed: %v", instanceKey, err)
-			continue
-		}
-
-		gap := now.Sub(lastHeartbeatTime)
-		if gap > s.maxHeartbeatTimeout {
-			failedInstances = append(failedInstances, _spec)
-		}
+// Lock locks all store, it will do cluster panic if failed.
+func (s *Service) Lock() {
+	err := s.store.Lock()
+	if err != nil {
+		api.ClusterPanic(err)
 	}
-
-	s.handleFailedInstances(failedInstances)
 }
 
-func (s *masterService) handleFailedInstances(failedInstances []*spec.ServiceInstanceSpec) {
-	for _, _spec := range failedInstances {
-		_spec.Status = registrycenter.SerivceStatusOutOfSerivce
-
-		buff, err := yaml.Marshal(_spec)
-		if err != nil {
-			logger.Errorf("BUG: marshal %#v to yaml failed: %v", _spec, err)
-			continue
-		}
-
-		key := layout.ServiceInstanceSpecKey(_spec.ServiceName, _spec.InstanceID)
-		err = s.store.Put(key, string(buff))
-		if err != nil {
-			api.ClusterPanic(err)
-		}
+// Lock unlocks all store, it will do cluster panic if failed.
+func (s *Service) Unlock() {
+	err := s.store.Unlock()
+	if err != nil {
+		api.ClusterPanic(err)
 	}
-
 }
 
-func (s *masterService) status() *Status {
-	s.mutex.RLock()
-	defer s.mutex.Unlock()
-
-	return &Status{}
-}
-
-func (s *masterService) putServiceSpec(serviceSpec *spec.Service) {
+func (s *Service) PutServiceSpec(serviceSpec *spec.Service) {
 	buff, err := yaml.Marshal(serviceSpec)
 	if err != nil {
 		panic(fmt.Errorf("BUG: marshal %#v to yaml failed: %v", serviceSpec, err))
@@ -113,7 +62,7 @@ func (s *masterService) putServiceSpec(serviceSpec *spec.Service) {
 	}
 }
 
-func (s *masterService) getServiceSpec(serviceName string) *spec.Service {
+func (s *Service) GetServiceSpec(serviceName string) *spec.Service {
 	value, err := s.store.Get(layout.ServiceSpecKey(serviceName))
 	if err != nil {
 		api.ClusterPanic(err)
@@ -132,14 +81,14 @@ func (s *masterService) getServiceSpec(serviceName string) *spec.Service {
 	return serviceSpec
 }
 
-func (s *masterService) deleteServiceSpec(serviceName string) {
+func (s *Service) DeleteServiceSpec(serviceName string) {
 	err := s.store.Delete(layout.ServiceSpecKey(serviceName))
 	if err != nil {
 		api.ClusterPanic(err)
 	}
 }
 
-func (s *masterService) listServiceSpecs() []*spec.Service {
+func (s *Service) ListServiceSpecs() []*spec.Service {
 	services := []*spec.Service{}
 	kvs, err := s.store.GetPrefix(layout.ServiceSpecPrefix())
 	if err != nil {
@@ -159,7 +108,7 @@ func (s *masterService) listServiceSpecs() []*spec.Service {
 	return services
 }
 
-func (s *masterService) getTenantSpec(tenantName string) *spec.Tenant {
+func (s *Service) GetTenantSpec(tenantName string) *spec.Tenant {
 	value, err := s.store.Get(layout.TenantSpecKey(tenantName))
 	if err != nil {
 		api.ClusterPanic(err)
@@ -178,7 +127,7 @@ func (s *masterService) getTenantSpec(tenantName string) *spec.Tenant {
 	return tenant
 }
 
-func (s *masterService) putTenantSpec(tenantSpec *spec.Tenant) {
+func (s *Service) PutTenantSpec(tenantSpec *spec.Tenant) {
 	buff, err := yaml.Marshal(tenantSpec)
 	if err != nil {
 		panic(fmt.Errorf("BUG: marshal %#v to yaml failed: %v", tenantSpec, err))
@@ -190,55 +139,77 @@ func (s *masterService) putTenantSpec(tenantSpec *spec.Tenant) {
 	}
 }
 
-func (s *masterService) listServiceInstanceStatuses() map[string]*spec.ServiceInstanceStatus {
-	statuses := make(map[string]*spec.ServiceInstanceStatus)
-	prefix := layout.AllServiceInstanceStatusPrefix()
+func (s *Service) ListAllServiceInstanceStatuses() []*spec.ServiceInstanceStatus {
+	return s.listServiceInstanceStatuses(true, "")
+}
+
+func (s *Service) ListServiceInstanceStatuses(serviceName string) []*spec.ServiceInstanceStatus {
+	return s.listServiceInstanceStatuses(false, serviceName)
+}
+
+func (s *Service) listServiceInstanceStatuses(all bool, serviceName string) []*spec.ServiceInstanceStatus {
+	statuses := []*spec.ServiceInstanceStatus{}
+	var prefix string
+	if all {
+		prefix = layout.AllServiceInstanceStatusPrefix()
+	} else {
+		prefix = layout.ServiceInstanceSpecPrefix(serviceName)
+	}
 
 	kvs, err := s.store.GetPrefix(prefix)
 	if err != nil {
 		api.ClusterPanic(err)
 	}
 
-	for k, v := range kvs {
-		instance := &spec.ServiceInstanceStatus{}
-		if err = yaml.Unmarshal([]byte(v), instance); err != nil {
+	for _, v := range kvs {
+		status := &spec.ServiceInstanceStatus{}
+		if err = yaml.Unmarshal([]byte(v), status); err != nil {
 			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
 			continue
 		}
 
-		// NOTE: The format of instanceKey is `serviceName/instanceID`.
-		instanceKey := strings.TrimPrefix(k, prefix)
-		statuses[instanceKey] = instance
+		statuses = append(statuses, status)
 	}
 
 	return statuses
 }
 
-func (s *masterService) listServiceInstanceSpecs() map[string]*spec.ServiceInstanceSpec {
-	specs := make(map[string]*spec.ServiceInstanceSpec)
-	prefix := layout.AllServiceInstanceSpecPrefix()
+func (s *Service) ListAllServiceInstanceSpecs() []*spec.ServiceInstanceSpec {
+	return s.listServiceInstanceSpecs(true, "")
+}
+
+func (s *Service) ListServiceInstanceSpecs(serviceName string) []*spec.ServiceInstanceSpec {
+	return s.listServiceInstanceSpecs(false, serviceName)
+}
+
+func (s *Service) listServiceInstanceSpecs(all bool, serviceName string) []*spec.ServiceInstanceSpec {
+	specs := []*spec.ServiceInstanceSpec{}
+	var prefix string
+	if all {
+		prefix = layout.AllServiceInstanceSpecPrefix()
+	} else {
+		prefix = layout.ServiceInstanceSpecPrefix(serviceName)
+	}
 
 	kvs, err := s.store.GetPrefix(prefix)
 	if err != nil {
 		api.ClusterPanic(err)
 	}
 
-	for k, v := range kvs {
+	for _, v := range kvs {
 		_spec := &spec.ServiceInstanceSpec{}
 		if err = yaml.Unmarshal([]byte(v), _spec); err != nil {
 			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
 			continue
 		}
 
-		// NOTE: The format of instanceKey is `serviceName/instanceID`.
-		instanceKey := strings.TrimPrefix(k, prefix)
-		specs[instanceKey] = _spec
+		specs = append(specs, _spec)
 	}
 
 	return specs
 }
 
-func (s *masterService) getServiceInstanceSpec(serviceName, instanceID string) *spec.ServiceInstanceSpec {
+func (s *Service) GetServiceInstanceSpec(serviceName, instanceID string) *spec.ServiceInstanceSpec {
 	value, err := s.store.Get(layout.ServiceInstanceSpecKey(serviceName, instanceID))
 	if err != nil {
 		api.ClusterPanic(err)
@@ -257,7 +228,7 @@ func (s *masterService) getServiceInstanceSpec(serviceName, instanceID string) *
 	return instanceSpec
 }
 
-func (s *masterService) putServiceInstanceSpec(_spec *spec.ServiceInstanceSpec) {
+func (s *Service) PutServiceInstanceSpec(_spec *spec.ServiceInstanceSpec) {
 	buff, err := yaml.Marshal(_spec)
 	if err != nil {
 		panic(fmt.Errorf("BUG: marshal %#v to yaml failed: %v", _spec, err))
@@ -269,7 +240,7 @@ func (s *masterService) putServiceInstanceSpec(_spec *spec.ServiceInstanceSpec) 
 	}
 }
 
-func (s *masterService) listTenantSpecs() []*spec.Tenant {
+func (s *Service) ListTenantSpecs() []*spec.Tenant {
 	tenants := []*spec.Tenant{}
 	kvs, err := s.store.GetPrefix(layout.TenantPrefix())
 	if err != nil {
@@ -289,7 +260,7 @@ func (s *masterService) listTenantSpecs() []*spec.Tenant {
 	return tenants
 }
 
-func (s *masterService) deleteTenantSpec(tenantName string) {
+func (s *Service) DeleteTenantSpec(tenantName string) {
 	err := s.store.Delete(layout.TenantSpecKey(tenantName))
 	if err != nil {
 		api.ClusterPanic(err)
