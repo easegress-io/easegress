@@ -26,6 +26,5 @@ import (
 	_ "github.com/megaease/easegateway/pkg/filter/resilience/retryer"
 	_ "github.com/megaease/easegateway/pkg/filter/resilience/timelimiter"
 	_ "github.com/megaease/easegateway/pkg/filter/responseadaptor"
-	_ "github.com/megaease/easegateway/pkg/filter/urlratelimiter"
 	_ "github.com/megaease/easegateway/pkg/filter/validator"
 )
