@@ -20,6 +20,7 @@
             string(name: 'BUILDTEST_CMD', defaultValue: params.BUILDTEST_CMD?:"make test", description: 'cmd for build test ')
             string(name: 'BUILD_CMD', defaultValue: params.BUILD_CMD?:"make", description: 'cmd for build')
             string(name: 'DEPLOY_CMD', defaultValue: params.DEPLOY_CMD?:"deploy.sh", description: 'cmd for deploy')
+            string(name: 'IMAGE_NAME', defaultValue: params.IMAGE_NAME?:"", description: 'image name for push')
             booleanParam(name: 'USE_SSHKEY', defaultValue: params.USE_SSHKEY ?: false, description: 'use ssh key to pull code')
         }
         environment {
@@ -65,10 +66,10 @@
                     }
                 }
             }
-             stage('Deploy') {
+             stage('Push') {
                 steps {
                     script {
-                        def cmd="""source \${HOME}/.profile; docker tag megaeasegateway/easegateway:server-3.0.0_alpine 192.168.50.105:5001/megaease/easegateway:server-3.0.0_alpine"""
+                        def cmd="""source \${HOME}/.profile; docker tag megaeasegateway/easegateway:server-3.0.0_alpine ${IMAGE_NAME}; docker push ${IMAGE_NAME}"""
                         sshPublisher failOnError: true, publishers: [sshPublisherDesc(configName: "${SSH_NAME}", transfers: [sshTransfer(cleanRemote: false, excludes: '', execCommand: "${cmd}", execTimeout: 600000, flatten: false, makeEmptyDirs: false, noDefaultExcludes: false, patternSeparator: '[, ]+', remoteDirectory: '${HOME}', remoteDirectorySDF: false, removePrefix: '', sourceFiles: '')], usePromotionTimestamp: false, useWorkspaceInPromotion: false, verbose: false)]
                     }
                 }
