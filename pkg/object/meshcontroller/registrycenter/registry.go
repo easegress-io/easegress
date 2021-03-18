@@ -5,17 +5,16 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"runtime/debug"
+	"sync"
 	"time"
 
-	"github.com/megaease/easegateway/pkg/common"
 	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/layout"
+	"github.com/megaease/easegateway/pkg/object/meshcontroller/service"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/storage"
 
 	"github.com/ArthurHlt/go-eureka-client/eureka"
 	consul "github.com/hashicorp/consul/api"
-	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -39,10 +38,13 @@ type (
 		registered   bool
 		serviceName  string
 		instanceID   string
+		IP           string
+		port         int
 		tenant       string
 		done         chan struct{}
+		mutex        sync.RWMutex
 
-		store storage.Storage
+		service *service.Service
 	}
 
 	// ReadyFunc is a function to check Ingress/Egress ready to work
@@ -50,18 +52,26 @@ type (
 )
 
 // NewRegistryCenterServer creates a initialized registry center server.
-func NewRegistryCenterServer(registryType string, serviceName string, store storage.Storage) *Server {
+func NewRegistryCenterServer(registryType string, serviceName string, IP string, port int, instanceID string,
+	service *service.Service) *Server {
 	return &Server{
 		RegistryType: registryType,
-		store:        store,
 		serviceName:  serviceName,
+		service:      service,
 		registered:   false,
-		done:         make(chan struct{}),
+		mutex:        sync.RWMutex{},
+		port:         port,
+		IP:           IP,
+		instanceID:   instanceID,
+
+		done: make(chan struct{}),
 	}
 }
 
 // Registered checks whether service registry or not.
 func (rcs *Server) Registered() bool {
+	rcs.mutex.RLock()
+	defer rcs.mutex.RUnlock()
 	return rcs.registered
 }
 
@@ -70,131 +80,112 @@ func (rcs *Server) Close() {
 	close(rcs.done)
 }
 
-// Registry changes instance port and adds tenant.
-// It will asynchronously check ingress/egress ready or not.
-func (rcs *Server) Registry(ins *spec.ServiceInstanceSpec, service *spec.Service,
-	ingressReady ReadyFunc, egressReady ReadyFunc) (string, error) {
-	if rcs.registered == true {
-		return "", spec.ErrAlreadyRegistered
+// Register registers itself into mesh
+func (rcs *Server) Register(serviceSpec *spec.Service, ingressReady ReadyFunc, egressReady ReadyFunc) {
+	rcs.tenant = serviceSpec.RegisterTenant
+	if rcs.Registered() == true {
+		return
 	}
 
-	ins.Port = uint32(service.Sidecar.IngressPort)
+	ins := &spec.ServiceInstanceSpec{
+		ServiceName: rcs.serviceName,
+		InstanceID:  rcs.instanceID,
+		IP:          rcs.IP,
+		Port:        uint32(serviceSpec.Sidecar.IngressPort),
+	}
 
-	go rcs.registry(ins, service, ingressReady, egressReady)
+	go rcs.register(ins, ingressReady, egressReady)
 
-	return ins.InstanceID, nil
+	return
 }
 
-func (rcs *Server) registry(ins *spec.ServiceInstanceSpec, service *spec.Service,
-	ingressReady ReadyFunc, egressReady ReadyFunc) {
-	var (
-		err      error
-		tryTimes uint64 = 0
-	)
+func (rcs *Server) register(ins *spec.ServiceInstanceSpec, ingressReady ReadyFunc, egressReady ReadyFunc) {
+	var tryTimes uint64 = 0
 
 	for {
 		select {
 		case <-rcs.done:
 			return
 		default:
-			// level triggered, loop unitl it success
-			tryTimes++
-			if ingressReady() == false || egressReady() == false {
-				continue
+			rcs.mutex.Lock()
+			if rcs.registered == true {
+				rcs.mutex.Unlock()
+				return
+			}
+			// wrapper for the recover
+			routine := func() {
+				defer func() {
+					if err := recover(); err != nil {
+						logger.Errorf("registry center recover from: %v, stack trace:\n%s\n",
+							err, debug.Stack())
+					}
+				}()
+				// level triggered, loop unitl it success
+				tryTimes++
+				if ingressReady() == false || egressReady() == false {
+					return
+				}
+
+				// alreading been registered
+				if ins := rcs.service.GetServiceInstanceSpec(rcs.serviceName, rcs.instanceID); ins != nil {
+					rcs.registered = true
+				}
+
+				ins.Status = SerivceStatusUp
+				ins.RegistryTime = time.Now().Format(time.RFC3339)
+				rcs.service.PutServiceInstanceSpec(ins)
+				logger.Infof("registry succ, service:%s, instanceID:%s, regitry succ, try times:%d", ins.ServiceName, ins.InstanceID, tryTimes)
 			}
 
-			ins.Status = SerivceStatusUp
-			ins.RegistryTime = time.Now().Format(time.RFC3339)
-
-			if err = rcs.put(ins); err != nil {
-				logger.Errorf("registry put service:%s failed, err:%v, try times:%d", ins.ServiceName, err, tryTimes)
-				continue
-			}
-
-			rcs.registered = true
-			rcs.instanceID = ins.InstanceID
-			rcs.tenant = service.RegisterTenant
-			logger.Infof("registry succ, service:%s, instanceID:%s, regitry succ, try times:%d", ins.ServiceName, ins.InstanceID, tryTimes)
-			return
+			routine()
+			rcs.mutex.Unlock()
 		}
 	}
 }
 
-func (rcs *Server) decodeByConsulFormat(body []byte) (*spec.ServiceInstanceSpec, error) {
+func (rcs *Server) decodeByConsulFormat(body []byte) error {
 	var (
 		err error
 		reg *consul.AgentServiceRegistration
-		ins *spec.ServiceInstanceSpec
 	)
 
 	dec := json.NewDecoder(bytes.NewReader(body))
 	if err = dec.Decode(reg); err != nil {
-		return nil, err
+		return err
 	}
 
-	ins.IP = reg.Address
-	ins.Port = uint32(reg.Port)
-	ins.ServiceName = rcs.serviceName
-	if ins.InstanceID, err = common.UUID(); err != nil {
-		logger.Errorf("BUG: generate uuid failed, %v", err)
-	}
-
-	return nil, err
+	logger.Infof("decode consul body succ, body:%s", string(body))
+	return err
 }
 
-func (rcs *Server) decodeByEurekaFormat(body []byte) (*spec.ServiceInstanceSpec, error) {
+func (rcs *Server) decodeByEurekaFormat(body []byte) error {
 	var (
 		err       error
 		eurekaIns *eureka.InstanceInfo
-		ins       *spec.ServiceInstanceSpec
 	)
 
 	if err = xml.Unmarshal(body, eurekaIns); err != nil {
 		logger.Errorf("decode eureka body:%s, failed, err:%v", string(body), err)
-		return ins, err
+		return err
 	}
+	logger.Infof("decode eureka body succ, body:%s", string(body))
 
-	ins.IP = eurekaIns.IpAddr
-	ins.Port = uint32(eurekaIns.Port.Port)
-	ins.ServiceName = rcs.serviceName
-	if ins.InstanceID, err = common.UUID(); err != nil {
-		logger.Errorf("BUG: generate uuid failed, err:%v", err)
-	}
-
-	return nil, err
+	return err
 }
 
 // DecodeRegistryBody decodes Eureka/Consul registry request body according to the
 // registry type in config.
-func (rcs *Server) DecodeRegistryBody(reqBody []byte) (*spec.ServiceInstanceSpec, error) {
-	var (
-		ins *spec.ServiceInstanceSpec
-		err error
-	)
+func (rcs *Server) DecodeRegistryBody(reqBody []byte) error {
+	var err error
+
 	switch rcs.RegistryType {
 	case RegistryTypeEureka:
-		ins, err = rcs.decodeByEurekaFormat(reqBody)
+		err = rcs.decodeByEurekaFormat(reqBody)
 	case RegistryTypeConsul:
-		ins, err = rcs.decodeByConsulFormat(reqBody)
+		err = rcs.decodeByConsulFormat(reqBody)
 	default:
-		return nil, fmt.Errorf("BUG: can't recognize registry type:%s, req body:%s", rcs.RegistryType, (reqBody))
+		return fmt.Errorf("BUG: can't recognize registry type:%s, req body:%s", rcs.RegistryType, (reqBody))
 	}
 
-	return ins, err
-}
-
-func (rcs *Server) put(ins *spec.ServiceInstanceSpec) error {
-	var err error
-	buff, err := yaml.Marshal(ins)
-	if err != nil {
-		logger.Errorf("BUG: marshal registry instance:%#v to yaml failed, err:%v", ins, err)
-		return err
-	}
-
-	name := layout.ServiceInstanceSpecKey(rcs.serviceName, ins.InstanceID)
-	if err = rcs.store.Put(name, string(buff)); err != nil {
-		logger.Errorf("put service:%s failed, err:%v", ins.ServiceName, err)
-		return err
-	}
 	return err
 }

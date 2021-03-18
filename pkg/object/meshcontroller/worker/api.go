@@ -32,7 +32,7 @@ func (w *Worker) registerAPIs() {
 		{
 			Path:    MeshConsulPrefix + "/v1/catalog/register",
 			Method:  "PUT",
-			Handler: w.registry,
+			Handler: w.applicationRegister,
 		},
 		{
 			Path:    MeshConsulPrefix + "/v1/catalog/deregister",
@@ -54,7 +54,7 @@ func (w *Worker) registerAPIs() {
 		{
 			Path:    MeshEurekaPrefix + "/apps/{serviceName:string}",
 			Method:  "POST",
-			Handler: w.registry,
+			Handler: w.applicationRegister,
 		},
 		{
 			Path:    MeshEurekaPrefix + "/apps/{serviceName:string}/{instanceID:string}",
@@ -116,34 +116,26 @@ func (w *Worker) registerAPIs() {
 	api.GlobalServer.RegisterAPIs(meshWorkerAPIs)
 }
 
-func (w *Worker) registry(ctx iris.Context) {
+func (w *Worker) applicationRegister(ctx iris.Context) {
 	body, err := ioutil.ReadAll(ctx.Request().Body)
 	if err != nil {
 		api.HandleAPIError(ctx, http.StatusBadRequest,
 			fmt.Errorf("read body failed: %v", err))
 		return
 	}
-	ins, err := w.registryServer.DecodeRegistryBody(body)
-	if err != nil {
+	if err := w.registryServer.DecodeRegistryBody(body); err != nil {
 		api.HandleAPIError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
-	service := w.service.GetServiceSpec(ins.ServiceName)
-	if service == nil {
-		err := fmt.Errorf("registry to unknown service %s", ins.ServiceName)
+	serviceSpec := w.service.GetServiceSpec(w.serviceName)
+	if serviceSpec == nil {
+		err := fmt.Errorf("registry to unknown service %s", w.serviceName)
 		api.HandleAPIError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
-	if id, err := w.registryServer.Registry(ins, service, w.ingressServer.Ready, w.egressServer.Ready); err == nil {
-		w.mutex.Lock()
-		defer w.mutex.Unlock()
-		w.instanceID = id
-	} else if err != spec.ErrAlreadyRegistered {
-		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
-		return
-	}
+	w.registryServer.Register(serviceSpec, w.ingressServer.Ready, w.egressServer.Ready)
 
 	// NOTE: According to eureka APIs list:
 	// https://github.com/Netflix/eureka/wiki/Eureka-REST-operations

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"runtime/debug"
 	"strconv"
 	"sync"
@@ -31,10 +32,12 @@ type (
 		spec              *spec.Admin
 		heartbeatInterval time.Duration
 
+		// mesh service fields
 		serviceName     string
 		instanceID      string
 		aliveProbe      string
 		applicationPort uint32
+		applicationIP   string
 
 		store    storage.Storage
 		service  *service.Service
@@ -56,6 +59,10 @@ const (
 	labelApplicationPort = "application-port"
 	labelAliveProbe      = "alive-probe"
 	labelServiceName     = "mesh-servicename"
+
+	// from k8s pod's env value
+	podEnvHostname      = "HOSTNAME"
+	podEnvApplicationIP = "APPLICATION_IP"
 )
 
 // New creates a mesh worker.
@@ -69,10 +76,13 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 		logger.Errorf("parse %s failed: %v", labelApplicationPort, err)
 	}
 
+	instanceID := os.Getenv(podEnvHostname)
+	applicationIP := os.Getenv(podEnvApplicationIP)
+
 	store := storage.New(superSpec.Name(), super.Cluster())
 	_service := service.New(superSpec, store)
 	registryCenterServer := registrycenter.NewRegistryCenterServer(spec.RegistryType,
-		serviceName, store)
+		serviceName, applicationIP, applicationPort, instanceID, _service)
 	ingressServer := NewIngressServer(super, serviceName)
 	egressEvent := make(chan string, egressEventChanSize)
 	egressServer := NewEgressServer(superSpec, super, serviceName, store, egressEvent)
@@ -85,9 +95,10 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 		spec:      spec,
 
 		serviceName:     serviceName,
-		instanceID:      super.Options().Name,
+		instanceID:      instanceID, // instanceID will be the port ID
 		aliveProbe:      aliveProbe,
 		applicationPort: uint32(applicationPort),
+		applicationIP:   applicationIP,
 
 		store:    store,
 		service:  _service,
@@ -136,8 +147,37 @@ func (w *Worker) run() {
 		return
 	}
 
+	if len(w.instanceID) == 0 {
+		logger.Errorf("empty env HOST ")
+		return
+	}
+
+	if len(w.applicationIP) == 0 {
+		logger.Errorf("empty env APPLICTION IP")
+		return
+	}
+
+	// asynchronous register itself
+	w.register()
 	go w.heartbeat()
 	go w.watchEvent()
+}
+
+func (w *Worker) register() {
+	defer func() {
+		if err := recover(); err != nil {
+			logger.Errorf("%s: recover from: %v, stack trace:\n%s\n",
+				w.superSpec.Name(), err, debug.Stack())
+		}
+	}()
+
+	serviceSpec := w.service.GetServiceSpec(w.serviceName)
+	if serviceSpec == nil {
+		logger.Errorf("registry to unknown service %s", w.serviceName)
+		return
+	}
+
+	w.registryServer.Register(serviceSpec, w.ingressServer.Ready, w.egressServer.Ready)
 }
 
 func (w *Worker) heartbeat() {
@@ -182,13 +222,6 @@ func (w *Worker) heartbeat() {
 		case <-w.done:
 			return
 		case <-time.After(w.heartbeatInterval):
-			// FIXME: Can we just use option.Name instead of registy?
-			w.mutex.Lock()
-			if w.instanceID == "" {
-				continue
-			}
-			w.mutex.Unlock()
-
 			routine()
 		}
 	}
@@ -259,6 +292,12 @@ func (w *Worker) addEgressWatching(serviceName string) {
 			w.egressServer.DeletePipeline(serviceName)
 			return false
 		case informer.EventUpdate:
+			defer func() {
+				if err := recover(); err != nil {
+					logger.Errorf("%s: recover from: %v, stack trace:\n%s\n",
+						w.superSpec.Name(), err, debug.Stack())
+				}
+			}()
 			logger.Infof("handle informer egress service:%s's spec update event", serviceName)
 			instanceSpecs := w.service.ListServiceInstanceSpecs(service.Name)
 
@@ -276,6 +315,12 @@ func (w *Worker) addEgressWatching(serviceName string) {
 	}
 
 	handleServiceInstances := func(instanceKvs map[string]*spec.ServiceInstanceSpec) bool {
+		defer func() {
+			if err := recover(); err != nil {
+				logger.Errorf("%s: recover from: %v, stack trace:\n%s\n",
+					w.superSpec.Name(), err, debug.Stack())
+			}
+		}()
 		logger.Infof("handle informer egress service:%s's spec update event", serviceName)
 		serviceSpec := w.service.GetServiceSpec(serviceName)
 
