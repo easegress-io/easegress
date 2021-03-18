@@ -16,11 +16,12 @@ import (
 
 const (
 	// Kind is the kind of RateLimiter.
-	Kind = "RateLimiter"
+	Kind              = "RateLimiter"
+	resultRateLimiter = "rateLimiter"
 )
 
 var (
-	results = []string{}
+	results = []string{resultRateLimiter}
 )
 
 func init() {
@@ -233,7 +234,7 @@ func (rl *RateLimiter) Handle(ctx context.HTTPContext) string {
 			return ""
 		}
 		ctx.Response().SetStatusCode(http.StatusTooManyRequests)
-		return "rateLimiter"
+		return resultRateLimiter
 	}
 	return ""
 }

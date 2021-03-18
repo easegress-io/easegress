@@ -6,6 +6,7 @@ import (
 	"github.com/megaease/easegateway/pkg/filter/backend"
 	"github.com/megaease/easegateway/pkg/filter/resilience/circuitbreaker"
 	"github.com/megaease/easegateway/pkg/filter/resilience/ratelimiter"
+	"github.com/megaease/easegateway/pkg/filter/resilience/retryer"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
 	"github.com/megaease/easegateway/pkg/supervisor"
@@ -60,6 +61,7 @@ type (
 	Resilience struct {
 		CircuitBreaker *circuitbreaker.Spec
 		RateLimiter    *ratelimiter.Spec
+		Retryer        *retryer.Spec
 	}
 
 	// Canary is the spec of service canary.

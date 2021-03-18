@@ -16,11 +16,12 @@ import (
 
 const (
 	// Kind is the kind of CircuitBreaker.
-	Kind = "CircuitBreaker"
+	Kind                 = "CircuitBreaker"
+	resultCircuitBreaker = "circuitBreaker"
 )
 
 var (
-	results = []string{}
+	results = []string{resultCircuitBreaker}
 )
 
 func init() {
@@ -270,7 +271,7 @@ func (cb *CircuitBreaker) Inherit(pipeSpec *httppipeline.FilterSpec, previousGen
 func (cb *CircuitBreaker) handle(ctx context.HTTPContext, u *URLRule) string {
 	permitted, stateID := u.cb.AcquirePermission()
 	if !permitted {
-		return "circuitBreaker"
+		return resultCircuitBreaker
 	}
 
 	wrapper := func(fn context.HandlerFunc) context.HandlerFunc {

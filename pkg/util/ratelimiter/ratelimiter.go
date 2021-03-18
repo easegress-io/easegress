@@ -21,6 +21,7 @@ type (
 		LimitForPeriod     int
 	}
 
+	// Event defines the event of rate limiter
 	Event struct {
 		Time  time.Time
 		State string
