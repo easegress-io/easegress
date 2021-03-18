@@ -58,7 +58,12 @@ func (ings *IngressServer) Get(name string) (protocol.HTTPHandler, bool) {
 func (ings *IngressServer) Ready() bool {
 	ings.mutex.RLock()
 	defer ings.mutex.RUnlock()
-	_, pipelineReady := ings.pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)]
+
+	serviceSpec := &spec.Service{
+		Name: ings.serviceName,
+	}
+
+	_, pipelineReady := ings.pipelines[serviceSpec.IngressPipelineName()]
 
 	return pipelineReady && (ings.httpServer != nil)
 }
@@ -68,31 +73,20 @@ func (ings *IngressServer) CreateIngress(service *spec.Service, port uint32) err
 	ings.mutex.Lock()
 	defer ings.mutex.Unlock()
 
-	if _, ok := ings.pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)]; !ok {
-		pipelineSpec := service.GenDefaultIngressPipelineYAML(port)
-		var pipeline httppipeline.HTTPPipeline
-		superSpec, err := supervisor.NewSpec(pipelineSpec)
-		if err != nil {
-			logger.Errorf("BUG: gen ingress pipeline spec :%s , new super spec failed:%v", pipelineSpec, err)
-			return err
-		}
-
+	if _, ok := ings.pipelines[service.IngressPipelineName()]; !ok {
+		superSpec := service.IngressPipelineSpec(port)
+		pipeline := &httppipeline.HTTPPipeline{}
 		pipeline.Init(superSpec, ings.super)
-		ings.pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)] = &pipeline
+		ings.pipelines[service.IngressPipelineName()] = pipeline
 	}
 
 	if ings.httpServer == nil {
-		var httpsvr httpserver.HTTPServer
-		httpsvrSpec := service.GenDefaultIngressHTTPServerYAML()
-		superSpec, err := supervisor.NewSpec(httpsvrSpec)
-		if err != nil {
-			logger.Errorf("BUG: gen ingress httpsvr spec :%s , new super spec failed:%v", httpsvrSpec, err)
-			return err
-		}
+		superSpec := service.IngressHTTPServerSpec()
 
-		httpsvr.Init(superSpec, ings.super)
-		httpsvr.InjectMuxMapper(ings)
-		ings.httpServer = &httpsvr
+		httpServer := &httpserver.HTTPServer{}
+		httpServer.Init(superSpec, ings.super)
+		httpServer.InjectMuxMapper(ings)
+		ings.httpServer = httpServer
 	}
 
 	return nil
@@ -104,7 +98,11 @@ func (ings *IngressServer) UpdatePipeline(newSpec string) error {
 	ings.mutex.Lock()
 	defer ings.mutex.Unlock()
 
-	pipeline, ok := ings.pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)]
+	service := &spec.Service{
+		Name: ings.serviceName,
+	}
+
+	pipeline, ok := ings.pipelines[service.IngressPipelineName()]
 	if !ok {
 		return fmt.Errorf("can't find service:%s's ingress pipeline", ings.serviceName)
 	}
@@ -117,7 +115,7 @@ func (ings *IngressServer) UpdatePipeline(newSpec string) error {
 
 	var newPipeline httppipeline.HTTPPipeline
 	newPipeline.Inherit(superSpec, pipeline, ings.super)
-	ings.pipelines[spec.GenIngressPipelineObjectName(ings.serviceName)] = &newPipeline
+	ings.pipelines[service.IngressPipelineName()] = &newPipeline
 
 	return err
 }

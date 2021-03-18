@@ -59,12 +59,7 @@ func (egs *EgressServer) CreateEgress(service *spec.Service) error {
 
 	if egs.httpServer == nil {
 		var httpsvr httpserver.HTTPServer
-		httpsvrSpec := service.GenDefaultEgressHTTPServerYAML()
-		superSpec, err := supervisor.NewSpec(httpsvrSpec)
-		if err != nil {
-			logger.Errorf("BUG, gen egress httpsvr spec :%s , new super spec failed:%v", httpsvrSpec, err)
-			return err
-		}
+		superSpec := service.EgressHTTPServerSpec()
 		httpsvr.Init(superSpec, egs.super)
 		httpsvr.InjectMuxMapper(egs)
 		egs.httpServer = &httpsvr
@@ -96,17 +91,13 @@ func (egs *EgressServer) addPipeline(serviceName string) (*httppipeline.HTTPPipe
 
 	instanceSpec := egs.service.ListServiceInstanceSpecs(serviceName)
 
-	var pipeline httppipeline.HTTPPipeline
-	superSpec, err := service.ToEgressPipelineSpec(instanceSpec)
-	if err != nil {
-		logger.Errorf("service %s to instance %#v egress pipeline spec failed: %v ",
-			service, instanceSpec, err)
-		return nil, err
-	}
+	superSpec := service.EgressPipelineSpec(instanceSpec)
 
+	pipeline := &httppipeline.HTTPPipeline{}
 	pipeline.Init(superSpec, egs.super)
-	egs.pipelines[service.Name] = &pipeline
-	return &pipeline, nil
+	egs.pipelines[service.Name] = pipeline
+
+	return pipeline, nil
 }
 
 // DeletePipeline deletes one Egress pipeline accoring to the serviceName.
@@ -121,7 +112,7 @@ func (egs *EgressServer) DeletePipeline(serviceName string) {
 }
 
 // UpdatePipeline updates a local pipeline according to the informer.
-func (egs *EgressServer) UpdatePipeline(service *spec.Service, ins []*spec.ServiceInstanceSpec) error {
+func (egs *EgressServer) UpdatePipeline(service *spec.Service, instanceSpec []*spec.ServiceInstanceSpec) error {
 	egs.mutex.Lock()
 	defer egs.mutex.Unlock()
 
@@ -133,14 +124,10 @@ func (egs *EgressServer) UpdatePipeline(service *spec.Service, ins []*spec.Servi
 		return fmt.Errorf("can't find service:%s's egress pipeline", service.Name)
 	}
 
-	superSpec, err := service.ToEgressPipelineSpec(ins)
-	if err != nil {
-		logger.Errorf("BUG: update egress pipeline servcie:%#v ,ins:%#v, failed:%v", service, ins, err)
-		return err
-	}
-	var newPipeline httppipeline.HTTPPipeline
+	newPipeline := &httppipeline.HTTPPipeline{}
+	superSpec := service.EgressPipelineSpec(instanceSpec)
 	newPipeline.Inherit(superSpec, pipeline, egs.super)
-	egs.pipelines[service.Name] = &newPipeline
+	egs.pipelines[service.Name] = newPipeline
 
 	return nil
 }

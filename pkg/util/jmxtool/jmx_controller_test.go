@@ -2,9 +2,10 @@ package jmxtool
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/fatih/structs"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
-	"testing"
 )
 
 type heapMemoryUsage struct {
@@ -66,12 +67,12 @@ func TestExecuteMbeanOperation(t *testing.T) {
 		BootstrapServer: "128.0.0.1",
 	}
 
-	observabilityTracingDetail := spec.ObservabilityTracingDetail{
+	observabilityTracingDetail := spec.ObservabilityTracingsDetail{
 		Enabled:       true,
 		ServicePrefix: "agent",
 	}
 
-	observability.Tracing = &spec.ObservabilityTracing{
+	observability.Tracings = &spec.ObservabilityTracings{
 		Topic:        "KAFKA",
 		SampledByQPS: 123,
 		Request:      observabilityTracingDetail,
@@ -82,12 +83,12 @@ func TestExecuteMbeanOperation(t *testing.T) {
 		Rabbit:       observabilityTracingDetail,
 	}
 
-	observabilityMetricDetail := spec.ObservabilityMetricDetail{
+	observabilityMetricDetail := spec.ObservabilityMetricsDetail{
 		Enabled:  false,
 		Interval: 1,
 		Topic:    "aaa",
 	}
-	observability.Metric = &spec.ObservabilityMetric{
+	observability.Metrics = &spec.ObservabilityMetrics{
 		Request:        observabilityMetricDetail,
 		JdbcConnection: observabilityMetricDetail,
 		JdbcStatement:  observabilityMetricDetail,

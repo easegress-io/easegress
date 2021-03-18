@@ -6,6 +6,7 @@ import (
 	"github.com/megaease/easegateway/pkg/filter/backend"
 	"github.com/megaease/easegateway/pkg/filter/resilience/circuitbreaker"
 	"github.com/megaease/easegateway/pkg/filter/resilience/ratelimiter"
+	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
 	"github.com/megaease/easegateway/pkg/supervisor"
 	"github.com/megaease/easegateway/pkg/util/httpfilter"
@@ -32,43 +33,6 @@ var (
 	ErrNoRegisteredYet = fmt.Errorf("serivce not registrired yet")
 	// ErrServiceNotFound indicates could find target service in same tenant or in global tenant
 	ErrServiceNotFound = fmt.Errorf("can't find service in same tenant or in global tenant")
-
-	// DefaultIngressPipelineYAML is the default yaml config of ingress pipeline
-	DefaultIngressPipelineYAML = `
-name: %s
-kind: HTTPPipeline
-flow:
-  - filter: %s
-filters:
-  - name: %s
-    kind: Backend
-    mainPool:
-      servers:
-      - url: %s
-`
-	// DefaultIngressHTTPServerYAML is the default yaml config of ingress HTTPServer
-	// all ingress traffic will be routed to local java process by path prefix '/' match
-	DefaultIngressHTTPServerYAML = `
-kind: HTTPServer
-name: %s
-port: %d
-rules:
-  - paths:
-    - pathPrefix: /
-      backend: %s,
-`
-	// DefaultEgressHTTPServerYAML is the default yaml config of egress HTTPServer
-	// it doesn't contain any rules as Ingress's spec, cause these rules will dynamically
-	// add/remove when Java business process needs to invoke RPC requests.
-	DefaultEgressHTTPServerYAML = `
-kind: HTTPServer
-name: %s
-port: %d
-rules:
-  - paths:
-    - pathPrefix: /
-      backend: %s,
-`
 )
 
 type (
@@ -195,6 +159,12 @@ type (
 		// RFC3339 format
 		LastHeartbeatTime string `yaml:"lastHeartbeatTime" jsonschema:"required,format=timerfc3339"`
 	}
+
+	pipelineSpecMock struct {
+		Kind               string `yaml:"kind"`
+		Name               string `yaml:"name"`
+		*httppipeline.Spec `yaml:",inline"`
+	}
 )
 
 // Validate validates Spec.
@@ -208,105 +178,180 @@ func (a Admin) Validate() error {
 	return nil
 }
 
-// GenIngressPipelineObjectName generates the EG running egress pipeline object name
-func GenIngressPipelineObjectName(serviceName string) string {
-	name := fmt.Sprintf("mesh-ingress-%s-pipeline", serviceName)
-	return name
-}
+func (s *Service) IngressHTTPServerSpec() *supervisor.Spec {
+	ingressHTTPServerFormat := `
+kind: HTTPServer
+name: %s
+port: %d
+rules:
+  - paths:
+    - pathPrefix: /
+      backend: %s`
 
-// GenIngressBackendFilterName generates the EG running ingress backend filter name
-func GenIngressBackendFilterName(serviceName string) string {
-	name := fmt.Sprintf("mesh-ingress-%s-backend", serviceName)
-	return name
-}
+	name := fmt.Sprintf("mesh-ingress-server-%s", s.Name)
+	pipelineName := fmt.Sprintf("mesh-ingress-pipeline-%s", s.Name)
+	yamlConfig := fmt.Sprintf(ingressHTTPServerFormat, name, s.Sidecar.IngressPort, pipelineName)
 
-// GenIngressHTTPSvrObjectName generates the EG running ingress HTTPServer object name
-func GenIngressHTTPSvrObjectName(serviceName string) string {
-	name := fmt.Sprintf("mesh-ingress-%s-httpserver", serviceName)
-	return name
-}
-
-// GenEgressHTTPSvrObjectName generates the EG running egress HTTPServer object name
-func GenEgressHTTPSvrObjectName(serviceName string) string {
-	name := fmt.Sprintf("mesh-egress-%s-httpserver", serviceName)
-	return name
-}
-
-// GenEgressHTTPProtocolHandlerName generates the Mesh Egress
-// HTTP protocol
-func GenEgressHTTPProtocolHandlerName(serviceName string) string {
-	name := fmt.Sprintf("mesh-egress-%s", serviceName)
-	return name
-}
-
-// ToIngressPipelineSpec will transfer service spec for a ingress pipeline
-// about how to handle inner traffic , between Worker(Sidecar) and
-// java process
-func (s *Service) ToIngressPipelineSpec() (*supervisor.Spec, error) {
-	var pipeline httppipeline.HTTPPipeline
-
-	//[TODO]
-	// generate a complete pipeline according to the service structure
-
-	var (
-		buff []byte
-		err  error
-	)
-	if buff, err = yaml.Marshal(pipeline); err != nil {
-		return nil, err
+	superSpec, err := supervisor.NewSpec(yamlConfig)
+	if err != nil {
+		logger.Errorf("BUG: new spec for %s failed: %v", err)
 	}
-	return supervisor.NewSpec(string(buff))
+
+	return superSpec
 }
 
-// EgressAddr formats sidecar's address according to the sidecar spec.
-func (s *Service) EgressAddr() string {
-	return fmt.Sprintf("%s://%s:%d", s.Sidecar.IngressProtocol, s.Sidecar.Address, s.Sidecar.EgressPort)
+func (s *Service) EgressHTTPServerName() string {
+	return fmt.Sprintf("mesh-egress-server-%s", s.Name)
 }
 
-// ToEgressPipelineSpec will transfer service spec for a engress pipeline
-// about how other relied serivces request it. It accpets service instances
-// list to fill egress backend filter's IP pool.
-func (s *Service) ToEgressPipelineSpec(insList []*ServiceInstanceSpec) (*supervisor.Spec, error) {
-	var pipeline httppipeline.HTTPPipeline
+func (s *Service) EgressHandlerName() string {
+	return fmt.Sprintf("mesh-egress-handler-%s", s.Name)
+}
 
-	//[TODO]
-	// generate a complete pipeline according to the service structure
-	// e.g. ServerA requests ServiceB, call serviceB.ToEgressServerSpec() to
-	// get a pipeline spec, and apply into ServiceA's memory
+func (s *Service) EgressPipelineName() string {
+	return fmt.Sprintf("mesh-egress-pipeline-%s", s.Name)
+}
 
-	var (
-		buff []byte
-		err  error
-	)
-	if buff, err = yaml.Marshal(pipeline); err != nil {
-		return nil, err
+func (s *Service) IngressHTTPServerName() string {
+	return fmt.Sprintf("mesh-ingress-server-%s", s.Name)
+}
+
+func (s *Service) IngressHandlerName() string {
+	return fmt.Sprintf("mesh-ingress-handler-%s", s.Name)
+}
+
+func (s *Service) IngressPipelineName() string {
+	return fmt.Sprintf("mesh-ingress-pipeline-%s", s.Name)
+}
+
+func (s *Service) EgressHTTPServerSpec() *supervisor.Spec {
+	egressHTTPServerFormat := `
+kind: HTTPServer
+name: %s
+port: %d
+rules:
+  - paths:
+    - pathPrefix: /
+      backend: %s`
+
+	yamlConfig := fmt.Sprintf(egressHTTPServerFormat,
+		s.EgressHTTPServerName(),
+		s.Sidecar.EgressPort,
+		s.EgressHandlerName())
+
+	superSpec, err := supervisor.NewSpec(yamlConfig)
+	if err != nil {
+		logger.Errorf("BUG: new spec for %s failed: %v", err)
+		return nil
 	}
-	return supervisor.NewSpec(string(buff))
+
+	return superSpec
 }
 
-// GenDefaultIngressPipelineYAML generates a default ingress pipeline yaml with
-// provided java process's listerning port
-func (s *Service) GenDefaultIngressPipelineYAML(port uint32) string {
-	addr := fmt.Sprintf("%s://%s:%d", s.Sidecar.IngressProtocol, s.Sidecar.Address, port)
+func (s *Service) IngressPipelineSpec(applicationPort uint32) *supervisor.Spec {
+	backendName := "backend"
 
-	pipelineSpec := fmt.Sprintf(DefaultIngressPipelineYAML, GenIngressPipelineObjectName(s.Name),
-		GenIngressBackendFilterName(s.Name),
-		GenIngressBackendFilterName(s.Name),
-		addr)
-	return pipelineSpec
+	pipelineSpec := &pipelineSpecMock{
+		Kind: httppipeline.Kind,
+		Name: s.IngressPipelineName(),
+		Spec: &httppipeline.Spec{
+			Flow: []httppipeline.Flow{
+				{
+					Filter: backendName,
+				},
+			},
+			Filters: []map[string]interface{}{
+				{
+					"kind": backend.Kind,
+					"name": backendName,
+					"mainPool": &backend.PoolSpec{
+						Servers: []*backend.Server{
+							{
+								URL: s.ApplicationEndpoint(applicationPort),
+							},
+						},
+						LoadBalance: &backend.LoadBalance{
+							Policy: backend.PolicyRoundRobin,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	buff, err := yaml.Marshal(pipelineSpec)
+	if err != nil {
+		logger.Errorf("BUG: marshal %#v to yaml failed: %v", pipelineSpec, err)
+		return nil
+	}
+
+	superSpec, err := supervisor.NewSpec(string(buff))
+	if err != nil {
+		logger.Errorf("BUG: new spec for %s failed: %v", buff, err)
+		return nil
+	}
+
+	return superSpec
 }
 
-// GenDefaultIngressHTTPServerYAML generates default ingress HTTP server with Service's Sidecar spec
-func (s *Service) GenDefaultIngressHTTPServerYAML() string {
-	httpsvrSpec := fmt.Sprintf(DefaultIngressHTTPServerYAML, GenIngressHTTPSvrObjectName(s.Name),
-		s.Sidecar.IngressPort, GenIngressPipelineObjectName(s.Name))
-	return httpsvrSpec
+func (s *Service) EgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec) *supervisor.Spec {
+	backendName := "backend"
+
+	servers := []*backend.Server{}
+	for _, instanceSpec := range instanceSpecs {
+		servers = append(servers, &backend.Server{
+			URL: fmt.Sprintf("http://%s:%d", instanceSpec.IP, instanceSpec.Port),
+		})
+	}
+
+	pipelineSpec := &pipelineSpecMock{
+		Kind: httppipeline.Kind,
+		Name: s.EgressPipelineName(),
+		Spec: &httppipeline.Spec{
+			Flow: []httppipeline.Flow{
+				{
+					Filter: backendName,
+				},
+			},
+			Filters: []map[string]interface{}{
+				{
+					"kind": backend.Kind,
+					"name": backendName,
+					"mainPool": &backend.PoolSpec{
+						Servers: servers,
+						// TODO: Use the canary of target service.
+						LoadBalance: &backend.LoadBalance{
+							Policy: backend.PolicyRoundRobin,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	buff, err := yaml.Marshal(pipelineSpec)
+	if err != nil {
+		logger.Errorf("BUG: marshal %#v to yaml failed: %v", pipelineSpec, err)
+		return nil
+	}
+
+	superSpec, err := supervisor.NewSpec(string(buff))
+	if err != nil {
+		logger.Errorf("BUG: new spec for %s failed: %v", buff, err)
+		return nil
+	}
+
+	return superSpec
 }
 
-// GenDefaultEgressHTTPServerYAML generates default egress HTTP server with Service's Sidecar spe
-func (s *Service) GenDefaultEgressHTTPServerYAML() string {
-	httpsvcSpec := fmt.Sprintf(DefaultEgressHTTPServerYAML, GenEgressHTTPSvrObjectName(s.Name),
-		s.Sidecar.EgressPort, GenEgressHTTPProtocolHandlerName(s.Name))
+func (s *Service) ApplicationEndpoint(port uint32) string {
+	return fmt.Sprintf("%s://%s:%d", s.Sidecar.IngressProtocol, s.Sidecar.Address, port)
+}
 
-	return httpsvcSpec
+func (s *Service) IngressEndpoint() string {
+	return fmt.Sprintf("%s://%s:%d", s.Sidecar.IngressProtocol, s.Sidecar.Address, s.Sidecar.IngressPort)
+}
+
+func (s *Service) EgressEndpoint() string {
+	return fmt.Sprintf("%s://%s:%d", s.Sidecar.EgressProtocol, s.Sidecar.Address, s.Sidecar.EgressPort)
 }

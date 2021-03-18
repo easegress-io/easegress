@@ -6,7 +6,7 @@ import "github.com/ArthurHlt/go-eureka-client/eureka"
 func (rcs *Server) ToEurekaInstanceInfo(serviceInfo *ServiceRegistryInfo) *eureka.InstanceInfo {
 	var ins eureka.InstanceInfo
 
-	ins.HostName = serviceInfo.Service.EgressAddr()
+	ins.HostName = serviceInfo.Service.EgressEndpoint()
 	ins.IpAddr = serviceInfo.Ins.IP
 	ins.App = serviceInfo.Service.Name
 	ins.Status = eureka.UP
