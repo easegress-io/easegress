@@ -129,6 +129,7 @@ func (rcs *Server) register(ins *spec.ServiceInstanceSpec, ingressReady ReadyFun
 				// alreading been registered
 				if ins := rcs.service.GetServiceInstanceSpec(rcs.serviceName, rcs.instanceID); ins != nil {
 					rcs.registered = true
+					return
 				}
 
 				ins.Status = SerivceStatusUp

@@ -85,7 +85,7 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 		serviceName, applicationIP, applicationPort, instanceID, _service)
 	ingressServer := NewIngressServer(super, serviceName)
 	egressEvent := make(chan string, egressEventChanSize)
-	egressServer := NewEgressServer(superSpec, super, serviceName, store, egressEvent)
+	egressServer := NewEgressServer(superSpec, super, serviceName, _service, egressEvent)
 	observabilityManager := NewObservabilityServer(serviceName)
 	inf := informer.NewInformer(store)
 

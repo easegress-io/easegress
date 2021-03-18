@@ -11,14 +11,8 @@ import (
 	"github.com/megaease/easegateway/pkg/object/httpserver"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/service"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/storage"
 	"github.com/megaease/easegateway/pkg/protocol"
 	"github.com/megaease/easegateway/pkg/supervisor"
-)
-
-var (
-	// ErrEgressClosed is the error when operating in a closed Egress server
-	ErrEgressClosed = fmt.Errorf("egress has been closed")
 )
 
 const egressRPCKey = "X-MESH-RPC-SERVICE"
@@ -31,23 +25,20 @@ type (
 
 		super       *supervisor.Supervisor
 		serviceName string
-		store       storage.Storage
 		service     *service.Service
 		mutex       sync.RWMutex
 		watch       chan<- string
-		closed      bool
 	}
 )
 
 // NewEgressServer creates a initialized egress server
 func NewEgressServer(superSpec *supervisor.Spec, super *supervisor.Supervisor,
-	serviceName string, store storage.Storage, watch chan<- string) *EgressServer {
+	serviceName string, service *service.Service, watch chan<- string) *EgressServer {
 
 	return &EgressServer{
 		pipelines:   make(map[string]*httppipeline.HTTPPipeline),
 		serviceName: serviceName,
-		store:       store,
-		service:     service.New(superSpec, store),
+		service:     service,
 		super:       super,
 		watch:       watch,
 	}
@@ -58,9 +49,6 @@ func NewEgressServer(superSpec *supervisor.Spec, super *supervisor.Supervisor,
 func (egs *EgressServer) Get(name string) (protocol.HTTPHandler, bool) {
 	egs.mutex.RLock()
 	defer egs.mutex.RUnlock()
-	if egs.closed {
-		return nil, false
-	}
 	return egs, true
 }
 
@@ -68,9 +56,6 @@ func (egs *EgressServer) Get(name string) (protocol.HTTPHandler, bool) {
 func (egs *EgressServer) CreateEgress(service *spec.Service) error {
 	egs.mutex.Lock()
 	defer egs.mutex.Unlock()
-	if egs.closed {
-		return ErrEgressClosed
-	}
 
 	if egs.httpServer == nil {
 		var httpsvr httpserver.HTTPServer
@@ -92,13 +77,10 @@ func (egs *EgressServer) CreateEgress(service *spec.Service) error {
 func (egs *EgressServer) Ready() bool {
 	egs.mutex.RLock()
 	defer egs.mutex.RUnlock()
-	return egs.httpServer != nil && !egs.closed
+	return egs.httpServer != nil
 }
 
 func (egs *EgressServer) _getPipeline(serviceName string) (*httppipeline.HTTPPipeline, error) {
-	if egs.closed {
-		return nil, ErrEgressClosed
-	}
 
 	pipeline, ok := egs.pipelines[serviceName]
 	if ok {
@@ -212,7 +194,6 @@ func (egs *EgressServer) Close() {
 	egs.mutex.Lock()
 	defer egs.mutex.Unlock()
 
-	egs.closed = true
 	egs.httpServer.Close()
 	for _, v := range egs.pipelines {
 		v.Close()
