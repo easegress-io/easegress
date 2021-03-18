@@ -46,6 +46,8 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Master {
 
 		store:   store,
 		service: service.New(superSpec, store),
+
+		done: make(chan struct{}),
 	}
 
 	heartbeat, err := time.ParseDuration(m.spec.HeartbeatInterval)

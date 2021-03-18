@@ -61,7 +61,7 @@ func newFilterSpecInternal(spec map[string]interface{}) (*FilterSpec, error) {
 
 	rootFilter, exists := filterRegistry[meta.Kind]
 	if !exists {
-		return nil, fmt.Errorf("kind %s not found", rootFilter)
+		return nil, fmt.Errorf("kind %s not found", meta.Kind)
 	}
 
 	s.meta, s.filterSpec, s.rootFilter = meta, rootFilter.DefaultSpec(), rootFilter

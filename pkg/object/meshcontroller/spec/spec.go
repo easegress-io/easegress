@@ -162,7 +162,7 @@ type (
 		LastHeartbeatTime string `yaml:"lastHeartbeatTime" jsonschema:"required,format=timerfc3339"`
 	}
 
-	pipelineSpecMock struct {
+	pipelineSpecBuilder struct {
 		Kind               string `yaml:"kind"`
 		Name               string `yaml:"name"`
 		*httppipeline.Spec `yaml:",inline"`
@@ -253,7 +253,7 @@ rules:
 func (s *Service) IngressPipelineSpec(applicationPort uint32) *supervisor.Spec {
 	backendName := "backend"
 
-	pipelineSpec := &pipelineSpecMock{
+	pipelineSpec := &pipelineSpecBuilder{
 		Kind: httppipeline.Kind,
 		Name: s.IngressPipelineName(),
 		Spec: &httppipeline.Spec{
@@ -306,7 +306,7 @@ func (s *Service) EgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec) *supe
 		})
 	}
 
-	pipelineSpec := &pipelineSpecMock{
+	pipelineSpec := &pipelineSpecBuilder{
 		Kind: httppipeline.Kind,
 		Name: s.EgressPipelineName(),
 		Spec: &httppipeline.Spec{

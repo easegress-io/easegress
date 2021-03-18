@@ -150,6 +150,8 @@ func (s *Server) RegisterAPIs(apis []*APIEntry) {
 		}
 
 	}
+
+	s.app.RefreshRouter()
 }
 
 func (s *Server) setupHealthAPIs() {
