@@ -66,7 +66,7 @@ func (r *URLRule) Init() {
 
 // Match matches a URL to the rule
 func (r *URLRule) Match(req context.HTTPRequest) bool {
-	if len(r.Methods) > 0 && r.Methods[0] != "*" {
+	if len(r.Methods) > 0 {
 		if !stringtool.StrInSlice(req.Method(), r.Methods) {
 			return false
 		}
