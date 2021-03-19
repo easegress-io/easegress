@@ -24,9 +24,9 @@ type (
 		httpStat *httpstat.HTTPStat
 		topN     *topn.TopN
 
-		rules      atomic.Value // *muxRules
-		muxMapper  MuxMapper    // MuxMapper
-		mapperLock sync.RWMutex
+		rules       atomic.Value // *muxRules
+		muxMapper   MuxMapper    // MuxMapper
+		mapperMutex sync.RWMutex
 	}
 
 	muxRules struct {
@@ -261,9 +261,8 @@ func (mp *muxPath) matchHeaders(ctx context.HTTPContext) (ci *cacheItem, ok bool
 
 func newMux(httpStat *httpstat.HTTPStat, topN *topn.TopN, mapper MuxMapper) *mux {
 	m := &mux{
-		httpStat:   httpStat,
-		topN:       topN,
-		mapperLock: sync.RWMutex{},
+		httpStat: httpStat,
+		topN:     topN,
 	}
 
 	m.rules.Store(&muxRules{spec: &Spec{}, tracer: tracing.NoopTracing})
@@ -272,11 +271,11 @@ func newMux(httpStat *httpstat.HTTPStat, topN *topn.TopN, mapper MuxMapper) *mux
 	return m
 }
 
-func (m *mux) SetMuxMapper(mapper MuxMapper) {
-	m.mapperLock.Lock()
-	defer m.mapperLock.Unlock()
-	// Note. Golang Value pacakge will panic when Value's type changed.
-	//   using mutex lock here.
+func (m *mux) setMuxMapper(mapper MuxMapper) {
+	m.mapperMutex.Lock()
+	defer m.mapperMutex.Unlock()
+	// NOTE: golang atomic.Value won't let type inconsistency
+	//       using mutex lock here.
 	m.muxMapper = mapper
 }
 
@@ -425,8 +424,8 @@ func (m *mux) handleRequestWithCache(rules *muxRules, ctx context.HTTPContext, c
 	case ci.methodNotAllowed:
 		ctx.Response().SetStatusCode(http.StatusMethodNotAllowed)
 	case ci.backend != "":
-		m.mapperLock.RLock()
-		defer m.mapperLock.RUnlock()
+		m.mapperMutex.RLock()
+		defer m.mapperMutex.RUnlock()
 		handler, exists := m.muxMapper.Get(ci.backend)
 		if !exists {
 			ctx.AddTag(stringtool.Cat("backend ", ci.backend, " not found"))
