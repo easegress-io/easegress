@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/megaease/easegateway/pkg/filter/backend"
+	"github.com/megaease/easegateway/pkg/filter/resilience"
 	"github.com/megaease/easegateway/pkg/filter/resilience/circuitbreaker"
 	"github.com/megaease/easegateway/pkg/filter/resilience/ratelimiter"
 	"github.com/megaease/easegateway/pkg/filter/resilience/retryer"
@@ -11,6 +12,7 @@ import (
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
 	"github.com/megaease/easegateway/pkg/supervisor"
 	"github.com/megaease/easegateway/pkg/util/httpfilter"
+
 	"gopkg.in/yaml.v2"
 )
 
@@ -71,7 +73,7 @@ type (
 	}
 
 	// LoadBalance is the spec of service load balance.
-	LoadBalance backend.LoadBalance
+	LoadBalance = backend.LoadBalance
 
 	// Sidecar is the spec of service sidecar.
 	Sidecar struct {
@@ -163,10 +165,13 @@ type (
 		LastHeartbeatTime string `yaml:"lastHeartbeatTime" jsonschema:"required,format=timerfc3339"`
 	}
 
-	pipelineSpecMock struct {
-		Kind               string `yaml:"kind"`
-		Name               string `yaml:"name"`
-		*httppipeline.Spec `yaml:",inline"`
+	pipelineSpecBuilder struct {
+		Kind string `yaml:"kind"`
+		Name string `yaml:"name"`
+
+		// NOTE: Can't use *httppipeline.Spec here.
+		// Reference: https://github.com/go-yaml/yaml/issues/356
+		httppipeline.Spec `yaml:",inline"`
 	}
 )
 
@@ -179,6 +184,104 @@ func (a Admin) Validate() error {
 	}
 
 	return nil
+}
+
+func newPipelineSpecBuilder(name string) *pipelineSpecBuilder {
+	return &pipelineSpecBuilder{
+		Kind: httppipeline.Kind,
+		Name: name,
+		Spec: httppipeline.Spec{},
+	}
+}
+
+func (b *pipelineSpecBuilder) yamlConfig() string {
+	buff, err := yaml.Marshal(b)
+	if err != nil {
+		logger.Errorf("BUG: marshal %#v to yaml failed: %v", b, err)
+	}
+	return string(buff)
+}
+
+func (b *pipelineSpecBuilder) appendRateLimiter() *pipelineSpecBuilder {
+	const name = "rateLimiter"
+	b.Flow = append(b.Flow, httppipeline.Flow{Filter: name})
+	b.Filters = append(b.Filters, map[string]interface{}{
+		"kind": ratelimiter.Kind,
+		"name": name,
+		"policies": []ratelimiter.Policy{{
+			Name:               "default",
+			TimeoutDuration:    "100ms",
+			LimitForPeriod:     50,
+			LimitRefreshPeriod: "10ms",
+		}},
+		"defaultPolicyRef": "default",
+		"urls": []resilience.URLRule{{
+			Methods: []string{"GET"},
+			URL: resilience.StringMatch{
+				Exact:  "/path1",
+				Prefix: "/path2/",
+				RegEx:  "^/path3/[0-9]+$",
+			},
+			PolicyRef: "default",
+		}},
+	})
+	return b
+}
+
+func (b *pipelineSpecBuilder) appendCircuitBreaker() *pipelineSpecBuilder {
+	const name = "circuitBreaker"
+	b.Flow = append(b.Flow, httppipeline.Flow{Filter: name})
+	b.Filters = append(b.Filters, map[string]interface{}{
+		"kind": circuitbreaker.Kind,
+		"name": name,
+		"policies": []circuitbreaker.Policy{{
+			Name:                             "default",
+			SlidingWindowType:                "COUNT_BASED",
+			CountingNetworkException:         true,
+			FailureRateThreshold:             50,
+			SlowCallRateThreshold:            100,
+			SlidingWindowSize:                100,
+			PermittedNumberOfCallsInHalfOpen: 10,
+			MinimumNumberOfCalls:             20,
+			SlowCallDurationThreshold:        "100ms",
+			MaxWaitDurationInHalfOpen:        "60s",
+			WaitDurationInOpen:               "60s",
+			ExceptionalStatusCode:            []int{500},
+		}},
+		"defaultPolicyRef": "default",
+		"urls": []resilience.URLRule{{
+			Methods: []string{"GET"},
+			URL: resilience.StringMatch{
+				Exact:  "/path1",
+				Prefix: "/path2/",
+				RegEx:  "^/path3/[0-9]+$",
+			},
+			PolicyRef: "default",
+		}},
+	})
+	return b
+}
+
+func (b *pipelineSpecBuilder) appendBackend(mainServers []*backend.Server, lb *backend.LoadBalance) *pipelineSpecBuilder {
+	backendName := "backend"
+
+	if lb == nil {
+		lb = &backend.LoadBalance{
+			Policy: backend.PolicyRoundRobin,
+		}
+	}
+
+	b.Flow = append(b.Flow, httppipeline.Flow{Filter: backendName})
+	b.Filters = append(b.Filters, map[string]interface{}{
+		"kind": backend.Kind,
+		"name": backendName,
+		"mainPool": &backend.PoolSpec{
+			Servers:     mainServers,
+			LoadBalance: lb,
+		},
+	})
+
+	return b
 }
 
 func (s *Service) IngressHTTPServerSpec() *supervisor.Spec {
@@ -256,45 +359,22 @@ rules:
 }
 
 func (s *Service) IngressPipelineSpec(applicationPort uint32) *supervisor.Spec {
-	backendName := "backend"
-
-	pipelineSpec := &pipelineSpecMock{
-		Kind: httppipeline.Kind,
-		Name: s.IngressPipelineName(),
-		Spec: &httppipeline.Spec{
-			Flow: []httppipeline.Flow{
-				{
-					Filter: backendName,
-				},
-			},
-			Filters: []map[string]interface{}{
-				{
-					"kind": backend.Kind,
-					"name": backendName,
-					"mainPool": &backend.PoolSpec{
-						Servers: []*backend.Server{
-							{
-								URL: s.ApplicationEndpoint(applicationPort),
-							},
-						},
-						LoadBalance: &backend.LoadBalance{
-							Policy: backend.PolicyRoundRobin,
-						},
-					},
-				},
-			},
+	mainServers := []*backend.Server{
+		{
+			URL: s.ApplicationEndpoint(applicationPort),
 		},
 	}
 
-	buff, err := yaml.Marshal(pipelineSpec)
-	if err != nil {
-		logger.Errorf("BUG: marshal %#v to yaml failed: %v", pipelineSpec, err)
-		return nil
-	}
+	pipelineSpecBuilder := newPipelineSpecBuilder(s.IngressPipelineName())
 
-	superSpec, err := supervisor.NewSpec(string(buff))
+	pipelineSpecBuilder.appendRateLimiter()
+
+	pipelineSpecBuilder.appendBackend(mainServers, s.LoadBalance)
+
+	yamlConfig := pipelineSpecBuilder.yamlConfig()
+	superSpec, err := supervisor.NewSpec(yamlConfig)
 	if err != nil {
-		logger.Errorf("BUG: new spec for %s failed: %v", buff, err)
+		logger.Errorf("BUG: new spec for %s failed: %v", yamlConfig, err)
 		return nil
 	}
 
@@ -302,49 +382,25 @@ func (s *Service) IngressPipelineSpec(applicationPort uint32) *supervisor.Spec {
 }
 
 func (s *Service) EgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec) *supervisor.Spec {
-	backendName := "backend"
-
-	servers := []*backend.Server{}
+	mainServers := []*backend.Server{}
 	for _, instanceSpec := range instanceSpecs {
-		servers = append(servers, &backend.Server{
+		mainServers = append(mainServers, &backend.Server{
 			URL: fmt.Sprintf("http://%s:%d", instanceSpec.IP, instanceSpec.Port),
 		})
 	}
 
-	pipelineSpec := &pipelineSpecMock{
-		Kind: httppipeline.Kind,
-		Name: s.EgressPipelineName(),
-		Spec: &httppipeline.Spec{
-			Flow: []httppipeline.Flow{
-				{
-					Filter: backendName,
-				},
-			},
-			Filters: []map[string]interface{}{
-				{
-					"kind": backend.Kind,
-					"name": backendName,
-					"mainPool": &backend.PoolSpec{
-						Servers: servers,
-						// TODO: Use the canary of target service.
-						LoadBalance: &backend.LoadBalance{
-							Policy: backend.PolicyRoundRobin,
-						},
-					},
-				},
-			},
-		},
-	}
+	pipelineSpecBuilder := newPipelineSpecBuilder(s.EgressPipelineName())
 
-	buff, err := yaml.Marshal(pipelineSpec)
-	if err != nil {
-		logger.Errorf("BUG: marshal %#v to yaml failed: %v", pipelineSpec, err)
-		return nil
-	}
+	// TODO: pipelineSpecBuilder.appendTimeLimiter()
+	// TODO: pipelineSpecBuilder.appendRetryer()
+	pipelineSpecBuilder.appendCircuitBreaker()
 
-	superSpec, err := supervisor.NewSpec(string(buff))
+	pipelineSpecBuilder.appendBackend(mainServers, s.LoadBalance)
+
+	yamlConfig := pipelineSpecBuilder.yamlConfig()
+	superSpec, err := supervisor.NewSpec(yamlConfig)
 	if err != nil {
-		logger.Errorf("BUG: new spec for %s failed: %v", buff, err)
+		logger.Errorf("BUG: new spec for %s failed: %v", yamlConfig, err)
 		return nil
 	}
 
