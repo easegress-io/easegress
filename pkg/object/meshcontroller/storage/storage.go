@@ -124,5 +124,5 @@ func (cs *clusterStorage) DeletePrefix(prefix string) error {
 }
 
 func (cs *clusterStorage) Watcher() (Watcher, error) {
-	return cs.Watcher()
+	return cs.cls.Watcher()
 }

@@ -354,7 +354,7 @@ rules:
 
 	superSpec, err := supervisor.NewSpec(yamlConfig)
 	if err != nil {
-		logger.Errorf("BUG: new spec for %s failed: %v", err)
+		logger.Errorf("BUG: new spec for %s failed: %v", yamlConfig, err)
 	}
 
 	return superSpec
