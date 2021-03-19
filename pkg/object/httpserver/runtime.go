@@ -123,7 +123,8 @@ func (r *runtime) Status() *Status {
 }
 
 func (r *runtime) SetMuxMapper(mapper MuxMapper) {
-	r.mux.muxMapper.Store(mapper)
+
+	r.mux.muxMapper = mapper
 }
 
 // FSM is the finite-state-machine for the runtime.

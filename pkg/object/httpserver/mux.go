@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"sync"
 	"sync/atomic"
 
 	"github.com/megaease/easegateway/pkg/context"
@@ -23,8 +24,9 @@ type (
 		httpStat *httpstat.HTTPStat
 		topN     *topn.TopN
 
-		rules     atomic.Value // *muxRules
-		muxMapper atomic.Value // MuxMapper
+		rules      atomic.Value // *muxRules
+		muxMapper  MuxMapper    // MuxMapper
+		mapperLock sync.RWMutex
 	}
 
 	muxRules struct {
@@ -259,14 +261,23 @@ func (mp *muxPath) matchHeaders(ctx context.HTTPContext) (ci *cacheItem, ok bool
 
 func newMux(httpStat *httpstat.HTTPStat, topN *topn.TopN, mapper MuxMapper) *mux {
 	m := &mux{
-		httpStat: httpStat,
-		topN:     topN,
+		httpStat:   httpStat,
+		topN:       topN,
+		mapperLock: sync.RWMutex{},
 	}
 
 	m.rules.Store(&muxRules{spec: &Spec{}, tracer: tracing.NoopTracing})
-	m.muxMapper.Store(mapper)
+	m.muxMapper = mapper
 
 	return m
+}
+
+func (m *mux) SetMuxMapper(mapper MuxMapper) {
+	m.mapperLock.Lock()
+	defer m.mapperLock.Unlock()
+	// Note. Golang Value pacakge will panic when Value's type changed.
+	//   using mutex lock here.
+	m.muxMapper = mapper
 }
 
 func (m *mux) reloadRules(superSpec *supervisor.Spec, super *supervisor.Supervisor) {
@@ -414,13 +425,9 @@ func (m *mux) handleRequestWithCache(rules *muxRules, ctx context.HTTPContext, c
 	case ci.methodNotAllowed:
 		ctx.Response().SetStatusCode(http.StatusMethodNotAllowed)
 	case ci.backend != "":
-		mapper, ok := m.muxMapper.Load().(MuxMapper)
-		if !ok {
-			ctx.AddTag(stringtool.Cat("BUG: mapper is not a MuxMapper"))
-			ctx.Response().SetStatusCode(http.StatusServiceUnavailable)
-			return
-		}
-		handler, exists := mapper.Get(ci.backend)
+		m.mapperLock.RLock()
+		defer m.mapperLock.RUnlock()
+		handler, exists := m.muxMapper.Get(ci.backend)
 		if !exists {
 			ctx.AddTag(stringtool.Cat("backend ", ci.backend, " not found"))
 			ctx.Response().SetStatusCode(http.StatusServiceUnavailable)
