@@ -100,7 +100,7 @@ func (rcs *Server) Register(serviceSpec *spec.Service, ingressReady ReadyFunc, e
 }
 
 func (rcs *Server) register(ins *spec.ServiceInstanceSpec, ingressReady ReadyFunc, egressReady ReadyFunc) {
-	var tryTimes uint64 = 0
+	var tryTimes int = 0
 
 	for {
 		select {
@@ -147,11 +147,11 @@ func (rcs *Server) register(ins *spec.ServiceInstanceSpec, ingressReady ReadyFun
 func (rcs *Server) decodeByConsulFormat(body []byte) error {
 	var (
 		err error
-		reg *consul.AgentServiceRegistration
+		reg consul.AgentServiceRegistration
 	)
 
 	dec := json.NewDecoder(bytes.NewReader(body))
-	if err = dec.Decode(reg); err != nil {
+	if err = dec.Decode(&reg); err != nil {
 		return err
 	}
 
@@ -162,18 +162,18 @@ func (rcs *Server) decodeByConsulFormat(body []byte) error {
 func (rcs *Server) decodeByEurekaFormat(contentType string, body []byte) error {
 	var (
 		err       error
-		eurekaIns *eureka.InstanceInfo
+		eurekaIns eureka.InstanceInfo
 	)
 
 	switch contentType {
 	case "application/json":
 		dec := json.NewDecoder(bytes.NewReader(body))
-		if err = dec.Decode(eurekaIns); err != nil {
+		if err = dec.Decode(&eurekaIns); err != nil {
 			logger.Errorf("decode eureka contentType:%s body:%s, failed, err:%v", contentType, string(body), err)
 			return err
 		}
 	default:
-		if err = xml.Unmarshal([]byte(body), eurekaIns); err != nil {
+		if err = xml.Unmarshal([]byte(body), &eurekaIns); err != nil {
 			logger.Errorf("decode eureka contentType:%s body:%s, failed, err:%v", contentType, string(body), err)
 			return err
 		}
