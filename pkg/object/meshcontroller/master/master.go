@@ -97,26 +97,26 @@ func (m *Master) checkInstancesHeartbeat() {
 
 	failedInstances := []*spec.ServiceInstanceSpec{}
 	now := time.Now()
-	for _, status := range statuses {
-		var _spec *spec.ServiceInstanceSpec
-		for _, s := range specs {
-			if s.ServiceName == status.ServiceName && s.InstanceID == status.InstanceID {
-				_spec = s
+	for _, _spec := range specs {
+		var status *spec.ServiceInstanceStatus
+		for _, s := range statuses {
+			if s.ServiceName == _spec.ServiceName && s.InstanceID == _spec.InstanceID {
+				status = s
 			}
 		}
-		if _spec == nil {
-			logger.Errorf("BUG: %s/%s got no spec", status.ServiceName, status.InstanceID)
-			continue
-		}
-
-		lastHeartbeatTime, err := time.Parse(time.RFC3339, status.LastHeartbeatTime)
-		if err != nil {
-			logger.Errorf("BUG: parse last heartbeat time %s failed: %v", status.LastHeartbeatTime, err)
-			continue
-		}
-
-		gap := now.Sub(lastHeartbeatTime)
-		if gap > m.maxHeartbeatTimeout {
+		if status != nil {
+			lastHeartbeatTime, err := time.Parse(time.RFC3339, status.LastHeartbeatTime)
+			if err != nil {
+				logger.Errorf("BUG: parse last heartbeat time %s failed: %v", status.LastHeartbeatTime, err)
+				continue
+			}
+			gap := now.Sub(lastHeartbeatTime)
+			if gap > m.maxHeartbeatTimeout {
+				logger.Errorf("%s/%s expired", _spec.ServiceName, _spec.InstanceID)
+				failedInstances = append(failedInstances, _spec)
+			}
+		} else {
+			logger.Errorf("status of %s/%s not found", _spec.ServiceName, _spec.InstanceID)
 			failedInstances = append(failedInstances, _spec)
 		}
 	}
