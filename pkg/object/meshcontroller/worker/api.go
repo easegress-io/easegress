@@ -125,7 +125,8 @@ func (w *Worker) applicationRegister(ctx iris.Context) {
 			fmt.Errorf("read body failed: %v", err))
 		return
 	}
-	if err := w.registryServer.DecodeRegistryBody(body); err != nil {
+	contentType := ctx.Request().Header.Get("Content-Type")
+	if err := w.registryServer.DecodeRegistryBody(contentType, body); err != nil {
 		api.HandleAPIError(ctx, http.StatusBadRequest, err)
 		return
 	}

@@ -159,29 +159,38 @@ func (rcs *Server) decodeByConsulFormat(body []byte) error {
 	return err
 }
 
-func (rcs *Server) decodeByEurekaFormat(body []byte) error {
+func (rcs *Server) decodeByEurekaFormat(contentType string, body []byte) error {
 	var (
 		err       error
 		eurekaIns *eureka.InstanceInfo
 	)
 
-	if err = xml.Unmarshal(body, eurekaIns); err != nil {
-		logger.Errorf("decode eureka body:%s, failed, err:%v", string(body), err)
-		return err
+	switch contentType {
+	case "application/json":
+		dec := json.NewDecoder(bytes.NewReader(body))
+		if err = dec.Decode(eurekaIns); err != nil {
+			logger.Errorf("decode eureka contentType:%s body:%s, failed, err:%v", contentType, string(body), err)
+			return err
+		}
+	default:
+		if err = xml.Unmarshal([]byte(body), eurekaIns); err != nil {
+			logger.Errorf("decode eureka contentType:%s body:%s, failed, err:%v", contentType, string(body), err)
+			return err
+		}
 	}
-	logger.Infof("decode eureka body succ, body:%s", string(body))
+	logger.Infof("decode eureka body succ, contentType:%s body:%s", contentType, string(body))
 
 	return err
 }
 
 // DecodeRegistryBody decodes Eureka/Consul registry request body according to the
 // registry type in config.
-func (rcs *Server) DecodeRegistryBody(reqBody []byte) error {
+func (rcs *Server) DecodeRegistryBody(contentType string, reqBody []byte) error {
 	var err error
 
 	switch rcs.RegistryType {
 	case RegistryTypeEureka:
-		err = rcs.decodeByEurekaFormat(reqBody)
+		err = rcs.decodeByEurekaFormat(contentType, reqBody)
 	case RegistryTypeConsul:
 		err = rcs.decodeByConsulFormat(reqBody)
 	default:
