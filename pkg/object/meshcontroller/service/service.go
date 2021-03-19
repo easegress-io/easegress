@@ -133,7 +133,7 @@ func (s *Service) PutTenantSpec(tenantSpec *spec.Tenant) {
 		panic(fmt.Errorf("BUG: marshal %#v to yaml failed: %v", tenantSpec, err))
 	}
 
-	err = s.store.Put(layout.ServiceSpecKey(tenantSpec.Name), string(buff))
+	err = s.store.Put(layout.TenantSpecKey(tenantSpec.Name), string(buff))
 	if err != nil {
 		api.ClusterPanic(err)
 	}
