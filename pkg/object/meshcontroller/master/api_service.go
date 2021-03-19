@@ -77,7 +77,7 @@ func (m *Master) createService(ctx iris.Context) {
 		return
 	}
 
-	tenantSpec.Services = append(tenantSpec.Services, serviceSpec.RegisterTenant)
+	tenantSpec.Services = append(tenantSpec.Services, serviceSpec.Name)
 
 	m.service.PutServiceSpec(serviceSpec)
 	m.service.PutTenantSpec(tenantSpec)
@@ -140,10 +140,10 @@ func (m *Master) updateService(ctx iris.Context) {
 		newTenantSpec := m.service.GetTenantSpec(serviceSpec.RegisterTenant)
 		if newTenantSpec == nil {
 			api.HandleAPIError(ctx, http.StatusBadRequest,
-				fmt.Errorf("tenant %s not found", serviceSpec.RegisterTenant))
+				fmt.Errorf("tenant %s not found", serviceName))
 			return
 		}
-		newTenantSpec.Services = append(newTenantSpec.Services, serviceSpec.RegisterTenant)
+		newTenantSpec.Services = append(newTenantSpec.Services, serviceSpec.Name)
 
 		oldTenantSpec := m.service.GetTenantSpec(oldSpec.RegisterTenant)
 		if oldTenantSpec == nil {
