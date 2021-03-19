@@ -1,18 +1,23 @@
 package timelimiter
 
 import (
+	"time"
+
 	"github.com/megaease/easegateway/pkg/context"
+	"github.com/megaease/easegateway/pkg/filter/resilience"
+	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
 	"github.com/megaease/easegateway/pkg/supervisor"
 )
 
 const (
 	// Kind is the kind of TimeLimiter.
-	Kind = "TimeLimiter"
+	Kind              = "TimeLimiter"
+	resultTimeLimiter = "timeLimiter"
 )
 
 var (
-	results = []string{}
+	results = []string{resultTimeLimiter}
 )
 
 func init() {
@@ -20,23 +25,16 @@ func init() {
 }
 
 type (
-	Policy struct {
-		Name               string
-		MaxAttempts        int
-		WaitDuration       int
-		BackOffPolicy      string
-		RandomWaitInterval float64
-	}
-
 	URLRule struct {
-		// URLRule
-		policy *Policy
+		resilience.URLRule `yaml:",inline"`
+		TimeoutDuration    string `yaml:"timeoutDuration" jsonschema:"omitempty,format=duration"`
+		timeout            time.Duration
 	}
 
 	Spec struct {
-		Policies         []*Policy
-		DefaultPolicyRef string
-		URLs             []URLRule
+		DefaultTimeoutDuration string `yaml:"defaultTimeoutDuration" jsonschema:"omitempty,format=duration"`
+		defaultTimeout         time.Duration
+		URLs                   []*URLRule `yaml:"urls" jsonschema:"required"`
 	}
 
 	TimeLimiter struct {
@@ -66,25 +64,64 @@ func (tl *TimeLimiter) Results() []string {
 	return results
 }
 
-func (tl *TimeLimiter) reload() {
-}
-
 // Init initializes TimeLimiter.
 func (tl *TimeLimiter) Init(pipeSpec *httppipeline.FilterSpec, super *supervisor.Supervisor) {
 	tl.pipeSpec = pipeSpec
 	tl.spec = pipeSpec.FilterSpec().(*Spec)
 	tl.super = super
-	tl.reload()
+
+	if d := tl.spec.DefaultTimeoutDuration; d != "" {
+		tl.spec.defaultTimeout, _ = time.ParseDuration(d)
+	} else {
+		tl.spec.defaultTimeout = 500 * time.Millisecond
+	}
+
+	for _, url := range tl.spec.URLs {
+		if d := url.TimeoutDuration; d != "" {
+			url.timeout, _ = time.ParseDuration(d)
+		} else {
+			url.timeout = tl.spec.defaultTimeout
+		}
+	}
 }
 
 // Inherit inherits previous generation of TimeLimiter.
 func (tl *TimeLimiter) Inherit(pipeSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter, super *supervisor.Supervisor) {
-	previousGeneration.Close()
 	tl.Init(pipeSpec, super)
+}
+
+func (tl *TimeLimiter) handle(ctx context.HTTPContext, u *URLRule) string {
+	wrapper := func(fn context.HandlerFunc) context.HandlerFunc {
+		return func() string {
+			var result string
+			timer := time.NewTimer(u.timeout)
+			ch := make(chan struct{})
+			go func() {
+				result = fn()
+				ch <- struct{}{}
+			}()
+
+			select {
+			case <-ch:
+				return result
+			case <-timer.C:
+				logger.Infof("request to URL(%s) timed out", u.ID())
+				return resultTimeLimiter
+			}
+		}
+	}
+
+	ctx.AddHandlerWrapper("timeLimiter", wrapper)
+	return ""
 }
 
 // Handle handles HTTP request
 func (tl *TimeLimiter) Handle(ctx context.HTTPContext) string {
+	for _, u := range tl.spec.URLs {
+		if u.Match(ctx.Request()) {
+			return tl.handle(ctx, u)
+		}
+	}
 	return ""
 }
 

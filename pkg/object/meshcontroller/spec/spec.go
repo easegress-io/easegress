@@ -8,6 +8,7 @@ import (
 	"github.com/megaease/easegateway/pkg/filter/resilience/circuitbreaker"
 	"github.com/megaease/easegateway/pkg/filter/resilience/ratelimiter"
 	"github.com/megaease/easegateway/pkg/filter/resilience/retryer"
+	"github.com/megaease/easegateway/pkg/filter/resilience/timelimiter"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
 	"github.com/megaease/easegateway/pkg/supervisor"
@@ -61,9 +62,10 @@ type (
 
 	// Resilience is the spec of service resilience.
 	Resilience struct {
-		CircuitBreaker *circuitbreaker.Spec
 		RateLimiter    *ratelimiter.Spec
+		CircuitBreaker *circuitbreaker.Spec
 		Retryer        *retryer.Spec
+		TimeLimiter    *timelimiter.Spec
 	}
 
 	// Canary is the spec of service canary.
@@ -262,6 +264,56 @@ func (b *pipelineSpecBuilder) appendCircuitBreaker() *pipelineSpecBuilder {
 	return b
 }
 
+func (b *pipelineSpecBuilder) appendRetryer() *pipelineSpecBuilder {
+	const name = "retryer"
+	b.Flow = append(b.Flow, httppipeline.Flow{Filter: name})
+	b.Filters = append(b.Filters, map[string]interface{}{
+		"kind": retryer.Kind,
+		"name": name,
+		"policies": []retryer.Policy{{
+			Name:                     "default",
+			MaxAttempts:              3,
+			WaitDuration:             "500ms",
+			BackOffPolicy:            "random",
+			RandomizationFactor:      0.5,
+			CountingNetworkException: true,
+			ExceptionalStatusCode:    []int{500},
+		}},
+		"defaultPolicyRef": "default",
+		"urls": []resilience.URLRule{{
+			Methods: []string{"GET"},
+			URL: resilience.StringMatch{
+				Exact:  "/path1",
+				Prefix: "/path2/",
+				RegEx:  "^/path3/[0-9]+$",
+			},
+			PolicyRef: "default",
+		}},
+	})
+	return b
+}
+
+func (b *pipelineSpecBuilder) appendTimeLimiter() *pipelineSpecBuilder {
+	const name = "timeLimiter"
+	b.Flow = append(b.Flow, httppipeline.Flow{Filter: name})
+	b.Filters = append(b.Filters, map[string]interface{}{
+		"kind":           timelimiter.Kind,
+		"name":           name,
+		"defaultTimeout": "500ms",
+		"urls": []timelimiter.URLRule{{
+			URLRule: resilience.URLRule{
+				Methods: []string{"GET", "PUT"},
+				URL: resilience.StringMatch{
+					Exact:  "/path1",
+					Prefix: "/path2/",
+					RegEx:  "^/path3/[0-9]+$",
+				},
+			},
+			TimeoutDuration: "500ms",
+		}}})
+	return b
+}
+
 func (b *pipelineSpecBuilder) appendBackend(mainServers []*backend.Server, lb *backend.LoadBalance) *pipelineSpecBuilder {
 	backendName := "backend"
 
@@ -391,9 +443,9 @@ func (s *Service) EgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec) *supe
 
 	pipelineSpecBuilder := newPipelineSpecBuilder(s.EgressPipelineName())
 
-	// TODO: pipelineSpecBuilder.appendTimeLimiter()
-	// TODO: pipelineSpecBuilder.appendRetryer()
 	pipelineSpecBuilder.appendCircuitBreaker()
+	pipelineSpecBuilder.appendRetryer()
+	pipelineSpecBuilder.appendTimeLimiter()
 
 	pipelineSpecBuilder.appendBackend(mainServers, s.LoadBalance)
 

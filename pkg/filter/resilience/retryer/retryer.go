@@ -1,8 +1,9 @@
 package retryer
 
 import (
+	"bytes"
 	"fmt"
-	"reflect"
+	"io/ioutil"
 	"strings"
 	"time"
 
@@ -46,9 +47,9 @@ type (
 	}
 
 	Spec struct {
-		Policies         []*Policy
-		DefaultPolicyRef string
-		URLs             []*URLRule
+		Policies         []*Policy  `yaml:"policies" jsonschema:"required"`
+		DefaultPolicyRef string     `yaml:"defaultPolicyRef" jsonschema:"omitempty"`
+		URLs             []*URLRule `yaml:"urls" jsonschema:"required"`
 	}
 
 	Retryer struct {
@@ -127,18 +128,6 @@ func (r *Retryer) Results() []string {
 	return results
 }
 
-func (r *Retryer) setStateListenerForURL(u *URLRule) {
-	u.r.SetStateListener(func(event *libr.Event) {
-		logger.Infof("attempts %d of retryer on URL(%s) failed with error '%s' at %d",
-			event.Attempt,
-			r.pipeSpec.Name(),
-			u.ID(),
-			event.Error,
-			event.Time.UnixNano()/1e6,
-		)
-	})
-}
-
 func (r *Retryer) createRetryerForURL(u *URLRule) {
 	u.Init()
 
@@ -155,61 +144,15 @@ func (r *Retryer) createRetryerForURL(u *URLRule) {
 	}
 
 	u.createRetryer()
-	r.setStateListenerForURL(u)
-}
-
-func isSamePolicy(spec1, spec2 *Spec, policyName string) bool {
-	if policyName == "" {
-		if spec1.DefaultPolicyRef != spec2.DefaultPolicyRef {
-			return false
-		}
-		policyName = spec1.DefaultPolicyRef
-	}
-
-	var p1, p2 *Policy
-	for _, p := range spec1.Policies {
-		if p.Name == policyName {
-			p1 = p
-			break
-		}
-	}
-
-	for _, p := range spec2.Policies {
-		if p.Name == policyName {
-			p2 = p
-			break
-		}
-	}
-
-	return reflect.DeepEqual(p1, p2)
-}
-
-func (r *Retryer) reload(previousGeneration *Retryer) {
-	if previousGeneration == nil {
-		for _, url := range r.spec.URLs {
-			r.createRetryerForURL(url)
-		}
-		return
-	}
-
-OuterLoop:
-	for _, url := range r.spec.URLs {
-		for _, prev := range previousGeneration.spec.URLs {
-			if !url.DeepEqual(&prev.URLRule) {
-				continue
-			}
-			if !isSamePolicy(r.spec, previousGeneration.spec, url.PolicyRef) {
-				continue
-			}
-
-			url.Init()
-			url.r = prev.r
-			prev.r = nil
-			r.setStateListenerForURL(url)
-			continue OuterLoop
-		}
-		r.createRetryerForURL(url)
-	}
+	u.r.SetStateListener(func(event *libr.Event) {
+		logger.Infof("attempts %d of retryer on URL(%s) failed with error '%s' at %d",
+			event.Attempt,
+			r.pipeSpec.Name(),
+			u.ID(),
+			event.Error,
+			event.Time.UnixNano()/1e6,
+		)
+	})
 }
 
 // Init initializes Retryer.
@@ -217,22 +160,24 @@ func (r *Retryer) Init(pipeSpec *httppipeline.FilterSpec, super *supervisor.Supe
 	r.pipeSpec = pipeSpec
 	r.spec = pipeSpec.FilterSpec().(*Spec)
 	r.super = super
-	r.reload(nil)
+	for _, url := range r.spec.URLs {
+		r.createRetryerForURL(url)
+	}
 }
 
 // Inherit inherits previous generation of Retryer.
 func (r *Retryer) Inherit(pipeSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter, super *supervisor.Supervisor) {
-	r.pipeSpec = pipeSpec
-	r.spec = pipeSpec.FilterSpec().(*Spec)
-	r.super = super
-	r.reload(previousGeneration.(*Retryer))
+	r.Init(pipeSpec, super)
 }
 
 func (r *Retryer) handle(ctx context.HTTPContext, u *URLRule) string {
 	wrapper := func(fn context.HandlerFunc) context.HandlerFunc {
 		return func() string {
 			var result string
+			data, _ := ioutil.ReadAll(ctx.Request().Body())
+
 			_, e := u.r.Execute(func() (interface{}, error) {
+				ctx.Request().SetBody(bytes.NewReader(data))
 				result = fn()
 				if result != "" {
 					return nil, fmt.Errorf("result is: %s", result)
