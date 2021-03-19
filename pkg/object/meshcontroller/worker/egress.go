@@ -15,7 +15,7 @@ import (
 	"github.com/megaease/easegateway/pkg/supervisor"
 )
 
-const egressRPCKey = "X-MESH-RPC-SERVICE"
+const egressRPCKey = "X-Mesh-Rpc-Service"
 
 type (
 	// EgressServer manages one/many ingress pipelines and one HTTPServer
