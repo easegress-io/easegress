@@ -113,6 +113,8 @@ func (w *Worker) registerAPIs() {
 		},
 	}
 
+	// Debug info in sidecar image
+	fmt.Printf("api global servce is %#v", api.GlobalServer)
 	api.GlobalServer.RegisterAPIs(meshWorkerAPIs)
 }
 
