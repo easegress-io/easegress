@@ -95,6 +95,7 @@ func (m *Master) checkInstancesHeartbeat() {
 	specs := m.service.ListAllServiceInstanceSpecs()
 
 	failedInstances := []*spec.ServiceInstanceSpec{}
+	aliveInstances := []*spec.ServiceInstanceSpec{}
 	now := time.Now()
 	for _, _spec := range specs {
 		var status *spec.ServiceInstanceStatus
@@ -111,8 +112,13 @@ func (m *Master) checkInstancesHeartbeat() {
 			}
 			gap := now.Sub(lastHeartbeatTime)
 			if gap > m.maxHeartbeatTimeout {
-				logger.Errorf("%s/%s expired", _spec.ServiceName, _spec.InstanceID)
+				logger.Errorf("%s/%s expired,gap:%d", _spec.ServiceName, _spec.InstanceID, gap)
 				failedInstances = append(failedInstances, _spec)
+			} else {
+				if _spec.Status == spec.SerivceStatusOutOfSerivce {
+					logger.Infof("%s/%s heartbeat valid, bring it back to alive", _spec.ServiceName, _spec.InstanceID)
+					aliveInstances = append(aliveInstances, _spec)
+				}
 			}
 		} else {
 			logger.Errorf("status of %s/%s not found", _spec.ServiceName, _spec.InstanceID)
@@ -123,9 +129,17 @@ func (m *Master) checkInstancesHeartbeat() {
 	m.handleFailedInstances(failedInstances)
 }
 
+func (m *Master) handleBackAliveInstances(alivedInstances []*spec.ServiceInstanceSpec) {
+	m.updateInstances(alivedInstances, spec.SerivceStatusUp)
+}
+
 func (m *Master) handleFailedInstances(failedInstances []*spec.ServiceInstanceSpec) {
-	for _, _spec := range failedInstances {
-		_spec.Status = spec.SerivceStatusOutOfSerivce
+	m.updateInstances(failedInstances, spec.SerivceStatusOutOfSerivce)
+}
+
+func (m *Master) updateInstances(instances []*spec.ServiceInstanceSpec, status string) {
+	for _, _spec := range instances {
+		_spec.Status = status
 
 		buff, err := yaml.Marshal(_spec)
 		if err != nil {
@@ -139,7 +153,6 @@ func (m *Master) handleFailedInstances(failedInstances []*spec.ServiceInstanceSp
 			api.ClusterPanic(err)
 		}
 	}
-
 }
 
 // Close closes the master
