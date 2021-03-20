@@ -11,6 +11,7 @@ import (
 	"github.com/kataras/iris"
 
 	"github.com/megaease/easegateway/pkg/api"
+	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/registrycenter"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
 )
@@ -24,6 +25,9 @@ const (
 
 	// MeshEurekaPrefix is the mesh eureka registry center prefix.
 	MeshEurekaPrefix = "/mesh/registry/eureka"
+
+	contentTypeXML  = "text/xml"
+	contentTypeJSON = "application/json"
 )
 
 func (w *Worker) registerAPIs() {
@@ -165,7 +169,7 @@ func (w *Worker) catalogServices(ctx iris.Context) {
 		return
 	}
 
-	ctx.Header("Content-Type", "text/xml")
+	ctx.Header("Content-Type", contentTypeJSON)
 	ctx.Write(buff.Bytes())
 }
 
@@ -194,7 +198,7 @@ func (w *Worker) catalogService(ctx iris.Context) {
 		return
 	}
 
-	ctx.Header("Content-Type", "text/xml")
+	ctx.Header("Content-Type", contentTypeJSON)
 	ctx.Write(buff.Bytes())
 }
 
@@ -208,13 +212,16 @@ func (w *Worker) apps(ctx iris.Context) {
 		return
 	}
 	apps := w.registryServer.ToEurekaApps(serviceInfos)
-	buff, err := xml.Marshal(apps)
+	accept := ctx.Request().Header.Get("Accept")
+
+	buff, err := w.encodByAcceptType(accept, apps)
 	if err != nil {
+		logger.Errorf("encode accept:%s, failed, err:%v", accept, err)
 		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
-	ctx.Header("Content-Type", "text/xml")
+	ctx.Header("Content-Type", accept)
 	ctx.Write(buff)
 }
 
@@ -234,14 +241,17 @@ func (w *Worker) app(ctx iris.Context) {
 		return
 	}
 
+	accept := ctx.Request().Header.Get("Accept")
 	app := w.registryServer.ToEurekaApp(serviceInfo)
-	buff, err := xml.Marshal(app)
+
+	buff, err := w.encodByAcceptType(accept, app)
 	if err != nil {
+		logger.Errorf("encode accept:%s, failed, err:%v", accept, err)
 		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
-	ctx.Header("Content-Type", "text/xml")
+	ctx.Header("Content-Type", accept)
 	ctx.Write(buff)
 }
 
@@ -270,13 +280,17 @@ func (w *Worker) getAppInstance(ctx iris.Context) {
 
 	if serviceInfo.Service.Name == serviceName && instanceID == serviceInfo.Ins.InstanceID {
 		ins := w.registryServer.ToEurekaInstanceInfo(serviceInfo)
-		buff, err := xml.Marshal(ins)
+		accept := ctx.Request().Header.Get("Accept")
+
+		buff, err := w.encodByAcceptType(accept, ins)
 		if err != nil {
+			logger.Errorf("encode accept:%s, failed, err:%v", accept, err)
 			api.HandleAPIError(ctx, http.StatusInternalServerError, err)
 			return
 		}
-		ctx.Header("Content-Type", "text/xml")
+		ctx.Header("Content-Type", accept)
 		ctx.Write(buff)
+		return
 	}
 
 	ctx.StatusCode(http.StatusNotFound)
@@ -300,11 +314,27 @@ func (w *Worker) getInstance(ctx iris.Context) {
 		return
 	}
 	ins := w.registryServer.ToEurekaInstanceInfo(serviceInfo)
-	buff, err := xml.Marshal(ins)
+	accept := ctx.Request().Header.Get("Accept")
+
+	buff, err := w.encodByAcceptType(accept, ins)
 	if err != nil {
+		logger.Errorf("encode accept:%s, failed, err:%v", accept, err)
 		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
 		return
 	}
-	ctx.Header("Content-Type", "text/xml")
+	ctx.Header("Content-Type", accept)
 	ctx.Write(buff)
+}
+
+func (w *Worker) encodByAcceptType(accept string, ins interface{}) ([]byte, error) {
+	switch accept {
+	case contentTypeJSON:
+		buff := bytes.NewBuffer(nil)
+		enc := json.NewEncoder(buff)
+		err := enc.Encode(ins)
+		return buff.Bytes(), err
+	default:
+		buff, err := xml.Marshal(ins)
+		return buff, err
+	}
 }
