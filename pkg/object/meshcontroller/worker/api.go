@@ -45,13 +45,18 @@ type (
 	}
 
 	eurekaAPPs struct {
-		VersionDelta string               `json:"versions__delat"`
-		AppHashCode  string               `json:"apps__hashcode"`
-		Application  []eureka.Application `json:"aplication"`
+		VersionDelta string      `json:"versions__delat"`
+		AppHashCode  string      `json:"apps__hashcode"`
+		Application  []eurekaAPP `json:"application"`
 	}
 
 	eurekaJSONAPP struct {
-		APP eureka.Application `json:"application"`
+		APP eurekaAPP `json:"application"`
+	}
+
+	eurekaAPP struct {
+		Name      string                `json:"name"`
+		Instances []eureka.InstanceInfo `json:"instances"`
 	}
 )
 
@@ -242,9 +247,13 @@ func (w *Worker) apps(ctx iris.Context) {
 		APPs: eurekaAPPs{
 			VersionDelta: strconv.Itoa(xmlAPPs.VersionsDelta),
 			AppHashCode:  xmlAPPs.AppsHashcode,
-			Application:  xmlAPPs.Applications,
 		},
 	}
+
+	for _, v := range xmlAPPs.Applications {
+		jsonAPPs.APPs.Application = append(jsonAPPs.APPs.Application, eurekaAPP{Name: v.Name, Instances: v.Instances})
+	}
+
 	accept := ctx.Request().Header.Get("Accept")
 
 	rsp, err := w.encodByAcceptType(accept, jsonAPPs, xmlAPPs)
@@ -278,7 +287,10 @@ func (w *Worker) app(ctx iris.Context) {
 	xmlAPP := w.registryServer.ToEurekaApp(serviceInfo)
 
 	jsonApp := eurekaJSONAPP{
-		APP: *xmlAPP,
+		APP: eurekaAPP{
+			Name:      xmlAPP.Name,
+			Instances: xmlAPP.Instances,
+		},
 	}
 	rsp, err := w.encodByAcceptType(accept, jsonApp, xmlAPP)
 	if err != nil {
