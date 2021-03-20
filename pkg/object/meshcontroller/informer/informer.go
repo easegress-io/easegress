@@ -147,7 +147,7 @@ func (inf *meshInformer) OnPartOfServiceSpec(serviceName string, gjsonPath GJSON
 	watcherKey := fmt.Sprintf("service-spec-%s-%s", serviceName, gjsonPath)
 
 	specFunc := func(event Event, value string) bool {
-		var serviceSpec *spec.Service
+		serviceSpec := &spec.Service{}
 		if event != EventDelete {
 			if err := yaml.Unmarshal([]byte(value), serviceSpec); err != nil {
 				if err != nil {
@@ -168,7 +168,7 @@ func (inf *meshInformer) OnPartOfInstanceSpec(serviceName, instanceID string, gj
 	watcherKey := fmt.Sprintf("service-instance-spec-%s-%s-%s", serviceName, instanceID, gjsonPath)
 
 	specFunc := func(event Event, value string) bool {
-		var instanceSpec *spec.ServiceInstanceSpec
+		instanceSpec := &spec.ServiceInstanceSpec{}
 		if event != EventDelete {
 			if err := yaml.Unmarshal([]byte(value), instanceSpec); err != nil {
 				if err != nil {
@@ -189,7 +189,7 @@ func (inf *meshInformer) OnPartOfServiceInstanceStatus(serviceName, instanceID s
 	watcherKey := fmt.Sprintf("service-instance-status-%s-%s-%s", serviceName, instanceID, gjsonPath)
 
 	specFunc := func(event Event, value string) bool {
-		var instanceStatus *spec.ServiceInstanceStatus
+		instanceStatus := &spec.ServiceInstanceStatus{}
 		if event != EventDelete {
 			if err := yaml.Unmarshal([]byte(value), instanceStatus); err != nil {
 				if err != nil {
@@ -210,7 +210,7 @@ func (inf *meshInformer) OnPartOfTenantSpec(tenant string, gjsonPath GJSONPath, 
 	watcherKey := fmt.Sprintf("tenant-%s", tenant)
 
 	specFunc := func(event Event, value string) bool {
-		var tenantSpec *spec.Tenant
+		tenantSpec := &spec.Tenant{}
 		if event != EventDelete {
 			if err := yaml.Unmarshal([]byte(value), tenantSpec); err != nil {
 				if err != nil {
