@@ -45,7 +45,7 @@ type (
 	}
 
 	eurekaAPPs struct {
-		VersionDelta string      `json:"versions__delat"`
+		VersionDelta string      `json:"versions__delta"`
 		AppHashCode  string      `json:"apps__hashcode"`
 		Application  []eurekaAPP `json:"application"`
 	}
@@ -56,7 +56,7 @@ type (
 
 	eurekaAPP struct {
 		Name      string                `json:"name"`
-		Instances []eureka.InstanceInfo `json:"instances"`
+		Instances []eureka.InstanceInfo `json:"instance"`
 	}
 )
 

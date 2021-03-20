@@ -133,9 +133,7 @@ func (rcs *Server) Discovery() ([]*ServiceRegistryInfo, error) {
 	}
 
 	for _, v := range tenants[rcs.tenant].Services {
-		if v != rcs.serviceName {
-			visibleServices = append(visibleServices, v)
-		}
+		visibleServices = append(visibleServices, v)
 	}
 
 	for _, v := range visibleServices {
