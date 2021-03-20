@@ -117,7 +117,7 @@ func (rcs *Server) register(ins *spec.ServiceInstanceSpec, ingressReady ReadyFun
 				// level triggered, loop unitl it success
 				tryTimes++
 				if ingressReady() == false || egressReady() == false {
-					logger.Infof("ingress or egress not ready")
+					logger.Infof("ingress ready %d, egress ready %d", ingressReady(), egressReady())
 					return
 				}
 
@@ -135,6 +135,7 @@ func (rcs *Server) register(ins *spec.ServiceInstanceSpec, ingressReady ReadyFun
 			}
 
 			routine()
+			time.Sleep(1 * time.Second)
 			rcs.mutex.Unlock()
 		}
 	}
