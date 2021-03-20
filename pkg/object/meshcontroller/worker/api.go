@@ -302,8 +302,11 @@ func (w *Worker) app(ctx iris.Context) {
 		return
 	}
 
+	// eureka use 'delta' after /apps/, need to handle this
+	// special case here.
 	if serviceName == "delta" {
-		w.appDelta(ctx)
+		// w.appDelta(ctx)
+		w.apps(ctx)
 		return
 	}
 
