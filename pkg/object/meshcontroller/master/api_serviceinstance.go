@@ -7,7 +7,6 @@ import (
 
 	"github.com/kataras/iris"
 	"github.com/megaease/easegateway/pkg/api"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/registrycenter"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
 
 	"gopkg.in/yaml.v2"
@@ -87,6 +86,6 @@ func (m *Master) offlineSerivceInstance(ctx iris.Context) {
 		return
 	}
 
-	instanceSpec.Status = registrycenter.SerivceStatusOutOfSerivce
+	instanceSpec.Status = spec.SerivceStatusOutOfSerivce
 	m.service.PutServiceInstanceSpec(instanceSpec)
 }
