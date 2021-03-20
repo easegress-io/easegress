@@ -1,8 +1,12 @@
 package registrycenter
 
-import "github.com/ArthurHlt/go-eureka-client/eureka"
+import (
+	"fmt"
 
-// ToEurekaInstanceInfo transfors serivce registry info to eureka's instance
+	"github.com/ArthurHlt/go-eureka-client/eureka"
+)
+
+// ToEurekaInstanceInfo transforms serivce registry info to eureka's instance
 func (rcs *Server) ToEurekaInstanceInfo(serviceInfo *ServiceRegistryInfo) *eureka.InstanceInfo {
 	var ins eureka.InstanceInfo
 
@@ -21,7 +25,7 @@ func (rcs *Server) ToEurekaInstanceInfo(serviceInfo *ServiceRegistryInfo) *eurek
 
 }
 
-// ToEurekaApp transfors registry center's serivce info to eureka's app
+// ToEurekaApp transforms registry center's serivce info to eureka's app
 func (rcs *Server) ToEurekaApp(serviceInfo *ServiceRegistryInfo) *eureka.Application {
 	var app eureka.Application
 
@@ -31,16 +35,22 @@ func (rcs *Server) ToEurekaApp(serviceInfo *ServiceRegistryInfo) *eureka.Applica
 	return &app
 }
 
-// ToEurekaApps transfors registry center's serivce info to eureka's apps
+// ToEurekaApps transforms registry center's serivce info to eureka's apps
 func (rcs *Server) ToEurekaApps(serviceInfos []*ServiceRegistryInfo) *eureka.Applications {
 	var apps eureka.Applications
-	delta := ""
 	for _, v := range serviceInfos {
 		app := rcs.ToEurekaApp(v)
-		delta += eureka.UP + "_1_" // according to eureka's client populateInstanceCountMap function
 		apps.Applications = append(apps.Applications, *app)
 	}
-	apps.AppsHashcode = delta
+	// according to eureka's client populateInstanceCountMap function
+	apps.AppsHashcode = fmt.Sprintf("%s_%d_", eureka.UP, len(serviceInfos))
 
+	return &apps
+}
+
+// ToEurekaAppsDelta transforms registry center's service info to eureka's apps delta
+func (rcs *Server) ToEurekaAppsDelta(serviceInfos []*ServiceRegistryInfo) *eureka.Applications {
+	var apps eureka.Applications
+	apps.AppsHashcode = fmt.Sprintf("%s_%d_", eureka.UP, len(serviceInfos))
 	return &apps
 }

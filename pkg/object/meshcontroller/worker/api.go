@@ -267,12 +267,46 @@ func (w *Worker) apps(ctx iris.Context) {
 	ctx.Write([]byte(rsp))
 }
 
+func (w *Worker) appDelta(ctx iris.Context) {
+	accept := ctx.Request().Header.Get("Accept")
+	if serviceInfos, err := w.registryServer.Discovery(); err != nil {
+		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
+		return
+	} else {
+		xmlAPPs := w.registryServer.ToEurekaAppsDelta(serviceInfos)
+
+		jsonAPPs := eurekaJSONApps{
+			APPs: eurekaAPPs{
+				VersionDelta: strconv.Itoa(xmlAPPs.VersionsDelta),
+				AppHashCode:  xmlAPPs.AppsHashcode,
+			},
+		}
+
+		rsp, err := w.encodByAcceptType(accept, jsonAPPs, xmlAPPs)
+		if err != nil {
+			logger.Errorf("encode accept:%s, failed, err:%v", accept, err)
+			api.HandleAPIError(ctx, http.StatusInternalServerError, err)
+			return
+		}
+
+		ctx.Header("Content-Type", accept)
+		ctx.Write([]byte(rsp))
+		return
+	}
+}
+
 func (w *Worker) app(ctx iris.Context) {
 	serviceName := ctx.Params().Get("serviceName")
 	if serviceName == "" {
 		api.HandleAPIError(ctx, http.StatusBadRequest, fmt.Errorf("empty service name(app)"))
 		return
 	}
+
+	if serviceName == "delta" {
+		w.appDelta(ctx)
+		return
+	}
+
 	var (
 		err         error
 		serviceInfo *registrycenter.ServiceRegistryInfo
@@ -282,7 +316,6 @@ func (w *Worker) app(ctx iris.Context) {
 		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
 		return
 	}
-
 	accept := ctx.Request().Header.Get("Accept")
 	xmlAPP := w.registryServer.ToEurekaApp(serviceInfo)
 
