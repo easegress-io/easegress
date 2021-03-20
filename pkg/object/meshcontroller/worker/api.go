@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 
+	"github.com/ArthurHlt/go-eureka-client/eureka"
 	"github.com/kataras/iris"
 
 	"github.com/megaease/easegateway/pkg/api"
@@ -35,6 +37,22 @@ var (
 	eurekaJSONTypeAPP  = "application"
 	eurekaJSONTypeIns  = "instance"
 	eurekaXML          = ""
+)
+
+type (
+	eurekaJSONApps struct {
+		APPs eurekaAPPs `json:"applications"`
+	}
+
+	eurekaAPPs struct {
+		VersionDelta string               `json:"versions__delat"`
+		AppHashCode  string               `json:"apps__hashcode"`
+		Application  []eureka.Application `json:"aplication"`
+	}
+
+	eurekaJSONAPP struct {
+		APP eureka.Application `json:"application"`
+	}
 )
 
 func (w *Worker) registerAPIs() {
@@ -218,10 +236,18 @@ func (w *Worker) apps(ctx iris.Context) {
 		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
 		return
 	}
-	apps := w.registryServer.ToEurekaApps(serviceInfos)
+	xmlAPPs := w.registryServer.ToEurekaApps(serviceInfos)
+
+	jsonAPPs := eurekaJSONApps{
+		APPs: eurekaAPPs{
+			VersionDelta: strconv.Itoa(xmlAPPs.VersionsDelta),
+			AppHashCode:  xmlAPPs.AppsHashcode,
+			Application:  xmlAPPs.Applications,
+		},
+	}
 	accept := ctx.Request().Header.Get("Accept")
 
-	rsp, err := w.encodByAcceptType(accept, eurekaJSONTypeAPPs, apps)
+	rsp, err := w.encodByAcceptType(accept, jsonAPPs, xmlAPPs)
 	if err != nil {
 		logger.Errorf("encode accept:%s, failed, err:%v", accept, err)
 		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
@@ -249,9 +275,12 @@ func (w *Worker) app(ctx iris.Context) {
 	}
 
 	accept := ctx.Request().Header.Get("Accept")
-	app := w.registryServer.ToEurekaApp(serviceInfo)
+	xmlAPP := w.registryServer.ToEurekaApp(serviceInfo)
 
-	rsp, err := w.encodByAcceptType(accept, eurekaJSONTypeAPP, app)
+	jsonApp := eurekaJSONAPP{
+		APP: *xmlAPP,
+	}
+	rsp, err := w.encodByAcceptType(accept, jsonApp, xmlAPP)
 	if err != nil {
 		logger.Errorf("encode accept:%s, failed, err:%v", accept, err)
 		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
@@ -289,7 +318,7 @@ func (w *Worker) getAppInstance(ctx iris.Context) {
 		ins := w.registryServer.ToEurekaInstanceInfo(serviceInfo)
 		accept := ctx.Request().Header.Get("Accept")
 
-		rsp, err := w.encodByAcceptType(accept, eurekaJSONTypeIns, ins)
+		rsp, err := w.encodByAcceptType(accept, ins, ins)
 		if err != nil {
 			logger.Errorf("encode accept:%s, failed, err:%v", accept, err)
 			api.HandleAPIError(ctx, http.StatusInternalServerError, err)
@@ -323,7 +352,7 @@ func (w *Worker) getInstance(ctx iris.Context) {
 	ins := w.registryServer.ToEurekaInstanceInfo(serviceInfo)
 	accept := ctx.Request().Header.Get("Accept")
 
-	rsp, err := w.encodByAcceptType(accept, eurekaJSONTypeIns, ins)
+	rsp, err := w.encodByAcceptType(accept, ins, ins)
 	if err != nil {
 		logger.Errorf("encode accept:%s, failed, err:%v", accept, err)
 		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
@@ -333,15 +362,15 @@ func (w *Worker) getInstance(ctx iris.Context) {
 	ctx.Write([]byte(rsp))
 }
 
-func (w *Worker) encodByAcceptType(accept string, jsonType string, ins interface{}) (string, error) {
+func (w *Worker) encodByAcceptType(accept string, jsonSt interface{}, xmlSt interface{}) ([]byte, error) {
 	switch accept {
 	case contentTypeJSON:
 		buff := bytes.NewBuffer(nil)
 		enc := json.NewEncoder(buff)
-		err := enc.Encode(ins)
-		return fmt.Sprintf("{\"%s\":%s}", jsonType, buff.Bytes()), err
+		err := enc.Encode(jsonSt)
+		return buff.Bytes(), err
 	default:
-		buff, err := xml.Marshal(ins)
-		return string(buff), err
+		buff, err := xml.Marshal(xmlSt)
+		return buff, err
 	}
 }
