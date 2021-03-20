@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/megaease/easegateway/pkg/logger"
 	"io/ioutil"
 	"net/http"
 )
@@ -122,8 +123,10 @@ func (client *JolokiaClient) execute(requestBody interface{}) (interface{}, erro
 	}
 	resp, err := client.handleRequest(body)
 	if err != nil {
+		logger.Errorf("Access JMX failed: %v", err)
 		return nil, err
 	}
+	logger.Infof("JMX request result: %v", resp)
 	return resp.Value, err
 }
 
