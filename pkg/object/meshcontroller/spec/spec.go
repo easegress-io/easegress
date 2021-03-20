@@ -109,7 +109,7 @@ type (
 	// ObservabilityTracings is the tracings of observability.
 	ObservabilityTracings struct {
 		Topic        string                      `yaml:"topic" jsonschema:"required"`
-		SampledByQPS int                         `yaml:"sampledByQPS" jsonschema:"required"`
+		SampleByQPS int                         `yaml:"sampleByQPS" jsonschema:"required"`
 		Request      ObservabilityTracingsDetail `yaml:"request" jsonschema:"required"`
 		RemoteInvoke ObservabilityTracingsDetail `yaml:"remoteInvoke" jsonschema:"required"`
 		Kafka        ObservabilityTracingsDetail `yaml:"kafka" jsonschema:"required"`
