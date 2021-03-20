@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"sync"
 	"time"
@@ -65,6 +66,18 @@ func MustNewServer(opt *option.Options, cluster cluster.Cluster) *Server {
 		app:     app,
 		cluster: cluster,
 	}
+
+	// NOTE: Fix trailing slash problem.
+	// Reference: https://github.com/kataras/iris/issues/820#issuecomment-383131098
+	app.WrapRouter(func(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
+		path := r.URL.Path
+		if len(path) > 1 && path[len(path)-1] == '/' && path[len(path)-2] != '/' {
+			path = path[:len(path)-1]
+			r.RequestURI = path
+			r.URL.Path = path
+		}
+		next(w, r)
+	})
 
 	app.Use(newConfigVersionAttacher(s))
 	app.Use(newRecoverer())
