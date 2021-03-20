@@ -31,7 +31,7 @@ func (rcs *Server) ToEurekaInstanceInfo(serviceInfo *ServiceRegistryInfo) *eurek
 func (rcs *Server) ToEurekaApp(serviceInfo *ServiceRegistryInfo) *eureka.Application {
 	var app eureka.Application
 
-	app.Name = serviceInfo.Service.Name
+	app.Name = strings.ToUpper(serviceInfo.Service.Name)
 	app.Instances = append(app.Instances, *rcs.ToEurekaInstanceInfo(serviceInfo))
 
 	return &app
