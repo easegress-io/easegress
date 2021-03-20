@@ -116,7 +116,7 @@ func (m *Master) checkInstancesHeartbeat() {
 				failedInstances = append(failedInstances, _spec)
 			} else {
 				if _spec.Status == spec.SerivceStatusOutOfSerivce {
-					logger.Infof("%s/%s heartbeat recoverd, make it UP", _spec.ServiceName, _spec.InstanceID)
+					logger.Infof("%s/%s heartbeat recovered, make it UP", _spec.ServiceName, _spec.InstanceID)
 					rebornInstances = append(rebornInstances, _spec)
 				}
 			}
