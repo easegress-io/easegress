@@ -7,7 +7,6 @@ import (
 	"github.com/megaease/easegateway/pkg/api"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/layout"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/registrycenter"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/service"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/storage"
@@ -126,7 +125,7 @@ func (m *Master) checkInstancesHeartbeat() {
 
 func (m *Master) handleFailedInstances(failedInstances []*spec.ServiceInstanceSpec) {
 	for _, _spec := range failedInstances {
-		_spec.Status = registrycenter.SerivceStatusOutOfSerivce
+		_spec.Status = spec.SerivceStatusOutOfSerivce
 
 		buff, err := yaml.Marshal(_spec)
 		if err != nil {

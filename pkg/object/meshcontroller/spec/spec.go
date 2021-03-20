@@ -26,6 +26,12 @@ const (
 	// GlobalTenant is the reserved name of the system scope tenant,
 	// its services can be accessable in mesh wide.
 	GlobalTenant = "global"
+
+	// SerivceStatusUp indicates this service instance can accept ingress traffic
+	SerivceStatusUp = "UP"
+
+	// SerivceStatusOutOfSerivce indicates this service instance can't accept ingress traffic
+	SerivceStatusOutOfSerivce = "OUT_OF_SERVICE"
 )
 
 var (
@@ -436,9 +442,11 @@ func (s *Service) IngressPipelineSpec(applicationPort uint32) *supervisor.Spec {
 func (s *Service) EgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec) *supervisor.Spec {
 	mainServers := []*backend.Server{}
 	for _, instanceSpec := range instanceSpecs {
-		mainServers = append(mainServers, &backend.Server{
-			URL: fmt.Sprintf("http://%s:%d", instanceSpec.IP, instanceSpec.Port),
-		})
+		if instanceSpec.Status == SerivceStatusUp {
+			mainServers = append(mainServers, &backend.Server{
+				URL: fmt.Sprintf("http://%s:%d", instanceSpec.IP, instanceSpec.Port),
+			})
+		}
 	}
 
 	pipelineSpecBuilder := newPipelineSpecBuilder(s.EgressPipelineName())

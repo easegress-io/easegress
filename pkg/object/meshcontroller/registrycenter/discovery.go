@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/layout"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
 )
 
@@ -45,17 +44,14 @@ func (rcs *Server) defaultInstance(service *spec.Service) *spec.ServiceInstanceS
 	}
 }
 
-func (rcs *Server) getTenants(tenantNames []string) (map[string]*spec.Tenant, error) {
-	var (
-		tenants map[string]*spec.Tenant = make(map[string]*spec.Tenant)
-		err     error
-	)
+func (rcs *Server) getTenants(tenantNames []string) map[string]*spec.Tenant {
+	var tenants map[string]*spec.Tenant = make(map[string]*spec.Tenant)
 
 	for _, v := range tenantNames {
-		tenants[v] = rcs.service.GetTenantSpec(layout.TenantSpecKey(v))
+		tenants[v] = rcs.service.GetTenantSpec(v)
 	}
 
-	return tenants, err
+	return tenants
 }
 
 // DiscoveryService gets one service specs with default instance
@@ -71,11 +67,7 @@ func (rcs *Server) DiscoveryService(serviceName string) (*ServiceRegistryInfo, e
 		return serviceInfo, spec.ErrNoRegisteredYet
 	}
 
-	tenants, err := rcs.getTenants([]string{spec.GlobalTenant, rcs.tenant})
-	if err != nil {
-		return serviceInfo, err
-	}
-
+	tenants := rcs.getTenants([]string{spec.GlobalTenant, rcs.tenant})
 	service := rcs.service.GetServiceSpec(serviceName)
 	if service == nil {
 		return nil, spec.ErrServiceNotFound
@@ -92,7 +84,7 @@ func (rcs *Server) DiscoveryService(serviceName string) (*ServiceRegistryInfo, e
 	}
 
 	if tenants[rcs.tenant] == nil {
-		err = fmt.Errorf("BUG: can't find service:%s's registry tenant:%s", rcs.serviceName, rcs.tenant)
+		err := fmt.Errorf("BUG: can't find service:%s's registry tenant:%s", rcs.serviceName, rcs.tenant)
 		logger.Errorf("%v", err)
 		return serviceInfo, err
 	}
@@ -119,16 +111,13 @@ func (rcs *Server) Discovery() ([]*ServiceRegistryInfo, error) {
 	var (
 		serviceInfos    []*ServiceRegistryInfo
 		visibleServices []string
+		err             error
 	)
 	if rcs.registered == false {
 		return serviceInfos, spec.ErrNoRegisteredYet
 	}
 
-	tenants, err := rcs.getTenants([]string{spec.GlobalTenant, rcs.tenant})
-	if err != nil {
-		return serviceInfos, err
-	}
-
+	tenants := rcs.getTenants([]string{spec.GlobalTenant, rcs.tenant})
 	if tenants[spec.GlobalTenant] != nil {
 		for _, v := range tenants[spec.GlobalTenant].Services {
 			if v != rcs.serviceName {

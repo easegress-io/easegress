@@ -22,12 +22,6 @@ const (
 	RegistryTypeEureka = "eureka"
 	// RegistryTypeConsul indicates a Consul registry center
 	RegistryTypeConsul = "consul"
-
-	// SerivceStatusUp indicates this service instance can accept ingress traffic
-	SerivceStatusUp = "UP"
-
-	// SerivceStatusOutOfSerivce indicates this service instance can't accept ingress traffic
-	SerivceStatusOutOfSerivce = "OUT_OF_SERVICE"
 )
 
 type (
@@ -123,6 +117,7 @@ func (rcs *Server) register(ins *spec.ServiceInstanceSpec, ingressReady ReadyFun
 				// level triggered, loop unitl it success
 				tryTimes++
 				if ingressReady() == false || egressReady() == false {
+					logger.Infof("ingress or egress not ready")
 					return
 				}
 
@@ -132,8 +127,9 @@ func (rcs *Server) register(ins *spec.ServiceInstanceSpec, ingressReady ReadyFun
 					return
 				}
 
-				ins.Status = SerivceStatusUp
+				ins.Status = spec.SerivceStatusUp
 				ins.RegistryTime = time.Now().Format(time.RFC3339)
+				rcs.registered = true
 				rcs.service.PutServiceInstanceSpec(ins)
 				logger.Infof("registry succ, service:%s, instanceID:%s, regitry succ, try times:%d", ins.ServiceName, ins.InstanceID, tryTimes)
 			}
