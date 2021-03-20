@@ -95,7 +95,7 @@ func (m *Master) checkInstancesHeartbeat() {
 	specs := m.service.ListAllServiceInstanceSpecs()
 
 	failedInstances := []*spec.ServiceInstanceSpec{}
-	aliveInstances := []*spec.ServiceInstanceSpec{}
+	rebornInstances := []*spec.ServiceInstanceSpec{}
 	now := time.Now()
 	for _, _spec := range specs {
 		var status *spec.ServiceInstanceStatus
@@ -112,12 +112,12 @@ func (m *Master) checkInstancesHeartbeat() {
 			}
 			gap := now.Sub(lastHeartbeatTime)
 			if gap > m.maxHeartbeatTimeout {
-				logger.Errorf("%s/%s expired,gap:%d", _spec.ServiceName, _spec.InstanceID, gap)
+				logger.Errorf("%s/%s expired for %s", _spec.ServiceName, _spec.InstanceID, gap.String())
 				failedInstances = append(failedInstances, _spec)
 			} else {
 				if _spec.Status == spec.SerivceStatusOutOfSerivce {
-					logger.Infof("%s/%s heartbeat valid, bring it back to alive", _spec.ServiceName, _spec.InstanceID)
-					aliveInstances = append(aliveInstances, _spec)
+					logger.Infof("%s/%s heartbeat recoverd, make it UP", _spec.ServiceName, _spec.InstanceID)
+					rebornInstances = append(rebornInstances, _spec)
 				}
 			}
 		} else {
@@ -127,17 +127,18 @@ func (m *Master) checkInstancesHeartbeat() {
 	}
 
 	m.handleFailedInstances(failedInstances)
+	m.handleRebornInstances(rebornInstances)
 }
 
-func (m *Master) handleBackAliveInstances(alivedInstances []*spec.ServiceInstanceSpec) {
-	m.updateInstances(alivedInstances, spec.SerivceStatusUp)
+func (m *Master) handleRebornInstances(rebornInstances []*spec.ServiceInstanceSpec) {
+	m.updateInstanceStatus(rebornInstances, spec.SerivceStatusUp)
 }
 
 func (m *Master) handleFailedInstances(failedInstances []*spec.ServiceInstanceSpec) {
-	m.updateInstances(failedInstances, spec.SerivceStatusOutOfSerivce)
+	m.updateInstanceStatus(failedInstances, spec.SerivceStatusOutOfSerivce)
 }
 
-func (m *Master) updateInstances(instances []*spec.ServiceInstanceSpec, status string) {
+func (m *Master) updateInstanceStatus(instances []*spec.ServiceInstanceSpec, status string) {
 	for _, _spec := range instances {
 		_spec.Status = status
 
