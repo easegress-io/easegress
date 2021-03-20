@@ -2,6 +2,7 @@ package registrycenter
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/ArthurHlt/go-eureka-client/eureka"
 )
@@ -12,9 +13,10 @@ func (rcs *Server) ToEurekaInstanceInfo(serviceInfo *ServiceRegistryInfo) *eurek
 
 	ins.HostName = serviceInfo.Service.EgressEndpoint()
 	ins.IpAddr = serviceInfo.Ins.IP
-	ins.App = serviceInfo.Service.Name
+	ins.App = strings.ToUpper(serviceInfo.Service.Name)
 	ins.Status = eureka.UP
 	ins.InstanceID = serviceInfo.Ins.InstanceID
+	ins.ActionType = "ADDED"
 
 	ins.Port = &eureka.Port{
 		Enabled: true,
