@@ -67,7 +67,7 @@ func (w *Worker) registerAPIs() {
 			Handler: w.emptyHandler,
 		},
 		{
-			Path:    MeshEurekaPrefix + "/apps",
+			Path:    MeshEurekaPrefix + "/apps/",
 			Method:  "GET",
 			Handler: w.apps,
 		},
