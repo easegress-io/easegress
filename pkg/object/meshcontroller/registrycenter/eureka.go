@@ -11,12 +11,18 @@ import (
 func (rcs *Server) ToEurekaInstanceInfo(serviceInfo *ServiceRegistryInfo) *eureka.InstanceInfo {
 	var ins eureka.InstanceInfo
 
-	ins.HostName = serviceInfo.Service.EgressEndpoint()
+	ins.HostName = serviceInfo.Ins.IP
 	ins.IpAddr = serviceInfo.Ins.IP
 	ins.App = strings.ToUpper(serviceInfo.Service.Name)
 	ins.Status = eureka.UP
 	ins.InstanceID = serviceInfo.Ins.InstanceID
 	ins.ActionType = "ADDED"
+	ins.DataCenterInfo = &eureka.DataCenterInfo{
+		Name:  "MyOwn",
+		Class: "com.netflix.appinfo.InstanceInfo$DefaultDataCenterInfo",
+	}
+	ins.VipAddress = serviceInfo.Service.Name
+	ins.SecureVipAddress = serviceInfo.Service.Name
 
 	ins.Port = &eureka.Port{
 		Enabled: true,
