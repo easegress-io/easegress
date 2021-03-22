@@ -73,7 +73,7 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 	aliveProbe := option.Global.Labels[labelAliveProbe]
 	applicationPort, err := strconv.Atoi(option.Global.Labels[labelApplicationPort])
 	if err != nil {
-		logger.Errorf("parse %s failed: %v", labelApplicationPort, err)
+		logger.Errorf("parse: %s failed: %v", labelApplicationPort, err)
 	}
 
 	instanceID := os.Getenv(podEnvHostname)
@@ -157,31 +157,28 @@ func (w *Worker) run() {
 		return
 	}
 
-	// asynchronous register itself
-	w.register()
-	go w.heartbeat()
-	go w.watchEvent()
-}
+	startUpRoutine := func() {
+		defer func() {
+			if err := recover(); err != nil {
+				logger.Errorf("%s: recover from: %v, stack trace:\n%s\n",
+					w.superSpec.Name(), err, debug.Stack())
+			}
+		}()
 
-func (w *Worker) register() {
-	defer func() {
-		if err := recover(); err != nil {
-			logger.Errorf("%s: recover from: %v, stack trace:\n%s\n",
-				w.superSpec.Name(), err, debug.Stack())
-		}
-	}()
+		serviceSpec, info := w.service.GetServiceSpecWithInfo(w.serviceName)
 
-	serviceSpec := w.service.GetServiceSpec(w.serviceName)
-	if serviceSpec == nil {
-		logger.Errorf("registry to unknown service: %s", w.serviceName)
-		return
+		w.registryServer.Register(serviceSpec, w.ingressServer.Ready, w.egressServer.Ready)
+		w.observabilityManager.UpdateService(serviceSpec, info.Version)
 	}
 
-	w.registryServer.Register(serviceSpec, w.ingressServer.Ready, w.egressServer.Ready)
+	startUpRoutine()
+	go w.heartbeat()
+	go w.watchEvent()
+	go w.pushSpecToJavaAgent()
 }
 
 func (w *Worker) heartbeat() {
-	observabilityReady, trafficGateReady := false, false
+	inforJavaAgentReady, trafficGateReady := false, false
 
 	routine := func() {
 		defer func() {
@@ -201,12 +198,12 @@ func (w *Worker) heartbeat() {
 		}
 
 		if w.registryServer.Registered() {
-			if !observabilityReady {
-				err := w.informObservability()
+			if !inforJavaAgentReady {
+				err := w.informJavaAgent()
 				if err != nil {
 					logger.Errorf(err.Error())
 				} else {
-					observabilityReady = true
+					inforJavaAgentReady = true
 				}
 			}
 
@@ -222,6 +219,29 @@ func (w *Worker) heartbeat() {
 		case <-w.done:
 			return
 		case <-time.After(w.heartbeatInterval):
+			routine()
+		}
+	}
+}
+
+func (w *Worker) pushSpecToJavaAgent() {
+	routine := func() {
+		defer func() {
+			if err := recover(); err != nil {
+				logger.Errorf("%s: recover from: %v, stack trace:\n%s\n",
+					w.superSpec.Name(), err, debug.Stack())
+			}
+		}()
+
+		serviceSpec, info := w.service.GetServiceSpecWithInfo(w.serviceName)
+		w.observabilityManager.UpdateService(serviceSpec, info.Version)
+	}
+
+	for {
+		select {
+		case <-w.done:
+			return
+		case <-time.After(1 * time.Minute):
 			routine()
 		}
 	}
@@ -287,7 +307,7 @@ func (w *Worker) updateHearbeat() error {
 
 func (w *Worker) addEgressWatching(serviceName string) {
 	handleSerivceSpec := func(event informer.Event, service *spec.Service) bool {
-		switch event {
+		switch event.EventType {
 		case informer.EventDelete:
 			w.egressServer.DeletePipeline(serviceName)
 			return false
@@ -343,13 +363,13 @@ func (w *Worker) addEgressWatching(serviceName string) {
 	}
 }
 
-func (w *Worker) informObservability() error {
-	handleServiceObservability := func(event informer.Event, service *spec.Service) bool {
-		switch event {
+func (w *Worker) informJavaAgent() error {
+	handleServiceSpec := func(event informer.Event, service *spec.Service) bool {
+		switch event.EventType {
 		case informer.EventDelete:
 			return false
 		case informer.EventUpdate:
-			if err := w.observabilityManager.UpdateObservability(w.serviceName, service.Observability); err != nil {
+			if err := w.observabilityManager.UpdateService(service, event.RawKV.Version); err != nil {
 				logger.Errorf("update observability failed: %v", err)
 			}
 		}
@@ -357,7 +377,7 @@ func (w *Worker) informObservability() error {
 		return true
 	}
 
-	err := w.informer.OnPartOfServiceSpec(w.serviceName, informer.ServiceObservability, handleServiceObservability)
+	err := w.informer.OnPartOfServiceSpec(w.serviceName, informer.AllParts, handleServiceSpec)
 	if err != nil && err != informer.ErrAlreadyWatched {
 		return fmt.Errorf("on informer for observability failed: %v", err)
 	}

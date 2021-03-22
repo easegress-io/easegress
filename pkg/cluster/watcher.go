@@ -73,6 +73,46 @@ func (w *watcher) Watch(key string) (<-chan *string, error) {
 	return keyChan, nil
 }
 
+func (w *watcher) WatchRaw(key string) (<-chan *clientv3.Event, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	watchResp := w.w.Watch(ctx, key)
+
+	eventChan := make(chan *clientv3.Event, 10)
+
+	go func() {
+		defer cancel()
+		defer close(eventChan)
+
+		for {
+			select {
+			case <-w.done:
+				return
+			case resp := <-watchResp:
+				if resp.Canceled {
+					logger.Infof("watch raw key %s canceled: %v", key, resp.Err())
+					return
+				}
+				if resp.IsProgressNotify() {
+					continue
+				}
+				for idx, event := range resp.Events {
+					switch event.Type {
+					case mvccpb.PUT:
+						eventChan <- resp.Events[idx]
+					case mvccpb.DELETE:
+						eventChan <- nil
+					default:
+						logger.Errorf("BUG: key %s received unknown event type %v",
+							key, event.Type)
+					}
+				}
+			}
+		}
+	}()
+
+	return eventChan, nil
+}
+
 func (w *watcher) WatchPrefix(prefix string) (<-chan map[string]*string, error) {
 	// NOTE: Can't use Context with timeout here.
 	ctx, cancel := context.WithCancel(context.Background())
@@ -105,6 +145,50 @@ func (w *watcher) WatchPrefix(prefix string) (<-chan map[string]*string, error) 
 						}
 					case mvccpb.DELETE:
 						prefixChan <- map[string]*string{
+							string(event.Kv.Key): nil,
+						}
+					default:
+						logger.Errorf("BUG: prefix %s received unknown event type %v",
+							prefix, event.Type)
+					}
+				}
+			}
+		}
+	}()
+
+	return prefixChan, nil
+}
+
+func (w *watcher) WatchRawPrefix(prefix string) (<-chan map[string]*clientv3.Event, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	watchResp := w.w.Watch(ctx, prefix, clientv3.WithPrefix())
+
+	prefixChan := make(chan map[string]*clientv3.Event, 10)
+
+	go func() {
+		defer cancel()
+		defer close(prefixChan)
+
+		for {
+			select {
+			case <-w.done:
+				return
+			case resp := <-watchResp:
+				if resp.Canceled {
+					logger.Errorf("watch raw prefix %s canceled: %v", prefix, resp.Err())
+					return
+				}
+				if resp.IsProgressNotify() {
+					continue
+				}
+				for idx, event := range resp.Events {
+					switch event.Type {
+					case mvccpb.PUT:
+						prefixChan <- map[string]*clientv3.Event{
+							string(event.Kv.Key): resp.Events[idx],
+						}
+					case mvccpb.DELETE:
+						prefixChan <- map[string]*clientv3.Event{
 							string(event.Kv.Key): nil,
 						}
 					default:

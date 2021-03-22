@@ -9,6 +9,7 @@ import (
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/storage"
 	"github.com/megaease/easegateway/pkg/supervisor"
+	"go.etcd.io/etcd/mvcc/mvccpb"
 
 	"gopkg.in/yaml.v2"
 )
@@ -63,22 +64,27 @@ func (s *Service) PutServiceSpec(serviceSpec *spec.Service) {
 }
 
 func (s *Service) GetServiceSpec(serviceName string) *spec.Service {
-	value, err := s.store.Get(layout.ServiceSpecKey(serviceName))
+	serviceSpec, _ := s.GetServiceSpecWithInfo(serviceName)
+	return serviceSpec
+}
+
+func (s *Service) GetServiceSpecWithInfo(serviceName string) (*spec.Service, *mvccpb.KeyValue) {
+	kv, err := s.store.GetRaw(layout.ServiceSpecKey(serviceName))
 	if err != nil {
 		api.ClusterPanic(err)
 	}
 
-	if value == nil {
-		return nil
+	if kv == nil {
+		return nil, nil
 	}
 
 	serviceSpec := &spec.Service{}
-	err = yaml.Unmarshal([]byte(*value), serviceSpec)
+	err = yaml.Unmarshal([]byte(kv.Value), serviceSpec)
 	if err != nil {
-		panic(fmt.Errorf("BUG: unmarshal %s to yaml failed: %v", *value, err))
+		panic(fmt.Errorf("BUG: unmarshal %s to yaml failed: %v", string(kv.Value), err))
 	}
 
-	return serviceSpec
+	return serviceSpec, kv
 }
 
 func (s *Service) DeleteServiceSpec(serviceName string) {

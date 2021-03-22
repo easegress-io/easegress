@@ -6,6 +6,8 @@ import (
 
 	yamljsontool "github.com/ghodss/yaml"
 	"github.com/tidwall/gjson"
+	"go.etcd.io/etcd/clientv3"
+	"go.etcd.io/etcd/mvcc/mvccpb"
 	"gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegateway/pkg/logger"
@@ -43,7 +45,10 @@ const (
 
 type (
 	// Event is the type of inform event.
-	Event string
+	Event struct {
+		EventType string
+		RawKV     *mvccpb.KeyValue
+	}
 
 	// GJSONPath is the type of inform path, in gjson syntax.
 	GJSONPath string
@@ -148,7 +153,7 @@ func (inf *meshInformer) OnPartOfServiceSpec(serviceName string, gjsonPath GJSON
 
 	specFunc := func(event Event, value string) bool {
 		serviceSpec := &spec.Service{}
-		if event != EventDelete {
+		if event.EventType != EventDelete {
 			if err := yaml.Unmarshal([]byte(value), serviceSpec); err != nil {
 				if err != nil {
 					logger.Errorf("BUG: unmarshal %s to yaml failed: %v", value, err)
@@ -169,7 +174,7 @@ func (inf *meshInformer) OnPartOfInstanceSpec(serviceName, instanceID string, gj
 
 	specFunc := func(event Event, value string) bool {
 		instanceSpec := &spec.ServiceInstanceSpec{}
-		if event != EventDelete {
+		if event.EventType != EventDelete {
 			if err := yaml.Unmarshal([]byte(value), instanceSpec); err != nil {
 				if err != nil {
 					logger.Errorf("BUG: unmarshal %s to yaml failed: %v", value, err)
@@ -190,7 +195,7 @@ func (inf *meshInformer) OnPartOfServiceInstanceStatus(serviceName, instanceID s
 
 	specFunc := func(event Event, value string) bool {
 		instanceStatus := &spec.ServiceInstanceStatus{}
-		if event != EventDelete {
+		if event.EventType != EventDelete {
 			if err := yaml.Unmarshal([]byte(value), instanceStatus); err != nil {
 				if err != nil {
 					logger.Errorf("BUG: unmarshal %s to yaml failed: %v", value, err)
@@ -211,7 +216,7 @@ func (inf *meshInformer) OnPartOfTenantSpec(tenant string, gjsonPath GJSONPath, 
 
 	specFunc := func(event Event, value string) bool {
 		tenantSpec := &spec.Tenant{}
-		if event != EventDelete {
+		if event.EventType != EventDelete {
 			if err := yaml.Unmarshal([]byte(value), tenantSpec); err != nil {
 				if err != nil {
 					logger.Errorf("BUG: unmarshal %s to yaml failed: %v", value, err)
@@ -340,7 +345,7 @@ func (inf *meshInformer) onSpecPart(storeKey, watcherKey string, gjsonPath GJSON
 	}
 
 	if _, ok := inf.watchers[watcherKey]; ok {
-		logger.Errorf("watch key:%s already", watcherKey)
+		logger.Infof("watch key:%s already", watcherKey)
 		return ErrAlreadyWatched
 	}
 
@@ -357,7 +362,7 @@ func (inf *meshInformer) onSpecPart(storeKey, watcherKey string, gjsonPath GJSON
 		return err
 	}
 
-	ch, err := watcher.Watch(storeKey)
+	ch, err := watcher.WatchRaw(storeKey)
 	if err != nil {
 		return err
 	}
@@ -387,7 +392,7 @@ func (inf *meshInformer) onSpecs(storePrefix, watcherKey string, fn specsHandleF
 		return err
 	}
 
-	ch, err := watcher.WatchPrefix(storePrefix)
+	ch, err := watcher.WatchRawPrefix(storePrefix)
 	if err != nil {
 		return err
 	}
@@ -415,18 +420,23 @@ func (inf *meshInformer) Close() {
 	inf.closed = true
 }
 
-func (inf *meshInformer) watch(ch <-chan *string, watcherKey,
+func (inf *meshInformer) watch(ch <-chan *clientv3.Event, watcherKey,
 	oldValue string, path GJSONPath, fn specHandleFunc) {
 
 	for value := range ch {
 		var continueWatch bool
 
 		if value == nil {
-			continueWatch = fn(EventDelete, "")
+			continueWatch = fn(Event{
+				EventType: EventDelete,
+			}, "")
 		} else {
-			if !inf.comparePart(path, oldValue, *value) {
-				oldValue = *value
-				continueWatch = fn(EventUpdate, oldValue)
+			if !inf.comparePart(path, oldValue, string(value.Kv.Value)) {
+				oldValue = string(value.Kv.Value)
+				continueWatch = fn(Event{
+					EventType: EventUpdate,
+					RawKV:     value.Kv,
+				}, oldValue)
 			}
 		}
 
@@ -436,7 +446,7 @@ func (inf *meshInformer) watch(ch <-chan *string, watcherKey,
 	}
 }
 
-func (inf *meshInformer) watchPrefix(ch <-chan map[string]*string, watcherKey string,
+func (inf *meshInformer) watchPrefix(ch <-chan map[string]*clientv3.Event, watcherKey string,
 	kvs map[string]string, fn specsHandleFunc) {
 
 	for changedKvs := range ch {
@@ -447,7 +457,7 @@ func (inf *meshInformer) watchPrefix(ch <-chan map[string]*string, watcherKey st
 				delete(kvs, k)
 				continueWatch = fn(kvs)
 			} else {
-				kvs[k] = *v
+				kvs[k] = string(v.Kv.Value)
 				continueWatch = fn(kvs)
 			}
 
