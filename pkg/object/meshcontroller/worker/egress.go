@@ -121,7 +121,7 @@ func (egs *EgressServer) UpdatePipeline(service *spec.Service, instanceSpec []*s
 		return err
 	}
 	if pipeline == nil {
-		return fmt.Errorf("can't find service:%s's egress pipeline", service.Name)
+		return fmt.Errorf("can't find service: %s's egress pipeline", service.Name)
 	}
 
 	newPipeline := &httppipeline.HTTPPipeline{}
@@ -155,7 +155,7 @@ func (egs *EgressServer) Handle(ctx context.HTTPContext) {
 	serviceName := ctx.Request().Header().Get(egressRPCKey)
 
 	if len(serviceName) == 0 {
-		logger.Errorf("handle egress rpc without setting serivce name in %s, header:%#v",
+		logger.Errorf("handle egress rpc without setting serivce name in: %s header: %#v",
 			egressRPCKey, ctx.Request().Header())
 		ctx.Response().SetStatusCode(http.StatusNotFound)
 		return
@@ -164,10 +164,10 @@ func (egs *EgressServer) Handle(ctx context.HTTPContext) {
 	pipeline, err := egs.getPipeline(serviceName)
 	if err != nil {
 		if err == spec.ErrServiceNotFound {
-			logger.Errorf("handle egress rpc unknow service:%s", serviceName)
+			logger.Errorf("handle egress rpc unknow service: %s", serviceName)
 			ctx.Response().SetStatusCode(http.StatusNotFound)
 		} else {
-			logger.Errorf("handle egress rpc service:%s, get pipeline failed:%v", serviceName, err)
+			logger.Errorf("handle egress rpc service: %s get pipeline failed: %v", serviceName, err)
 			ctx.Response().SetStatusCode(http.StatusInternalServerError)
 		}
 		return

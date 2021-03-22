@@ -167,7 +167,7 @@ func (w *Worker) applicationRegister(ctx iris.Context) {
 
 	serviceSpec := w.service.GetServiceSpec(w.serviceName)
 	if serviceSpec == nil {
-		err := fmt.Errorf("registry to unknown service %s", w.serviceName)
+		err := fmt.Errorf("registry to unknown service: %s", w.serviceName)
 		api.HandleAPIError(ctx, http.StatusBadRequest, err)
 		return
 	}
@@ -258,7 +258,7 @@ func (w *Worker) apps(ctx iris.Context) {
 
 	rsp, err := w.encodByAcceptType(accept, jsonAPPs, xmlAPPs)
 	if err != nil {
-		logger.Errorf("encode accept:%s, failed, err:%v", accept, err)
+		logger.Errorf("encode accept: %s failed: %v", accept, err)
 		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
 		return
 	}
@@ -284,7 +284,7 @@ func (w *Worker) appDelta(ctx iris.Context) {
 
 		rsp, err := w.encodByAcceptType(accept, jsonAPPs, xmlAPPs)
 		if err != nil {
-			logger.Errorf("encode accept:%s, failed, err:%v", accept, err)
+			logger.Errorf("encode accept: %s failed: %v", accept, err)
 			api.HandleAPIError(ctx, http.StatusInternalServerError, err)
 			return
 		}
@@ -330,7 +330,7 @@ func (w *Worker) app(ctx iris.Context) {
 	}
 	rsp, err := w.encodByAcceptType(accept, jsonApp, xmlAPP)
 	if err != nil {
-		logger.Errorf("encode accept:%s, failed, err:%v", accept, err)
+		logger.Errorf("encode accept: %s failed: %v", accept, err)
 		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
 		return
 	}
@@ -368,7 +368,7 @@ func (w *Worker) getAppInstance(ctx iris.Context) {
 
 		rsp, err := w.encodByAcceptType(accept, ins, ins)
 		if err != nil {
-			logger.Errorf("encode accept:%s, failed, err:%v", accept, err)
+			logger.Errorf("encode accept: %s failed: %v", accept, err)
 			api.HandleAPIError(ctx, http.StatusInternalServerError, err)
 			return
 		}
@@ -388,7 +388,7 @@ func (w *Worker) getInstance(ctx iris.Context) {
 	}
 	serviceName := registrycenter.GetServiceName(instanceID)
 	if len(serviceName) == 0 {
-		api.HandleAPIError(ctx, http.StatusBadRequest, fmt.Errorf("unknow instanceID:%s", instanceID))
+		api.HandleAPIError(ctx, http.StatusBadRequest, fmt.Errorf("unknow instanceID: %s", instanceID))
 		return
 	}
 
@@ -402,7 +402,7 @@ func (w *Worker) getInstance(ctx iris.Context) {
 
 	rsp, err := w.encodByAcceptType(accept, ins, ins)
 	if err != nil {
-		logger.Errorf("encode accept:%s, failed, err:%v", accept, err)
+		logger.Errorf("encode accept: %s failed: %v", accept, err)
 		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
 		return
 	}

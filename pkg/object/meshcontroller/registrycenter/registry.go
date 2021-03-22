@@ -117,7 +117,7 @@ func (rcs *Server) register(ins *spec.ServiceInstanceSpec, ingressReady ReadyFun
 				// level triggered, loop unitl it success
 				tryTimes++
 				if ingressReady() == false || egressReady() == false {
-					logger.Infof("ingress ready %d, egress ready %d", ingressReady(), egressReady())
+					logger.Infof("ingress ready: %d egress ready: %d", ingressReady(), egressReady())
 					return
 				}
 
@@ -131,7 +131,7 @@ func (rcs *Server) register(ins *spec.ServiceInstanceSpec, ingressReady ReadyFun
 				ins.RegistryTime = time.Now().Format(time.RFC3339)
 				rcs.registered = true
 				rcs.service.PutServiceInstanceSpec(ins)
-				logger.Infof("registry succ, service:%s, instanceID:%s, regitry succ, try times:%d", ins.ServiceName, ins.InstanceID, tryTimes)
+				logger.Infof("registry succ service: %s instanceID: %s regitry succ try times: %d", ins.ServiceName, ins.InstanceID, tryTimes)
 			}
 
 			routine()
@@ -152,7 +152,7 @@ func (rcs *Server) decodeByConsulFormat(body []byte) error {
 		return err
 	}
 
-	logger.Infof("decode consul body succ, body:%s", string(body))
+	logger.Infof("decode consul body succ body: %s", string(body))
 	return err
 }
 
@@ -166,16 +166,16 @@ func (rcs *Server) decodeByEurekaFormat(contentType string, body []byte) error {
 	case "application/json":
 		dec := json.NewDecoder(bytes.NewReader(body))
 		if err = dec.Decode(&eurekaIns); err != nil {
-			logger.Errorf("decode eureka contentType:%s body:%s, failed, err:%v", contentType, string(body), err)
+			logger.Errorf("decode eureka contentType: %s body: %s failed: %v", contentType, string(body), err)
 			return err
 		}
 	default:
 		if err = xml.Unmarshal([]byte(body), &eurekaIns); err != nil {
-			logger.Errorf("decode eureka contentType:%s body:%s, failed, err:%v", contentType, string(body), err)
+			logger.Errorf("decode eureka contentType: %s body: %s failed: %v", contentType, string(body), err)
 			return err
 		}
 	}
-	logger.Infof("decode eureka body succ, contentType:%s body:%s", contentType, string(body))
+	logger.Infof("decode eureka body succ contentType: %s body: %s", contentType, string(body))
 
 	return err
 }
@@ -191,7 +191,7 @@ func (rcs *Server) DecodeRegistryBody(contentType string, reqBody []byte) error 
 	case RegistryTypeConsul:
 		err = rcs.decodeByConsulFormat(reqBody)
 	default:
-		return fmt.Errorf("BUG: can't recognize registry type:%s, req body:%s", rcs.RegistryType, (reqBody))
+		return fmt.Errorf("BUG: can't recognize registry type: %s req body: %s", rcs.RegistryType, (reqBody))
 	}
 
 	return err

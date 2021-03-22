@@ -84,7 +84,7 @@ func (rcs *Server) DiscoveryService(serviceName string) (*ServiceRegistryInfo, e
 	}
 
 	if tenants[rcs.tenant] == nil {
-		err := fmt.Errorf("BUG: can't find service:%s's registry tenant:%s", rcs.serviceName, rcs.tenant)
+		err := fmt.Errorf("BUG: can't find service: %s's registry tenant: %s", rcs.serviceName, rcs.tenant)
 		logger.Errorf("%v", err)
 		return serviceInfo, err
 	}
@@ -127,7 +127,7 @@ func (rcs *Server) Discovery() ([]*ServiceRegistryInfo, error) {
 	}
 
 	if tenants[rcs.tenant] == nil {
-		err = fmt.Errorf("BUG: can't find service:%s's registry tenant:%s", rcs.serviceName, rcs.tenant)
+		err = fmt.Errorf("BUG: can't find service: %s's registry tenant: %s", rcs.serviceName, rcs.tenant)
 		logger.Errorf("%v", err)
 		return serviceInfos, err
 	}
@@ -138,7 +138,7 @@ func (rcs *Server) Discovery() ([]*ServiceRegistryInfo, error) {
 
 	for _, v := range visibleServices {
 		if service := rcs.service.GetServiceSpec(v); service == nil {
-			logger.Errorf("can't find service :%s, failed , err:%v", v, err)
+			logger.Errorf("can't find service: %s failed: %v", v, err)
 			continue
 		} else {
 			serviceInfos = append(serviceInfos, &ServiceRegistryInfo{

@@ -104,12 +104,12 @@ func (ings *IngressServer) UpdatePipeline(newSpec string) error {
 
 	pipeline, ok := ings.pipelines[service.IngressPipelineName()]
 	if !ok {
-		return fmt.Errorf("can't find service:%s's ingress pipeline", ings.serviceName)
+		return fmt.Errorf("can't find service: %s's ingress pipeline", ings.serviceName)
 	}
 
 	superSpec, err := supervisor.NewSpec(newSpec)
 	if err != nil {
-		logger.Errorf("BUG: update ingress pipeline spec :%s , new super spec failed:%v", newSpec, err)
+		logger.Errorf("BUG: update ingress pipeline spec: %s new super spec failed: %v", newSpec, err)
 		return err
 	}
 

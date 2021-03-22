@@ -35,11 +35,11 @@ func (server *ObservabilityManager) UpdateObservability(serviceName string, newO
 	paramsMap := structs.Map(newObservability)
 	args := []interface{}{paramsMap}
 
-	logger.Infof("Update Service %s Observability, new Observability is %s.", serviceName, newObservability)
+	logger.Infof("Update Service: %s Observability, new Observability is %s", serviceName, newObservability)
 
 	_, err := server.jolokiaClient.ExecuteMbeanOperation(easeAgentConfigManager, "updateObservability", args)
 	if err != nil {
-		return fmt.Errorf("updateObservability service %s observability failed: %v", serviceName, err)
+		return fmt.Errorf("updateObservability service: %s observability failed: %v", serviceName, err)
 	}
 
 	return nil
