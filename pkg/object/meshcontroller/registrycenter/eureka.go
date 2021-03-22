@@ -16,13 +16,13 @@ func (rcs *Server) ToEurekaInstanceInfo(serviceInfo *ServiceRegistryInfo) *eurek
 	ins.App = strings.ToUpper(serviceInfo.Service.Name)
 	ins.Status = eureka.UP
 	ins.InstanceID = serviceInfo.Ins.InstanceID
-	ins.ActionType = "ADDED"
 	ins.DataCenterInfo = &eureka.DataCenterInfo{
 		Name:  "MyOwn",
 		Class: "com.netflix.appinfo.InstanceInfo$DefaultDataCenterInfo",
 	}
 	ins.VipAddress = serviceInfo.Service.Name
 	ins.SecureVipAddress = serviceInfo.Service.Name
+	ins.ActionType = "ADDED"
 
 	ins.Port = &eureka.Port{
 		Enabled: true,
@@ -49,16 +49,12 @@ func (rcs *Server) ToEurekaApps(serviceInfos []*ServiceRegistryInfo) *eureka.App
 	for _, v := range serviceInfos {
 		app := rcs.ToEurekaApp(v)
 		apps.Applications = append(apps.Applications, *app)
+		if apps.VersionsDelta == 0 {
+			apps.VersionsDelta = int(v.Version)
+		}
 	}
 	// according to eureka's client populateInstanceCountMap function
 	apps.AppsHashcode = fmt.Sprintf("%s_%d_", eureka.UP, len(serviceInfos))
 
-	return &apps
-}
-
-// ToEurekaAppsDelta transforms registry center's service info to eureka's apps delta
-func (rcs *Server) ToEurekaAppsDelta(serviceInfos []*ServiceRegistryInfo) *eureka.Applications {
-	var apps eureka.Applications
-	apps.AppsHashcode = fmt.Sprintf("%s_%d_", eureka.UP, len(serviceInfos))
 	return &apps
 }

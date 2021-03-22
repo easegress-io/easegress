@@ -115,22 +115,27 @@ func (s *Service) ListServiceSpecs() []*spec.Service {
 }
 
 func (s *Service) GetTenantSpec(tenantName string) *spec.Tenant {
-	value, err := s.store.Get(layout.TenantSpecKey(tenantName))
+	tenant, _ := s.GetTenantSpecWithInfo(tenantName)
+	return tenant
+}
+
+func (s *Service) GetTenantSpecWithInfo(tenantName string) (*spec.Tenant, *mvccpb.KeyValue) {
+	kvs, err := s.store.GetRaw(layout.TenantSpecKey(tenantName))
 	if err != nil {
 		api.ClusterPanic(err)
 	}
 
-	if value == nil {
-		return nil
+	if kvs == nil {
+		return nil, nil
 	}
 
 	tenant := &spec.Tenant{}
-	err = yaml.Unmarshal([]byte(*value), tenant)
+	err = yaml.Unmarshal(kvs.Value, tenant)
 	if err != nil {
-		panic(fmt.Errorf("BUG: unmarshal %s to yaml failed: %v", *value, err))
+		panic(fmt.Errorf("BUG: unmarshal %s to yaml failed: %v", string(kvs.Value), err))
 	}
 
-	return tenant
+	return tenant, kvs
 }
 
 func (s *Service) PutTenantSpec(tenantSpec *spec.Tenant) {

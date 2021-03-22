@@ -242,7 +242,6 @@ func (w *Worker) apps(ctx iris.Context) {
 		return
 	}
 	xmlAPPs := w.registryServer.ToEurekaApps(serviceInfos)
-
 	jsonAPPs := eurekaJSONApps{
 		APPs: eurekaAPPs{
 			VersionDelta: strconv.Itoa(xmlAPPs.VersionsDelta),
@@ -267,34 +266,6 @@ func (w *Worker) apps(ctx iris.Context) {
 	ctx.Write([]byte(rsp))
 }
 
-func (w *Worker) appDelta(ctx iris.Context) {
-	accept := ctx.Request().Header.Get("Accept")
-	if serviceInfos, err := w.registryServer.Discovery(); err != nil {
-		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
-		return
-	} else {
-		xmlAPPs := w.registryServer.ToEurekaAppsDelta(serviceInfos)
-
-		jsonAPPs := eurekaJSONApps{
-			APPs: eurekaAPPs{
-				VersionDelta: strconv.Itoa(xmlAPPs.VersionsDelta),
-				AppHashCode:  xmlAPPs.AppsHashcode,
-			},
-		}
-
-		rsp, err := w.encodByAcceptType(accept, jsonAPPs, xmlAPPs)
-		if err != nil {
-			logger.Errorf("encode accept: %s failed: %v", accept, err)
-			api.HandleAPIError(ctx, http.StatusInternalServerError, err)
-			return
-		}
-
-		ctx.Header("Content-Type", accept)
-		ctx.Write([]byte(rsp))
-		return
-	}
-}
-
 func (w *Worker) app(ctx iris.Context) {
 	serviceName := ctx.Params().Get("serviceName")
 	if serviceName == "" {
@@ -305,7 +276,6 @@ func (w *Worker) app(ctx iris.Context) {
 	// eureka use 'delta' after /apps/, need to handle this
 	// special case here.
 	if serviceName == "delta" {
-		// w.appDelta(ctx)
 		w.apps(ctx)
 		return
 	}

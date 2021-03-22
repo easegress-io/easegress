@@ -7,15 +7,23 @@ import (
 
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
+	"go.etcd.io/etcd/mvcc/mvccpb"
 )
 
-// ServiceRegistryInfo contains service's spec,
-//  and its instance, which is the sidecar+egress port address
-type ServiceRegistryInfo struct {
-	Service *spec.Service
-	Ins     *spec.ServiceInstanceSpec   // indicates local egress
-	RealIns []*spec.ServiceInstanceSpec // trully instance list in mesh
-}
+type (
+	// ServiceRegistryInfo contains service's spec,
+	//  and its instance, which is the sidecar+egress port address
+	ServiceRegistryInfo struct {
+		Service *spec.Service
+		Ins     *spec.ServiceInstanceSpec // indicates local egress
+		Version int64                     // tenant etcd key version,
+	}
+
+	tenantInfo struct {
+		tenant *spec.Tenant
+		info   *mvccpb.KeyValue
+	}
+)
 
 // UniqInstanceID creates a virutal uniq ID for every visible
 // service in mesh
@@ -44,14 +52,20 @@ func (rcs *Server) defaultInstance(service *spec.Service) *spec.ServiceInstanceS
 	}
 }
 
-func (rcs *Server) getTenants(tenantNames []string) map[string]*spec.Tenant {
-	var tenants map[string]*spec.Tenant = make(map[string]*spec.Tenant)
+func (rcs *Server) getTenants(tenantNames []string) map[string]*tenantInfo {
+	tenantInfos := make(map[string]*tenantInfo)
 
 	for _, v := range tenantNames {
-		tenants[v] = rcs.service.GetTenantSpec(v)
+		tenant, info := rcs.service.GetTenantSpecWithInfo(v)
+		if tenant != nil {
+			tenantInfos[v] = &tenantInfo{
+				tenant: tenant,
+				info:   info,
+			}
+		}
 	}
 
-	return tenants
+	return tenantInfos
 }
 
 // DiscoveryService gets one service specs with default instance
@@ -74,8 +88,8 @@ func (rcs *Server) DiscoveryService(serviceName string) (*ServiceRegistryInfo, e
 	}
 
 	var inGlobal bool = false
-	if tenants[spec.GlobalTenant] != nil {
-		for _, v := range tenants[spec.GlobalTenant].Services {
+	if globalTenant, ok := tenants[spec.GlobalTenant]; ok {
+		for _, v := range globalTenant.tenant.Services {
 			if v == serviceName {
 				inGlobal = true
 				break
@@ -83,7 +97,7 @@ func (rcs *Server) DiscoveryService(serviceName string) (*ServiceRegistryInfo, e
 		}
 	}
 
-	if tenants[rcs.tenant] == nil {
+	if _, ok := tenants[rcs.tenant]; !ok {
 		err := fmt.Errorf("BUG: can't find service: %s's registry tenant: %s", rcs.serviceName, rcs.tenant)
 		logger.Errorf("%v", err)
 		return serviceInfo, err
@@ -96,6 +110,7 @@ func (rcs *Server) DiscoveryService(serviceName string) (*ServiceRegistryInfo, e
 	return &ServiceRegistryInfo{
 		Service: service,
 		Ins:     rcs.defaultInstance(service),
+		Version: tenants[rcs.tenant].info.Version,
 	}, nil
 }
 
@@ -116,23 +131,28 @@ func (rcs *Server) Discovery() ([]*ServiceRegistryInfo, error) {
 	if rcs.registered == false {
 		return serviceInfos, spec.ErrNoRegisteredYet
 	}
-
-	tenants := rcs.getTenants([]string{spec.GlobalTenant, rcs.tenant})
-	if tenants[spec.GlobalTenant] != nil {
-		for _, v := range tenants[spec.GlobalTenant].Services {
+	var version int64
+	tenantInfos := rcs.getTenants([]string{spec.GlobalTenant, rcs.tenant})
+	if globalTentant, ok := tenantInfos[spec.GlobalTenant]; ok {
+		version = globalTentant.info.Version
+		for _, v := range tenantInfos[spec.GlobalTenant].tenant.Services {
 			if v != rcs.serviceName {
 				visibleServices = append(visibleServices, v)
 			}
 		}
 	}
 
-	if tenants[rcs.tenant] == nil {
+	if tenant, ok := tenantInfos[rcs.tenant]; !ok {
 		err = fmt.Errorf("BUG: can't find service: %s's registry tenant: %s", rcs.serviceName, rcs.tenant)
 		logger.Errorf("%v", err)
 		return serviceInfos, err
+	} else {
+		if tenant.info.Version > version {
+			version = tenant.info.Version
+		}
 	}
 
-	for _, v := range tenants[rcs.tenant].Services {
+	for _, v := range tenantInfos[rcs.tenant].tenant.Services {
 		visibleServices = append(visibleServices, v)
 	}
 
@@ -144,6 +164,7 @@ func (rcs *Server) Discovery() ([]*ServiceRegistryInfo, error) {
 			serviceInfos = append(serviceInfos, &ServiceRegistryInfo{
 				Service: service,
 				Ins:     rcs.defaultInstance(service),
+				Version: version,
 			})
 		}
 	}
