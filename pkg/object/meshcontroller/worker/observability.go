@@ -48,9 +48,9 @@ func (server *ObservabilityManager) UpdateObservability(serviceName string, newO
 
 
 // UpdateService updates service.
-func (server *ObservabilityManager) UpdateService(newService *spec.Service) error {
+func (server *ObservabilityManager) UpdateService(newService *spec.Service, version int64) error {
 	paramsMap := structs.Map(newService)
-	args := []interface{}{paramsMap}
+	args := []interface{}{paramsMap, version}
 
 	logger.Infof("Update Service: %s Observability, new Service is %s", newService.Name, newService)
 
