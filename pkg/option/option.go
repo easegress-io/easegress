@@ -61,9 +61,6 @@ type Options struct {
 	AbsWALDir    string `yaml:"-"`
 	AbsLogDir    string `yaml:"-"`
 	AbsMemberDir string `yaml:"-"`
-
-	// go test may fail with out '-t', reference: https://github.com/alecthomas/kingpin/issues/167
-	Placeholder string `yaml:"-" short:"t" long:"test" description:"not used yet"`
 }
 
 // New creates a default Options.
