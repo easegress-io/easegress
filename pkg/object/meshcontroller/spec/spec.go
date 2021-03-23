@@ -32,6 +32,12 @@ const (
 
 	// SerivceStatusOutOfSerivce indicates this service instance can't accept ingress traffic
 	SerivceStatusOutOfSerivce = "OUT_OF_SERVICE"
+
+	// WorkerAPIPort is the default port for worker's API server
+	WorkerAPIPort = 13009
+
+	// HeartbeatInterval is the default heartbeat interval for checking service heartbeat
+	HeartbeatInterval = "5s"
 )
 
 var (
@@ -52,6 +58,9 @@ type (
 		HeartbeatInterval string `yaml:"heartbeatInterval" jsonschema:"required,format=duration"`
 		// RegistryTime indicates which protocol the registry center accepts.
 		RegistryType string `yaml:"registryType" jsonschema:"required"`
+
+		// APIPort is the port for worker's API server
+		APIPort int `yaml:"apiport" jsonschema:"omitempty"`
 	}
 
 	// Service contains the information of service.
@@ -109,7 +118,7 @@ type (
 	// ObservabilityTracings is the tracings of observability.
 	ObservabilityTracings struct {
 		Topic        string                      `yaml:"topic" jsonschema:"required"`
-		SampleByQPS int                         `yaml:"sampleByQPS" jsonschema:"required"`
+		SampleByQPS  int                         `yaml:"sampleByQPS" jsonschema:"required"`
 		Request      ObservabilityTracingsDetail `yaml:"request" jsonschema:"required"`
 		RemoteInvoke ObservabilityTracingsDetail `yaml:"remoteInvoke" jsonschema:"required"`
 		Kafka        ObservabilityTracingsDetail `yaml:"kafka" jsonschema:"required"`

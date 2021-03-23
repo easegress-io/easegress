@@ -43,6 +43,7 @@ type (
 		ingressServer        *IngressServer
 		egressServer         *EgressServer
 		observabilityManager *ObservabilityManager
+		apiServer            *apiServer
 
 		egressEvent chan string
 		done        chan struct{}
@@ -84,6 +85,7 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 	egressServer := NewEgressServer(superSpec, super, serviceName, _service, egressEvent)
 	observabilityManager := NewObservabilityServer(serviceName)
 	inf := informer.NewInformer(store)
+	apiServer := NewAPIServer(spec.APIPort)
 
 	w := &Worker{
 		super:     super,
@@ -104,6 +106,7 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 		ingressServer:        ingressServer,
 		egressServer:         egressServer,
 		observabilityManager: observabilityManager,
+		apiServer:            apiServer,
 
 		egressEvent: egressEvent,
 		done:        make(chan struct{}),
@@ -405,4 +408,5 @@ func (w *Worker) Close() {
 
 	w.informer.Close()
 	w.registryServer.Close()
+	w.apiServer.Close()
 }

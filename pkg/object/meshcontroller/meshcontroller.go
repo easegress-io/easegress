@@ -49,8 +49,9 @@ func (mc *MeshController) Kind() string {
 // DefaultSpec returns the default spec of MeshController.
 func (mc *MeshController) DefaultSpec() interface{} {
 	return &spec.Admin{
-		HeartbeatInterval: "5s",
-		RegistryType:      "consul",
+		HeartbeatInterval: spec.HeartbeatInterval,
+		RegistryType:      spec.RegistryTypeEureka,
+		APIPort:           spec.WorkerAPIPort,
 	}
 }
 

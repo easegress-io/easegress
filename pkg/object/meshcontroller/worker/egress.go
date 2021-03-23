@@ -172,6 +172,7 @@ func (egs *EgressServer) Handle(ctx context.HTTPContext) {
 		}
 		return
 	}
+	logger.Infof("service name:%s pipeline:%#v", serviceName, pipeline)
 
 	pipeline.Handle(ctx)
 }

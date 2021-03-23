@@ -22,11 +22,8 @@ const (
 	// MeshPrefix is the mesh prefix.
 	MeshPrefix = "/mesh"
 
-	// MeshConsulPrefix is the mesh  consul registry center prefix.
-	MeshConsulPrefix = "/mesh/registry/consul"
-
 	// MeshEurekaPrefix is the mesh eureka registry center prefix.
-	MeshEurekaPrefix = "/mesh/registry/eureka"
+	MeshEurekaPrefix = "/mesh/eureka"
 
 	contentTypeXML  = "text/xml"
 	contentTypeJSON = "application/json"
@@ -61,25 +58,40 @@ type (
 )
 
 func (w *Worker) registerAPIs() {
-	meshWorkerAPIs := []*api.APIEntry{
+	meshWorkerAPIs := []*apiEntry{
 		// for consul registry/discovery RESTful APIs
 		{
-			Path:    MeshConsulPrefix + "/v1/catalog/register",
+			Path:    "/v1/catalog/register",
 			Method:  "PUT",
 			Handler: w.applicationRegister,
 		},
 		{
-			Path:    MeshConsulPrefix + "/v1/catalog/deregister",
+			Path:    "/v1/agent/service/register",
+			Method:  "PUT",
+			Handler: w.applicationRegister,
+		},
+		{
+			Path:    "/v1/agent/service/deregister",
 			Method:  "DELETE",
 			Handler: w.emptyHandler,
 		},
 		{
-			Path:    MeshConsulPrefix + "/v1/catalog/services",
+			Path:    "/v1/health/service/{serviceName:string}",
+			Method:  "GET",
+			Handler: w.healthService,
+		},
+		{
+			Path:    "/v1/catalog/deregister",
+			Method:  "DELETE",
+			Handler: w.emptyHandler,
+		},
+		{
+			Path:    "/v1/catalog/services",
 			Method:  "GET",
 			Handler: w.catalogServices,
 		},
 		{
-			Path:    MeshConsulPrefix + "/v1/catalog/service/{serviceName:string}",
+			Path:    "/v1/catalog/service/{serviceName:string}",
 			Method:  "GET",
 			Handler: w.catalogService,
 		},
@@ -147,9 +159,7 @@ func (w *Worker) registerAPIs() {
 		},
 	}
 
-	// Debug info in sidecar image
-	fmt.Printf("api global servce is %#v", api.GlobalServer)
-	api.GlobalServer.RegisterAPIs(meshWorkerAPIs)
+	w.apiServer.registerAPIs(meshWorkerAPIs)
 }
 
 func (w *Worker) applicationRegister(ctx iris.Context) {
@@ -224,6 +234,35 @@ func (w *Worker) catalogService(ctx iris.Context) {
 	buff := bytes.NewBuffer(nil)
 	enc := json.NewEncoder(buff)
 	if err := enc.Encode(catalogService); err != nil {
+		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
+	ctx.Header("Content-Type", contentTypeJSON)
+	ctx.Write(buff.Bytes())
+}
+
+func (w *Worker) healthService(ctx iris.Context) {
+	serviceName := ctx.Params().Get("serviceName")
+	if serviceName == "" {
+		api.HandleAPIError(ctx, http.StatusBadRequest, fmt.Errorf("empty service name"))
+		return
+	}
+	var (
+		err         error
+		serviceInfo *registrycenter.ServiceRegistryInfo
+	)
+
+	if serviceInfo, err = w.registryServer.DiscoveryService(serviceName); err != nil {
+		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
+	serviceEntry := w.registryServer.ToConsulHealthService(serviceInfo)
+
+	buff := bytes.NewBuffer(nil)
+	enc := json.NewEncoder(buff)
+	if err := enc.Encode(serviceEntry); err != nil {
 		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
 		return
 	}
