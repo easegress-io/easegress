@@ -38,7 +38,7 @@ func (server *ObservabilityManager) UpdateService(newService *spec.Service, vers
 	if err != nil {
 		panic(fmt.Errorf("marsharl new Service %#v failed: %v", err))
 	}
-	m := make(map[string]string)
+	m := make(map[string]interface{})
 	err = yaml.Unmarshal(buff, m)
 	if err != nil {
 		panic(fmt.Errorf("marsharl new Service %#v failed: %v", err))
