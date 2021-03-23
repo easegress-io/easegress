@@ -1,10 +1,9 @@
-package main
+package worker
 
 import (
 	"fmt"
 	yaml "gopkg.in/yaml.v2"
 
-	"github.com/fatih/structs"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
 	"github.com/megaease/easegateway/pkg/util/jmxtool"
