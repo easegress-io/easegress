@@ -7,7 +7,6 @@ import (
 	"os"
 	"runtime/debug"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/megaease/easegateway/pkg/logger"
@@ -17,7 +16,6 @@ import (
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/service"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/storage"
-	"github.com/megaease/easegateway/pkg/option"
 	"github.com/megaease/easegateway/pkg/supervisor"
 	"gopkg.in/yaml.v2"
 )
@@ -25,8 +23,6 @@ import (
 type (
 	// Worker is a sidecar in service mesh.
 	Worker struct {
-		mutex sync.Mutex
-
 		super             *supervisor.Supervisor
 		superSpec         *supervisor.Spec
 		spec              *spec.Admin
@@ -69,9 +65,9 @@ const (
 func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 	spec := superSpec.ObjectSpec().(*spec.Admin)
 
-	serviceName := option.Global.Labels[labelServiceName]
-	aliveProbe := option.Global.Labels[labelAliveProbe]
-	applicationPort, err := strconv.Atoi(option.Global.Labels[labelApplicationPort])
+	serviceName := super.Options().Labels[labelServiceName]
+	aliveProbe := super.Options().Labels[labelAliveProbe]
+	applicationPort, err := strconv.Atoi(super.Options().Labels[labelApplicationPort])
 	if err != nil {
 		logger.Errorf("parse: %s failed: %v", labelApplicationPort, err)
 	}

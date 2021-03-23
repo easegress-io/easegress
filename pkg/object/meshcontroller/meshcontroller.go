@@ -5,7 +5,6 @@ import (
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/master"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/worker"
-	"github.com/megaease/easegateway/pkg/option"
 	"github.com/megaease/easegateway/pkg/supervisor"
 )
 
@@ -70,7 +69,7 @@ func (mc *MeshController) Inherit(spec *supervisor.Spec,
 }
 
 func (mc *MeshController) reload() {
-	service := option.Global.Labels["mesh-servicename"]
+	service := mc.super.Options().Labels["mesh-servicename"]
 
 	if len(service) == 0 {
 		logger.Infof("%s running in master role", mc.superSpec.Name())
@@ -82,7 +81,6 @@ func (mc *MeshController) reload() {
 	logger.Infof("%s running in worker role", mc.superSpec.Name())
 	mc.role = meshRoleWorker
 	mc.worker = worker.New(mc.superSpec, mc.super)
-	return
 }
 
 // Status returns the status of MeshController.

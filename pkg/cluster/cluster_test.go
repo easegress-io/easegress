@@ -19,7 +19,7 @@ func mockClusters(count int) []*cluster {
 	time.Sleep(HeartbeatInterval)
 
 	for i := 1; i < count; i++ {
-		opts[i].ClusterJoinURLs = opts[0].ClusterPeerURL
+		opts[i].ClusterJoinURLs = []string{opts[0].ClusterPeerURL}
 		cls, err := New(opts[i])
 		if err != nil {
 			panic(fmt.Errorf("new cluster failed: %v", err))

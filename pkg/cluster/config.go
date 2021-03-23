@@ -69,7 +69,7 @@ func (c *cluster) prepareEtcdConfig() (*embed.Config, error) {
 		self := c.members.self()
 		ec.InitialCluster = fmt.Sprintf("%s=%s", self.Name, self.PeerURL)
 	} else {
-		if c.opt.ClusterJoinURLs == "" {
+		if len(c.opt.ClusterJoinURLs) == 0 {
 			if c.members.clusterMembersLen() == 1 &&
 				common.IsDirEmpty(c.opt.AbsDataDir) {
 				ec.ClusterState = embed.ClusterStateFlagNew

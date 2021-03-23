@@ -66,9 +66,8 @@ func newMembers(opt *option.Options) (*members, error) {
 	}
 	m.ClusterMembers.update(initMS)
 
-	if opt.ClusterJoinURLs != "" {
-		peerURLs := strings.Split(opt.ClusterJoinURLs, ",")
-		for _, peerURL := range peerURLs {
+	if len(opt.ClusterJoinURLs) != 0 {
+		for _, peerURL := range opt.ClusterJoinURLs {
 			initMS = append(initMS, &member{
 				PeerURL: peerURL,
 			})

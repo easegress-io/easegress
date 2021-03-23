@@ -33,8 +33,6 @@ func main() {
 		common.Exit(0, msg)
 	}
 
-	option.Global = opt
-
 	err = env.InitServerDir(opt)
 	if err != nil {
 		log.Printf("failed to init env: %v", err)

@@ -12,7 +12,6 @@ import (
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
 	"github.com/megaease/easegateway/pkg/object/httpserver"
 	"github.com/megaease/easegateway/pkg/object/statussynccontroller"
-	"github.com/megaease/easegateway/pkg/option"
 	"github.com/megaease/easegateway/pkg/supervisor"
 	"github.com/megaease/easegateway/pkg/util/httpstat"
 
@@ -276,9 +275,9 @@ func (emm *EaseMonitorMetrics) record2Messages(record *statussynccontroller.Stat
 		baseFields := &GlobalFields{
 			Timestamp: record.UnixTimestmp * 1000,
 			Category:  "application",
-			HostName:  option.Global.Name,
+			HostName:  emm.super.Options().Name,
 			HostIpv4:  hostIPv4,
-			System:    option.Global.ClusterName,
+			System:    emm.super.Options().ClusterName,
 			Service:   objectName,
 		}
 
