@@ -1,12 +1,15 @@
 package worker
 
 import (
+	"encoding/json"
 	"fmt"
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
 	"github.com/megaease/easegateway/pkg/util/jmxtool"
+
+	yamljsontool "github.com/ghodss/yaml"
 )
 
 const (
@@ -36,15 +39,16 @@ func (server *ObservabilityManager) UpdateService(newService *spec.Service, vers
 
 	buff, err := yaml.Marshal(newService)
 	if err != nil {
-		panic(fmt.Errorf("marsharl new Service %#v failed: %v", err))
+		return fmt.Errorf("UpdateService service: %s  failed: %v", newService.Name, err)
 	}
-	m := make(map[string]interface{})
-	err = yaml.Unmarshal(buff, m)
-	if err != nil {
-		panic(fmt.Errorf("marsharl new Service %#v failed: %v", err))
-	}
+	jsonBytes, err := yamljsontool.YAMLToJSON(buff)
 
-	args := []interface{}{m, version}
+	var params interface{}
+	err = json.Unmarshal(jsonBytes, &params)
+	if err != nil {
+		return fmt.Errorf("UpdateService service: %s  failed: %v", newService.Name, err)
+	}
+	args := []interface{}{params, version}
 
 	logger.Infof("Update Service: %s Observability, new Service is %s", newService.Name, newService)
 
