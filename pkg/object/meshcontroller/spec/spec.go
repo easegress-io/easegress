@@ -113,12 +113,15 @@ type (
 	ObservabilityOutputServer struct {
 		Enabled         bool   `yaml:"enabled" jsonschema:"required"`
 		BootstrapServer string `yaml:"bootstrapServer" jsonschema:"required"`
+		Timeout         int    `yaml:"timeout" jsonschema:"required"`
 	}
 
 	// ObservabilityTracings is the tracings of observability.
 	ObservabilityTracings struct {
-		Topic        string                      `yaml:"topic" jsonschema:"required"`
-		SampleByQPS  int                         `yaml:"sampleByQPS" jsonschema:"required"`
+		Enabled     bool                              `yaml:"enabled" jsonschema:"required"`
+		SampleByQPS int                               `yaml:"sampleByQPS" jsonschema:"required"`
+		Output      ObservabilityTracingsOutputConfig `yaml:"output" jsonschema:"required"`
+
 		Request      ObservabilityTracingsDetail `yaml:"request" jsonschema:"required"`
 		RemoteInvoke ObservabilityTracingsDetail `yaml:"remoteInvoke" jsonschema:"required"`
 		Kafka        ObservabilityTracingsDetail `yaml:"kafka" jsonschema:"required"`
@@ -127,6 +130,15 @@ type (
 		Rabbit       ObservabilityTracingsDetail `yaml:"rabbit" jsonschema:"required"`
 	}
 
+	ObservabilityTracingsOutputConfig struct {
+		Enabled         bool   `yaml:"enabled" jsonschema:"required"`
+		ReportThread    int    `yaml:"reportThread" jsonschema:"required"`
+		Topic           string `yaml:"topic" jsonschema:"required"`
+		MessageMaxBytes int    `yaml:"messageMaxBytes" jsonschema:"required"`
+		MessageMaxSpans int    `yaml:"messageMaxSpans" jsonschema:"required"`
+		QueuedMaxSpans  int    `yaml:"queuedMaxSpans" jsonschema:"required"`
+		QueuedMaxSize   int    `yaml:"queuedMaxSize" jsonschema:"required"`
+	}
 	// ObservabilityTracingsDetail is the tracing detail of observability.
 	ObservabilityTracingsDetail struct {
 		Enabled       bool   `yaml:"enabled" jsonschema:"required"`
@@ -135,12 +147,17 @@ type (
 
 	// ObservabilityMetrics is the metrics of observability.
 	ObservabilityMetrics struct {
+		Enabled        bool                       `yaml:"enabled" jsonschema:"required"`
+		Access         ObservabilityMetricsDetail `yaml:"access" jsonschema:"required"`
 		Request        ObservabilityMetricsDetail `yaml:"request" jsonschema:"required"`
 		JdbcStatement  ObservabilityMetricsDetail `yaml:"jdbcStatement" jsonschema:"required"`
 		JdbcConnection ObservabilityMetricsDetail `yaml:"jdbcConnection" jsonschema:"required"`
 		Rabbit         ObservabilityMetricsDetail `yaml:"rabbit" jsonschema:"required"`
 		Kafka          ObservabilityMetricsDetail `yaml:"kafka" jsonschema:"required"`
 		Redis          ObservabilityMetricsDetail `yaml:"redis" jsonschema:"required"`
+		JvmGC          ObservabilityMetricsDetail `yaml:"jvmGc" jsonschema:"required"`
+		JvmMemory      ObservabilityMetricsDetail `yaml:"jvmMemory" jsonschema:"required"`
+		Md5Dictionary  ObservabilityMetricsDetail `yaml:"md5Dictionary" jsonschema:"required"`
 	}
 
 	// ObservabilityMetricsDetail is the metrics detail of observability.
