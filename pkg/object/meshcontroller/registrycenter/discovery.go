@@ -43,12 +43,12 @@ func GetServiceName(instanceID string) string {
 }
 
 // defaultInstance creates default egress instance point to the sidecar's egress port
-func (rcs *Server) defaultInstance(service *spec.Service) *spec.ServiceInstanceSpec {
+func (rcs *Server) defaultInstance(self, target *spec.Service) *spec.ServiceInstanceSpec {
 	return &spec.ServiceInstanceSpec{
-		ServiceName: service.Name,
-		InstanceID:  UniqInstanceID(service.Name),
-		IP:          service.Sidecar.Address,
-		Port:        uint32(service.Sidecar.EgressPort),
+		ServiceName: target.Name,
+		InstanceID:  UniqInstanceID(target.Name),
+		IP:          self.Sidecar.Address,
+		Port:        uint32(self.Sidecar.EgressPort),
 	}
 }
 
@@ -82,9 +82,14 @@ func (rcs *Server) DiscoveryService(serviceName string) (*ServiceRegistryInfo, e
 	}
 
 	tenants := rcs.getTenants([]string{spec.GlobalTenant, rcs.tenant})
-	service := rcs.service.GetServiceSpec(serviceName)
-	if service == nil {
+	target := rcs.service.GetServiceSpec(serviceName)
+	if target == nil {
 		return nil, spec.ErrServiceNotFound
+	}
+	self := rcs.service.GetServiceSpec(rcs.serviceName)
+	if self == nil {
+		logger.Errorf("service: %s get self spec not found", rcs.serviceName)
+		return nil, spec.ErrNoRegisteredYet
 	}
 
 	var inGlobal bool = false
@@ -103,13 +108,13 @@ func (rcs *Server) DiscoveryService(serviceName string) (*ServiceRegistryInfo, e
 		return serviceInfo, err
 	}
 
-	if !inGlobal && service.RegisterTenant != rcs.tenant {
+	if !inGlobal && target.RegisterTenant != rcs.tenant {
 		return nil, spec.ErrServiceNotFound
 	}
 
 	return &ServiceRegistryInfo{
-		Service: service,
-		Ins:     rcs.defaultInstance(service),
+		Service: target,
+		Ins:     rcs.defaultInstance(self, target),
 		Version: tenants[rcs.tenant].info.Version,
 	}, nil
 }
@@ -125,10 +130,16 @@ func (rcs *Server) Discovery() ([]*ServiceRegistryInfo, error) {
 	}()
 	var (
 		serviceInfos    []*ServiceRegistryInfo
-		visibleServices []string
+		visibleServices map[string]bool
 		err             error
 	)
+	visibleServices = make(map[string]bool)
 	if !rcs.registered {
+		return serviceInfos, spec.ErrNoRegisteredYet
+	}
+	self := rcs.service.GetServiceSpec(rcs.serviceName)
+	if self == nil {
+		logger.Errorf("service: %s get self spec not found", rcs.serviceName)
 		return serviceInfos, spec.ErrNoRegisteredYet
 	}
 	var version int64
@@ -137,7 +148,7 @@ func (rcs *Server) Discovery() ([]*ServiceRegistryInfo, error) {
 		version = globalTentant.info.Version
 		for _, v := range tenantInfos[spec.GlobalTenant].tenant.Services {
 			if v != rcs.serviceName {
-				visibleServices = append(visibleServices, v)
+				visibleServices[v] = true
 			}
 		}
 	}
@@ -152,19 +163,28 @@ func (rcs *Server) Discovery() ([]*ServiceRegistryInfo, error) {
 		}
 	}
 
-	visibleServices = append(visibleServices, tenantInfos[rcs.tenant].tenant.Services...)
+	for _, v := range tenantInfos[rcs.tenant].tenant.Services {
+		visibleServices[v] = true
+	}
 
-	for _, v := range visibleServices {
-		if service := rcs.service.GetServiceSpec(v); service == nil {
-			logger.Errorf("can't find service: %s failed: %v", v, err)
-			continue
+	for k, _ := range visibleServices {
+		var spec *spec.Service
+		if k == rcs.serviceName {
+			spec = self
 		} else {
-			serviceInfos = append(serviceInfos, &ServiceRegistryInfo{
-				Service: service,
-				Ins:     rcs.defaultInstance(service),
-				Version: version,
-			})
+			if service := rcs.service.GetServiceSpec(k); service == nil {
+				logger.Errorf("can't find service: %s failed: %v", k, err)
+				continue
+			} else {
+				spec = service
+			}
 		}
+
+		serviceInfos = append(serviceInfos, &ServiceRegistryInfo{
+			Service: spec,
+			Ins:     rcs.defaultInstance(self, spec),
+			Version: version,
+		})
 	}
 
 	return serviceInfos, err
