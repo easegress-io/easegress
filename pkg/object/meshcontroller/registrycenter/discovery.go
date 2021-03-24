@@ -16,7 +16,7 @@ type (
 	ServiceRegistryInfo struct {
 		Service *spec.Service
 		Ins     *spec.ServiceInstanceSpec // indicates local egress
-		Version int64                     // tenant etcd key version,
+		Version int64                     // tenant ETCD key version,
 	}
 
 	tenantInfo struct {
@@ -25,7 +25,7 @@ type (
 	}
 )
 
-// UniqInstanceID creates a virutal uniq ID for every visible
+// UniqInstanceID creates a virtual uniq ID for every visible
 // service in mesh
 func UniqInstanceID(serviceName string) string {
 	return fmt.Sprintf("ins-%s-01", serviceName)
@@ -77,7 +77,7 @@ func (rcs *Server) DiscoveryService(serviceName string) (*ServiceRegistryInfo, e
 		}
 	}()
 	var serviceInfo *ServiceRegistryInfo
-	if rcs.registered == false {
+	if !rcs.registered {
 		return serviceInfo, spec.ErrNoRegisteredYet
 	}
 
@@ -115,7 +115,7 @@ func (rcs *Server) DiscoveryService(serviceName string) (*ServiceRegistryInfo, e
 }
 
 // Discovery gets all services' spec and default instance(local sidecar for ever)
-// which are visable for local service
+// which are visible for local service
 func (rcs *Server) Discovery() ([]*ServiceRegistryInfo, error) {
 	defer func() {
 		if err := recover(); err != nil {
@@ -128,7 +128,7 @@ func (rcs *Server) Discovery() ([]*ServiceRegistryInfo, error) {
 		visibleServices []string
 		err             error
 	)
-	if rcs.registered == false {
+	if !rcs.registered {
 		return serviceInfos, spec.ErrNoRegisteredYet
 	}
 	var version int64
@@ -152,9 +152,7 @@ func (rcs *Server) Discovery() ([]*ServiceRegistryInfo, error) {
 		}
 	}
 
-	for _, v := range tenantInfos[rcs.tenant].tenant.Services {
-		visibleServices = append(visibleServices, v)
-	}
+	visibleServices = append(visibleServices, tenantInfos[rcs.tenant].tenant.Services...)
 
 	for _, v := range visibleServices {
 		if service := rcs.service.GetServiceSpec(v); service == nil {

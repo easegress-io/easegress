@@ -19,9 +19,9 @@ import (
 const (
 	// TODO: Support EventCreate.
 
-	// EventUpdate is the update infrom event.
+	// EventUpdate is the update inform event.
 	EventUpdate = "Update"
-	// EventDelete is the delete infrom event.
+	// EventDelete is the delete inform event.
 	EventDelete = "Delete"
 
 	// AllParts is the path of the whole structure.
@@ -39,7 +39,7 @@ const (
 	// ServiceLoadBalance is the path of service loadbalance.
 	ServiceLoadBalance GJSONPath = "loadBalance"
 
-	// ServiceCircuitBreaker is the path of service resielience's circuritBreaker part.
+	// ServiceCircuitBreaker is the path of service resilience's circuritBreaker part.
 	ServiceCircuitBreaker GJSONPath = "resilience.circuitBreaker"
 )
 
@@ -50,7 +50,7 @@ type (
 		RawKV     *mvccpb.KeyValue
 	}
 
-	// GJSONPath is the type of inform path, in gjson syntax.
+	// GJSONPath is the type of inform path, in GJSON syntax.
 	GJSONPath string
 
 	specHandleFunc  func(event Event, value string) bool
@@ -88,7 +88,7 @@ type (
 	//  2. Based on comparison on entries with the same prefix.
 	Informer interface {
 		OnPartOfServiceSpec(serviceName string, gjsonPath GJSONPath, fn ServiceSpecFunc) error
-		OnSerivceSpecs(servicePrefix string, fn ServiceSpecsFunc) error
+		OnServiceSpecs(servicePrefix string, fn ServiceSpecsFunc) error
 
 		OnPartOfInstanceSpec(serviceName, instanceID string, gjsonPath GJSONPath, fn ServicesInstanceSpecFunc) error
 		OnServiceInstanceSpecs(serviceName string, fn ServiceInstanceSpecsFunc) error
@@ -230,8 +230,8 @@ func (inf *meshInformer) OnPartOfTenantSpec(tenant string, gjsonPath GJSONPath, 
 	return inf.onSpecPart(storeKey, watcherKey, gjsonPath, specFunc)
 }
 
-// OnSerivceSpecs watches service specs with the prefix.
-func (inf *meshInformer) OnSerivceSpecs(servicePrefix string, fn ServiceSpecsFunc) error {
+// OnServiceSpecs watches service specs with the prefix.
+func (inf *meshInformer) OnServiceSpecs(servicePrefix string, fn ServiceSpecsFunc) error {
 	watcherKey := fmt.Sprintf("prefix-service-%s", servicePrefix)
 
 	specsFunc := func(kvs map[string]string) bool {

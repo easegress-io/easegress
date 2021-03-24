@@ -77,7 +77,7 @@ func (rcs *Server) Close() {
 // Register registers itself into mesh
 func (rcs *Server) Register(serviceSpec *spec.Service, ingressReady ReadyFunc, egressReady ReadyFunc) {
 	rcs.tenant = serviceSpec.RegisterTenant
-	if rcs.Registered() == true {
+	if rcs.Registered() {
 		return
 	}
 
@@ -89,8 +89,6 @@ func (rcs *Server) Register(serviceSpec *spec.Service, ingressReady ReadyFunc, e
 	}
 
 	go rcs.register(ins, ingressReady, egressReady)
-
-	return
 }
 
 func (rcs *Server) register(ins *spec.ServiceInstanceSpec, ingressReady ReadyFunc, egressReady ReadyFunc) {
@@ -102,7 +100,7 @@ func (rcs *Server) register(ins *spec.ServiceInstanceSpec, ingressReady ReadyFun
 			return
 		default:
 			rcs.mutex.Lock()
-			if rcs.registered == true {
+			if rcs.registered {
 				rcs.mutex.Unlock()
 				return
 			}
@@ -114,14 +112,14 @@ func (rcs *Server) register(ins *spec.ServiceInstanceSpec, ingressReady ReadyFun
 							err, debug.Stack())
 					}
 				}()
-				// level triggered, loop unitl it success
+				// level triggered, loop until it success
 				tryTimes++
-				if ingressReady() == false || egressReady() == false {
+				if !ingressReady() || !egressReady() {
 					logger.Infof("ingress ready: %d egress ready: %d", ingressReady(), egressReady())
 					return
 				}
 
-				// alreading been registered
+				// already been registered
 				if ins := rcs.service.GetServiceInstanceSpec(rcs.serviceName, rcs.instanceID); ins != nil {
 					rcs.registered = true
 					return
@@ -131,7 +129,7 @@ func (rcs *Server) register(ins *spec.ServiceInstanceSpec, ingressReady ReadyFun
 				ins.RegistryTime = time.Now().Format(time.RFC3339)
 				rcs.registered = true
 				rcs.service.PutServiceInstanceSpec(ins)
-				logger.Infof("registry succ service: %s instanceID: %s regitry succ try times: %d", ins.ServiceName, ins.InstanceID, tryTimes)
+				logger.Infof("registry SUCC service: %s instanceID: %s registry try times: %d", ins.ServiceName, ins.InstanceID, tryTimes)
 			}
 
 			routine()
@@ -152,7 +150,7 @@ func (rcs *Server) decodeByConsulFormat(body []byte) error {
 		return err
 	}
 
-	logger.Infof("decode consul body succ body: %s", string(body))
+	logger.Infof("decode consul body SUCC body: %s", string(body))
 	return err
 }
 
@@ -175,7 +173,7 @@ func (rcs *Server) decodeByEurekaFormat(contentType string, body []byte) error {
 			return err
 		}
 	}
-	logger.Infof("decode eureka body succ contentType: %s body: %s", contentType, string(body))
+	logger.Infof("decode eureka body SUCC contentType: %s body: %s", contentType, string(body))
 
 	return err
 }

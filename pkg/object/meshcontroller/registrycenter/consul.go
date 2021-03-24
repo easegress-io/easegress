@@ -39,7 +39,7 @@ func (rcs *Server) ToConsulHealthService(serviceInfo *ServiceRegistryInfo) []*ap
 	return svcs
 }
 
-// ToConsulServices transforms registry center's serivce info to map[string][]string structure
+// ToConsulServices transforms registry center's service info to map[string][]string structure
 func (rcs *Server) ToConsulServices(serviceInfos []*ServiceRegistryInfo) map[string][]string {
 	var (
 		svcs     map[string][]string = make(map[string][]string)

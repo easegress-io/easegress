@@ -29,13 +29,6 @@ const (
 	contentTypeJSON = "application/json"
 )
 
-var (
-	eurekaJSONTypeAPPs = "applications"
-	eurekaJSONTypeAPP  = "application"
-	eurekaJSONTypeIns  = "instance"
-	eurekaXML          = ""
-)
-
 type (
 	eurekaJSONApps struct {
 		APPs eurekaAPPs `json:"applications"`
@@ -397,7 +390,7 @@ func (w *Worker) getInstance(ctx iris.Context) {
 	}
 	serviceName := registrycenter.GetServiceName(instanceID)
 	if len(serviceName) == 0 {
-		api.HandleAPIError(ctx, http.StatusBadRequest, fmt.Errorf("unknow instanceID: %s", instanceID))
+		api.HandleAPIError(ctx, http.StatusBadRequest, fmt.Errorf("unknown instanceID: %s", instanceID))
 		return
 	}
 

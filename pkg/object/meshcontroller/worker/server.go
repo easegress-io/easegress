@@ -39,6 +39,7 @@ type (
 	}
 )
 
+// NewAPIServer creates a initialed API server.
 func NewAPIServer(port int) *apiServer {
 	app := iris.New()
 
