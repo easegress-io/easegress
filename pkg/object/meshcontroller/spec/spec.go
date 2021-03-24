@@ -113,13 +113,13 @@ type (
 	ObservabilityOutputServer struct {
 		Enabled         bool   `yaml:"enabled" jsonschema:"required"`
 		BootstrapServer string `yaml:"bootstrapServer" jsonschema:"required"`
-		Timeout         string `yaml:"timeout" jsonschema:"required"`
+		Timeout         int    `yaml:"timeout" jsonschema:"required"`
 	}
 
 	// ObservabilityTracings is the tracings of observability.
 	ObservabilityTracings struct {
 		Enabled     bool                              `yaml:"enabled" jsonschema:"required"`
-		SampleByQPS string                            `yaml:"sampleByQPS" jsonschema:"required"`
+		SampleByQPS int                               `yaml:"sampleByQPS" jsonschema:"required"`
 		Output      ObservabilityTracingsOutputConfig `yaml:"output" jsonschema:"required"`
 
 		Request      ObservabilityTracingsDetail `yaml:"request" jsonschema:"required"`
@@ -132,12 +132,12 @@ type (
 
 	ObservabilityTracingsOutputConfig struct {
 		Enabled         bool   `yaml:"enabled" jsonschema:"required"`
-		ReportThread    string `yaml:"reportThread" jsonschema:"required"`
+		ReportThread    int    `yaml:"reportThread" jsonschema:"required"`
 		Topic           string `yaml:"topic" jsonschema:"required"`
-		MessageMaxBytes string `yaml:"messageMaxBytes" jsonschema:"required"`
-		MessageMaxSpans string `yaml:"messageMaxSpans" jsonschema:"required"`
-		QueuedMaxSpans  string `yaml:"queuedMaxSpans" jsonschema:"required"`
-		QueuedMaxSize   string `yaml:"queuedMaxSize" jsonschema:"required"`
+		MessageMaxBytes int    `yaml:"messageMaxBytes" jsonschema:"required"`
+		QueuedMaxSpans  int    `yaml:"queuedMaxSpans" jsonschema:"required"`
+		QueuedMaxSize   int    `yaml:"queuedMaxSize" jsonschema:"required"`
+		MessageTimeout  int    `yaml:"messageTimeout" jsonschema:"required"`
 	}
 	// ObservabilityTracingsDetail is the tracing detail of observability.
 	ObservabilityTracingsDetail struct {
@@ -163,7 +163,7 @@ type (
 	// ObservabilityMetricsDetail is the metrics detail of observability.
 	ObservabilityMetricsDetail struct {
 		Enabled  bool   `yaml:"enabled" jsonschema:"required"`
-		Interval string `yaml:"interval" jsonschema:"required"`
+		Interval int    `yaml:"interval" jsonschema:"required"`
 		Topic    string `yaml:"topic" jsonschema:"required"`
 	}
 
