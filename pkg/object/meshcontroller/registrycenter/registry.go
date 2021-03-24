@@ -17,13 +17,6 @@ import (
 	consul "github.com/hashicorp/consul/api"
 )
 
-const (
-	// RegistryTypeEureka indicates a Eureka registry center
-	RegistryTypeEureka = "eureka"
-	// RegistryTypeConsul indicates a Consul registry center
-	RegistryTypeConsul = "consul"
-)
-
 type (
 	// Server handle all registry about logic
 	Server struct {
@@ -184,9 +177,9 @@ func (rcs *Server) DecodeRegistryBody(contentType string, reqBody []byte) error 
 	var err error
 
 	switch rcs.RegistryType {
-	case RegistryTypeEureka:
+	case spec.RegistryTypeEureka:
 		err = rcs.decodeByEurekaFormat(contentType, reqBody)
-	case RegistryTypeConsul:
+	case spec.RegistryTypeConsul:
 		err = rcs.decodeByConsulFormat(reqBody)
 	default:
 		return fmt.Errorf("BUG: can't recognize registry type: %s req body: %s", rcs.RegistryType, (reqBody))
