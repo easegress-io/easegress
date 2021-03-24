@@ -24,7 +24,7 @@ const (
 	RegistryTypeEureka = "eureka"
 
 	// GlobalTenant is the reserved name of the system scope tenant,
-	// its services can be accessable in mesh wide.
+	// its services can be accessible in mesh wide.
 	GlobalTenant = "global"
 
 	// SerivceStatusUp indicates this service instance can accept ingress traffic
@@ -43,10 +43,10 @@ const (
 var (
 	// ErrParamNotMatch means RESTful request URL's object name or other fields are not matched in this request's body
 	ErrParamNotMatch = fmt.Errorf("param in url and body's spec not matched")
-	// ErrAlreadyRegistered indicates this instance has already been registried
-	ErrAlreadyRegistered = fmt.Errorf("serivce already registrired")
+	// ErrAlreadyRegistered indicates this instance has already been registered
+	ErrAlreadyRegistered = fmt.Errorf("service already registered")
 	// ErrNoRegisteredYet indicates this instance haven't registered successfully yet
-	ErrNoRegisteredYet = fmt.Errorf("serivce not registrired yet")
+	ErrNoRegisteredYet = fmt.Errorf("service not registered yet")
 	// ErrServiceNotFound indicates could find target service in same tenant or in global tenant
 	ErrServiceNotFound = fmt.Errorf("can't find service in same tenant or in global tenant")
 )

@@ -147,12 +147,12 @@ func (w *Worker) run() {
 	}
 
 	if len(w.instanceID) == 0 {
-		logger.Errorf("empty env HOST ")
+		logger.Errorf("empty env HOSTNAME")
 		return
 	}
 
 	if len(w.applicationIP) == 0 {
-		logger.Errorf("empty env APPLICTION IP")
+		logger.Errorf("empty env APPLICATION_IP")
 		return
 	}
 
@@ -208,7 +208,7 @@ func (w *Worker) heartbeat() {
 
 			err := w.updateHearbeat()
 			if err != nil {
-				logger.Errorf("update heartbeart failed: %v", err)
+				logger.Errorf("update heartbeat failed: %v", err)
 			}
 		}
 	}
@@ -277,7 +277,7 @@ func (w *Worker) updateHearbeat() error {
 
 	value, err := w.store.Get(layout.ServiceInstanceStatusKey(w.serviceName, w.instanceID))
 	if err != nil {
-		return fmt.Errorf("get serivce: %s instance: %s status failed: %v", w.serviceName, w.instanceID, err)
+		return fmt.Errorf("get service: %s instance: %s status failed: %v", w.serviceName, w.instanceID, err)
 	}
 
 	status := &spec.ServiceInstanceStatus{
@@ -321,7 +321,7 @@ func (w *Worker) addEgressWatching(serviceName string) {
 			instanceSpecs := w.service.ListServiceInstanceSpecs(service.Name)
 
 			if err := w.egressServer.UpdatePipeline(service, instanceSpecs); err != nil {
-				logger.Errorf("handle informer egress update serivce: %s's failed: %v", serviceName, err)
+				logger.Errorf("handle informer egress update service: %s's failed: %v", serviceName, err)
 			}
 		}
 		return true

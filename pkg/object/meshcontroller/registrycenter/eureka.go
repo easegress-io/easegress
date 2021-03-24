@@ -7,7 +7,7 @@ import (
 	"github.com/ArthurHlt/go-eureka-client/eureka"
 )
 
-// ToEurekaInstanceInfo transforms serivce registry info to eureka's instance
+// ToEurekaInstanceInfo transforms service registry info to eureka's instance
 func (rcs *Server) ToEurekaInstanceInfo(serviceInfo *ServiceRegistryInfo) *eureka.InstanceInfo {
 	var ins eureka.InstanceInfo
 
@@ -33,7 +33,7 @@ func (rcs *Server) ToEurekaInstanceInfo(serviceInfo *ServiceRegistryInfo) *eurek
 
 }
 
-// ToEurekaApp transforms registry center's serivce info to eureka's app
+// ToEurekaApp transforms registry center's service info to eureka's app
 func (rcs *Server) ToEurekaApp(serviceInfo *ServiceRegistryInfo) *eureka.Application {
 	var app eureka.Application
 
@@ -43,7 +43,7 @@ func (rcs *Server) ToEurekaApp(serviceInfo *ServiceRegistryInfo) *eureka.Applica
 	return &app
 }
 
-// ToEurekaApps transforms registry center's serivce info to eureka's apps
+// ToEurekaApps transforms registry center's service info to eureka's apps
 func (rcs *Server) ToEurekaApps(serviceInfos []*ServiceRegistryInfo) *eureka.Applications {
 	var apps eureka.Applications
 	for _, v := range serviceInfos {

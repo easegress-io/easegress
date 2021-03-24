@@ -68,7 +68,7 @@ func (egs *EgressServer) CreateEgress(service *spec.Service) error {
 }
 
 // Ready checks Egress HTTPServer has been created or not.
-// Not need to check pipelines, cause they will be dynamicly added.
+// Not need to check pipelines, cause they will be dynamically added.
 func (egs *EgressServer) Ready() bool {
 	egs.mutex.RLock()
 	defer egs.mutex.RUnlock()
@@ -100,7 +100,7 @@ func (egs *EgressServer) addPipeline(serviceName string) (*httppipeline.HTTPPipe
 	return pipeline, nil
 }
 
-// DeletePipeline deletes one Egress pipeline accoring to the serviceName.
+// DeletePipeline deletes one Egress pipeline according to the serviceName.
 func (egs *EgressServer) DeletePipeline(serviceName string) {
 	egs.mutex.Lock()
 	defer egs.mutex.Unlock()
@@ -155,7 +155,7 @@ func (egs *EgressServer) Handle(ctx context.HTTPContext) {
 	serviceName := ctx.Request().Header().Get(egressRPCKey)
 
 	if len(serviceName) == 0 {
-		logger.Errorf("handle egress rpc without setting serivce name in: %s header: %#v",
+		logger.Errorf("handle egress RPC without setting service name in: %s header: %#v",
 			egressRPCKey, ctx.Request().Header())
 		ctx.Response().SetStatusCode(http.StatusNotFound)
 		return
@@ -164,10 +164,10 @@ func (egs *EgressServer) Handle(ctx context.HTTPContext) {
 	pipeline, err := egs.getPipeline(serviceName)
 	if err != nil {
 		if err == spec.ErrServiceNotFound {
-			logger.Errorf("handle egress rpc unknow service: %s", serviceName)
+			logger.Errorf("handle egress RPC unknown service: %s", serviceName)
 			ctx.Response().SetStatusCode(http.StatusNotFound)
 		} else {
-			logger.Errorf("handle egress rpc service: %s get pipeline failed: %v", serviceName, err)
+			logger.Errorf("handle egress RPC service: %s get pipeline failed: %v", serviceName, err)
 			ctx.Response().SetStatusCode(http.StatusInternalServerError)
 		}
 		return
