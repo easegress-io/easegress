@@ -30,6 +30,9 @@ const (
 	// MeshServiceCanaryPath is the mesh service canary path.
 	MeshServiceCanaryPath = "/mesh/services/{serviceName:string}/canary"
 
+	// MeshServiceResiliencePath is the mesh service canary path.
+	MeshServiceResiliencePath = "/mesh/services/{serviceName:string}/resilience"
+
 	// MeshServiceLoadBalancePath is the mesh service load balance path.
 	MeshServiceLoadBalancePath = "/mesh/services/{serviceName:string}/loadbalance"
 
@@ -71,6 +74,11 @@ func (m *Master) registerAPIs() {
 		{Path: MeshServiceCanaryPath, Method: "GET", Handler: m.getPartOfService(canaryMeta)},
 		{Path: MeshServiceCanaryPath, Method: "PUT", Handler: m.updatePartOfService(canaryMeta)},
 		{Path: MeshServiceCanaryPath, Method: "DELETE", Handler: m.deletePartOfService(canaryMeta)},
+
+		{Path: MeshServiceResiliencePath, Method: "POST", Handler: m.createPartOfService(resilienceMeta)},
+		{Path: MeshServiceResiliencePath, Method: "GET", Handler: m.getPartOfService(resilienceMeta)},
+		{Path: MeshServiceResiliencePath, Method: "PUT", Handler: m.updatePartOfService(resilienceMeta)},
+		{Path: MeshServiceResiliencePath, Method: "DELETE", Handler: m.deletePartOfService(resilienceMeta)},
 
 		{Path: MeshServiceLoadBalancePath, Method: "POST", Handler: m.createPartOfService(loadBalanceMeta)},
 		{Path: MeshServiceLoadBalancePath, Method: "GET", Handler: m.getPartOfService(loadBalanceMeta)},

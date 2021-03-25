@@ -46,6 +46,7 @@ require (
 	github.com/megaease/grace v1.0.0
 	github.com/megaease/jsonschema v0.0.0-20191219141102-f25f9e864ae5
 	github.com/microcosm-cc/bluemonday v1.0.2 // indirect
+	github.com/mitchellh/mapstructure v1.3.3 // indirect
 	github.com/moul/http2curl v1.0.0 // indirect
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/openzipkin-contrib/zipkin-go-opentracing v0.4.5

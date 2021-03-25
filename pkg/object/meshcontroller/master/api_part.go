@@ -37,6 +37,19 @@ var (
 		},
 	}
 
+	resilienceMeta = &partMeta{
+		partName: "resilience",
+		newPart: func() interface{} {
+			return &spec.Resilience{}
+		},
+		partOf: func(serviceSpec *spec.Service) (interface{}, bool) {
+			return serviceSpec.Resilience, serviceSpec.Resilience != nil
+		},
+		setPart: func(serviceSpec *spec.Service, part interface{}) {
+			serviceSpec.Resilience = part.(*spec.Resilience)
+		},
+	}
+
 	loadBalanceMeta = &partMeta{
 		partName: "loadBalance",
 		newPart: func() interface{} {
