@@ -60,7 +60,7 @@ type (
 		RegistryType string `yaml:"registryType" jsonschema:"required"`
 
 		// APIPort is the port for worker's API server
-		APIPort int `yaml:"apiport" jsonschema:"omitempty"`
+		APIPort int `yaml:"apiPort" jsonschema:"omitempty"`
 	}
 
 	// Service contains the information of service.
