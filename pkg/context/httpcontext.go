@@ -21,10 +21,8 @@ import (
 )
 
 type (
-	// HandlerFunc is function to send request and receive response
-	HandlerFunc func() string
-	// HandlerWrapperFunc wraps a HandlerFunc and returns the wrapped function
-	HandlerWrapperFunc func(fn HandlerFunc) HandlerFunc
+	// HandlerCaller is a helper function to call the handler
+	HandlerCaller func(lastResult string) string
 
 	// HTTPContext is all context of an HTTP processing.
 	// It is not goroutine-safe, callers must use Lock/Unlock
@@ -57,8 +55,8 @@ type (
 		SaveReqToTemplate(filterName string) error
 		SaveRspToTemplate(filterName string) error
 
-		AddHandlerWrapper(tag string, wrapper HandlerWrapperFunc)
-		ExecuteHandlerWithWrapper(fn HandlerFunc) string
+		CallNextHandler(lastResult string) string
+		SetHandlerCaller(caller HandlerCaller)
 	}
 
 	// HTTPRequest is all operations for HTTP request.
@@ -114,19 +112,14 @@ type (
 	// when HTTPContext is finishing.
 	FinishFunc = func()
 
-	handlerWrapper struct {
-		Tag     string
-		Wrapper HandlerWrapperFunc
-	}
-
 	httpContext struct {
 		mutex sync.Mutex
 
-		startTime       *time.Time
-		endTime         *time.Time
-		finishFuncs     []FinishFunc
-		tags            []string
-		handlerWrappers []handlerWrapper
+		startTime   *time.Time
+		endTime     *time.Time
+		finishFuncs []FinishFunc
+		tags        []string
+		caller      HandlerCaller
 
 		r *httpRequest
 		w *httpResponse
@@ -164,19 +157,12 @@ func New(stdw http.ResponseWriter, stdr *http.Request,
 	}
 }
 
-func (ctx *httpContext) AddHandlerWrapper(tag string, wrapper HandlerWrapperFunc) {
-	ctx.handlerWrappers = append(ctx.handlerWrappers, handlerWrapper{
-		Tag:     tag,
-		Wrapper: wrapper,
-	})
+func (ctx *httpContext) CallNextHandler(lastResult string) string {
+	return ctx.caller(lastResult)
 }
 
-func (ctx *httpContext) ExecuteHandlerWithWrapper(fn HandlerFunc) string {
-	for i := len(ctx.handlerWrappers) - 1; i >= 0; i-- {
-		wrapper := ctx.handlerWrappers[i]
-		fn = wrapper.Wrapper(fn)
-	}
-	return fn()
+func (ctx *httpContext) SetHandlerCaller(caller HandlerCaller) {
+	ctx.caller = caller
 }
 
 func (ctx *httpContext) Lock() {

@@ -33,7 +33,6 @@ type (
 	Policy struct {
 		Name                             string `yaml:"name" jsonschema:"required"`
 		SlidingWindowType                string `yaml:"slidingWindowType" jsonschema:"omitempty" jsonschema:"omitempty,enum=COUNT_BASED,enum=TIME_BASED"`
-		CountingNetworkException         bool   `yaml:"countingNetworkException"`
 		FailureRateThreshold             uint8  `yaml:"failureRateThreshold" jsonschema:"omitempty,minimum=1,maximum=100"`
 		SlowCallRateThreshold            uint8  `yaml:"slowCallRateThreshold" jsonschema:"omitempty,minimum=1,maximum=100"`
 		SlidingWindowSize                uint32 `yaml:"slidingWindowSize" jsonschema:"omitempty,minimum=1"`
@@ -42,7 +41,6 @@ type (
 		SlowCallDurationThreshold        string `yaml:"slowCallDurationThreshold" jsonschema:"omitempty,format=duration"`
 		MaxWaitDurationInHalfOpen        string `yaml:"maxWaitDurationInHalfOpenState" jsonschema:"omitempty,format=duration"`
 		WaitDurationInOpen               string `yaml:"waitDurationInOpenState" jsonschema:"omitempty,format=duration"`
-		ExceptionalStatusCode            []int  `yaml:"exceptionalStatusCode" jsonschema:"omitempty,uniqueItems=true,format=httpcode-array"`
 	}
 
 	// URLRule defines the circuit breaker rule for a URL pattern
@@ -271,48 +269,23 @@ func (cb *CircuitBreaker) Inherit(pipeSpec *httppipeline.FilterSpec, previousGen
 func (cb *CircuitBreaker) handle(ctx context.HTTPContext, u *URLRule) string {
 	permitted, stateID := u.cb.AcquirePermission()
 	if !permitted {
-		return resultCircuitBreaker
+		return ctx.CallNextHandler(resultCircuitBreaker)
 	}
 
-	wrapper := func(fn context.HandlerFunc) context.HandlerFunc {
-		return func() string {
-			start := time.Now()
-
-			defer func() {
-				if e := recover(); e != nil {
-					d := time.Since(start)
-					err, ok := e.(error)
-					if !ok {
-						err = fmt.Errorf("unknown error: %v", e)
-					}
-					u.cb.RecordResult(stateID, err, d)
-					panic(e)
-				}
-			}()
-
-			result := fn()
-			duration := time.Since(start)
-			if result != "" {
-				err := fmt.Errorf("result is: %s", result)
-				u.cb.RecordResult(stateID, err, duration)
-				return result
-			}
-
-			code := ctx.Response().StatusCode()
-			for _, c := range u.policy.ExceptionalStatusCode {
-				if code == c {
-					err := fmt.Errorf("status code is: %d", code)
-					u.cb.RecordResult(stateID, err, duration)
-					break
-				}
-			}
-
-			return result
+	start := time.Now()
+	defer func() {
+		if e := recover(); e != nil {
+			d := time.Since(start)
+			u.cb.RecordResult(stateID, true, d)
+			panic(e)
 		}
-	}
+	}()
 
-	ctx.AddHandlerWrapper("circuitBreaker", wrapper)
-	return ""
+	result := ctx.CallNextHandler("")
+	d := time.Since(start)
+	u.cb.RecordResult(stateID, result != "", d)
+
+	return result
 }
 
 // Handle handles HTTP request
@@ -322,7 +295,7 @@ func (cb *CircuitBreaker) Handle(ctx context.HTTPContext) string {
 			return cb.handle(ctx, u)
 		}
 	}
-	return ""
+	return ctx.CallNextHandler("")
 }
 
 // Status returns Status genreated by Runtime.

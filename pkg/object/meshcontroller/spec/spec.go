@@ -271,7 +271,6 @@ func (b *pipelineSpecBuilder) appendCircuitBreaker() *pipelineSpecBuilder {
 		"policies": []circuitbreaker.Policy{{
 			Name:                             "default",
 			SlidingWindowType:                "COUNT_BASED",
-			CountingNetworkException:         true,
 			FailureRateThreshold:             50,
 			SlowCallRateThreshold:            100,
 			SlidingWindowSize:                100,
@@ -280,7 +279,6 @@ func (b *pipelineSpecBuilder) appendCircuitBreaker() *pipelineSpecBuilder {
 			SlowCallDurationThreshold:        "100ms",
 			MaxWaitDurationInHalfOpen:        "60s",
 			WaitDurationInOpen:               "60s",
-			ExceptionalStatusCode:            []int{500},
 		}},
 		"defaultPolicyRef": "default",
 		"urls": []resilience.URLRule{{
@@ -303,13 +301,11 @@ func (b *pipelineSpecBuilder) appendRetryer() *pipelineSpecBuilder {
 		"kind": retryer.Kind,
 		"name": name,
 		"policies": []retryer.Policy{{
-			Name:                     "default",
-			MaxAttempts:              3,
-			WaitDuration:             "500ms",
-			BackOffPolicy:            "random",
-			RandomizationFactor:      0.5,
-			CountingNetworkException: true,
-			ExceptionalStatusCode:    []int{500},
+			Name:                "default",
+			MaxAttempts:         3,
+			WaitDuration:        "500ms",
+			BackOffPolicy:       "random",
+			RandomizationFactor: 0.5,
 		}},
 		"defaultPolicyRef": "default",
 		"urls": []resilience.URLRule{{
@@ -477,9 +473,9 @@ func (s *Service) EgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec) *supe
 
 	pipelineSpecBuilder := newPipelineSpecBuilder(s.EgressPipelineName())
 
-	pipelineSpecBuilder.appendCircuitBreaker()
-	pipelineSpecBuilder.appendRetryer()
 	pipelineSpecBuilder.appendTimeLimiter()
+	pipelineSpecBuilder.appendRetryer()
+	pipelineSpecBuilder.appendCircuitBreaker()
 
 	pipelineSpecBuilder.appendBackend(mainServers, s.LoadBalance)
 

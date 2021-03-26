@@ -226,15 +226,36 @@ func (rl *RateLimiter) Inherit(pipeSpec *httppipeline.FilterSpec, previousGenera
 
 // Handle handles HTTP request
 func (rl *RateLimiter) Handle(ctx context.HTTPContext) string {
+	result := rl.handle(ctx)
+	return ctx.CallNextHandler(result)
+}
+
+func (rl *RateLimiter) handle(ctx context.HTTPContext) string {
 	for _, u := range rl.spec.URLs {
 		if !u.Match(ctx.Request()) {
 			continue
 		}
-		if u.rl.WaitPermission() {
-			return ""
+
+		permitted, d := u.rl.AcquirePermission()
+		if !permitted {
+			ctx.Response().SetStatusCode(http.StatusTooManyRequests)
+			return resultRateLimiter
 		}
-		ctx.Response().SetStatusCode(http.StatusTooManyRequests)
-		return resultRateLimiter
+
+		if d <= 0 {
+			break
+		}
+
+		timer := time.NewTimer(d)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			break
+		case <-timer.C:
+			break
+		}
+
+		break
 	}
 	return ""
 }

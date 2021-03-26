@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"strings"
 	"time"
 
@@ -12,7 +13,6 @@ import (
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
 	"github.com/megaease/easegateway/pkg/supervisor"
-	libr "github.com/megaease/easegateway/pkg/util/retryer"
 )
 
 const (
@@ -30,20 +30,21 @@ func init() {
 }
 
 type (
+	backOffPolicy uint8
+
 	Policy struct {
-		Name                     string  `yaml:"name" jsonschema:"required"`
-		MaxAttempts              int     `yaml:"maxAttempts" jsonschema:"omitempty,minimum=1"`
-		WaitDuration             string  `yaml:"waitDuration" jsonschema:"omitempty,format=duration"`
-		BackOffPolicy            string  `yaml:"backOffPolicy" jsonschema:"omitempty,enum=random,enum=exponential"`
-		RandomizationFactor      float64 `yaml:"randomizationFactor" jsonschema:"omitempty,minimum=0,maximum=1"`
-		CountingNetworkException bool    `yaml:"countingNetworkException"`
-		ExceptionalStatusCode    []int   `yaml:"exceptionalStatusCode" jsonschema:"omitempty,uniqueItems=true,format=httpcode-array"`
+		Name                string `yaml:"name" jsonschema:"required"`
+		MaxAttempts         int    `yaml:"maxAttempts" jsonschema:"omitempty,minimum=1"`
+		WaitDuration        string `yaml:"waitDuration" jsonschema:"omitempty,format=duration"`
+		waitDuration        time.Duration
+		BackOffPolicy       string  `yaml:"backOffPolicy" jsonschema:"omitempty,enum=random,enum=exponential"`
+		RandomizationFactor float64 `yaml:"randomizationFactor" jsonschema:"omitempty,minimum=0,maximum=1"`
+		backOffPolicy       backOffPolicy
 	}
 
 	URLRule struct {
 		resilience.URLRule `yaml:",inline"`
 		policy             *Policy
-		r                  *libr.Retryer
 	}
 
 	Spec struct {
@@ -57,6 +58,11 @@ type (
 		pipeSpec *httppipeline.FilterSpec
 		spec     *Spec
 	}
+)
+
+const (
+	randomBackOff backOffPolicy = iota
+	exponentiallyBackOff
 )
 
 // Validate implements custom validation for Spec
@@ -80,34 +86,6 @@ URLLoop:
 	return nil
 }
 
-func (url *URLRule) createRetryer() {
-	policy := libr.Policy{
-		MaxAttempts:         url.policy.MaxAttempts,
-		RandomizationFactor: url.policy.RandomizationFactor,
-		BackOffPolicy:       libr.RandomBackOff,
-	}
-
-	if policy.MaxAttempts <= 0 {
-		policy.MaxAttempts = 3
-	}
-
-	if policy.RandomizationFactor < 0 || policy.RandomizationFactor >= 1 {
-		policy.RandomizationFactor = 0.5
-	}
-
-	if strings.ToUpper(url.policy.BackOffPolicy) == "EXPONENTIAL" {
-		policy.BackOffPolicy = libr.ExponentiallyBackOff
-	}
-
-	if d := url.policy.WaitDuration; d != "" {
-		policy.WaitDuration, _ = time.ParseDuration(d)
-	} else {
-		policy.WaitDuration = time.Millisecond * 500
-	}
-
-	url.r = libr.New(&policy)
-}
-
 // Kind returns the kind of Retryer.
 func (r *Retryer) Kind() string {
 	return Kind
@@ -128,7 +106,7 @@ func (r *Retryer) Results() []string {
 	return results
 }
 
-func (r *Retryer) createRetryerForURL(u *URLRule) {
+func (r *Retryer) initURL(u *URLRule) {
 	u.Init()
 
 	name := u.PolicyRef
@@ -143,16 +121,23 @@ func (r *Retryer) createRetryerForURL(u *URLRule) {
 		}
 	}
 
-	u.createRetryer()
-	u.r.SetStateListener(func(event *libr.Event) {
-		logger.Infof("attempts %d of retryer on URL(%s) failed with error '%s' at %d",
-			event.Attempt,
-			r.pipeSpec.Name(),
-			u.ID(),
-			event.Error,
-			event.Time.UnixNano()/1e6,
-		)
-	})
+	if u.policy.MaxAttempts <= 0 {
+		u.policy.MaxAttempts = 3
+	}
+
+	if u.policy.RandomizationFactor < 0 || u.policy.RandomizationFactor >= 1 {
+		u.policy.RandomizationFactor = 0.5
+	}
+
+	if strings.ToUpper(u.policy.BackOffPolicy) == "EXPONENTIAL" {
+		u.policy.backOffPolicy = exponentiallyBackOff
+	}
+
+	if d := u.policy.WaitDuration; d != "" {
+		u.policy.waitDuration, _ = time.ParseDuration(d)
+	} else {
+		u.policy.waitDuration = time.Millisecond * 500
+	}
 }
 
 // Init initializes Retryer.
@@ -161,7 +146,7 @@ func (r *Retryer) Init(pipeSpec *httppipeline.FilterSpec, super *supervisor.Supe
 	r.spec = pipeSpec.FilterSpec().(*Spec)
 	r.super = super
 	for _, url := range r.spec.URLs {
-		r.createRetryerForURL(url)
+		r.initURL(url)
 	}
 }
 
@@ -171,35 +156,47 @@ func (r *Retryer) Inherit(pipeSpec *httppipeline.FilterSpec, previousGeneration 
 }
 
 func (r *Retryer) handle(ctx context.HTTPContext, u *URLRule) string {
-	wrapper := func(fn context.HandlerFunc) context.HandlerFunc {
-		return func() string {
-			var result string
-			data, _ := ioutil.ReadAll(ctx.Request().Body())
+	attempt := 0
+	base := float64(u.policy.waitDuration)
 
-			_, e := u.r.Execute(func() (interface{}, error) {
-				ctx.Request().SetBody(bytes.NewReader(data))
-				result = fn()
-				if result != "" {
-					return nil, fmt.Errorf("result is: %s", result)
-				}
-				code := ctx.Response().StatusCode()
-				for _, c := range u.policy.ExceptionalStatusCode {
-					if code == c {
-						return nil, fmt.Errorf("status code is: %d", code)
-					}
-				}
+	data, _ := ioutil.ReadAll(ctx.Request().Body())
+	for {
+		attempt++
+		ctx.Request().SetBody(bytes.NewReader(data))
+		result := ctx.CallNextHandler("")
+		if result == "" {
+			return ""
+		}
 
-				return nil, nil
-			})
-			if e != nil {
-				return resultRetryer
-			}
+		logger.Infof("attempts %d of retryer on URL(%s) failed at %d, result is '%s'",
+			attempt,
+			r.pipeSpec.Name(),
+			u.ID(),
+			time.Now().UnixNano()/1e6,
+			result,
+		)
+
+		if attempt == u.policy.MaxAttempts {
+			// ???: maybe should return result directly
+			return resultRetryer
+		}
+
+		delta := base * u.policy.RandomizationFactor
+		d := base - delta + float64(rand.Intn(int(delta*2+1)))
+		timer := time.NewTimer(time.Duration(d))
+
+		select {
+		case <-ctx.Done():
+			timer.Stop()
 			return result
+		case <-timer.C:
+			break
+		}
+
+		if u.policy.backOffPolicy == exponentiallyBackOff {
+			base *= 1.5
 		}
 	}
-
-	ctx.AddHandlerWrapper("retryer", wrapper)
-	return ""
 }
 
 // Handle handles HTTP request
@@ -209,7 +206,7 @@ func (r *Retryer) Handle(ctx context.HTTPContext) string {
 			return r.handle(ctx, u)
 		}
 	}
-	return ""
+	return ctx.CallNextHandler("")
 }
 
 // Status returns Status genreated by Runtime.

@@ -1,6 +1,8 @@
 package timelimiter
 
 import (
+	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/megaease/easegateway/pkg/context"
@@ -12,12 +14,13 @@ import (
 
 const (
 	// Kind is the kind of TimeLimiter.
-	Kind              = "TimeLimiter"
-	resultTimeLimiter = "timeLimiter"
+	Kind          = "TimeLimiter"
+	resultTimeout = "timeout"
 )
 
 var (
-	results = []string{resultTimeLimiter}
+	results    = []string{resultTimeout}
+	errTimeout = fmt.Errorf("timeout")
 )
 
 func init() {
@@ -77,6 +80,7 @@ func (tl *TimeLimiter) Init(pipeSpec *httppipeline.FilterSpec, super *supervisor
 	}
 
 	for _, url := range tl.spec.URLs {
+		url.Init()
 		if d := url.TimeoutDuration; d != "" {
 			url.timeout, _ = time.ParseDuration(d)
 		} else {
@@ -91,28 +95,18 @@ func (tl *TimeLimiter) Inherit(pipeSpec *httppipeline.FilterSpec, previousGenera
 }
 
 func (tl *TimeLimiter) handle(ctx context.HTTPContext, u *URLRule) string {
-	wrapper := func(fn context.HandlerFunc) context.HandlerFunc {
-		return func() string {
-			var result string
-			timer := time.NewTimer(u.timeout)
-			ch := make(chan struct{})
-			go func() {
-				result = fn()
-				ch <- struct{}{}
-			}()
+	timer := time.AfterFunc(u.timeout, func() {
+		ctx.Cancel(errTimeout)
+	})
 
-			select {
-			case <-ch:
-				return result
-			case <-timer.C:
-				logger.Infof("request to URL(%s) timed out", u.ID())
-				return resultTimeLimiter
-			}
-		}
+	result := ctx.CallNextHandler("")
+	if !timer.Stop() {
+		logger.Infof("request to URL(%s) timed out", u.ID())
+		ctx.Response().SetStatusCode(http.StatusRequestTimeout)
+		result = resultTimeout
 	}
 
-	ctx.AddHandlerWrapper("timeLimiter", wrapper)
-	return ""
+	return result
 }
 
 // Handle handles HTTP request
@@ -122,7 +116,7 @@ func (tl *TimeLimiter) Handle(ctx context.HTTPContext) string {
 			return tl.handle(ctx, u)
 		}
 	}
-	return ""
+	return ctx.CallNextHandler("")
 }
 
 // Status returns Status genreated by Runtime.

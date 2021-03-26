@@ -30,7 +30,7 @@ const (
 	// MeshServiceCanaryPath is the mesh service canary path.
 	MeshServiceCanaryPath = "/mesh/services/{serviceName:string}/canary"
 
-	// MeshServiceResiliencePath is the mesh service canary path.
+	// MeshServiceResiliencePath is the mesh service resilience path.
 	MeshServiceResiliencePath = "/mesh/services/{serviceName:string}/resilience"
 
 	// MeshServiceLoadBalancePath is the mesh service load balance path.

@@ -1,7 +1,6 @@
 package circuitbreaker
 
 import (
-	"errors"
 	"os"
 	"testing"
 	"time"
@@ -9,7 +8,6 @@ import (
 
 var (
 	now time.Time
-	err = errors.New("some error")
 )
 
 func setup() {
@@ -29,7 +27,7 @@ func runSharedCases(t *testing.T, cb *CircuitBreaker) {
 	// insert 10 success results
 	for i := 0; i < 10; i++ {
 		if permitted, stateID := cb.AcquirePermission(); permitted {
-			cb.RecordResult(stateID, nil, time.Millisecond)
+			cb.RecordResult(stateID, false, time.Millisecond)
 		} else {
 			t.Errorf("acquire permission should succeeded, i = %d", i)
 		}
@@ -37,7 +35,7 @@ func runSharedCases(t *testing.T, cb *CircuitBreaker) {
 	// insert 10 failure results
 	for i := 0; i < 10; i++ {
 		if permitted, stateID := cb.AcquirePermission(); permitted {
-			cb.RecordResult(stateID, err, time.Millisecond)
+			cb.RecordResult(stateID, true, time.Millisecond)
 		} else {
 			t.Errorf("acquire permission should succeeded, i = %d", i)
 		}
@@ -61,7 +59,7 @@ func runSharedCases(t *testing.T, cb *CircuitBreaker) {
 		} else if cb.State() != StateHalfOpen {
 			t.Errorf("circuit breaker state should be HalfOpen")
 		} else {
-			cb.RecordResult(stateID, nil, time.Millisecond)
+			cb.RecordResult(stateID, false, time.Millisecond)
 		}
 	}
 
@@ -76,7 +74,7 @@ func runSharedCases(t *testing.T, cb *CircuitBreaker) {
 	// insert 8 success results
 	for i := 0; i < 8; i++ {
 		if permitted, stateID := cb.AcquirePermission(); permitted {
-			cb.RecordResult(stateID, nil, time.Millisecond)
+			cb.RecordResult(stateID, false, time.Millisecond)
 		} else {
 			t.Errorf("acquire permission should succeeded, i = %d", i)
 		}
@@ -84,7 +82,7 @@ func runSharedCases(t *testing.T, cb *CircuitBreaker) {
 	// insert 12 slow results
 	for i := 0; i < 12; i++ {
 		if permitted, stateID := cb.AcquirePermission(); permitted {
-			cb.RecordResult(stateID, nil, 11*time.Millisecond)
+			cb.RecordResult(stateID, false, 11*time.Millisecond)
 		} else {
 			t.Errorf("acquire permission should succeeded, i = %d", i)
 		}
@@ -108,7 +106,7 @@ func runSharedCases(t *testing.T, cb *CircuitBreaker) {
 		} else if cb.State() != StateHalfOpen {
 			t.Errorf("circuit breaker state should be HalfOpen")
 		} else {
-			cb.RecordResult(stateID, nil, 11*time.Millisecond)
+			cb.RecordResult(stateID, false, 11*time.Millisecond)
 		}
 	}
 
@@ -146,7 +144,7 @@ func TestCountBased(t *testing.T) {
 		} else if cb.State() != StateClosed {
 			t.Errorf("circuit breaker state should be Closed")
 		} else {
-			cb.RecordResult(stateID, nil, time.Millisecond)
+			cb.RecordResult(stateID, false, time.Millisecond)
 		}
 	}
 	// insert 10 failure results
@@ -156,7 +154,7 @@ func TestCountBased(t *testing.T) {
 		} else if cb.State() != StateClosed {
 			t.Errorf("circuit breaker state should be Closed")
 		} else {
-			cb.RecordResult(stateID, err, time.Millisecond)
+			cb.RecordResult(stateID, true, time.Millisecond)
 		}
 	}
 	// state should transit to open now
@@ -190,7 +188,7 @@ func TestTimeBased(t *testing.T) {
 		} else if cb.State() != StateClosed {
 			t.Errorf("circuit breaker state should be Closed")
 		} else {
-			cb.RecordResult(stateID, nil, time.Millisecond)
+			cb.RecordResult(stateID, false, time.Millisecond)
 		}
 		now = now.Add(500 * time.Millisecond)
 	}
@@ -201,7 +199,7 @@ func TestTimeBased(t *testing.T) {
 		} else if cb.State() != StateClosed {
 			t.Errorf("circuit breaker state should be Closed")
 		} else {
-			cb.RecordResult(stateID, err, time.Millisecond)
+			cb.RecordResult(stateID, true, time.Millisecond)
 		}
 	}
 	// state should be closed
@@ -212,7 +210,7 @@ func TestTimeBased(t *testing.T) {
 	now = now.Add(15500 * time.Millisecond)
 	// add a new success result
 	if permitted, stateID := cb.AcquirePermission(); permitted {
-		cb.RecordResult(stateID, nil, time.Millisecond)
+		cb.RecordResult(stateID, false, time.Millisecond)
 	} else {
 		t.Errorf("acquire permission should succeeded")
 	}

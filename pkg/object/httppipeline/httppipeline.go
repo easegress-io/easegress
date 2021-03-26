@@ -369,66 +369,90 @@ func (hp *HTTPPipeline) reload(previousGeneration *HTTPPipeline) {
 	hp.runningFilters = runningFilters
 }
 
-// Handle handles all incoming traffic.
+func (hp *HTTPPipeline) getNextFilterIndex(index int, result string) int {
+	// return index + 1 if last filter succeeded
+	if result == "" {
+		return index + 1
+	}
+
+	// check the jumpIf table of current filter, return its index if the jump
+	// target is valid and -1 otherwise
+	filter := hp.runningFilters[index]
+	if !stringtool.StrInSlice(result, filter.rootFilter.Results()) {
+		format := "BUG: invalid result %s not in %v"
+		logger.Errorf(format, result, filter.rootFilter.Results())
+	}
+
+	if len(filter.jumpIf) == 0 {
+		return -1
+	}
+	name, ok := filter.jumpIf[result]
+	if !ok {
+		return -1
+	}
+	if name == LabelEND {
+		return len(hp.runningFilters)
+	}
+
+	for index++; index < len(hp.runningFilters); index++ {
+		if hp.runningFilters[index].spec.Name() == name {
+			return index
+		}
+	}
+
+	return -1
+}
+
 func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) {
 	pipeCtx := newAndSetPipelineContext(ctx)
 	defer deletePipelineContext(ctx)
-
-	// Here is the truly initialed HTTPTemplate by HTTPPipeline's filter
-	// specs
 	ctx.SetTemplate(hp.ht)
-	nextFilterName := hp.runningFilters[0].spec.Name()
-	for i := 0; i < len(hp.runningFilters); i++ {
-		if nextFilterName == LabelEND {
-			break
+
+	filterIndex := -1
+
+	handle := func(lastResult string) string {
+		// Filters are called recursively as a stack and filterIndex is used
+		// as a pointer to track the progress, so we need to save the index
+		// of previous filter and restore it before return
+		lastIndex := filterIndex
+		defer func() {
+			filterIndex = lastIndex
+		}()
+
+		filterIndex = hp.getNextFilterIndex(filterIndex, lastResult)
+		if filterIndex == len(hp.runningFilters) {
+			return "" // reach the end of pipeline
+		} else if filterIndex == -1 {
+			return lastResult // an error occurs but no filter can handle it
 		}
 
-		runningFilter := hp.runningFilters[i]
-		if nextFilterName != runningFilter.spec.Name() {
-			continue
+		filter := hp.runningFilters[filterIndex]
+		name := filter.spec.Name()
+
+		if err := ctx.SaveReqToTemplate(name); err != nil {
+			format := "save http req failed, dict is %#v err is %v"
+			logger.Errorf(format, ctx.Template().GetDict(), err)
 		}
 
-		if err := ctx.SaveReqToTemplate(runningFilter.spec.Name()); err != nil {
-			logger.Errorf("save http req failed, dict is %#v err is %v",
-				ctx.Template().GetDict(), err)
-		}
+		// As filters are called recursively, stats must be added before
+		// calling the filter to keep them in a correct order
+		stat := &FilterStat{Name: name, Kind: filter.spec.Kind()}
+		pipeCtx.FilterStats = append(pipeCtx.FilterStats, stat)
 
 		startTime := time.Now()
-		result := runningFilter.filter.Handle(ctx)
-		handleDuration := time.Now().Sub(startTime)
+		stat.Result = filter.filter.Handle(ctx)
+		stat.Duration = time.Since(startTime)
 
-		if err := ctx.SaveRspToTemplate(runningFilter.spec.Name()); err != nil {
-			logger.Errorf("save http rsp failed, dict is %#v err is %v",
-				ctx.Template().GetDict(), err)
+		if err := ctx.SaveRspToTemplate(name); err != nil {
+			format := "save http rsp failed, dict is %#v err is %v"
+			logger.Errorf(format, ctx.Template().GetDict(), err)
 		}
 
-		filterStat := &FilterStat{
-			Name:     runningFilter.spec.Name(),
-			Kind:     runningFilter.spec.Kind(),
-			Result:   result,
-			Duration: handleDuration,
-		}
-		pipeCtx.FilterStats = append(pipeCtx.FilterStats, filterStat)
-
-		if result != "" {
-			if !stringtool.StrInSlice(result, runningFilter.rootFilter.Results()) {
-				logger.Errorf("BUG: invalid result %s not in %v",
-					result, runningFilter.rootFilter.Results())
-			}
-
-			jumpIf := runningFilter.jumpIf
-			if len(jumpIf) == 0 {
-				break
-			}
-			var exists bool
-			nextFilterName, exists = jumpIf[result]
-			if !exists {
-				break
-			}
-		} else if i < len(hp.runningFilters)-1 {
-			nextFilterName = hp.runningFilters[i+1].spec.Name()
-		}
+		return stat.Result
 	}
+
+	ctx.SetHandlerCaller(handle)
+	handle("")
 
 	ctx.AddTag(stringtool.Cat("pipeline: ", pipeCtx.log()))
 }

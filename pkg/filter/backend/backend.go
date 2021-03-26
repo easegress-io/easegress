@@ -90,19 +90,19 @@ type (
 	Spec struct {
 		httppipeline.FilterMetaSpec `yaml:",inline"`
 
-		Fallback      *FallbackSpec    `yaml:"fallback,omitempty" jsonschema:"omitempty"`
-		MainPool      *PoolSpec        `yaml:"mainPool" jsonschema:"required"`
-		CandidatePool *PoolSpec        `yaml:"candidatePool,omitempty" jsonschema:"omitempty"`
-		MirrorPool    *PoolSpec        `yaml:"mirrorPool,omitempty" jsonschema:"omitempty"`
-		FailureCodes  []int            `yaml:"failureCodes" jsonschema:"omitempty,uniqueItems=true,format=httpcode-array"`
-		Compression   *CompressionSpec `yaml:"compression,omitempty" jsonschema:"omitempty"`
+		Fallback             *FallbackSpec    `yaml:"fallback,omitempty" jsonschema:"omitempty"`
+		MainPool             *PoolSpec        `yaml:"mainPool" jsonschema:"required"`
+		CandidatePool        *PoolSpec        `yaml:"candidatePool,omitempty" jsonschema:"omitempty"`
+		MirrorPool           *PoolSpec        `yaml:"mirrorPool,omitempty" jsonschema:"omitempty"`
+		SuppressNetworkError bool             `yaml:"suppressNetworkError,omitempty" jsonschema:"omitempty"`
+		FailureCodes         []int            `yaml:"failureCodes" jsonschema:"omitempty,uniqueItems=true,format=httpcode-array"`
+		Compression          *CompressionSpec `yaml:"compression,omitempty" jsonschema:"omitempty"`
 	}
 
 	// FallbackSpec describes the fallback policy.
 	FallbackSpec struct {
-		ForCodes          bool `yaml:"forCodes"`
-		ForCircuitBreaker bool `yaml:"forCircuitBreaker"`
-		fallback.Spec     `yaml:",inline"`
+		ForCodes      bool `yaml:"forCodes"`
+		fallback.Spec `yaml:",inline"`
 	}
 
 	// Status is the status of Backend.
@@ -229,13 +229,6 @@ func (b *Backend) Close() {
 	}
 }
 
-func (b *Backend) fallbackForCircuitBreaker(ctx context.HTTPContext) bool {
-	if b.fallback != nil && b.spec.Fallback.ForCircuitBreaker {
-		b.fallback.Fallback(ctx)
-		return true
-	}
-	return false
-}
 func (b *Backend) fallbackForCodes(ctx context.HTTPContext) bool {
 	if b.fallback != nil && b.spec.Fallback.ForCodes {
 		for _, code := range b.spec.FailureCodes {
@@ -250,6 +243,11 @@ func (b *Backend) fallbackForCodes(ctx context.HTTPContext) bool {
 
 // Handle handles HTTPContext.
 func (b *Backend) Handle(ctx context.HTTPContext) (result string) {
+	result = b.handle(ctx)
+	return ctx.CallNextHandler(result)
+}
+
+func (b *Backend) handle(ctx context.HTTPContext) (result string) {
 	if b.mirrorPool != nil && b.mirrorPool.filter.Filter(ctx) {
 		master, slave := newMasterSlaveReader(ctx.Request().Body())
 		ctx.Request().SetBody(master)
@@ -282,12 +280,13 @@ func (b *Backend) Handle(ctx context.HTTPContext) (result string) {
 		return ""
 	}
 
-	result = ctx.ExecuteHandlerWithWrapper(func() string {
-		return p.handle(ctx, ctx.Request().Body())
-	})
-
+	result = p.handle(ctx, ctx.Request().Body())
 	if result != "" {
-		return result
+		if b.spec.SuppressNetworkError && (result == resultClientError || result == resultServerError) {
+			result = ""
+		} else {
+			return result
+		}
 	}
 
 	if b.fallbackForCodes(ctx) {

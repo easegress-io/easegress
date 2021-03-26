@@ -421,10 +421,10 @@ func (cb *CircuitBreaker) AcquirePermission() (bool, uint32) {
 }
 
 // RecordResult records the result in window
-func (cb *CircuitBreaker) RecordResult(stateID uint32, err error, d time.Duration) {
+func (cb *CircuitBreaker) RecordResult(stateID uint32, hasErr bool, d time.Duration) {
 	// calculate call result
 	result := CallResultSuccess
-	if err != nil {
+	if hasErr {
 		result = CallResultFailure
 	} else if d >= cb.policy.SlowCallDurationThreshold {
 		result = CallResultSlow
@@ -483,17 +483,14 @@ func (cb *CircuitBreaker) Execute(fn func() (interface{}, error)) (interface{}, 
 	defer func() {
 		if e := recover(); e != nil {
 			d := nowFunc().Sub(start)
-			err, ok := e.(error)
-			if !ok {
-				err = fmt.Errorf("unknown error: %v", e)
-			}
-			cb.RecordResult(stateID, err, d)
+			cb.RecordResult(stateID, true, d)
 			panic(e)
 		}
 	}()
 
 	res, e := fn()
-	cb.RecordResult(stateID, e, nowFunc().Sub(start))
+	d := nowFunc().Sub(start)
+	cb.RecordResult(stateID, e != nil, d)
 
 	return res, e
 }
