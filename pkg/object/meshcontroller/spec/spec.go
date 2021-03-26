@@ -77,10 +77,10 @@ type (
 
 	// Resilience is the spec of service resilience.
 	Resilience struct {
-		RateLimiter    *ratelimiter.Spec
-		CircuitBreaker *circuitbreaker.Spec
-		Retryer        *retryer.Spec
-		TimeLimiter    *timelimiter.Spec
+		RateLimiter    *ratelimiter.Spec    `yaml:"rateLimiter" jsonschema:"omitempty"`
+		CircuitBreaker *circuitbreaker.Spec `yaml:"circuitBreaker" jsonschema:"omitempty"`
+		Retryer        *retryer.Spec        `yaml:"retryer" jsonschema:"omitempty"`
+		TimeLimiter    *timelimiter.Spec    `yaml:"timeLimiter" jsonschema:"omitempty"`
 	}
 
 	// Canary is the spec of service canary.
