@@ -91,6 +91,11 @@ func (a *CORSAdaptor) reload() {
 
 // Handle handles simple cross-origin requests or directs.
 func (a *CORSAdaptor) Handle(ctx context.HTTPContext) string {
+	result := a.handle(ctx)
+	return ctx.CallNextHandler(result)
+}
+
+func (a *CORSAdaptor) handle(ctx context.HTTPContext) string {
 	r := ctx.Request()
 	w := ctx.Response()
 	method := r.Method()

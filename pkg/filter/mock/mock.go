@@ -99,6 +99,11 @@ func (m *Mock) reload() {
 
 // Handle mocks HTTPContext.
 func (m *Mock) Handle(ctx context.HTTPContext) (result string) {
+	result = m.handle(ctx)
+	return ctx.CallNextHandler(result)
+}
+
+func (m *Mock) handle(ctx context.HTTPContext) (result string) {
 	path := ctx.Request().Path()
 	w := ctx.Response()
 

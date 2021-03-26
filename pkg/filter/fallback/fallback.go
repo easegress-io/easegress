@@ -80,7 +80,7 @@ func (f *Fallback) reload() {
 // It always returns fallback.
 func (f *Fallback) Handle(ctx context.HTTPContext) string {
 	f.f.Fallback(ctx)
-	return resultFallback
+	return ctx.CallNextHandler(resultFallback)
 }
 
 // Status returns Status.

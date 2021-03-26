@@ -92,6 +92,11 @@ func (b *Bridge) reload() {
 
 // Handle builds a bridge for pipeline.
 func (b *Bridge) Handle(ctx context.HTTPContext) (result string) {
+	result = b.handle(ctx)
+	return ctx.CallNextHandler(result)
+}
+
+func (b *Bridge) handle(ctx context.HTTPContext) (result string) {
 	if len(b.spec.Destinations) <= 0 {
 		panic("not any destination defined")
 	}

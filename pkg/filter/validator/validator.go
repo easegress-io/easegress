@@ -96,6 +96,11 @@ func (v *Validator) reload() {
 
 // Handle validates HTTPContext.
 func (v *Validator) Handle(ctx context.HTTPContext) string {
+	result := v.handle(ctx)
+	return ctx.CallNextHandler(result)
+}
+
+func (v *Validator) handle(ctx context.HTTPContext) string {
 	req := ctx.Request()
 
 	if v.headers != nil {

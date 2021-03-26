@@ -130,6 +130,11 @@ func (aa *APIAggregator) reload() {
 
 // Handle limits HTTPContext.
 func (aa *APIAggregator) Handle(ctx context.HTTPContext) (result string) {
+	result = aa.handle(ctx)
+	return ctx.CallNextHandler(result)
+}
+
+func (aa *APIAggregator) handle(ctx context.HTTPContext) (result string) {
 	buff := bytes.NewBuffer(nil)
 	if aa.spec.MaxBodyBytes > 0 {
 		written, err := io.CopyN(buff, ctx.Request().Body(), aa.spec.MaxBodyBytes+1)
