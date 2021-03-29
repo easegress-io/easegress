@@ -79,9 +79,9 @@ type (
 
 		fallback *fallback.Fallback
 
-		mainPool      *pool
-		candidatePool []*pool
-		mirrorPool    *pool
+		mainPool       *pool
+		candidatePools []*pool
+		mirrorPool     *pool
 
 		compression *compression
 	}
@@ -90,26 +90,26 @@ type (
 	Spec struct {
 		httppipeline.FilterMetaSpec `yaml:",inline"`
 
-		Fallback      *FallbackSpec    `yaml:"fallback,omitempty" jsonschema:"omitempty"`
-		MainPool      *PoolSpec        `yaml:"mainPool" jsonschema:"required"`
-		CandidatePool []*PoolSpec      `yaml:"candidatePool,omitempty" jsonschema:"omitempty"`
-		MirrorPool    *PoolSpec        `yaml:"mirrorPool,omitempty" jsonschema:"omitempty"`
-		FailureCodes  []int            `yaml:"failureCodes" jsonschema:"omitempty,uniqueItems=true,format=httpcode-array"`
-		Compression   *CompressionSpec `yaml:"compression,omitempty" jsonschema:"omitempty"`
+		Fallback             *FallbackSpec    `yaml:"fallback,omitempty" jsonschema:"omitempty"`
+		MainPool             *PoolSpec        `yaml:"mainPool" jsonschema:"required"`
+		CandidatePools       []*PoolSpec      `yaml:"candidatePools,omitempty" jsonschema:"omitempty"`
+		MirrorPool           *PoolSpec        `yaml:"mirrorPool,omitempty" jsonschema:"omitempty"`
+		SuppressNetworkError bool             `yaml:"suppressNetworkError,omitempty" jsonschema:"omitempty"`
+		FailureCodes         []int            `yaml:"failureCodes" jsonschema:"omitempty,uniqueItems=true,format=httpcode-array"`
+		Compression          *CompressionSpec `yaml:"compression,omitempty" jsonschema:"omitempty"`
 	}
 
 	// FallbackSpec describes the fallback policy.
 	FallbackSpec struct {
-		ForCodes          bool `yaml:"forCodes"`
-		ForCircuitBreaker bool `yaml:"forCircuitBreaker"`
-		fallback.Spec     `yaml:",inline"`
+		ForCodes      bool `yaml:"forCodes"`
+		fallback.Spec `yaml:",inline"`
 	}
 
 	// Status is the status of Backend.
 	Status struct {
-		MainPool      *PoolStatus   `yaml:"mainPool"`
-		CandidatePool []*PoolStatus `yaml:"candidatePool,omitempty"`
-		MirrorPool    *PoolStatus   `yaml:"mirrorPool,omitempty"`
+		MainPool       *PoolStatus   `yaml:"mainPool"`
+		CandidatePools []*PoolStatus `yaml:"candidatePool,omitempty"`
+		MirrorPool     *PoolStatus   `yaml:"mirrorPool,omitempty"`
 	}
 )
 
@@ -124,8 +124,8 @@ func (s Spec) Validate() error {
 		return fmt.Errorf("filter must be empty in mainPool")
 	}
 
-	if s.CandidatePool != nil {
-		for _, v := range s.CandidatePool {
+	if len(s.CandidatePools) > 0 {
+		for _, v := range s.CandidatePools {
 			if v.Filter == nil {
 				return fmt.Errorf("filter of candidatePool is required")
 			}
@@ -192,13 +192,13 @@ func (b *Backend) reload() {
 		b.fallback = fallback.New(&b.spec.Fallback.Spec)
 	}
 
-	if b.spec.CandidatePool != nil {
-		var candidatePool []*pool
-		for k, _ := range b.spec.CandidatePool {
-			candidatePool = append(candidatePool, newPool(b.spec.CandidatePool[k], fmt.Sprintf("backedn#candidate#%d", k),
+	if len(b.spec.CandidatePools) > 0 {
+		var candidatePools []*pool
+		for k, _ := range b.spec.CandidatePools {
+			candidatePools = append(candidatePools, newPool(b.spec.CandidatePools[k], fmt.Sprintf("backedn#candidate#%d", k),
 				true, b.spec.FailureCodes))
 		}
-		b.candidatePool = candidatePool
+		b.candidatePools = candidatePools
 	}
 	if b.spec.MirrorPool != nil {
 		b.mirrorPool = newPool(b.spec.MirrorPool, "backend#mirror",
@@ -215,9 +215,9 @@ func (b *Backend) Status() interface{} {
 	s := &Status{
 		MainPool: b.mainPool.status(),
 	}
-	if b.candidatePool != nil {
-		for k, _ := range b.candidatePool {
-			s.CandidatePool = append(s.CandidatePool, b.candidatePool[k].status())
+	if b.candidatePools != nil {
+		for k, _ := range b.candidatePools {
+			s.CandidatePools = append(s.CandidatePools, b.candidatePools[k].status())
 		}
 	}
 	if b.mirrorPool != nil {
@@ -230,8 +230,8 @@ func (b *Backend) Status() interface{} {
 func (b *Backend) Close() {
 	b.mainPool.close()
 
-	if b.candidatePool != nil {
-		for _, v := range b.candidatePool {
+	if b.candidatePools != nil {
+		for _, v := range b.candidatePools {
 			v.close()
 		}
 	}
@@ -241,13 +241,6 @@ func (b *Backend) Close() {
 	}
 }
 
-func (b *Backend) fallbackForCircuitBreaker(ctx context.HTTPContext) bool {
-	if b.fallback != nil && b.spec.Fallback.ForCircuitBreaker {
-		b.fallback.Fallback(ctx)
-		return true
-	}
-	return false
-}
 func (b *Backend) fallbackForCodes(ctx context.HTTPContext) bool {
 	if b.fallback != nil && b.spec.Fallback.ForCodes {
 		for _, code := range b.spec.FailureCodes {
@@ -262,6 +255,11 @@ func (b *Backend) fallbackForCodes(ctx context.HTTPContext) bool {
 
 // Handle handles HTTPContext.
 func (b *Backend) Handle(ctx context.HTTPContext) (result string) {
+	result = b.handle(ctx)
+	return ctx.CallNextHandler(result)
+}
+
+func (b *Backend) handle(ctx context.HTTPContext) (result string) {
 	if b.mirrorPool != nil && b.mirrorPool.filter.Filter(ctx) {
 		master, slave := newMasterSlaveReader(ctx.Request().Body())
 		ctx.Request().SetBody(master)
@@ -284,10 +282,10 @@ func (b *Backend) Handle(ctx context.HTTPContext) (result string) {
 	}
 
 	var p *pool
-	if b.candidatePool != nil {
-		for k, v := range b.candidatePool {
+	if len(b.candidatePools) > 0 {
+		for k, v := range b.candidatePools {
 			if v.filter.Filter(ctx) {
-				p = b.candidatePool[k]
+				p = b.candidatePools[k]
 				break
 			}
 		}
@@ -299,12 +297,13 @@ func (b *Backend) Handle(ctx context.HTTPContext) (result string) {
 		return ""
 	}
 
-	result = ctx.ExecuteHandlerWithWrapper(func() string {
-		return p.handle(ctx, ctx.Request().Body())
-	})
-
+	result = p.handle(ctx, ctx.Request().Body())
 	if result != "" {
-		return result
+		if b.spec.SuppressNetworkError && (result == resultClientError || result == resultServerError) {
+			result = ""
+		} else {
+			return result
+		}
 	}
 
 	if b.fallbackForCodes(ctx) {

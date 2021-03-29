@@ -90,8 +90,8 @@ type (
 
 	// CanaryRule is one matching rule for canary.
 	CanaryRule struct {
-		ServiceLabels []string         `yaml:"serviceLabels" jsonschema:"required"`
-		Filter        *httpfilter.Spec `yaml:"filter" jsonschema:"required"`
+		ServiceLabels map[string]string `yaml:"serviceLabels" jsonschema:"required"`
+		Filter        *httpfilter.Spec  `yaml:"filter" jsonschema:"required"`
 	}
 
 	// GlobalCanaryLabels is the spec of global service
@@ -352,13 +352,52 @@ func (b *pipelineSpecBuilder) appendTimeLimiter() *pipelineSpecBuilder {
 	return b
 }
 
-func (b *pipelineSpecBuilder) appendBackendWithCanary(mainServers []*backend.Server, canaryServers []*backend.Server,
-	rules []*CanaryRule, lb *backend.LoadBalance) *pipelineSpecBuilder {
+func (b *pipelineSpecBuilder) appendBackendWithCanary(instanceSpecs []*ServiceInstanceSpec, rules []*CanaryRule, lb *backend.LoadBalance) *pipelineSpecBuilder {
+	mainServers := []*backend.Server{}
+	canaryServers := []*ServiceInstanceSpec{}
+
+	for k, instanceSpec := range instanceSpecs {
+		if instanceSpec.Status == SerivceStatusUp {
+			if len(instanceSpec.Labels) == 0 {
+				mainServers = append(mainServers, &backend.Server{
+					URL: fmt.Sprintf("http://%s:%d", instanceSpec.IP, instanceSpec.Port),
+				})
+			} else {
+				canaryServers = append(canaryServers, instanceSpecs[k])
+			}
+		}
+	}
 	backendName := "backend"
 
 	if lb == nil {
 		lb = &backend.LoadBalance{
 			Policy: backend.PolicyRoundRobin,
+		}
+	}
+
+	candidatePool := []*backend.PoolSpec{}
+	if len(canaryServers) != 0 && len(rules) != 0 {
+		for _, v := range rules {
+			match := false
+			for key, label := range v.ServiceLabels {
+				for _, server := range canaryServers {
+					for insKey, insLabel := range server.Labels {
+						if key == insKey && label == insLabel {
+							match = true
+						}
+					}
+				}
+			}
+			if match {
+				candidatePool = append(candidatePool, &backend.PoolSpec{
+					Filter:          v.Filter,
+					ServersTags:     []string{},
+					Servers:         mainServers,
+					ServiceRegistry: "",
+					ServiceName:     "",
+					LoadBalance:     lb,
+				})
+			}
 		}
 	}
 
@@ -370,6 +409,7 @@ func (b *pipelineSpecBuilder) appendBackendWithCanary(mainServers []*backend.Ser
 			Servers:     mainServers,
 			LoadBalance: lb,
 		},
+		"candidatePool": candidatePool,
 	})
 
 	return b
@@ -516,22 +556,6 @@ func (s *Service) IngressPipelineSpec(applicationPort uint32) *supervisor.Spec {
 }
 
 func (s *Service) EgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec) *supervisor.Spec {
-	mainServers := []*backend.Server{}
-	canaryServers := []*backend.Server{}
-
-	for _, instanceSpec := range instanceSpecs {
-		if instanceSpec.Status == SerivceStatusUp {
-			if len(instanceSpec.Labels) == 0 {
-				mainServers = append(mainServers, &backend.Server{
-					URL: fmt.Sprintf("http://%s:%d", instanceSpec.IP, instanceSpec.Port),
-				})
-			} else {
-				canaryServers = append(canaryServers, &backend.Server{
-					URL: fmt.Sprintf("http://%s:%d", instanceSpec.IP, instanceSpec.Port),
-				})
-			}
-		}
-	}
 
 	pipelineSpecBuilder := newPipelineSpecBuilder(s.EgressPipelineName())
 
@@ -539,7 +563,7 @@ func (s *Service) EgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec) *supe
 	pipelineSpecBuilder.appendRetryer()
 	pipelineSpecBuilder.appendCircuitBreaker()
 
-	pipelineSpecBuilder.appendBackend(mainServers, s.LoadBalance)
+	pipelineSpecBuilder.appendBackendWithCanary(instanceSpecs, s.Canary.CanaryRules, s.LoadBalance)
 
 	yamlConfig := pipelineSpecBuilder.yamlConfig()
 	superSpec, err := supervisor.NewSpec(yamlConfig)
