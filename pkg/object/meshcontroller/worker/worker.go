@@ -7,6 +7,7 @@ import (
 	"os"
 	"runtime/debug"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/megaease/easegateway/pkg/logger"
@@ -34,6 +35,7 @@ type (
 		aliveProbe      string
 		applicationPort uint32
 		applicationIP   string
+		serviceLabels   map[string]string
 
 		store    storage.Storage
 		service  *service.Service
@@ -56,11 +58,36 @@ const (
 	labelApplicationPort = "application-port"
 	labelAliveProbe      = "alive-probe"
 	labelServiceName     = "mesh-servicename"
+	labelServiceLables   = "mesh-service-labels"
 
 	// from k8s pod's env value
 	podEnvHostname      = "HOSTNAME"
 	podEnvApplicationIP = "APPLICATION_IP"
 )
+
+func decodeLables(lables string) map[string]string {
+	mLabels := make(map[string]string)
+	if len(lables) == 0 {
+		return mLabels
+	}
+	strLabel, err := url.QueryUnescape(lables)
+	if err != nil {
+		logger.Errorf("query unescape: %s failed: %v ", lables, err)
+		return mLabels
+	}
+
+	arrLabel := strings.Split(strLabel, "&")
+
+	for _, v := range arrLabel {
+		kv := strings.Split(v, "=")
+		if len(kv) == 2 {
+			mLabels[kv[0]] = kv[1]
+		} else {
+			logger.Errorf("serviceLabel: %s invalid format: %s", strLabel, v)
+		}
+	}
+	return mLabels
+}
 
 // New creates a mesh worker.
 func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
@@ -68,6 +95,7 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 
 	serviceName := super.Options().Labels[labelServiceName]
 	aliveProbe := super.Options().Labels[labelAliveProbe]
+	serviceLabels := decodeLables(super.Options().Labels[labelServiceLables])
 	applicationPort, err := strconv.Atoi(super.Options().Labels[labelApplicationPort])
 	if err != nil {
 		logger.Errorf("parse: %s failed: %v", labelApplicationPort, err)
@@ -79,7 +107,7 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 	store := storage.New(superSpec.Name(), super.Cluster())
 	_service := service.New(superSpec, store)
 	registryCenterServer := registrycenter.NewRegistryCenterServer(spec.RegistryType,
-		serviceName, applicationIP, applicationPort, instanceID, _service)
+		serviceName, applicationIP, applicationPort, instanceID, serviceLabels, _service)
 	ingressServer := NewIngressServer(super, serviceName)
 	egressEvent := make(chan string, egressEventChanSize)
 	egressServer := NewEgressServer(superSpec, super, serviceName, _service, egressEvent)
@@ -97,6 +125,7 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 		aliveProbe:      aliveProbe,
 		applicationPort: uint32(applicationPort),
 		applicationIP:   applicationIP,
+		serviceLabels:   serviceLabels,
 
 		store:    store,
 		service:  _service,
@@ -166,6 +195,7 @@ func (w *Worker) run() {
 
 		serviceSpec, info := w.service.GetServiceSpecWithInfo(w.serviceName)
 
+		w.initTrafficGate()
 		w.registryServer.Register(serviceSpec, w.ingressServer.Ready, w.egressServer.Ready)
 		w.observabilityManager.UpdateService(serviceSpec, info.Version)
 	}
