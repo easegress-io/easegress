@@ -173,7 +173,7 @@ func (rcs *Server) Discovery() ([]*ServiceRegistryInfo, error) {
 			spec = self
 		} else {
 			if service := rcs.service.GetServiceSpec(k); service == nil {
-				logger.Errorf("can't find service: %s failed: %v", k, err)
+				logger.Errorf("service %s not found", k)
 				continue
 			} else {
 				spec = service

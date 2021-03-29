@@ -306,9 +306,6 @@ func (w *Worker) updateHearbeat() error {
 			w.aliveProbe, w.serviceName, w.instanceID, resp.StatusCode)
 	}
 
-	logger.Infof("probe: %s check service: %s instanceID: %s heartbeat successfully",
-		w.aliveProbe, w.serviceName, w.instanceID)
-
 	value, err := w.store.Get(layout.ServiceInstanceStatusKey(w.serviceName, w.instanceID))
 	if err != nil {
 		return fmt.Errorf("get service: %s instance: %s status failed: %v", w.serviceName, w.instanceID, err)
