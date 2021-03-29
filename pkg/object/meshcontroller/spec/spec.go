@@ -352,9 +352,9 @@ func (b *pipelineSpecBuilder) appendTimeLimiter() *pipelineSpecBuilder {
 	return b
 }
 
-func (b *pipelineSpecBuilder) appendBackendWithCanary(instanceSpecs []*ServiceInstanceSpec, rules []*CanaryRule, lb *backend.LoadBalance) *pipelineSpecBuilder {
+func (b *pipelineSpecBuilder) appendBackendWithCanary(instanceSpecs []*ServiceInstanceSpec, canary *Canary, lb *backend.LoadBalance) *pipelineSpecBuilder {
 	mainServers := []*backend.Server{}
-	canaryServers := []*ServiceInstanceSpec{}
+	canaryInstances := []*ServiceInstanceSpec{}
 
 	for k, instanceSpec := range instanceSpecs {
 		if instanceSpec.Status == SerivceStatusUp {
@@ -363,7 +363,7 @@ func (b *pipelineSpecBuilder) appendBackendWithCanary(instanceSpecs []*ServiceIn
 					URL: fmt.Sprintf("http://%s:%d", instanceSpec.IP, instanceSpec.Port),
 				})
 			} else {
-				canaryServers = append(canaryServers, instanceSpecs[k])
+				canaryInstances = append(canaryInstances, instanceSpecs[k])
 			}
 		}
 	}
@@ -376,24 +376,25 @@ func (b *pipelineSpecBuilder) appendBackendWithCanary(instanceSpecs []*ServiceIn
 	}
 
 	candidatePool := []*backend.PoolSpec{}
-	if len(canaryServers) != 0 && len(rules) != 0 {
-		for _, v := range rules {
-			match := false
+	if len(canaryInstances) != 0 && canary != nil && len(canary.CanaryRules) != 0 {
+		for _, v := range canary.CanaryRules {
+			servers := []*backend.Server{}
 			for key, label := range v.ServiceLabels {
-				for _, server := range canaryServers {
-					for insKey, insLabel := range server.Labels {
+				for _, ins := range canaryInstances {
+					for insKey, insLabel := range ins.Labels {
 						if key == insKey && label == insLabel {
-							match = true
-							break
+							servers = append(servers, &backend.Server{
+								URL: fmt.Sprintf("http://%s:%d", ins.IP, ins.Port),
+							})
 						}
 					}
 				}
 			}
-			if match {
+			if len(servers) != 0 {
 				candidatePool = append(candidatePool, &backend.PoolSpec{
 					Filter:          v.Filter,
 					ServersTags:     []string{},
-					Servers:         mainServers,
+					Servers:         servers,
 					ServiceRegistry: "",
 					ServiceName:     "",
 					LoadBalance:     lb,
@@ -564,11 +565,12 @@ func (s *Service) EgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec) *supe
 	pipelineSpecBuilder.appendRetryer()
 	pipelineSpecBuilder.appendCircuitBreaker()
 
-	pipelineSpecBuilder.appendBackendWithCanary(instanceSpecs, s.Canary.CanaryRules, s.LoadBalance)
+	pipelineSpecBuilder.appendBackendWithCanary(instanceSpecs, s.Canary, s.LoadBalance)
 
 	yamlConfig := pipelineSpecBuilder.yamlConfig()
 	superSpec, err := supervisor.NewSpec(yamlConfig)
 	if err != nil {
+		fmt.Println(err)
 		logger.Errorf("BUG: new spec for %s failed: %v", yamlConfig, err)
 		return nil
 	}
