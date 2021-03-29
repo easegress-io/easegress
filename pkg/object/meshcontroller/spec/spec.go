@@ -384,6 +384,7 @@ func (b *pipelineSpecBuilder) appendBackendWithCanary(instanceSpecs []*ServiceIn
 					for insKey, insLabel := range server.Labels {
 						if key == insKey && label == insLabel {
 							match = true
+							break
 						}
 					}
 				}
@@ -409,7 +410,7 @@ func (b *pipelineSpecBuilder) appendBackendWithCanary(instanceSpecs []*ServiceIn
 			Servers:     mainServers,
 			LoadBalance: lb,
 		},
-		"candidatePool": candidatePool,
+		"candidatePools": candidatePool,
 	})
 
 	return b
