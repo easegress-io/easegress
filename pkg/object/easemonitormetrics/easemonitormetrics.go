@@ -343,11 +343,13 @@ func (emm *EaseMonitorMetrics) httpPipeline2Metrics(
 			codeMetrics = append(codeMetrics, codes...)
 		}
 
-		if backendStatus.CandidatePool != nil {
-			baseFieldsBackend.Service = baseFields.Service + "/" + filterName + "/candidatePool"
-			req, codes := emm.httpStat2Metrics(&baseFieldsBackend, backendStatus.MainPool.Stat)
-			reqMetrics = append(reqMetrics, req)
-			codeMetrics = append(codeMetrics, codes...)
+		if len(backendStatus.CandidatePools) > 0 {
+			for idx, _ := range backendStatus.CandidatePools {
+				baseFieldsBackend.Service = fmt.Sprintf("%s/%s/candidatePool/%d", baseFields.Service, filterName, idx)
+				req, codes := emm.httpStat2Metrics(&baseFieldsBackend, backendStatus.CandidatePools[idx].Stat)
+				reqMetrics = append(reqMetrics, req)
+				codeMetrics = append(codeMetrics, codes...)
+			}
 		}
 
 		if backendStatus.MirrorPool != nil {
