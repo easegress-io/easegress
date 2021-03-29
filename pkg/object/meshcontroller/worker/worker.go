@@ -264,6 +264,9 @@ func (w *Worker) pushSpecToJavaAgent() {
 
 		serviceSpec, info := w.service.GetServiceSpecWithInfo(w.serviceName)
 		w.observabilityManager.UpdateService(serviceSpec, info.Version)
+
+		globalCanaryHeaders, info := w.service.GetGlobalCanaryHeadersWithInfo()
+		w.observabilityManager.UpdateCanary(globalCanaryHeaders, info.Version)
 	}
 
 	for {
