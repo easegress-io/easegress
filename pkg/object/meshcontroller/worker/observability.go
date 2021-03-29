@@ -3,6 +3,7 @@ package worker
 import (
 	"encoding/json"
 	"fmt"
+
 	"gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegateway/pkg/logger"
@@ -15,6 +16,7 @@ import (
 const (
 	easeAgentConfigManager = "com.megaease.easeagent:type=ConfigManager"
 	updateServiceOperation = "updateService"
+	updateCanaryOperation  = "updateCanary"
 )
 
 type (
@@ -57,5 +59,29 @@ func (server *ObservabilityManager) UpdateService(newService *spec.Service, vers
 		return fmt.Errorf("UpdateService service: %s  failed: %v", newService.Name, err)
 	}
 
+	return nil
+}
+
+// UpdateCanary updates canary.
+func (server *ObservabilityManager) UpdateCanary(globalHeaders *spec.GlobalCanaryHeaders, version int64) error {
+	buff, err := yaml.Marshal(globalHeaders)
+	if err != nil {
+		return fmt.Errorf("UpdateCanaryHeaders failed: %v", err)
+	}
+	jsonBytes, err := yamljsontool.YAMLToJSON(buff)
+	if err != nil {
+		return fmt.Errorf("yamlToJson failed: %v", err)
+	}
+	var params interface{}
+	err = json.Unmarshal(jsonBytes, &params)
+	if err != nil {
+		return fmt.Errorf("UpdateCanaryHeaders failed: %v", err)
+	}
+	args := []interface{}{params, version}
+	logger.Infof("Update Canary Headers,new Canary is %#v", globalHeaders)
+	_, err = server.jolokiaClient.ExecuteMbeanOperation(easeAgentConfigManager, updateCanaryOperation, args)
+	if err != nil {
+		return fmt.Errorf("UpdateCanary failed: %v", err)
+	}
 	return nil
 }

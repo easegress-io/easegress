@@ -17,6 +17,8 @@ const (
 
 	tenant       = "/mesh/tenants/%s" // +tenantName
 	tenantPrefix = "/mesh/tenants/"
+
+	globalCanaryHeaders = "/mesh/canary-headers"
 )
 
 // ServiceSpecPrefix returns the prefix of service.
@@ -67,4 +69,9 @@ func TenantSpecKey(t string) string {
 // TenantPrefix returns the prefix of tenant.
 func TenantPrefix() string {
 	return tenantPrefix
+}
+
+// GlobalCanaryHeaders returns the key of global service's canary headers.
+func GlobalCanaryHeaders() string {
+	return globalCanaryHeaders
 }

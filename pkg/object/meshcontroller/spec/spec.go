@@ -85,8 +85,18 @@ type (
 
 	// Canary is the spec of service canary.
 	Canary struct {
-		ServiceLabels []string         `yaml:"serviceLabels" jsonschema:"omitempty"`
+		CanaryRules []*CanaryRule `yaml:"canaryRule" jsonschema:"omitempty"`
+	}
+
+	// CanaryRule is one matching rule for canary.
+	CanaryRule struct {
+		ServiceLabels []string         `yaml:"serviceLabels" jsonschema:"required"`
 		Filter        *httpfilter.Spec `yaml:"filter" jsonschema:"required"`
+	}
+
+	// GlobalCanaryLabels is the spec of global service
+	GlobalCanaryHeaders struct {
+		ServiceHeaders map[string][]string `yaml:"serviceHeaders" jsonshcema:"omitempty"`
 	}
 
 	// LoadBalance is the spec of service load balance.
@@ -180,12 +190,12 @@ type (
 	// ServiceInstanceSpec is the spec of service instance.
 	ServiceInstanceSpec struct {
 		// Provide by registry client
-		ServiceName  string   `yaml:"serviceName" jsonschema:"required"`
-		InstanceID   string   `yaml:"instanceID" jsonschema:"required"`
-		IP           string   `yaml:"IP" jsonschema:"required"`
-		Port         uint32   `yaml:"port" jsonschema:"required"`
-		RegistryTime string   `yaml:"registryTime" jsonschema:"omitempty"`
-		Labels       []string `yaml:"labels" jsonschema:"omitempty"`
+		ServiceName  string            `yaml:"serviceName" jsonschema:"required"`
+		InstanceID   string            `yaml:"instanceID" jsonschema:"required"`
+		IP           string            `yaml:"IP" jsonschema:"required"`
+		Port         uint32            `yaml:"port" jsonschema:"required"`
+		RegistryTime string            `yaml:"registryTime" jsonschema:"omitempty"`
+		Labels       map[string]string `yaml:"labels" jsonschema:"omitempty"`
 
 		// Set by heartbeat timer event or API
 		Status string `yaml:"status" jsonschema:"omitempty"`
@@ -342,6 +352,29 @@ func (b *pipelineSpecBuilder) appendTimeLimiter() *pipelineSpecBuilder {
 	return b
 }
 
+func (b *pipelineSpecBuilder) appendBackendWithCanary(mainServers []*backend.Server, canaryServers []*backend.Server,
+	rules []*CanaryRule, lb *backend.LoadBalance) *pipelineSpecBuilder {
+	backendName := "backend"
+
+	if lb == nil {
+		lb = &backend.LoadBalance{
+			Policy: backend.PolicyRoundRobin,
+		}
+	}
+
+	b.Flow = append(b.Flow, httppipeline.Flow{Filter: backendName})
+	b.Filters = append(b.Filters, map[string]interface{}{
+		"kind": backend.Kind,
+		"name": backendName,
+		"mainPool": &backend.PoolSpec{
+			Servers:     mainServers,
+			LoadBalance: lb,
+		},
+	})
+
+	return b
+
+}
 func (b *pipelineSpecBuilder) appendBackend(mainServers []*backend.Server, lb *backend.LoadBalance) *pipelineSpecBuilder {
 	backendName := "backend"
 
@@ -386,6 +419,27 @@ rules:
 	}
 
 	return superSpec
+}
+
+// UniqueCanaryHeaders returns the unique headers in canary filter rules.
+func (s *Service) UniqueCanaryHeaders() []string {
+	var headers []string
+	if len(s.Canary.CanaryRules) == 0 {
+		return headers
+	}
+	keys := make(map[string]bool)
+	for _, filter := range s.Canary.CanaryRules {
+		if filter.Filter != nil {
+			for k, _ := range filter.Filter.Headers {
+				keys[k] = true
+			}
+		}
+	}
+
+	for k, _ := range keys {
+		headers = append(headers, k)
+	}
+	return headers
 }
 
 func (s *Service) EgressHTTPServerName() string {
@@ -463,11 +517,19 @@ func (s *Service) IngressPipelineSpec(applicationPort uint32) *supervisor.Spec {
 
 func (s *Service) EgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec) *supervisor.Spec {
 	mainServers := []*backend.Server{}
+	canaryServers := []*backend.Server{}
+
 	for _, instanceSpec := range instanceSpecs {
 		if instanceSpec.Status == SerivceStatusUp {
-			mainServers = append(mainServers, &backend.Server{
-				URL: fmt.Sprintf("http://%s:%d", instanceSpec.IP, instanceSpec.Port),
-			})
+			if len(instanceSpec.Labels) == 0 {
+				mainServers = append(mainServers, &backend.Server{
+					URL: fmt.Sprintf("http://%s:%d", instanceSpec.IP, instanceSpec.Port),
+				})
+			} else {
+				canaryServers = append(canaryServers, &backend.Server{
+					URL: fmt.Sprintf("http://%s:%d", instanceSpec.IP, instanceSpec.Port),
+				})
+			}
 		}
 	}
 

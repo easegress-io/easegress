@@ -23,13 +23,16 @@ type (
 		// Currently we supports Eureka/Consul
 		RegistryType string
 		registered   bool
-		serviceName  string
-		instanceID   string
-		IP           string
-		port         int
-		tenant       string
-		done         chan struct{}
-		mutex        sync.RWMutex
+
+		serviceName   string
+		instanceID    string
+		IP            string
+		port          int
+		tenant        string
+		serviceLabels map[string]string
+
+		done  chan struct{}
+		mutex sync.RWMutex
 
 		service *service.Service
 	}
@@ -40,16 +43,17 @@ type (
 
 // NewRegistryCenterServer creates a initialized registry center server.
 func NewRegistryCenterServer(registryType string, serviceName string, IP string, port int, instanceID string,
-	service *service.Service) *Server {
+	serviceLabels map[string]string, service *service.Service) *Server {
 	return &Server{
-		RegistryType: registryType,
-		serviceName:  serviceName,
-		service:      service,
-		registered:   false,
-		mutex:        sync.RWMutex{},
-		port:         port,
-		IP:           IP,
-		instanceID:   instanceID,
+		RegistryType:  registryType,
+		serviceName:   serviceName,
+		service:       service,
+		registered:    false,
+		mutex:         sync.RWMutex{},
+		port:          port,
+		IP:            IP,
+		instanceID:    instanceID,
+		serviceLabels: serviceLabels,
 
 		done: make(chan struct{}),
 	}
@@ -79,6 +83,7 @@ func (rcs *Server) Register(serviceSpec *spec.Service, ingressReady ReadyFunc, e
 		InstanceID:  rcs.instanceID,
 		IP:          rcs.IP,
 		Port:        uint32(serviceSpec.Sidecar.IngressPort),
+		Labels:      rcs.serviceLabels,
 	}
 
 	go rcs.register(ins, ingressReady, egressReady)

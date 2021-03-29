@@ -3,6 +3,7 @@ package master
 import (
 	"fmt"
 	"net/http"
+	"reflect"
 	"sort"
 
 	"github.com/kataras/iris"
@@ -153,6 +154,18 @@ func (m *Master) updateService(ctx iris.Context) {
 
 		m.service.PutTenantSpec(newTenantSpec)
 		m.service.PutTenantSpec(oldTenantSpec)
+	}
+
+	globalCanaryHeaders := m.service.GetGlobalCanaryHeaders()
+	uniqueHeaders := serviceSpec.UniqueCanaryHeaders()
+	oldUniqueHeaders := oldSpec.UniqueCanaryHeaders()
+
+	if !reflect.DeepEqual(uniqueHeaders, oldUniqueHeaders) {
+		if globalCanaryHeaders == nil {
+			globalCanaryHeaders = &spec.GlobalCanaryHeaders{}
+		}
+		globalCanaryHeaders.ServiceHeaders[serviceName] = uniqueHeaders
+		m.service.PutGlobalCanaryHeaders(globalCanaryHeaders)
 	}
 
 	m.service.PutServiceSpec(serviceSpec)
