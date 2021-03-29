@@ -1,9 +1,9 @@
 package httppipeline
 
 import (
+	"bytes"
 	"fmt"
 	"reflect"
-	"strings"
 	"sync"
 	"time"
 
@@ -69,7 +69,7 @@ type (
 
 	// PipelineContext contains the context of the HTTPPipeline.
 	PipelineContext struct {
-		FilterStats []*FilterStat
+		FilterStats *FilterStat
 	}
 
 	// FilterStat records the statistics of the running filter.
@@ -78,28 +78,55 @@ type (
 		Kind     string
 		Result   string
 		Duration time.Duration
+		Next     []*FilterStat
 	}
 )
 
-func (ps *FilterStat) log() string {
-	result := ps.Result
-	if result != "" {
-		result += ","
+func (fs *FilterStat) selfDuration() time.Duration {
+	d := fs.Duration
+	for _, s := range fs.Next {
+		d -= s.Duration
 	}
-	return stringtool.Cat(ps.Name, "(", result, ps.Duration.String(), ")")
+	return d
 }
 
 func (ctx *PipelineContext) log() string {
-	if len(ctx.FilterStats) == 0 {
+	if ctx.FilterStats == nil {
 		return "<empty>"
 	}
 
-	logs := make([]string, len(ctx.FilterStats))
-	for i, filterStat := range ctx.FilterStats {
-		logs[i] = filterStat.log()
+	var buf bytes.Buffer
+	var fn func(stat *FilterStat)
+
+	fn = func(stat *FilterStat) {
+		buf.WriteString(stat.Name)
+		buf.WriteByte('(')
+		buf.WriteString(stat.Result)
+		if stat.Result != "" {
+			buf.WriteByte(',')
+		}
+		buf.WriteString(stat.selfDuration().String())
+		buf.WriteByte(')')
+		if len(stat.Next) == 0 {
+			return
+		}
+		buf.WriteString("->")
+		if len(stat.Next) > 1 {
+			buf.WriteByte('[')
+		}
+		for i, s := range stat.Next {
+			if i > 0 {
+				buf.WriteByte(',')
+			}
+			fn(s)
+		}
+		if len(stat.Next) > 1 {
+			buf.WriteByte(']')
+		}
 	}
 
-	return strings.Join(logs, "->")
+	fn(ctx.FilterStats)
+	return buf.String()
 }
 
 var (
@@ -409,14 +436,16 @@ func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) {
 	ctx.SetTemplate(hp.ht)
 
 	filterIndex := -1
+	filterStat := &FilterStat{}
 
 	handle := func(lastResult string) string {
-		// Filters are called recursively as a stack and filterIndex is used
-		// as a pointer to track the progress, so we need to save the index
-		// of previous filter and restore it before return
+		// Filters are called recursively as a stack, so we need to save current
+		// state and restore it before return
 		lastIndex := filterIndex
+		lastStat := filterStat
 		defer func() {
 			filterIndex = lastIndex
+			filterStat = lastStat
 		}()
 
 		filterIndex = hp.getNextFilterIndex(filterIndex, lastResult)
@@ -434,26 +463,29 @@ func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) {
 			logger.Errorf(format, ctx.Template().GetDict(), err)
 		}
 
-		// As filters are called recursively, stats must be added before
-		// calling the filter to keep them in a correct order
-		stat := &FilterStat{Name: name, Kind: filter.spec.Kind()}
-		pipeCtx.FilterStats = append(pipeCtx.FilterStats, stat)
+		filterStat = &FilterStat{Name: name, Kind: filter.spec.Kind()}
 
 		startTime := time.Now()
-		stat.Result = filter.filter.Handle(ctx)
-		stat.Duration = time.Since(startTime)
+		result := filter.filter.Handle(ctx)
+
+		filterStat.Duration = time.Since(startTime)
+		filterStat.Result = result
 
 		if err := ctx.SaveRspToTemplate(name); err != nil {
 			format := "save http rsp failed, dict is %#v err is %v"
 			logger.Errorf(format, ctx.Template().GetDict(), err)
 		}
 
-		return stat.Result
+		lastStat.Next = append(lastStat.Next, filterStat)
+		return result
 	}
 
 	ctx.SetHandlerCaller(handle)
 	handle("")
 
+	if len(filterStat.Next) > 0 {
+		pipeCtx.FilterStats = filterStat.Next[0]
+	}
 	ctx.AddTag(stringtool.Cat("pipeline: ", pipeCtx.log()))
 }
 

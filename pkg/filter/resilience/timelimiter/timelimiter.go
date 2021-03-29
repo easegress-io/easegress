@@ -101,7 +101,7 @@ func (tl *TimeLimiter) handle(ctx context.HTTPContext, u *URLRule) string {
 
 	result := ctx.CallNextHandler("")
 	if !timer.Stop() {
-		logger.Infof("request to URL(%s) timed out", u.ID())
+		logger.Infof("time limiter %s timed out on URL(%s)", tl.pipeSpec.Name(), u.ID())
 		ctx.Response().SetStatusCode(http.StatusRequestTimeout)
 		result = resultTimeout
 	}

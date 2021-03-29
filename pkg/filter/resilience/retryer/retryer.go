@@ -168,7 +168,7 @@ func (r *Retryer) handle(ctx context.HTTPContext, u *URLRule) string {
 			return ""
 		}
 
-		logger.Infof("attempts %d of retryer on URL(%s) failed at %d, result is '%s'",
+		logger.Infof("attempts %d of retryer %s on URL(%s) failed at %d, result is '%s'",
 			attempt,
 			r.pipeSpec.Name(),
 			u.ID(),
