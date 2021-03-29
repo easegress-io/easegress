@@ -296,6 +296,7 @@ func (w *Worker) updateHearbeat() error {
 		return fmt.Errorf("probe: %s check service: %s instanceID: %s heartbeat failed: %v",
 			w.aliveProbe, w.serviceName, w.instanceID, err)
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("probe: %s check service: %s instanceID: %s heartbeat failed status code is %d",
