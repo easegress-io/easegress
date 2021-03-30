@@ -383,14 +383,20 @@ func (b *pipelineSpecBuilder) appendBackendWithCanary(instanceSpecs []*ServiceIn
 	if len(canaryInstances) != 0 && canary != nil && len(canary.CanaryRules) != 0 {
 		for _, v := range canary.CanaryRules {
 			servers := []*backend.Server{}
-			for key, label := range v.ServiceLabels {
-				for _, ins := range canaryInstances {
+			for _, ins := range canaryInstances {
+				for key, label := range v.ServiceLabels {
+					match := false
 					for insKey, insLabel := range ins.Labels {
 						if key == insKey && label == insLabel {
 							servers = append(servers, &backend.Server{
 								URL: fmt.Sprintf("http://%s:%d", ins.IP, ins.Port),
 							})
+							match = true
+							break
 						}
+					}
+					if match {
+						break
 					}
 				}
 			}

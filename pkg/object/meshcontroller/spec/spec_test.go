@@ -269,3 +269,69 @@ func TestEgressPipelineWithCanaryNoInstanceSpec(t *testing.T) {
 	superSpec := s.EgressPipelineSpec(instanceSpecs)
 	fmt.Println(superSpec.YAMLConfig())
 }
+func TestEgressPipelineWithCanaryInstanceMultipleLabelSpec(t *testing.T) {
+	s := &Service{
+		Name: "order-002-canary-instance-multiple-label",
+		LoadBalance: &LoadBalance{
+			Policy: backend.PolicyIPHash,
+		},
+		Sidecar: &Sidecar{
+			Address:         "127.0.0.1",
+			IngressPort:     8080,
+			IngressProtocol: "http",
+			EgressPort:      9090,
+			EgressProtocol:  "http",
+		},
+		Canary: &Canary{
+			CanaryRules: []*CanaryRule{
+				{
+					Filter: &httpfilter.Spec{
+						Headers: map[string]*httpfilter.ValueFilter{
+							"X-canary": &httpfilter.ValueFilter{
+								Values: []string{"aaa"},
+							},
+						},
+					},
+					ServiceLabels: map[string]string{
+						"version": "v1",
+						"app":     "backend",
+					},
+				},
+			},
+		},
+	}
+
+	instanceSpecs := []*ServiceInstanceSpec{
+		{
+			ServiceName: "fake-001",
+			InstanceID:  "xxx-89757",
+			IP:          "192.168.0.110",
+			Port:        80,
+			Status:      "UP",
+		},
+		{
+			ServiceName: "fake-002-canary-match-two",
+			InstanceID:  "zzz-73597",
+			IP:          "192.168.0.120",
+			Port:        80,
+			Status:      "UP",
+			Labels: map[string]string{
+				"version": "v1",
+				"app":     "backend",
+			},
+		},
+		{
+			ServiceName: "fake-003-canary-match-one",
+			InstanceID:  "yyy-73587",
+			IP:          "192.168.0.121",
+			Port:        80,
+			Status:      "UP",
+			Labels: map[string]string{
+				"version": "v1",
+			},
+		},
+	}
+
+	superSpec := s.EgressPipelineSpec(instanceSpecs)
+	fmt.Println(superSpec.YAMLConfig())
+}
