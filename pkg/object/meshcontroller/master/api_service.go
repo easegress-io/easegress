@@ -162,7 +162,9 @@ func (m *Master) updateService(ctx iris.Context) {
 
 	if !reflect.DeepEqual(uniqueHeaders, oldUniqueHeaders) {
 		if globalCanaryHeaders == nil {
-			globalCanaryHeaders = &spec.GlobalCanaryHeaders{}
+			globalCanaryHeaders = &spec.GlobalCanaryHeaders{
+				ServiceHeaders: map[string][]string{},
+			}
 		}
 		globalCanaryHeaders.ServiceHeaders[serviceName] = uniqueHeaders
 		m.service.PutGlobalCanaryHeaders(globalCanaryHeaders)

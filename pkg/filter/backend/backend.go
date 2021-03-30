@@ -289,7 +289,9 @@ func (b *Backend) handle(ctx context.HTTPContext) (result string) {
 				break
 			}
 		}
-	} else {
+	}
+
+	if p == nil {
 		p = b.mainPool
 	}
 
