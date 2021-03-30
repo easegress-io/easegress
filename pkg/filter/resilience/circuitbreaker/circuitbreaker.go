@@ -2,6 +2,7 @@ package circuitbreaker
 
 import (
 	"fmt"
+	"net/http"
 	"reflect"
 	"strings"
 	"time"
@@ -274,6 +275,7 @@ func (cb *CircuitBreaker) Inherit(pipeSpec *httppipeline.FilterSpec, previousGen
 func (cb *CircuitBreaker) handle(ctx context.HTTPContext, u *URLRule) string {
 	permitted, stateID := u.cb.AcquirePermission()
 	if !permitted {
+		ctx.Response().SetStatusCode(http.StatusServiceUnavailable)
 		return ctx.CallNextHandler(resultCircuitBreaker)
 	}
 
