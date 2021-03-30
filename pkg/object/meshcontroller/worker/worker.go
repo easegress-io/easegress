@@ -266,7 +266,9 @@ func (w *Worker) pushSpecToJavaAgent() {
 		w.observabilityManager.UpdateService(serviceSpec, info.Version)
 
 		globalCanaryHeaders, info := w.service.GetGlobalCanaryHeadersWithInfo()
-		w.observabilityManager.UpdateCanary(globalCanaryHeaders, info.Version)
+		if globalCanaryHeaders != nil {
+			w.observabilityManager.UpdateCanary(globalCanaryHeaders, info.Version)
+		}
 	}
 
 	for {
