@@ -35,12 +35,14 @@ type (
 		SlidingWindowType                string `yaml:"slidingWindowType" jsonschema:"omitempty" jsonschema:"omitempty,enum=COUNT_BASED,enum=TIME_BASED"`
 		FailureRateThreshold             uint8  `yaml:"failureRateThreshold" jsonschema:"omitempty,minimum=1,maximum=100"`
 		SlowCallRateThreshold            uint8  `yaml:"slowCallRateThreshold" jsonschema:"omitempty,minimum=1,maximum=100"`
+		CountingNetworkError             bool   `yaml:"countingNetworkError" jsonschema:"omitempty"`
 		SlidingWindowSize                uint32 `yaml:"slidingWindowSize" jsonschema:"omitempty,minimum=1"`
 		PermittedNumberOfCallsInHalfOpen uint32 `yaml:"permittedNumberOfCallsInHalfOpenState" jsonschema:"omitempty"`
 		MinimumNumberOfCalls             uint32 `yaml:"minimumNumberOfCalls" jsonschema:"omitempty"`
 		SlowCallDurationThreshold        string `yaml:"slowCallDurationThreshold" jsonschema:"omitempty,format=duration"`
 		MaxWaitDurationInHalfOpen        string `yaml:"maxWaitDurationInHalfOpenState" jsonschema:"omitempty,format=duration"`
 		WaitDurationInOpen               string `yaml:"waitDurationInOpenState" jsonschema:"omitempty,format=duration"`
+		FailureStatusCodes               []int  `yaml:"failureStatusCodes" jsonschema:"omitempty,uniqueItems=true,format=httpcode-array"`
 	}
 
 	// URLRule defines the circuit breaker rule for a URL pattern
@@ -283,7 +285,18 @@ func (cb *CircuitBreaker) handle(ctx context.HTTPContext, u *URLRule) string {
 
 	result := ctx.CallNextHandler("")
 	d := time.Since(start)
-	u.cb.RecordResult(stateID, result != "", d)
+
+	statusCode := ctx.Response().StatusCode()
+	hasErr := u.policy.CountingNetworkError && context.IsNetworkError(statusCode)
+	if !hasErr {
+		for _, c := range u.policy.FailureStatusCodes {
+			if statusCode == c {
+				hasErr = true
+				break
+			}
+		}
+	}
+	u.cb.RecordResult(stateID, hasErr, d)
 
 	return result
 }

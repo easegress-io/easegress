@@ -90,13 +90,12 @@ type (
 	Spec struct {
 		httppipeline.FilterMetaSpec `yaml:",inline"`
 
-		Fallback             *FallbackSpec    `yaml:"fallback,omitempty" jsonschema:"omitempty"`
-		MainPool             *PoolSpec        `yaml:"mainPool" jsonschema:"required"`
-		CandidatePools       []*PoolSpec      `yaml:"candidatePools,omitempty" jsonschema:"omitempty"`
-		MirrorPool           *PoolSpec        `yaml:"mirrorPool,omitempty" jsonschema:"omitempty"`
-		SuppressNetworkError bool             `yaml:"suppressNetworkError,omitempty" jsonschema:"omitempty"`
-		FailureCodes         []int            `yaml:"failureCodes" jsonschema:"omitempty,uniqueItems=true,format=httpcode-array"`
-		Compression          *CompressionSpec `yaml:"compression,omitempty" jsonschema:"omitempty"`
+		Fallback       *FallbackSpec    `yaml:"fallback,omitempty" jsonschema:"omitempty"`
+		MainPool       *PoolSpec        `yaml:"mainPool" jsonschema:"required"`
+		CandidatePools []*PoolSpec      `yaml:"candidatePools,omitempty" jsonschema:"omitempty"`
+		MirrorPool     *PoolSpec        `yaml:"mirrorPool,omitempty" jsonschema:"omitempty"`
+		FailureCodes   []int            `yaml:"failureCodes" jsonschema:"omitempty,uniqueItems=true,format=httpcode-array"`
+		Compression    *CompressionSpec `yaml:"compression,omitempty" jsonschema:"omitempty"`
 	}
 
 	// FallbackSpec describes the fallback policy.
@@ -301,11 +300,7 @@ func (b *Backend) handle(ctx context.HTTPContext) (result string) {
 
 	result = p.handle(ctx, ctx.Request().Body())
 	if result != "" {
-		if b.spec.SuppressNetworkError && (result == resultClientError || result == resultServerError) {
-			result = ""
-		} else {
-			return result
-		}
+		return result
 	}
 
 	if b.fallbackForCodes(ctx) {

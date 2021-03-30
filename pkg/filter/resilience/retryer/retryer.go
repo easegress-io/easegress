@@ -17,12 +17,11 @@ import (
 
 const (
 	// Kind is the kind of Retryer.
-	Kind          = "Retryer"
-	resultRetryer = "retryer"
+	Kind = "Retryer"
 )
 
 var (
-	results = []string{resultRetryer}
+	results = []string{}
 )
 
 func init() {
@@ -33,13 +32,15 @@ type (
 	backOffPolicy uint8
 
 	Policy struct {
-		Name                string `yaml:"name" jsonschema:"required"`
-		MaxAttempts         int    `yaml:"maxAttempts" jsonschema:"omitempty,minimum=1"`
-		WaitDuration        string `yaml:"waitDuration" jsonschema:"omitempty,format=duration"`
-		waitDuration        time.Duration
-		BackOffPolicy       string  `yaml:"backOffPolicy" jsonschema:"omitempty,enum=random,enum=exponential"`
-		RandomizationFactor float64 `yaml:"randomizationFactor" jsonschema:"omitempty,minimum=0,maximum=1"`
-		backOffPolicy       backOffPolicy
+		Name                 string `yaml:"name" jsonschema:"required"`
+		MaxAttempts          int    `yaml:"maxAttempts" jsonschema:"omitempty,minimum=1"`
+		WaitDuration         string `yaml:"waitDuration" jsonschema:"omitempty,format=duration"`
+		waitDuration         time.Duration
+		BackOffPolicy        string  `yaml:"backOffPolicy" jsonschema:"omitempty,enum=random,enum=exponential"`
+		RandomizationFactor  float64 `yaml:"randomizationFactor" jsonschema:"omitempty,minimum=0,maximum=1"`
+		backOffPolicy        backOffPolicy
+		CountingNetworkError bool  `yaml:"countingNetworkError" jsonschema:"omitempty"`
+		FailureStatusCodes   []int `yaml:"failureStatusCodes" jsonschema:"omitempty,uniqueItems=true,format=httpcode-array"`
 	}
 
 	URLRule struct {
@@ -163,9 +164,22 @@ func (r *Retryer) handle(ctx context.HTTPContext, u *URLRule) string {
 	for {
 		attempt++
 		ctx.Request().SetBody(bytes.NewReader(data))
+
 		result := ctx.CallNextHandler("")
-		if result == "" {
-			return ""
+
+		statusCode := ctx.Response().StatusCode()
+		hasErr := u.policy.CountingNetworkError && context.IsNetworkError(statusCode)
+		if !hasErr {
+			for _, c := range u.policy.FailureStatusCodes {
+				if statusCode == c {
+					hasErr = true
+					break
+				}
+			}
+		}
+
+		if !hasErr {
+			return result
 		}
 
 		logger.Infof("attempts %d of retryer %s on URL(%s) failed at %d, result is '%s'",
@@ -177,8 +191,7 @@ func (r *Retryer) handle(ctx context.HTTPContext, u *URLRule) string {
 		)
 
 		if attempt == u.policy.MaxAttempts {
-			// ???: maybe should return result directly
-			return resultRetryer
+			return result
 		}
 
 		delta := base * u.policy.RandomizationFactor

@@ -1,6 +1,8 @@
 package bridge
 
 import (
+	"net/http"
+
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
@@ -120,18 +122,21 @@ func (b *Bridge) handle(ctx context.HTTPContext) (result string) {
 
 	if !found {
 		logger.Errorf("dest not found: %s", dest)
+		ctx.Response().SetStatusCode(http.StatusServiceUnavailable)
 		return resultDestinationNotFound
 	}
 
 	ro, exists := supervisor.Global.GetRunningObject(dest, supervisor.CategoryPipeline)
 	if !exists {
 		logger.Errorf("failed invok %s", b.spec.Destinations[0])
+		ctx.Response().SetStatusCode(http.StatusServiceUnavailable)
 		return resultInvokeDestinationFailed
 	}
 
 	handler, ok := ro.Instance().(protocol.HTTPHandler)
 	if !ok {
 		logger.Errorf("%s is not a handler", b.spec.Destinations[0])
+		ctx.Response().SetStatusCode(http.StatusServiceUnavailable)
 		return resultInvokeDestinationFailed
 	}
 

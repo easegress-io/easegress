@@ -140,10 +140,12 @@ func (aa *APIAggregator) handle(ctx context.HTTPContext) (result string) {
 		written, err := io.CopyN(buff, ctx.Request().Body(), aa.spec.MaxBodyBytes+1)
 		if written > aa.spec.MaxBodyBytes {
 			ctx.AddTag(fmt.Sprintf("apiAggregator: request body exceed %dB", aa.spec.MaxBodyBytes))
+			ctx.Response().SetStatusCode(http.StatusRequestEntityTooLarge)
 			return resultFailed
 		}
 		if err != io.EOF {
 			ctx.AddTag((fmt.Sprintf("apiAggregator: read request body failed: %v", err)))
+			ctx.Response().SetStatusCode(http.StatusBadRequest)
 			return resultFailed
 		}
 	}
@@ -158,6 +160,7 @@ func (aa *APIAggregator) handle(ctx context.HTTPContext) (result string) {
 
 		if err != nil {
 			logger.Errorf("BUG: new HTTPProxy request failed %v proxyname[%d]", err, aa.spec.APIProxys[i].HTTPProxyName)
+			ctx.Response().SetStatusCode(http.StatusBadRequest)
 			return resultFailed
 		}
 
@@ -204,6 +207,7 @@ func (aa *APIAggregator) handle(ctx context.HTTPContext) (result string) {
 		if resp == nil && !aa.spec.PartialSucceed {
 			ctx.AddTag(fmt.Sprintf("apiAggregator: failed in HTTPProxy %s",
 				aa.spec.APIProxys[i].HTTPProxyName))
+			ctx.Response().SetStatusCode(http.StatusServiceUnavailable)
 			return resultFailed
 		}
 
@@ -267,10 +271,12 @@ func (aa *APIAggregator) copyHTTPBody2Map(body io.Reader, ctx context.HTTPContex
 	written, err := io.CopyN(respBody, body, aa.spec.MaxBodyBytes)
 	if written > aa.spec.MaxBodyBytes {
 		ctx.AddTag(fmt.Sprintf("apiAggregator: response body exceed %dB", aa.spec.MaxBodyBytes))
+		ctx.Response().SetStatusCode(http.StatusInsufficientStorage)
 		return resultFailed
 	}
 	if err != io.EOF {
 		ctx.AddTag(fmt.Sprintf("apiAggregator: read response body failed: %v", err))
+		ctx.Response().SetStatusCode(http.StatusInternalServerError)
 		return resultFailed
 	}
 
@@ -287,6 +293,7 @@ func (aa *APIAggregator) formatResponse(ctx context.HTTPContext, data map[string
 			if err != nil {
 				ctx.AddTag(fmt.Sprintf("apiAggregator: unmarshal %s to json object failed: %v",
 					resp, err))
+				ctx.Response().SetStatusCode(context.EGStatusBadResponse)
 				return resultFailed
 			}
 		}
@@ -295,6 +302,7 @@ func (aa *APIAggregator) formatResponse(ctx context.HTTPContext, data map[string
 			ctx.AddTag(fmt.Sprintf("apiAggregator: marshal %#v to json failed: %v",
 				result, err))
 			logger.Errorf("apiAggregator: marshal %#v to json failed: %v", result, err)
+			ctx.Response().SetStatusCode(http.StatusInternalServerError)
 			return resultFailed
 		}
 
@@ -307,6 +315,7 @@ func (aa *APIAggregator) formatResponse(ctx context.HTTPContext, data map[string
 			if err != nil {
 				ctx.AddTag(fmt.Sprintf("apiAggregator: unmarshal %s to json object failed: %v",
 					resp, err))
+				ctx.Response().SetStatusCode(context.EGStatusBadResponse)
 				return resultFailed
 			}
 			result = append(result, ele)
@@ -315,6 +324,7 @@ func (aa *APIAggregator) formatResponse(ctx context.HTTPContext, data map[string
 		if err != nil {
 			ctx.AddTag(fmt.Sprintf("apiAggregator: marshal %#v to json failed: %v",
 				result, err))
+			ctx.Response().SetStatusCode(http.StatusInternalServerError)
 			return resultFailed
 		}
 

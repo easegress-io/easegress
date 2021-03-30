@@ -241,7 +241,7 @@ func (ctx *httpContext) Finish() {
 	if ctx.ClientDisconnected() {
 		ctx.AddTag(fmt.Sprintf("client closed connection: change code %d to 499",
 			ctx.w.StatusCode()))
-		ctx.w.SetStatusCode(499 /* consistent with nginx */)
+		ctx.w.SetStatusCode(EGStatusClientClosedRequest /* consistent with nginx */)
 	}
 
 	ctx.r.finish()

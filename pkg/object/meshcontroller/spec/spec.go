@@ -289,6 +289,8 @@ func (b *pipelineSpecBuilder) appendCircuitBreaker() *pipelineSpecBuilder {
 			SlowCallDurationThreshold:        "100ms",
 			MaxWaitDurationInHalfOpen:        "60s",
 			WaitDurationInOpen:               "60s",
+			CountingNetworkError:             false,
+			FailureStatusCodes:               []int{500, 501},
 		}},
 		"defaultPolicyRef": "default",
 		"urls": []resilience.URLRule{{
@@ -311,11 +313,13 @@ func (b *pipelineSpecBuilder) appendRetryer() *pipelineSpecBuilder {
 		"kind": retryer.Kind,
 		"name": name,
 		"policies": []retryer.Policy{{
-			Name:                "default",
-			MaxAttempts:         3,
-			WaitDuration:        "500ms",
-			BackOffPolicy:       "random",
-			RandomizationFactor: 0.5,
+			Name:                 "default",
+			MaxAttempts:          3,
+			WaitDuration:         "500ms",
+			BackOffPolicy:        "random",
+			RandomizationFactor:  0.5,
+			CountingNetworkError: false,
+			FailureStatusCodes:   []int{500, 501},
 		}},
 		"defaultPolicyRef": "default",
 		"urls": []resilience.URLRule{{
