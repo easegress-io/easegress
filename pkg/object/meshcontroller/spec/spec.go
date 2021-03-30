@@ -466,7 +466,7 @@ rules:
 // UniqueCanaryHeaders returns the unique headers in canary filter rules.
 func (s *Service) UniqueCanaryHeaders() []string {
 	var headers []string
-	if len(s.Canary.CanaryRules) == 0 {
+	if s.Canary == nil || len(s.Canary.CanaryRules) == 0 {
 		return headers
 	}
 	keys := make(map[string]bool)
