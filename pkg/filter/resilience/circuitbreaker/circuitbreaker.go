@@ -179,9 +179,7 @@ func (cb *CircuitBreaker) setStateListenerForURL(u *URLRule) {
 	})
 }
 
-func (cb *CircuitBreaker) createCircuitBreakerForURL(u *URLRule) {
-	u.Init()
-
+func (cb *CircuitBreaker) bindPolicyToURL(u *URLRule) {
 	name := u.PolicyRef
 	if name == "" {
 		name = cb.spec.DefaultPolicyRef
@@ -193,7 +191,11 @@ func (cb *CircuitBreaker) createCircuitBreakerForURL(u *URLRule) {
 			break
 		}
 	}
+}
 
+func (cb *CircuitBreaker) createCircuitBreakerForURL(u *URLRule) {
+	u.Init()
+	cb.bindPolicyToURL(u)
 	u.createCircuitBreaker()
 	cb.setStateListenerForURL(u)
 }
@@ -243,6 +245,7 @@ OuterLoop:
 			}
 
 			url.Init()
+			cb.bindPolicyToURL(url)
 			url.cb = prev.cb
 			prev.cb = nil
 			cb.setStateListenerForURL(url)

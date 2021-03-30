@@ -41,13 +41,13 @@ func (p *pool) newRequest(ctx context.HTTPContext, server *Server, reqBody io.Re
 	if r.Query() != "" {
 		url += "?" + r.Query()
 	}
-	stdr, err := http.NewRequest(r.Method(), url, reqBody)
+
+	newCtx := httpstat.WithHTTPStat(ctx, req.statResult)
+	stdr, err := http.NewRequestWithContext(newCtx, r.Method(), url, reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("BUG: new request failed: %v", err)
 	}
 	stdr.Header = r.Header().Std()
-
-	stdr = stdr.WithContext(httpstat.WithHTTPStat(stdr.Context(), req.statResult))
 
 	req.std = stdr
 

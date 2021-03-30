@@ -135,9 +135,7 @@ func (rl *RateLimiter) setStateListenerForURL(u *URLRule) {
 	})
 }
 
-func (rl *RateLimiter) createRateLimiterForURL(u *URLRule) {
-	u.Init()
-
+func (rl *RateLimiter) bindPolicyToURL(u *URLRule) {
 	name := u.PolicyRef
 	if name == "" {
 		name = rl.spec.DefaultPolicyRef
@@ -149,7 +147,11 @@ func (rl *RateLimiter) createRateLimiterForURL(u *URLRule) {
 			break
 		}
 	}
+}
 
+func (rl *RateLimiter) createRateLimiterForURL(u *URLRule) {
+	u.Init()
+	rl.bindPolicyToURL(u)
 	u.createRateLimiter()
 	rl.setStateListenerForURL(u)
 }
@@ -199,6 +201,7 @@ OuterLoop:
 			}
 
 			url.Init()
+			rl.bindPolicyToURL(url)
 			url.rl = prev.rl
 			prev.rl = nil
 			rl.setStateListenerForURL(url)
