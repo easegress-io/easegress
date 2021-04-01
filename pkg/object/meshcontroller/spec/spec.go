@@ -482,13 +482,13 @@ func (s *Service) UniqueCanaryHeaders() []string {
 	keys := make(map[string]bool)
 	for _, filter := range s.Canary.CanaryRules {
 		if filter.Filter != nil {
-			for k, _ := range filter.Filter.Headers {
+			for k := range filter.Filter.Headers {
 				keys[k] = true
 			}
 		}
 	}
 
-	for k, _ := range keys {
+	for k := range keys {
 		headers = append(headers, k)
 	}
 	return headers
