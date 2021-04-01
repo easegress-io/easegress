@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/megaease/easegateway/pkg/filter/backend"
-	"github.com/megaease/easegateway/pkg/filter/resilience"
 	"github.com/megaease/easegateway/pkg/filter/resilience/circuitbreaker"
 	"github.com/megaease/easegateway/pkg/filter/resilience/ratelimiter"
 	"github.com/megaease/easegateway/pkg/filter/resilience/retryer"
@@ -246,113 +245,74 @@ func (b *pipelineSpecBuilder) yamlConfig() string {
 	return string(buff)
 }
 
-func (b *pipelineSpecBuilder) appendRateLimiter() *pipelineSpecBuilder {
+func (b *pipelineSpecBuilder) appendRateLimiter(rl *ratelimiter.Spec) *pipelineSpecBuilder {
 	const name = "rateLimiter"
+
+	if rl == nil || len(rl.Policies) == 0 || len(rl.URLs) == 0 {
+		return b
+	}
+
 	b.Flow = append(b.Flow, httppipeline.Flow{Filter: name})
 	b.Filters = append(b.Filters, map[string]interface{}{
-		"kind": ratelimiter.Kind,
-		"name": name,
-		"policies": []ratelimiter.Policy{{
-			Name:               "default",
-			TimeoutDuration:    "100ms",
-			LimitForPeriod:     50,
-			LimitRefreshPeriod: "10ms",
-		}},
-		"defaultPolicyRef": "default",
-		"urls": []resilience.URLRule{{
-			Methods: []string{"GET"},
-			URL: resilience.StringMatch{
-				Exact:  "/path1",
-				Prefix: "/path2/",
-				RegEx:  "^/path3/[0-9]+$",
-			},
-			PolicyRef: "default",
-		}},
+		"kind":             ratelimiter.Kind,
+		"name":             name,
+		"policies":         rl.Policies,
+		"defaultPolicyRef": rl.DefaultPolicyRef,
+		"urls":             rl.URLs,
 	})
 	return b
 }
 
-func (b *pipelineSpecBuilder) appendCircuitBreaker() *pipelineSpecBuilder {
+func (b *pipelineSpecBuilder) appendCircuitBreaker(cb *circuitbreaker.Spec) *pipelineSpecBuilder {
 	const name = "circuitBreaker"
+
+	if cb == nil || len(cb.Policies) == 0 || len(cb.URLs) == 0 {
+		return b
+	}
+
 	b.Flow = append(b.Flow, httppipeline.Flow{Filter: name})
 	b.Filters = append(b.Filters, map[string]interface{}{
-		"kind": circuitbreaker.Kind,
-		"name": name,
-		"policies": []circuitbreaker.Policy{{
-			Name:                             "default",
-			SlidingWindowType:                "COUNT_BASED",
-			FailureRateThreshold:             50,
-			SlowCallRateThreshold:            100,
-			SlidingWindowSize:                100,
-			PermittedNumberOfCallsInHalfOpen: 10,
-			MinimumNumberOfCalls:             20,
-			SlowCallDurationThreshold:        "100ms",
-			MaxWaitDurationInHalfOpen:        "60s",
-			WaitDurationInOpen:               "60s",
-			CountingNetworkError:             false,
-			FailureStatusCodes:               []int{500, 501},
-		}},
-		"defaultPolicyRef": "default",
-		"urls": []resilience.URLRule{{
-			Methods: []string{"GET"},
-			URL: resilience.StringMatch{
-				Exact:  "/path1",
-				Prefix: "/path2/",
-				RegEx:  "^/path3/[0-9]+$",
-			},
-			PolicyRef: "default",
-		}},
+		"kind":             circuitbreaker.Kind,
+		"name":             name,
+		"policies":         cb.Policies,
+		"defaultPolicyRef": cb.DefaultPolicyRef,
+		"urls":             cb.URLs,
 	})
 	return b
 }
 
-func (b *pipelineSpecBuilder) appendRetryer() *pipelineSpecBuilder {
+func (b *pipelineSpecBuilder) appendRetryer(r *retryer.Spec) *pipelineSpecBuilder {
 	const name = "retryer"
+
+	if r == nil || len(r.Policies) == 0 || len(r.URLs) == 0 {
+		return b
+	}
+
 	b.Flow = append(b.Flow, httppipeline.Flow{Filter: name})
 	b.Filters = append(b.Filters, map[string]interface{}{
-		"kind": retryer.Kind,
-		"name": name,
-		"policies": []retryer.Policy{{
-			Name:                 "default",
-			MaxAttempts:          3,
-			WaitDuration:         "500ms",
-			BackOffPolicy:        "random",
-			RandomizationFactor:  0.5,
-			CountingNetworkError: false,
-			FailureStatusCodes:   []int{500, 501},
-		}},
-		"defaultPolicyRef": "default",
-		"urls": []resilience.URLRule{{
-			Methods: []string{"GET"},
-			URL: resilience.StringMatch{
-				Exact:  "/path1",
-				Prefix: "/path2/",
-				RegEx:  "^/path3/[0-9]+$",
-			},
-			PolicyRef: "default",
-		}},
+		"kind":             retryer.Kind,
+		"name":             name,
+		"policies":         r.Policies,
+		"defaultPolicyRef": r.DefaultPolicyRef,
+		"urls":             r.URLs,
 	})
 	return b
 }
 
-func (b *pipelineSpecBuilder) appendTimeLimiter() *pipelineSpecBuilder {
+func (b *pipelineSpecBuilder) appendTimeLimiter(tl *timelimiter.Spec) *pipelineSpecBuilder {
 	const name = "timeLimiter"
+
+	if tl == nil || len(tl.URLs) == 0 {
+		return b
+	}
+
 	b.Flow = append(b.Flow, httppipeline.Flow{Filter: name})
 	b.Filters = append(b.Filters, map[string]interface{}{
 		"kind":           timelimiter.Kind,
 		"name":           name,
-		"defaultTimeout": "500ms",
-		"urls": []timelimiter.URLRule{{
-			URLRule: resilience.URLRule{
-				Methods: []string{"GET", "PUT"},
-				URL: resilience.StringMatch{
-					Exact:  "/path1",
-					Prefix: "/path2/",
-					RegEx:  "^/path3/[0-9]+$",
-				},
-			},
-			TimeoutDuration: "500ms",
-		}}})
+		"defaultTimeout": tl.DefaultTimeoutDuration,
+		"urls":           tl.URLs,
+	})
 	return b
 }
 
@@ -553,7 +513,9 @@ func (s *Service) IngressPipelineSpec(applicationPort uint32) *supervisor.Spec {
 
 	pipelineSpecBuilder := newPipelineSpecBuilder(s.IngressPipelineName())
 
-	pipelineSpecBuilder.appendRateLimiter()
+	if s.Resilience != nil {
+		pipelineSpecBuilder.appendRateLimiter(s.Resilience.RateLimiter)
+	}
 
 	pipelineSpecBuilder.appendBackend(mainServers, s.LoadBalance)
 
@@ -571,9 +533,11 @@ func (s *Service) EgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec) *supe
 
 	pipelineSpecBuilder := newPipelineSpecBuilder(s.EgressPipelineName())
 
-	pipelineSpecBuilder.appendTimeLimiter()
-	pipelineSpecBuilder.appendRetryer()
-	pipelineSpecBuilder.appendCircuitBreaker()
+	if s.Resilience != nil {
+		pipelineSpecBuilder.appendTimeLimiter(s.Resilience.TimeLimiter)
+		pipelineSpecBuilder.appendRetryer(s.Resilience.Retryer)
+		pipelineSpecBuilder.appendCircuitBreaker(s.Resilience.CircuitBreaker)
+	}
 
 	pipelineSpecBuilder.appendBackendWithCanary(instanceSpecs, s.Canary, s.LoadBalance)
 
