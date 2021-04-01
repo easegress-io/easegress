@@ -275,10 +275,12 @@ func (cb *CircuitBreaker) Inherit(pipeSpec *httppipeline.FilterSpec, previousGen
 func (cb *CircuitBreaker) handle(ctx context.HTTPContext, u *URLRule) string {
 	permitted, stateID := u.cb.AcquirePermission()
 	if !permitted {
+		logger.Infof("circuit breaker rejects request: %s, %s", ctx.Request().Method(), ctx.Request().EscapedPath())
 		ctx.Response().SetStatusCode(http.StatusServiceUnavailable)
 		return ctx.CallNextHandler(resultCircuitBreaker)
 	}
 
+	logger.Infof("circuit breaker permits request: %s, %s", ctx.Request().Method(), ctx.Request().EscapedPath())
 	start := time.Now()
 	defer func() {
 		if e := recover(); e != nil {
@@ -313,6 +315,7 @@ func (cb *CircuitBreaker) Handle(ctx context.HTTPContext) string {
 			return cb.handle(ctx, u)
 		}
 	}
+	logger.Infof("circuit breaker forwards traffic: %s, %s", ctx.Request().Method(), ctx.Request().EscapedPath())
 	return ctx.CallNextHandler("")
 }
 
