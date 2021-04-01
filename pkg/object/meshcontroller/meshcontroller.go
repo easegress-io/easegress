@@ -2,6 +2,8 @@ package meshcontroller
 
 import (
 	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/object/meshcontroller/ingresscontroller"
+	"github.com/megaease/easegateway/pkg/object/meshcontroller/label"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/master"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/worker"
@@ -15,8 +17,12 @@ const (
 	// Kind is the kind of MeshController.
 	Kind = "MeshController"
 
-	meshRoleMaster = "master"
-	meshRoleWorker = "worker"
+	meshLabelRole        = "mesh-role"
+	meshLabelServiceName = "mesh-servicename"
+
+	meshRoleMaster            = "master"
+	meshRoleWorker            = "worker"
+	meshRoleIngressController = "ingressController"
 )
 
 type (
@@ -26,9 +32,10 @@ type (
 		superSpec *supervisor.Spec
 		spec      *spec.Admin
 
-		role   string
-		master *master.Master
-		worker *worker.Worker
+		role              string
+		master            *master.Master
+		worker            *worker.Worker
+		ingressController *ingresscontroller.IngressController
 	}
 )
 
@@ -70,18 +77,40 @@ func (mc *MeshController) Inherit(spec *supervisor.Spec,
 }
 
 func (mc *MeshController) reload() {
-	service := mc.super.Options().Labels["mesh-servicename"]
+	meshRole := mc.super.Options().Labels[label.KeyRole]
+	serviceName := mc.super.Options().Labels[label.KeyServiceName]
 
-	if len(service) == 0 {
-		logger.Infof("%s running in master role", mc.superSpec.Name())
-		mc.role = meshRoleMaster
-		mc.master = master.New(mc.superSpec, mc.super)
-		return
+	switch meshRole {
+	case label.ValueRoleMaster, label.ValueRoleWorker, label.ValueRoleIngressController:
+	case "":
+		if serviceName == "" {
+			meshRole = label.ValueRoleMaster
+		} else {
+			meshRole = label.ValueRoleWorker
+		}
+	default:
+		logger.Errorf("%s unsupported mesh role: %s (master, worker, ingressController)",
+			mc.superSpec.Name(), meshRole)
+		logger.Infof("%s use default mesh role: master", mc.superSpec.Name())
+		meshRole = label.ValueRoleMaster
 	}
 
-	logger.Infof("%s running in worker role", mc.superSpec.Name())
-	mc.role = meshRoleWorker
-	mc.worker = worker.New(mc.superSpec, mc.super)
+	switch meshRole {
+	case label.ValueRoleMaster:
+		logger.Infof("%s running in master role", mc.superSpec.Name())
+		mc.role = label.ValueRoleMaster
+		mc.master = master.New(mc.superSpec, mc.super)
+
+	case label.ValueRoleWorker:
+		logger.Infof("%s running in worker role", mc.superSpec.Name())
+		mc.role = label.ValueRoleWorker
+		mc.worker = worker.New(mc.superSpec, mc.super)
+
+	case label.ValueRoleIngressController:
+		logger.Infof("%s running in ingress controller role", mc.superSpec.Name())
+		mc.role = label.ValueRoleIngressController
+		mc.ingressController = ingresscontroller.New(mc.superSpec, mc.super)
+	}
 }
 
 // Status returns the status of MeshController.
@@ -100,5 +129,13 @@ func (mc *MeshController) Close() {
 		return
 	}
 
-	mc.worker.Close()
+	if mc.worker != nil {
+		mc.worker.Close()
+		return
+	}
+
+	if mc.ingressController != nil {
+		mc.ingressController.Close()
+		return
+	}
 }

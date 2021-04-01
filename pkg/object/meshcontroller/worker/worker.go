@@ -12,6 +12,7 @@ import (
 
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/informer"
+	"github.com/megaease/easegateway/pkg/object/meshcontroller/label"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/layout"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/registrycenter"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/service"
@@ -55,11 +56,6 @@ type (
 const (
 	egressEventChanSize = 100
 
-	labelApplicationPort = "application-port"
-	labelAliveProbe      = "alive-probe"
-	labelServiceName     = "mesh-servicename"
-	labelServiceLables   = "mesh-service-labels"
-
 	// from k8s pod's env value
 	podEnvHostname      = "HOSTNAME"
 	podEnvApplicationIP = "APPLICATION_IP"
@@ -93,12 +89,12 @@ func decodeLables(lables string) map[string]string {
 func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 	spec := superSpec.ObjectSpec().(*spec.Admin)
 
-	serviceName := super.Options().Labels[labelServiceName]
-	aliveProbe := super.Options().Labels[labelAliveProbe]
-	serviceLabels := decodeLables(super.Options().Labels[labelServiceLables])
-	applicationPort, err := strconv.Atoi(super.Options().Labels[labelApplicationPort])
+	serviceName := super.Options().Labels[label.KeyServiceName]
+	aliveProbe := super.Options().Labels[label.KeyAliveProbe]
+	serviceLabels := decodeLables(super.Options().Labels[label.KeyServiceLables])
+	applicationPort, err := strconv.Atoi(super.Options().Labels[label.KeyApplicationPort])
 	if err != nil {
-		logger.Errorf("parse: %s failed: %v", labelApplicationPort, err)
+		logger.Errorf("parse %s failed: %v", super.Options().Labels[label.KeyApplicationPort], err)
 	}
 
 	instanceID := os.Getenv(podEnvHostname)
