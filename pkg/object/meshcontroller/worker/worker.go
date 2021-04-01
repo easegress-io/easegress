@@ -195,9 +195,17 @@ func (w *Worker) run() {
 
 		serviceSpec, info := w.service.GetServiceSpecWithInfo(w.serviceName)
 
-		w.initTrafficGate()
+		err := w.initTrafficGate()
+		if err != nil {
+			logger.Errorf("init traffic gate failed: %v", err)
+		}
+
 		w.registryServer.Register(serviceSpec, w.ingressServer.Ready, w.egressServer.Ready)
-		w.observabilityManager.UpdateService(serviceSpec, info.Version)
+
+		err = w.observabilityManager.UpdateService(serviceSpec, info.Version)
+		if err != nil {
+			logger.Errorf("update service %s failed: %v", serviceSpec.Name, err)
+		}
 	}
 
 	startUpRoutine()
@@ -263,11 +271,17 @@ func (w *Worker) pushSpecToJavaAgent() {
 		}()
 
 		serviceSpec, info := w.service.GetServiceSpecWithInfo(w.serviceName)
-		w.observabilityManager.UpdateService(serviceSpec, info.Version)
+		err := w.observabilityManager.UpdateService(serviceSpec, info.Version)
+		if err != nil {
+			logger.Errorf("update service %s failed: %v", serviceSpec.Name, err)
+		}
 
 		globalCanaryHeaders, info := w.service.GetGlobalCanaryHeadersWithInfo()
 		if globalCanaryHeaders != nil {
-			w.observabilityManager.UpdateCanary(globalCanaryHeaders, info.Version)
+			err := w.observabilityManager.UpdateCanary(globalCanaryHeaders, info.Version)
+			if err != nil {
+				logger.Errorf("update canary failed: %v", err)
+			}
 		}
 	}
 
@@ -402,7 +416,7 @@ func (w *Worker) informJavaAgent() error {
 			return false
 		case informer.EventUpdate:
 			if err := w.observabilityManager.UpdateService(service, event.RawKV.Version); err != nil {
-				logger.Errorf("update observability failed: %v", err)
+				logger.Errorf("update service %s failed: %v", service.Name, err)
 			}
 		}
 

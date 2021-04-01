@@ -6,7 +6,6 @@ import (
 
 	"gopkg.in/yaml.v2"
 
-	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
 	"github.com/megaease/easegateway/pkg/util/jmxtool"
 
@@ -38,25 +37,25 @@ func NewObservabilityServer(serviceName string) *ObservabilityManager {
 
 // UpdateService updates service.
 func (server *ObservabilityManager) UpdateService(newService *spec.Service, version int64) error {
-
 	buff, err := yaml.Marshal(newService)
 	if err != nil {
-		return fmt.Errorf("UpdateService service: %s  failed: %v", newService.Name, err)
+		return fmt.Errorf("marshal %#v to yaml failed: %v", newService, err)
 	}
 	jsonBytes, err := yamljsontool.YAMLToJSON(buff)
+	if err != nil {
+		return fmt.Errorf("convert yaml %s to json failed: %v", buff, err)
+	}
 
 	var params interface{}
 	err = json.Unmarshal(jsonBytes, &params)
 	if err != nil {
-		return fmt.Errorf("UpdateService service: %s  failed: %v", newService.Name, err)
+		return fmt.Errorf("unmarshal %s to json failed: %v", jsonBytes, err)
 	}
 	args := []interface{}{params, version}
 
-	logger.Infof("Update Service: %s Observability, new Service is %s", newService.Name, newService)
-
 	_, err = server.jolokiaClient.ExecuteMbeanOperation(easeAgentConfigManager, updateServiceOperation, args)
 	if err != nil {
-		return fmt.Errorf("UpdateService service: %s  failed: %v", newService.Name, err)
+		return fmt.Errorf("execute mbean operation failed: %v", err)
 	}
 
 	return nil
@@ -66,22 +65,25 @@ func (server *ObservabilityManager) UpdateService(newService *spec.Service, vers
 func (server *ObservabilityManager) UpdateCanary(globalHeaders *spec.GlobalCanaryHeaders, version int64) error {
 	buff, err := yaml.Marshal(globalHeaders)
 	if err != nil {
-		return fmt.Errorf("UpdateCanaryHeaders failed: %v", err)
+		return fmt.Errorf("marshal %#v to yaml failed: %v", globalHeaders, err)
 	}
+
 	jsonBytes, err := yamljsontool.YAMLToJSON(buff)
 	if err != nil {
-		return fmt.Errorf("yamlToJson failed: %v", err)
+		return fmt.Errorf("convert yaml %s to json failed: %v", buff, err)
 	}
+
 	var params interface{}
 	err = json.Unmarshal(jsonBytes, &params)
 	if err != nil {
-		return fmt.Errorf("UpdateCanaryHeaders failed: %v", err)
+		return fmt.Errorf("unmarshal %s to json failed: %v", jsonBytes, err)
 	}
+
 	args := []interface{}{params, version}
-	logger.Infof("Update Canary Headers,new Canary is %#v", globalHeaders)
 	_, err = server.jolokiaClient.ExecuteMbeanOperation(easeAgentConfigManager, updateCanaryOperation, args)
 	if err != nil {
-		return fmt.Errorf("UpdateCanary failed: %v", err)
+		return fmt.Errorf("execute mbean operation failed: %v", err)
 	}
+
 	return nil
 }
