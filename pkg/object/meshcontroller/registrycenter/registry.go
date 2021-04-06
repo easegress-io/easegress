@@ -89,6 +89,18 @@ func (rcs *Server) Register(serviceSpec *spec.Service, ingressReady ReadyFunc, e
 	go rcs.register(ins, ingressReady, egressReady)
 }
 
+func needUpdateRecord(originIns, ins *spec.ServiceInstanceSpec) bool {
+	if originIns == nil {
+		return true
+	}
+
+	if originIns.IP != ins.IP || originIns.Port != ins.Port {
+		return true
+	}
+
+	return false
+}
+
 func (rcs *Server) register(ins *spec.ServiceInstanceSpec, ingressReady ReadyFunc, egressReady ReadyFunc) {
 	var tryTimes int = 0
 
@@ -117,10 +129,12 @@ func (rcs *Server) register(ins *spec.ServiceInstanceSpec, ingressReady ReadyFun
 					return
 				}
 
-				// already been registered
-				if ins := rcs.service.GetServiceInstanceSpec(rcs.serviceName, rcs.instanceID); ins != nil {
-					rcs.registered = true
-					return
+				if originIns := rcs.service.GetServiceInstanceSpec(rcs.serviceName, rcs.instanceID); originIns != nil {
+					logger.Infof("register in original ins: %#v, current ins: %#v", originIns, ins)
+					if !needUpdateRecord(originIns, ins) {
+						rcs.registered = true
+						return
+					}
 				}
 
 				ins.Status = spec.SerivceStatusUp
