@@ -223,7 +223,7 @@ type (
 // Validate validates Spec.
 func (a Admin) Validate() error {
 	switch a.RegistryType {
-	case RegistryTypeConsul, RegistryTypeEureka:
+	case RegistryTypeConsul, RegistryTypeEureka, RegistryTypeNacos:
 	default:
 		return fmt.Errorf("unsupported registry center type: %s", a.RegistryType)
 	}

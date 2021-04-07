@@ -25,6 +25,7 @@ type (
 		app       *iris.Application
 		apisMutex sync.RWMutex
 		apis      []*apiEntry
+		port      int
 	}
 
 	apiEntry struct {
@@ -44,7 +45,8 @@ func NewAPIServer(port int) *apiServer {
 	app := iris.New()
 
 	s := &apiServer{
-		app: app,
+		app:  app,
+		port: port,
 	}
 
 	// NOTE: Fix trailing slash problem.
@@ -60,29 +62,28 @@ func NewAPIServer(port int) *apiServer {
 	})
 
 	app.Use(newRecoverer())
-
 	app.Logger().SetOutput(ioutil.Discard)
-
-	s.setupAPIs()
-
-	go func() {
-		addr := fmt.Sprintf("%s:%d", defaultServerIP, port)
-		logger.Infof("worker api server running in %s", addr)
-
-		err := app.Run(iris.Addr(addr))
-		if err == iris.ErrServerClosed {
-			return
-		}
-		if err != nil {
-			logger.Errorf("run worker api app failed: %v", err)
-			os.Exit(1)
-		}
-	}()
+	s.addListAPI()
 
 	return s
 }
 
-func (s *apiServer) setupAPIs() {
+// Run calls iris app for servering RESTful APIs.
+func (s *apiServer) run() {
+	addr := fmt.Sprintf("%s:%d", defaultServerIP, s.port)
+	logger.Infof("worker api server running in %s", addr)
+
+	err := s.app.Run(iris.Addr(addr))
+	if err == iris.ErrServerClosed {
+		return
+	}
+	if err != nil {
+		logger.Errorf("run worker api app failed: %v", err)
+		os.Exit(1)
+	}
+}
+
+func (s *apiServer) addListAPI() {
 	listAPIs := []*apiEntry{
 		{
 			Path:    "/",
@@ -117,9 +118,8 @@ func (s *apiServer) registerAPIs(apis []*apiEntry) {
 
 	s.apis = append(s.apis, apis...)
 
-	logger.Infof("worker api len: %d", len(s.apis))
-
 	for _, api := range apis {
+		logger.Infof("api method: %s, path: %s, handler %#v", api.Method, api.Path, api.Handler)
 		switch api.Method {
 		case "GET":
 			s.app.Get(api.Path, api.Handler)

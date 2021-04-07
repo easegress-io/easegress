@@ -1,8 +1,14 @@
 package registrycenter
 
 import (
+	"fmt"
+	"strings"
+	"time"
+
 	"github.com/nacos-group/nacos-sdk-go/model"
 )
+
+const defaultGroup = "DEFAULT_GROUP"
 
 // ToNacosInstanceInfo transforms service registry info to nacos's instance
 func (rcs *Server) ToNacosInstanceInfo(serviceInfo *ServiceRegistryInfo) *model.Instance {
@@ -11,9 +17,13 @@ func (rcs *Server) ToNacosInstanceInfo(serviceInfo *ServiceRegistryInfo) *model.
 	ins.Ip = serviceInfo.Ins.IP
 	ins.Valid = true
 	ins.InstanceId = serviceInfo.Ins.InstanceID
-	ins.ServiceName = serviceInfo.Ins.ServiceName
+	ins.ServiceName = defaultGroup + "@@" + serviceInfo.Ins.ServiceName
 	ins.Port = uint64(serviceInfo.Ins.Port)
 	ins.Healthy = true
+	ins.Enable = true
+	ins.Weight = 1.0
+	ins.Ephemeral = true
+	ins.ClusterName = "DEFAULT"
 
 	return &ins
 }
@@ -24,7 +34,8 @@ func (rcs *Server) ToNacosService(serviceInfo *ServiceRegistryInfo) *model.Servi
 	svc.Hosts = append(svc.Hosts, *rcs.ToNacosInstanceInfo(serviceInfo))
 	svc.Dom = serviceInfo.Ins.ServiceName
 	svc.CacheMillis = 500
-	svc.Name = serviceInfo.Ins.ServiceName
+	svc.Name = defaultGroup + "@@" + serviceInfo.Ins.ServiceName
+	svc.LastRefTime = uint64(time.Now().Unix())
 	return &svc
 }
 
@@ -43,6 +54,19 @@ func (rcs *Server) ToNacosServiceList(serviceInfos []*ServiceRegistryInfo) *mode
 func (rcs *Server) ToNacosServiceDetail(serviceInfo *ServiceRegistryInfo) *model.ServiceDetail {
 	var svc model.ServiceDetail
 	svc.Service.Name = serviceInfo.Ins.ServiceName
-	svc.Service.Group = "DEFAULT_GROUP"
 	return &svc
+}
+
+// SplitNacosServiceName gets nacos servicename in GROUP_NAME@@SERVICE_NAME format
+func (rcs *Server) SplitNacosServiceName(serviceName string) (string, error) {
+	if strings.Contains(serviceName, "@@") {
+		names := strings.Split(serviceName, "@@")
+		if len(names) != 2 {
+			return "", fmt.Errorf("invalid servicename: %s", serviceName)
+		}
+
+		return names[1], nil
+	}
+
+	return serviceName, nil
 }

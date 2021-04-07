@@ -217,17 +217,19 @@ func (rcs *Server) CheckRegistryBody(contentType string, reqBody []byte) error {
 func (rcs *Server) CheckRegistryURL(ctx iris.Context) error {
 	var err error
 
-	ip := ctx.Params().Get("ip")
-	port := ctx.Params().Get("port")
-	serviceName := ctx.Params().Get("serviceName")
+	ip := ctx.URLParam("ip")
+	port := ctx.URLParam("port")
+	serviceName := ctx.URLParam("serviceName")
 
 	if len(ip) == 0 || len(port) == 0 || len(serviceName) == 0 {
 		return fmt.Errorf("invalide register parameters, ip: %s, port: %s, serviceName: %s",
 			ip, port, serviceName)
 	}
 
-	if serviceName != rcs.serviceName {
-		return fmt.Errorf("invalide register serivceName: %s want: %s", serviceName, rcs.serviceName)
+	serviceName, err = rcs.SplitNacosServiceName(serviceName)
+
+	if serviceName != rcs.serviceName || err != nil {
+		return fmt.Errorf("invalide register serivceName: %s want: %s, err: %v", serviceName, rcs.serviceName, err)
 	}
 	return err
 }

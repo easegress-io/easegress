@@ -77,16 +77,19 @@ func (w *Worker) nacosRegister(ctx iris.Context) {
 }
 
 func (w *Worker) nacosInstanceList(ctx iris.Context) {
-	serviceName := ctx.Params().Get("serviceName")
+	serviceName := ctx.URLParam("serviceName")
 	if len(serviceName) == 0 {
 		api.HandleAPIError(ctx, http.StatusBadRequest,
 			fmt.Errorf("empty serviceName in url parameters"))
 		return
 	}
-	var (
-		err         error
-		serviceInfo *registrycenter.ServiceRegistryInfo
-	)
+	serviceName, err := w.registryServer.SplitNacosServiceName(serviceName)
+	if err != nil {
+		logger.Errorf("nacos invalid servicename: %s", serviceName)
+		api.HandleAPIError(ctx, http.StatusBadRequest, err)
+		return
+	}
+	var serviceInfo *registrycenter.ServiceRegistryInfo
 
 	if serviceInfo, err = w.registryServer.DiscoveryService(serviceName); err != nil {
 		logger.Errorf("discovery service: %s, err: %v ", serviceName, err)
@@ -108,16 +111,19 @@ func (w *Worker) nacosInstanceList(ctx iris.Context) {
 }
 
 func (w *Worker) nacosInstance(ctx iris.Context) {
-	serviceName := ctx.Params().Get("serviceName")
+	serviceName := ctx.URLParam("serviceName")
 	if len(serviceName) == 0 {
 		api.HandleAPIError(ctx, http.StatusBadRequest,
 			fmt.Errorf("empty serviceName in url parameters"))
 		return
 	}
-	var (
-		err         error
-		serviceInfo *registrycenter.ServiceRegistryInfo
-	)
+	serviceName, err := w.registryServer.SplitNacosServiceName(serviceName)
+	if err != nil {
+		logger.Errorf("nacos invalid servicename: %s", serviceName)
+		api.HandleAPIError(ctx, http.StatusBadRequest, err)
+		return
+	}
+	var serviceInfo *registrycenter.ServiceRegistryInfo
 
 	if serviceInfo, err = w.registryServer.DiscoveryService(serviceName); err != nil {
 		logger.Errorf("discovery service: %s, err: %v ", serviceName, err)
@@ -162,17 +168,20 @@ func (w *Worker) nacosServiceList(ctx iris.Context) {
 }
 
 func (w *Worker) nacosService(ctx iris.Context) {
-	serviceName := ctx.Params().Get("serviceName")
+	serviceName := ctx.URLParam("serviceName")
 	if len(serviceName) == 0 {
 		api.HandleAPIError(ctx, http.StatusBadRequest,
 			fmt.Errorf("empty serviceName in url parameters"))
 		return
 	}
-	var (
-		err         error
-		serviceInfo *registrycenter.ServiceRegistryInfo
-	)
+	serviceName, err := w.registryServer.SplitNacosServiceName(serviceName)
+	if err != nil {
+		logger.Errorf("nacos invalid servicename: %s", serviceName)
+		api.HandleAPIError(ctx, http.StatusBadRequest, err)
+		return
+	}
 
+	var serviceInfo *registrycenter.ServiceRegistryInfo
 	if serviceInfo, err = w.registryServer.DiscoveryService(serviceName); err != nil {
 		logger.Errorf("discovery service: %s, err: %v ", serviceName, err)
 		api.HandleAPIError(ctx, http.StatusInternalServerError, err)

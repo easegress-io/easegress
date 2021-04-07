@@ -137,7 +137,7 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 		done:        make(chan struct{}),
 	}
 
-	w.registerAPIs()
+	w.runAPIServer()
 
 	go w.run()
 

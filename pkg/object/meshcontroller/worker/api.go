@@ -11,10 +11,10 @@ const (
 	meshEurekaPrefix = "/mesh/eureka"
 
 	// meshNacosPrefix is the mesh nacos registyr API url prefix.
-	meshNacosPrefix = "/mesh/nacos/v1"
+	meshNacosPrefix = "/nacos/v1"
 )
 
-func (w *Worker) registerAPIs() {
+func (w *Worker) runAPIServer() {
 	var apis []*apiEntry
 	switch w.registryServer.RegistryType {
 	case spec.RegistryTypeConsul:
@@ -27,6 +27,7 @@ func (w *Worker) registerAPIs() {
 		apis = w.eurekaAPIs()
 	}
 	w.apiServer.registerAPIs(apis)
+	go w.apiServer.run()
 }
 
 func (w *Worker) emptyHandler(ctx iris.Context) {
