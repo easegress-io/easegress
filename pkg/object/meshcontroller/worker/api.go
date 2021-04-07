@@ -1,25 +1,17 @@
 package worker
 
 import (
-	"fmt"
-	"io/ioutil"
-	"net/http"
-
 	"github.com/kataras/iris"
 
-	"github.com/megaease/easegateway/pkg/api"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
 )
 
 const (
-	// MeshPrefix is the mesh prefix.
-	MeshPrefix = "/mesh"
+	// meshEurekaPrefix is the mesh eureka registry API url prefix.
+	meshEurekaPrefix = "/mesh/eureka"
 
-	// MeshEurekaPrefix is the mesh eureka registry center prefix.
-	MeshEurekaPrefix = "/mesh/eureka"
-
-	contentTypeXML  = "text/xml"
-	contentTypeJSON = "application/json"
+	// meshNacosPrefix is the mesh nacos registyr API url prefix.
+	meshNacosPrefix = "/mesh/nacos/v1"
 )
 
 func (w *Worker) registerAPIs() {
@@ -29,42 +21,15 @@ func (w *Worker) registerAPIs() {
 		apis = w.consulAPIs()
 	case spec.RegistryTypeEureka:
 		apis = w.eurekaAPIs()
+	case spec.RegistryTypeNacos:
+		apis = w.nacosAPIs()
 	default:
 		apis = w.eurekaAPIs()
 	}
 	w.apiServer.registerAPIs(apis)
 }
 
-func (w *Worker) applicationRegister(ctx iris.Context) {
-	body, err := ioutil.ReadAll(ctx.Request().Body)
-	if err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest,
-			fmt.Errorf("read body failed: %v", err))
-		return
-	}
-	contentType := ctx.Request().Header.Get("Content-Type")
-	if err := w.registryServer.DecodeRegistryBody(contentType, body); err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
-		return
-	}
-
-	serviceSpec := w.service.GetServiceSpec(w.serviceName)
-	if serviceSpec == nil {
-		err := fmt.Errorf("registry to unknown service: %s", w.serviceName)
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
-		return
-	}
-
-	w.registryServer.Register(serviceSpec, w.ingressServer.Ready, w.egressServer.Ready)
-
-	// NOTE: According to eureka APIs list:
-	// https://github.com/Netflix/eureka/wiki/Eureka-REST-operations
-	if w.registryServer.RegistryType == spec.RegistryTypeEureka {
-		ctx.StatusCode(http.StatusNoContent)
-	}
-}
-
 func (w *Worker) emptyHandler(ctx iris.Context) {
 	// EaseMesh does not need to implement some APIS like
-	// delete, heartbeat of Eureka.
+	// delete, heartbeat of Eureka/Consul/Nacos.
 }

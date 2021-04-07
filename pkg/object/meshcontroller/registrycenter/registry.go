@@ -9,12 +9,18 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kataras/iris"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/service"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
 
 	"github.com/ArthurHlt/go-eureka-client/eureka"
 	consul "github.com/hashicorp/consul/api"
+)
+
+const (
+	ContentTypeXML  = "text/xml"
+	ContentTypeJSON = "application/json"
 )
 
 type (
@@ -173,7 +179,7 @@ func (rcs *Server) decodeByEurekaFormat(contentType string, body []byte) error {
 	)
 
 	switch contentType {
-	case "application/json":
+	case ContentTypeJSON:
 		dec := json.NewDecoder(bytes.NewReader(body))
 		if err = dec.Decode(&eurekaIns); err != nil {
 			logger.Errorf("decode eureka contentType: %s body: %s failed: %v", contentType, string(body), err)
@@ -190,9 +196,9 @@ func (rcs *Server) decodeByEurekaFormat(contentType string, body []byte) error {
 	return err
 }
 
-// DecodeRegistryBody decodes Eureka/Consul registry request body according to the
-// registry type in config.
-func (rcs *Server) DecodeRegistryBody(contentType string, reqBody []byte) error {
+// CheckRegistryBody tries to decode Eureka/Consul register request body according to the
+// registry type.
+func (rcs *Server) CheckRegistryBody(contentType string, reqBody []byte) error {
 	var err error
 
 	switch rcs.RegistryType {
@@ -204,5 +210,24 @@ func (rcs *Server) DecodeRegistryBody(contentType string, reqBody []byte) error 
 		return fmt.Errorf("BUG: can't recognize registry type: %s req body: %s", rcs.RegistryType, (reqBody))
 	}
 
+	return err
+}
+
+// CheckRegistryURL tries to decode Nacos register request URL parameters.
+func (rcs *Server) CheckRegistryURL(ctx iris.Context) error {
+	var err error
+
+	ip := ctx.Params().Get("ip")
+	port := ctx.Params().Get("port")
+	serviceName := ctx.Params().Get("serviceName")
+
+	if len(ip) == 0 || len(port) == 0 || len(serviceName) == 0 {
+		return fmt.Errorf("invalide register parameters, ip: %s, port: %s, serviceName: %s",
+			ip, port, serviceName)
+	}
+
+	if serviceName != rcs.serviceName {
+		return fmt.Errorf("invalide register serivceName: %s want: %s", serviceName, rcs.serviceName)
+	}
 	return err
 }

@@ -21,6 +21,8 @@ const (
 	RegistryTypeConsul = "consul"
 	// RegistryTypeEureka is the eureka registry type.
 	RegistryTypeEureka = "eureka"
+	// RegistryTypeNacos is the eureka registry type.
+	RegistryTypeNacos = "nacos"
 
 	// GlobalTenant is the reserved name of the system scope tenant,
 	// its services can be accessible in mesh wide.

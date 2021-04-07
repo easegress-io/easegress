@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"strconv"
 
@@ -40,61 +41,61 @@ type (
 func (w *Worker) eurekaAPIs() []*apiEntry {
 	APIs := []*apiEntry{
 		{
-			Path:    MeshEurekaPrefix + "/apps/{serviceName:string}",
+			Path:    meshEurekaPrefix + "/apps/{serviceName:string}",
 			Method:  "POST",
-			Handler: w.applicationRegister,
+			Handler: w.eurekaRegister,
 		},
 		{
-			Path:    MeshEurekaPrefix + "/apps/{serviceName:string}/{instanceID:string}",
+			Path:    meshEurekaPrefix + "/apps/{serviceName:string}/{instanceID:string}",
 			Method:  "DELETE",
 			Handler: w.emptyHandler,
 		},
 		{
-			Path:    MeshEurekaPrefix + "/apps/{serviceName:string}/{instanceID:string}",
+			Path:    meshEurekaPrefix + "/apps/{serviceName:string}/{instanceID:string}",
 			Method:  "PUT",
 			Handler: w.emptyHandler,
 		},
 		{
-			Path:    MeshEurekaPrefix + "/apps/",
+			Path:    meshEurekaPrefix + "/apps/",
 			Method:  "GET",
 			Handler: w.apps,
 		},
 		{
-			Path:    MeshEurekaPrefix + "/apps/{serviceName:string}",
+			Path:    meshEurekaPrefix + "/apps/{serviceName:string}",
 			Method:  "GET",
 			Handler: w.app,
 		},
 		{
-			Path:    MeshEurekaPrefix + "/apps/{serviceName:string}/{instanceID:string}",
+			Path:    meshEurekaPrefix + "/apps/{serviceName:string}/{instanceID:string}",
 			Method:  "GET",
 			Handler: w.getAppInstance,
 		},
 		{
-			Path:    MeshEurekaPrefix + "/apps/instances/{instanceID:string}",
+			Path:    meshEurekaPrefix + "/apps/instances/{instanceID:string}",
 			Method:  "GET",
 			Handler: w.getInstance,
 		},
 		{
-			Path:    MeshEurekaPrefix + "/apps/{serviceName:string}/{instanceID:string}/status",
+			Path:    meshEurekaPrefix + "/apps/{serviceName:string}/{instanceID:string}/status",
 			Method:  "PUT",
 			Handler: w.emptyHandler,
 		},
 		{
-			Path:    MeshEurekaPrefix + "/apps/{serviceName:string}/{instanceID:string}/status",
+			Path:    meshEurekaPrefix + "/apps/{serviceName:string}/{instanceID:string}/status",
 			Method:  "DELETE",
 			Handler: w.emptyHandler,
 		}, {
-			Path:    MeshEurekaPrefix + "/apps/{serviceName:string}/{instanceID:string}/metadata",
+			Path:    meshEurekaPrefix + "/apps/{serviceName:string}/{instanceID:string}/metadata",
 			Method:  "PUT",
 			Handler: w.emptyHandler,
 		},
 		{
-			Path:    MeshEurekaPrefix + "/vips/{vipAddress:string}",
+			Path:    meshEurekaPrefix + "/vips/{vipAddress:string}",
 			Method:  "GET",
 			Handler: w.emptyHandler,
 		},
 		{
-			Path:    MeshEurekaPrefix + "/svips/{svipAddress:string}",
+			Path:    meshEurekaPrefix + "/svips/{svipAddress:string}",
 			Method:  "GET",
 			Handler: w.emptyHandler,
 		},
@@ -103,12 +104,40 @@ func (w *Worker) eurekaAPIs() []*apiEntry {
 	return APIs
 }
 
+func (w *Worker) eurekaRegister(ctx iris.Context) {
+	body, err := ioutil.ReadAll(ctx.Request().Body)
+	if err != nil {
+		api.HandleAPIError(ctx, http.StatusBadRequest,
+			fmt.Errorf("read body failed: %v", err))
+		return
+	}
+	contentType := ctx.Request().Header.Get("Content-Type")
+	if err := w.registryServer.CheckRegistryBody(contentType, body); err != nil {
+		api.HandleAPIError(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	serviceSpec := w.service.GetServiceSpec(w.serviceName)
+	if serviceSpec == nil {
+		err := fmt.Errorf("registry to unknown service: %s", w.serviceName)
+		api.HandleAPIError(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	w.registryServer.Register(serviceSpec, w.ingressServer.Ready, w.egressServer.Ready)
+
+	// NOTE: According to eureka APIs list:
+	// https://github.com/Netflix/eureka/wiki/Eureka-REST-operations
+	ctx.StatusCode(http.StatusNoContent)
+}
+
 func (w *Worker) apps(ctx iris.Context) {
 	var (
 		err          error
 		serviceInfos []*registrycenter.ServiceRegistryInfo
 	)
 	if serviceInfos, err = w.registryServer.Discovery(); err != nil {
+		logger.Errorf("discovery services err: %v ", err)
 		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
 		return
 	}
@@ -157,6 +186,7 @@ func (w *Worker) app(ctx iris.Context) {
 	)
 
 	if serviceInfo, err = w.registryServer.DiscoveryService(serviceName); err != nil {
+		logger.Errorf("discovery service: %s, err: %v ", serviceName, err)
 		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
 		return
 	}
@@ -248,7 +278,7 @@ func (w *Worker) getInstance(ctx iris.Context) {
 
 func (w *Worker) encodByAcceptType(accept string, jsonSt interface{}, xmlSt interface{}) ([]byte, error) {
 	switch accept {
-	case contentTypeJSON:
+	case registrycenter.ContentTypeJSON:
 		buff := bytes.NewBuffer(nil)
 		enc := json.NewEncoder(buff)
 		err := enc.Encode(jsonSt)

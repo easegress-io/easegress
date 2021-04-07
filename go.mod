@@ -46,8 +46,9 @@ require (
 	github.com/megaease/grace v1.0.0
 	github.com/megaease/jsonschema v0.0.0-20191219141102-f25f9e864ae5
 	github.com/microcosm-cc/bluemonday v1.0.2 // indirect
-	github.com/mitchellh/mapstructure v1.3.3 // indirect
+	github.com/mitchellh/mapstructure v1.3.3
 	github.com/moul/http2curl v1.0.0 // indirect
+	github.com/nacos-group/nacos-sdk-go v1.0.7
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/openzipkin-contrib/zipkin-go-opentracing v0.4.5
 	github.com/openzipkin/zipkin-go v0.2.2
@@ -79,7 +80,7 @@ require (
 	github.com/yudai/golcs v0.0.0-20170316035057-ecda9a501e82 // indirect
 	github.com/yudai/pp v2.0.1+incompatible // indirect
 	go.etcd.io/etcd v0.0.0-20201125193152-8a03d2e9614b
-	go.uber.org/zap v1.10.0
+	go.uber.org/zap v1.15.0
 	golang.org/x/crypto v0.0.0-20201208171446-5f87f3452ae9 // indirect
 	golang.org/x/net v0.0.0-20201209123823-ac852fbbde11 // indirect
 	gopkg.in/mgo.v2 v2.0.0-20180705113604-9856a29383ce // indirect
