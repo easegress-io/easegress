@@ -193,7 +193,7 @@ func (b *Backend) reload() {
 
 	if len(b.spec.CandidatePools) > 0 {
 		var candidatePools []*pool
-		for k, _ := range b.spec.CandidatePools {
+		for k := range b.spec.CandidatePools {
 			candidatePools = append(candidatePools, newPool(b.spec.CandidatePools[k], fmt.Sprintf("backedn#candidate#%d", k),
 				true, b.spec.FailureCodes))
 		}
@@ -215,7 +215,7 @@ func (b *Backend) Status() interface{} {
 		MainPool: b.mainPool.status(),
 	}
 	if b.candidatePools != nil {
-		for k, _ := range b.candidatePools {
+		for k := range b.candidatePools {
 			s.CandidatePools = append(s.CandidatePools, b.candidatePools[k].status())
 		}
 	}

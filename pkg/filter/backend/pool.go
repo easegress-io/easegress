@@ -9,12 +9,14 @@ import (
 
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/tracing"
 	"github.com/megaease/easegateway/pkg/util/callbackreader"
 	"github.com/megaease/easegateway/pkg/util/httpfilter"
 	"github.com/megaease/easegateway/pkg/util/httpheader"
 	"github.com/megaease/easegateway/pkg/util/httpstat"
 	"github.com/megaease/easegateway/pkg/util/memorycache"
 	"github.com/megaease/easegateway/pkg/util/stringtool"
+	"github.com/opentracing/opentracing-go"
 )
 
 type (
@@ -26,7 +28,6 @@ type (
 
 		servers     *servers
 		httpStat    *httpstat.HTTPStat
-		count       uint64 // for roundRobin
 		memoryCache *memorycache.MemoryCache
 	}
 
@@ -129,7 +130,7 @@ func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader) string {
 		return resultInternalError
 	}
 
-	resp, err := p.doRequest(ctx, req)
+	resp, span, err := p.doRequest(ctx, req)
 	if err != nil {
 		// NOTE: May add option to cancel the tracing if failed here.
 		// ctx.Span().Cancel()
@@ -150,7 +151,7 @@ func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader) string {
 
 	ctx.Lock()
 	defer ctx.Unlock()
-	respBody := p.statRequestResponse(ctx, req, resp)
+	respBody := p.statRequestResponse(ctx, req, resp, span)
 
 	if p.writeResponse {
 		w.SetStatusCode(resp.StatusCode)
@@ -176,21 +177,23 @@ func (p *pool) prepareRequest(ctx context.HTTPContext, server *Server, reqBody i
 	return p.newRequest(ctx, server, reqBody)
 }
 
-func (p *pool) doRequest(ctx context.HTTPContext, req *request) (*http.Response, error) {
+func (p *pool) doRequest(ctx context.HTTPContext, req *request) (*http.Response, tracing.Span, error) {
 	req.start()
+
+	span := ctx.Span().NewChildWithStart(req.server.URL, req.startTime())
+	span.Tracer().Inject(span.Context(), opentracing.HTTPHeaders, opentracing.HTTPHeadersCarrier(req.std.Header))
 
 	resp, err := globalClient.Do(req.std)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return resp, nil
+	return resp, span, nil
 }
 
-func (p *pool) statRequestResponse(ctx context.HTTPContext, req *request, resp *http.Response) io.Reader {
-	var count int
+func (p *pool) statRequestResponse(ctx context.HTTPContext,
+	req *request, resp *http.Response, span tracing.Span) io.Reader {
 
-	startTime := req.startTime()
-	span := ctx.Span().NewChildWithStart(req.server.URL, startTime)
+	var count int
 
 	callbackBody := callbackreader.New(resp.Body)
 	callbackBody.OnAfter(func(num int, p []byte, n int, err error) ([]byte, int, error) {
