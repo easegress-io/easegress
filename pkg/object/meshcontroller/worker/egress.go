@@ -161,6 +161,7 @@ func (egs *EgressServer) Handle(ctx context.HTTPContext) {
 		return
 	}
 
+	logger.Infof("start get service name: %s", serviceName)
 	pipeline, err := egs.getPipeline(serviceName)
 	if err != nil {
 		if err == spec.ErrServiceNotFound {
@@ -172,9 +173,9 @@ func (egs *EgressServer) Handle(ctx context.HTTPContext) {
 		}
 		return
 	}
-	logger.Infof("service name:%s pipeline:%#v", serviceName, pipeline)
-
+	logger.Infof("get service name:%s pipeline:%#v", serviceName, pipeline)
 	pipeline.Handle(ctx)
+	logger.Infof("hanlde service name:%s finished, status code: %d", serviceName, ctx.Response().StatusCode())
 }
 
 // Close closes the Egress HTTPServer and Pipelines
