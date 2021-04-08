@@ -112,8 +112,10 @@ func (m *Master) checkInstancesHeartbeat() {
 			}
 			gap := now.Sub(lastHeartbeatTime)
 			if gap > m.maxHeartbeatTimeout {
-				logger.Errorf("%s/%s expired for %s", _spec.ServiceName, _spec.InstanceID, gap.String())
-				failedInstances = append(failedInstances, _spec)
+				if _spec.Status != spec.SerivceStatusOutOfSerivce {
+					logger.Errorf("%s/%s expired for %s", _spec.ServiceName, _spec.InstanceID, gap.String())
+					failedInstances = append(failedInstances, _spec)
+				}
 			} else {
 				if _spec.Status == spec.SerivceStatusOutOfSerivce {
 					logger.Infof("%s/%s heartbeat recovered, make it UP", _spec.ServiceName, _spec.InstanceID)

@@ -454,11 +454,15 @@ func (inf *meshInformer) watchPrefix(ch <-chan map[string]*clientv3.Event, watch
 			var continueWatch bool
 
 			if v == nil {
-				logger.Infof("prefix record, delete: %s", k)
 				delete(kvs, k)
 				continueWatch = fn(kvs)
 			} else {
-				logger.Infof("update record, update: %s, value: %s, version: %d", k, string(v.Kv.Value), v.Kv.Version)
+				if oldValue, ok := kvs[k]; ok {
+					if oldValue == string(v.Kv.Value) {
+						continue
+					}
+				}
+				logger.Infof("update record, update: %s, version: %d", k, v.Kv.Version)
 				kvs[k] = string(v.Kv.Value)
 				continueWatch = fn(kvs)
 			}
