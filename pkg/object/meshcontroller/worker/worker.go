@@ -433,6 +433,7 @@ func (w *Worker) watchEvent() {
 		case <-w.done:
 			return
 		case name := <-w.egressEvent:
+			logger.Infof("add egress wanted watching service: %s", name)
 			w.addEgressWatching(name)
 		}
 	}

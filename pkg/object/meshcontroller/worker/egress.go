@@ -95,6 +95,7 @@ func (egs *EgressServer) addPipeline(serviceName string) (*httppipeline.HTTPPipe
 
 	superSpec := service.EgressPipelineSpec(instanceSpec)
 
+	logger.Infof("pipeline spec: %s", superSpec.YAMLConfig())
 	pipeline := &httppipeline.HTTPPipeline{}
 	pipeline.Init(superSpec, egs.super)
 	egs.pipelines[service.Name] = pipeline
@@ -175,7 +176,7 @@ func (egs *EgressServer) Handle(ctx context.HTTPContext) {
 		}
 		return
 	}
-	logger.Infof("get service name:%s pipeline:%#v", serviceName, pipeline)
+	logger.Infof("start handle service name: %s ", serviceName)
 	pipeline.Handle(ctx)
 	logger.Infof("hanlde service name:%s finished, status code: %d", serviceName, ctx.Response().StatusCode())
 }
