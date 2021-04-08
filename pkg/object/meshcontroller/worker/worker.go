@@ -383,7 +383,7 @@ func (w *Worker) addEgressWatching(serviceName string) {
 					w.superSpec.Name(), err, debug.Stack())
 			}
 		}()
-		logger.Infof("handle informer egress service: %s's spec update event", serviceName)
+		logger.Infof("handle informer egress service: %s's instance update event, ins: %#v", serviceName, instanceKvs)
 		serviceSpec := w.service.GetServiceSpec(serviceName)
 
 		var instanceSpecs []*spec.ServiceInstanceSpec

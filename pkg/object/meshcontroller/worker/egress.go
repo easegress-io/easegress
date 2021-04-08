@@ -120,8 +120,6 @@ func (egs *EgressServer) UpdatePipeline(service *spec.Service, instanceSpec []*s
 
 	newPipeline := &httppipeline.HTTPPipeline{}
 	superSpec := service.EgressPipelineSpec(instanceSpec)
-	logger.Infof("update pipeline spec: %s", superSpec.YAMLConfig())
-
 	newPipeline.Inherit(superSpec, pipeline, egs.super)
 	egs.pipelines[service.Name] = newPipeline
 
@@ -138,7 +136,7 @@ func (egs *EgressServer) getPipeline(serviceName string) (*httppipeline.HTTPPipe
 	}
 
 	pipeline, err := egs.addPipeline(serviceName)
-	if err != nil {
+	if err == nil {
 		egs.watch <- serviceName
 	}
 	return pipeline, err
