@@ -48,8 +48,10 @@ var (
 	ErrAlreadyRegistered = fmt.Errorf("service already registered")
 	// ErrNoRegisteredYet indicates this instance haven't registered successfully yet
 	ErrNoRegisteredYet = fmt.Errorf("service not registered yet")
-	// ErrServiceNotFound indicates could find target service in same tenant or in global tenant
-	ErrServiceNotFound = fmt.Errorf("can't find service in same tenant or in global tenant")
+	// ErrServiceNotFound indicates could find target service in its tenant or in global tenant
+	ErrServiceNotFound = fmt.Errorf("can't find service in its tenant or in global tenant")
+	// ErrServiceNotavailable indicates could find target service's avaiable instances.
+	ErrServiceNotavailable = fmt.Errorf("can't find service avaiable instances")
 )
 
 type (

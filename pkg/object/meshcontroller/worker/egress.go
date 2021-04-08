@@ -75,27 +75,21 @@ func (egs *EgressServer) Ready() bool {
 	return egs.httpServer != nil
 }
 
-func (egs *EgressServer) _getPipeline(serviceName string) (*httppipeline.HTTPPipeline, error) {
-
-	pipeline, ok := egs.pipelines[serviceName]
-	if ok {
-		egs.watch <- serviceName
-		return pipeline, nil
+func (egs *EgressServer) addPipeline(serviceName string) (*httppipeline.HTTPPipeline, error) {
+	service := egs.service.GetServiceSpec(serviceName)
+	if service == nil {
+		return nil, spec.ErrServiceNotFound
 	}
 
-	return nil, nil
-}
-
-func (egs *EgressServer) addPipeline(serviceName string) (*httppipeline.HTTPPipeline, error) {
-	logger.Infof("start add pipeline for service: %s", serviceName)
-	service := egs.service.GetServiceSpec(serviceName)
-	logger.Infof("get service spec done for service: %s", serviceName)
 	instanceSpec := egs.service.ListServiceInstanceSpecs(serviceName)
-	logger.Infof("get service instance done for service: %s", serviceName)
+	if len(instanceSpec) == 0 {
+		logger.Errorf("found service: %s with empty instances", serviceName)
+		return nil, spec.ErrServiceNotavailable
+	}
 
 	superSpec := service.EgressPipelineSpec(instanceSpec)
+	logger.Infof("add pipeline spec: %s", superSpec.YAMLConfig())
 
-	logger.Infof("pipeline spec: %s", superSpec.YAMLConfig())
 	pipeline := &httppipeline.HTTPPipeline{}
 	pipeline.Init(superSpec, egs.super)
 	egs.pipelines[service.Name] = pipeline
@@ -119,16 +113,15 @@ func (egs *EgressServer) UpdatePipeline(service *spec.Service, instanceSpec []*s
 	egs.mutex.Lock()
 	defer egs.mutex.Unlock()
 
-	pipeline, err := egs._getPipeline(service.Name)
-	if err != nil {
-		return err
-	}
-	if pipeline == nil {
-		return fmt.Errorf("can't find service: %s's egress pipeline", service.Name)
+	pipeline, ok := egs.pipelines[service.Name]
+	if !ok {
+		return fmt.Errorf("BUG: can't find service: %s's egress pipeline", service.Name)
 	}
 
 	newPipeline := &httppipeline.HTTPPipeline{}
 	superSpec := service.EgressPipelineSpec(instanceSpec)
+	logger.Infof("update pipeline spec: %s", superSpec.YAMLConfig())
+
 	newPipeline.Inherit(superSpec, pipeline, egs.super)
 	egs.pipelines[service.Name] = newPipeline
 
@@ -139,16 +132,15 @@ func (egs *EgressServer) getPipeline(serviceName string) (*httppipeline.HTTPPipe
 	egs.mutex.Lock()
 	defer egs.mutex.Unlock()
 
-	pipeline, err := egs._getPipeline(serviceName)
-	if err != nil {
-		return nil, err
-	} else {
-		if pipeline != nil {
-			return pipeline, nil
-		}
+	if pipeline, ok := egs.pipelines[serviceName]; ok {
+		egs.watch <- serviceName
+		return pipeline, nil
 	}
 
-	pipeline, err = egs.addPipeline(serviceName)
+	pipeline, err := egs.addPipeline(serviceName)
+	if err != nil {
+		egs.watch <- serviceName
+	}
 	return pipeline, err
 }
 
@@ -164,7 +156,6 @@ func (egs *EgressServer) Handle(ctx context.HTTPContext) {
 		return
 	}
 
-	logger.Infof("start get service name: %s", serviceName)
 	pipeline, err := egs.getPipeline(serviceName)
 	if err != nil {
 		if err == spec.ErrServiceNotFound {
@@ -176,7 +167,6 @@ func (egs *EgressServer) Handle(ctx context.HTTPContext) {
 		}
 		return
 	}
-	logger.Infof("start handle service name: %s ", serviceName)
 	pipeline.Handle(ctx)
 	logger.Infof("hanlde service name:%s finished, status code: %d", serviceName, ctx.Response().StatusCode())
 }
