@@ -87,9 +87,11 @@ func (egs *EgressServer) _getPipeline(serviceName string) (*httppipeline.HTTPPip
 }
 
 func (egs *EgressServer) addPipeline(serviceName string) (*httppipeline.HTTPPipeline, error) {
+	logger.Infof("start add pipeline for service: %s", serviceName)
 	service := egs.service.GetServiceSpec(serviceName)
-
+	logger.Infof("get service spec done for service: %s", serviceName)
 	instanceSpec := egs.service.ListServiceInstanceSpecs(serviceName)
+	logger.Infof("get service instance done for service: %s", serviceName)
 
 	superSpec := service.EgressPipelineSpec(instanceSpec)
 
