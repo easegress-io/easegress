@@ -228,13 +228,6 @@ func isSamePolicy(spec1, spec2 *Spec, policyName string) bool {
 }
 
 func (cb *CircuitBreaker) reload(previousGeneration *CircuitBreaker) {
-	for _, u := range cb.spec.URLs {
-		logger.Infof("circuit breaker rule: %v, %s", u.Methods, u.URL.Prefix)
-	}
-	for _, p := range cb.spec.Policies {
-		logger.Infof("circuit breaker policy: %s, %s", p.Name, p.SlidingWindowType)
-	}
-
 	if previousGeneration == nil {
 		for _, u := range cb.spec.URLs {
 			cb.createCircuitBreakerForURL(u)
@@ -282,12 +275,11 @@ func (cb *CircuitBreaker) Inherit(pipeSpec *httppipeline.FilterSpec, previousGen
 func (cb *CircuitBreaker) handle(ctx context.HTTPContext, u *URLRule) string {
 	permitted, stateID := u.cb.AcquirePermission()
 	if !permitted {
-		logger.Infof("circuit breaker rejects request: %s, %s", ctx.Request().Method(), ctx.Request().Path())
+		ctx.AddTag("circuitBreaker: circuit is broken")
 		ctx.Response().SetStatusCode(http.StatusServiceUnavailable)
 		return ctx.CallNextHandler(resultCircuitBreaker)
 	}
 
-	logger.Infof("circuit breaker permits request: %s, %s", ctx.Request().Method(), ctx.Request().Path())
 	start := time.Now()
 	defer func() {
 		if e := recover(); e != nil {
@@ -322,7 +314,6 @@ func (cb *CircuitBreaker) Handle(ctx context.HTTPContext) string {
 			return cb.handle(ctx, u)
 		}
 	}
-	logger.Infof("circuit breaker forwards traffic: %s, %s", ctx.Request().Method(), ctx.Request().Path())
 	return ctx.CallNextHandler("")
 }
 

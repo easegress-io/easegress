@@ -241,6 +241,7 @@ func (rl *RateLimiter) handle(ctx context.HTTPContext) string {
 
 		permitted, d := u.rl.AcquirePermission()
 		if !permitted {
+			ctx.AddTag("rateLimiter: too many requests")
 			ctx.Response().SetStatusCode(http.StatusTooManyRequests)
 			return resultRateLimiter
 		}
@@ -255,6 +256,7 @@ func (rl *RateLimiter) handle(ctx context.HTTPContext) string {
 			timer.Stop()
 			break
 		case <-timer.C:
+			ctx.AddTag(fmt.Sprintf("rateLimiter: waiting duration: %s", d.String()))
 			break
 		}
 
