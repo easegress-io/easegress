@@ -91,6 +91,7 @@ func main() {
 		command.HealthCmd(),
 		command.ObjectCmd(),
 		command.MemberCmd(),
+		command.MeshCmd(),
 		completionCmd,
 	)
 
