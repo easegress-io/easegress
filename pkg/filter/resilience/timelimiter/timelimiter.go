@@ -104,6 +104,7 @@ func (tl *TimeLimiter) handle(ctx context.HTTPContext, u *URLRule) string {
 		ctx.AddTag("timeLimiter: timed out")
 		logger.Infof("time limiter %s timed out on URL(%s)", tl.pipeSpec.Name(), u.ID())
 		ctx.Response().SetStatusCode(http.StatusRequestTimeout)
+		ctx.Response().Std().Header().Set("X-Mesh-Time-Limiter", "timed-out")
 		result = resultTimeout
 	}
 

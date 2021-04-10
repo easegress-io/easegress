@@ -277,6 +277,7 @@ func (cb *CircuitBreaker) handle(ctx context.HTTPContext, u *URLRule) string {
 	if !permitted {
 		ctx.AddTag("circuitBreaker: circuit is broken")
 		ctx.Response().SetStatusCode(http.StatusServiceUnavailable)
+		ctx.Response().Std().Header().Set("X-Mesh-Circuit-Breaker", "circurit-is-broken")
 		return ctx.CallNextHandler(resultCircuitBreaker)
 	}
 
