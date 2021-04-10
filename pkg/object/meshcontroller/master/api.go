@@ -21,6 +21,12 @@ const (
 	// MeshTenantPath is the mesh tenant path.
 	MeshTenantPath = "/mesh/tenants/{tenantName:string}"
 
+	// MeshIngressPrefix is the mesh ingress prefix.
+	MeshIngressPrefix = "/mesh/ingresses"
+
+	// MeshIngressPath is the mesh ingress path.
+	MeshIngressPath = "/mesh/ingresses/{ingressName:string}"
+
 	// MeshServicePrefix is mesh service prefix.
 	MeshServicePrefix = "/mesh/services"
 
@@ -59,6 +65,12 @@ func (m *Master) registerAPIs() {
 		{Path: MeshTenantPath, Method: "GET", Handler: m.getTenant},
 		{Path: MeshTenantPath, Method: "PUT", Handler: m.updateTenant},
 		{Path: MeshTenantPath, Method: "DELETE", Handler: m.deleteTenant},
+
+		{Path: MeshIngressPrefix, Method: "GET", Handler: m.listIngresses},
+		{Path: MeshIngressPath, Method: "POST", Handler: m.createIngress},
+		{Path: MeshIngressPath, Method: "GET", Handler: m.getIngress},
+		{Path: MeshIngressPath, Method: "PUT", Handler: m.updateIngress},
+		{Path: MeshIngressPath, Method: "DELETE", Handler: m.deleteIngress},
 
 		{Path: MeshServicePrefix, Method: "GET", Handler: m.listServices},
 		{Path: MeshServicePath, Method: "POST", Handler: m.createService},

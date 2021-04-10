@@ -13,7 +13,7 @@ import (
 	"github.com/megaease/easegateway/pkg/util/httpfilter"
 )
 
-func TestIngressPipelineSpec(t *testing.T) {
+func TestSideCarIngressPipelineSpec(t *testing.T) {
 	s := &Service{
 		Name: "order-001",
 		LoadBalance: &LoadBalance{
@@ -28,11 +28,11 @@ func TestIngressPipelineSpec(t *testing.T) {
 		},
 	}
 
-	superSpec := s.IngressPipelineSpec(443)
+	superSpec := s.SideCarIngressPipelineSpec(443)
 	fmt.Println(superSpec.YAMLConfig())
 }
 
-func TestEgressPipelineSpec(t *testing.T) {
+func TestSideCarEgressPipelineSpec(t *testing.T) {
 	s := &Service{
 		Name: "order-001",
 		LoadBalance: &LoadBalance{
@@ -64,11 +64,11 @@ func TestEgressPipelineSpec(t *testing.T) {
 		},
 	}
 
-	superSpec := s.EgressPipelineSpec(instanceSpecs)
+	superSpec := s.SideCarEgressPipelineSpec(instanceSpecs)
 	fmt.Println(superSpec.YAMLConfig())
 }
 
-func TestEgressPipelineWithCanarySpec(t *testing.T) {
+func TestSideCarEgressPipelineWithCanarySpec(t *testing.T) {
 	s := &Service{
 		Name: "order-002-canary",
 		LoadBalance: &LoadBalance{
@@ -129,11 +129,11 @@ func TestEgressPipelineWithCanarySpec(t *testing.T) {
 		},
 	}
 
-	superSpec := s.EgressPipelineSpec(instanceSpecs)
+	superSpec := s.SideCarEgressPipelineSpec(instanceSpecs)
 	fmt.Println(superSpec.YAMLConfig())
 }
 
-func TestEgressPipelineWithMultipleCanarySpec(t *testing.T) {
+func TestSideCarEgressPipelineWithMultipleCanarySpec(t *testing.T) {
 	s := &Service{
 		Name: "order-002-canary-array",
 		LoadBalance: &LoadBalance{
@@ -206,11 +206,11 @@ func TestEgressPipelineWithMultipleCanarySpec(t *testing.T) {
 		},
 	}
 
-	superSpec := s.EgressPipelineSpec(instanceSpecs)
+	superSpec := s.SideCarEgressPipelineSpec(instanceSpecs)
 	fmt.Println(superSpec.YAMLConfig())
 }
 
-func TestEgressPipelineWithCanaryNoInstanceSpec(t *testing.T) {
+func TestSideCarEgressPipelineWithCanaryNoInstanceSpec(t *testing.T) {
 	s := &Service{
 		Name: "order-002-canary-no-instance",
 		LoadBalance: &LoadBalance{
@@ -271,10 +271,10 @@ func TestEgressPipelineWithCanaryNoInstanceSpec(t *testing.T) {
 		},
 	}
 
-	superSpec := s.EgressPipelineSpec(instanceSpecs)
+	superSpec := s.SideCarEgressPipelineSpec(instanceSpecs)
 	fmt.Println(superSpec.YAMLConfig())
 }
-func TestEgressPipelineWithCanaryInstanceMultipleLabelSpec(t *testing.T) {
+func TestSideCarEgressPipelineWithCanaryInstanceMultipleLabelSpec(t *testing.T) {
 	s := &Service{
 		Name: "order-002-canary-instance-multiple-label",
 		LoadBalance: &LoadBalance{
@@ -337,11 +337,11 @@ func TestEgressPipelineWithCanaryInstanceMultipleLabelSpec(t *testing.T) {
 		},
 	}
 
-	superSpec := s.EgressPipelineSpec(instanceSpecs)
+	superSpec := s.SideCarEgressPipelineSpec(instanceSpecs)
 	fmt.Println(superSpec.YAMLConfig())
 }
 
-func TestIngressWithResiliencePipelineSpec(t *testing.T) {
+func TestSideCarIngressWithResiliencePipelineSpec(t *testing.T) {
 	s := &Service{
 		Name: "order-001",
 		LoadBalance: &LoadBalance{
@@ -377,11 +377,11 @@ func TestIngressWithResiliencePipelineSpec(t *testing.T) {
 		},
 	}
 
-	superSpec := s.IngressPipelineSpec(443)
+	superSpec := s.SideCarIngressPipelineSpec(443)
 	fmt.Println(superSpec.YAMLConfig())
 }
 
-func TestEgressResiliencePipelineSpec(t *testing.T) {
+func TestSideCarEgressResiliencePipelineSpec(t *testing.T) {
 	s := &Service{
 		Name: "order-001",
 		LoadBalance: &LoadBalance{
@@ -481,6 +481,6 @@ func TestEgressResiliencePipelineSpec(t *testing.T) {
 		},
 	}
 
-	superSpec := s.EgressPipelineSpec(instanceSpecs)
+	superSpec := s.SideCarEgressPipelineSpec(instanceSpecs)
 	fmt.Println(superSpec.YAMLConfig())
 }

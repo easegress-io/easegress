@@ -1,6 +1,7 @@
 package spec
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/megaease/easegateway/pkg/filter/backend"
@@ -64,6 +65,9 @@ type (
 
 		// APIPort is the port for worker's API server
 		APIPort int `yaml:"apiPort" jsonschema:"omitempty"`
+
+		// IngressPort is the port for http server in mesh ingress
+		IngressPort int `yaml:"ingressPort" jsonschema:"omitempty"`
 	}
 
 	// Service contains the information of service.
@@ -202,6 +206,24 @@ type (
 
 		// Set by heartbeat timer event or API
 		Status string `yaml:"status" jsonschema:"omitempty"`
+	}
+
+	// IngressPath is the path for a mesh ingress rule
+	IngressPath struct {
+		Path    string `yaml:"path" jsonschema:"required"`
+		Backend string `yaml:"backend" jsonschema:"required"`
+	}
+
+	// IngressRule is the rule for mesh ingress
+	IngressRule struct {
+		Host  string        `yaml:"host" jsonschema:"required"`
+		Paths []IngressPath `yaml:"paths" jsonschema:"required"`
+	}
+
+	// Ingress is the spec of mesh ingress
+	Ingress struct {
+		Name  string        `yaml:"name" jsonschema:"required"`
+		Rules []IngressRule `yaml:"rules" jsonschema:"required"`
 	}
 
 	// ServiceInstanceStatus is the status of service instance.
@@ -389,8 +411,8 @@ func (b *pipelineSpecBuilder) appendBackendWithCanary(instanceSpecs []*ServiceIn
 	})
 
 	return b
-
 }
+
 func (b *pipelineSpecBuilder) appendBackend(mainServers []*backend.Server, lb *backend.LoadBalance) *pipelineSpecBuilder {
 	backendName := "backend"
 
@@ -413,7 +435,64 @@ func (b *pipelineSpecBuilder) appendBackend(mainServers []*backend.Server, lb *b
 	return b
 }
 
-func (s *Service) IngressHTTPServerSpec() *supervisor.Spec {
+func (s *Service) IngressHTTPServerSpec(port int, rules []*IngressRule) *supervisor.Spec {
+	const specFmt = `
+kind: HTTPServer
+name: mesh-ingress-server-%s
+port: %d
+keepAlive: false
+https: false
+rules:`
+
+	const ruleFmt = `
+  - host: %s
+    paths:`
+
+	const pathFmt = `
+      - pathPrefix: %s
+        backend: %s`
+
+	buf := bytes.Buffer{}
+
+	str := fmt.Sprintf(specFmt, s.Name, port)
+	buf.WriteString(str)
+
+	for _, r := range rules {
+		str = fmt.Sprintf(ruleFmt, r.Host)
+		buf.WriteString(str)
+		for j := range r.Paths {
+			p := &r.Paths[j]
+			str = fmt.Sprintf(pathFmt, p.Path, p.Backend)
+			buf.WriteString(str)
+		}
+	}
+
+	yamlConfig := buf.String()
+	spec, err := supervisor.NewSpec(yamlConfig)
+	if err != nil {
+		logger.Errorf("BUG: new spec for %s failed: %v", yamlConfig, err)
+	}
+
+	return spec
+}
+
+func (s *Service) IngressPipelineSpec(instanceSpecs []*ServiceInstanceSpec) *supervisor.Spec {
+	pipelineSpecBuilder := newPipelineSpecBuilder(s.IngressPipelineName())
+
+	pipelineSpecBuilder.appendBackendWithCanary(instanceSpecs, s.Canary, s.LoadBalance)
+
+	yamlConfig := pipelineSpecBuilder.yamlConfig()
+	superSpec, err := supervisor.NewSpec(yamlConfig)
+	if err != nil {
+		fmt.Println(err)
+		logger.Errorf("BUG: new spec for %s failed: %v", yamlConfig, err)
+		return nil
+	}
+
+	return superSpec
+}
+
+func (s *Service) SideCarIngressHTTPServerSpec() *supervisor.Spec {
 	ingressHTTPServerFormat := `
 kind: HTTPServer
 name: %s
@@ -482,7 +561,7 @@ func (s *Service) IngressPipelineName() string {
 	return fmt.Sprintf("mesh-ingress-pipeline-%s", s.Name)
 }
 
-func (s *Service) EgressHTTPServerSpec() *supervisor.Spec {
+func (s *Service) SideCarEgressHTTPServerSpec() *supervisor.Spec {
 	egressHTTPServerFormat := `
 kind: HTTPServer
 name: %s
@@ -508,7 +587,7 @@ rules:
 	return superSpec
 }
 
-func (s *Service) IngressPipelineSpec(applicationPort uint32) *supervisor.Spec {
+func (s *Service) SideCarIngressPipelineSpec(applicationPort uint32) *supervisor.Spec {
 	mainServers := []*backend.Server{
 		{
 			URL: s.ApplicationEndpoint(applicationPort),
@@ -533,7 +612,7 @@ func (s *Service) IngressPipelineSpec(applicationPort uint32) *supervisor.Spec {
 	return superSpec
 }
 
-func (s *Service) EgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec) *supervisor.Spec {
+func (s *Service) SideCarEgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec) *supervisor.Spec {
 
 	pipelineSpecBuilder := newPipelineSpecBuilder(s.EgressPipelineName())
 

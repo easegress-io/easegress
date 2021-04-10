@@ -83,6 +83,12 @@ type (
 	// TenantSpecsFunc is the callback function type for tenant specs.
 	TenantSpecsFunc func(value map[string]*spec.Tenant) bool
 
+	// IngressSpecFunc is the callback function type for service spec.
+	IngressSpecFunc func(event Event, ingressSpec *spec.Ingress) bool
+
+	// IngressSpecFunc is the callback function type for service specs.
+	IngressSpecsFunc func(value map[string]*spec.Ingress) bool
+
 	// Informer is the interface for informing two type of storage changed for every Mesh spec structure.
 	//  1. Based on comparison between old and new part of entry.
 	//  2. Based on comparison on entries with the same prefix.
@@ -98,6 +104,9 @@ type (
 
 		OnPartOfTenantSpec(tenantName string, gjsonPath GJSONPath, fn TenantSpecFunc) error
 		OnTenantSpecs(tenantPrefix string, fn TenantSpecsFunc) error
+
+		OnPartOfIngressSpec(serviceName string, gjsonPath GJSONPath, fn IngressSpecFunc) error
+		OnIngressSpecs(fn IngressSpecsFunc) error
 
 		Close()
 	}
@@ -230,6 +239,27 @@ func (inf *meshInformer) OnPartOfTenantSpec(tenant string, gjsonPath GJSONPath, 
 	return inf.onSpecPart(storeKey, watcherKey, gjsonPath, specFunc)
 }
 
+// OnPartOfIngressSpec watches one ingress status spec by given gjsonPath.
+func (inf *meshInformer) OnPartOfIngressSpec(ingress string, gjsonPath GJSONPath, fn IngressSpecFunc) error {
+	storeKey := layout.IngressSpecKey(ingress)
+	watcherKey := fmt.Sprintf("ingress-%s", ingress)
+
+	specFunc := func(event Event, value string) bool {
+		ingressSpec := &spec.Ingress{}
+		if event.EventType != EventDelete {
+			if err := yaml.Unmarshal([]byte(value), ingressSpec); err != nil {
+				if err != nil {
+					logger.Errorf("BUG: unmarshal %s to yaml failed: %v", value, err)
+					return true
+				}
+			}
+		}
+		return fn(event, ingressSpec)
+	}
+
+	return inf.onSpecPart(storeKey, watcherKey, gjsonPath, specFunc)
+}
+
 // OnServiceSpecs watches service specs with the prefix.
 func (inf *meshInformer) OnServiceSpecs(servicePrefix string, fn ServiceSpecsFunc) error {
 	watcherKey := fmt.Sprintf("prefix-service-%s", servicePrefix)
@@ -314,6 +344,28 @@ func (inf *meshInformer) OnTenantSpecs(tenantPrefix string, fn TenantSpecsFunc) 
 	}
 
 	return inf.onSpecs(tenantPrefix, watcherKey, specsFunc)
+}
+
+// OnIngressSpecs watches ingress specs
+func (inf *meshInformer) OnIngressSpecs(fn IngressSpecsFunc) error {
+	storeKey := layout.IngressPrefix()
+	watcherKey := "prefix-ingress"
+
+	specsFunc := func(kvs map[string]string) bool {
+		ingresss := make(map[string]*spec.Ingress)
+		for k, v := range kvs {
+			ingressSpec := &spec.Ingress{}
+			if err := yaml.Unmarshal([]byte(v), ingressSpec); err != nil {
+				logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
+				continue
+			}
+			ingresss[k] = ingressSpec
+		}
+
+		return fn(ingresss)
+	}
+
+	return inf.onSpecs(storeKey, watcherKey, specsFunc)
 }
 
 func (inf *meshInformer) comparePart(path GJSONPath, old, new string) bool {

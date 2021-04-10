@@ -18,6 +18,9 @@ const (
 	tenant       = "/mesh/tenants/%s" // +tenantName
 	tenantPrefix = "/mesh/tenants/"
 
+	ingress       = "/mesh/ingress/%s" // + ingressName
+	ingressPrefix = "/mesh/ingress/"
+
 	globalCanaryHeaders = "/mesh/canary-headers"
 )
 
@@ -69,6 +72,16 @@ func TenantSpecKey(t string) string {
 // TenantPrefix returns the prefix of tenant.
 func TenantPrefix() string {
 	return tenantPrefix
+}
+
+// IngressSpecKey returns the key of ingress spec.
+func IngressSpecKey(t string) string {
+	return fmt.Sprintf(ingress, t)
+}
+
+// IngressPrefix returns the prefix of ingress.
+func IngressPrefix() string {
+	return ingressPrefix
 }
 
 // GlobalCanaryHeaders returns the key of global service's canary headers.

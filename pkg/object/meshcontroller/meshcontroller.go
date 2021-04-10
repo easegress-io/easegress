@@ -81,12 +81,13 @@ func (mc *MeshController) reload() {
 	serviceName := mc.super.Options().Labels[label.KeyServiceName]
 
 	switch meshRole {
-	case label.ValueRoleMaster, label.ValueRoleWorker, label.ValueRoleIngressController:
-	case "":
+	case label.ValueRoleMaster:
+		if serviceName != "" {
+			meshRole = label.ValueRoleWorker
+		}
+	case label.ValueRoleWorker, label.ValueRoleIngressController:
 		if serviceName == "" {
 			meshRole = label.ValueRoleMaster
-		} else {
-			meshRole = label.ValueRoleWorker
 		}
 	default:
 		logger.Errorf("%s unsupported mesh role: %s (master, worker, ingressController)",
@@ -119,7 +120,11 @@ func (mc *MeshController) Status() *supervisor.Status {
 		return mc.master.Status()
 	}
 
-	return mc.worker.Status()
+	if mc.worker != nil {
+		return mc.worker.Status()
+	}
+
+	return mc.ingressController.Status()
 }
 
 // Close closes MeshController.

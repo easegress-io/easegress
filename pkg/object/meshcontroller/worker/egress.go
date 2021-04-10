@@ -59,7 +59,7 @@ func (egs *EgressServer) CreateEgress(service *spec.Service) error {
 
 	if egs.httpServer == nil {
 		var httpsvr httpserver.HTTPServer
-		superSpec := service.EgressHTTPServerSpec()
+		superSpec := service.SideCarEgressHTTPServerSpec()
 		httpsvr.Init(superSpec, egs.super)
 		httpsvr.InjectMuxMapper(egs)
 		egs.httpServer = &httpsvr
@@ -87,7 +87,7 @@ func (egs *EgressServer) addPipeline(serviceName string) (*httppipeline.HTTPPipe
 		return nil, spec.ErrServiceNotavailable
 	}
 
-	superSpec := service.EgressPipelineSpec(instanceSpec)
+	superSpec := service.SideCarEgressPipelineSpec(instanceSpec)
 	logger.Infof("add pipeline spec: %s", superSpec.YAMLConfig())
 
 	pipeline := &httppipeline.HTTPPipeline{}
@@ -119,7 +119,7 @@ func (egs *EgressServer) UpdatePipeline(service *spec.Service, instanceSpec []*s
 	}
 
 	newPipeline := &httppipeline.HTTPPipeline{}
-	superSpec := service.EgressPipelineSpec(instanceSpec)
+	superSpec := service.SideCarEgressPipelineSpec(instanceSpec)
 	newPipeline.Inherit(superSpec, pipeline, egs.super)
 	egs.pipelines[service.Name] = newPipeline
 

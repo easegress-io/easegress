@@ -313,3 +313,66 @@ func (s *Service) DeleteTenantSpec(tenantName string) {
 		api.ClusterPanic(err)
 	}
 }
+
+func (s *Service) GetIngressSpec(ingressName string) *spec.Ingress {
+	ingress, _ := s.GetIngressSpecWithInfo(ingressName)
+	return ingress
+}
+
+func (s *Service) GetIngressSpecWithInfo(ingressName string) (*spec.Ingress, *mvccpb.KeyValue) {
+	kvs, err := s.store.GetRaw(layout.IngressSpecKey(ingressName))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+
+	if kvs == nil {
+		return nil, nil
+	}
+
+	ingress := &spec.Ingress{}
+	err = yaml.Unmarshal(kvs.Value, ingress)
+	if err != nil {
+		panic(fmt.Errorf("BUG: unmarshal %s to yaml failed: %v", string(kvs.Value), err))
+	}
+
+	return ingress, kvs
+}
+
+func (s *Service) PutIngressSpec(ingressSpec *spec.Ingress) {
+	buff, err := yaml.Marshal(ingressSpec)
+	if err != nil {
+		panic(fmt.Errorf("BUG: marshal %#v to yaml failed: %v", ingressSpec, err))
+	}
+
+	err = s.store.Put(layout.IngressSpecKey(ingressSpec.Name), string(buff))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+}
+
+func (s *Service) ListIngressSpecs() []*spec.Ingress {
+	ingresses := []*spec.Ingress{}
+	kvs, err := s.store.GetPrefix(layout.IngressPrefix())
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+
+	for _, v := range kvs {
+		ingressSpec := &spec.Ingress{}
+		err := yaml.Unmarshal([]byte(v), ingressSpec)
+		if err != nil {
+			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
+			continue
+		}
+		ingresses = append(ingresses, ingressSpec)
+	}
+
+	return ingresses
+}
+
+func (s *Service) DeleteIngressSpec(ingressName string) {
+	err := s.store.Delete(layout.IngressSpecKey(ingressName))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+}
