@@ -243,7 +243,7 @@ func (rl *RateLimiter) handle(ctx context.HTTPContext) string {
 		if !permitted {
 			ctx.AddTag("rateLimiter: too many requests")
 			ctx.Response().SetStatusCode(http.StatusTooManyRequests)
-			ctx.Response().Std().Header().Set("X-Mesh-Rate-Limiter", "too-many-requests")
+			ctx.Response().Std().Header().Set("X-EG-Rate-Limiter", "too-many-requests")
 			return resultRateLimiter
 		}
 

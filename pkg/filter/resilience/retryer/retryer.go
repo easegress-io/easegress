@@ -194,7 +194,7 @@ func (r *Retryer) handle(ctx context.HTTPContext, u *URLRule) string {
 
 		if attempt == u.policy.MaxAttempts {
 			ctx.AddTag(fmt.Sprintf("retryer: failed after %d attempts", attempt))
-			ctx.Response().Std().Header().Set("X-Mesh-Retryer", fmt.Sprintf("Failed-after-%d-attempts", attempt))
+			ctx.Response().Std().Header().Set("X-EG-Retryer", fmt.Sprintf("Failed-after-%d-attempts", attempt))
 			return result
 		}
 
