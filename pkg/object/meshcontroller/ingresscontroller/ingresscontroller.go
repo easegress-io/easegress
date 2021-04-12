@@ -9,7 +9,6 @@ import (
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
 	"github.com/megaease/easegateway/pkg/object/httpserver"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/informer"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/label"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/service"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/storage"
@@ -26,11 +25,10 @@ type (
 		superSpec *supervisor.Spec
 		spec      *spec.Admin
 
-		serviceName string
-		service     *service.Service
-		pipelines   map[string]*httppipeline.HTTPPipeline
-		httpSvr     *httpserver.HTTPServer
-		informer    informer.Informer
+		service   *service.Service
+		pipelines map[string]*httppipeline.HTTPPipeline
+		httpSvr   *httpserver.HTTPServer
+		informer  informer.Informer
 
 		ingressEvent chan string
 		done         chan struct{}
@@ -50,10 +48,9 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *IngressContr
 		superSpec: superSpec,
 		spec:      superSpec.ObjectSpec().(*spec.Admin),
 
-		serviceName: super.Options().Labels[label.KeyServiceName],
-		service:     service.New(superSpec, store),
-		pipelines:   make(map[string]*httppipeline.HTTPPipeline),
-		informer:    informer.NewInformer(store),
+		service:   service.New(superSpec, store),
+		pipelines: make(map[string]*httppipeline.HTTPPipeline),
+		informer:  informer.NewInformer(store),
 
 		ingressEvent: make(chan string, ingressEventChanSize),
 		done:         make(chan struct{}),
@@ -74,8 +71,7 @@ func (ic *IngressController) initHTTPServer() {
 		}
 	}
 
-	service := ic.service.GetServiceSpec(ic.serviceName)
-	spec := service.IngressHTTPServerSpec(ic.spec.IngressPort, rules)
+	spec := spec.IngressHTTPServerSpec(ic.spec.IngressPort, rules)
 	ic.updateHTTPServer(spec)
 }
 
@@ -188,8 +184,7 @@ func (ic *IngressController) watchIngress() {
 			}
 		}
 
-		service := ic.service.GetServiceSpec(ic.serviceName)
-		spec := service.IngressHTTPServerSpec(ic.spec.IngressPort, rules)
+		spec := spec.IngressHTTPServerSpec(ic.spec.IngressPort, rules)
 
 		ic.mutex.Lock()
 		defer ic.mutex.Unlock()

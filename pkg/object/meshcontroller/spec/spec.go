@@ -435,10 +435,12 @@ func (b *pipelineSpecBuilder) appendBackend(mainServers []*backend.Server, lb *b
 	return b
 }
 
-func (s *Service) IngressHTTPServerSpec(port int, rules []*IngressRule) *supervisor.Spec {
+// IngressHTTPServerSpec generates HTTP server spec for ingress.
+// as ingress does not belong to a service, it is not a method of 'Service'
+func IngressHTTPServerSpec(port int, rules []*IngressRule) *supervisor.Spec {
 	const specFmt = `
 kind: HTTPServer
-name: mesh-ingress-server-%s
+name: mesh-ingress-server
 port: %d
 keepAlive: false
 https: false
@@ -454,7 +456,7 @@ rules:`
 
 	buf := bytes.Buffer{}
 
-	str := fmt.Sprintf(specFmt, s.Name, port)
+	str := fmt.Sprintf(specFmt, port)
 	buf.WriteString(str)
 
 	for _, r := range rules {
