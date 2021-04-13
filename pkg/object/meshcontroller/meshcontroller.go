@@ -16,13 +16,6 @@ const (
 
 	// Kind is the kind of MeshController.
 	Kind = "MeshController"
-
-	meshLabelRole        = "mesh-role"
-	meshLabelServiceName = "mesh-servicename"
-
-	meshRoleMaster            = "master"
-	meshRoleWorker            = "worker"
-	meshRoleIngressController = "ingressController"
 )
 
 type (
@@ -85,10 +78,13 @@ func (mc *MeshController) reload() {
 		if serviceName != "" {
 			meshRole = label.ValueRoleWorker
 		}
-	case label.ValueRoleWorker, label.ValueRoleIngressController:
+	case label.ValueRoleWorker:
 		if serviceName == "" {
 			meshRole = label.ValueRoleMaster
 		}
+	case label.ValueRoleIngressController:
+		// ingress controller does not care about service name
+		break
 	default:
 		logger.Errorf("%s unsupported mesh role: %s (master, worker, ingressController)",
 			mc.superSpec.Name(), meshRole)
