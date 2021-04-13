@@ -46,15 +46,15 @@ func getServiceInstanceCmd() *cobra.Command {
 		Short:   "Get an service instance",
 		Example: "egctl mesh service instance get <service_name> <instance_id>",
 		Args: func(cmd *cobra.Command, args []string) error {
-			if len(args) != 1 {
-				return errors.New("requires one service name to be retrieved")
+			if len(args) != 2 {
+				return errors.New("requires one service name and instance_id to be retrieved")
 			}
 
 			return nil
 		},
 
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodGet, makeURL(MeshServiceInstancePath, args[0]), nil, cmd)
+			handleRequest(http.MethodGet, makeURL(MeshServiceInstancePath, args[0], args[1]), nil, cmd)
 		},
 	}
 
