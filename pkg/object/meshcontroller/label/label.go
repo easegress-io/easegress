@@ -9,5 +9,5 @@ const (
 
 	ValueRoleMaster            = "master"
 	ValueRoleWorker            = "worker"
-	ValueRoleIngressController = "ingressController"
+	ValueRoleIngressController = "ingress-controller"
 )

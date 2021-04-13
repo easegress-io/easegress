@@ -52,6 +52,7 @@ func (mc *MeshController) DefaultSpec() interface{} {
 		HeartbeatInterval: spec.HeartbeatInterval,
 		RegistryType:      spec.RegistryTypeEureka,
 		APIPort:           spec.WorkerAPIPort,
+		IngressPort:       spec.IngressPort,
 	}
 }
 
@@ -84,7 +85,7 @@ func (mc *MeshController) reload() {
 		// ingress controller does not care about service name
 		break
 	default:
-		logger.Errorf("%s unsupported mesh role: %s (master, worker, ingressController)",
+		logger.Errorf("%s unsupported mesh role: %s (master, worker, ingress-controller)",
 			mc.superSpec.Name(), meshRole)
 		logger.Infof("%s use default mesh role: master", mc.superSpec.Name())
 		meshRole = label.ValueRoleMaster

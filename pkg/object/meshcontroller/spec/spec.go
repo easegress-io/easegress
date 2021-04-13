@@ -38,6 +38,9 @@ const (
 	// WorkerAPIPort is the default port for worker's API server
 	WorkerAPIPort = 13009
 
+	// IngressPort is the default port for ingress controller
+	IngressPort = 13010
+
 	// HeartbeatInterval is the default heartbeat interval for checking service heartbeat
 	HeartbeatInterval = "5s"
 )
