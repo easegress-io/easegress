@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 	"net/http"
 	"os"
 
@@ -45,6 +47,42 @@ const (
 
 	statusObjectURL  = apiURL + "/status/objects/%s"
 	statusObjectsURL = apiURL + "/status/objects"
+
+	// MeshTenantPrefix is the mesh tenant prefix.
+	MeshTenantPrefix = apiURL + "/mesh/tenants"
+
+	// MeshTenantPath is the mesh tenant path.
+	MeshTenantPath = apiURL + "/mesh/tenants/{tenantName:string}"
+
+	// MeshServicePrefix is mesh service prefix.
+	MeshServicePrefix = apiURL + "/mesh/services"
+
+	// MeshServicePath is the mesh service path.
+	MeshServicePath = apiURL + "/mesh/services/{serviceName:string}"
+
+	// MeshServiceCanaryPath is the mesh service canary path.
+	MeshServiceCanaryPath = apiURL + "/mesh/services/{serviceName:string}/canary"
+
+	// MeshServiceResiliencePath is the mesh service resilience path.
+	MeshServiceResiliencePath = apiURL + "/mesh/services/{serviceName:string}/resilience"
+
+	// MeshServiceLoadBalancePath is the mesh service load balance path.
+	MeshServiceLoadBalancePath = apiURL + "/mesh/services/{serviceName:string}/loadbalance"
+
+	// MeshServiceOutputServerPath is the mesh service output server path.
+	MeshServiceOutputServerPath = apiURL + "/mesh/services/{serviceName:string}/outputserver"
+
+	// MeshServiceTracingsPath is the mesh service tracings path.
+	MeshServiceTracingsPath = apiURL + "/mesh/services/{serviceName:string}/tracings"
+
+	// MeshServiceMetricsPath is the mesh service metrics path.
+	MeshServiceMetricsPath = apiURL + "/mesh/services/{serviceName:string}/metrics"
+
+	// MeshServiceInstancePrefix is the mesh service prefix.
+	MeshServiceInstancePrefix = apiURL + "/mesh/serviceinstances"
+
+	// MeshServiceInstancePath is the mesh service path.
+	MeshServiceInstancePath = apiURL + "/mesh/serviceinstances/{serviceName:string}/{instanceID:string}"
 )
 
 func makeURL(urlTemplate string, a ...interface{}) string {
@@ -128,4 +166,19 @@ func readFromFileOrStdin(specFile string, cmd *cobra.Command) ([]byte, string) {
 	}
 
 	return buff, spec.Name
+}
+
+func newKubernetesClient() (*kubernetes.Clientset, error) {
+	config, err := clientcmd.BuildConfigFromFlags("", defaultKubernetesConfigPath)
+	if err != nil {
+		return nil, err
+	}
+
+	// create the clientset
+	kubeClient, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		ExitWithErrorf("Can't connect to K8S.")
+	}
+
+	return kubeClient, nil
 }

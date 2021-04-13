@@ -4,8 +4,6 @@ import (
 	"errors"
 	"github.com/spf13/cobra"
 	"net/http"
-
-	mesh "github.com/megaease/easegateway/pkg/object/meshcontroller/master"
 )
 
 func serviceCmd() *cobra.Command {
@@ -36,7 +34,7 @@ func createServiceCmd() *cobra.Command {
 		Short: "Create an service from a yaml file or stdin",
 		Run: func(cmd *cobra.Command, args []string) {
 			buff, _ := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPost, makeURL(mesh.MeshServicePath), buff, cmd)
+			handleRequest(http.MethodPost, makeURL(MeshServicePath), buff, cmd)
 		},
 	}
 
@@ -52,7 +50,7 @@ func updateServiceCmd() *cobra.Command {
 		Short: "Update an service from a yaml file or stdin",
 		Run: func(cmd *cobra.Command, args []string) {
 			buff, name := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPut, makeURL(mesh.MeshServicePath, name), buff, cmd)
+			handleRequest(http.MethodPut, makeURL(MeshServicePath, name), buff, cmd)
 		},
 	}
 
@@ -75,7 +73,7 @@ func deleteServiceCmd() *cobra.Command {
 		},
 
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodDelete, makeURL(mesh.MeshServicePath, args[0]), nil, cmd)
+			handleRequest(http.MethodDelete, makeURL(MeshServicePath, args[0]), nil, cmd)
 		},
 	}
 
@@ -96,7 +94,7 @@ func getServiceCmd() *cobra.Command {
 		},
 
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodGet, makeURL(mesh.MeshServicePath, args[0]), nil, cmd)
+			handleRequest(http.MethodGet, makeURL(MeshServicePath, args[0]), nil, cmd)
 		},
 	}
 
@@ -109,7 +107,7 @@ func listServicesCmd() *cobra.Command {
 		Short:   "List all services",
 		Example: "egctl mesh service list",
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodGet, makeURL(mesh.MeshServicePrefix), nil, cmd)
+			handleRequest(http.MethodGet, makeURL(MeshServicePrefix), nil, cmd)
 		},
 	}
 

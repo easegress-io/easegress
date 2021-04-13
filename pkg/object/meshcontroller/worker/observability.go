@@ -26,6 +26,7 @@ type (
 	}
 )
 
+// TODO: Replace JMX with new httpService
 // NewObservabilityServer creates an ObservabilityServer.
 func NewObservabilityServer(serviceName string) *ObservabilityManager {
 	client := jmxtool.NewJolokiaClient("localhost", "8778", "jolokia")

@@ -12,8 +12,6 @@ func MeshCmd() *cobra.Command {
 	}
 	cmd.AddCommand(serviceCmd())
 	cmd.AddCommand(tenantCmd())
+	cmd.AddCommand(installCmd())
 	return cmd
 }
-
-
-

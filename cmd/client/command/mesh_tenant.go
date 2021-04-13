@@ -4,8 +4,6 @@ import (
 	"errors"
 	"github.com/spf13/cobra"
 	"net/http"
-
-	mesh "github.com/megaease/easegateway/pkg/object/meshcontroller/master"
 )
 
 func tenantCmd() *cobra.Command {
@@ -28,7 +26,7 @@ func createTenantCmd() *cobra.Command {
 		Short: "Create an tenant from a yaml file or stdin",
 		Run: func(cmd *cobra.Command, args []string) {
 			buff, _ := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPost, makeURL(mesh.MeshTenantPath), buff, cmd)
+			handleRequest(http.MethodPost, makeURL(MeshTenantPath), buff, cmd)
 		},
 	}
 
@@ -44,7 +42,7 @@ func updateTenantCmd() *cobra.Command {
 		Short: "Update an tenant from a yaml file or stdin",
 		Run: func(cmd *cobra.Command, args []string) {
 			buff, name := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPut, makeURL(mesh.MeshTenantPath, name), buff, cmd)
+			handleRequest(http.MethodPut, makeURL(MeshTenantPath, name), buff, cmd)
 		},
 	}
 
@@ -67,7 +65,7 @@ func deleteTenantCmd() *cobra.Command {
 		},
 
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodDelete, makeURL(mesh.MeshTenantPath, args[0]), nil, cmd)
+			handleRequest(http.MethodDelete, makeURL(MeshTenantPath, args[0]), nil, cmd)
 		},
 	}
 
@@ -88,7 +86,7 @@ func getTenantCmd() *cobra.Command {
 		},
 
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodGet, makeURL(mesh.MeshTenantPath, args[0]), nil, cmd)
+			handleRequest(http.MethodGet, makeURL(MeshTenantPath, args[0]), nil, cmd)
 		},
 	}
 
@@ -101,7 +99,7 @@ func listTenantsCmd() *cobra.Command {
 		Short:   "List all tenants",
 		Example: "egctl mesh tenant list",
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodGet, makeURL(mesh.MeshTenantPrefix), nil, cmd)
+			handleRequest(http.MethodGet, makeURL(MeshTenantPrefix), nil, cmd)
 		},
 	}
 
