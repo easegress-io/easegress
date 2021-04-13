@@ -25,15 +25,15 @@ func deleteServiceInstanceCmd() *cobra.Command {
 		Short:   "Delete an service instance",
 		Example: "egctl mesh service instance delete <service_name> <instance_id>",
 		Args: func(cmd *cobra.Command, args []string) error {
-			if len(args) != 1 {
-				return errors.New("requires one service name to be deleted")
+			if len(args) != 2 {
+				return errors.New("requires one service name and instance_id  to be deleted")
 			}
 
 			return nil
 		},
 
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodDelete, makeURL(MeshServiceInstancePath, args[0]), nil, cmd)
+			handleRequest(http.MethodDelete, makeURL(MeshServiceInstancePath, args[0], args[1]), nil, cmd)
 		},
 	}
 
