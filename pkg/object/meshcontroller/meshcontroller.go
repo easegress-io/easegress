@@ -74,13 +74,11 @@ func (mc *MeshController) reload() {
 	serviceName := mc.super.Options().Labels[label.KeyServiceName]
 
 	switch meshRole {
-	case label.ValueRoleMaster:
-		if serviceName != "" {
-			meshRole = label.ValueRoleWorker
-		}
-	case label.ValueRoleWorker:
+	case "", label.ValueRoleMaster, label.ValueRoleWorker:
 		if serviceName == "" {
 			meshRole = label.ValueRoleMaster
+		} else {
+			meshRole = label.ValueRoleWorker
 		}
 	case label.ValueRoleIngressController:
 		// ingress controller does not care about service name
