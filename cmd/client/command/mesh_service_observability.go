@@ -41,9 +41,16 @@ func updateServiceCanaryCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update an service canary from a yaml file or stdin",
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 1 {
+				return errors.New("requires one service name to be updated")
+			}
+
+			return nil
+		},
 		Run: func(cmd *cobra.Command, args []string) {
-			buff, name := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPut, makeURL(MeshServiceCanaryURL, name), buff, cmd)
+			buff, _ := readFromFileOrStdin(specFile, cmd)
+			handleRequest(http.MethodPut, makeURL(MeshServiceCanaryURL, args[0]), buff, cmd)
 		},
 	}
 
@@ -481,9 +488,16 @@ func updateServiceMetricCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update an service metrics from a yaml file or stdin",
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 1 {
+				return errors.New("requires one service name to be updated")
+			}
+
+			return nil
+		},
 		Run: func(cmd *cobra.Command, args []string) {
-			buff, name := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPut, makeURL(MeshServiceMetricsURL, name), buff, cmd)
+			buff, _ := readFromFileOrStdin(specFile, cmd)
+			handleRequest(http.MethodPut, makeURL(MeshServiceMetricsURL, args[0]), buff, cmd)
 		},
 	}
 
