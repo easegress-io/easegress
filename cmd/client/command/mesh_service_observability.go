@@ -27,7 +27,7 @@ func createServiceCanaryCmd() *cobra.Command {
 		Short: "Create an service canary from a yaml file or stdin",
 		Run: func(cmd *cobra.Command, args []string) {
 			buff, _ := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPost, makeURL(MeshServiceCanaryPath), buff, cmd)
+			handleRequest(http.MethodPost, makeURL(MeshServiceCanaryURL), buff, cmd)
 		},
 	}
 
@@ -43,7 +43,7 @@ func updateServiceCanaryCmd() *cobra.Command {
 		Short: "Update an service canary from a yaml file or stdin",
 		Run: func(cmd *cobra.Command, args []string) {
 			buff, name := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPut, makeURL(MeshServiceCanaryPath, name), buff, cmd)
+			handleRequest(http.MethodPut, makeURL(MeshServiceCanaryURL, name), buff, cmd)
 		},
 	}
 
@@ -66,7 +66,7 @@ func deleteServiceCanaryCmd() *cobra.Command {
 		},
 
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodDelete, makeURL(MeshServiceCanaryPath, args[0]), nil, cmd)
+			handleRequest(http.MethodDelete, makeURL(MeshServiceCanaryURL, args[0]), nil, cmd)
 		},
 	}
 
@@ -87,7 +87,7 @@ func getServiceCanaryCmd() *cobra.Command {
 		},
 
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodGet, makeURL(MeshServiceCanaryPath, args[0]), nil, cmd)
+			handleRequest(http.MethodGet, makeURL(MeshServiceCanaryURL, args[0]), nil, cmd)
 		},
 	}
 
@@ -115,7 +115,7 @@ func createServiceResilienceCmd() *cobra.Command {
 		Short: "Create an service resilience from a yaml file or stdin",
 		Run: func(cmd *cobra.Command, args []string) {
 			buff, _ := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPost, makeURL(MeshServiceResiliencePath), buff, cmd)
+			handleRequest(http.MethodPost, makeURL(MeshServiceResilienceURL), buff, cmd)
 		},
 	}
 
@@ -131,7 +131,7 @@ func updateServiceResilienceCmd() *cobra.Command {
 		Short: "Update an service resilience from a yaml file or stdin",
 		Run: func(cmd *cobra.Command, args []string) {
 			buff, name := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPut, makeURL(MeshServiceResiliencePath, name), buff, cmd)
+			handleRequest(http.MethodPut, makeURL(MeshServiceResilienceURL, name), buff, cmd)
 		},
 	}
 
@@ -154,7 +154,7 @@ func deleteServiceResilienceCmd() *cobra.Command {
 		},
 
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodDelete, makeURL(MeshServiceResiliencePath, args[0]), nil, cmd)
+			handleRequest(http.MethodDelete, makeURL(MeshServiceResilienceURL, args[0]), nil, cmd)
 		},
 	}
 
@@ -175,7 +175,7 @@ func getServiceResilienceCmd() *cobra.Command {
 		},
 
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodGet, makeURL(MeshServiceResiliencePath, args[0]), nil, cmd)
+			handleRequest(http.MethodGet, makeURL(MeshServiceResilienceURL, args[0]), nil, cmd)
 		},
 	}
 
@@ -203,7 +203,7 @@ func createServiceLoadbalanceCmd() *cobra.Command {
 		Short: "Create an service loadbalance from a yaml file or stdin",
 		Run: func(cmd *cobra.Command, args []string) {
 			buff, _ := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPost, makeURL(MeshServiceLoadBalancePath), buff, cmd)
+			handleRequest(http.MethodPost, makeURL(MeshServiceLoadBalanceURL), buff, cmd)
 		},
 	}
 
@@ -219,7 +219,7 @@ func updateServiceLoadbalanceCmd() *cobra.Command {
 		Short: "Update an service loadbalance from a yaml file or stdin",
 		Run: func(cmd *cobra.Command, args []string) {
 			buff, name := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPut, makeURL(MeshServiceLoadBalancePath, name), buff, cmd)
+			handleRequest(http.MethodPut, makeURL(MeshServiceLoadBalanceURL, name), buff, cmd)
 		},
 	}
 
@@ -242,7 +242,7 @@ func deleteServiceLoadbalanceCmd() *cobra.Command {
 		},
 
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodDelete, makeURL(MeshServiceLoadBalancePath, args[0]), nil, cmd)
+			handleRequest(http.MethodDelete, makeURL(MeshServiceLoadBalanceURL, args[0]), nil, cmd)
 		},
 	}
 
@@ -263,7 +263,7 @@ func getServiceLoadbalanceCmd() *cobra.Command {
 		},
 
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodGet, makeURL(MeshServiceLoadBalancePath, args[0]), nil, cmd)
+			handleRequest(http.MethodGet, makeURL(MeshServiceLoadBalanceURL, args[0]), nil, cmd)
 		},
 	}
 
@@ -291,7 +291,7 @@ func createServiceOutputserverCmd() *cobra.Command {
 		Short: "Create an service outputserver from a yaml file or stdin",
 		Run: func(cmd *cobra.Command, args []string) {
 			buff, _ := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPost, makeURL(MeshServiceOutputServerPath), buff, cmd)
+			handleRequest(http.MethodPost, makeURL(MeshServiceOutputServerURL), buff, cmd)
 		},
 	}
 
@@ -307,7 +307,7 @@ func updateServiceOutputserverCmd() *cobra.Command {
 		Short: "Update an service outputserver from a yaml file or stdin",
 		Run: func(cmd *cobra.Command, args []string) {
 			buff, name := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPut, makeURL(MeshServiceOutputServerPath, name), buff, cmd)
+			handleRequest(http.MethodPut, makeURL(MeshServiceOutputServerURL, name), buff, cmd)
 		},
 	}
 
@@ -330,7 +330,7 @@ func deleteServiceOutputserverCmd() *cobra.Command {
 		},
 
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodDelete, makeURL(MeshServiceOutputServerPath, args[0]), nil, cmd)
+			handleRequest(http.MethodDelete, makeURL(MeshServiceOutputServerURL, args[0]), nil, cmd)
 		},
 	}
 
@@ -351,7 +351,7 @@ func getServiceOutputserverCmd() *cobra.Command {
 		},
 
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodGet, makeURL(MeshServiceOutputServerPath, args[0]), nil, cmd)
+			handleRequest(http.MethodGet, makeURL(MeshServiceOutputServerURL, args[0]), nil, cmd)
 		},
 	}
 
@@ -379,7 +379,7 @@ func createServiceTracingCmd() *cobra.Command {
 		Short: "Create an service tracings from a yaml file or stdin",
 		Run: func(cmd *cobra.Command, args []string) {
 			buff, _ := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPost, makeURL(MeshServiceTracingsPath), buff, cmd)
+			handleRequest(http.MethodPost, makeURL(MeshServiceTracingsURL), buff, cmd)
 		},
 	}
 
@@ -395,7 +395,7 @@ func updateServiceTracingCmd() *cobra.Command {
 		Short: "Update an service tracings from a yaml file or stdin",
 		Run: func(cmd *cobra.Command, args []string) {
 			buff, name := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPut, makeURL(MeshServiceTracingsPath, name), buff, cmd)
+			handleRequest(http.MethodPut, makeURL(MeshServiceTracingsURL, name), buff, cmd)
 		},
 	}
 
@@ -418,7 +418,7 @@ func deleteServiceTracingCmd() *cobra.Command {
 		},
 
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodDelete, makeURL(MeshServiceTracingsPath, args[0]), nil, cmd)
+			handleRequest(http.MethodDelete, makeURL(MeshServiceTracingsURL, args[0]), nil, cmd)
 		},
 	}
 
@@ -439,7 +439,7 @@ func getServiceTracingCmd() *cobra.Command {
 		},
 
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodGet, makeURL(MeshServiceTracingsPath, args[0]), nil, cmd)
+			handleRequest(http.MethodGet, makeURL(MeshServiceTracingsURL, args[0]), nil, cmd)
 		},
 	}
 
@@ -467,7 +467,7 @@ func createServiceMetricCmd() *cobra.Command {
 		Short: "Create an service metrics from a yaml file or stdin",
 		Run: func(cmd *cobra.Command, args []string) {
 			buff, _ := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPost, makeURL(MeshServiceMetricsPath), buff, cmd)
+			handleRequest(http.MethodPost, makeURL(MeshServiceMetricsURL), buff, cmd)
 		},
 	}
 
@@ -483,7 +483,7 @@ func updateServiceMetricCmd() *cobra.Command {
 		Short: "Update an service metrics from a yaml file or stdin",
 		Run: func(cmd *cobra.Command, args []string) {
 			buff, name := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPut, makeURL(MeshServiceMetricsPath, name), buff, cmd)
+			handleRequest(http.MethodPut, makeURL(MeshServiceMetricsURL, name), buff, cmd)
 		},
 	}
 
@@ -506,7 +506,7 @@ func deleteServiceMetricCmd() *cobra.Command {
 		},
 
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodDelete, makeURL(MeshServiceMetricsPath, args[0]), nil, cmd)
+			handleRequest(http.MethodDelete, makeURL(MeshServiceMetricsURL, args[0]), nil, cmd)
 		},
 	}
 
@@ -527,7 +527,7 @@ func getServiceMetricCmd() *cobra.Command {
 		},
 
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodGet, makeURL(MeshServiceMetricsPath, args[0]), nil, cmd)
+			handleRequest(http.MethodGet, makeURL(MeshServiceMetricsURL, args[0]), nil, cmd)
 		},
 	}
 

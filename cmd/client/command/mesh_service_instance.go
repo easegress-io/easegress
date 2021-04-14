@@ -33,7 +33,7 @@ func deleteServiceInstanceCmd() *cobra.Command {
 		},
 
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodDelete, makeURL(MeshServiceInstancePath, args[0], args[1]), nil, cmd)
+			handleRequest(http.MethodDelete, makeURL(MeshServiceInstanceURL, args[0], args[1]), nil, cmd)
 		},
 	}
 
@@ -54,7 +54,7 @@ func getServiceInstanceCmd() *cobra.Command {
 		},
 
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodGet, makeURL(MeshServiceInstancePath, args[0], args[1]), nil, cmd)
+			handleRequest(http.MethodGet, makeURL(MeshServiceInstanceURL, args[0], args[1]), nil, cmd)
 		},
 	}
 
@@ -67,7 +67,7 @@ func listServiceInstancesCmd() *cobra.Command {
 		Short:   "List all service instances",
 		Example: "egctl mesh service instance list",
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodGet, makeURL(MeshServiceInstancePrefix), nil, cmd)
+			handleRequest(http.MethodGet, makeURL(MeshServiceInstancesURL), nil, cmd)
 		},
 	}
 

@@ -48,41 +48,41 @@ const (
 	statusObjectURL  = apiURL + "/status/objects/%s"
 	statusObjectsURL = apiURL + "/status/objects"
 
-	// MeshTenantPrefix is the mesh tenant prefix.
-	MeshTenantPrefix = apiURL + "/mesh/tenants"
+	// MeshTenantsURL is the mesh tenant prefix.
+	MeshTenantsURL = apiURL + "/mesh/tenants"
 
-	// MeshTenantPath is the mesh tenant path.
-	MeshTenantPath = apiURL + "/mesh/tenants/%s"
+	// MeshTenantURL is the mesh tenant path.
+	MeshTenantURL = apiURL + "/mesh/tenants/%s"
 
-	// MeshServicePrefix is mesh service prefix.
-	MeshServicePrefix = apiURL + "/mesh/services"
+	// MeshServicesURL is mesh service prefix.
+	MeshServicesURL = apiURL + "/mesh/services"
 
-	// MeshServicePath is the mesh service path.
-	MeshServicePath = apiURL + "/mesh/services/%s"
+	// MeshServiceURL is the mesh service path.
+	MeshServiceURL = apiURL + "/mesh/services/%s"
 
-	// MeshServiceCanaryPath is the mesh service canary path.
-	MeshServiceCanaryPath = apiURL + "/mesh/services/%s/canary"
+	// MeshServiceCanaryURL is the mesh service canary path.
+	MeshServiceCanaryURL = apiURL + "/mesh/services/%s/canary"
 
-	// MeshServiceResiliencePath is the mesh service resilience path.
-	MeshServiceResiliencePath = apiURL + "/mesh/services/%s/resilience"
+	// MeshServiceResilienceURL is the mesh service resilience path.
+	MeshServiceResilienceURL = apiURL + "/mesh/services/%s/resilience"
 
-	// MeshServiceLoadBalancePath is the mesh service load balance path.
-	MeshServiceLoadBalancePath = apiURL + "/mesh/services/%s/loadbalance"
+	// MeshServiceLoadBalanceURL is the mesh service load balance path.
+	MeshServiceLoadBalanceURL = apiURL + "/mesh/services/%s/loadbalance"
 
-	// MeshServiceOutputServerPath is the mesh service output server path.
-	MeshServiceOutputServerPath = apiURL + "/mesh/services/%s/outputserver"
+	// MeshServiceOutputServerURL is the mesh service output server path.
+	MeshServiceOutputServerURL = apiURL + "/mesh/services/%s/outputserver"
 
-	// MeshServiceTracingsPath is the mesh service tracings path.
-	MeshServiceTracingsPath = apiURL + "/mesh/services/%s/tracings"
+	// MeshServiceTracingsURL is the mesh service tracings path.
+	MeshServiceTracingsURL = apiURL + "/mesh/services/%s/tracings"
 
-	// MeshServiceMetricsPath is the mesh service metrics path.
-	MeshServiceMetricsPath = apiURL + "/mesh/services/%s/metrics"
+	// MeshServiceMetricsURL is the mesh service metrics path.
+	MeshServiceMetricsURL = apiURL + "/mesh/services/%s/metrics"
 
-	// MeshServiceInstancePrefix is the mesh service prefix.
-	MeshServiceInstancePrefix = apiURL + "/mesh/serviceinstances"
+	// MeshServiceInstancesURL is the mesh service prefix.
+	MeshServiceInstancesURL = apiURL + "/mesh/serviceinstances"
 
-	// MeshServiceInstancePath is the mesh service path.
-	MeshServiceInstancePath = apiURL + "/mesh/serviceinstances/%s/%s"
+	// MeshServiceInstanceURL is the mesh service path.
+	MeshServiceInstanceURL = apiURL + "/mesh/serviceinstances/%s/%s"
 )
 
 func makeURL(urlTemplate string, a ...interface{}) string {

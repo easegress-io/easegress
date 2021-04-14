@@ -26,7 +26,7 @@ func createTenantCmd() *cobra.Command {
 		Short: "Create an tenant from a yaml file or stdin",
 		Run: func(cmd *cobra.Command, args []string) {
 			buff, _ := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPost, makeURL(MeshTenantPath), buff, cmd)
+			handleRequest(http.MethodPost, makeURL(MeshTenantsURL), buff, cmd)
 		},
 	}
 
@@ -42,7 +42,7 @@ func updateTenantCmd() *cobra.Command {
 		Short: "Update an tenant from a yaml file or stdin",
 		Run: func(cmd *cobra.Command, args []string) {
 			buff, name := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPut, makeURL(MeshTenantPath, name), buff, cmd)
+			handleRequest(http.MethodPut, makeURL(MeshTenantURL, name), buff, cmd)
 		},
 	}
 
@@ -65,7 +65,7 @@ func deleteTenantCmd() *cobra.Command {
 		},
 
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodDelete, makeURL(MeshTenantPath, args[0]), nil, cmd)
+			handleRequest(http.MethodDelete, makeURL(MeshTenantURL, args[0]), nil, cmd)
 		},
 	}
 
@@ -86,7 +86,7 @@ func getTenantCmd() *cobra.Command {
 		},
 
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodGet, makeURL(MeshTenantPath, args[0]), nil, cmd)
+			handleRequest(http.MethodGet, makeURL(MeshTenantURL, args[0]), nil, cmd)
 		},
 	}
 
@@ -99,7 +99,7 @@ func listTenantsCmd() *cobra.Command {
 		Short:   "List all tenants",
 		Example: "egctl mesh tenant list",
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodGet, makeURL(MeshTenantPrefix), nil, cmd)
+			handleRequest(http.MethodGet, makeURL(MeshTenantsURL), nil, cmd)
 		},
 	}
 
