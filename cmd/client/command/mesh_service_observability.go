@@ -45,7 +45,6 @@ func updateServiceCanaryCmd() *cobra.Command {
 			if len(args) != 1 {
 				return errors.New("requires one service name to be updated")
 			}
-
 			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
@@ -136,9 +135,15 @@ func updateServiceResilienceCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update an service resilience from a yaml file or stdin",
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 1 {
+				return errors.New("requires one service name to be updated")
+			}
+			return nil
+		},
 		Run: func(cmd *cobra.Command, args []string) {
-			buff, name := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPut, makeURL(MeshServiceResilienceURL, name), buff, cmd)
+			buff, _ := readFromFileOrStdin(specFile, cmd)
+			handleRequest(http.MethodPut, makeURL(MeshServiceResilienceURL, args[0]), buff, cmd)
 		},
 	}
 
@@ -224,9 +229,15 @@ func updateServiceLoadbalanceCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update an service loadbalance from a yaml file or stdin",
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 1 {
+				return errors.New("requires one service name to be updated")
+			}
+			return nil
+		},
 		Run: func(cmd *cobra.Command, args []string) {
-			buff, name := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPut, makeURL(MeshServiceLoadBalanceURL, name), buff, cmd)
+			buff, _ := readFromFileOrStdin(specFile, cmd)
+			handleRequest(http.MethodPut, makeURL(MeshServiceLoadBalanceURL, args[0]), buff, cmd)
 		},
 	}
 
@@ -312,9 +323,15 @@ func updateServiceOutputserverCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update an service outputserver from a yaml file or stdin",
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 1 {
+				return errors.New("requires one service name to be updated")
+			}
+			return nil
+		},
 		Run: func(cmd *cobra.Command, args []string) {
-			buff, name := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPut, makeURL(MeshServiceOutputServerURL, name), buff, cmd)
+			buff, _ := readFromFileOrStdin(specFile, cmd)
+			handleRequest(http.MethodPut, makeURL(MeshServiceOutputServerURL, args[0]), buff, cmd)
 		},
 	}
 
@@ -400,9 +417,15 @@ func updateServiceTracingCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update an service tracings from a yaml file or stdin",
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 1 {
+				return errors.New("requires one service name to be updated")
+			}
+			return nil
+		},
 		Run: func(cmd *cobra.Command, args []string) {
-			buff, name := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPut, makeURL(MeshServiceTracingsURL, name), buff, cmd)
+			buff, _ := readFromFileOrStdin(specFile, cmd)
+			handleRequest(http.MethodPut, makeURL(MeshServiceTracingsURL, args[0]), buff, cmd)
 		},
 	}
 
