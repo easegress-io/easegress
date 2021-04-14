@@ -6,7 +6,7 @@ type EaseGatewayConfig struct {
 	ClusterRole       string `yaml:"cluster-role" jsonschema:"required"`
 	ClusterClientUrl  string `yaml:"cluster-client-url" jsonschema:"required"`
 	ClusterPeerUrl    string `yaml:"cluster-peer-url" jsonschema:"required"`
-	ClusterJoinUrls   string `yaml:"cluster-join-urls:" jsonschema:"required"`
+	ClusterJoinUrls   string `yaml:"cluster-join-urls" jsonschema:"required"`
 	ApiAddr           string `yaml:"api-addr" jsonschema:"required"`
 	DataDir           string `yaml:"data-dir" jsonschema:"required"`
 	WalDir            string `yaml:"wal-dir" wal-dir:"required"`
