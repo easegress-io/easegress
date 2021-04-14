@@ -14,7 +14,6 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
 	"gopkg.in/yaml.v2"
@@ -40,9 +39,9 @@ var (
 )
 
 const (
-	defaultEgFilePath        = "./manifests/easegateway/easegateway.yaml"
-	defaultEgIngressFilePath = "./manifests/easegateway/easegateway-ingress.yaml"
-	defaultOperatorPath      = "./manifests/mesh-operator-config/default"
+	defaultEgControlPlaneFilePath = "./manifests/easegateway/control-plane"
+	defaultEgIngressFilePath      = "./manifests/easegateway/ingress-controller"
+	defaultOperatorPath           = "./manifests/mesh-operator-config/default"
 	// EaseGateway deploy default params
 	defaultMeshNameSpace = "easemesh"
 
@@ -183,28 +182,11 @@ func deployEaseGateway(cmd *cobra.Command, kubeClient *kubernetes.Clientset, arg
 		return err
 	}
 
-	easegatewayYaml, err := ioutil.ReadFile(manifestPath(defaultEgFilePath))
-	if err != nil {
-		return err
-	}
-
-	easegatewayK8SComponents, err := parseK8SYamlToComponents(easegatewayYaml)
-	if err != nil {
-		return err
-	}
-
-	for _, component := range easegatewayK8SComponents {
-		if len(strings.TrimSpace(component)) == 0 {
-			continue
-		}
-		object, kind, err := decodeToK8SObject([]byte(component))
-		err = createK8SObject(kubeClient, object, kind, args.meshNameSpace)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	var configPath = manifestPath(defaultEgControlPlaneFilePath)
+	applyCmd := "cd " + configPath + " && kustomize edit set namespace " + args.meshNameSpace + " && kustomize build | kubectl apply -f -"
+	command := exec.Command("bash", "-c", applyCmd)
+	err = command.Run()
+	return err
 }
 
 func completeEaseGatewayNameSpace(cmd *cobra.Command, kubeClient *kubernetes.Clientset, args *installArgs) error {
@@ -273,39 +255,48 @@ func completeEaseGatewayServices(cmd *cobra.Command, kubeClient *kubernetes.Clie
 	selector := map[string]string{}
 	selector["app"] = "easegateway"
 
+	service := easegatewayService(args)
+	service.Spec.Selector = selector
+	err := createService(service, kubeClient, args.meshNameSpace)
+
+	headlessService := easegatewayHeadlessService(args)
+	headlessService.Spec.Selector = selector
+	err = createService(headlessService, kubeClient, args.meshNameSpace)
+	return err
+}
+
+func easegatewayService(args *installArgs) *v1.Service {
+	selector := map[string]string{}
+	selector["app"] = "easegateway"
+
 	service := &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      args.egServiceName,
 			Namespace: args.meshNameSpace,
 		},
 	}
-	//service.Spec.Type = v1.ServiceTypeNodePort
 	service.Spec.Ports = []v1.ServicePort{
 		v1.ServicePort{
 			Name:       defaultEgAdminPortName,
 			Port:       int32(args.egAdminPort),
 			TargetPort: intstr.IntOrString{IntVal: 2381},
-			//NodePort:   32381,
 		},
 		v1.ServicePort{
 			Name:       defaultEgPeerPortName,
 			Port:       int32(args.egPeerPort),
 			TargetPort: intstr.IntOrString{IntVal: 2380},
-			//NodePort:   32380,
 		},
 		v1.ServicePort{
 			Name:       defaultEgClientPortName,
 			Port:       int32(args.egClientPort),
 			TargetPort: intstr.IntOrString{IntVal: 2379},
-			//NodePort:   32379,
 		},
 	}
 	service.Spec.Selector = selector
-	err := createService(service, kubeClient, args.meshNameSpace)
-	if err != nil {
-		return err
-	}
+	return service
+}
 
+func easegatewayHeadlessService(args *installArgs) *v1.Service {
 	headlessService := &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      defaultEgHeadlessServiceName,
@@ -332,12 +323,7 @@ func completeEaseGatewayServices(cmd *cobra.Command, kubeClient *kubernetes.Clie
 		},
 	}
 
-	headlessService.Spec.Selector = selector
-	err = createService(headlessService, kubeClient, args.meshNameSpace)
-	if err != nil {
-		return err
-	}
-	return err
+	return headlessService
 }
 
 func manifestPath(filePath string) string {
@@ -347,18 +333,6 @@ func manifestPath(filePath string) string {
 	}
 	exPath := filepath.Dir(ex)
 	return path.Join(filepath.Dir(exPath), filePath)
-}
-
-func parseK8SYamlToComponents(content []byte) ([]string, error) {
-
-	fileAsString := string(content)
-	yamlSplits := strings.Split(fileAsString, "---")
-
-	s := make([]string, len(yamlSplits), len(yamlSplits))
-	for _, content := range yamlSplits {
-		s = append(s, content)
-	}
-	return s, nil
 }
 
 func easegatewayDeploySuccess(httpMethod string, url string, reqBody []byte, cmd *cobra.Command) bool {
@@ -413,28 +387,12 @@ func deployEaseGatewayIngress(cmd *cobra.Command, kubeClient *kubernetes.Clients
 	if err != nil {
 		return err
 	}
-	easegatewayIngressYaml, err := ioutil.ReadFile(manifestPath(defaultEgIngressFilePath))
-	if err != nil {
-		return err
-	}
 
-	easegatewayK8SComponents, err := parseK8SYamlToComponents(easegatewayIngressYaml)
-	if err != nil {
-		return err
-	}
-
-	for _, component := range easegatewayK8SComponents {
-		if len(strings.TrimSpace(component)) == 0 {
-			continue
-		}
-		object, kind, err := decodeToK8SObject([]byte(component))
-		err = createK8SObject(kubeClient, object, kind, args.meshNameSpace)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	var configPath = manifestPath(defaultEgIngressFilePath)
+	applyCmd := "cd " + configPath + " && kustomize edit set namespace  " + args.meshNameSpace + " && kustomize build | kubectl apply -f -"
+	command := exec.Command("bash", "-c", applyCmd)
+	err = command.Run()
+	return err
 
 }
 

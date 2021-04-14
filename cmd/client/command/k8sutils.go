@@ -2,7 +2,6 @@ package command
 
 import (
 	"context"
-	"fmt"
 	appsV1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -12,37 +11,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 )
-
-const (
-	k8sServiceKind          = "Service"
-	k8sDeploymentKind       = "Deployment"
-	k8sNamespaceKind        = "Namespace"
-	k8sStatefulSetKind      = "StatefulSet"
-	k8sConfigMapKind        = "ConfigMap"
-	k8sPersistentVolumeKind = "PersistentVolume"
-)
-
-func createK8SObject(clientset *kubernetes.Clientset, object runtime.Object, groupVersionKind *schema.GroupVersionKind, namespace string) error {
-	var err error
-	switch groupVersionKind.Kind {
-	case k8sServiceKind:
-		err = createService(object.(*v1.Service), clientset, namespace)
-	case k8sDeploymentKind:
-		err = createDeployment(object, clientset, namespace)
-	case k8sNamespaceKind:
-		err = createNameSpace(object.(*v1.Namespace), clientset)
-	case k8sStatefulSetKind:
-		err = createStatefulSet(object, clientset, namespace)
-	case k8sConfigMapKind:
-		err = createConfigMap(object.(*v1.ConfigMap), clientset, namespace)
-	case k8sPersistentVolumeKind:
-		err = createPersistentVolume(object, clientset)
-	default:
-		return fmt.Errorf("Create K8S Object failed, unknonwn resource kind, %v ", groupVersionKind)
-
-	}
-	return err
-}
 
 func createNameSpace(namespace *v1.Namespace, clientSet *kubernetes.Clientset) error {
 	_, err := clientSet.CoreV1().Namespaces().Get(context.TODO(), namespace.Name, metav1.GetOptions{})
