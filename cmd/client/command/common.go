@@ -85,10 +85,10 @@ const (
 	MeshServiceInstanceURL = apiURL + "/mesh/serviceinstances/%s/%s"
 
 	// MeshIngressURL is the mesh ingress prefix.
-	MeshIngressesURL = "/mesh/ingresses"
+	MeshIngressesURL = apiURL + "/mesh/ingresses"
 
 	// MeshIngressURL is the mesh ingress path.
-	MeshIngressURL = "/mesh/ingresses/%s"
+	MeshIngressURL = apiURL + "/mesh/ingresses/%s"
 )
 
 func makeURL(urlTemplate string, a ...interface{}) string {
