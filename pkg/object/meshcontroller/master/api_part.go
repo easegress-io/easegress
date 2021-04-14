@@ -33,6 +33,10 @@ var (
 			return serviceSpec.Canary, serviceSpec.Canary != nil
 		},
 		setPart: func(serviceSpec *spec.Service, part interface{}) {
+			if part == nil {
+				serviceSpec.Canary = nil
+				return
+			}
 			serviceSpec.Canary = part.(*spec.Canary)
 		},
 	}
@@ -46,6 +50,9 @@ var (
 			return serviceSpec.Resilience, serviceSpec.Resilience != nil
 		},
 		setPart: func(serviceSpec *spec.Service, part interface{}) {
+			if part == nil {
+				serviceSpec.Resilience = nil
+			}
 			serviceSpec.Resilience = part.(*spec.Resilience)
 		},
 	}
@@ -59,6 +66,10 @@ var (
 			return serviceSpec.LoadBalance, serviceSpec.LoadBalance != nil
 		},
 		setPart: func(serviceSpec *spec.Service, part interface{}) {
+			if part == nil {
+				serviceSpec.LoadBalance = nil
+				return
+			}
 			serviceSpec.LoadBalance = part.(*spec.LoadBalance)
 		},
 	}
@@ -77,6 +88,10 @@ var (
 		setPart: func(serviceSpec *spec.Service, part interface{}) {
 			if serviceSpec.Observability == nil {
 				serviceSpec.Observability = &spec.Observability{}
+			}
+			if part == nil {
+				serviceSpec.Observability.OutputServer = nil
+				return
 			}
 			serviceSpec.Observability.OutputServer = part.(*spec.ObservabilityOutputServer)
 		},
@@ -97,6 +112,10 @@ var (
 			if serviceSpec.Observability == nil {
 				serviceSpec.Observability = &spec.Observability{}
 			}
+			if part == nil {
+				serviceSpec.Observability.Tracings = nil
+				return
+			}
 			serviceSpec.Observability.Tracings = part.(*spec.ObservabilityTracings)
 		},
 	}
@@ -115,6 +134,10 @@ var (
 		setPart: func(serviceSpec *spec.Service, part interface{}) {
 			if serviceSpec.Observability == nil {
 				serviceSpec.Observability = &spec.Observability{}
+			}
+			if part == nil {
+				serviceSpec.Observability.Metrics = nil
+				return
 			}
 			serviceSpec.Observability.Metrics = part.(*spec.ObservabilityMetrics)
 		},
