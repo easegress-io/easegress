@@ -25,8 +25,8 @@ func createTenantCmd() *cobra.Command {
 		Use:   "create",
 		Short: "Create an tenant from a yaml file or stdin",
 		Run: func(cmd *cobra.Command, args []string) {
-			buff, _ := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPost, makeURL(MeshTenantsURL), buff, cmd)
+			buff, name := readFromFileOrStdin(specFile, cmd)
+			handleRequest(http.MethodPost, makeURL(MeshTenantURL, name), buff, cmd)
 		},
 	}
 

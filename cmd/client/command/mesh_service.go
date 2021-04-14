@@ -33,8 +33,8 @@ func createServiceCmd() *cobra.Command {
 		Use:   "create",
 		Short: "Create an service from a yaml file or stdin",
 		Run: func(cmd *cobra.Command, args []string) {
-			buff, _ := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPost, makeURL(MeshServicesURL), buff, cmd)
+			buff, name := readFromFileOrStdin(specFile, cmd)
+			handleRequest(http.MethodPost, makeURL(MeshServiceURL, name), buff, cmd)
 		},
 	}
 
