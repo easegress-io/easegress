@@ -361,7 +361,7 @@ func getServiceOutputserverCmd() *cobra.Command {
 //  Service tracings cmd
 func serviceTracingCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "tracing",
+		Use:   "tracings",
 		Short: "query and manager service's tracings",
 	}
 
@@ -449,7 +449,7 @@ func getServiceTracingCmd() *cobra.Command {
 //  Service metric cmd
 func serviceMetricCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "metric",
+		Use:   "metrics",
 		Short: "query and manager service's metric",
 	}
 
