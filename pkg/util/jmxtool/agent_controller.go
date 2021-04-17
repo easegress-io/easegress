@@ -50,7 +50,7 @@ func (agent *AgentClient) UpdateService(newService *spec.Service, version int64)
 
 	url := agent.URL + serviceConfigURL
 	resp, err := handleRequest(http.MethodPut, url, bytes)
-	logger.Infof("Update Service, request: %s, result: %v", string(bytes), resp)
+	logger.Infof("Update Service, URL: %s,request: %s, result: %v", url, string(bytes), resp)
 	return err
 }
 
@@ -73,6 +73,6 @@ func (agent *AgentClient) UpdateCanary(globalHeaders *spec.GlobalCanaryHeaders, 
 
 	url := agent.URL + canaryConfigURL
 	resp, err := handleRequest(http.MethodPut, url, bytes)
-	logger.Infof("Update Canary, request %s, result: %v", string(bytes), resp)
+	logger.Infof("Update Canary, URL: %s, request %s, result: %v", string(bytes), resp)
 	return err
 }
