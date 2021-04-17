@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	canaryConfigURL  = "/canary-config"
-	serviceConfigURL = "/service-config"
+	canaryConfigURL  = "/config-canary"
+	serviceConfigURL = "/config-service"
 )
 
 type AgentInterface interface {
@@ -73,6 +73,6 @@ func (agent *AgentClient) UpdateCanary(globalHeaders *spec.GlobalCanaryHeaders, 
 
 	url := agent.URL + canaryConfigURL
 	resp, err := handleRequest(http.MethodPut, url, bytes)
-	logger.Infof("Update Canary, URL: %s, request %s, result: %v", string(bytes), resp)
+	logger.Infof("Update Canary, URL: %s, request %s, result: %v", url, string(bytes), resp)
 	return err
 }
