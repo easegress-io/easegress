@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	canaryConfigURL  = " /canary-config"
-	serviceConfigURL = " /service-config"
+	canaryConfigURL  = "/canary-config"
+	serviceConfigURL = "/service-config"
 )
 
 type AgentInterface interface {
@@ -26,9 +26,9 @@ type AgentClient struct {
 	HttpClient *http.Client
 }
 
-func NewAgentClient(host, port, path string) *AgentClient {
+func NewAgentClient(host, port string) *AgentClient {
 	return &AgentClient{
-		"http://" + host + ":" + port + "/" + path,
+		"http://" + host + ":" + port,
 		&http.Client{},
 	}
 }

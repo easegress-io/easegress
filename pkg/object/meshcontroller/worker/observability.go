@@ -23,7 +23,7 @@ type (
 
 // NewObservabilityServer creates an ObservabilityServer.
 func NewObservabilityServer(serviceName string) *ObservabilityManager {
-	client := jmxtool.NewAgentClient("localhost", "9900", "")
+	client := jmxtool.NewAgentClient("localhost", "9900")
 	return &ObservabilityManager{
 		serviceName: serviceName,
 		agentClient: client,
