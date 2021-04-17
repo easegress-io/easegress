@@ -33,10 +33,10 @@ type MeshOperatorConfig struct {
 }
 
 type EaseGatewayReaderParams struct {
-	ClusterJoinUrls       string            `yaml:"cluster-join-urls"`
-	ClusterRequestTimeout string            `yaml:"cluster-request-timeout"`
-	ClusterRole           string            `yaml:"cluster-role"`
-	ClusterName           string            `yaml:"cluster-name"`
-	Name                  string            `yaml:"name"`
-	Labels                map[string]string `yaml: "Labels"`
+	ClusterJoinUrls       string            `yaml:"cluster-join-urls" jsonschema:"required"`
+	ClusterRequestTimeout string            `yaml:"cluster-request-timeout" jsonschema:"required"`
+	ClusterRole           string            `yaml:"cluster-role" jsonschema:"required"`
+	ClusterName           string            `yaml:"cluster-name" jsonschema:"required"`
+	Name                  string            `yaml:"name" jsonschema:"required"`
+	Labels                map[string]string `yaml:"Labels" jsonschema:"required"`
 }

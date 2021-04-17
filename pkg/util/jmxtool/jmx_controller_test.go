@@ -6,6 +6,9 @@ import (
 
 	"github.com/fatih/structs"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
+
+	yamljsontool "github.com/ghodss/yaml"
+	"gopkg.in/yaml.v2"
 )
 
 type heapMemoryUsage struct {
@@ -73,8 +76,10 @@ func TestExecuteMbeanOperation(t *testing.T) {
 	}
 
 	observability.Tracings = &spec.ObservabilityTracings{
-		Topic:        "KAFKA",
-		SampledByQPS: 123,
+		SampleByQPS: 123,
+		Output: spec.ObservabilityTracingsOutputConfig{
+			Topic: "KAFKA",
+		},
 		Request:      observabilityTracingDetail,
 		RemoteInvoke: observabilityTracingDetail,
 		Kafka:        observabilityTracingDetail,
@@ -105,4 +110,66 @@ func TestExecuteMbeanOperation(t *testing.T) {
 		fmt.Println(err)
 	}
 	fmt.Println(operation)
+}
+
+func TestSpecTransform(t *testing.T) {
+
+	observability := spec.Observability{}
+	observability.OutputServer = &spec.ObservabilityOutputServer{
+		Enabled:         true,
+		BootstrapServer: "128.0.0.1",
+	}
+
+	observabilityTracingDetail := spec.ObservabilityTracingsDetail{
+		Enabled:       true,
+		ServicePrefix: "agent",
+	}
+
+	observability.Tracings = &spec.ObservabilityTracings{
+		SampleByQPS: 123,
+		Output: spec.ObservabilityTracingsOutputConfig{
+			Topic: "KAFKA",
+		},
+		Request:      observabilityTracingDetail,
+		RemoteInvoke: observabilityTracingDetail,
+		Kafka:        observabilityTracingDetail,
+		Jdbc:         observabilityTracingDetail,
+		Redis:        observabilityTracingDetail,
+		Rabbit:       observabilityTracingDetail,
+	}
+
+	observabilityMetricDetail := spec.ObservabilityMetricsDetail{
+		Enabled:  false,
+		Interval: 1,
+		Topic:    "aaa",
+	}
+	observability.Metrics = &spec.ObservabilityMetrics{
+		Request:        observabilityMetricDetail,
+		JdbcConnection: observabilityMetricDetail,
+		JdbcStatement:  observabilityMetricDetail,
+		Rabbit:         observabilityMetricDetail,
+		Redis:          observabilityMetricDetail,
+		Kafka:          observabilityMetricDetail,
+	}
+	service := spec.Service{
+		Observability:  &observability,
+		Name:           "service",
+		RegisterTenant: "order",
+		Resilience:     &spec.Resilience{},
+	}
+
+	buff, err := yaml.Marshal(service)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	jsonBytes, err := yamljsontool.YAMLToJSON(buff)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	kvMap, err := JsonToKVMap(string(jsonBytes))
+	for k, v := range kvMap {
+		fmt.Println(k, v)
+	}
 }
