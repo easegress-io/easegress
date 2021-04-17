@@ -76,21 +76,21 @@ type APIErr struct {
 	Message string `yaml:"message"`
 }
 
-func handleRequest(httpMethod string, url string, reqBody []byte) error {
+func handleRequest(httpMethod string, url string, reqBody []byte) (*http.Response, error) {
 	req, err := http.NewRequest(httpMethod, url, bytes.NewReader(reqBody))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return err
+		return resp, err
 	}
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return resp, err
 	}
 
 	if !successfulStatusCode(resp.StatusCode) {
@@ -101,10 +101,10 @@ func handleRequest(httpMethod string, url string, reqBody []byte) error {
 			msg = apiErr.Message
 		}
 
-		return fmt.Errorf("Request failed: Code: %d, Msg: %s ", resp.StatusCode, msg)
+		return resp, fmt.Errorf("Request failed: Code: %d, Msg: %s ", resp.StatusCode, msg)
 	}
 
-	return nil
+	return resp, nil
 }
 
 func successfulStatusCode(code int) bool {

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	yamljsontool "github.com/ghodss/yaml"
+	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
 	"gopkg.in/yaml.v2"
 	"net/http"
@@ -48,8 +49,9 @@ func (agent *AgentClient) UpdateService(newService *spec.Service, version int64)
 	}
 
 	url := agent.URL + serviceConfigURL
-	err = handleRequest(http.MethodPost, url, bytes)
-	return nil
+	resp, err := handleRequest(http.MethodPut, url, bytes)
+	logger.Infof("Update Service, request: %s, result: %v", string(bytes), resp)
+	return err
 }
 
 func (agent *AgentClient) UpdateCanary(globalHeaders *spec.GlobalCanaryHeaders, version int64) error {
@@ -68,7 +70,9 @@ func (agent *AgentClient) UpdateCanary(globalHeaders *spec.GlobalCanaryHeaders, 
 	if err != nil {
 		return fmt.Errorf("marshal %s to json failed: %v", kvMap, err)
 	}
+
 	url := agent.URL + canaryConfigURL
-	err = handleRequest(http.MethodPost, url, bytes)
-	return nil
+	resp, err := handleRequest(http.MethodPut, url, bytes)
+	logger.Infof("Update Canary, request %s, result: %v", string(bytes), resp)
+	return err
 }
