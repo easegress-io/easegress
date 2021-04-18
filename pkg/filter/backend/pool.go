@@ -21,6 +21,8 @@ import (
 
 type (
 	pool struct {
+		spec *PoolSpec
+
 		tagPrefix     string
 		writeResponse bool
 
@@ -33,7 +35,8 @@ type (
 
 	// PoolSpec decribes a pool of servers.
 	PoolSpec struct {
-		Filter          *httpfilter.Spec  `yaml:"filter,omitempty" jsonschema:"omitempty"`
+		SpanName        string            `yaml:"spanName" jsonschema:"omitempty"`
+		Filter          *httpfilter.Spec  `yaml:"filter" jsonschema:"omitempty"`
 		ServersTags     []string          `yaml:"serversTags" jsonschema:"omitempty,uniqueItems=true"`
 		Servers         []*Server         `yaml:"servers" jsonschema:"omitempty"`
 		ServiceRegistry string            `yaml:"serviceRegistry" jsonschema:"omitempty"`
@@ -77,6 +80,7 @@ func (s PoolSpec) Validate() error {
 
 func newPool(spec *PoolSpec, tagPrefix string,
 	writeResponse bool, failureCodes []int) *pool {
+
 	var filter *httpfilter.HTTPFilter
 	if spec.Filter != nil {
 		filter = httpfilter.New(spec.Filter)
@@ -88,6 +92,8 @@ func newPool(spec *PoolSpec, tagPrefix string,
 	}
 
 	return &pool{
+		spec: spec,
+
 		tagPrefix:     tagPrefix,
 		writeResponse: writeResponse,
 
@@ -180,7 +186,12 @@ func (p *pool) prepareRequest(ctx context.HTTPContext, server *Server, reqBody i
 func (p *pool) doRequest(ctx context.HTTPContext, req *request) (*http.Response, tracing.Span, error) {
 	req.start()
 
-	span := ctx.Span().NewChildWithStart(req.server.URL, req.startTime())
+	spanName := p.spec.SpanName
+	if spanName == "" {
+		spanName = req.server.URL
+	}
+
+	span := ctx.Span().NewChildWithStart(spanName, req.startTime())
 	span.Tracer().Inject(span.Context(), opentracing.HTTPHeaders, opentracing.HTTPHeadersCarrier(req.std.Header))
 
 	resp, err := globalClient.Do(req.std)

@@ -78,6 +78,8 @@ func (m *Master) registerAPIs() {
 		{Path: MeshServicePath, Method: "PUT", Handler: m.updateService},
 		{Path: MeshServicePath, Method: "DELETE", Handler: m.deleteService},
 
+		// TODO: API to get instances of one service.
+
 		{Path: MeshServiceInstancePrefix, Method: "GET", Handler: m.listServiceInstanceSpecs},
 		{Path: MeshServiceInstancePath, Method: "GET", Handler: m.getServiceInstanceSpec},
 		{Path: MeshServiceInstancePath, Method: "DELETE", Handler: m.offlineSerivceInstance},

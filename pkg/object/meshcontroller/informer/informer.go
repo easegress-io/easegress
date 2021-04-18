@@ -397,7 +397,7 @@ func (inf *meshInformer) onSpecPart(storeKey, watcherKey string, gjsonPath GJSON
 	}
 
 	if _, ok := inf.watchers[watcherKey]; ok {
-		logger.Infof("watch key:%s already", watcherKey)
+		logger.Infof("watch key: %s already", watcherKey)
 		return ErrAlreadyWatched
 	}
 
