@@ -109,22 +109,20 @@ func (mr *muxRules) getCacheItem(ctx context.HTTPContext) *cacheItem {
 	}
 
 	r := ctx.Request()
-	key := stringtool.Cat(r.Method(), r.Path())
+	key := stringtool.Cat(r.Host(), r.Method(), r.Path())
 	return mr.cache.get(key)
 }
 
 func (mr *muxRules) putCacheItem(ctx context.HTTPContext, ci *cacheItem) {
-	if mr.cache == nil {
+	if mr.cache == nil || ci.cached {
 		return
 	}
 
+	ci.cached = true
 	r := ctx.Request()
-	key := stringtool.Cat(r.Method(), r.Path())
-	if !ci.cached {
-		ci.cached = true
-		// NOTE: It's fine to cover the existed item because of conccurently updating cache.
-		mr.cache.put(key, ci)
-	}
+	key := stringtool.Cat(r.Host(), r.Method(), r.Path())
+	// NOTE: It's fine to cover the existed item because of conccurently updating cache.
+	mr.cache.put(key, ci)
 }
 
 func newMuxRule(parentIPFilters *ipfilter.IPFilters, rule *Rule, paths []*muxPath) *muxRule {
