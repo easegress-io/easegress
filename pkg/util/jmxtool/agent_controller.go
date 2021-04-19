@@ -43,6 +43,8 @@ func (agent *AgentClient) UpdateService(newService *spec.Service, version int64)
 		return fmt.Errorf("convert yaml %s to json failed: %v", buff, err)
 	}
 	kvMap, err := JsonToKVMap(string(jsonBytes))
+	kvMap["version"] = strconv.FormatInt(version, 10)
+
 	bytes, err := json.Marshal(kvMap)
 	if err != nil {
 		return fmt.Errorf("marshal %s to json failed: %v", kvMap, err)
