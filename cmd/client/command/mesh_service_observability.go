@@ -25,9 +25,15 @@ func createServiceCanaryCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create an service canary from a yaml file or stdin",
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 1 {
+				return errors.New("requires one service name to be create")
+			}
+			return nil
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			buff, _ := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPost, makeURL(MeshServiceCanaryURL), buff, cmd)
+			handleRequest(http.MethodPost, makeURL(MeshServiceCanaryURL, args[0]), buff, cmd)
 		},
 	}
 
@@ -119,9 +125,15 @@ func createServiceResilienceCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create an service resilience from a yaml file or stdin",
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 1 {
+				return errors.New("requires one service name to be create")
+			}
+			return nil
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			buff, _ := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPost, makeURL(MeshServiceResilienceURL), buff, cmd)
+			handleRequest(http.MethodPost, makeURL(MeshServiceResilienceURL, args[0]), buff, cmd)
 		},
 	}
 
@@ -213,9 +225,15 @@ func createServiceLoadbalanceCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create an service loadbalance from a yaml file or stdin",
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 1 {
+				return errors.New("requires one service name to be create")
+			}
+			return nil
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			buff, _ := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPost, makeURL(MeshServiceLoadBalanceURL), buff, cmd)
+			handleRequest(http.MethodPost, makeURL(MeshServiceLoadBalanceURL, args[0]), buff, cmd)
 		},
 	}
 
@@ -307,9 +325,15 @@ func createServiceOutputserverCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create an service outputserver from a yaml file or stdin",
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 1 {
+				return errors.New("requires one service name to be create")
+			}
+			return nil
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			buff, _ := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPost, makeURL(MeshServiceOutputServerURL), buff, cmd)
+			handleRequest(http.MethodPost, makeURL(MeshServiceOutputServerURL, args[0]), buff, cmd)
 		},
 	}
 
@@ -401,9 +425,15 @@ func createServiceTracingCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create an service tracings from a yaml file or stdin",
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 1 {
+				return errors.New("requires one service name to be create")
+			}
+			return nil
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			buff, _ := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPost, makeURL(MeshServiceTracingsURL), buff, cmd)
+			handleRequest(http.MethodPost, makeURL(MeshServiceTracingsURL, args[0]), buff, cmd)
 		},
 	}
 
@@ -495,9 +525,15 @@ func createServiceMetricCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create an service metrics from a yaml file or stdin",
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 1 {
+				return errors.New("requires one service name to be create")
+			}
+			return nil
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			buff, _ := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPost, makeURL(MeshServiceMetricsURL), buff, cmd)
+			handleRequest(http.MethodPost, makeURL(MeshServiceMetricsURL, args[0]), buff, cmd)
 		},
 	}
 
