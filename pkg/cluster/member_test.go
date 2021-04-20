@@ -45,22 +45,20 @@ func mockTestOpt() *option.Options {
 	memberCounter++
 	name := fmt.Sprintf("test-member-%03d", memberCounter)
 
-	opt := &option.Options{
-		Name:                  name,
-		ClusterName:           "test-cluster",
-		ClusterRole:           "writer",
-		ClusterRequestTimeout: "10s",
-		ClusterClientURL:      fmt.Sprintf("http://localhost:%d", ports[0]),
-		ClusterPeerURL:        fmt.Sprintf("http://localhost:%d", ports[1]),
-		APIAddr:               fmt.Sprintf("localhost:%d", ports[2]),
+	opt := option.New()
+	opt.Name = name
+	opt.ClusterName = "test-cluster"
+	opt.ClusterRole = "writer"
+	opt.ClusterRequestTimeout = "10s"
+	opt.ClusterClientURL = fmt.Sprintf("http://localhost:%d", ports[0])
+	opt.ClusterPeerURL = fmt.Sprintf("http://localhost:%d", ports[1])
+	opt.APIAddr = fmt.Sprintf("localhost:%d", ports[2])
+	opt.HomeDir = filepath.Join(tempDir, name)
+	opt.DataDir = "data"
+	opt.LogDir = "log"
+	opt.MemberDir = "member"
+	opt.Debug = false
 
-		HomeDir:   filepath.Join(tempDir, name),
-		DataDir:   "data",
-		LogDir:    "log",
-		MemberDir: "member",
-
-		Debug: false,
-	}
 	_, err = opt.Parse()
 	if err != nil {
 		panic(fmt.Errorf("parse option failed: %v", err))
