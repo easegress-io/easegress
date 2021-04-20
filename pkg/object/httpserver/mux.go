@@ -57,13 +57,14 @@ type (
 		ipFilter      *ipfilter.IPFilter
 		ipFilterChain *ipfilter.IPFilters
 
-		path       string
-		pathPrefix string
-		pathRegexp string
-		pathRE     *regexp.Regexp
-		methods    []string
-		backend    string
-		headers    []*Header
+		path          string
+		pathPrefix    string
+		pathRegexp    string
+		pathRE        *regexp.Regexp
+		methods       []string
+		rewriteTarget string
+		backend       string
+		headers       []*Header
 	}
 )
 
@@ -194,13 +195,14 @@ func newMuxPath(parentIPFilters *ipfilter.IPFilters, path *Path) *muxPath {
 		ipFilter:      newIPFilter(path.IPFilter),
 		ipFilterChain: newIPFilterChain(parentIPFilters, path.IPFilter),
 
-		path:       path.Path,
-		pathPrefix: path.PathPrefix,
-		pathRegexp: path.PathRegexp,
-		pathRE:     pathRE,
-		methods:    path.Methods,
-		backend:    path.Backend,
-		headers:    path.Headers,
+		path:          path.Path,
+		pathPrefix:    path.PathPrefix,
+		pathRegexp:    path.PathRegexp,
+		pathRE:        pathRE,
+		rewriteTarget: path.RewriteTarget,
+		methods:       path.Methods,
+		backend:       path.Backend,
+		headers:       path.Headers,
 	}
 }
 
@@ -244,12 +246,12 @@ func (mp *muxPath) matchHeaders(ctx context.HTTPContext) (ci *cacheItem, ok bool
 	for _, h := range mp.headers {
 		v := ctx.Request().Header().Get(h.Key)
 		if stringtool.StrInSlice(v, h.Values) {
-			ci = &cacheItem{ipFilterChan: mp.ipFilterChain, backend: h.Backend}
+			ci = &cacheItem{ipFilterChan: mp.ipFilterChain, path: mp}
 			return ci, true
 		}
 
 		if h.Regexp != "" && h.headerRE.MatchString(v) {
-			ci = &cacheItem{ipFilterChan: mp.ipFilterChain, backend: h.Backend}
+			ci = &cacheItem{ipFilterChan: mp.ipFilterChain, path: mp}
 			return ci, true
 		}
 	}
@@ -391,7 +393,7 @@ func (m *mux) ServeHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 				return
 			}
 
-			ci = &cacheItem{ipFilterChan: path.ipFilterChain, backend: path.backend}
+			ci = &cacheItem{ipFilterChan: path.ipFilterChain, path: path}
 			rules.putCacheItem(ctx, ci)
 			m.handleRequestWithCache(rules, ctx, ci)
 			return
@@ -421,12 +423,12 @@ func (m *mux) handleRequestWithCache(rules *muxRules, ctx context.HTTPContext, c
 		ctx.Response().SetStatusCode(http.StatusNotFound)
 	case ci.methodNotAllowed:
 		ctx.Response().SetStatusCode(http.StatusMethodNotAllowed)
-	case ci.backend != "":
+	case ci.path != nil:
 		m.mapperMutex.RLock()
 		defer m.mapperMutex.RUnlock()
-		handler, exists := m.muxMapper.Get(ci.backend)
+		handler, exists := m.muxMapper.Get(ci.path.backend)
 		if !exists {
-			ctx.AddTag(stringtool.Cat("backend ", ci.backend, " not found"))
+			ctx.AddTag(stringtool.Cat("backend ", ci.path.backend, " not found"))
 			ctx.Response().SetStatusCode(http.StatusServiceUnavailable)
 			return
 		}
@@ -435,6 +437,11 @@ func (m *mux) handleRequestWithCache(rules *muxRules, ctx context.HTTPContext, c
 			m.appendXForwardedFor(ctx)
 		}
 
+		if ci.path.pathRE != nil && ci.path.rewriteTarget != "" {
+			path := ctx.Request().Path()
+			path = ci.path.pathRE.ReplaceAllString(path, ci.path.rewriteTarget)
+			ctx.Request().SetPath(path)
+		}
 		handler.Handle(ctx)
 	}
 }

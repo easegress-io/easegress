@@ -213,13 +213,14 @@ type (
 
 	// IngressPath is the path for a mesh ingress rule
 	IngressPath struct {
-		Path    string `yaml:"path" jsonschema:"required"`
-		Backend string `yaml:"backend" jsonschema:"required"`
+		Path          string `yaml:"path" jsonschema:"required"`
+		RewriteTarget string `yaml:"rewriteTarget" jsonschema:"omitempty"`
+		Backend       string `yaml:"backend" jsonschema:"required"`
 	}
 
 	// IngressRule is the rule for mesh ingress
 	IngressRule struct {
-		Host  string        `yaml:"host" jsonschema:"required"`
+		Host  string        `yaml:"host" jsonschema:"omitempty"`
 		Paths []IngressPath `yaml:"paths" jsonschema:"required"`
 	}
 
@@ -454,7 +455,8 @@ rules:`
     paths:`
 
 	const pathFmt = `
-      - pathPrefix: %s
+      - pathRegexp: %s
+        rewriteTarget: %s
         backend: %s`
 
 	buf := bytes.Buffer{}
@@ -467,7 +469,7 @@ rules:`
 		buf.WriteString(str)
 		for j := range r.Paths {
 			p := &r.Paths[j]
-			str = fmt.Sprintf(pathFmt, p.Path, p.Backend)
+			str = fmt.Sprintf(pathFmt, p.Path, p.RewriteTarget, p.Backend)
 			buf.WriteString(str)
 		}
 	}
