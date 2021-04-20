@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/ArthurHlt/go-eureka-client/eureka"
 	"github.com/kataras/iris"
@@ -104,6 +105,21 @@ func (w *Worker) eurekaAPIs() []*apiEntry {
 	return APIs
 }
 
+func (w *Worker) detectedAccept(accept string) string {
+	accepts := strings.Split(accept, ",")
+
+	for _, v := range accepts {
+		if v == registrycenter.ContentTypeJSON {
+			return registrycenter.ContentTypeJSON
+		}
+		if v == registrycenter.ContentTypeXML {
+			return registrycenter.ContentTypeXML
+		}
+	}
+
+	return registrycenter.ContentTypeXML
+}
+
 func (w *Worker) eurekaRegister(ctx iris.Context) {
 	body, err := ioutil.ReadAll(ctx.Request().Body)
 	if err != nil {
@@ -153,7 +169,7 @@ func (w *Worker) apps(ctx iris.Context) {
 		jsonAPPs.APPs.Application = append(jsonAPPs.APPs.Application, eurekaAPP{Name: v.Name, Instances: v.Instances})
 	}
 
-	accept := ctx.Request().Header.Get("Accept")
+	accept := w.detectedAccept(ctx.Request().Header.Get("Accept"))
 
 	rsp, err := w.encodByAcceptType(accept, jsonAPPs, xmlAPPs)
 	if err != nil {
@@ -190,7 +206,7 @@ func (w *Worker) app(ctx iris.Context) {
 		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
 		return
 	}
-	accept := ctx.Request().Header.Get("Accept")
+	accept := w.detectedAccept(ctx.Request().Header.Get("Accept"))
 	xmlAPP := w.registryServer.ToEurekaApp(serviceInfo)
 
 	jsonApp := eurekaJSONAPP{
@@ -230,7 +246,7 @@ func (w *Worker) getAppInstance(ctx iris.Context) {
 
 	if serviceInfo.Service.Name == serviceName && instanceID == serviceInfo.Ins.InstanceID {
 		ins := w.registryServer.ToEurekaInstanceInfo(serviceInfo)
-		accept := ctx.Request().Header.Get("Accept")
+		accept := w.detectedAccept(ctx.Request().Header.Get("Accept"))
 
 		rsp, err := w.encodByAcceptType(accept, ins, ins)
 		if err != nil {
@@ -264,7 +280,7 @@ func (w *Worker) getInstance(ctx iris.Context) {
 		return
 	}
 	ins := w.registryServer.ToEurekaInstanceInfo(serviceInfo)
-	accept := ctx.Request().Header.Get("Accept")
+	accept := w.detectedAccept(ctx.Request().Header.Get("Accept"))
 
 	rsp, err := w.encodByAcceptType(accept, ins, ins)
 	if err != nil {
