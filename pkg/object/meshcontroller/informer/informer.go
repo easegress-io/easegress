@@ -108,6 +108,9 @@ type (
 		OnPartOfIngressSpec(serviceName string, gjsonPath GJSONPath, fn IngressSpecFunc) error
 		OnIngressSpecs(fn IngressSpecsFunc) error
 
+		StopWatchServiceSpec(serviceName string, gjsonPath GJSONPath)
+		StopWatchServiceInstanceSpec(serviceName string)
+
 		Close()
 	}
 
@@ -155,10 +158,14 @@ func (inf *meshInformer) stopWatchOneKey(key string) {
 	}
 }
 
+func serviceSpecWatcherKey(serviceName string, gjsonPath GJSONPath) string {
+	return fmt.Sprintf("service-spec-%s-%s", serviceName, gjsonPath)
+}
+
 // OnPartOfServiceSpec watches one service's spec by given gjsonPath.
 func (inf *meshInformer) OnPartOfServiceSpec(serviceName string, gjsonPath GJSONPath, fn ServiceSpecFunc) error {
 	storeKey := layout.ServiceSpecKey(serviceName)
-	watcherKey := fmt.Sprintf("service-spec-%s-%s", serviceName, gjsonPath)
+	watcherKey := serviceSpecWatcherKey(serviceName, gjsonPath)
 
 	specFunc := func(event Event, value string) bool {
 		serviceSpec := &spec.Service{}
@@ -174,6 +181,11 @@ func (inf *meshInformer) OnPartOfServiceSpec(serviceName string, gjsonPath GJSON
 	}
 
 	return inf.onSpecPart(storeKey, watcherKey, gjsonPath, specFunc)
+}
+
+func (inf *meshInformer) StopWatchServiceSpec(serviceName string, gjsonPath GJSONPath) {
+	watcherKey := serviceSpecWatcherKey(serviceName, gjsonPath)
+	inf.stopWatchOneKey(watcherKey)
 }
 
 // OnPartOfInstanceSpec watches one service's instance spec by given gjsonPath.
@@ -281,10 +293,14 @@ func (inf *meshInformer) OnServiceSpecs(servicePrefix string, fn ServiceSpecsFun
 	return inf.onSpecs(servicePrefix, watcherKey, specsFunc)
 }
 
+func serviceInstanceSpecWatcherKey(serviceName string) string {
+	return fmt.Sprintf("prefix-service-instance-spec-%s", serviceName)
+}
+
 // OnServiceInstanceSpecs watches one service all instance specs.
 func (inf *meshInformer) OnServiceInstanceSpecs(serviceName string, fn ServiceInstanceSpecsFunc) error {
 	instancePrefix := layout.ServiceInstanceSpecPrefix(serviceName)
-	watcherKey := fmt.Sprintf("prefix-service-instance-spec-%s", serviceName)
+	watcherKey := serviceInstanceSpecWatcherKey(serviceName)
 
 	specsFunc := func(kvs map[string]string) bool {
 		instanceSpecs := make(map[string]*spec.ServiceInstanceSpec)
@@ -301,6 +317,11 @@ func (inf *meshInformer) OnServiceInstanceSpecs(serviceName string, fn ServiceIn
 	}
 
 	return inf.onSpecs(instancePrefix, watcherKey, specsFunc)
+}
+
+func (inf *meshInformer) StopWatchServiceInstanceSpec(serviceName string) {
+	watcherKey := serviceInstanceSpecWatcherKey(serviceName)
+	inf.stopWatchOneKey(watcherKey)
 }
 
 // OnServiceInstanceStatuses watches service instance statuses with the same prefix.

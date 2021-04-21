@@ -30,13 +30,14 @@ type (
 		httpSvr   *httpserver.HTTPServer
 		informer  informer.Informer
 
-		ingressEvent chan string
-		done         chan struct{}
+		addServiceEvent    chan string
+		removeServiceEvent chan string
+		done               chan struct{}
 	}
 )
 
 const (
-	ingressEventChanSize = 100
+	serviceEventChanSize = 100
 )
 
 // New creates a mesh ingress controller.
@@ -52,8 +53,9 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *IngressContr
 		pipelines: make(map[string]*httppipeline.HTTPPipeline),
 		informer:  informer.NewInformer(store),
 
-		ingressEvent: make(chan string, ingressEventChanSize),
-		done:         make(chan struct{}),
+		addServiceEvent:    make(chan string, serviceEventChanSize),
+		removeServiceEvent: make(chan string, serviceEventChanSize),
+		done:               make(chan struct{}),
 	}
 
 	ic.initHTTPServer()
@@ -150,7 +152,7 @@ func (ic *IngressController) Get(name string) (protocol.HTTPHandler, bool) {
 
 	pipeline, ok := ic.pipelines[name]
 	if ok {
-		ic.ingressEvent <- name
+		ic.addServiceEvent <- name
 		return pipeline, true
 	}
 
@@ -158,7 +160,7 @@ func (ic *IngressController) Get(name string) (protocol.HTTPHandler, bool) {
 	// if service named 'name' does not exist
 	pipeline, err := ic.addPipeline(name)
 	if err == nil {
-		ic.ingressEvent <- name
+		ic.addServiceEvent <- name
 	}
 
 	return pipeline, err == nil
@@ -177,10 +179,16 @@ func (ic *IngressController) watchIngress() {
 
 		logger.Infof("handle informer ingress update event: %#v", ingresses)
 
+		services := make(map[string]bool)
 		var rules []*spec.IngressRule
 		for _, ingress := range ingresses {
 			for i := range ingress.Rules {
-				rules = append(rules, &ingress.Rules[i])
+				r := &ingress.Rules[i]
+				rules = append(rules, r)
+				for j := range r.Paths {
+					p := &r.Paths[j]
+					services[p.Backend] = true
+				}
 			}
 		}
 
@@ -190,6 +198,11 @@ func (ic *IngressController) watchIngress() {
 		defer ic.mutex.Unlock()
 
 		ic.updateHTTPServer(spec)
+		for name := range ic.pipelines {
+			if !services[name] {
+				ic.removeServiceEvent <- name
+			}
+		}
 
 		return true
 	}
@@ -198,6 +211,12 @@ func (ic *IngressController) watchIngress() {
 	if err != nil && err != informer.ErrAlreadyWatched {
 		logger.Errorf("add scope watching ingress failed: %v", err)
 	}
+}
+
+func (ic *IngressController) stopWatchService(name string) {
+	logger.Infof("stop watching service %s as it is removed from all ingress rules", name)
+	ic.informer.StopWatchServiceSpec(name, informer.AllParts)
+	ic.informer.StopWatchServiceInstanceSpec(name)
 }
 
 func (ic *IngressController) watchService(name string) {
@@ -258,8 +277,11 @@ func (ic *IngressController) watchEvent() {
 		select {
 		case <-ic.done:
 			return
-		case name := <-ic.ingressEvent:
+		case name := <-ic.addServiceEvent:
 			ic.watchService(name)
+		case name := <-ic.removeServiceEvent:
+			ic.stopWatchService(name)
+			ic.deletePipeline(name)
 		}
 	}
 }
