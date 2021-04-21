@@ -88,7 +88,6 @@ type installArgs struct {
 	heartbeatInterval int
 	meshApiPort       int
 
-	slience  bool
 	specFile string
 }
 
@@ -138,7 +137,6 @@ func addInstallArgs(cmd *cobra.Command, args *installArgs) {
 	cmd.Flags().IntVar(&args.heartbeatInterval, "heartbeat-interval", defaultHeartbeatInterval, "")
 	cmd.Flags().IntVar(&args.meshApiPort, "mesh-api-port", defaultMeshApiPort, "")
 
-	cmd.Flags().BoolVar(&args.slience, "slience", true, "Use default parameters")
 	cmd.Flags().StringVarP(&args.specFile, "file", "f", "", "A yaml file specifying the install params.")
 }
 func install(cmd *cobra.Command, args *installArgs) {
