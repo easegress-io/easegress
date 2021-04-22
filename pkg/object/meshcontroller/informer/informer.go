@@ -2,7 +2,6 @@ package informer
 
 import (
 	"fmt"
-	"runtime/debug"
 	"sync"
 
 	yamljsontool "github.com/ghodss/yaml"
@@ -150,7 +149,6 @@ func NewInformer(store storage.Storage) Informer {
 }
 
 func (inf *meshInformer) stopWatchOneKey(key string) {
-	logger.Infof("stopWatchOneKey was called for key '%s' from:\n%s\n", key, debug.Stack())
 	inf.mutex.Lock()
 	defer inf.mutex.Unlock()
 
@@ -415,7 +413,6 @@ func (inf *meshInformer) onSpecPart(storeKey, watcherKey string, gjsonPath GJSON
 	inf.mutex.Lock()
 	defer inf.mutex.Unlock()
 
-	logger.Infof("meshInformer::onSpecPart, want to watch: %s", watcherKey)
 	if inf.closed {
 		return ErrClosed
 	}
@@ -424,7 +421,6 @@ func (inf *meshInformer) onSpecPart(storeKey, watcherKey string, gjsonPath GJSON
 		logger.Infof("watch key: %s already", watcherKey)
 		return ErrAlreadyWatched
 	}
-	logger.Infof("meshInformer::onSpecPart, key was not already watched")
 
 	value, err := inf.store.Get(storeKey)
 	if err != nil {
@@ -433,19 +429,16 @@ func (inf *meshInformer) onSpecPart(storeKey, watcherKey string, gjsonPath GJSON
 	if value == nil {
 		return ErrNotFound
 	}
-	logger.Infof("meshInformer::onSpecPart, store.Get succeeded")
 
 	watcher, err := inf.store.Watcher()
 	if err != nil {
 		return err
 	}
-	logger.Infof("meshInformer::onSpecPart, watcher created")
 
 	ch, err := watcher.WatchRaw(storeKey)
 	if err != nil {
 		return err
 	}
-	logger.Infof("meshInformer::onSpecPart, raw key watched")
 
 	inf.watchers[watcherKey] = watcher
 
@@ -458,7 +451,6 @@ func (inf *meshInformer) onSpecs(storePrefix, watcherKey string, fn specsHandleF
 	inf.mutex.Lock()
 	defer inf.mutex.Unlock()
 
-	logger.Infof("meshInformer::onSpecs, want to watch prefix: %s", watcherKey)
 	if inf.closed {
 		return ErrClosed
 	}
@@ -467,25 +459,21 @@ func (inf *meshInformer) onSpecs(storePrefix, watcherKey string, fn specsHandleF
 		logger.Infof("watch prefix:%s already", watcherKey)
 		return ErrAlreadyWatched
 	}
-	logger.Infof("meshInformer::onSpecs, prefix was not already watched")
 
 	watcher, err := inf.store.Watcher()
 	if err != nil {
 		return err
 	}
-	logger.Infof("meshInformer::onSpecs, watcher created")
 
 	ch, err := watcher.WatchRawPrefix(storePrefix)
 	if err != nil {
 		return err
 	}
-	logger.Infof("meshInformer::onSpecs, raw prefix watched")
 
 	kvs, err := inf.store.GetPrefix(storePrefix)
 	if err != nil {
 		return err
 	}
-	logger.Infof("meshInformer::onSpecs, store.GetPrefix succeeded")
 
 	inf.watchers[watcherKey] = watcher
 
@@ -507,10 +495,6 @@ func (inf *meshInformer) Close() {
 
 func (inf *meshInformer) watch(ch <-chan *clientv3.Event, watcherKey,
 	oldValue string, path GJSONPath, fn specHandleFunc) {
-
-	defer func() {
-		logger.Infof("meshInformer::watch exit, watcherKey: %s", watcherKey)
-	}()
 
 	for value := range ch {
 		var continueWatch bool
@@ -538,9 +522,9 @@ func (inf *meshInformer) watch(ch <-chan *clientv3.Event, watcherKey,
 func (inf *meshInformer) watchPrefix(ch <-chan map[string]*clientv3.Event, watcherKey string,
 	kvs map[string]string, fn specsHandleFunc) {
 
-	defer func() {
-		logger.Infof("meshInformer::watchPrefix exit, watcherKey: %s", watcherKey)
-	}()
+	if !fn(kvs) {
+		inf.stopWatchOneKey(watcherKey)
+	}
 
 	for changedKvs := range ch {
 		for k, v := range changedKvs {

@@ -174,7 +174,8 @@ func (ic *IngressController) recover() {
 }
 
 func (ic *IngressController) watchIngress() {
-	handler := func(ingresses map[string]*spec.Ingress) bool {
+	handler := func(ingresses map[string]*spec.Ingress) (continueWatch bool) {
+		continueWatch = true
 		defer ic.recover()
 
 		logger.Infof("handle informer ingress update event: %#v", ingresses)
@@ -204,7 +205,7 @@ func (ic *IngressController) watchIngress() {
 			}
 		}
 
-		return true
+		return
 	}
 
 	err := ic.informer.OnIngressSpecs(handler)
@@ -220,7 +221,8 @@ func (ic *IngressController) stopWatchService(name string) {
 }
 
 func (ic *IngressController) watchService(name string) {
-	handleSerivceSpec := func(event informer.Event, service *spec.Service) bool {
+	handleSerivceSpec := func(event informer.Event, service *spec.Service) (continueWatch bool) {
+		continueWatch = true
 		defer ic.recover()
 
 		switch event.EventType {
@@ -237,18 +239,17 @@ func (ic *IngressController) watchService(name string) {
 			}
 		}
 
-		return true
+		return
 	}
 
-	logger.Infof("before watch service spec: %s", name)
 	err := ic.informer.OnPartOfServiceSpec(name, informer.AllParts, handleSerivceSpec)
-	logger.Infof("after watch service spec: %s, %v", name, err)
 	if err != nil && err != informer.ErrAlreadyWatched {
 		logger.Errorf("add scope watching service: %s failed: %v", name, err)
 		return
 	}
 
-	handleServiceInstances := func(instanceKvs map[string]*spec.ServiceInstanceSpec) bool {
+	handleServiceInstances := func(instanceKvs map[string]*spec.ServiceInstanceSpec) (continueWatch bool) {
+		continueWatch = true
 		defer ic.recover()
 
 		logger.Infof("handle informer service: %s's instance update event, ins: %#v", name, instanceKvs)
@@ -262,12 +263,10 @@ func (ic *IngressController) watchService(name string) {
 			logger.Errorf("handle informer failed, update service: %s failed: %v", name, err)
 		}
 
-		return true
+		return
 	}
 
-	logger.Infof("before watch service instance spec: %s", name)
 	err = ic.informer.OnServiceInstanceSpecs(name, handleServiceInstances)
-	logger.Infof("after watch service instance spec: %s, %v", name, err)
 	if err != nil && err != informer.ErrAlreadyWatched {
 		logger.Errorf("add prefix watching service: %s failed: %v", name, err)
 		return

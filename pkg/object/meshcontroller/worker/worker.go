@@ -348,7 +348,8 @@ func (w *Worker) updateHearbeat() error {
 }
 
 func (w *Worker) addEgressWatching(serviceName string) {
-	handleSerivceSpec := func(event informer.Event, service *spec.Service) bool {
+	handleSerivceSpec := func(event informer.Event, service *spec.Service) (continueWatch bool) {
+		continueWatch = true
 		switch event.EventType {
 		case informer.EventDelete:
 			w.egressServer.DeletePipeline(serviceName)
@@ -367,7 +368,7 @@ func (w *Worker) addEgressWatching(serviceName string) {
 				logger.Errorf("handle informer egress update service: %s's failed: %v", serviceName, err)
 			}
 		}
-		return true
+		return
 	}
 	if err := w.informer.OnPartOfServiceSpec(serviceName, informer.AllParts, handleSerivceSpec); err != nil {
 		if err != informer.ErrAlreadyWatched {
@@ -376,7 +377,8 @@ func (w *Worker) addEgressWatching(serviceName string) {
 		}
 	}
 
-	handleServiceInstances := func(instanceKvs map[string]*spec.ServiceInstanceSpec) bool {
+	handleServiceInstances := func(instanceKvs map[string]*spec.ServiceInstanceSpec) (continueWatch bool) {
+		continueWatch = true
 		defer func() {
 			if err := recover(); err != nil {
 				logger.Errorf("%s: recover from: %v, stack trace:\n%s\n",
@@ -394,7 +396,7 @@ func (w *Worker) addEgressWatching(serviceName string) {
 			logger.Errorf("handle informer egress failed, update service: %s failed: %v", serviceName, err)
 		}
 
-		return true
+		return
 	}
 
 	if err := w.informer.OnServiceInstanceSpecs(serviceName, handleServiceInstances); err != nil {
