@@ -240,7 +240,9 @@ func (ic *IngressController) watchService(name string) {
 		return true
 	}
 
+	logger.Infof("before watch service spec: %s", name)
 	err := ic.informer.OnPartOfServiceSpec(name, informer.AllParts, handleSerivceSpec)
+	logger.Infof("after watch service spec: %s, %v", name, err)
 	if err != nil && err != informer.ErrAlreadyWatched {
 		logger.Errorf("add scope watching service: %s failed: %v", name, err)
 		return
@@ -263,7 +265,9 @@ func (ic *IngressController) watchService(name string) {
 		return true
 	}
 
+	logger.Infof("before watch service instance spec: %s", name)
 	err = ic.informer.OnServiceInstanceSpecs(name, handleServiceInstances)
+	logger.Infof("after watch service instance spec: %s, %v", name, err)
 	if err != nil && err != informer.ErrAlreadyWatched {
 		logger.Errorf("add prefix watching service: %s failed: %v", name, err)
 		return
