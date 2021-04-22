@@ -73,7 +73,12 @@ func (ic *IngressController) initHTTPServer() {
 		}
 	}
 
-	spec := spec.IngressHTTPServerSpec(ic.spec.IngressPort, rules)
+	spec, err := spec.IngressHTTPServerSpec(ic.spec.IngressPort, rules)
+	if err != nil {
+		logger.Errorf("failed to init HTTP server: %v", err)
+		return
+	}
+
 	ic.updateHTTPServer(spec)
 }
 
@@ -100,7 +105,10 @@ func (ic *IngressController) addPipeline(serviceName string) (*httppipeline.HTTP
 		return nil, spec.ErrServiceNotavailable
 	}
 
-	superSpec := service.IngressPipelineSpec(instanceSpec)
+	superSpec, err := service.IngressPipelineSpec(instanceSpec)
+	if err != nil {
+		return nil, err
+	}
 	logger.Infof("add pipeline spec: %s", superSpec.YAMLConfig())
 
 	pipeline := &httppipeline.HTTPPipeline{}
@@ -137,8 +145,12 @@ func (ic *IngressController) updatePipeline(
 		return fmt.Errorf("BUG: can't find service: %s's pipeline", service.Name)
 	}
 
+	superSpec, err := service.IngressPipelineSpec(instanceSpec)
+	if err != nil {
+		return err
+	}
+
 	newPipeline := &httppipeline.HTTPPipeline{}
-	superSpec := service.IngressPipelineSpec(instanceSpec)
 	newPipeline.Inherit(superSpec, pipeline, ic.super)
 	ic.pipelines[service.Name] = newPipeline
 
@@ -159,11 +171,13 @@ func (ic *IngressController) Get(name string) (protocol.HTTPHandler, bool) {
 	// BUG? the pipeline will be added again and again
 	// if service named 'name' does not exist
 	pipeline, err := ic.addPipeline(name)
-	if err == nil {
-		ic.addServiceEvent <- name
+	if err != nil {
+		logger.Errorf("failed to create new pipeline: %v", err)
+		return nil, false
 	}
 
-	return pipeline, err == nil
+	ic.addServiceEvent <- name
+	return pipeline, true
 }
 
 func (ic *IngressController) recover() {
@@ -193,7 +207,11 @@ func (ic *IngressController) watchIngress() {
 			}
 		}
 
-		spec := spec.IngressHTTPServerSpec(ic.spec.IngressPort, rules)
+		spec, err := spec.IngressHTTPServerSpec(ic.spec.IngressPort, rules)
+		if err != nil {
+			logger.Errorf("failed to update HTTP server: %v", err)
+			return
+		}
 
 		ic.mutex.Lock()
 		defer ic.mutex.Unlock()

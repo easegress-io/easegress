@@ -57,13 +57,19 @@ func (egs *EgressServer) CreateEgress(service *spec.Service) error {
 	egs.mutex.Lock()
 	defer egs.mutex.Unlock()
 
-	if egs.httpServer == nil {
-		var httpsvr httpserver.HTTPServer
-		superSpec := service.SideCarEgressHTTPServerSpec()
-		httpsvr.Init(superSpec, egs.super)
-		httpsvr.InjectMuxMapper(egs)
-		egs.httpServer = &httpsvr
+	if egs.httpServer != nil {
+		return nil
 	}
+
+	superSpec, err := service.SideCarEgressHTTPServerSpec()
+	if err != nil {
+		return err
+	}
+
+	var httpsvr httpserver.HTTPServer
+	httpsvr.Init(superSpec, egs.super)
+	httpsvr.InjectMuxMapper(egs)
+	egs.httpServer = &httpsvr
 	return nil
 }
 
@@ -87,7 +93,10 @@ func (egs *EgressServer) addPipeline(serviceName string) (*httppipeline.HTTPPipe
 		return nil, spec.ErrServiceNotavailable
 	}
 
-	superSpec := service.SideCarEgressPipelineSpec(instanceSpec)
+	superSpec, err := service.SideCarEgressPipelineSpec(instanceSpec)
+	if err != nil {
+		return nil, err
+	}
 	logger.Infof("add pipeline spec: %s", superSpec.YAMLConfig())
 
 	pipeline := &httppipeline.HTTPPipeline{}
@@ -118,8 +127,12 @@ func (egs *EgressServer) UpdatePipeline(service *spec.Service, instanceSpec []*s
 		return fmt.Errorf("BUG: can't find service: %s's egress pipeline", service.Name)
 	}
 
+	superSpec, err := service.SideCarEgressPipelineSpec(instanceSpec)
+	if err != nil {
+		return err
+	}
+
 	newPipeline := &httppipeline.HTTPPipeline{}
-	superSpec := service.SideCarEgressPipelineSpec(instanceSpec)
 	newPipeline.Inherit(superSpec, pipeline, egs.super)
 	egs.pipelines[service.Name] = newPipeline
 

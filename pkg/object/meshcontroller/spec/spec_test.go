@@ -28,7 +28,7 @@ func TestSideCarIngressPipelineSpec(t *testing.T) {
 		},
 	}
 
-	superSpec := s.SideCarIngressPipelineSpec(443)
+	superSpec, _ := s.SideCarIngressPipelineSpec(443)
 	fmt.Println(superSpec.YAMLConfig())
 }
 
@@ -64,7 +64,7 @@ func TestSideCarEgressPipelineSpec(t *testing.T) {
 		},
 	}
 
-	superSpec := s.SideCarEgressPipelineSpec(instanceSpecs)
+	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs)
 	fmt.Println(superSpec.YAMLConfig())
 }
 
@@ -129,7 +129,7 @@ func TestSideCarEgressPipelineWithCanarySpec(t *testing.T) {
 		},
 	}
 
-	superSpec := s.SideCarEgressPipelineSpec(instanceSpecs)
+	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs)
 	fmt.Println(superSpec.YAMLConfig())
 }
 
@@ -206,7 +206,7 @@ func TestSideCarEgressPipelineWithMultipleCanarySpec(t *testing.T) {
 		},
 	}
 
-	superSpec := s.SideCarEgressPipelineSpec(instanceSpecs)
+	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs)
 	fmt.Println(superSpec.YAMLConfig())
 }
 
@@ -271,7 +271,7 @@ func TestSideCarEgressPipelineWithCanaryNoInstanceSpec(t *testing.T) {
 		},
 	}
 
-	superSpec := s.SideCarEgressPipelineSpec(instanceSpecs)
+	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs)
 	fmt.Println(superSpec.YAMLConfig())
 }
 func TestSideCarEgressPipelineWithCanaryInstanceMultipleLabelSpec(t *testing.T) {
@@ -337,7 +337,7 @@ func TestSideCarEgressPipelineWithCanaryInstanceMultipleLabelSpec(t *testing.T) 
 		},
 	}
 
-	superSpec := s.SideCarEgressPipelineSpec(instanceSpecs)
+	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs)
 	fmt.Println(superSpec.YAMLConfig())
 }
 
@@ -377,7 +377,7 @@ func TestSideCarIngressWithResiliencePipelineSpec(t *testing.T) {
 		},
 	}
 
-	superSpec := s.SideCarIngressPipelineSpec(443)
+	superSpec, _ := s.SideCarIngressPipelineSpec(443)
 	fmt.Println(superSpec.YAMLConfig())
 }
 
@@ -481,6 +481,6 @@ func TestSideCarEgressResiliencePipelineSpec(t *testing.T) {
 		},
 	}
 
-	superSpec := s.SideCarEgressPipelineSpec(instanceSpecs)
+	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs)
 	fmt.Println(superSpec.YAMLConfig())
 }

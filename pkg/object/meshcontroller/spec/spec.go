@@ -441,7 +441,7 @@ func (b *pipelineSpecBuilder) appendBackend(mainServers []*backend.Server, lb *b
 
 // IngressHTTPServerSpec generates HTTP server spec for ingress.
 // as ingress does not belong to a service, it is not a method of 'Service'
-func IngressHTTPServerSpec(port int, rules []*IngressRule) *supervisor.Spec {
+func IngressHTTPServerSpec(port int, rules []*IngressRule) (*supervisor.Spec, error) {
 	const specFmt = `
 kind: HTTPServer
 name: mesh-ingress-server
@@ -478,12 +478,13 @@ rules:`
 	spec, err := supervisor.NewSpec(yamlConfig)
 	if err != nil {
 		logger.Errorf("BUG: new spec for %s failed: %v", yamlConfig, err)
+		return nil, err
 	}
 
-	return spec
+	return spec, nil
 }
 
-func (s *Service) IngressPipelineSpec(instanceSpecs []*ServiceInstanceSpec) *supervisor.Spec {
+func (s *Service) IngressPipelineSpec(instanceSpecs []*ServiceInstanceSpec) (*supervisor.Spec, error) {
 	pipelineSpecBuilder := newPipelineSpecBuilder(s.IngressPipelineName())
 
 	pipelineSpecBuilder.appendBackendWithCanary(instanceSpecs, s.Canary, s.LoadBalance)
@@ -491,15 +492,14 @@ func (s *Service) IngressPipelineSpec(instanceSpecs []*ServiceInstanceSpec) *sup
 	yamlConfig := pipelineSpecBuilder.yamlConfig()
 	superSpec, err := supervisor.NewSpec(yamlConfig)
 	if err != nil {
-		fmt.Println(err)
-		logger.Errorf("BUG: new spec for %s failed: %v", yamlConfig, err)
-		return nil
+		logger.Errorf("new spec for %s failed: %v", yamlConfig, err)
+		return nil, err
 	}
 
-	return superSpec
+	return superSpec, nil
 }
 
-func (s *Service) SideCarIngressHTTPServerSpec() *supervisor.Spec {
+func (s *Service) SideCarIngressHTTPServerSpec() (*supervisor.Spec, error) {
 	ingressHTTPServerFormat := `
 kind: HTTPServer
 name: %s
@@ -517,10 +517,11 @@ rules:
 
 	superSpec, err := supervisor.NewSpec(yamlConfig)
 	if err != nil {
-		logger.Errorf("BUG: new spec for %s failed: %v", yamlConfig, err)
+		logger.Errorf("new spec for %s failed: %v", yamlConfig, err)
+		return nil, err
 	}
 
-	return superSpec
+	return superSpec, nil
 }
 
 // UniqueCanaryHeaders returns the unique headers in canary filter rules.
@@ -568,7 +569,7 @@ func (s *Service) IngressPipelineName() string {
 	return fmt.Sprintf("mesh-ingress-pipeline-%s", s.Name)
 }
 
-func (s *Service) SideCarEgressHTTPServerSpec() *supervisor.Spec {
+func (s *Service) SideCarEgressHTTPServerSpec() (*supervisor.Spec, error) {
 	egressHTTPServerFormat := `
 kind: HTTPServer
 name: %s
@@ -587,14 +588,14 @@ rules:
 
 	superSpec, err := supervisor.NewSpec(yamlConfig)
 	if err != nil {
-		logger.Errorf("BUG: new spec for %s failed: %v", err)
-		return nil
+		logger.Errorf("new spec for %s failed: %v", err)
+		return nil, err
 	}
 
-	return superSpec
+	return superSpec, nil
 }
 
-func (s *Service) SideCarIngressPipelineSpec(applicationPort uint32) *supervisor.Spec {
+func (s *Service) SideCarIngressPipelineSpec(applicationPort uint32) (*supervisor.Spec, error) {
 	mainServers := []*backend.Server{
 		{
 			URL: s.ApplicationEndpoint(applicationPort),
@@ -612,15 +613,14 @@ func (s *Service) SideCarIngressPipelineSpec(applicationPort uint32) *supervisor
 	yamlConfig := pipelineSpecBuilder.yamlConfig()
 	superSpec, err := supervisor.NewSpec(yamlConfig)
 	if err != nil {
-		logger.Errorf("BUG: new spec for %s failed: %v", yamlConfig, err)
-		return nil
+		logger.Errorf("new spec for %s failed: %v", yamlConfig, err)
+		return nil, err
 	}
 
-	return superSpec
+	return superSpec, nil
 }
 
-func (s *Service) SideCarEgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec) *supervisor.Spec {
-
+func (s *Service) SideCarEgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec) (*supervisor.Spec, error) {
 	pipelineSpecBuilder := newPipelineSpecBuilder(s.EgressPipelineName())
 
 	if s.Resilience != nil {
@@ -634,12 +634,11 @@ func (s *Service) SideCarEgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec
 	yamlConfig := pipelineSpecBuilder.yamlConfig()
 	superSpec, err := supervisor.NewSpec(yamlConfig)
 	if err != nil {
-		fmt.Println(err)
-		logger.Errorf("BUG: new spec for %s failed: %v", yamlConfig, err)
-		return nil
+		logger.Errorf("new spec for %s failed: %v", yamlConfig, err)
+		return nil, err
 	}
 
-	return superSpec
+	return superSpec, nil
 }
 
 func (s *Service) ApplicationEndpoint(port uint32) string {

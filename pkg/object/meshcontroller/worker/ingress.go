@@ -74,14 +74,20 @@ func (ings *IngressServer) CreateIngress(service *spec.Service, port uint32) err
 	defer ings.mutex.Unlock()
 
 	if _, ok := ings.pipelines[service.IngressPipelineName()]; !ok {
-		superSpec := service.SideCarIngressPipelineSpec(port)
+		superSpec, err := service.SideCarIngressPipelineSpec(port)
+		if err != nil {
+			return err
+		}
 		pipeline := &httppipeline.HTTPPipeline{}
 		pipeline.Init(superSpec, ings.super)
 		ings.pipelines[service.IngressPipelineName()] = pipeline
 	}
 
 	if ings.httpServer == nil {
-		superSpec := service.SideCarIngressHTTPServerSpec()
+		superSpec, err := service.SideCarIngressHTTPServerSpec()
+		if err != nil {
+			return err
+		}
 
 		httpServer := &httpserver.HTTPServer{}
 		httpServer.Init(superSpec, ings.super)
