@@ -422,11 +422,11 @@ func (inf *meshInformer) onSpecPart(storeKey, watcherKey string, gjsonPath GJSON
 		return ErrAlreadyWatched
 	}
 
-	value, err := inf.store.Get(storeKey)
+	kv, err := inf.store.GetRaw(storeKey)
 	if err != nil {
 		return err
 	}
-	if value == nil {
+	if kv == nil {
 		return ErrNotFound
 	}
 
@@ -435,14 +435,14 @@ func (inf *meshInformer) onSpecPart(storeKey, watcherKey string, gjsonPath GJSON
 		return err
 	}
 
-	ch, err := watcher.WatchRaw(storeKey)
+	ch, err := watcher.WatchRawFromRev(storeKey, kv.ModRevision)
 	if err != nil {
 		return err
 	}
 
 	inf.watchers[watcherKey] = watcher
 
-	go inf.watch(ch, watcherKey, *value, gjsonPath, fn)
+	go inf.watch(ch, watcherKey, gjsonPath, fn)
 
 	return nil
 }
@@ -460,24 +460,30 @@ func (inf *meshInformer) onSpecs(storePrefix, watcherKey string, fn specsHandleF
 		return ErrAlreadyWatched
 	}
 
+	kvs, err := inf.store.GetRawPrefix(storePrefix)
+	if err != nil {
+		return err
+	}
+
 	watcher, err := inf.store.Watcher()
 	if err != nil {
 		return err
 	}
 
-	ch, err := watcher.WatchRawPrefix(storePrefix)
-	if err != nil {
-		return err
+	minRev := int64(^uint64(0) >> 1)
+	for _, v := range kvs {
+		if v.ModRevision < minRev {
+			minRev = v.ModRevision
+		}
 	}
-
-	kvs, err := inf.store.GetPrefix(storePrefix)
+	ch, err := watcher.WatchRawPrefixFromRev(storePrefix, minRev)
 	if err != nil {
 		return err
 	}
 
 	inf.watchers[watcherKey] = watcher
 
-	go inf.watchPrefix(ch, watcherKey, kvs, fn)
+	go inf.watchPrefix(ch, watcherKey, fn)
 
 	return nil
 }
@@ -493,24 +499,23 @@ func (inf *meshInformer) Close() {
 	inf.closed = true
 }
 
-func (inf *meshInformer) watch(ch <-chan *clientv3.Event, watcherKey,
-	oldValue string, path GJSONPath, fn specHandleFunc) {
+func (inf *meshInformer) watch(ch <-chan *clientv3.Event, watcherKey string, path GJSONPath, fn specHandleFunc) {
+	event := <-ch
+	oldValue := string(event.Kv.Value)
+	if !fn(Event{EventType: EventUpdate, RawKV: event.Kv}, oldValue) {
+		inf.stopWatchOneKey(watcherKey)
+	}
 
-	for value := range ch {
-		var continueWatch bool
-
-		if value == nil {
-			continueWatch = fn(Event{
-				EventType: EventDelete,
-			}, "")
+	for event = range ch {
+		continueWatch := true
+		if event == nil {
+			continueWatch = fn(Event{EventType: EventDelete}, "")
 		} else {
-			if !inf.comparePart(path, oldValue, string(value.Kv.Value)) {
-				oldValue = string(value.Kv.Value)
-				continueWatch = fn(Event{
-					EventType: EventUpdate,
-					RawKV:     value.Kv,
-				}, oldValue)
+			newValue := string(event.Kv.Value)
+			if !inf.comparePart(path, oldValue, newValue) {
+				continueWatch = fn(Event{EventType: EventUpdate, RawKV: event.Kv}, newValue)
 			}
+			oldValue = newValue
 		}
 
 		if !continueWatch {
@@ -519,35 +524,42 @@ func (inf *meshInformer) watch(ch <-chan *clientv3.Event, watcherKey,
 	}
 }
 
-func (inf *meshInformer) watchPrefix(ch <-chan map[string]*clientv3.Event, watcherKey string,
-	kvs map[string]string, fn specsHandleFunc) {
+func (inf *meshInformer) watchPrefix(ch <-chan map[string]*clientv3.Event, watcherKey string, fn specsHandleFunc) {
+	kvs := make(map[string]string)
+
+	changedKVs := <-ch
+	for k, v := range changedKVs {
+		if v != nil {
+			kvs[k] = string(v.Kv.Value)
+		}
+	}
 
 	if !fn(kvs) {
 		inf.stopWatchOneKey(watcherKey)
 	}
 
-	for changedKvs := range ch {
-		for k, v := range changedKvs {
-			var continueWatch bool
+	for changedKVs = range ch {
+		changed := false
 
+		for k, v := range changedKVs {
 			if v == nil {
 				delete(kvs, k)
+				changed = true
 				logger.Infof("delete record: %s", k)
-				continueWatch = fn(kvs)
 			} else {
 				if oldValue, ok := kvs[k]; ok {
 					if oldValue == string(v.Kv.Value) {
 						continue
 					}
 				}
-				logger.Infof("update record, update: %s, version: %d", k, v.Kv.Version)
 				kvs[k] = string(v.Kv.Value)
-				continueWatch = fn(kvs)
+				changed = true
+				logger.Infof("update record, update: %s, version: %d", k, v.Kv.Version)
 			}
+		}
 
-			if !continueWatch {
-				inf.stopWatchOneKey(watcherKey)
-			}
+		if changed && !fn(kvs) {
+			inf.stopWatchOneKey(watcherKey)
 		}
 	}
 }

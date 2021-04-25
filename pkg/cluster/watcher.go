@@ -31,10 +31,10 @@ func (c *cluster) Watcher() (Watcher, error) {
 	}, nil
 }
 
-func (w *watcher) Watch(key string) (<-chan *string, error) {
+func (w *watcher) WatchFromRev(key string, rev int64) (<-chan *string, error) {
 	// NOTE: Can't use Context with timeout here.
 	ctx, cancel := context.WithCancel(context.Background())
-	watchResp := w.w.Watch(ctx, key)
+	watchResp := w.w.Watch(ctx, key, clientv3.WithRev(rev))
 
 	keyChan := make(chan *string, 10)
 
@@ -73,9 +73,13 @@ func (w *watcher) Watch(key string) (<-chan *string, error) {
 	return keyChan, nil
 }
 
-func (w *watcher) WatchRaw(key string) (<-chan *clientv3.Event, error) {
+func (w *watcher) Watch(key string) (<-chan *string, error) {
+	return w.WatchFromRev(key, 0)
+}
+
+func (w *watcher) WatchRawFromRev(key string, rev int64) (<-chan *clientv3.Event, error) {
 	ctx, cancel := context.WithCancel(context.Background())
-	watchResp := w.w.Watch(ctx, key)
+	watchResp := w.w.Watch(ctx, key, clientv3.WithRev(rev))
 
 	eventChan := make(chan *clientv3.Event, 10)
 
@@ -113,10 +117,14 @@ func (w *watcher) WatchRaw(key string) (<-chan *clientv3.Event, error) {
 	return eventChan, nil
 }
 
-func (w *watcher) WatchPrefix(prefix string) (<-chan map[string]*string, error) {
+func (w *watcher) WatchRaw(key string) (<-chan *clientv3.Event, error) {
+	return w.WatchRawFromRev(key, 0)
+}
+
+func (w *watcher) WatchPrefixFromRev(prefix string, rev int64) (<-chan map[string]*string, error) {
 	// NOTE: Can't use Context with timeout here.
 	ctx, cancel := context.WithCancel(context.Background())
-	watchResp := w.w.Watch(ctx, prefix, clientv3.WithPrefix())
+	watchResp := w.w.Watch(ctx, prefix, clientv3.WithPrefix(), clientv3.WithRev(rev))
 
 	prefixChan := make(chan map[string]*string, 10)
 
@@ -159,9 +167,13 @@ func (w *watcher) WatchPrefix(prefix string) (<-chan map[string]*string, error) 
 	return prefixChan, nil
 }
 
-func (w *watcher) WatchRawPrefix(prefix string) (<-chan map[string]*clientv3.Event, error) {
+func (w *watcher) WatchPrefix(prefix string) (<-chan map[string]*string, error) {
+	return w.WatchPrefixFromRev(prefix, 0)
+}
+
+func (w *watcher) WatchRawPrefixFromRev(prefix string, rev int64) (<-chan map[string]*clientv3.Event, error) {
 	ctx, cancel := context.WithCancel(context.Background())
-	watchResp := w.w.Watch(ctx, prefix, clientv3.WithPrefix())
+	watchResp := w.w.Watch(ctx, prefix, clientv3.WithPrefix(), clientv3.WithRev(rev))
 
 	prefixChan := make(chan map[string]*clientv3.Event, 10)
 
@@ -201,6 +213,10 @@ func (w *watcher) WatchRawPrefix(prefix string) (<-chan map[string]*clientv3.Eve
 	}()
 
 	return prefixChan, nil
+}
+
+func (w *watcher) WatchRawPrefix(prefix string) (<-chan map[string]*clientv3.Event, error) {
+	return w.WatchRawPrefixFromRev(prefix, 0)
 }
 
 func (w *watcher) Close() {
