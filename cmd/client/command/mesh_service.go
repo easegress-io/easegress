@@ -2,8 +2,9 @@ package command
 
 import (
 	"errors"
-	"github.com/spf13/cobra"
 	"net/http"
+
+	"github.com/spf13/cobra"
 )
 
 func serviceCmd() *cobra.Command {
@@ -21,8 +22,8 @@ func serviceCmd() *cobra.Command {
 	cmd.AddCommand(serviceResilienceCmd())
 	cmd.AddCommand(serviceLoadbalanceCmd())
 	cmd.AddCommand(serviceOutputserverCmd())
-	cmd.AddCommand(serviceTracingCmd())
-	cmd.AddCommand(serviceMetricCmd())
+	cmd.AddCommand(serviceTracingsCmd())
+	cmd.AddCommand(serviceMetricsCmd())
 	cmd.AddCommand(serviceInstanceCmd())
 	return cmd
 }

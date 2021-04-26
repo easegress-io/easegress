@@ -2,11 +2,11 @@ package command
 
 import (
 	"errors"
-	"github.com/spf13/cobra"
 	"net/http"
+
+	"github.com/spf13/cobra"
 )
 
-// Service canary cmd
 func serviceCanaryCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "canary",
@@ -106,7 +106,6 @@ func getServiceCanaryCmd() *cobra.Command {
 	return cmd
 }
 
-// Service resilience cmd
 func serviceResilienceCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "resilience",
@@ -206,7 +205,6 @@ func getServiceResilienceCmd() *cobra.Command {
 	return cmd
 }
 
-//  Service loadbalance cmd
 func serviceLoadbalanceCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "loadbalance",
@@ -306,7 +304,6 @@ func getServiceLoadbalanceCmd() *cobra.Command {
 	return cmd
 }
 
-//  Service outputserver cmd
 func serviceOutputserverCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "outputserver",
@@ -406,21 +403,20 @@ func getServiceOutputserverCmd() *cobra.Command {
 	return cmd
 }
 
-//  Service tracings cmd
-func serviceTracingCmd() *cobra.Command {
+func serviceTracingsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tracings",
 		Short: "query and manager service's tracings",
 	}
 
-	cmd.AddCommand(createServiceTracingCmd())
-	cmd.AddCommand(updateServiceTracingCmd())
-	cmd.AddCommand(getServiceTracingCmd())
-	cmd.AddCommand(deleteServiceTracingCmd())
+	cmd.AddCommand(createServiceTracingsCmd())
+	cmd.AddCommand(updateServiceTracingsCmd())
+	cmd.AddCommand(getServiceTracingsCmd())
+	cmd.AddCommand(deleteServiceTracingsCmd())
 	return cmd
 }
 
-func createServiceTracingCmd() *cobra.Command {
+func createServiceTracingsCmd() *cobra.Command {
 	var specFile string
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -442,7 +438,7 @@ func createServiceTracingCmd() *cobra.Command {
 	return cmd
 }
 
-func updateServiceTracingCmd() *cobra.Command {
+func updateServiceTracingsCmd() *cobra.Command {
 	var specFile string
 	cmd := &cobra.Command{
 		Use:   "update",
@@ -464,7 +460,7 @@ func updateServiceTracingCmd() *cobra.Command {
 	return cmd
 }
 
-func deleteServiceTracingCmd() *cobra.Command {
+func deleteServiceTracingsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "delete",
 		Short:   "Delete an service tracings",
@@ -485,7 +481,7 @@ func deleteServiceTracingCmd() *cobra.Command {
 	return cmd
 }
 
-func getServiceTracingCmd() *cobra.Command {
+func getServiceTracingsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "get",
 		Short:   "Get an service tracings",
@@ -507,20 +503,20 @@ func getServiceTracingCmd() *cobra.Command {
 }
 
 //  Service metric cmd
-func serviceMetricCmd() *cobra.Command {
+func serviceMetricsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "metrics",
 		Short: "query and manager service's metric",
 	}
 
-	cmd.AddCommand(createServiceMetricCmd())
-	cmd.AddCommand(updateServiceMetricCmd())
-	cmd.AddCommand(getServiceMetricCmd())
-	cmd.AddCommand(deleteServiceMetricCmd())
+	cmd.AddCommand(createServiceMetricsCmd())
+	cmd.AddCommand(updateServiceMetricsCmd())
+	cmd.AddCommand(getServiceMetricsCmd())
+	cmd.AddCommand(deleteServiceMetricsCmd())
 	return cmd
 }
 
-func createServiceMetricCmd() *cobra.Command {
+func createServiceMetricsCmd() *cobra.Command {
 	var specFile string
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -542,7 +538,7 @@ func createServiceMetricCmd() *cobra.Command {
 	return cmd
 }
 
-func updateServiceMetricCmd() *cobra.Command {
+func updateServiceMetricsCmd() *cobra.Command {
 	var specFile string
 	cmd := &cobra.Command{
 		Use:   "update",
@@ -565,7 +561,7 @@ func updateServiceMetricCmd() *cobra.Command {
 	return cmd
 }
 
-func deleteServiceMetricCmd() *cobra.Command {
+func deleteServiceMetricsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "delete",
 		Short:   "Delete an service metrics",
@@ -586,7 +582,7 @@ func deleteServiceMetricCmd() *cobra.Command {
 	return cmd
 }
 
-func getServiceMetricCmd() *cobra.Command {
+func getServiceMetricsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "get",
 		Short:   "Get an service metrics",
