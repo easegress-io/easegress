@@ -1,9 +1,9 @@
 package httppipeline
 
 import (
+	"bytes"
 	"fmt"
 	"reflect"
-	"strings"
 	"sync"
 	"time"
 
@@ -69,7 +69,7 @@ type (
 
 	// PipelineContext contains the context of the HTTPPipeline.
 	PipelineContext struct {
-		FilterStats []*FilterStat
+		FilterStats *FilterStat
 	}
 
 	// FilterStat records the statistics of the running filter.
@@ -78,28 +78,55 @@ type (
 		Kind     string
 		Result   string
 		Duration time.Duration
+		Next     []*FilterStat
 	}
 )
 
-func (ps *FilterStat) log() string {
-	result := ps.Result
-	if result != "" {
-		result += ","
+func (fs *FilterStat) selfDuration() time.Duration {
+	d := fs.Duration
+	for _, s := range fs.Next {
+		d -= s.Duration
 	}
-	return stringtool.Cat(ps.Name, "(", result, ps.Duration.String(), ")")
+	return d
 }
 
 func (ctx *PipelineContext) log() string {
-	if len(ctx.FilterStats) == 0 {
+	if ctx.FilterStats == nil {
 		return "<empty>"
 	}
 
-	logs := make([]string, len(ctx.FilterStats))
-	for i, filterStat := range ctx.FilterStats {
-		logs[i] = filterStat.log()
+	var buf bytes.Buffer
+	var fn func(stat *FilterStat)
+
+	fn = func(stat *FilterStat) {
+		buf.WriteString(stat.Name)
+		buf.WriteByte('(')
+		buf.WriteString(stat.Result)
+		if stat.Result != "" {
+			buf.WriteByte(',')
+		}
+		buf.WriteString(stat.selfDuration().String())
+		buf.WriteByte(')')
+		if len(stat.Next) == 0 {
+			return
+		}
+		buf.WriteString("->")
+		if len(stat.Next) > 1 {
+			buf.WriteByte('[')
+		}
+		for i, s := range stat.Next {
+			if i > 0 {
+				buf.WriteByte(',')
+			}
+			fn(s)
+		}
+		if len(stat.Next) > 1 {
+			buf.WriteByte(']')
+		}
 	}
 
-	return strings.Join(logs, "->")
+	fn(ctx.FilterStats)
+	return buf.String()
 }
 
 var (
@@ -369,67 +396,96 @@ func (hp *HTTPPipeline) reload(previousGeneration *HTTPPipeline) {
 	hp.runningFilters = runningFilters
 }
 
-// Handle handles all incoming traffic.
-func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) {
-	pipeCtx := newAndSetPipelineContext(ctx)
-	defer deletePipelineContext(ctx)
+func (hp *HTTPPipeline) getNextFilterIndex(index int, result string) int {
+	// return index + 1 if last filter succeeded
+	if result == "" {
+		return index + 1
+	}
 
-	// Here is the truly initialed HTTPTemplate by HTTPPipeline's filter
-	// specs
-	ctx.SetTemplate(hp.ht)
-	nextFilterName := hp.runningFilters[0].spec.Name()
-	for i := 0; i < len(hp.runningFilters); i++ {
-		if nextFilterName == LabelEND {
-			break
-		}
+	// check the jumpIf table of current filter, return its index if the jump
+	// target is valid and -1 otherwise
+	filter := hp.runningFilters[index]
+	if !stringtool.StrInSlice(result, filter.rootFilter.Results()) {
+		format := "BUG: invalid result %s not in %v"
+		logger.Errorf(format, result, filter.rootFilter.Results())
+	}
 
-		runningFilter := hp.runningFilters[i]
-		if nextFilterName != runningFilter.spec.Name() {
-			continue
-		}
+	if len(filter.jumpIf) == 0 {
+		return -1
+	}
+	name, ok := filter.jumpIf[result]
+	if !ok {
+		return -1
+	}
+	if name == LabelEND {
+		return len(hp.runningFilters)
+	}
 
-		if err := ctx.SaveReqToTemplate(runningFilter.spec.Name()); err != nil {
-			logger.Errorf("save http req failed, dict is %#v err is %v",
-				ctx.Template().GetDict(), err)
-		}
-
-		startTime := time.Now()
-		result := runningFilter.filter.Handle(ctx)
-		handleDuration := time.Now().Sub(startTime)
-
-		if err := ctx.SaveRspToTemplate(runningFilter.spec.Name()); err != nil {
-			logger.Errorf("save http rsp failed, dict is %#v err is %v",
-				ctx.Template().GetDict(), err)
-		}
-
-		filterStat := &FilterStat{
-			Name:     runningFilter.spec.Name(),
-			Kind:     runningFilter.spec.Kind(),
-			Result:   result,
-			Duration: handleDuration,
-		}
-		pipeCtx.FilterStats = append(pipeCtx.FilterStats, filterStat)
-
-		if result != "" {
-			if !stringtool.StrInSlice(result, runningFilter.rootFilter.Results()) {
-				logger.Errorf("BUG: invalid result %s not in %v",
-					result, runningFilter.rootFilter.Results())
-			}
-
-			jumpIf := runningFilter.jumpIf
-			if len(jumpIf) == 0 {
-				break
-			}
-			var exists bool
-			nextFilterName, exists = jumpIf[result]
-			if !exists {
-				break
-			}
-		} else if i < len(hp.runningFilters)-1 {
-			nextFilterName = hp.runningFilters[i+1].spec.Name()
+	for index++; index < len(hp.runningFilters); index++ {
+		if hp.runningFilters[index].spec.Name() == name {
+			return index
 		}
 	}
 
+	return -1
+}
+
+func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) {
+	pipeCtx := newAndSetPipelineContext(ctx)
+	defer deletePipelineContext(ctx)
+	ctx.SetTemplate(hp.ht)
+
+	filterIndex := -1
+	filterStat := &FilterStat{}
+
+	handle := func(lastResult string) string {
+		// Filters are called recursively as a stack, so we need to save current
+		// state and restore it before return
+		lastIndex := filterIndex
+		lastStat := filterStat
+		defer func() {
+			filterIndex = lastIndex
+			filterStat = lastStat
+		}()
+
+		filterIndex = hp.getNextFilterIndex(filterIndex, lastResult)
+		if filterIndex == len(hp.runningFilters) {
+			return "" // reach the end of pipeline
+		} else if filterIndex == -1 {
+			return lastResult // an error occurs but no filter can handle it
+		}
+
+		filter := hp.runningFilters[filterIndex]
+		name := filter.spec.Name()
+
+		if err := ctx.SaveReqToTemplate(name); err != nil {
+			format := "save http req failed, dict is %#v err is %v"
+			logger.Errorf(format, ctx.Template().GetDict(), err)
+		}
+
+		filterStat = &FilterStat{Name: name, Kind: filter.spec.Kind()}
+
+		startTime := time.Now()
+		result := filter.filter.Handle(ctx)
+
+		filterStat.Duration = time.Since(startTime)
+		filterStat.Result = result
+
+		if err := ctx.SaveRspToTemplate(name); err != nil {
+			format := "save http rsp failed, dict is %#v err is %v"
+			logger.Errorf(format, ctx.Template().GetDict(), err)
+		}
+
+		lastStat.Next = append(lastStat.Next, filterStat)
+		return result
+	}
+
+	ctx.SetHandlerCaller(handle)
+	handle("")
+
+	if len(filterStat.Next) > 0 {
+		pipeCtx.FilterStats = filterStat.Next[0]
+	}
 	ctx.AddTag(stringtool.Cat("pipeline: ", pipeCtx.log()))
 }
 

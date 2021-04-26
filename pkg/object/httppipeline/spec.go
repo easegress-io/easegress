@@ -3,6 +3,7 @@ package httppipeline
 import (
 	"fmt"
 
+	"github.com/megaease/easegateway/pkg/v"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -60,7 +61,7 @@ func newFilterSpecInternal(spec map[string]interface{}) (*FilterSpec, error) {
 
 	rootFilter, exists := filterRegistry[meta.Kind]
 	if !exists {
-		return nil, fmt.Errorf("kind %s not found", rootFilter)
+		return nil, fmt.Errorf("kind %s not found", meta.Kind)
 	}
 
 	s.meta, s.filterSpec, s.rootFilter = meta, rootFilter.DefaultSpec(), rootFilter
@@ -68,6 +69,11 @@ func newFilterSpecInternal(spec map[string]interface{}) (*FilterSpec, error) {
 	err = yaml.Unmarshal(yamlConfig, s.filterSpec)
 	if err != nil {
 		return nil, fmt.Errorf("unmarshal failed: %v", err)
+	}
+
+	vr := v.Validate(s.filterSpec, []byte(yamlConfig))
+	if !vr.Valid() {
+		return nil, fmt.Errorf("%v", vr.Error())
 	}
 
 	return s, nil

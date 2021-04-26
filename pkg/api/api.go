@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"sync"
 	"time"
@@ -22,12 +23,6 @@ Powered by open-source software: Etcd(https://etcd.io), Apache License 2.0.
 `, time.Now().Year())
 }
 
-type apiEntry struct {
-	Path    string       `yaml:"path"`
-	Method  string       `yaml:"method"`
-	Handler iris.Handler `yaml:"-"`
-}
-
 const (
 	// APIPrefix is the prefix of api.
 	APIPrefix = "/apis/v3"
@@ -38,15 +33,30 @@ const (
 	ConfigVersionKey = "X-Config-Version"
 )
 
-// Server is the api server.
-type Server struct {
-	app     *iris.Application
-	cluster cluster.Cluster
-	apis    []*apiEntry
+type (
+	// Server is the api server.
+	Server struct {
+		app       *iris.Application
+		cluster   cluster.Cluster
+		apisMutex sync.RWMutex
+		apis      []*APIEntry
 
-	mutex      cluster.Mutex
-	mutexMutex sync.Mutex
-}
+		mutex      cluster.Mutex
+		mutexMutex sync.Mutex
+	}
+
+	// APIEntry is the entry of API.
+	APIEntry struct {
+		Path    string       `yaml:"path"`
+		Method  string       `yaml:"method"`
+		Handler iris.Handler `yaml:"-"`
+	}
+)
+
+var (
+	// GlobalServer is the global api server.
+	GlobalServer *Server
+)
 
 // MustNewServer creates an api server.
 func MustNewServer(opt *option.Options, cluster cluster.Cluster) *Server {
@@ -56,6 +66,18 @@ func MustNewServer(opt *option.Options, cluster cluster.Cluster) *Server {
 		app:     app,
 		cluster: cluster,
 	}
+
+	// NOTE: Fix trailing slash problem.
+	// Reference: https://github.com/kataras/iris/issues/820#issuecomment-383131098
+	app.WrapRouter(func(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
+		path := r.URL.Path
+		if len(path) > 1 && path[len(path)-1] == '/' && path[len(path)-2] != '/' {
+			path = path[:len(path)-1]
+			r.RequestURI = path
+			r.URL.Path = path
+		}
+		next(w, r)
+	})
 
 	app.Use(newConfigVersionAttacher(s))
 	app.Use(newRecoverer())
@@ -71,6 +93,8 @@ func MustNewServer(opt *option.Options, cluster cluster.Cluster) *Server {
 	s.setupAPIs()
 
 	go func() {
+		logger.Infof("api server running in %s", opt.APIAddr)
+
 		err := app.Run(iris.Addr(opt.APIAddr))
 		if err == iris.ErrServerClosed {
 			return
@@ -81,24 +105,41 @@ func MustNewServer(opt *option.Options, cluster cluster.Cluster) *Server {
 		}
 	}()
 
+	GlobalServer = s
+
 	return s
 }
 
 func (s *Server) setupAPIs() {
-	listAPIsEntry := &apiEntry{
-		Path:    "",
-		Method:  "GET",
-		Handler: s.listAPIs,
-	}
-
-	s.apis = append(s.apis, listAPIsEntry)
+	s.setupListAPIs()
 	s.setupMemberAPIs()
 	s.setupObjectAPIs()
 	s.setupMetadaAPIs()
 	s.setupHealthAPIs()
 	s.setupAboutAPIs()
+}
 
-	for _, api := range s.apis {
+func (s *Server) setupListAPIs() {
+	listAPIs := []*APIEntry{
+		{
+
+			Path:    "",
+			Method:  "GET",
+			Handler: s.listAPIs,
+		},
+	}
+
+	s.RegisterAPIs(listAPIs)
+}
+
+// RegisterAPIs registers APIs.
+func (s *Server) RegisterAPIs(apis []*APIEntry) {
+	s.apisMutex.Lock()
+	defer s.apisMutex.Unlock()
+
+	s.apis = append(s.apis, apis...)
+
+	for _, api := range apis {
 		api.Path = APIPrefix + api.Path
 		switch api.Method {
 		case "GET":
@@ -122,29 +163,42 @@ func (s *Server) setupAPIs() {
 		}
 
 	}
+
+	s.app.RefreshRouter()
 }
 
 func (s *Server) setupHealthAPIs() {
-	s.apis = append(s.apis, &apiEntry{
-		// https://stackoverflow.com/a/43381061/1705845
-		Path:    "/healthz",
-		Method:  "GET",
-		Handler: func(iris.Context) { /* 200 by default */ },
-	})
+	healthAPIs := []*APIEntry{
+		{
+			// https://stackoverflow.com/a/43381061/1705845
+			Path:    "/healthz",
+			Method:  "GET",
+			Handler: func(iris.Context) { /* 200 by default */ },
+		},
+	}
+
+	s.RegisterAPIs(healthAPIs)
 }
 
 func (s *Server) setupAboutAPIs() {
-	s.apis = append(s.apis, &apiEntry{
-		Path:   "/about",
-		Method: "GET",
-		Handler: func(ctx iris.Context) {
-			ctx.Header("Content-Type", "text/plain")
-			ctx.WriteString(aboutText())
+	aboutAPIs := []*APIEntry{
+		{
+			Path:   "/about",
+			Method: "GET",
+			Handler: func(ctx iris.Context) {
+				ctx.Header("Content-Type", "text/plain")
+				ctx.WriteString(aboutText())
+			},
 		},
-	})
+	}
+
+	s.RegisterAPIs(aboutAPIs)
 }
 
 func (s *Server) listAPIs(ctx iris.Context) {
+	s.apisMutex.RLock()
+	defer s.apisMutex.RUnlock()
+
 	buff, err := yaml.Marshal(s.apis)
 	if err != nil {
 		panic(fmt.Errorf("marshal %#v to yaml failed: %v", s.apis, err))
@@ -183,12 +237,12 @@ func (s *Server) getMutex() (cluster.Mutex, error) {
 func (s *Server) Lock() {
 	mutex, err := s.getMutex()
 	if err != nil {
-		clusterPanic(err)
+		ClusterPanic(err)
 	}
 
 	err = mutex.Lock()
 	if err != nil {
-		clusterPanic(err)
+		ClusterPanic(err)
 	}
 }
 
@@ -196,11 +250,11 @@ func (s *Server) Lock() {
 func (s *Server) Unlock() {
 	mutex, err := s.getMutex()
 	if err != nil {
-		clusterPanic(err)
+		ClusterPanic(err)
 	}
 
 	err = mutex.Unlock()
 	if err != nil {
-		clusterPanic(err)
+		ClusterPanic(err)
 	}
 }

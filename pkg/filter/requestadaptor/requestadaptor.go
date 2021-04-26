@@ -86,6 +86,11 @@ func (ra *RequestAdaptor) reload() {
 
 // Handle adapts request.
 func (ra *RequestAdaptor) Handle(ctx context.HTTPContext) string {
+	result := ra.handle(ctx)
+	return ctx.CallNextHandler(result)
+}
+
+func (ra *RequestAdaptor) handle(ctx context.HTTPContext) string {
 	r := ctx.Request()
 	method, path, header := r.Method(), r.Path(), r.Header()
 

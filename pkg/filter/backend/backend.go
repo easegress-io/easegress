@@ -18,16 +18,14 @@ const (
 	// Kind is the kind of Backend.
 	Kind = "Backend"
 
-	resultCircuitBreaker = "circuitBreaker"
-	resultFallback       = "fallback"
-	resultInternalError  = "interalError"
-	resultClientError    = "clientError"
-	resultServerError    = "serverError"
+	resultFallback      = "fallback"
+	resultInternalError = "interalError"
+	resultClientError   = "clientError"
+	resultServerError   = "serverError"
 )
 
 var (
 	results = []string{
-		resultCircuitBreaker,
 		resultFallback,
 		resultInternalError,
 		resultClientError,
@@ -81,9 +79,9 @@ type (
 
 		fallback *fallback.Fallback
 
-		mainPool      *pool
-		candidatePool *pool
-		mirrorPool    *pool
+		mainPool       *pool
+		candidatePools []*pool
+		mirrorPool     *pool
 
 		compression *compression
 	}
@@ -92,26 +90,25 @@ type (
 	Spec struct {
 		httppipeline.FilterMetaSpec `yaml:",inline"`
 
-		Fallback      *FallbackSpec    `yaml:"fallback,omitempty" jsonschema:"omitempty"`
-		MainPool      *PoolSpec        `yaml:"mainPool" jsonschema:"required"`
-		CandidatePool *PoolSpec        `yaml:"candidatePool,omitempty" jsonschema:"omitempty"`
-		MirrorPool    *PoolSpec        `yaml:"mirrorPool,omitempty" jsonschema:"omitempty"`
-		FailureCodes  []int            `yaml:"failureCodes" jsonschema:"omitempty,uniqueItems=true,format=httpcode-array"`
-		Compression   *CompressionSpec `yaml:"compression,omitempty" jsonschema:"omitempty"`
+		Fallback       *FallbackSpec    `yaml:"fallback,omitempty" jsonschema:"omitempty"`
+		MainPool       *PoolSpec        `yaml:"mainPool" jsonschema:"required"`
+		CandidatePools []*PoolSpec      `yaml:"candidatePools,omitempty" jsonschema:"omitempty"`
+		MirrorPool     *PoolSpec        `yaml:"mirrorPool,omitempty" jsonschema:"omitempty"`
+		FailureCodes   []int            `yaml:"failureCodes" jsonschema:"omitempty,uniqueItems=true,format=httpcode-array"`
+		Compression    *CompressionSpec `yaml:"compression,omitempty" jsonschema:"omitempty"`
 	}
 
 	// FallbackSpec describes the fallback policy.
 	FallbackSpec struct {
-		ForCodes          bool `yaml:"forCodes"`
-		ForCircuitBreaker bool `yaml:"forCircuitBreaker"`
-		fallback.Spec     `yaml:",inline"`
+		ForCodes      bool `yaml:"forCodes"`
+		fallback.Spec `yaml:",inline"`
 	}
 
 	// Status is the status of Backend.
 	Status struct {
-		MainPool      *PoolStatus `yaml:"mainPool"`
-		CandidatePool *PoolStatus `yaml:"candidatePool,omitempty"`
-		MirrorPool    *PoolStatus `yaml:"mirrorPool,omitempty"`
+		MainPool       *PoolStatus   `yaml:"mainPool"`
+		CandidatePools []*PoolStatus `yaml:"candidatePool,omitempty"`
+		MirrorPool     *PoolStatus   `yaml:"mirrorPool,omitempty"`
 	}
 )
 
@@ -126,8 +123,12 @@ func (s Spec) Validate() error {
 		return fmt.Errorf("filter must be empty in mainPool")
 	}
 
-	if s.CandidatePool != nil && s.CandidatePool.Filter == nil {
-		return fmt.Errorf("filter of candidatePool is required")
+	if len(s.CandidatePools) > 0 {
+		for _, v := range s.CandidatePools {
+			if v.Filter == nil {
+				return fmt.Errorf("filter of candidatePool is required")
+			}
+		}
 	}
 
 	if s.MirrorPool != nil {
@@ -137,20 +138,11 @@ func (s Spec) Validate() error {
 		if s.MirrorPool.MemoryCache != nil {
 			return fmt.Errorf("memoryCache must be empty in mirrorPool")
 		}
-		if s.MirrorPool.CircuitBreaker != nil {
-			return fmt.Errorf("circuitBreaker must be empty in mirrorPool")
-		}
 	}
 
 	if len(s.FailureCodes) == 0 {
 		if s.Fallback != nil {
 			return fmt.Errorf("fallback needs failureCodes")
-		}
-		if s.MainPool.CircuitBreaker != nil {
-			return fmt.Errorf("circuitBreaker need failureCodes")
-		}
-		if s.CandidatePool != nil && s.CandidatePool.CircuitBreaker != nil {
-			return fmt.Errorf("circuitBreaker need failureCodes")
 		}
 	}
 
@@ -199,9 +191,13 @@ func (b *Backend) reload() {
 		b.fallback = fallback.New(&b.spec.Fallback.Spec)
 	}
 
-	if b.spec.CandidatePool != nil {
-		b.candidatePool = newPool(b.spec.CandidatePool, "backend#candidate",
-			true /*writeResponse*/, b.spec.FailureCodes)
+	if len(b.spec.CandidatePools) > 0 {
+		var candidatePools []*pool
+		for k := range b.spec.CandidatePools {
+			candidatePools = append(candidatePools, newPool(b.spec.CandidatePools[k], fmt.Sprintf("backedn#candidate#%d", k),
+				true, b.spec.FailureCodes))
+		}
+		b.candidatePools = candidatePools
 	}
 	if b.spec.MirrorPool != nil {
 		b.mirrorPool = newPool(b.spec.MirrorPool, "backend#mirror",
@@ -218,8 +214,10 @@ func (b *Backend) Status() interface{} {
 	s := &Status{
 		MainPool: b.mainPool.status(),
 	}
-	if b.candidatePool != nil {
-		s.CandidatePool = b.candidatePool.status()
+	if b.candidatePools != nil {
+		for k := range b.candidatePools {
+			s.CandidatePools = append(s.CandidatePools, b.candidatePools[k].status())
+		}
 	}
 	if b.mirrorPool != nil {
 		s.MirrorPool = b.mirrorPool.status()
@@ -231,8 +229,10 @@ func (b *Backend) Status() interface{} {
 func (b *Backend) Close() {
 	b.mainPool.close()
 
-	if b.candidatePool != nil {
-		b.candidatePool.close()
+	if b.candidatePools != nil {
+		for _, v := range b.candidatePools {
+			v.close()
+		}
 	}
 
 	if b.mirrorPool != nil {
@@ -240,13 +240,6 @@ func (b *Backend) Close() {
 	}
 }
 
-func (b *Backend) fallbackForCircuitBreaker(ctx context.HTTPContext) bool {
-	if b.fallback != nil && b.spec.Fallback.ForCircuitBreaker {
-		b.fallback.Fallback(ctx)
-		return true
-	}
-	return false
-}
 func (b *Backend) fallbackForCodes(ctx context.HTTPContext) bool {
 	if b.fallback != nil && b.spec.Fallback.ForCodes {
 		for _, code := range b.spec.FailureCodes {
@@ -261,6 +254,11 @@ func (b *Backend) fallbackForCodes(ctx context.HTTPContext) bool {
 
 // Handle handles HTTPContext.
 func (b *Backend) Handle(ctx context.HTTPContext) (result string) {
+	result = b.handle(ctx)
+	return ctx.CallNextHandler(result)
+}
+
+func (b *Backend) handle(ctx context.HTTPContext) (result string) {
 	if b.mirrorPool != nil && b.mirrorPool.filter.Filter(ctx) {
 		master, slave := newMasterSlaveReader(ctx.Request().Body())
 		ctx.Request().SetBody(master)
@@ -283,9 +281,16 @@ func (b *Backend) Handle(ctx context.HTTPContext) (result string) {
 	}
 
 	var p *pool
-	if b.candidatePool != nil && b.candidatePool.filter.Filter(ctx) {
-		p = b.candidatePool
-	} else {
+	if len(b.candidatePools) > 0 {
+		for k, v := range b.candidatePools {
+			if v.filter.Filter(ctx) {
+				p = b.candidatePools[k]
+				break
+			}
+		}
+	}
+
+	if p == nil {
 		p = b.mainPool
 	}
 
@@ -293,19 +298,7 @@ func (b *Backend) Handle(ctx context.HTTPContext) (result string) {
 		return ""
 	}
 
-	if p.circuitBreaker != nil {
-		var err error
-		result, err = p.circuitBreaker.protect(ctx, ctx.Request().Body(), p.handle)
-		if err != nil {
-			if b.fallbackForCircuitBreaker(ctx) {
-				return resultFallback
-			}
-			return resultCircuitBreaker
-		}
-	} else {
-		result = p.handle(ctx, ctx.Request().Body())
-	}
-
+	result = p.handle(ctx, ctx.Request().Body())
 	if result != "" {
 		return result
 	}

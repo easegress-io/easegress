@@ -3,6 +3,8 @@ package httpserver
 import (
 	"time"
 
+	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegateway/pkg/protocol"
 	"github.com/megaease/easegateway/pkg/supervisor"
 )
 
@@ -25,7 +27,31 @@ type (
 	HTTPServer struct {
 		runtime *runtime
 	}
+
+	// MuxMapper gets HTTP handler pipeline with mutex
+	MuxMapper interface {
+		Get(name string) (protocol.HTTPHandler, bool)
+	}
+
+	// SupervisorMapper calls supervisor for getting pipeline.
+	SupervisorMapper struct {
+		super *supervisor.Supervisor
+	}
 )
+
+// Get gets pipeline from EG's running object
+func (s *SupervisorMapper) Get(name string) (protocol.HTTPHandler, bool) {
+	if ro, exist := s.super.GetRunningObject(name, supervisor.CategoryPipeline); exist == false {
+		return nil, false
+	} else {
+		if handler, ok := ro.Instance().(protocol.HTTPHandler); !ok {
+			logger.Errorf("BUG: %s is not a HTTPHandler", name)
+			return nil, false
+		} else {
+			return handler, true
+		}
+	}
+}
 
 // Category returns the category of HTTPServer.
 func (hs *HTTPServer) Category() supervisor.ObjectCategory {
@@ -78,4 +104,9 @@ func (hs *HTTPServer) Status() *supervisor.Status {
 // Close closes HTTPServer.
 func (hs *HTTPServer) Close() {
 	hs.runtime.Close()
+}
+
+// InjectMuxMapper inject a new mux mapper to route, it will cover the default map of supervisor.
+func (hs *HTTPServer) InjectMuxMapper(mapper MuxMapper) {
+	hs.runtime.SetMuxMapper(mapper)
 }

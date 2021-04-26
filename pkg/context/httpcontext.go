@@ -21,6 +21,9 @@ import (
 )
 
 type (
+	// HandlerCaller is a helper function to call the handler
+	HandlerCaller func(lastResult string) string
+
 	// HTTPContext is all context of an HTTP processing.
 	// It is not goroutine-safe, callers must use Lock/Unlock
 	// to protect it by themselves.
@@ -51,6 +54,9 @@ type (
 		SetTemplate(ht *HTTPTemplate)
 		SaveReqToTemplate(filterName string) error
 		SaveRspToTemplate(filterName string) error
+
+		CallNextHandler(lastResult string) string
+		SetHandlerCaller(caller HandlerCaller)
 	}
 
 	// HTTPRequest is all operations for HTTP request.
@@ -113,6 +119,7 @@ type (
 		endTime     *time.Time
 		finishFuncs []FinishFunc
 		tags        []string
+		caller      HandlerCaller
 
 		r *httpRequest
 		w *httpResponse
@@ -148,6 +155,14 @@ func New(stdw http.ResponseWriter, stdr *http.Request,
 		w:              newHTTPResponse(stdw, stdr),
 		ht:             NewHTTPTemplateDummy(),
 	}
+}
+
+func (ctx *httpContext) CallNextHandler(lastResult string) string {
+	return ctx.caller(lastResult)
+}
+
+func (ctx *httpContext) SetHandlerCaller(caller HandlerCaller) {
+	ctx.caller = caller
 }
 
 func (ctx *httpContext) Lock() {
@@ -226,7 +241,7 @@ func (ctx *httpContext) Finish() {
 	if ctx.ClientDisconnected() {
 		ctx.AddTag(fmt.Sprintf("client closed connection: change code %d to 499",
 			ctx.w.StatusCode()))
-		ctx.w.SetStatusCode(499 /* consistent with nginx */)
+		ctx.w.SetStatusCode(EGStatusClientClosedRequest /* consistent with nginx */)
 	}
 
 	ctx.r.finish()

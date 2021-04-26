@@ -18,7 +18,7 @@ type (
 		ipFilterChan     *ipfilter.IPFilters
 		notFound         bool
 		methodNotAllowed bool
-		backend          string
+		path             *muxPath
 	}
 )
 

@@ -220,7 +220,8 @@ func (s *Supervisor) applyConfigInCategory(config map[string]string, category Ob
 	for name, ro := range rc.runningObjects {
 		if _, exists := config[name]; !exists {
 			ro.closeWithRecovery()
-			logger.Errorf("delete %s", name)
+			delete(rc.runningObjects, name)
+			logger.Infof("delete %s", name)
 		}
 	}
 
@@ -345,12 +346,16 @@ func (s *Supervisor) close() {
 	// Close from low to high priority.
 	for i := len(objectOrderedCategories) - 1; i >= 0; i-- {
 		rc := s.runningCategories[objectOrderedCategories[i]]
-		rc.mutex.Lock()
-		for _, ro := range rc.runningObjects {
-			ro.closeWithRecovery()
-			logger.Infof("delete %s", ro.spec.Name())
-		}
-		rc.mutex.Unlock()
+		func() {
+			rc.mutex.Lock()
+			defer rc.mutex.Unlock()
+
+			for name, ro := range rc.runningObjects {
+				ro.closeWithRecovery()
+				delete(rc.runningObjects, name)
+				logger.Infof("delete %s", ro.spec.Name())
+			}
+		}()
 	}
 
 	close(s.done)

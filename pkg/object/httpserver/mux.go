@@ -5,11 +5,11 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"sync"
 	"sync/atomic"
 
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/protocol"
 	"github.com/megaease/easegateway/pkg/supervisor"
 	"github.com/megaease/easegateway/pkg/tracing"
 	"github.com/megaease/easegateway/pkg/util/httpheader"
@@ -24,7 +24,9 @@ type (
 		httpStat *httpstat.HTTPStat
 		topN     *topn.TopN
 
-		rules atomic.Value // *muxRules
+		rules       atomic.Value // *muxRules
+		muxMapper   MuxMapper    // MuxMapper
+		mapperMutex sync.RWMutex
 	}
 
 	muxRules struct {
@@ -55,13 +57,14 @@ type (
 		ipFilter      *ipfilter.IPFilter
 		ipFilterChain *ipfilter.IPFilters
 
-		path       string
-		pathPrefix string
-		pathRegexp string
-		pathRE     *regexp.Regexp
-		methods    []string
-		backend    string
-		headers    []*Header
+		path          string
+		pathPrefix    string
+		pathRegexp    string
+		pathRE        *regexp.Regexp
+		methods       []string
+		rewriteTarget string
+		backend       string
+		headers       []*Header
 	}
 )
 
@@ -107,22 +110,20 @@ func (mr *muxRules) getCacheItem(ctx context.HTTPContext) *cacheItem {
 	}
 
 	r := ctx.Request()
-	key := stringtool.Cat(r.Method(), r.Path())
+	key := stringtool.Cat(r.Host(), r.Method(), r.Path())
 	return mr.cache.get(key)
 }
 
 func (mr *muxRules) putCacheItem(ctx context.HTTPContext, ci *cacheItem) {
-	if mr.cache == nil {
+	if mr.cache == nil || ci.cached {
 		return
 	}
 
+	ci.cached = true
 	r := ctx.Request()
-	key := stringtool.Cat(r.Method(), r.Path())
-	if !ci.cached {
-		ci.cached = true
-		// NOTE: It's fine to cover the existed item because of conccurently updating cache.
-		mr.cache.put(key, ci)
-	}
+	key := stringtool.Cat(r.Host(), r.Method(), r.Path())
+	// NOTE: It's fine to cover the existed item because of conccurently updating cache.
+	mr.cache.put(key, ci)
 }
 
 func newMuxRule(parentIPFilters *ipfilter.IPFilters, rule *Rule, paths []*muxPath) *muxRule {
@@ -194,13 +195,14 @@ func newMuxPath(parentIPFilters *ipfilter.IPFilters, path *Path) *muxPath {
 		ipFilter:      newIPFilter(path.IPFilter),
 		ipFilterChain: newIPFilterChain(parentIPFilters, path.IPFilter),
 
-		path:       path.Path,
-		pathPrefix: path.PathPrefix,
-		pathRegexp: path.PathRegexp,
-		pathRE:     pathRE,
-		methods:    path.Methods,
-		backend:    path.Backend,
-		headers:    path.Headers,
+		path:          path.Path,
+		pathPrefix:    path.PathPrefix,
+		pathRegexp:    path.PathRegexp,
+		pathRE:        pathRE,
+		rewriteTarget: path.RewriteTarget,
+		methods:       path.Methods,
+		backend:       path.Backend,
+		headers:       path.Headers,
 	}
 }
 
@@ -244,12 +246,12 @@ func (mp *muxPath) matchHeaders(ctx context.HTTPContext) (ci *cacheItem, ok bool
 	for _, h := range mp.headers {
 		v := ctx.Request().Header().Get(h.Key)
 		if stringtool.StrInSlice(v, h.Values) {
-			ci = &cacheItem{ipFilterChan: mp.ipFilterChain, backend: h.Backend}
+			ci = &cacheItem{ipFilterChan: mp.ipFilterChain, path: mp}
 			return ci, true
 		}
 
 		if h.Regexp != "" && h.headerRE.MatchString(v) {
-			ci = &cacheItem{ipFilterChan: mp.ipFilterChain, backend: h.Backend}
+			ci = &cacheItem{ipFilterChan: mp.ipFilterChain, path: mp}
 			return ci, true
 		}
 	}
@@ -257,15 +259,24 @@ func (mp *muxPath) matchHeaders(ctx context.HTTPContext) (ci *cacheItem, ok bool
 	return nil, false
 }
 
-func newMux(httpStat *httpstat.HTTPStat, topN *topn.TopN) *mux {
+func newMux(httpStat *httpstat.HTTPStat, topN *topn.TopN, mapper MuxMapper) *mux {
 	m := &mux{
 		httpStat: httpStat,
 		topN:     topN,
 	}
 
 	m.rules.Store(&muxRules{spec: &Spec{}, tracer: tracing.NoopTracing})
+	m.muxMapper = mapper
 
 	return m
+}
+
+func (m *mux) setMuxMapper(mapper MuxMapper) {
+	m.mapperMutex.Lock()
+	defer m.mapperMutex.Unlock()
+	// NOTE: golang atomic.Value won't let type inconsistency
+	//       using mutex lock here.
+	m.muxMapper = mapper
 }
 
 func (m *mux) reloadRules(superSpec *supervisor.Spec, super *supervisor.Supervisor) {
@@ -382,7 +393,7 @@ func (m *mux) ServeHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 				return
 			}
 
-			ci = &cacheItem{ipFilterChan: path.ipFilterChain, backend: path.backend}
+			ci = &cacheItem{ipFilterChan: path.ipFilterChain, path: path}
 			rules.putCacheItem(ctx, ci)
 			m.handleRequestWithCache(rules, ctx, ci)
 			return
@@ -412,17 +423,12 @@ func (m *mux) handleRequestWithCache(rules *muxRules, ctx context.HTTPContext, c
 		ctx.Response().SetStatusCode(http.StatusNotFound)
 	case ci.methodNotAllowed:
 		ctx.Response().SetStatusCode(http.StatusMethodNotAllowed)
-	case ci.backend != "":
-		ro, exists := rules.super.GetRunningObject(ci.backend, supervisor.CategoryPipeline)
+	case ci.path != nil:
+		m.mapperMutex.RLock()
+		defer m.mapperMutex.RUnlock()
+		handler, exists := m.muxMapper.Get(ci.path.backend)
 		if !exists {
-			ctx.AddTag(stringtool.Cat("backend ", ci.backend, " not found"))
-			ctx.Response().SetStatusCode(http.StatusServiceUnavailable)
-			return
-		}
-
-		handler, ok := ro.Instance().(protocol.HTTPHandler)
-		if !ok {
-			ctx.AddTag(stringtool.Cat("BUG: backend ", ci.backend, " is not a http handler"))
+			ctx.AddTag(stringtool.Cat("backend ", ci.path.backend, " not found"))
 			ctx.Response().SetStatusCode(http.StatusServiceUnavailable)
 			return
 		}
@@ -431,6 +437,11 @@ func (m *mux) handleRequestWithCache(rules *muxRules, ctx context.HTTPContext, c
 			m.appendXForwardedFor(ctx)
 		}
 
+		if ci.path.pathRE != nil && ci.path.rewriteTarget != "" {
+			path := ctx.Request().Path()
+			path = ci.path.pathRE.ReplaceAllString(path, ci.path.rewriteTarget)
+			ctx.Request().SetPath(path)
+		}
 		handler.Handle(ctx)
 	}
 }

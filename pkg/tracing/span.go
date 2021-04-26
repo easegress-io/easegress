@@ -11,6 +11,12 @@ import (
 type (
 	// Span is the span of the Tracing.
 	Span interface {
+		// Tracer returns the Tracer that created this Span.
+		Tracer() opentracing.Tracer
+
+		// Context yields the SpanContext for this Span
+		Context() opentracing.SpanContext
+
 		// Finish finishes the span.
 		Finish()
 		// Cancel cancels the span, it should be called before Finish called.
@@ -61,6 +67,14 @@ func newSpanWithStart(tracer *Tracing, name string, startAt time.Time) Span {
 		tracer: tracer,
 		span:   tracer.StartSpan(name, opentracing.StartTime(startAt)),
 	}
+}
+
+func (s *span) Tracer() opentracing.Tracer {
+	return s.tracer
+}
+
+func (s *span) Context() opentracing.SpanContext {
+	return s.span.Context()
 }
 
 func (s *span) Finish() {

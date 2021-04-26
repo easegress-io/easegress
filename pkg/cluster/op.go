@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"go.etcd.io/etcd/clientv3"
+	"go.etcd.io/etcd/mvcc/mvccpb"
 )
 
 // PutUnderLease stores data under lease.
@@ -94,6 +95,17 @@ func (c *cluster) DeletePrefix(prefix string) error {
 }
 
 func (c *cluster) Get(key string) (*string, error) {
+	kv, err := c.GetRaw(key)
+	if err != nil || kv == nil {
+		return nil, err
+	}
+
+	value := string(kv.Value)
+
+	return &value, nil
+}
+
+func (c *cluster) GetRaw(key string) (*mvccpb.KeyValue, error) {
 	client, err := c.getClient()
 	if err != nil {
 		return nil, err
@@ -107,25 +119,39 @@ func (c *cluster) Get(key string) (*string, error) {
 	if len(resp.Kvs) == 0 {
 		return nil, nil
 	}
-	value := string(resp.Kvs[0].Value)
 
-	return &value, nil
+	return resp.Kvs[0], nil
 }
 
 func (c *cluster) GetPrefix(prefix string) (map[string]string, error) {
+	kvs := make(map[string]string)
+	rawKVs, err := c.GetRawPrefix(prefix)
+	if err != nil {
+		return kvs, err
+	}
+
+	for _, kv := range rawKVs {
+		kvs[string(kv.Key)] = string(kv.Value)
+	}
+
+	return kvs, nil
+}
+
+func (c *cluster) GetRawPrefix(prefix string) (map[string]*mvccpb.KeyValue, error) {
+	kvs := make(map[string]*mvccpb.KeyValue)
+
 	client, err := c.getClient()
 	if err != nil {
-		return nil, err
+		return kvs, err
 	}
 
 	resp, err := client.Get(c.requestContext(), prefix, clientv3.WithPrefix())
 	if err != nil {
-		return nil, err
+		return kvs, err
 	}
 
-	kvs := make(map[string]string)
-	for _, kv := range resp.Kvs {
-		kvs[string(kv.Key)] = string(kv.Value)
+	for idx, kv := range resp.Kvs {
+		kvs[string(kv.Key)] = resp.Kvs[idx]
 	}
 
 	return kvs, nil

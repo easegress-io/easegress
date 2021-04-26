@@ -79,6 +79,11 @@ func (ra *ResponseAdaptor) reload() {
 
 // Handle adapts response.
 func (ra *ResponseAdaptor) Handle(ctx context.HTTPContext) string {
+	result := ra.handle(ctx)
+	return ctx.CallNextHandler(result)
+}
+
+func (ra *ResponseAdaptor) handle(ctx context.HTTPContext) string {
 	hte := ctx.Template()
 	ctx.Response().Header().Adapt(ra.spec.Header, hte)
 

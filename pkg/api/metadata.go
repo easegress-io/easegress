@@ -52,31 +52,31 @@ func (s *Server) setupMetadaAPIs() {
 	}
 	sort.Strings(filterKinds)
 
-	metadataAPIs := make([]*apiEntry, 0)
+	metadataAPIs := make([]*APIEntry, 0)
 	metadataAPIs = append(metadataAPIs,
-		&apiEntry{
+		&APIEntry{
 			Path:    FilterMetaPrefix,
 			Method:  "GET",
 			Handler: s.listFilters,
 		},
-		&apiEntry{
+		&APIEntry{
 			Path:    FilterMetaPrefix + "/{kind:string}" + "/description",
 			Method:  "GET",
 			Handler: s.getFilterDescription,
 		},
-		&apiEntry{
+		&APIEntry{
 			Path:    FilterMetaPrefix + "/{kind:string}" + "/schema",
 			Method:  "GET",
 			Handler: s.getFilterSchema,
 		},
-		&apiEntry{
+		&APIEntry{
 			Path:    FilterMetaPrefix + "/{kind:string}" + "/results",
 			Method:  "GET",
 			Handler: s.getFilterResults,
 		},
 	)
 
-	s.apis = append(s.apis, metadataAPIs...)
+	s.RegisterAPIs(metadataAPIs)
 }
 
 func (s *Server) listFilters(ctx iris.Context) {
@@ -94,7 +94,7 @@ func (s *Server) getFilterDescription(ctx iris.Context) {
 
 	fm, exits := filterMetaBook[kind]
 	if !exits {
-		handleAPIError(ctx, iris.StatusNotFound, fmt.Errorf("not found"))
+		HandleAPIError(ctx, iris.StatusNotFound, fmt.Errorf("not found"))
 		return
 	}
 
@@ -106,7 +106,7 @@ func (s *Server) getFilterSchema(ctx iris.Context) {
 
 	fm, exits := filterMetaBook[kind]
 	if !exits {
-		handleAPIError(ctx, iris.StatusNotFound, fmt.Errorf("not found"))
+		HandleAPIError(ctx, iris.StatusNotFound, fmt.Errorf("not found"))
 		return
 	}
 
@@ -124,7 +124,7 @@ func (s *Server) getFilterResults(ctx iris.Context) {
 
 	fm, exits := filterMetaBook[kind]
 	if !exits {
-		handleAPIError(ctx, iris.StatusNotFound, fmt.Errorf("not found"))
+		HandleAPIError(ctx, iris.StatusNotFound, fmt.Errorf("not found"))
 		return
 	}
 

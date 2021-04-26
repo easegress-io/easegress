@@ -31,10 +31,10 @@ func (c *cluster) Watcher() (Watcher, error) {
 	}, nil
 }
 
-func (w *watcher) Watch(key string) (<-chan *string, error) {
+func (w *watcher) WatchFromRev(key string, rev int64) (<-chan *string, error) {
 	// NOTE: Can't use Context with timeout here.
 	ctx, cancel := context.WithCancel(context.Background())
-	watchResp := w.w.Watch(ctx, key)
+	watchResp := w.w.Watch(ctx, key, clientv3.WithRev(rev))
 
 	keyChan := make(chan *string, 10)
 
@@ -73,10 +73,58 @@ func (w *watcher) Watch(key string) (<-chan *string, error) {
 	return keyChan, nil
 }
 
-func (w *watcher) WatchPrefix(prefix string) (<-chan map[string]*string, error) {
+func (w *watcher) Watch(key string) (<-chan *string, error) {
+	return w.WatchFromRev(key, 0)
+}
+
+func (w *watcher) WatchRawFromRev(key string, rev int64) (<-chan *clientv3.Event, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	watchResp := w.w.Watch(ctx, key, clientv3.WithRev(rev))
+
+	eventChan := make(chan *clientv3.Event, 10)
+
+	go func() {
+		defer cancel()
+		defer close(eventChan)
+
+		for {
+			select {
+			case <-w.done:
+				return
+			case resp := <-watchResp:
+				if resp.Canceled {
+					logger.Infof("watch raw key %s canceled: %v", key, resp.Err())
+					return
+				}
+				if resp.IsProgressNotify() {
+					continue
+				}
+				for idx, event := range resp.Events {
+					switch event.Type {
+					case mvccpb.PUT:
+						eventChan <- resp.Events[idx]
+					case mvccpb.DELETE:
+						eventChan <- nil
+					default:
+						logger.Errorf("BUG: key %s received unknown event type %v",
+							key, event.Type)
+					}
+				}
+			}
+		}
+	}()
+
+	return eventChan, nil
+}
+
+func (w *watcher) WatchRaw(key string) (<-chan *clientv3.Event, error) {
+	return w.WatchRawFromRev(key, 0)
+}
+
+func (w *watcher) WatchPrefixFromRev(prefix string, rev int64) (<-chan map[string]*string, error) {
 	// NOTE: Can't use Context with timeout here.
 	ctx, cancel := context.WithCancel(context.Background())
-	watchResp := w.w.Watch(ctx, prefix, clientv3.WithPrefix())
+	watchResp := w.w.Watch(ctx, prefix, clientv3.WithPrefix(), clientv3.WithRev(rev))
 
 	prefixChan := make(chan map[string]*string, 10)
 
@@ -117,6 +165,58 @@ func (w *watcher) WatchPrefix(prefix string) (<-chan map[string]*string, error) 
 	}()
 
 	return prefixChan, nil
+}
+
+func (w *watcher) WatchPrefix(prefix string) (<-chan map[string]*string, error) {
+	return w.WatchPrefixFromRev(prefix, 0)
+}
+
+func (w *watcher) WatchRawPrefixFromRev(prefix string, rev int64) (<-chan map[string]*clientv3.Event, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	watchResp := w.w.Watch(ctx, prefix, clientv3.WithPrefix(), clientv3.WithRev(rev))
+
+	prefixChan := make(chan map[string]*clientv3.Event, 10)
+
+	go func() {
+		defer cancel()
+		defer close(prefixChan)
+
+		for {
+			select {
+			case <-w.done:
+				return
+			case resp := <-watchResp:
+				if resp.Canceled {
+					logger.Errorf("watch raw prefix %s canceled: %v", prefix, resp.Err())
+					return
+				}
+				if resp.IsProgressNotify() {
+					continue
+				}
+				for idx, event := range resp.Events {
+					switch event.Type {
+					case mvccpb.PUT:
+						prefixChan <- map[string]*clientv3.Event{
+							string(event.Kv.Key): resp.Events[idx],
+						}
+					case mvccpb.DELETE:
+						prefixChan <- map[string]*clientv3.Event{
+							string(event.Kv.Key): nil,
+						}
+					default:
+						logger.Errorf("BUG: prefix %s received unknown event type %v",
+							prefix, event.Type)
+					}
+				}
+			}
+		}
+	}()
+
+	return prefixChan, nil
+}
+
+func (w *watcher) WatchRawPrefix(prefix string) (<-chan map[string]*clientv3.Event, error) {
+	return w.WatchRawPrefixFromRev(prefix, 0)
 }
 
 func (w *watcher) Close() {

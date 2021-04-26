@@ -88,8 +88,11 @@ func newRuntime(super *supervisor.Supervisor) *runtime {
 		topN:      topn.New(topNum),
 	}
 
-	r.mux = newMux(r.httpStat, r.topN)
-
+	// default mapper is the supervisor warpper
+	muxMapper := &SupervisorMapper{
+		super: super,
+	}
+	r.mux = newMux(r.httpStat, r.topN, muxMapper)
 	r.setState(stateNil)
 	r.setError(errNil)
 
@@ -117,6 +120,10 @@ func (r *runtime) Status() *Status {
 		Status: r.httpStat.Status(),
 		TopN:   r.topN.Status(),
 	}
+}
+
+func (r *runtime) SetMuxMapper(mapper MuxMapper) {
+	r.mux.setMuxMapper(mapper)
 }
 
 // FSM is the finite-state-machine for the runtime.

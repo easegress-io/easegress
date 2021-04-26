@@ -1,4 +1,5 @@
 name: writer-001
+labels: {mesh_role: worker}
 cluster-name: cluster-test
 cluster-role: writer
 cluster-client-url: http://127.0.0.1:12379

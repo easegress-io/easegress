@@ -10,7 +10,7 @@ import (
 )
 
 func (s *Server) setupMemberAPIs() {
-	memberAPIs := []*apiEntry{
+	memberAPIs := []*APIEntry{
 		{
 			Path:    "/status/members",
 			Method:  "GET",
@@ -23,7 +23,7 @@ func (s *Server) setupMemberAPIs() {
 		},
 	}
 
-	s.apis = append(s.apis, memberAPIs...)
+	s.RegisterAPIs(memberAPIs)
 }
 
 type (
@@ -40,7 +40,7 @@ func (r ListMembersResp) Swap(i, j int)      { r[i], r[j] = r[j], r[i] }
 func (s *Server) listMembers(ctx iris.Context) {
 	kv, err := s.cluster.GetPrefix(s.cluster.Layout().StatusMemberPrefix())
 	if err != nil {
-		clusterPanic(err)
+		ClusterPanic(err)
 	}
 
 	resp := make(ListMembersResp, 0)
@@ -72,10 +72,10 @@ func (s *Server) purgeMember(ctx iris.Context) {
 
 	leaseStr, err := s.cluster.Get(s.cluster.Layout().OtherLease(memberName))
 	if err != nil {
-		clusterPanic(err)
+		ClusterPanic(err)
 	}
 	if leaseStr == nil {
-		handleAPIError(ctx, iris.StatusNotFound, fmt.Errorf("not found"))
+		HandleAPIError(ctx, iris.StatusNotFound, fmt.Errorf("not found"))
 		return
 	}
 

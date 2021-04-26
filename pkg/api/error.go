@@ -20,11 +20,13 @@ func (ce clusterErr) Error() string {
 	return string(ce)
 }
 
-func clusterPanic(err error) {
+// ClusterPanic panics because of the cluster-level fault.
+func ClusterPanic(err error) {
 	panic(clusterErr(err.Error()))
 }
 
-func handleAPIError(ctx iris.Context, code int, err error) {
+// HandleAPIError handles api error.
+func HandleAPIError(ctx iris.Context, code int, err error) {
 	ctx.StatusCode(code)
 	buff, err := yaml.Marshal(APIErr{
 		Code:    code,

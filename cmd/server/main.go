@@ -7,7 +7,7 @@ import (
 	"sync"
 	"syscall"
 
-	egapi "github.com/megaease/easegateway/pkg/api"
+	"github.com/megaease/easegateway/pkg/api"
 	"github.com/megaease/easegateway/pkg/cluster"
 	"github.com/megaease/easegateway/pkg/common"
 	"github.com/megaease/easegateway/pkg/env"
@@ -32,8 +32,6 @@ func main() {
 	if msg != "" {
 		common.Exit(0, msg)
 	}
-
-	option.Global = opt
 
 	err = env.InitServerDir(opt)
 	if err != nil {
@@ -68,7 +66,7 @@ func main() {
 	}
 	super := supervisor.MustNew(opt, cls)
 	supervisor.InitGlobalSupervisor(super)
-	api := egapi.MustNewServer(opt, cls)
+	apiServer := api.MustNewServer(opt, cls)
 
 	if graceupdate.CallOriProcessTerm(super.FirstHandleDone()) {
 		pidfile.Write(opt)
@@ -77,13 +75,13 @@ func main() {
 	closeCls := func() {
 		wg := &sync.WaitGroup{}
 		wg.Add(2)
-		api.Close(wg)
+		apiServer.Close(wg)
 		cls.CloseServer(wg)
 		wg.Wait()
 	}
 	restartCls := func() {
 		cls.StartServer()
-		api = egapi.MustNewServer(opt, cls)
+		apiServer = api.MustNewServer(opt, cls)
 	}
 	graceupdate.NotifySigUsr2(closeCls, restartCls)
 
@@ -99,7 +97,7 @@ func main() {
 
 	wg := &sync.WaitGroup{}
 	wg.Add(4)
-	api.Close(wg)
+	apiServer.Close(wg)
 	super.Close(wg)
 	cls.Close(wg)
 	profile.Close(wg)

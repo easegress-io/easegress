@@ -8,7 +8,6 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/serviceregistry"
-	"github.com/megaease/easegateway/pkg/option"
 	"github.com/megaease/easegateway/pkg/supervisor"
 
 	"go.etcd.io/etcd/clientv3"
@@ -127,7 +126,7 @@ func (e *EtcdServiceRegistry) buildClient() (*clientv3.Client, error) {
 		DialTimeout:          10 * time.Second,
 		DialKeepAliveTime:    1 * time.Minute,
 		DialKeepAliveTimeout: 1 * time.Minute,
-		LogConfig:            logger.EtcdClientLoggerConfig(option.Global, "object_"+e.superSpec.Name()),
+		LogConfig:            logger.EtcdClientLoggerConfig(e.super.Options(), "object_"+e.superSpec.Name()),
 	})
 
 	if err != nil {
