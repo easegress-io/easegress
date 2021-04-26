@@ -422,11 +422,11 @@ func (inf *meshInformer) onSpecPart(storeKey, watcherKey string, gjsonPath GJSON
 		return ErrAlreadyWatched
 	}
 
-	kv, err := inf.store.GetRaw(storeKey)
+	value, err := inf.store.Get(storeKey)
 	if err != nil {
 		return err
 	}
-	if kv == nil {
+	if value == nil {
 		return ErrNotFound
 	}
 
@@ -435,14 +435,14 @@ func (inf *meshInformer) onSpecPart(storeKey, watcherKey string, gjsonPath GJSON
 		return err
 	}
 
-	ch, err := watcher.WatchRawFromRev(storeKey, kv.ModRevision)
+	ch, err := watcher.WatchRaw(storeKey)
 	if err != nil {
 		return err
 	}
 
 	inf.watchers[watcherKey] = watcher
 
-	go inf.watch(ch, watcherKey, gjsonPath, fn)
+	go inf.watch(ch, watcherKey, *value, gjsonPath, fn)
 
 	return nil
 }
@@ -460,30 +460,24 @@ func (inf *meshInformer) onSpecs(storePrefix, watcherKey string, fn specsHandleF
 		return ErrAlreadyWatched
 	}
 
-	kvs, err := inf.store.GetRawPrefix(storePrefix)
-	if err != nil {
-		return err
-	}
-
 	watcher, err := inf.store.Watcher()
 	if err != nil {
 		return err
 	}
 
-	minRev := int64(^uint64(0) >> 1)
-	for _, v := range kvs {
-		if v.ModRevision < minRev {
-			minRev = v.ModRevision
-		}
+	ch, err := watcher.WatchRawPrefix(storePrefix)
+	if err != nil {
+		return err
 	}
-	ch, err := watcher.WatchRawPrefixFromRev(storePrefix, minRev)
+
+	kvs, err := inf.store.GetPrefix(storePrefix)
 	if err != nil {
 		return err
 	}
 
 	inf.watchers[watcherKey] = watcher
 
-	go inf.watchPrefix(ch, watcherKey, fn)
+	go inf.watchPrefix(ch, watcherKey, kvs, fn)
 
 	return nil
 }
@@ -499,23 +493,24 @@ func (inf *meshInformer) Close() {
 	inf.closed = true
 }
 
-func (inf *meshInformer) watch(ch <-chan *clientv3.Event, watcherKey string, path GJSONPath, fn specHandleFunc) {
-	event := <-ch
-	oldValue := string(event.Kv.Value)
-	if !fn(Event{EventType: EventUpdate, RawKV: event.Kv}, oldValue) {
-		inf.stopWatchOneKey(watcherKey)
-	}
+func (inf *meshInformer) watch(ch <-chan *clientv3.Event, watcherKey,
+	oldValue string, path GJSONPath, fn specHandleFunc) {
 
-	for event = range ch {
-		continueWatch := true
-		if event == nil {
-			continueWatch = fn(Event{EventType: EventDelete}, "")
+	for value := range ch {
+		var continueWatch bool
+
+		if value == nil {
+			continueWatch = fn(Event{
+				EventType: EventDelete,
+			}, "")
 		} else {
-			newValue := string(event.Kv.Value)
-			if !inf.comparePart(path, oldValue, newValue) {
-				continueWatch = fn(Event{EventType: EventUpdate, RawKV: event.Kv}, newValue)
+			if !inf.comparePart(path, oldValue, string(value.Kv.Value)) {
+				oldValue = string(value.Kv.Value)
+				continueWatch = fn(Event{
+					EventType: EventUpdate,
+					RawKV:     value.Kv,
+				}, oldValue)
 			}
-			oldValue = newValue
 		}
 
 		if !continueWatch {
@@ -524,42 +519,35 @@ func (inf *meshInformer) watch(ch <-chan *clientv3.Event, watcherKey string, pat
 	}
 }
 
-func (inf *meshInformer) watchPrefix(ch <-chan map[string]*clientv3.Event, watcherKey string, fn specsHandleFunc) {
-	kvs := make(map[string]string)
-
-	changedKVs := <-ch
-	for k, v := range changedKVs {
-		if v != nil {
-			kvs[k] = string(v.Kv.Value)
-		}
-	}
+func (inf *meshInformer) watchPrefix(ch <-chan map[string]*clientv3.Event, watcherKey string,
+	kvs map[string]string, fn specsHandleFunc) {
 
 	if !fn(kvs) {
 		inf.stopWatchOneKey(watcherKey)
 	}
 
-	for changedKVs = range ch {
-		changed := false
+	for changedKvs := range ch {
+		for k, v := range changedKvs {
+			var continueWatch bool
 
-		for k, v := range changedKVs {
 			if v == nil {
 				delete(kvs, k)
-				changed = true
 				logger.Infof("delete record: %s", k)
+				continueWatch = fn(kvs)
 			} else {
 				if oldValue, ok := kvs[k]; ok {
 					if oldValue == string(v.Kv.Value) {
 						continue
 					}
 				}
-				kvs[k] = string(v.Kv.Value)
-				changed = true
 				logger.Infof("update record, update: %s, version: %d", k, v.Kv.Version)
+				kvs[k] = string(v.Kv.Value)
+				continueWatch = fn(kvs)
 			}
-		}
 
-		if changed && !fn(kvs) {
-			inf.stopWatchOneKey(watcherKey)
+			if !continueWatch {
+				inf.stopWatchOneKey(watcherKey)
+			}
 		}
 	}
 }
