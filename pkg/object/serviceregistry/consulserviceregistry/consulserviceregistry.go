@@ -219,7 +219,7 @@ func (c *ConsulServiceRegistry) update() {
 			if server.HostIP == "" {
 				server.HostIP = service.Address
 			}
-			server.Port = int16(service.ServicePort)
+			server.Port = uint16(service.ServicePort)
 			server.Tags = service.ServiceTags
 
 			if err := server.Validate(); err != nil {

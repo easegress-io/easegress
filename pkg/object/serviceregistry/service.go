@@ -31,7 +31,7 @@ type (
 		// HostIP is optional if Hostname is not empty.
 		HostIP string `yaml:"hostIP"`
 		// Port is optional if Scheme is not empty
-		Port int16 `yaml:"port"`
+		Port uint16 `yaml:"port"`
 		// Tags is optional.
 		Tags []string `yaml:"tags"`
 		// Weight is optional.

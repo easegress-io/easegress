@@ -179,7 +179,7 @@ func (eureka *EurekaServiceRegistry) update() {
 				ServiceName: app.Name,
 				Hostname:    instance.HostName,
 				HostIP:      instance.IpAddr,
-				Port:        int16(instance.Port.Port),
+				Port:        uint16(instance.Port.Port),
 			}
 			if instance.Port != nil && instance.Port.Enabled {
 				server := baseServer
