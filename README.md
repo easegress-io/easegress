@@ -48,7 +48,7 @@ The architecture of EaseGateway:
 		- **Chain of Responsibility Pattern:** orchestrates filters chain.
 		- **Filter Management:** makes it easy to develop new filters.
 	- **Service Mesh**
-		- **Mesh Aaster:** is the control plane to manage the lifecycle of mesh services.
+		- **Mesh Master:** is the control plane to manage the lifecycle of mesh services.
 		- **Mesh Sidecar:** is the data plane as the endpoint to do traffic interception and routing.
 		- **Mesh Ingress Controller:** is the mesh-specific ingress controller to route external traffic to mesh services.
 	- **Third-Part Integration**
