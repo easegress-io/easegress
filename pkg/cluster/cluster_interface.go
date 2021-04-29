@@ -43,12 +43,6 @@ type (
 		WatchPrefix(prefix string) (<-chan map[string]*string, error)
 		WatchRaw(key string) (<-chan *clientv3.Event, error)
 		WatchRawPrefix(prefix string) (<-chan map[string]*clientv3.Event, error)
-
-		WatchFromRev(key string, rev int64) (<-chan *string, error)
-		WatchPrefixFromRev(prefix string, rev int64) (<-chan map[string]*string, error)
-		WatchRawPrefixFromRev(prefix string, rev int64) (<-chan map[string]*clientv3.Event, error)
-		WatchRawFromRev(key string, rev int64) (<-chan *clientv3.Event, error)
-
 		Close()
 	}
 )
