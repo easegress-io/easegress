@@ -2,11 +2,13 @@ package storage
 
 import (
 	"fmt"
+	"time"
 
 	"go.etcd.io/etcd/mvcc/mvccpb"
 
 	"github.com/megaease/easegateway/pkg/cluster"
 	"github.com/megaease/easegateway/pkg/logger"
+	"go.etcd.io/etcd/mvcc/mvccpb"
 )
 
 type (
@@ -28,11 +30,8 @@ type (
 		Delete(key string) error
 		DeletePrefix(prefix string) error
 
-		Watcher() (Watcher, error)
+		Syncer() (*cluster.Syncer, error)
 	}
-
-	// Watcher is the interface to contain watcher APIs.
-	Watcher = cluster.Watcher
 
 	clusterStorage struct {
 		name  string
@@ -131,6 +130,6 @@ func (cs *clusterStorage) GetRawPrefix(prefix string) (map[string]*mvccpb.KeyVal
 	return cs.cls.GetRawPrefix(prefix)
 }
 
-func (cs *clusterStorage) Watcher() (Watcher, error) {
-	return cs.cls.Watcher()
+func (cs *clusterStorage) Syncer() (*cluster.Syncer, error) {
+	return cs.cls.Syncer(time.Minute)
 }

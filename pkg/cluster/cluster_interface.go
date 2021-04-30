@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"sync"
+	"time"
 
 	"go.etcd.io/etcd/clientv3"
 	"go.etcd.io/etcd/mvcc/mvccpb"
@@ -26,6 +27,7 @@ type (
 		DeletePrefix(prefix string) error
 
 		Watcher() (Watcher, error)
+		Syncer(pullInterval time.Duration) (*Syncer, error)
 
 		Mutex(name string) (Mutex, error)
 

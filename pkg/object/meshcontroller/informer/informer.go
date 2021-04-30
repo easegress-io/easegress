@@ -6,10 +6,10 @@ import (
 
 	yamljsontool "github.com/ghodss/yaml"
 	"github.com/tidwall/gjson"
-	"go.etcd.io/etcd/clientv3"
 	"go.etcd.io/etcd/mvcc/mvccpb"
 	"gopkg.in/yaml.v2"
 
+	"github.com/megaease/easegateway/pkg/cluster"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/layout"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
@@ -116,9 +116,9 @@ type (
 
 	// meshInformer is the informer for mesh usage
 	meshInformer struct {
-		mutex    sync.Mutex
-		store    storage.Storage
-		watchers map[string]storage.Watcher
+		mutex   sync.Mutex
+		store   storage.Storage
+		syncers map[string]*cluster.Syncer
 
 		closed bool
 		done   chan struct{}
@@ -139,33 +139,33 @@ var (
 // NewInformer creates an informer.
 func NewInformer(store storage.Storage) Informer {
 	inf := &meshInformer{
-		store:    store,
-		watchers: make(map[string]storage.Watcher),
-		mutex:    sync.Mutex{},
-		done:     make(chan struct{}),
+		store:   store,
+		syncers: make(map[string]*cluster.Syncer),
+		mutex:   sync.Mutex{},
+		done:    make(chan struct{}),
 	}
 
 	return inf
 }
 
-func (inf *meshInformer) stopWatchOneKey(key string) {
+func (inf *meshInformer) stopSyncOneKey(key string) {
 	inf.mutex.Lock()
 	defer inf.mutex.Unlock()
 
-	if watcher, exists := inf.watchers[key]; exists {
-		watcher.Close()
-		delete(inf.watchers, key)
+	if syncer, exists := inf.syncers[key]; exists {
+		syncer.Close()
+		delete(inf.syncers, key)
 	}
 }
 
-func serviceSpecWatcherKey(serviceName string, gjsonPath GJSONPath) string {
+func serviceSpecSyncerKey(serviceName string, gjsonPath GJSONPath) string {
 	return fmt.Sprintf("service-spec-%s-%s", serviceName, gjsonPath)
 }
 
 // OnPartOfServiceSpec watches one service's spec by given gjsonPath.
 func (inf *meshInformer) OnPartOfServiceSpec(serviceName string, gjsonPath GJSONPath, fn ServiceSpecFunc) error {
 	storeKey := layout.ServiceSpecKey(serviceName)
-	watcherKey := serviceSpecWatcherKey(serviceName, gjsonPath)
+	syncerKey := serviceSpecSyncerKey(serviceName, gjsonPath)
 
 	specFunc := func(event Event, value string) bool {
 		serviceSpec := &spec.Service{}
@@ -180,18 +180,18 @@ func (inf *meshInformer) OnPartOfServiceSpec(serviceName string, gjsonPath GJSON
 		return fn(event, serviceSpec)
 	}
 
-	return inf.onSpecPart(storeKey, watcherKey, gjsonPath, specFunc)
+	return inf.onSpecPart(storeKey, syncerKey, gjsonPath, specFunc)
 }
 
 func (inf *meshInformer) StopWatchServiceSpec(serviceName string, gjsonPath GJSONPath) {
-	watcherKey := serviceSpecWatcherKey(serviceName, gjsonPath)
-	inf.stopWatchOneKey(watcherKey)
+	syncerKey := serviceSpecSyncerKey(serviceName, gjsonPath)
+	inf.stopSyncOneKey(syncerKey)
 }
 
 // OnPartOfInstanceSpec watches one service's instance spec by given gjsonPath.
 func (inf *meshInformer) OnPartOfInstanceSpec(serviceName, instanceID string, gjsonPath GJSONPath, fn ServicesInstanceSpecFunc) error {
 	storeKey := layout.ServiceInstanceSpecKey(serviceName, instanceID)
-	watcherKey := fmt.Sprintf("service-instance-spec-%s-%s-%s", serviceName, instanceID, gjsonPath)
+	syncerKey := fmt.Sprintf("service-instance-spec-%s-%s-%s", serviceName, instanceID, gjsonPath)
 
 	specFunc := func(event Event, value string) bool {
 		instanceSpec := &spec.ServiceInstanceSpec{}
@@ -206,13 +206,13 @@ func (inf *meshInformer) OnPartOfInstanceSpec(serviceName, instanceID string, gj
 		return fn(event, instanceSpec)
 	}
 
-	return inf.onSpecPart(storeKey, watcherKey, gjsonPath, specFunc)
+	return inf.onSpecPart(storeKey, syncerKey, gjsonPath, specFunc)
 }
 
 // OnPartOfServiceInstanceStatus watches one service instance status spec by given gjsonPath.
 func (inf *meshInformer) OnPartOfServiceInstanceStatus(serviceName, instanceID string, gjsonPath GJSONPath, fn ServiceInstanceStatusFunc) error {
 	storeKey := layout.ServiceInstanceStatusKey(serviceName, instanceID)
-	watcherKey := fmt.Sprintf("service-instance-status-%s-%s-%s", serviceName, instanceID, gjsonPath)
+	syncerKey := fmt.Sprintf("service-instance-status-%s-%s-%s", serviceName, instanceID, gjsonPath)
 
 	specFunc := func(event Event, value string) bool {
 		instanceStatus := &spec.ServiceInstanceStatus{}
@@ -227,13 +227,13 @@ func (inf *meshInformer) OnPartOfServiceInstanceStatus(serviceName, instanceID s
 		return fn(event, instanceStatus)
 	}
 
-	return inf.onSpecPart(storeKey, watcherKey, gjsonPath, specFunc)
+	return inf.onSpecPart(storeKey, syncerKey, gjsonPath, specFunc)
 }
 
 // OnPartOfTenantSpec watches one tenant status spec by given gjsonPath.
 func (inf *meshInformer) OnPartOfTenantSpec(tenant string, gjsonPath GJSONPath, fn TenantSpecFunc) error {
 	storeKey := layout.TenantSpecKey(tenant)
-	watcherKey := fmt.Sprintf("tenant-%s", tenant)
+	syncerKey := fmt.Sprintf("tenant-%s", tenant)
 
 	specFunc := func(event Event, value string) bool {
 		tenantSpec := &spec.Tenant{}
@@ -248,13 +248,13 @@ func (inf *meshInformer) OnPartOfTenantSpec(tenant string, gjsonPath GJSONPath, 
 		return fn(event, tenantSpec)
 	}
 
-	return inf.onSpecPart(storeKey, watcherKey, gjsonPath, specFunc)
+	return inf.onSpecPart(storeKey, syncerKey, gjsonPath, specFunc)
 }
 
 // OnPartOfIngressSpec watches one ingress status spec by given gjsonPath.
 func (inf *meshInformer) OnPartOfIngressSpec(ingress string, gjsonPath GJSONPath, fn IngressSpecFunc) error {
 	storeKey := layout.IngressSpecKey(ingress)
-	watcherKey := fmt.Sprintf("ingress-%s", ingress)
+	syncerKey := fmt.Sprintf("ingress-%s", ingress)
 
 	specFunc := func(event Event, value string) bool {
 		ingressSpec := &spec.Ingress{}
@@ -269,12 +269,12 @@ func (inf *meshInformer) OnPartOfIngressSpec(ingress string, gjsonPath GJSONPath
 		return fn(event, ingressSpec)
 	}
 
-	return inf.onSpecPart(storeKey, watcherKey, gjsonPath, specFunc)
+	return inf.onSpecPart(storeKey, syncerKey, gjsonPath, specFunc)
 }
 
 // OnServiceSpecs watches service specs with the prefix.
 func (inf *meshInformer) OnServiceSpecs(servicePrefix string, fn ServiceSpecsFunc) error {
-	watcherKey := fmt.Sprintf("prefix-service-%s", servicePrefix)
+	syncerKey := fmt.Sprintf("prefix-service-%s", servicePrefix)
 
 	specsFunc := func(kvs map[string]string) bool {
 		services := make(map[string]*spec.Service)
@@ -290,17 +290,17 @@ func (inf *meshInformer) OnServiceSpecs(servicePrefix string, fn ServiceSpecsFun
 		return fn(services)
 	}
 
-	return inf.onSpecs(servicePrefix, watcherKey, specsFunc)
+	return inf.onSpecs(servicePrefix, syncerKey, specsFunc)
 }
 
-func serviceInstanceSpecWatcherKey(serviceName string) string {
+func serviceInstanceSpecSyncerKey(serviceName string) string {
 	return fmt.Sprintf("prefix-service-instance-spec-%s", serviceName)
 }
 
 // OnServiceInstanceSpecs watches one service all instance specs.
 func (inf *meshInformer) OnServiceInstanceSpecs(serviceName string, fn ServiceInstanceSpecsFunc) error {
 	instancePrefix := layout.ServiceInstanceSpecPrefix(serviceName)
-	watcherKey := serviceInstanceSpecWatcherKey(serviceName)
+	syncerKey := serviceInstanceSpecSyncerKey(serviceName)
 
 	specsFunc := func(kvs map[string]string) bool {
 		instanceSpecs := make(map[string]*spec.ServiceInstanceSpec)
@@ -316,17 +316,17 @@ func (inf *meshInformer) OnServiceInstanceSpecs(serviceName string, fn ServiceIn
 		return fn(instanceSpecs)
 	}
 
-	return inf.onSpecs(instancePrefix, watcherKey, specsFunc)
+	return inf.onSpecs(instancePrefix, syncerKey, specsFunc)
 }
 
 func (inf *meshInformer) StopWatchServiceInstanceSpec(serviceName string) {
-	watcherKey := serviceInstanceSpecWatcherKey(serviceName)
-	inf.stopWatchOneKey(watcherKey)
+	syncerKey := serviceInstanceSpecSyncerKey(serviceName)
+	inf.stopSyncOneKey(syncerKey)
 }
 
 // OnServiceInstanceStatuses watches service instance statuses with the same prefix.
 func (inf *meshInformer) OnServiceInstanceStatuses(serviceName string, fn ServiceInstanceStatusesFunc) error {
-	watcherKey := fmt.Sprintf("prefix-service-instance-status-%s", serviceName)
+	syncerKey := fmt.Sprintf("prefix-service-instance-status-%s", serviceName)
 	instanceStatusPrefix := layout.ServiceInstanceStatusPrefix(serviceName)
 
 	specsFunc := func(kvs map[string]string) bool {
@@ -343,12 +343,12 @@ func (inf *meshInformer) OnServiceInstanceStatuses(serviceName string, fn Servic
 		return fn(instanceStatuses)
 	}
 
-	return inf.onSpecs(instanceStatusPrefix, watcherKey, specsFunc)
+	return inf.onSpecs(instanceStatusPrefix, syncerKey, specsFunc)
 }
 
 // OnTenantSpecs watches tenant specs with the same prefix.
 func (inf *meshInformer) OnTenantSpecs(tenantPrefix string, fn TenantSpecsFunc) error {
-	watcherKey := fmt.Sprintf("prefix-tenant-%s", tenantPrefix)
+	syncerKey := fmt.Sprintf("prefix-tenant-%s", tenantPrefix)
 
 	specsFunc := func(kvs map[string]string) bool {
 		tenants := make(map[string]*spec.Tenant)
@@ -364,13 +364,13 @@ func (inf *meshInformer) OnTenantSpecs(tenantPrefix string, fn TenantSpecsFunc) 
 		return fn(tenants)
 	}
 
-	return inf.onSpecs(tenantPrefix, watcherKey, specsFunc)
+	return inf.onSpecs(tenantPrefix, syncerKey, specsFunc)
 }
 
 // OnIngressSpecs watches ingress specs
 func (inf *meshInformer) OnIngressSpecs(fn IngressSpecsFunc) error {
 	storeKey := layout.IngressPrefix()
-	watcherKey := "prefix-ingress"
+	syncerKey := "prefix-ingress"
 
 	specsFunc := func(kvs map[string]string) bool {
 		ingresss := make(map[string]*spec.Ingress)
@@ -386,7 +386,7 @@ func (inf *meshInformer) OnIngressSpecs(fn IngressSpecsFunc) error {
 		return fn(ingresss)
 	}
 
-	return inf.onSpecs(storeKey, watcherKey, specsFunc)
+	return inf.onSpecs(storeKey, syncerKey, specsFunc)
 }
 
 func (inf *meshInformer) comparePart(path GJSONPath, old, new string) bool {
@@ -409,7 +409,7 @@ func (inf *meshInformer) comparePart(path GJSONPath, old, new string) bool {
 	return gjson.Get(string(oldJSON), string(path)) == gjson.Get(string(newJSON), string(path))
 }
 
-func (inf *meshInformer) onSpecPart(storeKey, watcherKey string, gjsonPath GJSONPath, fn specHandleFunc) error {
+func (inf *meshInformer) onSpecPart(storeKey, syncerKey string, gjsonPath GJSONPath, fn specHandleFunc) error {
 	inf.mutex.Lock()
 	defer inf.mutex.Unlock()
 
@@ -417,37 +417,29 @@ func (inf *meshInformer) onSpecPart(storeKey, watcherKey string, gjsonPath GJSON
 		return ErrClosed
 	}
 
-	if _, ok := inf.watchers[watcherKey]; ok {
-		logger.Infof("watch key: %s already", watcherKey)
+	if _, ok := inf.syncers[syncerKey]; ok {
+		logger.Infof("sync key: %s already", syncerKey)
 		return ErrAlreadyWatched
 	}
 
-	value, err := inf.store.Get(storeKey)
-	if err != nil {
-		return err
-	}
-	if value == nil {
-		return ErrNotFound
-	}
-
-	watcher, err := inf.store.Watcher()
+	syncer, err := inf.store.Syncer()
 	if err != nil {
 		return err
 	}
 
-	ch, err := watcher.WatchRaw(storeKey)
+	ch, err := syncer.SyncRaw(storeKey)
 	if err != nil {
 		return err
 	}
 
-	inf.watchers[watcherKey] = watcher
+	inf.syncers[syncerKey] = syncer
 
-	go inf.watch(ch, watcherKey, *value, gjsonPath, fn)
+	go inf.sync(ch, syncerKey, gjsonPath, fn)
 
 	return nil
 }
 
-func (inf *meshInformer) onSpecs(storePrefix, watcherKey string, fn specsHandleFunc) error {
+func (inf *meshInformer) onSpecs(storePrefix, syncerKey string, fn specsHandleFunc) error {
 	inf.mutex.Lock()
 	defer inf.mutex.Unlock()
 
@@ -455,29 +447,24 @@ func (inf *meshInformer) onSpecs(storePrefix, watcherKey string, fn specsHandleF
 		return ErrClosed
 	}
 
-	if _, exists := inf.watchers[watcherKey]; exists {
-		logger.Infof("watch prefix:%s already", watcherKey)
+	if _, exists := inf.syncers[syncerKey]; exists {
+		logger.Infof("sync prefix:%s already", syncerKey)
 		return ErrAlreadyWatched
 	}
 
-	watcher, err := inf.store.Watcher()
+	syncer, err := inf.store.Syncer()
 	if err != nil {
 		return err
 	}
 
-	ch, err := watcher.WatchRawPrefix(storePrefix)
+	ch, err := syncer.SyncPrefix(storePrefix)
 	if err != nil {
 		return err
 	}
 
-	kvs, err := inf.store.GetPrefix(storePrefix)
-	if err != nil {
-		return err
-	}
+	inf.syncers[syncerKey] = syncer
 
-	inf.watchers[watcherKey] = watcher
-
-	go inf.watchPrefix(ch, watcherKey, kvs, fn)
+	go inf.syncPrefix(ch, syncerKey, fn)
 
 	return nil
 }
@@ -486,68 +473,42 @@ func (inf *meshInformer) Close() {
 	inf.mutex.Lock()
 	defer inf.mutex.Unlock()
 
-	for _, watcher := range inf.watchers {
-		watcher.Close()
+	for _, syncer := range inf.syncers {
+		syncer.Close()
 	}
 
 	inf.closed = true
 }
 
-func (inf *meshInformer) watch(ch <-chan *clientv3.Event, watcherKey,
-	oldValue string, path GJSONPath, fn specHandleFunc) {
+func (inf *meshInformer) sync(ch <-chan *mvccpb.KeyValue, syncerKey string, path GJSONPath, fn specHandleFunc) {
+	var oldKV *mvccpb.KeyValue
 
-	for value := range ch {
-		var continueWatch bool
+	for kv := range ch {
+		var (
+			event Event
+			value string
+		)
 
-		if value == nil {
-			continueWatch = fn(Event{
-				EventType: EventDelete,
-			}, "")
-		} else {
-			if !inf.comparePart(path, oldValue, string(value.Kv.Value)) {
-				oldValue = string(value.Kv.Value)
-				continueWatch = fn(Event{
-					EventType: EventUpdate,
-					RawKV:     value.Kv,
-				}, oldValue)
-			}
+		if kv == nil {
+			event.EventType = EventDelete
+		} else if oldKV == nil || !inf.comparePart(path, string(oldKV.Value), string(kv.Value)) {
+			event.EventType = EventUpdate
+			event.RawKV = kv
+			value = string(kv.Value)
 		}
 
-		if !continueWatch {
-			inf.stopWatchOneKey(watcherKey)
+		oldKV = kv
+
+		if !fn(event, value) {
+			inf.stopSyncOneKey(syncerKey)
 		}
 	}
 }
 
-func (inf *meshInformer) watchPrefix(ch <-chan map[string]*clientv3.Event, watcherKey string,
-	kvs map[string]string, fn specsHandleFunc) {
-
-	if !fn(kvs) {
-		inf.stopWatchOneKey(watcherKey)
-	}
-
-	for changedKvs := range ch {
-		for k, v := range changedKvs {
-			var continueWatch bool
-
-			if v == nil {
-				delete(kvs, k)
-				logger.Infof("delete record: %s", k)
-				continueWatch = fn(kvs)
-			} else {
-				if oldValue, ok := kvs[k]; ok {
-					if oldValue == string(v.Kv.Value) {
-						continue
-					}
-				}
-				logger.Infof("update record, update: %s, version: %d", k, v.Kv.Version)
-				kvs[k] = string(v.Kv.Value)
-				continueWatch = fn(kvs)
-			}
-
-			if !continueWatch {
-				inf.stopWatchOneKey(watcherKey)
-			}
+func (inf *meshInformer) syncPrefix(ch <-chan map[string]string, syncerKey string, fn specsHandleFunc) {
+	for kvs := range ch {
+		if !fn(kvs) {
+			inf.stopSyncOneKey(syncerKey)
 		}
 	}
 }
