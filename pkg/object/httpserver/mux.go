@@ -460,3 +460,12 @@ func (m *mux) appendXForwardedFor(ctx context.HTTPContext) {
 		ctx.Request().Header().Set(httpheader.KeyXForwardedFor, v)
 	}
 }
+
+func (m *mux) close() {
+	rules := m.rules.Load().(*muxRules)
+	err := rules.tracer.Close()
+	if err != nil {
+		logger.Errorf("%s close tracer failed: %v",
+			rules.superSpec.Name(), err)
+	}
+}

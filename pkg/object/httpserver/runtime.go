@@ -361,5 +361,6 @@ func (r *runtime) handleEventReload(e *eventReload) {
 
 func (r *runtime) handleEventClose(e *eventClose) {
 	r.closeServer()
+	r.mux.close()
 	close(e.done)
 }
