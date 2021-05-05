@@ -1,17 +1,27 @@
 
-# EaseGateway [![Build Status](https://travis-ci.com/megaease/easegateway.svg?token=bgrenfvQpzZ8JoKbi6uX&branch=master)](https://travis-ci.com/megaease/easegateway) [![codecov](https://codecov.io/gh/megaease/easegateway/branch/master/graph/badge.svg?token=HAR3ZmYoQG)](https://codecov.io/gh/megaease/easegateway)
+
+# EaseGateway
+
+- [EaseGateway](#easegateway)
+  - [What is EaseGateway](#what-is-easegateway)
+  - [Features](#features)
+  - [Get Started](#get-started)
+    - [Setting up EaseGateway](#setting-up-easegateway)
+    - [Create an HTTPServer and Pipeline](#create-an-httpserver-and-pipeline)
+    - [Test](#test)
+    - [More Filters](#more-filters)
+  - [License](#license)
 
 ## What is EaseGateway
 
 `EaseGateway` is an all-rounder gateway system,  which is designed:
 
-- **Built-in Distributed Storage:** It uses [etcd](https://github.com/etcd-io/etcd)  as a built-in storage system without external storage, which guarantees the sync of config, statistics, and all kinds of data.
-- **Traffic Scheduling:** The pipeline and filter mechanism can simply schedule the traffic.
+- **High Availability:** Built-in Raft consensus & leader election makes 99.99% availability.
+- **Traffic Orchestration:** Dynamically orchestrating various filters to a traffic pipeline.
 - **High Performance:** Lightweight and essential features speed up the performance.
 - **Observability:**  There are many meaningful statistics periodically in a readable way.
-- **Easy to Develop:** The simple interfaces make it easy to develop new stuff, the  [EaseMesh](https://github.com/megaease/easemesh) is our real example.
-
-We also prepare more detail in other documentations: [quick start](./doc/quick-start.md) and [reference](./doc/reference.md) and [develop guide](./doc/develop-guide.md).
+- **Extensibility:** It's easy to develop your own filter or controller with high-level programming language.
+- **Integration:** The simple interfaces make it easy to integrate with other systems, such as Kubernetes Ingress, [EaseMesh](https://github.com/megaease/easemesh) sidecar, Workflow, etc.
 
 The architecture of EaseGateway:
 
@@ -75,20 +85,193 @@ The architecture of EaseGateway:
 			- **Status Codes:** HTTP status codes.
 			- **TopN:** sorted by aggregated APIs(only in server dimension).
 
-## Build and Quick Run
+## Get Started
 
-Requirements: Go version >= 1.13.
+The basic common usage of EaseGateway is to quickly set up proxy for the backend servers. We split it into multiple simple steps to illustrate the essential concepts and operations.
 
-```shell
+### Setting up EaseGateway
 
-# Makefile generates binaray `easegateway-server` and `egctl` at `bin/`.
-$ make
-$ ./bin/easegateway-server
-# Check member status
-$ ./bin/egctl member list
+We can download the binary from [release page](https://github.com/megaease/easegateway/releases). For example we use linux version:
+
+```bash
+$ wget https://github.com/megaease/easegateway/releases/download/v1.0.0/easegateway_Linux_x86_64.tar.gz
+$ tar zxvf easegateway_Linux_x86_64.tar.gz -C easegateway && cd easegateway
 ```
 
-Next step you could check out [quick start](./doc/quick-start.md) to give it an easy shot.
+or use source code:
+
+```bash
+$ git clone https://github.com/megaease/easegateway && cd easegateway
+$ make
+```
+
+Then we can add the binary directory to the `PATH` and execute the server:
+
+```bash
+$ export PATH=${PATH}:$(pwd)/bin/
+$ easegateway-server
+2021-05-17T16:45:38.185+08:00	INFO	cluster/config.go:84	etcd config: init-cluster:eg-default-name=http://localhost:2380 cluster-state:new force-new-cluster:false
+2021-05-17T16:45:38.185+08:00	INFO	cluster/cluster.go:379	client is ready
+2021-05-17T16:45:39.189+08:00	INFO	cluster/cluster.go:590	server is ready
+2021-05-17T16:45:39.21+08:00	INFO	cluster/cluster.go:451	lease is ready
+2021-05-17T16:45:39.231+08:00	INFO	cluster/cluster.go:187	cluster is ready
+2021-05-17T16:45:39.253+08:00	INFO	supervisor/supervisor.go:180	create system controller StatusSyncController
+2021-05-17T16:45:39.253+08:00	INFO	cluster/cluster.go:496	session is ready
+2021-05-17T16:45:39.253+08:00	INFO	api/api.go:96	api server running in localhost:2381
+2021-05-17T16:45:44.235+08:00	INFO	cluster/member.go:210	self ID changed from 0 to 689e371e88f78b6a
+2021-05-17T16:45:44.236+08:00	INFO	cluster/member.go:137	store clusterMembers: eg-default-name(689e371e88f78b6a)=http://localhost:2380
+2021-05-17T16:45:44.236+08:00	INFO	cluster/member.go:138	store knownMembers  : eg-default-name(689e371e88f78b6a)=http://localhost:2380
+```
+
+The default target of Makefile is to compile two binary into the directory `bin/`. `bin/easegateway-server` is the server-side binary, `bin/egctl` is the client-side binary. We could add it to the `$PATH` for simplifying the following commands.
+
+We could run `easegateway-server` without specifying any arguments, which launch itself by opening default ports 2379, 2380, 2381. Of course, we can change them in the config file or command arguments that are explained well in `easegateway-server --help`.
+
+```bash
+$ egctl member list
+- options:
+    name: eg-default-name
+    labels: {}
+    cluster-name: eg-cluster-default-name
+    cluster-role: writer
+    cluster-request-timeout: 10s
+    cluster-client-url: http://localhost:2379
+    cluster-peer-url: http://localhost:2380
+    cluster-join-urls: []
+    api-addr: localhost:2381
+    debug: false
+    home-dir: ./
+    data-dir: data
+    wal-dir: ""
+    log-dir: log
+    member-dir: member
+    cpu-profile-file: ""
+    memory-profile-file: ""
+  lastHeartbeatTime: "2021-05-05T15:43:27+08:00"
+  etcd:
+    id: a30c34bf7ec77546
+    startTime: "2021-05-05T15:42:37+08:00"
+    state: Leader
+```
+
+After launched successfully, we could check the status of the one-node cluster. It shows the static options and dynamic status of heartbeat and etcd.
+
+### Create an HTTPServer and Pipeline
+
+Now let's create an HTTPServer listening on port 10080 to handle the HTTP traffic.
+
+```bash
+$ echo '
+kind: HTTPServer
+name: server-demo
+port: 10080
+keepAlive: true
+https: false
+rules:
+  - paths:
+    - pathPrefix: /pipeline
+      backend: pipeline-demo' | egctl object create
+```
+
+The rules of routers above mean that it will lead the traffic with the prefix `/pipeline` to the pipeline `pipeline-demo`, which will be created below. If we `curl` it before created, it will return 503.
+
+```bash
+$ echo '
+name: pipeline-demo
+kind: HTTPPipeline
+flow:
+  - filter: backend
+filters:
+  - name: backend
+    kind: Backend
+    mainPool:
+      servers:
+      - url: http://127.0.0.1:9095
+      - url: http://127.0.0.1:9096
+      - url: http://127.0.0.1:9097
+      loadBalance:
+        policy: roundRobin' | egctl object create
+```
+
+The pipeline means it will do proxy for 3 backend endpoints in load balance policy `roundRobin`.
+
+### Test
+
+Now you can use some HTTP clients such as `curl` to test the feature:
+
+```bash
+$ curl -v http://127.0.0.1:10080/pipeline
+```
+
+If you are not set up some applications to handle the 9095, 9096, and 9097 in the localhost, it will return 503 too. We prepare a simple service to let us test handily, the example shows:
+
+```bash
+$ go run test/backend-service/mirror.go & # Running in background
+$ curl http://127.0.0.1:10080/pipeline -d 'Hello, EaseGateway'
+Your Request
+===============
+Method: POST
+URL   : /pipeline
+Header: map[Accept:[*/*] Accept-Encoding:[gzip] Content-Type:[application/x-www-form-urlencoded] User-Agent:[curl/7.64.1]]
+Body  : Hello, EaseGateway
+```
+
+### More Filters
+
+Now we want to add more features to the pipeline, then we could add kinds of filters to the pipeline. For example, we want validation and request adaptation for the `pipeline-demo`.
+
+![pipeline-demo](./doc/pipeline-demo.png)
+
+```bash
+$ cat pipeline-demo.yaml
+name: pipeline-demo
+kind: HTTPPipeline
+flow:
+  - filter: validator
+    jumpIf: { invalid: END }
+  - filter: requestAdaptor
+  - filter: backend
+filters:
+  - name: validator
+    kind: Validator
+    headers:
+      Content-Type:
+        values:
+        - application/json
+  - name: requestAdaptor
+    kind: RequestAdaptor
+    header:
+      set:
+        X-Adapt-Key: goodplan
+  - name: backend
+    kind: Backend
+    mainPool:
+      servers:
+      - url: http://127.0.0.1:9095
+      - url: http://127.0.0.1:9096
+      - url: http://127.0.0.1:9097
+      loadBalance:
+        policy: roundRobin
+
+$ egctl object update -f pipeline-demo.yaml
+```
+
+After updating the pipeline, the original `curl -v http://127.0.0.1:10080/pipeline ` will get 400 because of the validating. So we changed it to satisfy the limitation:
+
+```bash
+$ curl http://127.0.0.1:10080/pipeline -H 'Content-Type: application/json' -d '{"message": "Hello, EaseGateway"}'
+Your Request
+===============
+Method: POST
+URL   : /pipeline
+Header: map[Accept:[*/*] Accept-Encoding:[gzip] Content-Type:[application/json] User-Agent:[curl/7.64.1] X-Adapt-Key:[goodplan]]
+Body  : {"message": "Hello, EaseGateway"}
+```
+
+We can also see EaseGateway send one more header `X-Adapt-Key: goodplan` to the mirror service.
+
+If you want more information, please check out [reference](./referecen.md) and [developer guide](./doc/developer-guide.md).
+
 
 ## License
 
