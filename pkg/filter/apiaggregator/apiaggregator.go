@@ -53,7 +53,7 @@ type (
 		MergeResponse  bool   `yaml:"mergeResponse"`
 
 		// User describes HTTP service target via an existing HTTPProxy
-		APIProxys []*APIProxy `yaml:"apiproxys" jsonschema:"required"`
+		APIProxies []*APIProxy `yaml:"apiproxies" jsonschema:"required"`
 
 		timeout *time.Duration
 	}
@@ -121,7 +121,7 @@ func (aa *APIAggregator) reload() {
 		}
 	}
 
-	for _, proxy := range aa.spec.APIProxys {
+	for _, proxy := range aa.spec.APIProxies {
 		if proxy.Path != nil {
 			proxy.pa = pathadaptor.New(proxy.Path)
 		}
@@ -151,15 +151,15 @@ func (aa *APIAggregator) handle(ctx context.HTTPContext) (result string) {
 	}
 
 	wg := &sync.WaitGroup{}
-	wg.Add(len(aa.spec.APIProxys))
+	wg.Add(len(aa.spec.APIProxies))
 
-	httpResps := make([]context.HTTPReponse, len(aa.spec.APIProxys))
+	httpResps := make([]context.HTTPReponse, len(aa.spec.APIProxies))
 	// Using supervisor to call HTTPProxy object's Handle function
-	for i, proxy := range aa.spec.APIProxys {
+	for i, proxy := range aa.spec.APIProxies {
 		req, err := aa.newHTTPReq(ctx, proxy, buff)
 
 		if err != nil {
-			logger.Errorf("BUG: new HTTPProxy request failed %v proxyname[%d]", err, aa.spec.APIProxys[i].HTTPProxyName)
+			logger.Errorf("BUG: new HTTPProxy request failed %v proxyname[%d]", err, aa.spec.APIProxies[i].HTTPProxyName)
 			ctx.Response().SetStatusCode(http.StatusBadRequest)
 			return resultFailed
 		}
@@ -206,7 +206,7 @@ func (aa *APIAggregator) handle(ctx context.HTTPContext) (result string) {
 	for i, resp := range httpResps {
 		if resp == nil && !aa.spec.PartialSucceed {
 			ctx.AddTag(fmt.Sprintf("apiAggregator: failed in HTTPProxy %s",
-				aa.spec.APIProxys[i].HTTPProxyName))
+				aa.spec.APIProxies[i].HTTPProxyName))
 			ctx.Response().SetStatusCode(http.StatusServiceUnavailable)
 			return resultFailed
 		}
@@ -214,7 +214,7 @@ func (aa *APIAggregator) handle(ctx context.HTTPContext) (result string) {
 		// call HTTPProxy could be succesfful even with a no exist backend
 		// so resp is not nil, but resp.Body() is nil.
 		if resp != nil && resp.Body() != nil {
-			if res := aa.copyHTTPBody2Map(resp.Body(), ctx, data, aa.spec.APIProxys[i].HTTPProxyName); len(res) != 0 {
+			if res := aa.copyHTTPBody2Map(resp.Body(), ctx, data, aa.spec.APIProxies[i].HTTPProxyName); len(res) != 0 {
 				return res
 			}
 		}
@@ -227,7 +227,7 @@ func (aa *APIAggregator) handle(ctx context.HTTPContext) (result string) {
 func (aa *APIAggregator) newCtx(ctx context.HTTPContext, req *http.Request, buff *bytes.Buffer) (context.HTTPContext, error) {
 	// Construct a new context for the HTTPProxy
 	// responseWriter is an HTTP responseRecorder, no the original context's real
-	// repsonseWriter, or these Proxys will overwriten each others
+	// repsonseWriter, or these Proxies will overwriten each others
 	w := httptest.NewRecorder()
 	var stdctx stdcontext.Context = ctx
 	if aa.spec.timeout != nil {

@@ -10,7 +10,7 @@ flow:
   - filter: responseAdaptor
 
 filters:
-  - apiproxys:
+  - apiproxies:
       - httpproxyname: http-proxy-agg
     kind: APIAggregator
     maxBodyBytes: 10240
@@ -27,7 +27,7 @@ filters:
         valid : "[[filter.aggregatorOne.req.proto]]"
       add: {}
     body: "[[filter.aggregatorOne.rsp.body]]"
-  - apiproxys:
+  - apiproxies:
       - httpproxyname: http-proxy-agg-2
     kind: APIAggregator
     maxBodyBytes: 102400
@@ -44,7 +44,7 @@ filters:
       add:
         adaptor-three: "[[filter.aggregatorTwo.req.method]]"
     body: "[[filter.aggregatorTwo.rsp.body]]"
-  - apiproxys:
+  - apiproxies:
       - httpproxyname: http-proxy-agg-3
     kind: APIAggregator
     maxBodyBytes: 10240
