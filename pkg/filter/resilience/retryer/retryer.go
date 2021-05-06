@@ -127,7 +127,7 @@ func (r *Retryer) initURL(u *URLRule) {
 	}
 
 	if u.policy.RandomizationFactor < 0 || u.policy.RandomizationFactor >= 1 {
-		u.policy.RandomizationFactor = 0.5
+		u.policy.RandomizationFactor = 0
 	}
 
 	if strings.ToUpper(u.policy.BackOffPolicy) == "EXPONENTIAL" {

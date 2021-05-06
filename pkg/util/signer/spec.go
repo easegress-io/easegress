@@ -8,7 +8,7 @@ type Spec struct {
 	HeaderHoisting  *HeaderHoisting   `yaml:"headerHoisting,omitempty" json:"headerHoisting,omitempty" jsonschema:"omitempty"`
 	IgnoredHeaders  []string          `yaml:"ignoredHeaders" json:"ignoredHeaders" jsonschema:"omitempty,uniqueItems=true"`
 	ExcludeBody     bool              `yaml:"excludeBody" json:"excludeBody" jsonschema:"omitempty"`
-	TTL             time.Duration     `yaml:"ttl" json:"ttl" jsonschema:"omitempty"`
+	TTL             string            `yaml:"ttl" json:"ttl" jsonschema:"omitempty,format=duration"`
 	AccessKeyID     string            `yaml:"accessKeyId" json:"accessKeyId" jsonschema:"omitempty"`
 	AccessKeySecret string            `yaml:"accessKeySecret" json:"accessKeySecret" jsonschema:"omitempty"`
 	AccessKeys      map[string]string `yaml:"accessKeys" json:"accessKeys" jsonschema:"omitempty"`
@@ -38,7 +38,10 @@ func CreateFromSpec(spec *Spec) *Signer {
 
 	signer.IgnoreHeader(spec.IgnoredHeaders...)
 	signer.ExcludeBody(spec.ExcludeBody)
-	signer.SetTTL(spec.TTL)
+
+	if ttl, e := time.ParseDuration(spec.TTL); e == nil {
+		signer.SetTTL(ttl)
+	}
 
 	if len(spec.AccessKeys) > 0 {
 		signer.SetAccessKeyStore(idSecretMap(spec.AccessKeys))
