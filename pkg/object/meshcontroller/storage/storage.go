@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"go.etcd.io/etcd/mvcc/mvccpb"
-
 	"github.com/megaease/easegateway/pkg/cluster"
 	"github.com/megaease/easegateway/pkg/logger"
 	"go.etcd.io/etcd/mvcc/mvccpb"
