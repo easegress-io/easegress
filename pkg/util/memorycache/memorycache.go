@@ -146,8 +146,10 @@ func (mc *MemoryCache) Store(ctx context.HTTPContext) {
 		statusCode: w.StatusCode(),
 		header:     w.Header().Copy(),
 	}
+	bodyLength := 0
 	ctx.Response().OnFlushBody(func(body []byte, complete bool) []byte {
-		if len(entry.body)+len(body) > int(mc.spec.MaxEntryBytes) {
+		bodyLength += len(body)
+		if bodyLength > int(mc.spec.MaxEntryBytes) {
 			return body
 		}
 
