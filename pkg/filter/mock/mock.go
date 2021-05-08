@@ -44,10 +44,10 @@ type (
 	Rule struct {
 		Path       string            `yaml:"path,omitempty" jsonschema:"omitempty,pattern=^/"`
 		PathPrefix string            `yaml:"pathPrefix,omitempty" jsonschema:"omitempty,pattern=^/"`
-		Code       int               `yaml:"code" jsonschema:"omitempty,format=httpcode"`
-		Headers    map[string]string `yaml:"headers" jsonschema:"required"`
+		Code       int               `yaml:"code" jsonschema:"required,format=httpcode"`
+		Headers    map[string]string `yaml:"headers" jsonschema:"omitempty"`
 		Body       string            `yaml:"body" jsonschema:"omitempty"`
-		Delay      string            `yaml:"delay" jsonschema:"required,format=duration"`
+		Delay      string            `yaml:"delay" jsonschema:"omitempty,format=duration"`
 
 		delay time.Duration
 	}
@@ -89,6 +89,9 @@ func (m *Mock) Inherit(pipeSpec *httppipeline.FilterSpec,
 
 func (m *Mock) reload() {
 	for _, r := range m.spec.Rules {
+		if r.Delay == "" {
+			continue
+		}
 		var err error
 		r.delay, err = time.ParseDuration(r.Delay)
 		if err != nil {
@@ -115,9 +118,15 @@ func (m *Mock) handle(ctx context.HTTPContext) (result string) {
 		w.SetBody(strings.NewReader(rule.Body))
 		result = resultMocked
 
-		if rule.delay > 0 {
-			logger.Debugf("delay for %v ...", rule.delay)
-			time.Sleep(rule.delay)
+		if rule.delay < 0 {
+			return
+		}
+
+		logger.Debugf("delay for %v ...", rule.delay)
+		select {
+		case <-ctx.Done():
+			logger.Debugf("request cancelled in the middle of delay mocking")
+		case <-time.After(rule.delay):
 		}
 	}
 

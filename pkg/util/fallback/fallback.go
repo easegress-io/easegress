@@ -12,9 +12,9 @@ import (
 type (
 	// Fallback is filter Fallback.
 	Fallback struct {
-		spec      *Spec
-		mockBody  []byte
-		bodyLenth string
+		spec       *Spec
+		mockBody   []byte
+		bodyLength string
 	}
 
 	// Spec describes the Fallback.
@@ -31,7 +31,7 @@ func New(spec *Spec) *Fallback {
 		spec:     spec,
 		mockBody: []byte(spec.MockBody),
 	}
-	f.bodyLenth = strconv.Itoa(len(f.mockBody))
+	f.bodyLength = strconv.Itoa(len(f.mockBody))
 	return f
 }
 
@@ -40,7 +40,7 @@ func (f *Fallback) Fallback(ctx context.HTTPContext) {
 	w := ctx.Response()
 
 	w.SetStatusCode(f.spec.MockCode)
-	w.Header().Set(httpheader.KeyContentLength, f.bodyLenth)
+	w.Header().Set(httpheader.KeyContentLength, f.bodyLength)
 	for key, value := range f.spec.MockHeaders {
 		w.Header().Set(key, value)
 	}
