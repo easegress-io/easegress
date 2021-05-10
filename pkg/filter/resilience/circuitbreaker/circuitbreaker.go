@@ -18,11 +18,11 @@ import (
 const (
 	// Kind is the kind of CircuitBreaker.
 	Kind                 = "CircuitBreaker"
-	resultCircuitBreaker = "circuitBreaker"
+	resultShortCircuited = "shortCircuited"
 )
 
 var (
-	results = []string{resultCircuitBreaker}
+	results = []string{resultShortCircuited}
 )
 
 func init() {
@@ -278,7 +278,7 @@ func (cb *CircuitBreaker) handle(ctx context.HTTPContext, u *URLRule) string {
 		ctx.AddTag("circuitBreaker: circuit is broken")
 		ctx.Response().SetStatusCode(http.StatusServiceUnavailable)
 		ctx.Response().Std().Header().Set("X-EG-Circuit-Breaker", "circurit-is-broken")
-		return ctx.CallNextHandler(resultCircuitBreaker)
+		return ctx.CallNextHandler(resultShortCircuited)
 	}
 
 	start := time.Now()

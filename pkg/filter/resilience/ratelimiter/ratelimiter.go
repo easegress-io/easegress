@@ -17,11 +17,11 @@ import (
 const (
 	// Kind is the kind of RateLimiter.
 	Kind              = "RateLimiter"
-	resultRateLimiter = "rateLimiter"
+	resultRateLimited = "rateLimited"
 )
 
 var (
-	results = []string{resultRateLimiter}
+	results = []string{resultRateLimited}
 )
 
 func init() {
@@ -244,7 +244,7 @@ func (rl *RateLimiter) handle(ctx context.HTTPContext) string {
 			ctx.AddTag("rateLimiter: too many requests")
 			ctx.Response().SetStatusCode(http.StatusTooManyRequests)
 			ctx.Response().Std().Header().Set("X-EG-Rate-Limiter", "too-many-requests")
-			return resultRateLimiter
+			return resultRateLimited
 		}
 
 		if d <= 0 {

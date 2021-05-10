@@ -30,7 +30,6 @@ type (
 	Spec struct {
 		Expiration    string   `yaml:"expiration" jsonschema:"required,format=duration"`
 		MaxEntryBytes uint32   `yaml:"maxEntryBytes" jsonschema:"required,minimum=1"`
-		Size          uint32   `yaml:"size" jsonschema:"required,minimum=1"`
 		Codes         []int    `yaml:"codes" jsonschema:"required,minItems=1,uniqueItems=true,format=httpcode-array"`
 		Methods       []string `yaml:"methods" jsonschema:"required,minItems=1,uniqueItems=true,format=httpmethod-array"`
 	}

@@ -115,7 +115,7 @@ func (ra *RequestAdaptor) handle(ctx context.HTTPContext) string {
 	if len(ra.spec.Body) != 0 {
 		if hte.HasTemplates(ra.spec.Body) {
 			if body, err := hte.Render(ra.spec.Body); err != nil {
-				logger.Errorf("BUG resquest render body faile , template %s , err %v",
+				logger.Errorf("BUG request render body failed, template %s, err %v",
 					ra.spec.Body, err)
 			} else {
 				ctx.Request().SetBody(bytes.NewReader([]byte(body)))

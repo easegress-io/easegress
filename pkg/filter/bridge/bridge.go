@@ -128,9 +128,9 @@ func (b *Bridge) handle(ctx context.HTTPContext) (result string) {
 
 	ro, exists := supervisor.Global.GetRunningObject(dest, supervisor.CategoryPipeline)
 	if !exists {
-		logger.Errorf("failed invok %s", b.spec.Destinations[0])
+		logger.Errorf("failed to get running object %s", b.spec.Destinations[0])
 		ctx.Response().SetStatusCode(http.StatusServiceUnavailable)
-		return resultInvokeDestinationFailed
+		return resultDestinationNotFound
 	}
 
 	handler, ok := ro.Instance().(protocol.HTTPHandler)
