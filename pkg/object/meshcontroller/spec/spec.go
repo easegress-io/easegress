@@ -13,6 +13,7 @@ import (
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
 	"github.com/megaease/easegateway/pkg/supervisor"
 	"github.com/megaease/easegateway/pkg/util/httpfilter"
+	"github.com/megaease/easegateway/pkg/util/urlrule"
 
 	"gopkg.in/yaml.v2"
 )
@@ -100,8 +101,9 @@ type (
 
 	// CanaryRule is one matching rule for canary.
 	CanaryRule struct {
-		ServiceLabels map[string]string `yaml:"serviceLabels" jsonschema:"required"`
-		Filter        *httpfilter.Spec  `yaml:"filter" jsonschema:"required"`
+		ServiceInstanceLabels map[string]string               `yaml:"serviceInstanceLabels" jsonschema:"required"`
+		Headers               map[string]*urlrule.StringMatch `yaml:"headers" jsonschema:"required"`
+		URLs                  []*urlrule.URLRule              `yaml:"urls" jsonschema:"required"`
 	}
 
 	// GlobalCanaryLabels is the spec of global service
@@ -374,7 +376,7 @@ func (b *pipelineSpecBuilder) appendBackendWithCanary(instanceSpecs []*ServiceIn
 		for _, v := range canary.CanaryRules {
 			servers := []*backend.Server{}
 			for _, ins := range canaryInstances {
-				for key, label := range v.ServiceLabels {
+				for key, label := range v.ServiceInstanceLabels {
 					match := false
 					for insKey, insLabel := range ins.Labels {
 						if key == insKey && label == insLabel {
@@ -392,7 +394,10 @@ func (b *pipelineSpecBuilder) appendBackendWithCanary(instanceSpecs []*ServiceIn
 			}
 			if len(servers) != 0 {
 				candidatePool = append(candidatePool, &backend.PoolSpec{
-					Filter:          v.Filter,
+					Filter: &httpfilter.Spec{
+						Headers: v.Headers,
+						URLs:    v.URLs,
+					},
 					ServersTags:     []string{},
 					Servers:         servers,
 					ServiceRegistry: "",
@@ -531,9 +536,9 @@ func (s *Service) UniqueCanaryHeaders() []string {
 		return headers
 	}
 	keys := make(map[string]bool)
-	for _, filter := range s.Canary.CanaryRules {
-		if filter.Filter != nil {
-			for k := range filter.Filter.Headers {
+	for _, canaryRule := range s.Canary.CanaryRules {
+		if canaryRule != nil {
+			for k := range canaryRule.Headers {
 				keys[k] = true
 			}
 		}

@@ -5,12 +5,11 @@ import (
 	"testing"
 
 	"github.com/megaease/easegateway/pkg/filter/backend"
-	"github.com/megaease/easegateway/pkg/filter/resilience"
 	"github.com/megaease/easegateway/pkg/filter/resilience/circuitbreaker"
 	"github.com/megaease/easegateway/pkg/filter/resilience/ratelimiter"
 	"github.com/megaease/easegateway/pkg/filter/resilience/retryer"
 	"github.com/megaease/easegateway/pkg/filter/resilience/timelimiter"
-	"github.com/megaease/easegateway/pkg/util/httpfilter"
+	"github.com/megaease/easegateway/pkg/util/urlrule"
 )
 
 func TestSideCarIngressPipelineSpec(t *testing.T) {
@@ -81,17 +80,27 @@ func TestSideCarEgressPipelineWithCanarySpec(t *testing.T) {
 			EgressPort:      9090,
 			EgressProtocol:  "http",
 		},
+
 		Canary: &Canary{
 			CanaryRules: []*CanaryRule{
 				{
-					Filter: &httpfilter.Spec{
-						Headers: map[string]*httpfilter.ValueFilter{
-							"X-canary": &httpfilter.ValueFilter{
-								Values: []string{"v1"},
+					Headers: map[string]*urlrule.StringMatch{
+						"X-canary": {
+							Exact: "lv1",
+						},
+					},
+					URLs: []*urlrule.URLRule{
+						{
+							Methods: []string{
+								"GET",
+								"POST",
+							},
+							URL: urlrule.StringMatch{
+								Prefix: "/",
 							},
 						},
 					},
-					ServiceLabels: map[string]string{
+					ServiceInstanceLabels: map[string]string{
 						"version": "v1",
 					},
 				},
@@ -135,7 +144,7 @@ func TestSideCarEgressPipelineWithCanarySpec(t *testing.T) {
 
 func TestSideCarEgressPipelineWithMultipleCanarySpec(t *testing.T) {
 	s := &Service{
-		Name: "order-002-canary-array",
+		Name: "order-003-canary-array",
 		LoadBalance: &LoadBalance{
 			Policy: backend.PolicyIPHash,
 		},
@@ -149,26 +158,44 @@ func TestSideCarEgressPipelineWithMultipleCanarySpec(t *testing.T) {
 		Canary: &Canary{
 			CanaryRules: []*CanaryRule{
 				{
-					Filter: &httpfilter.Spec{
-						Headers: map[string]*httpfilter.ValueFilter{
-							"X-canary": &httpfilter.ValueFilter{
-								Values: []string{"v1"},
+					Headers: map[string]*urlrule.StringMatch{
+						"X-canary": {
+							Exact: "lv1",
+						},
+					},
+					URLs: []*urlrule.URLRule{
+						{
+							Methods: []string{
+								"GET",
+								"POST",
+							},
+							URL: urlrule.StringMatch{
+								Prefix: "/",
 							},
 						},
 					},
-					ServiceLabels: map[string]string{
+					ServiceInstanceLabels: map[string]string{
 						"version": "v1",
 					},
 				},
 				{
-					Filter: &httpfilter.Spec{
-						Headers: map[string]*httpfilter.ValueFilter{
-							"X-canary": &httpfilter.ValueFilter{
-								Values: []string{"ams"},
+					Headers: map[string]*urlrule.StringMatch{
+						"X-canary": {
+							Exact: "ams",
+						},
+					},
+					URLs: []*urlrule.URLRule{
+						{
+							Methods: []string{
+								"GET",
+								"POST",
+							},
+							URL: urlrule.StringMatch{
+								Prefix: "/",
 							},
 						},
 					},
-					ServiceLabels: map[string]string{
+					ServiceInstanceLabels: map[string]string{
 						"version": "v2",
 					},
 				},
@@ -212,7 +239,7 @@ func TestSideCarEgressPipelineWithMultipleCanarySpec(t *testing.T) {
 
 func TestSideCarEgressPipelineWithCanaryNoInstanceSpec(t *testing.T) {
 	s := &Service{
-		Name: "order-002-canary-no-instance",
+		Name: "order-004-canary-no-instance",
 		LoadBalance: &LoadBalance{
 			Policy: backend.PolicyIPHash,
 		},
@@ -226,14 +253,23 @@ func TestSideCarEgressPipelineWithCanaryNoInstanceSpec(t *testing.T) {
 		Canary: &Canary{
 			CanaryRules: []*CanaryRule{
 				{
-					Filter: &httpfilter.Spec{
-						Headers: map[string]*httpfilter.ValueFilter{
-							"X-canary": &httpfilter.ValueFilter{
-								Values: []string{"aaa"},
+					Headers: map[string]*urlrule.StringMatch{
+						"X-canary": {
+							Exact: "aaa",
+						},
+					},
+					URLs: []*urlrule.URLRule{
+						{
+							Methods: []string{
+								"GET",
+								"POST",
+							},
+							URL: urlrule.StringMatch{
+								Prefix: "/",
 							},
 						},
 					},
-					ServiceLabels: map[string]string{
+					ServiceInstanceLabels: map[string]string{
 						"version": "v1",
 					},
 				},
@@ -276,7 +312,7 @@ func TestSideCarEgressPipelineWithCanaryNoInstanceSpec(t *testing.T) {
 }
 func TestSideCarEgressPipelineWithCanaryInstanceMultipleLabelSpec(t *testing.T) {
 	s := &Service{
-		Name: "order-002-canary-instance-multiple-label",
+		Name: "order-005-canary-instance-multiple-label",
 		LoadBalance: &LoadBalance{
 			Policy: backend.PolicyIPHash,
 		},
@@ -290,14 +326,23 @@ func TestSideCarEgressPipelineWithCanaryInstanceMultipleLabelSpec(t *testing.T) 
 		Canary: &Canary{
 			CanaryRules: []*CanaryRule{
 				{
-					Filter: &httpfilter.Spec{
-						Headers: map[string]*httpfilter.ValueFilter{
-							"X-canary": &httpfilter.ValueFilter{
-								Values: []string{"aaa"},
+					Headers: map[string]*urlrule.StringMatch{
+						"X-canary": {
+							Exact: "lv1",
+						},
+					},
+					URLs: []*urlrule.URLRule{
+						{
+							Methods: []string{
+								"GET",
+								"POST",
+							},
+							URL: urlrule.StringMatch{
+								Prefix: "/",
 							},
 						},
 					},
-					ServiceLabels: map[string]string{
+					ServiceInstanceLabels: map[string]string{
 						"version": "v1",
 						"app":     "backend",
 					},
@@ -364,9 +409,9 @@ func TestSideCarIngressWithResiliencePipelineSpec(t *testing.T) {
 				}},
 				DefaultPolicyRef: "default",
 				URLs: []*ratelimiter.URLRule{{
-					URLRule: resilience.URLRule{
+					URLRule: urlrule.URLRule{
 						Methods: []string{"GET"},
-						URL: resilience.StringMatch{
+						URL: urlrule.StringMatch{
 							Exact:  "/path1",
 							Prefix: "/path2/",
 							RegEx:  "^/path3/[0-9]+$",
@@ -413,9 +458,9 @@ func TestSideCarEgressResiliencePipelineSpec(t *testing.T) {
 				}},
 				DefaultPolicyRef: "default",
 				URLs: []*circuitbreaker.URLRule{{
-					URLRule: resilience.URLRule{
+					URLRule: urlrule.URLRule{
 						Methods: []string{"GET"},
-						URL: resilience.StringMatch{
+						URL: urlrule.StringMatch{
 							Exact:  "/path1",
 							Prefix: "/path2/",
 							RegEx:  "^/path3/[0-9]+$",
@@ -436,9 +481,9 @@ func TestSideCarEgressResiliencePipelineSpec(t *testing.T) {
 				}},
 				DefaultPolicyRef: "default",
 				URLs: []*retryer.URLRule{{
-					URLRule: resilience.URLRule{
+					URLRule: urlrule.URLRule{
 						Methods: []string{"GET"},
-						URL: resilience.StringMatch{
+						URL: urlrule.StringMatch{
 							Exact:  "/path1",
 							Prefix: "/path2/",
 							RegEx:  "^/path3/[0-9]+$",
@@ -450,9 +495,9 @@ func TestSideCarEgressResiliencePipelineSpec(t *testing.T) {
 			TimeLimiter: &timelimiter.Spec{
 				DefaultTimeoutDuration: "500ms",
 				URLs: []*timelimiter.URLRule{{
-					URLRule: resilience.URLRule{
+					URLRule: urlrule.URLRule{
 						Methods: []string{"GET"},
-						URL: resilience.StringMatch{
+						URL: urlrule.StringMatch{
 							Exact:  "/path1",
 							Prefix: "/path2/",
 							RegEx:  "^/path3/[0-9]+$",

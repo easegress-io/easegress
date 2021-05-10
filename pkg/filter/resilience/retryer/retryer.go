@@ -9,10 +9,10 @@ import (
 	"time"
 
 	"github.com/megaease/easegateway/pkg/context"
-	"github.com/megaease/easegateway/pkg/filter/resilience"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
 	"github.com/megaease/easegateway/pkg/supervisor"
+	"github.com/megaease/easegateway/pkg/util/urlrule"
 )
 
 const (
@@ -44,8 +44,8 @@ type (
 	}
 
 	URLRule struct {
-		resilience.URLRule `yaml:",inline"`
-		policy             *Policy
+		urlrule.URLRule `yaml:",inline"`
+		policy          *Policy
 	}
 
 	Spec struct {

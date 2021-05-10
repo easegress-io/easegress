@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/megaease/easegateway/pkg/context"
-	"github.com/megaease/easegateway/pkg/filter/resilience"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
 	"github.com/megaease/easegateway/pkg/supervisor"
+	"github.com/megaease/easegateway/pkg/util/urlrule"
 )
 
 const (
@@ -29,9 +29,9 @@ func init() {
 
 type (
 	URLRule struct {
-		resilience.URLRule `yaml:",inline"`
-		TimeoutDuration    string `yaml:"timeoutDuration" jsonschema:"omitempty,format=duration"`
-		timeout            time.Duration
+		urlrule.URLRule `yaml:",inline"`
+		TimeoutDuration string `yaml:"timeoutDuration" jsonschema:"omitempty,format=duration"`
+		timeout         time.Duration
 	}
 
 	Spec struct {

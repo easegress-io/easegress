@@ -3,13 +3,12 @@ package httpfilter
 import (
 	"fmt"
 	"math/rand"
-	"regexp"
 	"time"
 
 	"github.com/megaease/easegateway/pkg/context"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/util/hashtool"
-	"github.com/megaease/easegateway/pkg/util/stringtool"
+	"github.com/megaease/easegateway/pkg/util/urlrule"
 )
 
 func init() {
@@ -25,16 +24,9 @@ const (
 type (
 	// Spec describes HTTPFilter.
 	Spec struct {
-		Headers     map[string]*ValueFilter `yaml:"headers" jsonschema:"omitempty"`
-		Probability *Probability            `yaml:"probability,omitempty" jsonschema:"omitempty"`
-	}
-
-	// ValueFilter describes value.
-	ValueFilter struct {
-		// NOTE: It allows empty value.
-		Values []string `yaml:"values" jsonschema:"omitempty,uniqueItems=true"`
-		Regexp string   `yaml:"regexp" jsonschema:"omitempty,format=regexp"`
-		re     *regexp.Regexp
+		Headers     map[string]*urlrule.StringMatch `yaml:"headers" jsonschema:"omitempty"`
+		URLs        []*urlrule.URLRule              `yaml:"urls" jsonschema:"omitempty"`
+		Probability *Probability                    `yaml:"probability,omitempty" jsonschema:"omitempty"`
 	}
 
 	// HTTPFilter filters HTTP traffic.
@@ -72,31 +64,18 @@ func (s Spec) Validate() error {
 	return nil
 }
 
-// Validate validates ValueFilter.
-func (vf ValueFilter) Validate() error {
-	if len(vf.Values) == 0 && vf.Regexp == "" {
-		return fmt.Errorf("neither values nor regexp is specified")
-	}
-
-	return nil
-}
-
 // New creates an HTTPFilter.
 func New(spec *Spec) *HTTPFilter {
 	hf := &HTTPFilter{
 		spec: spec,
 	}
 
-	for _, vf := range spec.Headers {
-		if len(vf.Regexp) != 0 {
-			re, err := regexp.Compile(vf.Regexp)
-			if err != nil {
-				logger.Errorf("BUG: compile regexp %s failed: %v",
-					vf.Regexp, err)
-				continue
-			}
-			vf.re = re
-		}
+	for _, stringMatcher := range spec.Headers {
+		stringMatcher.Init()
+	}
+
+	for _, url := range spec.URLs {
+		url.Init()
 	}
 
 	return hf
@@ -105,7 +84,12 @@ func New(spec *Spec) *HTTPFilter {
 // Filter filters HTTPContext.
 func (hf *HTTPFilter) Filter(ctx context.HTTPContext) bool {
 	if len(hf.spec.Headers) > 0 {
-		return hf.filterHeader(ctx)
+		matchHeader := hf.filterHeader(ctx)
+		if len(hf.spec.URLs) > 0 {
+			return matchHeader && hf.filterURL(ctx)
+		}
+
+		return matchHeader
 	}
 
 	return hf.filterProbability(ctx)
@@ -113,20 +97,35 @@ func (hf *HTTPFilter) Filter(ctx context.HTTPContext) bool {
 
 func (hf *HTTPFilter) filterHeader(ctx context.HTTPContext) bool {
 	h := ctx.Request().Header()
+	headerMatch := false
 	for key, vf := range hf.spec.Headers {
-		values := h.GetAll(key)
-		for _, value := range values {
-			if stringtool.StrInSlice(value, vf.Values) {
-				return true
-			}
-			if vf.re != nil && vf.re.MatchString(value) {
-				return true
-			}
+		if headerMatch {
+			break
 		}
 
+		values := h.GetAll(key)
+
+		for _, value := range values {
+			if vf.Match(value) {
+				headerMatch = true
+				break
+			}
+		}
 	}
 
-	return false
+	return headerMatch
+}
+
+func (hf *HTTPFilter) filterURL(ctx context.HTTPContext) bool {
+	req := ctx.Request()
+	urlMatch := false
+	for _, url := range hf.spec.URLs {
+		if url.Match(req) {
+			urlMatch = true
+			break
+		}
+	}
+	return urlMatch
 }
 
 func (hf *HTTPFilter) filterProbability(ctx context.HTTPContext) bool {

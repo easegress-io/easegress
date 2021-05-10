@@ -1,4 +1,4 @@
-package resilience
+package urlrule
 
 import (
 	"fmt"
@@ -44,6 +44,30 @@ func (sm StringMatch) Validate() error {
 	return fmt.Errorf("at least one pattern must be configured")
 }
 
+// Init intizlize an StringMatch
+func (sm *StringMatch) Init() {
+	if sm.RegEx != "" {
+		sm.re = regexp.MustCompile(sm.RegEx)
+	}
+}
+
+// Match matches a string to the pattern
+func (sm *StringMatch) Match(value string) bool {
+	if sm.Exact != "" && value == sm.Exact {
+		return true
+	}
+
+	if sm.Prefix != "" && strings.HasPrefix(value, sm.Prefix) {
+		return true
+	}
+
+	if sm.re == nil {
+		return false
+	}
+
+	return sm.re.MatchString(value)
+}
+
 // ID returns the ID of the URLRule.
 // ID is the first valid one of Exact, Prefix, RegEx.
 func (r *URLRule) ID() string {
@@ -72,21 +96,7 @@ func (r *URLRule) Match(req context.HTTPRequest) bool {
 		}
 	}
 
-	path := req.Path()
-
-	if r.URL.Exact != "" && path == r.URL.Exact {
-		return true
-	}
-
-	if r.URL.Prefix != "" && strings.HasPrefix(path, r.URL.Prefix) {
-		return true
-	}
-
-	if r.URL.re == nil {
-		return false
-	}
-
-	return r.URL.re.MatchString(path)
+	return r.URL.Match(req.Path())
 }
 
 // DeepEqual returns true if r deep equal with r1 and false otherwise

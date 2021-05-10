@@ -7,11 +7,11 @@ import (
 	"time"
 
 	"github.com/megaease/easegateway/pkg/context"
-	"github.com/megaease/easegateway/pkg/filter/resilience"
 	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/httppipeline"
 	"github.com/megaease/easegateway/pkg/supervisor"
 	librl "github.com/megaease/easegateway/pkg/util/ratelimiter"
+	"github.com/megaease/easegateway/pkg/util/urlrule"
 )
 
 const (
@@ -39,9 +39,9 @@ type (
 
 	// RateLimiterURLRule defines the rate limiter rule for a URL pattern
 	URLRule struct {
-		resilience.URLRule `yaml:",inline"`
-		policy             *Policy
-		rl                 *librl.RateLimiter
+		urlrule.URLRule `yaml:",inline"`
+		policy          *Policy
+		rl              *librl.RateLimiter
 	}
 
 	// Spec is the configuration of a rate limiter
