@@ -53,7 +53,7 @@ type (
 		MergeResponse  bool   `yaml:"mergeResponse"`
 
 		// User describes HTTP service target via an existing HTTPProxy
-		APIProxies []*APIProxy `yaml:"apiproxies" jsonschema:"required"`
+		APIProxies []*APIProxy `yaml:"apiProxies" jsonschema:"required"`
 
 		timeout *time.Duration
 	}
@@ -61,7 +61,7 @@ type (
 	// APIProxy describes the single API in EG's HTTPProxy object.
 	APIProxy struct {
 		// HTTPProxy's name in EG
-		HTTPProxyName string `yaml:"httpproxyname" jsonschema:"required"`
+		HTTPProxyName string `yaml:"httpProxyName" jsonschema:"required"`
 
 		// Describes details about the request-target
 		Method      string                `yaml:"method" jsonschema:"omitempty,format=httpmethod"`

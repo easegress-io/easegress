@@ -10,8 +10,8 @@ flow:
   - filter: responseAdaptor
 
 filters:
-  - apiproxies:
-      - httpproxyname: http-proxy-agg
+  - apiProxies:
+      - httpProxyName: http-proxy-agg
     kind: APIAggregator
     maxBodyBytes: 10240
     mergeResponse: true
@@ -27,8 +27,8 @@ filters:
         valid : "[[filter.aggregatorOne.req.proto]]"
       add: {}
     body: "[[filter.aggregatorOne.rsp.body]]"
-  - apiproxies:
-      - httpproxyname: http-proxy-agg-2
+  - apiProxies:
+      - httpProxyName: http-proxy-agg-2
     kind: APIAggregator
     maxBodyBytes: 102400
     mergeResponse: true
@@ -44,8 +44,8 @@ filters:
       add:
         adaptor-three: "[[filter.aggregatorTwo.req.method]]"
     body: "[[filter.aggregatorTwo.rsp.body]]"
-  - apiproxies:
-      - httpproxyname: http-proxy-agg-3
+  - apiProxies:
+      - httpProxyName: http-proxy-agg-3
     kind: APIAggregator
     maxBodyBytes: 10240
     mergeResponse: true
@@ -59,6 +59,6 @@ filters:
         Key-by-aggreone: "[[filter.aggregatorOne.req.method]]"
       add:
         X-Proxy-Name-Three: "[[filter.aggregatorThree.rsp.body.name]]"
-        Rsp-adaptor: "[[filter.aggregatorTwo.req.method]]"
+        Response-Adaptor: "[[filter.aggregatorTwo.req.method]]"
     body: "{\"name1\": \"[[filter.aggregatorOne.rsp.body.value]]\",\"name2\":\"[[filter.aggregatorTwo.rsp.body.value]]\",\"name3\":\"[[filter.aggregatorThree.rsp.body.reqfromabove]]\",\"req1\":\"[[filter.aggregatorOne.req.body.aa]]\",\"req2\":\"[[filter.aggregatorTwo.req.scheme]]\", \"req3\":\"[[filter.aggregatorThree.req.proto]]\",\"req1host\":\"[[filter.aggregatorOne.req.host]]\", \"req2path\":\"[[filter.aggregatorTwo.req.path]]\"}"
 
