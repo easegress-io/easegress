@@ -1,4 +1,3 @@
-
 # Developer Guide
 
 - [Developer Guide](#developer-guide)
@@ -349,7 +348,7 @@ import (
 
 ### JumpIf Mechanism in Pipeline
 
-As we described in the [getting started](./[quick-start.md]), the pipeline below uses the result of `validator`:
+As we described in the [get started](../README.md#get-started), the pipeline below uses the result of `validator`:
 
 ```yaml
 name: pipeline-demo
