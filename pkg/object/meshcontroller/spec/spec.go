@@ -55,8 +55,8 @@ var (
 	ErrNoRegisteredYet = fmt.Errorf("service not registered yet")
 	// ErrServiceNotFound indicates could find target service in its tenant or in global tenant
 	ErrServiceNotFound = fmt.Errorf("can't find service in its tenant or in global tenant")
-	// ErrServiceNotavailable indicates could find target service's avaiable instances.
-	ErrServiceNotavailable = fmt.Errorf("can't find service avaiable instances")
+	// ErrServiceNotavailable indicates could find target service's available instances.
+	ErrServiceNotavailable = fmt.Errorf("can't find service available instances")
 )
 
 type (
@@ -96,7 +96,7 @@ type (
 
 	// Canary is the spec of service canary.
 	Canary struct {
-		CanaryRules []*CanaryRule `yaml:"canaryRule" jsonschema:"omitempty"`
+		CanaryRules []*CanaryRule `yaml:"canaryRules" jsonschema:"omitempty"`
 	}
 
 	// CanaryRule is one matching rule for canary.
@@ -108,7 +108,7 @@ type (
 
 	// GlobalCanaryLabels is the spec of global service
 	GlobalCanaryHeaders struct {
-		ServiceHeaders map[string][]string `yaml:"serviceHeaders" jsonshcema:"omitempty"`
+		ServiceHeaders map[string][]string `yaml:"serviceHeaders" jsonschema:"omitempty"`
 	}
 
 	// LoadBalance is the spec of service load balance.
@@ -195,7 +195,7 @@ type (
 
 		Services []string `yaml:"services" jsonschema:"omitempty"`
 		// Format: RFC3339
-		CreatedAt   string `yaml:"createdAt"`
+		CreatedAt   string `yaml:"createdAt" jsonschema:"omitempty"`
 		Description string `yaml:"description"`
 	}
 

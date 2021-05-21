@@ -32,12 +32,14 @@ require (
 	github.com/juju/errors v0.0.0-20181118221551-089d3ea4e4d5 // indirect
 	github.com/juju/loggo v0.0.0-20180524022052-584905176618 // indirect
 	github.com/juju/testing v0.0.0-20180920084828-472a3e8b2073 // indirect
+	github.com/k0kubun/colorstring v0.0.0-20150214042306-9440f1994b88 // indirect
 	github.com/kataras/golog v0.0.0-20180321173939-03be10146386 // indirect
 	github.com/kataras/iris v11.1.0+incompatible
 	github.com/kataras/pio v0.0.0-20180511174041-a9733b5b6b83 // indirect
 	github.com/klauspost/compress v1.11.3
 	github.com/lucas-clemente/quic-go v0.19.3
 	github.com/megaease/grace v1.0.0
+	github.com/megaease/easemesh-api v0.0.0-20210521045129-4f510cd8404b 
 	github.com/megaease/jsonschema v0.0.0-20191219141102-f25f9e864ae5
 	github.com/microcosm-cc/bluemonday v1.0.2 // indirect
 	github.com/mitchellh/mapstructure v1.3.3
@@ -67,6 +69,7 @@ require (
 	github.com/yl2chen/cidranger v0.0.0-20180214081945-928b519e5268
 	github.com/yudai/gojsondiff v1.0.0 // indirect
 	github.com/yudai/golcs v0.0.0-20170316035057-ecda9a501e82 // indirect
+	github.com/yudai/pp v2.0.1+incompatible // indirect
 	go.etcd.io/etcd v0.0.0-20201125193152-8a03d2e9614b
 	go.uber.org/zap v1.15.0
 	gopkg.in/mgo.v2 v2.0.0-20180705113604-9856a29383ce // indirect

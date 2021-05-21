@@ -1,13 +1,14 @@
 package master
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 
 	"github.com/kataras/iris"
 	"github.com/megaease/easegateway/pkg/api"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
-	"gopkg.in/yaml.v2"
+	v1alpha1 "github.com/megaease/easemesh-api/v1alpha1"
 )
 
 type (
@@ -20,6 +21,9 @@ type (
 		newPart  newPartFunc
 		partOf   partOfFunc
 		setPart  setPartFunc
+		// for protobuf API
+		pbSt      interface{}
+		newPartPB newPartFunc
 	}
 )
 
@@ -39,6 +43,10 @@ var (
 			}
 			serviceSpec.Canary = part.(*spec.Canary)
 		},
+		pbSt: v1alpha1.Canary{},
+		newPartPB: func() interface{} {
+			return &v1alpha1.Canary{}
+		},
 	}
 
 	resilienceMeta = &partMeta{
@@ -54,6 +62,10 @@ var (
 				serviceSpec.Resilience = nil
 			}
 			serviceSpec.Resilience = part.(*spec.Resilience)
+		},
+		pbSt: v1alpha1.Resilience{},
+		newPartPB: func() interface{} {
+			return &v1alpha1.Resilience{}
 		},
 	}
 
@@ -71,6 +83,10 @@ var (
 				return
 			}
 			serviceSpec.LoadBalance = part.(*spec.LoadBalance)
+		},
+		pbSt: v1alpha1.LoadBalance{},
+		newPartPB: func() interface{} {
+			return &v1alpha1.LoadBalance{}
 		},
 	}
 
@@ -95,6 +111,10 @@ var (
 			}
 			serviceSpec.Observability.OutputServer = part.(*spec.ObservabilityOutputServer)
 		},
+		pbSt: v1alpha1.ObservabilityOutputServer{},
+		newPartPB: func() interface{} {
+			return &v1alpha1.ObservabilityOutputServer{}
+		},
 	}
 
 	tracingsMeta = &partMeta{
@@ -118,6 +138,10 @@ var (
 			}
 			serviceSpec.Observability.Tracings = part.(*spec.ObservabilityTracings)
 		},
+		pbSt: v1alpha1.ObservabilityTracings{},
+		newPartPB: func() interface{} {
+			return &v1alpha1.ObservabilityTracings{}
+		},
 	}
 
 	metricsMeta = &partMeta{
@@ -140,6 +164,10 @@ var (
 				return
 			}
 			serviceSpec.Observability.Metrics = part.(*spec.ObservabilityMetrics)
+		},
+		pbSt: v1alpha1.ObservabilityMetrics{},
+		newPartPB: func() interface{} {
+			return &v1alpha1.ObservabilityMetrics{}
 		},
 	}
 )
@@ -167,11 +195,18 @@ func (m *Master) getPartOfService(meta *partMeta) iris.Handler {
 			return
 		}
 
-		buff, err := yaml.Marshal(part)
+		partPB := meta.newPartPB()
+		err = m.convertSpecToPB(part, partPB)
 		if err != nil {
 			panic(err)
 		}
-		ctx.Header("Content-Type", "text/vnd.yaml")
+
+		buff, err := json.Marshal(part)
+		if err != nil {
+			panic(err)
+		}
+
+		ctx.Header("Content-Type", "application/json")
 		ctx.Write(buff)
 	}
 }
@@ -185,7 +220,9 @@ func (m *Master) createPartOfService(meta *partMeta) iris.Handler {
 		}
 
 		part := meta.newPart()
-		err = m.readSpec(ctx, part)
+		partPB := meta.newPartPB()
+
+		err = m.readAPISpec(ctx, partPB, part)
 		if err != nil {
 			api.HandleAPIError(ctx, http.StatusBadRequest, err)
 			return
@@ -226,7 +263,9 @@ func (m *Master) updatePartOfService(meta *partMeta) iris.Handler {
 		}
 
 		part := meta.newPart()
-		err = m.readSpec(ctx, part)
+		partPB := meta.newPartPB()
+
+		err = m.readAPISpec(ctx, partPB, part)
 		if err != nil {
 			api.HandleAPIError(ctx, http.StatusBadRequest, err)
 			return

@@ -1,15 +1,16 @@
 package master
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"sort"
 
 	"github.com/kataras/iris"
 	"github.com/megaease/easegateway/pkg/api"
+	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
-
-	"gopkg.in/yaml.v2"
+	v1alpha1 "github.com/megaease/easemesh-api/v1alpha1"
 )
 
 type ingressesByOrder []*spec.Ingress
@@ -31,17 +32,27 @@ func (m *Master) listIngresses(ctx iris.Context) {
 	specs := m.service.ListIngressSpecs()
 
 	sort.Sort(ingressesByOrder(specs))
-
-	buff, err := yaml.Marshal(specs)
+	var apiSpecs []*v1alpha1.Ingress
+	for _, v := range specs {
+		ingress := &v1alpha1.Ingress{}
+		err := m.convertSpecToPB(v, ingress)
+		if err != nil {
+			logger.Errorf("convert spec %#v to pb spec failed: %v", v, err)
+			continue
+		}
+		apiSpecs = append(apiSpecs, ingress)
+	}
+	buff, err := json.Marshal(apiSpecs)
 	if err != nil {
-		panic(fmt.Errorf("marshal %#v to yaml failed: %v", specs, err))
+		panic(fmt.Errorf("marshal %#v to json failed: %v", specs, err))
 	}
 
-	ctx.Header("Content-Type", "text/vnd.yaml")
+	ctx.Header("Content-Type", "application/json")
 	ctx.Write(buff)
 }
 
 func (m *Master) createIngress(ctx iris.Context) {
+	pbIngressSpec := &v1alpha1.Ingress{}
 	ingressSpec := &spec.Ingress{}
 
 	ingressName, err := m.readIngressName(ctx)
@@ -49,7 +60,7 @@ func (m *Master) createIngress(ctx iris.Context) {
 		api.HandleAPIError(ctx, http.StatusBadRequest, err)
 		return
 	}
-	err = m.readSpec(ctx, ingressSpec)
+	err = m.readAPISpec(ctx, pbIngressSpec, ingressSpec)
 	if err != nil {
 		api.HandleAPIError(ctx, http.StatusBadRequest, err)
 		return
@@ -87,17 +98,23 @@ func (m *Master) getIngress(ctx iris.Context) {
 		api.HandleAPIError(ctx, http.StatusNotFound, fmt.Errorf("%s not found", ingressName))
 		return
 	}
-
-	buff, err := yaml.Marshal(ingressSpec)
+	pbIngressSpec := &v1alpha1.Ingress{}
+	err = m.convertSpecToPB(ingressSpec, pbIngressSpec)
 	if err != nil {
-		panic(fmt.Errorf("marshal %#v to yaml failed: %v", ingressSpec, err))
+		panic(fmt.Errorf("convert spec %#v to pb failed: %v", ingressSpec, err))
 	}
 
-	ctx.Header("Content-Type", "text/vnd.yaml")
+	buff, err := json.Marshal(pbIngressSpec)
+	if err != nil {
+		panic(fmt.Errorf("marshal %#v to json failed: %v", pbIngressSpec, err))
+	}
+
+	ctx.Header("Content-Type", "application/json")
 	ctx.Write(buff)
 }
 
 func (m *Master) updateIngress(ctx iris.Context) {
+	pbIngressSpec := &v1alpha1.Ingress{}
 	ingressSpec := &spec.Ingress{}
 
 	ingressName, err := m.readIngressName(ctx)
@@ -105,7 +122,7 @@ func (m *Master) updateIngress(ctx iris.Context) {
 		api.HandleAPIError(ctx, http.StatusBadRequest, err)
 		return
 	}
-	err = m.readSpec(ctx, ingressSpec)
+	err = m.readAPISpec(ctx, pbIngressSpec, ingressSpec)
 	if err != nil {
 		api.HandleAPIError(ctx, http.StatusBadRequest, err)
 		return

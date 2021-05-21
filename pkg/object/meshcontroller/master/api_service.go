@@ -1,6 +1,7 @@
 package master
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -8,10 +9,10 @@ import (
 
 	"github.com/kataras/iris"
 	"github.com/megaease/easegateway/pkg/api"
+	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
 	"github.com/megaease/easegateway/pkg/util/stringtool"
-
-	"gopkg.in/yaml.v2"
+	v1alpha1 "github.com/megaease/easemesh-api/v1alpha1"
 )
 
 type servicesByOrder []*spec.Service
@@ -34,16 +35,28 @@ func (m *Master) listServices(ctx iris.Context) {
 
 	sort.Sort(servicesByOrder(specs))
 
-	buff, err := yaml.Marshal(specs)
-	if err != nil {
-		panic(fmt.Errorf("marshal %#v to yaml failed: %v", specs, err))
+	var apiSpecs []*v1alpha1.Service
+	for _, v := range specs {
+		service := &v1alpha1.Service{}
+		err := m.convertSpecToPB(v, service)
+		if err != nil {
+			logger.Errorf("convert spec %#v to pb spec failed: %v", v, err)
+			continue
+		}
+		apiSpecs = append(apiSpecs, service)
 	}
 
-	ctx.Header("Content-Type", "text/vnd.yaml")
+	buff, err := json.Marshal(apiSpecs)
+	if err != nil {
+		panic(fmt.Errorf("marshal %#v to json failed: %v", specs, err))
+	}
+
+	ctx.Header("Content-Type", "application/json")
 	ctx.Write(buff)
 }
 
 func (m *Master) createService(ctx iris.Context) {
+	pbServiceSpec := &v1alpha1.Service{}
 	serviceSpec := &spec.Service{}
 
 	serviceName, err := m.readServiceName(ctx)
@@ -51,7 +64,7 @@ func (m *Master) createService(ctx iris.Context) {
 		api.HandleAPIError(ctx, http.StatusBadRequest, err)
 		return
 	}
-	err = m.readSpec(ctx, serviceSpec)
+	err = m.readAPISpec(ctx, pbServiceSpec, serviceSpec)
 	if err != nil {
 		api.HandleAPIError(ctx, http.StatusBadRequest, err)
 		return
@@ -100,16 +113,23 @@ func (m *Master) getService(ctx iris.Context) {
 		return
 	}
 
-	buff, err := yaml.Marshal(serviceSpec)
+	pbServiceSpec := &v1alpha1.Service{}
+	err = m.convertSpecToPB(serviceSpec, pbServiceSpec)
 	if err != nil {
-		panic(fmt.Errorf("marshal %#v to yaml failed: %v", serviceSpec, err))
+		panic(fmt.Errorf("convert spec %#v to pb failed: %v", serviceSpec, err))
 	}
 
-	ctx.Header("Content-Type", "text/vnd.yaml")
+	buff, err := json.Marshal(pbServiceSpec)
+	if err != nil {
+		panic(fmt.Errorf("marshal %#v to json failed: %v", serviceSpec, err))
+	}
+
+	ctx.Header("Content-Type", "application/json")
 	ctx.Write(buff)
 }
 
 func (m *Master) updateService(ctx iris.Context) {
+	pbServiceSpec := &v1alpha1.Service{}
 	serviceSpec := &spec.Service{}
 
 	serviceName, err := m.readServiceName(ctx)
@@ -117,7 +137,7 @@ func (m *Master) updateService(ctx iris.Context) {
 		api.HandleAPIError(ctx, http.StatusBadRequest, err)
 		return
 	}
-	err = m.readSpec(ctx, serviceSpec)
+	err = m.readAPISpec(ctx, pbServiceSpec, serviceSpec)
 	if err != nil {
 		api.HandleAPIError(ctx, http.StatusBadRequest, err)
 		return

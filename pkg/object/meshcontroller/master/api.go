@@ -1,12 +1,14 @@
 package master
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 
 	"github.com/megaease/easegateway/pkg/api"
 	"github.com/megaease/easegateway/pkg/v"
 
+	yamljsontool "github.com/ghodss/yaml"
 	"github.com/kataras/iris"
 	"gopkg.in/yaml.v2"
 )
@@ -130,6 +132,63 @@ func (m *Master) readSpec(ctx iris.Context, spec interface{}) error {
 	}
 
 	vr := v.Validate(spec, body)
+	if !vr.Valid() {
+		return fmt.Errorf("validate failed: \n%s", vr)
+	}
+
+	return nil
+}
+
+func (m *Master) convertSpecToPB(spec interface{}, pbSpec interface{}) error {
+	buf, err := json.Marshal(spec)
+	if err != nil {
+		return fmt.Errorf("marshal %#v to json failed: %v", spec, err)
+	}
+
+	err = json.Unmarshal(buf, pbSpec)
+	if err != nil {
+		return fmt.Errorf("unmarshal from json: %s failed: %v", string(buf), err)
+	}
+
+	return nil
+}
+
+func (m *Master) convertPBToSpec(pbSpec interface{}, spec interface{}) error {
+	buf, err := json.Marshal(pbSpec)
+	if err != nil {
+		return fmt.Errorf("marshal %#v to json: %v", pbSpec, err)
+	}
+
+	err = json.Unmarshal(buf, spec)
+	if err != nil {
+		return fmt.Errorf("unmarshal %#v to spec: %v", spec, err)
+	}
+
+	return nil
+}
+
+func (m *Master) readAPISpec(ctx iris.Context, pbSpec interface{}, spec interface{}) error {
+	body, err := ioutil.ReadAll(ctx.Request().Body)
+	if err != nil {
+		return fmt.Errorf("read body failed: %v", err)
+	}
+
+	err = json.Unmarshal(body, pbSpec)
+	if err != nil {
+		return fmt.Errorf("unmarshal %s to pb spec %#v failed: %v", string(body), pbSpec, err)
+	}
+
+	err = m.convertPBToSpec(pbSpec, spec)
+	if err != nil {
+		return err
+	}
+
+	yamlBuff, err := yamljsontool.JSONToYAML(body)
+	if err != nil {
+		return err
+	}
+
+	vr := v.Validate(spec, yamlBuff)
 	if !vr.Valid() {
 		return fmt.Errorf("validate failed: \n%s", vr)
 	}

@@ -1,15 +1,17 @@
 package master
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"sort"
+	"time"
 
 	"github.com/kataras/iris"
 	"github.com/megaease/easegateway/pkg/api"
+	"github.com/megaease/easegateway/pkg/logger"
 	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
-
-	"gopkg.in/yaml.v2"
+	v1alpha1 "github.com/megaease/easemesh-api/v1alpha1"
 )
 
 type tenantsByOrder []*spec.Tenant
@@ -32,16 +34,28 @@ func (m *Master) listTenants(ctx iris.Context) {
 
 	sort.Sort(tenantsByOrder(specs))
 
-	buff, err := yaml.Marshal(specs)
-	if err != nil {
-		panic(fmt.Errorf("marshal %#v to yaml failed: %v", specs, err))
+	var apiSpecs []*v1alpha1.Tenant
+	for _, v := range specs {
+		tenant := &v1alpha1.Tenant{}
+		err := m.convertSpecToPB(v, &tenant)
+		if err != nil {
+			logger.Errorf("convert spec %#v to pb spec failed: %v", v, err)
+			continue
+		}
+		apiSpecs = append(apiSpecs, tenant)
 	}
 
-	ctx.Header("Content-Type", "text/vnd.yaml")
+	buff, err := json.Marshal(apiSpecs)
+	if err != nil {
+		panic(fmt.Errorf("marshal %#v to json failed: %v", specs, err))
+	}
+
+	ctx.Header("Content-Type", "application/json")
 	ctx.Write(buff)
 }
 
 func (m *Master) createTenant(ctx iris.Context) {
+	pbTenantSpec := &v1alpha1.Tenant{}
 	tenantSpec := &spec.Tenant{}
 
 	tenantName, err := m.readTenantName(ctx)
@@ -49,7 +63,7 @@ func (m *Master) createTenant(ctx iris.Context) {
 		api.HandleAPIError(ctx, http.StatusBadRequest, err)
 		return
 	}
-	err = m.readSpec(ctx, tenantSpec)
+	err = m.readAPISpec(ctx, pbTenantSpec, tenantSpec)
 	if err != nil {
 		api.HandleAPIError(ctx, http.StatusBadRequest, err)
 		return
@@ -65,6 +79,7 @@ func (m *Master) createTenant(ctx iris.Context) {
 			fmt.Errorf("services are not empty"))
 		return
 	}
+	tenantSpec.CreatedAt = time.Now().Format(time.RFC3339)
 
 	m.service.Lock()
 	defer m.service.Unlock()
@@ -94,16 +109,23 @@ func (m *Master) getTenant(ctx iris.Context) {
 		return
 	}
 
-	buff, err := yaml.Marshal(tenantSpec)
+	pbTenantSpec := &v1alpha1.Tenant{}
+	err = m.convertSpecToPB(tenantSpec, pbTenantSpec)
 	if err != nil {
-		panic(fmt.Errorf("marshal %#v to yaml failed: %v", tenantSpec, err))
+		panic(fmt.Errorf("convert spec %#v to pb failed: %v", tenantSpec, err))
 	}
 
-	ctx.Header("Content-Type", "text/vnd.yaml")
+	buff, err := json.Marshal(pbTenantSpec)
+	if err != nil {
+		panic(fmt.Errorf("marshal %#v to json failed: %v", pbTenantSpec, err))
+	}
+
+	ctx.Header("Content-Type", "application/json")
 	ctx.Write(buff)
 }
 
 func (m *Master) updateTenant(ctx iris.Context) {
+	pbTenantSpec := &v1alpha1.Tenant{}
 	tenantSpec := &spec.Tenant{}
 
 	tenantName, err := m.readTenantName(ctx)
@@ -111,7 +133,7 @@ func (m *Master) updateTenant(ctx iris.Context) {
 		api.HandleAPIError(ctx, http.StatusBadRequest, err)
 		return
 	}
-	err = m.readSpec(ctx, tenantSpec)
+	err = m.readAPISpec(ctx, pbTenantSpec, tenantSpec)
 	if err != nil {
 		api.HandleAPIError(ctx, http.StatusBadRequest, err)
 		return
@@ -125,12 +147,6 @@ func (m *Master) updateTenant(ctx iris.Context) {
 	if len(tenantSpec.Services) > 0 {
 		api.HandleAPIError(ctx, http.StatusBadRequest,
 			fmt.Errorf("services are not empty"))
-		return
-	}
-
-	if tenantSpec.CreatedAt == "" {
-		api.HandleAPIError(ctx, http.StatusBadRequest,
-			fmt.Errorf("createdAt are not empty"))
 		return
 	}
 
