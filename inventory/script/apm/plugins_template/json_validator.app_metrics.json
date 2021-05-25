@@ -1,9 +1,0 @@
-{
-  "type": "JSONValidator",
-  "config": {
-    "plugin_name": "json_validator.app_metrics",
-    "schema": "BASE64_JSON_SCHEMA_APP_METRICS",
-    "base64_encoded": true,
-    "data_key": "DATA"
-  }
-}

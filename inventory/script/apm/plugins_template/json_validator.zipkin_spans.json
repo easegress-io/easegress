@@ -1,9 +1,0 @@
-{
-  "type": "JSONValidator",
-  "config": {
-    "plugin_name": "json_validator.zipkin_spans",
-    "schema": "BASE64_JSON_SCHEMA_ZIPKIN_SPANS",
-    "base64_encoded": true,
-    "data_key": "DATA"
-  }
-}

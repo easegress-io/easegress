@@ -1,8 +1,0 @@
-{
-  "type": "EaseMonitorGraphiteGidExtractor",
-  "config": {
-    "plugin_name": "easemonitor_graphite_gid_extractor.metrics",
-    "gid_key": "GID",
-    "data_key": "DATA"
-  }
-}

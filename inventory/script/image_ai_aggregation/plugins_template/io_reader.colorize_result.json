@@ -1,8 +1,0 @@
-{
-  "type": "IOReader",
-  "config": {
-    "plugin_name": "image.io_reader.colorize",
-    "input_key": "COL_RESULT_IO",
-    "output_key": "COL_RESULT"
-  }
-}
