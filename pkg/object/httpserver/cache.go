@@ -18,8 +18,8 @@
 package httpserver
 
 import (
-	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/util/ipfilter"
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/util/ipfilter"
 
 	lru "github.com/hashicorp/golang-lru"
 )

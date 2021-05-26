@@ -22,8 +22,8 @@ import (
 	"reflect"
 	"sort"
 
-	"github.com/megaease/easegateway/pkg/object/httppipeline"
-	"github.com/megaease/easegateway/pkg/v"
+	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/v"
 
 	"github.com/kataras/iris"
 	yaml "gopkg.in/yaml.v2"

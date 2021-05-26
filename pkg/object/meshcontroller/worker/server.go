@@ -26,7 +26,7 @@ import (
 	"runtime/debug"
 	"sync"
 
-	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegress/pkg/logger"
 
 	"github.com/kataras/iris"
 	iriscontext "github.com/kataras/iris/context"

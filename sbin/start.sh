@@ -4,7 +4,7 @@ APPDIR=`dirname $0`
 pushd $APPDIR > /dev/null
 APPDIR=`pwd`
 
-server=$APPDIR/bin/easegateway-server
+server=$APPDIR/bin/easegress-server
 stdfile=$APPDIR/log/std.log
 cfgfile=$APPDIR/conf/config.yaml
 

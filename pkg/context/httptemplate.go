@@ -24,8 +24,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/util/texttemplate"
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/util/texttemplate"
 )
 
 const (
@@ -48,7 +48,7 @@ const (
 )
 
 type (
-	// HTTPTemplate is the wrapper of template engine for EaseGateway
+	// HTTPTemplate is the wrapper of template engine for Easegress
 	HTTPTemplate struct {
 		Engine        texttemplate.TemplateEngine
 		metaTemplates []string

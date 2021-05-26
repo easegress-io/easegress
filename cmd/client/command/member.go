@@ -28,7 +28,7 @@ import (
 func MemberCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "member",
-		Short: "View EaseGateway members",
+		Short: "View Easegress members",
 	}
 
 	cmd.AddCommand(listMemberCmd())
@@ -39,7 +39,7 @@ func MemberCmd() *cobra.Command {
 func listMemberCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "List EaseGateway members",
+		Short: "List Easegress members",
 		Run: func(cmd *cobra.Command, args []string) {
 			handleRequest(http.MethodGet, makeURL(membersURL), nil, cmd)
 		},
@@ -51,8 +51,8 @@ func listMemberCmd() *cobra.Command {
 func purgeMemberCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "purge <member name>",
-		Short:   "Purge a EaseGateway member",
-		Long:    "Purge a EaseGateway member. This command should be run after the easegateway node uninstalled",
+		Short:   "Purge a Easegress member",
+		Long:    "Purge a Easegress member. This command should be run after the easegress node uninstalled",
 		Example: "egctl member purge <member name>",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 {

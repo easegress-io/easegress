@@ -24,8 +24,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/megaease/easegateway/pkg/context"
-	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/logger"
 
 	httpstat "github.com/tcnksm/go-httpstat"
 )

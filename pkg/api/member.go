@@ -22,7 +22,7 @@ import (
 	"sort"
 
 	"github.com/kataras/iris"
-	"github.com/megaease/easegateway/pkg/cluster"
+	"github.com/megaease/easegress/pkg/cluster"
 	yaml "gopkg.in/yaml.v2"
 )
 

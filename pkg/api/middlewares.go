@@ -23,8 +23,8 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/megaease/easegateway/pkg/common"
-	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegress/pkg/common"
+	"github.com/megaease/easegress/pkg/logger"
 
 	"github.com/kataras/iris/context"
 )

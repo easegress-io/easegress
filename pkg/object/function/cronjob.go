@@ -24,8 +24,8 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/util/codecounter"
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/util/codecounter"
 	cron "github.com/robfig/cron/v3"
 )
 

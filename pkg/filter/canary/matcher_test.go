@@ -23,8 +23,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/option"
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/option"
 )
 
 const tempDir = "/tmp/eg-test"

@@ -7,6 +7,6 @@ fi
 if [ "$1" = "sh" ] ; then
   exec "$@"
 else
-  exec /opt/easegateway/bin/egctl "$@"
+  exec /opt/easegress/bin/egctl "$@"
 fi
 

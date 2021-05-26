@@ -1,4 +1,4 @@
-# EaseGateway
+# Easegress
 
 Port Layout:
 
@@ -10,7 +10,7 @@ Port Layout:
 | reader-004 |          -          |         -         |   42381  |
 | reader-005 |          -          |         -         |   52381  |
 
-## Start EaseGateway Server
+## Start Easegress Server
 
 ```shell
 ./start.sh
@@ -20,7 +20,7 @@ Please notice only one server will listen the port 10080 successfully
 becasue the members are running on the same machine.
 But it's fine for the following test.
 
-## Operation On EaseGateway
+## Operation On Easegress
 
 ```shell
  ./create.sh
@@ -52,13 +52,13 @@ Action monitor and Benchmarsh scripts:
 - `hey_proxy`     benchmarks backend proxy.
 - `hey_remote`    benchmarks backend remote.
 
-## Stop EaseGateway Server
+## Stop Easegress Server
 
 ```shell
  ./stop.sh
 ```
 
-## Stop and Clean EaseGateway Server
+## Stop and Clean Easegress Server
 
 ```shell
  ./clean.sh

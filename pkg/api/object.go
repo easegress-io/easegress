@@ -22,7 +22,7 @@ import (
 	"io/ioutil"
 	"sort"
 
-	"github.com/megaease/easegateway/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/supervisor"
 
 	"github.com/kataras/iris"
 	yaml "gopkg.in/yaml.v2"

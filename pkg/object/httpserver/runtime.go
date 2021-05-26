@@ -24,11 +24,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/megaease/easegateway/pkg/graceupdate"
-	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/supervisor"
-	"github.com/megaease/easegateway/pkg/util/httpstat"
-	"github.com/megaease/easegateway/pkg/util/topn"
+	"github.com/megaease/easegress/pkg/graceupdate"
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/util/httpstat"
+	"github.com/megaease/easegress/pkg/util/topn"
 
 	"github.com/lucas-clemente/quic-go/http3"
 )

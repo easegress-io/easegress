@@ -18,13 +18,13 @@
 package meshcontroller
 
 import (
-	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/ingresscontroller"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/label"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/master"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/worker"
-	"github.com/megaease/easegateway/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/ingresscontroller"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/label"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/master"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/worker"
+	"github.com/megaease/easegress/pkg/supervisor"
 )
 
 const (

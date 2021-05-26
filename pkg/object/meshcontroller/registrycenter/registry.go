@@ -27,9 +27,9 @@ import (
 	"time"
 
 	"github.com/kataras/iris"
-	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/service"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/service"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
 
 	"github.com/ArthurHlt/go-eureka-client/eureka"
 	consul "github.com/hashicorp/consul/api"

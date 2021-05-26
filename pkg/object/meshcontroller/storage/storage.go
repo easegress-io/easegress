@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/megaease/easegateway/pkg/cluster"
-	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegress/pkg/cluster"
+	"github.com/megaease/easegress/pkg/logger"
 	"go.etcd.io/etcd/mvcc/mvccpb"
 )
 

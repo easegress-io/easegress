@@ -28,6 +28,6 @@ var (
 	COMMIT = "UNKNOWN"
 
 	API   = "v2"
-	Short = fmt.Sprintf("EaseGateway %s", RELEASE)
-	Long  = fmt.Sprintf("EaseGateway release: %s, repo: %s, commit: %s", RELEASE, REPO, COMMIT)
+	Short = fmt.Sprintf("Easegress %s", RELEASE)
+	Long  = fmt.Sprintf("Easegress release: %s, repo: %s, commit: %s", RELEASE, REPO, COMMIT)
 )

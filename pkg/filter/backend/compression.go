@@ -24,9 +24,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/megaease/easegateway/pkg/context"
-	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/util/httpheader"
+	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/util/httpheader"
 
 	"github.com/klauspost/compress/gzip"
 )
@@ -103,7 +103,7 @@ func (c *compression) alreadyGziped(ctx context.HTTPContext) bool {
 func (c *compression) acceptGzip(ctx context.HTTPContext) bool {
 	acceptEncodings := ctx.Request().Header().GetAll(httpheader.KeyAcceptEncoding)
 
-	// NOTE: EaseGateway does not support parsing qvalue for performace.
+	// NOTE: Easegress does not support parsing qvalue for performace.
 	// Reference: https://tools.ietf.org/html/rfc2616#section-14.3
 	if len(acceptEncodings) > 0 {
 		for _, ae := range acceptEncodings {

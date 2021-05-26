@@ -22,8 +22,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/megaease/easegateway/pkg/context"
-	"github.com/megaease/easegateway/pkg/util/stringtool"
+	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
 type (

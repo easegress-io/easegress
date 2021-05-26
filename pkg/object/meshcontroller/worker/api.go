@@ -20,7 +20,7 @@ package worker
 import (
 	"github.com/kataras/iris"
 
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
 )
 
 const (

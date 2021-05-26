@@ -25,9 +25,9 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/megaease/easegateway/pkg/env"
-	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/option"
+	"github.com/megaease/easegress/pkg/env"
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/option"
 
 	"github.com/phayes/freeport"
 	pb "go.etcd.io/etcd/etcdserver/etcdserverpb"

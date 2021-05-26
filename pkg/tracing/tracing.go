@@ -20,7 +20,7 @@ package tracing
 import (
 	"io"
 
-	"github.com/megaease/easegateway/pkg/tracing/zipkin"
+	"github.com/megaease/easegress/pkg/tracing/zipkin"
 
 	opentracing "github.com/opentracing/opentracing-go"
 )

@@ -22,15 +22,15 @@ import (
 	"runtime/debug"
 	"sync"
 
-	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/object/httppipeline"
-	"github.com/megaease/easegateway/pkg/object/httpserver"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/informer"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/service"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/storage"
-	"github.com/megaease/easegateway/pkg/protocol"
-	"github.com/megaease/easegateway/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/object/httpserver"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/informer"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/service"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/storage"
+	"github.com/megaease/easegress/pkg/protocol"
+	"github.com/megaease/easegress/pkg/supervisor"
 )
 
 type (

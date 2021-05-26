@@ -25,9 +25,9 @@ import (
 	"time"
 
 	"github.com/kataras/iris"
-	"github.com/megaease/easegateway/pkg/api"
-	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
+	"github.com/megaease/easegress/pkg/api"
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
 	v1alpha1 "github.com/megaease/easemesh-api/v1alpha1"
 )
 

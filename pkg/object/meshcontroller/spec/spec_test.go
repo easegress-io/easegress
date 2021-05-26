@@ -21,12 +21,12 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/megaease/easegateway/pkg/filter/backend"
-	"github.com/megaease/easegateway/pkg/filter/resilience/circuitbreaker"
-	"github.com/megaease/easegateway/pkg/filter/resilience/ratelimiter"
-	"github.com/megaease/easegateway/pkg/filter/resilience/retryer"
-	"github.com/megaease/easegateway/pkg/filter/resilience/timelimiter"
-	"github.com/megaease/easegateway/pkg/util/urlrule"
+	"github.com/megaease/easegress/pkg/filter/backend"
+	"github.com/megaease/easegress/pkg/filter/resilience/circuitbreaker"
+	"github.com/megaease/easegress/pkg/filter/resilience/ratelimiter"
+	"github.com/megaease/easegress/pkg/filter/resilience/retryer"
+	"github.com/megaease/easegress/pkg/filter/resilience/timelimiter"
+	"github.com/megaease/easegress/pkg/util/urlrule"
 )
 
 func TestSideCarIngressPipelineSpec(t *testing.T) {

@@ -27,13 +27,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/tracing"
-	"github.com/megaease/easegateway/pkg/util/httpheader"
-	"github.com/megaease/easegateway/pkg/util/httpstat"
-	"github.com/megaease/easegateway/pkg/util/stringtool"
-	"github.com/megaease/easegateway/pkg/util/texttemplate"
-	"github.com/megaease/easegateway/pkg/util/timetool"
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/tracing"
+	"github.com/megaease/easegress/pkg/util/httpheader"
+	"github.com/megaease/easegress/pkg/util/httpstat"
+	"github.com/megaease/easegress/pkg/util/stringtool"
+	"github.com/megaease/easegress/pkg/util/texttemplate"
+	"github.com/megaease/easegress/pkg/util/timetool"
 	"github.com/opentracing/opentracing-go"
 )
 

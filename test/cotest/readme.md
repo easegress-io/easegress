@@ -16,7 +16,7 @@ co_host=(
 eg.
 ```
 co_command=(
-"PID=\`cat ~/easegateway/easegateway.pid\`;kill -USR2 \$PID"
+"PID=\`cat ~/easegress/easegress.pid\`;kill -USR2 \$PID"
 )
 ```
 # 3.Set sleep interval
@@ -25,5 +25,5 @@ co_command=(
 # 4.Test scenarios
 - Send USR2 signal to event graceful update
 ```
-  PID=\`cat ~/easegateway/easegateway.pid\`;kill -USR2 \$PID
+  PID=\`cat ~/easegress/easegress.pid\`;kill -USR2 \$PID
 ```

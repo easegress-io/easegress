@@ -21,18 +21,18 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/megaease/easegateway/pkg/api"
-	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/layout"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/service"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/storage"
-	"github.com/megaease/easegateway/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/api"
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/layout"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/service"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/storage"
+	"github.com/megaease/easegress/pkg/supervisor"
 	"gopkg.in/yaml.v2"
 )
 
 type (
-	// Master is the master role of EaseGateway for mesh control plane.
+	// Master is the master role of Easegress for mesh control plane.
 	Master struct {
 		super               *supervisor.Supervisor
 		superSpec           *supervisor.Spec

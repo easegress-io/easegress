@@ -17,7 +17,7 @@
 
 package command
 
-type EaseGatewayConfig struct {
+type EasegressConfig struct {
 	Name              string `yaml:"name" jsonschema:"required"`
 	ClusterName       string `yaml:"cluster-name" jsonschema:"required"`
 	ClusterRole       string `yaml:"cluster-role" jsonschema:"required"`
@@ -49,7 +49,7 @@ type MeshOperatorConfig struct {
 	ProbeAddr            string `yaml:"health-probe-bind-address" jsonschema:"required"`
 }
 
-type EaseGatewayReaderParams struct {
+type EasegressReaderParams struct {
 	ClusterJoinUrls       string            `yaml:"cluster-join-urls" jsonschema:"required"`
 	ClusterRequestTimeout string            `yaml:"cluster-request-timeout" jsonschema:"required"`
 	ClusterRole           string            `yaml:"cluster-role" jsonschema:"required"`

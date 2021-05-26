@@ -8,7 +8,7 @@ co_host=(
 "ubuntu@192.168.50.105"
 )
 co_command=(
-"PID=\`cat ~/easegateway/easegateway.pid\`;kill -USR2 \$PID"
+"PID=\`cat ~/easegress/easegress.pid\`;kill -USR2 \$PID"
 )
 minintv=60
 randintv=600

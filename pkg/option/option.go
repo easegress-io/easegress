@@ -26,8 +26,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/megaease/easegateway/pkg/common"
-	"github.com/megaease/easegateway/pkg/version"
+	"github.com/megaease/easegress/pkg/common"
+	"github.com/megaease/easegress/pkg/version"
 	"github.com/mitchellh/mapstructure"
 
 	"github.com/spf13/pflag"
@@ -92,7 +92,7 @@ func New() *Options {
 	opt.flags.StringVarP(&opt.ConfigFile, "config-file", "f", "", "Load server configuration from a file(yaml format), other command line flags will be ignored if specified.")
 	opt.flags.BoolVar(&opt.ForceNewCluster, "force-new-cluster", false, "Force to create a new one-member cluster.")
 	opt.flags.StringVar(&opt.Name, "name", "eg-default-name", "Human-readable name for this member.")
-	opt.flags.StringToStringVar(&opt.Labels, "labels", nil, "The labels for the instance of EaseGateway.")
+	opt.flags.StringToStringVar(&opt.Labels, "labels", nil, "The labels for the instance of Easegress.")
 	opt.flags.StringVar(&opt.ClusterName, "cluster-name", "eg-cluster-default-name", "Human-readable name for the new cluster, ignored while joining an existed cluster.")
 	opt.flags.StringVar(&opt.ClusterRole, "cluster-role", "writer", "Cluster role for this member (reader, writer).")
 	opt.flags.StringVar(&opt.ClusterRequestTimeout, "cluster-request-timeout", "10s", "Timeout to handle request in the cluster.")

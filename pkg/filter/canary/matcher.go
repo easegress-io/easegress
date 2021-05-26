@@ -27,8 +27,8 @@ import (
 
 	jwtgo "github.com/dgrijalva/jwt-go"
 
-	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/util/hashtool"
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/util/hashtool"
 )
 
 // data source.

@@ -21,7 +21,7 @@ else
 fi
 
 co_command=(
-"PID=\`cat ${DEPLOYDIR}/easegateway.pid\`;kill -USR2 \$PID"
+"PID=\`cat ${DEPLOYDIR}/easegress.pid\`;kill -USR2 \$PID"
 )
 minintv=10
 randintv=20

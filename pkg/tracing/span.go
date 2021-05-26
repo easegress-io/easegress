@@ -20,7 +20,7 @@ package tracing
 import (
 	"time"
 
-	"github.com/megaease/easegateway/pkg/tracing/base"
+	"github.com/megaease/easegress/pkg/tracing/base"
 
 	opentracing "github.com/opentracing/opentracing-go"
 )

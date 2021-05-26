@@ -1,4 +1,4 @@
-module github.com/megaease/easegateway
+module github.com/megaease/easegress
 
 require (
 	github.com/ArthurHlt/go-eureka-client v1.1.0

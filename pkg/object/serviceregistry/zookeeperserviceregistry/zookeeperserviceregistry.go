@@ -23,9 +23,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/object/serviceregistry"
-	"github.com/megaease/easegateway/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/object/serviceregistry"
+	"github.com/megaease/easegress/pkg/supervisor"
 
 	zookeeper "github.com/go-zookeeper/zk"
 )

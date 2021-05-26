@@ -23,8 +23,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/megaease/easegateway/pkg/context"
-	"github.com/megaease/easegateway/pkg/tracing"
+	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/tracing"
 )
 
 func TestURLRULEMatch(t *testing.T) {

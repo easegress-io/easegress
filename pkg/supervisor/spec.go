@@ -20,7 +20,7 @@ package supervisor
 import (
 	"fmt"
 
-	"github.com/megaease/easegateway/pkg/v"
+	"github.com/megaease/easegress/pkg/v"
 
 	yaml "gopkg.in/yaml.v2"
 )

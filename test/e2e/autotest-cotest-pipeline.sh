@@ -21,7 +21,7 @@ else
 fi
 
 co_command=(
-"PID=\`cat ${DEPLOYDIR}/easegateway.pid\`;kill -USR2 \$PID"
+"PID=\`cat ${DEPLOYDIR}/easegress.pid\`;kill -USR2 \$PID"
 "${HEY} -c 100 -n 100000 -H 'Content-Type: application/json' -H 'X-Filter: candidate' TESTHOST:10080/pipeline"
 "${HEY} -c 100 -n 100000 -H 'Content-Type: application/json' -H 'X-Filter: candidate' TESTHOST:10080/proxy"
 "${HEY} -c 100 -n 100000 TESTHOST:10080/remote"

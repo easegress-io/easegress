@@ -23,10 +23,10 @@ import (
 	"runtime/debug"
 	"sync"
 
-	"github.com/megaease/easegateway/pkg/cluster"
-	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/option"
-	"github.com/megaease/easegateway/pkg/storage"
+	"github.com/megaease/easegress/pkg/cluster"
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/option"
+	"github.com/megaease/easegress/pkg/storage"
 )
 
 // Global is the global supervisor.

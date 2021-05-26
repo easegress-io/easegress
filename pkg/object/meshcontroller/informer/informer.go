@@ -26,11 +26,11 @@ import (
 	"go.etcd.io/etcd/mvcc/mvccpb"
 	"gopkg.in/yaml.v2"
 
-	"github.com/megaease/easegateway/pkg/cluster"
-	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/layout"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/storage"
+	"github.com/megaease/easegress/pkg/cluster"
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/layout"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/storage"
 )
 
 const (

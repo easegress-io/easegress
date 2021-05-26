@@ -21,7 +21,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegress/pkg/logger"
 )
 
 type (

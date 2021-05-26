@@ -24,20 +24,20 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/megaease/easegateway/pkg/api"
-	"github.com/megaease/easegateway/pkg/cluster"
-	"github.com/megaease/easegateway/pkg/common"
-	"github.com/megaease/easegateway/pkg/env"
-	"github.com/megaease/easegateway/pkg/graceupdate"
-	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/option"
-	"github.com/megaease/easegateway/pkg/pidfile"
-	"github.com/megaease/easegateway/pkg/profile"
-	"github.com/megaease/easegateway/pkg/supervisor"
-	"github.com/megaease/easegateway/pkg/version"
+	"github.com/megaease/easegress/pkg/api"
+	"github.com/megaease/easegress/pkg/cluster"
+	"github.com/megaease/easegress/pkg/common"
+	"github.com/megaease/easegress/pkg/env"
+	"github.com/megaease/easegress/pkg/graceupdate"
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/option"
+	"github.com/megaease/easegress/pkg/pidfile"
+	"github.com/megaease/easegress/pkg/profile"
+	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/version"
 
 	// For register stuff.
-	_ "github.com/megaease/easegateway/pkg/registry"
+	_ "github.com/megaease/easegress/pkg/registry"
 )
 
 func main() {
@@ -107,10 +107,10 @@ func main() {
 	sig := <-sigChan
 	go func() {
 		sig := <-sigChan
-		logger.Infof("%s signal received, closing easegateway immediately", sig)
+		logger.Infof("%s signal received, closing easegress immediately", sig)
 		os.Exit(255)
 	}()
-	logger.Infof("%s signal received, closing easegateway", sig)
+	logger.Infof("%s signal received, closing easegress", sig)
 
 	wg := &sync.WaitGroup{}
 	wg.Add(4)

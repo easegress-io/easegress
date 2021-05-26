@@ -22,7 +22,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/grace/gracenet"
 )
 
@@ -59,7 +59,7 @@ func NotifySigUsr2(closeCls func(), restartCls func()) {
 	go func() {
 		sig := <-sigUsr2
 		closeCls()
-		logger.Infof("%s signal received, graceful update easegateway", sig)
+		logger.Infof("%s signal received, graceful update easegress", sig)
 		if pid, err := Global.StartProcess(); err != nil {
 			logger.Errorf("graceful update failed: %v", err)
 			restartCls()

@@ -20,11 +20,11 @@ package bridge
 import (
 	"net/http"
 
-	"github.com/megaease/easegateway/pkg/context"
-	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/object/httppipeline"
-	"github.com/megaease/easegateway/pkg/protocol"
-	"github.com/megaease/easegateway/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/protocol"
+	"github.com/megaease/easegress/pkg/supervisor"
 )
 
 const (
@@ -36,15 +36,15 @@ const (
 
 A Bridge Filter route requests to from one pipeline to other pipelines or http proxies under a http server.
 
-1. The upstream filter set the target pipeline/proxy to the http header,  'X-Easegateway-Bridge-Dest'.
-2. Bridge will extract the value from 'X-Easegateway-Bridge-Dest' and try to match in the configuration.
+1. The upstream filter set the target pipeline/proxy to the http header,  'X-Easegress-Bridge-Dest'.
+2. Bridge will extract the value from 'X-Easegress-Bridge-Dest' and try to match in the configuration.
    It will send the request if a dest matched. abort the process if no match.
-3. Bridge will select the first dest from the filter configuration if there's no header named 'X-Easegateway-Bridge-Dest'`
+3. Bridge will select the first dest from the filter configuration if there's no header named 'X-Easegress-Bridge-Dest'`
 
 	resultDestinationNotFound     = "destinationNotFound"
 	resultInvokeDestinationFailed = "invokeDestinationFailed"
 
-	bridgeDestHeader = "X-Easegateway-Bridge-Dest"
+	bridgeDestHeader = "X-Easegress-Bridge-Dest"
 )
 
 var (

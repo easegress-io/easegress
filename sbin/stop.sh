@@ -4,7 +4,7 @@ APPDIR=`dirname $0`
 pushd $APPDIR > /dev/null
 APPDIR=`pwd`
 
-server=$APPDIR/bin/easegateway-server
+server=$APPDIR/bin/easegress-server
 cfgfile=$APPDIR/conf/config.yaml
 
 pid=`ps -eo pid,args | grep "$server" | grep -v grep | awk '{print $1}'`

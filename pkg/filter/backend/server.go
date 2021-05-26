@@ -24,11 +24,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/megaease/easegateway/pkg/context"
-	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/object/serviceregistry"
-	"github.com/megaease/easegateway/pkg/util/hashtool"
-	"github.com/megaease/easegateway/pkg/util/stringtool"
+	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/object/serviceregistry"
+	"github.com/megaease/easegress/pkg/util/hashtool"
+	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
 func init() {

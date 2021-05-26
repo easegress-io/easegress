@@ -22,8 +22,8 @@ import (
 	"net/url"
 	"path/filepath"
 
-	"github.com/megaease/easegateway/pkg/common"
-	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegress/pkg/common"
+	"github.com/megaease/easegress/pkg/logger"
 
 	"go.etcd.io/etcd/embed"
 )
@@ -42,7 +42,7 @@ const (
 )
 
 var (
-	// https://github.com/megaease/easegateway/issues/393
+	// https://github.com/megaease/easegress/issues/393
 	autoCompactionRetention = "10"
 	autoCompactionMode      = embed.CompactorModeRevision
 )

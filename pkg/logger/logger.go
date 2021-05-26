@@ -22,9 +22,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/megaease/easegateway/pkg/common"
-	"github.com/megaease/easegateway/pkg/option"
-	"github.com/megaease/easegateway/pkg/util/timetool"
+	"github.com/megaease/easegress/pkg/common"
+	"github.com/megaease/easegress/pkg/option"
+	"github.com/megaease/easegress/pkg/util/timetool"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -55,9 +55,9 @@ const (
 )
 
 var (
-	defaultLogger          *zap.SugaredLogger // equal stderrLogger + gatewayLogger
+	defaultLogger          *zap.SugaredLogger // equal stderrLogger + gressLogger
 	stderrLogger           *zap.SugaredLogger
-	gatewayLogger          *zap.SugaredLogger
+	gressLogger            *zap.SugaredLogger
 	httpFilterAccessLogger *zap.Logger
 	httpFilterDumpLogger   *zap.Logger
 	restAPILogger          *zap.Logger
@@ -122,7 +122,7 @@ func initDefault(opt *option.Options) {
 
 	gatewaySyncer := zapcore.AddSync(lf)
 	gatewayCore := zapcore.NewCore(zapcore.NewConsoleEncoder(encoderConfig), gatewaySyncer, lowestLevel)
-	gatewayLogger = zap.New(gatewayCore, opts...).Sugar()
+	gressLogger = zap.New(gatewayCore, opts...).Sugar()
 
 	defaultCore := zapcore.NewTee(gatewayCore, stderrCore)
 	defaultLogger = zap.New(defaultCore, opts...).Sugar()

@@ -22,8 +22,8 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/megaease/easegateway/pkg/api"
-	"github.com/megaease/easegateway/pkg/v"
+	"github.com/megaease/easegress/pkg/api"
+	"github.com/megaease/easegress/pkg/v"
 
 	yamljsontool "github.com/ghodss/yaml"
 	"github.com/kataras/iris"

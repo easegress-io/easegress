@@ -12,7 +12,7 @@
 
 ## What is Easegress
 
-`Easegress` (formerly know as `EaseGateway`)is an all-rounder gateway system,  which is designed:
+`Easegress` (formerly known as `EaseGateway`)is an all-rounder gateway system,  which is designed:
 
 - **High Availability:** Built-in Raft consensus & leader election makes 99.99% availability.
 - **Traffic Orchestration:** Dynamically orchestrating various filters to a traffic pipeline.

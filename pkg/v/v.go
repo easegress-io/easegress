@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/megaease/easegateway/pkg/util/jsontool"
+	"github.com/megaease/easegress/pkg/util/jsontool"
 
 	yamljsontool "github.com/ghodss/yaml"
 	genjs "github.com/megaease/jsonschema"

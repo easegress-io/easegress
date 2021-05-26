@@ -21,7 +21,7 @@ import (
 	"net"
 	"sync"
 
-	sem2 "github.com/megaease/easegateway/pkg/util/sem"
+	sem2 "github.com/megaease/easegress/pkg/util/sem"
 )
 
 // NewLimitListener returns a Listener that accepts at most n simultaneous

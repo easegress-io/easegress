@@ -18,8 +18,8 @@
 package env
 
 import (
-	"github.com/megaease/easegateway/pkg/common"
-	"github.com/megaease/easegateway/pkg/option"
+	"github.com/megaease/easegress/pkg/common"
+	"github.com/megaease/easegress/pkg/option"
 )
 
 // InitServerDir initializes subdirs server needs.

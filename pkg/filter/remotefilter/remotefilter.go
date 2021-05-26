@@ -28,11 +28,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/megaease/easegateway/pkg/context"
-	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/object/httppipeline"
-	"github.com/megaease/easegateway/pkg/supervisor"
-	"github.com/megaease/easegateway/pkg/util/stringtool"
+	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
 const (

@@ -20,7 +20,7 @@ function err() {
 
 # ================================================================================
 
-log "Build easegateway server image.."
+log "Build easegress server image.."
 
 cd ${SCRIPTPATH}/..
 make build_server_alpine

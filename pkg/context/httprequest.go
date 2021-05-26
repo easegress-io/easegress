@@ -21,9 +21,9 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/megaease/easegateway/pkg/util/callbackreader"
-	"github.com/megaease/easegateway/pkg/util/httpheader"
-	"github.com/megaease/easegateway/pkg/util/stringtool"
+	"github.com/megaease/easegress/pkg/util/callbackreader"
+	"github.com/megaease/easegress/pkg/util/httpheader"
+	"github.com/megaease/easegress/pkg/util/stringtool"
 	"github.com/tomasen/realip"
 )
 

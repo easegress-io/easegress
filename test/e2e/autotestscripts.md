@@ -1,10 +1,10 @@
-1. To run autoexec*.sh need `deploy.env` and `autotest.env`, this file pull from easegateway-configuration repository by jenkins.If Manual run testscripts without those two env file, you need create its.
+1. To run autoexec*.sh need `deploy.env` and `autotest.env`, this file pull from easegress-configuration repository by jenkins.If Manual run testscripts without those two env file, you need create its.
 2. `deploy.env` : It's configuation deploy host and directory, and health status check api.
     ```
     DEPLOY_ENV=km
     DEPLOY_ENV=km
     if [ "$BUILDDIR" = "" ];then
-        BUILDDIR=${HOME}/backdemo/easegateway
+        BUILDDIR=${HOME}/backdemo/easegress
     fi
     if [ "$PRODLABDIR" = "" ];then
         PRODLABDIR=${HOME}/backdemo/prodlab/bin
@@ -20,7 +20,7 @@
     "ubuntu@192.168.50.105"
     )
     # set node1 info, for member list check
-    EG1_SERVER=${DEPLOYDIR}/easegateway-server
+    EG1_SERVER=${DEPLOYDIR}/easegress-server
     EG1_EGCTL=${DEPLOYDIR}/egctl
     EG1_CONFIG=${DEPLOYDIR}/eg-01.yaml
     EG1_API=192.168.50.101:12381
@@ -28,7 +28,7 @@
 3. `autotest.env`: It's configuation run autotest host and directory, and some params.
     ```
     AUTOTEST_ENV=km
-    TESTDIR=/home/ubuntu/backdemo/easegateway/test
+    TESTDIR=/home/ubuntu/backdemo/easegress/test
     BACKENDDIR=${TESTDIR}/backend-service
     CONFIGDIR=${TESTDIR}/config
     TESTHOST=(
@@ -57,7 +57,7 @@
     - autotest:pipeline
       - run `autotest-pipeline.sh` test a simple httppipeline work 
     - autotest:graceupdate
-      - run `autotest-graceupdate.sh` test will random send usr2 singal to easegateway node trigger grace update 
+      - run `autotest-graceupdate.sh` test will random send usr2 singal to easegress node trigger grace update 
     - autotest:ratelimit
       - run `autotest-ratelimit.sh` test will change some tpslimit to test ratelimiter feature
     - autotest:urlratelimit

@@ -69,7 +69,7 @@
              stage('Push') {
                 steps {
                     script {
-                        def cmd="""source \${HOME}/.profile; docker tag megaeasegateway/easegateway:server-3.0.0_alpine ${IMAGE_NAME}; docker push ${IMAGE_NAME}"""
+                        def cmd="""source \${HOME}/.profile; docker tag megaeasegress/easegress:server-3.0.0_alpine ${IMAGE_NAME}; docker push ${IMAGE_NAME}"""
                         sshPublisher failOnError: true, publishers: [sshPublisherDesc(configName: "${SSH_NAME}", transfers: [sshTransfer(cleanRemote: false, excludes: '', execCommand: "${cmd}", execTimeout: 600000, flatten: false, makeEmptyDirs: false, noDefaultExcludes: false, patternSeparator: '[, ]+', remoteDirectory: '${HOME}', remoteDirectorySDF: false, removePrefix: '', sourceFiles: '')], usePromotionTimestamp: false, useWorkspaceInPromotion: false, verbose: false)]
                     }
                 }

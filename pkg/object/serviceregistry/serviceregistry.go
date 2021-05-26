@@ -22,7 +22,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegress/pkg/logger"
 )
 
 var (

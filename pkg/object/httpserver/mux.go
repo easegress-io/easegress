@@ -25,15 +25,15 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/megaease/easegateway/pkg/context"
-	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/supervisor"
-	"github.com/megaease/easegateway/pkg/tracing"
-	"github.com/megaease/easegateway/pkg/util/httpheader"
-	"github.com/megaease/easegateway/pkg/util/httpstat"
-	"github.com/megaease/easegateway/pkg/util/ipfilter"
-	"github.com/megaease/easegateway/pkg/util/stringtool"
-	"github.com/megaease/easegateway/pkg/util/topn"
+	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/tracing"
+	"github.com/megaease/easegress/pkg/util/httpheader"
+	"github.com/megaease/easegress/pkg/util/httpstat"
+	"github.com/megaease/easegress/pkg/util/ipfilter"
+	"github.com/megaease/easegress/pkg/util/stringtool"
+	"github.com/megaease/easegress/pkg/util/topn"
 )
 
 type (

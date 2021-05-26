@@ -24,9 +24,9 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/util/httpheader"
-	"github.com/megaease/easegateway/pkg/util/stringtool"
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/util/httpheader"
+	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
 var (
@@ -128,7 +128,7 @@ func (w *httpResponse) flushBody() {
 
 		switch err {
 		case nil:
-			// Switch to chunked mode (EaseGateway defined).
+			// Switch to chunked mode (Easegress defined).
 			// Reference: https://gist.github.com/CMCDragonkai/6bfade6431e9ffb7fe88
 			// NOTE: Golang server will adjust it according to the content length.
 			// if !chunkedMode {

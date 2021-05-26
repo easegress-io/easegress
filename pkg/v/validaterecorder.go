@@ -24,7 +24,7 @@ import (
 	"runtime/debug"
 	"strings"
 
-	"github.com/megaease/easegateway/pkg/logger"
+	"github.com/megaease/easegress/pkg/logger"
 
 	loadjs "github.com/xeipuuv/gojsonschema"
 	yaml "gopkg.in/yaml.v2"

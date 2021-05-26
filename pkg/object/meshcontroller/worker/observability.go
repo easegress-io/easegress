@@ -20,8 +20,8 @@ package worker
 import (
 	"fmt"
 
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
-	"github.com/megaease/easegateway/pkg/util/jmxtool"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
+	"github.com/megaease/easegress/pkg/util/jmxtool"
 )
 
 const (

@@ -27,8 +27,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/option"
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/option"
 
 	pb "go.etcd.io/etcd/etcdserver/etcdserverpb"
 	yaml "gopkg.in/yaml.v2"

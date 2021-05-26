@@ -23,8 +23,8 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/megaease/easegateway/pkg/tracing"
-	"github.com/megaease/easegateway/pkg/util/ipfilter"
+	"github.com/megaease/easegress/pkg/tracing"
+	"github.com/megaease/easegress/pkg/util/ipfilter"
 )
 
 type (

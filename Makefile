@@ -21,7 +21,7 @@ endif
 
 # Docker Related
 DOCKER=docker
-DOCKER_REPO_INFO?=megaeasegateway/easegateway
+DOCKER_REPO_INFO?=megaease/easegress
 
 # Source Files
 ALL_FILES = $(shell find ${MKFILE_DIR}{cmd,pkg} -type f -name "*.go")
@@ -29,7 +29,7 @@ CLIENT_FILES = $(shell find ${MKFILE_DIR}{cmd/client,pkg} -type f -name "*.go")
 SERVER_FILES = $(shell find ${MKFILE_DIR}{cmd/server,pkg} -type f -name "*.go")
 
 # Targets
-TARGET_SERVER=${MKFILE_DIR}bin/easegateway-server
+TARGET_SERVER=${MKFILE_DIR}bin/easegress-server
 TARGET_CLIENT=${MKFILE_DIR}bin/egctl
 TARGET=${TARGET_SERVER} ${TARGET_CLIENT}
 
@@ -43,22 +43,22 @@ build_server: ${TARGET_SERVER}
 build_client_alpine: ${TARGET_CLIENT}
 	@echo "build client docker image (from alpine)"
 	rm -rf ${MKFILE_DIR}rootfs/alpine/opt && \
-	mkdir -p ${MKFILE_DIR}rootfs/alpine/opt/easegateway/bin && \
-	cp ${TARGET_CLIENT} ${MKFILE_DIR}rootfs/alpine/opt/easegateway/bin && \
+	mkdir -p ${MKFILE_DIR}rootfs/alpine/opt/easegress/bin && \
+	cp ${TARGET_CLIENT} ${MKFILE_DIR}rootfs/alpine/opt/easegress/bin && \
 	cd ${MKFILE_DIR}rootfs/alpine && $(DOCKER) build -t ${DOCKER_REPO_INFO}:client-${RELEASE}_alpine -f ./Dockerfile.client .
 
 build_server_alpine: ${TARGET_SERVER}
 	@echo "build server docker image (from alpine)"
 	rm -rf ${MKFILE_DIR}rootfs/alpine/opt && \
-	mkdir -p ${MKFILE_DIR}rootfs/alpine/opt/easegateway/bin && \
-	cp ${TARGET_SERVER} ${MKFILE_DIR}rootfs/alpine/opt/easegateway/bin && \
+	mkdir -p ${MKFILE_DIR}rootfs/alpine/opt/easegress/bin && \
+	cp ${TARGET_SERVER} ${MKFILE_DIR}rootfs/alpine/opt/easegress/bin && \
 	cd ${MKFILE_DIR}rootfs/alpine && $(DOCKER) build -t ${DOCKER_REPO_INFO}:server-${RELEASE}_alpine -f ./Dockerfile.server .
 
 build_server_ubuntu: ${TARGET_SERVER}
 	@echo "build server docker image (from ubuntu)"
 	rm -rf ${MKFILE_DIR}rootfs/ubuntu/opt && \
-	mkdir -p ${MKFILE_DIR}rootfs/ubuntu/opt/easegateway/bin && \
-	cp ${TARGET_SERVER} ${MKFILE_DIR}rootfs/ubuntu/opt/easegateway/bin && \
+	mkdir -p ${MKFILE_DIR}rootfs/ubuntu/opt/easegress/bin && \
+	cp ${TARGET_SERVER} ${MKFILE_DIR}rootfs/ubuntu/opt/easegress/bin && \
 	cd ${MKFILE_DIR}rootfs/ubuntu && $(DOCKER) build -t ${DOCKER_REPO_INFO}:server-${RELEASE}_ubuntu -f ./Dockerfile.server .
 
 test:
@@ -86,7 +86,7 @@ mod_update:
 	cd ${MKFILE_DIR} && go get -u
 
 
-GO_LD_FLAGS= "-s -w -X github.com/megaease/easegateway/pkg/version.RELEASE=${RELEASE} -X github.com/megaease/easegateway/pkg/version.COMMIT=${GIT_COMMIT} -X github.com/megaease/easegateway/pkg/version.REPO=${GIT_REPO_INFO}"
+GO_LD_FLAGS= "-s -w -X github.com/megaease/easegress/pkg/version.RELEASE=${RELEASE} -X github.com/megaease/easegress/pkg/version.COMMIT=${GIT_COMMIT} -X github.com/megaease/easegress/pkg/version.REPO=${GIT_REPO_INFO}"
 ${TARGET_SERVER} : ${SERVER_FILES}
 	@echo "build server"
 	cd ${MKFILE_DIR} && \

@@ -22,7 +22,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/megaease/easegateway/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/supervisor"
 
 	yaml "gopkg.in/yaml.v2"
 )

@@ -20,7 +20,7 @@ package main
 import (
 	"os"
 
-	"github.com/megaease/easegateway/cmd/client/command"
+	"github.com/megaease/easegress/cmd/client/command"
 	"github.com/spf13/cobra"
 )
 
@@ -37,7 +37,7 @@ var exampleUsage = `  # List APIs.
   # List member information.
   egctl member list
 
-  # Purge a easegateway member
+  # Purge a easegress member
   egctl member purge <member name>
 
   # List object kinds.
@@ -74,7 +74,7 @@ var exampleUsage = `  # List APIs.
 func main() {
 	rootCmd := &cobra.Command{
 		Use:        "egctl",
-		Short:      "A command line admin tool for EaseGateway.",
+		Short:      "A command line admin tool for Easegress.",
 		Example:    exampleUsage,
 		SuggestFor: []string{"egctl"},
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
@@ -113,7 +113,7 @@ func main() {
 	)
 
 	rootCmd.PersistentFlags().StringVar(&command.CommandlineGlobalFlags.Server,
-		"server", "localhost:2381", "The address of the EaseGateway endpoint")
+		"server", "localhost:2381", "The address of the Easegress endpoint")
 	rootCmd.PersistentFlags().StringVarP(&command.CommandlineGlobalFlags.OutputFormat,
 		"output", "o", "yaml", "Output format(json, yaml)")
 

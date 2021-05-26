@@ -20,7 +20,7 @@
 package protocol
 
 import (
-	"github.com/megaease/easegateway/pkg/context"
+	"github.com/megaease/easegress/pkg/context"
 )
 
 type (

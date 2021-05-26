@@ -21,10 +21,10 @@ import (
 	"runtime/debug"
 	"sync"
 
-	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/storage"
-	"github.com/megaease/easegateway/pkg/supervisor"
-	"github.com/megaease/easegateway/pkg/util/timetool"
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/storage"
+	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/util/timetool"
 
 	"gopkg.in/yaml.v2"
 )

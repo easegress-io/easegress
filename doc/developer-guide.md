@@ -133,7 +133,7 @@ func (c *StatusInLocalController) syncStatus() {
 
 ### Register Itself to Supervisor
 
-All objects must satisfy the interface `Object` in [`pkg/object/supervisor/registry.go`](https://github.com/megaease/easegateway/blob/master/pkg/supervisor/registry.go).
+All objects must satisfy the interface `Object` in [`pkg/object/supervisor/registry.go`](https://github.com/megaease/easegress/blob/master/pkg/supervisor/registry.go).
 
 ```go
 package statusinlocalcontroller
@@ -143,8 +143,8 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/supervisor"
 
 	"gopkg.in/yaml.v2"
 )
@@ -285,7 +285,7 @@ func (m *HeaderCounter) Handle(ctx context.HTTPContext) (result string) {
 
 ### Register Itself to Pipeline
 
-Our core logic is very simple, now let's add some non-business code to make our new filter conform with the requirement of the Pipeline framework. All filters must satisfy the interface `Filter` in [`pkg/object/httppipeline/registry.go`](https://github.com/megaease/easegateway/blob/master/pkg/object/httppipeline/registry.go).
+Our core logic is very simple, now let's add some non-business code to make our new filter conform with the requirement of the Pipeline framework. All filters must satisfy the interface `Filter` in [`pkg/object/httppipeline/registry.go`](https://github.com/megaease/easegress/blob/master/pkg/object/httppipeline/registry.go).
 
 All of the methods with their names and comments are clean, the only one we need to emphasize is `Inherit`, it will be called when the pipeline is updated but the filter with the same name and kind has still existed. It's the filter's own responsibility to do hot-update in `Inherit` such as transferring meaningful consecutive data.
 
@@ -342,7 +342,7 @@ Then we need to add the import line in the `pkg/registry/registry.go`:
 
 ```go
 import (
-	_ "github.com/megaease/easegateway/pkg/filter/headercounter
+	_ "github.com/megaease/easegress/pkg/filter/headercounter
 )
 ```
 

@@ -56,13 +56,13 @@ var (
 )
 
 const (
-	defaultEgControlPlaneFilePath = "./manifests/easegateway/control-plane"
-	defaultEgIngressFilePath      = "./manifests/easegateway/ingress-controller"
+	defaultEgControlPlaneFilePath = "./manifests/easegress/control-plane"
+	defaultEgIngressFilePath      = "./manifests/easegress/ingress-controller"
 	defaultOperatorPath           = "./manifests/mesh-operator-config/default"
-	// EaseGateway deploy default params
+	// Easegress deploy default params
 	defaultMeshNameSpace = "easemesh"
 
-	defaultEgClusterName = "easegateway-cluster"
+	defaultEgClusterName = "easegress-cluster"
 
 	defaultEgClientPortName = "client-port"
 	defaultEgPeerPortName   = "peer-port"
@@ -71,11 +71,11 @@ const (
 	defaultEgPeerPort       = 2380
 	defaultEgAdminPort      = 2381
 
-	defaultEgServiceName      = "easegateway-public"
+	defaultEgServiceName      = "easegress-public"
 	defaultEgServicePeerPort  = 2380
 	defaultEgServiceAdminPort = 2381
 
-	defaultEgHeadlessServiceName = "easegateway-hs"
+	defaultEgHeadlessServiceName = "easegress-hs"
 
 	// EaseMesh Controller default Params
 	defaultMeshRegistryType   = eurekaRegistryType
@@ -162,23 +162,23 @@ func install(cmd *cobra.Command, args *installArgs) {
 		ExitWithErrorf("%s failed: %v", cmd.Short, err)
 	}
 
-	err = deployEaseGateway(cmd, kubeClient, args)
+	err = deployEasegress(cmd, kubeClient, args)
 	if err != nil {
 		ExitWithErrorf("%s failed: %v", cmd.Short, err)
 	}
-	fmt.Println("EaseGateway deploy success.")
+	fmt.Println("Easegress deploy success.")
 
 	err = startUpMeshController(cmd, kubeClient, args)
 	if err != nil {
 		ExitWithErrorf("%s failed: %v", cmd.Short, err)
 	}
-	fmt.Println("EaseGateway control plane deploy success.")
+	fmt.Println("Easegress control plane deploy success.")
 
-	err = deployEaseGatewayIngress(cmd, kubeClient, args)
+	err = deployEasegressIngress(cmd, kubeClient, args)
 	if err != nil {
 		ExitWithErrorf("%s failed: %v", cmd.Short, err)
 	}
-	fmt.Println("EaseGateway Ingress  deploy success.")
+	fmt.Println("Easegress Ingress  deploy success.")
 	err = deployEaseMeshOperator(cmd, kubeClient, args)
 	if err != nil {
 		ExitWithErrorf("%s failed: %v", cmd.Short, err)
@@ -187,12 +187,12 @@ func install(cmd *cobra.Command, args *installArgs) {
 	fmt.Println("Done.")
 }
 
-func deployEaseGateway(cmd *cobra.Command, kubeClient *kubernetes.Clientset, args *installArgs) error {
+func deployEasegress(cmd *cobra.Command, kubeClient *kubernetes.Clientset, args *installArgs) error {
 
 	var err error
-	err = completeEaseGatewayNameSpace(cmd, kubeClient, args)
-	err = completeEaseGatewayConfig(cmd, kubeClient, args)
-	err = completeEaseGatewayServices(cmd, kubeClient, args)
+	err = completeEasegressNameSpace(cmd, kubeClient, args)
+	err = completeEasegressConfig(cmd, kubeClient, args)
+	err = completeEasegressServices(cmd, kubeClient, args)
 	if err != nil {
 		return err
 	}
@@ -204,7 +204,7 @@ func deployEaseGateway(cmd *cobra.Command, kubeClient *kubernetes.Clientset, arg
 	return err
 }
 
-func completeEaseGatewayNameSpace(cmd *cobra.Command, kubeClient *kubernetes.Clientset, args *installArgs) error {
+func completeEasegressNameSpace(cmd *cobra.Command, kubeClient *kubernetes.Clientset, args *installArgs) error {
 
 	ns := &v1.Namespace{ObjectMeta: metav1.ObjectMeta{
 		Name:   args.meshNameSpace,
@@ -215,10 +215,10 @@ func completeEaseGatewayNameSpace(cmd *cobra.Command, kubeClient *kubernetes.Cli
 	return err
 }
 
-func completeEaseGatewayConfig(cmd *cobra.Command, kubeClient *kubernetes.Clientset, args *installArgs) error {
+func completeEasegressConfig(cmd *cobra.Command, kubeClient *kubernetes.Clientset, args *installArgs) error {
 	host := "0.0.0.0"
 
-	cfg := EaseGatewayConfig{
+	cfg := EasegressConfig{
 		args.egClusterName,
 		args.egClusterName,
 		writerClusterRole,
@@ -252,7 +252,7 @@ func completeEaseGatewayConfig(cmd *cobra.Command, kubeClient *kubernetes.Client
 
 	configMap := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "easegateway-cluster-cm",
+			Name:      "easegress-cluster-cm",
 			Namespace: args.meshNameSpace,
 		},
 		Data: params,
@@ -265,24 +265,24 @@ func completeEaseGatewayConfig(cmd *cobra.Command, kubeClient *kubernetes.Client
 	return err
 }
 
-func completeEaseGatewayServices(cmd *cobra.Command, kubeClient *kubernetes.Clientset, args *installArgs) error {
+func completeEasegressServices(cmd *cobra.Command, kubeClient *kubernetes.Clientset, args *installArgs) error {
 
 	selector := map[string]string{}
-	selector["app"] = "easegateway"
+	selector["app"] = "easegress"
 
-	service := easegatewayService(args)
+	service := easegressService(args)
 	service.Spec.Selector = selector
 	err := createService(service, kubeClient, args.meshNameSpace)
 
-	headlessService := easegatewayHeadlessService(args)
+	headlessService := easegressHeadlessService(args)
 	headlessService.Spec.Selector = selector
 	err = createService(headlessService, kubeClient, args.meshNameSpace)
 	return err
 }
 
-func easegatewayService(args *installArgs) *v1.Service {
+func easegressService(args *installArgs) *v1.Service {
 	selector := map[string]string{}
-	selector["app"] = "easegateway"
+	selector["app"] = "easegress"
 
 	service := &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -311,7 +311,7 @@ func easegatewayService(args *installArgs) *v1.Service {
 	return service
 }
 
-func easegatewayHeadlessService(args *installArgs) *v1.Service {
+func easegressHeadlessService(args *installArgs) *v1.Service {
 	headlessService := &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      defaultEgHeadlessServiceName,
@@ -350,7 +350,7 @@ func manifestPath(filePath string) string {
 	return path.Join(filepath.Dir(exPath), filePath)
 }
 
-func easegatewayDeploySuccess(httpMethod string, url string, reqBody []byte, cmd *cobra.Command) bool {
+func easegressDeploySuccess(httpMethod string, url string, reqBody []byte, cmd *cobra.Command) bool {
 	req, err := http.NewRequest(httpMethod, url, bytes.NewReader(reqBody))
 	if err != nil {
 		return false
@@ -374,7 +374,7 @@ func startUpMeshController(cmd *cobra.Command, kubeClient *kubernetes.Clientset,
 
 	probeUrl := "http://" + service.Spec.ClusterIP + ":" + strconv.Itoa(args.egServiceAdminPort) + apiURL
 	go func() {
-		for !easegatewayDeploySuccess(http.MethodGet, probeUrl, nil, cmd) {
+		for !easegressDeploySuccess(http.MethodGet, probeUrl, nil, cmd) {
 			time.Sleep(3 * time.Second)
 		}
 		c <- true
@@ -396,9 +396,9 @@ func startUpMeshController(cmd *cobra.Command, kubeClient *kubernetes.Clientset,
 	return nil
 }
 
-func deployEaseGatewayIngress(cmd *cobra.Command, kubeClient *kubernetes.Clientset, args *installArgs) error {
+func deployEasegressIngress(cmd *cobra.Command, kubeClient *kubernetes.Clientset, args *installArgs) error {
 
-	err := completeEaseGatewayIngressConfig(cmd, kubeClient, args)
+	err := completeEasegressIngressConfig(cmd, kubeClient, args)
 	if err != nil {
 		return err
 	}
@@ -411,8 +411,8 @@ func deployEaseGatewayIngress(cmd *cobra.Command, kubeClient *kubernetes.Clients
 
 }
 
-func completeEaseGatewayIngressConfig(cmd *cobra.Command, kubeClient *kubernetes.Clientset, args *installArgs) error {
-	params := &EaseGatewayReaderParams{}
+func completeEasegressIngressConfig(cmd *cobra.Command, kubeClient *kubernetes.Clientset, args *installArgs) error {
+	params := &EasegressReaderParams{}
 	params.ClusterRole = readerClusterRole
 	params.ClusterRequestTimeout = "10s"
 	params.ClusterJoinUrls = "http://" + defaultEgHeadlessServiceName + "." + args.meshNameSpace + ":" + strconv.Itoa(args.egPeerPort)
@@ -428,7 +428,7 @@ func completeEaseGatewayIngressConfig(cmd *cobra.Command, kubeClient *kubernetes
 	data["eg-ingress.yaml"] = string(ingressControllerConfig)
 	configMap := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "easegateway-ingress-config-cm",
+			Name:      "easegress-ingress-config-cm",
 			Namespace: args.meshNameSpace,
 		},
 		Data: data,

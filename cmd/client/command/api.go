@@ -27,7 +27,7 @@ import (
 func APICmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "api",
-		Short: "View EaseGateway APIs",
+		Short: "View Easegress APIs",
 	}
 
 	cmd.AddCommand(listAPICmd())
@@ -37,7 +37,7 @@ func APICmd() *cobra.Command {
 func listAPICmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "List EaseGateway APIs",
+		Short: "List Easegress APIs",
 		Run: func(cmd *cobra.Command, args []string) {
 			handleRequest(http.MethodGet, makeURL(apiURL), nil, cmd)
 		},

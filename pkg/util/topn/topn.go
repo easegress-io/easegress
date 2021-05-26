@@ -21,9 +21,9 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/megaease/easegateway/pkg/context"
-	"github.com/megaease/easegateway/pkg/util/httpstat"
-	"github.com/megaease/easegateway/pkg/util/urlclusteranalyzer"
+	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/util/httpstat"
+	"github.com/megaease/easegress/pkg/util/urlclusteranalyzer"
 )
 
 type (

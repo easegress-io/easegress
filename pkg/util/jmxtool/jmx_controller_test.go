@@ -22,7 +22,7 @@ import (
 	"testing"
 
 	"github.com/fatih/structs"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
 
 	yamljsontool "github.com/ghodss/yaml"
 	"gopkg.in/yaml.v2"

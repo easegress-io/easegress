@@ -20,9 +20,9 @@ package httpserver
 import (
 	"time"
 
-	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/protocol"
-	"github.com/megaease/easegateway/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/protocol"
+	"github.com/megaease/easegress/pkg/supervisor"
 )
 
 const (

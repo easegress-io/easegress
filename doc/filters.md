@@ -76,7 +76,7 @@ A Filter is a request/response processor. Multiple filters can be orchestrated t
 
 ## APIAggregator
 
-The API Aggregator forwards one request to multiple API proxies and aggregates responses. 
+The API Aggregator forwards one request to multiple API proxies and aggregates responses.
 
 Below is an example configuration that forwards one request to two proxies, `http-proxy-1` and `http-proxy-2`. When forwarding a request to `http-proxy-2`, the request method is changed to `GET` and a new header `Original-Method` is added with the original request method. The two responses are merged into one before return to the client.
 
@@ -96,18 +96,18 @@ apiProxies:
 
 ### Configuration
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| maxBodyBytes | int64 | The upper limit of request body size, default is 0 which means no limit | No |
-| partialSucceed | boolean | Whether regards the result of the original request as successful or not when a request to some of the API proxies fails, default is false | No |
-| timeout | string | Timeout duration for requests to API proxies | No |
-| mergeResponse | boolean | Whether merging the multiple response objects into one, default is false means the final response is an array of the responses from API proxies | No |
-| apiProxies | [][apiaggregator.APIProxy](#apiaggregatorapiproxy) | Configuration of API proxies | Yes |
+| Name           | Type                                               | Description                                                                                                                                     | Required |
+| -------------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| maxBodyBytes   | int64                                              | The upper limit of request body size, default is 0 which means no limit                                                                         | No       |
+| partialSucceed | boolean                                            | Whether regards the result of the original request as successful or not when a request to some of the API proxies fails, default is false       | No       |
+| timeout        | string                                             | Timeout duration for requests to API proxies                                                                                                    | No       |
+| mergeResponse  | boolean                                            | Whether merging the multiple response objects into one, default is false means the final response is an array of the responses from API proxies | No       |
+| apiProxies     | [][apiaggregator.APIProxy](#apiaggregatorapiproxy) | Configuration of API proxies                                                                                                                    | Yes      |
 
 ### Results
 
-| Value | Description |
-|-------|-------------|
+| Value  | Description                                         |
+| ------ | --------------------------------------------------- |
 | failed | The APIAggregator has failed to process the request |
 
 ## Backend
@@ -167,29 +167,29 @@ mainPool:
 
 ### Configuration
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| fallback | [backend.FallbackSpec](#backendFallbackSpec) | Fallback steps when failed to send a request or receives a failure response | No |
-| mainPool | [backend.PoolSpec](#backendPoolSpec) | Main pool of backend servers | Yes |
-| candidatePools | [][backend.PoolSpec](#backendPoolSpec) | One or more pool configuration similar with `mainPool` but with `filter` options configured. When `Backend` get a request, it first goes through the pools in `candidatePools`, and if one of the pools filter in the request, servers of this pool handles the request, otherwise, the request is pass to `mainPool` | No |
-| mirrorPool | [backend.PoolSpec](#backendPoolSpec) | Definition a mirror pool, requests are sent to this pool simultaneously when they are sent to candidate pools or main pool | No |
-| failureCodes | []int | HTTP status codes need to be handled as failure | No |
-| compression | [backend.CompressionSpec](#backendCompressionSpec) | Response compression options | No |
+| Name           | Type                                               | Description                                                                                                                                                                                                                                                                                                           | Required |
+| -------------- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| fallback       | [backend.FallbackSpec](#backendFallbackSpec)       | Fallback steps when failed to send a request or receives a failure response                                                                                                                                                                                                                                           | No       |
+| mainPool       | [backend.PoolSpec](#backendPoolSpec)               | Main pool of backend servers                                                                                                                                                                                                                                                                                          | Yes      |
+| candidatePools | [][backend.PoolSpec](#backendPoolSpec)             | One or more pool configuration similar with `mainPool` but with `filter` options configured. When `Backend` get a request, it first goes through the pools in `candidatePools`, and if one of the pools filter in the request, servers of this pool handles the request, otherwise, the request is pass to `mainPool` | No       |
+| mirrorPool     | [backend.PoolSpec](#backendPoolSpec)               | Definition a mirror pool, requests are sent to this pool simultaneously when they are sent to candidate pools or main pool                                                                                                                                                                                            | No       |
+| failureCodes   | []int                                              | HTTP status codes need to be handled as failure                                                                                                                                                                                                                                                                       | No       |
+| compression    | [backend.CompressionSpec](#backendCompressionSpec) | Response compression options                                                                                                                                                                                                                                                                                          | No       |
 
 ### Results
 
-| Value | Description |
-|-------|-------------|
-| fallback | Fallback steps have been executed |
-| internalError | Encounters an internal error |
-| clientError | Client-side(EaseGateway) network error |
-| serverError | Server-side network error |
+| Value         | Description                          |
+| ------------- | ------------------------------------ |
+| fallback      | Fallback steps have been executed    |
+| internalError | Encounters an internal error         |
+| clientError   | Client-side(Easegress) network error |
+| serverError   | Server-side network error            |
 
 ## Bridge
 
 The Bridge filter route requests from one pipeline to other pipelines or HTTP proxies under an HTTP server.
 
-The upstream filter set the target pipeline/proxy in request header `X-Easegateway-Bridge-Dest`. Bridge extracts the header value and tries to match it in the configuration. It sends the request if a destination matched and aborts the process if no match. It selects the first destination from the filter configuration if there's no header named `X-Easegateway-Bridge-Dest`.
+The upstream filter set the target pipeline/proxy in request header `X-Easegress-Bridge-Dest`. Bridge extracts the header value and tries to match it in the configuration. It sends the request if a destination matched and aborts the process if no match. It selects the first destination from the filter configuration if there's no header named `X-Easegress-Bridge-Dest`.
 
 Below is an example configuration with two destinations.
 
@@ -201,16 +201,16 @@ destinations: ["pipeline1", "pipeline2"]
 
 ### Configuration
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| destinations | []string | Destination pipeline/proxy names | Yes |
+| Name         | Type     | Description                      | Required |
+| ------------ | -------- | -------------------------------- | -------- |
+| destinations | []string | Destination pipeline/proxy names | Yes      |
 
 ### Results
 
-| Value | Description |
-|-------|-------------|
-| destinationNotFound | The desired destination is not found |
-| invokeDestinationFailed | Failed to invoke the destination |
+| Value                   | Description                          |
+| ----------------------- | ------------------------------------ |
+| destinationNotFound     | The desired destination is not found |
+| invokeDestinationFailed | Failed to invoke the destination     |
 
 ## CORSAdaptor
 
@@ -227,18 +227,18 @@ allowedMethods: [GET]
 
 ### Configuration
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| allowedOrigins | []string | An array of origins a cross-domain request can be executed from. If the special `*` value is present in the list, all origins will be allowed. An origin may contain a wildcard (*) to replace 0 or more characters (i.e.: http://*.domain.com). Usage of wildcards implies a small performance penalty. Only one wildcard can be used per origin. Default value is `*` | No |
-| allowedMethods | []string | An array of methods the client is allowed to use with cross-domain requests. The default value is simple methods (HEAD, GET, and POST) | No |
-| allowedHeaders | []string | An array of non-simple headers the client is allowed to use with cross-domain requests. If the special `*` value is present in the list, all headers will be allowed. The default value is [] but "Origin" is always appended to the list | No |
-| allowCredentials | boolean | Indicates whether the request can include user credentials like cookies, HTTP authentication, or client-side SSL certificates | No |
-| exposedHeaders | []string | Indicates which headers are safe to expose to the API of a CORS API specification | No |
+| Name             | Type     | Description                                                                                                                                                                                                                                                                                                                                                             | Required |
+| ---------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| allowedOrigins   | []string | An array of origins a cross-domain request can be executed from. If the special `*` value is present in the list, all origins will be allowed. An origin may contain a wildcard (*) to replace 0 or more characters (i.e.: http://*.domain.com). Usage of wildcards implies a small performance penalty. Only one wildcard can be used per origin. Default value is `*` | No       |
+| allowedMethods   | []string | An array of methods the client is allowed to use with cross-domain requests. The default value is simple methods (HEAD, GET, and POST)                                                                                                                                                                                                                                  | No       |
+| allowedHeaders   | []string | An array of non-simple headers the client is allowed to use with cross-domain requests. If the special `*` value is present in the list, all headers will be allowed. The default value is [] but "Origin" is always appended to the list                                                                                                                               | No       |
+| allowCredentials | boolean  | Indicates whether the request can include user credentials like cookies, HTTP authentication, or client-side SSL certificates                                                                                                                                                                                                                                           | No       |
+| exposedHeaders   | []string | Indicates which headers are safe to expose to the API of a CORS API specification                                                                                                                                                                                                                                                                                       | No       |
 
 ### Results
 
-| Value | Description |
-|-------|-------------|
+| Value       | Description                                                        |
+| ----------- | ------------------------------------------------------------------ |
 | preflighted | The request is a preflight one and has been processed successfully |
 
 ## Fallback
@@ -256,16 +256,16 @@ mockBody: '{"message": "The feature turned off, please try it later."}'
 
 ### Configuration
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| mockCode | int | This code overwrites the status code of the original response | Yes |
-| mockHeaders | map[string]string | Headers to be added/set to the original response | No |
-| mockBody | string | Default is an empty string, overwrite the body of the original response if specified | No |
+| Name        | Type              | Description                                                                          | Required |
+| ----------- | ----------------- | ------------------------------------------------------------------------------------ | -------- |
+| mockCode    | int               | This code overwrites the status code of the original response                        | Yes      |
+| mockHeaders | map[string]string | Headers to be added/set to the original response                                     | No       |
+| mockBody    | string            | Default is an empty string, overwrite the body of the original response if specified | No       |
 
 ### Results
 
-| Value | Description |
-|-------|-------------|
+| Value    | Description                                                                  |
+| -------- | ---------------------------------------------------------------------------- |
 | fallback | The fallback steps have been executed, this filter always return this result |
 
 ## Mock
@@ -288,14 +288,14 @@ rules:
 
 ### Configuration
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| rules | [][mock.Rule](#mockRule) | Mocking rules | Yes |
+| Name  | Type                     | Description   | Required |
+| ----- | ------------------------ | ------------- | -------- |
+| rules | [][mock.Rule](#mockRule) | Mocking rules | Yes      |
 
 ### Results
 
-| Value | Description |
-|-------|-------------|
+| Value  | Description                                                       |
+| ------ | ----------------------------------------------------------------- |
 | mocked | The request matches one of the rules and response has been mocked |
 
 ## RemoteFilter
@@ -313,17 +313,17 @@ timeout: 500ms
 
 ### Configuration
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| url | string | Address of remote service | Yes |
-| timeout | string | Timeout duration of the remote service | No |
+| Name    | Type   | Description                            | Required |
+| ------- | ------ | -------------------------------------- | -------- |
+| url     | string | Address of remote service              | Yes      |
+| timeout | string | Timeout duration of the remote service | No       |
 
 ### Results
 
-| Value | Description |
-|-------|-------------|
-| failed | Failed to send the request to remote service, or remote service returns a non-2xx status code |
-| responseAlready | The remote service returns status code 205 |
+| Value           | Description                                                                                   |
+| --------------- | --------------------------------------------------------------------------------------------- |
+| failed          | Failed to send the request to remote service, or remote service returns a non-2xx status code |
+| responseAlready | The remote service returns status code 205                                                    |
 
 ## RequestAdaptor
 
@@ -351,12 +351,12 @@ header:
 
 ### Configuration
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| method | string | If provided, the method of the original request is replaced by the value of this option | No |
-| path | [pathadaptor.Spec](#pathadaptorSpec) | Rules to revise request path | No |
-| header | [httpheader.AdaptSpec](#httpheaderAdaptSpec) | Rules to revise request header | No |
-| body | string | If provided the body of the original request is replaced by the value of this option. Note: the body can be a template, which means runtime variables (enclosed by `[[` & `]]`) are replaced by their actual values | No |
+| Name   | Type                                         | Description                                                                                                                                                                                                         | Required |
+| ------ | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| method | string                                       | If provided, the method of the original request is replaced by the value of this option                                                                                                                             | No       |
+| path   | [pathadaptor.Spec](#pathadaptorSpec)         | Rules to revise request path                                                                                                                                                                                        | No       |
+| header | [httpheader.AdaptSpec](#httpheaderAdaptSpec) | Rules to revise request header                                                                                                                                                                                      | No       |
+| body   | string                                       | If provided the body of the original request is replaced by the value of this option. Note: the body can be a template, which means runtime variables (enclosed by `[[` & `]]`) are replaced by their actual values | No       |
 
 ### Results
 
@@ -397,16 +397,16 @@ urls:
 
 ### Configuration
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| policies | [][circuitbreaker.Policy](#circuitbreakerPolicy) | Policy definitions | Yes |
-| defaultPolicyRef | string | The default policy, if no `policyRef` is configured in one of the `urls`, it uses this policy | No |
-| urls | []resilience.URLRule | An array of request match criteria and policy to apply on matched requests. Note that a standalone CircuitBreaker instance is created for each item of the array, even two or more items can refer to the same policy | Yes |
+| Name             | Type                                             | Description                                                                                                                                                                                                           | Required |
+| ---------------- | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| policies         | [][circuitbreaker.Policy](#circuitbreakerPolicy) | Policy definitions                                                                                                                                                                                                    | Yes      |
+| defaultPolicyRef | string                                           | The default policy, if no `policyRef` is configured in one of the `urls`, it uses this policy                                                                                                                         | No       |
+| urls             | []resilience.URLRule                             | An array of request match criteria and policy to apply on matched requests. Note that a standalone CircuitBreaker instance is created for each item of the array, even two or more items can refer to the same policy | Yes      |
 
 ### Results
 
-| Value | Description |
-|-------|-------------|
+| Value          | Description                          |
+| -------------- | ------------------------------------ |
 | shortCircuited | The request has been short-circuited |
 
 ## RateLimiter
@@ -433,16 +433,16 @@ urls:
 
 ### Configuration
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| policies | [][ratelimiter.Policy](#ratelimiterPolicy) | Policy definitions | Yes |
-| defaultPolicyRef | string | The default policy, if no `policyRef` is configured in one of the `urls`, it uses this policy | No |
-| urls | [][resilience.URLRule](#resilienceURLRule) | An array of request match criteria and policy to apply on matched requests. Note that a standalone RateLimiter instance is created for each item of the array, even two or more items can refer to the same policy | Yes |
+| Name             | Type                                       | Description                                                                                                                                                                                                        | Required |
+| ---------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- |
+| policies         | [][ratelimiter.Policy](#ratelimiterPolicy) | Policy definitions                                                                                                                                                                                                 | Yes      |
+| defaultPolicyRef | string                                     | The default policy, if no `policyRef` is configured in one of the `urls`, it uses this policy                                                                                                                      | No       |
+| urls             | [][resilience.URLRule](#resilienceURLRule) | An array of request match criteria and policy to apply on matched requests. Note that a standalone RateLimiter instance is created for each item of the array, even two or more items can refer to the same policy | Yes      |
 
 ### Results
 
-| Value | Description |
-|-------|-------------|
+| Value       | Description                                                |
+| ----------- | ---------------------------------------------------------- |
 | rateLimited | The request has been rejected as a result of rate limiting |
 
 ## TimeLimiter
@@ -463,15 +463,15 @@ urls:
 
 ### Configuration
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| defaultTimeoutDuration | string | The default timeout duration, if `timeoutDuration` is not configured in one of the `urls`, this duration is used. Default is 500ms | No |
-| urls | [][timelimiter.URLRule](#timelimiterURLRule) | An array of request match criteria and policy to apply on matched requests | Yes |
+| Name                   | Type                                         | Description                                                                                                                        | Required |
+| ---------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| defaultTimeoutDuration | string                                       | The default timeout duration, if `timeoutDuration` is not configured in one of the `urls`, this duration is used. Default is 500ms | No       |
+| urls                   | [][timelimiter.URLRule](#timelimiterURLRule) | An array of request match criteria and policy to apply on matched requests                                                         | Yes      |
 
 ### Results
 
-| Value | Description |
-|-------|-------------|
+| Value   | Description              |
+| ------- | ------------------------ |
 | timeout | The request is timed out |
 
 ## Retryer
@@ -498,11 +498,11 @@ urls:
 
 ### Configuration
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| policies | [][retryer.Policy](#retryerPolicy) | Policy definitions | Yes |
-| defaultPolicyRef | string | The default policy, if no `policyRef` is configured in one of the `urls`, it uses this policy | No |
-| urls | []resilience.URLRule | An array of request match criteria and policy to apply on matched requests | Yes |
+| Name             | Type                               | Description                                                                                   | Required |
+| ---------------- | ---------------------------------- | --------------------------------------------------------------------------------------------- | -------- |
+| policies         | [][retryer.Policy](#retryerPolicy) | Policy definitions                                                                            | Yes      |
+| defaultPolicyRef | string                             | The default policy, if no `policyRef` is configured in one of the `urls`, it uses this policy | No       |
+| urls             | []resilience.URLRule               | An array of request match criteria and policy to apply on matched requests                    | Yes      |
 
 ### Results
 
@@ -524,10 +524,10 @@ header:
 
 ### Configuration
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| header | [httpheader.AdaptSpec](#httpheaderAdaptSpec) | Rules to revise request header | No |
-| body | string | If provided the body of the original request is replaced by the value of this option. Note: the body can be a template, which means runtime variables (enclosed by `[[` & `]]`) are replaced by their actual values | No |
+| Name   | Type                                         | Description                                                                                                                                                                                                         | Required |
+| ------ | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| header | [httpheader.AdaptSpec](#httpheaderAdaptSpec) | Rules to revise request header                                                                                                                                                                                      | No       |
+| body   | string                                       | If provided the body of the original request is replaced by the value of this option. Note: the body can be a template, which means runtime variables (enclosed by `[[` & `]]`) are replaced by their actual values | No       |
 
 ### Results
 
@@ -569,7 +569,7 @@ signature:
     AKID: SECRET
 ```
 
-Below is an example configuration for the `oauth2` validation method which uses a token introspection server for validation. 
+Below is an example configuration for the `oauth2` validation method which uses a token introspection server for validation.
 
 ```yaml
 kind: Validator
@@ -577,279 +577,279 @@ name: oauth2-validator-example
 oauth2:
   tokenIntrospect:
     endPoint: https://127.0.0.1:8443/auth/realms/test/protocol/openid-connect/token/introspect
-    clientId: easegateway
+    clientId: easegress
     clientSecret: 42620d18-871d-465f-912a-ebcef17ecb82
     insecureTls: false
 ```
 
 ### Configuration
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| headers | map[string][httpheader.ValueValidator](#httpheaderValueValidator) | Header validation rules, the key is the header name and the value is validation rule for corresponding header value, a request needs to pass all of the validation rules to pass the `headers` validation | No |
-| jwt | [validator.JWTValidatorSpec](#validatorJWTValidatorSpec) | JWT validation rule, validates JWT token string from the `Authorization` header or cookies | No |
-| signature | [signer.Spec](#signerSpec) | Signature validation rule, implements an [Amazon Signature V4](https://docs.aws.amazon.com/general/latest/gr/sigv4_signing.html) compatible signature validation validator, with customizable literal strings | No |
-| oauth2 | [validator.OAuth2ValidatorSpec](#validatorOAuth2ValidatorSpec) | The `OAuth/2` method support `Token Introspection` mode and `Self-Encoded Access Tokens` mode, only one mode can be configured at a time | No |
+| Name      | Type                                                              | Description                                                                                                                                                                                                   | Required |
+| --------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| headers   | map[string][httpheader.ValueValidator](#httpheaderValueValidator) | Header validation rules, the key is the header name and the value is validation rule for corresponding header value, a request needs to pass all of the validation rules to pass the `headers` validation     | No       |
+| jwt       | [validator.JWTValidatorSpec](#validatorJWTValidatorSpec)          | JWT validation rule, validates JWT token string from the `Authorization` header or cookies                                                                                                                    | No       |
+| signature | [signer.Spec](#signerSpec)                                        | Signature validation rule, implements an [Amazon Signature V4](https://docs.aws.amazon.com/general/latest/gr/sigv4_signing.html) compatible signature validation validator, with customizable literal strings | No       |
+| oauth2    | [validator.OAuth2ValidatorSpec](#validatorOAuth2ValidatorSpec)    | The `OAuth/2` method support `Token Introspection` mode and `Self-Encoded Access Tokens` mode, only one mode can be configured at a time                                                                      | No       |
 
 ### Results
 
-| Value | Description |
-|-------|-------------|
+| Value   | Description                         |
+| ------- | ----------------------------------- |
 | invalid | The request doesn't pass validation |
 
 ## Common Types
 
 ### apiaggregator.APIProxy
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| httpProxyName | string | The name of target HTTP pipeline | Yes |
-| method | string | Replaces request method with the value of this option when specified | No |
-| path | [pathadaptor.Spec](#pathadaptorSpec) | Rules to revise request path | No |
-| header | [httpheader.AdaptSpec](#httpheaderAdaptSpec) | Rules to revise request header | No |
-| disableBody | boolean | Whether forwards the body of the original request or not, default is false | No |
+| Name          | Type                                         | Description                                                                | Required |
+| ------------- | -------------------------------------------- | -------------------------------------------------------------------------- | -------- |
+| httpProxyName | string                                       | The name of target HTTP pipeline                                           | Yes      |
+| method        | string                                       | Replaces request method with the value of this option when specified       | No       |
+| path          | [pathadaptor.Spec](#pathadaptorSpec)         | Rules to revise request path                                               | No       |
+| header        | [httpheader.AdaptSpec](#httpheaderAdaptSpec) | Rules to revise request header                                             | No       |
+| disableBody   | boolean                                      | Whether forwards the body of the original request or not, default is false | No       |
 
 ### pathadaptor.Spec
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| replace | string | Replaces request path with the value of this option when specified | No |
-| addPrefix | string | Prepend the value of this option to request path when specified | No |
-| trimPrefix | string | Trims the value of this option if request path start with it when specified | No |
-| regexReplace | [pathadaptor.RegexpReplace](#pathadaptorRegexpReplace) | Revise request path with regular expression | No |
+| Name         | Type                                                   | Description                                                                 | Required |
+| ------------ | ------------------------------------------------------ | --------------------------------------------------------------------------- | -------- |
+| replace      | string                                                 | Replaces request path with the value of this option when specified          | No       |
+| addPrefix    | string                                                 | Prepend the value of this option to request path when specified             | No       |
+| trimPrefix   | string                                                 | Trims the value of this option if request path start with it when specified | No       |
+| regexReplace | [pathadaptor.RegexpReplace](#pathadaptorRegexpReplace) | Revise request path with regular expression                                 | No       |
 
 ### pathadaptor.RegexpReplace
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| regexp | string | Regular expression to match request path. The syntax of the regular expression is [RE2](https://golang.org/s/re2syntax) | Yes |
-| replace | string | Replacement when the match succeeds. Placeholders like `$1`, `$2` can be used to represent the sub-matches in `regexp` | Yes |
+| Name    | Type   | Description                                                                                                             | Required |
+| ------- | ------ | ----------------------------------------------------------------------------------------------------------------------- | -------- |
+| regexp  | string | Regular expression to match request path. The syntax of the regular expression is [RE2](https://golang.org/s/re2syntax) | Yes      |
+| replace | string | Replacement when the match succeeds. Placeholders like `$1`, `$2` can be used to represent the sub-matches in `regexp`  | Yes      |
 
 ### httpheader.AdaptSpec
 
 Rules to revise request header. Note that both header name and value can be a template, which means runtime variables (enclosed by `[[` & `]]`) are replaced by their actual values.
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| del | []string | Name of the headers to be removed | No |
-| set | map[string]string | Name & value of headers to be set | No |
-| add | map[string]string | Name & value of headers to be added | No |
+| Name | Type              | Description                         | Required |
+| ---- | ----------------- | ----------------------------------- | -------- |
+| del  | []string          | Name of the headers to be removed   | No       |
+| set  | map[string]string | Name & value of headers to be set   | No       |
+| add  | map[string]string | Name & value of headers to be added | No       |
 
 ### backend.FallbackSpec
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| forCodes | boolean | When true, fallback handles HTTP status code listed in `failureCodes`, default is false | No |
-| mockCode | int | Please refer the [Fallback](filters.md#Fallback) filter | Yes |
-| mockHeaders | map[string]string | Please refer the [Fallback](filters.md#Fallback) filter | No |
-| mockBody | string | Please refer the [Fallback](filters.md#Fallback) filter | No |
+| Name        | Type              | Description                                                                             | Required |
+| ----------- | ----------------- | --------------------------------------------------------------------------------------- | -------- |
+| forCodes    | boolean           | When true, fallback handles HTTP status code listed in `failureCodes`, default is false | No       |
+| mockCode    | int               | Please refer the [Fallback](filters.md#Fallback) filter                                 | Yes      |
+| mockHeaders | map[string]string | Please refer the [Fallback](filters.md#Fallback) filter                                 | No       |
+| mockBody    | string            | Please refer the [Fallback](filters.md#Fallback) filter                                 | No       |
 
 ### backend.PoolSpec
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| spanName | string |  Span name for tracing, if not specified, the `url` of the target server is used | No |
-| serverTags | []string | Server selector tags, only servers have tags in this array are included in this pool | No |
-| servers | [][backend.Server](#backendServer) | An array of static servers. If omitted, `serviceName` and `serviceRegistry` must be provided, and vice versa | No |
-| serviceName | string | This option and `serviceRegistry` are for dynamic server discovery | No |
-| serviceRegistry | string | This option and `serviceName` are for dynamic server discovery | No |
-| loadBalance | [backend.LoadBalance](#backendLoadBalance) | Load balance options | Yes |
-| memoryCache | [memorycache.Spec](#memorycacheSpec) | Options for response caching | No |
-| filter | [httpfilter.Spec](#httpfilterSpec) | Filter options for candidate pools | No |
+| Name            | Type                                       | Description                                                                                                  | Required |
+| --------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------ | -------- |
+| spanName        | string                                     | Span name for tracing, if not specified, the `url` of the target server is used                              | No       |
+| serverTags      | []string                                   | Server selector tags, only servers have tags in this array are included in this pool                         | No       |
+| servers         | [][backend.Server](#backendServer)         | An array of static servers. If omitted, `serviceName` and `serviceRegistry` must be provided, and vice versa | No       |
+| serviceName     | string                                     | This option and `serviceRegistry` are for dynamic server discovery                                           | No       |
+| serviceRegistry | string                                     | This option and `serviceName` are for dynamic server discovery                                               | No       |
+| loadBalance     | [backend.LoadBalance](#backendLoadBalance) | Load balance options                                                                                         | Yes      |
+| memoryCache     | [memorycache.Spec](#memorycacheSpec)       | Options for response caching                                                                                 | No       |
+| filter          | [httpfilter.Spec](#httpfilterSpec)         | Filter options for candidate pools                                                                           | No       |
 
 ### backend.Server
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| url | string | Address of the server | Yes |
-| tags | []string | Tags of this server, refer `serverTags` in [backend.PoolSpec](#backendPoolSpec) | No |
-| weight | int | When load balance policy is `weightedRandom`, this value is used to calculate the possibility of this server | No |
+| Name   | Type     | Description                                                                                                  | Required |
+| ------ | -------- | ------------------------------------------------------------------------------------------------------------ | -------- |
+| url    | string   | Address of the server                                                                                        | Yes      |
+| tags   | []string | Tags of this server, refer `serverTags` in [backend.PoolSpec](#backendPoolSpec)                              | No       |
+| weight | int      | When load balance policy is `weightedRandom`, this value is used to calculate the possibility of this server | No       |
 
 ### backend.LoadBalance
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| policy | string | Load balance policy, valid values are `roundRobin`, `random`, `weightedRandom`, `ipHash` ,and `headerHash` | Yes |
-| headerHashKey | string | When `policy` is `headerHash`, this option is the name of a header whose value is used for hash calculation | No |
+| Name          | Type   | Description                                                                                                 | Required |
+| ------------- | ------ | ----------------------------------------------------------------------------------------------------------- | -------- |
+| policy        | string | Load balance policy, valid values are `roundRobin`, `random`, `weightedRandom`, `ipHash` ,and `headerHash`  | Yes      |
+| headerHashKey | string | When `policy` is `headerHash`, this option is the name of a header whose value is used for hash calculation | No       |
 
 ### memorycache.Spec
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| codes | []int | HTTP status codes to be cached | Yes |
-| expiration | string | Expiration duration of cache entries | Yes |
-| maxEntryBytes | uint32 | Maximum size of the response body, response with a larger body is never cached | Yes |
-| methods | []string | HTTP request methods to be cached | Yes |
+| Name          | Type     | Description                                                                    | Required |
+| ------------- | -------- | ------------------------------------------------------------------------------ | -------- |
+| codes         | []int    | HTTP status codes to be cached                                                 | Yes      |
+| expiration    | string   | Expiration duration of cache entries                                           | Yes      |
+| maxEntryBytes | uint32   | Maximum size of the response body, response with a larger body is never cached | Yes      |
+| methods       | []string | HTTP request methods to be cached                                              | Yes      |
 
 ### httpfilter.Spec
 
 If `headers` criteria are configured, a request is filtered in if it matches both `headers` and `urls`.
 If `headers` criteria are NOT configured, the `probability` options are used.
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| headers | map[string][urlrule.StringMatch](#urlruleStringMatch) | Request header filter options. The key of this map is header name, and the value of this map is header value match criteria | No |
-| urls | [][urlrule.URLRule](#urlruleURLRule) | Request URL match criteria | No |
-| probability | [httpfilter.Probability](#httpfilterProbability) | Options for filter in requests by probability | No |
+| Name        | Type                                                  | Description                                                                                                                 | Required |
+| ----------- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | -------- |
+| headers     | map[string][urlrule.StringMatch](#urlruleStringMatch) | Request header filter options. The key of this map is header name, and the value of this map is header value match criteria | No       |
+| urls        | [][urlrule.URLRule](#urlruleURLRule)                  | Request URL match criteria                                                                                                  | No       |
+| probability | [httpfilter.Probability](#httpfilterProbability)      | Options for filter in requests by probability                                                                               | No       |
 
 ### urlrule.StringMatch
 
 The relationship between `exact`, `prefix`, and `regex` is `OR`.
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| exact | string | The string must be identical to the value of this field. | No |
-| prefix | string | The string must begin with the value of this field | No |
-| regex | string | The string must the regular expression specified by the value of this field | No |
+| Name   | Type   | Description                                                                 | Required |
+| ------ | ------ | --------------------------------------------------------------------------- | -------- |
+| exact  | string | The string must be identical to the value of this field.                    | No       |
+| prefix | string | The string must begin with the value of this field                          | No       |
+| regex  | string | The string must the regular expression specified by the value of this field | No       |
 
 ### urlrule.URLRule
 
 The relationship between `methods` and `url` is `AND`.
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| methods | []string | HTTP method criteria, Default is an empty list means all methods | No |
-| url | [urlrule.StringMatch](#urlruleStringMatch) | Criterias to match a URL | Yes |
+| Name    | Type                                       | Description                                                      | Required |
+| ------- | ------------------------------------------ | ---------------------------------------------------------------- | -------- |
+| methods | []string                                   | HTTP method criteria, Default is an empty list means all methods | No       |
+| url     | [urlrule.StringMatch](#urlruleStringMatch) | Criterias to match a URL                                         | Yes      |
 
 ### resilience.URLRule
 
 The relationship between `methods` and `url` is `AND`.
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| methods | []string | HTTP method criteria, Default is an empty list means all methods | No |
-| url | [urlrule.StringMatch](#urlruleStringMatch) | Criterias to match a URL | Yes |
-| policyRef | string | Name of resilience policy for matched requests | No |
+| Name      | Type                                       | Description                                                      | Required |
+| --------- | ------------------------------------------ | ---------------------------------------------------------------- | -------- |
+| methods   | []string                                   | HTTP method criteria, Default is an empty list means all methods | No       |
+| url       | [urlrule.StringMatch](#urlruleStringMatch) | Criterias to match a URL                                         | Yes      |
+| policyRef | string                                     | Name of resilience policy for matched requests                   | No       |
 
 ### httpfilter.Probability
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| perMill | uint32 | Target filter in ratio, in per millage | Yes |
-| policy | string | Randomization policy, valid values are `ipHash`, `headerHash`, and `random` | Yes |
-| headerHashKey | string | When `policy` is `headerHash`, this option is the name of a header whose value is used for hash calculation | No |
+| Name          | Type   | Description                                                                                                 | Required |
+| ------------- | ------ | ----------------------------------------------------------------------------------------------------------- | -------- |
+| perMill       | uint32 | Target filter in ratio, in per millage                                                                      | Yes      |
+| policy        | string | Randomization policy, valid values are `ipHash`, `headerHash`, and `random`                                 | Yes      |
+| headerHashKey | string | When `policy` is `headerHash`, this option is the name of a header whose value is used for hash calculation | No       |
 
 ### backend.Compression
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| minLength | int | Minimum response body size to be compressed, response with a smaller body is never compressed | Yes |
+| Name      | Type | Description                                                                                   | Required |
+| --------- | ---- | --------------------------------------------------------------------------------------------- | -------- |
+| minLength | int  | Minimum response body size to be compressed, response with a smaller body is never compressed | Yes      |
 
 ### mock.Rule
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| code | int | HTTP status code of the mocked response | Yes |
-| path | string | Path match criteria, if request path is the value of this option, then the response of the request is mocked according to this rule | No |
-| pathPrefix | string | Path prefix match criteria, if request path begins with the value of this option, then the response of the request is mocked according to this rule | No |
-| delay | string | Delay duration, for the request processing time mocking | No |
-| headers | map[string]string | Headers of the mocked response | No |
-| body | string | Body of the mocked response, default is an empty string | No |
+| Name       | Type              | Description                                                                                                                                         | Required |
+| ---------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| code       | int               | HTTP status code of the mocked response                                                                                                             | Yes      |
+| path       | string            | Path match criteria, if request path is the value of this option, then the response of the request is mocked according to this rule                 | No       |
+| pathPrefix | string            | Path prefix match criteria, if request path begins with the value of this option, then the response of the request is mocked according to this rule | No       |
+| delay      | string            | Delay duration, for the request processing time mocking                                                                                             | No       |
+| headers    | map[string]string | Headers of the mocked response                                                                                                                      | No       |
+| body       | string            | Body of the mocked response, default is an empty string                                                                                             | No       |
 
 ### circuitbreaker.Policy
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| name | string | Name of the policy. Must be unique in one CircuitBreaker configuration | Yes |
-| slidingWindowType | string | Type of the sliding window which is used to record the outcome of requests when the CircuitBreaker is `CLOSED`. Sliding window can either be `COUNT_BASED` or `TIME_BASED`. If the sliding window is `COUNT_BASED`, the last `slidingWindowSize` requests are recorded and aggregated. If the sliding window is `TIME_BASED`, the requests of the last `slidingWindowSize` seconds are recorded and aggregated. Default is `COUNT_BASED` | No |
-| failureRateThreshold | int8 | Failure rate threshold in percentage. When the failure rate is equal to or greater than the threshold the CircuitBreaker transitions to `OPEN` and starts short-circuiting requests. Default is 50 | No |
-| slowCallRateThreshold | int8 | Slow rate threshold in percentage. The CircuitBreaker considers a request as slow when its duration is greater than `slowCallDurationThreshold`. When the percentage of slow requests is equal to or greater than the threshold, the CircuitBreaker transitions to `OPEN` and starts short-circuiting requests. Default is 100 | No |
-| countingNetworkError | boolean | Counting network error as failure or not. Default is false | No |
-| slidingWindowSize | uint32 | The size of the sliding window which is used to record the outcome of requests when the CircuitBreaker is `CLOSED`. Default is 100 | No |
-| permittedNumberOfCallsInHalfOpenState | uint32 | The number of permitted requests when the CircuitBreaker is `HALF_OPEN`. Default is 10 | No |
-| minimumNumberOfCalls | uint32 | The minimum number of requests which are required (per sliding window period) before the CircuitBreaker can calculate the error rate or slow requests rate. For example, if `minimumNumberOfCalls` is 10, then at least 10 requests must be recorded before the failure rate can be calculated. If only 9 requests have been recorded the CircuitBreaker will not transition to `OPEN` even if all 9 requests have failed. Default is 10 | No |
-| maxWaitDurationInHalfOpenState | string |	The maximum wait duration which controls the longest amount of time a CircuitBreaker could stay in `HALF_OPEN` state before it switches to `OPEN`. Value 0 means Circuit Breaker would wait infinitely in `HALF_OPEN` State until all permitted requests have been completed. Default is 0 | No |
-| waitDurationInOpenState | string | The time that the CircuitBreaker should wait before transitioning from `OPEN` to `HALF_OPEN`. Default is 60s | No |
-| failureStatusCodes | []int | HTTP status codes which need to be counting as failures | No |
+| Name                                  | Type    | Description                                                                                                                                                                                                                                                                                                                                                                                                                              | Required |
+| ------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| name                                  | string  | Name of the policy. Must be unique in one CircuitBreaker configuration                                                                                                                                                                                                                                                                                                                                                                   | Yes      |
+| slidingWindowType                     | string  | Type of the sliding window which is used to record the outcome of requests when the CircuitBreaker is `CLOSED`. Sliding window can either be `COUNT_BASED` or `TIME_BASED`. If the sliding window is `COUNT_BASED`, the last `slidingWindowSize` requests are recorded and aggregated. If the sliding window is `TIME_BASED`, the requests of the last `slidingWindowSize` seconds are recorded and aggregated. Default is `COUNT_BASED` | No       |
+| failureRateThreshold                  | int8    | Failure rate threshold in percentage. When the failure rate is equal to or greater than the threshold the CircuitBreaker transitions to `OPEN` and starts short-circuiting requests. Default is 50                                                                                                                                                                                                                                       | No       |
+| slowCallRateThreshold                 | int8    | Slow rate threshold in percentage. The CircuitBreaker considers a request as slow when its duration is greater than `slowCallDurationThreshold`. When the percentage of slow requests is equal to or greater than the threshold, the CircuitBreaker transitions to `OPEN` and starts short-circuiting requests. Default is 100                                                                                                           | No       |
+| countingNetworkError                  | boolean | Counting network error as failure or not. Default is false                                                                                                                                                                                                                                                                                                                                                                               | No       |
+| slidingWindowSize                     | uint32  | The size of the sliding window which is used to record the outcome of requests when the CircuitBreaker is `CLOSED`. Default is 100                                                                                                                                                                                                                                                                                                       | No       |
+| permittedNumberOfCallsInHalfOpenState | uint32  | The number of permitted requests when the CircuitBreaker is `HALF_OPEN`. Default is 10                                                                                                                                                                                                                                                                                                                                                   | No       |
+| minimumNumberOfCalls                  | uint32  | The minimum number of requests which are required (per sliding window period) before the CircuitBreaker can calculate the error rate or slow requests rate. For example, if `minimumNumberOfCalls` is 10, then at least 10 requests must be recorded before the failure rate can be calculated. If only 9 requests have been recorded the CircuitBreaker will not transition to `OPEN` even if all 9 requests have failed. Default is 10 | No       |
+| maxWaitDurationInHalfOpenState        | string  | The maximum wait duration which controls the longest amount of time a CircuitBreaker could stay in `HALF_OPEN` state before it switches to `OPEN`. Value 0 means Circuit Breaker would wait infinitely in `HALF_OPEN` State until all permitted requests have been completed. Default is 0                                                                                                                                               | No       |
+| waitDurationInOpenState               | string  | The time that the CircuitBreaker should wait before transitioning from `OPEN` to `HALF_OPEN`. Default is 60s                                                                                                                                                                                                                                                                                                                             | No       |
+| failureStatusCodes                    | []int   | HTTP status codes which need to be counting as failures                                                                                                                                                                                                                                                                                                                                                                                  | No       |
 
 ### ratelimiter.Policy
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| name | string | Name of the policy. Must be unique in one RateLimiter configuration | Yes |
-| timeoutDuration | string | Maximum duration a request waits for permission to pass through the RateLimiter. The request fails if it cannot get permission in this duration. Default is 100ms | No |
-| limitRefreshPeriod | string | The period of a limit refresh. After each period the RateLimiter sets its permissions count back to the `limitForPeriod` value. Default is 10ms | No |
-| limitForPeriod |  int | The number of permissions available in one `limitRefreshPeriod`. Default is 50 | No |
+| Name               | Type   | Description                                                                                                                                                       | Required |
+| ------------------ | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| name               | string | Name of the policy. Must be unique in one RateLimiter configuration                                                                                               | Yes      |
+| timeoutDuration    | string | Maximum duration a request waits for permission to pass through the RateLimiter. The request fails if it cannot get permission in this duration. Default is 100ms | No       |
+| limitRefreshPeriod | string | The period of a limit refresh. After each period the RateLimiter sets its permissions count back to the `limitForPeriod` value. Default is 10ms                   | No       |
+| limitForPeriod     | int    | The number of permissions available in one `limitRefreshPeriod`. Default is 50                                                                                    | No       |
 
 ### timelimiter.URLRule
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| methods | []string | HTTP method criteria, Default is an empty list means all methods | No |
-| url | [urlrule.StringMatch](#urlruleStringMatch) | Criterias to match a URL | Yes |
-| timeoutDuration | string | Timeout duration for matched requests. Default is 500ms | No |
+| Name            | Type                                       | Description                                                      | Required |
+| --------------- | ------------------------------------------ | ---------------------------------------------------------------- | -------- |
+| methods         | []string                                   | HTTP method criteria, Default is an empty list means all methods | No       |
+| url             | [urlrule.StringMatch](#urlruleStringMatch) | Criterias to match a URL                                         | Yes      |
+| timeoutDuration | string                                     | Timeout duration for matched requests. Default is 500ms          | No       |
 
 ### retryer.Policy
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| name | string | Name of the policy. Must be unique in one CircuitBreaker configuration | Yes |
-| countingNetworkError | boolean | Counting network error as failure or not. Default is false | No |
-| failureStatusCodes | []int | HTTP status codes which need to be counting as failures | No |
-| maxAttempts | int | The maximum number of attempts (including the initial one). Default is 3 | No |
-| waitDuration | string | The base wait duration between attempts. Default is 500ms | No |
-| backOffPolicy | string | The back-off policy for wait duration, could be `EXPONENTIAL` or `RANDOM` and the default is `RANDOM`. If configured as `EXPONENTIAL`, the base wait duration becomes 1.5 times larger after each failed attempt | No |
-| randomizationFactor | float64 | Randomization factor for actual wait duration, a number in interval `[0, 1]`, default is 0. The actual wait duration used is a random number in interval `[(base wait duration) * (1 - randomizationFactor),  (base wait duration) * (1 + randomizationFactor)]` | No |
+| Name                 | Type    | Description                                                                                                                                                                                                                                                      | Required |
+| -------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| name                 | string  | Name of the policy. Must be unique in one CircuitBreaker configuration                                                                                                                                                                                           | Yes      |
+| countingNetworkError | boolean | Counting network error as failure or not. Default is false                                                                                                                                                                                                       | No       |
+| failureStatusCodes   | []int   | HTTP status codes which need to be counting as failures                                                                                                                                                                                                          | No       |
+| maxAttempts          | int     | The maximum number of attempts (including the initial one). Default is 3                                                                                                                                                                                         | No       |
+| waitDuration         | string  | The base wait duration between attempts. Default is 500ms                                                                                                                                                                                                        | No       |
+| backOffPolicy        | string  | The back-off policy for wait duration, could be `EXPONENTIAL` or `RANDOM` and the default is `RANDOM`. If configured as `EXPONENTIAL`, the base wait duration becomes 1.5 times larger after each failed attempt                                                 | No       |
+| randomizationFactor  | float64 | Randomization factor for actual wait duration, a number in interval `[0, 1]`, default is 0. The actual wait duration used is a random number in interval `[(base wait duration) * (1 - randomizationFactor),  (base wait duration) * (1 + randomizationFactor)]` | No       |
 
 ### httpheader.ValueValidator
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| values | []string | An array of strings, if one of the header values of any header of the request is found in the array, the request is considered to pass the validation of current rule | No |
-| regexp | string | A regular expression, if one of the header values of any header of the request matches this regular expression, the request is considered to pass the validation of current rule | No |
+| Name   | Type     | Description                                                                                                                                                                      | Required |
+| ------ | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| values | []string | An array of strings, if one of the header values of any header of the request is found in the array, the request is considered to pass the validation of current rule            | No       |
+| regexp | string   | A regular expression, if one of the header values of any header of the request matches this regular expression, the request is considered to pass the validation of current rule | No       |
 
 ### validator.JWTValidatorSpec
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| cookieName | string | The name of a cookie, if this option is set and the cookie exists, its value is used as the token string, otherwise, the `Authorization` header is used | No |
-| algorithm | string | The algorithm for validation, `HS256`, `HS384`, and `HS512` are supported | Yes |
-| secret | string | The secret for validation, in hex encoding | Yes |
+| Name       | Type   | Description                                                                                                                                             | Required |
+| ---------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| cookieName | string | The name of a cookie, if this option is set and the cookie exists, its value is used as the token string, otherwise, the `Authorization` header is used | No       |
+| algorithm  | string | The algorithm for validation, `HS256`, `HS384`, and `HS512` are supported                                                                               | Yes      |
+| secret     | string | The secret for validation, in hex encoding                                                                                                              | Yes      |
 
 ### signer.Spec
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| literal | [signer.Literal](#signerLiteral) | Literal strings for customization, default value is used if omitted | No |
-| excludeBody | boolean | Exclude request body from the signature calculation, default is `false` | No |
-| ttl | string | Time to live of a signature, default is 0 means a signature never expires | No |
-| accessKeys | map[string]string | A map of access key id to access key secret | Yes |
+| Name        | Type                             | Description                                                               | Required |
+| ----------- | -------------------------------- | ------------------------------------------------------------------------- | -------- |
+| literal     | [signer.Literal](#signerLiteral) | Literal strings for customization, default value is used if omitted       | No       |
+| excludeBody | boolean                          | Exclude request body from the signature calculation, default is `false`   | No       |
+| ttl         | string                           | Time to live of a signature, default is 0 means a signature never expires | No       |
+| accessKeys  | map[string]string                | A map of access key id to access key secret                               | Yes      |
 
 ### signer.Literal
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| scopeSuffix | string | The last part to build credential scope, default is `megaease_request`, in `Amazon Signature V4`, it is `aws4_request` | No |
-| algorithmName | string | The query name of the signature algorithm in the request, default is `X-Me-Algorithm`,  in `Amazon Signature V4`, it is `X-Amz-Algorithm` | No |
-| algorithmValue | string | The header/query value of the signature algorithm for the request, default is "ME-HMAC-SHA256", in `Amazon Signature V4`, it is `AWS4-HMAC-SHA256` | No |
-| signedHeaders | string | The header/query headers of the signed headers, default is `X-Me-SignedHeaders`, in `Amazon Signature V4`, it is `X-Amz-SignedHeaders` | No |
-| signature | string | The query name of the signature, default is `X-Me-Signature`, in `Amazon Signature V4`, it is `X-Amz-Signature` | No |
-| date | string | The header/query name of the request time, default is `X-Me-Date`, in `Amazon Signature V4`, it is `X-Amz-Date` | No |
-| expires | string | The query name of expire duration, default is `X-Me-Expires`, in `Amazon Signature V4`, it is `X-Amz-Date` | No |
-| credential | string | The query name of cridential, default is `X-Me-Credential`, in `Amazon Signature V4`, it is `X-Amz-Credential` | No |
-| contentSha256 | string | The header name of body/payload hash, default is "X-Me-Content-Sha256", in `Amazon Signature V4`, it is `X-Amz-Content-Sha256` | No |
-| signingKeyPrefix | string | The prefix is prepended to access key secret when deriving the signing key, default is `ME`, in `Amazon Signature V4`, it is `AWS4` | No |
+| Name             | Type   | Description                                                                                                                                        | Required |
+| ---------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| scopeSuffix      | string | The last part to build credential scope, default is `megaease_request`, in `Amazon Signature V4`, it is `aws4_request`                             | No       |
+| algorithmName    | string | The query name of the signature algorithm in the request, default is `X-Me-Algorithm`,  in `Amazon Signature V4`, it is `X-Amz-Algorithm`          | No       |
+| algorithmValue   | string | The header/query value of the signature algorithm for the request, default is "ME-HMAC-SHA256", in `Amazon Signature V4`, it is `AWS4-HMAC-SHA256` | No       |
+| signedHeaders    | string | The header/query headers of the signed headers, default is `X-Me-SignedHeaders`, in `Amazon Signature V4`, it is `X-Amz-SignedHeaders`             | No       |
+| signature        | string | The query name of the signature, default is `X-Me-Signature`, in `Amazon Signature V4`, it is `X-Amz-Signature`                                    | No       |
+| date             | string | The header/query name of the request time, default is `X-Me-Date`, in `Amazon Signature V4`, it is `X-Amz-Date`                                    | No       |
+| expires          | string | The query name of expire duration, default is `X-Me-Expires`, in `Amazon Signature V4`, it is `X-Amz-Date`                                         | No       |
+| credential       | string | The query name of cridential, default is `X-Me-Credential`, in `Amazon Signature V4`, it is `X-Amz-Credential`                                     | No       |
+| contentSha256    | string | The header name of body/payload hash, default is "X-Me-Content-Sha256", in `Amazon Signature V4`, it is `X-Amz-Content-Sha256`                     | No       |
+| signingKeyPrefix | string | The prefix is prepended to access key secret when deriving the signing key, default is `ME`, in `Amazon Signature V4`, it is `AWS4`                | No       |
 
 ### validator.OAuth2ValidatorSpec
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| tokenIntrospect | [validator.OAuth2TokenIntrospect](#validatorOAuth2TokenIntrospect) | Configuration for Token Introspection mode | No |
-| jwt | [validator.OAuth2JWT](#validatorOAuth2JWT) | Configuration for Self-Encoded Access Tokens mode | No |
+| Name            | Type                                                               | Description                                       | Required |
+| --------------- | ------------------------------------------------------------------ | ------------------------------------------------- | -------- |
+| tokenIntrospect | [validator.OAuth2TokenIntrospect](#validatorOAuth2TokenIntrospect) | Configuration for Token Introspection mode        | No       |
+| jwt             | [validator.OAuth2JWT](#validatorOAuth2JWT)                         | Configuration for Self-Encoded Access Tokens mode | No       |
 
 ### validator.OAuth2TokenIntrospect
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| endPoint | string | The endpoint of the token introspection server | Yes |
-| clientId | string | Client id of EaseGateway in the token introspection server | No |
-| clientSecret | string | Client secret of EaseGateway | No |
-| basicAuth | string | If `clientId` not specified and this option is specified, its value is used for basic authorization with the token introspection server | No |
-| insecureTls | boolean | Whether the connection between EaseGateway and the token introspection server need to be secure or not, default is `false` means the connection need to be a secure one | No |
+| Name         | Type    | Description                                                                                                                                                           | Required |
+| ------------ | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| endPoint     | string  | The endpoint of the token introspection server                                                                                                                        | Yes      |
+| clientId     | string  | Client id of Easegress in the token introspection server                                                                                                              | No       |
+| clientSecret | string  | Client secret of Easegress                                                                                                                                            | No       |
+| basicAuth    | string  | If `clientId` not specified and this option is specified, its value is used for basic authorization with the token introspection server                               | No       |
+| insecureTls  | boolean | Whether the connection between Easegress and the token introspection server need to be secure or not, default is `false` means the connection need to be a secure one | No       |
 
 ### validator.OAuth2JWT
 
-| Name | Type | Description | Required |
-|------|------|-------------|----------|
-| algorithm | string | The algorithm for validation, `HS256`, `HS384` and `HS512` are supported | Yes |
-| secret | string | The secret for validation, in hex encoding | Yes |
+| Name      | Type   | Description                                                              | Required |
+| --------- | ------ | ------------------------------------------------------------------------ | -------- |
+| algorithm | string | The algorithm for validation, `HS256`, `HS384` and `HS512` are supported | Yes      |
+| secret    | string | The secret for validation, in hex encoding                               | Yes      |

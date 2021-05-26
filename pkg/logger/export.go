@@ -22,7 +22,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/megaease/easegateway/pkg/common"
+	"github.com/megaease/easegress/pkg/common"
 )
 
 // Debugf is the wrapper of default logger Debugf.
@@ -49,7 +49,7 @@ func Errorf(template string, args ...interface{}) {
 func Sync() {
 	defaultLogger.Sync()
 	stderrLogger.Sync()
-	gatewayLogger.Sync()
+	gressLogger.Sync()
 	httpFilterAccessLogger.Sync()
 	httpFilterDumpLogger.Sync()
 	restAPILogger.Sync()

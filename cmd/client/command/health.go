@@ -27,7 +27,7 @@ import (
 func HealthCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "health",
-		Short: "Probe EaseGateway health",
+		Short: "Probe Easegress health",
 		Run: func(cmd *cobra.Command, args []string) {
 			handleRequest(http.MethodGet, makeURL(healthURL), nil, cmd)
 		},

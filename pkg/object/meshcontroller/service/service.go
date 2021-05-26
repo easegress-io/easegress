@@ -20,12 +20,12 @@ package service
 import (
 	"fmt"
 
-	"github.com/megaease/easegateway/pkg/api"
-	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/layout"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/storage"
-	"github.com/megaease/easegateway/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/api"
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/layout"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/storage"
+	"github.com/megaease/easegress/pkg/supervisor"
 	"go.etcd.io/etcd/mvcc/mvccpb"
 
 	"gopkg.in/yaml.v2"

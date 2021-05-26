@@ -26,9 +26,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/megaease/easegateway/pkg/common"
-	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/option"
+	"github.com/megaease/easegress/pkg/common"
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/option"
 
 	"go.etcd.io/etcd/clientv3"
 	"go.etcd.io/etcd/clientv3/concurrency"

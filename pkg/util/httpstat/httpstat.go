@@ -21,8 +21,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/megaease/easegateway/pkg/util/codecounter"
-	"github.com/megaease/easegateway/pkg/util/sampler"
+	"github.com/megaease/easegress/pkg/util/codecounter"
+	"github.com/megaease/easegress/pkg/util/sampler"
 
 	metrics "github.com/rcrowley/go-metrics"
 )

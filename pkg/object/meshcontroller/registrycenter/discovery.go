@@ -22,8 +22,8 @@ import (
 	"runtime/debug"
 	"strings"
 
-	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/object/meshcontroller/spec"
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
 	"go.etcd.io/etcd/mvcc/mvccpb"
 )
 

@@ -22,9 +22,9 @@ import (
 	"net/textproto"
 	"strings"
 
-	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/util/stringtool"
-	"github.com/megaease/easegateway/pkg/util/texttemplate"
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/util/stringtool"
+	"github.com/megaease/easegress/pkg/util/texttemplate"
 )
 
 type (

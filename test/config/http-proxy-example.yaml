@@ -135,6 +135,6 @@ responseAdaptor:
   header:
     del: []
     set:
-      Server: EaseGateway v3.0.0
+      Server: Easegress v3.0.0
     add:
       X-Proxy-Name: http-proxy-exmaple

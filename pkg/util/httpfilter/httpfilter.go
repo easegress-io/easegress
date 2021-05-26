@@ -22,10 +22,10 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/megaease/easegateway/pkg/context"
-	"github.com/megaease/easegateway/pkg/logger"
-	"github.com/megaease/easegateway/pkg/util/hashtool"
-	"github.com/megaease/easegateway/pkg/util/urlrule"
+	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/util/hashtool"
+	"github.com/megaease/easegress/pkg/util/urlrule"
 )
 
 func init() {

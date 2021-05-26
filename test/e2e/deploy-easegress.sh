@@ -14,21 +14,21 @@ fi
 if [ -n "${ROLLBACK_ID}" ];then
   BUILD_ID=${ROLLBACK_ID}
 else
-  cp ${BUILDDIR}/bin/easegateway-server ${PRODLABDIR}/easegateway-server.${BUILD_ID}
+  cp ${BUILDDIR}/bin/easegress-server ${PRODLABDIR}/easegress-server.${BUILD_ID}
   cp ${BUILDDIR}/bin/egctl ${PRODLABDIR}/egctl.${BUILD_ID}
 fi
 
 for i in "${DEPLOYHOST[@]}";
 do
-    scp ${PRODLABDIR}/easegateway-server.${BUILD_ID}  "${i}:${DEPLOYDIR}/easegateway-server.deploy"
-    if [ $? -ne 0 ];then 
+    scp ${PRODLABDIR}/easegress-server.${BUILD_ID}  "${i}:${DEPLOYDIR}/easegress-server.deploy"
+    if [ $? -ne 0 ];then
         exit 1
     fi
     scp ${PRODLABDIR}/egctl.${BUILD_ID}  "${i}:${DEPLOYDIR}/egctl.deploy"
     if [ $? -ne 0 ];then
         exit 1
     fi
-    ssh ${i} "mv ${DEPLOYDIR}/easegateway-server.deploy ${DEPLOYDIR}/easegateway-server"
+    ssh ${i} "mv ${DEPLOYDIR}/easegress-server.deploy ${DEPLOYDIR}/easegress-server"
     if [ $? -ne 0 ];then
         exit 1
     fi
@@ -36,7 +36,7 @@ do
     if [ $? -ne 0 ];then
         exit 1
     fi
-    ssh ${i} "PID=\`cat ${DEPLOYDIR}/easegateway.pid\`;LSPS=\`ps -ef|grep \$PID|grep easegateway|wc -l\`;if [ \"\$LSPS\" = \"1\" ];then kill -USR2 \$PID; else cd ${DEPLOYDIR};nohup ./start.sh>/dev/null 2>&1 &; fi" 
+    ssh ${i} "PID=\`cat ${DEPLOYDIR}/easegress.pid\`;LSPS=\`ps -ef|grep \$PID|grep easegress|wc -l\`;if [ \"\$LSPS\" = \"1\" ];then kill -USR2 \$PID; else cd ${DEPLOYDIR};nohup ./start.sh>/dev/null 2>&1 &; fi"
     if [ $? -ne 0 ];then
         exit 1
     fi
