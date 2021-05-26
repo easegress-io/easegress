@@ -20,4 +20,4 @@ data
 # vscode
 .vscode/
 
-easegateway.pid
+easegress.pid
