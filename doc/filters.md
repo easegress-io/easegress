@@ -4,7 +4,7 @@
   - [APIAggregator](#apiaggregator)
     - [Configuration](#configuration)
     - [Results](#results)
-  - [Backend](#backend)
+  - [Proxy](#proxy)
     - [Configuration](#configuration-1)
     - [Results](#results-1)
   - [Bridge](#bridge)
@@ -48,17 +48,17 @@
     - [pathadaptor.Spec](#pathadaptorspec)
     - [pathadaptor.RegexpReplace](#pathadaptorregexpreplace)
     - [httpheader.AdaptSpec](#httpheaderadaptspec)
-    - [backend.FallbackSpec](#backendfallbackspec)
-    - [backend.PoolSpec](#backendpoolspec)
-    - [backend.Server](#backendserver)
-    - [backend.LoadBalance](#backendloadbalance)
+    - [proxy.FallbackSpec](#proxyfallbackspec)
+    - [proxy.PoolSpec](#proxypoolspec)
+    - [proxy.Server](#proxyserver)
+    - [proxy.LoadBalance](#proxyloadbalance)
     - [memorycache.Spec](#memorycachespec)
     - [httpfilter.Spec](#httpfilterspec)
     - [urlrule.StringMatch](#urlrulestringmatch)
     - [urlrule.URLRule](#urlruleurlrule)
     - [resilience.URLRule](#resilienceurlrule)
     - [httpfilter.Probability](#httpfilterprobability)
-    - [backend.Compression](#backendcompression)
+    - [proxy.Compression](#proxycompression)
     - [mock.Rule](#mockrule)
     - [circuitbreaker.Policy](#circuitbreakerpolicy)
     - [ratelimiter.Policy](#ratelimiterpolicy)
@@ -110,25 +110,25 @@ apiProxies:
 | ------ | --------------------------------------------------- |
 | failed | The APIAggregator has failed to process the request |
 
-## Backend
+## Proxy
 
-The Backend filter is a proxy of backend service.
+The Proxy filter is a proxy of backend service.
 
-Below is one of the simplest Backend configurations, it forward requests to `http://127.0.0.1:9095`.
+Below is one of the simplest Proxy configurations, it forward requests to `http://127.0.0.1:9095`.
 
 ```yaml
-kind: Backend
-name: backend-example-1
+kind: Proxy
+name: proxy-example-1
 mainPool:
   servers:
   - url: http://127.0.0.1:9095
 ```
 
-Besides `mainPool`, `candidatePools` can also be configured, if so, Backend first checks if one of the candidate pools can process a request. For example, the candidate pool in the below configuration randomly selects and processes 30‰ of requests, and the main pool processes the other 970‰ of requests.
+Besides `mainPool`, `candidatePools` can also be configured, if so, Proxy first checks if one of the candidate pools can process a request. For example, the candidate pool in the below configuration randomly selects and processes 30‰ of requests, and the main pool processes the other 970‰ of requests.
 
 ```yaml
-kind: Backend
-name: backend-example-2
+kind: Proxy
+name: proxy-example-2
 mainPool:
   servers:
   - url: http://127.0.0.1:9095
@@ -143,19 +143,19 @@ candidatePools:
 Servers of a pool can also be dynamically configured via service discovery, the below configuration gets a list of servers by `serviceRegistry` & `serviceName`, and only servers that have tag `v2` are selected.
 
 ```yaml
-kind: Backend
-name: backend-example-3
+kind: Proxy
+name: proxy-example-3
 mainPool:
   serverTags: ["v2"]
   serviceName: service-001
   serviceRegistry: eureka-service-registry-example
 ```
 
-When there are multiple servers in a pool, the Backend can do a load balance between them:
+When there are multiple servers in a pool, the Proxy can do a load balance between them:
 
 ```yaml
-kind: Backend
-name: backend-example-4
+kind: Proxy
+name: proxy-example-4
 mainPool:
   serverTags: ["v2"]
   serviceName: service-001
@@ -167,14 +167,14 @@ mainPool:
 
 ### Configuration
 
-| Name           | Type                                               | Description                                                                                                                                                                                                                                                                                                           | Required |
-| -------------- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| fallback       | [backend.FallbackSpec](#backendFallbackSpec)       | Fallback steps when failed to send a request or receives a failure response                                                                                                                                                                                                                                           | No       |
-| mainPool       | [backend.PoolSpec](#backendPoolSpec)               | Main pool of backend servers                                                                                                                                                                                                                                                                                          | Yes      |
-| candidatePools | [][backend.PoolSpec](#backendPoolSpec)             | One or more pool configuration similar with `mainPool` but with `filter` options configured. When `Backend` get a request, it first goes through the pools in `candidatePools`, and if one of the pools filter in the request, servers of this pool handles the request, otherwise, the request is pass to `mainPool` | No       |
-| mirrorPool     | [backend.PoolSpec](#backendPoolSpec)               | Definition a mirror pool, requests are sent to this pool simultaneously when they are sent to candidate pools or main pool                                                                                                                                                                                            | No       |
-| failureCodes   | []int                                              | HTTP status codes need to be handled as failure                                                                                                                                                                                                                                                                       | No       |
-| compression    | [backend.CompressionSpec](#backendCompressionSpec) | Response compression options                                                                                                                                                                                                                                                                                          | No       |
+| Name           | Type                                           | Description                                                                                                                                                                                                                                                                                                         | Required |
+| -------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| fallback       | [proxy.FallbackSpec](#proxyFallbackSpec)       | Fallback steps when failed to send a request or receives a failure response                                                                                                                                                                                                                                         | No       |
+| mainPool       | [proxy.PoolSpec](#proxyPoolSpec)               | Main pool of proxy servers                                                                                                                                                                                                                                                                                          | Yes      |
+| candidatePools | [][proxy.PoolSpec](#proxyPoolSpec)             | One or more pool configuration similar with `mainPool` but with `filter` options configured. When `Proxy` get a request, it first goes through the pools in `candidatePools`, and if one of the pools filter in the request, servers of this pool handles the request, otherwise, the request is pass to `mainPool` | No       |
+| mirrorPool     | [proxy.PoolSpec](#proxyPoolSpec)               | Definition a mirror pool, requests are sent to this pool simultaneously when they are sent to candidate pools or main pool                                                                                                                                                                                          | No       |
+| failureCodes   | []int                                          | HTTP status codes need to be handled as failure                                                                                                                                                                                                                                                                     | No       |
+| compression    | [proxy.CompressionSpec](#proxyCompressionSpec) | Response compression options                                                                                                                                                                                                                                                                                        | No       |
 
 ### Results
 
@@ -214,7 +214,7 @@ destinations: ["pipeline1", "pipeline2"]
 
 ## CORSAdaptor
 
-The CORSAdaptor handles the [CORS](https://en.wikipedia.org/wiki/Cross-origin_resource_sharing) preflight request for backend service.
+The CORSAdaptor handles the [CORS](https://en.wikipedia.org/wiki/Cross-origin_resource_sharing) preflight request for proxy service.
 
 The below example configuration handles the preflight `GET` request from `*.megaease.com`.
 
@@ -411,7 +411,7 @@ urls:
 
 ## RateLimiter
 
-RateLimiter protects backend service for high availability and reliability by limiting the number of requests sent to the service in a configured duration.
+RateLimiter protects proxy service for high availability and reliability by limiting the number of requests sent to the service in a configured duration.
 
 Below example configuration limits `GET`, `POST`, `PUT`, `DELETE` requests to path which matches regular expression `^/pets/\d+$` to 50 per 10ms, and a request fails if it cannot be permitted in 100ms due to high concurrency requests count.
 
@@ -635,7 +635,7 @@ Rules to revise request header. Note that both header name and value can be a te
 | set  | map[string]string | Name & value of headers to be set   | No       |
 | add  | map[string]string | Name & value of headers to be added | No       |
 
-### backend.FallbackSpec
+### proxy.FallbackSpec
 
 | Name        | Type              | Description                                                                             | Required |
 | ----------- | ----------------- | --------------------------------------------------------------------------------------- | -------- |
@@ -644,28 +644,28 @@ Rules to revise request header. Note that both header name and value can be a te
 | mockHeaders | map[string]string | Please refer the [Fallback](filters.md#Fallback) filter                                 | No       |
 | mockBody    | string            | Please refer the [Fallback](filters.md#Fallback) filter                                 | No       |
 
-### backend.PoolSpec
+### proxy.PoolSpec
 
-| Name            | Type                                       | Description                                                                                                  | Required |
-| --------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------ | -------- |
-| spanName        | string                                     | Span name for tracing, if not specified, the `url` of the target server is used                              | No       |
-| serverTags      | []string                                   | Server selector tags, only servers have tags in this array are included in this pool                         | No       |
-| servers         | [][backend.Server](#backendServer)         | An array of static servers. If omitted, `serviceName` and `serviceRegistry` must be provided, and vice versa | No       |
-| serviceName     | string                                     | This option and `serviceRegistry` are for dynamic server discovery                                           | No       |
-| serviceRegistry | string                                     | This option and `serviceName` are for dynamic server discovery                                               | No       |
-| loadBalance     | [backend.LoadBalance](#backendLoadBalance) | Load balance options                                                                                         | Yes      |
-| memoryCache     | [memorycache.Spec](#memorycacheSpec)       | Options for response caching                                                                                 | No       |
-| filter          | [httpfilter.Spec](#httpfilterSpec)         | Filter options for candidate pools                                                                           | No       |
+| Name            | Type                                   | Description                                                                                                  | Required |
+| --------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------ | -------- |
+| spanName        | string                                 | Span name for tracing, if not specified, the `url` of the target server is used                              | No       |
+| serverTags      | []string                               | Server selector tags, only servers have tags in this array are included in this pool                         | No       |
+| servers         | [][proxy.Server](#proxyServer)         | An array of static servers. If omitted, `serviceName` and `serviceRegistry` must be provided, and vice versa | No       |
+| serviceName     | string                                 | This option and `serviceRegistry` are for dynamic server discovery                                           | No       |
+| serviceRegistry | string                                 | This option and `serviceName` are for dynamic server discovery                                               | No       |
+| loadBalance     | [proxy.LoadBalance](#proxyLoadBalance) | Load balance options                                                                                         | Yes      |
+| memoryCache     | [memorycache.Spec](#memorycacheSpec)   | Options for response caching                                                                                 | No       |
+| filter          | [httpfilter.Spec](#httpfilterSpec)     | Filter options for candidate pools                                                                           | No       |
 
-### backend.Server
+### proxy.Server
 
 | Name   | Type     | Description                                                                                                  | Required |
 | ------ | -------- | ------------------------------------------------------------------------------------------------------------ | -------- |
 | url    | string   | Address of the server                                                                                        | Yes      |
-| tags   | []string | Tags of this server, refer `serverTags` in [backend.PoolSpec](#backendPoolSpec)                              | No       |
+| tags   | []string | Tags of this server, refer `serverTags` in [proxy.PoolSpec](#proxyPoolSpec)                                  | No       |
 | weight | int      | When load balance policy is `weightedRandom`, this value is used to calculate the possibility of this server | No       |
 
-### backend.LoadBalance
+### proxy.LoadBalance
 
 | Name          | Type   | Description                                                                                                 | Required |
 | ------------- | ------ | ----------------------------------------------------------------------------------------------------------- | -------- |
@@ -729,7 +729,7 @@ The relationship between `methods` and `url` is `AND`.
 | policy        | string | Randomization policy, valid values are `ipHash`, `headerHash`, and `random`                                 | Yes      |
 | headerHashKey | string | When `policy` is `headerHash`, this option is the name of a header whose value is used for hash calculation | No       |
 
-### backend.Compression
+### proxy.Compression
 
 | Name      | Type | Description                                                                                   | Required |
 | --------- | ---- | --------------------------------------------------------------------------------------------- | -------- |
