@@ -174,7 +174,7 @@ func (ic *IngressController) updatePipeline(
 	return nil
 }
 
-// Get gets pipe line for backend 'name'
+// Get gets pipeline for backend 'name'
 func (ic *IngressController) Get(name string) (protocol.HTTPHandler, bool) {
 	ic.mutex.Lock()
 	defer ic.mutex.Unlock()

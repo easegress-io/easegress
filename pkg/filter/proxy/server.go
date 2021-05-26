@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package backend
+package proxy
 
 import (
 	"fmt"
@@ -67,7 +67,7 @@ type (
 		lb         LoadBalance
 	}
 
-	// Server is backend server.
+	// Server is proxy server.
 	Server struct {
 		URL    string   `yaml:"url" jsonschema:"required,format=url"`
 		Tags   []string `yaml:"tags" jsonschema:"omitempty,uniqueItems=true"`

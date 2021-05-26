@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package backend
+package proxy
 
 import (
 	"bytes"

@@ -42,7 +42,7 @@ Powered by open-source software: Etcd(https://etcd.io), Apache License 2.0.
 
 const (
 	// APIPrefix is the prefix of api.
-	APIPrefix = "/apis/v3"
+	APIPrefix = "/apis/v1"
 
 	lockKey = "/config/lock"
 

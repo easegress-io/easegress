@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/megaease/easegress/pkg/filter/backend"
+	"github.com/megaease/easegress/pkg/filter/proxy"
 	"github.com/megaease/easegress/pkg/filter/resilience/circuitbreaker"
 	"github.com/megaease/easegress/pkg/filter/resilience/ratelimiter"
 	"github.com/megaease/easegress/pkg/filter/resilience/retryer"
@@ -33,7 +33,7 @@ func TestSideCarIngressPipelineSpec(t *testing.T) {
 	s := &Service{
 		Name: "order-001",
 		LoadBalance: &LoadBalance{
-			Policy: backend.PolicyRandom,
+			Policy: proxy.PolicyRandom,
 		},
 		Sidecar: &Sidecar{
 			Address:         "127.0.0.1",
@@ -52,7 +52,7 @@ func TestSideCarEgressPipelineSpec(t *testing.T) {
 	s := &Service{
 		Name: "order-001",
 		LoadBalance: &LoadBalance{
-			Policy: backend.PolicyIPHash,
+			Policy: proxy.PolicyIPHash,
 		},
 		Sidecar: &Sidecar{
 			Address:         "127.0.0.1",
@@ -88,7 +88,7 @@ func TestSideCarEgressPipelineWithCanarySpec(t *testing.T) {
 	s := &Service{
 		Name: "order-002-canary",
 		LoadBalance: &LoadBalance{
-			Policy: backend.PolicyIPHash,
+			Policy: proxy.PolicyIPHash,
 		},
 		Sidecar: &Sidecar{
 			Address:         "127.0.0.1",
@@ -163,7 +163,7 @@ func TestSideCarEgressPipelineWithMultipleCanarySpec(t *testing.T) {
 	s := &Service{
 		Name: "order-003-canary-array",
 		LoadBalance: &LoadBalance{
-			Policy: backend.PolicyIPHash,
+			Policy: proxy.PolicyIPHash,
 		},
 		Sidecar: &Sidecar{
 			Address:         "127.0.0.1",
@@ -258,7 +258,7 @@ func TestSideCarEgressPipelineWithCanaryNoInstanceSpec(t *testing.T) {
 	s := &Service{
 		Name: "order-004-canary-no-instance",
 		LoadBalance: &LoadBalance{
-			Policy: backend.PolicyIPHash,
+			Policy: proxy.PolicyIPHash,
 		},
 		Sidecar: &Sidecar{
 			Address:         "127.0.0.1",
@@ -331,7 +331,7 @@ func TestSideCarEgressPipelineWithCanaryInstanceMultipleLabelSpec(t *testing.T) 
 	s := &Service{
 		Name: "order-005-canary-instance-multiple-label",
 		LoadBalance: &LoadBalance{
-			Policy: backend.PolicyIPHash,
+			Policy: proxy.PolicyIPHash,
 		},
 		Sidecar: &Sidecar{
 			Address:         "127.0.0.1",
@@ -407,7 +407,7 @@ func TestSideCarIngressWithResiliencePipelineSpec(t *testing.T) {
 	s := &Service{
 		Name: "order-001",
 		LoadBalance: &LoadBalance{
-			Policy: backend.PolicyRandom,
+			Policy: proxy.PolicyRandom,
 		},
 		Sidecar: &Sidecar{
 			Address:         "127.0.0.1",
@@ -447,7 +447,7 @@ func TestSideCarEgressResiliencePipelineSpec(t *testing.T) {
 	s := &Service{
 		Name: "order-001",
 		LoadBalance: &LoadBalance{
-			Policy: backend.PolicyIPHash,
+			Policy: proxy.PolicyIPHash,
 		},
 		Sidecar: &Sidecar{
 			Address:         "127.0.0.1",

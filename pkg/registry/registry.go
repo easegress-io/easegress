@@ -31,11 +31,11 @@ import (
 
 	// Filters
 	_ "github.com/megaease/easegress/pkg/filter/apiaggregator"
-	_ "github.com/megaease/easegress/pkg/filter/backend"
 	_ "github.com/megaease/easegress/pkg/filter/bridge"
 	_ "github.com/megaease/easegress/pkg/filter/corsadaptor"
 	_ "github.com/megaease/easegress/pkg/filter/fallback"
 	_ "github.com/megaease/easegress/pkg/filter/mock"
+	_ "github.com/megaease/easegress/pkg/filter/proxy"
 	_ "github.com/megaease/easegress/pkg/filter/remotefilter"
 	_ "github.com/megaease/easegress/pkg/filter/requestadaptor"
 	_ "github.com/megaease/easegress/pkg/filter/resilience/circuitbreaker"

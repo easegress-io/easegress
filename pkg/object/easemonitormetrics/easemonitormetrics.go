@@ -24,7 +24,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/megaease/easegress/pkg/filter/backend"
+	"github.com/megaease/easegress/pkg/filter/proxy"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
 	"github.com/megaease/easegress/pkg/object/httpserver"
@@ -345,33 +345,33 @@ func (emm *EaseMonitorMetrics) httpPipeline2Metrics(
 	reqMetrics []*RequestMetrics, codeMetrics []*StatusCodeMetrics) {
 
 	for filterName, filterStatus := range pipelineStatus.Filters {
-		backendStatus, ok := filterStatus.(*backend.Status)
+		proxyStatus, ok := filterStatus.(*proxy.Status)
 		if !ok {
 			continue
 		}
 
 		baseFieldsBackend := *baseFields
-		baseFieldsBackend.Resource = "BACKEND"
+		baseFieldsBackend.Resource = "PROXY"
 
-		if backendStatus.MainPool != nil {
+		if proxyStatus.MainPool != nil {
 			baseFieldsBackend.Service = baseFields.Service + "/" + filterName + "/mainPool"
-			req, codes := emm.httpStat2Metrics(&baseFieldsBackend, backendStatus.MainPool.Stat)
+			req, codes := emm.httpStat2Metrics(&baseFieldsBackend, proxyStatus.MainPool.Stat)
 			reqMetrics = append(reqMetrics, req)
 			codeMetrics = append(codeMetrics, codes...)
 		}
 
-		if len(backendStatus.CandidatePools) > 0 {
-			for idx, _ := range backendStatus.CandidatePools {
+		if len(proxyStatus.CandidatePools) > 0 {
+			for idx, _ := range proxyStatus.CandidatePools {
 				baseFieldsBackend.Service = fmt.Sprintf("%s/%s/candidatePool/%d", baseFields.Service, filterName, idx)
-				req, codes := emm.httpStat2Metrics(&baseFieldsBackend, backendStatus.CandidatePools[idx].Stat)
+				req, codes := emm.httpStat2Metrics(&baseFieldsBackend, proxyStatus.CandidatePools[idx].Stat)
 				reqMetrics = append(reqMetrics, req)
 				codeMetrics = append(codeMetrics, codes...)
 			}
 		}
 
-		if backendStatus.MirrorPool != nil {
+		if proxyStatus.MirrorPool != nil {
 			baseFieldsBackend.Service = baseFields.Service + "/" + filterName + "/mirrorPool"
-			req, codes := emm.httpStat2Metrics(&baseFieldsBackend, backendStatus.MainPool.Stat)
+			req, codes := emm.httpStat2Metrics(&baseFieldsBackend, proxyStatus.MainPool.Stat)
 			reqMetrics = append(reqMetrics, req)
 			codeMetrics = append(codeMetrics, codes...)
 		}

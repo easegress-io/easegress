@@ -21,7 +21,7 @@ import (
 	"fmt"
 
 	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/filter/backend"
+	"github.com/megaease/easegress/pkg/filter/proxy"
 	"github.com/megaease/easegress/pkg/filter/requestadaptor"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
@@ -60,7 +60,7 @@ type (
 		superSpec *supervisor.Spec
 		spec      *Spec
 
-		backend        *backend.Backend
+		proxy          *proxy.Proxy
 		cron           *Cron
 		requestAdaptor *requestadaptor.RequestAdaptor
 	}
@@ -90,7 +90,7 @@ type (
 
 // Validate validates Spec.
 func (spec Spec) Validate() error {
-	pipeSpec := spec.backendPipeSpec()
+	pipeSpec := spec.proxyPipeSpec()
 	buff, err := yaml.Marshal(pipeSpec)
 	if err != nil {
 		err = fmt.Errorf("BUG: marshal %#v to yaml failed: %v",
@@ -107,19 +107,19 @@ func (spec Spec) Validate() error {
 	return nil
 }
 
-func (spec Spec) backendPipeSpec() *httppipeline.FilterSpec {
+func (spec Spec) proxyPipeSpec() *httppipeline.FilterSpec {
 	meta := &httppipeline.FilterMetaSpec{
-		Kind: backend.Kind,
-		Name: "backend",
+		Kind: proxy.Kind,
+		Name: "proxy",
 	}
-	filterSpec := &backend.Spec{
-		MainPool: &backend.PoolSpec{
-			Servers: []*backend.Server{
+	filterSpec := &proxy.Spec{
+		MainPool: &proxy.PoolSpec{
+			Servers: []*proxy.Server{
 				{
 					URL: spec.URL,
 				},
 			},
-			LoadBalance: &backend.LoadBalance{Policy: backend.PolicyRoundRobin},
+			LoadBalance: &proxy.LoadBalance{Policy: proxy.PolicyRoundRobin},
 		},
 	}
 
@@ -180,8 +180,8 @@ func (f *Function) Inherit(superSpec *supervisor.Spec,
 }
 
 func (f *Function) reload() {
-	f.backend = &backend.Backend{}
-	f.backend.Init(f.spec.backendPipeSpec(), f.super)
+	f.proxy = &proxy.Proxy{}
+	f.proxy.Init(f.spec.proxyPipeSpec(), f.super)
 
 	if f.spec.RequestAdaptor != nil {
 		f.requestAdaptor = &requestadaptor.RequestAdaptor{}
@@ -198,13 +198,13 @@ func (f *Function) Handle(ctx context.HTTPContext) {
 	if f.requestAdaptor != nil {
 		f.requestAdaptor.Handle(ctx)
 	}
-	f.backend.Handle(ctx)
+	f.proxy.Handle(ctx)
 }
 
 // Status returns Status genreated by Runtime.
 func (f *Function) Status() *supervisor.Status {
 	s := &Status{
-		HTTP: f.backend.Status().(*backend.Status).MainPool.Stat,
+		HTTP: f.proxy.Status().(*proxy.Status).MainPool.Stat,
 	}
 
 	if f.cron != nil {
@@ -226,5 +226,5 @@ func (f *Function) Close() {
 		f.cron.Close()
 	}
 
-	f.backend.Close()
+	f.proxy.Close()
 }

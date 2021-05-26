@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package backend
+package proxy
 
 import (
 	"crypto/tls"
@@ -32,8 +32,8 @@ import (
 )
 
 const (
-	// Kind is the kind of Backend.
-	Kind = "Backend"
+	// Kind is the kind of Proxy.
+	Kind = "Proxy"
 
 	resultFallback      = "fallback"
 	resultInternalError = "interalError"
@@ -51,11 +51,11 @@ var (
 )
 
 func init() {
-	httppipeline.Register(&Backend{})
+	httppipeline.Register(&Proxy{})
 }
 
 var (
-	// All Backend instances use one globalClient in order to reuse
+	// All Proxy instances use one globalClient in order to reuse
 	// some resounces such as keepalive connections.
 	globalClient = &http.Client{
 		// NOTE: Timeout could be no limit, real client or server could cancel it.
@@ -88,8 +88,8 @@ var (
 )
 
 type (
-	// Backend is the filter Backend.
-	Backend struct {
+	// Proxy is the filter Proxy.
+	Proxy struct {
 		super    *supervisor.Supervisor
 		pipeSpec *httppipeline.FilterSpec
 		spec     *Spec
@@ -103,7 +103,7 @@ type (
 		compression *compression
 	}
 
-	// Spec describes the Backend.
+	// Spec describes the Proxy.
 	Spec struct {
 		httppipeline.FilterMetaSpec `yaml:",inline"`
 
@@ -121,7 +121,7 @@ type (
 		fallback.Spec `yaml:",inline"`
 	}
 
-	// Status is the status of Backend.
+	// Status is the status of Proxy.
 	Status struct {
 		MainPool       *PoolStatus   `yaml:"mainPool"`
 		CandidatePools []*PoolStatus `yaml:"candidatePool,omitempty"`
@@ -166,42 +166,42 @@ func (s Spec) Validate() error {
 	return nil
 }
 
-// Kind returns the kind of Backend.
-func (b *Backend) Kind() string {
+// Kind returns the kind of Proxy.
+func (b *Proxy) Kind() string {
 	return Kind
 }
 
-// DefaultSpec returns the default spec of Backend.
-func (b *Backend) DefaultSpec() interface{} {
+// DefaultSpec returns the default spec of Proxy.
+func (b *Proxy) DefaultSpec() interface{} {
 	return &Spec{}
 }
 
-// Description returns the description of Backend.
-func (b *Backend) Description() string {
-	return "Backend sets the proxy of backend servers"
+// Description returns the description of Proxy.
+func (b *Proxy) Description() string {
+	return "Proxy sets the proxy of proxy servers"
 }
 
-// Results returns the results of Backend.
-func (b *Backend) Results() []string {
+// Results returns the results of Proxy.
+func (b *Proxy) Results() []string {
 	return results
 }
 
-// Init initializes Backend.
-func (b *Backend) Init(pipeSpec *httppipeline.FilterSpec, super *supervisor.Supervisor) {
+// Init initializes Proxy.
+func (b *Proxy) Init(pipeSpec *httppipeline.FilterSpec, super *supervisor.Supervisor) {
 	b.pipeSpec, b.spec, b.super = pipeSpec, pipeSpec.FilterSpec().(*Spec), super
 	b.reload()
 }
 
-// Inherit inherits previous generation of Backend.
-func (b *Backend) Inherit(pipeSpec *httppipeline.FilterSpec,
+// Inherit inherits previous generation of Proxy.
+func (b *Proxy) Inherit(pipeSpec *httppipeline.FilterSpec,
 	previousGeneration httppipeline.Filter, super *supervisor.Supervisor) {
 
 	previousGeneration.Close()
 	b.Init(pipeSpec, super)
 }
 
-func (b *Backend) reload() {
-	b.mainPool = newPool(b.spec.MainPool, "backend#main",
+func (b *Proxy) reload() {
+	b.mainPool = newPool(b.spec.MainPool, "proxy#main",
 		true /*writeResponse*/, b.spec.FailureCodes)
 
 	if b.spec.Fallback != nil {
@@ -217,7 +217,7 @@ func (b *Backend) reload() {
 		b.candidatePools = candidatePools
 	}
 	if b.spec.MirrorPool != nil {
-		b.mirrorPool = newPool(b.spec.MirrorPool, "backend#mirror",
+		b.mirrorPool = newPool(b.spec.MirrorPool, "proxy#mirror",
 			false /*writeResponse*/, b.spec.FailureCodes)
 	}
 
@@ -226,8 +226,8 @@ func (b *Backend) reload() {
 	}
 }
 
-// Status returns Backend status.
-func (b *Backend) Status() interface{} {
+// Status returns Proxy status.
+func (b *Proxy) Status() interface{} {
 	s := &Status{
 		MainPool: b.mainPool.status(),
 	}
@@ -242,8 +242,8 @@ func (b *Backend) Status() interface{} {
 	return s
 }
 
-// Close closes Backend.
-func (b *Backend) Close() {
+// Close closes Proxy.
+func (b *Proxy) Close() {
 	b.mainPool.close()
 
 	if b.candidatePools != nil {
@@ -257,7 +257,7 @@ func (b *Backend) Close() {
 	}
 }
 
-func (b *Backend) fallbackForCodes(ctx context.HTTPContext) bool {
+func (b *Proxy) fallbackForCodes(ctx context.HTTPContext) bool {
 	if b.fallback != nil && b.spec.Fallback.ForCodes {
 		for _, code := range b.spec.FailureCodes {
 			if ctx.Response().StatusCode() == code {
@@ -270,12 +270,12 @@ func (b *Backend) fallbackForCodes(ctx context.HTTPContext) bool {
 }
 
 // Handle handles HTTPContext.
-func (b *Backend) Handle(ctx context.HTTPContext) (result string) {
+func (b *Proxy) Handle(ctx context.HTTPContext) (result string) {
 	result = b.handle(ctx)
 	return ctx.CallNextHandler(result)
 }
 
-func (b *Backend) handle(ctx context.HTTPContext) (result string) {
+func (b *Proxy) handle(ctx context.HTTPContext) (result string) {
 	if b.mirrorPool != nil && b.mirrorPool.filter.Filter(ctx) {
 		master, slave := newMasterSlaveReader(ctx.Request().Body())
 		ctx.Request().SetBody(master)
@@ -325,7 +325,7 @@ func (b *Backend) handle(ctx context.HTTPContext) (result string) {
 	}
 
 	// compression and memoryCache only work for
-	// normal traffic from real backend servers.
+	// normal traffic from real proxy servers.
 	if b.compression != nil {
 		b.compression.compress(ctx)
 	}

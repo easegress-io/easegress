@@ -21,7 +21,7 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/megaease/easegress/pkg/filter/backend"
+	"github.com/megaease/easegress/pkg/filter/proxy"
 	"github.com/megaease/easegress/pkg/filter/resilience/circuitbreaker"
 	"github.com/megaease/easegress/pkg/filter/resilience/ratelimiter"
 	"github.com/megaease/easegress/pkg/filter/resilience/retryer"
@@ -129,7 +129,7 @@ type (
 	}
 
 	// LoadBalance is the spec of service load balance.
-	LoadBalance = backend.LoadBalance
+	LoadBalance = proxy.LoadBalance
 
 	// Sidecar is the spec of service sidecar.
 	Sidecar struct {
@@ -365,14 +365,14 @@ func (b *pipelineSpecBuilder) appendTimeLimiter(tl *timelimiter.Spec) *pipelineS
 	return b
 }
 
-func (b *pipelineSpecBuilder) appendBackendWithCanary(instanceSpecs []*ServiceInstanceSpec, canary *Canary, lb *backend.LoadBalance) *pipelineSpecBuilder {
-	mainServers := []*backend.Server{}
+func (b *pipelineSpecBuilder) appendProxyWithCanary(instanceSpecs []*ServiceInstanceSpec, canary *Canary, lb *proxy.LoadBalance) *pipelineSpecBuilder {
+	mainServers := []*proxy.Server{}
 	canaryInstances := []*ServiceInstanceSpec{}
 
 	for k, instanceSpec := range instanceSpecs {
 		if instanceSpec.Status == SerivceStatusUp {
 			if len(instanceSpec.Labels) == 0 {
-				mainServers = append(mainServers, &backend.Server{
+				mainServers = append(mainServers, &proxy.Server{
 					URL: fmt.Sprintf("http://%s:%d", instanceSpec.IP, instanceSpec.Port),
 				})
 			} else {
@@ -383,21 +383,21 @@ func (b *pipelineSpecBuilder) appendBackendWithCanary(instanceSpecs []*ServiceIn
 	backendName := "backend"
 
 	if lb == nil {
-		lb = &backend.LoadBalance{
-			Policy: backend.PolicyRoundRobin,
+		lb = &proxy.LoadBalance{
+			Policy: proxy.PolicyRoundRobin,
 		}
 	}
 
-	candidatePool := []*backend.PoolSpec{}
+	candidatePool := []*proxy.PoolSpec{}
 	if len(canaryInstances) != 0 && canary != nil && len(canary.CanaryRules) != 0 {
 		for _, v := range canary.CanaryRules {
-			servers := []*backend.Server{}
+			servers := []*proxy.Server{}
 			for _, ins := range canaryInstances {
 				for key, label := range v.ServiceInstanceLabels {
 					match := false
 					for insKey, insLabel := range ins.Labels {
 						if key == insKey && label == insLabel {
-							servers = append(servers, &backend.Server{
+							servers = append(servers, &proxy.Server{
 								URL: fmt.Sprintf("http://%s:%d", ins.IP, ins.Port),
 							})
 							match = true
@@ -410,7 +410,7 @@ func (b *pipelineSpecBuilder) appendBackendWithCanary(instanceSpecs []*ServiceIn
 				}
 			}
 			if len(servers) != 0 {
-				candidatePool = append(candidatePool, &backend.PoolSpec{
+				candidatePool = append(candidatePool, &proxy.PoolSpec{
 					Filter: &httpfilter.Spec{
 						Headers: v.Headers,
 						URLs:    v.URLs,
@@ -427,9 +427,9 @@ func (b *pipelineSpecBuilder) appendBackendWithCanary(instanceSpecs []*ServiceIn
 
 	b.Flow = append(b.Flow, httppipeline.Flow{Filter: backendName})
 	b.Filters = append(b.Filters, map[string]interface{}{
-		"kind": backend.Kind,
+		"kind": proxy.Kind,
 		"name": backendName,
-		"mainPool": &backend.PoolSpec{
+		"mainPool": &proxy.PoolSpec{
 			Servers:     mainServers,
 			LoadBalance: lb,
 		},
@@ -439,20 +439,20 @@ func (b *pipelineSpecBuilder) appendBackendWithCanary(instanceSpecs []*ServiceIn
 	return b
 }
 
-func (b *pipelineSpecBuilder) appendBackend(mainServers []*backend.Server, lb *backend.LoadBalance) *pipelineSpecBuilder {
+func (b *pipelineSpecBuilder) appendProxy(mainServers []*proxy.Server, lb *proxy.LoadBalance) *pipelineSpecBuilder {
 	backendName := "backend"
 
 	if lb == nil {
-		lb = &backend.LoadBalance{
-			Policy: backend.PolicyRoundRobin,
+		lb = &proxy.LoadBalance{
+			Policy: proxy.PolicyRoundRobin,
 		}
 	}
 
 	b.Flow = append(b.Flow, httppipeline.Flow{Filter: backendName})
 	b.Filters = append(b.Filters, map[string]interface{}{
-		"kind": backend.Kind,
+		"kind": proxy.Kind,
 		"name": backendName,
-		"mainPool": &backend.PoolSpec{
+		"mainPool": &proxy.PoolSpec{
 			Servers:     mainServers,
 			LoadBalance: lb,
 		},
@@ -509,7 +509,7 @@ rules:`
 func (s *Service) IngressPipelineSpec(instanceSpecs []*ServiceInstanceSpec) (*supervisor.Spec, error) {
 	pipelineSpecBuilder := newPipelineSpecBuilder(s.IngressPipelineName())
 
-	pipelineSpecBuilder.appendBackendWithCanary(instanceSpecs, s.Canary, s.LoadBalance)
+	pipelineSpecBuilder.appendProxyWithCanary(instanceSpecs, s.Canary, s.LoadBalance)
 
 	yamlConfig := pipelineSpecBuilder.yamlConfig()
 	superSpec, err := supervisor.NewSpec(yamlConfig)
@@ -618,7 +618,7 @@ rules:
 }
 
 func (s *Service) SideCarIngressPipelineSpec(applicationPort uint32) (*supervisor.Spec, error) {
-	mainServers := []*backend.Server{
+	mainServers := []*proxy.Server{
 		{
 			URL: s.ApplicationEndpoint(applicationPort),
 		},
@@ -630,7 +630,7 @@ func (s *Service) SideCarIngressPipelineSpec(applicationPort uint32) (*superviso
 		pipelineSpecBuilder.appendRateLimiter(s.Resilience.RateLimiter)
 	}
 
-	pipelineSpecBuilder.appendBackend(mainServers, s.LoadBalance)
+	pipelineSpecBuilder.appendProxy(mainServers, s.LoadBalance)
 
 	yamlConfig := pipelineSpecBuilder.yamlConfig()
 	superSpec, err := supervisor.NewSpec(yamlConfig)
@@ -651,7 +651,7 @@ func (s *Service) SideCarEgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec
 		pipelineSpecBuilder.appendCircuitBreaker(s.Resilience.CircuitBreaker)
 	}
 
-	pipelineSpecBuilder.appendBackendWithCanary(instanceSpecs, s.Canary, s.LoadBalance)
+	pipelineSpecBuilder.appendProxyWithCanary(instanceSpecs, s.Canary, s.LoadBalance)
 
 	yamlConfig := pipelineSpecBuilder.yamlConfig()
 	superSpec, err := supervisor.NewSpec(yamlConfig)
