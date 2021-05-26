@@ -350,28 +350,28 @@ func (emm *EaseMonitorMetrics) httpPipeline2Metrics(
 			continue
 		}
 
-		baseFieldsBackend := *baseFields
-		baseFieldsBackend.Resource = "PROXY"
+		baseFieldsProxy := *baseFields
+		baseFieldsProxy.Resource = "PROXY"
 
 		if proxyStatus.MainPool != nil {
-			baseFieldsBackend.Service = baseFields.Service + "/" + filterName + "/mainPool"
-			req, codes := emm.httpStat2Metrics(&baseFieldsBackend, proxyStatus.MainPool.Stat)
+			baseFieldsProxy.Service = baseFields.Service + "/" + filterName + "/mainPool"
+			req, codes := emm.httpStat2Metrics(&baseFieldsProxy, proxyStatus.MainPool.Stat)
 			reqMetrics = append(reqMetrics, req)
 			codeMetrics = append(codeMetrics, codes...)
 		}
 
 		if len(proxyStatus.CandidatePools) > 0 {
 			for idx, _ := range proxyStatus.CandidatePools {
-				baseFieldsBackend.Service = fmt.Sprintf("%s/%s/candidatePool/%d", baseFields.Service, filterName, idx)
-				req, codes := emm.httpStat2Metrics(&baseFieldsBackend, proxyStatus.CandidatePools[idx].Stat)
+				baseFieldsProxy.Service = fmt.Sprintf("%s/%s/candidatePool/%d", baseFields.Service, filterName, idx)
+				req, codes := emm.httpStat2Metrics(&baseFieldsProxy, proxyStatus.CandidatePools[idx].Stat)
 				reqMetrics = append(reqMetrics, req)
 				codeMetrics = append(codeMetrics, codes...)
 			}
 		}
 
 		if proxyStatus.MirrorPool != nil {
-			baseFieldsBackend.Service = baseFields.Service + "/" + filterName + "/mirrorPool"
-			req, codes := emm.httpStat2Metrics(&baseFieldsBackend, proxyStatus.MainPool.Stat)
+			baseFieldsProxy.Service = baseFields.Service + "/" + filterName + "/mirrorPool"
+			req, codes := emm.httpStat2Metrics(&baseFieldsProxy, proxyStatus.MainPool.Stat)
 			reqMetrics = append(reqMetrics, req)
 			codeMetrics = append(codeMetrics, codes...)
 		}
