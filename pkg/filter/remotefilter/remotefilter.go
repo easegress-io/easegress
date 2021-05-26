@@ -229,7 +229,8 @@ func (rf *RemoteFilter) handle(ctx context.HTTPContext) (result string) {
 	)
 
 	if rf.spec.timeout > 0 {
-		timeoutCtx, _ := stdcontext.WithTimeout(stdcontext.Background(), rf.spec.timeout)
+		timeoutCtx, cancelFunc := stdcontext.WithTimeout(stdcontext.Background(), rf.spec.timeout)
+		defer cancelFunc()
 		req, err = http.NewRequestWithContext(timeoutCtx, http.MethodPost, rf.spec.URL, bytes.NewReader(ctxBuff))
 	} else {
 		req, err = http.NewRequest(http.MethodPost, rf.spec.URL, bytes.NewReader(ctxBuff))

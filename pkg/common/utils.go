@@ -169,8 +169,6 @@ func PanicToErr(f func(), err *error) (failed bool) {
 		default:
 			*err = fmt.Errorf("%v", x)
 		}
-
-		return
 	}()
 
 	f()
@@ -228,18 +226,12 @@ func ValidateName(name string) error {
 func IsDirEmpty(name string) bool {
 	f, err := os.Open(name)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return true
-		}
-		return false
+		return os.IsNotExist(err)
 	}
 	defer f.Close()
 
 	_, err = f.Readdirnames(1)
-	if err == io.EOF {
-		return true
-	}
-	return false
+	return err == io.EOF
 }
 
 // ExpandDir cleans the dir, and returns itself if it's absolute,

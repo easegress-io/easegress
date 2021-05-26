@@ -1,3 +1,5 @@
+// +build darwin dragonfly freebsd netbsd openbsd solaris windows plan9
+
 /*
  * Copyright (c) 2017, MegaEase
  * All rights reserved.
@@ -14,8 +16,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-// +build darwin dragonfly freebsd netbsd openbsd solaris windows plan9
 
 package common
 
