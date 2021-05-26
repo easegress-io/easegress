@@ -1,6 +1,6 @@
 * [Filters](./filters.md)
   * [API Aggregator](./filters.md#APIAggregator)
-  * [Backend](./filters.md#Backend)
+  * [Proxy](./filters.md#Proxy)
   * [Bridge](./filters.md#Bridge)
   * [CORSAdaptor](./filters.md#CORSAdaptor)
   * [Fallback](./filters.md#Fallback)

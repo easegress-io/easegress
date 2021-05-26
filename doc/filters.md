@@ -170,7 +170,7 @@ mainPool:
 | Name           | Type                                           | Description                                                                                                                                                                                                                                                                                                         | Required |
 | -------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
 | fallback       | [proxy.FallbackSpec](#proxyFallbackSpec)       | Fallback steps when failed to send a request or receives a failure response                                                                                                                                                                                                                                         | No       |
-| mainPool       | [proxy.PoolSpec](#proxyPoolSpec)               | Main pool of proxy servers                                                                                                                                                                                                                                                                                          | Yes      |
+| mainPool       | [proxy.PoolSpec](#proxyPoolSpec)               | Main pool of backend servers                                                                                                                                                                                                                                                                                        | Yes      |
 | candidatePools | [][proxy.PoolSpec](#proxyPoolSpec)             | One or more pool configuration similar with `mainPool` but with `filter` options configured. When `Proxy` get a request, it first goes through the pools in `candidatePools`, and if one of the pools filter in the request, servers of this pool handles the request, otherwise, the request is pass to `mainPool` | No       |
 | mirrorPool     | [proxy.PoolSpec](#proxyPoolSpec)               | Definition a mirror pool, requests are sent to this pool simultaneously when they are sent to candidate pools or main pool                                                                                                                                                                                          | No       |
 | failureCodes   | []int                                          | HTTP status codes need to be handled as failure                                                                                                                                                                                                                                                                     | No       |
@@ -214,7 +214,7 @@ destinations: ["pipeline1", "pipeline2"]
 
 ## CORSAdaptor
 
-The CORSAdaptor handles the [CORS](https://en.wikipedia.org/wiki/Cross-origin_resource_sharing) preflight request for proxy service.
+The CORSAdaptor handles the [CORS](https://en.wikipedia.org/wiki/Cross-origin_resource_sharing) preflight request for backend service.
 
 The below example configuration handles the preflight `GET` request from `*.megaease.com`.
 
@@ -411,7 +411,7 @@ urls:
 
 ## RateLimiter
 
-RateLimiter protects proxy service for high availability and reliability by limiting the number of requests sent to the service in a configured duration.
+RateLimiter protects backend service for high availability and reliability by limiting the number of requests sent to the service in a configured duration.
 
 Below example configuration limits `GET`, `POST`, `PUT`, `DELETE` requests to path which matches regular expression `^/pets/\d+$` to 50 per 10ms, and a request fails if it cannot be permitted in 100ms due to high concurrency requests count.
 

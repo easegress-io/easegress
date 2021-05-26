@@ -178,10 +178,10 @@ $ echo '
 name: pipeline-demo
 kind: HTTPPipeline
 flow:
-  - filter: backend
+  - filter: proxy
 filters:
-  - name: backend
-    kind: Backend
+  - name: proxy
+    kind: Proxy
     mainPool:
       servers:
       - url: http://127.0.0.1:9095
@@ -228,7 +228,7 @@ flow:
   - filter: validator
     jumpIf: { invalid: END }
   - filter: requestAdaptor
-  - filter: backend
+  - filter: proxy
 filters:
   - name: validator
     kind: Validator
@@ -241,8 +241,8 @@ filters:
     header:
       set:
         X-Adapt-Key: goodplan
-  - name: backend
-    kind: Backend
+  - name: proxy
+    kind: Proxy
     mainPool:
       servers:
       - url: http://127.0.0.1:9095

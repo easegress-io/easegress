@@ -357,10 +357,10 @@ flow:
 - filter: validator
   jumpIf: { invalid: END }
 - filter: requestAdaptor
-- filter: backend
+- filter: proxy 
 ```
 
-That `jumpIf` means the request will jump into the end without going through `requestAdaptor` and `backend` if the `validator` returns the result `invalid`. So the method `Results` is to register all possible results of the filter. In the example of `HeaderCounter`, the empty results mean `Handle` only returns the empty result. So if we want to prevent requests which haven't any counting headers from going forward to next filters, we could change it to:
+That `jumpIf` means the request will jump into the end without going through `requestAdaptor` and `proxy` if the `validator` returns the result `invalid`. So the method `Results` is to register all possible results of the filter. In the example of `HeaderCounter`, the empty results mean `Handle` only returns the empty result. So if we want to prevent requests which haven't any counting headers from going forward to next filters, we could change it to:
 
 ```go
 const resultInvalidHeader = "invalidHeader"
