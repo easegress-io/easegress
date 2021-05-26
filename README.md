@@ -1,18 +1,18 @@
-# EaseGateway
+# Easegress
 
-- [EaseGateway](#easegateway)
-  - [What is EaseGateway](#what-is-easegateway)
+- [Easegress](#easegress)
+  - [What is Easegress](#what-is-easegress)
   - [Features](#features)
   - [Get Started](#get-started)
-    - [Setting up EaseGateway](#setting-up-easegateway)
+    - [Setting up Easegress](#setting-up-easegress)
     - [Create an HTTPServer and Pipeline](#create-an-httpserver-and-pipeline)
     - [Test](#test)
     - [More Filters](#more-filters)
   - [License](#license)
 
-## What is EaseGateway
+## What is Easegress
 
-`EaseGateway` is an all-rounder gateway system,  which is designed:
+`Easegress` (formerly know as `EaseGateway`)is an all-rounder gateway system,  which is designed:
 
 - **High Availability:** Built-in Raft consensus & leader election makes 99.99% availability.
 - **Traffic Orchestration:** Dynamically orchestrating various filters to a traffic pipeline.
@@ -21,7 +21,7 @@
 - **Extensibility:** It's easy to develop your own filter or controller with high-level programming language.
 - **Integration:** The simple interfaces make it easy to integrate with other systems, such as Kubernetes Ingress, [EaseMesh](https://github.com/megaease/easemesh) sidecar, Workflow, etc.
 
-The architecture of EaseGateway:
+The architecture of Easegress:
 
 ![architecture](./doc/architecture.png)
 
@@ -68,7 +68,7 @@ The architecture of EaseGateway:
 	- **Load Balance:** round-robin, random, weighted random, ip hash, header hash.
 	- **Cache:** for the backend servers.
 	- **Compression:** compresses body for the response.
-	- **Hot-Update:** updates both config and binary of EaseGateway in place without losing connections.
+	- **Hot-Update:** updates both config and binary of Easegress in place without losing connections.
 - **Operation**
 	- **Easy to Integrate:** command line(egctl), MegaEase Portal, HTTP clients such as curl, postman, etc.
 	- **Distributed Tracing**
@@ -85,21 +85,21 @@ The architecture of EaseGateway:
 
 ## Get Started
 
-The basic common usage of EaseGateway is to quickly set up proxy for the backend servers. We split it into multiple simple steps to illustrate the essential concepts and operations.
+The basic common usage of Easegress is to quickly set up proxy for the backend servers. We split it into multiple simple steps to illustrate the essential concepts and operations.
 
-### Setting up EaseGateway
+### Setting up Easegress
 
-We can download the binary from [release page](https://github.com/megaease/easegateway/releases). For example we use linux version:
+We can download the binary from [release page](https://github.com/megaease/easegress/releases). For example we use linux version:
 
 ```bash
-$ wget https://github.com/megaease/easegateway/releases/download/v1.0.0/easegateway_Linux_x86_64.tar.gz
-$ tar zxvf easegateway_Linux_x86_64.tar.gz -C easegateway && cd easegateway
+$ wget https://github.com/megaease/easegress/releases/download/v1.0.0/easegress_Linux_x86_64.tar.gz
+$ tar zxvf easegress_Linux_x86_64.tar.gz -C easegress && cd easegress
 ```
 
 or use source code:
 
 ```bash
-$ git clone https://github.com/megaease/easegateway && cd easegateway
+$ git clone https://github.com/megaease/easegress && cd easegress
 $ make
 ```
 
@@ -107,7 +107,7 @@ Then we can add the binary directory to the `PATH` and execute the server:
 
 ```bash
 $ export PATH=${PATH}:$(pwd)/bin/
-$ easegateway-server
+$ easegress-server
 2021-05-17T16:45:38.185+08:00	INFO	cluster/config.go:84	etcd config: init-cluster:eg-default-name=http://localhost:2380 cluster-state:new force-new-cluster:false
 2021-05-17T16:45:38.185+08:00	INFO	cluster/cluster.go:379	client is ready
 2021-05-17T16:45:39.189+08:00	INFO	cluster/cluster.go:590	server is ready
@@ -121,9 +121,9 @@ $ easegateway-server
 2021-05-17T16:45:44.236+08:00	INFO	cluster/member.go:138	store knownMembers  : eg-default-name(689e371e88f78b6a)=http://localhost:2380
 ```
 
-The default target of Makefile is to compile two binary into the directory `bin/`. `bin/easegateway-server` is the server-side binary, `bin/egctl` is the client-side binary. We could add it to the `$PATH` for simplifying the following commands.
+The default target of Makefile is to compile two binary into the directory `bin/`. `bin/easegress-server` is the server-side binary, `bin/egctl` is the client-side binary. We could add it to the `$PATH` for simplifying the following commands.
 
-We could run `easegateway-server` without specifying any arguments, which launch itself by opening default ports 2379, 2380, 2381. Of course, we can change them in the config file or command arguments that are explained well in `easegateway-server --help`.
+We could run `easegress-server` without specifying any arguments, which launch itself by opening default ports 2379, 2380, 2381. Of course, we can change them in the config file or command arguments that are explained well in `easegress-server --help`.
 
 ```bash
 $ egctl member list
@@ -205,13 +205,13 @@ If you are not set up some applications to handle the 9095, 9096, and 9097 in th
 
 ```bash
 $ go run test/backend-service/mirror.go & # Running in background
-$ curl http://127.0.0.1:10080/pipeline -d 'Hello, EaseGateway'
+$ curl http://127.0.0.1:10080/pipeline -d 'Hello, Easegress'
 Your Request
 ===============
 Method: POST
 URL   : /pipeline
 Header: map[Accept:[*/*] Accept-Encoding:[gzip] Content-Type:[application/x-www-form-urlencoded] User-Agent:[curl/7.64.1]]
-Body  : Hello, EaseGateway
+Body  : Hello, Easegress
 ```
 
 ### More Filters
@@ -257,20 +257,20 @@ $ egctl object update -f pipeline-demo.yaml
 After updating the pipeline, the original `curl -v http://127.0.0.1:10080/pipeline ` will get 400 because of the validating. So we changed it to satisfy the limitation:
 
 ```bash
-$ curl http://127.0.0.1:10080/pipeline -H 'Content-Type: application/json' -d '{"message": "Hello, EaseGateway"}'
+$ curl http://127.0.0.1:10080/pipeline -H 'Content-Type: application/json' -d '{"message": "Hello, Easegress"}'
 Your Request
 ===============
 Method: POST
 URL   : /pipeline
 Header: map[Accept:[*/*] Accept-Encoding:[gzip] Content-Type:[application/json] User-Agent:[curl/7.64.1] X-Adapt-Key:[goodplan]]
-Body  : {"message": "Hello, EaseGateway"}
+Body  : {"message": "Hello, Easegress"}
 ```
 
-We can also see EaseGateway send one more header `X-Adapt-Key: goodplan` to the mirror service.
+We can also see Easegress send one more header `X-Adapt-Key: goodplan` to the mirror service.
 
 If you want more information, please check out [reference](./referecen.md) and [developer guide](./doc/developer-guide.md).
 
 
 ## License
 
-EaseGateway is under the Apache 2.0 license. See the [LICENSE](./LICENSE) file for details.
+Easegress is under the Apache 2.0 license. See the [LICENSE](./LICENSE) file for details.
