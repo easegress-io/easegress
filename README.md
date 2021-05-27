@@ -12,7 +12,7 @@
 
 ## What is Easegress
 
-`Easegress` (formerly known as `EaseGateway`)is an all-rounder gateway system,  which is designed:
+`Easegress` (formerly known as `EaseGateway`)is an all-rounder traffic orchestration system,  which is designed for:
 
 - **High Availability:** Built-in Raft consensus & leader election makes 99.99% availability.
 - **Traffic Orchestration:** Dynamically orchestrating various filters to a traffic pipeline.
@@ -48,9 +48,9 @@ The architecture of Easegress:
 	- **Security**
 		- **IP Filter:** Limits access to IP addresses.
 		- **Static HTTPS:** static certificate files.
-		- **API Signature:** supports **HMAC** verification.
+		- **API Signature:** supports [HMAC](https://en.wikipedia.org/wiki/HMAC) verification.
 		- **JWT Verification:** verifies [JWT Token](https://jwt.io/).
-		- **OAuth2:** validates OAuth2 requests.
+		- **OAuth2:** validates [OAuth/2](https://datatracker.ietf.org/doc/html/rfc6749) requests.
 		- **Let's Encrypt:** automatically manage certificate files.
 	- **Pipeline-Filter Mechanism**
 		- **Chain of Responsibility Pattern:** orchestrates filters chain.
@@ -64,13 +64,13 @@ The architecture of Easegress:
 		- **Service Discovery** integrates with Eureka, Consul, Etcd, and Zookeeper.
 - **High Performance and Availability**
 	- **Adaption**: adapts request, response in the handling chain.
-	- **Validation**: headers validation, Oauth2, JWT, and HMAC verifying.
+	- **Validation**: headers validation, OAuth2, JWT, and HMAC verification.
 	- **Load Balance:** round-robin, random, weighted random, ip hash, header hash.
 	- **Cache:** for the backend servers.
 	- **Compression:** compresses body for the response.
 	- **Hot-Update:** updates both config and binary of Easegress in place without losing connections.
 - **Operation**
-	- **Easy to Integrate:** command line(egctl), MegaEase Portal, HTTP clients such as curl, postman, etc.
+	- **Easy to Integrate:** command line(`egctl`), MegaEase Portal, HTTP clients such as curl, postman, etc.
 	- **Distributed Tracing**
 		- Built-in  [Open Zipkin](https://zipkin.io/)
 		- [Open Tracing](https://opentracing.io/) for vendor-neutral APIs
