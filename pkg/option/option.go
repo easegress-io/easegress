@@ -146,6 +146,8 @@ func (opt *Options) Parse() (string, error) {
 		}
 	}
 
+	opt.readEnv()
+
 	opt.viper.Unmarshal(opt, func(c *mapstructure.DecoderConfig) {
 		c.TagName = "yaml"
 	})
@@ -160,6 +162,8 @@ func (opt *Options) Parse() (string, error) {
 		return "", err
 	}
 
+	opt.adjust()
+
 	buff, err := yaml.Marshal(opt)
 	if err != nil {
 		return "", fmt.Errorf("marshal config to yaml failed: %v", err)
@@ -171,6 +175,39 @@ func (opt *Options) Parse() (string, error) {
 	}
 
 	return "", nil
+}
+
+func (opt *Options) readEnv() {
+	clientURL := os.Getenv("EG_CLUSTER_CLIENT_URL")
+	if clientURL != "" {
+		opt.ClusterClientURL = clientURL
+	}
+
+	peerURL := os.Getenv("EG_CLUSTER_PEER_URL")
+	if peerURL != "" {
+		opt.ClusterPeerURL = peerURL
+	}
+}
+
+// adjust adjusts the options to handle conflict
+// between user's config and internal component.
+func (opt *Options) adjust() {
+	if opt.ClusterRole != "writer" {
+		return
+	}
+	if len(opt.ClusterJoinURLs) == 0 {
+		return
+	}
+
+	joinURL := opt.ClusterJoinURLs[0]
+
+	if strings.EqualFold(joinURL, opt.ClusterPeerURL) {
+		fmt.Printf("cluster-join-urls %v changed to empty because it tries to join itself",
+			opt.ClusterJoinURLs)
+		// NOTE: We hack it this way to make sure the internal embedded etcd would
+		// start a new cluster instead of joining existed one.
+		opt.ClusterJoinURLs = nil
+	}
 }
 
 func (opt *Options) validate() error {

@@ -27,7 +27,7 @@ var (
 	// COMMIT returns the short sha from git
 	COMMIT = "UNKNOWN"
 
-	API   = "v2"
+	API   = "v1"
 	Short = fmt.Sprintf("Easegress %s", RELEASE)
 	Long  = fmt.Sprintf("Easegress release: %s, repo: %s, commit: %s", RELEASE, REPO, COMMIT)
 )
