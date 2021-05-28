@@ -204,6 +204,8 @@ func (opt *Options) adjust() {
 	if joinURL == opt.ClusterPeerURL {
 		fmt.Printf("cluster-join-urls %v changed to empty because it tries to join itself",
 			opt.ClusterJoinURLs)
+		// NOTE: We hack it this way to make sure the internal embedded etcd would
+		// start a new cluster instead of joining existed one.
 		opt.ClusterJoinURLs = nil
 	}
 }
