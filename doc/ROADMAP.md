@@ -9,6 +9,24 @@ This is what we hope to accomplish in 2021.
 2. Easegress aims to become an **extensible** platform under the traffic-specific domain. Users can choose to orchestrate ingress/egress traffic via existing filters in a pipeline or customize a brand-new filter/controller for their special traffic-specific business logic. With stable, clean, flat software architecture, users can develop their own filter/controller rapidly and easily. 
 3. Easegress is designed to be **cloud-native**. It's scalable, resilient, manageable, and observable. During rapid development in the future, these genes should be preserved inside.
 
+## Features
+Based on our product goal, we have made a classification of EG's features for powering users' business capabilities into two categories, extensibility and traffic-specific.
+### Business features for extensibility
+* Dynamically load business code written in any language with the lowest performance costing.
+* Easy to develop new features with Battery-included EG.
+* Reusability, such as using EG as K8s ingress, Service Gateway, Traffic gateway.
+* Easy to operate/easy to install.
+
+### Business features for traffic-specific
+* Supporting Faster/safer application delivering.
+* Providing Rich traffic-related metrics.
+* Flash Sale without changing any code.
+* Friendly API orchestration.
+* Protecting core APIs under high pressure.
+* Filtering out invalid traffic for backend with IP filter, HMAC validating...
+* Mocking backend for testing.
+
+
 ## Roadmap 
 ### Extensibility
 
