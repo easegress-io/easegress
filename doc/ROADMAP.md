@@ -16,9 +16,9 @@ This is what we hope to accomplish in 2021.
 | ---------------------------- | -------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | WASM runtime embedding       | High     | in design | Supporting users' customized business logic hot-loading by source code with the help of  WASM.                                      |
 | Operation Enhancement        | High     | in design | For better supporting daily cluster operation routine,e.g., one-click installation supported, cluster scaling.                      |
-| Traffic-controller           | High     | planing   | Managing `pipeline` and `traffic gate` by this new added controller. Keeping this low-level resource management logic in one place. |
-| Controller/Filter versioning | Middle   | plaining  | Providing version in `Controller/Filter`. The user can specified the desired version to use them.                                   |
-| Protobuf models generating   | Low      | plaining  | Using `Protobuf` to generate EG inner objects and related docs.                                                                     |
+| Traffic-controller           | High     | planning  | Managing `pipeline` and `traffic gate` by this new added controller. Keeping this low-level resource management logic in one place. |
+| Controller/Filter versioning | Middle   | planning  | Providing version in `Controller/Filter`. The user can specified the desired version to use them.                                   |
+| Protobuf models generating   | Low      | planning  | Using `Protobuf` to generate EG inner objects and related docs.                                                                     |
 
 
 
@@ -27,6 +27,6 @@ This is what we hope to accomplish in 2021.
 | Name                          | Priority | Status    | Description                                                                                  |
 | ----------------------------- | -------- | --------- | -------------------------------------------------------------------------------------------- |
 | Traffic coloring              | High     | in design | Supporting coloring ingress traffic by adding special HTTP header according to users' model. |
-| FaaS-controller               | Middle   | planing   | Implementing Knative integrating, function life-cycle management inside a new controller.    |
-| More protocol supporting      | Middle   | plaining  | Such as MQTT, gRPC..                                                                         |
-| Kubernetes Ingress controller | Low      | plaining  | Adapting EG into a Kubernetes Ingress controller.                                            |
+| FaaS-controller               | Middle   | planning  | Implementing Knative integrating, function life-cycle management inside a new controller.    |
+| More protocol supporting      | Middle   | planning  | Such as MQTT, gRPC..                                                                         |
+| Kubernetes Ingress controller | Low      | planning  | Adapting EG into a Kubernetes Ingress controller.                                            |
