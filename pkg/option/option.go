@@ -202,7 +202,7 @@ func (opt *Options) adjust() {
 	joinURL := opt.ClusterJoinURLs[0]
 
 	if joinURL == opt.ClusterPeerURL {
-		fmt.Printf("cluster-join-urls %v changed to empty because it trys to join itself",
+		fmt.Printf("cluster-join-urls %v changed to empty because it tries to join itself",
 			opt.ClusterJoinURLs)
 		opt.ClusterJoinURLs = nil
 	}
