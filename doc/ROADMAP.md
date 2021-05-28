@@ -20,7 +20,7 @@ Based on our product goal, we have made a classification of Easegress's features
 ### Business features for traffic-specific
 * Supporting Faster/safer application delivering.
 * Providing Rich traffic-related metrics.
-* Supporting Flash-sale activity without changing any code in a more lightweight way.
+* Supporting super high concurrent requests scenario,e.g., Flash-sale, Black Friday, Double 11 event.
 * Friendly API orchestration.
 * Protecting users' core APIs under high traffic pressure.
 * Filtering out invalid traffic for backend with IP filter, HMAC validating...
