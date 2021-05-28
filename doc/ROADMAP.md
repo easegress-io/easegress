@@ -1,0 +1,32 @@
+# 2021 Easegress Roadmap
+This is what we hope to accomplish in 2021.
+
+## Goal
+* To be an extensible cloud-native traffic-specific platform.
+
+### Breakdowns
+1. Easegress works as a traffic orchestration system originally. It must be **traffic-specific**. It is implemented to solve users’ traffic dealing requirements and problems. With EG, users can empower their business capabilities,e.g., using EG to support Flash-sale activity, protecting their core APIs at peak time, and orchestrating their existing APIs for new business logic.
+2. Easegress aims to become an **extensible** platform under the traffic-specific domain. Users can choose to orchestrate ingress/egress traffic via existing filters in a pipeline or customize a brand-new filter/controller for their special traffic-specific business logic. With stable, clean, flat software architecture, users can develop their own filter/controller rapidly and easily. 
+3. Easegress is designed to be **cloud-native**. It's scalable, resilient, manageable, and observable. During rapid development in the future, these genes should be preserved inside.
+
+## Roadmap 
+### Extensibility
+
+| Name                         | Priority | Status    | Description                                                                                                                         |
+| ---------------------------- | -------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| WASM runtime embedding       | High     | in design | Supporting users' customized business logic hot-loading by source code with the help of  WASM.                                      |
+| Operation Enhancement        | High     | in design | For better supporting daily cluster operation routine,e.g., one-click installation supported, cluster scaling.                      |
+| Traffic-controller           | High     | planing   | Managing `pipeline` and `traffic gate` by this new added controller. Keeping this low-level resource management logic in one place. |
+| Controller/Filter versioning | Middle   | plaining  | Providing version in `Controller/Filter`. The user can specified the desired version to use them.                                   |
+| Protobuf models generating   | Low      | plaining  | Using `Protobuf` to generate EG inner objects and related docs.                                                                     |
+
+
+
+###  Traffic-specific
+
+| Name                          | Priority | Status    | Description                                                                                  |
+| ----------------------------- | -------- | --------- | -------------------------------------------------------------------------------------------- |
+| Traffic coloring              | High     | in design | Supporting coloring ingress traffic by adding special HTTP header according to users' model. |
+| FaaS-controller               | Middle   | planing   | Implementing Knative integrating, function life-cycle management inside a new controller.    |
+| More protocol supporting      | Middle   | plaining  | Such as MQTT, gRPC..                                                                         |
+| Kubernetes Ingress controller | Low      | plaining  | Adapting EG into a Kubernetes Ingress controller.                                            |
