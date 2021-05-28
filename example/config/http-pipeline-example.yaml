@@ -1,0 +1,135 @@
+name: http-pipeline-example
+kind: HTTPPipeline
+
+# Built-in labels are `END` which can't be used by filters.
+flow:
+  - filter: validator
+    jumpIf: { invalid: END }
+  # - filter: fallback
+  - filter: rateLimiter
+  - filter: requestAdaptor
+  - filter: proxy 
+    jumpIf: { fallback: END }
+  - filter: responseAdaptor
+
+filters:
+  - name: validator
+    kind: Validator
+    headers:
+      Content-Type:
+        values:
+        - application/json
+        regexp: ""
+      User-Agent:
+        values: []
+        regexp: .+
+      X-Filter:
+        values:
+        - ""
+        - mirror
+        - candidate
+        - hacking
+        regexp: ""
+  - name: fallback
+    kind: Fallback
+    mockCode: 200
+    mockHeaders:
+      Content-Type: applicaion/json
+      X-Fallback: Okay
+    mockBody: '{"message": "The feature turned off, please try it later."}'
+  - name: rateLimiter
+    kind: RateLimiter
+    policies:
+    - name: policy-one
+      timeoutDuration: 1000ms
+      limitRefreshPeriod: 5000ms
+      limitForPeriod: 2 
+    - name: policy-two
+      timeoutDuration: 100ms
+      limitRefreshPeriod: 10ms
+      limitForPeriod: 30 
+    defaultPolicyRef: policy-one
+    urls:
+    - methods: [GET, POST, PUT, DELETE]
+      url:
+        regex: ^/pipeline/.+$
+      policyRef: policy-one
+    - methods: [GET, POST, PUT, DELETE]
+      url:
+        exact: /pipeline/activity/2
+      policyRef: policy-two
+  - name: requestAdaptor
+    kind: RequestAdaptor
+    method: ""
+    path: null
+    header:
+      del: []
+      set:
+        X-Adapt-Key: goodplan
+      add: {}
+  - name: proxy 
+    kind: Proxy 
+    failureCodes: [500, 501]
+    fallback:
+      forCodes: true
+      forCircuitBreaker: false
+      mockCode: 200
+      mockHeader: {X-Fallback: yes}
+      mockBody: '{"message": "Backend failed, try it later."}'
+    mirrorPool:
+      servers:
+      - url: http://127.0.0.1:9091
+      - url: http://127.0.0.1:9092
+      loadBalance:
+        policy: roundRobin
+        headerHashKey: ""
+      filter:
+        headers:
+          X-Filter:
+            exact: mirror
+    candidatePool:
+      servers:
+      - url: http://127.0.0.1:9093
+      - url: http://127.0.0.1:9094
+      loadBalance:
+        policy: random
+        headerHashKey: ""
+      memoryCache: null
+      filter:
+        headers:
+          X-Filter:
+            exact: candidate
+    mainPool:
+      serversTags: ["v2"]
+      servers:
+      - url: http://127.0.0.1:9095
+        tags: ["blue", "v2"]
+      - url: http://127.0.0.1:9096
+        tags: ["v2"]
+      - url: http://127.0.0.1:9097
+        tags: ["green", "v2"]
+      - url: http://127.0.0.1:9098
+        tags: ["green", "v2"]
+      loadBalance:
+        policy: roundRobin
+        headerHashKey: X-User-Id
+      # memoryCache:
+      #   expiration: 10s
+      #   maxEntryBytes: 4096
+      #   size: 100
+      #   codes:
+      #   - 200
+      #   - 201
+      #   methods:
+      #   - GET
+      #   - HEAD
+    compression:
+      minLength: 1024
+  - name: responseAdaptor
+    kind: ResponseAdaptor
+    header:
+      del: []
+      set:
+        Server: Easegress v1.0.0
+      add:
+        X-Proxy-Name: http-proxy-exmaple

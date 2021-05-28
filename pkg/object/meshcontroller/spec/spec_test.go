@@ -21,11 +21,11 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/megaease/easegress/pkg/filter/circuitbreaker"
 	"github.com/megaease/easegress/pkg/filter/proxy"
-	"github.com/megaease/easegress/pkg/filter/resilience/circuitbreaker"
-	"github.com/megaease/easegress/pkg/filter/resilience/ratelimiter"
-	"github.com/megaease/easegress/pkg/filter/resilience/retryer"
-	"github.com/megaease/easegress/pkg/filter/resilience/timelimiter"
+	"github.com/megaease/easegress/pkg/filter/ratelimiter"
+	"github.com/megaease/easegress/pkg/filter/retryer"
+	"github.com/megaease/easegress/pkg/filter/timelimiter"
 	"github.com/megaease/easegress/pkg/util/urlrule"
 )
 

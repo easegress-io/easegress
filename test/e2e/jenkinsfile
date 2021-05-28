@@ -1,4 +1,0 @@
-@Library(value = 'JenkinsHelper', changelog = false) _
-
-updateCodeSsh ()
-

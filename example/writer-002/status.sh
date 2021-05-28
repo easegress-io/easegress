@@ -1,0 +1,1 @@
+../sbin/status.sh

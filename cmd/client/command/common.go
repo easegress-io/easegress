@@ -21,10 +21,11 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 	"net/http"
 	"os"
+
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 
 	yamljsontool "github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
@@ -51,7 +52,7 @@ var (
 )
 
 const (
-	apiURL = "/apis/v3"
+	apiURL = "/apis/v1"
 
 	healthURL = apiURL + "/healthz"
 

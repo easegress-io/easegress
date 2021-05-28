@@ -1,1 +1,0 @@
-../../sbin/egctl.sh
