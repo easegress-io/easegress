@@ -146,12 +146,12 @@ func (opt *Options) Parse() (string, error) {
 		}
 	}
 
-	opt.readEnv()
 
 	opt.viper.Unmarshal(opt, func(c *mapstructure.DecoderConfig) {
 		c.TagName = "yaml"
 	})
 
+	opt.readEnv()
 	err = opt.validate()
 	if err != nil {
 		return "", err
