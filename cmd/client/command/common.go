@@ -24,9 +24,6 @@ import (
 	"net/http"
 	"os"
 
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
-
 	yamljsontool "github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
@@ -190,19 +187,4 @@ func readFromFileOrStdin(specFile string, cmd *cobra.Command) ([]byte, string) {
 	}
 
 	return buff, spec.Name
-}
-
-func newKubernetesClient() (*kubernetes.Clientset, error) {
-	config, err := clientcmd.BuildConfigFromFlags("", defaultKubernetesConfigPath)
-	if err != nil {
-		return nil, err
-	}
-
-	// create the clientset
-	kubeClient, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		ExitWithErrorf("Can't connect to K8S.")
-	}
-
-	return kubeClient, nil
 }
