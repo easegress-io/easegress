@@ -1,5 +1,5 @@
 # 2021 Easegress Roadmap
-This is what we hope to accomplish in 2021.
+The list in this roadmap is scheduled to be completed in 2021.
 
 ## Goal
 * To be an extensible cloud-native traffic-specific platform.
@@ -10,7 +10,7 @@ This is what we hope to accomplish in 2021.
 3. Easegress is designed to be **cloud-native**. It's scalable, resilient, manageable, and observable. These genes should be kept in it for the rapid future development process. 
 
 ## Features
-Based on our product goal, we have made a classification of Easegress's features for powering users' business capabilities into two categories, extensibility and traffic-specific.
+Based on the product goal, Easegress' features for powering users' business capabilities can be classified into two categories,extensibility and traffic-specific.
 ### Business features for extensibility
 * Dynamically load business code written in any language with the lowest performance costing.
 * Easy to develop new features with Battery-included Easegress.
