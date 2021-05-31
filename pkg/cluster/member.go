@@ -179,9 +179,15 @@ func (m *members) _self() *member {
 		logger.Errorf("BUG: can't get self from cluster members: %s "+
 			"knownMembers: %s", m.ClusterMembers, m.KnownMembers)
 	}
+
+	peerURL := ""
+	if len(m.opt.ClusterInitialAdvertisePeerURLs) != 0 {
+		peerURL = m.opt.ClusterInitialAdvertisePeerURLs[0]
+	}
+
 	return &member{
 		Name:    m.opt.Name,
-		PeerURL: m.opt.ClusterInitialAdvertisePeerURLs[0],
+		PeerURL: peerURL,
 	}
 }
 
