@@ -1,34 +1,31 @@
 # 2021 Easegress Roadmap
 The list in this roadmap is scheduled to be completed in 2021.
 
-## Goal
-* To be an extensible cloud-native traffic-specific platform.
 
-### Breakdowns
-1. Easegress works as a traffic orchestration system originally. It must be **traffic-specific**. It is implemented to solve users’ traffic dealing requirements and problems. With Easegress, users can empower their business capabilities,e.g., using Easegress to support Flash-sale activity, protecting their core APIs at peak time, and orchestrating their existing APIs for new business logic.
-2. Easegress aims to become an **extensible** platform under the traffic-specific domain. Users can choose to orchestrate ingress/egress traffic via existing filters in a pipeline or customize a brand-new filter/controller for their special traffic-specific business logic. With stable, clean, flat software architecture, users can develop their own filter/controller rapidly and easily. 
-3. Easegress is designed to be **cloud-native**. It's scalable, resilient, manageable, and observable. These genes should be kept in it for the rapid future development process. 
+## Product Principles
+1. **Traffic Orchestration**. It must be **traffic-specific**. It tries to solve users’ traffic-based requirements and solutions. Easegress can empower customer business capabilities, e.g., using Easegress to support high concurrent traffic scenarios(such as Flash-Sale, Black Friday, Double 11 event, etc).  And enhancing the APIs orchestration & management.
+2. **Opening & Extensibility**.  It aims to be an **extensible-development** platform. Users can organize the existing filters into a pipeline, or totally customize a brand-new filter/controller for their specific business logic. With simple, clean, and flat software architecture, anyone can develop their own filter/controller/pipeline rapidly and easily. 
+3. **Cloud Native**. It's designed to be **cloud-native**. It's scalable, resilient, manageable, and observable, and it's easy to be integrated with Cloud Native family - Spring Cloud, Service Discovery, Service Proxy/Gateway, Traffic Obvesevility (metrics, tracing, access log), Kubernetes, Serverless/FaaS, and so on.
 
 ## Features
 Based on the product goal, Easegress' features for powering users' business capabilities can be classified into two categories,extensibility and traffic-specific.
-### Business features for extensibility
+### Business Extensibility
 * Dynamically load business code written in any language with the lowest performance costing.
 * Easy to develop new features with Battery-included Easegress.
 * Reusability, such as using Easegress as K8s ingress, Service Gateway, Traffic gateway.
 * Easy to operate/easy to install.
 
-### Business features for traffic-specific
-* Supporting faster/safer application delivering.
-* Providing rich traffic-related metrics.
-* Supporting super high concurrent requests scenario,e.g., Flash-sale, Black Friday, Double 11 event.
-* Friendly API orchestration.
-* Protecting users' core APIs under high traffic pressure.
-* Filtering out invalid traffic for backend with IP filter, HMAC validating...
-* Mocking backend for testing.
+### Traffic Orchestration 
+* Supporting traffic management -  load balance, rate limiting, etc. 
+* Supporting super-high concurrent requests scenario,e.g., Flash-sale, Black Friday, Double 11 event.
+* Friendly API orchestration - API aggression, API pipeline 
+* Protecting core APIs from high traffic load.
+* Supporting canary development and traffic coloring.
+* Filtering out invalid traffic for the backend.
 
 
-## Roadmap 
-### Extensibility
+## Roadmap 2021
+### Business Extensibility
 
 | Name                         | Issue                                                | Description                                                                                                    |
 | ---------------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
@@ -40,7 +37,7 @@ Based on the product goal, Easegress' features for powering users' business capa
 
 
 
-###  Traffic-specific
+###  Traffic Orchestration 
 
 | Name                          | Issue | Description                                                                                  |
 | ----------------------------- | ----- | -------------------------------------------------------------------------------------------- |
