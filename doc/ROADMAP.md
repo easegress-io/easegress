@@ -1,6 +1,6 @@
-# 2021 Easegress Roadmap
-The list in this roadmap is scheduled to be completed in 2021.
-- [2021 Easegress Roadmap](#2021-easegress-roadmap)
+# Easegress Roadmap
+This is the works we are going to do.
+- [Easegress Roadmap](#easegress-roadmap)
   - [Product Principles](#product-principles)
   - [Features](#features)
     - [Business Extensibility](#business-extensibility)
