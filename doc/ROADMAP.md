@@ -1,6 +1,13 @@
 # 2021 Easegress Roadmap
 The list in this roadmap is scheduled to be completed in 2021.
-
+- [2021 Easegress Roadmap](#2021-easegress-roadmap)
+  - [Product Principles](#product-principles)
+  - [Features](#features)
+    - [Business Extensibility](#business-extensibility)
+    - [Traffic Orchestration](#traffic-orchestration)
+  - [Roadmap 2021](#roadmap-2021)
+    - [Business Extensibility](#business-extensibility-1)
+    - [Traffic Orchestration](#traffic-orchestration-1)
 
 ## Product Principles
 1. **Traffic Orchestration**. It must be **traffic-specific**. It tries to solve users’ traffic-based requirements and solutions. Easegress can empower customer business capabilities, e.g., using Easegress to support high concurrent traffic scenarios(such as Flash-Sale, Black Friday, Double 11 event, etc).  And enhancing the APIs orchestration & management.
