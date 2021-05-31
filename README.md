@@ -29,12 +29,12 @@ The architecture of Easegress:
 ## Features
 
 - **Service Management**
-	- **Multiple protocol:**
+	- **Multiple protocols:**
 		- HTTP/1.1
 		- HTTP/2
 		- HTTP/3(QUIC)
 		- MQTT(coming soon)
-	- **Rich Routing Rules:** exact path, path prefix, regular expression of path, method, headers.
+	- **Rich Routing Rules:** exact path, path prefix, regular expression of the path, method, headers.
 	- **Resilience&Fault Tolerance**
 		- **Circuit breaker:** temporarily blocks possible failures.
 		- **Rate limiter:** limits the rate of incoming requests.
@@ -219,7 +219,11 @@ Body  : Hello, Easegress
 
 Now we want to add more features to the pipeline, then we could add kinds of filters to the pipeline. For example, we want validation and request adaptation for the `pipeline-demo`.
 
-![pipeline-demo](./doc/pipeline-demo.png)
+
+<p align="center">
+<img src="./doc/pipeline-demo.png" width=360 height=500>
+</p>
+
 
 ```bash
 $ cat pipeline-demo.yaml
@@ -273,7 +277,7 @@ If you want more information, please check out [reference](./referecen.md) and [
 
 ## Roadmap 
 
-Please check out [ROADMAP](./doc/ROADMAP.md) file for the feature plan.
+See [Easegress Roadmap](./doc/Roadmap.md) for details.
 
 ## License
 
