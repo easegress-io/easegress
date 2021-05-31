@@ -12,10 +12,10 @@ This is the works we are going to do.
 ## Product Principles
 1. **Traffic Orchestration**. It must be **traffic-specific**. It tries to solve users’ traffic-based requirements and solutions. Easegress can empower customer business capabilities, e.g., using Easegress to support high concurrent traffic scenarios(such as Flash-Sale, Black Friday, Double 11 event, etc).  And enhancing the APIs orchestration & management.
 2. **Opening & Extensibility**.  It aims to be an **extensible-development** platform. Users can organize the existing filters into a pipeline, or totally customize a brand-new filter/controller for their specific business logic. With simple, clean, and flat software architecture, anyone can develop their own filter/controller/pipeline rapidly and easily. 
-3. **Cloud Native**. It's designed to be **cloud-native**. It's scalable, resilient, manageable, and observable, and it's easy to be integrated with Cloud Native family - Spring Cloud, Service Discovery, Service Proxy/Gateway, Traffic Obvesevility (metrics, tracing, access log), Kubernetes, Serverless/FaaS, and so on.
+3. **Cloud Native**. It is designed to be **cloud-native** compliance. It's scalable, resilient, manageable, and observable. It's easy to integrate with cloud-native architecture, such as Spring Cloud, Service Discovery, Sevice Gateway, Tracing, Kubernetes, Serverless/FaaS, and so on..
 
 ## Features
-Based on the product goal, Easegress' features for powering users' business capabilities can be classified into two categories,extensibility and traffic-specific.
+Based on our product principles, we have made a classification of Easegress's features for powering users' business capabilities into two categories: business-specific and traffic-specific..
 ### Business Extensibility
 * Dynamically load business code written in any language with the lowest performance costing.
 * Easy to develop new features with Battery-included Easegress.
