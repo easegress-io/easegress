@@ -7,7 +7,7 @@ This is what we hope to accomplish in 2021.
 ### Breakdowns
 1. Easegress works as a traffic orchestration system originally. It must be **traffic-specific**. It is implemented to solve users’ traffic dealing requirements and problems. With Easegress, users can empower their business capabilities,e.g., using Easegress to support Flash-sale activity, protecting their core APIs at peak time, and orchestrating their existing APIs for new business logic.
 2. Easegress aims to become an **extensible** platform under the traffic-specific domain. Users can choose to orchestrate ingress/egress traffic via existing filters in a pipeline or customize a brand-new filter/controller for their special traffic-specific business logic. With stable, clean, flat software architecture, users can develop their own filter/controller rapidly and easily. 
-3. Easegress is designed to be **cloud-native**. It's scalable, resilient, manageable, and observable. During rapid development in the future, these genes should be preserved inside.
+3. Easegress is designed to be **cloud-native**. It's scalable, resilient, manageable, and observable. These genes should be kept in it for the rapid future development process. 
 
 ## Features
 Based on our product goal, we have made a classification of Easegress's features for powering users' business capabilities into two categories, extensibility and traffic-specific.
@@ -30,13 +30,13 @@ Based on our product goal, we have made a classification of Easegress's features
 ## Roadmap 
 ### Extensibility
 
-| Name                         | Issue                                                | Description                                                                                                                         |
-| ---------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| WASM runtime embedding       | [#1](https://github.com/megaease/easegress/issues/1) | Supporting users' customized business logic hot-loading by source code with the help of  WASM.                                      |
-| Operation Enhancement        |                                                      | For better supporting daily cluster operation routine,e.g., one-click installation supported, cluster scaling.                      |
-| Traffic-controller           |                                                      | Managing `pipeline` and `traffic gate` by this new added controller. Keeping this low-level resource management logic in one place. |
-| Controller/Filter versioning |                                                      | Providing version in `Controller/Filter`. The user can specified the desired version to use them.                                   |
-| Protobuf models generating   |                                                      | Using `Protobuf` to generate Easegress inner models and related docs.                                                               |
+| Name                         | Issue                                                | Description                                                                                                    |
+| ---------------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| WASM runtime embedding       | [#1](https://github.com/megaease/easegress/issues/1) | Hot-loading customized business logic with WASM.                                                               |
+| Operation Enhancement        |                                                      | For better supporting daily cluster operation routine,e.g., one-click installation supported, cluster scaling. |
+| Traffic-controller           |                                                      | Managing `pipeline` and `traffic gate` by Traffic-controller.                                                  |
+| Controller/Filter versioning |                                                      | Configuring  `Controller/Filter` with specified versions.                                                      |
+| Protobuf models generating   |                                                      | Generating Easegress inner models and related docs with pre-defined Protobuf                                   |
 
 
 
