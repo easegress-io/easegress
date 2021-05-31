@@ -18,8 +18,8 @@ Based on our product goal, we have made a classification of Easegress's features
 * Easy to operate/easy to install.
 
 ### Business features for traffic-specific
-* Supporting Faster/safer application delivering.
-* Providing Rich traffic-related metrics.
+* Supporting faster/safer application delivering.
+* Providing rich traffic-related metrics.
 * Supporting super high concurrent requests scenario,e.g., Flash-sale, Black Friday, Double 11 event.
 * Friendly API orchestration.
 * Protecting users' core APIs under high traffic pressure.
@@ -30,21 +30,21 @@ Based on our product goal, we have made a classification of Easegress's features
 ## Roadmap 
 ### Extensibility
 
-| Name                         | Priority | Status    | Description                                                                                                                         |
-| ---------------------------- | -------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| WASM runtime embedding       | High     | In design | Supporting users' customized business logic hot-loading by source code with the help of  WASM.                                      |
-| Operation Enhancement        | High     | In design | For better supporting daily cluster operation routine,e.g., one-click installation supported, cluster scaling.                      |
-| Traffic-controller           | High     | Planning  | Managing `pipeline` and `traffic gate` by this new added controller. Keeping this low-level resource management logic in one place. |
-| Controller/Filter versioning | Middle   | Planning  | Providing version in `Controller/Filter`. The user can specified the desired version to use them.                                   |
-| Protobuf models generating   | Low      | Planning  | Using `Protobuf` to generate Easegress inner models and related docs.                                                               |
+| Name                         | Issue                                                | Description                                                                                                                         |
+| ---------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| WASM runtime embedding       | [#1](https://github.com/megaease/easegress/issues/1) | Supporting users' customized business logic hot-loading by source code with the help of  WASM.                                      |
+| Operation Enhancement        |                                                      | For better supporting daily cluster operation routine,e.g., one-click installation supported, cluster scaling.                      |
+| Traffic-controller           |                                                      | Managing `pipeline` and `traffic gate` by this new added controller. Keeping this low-level resource management logic in one place. |
+| Controller/Filter versioning |                                                      | Providing version in `Controller/Filter`. The user can specified the desired version to use them.                                   |
+| Protobuf models generating   |                                                      | Using `Protobuf` to generate Easegress inner models and related docs.                                                               |
 
 
 
 ###  Traffic-specific
 
-| Name                          | Priority | Status    | Description                                                                                  |
-| ----------------------------- | -------- | --------- | -------------------------------------------------------------------------------------------- |
-| Traffic coloring              | High     | In design | Supporting coloring ingress traffic by adding special HTTP header according to users' model. |
-| FaaS-controller               | Middle   | Planning  | Implementing Knative integrating, function life-cycle management inside a new controller.    |
-| More protocol supporting      | Middle   | Planning  | Such as MQTT, gRPC..                                                                         |
-| Kubernetes Ingress controller | Low      | Planning  | Adapting Easegress into a Kubernetes Ingress controller.                                     |
+| Name                          | Issue | Description                                                                                  |
+| ----------------------------- | ----- | -------------------------------------------------------------------------------------------- |
+| Traffic coloring              |       | Supporting coloring ingress traffic by adding special HTTP header according to users' model. |
+| FaaS-controller               |       | Implementing Knative integrating, function life-cycle management inside a new controller.    |
+| More protocol supporting      |       | Such as MQTT, gRPC..                                                                         |
+| Kubernetes Ingress controller |       | Adapting Easegress into a Kubernetes Ingress controller.                                     |
