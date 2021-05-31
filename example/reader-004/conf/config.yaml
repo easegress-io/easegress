@@ -1,9 +1,11 @@
 name: reader-004
 cluster-name: cluster-test
 cluster-role: reader
-cluster-client-url:
-cluster-peer-url:
-cluster-join-urls: http://127.0.0.1:12380,http://127.0.0.1:22380,http://127.0.0.1:32380
+cluster-listen-client-urls:
+cluster-listen-peer-urls:
+cluster-advertise-client-urls:
+cluster-initial-advertise-peer-urls:
+cluster-join-urls: [http://127.0.0.1:12380, http://127.0.0.1:22380, http://127.0.0.1:32380]
 api-addr: 127.0.0.1:42381
 data-dir: ./data
 wal-dir: ""

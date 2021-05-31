@@ -1,10 +1,11 @@
 name: writer-001
-labels: {mesh_role: worker}
 cluster-name: cluster-test
 cluster-role: writer
-cluster-client-url: http://127.0.0.1:12379
-cluster-peer-url: http://127.0.0.1:12380
-cluster-join-urls: http://127.0.0.1:12380,http://127.0.0.1:22380,http://127.0.0.1:32380
+cluster-listen-client-urls: [http://127.0.0.1:12379]
+cluster-listen-peer-urls: [http://127.0.0.1:12380]
+cluster-advertise-client-urls: [http://127.0.0.1:12379]
+cluster-initial-advertise-peer-urls: [http://127.0.0.1:12380]
+cluster-join-urls: [http://127.0.0.1:12380, http://127.0.0.1:22380, http://127.0.0.1:32380]
 api-addr: 127.0.0.1:12381
 data-dir: ./data
 wal-dir: ""

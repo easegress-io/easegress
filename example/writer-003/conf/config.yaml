@@ -1,12 +1,11 @@
 name: writer-003
-# The different cluster-name is about to test
-# joining a existed cluster with a different name
-# will panic and exit as expected.
 cluster-name: cluster-test
 cluster-role: writer
-cluster-client-url: http://127.0.0.1:32379
-cluster-peer-url: http://127.0.0.1:32380
-cluster-join-urls: http://127.0.0.1:12380,http://127.0.0.1:22380,http://127.0.0.1:32380
+cluster-listen-client-urls: [http://127.0.0.1:32379]
+cluster-listen-peer-urls: [http://127.0.0.1:32380]
+cluster-advertise-client-urls: [http://127.0.0.1:32379]
+cluster-initial-advertise-peer-urls: [http://127.0.0.1:32380]
+cluster-join-urls: [http://127.0.0.1:12380, http://127.0.0.1:22380, http://127.0.0.1:32380]
 api-addr: 127.0.0.1:32381
 data-dir: ./data
 wal-dir: ""

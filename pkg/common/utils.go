@@ -246,7 +246,7 @@ func ExpandDir(dir string) string {
 
 // MkdirAll wraps os.MakeAll with fixed perm.
 func MkdirAll(path string) error {
-	return os.MkdirAll(ExpandDir(path), 0750)
+	return os.MkdirAll(ExpandDir(path), 0700)
 }
 
 // RemoveAll wraps os.RemoveAll.

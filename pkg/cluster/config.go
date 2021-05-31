@@ -51,14 +51,39 @@ func (c *cluster) prepareEtcdConfig() (*embed.Config, error) {
 	ec := embed.NewConfig()
 	opt := c.opt
 
-	peerURL, err := url.Parse(opt.ClusterPeerURL)
-	if err != nil {
-		return nil, err
+	var (
+		clientURLs   []url.URL
+		peerURLs     []url.URL
+		clientAdURLs []url.URL
+		peerAdURLs   []url.URL
+	)
+	for _, u := range opt.ClusterListenClientURLs {
+		clientURL, err := url.Parse(u)
+		if err != nil {
+			return nil, err
+		}
+		clientURLs = append(clientURLs, *clientURL)
 	}
-
-	clientURL, err := url.Parse(opt.ClusterClientURL)
-	if err != nil {
-		return nil, err
+	for _, u := range opt.ClusterListenPeerURLs {
+		peerURL, err := url.Parse(u)
+		if err != nil {
+			return nil, err
+		}
+		peerURLs = append(peerURLs, *peerURL)
+	}
+	for _, u := range opt.ClusterAdvertiseClientURLs {
+		clientAdURL, err := url.Parse(u)
+		if err != nil {
+			return nil, err
+		}
+		clientAdURLs = append(clientAdURLs, *clientAdURL)
+	}
+	for _, u := range opt.ClusterInitialAdvertisePeerURLs {
+		peerAdURL, err := url.Parse(u)
+		if err != nil {
+			return nil, err
+		}
+		peerAdURLs = append(peerAdURLs, *peerAdURL)
 	}
 
 	ec.Name = opt.Name
@@ -67,10 +92,10 @@ func (c *cluster) prepareEtcdConfig() (*embed.Config, error) {
 	ec.WalDir = opt.AbsWALDir
 	ec.InitialClusterToken = opt.ClusterName
 	ec.EnableV2 = false
-	ec.LPUrls = []url.URL{*peerURL}
-	ec.APUrls = []url.URL{*peerURL}
-	ec.LCUrls = []url.URL{*clientURL}
-	ec.ACUrls = []url.URL{*clientURL}
+	ec.LCUrls = clientURLs
+	ec.ACUrls = clientAdURLs
+	ec.LPUrls = peerURLs
+	ec.APUrls = peerAdURLs
 	ec.AutoCompactionMode = autoCompactionMode
 	ec.AutoCompactionRetention = autoCompactionRetention
 	ec.QuotaBackendBytes = quotaBackendBytes

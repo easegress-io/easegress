@@ -316,7 +316,7 @@ func (c *cluster) addSelfToCluster() error {
 			return err
 		}
 
-		respAdd, err := client.MemberAdd(c.requestContext(), []string{c.opt.ClusterPeerURL})
+		respAdd, err := client.MemberAdd(c.requestContext(), c.opt.ClusterInitialAdvertisePeerURLs)
 		if err != nil {
 			return fmt.Errorf("add member failed: %v", err)
 		}
@@ -667,7 +667,7 @@ func (c *cluster) defrag() {
 			}
 
 			// NOTICE: It need longer time than normal ones.
-			_, err = client.Defragment(c.longRequestContext(), c.opt.ClusterPeerURL)
+			_, err = client.Defragment(c.longRequestContext(), c.opt.ClusterAdvertiseClientURLs[0])
 			if err != nil {
 				defragInterval = defragFailedInterval
 				logger.Errorf("defrag failed: %v", err)

@@ -50,16 +50,18 @@ type Options struct {
 	// If a config file is specified, below command line flags will be ignored.
 
 	// meta
-	Name                  string            `yaml:"name"`
-	Labels                map[string]string `yaml:"labels"`
-	ClusterName           string            `yaml:"cluster-name"`
-	ClusterRole           string            `yaml:"cluster-role"`
-	ClusterRequestTimeout string            `yaml:"cluster-request-timeout"`
-	ClusterClientURL      string            `yaml:"cluster-client-url"`
-	ClusterPeerURL        string            `yaml:"cluster-peer-url"`
-	ClusterJoinURLs       []string          `yaml:"cluster-join-urls"`
-	APIAddr               string            `yaml:"api-addr"`
-	Debug                 bool              `yaml:"debug"`
+	Name                            string            `yaml:"name" env:"EG_NAME"`
+	Labels                          map[string]string `yaml:"labels" env:"EG_LABELS"`
+	ClusterName                     string            `yaml:"cluster-name"`
+	ClusterRole                     string            `yaml:"cluster-role"`
+	ClusterRequestTimeout           string            `yaml:"cluster-request-timeout"`
+	ClusterListenClientURLs         []string          `yaml:"cluster-listen-client-urls"`
+	ClusterListenPeerURLs           []string          `yaml:"cluster-listen-peer-urls"`
+	ClusterAdvertiseClientURLs      []string          `yaml:"cluster-advertise-client-urls"`
+	ClusterInitialAdvertisePeerURLs []string          `yaml:"cluster-initial-advertise-peer-urls"`
+	ClusterJoinURLs                 []string          `yaml:"cluster-join-urls"`
+	APIAddr                         string            `yaml:"api-addr"`
+	Debug                           bool              `yaml:"debug"`
 
 	// Path.
 	HomeDir   string `yaml:"home-dir"`
@@ -96,8 +98,10 @@ func New() *Options {
 	opt.flags.StringVar(&opt.ClusterName, "cluster-name", "eg-cluster-default-name", "Human-readable name for the new cluster, ignored while joining an existed cluster.")
 	opt.flags.StringVar(&opt.ClusterRole, "cluster-role", "writer", "Cluster role for this member (reader, writer).")
 	opt.flags.StringVar(&opt.ClusterRequestTimeout, "cluster-request-timeout", "10s", "Timeout to handle request in the cluster.")
-	opt.flags.StringVar(&opt.ClusterClientURL, "cluster-client-url", "http://localhost:2379", "URL to listen on for cluster client traffic.")
-	opt.flags.StringVar(&opt.ClusterPeerURL, "cluster-peer-url", "http://localhost:2380", "URL to listen on for cluster peer traffic.")
+	opt.flags.StringSliceVar(&opt.ClusterListenClientURLs, "cluster-listen-client-urls", []string{"http://localhost:2379"}, "URLs to listen on for cluster client traffic.")
+	opt.flags.StringSliceVar(&opt.ClusterListenPeerURLs, "cluster-listen-peer-url", []string{"http://localhost:2380"}, "URLs to listen on for cluster peer traffic.")
+	opt.flags.StringSliceVar(&opt.ClusterAdvertiseClientURLs, "cluster-advertise-client-urls", []string{"http://localhost:2379"}, "List of this member’s client URLs to advertise to the rest of the cluster.")
+	opt.flags.StringSliceVar(&opt.ClusterInitialAdvertisePeerURLs, "cluster-initial-advertise-peer-urls", []string{"http://localhost:2380"}, "List of this member’s peer URLs to advertise to the rest of the cluster.")
 	opt.flags.StringSliceVar(&opt.ClusterJoinURLs, "cluster-join-urls", nil, "one or more urls of the writers in cluster to join, delimited by ',' without whitespaces.")
 	opt.flags.StringVar(&opt.APIAddr, "api-addr", "localhost:2381", "Address([host]:port) to listen on for administration traffic.")
 	opt.flags.BoolVar(&opt.Debug, "debug", false, "Flag to set lowest log level from INFO downgrade DEBUG.")
@@ -136,6 +140,10 @@ func (opt *Options) Parse() (string, error) {
 		return version.Short, nil
 	}
 
+	opt.viper.AutomaticEnv()
+	opt.viper.SetEnvPrefix("EG")
+	opt.viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+
 	if opt.ConfigFile != "" {
 		opt.viper.SetConfigFile(opt.ConfigFile)
 		opt.viper.SetConfigType("yaml")
@@ -146,12 +154,22 @@ func (opt *Options) Parse() (string, error) {
 		}
 	}
 
+	// NOTE: Workaround because viper does not treat env vars the same as other config.
+	// Reference: https://github.com/spf13/viper/issues/188#issuecomment-399518663
+	for _, key := range opt.viper.AllKeys() {
+		val := opt.viper.Get(key)
+		// NOTE: We need to handle map[string]string
+		// Reference: https://github.com/spf13/viper/issues/911
+		if key == "labels" {
+			val = opt.viper.GetStringMapString(key)
+		}
+		opt.viper.Set(key, val)
+	}
 
 	opt.viper.Unmarshal(opt, func(c *mapstructure.DecoderConfig) {
 		c.TagName = "yaml"
 	})
 
-	opt.readEnv()
 	err = opt.validate()
 	if err != nil {
 		return "", err
@@ -177,18 +195,6 @@ func (opt *Options) Parse() (string, error) {
 	return "", nil
 }
 
-func (opt *Options) readEnv() {
-	clientURL := os.Getenv("EG_CLUSTER_CLIENT_URL")
-	if clientURL != "" {
-		opt.ClusterClientURL = clientURL
-	}
-
-	peerURL := os.Getenv("EG_CLUSTER_PEER_URL")
-	if peerURL != "" {
-		opt.ClusterPeerURL = peerURL
-	}
-}
-
 // adjust adjusts the options to handle conflict
 // between user's config and internal component.
 func (opt *Options) adjust() {
@@ -201,12 +207,14 @@ func (opt *Options) adjust() {
 
 	joinURL := opt.ClusterJoinURLs[0]
 
-	if strings.EqualFold(joinURL, opt.ClusterPeerURL) {
-		fmt.Printf("cluster-join-urls %v changed to empty because it tries to join itself",
-			opt.ClusterJoinURLs)
-		// NOTE: We hack it this way to make sure the internal embedded etcd would
-		// start a new cluster instead of joining existed one.
-		opt.ClusterJoinURLs = nil
+	for _, peerURL := range opt.ClusterListenPeerURLs {
+		if strings.EqualFold(joinURL, peerURL) {
+			fmt.Printf("cluster-join-urls %v changed to empty because it tries to join itself",
+				opt.ClusterJoinURLs)
+			// NOTE: We hack it this way to make sure the internal embedded etcd would
+			// start a new cluster instead of joining existed one.
+			opt.ClusterJoinURLs = nil
+		}
 	}
 }
 
@@ -235,20 +243,49 @@ func (opt *Options) validate() error {
 		}
 
 	case "writer":
-		_, err := url.Parse(opt.ClusterPeerURL)
-		if err != nil {
-			return fmt.Errorf("invalid cluster-peer-url: %v", err)
+		if len(opt.ClusterListenClientURLs) == 0 {
+			return fmt.Errorf("empty cluster-listen-client-urls")
 		}
-		_, err = url.Parse(opt.ClusterClientURL)
-		if err != nil {
-			return fmt.Errorf("invalid cluster-client-url: %v", err)
+		if len(opt.ClusterListenPeerURLs) == 0 {
+			return fmt.Errorf("empty cluster-listen-peer-urls")
+		}
+		if len(opt.ClusterAdvertiseClientURLs) == 0 {
+			return fmt.Errorf("empty cluster-advertise-client-urls")
+		}
+		if len(opt.ClusterInitialAdvertisePeerURLs) == 0 {
+			return fmt.Errorf("empty cluster-initial-advertise-peer-urls")
+		}
+
+		for _, clientURL := range opt.ClusterListenClientURLs {
+			_, err := url.Parse(clientURL)
+			if err != nil {
+				return fmt.Errorf("invalid cluster-listen-client-urls: %s: %v", clientURL, err)
+			}
+		}
+		for _, peerURL := range opt.ClusterListenPeerURLs {
+			_, err := url.Parse(peerURL)
+			if err != nil {
+				return fmt.Errorf("invalid cluster-listen-peer-urls: %s: %v", peerURL, err)
+			}
+		}
+		for _, clientURL := range opt.ClusterAdvertiseClientURLs {
+			_, err := url.Parse(clientURL)
+			if err != nil {
+				return fmt.Errorf("invalid cluster-advertise-client-urls: %s: %v", clientURL, err)
+			}
+		}
+		for _, peerURL := range opt.ClusterInitialAdvertisePeerURLs {
+			_, err := url.Parse(peerURL)
+			if err != nil {
+				return fmt.Errorf("invalid cluster-initial-advertise-peer-urls: %s: %v", peerURL, err)
+			}
 		}
 
 		if len(opt.ClusterJoinURLs) != 0 {
-			for _, urlText := range opt.ClusterJoinURLs {
-				_, err := url.Parse(urlText)
+			for _, joinURL := range opt.ClusterJoinURLs {
+				_, err := url.Parse(joinURL)
 				if err != nil {
-					return fmt.Errorf("invalid cluster-join-urls: %v", err)
+					return fmt.Errorf("invalid cluster-join-urls: %s: %v", joinURL, err)
 				}
 			}
 		}
