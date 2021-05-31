@@ -8,6 +8,7 @@
     - [Create an HTTPServer and Pipeline](#create-an-httpserver-and-pipeline)
     - [Test](#test)
     - [More Filters](#more-filters)
+  - [Roadmap](#roadmap)
   - [License](#license)
 
 ## What is Easegress
@@ -270,6 +271,9 @@ We can also see Easegress send one more header `X-Adapt-Key: goodplan` to the mi
 
 If you want more information, please check out [reference](./referecen.md) and [developer guide](./doc/developer-guide.md).
 
+## Roadmap 
+
+Please check out [ROADMAP](./doc/ROADMAP.md) file for the feature plan.
 
 ## License
 
