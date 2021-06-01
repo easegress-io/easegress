@@ -1,0 +1,71 @@
+before:
+  hooks:
+    # You may remove this if you don't use go modules.
+    - go mod tidy
+    # you may remove this if you don't need go generate
+    - go generate ./...
+
+snapshot:
+  name_template: '{{ .Tag }}'
+checksum:
+  name_template: 'checksums.txt'
+changelog:
+  skip: true
+
+builds:
+  - id: client
+    main: cmd/client/main.go
+    binary: bin/egctl
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    ldflags:
+      - -s -w
+      - -X github.com/megaease/easegress/pkg/version.RELEASE=v1.0.0
+      - -X github.com/megaease/easegress/pkg/version.COMMIT={{.Commit}}
+      - -X github.com/megaease/easegress/pkg/version.REPO=megaease/easegress
+
+  - id: server
+    main: cmd/server/main.go
+    binary: bin/easegress-server
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    ldflags:
+      - -s -w
+      - -X github.com/megaease/easegress/pkg/version.RELEASE=v1.0.0
+      - -X github.com/megaease/easegress/pkg/version.COMMIT={{.Commit}}
+      - -X github.com/megaease/easegress/pkg/version.REPO=megaease/easegress
+
+archives:
+  - id: easegress
+    format: tar.gz
+    name_template: "{{ .ProjectName }}-v{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+    files:
+      - none*
+
+release:
+  github:
+    owner: megaease
+    name: easegress
+  name_template: "{{ .ProjectName }}-v{{ .Version }}"
+
+dockers:
+  - image_templates:
+    - megaease/easegress:latest
+    - megaease/easegress:{{ .Tag }}
+
+    goos: linux
+    goarch: amd64
+    ids:
+      - client
+      - server
+
+    dockerfile: build/package/Dockerfile.goreleaser
+
+    extra_files:
+      - build/package/entrypoint.sh

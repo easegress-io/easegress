@@ -1,8 +1,7 @@
-SHELL:=/bin/bash
-.PHONY: build build_client build_server \
-		build_client_alpine build_server_alpine build_server_ubuntu \
-		run fmt vet clean \
-		mod_update vendor_from_mod vendor_clean test
+SHELL:=/bin/sh
+.PHONY: build build_client build_server build_docker \
+		test run fmt vet clean \
+		mod_update vendor_from_mod vendor_clean
 
 export GO111MODULE=on
 export GOPROXY=https://goproxy.io
@@ -13,20 +12,17 @@ MKFILE_DIR := $(dir $(MKFILE_PATH))
 
 # Version
 RELEASE?=1.0.0
+
 # Git Related
 GIT_REPO_INFO=$(shell cd ${MKFILE_DIR} && git config --get remote.origin.url)
 ifndef GIT_COMMIT
   GIT_COMMIT := git-$(shell git rev-parse --short HEAD)
 endif
 
-# Docker Related
-DOCKER=docker
-DOCKER_REPO_INFO?=megaease/easegress
-
 # Source Files
-ALL_FILES = $(shell find ${MKFILE_DIR}{cmd,pkg} -type f -name "*.go")
-CLIENT_FILES = $(shell find ${MKFILE_DIR}{cmd/client,pkg} -type f -name "*.go")
-SERVER_FILES = $(shell find ${MKFILE_DIR}{cmd/server,pkg} -type f -name "*.go")
+ALL_FILES = $(shell find ${MKFILE_DIR}${cmd,pkg} -type f -name "*.go")
+CLIENT_FILES = $(shell find ${MKFILE_DIR}${cmd/client,pkg} -type f -name "*.go")
+SERVER_FILES = $(shell find ${MKFILE_DIR}${cmd/server,pkg} -type f -name "*.go")
 
 # Targets
 TARGET_SERVER=${MKFILE_DIR}bin/easegress-server
@@ -40,26 +36,8 @@ build_client: ${TARGET_CLIENT}
 
 build_server: ${TARGET_SERVER}
 
-build_client_alpine: ${TARGET_CLIENT}
-	@echo "build client docker image (from alpine)"
-	rm -rf ${MKFILE_DIR}rootfs/alpine/opt && \
-	mkdir -p ${MKFILE_DIR}rootfs/alpine/opt/easegress/bin && \
-	cp ${TARGET_CLIENT} ${MKFILE_DIR}rootfs/alpine/opt/easegress/bin && \
-	cd ${MKFILE_DIR}rootfs/alpine && $(DOCKER) build -t ${DOCKER_REPO_INFO}:client-${RELEASE}_alpine -f ./Dockerfile.client .
-
-build_server_alpine: ${TARGET_SERVER}
-	@echo "build server docker image (from alpine)"
-	rm -rf ${MKFILE_DIR}rootfs/alpine/opt && \
-	mkdir -p ${MKFILE_DIR}rootfs/alpine/opt/easegress/bin && \
-	cp ${TARGET_SERVER} ${MKFILE_DIR}rootfs/alpine/opt/easegress/bin && \
-	cd ${MKFILE_DIR}rootfs/alpine && $(DOCKER) build -t ${DOCKER_REPO_INFO}:server-${RELEASE}_alpine -f ./Dockerfile.server .
-
-build_server_ubuntu: ${TARGET_SERVER}
-	@echo "build server docker image (from ubuntu)"
-	rm -rf ${MKFILE_DIR}rootfs/ubuntu/opt && \
-	mkdir -p ${MKFILE_DIR}rootfs/ubuntu/opt/easegress/bin && \
-	cp ${TARGET_SERVER} ${MKFILE_DIR}rootfs/ubuntu/opt/easegress/bin && \
-	cd ${MKFILE_DIR}rootfs/ubuntu && $(DOCKER) build -t ${DOCKER_REPO_INFO}:server-${RELEASE}_ubuntu -f ./Dockerfile.server .
+build_docker:
+	docker build -t megaease/easegress:${RELEASE} -f ./build/package/Dockerfile .
 
 test:
 	@go list ./{cmd,pkg}/... | grep -v -E 'vendor' | xargs -n1 go test
@@ -98,10 +76,3 @@ ${TARGET_CLIENT} : ${CLIENT_FILES}
 	cd ${MKFILE_DIR} && \
 	CGO_ENABLED=0 go build -v -ldflags ${GO_LD_FLAGS} \
 	-o ${TARGET_CLIENT} ${MKFILE_DIR}cmd/client/main.go
-
-${TARGET_INVENTORY} : ${INVENTORY_FILES}
-	@echo "build inventory"
-	cd ${MKFILE_DIR} && \
-	rm -rf ${TARGET_INVENTORY} && \
-	mkdir -p ${TARGET_INVENTORY} && \
-	cp -r ${INVENTORY_FILES} ${TARGET_INVENTORY}

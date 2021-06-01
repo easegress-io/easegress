@@ -8,8 +8,9 @@ rootfs/alpine/opt
 rootfs/ubuntu/opt
 
 # Dirs default config creates if not existed.
-logs
+log
 data
+member
 
 # MacOS stuff.
 .DS_Store
@@ -19,5 +20,8 @@ data
 
 # vscode
 .vscode/
+
+# goreleaser
+dist/
 
 easegress.pid

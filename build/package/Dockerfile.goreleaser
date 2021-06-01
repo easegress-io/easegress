@@ -1,0 +1,13 @@
+FROM alpine:3.13
+
+WORKDIR /opt/easegress
+
+ADD egctl easegress-server /opt/easegress/bin/
+COPY build/package/entrypoint.sh /
+
+RUN apk --no-cache add tini && \
+        chmod +x /entrypoint.sh /opt/easegress/bin/*
+
+ENV PATH /opt/easegress/bin:$PATH
+
+ENTRYPOINT ["/sbin/tini", "--", "/entrypoint.sh"]
