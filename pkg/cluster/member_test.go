@@ -67,8 +67,10 @@ func mockTestOpt() *option.Options {
 	opt.ClusterName = "test-cluster"
 	opt.ClusterRole = "writer"
 	opt.ClusterRequestTimeout = "10s"
-	opt.ClusterClientURL = fmt.Sprintf("http://localhost:%d", ports[0])
-	opt.ClusterPeerURL = fmt.Sprintf("http://localhost:%d", ports[1])
+	opt.ClusterListenClientURLs = []string{fmt.Sprintf("http://localhost:%d", ports[0])}
+	opt.ClusterAdvertiseClientURLs = opt.ClusterListenClientURLs
+	opt.ClusterListenPeerURLs = []string{fmt.Sprintf("http://localhost:%d", ports[1])}
+	opt.ClusterInitialAdvertisePeerURLs = opt.ClusterListenPeerURLs
 	opt.APIAddr = fmt.Sprintf("localhost:%d", ports[2])
 	opt.HomeDir = filepath.Join(tempDir, name)
 	opt.DataDir = "data"
@@ -97,13 +99,13 @@ func mockMembers(count int) ([]*option.Options, membersSlice, []*pb.Member) {
 		members[i] = &member{
 			ID:      id,
 			Name:    opt.Name,
-			PeerURL: opt.ClusterPeerURL,
+			PeerURL: opt.ClusterInitialAdvertisePeerURLs[0],
 		}
 		pbMembers[i] = &pb.Member{
 			ID:         id,
 			Name:       opt.Name,
-			PeerURLs:   []string{opt.ClusterPeerURL},
-			ClientURLs: []string{opt.ClusterClientURL},
+			PeerURLs:   []string{opt.ClusterInitialAdvertisePeerURLs[0]},
+			ClientURLs: []string{opt.ClusterAdvertiseClientURLs[0]},
 		}
 
 		env.InitServerDir(opt)
