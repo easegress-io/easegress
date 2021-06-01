@@ -8,6 +8,7 @@
     - [Create an HTTPServer and Pipeline](#create-an-httpserver-and-pipeline)
     - [Test](#test)
     - [More Filters](#more-filters)
+  - [Documentation](#documentation)
   - [Roadmap](#roadmap)
   - [License](#license)
 
@@ -273,7 +274,9 @@ Body  : {"message": "Hello, Easegress"}
 
 We can also see Easegress send one more header `X-Adapt-Key: goodplan` to the mirror service.
 
-If you want more information, please check out [reference](./referecen.md) and [developer guide](./doc/developer-guide.md).
+## Documentation
+
+See [reference](./doc/reference.md) and [developer guide](./doc/developer-guide.md) for more information.
 
 ## Roadmap 
 
