@@ -135,8 +135,14 @@ $ egctl member list
     cluster-name: eg-cluster-default-name
     cluster-role: writer
     cluster-request-timeout: 10s
-    cluster-client-url: http://localhost:2379
-    cluster-peer-url: http://localhost:2380
+    cluster-listen-client-urls:
+    - http://127.0.0.1:2379
+    cluster-listen-peer-urls:
+    - http://127.0.0.1:2380
+    cluster-advertise-client-urls:
+    - http://127.0.0.1:2379
+    cluster-initial-advertise-peer-urls:
+    - http://127.0.0.1:2380
     cluster-join-urls: []
     api-addr: localhost:2381
     debug: false
