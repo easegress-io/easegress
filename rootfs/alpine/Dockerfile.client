@@ -1,6 +1,0 @@
-FROM alpine:3.6
-
-COPY . /
-RUN apk add --no-cache tini libc6-compat && chmod +x /entrypoint.client.sh && chmod +x /opt/easegress/bin/*
-
-ENTRYPOINT ["/sbin/tini", "--", "/entrypoint.client.sh"]

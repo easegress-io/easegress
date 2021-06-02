@@ -1,7 +1,0 @@
-FROM ubuntu:16.04
-
-COPY . /
-ADD https://github.com/krallin/tini/releases/download/v0.15.0/tini /sbin/tini
-RUN chmod +x /sbin/tini && chmod +x /entrypoint.server.sh && chmod +x /opt/easegress/bin/*
-
-ENTRYPOINT ["/sbin/tini", "--", "/entrypoint.server.sh"]
