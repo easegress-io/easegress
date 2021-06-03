@@ -325,12 +325,12 @@ func (ctx *httpContext) SetTemplate(ht *HTTPTemplate) {
 	ctx.ht = ht
 }
 
-// SaveHTTPReqToTemplate stores http request related info into HTTP template engine
+// SaveReqToTemplate stores http request related info into HTTP template engine
 func (ctx *httpContext) SaveReqToTemplate(filterName string) error {
 	return ctx.ht.SaveRequest(filterName, ctx)
 }
 
-// SaveHTTPRspToTemplate stores http response related info into HTTP template engine
+// SaveRspToTemplate stores http response related info into HTTP template engine
 func (ctx *httpContext) SaveRspToTemplate(filterName string) error {
 	return ctx.ht.SaveResponse(filterName, ctx)
 }
