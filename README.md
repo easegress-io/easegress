@@ -21,7 +21,7 @@
 - **High Performance:** Lightweight and essential features speed up the performance.
 - **Observability:**  There are many meaningful statistics periodically in a readable way.
 - **Extensibility:** It's easy to develop your own filter or controller with high-level programming language.
-- **Integration:** The simple interfaces make it easy to integrate with other systems, such as Kubernetes Ingress, [EaseMesh](https://github.com/megaease/easemesh) sidecar, Workflow, etc.
+- **Integration:** The simple interfaces make it easy to integrate with other systems, such as Kubernetes Ingress, EaseMesh(open source coming soon) sidecar, Workflow, etc.
 
 The architecture of Easegress:
 
