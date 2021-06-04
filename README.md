@@ -21,7 +21,7 @@
 - **High Performance:** Lightweight and essential features speed up the performance.
 - **Observability:**  There are many meaningful statistics periodically in a readable way.
 - **Extensibility:** It's easy to develop your own filter or controller with high-level programming language.
-- **Integration:** The simple interfaces make it easy to integrate with other systems, such as Kubernetes Ingress, [EaseMesh](https://github.com/megaease/easemesh) sidecar, Workflow, etc.
+- **Integration:** The simple interfaces make it easy to integrate with other systems, such as Kubernetes Ingress, EaseMesh(open source coming soon) sidecar, Workflow, etc.
 
 The architecture of Easegress:
 
@@ -94,8 +94,8 @@ The basic common usage of Easegress is to quickly set up proxy for the backend s
 We can download the binary from [release page](https://github.com/megaease/easegress/releases). For example we use linux version:
 
 ```bash
-$ wget https://github.com/megaease/easegress/releases/download/v1.0.0/easegress_Linux_x86_64.tar.gz
-$ tar zxvf easegress_Linux_x86_64.tar.gz -C easegress && cd easegress
+$ wget https://github.com/megaease/easegress/releases/download/v1.0.0/easegress-v1.0.0-linux-amd64.tar.gz
+$ tar zxvf easegress-v1.0.0-linux-amd64.tar.gz -C easegress && cd easegress
 ```
 
 or use source code:
@@ -212,7 +212,7 @@ $ curl -v http://127.0.0.1:10080/pipeline
 If you are not set up some applications to handle the 9095, 9096, and 9097 in the localhost, it will return 503 too. We prepare a simple service to let us test handily, the example shows:
 
 ```bash
-$ go run test/backend-service/mirror.go & # Running in background
+$ go run example/backend-service/mirror.go & # Running in background
 $ curl http://127.0.0.1:10080/pipeline -d 'Hello, Easegress'
 Your Request
 ===============
