@@ -14,7 +14,7 @@
 
 ## What is Easegress
 
-`Easegress` (formerly known as `EaseGateway`)is an all-rounder traffic orchestration system,  which is designed for:
+`Easegress` (formerly known as `EaseGateway`) is an all-rounder traffic orchestration system,  which is designed for:
 
 - **High Availability:** Built-in Raft consensus & leader election makes 99.99% availability.
 - **Traffic Orchestration:** Dynamically orchestrating various filters to a traffic pipeline.
