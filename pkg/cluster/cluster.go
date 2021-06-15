@@ -297,13 +297,13 @@ func (c *cluster) addSelfToCluster() error {
 			break
 		} else if self.Name == member.Name && self.ID != member.ID {
 			err := fmt.Errorf("conflict id with same name %s: local(%x) != existed(%x). "+
-				"purge this node, clean data directory, and rejoin it back.",
+				"purge this node, clean data directory, and rejoin it back",
 				self.Name, self.ID, member.ID)
 			logger.Errorf("%v", err)
 			panic(err)
 		} else if self.ID == member.ID && self.Name != member.Name {
 			err := fmt.Errorf("conflict name with same id %x: local(%s) != existed(%s). "+
-				"purge this node, clean data directory, and rejoin it back.",
+				"purge this node, clean data directory, and rejoin it back",
 				self.ID, self.Name, member.Name)
 			logger.Errorf("%v", err)
 			panic(err)
@@ -332,13 +332,18 @@ func (c *cluster) addSelfToCluster() error {
 // This function returns error if it can't check,
 // panics if it checked and found the names are not the same.
 func (c *cluster) checkClusterName() error {
-	v, err := c.Get(c.Layout().ClusterNameKey())
+	value, err := c.Get(c.Layout().ClusterNameKey())
 	if err != nil {
 		return fmt.Errorf("failed to check cluster name: %v", err)
 	}
 
-	if c.opt.ClusterName != *v {
-		err := fmt.Errorf("cluster names mismatch, local(%s) != existed(%s)", c.opt.ClusterName, *v)
+	if value == nil {
+		return fmt.Errorf("key %s not found", c.Layout().ClusterNameKey())
+	}
+
+	if c.opt.ClusterName != *value {
+		err := fmt.Errorf("cluster names mismatch, local(%s) != existed(%s)",
+			c.opt.ClusterName, *value)
 		logger.Errorf("%v", err)
 		panic(err)
 	}
@@ -595,7 +600,7 @@ func (c *cluster) startServer() (done, timeout chan struct{}, err error) {
 		case <-server.Server.ReadyNotify():
 			c.server = server
 			if c.server.Config().IsNewCluster() {
-				err := c.Put(clusterNameKey, c.opt.ClusterName)
+				err := c.Put(c.Layout().ClusterNameKey(), c.opt.ClusterName)
 				if err != nil {
 					err = fmt.Errorf("register cluster name %s failed: %v",
 						c.opt.ClusterName, err)
