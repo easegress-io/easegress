@@ -96,10 +96,10 @@ type (
 		Name           string `yaml:"name" jsonschema:"required"`
 		RegisterTenant string `yaml:"registerTenant" jsonschema:"required"`
 
+		Sidecar       *Sidecar       `yaml:"sidecar" jsonschema:"required"`
 		Resilience    *Resilience    `yaml:"resilience" jsonschema:"omitempty"`
 		Canary        *Canary        `yaml:"canary" jsonschema:"omitempty"`
 		LoadBalance   *LoadBalance   `yaml:"loadBalance" jsonschema:"omitempty"`
-		Sidecar       *Sidecar       `yaml:"sidecar" jsonschema:"omitempty"`
 		Observability *Observability `yaml:"observability" jsonschema:"omitempty"`
 	}
 

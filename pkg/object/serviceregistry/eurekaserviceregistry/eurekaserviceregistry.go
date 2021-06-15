@@ -18,7 +18,6 @@
 package eurekaserviceregistry
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -201,7 +200,6 @@ func (eureka *EurekaServiceRegistry) update() {
 			if instance.Port != nil && instance.Port.Enabled {
 				server := baseServer
 
-				fmt.Printf("server: %+v\n", server)
 				servers = append(servers, &server)
 				serversNum[app.Name]++
 			}
@@ -209,7 +207,6 @@ func (eureka *EurekaServiceRegistry) update() {
 			if instance.SecurePort != nil && instance.SecurePort.Enabled {
 				server := baseServer
 				server.Scheme = "https"
-				fmt.Printf("server: %+v\n", server)
 				servers = append(servers, &server)
 				serversNum[app.Name]++
 			}
