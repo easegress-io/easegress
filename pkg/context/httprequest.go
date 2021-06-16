@@ -96,6 +96,10 @@ func (r *httpRequest) Host() string {
 	return r.std.Host
 }
 
+func (r *httpRequest) SetHost(host string) {
+	r.std.Host = host
+}
+
 func (r *httpRequest) Path() string {
 	return r.path
 }

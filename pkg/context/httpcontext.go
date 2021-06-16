@@ -86,6 +86,7 @@ type (
 		// URL
 		Scheme() string
 		Host() string
+		SetHost(host string)
 		Path() string
 		SetPath(path string)
 		EscapedPath() string

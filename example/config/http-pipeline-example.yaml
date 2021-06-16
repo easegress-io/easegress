@@ -60,6 +60,7 @@ filters:
       policyRef: policy-two
   - name: requestAdaptor
     kind: RequestAdaptor
+    host: dev.megaease.com
     method: ""
     path: null
     header:
