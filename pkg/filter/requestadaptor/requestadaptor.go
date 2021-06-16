@@ -118,10 +118,6 @@ func (ra *RequestAdaptor) handle(ctx context.HTTPContext) string {
 		r.SetMethod(ra.spec.Method)
 	}
 
-	if len(ra.spec.Host) != 0 {
-		r.SetHost(ra.spec.Host)
-	}
-
 	if ra.pa != nil {
 		adaptedPath := ra.pa.Adapt(path)
 		if adaptedPath != path {
@@ -148,6 +144,18 @@ func (ra *RequestAdaptor) handle(ctx context.HTTPContext) string {
 		}
 	}
 
+	if len(ra.spec.Host) != 0 {
+		if hte.HasTemplates(ra.spec.Host) {
+			if host, err := hte.Render(ra.spec.Host); err != nil {
+				logger.Errorf("BUG request render host failed, template %s, err %v",
+					ra.spec.Host, err)
+			} else {
+				ctx.Request().SetHost(host)
+			}
+		} else {
+			ctx.Request().SetHost(ra.spec.Host)
+		}
+	}
 	return ""
 }
 
