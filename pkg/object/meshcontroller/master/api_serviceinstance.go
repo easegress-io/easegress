@@ -22,7 +22,7 @@ import (
 	"net/http"
 	"sort"
 
-	"github.com/kataras/iris"
+	"github.com/go-chi/chi/v5"
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
 
@@ -37,13 +37,13 @@ func (s serviceInstancesByOrder) Less(i, j int) bool {
 func (s serviceInstancesByOrder) Len() int      { return len(s) }
 func (s serviceInstancesByOrder) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 
-func (m *Master) readServiceInstanceInfo(ctx iris.Context) (string, string, error) {
-	serviceName := ctx.Params().Get("serviceName")
+func (m *Master) readServiceInstanceInfo(w http.ResponseWriter, r *http.Request) (string, string, error) {
+	serviceName := chi.URLParam(r, "serviceName")
 	if serviceName == "" {
 		return "", "", fmt.Errorf("empty service name")
 	}
 
-	instanceID := ctx.Params().Get("instanceID")
+	instanceID := chi.URLParam(r, "instanceID")
 	if instanceID == "" {
 		return "", "", fmt.Errorf("empty instance id")
 	}
@@ -51,7 +51,7 @@ func (m *Master) readServiceInstanceInfo(ctx iris.Context) (string, string, erro
 	return serviceName, instanceID, nil
 }
 
-func (m *Master) listServiceInstanceSpecs(ctx iris.Context) {
+func (m *Master) listServiceInstanceSpecs(w http.ResponseWriter, r *http.Request) {
 	specs := m.service.ListAllServiceInstanceSpecs()
 
 	sort.Sort(serviceInstancesByOrder(specs))
@@ -61,20 +61,20 @@ func (m *Master) listServiceInstanceSpecs(ctx iris.Context) {
 		panic(fmt.Errorf("marshal %#v to yaml failed: %v", specs, err))
 	}
 
-	ctx.Header("Content-Type", "text/vnd.yaml")
-	ctx.Write(buff)
+	w.Header().Set("Content-Type", "text/vnd.yaml")
+	w.Write(buff)
 }
 
-func (m *Master) getServiceInstanceSpec(ctx iris.Context) {
-	serviceName, instanceID, err := m.readServiceInstanceInfo(ctx)
+func (m *Master) getServiceInstanceSpec(w http.ResponseWriter, r *http.Request) {
+	serviceName, instanceID, err := m.readServiceInstanceInfo(w, r)
 	if err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
+		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
 	serviceSpec := m.service.GetServiceInstanceSpec(serviceName, instanceID)
 	if serviceSpec == nil {
-		api.HandleAPIError(ctx, http.StatusNotFound, fmt.Errorf("%s/%s not found", serviceName, instanceID))
+		api.HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("%s/%s not found", serviceName, instanceID))
 		return
 	}
 
@@ -83,14 +83,14 @@ func (m *Master) getServiceInstanceSpec(ctx iris.Context) {
 		panic(fmt.Errorf("marshal %#v to yaml failed: %v", serviceSpec, err))
 	}
 
-	ctx.Header("Content-Type", "text/vnd.yaml")
-	ctx.Write(buff)
+	w.Header().Set("Content-Type", "text/vnd.yaml")
+	w.Write(buff)
 }
 
-func (m *Master) offlineSerivceInstance(ctx iris.Context) {
-	serviceName, instanceID, err := m.readServiceInstanceInfo(ctx)
+func (m *Master) offlineSerivceInstance(w http.ResponseWriter, r *http.Request) {
+	serviceName, instanceID, err := m.readServiceInstanceInfo(w, r)
 	if err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
+		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
@@ -99,7 +99,7 @@ func (m *Master) offlineSerivceInstance(ctx iris.Context) {
 
 	instanceSpec := m.service.GetServiceInstanceSpec(serviceName, instanceID)
 	if instanceSpec == nil {
-		api.HandleAPIError(ctx, http.StatusNotFound, fmt.Errorf("%s/%s not found", serviceName, instanceID))
+		api.HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("%s/%s not found", serviceName, instanceID))
 		return
 	}
 

@@ -22,11 +22,12 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"net/http"
 	"runtime/debug"
 	"sync"
 	"time"
 
-	"github.com/kataras/iris"
+	"github.com/go-chi/chi/v5"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/service"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
@@ -231,12 +232,11 @@ func (rcs *Server) CheckRegistryBody(contentType string, reqBody []byte) error {
 }
 
 // CheckRegistryURL tries to decode Nacos register request URL parameters.
-func (rcs *Server) CheckRegistryURL(ctx iris.Context) error {
+func (rcs *Server) CheckRegistryURL(w http.ResponseWriter, r *http.Request) error {
 	var err error
-
-	ip := ctx.URLParam("ip")
-	port := ctx.URLParam("port")
-	serviceName := ctx.URLParam("serviceName")
+	ip := chi.URLParam(r, "ip")
+	port := chi.URLParam(r, "port")
+	serviceName := chi.URLParam(r, "serviceName")
 
 	if len(ip) == 0 || len(port) == 0 || len(serviceName) == 0 {
 		return fmt.Errorf("invalide register parameters, ip: %s, port: %s, serviceName: %s",

@@ -20,11 +20,11 @@ package api
 import (
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"sort"
 
 	"github.com/megaease/easegress/pkg/supervisor"
 
-	"github.com/kataras/iris"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -90,8 +90,8 @@ func (s *Server) setupObjectAPIs() {
 	s.RegisterAPIs(objAPIs)
 }
 
-func (s *Server) readObjectSpec(ctx iris.Context) (*supervisor.Spec, error) {
-	body, err := ioutil.ReadAll(ctx.Request().Body)
+func (s *Server) readObjectSpec(w http.ResponseWriter, r *http.Request) (*supervisor.Spec, error) {
+	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		return nil, fmt.Errorf("read body failed: %v", err)
 	}
@@ -100,8 +100,7 @@ func (s *Server) readObjectSpec(ctx iris.Context) (*supervisor.Spec, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	name := ctx.Params().Get("name")
+	name := r.URL.Query().Get("name")
 
 	if name != "" && name != spec.Name() {
 		return nil, fmt.Errorf("inconsistent name in url and spec ")
@@ -110,15 +109,15 @@ func (s *Server) readObjectSpec(ctx iris.Context) (*supervisor.Spec, error) {
 	return spec, err
 }
 
-func (s *Server) upgradeConfigVersion(ctx iris.Context) {
+func (s *Server) upgradeConfigVersion(w http.ResponseWriter, r *http.Request) {
 	version := s._plusOneVersion()
-	ctx.ResponseWriter().Header().Set(ConfigVersionKey, fmt.Sprintf("%d", version))
+	w.Header().Set(ConfigVersionKey, fmt.Sprintf("%d", version))
 }
 
-func (s *Server) createObject(ctx iris.Context) {
-	spec, err := s.readObjectSpec(ctx)
+func (s *Server) createObject(w http.ResponseWriter, r *http.Request) {
+	spec, err := s.readObjectSpec(w, r)
 	if err != nil {
-		HandleAPIError(ctx, iris.StatusBadRequest, err)
+		HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
@@ -129,54 +128,55 @@ func (s *Server) createObject(ctx iris.Context) {
 
 	existedSpec := s._getObject(name)
 	if existedSpec != nil {
-		HandleAPIError(ctx, iris.StatusConflict, fmt.Errorf("conflict name: %s", name))
+		HandleAPIError(w, r, http.StatusConflict, fmt.Errorf("conflict name: %s", name))
 		return
 	}
 
 	s._putObject(spec)
-	s.upgradeConfigVersion(ctx)
+	s.upgradeConfigVersion(w, r)
 
-	ctx.StatusCode(iris.StatusCreated)
-	location := fmt.Sprintf("%s/%s", ctx.Path(), name)
-	ctx.Header("Location", location)
+	w.WriteHeader(http.StatusCreated)
+	location := fmt.Sprintf("%s/%s", r.URL.Path, name)
+	w.Header().Set("Location", location)
 }
 
-func (s *Server) deleteObject(ctx iris.Context) {
-	name := ctx.Params().Get("name")
+func (s *Server) deleteObject(w http.ResponseWriter, r *http.Request) {
+	name := r.URL.Query().Get("name")
 
 	s.Lock()
 	defer s.Unlock()
 
 	spec := s._getObject(name)
 	if spec == nil {
-		HandleAPIError(ctx, iris.StatusNotFound, fmt.Errorf("not found"))
+		HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("not found"))
 		return
 	}
 
 	s._deleteObject(name)
-	s.upgradeConfigVersion(ctx)
+	s.upgradeConfigVersion(w, r)
 }
 
-func (s *Server) getObject(ctx iris.Context) {
-	name := ctx.Params().Get("name")
+func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
+	name := r.URL.Query().Get("name")
 
 	// No need to lock.
 
 	spec := s._getObject(name)
 	if spec == nil {
-		HandleAPIError(ctx, iris.StatusNotFound, fmt.Errorf("not found"))
+		HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("not found"))
 		return
 	}
 
 	// Reference: https://mailarchive.ietf.org/arch/msg/media-types/e9ZNC0hDXKXeFlAVRWxLCCaG9GI
-	ctx.Header("Content-Type", "text/vnd.yaml")
-	ctx.Write([]byte(spec.YAMLConfig()))
+	w.Header().Set("Content-Type", "text/vnd.yaml")
+
+	w.Write([]byte(spec.YAMLConfig()))
 }
 
-func (s *Server) updateObject(ctx iris.Context) {
-	spec, err := s.readObjectSpec(ctx)
+func (s *Server) updateObject(w http.ResponseWriter, r *http.Request) {
+	spec, err := s.readObjectSpec(w, r)
 	if err != nil {
-		HandleAPIError(ctx, iris.StatusBadRequest, err)
+		HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
@@ -187,22 +187,22 @@ func (s *Server) updateObject(ctx iris.Context) {
 
 	existedSpec := s._getObject(name)
 	if existedSpec == nil {
-		HandleAPIError(ctx, iris.StatusNotFound, fmt.Errorf("not found"))
+		HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("not found"))
 		return
 	}
 
 	if existedSpec.Kind() != spec.Kind() {
-		HandleAPIError(ctx, iris.StatusBadRequest,
+		HandleAPIError(w, r, http.StatusBadRequest,
 			fmt.Errorf("different kinds: %s, %s",
 				existedSpec.Kind(), spec.Kind()))
 		return
 	}
 
 	s._putObject(spec)
-	s.upgradeConfigVersion(ctx)
+	s.upgradeConfigVersion(w, r)
 }
 
-func (s *Server) listObjects(ctx iris.Context) {
+func (s *Server) listObjects(w http.ResponseWriter, r *http.Request) {
 	// No need to lock.
 
 	specs := specList(s._listObjects())
@@ -214,17 +214,18 @@ func (s *Server) listObjects(ctx iris.Context) {
 		panic(err)
 	}
 
-	ctx.Header("Content-Type", "text/vnd.yaml")
-	ctx.Write(buff)
+	w.Header().Set("Content-Type", "text/vnd.yaml")
+
+	w.Write(buff)
 }
 
-func (s *Server) getStatusObject(ctx iris.Context) {
-	name := ctx.Params().Get("name")
+func (s *Server) getStatusObject(w http.ResponseWriter, r *http.Request) {
+	name := r.URL.Query().Get("name")
 
 	spec := s._getObject(name)
 
 	if spec == nil {
-		HandleAPIError(ctx, iris.StatusNotFound, fmt.Errorf("not found"))
+		HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("not found"))
 		return
 	}
 
@@ -236,11 +237,12 @@ func (s *Server) getStatusObject(ctx iris.Context) {
 		panic(fmt.Errorf("marshal %#v to yaml failed: %v", status, err))
 	}
 
-	ctx.Header("Content-Type", "text/vnd.yaml")
-	ctx.Write(buff)
+	w.Header().Set("Content-Type", "text/vnd.yaml")
+
+	w.Write(buff)
 }
 
-func (s *Server) listStatusObjects(ctx iris.Context) {
+func (s *Server) listStatusObjects(w http.ResponseWriter, r *http.Request) {
 	// No need to lock.
 
 	status := s._listStatusObjects()
@@ -250,8 +252,9 @@ func (s *Server) listStatusObjects(ctx iris.Context) {
 		panic(fmt.Errorf("marshal %#v to yaml failed: %v", status, err))
 	}
 
-	ctx.Header("Content-Type", "text/vnd.yaml")
-	ctx.Write(buff)
+	w.Header().Set("Content-Type", "text/vnd.yaml")
+
+	w.Write(buff)
 }
 
 type specList []*supervisor.Spec
@@ -279,12 +282,12 @@ func (s specList) Marshal() ([]byte, error) {
 	return buff, nil
 }
 
-func (s *Server) listObjectKinds(ctx iris.Context) {
+func (s *Server) listObjectKinds(w http.ResponseWriter, r *http.Request) {
 	kinds := supervisor.ObjectKinds()
 	buff, err := yaml.Marshal(kinds)
 	if err != nil {
 		panic(fmt.Errorf("marshal %#v to yaml failed: %v", kinds, err))
 	}
 
-	ctx.Write(buff)
+	w.Write(buff)
 }

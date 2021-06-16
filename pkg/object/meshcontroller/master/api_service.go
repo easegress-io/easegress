@@ -24,7 +24,7 @@ import (
 	"reflect"
 	"sort"
 
-	"github.com/kataras/iris"
+	"github.com/go-chi/chi/v5"
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
@@ -38,8 +38,8 @@ func (s servicesByOrder) Less(i, j int) bool { return s[i].Name < s[j].Name }
 func (s servicesByOrder) Len() int           { return len(s) }
 func (s servicesByOrder) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
-func (m *Master) readServiceName(ctx iris.Context) (string, error) {
-	serviceName := ctx.Params().Get("serviceName")
+func (m *Master) readServiceName(w http.ResponseWriter, r *http.Request) (string, error) {
+	serviceName := chi.URLParam(r, "serviceName")
 	if serviceName == "" {
 		return "", fmt.Errorf("empty service name")
 	}
@@ -47,7 +47,7 @@ func (m *Master) readServiceName(ctx iris.Context) (string, error) {
 	return serviceName, nil
 }
 
-func (m *Master) listServices(ctx iris.Context) {
+func (m *Master) listServices(w http.ResponseWriter, r *http.Request) {
 	specs := m.service.ListServiceSpecs()
 
 	sort.Sort(servicesByOrder(specs))
@@ -68,26 +68,26 @@ func (m *Master) listServices(ctx iris.Context) {
 		panic(fmt.Errorf("marshal %#v to json failed: %v", specs, err))
 	}
 
-	ctx.Header("Content-Type", "application/json")
-	ctx.Write(buff)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(buff)
 }
 
-func (m *Master) createService(ctx iris.Context) {
+func (m *Master) createService(w http.ResponseWriter, r *http.Request) {
 	pbServiceSpec := &v1alpha1.Service{}
 	serviceSpec := &spec.Service{}
 
-	serviceName, err := m.readServiceName(ctx)
+	serviceName, err := m.readServiceName(w, r)
 	if err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
+		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
-	err = m.readAPISpec(ctx, pbServiceSpec, serviceSpec)
+	err = m.readAPISpec(w, r, pbServiceSpec, serviceSpec)
 	if err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
+		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	if serviceName != serviceSpec.Name {
-		api.HandleAPIError(ctx, http.StatusBadRequest,
+		api.HandleAPIError(w, r, http.StatusBadRequest,
 			fmt.Errorf("name conflict: %s %s", serviceName, serviceSpec.Name))
 		return
 	}
@@ -97,13 +97,13 @@ func (m *Master) createService(ctx iris.Context) {
 
 	oldSpec := m.service.GetServiceSpec(serviceName)
 	if oldSpec != nil {
-		api.HandleAPIError(ctx, http.StatusConflict, fmt.Errorf("%s existed", serviceName))
+		api.HandleAPIError(w, r, http.StatusConflict, fmt.Errorf("%s existed", serviceName))
 		return
 	}
 
 	tenantSpec := m.service.GetTenantSpec(serviceSpec.RegisterTenant)
 	if tenantSpec == nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest,
+		api.HandleAPIError(w, r, http.StatusBadRequest,
 			fmt.Errorf("tenant %s not found", serviceSpec.RegisterTenant))
 		return
 	}
@@ -113,20 +113,20 @@ func (m *Master) createService(ctx iris.Context) {
 	m.service.PutServiceSpec(serviceSpec)
 	m.service.PutTenantSpec(tenantSpec)
 
-	ctx.Header("Location", ctx.Path())
-	ctx.StatusCode(http.StatusCreated)
+	w.Header().Set("Location", r.URL.Path)
+	w.WriteHeader(http.StatusCreated)
 }
 
-func (m *Master) getService(ctx iris.Context) {
-	serviceName, err := m.readServiceName(ctx)
+func (m *Master) getService(w http.ResponseWriter, r *http.Request) {
+	serviceName, err := m.readServiceName(w, r)
 	if err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
+		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
 	serviceSpec := m.service.GetServiceSpec(serviceName)
 	if serviceSpec == nil {
-		api.HandleAPIError(ctx, http.StatusNotFound, fmt.Errorf("%s not found", serviceName))
+		api.HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("%s not found", serviceName))
 		return
 	}
 
@@ -141,26 +141,26 @@ func (m *Master) getService(ctx iris.Context) {
 		panic(fmt.Errorf("marshal %#v to json failed: %v", serviceSpec, err))
 	}
 
-	ctx.Header("Content-Type", "application/json")
-	ctx.Write(buff)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(buff)
 }
 
-func (m *Master) updateService(ctx iris.Context) {
+func (m *Master) updateService(w http.ResponseWriter, r *http.Request) {
 	pbServiceSpec := &v1alpha1.Service{}
 	serviceSpec := &spec.Service{}
 
-	serviceName, err := m.readServiceName(ctx)
+	serviceName, err := m.readServiceName(w, r)
 	if err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
+		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
-	err = m.readAPISpec(ctx, pbServiceSpec, serviceSpec)
+	err = m.readAPISpec(w, r, pbServiceSpec, serviceSpec)
 	if err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
+		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	if serviceName != serviceSpec.Name {
-		api.HandleAPIError(ctx, http.StatusBadRequest,
+		api.HandleAPIError(w, r, http.StatusBadRequest,
 			fmt.Errorf("name conflict: %s %s", serviceName, serviceSpec.Name))
 		return
 	}
@@ -170,14 +170,14 @@ func (m *Master) updateService(ctx iris.Context) {
 
 	oldSpec := m.service.GetServiceSpec(serviceName)
 	if oldSpec == nil {
-		api.HandleAPIError(ctx, http.StatusNotFound, fmt.Errorf("%s not found", serviceName))
+		api.HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("%s not found", serviceName))
 		return
 	}
 
 	if serviceSpec.RegisterTenant != oldSpec.RegisterTenant {
 		newTenantSpec := m.service.GetTenantSpec(serviceSpec.RegisterTenant)
 		if newTenantSpec == nil {
-			api.HandleAPIError(ctx, http.StatusBadRequest,
+			api.HandleAPIError(w, r, http.StatusBadRequest,
 				fmt.Errorf("tenant %s not found", serviceName))
 			return
 		}
@@ -210,10 +210,10 @@ func (m *Master) updateService(ctx iris.Context) {
 	m.service.PutServiceSpec(serviceSpec)
 }
 
-func (m *Master) deleteService(ctx iris.Context) {
-	serviceName, err := m.readServiceName(ctx)
+func (m *Master) deleteService(w http.ResponseWriter, r *http.Request) {
+	serviceName, err := m.readServiceName(w, r)
 	if err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
+		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
@@ -222,7 +222,7 @@ func (m *Master) deleteService(ctx iris.Context) {
 
 	oldSpec := m.service.GetServiceSpec(serviceName)
 	if oldSpec == nil {
-		api.HandleAPIError(ctx, http.StatusNotFound, fmt.Errorf("%s not found", serviceName))
+		api.HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("%s not found", serviceName))
 		return
 	}
 

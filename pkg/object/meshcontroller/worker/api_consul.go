@@ -6,7 +6,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *     http://wwwrk.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,82 +23,81 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/kataras/iris"
-
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/registrycenter"
 )
 
-func (w *Worker) consulAPIs() []*apiEntry {
+func (wrk *Worker) consulAPIs() []*apiEntry {
 	APIs := []*apiEntry{
 		{
 			Path:    "/v1/catalog/register",
 			Method:  "PUT",
-			Handler: w.consulRegister,
+			Handler: wrk.consulRegister,
 		},
 		{
 			Path:    "/v1/agent/service/register",
 			Method:  "PUT",
-			Handler: w.consulRegister,
+			Handler: wrk.consulRegister,
 		},
 		{
 			Path:    "/v1/agent/service/deregister",
 			Method:  "DELETE",
-			Handler: w.emptyHandler,
+			Handler: wrk.emptyHandler,
 		},
 		{
 			Path:    "/v1/health/service/{serviceName:string}",
 			Method:  "GET",
-			Handler: w.healthService,
+			Handler: wrk.healthService,
 		},
 		{
 			Path:    "/v1/catalog/deregister",
 			Method:  "DELETE",
-			Handler: w.emptyHandler,
+			Handler: wrk.emptyHandler,
 		},
 		{
 			Path:    "/v1/catalog/services",
 			Method:  "GET",
-			Handler: w.catalogServices,
+			Handler: wrk.catalogServices,
 		},
 		{
 			Path:    "/v1/catalog/service/{serviceName:string}",
 			Method:  "GET",
-			Handler: w.catalogService,
+			Handler: wrk.catalogService,
 		},
 	}
 
 	return APIs
 }
 
-func (w *Worker) consulRegister(ctx iris.Context) {
-	body, err := ioutil.ReadAll(ctx.Request().Body)
+func (wrk *Worker) consulRegister(w http.ResponseWriter, r *http.Request) {
+	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest,
+		api.HandleAPIError(w, r, http.StatusBadRequest,
 			fmt.Errorf("read body failed: %v", err))
 		return
 	}
-	contentType := ctx.Request().Header.Get("Content-Type")
-	if err := w.registryServer.CheckRegistryBody(contentType, body); err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
+	contentType := w.Header().Get("Content-Type")
+
+	if err := wrk.registryServer.CheckRegistryBody(contentType, body); err != nil {
+		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
-	serviceSpec := w.service.GetServiceSpec(w.serviceName)
+	serviceSpec := wrk.service.GetServiceSpec(wrk.serviceName)
 	if serviceSpec == nil {
-		err := fmt.Errorf("registry to unknown service: %s", w.serviceName)
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
+		err := fmt.Errorf("registry to unknown service: %s", wrk.serviceName)
+		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
-	w.registryServer.Register(serviceSpec, w.ingressServer.Ready, w.egressServer.Ready)
+	wrk.registryServer.Register(serviceSpec, wrk.ingressServer.Ready, wrk.egressServer.Ready)
 }
 
-func (w *Worker) healthService(ctx iris.Context) {
-	serviceName := ctx.Params().Get("serviceName")
+func (wrk *Worker) healthService(w http.ResponseWriter, r *http.Request) {
+	serviceName := r.URL.Query().Get("serviceName")
 	if serviceName == "" {
-		api.HandleAPIError(ctx, http.StatusBadRequest, fmt.Errorf("empty service name"))
+		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("empty service name"))
 		return
 	}
 	var (
@@ -106,28 +105,28 @@ func (w *Worker) healthService(ctx iris.Context) {
 		serviceInfo *registrycenter.ServiceRegistryInfo
 	)
 
-	if serviceInfo, err = w.registryServer.DiscoveryService(serviceName); err != nil {
-		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
+	if serviceInfo, err = wrk.registryServer.DiscoveryService(serviceName); err != nil {
+		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 
-	serviceEntry := w.registryServer.ToConsulHealthService(serviceInfo)
+	serviceEntry := wrk.registryServer.ToConsulHealthService(serviceInfo)
 
 	buff, err := json.Marshal(serviceEntry)
 	if err != nil {
 		logger.Errorf("json marshal sericeEntry: %#v err: %v", serviceEntry, err)
-		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
+		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 
-	ctx.Header("Content-Type", registrycenter.ContentTypeJSON)
-	ctx.Write(buff)
+	w.Header().Set("Content-Type", registrycenter.ContentTypeJSON)
+	w.Write(buff)
 }
 
-func (w *Worker) catalogService(ctx iris.Context) {
-	serviceName := ctx.Params().Get("serviceName")
+func (wrk *Worker) catalogService(w http.ResponseWriter, r *http.Request) {
+	serviceName := r.URL.Query().Get("serviceName")
 	if serviceName == "" {
-		api.HandleAPIError(ctx, http.StatusBadRequest, fmt.Errorf("empty service name"))
+		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("empty service name"))
 		return
 	}
 	var (
@@ -135,44 +134,44 @@ func (w *Worker) catalogService(ctx iris.Context) {
 		serviceInfo *registrycenter.ServiceRegistryInfo
 	)
 
-	if serviceInfo, err = w.registryServer.DiscoveryService(serviceName); err != nil {
+	if serviceInfo, err = wrk.registryServer.DiscoveryService(serviceName); err != nil {
 		logger.Errorf("discovery service: %s, err: %v ", serviceName, err)
-		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
+		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 
-	catalogService := w.registryServer.ToConsulCatalogService(serviceInfo)
+	catalogService := wrk.registryServer.ToConsulCatalogService(serviceInfo)
 
 	buff, err := json.Marshal(catalogService)
 	if err != nil {
-		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
+		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
 		logger.Errorf("json marshal catalogService: %#v err: %v", catalogService, err)
 		return
 	}
 
-	ctx.Header("Content-Type", registrycenter.ContentTypeJSON)
-	ctx.Write(buff)
+	w.Header().Set("Content-Type", registrycenter.ContentTypeJSON)
+	w.Write(buff)
 }
 
-func (w *Worker) catalogServices(ctx iris.Context) {
+func (wrk *Worker) catalogServices(w http.ResponseWriter, r *http.Request) {
 	var (
 		err          error
 		serviceInfos []*registrycenter.ServiceRegistryInfo
 	)
-	if serviceInfos, err = w.registryServer.Discovery(); err != nil {
+	if serviceInfos, err = wrk.registryServer.Discovery(); err != nil {
 		logger.Errorf("discovery services err: %v ", err)
-		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
+		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	catalogServices := w.registryServer.ToConsulServices(serviceInfos)
+	catalogServices := wrk.registryServer.ToConsulServices(serviceInfos)
 
 	buff, err := json.Marshal(catalogServices)
 	if err != nil {
 		logger.Errorf("json marshal catalogServices: %#v err: %v", catalogServices, err)
-		api.HandleAPIError(ctx, http.StatusInternalServerError, err)
+		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 
-	ctx.Header("Content-Type", registrycenter.ContentTypeJSON)
-	ctx.Write(buff)
+	w.Header().Set("Content-Type", registrycenter.ContentTypeJSON)
+	w.Write(buff)
 }

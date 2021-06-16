@@ -23,7 +23,7 @@ import (
 	"net/http"
 	"sort"
 
-	"github.com/kataras/iris"
+	"github.com/go-chi/chi/v5"
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
@@ -36,8 +36,8 @@ func (s ingressesByOrder) Less(i, j int) bool { return s[i].Name < s[j].Name }
 func (s ingressesByOrder) Len() int           { return len(s) }
 func (s ingressesByOrder) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
-func (m *Master) readIngressName(ctx iris.Context) (string, error) {
-	serviceName := ctx.Params().Get("ingressName")
+func (m *Master) readIngressName(w http.ResponseWriter, r *http.Request) (string, error) {
+	serviceName := chi.URLParam(r, "ingressName")
 	if serviceName == "" {
 		return "", fmt.Errorf("empty ingress name")
 	}
@@ -45,7 +45,7 @@ func (m *Master) readIngressName(ctx iris.Context) (string, error) {
 	return serviceName, nil
 }
 
-func (m *Master) listIngresses(ctx iris.Context) {
+func (m *Master) listIngresses(w http.ResponseWriter, r *http.Request) {
 	specs := m.service.ListIngressSpecs()
 
 	sort.Sort(ingressesByOrder(specs))
@@ -64,26 +64,26 @@ func (m *Master) listIngresses(ctx iris.Context) {
 		panic(fmt.Errorf("marshal %#v to json failed: %v", specs, err))
 	}
 
-	ctx.Header("Content-Type", "application/json")
-	ctx.Write(buff)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(buff)
 }
 
-func (m *Master) createIngress(ctx iris.Context) {
+func (m *Master) createIngress(w http.ResponseWriter, r *http.Request) {
 	pbIngressSpec := &v1alpha1.Ingress{}
 	ingressSpec := &spec.Ingress{}
 
-	ingressName, err := m.readIngressName(ctx)
+	ingressName, err := m.readIngressName(w, r)
 	if err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
+		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
-	err = m.readAPISpec(ctx, pbIngressSpec, ingressSpec)
+	err = m.readAPISpec(w, r, pbIngressSpec, ingressSpec)
 	if err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
+		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	if ingressName != ingressSpec.Name {
-		api.HandleAPIError(ctx, http.StatusBadRequest,
+		api.HandleAPIError(w, r, http.StatusBadRequest,
 			fmt.Errorf("name conflict: %s %s", ingressName, ingressSpec.Name))
 		return
 	}
@@ -93,26 +93,26 @@ func (m *Master) createIngress(ctx iris.Context) {
 
 	oldSpec := m.service.GetIngressSpec(ingressName)
 	if oldSpec != nil {
-		api.HandleAPIError(ctx, http.StatusConflict, fmt.Errorf("%s existed", ingressName))
+		api.HandleAPIError(w, r, http.StatusConflict, fmt.Errorf("%s existed", ingressName))
 		return
 	}
 
 	m.service.PutIngressSpec(ingressSpec)
 
-	ctx.Header("Location", ctx.Path())
-	ctx.StatusCode(http.StatusCreated)
+	w.Header().Set("Location", r.URL.Path)
+	w.WriteHeader(http.StatusCreated)
 }
 
-func (m *Master) getIngress(ctx iris.Context) {
-	ingressName, err := m.readIngressName(ctx)
+func (m *Master) getIngress(w http.ResponseWriter, r *http.Request) {
+	ingressName, err := m.readIngressName(w, r)
 	if err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
+		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
 	ingressSpec := m.service.GetIngressSpec(ingressName)
 	if ingressSpec == nil {
-		api.HandleAPIError(ctx, http.StatusNotFound, fmt.Errorf("%s not found", ingressName))
+		api.HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("%s not found", ingressName))
 		return
 	}
 	pbIngressSpec := &v1alpha1.Ingress{}
@@ -126,26 +126,26 @@ func (m *Master) getIngress(ctx iris.Context) {
 		panic(fmt.Errorf("marshal %#v to json failed: %v", pbIngressSpec, err))
 	}
 
-	ctx.Header("Content-Type", "application/json")
-	ctx.Write(buff)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(buff)
 }
 
-func (m *Master) updateIngress(ctx iris.Context) {
+func (m *Master) updateIngress(w http.ResponseWriter, r *http.Request) {
 	pbIngressSpec := &v1alpha1.Ingress{}
 	ingressSpec := &spec.Ingress{}
 
-	ingressName, err := m.readIngressName(ctx)
+	ingressName, err := m.readIngressName(w, r)
 	if err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
+		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
-	err = m.readAPISpec(ctx, pbIngressSpec, ingressSpec)
+	err = m.readAPISpec(w, r, pbIngressSpec, ingressSpec)
 	if err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
+		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	if ingressName != ingressSpec.Name {
-		api.HandleAPIError(ctx, http.StatusBadRequest,
+		api.HandleAPIError(w, r, http.StatusBadRequest,
 			fmt.Errorf("name conflict: %s %s", ingressName, ingressSpec.Name))
 		return
 	}
@@ -155,17 +155,17 @@ func (m *Master) updateIngress(ctx iris.Context) {
 
 	oldSpec := m.service.GetIngressSpec(ingressName)
 	if oldSpec == nil {
-		api.HandleAPIError(ctx, http.StatusNotFound, fmt.Errorf("%s not found", ingressName))
+		api.HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("%s not found", ingressName))
 		return
 	}
 
 	m.service.PutIngressSpec(ingressSpec)
 }
 
-func (m *Master) deleteIngress(ctx iris.Context) {
-	ingressName, err := m.readIngressName(ctx)
+func (m *Master) deleteIngress(w http.ResponseWriter, r *http.Request) {
+	ingressName, err := m.readIngressName(w, r)
 	if err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
+		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
@@ -174,7 +174,7 @@ func (m *Master) deleteIngress(ctx iris.Context) {
 
 	oldSpec := m.service.GetIngressSpec(ingressName)
 	if oldSpec == nil {
-		api.HandleAPIError(ctx, http.StatusNotFound, fmt.Errorf("%s not found", ingressName))
+		api.HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("%s not found", ingressName))
 		return
 	}
 

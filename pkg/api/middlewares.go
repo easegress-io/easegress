@@ -23,70 +23,48 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/megaease/easegress/pkg/common"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/megaease/easegress/pkg/logger"
-
-	"github.com/kataras/iris/context"
 )
 
-func newAPILogger() func(context.Context) {
-	return func(ctx context.Context) {
-		var (
-			method            string
-			remoteAddr        string
-			path              string
-			code              int
-			bodyBytesReceived int64
-			bodyBytesSent     int64
-			startTime         time.Time
-			processTime       time.Duration
-		)
+func (s *Server) newAPILogger(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 
-		startTime = common.Now()
-		ctx.Next()
-		processTime = common.Now().Sub(startTime)
-
-		method = ctx.Method()
-		remoteAddr = ctx.RemoteAddr()
-		path = ctx.Path()
-		code = ctx.GetStatusCode()
-		bodyBytesReceived = ctx.GetContentLength()
-		bodyBytesSent = int64(ctx.ResponseWriter().Written())
-
-		logger.APIAccess(method, remoteAddr, path, code,
-			bodyBytesReceived, bodyBytesSent,
-			startTime, processTime)
-	}
+		t1 := time.Now()
+		defer func() {
+			logger.APIAccess(r.Method, r.RemoteAddr, r.URL.Path, ww.Status(),
+				r.Response.ContentLength, int64(ww.BytesWritten()),
+				t1, time.Since(t1))
+		}()
+		next.ServeHTTP(w, r)
+	})
 }
 
-func newRecoverer() func(context.Context) {
-	return func(ctx context.Context) {
+func (s *Server) newRecoverer(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
-			if err := recover(); err != nil {
-				if ctx.IsStopped() {
-					return
-				}
-
+			if rvr := recover(); rvr != nil && rvr != http.ErrAbortHandler {
 				logger.Errorf("recover from %s, err: %v, stack trace:\n%s\n",
-					ctx.HandlerName(), err, debug.Stack())
-				if ce, ok := err.(clusterErr); ok {
-					HandleAPIError(ctx, http.StatusServiceUnavailable, ce)
+					r.URL.Path, rvr, debug.Stack())
+
+				if ce, ok := rvr.(clusterErr); ok {
+					HandleAPIError(w, r, http.StatusServiceUnavailable, ce)
 				} else {
-					HandleAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("%v", err))
+					HandleAPIError(w, r, http.StatusInternalServerError, fmt.Errorf("%v", rvr))
 				}
 			}
 		}()
-
-		ctx.Next()
-	}
+		next.ServeHTTP(w, r)
+	})
 }
 
-func newConfigVersionAttacher(s *Server) func(context.Context) {
-	return func(ctx context.Context) {
+func (s *Server) newConfigVersionAttacher(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// NOTE: It needs to add the header before the next handlers
 		// write the body to the network.
 		version := s._getVersion()
-		ctx.ResponseWriter().Header().Set(ConfigVersionKey, fmt.Sprintf("%d", version))
-		ctx.Next()
-	}
+		w.Header().Set(ConfigVersionKey, fmt.Sprintf("%d", version))
+		next.ServeHTTP(w, r)
+	})
 }

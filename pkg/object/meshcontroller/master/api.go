@@ -21,12 +21,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/v"
 
 	yamljsontool "github.com/ghodss/yaml"
-	"github.com/kataras/iris"
 	"gopkg.in/yaml.v2"
 )
 
@@ -137,8 +137,8 @@ func (m *Master) registerAPIs() {
 	api.GlobalServer.RegisterAPIs(meshAPIs)
 }
 
-func (m *Master) readSpec(ctx iris.Context, spec interface{}) error {
-	body, err := ioutil.ReadAll(ctx.Request().Body)
+func (m *Master) readSpec(w http.ResponseWriter, r *http.Request, spec interface{}) error {
+	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		return fmt.Errorf("read body failed: %v", err)
 	}
@@ -184,8 +184,8 @@ func (m *Master) convertPBToSpec(pbSpec interface{}, spec interface{}) error {
 	return nil
 }
 
-func (m *Master) readAPISpec(ctx iris.Context, pbSpec interface{}, spec interface{}) error {
-	body, err := ioutil.ReadAll(ctx.Request().Body)
+func (m *Master) readAPISpec(w http.ResponseWriter, r *http.Request, pbSpec interface{}, spec interface{}) error {
+	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		return fmt.Errorf("read body failed: %v", err)
 	}

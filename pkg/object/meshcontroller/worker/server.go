@@ -6,7 +6,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *     http://wwwrk.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,16 +20,18 @@ package worker
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
+	"os/signal"
 	"runtime/debug"
 	"sync"
+	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/option"
+	"go.uber.org/zap"
 
-	"github.com/kataras/iris"
-	iriscontext "github.com/kataras/iris/context"
 	"gopkg.in/yaml.v2"
 )
 
@@ -39,16 +41,18 @@ const (
 
 type (
 	apiServer struct {
-		app       *iris.Application
+		opt       option.Options
+		srv       http.Server
+		router    *chi.Mux
 		apisMutex sync.RWMutex
 		apis      []*apiEntry
 		port      int
 	}
 
 	apiEntry struct {
-		Path    string       `yaml:"path"`
-		Method  string       `yaml:"method"`
-		Handler iris.Handler `yaml:"-"`
+		Path    string           `yaml:"path"`
+		Method  string           `yaml:"method"`
+		Handler http.HandlerFunc `yaml:"-"`
 	}
 
 	apiErr struct {
@@ -59,45 +63,50 @@ type (
 
 // NewAPIServer creates a initialed API server.
 func NewAPIServer(port int) *apiServer {
-	app := iris.New()
+	r := chi.NewRouter()
+	addr := fmt.Sprintf("%s:%d", defaultServerIP, port)
 
 	s := &apiServer{
-		app:  app,
-		port: port,
+		srv:    http.Server{Addr: addr},
+		router: r,
 	}
 
-	// NOTE: Fix trailing slash problem.
-	// Reference: https://github.com/kataras/iris/issues/820#issuecomment-383131098
-	app.WrapRouter(func(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
-		path := r.URL.Path
-		if len(path) > 1 && path[len(path)-1] == '/' && path[len(path)-2] != '/' {
-			path = path[:len(path)-1]
-			r.RequestURI = path
-			r.URL.Path = path
-		}
-		next(w, r)
-	})
-
-	app.Use(newRecoverer())
-	app.Logger().SetOutput(ioutil.Discard)
+	r.Use(newRecoverer)
 	s.addListAPI()
 
 	return s
 }
 
-// Run calls iris app for servering RESTful APIs.
-func (s *apiServer) run() {
-	addr := fmt.Sprintf("%s:%d", defaultServerIP, s.port)
-	logger.Infof("worker api server running in %s", addr)
+// Start runs ListenAndServe on the http.Server with graceful shutdown
+func (s *apiServer) Start() {
+	logger.Infof("api server running in %s", s.opt.APIAddr)
+	defer logger.Sync()
 
-	err := s.app.Run(iris.Addr(addr))
-	if err == iris.ErrServerClosed {
-		return
+	go func() {
+		if err := http.ListenAndServe(s.opt.APIAddr, s.router); err != nil && err != http.ErrServerClosed {
+			logger.Errorf("Could not listen on", zap.String("addr", s.opt.APIAddr), zap.Error(err))
+		}
+	}()
+
+	logger.Infof("Server is ready to handle requests", zap.String("addr", s.opt.APIAddr))
+	s.Close()
+}
+
+// Close closes Server.
+func (s *apiServer) Close() {
+	quit := make(chan os.Signal, 1)
+
+	signal.Notify(quit, os.Interrupt)
+	sig := <-quit
+	logger.Infof("Server is shutting down", zap.String("reason", sig.String()))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := s.srv.Shutdown(ctx); err != nil {
+		logger.Errorf("Could not gracefully shutdown the server", zap.Error(err))
 	}
-	if err != nil {
-		logger.Errorf("run worker api app failed: %v", err)
-		os.Exit(1)
-	}
+	logger.Infof("Server stopped")
 }
 
 func (s *apiServer) addListAPI() {
@@ -112,7 +121,7 @@ func (s *apiServer) addListAPI() {
 	s.registerAPIs(listAPIs)
 }
 
-func (s *apiServer) listAPIs(ctx iriscontext.Context) {
+func (s *apiServer) listAPIs(w http.ResponseWriter, r *http.Request) {
 	s.apisMutex.RLock()
 	defer s.apisMutex.RUnlock()
 
@@ -121,12 +130,8 @@ func (s *apiServer) listAPIs(ctx iriscontext.Context) {
 		panic(fmt.Errorf("marshal %#v to yaml failed: %v", s.apis, err))
 	}
 
-	ctx.Header("Content-Type", "text/vnd.yaml")
-	ctx.Write(buff)
-}
-
-func (s *apiServer) Close() {
-	s.app.Shutdown(context.Background())
+	w.Header().Set("Content-Type", "text/vnd.yaml")
+	w.Write(buff)
 }
 
 func (s *apiServer) registerAPIs(apis []*apiEntry) {
@@ -139,31 +144,29 @@ func (s *apiServer) registerAPIs(apis []*apiEntry) {
 		logger.Infof("api method: %s, path: %s, handler %#v", api.Method, api.Path, api.Handler)
 		switch api.Method {
 		case "GET":
-			s.app.Get(api.Path, api.Handler)
+			s.router.Get(api.Path, api.Handler)
 		case "HEAD":
-			s.app.Head(api.Path, api.Handler)
+			s.router.Head(api.Path, api.Handler)
 		case "PUT":
-			s.app.Put(api.Path, api.Handler)
+			s.router.Put(api.Path, api.Handler)
 		case "POST":
-			s.app.Post(api.Path, api.Handler)
+			s.router.Post(api.Path, api.Handler)
 		case "PATCH":
-			s.app.Patch(api.Path, api.Handler)
+			s.router.Patch(api.Path, api.Handler)
 		case "DELETE":
-			s.app.Delete(api.Path, api.Handler)
+			s.router.Delete(api.Path, api.Handler)
 		case "CONNECT":
-			s.app.Connect(api.Path, api.Handler)
+			s.router.Connect(api.Path, api.Handler)
 		case "OPTIONS":
-			s.app.Options(api.Path, api.Handler)
+			s.router.Options(api.Path, api.Handler)
 		case "TRACE":
-			s.app.Trace(api.Path, api.Handler)
+			s.router.Trace(api.Path, api.Handler)
 		}
 	}
-
-	s.app.RefreshRouter()
 }
 
-func handleAPIError(ctx iris.Context, code int, err error) {
-	ctx.StatusCode(code)
+func handleAPIError(w http.ResponseWriter, r *http.Request, code int, err error) {
+	w.WriteHeader(code)
 	buff, err := yaml.Marshal(apiErr{
 		Code:    code,
 		Message: err.Error(),
@@ -171,23 +174,18 @@ func handleAPIError(ctx iris.Context, code int, err error) {
 	if err != nil {
 		panic(err)
 	}
-	ctx.Write(buff)
+	w.Write(buff)
 }
 
-func newRecoverer() func(iriscontext.Context) {
-	return func(ctx iriscontext.Context) {
+func newRecoverer(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
-			if err := recover(); err != nil {
-				if ctx.IsStopped() {
-					return
-				}
-
+			if rvr := recover(); rvr != nil && rvr != http.ErrAbortHandler {
 				logger.Errorf("recover from %s, err: %v, stack trace:\n%s\n",
-					ctx.HandlerName(), err, debug.Stack())
-				handleAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("%v", err))
+					r.URL.Path, rvr, debug.Stack())
+				handleAPIError(w, r, http.StatusInternalServerError, fmt.Errorf("%v", rvr))
 			}
 		}()
-
-		ctx.Next()
-	}
+		next.ServeHTTP(w, r)
+	})
 }

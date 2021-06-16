@@ -18,6 +18,7 @@ require (
 	github.com/flosch/pongo2 v0.0.0-20180809100617-24195e6d38b0 // indirect
 	github.com/gavv/monotime v0.0.0-20171021193802-6f8212e8d10d // indirect
 	github.com/ghodss/yaml v1.0.0
+	github.com/go-chi/chi/v5 v5.0.3
 	github.com/go-zookeeper/zk v1.0.2
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
@@ -37,7 +38,6 @@ require (
 	github.com/juju/loggo v0.0.0-20180524022052-584905176618 // indirect
 	github.com/juju/testing v0.0.0-20180920084828-472a3e8b2073 // indirect
 	github.com/kataras/golog v0.0.0-20180321173939-03be10146386 // indirect
-	github.com/kataras/iris v11.1.0+incompatible
 	github.com/kataras/pio v0.0.0-20180511174041-a9733b5b6b83 // indirect
 	github.com/klauspost/compress v1.11.3
 	github.com/lucas-clemente/quic-go v0.19.3
