@@ -54,6 +54,7 @@ type (
 
 	// Spec is HTTPAdaptor Spec.
 	Spec struct {
+		Host   string                `yaml:"host" jsonschema:"omitempty"`
 		Method string                `yaml:"method" jsonschema:"omitempty,format=httpmethod"`
 		Path   *pathadaptor.Spec     `yaml:"path,omitempty" jsonschema:"omitempty"`
 		Header *httpheader.AdaptSpec `yaml:"header,omitempty" jsonschema:"omitempty"`
@@ -116,6 +117,11 @@ func (ra *RequestAdaptor) handle(ctx context.HTTPContext) string {
 			method, " adapted to ", ra.spec.Method))
 		r.SetMethod(ra.spec.Method)
 	}
+
+	if len(ra.spec.Host) != 0 {
+		r.SetHost(ra.spec.Host)
+	}
+
 	if ra.pa != nil {
 		adaptedPath := ra.pa.Adapt(path)
 		if adaptedPath != path {

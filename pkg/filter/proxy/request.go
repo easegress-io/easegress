@@ -64,7 +64,9 @@ func (p *pool) newRequest(ctx context.HTTPContext, server *Server, reqBody io.Re
 	if err != nil {
 		return nil, fmt.Errorf("BUG: new request failed: %v", err)
 	}
+
 	stdr.Header = r.Header().Std()
+	stdr.Host = r.Host()
 
 	req.std = stdr
 
