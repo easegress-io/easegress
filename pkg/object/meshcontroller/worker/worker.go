@@ -128,7 +128,7 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 	inf := informer.NewInformer(store)
 	apiServer := NewAPIServer(spec.APIPort)
 
-	w := &Worker{
+	wrk := &Worker{
 		super:     super,
 		superSpec: superSpec,
 		spec:      spec,
@@ -154,46 +154,46 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 		done:        make(chan struct{}),
 	}
 
-	w.runAPIServer()
+	wrk.runAPIServer()
 
-	go w.run()
+	go wrk.run()
 
-	return w
+	return wrk
 }
 
-func (w *Worker) run() {
+func (wrk *Worker) run() {
 	var err error
-	w.heartbeatInterval, err = time.ParseDuration(w.spec.HeartbeatInterval)
+	wrk.heartbeatInterval, err = time.ParseDuration(wrk.spec.HeartbeatInterval)
 	if err != nil {
 		logger.Errorf("BUG: parse heartbeat interval: %s failed: %v",
-			w.spec.HeartbeatInterval, err)
+			wrk.spec.HeartbeatInterval, err)
 		return
 	}
 
-	if len(w.serviceName) == 0 {
+	if len(wrk.serviceName) == 0 {
 		logger.Errorf("mesh service name is empty")
 		return
 	} else {
-		logger.Infof("%s works for service %s", w.serviceName)
+		logger.Infof("%s works for service %s", wrk.serviceName)
 	}
 
-	_, err = url.ParseRequestURI(w.aliveProbe)
+	_, err = url.ParseRequestURI(wrk.aliveProbe)
 	if err != nil {
-		logger.Errorf("parse alive probe: %s to url failed: %v", w.aliveProbe, err)
+		logger.Errorf("parse alive probe: %s to url failed: %v", wrk.aliveProbe, err)
 		return
 	}
 
-	if w.applicationPort == 0 {
+	if wrk.applicationPort == 0 {
 		logger.Errorf("empty application port")
 		return
 	}
 
-	if len(w.instanceID) == 0 {
+	if len(wrk.instanceID) == 0 {
 		logger.Errorf("empty env HOSTNAME")
 		return
 	}
 
-	if len(w.applicationIP) == 0 {
+	if len(wrk.applicationIP) == 0 {
 		logger.Errorf("empty env APPLICATION_IP")
 		return
 	}
@@ -202,44 +202,44 @@ func (w *Worker) run() {
 		defer func() {
 			if err := recover(); err != nil {
 				logger.Errorf("%s: recover from: %v, stack trace:\n%s\n",
-					w.superSpec.Name(), err, debug.Stack())
+					wrk.superSpec.Name(), err, debug.Stack())
 			}
 		}()
 
-		serviceSpec, info := w.service.GetServiceSpecWithInfo(w.serviceName)
+		serviceSpec, info := wrk.service.GetServiceSpecWithInfo(wrk.serviceName)
 
-		err := w.initTrafficGate()
+		err := wrk.initTrafficGate()
 		if err != nil {
 			logger.Errorf("init traffic gate failed: %v", err)
 		}
 
-		w.registryServer.Register(serviceSpec, w.ingressServer.Ready, w.egressServer.Ready)
+		wrk.registryServer.Register(serviceSpec, wrk.ingressServer.Ready, wrk.egressServer.Ready)
 
-		err = w.observabilityManager.UpdateService(serviceSpec, info.Version)
+		err = wrk.observabilityManager.UpdateService(serviceSpec, info.Version)
 		if err != nil {
 			logger.Errorf("update service %s failed: %v", serviceSpec.Name, err)
 		}
 	}
 
 	startUpRoutine()
-	go w.heartbeat()
-	go w.watchEvent()
-	go w.pushSpecToJavaAgent()
+	go wrk.heartbeat()
+	go wrk.watchEvent()
+	go wrk.pushSpecToJavaAgent()
 }
 
-func (w *Worker) heartbeat() {
+func (wrk *Worker) heartbeat() {
 	inforJavaAgentReady, trafficGateReady := false, false
 
 	routine := func() {
 		defer func() {
 			if err := recover(); err != nil {
 				logger.Errorf("%s: recover from: %v, stack trace:\n%s\n",
-					w.superSpec.Name(), err, debug.Stack())
+					wrk.superSpec.Name(), err, debug.Stack())
 			}
 		}()
 
 		if !trafficGateReady {
-			err := w.initTrafficGate()
+			err := wrk.initTrafficGate()
 			if err != nil {
 				logger.Errorf("init traffic gate failed: %v", err)
 			} else {
@@ -247,9 +247,9 @@ func (w *Worker) heartbeat() {
 			}
 		}
 
-		if w.registryServer.Registered() {
+		if wrk.registryServer.Registered() {
 			if !inforJavaAgentReady {
-				err := w.informJavaAgent()
+				err := wrk.informJavaAgent()
 				if err != nil {
 					logger.Errorf(err.Error())
 				} else {
@@ -257,7 +257,7 @@ func (w *Worker) heartbeat() {
 				}
 			}
 
-			err := w.updateHearbeat()
+			err := wrk.updateHearbeat()
 			if err != nil {
 				logger.Errorf("update heartbeat failed: %v", err)
 			}
@@ -266,32 +266,32 @@ func (w *Worker) heartbeat() {
 
 	for {
 		select {
-		case <-w.done:
+		case <-wrk.done:
 			return
-		case <-time.After(w.heartbeatInterval):
+		case <-time.After(wrk.heartbeatInterval):
 			routine()
 		}
 	}
 }
 
-func (w *Worker) pushSpecToJavaAgent() {
+func (wrk *Worker) pushSpecToJavaAgent() {
 	routine := func() {
 		defer func() {
 			if err := recover(); err != nil {
 				logger.Errorf("%s: recover from: %v, stack trace:\n%s\n",
-					w.superSpec.Name(), err, debug.Stack())
+					wrk.superSpec.Name(), err, debug.Stack())
 			}
 		}()
 
-		serviceSpec, info := w.service.GetServiceSpecWithInfo(w.serviceName)
-		err := w.observabilityManager.UpdateService(serviceSpec, info.Version)
+		serviceSpec, info := wrk.service.GetServiceSpecWithInfo(wrk.serviceName)
+		err := wrk.observabilityManager.UpdateService(serviceSpec, info.Version)
 		if err != nil {
 			logger.Errorf("update service %s failed: %v", serviceSpec.Name, err)
 		}
 
-		globalCanaryHeaders, info := w.service.GetGlobalCanaryHeadersWithInfo()
+		globalCanaryHeaders, info := wrk.service.GetGlobalCanaryHeadersWithInfo()
 		if globalCanaryHeaders != nil {
-			err := w.observabilityManager.UpdateCanary(globalCanaryHeaders, info.Version)
+			err := wrk.observabilityManager.UpdateCanary(globalCanaryHeaders, info.Version)
 			if err != nil {
 				logger.Errorf("update canary failed: %v", err)
 			}
@@ -300,7 +300,7 @@ func (w *Worker) pushSpecToJavaAgent() {
 
 	for {
 		select {
-		case <-w.done:
+		case <-wrk.done:
 			return
 		case <-time.After(1 * time.Minute):
 			routine()
@@ -308,41 +308,41 @@ func (w *Worker) pushSpecToJavaAgent() {
 	}
 }
 
-func (w *Worker) initTrafficGate() error {
-	service := w.service.GetServiceSpec(w.serviceName)
+func (wrk *Worker) initTrafficGate() error {
+	service := wrk.service.GetServiceSpec(wrk.serviceName)
 
-	if err := w.ingressServer.CreateIngress(service, w.applicationPort); err != nil {
-		return fmt.Errorf("create ingress for service: %s failed: %v", w.serviceName, err)
+	if err := wrk.ingressServer.CreateIngress(service, wrk.applicationPort); err != nil {
+		return fmt.Errorf("create ingress for service: %s failed: %v", wrk.serviceName, err)
 	}
 
-	if err := w.egressServer.CreateEgress(service); err != nil {
-		return fmt.Errorf("create egress for service: %s failed: %v", w.serviceName, err)
+	if err := wrk.egressServer.CreateEgress(service); err != nil {
+		return fmt.Errorf("create egress for service: %s failed: %v", wrk.serviceName, err)
 	}
 
 	return nil
 }
 
-func (w *Worker) updateHearbeat() error {
-	resp, err := http.Get(w.aliveProbe)
+func (wrk *Worker) updateHearbeat() error {
+	resp, err := http.Get(wrk.aliveProbe)
 	if err != nil {
 		return fmt.Errorf("probe: %s check service: %s instanceID: %s heartbeat failed: %v",
-			w.aliveProbe, w.serviceName, w.instanceID, err)
+			wrk.aliveProbe, wrk.serviceName, wrk.instanceID, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("probe: %s check service: %s instanceID: %s heartbeat failed status code is %d",
-			w.aliveProbe, w.serviceName, w.instanceID, resp.StatusCode)
+			wrk.aliveProbe, wrk.serviceName, wrk.instanceID, resp.StatusCode)
 	}
 
-	value, err := w.store.Get(layout.ServiceInstanceStatusKey(w.serviceName, w.instanceID))
+	value, err := wrk.store.Get(layout.ServiceInstanceStatusKey(wrk.serviceName, wrk.instanceID))
 	if err != nil {
-		return fmt.Errorf("get service: %s instance: %s status failed: %v", w.serviceName, w.instanceID, err)
+		return fmt.Errorf("get service: %s instance: %s status failed: %v", wrk.serviceName, wrk.instanceID, err)
 	}
 
 	status := &spec.ServiceInstanceStatus{
-		ServiceName: w.serviceName,
-		InstanceID:  w.instanceID,
+		ServiceName: wrk.serviceName,
+		InstanceID:  wrk.instanceID,
 	}
 	if value != nil {
 		err := yaml.Unmarshal([]byte(*value), status)
@@ -361,33 +361,33 @@ func (w *Worker) updateHearbeat() error {
 		return err
 	}
 
-	return w.store.Put(layout.ServiceInstanceStatusKey(w.serviceName, w.instanceID), string(buff))
+	return wrk.store.Put(layout.ServiceInstanceStatusKey(wrk.serviceName, wrk.instanceID), string(buff))
 }
 
-func (w *Worker) addEgressWatching(serviceName string) {
+func (wrk *Worker) addEgressWatching(serviceName string) {
 	handleSerivceSpec := func(event informer.Event, service *spec.Service) (continueWatch bool) {
 		continueWatch = true
 		switch event.EventType {
 		case informer.EventDelete:
-			w.egressServer.DeletePipeline(serviceName)
+			wrk.egressServer.DeletePipeline(serviceName)
 			return false
 		case informer.EventUpdate:
 			defer func() {
 				if err := recover(); err != nil {
 					logger.Errorf("%s: recover from: %v, stack trace:\n%s\n",
-						w.superSpec.Name(), err, debug.Stack())
+						wrk.superSpec.Name(), err, debug.Stack())
 				}
 			}()
 			logger.Infof("handle informer egress service: %s's spec update event", serviceName)
-			instanceSpecs := w.service.ListServiceInstanceSpecs(service.Name)
+			instanceSpecs := wrk.service.ListServiceInstanceSpecs(service.Name)
 
-			if err := w.egressServer.UpdatePipeline(service, instanceSpecs); err != nil {
+			if err := wrk.egressServer.UpdatePipeline(service, instanceSpecs); err != nil {
 				logger.Errorf("handle informer egress update service: %s's failed: %v", serviceName, err)
 			}
 		}
 		return
 	}
-	if err := w.informer.OnPartOfServiceSpec(serviceName, informer.AllParts, handleSerivceSpec); err != nil {
+	if err := wrk.informer.OnPartOfServiceSpec(serviceName, informer.AllParts, handleSerivceSpec); err != nil {
 		if err != informer.ErrAlreadyWatched {
 			logger.Errorf("add egress scope watching service: %s failed: %v", serviceName, err)
 			return
@@ -399,24 +399,24 @@ func (w *Worker) addEgressWatching(serviceName string) {
 		defer func() {
 			if err := recover(); err != nil {
 				logger.Errorf("%s: recover from: %v, stack trace:\n%s\n",
-					w.superSpec.Name(), err, debug.Stack())
+					wrk.superSpec.Name(), err, debug.Stack())
 			}
 		}()
 		logger.Infof("handle informer egress service: %s's instance update event, ins: %#v", serviceName, instanceKvs)
-		serviceSpec := w.service.GetServiceSpec(serviceName)
+		serviceSpec := wrk.service.GetServiceSpec(serviceName)
 
 		var instanceSpecs []*spec.ServiceInstanceSpec
 		for _, v := range instanceKvs {
 			instanceSpecs = append(instanceSpecs, v)
 		}
-		if err := w.egressServer.UpdatePipeline(serviceSpec, instanceSpecs); err != nil {
+		if err := wrk.egressServer.UpdatePipeline(serviceSpec, instanceSpecs); err != nil {
 			logger.Errorf("handle informer egress failed, update service: %s failed: %v", serviceName, err)
 		}
 
 		return
 	}
 
-	if err := w.informer.OnServiceInstanceSpecs(serviceName, handleServiceInstances); err != nil {
+	if err := wrk.informer.OnServiceInstanceSpecs(serviceName, handleServiceInstances); err != nil {
 		if err != informer.ErrAlreadyWatched {
 			logger.Errorf("add egress prefix watching service: %s failed: %v", serviceName, err)
 			return
@@ -424,13 +424,13 @@ func (w *Worker) addEgressWatching(serviceName string) {
 	}
 }
 
-func (w *Worker) informJavaAgent() error {
+func (wrk *Worker) informJavaAgent() error {
 	handleServiceSpec := func(event informer.Event, service *spec.Service) bool {
 		switch event.EventType {
 		case informer.EventDelete:
 			return false
 		case informer.EventUpdate:
-			if err := w.observabilityManager.UpdateService(service, event.RawKV.Version); err != nil {
+			if err := wrk.observabilityManager.UpdateService(service, event.RawKV.Version); err != nil {
 				logger.Errorf("update service %s failed: %v", service.Name, err)
 			}
 		}
@@ -438,7 +438,7 @@ func (w *Worker) informJavaAgent() error {
 		return true
 	}
 
-	err := w.informer.OnPartOfServiceSpec(w.serviceName, informer.AllParts, handleServiceSpec)
+	err := wrk.informer.OnPartOfServiceSpec(wrk.serviceName, informer.AllParts, handleServiceSpec)
 	if err != nil && err != informer.ErrAlreadyWatched {
 		return fmt.Errorf("on informer for observability failed: %v", err)
 	}
@@ -446,30 +446,30 @@ func (w *Worker) informJavaAgent() error {
 	return nil
 }
 
-func (w *Worker) watchEvent() {
+func (wrk *Worker) watchEvent() {
 	for {
 		select {
-		case <-w.done:
+		case <-wrk.done:
 			return
-		case name := <-w.egressEvent:
+		case name := <-wrk.egressEvent:
 			logger.Infof("add egress wanted watching service: %s", name)
-			w.addEgressWatching(name)
+			wrk.addEgressWatching(name)
 		}
 	}
 }
 
 // Status returns the status of worker.
-func (w *Worker) Status() *supervisor.Status {
+func (wrk *Worker) Status() *supervisor.Status {
 	return &supervisor.Status{
 		ObjectStatus: nil,
 	}
 }
 
 // Close close the worker
-func (w *Worker) Close() {
-	close(w.done)
+func (wrk *Worker) Close() {
+	close(wrk.done)
 
-	w.informer.Close()
-	w.registryServer.Close()
-	w.apiServer.Close()
+	wrk.informer.Close()
+	wrk.registryServer.Close()
+	wrk.apiServer.Close()
 }

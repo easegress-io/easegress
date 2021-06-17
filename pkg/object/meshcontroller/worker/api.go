@@ -6,7 +6,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *     http://wwwrk.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,7 +18,7 @@
 package worker
 
 import (
-	"github.com/kataras/iris"
+	"net/http"
 
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
 )
@@ -31,23 +31,22 @@ const (
 	meshNacosPrefix = "/nacos/v1"
 )
 
-func (w *Worker) runAPIServer() {
+func (wrk *Worker) runAPIServer() {
 	var apis []*apiEntry
-	switch w.registryServer.RegistryType {
+	switch wrk.registryServer.RegistryType {
 	case spec.RegistryTypeConsul:
-		apis = w.consulAPIs()
+		apis = wrk.consulAPIs()
 	case spec.RegistryTypeEureka:
-		apis = w.eurekaAPIs()
+		apis = wrk.eurekaAPIs()
 	case spec.RegistryTypeNacos:
-		apis = w.nacosAPIs()
+		apis = wrk.nacosAPIs()
 	default:
-		apis = w.eurekaAPIs()
+		apis = wrk.eurekaAPIs()
 	}
-	w.apiServer.registerAPIs(apis)
-	go w.apiServer.run()
+	wrk.apiServer.registerAPIs(apis)
 }
 
-func (w *Worker) emptyHandler(ctx iris.Context) {
+func (wrk *Worker) emptyHandler(w http.ResponseWriter, r *http.Request) {
 	// EaseMesh does not need to implement some APIS like
 	// delete, heartbeat of Eureka/Consul/Nacos.
 }

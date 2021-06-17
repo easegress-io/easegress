@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/kataras/iris"
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
 	v1alpha1 "github.com/megaease/easemesh-api/v1alpha1"
@@ -189,25 +188,25 @@ var (
 	}
 )
 
-func (m *Master) getPartOfService(meta *partMeta) iris.Handler {
-	return func(ctx iris.Context) {
-		serviceName, err := m.readServiceName(ctx)
+func (m *Master) getPartOfService(meta *partMeta) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		serviceName, err := m.readServiceName(w, r)
 		if err != nil {
-			api.HandleAPIError(ctx, http.StatusBadRequest, err)
+			api.HandleAPIError(w, r, http.StatusBadRequest, err)
 			return
 		}
 
 		// NOTE: No need to lock.
 		serviceSpec := m.service.GetServiceSpec(serviceName)
 		if serviceSpec == nil {
-			api.HandleAPIError(ctx, http.StatusNotFound,
+			api.HandleAPIError(w, r, http.StatusNotFound,
 				fmt.Errorf("service %s not found", serviceName))
 			return
 		}
 
 		part, existed := meta.partOf(serviceSpec)
 		if !existed {
-			api.HandleAPIError(ctx, http.StatusNotFound,
+			api.HandleAPIError(w, r, http.StatusNotFound,
 				fmt.Errorf("%s of service %s not found", meta.partName, serviceName))
 			return
 		}
@@ -223,25 +222,25 @@ func (m *Master) getPartOfService(meta *partMeta) iris.Handler {
 			panic(err)
 		}
 
-		ctx.Header("Content-Type", "application/json")
-		ctx.Write(buff)
-	}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(buff)
+	})
 }
 
-func (m *Master) createPartOfService(meta *partMeta) iris.Handler {
-	return func(ctx iris.Context) {
-		serviceName, err := m.readServiceName(ctx)
+func (m *Master) createPartOfService(meta *partMeta) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		serviceName, err := m.readServiceName(w, r)
 		if err != nil {
-			api.HandleAPIError(ctx, http.StatusBadRequest, err)
+			api.HandleAPIError(w, r, http.StatusBadRequest, err)
 			return
 		}
 
 		part := meta.newPart()
 		partPB := meta.newPartPB()
 
-		err = m.readAPISpec(ctx, partPB, part)
+		err = m.readAPISpec(w, r, partPB, part)
 		if err != nil {
-			api.HandleAPIError(ctx, http.StatusBadRequest, err)
+			api.HandleAPIError(w, r, http.StatusBadRequest, err)
 			return
 		}
 
@@ -250,14 +249,14 @@ func (m *Master) createPartOfService(meta *partMeta) iris.Handler {
 
 		serviceSpec := m.service.GetServiceSpec(serviceName)
 		if serviceSpec == nil {
-			api.HandleAPIError(ctx, http.StatusNotFound,
+			api.HandleAPIError(w, r, http.StatusNotFound,
 				fmt.Errorf("service %s not found", serviceName))
 			return
 		}
 
 		_, existed := meta.partOf(serviceSpec)
 		if existed {
-			api.HandleAPIError(ctx, http.StatusConflict,
+			api.HandleAPIError(w, r, http.StatusConflict,
 				fmt.Errorf("%s of service %s existed", meta.partName, serviceName))
 			return
 		}
@@ -266,25 +265,25 @@ func (m *Master) createPartOfService(meta *partMeta) iris.Handler {
 
 		m.service.PutServiceSpec(serviceSpec)
 
-		ctx.Header("Location", ctx.Path())
-		ctx.StatusCode(http.StatusCreated)
-	}
+		w.Header().Set("Location", r.URL.Path)
+		w.WriteHeader(http.StatusCreated)
+	})
 }
 
-func (m *Master) updatePartOfService(meta *partMeta) iris.Handler {
-	return func(ctx iris.Context) {
-		serviceName, err := m.readServiceName(ctx)
+func (m *Master) updatePartOfService(meta *partMeta) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		serviceName, err := m.readServiceName(w, r)
 		if err != nil {
-			api.HandleAPIError(ctx, http.StatusBadRequest, err)
+			api.HandleAPIError(w, r, http.StatusBadRequest, err)
 			return
 		}
 
 		part := meta.newPart()
 		partPB := meta.newPartPB()
 
-		err = m.readAPISpec(ctx, partPB, part)
+		err = m.readAPISpec(w, r, partPB, part)
 		if err != nil {
-			api.HandleAPIError(ctx, http.StatusBadRequest, err)
+			api.HandleAPIError(w, r, http.StatusBadRequest, err)
 			return
 		}
 
@@ -293,28 +292,28 @@ func (m *Master) updatePartOfService(meta *partMeta) iris.Handler {
 
 		serviceSpec := m.service.GetServiceSpec(serviceName)
 		if serviceSpec == nil {
-			api.HandleAPIError(ctx, http.StatusNotFound,
+			api.HandleAPIError(w, r, http.StatusNotFound,
 				fmt.Errorf("service %s not found", serviceName))
 			return
 		}
 
 		_, existed := meta.partOf(serviceSpec)
 		if !existed {
-			api.HandleAPIError(ctx, http.StatusNotFound,
+			api.HandleAPIError(w, r, http.StatusNotFound,
 				fmt.Errorf("%s of service %s found", meta.partName, serviceName))
 			return
 		}
 
 		meta.setPart(serviceSpec, part)
 		m.service.PutServiceSpec(serviceSpec)
-	}
+	})
 }
 
-func (m *Master) deletePartOfService(meta *partMeta) iris.Handler {
-	return func(ctx iris.Context) {
-		serviceName, err := m.readServiceName(ctx)
+func (m *Master) deletePartOfService(meta *partMeta) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		serviceName, err := m.readServiceName(w, r)
 		if err != nil {
-			api.HandleAPIError(ctx, http.StatusBadRequest, err)
+			api.HandleAPIError(w, r, http.StatusBadRequest, err)
 			return
 		}
 
@@ -323,19 +322,19 @@ func (m *Master) deletePartOfService(meta *partMeta) iris.Handler {
 
 		serviceSpec := m.service.GetServiceSpec(serviceName)
 		if serviceSpec == nil {
-			api.HandleAPIError(ctx, http.StatusNotFound,
+			api.HandleAPIError(w, r, http.StatusNotFound,
 				fmt.Errorf("service %s not found", serviceName))
 			return
 		}
 
 		_, existed := meta.partOf(serviceSpec)
 		if !existed {
-			api.HandleAPIError(ctx, http.StatusNotFound,
+			api.HandleAPIError(w, r, http.StatusNotFound,
 				fmt.Errorf("%s of service %s found", meta.partName, serviceName))
 			return
 		}
 
 		meta.setPart(serviceSpec, nil)
 		m.service.PutServiceSpec(serviceSpec)
-	}
+	})
 }

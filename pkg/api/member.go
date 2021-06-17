@@ -19,9 +19,10 @@ package api
 
 import (
 	"fmt"
+	"net/http"
 	"sort"
 
-	"github.com/kataras/iris"
+	"github.com/go-chi/chi/v5"
 	"github.com/megaease/easegress/pkg/cluster"
 	yaml "gopkg.in/yaml.v2"
 )
@@ -34,7 +35,7 @@ func (s *Server) setupMemberAPIs() {
 			Handler: s.listMembers,
 		},
 		{
-			Path:    "/status/members/{member:string}",
+			Path:    "/status/members/{member}",
 			Method:  "DELETE",
 			Handler: s.purgeMember,
 		},
@@ -54,7 +55,7 @@ func (r ListMembersResp) Swap(i, j int)      { r[i], r[j] = r[j], r[i] }
 
 // These methods which operate with cluster guarantee atomicity.
 
-func (s *Server) listMembers(ctx iris.Context) {
+func (s *Server) listMembers(w http.ResponseWriter, r *http.Request) {
 	kv, err := s.cluster.GetPrefix(s.cluster.Layout().StatusMemberPrefix())
 	if err != nil {
 		ClusterPanic(err)
@@ -78,11 +79,11 @@ func (s *Server) listMembers(ctx iris.Context) {
 		panic(fmt.Errorf("marshal %#v to yaml failed: %v", resp, err))
 	}
 
-	ctx.Write(buff)
+	w.Write(buff)
 }
 
-func (s *Server) purgeMember(ctx iris.Context) {
-	memberName := ctx.Params().Get("member")
+func (s *Server) purgeMember(w http.ResponseWriter, r *http.Request) {
+	memberName := chi.URLParam(r, "member")
 
 	s.Lock()
 	defer s.Unlock()
@@ -92,7 +93,7 @@ func (s *Server) purgeMember(ctx iris.Context) {
 		ClusterPanic(err)
 	}
 	if leaseStr == nil {
-		HandleAPIError(ctx, iris.StatusNotFound, fmt.Errorf("not found"))
+		HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("not found"))
 		return
 	}
 

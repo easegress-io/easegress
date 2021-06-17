@@ -21,12 +21,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/v"
 
 	yamljsontool "github.com/ghodss/yaml"
-	"github.com/kataras/iris"
 	"gopkg.in/yaml.v2"
 )
 
@@ -38,43 +38,43 @@ const (
 	MeshTenantPrefix = "/mesh/tenants"
 
 	// MeshTenantPath is the mesh tenant path.
-	MeshTenantPath = "/mesh/tenants/{tenantName:string}"
+	MeshTenantPath = "/mesh/tenants/{tenantName}"
 
 	// MeshIngressPrefix is the mesh ingress prefix.
 	MeshIngressPrefix = "/mesh/ingresses"
 
 	// MeshIngressPath is the mesh ingress path.
-	MeshIngressPath = "/mesh/ingresses/{ingressName:string}"
+	MeshIngressPath = "/mesh/ingresses/{ingressName}"
 
 	// MeshServicePrefix is mesh service prefix.
 	MeshServicePrefix = "/mesh/services"
 
 	// MeshServicePath is the mesh service path.
-	MeshServicePath = "/mesh/services/{serviceName:string}"
+	MeshServicePath = "/mesh/services/{serviceName}"
 
 	// MeshServiceCanaryPath is the mesh service canary path.
-	MeshServiceCanaryPath = "/mesh/services/{serviceName:string}/canary"
+	MeshServiceCanaryPath = "/mesh/services/{serviceName}/canary"
 
 	// MeshServiceResiliencePath is the mesh service resilience path.
-	MeshServiceResiliencePath = "/mesh/services/{serviceName:string}/resilience"
+	MeshServiceResiliencePath = "/mesh/services/{serviceName}/resilience"
 
 	// MeshServiceLoadBalancePath is the mesh service load balance path.
-	MeshServiceLoadBalancePath = "/mesh/services/{serviceName:string}/loadbalance"
+	MeshServiceLoadBalancePath = "/mesh/services/{serviceName}/loadbalance"
 
 	// MeshServiceOutputServerPath is the mesh service output server path.
-	MeshServiceOutputServerPath = "/mesh/services/{serviceName:string}/outputserver"
+	MeshServiceOutputServerPath = "/mesh/services/{serviceName}/outputserver"
 
 	// MeshServiceTracingsPath is the mesh service tracings path.
-	MeshServiceTracingsPath = "/mesh/services/{serviceName:string}/tracings"
+	MeshServiceTracingsPath = "/mesh/services/{serviceName}/tracings"
 
 	// MeshServiceMetricsPath is the mesh service metrics path.
-	MeshServiceMetricsPath = "/mesh/services/{serviceName:string}/metrics"
+	MeshServiceMetricsPath = "/mesh/services/{serviceName}/metrics"
 
 	// MeshServiceInstancePrefix is the mesh service prefix.
 	MeshServiceInstancePrefix = "/mesh/serviceinstances"
 
 	// MeshServiceInstancePath is the mesh service path.
-	MeshServiceInstancePath = "/mesh/serviceinstances/{serviceName:string}/{instanceID:string}"
+	MeshServiceInstancePath = "/mesh/serviceinstances/{serviceName}/{instanceID}"
 )
 
 func (m *Master) registerAPIs() {
@@ -137,8 +137,8 @@ func (m *Master) registerAPIs() {
 	api.GlobalServer.RegisterAPIs(meshAPIs)
 }
 
-func (m *Master) readSpec(ctx iris.Context, spec interface{}) error {
-	body, err := ioutil.ReadAll(ctx.Request().Body)
+func (m *Master) readSpec(w http.ResponseWriter, r *http.Request, spec interface{}) error {
+	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		return fmt.Errorf("read body failed: %v", err)
 	}
@@ -184,8 +184,8 @@ func (m *Master) convertPBToSpec(pbSpec interface{}, spec interface{}) error {
 	return nil
 }
 
-func (m *Master) readAPISpec(ctx iris.Context, pbSpec interface{}, spec interface{}) error {
-	body, err := ioutil.ReadAll(ctx.Request().Body)
+func (m *Master) readAPISpec(w http.ResponseWriter, r *http.Request, pbSpec interface{}, spec interface{}) error {
+	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		return fmt.Errorf("read body failed: %v", err)
 	}

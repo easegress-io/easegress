@@ -6,7 +6,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *     http://wwwrk.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -40,7 +40,7 @@ type (
 
 		// port is the Java business process's listening port
 		// not the ingress HTTPServer's port
-		// NOTE: Not used for now.
+		// NOTE: Not used for nowrk.
 		// port  uint32
 		mutex sync.RWMutex
 

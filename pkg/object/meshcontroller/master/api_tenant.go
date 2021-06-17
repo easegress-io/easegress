@@ -24,7 +24,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/kataras/iris"
+	"github.com/go-chi/chi/v5"
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
@@ -37,8 +37,8 @@ func (s tenantsByOrder) Less(i, j int) bool { return s[i].Name < s[j].Name }
 func (s tenantsByOrder) Len() int           { return len(s) }
 func (s tenantsByOrder) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
-func (m *Master) readTenantName(ctx iris.Context) (string, error) {
-	serviceName := ctx.Params().Get("tenantName")
+func (m *Master) readTenantName(w http.ResponseWriter, r *http.Request) (string, error) {
+	serviceName := chi.URLParam(r, "tenantName")
 	if serviceName == "" {
 		return "", fmt.Errorf("empty tenant name")
 	}
@@ -46,7 +46,7 @@ func (m *Master) readTenantName(ctx iris.Context) (string, error) {
 	return serviceName, nil
 }
 
-func (m *Master) listTenants(ctx iris.Context) {
+func (m *Master) listTenants(w http.ResponseWriter, r *http.Request) {
 	specs := m.service.ListTenantSpecs()
 
 	sort.Sort(tenantsByOrder(specs))
@@ -67,32 +67,32 @@ func (m *Master) listTenants(ctx iris.Context) {
 		panic(fmt.Errorf("marshal %#v to json failed: %v", specs, err))
 	}
 
-	ctx.Header("Content-Type", "application/json")
-	ctx.Write(buff)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(buff)
 }
 
-func (m *Master) createTenant(ctx iris.Context) {
+func (m *Master) createTenant(w http.ResponseWriter, r *http.Request) {
 	pbTenantSpec := &v1alpha1.Tenant{}
 	tenantSpec := &spec.Tenant{}
 
-	tenantName, err := m.readTenantName(ctx)
+	tenantName, err := m.readTenantName(w, r)
 	if err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
+		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
-	err = m.readAPISpec(ctx, pbTenantSpec, tenantSpec)
+	err = m.readAPISpec(w, r, pbTenantSpec, tenantSpec)
 	if err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
+		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	if tenantName != tenantSpec.Name {
-		api.HandleAPIError(ctx, http.StatusBadRequest,
+		api.HandleAPIError(w, r, http.StatusBadRequest,
 			fmt.Errorf("name conflict: %s %s", tenantName, tenantSpec.Name))
 		return
 	}
 
 	if len(tenantSpec.Services) > 0 {
-		api.HandleAPIError(ctx, http.StatusBadRequest,
+		api.HandleAPIError(w, r, http.StatusBadRequest,
 			fmt.Errorf("services are not empty"))
 		return
 	}
@@ -103,26 +103,26 @@ func (m *Master) createTenant(ctx iris.Context) {
 
 	oldSpec := m.service.GetTenantSpec(tenantName)
 	if oldSpec != nil {
-		api.HandleAPIError(ctx, http.StatusConflict, fmt.Errorf("%s existed", tenantName))
+		api.HandleAPIError(w, r, http.StatusConflict, fmt.Errorf("%s existed", tenantName))
 		return
 	}
 
 	m.service.PutTenantSpec(tenantSpec)
 
-	ctx.Header("Location", ctx.Path())
-	ctx.StatusCode(http.StatusCreated)
+	w.Header().Set("Location", r.URL.Path)
+	w.WriteHeader(http.StatusCreated)
 }
 
-func (m *Master) getTenant(ctx iris.Context) {
-	tenantName, err := m.readTenantName(ctx)
+func (m *Master) getTenant(w http.ResponseWriter, r *http.Request) {
+	tenantName, err := m.readTenantName(w, r)
 	if err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
+		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
 	tenantSpec := m.service.GetTenantSpec(tenantName)
 	if tenantSpec == nil {
-		api.HandleAPIError(ctx, http.StatusNotFound, fmt.Errorf("%s not found", tenantName))
+		api.HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("%s not found", tenantName))
 		return
 	}
 
@@ -137,32 +137,32 @@ func (m *Master) getTenant(ctx iris.Context) {
 		panic(fmt.Errorf("marshal %#v to json failed: %v", pbTenantSpec, err))
 	}
 
-	ctx.Header("Content-Type", "application/json")
-	ctx.Write(buff)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(buff)
 }
 
-func (m *Master) updateTenant(ctx iris.Context) {
+func (m *Master) updateTenant(w http.ResponseWriter, r *http.Request) {
 	pbTenantSpec := &v1alpha1.Tenant{}
 	tenantSpec := &spec.Tenant{}
 
-	tenantName, err := m.readTenantName(ctx)
+	tenantName, err := m.readTenantName(w, r)
 	if err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
+		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
-	err = m.readAPISpec(ctx, pbTenantSpec, tenantSpec)
+	err = m.readAPISpec(w, r, pbTenantSpec, tenantSpec)
 	if err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
+		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
 	if tenantName != tenantSpec.Name {
-		api.HandleAPIError(ctx, http.StatusBadRequest,
+		api.HandleAPIError(w, r, http.StatusBadRequest,
 			fmt.Errorf("name conflict: %s %s", tenantName, tenantSpec.Name))
 		return
 	}
 
 	if len(tenantSpec.Services) > 0 {
-		api.HandleAPIError(ctx, http.StatusBadRequest,
+		api.HandleAPIError(w, r, http.StatusBadRequest,
 			fmt.Errorf("services are not empty"))
 		return
 	}
@@ -172,7 +172,7 @@ func (m *Master) updateTenant(ctx iris.Context) {
 
 	oldSpec := m.service.GetTenantSpec(tenantName)
 	if oldSpec == nil {
-		api.HandleAPIError(ctx, http.StatusNotFound, fmt.Errorf("%s not found", tenantName))
+		api.HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("%s not found", tenantName))
 		return
 	}
 
@@ -182,10 +182,10 @@ func (m *Master) updateTenant(ctx iris.Context) {
 	m.service.PutTenantSpec(tenantSpec)
 }
 
-func (m *Master) deleteTenant(ctx iris.Context) {
-	tenantName, err := m.readTenantName(ctx)
+func (m *Master) deleteTenant(w http.ResponseWriter, r *http.Request) {
+	tenantName, err := m.readTenantName(w, r)
 	if err != nil {
-		api.HandleAPIError(ctx, http.StatusBadRequest, err)
+		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
@@ -194,12 +194,12 @@ func (m *Master) deleteTenant(ctx iris.Context) {
 
 	oldSpec := m.service.GetTenantSpec(tenantName)
 	if oldSpec == nil {
-		api.HandleAPIError(ctx, http.StatusNotFound, fmt.Errorf("%s not found", tenantName))
+		api.HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("%s not found", tenantName))
 		return
 	}
 
 	if len(oldSpec.Services) != 0 {
-		api.HandleAPIError(ctx, http.StatusBadRequest,
+		api.HandleAPIError(w, r, http.StatusBadRequest,
 			fmt.Errorf("%s got services: %v", tenantName, oldSpec.Services))
 		return
 	}

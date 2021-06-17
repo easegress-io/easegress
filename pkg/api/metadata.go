@@ -19,13 +19,14 @@ package api
 
 import (
 	"fmt"
+	"net/http"
 	"reflect"
 	"sort"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
 	"github.com/megaease/easegress/pkg/v"
 
-	"github.com/kataras/iris"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -77,17 +78,17 @@ func (s *Server) setupMetadaAPIs() {
 			Handler: s.listFilters,
 		},
 		&APIEntry{
-			Path:    FilterMetaPrefix + "/{kind:string}" + "/description",
+			Path:    FilterMetaPrefix + "/{kind}" + "/description",
 			Method:  "GET",
 			Handler: s.getFilterDescription,
 		},
 		&APIEntry{
-			Path:    FilterMetaPrefix + "/{kind:string}" + "/schema",
+			Path:    FilterMetaPrefix + "/{kind}" + "/schema",
 			Method:  "GET",
 			Handler: s.getFilterSchema,
 		},
 		&APIEntry{
-			Path:    FilterMetaPrefix + "/{kind:string}" + "/results",
+			Path:    FilterMetaPrefix + "/{kind}" + "/results",
 			Method:  "GET",
 			Handler: s.getFilterResults,
 		},
@@ -96,34 +97,33 @@ func (s *Server) setupMetadaAPIs() {
 	s.RegisterAPIs(metadataAPIs)
 }
 
-func (s *Server) listFilters(ctx iris.Context) {
+func (s *Server) listFilters(w http.ResponseWriter, r *http.Request) {
 	buff, err := yaml.Marshal(filterKinds)
 	if err != nil {
 		panic(fmt.Errorf("marshal %#v to yaml failed: %v", filterKinds, err))
 	}
 
-	ctx.Header("Content-Type", "text/vnd.yaml")
-	ctx.Write(buff)
+	w.Header().Set("Content-Type", "text/vnd.yaml")
+	w.Write(buff)
 }
 
-func (s *Server) getFilterDescription(ctx iris.Context) {
-	kind := ctx.Params().Get("kind")
+func (s *Server) getFilterDescription(w http.ResponseWriter, r *http.Request) {
+	kind := chi.URLParam(r, "kind")
 
 	fm, exits := filterMetaBook[kind]
 	if !exits {
-		HandleAPIError(ctx, iris.StatusNotFound, fmt.Errorf("not found"))
+		HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("not found"))
 		return
 	}
-
-	ctx.WriteString(fm.Description)
+	w.Write([]byte(fm.Description))
 }
 
-func (s *Server) getFilterSchema(ctx iris.Context) {
-	kind := ctx.Params().Get("kind")
+func (s *Server) getFilterSchema(w http.ResponseWriter, r *http.Request) {
+	kind := chi.URLParam(r, "kind")
 
 	fm, exits := filterMetaBook[kind]
 	if !exits {
-		HandleAPIError(ctx, iris.StatusNotFound, fmt.Errorf("not found"))
+		HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("not found"))
 		return
 	}
 
@@ -132,16 +132,16 @@ func (s *Server) getFilterSchema(ctx iris.Context) {
 		panic(fmt.Errorf("get schema for %v failed: %v", fm.Kind, err))
 	}
 
-	ctx.Header("Content-Type", "text/vnd.yaml")
-	ctx.Write(buff)
+	w.Header().Set("Content-Type", "text/vnd.yaml")
+	w.Write(buff)
 }
 
-func (s *Server) getFilterResults(ctx iris.Context) {
-	kind := ctx.Params().Get("kind")
+func (s *Server) getFilterResults(w http.ResponseWriter, r *http.Request) {
+	kind := chi.URLParam(r, "kind")
 
 	fm, exits := filterMetaBook[kind]
 	if !exits {
-		HandleAPIError(ctx, iris.StatusNotFound, fmt.Errorf("not found"))
+		HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("not found"))
 		return
 	}
 
@@ -150,6 +150,6 @@ func (s *Server) getFilterResults(ctx iris.Context) {
 		panic(fmt.Errorf("marshal %#v to yaml failed: %v", fm.Results, err))
 	}
 
-	ctx.Header("Content-Type", "text/vnd.yaml")
-	ctx.Write(buff)
+	w.Header().Set("Content-Type", "text/vnd.yaml")
+	w.Write(buff)
 }
