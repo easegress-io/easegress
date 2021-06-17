@@ -14,10 +14,10 @@
 
 ## What is Easegress
 
-`Easegress` (formerly known as `EaseGateway`) is an all-rounder traffic orchestration system,  which is designed for:
+`Easegress` is a Cloud Native traffic orchestration system designed for:
 
-- **High Availability:** Built-in Raft consensus & leader election makes 99.99% availability.
-- **Traffic Orchestration:** Dynamically orchestrating various filters to a traffic pipeline.
+- **High Availability:** Built-in Raft consensus & leader election provides 99.99% availability.
+- **Traffic Orchestration:** Symple orchestration of various filters for each traffic pipeline.
 - **High Performance:** Lightweight and essential features speed up the performance.
 - **Observability:**  There are many meaningful statistics periodically in a readable way.
 - **Extensibility:** It's easy to develop your own filter or controller with high-level programming language.
