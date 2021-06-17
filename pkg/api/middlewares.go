@@ -34,7 +34,7 @@ func (s *Server) newAPILogger(next http.Handler) http.Handler {
 		t1 := time.Now()
 		defer func() {
 			logger.APIAccess(r.Method, r.RemoteAddr, r.URL.Path, ww.Status(),
-				r.Response.ContentLength, int64(ww.BytesWritten()),
+				0, int64(ww.BytesWritten()),
 				t1, time.Since(t1))
 		}()
 		next.ServeHTTP(w, r)

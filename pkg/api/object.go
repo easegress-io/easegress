@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"sort"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/megaease/easegress/pkg/supervisor"
 
 	yaml "gopkg.in/yaml.v2"
@@ -60,17 +61,17 @@ func (s *Server) setupObjectAPIs() {
 		},
 
 		&APIEntry{
-			Path:    ObjectPrefix + "/{name:string}",
+			Path:    ObjectPrefix + "/{name}",
 			Method:  "GET",
 			Handler: s.getObject,
 		},
 		&APIEntry{
-			Path:    ObjectPrefix + "/{name:string}",
+			Path:    ObjectPrefix + "/{name}",
 			Method:  "PUT",
 			Handler: s.updateObject,
 		},
 		&APIEntry{
-			Path:    ObjectPrefix + "/{name:string}",
+			Path:    ObjectPrefix + "/{name}",
 			Method:  "DELETE",
 			Handler: s.deleteObject,
 		},
@@ -81,7 +82,7 @@ func (s *Server) setupObjectAPIs() {
 			Handler: s.listStatusObjects,
 		},
 		&APIEntry{
-			Path:    StatusObjectPrefix + "/{name:string}",
+			Path:    StatusObjectPrefix + "/{name}",
 			Method:  "GET",
 			Handler: s.getStatusObject,
 		},
@@ -100,7 +101,7 @@ func (s *Server) readObjectSpec(w http.ResponseWriter, r *http.Request) (*superv
 	if err != nil {
 		return nil, err
 	}
-	name := r.URL.Query().Get("name")
+	name := chi.URLParam(r, "name")
 
 	if name != "" && name != spec.Name() {
 		return nil, fmt.Errorf("inconsistent name in url and spec ")
@@ -141,7 +142,7 @@ func (s *Server) createObject(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) deleteObject(w http.ResponseWriter, r *http.Request) {
-	name := r.URL.Query().Get("name")
+	name := chi.URLParam(r, "name")
 
 	s.Lock()
 	defer s.Unlock()
@@ -157,7 +158,7 @@ func (s *Server) deleteObject(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
-	name := r.URL.Query().Get("name")
+	name := chi.URLParam(r, "name")
 
 	// No need to lock.
 
@@ -220,7 +221,7 @@ func (s *Server) listObjects(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getStatusObject(w http.ResponseWriter, r *http.Request) {
-	name := r.URL.Query().Get("name")
+	name := chi.URLParam(r, "name")
 
 	spec := s._getObject(name)
 

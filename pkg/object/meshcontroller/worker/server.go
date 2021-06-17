@@ -21,8 +21,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
-	"os/signal"
 	"runtime/debug"
 	"sync"
 	"time"
@@ -67,45 +65,32 @@ func NewAPIServer(port int) *apiServer {
 	addr := fmt.Sprintf("%s:%d", defaultServerIP, port)
 
 	s := &apiServer{
-		srv:    http.Server{Addr: addr},
+		srv:    http.Server{Addr: addr, Handler: r},
 		router: r,
 	}
 
 	r.Use(newRecoverer)
+
 	s.addListAPI()
+
+	go func(s *apiServer) {
+		logger.Infof("api server running in %s", port)
+		s.srv.ListenAndServe()
+	}(s)
 
 	return s
 }
 
-// Start runs ListenAndServe on the http.Server with graceful shutdown
-func (s *apiServer) Start() {
-	logger.Infof("api server running in %s", s.opt.APIAddr)
-	defer logger.Sync()
-
-	go func() {
-		if err := http.ListenAndServe(s.opt.APIAddr, s.router); err != nil && err != http.ErrServerClosed {
-			logger.Errorf("Could not listen on", zap.String("addr", s.opt.APIAddr), zap.Error(err))
-		}
-	}()
-
-	logger.Infof("Server is ready to handle requests", zap.String("addr", s.opt.APIAddr))
-	s.Close()
-}
-
 // Close closes Server.
 func (s *apiServer) Close() {
-	quit := make(chan os.Signal, 1)
-
-	signal.Notify(quit, os.Interrupt)
-	sig := <-quit
-	logger.Infof("Server is shutting down", zap.String("reason", sig.String()))
-
+	// Give the server a bit to close connections
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	if err := s.srv.Shutdown(ctx); err != nil {
 		logger.Errorf("Could not gracefully shutdown the server", zap.Error(err))
 	}
+
 	logger.Infof("Server stopped")
 }
 

@@ -44,7 +44,6 @@ func (wrk *Worker) runAPIServer() {
 		apis = wrk.eurekaAPIs()
 	}
 	wrk.apiServer.registerAPIs(apis)
-	go wrk.apiServer.Start()
 }
 
 func (wrk *Worker) emptyHandler(w http.ResponseWriter, r *http.Request) {

@@ -20,12 +20,10 @@ package api
 import (
 	"context"
 	"net/http"
-	"os"
-	"os/signal"
 	"sync"
 	"time"
 
-	chi "github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 
 	"github.com/megaease/easegress/pkg/cluster"
@@ -65,15 +63,14 @@ func MustNewServer(opt *option.Options, cluster cluster.Cluster) *Server {
 	r := chi.NewRouter()
 
 	s := &Server{
-		opt:     *opt,
-		srv:     http.Server{Addr: opt.APIAddr},
+		srv:     http.Server{Addr: opt.APIAddr, Handler: r},
 		router:  r,
 		cluster: cluster,
 	}
 
+	r.Use(s.newAPILogger)
 	r.Use(s.newConfigVersionAttacher)
 	r.Use(s.newRecoverer)
-	r.Use(s.newAPILogger)
 
 	_, err := s.getMutex()
 	if err != nil {
@@ -82,42 +79,28 @@ func MustNewServer(opt *option.Options, cluster cluster.Cluster) *Server {
 
 	s.setupAPIs()
 
-	GlobalServer = s
+	go func() {
+		logger.Infof("api server running in %s", opt.APIAddr)
+		s.srv.ListenAndServe()
+	}()
 
-	s.Start()
+	GlobalServer = s
 
 	return s
 }
 
-// Start runs ListenAndServe on the http.Server with graceful shutdown
-func (s *Server) Start() {
-	logger.Infof("api server running in %s", s.opt.APIAddr)
-	defer logger.Sync()
-
-	go func() {
-		if err := http.ListenAndServe(s.opt.APIAddr, s.router); err != nil && err != http.ErrServerClosed {
-			logger.Errorf("Could not listen on", zap.String("addr", s.opt.APIAddr), zap.Error(err))
-		}
-	}()
-
-	logger.Infof("Server is ready to handle requests", zap.String("addr", s.opt.APIAddr))
-	s.Close()
-}
-
 // Close closes Server.
-func (s *Server) Close() {
-	quit := make(chan os.Signal, 1)
+func (s *Server) Close(wg *sync.WaitGroup) {
+	defer wg.Done()
 
-	signal.Notify(quit, os.Interrupt)
-	sig := <-quit
-	logger.Infof("Server is shutting down", zap.String("reason", sig.String()))
-
+	// Give the server a bit to close connections
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	if err := s.srv.Shutdown(ctx); err != nil {
 		logger.Errorf("Could not gracefully shutdown the server", zap.Error(err))
 	}
+
 	logger.Infof("Server stopped")
 }
 

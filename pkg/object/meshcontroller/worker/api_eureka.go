@@ -28,6 +28,7 @@ import (
 	"strings"
 
 	"github.com/ArthurHlt/go-eureka-client/eureka"
+	"github.com/go-chi/chi/v5"
 
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
@@ -58,17 +59,17 @@ type (
 func (wrk *Worker) eurekaAPIs() []*apiEntry {
 	APIs := []*apiEntry{
 		{
-			Path:    meshEurekaPrefix + "/apps/{serviceName:string}",
+			Path:    meshEurekaPrefix + "/apps/{serviceName}",
 			Method:  "POST",
 			Handler: wrk.eurekaRegister,
 		},
 		{
-			Path:    meshEurekaPrefix + "/apps/{serviceName:string}/{instanceID:string}",
+			Path:    meshEurekaPrefix + "/apps/{serviceName}/{instanceID}",
 			Method:  "DELETE",
 			Handler: wrk.emptyHandler,
 		},
 		{
-			Path:    meshEurekaPrefix + "/apps/{serviceName:string}/{instanceID:string}",
+			Path:    meshEurekaPrefix + "/apps/{serviceName}/{instanceID}",
 			Method:  "PUT",
 			Handler: wrk.emptyHandler,
 		},
@@ -78,41 +79,41 @@ func (wrk *Worker) eurekaAPIs() []*apiEntry {
 			Handler: wrk.apps,
 		},
 		{
-			Path:    meshEurekaPrefix + "/apps/{serviceName:string}",
+			Path:    meshEurekaPrefix + "/apps/{serviceName}",
 			Method:  "GET",
 			Handler: wrk.app,
 		},
 		{
-			Path:    meshEurekaPrefix + "/apps/{serviceName:string}/{instanceID:string}",
+			Path:    meshEurekaPrefix + "/apps/{serviceName}/{instanceID}",
 			Method:  "GET",
 			Handler: wrk.getAppInstance,
 		},
 		{
-			Path:    meshEurekaPrefix + "/apps/instances/{instanceID:string}",
+			Path:    meshEurekaPrefix + "/apps/instances/{instanceID}",
 			Method:  "GET",
 			Handler: wrk.getInstance,
 		},
 		{
-			Path:    meshEurekaPrefix + "/apps/{serviceName:string}/{instanceID:string}/status",
+			Path:    meshEurekaPrefix + "/apps/{serviceName}/{instanceID}/status",
 			Method:  "PUT",
 			Handler: wrk.emptyHandler,
 		},
 		{
-			Path:    meshEurekaPrefix + "/apps/{serviceName:string}/{instanceID:string}/status",
+			Path:    meshEurekaPrefix + "/apps/{serviceName}/{instanceID}/status",
 			Method:  "DELETE",
 			Handler: wrk.emptyHandler,
 		}, {
-			Path:    meshEurekaPrefix + "/apps/{serviceName:string}/{instanceID:string}/metadata",
+			Path:    meshEurekaPrefix + "/apps/{serviceName}/{instanceID}/metadata",
 			Method:  "PUT",
 			Handler: wrk.emptyHandler,
 		},
 		{
-			Path:    meshEurekaPrefix + "/vips/{vipAddress:string}",
+			Path:    meshEurekaPrefix + "/vips/{vipAddress}",
 			Method:  "GET",
 			Handler: wrk.emptyHandler,
 		},
 		{
-			Path:    meshEurekaPrefix + "/svips/{svipAddress:string}",
+			Path:    meshEurekaPrefix + "/svips/{svipAddress}",
 			Method:  "GET",
 			Handler: wrk.emptyHandler,
 		},
@@ -199,7 +200,7 @@ func (wrk *Worker) apps(w http.ResponseWriter, r *http.Request) {
 }
 
 func (wrk *Worker) app(w http.ResponseWriter, r *http.Request) {
-	serviceName := r.URL.Query().Get("serviceName")
+	serviceName := chi.URLParam(r, "serviceName")
 	if serviceName == "" {
 		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("empty service name(app)"))
 		return
@@ -243,12 +244,12 @@ func (wrk *Worker) app(w http.ResponseWriter, r *http.Request) {
 }
 
 func (wrk *Worker) getAppInstance(w http.ResponseWriter, r *http.Request) {
-	serviceName := r.URL.Query().Get("serviceName")
+	serviceName := chi.URLParam(r, "serviceName")
 	if serviceName == "" {
 		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("empty service name(app)"))
 		return
 	}
-	instanceID := r.URL.Query().Get("instanceID")
+	instanceID := chi.URLParam(r, "instanceID")
 	if instanceID == "" {
 		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("empty instanceID"))
 		return
@@ -279,7 +280,7 @@ func (wrk *Worker) getAppInstance(w http.ResponseWriter, r *http.Request) {
 }
 
 func (wrk *Worker) getInstance(w http.ResponseWriter, r *http.Request) {
-	instanceID := r.URL.Query().Get("instanceID")
+	instanceID := chi.URLParam(r, "instanceID")
 	if instanceID == "" {
 		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("empty instanceID"))
 		return

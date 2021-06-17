@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/registrycenter"
@@ -46,7 +47,7 @@ func (wrk *Worker) consulAPIs() []*apiEntry {
 			Handler: wrk.emptyHandler,
 		},
 		{
-			Path:    "/v1/health/service/{serviceName:string}",
+			Path:    "/v1/health/service/{serviceName}",
 			Method:  "GET",
 			Handler: wrk.healthService,
 		},
@@ -61,7 +62,7 @@ func (wrk *Worker) consulAPIs() []*apiEntry {
 			Handler: wrk.catalogServices,
 		},
 		{
-			Path:    "/v1/catalog/service/{serviceName:string}",
+			Path:    "/v1/catalog/service/{serviceName}",
 			Method:  "GET",
 			Handler: wrk.catalogService,
 		},
@@ -95,7 +96,7 @@ func (wrk *Worker) consulRegister(w http.ResponseWriter, r *http.Request) {
 }
 
 func (wrk *Worker) healthService(w http.ResponseWriter, r *http.Request) {
-	serviceName := r.URL.Query().Get("serviceName")
+	serviceName := chi.URLParam(r, "serviceName")
 	if serviceName == "" {
 		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("empty service name"))
 		return
@@ -124,7 +125,7 @@ func (wrk *Worker) healthService(w http.ResponseWriter, r *http.Request) {
 }
 
 func (wrk *Worker) catalogService(w http.ResponseWriter, r *http.Request) {
-	serviceName := r.URL.Query().Get("serviceName")
+	serviceName := chi.URLParam(r, "serviceName")
 	if serviceName == "" {
 		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("empty service name"))
 		return

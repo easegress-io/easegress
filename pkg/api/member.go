@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"sort"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/megaease/easegress/pkg/cluster"
 	yaml "gopkg.in/yaml.v2"
 )
@@ -34,7 +35,7 @@ func (s *Server) setupMemberAPIs() {
 			Handler: s.listMembers,
 		},
 		{
-			Path:    "/status/members/{member:string}",
+			Path:    "/status/members/{member}",
 			Method:  "DELETE",
 			Handler: s.purgeMember,
 		},
@@ -82,7 +83,7 @@ func (s *Server) listMembers(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) purgeMember(w http.ResponseWriter, r *http.Request) {
-	memberName := r.URL.Query().Get("member")
+	memberName := chi.URLParam(r, "member")
 
 	s.Lock()
 	defer s.Unlock()

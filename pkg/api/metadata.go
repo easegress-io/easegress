@@ -23,6 +23,7 @@ import (
 	"reflect"
 	"sort"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
 	"github.com/megaease/easegress/pkg/v"
 
@@ -77,17 +78,17 @@ func (s *Server) setupMetadaAPIs() {
 			Handler: s.listFilters,
 		},
 		&APIEntry{
-			Path:    FilterMetaPrefix + "/{kind:string}" + "/description",
+			Path:    FilterMetaPrefix + "/{kind}" + "/description",
 			Method:  "GET",
 			Handler: s.getFilterDescription,
 		},
 		&APIEntry{
-			Path:    FilterMetaPrefix + "/{kind:string}" + "/schema",
+			Path:    FilterMetaPrefix + "/{kind}" + "/schema",
 			Method:  "GET",
 			Handler: s.getFilterSchema,
 		},
 		&APIEntry{
-			Path:    FilterMetaPrefix + "/{kind:string}" + "/results",
+			Path:    FilterMetaPrefix + "/{kind}" + "/results",
 			Method:  "GET",
 			Handler: s.getFilterResults,
 		},
@@ -107,7 +108,7 @@ func (s *Server) listFilters(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getFilterDescription(w http.ResponseWriter, r *http.Request) {
-	kind := r.URL.Query().Get("kind")
+	kind := chi.URLParam(r, "kind")
 
 	fm, exits := filterMetaBook[kind]
 	if !exits {
@@ -118,7 +119,7 @@ func (s *Server) getFilterDescription(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getFilterSchema(w http.ResponseWriter, r *http.Request) {
-	kind := r.URL.Query().Get("kind")
+	kind := chi.URLParam(r, "kind")
 
 	fm, exits := filterMetaBook[kind]
 	if !exits {
@@ -136,7 +137,7 @@ func (s *Server) getFilterSchema(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getFilterResults(w http.ResponseWriter, r *http.Request) {
-	kind := r.URL.Query().Get("kind")
+	kind := chi.URLParam(r, "kind")
 
 	fm, exits := filterMetaBook[kind]
 	if !exits {

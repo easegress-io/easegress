@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/registrycenter"
@@ -93,7 +94,7 @@ func (wrk *Worker) nacosRegister(w http.ResponseWriter, r *http.Request) {
 }
 
 func (wrk *Worker) nacosInstanceList(w http.ResponseWriter, r *http.Request) {
-	serviceName := r.URL.Query().Get("serviceName")
+	serviceName := chi.URLParam(r, "serviceName")
 	if len(serviceName) == 0 {
 		api.HandleAPIError(w, r, http.StatusBadRequest,
 			fmt.Errorf("empty serviceName in url parameters"))
@@ -127,7 +128,7 @@ func (wrk *Worker) nacosInstanceList(w http.ResponseWriter, r *http.Request) {
 }
 
 func (wrk *Worker) nacosInstance(w http.ResponseWriter, r *http.Request) {
-	serviceName := r.URL.Query().Get("serviceName")
+	serviceName := chi.URLParam(r, "serviceName")
 	if len(serviceName) == 0 {
 		api.HandleAPIError(w, r, http.StatusBadRequest,
 			fmt.Errorf("empty serviceName in url parameters"))
@@ -184,7 +185,7 @@ func (wrk *Worker) nacosServiceList(w http.ResponseWriter, r *http.Request) {
 }
 
 func (wrk *Worker) nacosService(w http.ResponseWriter, r *http.Request) {
-	serviceName := r.URL.Query().Get("serviceName")
+	serviceName := chi.URLParam(r, "serviceName")
 	if len(serviceName) == 0 {
 		api.HandleAPIError(w, r, http.StatusBadRequest,
 			fmt.Errorf("empty serviceName in url parameters"))

@@ -91,8 +91,8 @@ func main() {
 
 	closeCls := func() {
 		wg := &sync.WaitGroup{}
-		wg.Add(1)
-		apiServer.Close()
+		wg.Add(2)
+		apiServer.Close(wg)
 		cls.CloseServer(wg)
 		wg.Wait()
 	}
@@ -113,8 +113,8 @@ func main() {
 	logger.Infof("%s signal received, closing easegress", sig)
 
 	wg := &sync.WaitGroup{}
-	wg.Add(3)
-	apiServer.Close()
+	wg.Add(4)
+	apiServer.Close(wg)
 	super.Close(wg)
 	cls.Close(wg)
 	profile.Close(wg)

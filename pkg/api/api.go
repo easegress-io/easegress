@@ -98,12 +98,9 @@ func (s *Server) setupHealthAPIs() {
 	healthAPIs := []*APIEntry{
 		{
 			// https://stackoverflow.com/a/43381061/1705845
-			Path:   "/healthz",
-			Method: "GET",
-			Handler: func(w http.ResponseWriter, r *http.Request) {
-				w.Header().Set("Content-Type", "text/plain")
-				w.Write([]byte("ok"))
-			},
+			Path:    "/healthz",
+			Method:  "GET",
+			Handler: func(w http.ResponseWriter, r *http.Request) { /* 200 by default */ },
 		},
 	}
 
