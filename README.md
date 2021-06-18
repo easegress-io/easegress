@@ -1,12 +1,5 @@
 # Easegress
 
-<a href="https://megaease.com/easegress">
-    <img src="./doc/easegress.svg"
-         alt="Easegress logo" title="Easegress" height="100" width="100" />
-</a>
-
----
-
 - [Easegress](#easegress)
   - [What is Easegress](#what-is-easegress)
   - [Features](#features)
@@ -20,6 +13,10 @@
   - [License](#license)
 
 ## What is Easegress
+<a href="https://megaease.com/easegress">
+    <img src="./doc/easegress.svg"
+         alt="Easegress logo" title="Easegress" height="100" width="100"  align="right"/>
+</a>
 
 `Easegress` is a Cloud Native traffic orchestration system designed for:
 
