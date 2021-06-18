@@ -200,7 +200,7 @@ func readBody(body io.Reader, maxBodySize int64) (*bytes.Buffer, error) {
 	return buff, nil
 }
 
-// SaveRequest transfors HTTPRequest related fields into template engine's dictionary
+// SaveRequest transforms HTTPRequest related fields into template engine's dictionary
 func (e *HTTPTemplate) SaveRequest(filterName string, ctx HTTPContext) error {
 	var (
 		execFuncs filterDictFuncs
@@ -225,7 +225,7 @@ func (e *HTTPTemplate) SaveRequest(filterName string, ctx HTTPContext) error {
 	return nil
 }
 
-// SaveResponse transfors HTTPResonse related fields into template engine's dictionary
+// SaveResponse transforms HTTPResonse related fields into template engine's dictionary
 func (e *HTTPTemplate) SaveResponse(filterName string, ctx HTTPContext) error {
 	var (
 		execFuncs filterDictFuncs
@@ -250,7 +250,7 @@ func (e *HTTPTemplate) SaveResponse(filterName string, ctx HTTPContext) error {
 	return nil
 }
 
-// Render using enginer to render template
+// Render using engine to render template
 func (e *HTTPTemplate) Render(input string) (string, error) {
 	return e.Engine.Render(input)
 }

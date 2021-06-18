@@ -103,7 +103,7 @@ func (c *compression) alreadyGziped(ctx context.HTTPContext) bool {
 func (c *compression) acceptGzip(ctx context.HTTPContext) bool {
 	acceptEncodings := ctx.Request().Header().GetAll(httpheader.KeyAcceptEncoding)
 
-	// NOTE: Easegress does not support parsing qvalue for performace.
+	// NOTE: Easegress does not support parsing qvalue for performance.
 	// Reference: https://tools.ietf.org/html/rfc2616#section-14.3
 	if len(acceptEncodings) > 0 {
 		for _, ae := range acceptEncodings {

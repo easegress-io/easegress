@@ -71,7 +71,7 @@ func (v *JWTValidator) Validate(req context.HTTPRequest) error {
 		token = authHdr[len(prefix):]
 	}
 
-	// jwt.Parse does everything incuding parsing and verification
+	// jwt.Parse does everything including parsing and verification
 	_, e := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
 		if alg := token.Method.Alg(); alg != v.spec.Algorithm {
 			return nil, fmt.Errorf("unexpected signing method: %v", alg)

@@ -253,7 +253,7 @@ func (m *members) deleteKnownMember(name string) {
 	defer m.Unlock()
 
 	// NOTE: It's fine to delete myself,
-	// becasue it will restore myself in newMembers while restarting.
+	// because it will restore myself in newMembers while restarting.
 	m.KnownMembers.deleteByName(name)
 	m.store()
 }

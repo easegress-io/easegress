@@ -26,8 +26,8 @@ import (
 )
 
 // The complete fomat of template sentence  is
-// ${beginToken}${tag1}${seperator}${tag2}${seperator}...${endtoken}
-// e.g., if beginToken is '[[', endtoken is ']]', seperator is '.'
+// ${beginToken}${tag1}${separator}${tag2}${separator}...${endtoken}
+// e.g., if beginToken is '[[', endtoken is ']]', separator is '.'
 // [[filter.{}.req.body.{gjson}]]
 // [[filter.{}.req.body.{gjson}]]
 // TemplateEngine is the abstract implementer
@@ -40,7 +40,7 @@ const (
 	// if chose "{}" to accept any none empty string, then should provide another tag value at that level
 	WidecardTag = "{}"
 
-	// GJSONTag is teh special hardcode tag for indicating GJSON syntax, must appear in the last
+	// GJSONTag is the special hardcode tag for indicating GJSON syntax, must appear in the last
 	// of one template, if chose "{GJSON}", should provid antoher tag value at that level
 	GJSONTag = "{gjson}"
 
@@ -54,7 +54,7 @@ type node struct {
 	Children []*node
 }
 
-// TemplateEngine is the basic API collection for a tempalte usage
+// TemplateEngine is the basic API collection for a template usage
 type TemplateEngine interface {
 	// Rendering e.g., [[xxx.xx.dd.xx]]'s value is 'value0', [[yyy.www.zzz]]'s value is 'value1'
 	// "aaa-[[xxx.xx.dd.xx]]-bbb 10101-[[yyy.wwww.zzz]]-9292" will be rendered to "aaa-value0-bbb 10101-value1-9292"
@@ -125,7 +125,7 @@ func (DummyTemplate) HasTemplates(input string) bool {
 }
 
 // TextTemplate wraps a fasttempalte rendering and a
-// template syntax tree for validation, the valid tempalte and its
+// template syntax tree for validation, the valid template and its
 // value can be added into dictionary for rendering
 type TextTemplate struct {
 	ft         *fasttemplate.Template
@@ -138,7 +138,7 @@ type TextTemplate struct {
 	dict          map[string]interface{} // using `interface{}` for fasttemplate's API
 }
 
-// NewDefault returns Tempalte interface implementer with default config and customize meatTemplates
+// NewDefault returns Template interface implementer with default config and customize meatTemplates
 func NewDefault(metaTemplates []string) (TemplateEngine, error) {
 	t := TextTemplate{
 		beginToken:    DefulatBeginToken,
@@ -156,7 +156,7 @@ func NewDefault(metaTemplates []string) (TemplateEngine, error) {
 
 }
 
-// New returns a new Tempalte interface implementer, return a dummy template if something wrong,
+// New returns a new Template interface implementer, return a dummy template if something wrong,
 // and in that case, the didicated reason will set into error return
 func New(beginToken, endToken, seperator string, metaTemplates []string) (TemplateEngine, error) {
 	if len(beginToken) == 0 || len(endToken) == 0 || len(seperator) == 0 || len(metaTemplates) == 0 {
@@ -257,7 +257,7 @@ func (t *TextTemplate) buildTemplateTree() error {
 	for _, v := range t.metaTemplates {
 		arr := strings.Split(v, t.seperator)
 		if len(arr) == 0 {
-			return fmt.Errorf("invalid tempalte %s by seperator %s",
+			return fmt.Errorf("invalid template %s by seperator %s",
 				v, t.seperator)
 		}
 
@@ -416,7 +416,7 @@ func (t *TextTemplate) setWithGJSON(template, metaTemplate string) error {
 			return err
 		}
 	} else {
-		return fmt.Errorf("set gjson found no syntax target, tempalte %s", template)
+		return fmt.Errorf("set gjson found no syntax target, template %s", template)
 	}
 
 	return nil

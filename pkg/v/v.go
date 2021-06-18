@@ -167,7 +167,7 @@ func getSchemaMeta(reflector *genjs.Reflector, t reflect.Type) (*schemaMeta, err
 
 // traverseGo recursively traverses the golang data structure with the rules below:
 //
-// 1. It traverses fields of the embeded struct.
+// 1. It traverses fields of the embedded struct.
 // 2. It does not traverse unexported subfields of the struct.
 // 3. It pass nil to the argument StructField when it's not a struct field.
 // 4. It stops when encoutering nil.

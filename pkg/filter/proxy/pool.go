@@ -50,7 +50,7 @@ type (
 		memoryCache *memorycache.MemoryCache
 	}
 
-	// PoolSpec decribes a pool of servers.
+	// PoolSpec describes a pool of servers.
 	PoolSpec struct {
 		SpanName        string            `yaml:"spanName" jsonschema:"omitempty"`
 		Filter          *httpfilter.Spec  `yaml:"filter" jsonschema:"omitempty"`
