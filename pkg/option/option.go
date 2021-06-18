@@ -26,13 +26,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/megaease/easegress/pkg/common"
-	"github.com/megaease/easegress/pkg/version"
 	"github.com/mitchellh/mapstructure"
-
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	yaml "gopkg.in/yaml.v2"
+
+	"github.com/megaease/easegress/pkg/common"
+	"github.com/megaease/easegress/pkg/version"
 )
 
 // Options is the startup options.
@@ -385,5 +385,4 @@ func generateMemberName(apiAddr string) (string, error) {
 	memberName = strings.Replace(memberName, ":", "-", -1)
 	memberName = strings.Replace(memberName, "=", "-", -1)
 	return memberName, nil
-
 }

@@ -33,11 +33,9 @@ import (
 	"github.com/megaease/easegress/pkg/option"
 	"github.com/megaease/easegress/pkg/pidfile"
 	"github.com/megaease/easegress/pkg/profile"
+	_ "github.com/megaease/easegress/pkg/registry"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/version"
-
-	// For register stuff.
-	_ "github.com/megaease/easegress/pkg/registry"
 )
 
 func main() {

@@ -98,7 +98,6 @@ func NewJolokiaClient(host, port, path string) *JolokiaClient {
 }
 
 func (client *JolokiaClient) handleRequest(requestBody []byte) (*JolokiaResponse, error) {
-
 	request, err := http.NewRequest(
 		"POST",
 		client.URL,
@@ -128,7 +127,6 @@ func (client *JolokiaClient) handleRequest(requestBody []byte) (*JolokiaResponse
 	}
 
 	return &jolokiaResponse, nil
-
 }
 
 func (client *JolokiaClient) execute(requestBody interface{}) (interface{}, error) {
@@ -160,6 +158,7 @@ func (client *JolokiaClient) GetMbeanAttribute(mbean string, attribute string, p
 	}
 	return result, err
 }
+
 func (client *JolokiaClient) SetMbeanAttribute(mbean string, attribute string, path string, value interface{}) (interface{}, error) {
 	requestBody := writeRequestBody{
 		Mbean:     mbean,

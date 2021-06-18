@@ -47,7 +47,6 @@ func (rcs *Server) ToEurekaInstanceInfo(serviceInfo *ServiceRegistryInfo) *eurek
 	}
 
 	return &ins
-
 }
 
 // ToEurekaApp transforms registry center's service info to eureka's app

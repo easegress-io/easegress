@@ -21,11 +21,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hashicorp/consul/api"
+
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/serviceregistry"
 	"github.com/megaease/easegress/pkg/supervisor"
-
-	"github.com/hashicorp/consul/api"
 )
 
 const (
@@ -156,7 +156,6 @@ func (c *ConsulServiceRegistry) buildClient() (*api.Client, error) {
 	}
 
 	client, err := api.NewClient(config)
-
 	if err != nil {
 		return nil, err
 	}

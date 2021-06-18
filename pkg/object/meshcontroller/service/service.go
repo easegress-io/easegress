@@ -20,15 +20,15 @@ package service
 import (
 	"fmt"
 
+	"go.etcd.io/etcd/api/v3/mvccpb"
+	"gopkg.in/yaml.v2"
+
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/layout"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/storage"
 	"github.com/megaease/easegress/pkg/supervisor"
-	"go.etcd.io/etcd/api/v3/mvccpb"
-
-	"gopkg.in/yaml.v2"
 )
 
 type (

@@ -63,9 +63,7 @@ type (
 	}
 )
 
-var (
-	filterRegistry = map[string]Filter{}
-)
+var filterRegistry = map[string]Filter{}
 
 // Register registers filter.
 func Register(f Filter) {

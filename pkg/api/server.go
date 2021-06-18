@@ -53,10 +53,8 @@ type (
 	}
 )
 
-var (
-	// GlobalServer is the global api server.
-	GlobalServer *Server
-)
+// GlobalServer is the global api server.
+var GlobalServer *Server
 
 // MustNewServer creates an api server.
 func MustNewServer(opt *option.Options, cluster cluster.Cluster) *Server {

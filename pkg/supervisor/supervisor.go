@@ -291,7 +291,6 @@ func (s *Supervisor) WalkRunningObjects(walkFn WalkFunc, category ObjectCategory
 			logger.Errorf("walkRunningObjects recover from err: %v, stack trace:\n%s\n",
 				err, debug.Stack())
 		}
-
 	}()
 
 	for _, rc := range s.runningCategories {

@@ -23,11 +23,11 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/megaease/easegress/pkg/api"
-	"github.com/megaease/easegress/pkg/v"
-
 	yamljsontool "github.com/ghodss/yaml"
 	"gopkg.in/yaml.v2"
+
+	"github.com/megaease/easegress/pkg/api"
+	"github.com/megaease/easegress/pkg/v"
 )
 
 const (

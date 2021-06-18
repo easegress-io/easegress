@@ -20,11 +20,11 @@ package corsadaptor
 import (
 	"net/http"
 
+	"github.com/rs/cors"
+
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
 	"github.com/megaease/easegress/pkg/supervisor"
-
-	"github.com/rs/cors"
 )
 
 const (
@@ -34,9 +34,7 @@ const (
 	resultPreflighted = "preflighted"
 )
 
-var (
-	results = []string{resultPreflighted}
-)
+var results = []string{resultPreflighted}
 
 func init() {
 	httppipeline.Register(&CORSAdaptor{})

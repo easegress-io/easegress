@@ -22,11 +22,11 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/megaease/easegress/pkg/util/jsontool"
-
 	yamljsontool "github.com/ghodss/yaml"
 	genjs "github.com/megaease/jsonschema"
 	loadjs "github.com/xeipuuv/gojsonschema"
+
+	"github.com/megaease/easegress/pkg/util/jsontool"
 )
 
 type (
@@ -142,7 +142,6 @@ func getSchemaMeta(reflector *genjs.Reflector, t reflect.Type) (*schemaMeta, err
 		if _, ok := getFormatFunc(definition.Format); !ok {
 			return nil, fmt.Errorf("%v got unsupported format: %s", t, definition.Format)
 		}
-
 	}
 
 	sm.jsonFormat, err = json.Marshal(schema)

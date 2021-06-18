@@ -24,6 +24,8 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/opentracing/opentracing-go"
+
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/tracing"
@@ -33,7 +35,6 @@ import (
 	"github.com/megaease/easegress/pkg/util/httpstat"
 	"github.com/megaease/easegress/pkg/util/memorycache"
 	"github.com/megaease/easegress/pkg/util/stringtool"
-	"github.com/opentracing/opentracing-go"
 )
 
 type (

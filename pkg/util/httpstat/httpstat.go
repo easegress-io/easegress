@@ -21,10 +21,10 @@ import (
 	"sync"
 	"time"
 
+	metrics "github.com/rcrowley/go-metrics"
+
 	"github.com/megaease/easegress/pkg/util/codecounter"
 	"github.com/megaease/easegress/pkg/util/sampler"
-
-	metrics "github.com/rcrowley/go-metrics"
 )
 
 type (

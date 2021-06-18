@@ -31,5 +31,4 @@ func TestJSONTrimNull(t *testing.T) {
 	if want != got {
 		t.Fatalf("want: %s\ngot : %s", want, got)
 	}
-
 }

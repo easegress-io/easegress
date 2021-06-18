@@ -27,11 +27,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/option"
-
 	pb "go.etcd.io/etcd/api/v3/etcdserverpb"
 	yaml "gopkg.in/yaml.v2"
+
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/option"
 )
 
 const (
@@ -146,7 +146,7 @@ func (m *members) store() {
 		}
 	}
 
-	err = ioutil.WriteFile(m.file, buff, 0644)
+	err = ioutil.WriteFile(m.file, buff, 0o644)
 	if err != nil {
 		logger.Errorf("write file %s failed: %v", m.file, err)
 	} else {

@@ -43,10 +43,8 @@ type (
 	}
 )
 
-var (
-	// CommandlineGlobalFlags is the singleton of GlobalFlags.
-	CommandlineGlobalFlags GlobalFlags
-)
+// CommandlineGlobalFlags is the singleton of GlobalFlags.
+var CommandlineGlobalFlags GlobalFlags
 
 const (
 	apiURL = "/apis/v1"

@@ -21,12 +21,12 @@ import (
 	"runtime/debug"
 	"sync"
 
+	"gopkg.in/yaml.v2"
+
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/storage"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/timetool"
-
-	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -57,8 +57,7 @@ type (
 	}
 
 	// Spec describes StatusSyncController.
-	Spec struct {
-	}
+	Spec struct{}
 
 	// StatusesRecord is the history record for status of every running object.
 	StatusesRecord struct {

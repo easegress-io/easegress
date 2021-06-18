@@ -19,8 +19,9 @@ package command
 
 import (
 	"errors"
-	"github.com/spf13/cobra"
 	"net/http"
+
+	"github.com/spf13/cobra"
 )
 
 func ingressCmd() *cobra.Command {

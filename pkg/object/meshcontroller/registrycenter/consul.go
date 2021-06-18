@@ -36,10 +36,9 @@ func (rcs *Server) ToConsulCatalogService(serviceInfo *ServiceRegistryInfo) []*a
 
 	svcs = append(svcs, &svc)
 	return svcs
-
 }
 
-//ToConsulHealthService transforms service registry info to consul's serviceEntry
+// ToConsulHealthService transforms service registry info to consul's serviceEntry
 func (rcs *Server) ToConsulHealthService(serviceInfo *ServiceRegistryInfo) []*api.ServiceEntry {
 	var (
 		svc  api.ServiceEntry

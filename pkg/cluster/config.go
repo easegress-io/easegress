@@ -22,10 +22,10 @@ import (
 	"net/url"
 	"path/filepath"
 
+	"go.etcd.io/etcd/server/v3/embed"
+
 	"github.com/megaease/easegress/pkg/common"
 	"github.com/megaease/easegress/pkg/logger"
-
-	"go.etcd.io/etcd/server/v3/embed"
 )
 
 const (

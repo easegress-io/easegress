@@ -22,10 +22,10 @@ import (
 	"testing"
 
 	"github.com/fatih/structs"
-	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
-
 	yamljsontool "github.com/ghodss/yaml"
 	"gopkg.in/yaml.v2"
+
+	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
 )
 
 type heapMemoryUsage struct {
@@ -74,7 +74,6 @@ func TestGetMbeanAttribute(t *testing.T) {
 	//	fmt.Println(err)
 	//}
 	//fmt.Println(mbeans)
-
 }
 
 func TestExecuteMbeanOperation(t *testing.T) {
@@ -130,7 +129,6 @@ func TestExecuteMbeanOperation(t *testing.T) {
 }
 
 func TestSpecTransform(t *testing.T) {
-
 	observability := spec.Observability{}
 	observability.OutputServer = &spec.ObservabilityOutputServer{
 		Enabled:         true,

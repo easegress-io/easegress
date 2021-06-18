@@ -21,14 +21,14 @@ import (
 	"io"
 	"time"
 
-	"github.com/megaease/easegress/pkg/tracing/base"
-
 	opentracing "github.com/opentracing/opentracing-go"
 	zipkinot "github.com/openzipkin-contrib/zipkin-go-opentracing"
 	zipkingo "github.com/openzipkin/zipkin-go"
 	zipkingomodel "github.com/openzipkin/zipkin-go/model"
 	zipkingoreporter "github.com/openzipkin/zipkin-go/reporter"
 	zipkingohttp "github.com/openzipkin/zipkin-go/reporter/http"
+
+	"github.com/megaease/easegress/pkg/tracing/base"
 )
 
 type (

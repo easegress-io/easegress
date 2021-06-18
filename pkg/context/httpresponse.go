@@ -29,9 +29,7 @@ import (
 	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
-var (
-	bodyFlushBuffSize = 8 * int64(os.Getpagesize())
-)
+var bodyFlushBuffSize = 8 * int64(os.Getpagesize())
 
 type (
 	// BodyFlushFunc is the type of function to be called back

@@ -21,15 +21,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"net/http"
 	"strconv"
 	"strings"
+
+	"gopkg.in/yaml.v2"
 )
 
 func JsonToKVMap(jsonStr string) (map[string]string, error) {
-
 	m := map[string]interface{}{}
 	err := json.Unmarshal([]byte(jsonStr), &m)
 	if err != nil {

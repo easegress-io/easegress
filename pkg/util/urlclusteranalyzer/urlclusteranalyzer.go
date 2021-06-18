@@ -85,7 +85,6 @@ func (u *URLClusterAnalyzer) GetPattern(urlPath string) string {
 	pos := len(values)
 	if len(values) >= maxLayers {
 		pos = maxLayers - 1
-
 	}
 	currField := u.slots[pos]
 	currPattern := currField.pattern

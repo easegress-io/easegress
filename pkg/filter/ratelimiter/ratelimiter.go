@@ -37,9 +37,7 @@ const (
 	resultRateLimited = "rateLimited"
 )
 
-var (
-	results = []string{resultRateLimited}
-)
+var results = []string{resultRateLimited}
 
 func init() {
 	httppipeline.Register(&RateLimiter{})

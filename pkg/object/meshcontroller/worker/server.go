@@ -26,11 +26,11 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
+	"gopkg.in/yaml.v2"
+
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/option"
-	"go.uber.org/zap"
-
-	"gopkg.in/yaml.v2"
 )
 
 const (

@@ -23,9 +23,7 @@ import (
 	"time"
 )
 
-var (
-	now time.Time
-)
+var now time.Time
 
 func setup() {
 	now = time.Now()

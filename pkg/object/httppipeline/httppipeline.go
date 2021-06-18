@@ -24,12 +24,12 @@ import (
 	"sync"
 	"time"
 
+	yaml "gopkg.in/yaml.v2"
+
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/stringtool"
-
-	yaml "gopkg.in/yaml.v2"
 )
 
 const (
@@ -146,10 +146,8 @@ func (ctx *PipelineContext) log() string {
 	return buf.String()
 }
 
-var (
-	// context.HTTPContext: *PipelineContext
-	runningContexts sync.Map = sync.Map{}
-)
+// context.HTTPContext: *PipelineContext
+var runningContexts sync.Map = sync.Map{}
 
 func newAndSetPipelineContext(ctx context.HTTPContext) *PipelineContext {
 	pipeCtx := &PipelineContext{}

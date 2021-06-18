@@ -34,9 +34,7 @@ const (
 	resultMocked = "mocked"
 )
 
-var (
-	results = []string{resultMocked}
-)
+var results = []string{resultMocked}
 
 func init() {
 	httppipeline.Register(&Mock{})

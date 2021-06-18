@@ -23,11 +23,11 @@ import (
 	"sync"
 	"time"
 
+	zookeeper "github.com/go-zookeeper/zk"
+
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/serviceregistry"
 	"github.com/megaease/easegress/pkg/supervisor"
-
-	zookeeper "github.com/go-zookeeper/zk"
 )
 
 const (
@@ -152,7 +152,6 @@ func (zk *ZookeeperServiceRegistry) buildConn() (*zookeeper.Conn, error) {
 	}
 
 	conn, _, err := zookeeper.Connect(zk.spec.ZKServices, conntimeout)
-
 	if err != nil {
 		logger.Errorf("zookeeper get connection failed: %v", err)
 		return nil, err
@@ -214,7 +213,6 @@ func (zk *ZookeeperServiceRegistry) update() {
 	}
 
 	childs, _, err := conn.Children(zk.spec.Prefix)
-
 	if err != nil {
 		logger.Errorf("%s get path: %s children failed: %v", zk.superSpec.Name(), zk.spec.Prefix, err)
 		return
@@ -226,7 +224,6 @@ func (zk *ZookeeperServiceRegistry) update() {
 
 		fullPath := zk.spec.Prefix + "/" + child
 		data, _, err := conn.Get(fullPath)
-
 		if err != nil {
 			if err == zookeeper.ErrNoNode {
 				continue

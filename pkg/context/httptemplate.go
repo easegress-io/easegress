@@ -313,6 +313,7 @@ func saveReqHost(e *HTTPTemplate, filterName string, ctx HTTPContext) error {
 func saveReqPath(e *HTTPTemplate, filterName string, ctx HTTPContext) error {
 	return e.Engine.SetDict(fmt.Sprintf(filterReqPath, filterName), ctx.Request().Path())
 }
+
 func saveReqProto(e *HTTPTemplate, filterName string, ctx HTTPContext) error {
 	return e.Engine.SetDict(fmt.Sprintf(filterReqProto, filterName), ctx.Request().Proto())
 }
@@ -327,7 +328,6 @@ func saveReqMethod(e *HTTPTemplate, filterName string, ctx HTTPContext) error {
 
 func saveReqBody(e *HTTPTemplate, filterName string, ctx HTTPContext) error {
 	bodyBuff, err := readBody(ctx.Request().Body(), defaultMaxBodySize)
-
 	if err != nil {
 		logger.Errorf("httptemplate save HTTP request  body failed err %v", err)
 		return err
@@ -357,7 +357,6 @@ func saveReqHeader(e *HTTPTemplate, filterName string, ctx HTTPContext) error {
 
 func saveRspBody(e *HTTPTemplate, filterName string, ctx HTTPContext) error {
 	bodyBuff, err := readBody(ctx.Response().Body(), defaultMaxBodySize)
-
 	if err != nil {
 		logger.Errorf("httptemplate save HTTP response body failed err %v", err)
 		return err

@@ -20,8 +20,9 @@ package main
 import (
 	"os"
 
-	"github.com/megaease/easegress/cmd/client/command"
 	"github.com/spf13/cobra"
+
+	"github.com/megaease/easegress/cmd/client/command"
 )
 
 func init() {

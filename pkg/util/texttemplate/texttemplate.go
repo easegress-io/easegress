@@ -83,8 +83,7 @@ type TemplateEngine interface {
 }
 
 // DummyTemplate return a empty implement
-type DummyTemplate struct {
-}
+type DummyTemplate struct{}
 
 // Render dummy implement
 func (DummyTemplate) Render(input string) (string, error) {
@@ -153,7 +152,6 @@ func NewDefault(metaTemplates []string) (TemplateEngine, error) {
 	}
 
 	return t, nil
-
 }
 
 // New returns a new Template interface implementer, return a dummy template if something wrong,
@@ -198,7 +196,6 @@ func (t *TextTemplate) indexChild(children []*node, target string) int {
 }
 
 func (t *TextTemplate) addNode(tags []string) {
-
 	if t.root == nil {
 		t.root = &node{}
 	}

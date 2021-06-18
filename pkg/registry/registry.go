@@ -18,16 +18,6 @@
 package registry
 
 import (
-	// Objects
-	_ "github.com/megaease/easegress/pkg/object/easemonitormetrics"
-	_ "github.com/megaease/easegress/pkg/object/function"
-	_ "github.com/megaease/easegress/pkg/object/httppipeline"
-	_ "github.com/megaease/easegress/pkg/object/httpserver"
-	_ "github.com/megaease/easegress/pkg/object/meshcontroller"
-	_ "github.com/megaease/easegress/pkg/object/serviceregistry/consulserviceregistry"
-	_ "github.com/megaease/easegress/pkg/object/serviceregistry/etcdserviceregistry"
-	_ "github.com/megaease/easegress/pkg/object/serviceregistry/eurekaserviceregistry"
-	_ "github.com/megaease/easegress/pkg/object/serviceregistry/zookeeperserviceregistry"
 
 	// Filters
 	_ "github.com/megaease/easegress/pkg/filter/apiaggregator"
@@ -44,4 +34,15 @@ import (
 	_ "github.com/megaease/easegress/pkg/filter/retryer"
 	_ "github.com/megaease/easegress/pkg/filter/timelimiter"
 	_ "github.com/megaease/easegress/pkg/filter/validator"
+
+	// Objects
+	_ "github.com/megaease/easegress/pkg/object/easemonitormetrics"
+	_ "github.com/megaease/easegress/pkg/object/function"
+	_ "github.com/megaease/easegress/pkg/object/httppipeline"
+	_ "github.com/megaease/easegress/pkg/object/httpserver"
+	_ "github.com/megaease/easegress/pkg/object/meshcontroller"
+	_ "github.com/megaease/easegress/pkg/object/serviceregistry/consulserviceregistry"
+	_ "github.com/megaease/easegress/pkg/object/serviceregistry/etcdserviceregistry"
+	_ "github.com/megaease/easegress/pkg/object/serviceregistry/eurekaserviceregistry"
+	_ "github.com/megaease/easegress/pkg/object/serviceregistry/zookeeperserviceregistry"
 )

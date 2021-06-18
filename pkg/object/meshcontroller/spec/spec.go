@@ -21,6 +21,8 @@ import (
 	"bytes"
 	"fmt"
 
+	"gopkg.in/yaml.v2"
+
 	"github.com/megaease/easegress/pkg/filter/circuitbreaker"
 	"github.com/megaease/easegress/pkg/filter/proxy"
 	"github.com/megaease/easegress/pkg/filter/ratelimiter"
@@ -31,8 +33,6 @@ import (
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/httpfilter"
 	"github.com/megaease/easegress/pkg/util/urlrule"
-
-	"gopkg.in/yaml.v2"
 )
 
 const (

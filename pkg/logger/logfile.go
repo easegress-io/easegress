@@ -75,7 +75,7 @@ func newLogFile(filename string, maxCacheCount uint32) (*logFile, error) {
 }
 
 func (lf *logFile) openFile() error {
-	file, err := os.OpenFile(lf.filename, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0640)
+	file, err := os.OpenFile(lf.filename, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o640)
 	if err != nil {
 		return err
 	}

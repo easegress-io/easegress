@@ -32,9 +32,7 @@ const (
 	Kind = "ResponseAdaptor"
 )
 
-var (
-	results = []string{}
-)
+var results = []string{}
 
 func init() {
 	httppipeline.Register(&ResponseAdaptor{})

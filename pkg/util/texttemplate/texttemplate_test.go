@@ -22,7 +22,6 @@ import (
 )
 
 func TestNewTextTemplateSucc(t *testing.T) {
-
 	tt, err := NewDefault([]string{
 		"filter.{}.req.path",
 		"filter.{}.req.method",
@@ -35,7 +34,6 @@ func TestNewTextTemplateSucc(t *testing.T) {
 		"filter.{}.rsp.statuscode",
 		"filter.{}.rsp.body.{gjson}",
 	})
-
 	if err != nil {
 		t.Errorf("new engine failed err %v", err)
 	}
@@ -52,8 +50,8 @@ func TestNewTextTemplateSucc(t *testing.T) {
 		t.Errorf("rendering fail , result is %s except xxx-kkk--yyy", s)
 	}
 }
-func TestNewTextTemplateRenderGJSON(t *testing.T) {
 
+func TestNewTextTemplateRenderGJSON(t *testing.T) {
 	tt, err := NewDefault([]string{
 		"filter.{}.req.path",
 		"filter.{}.req.method",
@@ -61,7 +59,6 @@ func TestNewTextTemplateRenderGJSON(t *testing.T) {
 		"filter.{}.req.body.{gjson}",
 		"filter.{}.req.header.{}",
 	})
-
 	if err != nil {
 		t.Errorf("new engine failed err %v", err)
 	}
@@ -100,7 +97,6 @@ func TestNewTextTemplateRenderGJSON(t *testing.T) {
 }
 
 func TestNewTextTemplateRenderWildCard(t *testing.T) {
-
 	tt, err := NewDefault([]string{
 		"filter.{}.req.path",
 		"filter.{}.req.method",
@@ -108,7 +104,6 @@ func TestNewTextTemplateRenderWildCard(t *testing.T) {
 		"filter.{}.req.body.{gjson}",
 		"filter.{}.req.header.{}",
 	})
-
 	if err != nil {
 		t.Errorf("new engine failed err %v", err)
 	}
@@ -139,10 +134,9 @@ func TestNewTextTemplateRenderWildCard(t *testing.T) {
 		t.Fatalf("input %s, excpet %s , after rending %s ", input, except, s)
 
 	}
-
 }
-func TestNewTextTemplateErrGJSON(t *testing.T) {
 
+func TestNewTextTemplateErrGJSON(t *testing.T) {
 	tt, err := NewDefault([]string{
 		"filter.{}.req.header.{}",
 		"filter.{}.rsp.statuscode",
@@ -155,7 +149,6 @@ func TestNewTextTemplateErrGJSON(t *testing.T) {
 }
 
 func TestNewTextTemplateErrGJSONBegin(t *testing.T) {
-
 	tt, err := NewDefault([]string{
 		"filter.{}.req.header.{}",
 		"filter.{}.rsp.statuscode",
@@ -169,7 +162,6 @@ func TestNewTextTemplateErrGJSONBegin(t *testing.T) {
 }
 
 func TestNewTextTemplateErrWidecardConfilct(t *testing.T) {
-
 	tt, err := NewDefault([]string{
 		"filter.{}.req.header.{}",
 		"filter.{}.rsp.statuscode",
@@ -183,7 +175,6 @@ func TestNewTextTemplateErrWidecardConfilct(t *testing.T) {
 }
 
 func TestNewTextTemplateErrGJSONMiddle(t *testing.T) {
-
 	tt, err := NewDefault([]string{
 		"filter.{}.req.header.{}",
 		"filter.{}.rsp.statuscode",
@@ -198,7 +189,6 @@ func TestNewTextTemplateErrGJSONMiddle(t *testing.T) {
 }
 
 func TestNewTextTemplateWithEmpty(t *testing.T) {
-
 	tt, err := NewDefault([]string{})
 
 	t.Logf("New engine invalid, excpet err [%v]", err)
@@ -208,7 +198,6 @@ func TestNewTextTemplateWithEmpty(t *testing.T) {
 }
 
 func TestNewTextTemplateWithWidecarFirstLevel(t *testing.T) {
-
 	tt, err := NewDefault([]string{
 		"filter",
 		"name",
@@ -223,7 +212,6 @@ func TestNewTextTemplateWithWidecarFirstLevel(t *testing.T) {
 }
 
 func TestNewTextTemplateWithWidecarLastLevel(t *testing.T) {
-
 	tt, err := NewDefault([]string{
 		"filter.req.http",
 		"filter.req.name",
@@ -238,7 +226,6 @@ func TestNewTextTemplateWithWidecarLastLevel(t *testing.T) {
 }
 
 func TestNewTextTemplateValidate(t *testing.T) {
-
 	tt, err := NewDefault([]string{
 		"filter.{}.req.path",
 		"filter.{}.req.method",
@@ -251,7 +238,6 @@ func TestNewTextTemplateValidate(t *testing.T) {
 		"filter.{}.rsp.statuscode",
 		"filter.{}.rsp.body.{gjson}",
 	})
-
 	if err != nil {
 		t.Errorf("new engine failed err %v", err)
 	}
@@ -275,7 +261,6 @@ func TestNewTextTemplateValidate(t *testing.T) {
 	if tt.HasTemplates(input) == true {
 		t.Fatalf("except not match template, but succ input [%s]", input)
 	}
-
 }
 
 func TestNewTextTemplateMatchTemplate(t *testing.T) {
@@ -288,7 +273,6 @@ func TestNewTextTemplateMatchTemplate(t *testing.T) {
 		"filter.{}.req.host",
 		"filter.{}.req.host.{}",
 	})
-
 	if err != nil {
 		t.Errorf("new engine failed err %v", err)
 	}
@@ -352,8 +336,8 @@ func TestNewTextTemplateMatchTemplate(t *testing.T) {
 		t.Fatalf("except match template, but failed input [%s]", result)
 	}
 }
-func TestNewTextTemplateExtractTemplateRuleMap(t *testing.T) {
 
+func TestNewTextTemplateExtractTemplateRuleMap(t *testing.T) {
 	tt, err := NewDefault([]string{
 		"filter.{}.req.path",
 		"filter.{}.req.method",
@@ -366,7 +350,6 @@ func TestNewTextTemplateExtractTemplateRuleMap(t *testing.T) {
 		"filter.{}.rsp.statuscode",
 		"filter.{}.rsp.body.{gjson}",
 	})
-
 	if err != nil {
 		t.Fatalf("new engine failed err %v", err)
 	}
@@ -414,7 +397,6 @@ func TestNewTextTemplateExtractTemplateRuleMap(t *testing.T) {
 }
 
 func TestNewTextTemplateExtractTemplateRuleMapEmpty(t *testing.T) {
-
 	tt, err := NewDefault([]string{
 		"filter.{}.req.path",
 		"filter.{}.req.method",
@@ -427,7 +409,6 @@ func TestNewTextTemplateExtractTemplateRuleMapEmpty(t *testing.T) {
 		"filter.{}.rsp.statuscode",
 		"filter.{}.rsp.body.{gjson}",
 	})
-
 	if err != nil {
 		t.Fatalf("new engine failed err %v", err)
 	}
@@ -456,7 +437,6 @@ func TestNewTextTemplateExtractTemplateRuleMapEmpty(t *testing.T) {
 }
 
 func TestNewTextTemplateExtractRawTemplateRuleMapEmpty(t *testing.T) {
-
 	tt, err := NewDefault([]string{
 		"filter.{}.req.path",
 		"filter.{}.req.method",
@@ -469,7 +449,6 @@ func TestNewTextTemplateExtractRawTemplateRuleMapEmpty(t *testing.T) {
 		"filter.{}.rsp.statuscode",
 		"filter.{}.rsp.body.{gjson}",
 	})
-
 	if err != nil {
 		t.Fatalf("new engine failed err %v", err)
 	}

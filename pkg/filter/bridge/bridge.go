@@ -47,9 +47,7 @@ A Bridge Filter route requests to from one pipeline to other pipelines or http p
 	bridgeDestHeader = "X-Easegress-Bridge-Dest"
 )
 
-var (
-	results = []string{resultDestinationNotFound, resultInvokeDestinationFailed}
-)
+var results = []string{resultDestinationNotFound, resultInvokeDestinationFailed}
 
 func init() {
 	httppipeline.Register(&Bridge{})

@@ -20,9 +20,9 @@ package tracing
 import (
 	"io"
 
-	"github.com/megaease/easegress/pkg/tracing/zipkin"
-
 	opentracing "github.com/opentracing/opentracing-go"
+
+	"github.com/megaease/easegress/pkg/tracing/zipkin"
 )
 
 type (
@@ -43,13 +43,11 @@ type (
 	noopCloser struct{}
 )
 
-var (
-	// NoopTracing is the tracing doing nothing.
-	NoopTracing = &Tracing{
-		Tracer: opentracing.NoopTracer{},
-		closer: nil,
-	}
-)
+// NoopTracing is the tracing doing nothing.
+var NoopTracing = &Tracing{
+	Tracer: opentracing.NoopTracer{},
+	closer: nil,
+}
 
 // New creates a Tracing.
 func New(spec *Spec) (*Tracing, error) {
