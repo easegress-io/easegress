@@ -29,4 +29,9 @@ type (
 	HTTPHandler interface {
 		Handle(ctx context.HTTPContext)
 	}
+
+	// MuxMapper gets HTTP handler pipeline with mutex
+	MuxMapper interface {
+		GetHandler(name string) (HTTPHandler, bool)
+	}
 )

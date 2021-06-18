@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package storage
+package supervisor
 
 import (
 	"bytes"
@@ -42,8 +42,7 @@ const (
 )
 
 type (
-	// Storage is the system component to interact with local and remote storage.
-	Storage struct {
+	configSyncer struct {
 		cls        cluster.Cluster
 		watcher    cluster.Watcher
 		prefix     string
@@ -53,17 +52,13 @@ type (
 		config         map[string]string
 		configChan     chan map[string]string
 
-		statusChan     chan map[string]string
-		statusToDelete map[string]struct{}
-
 		first bool
 		done  chan struct{}
 	}
 )
 
-// New creates a Storage.
-func New(opt *option.Options, cls cluster.Cluster) *Storage {
-	s := &Storage{
+func newconfigSyncer(opt *option.Options, cls cluster.Cluster) *configSyncer {
+	cs := &configSyncer{
 		cls:    cls,
 		prefix: cls.Layout().ConfigObjectPrefix(),
 
@@ -71,44 +66,36 @@ func New(opt *option.Options, cls cluster.Cluster) *Storage {
 		config:         make(map[string]string),
 		configChan:     make(chan map[string]string, 10),
 
-		statusChan:     make(chan map[string]string, 10),
-		statusToDelete: make(map[string]struct{}),
-
 		first: true,
 		done:  make(chan struct{}),
 	}
 
 	var deltas []map[string]*string
-	config, err := s.loadConfig()
+	config, err := cs.loadConfig()
 	if err != nil {
 		logger.Errorf("load config failed: %v", err)
 	} else {
-		deltas = append(deltas, s.configToDelta(config))
+		deltas = append(deltas, cs.configToDelta(config))
 	}
 
 	// Local file, then Etcd server.
 	deltas = append(deltas, nil)
-	s.pullConfig(deltas...)
+	cs.pullConfig(deltas...)
 
-	s.watchPrefixIfNeed()
+	cs.watchPrefixIfNeed()
 
-	go s.poll()
+	go cs.poll()
 
-	return s
+	return cs
 }
 
-// WatchConfig return the channel to watch the change of config,
+// watchConfig return the channel to watch the change of config,
 // the channel always output full config.
-func (s *Storage) WatchConfig() <-chan map[string]string {
-	return s.configChan
+func (cs *configSyncer) watchConfig() <-chan map[string]string {
+	return cs.configChan
 }
 
-// SyncStatus synchronizes the status.
-func (s *Storage) SyncStatus(statuses map[string]string) {
-	s.statusChan <- statuses
-}
-
-func (s *Storage) poll() {
+func (cs *configSyncer) poll() {
 	nextPullAllConfig := time.NewTicker(pullAllConfigTimeout)
 	defer nextPullAllConfig.Stop()
 
@@ -117,20 +104,18 @@ func (s *Storage) poll() {
 
 	for {
 		select {
-		case <-s.done:
-			s.closeWatcher()
+		case <-cs.done:
+			cs.closeWatcher()
 			return
 		case <-nextRewatchTimeout.C:
-			s.watchPrefixIfNeed()
-		case statuses := <-s.statusChan:
-			s.handlSyncStatus(statuses)
+			cs.watchPrefixIfNeed()
 		case <-nextPullAllConfig.C:
-			s.pullConfig(nil)
-		case delta, ok := <-s.prefixChan:
+			cs.pullConfig(nil)
+		case delta, ok := <-cs.prefixChan:
 			if ok {
-				s.pullConfig(delta)
+				cs.pullConfig(delta)
 			} else {
-				s.handleWatchFailed()
+				cs.handleWatchFailed()
 			}
 		}
 	}
@@ -138,26 +123,26 @@ func (s *Storage) poll() {
 
 // pullConfig applies deltas to the config by order.
 // If the element delta is nil, it pulls all config
-// from remote Storage.
-func (s *Storage) pullConfig(deltas ...map[string]*string) {
+// from remote configSyncer.
+func (cs *configSyncer) pullConfig(deltas ...map[string]*string) {
 	newConfig := make(map[string]string)
 
 	deltasCount := 0
 	for _, delta := range deltas {
 		if len(delta) == 0 {
-			kvs, err := s.cls.GetPrefix(s.prefix)
+			kvs, err := cs.cls.GetPrefix(cs.prefix)
 			if err != nil {
 				logger.Errorf("pull config failed: %v", err)
 				continue
 			}
 			for k, v := range kvs {
-				k = strings.TrimPrefix(k, s.prefix)
+				k = strings.TrimPrefix(k, cs.prefix)
 				newConfig[k] = v
 			}
 		} else {
-			newConfig = s.copyConfig()
+			newConfig = cs.copyConfig()
 			for k, v := range delta {
-				k = strings.TrimPrefix(k, s.prefix)
+				k = strings.TrimPrefix(k, cs.prefix)
 				if v == nil {
 					delete(newConfig, k)
 					continue
@@ -168,28 +153,23 @@ func (s *Storage) pullConfig(deltas ...map[string]*string) {
 		deltasCount++
 	}
 
-	if deltasCount == 0 || reflect.DeepEqual(s.config, newConfig) {
+	if deltasCount == 0 || reflect.DeepEqual(cs.config, newConfig) {
 		// s.first for graceful update new process first run,
 		// even deltasCount is zero, also need set firstDone to notify all objects ready
-		if s.first {
-			s.first = false
-			s.configChan <- s.copyConfig()
+		if cs.first {
+			cs.first = false
+			cs.configChan <- cs.copyConfig()
 		}
 		return
 	}
 
-	for k := range s.config {
-		if _, exists := newConfig[k]; !exists {
-			s.statusToDelete[k] = struct{}{}
-		}
-	}
-	s.config = newConfig
-	s.configChan <- s.copyConfig()
-	s.storeConfig()
+	cs.config = newConfig
+	cs.configChan <- cs.copyConfig()
+	cs.storeConfig()
 }
 
-func (s *Storage) watchPrefixIfNeed() {
-	if s.watcher != nil {
+func (cs *configSyncer) watchPrefixIfNeed() {
+	if cs.watcher != nil {
 		return
 	}
 
@@ -201,40 +181,40 @@ func (s *Storage) watchPrefixIfNeed() {
 
 	defer func() {
 		if err != nil {
-			s.handleWatchFailed()
+			cs.handleWatchFailed()
 		}
 	}()
 
-	watcher, err = s.cls.Watcher()
+	watcher, err = cs.cls.Watcher()
 	if err != nil {
 		logger.Errorf("get watcher failed: %v", err)
 		return
 	}
-	s.watcher = watcher
+	cs.watcher = watcher
 
-	prefixChan, err = s.watcher.WatchPrefix(s.prefix)
+	prefixChan, err = cs.watcher.WatchPrefix(cs.prefix)
 	if err != nil {
 		logger.Errorf("watch prefix failed: %v", err)
 		return
 	}
-	s.prefixChan = prefixChan
+	cs.prefixChan = prefixChan
 }
 
-func (s *Storage) closeWatcher() {
-	s.handleWatchFailed()
+func (cs *configSyncer) closeWatcher() {
+	cs.handleWatchFailed()
 }
 
-func (s *Storage) handleWatchFailed() {
-	if s.watcher != nil {
-		s.watcher.Close()
+func (cs *configSyncer) handleWatchFailed() {
+	if cs.watcher != nil {
+		cs.watcher.Close()
 	}
-	s.watcher, s.prefixChan = nil, nil
+	cs.watcher, cs.prefixChan = nil, nil
 }
 
-func (s *Storage) configToDelta(config map[string]string) map[string]*string {
+func (cs *configSyncer) configToDelta(config map[string]string) map[string]*string {
 	delta := make(map[string]*string)
 	for k, v := range config {
-		k = s.prefix + k
+		k = cs.prefix + k
 		value := v
 		delta[k] = &value
 	}
@@ -243,79 +223,53 @@ func (s *Storage) configToDelta(config map[string]string) map[string]*string {
 }
 
 // loadConfig loads config from the local file.
-func (s *Storage) loadConfig() (map[string]string, error) {
-	if _, err := os.Stat(s.configfilePath); os.IsNotExist(err) {
+func (cs *configSyncer) loadConfig() (map[string]string, error) {
+	if _, err := os.Stat(cs.configfilePath); os.IsNotExist(err) {
 		// NOTE: This is not an error.
-		logger.Infof("%s not exist", s.configfilePath)
+		logger.Infof("%s not exist", cs.configfilePath)
 		return nil, nil
 	}
 
-	buff, err := ioutil.ReadFile(s.configfilePath)
+	buff, err := ioutil.ReadFile(cs.configfilePath)
 	if err != nil {
-		return nil, fmt.Errorf("%s read failed: %v", s.configfilePath, err)
+		return nil, fmt.Errorf("%s read failed: %v", cs.configfilePath, err)
 	}
 
 	config := make(map[string]string)
 	err = yaml.Unmarshal(buff, &config)
 	if err != nil {
-		return nil, fmt.Errorf("%s unmarshal to yaml failed: %v", s.configfilePath, err)
+		return nil, fmt.Errorf("%s unmarshal to yaml failed: %v", cs.configfilePath, err)
 	}
 
 	return config, nil
 }
 
-func (s *Storage) storeConfig() {
+func (cs *configSyncer) storeConfig() {
 	buff := bytes.NewBuffer(nil)
 	buff.WriteString(fmt.Sprintf("# %s\n", time.Now().Format(time.RFC3339)))
 
-	configBuff, err := yaml.Marshal(s.config)
+	configBuff, err := yaml.Marshal(cs.config)
 	if err != nil {
 		logger.Errorf("marshal %s to yaml failed: %v", buff, err)
 		return
 	}
 	buff.Write(configBuff)
 
-	err = ioutil.WriteFile(s.configfilePath, buff.Bytes(), 0o644)
+	err = ioutil.WriteFile(cs.configfilePath, buff.Bytes(), 0o644)
 	if err != nil {
-		logger.Errorf("write %s failed: %v", s.configfilePath, err)
+		logger.Errorf("write %s failed: %v", cs.configfilePath, err)
 		return
 	}
 }
 
-func (s *Storage) copyConfig() map[string]string {
+func (cs *configSyncer) copyConfig() map[string]string {
 	config := make(map[string]string)
-	for k, v := range s.config {
+	for k, v := range cs.config {
 		config[k] = v
 	}
 	return config
 }
 
-func (s *Storage) handlSyncStatus(statuses map[string]string) {
-	kvs := make(map[string]*string)
-	for k, v := range statuses {
-		if _, exists := s.config[k]; exists {
-			k = s.cls.Layout().StatusObjectKey(k)
-			value := v
-			kvs[k] = &value
-		}
-	}
-
-	for k := range s.statusToDelete {
-		if _, exists := s.config[k]; !exists {
-			k = s.cls.Layout().StatusObjectKey(k)
-			kvs[k] = nil
-		}
-	}
-
-	err := s.cls.PutAndDeleteUnderLease(kvs)
-	if err != nil {
-		logger.Errorf("sync runtime failed: put status failed: %v", err)
-	} else {
-		s.statusToDelete = make(map[string]struct{})
-	}
-}
-
-// Close closes storage.
-func (s *Storage) Close() {
-	close(s.done)
+func (cs *configSyncer) close() {
+	close(cs.done)
 }

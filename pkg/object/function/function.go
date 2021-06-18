@@ -28,6 +28,7 @@ import (
 	"github.com/megaease/easegress/pkg/filter/requestadaptor"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/protocol"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/httpheader"
 	"github.com/megaease/easegress/pkg/util/httpstat"
@@ -166,17 +167,19 @@ func (f *Function) DefaultSpec() interface{} {
 }
 
 // Init initializes Function.
-func (f *Function) Init(superSpec *supervisor.Spec, super *supervisor.Supervisor) {
+func (f *Function) Init(superSpec *supervisor.Spec,
+	super *supervisor.Supervisor, muxMapper protocol.MuxMapper) {
+
 	f.superSpec, f.spec, f.super = superSpec, superSpec.ObjectSpec().(*Spec), super
 	f.reload()
 }
 
 // Inherit inherits previous generation of Function.
-func (f *Function) Inherit(superSpec *supervisor.Spec,
-	previousGeneration supervisor.Object, super *supervisor.Supervisor) {
+func (f *Function) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object,
+	super *supervisor.Supervisor, muxMapper protocol.MuxMapper) {
 
 	previousGeneration.Close()
-	f.Init(superSpec, super)
+	f.Init(superSpec, super, muxMapper)
 }
 
 func (f *Function) reload() {

@@ -22,10 +22,8 @@ import (
 	"sync"
 
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httppipeline"
-	"github.com/megaease/easegress/pkg/object/httpserver"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
-	"github.com/megaease/easegress/pkg/protocol"
+	"github.com/megaease/easegress/pkg/object/trafficcontroller"
 	"github.com/megaease/easegress/pkg/supervisor"
 )
 
@@ -35,7 +33,9 @@ var ErrIngressClosed = fmt.Errorf("ingress has been closed")
 type (
 	// IngressServer manages one ingress pipeline and one HTTPServer
 	IngressServer struct {
-		super       *supervisor.Supervisor
+		super     *supervisor.Supervisor
+		superSpec *supervisor.Spec
+
 		serviceName string
 
 		// port is the Java business process's listening port
@@ -44,31 +44,38 @@ type (
 		// port  uint32
 		mutex sync.RWMutex
 
+		tc        *trafficcontroller.TrafficController
+		namespace string
 		// running EG objects, accept other service instances' traffic
 		// in mesh and hand over to local Java business process
-		pipelines  map[string]*httppipeline.HTTPPipeline
-		httpServer *httpserver.HTTPServer
+		pipelines  map[string]*supervisor.ObjectEntity
+		httpServer *supervisor.ObjectEntity
 	}
 )
 
 // NewIngressServer creates a initialized ingress server
-func NewIngressServer(super *supervisor.Supervisor, serviceName string) *IngressServer {
+func NewIngressServer(superSpec *supervisor.Spec, super *supervisor.Supervisor, serviceName string) *IngressServer {
+	entity, exists := super.GetSystemController(trafficcontroller.Kind)
+	if !exists {
+		panic(fmt.Errorf("BUG: traffic controller not found"))
+	}
+
+	tc, ok := entity.Instance().(*trafficcontroller.TrafficController)
+	if !ok {
+		panic(fmt.Errorf("BUG: want *TrafficController, got %T", entity.Instance()))
+	}
+
 	return &IngressServer{
-		super:       super,
-		pipelines:   make(map[string]*httppipeline.HTTPPipeline),
+		super: super,
+
+		tc:        tc,
+		namespace: fmt.Sprintf("%s/%s", superSpec.Name(), "ingress"),
+
+		pipelines:   make(map[string]*supervisor.ObjectEntity),
 		httpServer:  nil,
 		serviceName: serviceName,
 		mutex:       sync.RWMutex{},
 	}
-}
-
-// Get gets pipeline object for httpServer, it implements httpServer's MuxMapper interface
-func (ings *IngressServer) Get(name string) (protocol.HTTPHandler, bool) {
-	ings.mutex.RLock()
-	defer ings.mutex.RUnlock()
-
-	p, ok := ings.pipelines[name]
-	return p, ok
 }
 
 // Ready checks ingress's pipeline and HTTPServer are created or not
@@ -95,9 +102,11 @@ func (ings *IngressServer) CreateIngress(service *spec.Service, port uint32) err
 		if err != nil {
 			return err
 		}
-		pipeline := &httppipeline.HTTPPipeline{}
-		pipeline.Init(superSpec, ings.super)
-		ings.pipelines[service.IngressPipelineName()] = pipeline
+		entity, err := ings.tc.CreateHTTPPipelineForSpec(ings.namespace, superSpec)
+		if err != nil {
+			return fmt.Errorf("create http pipeline %s failed: %v", superSpec.Name(), err)
+		}
+		ings.pipelines[service.IngressPipelineName()] = entity
 	}
 
 	if ings.httpServer == nil {
@@ -106,10 +115,11 @@ func (ings *IngressServer) CreateIngress(service *spec.Service, port uint32) err
 			return err
 		}
 
-		httpServer := &httpserver.HTTPServer{}
-		httpServer.Init(superSpec, ings.super)
-		httpServer.InjectMuxMapper(ings)
-		ings.httpServer = httpServer
+		entity, err := ings.tc.CreateHTTPServerForSpec(ings.namespace, superSpec)
+		if err != nil {
+			return fmt.Errorf("create http server %s failed: %v", superSpec.Name(), err)
+		}
+		ings.httpServer = entity
 	}
 
 	return nil
@@ -125,20 +135,18 @@ func (ings *IngressServer) UpdatePipeline(newSpec string) error {
 		Name: ings.serviceName,
 	}
 
-	pipeline, ok := ings.pipelines[service.IngressPipelineName()]
-	if !ok {
-		return fmt.Errorf("can't find service: %s's ingress pipeline", ings.serviceName)
-	}
-
 	superSpec, err := supervisor.NewSpec(newSpec)
 	if err != nil {
 		logger.Errorf("BUG: update ingress pipeline spec: %s new super spec failed: %v", newSpec, err)
 		return err
 	}
 
-	var newPipeline httppipeline.HTTPPipeline
-	newPipeline.Inherit(superSpec, pipeline, ings.super)
-	ings.pipelines[service.IngressPipelineName()] = &newPipeline
+	entity, err := ings.tc.UpdateHTTPPipelineForSpec(ings.namespace, superSpec)
+	if err != nil {
+		return fmt.Errorf("update http pipeline %s failed: %v", superSpec.Name(), err)
+	}
+
+	ings.pipelines[service.IngressPipelineName()] = entity
 
 	return err
 }
@@ -148,8 +156,8 @@ func (ings *IngressServer) Close() {
 	ings.mutex.Lock()
 	defer ings.mutex.Unlock()
 
-	ings.httpServer.Close()
-	for _, v := range ings.pipelines {
-		v.Close()
+	ings.tc.DeleteHTTPServer(ings.namespace, ings.httpServer.Spec().Name())
+	for _, entity := range ings.pipelines {
+		ings.tc.DeleteHTTPPipeline(ings.namespace, entity.Spec().Name())
 	}
 }

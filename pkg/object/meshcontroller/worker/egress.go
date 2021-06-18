@@ -25,9 +25,9 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
-	"github.com/megaease/easegress/pkg/object/httpserver"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/service"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
+	"github.com/megaease/easegress/pkg/object/trafficcontroller"
 	"github.com/megaease/easegress/pkg/protocol"
 	"github.com/megaease/easegress/pkg/supervisor"
 )
@@ -37,10 +37,15 @@ const egressRPCKey = "X-Mesh-Rpc-Service"
 type (
 	// EgressServer manages one/many ingress pipelines and one HTTPServer
 	EgressServer struct {
-		pipelines  map[string]*httppipeline.HTTPPipeline
-		httpServer *httpserver.HTTPServer
+		super     *supervisor.Supervisor
+		superSpec *supervisor.Spec
 
-		super       *supervisor.Supervisor
+		pipelines  map[string]*supervisor.ObjectEntity
+		httpServer *supervisor.ObjectEntity
+
+		tc        *trafficcontroller.TrafficController
+		namespace string
+
 		serviceName string
 		service     *service.Service
 		mutex       sync.RWMutex
@@ -52,18 +57,32 @@ type (
 func NewEgressServer(superSpec *supervisor.Spec, super *supervisor.Supervisor,
 	serviceName string, service *service.Service, watch chan<- string) *EgressServer {
 
+	entity, exists := super.GetSystemController(trafficcontroller.Kind)
+	if !exists {
+		panic(fmt.Errorf("BUG: traffic controller not found"))
+	}
+
+	tc, ok := entity.Instance().(*trafficcontroller.TrafficController)
+	if !ok {
+		panic(fmt.Errorf("BUG: want *TrafficController, got %T", entity.Instance()))
+	}
+
 	return &EgressServer{
-		pipelines:   make(map[string]*httppipeline.HTTPPipeline),
+		super:     super,
+		superSpec: superSpec,
+
+		tc:          tc,
+		namespace:   fmt.Sprintf("%s/%s", superSpec.Name(), "egress"),
+		pipelines:   make(map[string]*supervisor.ObjectEntity),
 		serviceName: serviceName,
 		service:     service,
-		super:       super,
 		watch:       watch,
 	}
 }
 
 // Get gets egressServer itself as the default backend.
 // egress server will handle the pipeline routing by itself.
-func (egs *EgressServer) Get(name string) (protocol.HTTPHandler, bool) {
+func (egs *EgressServer) GetHandler(name string) (protocol.HTTPHandler, bool) {
 	egs.mutex.RLock()
 	defer egs.mutex.RUnlock()
 	return egs, true
@@ -83,10 +102,12 @@ func (egs *EgressServer) CreateEgress(service *spec.Service) error {
 		return err
 	}
 
-	var httpsvr httpserver.HTTPServer
-	httpsvr.Init(superSpec, egs.super)
-	httpsvr.InjectMuxMapper(egs)
-	egs.httpServer = &httpsvr
+	entity, err := egs.tc.CreateHTTPServerForSpec(egs.namespace, superSpec)
+	if err != nil {
+		return fmt.Errorf("create http server %s failed: %v", superSpec.Name(), err)
+	}
+	egs.httpServer = entity
+
 	return nil
 }
 
@@ -98,7 +119,7 @@ func (egs *EgressServer) Ready() bool {
 	return egs.httpServer != nil
 }
 
-func (egs *EgressServer) addPipeline(serviceName string) (*httppipeline.HTTPPipeline, error) {
+func (egs *EgressServer) addPipeline(serviceName string) (*supervisor.ObjectEntity, error) {
 	service := egs.service.GetServiceSpec(serviceName)
 	if service == nil {
 		return nil, spec.ErrServiceNotFound
@@ -116,11 +137,13 @@ func (egs *EgressServer) addPipeline(serviceName string) (*httppipeline.HTTPPipe
 	}
 	logger.Infof("add pipeline spec: %s", superSpec.YAMLConfig())
 
-	pipeline := &httppipeline.HTTPPipeline{}
-	pipeline.Init(superSpec, egs.super)
-	egs.pipelines[service.Name] = pipeline
+	entity, err := egs.tc.CreateHTTPPipelineForSpec(egs.namespace, superSpec)
+	if err != nil {
+		return nil, fmt.Errorf("create http pipeline %s failed: %v", superSpec.Name(), err)
+	}
+	egs.pipelines[service.Name] = entity
 
-	return pipeline, nil
+	return entity, nil
 }
 
 // DeletePipeline deletes one Egress pipeline according to the serviceName.
@@ -128,8 +151,8 @@ func (egs *EgressServer) DeletePipeline(serviceName string) {
 	egs.mutex.Lock()
 	defer egs.mutex.Unlock()
 
-	if p, ok := egs.pipelines[serviceName]; ok {
-		p.Close()
+	if pipeline, exists := egs.pipelines[serviceName]; exists {
+		egs.tc.DeleteHTTPPipeline(egs.namespace, pipeline.Spec().Name())
 		delete(egs.pipelines, serviceName)
 	}
 }
@@ -139,24 +162,22 @@ func (egs *EgressServer) UpdatePipeline(service *spec.Service, instanceSpec []*s
 	egs.mutex.Lock()
 	defer egs.mutex.Unlock()
 
-	pipeline, ok := egs.pipelines[service.Name]
-	if !ok {
-		return fmt.Errorf("BUG: can't find service: %s's egress pipeline", service.Name)
-	}
-
 	superSpec, err := service.SideCarEgressPipelineSpec(instanceSpec)
 	if err != nil {
 		return err
 	}
 
-	newPipeline := &httppipeline.HTTPPipeline{}
-	newPipeline.Inherit(superSpec, pipeline, egs.super)
-	egs.pipelines[service.Name] = newPipeline
+	entity, err := egs.tc.UpdateHTTPPipelineForSpec(egs.namespace, superSpec)
+	if err != nil {
+		return fmt.Errorf("update http pipeline %s failed: %v", superSpec.Name(), err)
+	}
+
+	egs.pipelines[service.Name] = entity
 
 	return nil
 }
 
-func (egs *EgressServer) getPipeline(serviceName string) (*httppipeline.HTTPPipeline, error) {
+func (egs *EgressServer) getPipeline(serviceName string) (*supervisor.ObjectEntity, error) {
 	egs.mutex.Lock()
 	defer egs.mutex.Unlock()
 
@@ -195,7 +216,7 @@ func (egs *EgressServer) Handle(ctx context.HTTPContext) {
 		}
 		return
 	}
-	pipeline.Handle(ctx)
+	pipeline.Instance().(*httppipeline.HTTPPipeline).Handle(ctx)
 	logger.Infof("hanlde service name:%s finished, status code: %d", serviceName, ctx.Response().StatusCode())
 }
 
@@ -204,8 +225,8 @@ func (egs *EgressServer) Close() {
 	egs.mutex.Lock()
 	defer egs.mutex.Unlock()
 
-	egs.httpServer.Close()
-	for _, v := range egs.pipelines {
-		v.Close()
+	egs.tc.DeleteHTTPServer(egs.namespace, egs.httpServer.Spec().Name())
+	for _, entity := range egs.pipelines {
+		egs.tc.DeleteHTTPPipeline(egs.namespace, entity.Spec().Name())
 	}
 }

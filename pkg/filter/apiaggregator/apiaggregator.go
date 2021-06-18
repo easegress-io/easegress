@@ -49,7 +49,10 @@ const (
 var results = []string{resultFailed}
 
 func init() {
-	httppipeline.Register(&APIAggregator{})
+	// FIXME: Rewrite APIAggregator becasue the HTTPProxy is eliminated
+	// I(@xxx7xxxx) think we should not enpower filter to cross pipelines.
+
+	// httppipeline.Register(&APIAggregator{})
 }
 
 type (
@@ -58,6 +61,8 @@ type (
 		super    *supervisor.Supervisor
 		pipeSpec *httppipeline.FilterSpec
 		spec     *Spec
+
+		muxMapper protocol.MuxMapper
 	}
 
 	// Spec describes APIAggregator.
@@ -150,6 +155,11 @@ func (aa *APIAggregator) Handle(ctx context.HTTPContext) (result string) {
 	return ctx.CallNextHandler(result)
 }
 
+// InjectMuxMapper injects mux mapper into APIAggregator.
+func (aa *APIAggregator) InjectMuxMapper(mapper protocol.MuxMapper) {
+	aa.muxMapper = mapper
+}
+
 func (aa *APIAggregator) handle(ctx context.HTTPContext) (result string) {
 	buff := bytes.NewBuffer(nil)
 	if aa.spec.MaxBodyBytes > 0 {
@@ -186,17 +196,14 @@ func (aa *APIAggregator) handle(ctx context.HTTPContext) (result string) {
 				httpResps[i] = nil
 				return
 			}
-			ro, exists := supervisor.Global.GetRunningObject(name, supervisor.CategoryPipeline)
+
+			handler, exists := aa.muxMapper.GetHandler(name)
+
 			if !exists {
 				httpResps[i] = nil
 			} else {
-				handler, ok := ro.Instance().(protocol.HTTPHandler)
-				if !ok {
-					httpResps[i] = nil
-				} else {
-					handler.Handle(copyCtx)
-					httpResps[i] = copyCtx.Response()
-				}
+				handler.Handle(copyCtx)
+				httpResps[i] = copyCtx.Response()
 			}
 		}(i, proxy.HTTPProxyName, req)
 	}

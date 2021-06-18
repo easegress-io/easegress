@@ -28,6 +28,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/protocol"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/stringtool"
 )
@@ -54,6 +55,7 @@ type (
 		superSpec *supervisor.Spec
 		spec      *Spec
 
+		muxMapper      protocol.MuxMapper
 		runningFilters []*runningFilter
 		ht             *context.HTTPTemplate
 	}
@@ -77,7 +79,7 @@ type (
 		JumpIf map[string]string `yaml:"jumpIf" jsonschema:"omitempty"`
 	}
 
-	// Status contains all status gernerated by runtime, for displaying to users.
+	// Status is the status of HTTPPipeline.
 	Status struct {
 		Health string `yaml:"health"`
 
@@ -213,7 +215,7 @@ func convertToFilterBuffs(obj interface{}) map[string][]byte {
 	return rst
 }
 
-func (meta *FilterMetaSpec) validate() error {
+func (meta *FilterMetaSpec) Validate() error {
 	if len(meta.Name) == 0 {
 		return fmt.Errorf("filter name is required")
 	}
@@ -317,16 +319,22 @@ func (hp *HTTPPipeline) DefaultSpec() interface{} {
 }
 
 // Init initilizes HTTPPipeline.
-func (hp *HTTPPipeline) Init(superSpec *supervisor.Spec, super *supervisor.Supervisor) {
+func (hp *HTTPPipeline) Init(superSpec *supervisor.Spec,
+	super *supervisor.Supervisor, muxMapper protocol.MuxMapper) {
+
 	hp.superSpec, hp.spec, hp.super = superSpec, superSpec.ObjectSpec().(*Spec), super
+	hp.muxMapper = muxMapper
+
 	hp.reload(nil /*no previous generation*/)
 }
 
 // Inherit inherits previous generation of HTTPPipeline.
-func (hp *HTTPPipeline) Inherit(superSpec *supervisor.Spec,
-	previousGeneration supervisor.Object, super *supervisor.Supervisor) {
+func (hp *HTTPPipeline) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object,
+	super *supervisor.Supervisor, muxMapper protocol.MuxMapper) {
 
 	hp.superSpec, hp.spec, hp.super = superSpec, superSpec.ObjectSpec().(*Spec), super
+	hp.muxMapper = muxMapper
+
 	hp.reload(previousGeneration.(*HTTPPipeline))
 
 	// NOTE: It's filters' responsibility to inherit and clean their resources.

@@ -18,9 +18,6 @@
 package httpserver
 
 import (
-	"time"
-
-	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocol"
 	"github.com/megaease/easegress/pkg/supervisor"
 )
@@ -31,8 +28,6 @@ const (
 
 	// Kind is the kind of HTTPServer.
 	Kind = "HTTPServer"
-
-	blockTimeout = 100 * time.Millisecond
 )
 
 func init() {
@@ -44,31 +39,7 @@ type (
 	HTTPServer struct {
 		runtime *runtime
 	}
-
-	// MuxMapper gets HTTP handler pipeline with mutex
-	MuxMapper interface {
-		Get(name string) (protocol.HTTPHandler, bool)
-	}
-
-	// SupervisorMapper calls supervisor for getting pipeline.
-	SupervisorMapper struct {
-		super *supervisor.Supervisor
-	}
 )
-
-// Get gets pipeline from EG's running object
-func (s *SupervisorMapper) Get(name string) (protocol.HTTPHandler, bool) {
-	if ro, exist := s.super.GetRunningObject(name, supervisor.CategoryPipeline); exist == false {
-		return nil, false
-	} else {
-		if handler, ok := ro.Instance().(protocol.HTTPHandler); !ok {
-			logger.Errorf("BUG: %s is not a HTTPHandler", name)
-			return nil, false
-		} else {
-			return handler, true
-		}
-	}
-}
 
 // Category returns the category of HTTPServer.
 func (hs *HTTPServer) Category() supervisor.ObjectCategory {
@@ -90,24 +61,28 @@ func (hs *HTTPServer) DefaultSpec() interface{} {
 }
 
 // Init initilizes HTTPServer.
-func (hs *HTTPServer) Init(superSpec *supervisor.Spec, super *supervisor.Supervisor) {
-	hs.runtime = newRuntime(super)
+func (hs *HTTPServer) Init(superSpec *supervisor.Spec,
+	super *supervisor.Supervisor, muxMapper protocol.MuxMapper) {
+
+	hs.runtime = newRuntime(super, muxMapper)
 
 	hs.runtime.eventChan <- &eventReload{
 		nextSuperSpec: superSpec,
 		super:         super,
+		muxMapper:     muxMapper,
 	}
 }
 
 // Inherit inherits previous generation of HTTPServer.
-func (hs *HTTPServer) Inherit(superSpec *supervisor.Spec,
-	previousGeneration supervisor.Object, super *supervisor.Supervisor) {
+func (hs *HTTPServer) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object,
+	super *supervisor.Supervisor, muxMapper protocol.MuxMapper) {
 
 	hs.runtime = previousGeneration.(*HTTPServer).runtime
 
 	hs.runtime.eventChan <- &eventReload{
 		nextSuperSpec: superSpec,
 		super:         super,
+		muxMapper:     muxMapper,
 	}
 }
 
@@ -121,9 +96,4 @@ func (hs *HTTPServer) Status() *supervisor.Status {
 // Close closes HTTPServer.
 func (hs *HTTPServer) Close() {
 	hs.runtime.Close()
-}
-
-// InjectMuxMapper inject a new mux mapper to route, it will cover the default map of supervisor.
-func (hs *HTTPServer) InjectMuxMapper(mapper MuxMapper) {
-	hs.runtime.SetMuxMapper(mapper)
 }

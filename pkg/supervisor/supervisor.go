@@ -18,29 +18,15 @@
 package supervisor
 
 import (
-	"fmt"
-	"reflect"
 	"runtime/debug"
 	"sync"
 
 	"github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/option"
-	"github.com/megaease/easegress/pkg/storage"
 )
 
-// Global is the global supervisor.
-var Global *Supervisor
-
-// InitGlobalSupervisor initializes global supervisor.
-// FIXME: Prune Global stuff after sending super to filters.
-func InitGlobalSupervisor(super *Supervisor) {
-	Global = super
-}
-
-const (
-	maxStatusesRecordCount = 10
-)
+const watcherName = "__SUPERVISOR__"
 
 type (
 	// Supervisor manages all objects.
@@ -48,114 +34,47 @@ type (
 		options *option.Options
 		cls     cluster.Cluster
 
-		storage           *storage.Storage
-		runningCategories map[ObjectCategory]*RunningCategory
-		firstHandle       bool
-		firstHandleDone   chan struct{}
-		done              chan struct{}
+		// The scenario here satisfies the first common case:
+		// When the entry for a given key is only ever written once but read many times.
+		// Referecen: https://golang.org/pkg/sync/#Map
+		businessControllers sync.Map
+		systemControllers   sync.Map
+
+		objectRegistry  *ObjectRegistry
+		watcher         *ObjectEntityWatcher
+		firstHandle     bool
+		firstHandleDone chan struct{}
+		done            chan struct{}
 	}
 
-	// RunningCategory is the bucket to gather running objects in the same category.
-	RunningCategory struct {
-		mutex          sync.RWMutex
-		category       ObjectCategory
-		runningObjects map[string]*RunningObject
-	}
-
-	// RunningObject is the running object.
-	RunningObject struct {
-		object Object
-		spec   *Spec
-	}
+	// WalkFunc is the type of the function called for
+	// each running object visited by WalkObjectEntitys.
+	WalkFunc func(objectEntity *ObjectEntity) bool
 )
-
-func newRunningObjectFromConfig(config string) (*RunningObject, error) {
-	spec, err := NewSpec(config)
-	if err != nil {
-		return nil, fmt.Errorf("create spec failed: %s: %v", config, err)
-	}
-
-	return newRunningObjectFromSpec(spec)
-}
-
-func newRunningObjectFromSpec(spec *Spec) (*RunningObject, error) {
-	registerObject, exists := objectRegistry[spec.Kind()]
-	if !exists {
-		return nil, fmt.Errorf("unsupported kind: %s", spec.Kind())
-	}
-
-	obj := reflect.New(reflect.TypeOf(registerObject).Elem()).Interface()
-	object, ok := obj.(Object)
-	if !ok {
-		return nil, fmt.Errorf("%T is not an object", obj)
-	}
-
-	return &RunningObject{
-		spec:   spec,
-		object: object,
-	}, nil
-}
-
-// Instance returns the instance of the object.
-func (ro *RunningObject) Instance() Object {
-	return ro.object
-}
-
-// Spec returns the spec of the object.
-func (ro *RunningObject) Spec() *Spec {
-	return ro.spec
-}
-
-func (ro *RunningObject) initWithRecovery(super *Supervisor) {
-	defer func() {
-		if err := recover(); err != nil {
-			logger.Errorf("%s: recover from init, err: %v, stack trace:\n%s\n",
-				ro.spec.Name(), err, debug.Stack())
-		}
-	}()
-	ro.Instance().Init(ro.Spec(), super)
-}
-
-func (ro *RunningObject) inheritWithRecovery(previousGeneration Object, super *Supervisor) {
-	defer func() {
-		if err := recover(); err != nil {
-			logger.Errorf("%s: recover from update, err: %v, stack trace:\n%s\n",
-				ro.spec.Name(), err, debug.Stack())
-		}
-	}()
-	ro.Instance().Inherit(ro.Spec(), previousGeneration, super)
-}
-
-func (ro *RunningObject) closeWithRecovery() {
-	defer func() {
-		if err := recover(); err != nil {
-			logger.Errorf("%s: recover from close, err: %v, stack trace:\n%s\n",
-				ro.spec.Name(), err, debug.Stack())
-		}
-	}()
-
-	ro.object.Close()
-}
 
 // MustNew creates a Supervisor.
 func MustNew(opt *option.Options, cls cluster.Cluster) *Supervisor {
+	statusToKeep := []string{}
+	for _, rootObject := range objectRegistry {
+		if rootObject.Category() == CategorySystemController {
+			statusToKeep = append(statusToKeep, rootObject.Kind())
+		}
+	}
+
 	s := &Supervisor{
 		options: opt,
 		cls:     cls,
 
-		storage:           storage.New(opt, cls),
-		runningCategories: make(map[ObjectCategory]*RunningCategory),
-		firstHandle:       true,
-		firstHandleDone:   make(chan struct{}),
-		done:              make(chan struct{}),
+		firstHandle:     true,
+		firstHandleDone: make(chan struct{}),
+		done:            make(chan struct{}),
 	}
 
-	for _, category := range objectOrderedCategories {
-		s.runningCategories[category] = &RunningCategory{
-			category:       category,
-			runningObjects: make(map[string]*RunningObject),
-		}
-	}
+	s.objectRegistry = newObjectRegistry(s)
+	s.watcher = s.objectRegistry.NewWatcher(watcherName, FilterCategory(
+		// NOTE: SystemController is only initilized internally.
+		// CategorySystemController,
+		CategoryBusinessController))
 
 	s.initSystemControllers()
 
@@ -175,7 +94,9 @@ func (s *Supervisor) Cluster() cluster.Cluster {
 }
 
 func (s *Supervisor) initSystemControllers() {
-	for kind, rootObject := range objectRegistry {
+	for _, rootObject := range objectRegistryOrderByDependency {
+		kind := rootObject.Kind()
+
 		if rootObject.Category() != CategorySystemController {
 			continue
 		}
@@ -185,16 +106,17 @@ func (s *Supervisor) initSystemControllers() {
 			Name: kind,
 			Kind: kind,
 		}
+
 		spec := newSpecInternal(meta, rootObject.DefaultSpec())
-		ro, err := newRunningObjectFromSpec(spec)
+		entity, err := s.NewObjectEntityFromSpec(spec)
 		if err != nil {
 			panic(err)
 		}
 
-		ro.initWithRecovery(s)
-		s.runningCategories[CategorySystemController].runningObjects[kind] = ro
+		entity.InitWithRecovery(nil /* muxMapper */)
+		s.systemControllers.Store(kind, entity)
 
-		logger.Infof("create system controller %s", spec.Name())
+		logger.Infof("create %s", spec.Name())
 	}
 }
 
@@ -204,13 +126,13 @@ func (s *Supervisor) run() {
 		case <-s.done:
 			s.close()
 			return
-		case config := <-s.storage.WatchConfig():
-			s.applyConfig(config)
+		case event := <-s.watcher.Watch():
+			s.handleEvent(event)
 		}
 	}
 }
 
-func (s *Supervisor) applyConfig(config map[string]string) {
+func (s *Supervisor) handleEvent(event *ObjectEntityWatcherEvent) {
 	if s.firstHandle {
 		defer func() {
 			s.firstHandle = false
@@ -218,129 +140,75 @@ func (s *Supervisor) applyConfig(config map[string]string) {
 		}()
 	}
 
-	// Create, update, delete from high to low priority.
-	for _, category := range objectOrderedCategories {
-		// NOTE: System controller can't be manipulated after initialized.
-		if category != CategorySystemController {
-			s.applyConfigInCategory(config, category)
+	for name := range event.Delete {
+		entity, exists := s.businessControllers.LoadAndDelete(name)
+		if !exists {
+			logger.Errorf("BUG: delete %s not found", name)
+			continue
 		}
-	}
-}
 
-func (s *Supervisor) applyConfigInCategory(config map[string]string, category ObjectCategory) {
-	rc := s.runningCategories[category]
-
-	rc.mutex.Lock()
-	defer rc.mutex.Unlock()
-
-	// Delete running object.
-	for name, ro := range rc.runningObjects {
-		if _, exists := config[name]; !exists {
-			ro.closeWithRecovery()
-			delete(rc.runningObjects, name)
-			logger.Infof("delete %s", name)
-		}
+		entity.(*ObjectEntity).CloseWithRecovery()
+		logger.Infof("delete %s", name)
 	}
 
-	// Create or update running object.
-	for name, yamlConfig := range config {
-		var prevInstance Object
-		prev, exists := rc.runningObjects[name]
+	for name, entity := range event.Create {
+		_, exists := s.businessControllers.Load(name)
 		if exists {
-			// No need to update if the config not changed.
-			if yamlConfig == prev.spec.YAMLConfig() {
-				continue
-			}
-			prevInstance = prev.Instance()
-		}
-
-		ro, err := newRunningObjectFromConfig(yamlConfig)
-		if err != nil {
-			logger.Errorf("BUG: %s: %v", name, err)
-			continue
-		}
-		if ro.object.Category() != category {
-			continue
-		}
-		if name != ro.Spec().Name() {
-			logger.Errorf("BUG: key and spec got different names: %s vs %s",
-				name, ro.Spec().Name())
+			logger.Errorf("BUG: create %s already existed", name)
 			continue
 		}
 
-		if prevInstance == nil {
-			ro.initWithRecovery(s)
-			logger.Infof("create %s", name)
-		} else {
-			ro.inheritWithRecovery(prevInstance, s)
-			logger.Infof("update %s", name)
+		entity.InitWithRecovery(nil /* muxMapper */)
+		s.businessControllers.Store(name, entity)
+		logger.Infof("create %s", name)
+	}
+
+	for name, entity := range event.Update {
+		previousEntity, exists := s.businessControllers.Load(name)
+		if !exists {
+			logger.Errorf("BUG: update %s not found", name)
+			continue
 		}
 
-		rc.runningObjects[name] = ro
+		entity.InheritWithRecovery(previousEntity.(*ObjectEntity), nil /* muxMapper */)
+		s.businessControllers.Store(name, entity)
+		logger.Infof("update %s", name)
 	}
 }
 
-// WalkFunc is the type of the function called for
-// each running object visited by WalkRunningObjects.
-type WalkFunc func(runningObject *RunningObject) bool
+func (s *Supervisor) ObjectRegistry() *ObjectRegistry {
+	return s.objectRegistry
+}
 
-// WalkRunningObjects walks every running object until walkFn returns false.
-func (s *Supervisor) WalkRunningObjects(walkFn WalkFunc, category ObjectCategory) {
+// WalkObjectEntitys walks every controllers until walkFn returns false.
+func (s *Supervisor) WalkControllers(walkFn WalkFunc) {
 	defer func() {
 		if err := recover(); err != nil {
-			logger.Errorf("walkRunningObjects recover from err: %v, stack trace:\n%s\n",
+			logger.Errorf("walkControllers recover from err: %v, stack trace:\n%s\n",
 				err, debug.Stack())
 		}
 	}()
 
-	for _, rc := range s.runningCategories {
-		if category != CategoryAll && category != rc.category {
-			continue
-		}
+	s.systemControllers.Range(func(k, v interface{}) bool {
+		return walkFn(v.(*ObjectEntity))
+	})
 
-		func() {
-			rc.mutex.RLock()
-			defer rc.mutex.RUnlock()
-
-			for _, runningObject := range rc.runningObjects {
-				toContinue := walkFn(runningObject)
-				if !toContinue {
-					break
-				}
-			}
-		}()
-	}
+	s.businessControllers.Range(func(k, v interface{}) bool {
+		return walkFn(v.(*ObjectEntity))
+	})
 }
 
-// GetRunningObject returns the running object with the existing flag.
-// If the category is empty string, GetRunningObject will try to find
-// the running object in every category.
-func (s *Supervisor) GetRunningObject(name string, category ObjectCategory) (ro *RunningObject, exists bool) {
-	searchFromCategory := func(rc *RunningCategory) {
-		rc.mutex.RLock()
-		defer rc.mutex.RUnlock()
+// GetObjectEntity returns the system controller with the existing flag.
+// The name of system controller is its own kind.
+func (s *Supervisor) GetSystemController(name string) (*ObjectEntity, bool) {
+	entity, exists := s.systemControllers.Load(name)
+	return entity.(*ObjectEntity), exists
+}
 
-		ro, exists = rc.runningObjects[name]
-	}
-
-	switch category {
-	case CategoryAll:
-		for _, rc := range s.runningCategories {
-			searchFromCategory(rc)
-			if exists {
-				return
-			}
-		}
-	default:
-		rc, rcExists := s.runningCategories[category]
-		if !rcExists {
-			logger.Errorf("BUG: category %s not found", category)
-			return nil, false
-		}
-		searchFromCategory(rc)
-	}
-
-	return
+// GetObjectEntity returns the business controller with the existing flag.
+func (s *Supervisor) GetBusinessController(name string) (*ObjectEntity, bool) {
+	entity, exists := s.businessControllers.Load(name)
+	return entity.(*ObjectEntity), exists
 }
 
 // FirstHandleDone returns the firstHandleDone channel,
@@ -357,22 +225,22 @@ func (s *Supervisor) Close(wg *sync.WaitGroup) {
 }
 
 func (s *Supervisor) close() {
-	s.storage.Close()
+	s.objectRegistry.CloseWatcher(watcherName)
+	s.objectRegistry.close()
 
-	// Close from low to high priority.
-	for i := len(objectOrderedCategories) - 1; i >= 0; i-- {
-		rc := s.runningCategories[objectOrderedCategories[i]]
-		func() {
-			rc.mutex.Lock()
-			defer rc.mutex.Unlock()
+	s.businessControllers.Range(func(k, v interface{}) bool {
+		entity := v.(*ObjectEntity)
+		entity.CloseWithRecovery()
+		logger.Infof("delete %s", k)
+		return true
+	})
 
-			for name, ro := range rc.runningObjects {
-				ro.closeWithRecovery()
-				delete(rc.runningObjects, name)
-				logger.Infof("delete %s", ro.spec.Name())
-			}
-		}()
-	}
+	s.systemControllers.Range(func(k, v interface{}) bool {
+		entity := v.(*ObjectEntity)
+		entity.CloseWithRecovery()
+		logger.Infof("delete %s", k)
+		return true
+	})
 
 	close(s.done)
 }

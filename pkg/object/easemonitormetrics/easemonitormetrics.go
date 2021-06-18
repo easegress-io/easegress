@@ -176,8 +176,7 @@ func (emm *EaseMonitorMetrics) Inherit(superSpec *supervisor.Spec,
 }
 
 func (emm *EaseMonitorMetrics) reload() {
-	ssc, exists := emm.super.GetRunningObject((&statussynccontroller.StatusSyncController{}).Kind(),
-		supervisor.CategorySystemController)
+	ssc, exists := emm.super.GetSystemController(statussynccontroller.Kind)
 	if !exists {
 		logger.Errorf("BUG: status sync controller not found")
 	}
@@ -296,6 +295,7 @@ func (emm *EaseMonitorMetrics) record2Messages(record *statussynccontroller.Stat
 			Service:   objectName,
 		}
 
+		// TODO: Change it to adapt new model.
 		switch status := status.ObjectStatus.(type) {
 		case *httppipeline.Status:
 			reqs, codes := emm.httpPipeline2Metrics(baseFields, status)

@@ -80,7 +80,6 @@ func main() {
 		os.Exit(1)
 	}
 	super := supervisor.MustNew(opt, cls)
-	supervisor.InitGlobalSupervisor(super)
 	apiServer := api.MustNewServer(opt, cls)
 
 	if graceupdate.CallOriProcessTerm(super.FirstHandleDone()) {

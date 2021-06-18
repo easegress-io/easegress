@@ -18,6 +18,7 @@
 package tracing
 
 import (
+	"sync"
 	"time"
 
 	opentracing "github.com/opentracing/opentracing-go"
@@ -63,6 +64,7 @@ type (
 	}
 
 	span struct {
+		mutex    sync.Mutex
 		tracer   *Tracing
 		span     opentracing.Span
 		children []*span
@@ -121,14 +123,18 @@ func (s *span) newChildWithStart(name string, startAt time.Time) Span {
 		tracer: s.tracer,
 		span:   childSpan,
 	}
+
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	s.children = append(s.children, child)
+
 	return child
 }
 
-func (s span) SetName(name string) {
+func (s *span) SetName(name string) {
 	s.span.SetOperationName(name)
 }
 
-func (s span) LogKV(kv ...interface{}) {
+func (s *span) LogKV(kv ...interface{}) {
 	s.span.LogKV(kv...)
 }

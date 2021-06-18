@@ -122,7 +122,7 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 	_service := service.New(superSpec, store)
 	registryCenterServer := registrycenter.NewRegistryCenterServer(spec.RegistryType,
 		serviceName, applicationIP, applicationPort, instanceID, serviceLabels, _service)
-	ingressServer := NewIngressServer(super, serviceName)
+	ingressServer := NewIngressServer(superSpec, super, serviceName)
 	egressEvent := make(chan string, egressEventChanSize)
 	egressServer := NewEgressServer(superSpec, super, serviceName, _service, egressEvent)
 	observabilityManager := NewObservabilityServer(serviceName)

@@ -50,7 +50,10 @@ A Bridge Filter route requests to from one pipeline to other pipelines or http p
 var results = []string{resultDestinationNotFound, resultInvokeDestinationFailed}
 
 func init() {
-	httppipeline.Register(&Bridge{})
+	// FIXME: Bridge is a temporary product for some historical reason.
+	// I(@xxx7xxxx) think we should not enpower filter to cross pipelines.
+
+	// httppipeline.Register(&Bridge{})
 }
 
 type (
@@ -59,6 +62,8 @@ type (
 		super    *supervisor.Supervisor
 		pipeSpec *httppipeline.FilterSpec
 		spec     *Spec
+
+		muxMapper protocol.MuxMapper
 	}
 
 	// Spec describes the Mock.
@@ -113,6 +118,11 @@ func (b *Bridge) Handle(ctx context.HTTPContext) (result string) {
 	return ctx.CallNextHandler(result)
 }
 
+// InjectMuxMapper injects mux mapper into Bridge.
+func (b *Bridge) InjectMuxMapper(mapper protocol.MuxMapper) {
+	b.muxMapper = mapper
+}
+
 func (b *Bridge) handle(ctx context.HTTPContext) (result string) {
 	if len(b.spec.Destinations) <= 0 {
 		panic("not any destination defined")
@@ -141,21 +151,16 @@ func (b *Bridge) handle(ctx context.HTTPContext) (result string) {
 		return resultDestinationNotFound
 	}
 
-	ro, exists := supervisor.Global.GetRunningObject(dest, supervisor.CategoryPipeline)
+	handler, exists := b.muxMapper.GetHandler(dest)
+
 	if !exists {
 		logger.Errorf("failed to get running object %s", b.spec.Destinations[0])
 		ctx.Response().SetStatusCode(http.StatusServiceUnavailable)
 		return resultDestinationNotFound
 	}
 
-	handler, ok := ro.Instance().(protocol.HTTPHandler)
-	if !ok {
-		logger.Errorf("%s is not a handler", b.spec.Destinations[0])
-		ctx.Response().SetStatusCode(http.StatusServiceUnavailable)
-		return resultInvokeDestinationFailed
-	}
-
 	handler.Handle(ctx)
+
 	return ""
 }
 
