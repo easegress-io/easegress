@@ -43,6 +43,7 @@ type Options struct {
 
 	// Flags from command line only.
 	ShowVersion     bool   `yaml:"-"`
+	ShowHelp        bool   `yaml:"-"`
 	ShowConfig      bool   `yaml:"-"`
 	ConfigFile      string `yaml:"-"`
 	ForceNewCluster bool   `yaml:"-"`
@@ -90,6 +91,7 @@ func New() *Options {
 	}
 
 	opt.flags.BoolVarP(&opt.ShowVersion, "version", "v", false, "Print the version and exit.")
+	opt.flags.BoolVarP(&opt.ShowHelp, "help", "h", false, "Print the helper message and exit.")
 	opt.flags.BoolVarP(&opt.ShowConfig, "print-config", "c", false, "Print the configuration.")
 	opt.flags.StringVarP(&opt.ConfigFile, "config-file", "f", "", "Load server configuration from a file(yaml format), other command line flags will be ignored if specified.")
 	opt.flags.BoolVar(&opt.ForceNewCluster, "force-new-cluster", false, "Force to create a new one-member cluster.")
@@ -129,15 +131,15 @@ func (opt *Options) YAML() string {
 func (opt *Options) Parse() (string, error) {
 	err := opt.flags.Parse(os.Args[1:])
 	if err != nil {
-		if err == pflag.ErrHelp {
-			return opt.flags.FlagUsages(), nil
-		} else {
-			return "", nil
-		}
+		return "", err
 	}
 
 	if opt.ShowVersion {
 		return version.Short, nil
+	}
+
+	if opt.ShowHelp {
+		return opt.flags.FlagUsages(), nil
 	}
 
 	opt.viper.AutomaticEnv()
