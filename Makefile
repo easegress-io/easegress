@@ -9,6 +9,7 @@ export GOPROXY=https://goproxy.io
 # Path Related
 MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 MKFILE_DIR := $(dir $(MKFILE_PATH))
+RELEASE_DIR := ${MKFILE_DIR}bin
 
 # Version
 RELEASE?=1.0.0
@@ -19,40 +20,44 @@ ifndef GIT_COMMIT
   GIT_COMMIT := git-$(shell git rev-parse --short HEAD)
 endif
 
-# Source Files
-ALL_FILES = $(shell find ${MKFILE_DIR}${cmd,pkg} -type f -name "*.go")
-CLIENT_FILES = $(shell find ${MKFILE_DIR}${cmd/client,pkg} -type f -name "*.go")
-SERVER_FILES = $(shell find ${MKFILE_DIR}${cmd/server,pkg} -type f -name "*.go")
+# Build Flags
+GO_LD_FLAGS= "-s -w -X github.com/megaease/easegress/pkg/version.RELEASE=${RELEASE} -X github.com/megaease/easegress/pkg/version.COMMIT=${GIT_COMMIT} -X github.com/megaease/easegress/pkg/version.REPO=${GIT_REPO_INFO}"
 
 # Targets
-TARGET_SERVER=${MKFILE_DIR}bin/easegress-server
-TARGET_CLIENT=${MKFILE_DIR}bin/egctl
-TARGET=${TARGET_SERVER} ${TARGET_CLIENT}
+TARGET_SERVER=${RELEASE_DIR}/easegress-server
+TARGET_CLIENT=${RELEASE_DIR}/egctl
 
 # Rules
-build: ${TARGET}
+build: build_client build_server
 
-build_client: ${TARGET_CLIENT}
+build_client:
+	@echo "build client"
+	cd ${MKFILE_DIR} && \
+	CGO_ENABLED=0 go build -v -trimpath -ldflags ${GO_LD_FLAGS} \
+	-o ${TARGET_CLIENT} ${MKFILE_DIR}cmd/client
 
-build_server: ${TARGET_SERVER}
+build_server:
+	@echo "build server"
+	cd ${MKFILE_DIR} && \
+	CGO_ENABLED=0 go build -v -trimpath -ldflags ${GO_LD_FLAGS} \
+	-o ${TARGET_SERVER} ${MKFILE_DIR}cmd/server
 
 build_docker:
 	docker build -t megaease/easegress:${RELEASE} -f ./build/package/Dockerfile .
 
 test:
-	@go list ./{cmd,pkg}/... | grep -v -E 'vendor' | xargs -n1 go test
+	@go list ./... | grep -v -E 'vendor' | xargs -n1 go test
 
 clean:
-	rm -rf ${TARGET}
+	rm -rf ${RELEASE_DIR}
 
 run: build_server
-	${TARGET_SERVER}
 
 fmt:
-	cd ${MKFILE_DIR} && go fmt ./{cmd,pkg}/...
+	cd ${MKFILE_DIR} && go fmt ./...
 
 vet:
-	cd ${MKFILE_DIR} && go vet ./{cmd,pkg}/...
+	cd ${MKFILE_DIR} && go vet ./...
 
 vendor_from_mod:
 	cd ${MKFILE_DIR} && go mod vendor
@@ -62,17 +67,3 @@ vendor_clean:
 
 mod_update:
 	cd ${MKFILE_DIR} && go get -u
-
-
-GO_LD_FLAGS= "-s -w -X github.com/megaease/easegress/pkg/version.RELEASE=${RELEASE} -X github.com/megaease/easegress/pkg/version.COMMIT=${GIT_COMMIT} -X github.com/megaease/easegress/pkg/version.REPO=${GIT_REPO_INFO}"
-${TARGET_SERVER} : ${SERVER_FILES}
-	@echo "build server"
-	cd ${MKFILE_DIR} && \
-	CGO_ENABLED=0 go build -v -ldflags ${GO_LD_FLAGS} \
-	-o ${TARGET_SERVER} ${MKFILE_DIR}cmd/server/main.go
-
-${TARGET_CLIENT} : ${CLIENT_FILES}
-	@echo "build client"
-	cd ${MKFILE_DIR} && \
-	CGO_ENABLED=0 go build -v -ldflags ${GO_LD_FLAGS} \
-	-o ${TARGET_CLIENT} ${MKFILE_DIR}cmd/client/main.go
