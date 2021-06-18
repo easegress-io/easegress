@@ -36,11 +36,19 @@ type (
 		KeepAliveTimeout string        `yaml:"keepAliveTimeout" jsonschema:"omitempty,format=duration"`
 		MaxConnections   uint32        `yaml:"maxConnections" jsonschema:"omitempty,minimum=1"`
 		HTTPS            bool          `yaml:"https" jsonschema:"required"`
-		CertBase64       string        `yaml:"certBase64" jsonschema:"omitempty,format=base64"`
-		KeyBase64        string        `yaml:"keyBase64" jsonschema:"omitempty,format=base64"`
 		CacheSize        uint32        `yaml:"cacheSize" jsonschema:"omitempty"`
 		XForwardedFor    bool          `yaml:"xForwardedFor" jsonschema:"omitempty"`
 		Tracing          *tracing.Spec `yaml:"tracing" jsonschema:"omitempty"`
+
+		// Support multiple certs, preserve the certbase64 and keybase64
+		// for backward compitable
+		CertBase64 string `yaml:"certBase64" jsonschema:"omitempty,format=base64"`
+		KeyBase64  string `yaml:"keyBase64" jsonschema:"omitempty,format=base64"`
+
+		// Certs saved as map, key is domain name, value is cert
+		Certs map[string]string `yaml:"certs" jsonschema:"omitempty"`
+		// Keys saved as map, key is domain name, value is secret
+		Keys map[string]string `yaml:"keys" jsonschema:"omitempty"`
 
 		IPFilter *ipfilter.Spec `yaml:"ipFilter,omitempty" jsonschema:"omitempty"`
 		Rules    []Rule         `yaml:"rules" jsonschema:"omitempty"`
@@ -53,7 +61,7 @@ type (
 		// Otherwise it will output null value, which is invalid in json schema (the type is object).
 		// the original reason is the jsonscheme(genjs) has not support multiple types.
 		// Reference: https://github.com/alecthomas/jsonschema/issues/30
-		// In the future if we have the scienrio where we need marshal the field, but omitempty
+		// In the future if we have the scenario where we need marshal the field, but omitempty
 		// in the schema, we are suppose to support multuple types on our own.
 		IPFilter   *ipfilter.Spec `yaml:"ipFilter,omitempty" jsonschema:"omitempty"`
 		Host       string         `yaml:"host" jsonschema:"omitempty"`
@@ -93,11 +101,8 @@ func (spec *Spec) Validate() error {
 	}
 
 	if spec.HTTPS {
-		if spec.CertBase64 == "" {
-			return fmt.Errorf("certBase64 is empty when https enabled")
-		}
-		if spec.KeyBase64 == "" {
-			return fmt.Errorf("keyBase64 is empty when https enabled")
+		if spec.CertBase64 == "" && spec.KeyBase64 == "" && spec.Certs == nil && spec.Keys == nil {
+			return fmt.Errorf("certBase64/keyBase64, certs/keys are both empty when https enabled")
 		}
 		_, err := spec.tlsConfig()
 		if err != nil {
@@ -108,16 +113,36 @@ func (spec *Spec) Validate() error {
 	return nil
 }
 
-func (spec Spec) tlsConfig() (*tls.Config, error) {
-	certPem, _ := base64.StdEncoding.DecodeString(spec.CertBase64)
-	keyPem, _ := base64.StdEncoding.DecodeString(spec.KeyBase64)
-
-	cert, err := tls.X509KeyPair(certPem, keyPem)
-	if err != nil {
-		return nil, fmt.Errorf("generate x509 key pair failed: %v", err)
+func (spec *Spec) tlsConfig() (*tls.Config, error) {
+	var certificates []tls.Certificate
+	if spec.CertBase64 != "" && spec.KeyBase64 != "" {
+		// Prefer add CertBase64 and KeyBase64
+		certPem, _ := base64.StdEncoding.DecodeString(spec.CertBase64)
+		keyPem, _ := base64.StdEncoding.DecodeString(spec.KeyBase64)
+		cert, err := tls.X509KeyPair(certPem, keyPem)
+		if err != nil {
+			return nil, fmt.Errorf("generate x509 key pair failed: %v", err)
+		}
+		certificates = append(certificates, cert)
 	}
 
-	return &tls.Config{Certificates: []tls.Certificate{cert}}, nil
+	for k, v := range spec.Certs {
+		if secret, exists := spec.Keys[k]; exists {
+			cert, err := tls.X509KeyPair([]byte(v), []byte(secret))
+			if err != nil {
+				return nil, fmt.Errorf("generate x5099 key pair for %s failed: %s ", k, err)
+			}
+			certificates = append(certificates, cert)
+		} else {
+			return nil, fmt.Errorf("certs %s hasn't secret corresponded to it", k)
+		}
+	}
+
+	if len(certificates) == 0 {
+		return nil, fmt.Errorf("none valid certs and secret")
+	}
+
+	return &tls.Config{Certificates: certificates}, nil
 }
 
 func (h *Header) initHeaderRoute() {
