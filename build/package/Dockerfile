@@ -8,14 +8,14 @@ RUN make clean && make build
 
 # ---
 
-FROM alpine:3.13
+FROM alpine:latest
 
 WORKDIR /opt/easegress
 
 COPY build/package/entrypoint.sh /
 COPY --from=builder /opt/easegress/bin/ /opt/easegress/bin/
 
-RUN apk --no-cache add tini && \
+RUN apk --no-cache add tini tzdata && \
         chmod +x /entrypoint.sh /opt/easegress/bin/*
 
 ENV PATH /opt/easegress/bin:$PATH
