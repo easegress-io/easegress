@@ -55,7 +55,7 @@ func (l *LimitListener) acquire() bool {
 }
 func (l *LimitListener) release() { l.sem.Release() }
 
-// Accept accepts one conneciton.
+// Accept accepts one connection.
 func (l *LimitListener) Accept() (net.Conn, error) {
 	acquired := l.acquire()
 	// If the semaphore isn't acquired because the listener was closed, expect

@@ -30,7 +30,7 @@ import (
 // The syncer keeps a full copy of data, and keeps apply changes onto it when an
 // update event is received from the watcher, and then send out the full data copy.
 // The syncer also pulls full data from ETCD at a configurable pull interval, this
-// is to ensure data consitency, as ETCD watcher may be cancelled if it cannot catch
+// is to ensure data consistency, as ETCD watcher may be cancelled if it cannot catch
 // up with the key-value store.
 type Syncer struct {
 	cluster      *cluster
