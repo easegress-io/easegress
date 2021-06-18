@@ -21,6 +21,8 @@ import (
 	"runtime/debug"
 	"time"
 
+	"gopkg.in/yaml.v2"
+
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/layout"
@@ -28,7 +30,6 @@ import (
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/storage"
 	"github.com/megaease/easegress/pkg/supervisor"
-	"gopkg.in/yaml.v2"
 )
 
 type (
@@ -46,8 +47,7 @@ type (
 	}
 
 	// Status is the status of mesh master.
-	Status struct {
-	}
+	Status struct{}
 )
 
 // New creates a mesh master.
@@ -99,7 +99,6 @@ func (m *Master) run() {
 						logger.Errorf("failed to check instance heartbeat %v, stack trace: \n%s\n",
 							err, debug.Stack())
 					}
-
 				}()
 				m.checkInstancesHeartbeat()
 			}()

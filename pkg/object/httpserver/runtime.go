@@ -24,13 +24,13 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/lucas-clemente/quic-go/http3"
+
 	"github.com/megaease/easegress/pkg/graceupdate"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/httpstat"
 	"github.com/megaease/easegress/pkg/util/topn"
-
-	"github.com/lucas-clemente/quic-go/http3"
 )
 
 const (
@@ -337,7 +337,6 @@ func (r *runtime) closeServer() {
 		ctx, cancelFunc := serverShutdownContext()
 		defer cancelFunc()
 		err := r.server.Shutdown(ctx)
-
 		if err != nil {
 			logger.Warnf("shutdown http1/2 server %s failed: %v",
 				r.superSpec.Name(), err)

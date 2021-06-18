@@ -22,9 +22,10 @@ import (
 	"runtime/debug"
 	"strings"
 
+	"go.etcd.io/etcd/api/v3/mvccpb"
+
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
-	"go.etcd.io/etcd/api/v3/mvccpb"
 )
 
 type (
@@ -184,7 +185,7 @@ func (rcs *Server) Discovery() ([]*ServiceRegistryInfo, error) {
 		visibleServices[v] = true
 	}
 
-	for k, _ := range visibleServices {
+	for k := range visibleServices {
 		var spec *spec.Service
 		if k == rcs.serviceName {
 			spec = self

@@ -22,9 +22,10 @@ import (
 	"fmt"
 	"net/http"
 
+	v1alpha1 "github.com/megaease/easemesh-api/v1alpha1"
+
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
-	v1alpha1 "github.com/megaease/easemesh-api/v1alpha1"
 )
 
 type (

@@ -24,10 +24,10 @@ import (
 	"net/http"
 	"time"
 
+	httpstat "github.com/tcnksm/go-httpstat"
+
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
-
-	httpstat "github.com/tcnksm/go-httpstat"
 )
 
 type (

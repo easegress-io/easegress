@@ -24,10 +24,10 @@ import (
 	"runtime/debug"
 	"strings"
 
-	"github.com/megaease/easegress/pkg/logger"
-
 	loadjs "github.com/xeipuuv/gojsonschema"
 	yaml "gopkg.in/yaml.v2"
+
+	"github.com/megaease/easegress/pkg/logger"
 )
 
 type (

@@ -297,15 +297,13 @@ const (
 	StateForceOpen
 )
 
-var (
-	stateStrings = []string{
-		"Disabled",
-		"Closed",
-		"HalfOpen",
-		"Open",
-		"ForceOpen",
-	}
-)
+var stateStrings = []string{
+	"Disabled",
+	"Closed",
+	"HalfOpen",
+	"Open",
+	"ForceOpen",
+}
 
 // NewPolicy create and initialize a policy with default configuration
 func NewPolicy() *Policy {

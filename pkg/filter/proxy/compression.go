@@ -24,18 +24,16 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/klauspost/compress/gzip"
+
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/util/httpheader"
-
-	"github.com/klauspost/compress/gzip"
 )
 
 // TODO: Expose more options: compression level, mime types.
 
-var (
-	bodyFlushSize = 8 * int64(os.Getpagesize())
-)
+var bodyFlushSize = 8 * int64(os.Getpagesize())
 
 type (
 	gzipBody struct {

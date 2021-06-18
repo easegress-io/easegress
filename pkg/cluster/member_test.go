@@ -25,12 +25,12 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/phayes/freeport"
+	pb "go.etcd.io/etcd/api/v3/etcdserverpb"
+
 	"github.com/megaease/easegress/pkg/env"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/option"
-
-	"github.com/phayes/freeport"
-	pb "go.etcd.io/etcd/api/v3/etcdserverpb"
 )
 
 const tempDir = "/tmp/eg-test"
@@ -39,7 +39,7 @@ var memberCounter = 0
 
 func TestMain(m *testing.M) {
 	absLogDir := filepath.Join(tempDir, "global-log")
-	os.MkdirAll(absLogDir, 0755)
+	os.MkdirAll(absLogDir, 0o755)
 	logger.Init(&option.Options{
 		Name:      "member-for-log",
 		AbsLogDir: absLogDir,

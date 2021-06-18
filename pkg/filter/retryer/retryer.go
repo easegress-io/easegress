@@ -37,9 +37,7 @@ const (
 	Kind = "Retryer"
 )
 
-var (
-	results = []string{}
-)
+var results = []string{}
 
 func init() {
 	httppipeline.Register(&Retryer{})

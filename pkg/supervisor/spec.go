@@ -20,9 +20,9 @@ package supervisor
 import (
 	"fmt"
 
-	"github.com/megaease/easegress/pkg/v"
-
 	yaml "gopkg.in/yaml.v2"
+
+	"github.com/megaease/easegress/pkg/v"
 )
 
 type (

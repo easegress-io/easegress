@@ -27,6 +27,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/opentracing/opentracing-go"
+
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/megaease/easegress/pkg/util/httpheader"
@@ -34,7 +36,6 @@ import (
 	"github.com/megaease/easegress/pkg/util/stringtool"
 	"github.com/megaease/easegress/pkg/util/texttemplate"
 	"github.com/megaease/easegress/pkg/util/timetool"
-	"github.com/opentracing/opentracing-go"
 )
 
 type (

@@ -26,14 +26,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/megaease/easegress/pkg/common"
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/option"
-
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/concurrency"
 	"go.etcd.io/etcd/server/v3/embed"
 	yaml "gopkg.in/yaml.v2"
+
+	"github.com/megaease/easegress/pkg/common"
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/option"
 )
 
 const (
@@ -393,7 +393,6 @@ func (c *cluster) getClient() (*clientv3.Client, error) {
 		DialKeepAliveTimeout: dialKeepAliveTimeout,
 		LogConfig:            logger.EtcdClientLoggerConfig(c.opt, logger.EtcdClientFilename),
 	})
-
 	if err != nil {
 		return nil, fmt.Errorf("create client failed: %v", err)
 	}
@@ -618,7 +617,6 @@ func (c *cluster) startServer() (done, timeout chan struct{}, err error) {
 	}()
 
 	return done, timeout, nil
-
 }
 
 func (c *cluster) closeServer() {

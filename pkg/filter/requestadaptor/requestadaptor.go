@@ -34,9 +34,7 @@ const (
 	Kind = "RequestAdaptor"
 )
 
-var (
-	results = []string{}
-)
+var results = []string{}
 
 func init() {
 	httppipeline.Register(&RequestAdaptor{})

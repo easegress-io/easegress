@@ -23,8 +23,9 @@ import (
 	"sort"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/megaease/easegress/pkg/cluster"
 	yaml "gopkg.in/yaml.v2"
+
+	"github.com/megaease/easegress/pkg/cluster"
 )
 
 func (s *Server) setupMemberAPIs() {

@@ -35,9 +35,7 @@ const (
 	resultInvalid = "invalid"
 )
 
-var (
-	results = []string{resultInvalid}
-)
+var results = []string{resultInvalid}
 
 func init() {
 	httppipeline.Register(&Validator{})

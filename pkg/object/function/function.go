@@ -20,6 +20,9 @@ package function
 import (
 	"fmt"
 
+	cron "github.com/robfig/cron/v3"
+	yaml "gopkg.in/yaml.v2"
+
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filter/proxy"
 	"github.com/megaease/easegress/pkg/filter/requestadaptor"
@@ -30,9 +33,6 @@ import (
 	"github.com/megaease/easegress/pkg/util/httpstat"
 	"github.com/megaease/easegress/pkg/util/pathadaptor"
 	"github.com/megaease/easegress/pkg/v"
-
-	cron "github.com/robfig/cron/v3"
-	yaml "gopkg.in/yaml.v2"
 )
 
 const (

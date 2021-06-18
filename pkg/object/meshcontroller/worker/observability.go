@@ -49,7 +49,6 @@ func NewObservabilityServer(serviceName string) *ObservabilityManager {
 
 // UpdateService updates service.
 func (server *ObservabilityManager) UpdateService(newService *spec.Service, version int64) error {
-
 	err := server.agentClient.UpdateService(newService, version)
 	if err != nil {
 		return fmt.Errorf("Update Service Spec failed: %v ", err)
@@ -60,7 +59,6 @@ func (server *ObservabilityManager) UpdateService(newService *spec.Service, vers
 
 // UpdateCanary updates canary.
 func (server *ObservabilityManager) UpdateCanary(globalHeaders *spec.GlobalCanaryHeaders, version int64) error {
-
 	err := server.agentClient.UpdateCanary(globalHeaders, version)
 	if err != nil {
 		return fmt.Errorf("Update Canary Spec: %v ", err)

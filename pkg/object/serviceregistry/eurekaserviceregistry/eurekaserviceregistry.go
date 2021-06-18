@@ -21,11 +21,11 @@ import (
 	"sync"
 	"time"
 
+	eurekaapi "github.com/ArthurHlt/go-eureka-client/eureka"
+
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/serviceregistry"
 	"github.com/megaease/easegress/pkg/supervisor"
-
-	eurekaapi "github.com/ArthurHlt/go-eureka-client/eureka"
 )
 
 const (

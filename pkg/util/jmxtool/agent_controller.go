@@ -20,12 +20,14 @@ package jmxtool
 import (
 	"encoding/json"
 	"fmt"
-	yamljsontool "github.com/ghodss/yaml"
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
-	"gopkg.in/yaml.v2"
 	"net/http"
 	"strconv"
+
+	yamljsontool "github.com/ghodss/yaml"
+	"gopkg.in/yaml.v2"
+
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
 )
 
 const (

@@ -28,6 +28,7 @@ import (
 	"time"
 
 	jsoniter "github.com/json-iterator/go"
+
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
@@ -45,9 +46,7 @@ const (
 	resultFailed = "failed"
 )
 
-var (
-	results = []string{resultFailed}
-)
+var results = []string{resultFailed}
 
 func init() {
 	httppipeline.Register(&APIAggregator{})
@@ -174,7 +173,6 @@ func (aa *APIAggregator) handle(ctx context.HTTPContext) (result string) {
 	// Using supervisor to call HTTPProxy object's Handle function
 	for i, proxy := range aa.spec.APIProxies {
 		req, err := aa.newHTTPReq(ctx, proxy, buff)
-
 		if err != nil {
 			logger.Errorf("BUG: new HTTPProxy request failed %v proxyname[%d]", err, aa.spec.APIProxies[i].HTTPProxyName)
 			ctx.Response().SetStatusCode(http.StatusBadRequest)
@@ -184,7 +182,6 @@ func (aa *APIAggregator) handle(ctx context.HTTPContext) (result string) {
 		go func(i int, name string, req *http.Request) {
 			defer wg.Done()
 			copyCtx, err := aa.newCtx(ctx, req, buff)
-
 			if err != nil {
 				httpResps[i] = nil
 				return
@@ -201,7 +198,6 @@ func (aa *APIAggregator) handle(ctx context.HTTPContext) (result string) {
 					httpResps[i] = copyCtx.Response()
 				}
 			}
-
 		}(i, proxy.HTTPProxyName, req)
 	}
 
@@ -238,7 +234,6 @@ func (aa *APIAggregator) handle(ctx context.HTTPContext) (result string) {
 	}
 
 	return aa.formatResponse(ctx, data)
-
 }
 
 func (aa *APIAggregator) newCtx(ctx context.HTTPContext, req *http.Request, buff *bytes.Buffer) (context.HTTPContext, error) {
@@ -279,7 +274,6 @@ func (aa *APIAggregator) newHTTPReq(ctx context.HTTPContext, proxy *APIProxy, bu
 	}
 
 	return http.NewRequestWithContext(stdctx, method, url.String(), body)
-
 }
 
 func (aa *APIAggregator) copyHTTPBody2Map(body io.Reader, ctx context.HTTPContext, data map[string][]byte, name string) string {

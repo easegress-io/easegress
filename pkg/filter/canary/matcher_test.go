@@ -31,7 +31,7 @@ const tempDir = "/tmp/eg-test"
 
 func TestMain(m *testing.M) {
 	absLogDir := filepath.Join(tempDir, "global-log")
-	os.MkdirAll(absLogDir, 0755)
+	os.MkdirAll(absLogDir, 0o755)
 	logger.Init(&option.Options{
 		Name:      "canary-for-log",
 		AbsLogDir: absLogDir,
@@ -46,7 +46,6 @@ func TestMain(m *testing.M) {
 }
 
 func TestIsValidParenthesis(t *testing.T) {
-
 	testCases := []struct {
 		s   string
 		exp bool
@@ -94,7 +93,6 @@ func TestIsValidParenthesis(t *testing.T) {
 }
 
 func TestParserCheck(t *testing.T) {
-
 	testCases := []struct {
 		conditions string
 		pass       bool
@@ -180,7 +178,6 @@ func TestDoParseCondIllegalConditions(t *testing.T) {
 }
 
 func TestMakeMatcherIllegalSource(t *testing.T) {
-
 	testCases := []struct {
 		conditions string
 		pass       bool
@@ -215,7 +212,6 @@ func TestMakeMatcherIllegalSource(t *testing.T) {
 }
 
 func TestMakeMatcherIllegalCondition(t *testing.T) {
-
 	testCases := []struct {
 		conditions string
 		pass       bool
@@ -238,7 +234,6 @@ func TestMakeMatcherIllegalCondition(t *testing.T) {
 }
 
 func TestMatcherSources(t *testing.T) {
-
 	req, err := http.NewRequest("GET", "http://", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -384,7 +379,6 @@ func TestMatcherGetActVal(t *testing.T) {
 }
 
 func TestMatcherConditionalOP(t *testing.T) {
-
 	req, err := http.NewRequest("GET", "http://", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -482,7 +476,6 @@ func TestMatcherConditionalOP(t *testing.T) {
 }
 
 func TestMatcherLogicalOP(t *testing.T) {
-
 	req, err := http.NewRequest("GET", "http://", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -537,7 +530,6 @@ func TestMatcherLogicalOP(t *testing.T) {
 				data.req.Header.Set("A", "A")
 				data.req.Header.Set("B", "A")
 				data.req.Header.Del("C")
-
 			},
 			false,
 		},
@@ -547,7 +539,6 @@ func TestMatcherLogicalOP(t *testing.T) {
 				data.req.Header.Set("A", "A")
 				data.req.Header.Set("B", "A")
 				data.req.Header.Set("C", "C")
-
 			},
 			true,
 		},
@@ -558,7 +549,6 @@ func TestMatcherLogicalOP(t *testing.T) {
 				data.req.Header.Set("A", "A")
 				data.req.Header.Set("B", "A")
 				data.req.Header.Set("C", "C")
-
 			},
 			false,
 		},
@@ -570,7 +560,6 @@ func TestMatcherLogicalOP(t *testing.T) {
 				data.req.Header.Set("B", "A")
 				data.req.Header.Set("C", "C")
 				data.req.Header.Set("D", "D")
-
 			},
 			true,
 		},
@@ -597,7 +586,6 @@ func TestMatcherLogicalOP(t *testing.T) {
 				data.req.Header.Set("C", "C")
 				data.req.Header.Set("D", "D")
 				data.req.Header.Set("E", "E")
-
 			},
 			true,
 		},
@@ -623,7 +611,7 @@ func BenchmarkMatcher(b *testing.B) {
 	// It's perf should be almost as fast as c := "Header.A == 'A'.
 	c := "Header.A == 'A' || Jwt.B != 'B' || Cookie.C > 'C'" +
 		"|| Jwt.C != 'C' || Jwt.D != 'D' || Jwt.E != 'E' || Jwt.F != 'F'"
-	//c := "Header.A == 'A'"
+	// c := "Header.A == 'A'"
 	m, err := makeMatcher(c)
 	if err != nil {
 		b.Fatal(err)

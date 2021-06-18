@@ -25,10 +25,8 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 )
 
-var (
-	// Global is the global service registry.
-	Global = New()
-)
+// Global is the global service registry.
+var Global = New()
 
 type (
 	// ServiceRegistry is the service center containing all drivers.

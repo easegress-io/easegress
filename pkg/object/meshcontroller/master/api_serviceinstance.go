@@ -23,10 +23,10 @@ import (
 	"sort"
 
 	"github.com/go-chi/chi/v5"
+	"gopkg.in/yaml.v2"
+
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
-
-	"gopkg.in/yaml.v2"
 )
 
 type serviceInstancesByOrder []*spec.ServiceInstanceSpec

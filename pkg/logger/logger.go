@@ -22,12 +22,12 @@ import (
 	"path/filepath"
 	"time"
 
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+
 	"github.com/megaease/easegress/pkg/common"
 	"github.com/megaease/easegress/pkg/option"
 	"github.com/megaease/easegress/pkg/util/timetool"
-
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 // Init initializes logger.

@@ -22,8 +22,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/grace/gracenet"
+
+	"github.com/megaease/easegress/pkg/logger"
 )
 
 var (

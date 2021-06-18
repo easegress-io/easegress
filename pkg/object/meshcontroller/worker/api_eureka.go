@@ -102,7 +102,8 @@ func (wrk *Worker) eurekaAPIs() []*apiEntry {
 			Path:    meshEurekaPrefix + "/apps/{serviceName}/{instanceID}/status",
 			Method:  "DELETE",
 			Handler: wrk.emptyHandler,
-		}, {
+		},
+		{
 			Path:    meshEurekaPrefix + "/apps/{serviceName}/{instanceID}/metadata",
 			Method:  "PUT",
 			Handler: wrk.emptyHandler,

@@ -41,51 +41,47 @@ const (
 	resultServerError   = "serverError"
 )
 
-var (
-	results = []string{
-		resultFallback,
-		resultInternalError,
-		resultClientError,
-		resultServerError,
-	}
-)
+var results = []string{
+	resultFallback,
+	resultInternalError,
+	resultClientError,
+	resultServerError,
+}
 
 func init() {
 	httppipeline.Register(&Proxy{})
 }
 
-var (
-	// All Proxy instances use one globalClient in order to reuse
-	// some resounces such as keepalive connections.
-	globalClient = &http.Client{
-		// NOTE: Timeout could be no limit, real client or server could cancel it.
-		Timeout: 0,
-		Transport: &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-			DialContext: (&net.Dialer{
-				Timeout:   30 * time.Second,
-				KeepAlive: 60 * time.Second,
-				DualStack: true,
-			}).DialContext,
-			TLSClientConfig: &tls.Config{
-				// NOTE: Could make it an paramenter,
-				// when the requests need cross WAN.
-				InsecureSkipVerify: true,
-			},
-			DisableCompression: false,
-			// NOTE: The large number of Idle Connctions can
-			// reduce overhead of building connections.
-			MaxIdleConns:          10240,
-			MaxIdleConnsPerHost:   512,
-			IdleConnTimeout:       90 * time.Second,
-			TLSHandshakeTimeout:   10 * time.Second,
-			ExpectContinueTimeout: 1 * time.Second,
+// All Proxy instances use one globalClient in order to reuse
+// some resounces such as keepalive connections.
+var globalClient = &http.Client{
+	// NOTE: Timeout could be no limit, real client or server could cancel it.
+	Timeout: 0,
+	Transport: &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 60 * time.Second,
+			DualStack: true,
+		}).DialContext,
+		TLSClientConfig: &tls.Config{
+			// NOTE: Could make it an paramenter,
+			// when the requests need cross WAN.
+			InsecureSkipVerify: true,
 		},
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
-)
+		DisableCompression: false,
+		// NOTE: The large number of Idle Connctions can
+		// reduce overhead of building connections.
+		MaxIdleConns:          10240,
+		MaxIdleConnsPerHost:   512,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	},
+	CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	},
+}
 
 type (
 	// Proxy is the filter Proxy.

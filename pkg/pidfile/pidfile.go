@@ -31,15 +31,13 @@ const (
 	pidfileName = "easegress.pid"
 )
 
-var (
-	pidfilePath string
-)
+var pidfilePath string
 
 // Write writes pidfile.
 func Write(opt *option.Options) error {
 	pidfilePath = filepath.Join(opt.AbsHomeDir, pidfileName)
 
-	err := ioutil.WriteFile(pidfilePath, []byte(fmt.Sprintf("%d", os.Getpid())), 0644)
+	err := ioutil.WriteFile(pidfilePath, []byte(fmt.Sprintf("%d", os.Getpid())), 0o644)
 	if err != nil {
 		logger.Errorf("write %s failed: %s", err)
 		return err

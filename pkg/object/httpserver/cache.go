@@ -18,10 +18,10 @@
 package httpserver
 
 import (
+	lru "github.com/hashicorp/golang-lru"
+
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/util/ipfilter"
-
-	lru "github.com/hashicorp/golang-lru"
 )
 
 type (

@@ -21,10 +21,10 @@ import (
 	"net"
 	"strings"
 
+	"github.com/yl2chen/cidranger"
+
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
-
-	"github.com/yl2chen/cidranger"
 )
 
 var (

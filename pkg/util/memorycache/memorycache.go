@@ -22,12 +22,12 @@ import (
 	"strings"
 	"time"
 
+	cache "github.com/patrickmn/go-cache"
+
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/util/httpheader"
 	"github.com/megaease/easegress/pkg/util/stringtool"
-
-	cache "github.com/patrickmn/go-cache"
 )
 
 const (

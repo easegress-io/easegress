@@ -31,9 +31,7 @@ const (
 	resultFallback = "fallback"
 )
 
-var (
-	results = []string{resultFallback}
-)
+var results = []string{resultFallback}
 
 func init() {
 	httppipeline.Register(&Fallback{})

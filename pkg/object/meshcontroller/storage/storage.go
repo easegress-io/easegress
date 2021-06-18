@@ -21,9 +21,10 @@ import (
 	"fmt"
 	"time"
 
+	"go.etcd.io/etcd/api/v3/mvccpb"
+
 	"github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/logger"
-	"go.etcd.io/etcd/api/v3/mvccpb"
 )
 
 type (

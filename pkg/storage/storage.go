@@ -27,11 +27,11 @@ import (
 	"strings"
 	"time"
 
+	yaml "gopkg.in/yaml.v2"
+
 	"github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/option"
-
-	yaml "gopkg.in/yaml.v2"
 )
 
 const (
@@ -134,7 +134,6 @@ func (s *Storage) poll() {
 			}
 		}
 	}
-
 }
 
 // pullConfig applies deltas to the config by order.
@@ -276,7 +275,7 @@ func (s *Storage) storeConfig() {
 	}
 	buff.Write(configBuff)
 
-	err = ioutil.WriteFile(s.configfilePath, buff.Bytes(), 0644)
+	err = ioutil.WriteFile(s.configfilePath, buff.Bytes(), 0o644)
 	if err != nil {
 		logger.Errorf("write %s failed: %v", s.configfilePath, err)
 		return

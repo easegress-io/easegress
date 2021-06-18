@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	"github.com/dgrijalva/jwt-go"
+
 	"github.com/megaease/easegress/pkg/context"
 )
 

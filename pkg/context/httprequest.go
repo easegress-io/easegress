@@ -21,10 +21,11 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/tomasen/realip"
+
 	"github.com/megaease/easegress/pkg/util/callbackreader"
 	"github.com/megaease/easegress/pkg/util/httpheader"
 	"github.com/megaease/easegress/pkg/util/stringtool"
-	"github.com/tomasen/realip"
 )
 
 type (

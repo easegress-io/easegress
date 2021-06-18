@@ -43,6 +43,7 @@ func TestSemaphore0(t *testing.T) {
 	case <-time.After(100 * time.Millisecond):
 	}
 }
+
 func TestSemaphoreRobust(t *testing.T) {
 	s := NewSem(10)
 	w := &sync.WaitGroup{}
@@ -73,11 +74,10 @@ func TestSemaphoreRobust(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	runCase(s, &Case{23}, t)
-
 }
 
 func TestSemaphoreN(t *testing.T) {
-	var s = NewSem(20)
+	s := NewSem(20)
 	Cases := []*Case{
 		{maxSem: 37},
 		{maxSem: 45},
@@ -104,6 +104,7 @@ func BenchmarkSemaphore(b *testing.B) {
 		})
 	}
 }
+
 func runCase(s *Semaphore, c *Case, t *testing.T) {
 	s.SetMaxCount(uint32(c.maxSem))
 	time.Sleep(10 * time.Millisecond)

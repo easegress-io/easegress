@@ -25,10 +25,11 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	v1alpha1 "github.com/megaease/easemesh-api/v1alpha1"
+
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
-	v1alpha1 "github.com/megaease/easemesh-api/v1alpha1"
 )
 
 type tenantsByOrder []*spec.Tenant

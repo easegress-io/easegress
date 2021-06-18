@@ -23,11 +23,11 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
+	clientv3 "go.etcd.io/etcd/client/v3"
+
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/serviceregistry"
 	"github.com/megaease/easegress/pkg/supervisor"
-
-	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 const (
@@ -145,7 +145,6 @@ func (e *EtcdServiceRegistry) buildClient() (*clientv3.Client, error) {
 		DialKeepAliveTimeout: 1 * time.Minute,
 		LogConfig:            logger.EtcdClientLoggerConfig(e.super.Options(), "object_"+e.superSpec.Name()),
 	})
-
 	if err != nil {
 		return nil, err
 	}

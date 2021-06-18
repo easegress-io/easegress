@@ -27,13 +27,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ArthurHlt/go-eureka-client/eureka"
 	"github.com/go-chi/chi/v5"
+	consul "github.com/hashicorp/consul/api"
+
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/service"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
-
-	"github.com/ArthurHlt/go-eureka-client/eureka"
-	consul "github.com/hashicorp/consul/api"
 )
 
 const (

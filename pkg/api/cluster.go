@@ -22,9 +22,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/megaease/easegress/pkg/supervisor"
-
 	yaml "gopkg.in/yaml.v2"
+
+	"github.com/megaease/easegress/pkg/supervisor"
 )
 
 func (s *Server) _purgeMember(memberName string) {

@@ -24,9 +24,9 @@ import (
 	"sort"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/megaease/easegress/pkg/supervisor"
-
 	yaml "gopkg.in/yaml.v2"
+
+	"github.com/megaease/easegress/pkg/supervisor"
 )
 
 const (

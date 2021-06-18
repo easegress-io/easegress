@@ -22,10 +22,8 @@ import (
 	"time"
 )
 
-var (
-	// for unit testing cases to mock 'time.Now' only
-	nowFunc = time.Now
-)
+// for unit testing cases to mock 'time.Now' only
+var nowFunc = time.Now
 
 type (
 	// State is rate limiter state
@@ -66,13 +64,11 @@ const (
 	StateDisabled
 )
 
-var (
-	stateStrings = []string{
-		"Normal",
-		"Limiting",
-		"Disabled",
-	}
-)
+var stateStrings = []string{
+	"Normal",
+	"Limiting",
+	"Disabled",
+}
 
 // NewPolicy create and initialize a policy with default configuration
 func NewPolicy() *Policy {

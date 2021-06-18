@@ -21,9 +21,8 @@ import (
 	"bytes"
 	"strconv"
 
-	"github.com/megaease/easegress/pkg/util/httpheader"
-
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/util/httpheader"
 )
 
 type (

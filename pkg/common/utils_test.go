@@ -147,7 +147,6 @@ func TestScanTokensNormally(t *testing.T) {
 		t.Fatalf("unexpected error")
 	}
 	if ret != `abc{defghi{{jkl{}` {
-
 		t.Fatalf("scan token returns wrong result: %s", ret)
 	}
 

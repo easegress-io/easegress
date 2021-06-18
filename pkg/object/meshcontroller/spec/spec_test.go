@@ -327,6 +327,7 @@ func TestSideCarEgressPipelineWithCanaryNoInstanceSpec(t *testing.T) {
 	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs)
 	fmt.Println(superSpec.YAMLConfig())
 }
+
 func TestSideCarEgressPipelineWithCanaryInstanceMultipleLabelSpec(t *testing.T) {
 	s := &Service{
 		Name: "order-005-canary-instance-multiple-label",
@@ -434,7 +435,8 @@ func TestSideCarIngressWithResiliencePipelineSpec(t *testing.T) {
 							RegEx:  "^/path3/[0-9]+$",
 						},
 						PolicyRef: "default",
-					}}},
+					},
+				}},
 			},
 		},
 	}
@@ -483,7 +485,8 @@ func TestSideCarEgressResiliencePipelineSpec(t *testing.T) {
 							RegEx:  "^/path3/[0-9]+$",
 						},
 						PolicyRef: "default",
-					}}},
+					},
+				}},
 			},
 
 			Retryer: &retryer.Spec{
@@ -506,7 +509,8 @@ func TestSideCarEgressResiliencePipelineSpec(t *testing.T) {
 							RegEx:  "^/path3/[0-9]+$",
 						},
 						PolicyRef: "default",
-					}}},
+					},
+				}},
 			},
 
 			TimeLimiter: &timelimiter.Spec{

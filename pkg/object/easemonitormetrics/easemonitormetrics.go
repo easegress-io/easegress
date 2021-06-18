@@ -24,6 +24,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Shopify/sarama"
+	jsoniter "github.com/json-iterator/go"
+
 	"github.com/megaease/easegress/pkg/filter/proxy"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
@@ -31,9 +34,6 @@ import (
 	"github.com/megaease/easegress/pkg/object/statussynccontroller"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/httpstat"
-
-	"github.com/Shopify/sarama"
-	jsoniter "github.com/json-iterator/go"
 )
 
 const (
@@ -41,9 +41,7 @@ const (
 	Kind = "EaseMonitorMetrics"
 )
 
-var (
-	hostIPv4 string
-)
+var hostIPv4 string
 
 func init() {
 	supervisor.Register(&EaseMonitorMetrics{})
@@ -361,7 +359,7 @@ func (emm *EaseMonitorMetrics) httpPipeline2Metrics(
 		}
 
 		if len(proxyStatus.CandidatePools) > 0 {
-			for idx, _ := range proxyStatus.CandidatePools {
+			for idx := range proxyStatus.CandidatePools {
 				baseFieldsProxy.Service = fmt.Sprintf("%s/%s/candidatePool/%d", baseFields.Service, filterName, idx)
 				req, codes := emm.httpStat2Metrics(&baseFieldsProxy, proxyStatus.CandidatePools[idx].Stat)
 				reqMetrics = append(reqMetrics, req)

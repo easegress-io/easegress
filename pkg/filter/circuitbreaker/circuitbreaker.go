@@ -38,9 +38,7 @@ const (
 	resultShortCircuited = "shortCircuited"
 )
 
-var (
-	results = []string{resultShortCircuited}
-)
+var results = []string{resultShortCircuited}
 
 func init() {
 	httppipeline.Register(&CircuitBreaker{})

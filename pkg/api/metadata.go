@@ -24,10 +24,10 @@ import (
 	"sort"
 
 	"github.com/go-chi/chi/v5"
+	yaml "gopkg.in/yaml.v2"
+
 	"github.com/megaease/easegress/pkg/object/httppipeline"
 	"github.com/megaease/easegress/pkg/v"
-
-	yaml "gopkg.in/yaml.v2"
 )
 
 const (

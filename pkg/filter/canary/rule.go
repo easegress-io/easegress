@@ -18,9 +18,9 @@
 package canary
 
 import (
-	"github.com/megaease/easegress/pkg/context"
-
 	yaml "gopkg.in/yaml.v2"
+
+	"github.com/megaease/easegress/pkg/context"
 )
 
 // Rule is the A/B testing rule specified by user.
