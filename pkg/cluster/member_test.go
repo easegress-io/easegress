@@ -30,7 +30,7 @@ import (
 	"github.com/megaease/easegress/pkg/option"
 
 	"github.com/phayes/freeport"
-	pb "go.etcd.io/etcd/etcdserver/etcdserverpb"
+	pb "go.etcd.io/etcd/api/v3/etcdserverpb"
 )
 
 const tempDir = "/tmp/eg-test"
