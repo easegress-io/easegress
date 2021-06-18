@@ -23,7 +23,7 @@ import (
 
 	yamljsontool "github.com/ghodss/yaml"
 	"github.com/tidwall/gjson"
-	"go.etcd.io/etcd/mvcc/mvccpb"
+	"go.etcd.io/etcd/api/v3/mvccpb"
 	"gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegress/pkg/cluster"

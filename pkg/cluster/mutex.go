@@ -21,7 +21,7 @@ import (
 	"context"
 	"time"
 
-	"go.etcd.io/etcd/clientv3/concurrency"
+	"go.etcd.io/etcd/client/v3/concurrency"
 )
 
 // Mutex is a cluster level mutex.

@@ -25,7 +25,7 @@ import (
 	"github.com/megaease/easegress/pkg/common"
 	"github.com/megaease/easegress/pkg/logger"
 
-	"go.etcd.io/etcd/embed"
+	"go.etcd.io/etcd/server/v3/embed"
 )
 
 const (
