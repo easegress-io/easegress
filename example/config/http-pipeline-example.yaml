@@ -88,18 +88,18 @@ filters:
         headers:
           X-Filter:
             exact: mirror
-    candidatePool:
-      servers:
-      - url: http://127.0.0.1:9093
-      - url: http://127.0.0.1:9094
-      loadBalance:
-        policy: random
-        headerHashKey: ""
-      memoryCache: null
-      filter:
-        headers:
-          X-Filter:
-            exact: candidate
+    candidatePools:
+      - servers:
+        - url: http://127.0.0.1:9093
+        - url: http://127.0.0.1:9094
+        loadBalance:
+          policy: random
+          headerHashKey: ""
+        memoryCache: null
+        filter:
+          headers:
+            X-Filter:
+              exact: candidate
     mainPool:
       serversTags: ["v2"]
       servers:

@@ -48,19 +48,12 @@ type (
 	}
 
 	// WalkFunc is the type of the function called for
-	// each running object visited by WalkObjectEntitys.
+	// walking object entity.
 	WalkFunc func(objectEntity *ObjectEntity) bool
 )
 
 // MustNew creates a Supervisor.
 func MustNew(opt *option.Options, cls cluster.Cluster) *Supervisor {
-	statusToKeep := []string{}
-	for _, rootObject := range objectRegistry {
-		if rootObject.Category() == CategorySystemController {
-			statusToKeep = append(statusToKeep, rootObject.Kind())
-		}
-	}
-
 	s := &Supervisor{
 		options: opt,
 		cls:     cls,

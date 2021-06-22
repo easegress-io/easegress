@@ -19,9 +19,12 @@ package trafficcontroller
 
 import (
 	"fmt"
+	"runtime/debug"
 	"sync"
 
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/object/httpserver"
 	"github.com/megaease/easegress/pkg/protocol"
 	"github.com/megaease/easegress/pkg/supervisor"
 )
@@ -56,8 +59,24 @@ type (
 		httppipelines sync.Map
 	}
 
+	// WalkHTTPServerFunc is the type of the function called for
+	// walking http server and http pipeline.
+	WalkFunc = supervisor.WalkFunc
+
 	// Spec describes TrafficController.
 	Spec struct {
+	}
+
+	Status struct {
+		Namespaces []string `yaml:"namespaces"`
+	}
+
+	// StatusOneSpace is the universal status in one space.
+	// TrafficController won't use it.
+	StatusOneSpace struct {
+		Namespace     string                          `yaml:"namespace"`
+		HTTPServers   map[string]*httpserver.Status   `yaml:"httpServers"`
+		HTTPPipelines map[string]*httppipeline.Status `yaml:"httpPipelines"`
 	}
 )
 
@@ -291,6 +310,48 @@ func (tc *TrafficController) ListHTTPServers(namespace string) []*supervisor.Obj
 	return entities
 }
 
+func (tc *TrafficController) WalkHTTPServers(namespace string, walkFn WalkFunc) {
+	defer func() {
+		if err := recover(); err != nil {
+			logger.Errorf("walkHTTPServers recover from err: %v, stack trace:\n%s\n",
+				err, debug.Stack())
+		}
+	}()
+
+	tc.mutex.Lock()
+	defer tc.mutex.Unlock()
+
+	space, exists := tc.spaces[namespace]
+	if !exists {
+		return
+	}
+
+	space.httpservers.Range(func(k, v interface{}) bool {
+		return walkFn(v.(*supervisor.ObjectEntity))
+	})
+}
+
+func (tc *TrafficController) WalkHTTPPipelines(namespace string, walkFn WalkFunc) {
+	defer func() {
+		if err := recover(); err != nil {
+			logger.Errorf("walkHTTPPipelines recover from err: %v, stack trace:\n%s\n",
+				err, debug.Stack())
+		}
+	}()
+
+	tc.mutex.Lock()
+	defer tc.mutex.Unlock()
+
+	space, exists := tc.spaces[namespace]
+	if !exists {
+		return
+	}
+
+	space.httppipelines.Range(func(k, v interface{}) bool {
+		return walkFn(v.(*supervisor.ObjectEntity))
+	})
+}
+
 func (tc *TrafficController) CreateHTTPPipelineForSpec(namespace string, superSpec *supervisor.Spec) (
 	*supervisor.ObjectEntity, error) {
 
@@ -488,8 +549,22 @@ func (tc *TrafficController) _cleanSpace(namespace string) {
 
 // Status returns the status of TrafficController.
 func (tc *TrafficController) Status() *supervisor.Status {
+	// NOTE: TrafficController won't report any namespaced statuses.
+	// Higher controllers should report their own namespaced status.
+
+	tc.mutex.Lock()
+	defer tc.mutex.Unlock()
+
+	namespaces := []string{}
+
+	for namespace := range tc.spaces {
+		namespaces = append(namespaces, namespace)
+	}
+
 	return &supervisor.Status{
-		ObjectStatus: struct{}{},
+		ObjectStatus: &Status{
+			Namespaces: namespaces,
+		},
 	}
 }
 
@@ -498,7 +573,7 @@ func (tc *TrafficController) Close() {
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
 
-	for _, space := range tc.spaces {
+	for name, space := range tc.spaces {
 		space.httpservers.Range(func(k, v interface{}) bool {
 			entity := v.(*supervisor.ObjectEntity)
 			entity.CloseWithRecovery()
@@ -512,5 +587,8 @@ func (tc *TrafficController) Close() {
 			logger.Infof("delete http pipeline %s/%s", space.namespace, k)
 			return true
 		})
+
+		delete(tc.spaces, name)
+		logger.Infof("delete namespace %s", name)
 	}
 }

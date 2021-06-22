@@ -56,10 +56,7 @@ type (
 	}
 
 	// Status is the status of RawConfigTrafficController.
-	Status struct {
-		HTTPServers  map[string]interface{} `yaml:"httpServers"`
-		HTTPipelines map[string]interface{} `yaml:"httpPipelines"`
-	}
+	Status = trafficcontroller.StatusOneSpace
 )
 
 func init() {
@@ -187,20 +184,20 @@ func (rctc *RawConfigTrafficController) handleEvent(event *supervisor.ObjectEnti
 // Status returns the status of RawConfigTrafficController.
 func (rctc *RawConfigTrafficController) Status() *supervisor.Status {
 	status := &Status{
-		HTTPServers:  make(map[string]interface{}),
-		HTTPipelines: make(map[string]interface{}),
+		Namespace:     rctc.namespace,
+		HTTPServers:   make(map[string]*httpserver.Status),
+		HTTPPipelines: make(map[string]*httppipeline.Status),
 	}
 
-	servers := rctc.tc.ListHTTPServers(rctc.namespace)
-	pipelines := rctc.tc.ListHTTPPipelines(rctc.namespace)
+	rctc.tc.WalkHTTPServers(rctc.namespace, func(entity *supervisor.ObjectEntity) bool {
+		status.HTTPServers[entity.Spec().Name()] = entity.Instance().Status().ObjectStatus.(*httpserver.Status)
+		return true
+	})
 
-	for _, entity := range servers {
-		status.HTTPServers[entity.Spec().Name()] = entity.Instance().Status().ObjectStatus
-	}
-
-	for _, entity := range pipelines {
-		status.HTTPipelines[entity.Spec().Name()] = entity.Instance().Status().ObjectStatus
-	}
+	rctc.tc.WalkHTTPPipelines(rctc.namespace, func(entity *supervisor.ObjectEntity) bool {
+		status.HTTPPipelines[entity.Spec().Name()] = entity.Instance().Status().ObjectStatus.(*httppipeline.Status)
+		return true
+	})
 
 	return &supervisor.Status{
 		ObjectStatus: status,

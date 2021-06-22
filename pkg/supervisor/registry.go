@@ -48,6 +48,7 @@ type (
 
 	// Status is the universal status for all objects.
 	Status struct {
+		// ObjectStatus must be a map or struct (empty is allowed),
 		// If the ObjectStatus contains field `timestamp`,
 		// it will be covered by the top-level Timestamp here.
 		ObjectStatus interface{}
