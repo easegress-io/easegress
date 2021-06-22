@@ -1,15 +1,33 @@
 # FaaSController 
+- [FaaSController](#faascontroller)
+  - [Prerequest](#prerequest)
+  - [Configuration](#configuration)
+    - [Controller spec](#controller-spec)
+    - [FaaSFunction spec](#faasfunction-spec)
+    - [Lifecycle](#lifecycle)
+    - [RESTful APIs](#restful-apis)
+  - [Demoing](#demoing)
+  - [Reference](#reference)
 
 * A FaaSController is a business controller for handling Easegress and FaaS products integration purpose.  It abstracts `FaasFunction`, `FaaSStore` and, `FaaSProvder`. Currently, we only support `Knative` type FaaSProvider. The `FaaSFunction` describes the name, image URL, the resource and autoscaling type of this FaaS function instance. The `FaaSStore` is covered by Easegress' embed ETCD already. 
-* FaaSController works closely with local FaaSProvider. Please make sure the they are running int the communicable environment. Flow this [doc](https://knative.dev/docs/install/install-serving-with-yaml/) to install Knative[1]'s serving component in K8s. It's betweer to have Easegress run in the same vm-instances with K8s for saving communication cost.
+* FaaSController works closely with local FaaSProvider. Please make sure the they are running int the communicable environment. Flow this [doc](https://knative.dev/docs/install/install-serving-with-yaml/) to install Knative[1]'s serving component in K8s. It's better to have Easegress run in the same vm-instances with K8s for saving communication cost.
 
 ## Prerequest 
-1. K8s : **v1.18+**
-2. Knative Serving : **v0.23**
+1. K8s cluster : **v1.18+**
+2. Knative Serving : **v0.23** (with kourier type of networklayer instead of Istio which is too complicated here)
 
-## Controller spec 
-One FaaSController will manage on HTTP traffic gate and multiples pipeline automatically inside. The `httpserver` section is the configuration for the shared HTTP traffic gate. The `Knative` section is for `Knative` type FaaSProvider. 
-
+## Configuration
+### Controller spec
+* One FaaSController will manage on HTTP traffic gate and multiples pipeline automatically inside.
+* The `httpserver` section is the configuration for the shared HTTP traffic gate.
+* The `Knative` section is for `Knative` type FaaSProvider. The `${knative_kourier_clusterIP}` can be get by using command
+``` bash
+$ kubectl get svc -n kourier-system
+NAME               TYPE           CLUSTER-IP       EXTERNAL-IP   PORT(S)                      AGE
+kourier            LoadBalancer   10.109.159.129   <pending>     80:31731/TCP,443:30571/TCP   250dk
+```
+The `CLUSTER-IP` which is `10.109.159.129` is your kourier's K8s service address.
+* **Note** using the `CLUSTER-IP` value above to replace the `{knative_kourier_clusterIP}` in the YAML below.
 ```yaml
 name: faascontroller
 kind: FaaSController           
@@ -28,12 +46,15 @@ httpserver:
     maxConnections: 10240      
 
 knative:
-   networkLayerURL: http://${knative_kourier_clusterIP}
-   hostSuffix: ${knative_kourier_clusterIP}.xip.io  
+   networkLayerURL: http://{knative_kourier_clusterIP}
+   hostSuffix: {knative_kourier_clusterIP}.xip.io
 ```
 
-## FaaSFunction spec
-The FaaSFunction spec including `name`, `image` and other resource related configrations. The `image` is the HTTP microservice's image URL. When upgrading the FaaSfFunction's business logic. this filed can be helpful. Other fields are simaller with K8s or Knative's configuration.[2] The `requestAdaprot` is for customizing the HTTP request content routed from FaaSController's HTTP traffic gate to Knative's `kourier` gateway. 
+### FaaSFunction spec
+* The FaaSFunction spec including `name`, `image` and other resource related configrations.
+* The `image` is the HTTP microservice's image URL. When upgrading the FaaSfFunction's business logic. this filed can be helpful.
+* The `resource` and `autoscaling` fields are simaller with K8s or Knative's configuration.[2]
+* The `requestAdaprot` is for customizing the HTTP request content routed from FaaSController's HTTP traffic gate to Knative's `kourier` gateway.
 
 ```yaml
 name:           "demo10"                                                                                                                                   
@@ -54,7 +75,7 @@ requestAdaptor:
 ```
 
 ### Lifecycle
-There four types of function status, Pending, Active, InActive, and Failed[2]. Basically, they come from AWS Lambda's status. 
+There four types of function status, Pending, Active, InActive, and Failed[3]. Basically, they come from AWS Lambda's status.
 * Once the function has been created in Easegress, its original status is `pending`. After the function had been provisioned successfully by FaaSProvider(Knative), its status will become `active`. At last, FaaSController will add the routing rule in its HTTPServer for this function.  
 * Easegress's FaaSFunction will be `active` not matter there are requests or not. Stop function execution by calling FaaSController's `stop` RESTful API, then it will turn function into `inactive`.  Updating function's spec for image URL or else fields, or deleting function also need to stop it first.
 * **Easegress will only route use's ingress traffic to FaaSProvider when function is in `active` state.**
@@ -87,19 +108,19 @@ There are seven types of event: `UpdateEvent, DeleteEvent, StopEvent, StartEvent
 ### RESTful APIs
 The RESTful API path obey this design `http://host/{version}/{namespace}/{scope}(optional)/{resource}/{action}`,
 
-| Operation         | URL                                                                   | Method | Body          | Description                                                                                                                                 |
-| ----------------- | --------------------------------------------------------------------- | ------ | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Create a function | http://eg-host/apis/v1/faas/${controller_name}                        | POST   | function spec | When there is not such a function in Easegress                                                                                              |
-| Start a function  | http://eg-host/apis/v1/faas/${controller_name}/${function_name}/start | PUT    | empty         | When function is in `inactive` state only, it will turn-off accepting traffic for this function                                             |
-| Stop a function   | http://eg-host/apis/v1/faas/${controller_name}/demo1/stop             | PUT    | empty         | When function is in `active` state only, it will turn-on accpeting traffic for this function                                                |
-| Update a function | http://eg-host/apis/v1/faas/${controller_name}/${function_name}       | PUT    | function spec | When function is in `pending`, `inactive` or `failed` state. It can used to update your function or fix your function's deployment problem. |
-| Delete a function | http://eg-host/apis/v1/faas/${controller_name}/${function_name}       | DELETE | empty         | When function is in `pending` or `failed` states.                                                                                           |
-| Get a function    | http://eg-host/apis/v1/faas/${controller_name}/${function_name}       | GET    | empty         | No timing limitation.                                                                                                                       |
-| Get function list | http://eg-host/apis/v1/faas/${controller_name}                        | GET    | empty         | No timing limitation.                                                                                                                       |
+| Operation         | URL                                                                 | Method | Body          | Description                                                                                                                                 |
+| ----------------- | ------------------------------------------------------------------- | ------ | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Create a function | http://eg-host/apis/v1/faas/{controller_name}                       | POST   | function spec | When there is not such a function in Easegress                                                                                              |
+| Start a function  | http://eg-host/apis/v1/faas/{controller_name}/{function_name}/start | PUT    | empty         | When function is in `inactive` state only, it will turn-off accepting traffic for this function                                             |
+| Stop a function   | http://eg-host/apis/v1/faas/{controller_name}/demo1/stop            | PUT    | empty         | When function is in `active` state only, it will turn-on accpeting traffic for this function                                                |
+| Update a function | http://eg-host/apis/v1/faas/{controller_name}/{function_name}       | PUT    | function spec | When function is in `pending`, `inactive` or `failed` state. It can used to update your function or fix your function's deployment problem. |
+| Delete a function | http://eg-host/apis/v1/faas/{controller_name}/{function_name}       | DELETE | empty         | When function is in `pending` or `failed` states.                                                                                           |
+| Get a function    | http://eg-host/apis/v1/faas/{controller_name}/{function_name}       | GET    | empty         | No timing limitation.                                                                                                                       |
+| Get function list | http://eg-host/apis/v1/faas/{controller_name}                       | GET    | empty         | No timing limitation.                                                                                                                       |
 
 
 ## Demoing 
-1. Create the faasController in Easegress
+1. Creating the faasController in Easegress
 ```bash
 $ cd ./easegress/example/writer-001 && ./start.sh
 
@@ -126,7 +147,7 @@ knative:
    networkLayerURL: http://10.109.159.129
    hostSuffix: 10.109.159.129.xip.io  
 ```
-2. Create the function 
+2. Creating the function
 ```bash
 
 $ curl --data-binary @./function.yaml -X POST -H 'Content-Type: text/vnd.yaml' http://127.0.0.1:12381/apis/v1/faas/faascontroller
@@ -165,7 +186,7 @@ status:
 fsm: null
 ```
 
-4. Visit function by HTTP traffic gate with `X-FaaS-Func-Name: demo10` in HTTP header.  
+4. Visiting function by HTTP traffic gate with `X-FaaS-Func-Name: demo10` in HTTP header.
 ```bash
 $ curl http://127.0.0.1:10083/tomcat/job/api -H "X-FaaS-Func-Name: demo10" -X POST -d ‘{"megaease":"Hello Easegress+Knative"}’ 
 V3 Body is 
@@ -175,8 +196,9 @@ $ curl http://127.0.0.1:10083/tomcat/job/api -H "X-FaaS-Func-Name: demo10" -X PO
 V3 Body is 
 ‘{FaaS:Cool}’%  
 ```
-
 The function's API is serving in `/tomcat/job/api` path and its logic is displaying "V3 body is" with the contents u post.
+
 ## Reference
 [1] knative website http://knative.dev
 [2] resource quota https://kubernetes.io/docs/concepts/policy/resource-quotas/
+[3] AWS Lambda state https://aws.amazon.com/blogs/compute/tracking-the-state-of-lambda-functions/
