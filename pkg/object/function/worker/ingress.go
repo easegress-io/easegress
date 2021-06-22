@@ -165,7 +165,6 @@ rules:
 		ings.superSpec.Name(), httpServer.HTTP3, httpServer.Port, httpServer.KeepAlive,
 		httpServer.KeepAliveTimeout, httpServer.HTTPS, httpServer.CertBase64,
 		httpServer.KeyBase64, httpServer.MaxConnections)
-
 }
 
 // Init creates a default ingress HTTPServer.

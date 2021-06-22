@@ -45,7 +45,6 @@ func TestInValidSpec(t *testing.T) {
 }
 
 func TestInvalidKnative(t *testing.T) {
-
 }
 
 func TestValidSpec(t *testing.T) {

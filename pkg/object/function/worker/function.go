@@ -18,10 +18,11 @@
 package worker
 
 import (
+	"gopkg.in/yaml.v2"
+
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/function/spec"
 	"github.com/megaease/easegress/pkg/object/function/storage"
-	"gopkg.in/yaml.v2"
 )
 
 // CreateFunction creates a function and put into store.

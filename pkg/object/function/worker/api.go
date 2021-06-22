@@ -24,12 +24,13 @@ import (
 	"reflect"
 
 	"github.com/go-chi/chi/v5"
+	"gopkg.in/yaml.v2"
+
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/function/spec"
 	"github.com/megaease/easegress/pkg/object/function/storage"
 	"github.com/megaease/easegress/pkg/v"
-	"gopkg.in/yaml.v2"
 )
 
 var (

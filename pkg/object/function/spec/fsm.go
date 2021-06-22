@@ -66,8 +66,10 @@ const (
 
 var (
 	validState []State = []State{PendingState, ActiveState, InactiveState, FailedState, RemovedState}
-	validEvent []Event = []Event{UpdateEvent, DeleteEvent, StopEvent, StartEvent,
-		ProvisionFailedEvent, ProvisionPendingEvent, ProvisionOKEvent}
+	validEvent []Event = []Event{
+		UpdateEvent, DeleteEvent, StopEvent, StartEvent,
+		ProvisionFailedEvent, ProvisionPendingEvent, ProvisionOKEvent,
+	}
 
 	transitions []transition = []transition{
 		{PendingState, UpdateEvent, PendingState},
