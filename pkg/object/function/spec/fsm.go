@@ -86,11 +86,12 @@ var (
 		{InactiveState, StartEvent, ActiveState},
 		{InactiveState, ProvisionFailedEvent, FailedState},
 		{InactiveState, ProvisionOKEvent, InactiveState},
+		{InactiveState, ProvisionPendingEvent, PendingState},
 
 		{FailedState, DeleteEvent, RemovedState},
 		{FailedState, UpdateEvent, PendingState},
-		{FailedState, ProvisionOKEvent, PendingState},
 		{FailedState, ProvisionFailedEvent, FailedState},
+		{FailedState, ProvisionOKEvent, PendingState},
 		{FailedState, ProvisionPendingEvent, PendingState},
 	}
 )

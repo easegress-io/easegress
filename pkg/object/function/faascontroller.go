@@ -61,7 +61,8 @@ func (f *FaasController) Kind() string {
 // DefaultSpec returns the default spec of Function.
 func (f *FaasController) DefaultSpec() interface{} {
 	return &spec.Admin{
-		Provider: spec.ProviderKnative,
+		SyncInterval: "10s",
+		Provider:     spec.ProviderKnative,
 		Knative: &spec.Knative{
 			Namespace: "default",
 			Timeout:   "2s",

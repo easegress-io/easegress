@@ -32,6 +32,11 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+var (
+	errFunctionNotFound     = fmt.Errorf("can't find function")
+	errFunctionAlreadyExist = fmt.Errorf("function already exist")
+)
+
 func (worker *Worker) faasAPIPrefix() string {
 	return fmt.Sprintf("/faas/%s", worker.name)
 }
@@ -39,6 +44,7 @@ func (worker *Worker) faasAPIPrefix() string {
 func (worker *Worker) registerAPIs() {
 	meshAPIs := []*api.APIEntry{
 		{Path: worker.faasAPIPrefix(), Method: "POST", Handler: worker.Create},
+		{Path: worker.faasAPIPrefix(), Method: "GET", Handler: worker.List},
 		{Path: worker.faasAPIPrefix() + "/{name}", Method: "GET", Handler: worker.Get},
 		{Path: worker.faasAPIPrefix() + "/{name}/start", Method: "PUT", Handler: worker.Start},
 		{Path: worker.faasAPIPrefix() + "/{name}/stop", Method: "PUT", Handler: worker.Stop},
@@ -63,11 +69,23 @@ func (worker *Worker) Create(w http.ResponseWriter, r *http.Request) {
 	err := worker.readAPISpec(w, r, spec)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
-		logger.Errorf("create function with bad request: %v")
+		logger.Errorf("create function with bad request: %v", err)
 		return
 	}
 	worker.store.Lock()
 	defer worker.store.Unlock()
+
+	_, err = worker.getFunctionSpec(spec.Name)
+	if err != nil && err != errFunctionNotFound {
+		logger.Errorf("create function: %s by getting faas spec failed: %v", spec.Name, err)
+		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	// already created
+	if err == nil {
+		api.HandleAPIError(w, r, http.StatusConflict, errFunctionAlreadyExist)
+		return
+	}
 
 	if err = worker.provider.Create(spec); err != nil {
 		logger.Errorf("create function: %s by calling faas provider failed: %v", spec.Name, err)
@@ -93,6 +111,10 @@ func (worker *Worker) readAPISpec(w http.ResponseWriter, r *http.Request, spec i
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		return fmt.Errorf("read body failed: %v", err)
+	}
+	err = yaml.Unmarshal(body, spec)
+	if err != nil {
+		return fmt.Errorf("unmarshal failed: %v", err)
 	}
 
 	vr := v.Validate(spec, body)
@@ -186,6 +208,23 @@ func (worker *Worker) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (worker *Worker) List(w http.ResponseWriter, r *http.Request) {
+	functions, err := worker.listFunctions()
+	if err != nil {
+		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
+		return
+	}
+
+	buff, err := yaml.Marshal(functions)
+	if err != nil {
+		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("marshal %#v to yaml failed: %v", functions, err))
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/vnd.yaml")
+	w.Write(buff)
+}
+
 func (worker *Worker) Update(w http.ResponseWriter, r *http.Request) {
 	funcSpec := &spec.Spec{}
 	err := worker.readAPISpec(w, r, funcSpec)
@@ -194,6 +233,18 @@ func (worker *Worker) Update(w http.ResponseWriter, r *http.Request) {
 		logger.Errorf("update function with bad request: %v")
 		return
 	}
+	name, err := worker.readFunctionName(w, r)
+	if err != nil {
+		api.HandleAPIError(w, r, http.StatusBadRequest, err)
+		logger.Errorf("update function with bad request: %v")
+		return
+	}
+	if name != funcSpec.Name {
+		api.HandleAPIError(w, r, http.StatusBadRequest,
+			fmt.Errorf("update URL name %s, specname :%s, mismatch", name, funcSpec.Name))
+		return
+	}
+
 	function, err := worker.get(funcSpec.Name)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
@@ -213,7 +264,7 @@ func (worker *Worker) Update(w http.ResponseWriter, r *http.Request) {
 
 	origAdaptor := function.Spec.RequestAdaptor
 	function.Spec.RequestAdaptor = nil
-	newAdptor := funcSpec.RequestAdaptor
+	newAdaptor := funcSpec.RequestAdaptor
 	funcSpec.RequestAdaptor = nil
 
 	worker.Lock()
@@ -226,9 +277,9 @@ func (worker *Worker) Update(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if !reflect.DeepEqual(origAdaptor, newAdptor) {
+	if !reflect.DeepEqual(origAdaptor, newAdaptor) {
 		// reset back
-		funcSpec.RequestAdaptor = newAdptor
+		funcSpec.RequestAdaptor = newAdaptor
 		if err = worker.ingress.Put(funcSpec); err != nil {
 			api.HandleAPIError(w, r, http.StatusInternalServerError, err)
 			return
@@ -260,7 +311,8 @@ func (worker *Worker) Get(w http.ResponseWriter, r *http.Request) {
 		logger.Errorf("create function with bad request: %v")
 		return
 	}
-
+	// no display
+	function.Fsm = nil
 	buff, err := yaml.Marshal(function)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("marshal %#v to yaml failed: %v", function, err))

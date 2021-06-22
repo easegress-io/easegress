@@ -80,9 +80,10 @@ func (kc *knativeClient) GetStatus(name string) (*spec.Status, error) {
 				provisionFailed = true
 			}
 			key := fmt.Sprintf("%v", v.Type)
-			value := fmt.Sprintf("status: %v message: %v, resaon: %v", v.Status, v.Message, v.Reason)
+			value := fmt.Sprintf("status: %v, message: %v, resaon: %v", v.Status, v.Message, v.Reason)
 			extData[key] = value
 		}
+		status.ExtData = extData
 
 		if provisionFailed {
 			status.Event = spec.ProvisionFailedEvent

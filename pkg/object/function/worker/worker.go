@@ -18,6 +18,7 @@
 package worker
 
 import (
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -26,10 +27,6 @@ import (
 	"github.com/megaease/easegress/pkg/object/function/spec"
 	"github.com/megaease/easegress/pkg/object/function/storage"
 	"github.com/megaease/easegress/pkg/supervisor"
-)
-
-const (
-	defaultSyncInterval = "5s"
 )
 
 type (
@@ -44,7 +41,7 @@ type (
 		store    storage.Storage
 		provider provider.FaaSProvider
 
-		syncInterval time.Duration
+		syncInterval string
 		done         chan (struct{})
 	}
 )
@@ -54,30 +51,30 @@ func NewWorker(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker
 	store := storage.NewStorage(superSpec.Name(), super.Cluster())
 	faasProvider := provider.NewProvider(superSpec)
 	ingress := newIngressServer(superSpec, super, superSpec.Name())
+	adm := superSpec.ObjectSpec().(*spec.Admin)
 
 	w := &Worker{
-		super:     super,
-		superSpec: superSpec,
-		store:     store,
-		name:      superSpec.Name(),
-		provider:  faasProvider,
-		ingress:   ingress,
+		super:        super,
+		superSpec:    superSpec,
+		store:        store,
+		name:         superSpec.Name(),
+		provider:     faasProvider,
+		ingress:      ingress,
+		syncInterval: adm.SyncInterval,
 
 		done:  make(chan struct{}),
 		mutex: sync.RWMutex{},
 	}
 
-	w.registerAPIs()
 	go w.run()
 	return w
 }
 
 func (worker *Worker) run() {
-	var err error
-	worker.syncInterval, err = time.ParseDuration(defaultSyncInterval)
+	syncInterval, err := time.ParseDuration(worker.syncInterval)
 	if err != nil {
 		logger.Errorf("BUG: parse default sync interval: %s failed: %v",
-			defaultSyncInterval, err)
+			syncInterval, err)
 		return
 	}
 
@@ -91,7 +88,9 @@ func (worker *Worker) run() {
 		return
 	}
 
-	go worker.syncStatus()
+	worker.registerAPIs()
+
+	go worker.syncStatus(syncInterval)
 }
 
 // updateStatus rebase functions' status by comparing FaaSProvider's function
@@ -110,10 +109,10 @@ func (worker *Worker) updateStatus() {
 		return
 	}
 
-	allFunctionMap := map[string]*spec.Status{}
+	allFunctionMap := map[string]*spec.Function{}
 	needUpdateFunction := []*spec.Status{}
 	for _, function := range functionList {
-		allFunctionMap[function.Spec.Name] = function.Status
+		allFunctionMap[function.Spec.Name] = function
 		// get function provision status inside faas provider
 		providerStatus, err := worker.provider.GetStatus(function.Spec.Name)
 		if err != nil {
@@ -124,7 +123,8 @@ func (worker *Worker) updateStatus() {
 		} else {
 			if stateUpdated {
 				function.Status.ExtData = providerStatus.ExtData
-				logger.Infof("need update function %#v", function)
+				logger.Debugf("need update function: %s, spec:%#v status:%#v ",
+					function.Spec.Name, function.Spec, function.Status)
 				needUpdateFunction = append(needUpdateFunction, function.Status)
 			}
 		}
@@ -142,13 +142,23 @@ func (worker *Worker) updateStatus() {
 }
 
 // syncStatus sync function's status with
-func (worker *Worker) syncStatus() {
+func (worker *Worker) syncStatus(syncInterval time.Duration) {
+	routine := func() {
+		defer func() {
+			if err := recover(); err != nil {
+				logger.Errorf("%s: recover from: %v, stack trace:\n%s\n",
+					worker.superSpec.Name(), err, debug.Stack())
+			}
+		}()
+
+		worker.updateStatus()
+	}
 	for {
 		select {
 		case <-worker.done:
 			return
-		case <-time.After(worker.syncInterval):
-			worker.updateStatus()
+		case <-time.After(syncInterval):
+			routine()
 		}
 	}
 }

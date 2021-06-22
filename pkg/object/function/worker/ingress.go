@@ -51,24 +51,19 @@ type (
 		super     *supervisor.Supervisor
 		superSpec *supervisor.Spec
 
-		faasNetworkLayerAddr string
-		faasHostSuffix       string
-		faasNamespace        string
+		faasNetworkLayerURL string
+		faasHostSuffix      string
+		faasNamespace       string
 
 		mutex sync.RWMutex
 	}
 
 	pipelineSpecBuilder struct {
-		Kind string `yaml:"kind"`
-		Name string `yaml:"name"`
-
-		// NOTE: Can't use *httppipeline.Spec here.
-		// Reference: https://github.com/go-yaml/yaml/issues/356
+		Kind              string `yaml:"kind"`
+		Name              string `yaml:"name"`
 		httppipeline.Spec `yaml:",inline"`
 	}
 )
-
-var errFunctionNotFound = fmt.Errorf("can't find function")
 
 // newIngressServer creates a initialized ingress server
 func newIngressServer(superSpec *supervisor.Spec, super *supervisor.Supervisor,
@@ -109,16 +104,16 @@ func (b *pipelineSpecBuilder) appendReqAdaptor(funcSpec *spec.Spec, faasNamespac
 		"header": funcSpec.RequestAdaptor.Header,
 
 		// let faas Provider's gateway recognized this function by Host field
-		"host": "http://" + funcSpec.Name + "." + faasNamespace + "." + faasHostSuffix,
+		"host": funcSpec.Name + "." + faasNamespace + "." + faasHostSuffix,
 	})
 
 	return b
 }
 
-func (b *pipelineSpecBuilder) appendProxy(faasNetworkLayerAddr string) *pipelineSpecBuilder {
+func (b *pipelineSpecBuilder) appendProxy(faasNetworkLayerURL string) *pipelineSpecBuilder {
 	mainServers := []*proxy.Server{
 		{
-			URL: faasNetworkLayerAddr,
+			URL: faasNetworkLayerURL,
 		},
 	}
 
@@ -149,6 +144,30 @@ func (ings *ingressServer) Get(name string) (protocol.HTTPHandler, bool) {
 	return ings, true
 }
 
+func (ings *ingressServer) httpServerSpec(httpServer *httpserver.Spec) string {
+	ingressHTTPServerFormat := `
+kind: HTTPServer
+name: %s
+http3: %t
+port: %d
+keepAlive: %t
+keepAliveTimeout: %s
+https: %t
+certBase64: %s
+keyBase64: %s
+maxConnections: %d
+rules:
+  - paths:
+    - pathPrefix: /
+      backend: accept-all-placeholder`
+
+	return fmt.Sprintf(ingressHTTPServerFormat,
+		ings.superSpec.Name(), httpServer.HTTP3, httpServer.Port, httpServer.KeepAlive,
+		httpServer.KeepAliveTimeout, httpServer.HTTPS, httpServer.CertBase64,
+		httpServer.KeyBase64, httpServer.MaxConnections)
+
+}
+
 // Init creates a default ingress HTTPServer.
 func (ings *ingressServer) Init() error {
 	ings.mutex.Lock()
@@ -159,15 +178,12 @@ func (ings *ingressServer) Init() error {
 	}
 	spec := ings.superSpec.ObjectSpec().(*spec.Admin)
 
-	ings.faasNetworkLayerAddr = spec.Knative.NetworkLayerAddr
+	ings.faasNetworkLayerURL = spec.Knative.NetworkLayerURL
 	ings.faasHostSuffix = spec.Knative.HostSuffix
 	ings.faasNamespace = spec.Knative.Namespace
 
-	yamlConf, err := yaml.Marshal(spec.HTTPServer)
-	if err != nil {
-		logger.Errorf("[BUG] marshal ingress httpserver failed, err: %v", err)
-		return err
-	}
+	yamlConf := ings.httpServerSpec(spec.HTTPServer)
+	logger.Debugf("http svr spec is %s", yamlConf)
 
 	superSpec, err := supervisor.NewSpec(string(yamlConf))
 	if err != nil {
@@ -186,10 +202,11 @@ func (ings *ingressServer) Init() error {
 func (ings *ingressServer) Put(funcSpec *spec.Spec) error {
 	builder := newPipelineSpecBuilder(funcSpec.Name)
 	builder.appendReqAdaptor(funcSpec, ings.faasNamespace, ings.faasHostSuffix)
-	builder.appendProxy(ings.faasNetworkLayerAddr)
+	builder.appendProxy(ings.faasNetworkLayerURL)
 
 	yamlConfig := builder.yamlConfig()
-	logger.Infof("pipeline spec is %s", yamlConfig)
+	logger.Debugf("pipeline spec is %s", yamlConfig)
+
 	superSpec, err := supervisor.NewSpec(yamlConfig)
 	if err != nil {
 		logger.Errorf("new spec for %s failed: %v", yamlConfig, err)
@@ -214,17 +231,22 @@ func (ings *ingressServer) Delete(functionName string) {
 	}
 }
 
-// Update updates ingress's all pipeline state by functions' status.
-func (ings *ingressServer) Update(allFunctionsStaus map[string]*spec.Status) {
+// Update updates ingress's all pipeline by all functions map. In Easegress scenario,
+// this function can add back all function's pipeline in store.
+func (ings *ingressServer) Update(allFunctions map[string]*spec.Function) {
 	ings.mutex.Lock()
 	defer ings.mutex.Unlock()
-	for _, v := range allFunctionsStaus {
-		if v.State == spec.ActiveState {
-			if p, exist := ings.pipelines[v.Name]; exist {
-				p.active = true
+	for _, v := range allFunctions {
+		if p, exist := ings.pipelines[v.Spec.Name]; !exist {
+			err := ings.Put(v.Spec)
+			if err != nil {
+				logger.Errorf("ingress add back local pipeline: %s, failed: %v", v.Spec.Name, err)
+				continue
 			}
 		} else {
-			if p, exist := ings.pipelines[v.Name]; exist {
+			if v.Status.State == spec.ActiveState {
+				p.active = true
+			} else {
 				p.active = false
 			}
 		}
@@ -266,7 +288,6 @@ func (ings *ingressServer) get(functionName string) (*faasPipeline, error) {
 // to the "X-FaaS-Func-name" field in header.
 func (ings *ingressServer) Handle(ctx context.HTTPContext) {
 	name := ctx.Request().Header().Get(ingressFunctionKey)
-
 	if len(name) == 0 {
 		logger.Errorf("handle egress RPC without setting service name in: %s header: %#v",
 			ingressFunctionKey, ctx.Request().Header())
@@ -293,7 +314,7 @@ func (ings *ingressServer) Handle(ctx context.HTTPContext) {
 	}
 
 	faasPipeline.pipeline.Handle(ctx)
-	logger.Infof("handle service name:%s finished, status code: %d", name, ctx.Response().StatusCode())
+	logger.Debugf("handle service name:%s finished, status code: %d req: %#v", name, ctx.Response().StatusCode(), ctx.Request())
 }
 
 // Close closes the Egress HTTPServer and Pipelines

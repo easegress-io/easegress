@@ -18,8 +18,6 @@
 package worker
 
 import (
-	"fmt"
-
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/function/spec"
 	"github.com/megaease/easegress/pkg/object/function/storage"
@@ -59,17 +57,19 @@ func (worker *Worker) listFunctions() ([]*spec.Function, error) {
 	functions := []*spec.Function{}
 	specs, err := worker.listAllFunctionSpecs()
 	if err != nil {
+		logger.Errorf("worker list all function specs failed: %v", err)
 		return functions, nil
 	}
 
 	statuses, err := worker.listAllFunctionStatus()
 	if err != nil {
+		logger.Errorf("worker list all function status failed: %v", err)
 		return functions, nil
 	}
 	for _, funcSpec := range specs {
 		var status *spec.Status
 		for _, s := range statuses {
-			if funcSpec.Name == status.Name {
+			if funcSpec.Name == s.Name {
 				status = s
 			}
 		}
@@ -156,7 +156,7 @@ func (worker *Worker) getFunctionStatus(functionName string) (*spec.Status, erro
 		return nil, err
 	}
 	if len(status) == 0 {
-		return nil, fmt.Errorf("not function:%s specs", functionName)
+		return nil, errFunctionNotFound
 	}
 
 	return status[0], nil
@@ -166,9 +166,9 @@ func (worker *Worker) listFunctionStatus(all bool, functionName string) ([]*spec
 	status := []*spec.Status{}
 	var prefix string
 	if all {
-		prefix = storage.GetAllFunctionSpecPrefix(worker.name)
+		prefix = storage.GetAllFunctionStatusPrefix(worker.name)
 	} else {
-		prefix = storage.GetFunctionSpecPrefix(worker.name, functionName)
+		prefix = storage.GetFunctionStatusPrefix(worker.name, functionName)
 	}
 
 	kvs, err := worker.store.GetPrefix(prefix)
@@ -199,7 +199,7 @@ func (worker *Worker) getFunctionSpec(functionName string) (*spec.Spec, error) {
 		return nil, err
 	}
 	if len(specs) == 0 {
-		return nil, fmt.Errorf("not function:%s specs", functionName)
+		return nil, errFunctionNotFound
 	}
 
 	return specs[0], nil

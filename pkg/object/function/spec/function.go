@@ -56,7 +56,7 @@ type (
 	Function struct {
 		Spec   *Spec   `yaml:"spec" jsonschema:"required"`
 		Status *Status `yaml:"status" jsonschema:"required"`
-		Fsm    *FSM
+		Fsm    *FSM    `yaml:"fsm" jsonschema:"omitempty"`
 	}
 
 	// Spec is the spec of FaaSFunction.
@@ -73,7 +73,7 @@ type (
 		RequestCPU     string `yaml:"requestCPU" jsonschema:"omitempty"`
 		RequestMemory  string `yaml:"requestMemory" jsonschema:"omitempty"`
 
-		RequestAdaptor *requestadaptor.Spec `yaml:"requestAdaprot" jsonschema:"required"`
+		RequestAdaptor *requestadaptor.Spec `yaml:"requestAdaptor" jsonschema:"required"`
 	}
 
 	// Status is the status of faas function.
@@ -86,8 +86,8 @@ type (
 
 	// Knative is the faas provider Knative.
 	Knative struct {
-		HostSuffix       string `yaml:"" jsonschema:"required"`
-		NetworkLayerAddr string `yaml:"networkLayerAddr" jsonschema:"required"`
+		HostSuffix      string `yaml:"hostSuffix" jsonschema:"required"`
+		NetworkLayerURL string `yaml:"networkLayerURL" jsonschema:"required,format=uri"`
 
 		Namespace string `yaml:"namespace" jsonschema:"omitempty"`
 		Timeout   string `yaml:"timeout" jsonschema:"omitempty,format=duration"`
@@ -130,7 +130,6 @@ func (function *Function) Next(event Event) (updated bool, err error) {
 	updated = false
 	oldState := function.Fsm.Current()
 	err = function.Fsm.Next(event)
-
 	if err != nil {
 		return
 	}

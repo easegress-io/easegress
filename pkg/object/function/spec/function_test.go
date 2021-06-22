@@ -44,6 +44,10 @@ func TestInValidSpec(t *testing.T) {
 	fmt.Printf("spec %#v is invalid, due to %v\n", spec, err)
 }
 
+func TestInvalidKnative(t *testing.T) {
+
+}
+
 func TestValidSpec(t *testing.T) {
 	spec := Spec{
 		Name:           "demo",
