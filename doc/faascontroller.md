@@ -9,7 +9,7 @@
   - [Demoing](#demoing)
   - [Reference](#reference)
 
-* A FaaSController is a business controller for handling Easegress and FaaS products integration purpose.  It abstracts `FaasFunction`, `FaaSStore` and, `FaaSProvder`. Currently, we only support `Knative` type FaaSProvider. The `FaaSFunction` describes the name, image URL, the resource and autoscaling type of this FaaS function instance. The `FaaSStore` is covered by Easegress' embed ETCD already. 
+* A FaaSController is a business controller for handling Easegress and FaaS products integration purposes.  It abstracts `FaasFunction`, `FaaSStore` and, `FaaSProvder`. Currently, we only support `Knative` type FaaSProvider. The `FaaSFunction` describes the name, image URL, the resource, and autoscaling type of this FaaS function instance. The `FaaSStore` is covered by Easegress' embed ETCD already.
 * FaaSController works closely with local FaaSProvider. Please make sure they are running in a communicable environment. Flow this [doc](https://knative.dev/docs/install/install-serving-with-yaml/) to install Knative[1]'s serving component in K8s. It's better to have Easegress run in the same vm-instances with K8s for saving communication costs.
 
 ## Prerequest 
@@ -20,7 +20,7 @@
 ### Controller spec
 * One FaaSController will manage on HTTP traffic gate and multiples pipeline automatically inside.
 * The `httpserver` section is the configuration for the shared HTTP traffic gate.
-* The `Knative` section is for `Knative` type FaaSProvider. The `${knative_kourier_clusterIP}` can be get by using command
+* The `Knative` section is for `Knative` type FaaSProvider. The `${knative_kourier_clusterIP}` can be get by using the command
 ``` bash
 $ kubectl get svc -n kourier-system
 NAME               TYPE           CLUSTER-IP       EXTERNAL-IP   PORT(S)                      AGE
@@ -51,9 +51,9 @@ knative:
 ```
 
 ### FaaSFunction spec
-* The FaaSFunction spec including `name`, `image` and other resource related configrations.
-* The `image` is the HTTP microservice's image URL. When upgrading the FaaSfFunction's business logic. this filed can be helpful.
-* The `resource` and `autoscaling` fields are simaller with K8s or Knative's configuration.[2]
+* The FaaSFunction spec including `name`, `image`, and other resource-related configurations.
+* The `image` is the HTTP microservice's image URL. When upgrading the FaaSfFunction's business logic. this field can be helpful.
+* The `resource` and `autoscaling` fields are smaller with K8s or Knative's configuration.[2]
 * The `requestAdaprot` is for customizing the HTTP request content routed from FaaSController's HTTP traffic gate to Knative's `kourier` gateway.
 
 ```yaml
@@ -78,7 +78,7 @@ requestAdaptor:
 There four types of function status, Pending, Active, InActive, and Failed[3]. Basically, they come from AWS Lambda's status.
 * Once the function has been created in Easegress, its original status is `pending`. After the function had been provisioned successfully by FaaSProvider(Knative), its status will become `active`. At last, FaaSController will add the routing rule in its HTTPServer for this function.  
 * Easegress's FaaSFunction will be `active` not matter there are requests or not. Stop function execution by calling FaaSController's `stop` RESTful API, then it will turn function into `inactive`.  Updating function's spec for image URL or else fields, or deleting function also need to stop it first.
-* **Easegress will only route use's ingress traffic to FaaSProvider when function is in `active` state.**
+* **Easegress will only route ingress traffic to FaaSProvider when the function is in `active` state.**
 * After updating the function, it will run into `pending` status. (Once provision successfully, it will become `active` automatically) 
 * FaaSController will remove the routing rule in its HTTPServer for rejecting one function's ingress traffic when it's in `inactive` status. (Then the client will receive HTTP 404 failure response. For becoming zero-downtime, deploy another new FaaSfunction in this FaaSController may be helpful) 
 
