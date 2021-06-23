@@ -45,15 +45,15 @@ type (
 		superSpec *supervisor.Spec
 		spec      *Spec
 
-		mutex  sync.Mutex
-		spaces map[string]*Space
+		mutex      sync.Mutex
+		namespaces map[string]*Namespace
 	}
 
-	Space struct {
+	Namespace struct {
 		namespace string
 		// The scenario here satisfies the first common case:
 		// When the entry for a given key is only ever written once but read many times.
-		// Referecen: https://golang.org/pkg/sync/#Map
+		// Reference: https://golang.org/pkg/sync/#Map
 		// types of both: map[string]*supervisor.ObjectEntity
 		httpservers   sync.Map
 		httppipelines sync.Map
@@ -71,9 +71,9 @@ type (
 		Namespaces []string `yaml:"namespaces"`
 	}
 
-	// StatusOneSpace is the universal status in one space.
+	// StatusInSameNamespace is the universal status in one space.
 	// TrafficController won't use it.
-	StatusOneSpace struct {
+	StatusInSameNamespace struct {
 		Namespace     string                          `yaml:"namespace"`
 		HTTPServers   map[string]*httpserver.Status   `yaml:"httpServers"`
 		HTTPPipelines map[string]*httppipeline.Status `yaml:"httpPipelines"`
@@ -84,15 +84,15 @@ func init() {
 	supervisor.Register(&TrafficController{})
 }
 
-func newSpace(namespace string) *Space {
-	return &Space{
+func newNamespace(namespace string) *Namespace {
+	return &Namespace{
 		namespace: namespace,
 	}
 }
 
 // Space gets handler within the namspace of it.
-func (s *Space) GetHandler(name string) (protocol.HTTPHandler, bool) {
-	entity, exists := s.httppipelines.Load(name)
+func (ns *Namespace) GetHandler(name string) (protocol.HTTPHandler, bool) {
+	entity, exists := ns.httppipelines.Load(name)
 	if !exists {
 		return nil, false
 	}
@@ -120,7 +120,7 @@ func (tc *TrafficController) DefaultSpec() interface{} {
 func (tc *TrafficController) Init(superSpec *supervisor.Spec, super *supervisor.Supervisor) {
 	tc.superSpec, tc.spec, tc.super = superSpec, superSpec.ObjectSpec().(*Spec), super
 
-	tc.spaces = make(map[string]*Space)
+	tc.namespaces = make(map[string]*Namespace)
 
 	tc.reload(nil)
 }
@@ -134,7 +134,7 @@ func (tc *TrafficController) Inherit(spec *supervisor.Spec,
 
 func (tc *TrafficController) reload(previousGeneration *TrafficController) {
 	if previousGeneration != nil {
-		tc.mutex, tc.spaces = previousGeneration.mutex, previousGeneration.spaces
+		tc.mutex, tc.namespaces = previousGeneration.mutex, previousGeneration.namespaces
 	}
 }
 
@@ -158,10 +158,10 @@ func (tc *TrafficController) CreateHTTPServer(namespace string, entity *supervis
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
 
-	space, exists := tc.spaces[namespace]
+	space, exists := tc.namespaces[namespace]
 	if !exists {
-		space = newSpace(namespace)
-		tc.spaces[namespace] = space
+		space = newNamespace(namespace)
+		tc.namespaces[namespace] = space
 		logger.Infof("create namespace %s", namespace)
 	}
 
@@ -191,7 +191,7 @@ func (tc *TrafficController) UpdateHTTPServer(namespace string, entity *supervis
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
 
-	space, exists := tc.spaces[namespace]
+	space, exists := tc.namespaces[namespace]
 	if !exists {
 		return nil, fmt.Errorf("namespace %s not found", namespace)
 	}
@@ -231,10 +231,10 @@ func (tc *TrafficController) ApplyHTTPServer(namespace string, entity *superviso
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
 
-	space, exists := tc.spaces[namespace]
+	space, exists := tc.namespaces[namespace]
 	if !exists {
-		space = newSpace(namespace)
-		tc.spaces[namespace] = space
+		space = newNamespace(namespace)
+		tc.namespaces[namespace] = space
 		logger.Infof("create namespace %s", namespace)
 	}
 
@@ -260,7 +260,7 @@ func (tc *TrafficController) DeleteHTTPServer(namespace, name string) error {
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
 
-	space, exists := tc.spaces[namespace]
+	space, exists := tc.namespaces[namespace]
 	if !exists {
 		return fmt.Errorf("namespace %s not found", namespace)
 	}
@@ -282,7 +282,7 @@ func (tc *TrafficController) GetHTTPServer(namespace, name string) (*supervisor.
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
 
-	space, exists := tc.spaces[namespace]
+	space, exists := tc.namespaces[namespace]
 	if !exists {
 		return nil, false
 	}
@@ -296,7 +296,7 @@ func (tc *TrafficController) ListHTTPServers(namespace string) []*supervisor.Obj
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
 
-	space, exists := tc.spaces[namespace]
+	space, exists := tc.namespaces[namespace]
 	if !exists {
 		return nil
 	}
@@ -321,7 +321,7 @@ func (tc *TrafficController) WalkHTTPServers(namespace string, walkFn WalkFunc) 
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
 
-	space, exists := tc.spaces[namespace]
+	space, exists := tc.namespaces[namespace]
 	if !exists {
 		return
 	}
@@ -342,7 +342,7 @@ func (tc *TrafficController) WalkHTTPPipelines(namespace string, walkFn WalkFunc
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
 
-	space, exists := tc.spaces[namespace]
+	space, exists := tc.namespaces[namespace]
 	if !exists {
 		return
 	}
@@ -372,10 +372,10 @@ func (tc *TrafficController) CreateHTTPPipeline(namespace string, entity *superv
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
 
-	space, exists := tc.spaces[namespace]
+	space, exists := tc.namespaces[namespace]
 	if !exists {
-		space = newSpace(namespace)
-		tc.spaces[namespace] = space
+		space = newNamespace(namespace)
+		tc.namespaces[namespace] = space
 		logger.Infof("create namespace %s", namespace)
 	}
 
@@ -405,7 +405,7 @@ func (tc *TrafficController) UpdateHTTPPipeline(namespace string, entity *superv
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
 
-	space, exists := tc.spaces[namespace]
+	space, exists := tc.namespaces[namespace]
 	if !exists {
 		return nil, fmt.Errorf("namespace %s not found", namespace)
 	}
@@ -445,10 +445,10 @@ func (tc *TrafficController) ApplyHTTPPipeline(namespace string, entity *supervi
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
 
-	space, exists := tc.spaces[namespace]
+	space, exists := tc.namespaces[namespace]
 	if !exists {
-		space = newSpace(namespace)
-		tc.spaces[namespace] = space
+		space = newNamespace(namespace)
+		tc.namespaces[namespace] = space
 		logger.Infof("create namespace %s", namespace)
 	}
 
@@ -474,7 +474,7 @@ func (tc *TrafficController) DeleteHTTPPipeline(namespace, name string) error {
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
 
-	space, exists := tc.spaces[namespace]
+	space, exists := tc.namespaces[namespace]
 	if !exists {
 		return fmt.Errorf("namespace %s not found", namespace)
 	}
@@ -496,7 +496,7 @@ func (tc *TrafficController) GetHTTPPipeline(namespace, name string) (*superviso
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
 
-	space, exists := tc.spaces[namespace]
+	space, exists := tc.namespaces[namespace]
 	if !exists {
 		return nil, false
 	}
@@ -510,7 +510,7 @@ func (tc *TrafficController) ListHTTPPipelines(namespace string) []*supervisor.O
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
 
-	space, exists := tc.spaces[namespace]
+	space, exists := tc.namespaces[namespace]
 	if !exists {
 		return nil
 	}
@@ -527,7 +527,7 @@ func (tc *TrafficController) ListHTTPPipelines(namespace string) []*supervisor.O
 // _cleanSpace must be called after deleting HTTPServer or HTTPPipeline.
 // It's caller's duty to keep concurrent safety.
 func (tc *TrafficController) _cleanSpace(namespace string) {
-	space, exists := tc.spaces[namespace]
+	space, exists := tc.namespaces[namespace]
 	if !exists {
 		logger.Errorf("BUG: namespace %s not found", namespace)
 	}
@@ -542,7 +542,7 @@ func (tc *TrafficController) _cleanSpace(namespace string) {
 		return false
 	})
 	if serverLen+pipelineLen == 0 {
-		delete(tc.spaces, namespace)
+		delete(tc.namespaces, namespace)
 		logger.Infof("delete namespace %s", namespace)
 	}
 }
@@ -557,7 +557,7 @@ func (tc *TrafficController) Status() *supervisor.Status {
 
 	namespaces := []string{}
 
-	for namespace := range tc.spaces {
+	for namespace := range tc.namespaces {
 		namespaces = append(namespaces, namespace)
 	}
 
@@ -573,7 +573,7 @@ func (tc *TrafficController) Close() {
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
 
-	for name, space := range tc.spaces {
+	for name, space := range tc.namespaces {
 		space.httpservers.Range(func(k, v interface{}) bool {
 			entity := v.(*supervisor.ObjectEntity)
 			entity.CloseWithRecovery()
@@ -588,7 +588,7 @@ func (tc *TrafficController) Close() {
 			return true
 		})
 
-		delete(tc.spaces, name)
+		delete(tc.namespaces, name)
 		logger.Infof("delete namespace %s", name)
 	}
 }

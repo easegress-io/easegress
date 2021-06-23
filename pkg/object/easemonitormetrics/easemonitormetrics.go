@@ -297,7 +297,7 @@ func (emm *EaseMonitorMetrics) record2Messages(record *statussynccontroller.Stat
 		}
 
 		switch status := status.ObjectStatus.(type) {
-		case *trafficcontroller.StatusOneSpace:
+		case *trafficcontroller.StatusInSameNamespace:
 			for name, server := range status.HTTPServers {
 				baseFields.Service = fmt.Sprintf("%s/%s", baseFields.Service, name)
 				reqs, codes := emm.httpServer2Metrics(baseFields, server)

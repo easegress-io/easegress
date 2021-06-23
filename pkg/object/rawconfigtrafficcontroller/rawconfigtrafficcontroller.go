@@ -56,7 +56,7 @@ type (
 	}
 
 	// Status is the status of RawConfigTrafficController.
-	Status = trafficcontroller.StatusOneSpace
+	Status = trafficcontroller.StatusInSameNamespace
 )
 
 func init() {
