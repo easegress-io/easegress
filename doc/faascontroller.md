@@ -53,7 +53,7 @@ knative:
 ### FaaSFunction spec
 * The FaaSFunction spec including `name`, `image`, and other resource-related configurations.
 * The `image` is the HTTP microservice's image URL. When upgrading the FaaSfFunction's business logic. this field can be helpful.
-* The `resource` and `autoscaling` fields are smaller with K8s or Knative's configuration.[2]
+* The `resource` and `autoscaling` fields are similar to K8s or Knative's configuration.[2]
 * The `requestAdaprot` is for customizing the HTTP request content routed from FaaSController's HTTP traffic gate to Knative's `kourier` gateway.
 
 ```yaml
@@ -78,9 +78,9 @@ requestAdaptor:
 There four types of function status, Pending, Active, InActive, and Failed[3]. Basically, they come from AWS Lambda's status.
 * Once the function has been created in Easegress, its original status is `pending`. After the function had been provisioned successfully by FaaSProvider(Knative), its status will become `active`. At last, FaaSController will add the routing rule in its HTTPServer for this function.  
 * Easegress's FaaSFunction will be `active` not matter there are requests or not. Stop function execution by calling FaaSController's `stop` RESTful API, then it will turn function into `inactive`.  Updating function's spec for image URL or else fields, or deleting function also need to stop it first.
-* **Easegress will only route ingress traffic to FaaSProvider when the function is in `active` state.**
+* **Easegress will only route ingress traffic to FaaSProvider when the function is in the `active` state.**
 * After updating the function, it will run into `pending` status. (Once provision successfully, it will become `active` automatically) 
-* FaaSController will remove the routing rule in its HTTPServer for rejecting one function's ingress traffic when it's in `inactive` status. (Then the client will receive HTTP 404 failure response. For becoming zero-downtime, deploy another new FaaSfunction in this FaaSController may be helpful) 
+* FaaSController will remove the routing rule in its HTTPServer for rejecting one function's ingress traffic when it's in `inactive` status. (Then the client will receive HTTP 404 failure response. For becoming zero-downtime, deploy another new FaaSFunction in this FaaSController may be helpful)
 
 ```                                                      
                                                          +-------------------+
@@ -102,8 +102,8 @@ provision faild        |     |                             |stop        | start
 ```
 
 There are seven types of event: `UpdateEvent, DeleteEvent, StopEvent, StartEvent, ProvisionFailedEvent, ProvisionPendingEvent, ProvisionOKEvent`.
-* Provision type's events are trigged by FaaSProvider. 
-* Update/Start/Stop/Delete/Create are trigged by users.
+* Provision types events are triggered by FaaS Provider.
+* Update/Start/Stop/Delete/Create are triggered by users.
 
 ### RESTful APIs
 The RESTful API path obey this design `http://host/{version}/{namespace}/{scope}(optional)/{resource}/{action}`,
@@ -153,7 +153,7 @@ knative:
 $ curl --data-binary @./function.yaml -X POST -H 'Content-Type: text/vnd.yaml' http://127.0.0.1:12381/apis/v1/faas/faascontroller
 ```
 
-3. Waiting function be provision successfully. Comfired by using `Get` API for checking the `state` field 
+3. Waiting for the function provisioned successfully. Confirmed by using `Get` API for checking the `state` field
 ```bash
 $ curl http://127.0.0.1:12381/apis/v1/faas/faascontroller/demo10
 spec:
