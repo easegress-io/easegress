@@ -10,7 +10,7 @@
   - [Reference](#reference)
 
 * A FaaSController is a business controller for handling Easegress and FaaS products integration purpose.  It abstracts `FaasFunction`, `FaaSStore` and, `FaaSProvder`. Currently, we only support `Knative` type FaaSProvider. The `FaaSFunction` describes the name, image URL, the resource and autoscaling type of this FaaS function instance. The `FaaSStore` is covered by Easegress' embed ETCD already. 
-* FaaSController works closely with local FaaSProvider. Please make sure the they are running int the communicable environment. Flow this [doc](https://knative.dev/docs/install/install-serving-with-yaml/) to install Knative[1]'s serving component in K8s. It's better to have Easegress run in the same vm-instances with K8s for saving communication cost.
+* FaaSController works closely with local FaaSProvider. Please make sure they are running in a communicable environment. Flow this [doc](https://knative.dev/docs/install/install-serving-with-yaml/) to install Knative[1]'s serving component in K8s. It's better to have Easegress run in the same vm-instances with K8s for saving communication costs.
 
 ## Prerequest 
 1. K8s cluster : **v1.18+**
