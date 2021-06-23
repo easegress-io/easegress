@@ -163,7 +163,7 @@ func annotation(funcSpec *spec.Spec) map[string]string {
 	return annotation
 }
 
-// container builds a container with dedicated prot and image.
+// container builds a container with a dedicated port and image.
 func container(funcSpec *spec.Spec) corev1.Container {
 	container := corev1.Container{
 		Image:     funcSpec.Image,
