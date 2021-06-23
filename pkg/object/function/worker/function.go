@@ -75,7 +75,7 @@ func (worker *Worker) listFunctions() ([]*spec.Function, error) {
 			}
 		}
 		if status != nil {
-			fsm, err := spec.InitFsm(status.State)
+			fsm, err := spec.InitFSM(status.State)
 			if err != nil {
 				logger.Errorf("List all functions, in function: %s, failed: %v", funcSpec.Name, err)
 				continue
@@ -102,7 +102,7 @@ func (worker *Worker) get(functionName string) (*spec.Function, error) {
 		logger.Errorf("get function: %s's status failed: %v", functionName, err)
 		return nil, err
 	}
-	fsm, err := spec.InitFsm(status.State)
+	fsm, err := spec.InitFSM(status.State)
 	if err != nil {
 		logger.Errorf("init function: %s's fsm failed: %v ", functionName, err)
 		return nil, err

@@ -103,8 +103,8 @@ func InitState() State {
 	return PendingState
 }
 
-// InitFsm creates a finite state machine by given states
-func InitFsm(state State) (*FSM, error) {
+// InitFSM creates a finite state machine by given states
+func InitFSM(state State) (*FSM, error) {
 	found := false
 	for _, v := range validState {
 		if v == state {
