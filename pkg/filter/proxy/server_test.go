@@ -193,7 +193,7 @@ func TestPickservers(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ss := newStaticServers(tt.fields.servers,
 				tt.fields.serversTags,
-				LoadBalance{Policy: PolicyRoundRobin})
+				&LoadBalance{Policy: PolicyRoundRobin})
 			got := ss.servers
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("got %+v, want %+v", got, tt.want)

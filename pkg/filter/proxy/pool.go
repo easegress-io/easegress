@@ -87,7 +87,7 @@ func (s PoolSpec) Validate() error {
 	}
 
 	if s.ServiceName == "" {
-		servers := newStaticServers(s.Servers, s.ServersTags, *s.LoadBalance)
+		servers := newStaticServers(s.Servers, s.ServersTags, s.LoadBalance)
 		if servers.len() == 0 {
 			return fmt.Errorf("serversTags picks none of servers")
 		}

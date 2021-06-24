@@ -176,7 +176,7 @@ func (s *servers) useStaticServers() {
 	defer s.mutex.Unlock()
 	s.static = newStaticServers(s.poolSpec.Servers,
 		s.poolSpec.ServersTags,
-		*s.poolSpec.LoadBalance)
+		s.poolSpec.LoadBalance)
 	s.service = nil
 }
 
@@ -198,7 +198,7 @@ func (s *servers) useService() (*serviceregistry.Service, error) {
 			Weight: snapshotServer.Weight,
 		})
 	}
-	static := newStaticServers(serversInput, s.poolSpec.ServersTags, *s.poolSpec.LoadBalance)
+	static := newStaticServers(serversInput, s.poolSpec.ServersTags, s.poolSpec.LoadBalance)
 
 	s.static, s.service = static, service
 
@@ -236,10 +236,14 @@ func (s *servers) close() {
 	close(s.done)
 }
 
-func newStaticServers(servers []*Server, tags []string, lb LoadBalance) *staticServers {
-	ss := &staticServers{
-		lb: lb,
+func newStaticServers(servers []*Server, tags []string, lb *LoadBalance) *staticServers {
+	ss := &staticServers{}
+	if lb == nil {
+		ss.lb.Policy = PolicyRoundRobin
+	} else {
+		ss.lb = *lb
 	}
+
 	defer ss.prepare()
 
 	if len(tags) == 0 {
