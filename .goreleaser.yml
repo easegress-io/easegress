@@ -1,50 +1,57 @@
+env:
+  - GO111MODULE=on
+  - DOCKER_USERNAME=megaease
+  - DOCKER_REPONAME=easegress
+
 before:
   hooks:
-    # You may remove this if you don't use go modules.
-    - go mod tidy
-    # you may remove this if you don't need go generate
-    - go generate ./...
+    - go mod verify
+    - go mod download
 
 snapshot:
-  name_template: '{{ .Tag }}'
+  name_template: "{{ .Tag }}"
 checksum:
-  name_template: 'checksums.txt'
+  name_template: checksums.txt
 changelog:
   skip: true
 
 builds:
   - id: client
-    main: cmd/client/main.go
+    main: ./cmd/client
     binary: bin/egctl
     env:
       - CGO_ENABLED=0
+    flags:
+      - -trimpath
     goos:
       - linux
       - darwin
     ldflags:
       - -s -w
-      - -X github.com/megaease/easegress/pkg/version.RELEASE=v1.0.1
-      - -X github.com/megaease/easegress/pkg/version.COMMIT={{.Commit}}
+      - -X github.com/megaease/easegress/pkg/version.RELEASE={{ .Tag }}
+      - -X github.com/megaease/easegress/pkg/version.COMMIT=git-{{ .ShortCommit }}
       - -X github.com/megaease/easegress/pkg/version.REPO=megaease/easegress
 
   - id: server
-    main: cmd/server/main.go
+    main: ./cmd/server
     binary: bin/easegress-server
     env:
       - CGO_ENABLED=0
+    flags:
+      - -trimpath
     goos:
       - linux
       - darwin
     ldflags:
       - -s -w
-      - -X github.com/megaease/easegress/pkg/version.RELEASE=v1.0.1
-      - -X github.com/megaease/easegress/pkg/version.COMMIT={{.Commit}}
+      - -X github.com/megaease/easegress/pkg/version.RELEASE={{ .Tag }}
+      - -X github.com/megaease/easegress/pkg/version.COMMIT=git-{{ .ShortCommit }}
       - -X github.com/megaease/easegress/pkg/version.REPO=megaease/easegress
 
 archives:
   - id: easegress
     format: tar.gz
-    name_template: "{{ .ProjectName }}-v{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+    name_template: "{{ .ProjectName }}-{{ .Tag }}-{{ .Os }}-{{ .Arch }}"
     files:
       - none*
 
@@ -52,20 +59,78 @@ release:
   github:
     owner: megaease
     name: easegress
-  name_template: "{{ .ProjectName }}-v{{ .Version }}"
+  name_template: "{{ .ProjectName }}-{{ .Tag }}"
 
 dockers:
-  - image_templates:
-    - megaease/easegress:latest
-    - megaease/easegress:{{ .Tag }}
-
-    goos: linux
-    goarch: amd64
+  - build_flag_templates:
+      - --platform=linux/386
+      - --pull
+    use: buildx
+    dockerfile: build/package/Dockerfile.goreleaser
+    image_templates:
+      - "{{ .Env.DOCKER_USERNAME }}/{{ .Env.DOCKER_REPONAME }}:latest-386"
+      - "{{ .Env.DOCKER_USERNAME }}/{{ .Env.DOCKER_REPONAME }}:{{ .Tag }}-386"
+      - "{{ .Env.DOCKER_USERNAME }}/{{ .Env.DOCKER_REPONAME }}:v{{ .Major }}-386"
+      - "{{ .Env.DOCKER_USERNAME }}/{{ .Env.DOCKER_REPONAME }}:v{{ .Major }}.{{ .Minor }}-386"
     ids:
       - client
       - server
-
-    dockerfile: build/package/Dockerfile.goreleaser
-
     extra_files:
       - build/package/entrypoint.sh
+
+  - build_flag_templates:
+      - --platform=linux/amd64
+      - --pull
+    use: buildx
+    dockerfile: build/package/Dockerfile.goreleaser
+    image_templates:
+      - "{{ .Env.DOCKER_USERNAME }}/{{ .Env.DOCKER_REPONAME }}:latest-amd64"
+      - "{{ .Env.DOCKER_USERNAME }}/{{ .Env.DOCKER_REPONAME }}:{{ .Tag }}-amd64"
+      - "{{ .Env.DOCKER_USERNAME }}/{{ .Env.DOCKER_REPONAME }}:v{{ .Major }}-amd64"
+      - "{{ .Env.DOCKER_USERNAME }}/{{ .Env.DOCKER_REPONAME }}:v{{ .Major }}.{{ .Minor }}-amd64"
+    ids:
+      - client
+      - server
+    extra_files:
+      - build/package/entrypoint.sh
+
+  - build_flag_templates:
+      - --platform=linux/arm64
+      - --pull
+    use: buildx
+    dockerfile: build/package/Dockerfile.goreleaser
+    image_templates:
+      - "{{ .Env.DOCKER_USERNAME }}/{{ .Env.DOCKER_REPONAME }}:latest-arm64"
+      - "{{ .Env.DOCKER_USERNAME }}/{{ .Env.DOCKER_REPONAME }}:{{ .Tag }}-arm64"
+      - "{{ .Env.DOCKER_USERNAME }}/{{ .Env.DOCKER_REPONAME }}:v{{ .Major }}-arm64"
+      - "{{ .Env.DOCKER_USERNAME }}/{{ .Env.DOCKER_REPONAME }}:v{{ .Major }}.{{ .Minor }}-arm64"
+    ids:
+      - client
+      - server
+    extra_files:
+      - build/package/entrypoint.sh
+
+docker_manifests:
+  - name_template: "{{ .Env.DOCKER_USERNAME }}/{{ .Env.DOCKER_REPONAME }}:latest"
+    image_templates:
+      - "{{ .Env.DOCKER_USERNAME }}/{{ .Env.DOCKER_REPONAME }}:latest-386"
+      - "{{ .Env.DOCKER_USERNAME }}/{{ .Env.DOCKER_REPONAME }}:latest-amd64"
+      - "{{ .Env.DOCKER_USERNAME }}/{{ .Env.DOCKER_REPONAME }}:latest-arm64"
+
+  - name_template: "{{ .Env.DOCKER_USERNAME }}/{{ .Env.DOCKER_REPONAME }}:{{ .Tag }}"
+    image_templates:
+      - "{{ .Env.DOCKER_USERNAME }}/{{ .Env.DOCKER_REPONAME }}:{{ .Tag }}-386"
+      - "{{ .Env.DOCKER_USERNAME }}/{{ .Env.DOCKER_REPONAME }}:{{ .Tag }}-amd64"
+      - "{{ .Env.DOCKER_USERNAME }}/{{ .Env.DOCKER_REPONAME }}:{{ .Tag }}-arm64"
+
+  - name_template: "{{ .Env.DOCKER_USERNAME }}/{{ .Env.DOCKER_REPONAME }}:v{{ .Major }}"
+    image_templates:
+      - "{{ .Env.DOCKER_USERNAME }}/{{ .Env.DOCKER_REPONAME }}:v{{ .Major }}-386"
+      - "{{ .Env.DOCKER_USERNAME }}/{{ .Env.DOCKER_REPONAME }}:v{{ .Major }}-amd64"
+      - "{{ .Env.DOCKER_USERNAME }}/{{ .Env.DOCKER_REPONAME }}:v{{ .Major }}-arm64"
+
+  - name_template: "{{ .Env.DOCKER_USERNAME }}/{{ .Env.DOCKER_REPONAME }}:v{{ .Major }}.{{ .Minor }}"
+    image_templates:
+      - "{{ .Env.DOCKER_USERNAME }}/{{ .Env.DOCKER_REPONAME }}:v{{ .Major }}.{{ .Minor }}-386"
+      - "{{ .Env.DOCKER_USERNAME }}/{{ .Env.DOCKER_REPONAME }}:v{{ .Major }}.{{ .Minor }}-amd64"
+      - "{{ .Env.DOCKER_USERNAME }}/{{ .Env.DOCKER_REPONAME }}:v{{ .Major }}.{{ .Minor }}-arm64"
