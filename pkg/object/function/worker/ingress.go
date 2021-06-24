@@ -222,11 +222,13 @@ func (ings *ingressServer) Put(funcSpec *spec.Spec) error {
 // Delete deletes one ingress pipeline according to the function's name.
 func (ings *ingressServer) Delete(functionName string) {
 	ings.mutex.Lock()
-	defer ings.mutex.Unlock()
-
-	if p, ok := ings.pipelines[functionName]; ok {
-		p.pipeline.Close()
+	p, exist := ings.pipelines[functionName]
+	if exist {
 		delete(ings.pipelines, functionName)
+	}
+	ings.mutex.Unlock()
+	if exist {
+		p.pipeline.Close()
 	}
 }
 

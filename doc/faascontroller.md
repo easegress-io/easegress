@@ -10,7 +10,7 @@
   - [Reference](#reference)
 
 * A FaaSController is a business controller for handling Easegress and FaaS products integration purposes.  It abstracts `FaasFunction`, `FaaSStore` and, `FaaSProvder`. Currently, we only support `Knative` type FaaSProvider. The `FaaSFunction` describes the name, image URL, the resource, and autoscaling type of this FaaS function instance. The `FaaSStore` is covered by Easegress' embed ETCD already.
-* FaaSController works closely with local FaaSProvider. Please make sure they are running in a communicable environment. Flow this [doc](https://knative.dev/docs/install/install-serving-with-yaml/) to install Knative[1]'s serving component in K8s. It's better to have Easegress run in the same vm-instances with K8s for saving communication costs.
+* FaaSController works closely with local FaaSProvider. Please make sure they are running in a communicable environment. Follow this [doc](https://knative.dev/docs/install/install-serving-with-yaml/) to install Knative[1]'s serving component in K8s. It's better to have Easegress run in the same vm-instances with K8s for saving communication costs.
 
 ## Prerequest 
 1. K8s cluster : **v1.18+**
@@ -54,7 +54,7 @@ knative:
 * The FaaSFunction spec including `name`, `image`, and other resource-related configurations.
 * The `image` is the HTTP microservice's image URL. When upgrading the FaaSfFunction's business logic. this field can be helpful.
 * The `resource` and `autoscaling` fields are similar to K8s or Knative's configuration.[2]
-* The `requestAdaprot` is for customizing the HTTP request content routed from FaaSController's HTTP traffic gate to Knative's `kourier` gateway.
+* The `requestAdaptor` is for customizing the HTTP request content routed from FaaSController's HTTP traffic gate to Knative's `kourier` gateway.
 
 ```yaml
 name:           "demo10"                                                                                                                                   
@@ -120,7 +120,7 @@ The RESTful API path obey this design `http://host/{version}/{namespace}/{scope}
 
 
 ## Demoing 
-1. Creating the faasController in Easegress
+1. Creating the FaasController in Easegress
 ```bash
 $ cd ./easegress/example/writer-001 && ./start.sh
 
@@ -199,6 +199,6 @@ V3 Body is
 The function's API is serving in `/tomcat/job/api` path and its logic is displaying "V3 body is" with the contents u post.
 
 ## Reference
-[1] knative website http://knative.dev
-[2] resource quota https://kubernetes.io/docs/concepts/policy/resource-quotas/
-[3] AWS Lambda state https://aws.amazon.com/blogs/compute/tracking-the-state-of-lambda-functions/
+1. knative website http://knative.dev
+2. resource quota https://kubernetes.io/docs/concepts/policy/resource-quotas/
+3. AWS Lambda state https://aws.amazon.com/blogs/compute/tracking-the-state-of-lambda-functions/

@@ -51,7 +51,7 @@ type (
 		superSpec     *supervisor.Spec
 		serviceClient clientservingv1.KnServingClient
 		namespace     string
-		timeOut       time.Duration
+		timeout       time.Duration
 	}
 )
 
@@ -60,7 +60,7 @@ func (kc *knativeClient) Create(funcSpec *spec.Spec) error {
 }
 
 func (kc *knativeClient) GetStatus(name string) (*spec.Status, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), kc.timeOut)
+	ctx, cancel := context.WithTimeout(context.Background(), kc.timeout)
 	defer cancel()
 
 	service, err := kc.serviceClient.GetService(ctx, name)
@@ -80,7 +80,7 @@ func (kc *knativeClient) GetStatus(name string) (*spec.Status, error) {
 				provisionFailed = true
 			}
 			key := fmt.Sprintf("%v", v.Type)
-			value := fmt.Sprintf("status: %v, message: %v, resaon: %v", v.Status, v.Message, v.Reason)
+			value := fmt.Sprintf("status: %v, message: %v, reason: %v", v.Status, v.Message, v.Reason)
 			extData[key] = value
 		}
 		status.ExtData = extData
@@ -128,9 +128,9 @@ func (kc *knativeClient) Init() error {
 		return err
 	}
 
-	kc.timeOut, err = time.ParseDuration(spec.Knative.Timeout)
+	kc.timeout, err = time.ParseDuration(spec.Knative.Timeout)
 	if err != nil {
-		logger.Errorf("BUG: parse kn timeout interval: %s failed: %v",
+		logger.Errorf("BUG: parse knative timeout interval: %s failed: %v",
 			spec.Knative.Timeout, err)
 		return err
 	}
@@ -226,11 +226,11 @@ func (kc *knativeClient) createService(funcSpec *spec.Spec) error {
 	service := kc.newService(funcSpec)
 	var err error
 
-	ctx, cancel := context.WithTimeout(context.Background(), kc.timeOut)
+	ctx, cancel := context.WithTimeout(context.Background(), kc.timeout)
 	defer cancel()
 	err = kc.serviceClient.CreateService(ctx, service)
 	if err != nil {
-		logger.Errorf("knative create service err: %v ,timeout: %v", err, kc.timeOut)
+		logger.Errorf("knative create service err: %v ,timeout: %v", err, kc.timeout)
 		return err
 	}
 	return nil
@@ -238,10 +238,10 @@ func (kc *knativeClient) createService(funcSpec *spec.Spec) error {
 
 // deleteService deletes knative service resource.
 func (kc *knativeClient) deleteService(name string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), kc.timeOut)
+	ctx, cancel := context.WithTimeout(context.Background(), kc.timeout)
 	defer cancel()
 	if err := kc.serviceClient.DeleteService(ctx, name, 0); err != nil {
-		logger.Errorf("knative delete service err: %v ,timeout: %v", err, kc.timeOut)
+		logger.Errorf("knative delete service err: %v ,timeout: %v", err, kc.timeout)
 		return err
 	}
 	return nil
@@ -249,7 +249,7 @@ func (kc *knativeClient) deleteService(name string) error {
 
 // updateService updates function's Knative and EG resources
 func (kc *knativeClient) updateService(funcSpec *spec.Spec) error {
-	ctx, cancel := context.WithTimeout(context.Background(), kc.timeOut)
+	ctx, cancel := context.WithTimeout(context.Background(), kc.timeout)
 	defer cancel()
 	service, err := kc.serviceClient.GetService(ctx, funcSpec.Name)
 	if err != nil {
@@ -259,7 +259,7 @@ func (kc *knativeClient) updateService(funcSpec *spec.Spec) error {
 
 	applySpec(funcSpec, service)
 
-	ctx1, cancel1 := context.WithTimeout(context.Background(), kc.timeOut)
+	ctx1, cancel1 := context.WithTimeout(context.Background(), kc.timeout)
 	defer cancel1()
 	if _, err := kc.serviceClient.UpdateService(ctx1, service); err != nil {
 		logger.Errorf("knative update service: %s, err: %v", funcSpec.Name, err)

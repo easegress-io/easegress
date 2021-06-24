@@ -65,36 +65,52 @@ const (
 )
 
 var (
-	validState []State = []State{PendingState, ActiveState, InactiveState, FailedState, RemovedState}
-	validEvent []Event = []Event{
-		UpdateEvent, DeleteEvent, StopEvent, StartEvent,
-		ProvisionFailedEvent, ProvisionPendingEvent, ProvisionOKEvent,
+	validState map[State]struct{} = map[State]struct{}{
+		PendingState:  {},
+		ActiveState:   {},
+		InactiveState: {},
+		FailedState:   {},
+		RemovedState:  {},
+	}
+	validEvent map[Event]struct{} = map[Event]struct{}{
+		UpdateEvent:           {},
+		DeleteEvent:           {},
+		StopEvent:             {},
+		StartEvent:            {},
+		ProvisionFailedEvent:  {},
+		ProvisionPendingEvent: {},
+		ProvisionOKEvent:      {},
 	}
 
-	transitions []transition = []transition{
-		{PendingState, UpdateEvent, PendingState},
-		{PendingState, DeleteEvent, RemovedState},
-		{PendingState, ProvisionFailedEvent, FailedState},
-		{PendingState, ProvisionOKEvent, ActiveState},
-		{PendingState, ProvisionPendingEvent, PendingState},
-
-		{ActiveState, StopEvent, InactiveState},
-		{ActiveState, ProvisionFailedEvent, FailedState},
-		{ActiveState, ProvisionOKEvent, ActiveState},
-		{ActiveState, ProvisionPendingEvent, PendingState},
-
-		{InactiveState, UpdateEvent, PendingState},
-		{InactiveState, DeleteEvent, RemovedState},
-		{InactiveState, StartEvent, ActiveState},
-		{InactiveState, ProvisionFailedEvent, FailedState},
-		{InactiveState, ProvisionOKEvent, InactiveState},
-		{InactiveState, ProvisionPendingEvent, PendingState},
-
-		{FailedState, DeleteEvent, RemovedState},
-		{FailedState, UpdateEvent, PendingState},
-		{FailedState, ProvisionFailedEvent, FailedState},
-		{FailedState, ProvisionOKEvent, PendingState},
-		{FailedState, ProvisionPendingEvent, PendingState},
+	transitions map[State][]transition = map[State][]transition{
+		PendingState: {
+			{PendingState, UpdateEvent, PendingState},
+			{PendingState, DeleteEvent, RemovedState},
+			{PendingState, ProvisionFailedEvent, FailedState},
+			{PendingState, ProvisionOKEvent, ActiveState},
+			{PendingState, ProvisionPendingEvent, PendingState},
+		},
+		ActiveState: {
+			{ActiveState, StopEvent, InactiveState},
+			{ActiveState, ProvisionFailedEvent, FailedState},
+			{ActiveState, ProvisionOKEvent, ActiveState},
+			{ActiveState, ProvisionPendingEvent, PendingState},
+		},
+		InactiveState: {
+			{InactiveState, UpdateEvent, PendingState},
+			{InactiveState, DeleteEvent, RemovedState},
+			{InactiveState, StartEvent, ActiveState},
+			{InactiveState, ProvisionFailedEvent, FailedState},
+			{InactiveState, ProvisionOKEvent, InactiveState},
+			{InactiveState, ProvisionPendingEvent, PendingState},
+		},
+		FailedState: {
+			{FailedState, DeleteEvent, RemovedState},
+			{FailedState, UpdateEvent, PendingState},
+			{FailedState, ProvisionFailedEvent, FailedState},
+			{FailedState, ProvisionOKEvent, PendingState},
+			{FailedState, ProvisionPendingEvent, PendingState},
+		},
 	}
 )
 
@@ -105,14 +121,7 @@ func InitState() State {
 
 // InitFSM creates a finite state machine by given states
 func InitFSM(state State) (*FSM, error) {
-	found := false
-	for _, v := range validState {
-		if v == state {
-			found = true
-			break
-		}
-	}
-	if !found {
+	if _, exist := validState[state]; !exist {
 		return nil, fmt.Errorf("invalid state: %s", state)
 	}
 	return &FSM{currentState: state}, nil
@@ -120,18 +129,12 @@ func InitFSM(state State) (*FSM, error) {
 
 // Next turns the function status into properate state by given event.
 func (fsm *FSM) Next(event Event) error {
-	found := false
-	for _, v := range validEvent {
-		if v == event {
-			found = true
-			break
-		}
-	}
-	if !found {
+	if _, exist := validEvent[event]; !exist {
 		return fmt.Errorf("unknown event: %s", event)
 	}
-	for _, v := range transitions {
-		if fsm.currentState == v.From && event == v.Event {
+
+	for _, v := range transitions[fsm.currentState] {
+		if event == v.Event {
 			fsm.currentState = v.To
 			return nil
 		}
@@ -139,7 +142,7 @@ func (fsm *FSM) Next(event Event) error {
 	return fmt.Errorf("invalid event: %s, currentState: %s", event, fsm.currentState)
 }
 
-// Current gets FSM's current state.
+// Current gets FSM current state.
 func (fsm *FSM) Current() State {
 	return fsm.currentState
 }

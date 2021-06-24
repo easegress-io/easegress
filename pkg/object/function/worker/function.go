@@ -25,7 +25,7 @@ import (
 	"github.com/megaease/easegress/pkg/object/function/storage"
 )
 
-// CreateFunction creates a function and put into store.
+// put puts a function spec and status into store.
 func (worker *Worker) put(funcSpec *spec.Spec) error {
 	buf, err := yaml.Marshal(funcSpec)
 	if err != nil {
