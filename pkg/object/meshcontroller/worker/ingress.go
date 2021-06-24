@@ -38,10 +38,6 @@ type (
 
 		serviceName string
 
-		// port is the Java business process's listening port
-		// not the ingress HTTPServer's port
-		// NOTE: Not used for nowrk.
-		// port  uint32
 		mutex sync.RWMutex
 
 		tc        *trafficcontroller.TrafficController

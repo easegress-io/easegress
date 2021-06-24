@@ -128,12 +128,12 @@ func (m *Master) checkInstancesHeartbeat() {
 			}
 			gap := now.Sub(lastHeartbeatTime)
 			if gap > m.maxHeartbeatTimeout {
-				if _spec.Status != spec.SerivceStatusOutOfSerivce {
+				if _spec.Status != spec.ServiceStatusOutOfService {
 					logger.Errorf("%s/%s expired for %s", _spec.ServiceName, _spec.InstanceID, gap.String())
 					failedInstances = append(failedInstances, _spec)
 				}
 			} else {
-				if _spec.Status == spec.SerivceStatusOutOfSerivce {
+				if _spec.Status == spec.ServiceStatusOutOfService {
 					logger.Infof("%s/%s heartbeat recovered, make it UP", _spec.ServiceName, _spec.InstanceID)
 					rebornInstances = append(rebornInstances, _spec)
 				}
@@ -149,11 +149,11 @@ func (m *Master) checkInstancesHeartbeat() {
 }
 
 func (m *Master) handleRebornInstances(rebornInstances []*spec.ServiceInstanceSpec) {
-	m.updateInstanceStatus(rebornInstances, spec.SerivceStatusUp)
+	m.updateInstanceStatus(rebornInstances, spec.ServiceStatusUp)
 }
 
 func (m *Master) handleFailedInstances(failedInstances []*spec.ServiceInstanceSpec) {
-	m.updateInstanceStatus(failedInstances, spec.SerivceStatusOutOfSerivce)
+	m.updateInstanceStatus(failedInstances, spec.ServiceStatusOutOfService)
 }
 
 func (m *Master) updateInstanceStatus(instances []*spec.ServiceInstanceSpec, status string) {

@@ -47,11 +47,11 @@ const (
 	// its services can be accessible in mesh wide.
 	GlobalTenant = "global"
 
-	// SerivceStatusUp indicates this service instance can accept ingress traffic
-	SerivceStatusUp = "UP"
+	// ServiceStatusUp indicates this service instance can accept ingress traffic
+	ServiceStatusUp = "UP"
 
-	// SerivceStatusOutOfSerivce indicates this service instance can't accept ingress traffic
-	SerivceStatusOutOfSerivce = "OUT_OF_SERVICE"
+	// ServiceStatusOutOfService indicates this service instance can't accept ingress traffic
+	ServiceStatusOutOfService = "OUT_OF_SERVICE"
 
 	// WorkerAPIPort is the default port for worker's API server
 	WorkerAPIPort = 13009
@@ -370,7 +370,7 @@ func (b *pipelineSpecBuilder) appendProxyWithCanary(instanceSpecs []*ServiceInst
 	canaryInstances := []*ServiceInstanceSpec{}
 
 	for k, instanceSpec := range instanceSpecs {
-		if instanceSpec.Status == SerivceStatusUp {
+		if instanceSpec.Status == ServiceStatusUp {
 			if len(instanceSpec.Labels) == 0 {
 				mainServers = append(mainServers, &proxy.Server{
 					URL: fmt.Sprintf("http://%s:%d", instanceSpec.IP, instanceSpec.Port),

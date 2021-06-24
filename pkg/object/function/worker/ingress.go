@@ -31,6 +31,7 @@ import (
 	"github.com/megaease/easegress/pkg/object/function/spec"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
 	"github.com/megaease/easegress/pkg/object/httpserver"
+	"github.com/megaease/easegress/pkg/object/trafficcontroller"
 	"github.com/megaease/easegress/pkg/protocol"
 	"github.com/megaease/easegress/pkg/supervisor"
 )
@@ -40,14 +41,11 @@ const ingressFunctionKey = "X-FaaS-Func-Name"
 type (
 	faasPipeline struct {
 		active   bool
-		pipeline *httppipeline.HTTPPipeline
+		pipeline *supervisor.ObjectEntity
 	}
 
 	// ingressServer manages one/many ingress pipelines and one HTTPServer
 	ingressServer struct {
-		pipelines  map[string]*faasPipeline //*httppipeline.HTTPPipeline
-		httpServer *httpserver.HTTPServer
-
 		super     *supervisor.Supervisor
 		superSpec *supervisor.Spec
 
@@ -55,7 +53,12 @@ type (
 		faasHostSuffix      string
 		faasNamespace       string
 
-		mutex sync.RWMutex
+		namespace string
+		mutex     sync.RWMutex
+
+		tc         *trafficcontroller.TrafficController
+		pipelines  map[string]*faasPipeline
+		httpServer *supervisor.ObjectEntity
 	}
 
 	pipelineSpecBuilder struct {
@@ -69,10 +72,12 @@ type (
 func newIngressServer(superSpec *supervisor.Spec, super *supervisor.Supervisor,
 	controllerName string) *ingressServer {
 	return &ingressServer{
-		pipelines: make(map[string]*faasPipeline),
-		super:     super,
-		superSpec: superSpec,
-		mutex:     sync.RWMutex{},
+		pipelines:  make(map[string]*faasPipeline),
+		httpServer: nil,
+		super:      super,
+		superSpec:  superSpec,
+		mutex:      sync.RWMutex{},
+		namespace:  fmt.Sprintf("%s/%s", superSpec.Name(), "ingress"),
 	}
 }
 
@@ -136,9 +141,9 @@ func (b *pipelineSpecBuilder) appendProxy(faasNetworkLayerURL string) *pipelineS
 	return b
 }
 
-// Get gets ingressServer itself as the default backend.
+// Get gets egressServer itself as the default backend.
 // egress server will handle the pipeline routing by itself.
-func (ings *ingressServer) Get(name string) (protocol.HTTPHandler, bool) {
+func (ings *ingressServer) GetHandler(name string) (protocol.HTTPHandler, bool) {
 	ings.mutex.RLock()
 	defer ings.mutex.RUnlock()
 	return ings, true
@@ -190,10 +195,11 @@ func (ings *ingressServer) Init() error {
 		return err
 	}
 
-	var httpServer httpserver.HTTPServer
-	httpServer.Init(superSpec, ings.super)
-	httpServer.InjectMuxMapper(ings)
-	ings.httpServer = &httpServer
+	entity, err := ings.tc.CreateHTTPServerForSpec(ings.namespace, superSpec)
+	if err != nil {
+		return fmt.Errorf("create http server %s failed: %v", superSpec.Name(), err)
+	}
+	ings.httpServer = entity
 	return nil
 }
 
@@ -211,10 +217,14 @@ func (ings *ingressServer) Put(funcSpec *spec.Spec) error {
 		logger.Errorf("new spec for %s failed: %v", yamlConfig, err)
 		return err
 	}
-	pipeline := &httppipeline.HTTPPipeline{}
-
-	pipeline.Init(superSpec, ings.super)
-	ings.pipelines[funcSpec.Name] = &faasPipeline{pipeline: pipeline, active: false}
+	entity, err := ings.tc.CreateHTTPPipelineForSpec(ings.namespace, superSpec)
+	if err != nil {
+		return fmt.Errorf("create http pipeline %s failed: %v", superSpec.Name(), err)
+	}
+	ings.pipelines[funcSpec.Name] = &faasPipeline{
+		pipeline: entity,
+		active:   false,
+	}
 
 	return nil
 }
@@ -228,7 +238,7 @@ func (ings *ingressServer) Delete(functionName string) {
 	}
 	ings.mutex.Unlock()
 	if exist {
-		p.pipeline.Close()
+		ings.tc.DeleteHTTPPipeline(ings.namespace, p.pipeline.Spec().Name())
 	}
 }
 
@@ -313,8 +323,7 @@ func (ings *ingressServer) Handle(ctx context.HTTPContext) {
 		ctx.Response().SetStatusCode(http.StatusInternalServerError)
 		return
 	}
-
-	faasPipeline.pipeline.Handle(ctx)
+	faasPipeline.pipeline.Instance().(*httppipeline.HTTPPipeline).Handle(ctx)
 	logger.Debugf("handle service name:%s finished, status code: %d req: %#v", name, ctx.Response().StatusCode(), ctx.Request())
 }
 
@@ -323,8 +332,8 @@ func (ings *ingressServer) Close() {
 	ings.mutex.Lock()
 	defer ings.mutex.Unlock()
 
-	ings.httpServer.Close()
-	for _, v := range ings.pipelines {
-		v.pipeline.Close()
+	ings.tc.DeleteHTTPServer(ings.namespace, ings.httpServer.Spec().Name())
+	for _, entity := range ings.pipelines {
+		ings.tc.DeleteHTTPPipeline(ings.namespace, entity.pipeline.Spec().Name())
 	}
 }
