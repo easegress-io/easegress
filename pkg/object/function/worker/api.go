@@ -1,0 +1,272 @@
+/*
+ * Copyright (c) 2017, MegaEase
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package worker
+
+import (
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"reflect"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/megaease/easegress/pkg/api"
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/object/function/spec"
+	"github.com/megaease/easegress/pkg/object/function/storage"
+	"github.com/megaease/easegress/pkg/v"
+	"gopkg.in/yaml.v2"
+)
+
+func (worker *Worker) faasAPIPrefix() string {
+	return fmt.Sprintf("/faas/%s", worker.name)
+}
+
+func (worker *Worker) registerAPIs() {
+	meshAPIs := []*api.APIEntry{
+		{Path: worker.faasAPIPrefix(), Method: "POST", Handler: worker.Create},
+		{Path: worker.faasAPIPrefix() + "/{name}", Method: "GET", Handler: worker.Get},
+		{Path: worker.faasAPIPrefix() + "/{name}/start", Method: "PUT", Handler: worker.Start},
+		{Path: worker.faasAPIPrefix() + "/{name}/stop", Method: "PUT", Handler: worker.Stop},
+		{Path: worker.faasAPIPrefix() + "/{name}", Method: "DELETE", Handler: worker.Delete},
+		{Path: worker.faasAPIPrefix() + "/{name}", Method: "PUT", Handler: worker.Update},
+	}
+
+	api.GlobalServer.RegisterAPIs(meshAPIs)
+}
+
+func (worker *Worker) readFunctionName(w http.ResponseWriter, r *http.Request) (string, error) {
+	serviceName := chi.URLParam(r, "name")
+	if serviceName == "" {
+		return "", fmt.Errorf("empty service name")
+	}
+
+	return serviceName, nil
+}
+
+func (worker *Worker) Create(w http.ResponseWriter, r *http.Request) {
+	spec := &spec.Spec{}
+	err := worker.readAPISpec(w, r, spec)
+	if err != nil {
+		api.HandleAPIError(w, r, http.StatusBadRequest, err)
+		logger.Errorf("create function with bad request: %v")
+		return
+	}
+	worker.store.Lock()
+	defer worker.store.Unlock()
+
+	if err = worker.provider.Create(spec); err != nil {
+		logger.Errorf("create function: %s by calling faas provider failed: %v", spec.Name, err)
+		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
+		return
+	}
+
+	if err := worker.put(spec); err != nil {
+		logger.Errorf("create function: %s by setting store failed: %v", spec.Name, err)
+		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	if err = worker.ingress.Put(spec); err != nil {
+		logger.Errorf("[BUG] create function: %s by add ingress failed: %v", spec.Name, err)
+		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	w.Header().Set("Location", r.URL.Path)
+	w.WriteHeader(http.StatusCreated)
+}
+
+func (worker *Worker) readAPISpec(w http.ResponseWriter, r *http.Request, spec interface{}) error {
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return fmt.Errorf("read body failed: %v", err)
+	}
+
+	vr := v.Validate(spec, body)
+	if !vr.Valid() {
+		return fmt.Errorf("validate failed: \n%s", vr)
+	}
+
+	return nil
+}
+
+func (worker *Worker) updateState(w http.ResponseWriter, r *http.Request, event spec.Event) (name string, err error) {
+	name, err = worker.readFunctionName(w, r)
+	if err != nil {
+		api.HandleAPIError(w, r, http.StatusBadRequest, err)
+		return
+	}
+
+	function, err := worker.get(name)
+	if err != nil {
+		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	stateUpdated := false
+	if stateUpdated, err = function.Next(event); err != nil {
+		api.HandleAPIError(w, r, http.StatusBadRequest, err)
+		return
+	}
+	// not need to update function's status.
+	if !stateUpdated {
+		return
+	}
+	worker.store.Lock()
+	defer worker.store.Unlock()
+	err = worker.updateFunctionStatus(function.Status)
+	if err != nil {
+		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	return
+}
+
+func (worker *Worker) Stop(w http.ResponseWriter, r *http.Request) {
+	name, err := worker.updateState(w, r, spec.StopEvent)
+	if err != nil {
+		logger.Errorf("worker stop function failed, %v", err)
+		return
+	}
+	worker.ingress.Stop(name)
+}
+
+func (worker *Worker) Start(w http.ResponseWriter, r *http.Request) {
+	name, err := worker.updateState(w, r, spec.StartEvent)
+	if err != nil {
+		return
+	}
+	worker.ingress.Start(name)
+}
+
+func (worker *Worker) Delete(w http.ResponseWriter, r *http.Request) {
+	name, err := worker.readFunctionName(w, r)
+	if err != nil {
+		api.HandleAPIError(w, r, http.StatusBadRequest, err)
+		return
+	}
+	function, err := worker.get(name)
+	if err != nil {
+		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	if _, err = function.Next(spec.DeleteEvent); err != nil {
+		api.HandleAPIError(w, r, http.StatusBadRequest, err)
+		return
+	}
+	worker.Lock()
+	defer worker.Unlock()
+
+	// delete function in FaaS Provider
+	if err = worker.provider.Delete(name); err != nil {
+		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	// remove route in Ingress
+	worker.ingress.Delete(name)
+	if err = worker.store.Delete(storage.GetFunctionSpecPrefix(worker.name, name)); err != nil {
+		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	if err = worker.store.Delete(storage.GetFunctionStatusPrefix(worker.name, name)); err != nil {
+		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
+		return
+	}
+}
+
+func (worker *Worker) Update(w http.ResponseWriter, r *http.Request) {
+	funcSpec := &spec.Spec{}
+	err := worker.readAPISpec(w, r, funcSpec)
+	if err != nil {
+		api.HandleAPIError(w, r, http.StatusBadRequest, err)
+		logger.Errorf("update function with bad request: %v")
+		return
+	}
+	function, err := worker.get(funcSpec.Name)
+	if err != nil {
+		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
+		return
+	}
+
+	// no need to update
+	if reflect.DeepEqual(funcSpec, function.Spec) {
+		return
+	}
+
+	stateUpdated := false
+	if stateUpdated, err = function.Next(spec.UpdateEvent); err != nil {
+		api.HandleAPIError(w, r, http.StatusBadRequest, err)
+		return
+	}
+
+	origAdaptor := function.Spec.RequestAdaptor
+	function.Spec.RequestAdaptor = nil
+	newAdptor := funcSpec.RequestAdaptor
+	funcSpec.RequestAdaptor = nil
+
+	worker.Lock()
+	defer worker.Unlock()
+	// update the FaaS provider related filed
+	if !reflect.DeepEqual(function.Spec, funcSpec) {
+		if err := worker.provider.Update(funcSpec); err != nil {
+			api.HandleAPIError(w, r, http.StatusInternalServerError, err)
+			logger.Errorf("update function: %s failed: %v", funcSpec.Name, err)
+			return
+		}
+	}
+	if !reflect.DeepEqual(origAdaptor, newAdptor) {
+		// reset back
+		funcSpec.RequestAdaptor = newAdptor
+		if err = worker.ingress.Put(funcSpec); err != nil {
+			api.HandleAPIError(w, r, http.StatusInternalServerError, err)
+			return
+		}
+	}
+
+	if err = worker.updateFunctionSpec(funcSpec); err != nil {
+		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
+		return
+	}
+
+	if stateUpdated {
+		if err = worker.updateFunctionStatus(function.Status); err != nil {
+			api.HandleAPIError(w, r, http.StatusInternalServerError, err)
+			return
+		}
+	}
+}
+
+func (worker *Worker) Get(w http.ResponseWriter, r *http.Request) {
+	name, err := worker.readFunctionName(w, r)
+	if err != nil {
+		api.HandleAPIError(w, r, http.StatusBadRequest, err)
+		return
+	}
+	function, err := worker.get(name)
+	if err != nil {
+		api.HandleAPIError(w, r, http.StatusBadRequest, err)
+		logger.Errorf("create function with bad request: %v")
+		return
+	}
+
+	buff, err := yaml.Marshal(function)
+	if err != nil {
+		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("marshal %#v to yaml failed: %v", function, err))
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/vnd.yaml")
+	w.Write(buff)
+}
