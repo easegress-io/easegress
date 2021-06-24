@@ -82,37 +82,41 @@ var (
 		ProvisionOKEvent:      {},
 	}
 
-	transitions map[State][]transition = map[State][]transition{
-		PendingState: {
-			{PendingState, UpdateEvent, PendingState},
-			{PendingState, DeleteEvent, RemovedState},
-			{PendingState, ProvisionFailedEvent, FailedState},
-			{PendingState, ProvisionOKEvent, ActiveState},
-			{PendingState, ProvisionPendingEvent, PendingState},
-		},
-		ActiveState: {
-			{ActiveState, StopEvent, InactiveState},
-			{ActiveState, ProvisionFailedEvent, FailedState},
-			{ActiveState, ProvisionOKEvent, ActiveState},
-			{ActiveState, ProvisionPendingEvent, PendingState},
-		},
-		InactiveState: {
-			{InactiveState, UpdateEvent, PendingState},
-			{InactiveState, DeleteEvent, RemovedState},
-			{InactiveState, StartEvent, ActiveState},
-			{InactiveState, ProvisionFailedEvent, FailedState},
-			{InactiveState, ProvisionOKEvent, InactiveState},
-			{InactiveState, ProvisionPendingEvent, PendingState},
-		},
-		FailedState: {
-			{FailedState, DeleteEvent, RemovedState},
-			{FailedState, UpdateEvent, PendingState},
-			{FailedState, ProvisionFailedEvent, FailedState},
-			{FailedState, ProvisionOKEvent, PendingState},
-			{FailedState, ProvisionPendingEvent, PendingState},
-		},
-	}
+	transitions = map[Event][]transition{}
 )
+
+func init() {
+	table := []transition{
+		{PendingState, UpdateEvent, PendingState},
+		{PendingState, DeleteEvent, RemovedState},
+		{PendingState, ProvisionFailedEvent, FailedState},
+		{PendingState, ProvisionOKEvent, ActiveState},
+		{PendingState, ProvisionPendingEvent, PendingState},
+
+		{ActiveState, StopEvent, InactiveState},
+		{ActiveState, ProvisionFailedEvent, FailedState},
+		{ActiveState, ProvisionOKEvent, ActiveState},
+		{ActiveState, ProvisionPendingEvent, PendingState},
+
+		{InactiveState, UpdateEvent, PendingState},
+		{InactiveState, DeleteEvent, RemovedState},
+		{InactiveState, StartEvent, ActiveState},
+		{InactiveState, ProvisionFailedEvent, FailedState},
+		{InactiveState, ProvisionOKEvent, InactiveState},
+		{InactiveState, ProvisionPendingEvent, PendingState},
+
+		{FailedState, DeleteEvent, RemovedState},
+		{FailedState, UpdateEvent, PendingState},
+		{FailedState, ProvisionFailedEvent, FailedState},
+		{FailedState, ProvisionOKEvent, PendingState},
+		{FailedState, ProvisionPendingEvent, PendingState},
+	}
+
+	// using Event as the key
+	for _, t := range table {
+		transitions[t.Event] = append(transitions[t.Event], t)
+	}
+}
 
 // InitState returns the initial FSM state which is the `pending` state.
 func InitState() State {
@@ -124,7 +128,9 @@ func InitFSM(state State) (*FSM, error) {
 	if _, exist := validState[state]; !exist {
 		return nil, fmt.Errorf("invalid state: %s", state)
 	}
-	return &FSM{currentState: state}, nil
+	return &FSM{
+		currentState: state,
+	}, nil
 }
 
 // Next turns the function status into properate state by given event.
@@ -133,10 +139,12 @@ func (fsm *FSM) Next(event Event) error {
 		return fmt.Errorf("unknown event: %s", event)
 	}
 
-	for _, v := range transitions[fsm.currentState] {
-		if event == v.Event {
-			fsm.currentState = v.To
-			return nil
+	if t, exist := transitions[event]; exist {
+		for _, v := range t {
+			if fsm.currentState == v.From {
+				fsm.currentState = v.To
+				return nil
+			}
 		}
 	}
 	return fmt.Errorf("invalid event: %s, currentState: %s", event, fsm.currentState)
