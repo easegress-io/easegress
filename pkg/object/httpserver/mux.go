@@ -27,6 +27,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/protocol"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/megaease/easegress/pkg/util/httpheader"
@@ -42,7 +43,6 @@ type (
 		topN     *topn.TopN
 
 		rules       atomic.Value // *muxRules
-		muxMapper   MuxMapper    // MuxMapper
 		mapperMutex sync.RWMutex
 	}
 
@@ -50,6 +50,8 @@ type (
 		super     *supervisor.Supervisor
 		superSpec *supervisor.Spec
 		spec      *Spec
+
+		muxMapper protocol.MuxMapper
 
 		cache *cache
 
@@ -276,27 +278,24 @@ func (mp *muxPath) matchHeaders(ctx context.HTTPContext) (ci *cacheItem, ok bool
 	return nil, false
 }
 
-func newMux(httpStat *httpstat.HTTPStat, topN *topn.TopN, mapper MuxMapper) *mux {
+func newMux(httpStat *httpstat.HTTPStat, topN *topn.TopN, mapper protocol.MuxMapper) *mux {
 	m := &mux{
 		httpStat: httpStat,
 		topN:     topN,
 	}
 
-	m.rules.Store(&muxRules{spec: &Spec{}, tracer: tracing.NoopTracing})
-	m.muxMapper = mapper
+	m.rules.Store(&muxRules{
+		spec:      &Spec{},
+		tracer:    tracing.NoopTracing,
+		muxMapper: mapper,
+	})
 
 	return m
 }
 
-func (m *mux) setMuxMapper(mapper MuxMapper) {
-	m.mapperMutex.Lock()
-	defer m.mapperMutex.Unlock()
-	// NOTE: golang atomic.Value won't let type inconsistency
-	//       using mutex lock here.
-	m.muxMapper = mapper
-}
+func (m *mux) reloadRules(superSpec *supervisor.Spec,
+	super *supervisor.Supervisor, muxMapper protocol.MuxMapper) {
 
-func (m *mux) reloadRules(superSpec *supervisor.Spec, super *supervisor.Supervisor) {
 	spec := superSpec.ObjectSpec().(*Spec)
 
 	tracer := tracing.NoopTracing
@@ -322,6 +321,7 @@ func (m *mux) reloadRules(superSpec *supervisor.Spec, super *supervisor.Supervis
 		super:        super,
 		superSpec:    superSpec,
 		spec:         spec,
+		muxMapper:    muxMapper,
 		ipFilter:     newIPFilter(spec.IPFilter),
 		ipFilterChan: newIPFilterChain(nil, spec.IPFilter),
 		rules:        make([]*muxRule, len(spec.Rules)),
@@ -330,11 +330,6 @@ func (m *mux) reloadRules(superSpec *supervisor.Spec, super *supervisor.Supervis
 
 	if spec.CacheSize > 0 {
 		rules.cache = newCache(spec.CacheSize)
-	}
-
-	var ipFilters []*ipfilter.IPFilter
-	if spec.IPFilter != nil {
-		ipFilters = append(ipFilters, ipfilter.New(spec.IPFilter))
 	}
 
 	for i := 0; i < len(rules.rules); i++ {
@@ -443,7 +438,7 @@ func (m *mux) handleRequestWithCache(rules *muxRules, ctx context.HTTPContext, c
 	case ci.path != nil:
 		m.mapperMutex.RLock()
 		defer m.mapperMutex.RUnlock()
-		handler, exists := m.muxMapper.Get(ci.path.backend)
+		handler, exists := rules.muxMapper.GetHandler(ci.path.backend)
 		if !exists {
 			ctx.AddTag(stringtool.Cat("backend ", ci.path.backend, " not found"))
 			ctx.Response().SetStatusCode(http.StatusServiceUnavailable)

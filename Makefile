@@ -42,6 +42,18 @@ build_server:
 	CGO_ENABLED=0 go build -v -trimpath -ldflags ${GO_LD_FLAGS} \
 	-o ${TARGET_SERVER} ${MKFILE_DIR}cmd/server
 
+dev_build_client:
+	@echo "build dev client"
+	cd ${MKFILE_DIR} && \
+	go build -v -race -ldflags ${GO_LD_FLAGS} \
+	-o ${TARGET_CLIENT} ${MKFILE_DIR}cmd/client
+
+dev_build_server:
+	@echo "build dev server"
+	cd ${MKFILE_DIR} && \
+	go build -v -race -ldflags ${GO_LD_FLAGS} \
+	-o ${TARGET_SERVER} ${MKFILE_DIR}cmd/server
+
 build_docker:
 	docker build -t megaease/easegress:${RELEASE} -f ./build/package/Dockerfile .
 

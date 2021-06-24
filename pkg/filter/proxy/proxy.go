@@ -120,7 +120,7 @@ type (
 	// Status is the status of Proxy.
 	Status struct {
 		MainPool       *PoolStatus   `yaml:"mainPool"`
-		CandidatePools []*PoolStatus `yaml:"candidatePool,omitempty"`
+		CandidatePools []*PoolStatus `yaml:"candidatePools,omitempty"`
 		MirrorPool     *PoolStatus   `yaml:"mirrorPool,omitempty"`
 	}
 )

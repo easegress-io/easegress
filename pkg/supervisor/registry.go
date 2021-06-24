@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+
+	"github.com/megaease/easegress/pkg/protocol"
 )
 
 type (
@@ -36,15 +38,6 @@ type (
 		// It must return a pointer to point a struct.
 		DefaultSpec() interface{}
 
-		// Init initializes the Obejct.
-		Init(superSpec *Spec, super *Supervisor)
-
-		// Inherit also initializes the Object.
-		// But it needs to handle the lifecycle of the previous generation.
-		// So it's own responsibility for the object to inherit and clean the previous generation stuff.
-		// The supervisor won't call Close for the previous generation.
-		Inherit(superSpec *Spec, previousGeneration Object, super *Supervisor)
-
 		// Status returns its runtime status.
 		Status() *Status
 
@@ -55,6 +48,7 @@ type (
 
 	// Status is the universal status for all objects.
 	Status struct {
+		// ObjectStatus must be a map or struct (empty is allowed),
 		// If the ObjectStatus contains field `timestamp`,
 		// it will be covered by the top-level Timestamp here.
 		ObjectStatus interface{}
@@ -63,19 +57,41 @@ type (
 		Timestamp int64
 	}
 
+	TrafficObject interface {
+		Object
+
+		// Init initializes the Obejct.
+		Init(superSpec *Spec, super *Supervisor, muxMapper protocol.MuxMapper)
+
+		// Inherit also initializes the Object.
+		// But it needs to handle the lifecycle of the previous generation.
+		// So it's own responsibility for the object to inherit and clean the previous generation stuff.
+		// The supervisor won't call Close for the previous generation.
+		Inherit(superSpec *Spec, previousGeneration Object, super *Supervisor, muxMapper protocol.MuxMapper)
+	}
+
 	// TrafficGate is the object in category of TrafficGate.
 	TrafficGate interface {
-		Object
+		TrafficObject
 	}
 
 	// Pipeline is the object in category of Pipeline.
 	Pipeline interface {
-		Object
+		TrafficObject
 	}
 
 	// Controller is the object in category of Controller.
 	Controller interface {
 		Object
+
+		// Init initializes the Obejct.
+		Init(superSpec *Spec, super *Supervisor)
+
+		// Inherit also initializes the Object.
+		// But it needs to handle the lifecycle of the previous generation.
+		// So it's own responsibility for the object to inherit and clean the previous generation stuff.
+		// The supervisor won't call Close for the previous generation.
+		Inherit(superSpec *Spec, previousGeneration Object, super *Supervisor)
 	}
 
 	// ObjectCategory is the type to classify all objects.
@@ -109,6 +125,14 @@ var (
 
 	// key: kind
 	objectRegistry = map[string]Object{}
+
+	// objectRegistryOrderByDependency is sorted by object dependency.
+	// The reason is whtat object dependencies follow the package imports sequence.
+	// It aims to initialize system controllers which depend others in right sequence.
+	//
+	// FIXME: Do we need an explicit table to specify the dependecy.
+	// Because it can get the controller without importing its package.
+	objectRegistryOrderByDependency = []Object{}
 )
 
 // ObjectKinds returns all object kinds.
@@ -127,6 +151,19 @@ func ObjectKinds() []string {
 func Register(o Object) {
 	if o.Kind() == "" {
 		panic(fmt.Errorf("%T: empty kind", o))
+	}
+
+	switch o.Category() {
+	case CategoryBusinessController, CategorySystemController:
+		_, ok := o.(Controller)
+		if !ok {
+			panic(fmt.Errorf("%s: not satisfies interface Controller", o.Kind()))
+		}
+	case CategoryPipeline, CategoryTrafficGate:
+		_, ok := o.(TrafficObject)
+		if !ok {
+			panic(fmt.Errorf("%s: not satisfies interface TrafficObject", o.Kind()))
+		}
 	}
 
 	existedObject, existed := objectRegistry[o.Kind()]
@@ -164,4 +201,5 @@ func Register(o Object) {
 	}
 
 	objectRegistry[o.Kind()] = o
+	objectRegistryOrderByDependency = append(objectRegistryOrderByDependency, o)
 }

@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"go.uber.org/zap"
 
 	"github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/logger"
@@ -91,15 +90,14 @@ func MustNewServer(opt *option.Options, cluster cluster.Cluster) *Server {
 func (s *Server) Close(wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	// Give the server a bit to close connections
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	if err := s.srv.Shutdown(ctx); err != nil {
-		logger.Errorf("Could not gracefully shutdown the server", zap.Error(err))
+		logger.Errorf("gracefully shutdown the server failed: %v", err)
 	}
 
-	logger.Infof("Server stopped")
+	logger.Infof("server stopped")
 }
 
 func (s *Server) getMutex() (cluster.Mutex, error) {

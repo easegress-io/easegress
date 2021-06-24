@@ -8,7 +8,7 @@ flow:
   # - filter: fallback
   - filter: rateLimiter
   - filter: requestAdaptor
-  - filter: proxy 
+  - filter: proxy
     jumpIf: { fallback: END }
   - filter: responseAdaptor
 
@@ -43,11 +43,11 @@ filters:
     - name: policy-one
       timeoutDuration: 1000ms
       limitRefreshPeriod: 5000ms
-      limitForPeriod: 2 
+      limitForPeriod: 2
     - name: policy-two
       timeoutDuration: 100ms
       limitRefreshPeriod: 10ms
-      limitForPeriod: 30 
+      limitForPeriod: 30
     defaultPolicyRef: policy-one
     urls:
     - methods: [GET, POST, PUT, DELETE]
@@ -68,8 +68,8 @@ filters:
       set:
         X-Adapt-Key: goodplan
       add: {}
-  - name: proxy 
-    kind: Proxy 
+  - name: proxy
+    kind: Proxy
     failureCodes: [500, 501]
     fallback:
       forCodes: true
@@ -88,18 +88,18 @@ filters:
         headers:
           X-Filter:
             exact: mirror
-    candidatePool:
-      servers:
-      - url: http://127.0.0.1:9093
-      - url: http://127.0.0.1:9094
-      loadBalance:
-        policy: random
-        headerHashKey: ""
-      memoryCache: null
-      filter:
-        headers:
-          X-Filter:
-            exact: candidate
+    candidatePools:
+      - servers:
+        - url: http://127.0.0.1:9093
+        - url: http://127.0.0.1:9094
+        loadBalance:
+          policy: random
+          headerHashKey: ""
+        memoryCache: null
+        filter:
+          headers:
+            X-Filter:
+              exact: candidate
     mainPool:
       serversTags: ["v2"]
       servers:

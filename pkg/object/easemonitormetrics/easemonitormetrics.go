@@ -32,6 +32,7 @@ import (
 	"github.com/megaease/easegress/pkg/object/httppipeline"
 	"github.com/megaease/easegress/pkg/object/httpserver"
 	"github.com/megaease/easegress/pkg/object/statussynccontroller"
+	"github.com/megaease/easegress/pkg/object/trafficcontroller"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/httpstat"
 )
@@ -176,8 +177,7 @@ func (emm *EaseMonitorMetrics) Inherit(superSpec *supervisor.Spec,
 }
 
 func (emm *EaseMonitorMetrics) reload() {
-	ssc, exists := emm.super.GetRunningObject((&statussynccontroller.StatusSyncController{}).Kind(),
-		supervisor.CategorySystemController)
+	ssc, exists := emm.super.GetSystemController(statussynccontroller.Kind)
 	if !exists {
 		logger.Errorf("BUG: status sync controller not found")
 	}
@@ -297,14 +297,19 @@ func (emm *EaseMonitorMetrics) record2Messages(record *statussynccontroller.Stat
 		}
 
 		switch status := status.ObjectStatus.(type) {
-		case *httppipeline.Status:
-			reqs, codes := emm.httpPipeline2Metrics(baseFields, status)
-			reqMetrics = append(reqMetrics, reqs...)
-			codeMetrics = append(codeMetrics, codes...)
-		case *httpserver.Status:
-			reqs, codes := emm.httpServer2Metrics(baseFields, status)
-			reqMetrics = append(reqMetrics, reqs...)
-			codeMetrics = append(codeMetrics, codes...)
+		case *trafficcontroller.StatusInSameNamespace:
+			for name, server := range status.HTTPServers {
+				baseFields.Service = fmt.Sprintf("%s/%s", baseFields.Service, name)
+				reqs, codes := emm.httpServer2Metrics(baseFields, server)
+				reqMetrics = append(reqMetrics, reqs...)
+				codeMetrics = append(codeMetrics, codes...)
+			}
+			for name, pipeline := range status.HTTPPipelines {
+				baseFields.Service = fmt.Sprintf("%s/%s", baseFields.Service, name)
+				reqs, codes := emm.httpPipeline2Metrics(baseFields, pipeline)
+				reqMetrics = append(reqMetrics, reqs...)
+				codeMetrics = append(codeMetrics, codes...)
+			}
 		default:
 			continue
 		}
@@ -338,8 +343,7 @@ func (emm *EaseMonitorMetrics) record2Messages(record *statussynccontroller.Stat
 	return messages
 }
 
-func (emm *EaseMonitorMetrics) httpPipeline2Metrics(
-	baseFields *GlobalFields, pipelineStatus *httppipeline.Status) (
+func (emm *EaseMonitorMetrics) httpPipeline2Metrics(baseFields *GlobalFields, pipelineStatus *httppipeline.Status) (
 	reqMetrics []*RequestMetrics, codeMetrics []*StatusCodeMetrics) {
 
 	for filterName, filterStatus := range pipelineStatus.Filters {

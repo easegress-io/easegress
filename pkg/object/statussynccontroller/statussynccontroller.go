@@ -24,7 +24,6 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/storage"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/timetool"
 )
@@ -47,8 +46,8 @@ type (
 		superSpec *supervisor.Spec
 		spec      *Spec
 
-		storage *storage.Storage
-		timer   *timetool.DistributedTimer
+		timer            *timetool.DistributedTimer
+		lastSyncStatuses map[string]string
 		// sorted by timestamp in ascending order
 		statusesRecords      []*StatusesRecord
 		StatusesRecordsMutex sync.RWMutex
@@ -127,7 +126,6 @@ func (ssc *StatusSyncController) Inherit(spec *supervisor.Spec,
 
 func (ssc *StatusSyncController) reload() {
 	ssc.timer = timetool.NewDistributedTimer(nextSyncStatusDuration)
-	ssc.storage = storage.New(ssc.super.Options(), ssc.super.Cluster())
 	ssc.done = make(chan struct{})
 
 	go ssc.run()
@@ -137,7 +135,7 @@ func (ssc *StatusSyncController) run() {
 	for {
 		select {
 		case t := <-ssc.timer.C:
-			ssc.syncStatus(t.Unix())
+			ssc.handleStatus(t.Unix())
 		case <-ssc.done:
 			return
 		}
@@ -154,18 +152,17 @@ func (ssc *StatusSyncController) Status() *supervisor.Status {
 // Close closes StatusSyncController.
 func (ssc *StatusSyncController) Close() {
 	close(ssc.done)
-	ssc.storage.Close()
 	ssc.timer.Close()
 }
 
-func (ssc *StatusSyncController) syncStatus(unixTimestamp int64) {
+func (ssc *StatusSyncController) handleStatus(unixTimestamp int64) {
 	statuses := make(map[string]string)
 	statusesRecord := &StatusesRecord{
 		Statuses:     make(map[string]*supervisor.Status),
 		UnixTimestmp: unixTimestamp,
 	}
 
-	walkFn := func(runningObject *supervisor.RunningObject) bool {
+	walkFn := func(entity *supervisor.ObjectEntity) bool {
 		defer func() {
 			if err := recover(); err != nil {
 				logger.Errorf("recover from syncStatus, err: %v, stack trace:\n%s\n",
@@ -173,9 +170,9 @@ func (ssc *StatusSyncController) syncStatus(unixTimestamp int64) {
 			}
 		}()
 
-		name := runningObject.Spec().Name()
+		name := entity.Spec().Name()
 
-		status := runningObject.Instance().Status()
+		status := entity.Instance().Status()
 		status.Timestamp = unixTimestamp
 
 		statusesRecord.Statuses[name] = status
@@ -191,10 +188,37 @@ func (ssc *StatusSyncController) syncStatus(unixTimestamp int64) {
 		return true
 	}
 
-	ssc.super.WalkRunningObjects(walkFn, supervisor.CategoryAll)
+	ssc.super.WalkControllers(walkFn)
 
 	ssc.addStatusesRecord(statusesRecord)
-	ssc.storage.SyncStatus(statuses)
+	ssc.syncStatusToCluster(statuses)
+}
+
+func (ssc *StatusSyncController) syncStatusToCluster(statuses map[string]string) {
+	kvs := make(map[string]*string)
+
+	// Delete statuses which disappeared in current status.
+	if ssc.lastSyncStatuses != nil {
+		for k := range ssc.lastSyncStatuses {
+			if _, exists := statuses[k]; !exists {
+				k = ssc.super.Cluster().Layout().StatusObjectKey(k)
+				kvs[k] = nil
+			}
+		}
+	}
+
+	ssc.lastSyncStatuses = statuses
+
+	for k, v := range statuses {
+		k = ssc.super.Cluster().Layout().StatusObjectKey(k)
+		value := v
+		kvs[k] = &value
+	}
+
+	err := ssc.super.Cluster().PutAndDeleteUnderLease(kvs)
+	if err != nil {
+		logger.Errorf("sync status failed: %v", err)
+	}
 }
 
 func (ssc *StatusSyncController) addStatusesRecord(statusesRecord *StatusesRecord) {

@@ -86,7 +86,7 @@ func (a *CORSAdaptor) Init(pipeSpec *httppipeline.FilterSpec, super *supervisor.
 	a.reload()
 }
 
-// Inherit inherits previous generation of APIAggregator.
+// Inherit inherits previous generation of CORSAdaptor.
 func (a *CORSAdaptor) Inherit(pipeSpec *httppipeline.FilterSpec,
 	previousGeneration httppipeline.Filter, super *supervisor.Supervisor) {
 

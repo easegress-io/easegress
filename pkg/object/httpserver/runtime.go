@@ -28,6 +28,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/graceupdate"
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/protocol"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/httpstat"
 	"github.com/megaease/easegress/pkg/util/topn"
@@ -54,7 +55,6 @@ var (
 type (
 	stateType string
 
-	eventStart       struct{}
 	eventCheckFailed struct{}
 	eventServeFailed struct {
 		startNum uint64
@@ -63,6 +63,7 @@ type (
 	eventReload struct {
 		nextSuperSpec *supervisor.Spec
 		super         *supervisor.Supervisor
+		muxMapper     protocol.MuxMapper
 	}
 	eventClose struct{ done chan struct{} }
 
@@ -97,7 +98,7 @@ type (
 	}
 )
 
-func newRuntime(super *supervisor.Supervisor) *runtime {
+func newRuntime(super *supervisor.Supervisor, muxMapper protocol.MuxMapper) *runtime {
 	r := &runtime{
 		super:     super,
 		eventChan: make(chan interface{}, 10),
@@ -105,10 +106,6 @@ func newRuntime(super *supervisor.Supervisor) *runtime {
 		topN:      topn.New(topNum),
 	}
 
-	// default mapper is the supervisor warpper
-	muxMapper := &SupervisorMapper{
-		super: super,
-	}
 	r.mux = newMux(r.httpStat, r.topN, muxMapper)
 	r.setState(stateNil)
 	r.setError(errNil)
@@ -139,16 +136,10 @@ func (r *runtime) Status() *Status {
 	}
 }
 
-func (r *runtime) SetMuxMapper(mapper MuxMapper) {
-	r.mux.setMuxMapper(mapper)
-}
-
 // FSM is the finite-state-machine for the runtime.
 func (r *runtime) fsm() {
 	for e := range r.eventChan {
 		switch e := e.(type) {
-		case *eventStart:
-			r.handleEventStart(e)
 		case *eventCheckFailed:
 			r.handleEventCheckFailed(e)
 		case *eventServeFailed:
@@ -167,13 +158,11 @@ func (r *runtime) fsm() {
 	}
 }
 
-func (r *runtime) handleEventStart(e *eventStart) {
-	r.startServer()
-}
+func (r *runtime) reload(nextSuperSpec *supervisor.Spec,
+	super *supervisor.Supervisor, muxMapper protocol.MuxMapper) {
 
-func (r *runtime) reload(nextSuperSpec *supervisor.Spec, super *supervisor.Supervisor) {
 	r.superSpec, r.super = nextSuperSpec, super
-	r.mux.reloadRules(nextSuperSpec, super)
+	r.mux.reloadRules(nextSuperSpec, super, muxMapper)
 
 	nextSpec := nextSuperSpec.ObjectSpec().(*Spec)
 
@@ -372,7 +361,7 @@ func (r *runtime) handleEventServeFailed(e *eventServeFailed) {
 }
 
 func (r *runtime) handleEventReload(e *eventReload) {
-	r.reload(e.nextSuperSpec, e.super)
+	r.reload(e.nextSuperSpec, e.super, e.muxMapper)
 }
 
 func (r *runtime) handleEventClose(e *eventClose) {
