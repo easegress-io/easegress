@@ -19,12 +19,10 @@ package worker
 
 import (
 	"fmt"
-	"net/http"
 	"sync"
 
 	"gopkg.in/yaml.v2"
 
-	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filter/proxy"
 	"github.com/megaease/easegress/pkg/filter/requestadaptor"
 	"github.com/megaease/easegress/pkg/logger"
@@ -32,18 +30,12 @@ import (
 	"github.com/megaease/easegress/pkg/object/httppipeline"
 	"github.com/megaease/easegress/pkg/object/httpserver"
 	"github.com/megaease/easegress/pkg/object/trafficcontroller"
-	"github.com/megaease/easegress/pkg/protocol"
 	"github.com/megaease/easegress/pkg/supervisor"
 )
 
 const ingressFunctionKey = "X-FaaS-Func-Name"
 
 type (
-	faasPipeline struct {
-		active   bool
-		pipeline *supervisor.ObjectEntity
-	}
-
 	// ingressServer manages one/many ingress pipelines and one HTTPServer
 	ingressServer struct {
 		super     *supervisor.Supervisor
@@ -56,9 +48,10 @@ type (
 		namespace string
 		mutex     sync.RWMutex
 
-		tc         *trafficcontroller.TrafficController
-		pipelines  map[string]*faasPipeline
-		httpServer *supervisor.ObjectEntity
+		tc             *trafficcontroller.TrafficController
+		pipelines      map[string]struct{}
+		httpServer     *supervisor.ObjectEntity
+		httpServerSpec *supervisor.Spec
 	}
 
 	pipelineSpecBuilder struct {
@@ -71,13 +64,23 @@ type (
 // newIngressServer creates a initialized ingress server
 func newIngressServer(superSpec *supervisor.Spec, super *supervisor.Supervisor,
 	controllerName string) *ingressServer {
+	entity, exists := super.GetSystemController(trafficcontroller.Kind)
+	if !exists {
+		panic(fmt.Errorf("BUG: traffic controller not found"))
+	}
+
+	tc, ok := entity.Instance().(*trafficcontroller.TrafficController)
+	if !ok {
+		panic(fmt.Errorf("BUG: want *TrafficController, got %T", entity.Instance()))
+	}
 	return &ingressServer{
-		pipelines:  make(map[string]*faasPipeline),
+		pipelines:  make(map[string]struct{}),
 		httpServer: nil,
 		super:      super,
 		superSpec:  superSpec,
 		mutex:      sync.RWMutex{},
 		namespace:  fmt.Sprintf("%s/%s", superSpec.Name(), "ingress"),
+		tc:         tc,
 	}
 }
 
@@ -141,15 +144,7 @@ func (b *pipelineSpecBuilder) appendProxy(faasNetworkLayerURL string) *pipelineS
 	return b
 }
 
-// Get gets egressServer itself as the default backend.
-// egress server will handle the pipeline routing by itself.
-func (ings *ingressServer) GetHandler(name string) (protocol.HTTPHandler, bool) {
-	ings.mutex.RLock()
-	defer ings.mutex.RUnlock()
-	return ings, true
-}
-
-func (ings *ingressServer) httpServerSpec(httpServer *httpserver.Spec) string {
+func (ings *ingressServer) httpServerYAML(httpServer *httpserver.Spec) string {
 	ingressHTTPServerFormat := `
 kind: HTTPServer
 name: %s
@@ -161,11 +156,7 @@ https: %t
 certBase64: %s
 keyBase64: %s
 maxConnections: %d
-rules:
-  - paths:
-    - pathPrefix: /
-      backend: accept-all-placeholder`
-
+`
 	return fmt.Sprintf(ingressHTTPServerFormat,
 		ings.superSpec.Name(), httpServer.HTTP3, httpServer.Port, httpServer.KeepAlive,
 		httpServer.KeepAliveTimeout, httpServer.HTTPS, httpServer.CertBase64,
@@ -186,8 +177,7 @@ func (ings *ingressServer) Init() error {
 	ings.faasHostSuffix = spec.Knative.HostSuffix
 	ings.faasNamespace = spec.Knative.Namespace
 
-	yamlConf := ings.httpServerSpec(spec.HTTPServer)
-	logger.Debugf("http svr spec is %s", yamlConf)
+	yamlConf := ings.httpServerYAML(spec.HTTPServer)
 
 	superSpec, err := supervisor.NewSpec(string(yamlConf))
 	if err != nil {
@@ -195,11 +185,90 @@ func (ings *ingressServer) Init() error {
 		return err
 	}
 
+	ings.httpServerSpec = superSpec
 	entity, err := ings.tc.CreateHTTPServerForSpec(ings.namespace, superSpec)
 	if err != nil {
 		return fmt.Errorf("create http server %s failed: %v", superSpec.Name(), err)
 	}
 	ings.httpServer = entity
+	logger.Infof("FaasController :%s init Ingress ok", superSpec.Name())
+	return nil
+}
+
+func (ings *ingressServer) updateHTTPServer(spec *httpserver.Spec) error {
+	buff, err := yaml.Marshal(spec)
+	if err != nil {
+		logger.Errorf("BUG: marshal %#v to yaml failed: %v", spec, err)
+		return err
+	}
+	httpServerFormat := ` 
+name: %s
+kind: HTTPServer
+%s
+`
+	yamlConf := fmt.Sprintf(httpServerFormat, ings.superSpec.Name(), buff)
+	ings.httpServerSpec, err = supervisor.NewSpec(yamlConf)
+	if err != nil {
+		return fmt.Errorf("BUG marshal httpserver failed: %v", err)
+	}
+	_, err = ings.tc.ApplyHTTPServerForSpec(ings.namespace, ings.httpServerSpec)
+	if err != nil {
+		return fmt.Errorf("apply http server %s failed: %v", ings.httpServerSpec.Name(), err)
+	}
+	return nil
+}
+
+func (ings *ingressServer) find(pipeline string) int {
+	spec := ings.httpServerSpec.ObjectSpec().(*httpserver.Spec)
+	index := -1
+	for idx, v := range spec.Rules {
+		for _, p := range v.Paths {
+			if p.Backend == pipeline {
+				index = idx
+				break
+			}
+		}
+	}
+	return index
+}
+
+func (ings *ingressServer) add(pipeline string) error {
+	spec := ings.httpServerSpec.ObjectSpec().(*httpserver.Spec)
+	index := ings.find(pipeline)
+	// not backend as function's pipeline
+	if index == -1 {
+		rule := httpserver.Rule{
+			Paths: []httpserver.Path{
+				{
+					PathPrefix: "/",
+					Headers: []*httpserver.Header{
+						{
+							Key:     ingressFunctionKey,
+							Values:  []string{pipeline},
+							Backend: pipeline,
+						},
+					},
+					Backend: pipeline,
+				},
+			},
+		}
+		spec.Rules = append(spec.Rules, rule)
+		if err := ings.updateHTTPServer(spec); err != nil {
+			logger.Errorf("update http server failed: %v ", err)
+		}
+	}
+	return nil
+}
+
+func (ings *ingressServer) remove(pipeline string) error {
+	spec := ings.httpServerSpec.ObjectSpec().(*httpserver.Spec)
+	index := ings.find(pipeline)
+
+	if index != -1 {
+		spec.Rules = append(spec.Rules[:index], spec.Rules[index+1:]...)
+		logger.Errorf("remove %#v,", spec)
+		return ings.updateHTTPServer(spec)
+	}
 	return nil
 }
 
@@ -210,21 +279,16 @@ func (ings *ingressServer) Put(funcSpec *spec.Spec) error {
 	builder.appendProxy(ings.faasNetworkLayerURL)
 
 	yamlConfig := builder.yamlConfig()
-	logger.Debugf("pipeline spec is %s", yamlConfig)
-
 	superSpec, err := supervisor.NewSpec(yamlConfig)
 	if err != nil {
 		logger.Errorf("new spec for %s failed: %v", yamlConfig, err)
 		return err
 	}
-	entity, err := ings.tc.CreateHTTPPipelineForSpec(ings.namespace, superSpec)
-	if err != nil {
+	if _, err = ings.tc.CreateHTTPPipelineForSpec(ings.namespace, superSpec); err != nil {
 		return fmt.Errorf("create http pipeline %s failed: %v", superSpec.Name(), err)
 	}
-	ings.pipelines[funcSpec.Name] = &faasPipeline{
-		pipeline: entity,
-		active:   false,
-	}
+	ings.add(funcSpec.Name)
+	ings.pipelines[funcSpec.Name] = struct{}{}
 
 	return nil
 }
@@ -232,13 +296,13 @@ func (ings *ingressServer) Put(funcSpec *spec.Spec) error {
 // Delete deletes one ingress pipeline according to the function's name.
 func (ings *ingressServer) Delete(functionName string) {
 	ings.mutex.Lock()
-	p, exist := ings.pipelines[functionName]
+	_, exist := ings.pipelines[functionName]
 	if exist {
 		delete(ings.pipelines, functionName)
 	}
 	ings.mutex.Unlock()
 	if exist {
-		ings.tc.DeleteHTTPPipeline(ings.namespace, p.pipeline.Spec().Name())
+		ings.remove(functionName)
 	}
 }
 
@@ -248,17 +312,24 @@ func (ings *ingressServer) Update(allFunctions map[string]*spec.Function) {
 	ings.mutex.Lock()
 	defer ings.mutex.Unlock()
 	for _, v := range allFunctions {
-		if p, exist := ings.pipelines[v.Spec.Name]; !exist {
-			err := ings.Put(v.Spec)
-			if err != nil {
-				logger.Errorf("ingress add back local pipeline: %s, failed: %v", v.Spec.Name, err)
-				continue
+		index := ings.find(v.Spec.Name)
+		_, exist := ings.pipelines[v.Spec.Name]
+
+		if v.Status.State == spec.ActiveState {
+			// need to add rule in HTTPServer or create this pipeline
+			// especially in reboot scenario.
+			if index == -1 || !exist {
+				err := ings.Put(v.Spec)
+				if err != nil {
+					logger.Errorf("ingress add back local pipeline: %s, failed: %v",
+						v.Spec.Name, err)
+					continue
+				}
 			}
 		} else {
-			if v.Status.State == spec.ActiveState {
-				p.active = true
-			} else {
-				p.active = false
+			// Function not ready, then remove it from HTTPServer's route rule
+			if index != -1 {
+				ings.remove(v.Spec.Name)
 			}
 		}
 	}
@@ -269,9 +340,7 @@ func (ings *ingressServer) Stop(functionName string) {
 	ings.mutex.Lock()
 	defer ings.mutex.Unlock()
 
-	if p, ok := ings.pipelines[functionName]; ok {
-		p.active = false
-	}
+	ings.remove(functionName)
 }
 
 // Start starts one ingress pipeline according to the function's name.
@@ -279,52 +348,7 @@ func (ings *ingressServer) Start(functionName string) {
 	ings.mutex.Lock()
 	defer ings.mutex.Unlock()
 
-	if p, ok := ings.pipelines[functionName]; ok {
-		p.active = true
-	}
-}
-
-func (ings *ingressServer) get(functionName string) (*faasPipeline, error) {
-	ings.mutex.RLock()
-	defer ings.mutex.RUnlock()
-
-	if pipeline, exist := ings.pipelines[functionName]; exist {
-		return pipeline, nil
-	}
-
-	return nil, errFunctionNotFound
-}
-
-// Handle handles all egress traffic and route to desired pipeline according
-// to the "X-FaaS-Func-name" field in header.
-func (ings *ingressServer) Handle(ctx context.HTTPContext) {
-	name := ctx.Request().Header().Get(ingressFunctionKey)
-	if len(name) == 0 {
-		logger.Errorf("handle egress RPC without setting service name in: %s header: %#v",
-			ingressFunctionKey, ctx.Request().Header())
-		ctx.Response().SetStatusCode(http.StatusNotFound)
-		return
-	}
-
-	faasPipeline, err := ings.get(name)
-	if err != nil {
-		if err == errFunctionNotFound {
-			logger.Errorf("handle faas ingress unknown function: %s", name)
-			ctx.Response().SetStatusCode(http.StatusNotFound)
-		} else {
-			logger.Errorf("handle faas ingress function: %s get pipeline failed: %v", name, err)
-			ctx.Response().SetStatusCode(http.StatusInternalServerError)
-		}
-		return
-	}
-
-	if !faasPipeline.active {
-		logger.Errorf("handle faas ingress with inactive pipeline: %s", name)
-		ctx.Response().SetStatusCode(http.StatusInternalServerError)
-		return
-	}
-	faasPipeline.pipeline.Instance().(*httppipeline.HTTPPipeline).Handle(ctx)
-	logger.Debugf("handle service name:%s finished, status code: %d req: %#v", name, ctx.Response().StatusCode(), ctx.Request())
+	ings.add(functionName)
 }
 
 // Close closes the Egress HTTPServer and Pipelines
@@ -333,7 +357,7 @@ func (ings *ingressServer) Close() {
 	defer ings.mutex.Unlock()
 
 	ings.tc.DeleteHTTPServer(ings.namespace, ings.httpServer.Spec().Name())
-	for _, entity := range ings.pipelines {
-		ings.tc.DeleteHTTPPipeline(ings.namespace, entity.pipeline.Spec().Name())
+	for name := range ings.pipelines {
+		ings.tc.DeleteHTTPPipeline(ings.namespace, name)
 	}
 }
