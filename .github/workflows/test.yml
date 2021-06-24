@@ -25,7 +25,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest]
     steps:
       - name: Set up Go 1.x.y
         uses: actions/setup-go@v2
@@ -38,4 +38,6 @@ jobs:
       - name: Test
         shell: bash
         run: |
-          go test -v ./...
+          go mod verify
+          go mod download
+          make test
