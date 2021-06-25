@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"reflect"
 
 	"github.com/go-chi/chi/v5"
 	"gopkg.in/yaml.v2"
@@ -36,6 +35,7 @@ import (
 var (
 	errFunctionNotFound     = fmt.Errorf("can't find function")
 	errFunctionAlreadyExist = fmt.Errorf("function already exist")
+	startMsg                = []byte("function has been started, please wait for system truing it into active status")
 )
 
 func (worker *Worker) faasAPIPrefix() string {
@@ -104,7 +104,7 @@ func (worker *Worker) Create(w http.ResponseWriter, r *http.Request) {
 		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	w.Header().Set("Location", r.URL.Path)
+	w.Header().Set("Location", r.URL.Path+"/"+spec.Name)
 	w.WriteHeader(http.StatusCreated)
 }
 
@@ -120,7 +120,7 @@ func (worker *Worker) readAPISpec(w http.ResponseWriter, r *http.Request, spec i
 
 	vr := v.Validate(spec, body)
 	if !vr.Valid() {
-		return fmt.Errorf("validate failed: \n%s", vr)
+		return fmt.Errorf("validate failed: \n%s", vr.Error())
 	}
 
 	return nil
@@ -171,7 +171,10 @@ func (worker *Worker) Start(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	worker.ingress.Start(name)
+
+	worker.starFunctions.Store(name, struct{}{})
+	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
+	w.Write(startMsg)
 }
 
 func (worker *Worker) Delete(w http.ResponseWriter, r *http.Request) {
@@ -252,39 +255,19 @@ func (worker *Worker) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// no need to update
-	if reflect.DeepEqual(funcSpec, function.Spec) {
-		return
-	}
-
 	stateUpdated := false
 	if stateUpdated, err = function.Next(spec.UpdateEvent); err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
-	origAdaptor := function.Spec.RequestAdaptor
-	function.Spec.RequestAdaptor = nil
-	newAdaptor := funcSpec.RequestAdaptor
-	funcSpec.RequestAdaptor = nil
-
 	worker.Lock()
 	defer worker.Unlock()
 	// update the FaaS provider related filed
-	if !reflect.DeepEqual(function.Spec, funcSpec) {
-		if err := worker.provider.Update(funcSpec); err != nil {
-			api.HandleAPIError(w, r, http.StatusInternalServerError, err)
-			logger.Errorf("update function: %s failed: %v", funcSpec.Name, err)
-			return
-		}
-	}
-	if !reflect.DeepEqual(origAdaptor, newAdaptor) {
-		// reset back
-		funcSpec.RequestAdaptor = newAdaptor
-		if err = worker.ingress.Put(funcSpec); err != nil {
-			api.HandleAPIError(w, r, http.StatusInternalServerError, err)
-			return
-		}
+	if err := worker.provider.Update(funcSpec); err != nil {
+		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
+		logger.Errorf("update function: %s failed: %v", funcSpec.Name, err)
+		return
 	}
 
 	if err = worker.updateFunctionSpec(funcSpec); err != nil {
@@ -309,7 +292,7 @@ func (worker *Worker) Get(w http.ResponseWriter, r *http.Request) {
 	function, err := worker.get(name)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
-		logger.Errorf("create function with bad request: %v")
+		logger.Errorf("create function with bad request: %v", err)
 		return
 	}
 	// no display

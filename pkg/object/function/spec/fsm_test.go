@@ -23,11 +23,11 @@ import (
 )
 
 func TestValidFSM(t *testing.T) {
-	fsm, err := InitFSM(PendingState)
+	fsm, err := InitFSM(InactiveState)
 	if err != nil {
 		t.Errorf("test failed spec should not be valid, err: %v", err)
 	}
-	err = fsm.Next(ProvisionFailedEvent)
+	err = fsm.Next(ErrorEvent)
 	if err != nil {
 		t.Errorf("next failed: %v", err)
 	}
@@ -70,18 +70,18 @@ func TestValidEventFSM(t *testing.T) {
 	if err != nil {
 		t.Errorf("init fsm should be succ, err: %v", err)
 	}
-	err = fsm.Next(ProvisionOKEvent)
+	err = fsm.Next(ReadyEvent)
 	if err != nil {
 		t.Errorf("provision ok should be allowed in active state")
 	}
 }
 
 func TestValidEventAtPending1(t *testing.T) {
-	fsm, err := InitFSM(PendingState)
+	fsm, err := InitFSM(InactiveState)
 	if err != nil {
 		t.Errorf("init fsm should be succ, err: %v", err)
 	}
-	err = fsm.Next(ProvisionOKEvent)
+	err = fsm.Next(ReadyEvent)
 	if err != nil {
 		t.Errorf("provision ok should be allowed in active state")
 	}
@@ -91,11 +91,11 @@ func TestValidEventAtPending1(t *testing.T) {
 }
 
 func TestValidEventAtPending2(t *testing.T) {
-	fsm, err := InitFSM(PendingState)
+	fsm, err := InitFSM(InactiveState)
 	if err != nil {
 		t.Errorf("init fsm should be succ, err: %v", err)
 	}
-	err = fsm.Next(ProvisionFailedEvent)
+	err = fsm.Next(ErrorEvent)
 	if err != nil {
 		t.Errorf("provision failed should be allowed in pending state")
 	}
@@ -106,22 +106,22 @@ func TestValidEventAtPending2(t *testing.T) {
 }
 
 func TestValidEventAtPending3(t *testing.T) {
-	fsm, err := InitFSM(PendingState)
+	fsm, err := InitFSM(InactiveState)
 	if err != nil {
 		t.Errorf("init fsm should be succ, err: %v", err)
 	}
-	err = fsm.Next(ProvisionPendingEvent)
+	err = fsm.Next(PendingEvent)
 	if err != nil {
-		t.Errorf("provision failed should be allowed in pending state")
+		t.Errorf("Pending event should be allowed in inactive state")
 	}
 
-	if fsm.currentState != PendingState {
-		t.Errorf("pending's next state should be pending after provision pending event!")
+	if fsm.currentState != FailedState {
+		t.Errorf("inactive's next state should be failed after pending event!")
 	}
 }
 
 func TestValidEventAtPending4(t *testing.T) {
-	fsm, err := InitFSM(PendingState)
+	fsm, err := InitFSM(InactiveState)
 	if err != nil {
 		t.Errorf("init fsm should be succ, err: %v", err)
 	}
@@ -130,13 +130,13 @@ func TestValidEventAtPending4(t *testing.T) {
 		t.Errorf("update should be allowed in pending state")
 	}
 
-	if fsm.currentState != PendingState {
+	if fsm.currentState != InitialState {
 		t.Errorf("pending's next state should be pending after update event!")
 	}
 }
 
 func TestValidEventAtPending5(t *testing.T) {
-	fsm, err := InitFSM(PendingState)
+	fsm, err := InitFSM(InactiveState)
 	if err != nil {
 		t.Errorf("init fsm should be succ, err: %v", err)
 	}
@@ -145,7 +145,7 @@ func TestValidEventAtPending5(t *testing.T) {
 		t.Errorf("delete should be allowed in pending state")
 	}
 
-	if fsm.currentState != RemovedState {
+	if fsm.currentState != DesctroyState {
 		t.Errorf("pending's next state should be removed after delete event!")
 	}
 }
@@ -155,7 +155,7 @@ func TestValidEventAtActive1(t *testing.T) {
 	if err != nil {
 		t.Errorf("init fsm should be succ, err: %v", err)
 	}
-	err = fsm.Next(ProvisionFailedEvent)
+	err = fsm.Next(ErrorEvent)
 	if err != nil {
 		t.Errorf("provision failed event should be allowed in active state")
 	}
@@ -170,7 +170,7 @@ func TestValidEventAtActive2(t *testing.T) {
 	if err != nil {
 		t.Errorf("init fsm should be succ, err: %v", err)
 	}
-	err = fsm.Next(ProvisionOKEvent)
+	err = fsm.Next(ReadyEvent)
 	if err != nil {
 		t.Errorf("provision ok event should be allowed in active state")
 	}
@@ -185,12 +185,12 @@ func TestValidEventAtActive3(t *testing.T) {
 	if err != nil {
 		t.Errorf("init fsm should be succ, err: %v", err)
 	}
-	err = fsm.Next(ProvisionPendingEvent)
+	err = fsm.Next(PendingEvent)
 	if err != nil {
 		t.Errorf("provision pending event should be allowed in active state")
 	}
 
-	if fsm.currentState != PendingState {
+	if fsm.currentState != FailedState {
 		t.Errorf("active's next state should be active after provision pending!")
 	}
 }
@@ -224,7 +224,7 @@ func TestValidEventAtInActive1(t *testing.T) {
 	if err != nil {
 		t.Errorf("init fsm should be succ, err: %v", err)
 	}
-	err = fsm.Next(ProvisionFailedEvent)
+	err = fsm.Next(ErrorEvent)
 	if err != nil {
 		t.Errorf("provision failed event should be allowed in inactive state")
 	}
@@ -239,13 +239,13 @@ func TestValidEventAtInActive2(t *testing.T) {
 	if err != nil {
 		t.Errorf("init fsm should be succ, err: %v", err)
 	}
-	err = fsm.Next(ProvisionOKEvent)
+	err = fsm.Next(ReadyEvent)
 	if err != nil {
 		t.Errorf("provision ok event should be allowed in inactive state")
 	}
 
-	if fsm.currentState != InactiveState {
-		t.Errorf("inactive's next state should be inactive after provision ok!")
+	if fsm.currentState != ActiveState {
+		t.Errorf("inactive's next state should be active after provision ok!")
 	}
 }
 
@@ -254,12 +254,12 @@ func TestValidEventAtInActive3(t *testing.T) {
 	if err != nil {
 		t.Errorf("init fsm should be succ, err: %v", err)
 	}
-	err = fsm.Next(ProvisionPendingEvent)
+	err = fsm.Next(PendingEvent)
 	if err != nil {
 		t.Errorf("provision pending event should be allowed in active state")
 	}
 
-	if fsm.currentState != PendingState {
+	if fsm.currentState != FailedState {
 		t.Errorf("active's next state should be pending after provision pending!")
 	}
 }
@@ -273,8 +273,8 @@ func TestValidEventAtInActive4(t *testing.T) {
 		t.Errorf("stop event should be allowed in inactive state")
 	}
 
-	if fsm.currentState != ActiveState {
-		t.Errorf("inactive's next state should be active after starting!")
+	if fsm.currentState != InactiveState {
+		t.Errorf("inactive's next state should be inactive after starting!")
 	}
 }
 
@@ -283,7 +283,7 @@ func TestValidEventAtFailed1(t *testing.T) {
 	if err != nil {
 		t.Errorf("init fsm should be succ, err: %v", err)
 	}
-	err = fsm.Next(ProvisionFailedEvent)
+	err = fsm.Next(ErrorEvent)
 	if err != nil {
 		t.Errorf("provision failed event should be allowed in failed state")
 	}
@@ -298,12 +298,12 @@ func TestValidEventAtFailed2(t *testing.T) {
 	if err != nil {
 		t.Errorf("init fsm should be succ, err: %v", err)
 	}
-	err = fsm.Next(ProvisionOKEvent)
+	err = fsm.Next(ReadyEvent)
 	if err != nil {
 		t.Errorf("provision ok event should be allowed in failed state")
 	}
 
-	if fsm.currentState != PendingState {
+	if fsm.currentState != InitialState {
 		t.Errorf("failed's next state should be pending after provision ok!")
 	}
 }
@@ -313,12 +313,12 @@ func TestValidEventAtFailed3(t *testing.T) {
 	if err != nil {
 		t.Errorf("init fsm should be succ, err: %v", err)
 	}
-	err = fsm.Next(ProvisionPendingEvent)
+	err = fsm.Next(PendingEvent)
 	if err != nil {
 		t.Errorf("provision pending event should be allowed in active state")
 	}
 
-	if fsm.currentState != PendingState {
+	if fsm.currentState != FailedState {
 		t.Errorf("failed's next state should be pending after provision pending!")
 	}
 }
@@ -332,7 +332,7 @@ func TestValidEventAtFailed4(t *testing.T) {
 		t.Errorf("update event should be allowed in inactive state")
 	}
 
-	if fsm.currentState != PendingState {
+	if fsm.currentState != InitialState {
 		t.Errorf("failed's next state should be pending after updating!")
 	}
 }

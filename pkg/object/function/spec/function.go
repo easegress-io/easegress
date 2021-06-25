@@ -45,7 +45,7 @@ type (
 		Provider string `yaml:"provider" jsonschema:"required"`
 
 		// HTTPServer is the HTTP traffic gate for accepting ingress traffic.
-		HTTPServer *httpserver.Spec `yaml:"httpserver" jsonschema:"required"`
+		HTTPServer *httpserver.Spec `yaml:"httpServer" jsonschema:"required"`
 
 		// Currently we only supports knative type faas provider, so this filed should be
 		// "required" right now.

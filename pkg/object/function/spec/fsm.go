@@ -44,42 +44,44 @@ type (
 const (
 	// State value of FaaSFunction
 	FailedState   State = "failed"
-	PendingState  State = "pending"
+	InitialState  State = "initial"
 	ActiveState   State = "active"
 	InactiveState State = "inactive"
 
 	// only for keep fsm working
-	RemovedState State = "removed"
+	DesctroyState State = "desctory"
 
-	// Function event
+	// Function event invoked by APIs.
 	CreateEvent Event = "create"
 	StartEvent  Event = "start"
 	StopEvent   Event = "stop"
 	UpdateEvent Event = "update"
 	DeleteEvent Event = "delete"
 
-	// Event fired by FaaSProvider
-	ProvisionOKEvent      Event = "provisionsOK"
-	ProvisionPendingEvent Event = "provisionPending"
-	ProvisionFailedEvent  Event = "provisionFailed"
+	// Function Event invoked by FaaSProvider
+	ReadyEvent   Event = "ready"
+	PendingEvent Event = "pending"
+	ErrorEvent   Event = "error"
 )
 
 var (
 	validState map[State]struct{} = map[State]struct{}{
-		PendingState:  {},
+		InitialState:  {},
 		ActiveState:   {},
 		InactiveState: {},
 		FailedState:   {},
-		RemovedState:  {},
+		DesctroyState: {},
 	}
+
 	validEvent map[Event]struct{} = map[Event]struct{}{
-		UpdateEvent:           {},
-		DeleteEvent:           {},
-		StopEvent:             {},
-		StartEvent:            {},
-		ProvisionFailedEvent:  {},
-		ProvisionPendingEvent: {},
-		ProvisionOKEvent:      {},
+		UpdateEvent:  {},
+		DeleteEvent:  {},
+		StopEvent:    {},
+		StartEvent:   {},
+		CreateEvent:  {},
+		PendingEvent: {},
+		ErrorEvent:   {},
+		ReadyEvent:   {},
 	}
 
 	transitions = map[Event][]transition{}
@@ -87,29 +89,29 @@ var (
 
 func init() {
 	table := []transition{
-		{PendingState, UpdateEvent, PendingState},
-		{PendingState, DeleteEvent, RemovedState},
-		{PendingState, ProvisionFailedEvent, FailedState},
-		{PendingState, ProvisionOKEvent, ActiveState},
-		{PendingState, ProvisionPendingEvent, PendingState},
+		{InitialState, UpdateEvent, InitialState},
+		{InitialState, DeleteEvent, DesctroyState},
+		{InitialState, ReadyEvent, ActiveState},
+		{InitialState, PendingEvent, InitialState},
+		{InitialState, ErrorEvent, FailedState},
 
 		{ActiveState, StopEvent, InactiveState},
-		{ActiveState, ProvisionFailedEvent, FailedState},
-		{ActiveState, ProvisionOKEvent, ActiveState},
-		{ActiveState, ProvisionPendingEvent, PendingState},
+		{ActiveState, ErrorEvent, FailedState},
+		{ActiveState, ReadyEvent, ActiveState},
+		{ActiveState, PendingEvent, FailedState},
 
-		{InactiveState, UpdateEvent, PendingState},
-		{InactiveState, DeleteEvent, RemovedState},
-		{InactiveState, StartEvent, ActiveState},
-		{InactiveState, ProvisionFailedEvent, FailedState},
-		{InactiveState, ProvisionOKEvent, InactiveState},
-		{InactiveState, ProvisionPendingEvent, PendingState},
+		{InactiveState, UpdateEvent, InitialState},
+		{InactiveState, StartEvent, InactiveState},
+		{InactiveState, DeleteEvent, DesctroyState},
+		{InactiveState, ReadyEvent, ActiveState},
+		{InactiveState, PendingEvent, FailedState},
+		{InactiveState, ErrorEvent, FailedState},
 
-		{FailedState, DeleteEvent, RemovedState},
-		{FailedState, UpdateEvent, PendingState},
-		{FailedState, ProvisionFailedEvent, FailedState},
-		{FailedState, ProvisionOKEvent, PendingState},
-		{FailedState, ProvisionPendingEvent, PendingState},
+		{FailedState, DeleteEvent, DesctroyState},
+		{FailedState, UpdateEvent, InitialState},
+		{FailedState, ReadyEvent, InitialState},
+		{FailedState, ErrorEvent, FailedState},
+		{FailedState, PendingEvent, FailedState},
 	}
 
 	// using Event as the key
@@ -120,7 +122,7 @@ func init() {
 
 // InitState returns the initial FSM state which is the `pending` state.
 func InitState() State {
-	return PendingState
+	return InitialState
 }
 
 // InitFSM creates a finite state machine by given states

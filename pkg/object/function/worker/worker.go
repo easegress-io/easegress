@@ -41,6 +41,9 @@ type (
 		store    storage.Storage
 		provider provider.FaaSProvider
 
+		// for storing manually starting functions' names
+		starFunctions sync.Map
+
 		syncInterval string
 		done         chan (struct{})
 	}
@@ -62,8 +65,9 @@ func NewWorker(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker
 		ingress:      ingress,
 		syncInterval: adm.SyncInterval,
 
-		done:  make(chan struct{}),
-		mutex: sync.RWMutex{},
+		done:          make(chan struct{}),
+		starFunctions: sync.Map{},
+		mutex:         sync.RWMutex{},
 	}
 
 	go w.run()
@@ -94,13 +98,7 @@ func (worker *Worker) run() {
 }
 
 // updateStatus rebase functions' status by comparing FaaSProvider's function
-// status and local store's function status,e.g.,
-// 1) if FaaS provider provision function successfully, local "pending"/"failed" status's function
-//    will be turn into "active"
-// 2) if FaaS provider provision function failed, not matter function status is, they will
-//    be turn into "failed" and the corresponding ingress pipeline will be stopped.
-// 3) if the local function is in "inactive" status, even provision successfully won't trigger
-//    function be turned into another status.
+// status and local store's function status.
 func (worker *Worker) updateStatus() {
 	// get all function
 	functionList, err := worker.listFunctions()
@@ -113,11 +111,21 @@ func (worker *Worker) updateStatus() {
 	needUpdateFunction := []*spec.Status{}
 	for _, function := range functionList {
 		allFunctionMap[function.Spec.Name] = function
+
+		if function.Status.State == spec.InactiveState {
+			if _, exist := worker.starFunctions.Load(function.Spec.Name); !exist {
+				continue
+			}
+			// function is inactive and user haven't start it manually
+			// ignore event from FaaSProvider
+		}
+
 		// get function provision status inside faas provider
 		providerStatus, err := worker.provider.GetStatus(function.Spec.Name)
 		if err != nil {
 			continue
 		}
+
 		if stateUpdated, err := function.Next(providerStatus.Event); err != nil {
 			// not need to update
 		} else {
@@ -133,7 +141,19 @@ func (worker *Worker) updateStatus() {
 	// update function status if needed and then
 	for _, v := range needUpdateFunction {
 		if err := worker.updateFunctionStatus(v); err != nil {
+			logger.Errorf("update function: %s status failed: %v", v.Name, err)
 			continue
+		}
+	}
+
+	// check inactive and manually started functions' new state
+	// if it is changed successfully, should remove it from worker.startFunctions.
+	// not matter its' state is active, initial, or failed.
+	for _, v := range allFunctionMap {
+		if _, exist := worker.starFunctions.Load(v.Spec.Name); exist {
+			if v.Status.State != spec.InactiveState {
+				worker.starFunctions.Delete(v.Spec.Name)
+			}
 		}
 	}
 
@@ -168,5 +188,6 @@ func (worker *Worker) Close() {
 	worker.mutex.Lock()
 	defer worker.mutex.Unlock()
 
+	close(worker.done)
 	worker.ingress.Close()
 }

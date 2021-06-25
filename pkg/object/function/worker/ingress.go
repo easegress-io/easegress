@@ -61,10 +61,11 @@ type (
 	}
 )
 
-// newIngressServer creates a initialized ingress server
+// newIngressServer creates an initialized ingress server
 func newIngressServer(superSpec *supervisor.Spec, super *supervisor.Supervisor,
 	controllerName string) *ingressServer {
 	entity, exists := super.GetSystemController(trafficcontroller.Kind)
+
 	if !exists {
 		panic(fmt.Errorf("BUG: traffic controller not found"))
 	}
@@ -191,7 +192,6 @@ func (ings *ingressServer) Init() error {
 		return fmt.Errorf("create http server %s failed: %v", superSpec.Name(), err)
 	}
 	ings.httpServer = entity
-	logger.Infof("FaasController :%s init Ingress ok", superSpec.Name())
 	return nil
 }
 
@@ -209,7 +209,7 @@ kind: HTTPServer
 	yamlConf := fmt.Sprintf(httpServerFormat, ings.superSpec.Name(), buff)
 	ings.httpServerSpec, err = supervisor.NewSpec(yamlConf)
 	if err != nil {
-		return fmt.Errorf("BUG marshal httpserver failed: %v", err)
+		return fmt.Errorf("BUG: new spec failed: %v", err)
 	}
 	_, err = ings.tc.ApplyHTTPServerForSpec(ings.namespace, ings.httpServerSpec)
 	if err != nil {
@@ -266,7 +266,6 @@ func (ings *ingressServer) remove(pipeline string) error {
 
 	if index != -1 {
 		spec.Rules = append(spec.Rules[:index], spec.Rules[index+1:]...)
-		logger.Errorf("remove %#v,", spec)
 		return ings.updateHTTPServer(spec)
 	}
 	return nil
