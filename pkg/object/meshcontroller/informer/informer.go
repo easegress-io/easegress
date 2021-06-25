@@ -111,19 +111,21 @@ type (
 	//  2. Based on comparison on entries with the same prefix.
 	Informer interface {
 		OnPartOfServiceSpec(serviceName string, gjsonPath GJSONPath, fn ServiceSpecFunc) error
-		OnServiceSpecs(servicePrefix string, fn ServiceSpecsFunc) error
+		OnAllServiceSpecs(fn ServiceSpecsFunc) error
 
-		OnPartOfInstanceSpec(serviceName, instanceID string, gjsonPath GJSONPath, fn ServicesInstanceSpecFunc) error
+		OnPartOfServiceInstanceSpec(serviceName, instanceID string, gjsonPath GJSONPath, fn ServicesInstanceSpecFunc) error
 		OnServiceInstanceSpecs(serviceName string, fn ServiceInstanceSpecsFunc) error
+		OnAllServiceInstanceSpecs(fn ServiceInstanceSpecsFunc) error
 
 		OnPartOfServiceInstanceStatus(serviceName, instanceID string, gjsonPath GJSONPath, fn ServiceInstanceStatusFunc) error
 		OnServiceInstanceStatuses(serviceName string, fn ServiceInstanceStatusesFunc) error
+		OnAllServiceInstanceStatuses(fn ServiceInstanceStatusesFunc) error
 
 		OnPartOfTenantSpec(tenantName string, gjsonPath GJSONPath, fn TenantSpecFunc) error
-		OnTenantSpecs(tenantPrefix string, fn TenantSpecsFunc) error
+		OnAllTenantSpecs(fn TenantSpecsFunc) error
 
 		OnPartOfIngressSpec(serviceName string, gjsonPath GJSONPath, fn IngressSpecFunc) error
-		OnIngressSpecs(fn IngressSpecsFunc) error
+		OnAllIngressSpecs(fn IngressSpecsFunc) error
 
 		StopWatchServiceSpec(serviceName string, gjsonPath GJSONPath)
 		StopWatchServiceInstanceSpec(serviceName string)
@@ -205,8 +207,8 @@ func (inf *meshInformer) StopWatchServiceSpec(serviceName string, gjsonPath GJSO
 	inf.stopSyncOneKey(syncerKey)
 }
 
-// OnPartOfInstanceSpec watches one service's instance spec by given gjsonPath.
-func (inf *meshInformer) OnPartOfInstanceSpec(serviceName, instanceID string, gjsonPath GJSONPath, fn ServicesInstanceSpecFunc) error {
+// OnPartOfServiceInstanceSpec watches one service's instance spec by given gjsonPath.
+func (inf *meshInformer) OnPartOfServiceInstanceSpec(serviceName, instanceID string, gjsonPath GJSONPath, fn ServicesInstanceSpecFunc) error {
 	storeKey := layout.ServiceInstanceSpecKey(serviceName, instanceID)
 	syncerKey := fmt.Sprintf("service-instance-spec-%s-%s-%s", serviceName, instanceID, gjsonPath)
 
@@ -289,9 +291,10 @@ func (inf *meshInformer) OnPartOfIngressSpec(ingress string, gjsonPath GJSONPath
 	return inf.onSpecPart(storeKey, syncerKey, gjsonPath, specFunc)
 }
 
-// OnServiceSpecs watches service specs with the prefix.
-func (inf *meshInformer) OnServiceSpecs(servicePrefix string, fn ServiceSpecsFunc) error {
-	syncerKey := fmt.Sprintf("prefix-service-%s", servicePrefix)
+// OnAllServiceSpecs watches all service specs
+func (inf *meshInformer) OnAllServiceSpecs(fn ServiceSpecsFunc) error {
+	storeKey := layout.ServiceSpecPrefix()
+	syncerKey := "prefix-service"
 
 	specsFunc := func(kvs map[string]string) bool {
 		services := make(map[string]*spec.Service)
@@ -307,18 +310,14 @@ func (inf *meshInformer) OnServiceSpecs(servicePrefix string, fn ServiceSpecsFun
 		return fn(services)
 	}
 
-	return inf.onSpecs(servicePrefix, syncerKey, specsFunc)
+	return inf.onSpecs(storeKey, syncerKey, specsFunc)
 }
 
 func serviceInstanceSpecSyncerKey(serviceName string) string {
 	return fmt.Sprintf("prefix-service-instance-spec-%s", serviceName)
 }
 
-// OnServiceInstanceSpecs watches one service all instance specs.
-func (inf *meshInformer) OnServiceInstanceSpecs(serviceName string, fn ServiceInstanceSpecsFunc) error {
-	instancePrefix := layout.ServiceInstanceSpecPrefix(serviceName)
-	syncerKey := serviceInstanceSpecSyncerKey(serviceName)
-
+func (inf *meshInformer) onServiceInstanceSpecs(storeKey, syncerKey string, fn ServiceInstanceSpecsFunc) error {
 	specsFunc := func(kvs map[string]string) bool {
 		instanceSpecs := make(map[string]*spec.ServiceInstanceSpec)
 		for k, v := range kvs {
@@ -333,7 +332,21 @@ func (inf *meshInformer) OnServiceInstanceSpecs(serviceName string, fn ServiceIn
 		return fn(instanceSpecs)
 	}
 
-	return inf.onSpecs(instancePrefix, syncerKey, specsFunc)
+	return inf.onSpecs(storeKey, syncerKey, specsFunc)
+}
+
+// OnServiceInstanceSpecs watches all instance specs of a service.
+func (inf *meshInformer) OnServiceInstanceSpecs(serviceName string, fn ServiceInstanceSpecsFunc) error {
+	storeKey := layout.ServiceInstanceSpecPrefix(serviceName)
+	syncerKey := serviceInstanceSpecSyncerKey(serviceName)
+	return inf.onServiceInstanceSpecs(storeKey, syncerKey, fn)
+}
+
+// OnServiceInstanceSpecs watches instance specs of all services.
+func (inf *meshInformer) OnAllServiceInstanceSpecs(fn ServiceInstanceSpecsFunc) error {
+	storeKey := layout.AllServiceInstanceSpecPrefix()
+	syncerKey := "prefix-service-instance"
+	return inf.onServiceInstanceSpecs(storeKey, syncerKey, fn)
 }
 
 func (inf *meshInformer) StopWatchServiceInstanceSpec(serviceName string) {
@@ -341,11 +354,7 @@ func (inf *meshInformer) StopWatchServiceInstanceSpec(serviceName string) {
 	inf.stopSyncOneKey(syncerKey)
 }
 
-// OnServiceInstanceStatuses watches service instance statuses with the same prefix.
-func (inf *meshInformer) OnServiceInstanceStatuses(serviceName string, fn ServiceInstanceStatusesFunc) error {
-	syncerKey := fmt.Sprintf("prefix-service-instance-status-%s", serviceName)
-	instanceStatusPrefix := layout.ServiceInstanceStatusPrefix(serviceName)
-
+func (inf *meshInformer) onServiceInstanceStatuses(storeKey, syncerKey string, fn ServiceInstanceStatusesFunc) error {
 	specsFunc := func(kvs map[string]string) bool {
 		instanceStatuses := make(map[string]*spec.ServiceInstanceStatus)
 		for k, v := range kvs {
@@ -360,12 +369,27 @@ func (inf *meshInformer) OnServiceInstanceStatuses(serviceName string, fn Servic
 		return fn(instanceStatuses)
 	}
 
-	return inf.onSpecs(instanceStatusPrefix, syncerKey, specsFunc)
+	return inf.onSpecs(storeKey, syncerKey, specsFunc)
 }
 
-// OnTenantSpecs watches tenant specs with the same prefix.
-func (inf *meshInformer) OnTenantSpecs(tenantPrefix string, fn TenantSpecsFunc) error {
-	syncerKey := fmt.Sprintf("prefix-tenant-%s", tenantPrefix)
+// OnServiceInstanceStatuses watches instance statuses of a service
+func (inf *meshInformer) OnServiceInstanceStatuses(serviceName string, fn ServiceInstanceStatusesFunc) error {
+	storeKey := layout.ServiceInstanceStatusPrefix(serviceName)
+	syncerKey := fmt.Sprintf("prefix-service-instance-status-%s", serviceName)
+	return inf.onServiceInstanceStatuses(storeKey, syncerKey, fn)
+}
+
+// OnServiceInstanceStatuses watches instance statuses of all services
+func (inf *meshInformer) OnAllServiceInstanceStatuses(fn ServiceInstanceStatusesFunc) error {
+	storeKey := layout.AllServiceInstanceStatusPrefix()
+	syncerKey := "prefix-service-instance-status"
+	return inf.onServiceInstanceStatuses(storeKey, syncerKey, fn)
+}
+
+// OnAllTenantSpecs watches all tenant specs
+func (inf *meshInformer) OnAllTenantSpecs(fn TenantSpecsFunc) error {
+	storeKey := layout.TenantPrefix()
+	syncerKey := "prefix-tenant"
 
 	specsFunc := func(kvs map[string]string) bool {
 		tenants := make(map[string]*spec.Tenant)
@@ -381,11 +405,11 @@ func (inf *meshInformer) OnTenantSpecs(tenantPrefix string, fn TenantSpecsFunc) 
 		return fn(tenants)
 	}
 
-	return inf.onSpecs(tenantPrefix, syncerKey, specsFunc)
+	return inf.onSpecs(storeKey, syncerKey, specsFunc)
 }
 
-// OnIngressSpecs watches ingress specs
-func (inf *meshInformer) OnIngressSpecs(fn IngressSpecsFunc) error {
+// OnAllIngressSpecs watches all ingress specs
+func (inf *meshInformer) OnAllIngressSpecs(fn IngressSpecsFunc) error {
 	storeKey := layout.IngressPrefix()
 	syncerKey := "prefix-ingress"
 

@@ -91,19 +91,16 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *IngressContr
 
 	ic.reloadTraffic()
 
-	// FIXME: Need a new method.
 	err := ic.informer.OnAllIngressSpecs(ic.handleIngress)
 	if err != nil && err != informer.ErrAlreadyWatched {
 		logger.Errorf("watch ingress failed: %v", err)
 	}
 
-	// FIXME: Need a new method.
 	err = ic.informer.OnAllServiceSpecs(ic.handleService)
 	if err != nil && err != informer.ErrAlreadyWatched {
 		logger.Errorf("watch service failed: %v", err)
 	}
 
-	// FIXME: Need a new method.
 	err = ic.informer.OnAllServiceInstanceSpecs(ic.handleServiceInstance)
 	if err != nil && err != informer.ErrAlreadyWatched {
 		logger.Errorf("watch service instance failed: %v", err)
