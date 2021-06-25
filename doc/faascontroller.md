@@ -26,8 +26,9 @@ $ kubectl get svc -n kourier-system
 NAME               TYPE           CLUSTER-IP       EXTERNAL-IP   PORT(S)                      AGE
 kourier            LoadBalancer   10.109.159.129   <pending>     80:31731/TCP,443:30571/TCP   250dk
 ```
-The `CLUSTER-IP` which is `10.109.159.129` is your kourier's K8s service address.
+The `CLUSTER-IP` valued with `10.109.159.129` is your kourier's K8s service's address.
 * **Note** using the `CLUSTER-IP` value above to replace the `{knative_kourier_clusterIP}` in the YAML below.
+* The `hostSuffix` filed should be filled with value `example.com`[2] according to Knative serving's `Temporary DNS`.
 ```yaml
 name: faascontroller
 kind: FaaSController           
@@ -47,13 +48,13 @@ httpserver:
 
 knative:
    networkLayerURL: http://{knative_kourier_clusterIP}
-   hostSuffix: {knative_kourier_clusterIP}.xip.io
+   hostSuffix: example.com
 ```
 
 ### FaaSFunction spec
 * The FaaSFunction spec including `name`, `image`, and other resource-related configurations.
 * The `image` is the HTTP microservice's image URL. When upgrading the FaaSfFunction's business logic. this field can be helpful.
-* The `resource` and `autoscaling` fields are similar to K8s or Knative's configuration.[2]
+* The `resource` and `autoscaling` fields are similar to K8s or Knative's configuration.[3]
 * The `requestAdaptor` is for customizing the HTTP request content routed from FaaSController's HTTP traffic gate to Knative's `kourier` gateway.
 
 ```yaml
@@ -75,7 +76,7 @@ requestAdaptor:
 ```
 
 ### Lifecycle
-There four types of function status, Pending, Active, InActive, and Failed[3]. Basically, they come from AWS Lambda's status.
+There four types of function status, Pending, Active, InActive, and Failed[4]. Basically, they come from AWS Lambda's status.
 * Once the function has been created in Easegress, its original status is `pending`. After the function had been provisioned successfully by FaaSProvider(Knative), its status will become `active`. At last, FaaSController will add the routing rule in its HTTPServer for this function.  
 * Easegress's FaaSFunction will be `active` not matter there are requests or not. Stop function execution by calling FaaSController's `stop` RESTful API, then it will turn function into `inactive`.  Updating function's spec for image URL or else fields, or deleting function also need to stop it first.
 * **Easegress will only route ingress traffic to FaaSProvider when the function is in the `active` state.**
@@ -200,5 +201,6 @@ The function's API is serving in `/tomcat/job/api` path and its logic is display
 
 ## Reference
 1. knative website http://knative.dev
-2. resource quota https://kubernetes.io/docs/concepts/policy/resource-quotas/
-3. AWS Lambda state https://aws.amazon.com/blogs/compute/tracking-the-state-of-lambda-functions/
+2. Install knative serving via YAML https://knative.dev/docs/install/install-serving-with-yaml
+3. resource quota https://kubernetes.io/docs/concepts/policy/resource-quotas/
+4. AWS Lambda state https://aws.amazon.com/blogs/compute/tracking-the-state-of-lambda-functions/
