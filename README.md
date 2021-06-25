@@ -233,7 +233,7 @@ Now we want to add more features to the pipeline, then we could add kinds of fil
 
 
 <p align="center">
-<img src="./doc/pipeline-demo.png" width=360 height=500>
+  <img src="./doc/pipeline-demo.png" width=240>
 </p>
 
 
