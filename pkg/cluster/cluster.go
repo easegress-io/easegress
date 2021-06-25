@@ -155,7 +155,7 @@ func New(opt *option.Options) (Cluster, error) {
 
 	c.initLayout()
 
-	go c.run()
+	c.run()
 
 	return c, nil
 }
@@ -183,22 +183,29 @@ func (c *cluster) longRequestContext() context.Context {
 }
 
 func (c *cluster) run() {
-	logger.Infof("starting etcd cluster")
-	for i := 0; ; i++ {
-		err := c.getReady()
-		if err != nil {
-			logger.Errorf("start cluster failed (%d retries): %v", i, err)
-			if i > 3 {
+	tryTimes := 0
+	tryReady := func() error {
+		tryTimes++
+		return c.getReady()
+	}
+
+	// NOTE: Try to be ready in first time synchronously.
+	// If it got failed, try it asynchronously.
+	if err := tryReady(); err != nil {
+		logger.Errorf("start cluster failed (%d retries): %v", tryTimes, err)
+
+		for {
+			time.Sleep(HeartbeatInterval)
+			err := tryReady()
+			if err != nil {
 				logger.Errorf("failed start many times(%d), "+
 					"start others if they're not online, "+
 					"otherwise purge this member, clean data directory "+
-					"and rejoin it back.", i+1)
+					"and rejoin it back.", tryTimes)
+			} else {
+				break
 			}
-			time.Sleep(HeartbeatInterval)
-			continue
 		}
-
-		break
 	}
 
 	logger.Infof("cluster is ready")
@@ -207,7 +214,7 @@ func (c *cluster) run() {
 		go c.defrag()
 	}
 
-	c.heartbeat()
+	go c.heartbeat()
 }
 
 func (c *cluster) getReady() error {

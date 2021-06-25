@@ -524,6 +524,35 @@ func (tc *TrafficController) ListHTTPPipelines(namespace string) []*supervisor.O
 	return entities
 }
 
+// Clean all http servers and http pipelines of one namespace.
+func (tc *TrafficController) Clean(namespace string) error {
+	tc.mutex.Lock()
+	defer tc.mutex.Unlock()
+
+	space, exist := tc.namespaces[namespace]
+	if !exist {
+		return fmt.Errorf("namespace %s not found", namespace)
+	}
+
+	space.httpservers.Range(func(k, v interface{}) bool {
+		v.(*supervisor.ObjectEntity).CloseWithRecovery()
+		logger.Infof("delete http server %s/%s", namespace, k)
+		space.httpservers.Delete(k)
+		return true
+	})
+
+	space.httppipelines.Range(func(k, v interface{}) bool {
+		v.(*supervisor.ObjectEntity).CloseWithRecovery()
+		logger.Infof("delete http pipeline %s/%s", namespace, k)
+		space.httppipelines.Delete(k)
+		return true
+	})
+
+	tc._cleanSpace(namespace)
+
+	return nil
+}
+
 // _cleanSpace must be called after deleting HTTPServer or HTTPPipeline.
 // It's caller's duty to keep concurrent safety.
 func (tc *TrafficController) _cleanSpace(namespace string) {

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package master
+package api
 
 import (
 	"encoding/json"
@@ -189,16 +189,16 @@ var (
 	}
 )
 
-func (m *Master) getPartOfService(meta *partMeta) http.HandlerFunc {
+func (a *API) getPartOfService(meta *partMeta) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		serviceName, err := m.readServiceName(w, r)
+		serviceName, err := a.readServiceName(w, r)
 		if err != nil {
 			api.HandleAPIError(w, r, http.StatusBadRequest, err)
 			return
 		}
 
 		// NOTE: No need to lock.
-		serviceSpec := m.service.GetServiceSpec(serviceName)
+		serviceSpec := a.service.GetServiceSpec(serviceName)
 		if serviceSpec == nil {
 			api.HandleAPIError(w, r, http.StatusNotFound,
 				fmt.Errorf("service %s not found", serviceName))
@@ -213,7 +213,7 @@ func (m *Master) getPartOfService(meta *partMeta) http.HandlerFunc {
 		}
 
 		partPB := meta.newPartPB()
-		err = m.convertSpecToPB(part, partPB)
+		err = a.convertSpecToPB(part, partPB)
 		if err != nil {
 			panic(err)
 		}
@@ -228,9 +228,9 @@ func (m *Master) getPartOfService(meta *partMeta) http.HandlerFunc {
 	})
 }
 
-func (m *Master) createPartOfService(meta *partMeta) http.HandlerFunc {
+func (a *API) createPartOfService(meta *partMeta) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		serviceName, err := m.readServiceName(w, r)
+		serviceName, err := a.readServiceName(w, r)
 		if err != nil {
 			api.HandleAPIError(w, r, http.StatusBadRequest, err)
 			return
@@ -239,16 +239,16 @@ func (m *Master) createPartOfService(meta *partMeta) http.HandlerFunc {
 		part := meta.newPart()
 		partPB := meta.newPartPB()
 
-		err = m.readAPISpec(w, r, partPB, part)
+		err = a.readAPISpec(w, r, partPB, part)
 		if err != nil {
 			api.HandleAPIError(w, r, http.StatusBadRequest, err)
 			return
 		}
 
-		m.service.Lock()
-		defer m.service.Unlock()
+		a.service.Lock()
+		defer a.service.Unlock()
 
-		serviceSpec := m.service.GetServiceSpec(serviceName)
+		serviceSpec := a.service.GetServiceSpec(serviceName)
 		if serviceSpec == nil {
 			api.HandleAPIError(w, r, http.StatusNotFound,
 				fmt.Errorf("service %s not found", serviceName))
@@ -264,16 +264,16 @@ func (m *Master) createPartOfService(meta *partMeta) http.HandlerFunc {
 
 		meta.setPart(serviceSpec, part)
 
-		m.service.PutServiceSpec(serviceSpec)
+		a.service.PutServiceSpec(serviceSpec)
 
 		w.Header().Set("Location", r.URL.Path)
 		w.WriteHeader(http.StatusCreated)
 	})
 }
 
-func (m *Master) updatePartOfService(meta *partMeta) http.HandlerFunc {
+func (a *API) updatePartOfService(meta *partMeta) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		serviceName, err := m.readServiceName(w, r)
+		serviceName, err := a.readServiceName(w, r)
 		if err != nil {
 			api.HandleAPIError(w, r, http.StatusBadRequest, err)
 			return
@@ -282,16 +282,16 @@ func (m *Master) updatePartOfService(meta *partMeta) http.HandlerFunc {
 		part := meta.newPart()
 		partPB := meta.newPartPB()
 
-		err = m.readAPISpec(w, r, partPB, part)
+		err = a.readAPISpec(w, r, partPB, part)
 		if err != nil {
 			api.HandleAPIError(w, r, http.StatusBadRequest, err)
 			return
 		}
 
-		m.service.Lock()
-		defer m.service.Unlock()
+		a.service.Lock()
+		defer a.service.Unlock()
 
-		serviceSpec := m.service.GetServiceSpec(serviceName)
+		serviceSpec := a.service.GetServiceSpec(serviceName)
 		if serviceSpec == nil {
 			api.HandleAPIError(w, r, http.StatusNotFound,
 				fmt.Errorf("service %s not found", serviceName))
@@ -306,22 +306,22 @@ func (m *Master) updatePartOfService(meta *partMeta) http.HandlerFunc {
 		}
 
 		meta.setPart(serviceSpec, part)
-		m.service.PutServiceSpec(serviceSpec)
+		a.service.PutServiceSpec(serviceSpec)
 	})
 }
 
-func (m *Master) deletePartOfService(meta *partMeta) http.HandlerFunc {
+func (a *API) deletePartOfService(meta *partMeta) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		serviceName, err := m.readServiceName(w, r)
+		serviceName, err := a.readServiceName(w, r)
 		if err != nil {
 			api.HandleAPIError(w, r, http.StatusBadRequest, err)
 			return
 		}
 
-		m.service.Lock()
-		defer m.service.Unlock()
+		a.service.Lock()
+		defer a.service.Unlock()
 
-		serviceSpec := m.service.GetServiceSpec(serviceName)
+		serviceSpec := a.service.GetServiceSpec(serviceName)
 		if serviceSpec == nil {
 			api.HandleAPIError(w, r, http.StatusNotFound,
 				fmt.Errorf("service %s not found", serviceName))
@@ -336,6 +336,6 @@ func (m *Master) deletePartOfService(meta *partMeta) http.HandlerFunc {
 		}
 
 		meta.setPart(serviceSpec, nil)
-		m.service.PutServiceSpec(serviceSpec)
+		a.service.PutServiceSpec(serviceSpec)
 	})
 }

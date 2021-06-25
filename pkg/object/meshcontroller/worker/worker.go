@@ -119,7 +119,7 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 	applicationIP := os.Getenv(podEnvApplicationIP)
 
 	store := storage.New(superSpec.Name(), super.Cluster())
-	_service := service.New(superSpec, store)
+	_service := service.New(superSpec, super)
 	registryCenterServer := registrycenter.NewRegistryCenterServer(spec.RegistryType,
 		serviceName, applicationIP, applicationPort, instanceID, serviceLabels, _service)
 	ingressServer := NewIngressServer(superSpec, super, serviceName)

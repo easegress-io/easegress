@@ -239,14 +239,14 @@ type (
 
 	// IngressRule is the rule for mesh ingress
 	IngressRule struct {
-		Host  string        `yaml:"host" jsonschema:"omitempty"`
-		Paths []IngressPath `yaml:"paths" jsonschema:"required"`
+		Host  string         `yaml:"host" jsonschema:"omitempty"`
+		Paths []*IngressPath `yaml:"paths" jsonschema:"required"`
 	}
 
 	// Ingress is the spec of mesh ingress
 	Ingress struct {
-		Name  string        `yaml:"name" jsonschema:"required"`
-		Rules []IngressRule `yaml:"rules" jsonschema:"required"`
+		Name  string         `yaml:"name" jsonschema:"required"`
+		Rules []*IngressRule `yaml:"rules" jsonschema:"required"`
 	}
 
 	// ServiceInstanceStatus is the status of service instance.
@@ -490,7 +490,7 @@ rules:`
 		str = fmt.Sprintf(ruleFmt, r.Host)
 		buf.WriteString(str)
 		for j := range r.Paths {
-			p := &r.Paths[j]
+			p := r.Paths[j]
 			str = fmt.Sprintf(pathFmt, p.Path, p.RewriteTarget, p.Backend)
 			buf.WriteString(str)
 		}
