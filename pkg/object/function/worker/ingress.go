@@ -59,6 +59,12 @@ type (
 		Name              string `yaml:"name"`
 		httppipeline.Spec `yaml:",inline"`
 	}
+
+	httpServerSpecBuilder struct {
+		Kind            string `yaml:"kind"`
+		Name            string `yaml:"name"`
+		httpserver.Spec `yaml:",inline"`
+	}
 )
 
 // newIngressServer creates an initialized ingress server
@@ -91,6 +97,34 @@ func newPipelineSpecBuilder(funcName string) *pipelineSpecBuilder {
 		Name: funcName,
 		Spec: httppipeline.Spec{},
 	}
+}
+
+func newHTTPServerSpecBuilder(controllerName string) *httpServerSpecBuilder {
+	return &httpServerSpecBuilder{
+		Kind: httpserver.Kind,
+		Name: controllerName,
+		Spec: httpserver.Spec{},
+	}
+}
+
+func (b *httpServerSpecBuilder) buildWithOutRules(spec *httpserver.Spec) *httpServerSpecBuilder {
+	var newSpec httpserver.Spec = *spec
+	newSpec.Rules = nil // clear the rule, faasController will management them by itself
+	b.Spec = newSpec
+	return b
+}
+
+func (b *httpServerSpecBuilder) buildWithRules(spec *httpserver.Spec) *httpServerSpecBuilder {
+	b.Spec = *spec
+	return b
+}
+
+func (b *httpServerSpecBuilder) yamlConfig() string {
+	buff, err := yaml.Marshal(b)
+	if err != nil {
+		logger.Errorf("BUG: marshal %#v to yaml failed: %v", b, err)
+	}
+	return string(buff)
 }
 
 func (b *pipelineSpecBuilder) yamlConfig() string {
@@ -145,25 +179,6 @@ func (b *pipelineSpecBuilder) appendProxy(faasNetworkLayerURL string) *pipelineS
 	return b
 }
 
-func (ings *ingressServer) httpServerYAML(httpServer *httpserver.Spec) string {
-	ingressHTTPServerFormat := `
-kind: HTTPServer
-name: %s
-http3: %t
-port: %d
-keepAlive: %t
-keepAliveTimeout: %s
-https: %t
-certBase64: %s
-keyBase64: %s
-maxConnections: %d
-`
-	return fmt.Sprintf(ingressHTTPServerFormat,
-		ings.superSpec.Name(), httpServer.HTTP3, httpServer.Port, httpServer.KeepAlive,
-		httpServer.KeepAliveTimeout, httpServer.HTTPS, httpServer.CertBase64,
-		httpServer.KeyBase64, httpServer.MaxConnections)
-}
-
 // Init creates a default ingress HTTPServer.
 func (ings *ingressServer) Init() error {
 	ings.mutex.Lock()
@@ -178,11 +193,11 @@ func (ings *ingressServer) Init() error {
 	ings.faasHostSuffix = spec.Knative.HostSuffix
 	ings.faasNamespace = spec.Knative.Namespace
 
-	yamlConf := ings.httpServerYAML(spec.HTTPServer)
-
-	superSpec, err := supervisor.NewSpec(string(yamlConf))
+	builder := newHTTPServerSpecBuilder(ings.superSpec.Name())
+	builder.buildWithOutRules(spec.HTTPServer)
+	superSpec, err := supervisor.NewSpec(builder.yamlConfig())
 	if err != nil {
-		logger.Errorf("new spec for %s failed: %v", yamlConf, err)
+		logger.Errorf("new spec for %s failed: %v", builder.yamlConfig(), err)
 		return err
 	}
 
@@ -196,20 +211,13 @@ func (ings *ingressServer) Init() error {
 }
 
 func (ings *ingressServer) updateHTTPServer(spec *httpserver.Spec) error {
-	buff, err := yaml.Marshal(spec)
+	builder := newHTTPServerSpecBuilder(ings.superSpec.Name())
+	builder.buildWithRules(spec)
+
+	var err error
+	ings.httpServerSpec, err = supervisor.NewSpec(builder.yamlConfig())
 	if err != nil {
-		logger.Errorf("BUG: marshal %#v to yaml failed: %v", spec, err)
-		return err
-	}
-	httpServerFormat := ` 
-name: %s
-kind: HTTPServer
-%s
-`
-	yamlConf := fmt.Sprintf(httpServerFormat, ings.superSpec.Name(), buff)
-	ings.httpServerSpec, err = supervisor.NewSpec(yamlConf)
-	if err != nil {
-		return fmt.Errorf("BUG: new spec failed: %v", err)
+		return fmt.Errorf("BUG: new spec: %s failed: %v", builder.yamlConfig(), err)
 	}
 	_, err = ings.tc.ApplyHTTPServerForSpec(ings.namespace, ings.httpServerSpec)
 	if err != nil {
