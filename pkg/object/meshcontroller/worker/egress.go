@@ -172,10 +172,6 @@ func (egs *EgressServer) reloadHTTPServer(specs map[string]*spec.Service) bool {
 
 	pipelines := make(map[string]*supervisor.ObjectEntity)
 	for _, v := range specs {
-		if v.Name == egs.serviceName {
-			// not need to build egress for itself
-			continue
-		}
 		instances := egs.service.ListServiceInstanceSpecs(v.Name)
 		pipelineSpec, err := v.SideCarEgressPipelineSpec(instances)
 		if err != nil {
