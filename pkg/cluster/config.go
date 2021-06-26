@@ -42,7 +42,6 @@ const (
 )
 
 var (
-	// https://github.com/megaease/easegress/issues/393
 	autoCompactionRetention = "10"
 	autoCompactionMode      = embed.CompactorModeRevision
 )
