@@ -91,27 +91,36 @@ There four types of function state: Initial, Active, InActive, and Failed[4]. Ba
 * `Failed`: The function will be turned into `failed` states during the runtime checking. If it's about some configuration error, e.g., wrong docker image URL, we can detect this failure by function's `status` message and then update the function's spec by calling RESTful API. If it's about some temporal failure caused by FaaSProvider, the function will turn into the `initial` state after FaaSProvider is recovered.
 
 ```                                                      
-                                  +---------------+     start succ                  +---------------+
-                                  |               |-------------------------------->|               |
-Provision ----------------------->|    initial    |                                 |    active     |<------------+
-                   +--------------+               |                                 |               |             |
-                   |            +-+---------------+ <----+          +---------------+---------------+             |   
-                   |            |                        |          |                               |             |
-                   |            |              +---------+        errors                            |             |
-                   |         errors         update       |          |                              stop         start succ 
-                   |            |        (check succ)  update       |                               |             |
-                   |            |              |         |          |                               |             |  
-                   |            |  +-----------+---+     +----------+-----+---------------+         |             |
-                   |            +->|               |                |     |               |         |             |
-                delete             |    failed     |<-----------errors----+   inactive    |<--------+             |
-                   |               |               |                      |               +-----------------------+
-                   |               +---------+-----+                      +-------+-------+
-                   |                         |                                    | 
-                   |    +---------------+  delete                               delete 
-                   +--->|               |    |                                    |
-                        |   Destroyed   +<---+------------------------------------+
-                        |               |
-                        +---------------+
+                  Provision
+
+                      │
+                      │
+                      │
+                ┌─────▼──────┐      Start     ┌────────────┐
+                │            │     Success    │            │
+       ┌────────┤  Initial   ├────────────────►   Active   │
+       │        │            │                │            ├──────┐
+       │        └───┬───▲────┘                └────┬───▲───┘      │
+       │            │   │                          │   │          │
+       │            │   │                          │   │          │
+       │      Errors│   │ Update             Stop  │   │ Start    │
+       │            │   ├───────────┐              │   │Success   │
+       │            │   │           │              │   │          │
+       │        ┌───▼───┴────┐      │         ┌────▼───┴───┐      │
+       │        │            │      └─────────┤            │      │
+Delete │        │   Failed   │                │  Inactive  │      │
+       │        │            ◄────────────────┤            │      │
+       │        └───┬───▲────┘  Start Failed  └──────┬─────┘      │
+       │            │   │                            │            │
+       │            │   │              Errors        │            │
+       │    Delete  │   └────────────────────────────┼────────────┘
+       │            │                                │
+       │            │                                │
+       │        ┌───▼────────┐                       │
+       │        │            │          Delete       │
+       └────────►  Destory   ◄───────────────────────┘
+                │            │
+                └────────────┘
 ```
 
 | Original State | Event                                                                                                                                                                                 | New State |
