@@ -107,7 +107,7 @@ Provision ----------------------->|    initial    |                             
                    |                         |                                    | 
                    |    +---------------+  delete                               delete 
                    +--->|               |    |                                    |
-                        |   Destory     +<---+------------------------------------+
+                        |   Destroyed   +<---+------------------------------------+
                         |               |
                         +---------------+
 ```
@@ -117,18 +117,18 @@ Provision ----------------------->|    initial    |                             
 | initial        | Checking the status in FaaSProvider by FaaSController automatically, and it's ready                                                                                                   | active    |
 | initial        | Checking the status in FaaSProvider by FaaSController automatically, and it's has some faults                                                                                         | failed    |
 | initial        | Checking the status in FaaSProvider by FaaSController automatically, and it's waiting on all resources become ready                                                                   | initial   |
-| initial        | Deleteing the function by RESTful API                                                                                                                                                 | destroy   |
+| initial        | Deleteing the function by RESTful API                                                                                                                                                 | destroyed |
 | active         | Checking the status of instance in FaaSProvider by FaaSController automatically, and it's has some faults                                                                             | failed    |
 | active         | Checking the status of instance in FaaSProvider by FaaSController automatically, and for someting reason, some resources are misssing or pending                                      | failed    |
 | active         | Stoping the function by RESTful API                                                                                                                                                   | inactive  |
 | active         | Checking the status of instance in FaaSProvider by FaaSController automatically, and it's healthy                                                                                     | active    |
 | inactive       | Updating the function by RESTful API                                                                                                                                                  | initial   |
-| inactive       | Deleting the function by RESTful API                                                                                                                                                  | destroy   |
+| inactive       | Deleting the function by RESTful API                                                                                                                                                  | destroyed |
 | inactive       | Staring the function by RESTful API and after successfully checking the status in FaaSProvider by FaaSController automatically                                                        | active    |
 | inactive       | Staring the function by RESTful API but failing at checking status in FaaSProvider  by FaaSController automatically                                                                   | failed    |
 | inactive       | Staring the function by RESTful API, Checking the status of instance in FaaSProvider by FaaSController automatically, and for someting reason, some resources are misssing or pending | failed    |
 | failed         | Updating the function by RESTful API                                                                                                                                                  | initial   |
-| failed         | Deleting the function by RESTful API                                                                                                                                                  | destroy   |
+| failed         | Deleting the function by RESTful API                                                                                                                                                  | destroyed |
 | failed         | Checking the status in FaaSProvider by FaaSController automatically, and it's ready again                                                                                             | initial   |
 | failed         | Checking the status of instance in FaaSProvider by FaaSController automatically, and for someting reason, some resources are misssing or pending                                      | failed    |
 | failed         | Checking the status in FaaSProvider by FaaSController automatically, and it's has some faults                                                                                         | failed    |

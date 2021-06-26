@@ -49,7 +49,7 @@ const (
 	InactiveState State = "inactive"
 
 	// only for keep fsm working
-	DesctroyState State = "desctory"
+	DestroyedState State = "destroyed"
 
 	// Function event invoked by APIs.
 	CreateEvent Event = "create"
@@ -66,11 +66,11 @@ const (
 
 var (
 	validState map[State]struct{} = map[State]struct{}{
-		InitialState:  {},
-		ActiveState:   {},
-		InactiveState: {},
-		FailedState:   {},
-		DesctroyState: {},
+		InitialState:   {},
+		ActiveState:    {},
+		InactiveState:  {},
+		FailedState:    {},
+		DestroyedState: {},
 	}
 
 	validEvent map[Event]struct{} = map[Event]struct{}{
@@ -90,7 +90,7 @@ var (
 func init() {
 	table := []transition{
 		{InitialState, UpdateEvent, InitialState},
-		{InitialState, DeleteEvent, DesctroyState},
+		{InitialState, DeleteEvent, DestroyedState},
 		{InitialState, ReadyEvent, ActiveState},
 		{InitialState, PendingEvent, InitialState},
 		{InitialState, ErrorEvent, FailedState},
@@ -102,12 +102,12 @@ func init() {
 
 		{InactiveState, UpdateEvent, InitialState},
 		{InactiveState, StartEvent, InactiveState},
-		{InactiveState, DeleteEvent, DesctroyState},
+		{InactiveState, DeleteEvent, DestroyedState},
 		{InactiveState, ReadyEvent, ActiveState},
 		{InactiveState, PendingEvent, FailedState},
 		{InactiveState, ErrorEvent, FailedState},
 
-		{FailedState, DeleteEvent, DesctroyState},
+		{FailedState, DeleteEvent, DestroyedState},
 		{FailedState, UpdateEvent, InitialState},
 		{FailedState, ReadyEvent, InitialState},
 		{FailedState, ErrorEvent, FailedState},

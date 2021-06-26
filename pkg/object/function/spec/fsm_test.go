@@ -145,7 +145,7 @@ func TestValidEventAtPending5(t *testing.T) {
 		t.Errorf("delete should be allowed in pending state")
 	}
 
-	if fsm.currentState != DesctroyState {
+	if fsm.currentState != DestroyedState {
 		t.Errorf("pending's next state should be removed after delete event!")
 	}
 }
