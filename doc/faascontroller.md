@@ -9,27 +9,29 @@
   - [Demoing](#demoing)
   - [Reference](#reference)
 
-* A FaaSController is a business controller for handling Easegress and FaaS products integration purposes.  It abstracts `FaasFunction`, `FaaSStore` and, `FaasProvider`. Currently, we only support `Knative` type FaaSProvider. The `FaaSFunction` describes the name, image URL, the resource, and autoscaling type of this FaaS function instance. The `FaaSStore` is covered by Easegress' embed Etcd already.
-* FaaSController works closely with local `FaaSProvider`. Please make sure they are running in a communicable environment. Follow this [knative doc](https://knative.dev/docs/install/install-serving-with-yaml/) to install Knative[1]'s serving component in K8s. It's better to have Easegress run in the same vm-instances with K8s for saving communication costs.
+* A FaaSController is a business controller for handling Easegress and FaaS products integration purposes.  It abstracts `FaasFunction`, `FaaSStore` and, `FaasProvider`. Currently, we only support `Knative` type `FaaSProvider`. The `FaaSFunction` describes the name, image URL, the resource, and autoscaling type of this FaaS function instance. The `FaaSStore` is covered by Easegress' embed Etcd already.
+* FaaSController works closely with local `FaaSProvider`. Please make sure they are running in a communicable environment. Follow this [knative doc](https://knative.dev/docs/install/install-serving-with-yaml/) to install `Knative`[1]'s serving component in K8s. It's better to have Easegress run in the same VM instances with K8s for saving communication costs.
+
 
 ## Prerequisites
 1. K8s cluster : **v1.18+**
-2. Knative Serving : **v0.23** (with kourier type of networklayer instead of Istio which is too complicated here)
+2. `Knative` Serving : **v0.23** (with kourier type of networklayer instead of Istio which is too complicated here)
 
 ## Configuration
 ### Controller spec
-* One FaaSController will manage on HTTP traffic gate and multiples pipeline automatically inside.
-* The `httpserver` section is the configuration for the shared HTTP traffic gate.
-* The `Knative` section is for `Knative` type FaaSProvider. The `${knative_kourier_clusterIP}` can be get by using the command
+* One FaaSController will manage one shared HTTP traffic gate and multiple pipelines according to the functions it has.
+* The `httpserver` section in spec is the configuration for the shared HTTP traffic gate.
+* The `Knative` section inf spec is for `Knative` type `FaaSProvider`. The `${knative_kourier_clusterIP}` value can be set by using the command
 
 ``` bash
 $ kubectl get svc -n kourier-system
 NAME               TYPE           CLUSTER-IP       EXTERNAL-IP   PORT(S)                      AGE
 kourier            LoadBalancer   10.109.159.129   <pending>     80:31731/TCP,443:30571/TCP   250dk
 ```
+
 The `CLUSTER-IP` valued with `10.109.159.129` is your kourier's K8s service's address.
-* **Note** using the `CLUSTER-IP` value above to replace the `{knative_kourier_clusterIP}` in the YAML below.
-* The `hostSuffix` filed should be filled with value `example.com`[2] according to Knative serving's `Temporary DNS`.
+* **Note:** Using the `CLUSTER-IP` value above to replace the `{knative_kourier_clusterIP}` in the YAML below.
+* The `hostSuffix` filed should be filled with value `example.com`[2] according to `Knative` serving's `Temporary DNS`.
 
 ```yaml
 name: faascontroller
@@ -56,8 +58,8 @@ knative:
 ### FaaSFunction spec
 * The FaaSFunction spec including `name`, `image`, and other resource-related configurations.
 * The `image` is the HTTP microservice's image URL. When upgrading the FaaSfFunction's business logic. this field can be helpful.
-* The `resource` and `autoscaling` fields are similar to K8s or Knative's configuration.[3]
-* The `requestAdaptor` is for customizing the HTTP request content routed from FaaSController's HTTP traffic gate to Knative's `kourier` gateway.
+* The `resource` and `autoscaling` fields are similar to K8s or `Knative`'s resource management configuration.[3]
+* The `requestAdaptor` is for customizing the way how HTTP request content will be routed to `Knative`'s `kourier` gateway.
 
 ```yaml
 name:           "demo10"                                                                                                                                   
@@ -84,9 +86,9 @@ There four types of function state: Initial, Active, InActive, and Failed[4]. Ba
 
 * `Active`: Easegress's FaaSFunction will be `active` not matter there are requests or not.   **Easegress will only route ingress traffic to FaaSProvider when the function is in the `active` state.**
 
-* `Inactive`: Stopping function execution by calling FaaSController's `stop` RESTful API and it will run into `inactive`. Updating function's spec for image URL or else fields, or deleting function also need to stop it first.
+* `Inactive`: Stopping function execution by calling FaaSController's `stop` RESTful API and it will run into `inactive`. Updating function's spec for image URL or other fields, or deleting function also need to stop it first.
 
-* `Failed`: The function will be turned into `failed` states during the runtime checking. If it's about some configuration error, e.g., wrong docker image URL, we can detect this failure by function's `status` message and then update the function's spec by calling RESTful API. If it's about some temporal failure caused by FaaSProvider, the function will turn into the `initial` state after FaaSProvider recovered. 
+* `Failed`: The function will be turned into `failed` states during the runtime checking. If it's about some configuration error, e.g., wrong docker image URL, we can detect this failure by function's `status` message and then update the function's spec by calling RESTful API. If it's about some temporal failure caused by FaaSProvider, the function will turn into the `initial` state after FaaSProvider is recovered.
 
 ```                                                      
                                   +---------------+     start succ                  +---------------+
@@ -116,23 +118,22 @@ Provision ----------------------->|    initial    |                             
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
 | initial        | Checking the status in FaaSProvider by FaaSController automatically, and it's ready                                                                                                   | active    |
 | initial        | Checking the status in FaaSProvider by FaaSController automatically, and it's has some faults                                                                                         | failed    |
-| initial        | Checking the status in FaaSProvider by FaaSController automatically, and it's waiting on all resources become ready                                                                   | initial   |
-| initial        | Deleteing the function by RESTful API                                                                                                                                                 | destroyed |
-| active         | Checking the status of instance in FaaSProvider by FaaSController automatically, and it's has some faults                                                                             | failed    |
-| active         | Checking the status of instance in FaaSProvider by FaaSController automatically, and for someting reason, some resources are misssing or pending                                      | failed    |
+| initial        | Checking the status in FaaSProvider by FaaSController automatically, and it's waiting on all resources to become ready                                                                | initial   |
+| initial        | Deleting the function by RESTful API                                                                                                                                                  | destroyed |
+| active         | Checking the status of instance in FaaSProvider by FaaSController automatically, and it has some faults                                                                               | failed    |
+| active         | Checking the status of instance in FaaSProvider by FaaSController automatically, and for something reason, some resources are missing or pending                                      | failed    |
 | active         | Stoping the function by RESTful API                                                                                                                                                   | inactive  |
 | active         | Checking the status of instance in FaaSProvider by FaaSController automatically, and it's healthy                                                                                     | active    |
 | inactive       | Updating the function by RESTful API                                                                                                                                                  | initial   |
 | inactive       | Deleting the function by RESTful API                                                                                                                                                  | destroyed |
 | inactive       | Staring the function by RESTful API and after successfully checking the status in FaaSProvider by FaaSController automatically                                                        | active    |
-| inactive       | Staring the function by RESTful API but failing at checking status in FaaSProvider  by FaaSController automatically                                                                   | failed    |
-| inactive       | Staring the function by RESTful API, Checking the status of instance in FaaSProvider by FaaSController automatically, and for someting reason, some resources are misssing or pending | failed    |
+| inactive       | Staring the function by RESTful API but failing at checking status in FaaSProvider by FaaSController automatically                                                                    | failed    |
+| inactive       | Staring the function by RESTful API, Checking the status of instance in FaaSProvider by FaaSController automatically, and for something reason, some resources are missing or pending | failed    |
 | failed         | Updating the function by RESTful API                                                                                                                                                  | initial   |
 | failed         | Deleting the function by RESTful API                                                                                                                                                  | destroyed |
 | failed         | Checking the status in FaaSProvider by FaaSController automatically, and it's ready again                                                                                             | initial   |
-| failed         | Checking the status of instance in FaaSProvider by FaaSController automatically, and for someting reason, some resources are misssing or pending                                      | failed    |
-| failed         | Checking the status in FaaSProvider by FaaSController automatically, and it's has some faults                                                                                         | failed    |
-
+| failed         | Checking the status of instance in FaaSProvider by FaaSController automatically, and for something reason, some resources are missing or pending                                      | failed    |
+| failed         | Checking the status in FaaSProvider by FaaSController automatically, and it has some faults                                                                                           | failed    |
 
 
 ### RESTful APIs
