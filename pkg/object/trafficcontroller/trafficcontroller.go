@@ -71,12 +71,22 @@ type (
 		Namespaces []string `yaml:"namespaces"`
 	}
 
+	HTTPServerStatus struct {
+		Spec   map[string]interface{} `yaml:"spec"`
+		Status *httpserver.Status     `yaml:"status"`
+	}
+
+	HTTPPipelineStatus struct {
+		Spec   map[string]interface{} `yaml:"spec"`
+		Status *httppipeline.Status   `yaml:"status"`
+	}
+
 	// StatusInSameNamespace is the universal status in one space.
 	// TrafficController won't use it.
 	StatusInSameNamespace struct {
-		Namespace     string                          `yaml:"namespace"`
-		HTTPServers   map[string]*httpserver.Status   `yaml:"httpServers"`
-		HTTPPipelines map[string]*httppipeline.Status `yaml:"httpPipelines"`
+		Namespace     string                         `yaml:"namespace"`
+		HTTPServers   map[string]*HTTPServerStatus   `yaml:"httpServers"`
+		HTTPPipelines map[string]*HTTPPipelineStatus `yaml:"httpPipelines"`
 	}
 )
 

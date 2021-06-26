@@ -300,13 +300,13 @@ func (emm *EaseMonitorMetrics) record2Messages(record *statussynccontroller.Stat
 		case *trafficcontroller.StatusInSameNamespace:
 			for name, server := range status.HTTPServers {
 				baseFields.Service = fmt.Sprintf("%s/%s", baseFields.Service, name)
-				reqs, codes := emm.httpServer2Metrics(baseFields, server)
+				reqs, codes := emm.httpServer2Metrics(baseFields, server.Status)
 				reqMetrics = append(reqMetrics, reqs...)
 				codeMetrics = append(codeMetrics, codes...)
 			}
 			for name, pipeline := range status.HTTPPipelines {
 				baseFields.Service = fmt.Sprintf("%s/%s", baseFields.Service, name)
-				reqs, codes := emm.httpPipeline2Metrics(baseFields, pipeline)
+				reqs, codes := emm.httpPipeline2Metrics(baseFields, pipeline.Status)
 				reqMetrics = append(reqMetrics, reqs...)
 				codeMetrics = append(codeMetrics, codes...)
 			}

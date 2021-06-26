@@ -221,7 +221,7 @@ type (
 		// Provide by registry client
 		ServiceName  string            `yaml:"serviceName" jsonschema:"required"`
 		InstanceID   string            `yaml:"instanceID" jsonschema:"required"`
-		IP           string            `yaml:"IP" jsonschema:"required"`
+		IP           string            `yaml:"ip" jsonschema:"required"`
 		Port         uint32            `yaml:"port" jsonschema:"required"`
 		RegistryTime string            `yaml:"registryTime" jsonschema:"omitempty"`
 		Labels       map[string]string `yaml:"labels" jsonschema:"omitempty"`

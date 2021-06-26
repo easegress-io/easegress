@@ -56,10 +56,6 @@ type (
 	Status = trafficcontroller.StatusInSameNamespace
 )
 
-const (
-	serviceEventChanSize = 100
-)
-
 // New creates a mesh ingress controller.
 func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *IngressController {
 	entity, exists := super.GetSystemController(trafficcontroller.Kind)
@@ -167,10 +163,15 @@ func (ic *IngressController) _reloadIngress() {
 	ingressBackends, ingressRules := make(map[string]struct{}), []*spec.IngressRule{}
 	for _, ingress := range ic.service.ListIngressSpecs() {
 		for _, rule := range ingress.Rules {
-			ingressRules = append(ingressRules, rule)
 			for _, path := range rule.Paths {
 				ingressBackends[path.Backend] = struct{}{}
+				serviceSpec := &spec.Service{
+					Name: path.Backend,
+				}
+				path.Backend = serviceSpec.IngressPipelineName()
 			}
+
+			ingressRules = append(ingressRules, rule)
 		}
 	}
 
@@ -192,6 +193,15 @@ func (ic *IngressController) _reloadHTTPPipelines() {
 
 		instanceSpecs := ic.service.ListServiceInstanceSpecs(serviceSpec.Name)
 		if len(instanceSpecs) == 0 {
+			continue
+		}
+		upInstance := 0
+		for _, instanceSpec := range instanceSpecs {
+			if instanceSpec.Status == spec.ServiceStatusUp {
+				upInstance++
+			}
+		}
+		if upInstance == 0 {
 			continue
 		}
 
@@ -225,17 +235,23 @@ func (ic *IngressController) _reloadHTTPServer() {
 func (ic *IngressController) Status() *supervisor.Status {
 	status := &Status{
 		Namespace:     ic.namespace,
-		HTTPServers:   make(map[string]*httpserver.Status),
-		HTTPPipelines: make(map[string]*httppipeline.Status),
+		HTTPServers:   make(map[string]*trafficcontroller.HTTPServerStatus),
+		HTTPPipelines: make(map[string]*trafficcontroller.HTTPPipelineStatus),
 	}
 
 	ic.tc.WalkHTTPServers(ic.namespace, func(entity *supervisor.ObjectEntity) bool {
-		status.HTTPServers[entity.Spec().Name()] = entity.Instance().Status().ObjectStatus.(*httpserver.Status)
+		status.HTTPServers[entity.Spec().Name()] = &trafficcontroller.HTTPServerStatus{
+			Spec:   entity.Spec().RawSpec(),
+			Status: entity.Instance().Status().ObjectStatus.(*httpserver.Status),
+		}
 		return true
 	})
 
 	ic.tc.WalkHTTPPipelines(ic.namespace, func(entity *supervisor.ObjectEntity) bool {
-		status.HTTPPipelines[entity.Spec().Name()] = entity.Instance().Status().ObjectStatus.(*httppipeline.Status)
+		status.HTTPPipelines[entity.Spec().Name()] = &trafficcontroller.HTTPPipelineStatus{
+			Spec:   entity.Spec().RawSpec(),
+			Status: entity.Instance().Status().ObjectStatus.(*httppipeline.Status),
+		}
 		return true
 	})
 
