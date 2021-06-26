@@ -19,17 +19,16 @@ package worker
 
 import (
 	"fmt"
-	"net/http"
 	"sync"
 
-	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/object/httpserver"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/informer"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/service"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
 	"github.com/megaease/easegress/pkg/object/trafficcontroller"
-	"github.com/megaease/easegress/pkg/protocol"
 	"github.com/megaease/easegress/pkg/supervisor"
+	"gopkg.in/yaml.v2"
 )
 
 const egressRPCKey = "X-Mesh-Rpc-Service"
@@ -45,17 +44,24 @@ type (
 
 		tc        *trafficcontroller.TrafficController
 		namespace string
+		inf       informer.Informer
 
-		serviceName string
-		service     *service.Service
-		mutex       sync.RWMutex
-		watch       chan<- string
+		serviceName      string
+		egressServerName string
+		service          *service.Service
+		mutex            sync.RWMutex
+	}
+
+	httpServerSpecBuilder struct {
+		Kind            string `yaml:"kind"`
+		Name            string `yaml:"name"`
+		httpserver.Spec `yaml:",inline"`
 	}
 )
 
 // NewEgressServer creates a initialized egress server
 func NewEgressServer(superSpec *supervisor.Spec, super *supervisor.Supervisor,
-	serviceName string, service *service.Service, watch chan<- string) *EgressServer {
+	serviceName string, service *service.Service, inf informer.Informer) *EgressServer {
 
 	entity, exists := super.GetSystemController(trafficcontroller.Kind)
 	if !exists {
@@ -76,20 +82,27 @@ func NewEgressServer(superSpec *supervisor.Spec, super *supervisor.Supervisor,
 		pipelines:   make(map[string]*supervisor.ObjectEntity),
 		serviceName: serviceName,
 		service:     service,
-		watch:       watch,
 	}
 }
 
-// Get gets egressServer itself as the default backend.
-// egress server will handle the pipeline routing by itself.
-func (egs *EgressServer) GetHandler(name string) (protocol.HTTPHandler, bool) {
-	egs.mutex.RLock()
-	defer egs.mutex.RUnlock()
-	return egs, true
+func newHTTPServerSpecBuilder(httpServerName string, spec *httpserver.Spec) *httpServerSpecBuilder {
+	return &httpServerSpecBuilder{
+		Kind: httpserver.Kind,
+		Name: httpServerName,
+		Spec: *spec,
+	}
 }
 
-// CreateEgress creates a default Egress HTTPServer.
-func (egs *EgressServer) CreateEgress(service *spec.Service) error {
+func (b *httpServerSpecBuilder) yamlConfig() string {
+	buff, err := yaml.Marshal(b)
+	if err != nil {
+		logger.Errorf("BUG: marshal %#v to yaml failed: %v", b, err)
+	}
+	return string(buff)
+}
+
+// InitEgress initializes the Egress HTTPServer.
+func (egs *EgressServer) InitEgress(service *spec.Service) error {
 	egs.mutex.Lock()
 	defer egs.mutex.Unlock()
 
@@ -97,6 +110,7 @@ func (egs *EgressServer) CreateEgress(service *spec.Service) error {
 		return nil
 	}
 
+	egs.egressServerName = service.EgressHTTPServerName()
 	superSpec, err := service.SideCarEgressHTTPServerSpec()
 	if err != nil {
 		return err
@@ -108,6 +122,19 @@ func (egs *EgressServer) CreateEgress(service *spec.Service) error {
 	}
 	egs.httpServer = entity
 
+	if err := egs.inf.OnAllServiceSpecs(egs.reloadBySpecs); err != nil {
+		if err != informer.ErrAlreadyWatched {
+			logger.Errorf("add ingress spec watching service: %s failed: %v", service.Name, err)
+			return err
+		}
+	}
+
+	if err := egs.inf.OnAllServiceInstanceSpecs(egs.reloadByInstances); err != nil {
+		if err != informer.ErrAlreadyWatched {
+			logger.Errorf("add ingress spec watching service: %s failed: %v", service.Name, err)
+			return err
+		}
+	}
 	return nil
 }
 
@@ -119,105 +146,84 @@ func (egs *EgressServer) Ready() bool {
 	return egs.httpServer != nil
 }
 
-func (egs *EgressServer) addPipeline(serviceName string) (*supervisor.ObjectEntity, error) {
-	service := egs.service.GetServiceSpec(serviceName)
-	if service == nil {
-		return nil, spec.ErrServiceNotFound
-	}
-
-	instanceSpec := egs.service.ListServiceInstanceSpecs(serviceName)
-	if len(instanceSpec) == 0 {
-		logger.Errorf("found service: %s with empty instances", serviceName)
-		return nil, spec.ErrServiceNotavailable
-	}
-
-	superSpec, err := service.SideCarEgressPipelineSpec(instanceSpec)
-	if err != nil {
-		return nil, err
-	}
-	logger.Infof("add pipeline spec: %s", superSpec.YAMLConfig())
-
-	entity, err := egs.tc.CreateHTTPPipelineForSpec(egs.namespace, superSpec)
-	if err != nil {
-		return nil, fmt.Errorf("create http pipeline %s failed: %v", superSpec.Name(), err)
-	}
-	egs.pipelines[service.Name] = entity
-
-	return entity, nil
-}
-
-// DeletePipeline deletes one Egress pipeline according to the serviceName.
-func (egs *EgressServer) DeletePipeline(serviceName string) {
+func (egs *EgressServer) reloadByInstances(value map[string]*spec.ServiceInstanceSpec) bool {
 	egs.mutex.Lock()
 	defer egs.mutex.Unlock()
 
-	if pipeline, exists := egs.pipelines[serviceName]; exists {
-		egs.tc.DeleteHTTPPipeline(egs.namespace, pipeline.Spec().Name())
-		delete(egs.pipelines, serviceName)
-	}
-}
-
-// UpdatePipeline updates a local pipeline according to the informer.
-func (egs *EgressServer) UpdatePipeline(service *spec.Service, instanceSpec []*spec.ServiceInstanceSpec) error {
-	egs.mutex.Lock()
-	defer egs.mutex.Unlock()
-
-	superSpec, err := service.SideCarEgressPipelineSpec(instanceSpec)
-	if err != nil {
-		return err
-	}
-
-	entity, err := egs.tc.UpdateHTTPPipelineForSpec(egs.namespace, superSpec)
-	if err != nil {
-		return fmt.Errorf("update http pipeline %s failed: %v", superSpec.Name(), err)
-	}
-
-	egs.pipelines[service.Name] = entity
-
-	return nil
-}
-
-func (egs *EgressServer) getPipeline(serviceName string) (*supervisor.ObjectEntity, error) {
-	egs.mutex.Lock()
-	defer egs.mutex.Unlock()
-
-	if pipeline, ok := egs.pipelines[serviceName]; ok {
-		egs.watch <- serviceName
-		return pipeline, nil
-	}
-
-	pipeline, err := egs.addPipeline(serviceName)
-	if err == nil {
-		egs.watch <- serviceName
-	}
-	return pipeline, err
-}
-
-// Handle handles all egress traffic and route to desired pipeline according
-// to the "X-MESH-RPC-SERVICE" field in header.
-func (egs *EgressServer) Handle(ctx context.HTTPContext) {
-	serviceName := ctx.Request().Header().Get(egressRPCKey)
-
-	if len(serviceName) == 0 {
-		logger.Errorf("handle egress RPC without setting service name in: %s header: %#v",
-			egressRPCKey, ctx.Request().Header())
-		ctx.Response().SetStatusCode(http.StatusNotFound)
-		return
-	}
-
-	pipeline, err := egs.getPipeline(serviceName)
-	if err != nil {
-		if err == spec.ErrServiceNotFound {
-			logger.Errorf("handle egress RPC unknown service: %s", serviceName)
-			ctx.Response().SetStatusCode(http.StatusNotFound)
-		} else {
-			logger.Errorf("handle egress RPC service: %s get pipeline failed: %v", serviceName, err)
-			ctx.Response().SetStatusCode(http.StatusInternalServerError)
+	var specs map[string]*spec.Service
+	for _, v := range value {
+		if _, exist := specs[v.ServiceName]; !exist {
+			spec := egs.service.GetServiceSpec(v.ServiceName)
+			specs[v.ServiceName] = spec
 		}
-		return
 	}
-	pipeline.Instance().(*httppipeline.HTTPPipeline).Handle(ctx)
-	logger.Infof("hanlde service name:%s finished, status code: %d", serviceName, ctx.Response().StatusCode())
+
+	return egs.reloadHTTPServer(specs)
+}
+
+func (egs *EgressServer) reloadBySpecs(value map[string]*spec.Service) bool {
+	return egs.reloadHTTPServer(value)
+}
+
+func (egs *EgressServer) reloadHTTPServer(specs map[string]*spec.Service) bool {
+	egs.mutex.Lock()
+	defer egs.mutex.Unlock()
+
+	pipelines := make(map[string]*supervisor.ObjectEntity)
+	for k, v := range specs {
+		instances := egs.service.ListServiceInstanceSpecs(k)
+		pipelineSpec, err := v.SideCarEgressPipelineSpec(instances)
+		if err != nil {
+			logger.Errorf("BUG: gen sidecar egress httpserver spec failed: %v", err)
+			continue
+		}
+		entity, err := egs.tc.UpdateHTTPPipelineForSpec(egs.namespace, pipelineSpec)
+		if err != nil {
+			continue
+		}
+		pipelines[k] = entity
+	}
+
+	httpServerSpec := egs.httpServer.Spec().ObjectSpec().(*httpserver.Spec)
+	httpServerSpec.Rules = nil
+
+	for k := range egs.pipelines {
+		rule := httpserver.Rule{
+			Paths: []httpserver.Path{
+				{
+					PathPrefix: "/",
+					Headers: []*httpserver.Header{
+						{
+							Key:     egressRPCKey,
+							Values:  []string{k},
+							Backend: k,
+						},
+					},
+					Backend: k,
+				},
+			},
+		}
+
+		httpServerSpec.Rules = append(httpServerSpec.Rules, rule)
+	}
+
+	builder := newHTTPServerSpecBuilder(egs.egressServerName, httpServerSpec)
+	superSpec, err := supervisor.NewSpec(builder.yamlConfig())
+	if err != nil {
+		logger.Errorf("new spec for %s failed: %v", err)
+		return true
+	}
+	entity, err := egs.tc.UpdateHTTPServerForSpec(egs.namespace, superSpec)
+	if err != nil {
+		logger.Errorf("update http server %s failed: %v", egs.egressServerName, err)
+		return true
+	}
+
+	// update local storage
+	egs.pipelines = pipelines
+	egs.httpServer = entity
+
+	return true
 }
 
 // Close closes the Egress HTTPServer and Pipelines

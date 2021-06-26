@@ -598,15 +598,11 @@ name: %s
 port: %d
 keepAlive: false
 https: false
-rules:
-  - paths:
-    - pathPrefix: /
-      backend: %s`
+`
 
 	yamlConfig := fmt.Sprintf(egressHTTPServerFormat,
 		s.EgressHTTPServerName(),
-		s.Sidecar.EgressPort,
-		s.EgressHandlerName())
+		s.Sidecar.EgressPort)
 
 	superSpec, err := supervisor.NewSpec(yamlConfig)
 	if err != nil {
