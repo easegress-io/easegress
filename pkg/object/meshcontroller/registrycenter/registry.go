@@ -161,7 +161,7 @@ func (rcs *Server) register(ins *spec.ServiceInstanceSpec, ingressReady ReadyFun
 					}
 				}
 
-				ins.Status = spec.SerivceStatusUp
+				ins.Status = spec.ServiceStatusUp
 				ins.RegistryTime = time.Now().Format(time.RFC3339)
 				rcs.registered = true
 				rcs.service.PutServiceInstanceSpec(ins)

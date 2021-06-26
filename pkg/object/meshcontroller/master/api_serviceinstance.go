@@ -103,6 +103,6 @@ func (m *Master) offlineSerivceInstance(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	instanceSpec.Status = spec.SerivceStatusOutOfSerivce
+	instanceSpec.Status = spec.ServiceStatusOutOfService
 	m.service.PutServiceInstanceSpec(instanceSpec)
 }

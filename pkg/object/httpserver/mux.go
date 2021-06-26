@@ -404,11 +404,6 @@ func (m *mux) ServeHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 				m.handleRequestWithCache(rules, ctx, ci)
 				return
 			}
-
-			ci = &cacheItem{ipFilterChan: path.ipFilterChain, path: path}
-			rules.putCacheItem(ctx, ci)
-			m.handleRequestWithCache(rules, ctx, ci)
-			return
 		}
 	}
 
