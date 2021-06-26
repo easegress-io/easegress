@@ -135,9 +135,13 @@ type (
 
 	// meshInformer is the informer for mesh usage
 	meshInformer struct {
-		mutex   sync.Mutex
+		mutex   sync.RWMutex
 		store   storage.Storage
 		syncers map[string]*cluster.Syncer
+
+		service         string
+		globalServices  map[string]bool   // name of service in global tenant
+		service2Tenants map[string]string // service name to its registered tenant
 
 		closed bool
 		done   chan struct{}
@@ -155,16 +159,98 @@ var (
 	ErrNotFound = fmt.Errorf("not found")
 )
 
-// NewInformer creates an informer.
-func NewInformer(store storage.Storage) Informer {
+// NewInformer creates an informer
+// If service is specified, will only inform resource changes within the same tenant
+// of the service and the global tenant, note this only apply to service, service instance
+// and service status.
+// if service is empty, will inform all resouce changes.
+func NewInformer(store storage.Storage, service string) Informer {
 	inf := &meshInformer{
-		store:   store,
-		syncers: make(map[string]*cluster.Syncer),
-		mutex:   sync.Mutex{},
-		done:    make(chan struct{}),
+		store:           store,
+		syncers:         make(map[string]*cluster.Syncer),
+		done:            make(chan struct{}),
+		service:         service,
+		globalServices:  make(map[string]bool),
+		service2Tenants: make(map[string]string),
 	}
 
+	// empty service name means we won't filter data by tenant
+	if len(service) == 0 {
+		return inf
+	}
+
+	storeKey := layout.ServiceSpecPrefix()
+	services, err := inf.store.GetPrefix(storeKey)
+	if err != nil {
+		logger.Errorf("failed to load service specs: %v", err)
+		return inf
+	}
+	inf.buildServiceToTenantMap(services)
+
+	syncerKey := "informer-service"
+	inf.onSpecs(storeKey, syncerKey, inf.buildServiceToTenantMap)
+
+	storeKey = layout.TenantSpecKey(spec.GlobalTenant)
+	tenants, err := inf.store.GetPrefix(storeKey)
+	if err != nil {
+		logger.Errorf("failed to load tenant specs: %v", err)
+		return inf
+	}
+	inf.buildServiceToTenantMap(tenants)
+
+	syncerKey = "informer-global-tenant"
+	inf.onSpecs(storeKey, syncerKey, inf.updateGlobalServices)
+
 	return inf
+}
+
+func (inf *meshInformer) updateGlobalServices(kvs map[string]string) bool {
+	var tenant *spec.Tenant
+	for _, v := range kvs {
+		t := &spec.Tenant{}
+		if err := yaml.Unmarshal([]byte(v), t); err != nil {
+			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
+			continue
+		}
+		if t.Name == spec.GlobalTenant {
+			tenant = t
+			break
+		}
+	}
+	if tenant == nil {
+		return true
+	}
+
+	services := make(map[string]bool, len(tenant.Services))
+	for _, s := range tenant.Services {
+		services[s] = true
+	}
+
+	inf.mutex.Lock()
+	inf.globalServices = services
+	inf.mutex.Unlock()
+	return true
+}
+
+func (inf *meshInformer) buildServiceToTenantMap(kvs map[string]string) bool {
+	s2t := make(map[string]string, len(kvs))
+	for _, v := range kvs {
+		service := &spec.Service{}
+		if err := yaml.Unmarshal([]byte(v), service); err != nil {
+			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
+			continue
+		}
+		s2t[service.Name] = service.RegisterTenant
+	}
+
+	if _, ok := s2t[inf.service]; !ok {
+		logger.Errorf("BUG: need to get tenant of service %s, but the service does not exist", inf.service)
+	}
+
+	inf.mutex.Lock()
+	inf.service2Tenants = s2t
+	inf.mutex.Unlock()
+	return true
 }
 
 func (inf *meshInformer) stopSyncOneKey(key string) {
@@ -297,6 +383,16 @@ func (inf *meshInformer) OnAllServiceSpecs(fn ServiceSpecsFunc) error {
 	syncerKey := "prefix-service"
 
 	specsFunc := func(kvs map[string]string) bool {
+		inf.mutex.RLock()
+		gs := inf.globalServices
+		s2t := inf.service2Tenants
+		inf.mutex.RUnlock()
+
+		var tenant string
+		if len(inf.service) > 0 && !gs[inf.service] {
+			tenant = s2t[inf.service]
+		}
+
 		services := make(map[string]*spec.Service)
 		for k, v := range kvs {
 			service := &spec.Service{}
@@ -304,7 +400,9 @@ func (inf *meshInformer) OnAllServiceSpecs(fn ServiceSpecsFunc) error {
 				logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
 				continue
 			}
-			services[k] = service
+			if len(tenant) == 0 || gs[service.Name] || service.RegisterTenant == tenant {
+				services[k] = service
+			}
 		}
 
 		return fn(services)
@@ -319,6 +417,16 @@ func serviceInstanceSpecSyncerKey(serviceName string) string {
 
 func (inf *meshInformer) onServiceInstanceSpecs(storeKey, syncerKey string, fn ServiceInstanceSpecsFunc) error {
 	specsFunc := func(kvs map[string]string) bool {
+		inf.mutex.RLock()
+		gs := inf.globalServices
+		s2t := inf.service2Tenants
+		inf.mutex.RUnlock()
+
+		var tenant string
+		if len(inf.service) > 0 && !gs[inf.service] {
+			tenant = s2t[inf.service]
+		}
+
 		instanceSpecs := make(map[string]*spec.ServiceInstanceSpec)
 		for k, v := range kvs {
 			instanceSpec := &spec.ServiceInstanceSpec{}
@@ -326,7 +434,9 @@ func (inf *meshInformer) onServiceInstanceSpecs(storeKey, syncerKey string, fn S
 				logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
 				continue
 			}
-			instanceSpecs[k] = instanceSpec
+			if len(tenant) == 0 || gs[instanceSpec.ServiceName] || s2t[instanceSpec.ServiceName] == tenant {
+				instanceSpecs[k] = instanceSpec
+			}
 		}
 
 		return fn(instanceSpecs)
@@ -356,6 +466,16 @@ func (inf *meshInformer) StopWatchServiceInstanceSpec(serviceName string) {
 
 func (inf *meshInformer) onServiceInstanceStatuses(storeKey, syncerKey string, fn ServiceInstanceStatusesFunc) error {
 	specsFunc := func(kvs map[string]string) bool {
+		inf.mutex.RLock()
+		gs := inf.globalServices
+		s2t := inf.service2Tenants
+		inf.mutex.RUnlock()
+
+		var tenant string
+		if len(inf.service) > 0 && !gs[inf.service] {
+			tenant = s2t[inf.service]
+		}
+
 		instanceStatuses := make(map[string]*spec.ServiceInstanceStatus)
 		for k, v := range kvs {
 			instanceStatus := &spec.ServiceInstanceStatus{}
@@ -363,7 +483,9 @@ func (inf *meshInformer) onServiceInstanceStatuses(storeKey, syncerKey string, f
 				logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
 				continue
 			}
-			instanceStatuses[k] = instanceStatus
+			if len(tenant) == 0 || gs[instanceStatus.ServiceName] || s2t[instanceStatus.ServiceName] == tenant {
+				instanceStatuses[k] = instanceStatus
+			}
 		}
 
 		return fn(instanceStatuses)

@@ -122,7 +122,8 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 	registryCenterServer := registrycenter.NewRegistryCenterServer(spec.RegistryType,
 		serviceName, applicationIP, applicationPort, instanceID, serviceLabels, _service)
 
-	inf := informer.NewInformer(store)
+	// FIXME: check service Name
+	inf := informer.NewInformer(store, serviceName)
 	ingressServer := NewIngressServer(superSpec, super, serviceName, inf)
 	egressServer := NewEgressServer(superSpec, super, serviceName, _service, inf)
 

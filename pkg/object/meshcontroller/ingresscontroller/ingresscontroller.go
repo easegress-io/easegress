@@ -75,7 +75,7 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *IngressContr
 		superSpec: superSpec,
 		spec:      superSpec.ObjectSpec().(*spec.Admin),
 
-		informer:  informer.NewInformer(store),
+		informer:  informer.NewInformer(store, ""),
 		service:   service.New(superSpec, super),
 		tc:        tc,
 		namespace: fmt.Sprintf("%s/%s", superSpec.Name(), "ingresscontroller"),
