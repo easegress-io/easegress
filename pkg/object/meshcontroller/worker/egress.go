@@ -77,6 +77,7 @@ func NewEgressServer(superSpec *supervisor.Spec, super *supervisor.Supervisor,
 		super:     super,
 		superSpec: superSpec,
 
+		inf:         inf,
 		tc:          tc,
 		namespace:   fmt.Sprintf("%s/%s", superSpec.Name(), "egress"),
 		pipelines:   make(map[string]*supervisor.ObjectEntity),
@@ -150,7 +151,7 @@ func (egs *EgressServer) reloadByInstances(value map[string]*spec.ServiceInstanc
 	egs.mutex.Lock()
 	defer egs.mutex.Unlock()
 
-	var specs map[string]*spec.Service
+	specs := make(map[string]*spec.Service)
 	for _, v := range value {
 		if _, exist := specs[v.ServiceName]; !exist {
 			spec := egs.service.GetServiceSpec(v.ServiceName)
@@ -170,24 +171,29 @@ func (egs *EgressServer) reloadHTTPServer(specs map[string]*spec.Service) bool {
 	defer egs.mutex.Unlock()
 
 	pipelines := make(map[string]*supervisor.ObjectEntity)
-	for k, v := range specs {
-		instances := egs.service.ListServiceInstanceSpecs(k)
+	for _, v := range specs {
+		if v.Name == egs.serviceName {
+			// not need to build egress for itself
+			continue
+		}
+		instances := egs.service.ListServiceInstanceSpecs(v.Name)
 		pipelineSpec, err := v.SideCarEgressPipelineSpec(instances)
 		if err != nil {
 			logger.Errorf("BUG: gen sidecar egress httpserver spec failed: %v", err)
 			continue
 		}
-		entity, err := egs.tc.UpdateHTTPPipelineForSpec(egs.namespace, pipelineSpec)
+		entity, err := egs.tc.CreateHTTPPipelineForSpec(egs.namespace, pipelineSpec)
 		if err != nil {
+			logger.Errorf("update http pipeline failed: %v", err)
 			continue
 		}
-		pipelines[k] = entity
+		pipelines[v.Name] = entity
 	}
 
 	httpServerSpec := egs.httpServer.Spec().ObjectSpec().(*httpserver.Spec)
 	httpServerSpec.Rules = nil
 
-	for k := range egs.pipelines {
+	for k := range pipelines {
 		rule := httpserver.Rule{
 			Paths: []httpserver.Path{
 				{
@@ -219,6 +225,7 @@ func (egs *EgressServer) reloadHTTPServer(specs map[string]*spec.Service) bool {
 		return true
 	}
 
+	logger.Infof("egress httpserver: spec: %s", entity.Spec().YAMLConfig())
 	// update local storage
 	egs.pipelines = pipelines
 	egs.httpServer = entity

@@ -71,8 +71,6 @@ type (
 )
 
 const (
-	egressEventChanSize = 100
-
 	// from k8s pod's env value
 	podEnvHostname      = "HOSTNAME"
 	podEnvApplicationIP = "APPLICATION_IP"
@@ -136,7 +134,7 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 		spec:      spec,
 
 		serviceName:     serviceName,
-		instanceID:      instanceID, // instanceID will be the port ID
+		instanceID:      instanceID, // instanceID will be the pod ID
 		aliveProbe:      aliveProbe,
 		applicationPort: uint32(applicationPort),
 		applicationIP:   applicationIP,

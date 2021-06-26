@@ -135,10 +135,6 @@ func (ings *IngressServer) reloadTraffic(event informer.Event, serviceSpec *spec
 	ings.mutex.Lock()
 	defer ings.mutex.Unlock()
 
-	service := &spec.Service{
-		Name: ings.serviceName,
-	}
-
 	superSpec, err := serviceSpec.SideCarIngressPipelineSpec(ings.applicationPort)
 	if err != nil {
 		logger.Errorf("BUG: update ingress pipeline spec: %s new super spec failed: %v",
@@ -151,7 +147,7 @@ func (ings *IngressServer) reloadTraffic(event informer.Event, serviceSpec *spec
 		return true
 	}
 
-	ings.pipelines[service.IngressPipelineName()] = entity
+	ings.pipelines[ings.serviceName] = entity
 	return true
 }
 
