@@ -135,6 +135,11 @@ func (ings *IngressServer) reloadTraffic(event informer.Event, serviceSpec *spec
 	ings.mutex.Lock()
 	defer ings.mutex.Unlock()
 
+	if event.EventType == informer.EventDelete {
+		logger.Infof("receive delete event: %#v", event)
+		return false
+	}
+
 	superSpec, err := serviceSpec.SideCarIngressPipelineSpec(ings.applicationPort)
 	if err != nil {
 		logger.Errorf("BUG: update ingress pipeline spec: %s new super spec failed: %v",
