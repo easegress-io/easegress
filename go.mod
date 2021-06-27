@@ -46,12 +46,8 @@ require (
 	go.etcd.io/etcd/server/v3 v3.5.0
 	go.uber.org/zap v1.17.0
 	gopkg.in/yaml.v2 v2.4.0
-	gotest.tools/v3 v3.0.3
-	k8s.io/api v0.20.7
-	k8s.io/apimachinery v0.20.7
-	k8s.io/cli-runtime v0.20.7 // indirect
-	knative.dev/client v0.23.1
-	knative.dev/serving v0.23.1-0.20210614141420-380a090c2039
+	k8s.io/api v0.19.7
+	k8s.io/apimachinery v0.19.7
+	knative.dev/client v0.22.0
+	knative.dev/serving v0.22.0
 )
-
-replace github.com/go-openapi/spec => github.com/go-openapi/spec v0.19.3
