@@ -22,7 +22,6 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
-	"sync"
 	"sync/atomic"
 
 	"github.com/megaease/easegress/pkg/context"
@@ -42,8 +41,7 @@ type (
 		httpStat *httpstat.HTTPStat
 		topN     *topn.TopN
 
-		rules       atomic.Value // *muxRules
-		mapperMutex sync.RWMutex
+		rules atomic.Value // *muxRules
 	}
 
 	muxRules struct {
@@ -261,21 +259,23 @@ func (mp *muxPath) matchMethod(ctx context.HTTPContext) bool {
 	return stringtool.StrInSlice(ctx.Request().Method(), mp.methods)
 }
 
-func (mp *muxPath) matchHeaders(ctx context.HTTPContext) (ci *cacheItem, ok bool) {
+func (mp *muxPath) hasHeaders() bool {
+	return len(mp.headers) > 0
+}
+
+func (mp *muxPath) matchHeaders(ctx context.HTTPContext) bool {
 	for _, h := range mp.headers {
 		v := ctx.Request().Header().Get(h.Key)
 		if stringtool.StrInSlice(v, h.Values) {
-			ci = &cacheItem{ipFilterChan: mp.ipFilterChain, path: mp}
-			return ci, true
+			return true
 		}
 
 		if h.Regexp != "" && h.headerRE.MatchString(v) {
-			ci = &cacheItem{ipFilterChan: mp.ipFilterChain, path: mp}
-			return ci, true
+			return true
 		}
 	}
 
-	return nil, false
+	return false
 }
 
 func newMux(httpStat *httpstat.HTTPStat, topN *topn.TopN, mapper protocol.MuxMapper) *mux {
@@ -398,9 +398,15 @@ func (m *mux) ServeHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 				return
 			}
 
-			ci, ok := path.matchHeaders(ctx)
-			if ok {
-				// NOTE: must not cache the route by header
+			if !path.hasHeaders() {
+				ci = &cacheItem{ipFilterChan: path.ipFilterChain, path: path}
+				rules.putCacheItem(ctx, ci)
+				m.handleRequestWithCache(rules, ctx, ci)
+				return
+			}
+
+			if path.matchHeaders(ctx) {
+				// NOTE: No cache for the request matching headers.
 				m.handleRequestWithCache(rules, ctx, ci)
 				return
 			}
@@ -431,8 +437,6 @@ func (m *mux) handleRequestWithCache(rules *muxRules, ctx context.HTTPContext, c
 	case ci.methodNotAllowed:
 		ctx.Response().SetStatusCode(http.StatusMethodNotAllowed)
 	case ci.path != nil:
-		m.mapperMutex.RLock()
-		defer m.mapperMutex.RUnlock()
 		handler, exists := rules.muxMapper.GetHandler(ci.path.backend)
 		if !exists {
 			ctx.AddTag(stringtool.Cat("backend ", ci.path.backend, " not found"))
