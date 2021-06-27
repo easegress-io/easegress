@@ -196,7 +196,7 @@ func NewInformer(store storage.Storage, service string) Informer {
 		logger.Errorf("failed to load tenant specs: %v", err)
 		return inf
 	}
-	inf.buildServiceToTenantMap(tenants)
+	inf.updateGlobalServices(tenants)
 
 	syncerKey = "informer-global-tenant"
 	inf.onSpecs(storeKey, syncerKey, inf.updateGlobalServices)
@@ -572,6 +572,9 @@ func (inf *meshInformer) comparePart(path GJSONPath, old, new string) bool {
 	return gjson.Get(string(oldJSON), string(path)) == gjson.Get(string(newJSON), string(path))
 }
 
+// TODO: gjsonPath is useless now, need to be removed
+// also need to rename this function and all its caller functions
+// as they are not accurate anymore
 func (inf *meshInformer) onSpecPart(storeKey, syncerKey string, gjsonPath GJSONPath, fn specHandleFunc) error {
 	inf.mutex.Lock()
 	defer inf.mutex.Unlock()
@@ -597,7 +600,7 @@ func (inf *meshInformer) onSpecPart(storeKey, syncerKey string, gjsonPath GJSONP
 
 	inf.syncers[syncerKey] = syncer
 
-	go inf.sync(ch, syncerKey, gjsonPath, fn)
+	go inf.sync(ch, syncerKey, fn)
 
 	return nil
 }
@@ -643,9 +646,7 @@ func (inf *meshInformer) Close() {
 	inf.closed = true
 }
 
-func (inf *meshInformer) sync(ch <-chan *mvccpb.KeyValue, syncerKey string, path GJSONPath, fn specHandleFunc) {
-	var oldKV *mvccpb.KeyValue
-
+func (inf *meshInformer) sync(ch <-chan *mvccpb.KeyValue, syncerKey string, fn specHandleFunc) {
 	for kv := range ch {
 		var (
 			event Event
@@ -654,13 +655,11 @@ func (inf *meshInformer) sync(ch <-chan *mvccpb.KeyValue, syncerKey string, path
 
 		if kv == nil {
 			event.EventType = EventDelete
-		} else if oldKV == nil || !inf.comparePart(path, string(oldKV.Value), string(kv.Value)) {
+		} else {
 			event.EventType = EventUpdate
 			event.RawKV = kv
 			value = string(kv.Value)
 		}
-
-		oldKV = kv
 
 		if !fn(event, value) {
 			inf.stopSyncOneKey(syncerKey)
