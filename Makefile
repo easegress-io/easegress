@@ -57,7 +57,11 @@ build_docker:
 	docker build -t megaease/easegress:${RELEASE} -f ./build/package/Dockerfile .
 
 test:
-	@go list ./... | grep -v -E 'vendor' | xargs -n1 go test
+	cd ${MKFILE_DIR}
+	go mod tidy
+	git diff --exit-code go.mod go.sum
+	go mod verify
+	go test -v ./...
 
 clean:
 	rm -rf ${RELEASE_DIR}
