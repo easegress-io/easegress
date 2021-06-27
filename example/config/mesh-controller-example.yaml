@@ -3,3 +3,4 @@ kind: MeshController
 specUpdateInterval: 10s
 heartbeatInterval: 5s
 registryType: consul
+serviceName: service-001

@@ -1,9 +1,4 @@
 name: writer-001
-labels:
-  alive-probe:  http://127.0.0.1:12381/apis/v1
-  application-port: 12381 
-  mesh-servicename: mesh-app-frontend
-  mesh-role: worker
 cluster-name: cluster-test
 cluster-role: writer
 cluster-listen-client-urls: [http://127.0.0.1:12379]
