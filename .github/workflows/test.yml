@@ -38,6 +38,4 @@ jobs:
       - name: Test
         shell: bash
         run: |
-          go mod verify
-          go mod download
           make test
