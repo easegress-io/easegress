@@ -148,9 +148,6 @@ func (egs *EgressServer) Ready() bool {
 }
 
 func (egs *EgressServer) reloadByInstances(value map[string]*spec.ServiceInstanceSpec) bool {
-	egs.mutex.Lock()
-	defer egs.mutex.Unlock()
-
 	specs := make(map[string]*spec.Service)
 	for _, v := range value {
 		if _, exist := specs[v.ServiceName]; !exist {
@@ -221,7 +218,6 @@ func (egs *EgressServer) reloadHTTPServer(specs map[string]*spec.Service) bool {
 		return true
 	}
 
-	logger.Infof("egress httpserver: spec: %s", entity.Spec().YAMLConfig())
 	// update local storage
 	egs.pipelines = pipelines
 	egs.httpServer = entity
