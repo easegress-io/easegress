@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/logger"
@@ -65,6 +66,7 @@ func MustNewServer(opt *option.Options, cluster cluster.Cluster) *Server {
 		cluster: cluster,
 	}
 
+	r.Use(middleware.StripSlashes)
 	r.Use(s.newAPILogger)
 	r.Use(s.newConfigVersionAttacher)
 	r.Use(s.newRecoverer)
