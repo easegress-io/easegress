@@ -583,10 +583,12 @@ func (c *cluster) startServer() (done, timeout chan struct{}, err error) {
 
 	monitorServer := func(s *embed.Etcd) {
 		select {
-		case err := <-s.Err():
-			logger.Errorf("etcd server %s serve failed: %v",
-				c.server.Config().Name, err.Error())
-			closeEtcdServer(s)
+		case err, ok := <-s.Err():
+			if ok {
+				logger.Errorf("etcd server %s serve failed: %v",
+					c.server.Config().Name, err)
+				closeEtcdServer(s)
+			}
 		case <-c.done:
 			return
 		}
