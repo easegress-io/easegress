@@ -127,10 +127,10 @@ var (
 	objectRegistry = map[string]Object{}
 
 	// objectRegistryOrderByDependency is sorted by object dependency.
-	// The reason is whtat object dependencies follow the package imports sequence.
+	// The reason is that object dependencies follow the package imports sequence.
 	// It aims to initialize system controllers which depend others in right sequence.
 	//
-	// FIXME: Do we need an explicit table to specify the dependecy.
+	// FIXME: Do we need an explicit table to specify the dependency.
 	// Because it can get the controller without importing its package.
 	objectRegistryOrderByDependency = []Object{}
 )
