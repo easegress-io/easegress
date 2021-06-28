@@ -214,10 +214,8 @@ func (inf *meshInformer) OnPartOfInstanceSpec(serviceName, instanceID string, gj
 		instanceSpec := &spec.ServiceInstanceSpec{}
 		if event.EventType != EventDelete {
 			if err := yaml.Unmarshal([]byte(value), instanceSpec); err != nil {
-				if err != nil {
-					logger.Errorf("BUG: unmarshal %s to yaml failed: %v", value, err)
-					return true
-				}
+				logger.Errorf("BUG: unmarshal %s to yaml failed: %v", value, err)
+				return true
 			}
 		}
 		return fn(event, instanceSpec)
