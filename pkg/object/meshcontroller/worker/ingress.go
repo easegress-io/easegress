@@ -161,8 +161,10 @@ func (ings *IngressServer) Close() {
 	ings.mutex.Lock()
 	defer ings.mutex.Unlock()
 
-	ings.tc.DeleteHTTPServer(ings.namespace, ings.httpServer.Spec().Name())
-	for _, entity := range ings.pipelines {
-		ings.tc.DeleteHTTPPipeline(ings.namespace, entity.Spec().Name())
+	if ings.Ready() {
+		ings.tc.DeleteHTTPServer(ings.namespace, ings.httpServer.Spec().Name())
+		for _, entity := range ings.pipelines {
+			ings.tc.DeleteHTTPPipeline(ings.namespace, entity.Spec().Name())
+		}
 	}
 }

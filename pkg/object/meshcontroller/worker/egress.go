@@ -230,8 +230,10 @@ func (egs *EgressServer) Close() {
 	egs.mutex.Lock()
 	defer egs.mutex.Unlock()
 
-	egs.tc.DeleteHTTPServer(egs.namespace, egs.httpServer.Spec().Name())
-	for _, entity := range egs.pipelines {
-		egs.tc.DeleteHTTPPipeline(egs.namespace, entity.Spec().Name())
+	if egs.Ready() {
+		egs.tc.DeleteHTTPServer(egs.namespace, egs.httpServer.Spec().Name())
+		for _, entity := range egs.pipelines {
+			egs.tc.DeleteHTTPPipeline(egs.namespace, entity.Spec().Name())
+		}
 	}
 }
