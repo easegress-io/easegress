@@ -407,6 +407,7 @@ func (m *mux) ServeHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 
 			if path.matchHeaders(ctx) {
 				// NOTE: No cache for the request matching headers.
+				ci = &cacheItem{ipFilterChan: path.ipFilterChain, path: path}
 				m.handleRequestWithCache(rules, ctx, ci)
 				return
 			}

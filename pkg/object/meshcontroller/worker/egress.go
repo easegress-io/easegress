@@ -168,6 +168,8 @@ func (egs *EgressServer) reloadHTTPServer(specs map[string]*spec.Service) bool {
 	defer egs.mutex.Unlock()
 
 	pipelines := make(map[string]*supervisor.ObjectEntity)
+	serverName2PipelineName := make(map[string]string)
+
 	for _, v := range specs {
 		instances := egs.service.ListServiceInstanceSpecs(v.Name)
 		pipelineSpec, err := v.SideCarEgressPipelineSpec(instances)
@@ -181,6 +183,7 @@ func (egs *EgressServer) reloadHTTPServer(specs map[string]*spec.Service) bool {
 			continue
 		}
 		pipelines[v.Name] = entity
+		serverName2PipelineName[v.Name] = pipelineSpec.Name()
 	}
 
 	httpServerSpec := egs.httpServer.Spec().ObjectSpec().(*httpserver.Spec)
@@ -193,12 +196,14 @@ func (egs *EgressServer) reloadHTTPServer(specs map[string]*spec.Service) bool {
 					PathPrefix: "/",
 					Headers: []*httpserver.Header{
 						{
-							Key:     egressRPCKey,
+							Key: egressRPCKey,
+							// Value should be the service name
 							Values:  []string{k},
-							Backend: k,
+							Backend: serverName2PipelineName[k],
 						},
 					},
-					Backend: k,
+					// this name should be the pipeline full name
+					Backend: serverName2PipelineName[k],
 				},
 			},
 		}
