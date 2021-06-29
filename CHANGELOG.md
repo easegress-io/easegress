@@ -26,10 +26,6 @@
 - HTTPPipeline loadBalance is required but causes panic if missing [\#63](https://github.com/megaease/easegress/issues/63)
 - Server help messages print multiple times [\#37](https://github.com/megaease/easegress/issues/37)
 - Fix double free etcd [\#87](https://github.com/megaease/easegress/pull/87) ([tg123](https://github.com/tg123))
-- Fix issue\#73 httpserver 404 without headers [\#76](https://github.com/megaease/easegress/pull/76) 
-- Avoid panic when `loadBalance` is nil \(close \#63\) [\#64](https://github.com/megaease/easegress/pull/64) 
-- Fix print helper msg twice bug,  close \#37 [\#50](https://github.com/megaease/easegress/pull/50) 
 
 
 ## [v1.0.0](https://github.com/megaease/easegress/tree/v1.0.0) (2021-06-01)
-
