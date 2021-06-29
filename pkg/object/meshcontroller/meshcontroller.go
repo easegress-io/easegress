@@ -19,6 +19,7 @@ package meshcontroller
 
 import (
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/api"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/ingresscontroller"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/label"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/master"
@@ -41,6 +42,8 @@ type (
 		super     *supervisor.Supervisor
 		superSpec *supervisor.Spec
 		spec      *spec.Admin
+
+		api *api.API
 
 		role              string
 		master            *master.Master
@@ -76,15 +79,18 @@ func (mc *MeshController) DefaultSpec() interface{} {
 // Init initializes MeshController.
 func (mc *MeshController) Init(superSpec *supervisor.Spec, super *supervisor.Supervisor) {
 	mc.superSpec, mc.spec, mc.super = superSpec, superSpec.ObjectSpec().(*spec.Admin), super
+
+	api.Register(superSpec, super)
+
 	mc.reload()
 }
 
 // Inherit inherits previous generation of MeshController.
-func (mc *MeshController) Inherit(spec *supervisor.Spec,
+func (mc *MeshController) Inherit(superSpec *supervisor.Spec,
 	previousGeneration supervisor.Object, super *supervisor.Supervisor) {
 
-	previousGeneration.Close()
-	mc.Init(spec, super)
+	mc.superSpec, mc.spec, mc.super = superSpec, superSpec.ObjectSpec().(*spec.Admin), super
+	mc.reload()
 }
 
 func (mc *MeshController) reload() {

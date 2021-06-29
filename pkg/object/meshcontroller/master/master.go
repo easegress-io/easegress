@@ -61,7 +61,7 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Master {
 		spec:      adminSpec,
 
 		store:   store,
-		service: service.New(superSpec, store),
+		service: service.New(superSpec, super),
 
 		done: make(chan struct{}),
 	}
@@ -72,8 +72,6 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Master {
 			m.spec.HeartbeatInterval, err)
 	}
 	m.maxHeartbeatTimeout = heartbeat * 2
-
-	m.registerAPIs()
 
 	go m.run()
 

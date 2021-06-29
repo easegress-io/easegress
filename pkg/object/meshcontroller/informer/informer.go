@@ -111,19 +111,21 @@ type (
 	//  2. Based on comparison on entries with the same prefix.
 	Informer interface {
 		OnPartOfServiceSpec(serviceName string, gjsonPath GJSONPath, fn ServiceSpecFunc) error
-		OnServiceSpecs(servicePrefix string, fn ServiceSpecsFunc) error
+		OnAllServiceSpecs(fn ServiceSpecsFunc) error
 
-		OnPartOfInstanceSpec(serviceName, instanceID string, gjsonPath GJSONPath, fn ServicesInstanceSpecFunc) error
+		OnPartOfServiceInstanceSpec(serviceName, instanceID string, gjsonPath GJSONPath, fn ServicesInstanceSpecFunc) error
 		OnServiceInstanceSpecs(serviceName string, fn ServiceInstanceSpecsFunc) error
+		OnAllServiceInstanceSpecs(fn ServiceInstanceSpecsFunc) error
 
 		OnPartOfServiceInstanceStatus(serviceName, instanceID string, gjsonPath GJSONPath, fn ServiceInstanceStatusFunc) error
 		OnServiceInstanceStatuses(serviceName string, fn ServiceInstanceStatusesFunc) error
+		OnAllServiceInstanceStatuses(fn ServiceInstanceStatusesFunc) error
 
 		OnPartOfTenantSpec(tenantName string, gjsonPath GJSONPath, fn TenantSpecFunc) error
-		OnTenantSpecs(tenantPrefix string, fn TenantSpecsFunc) error
+		OnAllTenantSpecs(fn TenantSpecsFunc) error
 
 		OnPartOfIngressSpec(serviceName string, gjsonPath GJSONPath, fn IngressSpecFunc) error
-		OnIngressSpecs(fn IngressSpecsFunc) error
+		OnAllIngressSpecs(fn IngressSpecsFunc) error
 
 		StopWatchServiceSpec(serviceName string, gjsonPath GJSONPath)
 		StopWatchServiceInstanceSpec(serviceName string)
@@ -133,9 +135,13 @@ type (
 
 	// meshInformer is the informer for mesh usage
 	meshInformer struct {
-		mutex   sync.Mutex
+		mutex   sync.RWMutex
 		store   storage.Storage
 		syncers map[string]*cluster.Syncer
+
+		service         string
+		globalServices  map[string]bool   // name of service in global tenant
+		service2Tenants map[string]string // service name to its registered tenant
 
 		closed bool
 		done   chan struct{}
@@ -153,16 +159,98 @@ var (
 	ErrNotFound = fmt.Errorf("not found")
 )
 
-// NewInformer creates an informer.
-func NewInformer(store storage.Storage) Informer {
+// NewInformer creates an informer
+// If service is specified, will only inform resource changes within the same tenant
+// of the service and the global tenant, note this only apply to service, service instance
+// and service status.
+// if service is empty, will inform all resouce changes.
+func NewInformer(store storage.Storage, service string) Informer {
 	inf := &meshInformer{
-		store:   store,
-		syncers: make(map[string]*cluster.Syncer),
-		mutex:   sync.Mutex{},
-		done:    make(chan struct{}),
+		store:           store,
+		syncers:         make(map[string]*cluster.Syncer),
+		done:            make(chan struct{}),
+		service:         service,
+		globalServices:  make(map[string]bool),
+		service2Tenants: make(map[string]string),
 	}
 
+	// empty service name means we won't filter data by tenant
+	if len(service) == 0 {
+		return inf
+	}
+
+	storeKey := layout.ServiceSpecPrefix()
+	services, err := inf.store.GetPrefix(storeKey)
+	if err != nil {
+		logger.Errorf("failed to load service specs: %v", err)
+		return inf
+	}
+	inf.buildServiceToTenantMap(services)
+
+	syncerKey := "informer-service"
+	inf.onSpecs(storeKey, syncerKey, inf.buildServiceToTenantMap)
+
+	storeKey = layout.TenantSpecKey(spec.GlobalTenant)
+	tenants, err := inf.store.GetPrefix(storeKey)
+	if err != nil {
+		logger.Errorf("failed to load tenant specs: %v", err)
+		return inf
+	}
+	inf.updateGlobalServices(tenants)
+
+	syncerKey = "informer-global-tenant"
+	inf.onSpecs(storeKey, syncerKey, inf.updateGlobalServices)
+
 	return inf
+}
+
+func (inf *meshInformer) updateGlobalServices(kvs map[string]string) bool {
+	var tenant *spec.Tenant
+	for _, v := range kvs {
+		t := &spec.Tenant{}
+		if err := yaml.Unmarshal([]byte(v), t); err != nil {
+			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
+			continue
+		}
+		if t.Name == spec.GlobalTenant {
+			tenant = t
+			break
+		}
+	}
+	if tenant == nil {
+		return true
+	}
+
+	services := make(map[string]bool, len(tenant.Services))
+	for _, s := range tenant.Services {
+		services[s] = true
+	}
+
+	inf.mutex.Lock()
+	inf.globalServices = services
+	inf.mutex.Unlock()
+	return true
+}
+
+func (inf *meshInformer) buildServiceToTenantMap(kvs map[string]string) bool {
+	s2t := make(map[string]string, len(kvs))
+	for _, v := range kvs {
+		service := &spec.Service{}
+		if err := yaml.Unmarshal([]byte(v), service); err != nil {
+			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
+			continue
+		}
+		s2t[service.Name] = service.RegisterTenant
+	}
+
+	if _, ok := s2t[inf.service]; !ok {
+		logger.Errorf("BUG: need to get tenant of service %s, but the service does not exist", inf.service)
+	}
+
+	inf.mutex.Lock()
+	inf.service2Tenants = s2t
+	inf.mutex.Unlock()
+	return true
 }
 
 func (inf *meshInformer) stopSyncOneKey(key string) {
@@ -205,8 +293,8 @@ func (inf *meshInformer) StopWatchServiceSpec(serviceName string, gjsonPath GJSO
 	inf.stopSyncOneKey(syncerKey)
 }
 
-// OnPartOfInstanceSpec watches one service's instance spec by given gjsonPath.
-func (inf *meshInformer) OnPartOfInstanceSpec(serviceName, instanceID string, gjsonPath GJSONPath, fn ServicesInstanceSpecFunc) error {
+// OnPartOfServiceInstanceSpec watches one service's instance spec by given gjsonPath.
+func (inf *meshInformer) OnPartOfServiceInstanceSpec(serviceName, instanceID string, gjsonPath GJSONPath, fn ServicesInstanceSpecFunc) error {
 	storeKey := layout.ServiceInstanceSpecKey(serviceName, instanceID)
 	syncerKey := fmt.Sprintf("service-instance-spec-%s-%s-%s", serviceName, instanceID, gjsonPath)
 
@@ -289,11 +377,22 @@ func (inf *meshInformer) OnPartOfIngressSpec(ingress string, gjsonPath GJSONPath
 	return inf.onSpecPart(storeKey, syncerKey, gjsonPath, specFunc)
 }
 
-// OnServiceSpecs watches service specs with the prefix.
-func (inf *meshInformer) OnServiceSpecs(servicePrefix string, fn ServiceSpecsFunc) error {
-	syncerKey := fmt.Sprintf("prefix-service-%s", servicePrefix)
+// OnAllServiceSpecs watches all service specs
+func (inf *meshInformer) OnAllServiceSpecs(fn ServiceSpecsFunc) error {
+	storeKey := layout.ServiceSpecPrefix()
+	syncerKey := "prefix-service"
 
 	specsFunc := func(kvs map[string]string) bool {
+		inf.mutex.RLock()
+		gs := inf.globalServices
+		s2t := inf.service2Tenants
+		inf.mutex.RUnlock()
+
+		var tenant string
+		if len(inf.service) > 0 && !gs[inf.service] {
+			tenant = s2t[inf.service]
+		}
+
 		services := make(map[string]*spec.Service)
 		for k, v := range kvs {
 			service := &spec.Service{}
@@ -301,25 +400,33 @@ func (inf *meshInformer) OnServiceSpecs(servicePrefix string, fn ServiceSpecsFun
 				logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
 				continue
 			}
-			services[k] = service
+			if len(tenant) == 0 || gs[service.Name] || service.RegisterTenant == tenant {
+				services[k] = service
+			}
 		}
 
 		return fn(services)
 	}
 
-	return inf.onSpecs(servicePrefix, syncerKey, specsFunc)
+	return inf.onSpecs(storeKey, syncerKey, specsFunc)
 }
 
 func serviceInstanceSpecSyncerKey(serviceName string) string {
 	return fmt.Sprintf("prefix-service-instance-spec-%s", serviceName)
 }
 
-// OnServiceInstanceSpecs watches one service all instance specs.
-func (inf *meshInformer) OnServiceInstanceSpecs(serviceName string, fn ServiceInstanceSpecsFunc) error {
-	instancePrefix := layout.ServiceInstanceSpecPrefix(serviceName)
-	syncerKey := serviceInstanceSpecSyncerKey(serviceName)
-
+func (inf *meshInformer) onServiceInstanceSpecs(storeKey, syncerKey string, fn ServiceInstanceSpecsFunc) error {
 	specsFunc := func(kvs map[string]string) bool {
+		inf.mutex.RLock()
+		gs := inf.globalServices
+		s2t := inf.service2Tenants
+		inf.mutex.RUnlock()
+
+		var tenant string
+		if len(inf.service) > 0 && !gs[inf.service] {
+			tenant = s2t[inf.service]
+		}
+
 		instanceSpecs := make(map[string]*spec.ServiceInstanceSpec)
 		for k, v := range kvs {
 			instanceSpec := &spec.ServiceInstanceSpec{}
@@ -327,13 +434,29 @@ func (inf *meshInformer) OnServiceInstanceSpecs(serviceName string, fn ServiceIn
 				logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
 				continue
 			}
-			instanceSpecs[k] = instanceSpec
+			if len(tenant) == 0 || gs[instanceSpec.ServiceName] || s2t[instanceSpec.ServiceName] == tenant {
+				instanceSpecs[k] = instanceSpec
+			}
 		}
 
 		return fn(instanceSpecs)
 	}
 
-	return inf.onSpecs(instancePrefix, syncerKey, specsFunc)
+	return inf.onSpecs(storeKey, syncerKey, specsFunc)
+}
+
+// OnServiceInstanceSpecs watches all instance specs of a service.
+func (inf *meshInformer) OnServiceInstanceSpecs(serviceName string, fn ServiceInstanceSpecsFunc) error {
+	storeKey := layout.ServiceInstanceSpecPrefix(serviceName)
+	syncerKey := serviceInstanceSpecSyncerKey(serviceName)
+	return inf.onServiceInstanceSpecs(storeKey, syncerKey, fn)
+}
+
+// OnServiceInstanceSpecs watches instance specs of all services.
+func (inf *meshInformer) OnAllServiceInstanceSpecs(fn ServiceInstanceSpecsFunc) error {
+	storeKey := layout.AllServiceInstanceSpecPrefix()
+	syncerKey := "prefix-service-instance"
+	return inf.onServiceInstanceSpecs(storeKey, syncerKey, fn)
 }
 
 func (inf *meshInformer) StopWatchServiceInstanceSpec(serviceName string) {
@@ -341,12 +464,18 @@ func (inf *meshInformer) StopWatchServiceInstanceSpec(serviceName string) {
 	inf.stopSyncOneKey(syncerKey)
 }
 
-// OnServiceInstanceStatuses watches service instance statuses with the same prefix.
-func (inf *meshInformer) OnServiceInstanceStatuses(serviceName string, fn ServiceInstanceStatusesFunc) error {
-	syncerKey := fmt.Sprintf("prefix-service-instance-status-%s", serviceName)
-	instanceStatusPrefix := layout.ServiceInstanceStatusPrefix(serviceName)
-
+func (inf *meshInformer) onServiceInstanceStatuses(storeKey, syncerKey string, fn ServiceInstanceStatusesFunc) error {
 	specsFunc := func(kvs map[string]string) bool {
+		inf.mutex.RLock()
+		gs := inf.globalServices
+		s2t := inf.service2Tenants
+		inf.mutex.RUnlock()
+
+		var tenant string
+		if len(inf.service) > 0 && !gs[inf.service] {
+			tenant = s2t[inf.service]
+		}
+
 		instanceStatuses := make(map[string]*spec.ServiceInstanceStatus)
 		for k, v := range kvs {
 			instanceStatus := &spec.ServiceInstanceStatus{}
@@ -354,18 +483,35 @@ func (inf *meshInformer) OnServiceInstanceStatuses(serviceName string, fn Servic
 				logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
 				continue
 			}
-			instanceStatuses[k] = instanceStatus
+			if len(tenant) == 0 || gs[instanceStatus.ServiceName] || s2t[instanceStatus.ServiceName] == tenant {
+				instanceStatuses[k] = instanceStatus
+			}
 		}
 
 		return fn(instanceStatuses)
 	}
 
-	return inf.onSpecs(instanceStatusPrefix, syncerKey, specsFunc)
+	return inf.onSpecs(storeKey, syncerKey, specsFunc)
 }
 
-// OnTenantSpecs watches tenant specs with the same prefix.
-func (inf *meshInformer) OnTenantSpecs(tenantPrefix string, fn TenantSpecsFunc) error {
-	syncerKey := fmt.Sprintf("prefix-tenant-%s", tenantPrefix)
+// OnServiceInstanceStatuses watches instance statuses of a service
+func (inf *meshInformer) OnServiceInstanceStatuses(serviceName string, fn ServiceInstanceStatusesFunc) error {
+	storeKey := layout.ServiceInstanceStatusPrefix(serviceName)
+	syncerKey := fmt.Sprintf("prefix-service-instance-status-%s", serviceName)
+	return inf.onServiceInstanceStatuses(storeKey, syncerKey, fn)
+}
+
+// OnServiceInstanceStatuses watches instance statuses of all services
+func (inf *meshInformer) OnAllServiceInstanceStatuses(fn ServiceInstanceStatusesFunc) error {
+	storeKey := layout.AllServiceInstanceStatusPrefix()
+	syncerKey := "prefix-service-instance-status"
+	return inf.onServiceInstanceStatuses(storeKey, syncerKey, fn)
+}
+
+// OnAllTenantSpecs watches all tenant specs
+func (inf *meshInformer) OnAllTenantSpecs(fn TenantSpecsFunc) error {
+	storeKey := layout.TenantPrefix()
+	syncerKey := "prefix-tenant"
 
 	specsFunc := func(kvs map[string]string) bool {
 		tenants := make(map[string]*spec.Tenant)
@@ -381,11 +527,11 @@ func (inf *meshInformer) OnTenantSpecs(tenantPrefix string, fn TenantSpecsFunc) 
 		return fn(tenants)
 	}
 
-	return inf.onSpecs(tenantPrefix, syncerKey, specsFunc)
+	return inf.onSpecs(storeKey, syncerKey, specsFunc)
 }
 
-// OnIngressSpecs watches ingress specs
-func (inf *meshInformer) OnIngressSpecs(fn IngressSpecsFunc) error {
+// OnAllIngressSpecs watches all ingress specs
+func (inf *meshInformer) OnAllIngressSpecs(fn IngressSpecsFunc) error {
 	storeKey := layout.IngressPrefix()
 	syncerKey := "prefix-ingress"
 
@@ -426,6 +572,9 @@ func (inf *meshInformer) comparePart(path GJSONPath, old, new string) bool {
 	return gjson.Get(string(oldJSON), string(path)) == gjson.Get(string(newJSON), string(path))
 }
 
+// TODO: gjsonPath is useless now, need to be removed
+// also need to rename this function and all its caller functions
+// as they are not accurate anymore
 func (inf *meshInformer) onSpecPart(storeKey, syncerKey string, gjsonPath GJSONPath, fn specHandleFunc) error {
 	inf.mutex.Lock()
 	defer inf.mutex.Unlock()
@@ -451,7 +600,7 @@ func (inf *meshInformer) onSpecPart(storeKey, syncerKey string, gjsonPath GJSONP
 
 	inf.syncers[syncerKey] = syncer
 
-	go inf.sync(ch, syncerKey, gjsonPath, fn)
+	go inf.sync(ch, syncerKey, fn)
 
 	return nil
 }
@@ -497,9 +646,7 @@ func (inf *meshInformer) Close() {
 	inf.closed = true
 }
 
-func (inf *meshInformer) sync(ch <-chan *mvccpb.KeyValue, syncerKey string, path GJSONPath, fn specHandleFunc) {
-	var oldKV *mvccpb.KeyValue
-
+func (inf *meshInformer) sync(ch <-chan *mvccpb.KeyValue, syncerKey string, fn specHandleFunc) {
 	for kv := range ch {
 		var (
 			event Event
@@ -508,13 +655,11 @@ func (inf *meshInformer) sync(ch <-chan *mvccpb.KeyValue, syncerKey string, path
 
 		if kv == nil {
 			event.EventType = EventDelete
-		} else if oldKV == nil || !inf.comparePart(path, string(oldKV.Value), string(kv.Value)) {
+		} else {
 			event.EventType = EventUpdate
 			event.RawKV = kv
 			value = string(kv.Value)
 		}
-
-		oldKV = kv
 
 		if !fn(event, value) {
 			inf.stopSyncOneKey(syncerKey)

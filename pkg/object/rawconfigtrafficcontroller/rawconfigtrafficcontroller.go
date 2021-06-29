@@ -185,17 +185,23 @@ func (rctc *RawConfigTrafficController) handleEvent(event *supervisor.ObjectEnti
 func (rctc *RawConfigTrafficController) Status() *supervisor.Status {
 	status := &Status{
 		Namespace:     rctc.namespace,
-		HTTPServers:   make(map[string]*httpserver.Status),
-		HTTPPipelines: make(map[string]*httppipeline.Status),
+		HTTPServers:   make(map[string]*trafficcontroller.HTTPServerStatus),
+		HTTPPipelines: make(map[string]*trafficcontroller.HTTPPipelineStatus),
 	}
 
 	rctc.tc.WalkHTTPServers(rctc.namespace, func(entity *supervisor.ObjectEntity) bool {
-		status.HTTPServers[entity.Spec().Name()] = entity.Instance().Status().ObjectStatus.(*httpserver.Status)
+		status.HTTPServers[entity.Spec().Name()] = &trafficcontroller.HTTPServerStatus{
+			Spec:   entity.Spec().RawSpec(),
+			Status: entity.Instance().Status().ObjectStatus.(*httpserver.Status),
+		}
 		return true
 	})
 
 	rctc.tc.WalkHTTPPipelines(rctc.namespace, func(entity *supervisor.ObjectEntity) bool {
-		status.HTTPPipelines[entity.Spec().Name()] = entity.Instance().Status().ObjectStatus.(*httppipeline.Status)
+		status.HTTPPipelines[entity.Spec().Name()] = &trafficcontroller.HTTPPipelineStatus{
+			Spec:   entity.Spec().RawSpec(),
+			Status: entity.Instance().Status().ObjectStatus.(*httppipeline.Status),
+		}
 		return true
 	})
 

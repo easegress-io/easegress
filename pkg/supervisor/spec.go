@@ -30,6 +30,7 @@ type (
 	Spec struct {
 		yamlConfig string
 		meta       *MetaSpec
+		rawSpec    map[string]interface{}
 		objectSpec interface{}
 	}
 
@@ -49,9 +50,7 @@ func newSpecInternal(meta *MetaSpec, objectSpec interface{}) *Spec {
 
 // NewSpec creates a spec and validates it.
 func NewSpec(yamlConfig string) (*Spec, error) {
-	s := &Spec{
-		yamlConfig: yamlConfig,
-	}
+	s := &Spec{}
 
 	meta := &MetaSpec{}
 	err := yaml.Unmarshal([]byte(yamlConfig), meta)
@@ -79,6 +78,32 @@ func NewSpec(yamlConfig string) (*Spec, error) {
 		return nil, fmt.Errorf("validate spec failed: \n%s", vr)
 	}
 
+	// Build final yaml config and raw spec.
+	objectBuff, err := yaml.Marshal(s.objectSpec)
+	if err != nil {
+		return nil, fmt.Errorf("marshal %#v to yaml failed: %v", s.objectSpec, err)
+	}
+	err = yaml.Unmarshal(objectBuff, &s.rawSpec)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal %s to yaml failed: %v", objectBuff, err)
+	}
+
+	metaBuff, err := yaml.Marshal(s.meta)
+	if err != nil {
+		return nil, fmt.Errorf("marshal %#v to yaml failed: %v", s.meta, err)
+	}
+	err = yaml.Unmarshal(metaBuff, &s.rawSpec)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal %s to yaml failed: %v", objectBuff, err)
+	}
+
+	yamlBuff, err := yaml.Marshal(s.rawSpec)
+	if err != nil {
+		return nil, fmt.Errorf("marshal %#v to yaml failed: %v", s.rawSpec, err)
+	}
+
+	s.yamlConfig = string(yamlBuff)
+
 	return s, nil
 }
 
@@ -91,6 +116,11 @@ func (s *Spec) Kind() string { return s.meta.Kind }
 // YAMLConfig returns the config in yaml format.
 func (s *Spec) YAMLConfig() string {
 	return s.yamlConfig
+}
+
+// RawSpec returns the final complete spec in type map[string]interface{}.
+func (s *Spec) RawSpec() map[string]interface{} {
+	return s.rawSpec
 }
 
 // ObjectSpec returns the object spec.

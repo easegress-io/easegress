@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package master
+package api
 
 import (
 	"fmt"
@@ -37,7 +37,7 @@ func (s serviceInstancesByOrder) Less(i, j int) bool {
 func (s serviceInstancesByOrder) Len() int      { return len(s) }
 func (s serviceInstancesByOrder) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 
-func (m *Master) readServiceInstanceInfo(w http.ResponseWriter, r *http.Request) (string, string, error) {
+func (m *API) readServiceInstanceInfo(w http.ResponseWriter, r *http.Request) (string, string, error) {
 	serviceName := chi.URLParam(r, "serviceName")
 	if serviceName == "" {
 		return "", "", fmt.Errorf("empty service name")
@@ -51,8 +51,8 @@ func (m *Master) readServiceInstanceInfo(w http.ResponseWriter, r *http.Request)
 	return serviceName, instanceID, nil
 }
 
-func (m *Master) listServiceInstanceSpecs(w http.ResponseWriter, r *http.Request) {
-	specs := m.service.ListAllServiceInstanceSpecs()
+func (a *API) listServiceInstanceSpecs(w http.ResponseWriter, r *http.Request) {
+	specs := a.service.ListAllServiceInstanceSpecs()
 
 	sort.Sort(serviceInstancesByOrder(specs))
 
@@ -65,14 +65,14 @@ func (m *Master) listServiceInstanceSpecs(w http.ResponseWriter, r *http.Request
 	w.Write(buff)
 }
 
-func (m *Master) getServiceInstanceSpec(w http.ResponseWriter, r *http.Request) {
-	serviceName, instanceID, err := m.readServiceInstanceInfo(w, r)
+func (a *API) getServiceInstanceSpec(w http.ResponseWriter, r *http.Request) {
+	serviceName, instanceID, err := a.readServiceInstanceInfo(w, r)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
-	serviceSpec := m.service.GetServiceInstanceSpec(serviceName, instanceID)
+	serviceSpec := a.service.GetServiceInstanceSpec(serviceName, instanceID)
 	if serviceSpec == nil {
 		api.HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("%s/%s not found", serviceName, instanceID))
 		return
@@ -87,22 +87,22 @@ func (m *Master) getServiceInstanceSpec(w http.ResponseWriter, r *http.Request) 
 	w.Write(buff)
 }
 
-func (m *Master) offlineSerivceInstance(w http.ResponseWriter, r *http.Request) {
-	serviceName, instanceID, err := m.readServiceInstanceInfo(w, r)
+func (a *API) offlineSerivceInstance(w http.ResponseWriter, r *http.Request) {
+	serviceName, instanceID, err := a.readServiceInstanceInfo(w, r)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
-	m.service.Lock()
-	defer m.service.Unlock()
+	a.service.Lock()
+	defer a.service.Unlock()
 
-	instanceSpec := m.service.GetServiceInstanceSpec(serviceName, instanceID)
+	instanceSpec := a.service.GetServiceInstanceSpec(serviceName, instanceID)
 	if instanceSpec == nil {
 		api.HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("%s/%s not found", serviceName, instanceID))
 		return
 	}
 
 	instanceSpec.Status = spec.ServiceStatusOutOfService
-	m.service.PutServiceInstanceSpec(instanceSpec)
+	a.service.PutServiceInstanceSpec(instanceSpec)
 }

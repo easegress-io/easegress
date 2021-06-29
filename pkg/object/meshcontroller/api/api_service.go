@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package master
+package api
 
 import (
 	"encoding/json"
@@ -39,7 +39,7 @@ func (s servicesByOrder) Less(i, j int) bool { return s[i].Name < s[j].Name }
 func (s servicesByOrder) Len() int           { return len(s) }
 func (s servicesByOrder) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
-func (m *Master) readServiceName(w http.ResponseWriter, r *http.Request) (string, error) {
+func (m *API) readServiceName(w http.ResponseWriter, r *http.Request) (string, error) {
 	serviceName := chi.URLParam(r, "serviceName")
 	if serviceName == "" {
 		return "", fmt.Errorf("empty service name")
@@ -48,15 +48,15 @@ func (m *Master) readServiceName(w http.ResponseWriter, r *http.Request) (string
 	return serviceName, nil
 }
 
-func (m *Master) listServices(w http.ResponseWriter, r *http.Request) {
-	specs := m.service.ListServiceSpecs()
+func (a *API) listServices(w http.ResponseWriter, r *http.Request) {
+	specs := a.service.ListServiceSpecs()
 
 	sort.Sort(servicesByOrder(specs))
 
 	var apiSpecs []*v1alpha1.Service
 	for _, v := range specs {
 		service := &v1alpha1.Service{}
-		err := m.convertSpecToPB(v, service)
+		err := a.convertSpecToPB(v, service)
 		if err != nil {
 			logger.Errorf("convert spec %#v to pb spec failed: %v", v, err)
 			continue
@@ -73,16 +73,16 @@ func (m *Master) listServices(w http.ResponseWriter, r *http.Request) {
 	w.Write(buff)
 }
 
-func (m *Master) createService(w http.ResponseWriter, r *http.Request) {
+func (a *API) createService(w http.ResponseWriter, r *http.Request) {
 	pbServiceSpec := &v1alpha1.Service{}
 	serviceSpec := &spec.Service{}
 
-	serviceName, err := m.readServiceName(w, r)
+	serviceName, err := a.readServiceName(w, r)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
-	err = m.readAPISpec(w, r, pbServiceSpec, serviceSpec)
+	err = a.readAPISpec(w, r, pbServiceSpec, serviceSpec)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
@@ -93,16 +93,16 @@ func (m *Master) createService(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	m.service.Lock()
-	defer m.service.Unlock()
+	a.service.Lock()
+	defer a.service.Unlock()
 
-	oldSpec := m.service.GetServiceSpec(serviceName)
+	oldSpec := a.service.GetServiceSpec(serviceName)
 	if oldSpec != nil {
 		api.HandleAPIError(w, r, http.StatusConflict, fmt.Errorf("%s existed", serviceName))
 		return
 	}
 
-	tenantSpec := m.service.GetTenantSpec(serviceSpec.RegisterTenant)
+	tenantSpec := a.service.GetTenantSpec(serviceSpec.RegisterTenant)
 	if tenantSpec == nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest,
 			fmt.Errorf("tenant %s not found", serviceSpec.RegisterTenant))
@@ -111,28 +111,28 @@ func (m *Master) createService(w http.ResponseWriter, r *http.Request) {
 
 	tenantSpec.Services = append(tenantSpec.Services, serviceSpec.Name)
 
-	m.service.PutServiceSpec(serviceSpec)
-	m.service.PutTenantSpec(tenantSpec)
+	a.service.PutServiceSpec(serviceSpec)
+	a.service.PutTenantSpec(tenantSpec)
 
 	w.Header().Set("Location", r.URL.Path)
 	w.WriteHeader(http.StatusCreated)
 }
 
-func (m *Master) getService(w http.ResponseWriter, r *http.Request) {
-	serviceName, err := m.readServiceName(w, r)
+func (a *API) getService(w http.ResponseWriter, r *http.Request) {
+	serviceName, err := a.readServiceName(w, r)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
-	serviceSpec := m.service.GetServiceSpec(serviceName)
+	serviceSpec := a.service.GetServiceSpec(serviceName)
 	if serviceSpec == nil {
 		api.HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("%s not found", serviceName))
 		return
 	}
 
 	pbServiceSpec := &v1alpha1.Service{}
-	err = m.convertSpecToPB(serviceSpec, pbServiceSpec)
+	err = a.convertSpecToPB(serviceSpec, pbServiceSpec)
 	if err != nil {
 		panic(fmt.Errorf("convert spec %#v to pb failed: %v", serviceSpec, err))
 	}
@@ -146,16 +146,16 @@ func (m *Master) getService(w http.ResponseWriter, r *http.Request) {
 	w.Write(buff)
 }
 
-func (m *Master) updateService(w http.ResponseWriter, r *http.Request) {
+func (a *API) updateService(w http.ResponseWriter, r *http.Request) {
 	pbServiceSpec := &v1alpha1.Service{}
 	serviceSpec := &spec.Service{}
 
-	serviceName, err := m.readServiceName(w, r)
+	serviceName, err := a.readServiceName(w, r)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
-	err = m.readAPISpec(w, r, pbServiceSpec, serviceSpec)
+	err = a.readAPISpec(w, r, pbServiceSpec, serviceSpec)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
@@ -166,17 +166,17 @@ func (m *Master) updateService(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	m.service.Lock()
-	defer m.service.Unlock()
+	a.service.Lock()
+	defer a.service.Unlock()
 
-	oldSpec := m.service.GetServiceSpec(serviceName)
+	oldSpec := a.service.GetServiceSpec(serviceName)
 	if oldSpec == nil {
 		api.HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("%s not found", serviceName))
 		return
 	}
 
 	if serviceSpec.RegisterTenant != oldSpec.RegisterTenant {
-		newTenantSpec := m.service.GetTenantSpec(serviceSpec.RegisterTenant)
+		newTenantSpec := a.service.GetTenantSpec(serviceSpec.RegisterTenant)
 		if newTenantSpec == nil {
 			api.HandleAPIError(w, r, http.StatusBadRequest,
 				fmt.Errorf("tenant %s not found", serviceName))
@@ -184,17 +184,17 @@ func (m *Master) updateService(w http.ResponseWriter, r *http.Request) {
 		}
 		newTenantSpec.Services = append(newTenantSpec.Services, serviceSpec.Name)
 
-		oldTenantSpec := m.service.GetTenantSpec(oldSpec.RegisterTenant)
+		oldTenantSpec := a.service.GetTenantSpec(oldSpec.RegisterTenant)
 		if oldTenantSpec == nil {
 			panic(fmt.Errorf("tenant %s not found", oldSpec.RegisterTenant))
 		}
 		oldTenantSpec.Services = stringtool.DeleteStrInSlice(oldTenantSpec.Services, serviceName)
 
-		m.service.PutTenantSpec(newTenantSpec)
-		m.service.PutTenantSpec(oldTenantSpec)
+		a.service.PutTenantSpec(newTenantSpec)
+		a.service.PutTenantSpec(oldTenantSpec)
 	}
 
-	globalCanaryHeaders := m.service.GetGlobalCanaryHeaders()
+	globalCanaryHeaders := a.service.GetGlobalCanaryHeaders()
 	uniqueHeaders := serviceSpec.UniqueCanaryHeaders()
 	oldUniqueHeaders := oldSpec.UniqueCanaryHeaders()
 
@@ -205,35 +205,35 @@ func (m *Master) updateService(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		globalCanaryHeaders.ServiceHeaders[serviceName] = uniqueHeaders
-		m.service.PutGlobalCanaryHeaders(globalCanaryHeaders)
+		a.service.PutGlobalCanaryHeaders(globalCanaryHeaders)
 	}
 
-	m.service.PutServiceSpec(serviceSpec)
+	a.service.PutServiceSpec(serviceSpec)
 }
 
-func (m *Master) deleteService(w http.ResponseWriter, r *http.Request) {
-	serviceName, err := m.readServiceName(w, r)
+func (a *API) deleteService(w http.ResponseWriter, r *http.Request) {
+	serviceName, err := a.readServiceName(w, r)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
-	m.service.Lock()
-	defer m.service.Unlock()
+	a.service.Lock()
+	defer a.service.Unlock()
 
-	oldSpec := m.service.GetServiceSpec(serviceName)
+	oldSpec := a.service.GetServiceSpec(serviceName)
 	if oldSpec == nil {
 		api.HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("%s not found", serviceName))
 		return
 	}
 
-	tenantSpec := m.service.GetTenantSpec(oldSpec.RegisterTenant)
+	tenantSpec := a.service.GetTenantSpec(oldSpec.RegisterTenant)
 	if tenantSpec == nil {
 		panic(fmt.Errorf("tenant %s not found", oldSpec.RegisterTenant))
 	}
 
 	tenantSpec.Services = stringtool.DeleteStrInSlice(tenantSpec.Services, serviceName)
 
-	m.service.PutTenantSpec(tenantSpec)
-	m.service.DeleteServiceSpec(serviceName)
+	a.service.PutTenantSpec(tenantSpec)
+	a.service.DeleteServiceSpec(serviceName)
 }

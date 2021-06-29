@@ -79,8 +79,12 @@ func main() {
 		logger.Errorf("new cluster failed: %v", err)
 		os.Exit(1)
 	}
-	super := supervisor.MustNew(opt, cls)
+
 	apiServer := api.MustNewServer(opt, cls)
+
+	// NOTE: Supervisor needs to be created after API server.
+	// Because the objects created by supervisor could use global API server.
+	super := supervisor.MustNew(opt, cls)
 
 	if graceupdate.CallOriProcessTerm(super.FirstHandleDone()) {
 		pidfile.Write(opt)

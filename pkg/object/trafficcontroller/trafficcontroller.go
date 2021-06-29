@@ -71,12 +71,22 @@ type (
 		Namespaces []string `yaml:"namespaces"`
 	}
 
+	HTTPServerStatus struct {
+		Spec   map[string]interface{} `yaml:"spec"`
+		Status *httpserver.Status     `yaml:"status"`
+	}
+
+	HTTPPipelineStatus struct {
+		Spec   map[string]interface{} `yaml:"spec"`
+		Status *httppipeline.Status   `yaml:"status"`
+	}
+
 	// StatusInSameNamespace is the universal status in one space.
 	// TrafficController won't use it.
 	StatusInSameNamespace struct {
-		Namespace     string                          `yaml:"namespace"`
-		HTTPServers   map[string]*httpserver.Status   `yaml:"httpServers"`
-		HTTPPipelines map[string]*httppipeline.Status `yaml:"httpPipelines"`
+		Namespace     string                         `yaml:"namespace"`
+		HTTPServers   map[string]*HTTPServerStatus   `yaml:"httpServers"`
+		HTTPPipelines map[string]*HTTPPipelineStatus `yaml:"httpPipelines"`
 	}
 )
 
@@ -522,6 +532,35 @@ func (tc *TrafficController) ListHTTPPipelines(namespace string) []*supervisor.O
 	})
 
 	return entities
+}
+
+// Clean all http servers and http pipelines of one namespace.
+func (tc *TrafficController) Clean(namespace string) error {
+	tc.mutex.Lock()
+	defer tc.mutex.Unlock()
+
+	space, exist := tc.namespaces[namespace]
+	if !exist {
+		return fmt.Errorf("namespace %s not found", namespace)
+	}
+
+	space.httpservers.Range(func(k, v interface{}) bool {
+		v.(*supervisor.ObjectEntity).CloseWithRecovery()
+		logger.Infof("delete http server %s/%s", namespace, k)
+		space.httpservers.Delete(k)
+		return true
+	})
+
+	space.httppipelines.Range(func(k, v interface{}) bool {
+		v.(*supervisor.ObjectEntity).CloseWithRecovery()
+		logger.Infof("delete http pipeline %s/%s", namespace, k)
+		space.httppipelines.Delete(k)
+		return true
+	})
+
+	tc._cleanSpace(namespace)
+
+	return nil
 }
 
 // _cleanSpace must be called after deleting HTTPServer or HTTPPipeline.

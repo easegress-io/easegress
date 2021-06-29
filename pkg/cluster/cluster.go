@@ -54,6 +54,8 @@ const (
 
 	// lease config
 	leaseTTL = clientv3.MaxLeaseTTL // 9000000000Second=285Year
+
+	minTTL = 5 // grant a new lease if the lease ttl is less than minTTL
 )
 
 type (
@@ -86,12 +88,13 @@ type (
 	}
 )
 
-func strTolease(s string) (clientv3.LeaseID, error) {
-	lease, err := strconv.ParseInt(s, 16, 64)
+func strTolease(s string) (*clientv3.LeaseID, error) {
+	leaseNum, err := strconv.ParseInt(s, 16, 64)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return clientv3.LeaseID(lease), nil
+	leaseID := clientv3.LeaseID(leaseNum)
+	return &leaseID, nil
 }
 
 func newEtcdStats(buff []byte) (*etcdStats, error) {
@@ -155,7 +158,7 @@ func New(opt *option.Options) (Cluster, error) {
 
 	c.initLayout()
 
-	go c.run()
+	c.run()
 
 	return c, nil
 }
@@ -183,22 +186,29 @@ func (c *cluster) longRequestContext() context.Context {
 }
 
 func (c *cluster) run() {
-	logger.Infof("starting etcd cluster")
-	for i := 0; ; i++ {
-		err := c.getReady()
-		if err != nil {
-			logger.Errorf("start cluster failed (%d retries): %v", i, err)
-			if i > 3 {
+	tryTimes := 0
+	tryReady := func() error {
+		tryTimes++
+		return c.getReady()
+	}
+
+	// NOTE: Try to be ready in first time synchronously.
+	// If it got failed, try it asynchronously.
+	if err := tryReady(); err != nil {
+		logger.Errorf("start cluster failed (%d retries): %v", tryTimes, err)
+
+		for {
+			time.Sleep(HeartbeatInterval)
+			err := tryReady()
+			if err != nil {
 				logger.Errorf("failed start many times(%d), "+
 					"start others if they're not online, "+
 					"otherwise purge this member, clean data directory "+
-					"and rejoin it back.", i+1)
+					"and rejoin it back.", tryTimes)
+			} else {
+				break
 			}
-			time.Sleep(HeartbeatInterval)
-			continue
 		}
-
-		break
 	}
 
 	logger.Infof("cluster is ready")
@@ -207,7 +217,7 @@ func (c *cluster) run() {
 		go c.defrag()
 	}
 
-	c.heartbeat()
+	go c.heartbeat()
 }
 
 func (c *cluster) getReady() error {
@@ -226,6 +236,9 @@ func (c *cluster) getReady() error {
 		if err != nil {
 			return fmt.Errorf("init lease failed: %v", err)
 		}
+
+		go c.keepAliveLease()
+
 		return nil
 	}
 
@@ -260,6 +273,8 @@ func (c *cluster) getReady() error {
 	if err != nil {
 		return fmt.Errorf("init lease failed: %v", err)
 	}
+
+	go c.keepAliveLease()
 
 	return nil
 }
@@ -423,60 +438,114 @@ func (c *cluster) closeClient() {
 func (c *cluster) getLease() (clientv3.LeaseID, error) {
 	c.leaseMutex.RLock()
 	defer c.leaseMutex.RUnlock()
+
 	if c.lease == nil {
 		return 0, fmt.Errorf("lease is not ready")
 	}
+
 	return *c.lease, nil
 }
 
-func (c *cluster) initLease() error {
-	_, err := c.getLease()
-	if err == nil {
-		return nil
+func (c *cluster) keepAliveLease() {
+	handleFailed := func() {
+		err := c.grantNewLease()
+		if err != nil {
+			logger.Errorf("grant new lease failed: %v", err)
+		}
 	}
 
+	for {
+		select {
+		case <-c.done:
+			return
+		case <-time.After(c.requestTimeout):
+			client, err := c.getClient()
+			if err != nil {
+				logger.Errorf("get client failed: %v", err)
+				continue
+			}
+
+			leaseID, err := c.getLease()
+			if err != nil {
+				logger.Errorf("get lease failed: %v", err)
+				handleFailed()
+				continue
+			}
+
+			_, err = client.Lease.KeepAliveOnce(c.requestContext(), leaseID)
+			if err != nil {
+				logger.Errorf("keep alive for lease %x failed: %v", leaseID, err)
+				handleFailed()
+				continue
+			}
+		}
+	}
+}
+
+func (c *cluster) initLease() error {
 	leaseStr, err := c.Get(c.Layout().Lease())
 	if err != nil {
 		return err
 	}
 
+	var leaseID *clientv3.LeaseID
 	if leaseStr != nil {
-		lease, err := strTolease(*leaseStr)
+		leaseID, err = strTolease(*leaseStr)
 		if err != nil {
 			logger.Errorf("BUG: parse lease %s failed: %v", *leaseStr, err)
 			return err
 		}
-
-		c.leaseMutex.Lock()
-		c.lease = &lease
-		logger.Infof("lease is ready")
-		c.leaseMutex.Unlock()
-
-		return nil
 	}
 
 	client, err := c.getClient()
 	if err != nil {
-		return err
+		return fmt.Errorf("get client failed: %v", err)
 	}
+
+	if leaseID != nil {
+		resp, err := client.Lease.TimeToLive(c.requestContext(), *leaseID)
+		if err != nil || resp.TTL < minTTL {
+			return c.grantNewLease()
+		} else {
+			// NOTE: Use existed lease.
+			c.lease = leaseID
+			logger.Infof("lease is ready(use existed one: %x)", *c.lease)
+			return nil
+		}
+	} else {
+		return c.grantNewLease()
+	}
+}
+
+func (c *cluster) grantNewLease() error {
+	client, err := c.getClient()
+	if err != nil {
+		return fmt.Errorf("get client failed: %v", err)
+	}
+
+	c.leaseMutex.Lock()
+	defer c.leaseMutex.Unlock()
 
 	respGrant, err := client.Lease.Grant(c.requestContext(), leaseTTL)
 	if err != nil {
 		return err
 	}
-	lease := respGrant.ID
 
-	// NOTE: In case of deadlock with calling PutUnderLease below.
-	c.leaseMutex.Lock()
-	c.lease = &lease
-	logger.Infof("lease is ready")
-	c.leaseMutex.Unlock()
+	// NOTE: c.PutUnderLease will cause deadlock cause it used lease lock internally.
+	_, err = client.Put(c.requestContext(), c.layout.Lease(), fmt.Sprintf("%x", respGrant.ID),
+		clientv3.WithLease(respGrant.ID))
 
-	err = c.PutUnderLease(c.Layout().Lease(), fmt.Sprintf("%x", lease))
 	if err != nil {
-		return fmt.Errorf("put lease to %s failed: %v",
-			c.Layout().Lease(), err)
+		// NOTE: Ignore the return error is fine.
+		client.Lease.Revoke(c.requestContext(), respGrant.ID)
+
+		return fmt.Errorf("put lease to %s failed: %v", c.Layout().Lease(), err)
 	}
+
+	lease := respGrant.ID
+	c.lease = &lease
+
+	logger.Infof("lease is ready (grant new one: %x)", *c.lease)
 
 	return nil
 }
@@ -769,12 +838,12 @@ func (c *cluster) PurgeMember(memberName string) error {
 	if leaseStr == nil {
 		return fmt.Errorf("%s not found", leaseKey)
 	}
-	lease, err := strTolease(*leaseStr)
+	leaseID, err := strTolease(*leaseStr)
 	if err != nil {
 		return err
 	}
 
-	_, err = client.Lease.Revoke(c.requestContext(), lease)
+	_, err = client.Lease.Revoke(c.requestContext(), *leaseID)
 	if err != nil {
 		return err
 	}

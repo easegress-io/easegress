@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package master
+package api
 
 import (
 	"encoding/json"
@@ -37,7 +37,7 @@ func (s ingressesByOrder) Less(i, j int) bool { return s[i].Name < s[j].Name }
 func (s ingressesByOrder) Len() int           { return len(s) }
 func (s ingressesByOrder) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
-func (m *Master) readIngressName(w http.ResponseWriter, r *http.Request) (string, error) {
+func (a *API) readIngressName(w http.ResponseWriter, r *http.Request) (string, error) {
 	serviceName := chi.URLParam(r, "ingressName")
 	if serviceName == "" {
 		return "", fmt.Errorf("empty ingress name")
@@ -46,14 +46,14 @@ func (m *Master) readIngressName(w http.ResponseWriter, r *http.Request) (string
 	return serviceName, nil
 }
 
-func (m *Master) listIngresses(w http.ResponseWriter, r *http.Request) {
-	specs := m.service.ListIngressSpecs()
+func (a *API) listIngresses(w http.ResponseWriter, r *http.Request) {
+	specs := a.service.ListIngressSpecs()
 
 	sort.Sort(ingressesByOrder(specs))
 	var apiSpecs []*v1alpha1.Ingress
 	for _, v := range specs {
 		ingress := &v1alpha1.Ingress{}
-		err := m.convertSpecToPB(v, ingress)
+		err := a.convertSpecToPB(v, ingress)
 		if err != nil {
 			logger.Errorf("convert spec %#v to pb spec failed: %v", v, err)
 			continue
@@ -69,16 +69,16 @@ func (m *Master) listIngresses(w http.ResponseWriter, r *http.Request) {
 	w.Write(buff)
 }
 
-func (m *Master) createIngress(w http.ResponseWriter, r *http.Request) {
+func (a *API) createIngress(w http.ResponseWriter, r *http.Request) {
 	pbIngressSpec := &v1alpha1.Ingress{}
 	ingressSpec := &spec.Ingress{}
 
-	ingressName, err := m.readIngressName(w, r)
+	ingressName, err := a.readIngressName(w, r)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
-	err = m.readAPISpec(w, r, pbIngressSpec, ingressSpec)
+	err = a.readAPISpec(w, r, pbIngressSpec, ingressSpec)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
@@ -89,35 +89,35 @@ func (m *Master) createIngress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	m.service.Lock()
-	defer m.service.Unlock()
+	a.service.Lock()
+	defer a.service.Unlock()
 
-	oldSpec := m.service.GetIngressSpec(ingressName)
+	oldSpec := a.service.GetIngressSpec(ingressName)
 	if oldSpec != nil {
 		api.HandleAPIError(w, r, http.StatusConflict, fmt.Errorf("%s existed", ingressName))
 		return
 	}
 
-	m.service.PutIngressSpec(ingressSpec)
+	a.service.PutIngressSpec(ingressSpec)
 
 	w.Header().Set("Location", r.URL.Path)
 	w.WriteHeader(http.StatusCreated)
 }
 
-func (m *Master) getIngress(w http.ResponseWriter, r *http.Request) {
-	ingressName, err := m.readIngressName(w, r)
+func (a *API) getIngress(w http.ResponseWriter, r *http.Request) {
+	ingressName, err := a.readIngressName(w, r)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
-	ingressSpec := m.service.GetIngressSpec(ingressName)
+	ingressSpec := a.service.GetIngressSpec(ingressName)
 	if ingressSpec == nil {
 		api.HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("%s not found", ingressName))
 		return
 	}
 	pbIngressSpec := &v1alpha1.Ingress{}
-	err = m.convertSpecToPB(ingressSpec, pbIngressSpec)
+	err = a.convertSpecToPB(ingressSpec, pbIngressSpec)
 	if err != nil {
 		panic(fmt.Errorf("convert spec %#v to pb failed: %v", ingressSpec, err))
 	}
@@ -131,16 +131,16 @@ func (m *Master) getIngress(w http.ResponseWriter, r *http.Request) {
 	w.Write(buff)
 }
 
-func (m *Master) updateIngress(w http.ResponseWriter, r *http.Request) {
+func (a *API) updateIngress(w http.ResponseWriter, r *http.Request) {
 	pbIngressSpec := &v1alpha1.Ingress{}
 	ingressSpec := &spec.Ingress{}
 
-	ingressName, err := m.readIngressName(w, r)
+	ingressName, err := a.readIngressName(w, r)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
-	err = m.readAPISpec(w, r, pbIngressSpec, ingressSpec)
+	err = a.readAPISpec(w, r, pbIngressSpec, ingressSpec)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
@@ -151,33 +151,33 @@ func (m *Master) updateIngress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	m.service.Lock()
-	defer m.service.Unlock()
+	a.service.Lock()
+	defer a.service.Unlock()
 
-	oldSpec := m.service.GetIngressSpec(ingressName)
+	oldSpec := a.service.GetIngressSpec(ingressName)
 	if oldSpec == nil {
 		api.HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("%s not found", ingressName))
 		return
 	}
 
-	m.service.PutIngressSpec(ingressSpec)
+	a.service.PutIngressSpec(ingressSpec)
 }
 
-func (m *Master) deleteIngress(w http.ResponseWriter, r *http.Request) {
-	ingressName, err := m.readIngressName(w, r)
+func (a *API) deleteIngress(w http.ResponseWriter, r *http.Request) {
+	ingressName, err := a.readIngressName(w, r)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
-	m.service.Lock()
-	defer m.service.Unlock()
+	a.service.Lock()
+	defer a.service.Unlock()
 
-	oldSpec := m.service.GetIngressSpec(ingressName)
+	oldSpec := a.service.GetIngressSpec(ingressName)
 	if oldSpec == nil {
 		api.HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("%s not found", ingressName))
 		return
 	}
 
-	m.service.DeleteIngressSpec(ingressName)
+	a.service.DeleteIngressSpec(ingressName)
 }

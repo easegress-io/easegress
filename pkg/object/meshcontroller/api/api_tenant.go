@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package master
+package api
 
 import (
 	"encoding/json"
@@ -38,7 +38,7 @@ func (s tenantsByOrder) Less(i, j int) bool { return s[i].Name < s[j].Name }
 func (s tenantsByOrder) Len() int           { return len(s) }
 func (s tenantsByOrder) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
-func (m *Master) readTenantName(w http.ResponseWriter, r *http.Request) (string, error) {
+func (a *API) readTenantName(w http.ResponseWriter, r *http.Request) (string, error) {
 	serviceName := chi.URLParam(r, "tenantName")
 	if serviceName == "" {
 		return "", fmt.Errorf("empty tenant name")
@@ -47,15 +47,15 @@ func (m *Master) readTenantName(w http.ResponseWriter, r *http.Request) (string,
 	return serviceName, nil
 }
 
-func (m *Master) listTenants(w http.ResponseWriter, r *http.Request) {
-	specs := m.service.ListTenantSpecs()
+func (a *API) listTenants(w http.ResponseWriter, r *http.Request) {
+	specs := a.service.ListTenantSpecs()
 
 	sort.Sort(tenantsByOrder(specs))
 
 	var apiSpecs []*v1alpha1.Tenant
 	for _, v := range specs {
 		tenant := &v1alpha1.Tenant{}
-		err := m.convertSpecToPB(v, &tenant)
+		err := a.convertSpecToPB(v, &tenant)
 		if err != nil {
 			logger.Errorf("convert spec %#v to pb spec failed: %v", v, err)
 			continue
@@ -72,16 +72,16 @@ func (m *Master) listTenants(w http.ResponseWriter, r *http.Request) {
 	w.Write(buff)
 }
 
-func (m *Master) createTenant(w http.ResponseWriter, r *http.Request) {
+func (a *API) createTenant(w http.ResponseWriter, r *http.Request) {
 	pbTenantSpec := &v1alpha1.Tenant{}
 	tenantSpec := &spec.Tenant{}
 
-	tenantName, err := m.readTenantName(w, r)
+	tenantName, err := a.readTenantName(w, r)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
-	err = m.readAPISpec(w, r, pbTenantSpec, tenantSpec)
+	err = a.readAPISpec(w, r, pbTenantSpec, tenantSpec)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
@@ -99,36 +99,36 @@ func (m *Master) createTenant(w http.ResponseWriter, r *http.Request) {
 	}
 	tenantSpec.CreatedAt = time.Now().Format(time.RFC3339)
 
-	m.service.Lock()
-	defer m.service.Unlock()
+	a.service.Lock()
+	defer a.service.Unlock()
 
-	oldSpec := m.service.GetTenantSpec(tenantName)
+	oldSpec := a.service.GetTenantSpec(tenantName)
 	if oldSpec != nil {
 		api.HandleAPIError(w, r, http.StatusConflict, fmt.Errorf("%s existed", tenantName))
 		return
 	}
 
-	m.service.PutTenantSpec(tenantSpec)
+	a.service.PutTenantSpec(tenantSpec)
 
 	w.Header().Set("Location", r.URL.Path)
 	w.WriteHeader(http.StatusCreated)
 }
 
-func (m *Master) getTenant(w http.ResponseWriter, r *http.Request) {
-	tenantName, err := m.readTenantName(w, r)
+func (a *API) getTenant(w http.ResponseWriter, r *http.Request) {
+	tenantName, err := a.readTenantName(w, r)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
-	tenantSpec := m.service.GetTenantSpec(tenantName)
+	tenantSpec := a.service.GetTenantSpec(tenantName)
 	if tenantSpec == nil {
 		api.HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("%s not found", tenantName))
 		return
 	}
 
 	pbTenantSpec := &v1alpha1.Tenant{}
-	err = m.convertSpecToPB(tenantSpec, pbTenantSpec)
+	err = a.convertSpecToPB(tenantSpec, pbTenantSpec)
 	if err != nil {
 		panic(fmt.Errorf("convert spec %#v to pb failed: %v", tenantSpec, err))
 	}
@@ -142,16 +142,16 @@ func (m *Master) getTenant(w http.ResponseWriter, r *http.Request) {
 	w.Write(buff)
 }
 
-func (m *Master) updateTenant(w http.ResponseWriter, r *http.Request) {
+func (a *API) updateTenant(w http.ResponseWriter, r *http.Request) {
 	pbTenantSpec := &v1alpha1.Tenant{}
 	tenantSpec := &spec.Tenant{}
 
-	tenantName, err := m.readTenantName(w, r)
+	tenantName, err := a.readTenantName(w, r)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
-	err = m.readAPISpec(w, r, pbTenantSpec, tenantSpec)
+	err = a.readAPISpec(w, r, pbTenantSpec, tenantSpec)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
@@ -168,10 +168,10 @@ func (m *Master) updateTenant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	m.service.Lock()
-	defer m.service.Unlock()
+	a.service.Lock()
+	defer a.service.Unlock()
 
-	oldSpec := m.service.GetTenantSpec(tenantName)
+	oldSpec := a.service.GetTenantSpec(tenantName)
 	if oldSpec == nil {
 		api.HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("%s not found", tenantName))
 		return
@@ -180,20 +180,20 @@ func (m *Master) updateTenant(w http.ResponseWriter, r *http.Request) {
 	// NOTE: The fields below can't be updated.
 	tenantSpec.Services, tenantSpec.CreatedAt = oldSpec.Services, oldSpec.CreatedAt
 
-	m.service.PutTenantSpec(tenantSpec)
+	a.service.PutTenantSpec(tenantSpec)
 }
 
-func (m *Master) deleteTenant(w http.ResponseWriter, r *http.Request) {
-	tenantName, err := m.readTenantName(w, r)
+func (a *API) deleteTenant(w http.ResponseWriter, r *http.Request) {
+	tenantName, err := a.readTenantName(w, r)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
-	m.service.Lock()
-	defer m.service.Unlock()
+	a.service.Lock()
+	defer a.service.Unlock()
 
-	oldSpec := m.service.GetTenantSpec(tenantName)
+	oldSpec := a.service.GetTenantSpec(tenantName)
 	if oldSpec == nil {
 		api.HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("%s not found", tenantName))
 		return
@@ -205,5 +205,5 @@ func (m *Master) deleteTenant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	m.service.DeleteTenantSpec(tenantName)
+	a.service.DeleteTenantSpec(tenantName)
 }
