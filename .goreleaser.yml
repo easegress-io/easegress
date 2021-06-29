@@ -35,11 +35,6 @@ builds:
     goos:
       - linux
       - darwin
-    ignore:
-      - goos: linux
-        goarch: 386
-      - goos: darwin
-        goarch: 386
     ldflags:
       - -s -w
       - -X github.com/megaease/easegress/pkg/version.RELEASE=v1.0.1
