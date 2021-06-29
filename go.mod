@@ -44,7 +44,7 @@ require (
 	go.etcd.io/etcd/api/v3 v3.5.0
 	go.etcd.io/etcd/client/v3 v3.5.0
 	go.etcd.io/etcd/server/v3 v3.5.0
-	go.uber.org/zap v1.17.0
+	go.uber.org/zap v1.18.1
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.20.7
 	k8s.io/apimachinery v0.20.7
