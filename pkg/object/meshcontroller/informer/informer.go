@@ -276,10 +276,8 @@ func (inf *meshInformer) OnPartOfServiceSpec(serviceName string, gjsonPath GJSON
 		serviceSpec := &spec.Service{}
 		if event.EventType != EventDelete {
 			if err := yaml.Unmarshal([]byte(value), serviceSpec); err != nil {
-				if err != nil {
-					logger.Errorf("BUG: unmarshal %s to yaml failed: %v", value, err)
-					return true
-				}
+				logger.Errorf("BUG: unmarshal %s to yaml failed: %v", value, err)
+				return true
 			}
 		}
 		return fn(event, serviceSpec)
@@ -302,10 +300,8 @@ func (inf *meshInformer) OnPartOfServiceInstanceSpec(serviceName, instanceID str
 		instanceSpec := &spec.ServiceInstanceSpec{}
 		if event.EventType != EventDelete {
 			if err := yaml.Unmarshal([]byte(value), instanceSpec); err != nil {
-				if err != nil {
-					logger.Errorf("BUG: unmarshal %s to yaml failed: %v", value, err)
-					return true
-				}
+				logger.Errorf("BUG: unmarshal %s to yaml failed: %v", value, err)
+				return true
 			}
 		}
 		return fn(event, instanceSpec)
@@ -323,10 +319,8 @@ func (inf *meshInformer) OnPartOfServiceInstanceStatus(serviceName, instanceID s
 		instanceStatus := &spec.ServiceInstanceStatus{}
 		if event.EventType != EventDelete {
 			if err := yaml.Unmarshal([]byte(value), instanceStatus); err != nil {
-				if err != nil {
-					logger.Errorf("BUG: unmarshal %s to yaml failed: %v", value, err)
-					return true
-				}
+				logger.Errorf("BUG: unmarshal %s to yaml failed: %v", value, err)
+				return true
 			}
 		}
 		return fn(event, instanceStatus)
@@ -344,10 +338,8 @@ func (inf *meshInformer) OnPartOfTenantSpec(tenant string, gjsonPath GJSONPath, 
 		tenantSpec := &spec.Tenant{}
 		if event.EventType != EventDelete {
 			if err := yaml.Unmarshal([]byte(value), tenantSpec); err != nil {
-				if err != nil {
-					logger.Errorf("BUG: unmarshal %s to yaml failed: %v", value, err)
-					return true
-				}
+				logger.Errorf("BUG: unmarshal %s to yaml failed: %v", value, err)
+				return true
 			}
 		}
 		return fn(event, tenantSpec)
@@ -365,10 +357,8 @@ func (inf *meshInformer) OnPartOfIngressSpec(ingress string, gjsonPath GJSONPath
 		ingressSpec := &spec.Ingress{}
 		if event.EventType != EventDelete {
 			if err := yaml.Unmarshal([]byte(value), ingressSpec); err != nil {
-				if err != nil {
-					logger.Errorf("BUG: unmarshal %s to yaml failed: %v", value, err)
-					return true
-				}
+				logger.Errorf("BUG: unmarshal %s to yaml failed: %v", value, err)
+				return true
 			}
 		}
 		return fn(event, ingressSpec)
