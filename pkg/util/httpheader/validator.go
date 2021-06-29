@@ -43,7 +43,7 @@ type (
 	}
 )
 
-// Validate valites ValueValidator.
+// Validate validates ValueValidator.
 func (vv ValueValidator) Validate() error {
 	if len(vv.Values) == 0 && vv.Regexp == "" {
 		return fmt.Errorf("neither values nor regexp is specified")

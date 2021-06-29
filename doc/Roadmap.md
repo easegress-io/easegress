@@ -17,7 +17,7 @@
 3. **Cloud Native**. It is designed to be **cloud-native** compliance. It's scalable, resilient, manageable, and observable. It's easy to integrate with cloud-native architecture, such as Spring Cloud, Service Discovery, Service Gateway, Tracing, Kubernetes, Serverless/FaaS, and so on.
 
 ## Features
-Based on our product principles, we have made a classification of Easegress's features for powering users' business capabilities into two categories: business-specific and traffic-specific.
+Based on our product principles, we have made a classification of Easegress' features for powering users' business capabilities into two categories: business-specific and traffic-specific.
 ### Business Extensibility
 * Dynamically load business code written in any language with the lowest performance costing.
 * Easy to develop new features with Battery-included Easegress.

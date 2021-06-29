@@ -91,7 +91,7 @@ func (f *Fallback) reload() {
 	f.f = fallback.New(&f.spec.Spec)
 }
 
-// Handle fallabcks HTTPContext.
+// Handle fallbacks HTTPContext.
 // It always returns fallback.
 func (f *Fallback) Handle(ctx context.HTTPContext) string {
 	f.f.Fallback(ctx)

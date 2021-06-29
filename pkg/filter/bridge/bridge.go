@@ -51,7 +51,7 @@ var results = []string{resultDestinationNotFound, resultInvokeDestinationFailed}
 
 func init() {
 	// FIXME: Bridge is a temporary product for some historical reason.
-	// I(@xxx7xxxx) think we should not enpower filter to cross pipelines.
+	// I(@xxx7xxxx) think we should not empower filter to cross pipelines.
 
 	// httppipeline.Register(&Bridge{})
 }

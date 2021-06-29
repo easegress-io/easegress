@@ -139,7 +139,7 @@ func (mr *muxRules) putCacheItem(ctx context.HTTPContext, ci *cacheItem) {
 	ci.cached = true
 	r := ctx.Request()
 	key := stringtool.Cat(r.Host(), r.Method(), r.Path())
-	// NOTE: It's fine to cover the existed item because of conccurently updating cache.
+	// NOTE: It's fine to cover the existed item because of concurrently updating cache.
 	mr.cache.put(key, ci)
 }
 

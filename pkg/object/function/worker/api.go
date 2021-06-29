@@ -35,7 +35,7 @@ import (
 var (
 	errFunctionNotFound     = fmt.Errorf("can't find function")
 	errFunctionAlreadyExist = fmt.Errorf("function already exist")
-	startMsg                = []byte("function has been started, please wait for system truing it into active status")
+	startMsg                = []byte("function has been started, please wait for system turing it into active status")
 )
 
 func (worker *Worker) faasAPIPrefix() string {

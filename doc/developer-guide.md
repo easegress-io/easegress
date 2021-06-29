@@ -91,14 +91,14 @@ type (
 	// Entry is the structure of the status file
 	Entry struct {
 		Statuses     map[string]interface{}
-		UnixTimestmp int64
+		UnixTimestamp int64
 	}
 )
 
 func (c *StatusInLocalController) syncStatus() {
 	// Step1: Use entry to record status of all running objects.
 	entry := &Entry{
-		UnixTimestmp: time.Now().Unix(),
+		UnixTimestamp: time.Now().Unix(),
 		Statuses:     make(map[string]interface{}),
 	}
 
@@ -172,7 +172,7 @@ type (
 	// Entry is the structure of the status file.
 	Entry struct {
 		Statuses     map[string]interface{}
-		UnixTimestmp int64
+		UnixTimestamp int64
 	}
 )
 

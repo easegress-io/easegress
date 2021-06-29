@@ -29,7 +29,7 @@ type Spec struct {
 	AccessKeyID     string            `yaml:"accessKeyId" json:"accessKeyId" jsonschema:"omitempty"`
 	AccessKeySecret string            `yaml:"accessKeySecret" json:"accessKeySecret" jsonschema:"omitempty"`
 	AccessKeys      map[string]string `yaml:"accessKeys" json:"accessKeys" jsonschema:"omitempty"`
-	// TODO: AccessKeys is used as an internal access key stroe, but an external store is also needed
+	// TODO: AccessKeys is used as an internal access key store, but an external store is also needed
 }
 
 type idSecretMap map[string]string

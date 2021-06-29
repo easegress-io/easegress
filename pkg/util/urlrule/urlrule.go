@@ -61,7 +61,7 @@ func (sm StringMatch) Validate() error {
 	return fmt.Errorf("at least one pattern must be configured")
 }
 
-// Init intizlize an StringMatch
+// Init initializes an StringMatch
 func (sm *StringMatch) Init() {
 	if sm.RegEx != "" {
 		sm.re = regexp.MustCompile(sm.RegEx)

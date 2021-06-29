@@ -87,7 +87,7 @@ type (
 		Health string `json:"health"`
 	}
 
-	// GlobalFields is the global fieilds of EaseMonitor metrics.
+	// GlobalFields is the global fields of EaseMonitor metrics.
 	GlobalFields struct {
 		Timestamp int64  `json:"timestamp"`
 		Category  string `json:"category"`
@@ -162,7 +162,7 @@ func (emm *EaseMonitorMetrics) DefaultSpec() interface{} {
 	}
 }
 
-// Init initialzes EaseMonitorMetrics.
+// Init initializes EaseMonitorMetrics.
 func (emm *EaseMonitorMetrics) Init(superSpec *supervisor.Spec, super *supervisor.Supervisor) {
 	emm.superSpec, emm.spec, emm.super = superSpec, superSpec.ObjectSpec().(*Spec), super
 	emm.reload()
@@ -265,7 +265,7 @@ func (emm *EaseMonitorMetrics) run() {
 
 			records := emm.ssc.GetStatusesRecords()
 			for _, record := range records {
-				if record.UnixTimestmp <= emm.latestTimestamp {
+				if record.UnixTimestamp <= emm.latestTimestamp {
 					continue
 				}
 				messages := emm.record2Messages(record)
@@ -275,7 +275,7 @@ func (emm *EaseMonitorMetrics) run() {
 				}
 
 				if err != nil {
-					emm.latestTimestamp = record.UnixTimestmp
+					emm.latestTimestamp = record.UnixTimestamp
 				}
 			}
 		}
@@ -288,7 +288,7 @@ func (emm *EaseMonitorMetrics) record2Messages(record *statussynccontroller.Stat
 
 	for objectName, status := range record.Statuses {
 		baseFields := &GlobalFields{
-			Timestamp: record.UnixTimestmp * 1000,
+			Timestamp: record.UnixTimestamp * 1000,
 			Category:  "application",
 			HostName:  emm.super.Options().Name,
 			HostIpv4:  hostIPv4,

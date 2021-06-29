@@ -43,9 +43,9 @@ const (
 	resultResponseAlready = "responseAlready"
 
 	// 64KB
-	maxBobyBytes = 64 * 1024
+	maxBodyBytes = 64 * 1024
 	// 192KB
-	maxContextBytes = 3 * maxBobyBytes
+	maxContextBytes = 3 * maxBodyBytes
 )
 
 var results = []string{resultFailed, resultResponseAlready}
@@ -72,7 +72,7 @@ var globalClient = &http.Client{
 			InsecureSkipVerify: true,
 		},
 		DisableCompression: false,
-		// NOTE: The large number of Idle Connctions can
+		// NOTE: The large number of Idle Connections can
 		// reduce overhead of building connections.
 		MaxIdleConns:          10240,
 		MaxIdleConnsPerHost:   512,
@@ -211,10 +211,10 @@ func (rf *RemoteFilter) handle(ctx context.HTTPContext) (result string) {
 	}()
 
 	errPrefix = "read request body"
-	reqBody := rf.limitRead(r.Body(), maxBobyBytes)
+	reqBody := rf.limitRead(r.Body(), maxBodyBytes)
 
 	errPrefix = "read response body"
-	respBody := rf.limitRead(w.Body(), maxBobyBytes)
+	respBody := rf.limitRead(w.Body(), maxBodyBytes)
 
 	errPrefix = "marshal context"
 	ctxBuff := rf.marshalHTTPContext(ctx, reqBody, respBody)

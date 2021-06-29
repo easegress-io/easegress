@@ -239,14 +239,14 @@ func (rcs *Server) CheckRegistryURL(w http.ResponseWriter, r *http.Request) erro
 	serviceName := chi.URLParam(r, "serviceName")
 
 	if len(ip) == 0 || len(port) == 0 || len(serviceName) == 0 {
-		return fmt.Errorf("invalide register parameters, ip: %s, port: %s, serviceName: %s",
+		return fmt.Errorf("invalid register parameters, ip: %s, port: %s, serviceName: %s",
 			ip, port, serviceName)
 	}
 
 	serviceName, err = rcs.SplitNacosServiceName(serviceName)
 
 	if serviceName != rcs.serviceName || err != nil {
-		return fmt.Errorf("invalide register serivceName: %s want: %s, err: %v", serviceName, rcs.serviceName, err)
+		return fmt.Errorf("invalid register serviceName: %s want: %s, err: %v", serviceName, rcs.serviceName, err)
 	}
 	return err
 }

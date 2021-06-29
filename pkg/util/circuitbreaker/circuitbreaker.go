@@ -403,7 +403,7 @@ func (cb *CircuitBreaker) AcquirePermission() (bool, uint32) {
 	// always return true when closed.
 	// for time based window, failure rate or slow rate may change as time elapse,
 	// that's even no new result were recorded, state may transit from closed to
-	// open if may sucess results are evicted by time. but we just rely on the
+	// open if may success results are evicted by time. but we just rely on the
 	// state here and leave state transition to RecordResult to keep code simple.
 	if cb.state == StateClosed {
 		return true, cb.stateID

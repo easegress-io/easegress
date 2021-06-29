@@ -53,7 +53,7 @@ func CallOriProcessTerm(done chan struct{}) bool {
 	return false
 }
 
-// NotifySigUsr2 handles signal SIGUSR2 to gracefaully update.
+// NotifySigUsr2 handles signal SIGUSR2 to gracefully update.
 func NotifySigUsr2(closeCls func(), restartCls func()) {
 	sigUsr2 := make(chan os.Signal, 1)
 	signal.Notify(sigUsr2, syscall.SIGUSR2)

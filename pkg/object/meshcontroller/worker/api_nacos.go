@@ -29,79 +29,79 @@ import (
 	"github.com/megaease/easegress/pkg/object/meshcontroller/registrycenter"
 )
 
-func (wrk *Worker) nacosAPIs() []*apiEntry {
+func (worker *Worker) nacosAPIs() []*apiEntry {
 	APIs := []*apiEntry{
 		{
 			Path:    meshNacosPrefix + "/ns/instance/list",
 			Method:  "GET",
-			Handler: wrk.nacosInstanceList,
+			Handler: worker.nacosInstanceList,
 		},
 		{
 			Path:    meshNacosPrefix + "/ns/instance",
 			Method:  "POST",
-			Handler: wrk.nacosRegister,
+			Handler: worker.nacosRegister,
 		},
 		{
 			Path:    meshNacosPrefix + "/ns/instance",
 			Method:  "DELETE",
-			Handler: wrk.emptyHandler,
+			Handler: worker.emptyHandler,
 		},
 		{
 			Path:    meshNacosPrefix + "/ns/instance/beat",
 			Method:  "PUT",
-			Handler: wrk.emptyHandler,
+			Handler: worker.emptyHandler,
 		},
 		{
 			Path:    meshNacosPrefix + "/ns/instance",
 			Method:  "PUT",
-			Handler: wrk.emptyHandler,
+			Handler: worker.emptyHandler,
 		},
 		{
 			Path:    meshNacosPrefix + "/ns/instance",
 			Method:  "GET",
-			Handler: wrk.nacosInstance,
+			Handler: worker.nacosInstance,
 		},
 		{
 			Path:    meshNacosPrefix + "/ns/service/list",
 			Method:  "GET",
-			Handler: wrk.nacosServiceList,
+			Handler: worker.nacosServiceList,
 		},
 		{
 			Path:    meshNacosPrefix + "/ns/service",
 			Method:  "GET",
-			Handler: wrk.nacosService,
+			Handler: worker.nacosService,
 		},
 	}
 
 	return APIs
 }
 
-func (wrk *Worker) nacosRegister(w http.ResponseWriter, r *http.Request) {
-	err := wrk.registryServer.CheckRegistryURL(w, r)
+func (worker *Worker) nacosRegister(w http.ResponseWriter, r *http.Request) {
+	err := worker.registryServer.CheckRegistryURL(w, r)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest,
 			fmt.Errorf("parse request url parameters failed: %v", err))
 		return
 	}
 
-	serviceSpec := wrk.service.GetServiceSpec(wrk.serviceName)
+	serviceSpec := worker.service.GetServiceSpec(worker.serviceName)
 	if serviceSpec == nil {
-		err := fmt.Errorf("registry to unknown service: %s", wrk.serviceName)
+		err := fmt.Errorf("registry to unknown service: %s", worker.serviceName)
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
-	wrk.registryServer.Register(serviceSpec, wrk.ingressServer.Ready, wrk.egressServer.Ready)
+	worker.registryServer.Register(serviceSpec, worker.ingressServer.Ready, worker.egressServer.Ready)
 }
 
-func (wrk *Worker) nacosInstanceList(w http.ResponseWriter, r *http.Request) {
+func (worker *Worker) nacosInstanceList(w http.ResponseWriter, r *http.Request) {
 	serviceName := chi.URLParam(r, "serviceName")
 	if len(serviceName) == 0 {
 		api.HandleAPIError(w, r, http.StatusBadRequest,
 			fmt.Errorf("empty serviceName in url parameters"))
 		return
 	}
-	serviceName, err := wrk.registryServer.SplitNacosServiceName(serviceName)
+	serviceName, err := worker.registryServer.SplitNacosServiceName(serviceName)
 	if err != nil {
 		logger.Errorf("nacos invalid servicename: %s", serviceName)
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
@@ -109,13 +109,13 @@ func (wrk *Worker) nacosInstanceList(w http.ResponseWriter, r *http.Request) {
 	}
 	var serviceInfo *registrycenter.ServiceRegistryInfo
 
-	if serviceInfo, err = wrk.registryServer.DiscoveryService(serviceName); err != nil {
+	if serviceInfo, err = worker.registryServer.DiscoveryService(serviceName); err != nil {
 		logger.Errorf("discovery service: %s, err: %v ", serviceName, err)
 		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 
-	nacosSvc := wrk.registryServer.ToNacosService(serviceInfo)
+	nacosSvc := worker.registryServer.ToNacosService(serviceInfo)
 
 	buff, err := json.Marshal(nacosSvc)
 	if err != nil {
@@ -128,14 +128,14 @@ func (wrk *Worker) nacosInstanceList(w http.ResponseWriter, r *http.Request) {
 	w.Write(buff)
 }
 
-func (wrk *Worker) nacosInstance(w http.ResponseWriter, r *http.Request) {
+func (worker *Worker) nacosInstance(w http.ResponseWriter, r *http.Request) {
 	serviceName := chi.URLParam(r, "serviceName")
 	if len(serviceName) == 0 {
 		api.HandleAPIError(w, r, http.StatusBadRequest,
 			fmt.Errorf("empty serviceName in url parameters"))
 		return
 	}
-	serviceName, err := wrk.registryServer.SplitNacosServiceName(serviceName)
+	serviceName, err := worker.registryServer.SplitNacosServiceName(serviceName)
 	if err != nil {
 		logger.Errorf("nacos invalid servicename: %s", serviceName)
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
@@ -143,13 +143,13 @@ func (wrk *Worker) nacosInstance(w http.ResponseWriter, r *http.Request) {
 	}
 	var serviceInfo *registrycenter.ServiceRegistryInfo
 
-	if serviceInfo, err = wrk.registryServer.DiscoveryService(serviceName); err != nil {
+	if serviceInfo, err = worker.registryServer.DiscoveryService(serviceName); err != nil {
 		logger.Errorf("discovery service: %s, err: %v ", serviceName, err)
 		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 
-	nacosIns := wrk.registryServer.ToNacosInstanceInfo(serviceInfo)
+	nacosIns := worker.registryServer.ToNacosInstanceInfo(serviceInfo)
 
 	buff, err := json.Marshal(nacosIns)
 	if err != nil {
@@ -162,17 +162,17 @@ func (wrk *Worker) nacosInstance(w http.ResponseWriter, r *http.Request) {
 	w.Write(buff)
 }
 
-func (wrk *Worker) nacosServiceList(w http.ResponseWriter, r *http.Request) {
+func (worker *Worker) nacosServiceList(w http.ResponseWriter, r *http.Request) {
 	var (
 		err          error
 		serviceInfos []*registrycenter.ServiceRegistryInfo
 	)
-	if serviceInfos, err = wrk.registryServer.Discovery(); err != nil {
+	if serviceInfos, err = worker.registryServer.Discovery(); err != nil {
 		logger.Errorf("discovery services err: %v ", err)
 		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	serviceList := wrk.registryServer.ToNacosServiceList(serviceInfos)
+	serviceList := worker.registryServer.ToNacosServiceList(serviceInfos)
 
 	buff, err := json.Marshal(serviceList)
 	if err != nil {
@@ -185,14 +185,14 @@ func (wrk *Worker) nacosServiceList(w http.ResponseWriter, r *http.Request) {
 	w.Write(buff)
 }
 
-func (wrk *Worker) nacosService(w http.ResponseWriter, r *http.Request) {
+func (worker *Worker) nacosService(w http.ResponseWriter, r *http.Request) {
 	serviceName := chi.URLParam(r, "serviceName")
 	if len(serviceName) == 0 {
 		api.HandleAPIError(w, r, http.StatusBadRequest,
 			fmt.Errorf("empty serviceName in url parameters"))
 		return
 	}
-	serviceName, err := wrk.registryServer.SplitNacosServiceName(serviceName)
+	serviceName, err := worker.registryServer.SplitNacosServiceName(serviceName)
 	if err != nil {
 		logger.Errorf("nacos invalid servicename: %s", serviceName)
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
@@ -200,13 +200,13 @@ func (wrk *Worker) nacosService(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var serviceInfo *registrycenter.ServiceRegistryInfo
-	if serviceInfo, err = wrk.registryServer.DiscoveryService(serviceName); err != nil {
+	if serviceInfo, err = worker.registryServer.DiscoveryService(serviceName); err != nil {
 		logger.Errorf("discovery service: %s, err: %v ", serviceName, err)
 		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 
-	nacosSvcDetail := wrk.registryServer.ToNacosServiceDetail(serviceInfo)
+	nacosSvcDetail := worker.registryServer.ToNacosServiceDetail(serviceInfo)
 
 	buff, err := json.Marshal(nacosSvcDetail)
 	if err != nil {

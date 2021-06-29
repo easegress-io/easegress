@@ -250,7 +250,7 @@ kind: Fallback
 name: fallback-example
 mockCode: 200
 mockHeaders:
-  Content-Type: applicaion/json
+  Content-Type: application/json
 mockBody: '{"message": "The feature turned off, please try it later."}'
 ```
 
@@ -281,7 +281,7 @@ rules:
 - path: /users/1
   code: 200
   headers:
-    Content-Type: applicaion/json
+    Content-Type: application/json
   body: '{"name": "alice", "age": 30}'
   delay: 100ms
 ```
@@ -710,7 +710,7 @@ The relationship between `methods` and `url` is `AND`.
 | Name    | Type                                       | Description                                                      | Required |
 | ------- | ------------------------------------------ | ---------------------------------------------------------------- | -------- |
 | methods | []string                                   | HTTP method criteria, Default is an empty list means all methods | No       |
-| url     | [urlrule.StringMatch](#urlruleStringMatch) | Criterias to match a URL                                         | Yes      |
+| url     | [urlrule.StringMatch](#urlruleStringMatch) | Criteria lto match a URL                                         | Yes      |
 
 ### resilience.URLRule
 
@@ -719,7 +719,7 @@ The relationship between `methods` and `url` is `AND`.
 | Name      | Type                                       | Description                                                      | Required |
 | --------- | ------------------------------------------ | ---------------------------------------------------------------- | -------- |
 | methods   | []string                                   | HTTP method criteria, Default is an empty list means all methods | No       |
-| url       | [urlrule.StringMatch](#urlruleStringMatch) | Criterias to match a URL                                         | Yes      |
+| url       | [urlrule.StringMatch](#urlruleStringMatch) | Criteria to match a URL                                          | Yes      |
 | policyRef | string                                     | Name of resilience policy for matched requests                   | No       |
 
 ### httpfilter.Probability
@@ -777,7 +777,7 @@ The relationship between `methods` and `url` is `AND`.
 | Name            | Type                                       | Description                                                      | Required |
 | --------------- | ------------------------------------------ | ---------------------------------------------------------------- | -------- |
 | methods         | []string                                   | HTTP method criteria, Default is an empty list means all methods | No       |
-| url             | [urlrule.StringMatch](#urlruleStringMatch) | Criterias to match a URL                                         | Yes      |
+| url             | [urlrule.StringMatch](#urlruleStringMatch) | Criteria to match a URL                                          | Yes      |
 | timeoutDuration | string                                     | Timeout duration for matched requests. Default is 500ms          | No       |
 
 ### retryer.Policy
@@ -827,7 +827,7 @@ The relationship between `methods` and `url` is `AND`.
 | signature        | string | The query name of the signature, default is `X-Me-Signature`, in `Amazon Signature V4`, it is `X-Amz-Signature`                                    | No       |
 | date             | string | The header/query name of the request time, default is `X-Me-Date`, in `Amazon Signature V4`, it is `X-Amz-Date`                                    | No       |
 | expires          | string | The query name of expire duration, default is `X-Me-Expires`, in `Amazon Signature V4`, it is `X-Amz-Date`                                         | No       |
-| credential       | string | The query name of cridential, default is `X-Me-Credential`, in `Amazon Signature V4`, it is `X-Amz-Credential`                                     | No       |
+| credential       | string | The query name of credential, default is `X-Me-Credential`, in `Amazon Signature V4`, it is `X-Amz-Credential`                                     | No       |
 | contentSha256    | string | The header name of body/payload hash, default is "X-Me-Content-Sha256", in `Amazon Signature V4`, it is `X-Amz-Content-Sha256`                     | No       |
 | signingKeyPrefix | string | The prefix is prepended to access key secret when deriving the signing key, default is `ME`, in `Amazon Signature V4`, it is `AWS4`                | No       |
 

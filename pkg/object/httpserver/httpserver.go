@@ -60,7 +60,7 @@ func (hs *HTTPServer) DefaultSpec() interface{} {
 	}
 }
 
-// Init initilizes HTTPServer.
+// Init initializes HTTPServer.
 func (hs *HTTPServer) Init(superSpec *supervisor.Spec,
 	super *supervisor.Supervisor, muxMapper protocol.MuxMapper) {
 

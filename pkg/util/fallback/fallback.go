@@ -51,7 +51,7 @@ func New(spec *Spec) *Fallback {
 	return f
 }
 
-// Fallback fallabcks HTTPContext.
+// Fallback fallbacks HTTPContext.
 func (f *Fallback) Fallback(ctx context.HTTPContext) {
 	w := ctx.Response()
 

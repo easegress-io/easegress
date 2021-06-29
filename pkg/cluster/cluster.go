@@ -88,7 +88,7 @@ type (
 	}
 )
 
-func strTolease(s string) (*clientv3.LeaseID, error) {
+func strToLease(s string) (*clientv3.LeaseID, error) {
 	leaseNum, err := strconv.ParseInt(s, 16, 64)
 	if err != nil {
 		return nil, err
@@ -490,7 +490,7 @@ func (c *cluster) initLease() error {
 
 	var leaseID *clientv3.LeaseID
 	if leaseStr != nil {
-		leaseID, err = strTolease(*leaseStr)
+		leaseID, err = strToLease(*leaseStr)
 		if err != nil {
 			logger.Errorf("BUG: parse lease %s failed: %v", *leaseStr, err)
 			return err
@@ -838,7 +838,7 @@ func (c *cluster) PurgeMember(memberName string) error {
 	if leaseStr == nil {
 		return fmt.Errorf("%s not found", leaseKey)
 	}
-	leaseID, err := strTolease(*leaseStr)
+	leaseID, err := strToLease(*leaseStr)
 	if err != nil {
 		return err
 	}
