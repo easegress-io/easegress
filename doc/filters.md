@@ -710,7 +710,7 @@ The relationship between `methods` and `url` is `AND`.
 | Name    | Type                                       | Description                                                      | Required |
 | ------- | ------------------------------------------ | ---------------------------------------------------------------- | -------- |
 | methods | []string                                   | HTTP method criteria, Default is an empty list means all methods | No       |
-| url     | [urlrule.StringMatch](#urlruleStringMatch) | Criteria lto match a URL                                         | Yes      |
+| url     | [urlrule.StringMatch](#urlruleStringMatch) | Criteria to match a URL                                          | Yes      |
 
 ### resilience.URLRule
 
