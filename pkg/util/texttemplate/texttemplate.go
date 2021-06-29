@@ -41,7 +41,7 @@ const (
 	WidecardTag = "{}"
 
 	// GJSONTag is the special hardcode tag for indicating GJSON syntax, must appear in the last
-	// of one template, if chose "{GJSON}", should provider another tag value at that level
+	// of one template, if chose "{GJSON}", should provide another tag value at that level
 	GJSONTag = "{gjson}"
 
 	DefaultBeginToken = "[["
@@ -268,7 +268,7 @@ func (t *TextTemplate) buildTemplateTree() error {
 			}
 		}
 	}
-	// every singal template is valid
+	// every single template is valid
 	for _, v := range t.metaTemplates {
 		arr := strings.Split(v, t.separator)
 		t.addNode(arr)

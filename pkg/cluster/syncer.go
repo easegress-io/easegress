@@ -102,7 +102,7 @@ func (s *Syncer) run(key string, prefix bool, send func(data map[string]*mvccpb.
 	defer watcher.Close()
 
 	// pull and send out full data copy. otherwise, if the application retrieves a copy
-	// of data at the beging, and if data is updated after the retrieval and before the
+	// of data at the beginning, and if data is updated after the retrieval and before the
 	// syncer starts, it may take a long time (the pull interval) for the application to
 	// receive latest data.
 	data, err := s.pull(key, prefix)
