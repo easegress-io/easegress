@@ -103,7 +103,6 @@ func decodeLables(lables string) map[string]string {
 // New creates a mesh worker.
 func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 	spec := superSpec.ObjectSpec().(*spec.Admin)
-
 	serviceName := super.Options().Labels[label.KeyServiceName]
 	aliveProbe := super.Options().Labels[label.KeyAliveProbe]
 	serviceLabels := decodeLables(super.Options().Labels[label.KeyServiceLables])
@@ -114,13 +113,11 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 
 	instanceID := os.Getenv(podEnvHostname)
 	applicationIP := os.Getenv(podEnvApplicationIP)
-
 	store := storage.New(superSpec.Name(), super.Cluster())
 	_service := service.New(superSpec, super)
 	registryCenterServer := registrycenter.NewRegistryCenterServer(spec.RegistryType,
 		serviceName, applicationIP, applicationPort, instanceID, serviceLabels, _service)
 
-	// FIXME: check service Name
 	inf := informer.NewInformer(store, serviceName)
 	ingressServer := NewIngressServer(superSpec, super, serviceName, inf)
 	egressServer := NewEgressServer(superSpec, super, serviceName, _service, inf)
@@ -134,7 +131,7 @@ func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
 		spec:      spec,
 
 		serviceName:     serviceName,
-		instanceID:      instanceID, // instanceID will be the pod ID
+		instanceID:      instanceID, // instanceID will be the pod ID valued by HOSTNAME env.
 		aliveProbe:      aliveProbe,
 		applicationPort: uint32(applicationPort),
 		applicationIP:   applicationIP,
@@ -395,9 +392,10 @@ func (worker *Worker) Status() *supervisor.Status {
 func (worker *Worker) Close() {
 	close(worker.done)
 
+	// close informer firstly.
+	worker.informer.Close()
 	worker.egressServer.Close()
 	worker.ingressServer.Close()
-	worker.informer.Close()
 	worker.registryServer.Close()
 	worker.apiServer.Close()
 }
