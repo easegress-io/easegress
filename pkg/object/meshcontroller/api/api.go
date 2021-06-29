@@ -85,7 +85,7 @@ type (
 	}
 )
 
-func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *API {
+func Register(superSpec *supervisor.Spec, super *supervisor.Supervisor) *API {
 	api := &API{
 		service: service.New(superSpec, super),
 	}

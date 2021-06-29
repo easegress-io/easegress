@@ -80,7 +80,7 @@ func (mc *MeshController) DefaultSpec() interface{} {
 func (mc *MeshController) Init(superSpec *supervisor.Spec, super *supervisor.Supervisor) {
 	mc.superSpec, mc.spec, mc.super = superSpec, superSpec.ObjectSpec().(*spec.Admin), super
 
-	mc.api = api.New(superSpec, super)
+	api.Register(superSpec, super)
 
 	mc.reload()
 }
