@@ -25,7 +25,7 @@
 - Possible regression introduce by FaaSController  [\#73](https://github.com/megaease/easegress/issues/73)
 - HTTPPipeline loadBalance is required but causes panic if missing [\#63](https://github.com/megaease/easegress/issues/63)
 - Server help messages print multiple times [\#37](https://github.com/megaease/easegress/issues/37)
-- Fix double free etcd [\#87](https://github.com/megaease/easegress/pull/87) ([tg123](https://github.com/tg123))
+- Fix double free etcd [\#87](https://github.com/megaease/easegress/pull/87)
 
 
 ## [v1.0.0](https://github.com/megaease/easegress/tree/v1.0.0) (2021-06-01)
