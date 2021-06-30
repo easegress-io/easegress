@@ -246,7 +246,7 @@ func (aa *APIAggregator) handle(ctx context.HTTPContext) (result string) {
 func (aa *APIAggregator) newCtx(ctx context.HTTPContext, req *http.Request, buff *bytes.Buffer) (context.HTTPContext, error) {
 	// Construct a new context for the HTTPProxy
 	// responseWriter is an HTTP responseRecorder, not the original context's real
-	// responseWriter, or these Proxies will overwrit each others
+	// responseWriter, or these Proxies will overwrite each others
 	w := httptest.NewRecorder()
 	var stdctx stdcontext.Context = ctx
 	if aa.spec.timeout != nil {
