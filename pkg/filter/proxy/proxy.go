@@ -207,7 +207,7 @@ func (b *Proxy) reload() {
 	if len(b.spec.CandidatePools) > 0 {
 		var candidatePools []*pool
 		for k := range b.spec.CandidatePools {
-			candidatePools = append(candidatePools, newPool(b.spec.CandidatePools[k], fmt.Sprintf("backend#candidate#%d", k),
+			candidatePools = append(candidatePools, newPool(b.spec.CandidatePools[k], fmt.Sprintf("proxy#candidate#%d", k),
 				true, b.spec.FailureCodes))
 		}
 		b.candidatePools = candidatePools
