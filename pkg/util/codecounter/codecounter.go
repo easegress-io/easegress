@@ -17,7 +17,7 @@
 
 package codecounter
 
-// CodeCounter is the gouroutine unsafe code counter.
+// CodeCounter is the goroutine unsafe code counter.
 type CodeCounter struct {
 	//      code:count
 	counter map[int]uint64

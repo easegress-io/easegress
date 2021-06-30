@@ -36,7 +36,7 @@ const (
 	Kind = "Proxy"
 
 	resultFallback      = "fallback"
-	resultInternalError = "interalError"
+	resultInternalError = "internalError"
 	resultClientError   = "clientError"
 	resultServerError   = "serverError"
 )
@@ -70,7 +70,7 @@ var globalClient = &http.Client{
 			InsecureSkipVerify: true,
 		},
 		DisableCompression: false,
-		// NOTE: The large number of Idle Connctions can
+		// NOTE: The large number of Idle Connections can
 		// reduce overhead of building connections.
 		MaxIdleConns:          10240,
 		MaxIdleConnsPerHost:   512,
@@ -207,7 +207,7 @@ func (b *Proxy) reload() {
 	if len(b.spec.CandidatePools) > 0 {
 		var candidatePools []*pool
 		for k := range b.spec.CandidatePools {
-			candidatePools = append(candidatePools, newPool(b.spec.CandidatePools[k], fmt.Sprintf("backedn#candidate#%d", k),
+			candidatePools = append(candidatePools, newPool(b.spec.CandidatePools[k], fmt.Sprintf("proxy#candidate#%d", k),
 				true, b.spec.FailureCodes))
 		}
 		b.candidatePools = candidatePools

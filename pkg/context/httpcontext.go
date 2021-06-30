@@ -52,7 +52,7 @@ type (
 		Span() tracing.Span
 
 		Request() HTTPRequest
-		Response() HTTPReponse
+		Response() HTTPResponse
 
 		stdcontext.Context
 		Cancel(err error)
@@ -110,8 +110,8 @@ type (
 		Size() uint64 // bytes
 	}
 
-	// HTTPReponse is all operations for HTTP response.
-	HTTPReponse interface {
+	// HTTPResponse is all operations for HTTP response.
+	HTTPResponse interface {
 		StatusCode() int // Default is 200
 		SetStatusCode(code int)
 
@@ -204,7 +204,7 @@ func (ctx *httpContext) Request() HTTPRequest {
 	return ctx.r
 }
 
-func (ctx *httpContext) Response() HTTPReponse {
+func (ctx *httpContext) Response() HTTPResponse {
 	return ctx.w
 }
 
@@ -322,7 +322,7 @@ func (ctx *httpContext) Template() texttemplate.TemplateEngine {
 	return ctx.ht.Engine
 }
 
-// SetTempalte sets the http template initinaled by other module
+// SetTemplate sets the http template initinaled by other module
 func (ctx *httpContext) SetTemplate(ht *HTTPTemplate) {
 	ctx.ht = ht
 }

@@ -121,7 +121,7 @@ func NewHTTPTemplate(filterBuffs []FilterBuff) (*HTTPTemplate, error) {
 	// and template format,e.g., if filter1 has a template said '[[filter.filter2.rsp.data]],
 	// but it appears before filter2, then it's an invalidate dependency cause we can't get
 	// the rsp form filter2 in the execution period of filter1. At last it will build up
-	// executing function arraies for every filters.
+	// executing function arrays for every filters.
 	for _, filterBuff := range filterBuffs {
 		e.filtersOrder = append(e.filtersOrder, filterBuff.Name)
 		templatesMap := e.Engine.ExtractRawTemplateRuleMap(string(filterBuff.Buff))
@@ -136,7 +136,7 @@ func NewHTTPTemplate(filterBuffs []FilterBuff) (*HTTPTemplate, error) {
 				break
 			}
 
-			tags := strings.Split(renderMeta, texttemplate.DefaultSepertor)
+			tags := strings.Split(renderMeta, texttemplate.DefaultSeparator)
 			if len(tags) < defaultTagNum {
 				err = fmt.Errorf("filter %s template [[%s]] check failed,its render metaTemplate [[%s]] is invalid",
 					filterBuff.Name, template, renderMeta)
@@ -144,7 +144,7 @@ func NewHTTPTemplate(filterBuffs []FilterBuff) (*HTTPTemplate, error) {
 			} else {
 				dependFilterName := tags[filterNameTagIndex]
 				dependFilters = append(dependFilters, dependFilterName)
-				funcTag := tags[filterReqRspTagIndex] + texttemplate.DefaultSepertor +
+				funcTag := tags[filterReqRspTagIndex] + texttemplate.DefaultSeparator +
 					tags[filterValueTagIndex]
 
 				funcTags := filterFuncTags[dependFilterName]
@@ -225,7 +225,7 @@ func (e *HTTPTemplate) SaveRequest(filterName string, ctx HTTPContext) error {
 	return nil
 }
 
-// SaveResponse transforms HTTPResonse related fields into template engine's dictionary
+// SaveResponse transforms HTTPResponse related fields into template engine's dictionary
 func (e *HTTPTemplate) SaveResponse(filterName string, ctx HTTPContext) error {
 	var (
 		execFuncs filterDictFuncs

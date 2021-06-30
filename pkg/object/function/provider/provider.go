@@ -70,14 +70,14 @@ func (kc *knativeClient) GetStatus(name string) (*spec.Status, error) {
 	}
 	status := &spec.Status{}
 	extData := map[string]string{}
-	hasErros := false
+	hasErrors := false
 
 	if len(service.Status.LatestReadyRevisionName) == 0 ||
 		service.Status.LatestCreatedRevisionName != service.Status.LatestReadyRevisionName {
 		for _, v := range service.Status.Conditions {
 			// There are three types of condiction, false, unknown, true
 			if v.Status == corev1.ConditionFalse {
-				hasErros = true
+				hasErrors = true
 			}
 			key := fmt.Sprintf("%v", v.Type)
 			value := fmt.Sprintf("status: %v, message: %v, reason: %v", v.Status, v.Message, v.Reason)
@@ -85,7 +85,7 @@ func (kc *knativeClient) GetStatus(name string) (*spec.Status, error) {
 		}
 		status.ExtData = extData
 
-		if hasErros {
+		if hasErrors {
 			status.Event = spec.ErrorEvent
 		} else {
 			status.Event = spec.PendingEvent

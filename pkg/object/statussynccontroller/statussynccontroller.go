@@ -60,8 +60,8 @@ type (
 
 	// StatusesRecord is the history record for status of every running object.
 	StatusesRecord struct {
-		Statuses     map[string]*supervisor.Status
-		UnixTimestmp int64
+		Statuses      map[string]*supervisor.Status
+		UnixTimestamp int64
 	}
 )
 
@@ -158,8 +158,8 @@ func (ssc *StatusSyncController) Close() {
 func (ssc *StatusSyncController) handleStatus(unixTimestamp int64) {
 	statuses := make(map[string]string)
 	statusesRecord := &StatusesRecord{
-		Statuses:     make(map[string]*supervisor.Status),
-		UnixTimestmp: unixTimestamp,
+		Statuses:      make(map[string]*supervisor.Status),
+		UnixTimestamp: unixTimestamp,
 	}
 
 	walkFn := func(entity *supervisor.ObjectEntity) bool {

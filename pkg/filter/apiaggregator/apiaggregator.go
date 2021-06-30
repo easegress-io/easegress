@@ -49,8 +49,8 @@ const (
 var results = []string{resultFailed}
 
 func init() {
-	// FIXME: Rewrite APIAggregator becasue the HTTPProxy is eliminated
-	// I(@xxx7xxxx) think we should not enpower filter to cross pipelines.
+	// FIXME: Rewrite APIAggregator because the HTTPProxy is eliminated
+	// I(@xxx7xxxx) think we should not empower filter to cross pipelines.
 
 	// httppipeline.Register(&APIAggregator{})
 }
@@ -179,7 +179,7 @@ func (aa *APIAggregator) handle(ctx context.HTTPContext) (result string) {
 	wg := &sync.WaitGroup{}
 	wg.Add(len(aa.spec.APIProxies))
 
-	httpResps := make([]context.HTTPReponse, len(aa.spec.APIProxies))
+	httpResps := make([]context.HTTPResponse, len(aa.spec.APIProxies))
 	// Using supervisor to call HTTPProxy object's Handle function
 	for i, proxy := range aa.spec.APIProxies {
 		req, err := aa.newHTTPReq(ctx, proxy, buff)
@@ -231,7 +231,7 @@ func (aa *APIAggregator) handle(ctx context.HTTPContext) (result string) {
 			return resultFailed
 		}
 
-		// call HTTPProxy could be succesfful even with a no exist backend
+		// call HTTPProxy could be successful even with a no exist backend
 		// so resp is not nil, but resp.Body() is nil.
 		if resp != nil && resp.Body() != nil {
 			if res := aa.copyHTTPBody2Map(resp.Body(), ctx, data, aa.spec.APIProxies[i].HTTPProxyName); len(res) != 0 {
@@ -245,8 +245,8 @@ func (aa *APIAggregator) handle(ctx context.HTTPContext) (result string) {
 
 func (aa *APIAggregator) newCtx(ctx context.HTTPContext, req *http.Request, buff *bytes.Buffer) (context.HTTPContext, error) {
 	// Construct a new context for the HTTPProxy
-	// responseWriter is an HTTP responseRecorder, no the original context's real
-	// repsonseWriter, or these Proxies will overwriten each others
+	// responseWriter is an HTTP responseRecorder, not the original context's real
+	// responseWriter, or these Proxies will overwrite each others
 	w := httptest.NewRecorder()
 	var stdctx stdcontext.Context = ctx
 	if aa.spec.timeout != nil {
@@ -261,7 +261,7 @@ func (aa *APIAggregator) newCtx(ctx context.HTTPContext, req *http.Request, buff
 func (aa *APIAggregator) newHTTPReq(ctx context.HTTPContext, proxy *APIProxy, buff *bytes.Buffer) (*http.Request, error) {
 	var stdctx stdcontext.Context = ctx
 	if aa.spec.timeout != nil {
-		// NOTE: Cancel function could be omiited here.
+		// NOTE: Cancel function could be omitted here.
 		stdctx, _ = stdcontext.WithTimeout(stdctx, *aa.spec.timeout)
 	}
 

@@ -84,7 +84,7 @@ type (
 	Controller interface {
 		Object
 
-		// Init initializes the Obejct.
+		// Init initializes the Object.
 		Init(superSpec *Spec, super *Supervisor)
 
 		// Inherit also initializes the Object.

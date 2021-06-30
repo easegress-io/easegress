@@ -56,74 +56,74 @@ type (
 	}
 )
 
-func (wrk *Worker) eurekaAPIs() []*apiEntry {
+func (worker *Worker) eurekaAPIs() []*apiEntry {
 	APIs := []*apiEntry{
 		{
 			Path:    meshEurekaPrefix + "/apps/{serviceName}",
 			Method:  "POST",
-			Handler: wrk.eurekaRegister,
+			Handler: worker.eurekaRegister,
 		},
 		{
 			Path:    meshEurekaPrefix + "/apps/{serviceName}/{instanceID}",
 			Method:  "DELETE",
-			Handler: wrk.emptyHandler,
+			Handler: worker.emptyHandler,
 		},
 		{
 			Path:    meshEurekaPrefix + "/apps/{serviceName}/{instanceID}",
 			Method:  "PUT",
-			Handler: wrk.emptyHandler,
+			Handler: worker.emptyHandler,
 		},
 		{
 			Path:    meshEurekaPrefix + "/apps/",
 			Method:  "GET",
-			Handler: wrk.apps,
+			Handler: worker.apps,
 		},
 		{
 			Path:    meshEurekaPrefix + "/apps/{serviceName}",
 			Method:  "GET",
-			Handler: wrk.app,
+			Handler: worker.app,
 		},
 		{
 			Path:    meshEurekaPrefix + "/apps/{serviceName}/{instanceID}",
 			Method:  "GET",
-			Handler: wrk.getAppInstance,
+			Handler: worker.getAppInstance,
 		},
 		{
 			Path:    meshEurekaPrefix + "/apps/instances/{instanceID}",
 			Method:  "GET",
-			Handler: wrk.getInstance,
+			Handler: worker.getInstance,
 		},
 		{
 			Path:    meshEurekaPrefix + "/apps/{serviceName}/{instanceID}/status",
 			Method:  "PUT",
-			Handler: wrk.emptyHandler,
+			Handler: worker.emptyHandler,
 		},
 		{
 			Path:    meshEurekaPrefix + "/apps/{serviceName}/{instanceID}/status",
 			Method:  "DELETE",
-			Handler: wrk.emptyHandler,
+			Handler: worker.emptyHandler,
 		},
 		{
 			Path:    meshEurekaPrefix + "/apps/{serviceName}/{instanceID}/metadata",
 			Method:  "PUT",
-			Handler: wrk.emptyHandler,
+			Handler: worker.emptyHandler,
 		},
 		{
 			Path:    meshEurekaPrefix + "/vips/{vipAddress}",
 			Method:  "GET",
-			Handler: wrk.emptyHandler,
+			Handler: worker.emptyHandler,
 		},
 		{
 			Path:    meshEurekaPrefix + "/svips/{svipAddress}",
 			Method:  "GET",
-			Handler: wrk.emptyHandler,
+			Handler: worker.emptyHandler,
 		},
 	}
 
 	return APIs
 }
 
-func (wrk *Worker) detectedAccept(accept string) string {
+func (worker *Worker) detectedAccept(accept string) string {
 	accepts := strings.Split(accept, ",")
 
 	for _, v := range accepts {
@@ -138,7 +138,7 @@ func (wrk *Worker) detectedAccept(accept string) string {
 	return registrycenter.ContentTypeXML
 }
 
-func (wrk *Worker) eurekaRegister(w http.ResponseWriter, r *http.Request) {
+func (worker *Worker) eurekaRegister(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest,
@@ -146,36 +146,36 @@ func (wrk *Worker) eurekaRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	contentType := r.Header.Get("Content-Type")
-	if err := wrk.registryServer.CheckRegistryBody(contentType, body); err != nil {
+	if err := worker.registryServer.CheckRegistryBody(contentType, body); err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
-	serviceSpec := wrk.service.GetServiceSpec(wrk.serviceName)
+	serviceSpec := worker.service.GetServiceSpec(worker.serviceName)
 	if serviceSpec == nil {
-		err := fmt.Errorf("registry to unknown service: %s", wrk.serviceName)
+		err := fmt.Errorf("registry to unknown service: %s", worker.serviceName)
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
-	wrk.registryServer.Register(serviceSpec, wrk.ingressServer.Ready, wrk.egressServer.Ready)
+	worker.registryServer.Register(serviceSpec, worker.ingressServer.Ready, worker.egressServer.Ready)
 
 	// NOTE: According to eureka APIs list:
 	// https://github.com/Netflix/eureka/wiki/Eureka-REST-operations
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (wrk *Worker) apps(w http.ResponseWriter, r *http.Request) {
+func (worker *Worker) apps(w http.ResponseWriter, r *http.Request) {
 	var (
 		err          error
 		serviceInfos []*registrycenter.ServiceRegistryInfo
 	)
-	if serviceInfos, err = wrk.registryServer.Discovery(); err != nil {
+	if serviceInfos, err = worker.registryServer.Discovery(); err != nil {
 		logger.Errorf("discovery services err: %v ", err)
 		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	xmlAPPs := wrk.registryServer.ToEurekaApps(serviceInfos)
+	xmlAPPs := worker.registryServer.ToEurekaApps(serviceInfos)
 	jsonAPPs := eurekaJSONApps{
 		APPs: eurekaAPPs{
 			VersionDelta: strconv.Itoa(xmlAPPs.VersionsDelta),
@@ -187,9 +187,9 @@ func (wrk *Worker) apps(w http.ResponseWriter, r *http.Request) {
 		jsonAPPs.APPs.Application = append(jsonAPPs.APPs.Application, eurekaAPP{Name: v.Name, Instances: v.Instances})
 	}
 
-	accept := wrk.detectedAccept(r.Header.Get("Accept"))
+	accept := worker.detectedAccept(r.Header.Get("Accept"))
 
-	rsp, err := wrk.encodByAcceptType(accept, jsonAPPs, xmlAPPs)
+	rsp, err := worker.encodByAcceptType(accept, jsonAPPs, xmlAPPs)
 	if err != nil {
 		logger.Errorf("encode accept: %s failed: %v", accept, err)
 		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
@@ -200,7 +200,7 @@ func (wrk *Worker) apps(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(rsp))
 }
 
-func (wrk *Worker) app(w http.ResponseWriter, r *http.Request) {
+func (worker *Worker) app(w http.ResponseWriter, r *http.Request) {
 	serviceName := chi.URLParam(r, "serviceName")
 	if serviceName == "" {
 		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("empty service name(app)"))
@@ -210,7 +210,7 @@ func (wrk *Worker) app(w http.ResponseWriter, r *http.Request) {
 	// eureka use 'delta' after /apps/, need to handle this
 	// special case here.
 	if serviceName == "delta" {
-		wrk.apps(w, r)
+		worker.apps(w, r)
 		return
 	}
 
@@ -219,13 +219,13 @@ func (wrk *Worker) app(w http.ResponseWriter, r *http.Request) {
 		serviceInfo *registrycenter.ServiceRegistryInfo
 	)
 
-	if serviceInfo, err = wrk.registryServer.DiscoveryService(serviceName); err != nil {
+	if serviceInfo, err = worker.registryServer.DiscoveryService(serviceName); err != nil {
 		logger.Errorf("discovery service: %s, err: %v ", serviceName, err)
 		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	accept := wrk.detectedAccept(r.Header.Get("Accept"))
-	xmlAPP := wrk.registryServer.ToEurekaApp(serviceInfo)
+	accept := worker.detectedAccept(r.Header.Get("Accept"))
+	xmlAPP := worker.registryServer.ToEurekaApp(serviceInfo)
 
 	jsonApp := eurekaJSONAPP{
 		APP: eurekaAPP{
@@ -233,7 +233,7 @@ func (wrk *Worker) app(w http.ResponseWriter, r *http.Request) {
 			Instances: xmlAPP.Instances,
 		},
 	}
-	rsp, err := wrk.encodByAcceptType(accept, jsonApp, xmlAPP)
+	rsp, err := worker.encodByAcceptType(accept, jsonApp, xmlAPP)
 	if err != nil {
 		logger.Errorf("encode accept: %s failed: %v", accept, err)
 		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
@@ -244,7 +244,7 @@ func (wrk *Worker) app(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(rsp))
 }
 
-func (wrk *Worker) getAppInstance(w http.ResponseWriter, r *http.Request) {
+func (worker *Worker) getAppInstance(w http.ResponseWriter, r *http.Request) {
 	serviceName := chi.URLParam(r, "serviceName")
 	if serviceName == "" {
 		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("empty service name(app)"))
@@ -256,17 +256,17 @@ func (wrk *Worker) getAppInstance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	serviceInfo, err := wrk.registryServer.DiscoveryService(serviceName)
+	serviceInfo, err := worker.registryServer.DiscoveryService(serviceName)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 
 	if serviceInfo.Service.Name == serviceName && instanceID == serviceInfo.Ins.InstanceID {
-		ins := wrk.registryServer.ToEurekaInstanceInfo(serviceInfo)
-		accept := wrk.detectedAccept(w.Header().Get("Accept"))
+		ins := worker.registryServer.ToEurekaInstanceInfo(serviceInfo)
+		accept := worker.detectedAccept(w.Header().Get("Accept"))
 
-		rsp, err := wrk.encodByAcceptType(accept, ins, ins)
+		rsp, err := worker.encodByAcceptType(accept, ins, ins)
 		if err != nil {
 			logger.Errorf("encode accept: %s failed: %v", accept, err)
 			api.HandleAPIError(w, r, http.StatusInternalServerError, err)
@@ -280,7 +280,7 @@ func (wrk *Worker) getAppInstance(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotFound)
 }
 
-func (wrk *Worker) getInstance(w http.ResponseWriter, r *http.Request) {
+func (worker *Worker) getInstance(w http.ResponseWriter, r *http.Request) {
 	instanceID := chi.URLParam(r, "instanceID")
 	if instanceID == "" {
 		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("empty instanceID"))
@@ -292,15 +292,15 @@ func (wrk *Worker) getInstance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	serviceInfo, err := wrk.registryServer.DiscoveryService(serviceName)
+	serviceInfo, err := worker.registryServer.DiscoveryService(serviceName)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
 		return
 	}
-	ins := wrk.registryServer.ToEurekaInstanceInfo(serviceInfo)
-	accept := wrk.detectedAccept(r.Header.Get("Accept"))
+	ins := worker.registryServer.ToEurekaInstanceInfo(serviceInfo)
+	accept := worker.detectedAccept(r.Header.Get("Accept"))
 
-	rsp, err := wrk.encodByAcceptType(accept, ins, ins)
+	rsp, err := worker.encodByAcceptType(accept, ins, ins)
 	if err != nil {
 		logger.Errorf("encode accept: %s failed: %v", accept, err)
 		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
@@ -310,7 +310,7 @@ func (wrk *Worker) getInstance(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(rsp))
 }
 
-func (wrk *Worker) encodByAcceptType(accept string, jsonSt interface{}, xmlSt interface{}) ([]byte, error) {
+func (worker *Worker) encodByAcceptType(accept string, jsonSt interface{}, xmlSt interface{}) ([]byte, error) {
 	switch accept {
 	case registrycenter.ContentTypeJSON:
 		buff := bytes.NewBuffer(nil)

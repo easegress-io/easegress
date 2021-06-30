@@ -36,14 +36,14 @@ const (
 	header   = "Header"
 	cookie   = "Cookie"
 	jwt      = "Jwt"
-	clientip = "ClientIP"
+	clientIP = "ClientIP"
 )
 
 var sources = []string{
 	header,
 	cookie,
 	jwt,
-	clientip,
+	clientIP,
 }
 
 // sourceData is matcher's data sources.
@@ -86,7 +86,7 @@ var logicOPs = []string{
 }
 
 var reservedWords = []string{
-	header, cookie, jwt, clientip,
+	header, cookie, jwt, clientIP,
 	ge, le, eq, ne, gt, lt, mod, in,
 	lp, rp, and, or,
 }
@@ -306,7 +306,7 @@ func (p *parser) doParseCond() (m matcher, err error) {
 	op := ""
 	exp := ""
 
-	if src != clientip {
+	if src != clientIP {
 		key, err = p.getSourceKey()
 		if err != nil {
 			return nil, err
@@ -322,7 +322,7 @@ func (p *parser) doParseCond() (m matcher, err error) {
 	var getAct getActVal
 
 	switch src { // Choose right way to handle source.
-	case clientip:
+	case clientIP:
 		getAct = func(data *sourceData) string {
 			return data.clientIP
 		}

@@ -88,7 +88,7 @@ func (s *Server) String() string {
 // Validate validates LoadBalance.
 func (lb LoadBalance) Validate() error {
 	if lb.Policy == PolicyHeaderHash && len(lb.HeaderHashKey) == 0 {
-		return fmt.Errorf("headerHash needs to speficy headerHashKey")
+		return fmt.Errorf("headerHash needs to specify headerHashKey")
 	}
 
 	return nil

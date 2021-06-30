@@ -17,7 +17,7 @@ Port Layout:
 ```
 
 Please notice only one server will listen the port 10080 successfully
-becasue the members are running on the same machine.
+because the members are running on the same machine.
 But it's fine for the following demoing.
 
 ## Operation On Easegress Cluster

@@ -27,7 +27,7 @@ import (
 
 const defaultGroup = "DEFAULT_GROUP"
 
-// ToNacosInstanceInfo transforms service registry info to nacos's instance
+// ToNacosInstanceInfo transforms service registry info to nacos' instance
 func (rcs *Server) ToNacosInstanceInfo(serviceInfo *ServiceRegistryInfo) *model.Instance {
 	var ins model.Instance
 
@@ -45,7 +45,7 @@ func (rcs *Server) ToNacosInstanceInfo(serviceInfo *ServiceRegistryInfo) *model.
 	return &ins
 }
 
-// ToNacosService transforms servie registry info to nacos's service
+// ToNacosService transforms servie registry info to nacos' service
 func (rcs *Server) ToNacosService(serviceInfo *ServiceRegistryInfo) *model.Service {
 	var svc model.Service
 	svc.Hosts = append(svc.Hosts, *rcs.ToNacosInstanceInfo(serviceInfo))
@@ -56,7 +56,7 @@ func (rcs *Server) ToNacosService(serviceInfo *ServiceRegistryInfo) *model.Servi
 	return &svc
 }
 
-// ToNacosServiceList transforms registry center's service info to eureka's apps
+// ToNacosServiceList transforms registry center's service info to nacos' apps
 func (rcs *Server) ToNacosServiceList(serviceInfos []*ServiceRegistryInfo) *model.ServiceList {
 	var list model.ServiceList
 	for _, v := range serviceInfos {
@@ -67,7 +67,7 @@ func (rcs *Server) ToNacosServiceList(serviceInfos []*ServiceRegistryInfo) *mode
 	return &list
 }
 
-// ToNacosServiceDetail transforms servie registry info to nacos's service
+// ToNacosServiceDetail transforms servie registry info to nacos' service
 func (rcs *Server) ToNacosServiceDetail(serviceInfo *ServiceRegistryInfo) *model.ServiceDetail {
 	var svc model.ServiceDetail
 	svc.Service.Name = serviceInfo.Ins.ServiceName

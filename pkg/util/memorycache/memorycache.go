@@ -62,7 +62,7 @@ type (
 func New(spec *Spec) *MemoryCache {
 	expiration, err := time.ParseDuration(spec.Expiration)
 	if err != nil {
-		logger.Errorf("BUG: parse duraion %s failed: %v", spec.Expiration, err)
+		logger.Errorf("BUG: parse duration %s failed: %v", spec.Expiration, err)
 		expiration = 10 * time.Second
 	}
 

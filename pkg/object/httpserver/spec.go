@@ -41,7 +41,7 @@ type (
 		Tracing          *tracing.Spec `yaml:"tracing" jsonschema:"omitempty"`
 
 		// Support multiple certs, preserve the certbase64 and keybase64
-		// for backward compitable
+		// for backward compatibility
 		CertBase64 string `yaml:"certBase64" jsonschema:"omitempty,format=base64"`
 		KeyBase64  string `yaml:"keyBase64" jsonschema:"omitempty,format=base64"`
 

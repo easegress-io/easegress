@@ -54,7 +54,7 @@ type (
 		KnownMembers   *membersSlice `yaml:"knownMembers"`
 	}
 
-	// membersSlice carrys unique members whose PeerURL is the primary id.
+	// membersSlice carries unique members whose PeerURL is the primary id.
 	membersSlice []*member
 
 	member struct {

@@ -50,7 +50,7 @@ const (
 	systemLogMaxCacheCount = 0
 
 	// NOTE: Under some pressure, it's easy to produce more than 1024 log entries
-	// within cacheTimeout(2s), so it's reasonalble to flush them at this moment.
+	// within cacheTimeout(2s), so it's reasonable to flush them at this moment.
 	trafficLogMaxCacheCount = 1024
 )
 

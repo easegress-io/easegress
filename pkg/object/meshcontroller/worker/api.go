@@ -31,19 +31,19 @@ const (
 	meshNacosPrefix = "/nacos/v1"
 )
 
-func (wrk *Worker) runAPIServer() {
+func (worker *Worker) runAPIServer() {
 	var apis []*apiEntry
-	switch wrk.registryServer.RegistryType {
+	switch worker.registryServer.RegistryType {
 	case spec.RegistryTypeConsul:
-		apis = wrk.consulAPIs()
+		apis = worker.consulAPIs()
 	case spec.RegistryTypeEureka:
-		apis = wrk.eurekaAPIs()
+		apis = worker.eurekaAPIs()
 	case spec.RegistryTypeNacos:
-		apis = wrk.nacosAPIs()
+		apis = worker.nacosAPIs()
 	default:
-		apis = wrk.eurekaAPIs()
+		apis = worker.eurekaAPIs()
 	}
-	wrk.apiServer.registerAPIs(apis)
+	worker.apiServer.registerAPIs(apis)
 }
 
 func (wrk *Worker) emptyHandler(w http.ResponseWriter, r *http.Request) {

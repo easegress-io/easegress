@@ -107,7 +107,7 @@ func httpMethodArray(v interface{}) error {
 
 func httpCode(v interface{}) error {
 	code := v.(int)
-	// Referece: https://tools.ietf.org/html/rfc7231#section-6
+	// Reference: https://tools.ietf.org/html/rfc7231#section-6
 	if code < 100 || code >= 600 {
 		return fmt.Errorf("invalid http code")
 	}
