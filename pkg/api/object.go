@@ -40,9 +40,8 @@ const (
 	StatusObjectPrefix = "/status/objects"
 )
 
-func (s *Server) setupObjectAPIs() {
-	objAPIs := make([]*APIEntry, 0)
-	objAPIs = append(objAPIs,
+func (s *Server) objectAPIEntries() []*APIEntry {
+	return []*APIEntry{
 		&APIEntry{
 			Path:    ObjectKindsPrefix,
 			Method:  "GET",
@@ -86,9 +85,7 @@ func (s *Server) setupObjectAPIs() {
 			Method:  "GET",
 			Handler: s.getStatusObject,
 		},
-	)
-
-	s.RegisterAPIs(objAPIs)
+	}
 }
 
 func (s *Server) readObjectSpec(w http.ResponseWriter, r *http.Request) (*supervisor.Spec, error) {
@@ -97,7 +94,7 @@ func (s *Server) readObjectSpec(w http.ResponseWriter, r *http.Request) (*superv
 		return nil, fmt.Errorf("read body failed: %v", err)
 	}
 
-	spec, err := supervisor.NewSpec(string(body))
+	spec, err := s.super.NewSpec(string(body))
 	if err != nil {
 		return nil, err
 	}

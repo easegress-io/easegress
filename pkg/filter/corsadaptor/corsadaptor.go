@@ -24,7 +24,6 @@ import (
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
-	"github.com/megaease/easegress/pkg/supervisor"
 )
 
 const (
@@ -43,9 +42,8 @@ func init() {
 type (
 	// CORSAdaptor is filter for CORS request.
 	CORSAdaptor struct {
-		super    *supervisor.Supervisor
-		pipeSpec *httppipeline.FilterSpec
-		spec     *Spec
+		filterSpec *httppipeline.FilterSpec
+		spec       *Spec
 
 		cors *cors.Cors
 	}
@@ -81,17 +79,16 @@ func (a *CORSAdaptor) Results() []string {
 }
 
 // Init initializes CORSAdaptor.
-func (a *CORSAdaptor) Init(pipeSpec *httppipeline.FilterSpec, super *supervisor.Supervisor) {
-	a.pipeSpec, a.spec, a.super = pipeSpec, pipeSpec.FilterSpec().(*Spec), super
+func (a *CORSAdaptor) Init(filterSpec *httppipeline.FilterSpec) {
+	a.filterSpec, a.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	a.reload()
 }
 
 // Inherit inherits previous generation of CORSAdaptor.
-func (a *CORSAdaptor) Inherit(pipeSpec *httppipeline.FilterSpec,
-	previousGeneration httppipeline.Filter, super *supervisor.Supervisor) {
+func (a *CORSAdaptor) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
 
 	previousGeneration.Close()
-	a.Init(pipeSpec, super)
+	a.Init(filterSpec)
 }
 
 func (a *CORSAdaptor) reload() {

@@ -43,7 +43,6 @@ func init() {
 type (
 	// ConsulServiceRegistry is Object ConsulServiceRegistry.
 	ConsulServiceRegistry struct {
-		super     *supervisor.Supervisor
 		superSpec *supervisor.Spec
 		spec      *Spec
 
@@ -94,17 +93,15 @@ func (c *ConsulServiceRegistry) DefaultSpec() interface{} {
 }
 
 // Init initilizes ConsulServiceRegistry.
-func (c *ConsulServiceRegistry) Init(superSpec *supervisor.Spec, super *supervisor.Supervisor) {
-	c.superSpec, c.spec, c.super = superSpec, superSpec.ObjectSpec().(*Spec), super
+func (c *ConsulServiceRegistry) Init(superSpec *supervisor.Spec) {
+	c.superSpec, c.spec = superSpec, superSpec.ObjectSpec().(*Spec)
 	c.reload()
 }
 
 // Inherit inherits previous generation of ConsulServiceRegistry.
-func (c *ConsulServiceRegistry) Inherit(superSpec *supervisor.Spec,
-	previousGeneration supervisor.Object, super *supervisor.Supervisor) {
-
+func (c *ConsulServiceRegistry) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object) {
 	previousGeneration.Close()
-	c.Init(superSpec, super)
+	c.Init(superSpec)
 }
 
 func (c *ConsulServiceRegistry) reload() {

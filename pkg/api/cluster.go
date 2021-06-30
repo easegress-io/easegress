@@ -75,7 +75,7 @@ func (s *Server) _getObject(name string) *supervisor.Spec {
 		return nil
 	}
 
-	spec, err := supervisor.NewSpec(*value)
+	spec, err := s.super.NewSpec(*value)
 	if err != nil {
 		panic(fmt.Errorf("bad spec(err: %v) from yaml: %s", err, *value))
 	}
@@ -91,7 +91,7 @@ func (s *Server) _listObjects() []*supervisor.Spec {
 
 	specs := make([]*supervisor.Spec, 0, len(kvs))
 	for _, v := range kvs {
-		spec, err := supervisor.NewSpec(v)
+		spec, err := s.super.NewSpec(v)
 		if err != nil {
 			panic(fmt.Errorf("bad spec(err: %v) from yaml: %s", err, v))
 		}

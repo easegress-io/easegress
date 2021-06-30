@@ -18,13 +18,20 @@
 package supervisor
 
 import (
+	"bytes"
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
 	"reflect"
 	"runtime/debug"
+	"strings"
 	"sync"
+	"time"
 
+	"github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocol"
+	yaml "gopkg.in/yaml.v2"
 )
 
 type (
@@ -58,8 +65,12 @@ type (
 	// ObjectRegistry records every object entity according to config
 	// from storage without manage their lifecycle.
 	ObjectRegistry struct {
-		super        *Supervisor
-		configSyncer *configSyncer
+		super *Supervisor
+
+		configSyncer    *cluster.Syncer
+		configSyncChan  <-chan map[string]string
+		configPrefix    string
+		configLocalPath string
 
 		mutex    sync.Mutex
 		entities map[string]*ObjectEntity
@@ -67,6 +78,11 @@ type (
 
 		done chan struct{}
 	}
+)
+
+const (
+	syncInternal   = 1 * time.Minute
+	configFileName = "running_objects.yaml"
 )
 
 func FilterCategory(categories ...ObjectCategory) ObjectEntityWatcherFilter {
@@ -100,12 +116,26 @@ func newObjectEntityWatcherEvent() *ObjectEntityWatcherEvent {
 }
 
 func newObjectRegistry(super *Supervisor) *ObjectRegistry {
+	syncer, err := super.Cluster().Syncer(syncInternal)
+	if err != nil {
+		panic(fmt.Errorf("get syncer failed: %v", err))
+	}
+
+	prefix := super.Cluster().Layout().ConfigObjectPrefix()
+	syncChan, err := syncer.SyncPrefix(prefix)
+	if err != nil {
+		panic(fmt.Errorf("sync prefix %s failed: %v", prefix, err))
+	}
+
 	or := &ObjectRegistry{
-		super:        super,
-		configSyncer: newconfigSyncer(super.Options(), super.Cluster()),
-		entities:     make(map[string]*ObjectEntity),
-		watchers:     map[string]*ObjectEntityWatcher{},
-		done:         make(chan struct{}),
+		super:           super,
+		configSyncer:    syncer,
+		configSyncChan:  syncChan,
+		configPrefix:    prefix,
+		configLocalPath: filepath.Join(super.Options().AbsHomeDir, configFileName),
+		entities:        make(map[string]*ObjectEntity),
+		watchers:        map[string]*ObjectEntityWatcher{},
+		done:            make(chan struct{}),
 	}
 
 	go or.run()
@@ -118,8 +148,14 @@ func (or *ObjectRegistry) run() {
 		select {
 		case <-or.done:
 			return
-		case config := <-or.configSyncer.watchConfig():
+		case kv := <-or.configSyncChan:
+			config := make(map[string]string)
+			for k, v := range kv {
+				k = strings.TrimPrefix(k, or.configPrefix)
+				config[k] = v
+			}
 			or.applyConfig(config)
+			or.storeConfigInLocal(config)
 		}
 	}
 }
@@ -140,14 +176,14 @@ func (or *ObjectRegistry) applyConfig(config map[string]string) {
 	}
 
 	for name, yamlConfig := range config {
-		prevEntity, exists := or.entities[name]
-		if exists && yamlConfig == prevEntity.Spec().yamlConfig {
-			continue
-		}
-
 		entity, err := or.super.NewObjectEntityFromConfig(yamlConfig)
 		if err != nil {
 			logger.Errorf("BUG: %s: %v", name, err)
+			continue
+		}
+
+		prevEntity, exists := or.entities[name]
+		if exists && prevEntity.Spec().Equals(entity.Spec()) {
 			continue
 		}
 
@@ -229,8 +265,26 @@ func (or *ObjectRegistry) CloseWatcher(name string) {
 	delete(or.watchers, name)
 }
 
+func (or *ObjectRegistry) storeConfigInLocal(config map[string]string) {
+	buff := bytes.NewBuffer(nil)
+	buff.WriteString(fmt.Sprintf("# %s\n", time.Now().Format(time.RFC3339)))
+
+	configBuff, err := yaml.Marshal(config)
+	if err != nil {
+		logger.Errorf("marshal %s to yaml failed: %v", buff, err)
+		return
+	}
+	buff.Write(configBuff)
+
+	err = ioutil.WriteFile(or.configLocalPath, buff.Bytes(), 0o644)
+	if err != nil {
+		logger.Errorf("write %s failed: %v", or.configLocalPath, err)
+		return
+	}
+}
+
 func (or *ObjectRegistry) close() {
-	or.configSyncer.close()
+	or.configSyncer.Close()
 	close(or.done)
 }
 
@@ -253,7 +307,7 @@ func (w *ObjectEntityWatcher) Entities() map[string]*ObjectEntity {
 }
 
 func (s *Supervisor) NewObjectEntityFromConfig(config string) (*ObjectEntity, error) {
-	spec, err := NewSpec(config)
+	spec, err := s.NewSpec(config)
 	if err != nil {
 		return nil, fmt.Errorf("create spec failed: %s: %v", config, err)
 	}
@@ -308,9 +362,9 @@ func (e *ObjectEntity) InitWithRecovery(muxMapper protocol.MuxMapper) {
 
 	switch instance := e.Instance().(type) {
 	case Controller:
-		instance.Init(e.Spec(), e.super)
+		instance.Init(e.Spec())
 	case TrafficObject:
-		instance.Init(e.Spec(), e.super, muxMapper)
+		instance.Init(e.Spec(), muxMapper)
 	default:
 		panic(fmt.Errorf("BUG: unsupported object type %T", instance))
 	}
@@ -329,9 +383,9 @@ func (e *ObjectEntity) InheritWithRecovery(previousEntity *ObjectEntity, muxMapp
 
 	switch instance := e.Instance().(type) {
 	case Controller:
-		instance.Inherit(e.Spec(), previousEntity.Instance(), e.super)
+		instance.Inherit(e.Spec(), previousEntity.Instance())
 	case TrafficObject:
-		instance.Inherit(e.Spec(), previousEntity.Instance(), e.super, muxMapper)
+		instance.Inherit(e.Spec(), previousEntity.Instance(), muxMapper)
 	default:
 		panic(fmt.Errorf("BUG: unsupported object type %T", instance))
 	}

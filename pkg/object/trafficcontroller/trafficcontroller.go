@@ -127,8 +127,8 @@ func (tc *TrafficController) DefaultSpec() interface{} {
 }
 
 // Init initializes TrafficController.
-func (tc *TrafficController) Init(superSpec *supervisor.Spec, super *supervisor.Supervisor) {
-	tc.superSpec, tc.spec, tc.super = superSpec, superSpec.ObjectSpec().(*Spec), super
+func (tc *TrafficController) Init(superSpec *supervisor.Spec) {
+	tc.superSpec, tc.spec, tc.super = superSpec, superSpec.ObjectSpec().(*Spec), superSpec.Super()
 
 	tc.namespaces = make(map[string]*Namespace)
 
@@ -136,9 +136,8 @@ func (tc *TrafficController) Init(superSpec *supervisor.Spec, super *supervisor.
 }
 
 // Inherit inherits previous generation of TrafficController.
-func (tc *TrafficController) Inherit(spec *supervisor.Spec,
-	previousGeneration supervisor.Object, super *supervisor.Supervisor) {
-
+func (tc *TrafficController) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object) {
+	tc.superSpec, tc.super = superSpec, superSpec.Super()
 	tc.reload(previousGeneration.(*TrafficController))
 }
 
@@ -257,6 +256,12 @@ func (tc *TrafficController) ApplyHTTPServer(namespace string, entity *superviso
 
 		logger.Infof("create http server %s/%s", namespace, name)
 	} else {
+		prev := previousEntity.(*supervisor.ObjectEntity)
+		if prev.Spec().Equals(entity.Spec()) {
+			logger.Infof("http server %s/%s nothing change", namespace, name)
+			return prev, nil
+		}
+
 		entity.InheritWithRecovery(previousEntity.(*supervisor.ObjectEntity), space)
 		space.httpservers.Store(name, entity)
 
@@ -471,7 +476,13 @@ func (tc *TrafficController) ApplyHTTPPipeline(namespace string, entity *supervi
 
 		logger.Infof("create http pipeline %s/%s", namespace, name)
 	} else {
-		entity.InheritWithRecovery(previousEntity.(*supervisor.ObjectEntity), space)
+		prev := previousEntity.(*supervisor.ObjectEntity)
+		if prev.Spec().Equals(entity.Spec()) {
+			logger.Infof("http pipeline %s/%s nothing change", namespace, name)
+			return prev, nil
+		}
+
+		entity.InheritWithRecovery(prev, space)
 		space.httppipelines.Store(name, entity)
 
 		logger.Infof("update http pipeline %s/%s", namespace, name)

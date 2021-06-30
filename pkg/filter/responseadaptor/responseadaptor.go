@@ -23,7 +23,6 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
-	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/httpheader"
 )
 
@@ -41,9 +40,8 @@ func init() {
 type (
 	// ResponseAdaptor is filter ResponseAdaptor.
 	ResponseAdaptor struct {
-		super    *supervisor.Supervisor
-		pipeSpec *httppipeline.FilterSpec
-		spec     *Spec
+		filterSpec *httppipeline.FilterSpec
+		spec       *Spec
 	}
 
 	// Spec is HTTPAdaptor Spec.
@@ -75,17 +73,15 @@ func (ra *ResponseAdaptor) Results() []string {
 }
 
 // Init initializes ResponseAdaptor.
-func (ra *ResponseAdaptor) Init(pipeSpec *httppipeline.FilterSpec, super *supervisor.Supervisor) {
-	ra.pipeSpec, ra.spec, ra.super = pipeSpec, pipeSpec.FilterSpec().(*Spec), super
+func (ra *ResponseAdaptor) Init(filterSpec *httppipeline.FilterSpec) {
+	ra.filterSpec, ra.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	ra.reload()
 }
 
 // Inherit inherits previous generation of ResponseAdaptor.
-func (ra *ResponseAdaptor) Inherit(pipeSpec *httppipeline.FilterSpec,
-	previousGeneration httppipeline.Filter, super *supervisor.Supervisor) {
-
+func (ra *ResponseAdaptor) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
 	previousGeneration.Close()
-	ra.Init(pipeSpec, super)
+	ra.Init(filterSpec)
 }
 
 func (ra *ResponseAdaptor) reload() {

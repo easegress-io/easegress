@@ -27,7 +27,6 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
-	"github.com/megaease/easegress/pkg/supervisor"
 	libcb "github.com/megaease/easegress/pkg/util/circuitbreaker"
 	"github.com/megaease/easegress/pkg/util/urlrule"
 )
@@ -77,9 +76,8 @@ type (
 
 	// CircuitBreaker defines the circuit breaker
 	CircuitBreaker struct {
-		super    *supervisor.Supervisor
-		pipeSpec *httppipeline.FilterSpec
-		spec     *Spec
+		filterSpec *httppipeline.FilterSpec
+		spec       *Spec
 	}
 
 	// Status is the status of CircuitBreaker.
@@ -185,7 +183,7 @@ func (cb *CircuitBreaker) Results() []string {
 func (cb *CircuitBreaker) setStateListenerForURL(u *URLRule) {
 	u.cb.SetStateListener(func(event *libcb.Event) {
 		logger.Infof("state of circuit breaker '%s' on URL(%s) transited from %s to %s at %d, reason: %s",
-			cb.pipeSpec.Name(),
+			cb.filterSpec.Name(),
 			u.ID(),
 			event.OldState,
 			event.NewState,
@@ -272,18 +270,14 @@ OuterLoop:
 }
 
 // Init initializes CircuitBreaker.
-func (cb *CircuitBreaker) Init(pipeSpec *httppipeline.FilterSpec, super *supervisor.Supervisor) {
-	cb.pipeSpec = pipeSpec
-	cb.spec = pipeSpec.FilterSpec().(*Spec)
-	cb.super = super
+func (cb *CircuitBreaker) Init(filterSpec *httppipeline.FilterSpec) {
+	cb.filterSpec, cb.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	cb.reload(nil)
 }
 
 // Inherit inherits previous generation of CircuitBreaker.
-func (cb *CircuitBreaker) Inherit(pipeSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter, super *supervisor.Supervisor) {
-	cb.pipeSpec = pipeSpec
-	cb.spec = pipeSpec.FilterSpec().(*Spec)
-	cb.super = super
+func (cb *CircuitBreaker) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+	cb.filterSpec, cb.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	cb.reload(previousGeneration.(*CircuitBreaker))
 }
 

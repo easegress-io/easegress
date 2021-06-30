@@ -33,7 +33,6 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
 	"github.com/megaease/easegress/pkg/protocol"
-	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/megaease/easegress/pkg/util/httpheader"
 	"github.com/megaease/easegress/pkg/util/pathadaptor"
@@ -58,9 +57,8 @@ func init() {
 type (
 	// APIAggregator is the entity to complete rate limiting.
 	APIAggregator struct {
-		super    *supervisor.Supervisor
-		pipeSpec *httppipeline.FilterSpec
-		spec     *Spec
+		filterSpec *httppipeline.FilterSpec
+		spec       *Spec
 
 		muxMapper protocol.MuxMapper
 	}
@@ -118,17 +116,15 @@ func (aa *APIAggregator) Results() []string {
 }
 
 // Init initializes APIAggregator.
-func (aa *APIAggregator) Init(pipeSpec *httppipeline.FilterSpec, super *supervisor.Supervisor) {
-	aa.pipeSpec, aa.spec, aa.super = pipeSpec, pipeSpec.FilterSpec().(*Spec), super
+func (aa *APIAggregator) Init(filterSpec *httppipeline.FilterSpec) {
+	aa.filterSpec, aa.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	aa.reload()
 }
 
 // Inherit inherits previous generation of APIAggregator.
-func (aa *APIAggregator) Inherit(pipeSpec *httppipeline.FilterSpec,
-	previousGeneration httppipeline.Filter, super *supervisor.Supervisor) {
-
+func (aa *APIAggregator) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
 	previousGeneration.Close()
-	aa.Init(pipeSpec, super)
+	aa.Init(filterSpec)
 }
 
 func (aa *APIAggregator) reload() {
@@ -180,7 +176,6 @@ func (aa *APIAggregator) handle(ctx context.HTTPContext) (result string) {
 	wg.Add(len(aa.spec.APIProxies))
 
 	httpResps := make([]context.HTTPResponse, len(aa.spec.APIProxies))
-	// Using supervisor to call HTTPProxy object's Handle function
 	for i, proxy := range aa.spec.APIProxies {
 		req, err := aa.newHTTPReq(ctx, proxy, buff)
 		if err != nil {

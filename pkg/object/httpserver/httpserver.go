@@ -61,27 +61,22 @@ func (hs *HTTPServer) DefaultSpec() interface{} {
 }
 
 // Init initializes HTTPServer.
-func (hs *HTTPServer) Init(superSpec *supervisor.Spec,
-	super *supervisor.Supervisor, muxMapper protocol.MuxMapper) {
+func (hs *HTTPServer) Init(superSpec *supervisor.Spec, muxMapper protocol.MuxMapper) {
 
-	hs.runtime = newRuntime(super, muxMapper)
+	hs.runtime = newRuntime(superSpec, muxMapper)
 
 	hs.runtime.eventChan <- &eventReload{
 		nextSuperSpec: superSpec,
-		super:         super,
 		muxMapper:     muxMapper,
 	}
 }
 
 // Inherit inherits previous generation of HTTPServer.
-func (hs *HTTPServer) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object,
-	super *supervisor.Supervisor, muxMapper protocol.MuxMapper) {
-
+func (hs *HTTPServer) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object, muxMapper protocol.MuxMapper) {
 	hs.runtime = previousGeneration.(*HTTPServer).runtime
 
 	hs.runtime.eventChan <- &eventReload{
 		nextSuperSpec: superSpec,
-		super:         super,
 		muxMapper:     muxMapper,
 	}
 }

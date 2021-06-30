@@ -80,11 +80,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	apiServer := api.MustNewServer(opt, cls)
-
-	// NOTE: Supervisor needs to be created after API server.
-	// Because the objects created by supervisor could use global API server.
 	super := supervisor.MustNew(opt, cls)
+
+	apiServer := api.MustNewServer(opt, cls, super)
 
 	if graceupdate.CallOriProcessTerm(super.FirstHandleDone()) {
 		pidfile.Write(opt)
@@ -99,7 +97,7 @@ func main() {
 	}
 	restartCls := func() {
 		cls.StartServer()
-		apiServer = api.MustNewServer(opt, cls)
+		apiServer = api.MustNewServer(opt, cls, super)
 	}
 	graceupdate.NotifySigUsr2(closeCls, restartCls)
 

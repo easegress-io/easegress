@@ -25,7 +25,6 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
-	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/urlrule"
 )
 
@@ -58,9 +57,8 @@ type (
 	}
 
 	TimeLimiter struct {
-		super    *supervisor.Supervisor
-		pipeSpec *httppipeline.FilterSpec
-		spec     *Spec
+		filterSpec *httppipeline.FilterSpec
+		spec       *Spec
 	}
 )
 
@@ -85,10 +83,8 @@ func (tl *TimeLimiter) Results() []string {
 }
 
 // Init initializes TimeLimiter.
-func (tl *TimeLimiter) Init(pipeSpec *httppipeline.FilterSpec, super *supervisor.Supervisor) {
-	tl.pipeSpec = pipeSpec
-	tl.spec = pipeSpec.FilterSpec().(*Spec)
-	tl.super = super
+func (tl *TimeLimiter) Init(filterSpec *httppipeline.FilterSpec) {
+	tl.filterSpec, tl.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 
 	if d := tl.spec.DefaultTimeoutDuration; d != "" {
 		tl.spec.defaultTimeout, _ = time.ParseDuration(d)
@@ -107,8 +103,8 @@ func (tl *TimeLimiter) Init(pipeSpec *httppipeline.FilterSpec, super *supervisor
 }
 
 // Inherit inherits previous generation of TimeLimiter.
-func (tl *TimeLimiter) Inherit(pipeSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter, super *supervisor.Supervisor) {
-	tl.Init(pipeSpec, super)
+func (tl *TimeLimiter) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+	tl.Init(filterSpec)
 }
 
 func (tl *TimeLimiter) handle(ctx context.HTTPContext, u *URLRule) string {
@@ -119,7 +115,7 @@ func (tl *TimeLimiter) handle(ctx context.HTTPContext, u *URLRule) string {
 	result := ctx.CallNextHandler("")
 	if !timer.Stop() {
 		ctx.AddTag("timeLimiter: timed out")
-		logger.Infof("time limiter %s timed out on URL(%s)", tl.pipeSpec.Name(), u.ID())
+		logger.Infof("time limiter %s timed out on URL(%s)", tl.filterSpec.Name(), u.ID())
 		ctx.Response().SetStatusCode(http.StatusRequestTimeout)
 		ctx.Response().Std().Header().Set("X-EG-Time-Limiter", "timed-out")
 		result = resultTimeout

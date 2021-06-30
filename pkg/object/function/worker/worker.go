@@ -50,14 +50,13 @@ type (
 )
 
 // newWorker return a worker
-func NewWorker(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Worker {
-	store := storage.NewStorage(superSpec.Name(), super.Cluster())
+func NewWorker(superSpec *supervisor.Spec) *Worker {
+	store := storage.NewStorage(superSpec.Name(), superSpec.Super().Cluster())
 	faasProvider := provider.NewProvider(superSpec)
-	ingress := newIngressServer(superSpec, super, superSpec.Name())
+	ingress := newIngressServer(superSpec, superSpec.Name())
 	adm := superSpec.ObjectSpec().(*spec.Admin)
 
 	w := &Worker{
-		super:        super,
 		superSpec:    superSpec,
 		store:        store,
 		name:         superSpec.Name(),

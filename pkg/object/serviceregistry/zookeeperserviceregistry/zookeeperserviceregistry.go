@@ -45,7 +45,6 @@ func init() {
 type (
 	// ZookeeperServiceRegistry is Object ZookeeperServiceRegistry.
 	ZookeeperServiceRegistry struct {
-		super     *supervisor.Supervisor
 		superSpec *supervisor.Spec
 		spec      *Spec
 
@@ -98,17 +97,15 @@ func (zk *ZookeeperServiceRegistry) DefaultSpec() interface{} {
 }
 
 // Init initilizes ZookeeperServiceRegistry.
-func (zk *ZookeeperServiceRegistry) Init(superSpec *supervisor.Spec, super *supervisor.Supervisor) {
-	zk.superSpec, zk.spec, zk.super = superSpec, superSpec.ObjectSpec().(*Spec), super
+func (zk *ZookeeperServiceRegistry) Init(superSpec *supervisor.Spec) {
+	zk.superSpec, zk.spec = superSpec, superSpec.ObjectSpec().(*Spec)
 	zk.reload()
 }
 
 // Inherit inherits previous generation of ZookeeperServiceRegistry.
-func (zk *ZookeeperServiceRegistry) Inherit(superSpec *supervisor.Spec,
-	previousGeneration supervisor.Object, super *supervisor.Supervisor) {
-
+func (zk *ZookeeperServiceRegistry) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object) {
 	previousGeneration.Close()
-	zk.Init(superSpec, super)
+	zk.Init(superSpec)
 }
 
 func (zk *ZookeeperServiceRegistry) reload() {

@@ -28,7 +28,7 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 )
 
-func (s *Server) newAPILogger(next http.Handler) http.Handler {
+func (m *dynamicMux) newAPILogger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 
@@ -42,7 +42,7 @@ func (s *Server) newAPILogger(next http.Handler) http.Handler {
 	})
 }
 
-func (s *Server) newRecoverer(next http.Handler) http.Handler {
+func (m *dynamicMux) newRecoverer(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if rvr := recover(); rvr != nil && rvr != http.ErrAbortHandler {
@@ -60,11 +60,11 @@ func (s *Server) newRecoverer(next http.Handler) http.Handler {
 	})
 }
 
-func (s *Server) newConfigVersionAttacher(next http.Handler) http.Handler {
+func (m *dynamicMux) newConfigVersionAttacher(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// NOTE: It needs to add the header before the next handlers
 		// write the body to the network.
-		version := s._getVersion()
+		version := m.server._getVersion()
 		w.Header().Set(ConfigVersionKey, fmt.Sprintf("%d", version))
 		next.ServeHTTP(w, r)
 	})

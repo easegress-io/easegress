@@ -18,6 +18,7 @@
 package cluster
 
 import (
+	"bytes"
 	"context"
 	"time"
 
@@ -27,11 +28,11 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 )
 
-// Syncer syncs data from ETCD, it uses an ETCD watcher to receive update.
+// Syncer syncs data from Etcd, it uses an Etcd watcher to receive update.
 // The syncer keeps a full copy of data, and keeps apply changes onto it when an
 // update event is received from the watcher, and then send out the full data copy.
-// The syncer also pulls full data from ETCD at a configurable pull interval, this
-// is to ensure data consistency, as ETCD watcher may be cancelled if it cannot catch
+// The syncer also pulls full data from Etcd at a configurable pull interval, this
+// is to ensure data consistency, as Etcd watcher may be cancelled if it cannot catch
 // up with the key-value store.
 type Syncer struct {
 	cluster      *cluster
@@ -83,37 +84,66 @@ func (s *Syncer) watch(key string, prefix bool) (clientv3.Watcher, clientv3.Watc
 	}
 	watcher := clientv3.NewWatcher(s.client)
 	watchChan := watcher.Watch(context.Background(), key, opts...)
-	logger.Debugf("watcher created for key %s", key)
+	logger.Debugf("watcher created for key %s (prefix: %v)", key, prefix)
 	return watcher, watchChan
 }
 
-func isKeyValueChanged(oldKV, newKV *mvccpb.KeyValue) bool {
-	if oldKV == nil {
-		return true
-	}
-	if newKV.ModRevision <= oldKV.ModRevision {
+func isDataEuqal(data1 map[string]*mvccpb.KeyValue, data2 map[string]*mvccpb.KeyValue) bool {
+	if len(data1) != len(data2) {
 		return false
 	}
-	return string(newKV.Value) != string(oldKV.Value)
+
+	for k1, kv1 := range data1 {
+		kv2, exists := data2[k1]
+		if !exists {
+			return false
+		}
+
+		if !isKeyValueEqual(kv1, kv2) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func isKeyValueEqual(kv1, kv2 *mvccpb.KeyValue) bool {
+	switch {
+	case kv1 == nil && kv2 == nil:
+		return true
+	case kv1 == nil && kv2 != nil:
+		return false
+	case kv1 != nil && kv2 == nil:
+		return false
+	case kv1 != nil && kv2 != nil:
+		return bytes.Equal(kv1.Key, kv2.Key) && bytes.Equal(kv1.Value, kv2.Value)
+	}
+
+	return false
 }
 
 func (s *Syncer) run(key string, prefix bool, send func(data map[string]*mvccpb.KeyValue)) {
 	watcher, watchChan := s.watch(key, prefix)
 	defer watcher.Close()
 
-	// pull and send out full data copy. otherwise, if the application retrieves a copy
-	// of data at the beginning, and if data is updated after the retrieval and before the
-	// syncer starts, it may take a long time (the pull interval) for the application to
-	// receive latest data.
-	data, err := s.pull(key, prefix)
-	if err == nil {
-		send(data)
-	} else {
-		data = make(map[string]*mvccpb.KeyValue)
-	}
-
 	ticker := time.NewTicker(s.pullInterval)
 	defer ticker.Stop()
+
+	data := make(map[string]*mvccpb.KeyValue)
+
+	pullCompareSend := func() {
+		newData, err := s.pull(key, prefix)
+		if err != nil {
+			logger.Errorf("pull data for key %s (prefix: %v) failed: %v", key, prefix, err)
+			return
+		}
+		if !isDataEuqal(data, newData) {
+			data = newData
+			send(data)
+		}
+	}
+
+	pullCompareSend()
 
 	for {
 		select {
@@ -121,19 +151,12 @@ func (s *Syncer) run(key string, prefix bool, send func(data map[string]*mvccpb.
 			return
 
 		case <-ticker.C:
-			newData, err := s.pull(key, prefix)
-			if err != nil {
-				continue
-			}
-			// always send data in this case even there're no changes to ensure data
-			// consistency
-			data = newData
+			pullCompareSend()
 
 		case resp := <-watchChan:
 			if resp.Canceled {
-				// ETCD cancel a watcher when it cannot catch up with the progress of
-				// the key-value store. And no matter what happens, we need to restart
-				// the watcher.
+				// Etcd cancels a watcher when it cannot catch up with the progress of
+				// the key-value store. And no matter what happens, we restart the watcher.
 				logger.Debugf("watch key %s canceled: %v", key, resp.Err())
 				watcher.Close()
 				watcher, watchChan = s.watch(key, prefix)
@@ -143,32 +166,8 @@ func (s *Syncer) run(key string, prefix bool, send func(data map[string]*mvccpb.
 				continue
 			}
 
-			// apply changes to existing data
-			changed := false
-			for _, event := range resp.Events {
-				k := string(event.Kv.Key)
-				oldKV, newKV := data[k], event.Kv
-				switch event.Type {
-				case mvccpb.PUT:
-					if isKeyValueChanged(oldKV, newKV) {
-						data[k] = newKV
-						changed = true
-					}
-				case mvccpb.DELETE:
-					if oldKV != nil && newKV.ModRevision > oldKV.ModRevision {
-						delete(data, k)
-						changed = true
-					}
-				default:
-					logger.Errorf("BUG: key %s received unknown event type %v", k, event.Type)
-				}
-			}
-			if !changed {
-				continue
-			}
+			pullCompareSend()
 		}
-
-		send(data)
 	}
 }
 

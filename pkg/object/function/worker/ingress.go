@@ -38,7 +38,6 @@ const ingressFunctionKey = "X-FaaS-Func-Name"
 type (
 	// ingressServer manages one/many ingress pipelines and one HTTPServer
 	ingressServer struct {
-		super     *supervisor.Supervisor
 		superSpec *supervisor.Spec
 
 		faasNetworkLayerURL string
@@ -68,9 +67,8 @@ type (
 )
 
 // newIngressServer creates an initialized ingress server
-func newIngressServer(superSpec *supervisor.Spec, super *supervisor.Supervisor,
-	controllerName string) *ingressServer {
-	entity, exists := super.GetSystemController(trafficcontroller.Kind)
+func newIngressServer(superSpec *supervisor.Spec, controllerName string) *ingressServer {
+	entity, exists := superSpec.Super().GetSystemController(trafficcontroller.Kind)
 
 	if !exists {
 		panic(fmt.Errorf("BUG: traffic controller not found"))
@@ -83,7 +81,6 @@ func newIngressServer(superSpec *supervisor.Spec, super *supervisor.Supervisor,
 	return &ingressServer{
 		pipelines:  make(map[string]struct{}),
 		httpServer: nil,
-		super:      super,
 		superSpec:  superSpec,
 		mutex:      sync.RWMutex{},
 		namespace:  fmt.Sprintf("%s/%s", superSpec.Name(), "ingress"),

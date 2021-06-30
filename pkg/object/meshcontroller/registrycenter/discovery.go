@@ -34,7 +34,7 @@ type (
 	ServiceRegistryInfo struct {
 		Service *spec.Service
 		Ins     *spec.ServiceInstanceSpec // indicates local egress
-		Version int64                     // tenant ETCD key version,
+		Version int64                     // tenant Etcd key version,
 	}
 
 	tenantInfo struct {

@@ -28,8 +28,8 @@ import (
 	"github.com/megaease/easegress/pkg/cluster"
 )
 
-func (s *Server) setupMemberAPIs() {
-	memberAPIs := []*APIEntry{
+func (s *Server) memberAPIEntries() []*APIEntry {
+	return []*APIEntry{
 		{
 			Path:    "/status/members",
 			Method:  "GET",
@@ -41,8 +41,6 @@ func (s *Server) setupMemberAPIs() {
 			Handler: s.purgeMember,
 		},
 	}
-
-	s.RegisterAPIs(memberAPIs)
 }
 
 type (

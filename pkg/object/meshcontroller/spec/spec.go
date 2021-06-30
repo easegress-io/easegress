@@ -591,6 +591,10 @@ func (s *Service) IngressPipelineName() string {
 	return fmt.Sprintf("mesh-ingress-pipeline-%s", s.Name)
 }
 
+func (s *Service) BackendName() string {
+	return s.Name
+}
+
 func (s *Service) SideCarEgressHTTPServerSpec() (*supervisor.Spec, error) {
 	egressHTTPServerFormat := `
 kind: HTTPServer

@@ -41,6 +41,8 @@ build_server:
 	CGO_ENABLED=0 go build -v -trimpath -ldflags ${GO_LD_FLAGS} \
 	-o ${TARGET_SERVER} ${MKFILE_DIR}cmd/server
 
+dev_build: dev_build_client dev_build_server
+
 dev_build_client:
 	@echo "build dev client"
 	cd ${MKFILE_DIR} && \

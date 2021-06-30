@@ -22,12 +22,16 @@ import (
 
 	yaml "gopkg.in/yaml.v2"
 
+	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/v"
 )
 
 type (
 	// FilterSpec is the universal spec for all filters.
 	FilterSpec struct {
+		super *supervisor.Supervisor
+
+		rawSpec    map[string]interface{}
 		yamlConfig string
 		meta       *FilterMetaSpec
 		filterSpec interface{}
@@ -41,35 +45,19 @@ type (
 	}
 )
 
-// NewFilterSpec creates a fileter spec.
-func NewFilterSpec(meta *FilterMetaSpec, filterSpec interface{}) (*FilterSpec, error) {
-	buff, err := yaml.Marshal(filterSpec)
-	if err != nil {
-		return nil, fmt.Errorf("marshal %# to yaml failed: %v", filterSpec, err)
-	}
-
-	var spec map[string]interface{}
-	err = yaml.Unmarshal(buff, &spec)
-	if err != nil {
-		return nil, fmt.Errorf("unmarshal %s failed: %v", buff, err)
-	}
-
-	spec["name"] = meta.Name
-	spec["kind"] = meta.Kind
-
-	return newFilterSpecInternal(spec)
-}
-
-// newFilterSpec creates a filter spec and validates it.
-func newFilterSpecInternal(spec map[string]interface{}) (*FilterSpec, error) {
-	yamlConfig, err := yaml.Marshal(spec)
-	if err != nil {
-		return nil, fmt.Errorf("marshal %#v to yaml failed: %v", spec, err)
-	}
-
+// NewFilterSpec creates a filter spec and validates it.
+func NewFilterSpec(rawSpec map[string]interface{}, super *supervisor.Supervisor) (*FilterSpec, error) {
 	s := &FilterSpec{
-		yamlConfig: string(yamlConfig),
+		super:   super,
+		rawSpec: rawSpec,
 	}
+
+	yamlConfig, err := yaml.Marshal(rawSpec)
+	if err != nil {
+		return nil, fmt.Errorf("marshal %#v to yaml failed: %v", rawSpec, err)
+	}
+
+	s.yamlConfig = string(yamlConfig)
 
 	meta := &FilterMetaSpec{}
 	err = yaml.Unmarshal(yamlConfig, meta)
@@ -97,6 +85,10 @@ func newFilterSpecInternal(spec map[string]interface{}) (*FilterSpec, error) {
 	return s, nil
 }
 
+func (s *FilterSpec) Super() *supervisor.Supervisor {
+	return s.super
+}
+
 // Name returns name.
 func (s *FilterSpec) Name() string { return s.meta.Name }
 
@@ -108,7 +100,12 @@ func (s *FilterSpec) YAMLConfig() string {
 	return s.yamlConfig
 }
 
-// FilterSpec returns the filter spec.
+// RawSpec returns raw spec in type map[string]interface{}.
+func (s *FilterSpec) RawSpec() map[string]interface{} {
+	return s.rawSpec
+}
+
+// FilterSpec returns the filter spec in its own type.
 func (s *FilterSpec) FilterSpec() interface{} {
 	return s.filterSpec
 }

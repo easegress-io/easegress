@@ -22,7 +22,6 @@ import (
 	"reflect"
 
 	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/supervisor"
 )
 
 type (
@@ -42,13 +41,13 @@ type (
 		Results() []string
 
 		// Init initializes the Filter.
-		Init(filterSpec *FilterSpec, super *supervisor.Supervisor)
+		Init(filterSpec *FilterSpec)
 
 		// Inherit also initializes the Filter.
 		// But it needs to handle the lifecycle of the previous generation.
 		// So it's own responsibility for the filter to inherit and clean the previous generation stuff.
 		// The http pipeline won't call Close for the previous generation.
-		Inherit(filterSpec *FilterSpec, previousGeneration Filter, super *supervisor.Supervisor)
+		Inherit(filterSpec *FilterSpec, previousGeneration Filter)
 
 		// Handle handles one HTTP request, all possible results
 		// need be registered in Results.

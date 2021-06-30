@@ -45,7 +45,6 @@ func init() {
 type (
 	// EtcdServiceRegistry is Object EtcdServiceRegistry.
 	EtcdServiceRegistry struct {
-		super     *supervisor.Supervisor
 		superSpec *supervisor.Spec
 		spec      *Spec
 
@@ -91,17 +90,15 @@ func (e *EtcdServiceRegistry) DefaultSpec() interface{} {
 }
 
 // Init initilizes EtcdServiceRegistry.
-func (e *EtcdServiceRegistry) Init(superSpec *supervisor.Spec, super *supervisor.Supervisor) {
-	e.superSpec, e.spec, e.super = superSpec, superSpec.ObjectSpec().(*Spec), super
+func (e *EtcdServiceRegistry) Init(superSpec *supervisor.Spec) {
+	e.superSpec, e.spec = superSpec, superSpec.ObjectSpec().(*Spec)
 	e.reload()
 }
 
 // Inherit inherits previous generation of EtcdServiceRegistry.
-func (e *EtcdServiceRegistry) Inherit(superSpec *supervisor.Spec,
-	previousGeneration supervisor.Object, super *supervisor.Supervisor) {
-
+func (e *EtcdServiceRegistry) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object) {
 	previousGeneration.Close()
-	e.Init(superSpec, super)
+	e.Init(superSpec)
 }
 
 func (e *EtcdServiceRegistry) reload() {
@@ -143,7 +140,8 @@ func (e *EtcdServiceRegistry) buildClient() (*clientv3.Client, error) {
 		DialTimeout:          10 * time.Second,
 		DialKeepAliveTime:    1 * time.Minute,
 		DialKeepAliveTimeout: 1 * time.Minute,
-		LogConfig:            logger.EtcdClientLoggerConfig(e.super.Options(), "object_"+e.superSpec.Name()),
+		LogConfig: logger.EtcdClientLoggerConfig(e.superSpec.Super().Options(),
+			"object_"+e.superSpec.Name()),
 	})
 	if err != nil {
 		return nil, err
