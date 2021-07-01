@@ -23,9 +23,6 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	yamljsontool "github.com/ghodss/yaml"
-	"gopkg.in/yaml.v2"
-
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/service"
 	"github.com/megaease/easegress/pkg/supervisor"
@@ -162,25 +159,6 @@ func (a *API) registerAPIs() {
 	api.RegisterAPIs(group)
 }
 
-func (a *API) readSpec(w http.ResponseWriter, r *http.Request, spec interface{}) error {
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		return fmt.Errorf("read body failed: %v", err)
-	}
-
-	err = yaml.Unmarshal(body, spec)
-	if err != nil {
-		return fmt.Errorf("unmarshal %#v to yaml: %v", spec, err)
-	}
-
-	vr := v.Validate(spec, body)
-	if !vr.Valid() {
-		return fmt.Errorf("validate failed: \n%s", vr)
-	}
-
-	return nil
-}
-
 func (a *API) convertSpecToPB(spec interface{}, pbSpec interface{}) error {
 	buf, err := json.Marshal(spec)
 	if err != nil {
@@ -225,14 +203,9 @@ func (a *API) readAPISpec(w http.ResponseWriter, r *http.Request, pbSpec interfa
 		return err
 	}
 
-	yamlBuff, err := yamljsontool.JSONToYAML(body)
-	if err != nil {
-		return err
-	}
-
-	vr := v.Validate(spec, yamlBuff)
+	vr := v.Validate(spec)
 	if !vr.Valid() {
-		return fmt.Errorf("validate failed: \n%s", vr)
+		return fmt.Errorf("validate failed:\n%s", vr)
 	}
 
 	return nil

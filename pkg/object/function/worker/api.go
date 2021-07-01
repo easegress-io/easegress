@@ -127,7 +127,7 @@ func (worker *Worker) readAPISpec(w http.ResponseWriter, r *http.Request, spec i
 		return fmt.Errorf("unmarshal failed: %v", err)
 	}
 
-	vr := v.Validate(spec, body)
+	vr := v.Validate(spec)
 	if !vr.Valid() {
 		return fmt.Errorf("validate failed: \n%s", vr.Error())
 	}

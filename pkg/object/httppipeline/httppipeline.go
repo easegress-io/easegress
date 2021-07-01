@@ -24,13 +24,12 @@ import (
 	"sync"
 	"time"
 
-	yaml "gopkg.in/yaml.v2"
-
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocol"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/stringtool"
+	"github.com/megaease/easegress/pkg/util/yamltool"
 )
 
 const (
@@ -69,7 +68,7 @@ type (
 	// Spec describes the HTTPPipeline.
 	Spec struct {
 		Flow    []Flow                   `yaml:"flow" jsonschema:"omitempty"`
-		Filters []map[string]interface{} `yaml:"filters" jsonschema:"-"`
+		Filters []map[string]interface{} `yaml:"filters" jsonschema:"required"`
 	}
 
 	// Flow controls the flow of pipeline.
@@ -179,36 +178,21 @@ func deletePipelineContext(ctx context.HTTPContext) {
 	runningContexts.Delete(ctx)
 }
 
-func marshal(i interface{}) []byte {
-	buff, err := yaml.Marshal(i)
-	if err != nil {
-		panic(fmt.Errorf("marsharl %#v failed: %v", i, err))
-	}
-	return buff
-}
-
-func unmarshal(buff []byte, i interface{}) {
-	err := yaml.Unmarshal(buff, i)
-	if err != nil {
-		panic(fmt.Errorf("unmarshal failed: %v", err))
-	}
-}
-
 func extractFiltersData(config []byte) interface{} {
 	var whole map[string]interface{}
-	unmarshal(config, &whole)
+	yamltool.Unmarshal(config, &whole)
 	return whole["filters"]
 }
 
 func convertToFilterBuffs(obj interface{}) map[string][]byte {
 	var filters []map[string]interface{}
-	unmarshal(marshal(obj), &filters)
+	yamltool.Unmarshal(yamltool.Marshal(obj), &filters)
 
 	rst := make(map[string][]byte)
 	for _, p := range filters {
-		buff := marshal(p)
+		buff := yamltool.Marshal(p)
 		meta := &FilterMetaSpec{}
-		unmarshal(buff, meta)
+		yamltool.Unmarshal(buff, meta)
 		rst[meta.Name] = buff
 	}
 	return rst
@@ -230,17 +214,20 @@ func (meta *FilterMetaSpec) Validate() error {
 }
 
 // Validate validates Spec.
-func (s Spec) Validate(config []byte) (err error) {
+func (s Spec) Validate() (err error) {
 	errPrefix := "filters"
+	_ = errPrefix
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("%s: %s", errPrefix, r)
 		}
 	}()
 
+	config := yamltool.Marshal(s)
+
 	filtersData := extractFiltersData(config)
 	if filtersData == nil {
-		return fmt.Errorf("validate failed: filters is required")
+		return fmt.Errorf("filters is required")
 	}
 	filterBuffs := convertToFilterBuffs(filtersData)
 

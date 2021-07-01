@@ -90,6 +90,11 @@ func requiredFromField(field *reflect.StructField) bool {
 	}
 }
 
+func (vr *ValidateRecorder) record(val *reflect.Value, field *reflect.StructField) {
+	vr.recordFormat(val, field)
+	vr.recordGeneral(val, field)
+}
+
 func (vr *ValidateRecorder) recordFormat(val *reflect.Value, field *reflect.StructField) {
 	if field == nil {
 		return

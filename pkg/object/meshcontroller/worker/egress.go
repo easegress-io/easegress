@@ -190,8 +190,8 @@ func (egs *EgressServer) reloadHTTPServer(specs map[string]*spec.Service) bool {
 	httpServerSpec.Rules = nil
 
 	for k := range pipelines {
-		rule := httpserver.Rule{
-			Paths: []httpserver.Path{
+		rule := &httpserver.Rule{
+			Paths: []*httpserver.Path{
 				{
 					PathPrefix: "/",
 					Headers: []*httpserver.Header{

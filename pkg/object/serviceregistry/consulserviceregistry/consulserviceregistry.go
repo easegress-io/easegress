@@ -58,7 +58,7 @@ type (
 	// Spec describes the ConsulServiceRegistry.
 	Spec struct {
 		Address      string   `yaml:"address" jsonschema:"required"`
-		Scheme       string   `yaml:"scheme" jsonschema:"omitempty,enum=http,enum=https"`
+		Scheme       string   `yaml:"scheme" jsonschema:"required,enum=http,enum=https"`
 		Datacenter   string   `yaml:"datacenter" jsonschema:"omitempty"`
 		Token        string   `yaml:"token" jsonschema:"omitempty"`
 		Namespace    string   `yaml:"namespace" jsonschema:"omitempty"`

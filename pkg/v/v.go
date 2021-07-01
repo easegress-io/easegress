@@ -26,6 +26,7 @@ import (
 	yamljsontool "github.com/ghodss/yaml"
 	genjs "github.com/megaease/jsonschema"
 	loadjs "github.com/xeipuuv/gojsonschema"
+	yaml "gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/util/jsontool"
@@ -79,49 +80,46 @@ func GetSchemaInJSON(t reflect.Type) ([]byte, error) {
 }
 
 // Validate validates by json schema rules, custom formats and general methods.
-func Validate(v interface{}, yamlBuff []byte) *ValidateRecorder {
+func Validate(v interface{}) *ValidateRecorder {
 	vr := &ValidateRecorder{}
 
-	if yamlBuff != nil {
-		sm, err := getSchemaMeta(validateReflector, reflect.TypeOf(v))
-		if err != nil {
-			vr.recordSystem(fmt.Errorf("get schema meta for %T failed: %v", v, err))
-			return vr
-		}
-
-		jsonBuff, err := yamljsontool.YAMLToJSON(yamlBuff)
-		if err != nil {
-			vr.recordSystem(fmt.Errorf("transform %s to json failed: %v", yamlBuff, err))
-			return vr
-		}
-
-		trimJSONBuff, err := jsontool.TrimNull(jsonBuff)
-		if err != nil {
-			vr.recordSystem(fmt.Errorf("trim null from %s failed: %v", jsonBuff, err))
-			return vr
-		}
-
-		docLoader := loadjs.NewBytesLoader(trimJSONBuff)
-		result, err := sm.schema.Validate(docLoader)
-		if err != nil {
-			logger.Errorf("BUG: invalid schema: %v", err)
-		}
-		vr.recordJSONSchema(result)
-
-		cv, ok := reflect.ValueOf(v).Interface().(ContentValidator)
-		if ok {
-			err = cv.Validate(yamlBuff)
-			if err != nil {
-				vr.GeneralErrs = append(vr.GeneralErrs, err.Error())
-			}
-			// if a custom ContentValidator is executed, `custom format validation` and `general validation` are not executed.
-			return vr
-		}
+	if v == nil {
+		vr.recordSystem(fmt.Errorf("nil value"))
 	}
 
+	yamlBuff, err := yaml.Marshal(v)
+	if err != nil {
+		vr.recordSystem(fmt.Errorf("marshal %#v to yaml string failed: %v", v, err))
+		return vr
+	}
+
+	sm, err := getSchemaMeta(validateReflector, reflect.TypeOf(v))
+	if err != nil {
+		vr.recordSystem(fmt.Errorf("get schema meta for %T failed: %v", v, err))
+		return vr
+	}
+
+	jsonBuff, err := yamljsontool.YAMLToJSON(yamlBuff)
+	if err != nil {
+		vr.recordSystem(fmt.Errorf("transform %s to json failed: %v", yamlBuff, err))
+		return vr
+	}
+
+	trimJSONBuff, err := jsontool.TrimNull(jsonBuff)
+	if err != nil {
+		vr.recordSystem(fmt.Errorf("trim null from %s failed: %v", jsonBuff, err))
+		return vr
+	}
+
+	docLoader := loadjs.NewBytesLoader(trimJSONBuff)
+	result, err := sm.schema.Validate(docLoader)
+	if err != nil {
+		logger.Errorf("BUG: invalid schema: %v", err)
+	}
+	vr.recordJSONSchema(result)
+
 	val := reflect.ValueOf(v)
-	traverseGo(&val, nil, vr.recordFormat)
-	traverseGo(&val, nil, vr.recordGeneral)
+	traverseGo(&val, nil, vr.record)
 
 	return vr
 }
