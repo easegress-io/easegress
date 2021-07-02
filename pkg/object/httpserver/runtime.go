@@ -39,12 +39,12 @@ const (
 
 	checkFailedTimeout = 10 * time.Second
 
-	stateNil     stateType = "nil"
-	stateFailed            = "failed"
-	stateRunning           = "running"
-	stateClosed            = "closed"
-
 	topNum = 10
+
+	stateNil     stateType = "nil"
+	stateFailed  stateType = "failed"
+	stateRunning stateType = "running"
+	stateClosed  stateType = "closed"
 )
 
 var (
@@ -62,13 +62,11 @@ type (
 	}
 	eventReload struct {
 		nextSuperSpec *supervisor.Spec
-		super         *supervisor.Supervisor
 		muxMapper     protocol.MuxMapper
 	}
 	eventClose struct{ done chan struct{} }
 
 	runtime struct {
-		super     *supervisor.Supervisor
 		superSpec *supervisor.Spec
 		spec      *Spec
 		server    *http.Server
@@ -98,9 +96,9 @@ type (
 	}
 )
 
-func newRuntime(super *supervisor.Supervisor, muxMapper protocol.MuxMapper) *runtime {
+func newRuntime(superSpec *supervisor.Spec, muxMapper protocol.MuxMapper) *runtime {
 	r := &runtime{
-		super:     super,
+		superSpec: superSpec,
 		eventChan: make(chan interface{}, 10),
 		httpStat:  httpstat.New(),
 		topN:      topn.New(topNum),
@@ -158,11 +156,9 @@ func (r *runtime) fsm() {
 	}
 }
 
-func (r *runtime) reload(nextSuperSpec *supervisor.Spec,
-	super *supervisor.Supervisor, muxMapper protocol.MuxMapper) {
-
-	r.superSpec, r.super = nextSuperSpec, super
-	r.mux.reloadRules(nextSuperSpec, super, muxMapper)
+func (r *runtime) reload(nextSuperSpec *supervisor.Spec, muxMapper protocol.MuxMapper) {
+	r.superSpec = nextSuperSpec
+	r.mux.reloadRules(nextSuperSpec, muxMapper)
 
 	nextSpec := nextSuperSpec.ObjectSpec().(*Spec)
 
@@ -361,7 +357,7 @@ func (r *runtime) handleEventServeFailed(e *eventServeFailed) {
 }
 
 func (r *runtime) handleEventReload(e *eventReload) {
-	r.reload(e.nextSuperSpec, e.super, e.muxMapper)
+	r.reload(e.nextSuperSpec, e.muxMapper)
 }
 
 func (r *runtime) handleEventClose(e *eventClose) {

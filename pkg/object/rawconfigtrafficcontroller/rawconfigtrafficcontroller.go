@@ -41,7 +41,6 @@ type (
 	// RawConfigTrafficController is a system controller to manage
 	// TrafficGate, Pipeline and their relationship.
 	RawConfigTrafficController struct {
-		super     *supervisor.Supervisor
 		superSpec *supervisor.Spec
 		spec      *Spec
 
@@ -79,21 +78,19 @@ func (rctc *RawConfigTrafficController) DefaultSpec() interface{} {
 }
 
 // Init initializes RawConfigTrafficController.
-func (rctc *RawConfigTrafficController) Init(superSpec *supervisor.Spec, super *supervisor.Supervisor) {
-	rctc.superSpec, rctc.spec, rctc.super = superSpec, superSpec.ObjectSpec().(*Spec), super
+func (rctc *RawConfigTrafficController) Init(superSpec *supervisor.Spec) {
+	rctc.superSpec, rctc.spec = superSpec, superSpec.ObjectSpec().(*Spec)
 	rctc.reload()
 }
 
 // Inherit inherits previous generation of RawConfigTrafficController.
-func (rctc *RawConfigTrafficController) Inherit(spec *supervisor.Spec,
-	previousGeneration supervisor.Object, super *supervisor.Supervisor) {
-
+func (rctc *RawConfigTrafficController) Inherit(spec *supervisor.Spec, previousGeneration supervisor.Object) {
 	previousGeneration.Close()
-	rctc.Init(spec, super)
+	rctc.Init(spec)
 }
 
 func (rctc *RawConfigTrafficController) reload() {
-	entity, exists := rctc.super.GetSystemController(trafficcontroller.Kind)
+	entity, exists := rctc.superSpec.Super().GetSystemController(trafficcontroller.Kind)
 	if !exists {
 		panic(fmt.Errorf("BUG: traffic controller not found"))
 	}
@@ -105,7 +102,7 @@ func (rctc *RawConfigTrafficController) reload() {
 	rctc.tc = tc
 	rctc.namespace = DefaultNamespace
 
-	rctc.watcher = rctc.super.ObjectRegistry().NewWatcher(rctc.superSpec.Name(),
+	rctc.watcher = rctc.superSpec.Super().ObjectRegistry().NewWatcher(rctc.superSpec.Name(),
 		supervisor.FilterCategory(
 			supervisor.CategoryTrafficGate,
 			supervisor.CategoryPipeline))
@@ -213,5 +210,6 @@ func (rctc *RawConfigTrafficController) Status() *supervisor.Status {
 // Close closes RawConfigTrafficController.
 func (rctc *RawConfigTrafficController) Close() {
 	close(rctc.done)
-	rctc.super.ObjectRegistry().CloseWatcher(rctc.superSpec.Name())
+	rctc.superSpec.Super().ObjectRegistry().CloseWatcher(rctc.superSpec.Name())
+	rctc.tc.Clean(rctc.namespace)
 }

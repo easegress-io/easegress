@@ -42,7 +42,6 @@ type (
 	// StatusSyncController is a system controller to synchronize
 	// status of every object to remote storage.
 	StatusSyncController struct {
-		super     *supervisor.Supervisor
 		superSpec *supervisor.Spec
 		spec      *Spec
 
@@ -111,17 +110,15 @@ func (ssc *StatusSyncController) DefaultSpec() interface{} {
 }
 
 // Init initializes StatusSyncController.
-func (ssc *StatusSyncController) Init(superSpec *supervisor.Spec, super *supervisor.Supervisor) {
-	ssc.superSpec, ssc.spec, ssc.super = superSpec, superSpec.ObjectSpec().(*Spec), super
+func (ssc *StatusSyncController) Init(superSpec *supervisor.Spec) {
+	ssc.superSpec, ssc.spec = superSpec, superSpec.ObjectSpec().(*Spec)
 	ssc.reload()
 }
 
 // Inherit inherits previous generation of StatusSyncController.
-func (ssc *StatusSyncController) Inherit(spec *supervisor.Spec,
-	previousGeneration supervisor.Object, super *supervisor.Supervisor) {
-
+func (ssc *StatusSyncController) Inherit(spec *supervisor.Spec, previousGeneration supervisor.Object) {
 	previousGeneration.Close()
-	ssc.Init(spec, super)
+	ssc.Init(spec)
 }
 
 func (ssc *StatusSyncController) reload() {
@@ -188,7 +185,7 @@ func (ssc *StatusSyncController) handleStatus(unixTimestamp int64) {
 		return true
 	}
 
-	ssc.super.WalkControllers(walkFn)
+	ssc.superSpec.Super().WalkControllers(walkFn)
 
 	ssc.addStatusesRecord(statusesRecord)
 	ssc.syncStatusToCluster(statuses)
@@ -201,7 +198,7 @@ func (ssc *StatusSyncController) syncStatusToCluster(statuses map[string]string)
 	if ssc.lastSyncStatuses != nil {
 		for k := range ssc.lastSyncStatuses {
 			if _, exists := statuses[k]; !exists {
-				k = ssc.super.Cluster().Layout().StatusObjectKey(k)
+				k = ssc.superSpec.Super().Cluster().Layout().StatusObjectKey(k)
 				kvs[k] = nil
 			}
 		}
@@ -210,12 +207,12 @@ func (ssc *StatusSyncController) syncStatusToCluster(statuses map[string]string)
 	ssc.lastSyncStatuses = statuses
 
 	for k, v := range statuses {
-		k = ssc.super.Cluster().Layout().StatusObjectKey(k)
+		k = ssc.superSpec.Super().Cluster().Layout().StatusObjectKey(k)
 		value := v
 		kvs[k] = &value
 	}
 
-	err := ssc.super.Cluster().PutAndDeleteUnderLease(kvs)
+	err := ssc.superSpec.Super().Cluster().PutAndDeleteUnderLease(kvs)
 	if err != nil {
 		logger.Errorf("sync status failed: %v", err)
 	}

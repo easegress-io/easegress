@@ -85,9 +85,11 @@ type (
 	}
 )
 
-func Register(superSpec *supervisor.Spec, super *supervisor.Supervisor) *API {
+const apiGroupName = "mesh_admin"
+
+func New(superSpec *supervisor.Spec) *API {
 	api := &API{
-		service: service.New(superSpec, super),
+		service: service.New(superSpec),
 	}
 
 	api.registerAPIs()
@@ -95,64 +97,69 @@ func Register(superSpec *supervisor.Spec, super *supervisor.Supervisor) *API {
 	return api
 }
 
+func (a *API) Close() {
+	api.UnregisterAPIs(apiGroupName)
+}
+
 func (a *API) registerAPIs() {
-	meshAPIs := []*api.APIEntry{
-		{Path: MeshTenantPrefix, Method: "GET", Handler: a.listTenants},
-		{Path: MeshTenantPath, Method: "POST", Handler: a.createTenant},
-		{Path: MeshTenantPath, Method: "GET", Handler: a.getTenant},
-		{Path: MeshTenantPath, Method: "PUT", Handler: a.updateTenant},
-		{Path: MeshTenantPath, Method: "DELETE", Handler: a.deleteTenant},
+	group := &api.APIGroup{
+		Group: apiGroupName,
+		Entries: []*api.APIEntry{
+			{Path: MeshTenantPrefix, Method: "GET", Handler: a.listTenants},
+			{Path: MeshTenantPath, Method: "POST", Handler: a.createTenant},
+			{Path: MeshTenantPath, Method: "GET", Handler: a.getTenant},
+			{Path: MeshTenantPath, Method: "PUT", Handler: a.updateTenant},
+			{Path: MeshTenantPath, Method: "DELETE", Handler: a.deleteTenant},
+			{Path: MeshIngressPrefix, Method: "GET", Handler: a.listIngresses},
+			{Path: MeshIngressPath, Method: "POST", Handler: a.createIngress},
+			{Path: MeshIngressPath, Method: "GET", Handler: a.getIngress},
+			{Path: MeshIngressPath, Method: "PUT", Handler: a.updateIngress},
+			{Path: MeshIngressPath, Method: "DELETE", Handler: a.deleteIngress},
+			{Path: MeshServicePrefix, Method: "GET", Handler: a.listServices},
+			{Path: MeshServicePath, Method: "POST", Handler: a.createService},
+			{Path: MeshServicePath, Method: "GET", Handler: a.getService},
+			{Path: MeshServicePath, Method: "PUT", Handler: a.updateService},
+			{Path: MeshServicePath, Method: "DELETE", Handler: a.deleteService},
 
-		{Path: MeshIngressPrefix, Method: "GET", Handler: a.listIngresses},
-		{Path: MeshIngressPath, Method: "POST", Handler: a.createIngress},
-		{Path: MeshIngressPath, Method: "GET", Handler: a.getIngress},
-		{Path: MeshIngressPath, Method: "PUT", Handler: a.updateIngress},
-		{Path: MeshIngressPath, Method: "DELETE", Handler: a.deleteIngress},
+			// TODO: API to get instances of one service.
 
-		{Path: MeshServicePrefix, Method: "GET", Handler: a.listServices},
-		{Path: MeshServicePath, Method: "POST", Handler: a.createService},
-		{Path: MeshServicePath, Method: "GET", Handler: a.getService},
-		{Path: MeshServicePath, Method: "PUT", Handler: a.updateService},
-		{Path: MeshServicePath, Method: "DELETE", Handler: a.deleteService},
+			{Path: MeshServiceInstancePrefix, Method: "GET", Handler: a.listServiceInstanceSpecs},
+			{Path: MeshServiceInstancePath, Method: "GET", Handler: a.getServiceInstanceSpec},
+			{Path: MeshServiceInstancePath, Method: "DELETE", Handler: a.offlineSerivceInstance},
 
-		// TODO: API to get instances of one service.
+			{Path: MeshServiceCanaryPath, Method: "POST", Handler: a.createPartOfService(canaryMeta)},
+			{Path: MeshServiceCanaryPath, Method: "GET", Handler: a.getPartOfService(canaryMeta)},
+			{Path: MeshServiceCanaryPath, Method: "PUT", Handler: a.updatePartOfService(canaryMeta)},
+			{Path: MeshServiceCanaryPath, Method: "DELETE", Handler: a.deletePartOfService(canaryMeta)},
 
-		{Path: MeshServiceInstancePrefix, Method: "GET", Handler: a.listServiceInstanceSpecs},
-		{Path: MeshServiceInstancePath, Method: "GET", Handler: a.getServiceInstanceSpec},
-		{Path: MeshServiceInstancePath, Method: "DELETE", Handler: a.offlineSerivceInstance},
+			{Path: MeshServiceResiliencePath, Method: "POST", Handler: a.createPartOfService(resilienceMeta)},
+			{Path: MeshServiceResiliencePath, Method: "GET", Handler: a.getPartOfService(resilienceMeta)},
+			{Path: MeshServiceResiliencePath, Method: "PUT", Handler: a.updatePartOfService(resilienceMeta)},
+			{Path: MeshServiceResiliencePath, Method: "DELETE", Handler: a.deletePartOfService(resilienceMeta)},
 
-		{Path: MeshServiceCanaryPath, Method: "POST", Handler: a.createPartOfService(canaryMeta)},
-		{Path: MeshServiceCanaryPath, Method: "GET", Handler: a.getPartOfService(canaryMeta)},
-		{Path: MeshServiceCanaryPath, Method: "PUT", Handler: a.updatePartOfService(canaryMeta)},
-		{Path: MeshServiceCanaryPath, Method: "DELETE", Handler: a.deletePartOfService(canaryMeta)},
+			{Path: MeshServiceLoadBalancePath, Method: "POST", Handler: a.createPartOfService(loadBalanceMeta)},
+			{Path: MeshServiceLoadBalancePath, Method: "GET", Handler: a.getPartOfService(loadBalanceMeta)},
+			{Path: MeshServiceLoadBalancePath, Method: "PUT", Handler: a.updatePartOfService(loadBalanceMeta)},
+			{Path: MeshServiceLoadBalancePath, Method: "DELETE", Handler: a.deletePartOfService(loadBalanceMeta)},
 
-		{Path: MeshServiceResiliencePath, Method: "POST", Handler: a.createPartOfService(resilienceMeta)},
-		{Path: MeshServiceResiliencePath, Method: "GET", Handler: a.getPartOfService(resilienceMeta)},
-		{Path: MeshServiceResiliencePath, Method: "PUT", Handler: a.updatePartOfService(resilienceMeta)},
-		{Path: MeshServiceResiliencePath, Method: "DELETE", Handler: a.deletePartOfService(resilienceMeta)},
+			{Path: MeshServiceOutputServerPath, Method: "POST", Handler: a.createPartOfService(outputServerMeta)},
+			{Path: MeshServiceOutputServerPath, Method: "GET", Handler: a.getPartOfService(outputServerMeta)},
+			{Path: MeshServiceOutputServerPath, Method: "PUT", Handler: a.updatePartOfService(outputServerMeta)},
+			{Path: MeshServiceOutputServerPath, Method: "DELETE", Handler: a.deletePartOfService(outputServerMeta)},
 
-		{Path: MeshServiceLoadBalancePath, Method: "POST", Handler: a.createPartOfService(loadBalanceMeta)},
-		{Path: MeshServiceLoadBalancePath, Method: "GET", Handler: a.getPartOfService(loadBalanceMeta)},
-		{Path: MeshServiceLoadBalancePath, Method: "PUT", Handler: a.updatePartOfService(loadBalanceMeta)},
-		{Path: MeshServiceLoadBalancePath, Method: "DELETE", Handler: a.deletePartOfService(loadBalanceMeta)},
+			{Path: MeshServiceTracingsPath, Method: "POST", Handler: a.createPartOfService(tracingsMeta)},
+			{Path: MeshServiceTracingsPath, Method: "GET", Handler: a.getPartOfService(tracingsMeta)},
+			{Path: MeshServiceTracingsPath, Method: "PUT", Handler: a.updatePartOfService(tracingsMeta)},
+			{Path: MeshServiceTracingsPath, Method: "DELETE", Handler: a.deletePartOfService(tracingsMeta)},
 
-		{Path: MeshServiceOutputServerPath, Method: "POST", Handler: a.createPartOfService(outputServerMeta)},
-		{Path: MeshServiceOutputServerPath, Method: "GET", Handler: a.getPartOfService(outputServerMeta)},
-		{Path: MeshServiceOutputServerPath, Method: "PUT", Handler: a.updatePartOfService(outputServerMeta)},
-		{Path: MeshServiceOutputServerPath, Method: "DELETE", Handler: a.deletePartOfService(outputServerMeta)},
-
-		{Path: MeshServiceTracingsPath, Method: "POST", Handler: a.createPartOfService(tracingsMeta)},
-		{Path: MeshServiceTracingsPath, Method: "GET", Handler: a.getPartOfService(tracingsMeta)},
-		{Path: MeshServiceTracingsPath, Method: "PUT", Handler: a.updatePartOfService(tracingsMeta)},
-		{Path: MeshServiceTracingsPath, Method: "DELETE", Handler: a.deletePartOfService(tracingsMeta)},
-
-		{Path: MeshServiceMetricsPath, Method: "POST", Handler: a.createPartOfService(metricsMeta)},
-		{Path: MeshServiceMetricsPath, Method: "GET", Handler: a.getPartOfService(metricsMeta)},
-		{Path: MeshServiceMetricsPath, Method: "PUT", Handler: a.updatePartOfService(metricsMeta)},
-		{Path: MeshServiceMetricsPath, Method: "DELETE", Handler: a.deletePartOfService(metricsMeta)},
+			{Path: MeshServiceMetricsPath, Method: "POST", Handler: a.createPartOfService(metricsMeta)},
+			{Path: MeshServiceMetricsPath, Method: "GET", Handler: a.getPartOfService(metricsMeta)},
+			{Path: MeshServiceMetricsPath, Method: "PUT", Handler: a.updatePartOfService(metricsMeta)},
+			{Path: MeshServiceMetricsPath, Method: "DELETE", Handler: a.deletePartOfService(metricsMeta)},
+		},
 	}
 
-	api.GlobalServer.RegisterAPIs(meshAPIs)
+	api.RegisterAPIs(group)
 }
 
 func (a *API) readSpec(w http.ResponseWriter, r *http.Request, spec interface{}) error {

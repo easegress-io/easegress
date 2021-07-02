@@ -51,17 +51,16 @@ type (
 )
 
 // New creates a mesh master.
-func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Master {
-	store := storage.New(superSpec.Name(), super.Cluster())
+func New(superSpec *supervisor.Spec) *Master {
+	store := storage.New(superSpec.Name(), superSpec.Super().Cluster())
 	adminSpec := superSpec.ObjectSpec().(*spec.Admin)
 
 	m := &Master{
-		super:     super,
 		superSpec: superSpec,
 		spec:      adminSpec,
 
 		store:   store,
-		service: service.New(superSpec, super),
+		service: service.New(superSpec),
 
 		done: make(chan struct{}),
 	}

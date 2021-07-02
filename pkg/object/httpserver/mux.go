@@ -45,7 +45,6 @@ type (
 	}
 
 	muxRules struct {
-		super     *supervisor.Supervisor
 		superSpec *supervisor.Spec
 		spec      *Spec
 
@@ -293,9 +292,7 @@ func newMux(httpStat *httpstat.HTTPStat, topN *topn.TopN, mapper protocol.MuxMap
 	return m
 }
 
-func (m *mux) reloadRules(superSpec *supervisor.Spec,
-	super *supervisor.Supervisor, muxMapper protocol.MuxMapper) {
-
+func (m *mux) reloadRules(superSpec *supervisor.Spec, muxMapper protocol.MuxMapper) {
 	spec := superSpec.ObjectSpec().(*Spec)
 
 	tracer := tracing.NoopTracing
@@ -318,7 +315,6 @@ func (m *mux) reloadRules(superSpec *supervisor.Spec,
 	}
 
 	rules := &muxRules{
-		super:        super,
 		superSpec:    superSpec,
 		spec:         spec,
 		muxMapper:    muxMapper,

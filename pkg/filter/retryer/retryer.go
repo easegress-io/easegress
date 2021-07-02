@@ -28,7 +28,6 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
-	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/urlrule"
 )
 
@@ -70,9 +69,8 @@ type (
 	}
 
 	Retryer struct {
-		super    *supervisor.Supervisor
-		pipeSpec *httppipeline.FilterSpec
-		spec     *Spec
+		filterSpec *httppipeline.FilterSpec
+		spec       *Spec
 	}
 )
 
@@ -157,18 +155,17 @@ func (r *Retryer) initURL(u *URLRule) {
 }
 
 // Init initializes Retryer.
-func (r *Retryer) Init(pipeSpec *httppipeline.FilterSpec, super *supervisor.Supervisor) {
-	r.pipeSpec = pipeSpec
-	r.spec = pipeSpec.FilterSpec().(*Spec)
-	r.super = super
+func (r *Retryer) Init(filterSpec *httppipeline.FilterSpec) {
+	r.filterSpec = filterSpec
+	r.spec = filterSpec.FilterSpec().(*Spec)
 	for _, url := range r.spec.URLs {
 		r.initURL(url)
 	}
 }
 
 // Inherit inherits previous generation of Retryer.
-func (r *Retryer) Inherit(pipeSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter, super *supervisor.Supervisor) {
-	r.Init(pipeSpec, super)
+func (r *Retryer) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+	r.Init(filterSpec)
 }
 
 func (r *Retryer) handle(ctx context.HTTPContext, u *URLRule) string {
@@ -201,7 +198,7 @@ func (r *Retryer) handle(ctx context.HTTPContext, u *URLRule) string {
 
 		logger.Infof("attempts %d of retryer %s on URL(%s) failed at %d, result is '%s'",
 			attempt,
-			r.pipeSpec.Name(),
+			r.filterSpec.Name(),
 			u.ID(),
 			time.Now().UnixNano()/1e6,
 			result,
@@ -222,7 +219,6 @@ func (r *Retryer) handle(ctx context.HTTPContext, u *URLRule) string {
 			timer.Stop()
 			return result
 		case <-timer.C:
-			break
 		}
 
 		if u.policy.backOffPolicy == exponentiallyBackOff {

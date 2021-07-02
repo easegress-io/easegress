@@ -51,7 +51,6 @@ func init() {
 type (
 	// HTTPPipeline is Object HTTPPipeline.
 	HTTPPipeline struct {
-		super     *supervisor.Supervisor
 		superSpec *supervisor.Spec
 		spec      *Spec
 
@@ -248,7 +247,8 @@ func (s Spec) Validate(config []byte) (err error) {
 	filterSpecs := make(map[string]*FilterSpec)
 	var templateFilterBuffs []context.FilterBuff
 	for _, filterSpec := range s.Filters {
-		spec, err := newFilterSpecInternal(filterSpec)
+		// NOTE: Nil supervisor is fine in spec validating phrase.
+		spec, err := NewFilterSpec(filterSpec, nil)
 		if err != nil {
 			panic(err)
 		}
@@ -319,21 +319,15 @@ func (hp *HTTPPipeline) DefaultSpec() interface{} {
 }
 
 // Init initilizes HTTPPipeline.
-func (hp *HTTPPipeline) Init(superSpec *supervisor.Spec,
-	super *supervisor.Supervisor, muxMapper protocol.MuxMapper) {
-
-	hp.superSpec, hp.spec, hp.super = superSpec, superSpec.ObjectSpec().(*Spec), super
-	hp.muxMapper = muxMapper
+func (hp *HTTPPipeline) Init(superSpec *supervisor.Spec, muxMapper protocol.MuxMapper) {
+	hp.superSpec, hp.spec, hp.muxMapper = superSpec, superSpec.ObjectSpec().(*Spec), muxMapper
 
 	hp.reload(nil /*no previous generation*/)
 }
 
 // Inherit inherits previous generation of HTTPPipeline.
-func (hp *HTTPPipeline) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object,
-	super *supervisor.Supervisor, muxMapper protocol.MuxMapper) {
-
-	hp.superSpec, hp.spec, hp.super = superSpec, superSpec.ObjectSpec().(*Spec), super
-	hp.muxMapper = muxMapper
+func (hp *HTTPPipeline) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object, muxMapper protocol.MuxMapper) {
+	hp.superSpec, hp.spec, hp.muxMapper = superSpec, superSpec.ObjectSpec().(*Spec), muxMapper
 
 	hp.reload(previousGeneration.(*HTTPPipeline))
 
@@ -345,7 +339,7 @@ func (hp *HTTPPipeline) reload(previousGeneration *HTTPPipeline) {
 	runningFilters := make([]*runningFilter, 0)
 	if len(hp.spec.Flow) == 0 {
 		for _, filterSpec := range hp.spec.Filters {
-			spec, err := newFilterSpecInternal(filterSpec)
+			spec, err := NewFilterSpec(filterSpec, hp.superSpec.Super())
 			if err != nil {
 				panic(err)
 			}
@@ -359,7 +353,7 @@ func (hp *HTTPPipeline) reload(previousGeneration *HTTPPipeline) {
 			var spec *FilterSpec
 			for _, filterSpec := range hp.spec.Filters {
 				var err error
-				spec, err = newFilterSpecInternal(filterSpec)
+				spec, err = NewFilterSpec(filterSpec, hp.superSpec.Super())
 				if err != nil {
 					panic(err)
 				}
@@ -396,9 +390,9 @@ func (hp *HTTPPipeline) reload(previousGeneration *HTTPPipeline) {
 
 		filter := reflect.New(reflect.TypeOf(rootFilter).Elem()).Interface().(Filter)
 		if prevInstance == nil {
-			filter.Init(runningFilter.spec, hp.super)
+			filter.Init(runningFilter.spec)
 		} else {
-			filter.Inherit(runningFilter.spec, prevInstance, hp.super)
+			filter.Inherit(runningFilter.spec, prevInstance)
 		}
 
 		runningFilter.filter, runningFilter.rootFilter = filter, rootFilter

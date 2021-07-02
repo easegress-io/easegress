@@ -26,7 +26,6 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
-	"github.com/megaease/easegress/pkg/supervisor"
 	librl "github.com/megaease/easegress/pkg/util/ratelimiter"
 	"github.com/megaease/easegress/pkg/util/urlrule"
 )
@@ -68,9 +67,8 @@ type (
 
 	// RateLimiter defines the rate limiter
 	RateLimiter struct {
-		super    *supervisor.Supervisor
-		pipeSpec *httppipeline.FilterSpec
-		spec     *Spec
+		filterSpec *httppipeline.FilterSpec
+		spec       *Spec
 	}
 )
 
@@ -142,7 +140,7 @@ func (rl *RateLimiter) Results() []string {
 func (rl *RateLimiter) setStateListenerForURL(u *URLRule) {
 	u.rl.SetStateListener(func(event *librl.Event) {
 		logger.Infof("state of rate limiter '%s' on URL(%s) transited to %s at %d",
-			rl.pipeSpec.Name(),
+			rl.filterSpec.Name(),
 			u.ID(),
 			event.State,
 			event.Time.UnixNano()/1e6,
@@ -227,18 +225,14 @@ OuterLoop:
 }
 
 // Init initializes RateLimiter.
-func (rl *RateLimiter) Init(pipeSpec *httppipeline.FilterSpec, super *supervisor.Supervisor) {
-	rl.pipeSpec = pipeSpec
-	rl.spec = pipeSpec.FilterSpec().(*Spec)
-	rl.super = super
+func (rl *RateLimiter) Init(filterSpec *httppipeline.FilterSpec) {
+	rl.filterSpec, rl.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	rl.reload(nil)
 }
 
 // Inherit inherits previous generation of RateLimiter.
-func (rl *RateLimiter) Inherit(pipeSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter, super *supervisor.Supervisor) {
-	rl.pipeSpec = pipeSpec
-	rl.spec = pipeSpec.FilterSpec().(*Spec)
-	rl.super = super
+func (rl *RateLimiter) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+	rl.filterSpec, rl.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	rl.reload(previousGeneration.(*RateLimiter))
 }
 
@@ -270,13 +264,11 @@ func (rl *RateLimiter) handle(ctx context.HTTPContext) string {
 		select {
 		case <-ctx.Done():
 			timer.Stop()
-			break
+			return ""
 		case <-timer.C:
 			ctx.AddTag(fmt.Sprintf("rateLimiter: waiting duration: %s", d.String()))
-			break
+			return ""
 		}
-
-		break
 	}
 	return ""
 }

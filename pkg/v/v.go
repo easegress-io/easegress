@@ -21,11 +21,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"sync"
 
 	yamljsontool "github.com/ghodss/yaml"
 	genjs "github.com/megaease/jsonschema"
 	loadjs "github.com/xeipuuv/gojsonschema"
 
+	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/util/jsontool"
 )
 
@@ -52,7 +54,8 @@ var (
 		DefinitionNameWithPackage:  true,
 		RequiredFromJSONSchemaTags: true,
 	}
-	reflectorSchemaMetas = map[*genjs.Reflector]map[reflect.Type]*schemaMeta{}
+	reflectorSchemaMetasMutex = sync.Mutex{}
+	reflectorSchemaMetas      = map[*genjs.Reflector]map[reflect.Type]*schemaMeta{}
 )
 
 // GetSchemaInYAML returns the json schema of t in yaml format.
@@ -100,6 +103,9 @@ func Validate(v interface{}, yamlBuff []byte) *ValidateRecorder {
 
 		docLoader := loadjs.NewBytesLoader(trimJSONBuff)
 		result, err := sm.schema.Validate(docLoader)
+		if err != nil {
+			logger.Errorf("BUG: invalid schema: %v", err)
+		}
 		vr.recordJSONSchema(result)
 
 		cv, ok := reflect.ValueOf(v).Interface().(ContentValidator)
@@ -121,6 +127,9 @@ func Validate(v interface{}, yamlBuff []byte) *ValidateRecorder {
 }
 
 func getSchemaMeta(reflector *genjs.Reflector, t reflect.Type) (*schemaMeta, error) {
+	reflectorSchemaMetasMutex.Lock()
+	defer reflectorSchemaMetasMutex.Unlock()
+
 	schemaMetas, exists := reflectorSchemaMetas[reflector]
 	if !exists {
 		schemaMetas = make(map[reflect.Type]*schemaMeta)

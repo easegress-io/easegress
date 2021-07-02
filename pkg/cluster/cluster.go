@@ -583,6 +583,8 @@ func (c *cluster) getSession() (*concurrency.Session, error) {
 		return nil, fmt.Errorf("create session failed: %v", err)
 	}
 
+	c.session = session
+
 	logger.Infof("session is ready")
 
 	return session, nil

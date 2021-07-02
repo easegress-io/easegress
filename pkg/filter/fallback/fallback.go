@@ -20,7 +20,6 @@ package fallback
 import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
-	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/fallback"
 )
 
@@ -40,9 +39,8 @@ func init() {
 type (
 	// Fallback is filter Fallback.
 	Fallback struct {
-		super    *supervisor.Supervisor
-		pipeSpec *httppipeline.FilterSpec
-		spec     *Spec
+		filterSpec *httppipeline.FilterSpec
+		spec       *Spec
 
 		f *fallback.Fallback
 	}
@@ -74,17 +72,16 @@ func (f *Fallback) Results() []string {
 }
 
 // Init initializes Fallback.
-func (f *Fallback) Init(pipeSpec *httppipeline.FilterSpec, super *supervisor.Supervisor) {
-	f.pipeSpec, f.spec, f.super = pipeSpec, pipeSpec.FilterSpec().(*Spec), super
+func (f *Fallback) Init(filterSpec *httppipeline.FilterSpec) {
+	f.filterSpec, f.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	f.reload()
 }
 
 // Inherit inherits previous generation of Fallback.
-func (f *Fallback) Inherit(pipeSpec *httppipeline.FilterSpec,
-	previousGeneration httppipeline.Filter, super *supervisor.Supervisor) {
+func (f *Fallback) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
 
 	previousGeneration.Close()
-	f.Init(pipeSpec, super)
+	f.Init(filterSpec)
 }
 
 func (f *Fallback) reload() {

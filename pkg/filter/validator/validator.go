@@ -22,7 +22,6 @@ import (
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
-	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/httpheader"
 	"github.com/megaease/easegress/pkg/util/signer"
 	"github.com/megaease/easegress/pkg/util/stringtool"
@@ -44,9 +43,8 @@ func init() {
 type (
 	// Validator is filter Validator.
 	Validator struct {
-		super    *supervisor.Supervisor
-		pipeSpec *httppipeline.FilterSpec
-		spec     *Spec
+		filterSpec *httppipeline.FilterSpec
+		spec       *Spec
 
 		headers *httpheader.Validator
 		jwt     *JWTValidator
@@ -84,17 +82,15 @@ func (v *Validator) Results() []string {
 }
 
 // Init initializes Validator.
-func (v *Validator) Init(pipeSpec *httppipeline.FilterSpec, super *supervisor.Supervisor) {
-	v.pipeSpec, v.spec, v.super = pipeSpec, pipeSpec.FilterSpec().(*Spec), super
+func (v *Validator) Init(filterSpec *httppipeline.FilterSpec) {
+	v.filterSpec, v.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	v.reload()
 }
 
 // Inherit inherits previous generation of Validator.
-func (v *Validator) Inherit(pipeSpec *httppipeline.FilterSpec,
-	previousGeneration httppipeline.Filter, super *supervisor.Supervisor) {
-
+func (v *Validator) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
 	previousGeneration.Close()
-	v.Init(pipeSpec, super)
+	v.Init(filterSpec)
 }
 
 func (v *Validator) reload() {

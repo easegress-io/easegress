@@ -23,26 +23,28 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-
 	"github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/option"
+	"github.com/megaease/easegress/pkg/supervisor"
 )
 
 type (
 	// Server is the api server.
 	Server struct {
-		opt       option.Options
-		srv       http.Server
-		router    *chi.Mux
-		cluster   cluster.Cluster
-		apisMutex sync.RWMutex
-		apis      []*APIEntry
+		opt     *option.Options
+		server  http.Server
+		router  *dynamicMux
+		cluster cluster.Cluster
+		super   *supervisor.Supervisor
 
 		mutex      cluster.Mutex
 		mutexMutex sync.Mutex
+	}
+
+	APIGroup struct {
+		Group   string
+		Entries []*APIEntry
 	}
 
 	// APIEntry is the entry of API.
@@ -53,37 +55,28 @@ type (
 	}
 )
 
-// GlobalServer is the global api server.
-var GlobalServer *Server
-
 // MustNewServer creates an api server.
-func MustNewServer(opt *option.Options, cluster cluster.Cluster) *Server {
-	r := chi.NewRouter()
-
+func MustNewServer(opt *option.Options, cluster cluster.Cluster, super *supervisor.Supervisor) *Server {
 	s := &Server{
-		srv:     http.Server{Addr: opt.APIAddr, Handler: r},
-		router:  r,
+		opt:     opt,
 		cluster: cluster,
+		super:   super,
 	}
-
-	r.Use(middleware.StripSlashes)
-	r.Use(s.newAPILogger)
-	r.Use(s.newConfigVersionAttacher)
-	r.Use(s.newRecoverer)
+	s.router = newDynamicMux(s)
+	s.server = http.Server{Addr: opt.APIAddr, Handler: s.router}
 
 	_, err := s.getMutex()
 	if err != nil {
 		logger.Errorf("get cluster mutex %s failed: %v", lockKey, err)
 	}
 
-	s.setupAPIs()
+	s.initMetadata()
+	s.registerAPIs()
 
 	go func() {
 		logger.Infof("api server running in %s", opt.APIAddr)
-		s.srv.ListenAndServe()
+		s.server.ListenAndServe()
 	}()
-
-	GlobalServer = s
 
 	return s
 }
@@ -95,9 +88,11 @@ func (s *Server) Close(wg *sync.WaitGroup) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	if err := s.srv.Shutdown(ctx); err != nil {
+	if err := s.server.Shutdown(ctx); err != nil {
 		logger.Errorf("gracefully shutdown the server failed: %v", err)
 	}
+
+	s.router.close()
 
 	logger.Infof("server stopped")
 }

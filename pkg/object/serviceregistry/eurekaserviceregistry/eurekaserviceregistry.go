@@ -43,7 +43,6 @@ func init() {
 type (
 	// EurekaServiceRegistry is Object EurekaServiceRegistry.
 	EurekaServiceRegistry struct {
-		super     *supervisor.Supervisor
 		superSpec *supervisor.Spec
 		spec      *Spec
 
@@ -88,17 +87,15 @@ func (eureka *EurekaServiceRegistry) DefaultSpec() interface{} {
 }
 
 // Init initilizes EurekaServiceRegistry.
-func (eureka *EurekaServiceRegistry) Init(superSpec *supervisor.Spec, super *supervisor.Supervisor) {
-	eureka.superSpec, eureka.spec, eureka.super = superSpec, superSpec.ObjectSpec().(*Spec), super
+func (eureka *EurekaServiceRegistry) Init(superSpec *supervisor.Spec) {
+	eureka.superSpec, eureka.spec = superSpec, superSpec.ObjectSpec().(*Spec)
 	eureka.reload()
 }
 
 // Inherit inherits previous generation of EurekaServiceRegistry.
-func (eureka *EurekaServiceRegistry) Inherit(superSpec *supervisor.Spec,
-	previousGeneration supervisor.Object, super *supervisor.Supervisor) {
-
+func (eureka *EurekaServiceRegistry) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object) {
 	previousGeneration.Close()
-	eureka.Init(superSpec, super)
+	eureka.Init(superSpec)
 }
 
 func (eureka *EurekaServiceRegistry) reload() {

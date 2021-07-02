@@ -24,7 +24,6 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
 	"github.com/megaease/easegress/pkg/protocol"
-	"github.com/megaease/easegress/pkg/supervisor"
 )
 
 const (
@@ -59,9 +58,8 @@ func init() {
 type (
 	// Bridge is filter Bridge.
 	Bridge struct {
-		super    *supervisor.Supervisor
-		pipeSpec *httppipeline.FilterSpec
-		spec     *Spec
+		filterSpec *httppipeline.FilterSpec
+		spec       *Spec
 
 		muxMapper protocol.MuxMapper
 	}
@@ -93,17 +91,16 @@ func (b *Bridge) Results() []string {
 }
 
 // Init initializes Bridge.
-func (b *Bridge) Init(pipeSpec *httppipeline.FilterSpec, super *supervisor.Supervisor) {
-	b.pipeSpec, b.spec, b.super = pipeSpec, pipeSpec.FilterSpec().(*Spec), super
+func (b *Bridge) Init(filterSpec *httppipeline.FilterSpec) {
+	b.filterSpec, b.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	b.reload()
 }
 
 // Inherit inherits previous generation of Bridge.
-func (b *Bridge) Inherit(pipeSpec *httppipeline.FilterSpec,
-	previousGeneration httppipeline.Filter, super *supervisor.Supervisor) {
+func (b *Bridge) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
 
 	previousGeneration.Close()
-	b.Init(pipeSpec, super)
+	b.Init(filterSpec)
 }
 
 func (b *Bridge) reload() {

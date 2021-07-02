@@ -163,17 +163,15 @@ func (emm *EaseMonitorMetrics) DefaultSpec() interface{} {
 }
 
 // Init initializes EaseMonitorMetrics.
-func (emm *EaseMonitorMetrics) Init(superSpec *supervisor.Spec, super *supervisor.Supervisor) {
-	emm.superSpec, emm.spec, emm.super = superSpec, superSpec.ObjectSpec().(*Spec), super
+func (emm *EaseMonitorMetrics) Init(superSpec *supervisor.Spec) {
+	emm.superSpec, emm.spec, emm.super = superSpec, superSpec.ObjectSpec().(*Spec), superSpec.Super()
 	emm.reload()
 }
 
 // Inherit inherits previous generation of EaseMonitorMetrics.
-func (emm *EaseMonitorMetrics) Inherit(superSpec *supervisor.Spec,
-	previousGeneration supervisor.Object, super *supervisor.Supervisor) {
-
+func (emm *EaseMonitorMetrics) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object) {
 	previousGeneration.Close()
-	emm.Init(superSpec, super)
+	emm.Init(superSpec)
 }
 
 func (emm *EaseMonitorMetrics) reload() {

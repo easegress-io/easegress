@@ -49,7 +49,11 @@ type (
 
 	// WalkFunc is the type of the function called for
 	// walking object entity.
-	WalkFunc func(objectEntity *ObjectEntity) bool
+	WalkFunc func(entity *ObjectEntity) bool
+)
+
+var (
+	globalSuper *Supervisor
 )
 
 // MustNew creates a Supervisor.
@@ -68,6 +72,8 @@ func MustNew(opt *option.Options, cls cluster.Cluster) *Supervisor {
 		// NOTE: SystemController is only initilized internally.
 		// CategorySystemController,
 		CategoryBusinessController))
+
+	globalSuper = s
 
 	s.initSystemControllers()
 
@@ -100,16 +106,16 @@ func (s *Supervisor) initSystemControllers() {
 			Kind: kind,
 		}
 
-		spec := newSpecInternal(meta, rootObject.DefaultSpec())
+		spec := s.newSpecInternal(meta, rootObject.DefaultSpec())
 		entity, err := s.NewObjectEntityFromSpec(spec)
 		if err != nil {
 			panic(err)
 		}
 
+		logger.Infof("create %s", spec.Name())
+
 		entity.InitWithRecovery(nil /* muxMapper */)
 		s.systemControllers.Store(kind, entity)
-
-		logger.Infof("create %s", spec.Name())
 	}
 }
 
@@ -140,8 +146,8 @@ func (s *Supervisor) handleEvent(event *ObjectEntityWatcherEvent) {
 			continue
 		}
 
-		entity.(*ObjectEntity).CloseWithRecovery()
 		logger.Infof("delete %s", name)
+		entity.(*ObjectEntity).CloseWithRecovery()
 	}
 
 	for name, entity := range event.Create {
@@ -151,9 +157,9 @@ func (s *Supervisor) handleEvent(event *ObjectEntityWatcherEvent) {
 			continue
 		}
 
+		logger.Infof("create %s", name)
 		entity.InitWithRecovery(nil /* muxMapper */)
 		s.businessControllers.Store(name, entity)
-		logger.Infof("create %s", name)
 	}
 
 	for name, entity := range event.Update {
@@ -163,9 +169,9 @@ func (s *Supervisor) handleEvent(event *ObjectEntityWatcherEvent) {
 			continue
 		}
 
+		logger.Infof("update %s", name)
 		entity.InheritWithRecovery(previousEntity.(*ObjectEntity), nil /* muxMapper */)
 		s.businessControllers.Store(name, entity)
-		logger.Infof("update %s", name)
 	}
 }
 
@@ -195,13 +201,19 @@ func (s *Supervisor) WalkControllers(walkFn WalkFunc) {
 // The name of system controller is its own kind.
 func (s *Supervisor) GetSystemController(name string) (*ObjectEntity, bool) {
 	entity, exists := s.systemControllers.Load(name)
-	return entity.(*ObjectEntity), exists
+	if !exists {
+		return nil, false
+	}
+	return entity.(*ObjectEntity), true
 }
 
 // GetObjectEntity returns the business controller with the existing flag.
 func (s *Supervisor) GetBusinessController(name string) (*ObjectEntity, bool) {
 	entity, exists := s.businessControllers.Load(name)
-	return entity.(*ObjectEntity), exists
+	if !exists {
+		return nil, false
+	}
+	return entity.(*ObjectEntity), true
 }
 
 // FirstHandleDone returns the firstHandleDone channel,
@@ -223,17 +235,27 @@ func (s *Supervisor) close() {
 
 	s.businessControllers.Range(func(k, v interface{}) bool {
 		entity := v.(*ObjectEntity)
-		entity.CloseWithRecovery()
 		logger.Infof("delete %s", k)
+		entity.CloseWithRecovery()
 		return true
 	})
 
-	s.systemControllers.Range(func(k, v interface{}) bool {
-		entity := v.(*ObjectEntity)
-		entity.CloseWithRecovery()
-		logger.Infof("delete %s", k)
-		return true
-	})
+	for i := len(objectRegistryOrderByDependency) - 1; i >= 0; i-- {
+		rootObject := objectRegistryOrderByDependency[i]
+		if rootObject.Category() != CategorySystemController {
+			continue
+		}
+
+		kind := rootObject.Kind()
+		value, exists := s.systemControllers.LoadAndDelete(kind)
+		if !exists {
+			logger.Errorf("BUG: system controller %s not found", kind)
+			continue
+		}
+
+		logger.Infof("delete %s", kind)
+		value.(*ObjectEntity).CloseWithRecovery()
+	}
 
 	close(s.done)
 }

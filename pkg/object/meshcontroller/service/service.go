@@ -42,11 +42,11 @@ type (
 	}
 )
 
-func New(superSpec *supervisor.Spec, super *supervisor.Supervisor) *Service {
+func New(superSpec *supervisor.Spec) *Service {
 	s := &Service{
 		superSpec: superSpec,
 		spec:      superSpec.ObjectSpec().(*spec.Admin),
-		store:     storage.New(superSpec.Name(), super.Cluster()),
+		store:     storage.New(superSpec.Name(), superSpec.Super().Cluster()),
 	}
 
 	return s

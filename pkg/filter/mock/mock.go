@@ -24,7 +24,6 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
-	"github.com/megaease/easegress/pkg/supervisor"
 )
 
 const (
@@ -43,9 +42,8 @@ func init() {
 type (
 	// Mock is filter Mock.
 	Mock struct {
-		super    *supervisor.Supervisor
-		pipeSpec *httppipeline.FilterSpec
-		spec     *Spec
+		filterSpec *httppipeline.FilterSpec
+		spec       *Spec
 
 		body []byte
 	}
@@ -89,17 +87,15 @@ func (m *Mock) Results() []string {
 }
 
 // Init initializes Mock.
-func (m *Mock) Init(pipeSpec *httppipeline.FilterSpec, super *supervisor.Supervisor) {
-	m.pipeSpec, m.spec, m.super = pipeSpec, pipeSpec.FilterSpec().(*Spec), super
+func (m *Mock) Init(filterSpec *httppipeline.FilterSpec) {
+	m.filterSpec, m.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	m.reload()
 }
 
 // Inherit inherits previous generation of Mock.
-func (m *Mock) Inherit(pipeSpec *httppipeline.FilterSpec,
-	previousGeneration httppipeline.Filter, super *supervisor.Supervisor) {
-
+func (m *Mock) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
 	previousGeneration.Close()
-	m.Init(pipeSpec, super)
+	m.Init(filterSpec)
 }
 
 func (m *Mock) reload() {

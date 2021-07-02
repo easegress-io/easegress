@@ -10,7 +10,7 @@ cfgfile=$APPDIR/conf/config.yaml
 option=$1
 if [ "$option" = "-l" -o "$option" = "--long" ]
 then
-    ./egctl.sh member list 
+    ./egctl.sh member list
     exit $?
 fi
 
@@ -19,13 +19,13 @@ NC='\033[0m' # No Color
 
 
 {
-    echo "Cluster Member Role ETCD Status LocalPeer Client API"
+    echo "Cluster Member Role Etcd Status LocalPeer Client API"
 {
     ./egctl.sh member list \
        | egrep 'cluster-name:|\bname\b:|cluster-role:|lastHeartbeatTime:|peer|client|api-addr|\bstate\b:' \
        | while read line
     do
-        if `echo $line | grep -q "cluster-name:"` 
+        if `echo $line | grep -q "cluster-name:"`
         then
             cluster=`echo $line | awk '{print $2}'`
         elif `echo $line | grep -q '^[ \t]*name:'`
@@ -62,14 +62,14 @@ NC='\033[0m' # No Color
         if [ -n "$cluster" ] && [ -n "$name" ] && [ -n "$role" ] && [ -n "$status" ] \
             && [ -n "$peer" ] && [ -n "$client" ] && [ -n $api ]
         then
-            if [ $role = "writer" ] 
+            if [ $role = "writer" ]
             then
                 if [ ! -n "$etcd" ]
                 then
                     continue
-                else 
+                else
                     if [ $status = "offline" ]
-                    then 
+                    then
                         etcd='Down'
                     fi
                 fi
@@ -86,12 +86,12 @@ NC='\033[0m' # No Color
             unset etcd
         fi
     done
-} | sort 
-} | column -t  
+} | sort
+} | column -t
 
 pid=`ps -eo pid,args | grep "$server" | grep -v grep | awk '{print $1}'`
-if [ -n "$pid" ] 
-then 
+if [ -n "$pid" ]
+then
     alive="yes"
 else
     alive="no"

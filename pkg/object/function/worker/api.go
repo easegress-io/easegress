@@ -42,18 +42,27 @@ func (worker *Worker) faasAPIPrefix() string {
 	return fmt.Sprintf("/faas/%s", worker.name)
 }
 
+const apiGroupName = "faas_admin"
+
 func (worker *Worker) registerAPIs() {
-	meshAPIs := []*api.APIEntry{
-		{Path: worker.faasAPIPrefix(), Method: "POST", Handler: worker.Create},
-		{Path: worker.faasAPIPrefix(), Method: "GET", Handler: worker.List},
-		{Path: worker.faasAPIPrefix() + "/{name}", Method: "GET", Handler: worker.Get},
-		{Path: worker.faasAPIPrefix() + "/{name}/start", Method: "PUT", Handler: worker.Start},
-		{Path: worker.faasAPIPrefix() + "/{name}/stop", Method: "PUT", Handler: worker.Stop},
-		{Path: worker.faasAPIPrefix() + "/{name}", Method: "DELETE", Handler: worker.Delete},
-		{Path: worker.faasAPIPrefix() + "/{name}", Method: "PUT", Handler: worker.Update},
+	group := &api.APIGroup{
+		Group: apiGroupName,
+		Entries: []*api.APIEntry{
+			{Path: worker.faasAPIPrefix(), Method: "POST", Handler: worker.Create},
+			{Path: worker.faasAPIPrefix(), Method: "GET", Handler: worker.List},
+			{Path: worker.faasAPIPrefix() + "/{name}", Method: "GET", Handler: worker.Get},
+			{Path: worker.faasAPIPrefix() + "/{name}/start", Method: "PUT", Handler: worker.Start},
+			{Path: worker.faasAPIPrefix() + "/{name}/stop", Method: "PUT", Handler: worker.Stop},
+			{Path: worker.faasAPIPrefix() + "/{name}", Method: "DELETE", Handler: worker.Delete},
+			{Path: worker.faasAPIPrefix() + "/{name}", Method: "PUT", Handler: worker.Update},
+		},
 	}
 
-	api.GlobalServer.RegisterAPIs(meshAPIs)
+	api.RegisterAPIs(group)
+}
+
+func (worker *Worker) UnregisterAPIs() {
+	api.UnregisterAPIs(apiGroupName)
 }
 
 func (worker *Worker) readFunctionName(w http.ResponseWriter, r *http.Request) (string, error) {

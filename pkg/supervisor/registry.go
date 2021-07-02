@@ -61,13 +61,13 @@ type (
 		Object
 
 		// Init initializes the Obejct.
-		Init(superSpec *Spec, super *Supervisor, muxMapper protocol.MuxMapper)
+		Init(superSpec *Spec, muxMapper protocol.MuxMapper)
 
 		// Inherit also initializes the Object.
 		// But it needs to handle the lifecycle of the previous generation.
 		// So it's own responsibility for the object to inherit and clean the previous generation stuff.
 		// The supervisor won't call Close for the previous generation.
-		Inherit(superSpec *Spec, previousGeneration Object, super *Supervisor, muxMapper protocol.MuxMapper)
+		Inherit(superSpec *Spec, previousGeneration Object, muxMapper protocol.MuxMapper)
 	}
 
 	// TrafficGate is the object in category of TrafficGate.
@@ -85,13 +85,13 @@ type (
 		Object
 
 		// Init initializes the Object.
-		Init(superSpec *Spec, super *Supervisor)
+		Init(superSpec *Spec)
 
 		// Inherit also initializes the Object.
 		// But it needs to handle the lifecycle of the previous generation.
 		// So it's own responsibility for the object to inherit and clean the previous generation stuff.
 		// The supervisor won't call Close for the previous generation.
-		Inherit(superSpec *Spec, previousGeneration Object, super *Supervisor)
+		Inherit(superSpec *Spec, previousGeneration Object)
 	}
 
 	// ObjectCategory is the type to classify all objects.
