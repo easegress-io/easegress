@@ -1,9 +1,6 @@
-kind: ZookeeperServiceRegistry                                                                                                                                    
+kind: ZookeeperServiceRegistry
 name: zookeeper-service-registry-example
-zkservices: 
-  - 10.244.1.69:2181           
-  - 10.244.1.70:2181           
-  - 10.244.2.44:2181 
+zkservices: [127.0.0.1:2181]
 prefix: /services
 conntimeout: 6s
 syncInterval: 10s
