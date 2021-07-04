@@ -47,4 +47,5 @@ import (
 	_ "github.com/megaease/easegress/pkg/object/serviceregistry/eurekaserviceregistry"
 	_ "github.com/megaease/easegress/pkg/object/serviceregistry/zookeeperserviceregistry"
 	_ "github.com/megaease/easegress/pkg/object/trafficcontroller"
+	_ "github.com/megaease/easegress/pkg/object/websocketserver"
 )
