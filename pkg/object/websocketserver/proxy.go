@@ -245,9 +245,9 @@ func (p *Proxy) handle(rw http.ResponseWriter, req *http.Request) {
 
 	defer close(stop)
 
-	// pass msg from backend to client
+	// pass msg from backend to client vias WebSocket protocol.
 	go p.passMsg(connBackend, connClient, errBackend, stop)
-	// pass msg from client to backend
+	// pass msg from client to backend vias WebSocket protocol.
 	go p.passMsg(connClient, connBackend, errClient, stop)
 
 	var errMsg string
