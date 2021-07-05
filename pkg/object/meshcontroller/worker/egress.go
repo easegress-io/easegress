@@ -128,6 +128,7 @@ func (egs *EgressServer) InitEgress(service *spec.Service) error {
 			logger.Errorf("add ingress spec watching service: %s failed: %v", service.Name, err)
 			return err
 		}
+		return err
 	}
 
 	if err := egs.inf.OnAllServiceInstanceSpecs(egs.reloadByInstances); err != nil {
@@ -135,6 +136,7 @@ func (egs *EgressServer) InitEgress(service *spec.Service) error {
 			logger.Errorf("add ingress spec watching service: %s failed: %v", service.Name, err)
 			return err
 		}
+		return err
 	}
 	return nil
 }
