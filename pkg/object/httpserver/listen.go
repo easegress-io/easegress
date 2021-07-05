@@ -72,7 +72,7 @@ func (l *LimitListener) Accept() (net.Conn, error) {
 
 // SetMaxConnection sets max connection.
 func (l *LimitListener) SetMaxConnection(n uint32) {
-	l.sem.SetMaxCount(n)
+	l.sem.SetMaxCount(int64(n))
 }
 
 // Close closes LimitListener.
