@@ -124,19 +124,19 @@ func (egs *EgressServer) InitEgress(service *spec.Service) error {
 	egs.httpServer = entity
 
 	if err := egs.inf.OnAllServiceSpecs(egs.reloadBySpecs); err != nil {
+		// only return err when its type is not `AlreadyWatched`
 		if err != informer.ErrAlreadyWatched {
 			logger.Errorf("add ingress spec watching service: %s failed: %v", service.Name, err)
 			return err
 		}
-		return err
 	}
 
 	if err := egs.inf.OnAllServiceInstanceSpecs(egs.reloadByInstances); err != nil {
+		// only return err when its type is not `AlreadyWatched`
 		if err != informer.ErrAlreadyWatched {
 			logger.Errorf("add ingress spec watching service: %s failed: %v", service.Name, err)
 			return err
 		}
-		return err
 	}
 	return nil
 }
