@@ -216,7 +216,6 @@ func (meta *FilterMetaSpec) Validate() error {
 // Validate validates Spec.
 func (s Spec) Validate() (err error) {
 	errPrefix := "filters"
-	_ = errPrefix
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("%s: %s", errPrefix, r)
