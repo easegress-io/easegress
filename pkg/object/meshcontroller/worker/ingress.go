@@ -126,6 +126,9 @@ func (ings *IngressServer) InitIngress(service *spec.Service, port uint32) error
 			logger.Errorf("add ingress spec watching service: %s failed: %v", service.Name, err)
 			return err
 		}
+		// If missing this statement, some errors will be ignored, but it will cause hidden the reason of `err`,
+		// That is bad.
+		return err
 	}
 
 	return nil
