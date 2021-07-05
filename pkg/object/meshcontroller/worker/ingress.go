@@ -122,13 +122,11 @@ func (ings *IngressServer) InitIngress(service *spec.Service, port uint32) error
 	}
 
 	if err := ings.inf.OnPartOfServiceSpec(service.Name, informer.AllParts, ings.reloadTraffic); err != nil {
+		// Only return err when its type is not `AlreadyWatched`
 		if err != informer.ErrAlreadyWatched {
 			logger.Errorf("add ingress spec watching service: %s failed: %v", service.Name, err)
 			return err
 		}
-		// If missing this statement, some errors will be ignored, but it will cause hidden the reason of `err`,
-		// That is bad.
-		return err
 	}
 
 	return nil
