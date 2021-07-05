@@ -297,7 +297,7 @@ There must be at least one of `values` and `regexp`.
 | Name   | Type              | Description                                                                                                                                                                           | Required |
 | ------ | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
 | filter | string            | The filter name                                                                                                                                                                       | Yes      |
-| jumpIf | map[string]string | Jump another filter in some conditions, the key is the result of the current filter, the value is the jumping filter name. `END` is the built-in value for the ending of the pipeline | No       |
+| jumpIf | map[string]string | Jump to another filter conditionally, the key is the result of the current filter, the value is the jumping filter name. `END` is the built-in value for the ending of the pipeline | No       |
 
 ### httppipeline.Filter
 
