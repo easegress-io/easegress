@@ -6,6 +6,7 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+// Marshal wraps yaml.Marshal by panic instead of returning error.
 func Marshal(in interface{}) []byte {
 	buff, err := yaml.Marshal(in)
 	if err != nil {
@@ -14,6 +15,7 @@ func Marshal(in interface{}) []byte {
 	return buff
 }
 
+// Unmarshal wraps yaml.Unmarshal by panic instead of returning error.
 func Unmarshal(in []byte, out interface{}) {
 	err := yaml.Unmarshal(in, out)
 	if err != nil {
