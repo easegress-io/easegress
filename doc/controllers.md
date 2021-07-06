@@ -118,7 +118,7 @@ No config.
 
 ### EaseMonitorMetrics
 
-EaseMonitorMetrics adapts to monitor metrics of Easegress, and sends them to Kafka. The config looks like:
+EaseMonitorMetrics is adapted to monitor metrics of Easegress and send them to Kafka. The config looks like:
 
 ```yaml
 kind: EaseMonitorMetrics
