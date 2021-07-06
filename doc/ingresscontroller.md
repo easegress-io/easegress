@@ -24,7 +24,7 @@ httpServer:
   keepAliveTimeout: 60s      
   maxConnections: 10240
 ```
-* IngressController uses `kubeConfig` and `masterUrl` to connect to Kubernetes, at least one of them must be specified when deployed outside of a Kubernetes cluster, and both are optional when deployed inside a cluster.
+* IngressController uses `kubeConfig` and `masterURL` to connect to Kubernetes, at least one of them must be specified when deployed outside of a Kubernetes cluster, and both are optional when deployed inside a cluster.
 * The `namespaces` is an array of Kubernetes namespaces which the IngressController needs to watch, all namespaces are watched if left empty.
 * IngressController only handles `Ingresses` with `ingressClassName` set to `ingressClass`, the default value of `ingressClass` is `easegress`.
 * One IngressController manages a shared HTTP traffic gate and multiple pipelines according to the Kubernetes ingress. The `httpServer` section in the spec is the basic configuration for the shared HTTP traffic gate. The routing part of the HTTP server and pipeline configurations will be generated dynamically according to Kubernetes ingresses.
