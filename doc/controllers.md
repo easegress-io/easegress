@@ -45,7 +45,7 @@ For now, all system controllers can not be configured. It may gain this capabili
 
 ### TrafficController
 
-TrafficController handles the lifecycle of HTTPServer and HTTPPipeline and their relationship. It manages the resource in a namespaced way. HTTPServer accepts incoming traffic and route to HTTPPipelines in the same namespace. Most other controllers could handle traffic by leverage the ability of TrafficController..
+TrafficController handles the lifecycle of HTTPServer and HTTPPipeline and their relationship. It manages the resource in a namespaced way. HTTPServer accepts incoming traffic and routes it to HTTPPipelines in the same namespace. Most other controllers could handle traffic by leverage the ability of TrafficController..
 
 ### RawConfigTrafficController
 
