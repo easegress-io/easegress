@@ -18,15 +18,17 @@
 package ingresscontroller
 
 import (
-	"bytes"
 	"fmt"
 	"net"
 	"strconv"
 	"strings"
 
+	"github.com/megaease/easegress/pkg/filter/proxy"
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/object/httppipeline"
 	"github.com/megaease/easegress/pkg/object/httpserver"
 	"github.com/megaease/easegress/pkg/supervisor"
+	"gopkg.in/yaml.v2"
 	apicorev1 "k8s.io/api/core/v1"
 	apinetv1 "k8s.io/api/networking/v1"
 )
@@ -35,14 +37,88 @@ const (
 	defaultPipelineName = "pipeline-default"
 )
 
-// specTranslator translates k8s ingress related specs to Easegress http server
-// spec and pipeline specs
-type specTranslator struct {
-	k8sClient    *k8sClient
-	httpSvr      *supervisor.Spec
-	pipelines    map[string]*supervisor.Spec
-	httpSvrCfg   *httpserver.Spec
-	ingressClass string
+type (
+	// specTranslator translates k8s ingress related specs to Easegress http server
+	// spec and pipeline specs
+	specTranslator struct {
+		k8sClient    *k8sClient
+		httpSvr      *supervisor.Spec
+		pipelines    map[string]*supervisor.Spec
+		httpSvrCfg   *httpserver.Spec
+		ingressClass string
+	}
+
+	pipelineSpecBuilder struct {
+		Kind              string `yaml:"kind"`
+		Name              string `yaml:"name"`
+		httppipeline.Spec `yaml:",inline"`
+	}
+
+	httpServerSpecBuilder struct {
+		Kind            string `yaml:"kind"`
+		Name            string `yaml:"name"`
+		httpserver.Spec `yaml:",inline"`
+	}
+)
+
+func newPipelineSpecBuilder(name string) *pipelineSpecBuilder {
+	return &pipelineSpecBuilder{
+		Kind: httppipeline.Kind,
+		Name: name,
+		Spec: httppipeline.Spec{},
+	}
+}
+
+func (b *pipelineSpecBuilder) addProxy(endpoints []string) {
+	const name = "proxy"
+
+	pool := &proxy.PoolSpec{
+		LoadBalance: &proxy.LoadBalance{
+			Policy: proxy.PolicyRoundRobin,
+		},
+	}
+
+	for _, ep := range endpoints {
+		pool.Servers = append(pool.Servers, &proxy.Server{URL: ep})
+	}
+
+	b.Flow = append(b.Flow, httppipeline.Flow{Filter: name})
+	b.Filters = append(b.Filters, map[string]interface{}{
+		"kind":     proxy.Kind,
+		"name":     name,
+		"mainPool": pool,
+	},
+	)
+}
+
+func (b *pipelineSpecBuilder) yamlConfig() string {
+	buff, err := yaml.Marshal(b)
+	if err != nil {
+		logger.Errorf("BUG: marshal %#v to yaml failed: %v", b, err)
+	}
+	return string(buff)
+}
+
+func newHTTPServerSpecBuilder(template *httpserver.Spec) *httpServerSpecBuilder {
+	return &httpServerSpecBuilder{
+		Kind: httpserver.Kind,
+		Name: "http-server-ingress-controller",
+		Spec: httpserver.Spec{
+			Port:             template.Port,
+			KeepAlive:        template.KeepAlive,
+			HTTPS:            template.HTTPS,
+			KeepAliveTimeout: template.KeepAliveTimeout,
+			MaxConnections:   template.MaxConnections,
+		},
+	}
+}
+
+func (b *httpServerSpecBuilder) yamlConfig() string {
+	buff, err := yaml.Marshal(b)
+	if err != nil {
+		logger.Errorf("BUG: marshal %#v to yaml failed: %v", b, err)
+	}
+	return string(buff)
 }
 
 func newSpecTranslator(k8sClient *k8sClient, ingressClass string, httpSvrCfg *httpserver.Spec) *specTranslator {
@@ -50,6 +126,7 @@ func newSpecTranslator(k8sClient *k8sClient, ingressClass string, httpSvrCfg *ht
 		k8sClient:    k8sClient,
 		httpSvrCfg:   httpSvrCfg,
 		ingressClass: ingressClass,
+		pipelines:    map[string]*supervisor.Spec{},
 	}
 }
 
@@ -62,25 +139,11 @@ func (st *specTranslator) pipelineSpecs() map[string]*supervisor.Spec {
 }
 
 func generatePipelineSpec(name string, endpoints []string) (*supervisor.Spec, error) {
-	var buf bytes.Buffer
-	fmt.Fprintf(&buf, "name: %s\n", name)
-	buf.WriteString(`kind: HTTPPipeline
-flow:
-  - filter: proxy
-filters:
-  - name: proxy
-    kind: Proxy
-    mainPool:
-      loadBalance:
-        policy: roundRobin
-      servers:
-`)
-	for _, ep := range endpoints {
-		fmt.Fprintf(&buf, "        - url: %s\n", ep)
-	}
-
-	logger.Debugf("pipeline spec generated:\n%s", buf.String())
-	return supervisor.NewSpec(buf.String())
+	b := newPipelineSpecBuilder(name)
+	b.addProxy(endpoints)
+	yamlCfg := b.yamlConfig()
+	logger.Debugf("pipeline spec generated:\n%s", yamlCfg)
+	return supervisor.NewSpec(yamlCfg)
 }
 
 func (st *specTranslator) getEndpoints(namespace string, service *apinetv1.IngressServiceBackend) ([]string, error) {
@@ -215,9 +278,9 @@ func getCertificateBlocks(secret *apicorev1.Secret, namespace, secretName string
 	return string(crt), string(key), nil
 }
 
-func (st *specTranslator) translateTLSConfig(buf *bytes.Buffer, ingresses []*apinetv1.Ingress) error {
-	certs := map[string]string{}
-	keys := map[string]string{}
+func (st *specTranslator) translateTLSConfig(b *httpServerSpecBuilder, ingresses []*apinetv1.Ingress) error {
+	b.Certs = map[string]string{}
+	b.Keys = map[string]string{}
 
 	for _, ingress := range ingresses {
 		for _, t := range ingress.Spec.TLS {
@@ -225,7 +288,7 @@ func (st *specTranslator) translateTLSConfig(buf *bytes.Buffer, ingresses []*api
 				continue
 			}
 			cfgKey := ingress.Namespace + "/" + t.SecretName
-			if _, ok := certs[cfgKey]; ok {
+			if _, ok := b.Certs[cfgKey]; ok {
 				continue
 			}
 
@@ -244,113 +307,85 @@ func (st *specTranslator) translateTLSConfig(buf *bytes.Buffer, ingresses []*api
 				continue
 			}
 
-			certs[cfgKey] = cert
-			keys[cfgKey] = key
+			b.Certs[cfgKey] = cert
+			b.Keys[cfgKey] = key
 		}
-	}
-
-	buf.WriteString("certs:\n")
-	for k, v := range certs {
-		fmt.Fprintf(buf, "  %s: %s\n", k, v)
-	}
-
-	buf.WriteString("keys:\n")
-	for k, v := range keys {
-		fmt.Fprintf(buf, "  %s: %s\n", k, v)
 	}
 
 	return nil
 }
 
-func (st *specTranslator) translateIngressRules(buf *bytes.Buffer, ingress *apinetv1.Ingress) {
+func (st *specTranslator) translateIngressRules(b *httpServerSpecBuilder, ingress *apinetv1.Ingress) {
 	for _, rule := range ingress.Spec.Rules {
 		if rule.HTTP == nil {
 			continue
 		}
 
-		var numPath int
+		r := httpserver.Rule{}
 		for _, path := range rule.HTTP.Paths {
 			pipeline, err := st.serviceToPipeline(ingress.Namespace, path.Backend.Service)
 			if err != nil {
 				continue
 			}
 
-			if numPath == 0 {
-				buf.WriteString("  - paths:\n")
-			}
-			fmt.Fprintf(buf, "    - backend: %s\n", pipeline.Name())
+			p := httpserver.Path{Backend: pipeline.Name()}
 			if path.PathType != nil && *path.PathType == apinetv1.PathTypeExact {
-				fmt.Fprintf(buf, "      path: %s\n", path.Path)
+				p.Path = path.Path
 			} else {
-				fmt.Fprintf(buf, "      pathPrefix: %s\n", path.Path)
+				p.PathPrefix = path.Path
 			}
-			numPath++
+			r.Paths = append(r.Paths, p)
 		}
 
-		if numPath == 0 || len(rule.Host) == 0 {
+		if len(r.Paths) == 0 {
 			continue
 		}
 
-		if rule.Host[0] == '*' {
-			host := strings.ReplaceAll(rule.Host[1:], ".", "\\\\.")
-			fmt.Fprintf(buf, "    hostRegexp: \"^[^.]+%s$\"\n", host)
+		if len(rule.Host) > 0 && rule.Host[0] == '*' {
+			host := strings.ReplaceAll(rule.Host[1:], ".", "\\.")
+			r.HostRegexp = fmt.Sprintf("^[^.]+%s$", host)
 		} else {
-			fmt.Fprintf(buf, "    host: %s\n", rule.Host)
+			r.Host = rule.Host
 		}
-	}
-}
 
-func (st *specTranslator) beginTranslate(buf *bytes.Buffer) {
-	st.httpSvr = nil
-	st.pipelines = make(map[string]*supervisor.Spec)
-
-	buf.WriteString("name: http-server-ingress-controller\n")
-	buf.WriteString("kind: HTTPServer\n")
-	fmt.Fprintf(buf, "port: %d\n", st.httpSvrCfg.Port)
-	fmt.Fprintf(buf, "keepAlive: %t\n", st.httpSvrCfg.KeepAlive)
-	if len(st.httpSvrCfg.KeepAliveTimeout) > 0 {
-		fmt.Fprintf(buf, "keepAliveTimeout: %s\n", st.httpSvrCfg.KeepAliveTimeout)
+		b.Rules = append(b.Rules, r)
 	}
-	fmt.Fprintf(buf, "https: %t\n", st.httpSvrCfg.HTTPS)
-	if st.httpSvrCfg.MaxConnections > 0 {
-		fmt.Fprintf(buf, "maxConnections: %d\n", st.httpSvrCfg.MaxConnections)
-	}
-	buf.WriteString("rules:\n")
-}
-
-func (st *specTranslator) endTranslate(buf *bytes.Buffer) error {
-	logger.Debugf("http server spec generated:\n%s", buf.String())
-	spec, err := supervisor.NewSpec(buf.String())
-	if err != nil {
-		return err
-	}
-	st.httpSvr = spec
-	return nil
 }
 
 func (st *specTranslator) translate() error {
-	buf := &bytes.Buffer{}
-
-	st.beginTranslate(buf)
+	b := newHTTPServerSpecBuilder(st.httpSvrCfg)
 
 	ingresses := st.k8sClient.getIngresses(st.ingressClass)
 
 	if st.httpSvrCfg.HTTPS {
-		st.translateTLSConfig(buf, ingresses)
+		st.translateTLSConfig(b, ingresses)
 	}
 
 	for _, ingress := range ingresses {
 		if ingress.Spec.DefaultBackend != nil {
 			st.translateDefaultPipeline(ingress)
 		}
-		st.translateIngressRules(buf, ingress)
+		st.translateIngressRules(b, ingress)
 	}
 
 	if p := st.pipelines[defaultPipelineName]; p != nil {
-		buf.WriteString("  - paths:\n")
-		fmt.Fprintf(buf, "    - backend: %s\n", defaultPipelineName)
-		buf.WriteString("      pathPrefix: /\n")
+		b.Rules = append(b.Rules, httpserver.Rule{
+			Paths: []httpserver.Path{
+				{
+					Backend:    defaultPipelineName,
+					PathPrefix: "/",
+				},
+			},
+		})
 	}
 
-	return st.endTranslate(buf)
+	yamlCfg := b.yamlConfig()
+	logger.Debugf("http server spec:\n%s", yamlCfg)
+	spec, e := supervisor.NewSpec(yamlCfg)
+	if e != nil {
+		return e
+	}
+
+	st.httpSvr = spec
+	return nil
 }

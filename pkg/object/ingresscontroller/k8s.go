@@ -37,11 +37,10 @@ import (
 )
 
 const (
-	resyncPeriod   = 10 * time.Minute
-	defaultTimeout = 5 * time.Second
+	resyncPeriod = 10 * time.Minute
 )
 
-func isResourceEqual(oldObj, newObj interface{}) bool {
+func isResourceChanged(oldObj, newObj interface{}) bool {
 	if oldObj == nil || newObj == nil {
 		return true
 	}
@@ -51,20 +50,20 @@ func isResourceEqual(oldObj, newObj interface{}) bool {
 	}
 
 	if ep, ok := oldObj.(*apicorev1.Endpoints); ok {
-		return isEndpointsEqual(ep, newObj.(*apicorev1.Endpoints))
+		return isEndpointsChanged(ep, newObj.(*apicorev1.Endpoints))
 	}
 
 	return true
 }
 
-func isEndpointsEqual(a, b *apicorev1.Endpoints) bool {
+func isEndpointsChanged(a, b *apicorev1.Endpoints) bool {
 	if len(a.Subsets) != len(b.Subsets) {
 		return true
 	}
 
 	for i, sa := range a.Subsets {
 		sb := b.Subsets[i]
-		if isSubsetsEqual(sa, sb) {
+		if isSubsetsChanged(sa, sb) {
 			return true
 		}
 	}
@@ -72,7 +71,7 @@ func isEndpointsEqual(a, b *apicorev1.Endpoints) bool {
 	return false
 }
 
-func isSubsetsEqual(a, b apicorev1.EndpointSubset) bool {
+func isSubsetsChanged(a, b apicorev1.EndpointSubset) bool {
 	if len(a.Addresses) != len(b.Addresses) {
 		return true
 	}
@@ -114,20 +113,20 @@ type k8sClient struct {
 	eventCh         chan interface{}
 }
 
-// OnDelete is called on Resource Add Events.
+// OnAdd is called on Resource Add Events.
 func (c *k8sClient) OnAdd(obj interface{}) {
 	// if there's an event already in the channel, discard this one,
 	// this is fine because IngressController always reload everything
-	// when receiving an event, Same for OnUpdate & OnDelete
+	// when receiving an event. Same for OnUpdate & OnDelete
 	select {
 	case c.eventCh <- obj:
 	default:
 	}
 }
 
-// OnDelete is called on Resource Update Events.
+// OnUpdate is called on Resource Update Events.
 func (c *k8sClient) OnUpdate(oldObj, newObj interface{}) {
-	if !isResourceEqual(oldObj, newObj) {
+	if !isResourceChanged(oldObj, newObj) {
 		return
 	}
 
@@ -168,7 +167,9 @@ func (c *k8sClient) event() <-chan interface{} {
 	return c.eventCh
 }
 
-func (c *k8sClient) watch(namespaces []string, stopCh <-chan struct{}) error {
+func (c *k8sClient) watch(namespaces []string) (chan struct{}, error) {
+	stopCh := make(chan struct{})
+
 	if len(namespaces) == 0 {
 		namespaces = []string{metav1.NamespaceAll}
 	}
@@ -196,12 +197,13 @@ func (c *k8sClient) watch(namespaces []string, stopCh <-chan struct{}) error {
 	factory.Start(stopCh)
 	for typ, ok := range factory.WaitForCacheSync(stopCh) {
 		if !ok {
-			return fmt.Errorf("timed out waiting for controller caches to sync %s", typ)
+			close(stopCh)
+			return nil, fmt.Errorf("timed out waiting for controller caches to sync %s", typ)
 		}
 	}
 
 	c.informerFactory = factory
-	return nil
+	return stopCh, nil
 }
 
 func (c *k8sClient) getService(namespace, name string) (*apicorev1.Service, error) {
@@ -236,6 +238,7 @@ func (c *k8sClient) getIngresses(ingressClass string) []*apinetv1.Ingress {
 		list, err := lister.Ingresses(ns).List(labels.Everything())
 		if err != nil {
 			logger.Errorf("Failed to get ingresses from namespace %s: %v", ns, err)
+			continue
 		}
 
 		for _, ingress := range list {

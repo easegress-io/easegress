@@ -38,7 +38,7 @@ const (
 )
 
 type (
-	// IngressController implements a k8s ingress controller
+	// IngressController implements a K8s ingress controller
 	IngressController struct {
 		super     *supervisor.Supervisor
 		superSpec *supervisor.Spec
@@ -55,7 +55,7 @@ type (
 	IngressControllerSpec struct {
 		HTTPServer   *httpserver.Spec `yaml:"httpServer" jsonschema:"required"`
 		KubeConfig   string           `yaml:"kubeConfig" jsonschema:"omitempty"`
-		MasterURL    string           `yaml:"masterUrl" jsonschema:"omitempty"`
+		MasterURL    string           `yaml:"masterURL" jsonschema:"omitempty"`
 		Namespaces   []string         `yaml:"namespaces" jsonschema:"omitempty"`
 		IngressClass string           `yaml:"ingressClass" jsonschema:"omitempty"`
 	}
@@ -70,7 +70,7 @@ func (ic *IngressController) Category() supervisor.ObjectCategory {
 	return Category
 }
 
-// Kind return the kind of IngressController.
+// Kind returns the kind of IngressController.
 func (ic *IngressController) Kind() string {
 	return Kind
 }
@@ -138,17 +138,15 @@ func (ic *IngressController) run() {
 	logger.Infof("successfully connect to kubernetes")
 
 	// watch ingress related resources
-	var stopCh chan struct{}
+	var (
+		stopCh chan struct{}
+		err    error
+	)
 	for {
-		// use a new stopCh here to clear goroutines created by watch.
-		// if we use ic.stopCh, they cannot be stopped before the return
-		// of this function, which result in resource leaks
-		stopCh = make(chan struct{})
-		err := ic.k8sClient.watch(ic.spec.Namespaces, stopCh)
+		stopCh, err = ic.k8sClient.watch(ic.spec.Namespaces)
 		if err == nil {
 			break
 		}
-		close(stopCh)
 		logger.Errorf("failed to watch ingress related resources: %v", err)
 
 		select {
@@ -160,11 +158,10 @@ func (ic *IngressController) run() {
 	logger.Infof("successfully watched ingress related resources")
 
 	// process resource update events
-	var err error
 	for {
 		select {
 		case <-ic.stopCh:
-			close(stopCh)
+			close(stopCh) // close stopCh to stop goroutines created by watch
 			return
 
 		case <-ic.k8sClient.event():
@@ -203,14 +200,14 @@ func (ic *IngressController) Close() {
 }
 
 func (ic *IngressController) translate() error {
-	logger.Infof("begin translate kubernetes ingress to easegress configuration")
+	logger.Debugf("begin translate kubernetes ingress to easegress configuration")
 	st := newSpecTranslator(ic.k8sClient, ic.spec.IngressClass, ic.spec.HTTPServer)
 	err := st.translate()
 	if err != nil {
 		logger.Errorf("failed to translate kubernetes ingress: %v", err)
 		return err
 	}
-	logger.Infof("end translate kubernetes ingress to easegress configuration")
+	logger.Debugf("end translate kubernetes ingress to easegress configuration")
 
 	pipelines := st.pipelineSpecs()
 	for _, spec := range pipelines {
@@ -219,14 +216,14 @@ func (ic *IngressController) translate() error {
 			logger.Errorf("BUG: failed to apply pipeline spec to %s: %v", spec.Name(), err)
 		}
 	}
-	logger.Infof("pipelines updated")
+	logger.Debugf("pipelines updated")
 
 	spec := st.httpServerSpec()
 	_, err = ic.tc.ApplyHTTPServerForSpec(ic.namespace, spec)
 	if err != nil {
 		logger.Errorf("BUG: failed to apply http server spec: %v", err)
 	} else {
-		logger.Infof("http server updated")
+		logger.Debugf("http server updated")
 	}
 
 	for _, p := range ic.tc.ListHTTPPipelines(ic.namespace) {

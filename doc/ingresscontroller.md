@@ -1,7 +1,7 @@
 # IngressController 
 
 
-The IngressController is a implementation of [Kubernetes ingress controller](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/), it watches Kubernetes Ingress, Service, Endpoints, and Secrets and translates them to Easegress HTTP server and pipelines.
+The IngressController is an implementation of [Kubernetes ingress controller](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/), it watches Kubernetes Ingress, Service, Endpoints, and Secrets then translates them to Easegress HTTP server and pipelines.
 
 ## Prerequisites
 1. K8s cluster : **v1.18+**
@@ -14,7 +14,7 @@ The IngressController is a implementation of [Kubernetes ingress controller](htt
 kind: IngressController
 name: ingress-controller-example
 kubeConfig:
-masterUrl:
+masterURL:
 namespaces: ["default"]
 ingressClass: easegress
 httpServer:
@@ -24,16 +24,16 @@ httpServer:
   keepAliveTimeout: 60s      
   maxConnections: 10240
 ```
-* IngressController uses `kubeConfig` and `masterUrl` to connect to Kubernetes, at least one of the two must be provided if it is deployed outside of a Kubernetes cluster, and both are optional when deployed inside a cluster.
-* `namespaces` lists Kubernetes namespaces the IngressController needs to watch, all namespaces are watched if left empty.
+* IngressController uses `kubeConfig` and `masterUrl` to connect to Kubernetes, at least one of them must be specified when deployed outside of a Kubernetes cluster, and both are optional when deployed inside a cluster.
+* The `namespaces` is an array of Kubernetes namespaces which the IngressController needs to watch, all namespaces are watched if left empty.
 * IngressController only handles `Ingresses` with `ingressClassName` set to `ingressClass`, the default value of `ingressClass` is `easegress`.
-* One IngressController manages a shared HTTP traffic gate and multiple pipelines according to the Kubernetes ingress. The `httpServer` section in the spec is the basic configuration for the shared HTTP traffic gate. Routing configuration of the HTTP server and pipeline configurations will be generated automatically according to Kubernetes ingresses.
+* One IngressController manages a shared HTTP traffic gate and multiple pipelines according to the Kubernetes ingress. The `httpServer` section in the spec is the basic configuration for the shared HTTP traffic gate. The routing part of the HTTP server and pipeline configurations will be generated dynamically according to Kubernetes ingresses.
 
 ## Getting Started
 
 ### Role Based Access Control configuration
 
-If your cluster is configured with RBAC, you will need to authorize Easegress IngressController to use the Kubernetes API. Below is an example configuration:
+If your cluster is configured with RBAC, you will need to authorize Easegress IngressController for using the Kubernetes API firstly. Below is an example configuration:
 
 ```yaml
 ---
@@ -145,7 +145,7 @@ spec:
   type: NodePort
 ```
 
-The service exposes two ports, the `admin` port is for Easegress administration, we exposed it for simplicity here, but you may not want to expose it in your environment for security; the `web` port is to receive external HTTP requests and forward them to the HTTP server in Easegress.
+The service exposes two ports, the `admin` port is for Easegress administration, we exposed it for simplicity here, but for security consideration, we don't recommend you to expose it in your environment; the `web` port is to receive external HTTP requests and forward them to the HTTP server in Easegress.
 
 Now let's create the IngressController with the below command (suppose the spec in [Controller Spec](#controller-spec) has been saved to a file named `controller.yaml`):
 
