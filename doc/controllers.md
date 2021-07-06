@@ -53,7 +53,7 @@ RawConfigTrafficController maps all traffic static configurations to TrafficCont
 
 #### HTTPServer
 
-HTTPServer is the server listening on one port to route all traffic to available pipelines. Its simplest config looks like:
+HTTPServer is a server that listens on one port to route all traffic to available pipelines. Its simplest config looks like:
 
 ```yaml
 kind: HTTPServer
