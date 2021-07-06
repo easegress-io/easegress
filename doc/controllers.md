@@ -35,7 +35,7 @@ As the [architecture diagram](./architecture.png) shows, the controller is the c
 In another view, Easegress as a traffic orchestration system, we could classify them into traffic controller and non-traffic controller:
 
 - Traffic Controller: It invokes TrafficController to handle its specific traffic, such as MeshController.
-- Non-Traffic Controller: It doesn't handle business traffic, such as EurekaServiceRegistry even it has admin traffic with Eureka.
+- Non-Traffic Controller: It doesn't handle business traffic, such as EurekaServiceRegistry, even though it has admin traffic with Eureka.
 
 The two categories are conceptual, which means they are not strict distinctions. We just use them as terms to clarify controllers technically.
 
