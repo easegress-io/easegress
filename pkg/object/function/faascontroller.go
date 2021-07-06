@@ -20,12 +20,10 @@ package function
 import (
 	"fmt"
 
-	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/function/spec"
 	"github.com/megaease/easegress/pkg/object/function/worker"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/v"
-	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -80,15 +78,7 @@ func (f *FaasController) Validate() error {
 		return fmt.Errorf("unknown faas provider: %s", f.spec.Provider)
 	}
 
-	buff, err := yaml.Marshal(f.spec.HTTPServer)
-	if err != nil {
-		err = fmt.Errorf("BUG: marshal %#v to yaml failed: %v",
-			f.spec.HTTPServer, err)
-		logger.Errorf(err.Error())
-		return err
-	}
-
-	vr := v.Validate(f.spec.HTTPServer, buff)
+	vr := v.Validate(f.spec.HTTPServer)
 	if !vr.Valid() {
 		return fmt.Errorf("%s", vr.Error())
 	}

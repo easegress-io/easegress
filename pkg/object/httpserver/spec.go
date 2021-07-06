@@ -51,7 +51,7 @@ type (
 		Keys map[string]string `yaml:"keys" jsonschema:"omitempty"`
 
 		IPFilter *ipfilter.Spec `yaml:"ipFilter,omitempty" jsonschema:"omitempty"`
-		Rules    []Rule         `yaml:"rules" jsonschema:"omitempty"`
+		Rules    []*Rule        `yaml:"rules" jsonschema:"omitempty"`
 	}
 
 	// Rule is first level entry of router.
@@ -66,7 +66,7 @@ type (
 		IPFilter   *ipfilter.Spec `yaml:"ipFilter,omitempty" jsonschema:"omitempty"`
 		Host       string         `yaml:"host" jsonschema:"omitempty"`
 		HostRegexp string         `yaml:"hostRegexp" jsonschema:"omitempty,format=regexp"`
-		Paths      []Path         `yaml:"paths" jsonschema:"omitempty"`
+		Paths      []*Path        `yaml:"paths" jsonschema:"omitempty"`
 	}
 
 	// Path is second level entry of router.

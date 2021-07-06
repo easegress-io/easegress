@@ -21,8 +21,7 @@ import (
 	"fmt"
 	"reflect"
 
-	yaml "gopkg.in/yaml.v2"
-
+	"github.com/megaease/easegress/pkg/util/yamltool"
 	"github.com/megaease/easegress/pkg/v"
 )
 
@@ -45,33 +44,14 @@ type (
 )
 
 func (s *Supervisor) newSpecInternal(meta *MetaSpec, objectSpec interface{}) *Spec {
-	objectBuff, err := yaml.Marshal(objectSpec)
-	if err != nil {
-		panic(fmt.Errorf("marshal %#v to yaml failed: %v", objectSpec, err))
-	}
-
-	metaBuff, err := yaml.Marshal(meta)
-	if err != nil {
-		panic(fmt.Errorf("marshal %#v to yaml failed: %v", meta, err))
-	}
+	objectBuff := yamltool.Marshal(objectSpec)
+	metaBuff := yamltool.Marshal(meta)
 
 	var rawSpec map[string]interface{}
+	yamltool.Unmarshal(objectBuff, &rawSpec)
+	yamltool.Unmarshal(metaBuff, &rawSpec)
 
-	err = yaml.Unmarshal(objectBuff, &rawSpec)
-	if err != nil {
-		panic(fmt.Errorf("unmarshal %s to yaml failed: %v", objectBuff, err))
-	}
-
-	err = yaml.Unmarshal(metaBuff, &rawSpec)
-	if err != nil {
-		panic(fmt.Errorf("unmarshal %s to yaml failed: %v", metaBuff, err))
-	}
-
-	buff, err := yaml.Marshal(rawSpec)
-	if err != nil {
-		panic(fmt.Errorf("marshal %#v to yaml failed: %v", rawSpec, err))
-	}
-
+	buff := yamltool.Marshal(rawSpec)
 	spec, err := s.NewSpec(string(buff))
 	if err != nil {
 		panic(fmt.Errorf("new spec for %s failed: %v", buff, err))
@@ -86,62 +66,56 @@ func NewSpec(yamlConfig string) (*Spec, error) {
 }
 
 // NewSpec creates a spec and validates it.
-func (super *Supervisor) NewSpec(yamlConfig string) (*Spec, error) {
-	s := &Spec{super: super}
+func (super *Supervisor) NewSpec(yamlConfig string) (s *Spec, err error) {
+	s = &Spec{super: super}
 
+	defer func() {
+		if r := recover(); r != nil {
+			s = nil
+			err = fmt.Errorf("%v", r)
+		} else {
+			err = nil
+		}
+	}()
+
+	yamlBuff := []byte(yamlConfig)
+
+	// Meta part.
 	meta := &MetaSpec{}
-	err := yaml.Unmarshal([]byte(yamlConfig), meta)
-	if err != nil {
-		return nil, fmt.Errorf("unmarshal failed: %v", err)
-	}
-	vr := v.Validate(meta, []byte(yamlConfig))
-	if !vr.Valid() {
-		return nil, fmt.Errorf("validate metadata failed: \n%s", vr)
+	yamltool.Unmarshal([]byte(yamlBuff), meta)
+	verr := v.Validate(meta)
+	if !verr.Valid() {
+		panic(verr)
 	}
 
+	// Object self part.
 	rootObject, exists := objectRegistry[meta.Kind]
 	if !exists {
-		return nil, fmt.Errorf("kind %s not found", meta.Kind)
+		panic(fmt.Errorf("kind %s not found", meta.Kind))
 	}
-
-	s.meta, s.objectSpec = meta, rootObject.DefaultSpec()
-
-	err = yaml.Unmarshal([]byte(yamlConfig), s.objectSpec)
-	if err != nil {
-		return nil, fmt.Errorf("unmarshal failed: %v", err)
-	}
-	vr = v.Validate(s.objectSpec, []byte(yamlConfig))
-	if !vr.Valid() {
-		return nil, fmt.Errorf("validate spec failed: \n%s", vr)
+	objectSpec := rootObject.DefaultSpec()
+	yamltool.Unmarshal(yamlBuff, objectSpec)
+	verr = v.Validate(objectSpec)
+	if !verr.Valid() {
+		panic(verr)
 	}
 
 	// Build final yaml config and raw spec.
-	objectBuff, err := yaml.Marshal(s.objectSpec)
-	if err != nil {
-		return nil, fmt.Errorf("marshal %#v to yaml failed: %v", s.objectSpec, err)
-	}
-	err = yaml.Unmarshal(objectBuff, &s.rawSpec)
-	if err != nil {
-		return nil, fmt.Errorf("unmarshal %s to yaml failed: %v", objectBuff, err)
-	}
+	var rawSpec map[string]interface{}
+	objectBuff := yamltool.Marshal(objectSpec)
+	yamltool.Unmarshal(objectBuff, &rawSpec)
 
-	metaBuff, err := yaml.Marshal(s.meta)
-	if err != nil {
-		return nil, fmt.Errorf("marshal %#v to yaml failed: %v", s.meta, err)
-	}
-	err = yaml.Unmarshal(metaBuff, &s.rawSpec)
-	if err != nil {
-		return nil, fmt.Errorf("unmarshal %s to yaml failed: %v", objectBuff, err)
-	}
+	metaBuff := yamltool.Marshal(meta)
+	yamltool.Unmarshal(metaBuff, &rawSpec)
 
-	yamlBuff, err := yaml.Marshal(s.rawSpec)
-	if err != nil {
-		return nil, fmt.Errorf("marshal %#v to yaml failed: %v", s.rawSpec, err)
-	}
+	yamlConfig = string(yamltool.Marshal(rawSpec))
 
-	s.yamlConfig = string(yamlBuff)
+	s.meta = meta
+	s.objectSpec = objectSpec
+	s.rawSpec = rawSpec
+	s.yamlConfig = yamlConfig
 
-	return s, nil
+	return
 }
 
 func (s *Spec) Super() *Supervisor {

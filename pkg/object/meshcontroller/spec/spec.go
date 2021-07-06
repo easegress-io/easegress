@@ -85,10 +85,10 @@ type (
 		RegistryType string `yaml:"registryType" jsonschema:"required"`
 
 		// APIPort is the port for worker's API server
-		APIPort int `yaml:"apiPort" jsonschema:"omitempty"`
+		APIPort int `yaml:"apiPort" jsonschema:"required"`
 
 		// IngressPort is the port for http server in mesh ingress
-		IngressPort int `yaml:"ingressPort" jsonschema:"omitempty"`
+		IngressPort int `yaml:"ingressPort" jsonschema:"required"`
 	}
 
 	// Service contains the information of service.

@@ -59,10 +59,6 @@ type (
 
 	// Spec describes the ZookeeperServiceRegistry.
 	Spec struct {
-		super     *supervisor.Supervisor
-		superSpec *supervisor.Spec
-		spec      *Spec
-
 		ConnTimeout  string   `yaml:"conntimeout" jsonschema:"required,format=duration"`
 		ZKServices   []string `yaml:"zkservices" jsonschema:"required,uniqueItems=true"`
 		Prefix       string   `yaml:"prefix" jsonschema:"required,pattern=^/"`
@@ -160,7 +156,7 @@ func (zk *ZookeeperServiceRegistry) buildConn() (*zookeeper.Conn, error) {
 		return nil, err
 	}
 
-	if exist == false {
+	if !exist {
 		logger.Errorf("zookeeper path: %s no exist", zk.spec.Prefix)
 		return nil, fmt.Errorf("path [%s] no exist", zk.spec.Prefix)
 	}

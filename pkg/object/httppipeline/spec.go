@@ -20,9 +20,8 @@ package httppipeline
 import (
 	"fmt"
 
-	yaml "gopkg.in/yaml.v2"
-
 	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/util/yamltool"
 	"github.com/megaease/easegress/pkg/v"
 )
 
@@ -46,43 +45,65 @@ type (
 )
 
 // NewFilterSpec creates a filter spec and validates it.
-func NewFilterSpec(rawSpec map[string]interface{}, super *supervisor.Supervisor) (*FilterSpec, error) {
-	s := &FilterSpec{
-		super:   super,
-		rawSpec: rawSpec,
-	}
+func NewFilterSpec(originalRawSpec map[string]interface{}, super *supervisor.Supervisor) (
+	s *FilterSpec, err error) {
 
-	yamlConfig, err := yaml.Marshal(rawSpec)
-	if err != nil {
-		return nil, fmt.Errorf("marshal %#v to yaml failed: %v", rawSpec, err)
-	}
+	s = &FilterSpec{super: super}
 
-	s.yamlConfig = string(yamlConfig)
+	defer func() {
+		if r := recover(); r != nil {
+			s = nil
+			err = fmt.Errorf("%v", r)
+		} else {
+			err = nil
+		}
+	}()
 
+	yamlBuff := yamltool.Marshal(originalRawSpec)
+
+	// Meta part.
 	meta := &FilterMetaSpec{}
-	err = yaml.Unmarshal(yamlConfig, meta)
-	if err != nil {
-		return nil, fmt.Errorf("unmarshal failed: %v", err)
+	yamltool.Unmarshal(yamlBuff, meta)
+	verr := v.Validate(meta)
+	if !verr.Valid() {
+		panic(verr)
 	}
 
+	// Filter self part.
 	rootFilter, exists := filterRegistry[meta.Kind]
 	if !exists {
-		return nil, fmt.Errorf("kind %s not found", meta.Kind)
+		panic(fmt.Errorf("kind %s not found", meta.Kind))
+	}
+	filterSpec := rootFilter.DefaultSpec()
+	yamltool.Unmarshal(yamlBuff, filterSpec)
+	verr = v.Validate(filterSpec)
+	if !verr.Valid() {
+		// TODO: Make the invalid part more accurate. e,g:
+		// filters: jsonschemaErrs:
+		// - 'policies.0: name is required'
+		// to
+		// filters: jsonschemaErrs:
+		// - 'rateLimiter.policies.0: name is required'
+		panic(verr)
 	}
 
-	s.meta, s.filterSpec, s.rootFilter = meta, rootFilter.DefaultSpec(), rootFilter
+	// Build final yaml config and raw spec.
+	var rawSpec map[string]interface{}
+	filterBuff := yamltool.Marshal(filterSpec)
+	yamltool.Unmarshal(filterBuff, &rawSpec)
 
-	err = yaml.Unmarshal(yamlConfig, s.filterSpec)
-	if err != nil {
-		return nil, fmt.Errorf("unmarshal failed: %v", err)
-	}
+	metaBuff := yamltool.Marshal(meta)
+	yamltool.Unmarshal(metaBuff, &rawSpec)
 
-	vr := v.Validate(s.filterSpec, []byte(yamlConfig))
-	if !vr.Valid() {
-		return nil, fmt.Errorf("%v", vr.Error())
-	}
+	yamlConfig := string(yamltool.Marshal(rawSpec))
 
-	return s, nil
+	s.meta = meta
+	s.filterSpec = filterSpec
+	s.rawSpec = rawSpec
+	s.yamlConfig = yamlConfig
+	s.rootFilter = rootFilter
+
+	return
 }
 
 func (s *FilterSpec) Super() *supervisor.Supervisor {

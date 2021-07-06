@@ -335,11 +335,11 @@ func (m *mux) reloadRules(superSpec *supervisor.Spec, muxMapper protocol.MuxMapp
 
 		paths := make([]*muxPath, len(specRule.Paths))
 		for j := 0; j < len(paths); j++ {
-			paths[j] = newMuxPath(ruleIPFilterChain, &specRule.Paths[j])
+			paths[j] = newMuxPath(ruleIPFilterChain, specRule.Paths[j])
 		}
 
 		// NOTE: Given the parent ipFilters not its own.
-		rules.rules[i] = newMuxRule(rules.ipFilterChan, &specRule, paths)
+		rules.rules[i] = newMuxRule(rules.ipFilterChan, specRule, paths)
 	}
 
 	m.rules.Store(rules)
