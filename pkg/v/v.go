@@ -54,7 +54,7 @@ var (
 		ExpandedStruct:             true,
 
 		// NOTE: FullyQualifyTypeNames setting true will generate
-		// "$ref": "#/definitions/github.com/megaease-easegress-pkg-supervisor.MetaSpec",
+		// "$ref": "#/definitions/github.com/megaease/easegress/pkg/supervisor.MetaSpec",
 		// "definitions": {
 		//   "github.com/megaease/easegress/pkg/supervisor.MetaSpec": {
 		//      ...
