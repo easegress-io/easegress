@@ -49,7 +49,7 @@ TrafficController handles the lifecycle of HTTPServer and HTTPPipeline and their
 
 ### RawConfigTrafficController
 
-RawConfigTrafficController maps all traffic static config to TrafficController in the namespace `default`. We could use `egctl` to manage the config of the server and pipeline in the default namespace.
+RawConfigTrafficController maps all traffic static configurations to TrafficController in the namespace `default`. We could use `egctl` to manage the configuration of servers and pipelines in the default namespace.
 
 #### HTTPServer
 
