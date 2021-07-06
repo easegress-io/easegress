@@ -334,7 +334,7 @@ func (st *specTranslator) translateIngressRules(b *httpServerSpecBuilder, ingres
 			} else {
 				p.PathPrefix = path.Path
 			}
-			r.Paths = append(r.Paths, p)
+			r.Paths = append(r.Paths, &p)
 		}
 
 		if len(r.Paths) == 0 {
@@ -348,7 +348,7 @@ func (st *specTranslator) translateIngressRules(b *httpServerSpecBuilder, ingres
 			r.Host = rule.Host
 		}
 
-		b.Rules = append(b.Rules, r)
+		b.Rules = append(b.Rules, &r)
 	}
 }
 
@@ -369,8 +369,8 @@ func (st *specTranslator) translate() error {
 	}
 
 	if p := st.pipelines[defaultPipelineName]; p != nil {
-		b.Rules = append(b.Rules, httpserver.Rule{
-			Paths: []httpserver.Path{
+		b.Rules = append(b.Rules, &httpserver.Rule{
+			Paths: []*httpserver.Path{
 				{
 					Backend:    defaultPipelineName,
 					PathPrefix: "/",
