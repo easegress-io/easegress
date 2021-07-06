@@ -5,6 +5,7 @@ go 1.16
 require (
 	github.com/ArthurHlt/go-eureka-client v1.1.0
 	github.com/Shopify/sarama v1.29.1
+	github.com/alecthomas/jsonschema v0.0.0-20210526225647-edb03dcab7bc
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/facebookgo/ensure v0.0.0-20200202191622-63f1cf65ac4c // indirect
 	github.com/facebookgo/freeport v0.0.0-20150612182905-d4adf43b75b9 // indirect
@@ -22,7 +23,6 @@ require (
 	github.com/lucas-clemente/quic-go v0.21.1
 	github.com/megaease/easemesh-api v0.0.0-20210604095307-27c2d1f7cf09
 	github.com/megaease/grace v1.0.0
-	github.com/megaease/jsonschema v0.0.0-20191230042224-e92108cfafc5
 	github.com/mitchellh/mapstructure v1.4.1
 	github.com/nacos-group/nacos-sdk-go v1.0.8
 	github.com/opentracing/opentracing-go v1.2.0
@@ -32,7 +32,6 @@ require (
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475
 	github.com/rs/cors v1.7.0
-	github.com/sanity-io/litter v1.5.1 // indirect
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.8.0
