@@ -17,69 +17,81 @@
 
 package sem
 
-import "sync"
+import (
+	"context"
+	"sync"
 
-const capacity = 2000000
+	"golang.org/x/sync/semaphore"
+)
 
+const maxCapacity int64 = 20_000_000
+
+//Semaphore supports to change the max sema amount at runtime.
+//  Semaphore employs golang.org/x/sync/semaphore.Weighted with a maxCapacity.
+//  And tuning the realCapacity by a Acquire and Release in the background.
+//  the realCapacity can not exceeds the maxCapacity.
 type Semaphore struct {
-	sem       uint32
-	lock      *sync.Mutex
-	guardChan chan *struct{}
+	sem          *semaphore.Weighted
+	lock         sync.Mutex
+	realCapacity int64
 }
 
 func NewSem(n uint32) *Semaphore {
 	s := &Semaphore{
-		sem:       n,
-		lock:      &sync.Mutex{},
-		guardChan: make(chan *struct{}, capacity),
+		sem:          semaphore.NewWeighted(maxCapacity),
+		realCapacity: int64(n),
 	}
 
-	go func() {
-		for i := uint32(0); i < n; i++ {
-			s.guardChan <- &struct{}{}
-		}
-	}()
-
+	s.sem.Acquire(context.Background(), maxCapacity-s.realCapacity)
 	return s
 }
 
 func (s *Semaphore) Acquire() {
-	<-s.guardChan
+	s.AcquireWithContext(context.Background())
+}
+
+func (s *Semaphore) AcquireWithContext(ctx context.Context) error {
+	return s.sem.Acquire(ctx, 1)
 }
 
 func (s *Semaphore) AcquireRaw() chan *struct{} {
-	return s.guardChan
+	s.AcquireWithContext(context.Background())
+	return make(chan *struct{})
 }
 
 func (s *Semaphore) Release() {
-	s.guardChan <- &struct{}{}
+	s.sem.Release(1)
 }
 
-func (s *Semaphore) SetMaxCount(n uint32) {
+func (s *Semaphore) SetMaxCount(n int64) (done chan struct{}) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	if n > capacity {
-		n = capacity
+	if n > maxCapacity {
+		n = maxCapacity
 	}
 
-	if n == s.sem {
+	if n == s.realCapacity {
 		return
 	}
 
-	old := s.sem
-	s.sem = n
+	old := s.realCapacity
+	s.realCapacity = n
 
+	done = make(chan struct{})
 	go func() {
 		if n > old {
-			for i := uint32(0); i < n-old; i++ {
-				s.guardChan <- &struct{}{}
+			for i := int64(0); i < n-old; i++ {
+				s.sem.Release(1)
 			}
-			return
+		} else {
+			for i := int64(0); i < old-n; i++ {
+				s.sem.Acquire(context.Background(), 1)
+			}
 		}
 
-		for i := uint32(0); i < old-n; i++ {
-			<-s.guardChan
-		}
+		done <- struct{}{}
 	}()
+
+	return done
 }
