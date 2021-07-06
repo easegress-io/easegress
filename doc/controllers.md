@@ -41,7 +41,7 @@ The two categories are conceptual, which means they are not strict distinctions.
 
 ## System Controllers
 
-For now, all system controllers can not be configured. It may get the ability if necessary in the future.
+For now, all system controllers can not be configured. It may gain this capability if necessary in the future.
 
 ### TrafficController
 
