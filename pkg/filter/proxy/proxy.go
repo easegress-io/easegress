@@ -99,8 +99,6 @@ type (
 
 	// Spec describes the Proxy.
 	Spec struct {
-		httppipeline.FilterMetaSpec `yaml:",inline"`
-
 		Fallback       *FallbackSpec    `yaml:"fallback,omitempty" jsonschema:"omitempty"`
 		MainPool       *PoolSpec        `yaml:"mainPool" jsonschema:"required"`
 		CandidatePools []*PoolSpec      `yaml:"candidatePools,omitempty" jsonschema:"omitempty"`

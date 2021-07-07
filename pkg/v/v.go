@@ -23,8 +23,8 @@ import (
 	"reflect"
 	"sync"
 
+	genjs "github.com/alecthomas/jsonschema"
 	yamljsontool "github.com/ghodss/yaml"
-	genjs "github.com/megaease/jsonschema"
 	loadjs "github.com/xeipuuv/gojsonschema"
 	yaml "gopkg.in/yaml.v2"
 
@@ -46,22 +46,31 @@ type (
 )
 
 var (
-	validateReflector = &genjs.Reflector{
-		DefinitionNameWithPackage:  true,
+	reflector = &genjs.Reflector{
 		AllowAdditionalProperties:  true,
 		RequiredFromJSONSchemaTags: true,
+		PreferYAMLSchema:           true,
+		DoNotReference:             true,
+		ExpandedStruct:             true,
+
+		// NOTE: FullyQualifyTypeNames setting true will generate
+		// "$ref": "#/definitions/github.com/megaease/easegress/pkg/supervisor.MetaSpec",
+		// "definitions": {
+		//   "github.com/megaease/easegress/pkg/supervisor.MetaSpec": {
+		//      ...
+		//   }
+		// }
+		// FIXME if necessary:
+		// The $ref can't find it becasue the slash means a level in json schema.
+		// We can fix it by replace all slashes by `.` or `-`, etc in github.com/alecthomas/jsonschema.
 	}
-	generateReflector = &genjs.Reflector{
-		DefinitionNameWithPackage:  true,
-		RequiredFromJSONSchemaTags: true,
-	}
-	reflectorSchemaMetasMutex = sync.Mutex{}
-	reflectorSchemaMetas      = map[*genjs.Reflector]map[reflect.Type]*schemaMeta{}
+	schemaMetasMutex = sync.Mutex{}
+	schemaMetas      = map[reflect.Type]*schemaMeta{}
 )
 
 // GetSchemaInYAML returns the json schema of t in yaml format.
 func GetSchemaInYAML(t reflect.Type) ([]byte, error) {
-	sm, err := getSchemaMeta(generateReflector, t)
+	sm, err := getSchemaMeta(t)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +80,7 @@ func GetSchemaInYAML(t reflect.Type) ([]byte, error) {
 
 // GetSchemaInJSON return the json schema of t in json format.
 func GetSchemaInJSON(t reflect.Type) ([]byte, error) {
-	sm, err := getSchemaMeta(generateReflector, t)
+	sm, err := getSchemaMeta(t)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +102,7 @@ func Validate(v interface{}) *ValidateRecorder {
 		return vr
 	}
 
-	sm, err := getSchemaMeta(validateReflector, reflect.TypeOf(v))
+	sm, err := getSchemaMeta(reflect.TypeOf(v))
 	if err != nil {
 		vr.recordSystem(fmt.Errorf("get schema meta for %T failed: %v", v, err))
 		return vr
@@ -124,15 +133,10 @@ func Validate(v interface{}) *ValidateRecorder {
 	return vr
 }
 
-func getSchemaMeta(reflector *genjs.Reflector, t reflect.Type) (*schemaMeta, error) {
-	reflectorSchemaMetasMutex.Lock()
-	defer reflectorSchemaMetasMutex.Unlock()
+func getSchemaMeta(t reflect.Type) (*schemaMeta, error) {
+	schemaMetasMutex.Lock()
+	defer schemaMetasMutex.Unlock()
 
-	schemaMetas, exists := reflectorSchemaMetas[reflector]
-	if !exists {
-		schemaMetas = make(map[reflect.Type]*schemaMeta)
-		reflectorSchemaMetas[reflector] = schemaMetas
-	}
 	sm, exists := schemaMetas[t]
 	if exists {
 		return sm, nil
