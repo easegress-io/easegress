@@ -218,7 +218,7 @@ func (a *API) getPartOfService(meta *partMeta) http.HandlerFunc {
 			panic(err)
 		}
 
-		buff, err := json.Marshal(part)
+		buff, err := json.Marshal(partPB)
 		if err != nil {
 			panic(err)
 		}
