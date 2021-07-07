@@ -20,7 +20,7 @@ require (
 	github.com/json-iterator/go v1.1.11
 	github.com/klauspost/compress v1.13.1
 	github.com/lucas-clemente/quic-go v0.21.1
-	github.com/megaease/easemesh-api v0.0.0-20210707064457-fb5672e15bb7
+	github.com/megaease/easemesh-api v1.0.0
 	github.com/megaease/grace v1.0.0
 	github.com/megaease/jsonschema v0.0.0-20191230042224-e92108cfafc5
 	github.com/mitchellh/mapstructure v1.4.1
@@ -32,7 +32,6 @@ require (
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475
 	github.com/rs/cors v1.7.0
-	github.com/sanity-io/litter v1.5.1 // indirect
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.8.0
