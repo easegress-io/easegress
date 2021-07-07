@@ -38,6 +38,9 @@ const tempDir = "/tmp/eg-test"
 var memberCounter = 0
 
 func TestMain(m *testing.M) {
+	// try to remove the previous unsuccessfully removed test dir firstly
+	os.RemoveAll(tempDir)
+
 	absLogDir := filepath.Join(tempDir, "global-log")
 	os.MkdirAll(absLogDir, 0o755)
 	logger.Init(&option.Options{
