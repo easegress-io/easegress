@@ -189,14 +189,7 @@ func (ic *IngressController) Status() *supervisor.Status {
 func (ic *IngressController) Close() {
 	close(ic.stopCh)
 	ic.wg.Wait()
-
-	for _, entity := range ic.tc.ListHTTPServers(ic.namespace) {
-		ic.tc.DeleteHTTPServer(ic.namespace, entity.Spec().Name())
-	}
-
-	for _, entity := range ic.tc.ListHTTPPipelines(ic.namespace) {
-		ic.tc.DeleteHTTPPipeline(ic.namespace, entity.Spec().Name())
-	}
+	ic.tc.Clean(ic.namespace)
 }
 
 func (ic *IngressController) translate() error {
