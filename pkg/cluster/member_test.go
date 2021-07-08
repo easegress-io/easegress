@@ -19,6 +19,7 @@ package cluster
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -33,13 +34,17 @@ import (
 	"github.com/megaease/easegress/pkg/option"
 )
 
-const tempDir = "/tmp/eg-test"
-
-var memberCounter = 0
+var (
+	memberCounter = 0
+	tempDir       = os.TempDir()
+)
 
 func TestMain(m *testing.M) {
-	absLogDir := filepath.Join(tempDir, "global-log")
-	os.MkdirAll(absLogDir, 0o755)
+	absLogDir, err := ioutil.TempDir(tempDir, "global-log")
+	if err != nil {
+		panic(fmt.Errorf("create tmp dir failed: %v", err))
+	}
+
 	logger.Init(&option.Options{
 		Name:      "member-for-log",
 		AbsLogDir: absLogDir,
@@ -49,7 +54,6 @@ func TestMain(m *testing.M) {
 
 	logger.Sync()
 	os.RemoveAll(tempDir)
-
 	os.Exit(code)
 }
 

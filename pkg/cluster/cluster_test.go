@@ -33,11 +33,31 @@ func mockClusters(count int) []*cluster {
 		panic(fmt.Errorf("new cluster failed: %v", err))
 	}
 	clusters[0] = bootCluster.(*cluster)
+
 	time.Sleep(HeartbeatInterval)
 
 	for i := 1; i < count; i++ {
 		opts[i].ClusterJoinURLs = opts[0].ClusterListenPeerURLs
+
 		cls, err := New(opts[i])
+
+		if err != nil {
+			totalRetryTime := time.After(60 * time.Second)
+		Loop:
+			for {
+				if err == nil {
+					break
+				}
+				select {
+				case <-totalRetryTime:
+					break Loop
+
+				case <-time.After(HeartbeatInterval):
+					cls, err = New(opts[i])
+				}
+			}
+
+		}
 		if err != nil {
 			panic(fmt.Errorf("new cluster failed: %v", err))
 		}
