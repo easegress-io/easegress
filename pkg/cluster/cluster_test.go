@@ -34,14 +34,30 @@ func mockClusters(count int) []*cluster {
 	}
 	clusters[0] = bootCluster.(*cluster)
 
-	// Note: using testHeartbeatInterval instead of HeartBeatInterval is for running
-	// this test routine in resource limited environment,e.g.,Github Ubuntu/MacOS test env.
-	testHeartbeatInterval := 20 * time.Second
-	time.Sleep(testHeartbeatInterval)
+	time.Sleep(HeartbeatInterval)
 
 	for i := 1; i < count; i++ {
 		opts[i].ClusterJoinURLs = opts[0].ClusterListenPeerURLs
+
 		cls, err := New(opts[i])
+
+		if err != nil {
+			totalRetryTime := time.After(60 * time.Second)
+		Loop:
+			for {
+				if err == nil {
+					break
+				}
+				select {
+				case <-totalRetryTime:
+					break Loop
+
+				case <-time.After(HeartbeatInterval):
+					cls, err = New(opts[i])
+				}
+			}
+
+		}
 		if err != nil {
 			panic(fmt.Errorf("new cluster failed: %v", err))
 		}
