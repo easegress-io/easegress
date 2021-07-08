@@ -21,11 +21,12 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"fmt"
+	"net/url"
 	"strings"
 )
 
 type (
-	// Spec describes the HTTPServer.
+	// Spec describes the WebSocketServer.
 	Spec struct {
 		Port    uint16 `yaml:"port" jsonschema:"required,minimum=1"`
 		HTTPS   bool   `yaml:"https" jsonschema:"required"`
@@ -41,15 +42,23 @@ type (
 
 // Validate validates WebSocketServerSpec.
 func (spec *Spec) Validate() error {
+	wsURL, err := url.Parse(spec.Backend)
+	if err != nil {
+		return err
+	}
+	if wsURL.Scheme != "ws" && wsURL.Scheme != "wss" {
+		return fmt.Errorf("invalid ws backend url, spec: %#v", spec)
+	}
+
 	if spec.HTTPS {
 		if len(spec.CertBase64) == 0 || len(spec.KeyBase64) == 0 {
-			return fmt.Errorf("invalid certbase64 or keybase64 with https enable, spec:%#v", spec)
+			return fmt.Errorf("invalid certbase64 or keybase64 with https enable, spec: %#v", spec)
 		}
 	}
 
 	if strings.HasPrefix(spec.Backend, "wss") {
 		if len(spec.wssCertBase64) == 0 || len(spec.wssKeyBase64) == 0 {
-			return fmt.Errorf("invalid wssCertbase64 or wssKeybase64 with wss enable, spec:%#v", spec)
+			return fmt.Errorf("invalid wssCertbase64 or wssKeybase64 with wss enable, spec: %#v", spec)
 		}
 	}
 	return nil

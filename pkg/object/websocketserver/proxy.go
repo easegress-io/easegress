@@ -44,11 +44,12 @@ var (
 	// defaultDialer is a dialer with all fields set to the default zero values.
 	defaultDialer = websocket.DefaultDialer
 
-	// defaultIntervalSecond is the default interval for polling websocket client and server.
-	defaultIntervalSecond time.Duration = 1
+	// defaultInterval is the default interval for polling websocket client and server which is
+	//  200ms right now.
+	defaultInterval = 200 * time.Millisecond
 )
 
-// Proxy is an handler that takes an incoming WebSocket
+// Proxy is a handler that takes an incoming WebSocket
 // connection and proxies it to the backend server.
 type Proxy struct {
 	// server is the HTTPServer
@@ -78,8 +79,8 @@ func newProxy(superSpec *supervisor.Spec) *Proxy {
 	return proxy
 }
 
-// buildReq builds a URL with backend in spec and original HTTP request.
-func (p *Proxy) buildReq(r *http.Request) *url.URL {
+// buildReq builds an URL with backend in spec and original HTTP request.
+func (p *Proxy) buildRequestURL(r *http.Request) *url.URL {
 	u := *p.backendURL
 	u.Fragment = r.URL.Fragment
 	u.Path = r.URL.Path
@@ -115,7 +116,7 @@ func (p *Proxy) passMsg(src, dst *websocket.Conn, errc chan error, stop chan str
 		// this request handling is stopped due to some error or websocketserver shutdown.
 		case <-stop:
 			return
-		case <-time.After(defaultIntervalSecond * time.Second):
+		case <-time.After(defaultInterval):
 			if !handle() {
 				return
 			}
@@ -128,7 +129,8 @@ func (p *Proxy) run() {
 	spec := p.superSpec.ObjectSpec().(*Spec)
 	backendURL, err := url.Parse(spec.Backend)
 	if err != nil {
-		logger.Errorf("invalid websocketserver backend URL: %s ", spec.Backend)
+		logger.Errorf("BUG: %s get invalid websocketserver backend URL: %s",
+			p.superSpec.Name(), spec.Backend)
 		return
 	}
 
@@ -137,7 +139,8 @@ func (p *Proxy) run() {
 	if strings.HasPrefix(spec.Backend, "wss") {
 		tlsConfig, err := spec.wssTLSConfig()
 		if err != nil {
-			logger.Errorf("gen websocketserver backend tls failed: %v, spec :%#v", err, spec)
+			logger.Errorf("%s gen websocketserver backend tls failed: %v, spec :%#v",
+				p.superSpec.Name(), spec)
 			return
 		}
 		dialer.TLSClientConfig = tlsConfig
@@ -155,18 +158,19 @@ func (p *Proxy) run() {
 	if spec.HTTPS {
 		tlsConfig, err := spec.tlsConfig()
 		if err != nil {
-			logger.Errorf("gen websocketserver's httpserver tlsConfig: %#v, failed: %v", spec, err)
+			logger.Errorf("%s gen websocketserver's httpserver tlsConfig: %#v, failed: %v",
+				p.superSpec.Name(), spec, err)
 		}
 		svr.TLSConfig = tlsConfig
 	}
 
 	if err := svr.ListenAndServe(); err != nil {
-		logger.Errorf("websocketserver ListenAndServe failed! err: %s\n", err.Error())
+		logger.Errorf("%s websocketserver ListenAndServe failed: %v", p.superSpec.Name(), err)
 	}
 }
 
 // copyHeader copies headers from the incoming request to the dialer and forward them to
-// the destinations.
+// the destination.
 func (p *Proxy) copyHeader(req *http.Request) http.Header {
 
 	requestHeader := http.Header{}
@@ -212,16 +216,16 @@ func (p *Proxy) upgradeRspHeader(resp *http.Response) http.Header {
 
 // handle implements the http.Handler that proxies WebSocket connections.
 func (p *Proxy) handle(rw http.ResponseWriter, req *http.Request) {
-	connBackend, resp, err := p.dialer.Dial(p.buildReq(req).String(), p.copyHeader(req))
+	connBackend, resp, err := p.dialer.Dial(p.buildRequestURL(req).String(), p.copyHeader(req))
 	if err != nil {
-		logger.Errorf("Proxy: couldn't dial to ws remote backend url: %s, err: %v", p.backendURL.String(), err)
+		logger.Errorf("%s dials %s failed: %v", p.superSpec.Name(), p.backendURL.String(), err)
 		if resp != nil {
 			// Handle WebSocket handshake failed scenario.
 			// Should send back a non-nil *http.Response for callers to handle
 			// `redirects`, `authentication` operations and so on.
 			if err := copyResponse(rw, resp); err != nil {
-				logger.Errorf("Proxy: couldn't write response after failed at remote backend: %s handshake: %v",
-					p.backendURL.String(), err)
+				logger.Errorf("%s writes response failed at remote backend: %s handshake: %v",
+					p.superSpec.Name(), p.backendURL.String(), err)
 			}
 		} else {
 			http.Error(rw, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
@@ -234,7 +238,7 @@ func (p *Proxy) handle(rw http.ResponseWriter, req *http.Request) {
 	// Also pass the header from the Dial handshake.
 	connClient, err := p.upgrader.Upgrade(rw, req, p.upgradeRspHeader(resp))
 	if err != nil {
-		logger.Errorf("proxy upgrade req: %#v failed: %s", req, err)
+		logger.Errorf("%s upgrades req: %#v failed: %s", p.superSpec.Name(), err)
 		return
 	}
 	defer connClient.Close()
@@ -245,24 +249,24 @@ func (p *Proxy) handle(rw http.ResponseWriter, req *http.Request) {
 
 	defer close(stop)
 
-	// pass msg from backend to client vias WebSocket protocol.
+	// pass msg from backend to client via WebSocket protocol.
 	go p.passMsg(connBackend, connClient, errBackend, stop)
-	// pass msg from client to backend vias WebSocket protocol.
+	// pass msg from client to backend via WebSocket protocol.
 	go p.passMsg(connClient, connBackend, errClient, stop)
 
 	var errMsg string
 	select {
 	case err = <-errBackend:
-		errMsg = "passing msg from backend: %s to client failed: %v"
+		errMsg = "%s passes msg from backend: %s to client failed: %v"
 	case err = <-errClient:
-		errMsg = "passing msg client to backend: %s failed: %v"
+		errMsg = "%s passes msg client to backend: %s failed: %v"
 	case <-p.done:
 		logger.Debugf("shutdown websocketserver in request handling")
 		return
 	}
 
 	if e, ok := err.(*websocket.CloseError); !ok || e.Code == websocket.CloseAbnormalClosure {
-		logger.Errorf(errMsg, p.backendURL.String(), err)
+		logger.Errorf(errMsg, p.superSpec.Name(), p.backendURL.String(), err)
 	}
 	// other error type is expected, not need to log
 }
@@ -275,7 +279,7 @@ func (p *Proxy) Close() {
 	defer cancelFunc()
 	err := p.server.Shutdown(ctx)
 	if err != nil {
-		logger.Warnf("shutdown http server %s failed: %v",
+		logger.Warnf("%s shutdowns http server failed: %v",
 			p.superSpec.Name(), err)
 	}
 }
