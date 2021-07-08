@@ -3,7 +3,7 @@
 - [Easegress](#easegress)
   - [What is Easegress](#what-is-easegress)
   - [Features](#features)
-  - [Get Started](#get-started)
+  - [Getting Started](#getting-started)
     - [Setting up Easegress](#setting-up-easegress)
     - [Create an HTTPServer and Pipeline](#create-an-httpserver-and-pipeline)
     - [Test](#test)
@@ -15,7 +15,7 @@
 ## What is Easegress
 <a href="https://megaease.com/easegress">
     <img src="./doc/easegress.svg"
-         alt="Easegress logo" title="Easegress" height="100" width="100"  align="right"/>
+        alt="Easegress logo" title="Easegress" height="100" width="100" align="right"/>
 </a>
 
 `Easegress` is a Cloud Native traffic orchestration system designed for:
@@ -23,7 +23,7 @@
 - **High Availability:** Built-in Raft consensus & leader election provides 99.99% availability.
 - **Traffic Orchestration:** Simple orchestration of various filters for each traffic pipeline.
 - **High Performance:** Lightweight and essential features speed up the performance.
-- **Observability:**  There are many meaningful statistics periodically in a readable way.
+- **Observability:** There are many meaningful statistics periodically in a readable way.
 - **Extensibility:** It's easy to develop your own filter or controller with high-level programming language.
 - **Integration:** The simple interfaces make it easy to integrate with other systems, such as Kubernetes Ingress, EaseMesh(open source coming soon) sidecar, Workflow, etc.
 
@@ -68,6 +68,7 @@ The architecture of Easegress:
 	- **Third-Part Integration**
 		- **FaaS** integrates with the serverless platform Knative.
 		- **Service Discovery** integrates with Eureka, Consul, Etcd, and Zookeeper.
+		- **Ingress Controller** integrates with Kubernetes as an ingress controller.
 - **High Performance and Availability**
 	- **Adaption**: adapts request, response in the handling chain.
 	- **Validation**: headers validation, OAuth2, JWT, and HMAC verification.
@@ -78,7 +79,7 @@ The architecture of Easegress:
 - **Operation**
 	- **Easy to Integrate:** command line(`egctl`), MegaEase Portal, HTTP clients such as curl, postman, etc.
 	- **Distributed Tracing**
-		- Built-in  [Open Zipkin](https://zipkin.io/)
+		- Built-in [Open Zipkin](https://zipkin.io/)
 		- [Open Tracing](https://opentracing.io/) for vendor-neutral APIs
 	- **Observability**
 		- **Node:** role(leader, writer, reader), health or not, last heartbeat time, and so on
@@ -89,7 +90,7 @@ The architecture of Easegress:
 			- **Status Codes:** HTTP status codes.
 			- **TopN:** sorted by aggregated APIs(only in server dimension).
 
-## Get Started
+## Getting Started
 
 The basic common usage of Easegress is to quickly set up proxy for the backend servers. We split it into multiple simple steps to illustrate the essential concepts and operations.
 

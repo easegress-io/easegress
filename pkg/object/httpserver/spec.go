@@ -101,7 +101,7 @@ func (spec *Spec) Validate() error {
 	}
 
 	if spec.HTTPS {
-		if spec.CertBase64 == "" && spec.KeyBase64 == "" && spec.Certs == nil && spec.Keys == nil {
+		if spec.CertBase64 == "" && spec.KeyBase64 == "" && len(spec.Certs) == 0 && len(spec.Keys) == 0 {
 			return fmt.Errorf("certBase64/keyBase64, certs/keys are both empty when https enabled")
 		}
 		_, err := spec.tlsConfig()
@@ -130,7 +130,7 @@ func (spec *Spec) tlsConfig() (*tls.Config, error) {
 		if secret, exists := spec.Keys[k]; exists {
 			cert, err := tls.X509KeyPair([]byte(v), []byte(secret))
 			if err != nil {
-				return nil, fmt.Errorf("generate x5099 key pair for %s failed: %s ", k, err)
+				return nil, fmt.Errorf("generate x509 key pair for %s failed: %s ", k, err)
 			}
 			certificates = append(certificates, cert)
 		} else {
