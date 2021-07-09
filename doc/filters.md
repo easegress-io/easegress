@@ -598,6 +598,48 @@ oauth2:
 | ------- | ----------------------------------- |
 | invalid | The request doesn't pass validation |
 
+## WasmFilter
+
+The WasmFilter executes user developed [WebAssembly](https://webassembly.org/) code. Below is an example configuration that load Wasm code from a file.
+
+```yaml
+name: wasm-filter-example
+kind: WasmFilter
+maxConcurrency: 2
+code: /home/megaease/wasm/hello.wasm
+timeout: 200ms
+```
+
+Note: this filter is disabled in the default build of `Easegress`, it can be enabled by:
+
+```bash
+$ make GOTAGS=wasmfilter
+```
+
+or
+
+```bash
+$ go build -tags=wasmfilter
+```
+
+### Configuration
+
+| Name           | Type   | Description    | Required |
+| -------------- | ------ |--------------- | -------- |
+| maxConcurrency | int32  | The maximum requests the filter can process concurrently. Default is 10 and minimum value is 1. | Yes       |
+| code           | string | The Wasm code, can be the base64 encoded code, or path/url of the file which contains the code. | Yes    |
+| timeout        | string | Timeout for Wasm execution, default is 100ms. | Yes     |
+
+### Results
+
+| Value       | Description                         |
+| ----------- | ----------------------------------- |
+| outOfVM     | Can not found an available Wasm VM. |
+| wasmError   | An error occurs during the execution of Wasm code. |
+| wasmResult1 <td rowspan="3">Results defined and returned by Wasm code.</td>
+|     ...      
+| wasmResult9 
+
 ## Common Types
 
 ### apiaggregator.APIProxy

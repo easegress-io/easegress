@@ -32,6 +32,7 @@ const (
 	configObjectPrefix       = "/config/objects/"
 	configObjectFormat       = "/config/objects/%s" // +objectName
 	configVersion            = "/config/version"
+	wasmCodeEvent            = "/wasm/code"
 
 	// the cluster name of this eg group will be registered under this path in etcd
 	// any new member(reader or writer ) will be rejected if it is configured a different cluster name
@@ -115,4 +116,9 @@ func (l *Layout) ConfigObjectKey(name string) string {
 // ConfigVersion returns the key of config version.
 func (l *Layout) ConfigVersion() string {
 	return configVersion
+}
+
+// WasmCode returns the key of Wasm code event
+func (l *Layout) WasmCodeEvent() string {
+	return wasmCodeEvent
 }
