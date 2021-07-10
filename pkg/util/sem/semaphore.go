@@ -58,6 +58,14 @@ func (s *Semaphore) Release() {
 	s.sem.Release(1)
 }
 
+// SetMaxCount set the size of 's' to 'n', this is an async operation and
+// the caller can watch the returned 'done' channel like below if it wants
+// to be notified at the completion:
+//       done := s.SetMaxCount(100)
+//       <-done
+// Note after receiving the notification, the caller should NOT assume the
+// size of 's' is 'n' unless it knows there are no concurrent calls to
+// 'SetMaxCount'.
 func (s *Semaphore) SetMaxCount(n int64) (done chan struct{}) {
 	done = make(chan struct{})
 
