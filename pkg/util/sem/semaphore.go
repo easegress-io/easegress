@@ -54,44 +54,30 @@ func (s *Semaphore) AcquireWithContext(ctx context.Context) error {
 	return s.sem.Acquire(ctx, 1)
 }
 
-func (s *Semaphore) AcquireRaw() chan *struct{} {
-	s.AcquireWithContext(context.Background())
-	return make(chan *struct{})
-}
-
 func (s *Semaphore) Release() {
 	s.sem.Release(1)
 }
 
 func (s *Semaphore) SetMaxCount(n int64) (done chan struct{}) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
+	done = make(chan struct{})
 
 	if n > maxCapacity {
 		n = maxCapacity
 	}
 
-	if n == s.realCapacity {
-		return
-	}
-
+	s.lock.Lock()
 	old := s.realCapacity
 	s.realCapacity = n
+	s.lock.Unlock()
 
-	done = make(chan struct{})
 	go func() {
 		if n > old {
-			for i := int64(0); i < n-old; i++ {
-				s.sem.Release(1)
-			}
-		} else {
-			for i := int64(0); i < old-n; i++ {
-				s.sem.Acquire(context.Background(), 1)
-			}
+			s.sem.Release(n - old)
+		} else if n < old {
+			s.sem.Acquire(context.Background(), old-n)
 		}
-
-		done <- struct{}{}
+		close(done)
 	}()
 
-	return done
+	return
 }
