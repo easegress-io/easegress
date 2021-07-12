@@ -188,6 +188,8 @@ func (a *API) convertPBToSpec(pbSpec interface{}, spec interface{}) error {
 }
 
 func (a *API) readAPISpec(w http.ResponseWriter, r *http.Request, pbSpec interface{}, spec interface{}) error {
+	// TODO: Use default spec and validate it.
+
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		return fmt.Errorf("read body failed: %v", err)
