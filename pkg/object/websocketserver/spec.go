@@ -64,34 +64,26 @@ func (spec *Spec) Validate() error {
 	return nil
 }
 
-func (spec *Spec) wssTLSConfig() (*tls.Config, error) {
+func validateTLS(certBas64, keyBase64 string) (*tls.Config, error) {
 	var certificates []tls.Certificate
-	if len(spec.wssCertBase64) != 0 && len(spec.wssKeyBase64) != 0 {
-		certPem, _ := base64.StdEncoding.DecodeString(spec.wssCertBase64)
-		keyPem, _ := base64.StdEncoding.DecodeString(spec.wssKeyBase64)
+	if len(certBas64) != 0 && len(keyBase64) != 0 {
+		certPem, _ := base64.StdEncoding.DecodeString(certBas64)
+		keyPem, _ := base64.StdEncoding.DecodeString(keyBase64)
 		cert, err := tls.X509KeyPair(certPem, keyPem)
 		if err != nil {
 			return nil, fmt.Errorf("generate x509 key pair failed: %v", err)
 		}
 		certificates = append(certificates, cert)
 	} else {
-		return nil, fmt.Errorf("wss cert/key base64 empty, certBase64: %s, keyBase64: %s", spec.wssKeyBase64, spec.wssCertBase64)
+		return nil, fmt.Errorf("cert/key base64 empty, certBase64: %s, keyBase64: %s", certBas64, keyBase64)
 	}
 	return &tls.Config{Certificates: certificates}, nil
 }
 
+func (spec *Spec) wssTLSConfig() (*tls.Config, error) {
+	return validateTLS(spec.wssCertBase64, spec.wssKeyBase64)
+}
+
 func (spec *Spec) tlsConfig() (*tls.Config, error) {
-	var certificates []tls.Certificate
-	if spec.CertBase64 != "" && spec.KeyBase64 != "" {
-		certPem, _ := base64.StdEncoding.DecodeString(spec.CertBase64)
-		keyPem, _ := base64.StdEncoding.DecodeString(spec.KeyBase64)
-		cert, err := tls.X509KeyPair(certPem, keyPem)
-		if err != nil {
-			return nil, fmt.Errorf("generate x509 key pair failed: %v", err)
-		}
-		certificates = append(certificates, cert)
-	} else {
-		return nil, fmt.Errorf("cert/key base64 empty, certBase64: %s, keyBase64: %s", spec.wssKeyBase64, spec.wssCertBase64)
-	}
-	return &tls.Config{Certificates: certificates}, nil
+	return validateTLS(spec.CertBase64, spec.KeyBase64)
 }

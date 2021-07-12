@@ -56,16 +56,17 @@ type Proxy struct {
 	server    http.Server
 	superSpec *supervisor.Spec
 
-	// BackendURL URL is the
+	// backendURL URL is the URL of target websocket server.
 	backendURL *url.URL
 
-	// Upgrader specifies the parameters for upgrading a incoming HTTP
+	// upgrader specifies the parameters for upgrading a incoming HTTP
 	// connection to a WebSocket connection.
 	upgrader *websocket.Upgrader
 
-	//  Dialer contains options for connecting to the backend WebSocket server.
+	//  dialer contains options for connecting to the backend WebSocket server.
 	dialer *websocket.Dialer
 
+	// done is the channel for shutdowning this proxy.
 	done chan struct{}
 }
 
@@ -79,7 +80,7 @@ func newProxy(superSpec *supervisor.Spec) *Proxy {
 	return proxy
 }
 
-// buildReq builds an URL with backend in spec and original HTTP request.
+// buildRequestURL builds an URL with backend in spec and original HTTP request.
 func (p *Proxy) buildRequestURL(r *http.Request) *url.URL {
 	u := *p.backendURL
 	u.Fragment = r.URL.Fragment
