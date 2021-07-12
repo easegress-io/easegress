@@ -47,7 +47,7 @@ func TestNewTextTemplateSucc(t *testing.T) {
 	}
 
 	if s, err := tt.Render("xxx-[[filter.abc.req.body]]--yyy"); s != "xxx-kkk--yyy" || err != nil {
-		t.Errorf("rendering fail , result is %s except xxx-kkk--yyy", s)
+		t.Errorf("rendering fail , result is %s expect xxx-kkk--yyy", s)
 	}
 }
 
@@ -68,31 +68,31 @@ func TestNewTextTemplateRenderGJSON(t *testing.T) {
 	}
 
 	input := "001010-[[filter.abc.req.body.aaa]]--02020"
-	except := "001010-bbb--02020"
+	expect := "001010-bbb--02020"
 
-	if s, err := tt.Render(input); s != except || err != nil {
+	if s, err := tt.Render(input); s != expect || err != nil {
 		t.Errorf("rendering failed err %v", err)
 		t.Errorf("dict is %v ", tt.GetDict())
-		t.Fatalf("input %s, excpet %s , after rending %s ", input, except, s)
+		t.Fatalf("input %s, expect %s , after rending %s ", input, expect, s)
 	}
 
 	input = "001010-[[filter.abc.req.body.kkk]]--02020"
-	except = "001010-hhh--02020"
+	expect = "001010-hhh--02020"
 
-	if s, err := tt.Render(input); s != except || err != nil {
+	if s, err := tt.Render(input); s != expect || err != nil {
 		t.Errorf("rendering failed err %v", err)
 		t.Errorf("dict is %v ", tt.GetDict())
-		t.Fatalf("input %s, excpet %s , after rending %s ", input, except, s)
+		t.Fatalf("input %s, expect %s , after rending %s ", input, expect, s)
 
 	}
 
 	input = "001010-[[filter.abc.req.body.t.jjj]]--02020"
-	except = "001010-qqq--02020"
+	expect = "001010-qqq--02020"
 
-	if s, err := tt.Render(input); s != except || err != nil {
+	if s, err := tt.Render(input); s != expect || err != nil {
 		t.Errorf("rendering failed err %v", err)
 		t.Errorf("dict is %v ", tt.GetDict())
-		t.Fatalf("input %s, excpet %s , after rending %s ", input, except, s)
+		t.Fatalf("input %s, expect %s , after rending %s ", input, expect, s)
 	}
 }
 
@@ -117,21 +117,21 @@ func TestNewTextTemplateRenderWildCard(t *testing.T) {
 	}
 
 	input := "001010-[[filter.abc.req.header.X-forward]]--02020"
-	except := "001010-a.b.com--02020"
+	expect := "001010-a.b.com--02020"
 
-	if s, err := tt.Render(input); s != except || err != nil {
+	if s, err := tt.Render(input); s != expect || err != nil {
 		t.Errorf("rendering err is %v ", err)
 		t.Errorf("dict is %v ", tt.GetDict())
-		t.Fatalf("input %s, excpet %s , after rending %s ", input, except, s)
+		t.Fatalf("input %s, expect %s , after rending %s ", input, expect, s)
 	}
 
 	input = "001010-[[filter.abc.req.header.Y-forward]]--02020"
-	except = "001010-q.m.com--02020"
+	expect = "001010-q.m.com--02020"
 
-	if s, err := tt.Render(input); s != except || err != nil {
+	if s, err := tt.Render(input); s != expect || err != nil {
 		t.Errorf("rendering err is %v ", err)
 		t.Errorf("dict is %v ", tt.GetDict())
-		t.Fatalf("input %s, excpet %s , after rending %s ", input, except, s)
+		t.Fatalf("input %s, expect %s , after rending %s ", input, expect, s)
 
 	}
 }
@@ -155,7 +155,7 @@ func TestNewTextTemplateErrGJSONBegin(t *testing.T) {
 		"{gjson}.filter.{}.req.body",
 	})
 
-	t.Logf("New engine invalid, excpet err [%v]", err)
+	t.Logf("New engine invalid, expect err [%v]", err)
 	if err == nil {
 		t.Fatalf("new engine should failed, but succ %v, tt %v", err, tt)
 	}
@@ -168,7 +168,7 @@ func TestNewTextTemplateErrWidecardConfilct(t *testing.T) {
 		"filter.abc.req.header",
 	})
 
-	t.Logf("New engine invalid, excpet err [%v]", err)
+	t.Logf("New engine invalid, expect err [%v]", err)
 	if err == nil {
 		t.Fatalf("new engine should failed, but succ %v, tt %v", err, tt)
 	}
@@ -182,7 +182,7 @@ func TestNewTextTemplateErrGJSONMiddle(t *testing.T) {
 		"filter.{}.{gjson}.header",
 	})
 
-	t.Logf("New engine invalid, excpet err [%v]", err)
+	t.Logf("New engine invalid, expect err [%v]", err)
 	if err == nil {
 		t.Fatalf("new engine should failed, but succ %v, tt %v", err, tt)
 	}
@@ -191,7 +191,7 @@ func TestNewTextTemplateErrGJSONMiddle(t *testing.T) {
 func TestNewTextTemplateWithEmpty(t *testing.T) {
 	tt, err := NewDefault([]string{})
 
-	t.Logf("New engine invalid, excpet err [%v]", err)
+	t.Logf("New engine invalid, expect err [%v]", err)
 	if err == nil {
 		t.Fatalf("new engine should failed, but succ %v, tt %v", err, tt)
 	}
@@ -205,7 +205,7 @@ func TestNewTextTemplateWithWidecarFirstLevel(t *testing.T) {
 		"{}",
 	})
 
-	t.Logf("New engine invalid, excpet err [%v]", err)
+	t.Logf("New engine invalid, expect err [%v]", err)
 	if err == nil {
 		t.Fatalf("new engine should failed, but succ %v, tt %v", err, tt)
 	}
@@ -219,7 +219,7 @@ func TestNewTextTemplateWithWidecarLastLevel(t *testing.T) {
 		"filter.req.{}",
 	})
 
-	t.Logf("New engine invalid, excpet err [%v]", err)
+	t.Logf("New engine invalid, expect err [%v]", err)
 	if err == nil {
 		t.Fatalf("new engine should failed, but succ %v, tt %v", err, tt)
 	}
@@ -244,22 +244,22 @@ func TestNewTextTemplateValidate(t *testing.T) {
 
 	input := "try to ...[[filter.abc.req]]"
 	if tt.HasTemplates(input) == false {
-		t.Fatalf("except match template, but failed %s", input)
+		t.Fatalf("expect match template, but failed %s", input)
 	}
 
 	input = "try to ...filter.abc.req"
 	if tt.HasTemplates(input) == true {
-		t.Fatalf("except not match template, but succ input [%s]", input)
+		t.Fatalf("expect not match template, but succ input [%s]", input)
 	}
 
 	input = "try to ...[[filter.abc.tkg]]..."
 	if tt.HasTemplates(input) == true {
-		t.Fatalf("except not match template, but succ input [%s]", input)
+		t.Fatalf("expect not match template, but succ input [%s]", input)
 	}
 
 	input = "try to ...[[.]]..."
 	if tt.HasTemplates(input) == true {
-		t.Fatalf("except not match template, but succ input [%s]", input)
+		t.Fatalf("expect not match template, but succ input [%s]", input)
 	}
 }
 
@@ -279,61 +279,61 @@ func TestNewTextTemplateMatchTemplate(t *testing.T) {
 
 	input := "."
 	if result := tt.MatchMetaTemplate(input); len(result) != 0 {
-		t.Fatalf("except not match template, but succ input [%s]", result)
+		t.Fatalf("expect not match template, but succ input [%s]", result)
 	}
 
 	input = ".."
 	if result := tt.MatchMetaTemplate(input); len(result) != 0 {
-		t.Fatalf("except not match template, but succ input [%s]", result)
+		t.Fatalf("expect not match template, but succ input [%s]", result)
 	}
 
 	input = ""
 	if result := tt.MatchMetaTemplate(input); len(result) != 0 {
-		t.Fatalf("except not match template, but succ input [%s]", result)
+		t.Fatalf("expect not match template, but succ input [%s]", result)
 	}
 
 	input = "kkk"
 	if result := tt.MatchMetaTemplate(input); len(result) != 0 {
-		t.Fatalf("except not match template, but succ input [%s]", result)
+		t.Fatalf("expect not match template, but succ input [%s]", result)
 	}
 
 	input = "[["
 	if result := tt.MatchMetaTemplate(input); len(result) != 0 {
-		t.Fatalf("except not match template, but succ input [%s]", result)
+		t.Fatalf("expect not match template, but succ input [%s]", result)
 	}
 
 	input = "]]"
 	if result := tt.MatchMetaTemplate(input); len(result) != 0 {
-		t.Fatalf("except not match template, but succ input [%s]", result)
+		t.Fatalf("expect not match template, but succ input [%s]", result)
 	}
 	input = "{}"
 	if result := tt.MatchMetaTemplate(input); len(result) != 0 {
-		t.Fatalf("except not match template, but succ input [%s]", result)
+		t.Fatalf("expect not match template, but succ input [%s]", result)
 	}
 
 	input = "{gjson}"
 	if result := tt.MatchMetaTemplate(input); len(result) != 0 {
-		t.Fatalf("except not match template, but succ input [%s]", result)
+		t.Fatalf("expect not match template, but succ input [%s]", result)
 	}
 
 	input = "filter.name.."
 	if result := tt.MatchMetaTemplate(input); len(result) != 0 {
-		t.Fatalf("except not match template, but input [%s]", result)
+		t.Fatalf("expect not match template, but input [%s]", result)
 	}
 
 	input = "filter.name.req"
 	if result := tt.MatchMetaTemplate(input); len(result) == 0 {
-		t.Fatalf("except match template, but failed input [%s]", result)
+		t.Fatalf("expect match template, but failed input [%s]", result)
 	}
 
 	input = "filter.name.req.host"
 	if result := tt.MatchMetaTemplate(input); len(result) == 0 {
-		t.Fatalf("except match template, but failed input [%s]", result)
+		t.Fatalf("expect match template, but failed input [%s]", result)
 	}
 
 	input = "filter.name.req.host.abb"
 	if result := tt.MatchMetaTemplate(input); len(result) == 0 {
-		t.Fatalf("except match template, but failed input [%s]", result)
+		t.Fatalf("expect match template, but failed input [%s]", result)
 	}
 }
 
@@ -417,22 +417,22 @@ func TestNewTextTemplateExtractTemplateRuleMapEmpty(t *testing.T) {
 
 	m := map[string]string{}
 	if m = tt.ExtractTemplateRuleMap(input); len(m) != 0 {
-		t.Fatalf("extract from input %s no match except, should be empty", input)
+		t.Fatalf("extract from input %s no match expect, should be empty", input)
 	}
 
 	input = "[[filter.abc.req[[]"
 	if m = tt.ExtractTemplateRuleMap(input); len(m) != 0 {
-		t.Fatalf("extract from input %s no match except, should be empty", input)
+		t.Fatalf("extract from input %s no match expect, should be empty", input)
 	}
 
 	input = "xxxxx[[filter.abc.req]"
 	if m = tt.ExtractTemplateRuleMap(input); len(m) != 0 {
-		t.Fatalf("extract from input %s no match except, should be empty", input)
+		t.Fatalf("extract from input %s no match expect, should be empty", input)
 	}
 
 	input = "[[filter.abc.req]"
 	if m = tt.ExtractTemplateRuleMap(input); len(m) != 0 {
-		t.Fatalf("extract from input %s no match except, should be empty", input)
+		t.Fatalf("extract from input %s no match expect, should be empty", input)
 	}
 }
 
@@ -457,41 +457,41 @@ func TestNewTextTemplateExtractRawTemplateRuleMapEmpty(t *testing.T) {
 
 	m := map[string]string{}
 	if m = tt.ExtractRawTemplateRuleMap(input); len(m) != 0 {
-		t.Fatalf("extract from input %s no match except, should be empty", input)
+		t.Fatalf("extract from input %s no match expect, should be empty", input)
 	}
 
 	input = "[[filter.abc.req[[]"
 	if m = tt.ExtractRawTemplateRuleMap(input); len(m) != 0 {
-		t.Fatalf("extract from input %s no match except, should be empty", input)
+		t.Fatalf("extract from input %s no match expect, should be empty", input)
 	}
 
 	input = "xxxxx[[filter.abc.req]"
 	if m = tt.ExtractRawTemplateRuleMap(input); len(m) != 0 {
-		t.Fatalf("extract from input %s no match except, should be empty", input)
+		t.Fatalf("extract from input %s no match expect, should be empty", input)
 	}
 
 	input = "[[filter.abc.req]"
 	if m = tt.ExtractRawTemplateRuleMap(input); len(m) != 0 {
-		t.Fatalf("extract from input %s no match except, should be empty", input)
+		t.Fatalf("extract from input %s no match expect, should be empty", input)
 	}
 
 	input = "[[filter.abc.req]]"
 	if m = tt.ExtractRawTemplateRuleMap(input); len(m) == 0 {
-		t.Fatalf("extract from input %s no match except, should not be empty", input)
+		t.Fatalf("extract from input %s no match expect, should not be empty", input)
 	}
 
 	input = "[[filter.abc.red]]"
 	if m = tt.ExtractRawTemplateRuleMap(input); len(m) == 0 {
-		t.Fatalf("extract from input %s no match except, should not be empty", input)
+		t.Fatalf("extract from input %s no match expect, should not be empty", input)
 	}
 
 	input = "[[filter.abc.red]] -- [[filter.abc.req.host]]"
 	if m = tt.ExtractRawTemplateRuleMap(input); len(m) != 2 {
-		t.Fatalf("extract from input %s no match except, should extract two target", input)
+		t.Fatalf("extract from input %s no match expect, should extract two target", input)
 	}
 
 	input = "[[filter.abc.red]] -- [[filter.abc.req.nono]] -- [[filter.abc.rsp.yes]]!!"
 	if m = tt.ExtractRawTemplateRuleMap(input); len(m) != 3 {
-		t.Fatalf("extract from input %s no match except, should extract two target", input)
+		t.Fatalf("extract from input %s no match expect, should extract two target", input)
 	}
 }

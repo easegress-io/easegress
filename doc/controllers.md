@@ -11,6 +11,7 @@
   - [Business Controllers](#business-controllers)
     - [EaseMonitorMetrics](#easemonitormetrics)
     - [Function](#function)
+    - [IngressController](#ingresscontroller)
     - [MeshController](#meshcontroller)
     - [ConsulServiceRegistry](#consulserviceregistry)
     - [EtcdServiceRegistry](#etcdserviceregistry)
@@ -136,9 +137,38 @@ kafka:
 
 TODO (@ben)
 
+### IngressController
+
+The IngressController is an implementation of [Kubernetes ingress controller](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/), it watches Kubernetes Ingress, Service, Endpoints, and Secrets then translates them to Easegress HTTP server and pipelines. The config looks like:
+
+```yaml
+kind: IngressController
+name: ingress-controller-example
+kubeConfig:
+masterURL:
+namespaces: ["default"]
+ingressClass: easegress
+httpServer:
+  port: 8080
+  https: false
+  keepAlive: true            
+  keepAliveTimeout: 60s      
+  maxConnections: 10240
+```
+
+| Name         | Type     | Description                                                               | Required              |
+| ------------ | -------- | ------------------------------------------------------------------------- | --------------------- |
+| kubeConfig   | string   | Path of the Kubernetes configuration file.                | No            |
+| masterURL    | string   | The address of the Kubernetes API server.                 | No            |
+| namespaces   | []string | An array of Kubernetes namespaces which the IngressController needs to watch, all namespaces are watched if left empty. | No  |
+| ingressClass | string   | The IngressController only handles `Ingresses` with `ingressClassName` set to the value of this option. | No (default: easegress)  |
+| httpServer   | [httpserver.Spec](#httpserver)   | Basic configuration for the shared HTTP traffic gate. The routing rules will be generated dynamically according to Kubernetes ingresses and should not be specified here. | Yes  |
+
+**Note**: IngressController uses `kubeConfig` and `masterURL` to connect to Kubernetes, at least one of them must be specified when deployed outside of a Kubernetes cluster, and both are optional when deployed inside a cluster.
+
 ### MeshController
 
-MeshController contains the ingress controller, master(control plane), worker/sidecar(data plane). The config looks like:
+MeshController contains the ingress controller (note this ingress controller is for mesh deployment, not the [Kubernetes ingress controller](#ingresscontroller) described above), master(control plane), worker/sidecar(data plane). The config looks like:
 
 ```yaml
 name: mesh-controller-example

@@ -54,44 +54,38 @@ func (s *Semaphore) AcquireWithContext(ctx context.Context) error {
 	return s.sem.Acquire(ctx, 1)
 }
 
-func (s *Semaphore) AcquireRaw() chan *struct{} {
-	s.AcquireWithContext(context.Background())
-	return make(chan *struct{})
-}
-
 func (s *Semaphore) Release() {
 	s.sem.Release(1)
 }
 
+// SetMaxCount set the size of 's' to 'n', this is an async operation and
+// the caller can watch the returned 'done' channel like below if it wants
+// to be notified at the completion:
+//       done := s.SetMaxCount(100)
+//       <-done
+// Note after receiving the notification, the caller should NOT assume the
+// size of 's' is 'n' unless it knows there are no concurrent calls to
+// 'SetMaxCount'.
 func (s *Semaphore) SetMaxCount(n int64) (done chan struct{}) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
+	done = make(chan struct{})
 
 	if n > maxCapacity {
 		n = maxCapacity
 	}
 
-	if n == s.realCapacity {
-		return
-	}
-
+	s.lock.Lock()
 	old := s.realCapacity
 	s.realCapacity = n
+	s.lock.Unlock()
 
-	done = make(chan struct{})
 	go func() {
 		if n > old {
-			for i := int64(0); i < n-old; i++ {
-				s.sem.Release(1)
-			}
-		} else {
-			for i := int64(0); i < old-n; i++ {
-				s.sem.Acquire(context.Background(), 1)
-			}
+			s.sem.Release(n - old)
+		} else if n < old {
+			s.sem.Acquire(context.Background(), old-n)
 		}
-
-		done <- struct{}{}
+		close(done)
 	}()
 
-	return done
+	return
 }

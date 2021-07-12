@@ -179,7 +179,7 @@ func (a *API) updateService(w http.ResponseWriter, r *http.Request) {
 		newTenantSpec := a.service.GetTenantSpec(serviceSpec.RegisterTenant)
 		if newTenantSpec == nil {
 			api.HandleAPIError(w, r, http.StatusBadRequest,
-				fmt.Errorf("tenant %s not found", serviceName))
+				fmt.Errorf("tenant %s not found", serviceSpec.RegisterTenant))
 			return
 		}
 		newTenantSpec.Services = append(newTenantSpec.Services, serviceSpec.Name)
