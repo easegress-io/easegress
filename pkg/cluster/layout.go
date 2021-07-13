@@ -118,7 +118,7 @@ func (l *Layout) ConfigVersion() string {
 	return configVersion
 }
 
-// WasmCode returns the key of Wasm code event
+// WasmCodeEvent returns the key of Wasm code event
 func (l *Layout) WasmCodeEvent() string {
 	return wasmCodeEvent
 }

@@ -43,6 +43,9 @@
   - [Validator](#validator)
     - [Configuration](#configuration-13)
     - [Results](#results-13)
+  - [WasmFilter](#wasmfilter)
+    - [Configuration](#configuration-14)
+    - [Results](#results-14)
   - [Common Types](#common-types)
     - [apiaggregator.APIProxy](#apiaggregatorapiproxy)
     - [pathadaptor.Spec](#pathadaptorspec)
@@ -600,7 +603,7 @@ oauth2:
 
 ## WasmFilter
 
-The WasmFilter executes user developed [WebAssembly](https://webassembly.org/) code. Below is an example configuration that load Wasm code from a file.
+The WasmFilter executes user-developed [WebAssembly](https://webassembly.org/) code. Below is an example configuration that loads Wasm code from a file.
 
 ```yaml
 name: wasm-filter-example

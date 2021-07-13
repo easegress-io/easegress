@@ -35,8 +35,10 @@ import (
 ////////////////////////////////////////////////////////////////////////////////
 // helper functions
 
+const wasmMemory = "memory"
+
 func (vm *WasmVM) readDataFromWasm(addr int32) []byte {
-	mem := vm.inst.GetExport(vm.store, "memory").Memory().UnsafeData(vm.store)
+	mem := vm.inst.GetExport(vm.store, wasmMemory).Memory().UnsafeData(vm.store)
 	reader := bytes.NewReader(mem[addr:])
 	var size int32
 	if e := binary.Read(reader, binary.LittleEndian, &size); e != nil {
@@ -52,7 +54,7 @@ func (vm *WasmVM) readDataFromWasm(addr int32) []byte {
 }
 
 func (vm *WasmVM) writeDataToWasm(data []byte) int32 {
-	mem := vm.inst.GetExport(vm.store, "memory").Memory().UnsafeData(vm.store)
+	mem := vm.inst.GetExport(vm.store, wasmMemory).Memory().UnsafeData(vm.store)
 	vaddr, e := vm.fnAlloc.Call(vm.store, len(data)+4)
 	if e != nil {
 		panic(e)
@@ -67,7 +69,7 @@ func (vm *WasmVM) writeDataToWasm(data []byte) int32 {
 }
 
 func (vm *WasmVM) readStringFromWasm(addr int32) string {
-	mem := vm.inst.GetExport(vm.store, "memory").Memory().UnsafeData(vm.store)
+	mem := vm.inst.GetExport(vm.store, wasmMemory).Memory().UnsafeData(vm.store)
 
 	start := addr
 	for mem[addr] != 0 {
@@ -80,7 +82,7 @@ func (vm *WasmVM) readStringFromWasm(addr int32) string {
 }
 
 func (vm *WasmVM) writeStringToWasm(s string) int32 {
-	mem := vm.inst.GetExport(vm.store, "memory").Memory().UnsafeData(vm.store)
+	mem := vm.inst.GetExport(vm.store, wasmMemory).Memory().UnsafeData(vm.store)
 	vaddr, e := vm.fnAlloc.Call(vm.store, len(s)+1)
 	if e != nil {
 		panic(e)
@@ -95,7 +97,7 @@ func (vm *WasmVM) writeStringToWasm(s string) int32 {
 
 func (vm *WasmVM) readMultipleStringFromWasm(addr, count int32) []string {
 	result := make([]string, 0, count)
-	mem := vm.inst.GetExport(vm.store, "memory").Memory().UnsafeData(vm.store)
+	mem := vm.inst.GetExport(vm.store, wasmMemory).Memory().UnsafeData(vm.store)
 
 	for i := int32(0); i < count; i++ {
 		start := addr
@@ -117,7 +119,7 @@ func (vm *WasmVM) writeMultipleStringToWasm(strs []string) int32 {
 		size += len(s) + 1
 	}
 
-	mem := vm.inst.GetExport(vm.store, "memory").Memory().UnsafeData(vm.store)
+	mem := vm.inst.GetExport(vm.store, wasmMemory).Memory().UnsafeData(vm.store)
 	vaddr, e := vm.fnAlloc.Call(vm.store, int32(size))
 	if e != nil {
 		panic(e)
@@ -383,8 +385,9 @@ func (vm *WasmVM) hostLog(level int32, addr int32) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// host funcs
 
+// importHostFuncs imports host functions into Wasm so that user-developed Wasm
+// code can call these functions to interoperate with host.
 func (vm *WasmVM) importHostFuncs(linker *wasmtime.Linker) {
 	defineFunc := func(name string, fn interface{}) {
 		if e := linker.DefineFunc(vm.store, "easegress", name, fn); e != nil {
