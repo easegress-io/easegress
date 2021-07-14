@@ -32,7 +32,6 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 )
 
-////////////////////////////////////////////////////////////////////////////////
 // helper functions
 
 const wasmMemory = "memory"
@@ -152,8 +151,7 @@ func (vm *WasmVM) readHeaderFromWasm(addr int32) http.Header {
 	return http.Header(h)
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// request function
+// request functions
 
 func (vm *WasmVM) hostRequestGetRealIP() int32 {
 	v := vm.ctx.Request().RealIP()
@@ -294,7 +292,6 @@ func (vm *WasmVM) hostRequestSetBody(addr int32) {
 	vm.ctx.Request().SetBody(bytes.NewReader(body))
 }
 
-////////////////////////////////////////////////////////////////////////////////
 // response functions
 
 func (vm *WasmVM) hostResponseGetStatusCode() int32 {
@@ -362,7 +359,6 @@ func (vm *WasmVM) hostResponseSetBody(addr int32) {
 	vm.ctx.Response().SetBody(bytes.NewReader(body))
 }
 
-////////////////////////////////////////////////////////////////////////////////
 // misc functions
 
 func (vm *WasmVM) hostAddTag(addr int32) {
@@ -383,8 +379,6 @@ func (vm *WasmVM) hostLog(level int32, addr int32) {
 		logger.Errorf(msg)
 	}
 }
-
-////////////////////////////////////////////////////////////////////////////////
 
 // importHostFuncs imports host functions into Wasm so that user-developed Wasm
 // code can call these functions to interoperate with host.

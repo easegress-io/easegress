@@ -104,15 +104,6 @@ func (f *WasmFilter) Results() []string {
 	return results
 }
 
-func readWasmCodeFromFile(path string) ([]byte, error) {
-	f, e := os.Open(path)
-	if e != nil {
-		return nil, e
-	}
-	defer f.Close()
-	return io.ReadAll(f)
-}
-
 func readWasmCodeFromURL(url string) ([]byte, error) {
 	resp, e := http.DefaultClient.Get(url)
 	if e != nil {
@@ -127,8 +118,7 @@ func isURL(str string) bool {
 	// the LONG base64 encoded wasm code
 	for _, p := range []string{"http://", "https://"} {
 		if len(str) > len(p) {
-			s := strings.ToLower(str[:len(p)])
-			if strings.HasPrefix(s, p) {
+			if p == strings.ToLower(str[:len(p)]) {
 				return true
 			}
 		}
@@ -141,7 +131,7 @@ func (f *WasmFilter) readWasmCode() ([]byte, error) {
 		return readWasmCodeFromURL(f.spec.Code)
 	}
 	if _, e := os.Stat(f.spec.Code); e == nil {
-		return readWasmCodeFromFile(f.spec.Code)
+		return os.ReadFile(f.spec.Code)
 	}
 	return base64.StdEncoding.DecodeString(f.spec.Code)
 }
