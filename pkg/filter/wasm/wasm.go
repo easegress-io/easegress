@@ -78,6 +78,15 @@ type (
 		code   []byte
 		vmPool atomic.Value
 		chStop chan struct{}
+
+		totalRequest int64
+		wasmError    int64
+	}
+
+	Status struct {
+		Health       string `yaml:"health"`
+		TotalRequest int64  `yaml:"totalRequest"`
+		WasmError    int64  `yaml:"wasmError"`
 	}
 )
 
@@ -244,6 +253,7 @@ func (f *WasmFilter) handle(ctx context.HTTPContext) (result string) {
 		return resultOutOfVM
 	}
 	vm.ctx = ctx
+	atomic.AddInt64(&f.totalRequest, 1)
 
 	var wg sync.WaitGroup
 	chCancelInterrupt := make(chan struct{})
@@ -256,6 +266,7 @@ func (f *WasmFilter) handle(ctx context.HTTPContext) (result string) {
 		if e := recover(); e != nil {
 			logger.Errorf("recovered from wasm error: %v", e)
 			result = resultWasmError
+			atomic.AddInt64(&f.wasmError, 1)
 			vm = nil
 		}
 
@@ -296,9 +307,19 @@ func (f *WasmFilter) handle(ctx context.HTTPContext) (result string) {
 	return wasmCodeToResult(code)
 }
 
-// Status returns Status genreated by Runtime.
+// Status returns Status genreated by the filter.
 func (f *WasmFilter) Status() interface{} {
-	return nil
+	p := f.vmPool.Load()
+	s := &Status{}
+	if p == nil {
+		s.Health = "VM pool is not initialized"
+	} else {
+		s.Health = "ready"
+	}
+
+	s.TotalRequest = atomic.LoadInt64(&f.totalRequest)
+	s.WasmError = atomic.LoadInt64(&f.wasmError)
+	return s
 }
 
 // Close closes WasmFilter.
