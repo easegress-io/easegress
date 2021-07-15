@@ -1,4 +1,4 @@
-// +build wasmfilter
+// +build wasmhost
 
 /*
  * Copyright (c) 2017, MegaEase
@@ -17,7 +17,7 @@
  * limitations under the License.
  */
 
-package wasm
+package wasmhost
 
 import (
 	"bytes"
@@ -38,8 +38,8 @@ import (
 )
 
 const (
-	// Kind is the kind of WasmFilter.
-	Kind          = "WasmFilter"
+	// Kind is the kind of WasmHost.
+	Kind          = "WasmHost"
 	maxWasmResult = 9
 )
 
@@ -60,7 +60,7 @@ func init() {
 	for i := int32(1); i <= maxWasmResult; i++ {
 		results = append(results, wasmResultToFilterResult(i))
 	}
-	httppipeline.Register(&WasmFilter{})
+	httppipeline.Register(&WasmHost{})
 }
 
 type (
@@ -71,7 +71,7 @@ type (
 		timeout        time.Duration
 	}
 
-	WasmFilter struct {
+	WasmHost struct {
 		pipeSpec *httppipeline.FilterSpec
 		spec     *Spec
 
@@ -79,37 +79,37 @@ type (
 		vmPool atomic.Value
 		chStop chan struct{}
 
-		totalRequest int64
-		wasmError    int64
+		numOfRequest   int64
+		numOfWasmError int64
 	}
 
 	Status struct {
-		Health       string `yaml:"health"`
-		TotalRequest int64  `yaml:"totalRequest"`
-		WasmError    int64  `yaml:"wasmError"`
+		Health         string `yaml:"health"`
+		NumOfRequest   int64  `yaml:"numOfRequest"`
+		NumOfWasmError int64  `yaml:"numOfWasmError"`
 	}
 )
 
-// Kind returns the kind of WasmFilter.
-func (f *WasmFilter) Kind() string {
+// Kind returns the kind of WasmHost.
+func (wh *WasmHost) Kind() string {
 	return Kind
 }
 
-// DefaultSpec returns the default spec of WasmFilter.
-func (f *WasmFilter) DefaultSpec() interface{} {
+// DefaultSpec returns the default spec of WasmHost.
+func (wh *WasmHost) DefaultSpec() interface{} {
 	return &Spec{
 		MaxConcurrency: 10,
 		Timeout:        "100ms",
 	}
 }
 
-// Description returns the description of WasmFilter
-func (f *WasmFilter) Description() string {
-	return "WasmFilter implements a filter which runs web assembly"
+// Description returns the description of WasmHost
+func (wh *WasmHost) Description() string {
+	return "WasmHost implements a host environment for WebAssembly"
 }
 
-// Results returns the results of WasmFilter.
-func (f *WasmFilter) Results() []string {
+// Results returns the results of WasmHost.
+func (wh *WasmHost) Results() []string {
 	return results
 }
 
@@ -135,39 +135,39 @@ func isURL(str string) bool {
 	return false
 }
 
-func (f *WasmFilter) readWasmCode() ([]byte, error) {
-	if isURL(f.spec.Code) {
-		return readWasmCodeFromURL(f.spec.Code)
+func (wh *WasmHost) readWasmCode() ([]byte, error) {
+	if isURL(wh.spec.Code) {
+		return readWasmCodeFromURL(wh.spec.Code)
 	}
-	if _, e := os.Stat(f.spec.Code); e == nil {
-		return os.ReadFile(f.spec.Code)
+	if _, e := os.Stat(wh.spec.Code); e == nil {
+		return os.ReadFile(wh.spec.Code)
 	}
-	return base64.StdEncoding.DecodeString(f.spec.Code)
+	return base64.StdEncoding.DecodeString(wh.spec.Code)
 }
 
-func (f *WasmFilter) loadWasmCode() error {
-	code, e := f.readWasmCode()
+func (wh *WasmHost) loadWasmCode() error {
+	code, e := wh.readWasmCode()
 	if e != nil {
 		logger.Errorf("failed to load wasm code: %v", e)
 		return e
 	}
 
-	if len(f.code) > 0 && bytes.Equal(f.code, code) {
+	if len(wh.code) > 0 && bytes.Equal(wh.code, code) {
 		return nil
 	}
 
-	p, e := NewWasmVMPool(f.spec.MaxConcurrency, code)
+	p, e := NewWasmVMPool(wh.spec.MaxConcurrency, code)
 	if e != nil {
 		logger.Errorf("failed to create wasm VM pool: %v", e)
 		return e
 	}
-	f.code = code
+	wh.code = code
 
-	f.vmPool.Store(p)
+	wh.vmPool.Store(p)
 	return nil
 }
 
-func (f *WasmFilter) watchWasmCode() {
+func (wh *WasmHost) watchWasmCode() {
 	var (
 		chWasm <-chan *string
 		syncer *cluster.Syncer
@@ -175,7 +175,7 @@ func (f *WasmFilter) watchWasmCode() {
 	)
 
 	for {
-		c := f.pipeSpec.Super().Cluster()
+		c := wh.pipeSpec.Super().Cluster()
 		syncer, err = c.Syncer(time.Minute)
 		if err == nil {
 			chWasm, err = syncer.Sync(c.Layout().WasmCodeEvent())
@@ -186,7 +186,7 @@ func (f *WasmFilter) watchWasmCode() {
 		logger.Errorf("failed to watch wasm code event: %v", err)
 		select {
 		case <-time.After(10 * time.Second):
-		case <-f.chStop:
+		case <-wh.chStop:
 			return
 		}
 	}
@@ -194,52 +194,52 @@ func (f *WasmFilter) watchWasmCode() {
 	for {
 		select {
 		case <-chWasm:
-			err = f.loadWasmCode()
+			err = wh.loadWasmCode()
 
 		case <-time.After(30 * time.Second):
-			if err != nil || len(f.code) == 0 {
-				err = f.loadWasmCode()
+			if err != nil || len(wh.code) == 0 {
+				err = wh.loadWasmCode()
 			}
 
-		case <-f.chStop:
+		case <-wh.chStop:
 			return
 		}
 	}
 }
 
-func (f *WasmFilter) reload(pipeSpec *httppipeline.FilterSpec) {
-	f.pipeSpec = pipeSpec
-	f.spec = pipeSpec.FilterSpec().(*Spec)
+func (wh *WasmHost) reload(pipeSpec *httppipeline.FilterSpec) {
+	wh.pipeSpec = pipeSpec
+	wh.spec = pipeSpec.FilterSpec().(*Spec)
 
-	f.spec.timeout, _ = time.ParseDuration(f.spec.Timeout)
-	f.chStop = make(chan struct{})
+	wh.spec.timeout, _ = time.ParseDuration(wh.spec.Timeout)
+	wh.chStop = make(chan struct{})
 
-	f.loadWasmCode()
-	go f.watchWasmCode()
+	wh.loadWasmCode()
+	go wh.watchWasmCode()
 }
 
-// Init initializes WasmFilter.
-func (f *WasmFilter) Init(pipeSpec *httppipeline.FilterSpec) {
-	f.reload(pipeSpec)
+// Init initializes WasmHost.
+func (wh *WasmHost) Init(pipeSpec *httppipeline.FilterSpec) {
+	wh.reload(pipeSpec)
 }
 
-// Inherit inherits previous generation of WasmFilter.
-func (f *WasmFilter) Inherit(pipeSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+// Inherit inherits previous generation of WasmHost.
+func (wh *WasmHost) Inherit(pipeSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
 	previousGeneration.Close()
-	f.reload(pipeSpec)
+	wh.reload(pipeSpec)
 }
 
 // Handle handles HTTP request
-func (f *WasmFilter) Handle(ctx context.HTTPContext) string {
-	result := f.handle(ctx)
+func (wh *WasmHost) Handle(ctx context.HTTPContext) string {
+	result := wh.handle(ctx)
 	return ctx.CallNextHandler(result)
 }
 
-func (f *WasmFilter) handle(ctx context.HTTPContext) (result string) {
+func (wh *WasmHost) handle(ctx context.HTTPContext) (result string) {
 	// we must save the pool to a local variable for later use as it will be
 	// replaced when updating the wasm code
 	var pool *WasmVMPool
-	if p := f.vmPool.Load(); p == nil {
+	if p := wh.vmPool.Load(); p == nil {
 		ctx.AddTag("wasm VM pool is not initialized")
 		return resultOutOfVM
 	} else {
@@ -253,7 +253,7 @@ func (f *WasmFilter) handle(ctx context.HTTPContext) (result string) {
 		return resultOutOfVM
 	}
 	vm.ctx = ctx
-	atomic.AddInt64(&f.totalRequest, 1)
+	atomic.AddInt64(&wh.numOfRequest, 1)
 
 	var wg sync.WaitGroup
 	chCancelInterrupt := make(chan struct{})
@@ -266,7 +266,7 @@ func (f *WasmFilter) handle(ctx context.HTTPContext) (result string) {
 		if e := recover(); e != nil {
 			logger.Errorf("recovered from wasm error: %v", e)
 			result = resultWasmError
-			atomic.AddInt64(&f.wasmError, 1)
+			atomic.AddInt64(&wh.numOfWasmError, 1)
 			vm = nil
 		}
 
@@ -278,7 +278,7 @@ func (f *WasmFilter) handle(ctx context.HTTPContext) (result string) {
 	go func() {
 		defer wg.Done()
 
-		timer := time.NewTimer(f.spec.timeout)
+		timer := time.NewTimer(wh.spec.timeout)
 
 		select {
 		case <-chCancelInterrupt:
@@ -308,8 +308,8 @@ func (f *WasmFilter) handle(ctx context.HTTPContext) (result string) {
 }
 
 // Status returns Status genreated by the filter.
-func (f *WasmFilter) Status() interface{} {
-	p := f.vmPool.Load()
+func (wh *WasmHost) Status() interface{} {
+	p := wh.vmPool.Load()
 	s := &Status{}
 	if p == nil {
 		s.Health = "VM pool is not initialized"
@@ -317,12 +317,12 @@ func (f *WasmFilter) Status() interface{} {
 		s.Health = "ready"
 	}
 
-	s.TotalRequest = atomic.LoadInt64(&f.totalRequest)
-	s.WasmError = atomic.LoadInt64(&f.wasmError)
+	s.NumOfRequest = atomic.LoadInt64(&wh.numOfRequest)
+	s.NumOfWasmError = atomic.LoadInt64(&wh.numOfWasmError)
 	return s
 }
 
-// Close closes WasmFilter.
-func (f *WasmFilter) Close() {
-	close(f.chStop)
+// Close closes WasmHost.
+func (wh *WasmHost) Close() {
+	close(wh.chStop)
 }

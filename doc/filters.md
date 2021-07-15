@@ -43,7 +43,7 @@
   - [Validator](#validator)
     - [Configuration](#configuration-13)
     - [Results](#results-13)
-  - [WasmFilter](#wasmfilter)
+  - [WasmHost](#wasmhost)
     - [Configuration](#configuration-14)
     - [Results](#results-14)
   - [Common Types](#common-types)
@@ -601,13 +601,13 @@ oauth2:
 | ------- | ----------------------------------- |
 | invalid | The request doesn't pass validation |
 
-## WasmFilter
+## WasmHost
 
-The WasmFilter executes user-developed [WebAssembly](https://webassembly.org/) code. Below is an example configuration that loads wasm code from a file.
+The WasmHost filter implements a host environment for user-developed [WebAssembly](https://webassembly.org/) code. Below is an example configuration that loads wasm code from a file.
 
 ```yaml
-name: wasm-filter-example
-kind: WasmFilter
+name: wasm-host-example
+kind: WasmHost
 maxConcurrency: 2
 code: /home/megaease/wasm/hello.wasm
 timeout: 200ms
@@ -616,13 +616,13 @@ timeout: 200ms
 Note: this filter is disabled in the default build of `Easegress`, it can be enabled by:
 
 ```bash
-$ make GOTAGS=wasmfilter
+$ make GOTAGS=wasmhost
 ```
 
 or
 
 ```bash
-$ go build -tags=wasmfilter
+$ go build -tags=wasmhost
 ```
 
 ### Configuration

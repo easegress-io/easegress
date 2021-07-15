@@ -28,8 +28,8 @@ ENABLE_CGO= CGO_ENABLED=0
 # Check Go build tags, the tags are from command line of make
 ifdef GOTAGS
   GO_BUILD_TAGS= -tags ${GOTAGS}
-  # Must enable Cgo when wasmfilter is included
-  ifeq ($(findstring wasmfilter,${GOTAGS}), wasmfilter)
+  # Must enable Cgo when wasmhost is included
+  ifeq ($(findstring wasmhost,${GOTAGS}), wasmhost)
 	ENABLE_CGO= CGO_ENABLED=1
   endif
 endif

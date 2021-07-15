@@ -1,4 +1,4 @@
-// +build wasmfilter
+// +build wasmhost
 
 /*
  * Copyright (c) 2017, MegaEase
@@ -17,7 +17,7 @@
  * limitations under the License.
  */
 
-package wasm
+package wasmhost
 
 import (
 	"fmt"
