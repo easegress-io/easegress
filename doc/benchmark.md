@@ -159,11 +159,11 @@ http:
 
 ### Echo Server
 1. [Source code](https://github.com/megaease/easegress/tree/main/example/backend-service/mirror)
-2. Its logic is accepting HTTP request and printing to the consul, in this stress testing, only uses `9095` port.
+2. Its logic is accepting HTTP request and printing to the console, in this testing, we only uses `9095` port.
 
 
 ## Testing 
-* Scenario 1: 50concurrency/900request/2miniute/not QPS limitation
+* Scenario 1: 50 concurrency/900 requests/2 miniutes limitation/not QPS limitation
 
 ``` bash
 
@@ -173,7 +173,7 @@ http:
 
 ```
 
-* Scenario 2: 100concurrency/90000request/2miniute/not QPS limitation
+* Scenario 2: 100 concurrency/90000 requests/2 miniutes limitation/not QPS limitation
 
 ``` bash
 
@@ -183,7 +183,7 @@ http:
 
 ```
 
-* Scenario 3: 120concurrency/90000request/2miniute/not QPS limitation
+* Scenario 3: 120 concurrency/90000 requests/ 2 miniutes limitation/not QPS limitation
 
 ``` bash
 
@@ -193,7 +193,7 @@ http:
 
 ```
 
-* Scenario 4: 100concurrency/900000request/5miniute/not QPS limitation
+* Scenario 4: 100 concurrency/900000 requests/5 miniutes limitation/not QPS limitation
 
 ``` bash
 
@@ -203,7 +203,8 @@ http:
 
 ```
 
-* Scenario 5: 50concurrency/90000request/2miniute/not QPS limitation/with body `100000000000000000000000000000`
+* Scenario 5: 50 concurrency/ 90000 requests/2 miniutes limitation/not QPS limitation/with body `100000000000000000000000000000`
+
 `100000000000000000000000000000` contains 30 characters which is 240 bytes, the HTTP request body length average is `from ~200 bytes to over 2KB`. [1]
 
 ``` bash
