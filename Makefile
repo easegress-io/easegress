@@ -63,7 +63,7 @@ test:
 	go mod tidy
 	git diff --exit-code go.mod go.sum
 	go mod verify
-	go test -v ./...
+	go test -v ./... ${TEST_FLAGS}
 
 clean:
 	rm -rf ${RELEASE_DIR}
