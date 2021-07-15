@@ -167,8 +167,8 @@ func (c *cluster) GetRawPrefix(prefix string) (map[string]*mvccpb.KeyValue, erro
 		return kvs, err
 	}
 
-	for idx, kv := range resp.Kvs {
-		kvs[string(kv.Key)] = resp.Kvs[idx]
+	for _, kv := range resp.Kvs {
+		kvs[string(kv.Key)] = kv
 	}
 
 	return kvs, nil

@@ -22,6 +22,18 @@ endif
 # Build Flags
 GO_LD_FLAGS= "-s -w -X github.com/megaease/easegress/pkg/version.RELEASE=${RELEASE} -X github.com/megaease/easegress/pkg/version.COMMIT=${GIT_COMMIT} -X github.com/megaease/easegress/pkg/version.REPO=${GIT_REPO_INFO}"
 
+# Cgo is disabled by default
+ENABLE_CGO= CGO_ENABLED=0
+
+# Check Go build tags, the tags are from command line of make
+ifdef GOTAGS
+  GO_BUILD_TAGS= -tags ${GOTAGS}
+  # Must enable Cgo when wasmhost is included
+  ifeq ($(findstring wasmhost,${GOTAGS}), wasmhost)
+	ENABLE_CGO= CGO_ENABLED=1
+  endif
+endif
+
 # Targets
 TARGET_SERVER=${RELEASE_DIR}/easegress-server
 TARGET_CLIENT=${RELEASE_DIR}/egctl
@@ -38,7 +50,7 @@ build_client:
 build_server:
 	@echo "build server"
 	cd ${MKFILE_DIR} && \
-	CGO_ENABLED=0 go build -v -trimpath -ldflags ${GO_LD_FLAGS} \
+	${ENABLE_CGO} go build ${GO_BUILD_TAGS} -v -trimpath -ldflags ${GO_LD_FLAGS} \
 	-o ${TARGET_SERVER} ${MKFILE_DIR}cmd/server
 
 dev_build: dev_build_client dev_build_server

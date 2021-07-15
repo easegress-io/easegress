@@ -43,6 +43,9 @@
   - [Validator](#validator)
     - [Configuration](#configuration-13)
     - [Results](#results-13)
+  - [WasmHost](#wasmhost)
+    - [Configuration](#configuration-14)
+    - [Results](#results-14)
   - [Common Types](#common-types)
     - [apiaggregator.APIProxy](#apiaggregatorapiproxy)
     - [pathadaptor.Spec](#pathadaptorspec)
@@ -597,6 +600,48 @@ oauth2:
 | Value   | Description                         |
 | ------- | ----------------------------------- |
 | invalid | The request doesn't pass validation |
+
+## WasmHost
+
+The WasmHost filter implements a host environment for user-developed [WebAssembly](https://webassembly.org/) code. Below is an example configuration that loads wasm code from a file.
+
+```yaml
+name: wasm-host-example
+kind: WasmHost
+maxConcurrency: 2
+code: /home/megaease/wasm/hello.wasm
+timeout: 200ms
+```
+
+Note: this filter is disabled in the default build of `Easegress`, it can be enabled by:
+
+```bash
+$ make GOTAGS=wasmhost
+```
+
+or
+
+```bash
+$ go build -tags=wasmhost
+```
+
+### Configuration
+
+| Name           | Type   | Description    | Required |
+| -------------- | ------ |--------------- | -------- |
+| maxConcurrency | int32  | The maximum requests the filter can process concurrently. Default is 10 and minimum value is 1. | Yes       |
+| code           | string | The wasm code, can be the base64 encoded code, or path/url of the file which contains the code. | Yes    |
+| timeout        | string | Timeout for wasm execution, default is 100ms. | Yes     |
+
+### Results
+
+| Value       | Description                         |
+| ----------- | ----------------------------------- |
+| outOfVM     | Can not found an available wasm VM. |
+| wasmError   | An error occurs during the execution of wasm code. |
+| wasmResult1 <td rowspan="3">Results defined and returned by wasm code.</td>
+|     ...      
+| wasmResult9 
 
 ## Common Types
 

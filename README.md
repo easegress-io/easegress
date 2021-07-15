@@ -69,6 +69,8 @@ The architecture of Easegress:
 		- **FaaS** integrates with the serverless platform Knative.
 		- **Service Discovery** integrates with Eureka, Consul, Etcd, and Zookeeper.
 		- **Ingress Controller** integrates with Kubernetes as an ingress controller.
+- **Extensibility**
+    - **WebAssembly** executes user developed [WebAssembly](https://webassembly.org/) code.
 - **High Performance and Availability**
 	- **Adaption**: adapts request, response in the handling chain.
 	- **Validation**: headers validation, OAuth2, JWT, and HMAC verification.

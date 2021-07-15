@@ -3,10 +3,25 @@ package main
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
+	"os"
 	"time"
 )
+
+type TeeWriter struct {
+	writers []io.Writer
+}
+
+func NewTeeWriter(writers ...io.Writer) *TeeWriter {
+	return &TeeWriter{writers: writers}
+}
+
+func (tw *TeeWriter) Write(p []byte) (n int, err error) {
+	for _, w := range tw.writers {
+		w.Write(p)
+	}
+	return len(p), nil
+}
 
 func main() {
 	helloHandler := func(w http.ResponseWriter, req *http.Request) {
@@ -14,27 +29,29 @@ func main() {
 	}
 	mirrorHandler := func(w http.ResponseWriter, req *http.Request) {
 		time.Sleep(10 * time.Millisecond)
-		body, err := ioutil.ReadAll(req.Body)
+		body, err := io.ReadAll(req.Body)
 		if err != nil {
 			body = []byte(fmt.Sprintf("<read failed: %v>", err))
 		}
+
+		tw := NewTeeWriter(w, os.Stdout)
 
 		url := req.URL.Path
 		if req.URL.Query().Encode() != "" {
 			url += "?" + req.URL.Query().Encode()
 		}
 
-		content := fmt.Sprintf(`Your Request
-===============
-Method: %s
-URL   : %s
-Header: %v
-Body  : %s`, req.Method, url, req.Header, body)
+		fmt.Fprintln(tw, "Your Request")
+		fmt.Fprintln(tw, "==============")
+		fmt.Fprintln(tw, "Method:", req.Method)
+		fmt.Fprintln(tw, "URL   :", url)
 
-		// fmt.Printf("%s: %d bytes body received, %d bytes body sent\n",
-		// 	req.Host, len(body), len(content))
+		fmt.Fprintln(tw, "Header:")
+		for k, v := range req.Header {
+			fmt.Fprintf(tw, "    %s: %v\n", k, v)
+		}
 
-		io.WriteString(w, content)
+		fmt.Fprintln(tw, "Body  :", string(body))
 	}
 
 	http.HandleFunc("/", mirrorHandler)

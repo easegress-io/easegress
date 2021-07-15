@@ -13,3 +13,4 @@
   * [Retryer](./filters.md#Retryer)
   * [ResponseAdaptor](./filters.md#ResponseAdaptor)
   * [Validator](./filters.md#Validator)
+  * [WasmHost](./filters.md#WasmHost)

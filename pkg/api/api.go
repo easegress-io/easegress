@@ -48,6 +48,8 @@ var (
 	apisMutex      = sync.Mutex{}
 	apis           = make(map[string]*APIGroup)
 	apisChangeChan = make(chan struct{}, 10)
+
+	appendAddonAPIs []func(s *Server, group *APIGroup)
 )
 
 type apisbyOrder []*APIGroup
@@ -97,6 +99,10 @@ func (s *Server) registerAPIs() {
 	group.Entries = append(group.Entries, s.metadataAPIEntries()...)
 	group.Entries = append(group.Entries, s.healthAPIEntries()...)
 	group.Entries = append(group.Entries, s.aboutAPIEntries()...)
+
+	for _, fn := range appendAddonAPIs {
+		fn(s, group)
+	}
 
 	RegisterAPIs(group)
 }
