@@ -27,7 +27,7 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 )
 
-// WasmVM represents a Wasm VM
+// WasmVM represents a wasm VM
 type WasmVM struct {
 	ctx     context.HTTPContext
 	store   *wasmtime.Store
@@ -38,12 +38,12 @@ type WasmVM struct {
 	fnFree  *wasmtime.Func
 }
 
-// Interrupt interrupts the execution of Wasm code
+// Interrupt interrupts the execution of wasm code
 func (vm *WasmVM) Interrupt() {
 	vm.ih.Interrupt()
 }
 
-// Run executes the Wasm code
+// Run executes the wasm code
 func (vm *WasmVM) Run() interface{} {
 	r, e := vm.fnRun.Call(vm.store)
 	if e != nil {
@@ -54,25 +54,25 @@ func (vm *WasmVM) Run() interface{} {
 
 func (vm *WasmVM) exportWasmFuncs() error {
 	if extern := vm.inst.GetExport(vm.store, "wasm_run"); extern == nil {
-		return fmt.Errorf("WASM code hasn't export function 'wasm_run'")
+		return fmt.Errorf("wasm code hasn't export function 'wasm_run'")
 	} else if fn := extern.Func(); fn == nil {
-		return fmt.Errorf("'wasm_run' exported by WASM code is not a function")
+		return fmt.Errorf("'wasm_run' exported by wasm code is not a function")
 	} else {
 		vm.fnRun = fn
 	}
 
 	if extern := vm.inst.GetExport(vm.store, "wasm_alloc"); extern == nil {
-		return fmt.Errorf("WASM code hasn't export function 'wasm_alloc'")
+		return fmt.Errorf("wasm code hasn't export function 'wasm_alloc'")
 	} else if fn := extern.Func(); fn == nil {
-		return fmt.Errorf("'wasm_alloc' exported by WASM code is not a function")
+		return fmt.Errorf("'wasm_alloc' exported by wasm code is not a function")
 	} else {
 		vm.fnAlloc = fn
 	}
 
 	if extern := vm.inst.GetExport(vm.store, "wasm_free"); extern == nil {
-		return fmt.Errorf("WASM code hasn't export function 'wasm_free'")
+		return fmt.Errorf("wasm code hasn't export function 'wasm_free'")
 	} else if fn := extern.Func(); fn == nil {
-		return fmt.Errorf("'wasm_free' exported by WASM code is not a function")
+		return fmt.Errorf("'wasm_free' exported by wasm code is not a function")
 	} else {
 		vm.fnFree = fn
 	}
@@ -105,21 +105,21 @@ func newWasmVM(engine *wasmtime.Engine, module *wasmtime.Module) (*WasmVM, error
 	return vm, nil
 }
 
-// WasmVMPool is a pool of Wasm VMs
+// WasmVMPool is a pool of wasm VMs
 type WasmVMPool struct {
 	chVM   chan *WasmVM
 	engine *wasmtime.Engine
 	module *wasmtime.Module
 }
 
-// NewWasmVMPool creates a Wasm VM pool with 'size' VMs which execute 'code'
+// NewWasmVMPool creates a wasm VM pool with 'size' VMs which execute 'code'
 func NewWasmVMPool(size int32, code []byte) (*WasmVMPool, error) {
 	cfg := wasmtime.NewConfig()
 	cfg.SetInterruptable(true)
 	engine := wasmtime.NewEngineWithConfig(cfg)
 	module, e := wasmtime.NewModule(engine, code)
 	if e != nil {
-		logger.Errorf("failed to create Wasm module: %v", e)
+		logger.Errorf("failed to create wasm module: %v", e)
 		return nil, e
 	}
 
@@ -128,7 +128,7 @@ func NewWasmVMPool(size int32, code []byte) (*WasmVMPool, error) {
 	for i := int32(0); i < size; i++ {
 		vm, e := newWasmVM(p.engine, p.module)
 		if e != nil {
-			logger.Errorf("failed to create Wasm VM: %v", e)
+			logger.Errorf("failed to create wasm VM: %v", e)
 		}
 		p.chVM <- vm
 	}
@@ -136,7 +136,7 @@ func NewWasmVMPool(size int32, code []byte) (*WasmVMPool, error) {
 	return p, nil
 }
 
-// Get gets a Wasm VM from the pool
+// Get gets a wasm VM from the pool
 func (p *WasmVMPool) Get() *WasmVM {
 	vm := <-p.chVM
 	if vm != nil {
@@ -147,14 +147,14 @@ func (p *WasmVMPool) Get() *WasmVM {
 	vm, e := newWasmVM(p.engine, p.module)
 	if e != nil {
 		p.chVM <- nil
-		logger.Errorf("failed to create Wasm VM: %v", e)
+		logger.Errorf("failed to create wasm VM: %v", e)
 		return nil
 	}
 
 	return vm
 }
 
-// Put puts a Wasm VM to the pool, putting a nil VM is allowed
+// Put puts a wasm VM to the pool, putting a nil VM is allowed
 // and will cause p.Get to create a new VM later
 func (p *WasmVMPool) Put(vm *WasmVM) {
 	p.chVM <- vm

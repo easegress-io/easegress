@@ -380,7 +380,7 @@ func (vm *WasmVM) hostLog(level int32, addr int32) {
 	}
 }
 
-// importHostFuncs imports host functions into Wasm so that user-developed Wasm
+// importHostFuncs imports host functions into wasm so that user-developed wasm
 // code can call these functions to interoperate with host.
 func (vm *WasmVM) importHostFuncs(linker *wasmtime.Linker) {
 	defineFunc := func(name string, fn interface{}) {

@@ -41,7 +41,7 @@ func appendWasmAPI(s *Server, group *APIGroup) {
 		Handler: func(w http.ResponseWriter, r *http.Request) {
 			v := s.postWasmCodeUpdateEvent()
 			w.Header().Set("Content-Type", "text/plain")
-			fmt.Fprintf(w, "Wasm code update event posted at: %s\n", v)
+			fmt.Fprintf(w, "wasm code update event posted at: %s\n", v)
 		},
 	}
 

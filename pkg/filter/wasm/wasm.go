@@ -39,8 +39,8 @@ import (
 
 const (
 	// Kind is the kind of WasmFilter.
-	Kind        = "WasmFilter"
-	maxWasmCode = 9
+	Kind          = "WasmFilter"
+	maxWasmResult = 9
 )
 
 var (
@@ -49,16 +49,16 @@ var (
 	results         = []string{resultOutOfVM, resultWasmError}
 )
 
-func wasmCodeToResult(code int32) string {
-	if code == 0 {
+func wasmResultToFilterResult(r int32) string {
+	if r == 0 {
 		return ""
 	}
-	return fmt.Sprintf("wasmResult%d", code)
+	return fmt.Sprintf("wasmResult%d", r)
 }
 
 func init() {
-	for i := int32(1); i <= maxWasmCode; i++ {
-		results = append(results, wasmCodeToResult(i))
+	for i := int32(1); i <= maxWasmResult; i++ {
+		results = append(results, wasmResultToFilterResult(i))
 	}
 	httppipeline.Register(&WasmFilter{})
 }
@@ -148,7 +148,7 @@ func (f *WasmFilter) readWasmCode() ([]byte, error) {
 func (f *WasmFilter) loadWasmCode() error {
 	code, e := f.readWasmCode()
 	if e != nil {
-		logger.Errorf("failed to load Wasm code: %v", e)
+		logger.Errorf("failed to load wasm code: %v", e)
 		return e
 	}
 
@@ -158,7 +158,7 @@ func (f *WasmFilter) loadWasmCode() error {
 
 	p, e := NewWasmVMPool(f.spec.MaxConcurrency, code)
 	if e != nil {
-		logger.Errorf("failed to create Wasm VM pool: %v", e)
+		logger.Errorf("failed to create wasm VM pool: %v", e)
 		return e
 	}
 	f.code = code
@@ -183,7 +183,7 @@ func (f *WasmFilter) watchWasmCode() {
 				break
 			}
 		}
-		logger.Errorf("failed to watch Wasm code event: %v", err)
+		logger.Errorf("failed to watch wasm code event: %v", err)
 		select {
 		case <-time.After(10 * time.Second):
 		case <-f.chStop:
@@ -237,19 +237,19 @@ func (f *WasmFilter) Handle(ctx context.HTTPContext) string {
 
 func (f *WasmFilter) handle(ctx context.HTTPContext) (result string) {
 	// we must save the pool to a local variable for later use as it will be
-	// replaced when updating the Wasm code
+	// replaced when updating the wasm code
 	var pool *WasmVMPool
 	if p := f.vmPool.Load(); p == nil {
-		ctx.AddTag("Wasm VM pool is not initialized")
+		ctx.AddTag("wasm VM pool is not initialized")
 		return resultOutOfVM
 	} else {
 		pool = p.(*WasmVMPool)
 	}
 
-	// get a free WASM VM and attach the ctx to it
+	// get a free wasm VM and attach the ctx to it
 	vm := pool.Get()
 	if vm == nil {
-		ctx.AddTag("failed to get a Wasm VM")
+		ctx.AddTag("failed to get a wasm VM")
 		return resultOutOfVM
 	}
 	vm.ctx = ctx
@@ -299,12 +299,12 @@ func (f *WasmFilter) handle(ctx context.HTTPContext) (result string) {
 	}()
 
 	r := vm.Run() // execute wasm code
-	code, ok := r.(int32)
-	if !ok || code > maxWasmCode {
-		panic(fmt.Errorf("invalid Wasm result: %v", r))
+	n, ok := r.(int32)
+	if !ok || n < 0 || n > maxWasmResult {
+		panic(fmt.Errorf("invalid wasm result: %v", r))
 	}
 
-	return wasmCodeToResult(code)
+	return wasmResultToFilterResult(n)
 }
 
 // Status returns Status genreated by the filter.
