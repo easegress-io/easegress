@@ -38,4 +38,9 @@ jobs:
       - name: Test
         shell: bash
         run: |
-          make test
+          make test TEST_FLAGS="-race -coverprofile=coverage.txt -covermode=atomic"
+
+      - name: Upload coverage to Codecov 
+        uses: codecov/codecov-action@v1.5.2
+        with:
+          file: ./coverage.txt
