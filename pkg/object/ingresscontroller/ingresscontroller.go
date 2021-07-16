@@ -31,7 +31,7 @@ import (
 const (
 	// Category is the name of ingress controller
 	Category = supervisor.CategoryBusinessController
-	// Kind is the name of controller
+	// Kind is the kind of ingress controller
 	Kind = "IngressController"
 
 	defaultIngressClass          = "easegress"
