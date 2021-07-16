@@ -165,7 +165,7 @@ func (client *JolokiaClient) GetMbeanAttribute(mbean string, attribute string, p
 	return result, err
 }
 
-//SetMbeanAttribute writes Mbean attribute
+// SetMbeanAttribute writes Mbean attribute
 func (client *JolokiaClient) SetMbeanAttribute(mbean string, attribute string, path string, value interface{}) (interface{}, error) {
 	requestBody := writeRequestBody{
 		Mbean:     mbean,
