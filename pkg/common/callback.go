@@ -93,7 +93,7 @@ func (cbs *NamedCallbackSet) GetCallbacks() []*NamedCallback {
 
 ////
 
-// AddCallback add a callback into a callback set
+// AddCallback adds a callback into a callback set with priority
 func AddCallback(cbs *NamedCallbackSet, name string, callback interface{}, priority string) *NamedCallbackSet {
 	if cbs == nil {
 		return nil
