@@ -54,7 +54,7 @@ type (
 		wg     sync.WaitGroup
 	}
 
-	// Spec is the ingress spec
+	// Spec is the ingress controller spec
 	Spec struct {
 		HTTPServer   *httpserver.Spec `yaml:"httpServer" jsonschema:"required"`
 		KubeConfig   string           `yaml:"kubeConfig" jsonschema:"omitempty"`
