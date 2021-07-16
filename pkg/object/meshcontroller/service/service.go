@@ -252,7 +252,7 @@ func (s *Service) listServiceInstanceStatuses(all bool, serviceName string) []*s
 	return statuses
 }
 
-//ListAllServiceInstanceSpecs list all service instance specs
+// ListAllServiceInstanceSpecs list all service instance specs
 func (s *Service) ListAllServiceInstanceSpecs() []*spec.ServiceInstanceSpec {
 	return s.listServiceInstanceSpecs(true, "")
 }
