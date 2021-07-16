@@ -33,7 +33,7 @@ type NamedCallback struct {
 	callback interface{}
 }
 
-//NewNamedCallback return a new named callback
+// NewNamedCallback return a new named callback
 func NewNamedCallback(name string, callback interface{}) *NamedCallback {
 	return &NamedCallback{
 		name:     name,
