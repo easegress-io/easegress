@@ -654,7 +654,7 @@ func (s *Service) SideCarIngressPipelineSpec(applicationPort uint32) (*superviso
 	return superSpec, nil
 }
 
-// SideCarEgressPipelineSpec return a spec for sidecar egress pipeline
+// SideCarEgressPipelineSpec returns a spec for sidecar egress pipeline
 func (s *Service) SideCarEgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec) (*supervisor.Spec, error) {
 	pipelineSpecBuilder := newPipelineSpecBuilder(s.EgressPipelineName())
 
