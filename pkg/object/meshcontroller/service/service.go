@@ -351,7 +351,7 @@ func (s *Service) DeleteTenantSpec(tenantName string) {
 	}
 }
 
-//GetIngressSpec gets the ingress spec
+// GetIngressSpec gets the ingress spec
 func (s *Service) GetIngressSpec(ingressName string) *spec.Ingress {
 	ingress, _ := s.GetIngressSpecWithInfo(ingressName)
 	return ingress
