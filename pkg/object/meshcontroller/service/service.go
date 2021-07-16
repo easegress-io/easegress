@@ -42,7 +42,7 @@ type (
 	}
 )
 
-// New creates a servic with spec
+// New creates a service with spec
 func New(superSpec *supervisor.Spec) *Service {
 	s := &Service{
 		superSpec: superSpec,
