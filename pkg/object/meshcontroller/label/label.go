@@ -18,7 +18,7 @@
 package label
 
 const (
-	//KeyRole is the key of role
+	// KeyRole is the key of role
 	KeyRole = "mesh-role"
 	// KeyServiceName is the key of service name
 	KeyServiceName = "mesh-servicename"
