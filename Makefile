@@ -11,7 +11,7 @@ MKFILE_DIR := $(dir $(MKFILE_PATH))
 RELEASE_DIR := ${MKFILE_DIR}bin
 
 # Version
-RELEASE?=1.0.1
+RELEASE?=1.1.0
 
 # Git Related
 GIT_REPO_INFO=$(shell cd ${MKFILE_DIR} && git config --get remote.origin.url)
