@@ -249,7 +249,7 @@ func (s *Syncer) SyncRawPrefix(prefix string) (<-chan map[string]*mvccpb.KeyValu
 	return ch, nil
 }
 
-// Close terminate the channel
+// Close closes the syncer
 func (s *Syncer) Close() {
 	close(s.done)
 }
