@@ -600,7 +600,7 @@ func (s *Service) IngressPipelineName() string {
 	return fmt.Sprintf("mesh-ingress-pipeline-%s", s.Name)
 }
 
-// BackendName return backend service name
+// BackendName returns backend service name
 func (s *Service) BackendName() string {
 	return s.Name
 }
