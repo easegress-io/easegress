@@ -52,7 +52,7 @@ func (s *Semaphore) Acquire() {
 	s.AcquireWithContext(context.Background())
 }
 
-//AcquireWithContext acquires the semaphore with context
+// AcquireWithContext acquires the semaphore with context
 func (s *Semaphore) AcquireWithContext(ctx context.Context) error {
 	return s.sem.Acquire(ctx, 1)
 }
