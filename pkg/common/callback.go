@@ -71,7 +71,7 @@ type NamedCallbackSet struct {
 
 }
 
-// NewNamedCallbackSet return a new NamedCallbackSet
+// NewNamedCallbackSet returns a new NamedCallbackSet
 func NewNamedCallbackSet() *NamedCallbackSet {
 	return &NamedCallbackSet{
 		names:     make(map[string]*namedCallbackWithIdx, CallbacksInitCapacity),
