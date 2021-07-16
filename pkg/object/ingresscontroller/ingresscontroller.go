@@ -53,6 +53,7 @@ type (
 		stopCh chan struct{}
 		wg     sync.WaitGroup
 	}
+
 	// Spec is the ingress spec
 	Spec struct {
 		HTTPServer   *httpserver.Spec `yaml:"httpServer" jsonschema:"required"`
