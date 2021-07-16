@@ -49,8 +49,8 @@ require (
 	go.uber.org/zap v1.17.0
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/api v0.20.7
-	k8s.io/apimachinery v0.20.7
+	k8s.io/api v0.21.3
+	k8s.io/apimachinery v0.21.3
 	k8s.io/cli-runtime v0.20.7 // indirect
 	k8s.io/client-go v0.20.7
 	knative.dev/client v0.23.1
