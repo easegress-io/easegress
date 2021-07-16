@@ -35,7 +35,7 @@ const (
 	serviceConfigURL = "/config-service"
 )
 
-//AgentInterface is the interface operate the agent client
+// AgentInterface is the interface operate the agent client
 type AgentInterface interface {
 	UpdateService(newService *spec.Service, version int64) error
 	UpdateCanary(globalHeaders *spec.GlobalCanaryHeaders, version int64) error
