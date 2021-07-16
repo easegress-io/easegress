@@ -46,7 +46,7 @@ func (cb *NamedCallback) Name() string {
 	return cb.name
 }
 
-// Callback return callback function
+// Callback returns callback function
 func (cb *NamedCallback) Callback() interface{} {
 	return cb.callback
 }
