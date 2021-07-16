@@ -51,7 +51,7 @@ func (cb *NamedCallback) Callback() interface{} {
 	return cb.callback
 }
 
-// SetCallback set the callback function
+// SetCallback sets the callback function
 func (cb *NamedCallback) SetCallback(callback interface{}) interface{} {
 	oriCallback := cb.callback
 	cb.callback = callback
