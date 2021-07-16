@@ -42,7 +42,7 @@ type AgentInterface interface {
 
 type AgentClient struct {
 	URL        string
-	HttpClient *http.Client
+	HTTPClient *http.Client
 }
 
 func NewAgentClient(host, port string) *AgentClient {
@@ -61,7 +61,7 @@ func (agent *AgentClient) UpdateService(newService *spec.Service, version int64)
 	if err != nil {
 		return fmt.Errorf("convert yaml %s to json failed: %v", buff, err)
 	}
-	kvMap, err := JsonToKVMap(string(jsonBytes))
+	kvMap, err := JSONToKVMap(string(jsonBytes))
 	kvMap["version"] = strconv.FormatInt(version, 10)
 
 	bytes, err := json.Marshal(kvMap)
@@ -84,7 +84,7 @@ func (agent *AgentClient) UpdateCanary(globalHeaders *spec.GlobalCanaryHeaders, 
 	if err != nil {
 		return fmt.Errorf("convert yaml %s to json failed: %v", buff, err)
 	}
-	kvMap, err := JsonToKVMap(string(jsonBytes))
+	kvMap, err := JSONToKVMap(string(jsonBytes))
 	kvMap["version"] = strconv.FormatInt(version, 10)
 
 	bytes, err := json.Marshal(kvMap)

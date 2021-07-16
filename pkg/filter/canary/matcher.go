@@ -430,7 +430,7 @@ func (p *parser) getSourceKey() (string, error) {
 	if p.conditions[p.offset] != '.' {
 		return "", errors.New("illegal key")
 	}
-	p.offset += 1
+	p.offset++
 	return p.pop(), nil
 }
 

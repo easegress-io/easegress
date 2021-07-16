@@ -54,7 +54,7 @@ func TestSemaphoreChangeAtRuntime(t *testing.T) {
 func runCase(s *Semaphore, maxCount int64, t *testing.T) {
 	// step 0, change max count at runtime
 	done := s.SetMaxCount(maxCount)
-	<- done
+	<-done
 
 	// step 1, try to acquire max count, should be OK
 	wg := &sync.WaitGroup{}

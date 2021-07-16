@@ -97,7 +97,7 @@ const (
 	// MeshServiceInstanceURL is the mesh service path.
 	MeshServiceInstanceURL = apiURL + "/mesh/serviceinstances/%s/%s"
 
-	// MeshIngressURL is the mesh ingress prefix.
+	// MeshIngressesURL is the mesh ingress prefix.
 	MeshIngressesURL = apiURL + "/mesh/ingresses"
 
 	// MeshIngressURL is the mesh ingress path.

@@ -66,12 +66,12 @@ func NewSpec(yamlConfig string) (*Spec, error) {
 }
 
 // NewSpec creates a spec and validates it.
-func (super *Supervisor) NewSpec(yamlConfig string) (s *Spec, err error) {
-	s = &Spec{super: super}
+func (s *Supervisor) NewSpec(yamlConfig string) (spec *Spec, err error) {
+	spec = &Spec{super: s}
 
 	defer func() {
 		if r := recover(); r != nil {
-			s = nil
+			spec = nil
 			err = fmt.Errorf("%v", r)
 		} else {
 			err = nil
@@ -110,10 +110,10 @@ func (super *Supervisor) NewSpec(yamlConfig string) (s *Spec, err error) {
 
 	yamlConfig = string(yamltool.Marshal(rawSpec))
 
-	s.meta = meta
-	s.objectSpec = objectSpec
-	s.rawSpec = rawSpec
-	s.yamlConfig = yamlConfig
+	spec.meta = meta
+	spec.objectSpec = objectSpec
+	spec.rawSpec = rawSpec
+	spec.yamlConfig = yamlConfig
 
 	return
 }

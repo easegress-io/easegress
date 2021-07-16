@@ -138,9 +138,9 @@ func (i *Uint64RangeValue) Get() interface{} { return *i.v }
 func (i *Uint64RangeValue) String() string {
 	if i.v == nil {
 		return strconv.FormatUint(0, 10) // zero value
-	} else {
-		return strconv.FormatUint(*i.v, 10)
 	}
+	return strconv.FormatUint(*i.v, 10)
+
 }
 
 ////
@@ -184,9 +184,9 @@ func (i *Uint32RangeValue) Get() interface{} { return *i.v }
 func (i *Uint32RangeValue) String() string {
 	if i.v == nil {
 		return strconv.FormatUint(0, 10) // zero value
-	} else {
-		return strconv.FormatUint(uint64(*i.v), 10)
 	}
+	return strconv.FormatUint(uint64(*i.v), 10)
+
 }
 
 ////
@@ -230,9 +230,9 @@ func (i *Uint16RangeValue) Get() interface{} { return *i.v }
 func (i *Uint16RangeValue) String() string {
 	if i.v == nil {
 		return strconv.FormatUint(0, 10) // zero value
-	} else {
-		return strconv.FormatUint(uint64(*i.v), 10)
 	}
+	return strconv.FormatUint(uint64(*i.v), 10)
+
 }
 
 ////

@@ -46,7 +46,7 @@ func (worker *Worker) runAPIServer() {
 	worker.apiServer.registerAPIs(apis)
 }
 
-func (wrk *Worker) emptyHandler(w http.ResponseWriter, r *http.Request) {
+func (worker *Worker) emptyHandler(w http.ResponseWriter, r *http.Request) {
 	// EaseMesh does not need to implement some APIS like
 	// delete, heartbeat of Eureka/Consul/Nacos.
 }

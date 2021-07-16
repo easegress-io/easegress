@@ -79,13 +79,13 @@ type (
 	// ServiceSpecFunc is the callback function type for service spec.
 	ServiceSpecFunc func(event Event, serviceSpec *spec.Service) bool
 
-	// ServiceSpecFunc is the callback function type for service specs.
+	// ServiceSpecsFunc is the callback function type for service specs.
 	ServiceSpecsFunc func(value map[string]*spec.Service) bool
 
-	// ServiceInstanceSpecFunc is the callback function type for service instance spec.
+	// ServicesInstanceSpecFunc is the callback function type for service instance spec.
 	ServicesInstanceSpecFunc func(event Event, instanceSpec *spec.ServiceInstanceSpec) bool
 
-	// ServiceInstanceSpecFunc is the callback function type for service instance specs.
+	// ServiceInstanceSpecsFunc is the callback function type for service instance specs.
 	ServiceInstanceSpecsFunc func(value map[string]*spec.ServiceInstanceSpec) bool
 
 	// ServiceInstanceStatusFunc is the callback function type for service instance status.
@@ -103,7 +103,7 @@ type (
 	// IngressSpecFunc is the callback function type for service spec.
 	IngressSpecFunc func(event Event, ingressSpec *spec.Ingress) bool
 
-	// IngressSpecFunc is the callback function type for service specs.
+	// IngressSpecsFunc is the callback function type for service specs.
 	IngressSpecsFunc func(value map[string]*spec.Ingress) bool
 
 	// Informer is the interface for informing two type of storage changed for every Mesh spec structure.

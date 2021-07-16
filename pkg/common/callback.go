@@ -20,8 +20,8 @@ package common
 const (
 	CallbacksInitCapacity = 20
 
-	NORMAL_PRIORITY_CALLBACK   = "__NoRmAl_PrIoRiTy_CaLlBaCk"
-	CRITICAL_PRIORITY_CALLBACK = "__CrItIcAl_PrIoRiTy_CaLlBaCk"
+	NormalPriorityCallback   = "__NoRmAl_PrIoRiTy_CaLlBaCk"
+	CriticalPriorityCallback = "__CrItIcAl_PrIoRiTy_CaLlBaCk"
 )
 
 ////
@@ -96,10 +96,10 @@ func AddCallback(cbs *NamedCallbackSet, name string, callback interface{}, prior
 	cb := NewNamedCallback(name, callback)
 	idx := 0
 
-	if priority == NORMAL_PRIORITY_CALLBACK {
+	if priority == NormalPriorityCallback {
 		idx = len(cbs.callbacks)
 		cbs.callbacks = append(cbs.callbacks, cb)
-	} else if priority == CRITICAL_PRIORITY_CALLBACK {
+	} else if priority == CriticalPriorityCallback {
 		// idx = 0
 		cbs.callbacks = append([]*NamedCallback{cb}, cbs.callbacks...)
 	} else {

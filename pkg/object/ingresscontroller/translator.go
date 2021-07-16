@@ -165,15 +165,15 @@ func (st *specTranslator) getEndpoints(namespace string, service *apinetv1.Ingre
 	if svcPort == nil {
 		return nil, fmt.Errorf("service port in service %s/%s", namespace, service.Name)
 	}
-	protocal := "http"
+	protocol := "http"
 	if svcPort.Port == 443 {
-		protocal = "https"
+		protocol = "https"
 	}
 
 	var result []string
 	if svc.Spec.Type == apicorev1.ServiceTypeExternalName {
 		hostPort := net.JoinHostPort(svc.Spec.ExternalName, strconv.Itoa(int(svcPort.Port)))
-		ep := fmt.Sprintf("%s://%s", protocal, hostPort)
+		ep := fmt.Sprintf("%s://%s", protocol, hostPort)
 		result = append(result, ep)
 		return result, nil
 	}
@@ -196,7 +196,7 @@ func (st *specTranslator) getEndpoints(namespace string, service *apinetv1.Ingre
 
 		for _, addr := range subset.Addresses {
 			hostPort := net.JoinHostPort(addr.IP, strconv.Itoa(int(port)))
-			ep := fmt.Sprintf("%s://%s", protocal, hostPort)
+			ep := fmt.Sprintf("%s://%s", protocol, hostPort)
 			result = append(result, ep)
 		}
 	}

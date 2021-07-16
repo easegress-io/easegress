@@ -183,7 +183,7 @@ func TestSpecTransform(t *testing.T) {
 		fmt.Println(err)
 	}
 
-	kvMap, err := JsonToKVMap(string(jsonBytes))
+	kvMap, err := JSONToKVMap(string(jsonBytes))
 	for k, v := range kvMap {
 		fmt.Println(k, v)
 	}

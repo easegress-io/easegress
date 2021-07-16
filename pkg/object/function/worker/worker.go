@@ -49,7 +49,7 @@ type (
 	}
 )
 
-// newWorker return a worker
+// NewWorker return a worker
 func NewWorker(superSpec *supervisor.Spec) *Worker {
 	store := storage.NewStorage(superSpec.Name(), superSpec.Super().Cluster())
 	faasProvider := provider.NewProvider(superSpec)

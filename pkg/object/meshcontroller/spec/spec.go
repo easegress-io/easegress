@@ -123,7 +123,7 @@ type (
 		URLs                  []*urlrule.URLRule              `yaml:"urls" jsonschema:"required"`
 	}
 
-	// GlobalCanaryLabels is the spec of global service
+	// GlobalCanaryHeaders is the spec of global service
 	GlobalCanaryHeaders struct {
 		ServiceHeaders map[string][]string `yaml:"serviceHeaders" jsonschema:"omitempty"`
 	}

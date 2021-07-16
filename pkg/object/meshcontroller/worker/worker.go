@@ -170,9 +170,8 @@ func (worker *Worker) run() {
 	if len(worker.serviceName) == 0 {
 		logger.Errorf("mesh service name is empty")
 		return
-	} else {
-		logger.Infof("%s works for service %s", worker.serviceName)
 	}
+	logger.Infof("%s works for service %s", worker.serviceName)
 
 	_, err = url.ParseRequestURI(worker.aliveProbe)
 	if err != nil {

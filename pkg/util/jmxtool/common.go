@@ -29,7 +29,7 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-func JsonToKVMap(jsonStr string) (map[string]string, error) {
+func JSONToKVMap(jsonStr string) (map[string]string, error) {
 	m := map[string]interface{}{}
 	err := json.Unmarshal([]byte(jsonStr), &m)
 	if err != nil {
@@ -83,9 +83,9 @@ func extractKVs(prefix string, obj interface{}) []map[string]string {
 func join(prefix string, current string) string {
 	if prefix == "" {
 		return current
-	} else {
-		return strings.Join([]string{prefix, current}, ".")
 	}
+	return strings.Join([]string{prefix, current}, ".")
+
 }
 
 type APIErr struct {
