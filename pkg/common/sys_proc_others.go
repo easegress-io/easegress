@@ -23,7 +23,7 @@ import (
 	"syscall"
 )
 
-// SysProcAttr return others system process attribute
+// SysProcAttr returns system process attribute
 func SysProcAttr() *syscall.SysProcAttr {
 	return nil
 }
