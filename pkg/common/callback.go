@@ -41,7 +41,7 @@ func NewNamedCallback(name string, callback interface{}) *NamedCallback {
 	}
 }
 
-// Name return callback name
+// Name returns callback name
 func (cb *NamedCallback) Name() string {
 	return cb.name
 }
