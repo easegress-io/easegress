@@ -87,7 +87,7 @@ const (
 	configFileName = "running_objects.yaml"
 )
 
-//FilterCategory returns a bool function to if the object entity is filter by category or not
+// FilterCategory returns a bool function to check if the object entity is filter by category or not
 func FilterCategory(categories ...ObjectCategory) ObjectEntityWatcherFilter {
 	allCategory := false
 	for _, category := range categories {
