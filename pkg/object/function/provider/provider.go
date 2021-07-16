@@ -107,7 +107,7 @@ func (kc *knativeClient) Delete(name string) error {
 	return kc.deleteService(name)
 }
 
-// NewProviderClient returns FaaSProvider client. It only supports Knative now.
+// NewProvider returns FaaSProvider client. It only supports Knative now.
 func NewProvider(superSpec *supervisor.Spec) FaaSProvider {
 	return &knativeClient{
 		superSpec: superSpec,

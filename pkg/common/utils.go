@@ -28,7 +28,7 @@ import (
 	"strings"
 )
 
-const TOKEN_ESCAPE_CHAR string = `\`
+const TokenEscapeChar string = `\`
 
 // GraphiteSplit slices s into all substrings separated by sep
 // returns a slice of the substrings without length prefix separated by lensep.
@@ -86,13 +86,13 @@ func ScanTokens(str string, removeEscapeChar bool, visitor TokenVisitor) (string
 			return false
 		}
 
-		return string(v[pos-1]) == TOKEN_ESCAPE_CHAR
+		return string(v[pos-1]) == TokenEscapeChar
 	}
 
 	escaper := func(s string) string {
 		return strings.Replace(
-			strings.Replace(s, TOKEN_ESCAPE_CHAR+`{`, "{", -1),
-			TOKEN_ESCAPE_CHAR+`}`, "}", -1)
+			strings.Replace(s, TokenEscapeChar+`{`, "{", -1),
+			TokenEscapeChar+`}`, "}", -1)
 	}
 
 	token := bytes.NewBuffer(nil)
@@ -177,8 +177,8 @@ func PanicToErr(f func(), err *error) (failed bool) {
 }
 
 var (
-	TRUE_STRINGS  = []string{"1", "t", "true", "on", "y", "yes"}
-	FALSE_STRINGS = []string{"0", "f", "false", "off", "n", "no"}
+	TrueStrings  = []string{"1", "t", "true", "on", "y", "yes"}
+	FalseStrings = []string{"0", "f", "false", "off", "n", "no"}
 )
 
 func RemoveRepeatedByte(s string, needRemoveByte byte) string {
@@ -198,6 +198,7 @@ func RemoveRepeatedByte(s string, needRemoveByte byte) string {
 	return out.String()
 }
 
+// NextNumberPowerOf2 return the number of power of 2
 // Via: https://stackoverflow.com/a/466242/1705845
 //      https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
 func NextNumberPowerOf2(v uint64) uint64 {
@@ -212,11 +213,11 @@ func NextNumberPowerOf2(v uint64) uint64 {
 	return v
 }
 
-// safe characters for friendly url, rfc3986 section 2.3
-var URL_FRIENDLY_CHARACTERS_REGEX = regexp.MustCompile(`^[A-Za-z0-9\-_\.~]{1,253}$`)
+// URLFriendlyCharactersRegex - safe characters for friendly url, rfc3986 section 2.3
+var URLFriendlyCharactersRegex = regexp.MustCompile(`^[A-Za-z0-9\-_\.~]{1,253}$`)
 
 func ValidateName(name string) error {
-	if !URL_FRIENDLY_CHARACTERS_REGEX.Match([]byte(name)) {
+	if !URLFriendlyCharactersRegex.Match([]byte(name)) {
 		return fmt.Errorf("invalid constant: %s", name)
 	}
 

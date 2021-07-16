@@ -179,7 +179,7 @@ func (s *Supervisor) ObjectRegistry() *ObjectRegistry {
 	return s.objectRegistry
 }
 
-// WalkObjectEntitys walks every controllers until walkFn returns false.
+// WalkControllers walks every controllers until walkFn returns false.
 func (s *Supervisor) WalkControllers(walkFn WalkFunc) {
 	defer func() {
 		if err := recover(); err != nil {
@@ -197,7 +197,7 @@ func (s *Supervisor) WalkControllers(walkFn WalkFunc) {
 	})
 }
 
-// GetObjectEntity returns the system controller with the existing flag.
+// GetSystemController returns the system controller with the existing flag.
 // The name of system controller is its own kind.
 func (s *Supervisor) GetSystemController(name string) (*ObjectEntity, bool) {
 	entity, exists := s.systemControllers.Load(name)
@@ -207,7 +207,7 @@ func (s *Supervisor) GetSystemController(name string) (*ObjectEntity, bool) {
 	return entity.(*ObjectEntity), true
 }
 
-// GetObjectEntity returns the business controller with the existing flag.
+// GetBusinessController returns the business controller with the existing flag.
 func (s *Supervisor) GetBusinessController(name string) (*ObjectEntity, bool) {
 	entity, exists := s.businessControllers.Load(name)
 	if !exists {

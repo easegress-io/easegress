@@ -61,7 +61,7 @@ var (
 		//   }
 		// }
 		// FIXME if necessary:
-		// The $ref can't find it becasue the slash means a level in json schema.
+		// The $ref can't find it because the slash means a level in json schema.
 		// We can fix it by replace all slashes by `.` or `-`, etc in github.com/alecthomas/jsonschema.
 	}
 	schemaMetasMutex = sync.Mutex{}

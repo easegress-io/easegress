@@ -86,7 +86,7 @@ type (
 
 	JolokiaClient struct {
 		URL        string
-		HttpClient *http.Client
+		HTTPClient *http.Client
 	}
 )
 
@@ -107,7 +107,7 @@ func (client *JolokiaClient) handleRequest(requestBody []byte) (*JolokiaResponse
 		return nil, err
 	}
 	request.Header.Set("Content-Type", "application/json")
-	response, err := client.HttpClient.Do(request)
+	response, err := client.HTTPClient.Do(request)
 	if err != nil {
 		return nil, err
 	}

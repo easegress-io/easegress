@@ -59,7 +59,7 @@ type (
 		httppipelines sync.Map
 	}
 
-	// WalkHTTPServerFunc is the type of the function called for
+	// WalkFunc is the type of the function called for
 	// walking http server and http pipeline.
 	WalkFunc = supervisor.WalkFunc
 
@@ -100,7 +100,7 @@ func newNamespace(namespace string) *Namespace {
 	}
 }
 
-// Space gets handler within the namspace of it.
+// GetHandler - Space gets handler within the namspace of it.
 func (ns *Namespace) GetHandler(name string) (protocol.HTTPHandler, bool) {
 	entity, exists := ns.httppipelines.Load(name)
 	if !exists {

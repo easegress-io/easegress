@@ -51,7 +51,7 @@ type (
 		LimitForPeriod     int    `yaml:"limitForPeriod" jsonschema:"omitempty,minimum=1"`
 	}
 
-	// RateLimiterURLRule defines the rate limiter rule for a URL pattern
+	// URLRule defines the rate limiter rule for a URL pattern
 	URLRule struct {
 		urlrule.URLRule `yaml:",inline"`
 		policy          *Policy

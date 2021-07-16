@@ -689,11 +689,11 @@ func (ctx *SigningContext) initFromQuery(req *http.Request) error {
 	}
 
 	str = ctx.Query.Get(ctx.literal.Expires)
-	if v, e := strconv.ParseUint(str, 0, 64); e != nil {
+	v, e := strconv.ParseUint(str, 0, 64)
+	if e != nil {
 		return fmt.Errorf(invalidQuery, ctx.literal.Expires)
-	} else {
-		ctx.ExpireTime = time.Duration(v) * time.Second
 	}
+	ctx.ExpireTime = time.Duration(v) * time.Second
 
 	ctx.SignedHeaders = ctx.Query.Get(ctx.literal.SignedHeaders)
 	ctx.Signature = ctx.Query.Get(ctx.literal.Signature)

@@ -159,9 +159,8 @@ func renderTemplate(input string, te texttemplate.TemplateEngine) (output string
 		if err != nil {
 			logger.Errorf("BUG, render header value %s failed err %v", input, err)
 			return
-		} else {
-			ok = true
 		}
+		ok = true
 	}
 	return
 }

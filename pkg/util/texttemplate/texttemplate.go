@@ -96,7 +96,7 @@ func (DummyTemplate) ExtractTemplateRuleMap(input string) map[string]string {
 	return m
 }
 
-// ExtractTemplateRuleMap dummy implement
+// ExtractRawTemplateRuleMap dummy implement
 func (DummyTemplate) ExtractRawTemplateRuleMap(input string) map[string]string {
 	m := make(map[string]string, 0)
 	return m

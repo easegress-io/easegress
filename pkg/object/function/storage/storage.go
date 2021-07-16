@@ -63,7 +63,7 @@ type (
 	}
 )
 
-// New creates a storage.
+// NewStorage creates a storage.
 func NewStorage(name string, cls cluster.Cluster) Storage {
 	cs := &clusterStorage{
 		name: name,
@@ -156,7 +156,7 @@ func (cs *clusterStorage) Syncer() (*cluster.Syncer, error) {
 	return cs.cls.Syncer(time.Minute)
 }
 
-// GetFunctionStatePrefix returns the prefix of one function statues.
+// GetFunctionStatusPrefix returns the prefix of one function statues.
 func GetFunctionStatusPrefix(controllerName, functionName string) string {
 	return fmt.Sprintf(functionStatusPrefix, controllerName, functionName)
 }

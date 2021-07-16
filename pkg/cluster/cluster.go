@@ -506,15 +506,15 @@ func (c *cluster) initLease() error {
 		resp, err := client.Lease.TimeToLive(c.requestContext(), *leaseID)
 		if err != nil || resp.TTL < minTTL {
 			return c.grantNewLease()
-		} else {
-			// NOTE: Use existed lease.
-			c.lease = leaseID
-			logger.Infof("lease is ready(use existed one: %x)", *c.lease)
-			return nil
 		}
-	} else {
-		return c.grantNewLease()
+		// NOTE: Use existed lease.
+		c.lease = leaseID
+		logger.Infof("lease is ready(use existed one: %x)", *c.lease)
+		return nil
+
 	}
+	return c.grantNewLease()
+
 }
 
 func (c *cluster) grantNewLease() error {

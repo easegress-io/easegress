@@ -39,7 +39,7 @@ func (s servicesByOrder) Less(i, j int) bool { return s[i].Name < s[j].Name }
 func (s servicesByOrder) Len() int           { return len(s) }
 func (s servicesByOrder) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
-func (m *API) readServiceName(w http.ResponseWriter, r *http.Request) (string, error) {
+func (a *API) readServiceName(w http.ResponseWriter, r *http.Request) (string, error) {
 	serviceName := chi.URLParam(r, "serviceName")
 	if serviceName == "" {
 		return "", fmt.Errorf("empty service name")

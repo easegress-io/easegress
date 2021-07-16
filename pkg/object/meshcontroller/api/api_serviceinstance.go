@@ -39,7 +39,7 @@ func (s serviceInstancesByOrder) Less(i, j int) bool {
 func (s serviceInstancesByOrder) Len() int      { return len(s) }
 func (s serviceInstancesByOrder) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 
-func (m *API) readServiceInstanceInfo(w http.ResponseWriter, r *http.Request) (string, string, error) {
+func (a *API) readServiceInstanceInfo(w http.ResponseWriter, r *http.Request) (string, string, error) {
 	serviceName := chi.URLParam(r, "serviceName")
 	if serviceName == "" {
 		return "", "", fmt.Errorf("empty service name")

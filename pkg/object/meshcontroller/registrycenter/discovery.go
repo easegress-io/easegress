@@ -171,14 +171,14 @@ func (rcs *Server) Discovery() ([]*ServiceRegistryInfo, error) {
 		}
 	}
 
-	if tenant, ok := tenantInfos[rcs.tenant]; !ok {
+	tenant, ok := tenantInfos[rcs.tenant]
+	if !ok {
 		err = fmt.Errorf("BUG: can't find service: %s's registry tenant: %s", rcs.serviceName, rcs.tenant)
 		logger.Errorf("%v", err)
 		return serviceInfos, err
-	} else {
-		if tenant.info.Version > version {
-			version = tenant.info.Version
-		}
+	}
+	if tenant.info.Version > version {
+		version = tenant.info.Version
 	}
 
 	for _, v := range tenantInfos[rcs.tenant].tenant.Services {

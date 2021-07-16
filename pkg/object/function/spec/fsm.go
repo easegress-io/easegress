@@ -22,7 +22,7 @@ import (
 )
 
 type (
-	// functionFSM is a finite state machine for managing faas function.
+	// FSM function is a finite state machine for managing faas function.
 	FSM struct {
 		currentState State
 	}
@@ -43,15 +43,17 @@ type (
 
 const (
 	// State value of FaaSFunction
+
 	FailedState   State = "failed"
 	InitialState  State = "initial"
 	ActiveState   State = "active"
 	InactiveState State = "inactive"
 
-	// only for keep fsm working
+	// DestroyedState - only for keep fsm working
 	DestroyedState State = "destroyed"
 
 	// Function event invoked by APIs.
+
 	CreateEvent Event = "create"
 	StartEvent  Event = "start"
 	StopEvent   Event = "stop"
@@ -59,6 +61,7 @@ const (
 	DeleteEvent Event = "delete"
 
 	// Function Event invoked by FaaSProvider
+
 	ReadyEvent   Event = "ready"
 	PendingEvent Event = "pending"
 	ErrorEvent   Event = "error"

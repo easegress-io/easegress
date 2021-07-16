@@ -42,7 +42,7 @@ type (
 	IngressController struct {
 		super     *supervisor.Supervisor
 		superSpec *supervisor.Spec
-		spec      *IngressControllerSpec
+		spec      *Spec
 
 		tc        *trafficcontroller.TrafficController
 		namespace string
@@ -52,7 +52,7 @@ type (
 		wg     sync.WaitGroup
 	}
 
-	IngressControllerSpec struct {
+	Spec struct {
 		HTTPServer   *httpserver.Spec `yaml:"httpServer" jsonschema:"required"`
 		KubeConfig   string           `yaml:"kubeConfig" jsonschema:"omitempty"`
 		MasterURL    string           `yaml:"masterURL" jsonschema:"omitempty"`
@@ -77,7 +77,7 @@ func (ic *IngressController) Kind() string {
 
 // DefaultSpec returns the default spec of IngressController.
 func (ic *IngressController) DefaultSpec() interface{} {
-	return &IngressControllerSpec{
+	return &Spec{
 		HTTPServer: &httpserver.Spec{
 			KeepAlive:        true,
 			KeepAliveTimeout: "60s",
@@ -90,7 +90,7 @@ func (ic *IngressController) DefaultSpec() interface{} {
 // Init initializes IngressController.
 func (ic *IngressController) Init(superSpec *supervisor.Spec) {
 	ic.superSpec = superSpec
-	ic.spec = superSpec.ObjectSpec().(*IngressControllerSpec)
+	ic.spec = superSpec.ObjectSpec().(*Spec)
 	ic.super = superSpec.Super()
 	ic.reload()
 }
