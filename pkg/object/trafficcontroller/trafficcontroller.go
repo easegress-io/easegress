@@ -422,7 +422,7 @@ func (tc *TrafficController) CreateHTTPPipeline(namespace string, entity *superv
 	return entity, nil
 }
 
-// UpdateHTTPPipelineForSpec updates the HTTP pipeline  with a Spec
+// UpdateHTTPPipelineForSpec updates the HTTP pipeline with a Spec
 func (tc *TrafficController) UpdateHTTPPipelineForSpec(namespace string, superSpec *supervisor.Spec) (
 	*supervisor.ObjectEntity, error) {
 
