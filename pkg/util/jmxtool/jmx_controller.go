@@ -36,7 +36,7 @@ const (
 	jmxMbeanSearch         JMXRequestOperationType = "search"
 )
 
-// JXMInterface describes all of metodes of Mbean operation
+// JXMInterface describes all of methods of Mbean operation
 type JXMInterface interface {
 	GetMbeanAttribute(mbean string, attribute string, path string) (interface{}, error)
 	SetMbeanAttribute(mbean string, attribute string, path string, value interface{}) (interface{}, error)
