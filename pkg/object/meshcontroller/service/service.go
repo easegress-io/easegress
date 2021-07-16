@@ -343,7 +343,7 @@ func (s *Service) ListTenantSpecs() []*spec.Tenant {
 	return tenants
 }
 
-//DeleteTenantSpec deletes tenant spec
+// DeleteTenantSpec deletes tenant spec
 func (s *Service) DeleteTenantSpec(tenantName string) {
 	err := s.store.Delete(layout.TenantSpecKey(tenantName))
 	if err != nil {
