@@ -1,7 +1,7 @@
 #!/bin/bash
-# Test the Easegress' basic functionality which is generated 
-# an HTTPServer and Pipeline for accepting HTTP Requests.
-#  auth:     benjaminwu 
+# Test the Easegress' basic functionality which is generating
+# an HTTPServer and Pipeline for testing HTTP Requests.
+#  author:     benjaminwu 
 #  date:     2021/0716
 
 # path related define.
