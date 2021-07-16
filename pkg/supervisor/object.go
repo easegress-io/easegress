@@ -231,7 +231,7 @@ func (or *ObjectRegistry) applyConfig(config map[string]string) {
 	}
 }
 
-//NewWatcher creates a watcher
+// NewWatcher creates a watcher
 func (or *ObjectRegistry) NewWatcher(name string, filter ObjectEntityWatcherFilter) *ObjectEntityWatcher {
 	watcher := &ObjectEntityWatcher{
 		filter:    filter,
