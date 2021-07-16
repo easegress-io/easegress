@@ -64,7 +64,7 @@ type (
 		policy          *Policy
 	}
 
-	// Spec is the spec of retry
+	// Spec is the spec of retryer
 	Spec struct {
 		Policies         []*Policy  `yaml:"policies" jsonschema:"required"`
 		DefaultPolicyRef string     `yaml:"defaultPolicyRef" jsonschema:"omitempty"`
