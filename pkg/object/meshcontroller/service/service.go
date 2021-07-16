@@ -69,7 +69,7 @@ func (s *Service) Unlock() {
 	}
 }
 
-//PutServiceSpec writes the service spec
+// PutServiceSpec writes the service spec
 func (s *Service) PutServiceSpec(serviceSpec *spec.Service) {
 	buff, err := yaml.Marshal(serviceSpec)
 	if err != nil {
