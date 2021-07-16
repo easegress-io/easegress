@@ -29,7 +29,7 @@ type Lazybuf struct {
 	w   int
 }
 
-// NewLazybuf return lazy buffer
+// NewLazybuf returns lazy buffer
 func NewLazybuf(s string) *Lazybuf {
 	return &Lazybuf{
 		s: s,
