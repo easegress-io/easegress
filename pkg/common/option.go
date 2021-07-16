@@ -216,7 +216,7 @@ func (i *Uint32RangeValue) String() string {
 
 ////
 
-// Uint16RangeValue is type of uint6 with range
+// Uint16RangeValue is uint16 type with range
 type Uint16RangeValue struct {
 	v        *uint16
 	min, max uint16
