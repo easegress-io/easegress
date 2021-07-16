@@ -11,8 +11,8 @@
 
 **Implemented enhancements:**
 
-- Add `.travis.yml` and upload the test coverage to codecov.io [\#120](https://github.com/megaease/easegress/pull/120)
-- Mesh convert service instance API to `pb/json` [\#109](https://github.com/megaease/easegress/pull/109)
+- CI: Add codecov into github action [\#121](https://github.com/megaease/easegress/pull/121)
+- Mesh: convert service instance API to `pb/json` [\#109](https://github.com/megaease/easegress/pull/109)
 - Support dynamic admin API && correct syncer && make interface cleaner [\#96](https://github.com/megaease/easegress/pull/96)
 - CI: check unnecessary dependencies [\#77](https://github.com/megaease/easegress/pull/77)
 
