@@ -175,7 +175,7 @@ func (a *NumericMinAggregator) Aggregate(num interface{}) error {
 	return nil
 }
 
-//Result return the min value
+// Result return the min value
 func (a *NumericMinAggregator) Result() interface{} {
 	return a.min
 }
