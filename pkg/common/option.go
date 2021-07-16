@@ -286,7 +286,7 @@ func NewStringRegexValue(val string, p *string, r *regexp.Regexp) *StringRegexVa
 	}
 }
 
-// Set sets a string with can match the regular expression
+// Set sets a string which can match the regular expression
 func (s *StringRegexValue) Set(val string) error {
 	if s.re != nil && !s.re.Match([]byte(val)) {
 		return fmt.Errorf("invalid pattern, need to match %v", s.re)
