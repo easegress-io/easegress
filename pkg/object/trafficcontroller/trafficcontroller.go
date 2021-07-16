@@ -320,7 +320,7 @@ func (tc *TrafficController) GetHTTPServer(namespace, name string) (*supervisor.
 	return entity.(*supervisor.ObjectEntity), exists
 }
 
-//ListHTTPServers lists the HTTP servers
+// ListHTTPServers lists the HTTP servers
 func (tc *TrafficController) ListHTTPServers(namespace string) []*supervisor.ObjectEntity {
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
