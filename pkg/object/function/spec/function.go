@@ -34,7 +34,7 @@ const (
 	// AutoScaleMetricRPS is the name of rps metric
 	AutoScaleMetricRPS = "rps"
 
-	// ProviderKnative is the FaaS provider KNative.
+	// ProviderKnative is the FaaS provider Knative.
 	ProviderKnative = "knative"
 )
 
