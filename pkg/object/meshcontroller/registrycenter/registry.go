@@ -37,9 +37,9 @@ import (
 )
 
 const (
-	//ContentTypeXML is xml content type
+	// ContentTypeXML is xml content type
 	ContentTypeXML = "text/xml"
-	//ContentTypeJSON is JSON content type
+	// ContentTypeJSON is JSON content type
 	ContentTypeJSON = "application/json"
 )
 
