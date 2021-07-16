@@ -242,7 +242,7 @@ func (a *NumericAvgAggregator) String() string {
 	return "numeric_average"
 }
 
-//Aggregate records the number of value and the sum of values
+// Aggregate records the number of values and the sum of values
 func (a *NumericAvgAggregator) Aggregate(num interface{}) error {
 	if num == nil {
 		return nil
