@@ -253,7 +253,7 @@ func (i *Uint16RangeValue) Set(s string) error {
 	return nil
 }
 
-//Get return uint16 value
+// Get return uint16 value
 func (i *Uint16RangeValue) Get() interface{} { return *i.v }
 
 // String converts the uint16 value to string
