@@ -73,7 +73,7 @@ func RegisterAPIs(apiGroup *APIGroup) {
 	apisChangeChan <- struct{}{}
 }
 
-//UnregisterAPIs unregisters the API group
+// UnregisterAPIs unregisters the API group
 func UnregisterAPIs(group string) {
 	apisMutex.Lock()
 	defer apisMutex.Unlock()
