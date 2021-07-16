@@ -267,7 +267,7 @@ func (i *Uint16RangeValue) String() string {
 
 ////
 
-//StringRegexValue is a string with regular expression
+// StringRegexValue is a string with regular expression
 type StringRegexValue struct {
 	s  *string
 	re *regexp.Regexp
