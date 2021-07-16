@@ -36,7 +36,7 @@ type Semaphore struct {
 	realCapacity int64
 }
 
-//NewSem new a Semaphore
+// NewSem new a Semaphore
 func NewSem(n uint32) *Semaphore {
 	s := &Semaphore{
 		sem:          semaphore.NewWeighted(maxCapacity),
