@@ -44,9 +44,13 @@ type (
 const (
 	// State value of FaaSFunction
 
-	FailedState   State = "failed"
-	InitialState  State = "initial"
-	ActiveState   State = "active"
+	// FailedState is the failed state
+	FailedState State = "failed"
+	// InitialState is the init state
+	InitialState State = "initial"
+	// ActiveState is the active state
+	ActiveState State = "active"
+	// InactiveState is the inactive state
 	InactiveState State = "inactive"
 
 	// DestroyedState - only for keep fsm working
@@ -54,17 +58,25 @@ const (
 
 	// Function event invoked by APIs.
 
+	// CreateEvent is the create event
 	CreateEvent Event = "create"
-	StartEvent  Event = "start"
-	StopEvent   Event = "stop"
+	// StartEvent is the start event
+	StartEvent Event = "start"
+	// StopEvent is the stop event
+	StopEvent Event = "stop"
+	// UpdateEvent is the update event
 	UpdateEvent Event = "update"
+	// DeleteEvent is the delete event
 	DeleteEvent Event = "delete"
 
 	// Function Event invoked by FaaSProvider
 
-	ReadyEvent   Event = "ready"
+	// ReadyEvent is the ready event
+	ReadyEvent Event = "ready"
+	// PendingEvent is the pending event
 	PendingEvent Event = "pending"
-	ErrorEvent   Event = "error"
+	// ErrorEvent is the error event
+	ErrorEvent Event = "error"
 )
 
 var (

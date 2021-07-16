@@ -77,6 +77,7 @@ const (
 )
 
 type (
+	// API is the struct with the service
 	API struct {
 		service *service.Service
 	}
@@ -84,6 +85,7 @@ type (
 
 const apiGroupName = "mesh_admin"
 
+// New creates a API
 func New(superSpec *supervisor.Spec) *API {
 	api := &API{
 		service: service.New(superSpec),
@@ -94,6 +96,7 @@ func New(superSpec *supervisor.Spec) *API {
 	return api
 }
 
+// Close unregisters a API
 func (a *API) Close() {
 	api.UnregisterAPIs(apiGroupName)
 }

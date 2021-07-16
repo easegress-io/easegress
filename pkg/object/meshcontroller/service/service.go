@@ -42,6 +42,7 @@ type (
 	}
 )
 
+// New creates a servic with spec
 func New(superSpec *supervisor.Spec) *Service {
 	s := &Service{
 		superSpec: superSpec,
@@ -52,7 +53,7 @@ func New(superSpec *supervisor.Spec) *Service {
 	return s
 }
 
-// Lock - locks all store, it will do cluster panic if failed.
+// Lock locks all store, it will do cluster panic if failed.
 func (s *Service) Lock() {
 	err := s.store.Lock()
 	if err != nil {
@@ -60,7 +61,7 @@ func (s *Service) Lock() {
 	}
 }
 
-// Unlock - unlocks all store, it will do cluster panic if failed.
+// Unlock unlocks all store, it will do cluster panic if failed.
 func (s *Service) Unlock() {
 	err := s.store.Unlock()
 	if err != nil {
@@ -68,6 +69,7 @@ func (s *Service) Unlock() {
 	}
 }
 
+//PutServiceSpec writes the service spec
 func (s *Service) PutServiceSpec(serviceSpec *spec.Service) {
 	buff, err := yaml.Marshal(serviceSpec)
 	if err != nil {
@@ -80,11 +82,13 @@ func (s *Service) PutServiceSpec(serviceSpec *spec.Service) {
 	}
 }
 
+// GetServiceSpec gets the service spec by its name
 func (s *Service) GetServiceSpec(serviceName string) *spec.Service {
 	serviceSpec, _ := s.GetServiceSpecWithInfo(serviceName)
 	return serviceSpec
 }
 
+// GetServiceSpecWithInfo gets the service spec by its name
 func (s *Service) GetServiceSpecWithInfo(serviceName string) (*spec.Service, *mvccpb.KeyValue) {
 	kv, err := s.store.GetRaw(layout.ServiceSpecKey(serviceName))
 	if err != nil {
@@ -104,11 +108,13 @@ func (s *Service) GetServiceSpecWithInfo(serviceName string) (*spec.Service, *mv
 	return serviceSpec, kv
 }
 
+// GetGlobalCanaryHeaders gets the global canary headers
 func (s *Service) GetGlobalCanaryHeaders() *spec.GlobalCanaryHeaders {
 	globalCanaryHeaders, _ := s.GetGlobalCanaryHeadersWithInfo()
 	return globalCanaryHeaders
 }
 
+// GetGlobalCanaryHeadersWithInfo gets the global cannary headers with information
 func (s *Service) GetGlobalCanaryHeadersWithInfo() (*spec.GlobalCanaryHeaders, *mvccpb.KeyValue) {
 	kv, err := s.store.GetRaw(layout.GlobalCanaryHeaders())
 	if err != nil {
@@ -128,6 +134,7 @@ func (s *Service) GetGlobalCanaryHeadersWithInfo() (*spec.GlobalCanaryHeaders, *
 	return globalCanaryHeaders, kv
 }
 
+// PutGlobalCanaryHeaders puts the global canary headers
 func (s *Service) PutGlobalCanaryHeaders(globalCanaryHeaders *spec.GlobalCanaryHeaders) {
 	buff, err := yaml.Marshal(globalCanaryHeaders)
 	if err != nil {
@@ -140,6 +147,7 @@ func (s *Service) PutGlobalCanaryHeaders(globalCanaryHeaders *spec.GlobalCanaryH
 	}
 }
 
+// DeleteServiceSpec deletes service spec by its name
 func (s *Service) DeleteServiceSpec(serviceName string) {
 	err := s.store.Delete(layout.ServiceSpecKey(serviceName))
 	if err != nil {
@@ -147,6 +155,7 @@ func (s *Service) DeleteServiceSpec(serviceName string) {
 	}
 }
 
+// ListServiceSpecs lists services specs
 func (s *Service) ListServiceSpecs() []*spec.Service {
 	services := []*spec.Service{}
 	kvs, err := s.store.GetPrefix(layout.ServiceSpecPrefix())
@@ -167,11 +176,13 @@ func (s *Service) ListServiceSpecs() []*spec.Service {
 	return services
 }
 
+// GetTenantSpec gets tenant spec with its name
 func (s *Service) GetTenantSpec(tenantName string) *spec.Tenant {
 	tenant, _ := s.GetTenantSpecWithInfo(tenantName)
 	return tenant
 }
 
+// GetTenantSpecWithInfo gets tenant spec with information
 func (s *Service) GetTenantSpecWithInfo(tenantName string) (*spec.Tenant, *mvccpb.KeyValue) {
 	kvs, err := s.store.GetRaw(layout.TenantSpecKey(tenantName))
 	if err != nil {
@@ -191,6 +202,7 @@ func (s *Service) GetTenantSpecWithInfo(tenantName string) (*spec.Tenant, *mvccp
 	return tenant, kvs
 }
 
+// PutTenantSpec write the tenant spec
 func (s *Service) PutTenantSpec(tenantSpec *spec.Tenant) {
 	buff, err := yaml.Marshal(tenantSpec)
 	if err != nil {
@@ -203,10 +215,12 @@ func (s *Service) PutTenantSpec(tenantSpec *spec.Tenant) {
 	}
 }
 
+// ListAllServiceInstanceStatuses list all service instance statuses
 func (s *Service) ListAllServiceInstanceStatuses() []*spec.ServiceInstanceStatus {
 	return s.listServiceInstanceStatuses(true, "")
 }
 
+// ListServiceInstanceStatuses lists service instance statuses
 func (s *Service) ListServiceInstanceStatuses(serviceName string) []*spec.ServiceInstanceStatus {
 	return s.listServiceInstanceStatuses(false, serviceName)
 }
@@ -238,10 +252,12 @@ func (s *Service) listServiceInstanceStatuses(all bool, serviceName string) []*s
 	return statuses
 }
 
+//ListAllServiceInstanceSpecs list all service instance specs
 func (s *Service) ListAllServiceInstanceSpecs() []*spec.ServiceInstanceSpec {
 	return s.listServiceInstanceSpecs(true, "")
 }
 
+// ListServiceInstanceSpecs list service instance specs
 func (s *Service) ListServiceInstanceSpecs(serviceName string) []*spec.ServiceInstanceSpec {
 	return s.listServiceInstanceSpecs(false, serviceName)
 }
@@ -273,6 +289,7 @@ func (s *Service) listServiceInstanceSpecs(all bool, serviceName string) []*spec
 	return specs
 }
 
+//GetServiceInstanceSpec gets the service instance spec
 func (s *Service) GetServiceInstanceSpec(serviceName, instanceID string) *spec.ServiceInstanceSpec {
 	value, err := s.store.Get(layout.ServiceInstanceSpecKey(serviceName, instanceID))
 	if err != nil {
@@ -292,6 +309,7 @@ func (s *Service) GetServiceInstanceSpec(serviceName, instanceID string) *spec.S
 	return instanceSpec
 }
 
+// PutServiceInstanceSpec writes the service instance spec
 func (s *Service) PutServiceInstanceSpec(_spec *spec.ServiceInstanceSpec) {
 	buff, err := yaml.Marshal(_spec)
 	if err != nil {
@@ -304,6 +322,7 @@ func (s *Service) PutServiceInstanceSpec(_spec *spec.ServiceInstanceSpec) {
 	}
 }
 
+// ListTenantSpecs lists tenant specs
 func (s *Service) ListTenantSpecs() []*spec.Tenant {
 	tenants := []*spec.Tenant{}
 	kvs, err := s.store.GetPrefix(layout.TenantPrefix())
@@ -324,6 +343,7 @@ func (s *Service) ListTenantSpecs() []*spec.Tenant {
 	return tenants
 }
 
+//DeleteTenantSpec deletes tenant spec
 func (s *Service) DeleteTenantSpec(tenantName string) {
 	err := s.store.Delete(layout.TenantSpecKey(tenantName))
 	if err != nil {
@@ -331,11 +351,13 @@ func (s *Service) DeleteTenantSpec(tenantName string) {
 	}
 }
 
+//GetIngressSpec gets the ingress spec
 func (s *Service) GetIngressSpec(ingressName string) *spec.Ingress {
 	ingress, _ := s.GetIngressSpecWithInfo(ingressName)
 	return ingress
 }
 
+// GetIngressSpecWithInfo get ingress spec with information
 func (s *Service) GetIngressSpecWithInfo(ingressName string) (*spec.Ingress, *mvccpb.KeyValue) {
 	kvs, err := s.store.GetRaw(layout.IngressSpecKey(ingressName))
 	if err != nil {
@@ -355,6 +377,7 @@ func (s *Service) GetIngressSpecWithInfo(ingressName string) (*spec.Ingress, *mv
 	return ingress, kvs
 }
 
+// PutIngressSpec writes the ingress spec
 func (s *Service) PutIngressSpec(ingressSpec *spec.Ingress) {
 	buff, err := yaml.Marshal(ingressSpec)
 	if err != nil {
@@ -367,6 +390,7 @@ func (s *Service) PutIngressSpec(ingressSpec *spec.Ingress) {
 	}
 }
 
+// ListIngressSpecs lists the ingress specs
 func (s *Service) ListIngressSpecs() []*spec.Ingress {
 	ingresses := []*spec.Ingress{}
 	kvs, err := s.store.GetPrefix(layout.IngressPrefix())
@@ -387,6 +411,7 @@ func (s *Service) ListIngressSpecs() []*spec.Ingress {
 	return ingresses
 }
 
+// DeleteIngressSpec deletes the ingress spec
 func (s *Service) DeleteIngressSpec(ingressName string) {
 	err := s.store.Delete(layout.IngressSpecKey(ingressName))
 	if err != nil {

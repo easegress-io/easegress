@@ -53,6 +53,7 @@ type (
 		ingressRules         []*spec.IngressRule
 	}
 
+	// Status is the traffic controller status
 	Status = trafficcontroller.StatusInSameNamespace
 )
 
@@ -269,6 +270,7 @@ func (ic *IngressController) Status() *supervisor.Status {
 	}
 }
 
+// Close release the ingress controller
 func (ic *IngressController) Close() {
 	ic.mutex.Lock()
 	defer ic.mutex.Unlock()

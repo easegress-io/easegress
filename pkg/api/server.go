@@ -42,6 +42,7 @@ type (
 		mutexMutex sync.Mutex
 	}
 
+	// APIGroup is the API group
 	APIGroup struct {
 		Group   string
 		Entries []*APIEntry

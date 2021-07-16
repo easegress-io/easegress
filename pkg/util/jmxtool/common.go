@@ -29,6 +29,7 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+// JSONToKVMap converts JSON string to key value pairs
 func JSONToKVMap(jsonStr string) (map[string]string, error) {
 	m := map[string]interface{}{}
 	err := json.Unmarshal([]byte(jsonStr), &m)
@@ -88,6 +89,7 @@ func join(prefix string, current string) string {
 
 }
 
+// APIErr is the error struct for API
 type APIErr struct {
 	Code    int    `yaml:"code"`
 	Message string `yaml:"message"`

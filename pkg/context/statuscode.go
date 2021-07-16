@@ -81,6 +81,7 @@ var (
 	}
 )
 
+// IsNetworkError return if network is error
 func IsNetworkError(code int) bool {
 	c, ok := statusCodeCategory[code]
 	return ok && (c&egNetworkError) != 0

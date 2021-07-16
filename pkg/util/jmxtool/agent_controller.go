@@ -35,16 +35,19 @@ const (
 	serviceConfigURL = "/config-service"
 )
 
+//AgentInterface is the interface operate the agent client
 type AgentInterface interface {
 	UpdateService(newService *spec.Service, version int64) error
 	UpdateCanary(globalHeaders *spec.GlobalCanaryHeaders, version int64) error
 }
 
+// AgentClient stores the information of agent client
 type AgentClient struct {
 	URL        string
 	HTTPClient *http.Client
 }
 
+// NewAgentClient creates the agent client
 func NewAgentClient(host, port string) *AgentClient {
 	return &AgentClient{
 		"http://" + host + ":" + port,
@@ -52,6 +55,7 @@ func NewAgentClient(host, port string) *AgentClient {
 	}
 }
 
+// UpdateService update service
 func (agent *AgentClient) UpdateService(newService *spec.Service, version int64) error {
 	buff, err := yaml.Marshal(newService)
 	if err != nil {
@@ -75,6 +79,7 @@ func (agent *AgentClient) UpdateService(newService *spec.Service, version int64)
 	return err
 }
 
+// UpdateCanary update canary
 func (agent *AgentClient) UpdateCanary(globalHeaders *spec.GlobalCanaryHeaders, version int64) error {
 	buff, err := yaml.Marshal(globalHeaders)
 	if err != nil {

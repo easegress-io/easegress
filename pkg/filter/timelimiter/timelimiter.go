@@ -44,18 +44,21 @@ func init() {
 }
 
 type (
+	// URLRule is the URL rule
 	URLRule struct {
 		urlrule.URLRule `yaml:",inline"`
 		TimeoutDuration string `yaml:"timeoutDuration" jsonschema:"omitempty,format=duration"`
 		timeout         time.Duration
 	}
 
+	// Spec is the spec of time limiter
 	Spec struct {
 		DefaultTimeoutDuration string `yaml:"defaultTimeoutDuration" jsonschema:"omitempty,format=duration"`
 		defaultTimeout         time.Duration
 		URLs                   []*URLRule `yaml:"urls" jsonschema:"required"`
 	}
 
+	// TimeLimiter is the time limiter struct
 	TimeLimiter struct {
 		filterSpec *httppipeline.FilterSpec
 		spec       *Spec

@@ -25,6 +25,7 @@ import (
 	metrics "github.com/rcrowley/go-metrics"
 )
 
+// ExpDecaySample is the structure use for monitoring metrics(such as: P90, P50 etc)
 type ExpDecaySample struct {
 	bucketIdxLock sync.RWMutex
 	bucketIdx     uint64
@@ -34,6 +35,7 @@ type ExpDecaySample struct {
 	closed        bool
 }
 
+// NewExpDecaySample creates ExpDecaySample structure
 func NewExpDecaySample(timeRange time.Duration, secondsForEachBucket int) *ExpDecaySample {
 	if secondsForEachBucket == 0 {
 		secondsForEachBucket = int(timeRange / 2)
@@ -73,6 +75,7 @@ func NewExpDecaySample(timeRange time.Duration, secondsForEachBucket int) *ExpDe
 	return s
 }
 
+// Close clean the ExpDecaySample
 func (s *ExpDecaySample) Close() {
 	s.closeLock.Lock()
 	defer s.closeLock.Unlock()
@@ -90,12 +93,14 @@ func (s *ExpDecaySample) Close() {
 	}
 }
 
+// Update updates the ExpDecaySample
 func (s *ExpDecaySample) Update(v int64) {
 	for i := 0; i < len(s.buckets); i++ {
 		s.buckets[i].Update(v)
 	}
 }
 
+// Percentile calculates the percentile
 func (s *ExpDecaySample) Percentile(q float64) float64 {
 	s.bucketIdxLock.RLock()
 	defer s.bucketIdxLock.RUnlock()
@@ -105,6 +110,7 @@ func (s *ExpDecaySample) Percentile(q float64) float64 {
 	return s.buckets[idx].Percentile(q)
 }
 
+// StdDev return the standard deviation value
 func (s *ExpDecaySample) StdDev() float64 {
 	s.bucketIdxLock.RLock()
 	defer s.bucketIdxLock.RUnlock()
@@ -114,6 +120,7 @@ func (s *ExpDecaySample) StdDev() float64 {
 	return s.buckets[idx].StdDev()
 }
 
+// Max returns the max value
 func (s *ExpDecaySample) Max() int64 {
 	s.bucketIdxLock.RLock()
 	defer s.bucketIdxLock.RUnlock()
@@ -123,6 +130,7 @@ func (s *ExpDecaySample) Max() int64 {
 	return s.buckets[idx].Max()
 }
 
+// Min returns the min value
 func (s *ExpDecaySample) Min() int64 {
 	s.bucketIdxLock.RLock()
 	defer s.bucketIdxLock.RUnlock()
@@ -132,6 +140,7 @@ func (s *ExpDecaySample) Min() int64 {
 	return s.buckets[idx].Min()
 }
 
+// Count returns the count value
 func (s *ExpDecaySample) Count() int64 {
 	s.bucketIdxLock.RLock()
 	defer s.bucketIdxLock.RUnlock()
@@ -141,6 +150,7 @@ func (s *ExpDecaySample) Count() int64 {
 	return s.buckets[idx].Count()
 }
 
+// Variance returns the variance value
 func (s *ExpDecaySample) Variance() float64 {
 	s.bucketIdxLock.RLock()
 	defer s.bucketIdxLock.RUnlock()
@@ -150,6 +160,7 @@ func (s *ExpDecaySample) Variance() float64 {
 	return s.buckets[idx].Variance()
 }
 
+// Sum returns the sum value
 func (s *ExpDecaySample) Sum() int64 {
 	s.bucketIdxLock.RLock()
 	defer s.bucketIdxLock.RUnlock()

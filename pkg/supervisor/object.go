@@ -44,6 +44,7 @@ type (
 		spec       *Spec
 	}
 
+	// ObjectEntityWatcher is the watcher for object entity
 	ObjectEntityWatcher struct {
 		mutex     sync.Mutex
 		filter    ObjectEntityWatcherFilter
@@ -51,6 +52,7 @@ type (
 		eventChan chan *ObjectEntityWatcherEvent
 	}
 
+	// ObjectEntityWatcherEvent is the event for watcher
 	ObjectEntityWatcherEvent struct {
 		Delete map[string]*ObjectEntity
 		Create map[string]*ObjectEntity
@@ -85,6 +87,7 @@ const (
 	configFileName = "running_objects.yaml"
 )
 
+//FilterCategory returns a bool function to if the object entity is filter by category or not
 func FilterCategory(categories ...ObjectCategory) ObjectEntityWatcherFilter {
 	allCategory := false
 	for _, category := range categories {
@@ -228,6 +231,7 @@ func (or *ObjectRegistry) applyConfig(config map[string]string) {
 	}
 }
 
+//NewWatcher creates a watcher
 func (or *ObjectRegistry) NewWatcher(name string, filter ObjectEntityWatcherFilter) *ObjectEntityWatcher {
 	watcher := &ObjectEntityWatcher{
 		filter:    filter,
@@ -258,6 +262,7 @@ func (or *ObjectRegistry) NewWatcher(name string, filter ObjectEntityWatcherFilt
 	return watcher
 }
 
+// CloseWatcher closes and release a watcher
 func (or *ObjectRegistry) CloseWatcher(name string) {
 	or.mutex.Lock()
 	defer or.mutex.Unlock()
@@ -293,7 +298,7 @@ func (w *ObjectEntityWatcher) Watch() <-chan *ObjectEntityWatcherEvent {
 	return w.eventChan
 }
 
-// Entities returns the snapshot of the object entites of the watcher.
+// Entities returns the snapshot of the object entities of the watcher.
 func (w *ObjectEntityWatcher) Entities() map[string]*ObjectEntity {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
@@ -306,6 +311,7 @@ func (w *ObjectEntityWatcher) Entities() map[string]*ObjectEntity {
 	return entities
 }
 
+// NewObjectEntityFromConfig creates a object entity from configuration
 func (s *Supervisor) NewObjectEntityFromConfig(config string) (*ObjectEntity, error) {
 	spec, err := s.NewSpec(config)
 	if err != nil {
@@ -315,6 +321,7 @@ func (s *Supervisor) NewObjectEntityFromConfig(config string) (*ObjectEntity, er
 	return s.NewObjectEntityFromSpec(spec)
 }
 
+// NewObjectEntityFromSpec creates a object entity from a spec
 func (s *Supervisor) NewObjectEntityFromSpec(spec *Spec) (*ObjectEntity, error) {
 	registerObject, exists := objectRegistry[spec.Kind()]
 	if !exists {

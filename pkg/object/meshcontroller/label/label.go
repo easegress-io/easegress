@@ -18,13 +18,21 @@
 package label
 
 const (
-	KeyRole            = "mesh-role"
-	KeyServiceName     = "mesh-servicename"
-	KeyServiceLables   = "mesh-service-labels"
+	//KeyRole is the key of role
+	KeyRole = "mesh-role"
+	//KeyServiceName is the key of service name
+	KeyServiceName = "mesh-servicename"
+	// KeyServiceLables is the key of service label
+	KeyServiceLables = "mesh-service-labels"
+	// KeyApplicationPort is the key of application port
 	KeyApplicationPort = "application-port"
-	KeyAliveProbe      = "alive-probe"
+	// KeyAliveProbe is the key of keepalive probe
+	KeyAliveProbe = "alive-probe"
 
-	ValueRoleMaster            = "master"
-	ValueRoleWorker            = "worker"
+	// ValueRoleMaster is the name of master
+	ValueRoleMaster = "master"
+	// ValueRoleWorker is the name of worker
+	ValueRoleWorker = "worker"
+	// ValueRoleIngressController is the name of ingress controller
 	ValueRoleIngressController = "ingress-controller"
 )

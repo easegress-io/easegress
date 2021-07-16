@@ -18,19 +18,22 @@
 package common
 
 const (
+	// CallbacksInitCapacity is the capacity of callback
 	CallbacksInitCapacity = 20
 
-	NormalPriorityCallback   = "__NoRmAl_PrIoRiTy_CaLlBaCk"
+	// NormalPriorityCallback is the name of normal priority callback
+	NormalPriorityCallback = "__NoRmAl_PrIoRiTy_CaLlBaCk"
+	// CriticalPriorityCallback is the name of critical priority callback
 	CriticalPriorityCallback = "__CrItIcAl_PrIoRiTy_CaLlBaCk"
 )
 
-////
-
+// NamedCallback is the named callback struct
 type NamedCallback struct {
 	name     string
 	callback interface{}
 }
 
+//NewNamedCallback return a new named callback
 func NewNamedCallback(name string, callback interface{}) *NamedCallback {
 	return &NamedCallback{
 		name:     name,
@@ -38,14 +41,17 @@ func NewNamedCallback(name string, callback interface{}) *NamedCallback {
 	}
 }
 
+// Name return callback name
 func (cb *NamedCallback) Name() string {
 	return cb.name
 }
 
+// Callback return callback function
 func (cb *NamedCallback) Callback() interface{} {
 	return cb.callback
 }
 
+// SetCallback set the callback function
 func (cb *NamedCallback) SetCallback(callback interface{}) interface{} {
 	oriCallback := cb.callback
 	cb.callback = callback
@@ -57,6 +63,7 @@ type namedCallbackWithIdx struct {
 	idxOfOrder int
 }
 
+// NamedCallbackSet is a set of NamedCallback
 type NamedCallbackSet struct {
 	// critical callback takes low index, normal callback takes high index
 	callbacks []*NamedCallback                 // index for access by order
@@ -64,6 +71,7 @@ type NamedCallbackSet struct {
 
 }
 
+// NewNamedCallbackSet return a new NamedCallbackSet
 func NewNamedCallbackSet() *NamedCallbackSet {
 	return &NamedCallbackSet{
 		names:     make(map[string]*namedCallbackWithIdx, CallbacksInitCapacity),
@@ -71,18 +79,21 @@ func NewNamedCallbackSet() *NamedCallbackSet {
 	}
 }
 
+// CopyCallbacks copies the current callbacks
 func (cbs *NamedCallbackSet) CopyCallbacks() []*NamedCallback {
 	ret := make([]*NamedCallback, len(cbs.callbacks))
 	copy(ret, cbs.callbacks)
 	return ret
 }
 
+//GetCallbacks get callbacks
 func (cbs *NamedCallbackSet) GetCallbacks() []*NamedCallback {
 	return cbs.callbacks
 }
 
 ////
 
+// AddCallback add a callback into a callback set
 func AddCallback(cbs *NamedCallbackSet, name string, callback interface{}, priority string) *NamedCallbackSet {
 	if cbs == nil {
 		return nil
@@ -123,6 +134,7 @@ func AddCallback(cbs *NamedCallbackSet, name string, callback interface{}, prior
 	return cbs
 }
 
+// DeleteCallback deletes a callback in callback set
 func DeleteCallback(cbs *NamedCallbackSet, name string) *NamedCallbackSet {
 	if cbs == nil {
 		return nil

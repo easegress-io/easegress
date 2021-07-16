@@ -29,12 +29,14 @@ type Lazybuf struct {
 	w   int
 }
 
+// NewLazybuf return lazy buffer
 func NewLazybuf(s string) *Lazybuf {
 	return &Lazybuf{
 		s: s,
 	}
 }
 
+// Index return a byte by its index
 func (b *Lazybuf) Index(i int) byte {
 	if b.buf != nil {
 		return b.buf[i]
@@ -42,6 +44,7 @@ func (b *Lazybuf) Index(i int) byte {
 	return b.s[i]
 }
 
+// Append appends a byte into buffer
 func (b *Lazybuf) Append(c byte) {
 	if b.buf == nil {
 		if b.w < len(b.s) && b.s[b.w] == c {
@@ -55,6 +58,7 @@ func (b *Lazybuf) Append(c byte) {
 	b.w++
 }
 
+// String return the string
 func (b *Lazybuf) String() string {
 	if b.buf == nil {
 		return b.s[:b.w]

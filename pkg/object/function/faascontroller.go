@@ -70,12 +70,13 @@ func (f *FaasController) DefaultSpec() interface{} {
 	}
 }
 
+// Validate validates the spec
 func (f *FaasController) Validate() error {
 	switch f.spec.Provider {
 	case spec.ProviderKnative:
 		//
 	default:
-		return fmt.Errorf("unknown faas provider: %s", f.spec.Provider)
+		return fmt.Errorf("unknown FaaS provider: %s", f.spec.Provider)
 	}
 
 	vr := v.Validate(f.spec.HTTPServer)

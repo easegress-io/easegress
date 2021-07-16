@@ -36,6 +36,7 @@ type Semaphore struct {
 	realCapacity int64
 }
 
+//NewSem new a Semaphore
 func NewSem(n uint32) *Semaphore {
 	s := &Semaphore{
 		sem:          semaphore.NewWeighted(maxCapacity),
@@ -46,14 +47,17 @@ func NewSem(n uint32) *Semaphore {
 	return s
 }
 
+// Acquire acquires the semaphore
 func (s *Semaphore) Acquire() {
 	s.AcquireWithContext(context.Background())
 }
 
+//AcquireWithContext acquires the semaphore with context
 func (s *Semaphore) AcquireWithContext(ctx context.Context) error {
 	return s.sem.Acquire(ctx, 1)
 }
 
+//Release the semaphore
 func (s *Semaphore) Release() {
 	s.sem.Release(1)
 }

@@ -25,6 +25,7 @@ import (
 	"strings"
 )
 
+// GoID returns goroutine ID
 func GoID() (int, error) {
 	var buf [64]byte
 	n := runtime.Stack(buf[:], false)
@@ -36,6 +37,7 @@ func GoID() (int, error) {
 	return id, nil
 }
 
+// CloseChan closes a channel
 func CloseChan(c interface{}) (ret bool) {
 	val := reflect.ValueOf(c)
 	if val.IsNil() {
