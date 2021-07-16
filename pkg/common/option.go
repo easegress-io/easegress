@@ -35,7 +35,7 @@ func NewUint8Value(val uint8, p *uint8) *Uint8Value {
 	return (*Uint8Value)(p)
 }
 
-// Set convert a string to a uint8 value
+// Set converts a string to a uint8 value
 func (i *Uint8Value) Set(s string) error {
 	v, err := strconv.ParseUint(s, 0, 8)
 	if err != nil {
