@@ -231,7 +231,7 @@ func (a *NumericSumAggregator) Result() interface{} {
 	return a.sum
 }
 
-//NumericAvgAggregator is the structure with average value
+// NumericAvgAggregator is the structure with average value
 type NumericAvgAggregator struct {
 	NumericSumAggregator
 	count int64
