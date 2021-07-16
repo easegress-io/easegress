@@ -256,7 +256,7 @@ func (i *Uint16RangeValue) Set(s string) error {
 //Get return uint16 value
 func (i *Uint16RangeValue) Get() interface{} { return *i.v }
 
-//String coverts the uint16 value to string
+// String converts the uint16 value to string
 func (i *Uint16RangeValue) String() string {
 	if i.v == nil {
 		return strconv.FormatUint(0, 10) // zero value
