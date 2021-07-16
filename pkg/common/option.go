@@ -85,7 +85,7 @@ func (i *Uint16Value) String() string { return strconv.FormatUint(uint64(*i), 10
 
 ////
 
-// Uint32Value is uint32  type
+// Uint32Value is uint32 type
 type Uint32Value uint32
 
 // NewUint32Value creates uint32 value
