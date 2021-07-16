@@ -31,7 +31,7 @@ const (
 	AutoScaleMetricCPU = "cpu"
 	// AutoScaleMetricConcurrency is the name of concurrency metric
 	AutoScaleMetricConcurrency = "concurrency"
-	//AutoScaleMetricRPS is the name of rps metric
+	// AutoScaleMetricRPS is the name of rps metric
 	AutoScaleMetricRPS = "rps"
 
 	// ProviderKnative is the FaaS provider KNative.
