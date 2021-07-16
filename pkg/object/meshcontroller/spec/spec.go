@@ -595,7 +595,7 @@ func (s *Service) IngressHandlerName() string {
 	return fmt.Sprintf("mesh-ingress-handler-%s", s.Name)
 }
 
-// IngressPipelineName returns the ingress pipline name
+// IngressPipelineName returns the ingress pipeline name
 func (s *Service) IngressPipelineName() string {
 	return fmt.Sprintf("mesh-ingress-pipeline-%s", s.Name)
 }
