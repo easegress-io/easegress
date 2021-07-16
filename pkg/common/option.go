@@ -116,7 +116,7 @@ func (i *Uint32Value) String() string { return strconv.FormatUint(uint64(*i), 10
 
 ////
 
-// Uint64RangeValue is uint value with range
+// Uint64RangeValue is uint64 type with range
 type Uint64RangeValue struct {
 	v        *uint64
 	min, max uint64
