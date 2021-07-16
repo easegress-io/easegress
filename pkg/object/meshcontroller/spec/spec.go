@@ -628,7 +628,7 @@ https: false
 	return superSpec, nil
 }
 
-// SideCarIngressPipelineSpec return a spec for sidecar ingress pipeline
+// SideCarIngressPipelineSpec returns a spec for sidecar ingress pipeline
 func (s *Service) SideCarIngressPipelineSpec(applicationPort uint32) (*supervisor.Spec, error) {
 	mainServers := []*proxy.Server{
 		{
