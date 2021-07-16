@@ -289,7 +289,7 @@ func (s *Service) listServiceInstanceSpecs(all bool, serviceName string) []*spec
 	return specs
 }
 
-//GetServiceInstanceSpec gets the service instance spec
+// GetServiceInstanceSpec gets the service instance spec
 func (s *Service) GetServiceInstanceSpec(serviceName, instanceID string) *spec.ServiceInstanceSpec {
 	value, err := s.store.Get(layout.ServiceInstanceSpecKey(serviceName, instanceID))
 	if err != nil {
