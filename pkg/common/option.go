@@ -299,7 +299,7 @@ func (s *StringRegexValue) Set(val string) error {
 // Get returns the string
 func (s *StringRegexValue) Get() interface{} { return *s.s }
 
-// String return the string
+// String returns the string of StringRegexValue
 func (s *StringRegexValue) String() string {
 	if s.s == nil {
 		return ""
