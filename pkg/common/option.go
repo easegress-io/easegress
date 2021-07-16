@@ -66,7 +66,7 @@ func NewUint16Value(val uint16, p *uint16) *Uint16Value {
 	return (*Uint16Value)(p)
 }
 
-//Set converts a string to a uint16 value
+// Set converts a string to a uint16 value
 func (i *Uint16Value) Set(s string) error {
 	v, err := strconv.ParseUint(s, 0, 16)
 	if err != nil {
