@@ -58,7 +58,7 @@ func (b *Lazybuf) Append(c byte) {
 	b.w++
 }
 
-// String return the string
+// String returns the string of lazybuf
 func (b *Lazybuf) String() string {
 	if b.buf == nil {
 		return b.s[:b.w]
