@@ -52,7 +52,7 @@ func New(superSpec *supervisor.Spec) *Service {
 	return s
 }
 
-// Lock - locks all store, it will do cluster panic if failed.
+// Lock locks all store, it will do cluster panic if failed.
 func (s *Service) Lock() {
 	err := s.store.Lock()
 	if err != nil {
