@@ -86,7 +86,7 @@ func (cbs *NamedCallbackSet) CopyCallbacks() []*NamedCallback {
 	return ret
 }
 
-//GetCallbacks get callbacks
+// GetCallbacks get callbacks
 func (cbs *NamedCallbackSet) GetCallbacks() []*NamedCallback {
 	return cbs.callbacks
 }
