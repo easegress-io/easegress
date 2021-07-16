@@ -339,7 +339,7 @@ func (tc *TrafficController) ListHTTPServers(namespace string) []*supervisor.Obj
 	return entities
 }
 
-//WalkHTTPServers walks HTTP servers
+// WalkHTTPServers walks HTTP servers
 func (tc *TrafficController) WalkHTTPServers(namespace string, walkFn WalkFunc) {
 	defer func() {
 		if err := recover(); err != nil {
