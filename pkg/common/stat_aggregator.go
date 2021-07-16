@@ -186,7 +186,7 @@ type NumericSumAggregator struct {
 	nk  numericKind
 }
 
-//String return the name
+// String return the name
 func (a *NumericSumAggregator) String() string {
 	return "numeric_sum"
 }
