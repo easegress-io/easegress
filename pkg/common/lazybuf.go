@@ -36,7 +36,7 @@ func NewLazybuf(s string) *Lazybuf {
 	}
 }
 
-// Index return a byte by its index
+// Index returns a byte by its index
 func (b *Lazybuf) Index(i int) byte {
 	if b.buf != nil {
 		return b.buf[i]
