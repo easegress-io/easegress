@@ -226,7 +226,7 @@ func (a *NumericSumAggregator) Aggregate(num interface{}) error {
 	return nil
 }
 
-//Result return the sum value
+// Result return the sum value
 func (a *NumericSumAggregator) Result() interface{} {
 	return a.sum
 }
