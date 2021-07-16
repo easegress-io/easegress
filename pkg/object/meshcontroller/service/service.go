@@ -60,7 +60,7 @@ func (s *Service) Lock() {
 	}
 }
 
-// Unlock - unlocks all store, it will do cluster panic if failed.
+// Unlock unlocks all store, it will do cluster panic if failed.
 func (s *Service) Unlock() {
 	err := s.store.Unlock()
 	if err != nil {
