@@ -1,0 +1,34 @@
+name: Code Analysis
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "**/*.go"
+      - "go.mod"
+      - "go.sum"
+      - ".github/workflows/code.analysis.yml"
+
+jobs:
+
+  analysis:
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.16
+    
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v2
+
+    - name: Revive Action
+      uses: morphy2k/revive-action@v2.2.0
+
+    - name: Check formatting
+      run: test -z $(gofmt -l .) || (gofmt -l . && exit 1)
+      
+    - name: misspell
+      uses: sobolevn/misspell-fixer-action@0.1.0

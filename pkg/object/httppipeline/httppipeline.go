@@ -147,7 +147,7 @@ func (ctx *PipelineContext) log() string {
 }
 
 // context.HTTPContext: *PipelineContext
-var runningContexts sync.Map = sync.Map{}
+var runningContexts = sync.Map{}
 
 func newAndSetPipelineContext(ctx context.HTTPContext) *PipelineContext {
 	pipeCtx := &PipelineContext{}

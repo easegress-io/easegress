@@ -214,7 +214,7 @@ func (client *JolokiaClient) ListMbean(mbean string) (interface{}, error) {
 	return result, nil
 }
 
-// SearchMbeans searchs Mbean
+// SearchMbeans searches Mbean
 func (client *JolokiaClient) SearchMbeans(pattern string) (interface{}, error) {
 	requestBody := searchRequestBody{
 		Type:  jmxMbeanSearch,
