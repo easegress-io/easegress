@@ -192,7 +192,7 @@ func (s *Syncer) Sync(key string) (<-chan *string, error) {
 	return ch, nil
 }
 
-// SynRaw syncs a given Etcd key's raw Etcd mvccpb structure through the returned channel.
+// SyncRaw syncs a given Etcd key's raw Etcd mvccpb structure through the returned channel.
 func (s *Syncer) SyncRaw(key string) (<-chan *mvccpb.KeyValue, error) {
 	ch := make(chan *mvccpb.KeyValue, 10)
 
