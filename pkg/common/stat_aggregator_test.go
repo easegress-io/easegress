@@ -36,8 +36,8 @@ func (em *errMapper) mapNext(t *testing.T, err error) {
 	}
 
 	var (
-		want string = "<nil>"
-		got  string = "<nil>"
+		want = "<nil>"
+		got  = "<nil>"
 	)
 
 	switch {

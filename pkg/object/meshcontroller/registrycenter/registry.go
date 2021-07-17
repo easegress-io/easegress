@@ -128,7 +128,7 @@ func needUpdateRecord(originIns, ins *spec.ServiceInstanceSpec) bool {
 }
 
 func (rcs *Server) register(ins *spec.ServiceInstanceSpec, ingressReady ReadyFunc, egressReady ReadyFunc) {
-	var tryTimes int = 0
+	var tryTimes int
 
 	for {
 		select {

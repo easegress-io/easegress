@@ -45,7 +45,7 @@ func NewExpDecaySample(timeRange time.Duration, secondsForEachBucket int) *ExpDe
 
 	n := uint64(math.Ceil(timeRange.Seconds()/float64(secondsForEachBucket))) + 1
 
-	var idx uint64 = 0
+	var idx uint64
 	for idx < n {
 		s.buckets = append(s.buckets, metrics.NewExpDecaySample(514, 0.015))
 		idx++
