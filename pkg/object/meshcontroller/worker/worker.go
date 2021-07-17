@@ -124,7 +124,7 @@ func New(superSpec *supervisor.Spec) *Worker {
 	egressServer := NewEgressServer(superSpec, super, serviceName, _service, inf)
 
 	observabilityManager := NewObservabilityServer(serviceName)
-	apiServer := NewAPIServer(spec.APIPort)
+	apiServer := newAPIServer(spec.APIPort)
 
 	worker := &Worker{
 		super:     super,
