@@ -2,7 +2,6 @@ name: Code Analysis
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
     branches:
       - main
     paths:
@@ -13,7 +12,7 @@ on:
 
 jobs:
 
-  lint:
+  analysis:
     runs-on: ubuntu-latest
     steps:
 
