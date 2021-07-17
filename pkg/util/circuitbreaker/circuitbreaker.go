@@ -282,7 +282,7 @@ type (
 		// stateID is the id of current state, it increases every time
 		// the state changes. the id is returned by AcquirePermission
 		// and must be passed back to RecordResult which will then use
-		// it to detect wether state changed or not, and if changed, the
+		// it to detect whether state changed or not, and if changed, the
 		// result is discarded as it does not belong to current state.
 		stateID  uint32
 		listener EventListenerFunc
