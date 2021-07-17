@@ -31,6 +31,4 @@ jobs:
       run: test -z $(gofmt -l .) || (gofmt -l . && exit 1)
       
     - name: misspell
-      uses: reviewdog/action-misspell@v1
-      with:
-          locale: "US"
+      uses: sobolevn/misspell-fixer-action@0.1.0
