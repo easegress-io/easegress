@@ -1,14 +1,6 @@
 name: Code Analysis
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "**/*.go"
-      - "go.mod"
-      - "go.sum"
-      - ".github/workflows/code.analysis.yml"
   pull_request:
     types: [opened, synchronize, reopened]
     branches:
