@@ -80,7 +80,7 @@ const (
 )
 
 var (
-	validState map[State]struct{} = map[State]struct{}{
+	validState = map[State]struct{}{
 		InitialState:   {},
 		ActiveState:    {},
 		InactiveState:  {},
@@ -88,7 +88,7 @@ var (
 		DestroyedState: {},
 	}
 
-	validEvent map[Event]struct{} = map[Event]struct{}{
+	validEvent = map[Event]struct{}{
 		UpdateEvent:  {},
 		DeleteEvent:  {},
 		StopEvent:    {},
