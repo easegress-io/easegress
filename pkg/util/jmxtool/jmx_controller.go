@@ -25,6 +25,7 @@ import (
 	"net/http"
 )
 
+// JMXRequestOperationType for read, write, exec, list, search
 type JMXRequestOperationType string
 
 const (
@@ -35,6 +36,7 @@ const (
 	jmxMbeanSearch         JMXRequestOperationType = "search"
 )
 
+// JXMInterface describes all of methods of Mbean operation
 type JXMInterface interface {
 	GetMbeanAttribute(mbean string, attribute string, path string) (interface{}, error)
 	SetMbeanAttribute(mbean string, attribute string, path string, value interface{}) (interface{}, error)
@@ -44,6 +46,7 @@ type JXMInterface interface {
 }
 
 type (
+	// JolokiaResponse is the response structure
 	JolokiaResponse struct {
 		Status    uint32
 		Timestamp uint32
@@ -84,12 +87,14 @@ type (
 		Mbean string                  `json:"mbean"`
 	}
 
+	// JolokiaClient wraps the URL and HTTPClient
 	JolokiaClient struct {
 		URL        string
 		HTTPClient *http.Client
 	}
 )
 
+// NewJolokiaClient creates Jolokia client
 func NewJolokiaClient(host, port, path string) *JolokiaClient {
 	return &JolokiaClient{
 		"http://" + host + ":" + port + "/" + path + "/",
@@ -142,6 +147,7 @@ func (client *JolokiaClient) execute(requestBody interface{}) (interface{}, erro
 	return resp.Value, err
 }
 
+// GetMbeanAttribute reads Mbean attribute.
 func (client *JolokiaClient) GetMbeanAttribute(mbean string, attribute string, path string) (interface{}, error) {
 	requestBody := readRequestBody{
 		Mbean:     mbean,
@@ -159,6 +165,7 @@ func (client *JolokiaClient) GetMbeanAttribute(mbean string, attribute string, p
 	return result, err
 }
 
+// SetMbeanAttribute writes Mbean attribute
 func (client *JolokiaClient) SetMbeanAttribute(mbean string, attribute string, path string, value interface{}) (interface{}, error) {
 	requestBody := writeRequestBody{
 		Mbean:     mbean,
@@ -177,6 +184,7 @@ func (client *JolokiaClient) SetMbeanAttribute(mbean string, attribute string, p
 	return result, nil
 }
 
+// ExecuteMbeanOperation executes Mbean operation
 func (client *JolokiaClient) ExecuteMbeanOperation(mbean string, operation string, arguments []interface{}) (interface{}, error) {
 	requestBody := executeRequestBody{
 		Mbean:     mbean,
@@ -192,6 +200,7 @@ func (client *JolokiaClient) ExecuteMbeanOperation(mbean string, operation strin
 	return result, nil
 }
 
+// ListMbean lists the Mbean
 func (client *JolokiaClient) ListMbean(mbean string) (interface{}, error) {
 	requestBody := listRequestBody{
 		Type:  jmxMbeanList,
@@ -205,6 +214,7 @@ func (client *JolokiaClient) ListMbean(mbean string) (interface{}, error) {
 	return result, nil
 }
 
+// SearchMbeans searchs Mbean
 func (client *JolokiaClient) SearchMbeans(pattern string) (interface{}, error) {
 	requestBody := searchRequestBody{
 		Type:  jmxMbeanSearch,

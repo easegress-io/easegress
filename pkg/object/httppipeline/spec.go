@@ -106,6 +106,7 @@ func NewFilterSpec(originalRawSpec map[string]interface{}, super *supervisor.Sup
 	return
 }
 
+// Super returns super
 func (s *FilterSpec) Super() *supervisor.Supervisor {
 	return s.super
 }

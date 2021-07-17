@@ -50,7 +50,7 @@ func (m *dynamicMux) reloadAPIs() {
 	apisMutex.Lock()
 	defer apisMutex.Unlock()
 
-	apiGroups := []*APIGroup{}
+	apiGroups := []*Group{}
 
 	for _, group := range apis {
 		apiGroups = append(apiGroups, group)

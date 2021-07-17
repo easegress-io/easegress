@@ -22,6 +22,7 @@ import (
 	"os"
 )
 
+// Exit the call exit system call with exit code and message
 func Exit(code int, msg string) {
 	if code != 0 {
 		if msg != "" {

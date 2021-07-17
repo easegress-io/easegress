@@ -34,6 +34,7 @@ const (
 	// Kind is the kind of RawConfigTrafficController.
 	Kind = "RawConfigTrafficController"
 
+	// DefaultNamespace is the namespace of RawConfigTrafficController
 	DefaultNamespace = "default"
 )
 

@@ -28,6 +28,7 @@ import (
 	"strings"
 )
 
+// TokenEscapeChar is the escape char
 const TokenEscapeChar string = `\`
 
 // GraphiteSplit slices s into all substrings separated by sep
@@ -68,8 +69,10 @@ func GraphiteSplit(s string, lensep string, sep string) []string {
 	return a
 }
 
+// TokenVisitor uses for visit token
 type TokenVisitor func(pos int, token string) (care bool, replacement string)
 
+// ScanTokens scans tokens.
 func ScanTokens(str string, removeEscapeChar bool, visitor TokenVisitor) (string, error) {
 	if visitor == nil {
 		visitor = func(_ int, _ string) (bool, string) {
@@ -147,6 +150,7 @@ func ScanTokens(str string, removeEscapeChar bool, visitor TokenVisitor) (string
 	return retStr, nil
 }
 
+// PanicToErr try to recover panic and returns if it happened or not.
 func PanicToErr(f func(), err *error) (failed bool) {
 	defer func() {
 		x := recover()
@@ -177,10 +181,13 @@ func PanicToErr(f func(), err *error) (failed bool) {
 }
 
 var (
-	TrueStrings  = []string{"1", "t", "true", "on", "y", "yes"}
+	// TrueStrings contains all string represents true
+	TrueStrings = []string{"1", "t", "true", "on", "y", "yes"}
+	// FalseStrings contains all string represents false
 	FalseStrings = []string{"0", "f", "false", "off", "n", "no"}
 )
 
+// RemoveRepeatedByte removes the repeated bytes.
 func RemoveRepeatedByte(s string, needRemoveByte byte) string {
 	if len(s) < 2 {
 		return s
@@ -216,6 +223,7 @@ func NextNumberPowerOf2(v uint64) uint64 {
 // URLFriendlyCharactersRegex - safe characters for friendly url, rfc3986 section 2.3
 var URLFriendlyCharactersRegex = regexp.MustCompile(`^[A-Za-z0-9\-_\.~]{1,253}$`)
 
+// ValidateName validates the name.
 func ValidateName(name string) error {
 	if !URLFriendlyCharactersRegex.Match([]byte(name)) {
 		return fmt.Errorf("invalid constant: %s", name)
@@ -224,6 +232,7 @@ func ValidateName(name string) error {
 	return nil
 }
 
+// IsDirEmpty returns true if a directory is empty.
 func IsDirEmpty(name string) bool {
 	f, err := os.Open(name)
 	if err != nil {

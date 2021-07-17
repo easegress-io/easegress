@@ -118,6 +118,7 @@ func (s *Supervisor) NewSpec(yamlConfig string) (spec *Spec, err error) {
 	return
 }
 
+// Super returns super
 func (s *Spec) Super() *Supervisor {
 	return s.super
 }
@@ -138,6 +139,7 @@ func (s *Spec) RawSpec() map[string]interface{} {
 	return s.rawSpec
 }
 
+// Equals compares two Specs.
 func (s *Spec) Equals(other *Spec) bool {
 	return reflect.DeepEqual(s.RawSpec(), other.RawSpec())
 }

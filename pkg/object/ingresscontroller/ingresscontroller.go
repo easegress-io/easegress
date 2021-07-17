@@ -29,8 +29,10 @@ import (
 )
 
 const (
+	// Category is the name of ingress controller
 	Category = supervisor.CategoryBusinessController
-	Kind     = "IngressController"
+	// Kind is the kind of ingress controller
+	Kind = "IngressController"
 
 	defaultIngressClass          = "easegress"
 	defaultIngressControllerName = "megaease.com/ingress-controller"
@@ -52,6 +54,7 @@ type (
 		wg     sync.WaitGroup
 	}
 
+	// Spec is the ingress controller spec
 	Spec struct {
 		HTTPServer   *httpserver.Spec `yaml:"httpServer" jsonschema:"required"`
 		KubeConfig   string           `yaml:"kubeConfig" jsonschema:"omitempty"`

@@ -27,11 +27,14 @@ import (
 )
 
 const (
-	AutoScaleMetricCPU         = "cpu"
+	// AutoScaleMetricCPU is name of cpu metric
+	AutoScaleMetricCPU = "cpu"
+	// AutoScaleMetricConcurrency is the name of concurrency metric
 	AutoScaleMetricConcurrency = "concurrency"
-	AutoScaleMetricRPS         = "rps"
+	// AutoScaleMetricRPS is the name of rps metric
+	AutoScaleMetricRPS = "rps"
 
-	// ProviderKnative is the faas provider Knative.
+	// ProviderKnative is the FaaS provider Knative.
 	ProviderKnative = "knative"
 )
 

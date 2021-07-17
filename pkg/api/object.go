@@ -40,8 +40,8 @@ const (
 	StatusObjectPrefix = "/status/objects"
 )
 
-func (s *Server) objectAPIEntries() []*APIEntry {
-	return []*APIEntry{
+func (s *Server) objectAPIEntries() []*Entry {
+	return []*Entry{
 		{
 			Path:    ObjectKindsPrefix,
 			Method:  "GET",

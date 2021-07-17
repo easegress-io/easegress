@@ -171,6 +171,7 @@ func (s *Syncer) run(key string, prefix bool, send func(data map[string]*mvccpb.
 	}
 }
 
+// Sync syncs a given Etcd key's value through the returned channel.
 func (s *Syncer) Sync(key string) (<-chan *string, error) {
 	ch := make(chan *string, 10)
 
@@ -191,6 +192,7 @@ func (s *Syncer) Sync(key string) (<-chan *string, error) {
 	return ch, nil
 }
 
+// SyncRaw syncs a given Etcd key's raw Etcd mvccpb structure through the returned channel.
 func (s *Syncer) SyncRaw(key string) (<-chan *mvccpb.KeyValue, error) {
 	ch := make(chan *mvccpb.KeyValue, 10)
 
@@ -206,6 +208,7 @@ func (s *Syncer) SyncRaw(key string) (<-chan *mvccpb.KeyValue, error) {
 	return ch, nil
 }
 
+// SyncPrefix syncs Etcd keys' values with the same prefix through the returned channel.
 func (s *Syncer) SyncPrefix(prefix string) (<-chan map[string]string, error) {
 	ch := make(chan map[string]string, 10)
 
@@ -225,6 +228,7 @@ func (s *Syncer) SyncPrefix(prefix string) (<-chan map[string]string, error) {
 	return ch, nil
 }
 
+// SyncRawPrefix syncs Etcd keys' values with the same prefix in raw Etcd mvccpb structure format through the returned channel.
 func (s *Syncer) SyncRawPrefix(prefix string) (<-chan map[string]*mvccpb.KeyValue, error) {
 	ch := make(chan map[string]*mvccpb.KeyValue, 10)
 
@@ -245,6 +249,7 @@ func (s *Syncer) SyncRawPrefix(prefix string) (<-chan map[string]*mvccpb.KeyValu
 	return ch, nil
 }
 
+// Close closes the syncer.
 func (s *Syncer) Close() {
 	close(s.done)
 }

@@ -77,6 +77,7 @@ const (
 )
 
 type (
+	// API is the struct with the service
 	API struct {
 		service *service.Service
 	}
@@ -84,6 +85,7 @@ type (
 
 const apiGroupName = "mesh_admin"
 
+// New creates a API
 func New(superSpec *supervisor.Spec) *API {
 	api := &API{
 		service: service.New(superSpec),
@@ -94,14 +96,15 @@ func New(superSpec *supervisor.Spec) *API {
 	return api
 }
 
+// Close unregisters a API
 func (a *API) Close() {
 	api.UnregisterAPIs(apiGroupName)
 }
 
 func (a *API) registerAPIs() {
-	group := &api.APIGroup{
+	group := &api.Group{
 		Group: apiGroupName,
-		Entries: []*api.APIEntry{
+		Entries: []*api.Entry{
 			{Path: MeshTenantPrefix, Method: "GET", Handler: a.listTenants},
 			{Path: MeshTenantPath, Method: "POST", Handler: a.createTenant},
 			{Path: MeshTenantPath, Method: "GET", Handler: a.getTenant},

@@ -42,13 +42,14 @@ type (
 		mutexMutex sync.Mutex
 	}
 
-	APIGroup struct {
+	// Group is the API group
+	Group struct {
 		Group   string
-		Entries []*APIEntry
+		Entries []*Entry
 	}
 
-	// APIEntry is the entry of API.
-	APIEntry struct {
+	// Entry is the entry of API.
+	Entry struct {
 		Path    string           `yaml:"path"`
 		Method  string           `yaml:"method"`
 		Handler http.HandlerFunc `yaml:"-"`

@@ -8,14 +8,17 @@ import (
 	"time"
 )
 
+// TeeWriter is an io.Writer wapper.
 type TeeWriter struct {
 	writers []io.Writer
 }
 
+// NewTeeWriter returns a TeeWriter.
 func NewTeeWriter(writers ...io.Writer) *TeeWriter {
 	return &TeeWriter{writers: writers}
 }
 
+// Write writes the data.
 func (tw *TeeWriter) Write(p []byte) (n int, err error) {
 	for _, w := range tw.writers {
 		w.Write(p)

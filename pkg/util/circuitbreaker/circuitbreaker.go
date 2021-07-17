@@ -260,6 +260,7 @@ type (
 		WaitDurationInOpen               time.Duration
 	}
 
+	// Event stores the state change event
 	Event struct {
 		Time     time.Time
 		OldState string

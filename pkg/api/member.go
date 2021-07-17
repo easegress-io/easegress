@@ -28,8 +28,8 @@ import (
 	"github.com/megaease/easegress/pkg/cluster"
 )
 
-func (s *Server) memberAPIEntries() []*APIEntry {
-	return []*APIEntry{
+func (s *Server) memberAPIEntries() []*Entry {
+	return []*Entry{
 		{
 			Path:    "/status/members",
 			Method:  "GET",

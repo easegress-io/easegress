@@ -169,6 +169,7 @@ type (
 		Rabbit       ObservabilityTracingsDetail `yaml:"rabbit" jsonschema:"required"`
 	}
 
+	// ObservabilityTracingsOutputConfig is the tracing output configuration
 	ObservabilityTracingsOutputConfig struct {
 		Enabled         bool   `yaml:"enabled" jsonschema:"required"`
 		ReportThread    int    `yaml:"reportThread" jsonschema:"required"`
@@ -506,6 +507,7 @@ rules:`
 	return spec, nil
 }
 
+// IngressPipelineSpec generates a spec for ingress pipeline spec
 func (s *Service) IngressPipelineSpec(instanceSpecs []*ServiceInstanceSpec) (*supervisor.Spec, error) {
 	pipelineSpecBuilder := newPipelineSpecBuilder(s.IngressPipelineName())
 
@@ -521,6 +523,7 @@ func (s *Service) IngressPipelineSpec(instanceSpecs []*ServiceInstanceSpec) (*su
 	return superSpec, nil
 }
 
+// SideCarIngressHTTPServerSpec generates a spec for sidecar ingress HTTP server
 func (s *Service) SideCarIngressHTTPServerSpec() (*supervisor.Spec, error) {
 	ingressHTTPServerFormat := `
 kind: HTTPServer
@@ -567,34 +570,42 @@ func (s *Service) UniqueCanaryHeaders() []string {
 	return headers
 }
 
+// EgressHTTPServerName returns egress HTTP server name
 func (s *Service) EgressHTTPServerName() string {
 	return fmt.Sprintf("mesh-egress-server-%s", s.Name)
 }
 
+// EgressHandlerName returns egress handler name.
 func (s *Service) EgressHandlerName() string {
 	return fmt.Sprintf("mesh-egress-handler-%s", s.Name)
 }
 
+// EgressPipelineName returns egress pipeline name
 func (s *Service) EgressPipelineName() string {
 	return fmt.Sprintf("mesh-egress-pipeline-%s", s.Name)
 }
 
+// IngressHTTPServerName returns the ingress server name
 func (s *Service) IngressHTTPServerName() string {
 	return fmt.Sprintf("mesh-ingress-server-%s", s.Name)
 }
 
+// IngressHandlerName returns the ingress handler name
 func (s *Service) IngressHandlerName() string {
 	return fmt.Sprintf("mesh-ingress-handler-%s", s.Name)
 }
 
+// IngressPipelineName returns the ingress pipeline name
 func (s *Service) IngressPipelineName() string {
 	return fmt.Sprintf("mesh-ingress-pipeline-%s", s.Name)
 }
 
+// BackendName returns backend service name
 func (s *Service) BackendName() string {
 	return s.Name
 }
 
+// SideCarEgressHTTPServerSpec returns a spec for egress HTTP server
 func (s *Service) SideCarEgressHTTPServerSpec() (*supervisor.Spec, error) {
 	egressHTTPServerFormat := `
 kind: HTTPServer
@@ -617,6 +628,7 @@ https: false
 	return superSpec, nil
 }
 
+// SideCarIngressPipelineSpec returns a spec for sidecar ingress pipeline
 func (s *Service) SideCarIngressPipelineSpec(applicationPort uint32) (*supervisor.Spec, error) {
 	mainServers := []*proxy.Server{
 		{
@@ -642,6 +654,7 @@ func (s *Service) SideCarIngressPipelineSpec(applicationPort uint32) (*superviso
 	return superSpec, nil
 }
 
+// SideCarEgressPipelineSpec returns a spec for sidecar egress pipeline
 func (s *Service) SideCarEgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec) (*supervisor.Spec, error) {
 	pipelineSpecBuilder := newPipelineSpecBuilder(s.EgressPipelineName())
 
@@ -663,14 +676,17 @@ func (s *Service) SideCarEgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec
 	return superSpec, nil
 }
 
+// ApplicationEndpoint returns application endpoint URL string
 func (s *Service) ApplicationEndpoint(port uint32) string {
 	return fmt.Sprintf("%s://%s:%d", s.Sidecar.IngressProtocol, s.Sidecar.Address, port)
 }
 
+// IngressEndpoint returns Ingress endpoint URL string
 func (s *Service) IngressEndpoint() string {
 	return fmt.Sprintf("%s://%s:%d", s.Sidecar.IngressProtocol, s.Sidecar.Address, s.Sidecar.IngressPort)
 }
 
+// EgressEndpoint returns Egress endpoint URL string
 func (s *Service) EgressEndpoint() string {
 	return fmt.Sprintf("%s://%s:%d", s.Sidecar.EgressProtocol, s.Sidecar.Address, s.Sidecar.EgressPort)
 }

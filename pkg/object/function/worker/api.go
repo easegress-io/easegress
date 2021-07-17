@@ -45,9 +45,9 @@ func (worker *Worker) faasAPIPrefix() string {
 const apiGroupName = "faas_admin"
 
 func (worker *Worker) registerAPIs() {
-	group := &api.APIGroup{
+	group := &api.Group{
 		Group: apiGroupName,
-		Entries: []*api.APIEntry{
+		Entries: []*api.Entry{
 			{Path: worker.faasAPIPrefix(), Method: "POST", Handler: worker.Create},
 			{Path: worker.faasAPIPrefix(), Method: "GET", Handler: worker.List},
 			{Path: worker.faasAPIPrefix() + "/{name}", Method: "GET", Handler: worker.Get},
@@ -61,6 +61,7 @@ func (worker *Worker) registerAPIs() {
 	api.RegisterAPIs(group)
 }
 
+// UnregisterAPIs unregister APIs
 func (worker *Worker) UnregisterAPIs() {
 	api.UnregisterAPIs(apiGroupName)
 }
@@ -74,6 +75,7 @@ func (worker *Worker) readFunctionName(w http.ResponseWriter, r *http.Request) (
 	return serviceName, nil
 }
 
+// Create deals with HTTP POST method
 func (worker *Worker) Create(w http.ResponseWriter, r *http.Request) {
 	spec := &spec.Spec{}
 	err := worker.readAPISpec(w, r, spec)
@@ -166,6 +168,7 @@ func (worker *Worker) updateState(w http.ResponseWriter, r *http.Request, event 
 	return
 }
 
+// Stop is a stop API which deals with HTTP PUT method
 func (worker *Worker) Stop(w http.ResponseWriter, r *http.Request) {
 	name, err := worker.updateState(w, r, spec.StopEvent)
 	if err != nil {
@@ -175,6 +178,7 @@ func (worker *Worker) Stop(w http.ResponseWriter, r *http.Request) {
 	worker.ingress.Stop(name)
 }
 
+// Start is a start API which deals with HTTP PUT method
 func (worker *Worker) Start(w http.ResponseWriter, r *http.Request) {
 	name, err := worker.updateState(w, r, spec.StartEvent)
 	if err != nil {
@@ -186,6 +190,7 @@ func (worker *Worker) Start(w http.ResponseWriter, r *http.Request) {
 	w.Write(startMsg)
 }
 
+// Delete deals with HTTP DELETE
 func (worker *Worker) Delete(w http.ResponseWriter, r *http.Request) {
 	name, err := worker.readFunctionName(w, r)
 	if err != nil {
@@ -221,6 +226,7 @@ func (worker *Worker) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// List deals with HTTP GET method
 func (worker *Worker) List(w http.ResponseWriter, r *http.Request) {
 	functions, err := worker.listFunctions()
 	if err != nil {
@@ -238,6 +244,7 @@ func (worker *Worker) List(w http.ResponseWriter, r *http.Request) {
 	w.Write(buff)
 }
 
+// Update deals with HTTP PUT method
 func (worker *Worker) Update(w http.ResponseWriter, r *http.Request) {
 	funcSpec := &spec.Spec{}
 	err := worker.readAPISpec(w, r, funcSpec)
@@ -292,6 +299,7 @@ func (worker *Worker) Update(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// Get deals with HTTP GET method request
 func (worker *Worker) Get(w http.ResponseWriter, r *http.Request) {
 	name, err := worker.readFunctionName(w, r)
 	if err != nil {

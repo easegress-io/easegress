@@ -110,7 +110,7 @@ func (rcs *Server) DiscoveryService(serviceName string) (*ServiceRegistryInfo, e
 		return nil, spec.ErrNoRegisteredYet
 	}
 
-	var inGlobal bool = false
+	var inGlobal = false
 	if globalTenant, ok := tenants[spec.GlobalTenant]; ok {
 		for _, v := range globalTenant.tenant.Services {
 			if v == serviceName {

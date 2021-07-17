@@ -198,6 +198,7 @@ func convertToFilterBuffs(obj interface{}) map[string][]byte {
 	return rst
 }
 
+// Validate validates the meta information
 func (meta *FilterMetaSpec) Validate() error {
 	if len(meta.Name) == 0 {
 		return fmt.Errorf("filter name is required")
@@ -433,6 +434,7 @@ func (hp *HTTPPipeline) getNextFilterIndex(index int, result string) int {
 	return -1
 }
 
+// Handle is the handler to deal with HTTP
 func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) {
 	pipeCtx := newAndSetPipelineContext(ctx)
 	defer deletePipelineContext(ctx)

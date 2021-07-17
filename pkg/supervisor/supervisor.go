@@ -69,7 +69,7 @@ func MustNew(opt *option.Options, cls cluster.Cluster) *Supervisor {
 
 	s.objectRegistry = newObjectRegistry(s)
 	s.watcher = s.objectRegistry.NewWatcher(watcherName, FilterCategory(
-		// NOTE: SystemController is only initilized internally.
+		// NOTE: SystemController is only initialized internally.
 		// CategorySystemController,
 		CategoryBusinessController))
 
@@ -175,6 +175,7 @@ func (s *Supervisor) handleEvent(event *ObjectEntityWatcherEvent) {
 	}
 }
 
+// ObjectRegistry returns the registry of object
 func (s *Supervisor) ObjectRegistry() *ObjectRegistry {
 	return s.objectRegistry
 }

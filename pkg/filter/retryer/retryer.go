@@ -45,6 +45,7 @@ func init() {
 type (
 	backOffPolicy uint8
 
+	// Policy is the policy of the retryer
 	Policy struct {
 		Name                 string `yaml:"name" jsonschema:"required"`
 		MaxAttempts          int    `yaml:"maxAttempts" jsonschema:"omitempty,minimum=1"`
@@ -57,17 +58,20 @@ type (
 		FailureStatusCodes   []int `yaml:"failureStatusCodes" jsonschema:"omitempty,uniqueItems=true,format=httpcode-array"`
 	}
 
+	// URLRule is the URL rule
 	URLRule struct {
 		urlrule.URLRule `yaml:",inline"`
 		policy          *Policy
 	}
 
+	// Spec is the spec of retryer
 	Spec struct {
 		Policies         []*Policy  `yaml:"policies" jsonschema:"required"`
 		DefaultPolicyRef string     `yaml:"defaultPolicyRef" jsonschema:"omitempty"`
 		URLs             []*URLRule `yaml:"urls" jsonschema:"required"`
 	}
 
+	// Retryer is the struct of retryer
 	Retryer struct {
 		filterSpec *httppipeline.FilterSpec
 		spec       *Spec

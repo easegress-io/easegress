@@ -22,6 +22,7 @@ import (
 	"reflect"
 )
 
+// StatAggregator is the interface
 type StatAggregator interface {
 	Aggregate(interface{}) error
 	Result() interface{}
@@ -37,6 +38,7 @@ const (
 	floatNum
 )
 
+// String returns the type of number.
 func (nk numericKind) String() string {
 	switch nk {
 	case invalidNum:
@@ -64,15 +66,18 @@ func unifyNumericKind(num interface{}) (interface{}, numericKind) {
 	}
 }
 
+// NumericMaxAggregator is the structure with max value
 type NumericMaxAggregator struct {
 	max interface{}
 	nk  numericKind
 }
 
+// String returns the name.
 func (a *NumericMaxAggregator) String() string {
 	return "numeric_max"
 }
 
+// Aggregate records the max of value
 func (a *NumericMaxAggregator) Aggregate(num interface{}) error {
 	if num == nil {
 		return nil
@@ -113,19 +118,23 @@ func (a *NumericMaxAggregator) Aggregate(num interface{}) error {
 	return nil
 }
 
+// Result return the max value
 func (a *NumericMaxAggregator) Result() interface{} {
 	return a.max
 }
 
+// NumericMinAggregator is the structure with min value
 type NumericMinAggregator struct {
 	min interface{}
 	nk  numericKind
 }
 
+// String returns the name.
 func (a *NumericMinAggregator) String() string {
 	return "numeric_min"
 }
 
+// Aggregate records the min value
 func (a *NumericMinAggregator) Aggregate(num interface{}) error {
 	if num == nil {
 		return nil
@@ -166,19 +175,23 @@ func (a *NumericMinAggregator) Aggregate(num interface{}) error {
 	return nil
 }
 
+// Result returns the min value.
 func (a *NumericMinAggregator) Result() interface{} {
 	return a.min
 }
 
+// NumericSumAggregator is the structure with sum value
 type NumericSumAggregator struct {
 	sum interface{}
 	nk  numericKind
 }
 
+// String returns the name.
 func (a *NumericSumAggregator) String() string {
 	return "numeric_sum"
 }
 
+// Aggregate records the sum value
 func (a *NumericSumAggregator) Aggregate(num interface{}) error {
 	if num == nil {
 		return nil
@@ -213,19 +226,23 @@ func (a *NumericSumAggregator) Aggregate(num interface{}) error {
 	return nil
 }
 
+// Result returns the sum value.
 func (a *NumericSumAggregator) Result() interface{} {
 	return a.sum
 }
 
+// NumericAvgAggregator is the structure with average value
 type NumericAvgAggregator struct {
 	NumericSumAggregator
 	count int64
 }
 
+// String returns the name.
 func (a *NumericAvgAggregator) String() string {
 	return "numeric_average"
 }
 
+// Aggregate records the number of values and the sum of values
 func (a *NumericAvgAggregator) Aggregate(num interface{}) error {
 	if num == nil {
 		return nil
@@ -241,6 +258,7 @@ func (a *NumericAvgAggregator) Aggregate(num interface{}) error {
 	return nil
 }
 
+// Result returns the average values
 func (a *NumericAvgAggregator) Result() interface{} {
 	if a.NumericSumAggregator.Result() == nil {
 		return nil

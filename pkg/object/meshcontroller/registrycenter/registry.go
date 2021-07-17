@@ -37,7 +37,9 @@ import (
 )
 
 const (
-	ContentTypeXML  = "text/xml"
+	// ContentTypeXML is xml content type
+	ContentTypeXML = "text/xml"
+	// ContentTypeJSON is JSON content type
 	ContentTypeJSON = "application/json"
 )
 
@@ -126,7 +128,7 @@ func needUpdateRecord(originIns, ins *spec.ServiceInstanceSpec) bool {
 }
 
 func (rcs *Server) register(ins *spec.ServiceInstanceSpec, ingressReady ReadyFunc, egressReady ReadyFunc) {
-	var tryTimes int = 0
+	var tryTimes int
 
 	for {
 		select {

@@ -59,8 +59,8 @@ type (
 	}
 )
 
-// NewAPIServer creates a initialed API server.
-func NewAPIServer(port int) *apiServer {
+// newAPIServer creates a initialed API server.
+func newAPIServer(port int) *apiServer {
 	r := chi.NewRouter()
 	addr := fmt.Sprintf("%s:%d", defaultServerIP, port)
 

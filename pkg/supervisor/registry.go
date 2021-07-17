@@ -57,10 +57,11 @@ type (
 		Timestamp int64
 	}
 
+	// TrafficObject is the object of Traffic
 	TrafficObject interface {
 		Object
 
-		// Init initializes the Obejct.
+		// Init initializes the Object.
 		Init(superSpec *Spec, muxMapper protocol.MuxMapper)
 
 		// Inherit also initializes the Object.
