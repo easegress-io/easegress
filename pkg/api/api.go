@@ -46,20 +46,20 @@ const (
 
 var (
 	apisMutex      = sync.Mutex{}
-	apis           = make(map[string]*APIGroup)
+	apis           = make(map[string]*Group)
 	apisChangeChan = make(chan struct{}, 10)
 
-	appendAddonAPIs []func(s *Server, group *APIGroup)
+	appendAddonAPIs []func(s *Server, group *Group)
 )
 
-type apisbyOrder []*APIGroup
+type apisbyOrder []*Group
 
 func (a apisbyOrder) Less(i, j int) bool { return a[i].Group < a[j].Group }
 func (a apisbyOrder) Len() int           { return len(a) }
 func (a apisbyOrder) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 
 // RegisterAPIs registers global admin APIs.
-func RegisterAPIs(apiGroup *APIGroup) {
+func RegisterAPIs(apiGroup *Group) {
 	apisMutex.Lock()
 	defer apisMutex.Unlock()
 
@@ -91,7 +91,7 @@ func UnregisterAPIs(group string) {
 }
 
 func (s *Server) registerAPIs() {
-	group := &APIGroup{
+	group := &Group{
 		Group: "admin",
 	}
 	group.Entries = append(group.Entries, s.listAPIEntries()...)
@@ -108,8 +108,8 @@ func (s *Server) registerAPIs() {
 	RegisterAPIs(group)
 }
 
-func (s *Server) listAPIEntries() []*APIEntry {
-	return []*APIEntry{
+func (s *Server) listAPIEntries() []*Entry {
+	return []*Entry{
 		{
 			Path:    "",
 			Method:  "GET",
@@ -118,8 +118,8 @@ func (s *Server) listAPIEntries() []*APIEntry {
 	}
 }
 
-func (s *Server) healthAPIEntries() []*APIEntry {
-	return []*APIEntry{
+func (s *Server) healthAPIEntries() []*Entry {
+	return []*Entry{
 		{
 			// https://stackoverflow.com/a/43381061/1705845
 			Path:    "/healthz",
@@ -129,8 +129,8 @@ func (s *Server) healthAPIEntries() []*APIEntry {
 	}
 }
 
-func (s *Server) aboutAPIEntries() []*APIEntry {
-	return []*APIEntry{
+func (s *Server) aboutAPIEntries() []*Entry {
+	return []*Entry{
 		{
 			Path:   "/about",
 			Method: "GET",
@@ -146,7 +146,7 @@ func (s *Server) listAPIs(w http.ResponseWriter, r *http.Request) {
 	apisMutex.Lock()
 	defer apisMutex.Unlock()
 
-	apiGroups := []*APIGroup{}
+	apiGroups := []*Group{}
 
 	for _, group := range apis {
 		apiGroups = append(apiGroups, group)

@@ -26,8 +26,8 @@ import (
 type (
 	clusterErr string
 
-	// APIErr is the standard return of error.
-	APIErr struct {
+	// Err is the standard return of error.
+	Err struct {
 		Code    int    `yaml:"code"`
 		Message string `yaml:"message"`
 	}
@@ -45,7 +45,7 @@ func ClusterPanic(err error) {
 // HandleAPIError handles api error.
 func HandleAPIError(w http.ResponseWriter, r *http.Request, code int, err error) {
 	w.WriteHeader(code)
-	buff, err := yaml.Marshal(APIErr{
+	buff, err := yaml.Marshal(Err{
 		Code:    code,
 		Message: err.Error(),
 	})

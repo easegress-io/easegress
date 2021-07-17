@@ -45,9 +45,9 @@ func (worker *Worker) faasAPIPrefix() string {
 const apiGroupName = "faas_admin"
 
 func (worker *Worker) registerAPIs() {
-	group := &api.APIGroup{
+	group := &api.Group{
 		Group: apiGroupName,
-		Entries: []*api.APIEntry{
+		Entries: []*api.Entry{
 			{Path: worker.faasAPIPrefix(), Method: "POST", Handler: worker.Create},
 			{Path: worker.faasAPIPrefix(), Method: "GET", Handler: worker.List},
 			{Path: worker.faasAPIPrefix() + "/{name}", Method: "GET", Handler: worker.Get},

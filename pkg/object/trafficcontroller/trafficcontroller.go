@@ -104,7 +104,6 @@ func newNamespace(namespace string) *Namespace {
 	}
 }
 
-
 // GetHandler gets handler within the namespace
 func (ns *Namespace) GetHandler(name string) (protocol.HTTPHandler, bool) {
 	entity, exists := ns.httppipelines.Load(name)

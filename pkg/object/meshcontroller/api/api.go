@@ -102,9 +102,9 @@ func (a *API) Close() {
 }
 
 func (a *API) registerAPIs() {
-	group := &api.APIGroup{
+	group := &api.Group{
 		Group: apiGroupName,
-		Entries: []*api.APIEntry{
+		Entries: []*api.Entry{
 			{Path: MeshTenantPrefix, Method: "GET", Handler: a.listTenants},
 			{Path: MeshTenantPath, Method: "POST", Handler: a.createTenant},
 			{Path: MeshTenantPath, Method: "GET", Handler: a.getTenant},

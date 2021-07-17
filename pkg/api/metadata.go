@@ -72,8 +72,8 @@ func (s *Server) initMetadata() {
 
 }
 
-func (s *Server) metadataAPIEntries() []*APIEntry {
-	return []*APIEntry{
+func (s *Server) metadataAPIEntries() []*Entry {
+	return []*Entry{
 		{
 			Path:    FilterMetaPrefix,
 			Method:  "GET",
