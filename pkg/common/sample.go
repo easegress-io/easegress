@@ -75,7 +75,7 @@ func NewExpDecaySample(timeRange time.Duration, secondsForEachBucket int) *ExpDe
 	return s
 }
 
-// Close clean the ExpDecaySample
+// Close cleans the ExpDecaySample.
 func (s *ExpDecaySample) Close() {
 	s.closeLock.Lock()
 	defer s.closeLock.Unlock()

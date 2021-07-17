@@ -55,7 +55,7 @@ func NewAgentClient(host, port string) *AgentClient {
 	}
 }
 
-// UpdateService update service
+// UpdateService updates service.
 func (agent *AgentClient) UpdateService(newService *spec.Service, version int64) error {
 	buff, err := yaml.Marshal(newService)
 	if err != nil {
@@ -79,7 +79,7 @@ func (agent *AgentClient) UpdateService(newService *spec.Service, version int64)
 	return err
 }
 
-// UpdateCanary update canary
+// UpdateCanary updates canary.
 func (agent *AgentClient) UpdateCanary(globalHeaders *spec.GlobalCanaryHeaders, version int64) error {
 	buff, err := yaml.Marshal(globalHeaders)
 	if err != nil {

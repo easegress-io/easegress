@@ -36,7 +36,7 @@ func NowUnixNano() int64 {
 	return syscall.TimevalToNsec(tv)
 }
 
-// Since return the elapsed time
+// Since returns the elapsed time.
 func Since(t time.Time) time.Duration {
 	return Now().Sub(t)
 }

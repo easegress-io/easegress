@@ -270,7 +270,7 @@ func (ic *IngressController) Status() *supervisor.Status {
 	}
 }
 
-// Close release the ingress controller
+// Close closes the ingress controller
 func (ic *IngressController) Close() {
 	ic.mutex.Lock()
 	defer ic.mutex.Unlock()

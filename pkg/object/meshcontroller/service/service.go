@@ -202,7 +202,7 @@ func (s *Service) GetTenantSpecWithInfo(tenantName string) (*spec.Tenant, *mvccp
 	return tenant, kvs
 }
 
-// PutTenantSpec write the tenant spec
+// PutTenantSpec writes the tenant spec.
 func (s *Service) PutTenantSpec(tenantSpec *spec.Tenant) {
 	buff, err := yaml.Marshal(tenantSpec)
 	if err != nil {
@@ -215,7 +215,7 @@ func (s *Service) PutTenantSpec(tenantSpec *spec.Tenant) {
 	}
 }
 
-// ListAllServiceInstanceStatuses list all service instance statuses
+// ListAllServiceInstanceStatuses lists all service instance statuses.
 func (s *Service) ListAllServiceInstanceStatuses() []*spec.ServiceInstanceStatus {
 	return s.listServiceInstanceStatuses(true, "")
 }
@@ -252,12 +252,12 @@ func (s *Service) listServiceInstanceStatuses(all bool, serviceName string) []*s
 	return statuses
 }
 
-// ListAllServiceInstanceSpecs list all service instance specs
+// ListAllServiceInstanceSpecs lists all service instance specs.
 func (s *Service) ListAllServiceInstanceSpecs() []*spec.ServiceInstanceSpec {
 	return s.listServiceInstanceSpecs(true, "")
 }
 
-// ListServiceInstanceSpecs list service instance specs
+// ListServiceInstanceSpecs lists service instance specs.
 func (s *Service) ListServiceInstanceSpecs(serviceName string) []*spec.ServiceInstanceSpec {
 	return s.listServiceInstanceSpecs(false, serviceName)
 }
@@ -357,7 +357,7 @@ func (s *Service) GetIngressSpec(ingressName string) *spec.Ingress {
 	return ingress
 }
 
-// GetIngressSpecWithInfo get ingress spec with information
+// GetIngressSpecWithInfo gets ingress spec with information.
 func (s *Service) GetIngressSpecWithInfo(ingressName string) (*spec.Ingress, *mvccpb.KeyValue) {
 	kvs, err := s.store.GetRaw(layout.IngressSpecKey(ingressName))
 	if err != nil {

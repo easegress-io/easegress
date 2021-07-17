@@ -57,7 +57,7 @@ func (s *Semaphore) AcquireWithContext(ctx context.Context) error {
 	return s.sem.Acquire(ctx, 1)
 }
 
-// Release the semaphore
+// Release releases one semaphore.
 func (s *Semaphore) Release() {
 	s.sem.Release(1)
 }

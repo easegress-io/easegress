@@ -18,12 +18,12 @@
 package common
 
 const (
-	// CallbacksInitCapacity is the capacity of callback
+	// CallbacksInitCapacity is the capacity of callback functions.
 	CallbacksInitCapacity = 20
 
-	// NormalPriorityCallback is the name of normal priority callback
+	// NormalPriorityCallback is the name of normal priority callback.
 	NormalPriorityCallback = "__NoRmAl_PrIoRiTy_CaLlBaCk"
-	// CriticalPriorityCallback is the name of critical priority callback
+	// CriticalPriorityCallback is the name of critical priority callback.
 	CriticalPriorityCallback = "__CrItIcAl_PrIoRiTy_CaLlBaCk"
 )
 
@@ -33,7 +33,7 @@ type NamedCallback struct {
 	callback interface{}
 }
 
-// NewNamedCallback return a new named callback
+// NewNamedCallback returns a new named callback.
 func NewNamedCallback(name string, callback interface{}) *NamedCallback {
 	return &NamedCallback{
 		name:     name,

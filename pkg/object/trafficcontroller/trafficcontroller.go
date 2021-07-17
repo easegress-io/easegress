@@ -536,7 +536,7 @@ func (tc *TrafficController) DeleteHTTPPipeline(namespace, name string) error {
 	return nil
 }
 
-// GetHTTPPipeline return the pipeline by it's namespace and name
+// GetHTTPPipeline returns the pipeline by its namespace and name.
 func (tc *TrafficController) GetHTTPPipeline(namespace, name string) (*supervisor.ObjectEntity, bool) {
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()

@@ -262,7 +262,7 @@ func (or *ObjectRegistry) NewWatcher(name string, filter ObjectEntityWatcherFilt
 	return watcher
 }
 
-// CloseWatcher closes and release a watcher
+// CloseWatcher closes and releases a watcher.
 func (or *ObjectRegistry) CloseWatcher(name string) {
 	or.mutex.Lock()
 	defer or.mutex.Unlock()

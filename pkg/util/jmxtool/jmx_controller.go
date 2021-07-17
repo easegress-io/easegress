@@ -147,7 +147,7 @@ func (client *JolokiaClient) execute(requestBody interface{}) (interface{}, erro
 	return resp.Value, err
 }
 
-// GetMbeanAttribute read Mbean attribute
+// GetMbeanAttribute reads Mbean attribute.
 func (client *JolokiaClient) GetMbeanAttribute(mbean string, attribute string, path string) (interface{}, error) {
 	requestBody := readRequestBody{
 		Mbean:     mbean,

@@ -38,7 +38,7 @@ const (
 	floatNum
 )
 
-// String return the type of uint
+// String returns the type of number.
 func (nk numericKind) String() string {
 	switch nk {
 	case invalidNum:
@@ -72,7 +72,7 @@ type NumericMaxAggregator struct {
 	nk  numericKind
 }
 
-// String return the name
+// String returns the name.
 func (a *NumericMaxAggregator) String() string {
 	return "numeric_max"
 }
@@ -129,7 +129,7 @@ type NumericMinAggregator struct {
 	nk  numericKind
 }
 
-// String return the name
+// String returns the name.
 func (a *NumericMinAggregator) String() string {
 	return "numeric_min"
 }
@@ -175,7 +175,7 @@ func (a *NumericMinAggregator) Aggregate(num interface{}) error {
 	return nil
 }
 
-// Result return the min value
+// Result returns the min value.
 func (a *NumericMinAggregator) Result() interface{} {
 	return a.min
 }
@@ -186,7 +186,7 @@ type NumericSumAggregator struct {
 	nk  numericKind
 }
 
-// String return the name
+// String returns the name.
 func (a *NumericSumAggregator) String() string {
 	return "numeric_sum"
 }
@@ -226,7 +226,7 @@ func (a *NumericSumAggregator) Aggregate(num interface{}) error {
 	return nil
 }
 
-// Result return the sum value
+// Result returns the sum value.
 func (a *NumericSumAggregator) Result() interface{} {
 	return a.sum
 }
@@ -237,7 +237,7 @@ type NumericAvgAggregator struct {
 	count int64
 }
 
-// String return the name
+// String returns the name.
 func (a *NumericAvgAggregator) String() string {
 	return "numeric_average"
 }

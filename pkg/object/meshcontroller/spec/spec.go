@@ -575,7 +575,7 @@ func (s *Service) EgressHTTPServerName() string {
 	return fmt.Sprintf("mesh-egress-server-%s", s.Name)
 }
 
-// EgressHandlerName return egress handler name
+// EgressHandlerName returns egress handler name.
 func (s *Service) EgressHandlerName() string {
 	return fmt.Sprintf("mesh-egress-handler-%s", s.Name)
 }
