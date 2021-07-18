@@ -18,6 +18,7 @@
 package ratelimiter
 
 import (
+	"fmt"
 	"os"
 	"sync"
 	"testing"
@@ -38,16 +39,20 @@ func TestMain(m *testing.M) {
 	code := m.Run()
 	os.Exit(code)
 }
+func TestNewDefaultPolicy(t *testing.T) {
+	policy := NewDefaultPolicy()
 
-func TestConcurrent(t *testing.T) {
-	policy := Policy{
-		LimitRefreshPeriod: time.Millisecond * 10,
-		TimeoutDuration:    time.Millisecond * 50,
-		LimitForPeriod:     5,
+	if policy.TimeoutDuration != 100*time.Millisecond ||
+		policy.LimitRefreshPeriod != 10*time.Millisecond ||
+		policy.LimitForPeriod != 50 {
+		t.Errorf("Incorrect default configuration %v\n", policy)
 	}
+}
+func TestConcurrent(t *testing.T) {
+	policy := NewPolicy(50, 10, 5)
 
 	var wg sync.WaitGroup
-	limiter := New(&policy)
+	limiter := New(policy)
 	fn := func() {
 		permitted := limiter.WaitPermission()
 		if !permitted {
@@ -95,13 +100,13 @@ func TestConcurrent(t *testing.T) {
 }
 
 func TestRateLimiter(t *testing.T) {
-	policy := Policy{
-		LimitRefreshPeriod: time.Millisecond * 10,
-		TimeoutDuration:    time.Millisecond * 50,
-		LimitForPeriod:     5,
-	}
+	policy := NewPolicy(50, 10, 5)
 
-	limiter := New(&policy)
+	limiter := New(policy)
+	limiter.SetStateListener(func(event *Event) {
+		fmt.Printf("%v\n", event)
+	})
+	limiter.SetState(StateNormal)
 	for i := 0; i < 30; i++ {
 		permitted, d := limiter.AcquirePermission()
 		if !permitted {
@@ -112,6 +117,7 @@ func TestRateLimiter(t *testing.T) {
 		}
 	}
 
+	limiter.SetState(StateLimiting)
 	if permitted, d := limiter.AcquirePermission(); permitted {
 		t.Errorf("AcquirePermission should fail")
 	} else if d != policy.TimeoutDuration {
@@ -154,4 +160,5 @@ func TestRateLimiter(t *testing.T) {
 	} else if d != policy.TimeoutDuration {
 		t.Errorf("wait duration should not be: %s", d.String())
 	}
+	limiter.SetState(StateDisabled)
 }

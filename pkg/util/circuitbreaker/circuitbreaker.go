@@ -307,18 +307,25 @@ var stateStrings = []string{
 }
 
 // NewPolicy create and initialize a policy with default configuration
-func NewPolicy() *Policy {
+func NewPolicy(failureRateThreshold, slowCallRateThreshold, slidingWindowType uint8,
+	slidingWindowSize, permittedNumberOfCallsInHalfOpen, minimumNumberOfCalls uint32,
+	slowCallDurationThreshold, maxWaitDurationInHalfOpen, waitDurationInOpen time.Duration) *Policy {
 	return &Policy{
-		FailureRateThreshold:             50,
-		SlowCallRateThreshold:            100,
-		SlidingWindowType:                CountBased,
-		SlidingWindowSize:                100,
-		PermittedNumberOfCallsInHalfOpen: 10,
-		MinimumNumberOfCalls:             100,
-		SlowCallDurationThreshold:        time.Minute,
-		MaxWaitDurationInHalfOpen:        0,
-		WaitDurationInOpen:               time.Minute,
+		FailureRateThreshold:             failureRateThreshold,
+		SlowCallRateThreshold:            slowCallRateThreshold,
+		SlidingWindowType:                slidingWindowType,
+		SlidingWindowSize:                slidingWindowSize,
+		PermittedNumberOfCallsInHalfOpen: permittedNumberOfCallsInHalfOpen,
+		MinimumNumberOfCalls:             minimumNumberOfCalls,
+		SlowCallDurationThreshold:        slowCallDurationThreshold,
+		MaxWaitDurationInHalfOpen:        maxWaitDurationInHalfOpen,
+		WaitDurationInOpen:               waitDurationInOpen,
 	}
+}
+
+// NewDefaultPolicy create and initialize a policy with default configuration
+func NewDefaultPolicy() *Policy {
+	return NewPolicy(50, 100, CountBased, 100, 10, 100, time.Minute, 0, time.Minute)
 }
 
 // New creates a circuit breaker based on `policy`,
