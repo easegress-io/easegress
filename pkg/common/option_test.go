@@ -93,7 +93,7 @@ func TestUint64Range(t *testing.T) {
 		t.Errorf("expected %s, result %s", str, u.String())
 	}
 	str = "1000000001"
-	if err:= u.Set(str); err == nil {
+	if err := u.Set(str); err == nil {
 		t.Errorf("it should be wrong, because the %s out of range", str)
 	}
 }
@@ -115,7 +115,7 @@ func TestUint32Range(t *testing.T) {
 		t.Errorf("expected %s, result %s", str, u.String())
 	}
 	str = "100001"
-	if err:= u.Set(str); err == nil {
+	if err := u.Set(str); err == nil {
 		t.Errorf("it should be wrong, because the %s out of range", str)
 	}
 }
@@ -138,7 +138,7 @@ func TestUint16Range(t *testing.T) {
 	}
 
 	str = "1024"
-	if err:= u.Set(str); err == nil {
+	if err := u.Set(str); err == nil {
 		t.Errorf("it should be wrong, because the %s out of range", str)
 	}
 }
@@ -153,16 +153,16 @@ func TestStringRegexValue(t *testing.T) {
 	}
 
 	v := "5678"
-	if err := s.Set(v); err !=nil {
+	if err := s.Set(v); err != nil {
 		t.Errorf("%v", err)
 	}
 
-	if err := s.Set("abcd"); err ==nil {
+	if err := s.Set("abcd"); err == nil {
 		t.Errorf("invalid pattern, should be return error ")
 	}
 
 	if s.Get() != v || s.String() != v {
 		t.Errorf("expected: %s, result %s", v, s.Get())
 	}
-	
+
 }
