@@ -79,7 +79,7 @@ func (agent *AgentClient) UpdateService(newService *spec.Service, version int64)
 	if err != nil {
 		return fmt.Errorf("handleRequest error: %v", err)
 	}
-	
+
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf("read the http body failed: %v", err)

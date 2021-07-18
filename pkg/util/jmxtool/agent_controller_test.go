@@ -45,7 +45,7 @@ func httpServer(finished chan bool) {
 	fmt.Println("Finished")
 	finished <- true
 }
- func TestAgentClient(t *testing.T) {
+func TestAgentClient(t *testing.T) {
 
 	finished := make(chan bool)
 	go httpServer(finished)
@@ -75,8 +75,8 @@ func httpServer(finished chan bool) {
 
 	var client = &http.Client{
 		Timeout: time.Second,
-	      }
+	}
 	client.Get("http://127.0.0.1:8181/shutdown")
 
 	<-finished
- }
+}
