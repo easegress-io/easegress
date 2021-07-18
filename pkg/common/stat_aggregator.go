@@ -169,7 +169,7 @@ func (a *NumericMinAggregator) Aggregate(num interface{}) error {
 			a.min = value
 		}
 	default:
-		return fmt.Errorf("BUG: unsuppoorted numeric kind %s", a.nk)
+		return fmt.Errorf("BUG: unsupported numeric kind %s", a.nk)
 	}
 
 	return nil
@@ -220,7 +220,7 @@ func (a *NumericSumAggregator) Aggregate(num interface{}) error {
 	case floatNum:
 		a.sum = a.sum.(float64) + value.(float64)
 	default:
-		return fmt.Errorf("BUG: unsuppoorted numeric kind %s", a.nk)
+		return fmt.Errorf("BUG: unsupported numeric kind %s", a.nk)
 	}
 
 	return nil
