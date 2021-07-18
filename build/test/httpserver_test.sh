@@ -4,15 +4,20 @@
 # author:   benjaminwu 
 # date:     2021/0716
 
+set -e
+
 # path related define.
-SCRIPTPATH=`pwd -P`
+# Note: use $(dirname $(realpath ${BASH_SOURCE[0]})) to value SCRIPTPATH is OK in linux platform, 
+#       but not in MacOS.(cause there is note `realpath` in it)
+# reference: https://stackoverflow.com/questions/4774054/reliable-way-for-a-bash-script-to-get-the-full-path-to-itself
+SCRIPTPATH="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 pushd $SCRIPTPATH"/../../example" > /dev/null
-EXAMPDIR=`pwd -P`
-WRITER01DIR=$EXAMPDIR"/writer-001"
+EXAMPLEDIR="$SCRIPTPATH"/../../example
+WRITER01DIR=$EXAMPLEDIR"/writer-001"
 
 # target file related define.
-server=$WRITER01DIR/bin/easegress-server
-backend=$EXAMPDIR/backend-service/mirror/mirror.go
+server="writer-001/bin/easegress-server"
+backend="$EXAMPLEDIR/backend-service/mirror/mirror.go"
 
 # color define.
 COLOR_NONE='\033[0m'
@@ -23,8 +28,8 @@ COLOR_ERROR='\033[1;31m'
 function clean()
 {
      # basic cleaning routine
-     bash $EXAMPDIR/stop_cluster.sh 
-     bash $EXAMPDIR/clean_cluster.sh
+     bash $EXAMPLEDIR/stop_cluster.sh 
+     bash $EXAMPLEDIR/clean_cluster.sh
 
 
      # clean the go mirror backend
