@@ -18,6 +18,7 @@
 package common
 
 import (
+	"fmt"
 	"math"
 	"testing"
 )
@@ -313,4 +314,105 @@ func TestNextNumberPowerOf2(t *testing.T) {
 	if ret != 1<<63 {
 		t.Fatalf("unexpected return: %d", ret)
 	}
+}
+
+func TestGraphiteSplit(t *testing.T) {
+	str := "4.name#3.age#5.email"
+	strarr := GraphiteSplit(str, ".", "#")
+
+	if len(strarr) != 3 || strarr[0] != "name" || strarr[1] != "age" || strarr[2] != "email" {
+		t.Errorf("%v\n", strarr)
+	}
+
+	str = "5.name"
+	strarr = GraphiteSplit(str, ".", "#")
+	if len(strarr) != 0 {
+		t.Errorf("%v\n", strarr)
+	}
+
+	str = "name"
+	strarr = GraphiteSplit(str, ".", "#")
+	if len(strarr) != 0 {
+		t.Errorf("%v\n", strarr)
+	}
+
+	str = "4.email"
+	strarr = GraphiteSplit(str, ".", "#")
+	if strarr[0] != "emai" {
+		t.Errorf("%v\n", strarr)
+	}
+}
+
+func TestPanicToErr(t *testing.T) {
+	errstr := "panic"
+	f := func() { panic(errstr) }
+	var e error
+	PanicToErr(f, &e)
+	if e.Error() != errstr {
+		t.Errorf("expected %s, result %s", errstr, e.Error())
+	}
+
+	f = func() { panic(fmt.Errorf(errstr)) }
+	PanicToErr(f, &e)
+	if e.Error() != errstr {
+		t.Errorf("expected %s, result %s", errstr, e.Error())
+	}
+
+	f = func() { panic(nil) }
+	PanicToErr(f, nil)
+}
+
+func TestRemoveRepeatedByteTest(t *testing.T) {
+	s := "abbcccddd"
+	var b byte = 'b'
+	result := RemoveRepeatedByte(s, b)
+	expected := "abcccddd"
+	if result != expected {
+		t.Errorf("expected %s, result %s", expected, result)
+	}
+
+	s = "a"
+	b = 'a'
+	result = RemoveRepeatedByte(s, b)
+	expected = "a"
+	if result != expected {
+		t.Errorf("expected %s, result %s", expected, result)
+	}
+}
+
+func TestValidateName(t *testing.T) {
+	if err := ValidateName("localhost"); err != nil {
+		t.Errorf("error %v", err)
+	}
+	if err := ValidateName("127.0.0.1"); err != nil {
+		t.Errorf("error %v", err)
+	}
+	if err := ValidateName("local:host"); err == nil {
+		t.Errorf("error")
+	}
+}
+
+func TestDirFunc(t *testing.T) {
+	uuid, err := UUID()
+	if err != nil {
+		t.Errorf("%v", err)
+	}
+
+	dir := "/tmp/egress/" + uuid
+	if err := MkdirAll(dir); err != nil {
+		t.Errorf("%v", err)
+	}
+	if !IsDirEmpty(dir) {
+		t.Errorf("directory is not empty")
+	}
+	if err := BackupAndCleanDir(dir); err != nil {
+		t.Errorf("%v", err)
+	}
+	if err := RemoveAll(dir); err != nil {
+		t.Errorf("%v", err)
+	}
+	if err := RemoveAll(dir + "_bak"); err != nil {
+		t.Errorf("%v", err)
+	}
+
 }
