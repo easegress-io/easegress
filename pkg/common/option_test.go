@@ -90,7 +90,7 @@ func TestUint64Range(t *testing.T) {
 		t.Errorf("expected %d, result %d", u64, u.Get())
 	}
 	if u.String() != str {
-		t.Errorf("expected %s, result %s", str, u.String())
+		t.Errorf("expectcoed %s, result %s", str, u.String())
 	}
 	str = "1000000001"
 	if err := u.Set(str); err == nil {
