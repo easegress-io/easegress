@@ -78,6 +78,7 @@ func TestNumericMaxAggregator(t *testing.T) {
 		mockWantXGotYKindError(intNum, uint(0)),
 		nil,
 		nil,
+		mockWantXGotYKindError(intNum, float64(0.0)),
 	})
 
 	a := &NumericMaxAggregator{}
@@ -87,6 +88,8 @@ func TestNumericMaxAggregator(t *testing.T) {
 	em.mapNext(t, a.Aggregate(uint(10)))
 	em.mapNext(t, a.Aggregate(int(10)))
 	em.mapNext(t, a.Aggregate(int(-2)))
+
+	em.mapNext(t, a.Aggregate(float64(2.0)))
 
 	wantResult := int64(10)
 	gotResult := a.Result().(int64)

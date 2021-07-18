@@ -112,7 +112,7 @@ func (a *NumericMaxAggregator) Aggregate(num interface{}) error {
 			a.max = value
 		}
 	default:
-		return fmt.Errorf("BUG: unsuppoorted numeric kind %s", a.nk)
+		return fmt.Errorf("BUG: unsupported numeric kind %s", a.nk)
 	}
 
 	return nil

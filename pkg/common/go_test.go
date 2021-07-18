@@ -36,4 +36,10 @@ func TestCloseChan(t *testing.T) {
 	msg := <-msgchan
 	CloseChan(&msgchan)
 	fmt.Println(msg)
+
+	msgchan = nil
+	if CloseChan(msgchan) != false {
+		t.Errorf("Close Nil Channel error!")
+	}
+
 }
