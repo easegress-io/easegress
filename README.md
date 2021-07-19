@@ -1,5 +1,10 @@
 # Easegress
 
+<a href="https://megaease.com/easegress">
+    <img src="./doc/easegress.svg"
+        alt="Easegress logo" title="Easegress" height="175" width="175" align="right"/>
+</a>
+
 - [Easegress](#easegress)
   - [What is Easegress](#what-is-easegress)
   - [Features](#features)
@@ -13,10 +18,6 @@
   - [License](#license)
 
 ## What is Easegress
-<a href="https://megaease.com/easegress">
-    <img src="./doc/easegress.svg"
-        alt="Easegress logo" title="Easegress" height="100" width="100" align="right"/>
-</a>
 
 `Easegress` is a Cloud Native traffic orchestration system designed for:
 
@@ -65,6 +66,7 @@ The architecture of Easegress:
 		- **Mesh Master:** is the control plane to manage the lifecycle of mesh services.
 		- **Mesh Sidecar:** is the data plane as the endpoint to do traffic interception and routing.
 		- **Mesh Ingress Controller:** is the mesh-specific ingress controller to route external traffic to mesh services.
+		  > Notes: This feature is leveraged by [EaseMesh](https://github.com/megaease/easemesh) 
 	- **Third-Part Integration**
 		- **FaaS** integrates with the serverless platform Knative.
 		- **Service Discovery** integrates with Eureka, Consul, Etcd, and Zookeeper.
