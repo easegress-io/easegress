@@ -21,7 +21,7 @@ set -e
 
 # path related define.
 # Note: use $(dirname $(realpath ${BASH_SOURCE[0]})) to value SCRIPTPATH is OK in linux platform, 
-#       but not in MacOS.(cause there is note `realpath` in it)
+#       but not in MacOS.(cause there is not `realpath` in it)
 # reference: https://stackoverflow.com/questions/4774054/reliable-way-for-a-bash-script-to-get-the-full-path-to-itself
 SCRIPTPATH="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 pushd $SCRIPTPATH"/../../example" > /dev/null
@@ -68,7 +68,7 @@ clean
 bash $WRITER01DIR/start.sh
 # wait Easegress to be ready
 # reference: https://unix.stackexchange.com/questions/5277/how-do-i-tell-a-script-to-wait-for-a-process-to-start-accepting-requests-on-a-po
-while ! nc -z localhost $eg_apiport</dev/null; do sleep 3; done
+while ! nc -z localhost $eg_apiport</dev/null; do sleep 5; done
 
 # check the writer01 running status
 pid=`ps -eo pid,args | grep "$server" | grep -v grep | awk '{print $1}'`
@@ -111,7 +111,7 @@ filters:
 # run the backend.
 (go run $backend &)
 # wait the mirror backend ready
-while ! nc -z localhost $mirror_port</dev/null; do sleep 3; done
+while ! nc -z localhost $mirror_port</dev/null; do sleep 5; done
 
 # check the mirror backend running status.
 mirror_pid=`ps -eo pid,args|grep mirror.go |grep -v grep |awk '{print $1}'`
