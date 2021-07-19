@@ -41,5 +41,4 @@ func TestCloseChan(t *testing.T) {
 	if CloseChan(msgchan) != false {
 		t.Errorf("Close Nil Channel error!")
 	}
-
 }

@@ -306,7 +306,7 @@ var stateStrings = []string{
 	"ForceOpen",
 }
 
-// NewPolicy create and initialize a policy with default configuration
+// NewPolicy create and initialize a policy
 func NewPolicy(failureRateThreshold, slowCallRateThreshold, slidingWindowType uint8,
 	slidingWindowSize, permittedNumberOfCallsInHalfOpen, minimumNumberOfCalls uint32,
 	slowCallDurationThreshold, maxWaitDurationInHalfOpen, waitDurationInOpen time.Duration) *Policy {

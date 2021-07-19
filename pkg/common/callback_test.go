@@ -90,5 +90,4 @@ func TestCallBackSet(t *testing.T) {
 	if n > 0 {
 		t.Errorf("expected: 0, result:%d", n)
 	}
-
 }

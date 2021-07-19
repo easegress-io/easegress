@@ -45,8 +45,8 @@ func httpServer(finished chan bool) {
 	fmt.Println("Finished")
 	finished <- true
 }
-func TestAgentClient(t *testing.T) {
 
+func TestAgentClient(t *testing.T) {
 	finished := make(chan bool)
 	go httpServer(finished)
 
