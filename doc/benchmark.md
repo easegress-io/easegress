@@ -7,7 +7,7 @@
   - [Traefik](#traefik)
   - [Echo Server](#echo-server)
 - [Testing](#testing)
-  - [Basic line test](#basic-line-test)
+  - [Baseline test](#baseline-test)
   - [Stress test](#stress-test)
 - [Summary](#summary)
 - [Ubuntu system status](#ubuntu-system-status)
@@ -37,20 +37,20 @@ Linux vmname 5.4.0-1029-aws #30-Ubuntu SMP Tue Oct 20 10:06:38 UTC 2020 x86_64 x
 
 ``` plain 
 
-   +----------------+                  +---------------+  
-   |                |                  |               |  
-   |    vm01        |<-----------------+     vm02      |
-   | (Easegress     |                  | (Testtool:hey)|
-   | /Traefik/Nginx)|                  |               |
-   |                |                  |               |
-   +----------------+------+           +---------+-----+
-                           |                     | 
-                         stress test         base line test 
-   +----------------+      |                     | 
-   |                |      |                     |
-   |    vm03        |      |                     |
-   | (Echo HTTPSvr) |<-----+                     |
-   |                |<---------------------------+
+   +----------------+                          +---------------+  
+   |                |                          |               |  
+   |    vm01        |<------stress test--------+     vm02      |
+   | (Easegress     |                          | (Testtool:hey)|
+   | /Traefik/Nginx)|<------baseline test------+               |
+   |                |                          |               |
+   +----------------+------+                   +---------+-----+
+                           |                             | 
+                         stress test            echo svr base line test 
+   +----------------+      |                             | 
+   |                |      |                             |
+   |    vm03        |      |                             |
+   | (Echo HTTPSvr) |<-----+                             |
+   |                |<-----------------------------------+
    |                | 
    +----------------+ 
 
@@ -230,8 +230,9 @@ http:
 
 
 ## Testing 
-### Basic line test
-* Using `hey` load echo-server directly from `vm02` to `vm03`
+### Baseline test
+1. *Echo-server**
+* Loading echo-server directly from `vm02` to `vm03`
 * Scenario 1: 50 concurrency/900 requests/2 miniutes limitation/not QPS limitation
 
 ``` bash
@@ -249,18 +250,56 @@ http:
 
 * Scenario 3: 120 concurrency/90000 requests/ 2 miniutes limitation/not QPS limitation
 
-* Scenario 4: 100 concurrency/900000 requests/5 miniutes limitation/not QPS limitation
+``` bash
 
-* Scenario 5: 50 concurrency/ 90000 requests/2 miniutes limitation/not QPS limitation/with body `100000000000000000000000000000`
+./hey -n 90000  -c 120  -m GET http://${vm03_ip}:9095/pipeline -z 2m   
+
+```
+
+| Scenario | Total  | Slowest | Fastest | Average | RPS  | 90% Latency | 95% Latency | 99% Latency | load average(top -c ) |
+| -------- | ------ | ------- | ------- | ------- | ---- | ----------- | ----------- | ----------- | --------------------- |
+| #1       | 0.19s  | 0.015s  | 0.0103s | 0.0109s | 4517 | 0.0119s     | 0.0126s     | 0.0144s     | 0/0/0                 |
+| #2       | 13.42s | 0.037s  | 0.0101s | 0.0121s | 6960 | 0.0169s     | 0.0201s     | 0.0217s     | 0/0/0                 |
+| #3       | 13.48s | 0.085s  | 0.0101s | 0.0179s | 6672 | 0.0126s     | 0.0138s     | 0.0278s     | 0.42/0.10/0.03        |
 
 
-| Scenario | Total | Slowest | Fastest | Average | RPS  | 90% Latency | 95% Latency | 99% Latency | load average(top -c ) |
-| -------- | ----- | ------- | ------- | ------- | ---- | ----------- | ----------- | ----------- | --------------------- |
-| #1       | 0.19s | 0.015s  | 0.0103s | 0.0109s | 4517 | 0.0119s     | 0.0126s     | 0.0144s     | 0/0/0                 |
-| #2       | 0.12s | 0.037s  | 0.0101s | 0.0121s | 6960 | 0.0169s     | 0.0201s     | 0.0217s     | 0/0/0                 |
-| #3       | 8.42s | 0.072s  | 0.0101s | 0.0111s | 6960 | 0.0169s     | 0.0201s     | 0.0217s     | 0.42/0.10/0.03        |
 
-#0.42, 0.10, 0.03
+2. **Nginx**
+* Loading Nginx's `index.html` url, from `vm02` to `vm1`. 
+
+* Scenario 1: 100 concurrency/90000 requests 
+
+``` bash
+
+./hey -n 90000   -c 100  -m GET ${vm01}:8080/index.html -d -z 2m 
+
+```
+
+| Scenario | Total | Slowest | Fastest | Average | RPS   | 90% Latency | 95% Latency | 99% Latency | load average(top -c ) |
+| -------- | ----- | ------- | ------- | ------- | ----- | ----------- | ----------- | ----------- | --------------------- |
+| #1       | 2.96s | 0.059s  | 0.0001s | 0.0032s | 30753 | 0.0064s     | 0.0081s     | 0.0120s     | 0/0/0                 |
+| #2       | 2.97s | 0.045s  | 0.0001s | 0.0039s | 30293 | 0.0080s     | 0.0100s     | 0.0151s     | 1.14/1.03/0.69        |
+
+
+1. Easegress
+* Loading Easegres' Pipeline, instead routing traffic to Echo-sever, baseline test will handle request with adding one HTTP request header and then return nothing. The HTTPServer remains the same.
+``` yaml
+  filters:
+  - header:
+      add: {}
+      del: []
+      set:
+        X-Adapt-Key: goodplan
+    kind: RequestAdaptor
+    name: requestAdaptor
+  flow:
+  - filter: requestAdaptor
+    jumpIf: {}
+  kind: HTTPPipeline
+  name: pipeline-demo
+
+```
+
 
 ### Stress test
 * Scenario 1: 50 concurrency/900 requests/2 miniutes limitation/not QPS limitation
