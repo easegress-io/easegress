@@ -20,30 +20,25 @@ package common
 import (
 	"fmt"
 	"testing"
-	"time"
 )
 
-func TestNow(t *testing.T) {
-	now := Now()
-	nano := NowUnixNano()
-	duration := Since(now)
-	fmt.Printf("now: %v, unix %v since: %v", now, nano, duration)
-}
-
-func BenchmarkTimeNow(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		time.Now()
+func TestGoID(t *testing.T) {
+	id, err := GoID()
+	if err != nil {
+		t.Errorf("%v", err)
 	}
+	fmt.Println(id)
 }
 
-func BenchmarkNowGettimeofday(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		Now()
-	}
-}
+func TestCloseChan(t *testing.T) {
+	msgchan := make(chan string)
+	go func() { msgchan <- "ping" }()
+	msg := <-msgchan
+	CloseChan(&msgchan)
+	fmt.Println(msg)
 
-func BenchmarkNowUnixNanoGettimeofday(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		NowUnixNano()
+	msgchan = nil
+	if CloseChan(msgchan) != false {
+		t.Errorf("Close Nil Channel error!")
 	}
 }

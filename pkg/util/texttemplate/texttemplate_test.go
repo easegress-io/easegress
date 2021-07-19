@@ -21,8 +21,38 @@ import (
 	"testing"
 )
 
-func TestNewTextTemplateSucc(t *testing.T) {
+func TestNewDefaultTextTemplateSucc(t *testing.T) {
 	tt, err := NewDefault([]string{
+		"filter.{}.req.path",
+		"filter.{}.req.method",
+		"filter.{}.req.body",
+		"filter.{}.req.scheme",
+		"filter.{}.req.proto",
+		"filter.{}.req.host",
+		"filter.{}.req.body.{gjson}",
+		"filter.{}.req.header.{}",
+		"filter.{}.rsp.statuscode",
+		"filter.{}.rsp.body.{gjson}",
+	})
+	if err != nil {
+		t.Errorf("new engine failed err %v", err)
+	}
+
+	if res := tt.MatchMetaTemplate("filter.abc.req.body"); len(res) == 0 {
+		t.Errorf("input %s match template %s", "filter.abc.req.body", res)
+	}
+
+	if err = tt.SetDict("filter.abc.req.body", "kkk"); err != nil {
+		t.Errorf("set failed err =%v", err)
+	}
+
+	if s, err := tt.Render("xxx-[[filter.abc.req.body]]--yyy"); s != "xxx-kkk--yyy" || err != nil {
+		t.Errorf("rendering fail , result is %s expect xxx-kkk--yyy", s)
+	}
+}
+
+func TestNewTextTemplateSucc(t *testing.T) {
+	tt, err := New(DefaultBeginToken, DefaultEndToken, DefaultSeparator, []string{
 		"filter.{}.req.path",
 		"filter.{}.req.method",
 		"filter.{}.req.body",

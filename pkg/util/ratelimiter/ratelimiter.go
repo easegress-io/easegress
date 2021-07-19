@@ -70,13 +70,18 @@ var stateStrings = []string{
 	"Disabled",
 }
 
-// NewPolicy create and initialize a policy with default configuration
-func NewPolicy() *Policy {
+// NewPolicy create and initialize a policy
+func NewPolicy(timeout, refresh time.Duration, limit int) *Policy {
 	return &Policy{
-		TimeoutDuration:    100 * time.Millisecond,
-		LimitRefreshPeriod: 10 * time.Millisecond,
-		LimitForPeriod:     50,
+		TimeoutDuration:    timeout * time.Millisecond,
+		LimitRefreshPeriod: refresh * time.Millisecond,
+		LimitForPeriod:     limit,
 	}
+}
+
+// NewDefaultPolicy create and initialize a policy with default configuration
+func NewDefaultPolicy() *Policy {
+	return NewPolicy(100, 10, 50)
 }
 
 // New creates a rate limiter based on `policy`,

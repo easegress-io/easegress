@@ -14,36 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package common
 
 import (
-	"fmt"
 	"testing"
-	"time"
 )
 
-func TestNow(t *testing.T) {
-	now := Now()
-	nano := NowUnixNano()
-	duration := Since(now)
-	fmt.Printf("now: %v, unix %v since: %v", now, nano, duration)
-}
-
-func BenchmarkTimeNow(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		time.Now()
+func TestStrings(t *testing.T) {
+	str1 := "Hello, World"
+	b := S2b(str1)
+	str2 := B2s(b)
+	if str1 != str2 {
+		t.Errorf("expected %s, result %s", str1, str2)
 	}
-}
 
-func BenchmarkNowGettimeofday(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		Now()
+	b = []byte{72, 101, 108, 108, 111, 44, 32, 87, 111, 114, 108, 100}
+	s := B2s(b)
+	if s != str1 {
+		t.Errorf("expected %s, result %s", str1, s)
 	}
-}
 
-func BenchmarkNowUnixNanoGettimeofday(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		NowUnixNano()
-	}
 }

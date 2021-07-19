@@ -78,6 +78,7 @@ func TestNumericMaxAggregator(t *testing.T) {
 		mockWantXGotYKindError(intNum, uint(0)),
 		nil,
 		nil,
+		mockWantXGotYKindError(intNum, float64(0.0)),
 	})
 
 	a := &NumericMaxAggregator{}
@@ -88,10 +89,17 @@ func TestNumericMaxAggregator(t *testing.T) {
 	em.mapNext(t, a.Aggregate(int(10)))
 	em.mapNext(t, a.Aggregate(int(-2)))
 
+	em.mapNext(t, a.Aggregate(float64(2.0)))
+
 	wantResult := int64(10)
 	gotResult := a.Result().(int64)
 	if gotResult != wantResult {
 		t.Fatalf("want %d, got %d", wantResult, gotResult)
+	}
+
+	name := "numeric_max"
+	if a.String() != name {
+		t.Errorf("want %s, got %s", "numeric_max", name)
 	}
 }
 
@@ -118,6 +126,11 @@ func TestNumericMinAggregator(t *testing.T) {
 	if gotResult != wantResult {
 		t.Fatalf("want %v, got %v", wantResult, gotResult)
 	}
+
+	name := "numeric_min"
+	if a.String() != name {
+		t.Errorf("want %s, got %s", "numeric_max", name)
+	}
 }
 
 func TestNumericSumAggregator(t *testing.T) {
@@ -142,6 +155,11 @@ func TestNumericSumAggregator(t *testing.T) {
 	gotResult := a.Result().(uint64)
 	if gotResult != wantResult {
 		t.Fatalf("want %d, got %d", wantResult, gotResult)
+	}
+
+	name := "numeric_sum"
+	if a.String() != name {
+		t.Errorf("want %s, got %s", "numeric_max", name)
 	}
 }
 
@@ -171,5 +189,10 @@ func TestNumericAvgAggregator(t *testing.T) {
 	gotResult := a.Result().(int64)
 	if gotResult != wantResult {
 		t.Fatalf("want %d, got %d", wantResult, gotResult)
+	}
+
+	name := "numeric_average"
+	if a.String() != name {
+		t.Errorf("want %s, got %s", "numeric_max", name)
 	}
 }
