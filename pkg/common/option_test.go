@@ -18,128 +18,186 @@
 package common
 
 import (
+	"math"
 	"regexp"
+	"strconv"
 	"testing"
 )
 
 func TestUint8(t *testing.T) {
 	var u8 uint8
-	u := NewUint8Value(128, &u8)
-	if u8 != 128 {
-		t.Errorf("expected %d, result %d", 128, u8)
+	u := NewUint8Value(math.MaxUint8, &u8)
+	if u8 != math.MaxUint8 {
+		t.Errorf("expected %d, result %d", math.MaxUint8, u8)
 	}
 
-	str := "100"
-	u8 = 100
+	var x uint8 = 100
+	u = NewUint8Value(x, nil)
+	if u.Get() != x {
+		t.Errorf("expected %d, result %d", x, u.Get())
+	}
+
+	x = 200
+	str := strconv.FormatUint(uint64(x), 10)
 	u.Set(str)
-	if u.Get() != uint8(u8) {
-		t.Errorf("expected %d, result %d", u8, u.Get())
+	if u.Get() != x {
+		t.Errorf("expected %d, result %d", x, u.Get())
 	}
 	if u.String() != str {
 		t.Errorf("expected %s, result %s", str, u.String())
+	}
+
+	if err := u.Set("invalid"); err == nil {
+		t.Errorf("set the invalid value should not return right!")
 	}
 }
 
 func TestUint16(t *testing.T) {
 	var u16 uint16
-	u := NewUint16Value(512, &u16)
-	if u16 != 512 {
-		t.Errorf("expected %d, result %d", 512, u16)
+	u := NewUint16Value(math.MaxUint16, &u16)
+	if u16 != math.MaxUint16 {
+		t.Errorf("expected %d, result %d", math.MaxUint16, u16)
 	}
 
-	str := "500"
-	u16 = 600
+	var x uint16 = 32000
+	u = NewUint16Value(x, nil)
+	if u.Get() != x {
+		t.Errorf("expected %d, result %d", x, u.Get())
+	}
+
+	x = 8000
+	str := strconv.FormatUint(uint64(x), 10)
 	u.Set(str)
-	if u.Get() != u16 {
-		t.Errorf("expected %d, result %d", u16, u.Get())
+	if u.Get() != x {
+		t.Errorf("expected %d, result %d", x, u.Get())
 	}
 	if u.String() != str {
 		t.Errorf("expected %s, result %s", str, u.String())
+	}
+
+	if err := u.Set("invalid"); err == nil {
+		t.Errorf("set the invalid value should not return right!")
 	}
 }
 
 func TestUint32(t *testing.T) {
 	var u32 uint32
-	u := NewUint32Value(512, &u32)
-	if u32 != 512 {
-		t.Errorf("expected %d, result %d", 512, u32)
+	u := NewUint32Value(math.MaxUint32, &u32)
+	if u32 != math.MaxUint32 {
+		t.Errorf("expected %d, result %d", math.MaxUint32, u32)
 	}
 
-	str := "32000"
-	u32 = 9990
+	var x uint32 = 100000000
+	u = NewUint32Value(x, nil)
+	if u.Get() != x {
+		t.Errorf("expected %d, result %d", x, u.Get())
+	}
+
+	x = 2000000000
+	str := strconv.FormatUint(uint64(x), 10)
 	u.Set(str)
-	if u.Get() != u32 {
-		t.Errorf("expected %d, result %d", u32, u.Get())
+	if u.Get() != x {
+		t.Errorf("expected %d, result %d", x, u.Get())
 	}
 	if u.String() != str {
 		t.Errorf("expected %s, result %s", str, u.String())
+	}
+
+	if err := u.Set("invalid"); err == nil {
+		t.Errorf("set the invalid value should not return right!")
 	}
 }
 
 func TestUint64Range(t *testing.T) {
 	var u64 uint64
-	u := NewUint64RangeValue(512, &u64, 1, 1000000000)
-	if u64 != 512 {
-		t.Errorf("expected %d, result %d", 512, u64)
+	u := NewUint64RangeValue(math.MaxUint64-1, &u64, 1, math.MaxUint64)
+	if u64 != math.MaxUint64-1 {
+		t.Errorf("expected %d, result %d", uint64(math.MaxUint64-1), u64)
 	}
 
-	str := "32000"
-	u64 = 9990
+	var x uint64 = 10000000000000
+	u = NewUint64RangeValue(x, nil, 1, math.MaxUint64)
+	if u.Get() != x {
+		t.Errorf("expected %d, result %d", x, u.Get())
+	}
+
+	x = 200000000000000
+	str := strconv.FormatUint(uint64(x), 10)
 	u.Set(str)
-	if u.Get() != u64 {
-		t.Errorf("expected %d, result %d", u64, u.Get())
+	if u.Get() != x {
+		t.Errorf("expected %d, result %d", x, u.Get())
 	}
 	if u.String() != str {
-		t.Errorf("expectcoed %s, result %s", str, u.String())
+		t.Errorf("expected %s, result %s", str, u.String())
 	}
-	str = "1000000001"
-	if err := u.Set(str); err == nil {
-		t.Errorf("it should be wrong, because the %s out of range", str)
+
+	if err := u.Set("0"); err == nil {
+		t.Errorf("set the number out of range should not return right!")
+	}
+	if err := u.Set("invalid"); err == nil {
+		t.Errorf("set the invalid value should not return right!")
 	}
 }
 
 func TestUint32Range(t *testing.T) {
 	var u32 uint32
-	u := NewUint32RangeValue(512, &u32, 1, 100000)
-	if u32 != 512 {
-		t.Errorf("expected %d, result %d", 512, u32)
+	u := NewUint32RangeValue(math.MaxUint32-1, &u32, 1, math.MaxUint32)
+	if u32 != math.MaxUint32-1 {
+		t.Errorf("expected %d, result %d", uint64(math.MaxUint32-1), u32)
 	}
 
-	str := "32000"
-	u32 = 9990
+	var x uint32 = 1000000000
+	u = NewUint32RangeValue(x, nil, 1, math.MaxUint32)
+	if u.Get() != x {
+		t.Errorf("expected %d, result %d", x, u.Get())
+	}
+
+	x = 2000000000
+	str := strconv.FormatUint(uint64(x), 10)
 	u.Set(str)
-	if u.Get() != u32 {
-		t.Errorf("expected %d, result %d", u32, u.Get())
+	if u.Get() != x {
+		t.Errorf("expected %d, result %d", x, u.Get())
 	}
 	if u.String() != str {
 		t.Errorf("expected %s, result %s", str, u.String())
 	}
-	str = "100001"
-	if err := u.Set(str); err == nil {
-		t.Errorf("it should be wrong, because the %s out of range", str)
+
+	if err := u.Set("0"); err == nil {
+		t.Errorf("set the number out of range should not return right!")
+	}
+	if err := u.Set("invalid"); err == nil {
+		t.Errorf("set the invalid value should not return right!")
 	}
 }
 
 func TestUint16Range(t *testing.T) {
 	var u16 uint16
-	u := NewUint16RangeValue(512, &u16, 1, 1000)
-	if u16 != 512 {
-		t.Errorf("expected %d, result %d", 512, u16)
+	u := NewUint16RangeValue(math.MaxUint16-1, &u16, 1, math.MaxUint16)
+	if u16 != math.MaxUint16-1 {
+		t.Errorf("expected %d, result %d", uint64(math.MaxUint16-1), u16)
 	}
 
-	str := "300"
-	u16 = 999
+	var x uint16 = 10000
+	u = NewUint16RangeValue(x, nil, 1, math.MaxUint16)
+	if u.Get() != x {
+		t.Errorf("expected %d, result %d", x, u.Get())
+	}
+
+	x = 20000
+	str := strconv.FormatUint(uint64(x), 10)
 	u.Set(str)
-	if u.Get() != u16 {
-		t.Errorf("expected %d, result %d", u16, u.Get())
+	if u.Get() != x {
+		t.Errorf("expected %d, result %d", x, u.Get())
 	}
 	if u.String() != str {
 		t.Errorf("expected %s, result %s", str, u.String())
 	}
 
-	str = "1024"
-	if err := u.Set(str); err == nil {
-		t.Errorf("it should be wrong, because the %s out of range", str)
+	if err := u.Set("0"); err == nil {
+		t.Errorf("set the number out of range should not return right!")
+	}
+	if err := u.Set("invalid"); err == nil {
+		t.Errorf("set the invalid value should not return right!")
 	}
 }
 
@@ -149,6 +207,11 @@ func TestStringRegexValue(t *testing.T) {
 	s := NewStringRegexValue("1234", &str, re)
 
 	if s.re != re || *(s.s) != "1234" {
+		t.Errorf("expected %s, result %v", str, s)
+	}
+
+	s = NewStringRegexValue("9999", nil, re)
+	if s.re != re || *(s.s) != "9999" {
 		t.Errorf("expected %s, result %v", str, s)
 	}
 
