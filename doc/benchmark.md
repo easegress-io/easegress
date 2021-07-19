@@ -7,6 +7,8 @@
   - [Traefik](#traefik)
   - [Echo Server](#echo-server)
 - [Testing](#testing)
+  - [Basic line test](#basic-line-test)
+  - [Stress test](#stress-test)
 - [Summary](#summary)
 - [Ubuntu system status](#ubuntu-system-status)
   - [Easegress](#easegress-1)
@@ -41,14 +43,14 @@ Linux vmname 5.4.0-1029-aws #30-Ubuntu SMP Tue Oct 20 10:06:38 UTC 2020 x86_64 x
    | (Easegress     |                  | (Testtool:hey)|
    | /Traefik/Nginx)|                  |               |
    |                |                  |               |
-   +----------------+------+           +---------------+
-                           | 
-                           |
-   +----------------+      |        
-   |                |      |
-   |    vm03        |      |
-   | (Echo HTTPSvr) |<-----+
-   |                |
+   +----------------+------+           +---------+-----+
+                           |                     | 
+                         stress test         base line test 
+   +----------------+      |                     | 
+   |                |      |                     |
+   |    vm03        |      |                     |
+   | (Echo HTTPSvr) |<-----+                     |
+   |                |<---------------------------+
    |                | 
    +----------------+ 
 
@@ -58,6 +60,71 @@ Linux vmname 5.4.0-1029-aws #30-Ubuntu SMP Tue Oct 20 10:06:38 UTC 2020 x86_64 x
 ### Nginx 
 
 ```bash
+
+user www-data;
+worker_processes auto;
+pid /run/nginx.pid;
+include /etc/nginx/modules-enabled/*.conf;
+
+events {
+	worker_connections 768;
+	# multi_accept on;
+}
+
+http {
+
+	##
+	# Basic Settings
+	##
+
+	sendfile on;
+	tcp_nopush on;
+	tcp_nodelay on;
+	keepalive_timeout 65;
+	types_hash_max_size 2048;
+	# server_tokens off;
+
+	# server_names_hash_bucket_size 64;
+	# server_name_in_redirect off;
+
+	include /etc/nginx/mime.types;
+	default_type application/octet-stream;
+
+	##
+	# SSL Settings
+	##
+
+	ssl_protocols TLSv1 TLSv1.1 TLSv1.2 TLSv1.3; # Dropping SSLv3, ref: POODLE
+	ssl_prefer_server_ciphers on;
+
+	##
+	# Logging Settings
+	##
+
+	access_log /var/log/nginx/access.log;
+	error_log /var/log/nginx/error.log;
+
+	##
+	# Gzip Settings
+	##
+
+	gzip on;
+
+	# gzip_vary on;
+	# gzip_proxied any;
+	# gzip_comp_level 6;
+	# gzip_buffers 16 8k;
+	# gzip_http_version 1.1;
+	# gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+	##
+	# Virtual Host Configs
+	##
+
+	include /etc/nginx/conf.d/*.conf;
+	include /etc/nginx/sites-enabled/*;
+}
+
 server {
     listen       8080;
     server_name  localhost;
@@ -163,13 +230,46 @@ http:
 
 
 ## Testing 
+### Basic line test
+* Using `hey` load echo-server directly from `vm02` to `vm03`
 * Scenario 1: 50 concurrency/900 requests/2 miniutes limitation/not QPS limitation
 
 ``` bash
 
-./hey -n 900   -c 50  -m GET http://172.20.2.35:10080/pipeline -z 2m   # Easegress
-./hey -n 900   -c 50  -m GET http://172.20.2.35:8080/pipeline -z 2m    # Nginx 
-./hey -n 900   -c 50  -m GET http://172.20.2.35:8081/pipeline -z 2m    # Traefik 
+./hey -n 900   -c 50  -m GET http://${vm03_ip}:9095/pipeline -z 2m    
+
+```
+
+* Scenario 2: 100 concurrency/90000 requests/2 miniutes limitation/not QPS limitation
+``` bash
+
+./hey -n 90000  -c 100  -m GET http://${vm03_ip}:9095/pipeline -z 2m   
+
+```
+
+* Scenario 3: 120 concurrency/90000 requests/ 2 miniutes limitation/not QPS limitation
+
+* Scenario 4: 100 concurrency/900000 requests/5 miniutes limitation/not QPS limitation
+
+* Scenario 5: 50 concurrency/ 90000 requests/2 miniutes limitation/not QPS limitation/with body `100000000000000000000000000000`
+
+
+| Scenario | Total | Slowest | Fastest | Average | RPS  | 90% Latency | 95% Latency | 99% Latency | load average(top -c ) |
+| -------- | ----- | ------- | ------- | ------- | ---- | ----------- | ----------- | ----------- | --------------------- |
+| #1       | 0.19s | 0.015s  | 0.0103s | 0.0109s | 4517 | 0.0119s     | 0.0126s     | 0.0144s     | 0/0/0                 |
+| #2       | 0.12s | 0.037s  | 0.0101s | 0.0121s | 6960 | 0.0169s     | 0.0201s     | 0.0217s     | 0/0/0                 |
+| #3       | 8.42s | 0.072s  | 0.0101s | 0.0111s | 6960 | 0.0169s     | 0.0201s     | 0.0217s     | 0.42/0.10/0.03        |
+
+#0.42, 0.10, 0.03
+
+### Stress test
+* Scenario 1: 50 concurrency/900 requests/2 miniutes limitation/not QPS limitation
+
+``` bash
+
+./hey -n 900   -c 50  -m GET http://${vm01_ip}:10080/pipeline -z 2m   # Easegress
+./hey -n 900   -c 50  -m GET http://${vm01_ip}:8080/pipeline -z 2m    # Nginx 
+./hey -n 900   -c 50  -m GET http://${vm01_ip}:8081/pipeline -z 2m    # Traefik 
 
 ```
 
@@ -177,9 +277,9 @@ http:
 
 ``` bash
 
-./hey -n 90000    -c 100  -m GET http://172.20.2.35:10080/pipeline -z 2m   # Easegress
-./hey -n 90000    -c 100  -m GET http://172.20.2.35:8080/pipeline -z 2m    # Nginx 
-./hey -n 90000    -c 100  -m GET http://172.20.2.35:8081/pipeline -z 2m    # Traefik
+./hey -n 90000    -c 100  -m GET http://${vm01_ip}:10080/pipeline -z 2m   # Easegress
+./hey -n 90000    -c 100  -m GET http://${vm01_ip}:8080/pipeline -z 2m    # Nginx 
+./hey -n 90000    -c 100  -m GET http://${vm01_ip}:8081/pipeline -z 2m    # Traefik
 
 ```
 
@@ -187,9 +287,9 @@ http:
 
 ``` bash
 
-./hey -n 90000    -c 120  -m GET http://172.20.2.35:10080/pipeline -z 2m   # Easegress
-./hey -n 90000    -c 120  -m GET http://172.20.2.35:8080/pipeline -z 2m    # Nginx 
-./hey -n 90000    -c 120  -m GET http://172.20.2.35:8081/pipeline -z 2m    # Traefik
+./hey -n 90000    -c 120  -m GET http://${vm01_ip}:10080/pipeline -z 2m   # Easegress
+./hey -n 90000    -c 120  -m GET http://${vm01_ip}:8080/pipeline -z 2m    # Nginx 
+./hey -n 90000    -c 120  -m GET http://${vm01_ip}:8081/pipeline -z 2m    # Traefik
 
 ```
 
@@ -197,9 +297,9 @@ http:
 
 ``` bash
 
-./hey -n 900000   -c 100  -m GET http://172.20.2.35:10080/pipeline -z 5m   # Easegress
-./hey -n 900000   -c 100  -m GET http://172.20.2.35:8080/pipeline -z 5m    # Nginx 
-./hey -n 900000   -c 100  -m GET http://172.20.2.35:8081/pipeline -z 5m    # Traefik
+./hey -n 900000   -c 100  -m GET http://${vm01_ip}:10080/pipeline -z 5m   # Easegress
+./hey -n 900000   -c 100  -m GET http://${vm01_ip}:8080/pipeline -z 5m    # Nginx 
+./hey -n 900000   -c 100  -m GET http://${vm01_ip}:8081/pipeline -z 5m    # Traefik
 
 ```
 
@@ -207,11 +307,15 @@ http:
 
 `100000000000000000000000000000` contains 30 characters which is 240 bytes, the HTTP request body length average is `from ~200 bytes to over 2KB`. [1]
 
+* Scenario 6: 50 concurrency/ 90000 requests/2 miniutes limitation/not QPS limitation/with body `100000000000000000000000000000`
+
+`100000000000000000000000000000` contains 30 characters which is 240 bytes, the HTTP request body length average is `from ~200 bytes to over 2KB`. [1]
+
 ``` bash
 
-./hey -n 90000   -c 100  -m GET http://172.20.2.35:10080/pipeline -d '100000000000000000000000000000' -z 2m   # Easegress
-./hey -n 90000   -c 100  -m GET http://172.20.2.35:8080/pipeline -d '100000000000000000000000000000' -z 2m    # Nginx 
-./hey -n 90000   -c 100  -m GET http://172.20.2.35:8081/pipeline -d '100000000000000000000000000000' -z 2m    # Traefik
+./hey -n 90000   -c 100  -m GET http://${vm01_ip}:10080/pipeline -d '100000000000000000000000000000' -z 2m   # Easegress
+./hey -n 90000   -c 100  -m GET http://${vm01_ip}:8080/pipeline -d '100000000000000000000000000000' -z 2m    # Nginx 
+./hey -n 90000   -c 100  -m GET http://${vm01_ip}:8081/pipeline -d '100000000000000000000000000000' -z 2m    # Traefik
 
 ```
 
