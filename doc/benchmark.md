@@ -214,7 +214,7 @@ filters:
             width: 35em;
             margin: 0 auto;
             font-family: Tahoma, Verdana, Arial, sans-serif;
-	        }
+          }
       </style>
       </head>
       <body>
@@ -483,5 +483,5 @@ MiB Swap:      0.0 total,      0.0 free,      0.0 used.  30609.3 avail Mem
 2. Easegress/Traefik uses goroutine user-space scheduling for avoding heavy context switching cost.
  
 ## References
-[1] https://stackoverflow.com/questions/60227270/simple-reverse-proxy-example-with-traefik
-[2] https://stackoverflow.com/questions/5358109/what-is-the-average-size-of-an-http-request-response-header
+[1]https://stackoverflow.com/questions/60227270/simple-reverse-proxy-example-with-traefik
+[2]https://stackoverflow.com/questions/5358109/what-is-the-average-size-of-an-http-request-response-header
