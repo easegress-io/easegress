@@ -22,18 +22,23 @@
 ## Environment
 1. **Baremetal**: AWS r5.xlarge X 3 (4core/32GB memory/100GB disk/Up to 10 Gigabit bandwidth) 
 2. Operation system 
-
 ``` bash
 Linux vmname 5.4.0-1029-aws #30-Ubuntu SMP Tue Oct 20 10:06:38 UTC 2020 x86_64 x86_64 x86_64 GNU/Linux`
 
 
 ```
-3. Nginx version `nginx/1.18.0 (Ubuntu)`
-3. Easegress version `1.0.1/ Go version: go1.16.5 OS/Arch: linux/amd64`
-4. Traefik version `2.4.9/ Go version:/go1.16.5 OS/Arch: linux/amd64` 
-5. Stress test tool [hey](https://github.com/rakyll/hey): v0.1.4
+
+
 
 ## Topology
+
+| Name        | port  | vm   | version              |
+| ----------- | ----- | ---- | -------------------- |
+| Easegress   | 10080 | vm01 | 1.0.1(golang 1.16.5) |
+| Nginx       | 8080  | vm01 | 1.18.0               |
+| Traefik     | 8081  | vm01 | 2.4.9(golang 1.16.5) |
+| Echo-server | 9095  | vm03 | (golang1.16.5)       |
+| hey         | -     | vm02 | v0.1.4               |
 
 ``` plain 
 
@@ -110,13 +115,6 @@ http {
 
 	gzip on;
 
-	# gzip_vary on;
-	# gzip_proxied any;
-	# gzip_comp_level 6;
-	# gzip_buffers 16 8k;
-	# gzip_http_version 1.1;
-	# gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
-
 	##
 	# Virtual Host Configs
 	##
@@ -191,6 +189,44 @@ std-log-level: INFO
       rewriteTarget: ""
 ```
 
+3. HTTPPipeline for baseline
+* In order to comparing with NGINX's index.html API. Pipeline uses ResponseAdaptor to reply a NGINX'index.html like response.(Yeah, replace `nginx` with `easegress` already)
+
+``` yaml
+name: pipeline-demo
+kind: HTTPPipeline
+flow:
+  - filter: rsp
+filters:
+  - name: rsp
+    kind: ResponseAdaptor
+    header:
+      del:
+      set:
+      add:
+    body: >+
+      <!DOCTYPE html>
+      <html>
+      <head>
+      <title>Welcome to easegress!</title>
+      <style>
+          body {
+            width: 35em;
+            margin: 0 auto;
+            font-family: Tahoma, Verdana, Arial, sans-serif;
+	        }
+      </style>
+      </head>
+      <body>
+      <h1>Welcome to easegress!</h1>
+      <p>If you see this page, the easegress web server is successfully installed and working. Further configuration is required.</p>
+
+      <p>For online documentation and support please refer to <a href="http://easegress.org/">easegress.org</a>.<br/> Commercial support is available at <a href="http://easegress.com/">easegress.com</a>.</p>
+      <p><em>Thank you for using easegress.</em></p>
+      </body>
+      </html>
+```
+
 ### Traefik
 1. Running binary directly with command `./traefik -c ./traefik.yml` [1]
 2. Static lonfig: traefik.yaml
@@ -231,9 +267,9 @@ http:
 
 ## Testing 
 ### Baseline test
-1. *Echo-server**
+1. **Echo-server**
 * Loading echo-server directly from `vm02` to `vm03`
-* Scenario 1: 50 concurrency/900 requests/2 miniutes limitation/not QPS limitation
+* **Scenario 1**: 50 concurrency/900 requests/2 miniutes limitation/not QPS limitation
 
 ``` bash
 
@@ -241,14 +277,14 @@ http:
 
 ```
 
-* Scenario 2: 100 concurrency/90000 requests/2 miniutes limitation/not QPS limitation
+* **Scenario 2**: 100 concurrency/90000 requests/2 miniutes limitation/not QPS limitation
 ``` bash
 
 ./hey -n 90000  -c 100  -m GET http://${vm03_ip}:9095/pipeline -z 2m   
 
 ```
 
-* Scenario 3: 120 concurrency/90000 requests/ 2 miniutes limitation/not QPS limitation
+* **Scenario 3**: 120 concurrency/90000 requests/ 2 miniutes limitation/not QPS limitation
 
 ``` bash
 
@@ -256,18 +292,18 @@ http:
 
 ```
 
-| Scenario | Total  | Slowest | Fastest | Average | RPS  | 90% Latency | 95% Latency | 99% Latency | load average(top -c ) |
-| -------- | ------ | ------- | ------- | ------- | ---- | ----------- | ----------- | ----------- | --------------------- |
-| #1       | 0.19s  | 0.015s  | 0.0103s | 0.0109s | 4517 | 0.0119s     | 0.0126s     | 0.0144s     | 0/0/0                 |
-| #2       | 13.42s | 0.037s  | 0.0101s | 0.0121s | 6960 | 0.0169s     | 0.0201s     | 0.0217s     | 0/0/0                 |
-| #3       | 13.48s | 0.085s  | 0.0101s | 0.0179s | 6672 | 0.0126s     | 0.0138s     | 0.0278s     | 0.42/0.10/0.03        |
+| Scenario | Total | Slowest | Fastest | Average | RPS   | 90% Latency | 95% Latency | 99% Latency | load average(top -c ) |
+| -------- | ----- | ------- | ------- | ------- | ----- | ----------- | ----------- | ----------- | --------------------- |
+| #1       | 0.19s | 0.015s  | 0.0103s | 0.0109s | 4517  | 0.0119s     | 0.0126s     | 0.0144s     | 0/0/0                 |
+| #2       | 9.88s | 0.054s  | 0.0101s | 0.0109s | 9109  | 0.0118s     | 0.0124s     | 0.0138s     | 0.96/0.42/0.19        |
+| #3       | 8.48s | 0.042s  | 0.0101s | 0.0110s | 10768 | 0.0122s     | 0.0129s     | 0.0149s     | 1.34/0.46/0.20        |
 
 
 
 2. **Nginx**
-* Loading Nginx's `index.html` url, from `vm02` to `vm1`. 
+* Loading Nginx's `index.html` url, from `vm02` to `vm01`.
 
-* Scenario 1: 100 concurrency/90000 requests 
+* **Scenario 1**: 100 concurrency/90000 requests
 
 ``` bash
 
@@ -277,29 +313,21 @@ http:
 
 | Scenario | Total | Slowest | Fastest | Average | RPS   | 90% Latency | 95% Latency | 99% Latency | load average(top -c ) |
 | -------- | ----- | ------- | ------- | ------- | ----- | ----------- | ----------- | ----------- | --------------------- |
-| #1       | 2.96s | 0.059s  | 0.0001s | 0.0032s | 30753 | 0.0064s     | 0.0081s     | 0.0120s     | 0/0/0                 |
-| #2       | 2.97s | 0.045s  | 0.0001s | 0.0039s | 30293 | 0.0080s     | 0.0100s     | 0.0151s     | 1.14/1.03/0.69        |
+| #1       | 2.97s | 0.062s  | 0.0001s | 0.0032s | 30694 | 0.0064s     | 0.0082s     | 0.0120s     | 1.62/1.32/1.18        |
 
 
-1. Easegress
-* Loading Easegres' Pipeline, instead routing traffic to Echo-sever, baseline test will handle request with adding one HTTP request header and then return nothing. The HTTPServer remains the same.
-``` yaml
-  filters:
-  - header:
-      add: {}
-      del: []
-      set:
-        X-Adapt-Key: goodplan
-    kind: RequestAdaptor
-    name: requestAdaptor
-  flow:
-  - filter: requestAdaptor
-    jumpIf: {}
-  kind: HTTPPipeline
-  name: pipeline-demo
+3. **Easegress**
+* Loading Easegres' Nginx-index.html-like pipeline. from `vm02` to `vm01`.
+
+``` bash
+
+./hey -n 90000   -c 100  -m GET ${vm01}:10080/pipeline -z 2m
 
 ```
 
+| Scenario | Total | Slowest | Fastest | Average | RPS   | 90% Latency | 95% Latency | 99% Latency | load average(top -c ) |
+| -------- | ----- | ------- | ------- | ------- | ----- | ----------- | ----------- | ----------- | --------------------- |
+| #1       | 1.8s  | 0.045s  | 0.0001s | 0.0020s | 49749 | 0.0039s     | 0.0051s     | 0.0122s     | 1.00/1.02/1.07        |
 
 ### Stress test
 * Scenario 1: 50 concurrency/900 requests/2 miniutes limitation/not QPS limitation
@@ -346,15 +374,23 @@ http:
 
 `100000000000000000000000000000` contains 30 characters which is 240 bytes, the HTTP request body length average is `from ~200 bytes to over 2KB`. [1]
 
-* Scenario 6: 50 concurrency/ 90000 requests/2 miniutes limitation/not QPS limitation/with body `100000000000000000000000000000`
-
-`100000000000000000000000000000` contains 30 characters which is 240 bytes, the HTTP request body length average is `from ~200 bytes to over 2KB`. [1]
 
 ``` bash
 
 ./hey -n 90000   -c 100  -m GET http://${vm01_ip}:10080/pipeline -d '100000000000000000000000000000' -z 2m   # Easegress
 ./hey -n 90000   -c 100  -m GET http://${vm01_ip}:8080/pipeline -d '100000000000000000000000000000' -z 2m    # Nginx 
 ./hey -n 90000   -c 100  -m GET http://${vm01_ip}:8081/pipeline -d '100000000000000000000000000000' -z 2m    # Traefik
+
+```
+
+* Scenario 6: 100 concurrency/ 90000 requests/2 miniutes limitation/not QPS limitation/with body `100000000000000000000000000000`
+`1000000000000010000000000000100000000000001000000000000010000000000000100000000000001000000000000010000000000000100000000000000000` contains 130 characters which is 1040 bytes, nearly 1KB.
+
+``` bash
+
+./hey -n 90000   -c 100  -m GET http://${vm01_ip}:10080/pipeline -d '100000000000000000000000000000 1000000000000010000000000000100000000000001000000000000010000000000000100000000000001000000000000010000000000000100000000000000000' -z 2m   # Easegress
+./hey -n 90000   -c 100  -m GET http://${vm01_ip}:8080/pipeline -d '100000000000000000000000000000 1000000000000010000000000000100000000000001000000000000010000000000000100000000000001000000000000010000000000000100000000000000000' -z 2m    # Nginx
+./hey -n 90000   -c 100  -m GET http://${vm01_ip}:8081/pipeline -d '100000000000000000000000000000 1000000000000010000000000000100000000000001000000000000010000000000000100000000000001000000000000010000000000000100000000000000000' -z 2m    # Traefik
 
 ```
 
@@ -375,6 +411,9 @@ http:
 | #5/Easegress     | 10s   | 0.059s  | 0.0103s | 0.0113s | 8797  | 0.0124s     | 0.0134s     | 0.0177s     | 0.27/0.23/0.31        |
 | #5/Nginx         | 28s   | 0.086s  | 0.0103s | 0.0311s | 3130  | 0.0481s     | 0.0510s     | 0.0577s     | 1.25/0.45/0.37        |
 | #5/Traefik       | 10s   | 0.172s  | 0.0103s | 0.0118s | 8393  | 0.0136s     | 0.0149s     | 0.0182s     | 0.68/0.44/0.36        |
+| #6/Easegress     | 10s   | 0.079s  | 0.0103s | 0.0111s | 8950  | 0.0117s     | 0.0121s     | 0.0147s     | 1.09/1.05/1.08        |
+| #6/Nginx         | 21s   | 0.139s  | 0.0103s | 0.0233s | 4095  | 0.0526s     | 0.0644s     | 0.0891s     | 1.25/0.45/0.37        |
+| #6/Traefik       | 10s   | 0.063s  | 0.0103s | 0.0112s | 8916  | 0.0119s     | 0.0124s     | 0.0151s     | 1.63, 1.18, 1.11      |
 
 ## Summary
 1. RPS comparing
