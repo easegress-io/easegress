@@ -1,0 +1,5 @@
+kind: WebSocketServer
+name: websocket-server-example
+port: 10081
+https: false
+backend: ws://localhost:9880
