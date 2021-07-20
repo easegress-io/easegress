@@ -110,6 +110,7 @@ func main() {
 		command.ObjectCmd(),
 		command.MemberCmd(),
 		command.MeshCmd(),
+		command.WasmCmd(),
 		completionCmd,
 	)
 
