@@ -66,9 +66,18 @@ clean
 
 # start writer01 for testing. 
 bash $WRITER01DIR/start.sh
-# wait Easegress to be ready
+try_time=0
+# wait Easegress to be ready, it will retry three times.
 # reference: https://unix.stackexchange.com/questions/5277/how-do-i-tell-a-script-to-wait-for-a-process-to-start-accepting-requests-on-a-po
-while ! nc -z localhost $eg_apiport</dev/null; do sleep 5; done
+while ! nc -z localhost $eg_apiport </dev/null
+do
+    sleep 5
+    try_time=$(($try_time+1))
+    if [[ $try_time -ge 3 ]]; then
+       echo -e "\n{COLOR_ERROR}start test server $server failed${COLOR_NONE}"
+       exit 1
+    fi
+done
 
 # check the writer01 running status
 pid=`ps -eo pid,args | grep "$server" | grep -v grep | awk '{print $1}'`
@@ -110,15 +119,25 @@ filters:
 
 # run the backend.
 (go run $backend &)
-# wait the mirror backend ready
-while ! nc -z localhost $mirror_port</dev/null; do sleep 5; done
+try_time=0
+# wait the mirror backend ready, it will retry three times.
+while ! nc -z localhost $mirror_port </dev/null
+do
+    sleep 5
+    try_time=$(($try_time+1))
+    if [[ $try_time -ge 3 ]]; then
+       echo -e "\n{COLOR_ERROR}start mirror server failed${COLOR_NONE}"
+       clean
+       exit 3
+    fi
+done
 
 # check the mirror backend running status.
 mirror_pid=`ps -eo pid,args|grep mirror.go |grep -v grep |awk '{print $1}'`
 if [ "$mirror_pid" = "" ]; then
     echo  -e "\n${COLOR_ERROR}start test backend server failed, command=go run $backend${COLOR_NONE}"
     clean
-    exit 3
+    exit 4 
 else
     echo -e "\n${COLOR_INFO}start mirror, its pid=$mirror_pid${COLOR_NONE}"
 fi
@@ -128,7 +147,7 @@ response=$(curl --write-out '%{http_code}' --silent --output /dev/null http://lo
 if [ "$response" != "200" ]; then
     echo "curl http server failed, response code "$response
     clean $mirror_pid
-    exit 4
+    exit 5
 else 
     echo -e "\n${COLOR_INFO}test succ${COLOR_NONE}"
 fi
