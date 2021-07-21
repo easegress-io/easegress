@@ -1,6 +1,13 @@
 # WasmHost
 
-The WasmHost is a filter of Easegress which can be orchestrated into a pipeline. But while the behavior of all other filters are defined by filter developers and can only be fine-tuned by configuration, this filter implements a host environment for user-developed [WebAssembly](https://webassembly.org/) code, which enables users to completed control the behavior.
+- [WasmHost](#wasmhost)
+  - [Write business logic and compile it to Wasm](#write-business-logic-and-compile-it-to-wasm)
+  - [Create a WasmHost](#create-a-wasmhost)
+  - [Test](#test)
+  - [Hot Update](#hot-update)
+  - [The Return Value of the Wasm Code](#the-return-value-of-the-wasm-code)
+
+The WasmHost is a filter of Easegress which can be orchestrated into a pipeline. But while the behavior of all other filters are defined by filter developers and can only be fine-tuned by configuration, this filter implements a host environment for user-developed [WebAssembly](https://webassembly.org/) code, which enables users to control the filter behavior completely.
 
 ## Write business logic and compile it to Wasm
 
