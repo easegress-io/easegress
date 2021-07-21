@@ -603,7 +603,7 @@ oauth2:
 
 ## WasmHost
 
-The WasmHost filter implements a host environment for user-developed [WebAssembly](https://webassembly.org/) code. Below is an example configuration that loads wasm code from a file.
+The WasmHost filter implements a host environment for user-developed [WebAssembly](https://webassembly.org/) code. Below is an example configuration that loads wasm code from a file, and more details could be found at [this document](./wasmhost.md).
 
 ```yaml
 name: wasm-host-example
