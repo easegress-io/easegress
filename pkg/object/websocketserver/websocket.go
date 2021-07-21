@@ -34,7 +34,7 @@ func init() {
 }
 
 type (
-	// WebsocketServer is WebSocket protocol server.
+	// WebSocketServer implements WebSocket protocol in EG.
 	WebSocketServer struct {
 		superSpec *supervisor.Spec
 		spec      *Spec
@@ -57,6 +57,7 @@ func (ws *WebSocketServer) DefaultSpec() interface{} {
 	return &Spec{}
 }
 
+// Validate valides the websocketserver structure.
 func (ws *WebSocketServer) Validate() error {
 	return nil
 }
