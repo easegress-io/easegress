@@ -51,7 +51,85 @@ func TestNewDefaultTextTemplateSucc(t *testing.T) {
 	}
 }
 
-func TestNewTextTemplateSucc(t *testing.T) {
+func TestDummyTemplate_render(t *testing.T) {
+	tt := NewDummyTemplate()
+	if err := tt.SetDict("nothing", "nothing"); err != nil {
+		t.Errorf("dummy template setdict failed: %v", err)
+	}
+
+	if _, err := tt.Render("nonthing to render"); err != nil {
+		t.Errorf("dummy template render failed: %v", err)
+	}
+}
+
+func TestDummyTemplate_setdict(t *testing.T) {
+	tt := NewDummyTemplate()
+	if err := tt.SetDict("nothing", "nothing"); err != nil {
+		t.Errorf("dummy template setdict failed: %v", err)
+	}
+}
+
+func TestDummyTemplate_getdict(t *testing.T) {
+	tt := NewDummyTemplate()
+	dict := tt.GetDict()
+
+	if len(dict) != 0 {
+		t.Errorf("dummy template extract template rule map with none empty dict: %v", dict)
+	}
+}
+
+func TestDummyTemplate_matchmetatemplate(t *testing.T) {
+	tt := NewDummyTemplate()
+
+	if tmp := tt.MatchMetaTemplate("nothing"); len(tmp) != 0 {
+		t.Errorf("dummy template extract template rule map with none empty template: %v", tmp)
+	}
+}
+
+func TestDummyTemplate_hastemplate(t *testing.T) {
+	tt := NewDummyTemplate()
+
+	if tt.HasTemplates("nothing") {
+		t.Error("dummy template doesn't need to has template")
+	}
+}
+func TestDummyTemplate_extracttemplaterulemap(t *testing.T) {
+	tt := NewDummyTemplate()
+	if err := tt.SetDict("nothing", "nothing"); err != nil {
+		t.Errorf("dummy template setdict failed: %v", err)
+	}
+
+	rule := tt.ExtractTemplateRuleMap("nothing")
+
+	if len(rule) != 0 {
+		t.Errorf("dummy template extract template rule map with none empty : %v", rule)
+	}
+
+}
+
+func TestDummyTemplate_extractrawtemplateuulemap(t *testing.T) {
+	tt := NewDummyTemplate()
+	if err := tt.SetDict("nothing", "nothing"); err != nil {
+		t.Errorf("dummy template setdict failed: %v", err)
+	}
+
+	rule := tt.ExtractRawTemplateRuleMap("nothing")
+
+	if len(rule) != 0 {
+		t.Errorf("dummy template extract raw template rule map with none empty : %v", rule)
+	}
+
+}
+
+func TestDummyTemplate_newdummytemplate(t *testing.T) {
+	tt := NewDummyTemplate()
+
+	if tt == nil {
+		t.Errorf("dummy template new failed")
+	}
+}
+
+func TestTextTemplate_render(t *testing.T) {
 	tt, err := New(DefaultBeginToken, DefaultEndToken, DefaultSeparator, []string{
 		"filter.{}.req.path",
 		"filter.{}.req.method",
