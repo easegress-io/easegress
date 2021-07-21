@@ -109,7 +109,6 @@ func main() {
 		command.HealthCmd(),
 		command.ObjectCmd(),
 		command.MemberCmd(),
-		command.MeshCmd(),
 		command.WasmCmd(),
 		completionCmd,
 	)
