@@ -34,8 +34,8 @@ func (s *Server) postWasmCodeUpdateEvent() string {
 	return value
 }
 
-func appendWasmAPI(s *Server, group *APIGroup) {
-	entry := &APIEntry{
+func appendWasmAPI(s *Server, group *Group) {
+	entry := &Entry{
 		Path:   "/wasm/code",
 		Method: "POST",
 		Handler: func(w http.ResponseWriter, r *http.Request) {
