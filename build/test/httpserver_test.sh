@@ -156,3 +156,4 @@ fi
 clean $mirror_pid
 
 popd > /dev/null
+exit 0
