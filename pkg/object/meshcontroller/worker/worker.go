@@ -306,7 +306,7 @@ func (worker *Worker) pushSpecToJavaAgent() {
 func (worker *Worker) initTrafficGate() error {
 	service := worker.service.GetServiceSpec(worker.serviceName)
 	if service == nil {
-		logger.Errorf("gets service: %s failed: not found", worker.serviceName)
+		logger.Errorf("service %s not found", worker.serviceName)
 		return spec.ErrServiceNotFound
 	}
 
