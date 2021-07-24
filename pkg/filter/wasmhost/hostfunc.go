@@ -24,9 +24,11 @@ import (
 	"bytes"
 	"encoding/binary"
 	"io"
+	"math/rand"
 	"net/http"
 	"net/textproto"
 	"strings"
+	"time"
 
 	"github.com/bytecodealliance/wasmtime-go"
 	"github.com/megaease/easegress/pkg/logger"
@@ -380,6 +382,14 @@ func (vm *WasmVM) hostLog(level int32, addr int32) {
 	}
 }
 
+func (vm *WasmVM) hostNow() int64 {
+	return time.Now().UnixNano() / 1e6
+}
+
+func (vm *WasmVM) hostRand() float64 {
+	return rand.Float64()
+}
+
 // importHostFuncs imports host functions into wasm so that user-developed wasm
 // code can call these functions to interoperate with host.
 func (vm *WasmVM) importHostFuncs(linker *wasmtime.Linker) {
@@ -440,4 +450,6 @@ func (vm *WasmVM) importHostFuncs(linker *wasmtime.Linker) {
 	// misc functions
 	defineFunc("host_add_tag", vm.hostAddTag)
 	defineFunc("host_log", vm.hostLog)
+	defineFunc("host_now", vm.hostNow)
+	defineFunc("host_rand", vm.hostRand)
 }
