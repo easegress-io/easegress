@@ -305,6 +305,10 @@ func (worker *Worker) pushSpecToJavaAgent() {
 
 func (worker *Worker) initTrafficGate() error {
 	service := worker.service.GetServiceSpec(worker.serviceName)
+	if service == nil {
+		logger.Errorf("gets service: %s failed: not found", worker.serviceName)
+		return spec.ErrServiceNotFound
+	}
 
 	if err := worker.ingressServer.InitIngress(service, worker.applicationPort); err != nil {
 		return fmt.Errorf("create ingress for service: %s failed: %v", worker.serviceName, err)
