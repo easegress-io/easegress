@@ -1,0 +1,89 @@
+// +build windows
+
+/*
+ * Copyright (c) 2017, MegaEase
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package common
+
+import (
+	"fmt"
+	"log"
+	"os"
+
+	"golang.org/x/sys/windows"
+)
+
+func eventName(s Signal, pid int) string {
+	return fmt.Sprintf("Global\\easegress_%v_%v", s, pid)
+}
+
+func SignalNotify(c chan<- Signal, sig ...Signal) error {
+	if c == nil {
+		return fmt.Errorf("SignalNotify using nil channel")
+	}
+
+	var pid = os.Getpid()
+	evts := make([]windows.Handle, 0, len(sig))
+
+	for _, s := range sig {
+		name, err := windows.UTF16PtrFromString(eventName(s, pid))
+		if err != nil {
+			return err
+		}
+
+		h, err := windows.CreateEvent(nil, 1, 0, name)
+		if err != nil {
+			return err
+		}
+
+		evts = append(evts, h)
+	}
+
+	go func() {
+		for {
+			ev, err := windows.WaitForMultipleObjects(evts, false, windows.INFINITE)
+
+			if err != nil {
+				log.Printf("WaitForMultipleObjects failed: %v", err)
+				return
+			}
+
+			offset := ev - windows.WAIT_OBJECT_0
+			c <- sig[offset]
+			if err := windows.ResetEvent(evts[offset]); err != nil {
+				log.Printf("ResetEvent failed: %v", err)
+			}
+		}
+	}()
+
+	return nil
+}
+
+func SignalRaise(pid int, sig Signal) error {
+	name, err := windows.UTF16PtrFromString(eventName(sig, pid))
+	if err != nil {
+		return err
+	}
+
+	ev, err := windows.OpenEvent(windows.EVENT_MODIFY_STATE, false, name)
+	if err != nil {
+		return err
+	}
+
+	defer windows.CloseHandle(ev)
+	return windows.SetEvent(ev)
+}

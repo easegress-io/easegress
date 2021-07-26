@@ -17,11 +17,10 @@
 
 package common
 
-import (
-	"time"
-)
+type Signal string
 
-// Since returns the elapsed time.
-func Since(t time.Time) time.Duration {
-	return Now().Sub(t)
-}
+const (
+	SignalInt  Signal = "int"
+	SignalTerm Signal = "term"
+	SingalUsr2 Signal = "usr2"
+)

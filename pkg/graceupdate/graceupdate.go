@@ -19,11 +19,10 @@ package graceupdate
 
 import (
 	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/megaease/grace/gracenet"
 
+	"github.com/megaease/easegress/pkg/common"
 	"github.com/megaease/easegress/pkg/logger"
 )
 
@@ -44,7 +43,7 @@ func IsInherit() bool {
 func CallOriProcessTerm(done chan struct{}) bool {
 	if didInherit && ppid != 1 {
 		<-done
-		if err := syscall.Kill(ppid, syscall.SIGTERM); err != nil {
+		if err := common.SignalRaise(ppid, common.SignalTerm); err != nil {
 			logger.Errorf("failed to close parent: %s", err)
 			return false
 		}
@@ -54,9 +53,13 @@ func CallOriProcessTerm(done chan struct{}) bool {
 }
 
 // NotifySigUsr2 handles signal SIGUSR2 to gracefully update.
-func NotifySigUsr2(closeCls func(), restartCls func()) {
-	sigUsr2 := make(chan os.Signal, 1)
-	signal.Notify(sigUsr2, syscall.SIGUSR2)
+func NotifySigUsr2(closeCls func(), restartCls func()) error {
+	sigUsr2 := make(chan common.Signal, 1)
+	if err := common.SignalNotify(sigUsr2, common.SingalUsr2); err != nil {
+		return err
+	}
+
+	// TODO: handle register error
 	go func() {
 		sig := <-sigUsr2
 		closeCls()
@@ -86,4 +89,5 @@ func NotifySigUsr2(closeCls func(), restartCls func()) {
 			}()
 		}
 	}()
+	return nil
 }

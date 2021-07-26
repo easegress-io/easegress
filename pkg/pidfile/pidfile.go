@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/option"
@@ -44,4 +45,16 @@ func Write(opt *option.Options) error {
 	}
 
 	return nil
+}
+
+func Read(opt *option.Options) (int, error) {
+	pidfilePath = filepath.Join(opt.AbsHomeDir, pidfileName)
+
+	data, err := ioutil.ReadFile(pidfilePath)
+	if err != nil {
+		logger.Errorf("write %s failed: %s", err)
+		return 0, err
+	}
+
+	return strconv.Atoi(string(data))
 }
