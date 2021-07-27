@@ -80,7 +80,28 @@ func (vm *WasmVM) exportWasmFuncs() error {
 	return nil
 }
 
-func newWasmVM(engine *wasmtime.Engine, module *wasmtime.Module) (*WasmVM, error) {
+func (vm *WasmVM) callInit(params []string) (err error) {
+	extern := vm.inst.GetExport(vm.store, "wasm_init")
+	if extern == nil {
+		// this is fine, wasm_init is optional
+		return nil
+	}
+	fn := extern.Func()
+	if fn == nil {
+		return fmt.Errorf("'wasm_init' exported by wasm code is not a function")
+	}
+
+	defer func() {
+		if e := recover(); e != nil {
+			err = e.(error)
+		}
+	}()
+	addr := vm.writeMultipleStringToWasm(params)
+	_, err = fn.Call(vm.store, addr)
+	return
+}
+
+func newWasmVM(engine *wasmtime.Engine, module *wasmtime.Module, params []string) (*WasmVM, error) {
 	store := wasmtime.NewStore(engine)
 	ih, e := store.InterruptHandle()
 	if e != nil {
@@ -102,6 +123,11 @@ func newWasmVM(engine *wasmtime.Engine, module *wasmtime.Module) (*WasmVM, error
 		return nil, e
 	}
 
+	e = vm.callInit(params)
+	if e != nil {
+		return nil, e
+	}
+
 	return vm, nil
 }
 
@@ -110,10 +136,11 @@ type WasmVMPool struct {
 	chVM   chan *WasmVM
 	engine *wasmtime.Engine
 	module *wasmtime.Module
+	params []string
 }
 
 // NewWasmVMPool creates a wasm VM pool with 'size' VMs which execute 'code'
-func NewWasmVMPool(size int32, code []byte) (*WasmVMPool, error) {
+func NewWasmVMPool(size int32, code []byte, params map[string]string) (*WasmVMPool, error) {
 	cfg := wasmtime.NewConfig()
 	cfg.SetInterruptable(true)
 	engine := wasmtime.NewEngineWithConfig(cfg)
@@ -124,9 +151,13 @@ func NewWasmVMPool(size int32, code []byte) (*WasmVMPool, error) {
 	}
 
 	p := &WasmVMPool{engine: engine, module: module}
+	for k, v := range params {
+		p.params = append(p.params, k, v)
+	}
+
 	p.chVM = make(chan *WasmVM, size)
 	for i := int32(0); i < size; i++ {
-		vm, e := newWasmVM(p.engine, p.module)
+		vm, e := newWasmVM(p.engine, p.module, p.params)
 		if e != nil {
 			logger.Errorf("failed to create wasm VM: %v", e)
 		}
@@ -144,7 +175,7 @@ func (p *WasmVMPool) Get() *WasmVM {
 	}
 
 	// vm is nil, we need create a new one
-	vm, e := newWasmVM(p.engine, p.module)
+	vm, e := newWasmVM(p.engine, p.module, p.params)
 	if e != nil {
 		p.chVM <- nil
 		logger.Errorf("failed to create wasm VM: %v", e)

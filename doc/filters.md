@@ -627,11 +627,12 @@ $ go build -tags=wasmhost
 
 ### Configuration
 
-| Name           | Type   | Description    | Required |
-| -------------- | ------ |--------------- | -------- |
-| maxConcurrency | int32  | The maximum requests the filter can process concurrently. Default is 10 and minimum value is 1. | Yes       |
-| code           | string | The wasm code, can be the base64 encoded code, or path/url of the file which contains the code. | Yes    |
-| timeout        | string | Timeout for wasm execution, default is 100ms. | Yes     |
+| Name           | Type              | Description    | Required |
+| -------------- | ----------------- |--------------- | -------- |
+| maxConcurrency | int32             | The maximum requests the filter can process concurrently. Default is 10 and minimum value is 1. | Yes       |
+| code           | string            | The wasm code, can be the base64 encoded code, or path/url of the file which contains the code. | Yes    |
+| timeout        | string            | Timeout for wasm execution, default is 100ms. | Yes     |
+| parameters     | map[string]string | Parameters to initialize the wasm code. | No     |
 
 ### Results
 

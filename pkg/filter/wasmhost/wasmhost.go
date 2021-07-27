@@ -65,9 +65,10 @@ func init() {
 
 type (
 	Spec struct {
-		MaxConcurrency int32  `yaml:"maxConcurrency" jsonschema:"required,minimum=1"`
-		Code           string `yaml:"code" jsonschema:"required"`
-		Timeout        string `yaml:"timeout" jsonschema:"required,format=duration"`
+		MaxConcurrency int32             `yaml:"maxConcurrency" jsonschema:"required,minimum=1"`
+		Code           string            `yaml:"code" jsonschema:"required"`
+		Timeout        string            `yaml:"timeout" jsonschema:"required,format=duration"`
+		Parameters     map[string]string `yaml:"parameters" jsonschema:"omitempty"`
 		timeout        time.Duration
 	}
 
@@ -156,7 +157,7 @@ func (wh *WasmHost) loadWasmCode() error {
 		return nil
 	}
 
-	p, e := NewWasmVMPool(wh.spec.MaxConcurrency, code)
+	p, e := NewWasmVMPool(wh.spec.MaxConcurrency, code, wh.spec.Parameters)
 	if e != nil {
 		logger.Errorf("failed to create wasm VM pool: %v", e)
 		return e
