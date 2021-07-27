@@ -69,7 +69,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		logger.Infof("graceful uprade signal sent")
+		logger.Infof("graceful upgrade signal sent")
 
 		return
 	}
