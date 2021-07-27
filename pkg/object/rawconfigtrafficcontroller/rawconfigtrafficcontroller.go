@@ -24,6 +24,7 @@ import (
 	"github.com/megaease/easegress/pkg/object/httppipeline"
 	"github.com/megaease/easegress/pkg/object/httpserver"
 	"github.com/megaease/easegress/pkg/object/trafficcontroller"
+	"github.com/megaease/easegress/pkg/protocol"
 	"github.com/megaease/easegress/pkg/supervisor"
 )
 
@@ -52,8 +53,7 @@ type (
 	}
 
 	// Spec describes RawConfigTrafficController.
-	Spec struct {
-	}
+	Spec struct{}
 
 	// Status is the status of RawConfigTrafficController.
 	Status = trafficcontroller.StatusInSameNamespace
@@ -88,6 +88,16 @@ func (rctc *RawConfigTrafficController) Init(superSpec *supervisor.Spec) {
 func (rctc *RawConfigTrafficController) Inherit(spec *supervisor.Spec, previousGeneration supervisor.Object) {
 	previousGeneration.Close()
 	rctc.Init(spec)
+}
+
+// GetHTTPPipeline gets Pipeline within the default namespace
+func (rctc *RawConfigTrafficController) GetHTTPPipeline(name string) (protocol.HTTPHandler, bool) {
+	p, exist := rctc.tc.GetHTTPPipeline(DefaultNamespace, name)
+	if !exist {
+		return nil, false
+	}
+	handler := p.Instance().(protocol.HTTPHandler)
+	return handler, true
 }
 
 func (rctc *RawConfigTrafficController) reload() {

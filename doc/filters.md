@@ -47,7 +47,7 @@
     - [Configuration](#configuration-14)
     - [Results](#results-14)
   - [Common Types](#common-types)
-    - [apiaggregator.APIProxy](#apiaggregatorapiproxy)
+    - [apiaggregator.Pipeline](#apiaggregatorpipeline)
     - [pathadaptor.Spec](#pathadaptorspec)
     - [pathadaptor.RegexpReplace](#pathadaptorregexpreplace)
     - [httpheader.AdaptSpec](#httpheaderadaptspec)
@@ -79,17 +79,17 @@ A Filter is a request/response processor. Multiple filters can be orchestrated t
 
 ## APIAggregator
 
-The API Aggregator forwards one request to multiple API proxies and aggregates responses.
+The API Aggregator forwards one request to multiple API HTTP Pipelines in the same namespace and aggregates responses.
 
-Below is an example configuration that forwards one request to two proxies, `http-proxy-1` and `http-proxy-2`. When forwarding a request to `http-proxy-2`, the request method is changed to `GET` and a new header `Original-Method` is added with the original request method. The two responses are merged into one before return to the client.
+Below is an example configuration that forwards one request to two pipelines, `http-pipeline-1` and `http-pipeline-2`. When forwarding a request to `http-pipeline-2`, the request method is changed to `GET` and a new header `Original-Method` is added with the original request method. The two responses are merged into one before return to the client.
 
 ```yaml
 kind: APIAggregator
 name: api-aggregator-example
 mergeResponse: true
-apiProxies:
-- httpProxyName: http-proxy-1
-- httpProxyName: http-proxy-2
+pipelines:
+- name: http-pipeline-1
+- name: http-pipeline-2
   method: GET
   header:
     add:
@@ -102,10 +102,10 @@ apiProxies:
 | Name           | Type                                               | Description                                                                                                                                     | Required |
 | -------------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
 | maxBodyBytes   | int64                                              | The upper limit of request body size, default is 0 which means no limit                                                                         | No       |
-| partialSucceed | bool                                               | Whether regards the result of the original request as successful or not when a request to some of the API proxies fails, default is false       | No       |
+| partialSucceed | bool                                               | Whether regards the result of the original request as successful or not when a request to some of the API pipelines fails, default is false     | No       |
 | timeout        | string                                             | Timeout duration for requests to API proxies                                                                                                    | No       |
 | mergeResponse  | bool                                               | Whether merging the multiple response objects into one, default is false means the final response is an array of the responses from API proxies | No       |
-| apiProxies     | [][apiaggregator.APIProxy](#apiaggregatorapiproxy) | Configuration of API proxies                                                                                                                    | Yes      |
+| pipelines      | [][apiaggregator.Pipeline](#apiaggregatorpipeline) | Configuration of API proxies                                                                                                                    | Yes      |
 
 ### Results
 
@@ -627,34 +627,35 @@ $ go build -tags=wasmhost
 
 ### Configuration
 
-| Name           | Type              | Description    | Required |
-| -------------- | ----------------- |--------------- | -------- |
-| maxConcurrency | int32             | The maximum requests the filter can process concurrently. Default is 10 and minimum value is 1. | Yes       |
-| code           | string            | The wasm code, can be the base64 encoded code, or path/url of the file which contains the code. | Yes    |
-| timeout        | string            | Timeout for wasm execution, default is 100ms. | Yes     |
-| parameters     | map[string]string | Parameters to initialize the wasm code. | No     |
+| Name           | Type              | Description                                                                                     | Required |
+| -------------- | ----------------- | ----------------------------------------------------------------------------------------------- | -------- |
+| maxConcurrency | int32             | The maximum requests the filter can process concurrently. Default is 10 and minimum value is 1. | Yes      |
+| code           | string            | The wasm code, can be the base64 encoded code, or path/url of the file which contains the code. | Yes      |
+| timeout        | string            | Timeout for wasm execution, default is 100ms.                                                   | Yes      |
+| parameters     | map[string]string | Parameters to initialize the wasm code.                                                         | No       |
+
 
 ### Results
 
-| Value       | Description                         |
-| ----------- | ----------------------------------- |
-| outOfVM     | Can not found an available wasm VM. |
-| wasmError   | An error occurs during the execution of wasm code. |
-| wasmResult1 <td rowspan="3">Results defined and returned by wasm code.</td>
-|     ...      
-| wasmResult9 
+| Value                                                                       | Description                                        |
+| --------------------------------------------------------------------------- | -------------------------------------------------- |
+| outOfVM                                                                     | Can not found an available wasm VM.                |
+| wasmError                                                                   | An error occurs during the execution of wasm code. |
+| wasmResult1 <td rowspan="3">Results defined and returned by wasm code.</td> |
+| ...                                                                         |
+| wasmResult9                                                                 |
 
 ## Common Types
 
-### apiaggregator.APIProxy
+### apiaggregator.Pipeline
 
-| Name          | Type                                         | Description                                                                | Required |
-| ------------- | -------------------------------------------- | -------------------------------------------------------------------------- | -------- |
-| httpProxyName | string                                       | The name of target HTTP pipeline                                           | Yes      |
-| method        | string                                       | Replaces request method with the value of this option when specified       | No       |
-| path          | [pathadaptor.Spec](#pathadaptorSpec)         | Rules to revise request path                                               | No       |
-| header        | [httpheader.AdaptSpec](#httpheaderAdaptSpec) | Rules to revise request header                                             | No       |
-| disableBody   | bool                                         | Whether forwards the body of the original request or not, default is false | No       |
+| Name        | Type                                         | Description                                                                | Required |
+| ----------- | -------------------------------------------- | -------------------------------------------------------------------------- | -------- |
+| name        | string                                       | The name of target HTTP pipeline                                           | Yes      |
+| method      | string                                       | Replaces request method with the value of this option when specified       | No       |
+| path        | [pathadaptor.Spec](#pathadaptorSpec)         | Rules to revise request path                                               | No       |
+| header      | [httpheader.AdaptSpec](#httpheaderAdaptSpec) | Rules to revise request header                                             | No       |
+| disableBody | bool                                         | Whether forwards the body of the original request or not, default is false | No       |
 
 ### pathadaptor.Spec
 
