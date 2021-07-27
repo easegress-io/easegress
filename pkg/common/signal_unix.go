@@ -38,13 +38,15 @@ var signalFromOsMap = map[os.Signal]Signal{
 	syscall.SIGUSR2: SingalUsr2,
 }
 
+// NotifySignal is identical to os/signal.Notify on Linux
+// param is mapped to abstract Signal and nil is not allowed
 func NotifySignal(c chan<- Signal, sig ...Signal) error {
 	if c == nil {
-		return fmt.Errorf("SignalNotify using nil channel")
+		return fmt.Errorf("NotifySignal using nil channel")
 	}
 
 	if len(sig) == 0 {
-		return fmt.Errorf("SignalNotify must notify at least 1 signal")
+		return fmt.Errorf("NotifySignal must notify at least 1 signal")
 	}
 
 	ch := make(chan os.Signal, cap(c))
@@ -53,7 +55,7 @@ func NotifySignal(c chan<- Signal, sig ...Signal) error {
 	for _, s := range sig {
 		oss, ok := signalToOsMap[s]
 		if !ok {
-			return fmt.Errorf("SignalNotify unsupported signal %v", s)
+			return fmt.Errorf("NotifySignal unsupported signal %v", s)
 		}
 		sigs = append(sigs, oss)
 	}
@@ -69,6 +71,10 @@ func NotifySignal(c chan<- Signal, sig ...Signal) error {
 	return nil
 }
 
+// RaiseSignal is identical to syscall.Kill on Linux
+// param is mapped to abstract Signal
+//
+// any chan passed to NotifySignal will receive the sig
 func RaiseSignal(pid int, sig Signal) error {
 	oss, ok := signalToOsMap[sig]
 
