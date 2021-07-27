@@ -47,6 +47,7 @@ type Options struct {
 	ShowConfig      bool   `yaml:"-"`
 	ConfigFile      string `yaml:"-"`
 	ForceNewCluster bool   `yaml:"-"`
+	SignalUpgrade   bool   `yaml:"-"`
 
 	// If a config file is specified, below command line flags will be ignored.
 
@@ -95,6 +96,7 @@ func New() *Options {
 	opt.flags.BoolVarP(&opt.ShowConfig, "print-config", "c", false, "Print the configuration.")
 	opt.flags.StringVarP(&opt.ConfigFile, "config-file", "f", "", "Load server configuration from a file(yaml format), other command line flags will be ignored if specified.")
 	opt.flags.BoolVar(&opt.ForceNewCluster, "force-new-cluster", false, "Force to create a new one-member cluster.")
+	opt.flags.BoolVar(&opt.SignalUpgrade, "signal-upgrade", false, "Send an upgrade signal to the server based on the local pid file, then exit. The original server will start a graceful upgrade after signal received.")
 	opt.flags.StringVar(&opt.Name, "name", "eg-default-name", "Human-readable name for this member.")
 	opt.flags.StringToStringVar(&opt.Labels, "labels", nil, "The labels for the instance of Easegress.")
 	opt.flags.StringVar(&opt.ClusterName, "cluster-name", "eg-cluster-default-name", "Human-readable name for the new cluster, ignored while joining an existed cluster.")

@@ -20,9 +20,7 @@ package main
 import (
 	"log"
 	"os"
-	"os/signal"
 	"sync"
-	"syscall"
 
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/cluster"
@@ -57,6 +55,24 @@ func main() {
 	logger.Init(opt)
 	defer logger.Sync()
 	logger.Infof("%s", version.Long)
+
+	if opt.SignalUpgrade {
+		pid, err := pidfile.Read(opt)
+
+		if err != nil {
+			logger.Errorf("failed to read pidfile: %v", err)
+			os.Exit(1)
+		}
+
+		if err := common.RaiseSignal(pid, common.SingalUsr2); err != nil {
+			logger.Errorf("failed to send signal: %v", err)
+			os.Exit(1)
+		}
+
+		logger.Infof("graceful upgrade signal sent")
+
+		return
+	}
 
 	// disable force-new-cluster for graceful update
 	if graceupdate.IsInherit() {
@@ -99,10 +115,16 @@ func main() {
 		cls.StartServer()
 		apiServer = api.MustNewServer(opt, cls, super)
 	}
-	graceupdate.NotifySigUsr2(closeCls, restartCls)
+	if err := graceupdate.NotifySigUsr2(closeCls, restartCls); err != nil {
+		log.Printf("failed to notify signal: %v", err)
+		os.Exit(1)
+	}
 
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	sigChan := make(chan common.Signal, 1)
+	if err := common.NotifySignal(sigChan, common.SignalInt, common.SignalTerm); err != nil {
+		log.Printf("failed to register signal: %v", err)
+		os.Exit(1)
+	}
 	sig := <-sigChan
 	go func() {
 		sig := <-sigChan

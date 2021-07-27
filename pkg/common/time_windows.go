@@ -1,3 +1,5 @@
+// +build windows
+
 /*
  * Copyright (c) 2017, MegaEase
  * All rights reserved.
@@ -18,10 +20,20 @@
 package common
 
 import (
+	"syscall"
 	"time"
 )
 
-// Since returns the elapsed time.
-func Since(t time.Time) time.Duration {
-	return Now().Sub(t)
+// Now is the current time
+func Now() time.Time {
+	var ft syscall.Filetime
+	syscall.GetSystemTimeAsFileTime(&ft)
+	return time.Unix(0, ft.Nanoseconds())
+}
+
+// NowUnixNano is the current Unix Nano time
+func NowUnixNano() int64 {
+	var ft syscall.Filetime
+	syscall.GetSystemTimeAsFileTime(&ft)
+	return ft.Nanoseconds()
 }

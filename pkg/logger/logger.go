@@ -70,7 +70,7 @@ func EtcdClientLoggerConfig(opt *option.Options, filename string) *zap.Config {
 	level := zap.NewAtomicLevel()
 	level.SetLevel(zapcore.DebugLevel)
 
-	outputPaths := []string{filepath.Join(opt.AbsLogDir, filename)}
+	outputPaths := []string{common.NormalizeZapLogPath(filepath.Join(opt.AbsLogDir, filename))}
 
 	return &zap.Config{
 		Level:            level,

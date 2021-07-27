@@ -24,6 +24,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 )
@@ -287,4 +288,14 @@ func BackupAndCleanDir(dir string) error {
 	}
 
 	return MkdirAll(dir)
+}
+
+// NormalizeZapLogPath is a workaround for https://github.com/uber-go/zap/issues/621
+// the workaround is from https://github.com/ipfs/go-log/issues/73
+func NormalizeZapLogPath(path string) string {
+	if runtime.GOOS == "windows" {
+		return "file:////%3F/" + filepath.ToSlash(path)
+	}
+
+	return path
 }

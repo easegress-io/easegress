@@ -17,11 +17,15 @@
 
 package common
 
-import (
-	"time"
-)
+// Signal is cross platform abstract type of os.Signal
+type Signal string
 
-// Since returns the elapsed time.
-func Since(t time.Time) time.Duration {
-	return Now().Sub(t)
-}
+const (
+	// SignalInt represents quit in Easegress
+	SignalInt Signal = "int"
+	// SignalTerm represents force quit in Easegress
+	SignalTerm Signal = "term"
+
+	// SingalUsr2 represents reload signal in Easegress
+	SingalUsr2 Signal = "usr2"
+)

@@ -101,7 +101,7 @@ func (c *cluster) prepareEtcdConfig() (*embed.Config, error) {
 	ec.MaxTxnOps = maxTxnOps
 	ec.MaxRequestBytes = maxRequestBytes
 	ec.Logger = "zap"
-	ec.LogOutputs = []string{filepath.Join(opt.AbsLogDir, logFilename)}
+	ec.LogOutputs = []string{common.NormalizeZapLogPath(filepath.Join(opt.AbsLogDir, logFilename))}
 
 	ec.ClusterState = embed.ClusterStateFlagExisting
 	if c.opt.ForceNewCluster {
