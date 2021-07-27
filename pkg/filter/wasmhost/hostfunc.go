@@ -61,10 +61,11 @@ func (vm *WasmVM) writeDataToWasm(data []byte) int32 {
 		panic(e)
 	}
 	addr := vaddr.(int32)
+	pos := int(addr)
 
-	buf := bytes.NewBuffer(mem[addr:])
-	binary.Write(buf, binary.LittleEndian, int32(len(data)))
-	buf.Write(data)
+	binary.LittleEndian.PutUint32(mem[pos:], uint32(len(data)))
+	pos += 4
+	copy(mem[pos:], data)
 
 	return addr
 }
@@ -126,12 +127,16 @@ func (vm *WasmVM) writeMultipleStringToWasm(strs []string) int32 {
 		panic(e)
 	}
 	addr := vaddr.(int32)
+	pos := int(addr)
 
-	buf := bytes.NewBuffer(mem[addr:])
-	binary.Write(buf, binary.LittleEndian, int32(len(strs)))
+	binary.LittleEndian.PutUint32(mem[pos:], uint32(len(strs)))
+	pos += 4
+
 	for _, s := range strs {
-		buf.WriteString(s)
-		buf.WriteByte(0)
+		copy(mem[pos:], []byte(s))
+		pos += len(s)
+		mem[pos] = 0
+		pos++
 	}
 
 	return addr
@@ -382,7 +387,7 @@ func (vm *WasmVM) hostLog(level int32, addr int32) {
 	}
 }
 
-func (vm *WasmVM) hostNow() int64 {
+func (vm *WasmVM) hostGetUnixTimeInMs() int64 {
 	return time.Now().UnixNano() / 1e6
 }
 
@@ -450,6 +455,6 @@ func (vm *WasmVM) importHostFuncs(linker *wasmtime.Linker) {
 	// misc functions
 	defineFunc("host_add_tag", vm.hostAddTag)
 	defineFunc("host_log", vm.hostLog)
-	defineFunc("host_now", vm.hostNow)
+	defineFunc("host_get_unix_time_in_ms", vm.hostGetUnixTimeInMs)
 	defineFunc("host_rand", vm.hostRand)
 }
