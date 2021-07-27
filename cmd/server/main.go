@@ -115,7 +115,10 @@ func main() {
 		cls.StartServer()
 		apiServer = api.MustNewServer(opt, cls, super)
 	}
-	graceupdate.NotifySigUsr2(closeCls, restartCls)
+	if err := graceupdate.NotifySigUsr2(closeCls, restartCls); err != nil {
+		log.Printf("failed to notify signal: %v", err)
+		os.Exit(1)
+	}
 
 	sigChan := make(chan common.Signal, 1)
 	if err := common.NotifySignal(sigChan, common.SignalInt, common.SignalTerm); err != nil {
