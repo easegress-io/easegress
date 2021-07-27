@@ -22,7 +22,7 @@ type Signal string
 
 const (
 	// SignalInt represents quit in Easegress
-	SignalInt  Signal = "int"
+	SignalInt Signal = "int"
 	// SignalTerm represents force quit in Easegress
 	SignalTerm Signal = "term"
 

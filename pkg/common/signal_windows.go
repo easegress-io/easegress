@@ -33,7 +33,7 @@ func eventName(s Signal, pid int) string {
 
 // NotifySignal is the windows impl of os/signal.Notify
 // which takes abstract Signal and causes common to relay incoming signals to c
-// 
+//
 // On Windows, the impl is based on https://docs.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-createeventw
 func NotifySignal(c chan<- Signal, sig ...Signal) error {
 	if c == nil {
@@ -79,7 +79,7 @@ func NotifySignal(c chan<- Signal, sig ...Signal) error {
 
 // RaiseSignal is the windows impl of syscall.Kill
 // any chan passed to NotifySignal will receive the sig
-// 
+//
 // On Windows, the impl is based on https://docs.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-createeventw
 func RaiseSignal(pid int, sig Signal) error {
 	name, err := windows.UTF16PtrFromString(eventName(sig, pid))
