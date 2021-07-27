@@ -47,6 +47,7 @@ func Write(opt *option.Options) error {
 	return nil
 }
 
+// Read reads pidfile and return its value.
 func Read(opt *option.Options) (int, error) {
 	pidfilePath = filepath.Join(opt.AbsHomeDir, pidfileName)
 
