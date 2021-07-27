@@ -26,7 +26,7 @@ import (
 	"net/http"
 	"strings"
 
-    "github.com/golang-jwt/jwt"
+	"github.com/golang-jwt/jwt"
 
 	"github.com/megaease/easegress/pkg/context"
 )
