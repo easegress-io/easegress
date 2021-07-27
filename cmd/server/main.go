@@ -64,7 +64,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		if err := common.SignalRaise(pid, common.SingalUsr2); err != nil {
+		if err := common.RaiseSignal(pid, common.SingalUsr2); err != nil {
 			logger.Errorf("failed to send signal: %v", err)
 			os.Exit(1)
 		}
@@ -118,7 +118,7 @@ func main() {
 	graceupdate.NotifySigUsr2(closeCls, restartCls)
 
 	sigChan := make(chan common.Signal, 1)
-	if err := common.SignalNotify(sigChan, common.SignalInt, common.SignalTerm); err != nil {
+	if err := common.NotifySignal(sigChan, common.SignalInt, common.SignalTerm); err != nil {
 		log.Printf("failed to register signal: %v", err)
 		os.Exit(1)
 	}

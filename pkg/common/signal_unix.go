@@ -38,7 +38,7 @@ var signalFromOsMap = map[os.Signal]Signal{
 	syscall.SIGUSR2: SingalUsr2,
 }
 
-func SignalNotify(c chan<- Signal, sig ...Signal) error {
+func NotifySignal(c chan<- Signal, sig ...Signal) error {
 	if c == nil {
 		return fmt.Errorf("SignalNotify using nil channel")
 	}
@@ -69,7 +69,7 @@ func SignalNotify(c chan<- Signal, sig ...Signal) error {
 	return nil
 }
 
-func SignalRaise(pid int, sig Signal) error {
+func RaiseSignal(pid int, sig Signal) error {
 	oss, ok := signalToOsMap[sig]
 
 	if !ok {

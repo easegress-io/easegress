@@ -43,7 +43,7 @@ func IsInherit() bool {
 func CallOriProcessTerm(done chan struct{}) bool {
 	if didInherit && ppid != 1 {
 		<-done
-		if err := common.SignalRaise(ppid, common.SignalTerm); err != nil {
+		if err := common.RaiseSignal(ppid, common.SignalTerm); err != nil {
 			logger.Errorf("failed to close parent: %s", err)
 			return false
 		}
@@ -55,7 +55,7 @@ func CallOriProcessTerm(done chan struct{}) bool {
 // NotifySigUsr2 handles signal SIGUSR2 to gracefully update.
 func NotifySigUsr2(closeCls func(), restartCls func()) error {
 	sigUsr2 := make(chan common.Signal, 1)
-	if err := common.SignalNotify(sigUsr2, common.SingalUsr2); err != nil {
+	if err := common.NotifySignal(sigUsr2, common.SingalUsr2); err != nil {
 		return err
 	}
 

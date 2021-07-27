@@ -31,7 +31,7 @@ func eventName(s Signal, pid int) string {
 	return fmt.Sprintf("Global\\easegress_%v_%v", s, pid)
 }
 
-func SignalNotify(c chan<- Signal, sig ...Signal) error {
+func NotifySignal(c chan<- Signal, sig ...Signal) error {
 	if c == nil {
 		return fmt.Errorf("SignalNotify using nil channel")
 	}
@@ -73,7 +73,7 @@ func SignalNotify(c chan<- Signal, sig ...Signal) error {
 	return nil
 }
 
-func SignalRaise(pid int, sig Signal) error {
+func RaiseSignal(pid int, sig Signal) error {
 	name, err := windows.UTF16PtrFromString(eventName(sig, pid))
 	if err != nil {
 		return err
