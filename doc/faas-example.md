@@ -164,5 +164,5 @@ autoScaleValue: "6000"
 2. Update the function spec and verify it as in Scenario 2's step 2 - 3.
 
 ## References
-[1]https://en.wikipedia.org/wiki/Function_as_a_service
-[2]https://github.com/megaease/easegress/blob/main/doc/faascontroller.md
+[1] https://en.wikipedia.org/wiki/Function_as_a_service
+[2] https://github.com/megaease/easegress/blob/main/doc/faascontroller.md
