@@ -52,7 +52,7 @@ func init() {
 }
 
 type (
-	// APIAggregator is a filter to combine several HTTP API responses together.
+	// APIAggregator is a filter to aggregate several HTTP API responses.
 	APIAggregator struct {
 		filterSpec *httppipeline.FilterSpec
 		spec       *Spec
