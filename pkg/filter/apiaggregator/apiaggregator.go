@@ -191,7 +191,7 @@ func (aa *APIAggregator) handle(ctx context.HTTPContext) (result string) {
 	wg := &sync.WaitGroup{}
 	wg.Add(len(aa.spec.Pipelines))
 
-	httpRsps := make([]context.HTTPResponse, len(aa.spec.Pipelines))
+	httpResps := make([]context.HTTPResponse, len(aa.spec.Pipelines))
 	for i, p := range aa.spec.Pipelines {
 		req, err := aa.newHTTPReq(ctx, p, buff)
 		if err != nil {
@@ -204,26 +204,23 @@ func (aa *APIAggregator) handle(ctx context.HTTPContext) (result string) {
 			defer wg.Done()
 			handler, exists := aa.rctc.GetHTTPPipeline(name)
 			if !exists {
-				logger.Errorf("pipeline: %s not found in default ns", name)
-				httpRsps[i] = nil
-			} else {
-				w := httptest.NewRecorder()
-				copyCtx := context.New(w, req, tracing.NoopTracing, "no trace")
-				handler.Handle(copyCtx)
-				rsp := copyCtx.Response()
+				logger.Errorf("pipeline: %s not found in current namespace", name)
+				return
+			}
+			w := httptest.NewRecorder()
+			copyCtx := context.New(w, req, tracing.NoopTracing, "no trace")
+			handler.Handle(copyCtx)
+			rsp := copyCtx.Response()
 
-				if rsp != nil && rsp.StatusCode() == http.StatusOK {
-					httpRsps[i] = rsp
-				} else {
-					httpRsps[i] = nil
-				}
+			if rsp != nil && rsp.StatusCode() == http.StatusOK {
+				httpResps[i] = rsp
 			}
 		}(i, p.Name, req)
 	}
 
 	wg.Wait()
 
-	for _, resp := range httpRsps {
+	for _, resp := range httpResps {
 		_resp := resp
 
 		if resp != nil {
@@ -236,7 +233,7 @@ func (aa *APIAggregator) handle(ctx context.HTTPContext) (result string) {
 	data := make(map[string][]byte)
 
 	// Get all HTTPPipeline response' body
-	for i, resp := range httpRsps {
+	for i, resp := range httpResps {
 		if resp == nil && !aa.spec.PartialSucceed {
 			ctx.Response().Std().Header().Set("X-EG-Aggregator", fmt.Sprintf("failed-in-%s",
 				aa.spec.Pipelines[i].Name))
