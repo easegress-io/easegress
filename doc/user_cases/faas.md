@@ -51,7 +51,7 @@ Save it into `/home/easegress/function.yaml`, using command to deploy it in Ease
 **Note** this command should be run in Easegress' instance environment and ${eg_apiport} should be replace with the real working port, ${image_url} should be replaced with pullable image URL. 
 
 ``` bash
-curl --data-binary @/home/easegress/function.yaml -X POST -H 'Content-Type: text/vnd.yaml' http://127.0.0.1:${eg_apiport}/apis/v1/faas/faascontroller
+$ curl --data-binary @/home/easegress/function.yaml -X POST -H 'Content-Type: text/vnd.yaml' http://127.0.0.1:${eg_apiport}/apis/v1/faas/faascontroller
 ```
 3. Get the function's status, make sure it is in `active` status
 ``` bash
@@ -115,7 +115,7 @@ Add the configuration above in #Scenario 1's `/home/easegress/function.yaml`
 1. Stop the function execution by using command 
 
 ``` bash
-curl http://127.0.0.1:${eg_apiport}/apis/v1/faas/faascontroller/demo/stop -X PUT
+$ curl http://127.0.0.1:${eg_apiport}/apis/v1/faas/faascontroller/demo/stop -X PUT
 ```
 
 The function will become `inactive` then we can update the resource limitation safely.
@@ -123,7 +123,7 @@ The function will become `inactive` then we can update the resource limitation s
 2. Update the function's spec 
 
 ``` bash
-curl --data-binary @/home/easegress/function.yaml -X PUT -H 'Content-Type: text/vnd.yaml' http://127.0.0.1:${eg_apiport}/apis/v1/faas/faascontroller/demo
+$ curl --data-binary @/home/easegress/function.yaml -X PUT -H 'Content-Type: text/vnd.yaml' http://127.0.0.1:${eg_apiport}/apis/v1/faas/faascontroller/demo
 ```
 
 3. Verify the update 

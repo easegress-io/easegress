@@ -57,7 +57,7 @@ rules:
 
 ``` bash
 
-$: curl  -X GET  http://127.0.0.1:10080/api -v 
+$ curl  -X GET  http://127.0.0.1:10080/api -v 
 [{"hello":"world"},{"hello":"new world"},{"mega":"ease"}]
 
 ```
@@ -88,7 +88,7 @@ filters:
 
 ``` bash
 
-$: curl  -X GET  http://127.0.0.1:10080/api -v 
+$ curl  -X GET  http://127.0.0.1:10080/api -v 
 {"hello":"new world","mega":"ease"}
 
 ```
@@ -98,7 +98,7 @@ As In #Scenario 1, if we want the backend service meets some problem and can't p
 failed as blew:
 
 ``` bash
-curl http://localhost:10080/api -v -X PUT
+$ curl http://localhost:10080/api -v -X PUT
 *   Trying ::1...
 * TCP_NODELAY set
 * Connected to localhost (::1) port 10080 (#0)
@@ -141,7 +141,7 @@ filters:
 2. Request the aggregator
 
 ``` bash
-$: curl  -X GET  http://127.0.0.1:10080/api -v 
+$ curl  -X GET  http://127.0.0.1:10080/api -v 
 [{"hello":"world"},{"hello":"new world"}]
 
 ```
