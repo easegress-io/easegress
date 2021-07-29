@@ -722,10 +722,10 @@ filters:
         - HEAD
 ```
 
-### Concpets
-[1]https://en.wikipedia.org/wiki/JSON_Web_Token
-[2]https://docs.aws.amazon.com/general/latest/gr/sigv4_signing.html
-[3]https://github.com/megaease/easegress/blob/main/doc/filters.md#signerliteral
-[4]https://oauth.net/2/
-[5]https://github.com/megaease/easegress/blob/main/doc/filters.md#validatorOAuth2JWT
+### Concepts
+1. https://en.wikipedia.org/wiki/JSON_Web_Token
+2. https://docs.aws.amazon.com/general/latest/gr/sigv4_signing.html
+3. https://github.com/megaease/easegress/blob/main/doc/filters.md#signerliteral
+4. https://oauth.net/2/
+5. https://github.com/megaease/easegress/blob/main/doc/filters.md#validatorOAuth2JWT
 
