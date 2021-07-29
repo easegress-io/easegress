@@ -14,7 +14,7 @@
     - [Test](#test)
     - [More Filters](#more-filters)
   - [Documentation](#documentation)
-  - [Use Cases](#use-cases)
+  - [User Cases](#user-cases)
   - [Roadmap](#roadmap)
   - [License](#license)
 
@@ -295,7 +295,7 @@ We can also see Easegress send one more header `X-Adapt-Key: goodplan` to the mi
 
 See [reference](./doc/reference.md) and [developer guide](./doc/developer-guide.md) for more information.
 
-## Use Cases
+## User Cases
 
 We list most useful user cases by examples, you can check it in [here](./doc/user_cases/README.md).
 
