@@ -264,40 +264,43 @@ For the full YAML, see [here](#oauth)
 Below is an example configuration with a `COUNT_BASED` policy. `GET` request to paths begin with `/books/` uses this policy, which short-circuits requests if more than half of the last 100 requests failed with status code 500, 503, or 504.
 
 ```yaml
+name: pipeline-reverse-proxy
+kind: HTTPPipeline
 flow:
-  - filter: circuit-breaker                           # +
+  - filter: circuit-breaker
   - filter: proxy
 filters:
-  - name: circuit-breaker                             # +
-    kind: CircuitBreaker                              # +
-    policies:                                         # +
-    - name: count-based-policy                        # +
-      slidingWindowType: COUNT_BASED                  # +
-      failureRateThreshold: 50                        # +
-      slidingWindowSize: 100                          # +
-      failureStatusCodes: [500, 503, 504]             # +
-    urls:                                             # +
-    - methods: [GET]                                  # +
-      url:                                            # +
-        prefix: /books/                               # +
-      policyRef: count-based-policy                   # +
+  - name: circuit-breaker
+    kind: CircuitBreaker
+    policies:
+    - name: count-based-policy
+      slidingWindowType: COUNT_BASED
+      failureRateThreshold: 50
+      slidingWindowSize: 100
+      failureStatusCodes: [500, 503, 504]
+    urls:
+    - methods: [GET]
+      url:
+        prefix: /books/
+      policyRef: count-based-policy
   - name: proxy
+    kind: Proxy
 ```
 
 And we can add a `TIME_BASED` policy, `GET` & `POST` requests to paths that match regular express `^/users/\d+$` uses this policy, which short-circuits requests if more than 60% of the requests within the last 200 seconds failed.
 
 ```yaml
     policies:
-    - name: time-based-policy                         # +
-      slidingWindowType: TIME_BASED                   # +
-      failureRateThreshold: 60                        # +
-      slidingWindowSize: 200                          # +
-      failureStatusCodes: [500, 503, 504]             # +
+    - name: time-based-policy
+      slidingWindowType: TIME_BASED
+      failureRateThreshold: 60
+      slidingWindowSize: 200
+      failureStatusCodes: [500, 503, 504]
     urls:
-    - methods: [GET, POST]                            # +
-      url:                                            # +
-        regex: ^/users/\d+$                           # +
-      policyRef: time-based-policy                    # +
+    - methods: [GET, POST]
+      url:
+        regex: ^/users/\d+$
+      policyRef: time-based-policy
 ```
 
 In addition to failures, the circuit breaker can also short-circuits requests on slow requests. Below configuration regards requests which costs more than 30 seconds as slow requests, and short-circuits requests if 60% of recent requests are slow.
@@ -305,8 +308,8 @@ In addition to failures, the circuit breaker can also short-circuits requests on
 ```yaml
     policies:
     - name: count-based-policy
-      slowCallRateThreshold: 60                       # +
-      slowCallDurationThreshold: 30s                  # +
+      slowCallRateThreshold: 60
+      slowCallDurationThreshold: 30s
 ```
 
 For a policy, if the first request fails, the failure rate could be 100% because there's only one request. This is not a desired behavior in most cases, we can avoid it by specify `minimumNumberOfCalls`.
@@ -314,7 +317,7 @@ For a policy, if the first request fails, the failure rate could be 100% because
 ```yaml
     policies:
     - name: count-based-policy
-      minimumNumberOfCalls: 10                        # +
+      minimumNumberOfCalls: 10
 ```
 
 We can also configure the wait duration in open state, and the max wait duration in half-open state:
@@ -322,8 +325,8 @@ We can also configure the wait duration in open state, and the max wait duration
 ```yaml
     policies:
     - name: count-based-policy
-      waitDurationInOpenState: 2m                     # +
-      maxWaitDurationInHalfOpenState: 1m              # +
+      waitDurationInOpenState: 2m
+      maxWaitDurationInHalfOpenState: 1m
 ```
 
 In half-open state, we can limit the number of permitted requests:
@@ -331,87 +334,104 @@ In half-open state, we can limit the number of permitted requests:
 ```yaml
     policies:
     - name: count-based-policy
-      permittedNumberOfCallsInHalfOpenState: 10       # +
+      permittedNumberOfCallsInHalfOpenState: 10
 ```
+
+For the full YAML, see [here](#circuitbreaker-1)
 
 #### RateLimiter
 
 The below configuration limits the request rate for requests to `/admin` and requests that match regular expression `^/pets/\d+$`.
 
 ```yaml
+name: pipeline-reverse-proxy
+kind: HTTPPipeline
 flow:
-  - filter: rate-limiter                              # +
+  - filter: rate-limiter
   - filter: proxy
 filters:
-  - name: rate-limiter                                # +
-    kind: RateLimiter                                 # +
-    policies:                                         # +
-    - name: policy-example                            # +
-      timeoutDuration: 100ms                          # +
-      limitRefreshPeriod: 10ms                        # +
-      limitForPeriod: 50                              # +
-    defaultPolicyRef: policy-example                  # +
-    urls:                                             # +
-    - methods: [GET, POST, PUT, DELETE]               # +
-      url:                                            # +
-        exact: /admin                                 # +
-        regex: ^/pets/\d+$                            # +
-      policyRef: policy-example                       # +
+  - name: rate-limiter
+    kind: RateLimiter
+    policies:
+    - name: policy-example
+      timeoutDuration: 100ms
+      limitRefreshPeriod: 10ms
+      limitForPeriod: 50
+    defaultPolicyRef: policy-example
+    urls:
+    - methods: [GET, POST, PUT, DELETE]
+      url:
+        exact: /admin
+        regex: ^/pets/\d+$
+      policyRef: policy-example
   - name: proxy
+    kind: Proxy
 ```
+
+For the full YAML, see [here](#ratelimiter-1)
 
 #### Retryer
 
 If we want to retry on HTTP status code 500, 503, and 504, we can create a `Retryer` with below configuration, it make at most 3 attempts on failure.
 
 ```yaml
+name: pipeline-reverse-proxy
+kind: HTTPPipeline
 flow:
-  - filter: retryer                                   # +
+  - filter: retryer
   - filter: proxy
 filters:
-  - name: retryer                                     # +
-    kind: Retryer                                     # +
-    policies:                                         # +
-    - name: policy-example                            # +
-      maxAttempts: 3                                  # +
-      waitDuration: 500ms                             # +
-      failureStatusCodes: [500, 503, 504]             # +
-    defaultPolicyRef: policy-example                  # +
-    urls:                                             # +
-    - methods: [GET, POST, PUT, DELETE]               # +
-      url:                                            # +
-        prefix: /books/                               # +
-      policyRef: policy-example                       # +
+  - name: retryer
+    kind: Retryer
+    policies:
+    - name: policy-example
+      maxAttempts: 3
+      waitDuration: 500ms
+      failureStatusCodes: [500, 503, 504]
+    defaultPolicyRef: policy-example
+    urls:
+    - methods: [GET, POST, PUT, DELETE]
+      url:
+        prefix: /books/
+      policyRef: policy-example
   - name: proxy
+    kind: Proxy
 ```
 
 By default, the wait duration between two attempts is `waitDuration`, but this can be changed by specify `backOffPolicy` and `randomizationFactor`.
 
 ```yaml
     - name: policy-example
-      backOffPolicy: Exponential                      # +
-      randomizationFactor: 0.5                        # +
+      backOffPolicy: Exponential
+      randomizationFactor: 0.5
 ```
+
+For the full YAML, see [here](#retryer-1)
 
 #### TimeLimiter
 
 TimeLimiter limits the time of requests, a request is canceled if it cannot get a response in configured duration.
 
 ```yaml
+name: pipeline-reverse-proxy
+kind: HTTPPipeline
 flow:
-  - filter: time-limiter                              # +
+  - filter: time-limiter
   - filter: proxy
 filters:
-  - name: time-limiter                                # +
-    kind: TimeLimiter                                 # +
-    defaultTimeoutDuration: 500ms                     # +
-    urls:                                             # +
-    - methods: [POST]                                 # +
-      url:                                            # +
-        exact: /users/1                               # +
-      timeoutDuration: 400ms                          # +
+  - name: time-limiter
+    kind: TimeLimiter
+    defaultTimeoutDuration: 500ms
+    urls:
+    - methods: [POST]
+      url:
+        exact: /users/1
+      timeoutDuration: 400ms
   - name: proxy
+    kind: Proxy
 ```
+
+For the full YAML, see [here](#timelimiter-1)
 
 ### Resouce Saving: Compression and Caching
 

@@ -1,8 +1,18 @@
-# WebAssembly in Easegress
+- [WasmHost](#wasmhost)
+	- [Why Use WasmHost](#why-use-wasmhost)
+	- [Examples](#examples)
+		- [Basic: Noop](#basic-noop)
+		- [Add a New Header](#add-a-new-header)
+		- [Add a New Header According to Configuration](#add-a-new-header-according-to-configuration)
+		- [Set a Cookie](#set-a-cookie)
+		- [Mock Response](#mock-response)
+		- [Return a Result Other Than 0](#return-a-result-other-than-0)
+
+# WasmHost
 
 The `WasmHost` is a filter of Easegress which can be orchestrated into a pipeline. But while the behavior of all other filters are defined by filter developers and can only be fine-tuned by configuration, this filter implements a host environment for user-developed [WebAssembly](https://webassembly.org/) code, which enables users to control the filter behavior completely.
 
-## Why Use WebAssembly in Easegress?
+## Why Use WasmHost
 
 * **Zero Down Time**: filter behavior can be modified by a hot update.
 * **Fast Develop, Fast Deploy**: we believe everyone can be a software developer, and you know your requirement better, no need to wait for MegaEase.
