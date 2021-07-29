@@ -34,20 +34,20 @@ import { Program, request, response, cookie, LogLevel, log, registerProgramFacto
 // define the program, 'Noop' is the name
 class Noop extends Program {
 	// constructor is the initializer of the problem, will be called once at startup
-    constructor(params: Map<string, string>) {
-        super(params)
-    }
+	constructor(params: Map<string, string>) {
+		super(params)
+	}
 
 	// run will be called for every request
-    run(): i32 {
-        return 0
-    }
+	run(): i32 {
+		return 0
+	}
 }
 
 // register a factory method of the program, the only thing you
 // may want to change is the program name, here is 'Noop'
 registerProgramFactory((params: Map<string, string>) => {
-    return new Noop(params)
+	return new Noop(params)
 }
 ```
 
@@ -69,11 +69,11 @@ class AddHeader extends Program {
 	headerName: string
 	headerValue: string
 
-    constructor(params: Map<string, string>) {
+	constructor(params: Map<string, string>) {
 		this.headerName = params.get("headerName")
 		this.headerValue = params.get("headerValue")
-        super(params)
-    }
+		super(params)
+	}
 
 	run(): i32 {
 		request.addHeader(this.headerName, this.headerValue)
@@ -88,9 +88,9 @@ And we also need to modify the filter configuration to add `headerName` and `hea
 filters:
   - name: wasm
     kind: WasmHost
-	parameters:                                    # +
-	  headerName: "Wasm-Added"                     # +
-	  headerValue: "I was added by WebAssembly"    # +
+    parameters:                                    # +
+      headerName: "Wasm-Added"                     # +
+      headerValue: "I was added by WebAssembly"    # +
 ```
 
 ### Set a Cookie
