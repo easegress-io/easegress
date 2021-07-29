@@ -99,7 +99,7 @@ You want to make sure at the maximum instance number can only under 50, and it c
 
 ``` yaml 
 name: demo
-...
+#...
 
 limitedMemory: "200Mi" 
 limitedCPU: "180m" 
@@ -107,8 +107,6 @@ requireMemory: "100Mi"
 requireCPU: "100m"
 minReplica: 0 
 maxReplica: 50 
-
-...
 
 ```
 
@@ -137,11 +135,9 @@ In same special cases, you may want your FaaS function has at least one instance
 
 ``` yaml
 name: demo
-...
-
+#...
 minReplica:  1  
-....
-
+#...
 ```
 
 1. Modifying the `minReplica` above in #Scenario 1's `/home/easegress/function.yaml` 
@@ -153,10 +149,10 @@ If your don't need to controll the function's allowed request precisely, `RPS` b
 
 ``` yaml
 name:demo
-...
+#...
 autoScaleType:  "rps"          
 autoScaleValue: "6000" 
-...
+#...
 ```
 
 1. Modifying the `autoScaleType`  and `autoScaleValue" above in #Scenario 1's `/home/easegress/function.yaml` 
@@ -164,5 +160,5 @@ autoScaleValue: "6000"
 2. Update the function spec and verify it as in Scenario 2's step 2 - 3.
 
 ## References
-[1] https://en.wikipedia.org/wiki/Function_as_a_service
-[2] https://github.com/megaease/easegress/blob/main/doc/faascontroller.md
+1. https://en.wikipedia.org/wiki/Function_as_a_service
+2. https://github.com/megaease/easegress/blob/main/doc/faascontroller.md

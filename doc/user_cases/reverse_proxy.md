@@ -17,12 +17,18 @@
     - [Conditional Door: Intercept Invalid Requests](#conditional-door-intercept-invalid-requests-1)
     - [Traffic Adaptor: Change Something of Two-Way Traffic](#traffic-adaptor-change-something-of-two-way-traffic-1)
     - [More Security: Verify Credential](#more-security-verify-credential-1)
+      - [Header](#header)
+      - [JWT](#jwt)
+      - [Signature](#signature)
+      - [OAuth](#oauth)
     - [More Livingness: Resilience of Service](#more-livingness-resilience-of-service-1)
       - [CircuitBreaker](#circuitbreaker-1)
       - [RateLimiter](#ratelimiter-1)
       - [Retryer](#retryer-1)
       - [TimeLimiter](#timelimiter-1)
     - [Resource Saving: Compression and Caching](#resource-saving-compression-and-caching)
+      - [proxy compress](#proxy-compress)
+      - [proxy pool caching](#proxy-pool-caching)
     - [Concepts](#concepts)
 
 # Reverse Proxy
@@ -161,21 +167,21 @@ kind: HTTPPipeline
 flow:
   - filter: header-validator
   - filter: proxy
-
-#...
+filters:
   - kind: Validator
     name: header-validator
     headers:
       Is-Valid:
         values: ["abc", "goodplan"]
         regexp: "^ok-.+$"
-#...
-
+  - name: proxy
+    kind: Proxy
 ```
 
 In order to enable Header type validator correctly in pipeline, we should add it before proxy filter.
 And the example above will check the `Is-Valid` header field by trying to match `abc` or `goodplan`. Also, it will use `^ok-.+$` regular expression for checking if it can't match the `values` filed.
 
+For the full YAML, see [here](#header)
 
 2. Using JWT validation in Easegress. JWT is wildly used in modern web environment. JSON Web Token (JWT, pronounced /dʒɒt/, same as the word "jot") is a proposed Internet standard for creating data with optional signature and/or optional encryption whose payload holds JSON that asserts some number of claims.[1]
 > Easegress support three types of JWT, HS256, HS384, and HS512.
@@ -187,19 +193,19 @@ kind: HTTPPipeline
 flow:
   - filter: jwt-validator
   - filter: proxy
-
-#...
+filters:
   - kind: Validator
     name: jwt-validator
     jwt:
       cookieName: auth
       algorithm: HS256
       secret: 6d79736563726574
-#...
-
+  - name: proxy
+    kind: Proxy
 ```
 
 The example above will check the value named `auth` in cookie with HS256 with secret,6d79736563726574.
+For the full YAML, see [here](#JWT)
 
 3. Using Signature validation in Easegress. Signature validation implements an Amazon Signature V4[2] compatible signature validation validator. Once you enable this kind of validation, please make sure your HTTP client has followed the signature generation process in AWS V4 doc and bring it to request Easegress.
 
@@ -209,18 +215,20 @@ kind: HTTPPipeline
 flow:
   - filter: signature-validator
   - filter: proxy
-
-#...
+filters:
   - kind: Validator
     name: signature-validator
     signature:
       accessKeys:
         AKID: SECRET
-#...
+  - name: proxy
+    kind: Proxy
 
 ```
 
 The example here only use an accessKeys for processing Amazon Signature V4 validation. It also has other complicated and customized filed for more security purpose. Check it out in Easegress filter doc if needed.[3]
+
+For the full YAML, see [here](#signature)
 
 4. Using Oauth2 validation in Easegress
 OAuth 2.0 is the industry-standard protocol for authorization. OAuth 2.0 focuses on client developer simplicity while providing specific authorization flows for web applications, desktop applications, mobile phones, and living room devices. This specification and its extensions are being developed within the IETF OAuth Working Group.[4]
@@ -231,8 +239,7 @@ kind: HTTPPipeline
 flow:
   - filter: oauth-validator
   - filter: proxy
-
-#...
+filters:
   - kind: Validator
     name: oauth-validator
     oauth2:
@@ -241,10 +248,14 @@ flow:
       clientId: easegress
       clientSecret: 42620d18-871d-465f-912a-ebcef17ecb82
       insecureTls: false
-#...
+  - name: proxy
+    kind: Proxy
+
 ```
 
 The example above uses a token introspection server, which is provide by `endpoint` filed for validation. It also support `Self-Encoded Access Tokens mode` which will require a JWT related configuration included. Check it out in Easegress filter doc if needed. [5]
+
+For the full YAML, see [here](#oauth)
 
 ### More Livingness: Resilience of Service
 
@@ -420,10 +431,11 @@ filters:
 #...
     compression:
       minLength: 1024
-#...
 ```
 
 As the example above, we only need to value the `minLength` field to tell Easegress' proxy filter avoiding gzip the response body if the response body doesn't lagert the `minLength`. Also it will add the `gzip` header automatically if it's truly invoked.
+
+For the full yaml, see [here](#proxy-compress)
 
 2. Caching in proxy filter
 Easegress proxy filter has `pool` section for describing forwarding backends. And it also supports cacheing the response according to the HTTP Methods and the HTTP response code.
@@ -437,7 +449,7 @@ filters:
   - name: proxy
     kind: Proxy
     mainPool:
- #...
+#...
       memoryCache:
         expiration: 10s
         maxEntryBytes: 4096
@@ -447,10 +459,11 @@ filters:
         methods:
         - GET
         - HEAD
- #...
 ```
 
 The example above will cache the response which size is smaller than 4096, and response code is 200 or 201, with HTTP method Get and Head.
+
+For the full YAML, see [here](#proxy-pool-caching)
 
 3. Caching in HTTPServer
 As a traffic gate of Easegress, HTTPServer also supports caching. It can be used in serving static resource scenario. HTTPServer will use request's Host, Method, and Path to form a key for build-in LRU cache. Recommend to enable this feature only in the HTTPServer for routing static resources.(Easegress supports multiple HTTPServers for different usage purpose)
@@ -494,7 +507,7 @@ filters:
 
 ### More Security: Verify Credential
 
-1. Header
+#### Header
 
 ``` yaml
 name: pipeline-reverse-proxy
@@ -521,7 +534,7 @@ filters:
 
 ```
 
-2. JWT
+#### JWT
 
 ```yaml
 name: pipeline-reverse-proxy
@@ -547,7 +560,7 @@ filters:
         policy: roundRobin
 ```
 
-3. Signature
+#### Signature
 
 ```yaml
 name: pipeline-reverse-proxy
@@ -570,7 +583,7 @@ filters:
       loadBalance:
         policy: roundRobin
 ```
-4. OAuth
+#### OAuth
 
 ```yaml
 name: pipeline-reverse-proxy
@@ -745,7 +758,7 @@ filters:
 ```
 
 ### Resource Saving: Compression and Caching
-
+#### proxy compress 
 ```yaml
 name: pipeline-reverse-proxy
 kind: HTTPPipeline
@@ -765,7 +778,7 @@ filters:
        minLength: 1024
 ```
 
-2. Caching in proxy filter's pool section
+#### proxy pool caching 
 
 ```yaml
 name: pipeline-reverse-proxy

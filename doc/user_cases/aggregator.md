@@ -23,7 +23,7 @@
 `pipeline-demo2` will return `{"hello":"new world"}`.
 
 ``` bash 
-echo 'echo '
+echo '
 name: pipeline-api 
 kind: HTTPPipeline
 flow:
@@ -69,7 +69,7 @@ their response body by the JSON key together. If the keys has conflicted, we wil
 1. Update the pipeline with aggregator 
 
 ``` bash 
-cho 'echo '
+echo '
 name: pipeline-api 
 kind: HTTPPipeline
 flow:
@@ -148,4 +148,4 @@ $: curl  -X GET  http://127.0.0.1:10080/api -v
 
 
 ## References
-[1]https://docs.microsoft.com/en-us/azure/architecture/patterns/gateway-aggregation
+1. https://docs.microsoft.com/en-us/azure/architecture/patterns/gateway-aggregation
