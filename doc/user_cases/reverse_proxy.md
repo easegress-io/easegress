@@ -23,7 +23,7 @@
       - [Retryer](#retryer-1)
       - [TimeLimiter](#timelimiter-1)
     - [Resource Saving: Compression and Caching](#resource-saving-compression-and-caching)
-    - [Concpets](#concpets)
+    - [Concepts](#concepts)
 
 # Reverse Proxy
 
@@ -172,7 +172,7 @@ flow:
 
 ```
 
-The example above uses a token introspection server, which is provide by `endpoint` filed for validation. It also support `Self-Encoded Access Tokens mode` which will require a JWT related configuration related. Check it out in Easegress filter doc if needed. [5]
+The example above uses a token introspection server, which is provide by `endpoint` filed for validation. It also support `Self-Encoded Access Tokens mode` which will require a JWT related configuration included. Check it out in Easegress filter doc if needed. [5]
 
 
 ### More Livingness: Resilience of Service
@@ -333,7 +333,7 @@ filters:
 
 ### Resouce Saving: Compression and Caching
 
-> NOTE: When there are multiple instances of Easegress, the configuration applys for every instance equally. For example, TPS of RateLimiter is configured with 100 in 3-instances cluster, so the total TPS will be 300.
+> NOTE: When there are multiple instances of Easegress, the configuration will be applied for every instance equally. For example, TPS of RateLimiter is configured with 100 in 3-instances cluster, so the total TPS will be 300.
 
 1. Compression in proxy filter
 Easegress proxy filter supports `gzip` type compression.
