@@ -17,7 +17,7 @@ The `WasmHost` is a filter of Easegress which can be orchestrated into a pipelin
 * **Zero Down Time**: filter behavior can be modified by a hot update.
 * **Fast Develop, Fast Deploy**: we believe everyone can be a software developer, and you know your requirement better, no need to wait for MegaEase.
 * **Every Thing Under Control**: the filter behavior is right under your fingers.
-* **Develop with Your Favour Language**: choose one from `AssemblyScript`, `Go`, `C/C++`, `Rust` and etc at your wish (Note: a language specific SDK is required, we are working on this).
+* **Develop with Your Favour Language**: choose one from `AssemblyScript`, `Go`, `C/C++`, `Rust`, and so on at your wish (Note: a language-specific SDK is required, we are working on this).
 
 ## Examples
 
@@ -27,7 +27,7 @@ The `WasmHost` is a filter of Easegress which can be orchestrated into a pipelin
 $ make build_server GOTAGS=wasmhost
 ```
 
-We will use [AssemblyScript](https://www.assemblyscript.org/) as the language of the examples, please refer tp [this document](https://github.com/megaease/easegress-assemblyscript-sdk/blob/main/README.md) for how to build the examples, and [this document](https://github.com/megaease/easegress/blob/main/doc/wasmhost.md) for how to deploy them to Easegress.
+We will use [AssemblyScript](https://www.assemblyscript.org/) as the language of the examples, please refer to [this document](https://github.com/megaease/easegress-assemblyscript-sdk/blob/main/README.md) for how to build the examples, and [this document](https://github.com/megaease/easegress/blob/main/doc/wasmhost.md) for how to deploy them to Easegress.
 
 ### Basic: Noop
 

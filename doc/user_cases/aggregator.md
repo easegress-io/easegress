@@ -11,19 +11,19 @@
 
 ## Background
 
-* API aggregation is a pattern to aggregate multiple individual requests into a single request. This pattern is useful when a client must make multiple calls to different backend systems to perform an operation.[1]
+* API aggregation is a pattern to aggregate multiple individual requests into a single request. This pattern is useful when a client must make multiple calls to different backend systems to operate.[1]
 * Easegress provides a filter called `APIAggregator` in pipeline this useful feature.
 
 ## API aggregator
 
 * Reusing exist pipelines for an API request.
-* Easy to intergrate with other filter such as rateLimiter.
+* Easy to integrate with other filters such as RateLimiter.
 
 ## Example
 
 ### Scenario 1: Run an aggregator in pipeline
 
-1. We have three pipelines in the default namespace, called  `pipeline-demo`,  `pipeline-demo1`, and  `pipeline-demo2`. We want to call these three pipeline and combine their response together with one request.
+1. We have three pipelines in the default namespace, called  `pipeline-demo`,  `pipeline-demo1`, and  `pipeline-demo2`. We want to call these three pipeline and combine their response with one request.
 `pipeline-demo` will return `{"mega":"ease"}` in HTTP response body.
 `pipeline-demo1` will return `{"hello":"world"}`.
 `pipeline-demo2` will return `{"hello":"new world"}`.
@@ -71,7 +71,7 @@ $ curl  -X GET  http://127.0.0.1:10080/api -v
 ### Scenario 2: Merge response body
 
 As in #Scenario 1,  `pipeline-demo1` and `pipeline-demo2`'s responses share the same JSON key, we want to merge
-their response body by the JSON key together. If the keys has conflicted, we will use the last value.
+their response body by the JSON key together. If the keys have conflicted, we will use the last value.
 
 1. Update the pipeline with aggregator
 
@@ -124,9 +124,9 @@ $ curl http://localhost:10080/api -v -X PUT
 * Closing connection 0
 ```
 
-We can see a `X-Eg-Aggregator: failed-in-pipeline-demo` header in response, that's the first met failure pipeline of this aggregator.
+We can see an `X-Eg-Aggregator: failed-in-pipeline-demo` header in response, that's the first met failure pipeline of this aggregator.
 
-In some partical scenarios, we want this aggregator return the succeed execution pipelines' result. We can achieve this purpose by the steps below
+In some scenarios, we want this aggregator to return the successful execution pipelines' result. We can achieve this purpose by the steps below
 
 1. Update the aggregator's spec
 

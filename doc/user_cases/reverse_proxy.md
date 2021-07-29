@@ -30,17 +30,17 @@
       - [Proxy Caching](#proxy-caching)
     - [Concepts](#concepts)
 
-Reverse proxy is the common middleware which is  accessed by clients, forwards them to backend servers. Easegres Reverse proxy is a very core role played by Easegress.
+The reverse proxy is the common middleware that is accessed by clients, forwards them to backend servers. Easegres Reverse proxy is a very core role played by Easegress.
 
 ## Why Use Easegress as Reverse Proxy
 
-Easegress integrates much features as a reverse proxy with easy configuration.
+Easegress integrates many features as a reverse proxy with easy configuration.
 
 - Offload SSL/TLS layer
-- Hot-udpated routing without losing requests
+- Hot-updated routing without losing requests
 - Intercept invalid requests (according to IP, metadata of requests, credential verification, etc)
-- Adapting requests to satify requirements of backend servers
-- Bring more resilence for backend servers (rate limiting, time limiting, circuit breaker, retrying)
+- Adapting requests to satisfy requirements of backend servers
+- Bring more resilience for backend servers (rate limiting, time limiting, circuit breaker, retrying)
 - Load balance for backend servers (static addresses, or integration with service registry)
 - Compression and Caching for response
 
@@ -69,7 +69,7 @@ filters:
 
 ### Dynamic: Integration with Service Registry
 
-We integrate `Proxy` with service registry such as [Consul](https://github.com/megaease/easegress/blob/main/doc/controllers.md#consulserviceregistry), [Etcd](https://github.com/megaease/easegress/blob/main/doc/controllers.md#etcdserviceregistry), [Zookeeper](https://github.com/megaease/easegress/blob/main/doc/controllers.md#zookeeperserviceregistry), [Eureka](https://github.com/megaease/easegress/blob/main/doc/controllers.md#eurekaserviceregistry). You need to create one of them to connect external service registry. The service registry config takes higher priority than static servers. If the dynamic servers pulling failed, it will use static servers if there are.
+We integrate `Proxy` with service registry such as [Consul](https://github.com/megaease/easegress/blob/main/doc/controllers.md#consulserviceregistry), [Etcd](https://github.com/megaease/easegress/blob/main/doc/controllers.md#etcdserviceregistry), [Zookeeper](https://github.com/megaease/easegress/blob/main/doc/controllers.md#zookeeperserviceregistry), [Eureka](https://github.com/megaease/easegress/blob/main/doc/controllers.md#eurekaserviceregistry). You need to create one of them to connect the external service registry. The service registry config takes higher priority than static servers. If the dynamic servers pulling failed, it will use static servers if there are.
 
 There is a Zookeeper example:
 
@@ -94,7 +94,7 @@ filters:
 
 ### Traffic Adaptor: Change Something of Two-Way Traffic
 
-Somtimes backend applications can't adapt quick change of requirements of traffic. Easegress could be a adaptor between new traffic and old applications. There are 2 phases of adaption in reverse proxy: request adaption, response adaption. `RequestAdaptor` supports adaption of method, path, header, and body. `ResponseAdaptor` supports adaption of header and body. As you can see, the flow in spec plays a cratical role.
+Sometimes backend applications can't adapt to quick changes of requirements of traffic. Easegress could be an adaptor between new traffic and old applications. There are 2 phases of adaption in reverse proxy: request adaption, response adaption. `RequestAdaptor` supports the adaption of method, path, header, and body. `ResponseAdaptor` supports the adaption of header and body. As you can see, the flow in spec plays a critical role.
 
 ```yaml
 name: pipeline-reverse-proxy
@@ -150,13 +150,13 @@ filters:
     kind: Proxy
 ```
 
-In order to enable Header type validator correctly in pipeline, we should add it before proxy filter.
+To enable Header type validator correctly in pipeline, we should add it before filter `Proxy`.
 And the example above will check the `Is-Valid` header field by trying to match `abc` or `goodplan`. Also, it will use `^ok-.+$` regular expression for checking if it can't match the `values` filed.
 
 For the full YAML, see [here](#header)
 
-2. Using JWT validation in Easegress. JWT is wildly used in modern web environment. JSON Web Token (JWT, pronounced /dʒɒt/, same as the word "jot") is a proposed Internet standard for creating data with optional signature and/or optional encryption whose payload holds JSON that asserts some number of claims.[1]
-> Easegress support three types of JWT, HS256, HS384, and HS512.
+2. Using JWT validation in Easegress. JWT is wildly used in the modern web environment. JSON Web Token (JWT, pronounced /dʒɒt/, same as the word "jot") is a proposed Internet standard for creating data with optional signature and/or optional encryption whose payload holds JSON that asserts some number of claims.[1]
+> Easegress supports three types of JWT, HS256, HS384, and HS512.
 
 
 ``` yaml
@@ -176,7 +176,7 @@ filters:
     kind: Proxy
 ```
 
-The example above will check the value named `auth` in cookie with HS256 with secret,6d79736563726574.
+The example above will check the value named `auth` in the cookie with HS256 with the secret,6d79736563726574.
 For the full YAML, see [here](#JWT)
 
 3. Using Signature validation in Easegress. Signature validation implements an Amazon Signature V4[2] compatible signature validation validator. Once you enable this kind of validation, please make sure your HTTP client has followed the signature generation process in AWS V4 doc and bring it to request Easegress.
@@ -198,7 +198,7 @@ filters:
 
 ```
 
-The example here only use an accessKeys for processing Amazon Signature V4 validation. It also has other complicated and customized filed for more security purpose. Check it out in Easegress filter doc if needed.[3]
+The example here only uses an accessKeys for processing Amazon Signature V4 validation. It also has other complicated and customized fields for more security purposes. Check it out in Easegress filter doc if needed.[3]
 
 For the full YAML, see [here](#signature)
 
@@ -225,7 +225,7 @@ filters:
 
 ```
 
-The example above uses a token introspection server, which is provide by `endpoint` filed for validation. It also support `Self-Encoded Access Tokens mode` which will require a JWT related configuration included. Check it out in Easegress filter doc if needed. [5]
+The example above uses a token introspection server, which is provided by `endpoint` filed for validation. It also supports `Self-Encoded Access Tokens mode` which will require a JWT related configuration included. Check it out in Easegress filter doc if needed. [5]
 
 For the full YAML, see [here](#oauth)
 
@@ -275,7 +275,7 @@ And we can add a `TIME_BASED` policy, `GET` & `POST` requests to paths that matc
       policyRef: time-based-policy
 ```
 
-In addition to failures, the circuit breaker can also short-circuits requests on slow requests. Below configuration regards requests which costs more than 30 seconds as slow requests, and short-circuits requests if 60% of recent requests are slow.
+In addition to failures, the circuit breaker can also short-circuit requests on slow requests. Below configuration regards requests which cost more than 30 seconds as slow requests and short-circuits requests if 60% of recent requests are slow.
 
 ```yaml
     policies:
@@ -284,7 +284,7 @@ In addition to failures, the circuit breaker can also short-circuits requests on
       slowCallDurationThreshold: 30s
 ```
 
-For a policy, if the first request fails, the failure rate could be 100% because there's only one request. This is not a desired behavior in most cases, we can avoid it by specify `minimumNumberOfCalls`.
+For a policy, if the first request fails, the failure rate could be 100% because there's only one request. This is not the desired behavior in most cases, we can avoid it by specifying `minimumNumberOfCalls`.
 
 ```yaml
     policies:
@@ -346,7 +346,7 @@ For the full YAML, see [here](#ratelimiter-1)
 
 #### Retryer
 
-If we want to retry on HTTP status code 500, 503, and 504, we can create a `Retryer` with below configuration, it make at most 3 attempts on failure.
+If we want to retry on HTTP status code 500, 503, and 504, we can create a `Retryer` with below configuration, it makes at most 3 attempts on failure.
 
 ```yaml
 name: pipeline-reverse-proxy
@@ -409,7 +409,8 @@ For the full YAML, see [here](#timelimiter-1)
 
 ### Resouce Saving: Compression and Caching
 
-1. Compression in proxy filter
+1. Compression in filter `Proxy`
+
 Easegress proxy filter supports `gzip` type compression.
 
 ```yaml
@@ -425,12 +426,13 @@ filters:
       minLength: 1024
 ```
 
-As the example above, we only need to value the `minLength` field to tell Easegress' proxy filter avoiding gzip the response body if the response body doesn't lagert the `minLength`. Also it will add the `gzip` header automatically if it's truly invoked.
+Like the example above, we only need to value the `minLength` field to tell Easegress' proxy filter compressing response body whose size is bigger than `minLength`. Also, it will add the `gzip` header automatically if it's truly compressed.
 
 For the full yaml, see [here](#proxy-compression)
 
-2. Caching in proxy filter
-Easegress proxy filter has `pool` section for describing forwarding backends. And it also supports cacheing the response according to the HTTP Methods and the HTTP response code.
+2. Caching in filter `Proxy`
+
+Easegress proxy filter has a `pool` section for describing forwarding backends. And it also supports caching the response according to the HTTP Methods and the HTTP response code.
 
 ``` yaml
 name: pipeline-reverse-proxy
@@ -453,13 +455,13 @@ filters:
         - HEAD
 ```
 
-The example above will cache the response which size is smaller than 4096, and response code is 200 or 201, with HTTP method Get and Head.
+The example above will cache the response which size is smaller than 4096, and the response code is 200 or 201, with HTTP method Get and Head.
 
 For the full YAML, see [here](#proxy-caching)
 
 3. Caching in HTTPServer
 
-As a traffic gate of Easegress, HTTPServer also supports caching. It can be used in serving static resource scenario. HTTPServer will use request's Host, Method, and Path to form a key for build-in LRU cache. Recommend to enable this feature only in the HTTPServer for routing static resources.(Easegress supports multiple HTTPServers for different usage purpose)
+As a traffic gate of Easegress, HTTPServer also supports caching. It can be used in serving static resource scenarios. HTTPServer will use request's Host, Method, and Path to form a key for build-in LRU cache. Recommend to enable this feature only in the HTTPServer for routing static resources. (Easegress supports multiple HTTPServers for different purposes)
 
 ```yaml
 kind: HTTPServer
@@ -471,7 +473,7 @@ cacheSize: 10240
 #...
 ```
 
-As the example above, all we need is valuing the `cacheSize` to indicated the lru cache's size. It will disuse the least used cache value firstly.
+Like the example above, all we need is to set the `cacheSize` to indicated the LRU cache's size. It will disuse the least used cache value firstly.
 
 ## References
 

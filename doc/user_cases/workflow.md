@@ -11,19 +11,19 @@
 ## Background
 
 * A workflow consists of an orchestrated and repeatable pattern of activity, enabled by the systematic organization of resources into processes that transform materials, provide services, or process information. It can be depicted as a sequence of operations, the work of a person or group, the work of an organization of staff, or one or more simple or complex mechanisms.[1]
-* Easegress currently has a build-in sequence workflow in Pipeline. Further more, we also provide a template mechanism for more advance usage.
+* Easegress currently has a build-in sequence workflow in Pipeline. Furthermore, we also provide a template mechanism for more advanced usage.
 
 ## Sequence workflow with HTTPTextTemplate
 
 * Already executed filter's metadata can be the input for next filter.
-* Orchestrating pipeline with APIAggregator, RequestAdaptor and ResponseAdaptor.
+* Orchestrating pipeline with APIAggregator, RequestAdaptor, and ResponseAdaptor.
 
 
 ## Examples
 
 ### Scenario 1: Response forwarding
 
-* In Easegress, a pipeline usubally reperesent a perticular HTTPServer(maybe with several backends), APIAggregator can forward request to a dedicate pipeline. And we can use HTTPTextTemplate syntax to extract the respones and make it to be the input fot next pipeline with Aggregator.
+* In Easegress, a pipeline usually represents a particular HTTPServer(maybe with several backends), APIAggregator can forward the request to a dedicated pipeline. And we can use HTTPTextTemplate syntax to extract the responses and make it to be the input for the next pipeline with Aggregator.
 
 All the characters are included here:
 
@@ -49,7 +49,7 @@ flow:
   - filter: agg-demo1
 
 filters:
-  - piplines:
+  - pipelines:
       - name: pipeline-demo
     kind: APIAggregator
     name: agg-demo
@@ -90,7 +90,7 @@ rules:
 
 ## Scenario 2:  Request forming
 
-* Extending from #Scenario 1, we want to select one particular JSON filed in agg-demo's response and named it with other name to be the input of agg-demo, and at last we want to combine agg-demo's response and agg-demo1's together. Let's check it out:
+* Extending from #Scenario 1, we want to select one particular JSON filed in agg-demo's response and named it with another name to be the input of agg-demo, and at last, we want to combine agg-demo's response and agg-demo1's. Let's check it out:
 
 This time, we need to introduce another filter, ResponseAdaptor, for the final response forming.
 
@@ -105,7 +105,7 @@ flow:
   - filter: rsp-adaptor
 
 filters:
-  - piplines:
+  - pipelines:
       - name: pipeline-demo
     kind: APIAggregator
     name: agg-demo
@@ -134,7 +134,7 @@ filters:
 
 * `[[filter.pipeline-demo.rsp.body.key]]` in req-adaptor will extract `key` filed from agg-demo's JSON response(actually, it's the response from pipeline-demo)
 * `{\"key-from-agg-demo\": \"[[filter.agg-demo.rsp.body.key]]\",\"value-from-agg-demo1\":\"[[filter.agg-demo1.rsp.body.value]]\"}` in rsp-adaptor will combine agg-demo's JSON body's `key` filed and agg-demo1's JSON body's `value` together in the final HTTP response body of pipeline-agg
-* The template syntax above support GJSON[2] in the last filed.
+* The template syntax above supports GJSON[2] in the last field.
 
 ## References
 

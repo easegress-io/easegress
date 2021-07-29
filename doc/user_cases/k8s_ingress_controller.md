@@ -14,7 +14,7 @@ This document list example configurations for typical scenarios, more details co
 
 ## Why Use an Ingress Controller
 
-* **Cuts Down Infrastructure Costs**: Without an ingress controller, when we wanted to expose 20 services to public internet, we have to pay for 20 cloud load balancers; but with an ingress controller, we only need to pay for one cloud load balancer.
+* **Cuts Down Infrastructure Costs**: Without an ingress controller, when we wanted to expose 20 services to the public internet, we have to pay for 20 cloud load balancers; but with an ingress controller, we only need to pay for one cloud load balancer.
 * **Scalable Layer 7 Load Balancer**
 * **Manage Load Balancer Configuration in a Distributed Fashion**
 

@@ -12,8 +12,8 @@
 
 ## Background
 
-* Function As Services is a recently popular cloud computing solution. It provides a platform for customer to develop, run and manage application functionalities without the complexity of building and maintaining the infrastructure.[1]
-* Easegress provides a business controller for implemetating this zero-infrastructure-mantaining and auto-scaling requirements.
+* Function As Services is a recently popular cloud computing solution. It provides a platform for users to develop, run and manage application functionalities without the complexity of building and maintaining the infrastructure.[1]
+* Easegress provides a business controller for implementing these zero-infrastructure-maintaining and auto-scaling requirements.
 
 ## Easegress works with FaaS
 
@@ -58,7 +58,7 @@ autoScaleValue: "100"
 ```
 
 Save it into `/home/easegress/function.yaml`, using command to deploy it in Easegress:
-**Note** this command should be run in Easegress' instance environment and ${eg_apiport} should be replace with the real working port, ${image_url} should be replaced with pullable image URL.
+**Note** this command should be run in Easegress' instance environment and ${eg_apiport} should be replaced with the real working port, ${image_url} should be replaced with pullable image URL.
 
 ``` bash
 $ curl --data-binary @/home/easegress/function.yaml -X POST -H 'Content-Type: text/vnd.yaml' http://127.0.0.1:${eg_apiport}/apis/v1/faas/faascontroller
@@ -106,7 +106,7 @@ V3 Body is
 ```
 
 ### Scenario 2: Limit FaaS function resources using
-You want to make sure at the maximum instance number can only under 50, and it can only "180m" CPU and "100Mi" memory useage maximum allowed per instance. In order to providing meaningful resources amount for the function, you also want to make sure one instacne has at least "100m" CPU and "50mi" memory provision. (The CPU and memory limitation usage value comes form Kubernetes resource).
+You want to make sure at the maximum instance number can only be under 50, and it can only "180m" CPU and "100Mi" memory usage maximum allowed per instance. To providing meaningful resources amount for the function, you also want to make sure one instance has at least "100m" CPU and "50mi" memory provision. (The CPU and memory limitation usage value comes from Kubernetes resource).
 
 ``` yaml
 name: demo
@@ -142,7 +142,7 @@ $ curl --data-binary @/home/easegress/function.yaml -X PUT -H 'Content-Type: tex
 * Request the function with step4 in Scenario 1.
 
 ### Scenario 3: Longlife FaaS function
-In same special cases, you may want your FaaS function has at least one instance running beside Easegress.
+In the same special cases, you may want your FaaS function to have at least one instance running beside Easegress.
 
 ``` yaml
 name: demo
@@ -157,10 +157,10 @@ minReplica:  1
 
 ### Scenario 4: Autoscaling FaaS Function according to rps
 
-If your don't need to controll the function's allowed request precisely, `RPS` based autoscaling is a good choice.
+If you don't need to control the function's allowed request precisely, `RPS` based autoscaling is a good choice.
 
 ``` yaml
-name:demo
+name: demo
 #...
 autoScaleType:  "rps"
 autoScaleValue: "6000"
