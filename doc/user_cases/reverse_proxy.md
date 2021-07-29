@@ -89,14 +89,14 @@ flow:
   - filter: header-validator
   - filter: proxy
 
-....
+#...
   - kind: Validator
     name: header-validator
     headers:
       Is-Valid:
         values: ["abc", "goodplan"]
         regexp: "^ok-.+$"
-....
+#...
 
 ```
 
@@ -115,14 +115,14 @@ flow:
   - filter: jwt-validator
   - filter: proxy
 
-....
+#...
   - kind: Validator
     name: jwt-validator
     jwt:
       cookieName: auth
       algorithm: HS256
       secret: 6d79736563726574
-....
+#...
 
 ```
 The example above will check the value named `auth` in cookie with HS256 with secret,6d79736563726574.
@@ -137,13 +137,13 @@ flow:
   - filter: signature-validator
   - filter: proxy
 
-....
+#...
   - kind: Validator
     name: signature-validator
     signature:
       accessKeys:
         AKID: SECRET
-....
+#...
 
 ```
 
@@ -159,7 +159,7 @@ flow:
   - filter: oauth-validator
   - filter: proxy
 
-....
+#...
   - kind: Validator
     name: oauth-validator
     oauth2:
@@ -168,7 +168,7 @@ flow:
       clientId: easegress
       clientSecret: 42620d18-871d-465f-912a-ebcef17ecb82
       insecureTls: false
-....
+#...
 
 ```
 
@@ -346,10 +346,10 @@ flow:
 filters:
   - name: proxy
     kind: Proxy
-    ...
+#...
     compression:
       minLength: 1024
-    ...
+#...
 ```
 
 As the example above, we only need to value the `minLength` field to tell Easegress' proxy filter avoiding gzip the response body if the response body doesn't lagert the `minLength`. Also it will add the `gzip` header automatically if it's truly invoked.
@@ -366,7 +366,7 @@ filters:
   - name: proxy
     kind: Proxy
     mainPool:
-    ...
+ #...
       memoryCache:
         expiration: 10s
         maxEntryBytes: 4096
@@ -376,7 +376,7 @@ filters:
         methods:
         - GET
         - HEAD
-    ...
+ #...
 ```
 
 The example above will cache the response which size is smaller than 4096, and response code is 200 or 201, with HTTP method Get and Head.
@@ -389,9 +389,9 @@ kind: HTTPServer
 name: http-server-example
 port: 10080
 https: false
-..
+#...
 cacheSize: 10240
-..
+#...
 ```
 
 As the example above, all we need is valuing the `cacheSize` to indicated the lru cache's size. It will disuse the least used cache value firstly.
