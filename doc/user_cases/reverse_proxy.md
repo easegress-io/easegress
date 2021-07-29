@@ -79,12 +79,12 @@ filters:
   - name: proxy
     kind: Proxy
     mainPool:
-	  servers:
+    servers:
       - url: http://127.0.0.1:9095
       - url: http://127.0.0.1:9096
       - url: http://127.0.0.1:9097
-      serviceRegisrty: zookeeper-001				# +
-	  serviceName: springboot-application-order		# +
+      serviceRegisrty: zookeeper-001            # +
+    serviceName: springboot-application-order   # +
       loadBalance:
         policy: roundRobin
 ```
@@ -133,7 +133,7 @@ filters:
     host: easegress.megaease.com
     method: POST
     path:
-	  addPrefix: /apis/v2
+    addPrefix: /apis/v2
     header:
       set:
         X-Api-Version: v2
@@ -198,8 +198,8 @@ flow:
 #...
 
 ```
-The example above will check the value named `auth` in cookie with HS256 with secret,6d79736563726574.
 
+The example above will check the value named `auth` in cookie with HS256 with secret,6d79736563726574.
 
 3. Using Signature validation in Easegress. Signature validation implements an Amazon Signature V4[2] compatible signature validation validator. Once you enable this kind of validation, please make sure your HTTP client has followed the signature generation process in AWS V4 doc and bring it to request Easegress.
 
@@ -242,11 +242,9 @@ flow:
       clientSecret: 42620d18-871d-465f-912a-ebcef17ecb82
       insecureTls: false
 #...
-
 ```
 
 The example above uses a token introspection server, which is provide by `endpoint` filed for validation. It also support `Self-Encoded Access Tokens mode` which will require a JWT related configuration included. Check it out in Easegress filter doc if needed. [5]
-
 
 ### More Livingness: Resilience of Service
 
@@ -796,9 +794,9 @@ filters:
 ```
 
 ### Concepts
+
 1. https://en.wikipedia.org/wiki/JSON_Web_Token
 2. https://docs.aws.amazon.com/general/latest/gr/sigv4_signing.html
 3. https://github.com/megaease/easegress/blob/main/doc/filters.md#signerliteral
 4. https://oauth.net/2/
 5. https://github.com/megaease/easegress/blob/main/doc/filters.md#validatorOAuth2JWT
-
