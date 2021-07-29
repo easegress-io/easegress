@@ -45,6 +45,8 @@ Easegress integrates much features as a reverse proxy with easy configuration.
 
 ### Basic: Load Balance
 
+The filter `Proxy` is the filter to fire requests to backend servers. It contains servers group under load balance, whose policy support roundRobin, random, weightedRandom, ipHash, headerHash.
+
 ```yaml
 name: pipeline-reverse-proxy
 kind: HTTPPipeline
@@ -64,19 +66,90 @@ filters:
 
 ### Dynamic: Integration with Service Registry
 
+We integrate `Proxy` with service registry such as [Consul](https://github.com/megaease/easegress/blob/main/doc/controllers.md#consulserviceregistry), [Etcd](https://github.com/megaease/easegress/blob/main/doc/controllers.md#etcdserviceregistry), [Zookeeper](https://github.com/megaease/easegress/blob/main/doc/controllers.md#zookeeperserviceregistry), [Eureka](https://github.com/megaease/easegress/blob/main/doc/controllers.md#eurekaserviceregistry). You need to create one of them to connect external service registry. The service registry config takes higher priority than static servers. If the dynamic servers pulling failed, it will use static servers if there are.
+
+There is a Zookeeper example:
+
 ```yaml
-mainPool:
-  serviceRegisrty: zookeeper-001				# +
-  serviceName: springboot-application-order		# +
+name: pipeline-reverse-proxy
+kind: HTTPPipeline
+flow:
+  - filter: proxy
+filters:
+  - name: proxy
+    kind: Proxy
+    mainPool:
+	  servers:
+      - url: http://127.0.0.1:9095
+      - url: http://127.0.0.1:9096
+      - url: http://127.0.0.1:9097
+      serviceRegisrty: zookeeper-001				# +
+	  serviceName: springboot-application-order		# +
+      loadBalance:
+        policy: roundRobin
 ```
 
 ### Conditional Door: Intercept Invalid Requests
 
-(Validator)
+We also support to filter invalid requests by using `Validator` before `Proxy`. For example, we just accept the requests, which must post json content, and explict user agent.
+
+```yaml
+name: pipeline-reverse-proxy
+kind: HTTPPipeline
+flow:
+  - filter: validator
+  - fitter: proxy
+filters:
+  - name: validator
+    kind: Validator
+    headers:
+      Content-Type:
+        values:
+        - application/json
+        regexp: ""
+      User-Agent:
+        regexp: .+
+
+  - name: proxy
+    kind: Proxy
+    # ...
+```
+
 
 ### Traffic Adaptor: Change Something of Two-Way Traffic
 
-(RequestAdaptor, ResponseAdaptor)
+Somtimes backend applications can't adapt quick change of requirements of traffic. Easegress could be a adaptor between new traffic and old applications. There are 2 phases of adaption in reverse proxy: request adaption, response adaption. `RequestAdaptor` supports adaption of method, path, header, and body. `ResponseAdaptor` supports adaption of header and body. As you can see, the flow in spec plays a cratical role.
+
+```yaml
+name: pipeline-reverse-proxy
+kind: HTTPPipeline
+flow:
+  - filter: requestAdaptor
+  - fitter: proxy
+  - filter: responseAdaptor
+filters:
+  - name: requestAdaptor
+    kind: RequestAdaptor
+    host: easegress.megaease.com
+    method: POST
+    path:
+	  addPrefix: /apis/v2
+    header:
+      set:
+        X-Api-Version: v2
+
+  - name: responseAdaptor
+    kind: ResponseAdaptor
+    header:
+      set:
+        Server: Easegress v1.0.0
+      add:
+        X-Easegress-Pipeline: pipeline-reverse-proxy
+
+  - name: proxy
+    kind: Proxy
+    # ...
+```
 
 ### More Security: Verify Credential
 
