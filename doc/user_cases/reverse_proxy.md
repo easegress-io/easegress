@@ -79,12 +79,12 @@ filters:
   - name: proxy
     kind: Proxy
     mainPool:
-    servers:
+      servers:
       - url: http://127.0.0.1:9095
       - url: http://127.0.0.1:9096
       - url: http://127.0.0.1:9097
-      serviceRegisrty: zookeeper-001            # +
-    serviceName: springboot-application-order   # +
+      serviceRegisrty: zookeeper-001              # +
+      serviceName: springboot-application-order   # +
       loadBalance:
         policy: roundRobin
 ```
