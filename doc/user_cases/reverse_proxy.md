@@ -1,9 +1,10 @@
+
+
 - [Reverse Proxy](#reverse-proxy)
   - [Why Use Easegress as Reverse Proxy](#why-use-easegress-as-reverse-proxy)
   - [Cookbook as Reverse Proxy](#cookbook-as-reverse-proxy)
     - [Basic: Load Balance](#basic-load-balance)
     - [Dynamic: Integration with Service Registry](#dynamic-integration-with-service-registry)
-    - [Conditional Door: Intercept Invalid Requests](#conditional-door-intercept-invalid-requests)
     - [Traffic Adaptor: Change Something of Two-Way Traffic](#traffic-adaptor-change-something-of-two-way-traffic)
     - [More Security: Verify Credential](#more-security-verify-credential)
     - [More Livingness: Resilience of Service](#more-livingness-resilience-of-service)
@@ -13,8 +14,6 @@
       - [TimeLimiter](#timelimiter)
     - [Resouce Saving: Compression and Caching](#resouce-saving-compression-and-caching)
   - [Reference](#reference)
-    - [Dynamic: Integration with Service Registry](#dynamic-integration-with-service-registry-1)
-    - [Conditional Door: Intercept Invalid Requests](#conditional-door-intercept-invalid-requests-1)
     - [Traffic Adaptor: Change Something of Two-Way Traffic](#traffic-adaptor-change-something-of-two-way-traffic-1)
     - [More Security: Verify Credential](#more-security-verify-credential-1)
       - [Header](#header)
@@ -27,8 +26,8 @@
       - [Retryer](#retryer-1)
       - [TimeLimiter](#timelimiter-1)
     - [Resource Saving: Compression and Caching](#resource-saving-compression-and-caching)
-      - [proxy compress](#proxy-compress)
-      - [proxy pool caching](#proxy-pool-caching)
+      - [Proxy Compression](#proxy-compression)
+      - [Proxy Caching](#proxy-caching)
     - [Concepts](#concepts)
 
 # Reverse Proxy
@@ -95,33 +94,6 @@ filters:
         policy: roundRobin
 ```
 
-### Conditional Door: Intercept Invalid Requests
-
-We also support to filter invalid requests by using `Validator` before `Proxy`. For example, we just accept the requests, which must post json content, and explict user agent.
-
-```yaml
-name: pipeline-reverse-proxy
-kind: HTTPPipeline
-flow:
-  - filter: validator
-  - fitter: proxy
-filters:
-  - name: validator
-    kind: Validator
-    headers:
-      Content-Type:
-        values:
-        - application/json
-        regexp: ""
-      User-Agent:
-        regexp: .+
-
-  - name: proxy
-    kind: Proxy
-    # ...
-```
-
-
 ### Traffic Adaptor: Change Something of Two-Way Traffic
 
 Somtimes backend applications can't adapt quick change of requirements of traffic. Easegress could be a adaptor between new traffic and old applications. There are 2 phases of adaption in reverse proxy: request adaption, response adaption. `RequestAdaptor` supports adaption of method, path, header, and body. `ResponseAdaptor` supports adaption of header and body. As you can see, the flow in spec plays a cratical role.
@@ -156,6 +128,8 @@ filters:
     kind: Proxy
     # ...
 ```
+
+For the full YAML, see [here](#traffic-adaptor-change-something-of-two-way-traffic-1)
 
 ### More Security: Verify Credential
 
@@ -341,6 +315,8 @@ For the full YAML, see [here](#circuitbreaker-1)
 
 #### RateLimiter
 
+> NOTE: When there are multiple instances of Easegress, the configuration will be applied for every instance equally. For example, TPS of RateLimiter is configured with 100 in 3-instances cluster, so the total TPS will be 300.
+
 The below configuration limits the request rate for requests to `/admin` and requests that match regular expression `^/pets/\d+$`.
 
 ```yaml
@@ -435,8 +411,6 @@ For the full YAML, see [here](#timelimiter-1)
 
 ### Resouce Saving: Compression and Caching
 
-> NOTE: When there are multiple instances of Easegress, the configuration will be applied for every instance equally. For example, TPS of RateLimiter is configured with 100 in 3-instances cluster, so the total TPS will be 300.
-
 1. Compression in proxy filter
 Easegress proxy filter supports `gzip` type compression.
 
@@ -455,7 +429,7 @@ filters:
 
 As the example above, we only need to value the `minLength` field to tell Easegress' proxy filter avoiding gzip the response body if the response body doesn't lagert the `minLength`. Also it will add the `gzip` header automatically if it's truly invoked.
 
-For the full yaml, see [here](#proxy-compress)
+For the full yaml, see [here](#proxy-compression)
 
 2. Caching in proxy filter
 Easegress proxy filter has `pool` section for describing forwarding backends. And it also supports cacheing the response according to the HTTP Methods and the HTTP response code.
@@ -483,9 +457,10 @@ filters:
 
 The example above will cache the response which size is smaller than 4096, and response code is 200 or 201, with HTTP method Get and Head.
 
-For the full YAML, see [here](#proxy-pool-caching)
+For the full YAML, see [here](#proxy-caching)
 
 3. Caching in HTTPServer
+
 As a traffic gate of Easegress, HTTPServer also supports caching. It can be used in serving static resource scenario. HTTPServer will use request's Host, Method, and Path to form a key for build-in LRU cache. Recommend to enable this feature only in the HTTPServer for routing static resources.(Easegress supports multiple HTTPServers for different usage purpose)
 
 ```yaml
@@ -502,28 +477,44 @@ As the example above, all we need is valuing the `cacheSize` to indicated the lr
 
 ## Reference
 
-Complete example of configuration.
-
-### Dynamic: Integration with Service Registry
+### Traffic Adaptor: Change Something of Two-Way Traffic
 
 ```yaml
 name: pipeline-reverse-proxy
 kind: HTTPPipeline
 flow:
-  - filter: proxy
+  - filter: requestAdaptor
+  - fitter: proxy
+  - filter: responseAdaptor
 filters:
+  - name: requestAdaptor
+    kind: RequestAdaptor
+    host: easegress.megaease.com
+    method: POST
+    path:
+    addPrefix: /apis/v2
+    header:
+      set:
+        X-Api-Version: v2
+
+  - name: responseAdaptor
+    kind: ResponseAdaptor
+    header:
+      set:
+        Server: Easegress v1.0.0
+      add:
+        X-Easegress-Pipeline: pipeline-reverse-proxy
+
   - name: proxy
     kind: Proxy
     mainPool:
-      serviceRegisty: zookeeper-001
-      serviceName: springboot-application-order
+      servers:
+      - url: http://127.0.0.1:9095
+      - url: http://127.0.0.1:9096
+      - url: http://127.0.0.1:9097
       loadBalance:
         policy: roundRobin
 ```
-
-### Conditional Door: Intercept Invalid Requests
-
-### Traffic Adaptor: Change Something of Two-Way Traffic
 
 ### More Security: Verify Credential
 
@@ -603,6 +594,7 @@ filters:
       loadBalance:
         policy: roundRobin
 ```
+
 #### OAuth
 
 ```yaml
@@ -778,7 +770,9 @@ filters:
 ```
 
 ### Resource Saving: Compression and Caching
-#### proxy compress 
+
+#### Proxy Compression
+
 ```yaml
 name: pipeline-reverse-proxy
 kind: HTTPPipeline
@@ -798,7 +792,7 @@ filters:
        minLength: 1024
 ```
 
-#### proxy pool caching 
+#### Proxy Caching
 
 ```yaml
 name: pipeline-reverse-proxy
