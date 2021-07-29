@@ -1,5 +1,13 @@
 # Kubernetes Ingress Controller
 
+- [Kubernetes Ingress Controller](#kubernetes-ingress-controller)
+  - [Why Use an Ingress Controller](#why-use-an-ingress-controller)
+  - [Cookbook](#cookbook)
+    - [Basic: Handle Ingresses from All K8s namespaces](#basic-handle-ingresses-from-all-k8s-namespaces)
+    - [Handle Ingresses within Specified K8s Namespaces](#handle-ingresses-within-specified-k8s-namespaces)
+    - [Use a Customized Ingress Class](#use-a-customized-ingress-class)
+    - [Deploy Outside of a K8s Cluster](#deploy-outside-of-a-k8s-cluster)
+
 The IngressController is an implementation of [Kubernetes ingress controller](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/), it watches Kubernetes Ingress, Service, Endpoints, and Secrets then translates them to Easegress HTTP server and pipelines.
 
 This document list example configurations for typical scenarios, more details could be found at [the guide of ingress controller](./ingresscontroller.md).
@@ -23,8 +31,8 @@ namespaces: []                             # Keep the value an empty array
 httpServer:
   port: 8080
   https: false
-  keepAlive: true            
-  keepAliveTimeout: 60s      
+  keepAlive: true
+  keepAliveTimeout: 60s
   maxConnections: 10240
 ```
 
@@ -39,8 +47,8 @@ namespaces: ['sales', 'customer']          # List namespaces here
 httpServer:
   port: 8080
   https: false
-  keepAlive: true            
-  keepAliveTimeout: 60s      
+  keepAlive: true
+  keepAliveTimeout: 60s
   maxConnections: 10240
 ```
 
@@ -56,8 +64,8 @@ ingressClass: myingress                    # specify the target ingress class
 httpServer:
   port: 8080
   https: false
-  keepAlive: true            
-  keepAliveTimeout: 60s      
+  keepAlive: true
+  keepAliveTimeout: 60s
   maxConnections: 10240
 ```
 
@@ -74,7 +82,7 @@ namespaces: []
 httpServer:
   port: 8080
   https: false
-  keepAlive: true            
-  keepAliveTimeout: 60s      
+  keepAlive: true
+  keepAliveTimeout: 60s
   maxConnections: 10240
 ```

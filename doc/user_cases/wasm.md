@@ -1,3 +1,5 @@
+# WasmHost
+
 - [WasmHost](#wasmhost)
 	- [Why Use WasmHost](#why-use-wasmhost)
 	- [Examples](#examples)
@@ -7,8 +9,6 @@
 		- [Set a Cookie](#set-a-cookie)
 		- [Mock Response](#mock-response)
 		- [Return a Result Other Than 0](#return-a-result-other-than-0)
-
-# WasmHost
 
 The `WasmHost` is a filter of Easegress which can be orchestrated into a pipeline. But while the behavior of all other filters are defined by filter developers and can only be fine-tuned by configuration, this filter implements a host environment for user-developed [WebAssembly](https://webassembly.org/) code, which enables users to control the filter behavior completely.
 

@@ -1,4 +1,4 @@
-
+# Reverse Proxy
 
 - [Reverse Proxy](#reverse-proxy)
   - [Why Use Easegress as Reverse Proxy](#why-use-easegress-as-reverse-proxy)
@@ -13,7 +13,7 @@
       - [Retryer](#retryer)
       - [TimeLimiter](#timelimiter)
     - [Resouce Saving: Compression and Caching](#resouce-saving-compression-and-caching)
-  - [Reference](#reference)
+  - [References](#references)
     - [Traffic Adaptor: Change Something of Two-Way Traffic](#traffic-adaptor-change-something-of-two-way-traffic-1)
     - [More Security: Verify Credential](#more-security-verify-credential-1)
       - [Header](#header)
@@ -29,8 +29,6 @@
       - [Proxy Compression](#proxy-compression)
       - [Proxy Caching](#proxy-caching)
     - [Concepts](#concepts)
-
-# Reverse Proxy
 
 Reverse proxy is the common middleware which is  accessed by clients, forwards them to backend servers. Easegres Reverse proxy is a very core role played by Easegress.
 
@@ -475,7 +473,7 @@ cacheSize: 10240
 
 As the example above, all we need is valuing the `cacheSize` to indicated the lru cache's size. It will disuse the least used cache value firstly.
 
-## Reference
+## References
 
 ### Traffic Adaptor: Change Something of Two-Way Traffic
 
