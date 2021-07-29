@@ -11,17 +11,17 @@ The `WasmHost` is a filter of Easegress which can be orchestrated into a pipelin
 
 ## Examples
 
-**Note**: The `WasmHost` filter is disabled by default, to enable it, you need to build Easegress with below command:
+**Note**: The `WasmHost` filter is disabled by default, to enable it, you need to build Easegress with the below command:
 
 ```bash
 $ make build_server GOTAGS=wasmhost
 ```
 
-We will use [AssemblyScript](https://www.assemblyscript.org/) as the language of the examples, please refer [this document](https://github.com/megaease/easegress-assemblyscript-sdk/blob/main/README.md) for how to build the examples, and [this document](https://github.com/megaease/easegress/blob/main/doc/wasmhost.md) for how to deploy them to Easegress.
+We will use [AssemblyScript](https://www.assemblyscript.org/) as the language of the examples, please refer tp [this document](https://github.com/megaease/easegress-assemblyscript-sdk/blob/main/README.md) for how to build the examples, and [this document](https://github.com/megaease/easegress/blob/main/doc/wasmhost.md) for how to deploy them to Easegress.
 
 ### Basic: Noop
 
-The example does nothing, but shows the basic structure of your code, in latter examples, we will focus on `constructor` and `run`.
+This example does nothing, but shows the basic structure of your code, in the latter examples, we will focus on `constructor` and `run`.
 
 ```typescript
 // this line exports everything required by Easegress,
@@ -134,7 +134,7 @@ class NonZeroResult extends Program {
 }
 ```
 
-Return value `1` will be converted to `wasmResult1` by the `WasmHost` filter, we can use this result in pipeline configuration:
+Return value `1` will be converted to `wasmResult1` by the `WasmHost` filter, we can use this result in the pipeline configuration:
 
 ```yaml
 flow:
