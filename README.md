@@ -14,6 +14,7 @@
     - [Test](#test)
     - [More Filters](#more-filters)
   - [Documentation](#documentation)
+  - [Use Cases](#use-cases)
   - [Roadmap](#roadmap)
   - [License](#license)
 
@@ -66,7 +67,7 @@ The architecture of Easegress:
 		- **Mesh Master:** is the control plane to manage the lifecycle of mesh services.
 		- **Mesh Sidecar:** is the data plane as the endpoint to do traffic interception and routing.
 		- **Mesh Ingress Controller:** is the mesh-specific ingress controller to route external traffic to mesh services.
-		  > Notes: This feature is leveraged by [EaseMesh](https://github.com/megaease/easemesh) 
+		  > Notes: This feature is leveraged by [EaseMesh](https://github.com/megaease/easemesh)
 	- **Third-Part Integration**
 		- **FaaS** integrates with the serverless platform Knative.
 		- **Service Discovery** integrates with Eureka, Consul, Etcd, and Zookeeper.
@@ -294,7 +295,11 @@ We can also see Easegress send one more header `X-Adapt-Key: goodplan` to the mi
 
 See [reference](./doc/reference.md) and [developer guide](./doc/developer-guide.md) for more information.
 
-## Roadmap 
+## Use Cases
+
+We list most useful user cases by examples, you can check it in [here](./doc/user_cases/README.md).
+
+## Roadmap
 
 See [Easegress Roadmap](./doc/Roadmap.md) for details.
 

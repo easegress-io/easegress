@@ -1,8 +1,8 @@
-# Aggregator
+# API Aggregator
 
-- [Aggregator](#aggregator)
+- [API Aggregator](#api-aggregator)
   - [Background](#background)
-  - [API aggregator](#api-aggregator)
+  - [API aggregator](#api-aggregator-1)
   - [Example](#example)
     - [Scenario 1: Run an aggregator in pipeline](#scenario-1-run-an-aggregator-in-pipeline)
     - [Scenario 2: Merge response body](#scenario-2-merge-response-body)
