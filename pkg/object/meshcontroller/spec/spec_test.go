@@ -20,7 +20,6 @@ package spec
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/megaease/easegress/pkg/filter/circuitbreaker"
@@ -29,25 +28,12 @@ import (
 	"github.com/megaease/easegress/pkg/filter/retryer"
 	"github.com/megaease/easegress/pkg/filter/timelimiter"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/option"
 	"github.com/megaease/easegress/pkg/util/urlrule"
 )
 
-const tempDir = "/tmp/eg-test"
-
 func TestMain(m *testing.M) {
-	absLogDir := filepath.Join(tempDir, "global-log")
-	os.MkdirAll(absLogDir, 0o755)
-	logger.Init(&option.Options{
-		Name:      "meshspec-for-log",
-		AbsLogDir: absLogDir,
-	})
-
+	logger.InitNop()
 	code := m.Run()
-
-	logger.Sync()
-	os.RemoveAll(tempDir)
-
 	os.Exit(code)
 }
 

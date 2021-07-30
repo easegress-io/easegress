@@ -19,7 +19,6 @@ package cluster
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -40,20 +39,8 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	absLogDir, err := ioutil.TempDir(tempDir, "global-log")
-	if err != nil {
-		panic(fmt.Errorf("create tmp dir failed: %v", err))
-	}
-
-	logger.Init(&option.Options{
-		Name:      "member-for-log",
-		AbsLogDir: absLogDir,
-	})
-
+	logger.InitNop()
 	code := m.Run()
-
-	logger.Sync()
-	os.RemoveAll(tempDir)
 	os.Exit(code)
 }
 
