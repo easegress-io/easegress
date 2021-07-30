@@ -198,7 +198,7 @@ func (c *MockedHTTPContext) CallNextHandler(lastResult string) string {
 	if c.MockedCallNextHandler != nil {
 		return c.MockedCallNextHandler(lastResult)
 	}
-	return ""
+	return lastResult
 }
 
 func (c *MockedHTTPContext) SetHandlerCaller(caller context.HandlerCaller) {
