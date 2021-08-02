@@ -65,7 +65,7 @@ func mockClusters(count int) []*cluster {
 		c := cls.(*cluster)
 
 		for {
-			_ , err := c.getClient()
+			_, err := c.getClient()
 			time.Sleep(HeartbeatInterval)
 			if err != nil {
 				continue

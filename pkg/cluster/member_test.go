@@ -19,13 +19,13 @@ package cluster
 
 import (
 	"fmt"
-	"os"
 	"math/rand"
+	"os"
 	"path/filepath"
-	"time"
 	"reflect"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/phayes/freeport"
 	pb "go.etcd.io/etcd/api/v3/etcdserverpb"
