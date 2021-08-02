@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"path"
 	"path/filepath"
 	"reflect"
 	"sort"
@@ -52,7 +53,7 @@ func getRandomString(n int) string {
 
 func TestMain(m *testing.M) {
 	logger.InitNop()
-	tempDir = tempDir + getRandomString(6)
+	tempDir = path.Join(tempDir, getRandomString(6))
 	code := m.Run()
 	os.Exit(code)
 }
