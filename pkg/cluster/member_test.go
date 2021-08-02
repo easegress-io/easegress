@@ -20,7 +20,9 @@ package cluster
 import (
 	"fmt"
 	"os"
+	"math/rand"
 	"path/filepath"
+	"time"
 	"reflect"
 	"sort"
 	"testing"
@@ -38,8 +40,19 @@ var (
 	tempDir       = os.TempDir()
 )
 
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
+func getRandomString(n int) string {
+	randBytes := make([]byte, n/2)
+	rand.Read(randBytes)
+	return fmt.Sprintf("%x", randBytes)
+}
+
 func TestMain(m *testing.M) {
 	logger.InitNop()
+	tempDir = tempDir + getRandomString(6)
 	code := m.Run()
 	os.Exit(code)
 }
