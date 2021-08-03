@@ -18,11 +18,18 @@ fi
 touch  $stdfile
 nohup $server "$@" --config-file $cfgfile   >> $stdfile 2>&1 &
 
-pid=`ps -eo pid,args | grep "$server" | grep -v grep | awk '{print $1}'`
-if [ "$pid" = "" ]; then
-    echo "Error: failed to start $sever"
-    exit 2
-fi
+try_time=0
+pid=""
+while [ "$pid" = "" ]
+do
+    sleep 3
+    try_time=$(($try_time+1))
+    pid=`ps -eo pid,args | grep "$server" | grep -v grep | awk '{print $1}'`
+    if [[ $try_time -ge 2 ]]; then
+        echo "Error: failed to start $sever"
+        exit 2
+    fi
+done
 
 popd > /dev/null
 
