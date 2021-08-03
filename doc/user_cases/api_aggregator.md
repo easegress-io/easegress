@@ -43,7 +43,7 @@ filters:
       - name: pipeline-demo2 '  | egctl object create
 ```
 
-1. Creating an HTTPServer for forwarding the traffic to this pipeline.
+2. Creating an HTTPServer for forwarding the traffic to this pipeline.
 
 ``` bash
 echo '
@@ -70,8 +70,7 @@ $ curl  -X GET  http://127.0.0.1:10080/api -v
 
 ### Scenario 2: Merge response body
 
-As in #Scenario 1,  `pipeline-demo1` and `pipeline-demo2`'s responses share the same JSON key, we want to merge
-their response body by the JSON key together. If the keys have conflicted, we will use the last value.
+* As in #Scenario 1,  `pipeline-demo1` and `pipeline-demo2`'s responses share the same JSON key, we want to merge their response body by the JSON key together. If the keys have conflicted, we will use the last value.
 
 1. Update the pipeline with aggregator
 
@@ -102,7 +101,7 @@ $ curl  -X GET  http://127.0.0.1:10080/api -v
 
 ### Scenario 3: Allow partial succeed
 
-As In #Scenario 1, if we want the backend service meets some problem and can't provide service, this aggregator will
+* As In #Scenario 1, if we want the backend service meets some problem and can't provide service, this aggregator will
 failed as blew:
 
 ``` bash
@@ -124,9 +123,9 @@ $ curl http://localhost:10080/api -v -X PUT
 * Closing connection 0
 ```
 
-We can see an `X-Eg-Aggregator: failed-in-pipeline-demo` header in response, that's the first met failure pipeline of this aggregator.
+* We can see an `X-Eg-Aggregator: failed-in-pipeline-demo` header in response, that's the first met failure pipeline of this aggregator.
 
-In some scenarios, we want this aggregator to return the successful execution pipelines' result. We can achieve this purpose by the steps below
+* In some scenarios, we want this aggregator to return the successful execution pipelines' result. We can achieve this purpose by the steps below
 
 1. Update the aggregator's spec
 

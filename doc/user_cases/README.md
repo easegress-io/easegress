@@ -2,7 +2,11 @@
 
 - [API Aggregator](./api_aggregator.md)
 - [FaaS](./faas.md)
+- [LoadBalancer](./load_balancer.md)
 - [Kubernetes Ingress Controller](./k8s_ingress_controller.md)
-- [Reverse Proxy](./reverse_proxy.md)
+- [Performance](./performance.md)
+- [Resilience](./resilience.md)
+- [Security](./security.md)
+- [Service Proxy](./service_proxy.md)
 - [WebAssembly](./wasm.md)
 - [Workflow](./workflow.md)
