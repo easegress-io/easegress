@@ -25,6 +25,7 @@ import (
 	"github.com/megaease/easegress/pkg/util/httpheader"
 )
 
+// MockedHTTPResponse is the mocked HTTP response
 type MockedHTTPResponse struct {
 	MockedStatusCode    func() int
 	MockedSetStatusCode func(code int)
@@ -37,6 +38,7 @@ type MockedHTTPResponse struct {
 	MockedSize          func() uint64
 }
 
+// StatusCode returns the status code
 func (r *MockedHTTPResponse) StatusCode() int {
 	if r.MockedStatusCode != nil {
 		return r.MockedStatusCode()
@@ -44,12 +46,14 @@ func (r *MockedHTTPResponse) StatusCode() int {
 	return 0
 }
 
+// SetStatusCode set the status code
 func (r *MockedHTTPResponse) SetStatusCode(code int) {
 	if r.MockedSetStatusCode != nil {
 		r.MockedSetStatusCode(code)
 	}
 }
 
+// Header returns the header
 func (r *MockedHTTPResponse) Header() *httpheader.HTTPHeader {
 	if r.MockedHeader != nil {
 		return r.MockedHeader()
@@ -57,18 +61,21 @@ func (r *MockedHTTPResponse) Header() *httpheader.HTTPHeader {
 	return nil
 }
 
+// SetCookie sets a cookie
 func (r *MockedHTTPResponse) SetCookie(cookie *http.Cookie) {
 	if r.MockedSetCookie != nil {
 		r.MockedSetCookie(cookie)
 	}
 }
 
+// SetBody sets the response body
 func (r *MockedHTTPResponse) SetBody(body io.Reader) {
 	if r.MockedSetBody != nil {
 		r.MockedSetBody(body)
 	}
 }
 
+// Body returns the response body
 func (r *MockedHTTPResponse) Body() io.Reader {
 	if r.MockedBody != nil {
 		return r.MockedBody()
@@ -76,12 +83,14 @@ func (r *MockedHTTPResponse) Body() io.Reader {
 	return nil
 }
 
+// OnFlushBody registers a callback function on flush body
 func (r *MockedHTTPResponse) OnFlushBody(fn func(body []byte, complete bool) (newBody []byte)) {
 	if r.MockedOnFlushBody != nil {
 		r.MockedOnFlushBody(fn)
 	}
 }
 
+// Std returns the stardard response
 func (r *MockedHTTPResponse) Std() http.ResponseWriter {
 	if r.MockedStd != nil {
 		return r.MockedStd()
@@ -89,6 +98,7 @@ func (r *MockedHTTPResponse) Std() http.ResponseWriter {
 	return &httptest.ResponseRecorder{}
 }
 
+// Size returns the response size
 func (r *MockedHTTPResponse) Size() uint64 {
 	if r.MockedSize != nil {
 		return r.MockedSize()
