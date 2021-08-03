@@ -9,6 +9,9 @@
     - [Scenario 3: Longlife FaaS function](#scenario-3-longlife-faas-function)
     - [Scenario 4: Autoscaling FaaS Function according to rps](#scenario-4-autoscaling-faas-function-according-to-rps)
   - [References](#references)
+    - [Resource limiter](#resource-limiter)
+    - [Long life function](#long-life-function)
+    - [RPS autoscaling](#rps-autoscaling)
 
 ## Background
 
@@ -17,15 +20,17 @@
 
 ## Easegress works with FaaS
 
-* Original near traffic, easier to integrate
-* Reusing machine resources.
-* Reducing small customize features' maintenance.
+* Isolation: seprate Control logic and Business logic 
+* Traffic originted: Original near traffic, easier to integrate
+* Resource saving: reusing Easegress+K8s machine resources.
+* Pay what you used: reducing small customize features' developing and maintenance cost.
 
 ## Examples
 
+
 ### Scenario 1: Run a FaaS function beside Easegress
 
-After implementing your business
+* After implementing your business logic
 
 1. Create a FaaSController[2]
 
@@ -57,7 +62,7 @@ autoScaleType:  "concurrency"
 autoScaleValue: "100"
 ```
 
-Save it into `/home/easegress/function.yaml`, using command to deploy it in Easegress:
+* Save it into `/home/easegress/function.yaml`, using command to deploy it in Easegress:
 **Note** this command should be run in Easegress' instance environment and ${eg_apiport} should be replaced with the real working port, ${image_url} should be replaced with pullable image URL.
 
 ``` bash
@@ -106,7 +111,7 @@ V3 Body is
 ```
 
 ### Scenario 2: Limit FaaS function resources using
-You want to make sure at the maximum instance number can only be under 50, and it can only "180m" CPU and "100Mi" memory usage maximum allowed per instance. To providing meaningful resources amount for the function, you also want to make sure one instance has at least "100m" CPU and "50mi" memory provision. (The CPU and memory limitation usage value comes from Kubernetes resource).
+* You want to make sure at the maximum instance number can only be under 50, and it can only "180m" CPU and "100Mi" memory usage maximum allowed per instance. To providing meaningful resources amount for the function, you also want to make sure one instance has at least "100m" CPU and "50mi" memory provision. (The CPU and memory limitation usage value comes from Kubernetes resource).
 
 ``` yaml
 name: demo
@@ -121,7 +126,9 @@ maxReplica: 50
 
 ```
 
-Add the configuration above in #Scenario 1's `/home/easegress/function.yaml`
+* For the full YAML, see [here](#resource-limiter)
+
+* Add the configuration above in #Scenario 1's `/home/easegress/function.yaml`
 
 1. Stop the function execution by using command
 
@@ -129,7 +136,7 @@ Add the configuration above in #Scenario 1's `/home/easegress/function.yaml`
 $ curl http://127.0.0.1:${eg_apiport}/apis/v1/faas/faascontroller/demo/stop -X PUT
 ```
 
-The function will become `inactive` then we can update the resource limitation safely.
+* The function will become `inactive` then we can update the resource limitation safely.
 
 2. Update the function's spec
 
@@ -142,7 +149,7 @@ $ curl --data-binary @/home/easegress/function.yaml -X PUT -H 'Content-Type: tex
 * Request the function with step4 in Scenario 1.
 
 ### Scenario 3: Longlife FaaS function
-In the same special cases, you may want your FaaS function to have at least one instance running beside Easegress.
+* In the same special cases, you may want your FaaS function to have at least one instance running beside Easegress.
 
 ``` yaml
 name: demo
@@ -151,13 +158,15 @@ minReplica:  1
 #...
 ```
 
+* For the full YAML, see [here](#long-life-function)
+
 1. Modifying the `minReplica` above in #Scenario 1's `/home/easegress/function.yaml`
 
 2. Update the function spec and verify it as in Scenario 2's step 2 - 3.
 
 ### Scenario 4: Autoscaling FaaS Function according to rps
 
-If you don't need to control the function's allowed request precisely, `RPS` based autoscaling is a good choice.
+* If you don't need to control the function's allowed request precisely, `RPS` based autoscaling is a good choice.
 
 ``` yaml
 name: demo
@@ -167,6 +176,8 @@ autoScaleValue: "6000"
 #...
 ```
 
+* For the full YAML, see [here](#rps-autoscaling)
+
 1. Modifying the `autoScaleType`  and `autoScaleValue" above in #Scenario 1's `/home/easegress/function.yaml`
 
 2. Update the function spec and verify it as in Scenario 2's step 2 - 3.
@@ -175,3 +186,51 @@ autoScaleValue: "6000"
 
 1. https://en.wikipedia.org/wiki/Function_as_a_service
 2. https://github.com/megaease/easegress/blob/main/doc/faascontroller.md
+
+### Resource limiter
+
+```yaml
+name:           demo
+image:          "${image_url}"
+port:           8089
+autoScaleType:  "concurrency"
+autoScaleValue: "100
+limitedMemory: "200Mi"
+limitedCPU:    "180m"
+requireMemory: "100Mi"
+requireCPU:    "100m"
+minReplica:    0
+maxReplica:    50
+```
+
+### Long life function
+
+``` yaml
+name:           demo
+image:          "${image_url}"
+port:           8089
+autoScaleType:  "concurrency"
+autoScaleValue: "100"
+limitedMemory: "200Mi"
+limitedCPU:    "180m"
+requireMemory: "100Mi"
+requireCPU:    "100m"
+minReplica:    1 
+maxReplica:    50
+```
+
+### RPS autoscaling
+
+``` yaml
+name:           demo
+image:          "${image_url}"
+port:           8089
+autoScaleType:  "rps"
+autoScaleValue: "6000"
+limitedMemory: "200Mi"
+limitedCPU:    "180m"
+requireMemory: "100Mi"
+requireCPU:    "100m"
+minReplica:    0 
+maxReplica:    50
+```

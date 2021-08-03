@@ -138,5 +138,5 @@ filters:
 
 ## References
 
-[1] https://en.wikipedia.org/wiki/Workflow
-[2] https://github.com/tidwall/gjson
+1. https://en.wikipedia.org/wiki/Workflow
+2. https://github.com/tidwall/gjson
