@@ -22,9 +22,10 @@ This document list example configurations for typical scenarios, more details co
 
 ### Basic: Handle Ingresses from All K8s namespaces
 
-The ingress controller handles ingresses from all K8s namespaces when `namespaces` is an empty array.
+Create an ingress controller, it handles ingresses from all K8s namespaces when `namespaces` is an empty array.
 
-```yaml
+```bash
+echo '
 kind: IngressController
 name: ingress-controller-example
 namespaces: []                             # Keep the value an empty array
@@ -34,6 +35,108 @@ httpServer:
   keepAlive: true
   keepAliveTimeout: 60s
   maxConnections: 10240
+' | egctl object create
+```
+
+Create two versions of `hello` service in Kubernetes: 
+
+```bash
+echo '
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello-deployment
+spec:
+  selector:
+    matchLabels:
+      app: products
+      department: sales
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: products
+        department: sales
+    spec:
+      containers:
+      - name: hello-v1
+        image: "gcr.io/google-samples/node-hello:1.0"
+        env:
+        - name: "PORT"
+          value: "50001"
+      - name: hello-v2
+        image: "gcr.io/google-samples/hello-app:2.0"
+        env:
+        - name: "PORT"
+          value: "50002"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hello-service
+spec:
+  type: NodePort
+  selector:
+    app: products
+    department: sales
+  ports:
+  - name: port_v1
+    protocol: TCP
+    port: 60001
+    targetPort: 50001
+  - name: port_v2
+    protocol: TCP
+    port: 60002
+    targetPort: 50002
+' | kubectl apply 
+```
+
+Create a Kubernetes ingress for the two services, note the `ingressClassName` is `easegress`:
+
+```bash
+echo '
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-example
+spec:
+  ingressClassName: easegress
+  rules:
+  - host: "www.example.com"
+    http:
+      paths:
+      - pathType: Prefix
+        path: /
+        backend:
+          service:
+            name: hello-service
+            port:
+              number: 60001
+  - host: "*.megaease.com"
+    http:
+      paths:
+      - pathType: Prefix
+        path: /
+        backend:
+          service:
+            name: hello-service
+            port:
+              number: 60002
+' | kubectl apply 
+```
+
+After a while, we can leverage the below command to access both versions of the `hello` application:
+
+```bash
+$ curl http://{NODE_IP}/ -HHost:www.megaease.com
+Hello, world!
+Version: 2.0.0
+Hostname: hello-deployment-6cbf765985-r6242
+
+$ curl http://{NODE_IP}/ -HHost:www.example.com
+Hello Kubernetes!
 ```
 
 ### Handle Ingresses within Specified K8s Namespaces
