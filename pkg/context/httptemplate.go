@@ -185,6 +185,9 @@ func NewHTTPTemplateDummy() *HTTPTemplate {
 
 func readBody(body io.Reader, maxBodySize int64) (*bytes.Buffer, error) {
 	buff := bytes.NewBuffer(nil)
+	if body == nil {
+		return buff, nil
+	}
 	written, err := io.CopyN(buff, body, defaultMaxBodySize+1)
 
 	if err != nil && err != io.EOF {
