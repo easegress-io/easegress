@@ -21,7 +21,6 @@ Easegress integrates many features as a reverse proxy with easy configuration.
 - Load balance for backend servers (static addresses, or integration with service registry)
 - Compression and Caching for response
 
-
 ## Basic: Load Balance
 
 The filter `Proxy` is the filter to fire requests to backend servers. It contains servers group under load balance, whose policy support roundRobin, random, weightedRandom, ipHash, headerHash.
@@ -79,9 +78,6 @@ filters:
 ```
 
 For the full YAML, see [here](#traffic-adaptor-change-something-of-two-way-traffic-1)
-
-
-
 
 ## References
 

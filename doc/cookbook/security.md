@@ -114,6 +114,7 @@ The example here only uses an accessKeys for processing Amazon Signature V4 vali
 For the full YAML, see [here](#signature-1)
 
 ### OAuth2
+
 * Using OAuth2 validation in Easegress. OAuth 2.0 is the industry-standard protocol for authorization. OAuth 2.0 focuses on client developer simplicity while providing specific authorization flows for web applications, desktop applications, mobile phones, and living room devices. This specification and its extensions are being developed within the IETF OAuth Working Group.[4]
 
 ``` yaml
@@ -141,7 +142,6 @@ filters:
 * For the full YAML, see [here](#oauth-1)
 
 ## References
-
 
 ### Header
 

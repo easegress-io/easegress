@@ -156,6 +156,7 @@ And the example above will check the `Is-Valid` header field by trying to match 
 For the full YAML, see [here](#header)
 
 2. Using JWT validation in Easegress. JWT is wildly used in the modern web environment. JSON Web Token (JWT, pronounced /dʒɒt/, same as the word "jot") is a proposed Internet standard for creating data with optional signature and/or optional encryption whose payload holds JSON that asserts some number of claims.[1]
+
 > Easegress supports three types of JWT, HS256, HS384, and HS512.
 
 
