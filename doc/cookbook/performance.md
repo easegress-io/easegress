@@ -33,9 +33,8 @@ filters:
         policy: roundRobin
 ```
 
-
-
 ## Performance: Compression and Caching
+
 ### Compression in filter `Proxy`
 
 * Easegress proxy filter supports `gzip` type compression. It can save the brandwidth between client and Easegress and reduce the time cost.
@@ -60,7 +59,7 @@ filters:
 
 ### Caching in filter `Proxy`
 
-* Easegress proxy filter has a `pool` section for describing the traffic forwarding backends. And it also supports caching the response according to the HTTP Methods and the HTTP response code. **Recommend to enable this feature only in the routing static resources scenario**. 
+* Easegress proxy filter has a `pool` section for describing the traffic forwarding backends. And it also supports caching the response according to the HTTP Methods and the HTTP response code. **Recommend to enable this feature only in the routing static resources scenario**.
 
 ``` yaml
 name: pipeline-reverse-proxy
@@ -90,7 +89,7 @@ filters:
 
 ### Caching in `HTTPServer`
 
-* As a traffic gate of Easegress, HTTPServer also supports caching routing rules. It reduces the HTTPServer route searching cost. HTTPServer will use the request's Host, Method, and Path to form a key for the build-in LRU rule cache.  
+* As a traffic gate of Easegress, HTTPServer also supports caching routing rules. It reduces the HTTPServer route searching cost. HTTPServer will use the request's Host, Method, and Path to form a key for the build-in LRU rule cache.
 
 ```yaml
 kind: HTTPServer
@@ -164,12 +163,12 @@ name: http-server-example
 port: 10080
 https: false
 http3: false
-keyBase64: 
-certBase64: 
+keyBase64:
+certBase64:
 keepAlive: true
 keepAliveTimeout: 75s
 maxConnection: 10240
-cacheSize: 10240 
+cacheSize: 10240
 rules:
   - paths:
     - pathPrefix: /pipeline

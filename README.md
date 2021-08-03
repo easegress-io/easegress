@@ -297,7 +297,7 @@ See [reference](./doc/reference.md) and [developer guide](./doc/developer-guide.
 
 ## User Cases
 
-We list most useful user cases by examples, you can check it in [here](./doc/user_cases/README.md).
+We list most useful user cases by examples, you can check it in [here](./doc/cookbook/README.md).
 
 ## Roadmap
 
