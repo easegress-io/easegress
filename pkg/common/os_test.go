@@ -21,48 +21,53 @@ import (
 	"bytes"
 	"os"
 	"os/exec"
+	"runtime"
 	"testing"
 )
 
 func TestNonZeroExit(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		// for windows if process exit with status 1 will
+		// cause whole test fail
+		return
+	}
+
 	if os.Getenv("BE_TestNonZeroExit") == "1" {
 		Exit(1, "error")
 		return
-	} else {
-		var stdout bytes.Buffer
-		var stderr bytes.Buffer
-
-		cmd := exec.Command(os.Args[0], "-test.run=TestNonZeroExit")
-		cmd.Stdout = &stdout
-		cmd.Stderr = &stderr
-		cmd.Env = append(os.Environ(), "BE_TestNonZeroExit=1")
-		err := cmd.Run()
-		e, ok := err.(*exec.ExitError)
-		if ok && !e.Success() && stderr.String() != "" && stdout.String() == "" {
-			return
-		} else {
-			t.Fatalf("process ran with err %v, want exit status 1", err)
-		}
 	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	cmd := exec.Command(os.Args[0], "-test.run=TestNonZeroExit")
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	cmd.Env = append(os.Environ(), "BE_TestNonZeroExit=1")
+	err := cmd.Run()
+	e, ok := err.(*exec.ExitError)
+	if ok && !e.Success() && stderr.String() != "" && stdout.String() == "" {
+		return
+	}
+	t.Fatalf("process ran with err %v, want exit status 1", err)
 }
 
 func TestZeroExit(t *testing.T) {
 	if os.Getenv("BE_TestZeroExit") == "1" {
 		Exit(0, "everythingok")
 		return
-	} else {
-		var stdout bytes.Buffer
-		var stderr bytes.Buffer
-
-		cmd := exec.Command(os.Args[0], "-test.run=TestZeroExit")
-		cmd.Stdout = &stdout
-		cmd.Stderr = &stderr
-		cmd.Env = append(os.Environ(), "BE_TestZeroExit=1")
-		err := cmd.Run()
-		if err == nil && stdout.String() != "" && stderr.String() == "" {
-			return
-		} else {
-			t.Fatalf("process ran with err %v, want exit status 0", err)
-		}
 	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	cmd := exec.Command(os.Args[0], "-test.run=TestZeroExit")
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	cmd.Env = append(os.Environ(), "BE_TestZeroExit=1")
+	err := cmd.Run()
+	if err == nil && stdout.String() != "" && stderr.String() == "" {
+		return
+	}
+	t.Fatalf("process ran with err %v, want exit status 0", err)
 }
