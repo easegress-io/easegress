@@ -1,3 +1,5 @@
+// +build !windows
+
 /*
  * Copyright (c) 2017, MegaEase
  * All rights reserved.
@@ -21,17 +23,10 @@ import (
 	"bytes"
 	"os"
 	"os/exec"
-	"runtime"
 	"testing"
 )
 
 func TestNonZeroExit(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		// for windows if process exit with status 1 will
-		// cause whole test fail
-		return
-	}
-
 	if os.Getenv("BE_TestNonZeroExit") == "1" {
 		Exit(1, "error")
 		return

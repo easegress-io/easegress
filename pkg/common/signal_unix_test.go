@@ -1,3 +1,5 @@
+// +build !windows
+
 /*
  * Copyright (c) 2017, MegaEase
  * All rights reserved.
@@ -18,16 +20,11 @@
 package common
 
 import (
-	"runtime"
 	"syscall"
 	"testing"
 )
 
 func TestNotifySignalAndRaiseSignal(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		return
-	}
-
 	c := make(chan Signal, 5)
 	var currSig Signal
 	sigs := []Signal{SignalInt, SignalTerm, SingalUsr2}
