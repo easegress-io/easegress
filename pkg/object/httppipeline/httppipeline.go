@@ -489,10 +489,6 @@ func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) {
 		filterStat.Duration = time.Since(startTime)
 		filterStat.Result = result
 
-		if err := ctx.SaveRspToTemplate(name); err != nil {
-			format := "save http rsp failed, dict is %#v err is %v"
-			logger.Errorf(format, ctx.Template().GetDict(), err)
-		}
 
 		lastStat.Next = append(lastStat.Next, filterStat)
 		return result
