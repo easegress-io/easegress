@@ -47,10 +47,9 @@
 
 * We want to orchestrate these two APIs in one request, furthermore, we will take NBA API's response's fifth player's last name and combined it into a sentence for fun translater API's to translate into `minion` language.
 
+* In Easegress, a pipeline usually represents a particular HTTP service(maybe with several backends), APIAggregator can forward the request to a dedicated pipeline. And we can use HTTPTextTemplate syntax to extract the responses and turn them into the input for the next pipeline with Aggregator.
 
 ### Step 1: Create NBA API pipeline 
-
-* In Easegress, a pipeline usually represents a particular HTTPServer(maybe with several backends), APIAggregator can forward the request to a dedicated pipeline. And we can use HTTPTextTemplate syntax to extract the responses and make it to be the input for the next pipeline with Aggregator.
 
 ``` bash  
 echo '
@@ -76,7 +75,7 @@ filters:
 
 ### Step 2: Create Fun translator API pipeline 
 
-* This pipeline uses a `requestAdaptor` to change the request method to `POST`, replace its path to `/translate/sith.json`, and add a `Content-Type` header.  
+* This pipeline uses a `requestAdaptor` to change the request method to `POST`, replace its path to `/translate/minion.json`, and add a `Content-Type` header.
 
 ``` bash
 
