@@ -54,7 +54,7 @@ type (
 	}
 )
 
-func newcompression(spec *CompressionSpec) *compression {
+func newCompression(spec *CompressionSpec) *compression {
 	return &compression{
 		spec: spec,
 	}

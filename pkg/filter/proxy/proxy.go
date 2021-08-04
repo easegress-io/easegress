@@ -212,7 +212,7 @@ func (b *Proxy) reload() {
 	}
 
 	if b.spec.Compression != nil {
-		b.compression = newcompression(b.spec.Compression)
+		b.compression = newCompression(b.spec.Compression)
 	}
 }
 
