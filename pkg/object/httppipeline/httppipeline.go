@@ -444,16 +444,16 @@ func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) {
 	filterStat := &FilterStat{}
 
 	handle := func(lastResult string) string {
-		// For saving the `filterIndex`'s filter generated HTTP Response
-		// Note! the sequence of pipeline is stack liked, we save the filter's response into template
-		//       at the beginning of the next filter.
+		// For saving the `filterIndex`'s filter generated HTTP Response.
+		// Note: the sequence of pipeline is stack-liked, we save the filter's response into template
+		// at the beginning of the next filter.
 		if filterIndex != -1 {
 			name := hp.runningFilters[filterIndex].spec.Name()
 			if err := ctx.SaveRspToTemplate(name); err != nil {
 				format := "save http rsp failed, dict is %#v err is %v"
 				logger.Errorf(format, ctx.Template().GetDict(), err)
 			}
-			logger.Debugf("filter name:%s, save rsp dict :%v", name, ctx.Template().GetDict())
+			logger.Debugf("filter %s, saved response dict %v", name, ctx.Template().GetDict())
 		}
 
 		// Filters are called recursively as a stack, so we need to save current
@@ -480,7 +480,7 @@ func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) {
 			logger.Errorf(format, ctx.Template().GetDict(), err)
 		}
 
-		logger.Debugf("filter name:%s, save req dict :%v", name, ctx.Template().GetDict())
+		logger.Debugf("filter %s saved request dict %v", name, ctx.Template().GetDict())
 		filterStat = &FilterStat{Name: name, Kind: filter.spec.Kind()}
 
 		startTime := time.Now()
