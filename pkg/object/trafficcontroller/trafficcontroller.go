@@ -546,6 +546,9 @@ func (tc *TrafficController) GetHTTPPipeline(namespace, name string) (*superviso
 	}
 
 	entity, exists := space.httppipelines.Load(name)
+	if !exists {
+		return nil, false
+	}
 
 	return entity.(*supervisor.ObjectEntity), exists
 }
