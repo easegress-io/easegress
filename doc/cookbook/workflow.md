@@ -4,8 +4,8 @@
   - [Background](#background)
   - [Sequence workflow with HTTPTextTemplate](#sequence-workflow-with-httptexttemplate)
   - [Examples](#examples)
-    - [Scenario 1: Orchestrat pipelines](#scenario-1-orchestrat-pipelines)
-    - [Scenario 2:  Request formating](#scenario-2--request-formating)
+    - [Scenario 1: Orchestrating pipelines](#scenario-1-orchestrating-pipelines)
+    - [Scenario 2: Request and Response formating](#scenario-2-request-and-response-formating)
   - [References](#references)
 
 ## Background
@@ -26,7 +26,7 @@
 We want to request this two APIs in one request, futher more, we will take API1's response as the API2's request.
 
 
-### Scenario 1: Orchestrat pipelines
+### Scenario 1: Orchestrating pipelines 
 
 * In Easegress, a pipeline usually represents a particular HTTPServer(maybe with several backends), APIAggregator can forward the request to a dedicated pipeline. And we can use HTTPTextTemplate syntax to extract the responses and make it to be the input for the next pipeline with Aggregator.
 
@@ -93,7 +93,7 @@ rules:
 
 ```
 
-### Scenario 2:  Request formating
+### Scenario 2: Request and Response formating
 
 * Extending from #Scenario 1, we want to select one particular JSON filed in agg-demo's response and named it with another name to be the input of agg-demo, and at last, we want to combine agg-demo's response and agg-demo1's. Let's check it out:
 
