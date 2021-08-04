@@ -489,7 +489,6 @@ func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) {
 		filterStat.Duration = time.Since(startTime)
 		filterStat.Result = result
 
-
 		lastStat.Next = append(lastStat.Next, filterStat)
 		return result
 	}
