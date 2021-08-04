@@ -15,6 +15,7 @@
     - [More Filters](#more-filters)
   - [Documentation](#documentation)
   - [Roadmap](#roadmap)
+  - [Slack](#slack)
   - [License](#license)
 
 ## What is Easegress
