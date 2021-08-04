@@ -14,7 +14,7 @@
     - [TimeLimiter](#timelimiter-1)
     - [Concepts](#concepts)
 
-The as a Cloud Native traffic orchestractor, Easegress supports build-in resilience features. It is the ability of your system to react to failure and still remain functional. It's not about avoiding failure, but accepting failure and constructing your cloud-native services to respond to it. You want to return to a fully functioning state quickly as possible.[1]
+The as a Cloud Native traffic orchestrator, Easegress supports build-in resilience features. It is the ability of your system to react to failure and still remain functional. It's not about avoiding failure, but accepting failure and constructing your cloud-native services to respond to it. You want to return to a fully functioning state quickly as possible.[1]
 
 ## Basic: Load Balance
 
@@ -98,7 +98,7 @@ For a policy, if the first request fails, the failure rate could be 100% because
       minimumNumberOfCalls: 10
 ```
 
-We can also configure the wait duration in open state, and the max wait duration in half-open state:
+We can also configure the wait duration in the `open` state and the max wait duration in the `half-open` state:
 
 ```yaml
     policies:
@@ -107,7 +107,7 @@ We can also configure the wait duration in open state, and the max wait duration
       maxWaitDurationInHalfOpenState: 1m
 ```
 
-In half-open state, we can limit the number of permitted requests:
+In the `half-open` state, we can limit the number of permitted requests:
 
 ```yaml
     policies:
@@ -152,7 +152,7 @@ For the full YAML, see [here](#ratelimiter-1)
 
 ### Retryer
 
-If we want to retry on HTTP status code 500, 503, and 504, we can create a `Retryer` with below configuration, it makes at most 3 attempts on failure.
+If we want to retry on HTTP status code 500, 503, and 504, we can create a `Retryer` with the below configuration, it makes at most 3 attempts on failure.
 
 ```yaml
 name: pipeline-reverse-proxy
@@ -178,7 +178,7 @@ filters:
     kind: Proxy
 ```
 
-By default, the wait duration between two attempts is `waitDuration`, but this can be changed by specify `backOffPolicy` and `randomizationFactor`.
+By default, the wait duration between two attempts is `waitDuration`, but this can be changed by specifying `backOffPolicy` and `randomizationFactor`.
 
 ```yaml
     - name: policy-example

@@ -27,7 +27,7 @@ The `WasmHost` is a filter of Easegress which can be orchestrated into a pipelin
 $ make build_server GOTAGS=wasmhost
 ```
 
-We will use [AssemblyScript](https://www.assemblyscript.org/) as the language of the examples, please ensure a recent version of [Git](https://git-scm.com/), [Golang](https://golang.org), [Node.js](https://nodejs.org/) and its package manager [npm](https://www.npmjs.com/) are installed before continue. Basic knowledge about writing and working with TypeScript modules, which is very similar with AssemblyScript, is a plus.
+We will use [AssemblyScript](https://www.assemblyscript.org/) as the language of the examples, please ensure a recent version of [Git](https://git-scm.com/), [Golang](https://golang.org), [Node.js](https://nodejs.org/) and its package manager [npm](https://www.npmjs.com/) are installed before continue. Basic knowledge about writing and working with TypeScript modules, which is very similar to AssemblyScript, is a plus.
 
 ### Basic: Noop
 
@@ -75,7 +75,7 @@ The AssemblyScript code of this example is just a noop. But this example include
 
 	// define the program, 'Noop' is the name
 	class Noop extends Program {
-		// constructor is the initializer of the problem, will be called once at startup
+		// constructor is the initializer of the problem, will be called once at the startup
 		constructor(params: Map<string, string>) {
 			super(params)
 		}
@@ -93,7 +93,7 @@ The AssemblyScript code of this example is just a noop. But this example include
 	})
 	```
 
-7. Build with below command, if everything is right, `untouched.wasm` (the debug version) and `optimized.wasm` (the release version) will be generated at the `build` folder.
+7. Build with the below command, if everything is right, `untouched.wasm` (the debug version) and `optimized.wasm` (the release version) will be generated at the `build` folder.
    
    ```bash
    $ npm run asbuild
