@@ -20,8 +20,8 @@
 
 ## Easegress works with FaaS
 
-* Isolation: seprate Control logic and Business logic 
-* Traffic originted: Original near traffic, easier to integrate
+* Isolation: separate Control logic and Business logic 
+* Traffic originated: Original near traffic, easier to integrate
 * Resource saving: reusing Easegress+K8s machine resources.
 * Pay what you used: reducing small customize features' developing and maintenance cost.
 
@@ -101,7 +101,7 @@ status:
 fsm: null
 ```
 
-4. Request the faas function by Easegress HTTP traffic gate with `X-FaaS-Func-Name: demo` in HTTP header.
+4. Request the FaaS function by Easegress HTTP traffic gate with `X-FaaS-Func-Name: demo` in the HTTP header.
 **Note**: this example HTTP backend's API works on `/tomcat/job/api` path and its business logic is echoing back your request body and with `V3 Body is ` content.
 
 ``` bash
@@ -111,7 +111,7 @@ V3 Body is
 ```
 
 ### Scenario 2: Limit FaaS function resources using
-* You want to make sure at the maximum instance number can only be under 50, and it can only "180m" CPU and "100Mi" memory usage maximum allowed per instance. To providing meaningful resources amount for the function, you also want to make sure one instance has at least "100m" CPU and "50mi" memory provision. (The CPU and memory limitation usage value comes from Kubernetes resource).
+* You want to make sure at the maximum instance number can only be under 50, and it can only "180m" CPU and "100Mi" memory usage maximum allowed per instance. To providing meaningful resources amount for the function, you also want to make sure one instance has at least a "100m" CPU and "50mi" memory provision. (The CPU and memory limitation usage value comes from Kubernetes resource).
 
 ``` yaml
 name: demo
@@ -162,7 +162,7 @@ minReplica:  1
 
 1. Modifying the `minReplica` above in #Scenario 1's `/home/easegress/function.yaml`
 
-2. Update the function spec and verify it as in Scenario 2's step 2 - 3.
+2. Update the function spec and verify it as in Scenario 2's steps 2 - 3.
 
 ### Scenario 4: Autoscaling FaaS Function according to rps
 

@@ -12,18 +12,18 @@
 ## Background
 
 * API aggregation is a pattern to aggregate multiple individual requests into a single request. This pattern is useful when a client must make multiple calls to different backend systems to operate.[1]
-* Easegress provides a filter called `APIAggregator` in pipeline this useful feature.
+* Easegress provides a filter called `APIAggregator` in the pipeline for this powerful feature.
 
 ## API aggregator
 
-* Reusing exist pipelines for an API request.
+* Reusing the existing pipelines for an API request.
 * Easy to integrate with other filters such as RateLimiter.
 
 ## Example
 
 ### Scenario 1: Run an aggregator in pipeline
 
-1. We have three pipelines in the default namespace, called  `pipeline-demo`,  `pipeline-demo1`, and  `pipeline-demo2`. We want to call these three pipeline and combine their response with one request.
+1. We have three pipelines in the default namespace, called  `pipeline-demo`,  `pipeline-demo1`, and  `pipeline-demo2`. We want to call these three pipelines and combine their response with one request.
 `pipeline-demo` will return `{"mega":"ease"}` in HTTP response body.
 `pipeline-demo1` will return `{"hello":"world"}`.
 `pipeline-demo2` will return `{"hello":"new world"}`.
@@ -72,7 +72,7 @@ $ curl  -X GET  http://127.0.0.1:10080/api -v
 
 * As in #Scenario 1,  `pipeline-demo1` and `pipeline-demo2`'s responses share the same JSON key, we want to merge their response body by the JSON key together. If the keys have conflicted, we will use the last value.
 
-1. Update the pipeline with aggregator
+1. Update the pipeline with the aggregator
 
 ``` bash
 echo '
@@ -101,8 +101,8 @@ $ curl  -X GET  http://127.0.0.1:10080/api -v
 
 ### Scenario 3: Allow partial succeed
 
-* As In #Scenario 1, if we want the backend service meets some problem and can't provide service, this aggregator will
-failed as blew:
+* As In #Scenario 1, if the backend service meets some problem or can't provide service, this aggregator will
+fail as blew:
 
 ``` bash
 $ curl http://localhost:10080/api -v -X PUT
@@ -123,7 +123,7 @@ $ curl http://localhost:10080/api -v -X PUT
 * Closing connection 0
 ```
 
-* We can see an `X-Eg-Aggregator: failed-in-pipeline-demo` header in response, that's the first met failure pipeline of this aggregator.
+* We can see an `X-Eg-Aggregator: failed-in-pipeline-demo` header in the response, that's the first met failure pipeline of this aggregator.
 
 * In some scenarios, we want this aggregator to return the successful execution pipelines' result. We can achieve this purpose by the steps below
 

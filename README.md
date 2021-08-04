@@ -297,7 +297,19 @@ See [reference](./doc/reference.md) and [developer guide](./doc/developer-guide.
 
 ## User Cases
 
-We list most useful user cases by examples, you can check it in [here](./doc/cookbook/README.md).
+- [API Aggregator](./doc/cookbook/api_aggregator.md)
+- [FaaS](./doc/cookbook/faas.md)
+- [LoadBalancer](./doc/cookbook/load_balancer.md)
+- [Distributed Tracing](./doc/cookbook/distributed_tracing.md)
+- [Kubernetes Ingress Controller](./doc/cookbook/k8s_ingress_controller.md)
+- [Performance](./doc/cookbook/performance.md)
+- [Resilience and Fault Tolerance](./doc/cookbook/resilience.md)
+- [Security](./doc/cookbook/security.md)
+- [Service Proxy](./doc/cookbook/service_proxy.md)
+- [WebAssembly](./doc/cookbook/wasm.md)
+- [Workflow](./doc/cookbook/workflow.md)
+
+For full list, see [Cookbook](./doc/cookbook/README.md).
 
 ## Roadmap
 

@@ -7,7 +7,7 @@
   - [References](#references)
     - [Traffic Adaptor: Change Something of Two-Way Traffic](#traffic-adaptor-change-something-of-two-way-traffic-1)
 
-The reverse proxy is the common middleware that is accessed by clients, forwards them to backend servers. Reverse proxy is a very core role played by Easegress.
+The reverse proxy is the common middleware that is accessed by clients, forwards them to backend servers. The reverse proxy is a very core role played by Easegress.
 
 ## Why Use Easegress as Reverse Proxy
 
@@ -44,7 +44,7 @@ filters:
 
 ## Traffic Adaptor: Change Something of Two-Way Traffic
 
-Sometimes backend applications can't adapt to quick changes of requirements of traffic. Easegress could be an adaptor between new traffic and old applications. There are 2 phases of adaption in reverse proxy: request adaption, response adaption. `RequestAdaptor` supports the adaption of method, path, header, and body. `ResponseAdaptor` supports the adaption of header and body. As you can see, the flow in spec plays a critical role.
+Sometimes backend applications can't adapt to quick changes of requirements of traffic. Easegress could be an adaptor between new traffic and old applications. There are 2 phases of adaption in reverse proxy: request adaption, response adaption. `RequestAdaptor` supports the adaption of a method, path, header, and body. `ResponseAdaptor` supports the adaption of header and body. As you can see, the flow in spec plays a critical role.
 
 ```yaml
 name: pipeline-reverse-proxy

@@ -1,6 +1,6 @@
 # Distributed Tracing
 
-We used [OpenTracing API](https://opentracing.io/) to build tracing framework of Easegress. We official support [Zipkin](https://zipkin.io/).  We can enable tracing in `HTTPServer`, it will start a span whose name is same with server. The matched pipeline will start a child span, and its internal filters will start children spans according to their implementation, for example the `Proxy` did it.
+We used [OpenTracing API](https://opentracing.io/) to build the tracing framework of Easegress. We officially support [Zipkin](https://zipkin.io/).  We can enable tracing in `HTTPServer`, it will start a span whose name is the same ahs the server. The matched pipeline will start a child span, and its internal filters will start children spans according to their implementation, for example, the `Proxy` did it.
 
 ```yaml
 kind: HTTPServer

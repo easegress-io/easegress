@@ -7,7 +7,7 @@
     - [Consul](#consul)
     - [Eureka](#eureka)
 
-Easegress servers as a resvert proxy. It can easily integrate with main stream Service Registries.  
+Easegress servers as a reverse proxy. It can easily integrate with mainstream Service Registries.  
 
 
 ## Basic: Load Balance
@@ -48,7 +48,7 @@ conntimeout: 6s
 syncInterval: 10s
 ```
 
-2. Create a pipeline and set its serviceRegisty field into `zookeeper-001` and it will look up the zookeeper configuration for the service named `springboot-application-order` as in filed `serviceName`.    
+2. Create a pipeline and set its `serviceRegisty` field into `zookeeper-001` and it will look up the zookeeper configuration for the service named `springboot-application-order` as in filed `serviceName`.    
 
 ```yaml
 name: pipeline-reverse-proxy
@@ -82,7 +82,7 @@ scheme: http
 syncInterval: 10s
 ```
 
-2. Create a pipeline and set its serviceRegisty field into `consul-001` and it will look up the consul configuration for the service named `springboot-application-order` as in filed `serviceName`.    
+2. Create a pipeline and set its `serviceRegisty` field into `consul-001` and it will look up the consul configuration for the service named `springboot-application-order` as in filed `serviceName`.    
 
 ```yaml
 name: pipeline-reverse-proxy
@@ -115,7 +115,7 @@ syncInterval: 10s
 ```
 
 
-2. Create a pipeline and set its serviceRegisty field into `consul-001` and it will look up the consul configuration for the service named `springboot-application-order` as in filed `serviceName`.    
+2. Create a pipeline and set its `serviceRegisty` field into `consul-001` and it will look up the consul configuration for the service named `springboot-application-order` as in filed `serviceName`.    
 
 ```yaml
 name: pipeline-reverse-proxy

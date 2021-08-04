@@ -37,7 +37,7 @@ filters:
 
 ### Compression in filter `Proxy`
 
-* Easegress proxy filter supports `gzip` type compression. It can save the brandwidth between client and Easegress and reduce the time cost.
+* Easegress proxy filter supports `gzip` type compression. It can save the bandwidth between the client and Easegress and reduce the time cost.
 
 ```yaml
 name: pipeline-reverse-proxy
@@ -59,7 +59,7 @@ filters:
 
 ### Caching in filter `Proxy`
 
-* Easegress proxy filter has a `pool` section for describing the traffic forwarding backends. And it also supports caching the response according to the HTTP Methods and the HTTP response code. **Recommend to enable this feature only in the routing static resources scenario**.
+* Easegress proxy filter has a `pool` section for describing the traffic forwarding backends. And it also supports caching the response according to the HTTP Methods and the HTTP response code. **Recommend enabling this feature only in the routing static resources scenario**.
 
 ``` yaml
 name: pipeline-reverse-proxy
@@ -83,7 +83,7 @@ filters:
 #...
 ```
 
-* The example above will cache the response which size is smaller than 4096, and the response code is 200 or 201, with HTTP method Get and Head.
+* The example above will cache the response which size is smaller than 4096, and the response code is 200 or 201, with the HTTP methods Get and Head.
 
 * For the full YAML, see [here](#proxy-caching)
 

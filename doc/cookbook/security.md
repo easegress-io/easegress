@@ -58,7 +58,7 @@ filters:
     kind: Proxy
 ```
 
-* To enable Header type validator correctly in pipeline, we should add it before filter `Proxy`.
+* To enable Header type validator correctly in the pipeline, we should add it before filter `Proxy`.
 * As the example above, it will check the `Is-Valid` header field by trying to match `abc` or `goodplan`. Also, it will use `^ok-.+$` regular expression for checking if it can't match the `values` filed.
 
 *For the full YAML, see [here](#header-1)
@@ -109,7 +109,7 @@ filters:
 
 ```
 
-The example here only uses an accessKeys for processing Amazon Signature V4 validation. It also has other complicated and customized fields for more security purposes. Check it out in Easegress filter doc if needed.[3]
+The example here only uses an `accessKeys` for processing Amazon Signature V4 validation. It also has other complicated and customized fields for more security purposes. Check it out in the Easegress filter doc if needed.[3]
 
 For the full YAML, see [here](#signature-1)
 
@@ -137,7 +137,7 @@ filters:
 
 ```
 
-* The example above uses a token introspection server, which is provided by `endpoint` filed for validation. It also supports `Self-Encoded Access Tokens mode` which will require a JWT related configuration included. Check it out in Easegress filter doc if needed. [5]
+* The example above uses a token introspection server, which is provided by `endpoint` filed for validation. It also supports `Self-Encoded Access Tokens mode` which will require a JWT related configuration included. Check it out in the Easegress filter doc if needed. [5]
 
 * For the full YAML, see [here](#oauth-1)
 
