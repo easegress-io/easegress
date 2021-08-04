@@ -21,7 +21,7 @@ require (
 	github.com/hashicorp/consul/api v1.8.1
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/json-iterator/go v1.1.11
-	github.com/klauspost/compress v1.13.1
+	github.com/klauspost/compress v1.13.3
 	github.com/lucas-clemente/quic-go v0.21.1
 	github.com/megaease/easemesh-api v1.0.0
 	github.com/megaease/grace v1.0.0
