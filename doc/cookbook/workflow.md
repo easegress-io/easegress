@@ -44,7 +44,6 @@
 ```
 * Yes, we love Minions!
 
-
 * We want to orchestrate these two APIs in one request, furthermore, we will take NBA API's response's fifth player's last name and combined it into a sentence for fun translater API's to translate into `minion` language.
 
 
@@ -195,7 +194,7 @@ $ curl http://127.0.0.1:10080/workflow -vv
 
 
 * `filter.agg-demo.rsp.body.data.4.last_name` in rsp-adaptor will extract fifth player's last name fron NBA API's response body.
-* `filter.agg-demo1.rsp.body.contents.translated` in rsp-adaptor will extract the translated result in sith.  
+* `filter.agg-demo1.rsp.body.contents.translated` in rsp-adaptor will extract the translated result in minion language.
 * The template syntax above supports GJSON[3] in the last field.
 
 ## References
