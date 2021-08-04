@@ -4,8 +4,8 @@
   - [Background](#background)
   - [Sequence workflow with HTTPTextTemplate](#sequence-workflow-with-httptexttemplate)
   - [Examples](#examples)
-    - [Scenario 1: Response forwarding](#scenario-1-response-forwarding)
-  - [Scenario 2:  Request forming](#scenario-2--request-forming)
+    - [Scenario 1: Orchestrat pipelines](#scenario-1-orchestrat-pipelines)
+    - [Scenario 2:  Request formating](#scenario-2--request-formating)
   - [References](#references)
 
 ## Background
@@ -20,22 +20,27 @@
 
 
 ## Examples
+* API1:
+* API2:
 
-### Scenario 1: Response forwarding
+We want to request this two APIs in one request, futher more, we will take API1's response as the API2's request.
+
+
+### Scenario 1: Orchestrat pipelines
 
 * In Easegress, a pipeline usually represents a particular HTTPServer(maybe with several backends), APIAggregator can forward the request to a dedicated pipeline. And we can use HTTPTextTemplate syntax to extract the responses and make it to be the input for the next pipeline with Aggregator.
 
 All the characters are included here:
 
-| Name           | Kind         | Description                                                                | Status        |
-| -------------- | ------------ | -------------------------------------------------------------------------- | ------------- |
-| server-demo    | HTTPServer   | an HTTPServer for receiving traffic                                        | already exist |
-| pipeline-demo  | HTTPPipeline | a pipeline for forwarding request to backend                               | already exist |
-| pipeline-demo1 | HTTPPipeline | a pipeline for forwarding request to backend1                              | already exist |
-| pipeline-agg   | HTTPPipeline | a pipeline to orchestrator pipeline-demo and pipeline-demo1                | new added     |
-| agg-demo       | filter       | an APIAggregatorfilter inside pipeline-agg for representing pipeline-demo  | new added     |
-| agg-demo1      | filter       | an APIAggregatorfilter inside pipeline-agg for representing pipeline-demo1 | new added     |
-| req-adaptor    | filter       | an RequestAdaptor for turning agg-demo's response into agg-demo1's request | new added     |
+| Name              | Kind         | Description                                                                | Status        |
+| ----------------- | ------------ | -------------------------------------------------------------------------- | ------------- |
+| server-demo       | HTTPServer   | an HTTPServer for receiving traffic                                        | already exist |
+| pipeline-activity | HTTPPipeline | a pipeline for getting random recommended activity                         | already exist |
+| pipeline-agify    | HTTPPipeline | a pipeline for to guess the age by a given name                            | already exist |
+| pipeline-agg      | HTTPPipeline | a pipeline to orchestrator pipeline-demo and pipeline-demo1                | new added     |
+| agg-demo          | filter       | an APIAggregatorfilter inside pipeline-agg for representing pipeline-demo  | new added     |
+| agg-demo1         | filter       | an APIAggregatorfilter inside pipeline-agg for representing pipeline-demo1 | new added     |
+| req-adaptor       | filter       | an RequestAdaptor for turning agg-demo's response into agg-demo1's request | new added     |
 
 1. We want to use the response from `pipeline-demo` to be the request for `pipeline-demo1`, here is the configuration
 
@@ -88,7 +93,7 @@ rules:
 
 ```
 
-## Scenario 2:  Request forming
+### Scenario 2:  Request formating
 
 * Extending from #Scenario 1, we want to select one particular JSON filed in agg-demo's response and named it with another name to be the input of agg-demo, and at last, we want to combine agg-demo's response and agg-demo1's. Let's check it out:
 

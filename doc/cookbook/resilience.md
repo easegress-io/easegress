@@ -1,6 +1,6 @@
-# Reverse Proxy
+# Resilience
 
-- [Reverse Proxy](#reverse-proxy)
+- [Resilience](#resilience)
   - [Basic: Load Balance](#basic-load-balance)
   - [More Livingness: Resilience of Service](#more-livingness-resilience-of-service)
     - [CircuitBreaker](#circuitbreaker)

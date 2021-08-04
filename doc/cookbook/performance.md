@@ -1,6 +1,6 @@
-# Reverse Proxy
+# Performance
 
-- [Reverse Proxy](#reverse-proxy)
+- [Performance](#performance)
   - [Basic: Load Balance](#basic-load-balance)
   - [Performance: Compression and Caching](#performance-compression-and-caching)
     - [Compression in filter `Proxy`](#compression-in-filter-proxy)

@@ -1,6 +1,6 @@
-# Reverse Proxy
+# Security
 
-- [Reverse Proxy](#reverse-proxy)
+- [Security](#security)
   - [Basic: Load Balance](#basic-load-balance)
   - [Security: Verify Credential](#security-verify-credential)
     - [Header](#header)

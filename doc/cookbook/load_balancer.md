@@ -1,6 +1,6 @@
-# Reverse Proxy
+# Load Balancer
 
-- [Reverse Proxy](#reverse-proxy)
+- [Load Balancer](#load-balancer)
   - [Why Use Easegress as Reverse Proxy](#why-use-easegress-as-reverse-proxy)
   - [Basic: Load Balance](#basic-load-balance)
   - [Traffic Adaptor: Change Something of Two-Way Traffic](#traffic-adaptor-change-something-of-two-way-traffic)
@@ -23,7 +23,7 @@ Easegress integrates many features as a reverse proxy with easy configuration.
 
 ## Basic: Load Balance
 
-The filter `Proxy` is the filter to fire requests to backend servers. It contains servers group under load balance, whose policy support roundRobin, random, weightedRandom, ipHash, headerHash.
+The filter `Proxy` is the filter to fire requests to backend servers. It contains servers group under load balance, whose policy support `roundRobin`, `random`, `weightedRandom`, `ipHash`, `headerHash`.
 
 ```yaml
 name: pipeline-reverse-proxy

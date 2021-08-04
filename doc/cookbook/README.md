@@ -6,7 +6,7 @@
 - [Distributed Tracing](./distributed_tracing.md)
 - [Kubernetes Ingress Controller](./k8s_ingress_controller.md)
 - [Performance](./performance.md)
-- [Resilience](./resilience.md)
+- [Resilience and Fault Tolerance](./resilience.md)
 - [Security](./security.md)
 - [Service Proxy](./service_proxy.md)
 - [WebAssembly](./wasm.md)

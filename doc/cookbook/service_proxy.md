@@ -1,6 +1,6 @@
-# Reverse Proxy
+# Service Proxy
 
-- [Reverse Proxy](#reverse-proxy)
+- [Service Proxy](#service-proxy)
   - [Basic: Load Balance](#basic-load-balance)
     - [Dynamic: Integration with Service Registry](#dynamic-integration-with-service-registry)
     - [Zookeeper](#zookeeper)
