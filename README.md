@@ -15,6 +15,7 @@
     - [More Filters](#more-filters)
   - [Documentation](#documentation)
   - [Roadmap](#roadmap)
+  - [Community](#community)
   - [License](#license)
 
 ## What is Easegress
@@ -297,6 +298,12 @@ See [reference](./doc/reference.md) and [developer guide](./doc/developer-guide.
 ## Roadmap 
 
 See [Easegress Roadmap](./doc/Roadmap.md) for details.
+
+## Community
+
+- [Slack Channel](https://openmegaease.slack.com/archives/C028Z6SUCU9) for requirement, issue and development.
+- [MegaEase on Twitter](https://twitter.com/megaease)
+
 
 ## License
 
