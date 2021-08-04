@@ -7,7 +7,8 @@
     - [Step 1: Create NBA API pipeline](#step-1-create-nba-api-pipeline)
     - [Step 2: Create Fun translator API pipeline](#step-2-create-fun-translator-api-pipeline)
     - [Step 3: Create orchestrion pipeline](#step-3-create-orchestrion-pipeline)
-    - [Step 4: See the result](#step-4-see-the-result)
+    - [Step 4: Create HTTPServer for routing](#step-4-create-httpserver-for-routing)
+    - [Step 5: See the result](#step-5-see-the-result)
   - [References](#references)
 
 ## Background
@@ -22,28 +23,29 @@
 
 
 ## Examples
-* We use the free, fun, and open RESTful APIs to achieve this example.
+* We use the free, fun, and open RESTful APIs to achieve this example.[2]
 * API1: NBA list, http://www.balldontlie.io/api/v1/players, its response is a list for all player's informactions.
 ``` json
 {"data":[{"height_inches":null,"last_name":"Anigbogu","position":"C","team":{"id":12,"abbreviation":"IND","city":"Indiana","conference":"East","division":"Central","full_name":"Indiana Pacers","name":"Pacers"},"weight_pounds":null,"id":14,"first_name":"Ike","height_feet":null},{"last_name":"Baker","position":"G","team":{"id":20,"abbreviation":"NYK",
 ....
 ```
-* API2: Fun translator, http://api.funtranslations.com/translate/sith.json, its response body will be liked:
+* API2: Fun translator, http://api.funtranslations.com/translate/minion.json, its response body will be liked:
 ```json
 {
     "success": {
         "total": 1
     },
     "contents": {
-        "translated": "Yoyo kontrole zhol dabar",
-        "text": "yoyo check it now",
-        "translation": "sith"
+        "translated": "yo yo bada pik prompo",
+        "text": "yo yo check it now",
+        "translation": "minion"
     }
-}
+}%  
 ```
+* Yes, we love Minions!
 
 
-* We want to orchestrate these two APIs in one request, furthermore, we will take NBA API's response's fifth player's last name and combined it into a sentence for fun translater API's to translate into `sith` language.
+* We want to orchestrate these two APIs in one request, furthermore, we will take NBA API's response's fifth player's last name and combined it into a sentence for fun translater API's to translate into `minion` language.
 
 
 ### Step 1: Create NBA API pipeline 
@@ -95,7 +97,7 @@ filters:
         Content-Type: application/x-www-form-urlencoded
     method: "POST"
     path:
-      replace: /translate/sith.json 
+      replace: /translate/minion.json 
   - name: proxy
     kind: Proxy
     mainPool:
@@ -151,7 +153,25 @@ filters:
 
 ```
 
-### Step 4: See the result 
+### Step 4: Create HTTPServer for routing
+
+``` bash
+echo '
+kind: HTTPServer
+name: server-demo
+certs:
+keys:
+port: 10080
+keepAlive: true
+https: false
+rules:
+  - paths:
+    - pathPrefix: /workflow
+      backend: pipeline-agg ' | egctl  object create 
+
+```
+
+### Step 5: See the result 
 
 ``` bash
 $ curl http://127.0.0.1:10080/workflow -vv
@@ -160,26 +180,26 @@ $ curl http://127.0.0.1:10080/workflow -vv
 * Connected to 127.0.0.1 (127.0.0.1) port 10080 (#0)
 > GET /workflow HTTP/1.1
 > Host: 127.0.0.1:10080
-> User-Agent: curl/7.58.0
+> User-Agent: curl/7.64.1
 > Accept: */*
 > 
 < HTTP/1.1 200 OK
 < Last_name: Brown
-< Date: Wed, 04 Aug 2021 08:59:55 GMT
-< Content-Length: 154
+< Date: Wed, 04 Aug 2021 09:28:07 GMT
+< Content-Length: 144
 < Content-Type: text/plain; charset=utf-8
 < 
-
-{"name": "Brown","translated":"Hi nuyak vadinti kash Brown yoyo kontrole zhol dabar", "origin":"hi my name is Brown yoyo check it now", "language":"sith"}%
+{"name": "Brown","translated":"hi mi nomba tis nub yoyo bada pik prompo", "origin":"hi my name is Brown yoyo check it now", "language":"minion"}
 
 ```
 
 
 * `filter.agg-demo.rsp.body.data.4.last_name` in rsp-adaptor will extract fifth player's last name fron NBA API's response body.
 * `filter.agg-demo1.rsp.body.contents.translated` in rsp-adaptor will extract the translated result in sith.  
-* The template syntax above supports GJSON[2] in the last field.
+* The template syntax above supports GJSON[3] in the last field.
 
 ## References
 
 1. https://en.wikipedia.org/wiki/Workflow
-2. https://github.com/tidwall/gjson
+2. https://learn.vonage.com/blog/2021/03/15/the-ultimate-list-of-fun-apis-for-your-next-coding-project/ 
+3. https://github.com/tidwall/gjson
