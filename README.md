@@ -298,6 +298,11 @@ See [reference](./doc/reference.md) and [developer guide](./doc/developer-guide.
 
 See [Easegress Roadmap](./doc/Roadmap.md) for details.
 
+## Slack
+
+Welcome to our [slack channel](https://openmegaease.slack.com/archives/C028Z6SUCU9) for products and details discussion.
+
+
 ## License
 
 Easegress is under the Apache 2.0 license. See the [LICENSE](./LICENSE) file for details.
