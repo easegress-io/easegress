@@ -4,8 +4,10 @@
   - [Background](#background)
   - [Sequence workflow with HTTPTextTemplate](#sequence-workflow-with-httptexttemplate)
   - [Examples](#examples)
-    - [Scenario 1: Orchestrating pipelines](#scenario-1-orchestrating-pipelines)
-    - [Scenario 2: Request and Response formating](#scenario-2-request-and-response-formating)
+    - [Step 1: Create NBA API pipeline](#step-1-create-nba-api-pipeline)
+    - [Step 2: Create Fun translator API pipeline](#step-2-create-fun-translator-api-pipeline)
+    - [Step 3: Create orchestrion pipeline](#step-3-create-orchestrion-pipeline)
+    - [Step 4: See the result](#step-4-see-the-result)
   - [References](#references)
 
 ## Background
@@ -20,125 +22,161 @@
 
 
 ## Examples
-* API1:
-* API2:
+* We use the free, fun, and open RESTful APIs to achieve this example.
+* API1: NBA list, http://www.balldontlie.io/api/v1/players, its response is a list for all player's informactions.
+``` json
+{"data":[{"height_inches":null,"last_name":"Anigbogu","position":"C","team":{"id":12,"abbreviation":"IND","city":"Indiana","conference":"East","division":"Central","full_name":"Indiana Pacers","name":"Pacers"},"weight_pounds":null,"id":14,"first_name":"Ike","height_feet":null},{"last_name":"Baker","position":"G","team":{"id":20,"abbreviation":"NYK",
+....
+```
+* API2: Fun translator, http://api.funtranslations.com/translate/sith.json, its response body will be liked:
+```json
+{
+    "success": {
+        "total": 1
+    },
+    "contents": {
+        "translated": "Yoyo kontrole zhol dabar",
+        "text": "yoyo check it now",
+        "translation": "sith"
+    }
+}
+```
 
-We want to request this two APIs in one request, futher more, we will take API1's response as the API2's request.
+
+* We want to orchestrate these two APIs in one request, furthermore, we will take NBA API's response's fifth player's last name and combined it into a sentence for fun translater API's to translate into `sith` language.
 
 
-### Scenario 1: Orchestrating pipelines 
+### Step 1: Create NBA API pipeline 
 
 * In Easegress, a pipeline usually represents a particular HTTPServer(maybe with several backends), APIAggregator can forward the request to a dedicated pipeline. And we can use HTTPTextTemplate syntax to extract the responses and make it to be the input for the next pipeline with Aggregator.
 
-All the characters are included here:
-
-| Name              | Kind         | Description                                                                | Status        |
-| ----------------- | ------------ | -------------------------------------------------------------------------- | ------------- |
-| server-demo       | HTTPServer   | an HTTPServer for receiving traffic                                        | already exist |
-| pipeline-activity | HTTPPipeline | a pipeline for getting random recommended activity                         | already exist |
-| pipeline-agify    | HTTPPipeline | a pipeline for to guess the age by a given name                            | already exist |
-| pipeline-agg      | HTTPPipeline | a pipeline to orchestrator pipeline-demo and pipeline-demo1                | new added     |
-| agg-demo          | filter       | an APIAggregatorfilter inside pipeline-agg for representing pipeline-demo  | new added     |
-| agg-demo1         | filter       | an APIAggregatorfilter inside pipeline-agg for representing pipeline-demo1 | new added     |
-| req-adaptor       | filter       | an RequestAdaptor for turning agg-demo's response into agg-demo1's request | new added     |
-
-1. We want to use the response from `pipeline-demo` to be the request for `pipeline-demo1`, here is the configuration
-
-``` yaml
-
-name: pipeline-agg
+``` bash  
+echo '
+name: pipeline-nba
 kind: HTTPPipeline
 flow:
-  - filter: agg-demo
-  - filter: req-adaptor
-  - filter: agg-demo1
-
+  - filter: requestAdp
+  - filter: proxy
 filters:
-  - pipelines:
-      - name: pipeline-demo
-    kind: APIAggregator
-    name: agg-demo
-  - name: req-adaptor
-    kind: RequestAdaptor
-    method: ""
-    path: null
-    header:
-      del: {}
-      set: {}
-      add: {}
-    body: "[[filter.pipeline-demo.rsp.body]]"
-  - pipelines:
-      - name: pipeline-demo1
-    kind: APIAggregator
-    name: agg-demo1
-
+  - kind: RequestAdaptor
+    name: requestAdp
+    host: www.balldontlie.io
+    path:
+      replace: /api/v1/players
+  - name: proxy
+    kind: Proxy
+    mainPool:
+      servers:
+      - url: http://www.balldontlie.io
+      loadBalance:
+        policy: roundRobin' | egctl object create 
 ```
 
-Create this pipeline-agg by using `egctl create -f `
+### Step 2: Create Fun translator API pipeline 
 
-2. Expose `pipeline-agg`' to one route in `server-demo`'s `/orchestractor` path.
+* This pipeline uses a `requestAdaptor` to change the request method to `POST`, replace its path to `/translate/sith.json`, and add a `Content-Type` header.  
 
 ``` bash
+
 echo '
-kind: HTTPServer
-name: server-demo
-
-#...
-
-rules:
-#...
-  - paths:
-    - pathPrefix: /orchestractor
-      backend: pipeline-agg' | egctl.sh object update
+name: pipeline-translate
+kind: HTTPPipeline
+flow:
+  - filter: requestAdp
+  - filter: proxy
+filters:
+  - kind: RequestAdaptor
+    name: requestAdp
+    host: api.funtranslations.com 
+    header:
+      del: []
+      set:
+      add:
+        Content-Type: application/x-www-form-urlencoded
+    method: "POST"
+    path:
+      replace: /translate/sith.json 
+  - name: proxy
+    kind: Proxy
+    mainPool:
+      servers:
+      - url: http://api.funtranslations.com
+      loadBalance:
+        policy: roundRobin' | egctl object create 
 
 ```
 
-### Scenario 2: Request and Response formating
+### Step 3: Create orchestrion pipeline 
 
-* Extending from #Scenario 1, we want to select one particular JSON filed in agg-demo's response and named it with another name to be the input of agg-demo, and at last, we want to combine agg-demo's response and agg-demo1's. Let's check it out:
+* This pipeline needs to get the fifth player's last name as the input body for the translator pipeline. It achieves this goal by using `requestAdaptor` and the build-in `HTTPTemplate` in the pipeline.
+* At last, this pipeline combines the output from NBA API and Fun translator API to form a new response.
 
-This time, we need to introduce another filter, ResponseAdaptor, for the final response forming.
-
-``` yaml
-
+``` bash 
+echo '
 name: pipeline-agg
 kind: HTTPPipeline
 flow:
   - filter: agg-demo
-  - filter: req-adaptor
+  - filter: req-adaptor1
   - filter: agg-demo1
   - filter: rsp-adaptor
 
 filters:
   - pipelines:
-      - name: pipeline-demo
+      - name: pipeline-nba
     kind: APIAggregator
+    mergeResponse: true
     name: agg-demo
-  - name: req-adaptor
+  - name: req-adaptor1
     kind: RequestAdaptor
-    method: ""
-    path: null
     header:
-      del: {}
-      set: {}
-      add: {}
-    body: "[[filter.pipeline-demo.rsp.body.key]]"
+      del: [] 
+      set: 
+      add: 
+        Content-Type: application/x-www-form-urlencoded
+    body: "text=hi my name is [[filter.agg-demo.rsp.body.data.4.last_name]] yoyo check it now" 
   - pipelines:
-      - name: pipeline-demo1
+      - name: pipeline-translate
     kind: APIAggregator
     name: agg-demo1
+    mergeResponse: true
   - name: rsp-adaptor
     kind: ResponseAdaptor
     header:
-      del: {}
-      set: {}
-      add: {}
-    body: "{\"key-from-agg-demo\": \"[[filter.agg-demo.rsp.body.key]]\",\"value-from-agg-demo1\":\"[[filter.agg-demo1.rsp.body.value]]\"}"
+      del: [] 
+      set: 
+        last_name: "[[filter.agg-demo.rsp.body.data.4.last_name]]" 
+      add: 
+    body: "{\"name\": \"[[filter.agg-demo.rsp.body.data.4.last_name]]\",\"translated\":\"[[filter.agg-demo1.rsp.body.contents.translated]]\", \"origin\":\"[[filter.agg-demo1.rsp.body.contents.text]]\", \"language\":\"[[filter.agg-demo1.rsp.body.contents.translation]]\"}" ' | egctl  object create 
 
 ```
 
-* `[[filter.pipeline-demo.rsp.body.key]]` in req-adaptor will extract `key` filed from agg-demo's JSON response(actually, it's the response from pipeline-demo)
-* `{\"key-from-agg-demo\": \"[[filter.agg-demo.rsp.body.key]]\",\"value-from-agg-demo1\":\"[[filter.agg-demo1.rsp.body.value]]\"}` in rsp-adaptor will combine agg-demo's JSON body's `key` filed and agg-demo1's JSON body's `value` together in the final HTTP response body of pipeline-agg
+### Step 4: See the result 
+
+``` bash
+$ curl http://127.0.0.1:10080/workflow -vv
+*   Trying 127.0.0.1...
+* TCP_NODELAY set
+* Connected to 127.0.0.1 (127.0.0.1) port 10080 (#0)
+> GET /workflow HTTP/1.1
+> Host: 127.0.0.1:10080
+> User-Agent: curl/7.58.0
+> Accept: */*
+> 
+< HTTP/1.1 200 OK
+< Last_name: Brown
+< Date: Wed, 04 Aug 2021 08:59:55 GMT
+< Content-Length: 154
+< Content-Type: text/plain; charset=utf-8
+< 
+
+{"name": "Brown","translated":"Hi nuyak vadinti kash Brown yoyo kontrole zhol dabar", "origin":"hi my name is Brown yoyo check it now", "language":"sith"}%
+
+```
+
+
+* `filter.agg-demo.rsp.body.data.4.last_name` in rsp-adaptor will extract fifth player's last name fron NBA API's response body.
+* `filter.agg-demo1.rsp.body.contents.translated` in rsp-adaptor will extract the translated result in sith.  
 * The template syntax above supports GJSON[2] in the last field.
 
 ## References
