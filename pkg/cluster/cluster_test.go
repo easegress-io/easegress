@@ -115,6 +115,40 @@ func TestLeaseInvalid(t *testing.T) {
 	}
 }
 
+func TestClusterStart(t *testing.T) {
+	opts, _, _ := mockMembers(1)
+
+	cls, err := New(opts[0])
+
+	if err != nil {
+		t.Errorf("init failed: %v", err)
+	}
+
+	c := cls.(*cluster)
+
+	_, _, err = c.StartServer()
+
+	if err != nil {
+		t.Errorf("start server failed, %v", err)
+	}
+}
+
+func TestClusterPurgeMember(t *testing.T) {
+	opts, _, _ := mockMembers(2)
+
+	cls, err := New(opts[0])
+
+	if err != nil {
+		t.Errorf("init failed: %v", err)
+	}
+
+	c := cls.(*cluster)
+	err = c.PurgeMember("no-member")
+	if err == nil {
+		t.Errorf("purge a none exit member, should be failed")
+	}
+}
+
 func TestClusterSyncer(t *testing.T) {
 	opts, _, _ := mockMembers(1)
 	cls, err := New(opts[0])
