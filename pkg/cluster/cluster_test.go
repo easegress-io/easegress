@@ -79,9 +79,6 @@ func mockClusters(count int) []*cluster {
 		clusters[i] = c
 	}
 
-	// for testing longRequestContext()
-	clusters[0].longRequestContext()
-
 	return clusters
 }
 
@@ -97,6 +94,9 @@ func closeClusters(clusters []*cluster) {
 func TestCluster(t *testing.T) {
 	clusters := mockClusters(3)
 	defer closeClusters(clusters)
+	// for testing longRequestContext()
+	clusters[0].longRequestContext()
+
 }
 
 func TestLease(t *testing.T) {
@@ -123,7 +123,7 @@ func TestClusterSyncer(t *testing.T) {
 
 	c := cls.(*cluster)
 
-	err = c.getReady()
+	_, err = c.getClient()
 	if err != nil {
 		t.Errorf("get ready failed: %v", err)
 	}
@@ -168,7 +168,7 @@ func TestClusterWatcher(t *testing.T) {
 
 	c := cls.(*cluster)
 
-	err = c.getReady()
+	_, err = c.getClient()
 	if err != nil {
 		t.Errorf("get ready failed: %v", err)
 	}
@@ -251,7 +251,7 @@ func TestMutexAndOP(t *testing.T) {
 
 	c := cls.(*cluster)
 
-	err = c.getReady()
+	_, err = c.getClient()
 	if err != nil {
 		t.Errorf("get ready failed: %v", err)
 	}
@@ -273,8 +273,15 @@ func TestMutexAndOP(t *testing.T) {
 		t.Errorf("PutAndDeleteUnderLease failed: %v", err)
 	}
 
-	err = c.Delete("akey")
+	err = c.PutAndDelete(map[string]*string{
+		"akey": &value,
+	})
+
 	if err != nil {
+		t.Errorf("PutAndDelete failed :%v", err)
+	}
+
+	if err = c.Delete("akey"); err != nil {
 		t.Errorf("Delete failed: %v", err)
 	}
 

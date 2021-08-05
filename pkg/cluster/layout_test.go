@@ -28,6 +28,10 @@ func TestLayout(t *testing.T) {
 		t.Error("other lease  empty")
 	}
 
+	if len(l.StatusObjectPrefix("member-1")) == 0 {
+		t.Error("other lease  empty")
+	}
+
 	if len(l.StatusMemberPrefix()) == 0 {
 		t.Error("StatusMemberPrefix  empty")
 	}
