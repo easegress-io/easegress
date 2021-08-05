@@ -74,11 +74,11 @@ func (agent *AgentClient) UpdateService(newService *spec.Service, version int64)
 	}
 
 	url := agent.URL + serviceConfigURL
-	_, bodyString, err := handleRequestRetBody(http.MethodPut, url, bytes)
+	bodyString, err := handleRequest(http.MethodPut, url, bytes)
 	if err != nil {
 		return fmt.Errorf("handleRequest error: %v", err)
 	}
-	logger.Infof("Update Service, URL: %s,request: %s, result: %v", url, string(bytes), bodyString)
+	logger.Infof("Update Service, URL: %s,request: %s, result: %v", url, string(bytes), string(bodyString))
 	return err
 }
 
@@ -101,10 +101,10 @@ func (agent *AgentClient) UpdateCanary(globalHeaders *spec.GlobalCanaryHeaders, 
 	}
 
 	url := agent.URL + canaryConfigURL
-	_, bodyString, err := handleRequestRetBody(http.MethodPut, url, bytes)
+	bodyString, err := handleRequest(http.MethodPut, url, bytes)
 	if err != nil {
 		return fmt.Errorf("handleRequest error: %v", err)
 	}
-	logger.Infof("Update Canary, URL: %s,request: %s, result: %v", url, string(bytes), bodyString)
+	logger.Infof("Update Canary, URL: %s,request: %s, result: %v", url, string(bytes), string(bodyString))
 	return err
 }

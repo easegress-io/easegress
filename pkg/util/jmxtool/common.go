@@ -95,35 +95,35 @@ type APIErr struct {
 	Message string `yaml:"message"`
 }
 
-func handleRequestRetBody(httpMethod string, url string, reqBody []byte) (*http.Response, string, error) {
+func handleRequest(httpMethod string, url string, reqBody []byte) ([]byte, error) {
 	req, err := http.NewRequest(httpMethod, url, bytes.NewReader(reqBody))
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return resp, "", err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return resp, "", err
+		return nil, err
 	}
 
-	if !successfulStatusCode(resp.StatusCode) {
-		msg := string(body)
-		apiErr := &APIErr{}
-		err = yaml.Unmarshal(body, apiErr)
-		if err == nil {
-			msg = apiErr.Message
-		}
-
-		return resp, "", fmt.Errorf("Request failed: Code: %d, Msg: %s ", resp.StatusCode, msg)
+	if successfulStatusCode(resp.StatusCode) {
+		return body, nil
 	}
 
-	return resp, string(body), nil
+	msg := string(body)
+	apiErr := &APIErr{}
+	err = yaml.Unmarshal(body, apiErr)
+	if err == nil {
+		msg = apiErr.Message
+	}
+
+	return nil, fmt.Errorf("Request failed: Code: %d, Msg: %s ", resp.StatusCode, msg)
 }
 
 func successfulStatusCode(code int) bool {
