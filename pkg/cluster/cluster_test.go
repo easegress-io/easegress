@@ -290,6 +290,27 @@ func TestClusterWatcher(t *testing.T) {
 		}
 		break
 	}
+	c.DeletePrefix("/abc")
+
+	for {
+		value := make(map[string]*string, 1)
+		select {
+		case value = <-pchan:
+			fmt.Printf("watch delete prefix value is %v\n", value)
+		}
+		break
+	}
+
+	c.DeletePrefix("/abcd/")
+
+	for {
+		value := make(map[string]*clientv3.Event, 1)
+		select {
+		case value = <-rawpchan:
+			fmt.Printf("watch delete prefix raw value is %v\n", value)
+		}
+		break
+	}
 
 	watcher.Close()
 
@@ -384,5 +405,38 @@ func TestMutexAndOP(t *testing.T) {
 	err = c.DeletePrefix("akey")
 	if err != nil {
 		t.Errorf("DeletePrefix failed: %v", err)
+	}
+}
+
+func TestUtilEqual(t *testing.T) {
+	equal := isKeyValueEqual(&mvccpb.KeyValue{
+		Key: []byte("abc"),
+	}, &mvccpb.KeyValue{
+		Key: []byte("abc"),
+	})
+
+	if !equal {
+		t.Error("isKeyValueEqual invalid")
+	}
+
+	equal = isKeyValueEqual(nil, &mvccpb.KeyValue{
+		Key: []byte("abc"),
+	})
+
+	if equal {
+		t.Error("isKeyValueEqual invalid, should not equal")
+	}
+
+	equal = isKeyValueEqual(&mvccpb.KeyValue{
+		Key: []byte("abc"),
+	}, nil)
+
+	if equal {
+		t.Error("isKeyValueEqual invalid, should not equal")
+	}
+
+	equal = isKeyValueEqual(nil, nil)
+	if !equal {
+		t.Error("isKeyValueEqual invalid, should equal")
 	}
 }
