@@ -22,6 +22,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"go.etcd.io/etcd/api/v3/mvccpb"
 )
 
 func mockClusters(count int) []*cluster {
@@ -77,6 +79,9 @@ func mockClusters(count int) []*cluster {
 		clusters[i] = c
 	}
 
+	// for testing longRequestContext()
+	clusters[0].longRequestContext()
+
 	return clusters
 }
 
@@ -90,6 +95,148 @@ func closeClusters(clusters []*cluster) {
 }
 
 func TestCluster(t *testing.T) {
-	clusters := mockClusters(5)
+	clusters := mockClusters(3)
 	defer closeClusters(clusters)
+}
+
+func TestLease(t *testing.T) {
+	_, err := strToLease("266394")
+	if err != nil {
+		t.Errorf("str to lease failed: %v", err)
+	}
+}
+
+func TestLeaseInvalid(t *testing.T) {
+	_, err := strToLease("test")
+	if err == nil {
+		t.Errorf("str to lease should not succ with \"test\" value")
+	}
+}
+
+func TestClusterSyncer(t *testing.T) {
+	opts, _, _ := mockMembers(1)
+	cls, err := New(opts[0])
+
+	if err != nil {
+		t.Errorf("init failed: %v", err)
+	}
+
+	c := cls.(*cluster)
+
+	err = c.getReady()
+	if err != nil {
+		t.Errorf("get ready failed: %v", err)
+	}
+
+	syncer, err := c.Syncer(3 * time.Second)
+
+	if err != nil {
+		t.Errorf("new syncer failed: %v", err)
+	}
+
+	if _, err = syncer.Sync("akey"); err != nil {
+		t.Errorf("syncer sync failed: %v", err)
+	}
+
+	if _, err = syncer.SyncRaw("akey"); err != nil {
+		t.Errorf("syncer sync failed: %v", err)
+	}
+
+	if _, err = syncer.SyncPrefix("akey"); err != nil {
+		t.Errorf("syncer sync failed: %v", err)
+	}
+
+	if _, err = syncer.SyncRawPrefix("akey"); err != nil {
+		t.Errorf("syncer sync failed: %v", err)
+	}
+
+	syncer.Close()
+
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	cls.CloseServer(wg)
+	wg.Wait()
+}
+
+func TestClusterWatcher(t *testing.T) {
+	opts, _, _ := mockMembers(1)
+	cls, err := New(opts[0])
+
+	if err != nil {
+		t.Errorf("init failed: %v", err)
+	}
+
+	c := cls.(*cluster)
+
+	err = c.getReady()
+	if err != nil {
+		t.Errorf("get ready failed: %v", err)
+	}
+
+	watcher, err := c.Watcher()
+
+	if err != nil {
+		t.Errorf("new syncer failed: %v", err)
+	}
+
+	if _, err = watcher.Watch("akey"); err != nil {
+		t.Errorf("watcher watch failed: %v", err)
+	}
+
+	if _, err = watcher.WatchRaw("akey"); err != nil {
+		t.Errorf("watcher watch failed: %v", err)
+	}
+
+	if _, err = watcher.WatchPrefix("akey"); err != nil {
+		t.Errorf("watcher watch failed: %v", err)
+	}
+
+	if _, err = watcher.WatchRawPrefix("akey"); err != nil {
+		t.Errorf("watcher watch failed: %v", err)
+	}
+
+	watcher.Close()
+
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	cls.CloseServer(wg)
+	wg.Wait()
+}
+
+func TestUtil(t *testing.T) {
+	equal := isDataEuqal(map[string]*mvccpb.KeyValue{
+		"aaa": {
+			Key:     []byte("akey"),
+			Version: 11233,
+		},
+	}, map[string]*mvccpb.KeyValue{
+		"aaa": {
+			Key:     []byte("akey"),
+			Version: 11233,
+		},
+	})
+
+	if !equal {
+		t.Error("isDataEqual failed")
+	}
+
+	equal = isDataEuqal(map[string]*mvccpb.KeyValue{
+		"aaa": {
+			Key:     []byte("akey"),
+			Version: 11233,
+		},
+		"bbb": {
+			Key:     []byte("akey"),
+			Version: 11233,
+		},
+	}, map[string]*mvccpb.KeyValue{
+		"aaa": {
+			Key:     []byte("akey"),
+			Version: 11233,
+		},
+	})
+
+	if equal {
+		t.Error("isDataEqual should not equal failed")
+	}
 }
