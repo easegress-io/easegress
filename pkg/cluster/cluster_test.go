@@ -240,3 +240,46 @@ func TestUtil(t *testing.T) {
 		t.Error("isDataEqual should not equal failed")
 	}
 }
+
+func TestMutexAndOP(t *testing.T) {
+	opts, _, _ := mockMembers(1)
+	cls, err := New(opts[0])
+
+	if err != nil {
+		t.Errorf("init failed: %v", err)
+	}
+
+	c := cls.(*cluster)
+
+	err = c.getReady()
+	if err != nil {
+		t.Errorf("get ready failed: %v", err)
+	}
+
+	m, err := c.Mutex("akey")
+	if err != nil {
+		t.Errorf("cluster mutex failed: %v", err)
+	}
+
+	m.Lock()
+	defer m.Unlock()
+
+	value := "a value"
+	err = c.PutAndDeleteUnderLease(map[string]*string{
+		"akey": &value,
+	})
+
+	if err != nil {
+		t.Errorf("PutAndDeleteUnderLease failed: %v", err)
+	}
+
+	err = c.Delete("akey")
+	if err != nil {
+		t.Errorf("Delete failed: %v", err)
+	}
+
+	err = c.DeletePrefix("akey")
+	if err != nil {
+		t.Errorf("DeletePrefix failed: %v", err)
+	}
+}
