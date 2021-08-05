@@ -52,6 +52,7 @@ rules:
   body: 'mocked body 2'
   headers:
     X-Test: test2
+  delay: am
 `
 	rawSpec := make(map[string]interface{})
 	yamltool.Unmarshal([]byte(yamlSpec), &rawSpec)

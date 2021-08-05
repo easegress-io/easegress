@@ -206,7 +206,7 @@ oauth2:
 }
 
 func TestOAuth2TokenIntrospect(t *testing.T) {
-	const yamlSpec = `
+	yamlSpec := `
 kind: Validator
 name: validator
 oauth2:
@@ -242,6 +242,18 @@ oauth2:
 	if result != resultInvalid {
 		t.Errorf("OAuth/2 Authorization should fail")
 	}
+
+	yamlSpec = `
+kind: Validator
+name: validator
+oauth2:
+  tokenIntrospect:
+    endPoint: http://oauth2.megaease.com/
+    clientId: megaease
+    clientSecret: secret
+    basicAuth: megaease@megaease
+`
+	v = createValidator(yamlSpec, nil)
 
 	body = `{
 			"subject":"megaease.com",

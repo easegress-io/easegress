@@ -26,6 +26,7 @@ import (
 	"github.com/megaease/easegress/pkg/util/texttemplate"
 )
 
+// MockedHTTPContext is the mocked HTTP context
 type MockedHTTPContext struct {
 	MockedLock               func()
 	MockedUnlock             func()
@@ -53,18 +54,21 @@ type MockedHTTPContext struct {
 	MockedSetHandlerCaller   func(caller context.HandlerCaller)
 }
 
+// Lock mocks the Lock function of HTTPContext
 func (c *MockedHTTPContext) Lock() {
 	if c.MockedLock != nil {
 		c.MockedLock()
 	}
 }
 
+// Unlock mocks the Unlock function of HTTPContext
 func (c *MockedHTTPContext) Unlock() {
 	if c.MockedUnlock != nil {
 		c.MockedUnlock()
 	}
 }
 
+// Span mocks the Span function of HTTPContext
 func (c *MockedHTTPContext) Span() tracing.Span {
 	if c.MockedSpan != nil {
 		return c.MockedSpan()
@@ -72,14 +76,17 @@ func (c *MockedHTTPContext) Span() tracing.Span {
 	return nil
 }
 
+// Request mocks the Request function of HTTPContext
 func (c *MockedHTTPContext) Request() context.HTTPRequest {
 	return &c.MockedRequest
 }
 
+// Response mocks the Response function of HTTPContext
 func (c *MockedHTTPContext) Response() context.HTTPResponse {
 	return &c.MockedResponse
 }
 
+// Deadline mocks the Deadline function of HTTPContext
 func (c *MockedHTTPContext) Deadline() (deadline time.Time, ok bool) {
 	if c.MockedDeadline != nil {
 		return c.MockedDeadline()
@@ -87,6 +94,7 @@ func (c *MockedHTTPContext) Deadline() (deadline time.Time, ok bool) {
 	return time.Now(), false
 }
 
+// Done mocks the Done function of HTTPContext
 func (c *MockedHTTPContext) Done() <-chan struct{} {
 	if c.MockedDone != nil {
 		return c.MockedDone()
@@ -94,6 +102,7 @@ func (c *MockedHTTPContext) Done() <-chan struct{} {
 	return nil
 }
 
+// Err mocks the Err function of HTTPContext
 func (c *MockedHTTPContext) Err() error {
 	if c.MockedErr != nil {
 		return c.MockedErr()
@@ -101,6 +110,7 @@ func (c *MockedHTTPContext) Err() error {
 	return nil
 }
 
+// Value mocks the Value function of HTTPContext
 func (c *MockedHTTPContext) Value(key interface{}) interface{} {
 	if c.MockedValue != nil {
 		return c.MockedValue(key)
@@ -108,12 +118,14 @@ func (c *MockedHTTPContext) Value(key interface{}) interface{} {
 	return nil
 }
 
+// Cancel mocks the Cancel function of HTTPContext
 func (c *MockedHTTPContext) Cancel(err error) {
 	if c.MockedCancel != nil {
 		c.MockedCancel(err)
 	}
 }
 
+// Cancelled mocks the Cancelled function of HTTPContext
 func (c *MockedHTTPContext) Cancelled() bool {
 	if c.MockedCancelled != nil {
 		return c.MockedCancelled()
@@ -121,6 +133,7 @@ func (c *MockedHTTPContext) Cancelled() bool {
 	return false
 }
 
+// ClientDisconnected mocks the ClientDisconnected function of HTTPContext
 func (c *MockedHTTPContext) ClientDisconnected() bool {
 	if c.MockedClientDisconnected != nil {
 		return c.MockedClientDisconnected()
@@ -128,6 +141,7 @@ func (c *MockedHTTPContext) ClientDisconnected() bool {
 	return false
 }
 
+// Duration mocks the Duration function of HTTPContext
 func (c *MockedHTTPContext) Duration() time.Duration {
 	if c.MockedDuration != nil {
 		return c.MockedDuration()
@@ -135,18 +149,21 @@ func (c *MockedHTTPContext) Duration() time.Duration {
 	return 0
 }
 
+// OnFinish mocks the OnFinish function of HTTPContext
 func (c *MockedHTTPContext) OnFinish(fn func()) {
 	if c.MockedFinish != nil {
 		c.MockedOnFinish(fn)
 	}
 }
 
+// AddTag mocks the AddTag function of HTTPContext
 func (c *MockedHTTPContext) AddTag(tag string) {
 	if c.MockedAddTag != nil {
 		c.MockedAddTag(tag)
 	}
 }
 
+// StatMetric mocks the StatMetric function of HTTPContext
 func (c *MockedHTTPContext) StatMetric() *httpstat.Metric {
 	if c.MockedStatMetric != nil {
 		return c.MockedStatMetric()
@@ -154,6 +171,7 @@ func (c *MockedHTTPContext) StatMetric() *httpstat.Metric {
 	return nil
 }
 
+// Log mocks the Log function of HTTPContext
 func (c *MockedHTTPContext) Log() string {
 	if c.MockedLog != nil {
 		return c.MockedLog()
@@ -161,12 +179,14 @@ func (c *MockedHTTPContext) Log() string {
 	return ""
 }
 
+// Finish mocks the Finish function of HTTPContext
 func (c *MockedHTTPContext) Finish() {
 	if c.MockedFinish != nil {
 		c.MockedFinish()
 	}
 }
 
+// Template mocks the Template function of HTTPContext
 func (c *MockedHTTPContext) Template() texttemplate.TemplateEngine {
 	if c.MockedTemplate != nil {
 		return c.MockedTemplate()
@@ -174,12 +194,14 @@ func (c *MockedHTTPContext) Template() texttemplate.TemplateEngine {
 	return nil
 }
 
+// SetTemplate mocks the SetTemplate function of HTTPContext
 func (c *MockedHTTPContext) SetTemplate(ht *context.HTTPTemplate) {
 	if c.MockedSetTemplate != nil {
 		c.MockedSetTemplate(ht)
 	}
 }
 
+// SaveReqToTemplate mocks the SaveReqToTemplate function of HTTPContext
 func (c *MockedHTTPContext) SaveReqToTemplate(filterName string) error {
 	if c.MockedSaveReqToTemplate != nil {
 		return c.MockedSaveReqToTemplate(filterName)
@@ -187,6 +209,7 @@ func (c *MockedHTTPContext) SaveReqToTemplate(filterName string) error {
 	return nil
 }
 
+// SaveRspToTemplate mocks the SaveRspToTemplate function of HTTPContext
 func (c *MockedHTTPContext) SaveRspToTemplate(filterName string) error {
 	if c.MockedSaveRspToTemplate != nil {
 		return c.MockedSaveRspToTemplate(filterName)
@@ -194,6 +217,7 @@ func (c *MockedHTTPContext) SaveRspToTemplate(filterName string) error {
 	return nil
 }
 
+// CallNextHandler mocks the CallNextHandler function of HTTPContext
 func (c *MockedHTTPContext) CallNextHandler(lastResult string) string {
 	if c.MockedCallNextHandler != nil {
 		return c.MockedCallNextHandler(lastResult)
@@ -201,6 +225,7 @@ func (c *MockedHTTPContext) CallNextHandler(lastResult string) string {
 	return lastResult
 }
 
+// SetHandlerCaller mocks the SetHandlerCaller function of HTTPContext
 func (c *MockedHTTPContext) SetHandlerCaller(caller context.HandlerCaller) {
 	if c.MockedSetHandlerCaller != nil {
 		c.SetHandlerCaller(caller)
