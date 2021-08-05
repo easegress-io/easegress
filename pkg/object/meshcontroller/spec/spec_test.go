@@ -713,6 +713,10 @@ func TestPipelineBuilderFailed(t *testing.T) {
 
 	builder.appendTimeLimiter(nil)
 
+	yamlStr := builder.yamlConfig()
+	if len(yamlStr) == 0 {
+		t.Errorf("builder append nil resilience filter failed")
+	}
 }
 
 func TestPipelineBuilder(t *testing.T) {
