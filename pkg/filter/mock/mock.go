@@ -103,11 +103,7 @@ func (m *Mock) reload() {
 		if r.Delay == "" {
 			continue
 		}
-		var err error
-		r.delay, err = time.ParseDuration(r.Delay)
-		if err != nil {
-			logger.Errorf("BUG: parse duration %s failed: %v", r.Delay, err)
-		}
+		r.delay, _ = time.ParseDuration(r.Delay)
 	}
 }
 
