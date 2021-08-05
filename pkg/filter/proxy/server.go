@@ -180,11 +180,16 @@ func (s *servers) useStaticServers() {
 	s.service = nil
 }
 
+// make it mockable in test
+var fnGetService = func(serviceRegistry, serviceName string) (*serviceregistry.Service, error) {
+	return serviceregistry.Global.GetService(serviceRegistry, serviceName)
+}
+
 func (s *servers) useService() (*serviceregistry.Service, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	service, err := serviceregistry.Global.GetService(s.poolSpec.ServiceRegistry, s.poolSpec.ServiceName)
+	service, err := fnGetService(s.poolSpec.ServiceRegistry, s.poolSpec.ServiceName)
 	if err != nil {
 		return nil, fmt.Errorf("get service %s failed: %v", s.poolSpec.ServiceName, err)
 	}
