@@ -118,6 +118,11 @@ func mockMembers(count int) ([]*option.Options, membersSlice, []*pb.Member) {
 
 	sort.Sort(members)
 
+	tmp := members.copy()
+	if len(tmp) == 0 {
+		panic("members copy failed")
+	}
+
 	return opts, members, pbMembers
 }
 
