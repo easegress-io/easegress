@@ -20,7 +20,6 @@ package jmxtool
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"strconv"
 
@@ -75,16 +74,10 @@ func (agent *AgentClient) UpdateService(newService *spec.Service, version int64)
 	}
 
 	url := agent.URL + serviceConfigURL
-	resp, err := handleRequest(http.MethodPut, url, bytes)
+	_, bodyString, err := handleRequestRetBody(http.MethodPut, url, bytes)
 	if err != nil {
 		return fmt.Errorf("handleRequest error: %v", err)
 	}
-
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("read the http body failed: %v", err)
-	}
-	bodyString := string(bodyBytes)
 	logger.Infof("Update Service, URL: %s,request: %s, result: %v", url, string(bytes), bodyString)
 	return err
 }
@@ -108,15 +101,10 @@ func (agent *AgentClient) UpdateCanary(globalHeaders *spec.GlobalCanaryHeaders, 
 	}
 
 	url := agent.URL + canaryConfigURL
-	resp, err := handleRequest(http.MethodPut, url, bytes)
+	_, bodyString, err := handleRequestRetBody(http.MethodPut, url, bytes)
 	if err != nil {
 		return fmt.Errorf("handleRequest error: %v", err)
 	}
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("read the http body failed: %v", err)
-	}
-	bodyString := string(bodyBytes)
-	logger.Infof("Update Canary, URL: %s, request %s, result: %v", url, string(bytes), bodyString)
+	logger.Infof("Update Canary, URL: %s,request: %s, result: %v", url, string(bytes), bodyString)
 	return err
 }
