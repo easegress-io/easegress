@@ -19,8 +19,10 @@ package validator
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/megaease/easegress/pkg/context/contexttest"
@@ -36,12 +38,16 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func createValidator(yamlSpec string) *Validator {
+func createValidator(yamlSpec string, prev *Validator) *Validator {
 	rawSpec := make(map[string]interface{})
 	yamltool.Unmarshal([]byte(yamlSpec), &rawSpec)
 	spec, _ := httppipeline.NewFilterSpec(rawSpec, nil)
 	v := &Validator{}
-	v.Init(spec)
+	if prev == nil {
+		v.Init(spec)
+	} else {
+		v.Inherit(spec, prev)
+	}
 	return v
 }
 
@@ -55,7 +61,7 @@ headers:
     regexp: "^ok-.+$"
 `
 
-	v := createValidator(yamlSpec)
+	v := createValidator(yamlSpec, nil)
 
 	header := http.Header{}
 	ctx := &contexttest.MockedHTTPContext{}
@@ -96,7 +102,7 @@ jwt:
   algorithm: HS256
   secret: 313233343536
 `
-	v := createValidator(yamlSpec)
+	v := createValidator(yamlSpec, nil)
 
 	ctx := &contexttest.MockedHTTPContext{}
 	ctx.MockedRequest.MockedCookie = func(name string) (*http.Cookie, error) {
@@ -107,16 +113,29 @@ jwt:
 		return httpheader.New(header)
 	}
 
-	token := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.keH6T3x1z7mmhKL1T3r9sQdAxxdzB6siemGMr_6ZOwU"
-	header.Add("Authorization", "Bearer "+token)
+	token := "eyJhbGciOiJIUzM4NCIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.3Ywq9NlR3cBST4nfcdbR-fcZ8374RHzU50X6flKvG-tnWFMalMaHRm3cMpXs1NrZ"
+	header.Set("Authorization", "Bearer "+token)
 	result := v.Handle(ctx)
+	if result != resultInvalid {
+		t.Errorf("the jwt token in header should be invalid")
+	}
+
+	token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.keH6T3x1z7mmhKL1T3r9sQdAxxdzB6siemGMr_6ZOwU"
+	header.Set("Authorization", "Bearer "+token)
+	result = v.Handle(ctx)
 	if result == resultInvalid {
 		t.Errorf("the jwt token in header should be valid")
 	}
 
-	header.Add("Authorization", "Bearer "+token+"abc")
+	header.Set("Authorization", "not Bearer "+token)
 	result = v.Handle(ctx)
-	if result == resultInvalid {
+	if result != resultInvalid {
+		t.Errorf("the jwt token in header should be invalid")
+	}
+
+	header.Set("Authorization", "Bearer "+token+"abc")
+	result = v.Handle(ctx)
+	if result != resultInvalid {
 		t.Errorf("the jwt token in header should be invalid")
 	}
 
@@ -128,9 +147,20 @@ jwt:
 	if result == resultInvalid {
 		t.Errorf("the jwt token in cookie should be valid")
 	}
+
+	v = createValidator(yamlSpec, v)
+	result = v.Handle(ctx)
+	if result == resultInvalid {
+		t.Errorf("the jwt token in cookie should be valid")
+	}
+
+	if v.Status() != nil {
+		t.Error("behavior changed, please update this case")
+	}
+	v.Description()
 }
 
-func TestOAuth2(t *testing.T) {
+func TestOAuth2JWT(t *testing.T) {
 	const yamlSpec = `
 kind: Validator
 name: validator
@@ -139,7 +169,7 @@ oauth2:
     algorithm: HS256
     secret: 313233343536
 `
-	v := createValidator(yamlSpec)
+	v := createValidator(yamlSpec, nil)
 
 	ctx := &contexttest.MockedHTTPContext{}
 
@@ -148,20 +178,102 @@ oauth2:
 		return httpheader.New(header)
 	}
 
-	token := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyLCJzY29wZSI6Im1lZ2FlYXNlIn0.HRcRwN6zLJnubaUnZhZ5jC-j-rRiT-5mY8emJW6h6so"
-	header.Add("Authorization", "Bearer "+token)
+	token := "eyJhbGciOiJIUzM4NCIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.3Ywq9NlR3cBST4nfcdbR-fcZ8374RHzU50X6flKvG-tnWFMalMaHRm3cMpXs1NrZ"
+	header.Set("Authorization", "Bearer "+token)
 	result := v.Handle(ctx)
+	if result != resultInvalid {
+		t.Errorf("OAuth/2 Authorization should fail")
+	}
+
+	token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyLCJzY29wZSI6Im1lZ2FlYXNlIn0.HRcRwN6zLJnubaUnZhZ5jC-j-rRiT-5mY8emJW6h6so"
+	header.Set("Authorization", "Bearer "+token)
+	result = v.Handle(ctx)
 	if result == resultInvalid {
 		t.Errorf("OAuth/2 Authorization should succeed")
 	}
 
-	header.Add("Authorization", "Bearer "+token+"abc")
+	header.Set("Authorization", "not Bearer "+token)
 	result = v.Handle(ctx)
-	if result == resultInvalid {
+	if result != resultInvalid {
+		t.Errorf("OAuth/2 Authorization should fail")
+	}
+
+	header.Set("Authorization", "Bearer "+token+"abc")
+	result = v.Handle(ctx)
+	if result != resultInvalid {
 		t.Errorf("OAuth/2 Authorization should fail")
 	}
 }
 
+func TestOAuth2TokenIntrospect(t *testing.T) {
+	const yamlSpec = `
+kind: Validator
+name: validator
+oauth2:
+  tokenIntrospect:
+    endPoint: http://oauth2.megaease.com/
+    insecureTls: true
+    clientId: megaease
+    clientSecret: secret
+`
+	v := createValidator(yamlSpec, nil)
+	ctx := &contexttest.MockedHTTPContext{}
+
+	header := http.Header{}
+	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
+		return httpheader.New(header)
+	}
+
+	token := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyLCJzY29wZSI6Im1lZ2FlYXNlIn0.HRcRwN6zLJnubaUnZhZ5jC-j-rRiT-5mY8emJW6h6so"
+	header.Set("Authorization", "Bearer "+token)
+
+	body := `{
+			"subject":"megaease.com",
+			"scope":"read,write",
+			"active": false
+		}`
+	fnSendRequest = func(client *http.Client, r *http.Request) (*http.Response, error) {
+		reader := strings.NewReader(body)
+		return &http.Response{
+			Body: io.NopCloser(reader),
+		}, nil
+	}
+	result := v.Handle(ctx)
+	if result != resultInvalid {
+		t.Errorf("OAuth/2 Authorization should fail")
+	}
+
+	body = `{
+			"subject":"megaease.com",
+			"scope":"read,write",
+			"active": true
+		}`
+	result = v.Handle(ctx)
+	if result == resultInvalid {
+		t.Errorf("OAuth/2 Authorization should succeed")
+	}
+}
+
 func TestSignature(t *testing.T) {
-	// This test is covered by signer
+	// This test is almost covered by signer
+
+	const yamlSpec = `
+kind: Validator
+name: validator
+signature:
+  accessKeys:
+    AKID: SECRET
+`
+	v := createValidator(yamlSpec, nil)
+
+	ctx := &contexttest.MockedHTTPContext{}
+	ctx.MockedRequest.MockedStd = func() *http.Request {
+		r, _ := http.NewRequest(http.MethodGet, "http://megaease.com", nil)
+		return r
+	}
+
+	result := v.Handle(ctx)
+	if result != resultInvalid {
+		t.Errorf("OAuth/2 Authorization should fail")
+	}
 }

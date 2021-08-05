@@ -22,10 +22,12 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/megaease/easegress/pkg/context/contexttest"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
+	libcb "github.com/megaease/easegress/pkg/util/circuitbreaker"
 	"github.com/megaease/easegress/pkg/util/yamltool"
 )
 
@@ -101,6 +103,11 @@ urls:
 		t.Error("should not be short circuited")
 	}
 
+	if cb.Status() != nil {
+		t.Error("behavior changed, please update this case")
+	}
+	cb.Description()
+
 	ctx.MockedRequest.MockedPath = func() string {
 		return "/circuitbreak"
 	}
@@ -111,5 +118,44 @@ urls:
 	result = newCb.Handle(ctx)
 	if result != resultShortCircuited {
 		t.Error("new circuit breaker should be short circuited")
+	}
+}
+
+func TestBuildPolicy(t *testing.T) {
+	url := &URLRule{
+		policy: &Policy{
+			SlidingWindowType:         "time_based",
+			SlowCallDurationThreshold: "10ms",
+			MaxWaitDurationInHalfOpen: "30s",
+			WaitDurationInOpen:        "60s",
+		},
+	}
+	p := url.buildPolicy()
+	if p.FailureRateThreshold != 50 {
+		t.Error("failure rate threshold is not default")
+	}
+	if p.SlowCallRateThreshold != 100 {
+		t.Error("slow call rate threshold is not default")
+	}
+	if p.SlidingWindowType != libcb.TimeBased {
+		t.Error("sliding window type is incorrect")
+	}
+	if p.SlidingWindowSize != 100 {
+		t.Error("sliding window size is not default")
+	}
+	if p.PermittedNumberOfCallsInHalfOpen != 10 {
+		t.Error("permitted number of calls in half open is not default")
+	}
+	if p.MinimumNumberOfCalls != 100 {
+		t.Error("minimum number of calls is not default")
+	}
+	if p.SlowCallDurationThreshold != 10*time.Millisecond {
+		t.Error("slow call duration threshold is not 10ms")
+	}
+	if p.MaxWaitDurationInHalfOpen != 30*time.Second {
+		t.Error("max wait duration in half open is not 30s")
+	}
+	if p.WaitDurationInOpen != time.Minute {
+		t.Error("wait duration in open is not 1m")
 	}
 }

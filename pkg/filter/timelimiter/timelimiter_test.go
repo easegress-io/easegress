@@ -105,4 +105,13 @@ urls:
 	if result == resultTimeout {
 		t.Error("request path doesn't match, timeout should not happen")
 	}
+
+	newTl := &TimeLimiter{}
+	spec, _ = httppipeline.NewFilterSpec(rawSpec, nil)
+	newTl.Inherit(spec, tl)
+	tl.Close()
+	result = newTl.Handle(ctx)
+	if result == resultTimeout {
+		t.Error("request path doesn't match, timeout should not happen")
+	}
 }

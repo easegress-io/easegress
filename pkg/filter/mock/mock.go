@@ -129,7 +129,7 @@ func (m *Mock) handle(ctx context.HTTPContext) (result string) {
 		w.SetBody(strings.NewReader(rule.Body))
 		result = resultMocked
 
-		if rule.delay < 0 {
+		if rule.delay <= 0 {
 			return
 		}
 

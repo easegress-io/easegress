@@ -48,6 +48,10 @@ rules:
   headers:
     X-Test: test1
   delay: 1ms
+- code: 203
+  body: 'mocked body 2'
+  headers:
+    X-Test: test2
 `
 	rawSpec := make(map[string]interface{})
 	yamltool.Unmarshal([]byte(yamlSpec), &rawSpec)
@@ -93,5 +97,22 @@ rules:
 
 	if resp.Header().Get("X-Test") != "test1" {
 		t.Error("header 'X-Test' should be 'test1'")
+	}
+
+	if m.Status() != nil {
+		t.Error("behavior changed, please update this case")
+	}
+	m.Description()
+
+	ctx.MockedRequest.MockedPath = func() string {
+		return "/customer"
+	}
+	newM := &Mock{}
+	spec, _ = httppipeline.NewFilterSpec(rawSpec, nil)
+	newM.Inherit(spec, m)
+	m.Close()
+	newM.Handle(ctx)
+	if resp.Code != 203 {
+		t.Error("status code is not 203")
 	}
 }
