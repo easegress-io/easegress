@@ -197,6 +197,99 @@ func TestSideCarEgressPipelineWithCanarySpec(t *testing.T) {
 	fmt.Println(superSpec.YAMLConfig())
 }
 
+func TestSideCarEgressPipelneNotLoadBalancer(t *testing.T) {
+	s := &Service{
+		Name: "order-003-canary-array",
+		Sidecar: &Sidecar{
+			Address:         "127.0.0.1",
+			IngressPort:     8080,
+			IngressProtocol: "http",
+			EgressPort:      9090,
+			EgressProtocol:  "http",
+		},
+
+		Canary: &Canary{
+			CanaryRules: []*CanaryRule{
+				{
+					Headers: map[string]*urlrule.StringMatch{
+						"X-canary": {
+							Exact: "lv1",
+						},
+					},
+					URLs: []*urlrule.URLRule{
+						{
+							Methods: []string{
+								"GET",
+								"POST",
+							},
+							URL: urlrule.StringMatch{
+								Prefix: "/",
+							},
+						},
+					},
+					ServiceInstanceLabels: map[string]string{
+						"version": "v1",
+					},
+				},
+				{
+					Headers: map[string]*urlrule.StringMatch{
+						"X-canary": {
+							Exact: "ams",
+						},
+					},
+					URLs: []*urlrule.URLRule{
+						{
+							Methods: []string{
+								"GET",
+								"POST",
+							},
+							URL: urlrule.StringMatch{
+								Prefix: "/",
+							},
+						},
+					},
+					ServiceInstanceLabels: map[string]string{
+						"version": "v2",
+					},
+				},
+			},
+		},
+	}
+
+	instanceSpecs := []*ServiceInstanceSpec{
+		{
+			ServiceName: "fake-001",
+			InstanceID:  "xxx-89757",
+			IP:          "192.168.0.110",
+			Port:        80,
+			Status:      "UP",
+		},
+		{
+			ServiceName: "fake-002-canary",
+			InstanceID:  "zzz-73597",
+			IP:          "192.168.0.120",
+			Port:        80,
+			Status:      "UP",
+			Labels: map[string]string{
+				"version": "v1",
+			},
+		},
+		{
+			ServiceName: "fake-003-canary-no-match",
+			InstanceID:  "yyy-73587",
+			IP:          "192.168.0.121",
+			Port:        80,
+			Status:      "UP",
+			Labels: map[string]string{
+				"version": "v2",
+			},
+		},
+	}
+
+	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs)
+	fmt.Println(superSpec.YAMLConfig())
+}
+
 func TestSideCarEgressPipelineWithMultipleCanarySpec(t *testing.T) {
 	s := &Service{
 		Name: "order-003-canary-array",
@@ -607,6 +700,19 @@ func TestSideCarEgressResiliencePipelineSpec(t *testing.T) {
 
 	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs)
 	fmt.Println(superSpec.YAMLConfig())
+}
+
+func TestPipelineBuilderFailed(t *testing.T) {
+	builder := newPipelineSpecBuilder("abc")
+
+	builder.appendRateLimiter(nil)
+
+	builder.appendCircuitBreaker(nil)
+
+	builder.appendRetryer(nil)
+
+	builder.appendTimeLimiter(nil)
+
 }
 
 func TestPipelineBuilder(t *testing.T) {
