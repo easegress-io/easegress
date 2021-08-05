@@ -188,24 +188,6 @@ var (
 	FalseStrings = []string{"0", "f", "false", "off", "n", "no"}
 )
 
-// RemoveRepeatedByte removes the repeated bytes.
-func RemoveRepeatedByte(s string, needRemoveByte byte) string {
-	if len(s) < 2 {
-		return s
-	}
-
-	out := NewLazybuf(s)
-	repeatingByte := s[0]
-	out.Append(repeatingByte)
-	for _, c := range []byte(s[1:]) {
-		if c != repeatingByte || c != needRemoveByte {
-			out.Append(c)
-		}
-		repeatingByte = c
-	}
-	return out.String()
-}
-
 // NextNumberPowerOf2 return the number of power of 2
 // Via: https://stackoverflow.com/a/466242/1705845
 //      https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2

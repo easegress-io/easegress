@@ -107,7 +107,7 @@ URLLoop:
 	return nil
 }
 
-func (url *URLRule) createCircuitBreaker() {
+func (url *URLRule) buildPolicy() *libcb.Policy {
 	policy := libcb.Policy{
 		FailureRateThreshold:             url.policy.FailureRateThreshold,
 		SlowCallRateThreshold:            url.policy.SlowCallRateThreshold,
@@ -157,7 +157,12 @@ func (url *URLRule) createCircuitBreaker() {
 		policy.WaitDurationInOpen = time.Minute
 	}
 
-	url.cb = libcb.New(&policy)
+	return &policy
+}
+
+func (url *URLRule) createCircuitBreaker() {
+	policy := url.buildPolicy()
+	url.cb = libcb.New(policy)
 }
 
 // Kind returns the kind of CircuitBreaker.

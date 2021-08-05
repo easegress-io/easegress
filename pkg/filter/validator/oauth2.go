@@ -93,6 +93,11 @@ func NewOAuth2Validator(spec *OAuth2ValidatorSpec) *OAuth2Validator {
 	return v
 }
 
+// make it mockable
+var fnSendRequest = func(client *http.Client, r *http.Request) (*http.Response, error) {
+	return client.Do(r)
+}
+
 func (v *OAuth2Validator) introspectToken(tokenStr string) (*tokenInfo, error) {
 	var body bytes.Buffer
 	body.WriteString("token=")
@@ -111,7 +116,7 @@ func (v *OAuth2Validator) introspectToken(tokenStr string) (*tokenInfo, error) {
 		r.Header.Set("Authorization", "Basic "+v.spec.TokenIntrospect.BasicAuth)
 	}
 
-	resp, e := v.client.Do(r)
+	resp, e := fnSendRequest(v.client, r)
 	if e != nil {
 		return nil, e
 	}

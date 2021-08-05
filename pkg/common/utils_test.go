@@ -362,24 +362,6 @@ func TestPanicToErr(t *testing.T) {
 	PanicToErr(f, nil)
 }
 
-func TestRemoveRepeatedByteTest(t *testing.T) {
-	s := "abbcccddd"
-	var b byte = 'b'
-	result := RemoveRepeatedByte(s, b)
-	expected := "abcccddd"
-	if result != expected {
-		t.Errorf("expected %s, result %s", expected, result)
-	}
-
-	s = "a"
-	b = 'a'
-	result = RemoveRepeatedByte(s, b)
-	expected = "a"
-	if result != expected {
-		t.Errorf("expected %s, result %s", expected, result)
-	}
-}
-
 func TestValidateName(t *testing.T) {
 	if err := ValidateName("localhost"); err != nil {
 		t.Errorf("error %v", err)
