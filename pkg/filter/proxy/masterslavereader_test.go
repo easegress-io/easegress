@@ -19,7 +19,9 @@ package proxy
 
 import (
 	"bytes"
+	"io"
 	"testing"
+	"testing/iotest"
 )
 
 func TestReader(t *testing.T) {
@@ -42,6 +44,31 @@ func TestReader(t *testing.T) {
 	n, _ = reader2.Read(buff1)
 	if n == 0 {
 		t.Errorf("slave read failed")
+	}
+
+	if string(buff) != string(buff1) {
+		t.Errorf("buff: %s, buff1: %s not the same ", string(buff), string(buff1))
+	}
+
+	reader1.Close()
+}
+
+func TestEOFReader(t *testing.T) {
+	eofReader := iotest.ErrReader(io.EOF)
+
+	reader1, reader2 := newMasterSlaveReader(eofReader)
+
+	buff := make([]byte, 10)
+	_, err := reader1.Read(buff)
+
+	if err == nil {
+		t.Errorf("master read should failed, but succ")
+	}
+
+	buff1 := make([]byte, 10)
+	_, err = reader2.Read(buff1)
+	if err == nil {
+		t.Errorf("slave read should failed but succ ")
 	}
 
 	if string(buff) != string(buff1) {
