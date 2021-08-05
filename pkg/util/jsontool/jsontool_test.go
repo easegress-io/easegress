@@ -32,3 +32,11 @@ func TestJSONTrimNull(t *testing.T) {
 		t.Fatalf("want: %s\ngot : %s", want, got)
 	}
 }
+
+func TestTrimNull(t *testing.T) {
+	_, err := TrimNull(nil)
+
+	if err == nil {
+		t.Errorf("trim null should be failed")
+	}
+}
