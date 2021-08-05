@@ -45,6 +45,24 @@ func TestInValidSpec(t *testing.T) {
 }
 
 func TestInvalidKnative(t *testing.T) {
+	spec := Spec{
+		Name:           "demo",
+		Image:          "helloworld:1.0",
+		Port:           10000,
+		AutoScaleType:  AutoScaleMetricCPU,
+		AutoScaleValue: "0.1",
+		MinReplica:     1,
+		MaxReplica:     2,
+		LimitCPU:       "aaa",
+		LimitMemory:    "80Mi",
+		RequestCPU:     "100m",
+		RequestMemory:  "60Mi",
+	}
+
+	var err error
+	if err = spec.Validate(); err == nil {
+		t.Errorf("test failed spec should not be valid, err: %v", err)
+	}
 }
 
 func TestValidSpec(t *testing.T) {
@@ -65,5 +83,104 @@ func TestValidSpec(t *testing.T) {
 	var err error
 	if err = spec.Validate(); err != nil {
 		t.Errorf("test failed spec should not be valid, err: %v", err)
+	}
+}
+
+func TestInValidSpecReplica(t *testing.T) {
+	spec := Spec{
+		Name:           "demo",
+		Image:          "helloworld:1.0",
+		Port:           10000,
+		AutoScaleType:  AutoScaleMetricCPU,
+		AutoScaleValue: "0.1",
+		MinReplica:     2,
+		MaxReplica:     1,
+		LimitCPU:       "180m",
+		LimitMemory:    "80Mi",
+		RequestCPU:     "100m",
+		RequestMemory:  "60Mi",
+	}
+
+	var err error
+	if err = spec.Validate(); err == nil {
+		t.Errorf("test failed spec should not be valid, err: %v", err)
+	}
+}
+
+func TestInValidSpecAutoScaleType(t *testing.T) {
+	spec := Spec{
+		Name:           "demo",
+		Image:          "helloworld:1.0",
+		Port:           10000,
+		AutoScaleType:  "nothing",
+		AutoScaleValue: "0.1",
+		MinReplica:     2,
+		MaxReplica:     1,
+		LimitCPU:       "180m",
+		LimitMemory:    "80Mi",
+		RequestCPU:     "100m",
+		RequestMemory:  "60Mi",
+	}
+
+	var err error
+	if err = spec.Validate(); err == nil {
+		t.Errorf("test failed spec should not be invalid, err: %v", err)
+	}
+	fmt.Println("err is ", err)
+}
+
+func TestNext(t *testing.T) {
+	fsm, _ := InitFSM(InitState())
+
+	f := &Function{
+		Spec: &Spec{
+			Name:           "demo",
+			Image:          "helloworld:1.0",
+			Port:           10000,
+			AutoScaleValue: "0.1",
+			MinReplica:     1,
+			MaxReplica:     2,
+			LimitCPU:       "180m",
+			LimitMemory:    "80Mi",
+			RequestCPU:     "100m",
+			RequestMemory:  "60Mi",
+		},
+		Fsm:    fsm,
+		Status: &Status{},
+	}
+
+	updated, err := f.Next(ReadyEvent)
+
+	if err != nil {
+		t.Errorf("test failed Next should succ, err: %v", err)
+	}
+
+	t.Logf("updated: %v, new status: %s\n", updated, f.Fsm.Current())
+}
+
+func TestInvalidNext(t *testing.T) {
+	fsm, _ := InitFSM(InitState())
+
+	f := &Function{
+		Spec: &Spec{
+			Name:           "demo",
+			Image:          "helloworld:1.0",
+			Port:           10000,
+			AutoScaleValue: "0.1",
+			MinReplica:     1,
+			MaxReplica:     2,
+			LimitCPU:       "180m",
+			LimitMemory:    "80Mi",
+			RequestCPU:     "100m",
+			RequestMemory:  "60Mi",
+		},
+		Fsm:    fsm,
+		Status: &Status{},
+	}
+
+	_, err := f.Next(StartEvent)
+
+	if err == nil {
+		t.Errorf("test failed Next should failed, start event will be rejected in initial state")
 	}
 }
