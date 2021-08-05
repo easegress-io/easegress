@@ -24,7 +24,7 @@ import (
 	"github.com/megaease/easegress/pkg/util/httpheader"
 )
 
-// Mocked HTTP Request is the mocked HTTP request
+// MockedHTTPRequest is the mocked HTTP request
 type MockedHTTPRequest struct {
 	MockedRealIP      func() string
 	MockedMethod      func() string

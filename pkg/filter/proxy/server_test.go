@@ -341,7 +341,7 @@ func TestServers(t *testing.T) {
 			Weight: 5,
 		},
 	}
-	ps := PoolSpec{
+	ps := &PoolSpec{
 		ServersTags:     []string{},
 		ServiceRegistry: "service registry",
 		ServiceName:     "service name",
@@ -350,14 +350,19 @@ func TestServers(t *testing.T) {
 
 	ctx := &contexttest.MockedHTTPContext{}
 
-	s := newServers(&ps)
+	s := newServers(ps)
 	if s.len() != 0 {
 		t.Errorf("servers.len() should be 0")
 	}
 	s.close()
 
-	ps.Servers = servers
-	s = newServers(&ps)
+	ps = &PoolSpec{
+		ServersTags:     []string{},
+		ServiceRegistry: "service registry",
+		ServiceName:     "service name",
+		Servers:         servers,
+	}
+	s = newServers(ps)
 	if s.len() != len(servers) {
 		t.Errorf("servers.len() is not %d", len(servers))
 	}
@@ -368,12 +373,16 @@ func TestServers(t *testing.T) {
 	}
 	s.close()
 
-	ps.Servers = []*Server{}
-	ps.ServiceName = "testservice"
-	fnGetService = func(serviceRegistry, serviceName string) (*serviceregistry.Service, error) {
-		return nil, fmt.Errorf("dummy error")
+	ps = &PoolSpec{
+		ServersTags:     []string{},
+		ServiceRegistry: "service registry",
+		Servers:         []*Server{},
+		ServiceName:     "testservice",
 	}
-	s = newServers(&ps)
+	fnGetService.Store(func(serviceRegistry, serviceName string) (*serviceregistry.Service, error) {
+		return nil, fmt.Errorf("dummy error")
+	})
+	s = newServers(ps)
 	if s.len() != 0 {
 		t.Errorf("servers.len() should be 0")
 	}
@@ -401,10 +410,10 @@ func TestServers(t *testing.T) {
 	}
 	service, _ := serviceregistry.NewService("testservice", svcservers)
 
-	fnGetService = func(serviceRegistry, serviceName string) (*serviceregistry.Service, error) {
+	fnGetService.Store(func(serviceRegistry, serviceName string) (*serviceregistry.Service, error) {
 		return service, nil
-	}
-	s = newServers(&ps)
+	})
+	s = newServers(ps)
 	if s.len() != len(service.Servers()) {
 		t.Errorf("servers.len() is not %d", len(service.Servers()))
 	}

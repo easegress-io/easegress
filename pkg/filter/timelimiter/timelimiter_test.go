@@ -45,7 +45,10 @@ urls:
   - timeoutDuration: 10ms
     methods: [GET]
     url:
-      exact: http://www.megaease.com/timelimit
+      exact: /timelimit
+  - methods: [POST]
+    url:
+      prefix: /customer
 `
 	rawSpec := make(map[string]interface{})
 	yamltool.Unmarshal([]byte(yamlSpec), &rawSpec)
@@ -62,8 +65,8 @@ urls:
 		t.Error("default timeout duration is not the value in spec")
 	}
 
-	if len(tl.spec.URLs) != 1 {
-		t.Error("the length of 'urls' should be 1")
+	if len(tl.spec.URLs) != 2 {
+		t.Error("the length of 'urls' should be 2")
 	} else if tl.spec.URLs[0].timeout != 10*time.Millisecond {
 		t.Error("timeout duration is not the value in spec")
 	}
@@ -73,7 +76,7 @@ urls:
 		return http.MethodGet
 	}
 	ctx.MockedRequest.MockedPath = func() string {
-		return "http://www.megaease.com/timelimit"
+		return "/timelimit"
 	}
 	ctx.MockedResponse.MockedStd = func() http.ResponseWriter {
 		return &httptest.ResponseRecorder{}
@@ -98,13 +101,18 @@ urls:
 	}
 
 	ctx.MockedRequest.MockedPath = func() string {
-		return "http://www.megaease.com/notimelimit"
+		return "/notimelimit"
 	}
 
 	result = tl.Handle(ctx)
 	if result == resultTimeout {
 		t.Error("request path doesn't match, timeout should not happen")
 	}
+
+	if tl.Status() != nil {
+		t.Error("behavior changed, please update this case")
+	}
+	tl.Description()
 
 	newTl := &TimeLimiter{}
 	spec, _ = httppipeline.NewFilterSpec(rawSpec, nil)
