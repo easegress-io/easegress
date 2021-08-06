@@ -27,7 +27,9 @@ import (
 
 	"github.com/megaease/easegress/pkg/context/contexttest"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/util/httpfilter"
 	"github.com/megaease/easegress/pkg/util/httpheader"
+	"github.com/megaease/easegress/pkg/util/memorycache"
 	"github.com/megaease/easegress/pkg/util/yamltool"
 )
 
@@ -129,6 +131,7 @@ failureCodes: [503, 504]
 	if result != "" {
 		t.Error("proxy.Handle should succeeded")
 	}
+	ctx.Finish()
 
 	fnSendRequest = func(r *http.Request) (*http.Response, error) {
 		return nil, fmt.Errorf("mocked error")
@@ -141,4 +144,94 @@ failureCodes: [503, 504]
 	time.Sleep(10 * time.Millisecond)
 	proxy.Close()
 	time.Sleep(10 * time.Millisecond)
+}
+
+func TestSpecValidate(t *testing.T) {
+	spec := Spec{}
+
+	if spec.Validate() == nil {
+		t.Error("validate should fail")
+	}
+
+	spec.MainPool = &PoolSpec{}
+	spec.MainPool.Filter = &httpfilter.Spec{}
+	if spec.Validate() == nil {
+		t.Error("validate should fail")
+	}
+
+	spec.MainPool.Filter = nil
+	if spec.Validate() != nil {
+		t.Error("validate should succeed")
+	}
+
+	spec.CandidatePools = append(spec.CandidatePools, &PoolSpec{})
+	if spec.Validate() == nil {
+		t.Error("validate should fail")
+	}
+
+	spec.CandidatePools[0].Filter = &httpfilter.Spec{}
+	if spec.Validate() != nil {
+		t.Error("validate should succeed")
+	}
+
+	spec.MirrorPool = &PoolSpec{}
+	if spec.Validate() == nil {
+		t.Error("validate should fail")
+	}
+
+	spec.MirrorPool.Filter = &httpfilter.Spec{}
+	if spec.Validate() != nil {
+		t.Error("validate should succeed")
+	}
+
+	spec.MirrorPool.MemoryCache = &memorycache.Spec{}
+	if spec.Validate() == nil {
+		t.Error("validate should fail")
+	}
+	spec.MirrorPool.MemoryCache = nil
+
+	spec.Fallback = &FallbackSpec{}
+	if spec.Validate() == nil {
+		t.Error("validate should fail")
+	}
+
+	spec.FailureCodes = []int{500}
+	if spec.Validate() != nil {
+		t.Error("validate should succeed")
+	}
+}
+
+func TestPoolSpecValidate(t *testing.T) {
+	spec := PoolSpec{}
+
+	if spec.Validate() == nil {
+		t.Error("validate should fail")
+	}
+
+	servers := []*Server{
+		{
+			URL:  "http://127.0.0.1:9090",
+			Tags: []string{"d1", "v1", "green"},
+		},
+		{
+			URL:    "http://127.0.0.1:9091",
+			Tags:   []string{"v1", "d1", "green"},
+			Weight: 2,
+		},
+	}
+	spec.Servers = servers
+	if spec.Validate() == nil {
+		t.Error("validate should fail")
+	}
+
+	servers[0].Weight = 1
+	spec.ServersTags = []string{"v2"}
+	if spec.Validate() == nil {
+		t.Error("validate should fail")
+	}
+
+	spec.ServersTags = []string{"v1"}
+	if spec.Validate() != nil {
+		t.Error("validate should succeed")
+	}
 }

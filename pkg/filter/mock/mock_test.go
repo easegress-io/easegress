@@ -42,16 +42,21 @@ func TestMock(t *testing.T) {
 kind: Mock
 name: mock
 rules:
+- pathPrefix: /login/
+  code: 202
+  body: 'mocked body'
+  headers:
+    X-Test: test1
 - path: /sales
   code: 203
   body: 'mocked body'
   headers:
-    X-Test: test1
+    X-Test: test2
   delay: 1ms
-- code: 203
+- code: 204
   body: 'mocked body 2'
   headers:
-    X-Test: test2
+    X-Test: test3
 `
 	rawSpec := make(map[string]interface{})
 	yamltool.Unmarshal([]byte(yamlSpec), &rawSpec)
@@ -68,9 +73,6 @@ rules:
 	ctx.MockedRequest.MockedMethod = func() string {
 		return http.MethodGet
 	}
-	ctx.MockedRequest.MockedPath = func() string {
-		return "/sales"
-	}
 	resp := httptest.NewRecorder()
 	ctx.MockedResponse.MockedSetStatusCode = func(code int) {
 		resp.WriteHeader(code)
@@ -86,6 +88,19 @@ rules:
 		return ""
 	}
 
+	resp = httptest.NewRecorder()
+	ctx.MockedRequest.MockedPath = func() string {
+		return "/login/1"
+	}
+	m.Handle(ctx)
+	if resp.Code != 202 {
+		t.Error("status code is not 202")
+	}
+
+	resp = httptest.NewRecorder()
+	ctx.MockedRequest.MockedPath = func() string {
+		return "/sales"
+	}
 	m.Handle(ctx)
 	if resp.Code != 203 {
 		t.Error("status code is not 203")
@@ -95,8 +110,8 @@ rules:
 		t.Error("body should be 'mocked body'")
 	}
 
-	if resp.Header().Get("X-Test") != "test1" {
-		t.Error("header 'X-Test' should be 'test1'")
+	if resp.Header().Get("X-Test") != "test2" {
+		t.Error("header 'X-Test' should be 'test2'")
 	}
 
 	if m.Status() != nil {
@@ -104,6 +119,7 @@ rules:
 	}
 	m.Description()
 
+	resp = httptest.NewRecorder()
 	ctx.MockedRequest.MockedPath = func() string {
 		return "/customer"
 	}
@@ -112,7 +128,7 @@ rules:
 	newM.Inherit(spec, m)
 	m.Close()
 	newM.Handle(ctx)
-	if resp.Code != 203 {
-		t.Error("status code is not 203")
+	if resp.Code != 204 {
+		t.Error("status code is not 204")
 	}
 }
