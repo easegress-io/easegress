@@ -18,6 +18,7 @@
 package supervisor
 
 import (
+	"fmt"
 	"runtime/debug"
 	"sync"
 
@@ -196,6 +197,16 @@ func (s *Supervisor) WalkControllers(walkFn WalkFunc) {
 	s.businessControllers.Range(func(k, v interface{}) bool {
 		return walkFn(v.(*ObjectEntity))
 	})
+}
+
+// MustGetSystemController wraps GetSystemController with panic.
+func (s *Supervisor) MustGetSystemController(name string) *ObjectEntity {
+	entity, exists := s.GetSystemController(name)
+	if !exists {
+		panic(fmt.Errorf("system controller %s not found", name))
+	}
+
+	return entity
 }
 
 // GetSystemController returns the system controller with the existing flag.

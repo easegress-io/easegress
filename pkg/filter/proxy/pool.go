@@ -28,6 +28,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/megaease/easegress/pkg/util/callbackreader"
 	"github.com/megaease/easegress/pkg/util/httpfilter"
@@ -96,7 +97,7 @@ func (s PoolSpec) Validate() error {
 	return nil
 }
 
-func newPool(spec *PoolSpec, tagPrefix string,
+func newPool(super *supervisor.Supervisor, spec *PoolSpec, tagPrefix string,
 	writeResponse bool, failureCodes []int) *pool {
 
 	var filter *httpfilter.HTTPFilter
@@ -116,7 +117,7 @@ func newPool(spec *PoolSpec, tagPrefix string,
 		writeResponse: writeResponse,
 
 		filter:      filter,
-		servers:     newServers(spec),
+		servers:     newServers(super, spec),
 		httpStat:    httpstat.New(),
 		memoryCache: memoryCache,
 	}

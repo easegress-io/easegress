@@ -48,11 +48,16 @@ type (
 		superSpec *supervisor.Spec
 		spec      *Spec
 
+		serviceRegistry *serviceregistry.ServiceRegistry
+		firstDone       bool
+		serviceSpecs    map[string]*serviceregistry.ServiceSpec
+		notify          chan *serviceregistry.RegistryEvent
+
 		connMutex sync.RWMutex
 		conn      *zookeeper.Conn
 
-		statusMutex sync.Mutex
-		serversNum  map[string]int
+		statusMutex         sync.Mutex
+		serviceInstancesNum map[string]int
 
 		done chan struct{}
 	}
@@ -67,8 +72,8 @@ type (
 
 	// Status is the status of ZookeeperServiceRegistry.
 	Status struct {
-		Health     string         `yaml:"health"`
-		ServersNum map[string]int `yaml:"serversNum"`
+		Health              string         `yaml:"health"`
+		ServiceInstancesNum map[string]int `yaml:"serviceInstancesNum"`
 	}
 )
 
@@ -105,7 +110,12 @@ func (zk *ZookeeperServiceRegistry) Inherit(superSpec *supervisor.Spec, previous
 }
 
 func (zk *ZookeeperServiceRegistry) reload() {
-	zk.serversNum = make(map[string]int)
+	zk.serviceRegistry = zk.superSpec.Super().MustGetSystemController(serviceregistry.Kind).
+		Instance().(*serviceregistry.ServiceRegistry)
+	zk.serviceRegistry.RegisterRegistry(zk)
+	zk.notify = make(chan *serviceregistry.RegistryEvent, 10)
+
+	zk.serviceInstancesNum = make(map[string]int)
 	zk.done = make(chan struct{})
 
 	_, err := zk.getConn()
@@ -211,10 +221,9 @@ func (zk *ZookeeperServiceRegistry) update() {
 		return
 	}
 
-	servers := []*serviceregistry.Server{}
-	serversNum := map[string]int{}
+	serviceSpecs := make(map[string]*serviceregistry.ServiceSpec)
+	serviceInstancesNum := map[string]int{}
 	for _, child := range childs {
-
 		fullPath := zk.spec.Prefix + "/" + child
 		data, _, err := conn.Get(fullPath)
 		if err != nil {
@@ -226,23 +235,52 @@ func (zk *ZookeeperServiceRegistry) update() {
 			return
 		}
 
-		server := new(serviceregistry.Server)
+		serviceInstanceSpec := &serviceregistry.ServiceInstanceSpec{}
 		// Note: zookeeper allows store custom format into one path, so we choose to store
 		//       serviceregistry.Server JSON format directly.
-		err = json.Unmarshal(data, server)
+		err = json.Unmarshal(data, serviceInstanceSpec)
 		if err != nil {
-			logger.Errorf("BUG %s unmarshal fullpath %s failed %v", zk.superSpec.Name(), fullPath, err)
+			logger.Errorf("%s unmarshal fullpath %s to json failed: %v", zk.superSpec.Name(), fullPath, err)
 			return
 		}
-		logger.Debugf("zk %s fullpath %s server is  %v", zk.superSpec.Name(), fullPath, server)
-		serversNum[fullPath]++
-		servers = append(servers, server)
+
+		if err := serviceInstanceSpec.Validate(); err != nil {
+			logger.Errorf("%s is invalid: %v", data, err)
+			continue
+		}
+
+		serviceName := serviceInstanceSpec.ServiceName
+
+		serviceSpec, exists := serviceSpecs[serviceName]
+		if !exists {
+			serviceSpecs[serviceName] = &serviceregistry.ServiceSpec{
+				RegistryName: zk.Name(),
+				ServiceName:  serviceName,
+				Instances:    []*serviceregistry.ServiceInstanceSpec{serviceInstanceSpec},
+			}
+		} else {
+			serviceSpec.Instances = append(serviceSpec.Instances, serviceInstanceSpec)
+		}
+
+		serviceInstancesNum[fullPath]++
 	}
 
-	serviceregistry.Global.ReplaceServers(zk.superSpec.Name(), servers)
+	var event *serviceregistry.RegistryEvent
+	if !zk.firstDone {
+		zk.firstDone = true
+		event = &serviceregistry.RegistryEvent{
+			RegistryName: zk.Name(),
+			Replace:      serviceSpecs,
+		}
+	} else {
+		event = serviceregistry.NewRegistryEventFromDiff(zk.Name(), zk.serviceSpecs, serviceSpecs)
+	}
+
+	zk.notify <- event
+	zk.serviceSpecs = serviceSpecs
 
 	zk.statusMutex.Lock()
-	zk.serversNum = serversNum
+	zk.serviceInstancesNum = serviceInstancesNum
 	zk.statusMutex.Unlock()
 }
 
@@ -258,7 +296,7 @@ func (zk *ZookeeperServiceRegistry) Status() *supervisor.Status {
 	}
 
 	zk.statusMutex.Lock()
-	s.ServersNum = zk.serversNum
+	s.ServiceInstancesNum = zk.serviceInstancesNum
 	zk.statusMutex.Unlock()
 
 	return &supervisor.Status{
@@ -268,8 +306,36 @@ func (zk *ZookeeperServiceRegistry) Status() *supervisor.Status {
 
 // Close closes ZookeeperServiceRegistry.
 func (zk *ZookeeperServiceRegistry) Close() {
+	zk.serviceRegistry.DeregisterRegistry(zk.Name())
+
 	zk.closeConn()
 	close(zk.done)
+}
 
-	serviceregistry.Global.CloseRegistry(zk.superSpec.Name())
+// Name returns name.
+func (zk *ZookeeperServiceRegistry) Name() string {
+	return zk.superSpec.Name()
+}
+
+// Notify returns notify channel.
+func (zk *ZookeeperServiceRegistry) Notify() <-chan *serviceregistry.RegistryEvent {
+	return zk.notify
+}
+
+// ApplyServices applies service specs to zookeeper registry.
+func (zk *ZookeeperServiceRegistry) ApplyServices(serviceSpec []*serviceregistry.ServiceSpec) error {
+	// TODO
+	return nil
+}
+
+// GetService applies service specs to zookeeper registry.
+func (zk *ZookeeperServiceRegistry) GetService(serviceName string) (*serviceregistry.ServiceSpec, error) {
+	// TODO
+	return nil, nil
+}
+
+// ListServices lists service specs from zookeeper registry.
+func (zk *ZookeeperServiceRegistry) ListServices() ([]*serviceregistry.ServiceSpec, error) {
+	// TODO
+	return nil, nil
 }

@@ -27,7 +27,7 @@ const (
 	// meshEurekaPrefix is the mesh eureka registry API url prefix.
 	meshEurekaPrefix = "/mesh/eureka"
 
-	// meshNacosPrefix is the mesh nacos registyr API url prefix.
+	// meshNacosPrefix is the mesh nacos registry API url prefix.
 	meshNacosPrefix = "/nacos/v1"
 )
 

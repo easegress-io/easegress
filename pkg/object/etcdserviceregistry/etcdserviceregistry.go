@@ -48,11 +48,16 @@ type (
 		superSpec *supervisor.Spec
 		spec      *Spec
 
+		serviceRegistry *serviceregistry.ServiceRegistry
+		firstDone       bool
+		serviceSpecs    map[string]*serviceregistry.ServiceSpec
+		notify          chan *serviceregistry.RegistryEvent
+
 		clientMutex sync.RWMutex
 		client      *clientv3.Client
 
-		statusMutex sync.Mutex
-		serversNum  map[string]int
+		statusMutex         sync.Mutex
+		serviceInstancesNum map[string]int
 
 		done chan struct{}
 	}
@@ -66,8 +71,8 @@ type (
 
 	// Status is the status of EtcdServiceRegistry.
 	Status struct {
-		Health     string         `yaml:"health"`
-		ServersNum map[string]int `yaml:"serversNum"`
+		Health              string         `yaml:"health"`
+		ServiceInstancesNum map[string]int `yaml:"serviceInstancesNum"`
 	}
 )
 
@@ -102,7 +107,12 @@ func (e *EtcdServiceRegistry) Inherit(superSpec *supervisor.Spec, previousGenera
 }
 
 func (e *EtcdServiceRegistry) reload() {
-	e.serversNum = map[string]int{}
+	e.serviceRegistry = e.superSpec.Super().MustGetSystemController(serviceregistry.Kind).
+		Instance().(*serviceregistry.ServiceRegistry)
+	e.serviceRegistry.RegisterRegistry(e)
+	e.notify = make(chan *serviceregistry.RegistryEvent, 10)
+
+	e.serviceInstancesNum = map[string]int{}
 	e.done = make(chan struct{})
 
 	_, err := e.getClient()
@@ -200,29 +210,53 @@ func (e *EtcdServiceRegistry) update() {
 		return
 	}
 
-	servers := []*serviceregistry.Server{}
-	serversNum := map[string]int{}
+	serviceSpecs := make(map[string]*serviceregistry.ServiceSpec)
+	serviceInstancesNum := map[string]int{}
 	for _, kv := range resp.Kvs {
-		server := &serviceregistry.Server{}
-		err := yaml.Unmarshal(kv.Value, server)
+		serviceInstanceSpec := &serviceregistry.ServiceInstanceSpec{}
+		err := yaml.Unmarshal(kv.Value, serviceInstanceSpec)
 		if err != nil {
 			logger.Errorf("%s: unmarshal %s to yaml failed: %v",
 				kv.Key, kv.Value, err)
 			continue
 		}
-		if err := server.Validate(); err != nil {
+		if err := serviceInstanceSpec.Validate(); err != nil {
 			logger.Errorf("%s is invalid: %v", kv.Value, err)
 			continue
 		}
 
-		servers = append(servers, server)
-		serversNum[server.ServiceName]++
+		serviceName := serviceInstanceSpec.ServiceName
+
+		serviceSpec, exists := serviceSpecs[serviceName]
+		if !exists {
+			serviceSpecs[serviceName] = &serviceregistry.ServiceSpec{
+				RegistryName: e.Name(),
+				ServiceName:  serviceName,
+				Instances:    []*serviceregistry.ServiceInstanceSpec{serviceInstanceSpec},
+			}
+		} else {
+			serviceSpec.Instances = append(serviceSpec.Instances, serviceInstanceSpec)
+		}
+
+		serviceInstancesNum[serviceName]++
 	}
 
-	serviceregistry.Global.ReplaceServers(e.superSpec.Name(), servers)
+	var event *serviceregistry.RegistryEvent
+	if !e.firstDone {
+		e.firstDone = true
+		event = &serviceregistry.RegistryEvent{
+			RegistryName: e.Name(),
+			Replace:      serviceSpecs,
+		}
+	} else {
+		event = serviceregistry.NewRegistryEventFromDiff(e.Name(), e.serviceSpecs, serviceSpecs)
+	}
+
+	e.notify <- event
+	e.serviceSpecs = serviceSpecs
 
 	e.statusMutex.Lock()
-	e.serversNum = serversNum
+	e.serviceInstancesNum = serviceInstancesNum
 	e.statusMutex.Unlock()
 }
 
@@ -238,10 +272,10 @@ func (e *EtcdServiceRegistry) Status() *supervisor.Status {
 	}
 
 	e.statusMutex.Lock()
-	serversNum := e.serversNum
+	serviceInstancesNum := e.serviceInstancesNum
 	e.statusMutex.Unlock()
 
-	s.ServersNum = serversNum
+	s.ServiceInstancesNum = serviceInstancesNum
 
 	return &supervisor.Status{
 		ObjectStatus: s,
@@ -250,8 +284,36 @@ func (e *EtcdServiceRegistry) Status() *supervisor.Status {
 
 // Close closes EtcdServiceRegistry.
 func (e *EtcdServiceRegistry) Close() {
+	e.serviceRegistry.DeregisterRegistry(e.Name())
+
 	e.closeClient()
 	close(e.done)
+}
 
-	serviceregistry.Global.CloseRegistry(e.superSpec.Name())
+// Name returns name.
+func (e *EtcdServiceRegistry) Name() string {
+	return e.superSpec.Name()
+}
+
+// Notify returns notify channel.
+func (e *EtcdServiceRegistry) Notify() <-chan *serviceregistry.RegistryEvent {
+	return e.notify
+}
+
+// ApplyServices applies service specs to etcd registry.
+func (e *EtcdServiceRegistry) ApplyServices(serviceSpec []*serviceregistry.ServiceSpec) error {
+	// TODO
+	return nil
+}
+
+// GetService applies service specs to etcd registry.
+func (e *EtcdServiceRegistry) GetService(serviceName string) (*serviceregistry.ServiceSpec, error) {
+	// TODO
+	return nil, nil
+}
+
+// ListServices lists service specs from etcd registry.
+func (e *EtcdServiceRegistry) ListServices() ([]*serviceregistry.ServiceSpec, error) {
+	// TODO
+	return nil, nil
 }

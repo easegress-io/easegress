@@ -46,11 +46,16 @@ type (
 		superSpec *supervisor.Spec
 		spec      *Spec
 
+		serviceRegistry *serviceregistry.ServiceRegistry
+		firstDone       bool
+		serviceSpecs    map[string]*serviceregistry.ServiceSpec
+		notify          chan *serviceregistry.RegistryEvent
+
 		clientMutex sync.RWMutex
 		client      *api.Client
 
-		statusMutex sync.Mutex
-		serversNum  map[string]int
+		statusMutex         sync.Mutex
+		serviceInstancesNum map[string]int
 
 		done chan struct{}
 	}
@@ -68,8 +73,8 @@ type (
 
 	// Status is the status of ConsulServiceRegistry.
 	Status struct {
-		Health     string         `yaml:"health"`
-		ServersNum map[string]int `yaml:"serversNum"`
+		Health              string         `yaml:"health"`
+		ServiceInstancesNum map[string]int `yaml:"serviceInstancesNum"`
 	}
 )
 
@@ -105,7 +110,12 @@ func (c *ConsulServiceRegistry) Inherit(superSpec *supervisor.Spec, previousGene
 }
 
 func (c *ConsulServiceRegistry) reload() {
-	c.serversNum = map[string]int{}
+	c.serviceRegistry = c.superSpec.Super().MustGetSystemController(serviceregistry.Kind).
+		Instance().(*serviceregistry.ServiceRegistry)
+	c.serviceRegistry.RegisterRegistry(c)
+	c.notify = make(chan *serviceregistry.RegistryEvent, 10)
+
+	c.serviceInstancesNum = map[string]int{}
 	c.done = make(chan struct{})
 
 	_, err := c.getClient()
@@ -214,8 +224,8 @@ func (c *ConsulServiceRegistry) update() {
 		return
 	}
 
-	servers := []*serviceregistry.Server{}
-	serversNum := map[string]int{}
+	serviceSpecs := make(map[string]*serviceregistry.ServiceSpec)
+	serviceInstancesNum := map[string]int{}
 	for serviceName := range resp {
 		services, _, err := catalog.ServiceMultipleTags(serviceName,
 			c.spec.ServiceTags, q)
@@ -225,30 +235,52 @@ func (c *ConsulServiceRegistry) update() {
 			continue
 		}
 		for _, service := range services {
-			server := &serviceregistry.Server{
+			serviceInstanceSpec := &serviceregistry.ServiceInstanceSpec{
 				ServiceName: serviceName,
 			}
-			server.HostIP = service.ServiceAddress
-			if server.HostIP == "" {
-				server.HostIP = service.Address
+			serviceInstanceSpec.HostIP = service.ServiceAddress
+			if serviceInstanceSpec.HostIP == "" {
+				serviceInstanceSpec.HostIP = service.Address
 			}
-			server.Port = uint16(service.ServicePort)
-			server.Tags = service.ServiceTags
+			serviceInstanceSpec.Port = uint16(service.ServicePort)
+			serviceInstanceSpec.Tags = service.ServiceTags
 
-			if err := server.Validate(); err != nil {
+			if err := serviceInstanceSpec.Validate(); err != nil {
 				logger.Errorf("invalid server: %v", err)
 				continue
 			}
 
-			servers = append(servers, server)
-			serversNum[serviceName]++
+			serviceSpec, exists := serviceSpecs[serviceName]
+			if !exists {
+				serviceSpecs[serviceName] = &serviceregistry.ServiceSpec{
+					RegistryName: c.Name(),
+					ServiceName:  serviceName,
+					Instances:    []*serviceregistry.ServiceInstanceSpec{serviceInstanceSpec},
+				}
+			} else {
+				serviceSpec.Instances = append(serviceSpec.Instances, serviceInstanceSpec)
+			}
+
+			serviceInstancesNum[serviceName]++
 		}
 	}
 
-	serviceregistry.Global.ReplaceServers(c.superSpec.Name(), servers)
+	var event *serviceregistry.RegistryEvent
+	if !c.firstDone {
+		c.firstDone = true
+		event = &serviceregistry.RegistryEvent{
+			RegistryName: c.Name(),
+			Replace:      serviceSpecs,
+		}
+	} else {
+		event = serviceregistry.NewRegistryEventFromDiff(c.Name(), c.serviceSpecs, serviceSpecs)
+	}
+
+	c.notify <- event
+	c.serviceSpecs = serviceSpecs
 
 	c.statusMutex.Lock()
-	c.serversNum = serversNum
+	c.serviceInstancesNum = serviceInstancesNum
 	c.statusMutex.Unlock()
 }
 
@@ -264,10 +296,10 @@ func (c *ConsulServiceRegistry) Status() *supervisor.Status {
 	}
 
 	c.statusMutex.Lock()
-	serversNum := c.serversNum
+	serversNum := c.serviceInstancesNum
 	c.statusMutex.Unlock()
 
-	s.ServersNum = serversNum
+	s.ServiceInstancesNum = serversNum
 
 	return &supervisor.Status{
 		ObjectStatus: s,
@@ -276,8 +308,36 @@ func (c *ConsulServiceRegistry) Status() *supervisor.Status {
 
 // Close closes ConsulServiceRegistry.
 func (c *ConsulServiceRegistry) Close() {
+	c.serviceRegistry.DeregisterRegistry(c.Name())
+
 	c.closeClient()
 	close(c.done)
+}
 
-	serviceregistry.Global.CloseRegistry(c.superSpec.Name())
+// Name returns name.
+func (c *ConsulServiceRegistry) Name() string {
+	return c.superSpec.Name()
+}
+
+// Notify returns notify channel.
+func (c *ConsulServiceRegistry) Notify() <-chan *serviceregistry.RegistryEvent {
+	return c.notify
+}
+
+// ApplyServices applies service specs to consul registry.
+func (c *ConsulServiceRegistry) ApplyServices(serviceSpec []*serviceregistry.ServiceSpec) error {
+	// TODO
+	return nil
+}
+
+// GetService applies service specs to consul registry.
+func (c *ConsulServiceRegistry) GetService(serviceName string) (*serviceregistry.ServiceSpec, error) {
+	// TODO
+	return nil, nil
+}
+
+// ListServices lists service specs from consul registry.
+func (c *ConsulServiceRegistry) ListServices() ([]*serviceregistry.ServiceSpec, error) {
+	// TODO
+	return nil, nil
 }

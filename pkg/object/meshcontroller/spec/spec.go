@@ -89,10 +89,16 @@ type (
 
 		// IngressPort is the port for http server in mesh ingress
 		IngressPort int `yaml:"ingressPort" jsonschema:"required"`
+
+		ServiceRegistry string `yaml:"serviceRegistry" jsonschema:"omitempty"`
 	}
 
 	// Service contains the information of service.
 	Service struct {
+		// CreatedBy means the source of the service.
+		// It could be adminAPI, externalRegistry:Consul, etc.
+		CreatedBy string `yaml:"source" jsonschema:"omitempty"`
+
 		Name           string `yaml:"name" jsonschema:"required"`
 		RegisterTenant string `yaml:"registerTenant" jsonschema:"required"`
 

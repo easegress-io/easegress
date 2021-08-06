@@ -19,146 +19,290 @@ package serviceregistry
 
 import (
 	"fmt"
-	"sort"
 	"sync"
 
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/supervisor"
 )
 
-// Global is the global service registry.
-var Global = New()
+const (
+	// Category is the category of ServiceRegistry.
+	Category = supervisor.CategorySystemController
+
+	// Kind is the kind of ServiceRegistry.
+	Kind = "ServiceRegistry"
+)
+
+func init() {
+	supervisor.Register(&ServiceRegistry{})
+}
 
 type (
-	// ServiceRegistry is the service center containing all drivers.
+	// ServiceRegistry is a system controller to be center registry
+	// between external registries and internal handlers and watchers.
+	// To be specific: it dispatches event from every registry to every watcher,
+	// and wraps the operations from handlers to every registry.
 	ServiceRegistry struct {
+		superSpec *supervisor.Spec
+		spec      *Spec
+
 		mutex sync.RWMutex
 
-		//	  registryName   serviceName
-		registries map[string]map[string]*Service
+		// The key is registry name.
+		registryBuckets map[string]*registryBucket
+
+		done chan struct{}
+	}
+
+	registryBucket struct {
+		// These fields will be changed in register and deregister.
+		registered bool
+		registry   Registry
+		done       chan struct{}
+
+		// Key is the registry name.
+		registryWatchers map[string]RegistryWatcher
+
+		// Key is the service name.
+		serviceBuckets map[string]*serviceBucket
+	}
+
+	serviceBucket struct {
+		serviceWatchers map[string]ServiceWatcher
+	}
+
+	// Spec describes ServiceRegistry.
+	Spec struct {
+		// TODO: Support updating for system controller.
+		// Please notice some components may reference of old system controller
+		// after reloading, this should be fixed.
+		SyncInterval string `yaml:"syncInterval" jsonschema:"required,format=duration"`
+	}
+
+	// Status is the status of ServiceRegistry.
+	Status struct{}
+
+	// Registry stands for the specific service registry.
+	Registry interface {
+		Name() string
+
+		// Operation from the registry.
+		Notify() <-chan *RegistryEvent
+
+		// Operations to the registry.
+		ApplyServices(serviceSpec []*ServiceSpec) error
+		GetService(serviceName string) (*ServiceSpec, error)
+		ListServices() ([]*ServiceSpec, error)
 	}
 )
 
-// New creates a ServiceRegistry.
-func New() *ServiceRegistry {
-	return &ServiceRegistry{
-		registries: map[string]map[string]*Service{},
+// newRegisterBucket creates a registrybucket, the registry could be nil.
+func newRegisterBucket() *registryBucket {
+	return &registryBucket{
+		done:             make(chan struct{}),
+		registryWatchers: make(map[string]RegistryWatcher),
+		serviceBuckets:   make(map[string]*serviceBucket),
 	}
 }
 
-// GetService gets service.
-// NOTICE: If the registryName is empty, and there is one and only one ServiceRegistry,
-// it uses the only one.
-func (sg *ServiceRegistry) GetService(registryName, serviceName string) (*Service, error) {
-	sg.mutex.RLock()
-	defer sg.mutex.RUnlock()
+func (b *registryBucket) needClean() bool {
+	return !b.registered && len(b.registryWatchers) == 0 && len(b.serviceBuckets) == 0
+}
 
-	var chosenRegistry map[string]*Service
-	// NOTE: Try to find the unnamed service registry.
-	switch len(sg.registries) {
-	case 0:
-		return nil, fmt.Errorf("no service registry to use")
-	case 1:
-		if registryName == "" {
-			// Return the only one service registry if not specifying.
-			for _, registry := range sg.registries {
-				chosenRegistry = registry
-			}
+func newServiceBucket() *serviceBucket {
+	return &serviceBucket{
+		serviceWatchers: make(map[string]ServiceWatcher),
+	}
+}
+
+// RegisterRegistry registers the registry and watch it.
+func (sr *ServiceRegistry) RegisterRegistry(registry Registry) error {
+	sr.mutex.Lock()
+	defer sr.mutex.Unlock()
+
+	bucket, exists := sr.registryBuckets[registry.Name()]
+	if exists {
+		if bucket.registered {
+			return fmt.Errorf("registry %s already registered", registry.Name())
 		}
-	default:
-		if registryName == "" {
-			return nil, fmt.Errorf("no service registry specific(%d exist)", len(sg.registries))
-		}
+	} else {
+		bucket = newRegisterBucket()
+		sr.registryBuckets[registry.Name()] = bucket
 	}
 
-	if chosenRegistry == nil {
-		// NOTE: Try to find the named service registry.
-		registry, exists := sg.registries[registryName]
-		if !exists {
-			return nil, fmt.Errorf("service registry %s not found", registryName)
-		}
-		chosenRegistry = registry
-	}
+	bucket.registered, bucket.registry = true, registry
 
-	service, exists := chosenRegistry[serviceName]
+	go sr.watchRegistry(bucket)
+
+	return nil
+}
+
+func (sr *ServiceRegistry) watchRegistry(bucket *registryBucket) {
+	for {
+		select {
+		case <-bucket.done:
+			return
+		case event := <-bucket.registry.Notify():
+			event.RegistryName = bucket.registry.Name()
+
+			sr.handleRegistryEvent(event)
+		}
+	}
+}
+
+func (sr *ServiceRegistry) handleRegistryEvent(event *RegistryEvent) {
+	sr.mutex.Lock()
+	defer sr.mutex.Unlock()
+
+	bucket, exists := sr.registryBuckets[event.RegistryName]
 	if !exists {
-		return nil, fmt.Errorf("service %s not found", serviceName)
-	}
-
-	return service, nil
-}
-
-// ReplaceServers replaces all servers of the registry.
-func (sg *ServiceRegistry) ReplaceServers(registryName string, servers []*Server) {
-	serversByService := map[string][]*Server{}
-	for _, server := range servers {
-		if err := server.Validate(); err != nil {
-			logger.Errorf("serer %+v is invalid: %v", server, err)
-			continue
-		}
-		serversByService[server.ServiceName] = append(serversByService[server.ServiceName], server)
-	}
-	for _, servers := range serversByService {
-		// NOTE: It's stable for deep equal of server.Update.
-		sort.Sort(serversByURL(servers))
-	}
-
-	sg.mutex.Lock()
-	defer sg.mutex.Unlock()
-
-	serviceNames := map[string]struct{}{}
-	registry := sg.registries[registryName]
-	if registry == nil {
-		registry = map[string]*Service{}
-	}
-	for serviceName, servers := range serversByService {
-		service, exists := registry[serviceName]
-		if exists {
-			err := service.Update(servers)
-			if err != nil {
-				logger.Errorf("registry %s update service %s failed: %v",
-					registryName, serviceName, err)
-				continue
-			}
-		} else {
-			service, err := NewService(serviceName, servers)
-			if err != nil {
-				logger.Errorf("new service %s failed: %v", serviceName, err)
-				continue
-			}
-			registry[serviceName] = service
-		}
-		serviceNames[serviceName] = struct{}{}
-	}
-
-	for serviceName, service := range registry {
-		if _, exists := serviceNames[serviceName]; !exists {
-			delete(registry, serviceName)
-			service.Close(fmt.Sprintf("zero server in service registry %s", registryName))
-		}
-	}
-
-	sg.registries[registryName] = registry
-}
-
-// CloseRegistry deletes the registry with closing its services.
-func (sg *ServiceRegistry) CloseRegistry(registryName string) {
-	sg.mutex.Lock()
-	defer sg.mutex.Unlock()
-
-	registry, exists := sg.registries[registryName]
-	if !exists {
+		logger.Errorf("BUG: registry bucket %s not found", event.RegistryName)
 		return
 	}
 
-	for _, service := range registry {
-		service.Close(fmt.Sprintf("service registry %s closed", registryName))
+	for _, watcher := range bucket.registryWatchers {
+		watcher.(*registryWatcher).EventChan() <- event.DeepCopy()
 	}
 
-	delete(sg.registries, registryName)
+	for serviceName, serviceBucket := range bucket.serviceBuckets {
+		replace, replaceExists := event.Replace[serviceName]
+		apply, applyExists := event.Apply[serviceName]
+		del, delExists := event.Delete[serviceName]
+
+		if replaceExists {
+			for _, watcher := range serviceBucket.serviceWatchers {
+				watcher.(*serviceWatcher).EventChan() <- &ServiceEvent{
+					Apply: replace.DeepCopy(),
+				}
+			}
+			continue
+		}
+
+		if applyExists {
+			for _, watcher := range serviceBucket.serviceWatchers {
+				watcher.(*serviceWatcher).EventChan() <- &ServiceEvent{
+					Apply: apply.DeepCopy(),
+				}
+			}
+			continue
+		}
+
+		if delExists {
+			for _, watcher := range serviceBucket.serviceWatchers {
+				watcher.(*serviceWatcher).EventChan() <- &ServiceEvent{
+					Delete: del.DeepCopy(),
+				}
+			}
+			continue
+		}
+	}
 }
 
-type serversByURL []*Server
+// DeregisterRegistry remove the registry.
+func (sr *ServiceRegistry) DeregisterRegistry(registryName string) error {
+	sr.mutex.Lock()
+	defer sr.mutex.Unlock()
 
-func (s serversByURL) Less(i, j int) bool { return s[i].URL() < s[j].URL() }
-func (s serversByURL) Len() int           { return len(s) }
-func (s serversByURL) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+	bucket, exists := sr.registryBuckets[registryName]
+	if !exists || !bucket.registered {
+		return fmt.Errorf("%s not found", registryName)
+	}
+
+	bucket.registered = false
+	close(bucket.done)
+
+	if bucket.needClean() {
+		delete(sr.registryBuckets, registryName)
+	}
+
+	return nil
+}
+
+// ApplyServices applies the services to the registry with change RegistryName of all specs.
+func (sr *ServiceRegistry) ApplyServices(registryName string, serviceSpecs []*ServiceSpec) error {
+	sr.mutex.Lock()
+	defer sr.mutex.Unlock()
+
+	bucket, exists := sr.registryBuckets[registryName]
+	if !exists || !bucket.registered {
+		return fmt.Errorf("%s not found", registryName)
+	}
+
+	for _, spec := range serviceSpecs {
+		spec.RegistryName = registryName
+	}
+
+	return bucket.registry.ApplyServices(serviceSpecs)
+}
+
+// GetService gets the service of the registry.
+func (sr *ServiceRegistry) GetService(registryName, serviceName string) (*ServiceSpec, error) {
+	sr.mutex.Lock()
+	defer sr.mutex.Unlock()
+
+	bucket, exists := sr.registryBuckets[registryName]
+	if !exists || !bucket.registered {
+		return nil, fmt.Errorf("%s not found", registryName)
+	}
+
+	return bucket.registry.GetService(serviceName)
+}
+
+// ListServices lists all services of the registry.
+func (sr *ServiceRegistry) ListServices(registryName string) ([]*ServiceSpec, error) {
+	sr.mutex.Lock()
+	defer sr.mutex.Unlock()
+
+	bucket, exists := sr.registryBuckets[registryName]
+	if !exists || !bucket.registered {
+		return nil, fmt.Errorf("%s not found", registryName)
+	}
+
+	return bucket.registry.ListServices()
+}
+
+// Category returns the category of ServiceRegistry.
+func (sr *ServiceRegistry) Category() supervisor.ObjectCategory {
+	return Category
+}
+
+// Kind returns the kind of ServiceRegistry.
+func (sr *ServiceRegistry) Kind() string {
+	return Kind
+}
+
+// DefaultSpec returns the default spec of ServiceRegistry.
+func (sr *ServiceRegistry) DefaultSpec() interface{} {
+	return &Spec{
+		SyncInterval: "10s",
+	}
+}
+
+// Init initilizes ServiceRegistry.
+func (sr *ServiceRegistry) Init(superSpec *supervisor.Spec) {
+	sr.superSpec, sr.spec = superSpec, superSpec.ObjectSpec().(*Spec)
+	sr.reload()
+}
+
+// Inherit inherits previous generation of ServiceRegistry.
+func (sr *ServiceRegistry) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object) {
+	previousGeneration.Close()
+	sr.Init(superSpec)
+}
+
+func (sr *ServiceRegistry) reload() {
+	sr.registryBuckets = make(map[string]*registryBucket)
+	sr.done = make(chan struct{})
+}
+
+// Status returns status of ServiceRegistry.
+func (sr *ServiceRegistry) Status() *supervisor.Status {
+	return &supervisor.Status{
+		ObjectStatus: &Status{},
+	}
+}
+
+// Close closes ServiceRegistry.
+func (sr *ServiceRegistry) Close() {
+	close(sr.done)
+}
