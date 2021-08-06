@@ -134,8 +134,8 @@ func TestNumericMaxAggregatorFloat(t *testing.T) {
 
 	a := &NumericMaxAggregator{}
 	em.mapNext(t, a.Aggregate(""))
-	em.mapNext(t, a.Aggregate(float64(100)))
 	em.mapNext(t, a.Aggregate(float64(-2)))
+	em.mapNext(t, a.Aggregate(float64(100)))
 	em.mapNext(t, a.Aggregate(uint(10)))
 
 	wantResult := float64(100)
@@ -214,10 +214,10 @@ func TestNumericMinAggregatorUint(t *testing.T) {
 	})
 
 	a := &NumericMinAggregator{}
-	em.mapNext(t, a.Aggregate(uint(23)))
+	em.mapNext(t, a.Aggregate(uint(25)))
 	em.mapNext(t, a.Aggregate(int(3)))
 	em.mapNext(t, a.Aggregate(int(10)))
-	em.mapNext(t, a.Aggregate(uint(25)))
+	em.mapNext(t, a.Aggregate(uint(23)))
 
 	wantResult := uint64(23)
 	gotResult := a.Result().(uint64)
@@ -404,4 +404,38 @@ func TestNumericAvgAggregatorUint(t *testing.T) {
 	if a.String() != name {
 		t.Errorf("want %s, got %s", "numeric_max", name)
 	}
+}
+
+func TestEdgeCases(t *testing.T) {
+	// aggregate nil
+	a1 := &NumericMaxAggregator{}
+	if err := a1.Aggregate(nil); err != nil {
+		t.Errorf("return nil if aggregate nil")
+	}
+	a2 := &NumericSumAggregator{}
+	if err := a2.Aggregate(nil); err != nil {
+		t.Errorf("return nil if aggregate nil")
+	}
+	if res := a2.Result(); res != nil {
+		t.Errorf("return nil for nil res")
+	}
+	a3 := &NumericAvgAggregator{}
+	if err := a3.Aggregate(nil); err != nil {
+		t.Errorf("return nil if aggregate nil")
+	}
+	a4 := &NumericMinAggregator{}
+	if err := a4.Aggregate(nil); err != nil {
+		t.Errorf("return nil if aggregate nil")
+	}
+
+	// nk
+	var nk numericKind = 0
+	if nk.String() != "invalid" {
+		t.Errorf("invalid numericKind error")
+	}
+	nk = 4
+	if nk.String() != "unknown numericKind" {
+		t.Errorf("unknown numericKind error")
+	}
+
 }
