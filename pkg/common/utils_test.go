@@ -21,6 +21,8 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
+	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -72,4 +74,34 @@ func TestDirFunc(t *testing.T) {
 		t.Errorf("%v", err)
 	}
 
+}
+
+func TestIsDirEmpty(t *testing.T) {
+	name, _ := uuid()
+	if flag := IsDirEmpty(name); !flag {
+		t.Errorf("not exist dir is empty")
+	}
+}
+
+func TestExpandDir(t *testing.T) {
+	if !filepath.IsAbs(ExpandDir("testExpandDir")) {
+		t.Errorf("should return abs path")
+	}
+}
+
+func TestBackupAndCleanDir(t *testing.T) {
+	if BackupAndCleanDir("notexistdir") != nil {
+		t.Errorf("nil for not exist dir")
+	}
+}
+
+func TestNormalizeZapLogPath(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		for i := 0; i < 10; i++ {
+			name, _ := uuid()
+			if NormalizeZapLogPath(name) != name {
+				t.Errorf("for non-windows should return same result")
+			}
+		}
+	}
 }
