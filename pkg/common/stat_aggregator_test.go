@@ -429,7 +429,7 @@ func TestEdgeCases(t *testing.T) {
 	}
 
 	// nk
-	var nk numericKind = 0
+	var nk numericKind
 	if nk.String() != "invalid" {
 		t.Errorf("invalid numericKind error")
 	}
