@@ -18,6 +18,7 @@
 package proxy
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -97,6 +98,10 @@ failureCodes: [503, 504]
 	ctx.MockedResponse.MockedStatusCode = func() int {
 		return http.StatusServiceUnavailable
 	}
+	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
+		header := http.Header{}
+		return httpheader.New(header)
+	}
 	ctx.MockedResponse.MockedHeader = func() *httpheader.HTTPHeader {
 		header := http.Header{}
 		return httpheader.New(header)
@@ -109,6 +114,22 @@ failureCodes: [503, 504]
 	}
 	if proxy.fallbackForCodes(ctx) {
 		t.Error("fallback for 500 should be false")
+	}
+
+	fnSendRequest = func(r *http.Request) (*http.Response, error) {
+		return &http.Response{}, nil
+	}
+	result := proxy.Handle(ctx)
+	if result != "" {
+		t.Error("proxy.Handle should succeeded")
+	}
+
+	fnSendRequest = func(r *http.Request) (*http.Response, error) {
+		return nil, fmt.Errorf("mocked error")
+	}
+	result = proxy.Handle(ctx)
+	if result == "" {
+		t.Error("proxy.Handle should fail")
 	}
 
 	proxy.Close()

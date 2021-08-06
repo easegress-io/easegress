@@ -73,7 +73,7 @@ func (c *MockedHTTPContext) Span() tracing.Span {
 	if c.MockedSpan != nil {
 		return c.MockedSpan()
 	}
-	return nil
+	return tracing.NewSpan(tracing.NoopTracing, "mocked")
 }
 
 // Request mocks the Request function of HTTPContext
