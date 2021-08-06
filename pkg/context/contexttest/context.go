@@ -28,6 +28,7 @@ import (
 
 // MockedHTTPContext is the mocked HTTP context
 type MockedHTTPContext struct {
+	finishFuncs              []func()
 	MockedLock               func()
 	MockedUnlock             func()
 	MockedSpan               func() tracing.Span
@@ -154,6 +155,7 @@ func (c *MockedHTTPContext) OnFinish(fn func()) {
 	if c.MockedFinish != nil {
 		c.MockedOnFinish(fn)
 	}
+	c.finishFuncs = append(c.finishFuncs, fn)
 }
 
 // AddTag mocks the AddTag function of HTTPContext
@@ -183,6 +185,17 @@ func (c *MockedHTTPContext) Log() string {
 func (c *MockedHTTPContext) Finish() {
 	if c.MockedFinish != nil {
 		c.MockedFinish()
+		return
+	}
+
+	for _, fn := range c.finishFuncs {
+		func() {
+			defer func() {
+				if err := recover(); err != nil {
+				}
+			}()
+			fn()
+		}()
 	}
 }
 

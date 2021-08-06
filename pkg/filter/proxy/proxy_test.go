@@ -19,8 +19,11 @@ package proxy
 
 import (
 	"fmt"
+	"io"
 	"net/http"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/megaease/easegress/pkg/context/contexttest"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
@@ -60,7 +63,7 @@ candidatePools:
 mirrorPool:
   filter:
     headers:
-      "X-Test":
+      "X-Mirror":
         exact: mirror
   servers:
   - url: http://127.0.0.3:9095
@@ -100,6 +103,7 @@ failureCodes: [503, 504]
 	}
 	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
 		header := http.Header{}
+		header.Set("X-Mirror", "mirror")
 		return httpheader.New(header)
 	}
 	ctx.MockedResponse.MockedHeader = func() *httpheader.HTTPHeader {
@@ -117,7 +121,9 @@ failureCodes: [503, 504]
 	}
 
 	fnSendRequest = func(r *http.Request) (*http.Response, error) {
-		return &http.Response{}, nil
+		return &http.Response{
+			Body: io.NopCloser(strings.NewReader("this is the body")),
+		}, nil
 	}
 	result := proxy.Handle(ctx)
 	if result != "" {
@@ -132,5 +138,7 @@ failureCodes: [503, 504]
 		t.Error("proxy.Handle should fail")
 	}
 
+	time.Sleep(10 * time.Millisecond)
 	proxy.Close()
+	time.Sleep(10 * time.Millisecond)
 }
