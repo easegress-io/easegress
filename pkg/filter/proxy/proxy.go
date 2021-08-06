@@ -82,6 +82,10 @@ var globalClient = &http.Client{
 	},
 }
 
+var fnSendRequest = func(r *http.Request) (*http.Response, error) {
+	return globalClient.Do(r)
+}
+
 type (
 	// Proxy is the filter Proxy.
 	Proxy struct {

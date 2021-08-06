@@ -24,10 +24,12 @@ import (
 	"time"
 
 	"go.etcd.io/etcd/api/v3/mvccpb"
+	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 func mockClusters(count int) []*cluster {
 	opts, _, _ := mockMembers(count)
+
 	clusters := make([]*cluster, count)
 
 	bootCluster, err := New(opts[0])
@@ -113,6 +115,40 @@ func TestLeaseInvalid(t *testing.T) {
 	}
 }
 
+func TestClusterStart(t *testing.T) {
+	opts, _, _ := mockMembers(1)
+
+	cls, err := New(opts[0])
+
+	if err != nil {
+		t.Errorf("init failed: %v", err)
+	}
+
+	c := cls.(*cluster)
+
+	_, _, err = c.StartServer()
+
+	if err != nil {
+		t.Errorf("start server failed, %v", err)
+	}
+}
+
+func TestClusterPurgeMember(t *testing.T) {
+	opts, _, _ := mockMembers(2)
+
+	cls, err := New(opts[0])
+
+	if err != nil {
+		t.Errorf("init failed: %v", err)
+	}
+
+	c := cls.(*cluster)
+	err = c.PurgeMember("no-member")
+	if err == nil {
+		t.Errorf("purge a none exit member, should be failed")
+	}
+}
+
 func TestClusterSyncer(t *testing.T) {
 	opts, _, _ := mockMembers(1)
 	cls, err := New(opts[0])
@@ -134,20 +170,68 @@ func TestClusterSyncer(t *testing.T) {
 		t.Errorf("new syncer failed: %v", err)
 	}
 
-	if _, err = syncer.Sync("akey"); err != nil {
+	schan, err := syncer.Sync("/akey")
+	if err != nil {
 		t.Errorf("syncer sync failed: %v", err)
 	}
 
-	if _, err = syncer.SyncRaw("akey"); err != nil {
+	rschan, err := syncer.SyncRaw("/akey")
+	if err != nil {
 		t.Errorf("syncer sync failed: %v", err)
 	}
 
-	if _, err = syncer.SyncPrefix("akey"); err != nil {
+	c.Put("/akey", "avalue")
+
+	for {
+		var value *string
+		select {
+		case value = <-schan:
+			fmt.Printf("sync value is %v\n", value)
+		}
+		break
+	}
+
+	for {
+		var value *mvccpb.KeyValue
+		select {
+		case value = <-rschan:
+			fmt.Printf("sync raw value is %v\n", value)
+		}
+		break
+	}
+
+	pchan, err := syncer.SyncPrefix("/abcd")
+	if err != nil {
 		t.Errorf("syncer sync failed: %v", err)
 	}
 
-	if _, err = syncer.SyncRawPrefix("akey"); err != nil {
+	rpchan, err := syncer.SyncRawPrefix("/abcd")
+	if err != nil {
 		t.Errorf("syncer sync failed: %v", err)
+	}
+
+	c.Put("/abcd/efg", "yoyo")
+
+	if _, err = c.GetPrefix("/abcd"); err != nil {
+		t.Errorf("cluster get prefix failed: %v", err)
+	}
+
+	for {
+		value := make(map[string]string, 1)
+		select {
+		case value = <-pchan:
+			fmt.Printf("sync prefix value is %v\n", value)
+		}
+		break
+	}
+
+	for {
+		value := make(map[string]*mvccpb.KeyValue)
+		select {
+		case value = <-rpchan:
+			fmt.Printf("sync raw pvalue is %v\n", value)
+		}
+		break
 	}
 
 	syncer.Close()
@@ -179,20 +263,87 @@ func TestClusterWatcher(t *testing.T) {
 		t.Errorf("new syncer failed: %v", err)
 	}
 
-	if _, err = watcher.Watch("akey"); err != nil {
+	wchan, err := watcher.Watch("/akey/value")
+	if err != nil {
 		t.Errorf("watcher watch failed: %v", err)
 	}
 
-	if _, err = watcher.WatchRaw("akey"); err != nil {
+	rchan, err := watcher.WatchRaw("/akey/value")
+	if err != nil {
 		t.Errorf("watcher watch failed: %v", err)
 	}
 
-	if _, err = watcher.WatchPrefix("akey"); err != nil {
+	c.Put("/akey/value", "yes")
+
+	for {
+		var value *string
+		select {
+		case value = <-wchan:
+			fmt.Printf("watch value is %v\n", value)
+		}
+		break
+	}
+
+	for {
+		var value *clientv3.Event
+		select {
+		case value = <-rchan:
+			fmt.Printf("watch raw value is %v\n", value)
+		}
+		break
+	}
+
+	pchan, err := watcher.WatchPrefix("/ab")
+	if err != nil {
 		t.Errorf("watcher watch failed: %v", err)
 	}
 
-	if _, err = watcher.WatchRawPrefix("akey"); err != nil {
+	rawpchan, err := watcher.WatchRawPrefix("/abcd")
+	if err != nil {
+
 		t.Errorf("watcher watch failed: %v", err)
+	}
+
+	c.Put("/abc", "kkk")
+
+	for {
+		value := make(map[string]*string, 1)
+		select {
+		case value = <-pchan:
+			fmt.Printf("watch prefix value is %v\n", value)
+		}
+		break
+	}
+	c.Put("/abcd/ef", "jjj")
+
+	for {
+		value := make(map[string]*clientv3.Event, 1)
+		select {
+		case value = <-rawpchan:
+			fmt.Printf("watch prefix raw value is %v\n", value)
+		}
+		break
+	}
+	c.DeletePrefix("/abc")
+
+	for {
+		value := make(map[string]*string, 1)
+		select {
+		case value = <-pchan:
+			fmt.Printf("watch delete prefix value is %v\n", value)
+		}
+		break
+	}
+
+	c.DeletePrefix("/abcd/")
+
+	for {
+		value := make(map[string]*clientv3.Event, 1)
+		select {
+		case value = <-rawpchan:
+			fmt.Printf("watch delete prefix raw value is %v\n", value)
+		}
+		break
 	}
 
 	watcher.Close()
@@ -274,19 +425,52 @@ func TestMutexAndOP(t *testing.T) {
 	}
 
 	err = c.PutAndDelete(map[string]*string{
-		"akey": &value,
+		"/test/akey": &value,
 	})
 
 	if err != nil {
 		t.Errorf("PutAndDelete failed :%v", err)
 	}
 
-	if err = c.Delete("akey"); err != nil {
+	if err = c.Delete("/test/akey"); err != nil {
 		t.Errorf("Delete failed: %v", err)
 	}
 
 	err = c.DeletePrefix("akey")
 	if err != nil {
 		t.Errorf("DeletePrefix failed: %v", err)
+	}
+}
+
+func TestUtilEqual(t *testing.T) {
+	equal := isKeyValueEqual(&mvccpb.KeyValue{
+		Key: []byte("abc"),
+	}, &mvccpb.KeyValue{
+		Key: []byte("abc"),
+	})
+
+	if !equal {
+		t.Error("isKeyValueEqual invalid")
+	}
+
+	equal = isKeyValueEqual(nil, &mvccpb.KeyValue{
+		Key: []byte("abc"),
+	})
+
+	if equal {
+		t.Error("isKeyValueEqual invalid, should not equal")
+	}
+
+	equal = isKeyValueEqual(&mvccpb.KeyValue{
+		Key: []byte("abc"),
+	}, nil)
+
+	if equal {
+		t.Error("isKeyValueEqual invalid, should not equal")
+	}
+
+	equal = isKeyValueEqual(nil, nil)
+	if !equal {
+		t.Error("isKeyValueEqual invalid, should equal")
 	}
 }

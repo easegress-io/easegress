@@ -18,6 +18,7 @@
 package contexttest
 
 import (
+	"sync"
 	"time"
 
 	"github.com/megaease/easegress/pkg/context"
@@ -28,6 +29,8 @@ import (
 
 // MockedHTTPContext is the mocked HTTP context
 type MockedHTTPContext struct {
+	lock                     sync.Mutex
+	finishFuncs              []func()
 	MockedLock               func()
 	MockedUnlock             func()
 	MockedSpan               func() tracing.Span
@@ -73,7 +76,7 @@ func (c *MockedHTTPContext) Span() tracing.Span {
 	if c.MockedSpan != nil {
 		return c.MockedSpan()
 	}
-	return nil
+	return tracing.NewSpan(tracing.NoopTracing, "mocked")
 }
 
 // Request mocks the Request function of HTTPContext
@@ -154,6 +157,9 @@ func (c *MockedHTTPContext) OnFinish(fn func()) {
 	if c.MockedFinish != nil {
 		c.MockedOnFinish(fn)
 	}
+	c.lock.Lock()
+	c.finishFuncs = append(c.finishFuncs, fn)
+	c.lock.Unlock()
 }
 
 // AddTag mocks the AddTag function of HTTPContext
@@ -183,7 +189,20 @@ func (c *MockedHTTPContext) Log() string {
 func (c *MockedHTTPContext) Finish() {
 	if c.MockedFinish != nil {
 		c.MockedFinish()
+		return
 	}
+
+	c.lock.Lock()
+	for _, fn := range c.finishFuncs {
+		func() {
+			defer func() {
+				if err := recover(); err != nil {
+				}
+			}()
+			fn()
+		}()
+	}
+	c.lock.Unlock()
 }
 
 // Template mocks the Template function of HTTPContext

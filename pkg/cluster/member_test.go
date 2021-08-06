@@ -118,6 +118,18 @@ func mockMembers(count int) ([]*option.Options, membersSlice, []*pb.Member) {
 
 	sort.Sort(members)
 
+	tmp := members.copy()
+	if len(tmp) == 0 {
+		panic("members copy failed")
+	}
+	noexistMember := members.getByPeerURL("no-exist")
+
+	if noexistMember != nil {
+		panic("get a member not exist succ, should failed")
+	}
+
+	members.deleteByName("no-exist")
+	members.deleteByPeerURL("no-exist-purl")
 	return opts, members, pbMembers
 }
 

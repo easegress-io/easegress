@@ -73,6 +73,11 @@ mockBody: "mocked body"
 		t.Error("header is not correct")
 	}
 
+	if fb.Status() != nil {
+		t.Error("behavior changed, please update this case")
+	}
+	fb.Description()
+
 	newFb := &Fallback{}
 	spec, _ = httppipeline.NewFilterSpec(rawSpec, nil)
 	newFb.Inherit(spec, fb)

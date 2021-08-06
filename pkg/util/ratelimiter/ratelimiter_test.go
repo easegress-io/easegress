@@ -117,6 +117,24 @@ func TestRateLimiter(t *testing.T) {
 		}
 	}
 
+	limiter.SetState(StateDisabled)
+	if permitted, d := limiter.AcquirePermission(); !permitted {
+		t.Errorf("AcquirePermission should succeeded")
+	} else if d != 0 {
+		t.Errorf("wait duration should not be: %s", d.String())
+	}
+
+	limiter.SetState(StateNormal)
+	for i := 0; i < 30; i++ {
+		permitted, d := limiter.AcquirePermission()
+		if !permitted {
+			t.Errorf("AcquirePermission should succeed: %d", i)
+		}
+		if d != time.Duration(i/policy.LimitForPeriod)*policy.LimitRefreshPeriod {
+			t.Errorf("wait duration of %d should not be: %s", i, d.String())
+		}
+	}
+
 	limiter.SetState(StateLimiting)
 	if permitted, d := limiter.AcquirePermission(); permitted {
 		t.Errorf("AcquirePermission should fail")
@@ -124,6 +142,7 @@ func TestRateLimiter(t *testing.T) {
 		t.Errorf("wait duration should not be: %s", d.String())
 	}
 
+	limiter.SetState(StateLimiting)
 	now = now.Add(time.Millisecond * 5)
 	if permitted, d := limiter.AcquirePermission(); permitted {
 		t.Errorf("AcquirePermission should fail")

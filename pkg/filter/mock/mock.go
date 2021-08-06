@@ -143,7 +143,12 @@ func (m *Mock) handle(ctx context.HTTPContext) (result string) {
 			return
 		}
 
-		if rule.Path == path || strings.HasPrefix(path, rule.PathPrefix) {
+		if rule.Path == path {
+			mock(rule)
+			return
+		}
+
+		if rule.PathPrefix != "" && strings.HasPrefix(path, rule.PathPrefix) {
 			mock(rule)
 			return
 		}
