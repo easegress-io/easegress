@@ -25,9 +25,38 @@
 ## Example
 * We use the free, fun, and open RESTful APIs to achieve this example.[2]
 * API1: NBA list, http://www.balldontlie.io/api/v1/players, its response is a list for all player's informactions.
-``` json
-{"data":[{"height_inches":null,"last_name":"Anigbogu","position":"C","team":{"id":12,"abbreviation":"IND","city":"Indiana","conference":"East","division":"Central","full_name":"Indiana Pacers","name":"Pacers"},"weight_pounds":null,"id":14,"first_name":"Ike","height_feet":null},{"last_name":"Baker","position":"G","team":{"id":20,"abbreviation":"NYK",
-....
+```
+{
+   "data":[
+      {
+         "height_inches":null,
+         "last_name":"Anigbogu",
+         "position":"C",
+         "team":{
+            "id":12,
+            "abbreviation":"IND",
+            "city":"Indiana",
+            "conference":"East",
+            "division":"Central",
+            "full_name":"Indiana Pacers",
+            "name":"Pacers"
+         },
+         "weight_pounds":null,
+         "id":14,
+         "first_name":"Ike",
+         "height_feet":null
+      },
+      {
+         "last_name":"Baker",
+         "position":"G",
+         "team":{
+            "id":20,
+            "abbreviation":"NYK",
+            ...
+         },
+         ...
+      },
+   ]
 }
 ```
 * API2: Fun translator, http://api.funtranslations.com/translate/minion.json, its response body will be liked:
