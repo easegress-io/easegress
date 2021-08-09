@@ -355,7 +355,7 @@ func TestClusterWatcher(t *testing.T) {
 }
 
 func TestUtil(t *testing.T) {
-	equal := isDataEuqal(map[string]*mvccpb.KeyValue{
+	equal := isDataEqual(map[string]*mvccpb.KeyValue{
 		"aaa": {
 			Key:     []byte("akey"),
 			Version: 11233,
@@ -371,7 +371,7 @@ func TestUtil(t *testing.T) {
 		t.Error("isDataEqual failed")
 	}
 
-	equal = isDataEuqal(map[string]*mvccpb.KeyValue{
+	equal = isDataEqual(map[string]*mvccpb.KeyValue{
 		"aaa": {
 			Key:     []byte("akey"),
 			Version: 11233,

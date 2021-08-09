@@ -75,6 +75,7 @@ func New(spec *Spec) *IPFilter {
 			_, ipNet, err := net.ParseCIDR(ipcidr)
 			if err != nil {
 				logger.Errorf("BUG: %s is an invalid ip or cidr", ipcidr)
+				continue
 			}
 			ranger.Insert(cidranger.NewBasicRangerEntry(*ipNet))
 		}
