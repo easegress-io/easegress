@@ -621,7 +621,6 @@ func closeEtcdServer(s *embed.Etcd) {
 		}
 		logger.Infof("hard stop server")
 	}
-
 }
 
 func (c *cluster) startServer() (done, timeout chan struct{}, err error) {
