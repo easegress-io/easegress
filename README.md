@@ -8,13 +8,13 @@
 - [Easegress](#easegress)
   - [What is Easegress](#what-is-easegress)
   - [Features](#features)
+  - [User Cases](#user-cases)
   - [Getting Started](#getting-started)
     - [Setting up Easegress](#setting-up-easegress)
     - [Create an HTTPServer and Pipeline](#create-an-httpserver-and-pipeline)
     - [Test](#test)
     - [More Filters](#more-filters)
   - [Documentation](#documentation)
-  - [User Cases](#user-cases)
   - [Roadmap](#roadmap)
   - [License](#license)
 
@@ -94,6 +94,26 @@ The architecture of Easegress:
 			- **Data Size:** request and response size.
 			- **Status Codes:** HTTP status codes.
 			- **TopN:** sorted by aggregated APIs(only in server dimension).
+
+
+## User Cases
+
+The following examples show how to use Easegress for different scenarios.
+
+- [API Aggregator](./api_aggregator.md) - Aggregating many APIs into a single API.
+- [FaaS](./faas.md) - Supporting Knative FaaS integration
+- [Flash Sale](./flash_sale.md) - How to do high concurrent promotion sales with Easegress
+- [LoadBalancer](./load_balancer.md) - A number of strategy of load balancing 
+- [Distributed Tracing](./distributed_tracing.md) - How to do APM tracing  - Zipkin.
+- [Kubernetes Ingress Controller](./k8s_ingress_controller.md) - How to integrated with Kubernetes as ingress controller
+- [Performance](./performance.md) - Performance optimization - compression, caching etc.
+- [Resilience and Fault Tolerance](./resilience.md) - Circuit Breaker, Rate Lmiter, Retryer, Time limiter, etc. (Porting from [Java resilience4j](https://github.com/resilience4j/resilience4j))
+- [Security](./security.md) - How to do authenication by Header, JWT, HMAC, OAuth2, etc.
+- [Service Proxy](./service_proxy.md) - Supporting the Microservice  registries - Zookeeper, Eureka, Consul, Nacos, etc.
+- [WebAssembly](./wasm.md) - Using AssemblyScript to extend the Easegress
+- [Workflow](./workflow.md) - An Example to make a workflow for a number of APIs.
+
+For full list, see [Cookbook](./doc/cookbook/README.md).
 
 ## Getting Started
 
@@ -291,25 +311,10 @@ Body  : {"message": "Hello, Easegress"}
 
 We can also see Easegress send one more header `X-Adapt-Key: goodplan` to the mirror service.
 
+
 ## Documentation
 
 See [reference](./doc/reference.md) and [developer guide](./doc/developer-guide.md) for more information.
-
-## User Cases
-
-- [API Aggregator](./doc/cookbook/api_aggregator.md)
-- [FaaS](./doc/cookbook/faas.md)
-- [LoadBalancer](./doc/cookbook/load_balancer.md)
-- [Distributed Tracing](./doc/cookbook/distributed_tracing.md)
-- [Kubernetes Ingress Controller](./doc/cookbook/k8s_ingress_controller.md)
-- [Performance](./doc/cookbook/performance.md)
-- [Resilience and Fault Tolerance](./doc/cookbook/resilience.md)
-- [Security](./doc/cookbook/security.md)
-- [Service Proxy](./doc/cookbook/service_proxy.md)
-- [WebAssembly](./doc/cookbook/wasm.md)
-- [Workflow](./doc/cookbook/workflow.md)
-
-For full list, see [Cookbook](./doc/cookbook/README.md).
 
 ## Roadmap
 
