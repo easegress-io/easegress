@@ -609,14 +609,19 @@ func closeEtcdServer(s *embed.Etcd) {
 		<-s.Server.StopNotify()
 	default:
 		s.Server.HardStop()
+		for _, client := range s.Clients {
+			if client != nil {
+				client.Close()
+			}
+		}
+		for _, peer := range s.Peers {
+			if peer != nil {
+				peer.Close()
+			}
+		}
 		logger.Infof("hard stop server")
 	}
-	for _, client := range s.Clients {
-		client.Close()
-	}
-	for _, peer := range s.Peers {
-		peer.Close()
-	}
+
 }
 
 func (c *cluster) startServer() (done, timeout chan struct{}, err error) {
