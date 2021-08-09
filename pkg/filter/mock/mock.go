@@ -103,11 +103,7 @@ func (m *Mock) reload() {
 		if r.Delay == "" {
 			continue
 		}
-		var err error
-		r.delay, err = time.ParseDuration(r.Delay)
-		if err != nil {
-			logger.Errorf("BUG: parse duration %s failed: %v", r.Delay, err)
-		}
+		r.delay, _ = time.ParseDuration(r.Delay)
 	}
 }
 
@@ -129,7 +125,7 @@ func (m *Mock) handle(ctx context.HTTPContext) (result string) {
 		w.SetBody(strings.NewReader(rule.Body))
 		result = resultMocked
 
-		if rule.delay < 0 {
+		if rule.delay <= 0 {
 			return
 		}
 
@@ -147,7 +143,12 @@ func (m *Mock) handle(ctx context.HTTPContext) (result string) {
 			return
 		}
 
-		if rule.Path == path || strings.HasPrefix(path, rule.PathPrefix) {
+		if rule.Path == path {
+			mock(rule)
+			return
+		}
+
+		if rule.PathPrefix != "" && strings.HasPrefix(path, rule.PathPrefix) {
 			mock(rule)
 			return
 		}

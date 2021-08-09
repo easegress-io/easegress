@@ -197,19 +197,6 @@ func (m *members) _selfWithoutID() *member {
 	return s
 }
 
-func (m *members) isSelfIDChanged() bool {
-	return m.selfIDChanged
-}
-
-func (m *members) clusterMember() *membersSlice {
-	m.RLock()
-	defer m.RUnlock()
-
-	copied := m.ClusterMembers.copy()
-
-	return &copied
-}
-
 func (m *members) clusterMembersLen() int {
 	m.RLock()
 	defer m.RUnlock()
@@ -244,18 +231,6 @@ func (m *members) knownMembersLen() int {
 	m.RLock()
 	defer m.RUnlock()
 	return m.KnownMembers.Len()
-}
-
-// NOTE: Maybe use it in future in case of connecting
-// one member purged but running at another etcd cluster.
-func (m *members) deleteKnownMember(name string) {
-	m.Lock()
-	defer m.Unlock()
-
-	// NOTE: It's fine to delete myself,
-	// because it will restore myself in newMembers while restarting.
-	m.KnownMembers.deleteByName(name)
-	m.store()
 }
 
 func (m *members) knownPeerURLs() []string {

@@ -236,6 +236,15 @@ func TestURLRULENoMatchURL(t *testing.T) {
 	}
 }
 
+func TestFailStringMatch(t *testing.T) {
+	sm := StringMatch{}
+
+	err := sm.Validate()
+	if err == nil {
+		t.Error("string matcher should be invalid")
+	}
+}
+
 func TestDeepEqual(t *testing.T) {
 	u1 := &URLRule{
 		id: "TestDeepEqual1",
@@ -282,6 +291,42 @@ func TestDeepEqual(t *testing.T) {
 		},
 	}
 
+	u5 := &URLRule{
+		id: "TestDeepEqual1",
+		Methods: []string{
+			"GET",
+			"POST",
+		},
+		URL: StringMatch{
+			Exact: "/app/v3/user",
+		},
+	}
+
+	u6 := &URLRule{
+		id: "TestDeepEqual2",
+		Methods: []string{
+			"GET",
+			"POST",
+		},
+		URL: StringMatch{
+			Exact:  "/app/v2/user",
+			Prefix: "/app",
+		},
+	}
+
+	u7 := &URLRule{
+		id: "TestDeepEqual2",
+		Methods: []string{
+			"GET",
+			"POST",
+		},
+		URL: StringMatch{
+			Exact:  "/app/v2/user",
+			Prefix: "/app",
+			RegEx:  "^.*$",
+		},
+	}
+
 	if !u1.DeepEqual(u2) {
 		t.Errorf("%v and %v should be equal\n", u1, u2)
 	}
@@ -290,5 +335,17 @@ func TestDeepEqual(t *testing.T) {
 	}
 	if u3.DeepEqual(u4) {
 		t.Errorf("%v and %v should not be equal\n", u3, u4)
+	}
+
+	if u1.DeepEqual(u5) {
+		t.Errorf("%v and %v should not be equal\n", u1, u5)
+	}
+
+	if u1.DeepEqual(u6) {
+		t.Errorf("%v and %v should not be equal\n", u1, u6)
+	}
+
+	if u6.DeepEqual(u7) {
+		t.Errorf("%v and %v should not be equal\n", u6, u7)
 	}
 }

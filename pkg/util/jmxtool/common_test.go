@@ -1,5 +1,3 @@
-// +build darwin dragonfly freebsd netbsd openbsd solaris windows plan9
-
 /*
  * Copyright (c) 2017, MegaEase
  * All rights reserved.
@@ -17,13 +15,30 @@
  * limitations under the License.
  */
 
-package common
+package jmxtool
 
 import (
-	"syscall"
+	"reflect"
+	"testing"
 )
 
-// SysProcAttr returns system process attribute
-func SysProcAttr() *syscall.SysProcAttr {
-	return nil
+func Test_extractKVs(t *testing.T) {
+	// extractKVs for int
+	prefix := "test"
+	want := []map[string]string{{prefix: "1"}}
+	got := extractKVs(prefix, 1)
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("error for extract int")
+	}
+
+	// extractKVs for interface array
+	want = []map[string]string{
+		{prefix + ".0": "1"},
+		{prefix + ".1": "2"},
+		{prefix + ".2": "3"},
+	}
+	got = extractKVs(prefix, []interface{}{1, 2, 3})
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("error for extract []interface")
+	}
 }

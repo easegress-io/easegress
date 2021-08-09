@@ -21,6 +21,102 @@ import (
 	"testing"
 )
 
+func TestNewFailed(t *testing.T) {
+	_, err := New("", "", "", []string{})
+
+	if err == nil {
+		t.Error("new template should not succ")
+	}
+}
+
+func TestNewFailedAtBuild(t *testing.T) {
+	_, err := New(DefaultBeginToken, DefaultEndToken, DefaultSeparator, []string{
+		"filter.xx.",
+	})
+	if err == nil {
+		t.Error("new template should not succ")
+	}
+}
+
+func TestSetDictFailed(t *testing.T) {
+	tt, err := NewDefault([]string{
+		"filter.{}.req.path",
+		"filter.{}.req.method",
+		"filter.{}.req.body",
+		"filter.{}.req.scheme",
+		"filter.{}.req.proto",
+		"filter.{}.req.host",
+		"filter.{}.req.body.{gjson}",
+		"filter.{}.req.header.{}",
+		"filter.{}.rsp.statuscode",
+		"filter.{}.rsp.body.{gjson}",
+	})
+	if err != nil {
+		t.Errorf("new engine failed err %v", err)
+	}
+
+	if err = tt.SetDict("no.abc.req.body", "kkk"); err == nil {
+		t.Errorf("set dict should failed")
+	}
+}
+
+func TestNewDefaultTextTemplateFailed(t *testing.T) {
+	tt, err := NewDefault([]string{
+		"filter.{}.req.path",
+		"filter.{}.req.method",
+		"filter.{}.req.body",
+		"filter.{}.req.scheme",
+		"filter.{}.req.proto",
+		"filter.{}.req.host",
+		"filter.{}.req.body.{gjson}",
+		"filter.{}.req.header.{}",
+		"filter.{}.rsp.statuscode",
+		"filter.{}.rsp.body.{gjson}",
+	})
+	if err != nil {
+		t.Errorf("new engine failed err %v", err)
+	}
+
+	if err = tt.SetDict("filter.abc.req.body", "kkk"); err != nil {
+		t.Errorf("set failed err =%v", err)
+	}
+
+	if s, _ := tt.Render("xxx-[[filter.abc.rsp.body]]--yyy"); s == "xxx-kkk--yyy" {
+		t.Errorf("rendering should fail , but succ")
+	}
+}
+
+func TestNewDefaultTextTemplateNothing(t *testing.T) {
+	tt, err := NewDefault([]string{
+		"filter.{}.req.path",
+		"filter.{}.req.method",
+		"filter.{}.req.body",
+		"filter.{}.req.scheme",
+		"filter.{}.req.proto",
+		"filter.{}.req.host",
+		"filter.{}.req.body.{gjson}",
+		"filter.{}.req.header.{}",
+		"filter.{}.rsp.statuscode",
+		"filter.{}.rsp.body.{gjson}",
+	})
+	if err != nil {
+		t.Errorf("new engine failed err %v", err)
+	}
+
+	if res := tt.MatchMetaTemplate("filter.abc.req.body"); len(res) == 0 {
+		t.Errorf("input %s match template %s", "filter.abc.req.body", res)
+	}
+
+	if err = tt.SetDict("filter.abc.req.body", "kkk"); err != nil {
+		t.Errorf("set failed err =%v", err)
+	}
+
+	if s, err := tt.Render("xxx---yyy"); s != "xxx---yyy" || err != nil {
+		t.Errorf("rendering fail , result is %s expect xxx---yyy", s)
+	}
+
+}
+
 func TestNewDefaultTextTemplateSucc(t *testing.T) {
 	tt, err := NewDefault([]string{
 		"filter.{}.req.path",
@@ -48,6 +144,33 @@ func TestNewDefaultTextTemplateSucc(t *testing.T) {
 
 	if s, err := tt.Render("xxx-[[filter.abc.req.body]]--yyy"); s != "xxx-kkk--yyy" || err != nil {
 		t.Errorf("rendering fail , result is %s expect xxx-kkk--yyy", s)
+	}
+
+	dict := tt.GetDict()
+	if len(dict) == 0 {
+		t.Error("get dict failed, should not empty")
+	}
+}
+
+func TestNewDefaultTextTemplateEmpty(t *testing.T) {
+	tt, err := NewDefault([]string{
+		"filter.{}.req.path",
+		"filter.{}.req.method",
+		"filter.{}.req.body",
+		"filter.{}.req.scheme",
+		"filter.{}.req.proto",
+		"filter.{}.req.host",
+		"filter.{}.req.body.{gjson}",
+		"filter.{}.req.header.{}",
+		"filter.{}.rsp.statuscode",
+		"filter.{}.rsp.body.{gjson}",
+	})
+	if err != nil {
+		t.Errorf("new engine failed err %v", err)
+	}
+
+	if s, _ := tt.Render("xxx-[[filter.abc.req.body]]--yyy"); s != "xxx---yyy" {
+		t.Errorf("rendering fail , result is %s expect xxx---yyy", s)
 	}
 }
 

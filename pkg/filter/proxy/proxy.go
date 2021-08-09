@@ -82,6 +82,10 @@ var globalClient = &http.Client{
 	},
 }
 
+var fnSendRequest = func(r *http.Request) (*http.Response, error) {
+	return globalClient.Do(r)
+}
+
 type (
 	// Proxy is the filter Proxy.
 	Proxy struct {
@@ -212,7 +216,7 @@ func (b *Proxy) reload() {
 	}
 
 	if b.spec.Compression != nil {
-		b.compression = newcompression(b.spec.Compression)
+		b.compression = newCompression(b.spec.Compression)
 	}
 }
 

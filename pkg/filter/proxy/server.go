@@ -31,8 +31,14 @@ import (
 	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
+// make it mockable in test
+var fnGetService atomic.Value
+
 func init() {
 	rand.Seed(time.Now().UnixNano())
+	fnGetService.Store(func(serviceRegistry, serviceName string) (*serviceregistry.Service, error) {
+		return serviceregistry.Global.GetService(serviceRegistry, serviceName)
+	})
 }
 
 const (
@@ -180,11 +186,16 @@ func (s *servers) useStaticServers() {
 	s.service = nil
 }
 
+func getService(serviceRegistry, serviceName string) (*serviceregistry.Service, error) {
+	fn := fnGetService.Load().(func(serviceRegistry, serviceName string) (*serviceregistry.Service, error))
+	return fn(serviceRegistry, serviceName)
+}
+
 func (s *servers) useService() (*serviceregistry.Service, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	service, err := serviceregistry.Global.GetService(s.poolSpec.ServiceRegistry, s.poolSpec.ServiceName)
+	service, err := getService(s.poolSpec.ServiceRegistry, s.poolSpec.ServiceName)
 	if err != nil {
 		return nil, fmt.Errorf("get service %s failed: %v", s.poolSpec.ServiceName, err)
 	}

@@ -31,7 +31,6 @@ import (
 	"go.etcd.io/etcd/server/v3/embed"
 	yaml "gopkg.in/yaml.v2"
 
-	"github.com/megaease/easegress/pkg/common"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/option"
 )
@@ -366,18 +365,6 @@ func (c *cluster) checkClusterName() error {
 	return nil
 }
 
-// removeAndBackupEtcdData is DEPRECATED,
-// will be deleted when it's sure that we won't need it.
-func (c *cluster) removeAndBackupEtcdData() {
-	if !common.IsDirEmpty(c.opt.AbsDataDir) {
-		logger.Infof("backup and clean %s", c.opt.AbsDataDir)
-		err := common.BackupAndCleanDir(c.opt.AbsDataDir)
-		if err != nil {
-			logger.Errorf("backup and clean %s failed: %v", c.opt.AbsDataDir, err)
-		}
-	}
-}
-
 func (c *cluster) getClient() (*clientv3.Client, error) {
 	c.clientMutex.RLock()
 	if c.client != nil {
@@ -622,13 +609,17 @@ func closeEtcdServer(s *embed.Etcd) {
 		<-s.Server.StopNotify()
 	default:
 		s.Server.HardStop()
+		for _, client := range s.Clients {
+			if client != nil {
+				client.Close()
+			}
+		}
+		for _, peer := range s.Peers {
+			if peer != nil {
+				peer.Close()
+			}
+		}
 		logger.Infof("hard stop server")
-	}
-	for _, client := range s.Clients {
-		client.Close()
-	}
-	for _, peer := range s.Peers {
-		peer.Close()
 	}
 }
 

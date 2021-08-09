@@ -37,6 +37,18 @@ func Init(opt *option.Options) {
 	initRestAPI(opt)
 }
 
+// InitNop initializes all logger as nop, mainly for unit testing
+func InitNop() {
+	nop := zap.NewNop()
+	httpFilterAccessLogger = nop
+	httpFilterDumpLogger = nop
+	restAPILogger = nop
+
+	defaultLogger = nop.Sugar()
+	gressLogger = defaultLogger
+	stderrLogger = defaultLogger
+}
+
 const (
 	stdoutFilename           = "stdout.log"
 	filterHTTPAccessFilename = "filter_http_access.log"
