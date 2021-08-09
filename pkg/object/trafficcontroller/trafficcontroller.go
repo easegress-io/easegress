@@ -512,7 +512,7 @@ func (tc *TrafficController) ApplyHTTPPipeline(namespace string, entity *supervi
 	return entity, nil
 }
 
-// DeleteHTTPPipeline deletes the HTTP pipeline by it's namespace and name
+// DeleteHTTPPipeline deletes the HTTP pipeline by its namespace and name
 func (tc *TrafficController) DeleteHTTPPipeline(namespace, name string) error {
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()

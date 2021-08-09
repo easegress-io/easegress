@@ -59,7 +59,7 @@ func newHTTPRequest(stdr *http.Request) *httpRequest {
 		realIP: realip.FromRequest(stdr),
 	}
 
-	// NOTE: Always count orinal body, even the body could be changed
+	// NOTE: Always count original body, even the body could be changed
 	// by SetBody().
 	hq.body.OnAfter(func(num int, p []byte, n int, err error) ([]byte, int, error) {
 		hq.bodyCount += n

@@ -20,7 +20,7 @@ package stringtool
 import "strings"
 
 // Cat concatenates strings.
-// It is intended to used in the core executing path for performance optimization.
+// It is intended to use in the core executing path for performance optimization.
 // fmt.Printf is still recommended for readability.
 func Cat(strs ...string) string {
 	n := 0
@@ -50,7 +50,7 @@ func StrInSlice(str string, slice []string) bool {
 
 // DeleteStrInSlice deletes the matched string in the slice.
 func DeleteStrInSlice(slice []string, str string) []string {
-	result := []string{}
+	var result []string
 	for _, s := range slice {
 		if s != str {
 			result = append(result, s)

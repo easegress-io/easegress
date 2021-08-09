@@ -58,11 +58,11 @@ type (
 	Rule struct {
 		// NOTICE: If the field is a pointer, it must have `omitempty` in tag `yaml`
 		// when it has `omitempty` in tag `jsonschema`.
-		// Otherwise it will output null value, which is invalid in json schema (the type is object).
-		// the original reason is the jsonscheme(genjs) has not support multiple types.
+		// Otherwise, it will output null value, which is invalid in json schema (the type is object).
+		// the original reason is the jsonschema(genjs) has not support multiple types.
 		// Reference: https://github.com/alecthomas/jsonschema/issues/30
 		// In the future if we have the scenario where we need marshal the field, but omitempty
-		// in the schema, we are suppose to support multuple types on our own.
+		// in the schema, we are supposed to support multiple types on our own.
 		IPFilter   *ipfilter.Spec `yaml:"ipFilter,omitempty" jsonschema:"omitempty"`
 		Host       string         `yaml:"host" jsonschema:"omitempty"`
 		HostRegexp string         `yaml:"hostRegexp" jsonschema:"omitempty,format=regexp"`

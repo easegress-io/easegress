@@ -600,6 +600,6 @@ func TestNewTextTemplateExtractRawTemplateRuleMapEmpty(t *testing.T) {
 
 	input = "[[filter.abc.red]] -- [[filter.abc.req.nono]] -- [[filter.abc.rsp.yes]]!!"
 	if m = tt.ExtractRawTemplateRuleMap(input); len(m) != 3 {
-		t.Fatalf("extract from input %s no match expect, should extract two target", input)
+		t.Fatalf("extract from input %s no match expect, should extract three target", input)
 	}
 }

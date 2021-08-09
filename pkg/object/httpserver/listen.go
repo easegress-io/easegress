@@ -48,7 +48,7 @@ type LimitListener struct {
 }
 
 // acquire acquires the limiting semaphore. Returns true if successfully
-// accquired, false if the listener is closed and the semaphore is not
+// acquired, false if the listener is closed and the semaphore is not
 // acquired.
 func (l *LimitListener) acquire() bool {
 	return l.sem.AcquireWithContext(l.ctx) == nil

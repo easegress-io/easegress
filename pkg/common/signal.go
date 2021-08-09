@@ -26,6 +26,6 @@ const (
 	// SignalTerm represents force quit in Easegress
 	SignalTerm Signal = "term"
 
-	// SingalUsr2 represents reload signal in Easegress
-	SingalUsr2 Signal = "usr2"
+	// SignalUsr2 represents reload signal in Easegress
+	SignalUsr2 Signal = "usr2"
 )

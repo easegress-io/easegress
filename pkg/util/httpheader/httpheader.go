@@ -131,7 +131,7 @@ func (h *HTTPHeader) AddFrom(src *HTTPHeader) {
 }
 
 // AddFromStd wraps AddFrom by replacing
-// the paramenter type *HTTPHeader with standard http.Header.
+// the parameter type *HTTPHeader with standard http.Header.
 func (h *HTTPHeader) AddFromStd(src http.Header) {
 	h.AddFrom(New(src))
 }

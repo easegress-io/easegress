@@ -56,7 +56,7 @@ type node struct {
 
 // TemplateEngine is the basic API collection for a template usage
 type TemplateEngine interface {
-	// Rendering e.g., [[xxx.xx.dd.xx]]'s value is 'value0', [[yyy.www.zzz]]'s value is 'value1'
+	// Render Rendering e.g., [[xxx.xx.dd.xx]]'s value is 'value0', [[yyy.www.zzz]]'s value is 'value1'
 	// "aaa-[[xxx.xx.dd.xx]]-bbb 10101-[[yyy.wwww.zzz]]-9292" will be rendered to "aaa-value0-bbb 10101-value1-9292"
 	// Also support GJSON syntax at last tag
 	Render(input string) (string, error)
@@ -65,20 +65,20 @@ type TemplateEngine interface {
 	// return map's key is the template, the value is the matched and rendered metaTemplate
 	ExtractTemplateRuleMap(input string) map[string]string
 
-	// ExtractTemplateRuleMap extracts templates from input string
+	// ExtractRawTemplateRuleMap extracts templates from input string
 	// return map's key is the template, the value is the matched and rendered metaTemplate or empty
 	ExtractRawTemplateRuleMap(input string) map[string]string
 
-	// HasTemplates checks whether has templates in input string or not
+	// HasTemplates checks whether it has templates in input string or not
 	HasTemplates(input string) bool
 
 	// MatchMetaTemplate return original template or replace with {gjson} at last tag, "" if not metaTemplate matched
 	MatchMetaTemplate(template string) string
 
-	// SetDict adds a temaplateRule and its value for later rendering
+	// SetDict adds a templateRule and its value for later rendering
 	SetDict(template string, value interface{}) error
 
-	// GetDict returns the template rely dictionary
+	// GetDict returns the template rely on dictionary
 	GetDict() map[string]interface{}
 }
 
@@ -123,7 +123,7 @@ func (DummyTemplate) HasTemplates(input string) bool {
 	return false
 }
 
-// TextTemplate wraps a fasttempalte rendering and a
+// TextTemplate wraps a fasttemplate rendering and a
 // template syntax tree for validation, the valid template and its
 // value can be added into dictionary for rendering
 type TextTemplate struct {
@@ -300,7 +300,7 @@ func (t TextTemplate) MatchMetaTemplate(template string) string {
 	hasGJSON := false
 
 	for ; index < len(tags); index++ {
-		// no tag remain to match, or its a empty tag
+		// no tag remain to match, or it's an empty tag
 		if len(root.Children) == 0 || len(tags[index]) == 0 {
 			return ""
 		}

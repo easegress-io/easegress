@@ -162,7 +162,7 @@ func (r *runtime) reload(nextSuperSpec *supervisor.Spec, muxMapper protocol.MuxM
 
 	nextSpec := nextSuperSpec.ObjectSpec().(*Spec)
 
-	// r.limitListener does not created just after the process started and the config load for the first time.
+	// r.limitListener does not create just after the process started and the config load for the first time.
 	if nextSpec != nil && r.limitListener != nil {
 		r.limitListener.SetMaxConnection(nextSpec.MaxConnections)
 	}
@@ -318,7 +318,7 @@ func (r *runtime) closeServer() {
 				r.superSpec.Name(), err)
 		}
 	} else {
-		// NOTE: It's safe to shutdown serve failed server.
+		// NOTE: It's safe to shut down serve failed server.
 		ctx, cancelFunc := serverShutdownContext()
 		defer cancelFunc()
 		err := r.server.Shutdown(ctx)

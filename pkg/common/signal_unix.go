@@ -29,13 +29,13 @@ import (
 var signalToOsMap = map[Signal]syscall.Signal{
 	SignalInt:  syscall.SIGINT,
 	SignalTerm: syscall.SIGTERM,
-	SingalUsr2: syscall.SIGUSR2,
+	SignalUsr2: syscall.SIGUSR2,
 }
 
 var signalFromOsMap = map[os.Signal]Signal{
 	syscall.SIGINT:  SignalInt,
 	syscall.SIGTERM: SignalTerm,
-	syscall.SIGUSR2: SingalUsr2,
+	syscall.SIGUSR2: SignalUsr2,
 }
 
 // NotifySignal is identical to os/signal.Notify on Linux
