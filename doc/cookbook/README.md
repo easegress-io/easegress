@@ -11,3 +11,4 @@
 - [Service Proxy](./service_proxy.md)
 - [WebAssembly](./wasm.md)
 - [Workflow](./workflow.md)
+- [Flash Sale](./flash_sale.md)
