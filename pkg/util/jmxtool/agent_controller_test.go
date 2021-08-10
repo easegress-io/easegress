@@ -125,11 +125,11 @@ func TestAgentClientFail(t *testing.T) {
 
 	err = agent.UpdateService(&service, 1)
 	if err == nil {
-		t.Errorf("agent shoudl fail\n")
+		t.Errorf("agent should fail\n")
 	}
 	err = agent.UpdateCanary(header, 1)
 	if err == nil {
-		t.Errorf("agent shoudl fail\n")
+		t.Errorf("agent should fail\n")
 	}
 	// shutdown
 	var client = &http.Client{

@@ -128,8 +128,8 @@ func (p *pool) status() *PoolStatus {
 }
 
 func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader) string {
-	addTag := func(subPerfix, msg string) {
-		tag := stringtool.Cat(p.tagPrefix, "#", subPerfix, ": ", msg)
+	addTag := func(subPrefix, msg string) {
+		tag := stringtool.Cat(p.tagPrefix, "#", subPrefix, ": ", msg)
 		ctx.Lock()
 		ctx.AddTag(tag)
 		ctx.Unlock()

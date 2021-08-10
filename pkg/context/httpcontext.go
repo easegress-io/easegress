@@ -317,7 +317,7 @@ func (ctx *httpContext) Log() string {
 		strings.Join(ctx.tags, " | "))
 }
 
-// Template returns HTTPTemplate rely interface
+// Template returns the template engine
 func (ctx *httpContext) Template() texttemplate.TemplateEngine {
 	return ctx.ht.Engine
 }

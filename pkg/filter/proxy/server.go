@@ -42,7 +42,7 @@ func init() {
 }
 
 const (
-	// PolicyRoundRobin is the policy of round robin.
+	// PolicyRoundRobin is the policy of round-robin.
 	PolicyRoundRobin = "roundRobin"
 	// PolicyRandom is the policy of random.
 	PolicyRandom = "random"

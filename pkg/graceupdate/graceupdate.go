@@ -55,7 +55,7 @@ func CallOriProcessTerm(done chan struct{}) bool {
 // NotifySigUsr2 handles signal SIGUSR2 to gracefully update.
 func NotifySigUsr2(closeCls func(), restartCls func()) error {
 	sigUsr2 := make(chan common.Signal, 1)
-	if err := common.NotifySignal(sigUsr2, common.SingalUsr2); err != nil {
+	if err := common.NotifySignal(sigUsr2, common.SignalUsr2); err != nil {
 		return err
 	}
 
