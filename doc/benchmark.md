@@ -1,4 +1,4 @@
-- [Preparing](#preparing)
+- [Preparing](#preparing
   - [Environment and Topology](#environment-and-topology)
   - [Configuration](#configuration)
 - [Testing](#testing)
@@ -35,7 +35,7 @@ Linux vmname 5.4.0-1029-aws #30-Ubuntu SMP Tue Oct 20 10:06:38 UTC 2020 x86_64 x
 | Name        | port  | vm   | version              |
 | ----------- | ----- | ---- | -------------------- |
 | Easegress   | 10080 | vm01 | 1.0.1(golang 1.16.5) |
-| Nginx       | 8080  | vm01 | 1.18.0               |
+| NGINX       | 8080  | vm01 | 1.18.0               |
 | Traefik     | 8081  | vm01 | 2.4.9(golang 1.16.5) |
 | Echo-server | 9095  | vm03 | (golang1.16.5)       |
 | hey         | -     | vm02 | v0.1.4               |
@@ -46,7 +46,7 @@ Linux vmname 5.4.0-1029-aws #30-Ubuntu SMP Tue Oct 20 10:06:38 UTC 2020 x86_64 x
    |                |                          |               |  
    |    vm01        |<------stress test--------+     vm02      |
    | (Easegress     |                          | (Testtool:hey)|
-   | /Traefik/Nginx)|<------baseline test------+               |
+   | /Traefik/NGINX)|<------baseline test------+               |
    |                |                          |               |
    +----------------+------+                   +---------+-----+
                            |                             | 
@@ -62,7 +62,7 @@ Linux vmname 5.4.0-1029-aws #30-Ubuntu SMP Tue Oct 20 10:06:38 UTC 2020 x86_64 x
 ```
 
 ### Configuration
-**Nginx**
+**NGINX**
 
 ```bash
 
@@ -190,7 +190,7 @@ std-log-level: INFO
 ```
 
 3. HTTPPipeline for baseline
-* In order to comparing with NGINX's index.html API. Pipeline uses ResponseAdaptor to reply a NGINX'index.html like response.(Yeah, replace `nginx` with `easegress` already)
+* In order to compare with NGINX's index.html API. The Pipeline uses ResponseAdaptor to reply an NGINX' index.html like response.(Yeah, replace `nginx` with `easegress` already)
 
 ``` yaml
 name: pipeline-demo
@@ -262,7 +262,7 @@ http:
 
 **Echo Server**
 1. [Source code](https://github.com/megaease/easegress/tree/main/example/backend-service/mirror)
-2. Its logic is accepting HTTP request and printing to the console, in this testing, we only uses `9095` port.
+2. Its logic is accepting HTTP request and printing to the console, in this testing, we only use `9095` port.
 
 
 ## Testing 
@@ -300,8 +300,8 @@ http:
 
 
 
-2. **Nginx**
-* Loading Nginx's `index.html` url, from `vm02` to `vm01`.
+2. **NGINX**
+* Loading NGINX's `index.html` url, from `vm02` to `vm01`.
 
 * **Scenario 1**: 100 concurrency/90000 requests
 
@@ -317,7 +317,7 @@ http:
 
 
 3. **Easegress**
-* Loading Easegres' Nginx-index.html-like pipeline. from `vm02` to `vm01`.
+* Loading Easegres' NGINX-index.html-like pipeline. from `vm02` to `vm01`.
 
 ``` bash
 
@@ -335,7 +335,7 @@ http:
 ``` bash
 
 ./hey -n 900   -c 50  -m GET http://${vm01_ip}:10080/pipeline -z 2m   # Easegress
-./hey -n 900   -c 50  -m GET http://${vm01_ip}:8080/pipeline -z 2m    # Nginx 
+./hey -n 900   -c 50  -m GET http://${vm01_ip}:8080/pipeline -z 2m    # NGINX 
 ./hey -n 900   -c 50  -m GET http://${vm01_ip}:8081/pipeline -z 2m    # Traefik 
 
 ```
@@ -345,7 +345,7 @@ http:
 ``` bash
 
 ./hey -n 90000    -c 100  -m GET http://${vm01_ip}:10080/pipeline -z 2m   # Easegress
-./hey -n 90000    -c 100  -m GET http://${vm01_ip}:8080/pipeline -z 2m    # Nginx 
+./hey -n 90000    -c 100  -m GET http://${vm01_ip}:8080/pipeline -z 2m    # NGINX 
 ./hey -n 90000    -c 100  -m GET http://${vm01_ip}:8081/pipeline -z 2m    # Traefik
 
 ```
@@ -355,7 +355,7 @@ http:
 ``` bash
 
 ./hey -n 90000    -c 120  -m GET http://${vm01_ip}:10080/pipeline -z 2m   # Easegress
-./hey -n 90000    -c 120  -m GET http://${vm01_ip}:8080/pipeline -z 2m    # Nginx 
+./hey -n 90000    -c 120  -m GET http://${vm01_ip}:8080/pipeline -z 2m    # NGINX 
 ./hey -n 90000    -c 120  -m GET http://${vm01_ip}:8081/pipeline -z 2m    # Traefik
 
 ```
@@ -365,7 +365,7 @@ http:
 ``` bash
 
 ./hey -n 900000   -c 100  -m GET http://${vm01_ip}:10080/pipeline -z 5m   # Easegress
-./hey -n 900000   -c 100  -m GET http://${vm01_ip}:8080/pipeline -z 5m    # Nginx 
+./hey -n 900000   -c 100  -m GET http://${vm01_ip}:8080/pipeline -z 5m    # NGINX 
 ./hey -n 900000   -c 100  -m GET http://${vm01_ip}:8081/pipeline -z 5m    # Traefik
 
 ```
@@ -378,7 +378,7 @@ http:
 ``` bash
 
 ./hey -n 90000   -c 100  -m GET http://${vm01_ip}:10080/pipeline -d '100000000000000000000000000000' -z 2m   # Easegress
-./hey -n 90000   -c 100  -m GET http://${vm01_ip}:8080/pipeline -d '100000000000000000000000000000' -z 2m    # Nginx 
+./hey -n 90000   -c 100  -m GET http://${vm01_ip}:8080/pipeline -d '100000000000000000000000000000' -z 2m    # NGINX 
 ./hey -n 90000   -c 100  -m GET http://${vm01_ip}:8081/pipeline -d '100000000000000000000000000000' -z 2m    # Traefik
 
 ```
@@ -389,7 +389,7 @@ http:
 ``` bash
 
 ./hey -n 90000   -c 100  -m GET http://${vm01_ip}:10080/pipeline -d '100000000000000000000000000000 1000000000000010000000000000100000000000001000000000000010000000000000100000000000001000000000000010000000000000100000000000000000' -z 2m   # Easegress
-./hey -n 90000   -c 100  -m GET http://${vm01_ip}:8080/pipeline -d '100000000000000000000000000000 1000000000000010000000000000100000000000001000000000000010000000000000100000000000001000000000000010000000000000100000000000000000' -z 2m    # Nginx
+./hey -n 90000   -c 100  -m GET http://${vm01_ip}:8080/pipeline -d '100000000000000000000000000000 1000000000000010000000000000100000000000001000000000000010000000000000100000000000001000000000000010000000000000100000000000000000' -z 2m    # NGINX
 ./hey -n 90000   -c 100  -m GET http://${vm01_ip}:8081/pipeline -d '100000000000000000000000000000 1000000000000010000000000000100000000000001000000000000010000000000000100000000000001000000000000010000000000000100000000000000000' -z 2m    # Traefik
 
 ```
@@ -397,22 +397,22 @@ http:
 | Scenario/Product | Total | Slowest | Fastest | Average | RPS   | 90% Latency | 95% Latency | 99% Latency | load average(top -c ) |
 | ---------------- | ----- | ------- | ------- | ------- | ----- | ----------- | ----------- | ----------- | --------------------- |
 | #1/Easegress     | 0.2s  | 0.017s  | 0.0104s | 0.0113s | 4312  | 0.0125s     | 0.0140s     | 0.0164s     | 0/0/0                 |
-| #1/Nginx         | 0.2s  | 0.015s  | 0.0104s | 0.0112s | 4383  | 0.0124s     | 0.0135s     | 0.0151s     | 0/0/0                 |
+| #1/NGINX         | 0.2s  | 0.015s  | 0.0104s | 0.0112s | 4383  | 0.0124s     | 0.0135s     | 0.0151s     | 0/0/0                 |
 | #1/Traefik       | 0.2s  | 0.018s  | 0.0104s | 0.0113s | 4320  | 0.0123s     | 0.0133s     | 0.0174s     | 0/0/0                 |
 | #2/Easegress     | 10s   | 0.035s  | 0.0103s | 0.0113s | 8826  | 0.0124s     | 0.0136s     | 0.0179s     | 0.34/0.10/0.03        |
-| #2/Nginx         | 28s   | 0.095s  | 0.0103s | 0.0308s | 3146  | 0.0468s     | 0.0500s     | 0.0657s     | 1.37/0.35/0.11        |
+| #2/NGINX         | 28s   | 0.095s  | 0.0103s | 0.0308s | 3146  | 0.0468s     | 0.0500s     | 0.0657s     | 1.37/0.35/0.11        |
 | #2/Traefik       | 10s   | 0.051s  | 0.0103s | 0.0114s | 8685  | 0.0129      | 0.0139s     | 0.0167s     | 0.34/0.27/0.10        |
 | #3/Easegress     | 8s    | 0.040s  | 0.0103s | 0.0114s | 10391 | 0.0129s     | 0.0145s     | 0.0199s     | 0.62/0.25/0.12        |
-| #3/Nginx         | 29s   | 0.133s  | 0.0103s | 0.0373s | 3022  | 0.0614s     | 0.0607s     | 0.122s      | 1.42/0.46/0.20        |
+| #3/NGINX         | 29s   | 0.133s  | 0.0103s | 0.0373s | 3022  | 0.0614s     | 0.0607s     | 0.122s      | 1.42/0.46/0.20        |
 | #3/Traefik       | 9s    | 0.011s  | 0.0103s | 0.0120s | 9892  | 0.0143s     | 0.0158s     | 0.0197s     | 0.40/0.21/0.15        |
 | #4/Easegress     | 102s  | 1.515s  | 0.0103s | 0.0114s | 8775  | 0.0123s     | 0.0134s     | 0.0176s     | 2.52/0.94/0.42        |
-| #4/Nginx         | 311s  | 1.112s  | 0.0103s | 0.0343s | 2893  | 0.0484s     | 0.0513s     | 0.0569s     | 3.93/2.65/1.33        |
+| #4/NGINX         | 311s  | 1.112s  | 0.0103s | 0.0343s | 2893  | 0.0484s     | 0.0513s     | 0.0569s     | 3.93/2.65/1.33        |
 | #4/Traefik       | 107s  | 1.394s  | 0.0103s | 0.0119s | 8371  | 0.0133s     | 0.0144s     | 0.0171s     | 0.95/0.37/0.37        |
 | #5/Easegress     | 10s   | 0.059s  | 0.0103s | 0.0113s | 8797  | 0.0124s     | 0.0134s     | 0.0177s     | 0.27/0.23/0.31        |
-| #5/Nginx         | 28s   | 0.086s  | 0.0103s | 0.0311s | 3130  | 0.0481s     | 0.0510s     | 0.0577s     | 1.25/0.45/0.37        |
+| #5/NGINX         | 28s   | 0.086s  | 0.0103s | 0.0311s | 3130  | 0.0481s     | 0.0510s     | 0.0577s     | 1.25/0.45/0.37        |
 | #5/Traefik       | 10s   | 0.172s  | 0.0103s | 0.0118s | 8393  | 0.0136s     | 0.0149s     | 0.0182s     | 0.68/0.44/0.36        |
 | #6/Easegress     | 10s   | 0.079s  | 0.0103s | 0.0111s | 8950  | 0.0117s     | 0.0121s     | 0.0147s     | 1.09/1.05/1.08        |
-| #6/Nginx         | 21s   | 0.139s  | 0.0103s | 0.0233s | 4095  | 0.0526s     | 0.0644s     | 0.0891s     | 1.25/0.45/0.37        |
+| #6/NGINX         | 21s   | 0.139s  | 0.0103s | 0.0233s | 4095  | 0.0526s     | 0.0644s     | 0.0891s     | 1.25/0.45/0.37        |
 | #6/Traefik       | 10s   | 0.063s  | 0.0103s | 0.0112s | 8916  | 0.0119s     | 0.0124s     | 0.0151s     | 1.63, 1.18, 1.11      |
 
 ## Summary
@@ -480,7 +480,7 @@ MiB Swap:      0.0 total,      0.0 free,      0.0 used.  30609.3 avail Mem
   63509 root      25   5  789068  96656  44852 S 153.5   0.3   4:10.48 ./traefik -c traefik.yml  
 ```
 
-1. Nginx processes use most time in system mode, may due to the context switch between kernel mode and user mode. 
+1. NGINX processes use most time in system mode, may due to the context switch between kernel mode and user mode. 
 2. Easegress/Traefik uses goroutine user-space scheduling for avoding heavy context switching cost.
 
 ## Benchmark Linux vs Windows
@@ -492,16 +492,16 @@ The test is based on <https://www.nginx.com/blog/nginx-plus-sizing-guide-how-we-
  * loader -> upstream: AVG RPS 10491.82
  * loader -> linux Easegress: AVG RPS 3187.94 (30.38% of raw)
  * loader -> Windows Easegress: 3484.75 (33.21% of raw), _note: 2 Non-2xx or 3xx responses_
- * loader -> nginx proxy: AVG RPS 2313.15 (22.04% of raw)
+ * loader -> NGINX proxy: AVG RPS 2313.15 (22.04% of raw)
 
 ### Hardware and Topology
 
 To minimize the factors, 5 Azure VMs, with SKU [Standard D8s v3 (8 vcpus, 32 GiB memory)](https://docs.microsoft.com/en-us/azure/virtual-machines/dv3-dsv3-series), in same VNet were divided into 5 roles:
 
- * upstream: a nginx act as server
+ * upstream: a NGINX act as server
  * eg: linux build of Easegress
  * egwin: windows build of Easegress
- * ngx: a nginx proxy to upstream for baseline
+ * ngx: a NGINX proxy to upstream for baseline
  * loader: wrt to generate load to 
 
 
@@ -509,7 +509,7 @@ To minimize the factors, 5 Azure VMs, with SKU [Standard D8s v3 (8 vcpus, 32 GiB
  
  Easegress build with Go 1.16.6 @ `d2e5887` <https://github.com/megaease/easegress/pull/74>
 
- * upstream: Ubuntu 20.04.2, nginx 1.18.0-0ubuntu1.2
+ * upstream: Ubuntu 20.04.2, NGINX 1.18.0-0ubuntu1.2
 
    default config with 1kb file
 
@@ -545,7 +545,7 @@ To minimize the factors, 5 Azure VMs, with SKU [Standard D8s v3 (8 vcpus, 32 GiB
            policy: roundRobin
    ```
 
- * ngx: Ubuntu 20.04.2, nginx 1.18.0-0ubuntu1.2
+ * ngx: Ubuntu 20.04.2, NGINX 1.18.0-0ubuntu1.2
 
    default config with `proxy_pass http://upstream/;`
 
@@ -553,7 +553,7 @@ To minimize the factors, 5 Azure VMs, with SKU [Standard D8s v3 (8 vcpus, 32 GiB
 
 ### Test script
 
-Same as nginx blog
+Same as NGINX blog
 
 ```
 for i in `seq 1 number-of-CPUs`; do
@@ -1134,7 +1134,7 @@ Transfer/sec:      4.33MB
 ```
 </details>
 
-### loader -> nginx proxy 
+### loader -> NGINX proxy 
 
 <details>
   <summary>run 3 x 3mins at ~avg RPS 2313.152857</summary>
