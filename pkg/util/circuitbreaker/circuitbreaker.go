@@ -182,7 +182,7 @@ func (tbw *TimeBasedWindow) evict(now time.Time) {
 	// evicts is how many buckets need to be evicted
 	evicts := seconds - len(tbw.bucket) + 1
 
-	// the begin time of the window need to be adjusted according to evicts
+	// the beginning time of the window need to be adjusted according to evicts
 	tbw.beginAt = tbw.beginAt.Add(time.Duration(evicts) * time.Second)
 
 	// evicts may be very large, but at most len(tbw.bucket) buckets need to

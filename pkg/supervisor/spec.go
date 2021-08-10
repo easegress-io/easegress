@@ -118,7 +118,7 @@ func (s *Supervisor) NewSpec(yamlConfig string) (spec *Spec, err error) {
 	return
 }
 
-// Super returns super
+// Super returns supervisor
 func (s *Spec) Super() *Supervisor {
 	return s.super
 }

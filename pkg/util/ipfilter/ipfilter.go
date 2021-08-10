@@ -126,8 +126,8 @@ func (f *IPFilter) Allow(ipstr string) bool {
 	}
 }
 
-// NewIPfilters creates an IPFilters
-func NewIPfilters(filters ...*IPFilter) *IPFilters {
+// NewIPFilters creates an IPFilters
+func NewIPFilters(filters ...*IPFilter) *IPFilters {
 	return &IPFilters{filters: filters}
 }
 
