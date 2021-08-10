@@ -78,7 +78,7 @@ type TemplateEngine interface {
 	// SetDict adds a temaplateRule and its value for later rendering
 	SetDict(template string, value interface{}) error
 
-	// GetDict returns the template rely on dictionary
+	// GetDict returns the template's dictionary
 	GetDict() map[string]interface{}
 }
 
