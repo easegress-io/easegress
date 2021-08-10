@@ -27,7 +27,7 @@ import (
 func TestNotifySignalAndRaiseSignal(t *testing.T) {
 	c := make(chan Signal, 5)
 	var currSig Signal
-	sigs := []Signal{SignalInt, SignalTerm, SingalUsr2}
+	sigs := []Signal{SignalInt, SignalTerm, SignalUsr2}
 
 	// NotifySignal
 	if err := NotifySignal(nil); err == nil {

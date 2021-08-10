@@ -64,7 +64,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		if err := common.RaiseSignal(pid, common.SingalUsr2); err != nil {
+		if err := common.RaiseSignal(pid, common.SignalUsr2); err != nil {
 			logger.Errorf("failed to send signal: %v", err)
 			os.Exit(1)
 		}

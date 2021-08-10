@@ -88,9 +88,9 @@ type (
 func newIPFilterChain(parentIPFilters *ipfilter.IPFilters, childSpec *ipfilter.Spec) *ipfilter.IPFilters {
 	var ipFilters *ipfilter.IPFilters
 	if parentIPFilters != nil {
-		ipFilters = ipfilter.NewIPfilters(parentIPFilters.Filters()...)
+		ipFilters = ipfilter.NewIPFilters(parentIPFilters.Filters()...)
 	} else {
-		ipFilters = ipfilter.NewIPfilters()
+		ipFilters = ipfilter.NewIPFilters()
 	}
 
 	if childSpec != nil {
