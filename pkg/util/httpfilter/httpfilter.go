@@ -102,10 +102,9 @@ func New(spec *Spec) *HTTPFilter {
 func (hf *HTTPFilter) Filter(ctx context.HTTPContext) bool {
 	if len(hf.spec.Headers) > 0 {
 		matchHeader := hf.filterHeader(ctx)
-		if len(hf.spec.URLs) > 0 {
-			return matchHeader && hf.filterURL(ctx)
+		if matchHeader && len(hf.spec.URLs) > 0 {
+			return hf.filterURL(ctx)
 		}
-
 		return matchHeader
 	}
 
