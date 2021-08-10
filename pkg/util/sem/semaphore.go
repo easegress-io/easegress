@@ -28,8 +28,8 @@ const maxCapacity int64 = 20_000_000
 
 //Semaphore supports to change the max sema amount at runtime.
 //  Semaphore employs golang.org/x/sync/semaphore.Weighted with a maxCapacity.
-//  And tuning the realCapacity by a Acquire and Release in the background.
-//  the realCapacity can not exceeds the maxCapacity.
+//  And tuning the realCapacity by an Acquire and Release in the background.
+//  the realCapacity can not exceed the maxCapacity.
 type Semaphore struct {
 	sem          *semaphore.Weighted
 	lock         sync.Mutex

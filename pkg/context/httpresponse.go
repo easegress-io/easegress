@@ -82,7 +82,7 @@ func (w *httpResponse) SetBody(body io.Reader) {
 	w.body = body
 }
 
-// None uses it currently, keep it for future maybe.
+// OnFlushBody None uses it currently, keep it for future maybe.
 func (w *httpResponse) OnFlushBody(fn BodyFlushFunc) {
 	w.bodyFlushFuncs = append(w.bodyFlushFuncs, fn)
 }
