@@ -317,12 +317,12 @@ func (ctx *httpContext) Log() string {
 		strings.Join(ctx.tags, " | "))
 }
 
-// Template returns HTTPTemplate rely interface
+// Template returns HTTPTemplate rely on interface
 func (ctx *httpContext) Template() texttemplate.TemplateEngine {
 	return ctx.ht.Engine
 }
 
-// SetTemplate sets the http template initinaled by other module
+// SetTemplate sets the http template initialed by other module
 func (ctx *httpContext) SetTemplate(ht *HTTPTemplate) {
 	ctx.ht = ht
 }

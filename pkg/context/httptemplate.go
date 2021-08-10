@@ -119,16 +119,16 @@ func NewHTTPTemplate(filterBuffs []FilterBuff) (*HTTPTemplate, error) {
 	filterFuncTags := map[string][]string{}
 	// validates the filter's YAML spec for dependency checking
 	// and template format,e.g., if filter1 has a template said '[[filter.filter2.rsp.data]],
-	// but it appears before filter2, then it's an invalidate dependency cause we can't get
-	// the rsp form filter2 in the execution period of filter1. At last it will build up
-	// executing function arrays for every filters.
+	// but it appears before filter2, then it's an invalidated dependency because we can't get
+	// the rsp form filter2 in the execution period of filter1. At last, it will build up
+	// executing function arrays for every filter.
 	for _, filterBuff := range filterBuffs {
 		e.filtersOrder = append(e.filtersOrder, filterBuff.Name)
 		templatesMap := e.Engine.ExtractRawTemplateRuleMap(string(filterBuff.Buff))
 		if len(templatesMap) == 0 {
 			continue
 		}
-		dependFilters := []string{}
+		var dependFilters []string
 		for template, renderMeta := range templatesMap {
 			// no matched and rendered meta template
 			if len(renderMeta) == 0 {
@@ -163,7 +163,7 @@ func NewHTTPTemplate(filterBuffs []FilterBuff) (*HTTPTemplate, error) {
 		if err != nil {
 			return nil, err
 		}
-		// get its all rely filters and make sure these targets have already show
+		// get it's all rely on filters and make sure these targets have already show
 		// up, and couldn't rely on itself.
 		if err = e.validateFilterDependency(filterBuff.Name, dependFilters); err != nil {
 			return nil, err
@@ -332,7 +332,7 @@ func saveReqMethod(e *HTTPTemplate, filterName string, ctx HTTPContext) error {
 func saveReqBody(e *HTTPTemplate, filterName string, ctx HTTPContext) error {
 	bodyBuff, err := readBody(ctx.Request().Body(), defaultMaxBodySize)
 	if err != nil {
-		logger.Errorf("httptemplate save HTTP request  body failed err %v", err)
+		logger.Errorf("httptemplate save HTTP request body failed err %v", err)
 		return err
 	}
 	e.Engine.SetDict(fmt.Sprintf(filterReqBody, filterName), string(bodyBuff.Bytes()))
