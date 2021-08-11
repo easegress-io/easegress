@@ -108,6 +108,7 @@ The following examples show how to use Easegress for different scenarios.
 - [Distributed Tracing](./doc/cookbook/distributed_tracing.md) - How to do APM tracing  - Zipkin.
 - [Kubernetes Ingress Controller](./doc/cookbook/k8s_ingress_controller.md) - How to integrated with Kubernetes as ingress controller
 - [Performance](./doc/cookbook/performance.md) - Performance optimization - compression, caching etc.
+- [Pipeline](./doc/cookbook/pipeline.md) - How to orchestrate HTTP filters for requests/responses handling
 - [Resilience and Fault Tolerance](./doc/cookbook/resilience.md) - Circuit Breaker, Rate Lmiter, Retryer, Time limiter, etc. (Porting from [Java resilience4j](https://github.com/resilience4j/resilience4j))
 - [Security](./doc/cookbook/security.md) - How to do authenication by Header, JWT, HMAC, OAuth2, etc.
 - [Service Proxy](./doc/cookbook/service_proxy.md) - Supporting the Microservice  registries - Zookeeper, Eureka, Consul, Nacos, etc.
