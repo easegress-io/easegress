@@ -22,7 +22,7 @@
 * The basic model of Pipeline execution is a sequence. Filters will be executed step by step in the order described by the `flow` field in Pipeline's spec.
 
 ```
-      HTTP request
+      HTTP request
            │
 ┌──────────┼──────────┐
 │ Pipeline │          │
