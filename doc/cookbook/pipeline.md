@@ -21,6 +21,27 @@
 
 * The basic model of Pipeline execution is a sequence. Filters will be executed step by step in the order described by the `flow` field in Pipeline's spec.
 
+```
+      HTTP request
+           │
+┌──────────┼──────────┐
+│ Pipeline │          │
+│          │          │
+│  ┌───────┴───────┐  │
+│  │requestAdaptor │  │
+│  └───────┬───────┘  │
+│          │          │
+│          │          │
+│  ┌───────▼───────┐  │
+│  │     Proxy     │  │
+│  └───────┬───────┘  │
+│          │          │
+└──────────┼──────────┘
+           │
+           ▼
+      HTTP response
+```
+
 ```bash
 $ echo '
 name: pipeline-demo
@@ -50,6 +71,34 @@ filters:
 
 * Easegress' filter returns a string message as execution result. If it's empty, that means these filters handle the request without failure. Otherwise, Easegress will use these no-empty result strings as the basis for the `JumpIf` mechanism.
 * The Pipeline supports `JumpIf` mechanism[2]. We use it to avoid some chosen filters' execution when something goes wrong.
+
+```
+         HTTP request
+               │
+               │
+┌──────────────┼─────────────────┐
+│ Pipeline     │                 │
+│              ▼                 │
+│     ┌──────────────────┐       │
+│     │    Validator     ├────┐  │
+│     └────────┬─────────┘    │  │
+│              │              │  │
+│              ▼              │  │
+│     ┌──────────────────┐    │  │
+│     │  RequestAdaptor  │    │  │
+│     └────────┬─────────┘    │  │
+│              │          Invalid│
+│              ▼              │  │
+│     ┌──────────────────┐    │  │
+│     │     Proxy        │    │  │
+│     └────────┬─────────┘    │  │
+│              │              │  │
+│              ◄──────────────┘  │
+└──────────────┼─────────────────┘
+               │
+               ▼
+         HTTP response
+```
 
 ```bash
 $ cat pipeline-demo.yaml
