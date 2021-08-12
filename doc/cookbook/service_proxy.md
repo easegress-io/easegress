@@ -32,7 +32,7 @@ filters:
 
 ### Dynamic: Integration with Service Registry
 
-* We integrate `Proxy` with service registry such as [Consul](https://github.com/megaease/easegress/blob/main/doc/controllers.md#consulserviceregistry), [Etcd](https://github.com/megaease/easegress/blob/main/doc/controllers.md#etcdserviceregistry), [Zookeeper](https://github.com/megaease/easegress/blob/main/doc/controllers.md#zookeeperserviceregistry), [Eureka](https://github.com/megaease/easegress/blob/main/doc/controllers.md#eurekaserviceregistry). You need to create one of them to connect the external service registry. The service registry config takes higher priority than static servers. If the dynamic servers pulling failed, it will use static servers if there are.
+* We integrate `Proxy` with service registries such as [Consul](https://github.com/megaease/easegress/blob/main/doc/controllers.md#consulserviceregistry), [Etcd](https://github.com/megaease/easegress/blob/main/doc/controllers.md#etcdserviceregistry), [Zookeeper](https://github.com/megaease/easegress/blob/main/doc/controllers.md#zookeeperserviceregistry), [Eureka](https://github.com/megaease/easegress/blob/main/doc/controllers.md#eurekaserviceregistry). You need to create one of them to connect the external service registry. The service registry config takes higher priority than static servers. If the dynamic servers pulling failed, it will use static servers if there are.
 
 
 ### Zookeeper
@@ -48,7 +48,7 @@ conntimeout: 6s
 syncInterval: 10s
 ```
 
-2. Create a pipeline and set its `serviceRegisty` field into `zookeeper-001` and it will look up the zookeeper configuration for the service named `springboot-application-order` as in filed `serviceName`.    
+2. Create a pipeline and set its `serviceRegistry` field into `zookeeper-001` and it will look up the zookeeper configuration for the service named `springboot-application-order` as in field `serviceName`.    
 
 ```yaml
 name: pipeline-reverse-proxy
@@ -63,7 +63,7 @@ filters:
       - url: http://127.0.0.1:9095
       - url: http://127.0.0.1:9096
       - url: http://127.0.0.1:9097
-      serviceRegisrty: zookeeper-001              # +
+      serviceRegistry: zookeeper-001              # +
       serviceName: springboot-application-order   # +
       loadBalance:
         policy: roundRobin
@@ -82,7 +82,7 @@ scheme: http
 syncInterval: 10s
 ```
 
-2. Create a pipeline and set its `serviceRegisty` field into `consul-001` and it will look up the consul configuration for the service named `springboot-application-order` as in filed `serviceName`.    
+2. Create a pipeline and set its `serviceRegistry` field into `consul-001` and it will look up the consul configuration for the service named `springboot-application-order` as in field `serviceName`.    
 
 ```yaml
 name: pipeline-reverse-proxy
@@ -97,7 +97,7 @@ filters:
       - url: http://127.0.0.1:9095
       - url: http://127.0.0.1:9096
       - url: http://127.0.0.1:9097
-      serviceRegisrty: consul-001              # +
+      serviceRegistry: consul-001              # +
       serviceName: springboot-application-order   # +
       loadBalance:
         policy: roundRobin
@@ -115,7 +115,7 @@ syncInterval: 10s
 ```
 
 
-2. Create a pipeline and set its `serviceRegisty` field into `eureka-001` and it will look up the eureka configuration for the service named `springboot-application-order` as in filed `serviceName`.    
+2. Create a pipeline and set its `serviceRegistry` field into `eureka-001` and it will look up the eureka configuration for the service named `springboot-application-order` as in field `serviceName`.    
 
 ```yaml
 name: pipeline-reverse-proxy
@@ -130,7 +130,7 @@ filters:
       - url: http://127.0.0.1:9095
       - url: http://127.0.0.1:9096
       - url: http://127.0.0.1:9097
-      serviceRegisrty: eureka-001              # +
+      serviceRegistry: eureka-001              # +
       serviceName: springboot-application-order   # +
       loadBalance:
         policy: roundRobin
