@@ -61,7 +61,8 @@ const (
 	statusObjectURL  = apiURL + "/status/objects/%s"
 	statusObjectsURL = apiURL + "/status/objects"
 
-	wasmURL = apiURL + "/wasm/code"
+	wasmCodeURL = apiURL + "/wasm/code"
+	wasmDataURL = apiURL + "/wasm/data/%s/%s"
 
 	// MeshTenantsURL is the mesh tenant prefix.
 	MeshTenantsURL = apiURL + "/mesh/tenants"
