@@ -1,4 +1,4 @@
-// +build wasmhost
+/// +build wasmhost
 
 /*
  * Copyright (c) 2017, MegaEase
@@ -29,6 +29,7 @@ import (
 
 // WasmVM represents a wasm VM
 type WasmVM struct {
+	host    *WasmHost
 	ctx     context.HTTPContext
 	store   *wasmtime.Store
 	inst    *wasmtime.Instance
@@ -101,14 +102,14 @@ func (vm *WasmVM) callInit(params []string) (err error) {
 	return
 }
 
-func newWasmVM(engine *wasmtime.Engine, module *wasmtime.Module, params []string) (*WasmVM, error) {
+func newWasmVM(host *WasmHost, engine *wasmtime.Engine, module *wasmtime.Module, params []string) (*WasmVM, error) {
 	store := wasmtime.NewStore(engine)
 	ih, e := store.InterruptHandle()
 	if e != nil {
 		return nil, e
 	}
 
-	vm := &WasmVM{store: store, ih: ih}
+	vm := &WasmVM{host: host, store: store, ih: ih}
 
 	linker := wasmtime.NewLinker(engine)
 	vm.importHostFuncs(linker)
@@ -133,14 +134,15 @@ func newWasmVM(engine *wasmtime.Engine, module *wasmtime.Module, params []string
 
 // WasmVMPool is a pool of wasm VMs
 type WasmVMPool struct {
+	host   *WasmHost
 	chVM   chan *WasmVM
 	engine *wasmtime.Engine
 	module *wasmtime.Module
 	params []string
 }
 
-// NewWasmVMPool creates a wasm VM pool with 'size' VMs which execute 'code'
-func NewWasmVMPool(size int32, code []byte, params map[string]string) (*WasmVMPool, error) {
+// NewWasmVMPool creates a wasm VM pool according the spec of 'host' which execute 'code'
+func NewWasmVMPool(host *WasmHost, code []byte) (*WasmVMPool, error) {
 	cfg := wasmtime.NewConfig()
 	cfg.SetInterruptable(true)
 	engine := wasmtime.NewEngineWithConfig(cfg)
@@ -150,14 +152,14 @@ func NewWasmVMPool(size int32, code []byte, params map[string]string) (*WasmVMPo
 		return nil, e
 	}
 
-	p := &WasmVMPool{engine: engine, module: module}
-	for k, v := range params {
+	p := &WasmVMPool{host: host, engine: engine, module: module}
+	for k, v := range host.spec.Parameters {
 		p.params = append(p.params, k, v)
 	}
 
-	p.chVM = make(chan *WasmVM, size)
-	for i := int32(0); i < size; i++ {
-		vm, e := newWasmVM(p.engine, p.module, p.params)
+	p.chVM = make(chan *WasmVM, host.spec.MaxConcurrency)
+	for i := int32(0); i < host.spec.MaxConcurrency; i++ {
+		vm, e := newWasmVM(p.host, p.engine, p.module, p.params)
 		if e != nil {
 			logger.Errorf("failed to create wasm VM: %v", e)
 		}
@@ -175,7 +177,7 @@ func (p *WasmVMPool) Get() *WasmVM {
 	}
 
 	// vm is nil, we need create a new one
-	vm, e := newWasmVM(p.engine, p.module, p.params)
+	vm, e := newWasmVM(p.host, p.engine, p.module, p.params)
 	if e != nil {
 		p.chVM <- nil
 		logger.Errorf("failed to create wasm VM: %v", e)

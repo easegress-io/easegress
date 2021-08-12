@@ -1,4 +1,4 @@
-// +build wasmhost
+/// +build wasmhost
 
 /*
  * Copyright (c) 2017, MegaEase
@@ -22,16 +22,19 @@ package wasmhost
 import (
 	"bufio"
 	"bytes"
+	"encoding/base64"
 	"encoding/binary"
 	"io"
 	"math/rand"
 	"net/http"
 	"net/textproto"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/bytecodealliance/wasmtime-go"
 	"github.com/megaease/easegress/pkg/logger"
+	"go.etcd.io/etcd/client/v3/concurrency"
 )
 
 // helper functions
@@ -156,6 +159,11 @@ func (vm *WasmVM) readHeaderFromWasm(addr int32) http.Header {
 		panic(e)
 	}
 	return http.Header(h)
+}
+
+func (vm *WasmVM) readClusterKeyFromWasm(addr int32) string {
+	key := vm.readStringFromWasm(addr)
+	return vm.host.dataPrefix + key
 }
 
 // request functions
@@ -366,6 +374,153 @@ func (vm *WasmVM) hostResponseSetBody(addr int32) {
 	vm.ctx.Response().SetBody(bytes.NewReader(body))
 }
 
+// cluster data functions
+
+func (vm *WasmVM) hostClusterGetBinary(addr int32) int32 {
+	var val []byte
+	key := vm.readClusterKeyFromWasm(addr)
+	data := vm.host.Data()
+	if kv := data[key]; kv != nil {
+		val, _ = base64.StdEncoding.DecodeString(string(kv.Value))
+	}
+	return vm.writeDataToWasm(val)
+}
+
+func (vm *WasmVM) hostClusterPutBinary(keyAddr, valAddr int32) {
+	key := vm.readClusterKeyFromWasm(keyAddr)
+	val := vm.readDataFromWasm(valAddr)
+	v := base64.StdEncoding.EncodeToString(val)
+	if e := vm.host.Cluster().Put(key, v); e != nil {
+		panic(e)
+	}
+}
+
+func (vm *WasmVM) hostClusterGetString(addr int32) int32 {
+	val := ""
+	key := vm.readClusterKeyFromWasm(addr)
+	data := vm.host.Data()
+	if kv := data[key]; kv != nil {
+		val = string(kv.Value)
+	}
+	return vm.writeStringToWasm(val)
+}
+
+func (vm *WasmVM) hostClusterPutString(keyAddr, valAddr int32) {
+	key := vm.readClusterKeyFromWasm(keyAddr)
+	val := vm.readStringFromWasm(valAddr)
+	if e := vm.host.Cluster().Put(key, val); e != nil {
+		panic(e)
+	}
+}
+
+func (vm *WasmVM) hostClusterGetInteger(addr int32) int64 {
+	key := vm.readClusterKeyFromWasm(addr)
+	data := vm.host.Data()
+	kv := data[key]
+	if kv == nil {
+		return 0
+	}
+	v, e := strconv.ParseInt(string(kv.Value), 0, 64)
+	if e != nil {
+		return 0
+	}
+	return v
+}
+
+func (vm *WasmVM) hostClusterPutInteger(keyAddr int32, val int64) {
+	key := vm.readClusterKeyFromWasm(keyAddr)
+	v := strconv.FormatInt(val, 10)
+	if e := vm.host.Cluster().Put(key, v); e != nil {
+		panic(e)
+	}
+}
+
+func (vm *WasmVM) hostClusterAddInteger(keyAddr int32, addend int64) int64 {
+	key := vm.readClusterKeyFromWasm(keyAddr)
+	c := vm.host.Cluster()
+	result := int64(0)
+
+	addFunc := func(stm concurrency.STM) error {
+		s := stm.Get(key)
+		if v, e := strconv.ParseInt(s, 0, 64); e != nil {
+			result = 0
+		} else {
+			result = v
+		}
+		result += addend
+
+		stm.Put(key, strconv.FormatInt(result, 10))
+		return nil
+	}
+
+	if e := c.STM(addFunc); e != nil {
+		panic(e)
+	}
+
+	return result
+}
+
+func (vm *WasmVM) hostClusterGetFloat(addr int32) float64 {
+	key := vm.readClusterKeyFromWasm(addr)
+	data := vm.host.Data()
+	kv := data[key]
+	if kv == nil {
+		return 0
+	}
+	v, e := strconv.ParseFloat(string(kv.Value), 64)
+	if e != nil {
+		return 0
+	}
+	return v
+}
+
+func (vm *WasmVM) hostClusterPutFloat(keyAddr int32, val float64) {
+	key := vm.readClusterKeyFromWasm(keyAddr)
+	v := strconv.FormatFloat(val, 'g', -1, 64)
+	if e := vm.host.Cluster().Put(key, v); e != nil {
+		panic(e)
+	}
+}
+
+func (vm *WasmVM) hostClusterAddFloat(keyAddr int32, addend float64) float64 {
+	key := vm.readClusterKeyFromWasm(keyAddr)
+	c := vm.host.Cluster()
+	result := float64(0)
+
+	addFunc := func(stm concurrency.STM) error {
+		s := stm.Get(key)
+		if v, e := strconv.ParseFloat(s, 64); e != nil {
+			result = 0
+		} else {
+			result = v
+		}
+		result += addend
+
+		v := strconv.FormatFloat(result, 'g', -1, 64)
+		stm.Put(key, v)
+		return nil
+	}
+
+	if e := c.STM(addFunc); e != nil {
+		panic(e)
+	}
+
+	return result
+}
+
+func (vm *WasmVM) hostClusterCountKey(prefixAddr int32) int32 {
+	prefix := vm.readClusterKeyFromWasm(prefixAddr)
+	data := vm.host.Data()
+	count := int32(0)
+
+	for k := range data {
+		if strings.HasPrefix(k, prefix) {
+			count++
+		}
+	}
+	return count
+}
+
 // misc functions
 
 func (vm *WasmVM) hostAddTag(addr int32) {
@@ -451,6 +606,23 @@ func (vm *WasmVM) importHostFuncs(linker *wasmtime.Linker) {
 
 	defineFunc("host_resp_get_body", vm.hostResponseGetBody)
 	defineFunc("host_resp_set_body", vm.hostResponseSetBody)
+
+	// cluster data functions
+	defineFunc("host_cluster_get_binary", vm.hostClusterGetBinary)
+	defineFunc("host_cluster_put_binary", vm.hostClusterPutBinary)
+
+	defineFunc("host_cluster_get_string", vm.hostClusterGetString)
+	defineFunc("host_cluster_put_string", vm.hostClusterPutString)
+
+	defineFunc("host_cluster_get_integer", vm.hostClusterGetInteger)
+	defineFunc("host_cluster_put_integer", vm.hostClusterPutInteger)
+	defineFunc("host_cluster_add_integer", vm.hostClusterAddInteger)
+
+	defineFunc("host_cluster_get_float", vm.hostClusterGetFloat)
+	defineFunc("host_cluster_put_float", vm.hostClusterPutFloat)
+	defineFunc("host_cluster_add_float", vm.hostClusterAddFloat)
+
+	defineFunc("host_cluster_count_key", vm.hostClusterCountKey)
 
 	// misc functions
 	defineFunc("host_add_tag", vm.hostAddTag)

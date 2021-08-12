@@ -23,6 +23,7 @@ import (
 
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
+	"go.etcd.io/etcd/client/v3/concurrency"
 )
 
 type (
@@ -42,6 +43,8 @@ type (
 
 		Delete(key string) error
 		DeletePrefix(prefix string) error
+
+		STM(apply func(concurrency.STM) error) error
 
 		Watcher() (Watcher, error)
 		Syncer(pullInterval time.Duration) (*Syncer, error)

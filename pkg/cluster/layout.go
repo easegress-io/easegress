@@ -33,6 +33,7 @@ const (
 	configObjectFormat       = "/config/objects/%s" // +objectName
 	configVersion            = "/config/version"
 	wasmCodeEvent            = "/wasm/code"
+	wasmDataPrefixFormat     = "/wasm/data/%s/%s/"
 
 	// the cluster name of this eg group will be registered under this path in etcd
 	// any new member(reader or writer ) will be rejected if it is configured a different cluster name
@@ -121,4 +122,9 @@ func (l *Layout) ConfigVersion() string {
 // WasmCodeEvent returns the key of wasm code event
 func (l *Layout) WasmCodeEvent() string {
 	return wasmCodeEvent
+}
+
+// WasmDataPrefix returns the prefix of wasm data
+func (l *Layout) WasmDataPrefix(pipeline string, name string) string {
+	return fmt.Sprintf(wasmDataPrefixFormat, pipeline, name)
 }
