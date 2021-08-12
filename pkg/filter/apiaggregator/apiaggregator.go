@@ -127,7 +127,7 @@ func (aa *APIAggregator) Results() []string {
 }
 
 // Init initializes APIAggregator.
-func (aa *APIAggregator) Init(filterSpec *httppipeline.FilterSpec) {
+func (aa *APIAggregator) Init(pipeline string, filterSpec *httppipeline.FilterSpec) {
 	aa.filterSpec, aa.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	entity, exists := filterSpec.Super().GetSystemController(rawconfigtrafficcontroller.Kind)
 	if !exists {
@@ -143,9 +143,9 @@ func (aa *APIAggregator) Init(filterSpec *httppipeline.FilterSpec) {
 }
 
 // Inherit inherits previous generation of APIAggregator.
-func (aa *APIAggregator) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+func (aa *APIAggregator) Inherit(pipeline string, filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
 	previousGeneration.Close()
-	aa.Init(filterSpec)
+	aa.Init(pipeline, filterSpec)
 }
 
 func (aa *APIAggregator) reload() {

@@ -72,16 +72,16 @@ func (f *Fallback) Results() []string {
 }
 
 // Init initializes Fallback.
-func (f *Fallback) Init(filterSpec *httppipeline.FilterSpec) {
+func (f *Fallback) Init(pipeline string, filterSpec *httppipeline.FilterSpec) {
 	f.filterSpec, f.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	f.reload()
 }
 
 // Inherit inherits previous generation of Fallback.
-func (f *Fallback) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+func (f *Fallback) Inherit(pipeline string, filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
 
 	previousGeneration.Close()
-	f.Init(filterSpec)
+	f.Init(pipeline, filterSpec)
 }
 
 func (f *Fallback) reload() {

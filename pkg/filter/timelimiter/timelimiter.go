@@ -86,7 +86,7 @@ func (tl *TimeLimiter) Results() []string {
 }
 
 // Init initializes TimeLimiter.
-func (tl *TimeLimiter) Init(filterSpec *httppipeline.FilterSpec) {
+func (tl *TimeLimiter) Init(pipeline string, filterSpec *httppipeline.FilterSpec) {
 	tl.filterSpec, tl.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 
 	if d := tl.spec.DefaultTimeoutDuration; d != "" {
@@ -106,8 +106,8 @@ func (tl *TimeLimiter) Init(filterSpec *httppipeline.FilterSpec) {
 }
 
 // Inherit inherits previous generation of TimeLimiter.
-func (tl *TimeLimiter) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
-	tl.Init(filterSpec)
+func (tl *TimeLimiter) Inherit(pipeline string, filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+	tl.Init(pipeline, filterSpec)
 }
 
 func (tl *TimeLimiter) handle(ctx context.HTTPContext, u *URLRule) string {

@@ -79,16 +79,16 @@ func (a *CORSAdaptor) Results() []string {
 }
 
 // Init initializes CORSAdaptor.
-func (a *CORSAdaptor) Init(filterSpec *httppipeline.FilterSpec) {
+func (a *CORSAdaptor) Init(pipeline string, filterSpec *httppipeline.FilterSpec) {
 	a.filterSpec, a.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	a.reload()
 }
 
 // Inherit inherits previous generation of CORSAdaptor.
-func (a *CORSAdaptor) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+func (a *CORSAdaptor) Inherit(pipeline string, filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
 
 	previousGeneration.Close()
-	a.Init(filterSpec)
+	a.Init(pipeline, filterSpec)
 }
 
 func (a *CORSAdaptor) reload() {

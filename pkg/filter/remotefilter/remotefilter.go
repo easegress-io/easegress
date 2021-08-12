@@ -147,15 +147,15 @@ type (
 )
 
 // Init initializes RemoteFilter.
-func (rf *RemoteFilter) Init(filterSpec *httppipeline.FilterSpec) {
+func (rf *RemoteFilter) Init(pipeline string, filterSpec *httppipeline.FilterSpec) {
 	rf.filterSpec, rf.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	rf.reload()
 }
 
 // Inherit inherits previous generation of RemoteFilter.
-func (rf *RemoteFilter) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+func (rf *RemoteFilter) Inherit(pipeline string, filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
 	previousGeneration.Close()
-	rf.Init(filterSpec)
+	rf.Init(pipeline, filterSpec)
 }
 
 func (rf *RemoteFilter) reload() {

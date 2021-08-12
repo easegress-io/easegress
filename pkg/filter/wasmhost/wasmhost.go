@@ -220,12 +220,12 @@ func (wh *WasmHost) reload(pipeSpec *httppipeline.FilterSpec) {
 }
 
 // Init initializes WasmHost.
-func (wh *WasmHost) Init(pipeSpec *httppipeline.FilterSpec) {
+func (wh *WasmHost) Init(pipeline string, pipeSpec *httppipeline.FilterSpec) {
 	wh.reload(pipeSpec)
 }
 
 // Inherit inherits previous generation of WasmHost.
-func (wh *WasmHost) Inherit(pipeSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+func (wh *WasmHost) Inherit(pipeline string, pipeSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
 	previousGeneration.Close()
 	wh.reload(pipeSpec)
 }

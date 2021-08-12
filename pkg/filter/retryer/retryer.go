@@ -159,7 +159,7 @@ func (r *Retryer) initURL(u *URLRule) {
 }
 
 // Init initializes Retryer.
-func (r *Retryer) Init(filterSpec *httppipeline.FilterSpec) {
+func (r *Retryer) Init(pipeline string, filterSpec *httppipeline.FilterSpec) {
 	r.filterSpec = filterSpec
 	r.spec = filterSpec.FilterSpec().(*Spec)
 	for _, url := range r.spec.URLs {
@@ -168,8 +168,8 @@ func (r *Retryer) Init(filterSpec *httppipeline.FilterSpec) {
 }
 
 // Inherit inherits previous generation of Retryer.
-func (r *Retryer) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
-	r.Init(filterSpec)
+func (r *Retryer) Inherit(pipeline string, filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+	r.Init(pipeline, filterSpec)
 }
 
 func (r *Retryer) handle(ctx context.HTTPContext, u *URLRule) string {

@@ -44,9 +44,9 @@ func createValidator(yamlSpec string, prev *Validator) *Validator {
 	spec, _ := httppipeline.NewFilterSpec(rawSpec, nil)
 	v := &Validator{}
 	if prev == nil {
-		v.Init(spec)
+		v.Init("", spec)
 	} else {
-		v.Inherit(spec, prev)
+		v.Inherit("", spec, prev)
 	}
 	return v
 }

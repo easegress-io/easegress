@@ -73,15 +73,15 @@ func (ra *ResponseAdaptor) Results() []string {
 }
 
 // Init initializes ResponseAdaptor.
-func (ra *ResponseAdaptor) Init(filterSpec *httppipeline.FilterSpec) {
+func (ra *ResponseAdaptor) Init(pipeline string, filterSpec *httppipeline.FilterSpec) {
 	ra.filterSpec, ra.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	ra.reload()
 }
 
 // Inherit inherits previous generation of ResponseAdaptor.
-func (ra *ResponseAdaptor) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+func (ra *ResponseAdaptor) Inherit(pipeline string, filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
 	previousGeneration.Close()
-	ra.Init(filterSpec)
+	ra.Init(pipeline, filterSpec)
 }
 
 func (ra *ResponseAdaptor) reload() {

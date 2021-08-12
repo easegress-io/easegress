@@ -59,7 +59,7 @@ urls:
 	}
 
 	tl := &TimeLimiter{}
-	tl.Init(spec)
+	tl.Init("", spec)
 
 	if tl.spec.defaultTimeout != 456*time.Millisecond {
 		t.Error("default timeout duration is not the value in spec")
@@ -116,7 +116,7 @@ urls:
 
 	newTl := &TimeLimiter{}
 	spec, _ = httppipeline.NewFilterSpec(rawSpec, nil)
-	newTl.Inherit(spec, tl)
+	newTl.Inherit("", spec, tl)
 	tl.Close()
 	result = newTl.Handle(ctx)
 	if result == resultTimeout {

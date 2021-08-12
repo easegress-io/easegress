@@ -79,16 +79,16 @@ func (ra *RequestAdaptor) Results() []string {
 }
 
 // Init initializes RequestAdaptor.
-func (ra *RequestAdaptor) Init(filterSpec *httppipeline.FilterSpec) {
+func (ra *RequestAdaptor) Init(pipeline string, filterSpec *httppipeline.FilterSpec) {
 	ra.filterSpec, ra.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	ra.reload()
 }
 
 // Inherit inherits previous generation of RequestAdaptor.
-func (ra *RequestAdaptor) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+func (ra *RequestAdaptor) Inherit(pipeline string, filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
 
 	previousGeneration.Close()
-	ra.Init(filterSpec)
+	ra.Init(pipeline, filterSpec)
 }
 
 func (ra *RequestAdaptor) reload() {
