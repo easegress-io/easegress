@@ -115,7 +115,7 @@ syncInterval: 10s
 ```
 
 
-2. Create a pipeline and set its `serviceRegisty` field into `consul-001` and it will look up the consul configuration for the service named `springboot-application-order` as in filed `serviceName`.    
+2. Create a pipeline and set its `serviceRegisty` field into `eureka-001` and it will look up the eureka configuration for the service named `springboot-application-order` as in filed `serviceName`.    
 
 ```yaml
 name: pipeline-reverse-proxy
