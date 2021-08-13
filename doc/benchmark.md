@@ -273,14 +273,14 @@ http:
 
 ``` bash
 
-./hey -n 900   -c 50  -m GET http://${vm03_ip}:9095/pipeline -z 2m    
+./hey -n 900   -c 50  -m GET http://${vm03_ip}:9095/pipeline
 
 ```
 
 * **Scenario 2**: 100 concurrency/90000 requests/2 miniutes limitation/not QPS limitation
 ``` bash
 
-./hey -n 90000  -c 100  -m GET http://${vm03_ip}:9095/pipeline -z 2m   
+./hey -n 90000  -c 100  -m GET http://${vm03_ip}:9095/pipeline
 
 ```
 
@@ -288,7 +288,7 @@ http:
 
 ``` bash
 
-./hey -n 90000  -c 120  -m GET http://${vm03_ip}:9095/pipeline -z 2m   
+./hey -n 90000  -c 120  -m GET http://${vm03_ip}:9095/pipeline
 
 ```
 
@@ -307,7 +307,7 @@ http:
 
 ``` bash
 
-./hey -n 90000   -c 100  -m GET ${vm01}:8080/index.html -d -z 2m 
+./hey -n 90000   -c 100  -m GET ${vm01}:8080/index.html  
 
 ```
 
@@ -321,7 +321,7 @@ http:
 
 ``` bash
 
-./hey -n 90000   -c 100  -m GET ${vm01}:10080/pipeline -z 2m
+./hey -n 90000   -c 100  -m GET ${vm01}:10080/pipeline 
 
 ```
 
@@ -334,9 +334,9 @@ http:
 
 ``` bash
 
-./hey -n 900   -c 50  -m GET http://${vm01_ip}:10080/pipeline -z 2m   # Easegress
-./hey -n 900   -c 50  -m GET http://${vm01_ip}:8080/pipeline -z 2m    # NGINX 
-./hey -n 900   -c 50  -m GET http://${vm01_ip}:8081/pipeline -z 2m    # Traefik 
+./hey -n 900   -c 50  -m GET http://${vm01_ip}:10080/pipeline   # Easegress
+./hey -n 900   -c 50  -m GET http://${vm01_ip}:8080/pipeline    # NGINX
+./hey -n 900   -c 50  -m GET http://${vm01_ip}:8081/pipeline    # Traefik 
 
 ```
 
@@ -344,9 +344,9 @@ http:
 
 ``` bash
 
-./hey -n 90000    -c 100  -m GET http://${vm01_ip}:10080/pipeline -z 2m   # Easegress
-./hey -n 90000    -c 100  -m GET http://${vm01_ip}:8080/pipeline -z 2m    # NGINX 
-./hey -n 90000    -c 100  -m GET http://${vm01_ip}:8081/pipeline -z 2m    # Traefik
+./hey -n 90000    -c 100  -m GET http://${vm01_ip}:10080/pipeline    # Easegress
+./hey -n 90000    -c 100  -m GET http://${vm01_ip}:8080/pipeline     # NGINX
+./hey -n 90000    -c 100  -m GET http://${vm01_ip}:8081/pipeline     # Traefik
 
 ```
 
@@ -354,9 +354,9 @@ http:
 
 ``` bash
 
-./hey -n 90000    -c 120  -m GET http://${vm01_ip}:10080/pipeline -z 2m   # Easegress
-./hey -n 90000    -c 120  -m GET http://${vm01_ip}:8080/pipeline -z 2m    # NGINX 
-./hey -n 90000    -c 120  -m GET http://${vm01_ip}:8081/pipeline -z 2m    # Traefik
+./hey -n 90000    -c 120  -m GET http://${vm01_ip}:10080/pipeline  # Easegress
+./hey -n 90000    -c 120  -m GET http://${vm01_ip}:8080/pipeline   # NGINX
+./hey -n 90000    -c 120  -m GET http://${vm01_ip}:8081/pipeline   # Traefik
 
 ```
 
@@ -364,9 +364,9 @@ http:
 
 ``` bash
 
-./hey -n 900000   -c 100  -m GET http://${vm01_ip}:10080/pipeline -z 5m   # Easegress
-./hey -n 900000   -c 100  -m GET http://${vm01_ip}:8080/pipeline -z 5m    # NGINX 
-./hey -n 900000   -c 100  -m GET http://${vm01_ip}:8081/pipeline -z 5m    # Traefik
+./hey -n 900000   -c 100  -m GET http://${vm01_ip}:10080/pipeline    # Easegress
+./hey -n 900000   -c 100  -m GET http://${vm01_ip}:8080/pipeline     # NGINX
+./hey -n 900000   -c 100  -m GET http://${vm01_ip}:8081/pipeline     # Traefik
 
 ```
 
@@ -377,9 +377,9 @@ http:
 
 ``` bash
 
-./hey -n 90000   -c 100  -m GET http://${vm01_ip}:10080/pipeline -d '100000000000000000000000000000' -z 2m   # Easegress
-./hey -n 90000   -c 100  -m GET http://${vm01_ip}:8080/pipeline -d '100000000000000000000000000000' -z 2m    # NGINX 
-./hey -n 90000   -c 100  -m GET http://${vm01_ip}:8081/pipeline -d '100000000000000000000000000000' -z 2m    # Traefik
+./hey -n 90000   -c 100  -m GET http://${vm01_ip}:10080/pipeline -d '100000000000000000000000000000' # Easegress
+./hey -n 90000   -c 100  -m GET http://${vm01_ip}:8080/pipeline -d '100000000000000000000000000000'  # NGINX
+./hey -n 90000   -c 100  -m GET http://${vm01_ip}:8081/pipeline -d '100000000000000000000000000000'  # Traefik
 
 ```
 
@@ -388,9 +388,9 @@ http:
 
 ``` bash
 
-./hey -n 90000   -c 100  -m GET http://${vm01_ip}:10080/pipeline -d '100000000000000000000000000000 1000000000000010000000000000100000000000001000000000000010000000000000100000000000001000000000000010000000000000100000000000000000' -z 2m   # Easegress
-./hey -n 90000   -c 100  -m GET http://${vm01_ip}:8080/pipeline -d '100000000000000000000000000000 1000000000000010000000000000100000000000001000000000000010000000000000100000000000001000000000000010000000000000100000000000000000' -z 2m    # NGINX
-./hey -n 90000   -c 100  -m GET http://${vm01_ip}:8081/pipeline -d '100000000000000000000000000000 1000000000000010000000000000100000000000001000000000000010000000000000100000000000001000000000000010000000000000100000000000000000' -z 2m    # Traefik
+./hey -n 90000   -c 100  -m GET http://${vm01_ip}:10080/pipeline -d '100000000000000000000000000000 1000000000000010000000000000100000000000001000000000000010000000000000100000000000001000000000000010000000000000100000000000000000'    # Easegress
+./hey -n 90000   -c 100  -m GET http://${vm01_ip}:8080/pipeline -d '100000000000000000000000000000 1000000000000010000000000000100000000000001000000000000010000000000000100000000000001000000000000010000000000000100000000000000000'    # NGINX
+./hey -n 90000   -c 100  -m GET http://${vm01_ip}:8081/pipeline -d '100000000000000000000000000000 1000000000000010000000000000100000000000001000000000000010000000000000100000000000001000000000000010000000000000100000000000000000'    # Traefik
 
 ```
 
