@@ -8,6 +8,7 @@
 		- [Add a New Header According to Configuration](#add-a-new-header-according-to-configuration)
 		- [Add a Cookie](#add-a-cookie)
 		- [Mock Response](#mock-response)
+		- [Access Shared Data](#access-shared-data)
 		- [Return a Result Other Than 0](#return-a-result-other-than-0)
 
 The `WasmHost` is a filter of Easegress which can be orchestrated into a pipeline. But while the behavior of all other filters are defined by filter developers and can only be fine-tuned by configuration, this filter implements a host environment for user-developed [WebAssembly](https://webassembly.org/) code, which enables users to control the filter behavior completely.
@@ -75,7 +76,7 @@ The AssemblyScript code of this example is just a noop. But this example include
 
 	// define the program, 'Noop' is the name
 	class Noop extends Program {
-		// constructor is the initializer of the problem, will be called once at the startup
+		// constructor is the initializer of the program, will be called once at the startup
 		constructor(params: Map<string, string>) {
 			super(params)
 		}
@@ -188,7 +189,7 @@ Build and verify with:
 
 ```bash
 $ npm run asbuild
-$ egctl wasm update
+$ egctl wasm reload-code
 $ curl http://127.0.0.1:10080/pipeline -d 'Hello, Easegress'
 Your Request
 ==============
@@ -245,7 +246,7 @@ Build and verify with:
 
 ```bash
 $ npm run asbuild
-$ egctl wasm update
+$ egctl wasm reload-code
 $ curl http://127.0.0.1:10080/pipeline -d 'Hello, Easegress'
 Your Request
 ==============
@@ -285,7 +286,7 @@ Build and verify with:
 
 ```bash
 $ npm run asbuild
-$ egctl wasm update
+$ egctl wasm reload-code
 $ curl http://127.0.0.1:10080/pipeline -d 'Hello, Easegress'
 Your Request
 ==============
@@ -339,9 +340,70 @@ Build and verify with:
 
 ```bash
 $ npm run asbuild
-$ egctl wasm update
+$ egctl wasm reload-code
 $ curl http://127.0.0.1:10080/pipeline -d 'Hello, Easegress'
 I have a new body now
+```
+
+
+### Access Shared Data
+
+When the `maxConcurrency` field of a WasmHost filter is larger than `1`, or when Easegress is deployed as a cluster, a single WasmHost filter could have more than one `Wasm Virtual Machine`s. Because safety is the design principle of WebAssembly, these VMs are isolated and can not share data with each other.
+
+But sometimes, sharing data is useful, Easegress provides APIs for this:
+
+```typescript
+export * from '{EASEGRESS_SDK_PATH}/easegress/proxy'
+import { Program, response, cluster, registerProgramFactory } from '{EASEGRESS_SDK_PATH}/easegress'
+
+class SharedData extends Program {
+	run(): i32 {
+		let counter = cluster.AddInteger("counter", 1)
+		response.setStatusCode(200)
+		response.setBody(String.UTF8.encode("number of requests is: ", counter.toString()))
+		return 0
+	}
+}
+
+registerProgramFactory((params: Map<string, string>) => {
+	return new SharedData(params)
+})
+```
+
+Suppose we are using the same pipeline configuration as in [Mock Response](#mock-response), we can build and verify this example with:
+
+```bash
+$ npm run asbuild
+$ egctl wasm reload-code
+$ curl http://127.0.0.1:10080/pipeline
+number of requests is 1
+$ curl http://127.0.0.1:10080/pipeline
+number of requests is 2
+$ curl http://127.0.0.1:10080/pipeline
+number of requests is 3
+```
+
+We can view the shared data with:
+
+```bash
+$ egctl wasm list-data wasm-pipeline wasm
+counter: "3"
+```
+
+where `wasm-pipeline` is the pipeline name and `wasm` is the filter name.
+
+The shared data can be modified with:
+
+```bash
+$ echo 'counter: 100' | egctl wasm apply-data wasm-pipeline wasm
+$ curl http://127.0.0.1:10080/pipeline
+number of requests is 101
+```
+
+And can be deleted with:
+
+```bash
+$ egctl wasm delete-data wasm-pipeline wasm
 ```
 
 ### Return a Result Other Than 0
@@ -377,6 +439,8 @@ flow:
 Build and verify with:
 
 ```bash
+$ npm run asbuild
+$ egctl wasm reload-code
 $ curl http://127.0.0.1:10080/pipeline -d 'Hello, Easegress'
 $ curl http://127.0.0.1:10080/pipeline -d 'Hello, Easegress' -HAuthorization:abc
 Your Request
