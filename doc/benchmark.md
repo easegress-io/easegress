@@ -1,4 +1,4 @@
-- [Preparing](#preparing
+- [Preparing](#preparing)
   - [Environment and Topology](#environment-and-topology)
   - [Configuration](#configuration)
 - [Testing](#testing)
@@ -16,7 +16,7 @@
     - [loader -> upstream](#loader---upstream)
     - [loader -> linux Easegress build](#loader---linux-easegress-build)
     - [loader -> Windows Easegress build](#loader---windows-easegress-build)
-  - [loader -> nginx proxy](#loader---nginx-proxy)
+  - [loader -> NGINX proxy](#loader---nginx-proxy)
 - [References](#references)
  
 * **Background**: Easegress is commonly used in Traffic Gateway and API Gateway scenarios. This benchmark aims to indicate the performance level of Easegress as Traffic Gateway.
