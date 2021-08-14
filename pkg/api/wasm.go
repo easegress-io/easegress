@@ -1,4 +1,4 @@
-/// +build wasmhost
+// +build wasmhost
 
 /*
  * Copyright (c) 2017, MegaEase

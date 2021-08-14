@@ -1,4 +1,4 @@
-/// +build wasmhost
+// +build wasmhost
 
 /*
  * Copyright (c) 2017, MegaEase
@@ -43,85 +43,56 @@ const wasmMemory = "memory"
 
 func (vm *WasmVM) readDataFromWasm(addr int32) []byte {
 	mem := vm.inst.GetExport(vm.store, wasmMemory).Memory().UnsafeData(vm.store)
-	reader := bytes.NewReader(mem[addr:])
-	var size int32
-	if e := binary.Read(reader, binary.LittleEndian, &size); e != nil {
-		panic(e)
-	}
-
+	size := int32(binary.LittleEndian.Uint32(mem[addr:]))
 	data := make([]byte, size)
-	if _, e := reader.Read(data); e != nil {
-		panic(e)
-	}
-
+	copy(data, mem[addr+4:])
 	return data
 }
 
 func (vm *WasmVM) writeDataToWasm(data []byte) int32 {
 	mem := vm.inst.GetExport(vm.store, wasmMemory).Memory().UnsafeData(vm.store)
+
 	vaddr, e := vm.fnAlloc.Call(vm.store, len(data)+4)
 	if e != nil {
 		panic(e)
 	}
 	addr := vaddr.(int32)
-	pos := int(addr)
 
-	binary.LittleEndian.PutUint32(mem[pos:], uint32(len(data)))
-	pos += 4
-	copy(mem[pos:], data)
+	binary.LittleEndian.PutUint32(mem[addr:], uint32(len(data)))
+	copy(mem[addr+4:], data)
 
 	return addr
 }
 
 func (vm *WasmVM) readStringFromWasm(addr int32) string {
 	mem := vm.inst.GetExport(vm.store, wasmMemory).Memory().UnsafeData(vm.store)
-
-	start := addr
-	for mem[addr] != 0 {
-		addr++
-	}
-	data := make([]byte, addr-start)
-	copy(data, mem[start:addr])
-
+	size := int32(binary.LittleEndian.Uint32(mem[addr:]))
+	data := make([]byte, size-1)
+	copy(data, mem[addr+4:])
 	return string(data)
 }
 
+// a string is serialized as 4 byte length + content + trailing zero
 func (vm *WasmVM) writeStringToWasm(s string) int32 {
 	mem := vm.inst.GetExport(vm.store, wasmMemory).Memory().UnsafeData(vm.store)
-	vaddr, e := vm.fnAlloc.Call(vm.store, len(s)+1)
+
+	vaddr, e := vm.fnAlloc.Call(vm.store, len(s)+4+1)
 	if e != nil {
 		panic(e)
 	}
-
 	addr := vaddr.(int32)
-	copy(mem[addr:], []byte(s))
-	mem[addr+int32(len(s))] = 0
+
+	binary.LittleEndian.PutUint32(mem[addr:], uint32(len(s)+1))
+	copy(mem[addr+4:], s)
+	mem[addr+4+int32(len(s))] = 0
 
 	return addr
 }
 
-func (vm *WasmVM) readMultipleStringFromWasm(addr, count int32) []string {
-	result := make([]string, 0, count)
-	mem := vm.inst.GetExport(vm.store, wasmMemory).Memory().UnsafeData(vm.store)
-
-	for i := int32(0); i < count; i++ {
-		start := addr
-		for mem[addr] != 0 {
-			addr++
-		}
-		data := make([]byte, addr-start)
-		copy(data, mem[start:addr])
-		result = append(result, string(data))
-		addr++
-	}
-
-	return result
-}
-
-func (vm *WasmVM) writeMultipleStringToWasm(strs []string) int32 {
+func (vm *WasmVM) writeStringArrayToWasm(strs []string) int32 {
 	size := 4 // 4 is sizeof(int32)
 	for _, s := range strs {
-		size += len(s) + 1
+		size += len(s) + 4 + 1
 	}
 
 	mem := vm.inst.GetExport(vm.store, wasmMemory).Memory().UnsafeData(vm.store)
@@ -136,6 +107,8 @@ func (vm *WasmVM) writeMultipleStringToWasm(strs []string) int32 {
 	pos += 4
 
 	for _, s := range strs {
+		binary.LittleEndian.PutUint32(mem[pos:], uint32(len(s)+1))
+		pos += 4
 		copy(mem[pos:], []byte(s))
 		pos += len(s)
 		mem[pos] = 0
@@ -233,14 +206,16 @@ func (vm *WasmVM) hostRequestGetProto() int32 {
 	return vm.writeStringToWasm(v)
 }
 
-func (vm *WasmVM) hostRequestAddHeader(addr int32) {
-	strs := vm.readMultipleStringFromWasm(addr, 2)
-	vm.ctx.Request().Header().Add(strs[0], strs[1])
+func (vm *WasmVM) hostRequestAddHeader(nameAddr, valueAddr int32) {
+	name := vm.readStringFromWasm(nameAddr)
+	val := vm.readStringFromWasm(valueAddr)
+	vm.ctx.Request().Header().Add(name, val)
 }
 
-func (vm *WasmVM) hostRequestSetHeader(addr int32) {
-	strs := vm.readMultipleStringFromWasm(addr, 2)
-	vm.ctx.Request().Header().Set(strs[0], strs[1])
+func (vm *WasmVM) hostRequestSetHeader(nameAddr, valueAddr int32) {
+	name := vm.readStringFromWasm(nameAddr)
+	value := vm.readStringFromWasm(valueAddr)
+	vm.ctx.Request().Header().Set(name, value)
 }
 
 func (vm *WasmVM) hostRequestGetHeader(addr int32) int32 {
@@ -278,7 +253,7 @@ func (vm *WasmVM) hostRequestGetAllCookie() int32 {
 	for _, c := range vm.ctx.Request().Cookies() {
 		cookies = append(cookies, c.String())
 	}
-	return vm.writeMultipleStringToWasm(cookies)
+	return vm.writeStringArrayToWasm(cookies)
 }
 
 func (vm *WasmVM) hostRequestAddCookie(addr int32) {
@@ -317,14 +292,16 @@ func (vm *WasmVM) hostResponseSetStatusCode(code int32) {
 	vm.ctx.Response().SetStatusCode(int(code))
 }
 
-func (vm *WasmVM) hostResponseAddHeader(addr int32) {
-	strs := vm.readMultipleStringFromWasm(addr, 2)
-	vm.ctx.Response().Header().Add(strs[0], strs[1])
+func (vm *WasmVM) hostResponseAddHeader(nameAddr, valueAddr int32) {
+	name := vm.readStringFromWasm(nameAddr)
+	value := vm.readStringFromWasm(valueAddr)
+	vm.ctx.Response().Header().Add(name, value)
 }
 
-func (vm *WasmVM) hostResponseSetHeader(addr int32) {
-	strs := vm.readMultipleStringFromWasm(addr, 2)
-	vm.ctx.Response().Header().Set(strs[0], strs[1])
+func (vm *WasmVM) hostResponseSetHeader(nameAddr, valueAddr int32) {
+	name := vm.readStringFromWasm(nameAddr)
+	value := vm.readStringFromWasm(valueAddr)
+	vm.ctx.Response().Header().Set(name, value)
 }
 
 func (vm *WasmVM) hostResponseGetHeader(addr int32) int32 {

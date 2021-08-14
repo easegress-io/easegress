@@ -1,4 +1,4 @@
-/// +build wasmhost
+// +build wasmhost
 
 /*
  * Copyright (c) 2017, MegaEase
@@ -97,7 +97,7 @@ func (vm *WasmVM) callInit(params []string) (err error) {
 			err = e.(error)
 		}
 	}()
-	addr := vm.writeMultipleStringToWasm(params)
+	addr := vm.writeStringArrayToWasm(params)
 	_, err = fn.Call(vm.store, addr)
 	return
 }
