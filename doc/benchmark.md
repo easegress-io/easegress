@@ -3,8 +3,8 @@
 |  Topology   | QPS  | 
 |  ----  | ----  |
 | ab --> Echo HTTPSvr  | 15698.81 |
-| ab --> Nginx --> Echo HTTPSvr  | 13064.07 |
-| ab --> Easegress --> Echo HTTPSvr  | 9747.49 |
+| ab --> Nginx --> Echo HTTPSvr  | 17745.74 |
+| ab --> Easegress --> Echo HTTPSvr  | 8784.77 |
 
 ## Preparing
 ### Environment
@@ -12,18 +12,20 @@ instance specification |vCPU|menory|quantity
 |----|----|----|----|
 |ecs.g6e.large|2 vCPU|	8 GiB|3|
 
-|name| port|vm|version|ip|port
-|----|----|----|----|----|----|
-|Echo HTTPSvr|9095|vm1|(golang1.16.5)|172.20.97.112|9095|
-|Nginx|8080|vm2|1.18.0|172.20.97.117|8080|
-|Easegress|10080|vm2|1.0.1(golang 1.16.5)|172.20.97.117|10080|
-|ab|-|vm3|-|172.20.97.115|-|
+|name|vm|version|ip|port
+|----|----|----|----|----|
+|Echo HTTPSvr|vm10|(golang1.16.5)|172.20.97.112|9095|
+|Echo HTTPSvr|vm11|(golang1.16.5)|172.20.97.118|9095|
+|Echo HTTPSvr|vm12|(golang1.16.5)|172.20.97.119|9095|
+|Nginx|vm20|1.18.0|172.20.97.117|8080|
+|Easegress|vm20|1.0.1(golang 1.16.5)|172.20.97.117|10080|
+|ab|vm30|-|172.20.97.115|-|
 
 ### Topology
 ``` plain 
 +----------------+                          +---------------+  
 |                |                          |               |  
-|    vm02        |<------stress test--------+     vm03      |
+|    vm20        |<------stress test--------+     vm30      |
 | (Easegress     |                          | (Testtool:ab) |
 | /Nginx)        |                          |               |
 |                |                          |               |
@@ -32,7 +34,7 @@ instance specification |vCPU|menory|quantity
                     stress test            echo svr base line test
 +----------------+      |                             |
 |                |      |                             |
-|    vm1         |      |                             |
+| vm10 vm11 vm12 |      |                             |
 | (Echo HTTPSvr) |<-----+                             |
 |                |<-----------------------------------+
 |                |
@@ -48,6 +50,8 @@ instance specification |vCPU|menory|quantity
 |ip| port|
 |----|----| 
 |172.20.97.112|9095|
+|172.20.97.118|9095|
+|172.20.97.119|9095|
 
 **Nginx**
 
@@ -91,7 +95,7 @@ make
    
 /usr/local/nginx/nginx.conf
 ```
-worker_processes  1;
+worker_processes  auto;
 
 events {
     worker_connections  1024;
@@ -101,7 +105,11 @@ http {
     include       mime.types;
     default_type  application/octet-stream;
     sendfile        on;
-
+    upstream upstream_name{
+        server 172.20.97.118:9095;
+        server 172.20.97.112:9095;
+        server 172.20.97.119:9095;
+    }
     server {
         listen       8080;
         server_name  localhost;
@@ -112,7 +120,7 @@ http {
         }
         
         location /pipeline {
-            proxy_pass  http://172.20.97.112:9095; # 转发规则
+            proxy_pass  http://upstream_name; # 转发规则
             proxy_set_header Host $proxy_host; # 修改转发请求头，让8080端口的应用可以受到真实的请求
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -143,7 +151,7 @@ make
 2. start
 ```shell
 [root@iZj6c7bzufsptcwxsjr1byZ bin]# export PATH=${PATH}:$(pwd)/bin/
-[root@iZj6c7bzufsptcwxsjr1byZ bin]# ./easegress-server 
+[root@iZj6c7bzufsptcwxsjr1byZ bin]# easegress-server 
 2021-08-15T14:15:04.012+08:00   INFO    server/main.go:57       Easegress release: v1.1.0, repo: https://github.com/megaease/easegress.git, commit: git-d7c3c52
 2021-08-15T14:15:04.012+08:00   INFO    cluster/config.go:125   etcd config: init-cluster:eg-default-name=http://localhost:2380 cluster-state:existing force-new-cluster:false
 2021-08-15T14:15:04.516+08:00   INFO    cluster/cluster.go:675  server is ready
@@ -192,6 +200,8 @@ filters:
     mainPool:
       servers:
       - url: http://172.20.97.112:9095
+      - url: http://172.20.97.118:9095
+      - url: http://172.20.97.119:9095
       loadBalance:
         policy: roundRobin' | egctl object create
 ```
@@ -208,9 +218,9 @@ yum -y install httpd-tools
 
 ## stress test
 **ab --> Echo HTTPSvr**
+1. stress  test execution
 ```shell
-[root@iZj6cc0krt5qubycizmku9Z ~]# ab -c 300 -n 100000 http://172.20.97.112:9095/pipeline
-
+[root@iZj6cc0krt5qubycizmku9Z ~]# ab -c 300 -n 1000000 http://172.20.97.112:9095/pipeline
 Concurrency Level:      300
 Time taken for tests:   6.370 seconds
 Complete requests:      100000
@@ -221,41 +231,84 @@ Requests per second:    15698.81 [#/sec] (mean)
 Time per request:       19.110 [ms] (mean)
 Time per request:       0.064 [ms] (mean, across all concurrent requests)
 Transfer rate:          3756.06 [Kbytes/sec] received
+```
+2. Echo HTTPSvr cpu load
+```shell
+top - 19:16:42 up  1:15,  3 users,  load average: 2.30, 0.53, 0.21
+Tasks: 102 total,   2 running, 100 sleeping,   0 stopped,   0 zombie
+%Cpu0  : 25.0 us, 31.0 sy,  0.0 ni,  6.0 id,  0.0 wa,  2.0 hi, 36.0 si,  0.0 st
+%Cpu1  : 59.0 us, 32.0 sy,  0.0 ni,  8.0 id,  0.0 wa,  1.0 hi,  0.0 si,  0.0 st
+MiB Mem :   7625.5 total,   6169.4 free,    195.6 used,   1260.5 buff/cache
+MiB Swap:      0.0 total,      0.0 free,      0.0 used.   7195.8 avail Mem 
 
+    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND                                                                          
+   1188 root      20   0 1157560  29192   5248 R 145.5   0.4   8:02.28 echo                                                                             
+     10 root      20   0       0      0      0 S   4.0   0.0   0:03.33 ksoftirqd/0                                                                      
+   1381 root      20   0   65416   4836   4060 R   1.0   0.1   0:00.03 top                                                                              
+      1 root      20   0  183588  11016   8556 S   0.0   0.1   0:00.86 systemd                                                                          
+      2 root      20   0       0      0      0 S   0.0   0.0   0:00.00 kthreadd 
 ```
 
 **ab --> Nginx --> Echo HTTPSvr**
-
+1. stress  test execution
 ```shell
-[root@iZj6cc0krt5qubycizmku9Z ~]# ab -c 300 -n 100000 http://172.20.97.117:8080/pipeline
-
+[root@iZj6cc0krt5qubycizmku9Z ~]# ab -c 300 -n 1000000 http://172.20.97.117:8080/pipeline
 Concurrency Level:      300
-Time taken for tests:   7.655 seconds
-Complete requests:      100000
+Time taken for tests:   56.352 seconds
+Complete requests:      1000000
 Failed requests:        0
-Total transferred:      37800000 bytes
-HTML transferred:       21900000 bytes
-Requests per second:    13064.07 [#/sec] (mean)
-Time per request:       22.964 [ms] (mean)
-Time per request:       0.077 [ms] (mean, across all concurrent requests)
-Transfer rate:          4822.48 [Kbytes/sec] received
+Total transferred:      378000000 bytes
+HTML transferred:       219000000 bytes
+Requests per second:    17745.74 [#/sec] (mean)
+Time per request:       16.905 [ms] (mean)
+Time per request:       0.056 [ms] (mean, across all concurrent requests)
+Transfer rate:          6550.67 [Kbytes/sec] received
+```
+2. Nginx cpu load
+```shell
+top - 19:21:46 up  1:20,  5 users,  load average: 3.92, 2.14, 1.31
+Tasks: 113 total,   4 running, 109 sleeping,   0 stopped,   0 zombie
+%Cpu0  :  4.0 us, 23.2 sy,  0.0 ni,  5.1 id,  0.0 wa,  2.0 hi, 65.7 si,  0.0 st
+%Cpu1  : 32.0 us, 57.0 sy,  0.0 ni,  9.0 id,  0.0 wa,  1.0 hi,  1.0 si,  0.0 st
+MiB Mem :   7625.5 total,   5452.9 free,    278.8 used,   1893.7 buff/cache
+MiB Swap:      0.0 total,      0.0 free,      0.0 used.   7110.9 avail Mem 
 
+    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND                                                                          
+   1405 nobody    20   0   70048   7572   4152 R  55.4   0.1   1:08.68 nginx                                                                            
+   1406 nobody    20   0   70128   7524   4156 R  53.5   0.1   1:25.72 nginx                                                                            
+     10 root      20   0       0      0      0 S  14.9   0.0   0:20.08 ksoftirqd/0                                                                      
+   1508 root      20   0    9.8g 111640  43620 S   5.0   1.4   9:19.62 easegress-serve                                                                  
+     18 root      20   0       0      0      0 R   1.0   0.0   0:02.20 ksoftirqd
 ```
 
 **ab --> Easegress --> Echo HTTPSvr** 
+1. stress  test execution
 ```shell
-
-[root@iZj6cc0krt5qubycizmku9Z ~]# ab -c 300 -n 100000 http://172.20.97.117:10080/pipeline
-
+[root@iZj6cc0krt5qubycizmku9Z ~]# ab -c 300 -n 1000000 http://172.20.97.117:10080/pipeline
 Concurrency Level:      300
-Time taken for tests:   10.259 seconds
-Complete requests:      100000
+Time taken for tests:   113.833 seconds
+Complete requests:      1000000
 Failed requests:        0
-Total transferred:      27300000 bytes
-HTML transferred:       15500000 bytes
-Requests per second:    9747.49 [#/sec] (mean)
-Time per request:       30.777 [ms] (mean)
-Time per request:       0.103 [ms] (mean, across all concurrent requests)
-Transfer rate:          2598.70 [Kbytes/sec] received
+Total transferred:      273000000 bytes
+HTML transferred:       155000000 bytes
+Requests per second:    8784.77 [#/sec] (mean)
+Time per request:       34.150 [ms] (mean)
+Time per request:       0.114 [ms] (mean, across all concurrent requests)
+Transfer rate:          2342.03 [Kbytes/sec] received
+```
+2. Easegress cpu load
+```shell
+top - 19:23:02 up  1:22,  5 users,  load average: 3.18, 2.35, 1.46
+Tasks: 114 total,   3 running, 111 sleeping,   0 stopped,   0 zombie
+%Cpu0  : 43.1 us, 23.5 sy,  0.0 ni,  6.9 id,  0.0 wa,  2.9 hi, 23.5 si,  0.0 st
+%Cpu1  : 80.0 us, 16.0 sy,  0.0 ni,  3.0 id,  0.0 wa,  1.0 hi,  0.0 si,  0.0 st
+MiB Mem :   7625.5 total,   5379.3 free,    286.2 used,   1959.9 buff/cache
+MiB Swap:      0.0 total,      0.0 free,      0.0 used.   7103.3 avail Mem 
 
+    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND                                                                          
+   1508 root      20   0    9.8g 122356  43620 R 161.4   1.6   9:38.31 easegress-serve                                                                  
+     10 root      20   0       0      0      0 S   2.0   0.0   0:21.74 ksoftirqd/0                                                                      
+   1638 root      20   0   65424   4816   4024 R   1.0   0.1   0:00.29 top                                                                              
+      1 root      20   0  183688  11288   8812 S   0.0   0.1   0:00.88 systemd                                                                          
+      2 root      20   0       0      0      0 S   0.0   0.0   0:00.00 kthreadd
 ```
