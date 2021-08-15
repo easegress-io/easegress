@@ -151,7 +151,7 @@ func (rcs *Server) register(ins *spec.ServiceInstanceSpec, ingressReady ReadyFun
 				// level triggered, loop until it success
 				tryTimes++
 				if !ingressReady() || !egressReady() {
-					logger.Infof("ingress ready: %d egress ready: %d", ingressReady(), egressReady())
+					logger.Infof("ingress ready: %v egress ready: %v", ingressReady(), egressReady())
 					return
 				}
 

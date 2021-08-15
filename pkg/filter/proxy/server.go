@@ -50,6 +50,7 @@ const (
 type (
 	servers struct {
 		poolSpec *PoolSpec
+		super    *supervisor.Supervisor
 
 		mutex           sync.Mutex
 		serviceRegistry *serviceregistry.ServiceRegistry
@@ -95,6 +96,7 @@ func (lb LoadBalance) Validate() error {
 func newServers(super *supervisor.Supervisor, poolSpec *PoolSpec) *servers {
 	s := &servers{
 		poolSpec: poolSpec,
+		super:    super,
 		done:     make(chan struct{}),
 	}
 
@@ -104,74 +106,68 @@ func newServers(super *supervisor.Supervisor, poolSpec *PoolSpec) *servers {
 		return s
 	}
 
-	s.serviceRegistry = super.MustGetSystemController(serviceregistry.Kind).
-		Instance().(*serviceregistry.ServiceRegistry)
-	s.serviceWatcher = s.serviceRegistry.NewServiceWatcher(poolSpec.ServiceRegistry, poolSpec.ServiceName)
-
 	go s.watchService()
 
 	return s
 }
 
 func (s *servers) watchService() {
-	serviceSpec, err := s.serviceRegistry.GetService(s.poolSpec.ServiceRegistry, s.poolSpec.ServiceName)
-	if err != nil {
-		logger.Warnf("ger service %s/%s failed: %v",
-			s.poolSpec.ServiceRegistry, s.poolSpec.ServiceName, err)
-	}
+	s.tryUseService()
 
-	s.useService(serviceSpec)
+	s.serviceRegistry = s.super.MustGetSystemController(serviceregistry.Kind).
+		Instance().(*serviceregistry.ServiceRegistry)
+	s.serviceWatcher = s.serviceRegistry.NewServiceWatcher(s.poolSpec.ServiceRegistry, s.poolSpec.ServiceName)
 
 	for {
 		select {
 		case <-s.done:
 			return
 		case event := <-s.serviceWatcher.Watch():
-			s.handleServiceEvent(event)
+			s.handleEvent(event)
 		}
 	}
 }
 
-func (s *servers) handleServiceEvent(event *serviceregistry.ServiceEvent) {
-	if event.Delete != nil {
-		logger.Warnf("service %s delete, use static servers", s.poolSpec.ServiceName)
+func (s *servers) handleEvent(event *serviceregistry.ServiceEvent) {
+	s.useService(event.Instances)
+}
+
+func (s *servers) tryUseService() {
+	serviceInstanceSpecs, err := s.serviceRegistry.ListServiceInstances(s.poolSpec.ServiceRegistry, s.poolSpec.ServiceName)
+	if err != nil {
+		logger.Errorf("get service %s/%s failed: %v",
+			s.poolSpec.ServiceRegistry, s.poolSpec.ServiceName, err)
 		s.useStaticServers()
 		return
 	}
-
-	err := s.useService(event.Apply)
-	if err != nil {
-		logger.Warnf("use service %s failed: %v", s.poolSpec.ServiceName, err)
-		return
-	}
+	s.useService(serviceInstanceSpecs)
 }
 
-func (s *servers) useStaticServers() {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	s.static = newStaticServers(s.poolSpec.Servers,
-		s.poolSpec.ServersTags,
-		s.poolSpec.LoadBalance)
-}
-
-func (s *servers) useService(serviceSpec *serviceregistry.ServiceSpec) error {
+func (s *servers) useService(serviceInstanceSpecs map[string]*serviceregistry.ServiceInstanceSpec) {
 	var servers []*Server
-	for _, serviceInstance := range serviceSpec.Instances {
+	for _, instance := range serviceInstanceSpecs {
 		servers = append(servers, &Server{
-			URL:    serviceInstance.URL(),
-			Tags:   serviceInstance.Tags,
-			Weight: serviceInstance.Weight,
+			URL:    instance.URL(),
+			Tags:   instance.Tags,
+			Weight: instance.Weight,
 		})
 	}
 	if len(servers) == 0 {
-		return fmt.Errorf("empty service instance")
+		logger.Errorf("%s/%s: empty service instance",
+			s.poolSpec.ServiceRegistry, s.poolSpec.ServiceName)
+		s.useStaticServers()
+		return
 	}
 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	s.static = newStaticServers(servers, s.poolSpec.ServersTags, s.poolSpec.LoadBalance)
+}
 
-	return nil
+func (s *servers) useStaticServers() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.static = newStaticServers(s.poolSpec.Servers, s.poolSpec.ServersTags, s.poolSpec.LoadBalance)
 }
 
 func (s *servers) snapshot() *staticServers {
@@ -206,6 +202,10 @@ func (s *servers) close() {
 }
 
 func newStaticServers(servers []*Server, tags []string, lb *LoadBalance) *staticServers {
+	if servers == nil {
+		servers = make([]*Server, 0)
+	}
+
 	ss := &staticServers{}
 	if lb == nil {
 		ss.lb.Policy = PolicyRoundRobin

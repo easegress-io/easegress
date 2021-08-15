@@ -23,19 +23,15 @@ import (
 )
 
 type (
-	// ServiceSpec is the unified service spec in Easegress.
-	ServiceSpec struct {
-		RegistryName string
-		ServiceName  string
-		Instances    []*ServiceInstanceSpec
-	}
-
-	// ServiceInstanceSpec is the unified service instance spec in Easegress.
+	// ServiceInstanceSpec is the service instance spec in Easegress.
 	ServiceInstanceSpec struct {
+		// InstanceID is required.
+		InstanceID string `yaml:"name"`
 		// RegistryName is required.
 		RegistryName string `yaml:"registryName"`
 		// ServiceName is required.
 		ServiceName string `yaml:"serviceName"`
+
 		// Scheme is optional if Port is not empty.
 		Scheme string `yaml:"scheme"`
 		// Hostname is optional if HostIP is not empty.
@@ -50,20 +46,6 @@ type (
 		Weight int `yaml:"weight"`
 	}
 )
-
-// DeepCopy deep copies ServiceSpec.
-func (s *ServiceSpec) DeepCopy() *ServiceSpec {
-	copy := &ServiceSpec{
-		RegistryName: s.RegistryName,
-		ServiceName:  s.ServiceName,
-	}
-
-	for _, instance := range s.Instances {
-		copy.Instances = append(copy.Instances, instance.DeepCopy())
-	}
-
-	return copy
-}
 
 // DeepCopy deep copies ServiceInstanceSpec.
 func (s *ServiceInstanceSpec) DeepCopy() *ServiceInstanceSpec {
@@ -94,6 +76,11 @@ func (s *ServiceInstanceSpec) Validate() error {
 	return nil
 }
 
+// Key returns the unique key for the service instance.
+func (s *ServiceInstanceSpec) Key() string {
+	return fmt.Sprintf("%s/%s/%s", s.RegistryName, s.ServiceName, s.InstanceID)
+}
+
 // URL returns the url of the server.
 func (s *ServiceInstanceSpec) URL() string {
 	scheme := s.Scheme
@@ -117,28 +104,29 @@ func (s *ServiceInstanceSpec) URL() string {
 }
 
 // NewRegistryEventFromDiff creates a registry event from diff old and new specs.
-// It only generates Apply and Delete excluding Replace.
-// We recommend external drivers use event.Replace in first time, then use this utiliy
-// to generate next events.
-func NewRegistryEventFromDiff(registryName string, oldSpecs, newSpecs map[string]*ServiceSpec) *RegistryEvent {
+// It only uses Apply and Delete excluding Replace.
+// External drivers should use event.Replace in first time, then use this utiliy to generate next events.
+// registryName is only assigned to the event, the registry name of service instance spec won't change.
+func NewRegistryEventFromDiff(registryName string, oldSpecs, newSpecs map[string]*ServiceInstanceSpec) *RegistryEvent {
 	if oldSpecs == nil {
-		oldSpecs = make(map[string]*ServiceSpec)
+		oldSpecs = make(map[string]*ServiceInstanceSpec)
 	}
 
 	if newSpecs == nil {
-		newSpecs = make(map[string]*ServiceSpec)
+		newSpecs = make(map[string]*ServiceInstanceSpec)
 	}
 
 	event := &RegistryEvent{
-		Delete: make(map[string]*ServiceSpec),
-		Apply:  make(map[string]*ServiceSpec),
+		SourceRegistryName: registryName,
+
+		Delete: make(map[string]*ServiceInstanceSpec),
+		Apply:  make(map[string]*ServiceInstanceSpec),
 	}
 
 	for _, oldSpec := range oldSpecs {
 		_, exists := newSpecs[oldSpec.ServiceName]
 		if !exists {
 			copy := oldSpec.DeepCopy()
-			copy.RegistryName = registryName
 			event.Delete[oldSpec.ServiceName] = copy
 		}
 	}
@@ -147,7 +135,6 @@ func NewRegistryEventFromDiff(registryName string, oldSpecs, newSpecs map[string
 		oldSpec, exists := oldSpecs[newSpec.ServiceName]
 		if exists && !reflect.DeepEqual(oldSpec, newSpec) {
 			copy := newSpec.DeepCopy()
-			copy.RegistryName = registryName
 			event.Apply[newSpec.ServiceName] = copy
 		}
 	}

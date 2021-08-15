@@ -18,16 +18,17 @@
 package zookeeperserviceregistry
 
 import (
-	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"sync"
 	"time"
-
-	zookeeper "github.com/go-zookeeper/zk"
 
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/serviceregistry"
 	"github.com/megaease/easegress/pkg/supervisor"
+
+	zookeeper "github.com/go-zookeeper/zk"
+	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -50,14 +51,14 @@ type (
 
 		serviceRegistry *serviceregistry.ServiceRegistry
 		firstDone       bool
-		serviceSpecs    map[string]*serviceregistry.ServiceSpec
+		instances       map[string]*serviceregistry.ServiceInstanceSpec
 		notify          chan *serviceregistry.RegistryEvent
 
 		connMutex sync.RWMutex
 		conn      *zookeeper.Conn
 
-		statusMutex         sync.Mutex
-		serviceInstancesNum map[string]int
+		statusMutex  sync.Mutex
+		instancesNum map[string]int
 
 		done chan struct{}
 	}
@@ -114,11 +115,12 @@ func (zk *ZookeeperServiceRegistry) reload() {
 		Instance().(*serviceregistry.ServiceRegistry)
 	zk.serviceRegistry.RegisterRegistry(zk)
 	zk.notify = make(chan *serviceregistry.RegistryEvent, 10)
+	zk.firstDone = false
 
-	zk.serviceInstancesNum = make(map[string]int)
+	zk.instancesNum = make(map[string]int)
 	zk.done = make(chan struct{})
 
-	_, err := zk.getConn()
+	_, err := zk.getClient()
 	if err != nil {
 		logger.Errorf("%s get zookeeper conn failed: %v", zk.superSpec.Name(), err)
 	}
@@ -126,7 +128,7 @@ func (zk *ZookeeperServiceRegistry) reload() {
 	go zk.run()
 }
 
-func (zk *ZookeeperServiceRegistry) getConn() (*zookeeper.Conn, error) {
+func (zk *ZookeeperServiceRegistry) getClient() (*zookeeper.Conn, error) {
 	zk.connMutex.RLock()
 	if zk.conn != nil {
 		conn := zk.conn
@@ -135,10 +137,10 @@ func (zk *ZookeeperServiceRegistry) getConn() (*zookeeper.Conn, error) {
 	}
 	zk.connMutex.RUnlock()
 
-	return zk.buildConn()
+	return zk.buildClient()
 }
 
-func (zk *ZookeeperServiceRegistry) buildConn() (*zookeeper.Conn, error) {
+func (zk *ZookeeperServiceRegistry) buildClient() (*zookeeper.Conn, error) {
 	zk.connMutex.Lock()
 	defer zk.connMutex.Unlock()
 
@@ -208,79 +210,33 @@ func (zk *ZookeeperServiceRegistry) run() {
 }
 
 func (zk *ZookeeperServiceRegistry) update() {
-	conn, err := zk.getConn()
+	instances, err := zk.ListAllServiceInstances()
 	if err != nil {
-		logger.Errorf("%s get zookeeper conn failed: %v",
-			zk.superSpec.Name(), err)
+		logger.Errorf("list all service instances failed: %v", err)
 		return
 	}
 
-	childs, _, err := conn.Children(zk.spec.Prefix)
-	if err != nil {
-		logger.Errorf("%s get path: %s children failed: %v", zk.superSpec.Name(), zk.spec.Prefix, err)
-		return
-	}
-
-	serviceSpecs := make(map[string]*serviceregistry.ServiceSpec)
-	serviceInstancesNum := map[string]int{}
-	for _, child := range childs {
-		fullPath := zk.spec.Prefix + "/" + child
-		data, _, err := conn.Get(fullPath)
-		if err != nil {
-			if err == zookeeper.ErrNoNode {
-				continue
-			}
-
-			logger.Errorf("%s get child path %s failed: %v", zk.superSpec.Name(), fullPath, err)
-			return
-		}
-
-		serviceInstanceSpec := &serviceregistry.ServiceInstanceSpec{}
-		// Note: zookeeper allows store custom format into one path, so we choose to store
-		//       serviceregistry.Server JSON format directly.
-		err = json.Unmarshal(data, serviceInstanceSpec)
-		if err != nil {
-			logger.Errorf("%s unmarshal fullpath %s to json failed: %v", zk.superSpec.Name(), fullPath, err)
-			return
-		}
-
-		if err := serviceInstanceSpec.Validate(); err != nil {
-			logger.Errorf("%s is invalid: %v", data, err)
-			continue
-		}
-
-		serviceName := serviceInstanceSpec.ServiceName
-
-		serviceSpec, exists := serviceSpecs[serviceName]
-		if !exists {
-			serviceSpecs[serviceName] = &serviceregistry.ServiceSpec{
-				RegistryName: zk.Name(),
-				ServiceName:  serviceName,
-				Instances:    []*serviceregistry.ServiceInstanceSpec{serviceInstanceSpec},
-			}
-		} else {
-			serviceSpec.Instances = append(serviceSpec.Instances, serviceInstanceSpec)
-		}
-
-		serviceInstancesNum[fullPath]++
+	instancesNum := make(map[string]int)
+	for _, instance := range instances {
+		instancesNum[instance.ServiceName]++
 	}
 
 	var event *serviceregistry.RegistryEvent
 	if !zk.firstDone {
 		zk.firstDone = true
 		event = &serviceregistry.RegistryEvent{
-			RegistryName: zk.Name(),
-			Replace:      serviceSpecs,
+			SourceRegistryName: zk.Name(),
+			Replace:            instances,
 		}
 	} else {
-		event = serviceregistry.NewRegistryEventFromDiff(zk.Name(), zk.serviceSpecs, serviceSpecs)
+		event = serviceregistry.NewRegistryEventFromDiff(zk.Name(), zk.instances, instances)
 	}
 
 	zk.notify <- event
-	zk.serviceSpecs = serviceSpecs
+	zk.instances = instances
 
 	zk.statusMutex.Lock()
-	zk.serviceInstancesNum = serviceInstancesNum
+	zk.instancesNum = instancesNum
 	zk.statusMutex.Unlock()
 }
 
@@ -288,7 +244,7 @@ func (zk *ZookeeperServiceRegistry) update() {
 func (zk *ZookeeperServiceRegistry) Status() *supervisor.Status {
 	s := &Status{}
 
-	_, err := zk.getConn()
+	_, err := zk.getClient()
 	if err != nil {
 		s.Health = err.Error()
 	} else {
@@ -296,7 +252,7 @@ func (zk *ZookeeperServiceRegistry) Status() *supervisor.Status {
 	}
 
 	zk.statusMutex.Lock()
-	s.ServiceInstancesNum = zk.serviceInstancesNum
+	s.ServiceInstancesNum = zk.instancesNum
 	zk.statusMutex.Unlock()
 
 	return &supervisor.Status{
@@ -322,20 +278,160 @@ func (zk *ZookeeperServiceRegistry) Notify() <-chan *serviceregistry.RegistryEve
 	return zk.notify
 }
 
-// ApplyServices applies service specs to zookeeper registry.
-func (zk *ZookeeperServiceRegistry) ApplyServices(serviceSpec []*serviceregistry.ServiceSpec) error {
-	// TODO
+// ApplyServiceInstances applies service instances to the registry.
+func (zk *ZookeeperServiceRegistry) ApplyServiceInstances(serviceInstances map[string]*serviceregistry.ServiceInstanceSpec) error {
+	client, err := zk.getClient()
+	if err != nil {
+		return fmt.Errorf("%s get consul client failed: %v",
+			zk.superSpec.Name(), err)
+	}
+
+	for _, instance := range serviceInstances {
+		err := instance.Validate()
+		if err != nil {
+			return fmt.Errorf("%+v is invalid: %v", instance, err)
+		}
+	}
+
+	for _, instance := range serviceInstances {
+		buff, err := yaml.Marshal(instance)
+		if err != nil {
+			return fmt.Errorf("marshal %+v to yaml failed: %v", instance, err)
+		}
+
+		path := zk.serviceInstanceZookeeperPath(instance)
+		_, err = client.Set(path, buff, 0)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
-// GetService applies service specs to zookeeper registry.
-func (zk *ZookeeperServiceRegistry) GetService(serviceName string) (*serviceregistry.ServiceSpec, error) {
-	// TODO
-	return nil, nil
+// DeleteServiceInstances applies service instances to the registry.
+func (zk *ZookeeperServiceRegistry) DeleteServiceInstances(serviceInstances map[string]*serviceregistry.ServiceInstanceSpec) error {
+	client, err := zk.getClient()
+	if err != nil {
+		return fmt.Errorf("%s get consul client failed: %v",
+			zk.superSpec.Name(), err)
+	}
+
+	for _, instance := range serviceInstances {
+		path := zk.serviceInstanceZookeeperPath(instance)
+		err := client.Delete(path, 0)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
-// ListServices lists service specs from zookeeper registry.
-func (zk *ZookeeperServiceRegistry) ListServices() ([]*serviceregistry.ServiceSpec, error) {
-	// TODO
-	return nil, nil
+// GetServiceInstance get service instance from the registry.
+func (zk *ZookeeperServiceRegistry) GetServiceInstance(serviceName, instanceID string) (*serviceregistry.ServiceInstanceSpec, error) {
+	serviceInstances, err := zk.ListServiceInstances(serviceName)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, instance := range serviceInstances {
+		if instance.InstanceID == instanceID {
+			return instance, nil
+		}
+	}
+
+	return nil, fmt.Errorf("%s/%s not found", serviceName, instanceID)
+}
+
+// ListServiceInstances list service instances of one service from the registry.
+func (zk *ZookeeperServiceRegistry) ListServiceInstances(serviceName string) (map[string]*serviceregistry.ServiceInstanceSpec, error) {
+	client, err := zk.getClient()
+	if err != nil {
+		return nil, fmt.Errorf("%s get consul client failed: %v",
+			zk.superSpec.Name(), err)
+	}
+
+	childs, _, err := client.Children(zk.serviceZookeeperPrefix(serviceName))
+	if err != nil {
+		return nil, fmt.Errorf("%s get path: %s children failed: %v", zk.superSpec.Name(), zk.spec.Prefix, err)
+	}
+
+	instances := make(map[string]*serviceregistry.ServiceInstanceSpec)
+	for _, child := range childs {
+		fullPath := zk.fullPathOfChild(child)
+		data, _, err := client.Get(fullPath)
+		if err != nil {
+			return nil, fmt.Errorf("%s get child path %s failed: %v", zk.superSpec.Name(), fullPath, err)
+		}
+
+		instance := &serviceregistry.ServiceInstanceSpec{}
+		err = yaml.Unmarshal(data, instance)
+		if err != nil {
+			return nil, fmt.Errorf("%s unmarshal fullpath %s to yaml failed: %v", zk.superSpec.Name(), fullPath, err)
+		}
+
+		err = instance.Validate()
+		if err != nil {
+			return nil, fmt.Errorf("%s is invalid: %v", data, err)
+		}
+
+		instances[instance.Key()] = instance
+	}
+
+	return instances, nil
+}
+
+// ListAllServiceInstances list all service instances from the registry.
+func (zk *ZookeeperServiceRegistry) ListAllServiceInstances() (map[string]*serviceregistry.ServiceInstanceSpec, error) {
+	client, err := zk.getClient()
+	if err != nil {
+		return nil, fmt.Errorf("%s get consul client failed: %v",
+			zk.superSpec.Name(), err)
+	}
+
+	childs, _, err := client.Children(zk.spec.Prefix)
+	if err != nil {
+		return nil, fmt.Errorf("%s get path: %s children failed: %v", zk.superSpec.Name(), zk.spec.Prefix, err)
+	}
+
+	instances := make(map[string]*serviceregistry.ServiceInstanceSpec)
+	for _, child := range childs {
+		fullPath := zk.fullPathOfChild(child)
+		data, _, err := client.Get(fullPath)
+		if err != nil {
+			return nil, fmt.Errorf("%s get child path %s failed: %v", zk.superSpec.Name(), fullPath, err)
+		}
+
+		instance := &serviceregistry.ServiceInstanceSpec{}
+		err = yaml.Unmarshal(data, instance)
+		if err != nil {
+			return nil, fmt.Errorf("%s unmarshal fullpath %s to yaml failed: %v", zk.superSpec.Name(), fullPath, err)
+		}
+
+		err = instance.Validate()
+		if err != nil {
+			return nil, fmt.Errorf("%s is invalid: %v", data, err)
+		}
+
+		instances[instance.Key()] = instance
+	}
+
+	return instances, nil
+}
+
+func (zk *ZookeeperServiceRegistry) fullPathOfChild(childPath string) string {
+	return filepath.Join(zk.spec.Prefix, childPath)
+}
+
+func (zk *ZookeeperServiceRegistry) serviceZookeeperPrefix(serviceName string) string {
+	return filepath.Join(zk.spec.Prefix, serviceName) + "/"
+}
+
+func (zk *ZookeeperServiceRegistry) serviceInstanceZookeeperPath(instance *serviceregistry.ServiceInstanceSpec) string {
+	return zk.serviceInstanceZookeeperPathFromRaw(instance.ServiceName, instance.InstanceID)
+}
+
+func (zk *ZookeeperServiceRegistry) serviceInstanceZookeeperPathFromRaw(serviceName, instanceID string) string {
+	return filepath.Join(zk.spec.Prefix, serviceName, instanceID)
 }

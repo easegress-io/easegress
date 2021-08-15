@@ -18,6 +18,7 @@
 package consulserviceregistry
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -34,6 +35,11 @@ const (
 
 	// Kind is the kind of ConsulServiceRegistry.
 	Kind = "ConsulServiceRegistry"
+
+	// MetaKeyRegistryName is the key of service metadata.
+	// NOTE: Namespace is only available for Consul Enterprise,
+	// instead we use this field to work around.
+	MetaKeyRegistryName = "RegistryName"
 )
 
 func init() {
@@ -48,14 +54,14 @@ type (
 
 		serviceRegistry *serviceregistry.ServiceRegistry
 		firstDone       bool
-		serviceSpecs    map[string]*serviceregistry.ServiceSpec
+		instances       map[string]*serviceregistry.ServiceInstanceSpec
 		notify          chan *serviceregistry.RegistryEvent
 
 		clientMutex sync.RWMutex
 		client      *api.Client
 
-		statusMutex         sync.Mutex
-		serviceInstancesNum map[string]int
+		statusMutex  sync.Mutex
+		instancesNum map[string]int
 
 		done chan struct{}
 	}
@@ -74,7 +80,7 @@ type (
 	// Status is the status of ConsulServiceRegistry.
 	Status struct {
 		Health              string         `yaml:"health"`
-		ServiceInstancesNum map[string]int `yaml:"serviceInstancesNum"`
+		ServiceInstancesNum map[string]int `yaml:"instancesNum"`
 	}
 )
 
@@ -114,8 +120,9 @@ func (c *ConsulServiceRegistry) reload() {
 		Instance().(*serviceregistry.ServiceRegistry)
 	c.serviceRegistry.RegisterRegistry(c)
 	c.notify = make(chan *serviceregistry.RegistryEvent, 10)
+	c.firstDone = false
 
-	c.serviceInstancesNum = map[string]int{}
+	c.instancesNum = map[string]int{}
 	c.done = make(chan struct{})
 
 	_, err := c.getClient()
@@ -158,6 +165,7 @@ func (c *ConsulServiceRegistry) buildClient() (*api.Client, error) {
 	if config.Token != "" {
 		config.Token = c.spec.Token
 	}
+
 	if config.Namespace != "" {
 		config.Namespace = c.spec.Namespace
 	}
@@ -204,83 +212,33 @@ func (c *ConsulServiceRegistry) run() {
 }
 
 func (c *ConsulServiceRegistry) update() {
-	client, err := c.getClient()
+	instances, err := c.ListAllServiceInstances()
 	if err != nil {
-		logger.Errorf("%s get consul client failed: %v",
-			c.superSpec.Name(), err)
+		logger.Errorf("list all service instances failed: %v", err)
 		return
 	}
 
-	q := &api.QueryOptions{
-		Namespace:  c.spec.Namespace,
-		Datacenter: c.spec.Datacenter,
-	}
-	catalog := client.Catalog()
-
-	resp, _, err := catalog.Services(q)
-	if err != nil {
-		logger.Errorf("%s pull catalog services failed: %v",
-			c.superSpec.Name(), err)
-		return
-	}
-
-	serviceSpecs := make(map[string]*serviceregistry.ServiceSpec)
-	serviceInstancesNum := map[string]int{}
-	for serviceName := range resp {
-		services, _, err := catalog.ServiceMultipleTags(serviceName,
-			c.spec.ServiceTags, q)
-		if err != nil {
-			logger.Errorf("%s pull catalog service %s failed: %v",
-				c.superSpec.Name(), serviceName, err)
-			continue
-		}
-		for _, service := range services {
-			serviceInstanceSpec := &serviceregistry.ServiceInstanceSpec{
-				ServiceName: serviceName,
-			}
-			serviceInstanceSpec.HostIP = service.ServiceAddress
-			if serviceInstanceSpec.HostIP == "" {
-				serviceInstanceSpec.HostIP = service.Address
-			}
-			serviceInstanceSpec.Port = uint16(service.ServicePort)
-			serviceInstanceSpec.Tags = service.ServiceTags
-
-			if err := serviceInstanceSpec.Validate(); err != nil {
-				logger.Errorf("invalid server: %v", err)
-				continue
-			}
-
-			serviceSpec, exists := serviceSpecs[serviceName]
-			if !exists {
-				serviceSpecs[serviceName] = &serviceregistry.ServiceSpec{
-					RegistryName: c.Name(),
-					ServiceName:  serviceName,
-					Instances:    []*serviceregistry.ServiceInstanceSpec{serviceInstanceSpec},
-				}
-			} else {
-				serviceSpec.Instances = append(serviceSpec.Instances, serviceInstanceSpec)
-			}
-
-			serviceInstancesNum[serviceName]++
-		}
+	instancesNum := make(map[string]int)
+	for _, instance := range instances {
+		instancesNum[instance.ServiceName]++
 	}
 
 	var event *serviceregistry.RegistryEvent
 	if !c.firstDone {
 		c.firstDone = true
 		event = &serviceregistry.RegistryEvent{
-			RegistryName: c.Name(),
-			Replace:      serviceSpecs,
+			SourceRegistryName: c.Name(),
+			Replace:            instances,
 		}
 	} else {
-		event = serviceregistry.NewRegistryEventFromDiff(c.Name(), c.serviceSpecs, serviceSpecs)
+		event = serviceregistry.NewRegistryEventFromDiff(c.Name(), c.instances, instances)
 	}
 
 	c.notify <- event
-	c.serviceSpecs = serviceSpecs
+	c.instances = instances
 
 	c.statusMutex.Lock()
-	c.serviceInstancesNum = serviceInstancesNum
+	c.instancesNum = instancesNum
 	c.statusMutex.Unlock()
 }
 
@@ -296,7 +254,7 @@ func (c *ConsulServiceRegistry) Status() *supervisor.Status {
 	}
 
 	c.statusMutex.Lock()
-	serversNum := c.serviceInstancesNum
+	serversNum := c.instancesNum
 	c.statusMutex.Unlock()
 
 	s.ServiceInstancesNum = serversNum
@@ -324,20 +282,160 @@ func (c *ConsulServiceRegistry) Notify() <-chan *serviceregistry.RegistryEvent {
 	return c.notify
 }
 
-// ApplyServices applies service specs to consul registry.
-func (c *ConsulServiceRegistry) ApplyServices(serviceSpec []*serviceregistry.ServiceSpec) error {
-	// TODO
+// ApplyServiceInstances applies service instances to the registry.
+func (c *ConsulServiceRegistry) ApplyServiceInstances(instances map[string]*serviceregistry.ServiceInstanceSpec) error {
+	client, err := c.getClient()
+	if err != nil {
+		return fmt.Errorf("%s get consul client failed: %v",
+			c.superSpec.Name(), err)
+	}
+
+	for _, instance := range instances {
+		err := instance.Validate()
+		if err != nil {
+			return fmt.Errorf("%+v is invalid: %v", instance, err)
+		}
+	}
+
+	for _, instance := range instances {
+		registration := c.serviceInstanceToRegistration(instance)
+		err = client.Agent().ServiceRegister(registration)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
-// GetService applies service specs to consul registry.
-func (c *ConsulServiceRegistry) GetService(serviceName string) (*serviceregistry.ServiceSpec, error) {
-	// TODO
-	return nil, nil
+// DeleteServiceInstances applies service instances to the registry.
+func (c *ConsulServiceRegistry) DeleteServiceInstances(instances map[string]*serviceregistry.ServiceInstanceSpec) error {
+	client, err := c.getClient()
+	if err != nil {
+		return fmt.Errorf("%s get consul client failed: %v",
+			c.superSpec.Name(), err)
+	}
+
+	for _, instance := range instances {
+		err := client.Agent().ServiceDeregister(instance.InstanceID)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
-// ListServices lists service specs from consul registry.
-func (c *ConsulServiceRegistry) ListServices() ([]*serviceregistry.ServiceSpec, error) {
-	// TODO
-	return nil, nil
+// GetServiceInstance get service instance from the registry.
+func (c *ConsulServiceRegistry) GetServiceInstance(serviceName, instanceID string) (*serviceregistry.ServiceInstanceSpec, error) {
+	instances, err := c.ListServiceInstances(serviceName)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, instance := range instances {
+		if instance.InstanceID == instanceID {
+			return instance, nil
+		}
+	}
+
+	return nil, fmt.Errorf("%s/%s not found", serviceName, instanceID)
+}
+
+// ListServiceInstances list service instances of one service from the registry.
+func (c *ConsulServiceRegistry) ListServiceInstances(serviceName string) (map[string]*serviceregistry.ServiceInstanceSpec, error) {
+	client, err := c.getClient()
+	if err != nil {
+		return nil, fmt.Errorf("%s get consul client failed: %v",
+			c.superSpec.Name(), err)
+	}
+
+	catalogServices, _, err := client.Catalog().Service(serviceName, "", &api.QueryOptions{})
+
+	if err != nil {
+		return nil, err
+	}
+
+	instances := make(map[string]*serviceregistry.ServiceInstanceSpec)
+	for _, catalog := range catalogServices {
+		serviceInstance := c.catalogServiceToServiceInstance(catalog)
+		err := serviceInstance.Validate()
+		if err != nil {
+			return nil, fmt.Errorf("%+v is invalid: %v", serviceInstance, err)
+		}
+
+		instances[serviceInstance.Key()] = serviceInstance
+	}
+
+	return instances, nil
+}
+
+// ListAllServiceInstances list all service instances from the registry.
+func (c *ConsulServiceRegistry) ListAllServiceInstances() (map[string]*serviceregistry.ServiceInstanceSpec, error) {
+	client, err := c.getClient()
+	if err != nil {
+		return nil, fmt.Errorf("%s get consul client failed: %v",
+			c.superSpec.Name(), err)
+	}
+
+	resp, _, err := client.Catalog().Services(&api.QueryOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("%s pull catalog services failed: %v",
+			c.superSpec.Name(), err)
+	}
+
+	instances := make(map[string]*serviceregistry.ServiceInstanceSpec)
+	for serviceName := range resp {
+		services, _, err := client.Catalog().Service(serviceName, "", &api.QueryOptions{})
+		if err != nil {
+			return nil, fmt.Errorf("%s pull catalog service %s failed: %v",
+				c.superSpec.Name(), serviceName, err)
+		}
+
+		for _, service := range services {
+			serviceInstance := c.catalogServiceToServiceInstance(service)
+			if err := serviceInstance.Validate(); err != nil {
+				return nil, fmt.Errorf("%+v is invalid: %v", serviceInstance, err)
+			}
+
+			instances[serviceInstance.Key()] = serviceInstance
+		}
+	}
+
+	return instances, nil
+}
+
+func (c *ConsulServiceRegistry) serviceInstanceToRegistration(serviceInstance *serviceregistry.ServiceInstanceSpec) *api.AgentServiceRegistration {
+	return &api.AgentServiceRegistration{
+		Kind: api.ServiceKindTypical,
+		ID:   serviceInstance.InstanceID,
+		Name: serviceInstance.ServiceName,
+		Tags: serviceInstance.Tags,
+		Port: int(serviceInstance.Port),
+		Meta: map[string]string{
+			MetaKeyRegistryName: serviceInstance.RegistryName,
+		},
+	}
+}
+
+func (c *ConsulServiceRegistry) catalogServiceToServiceInstance(catalogService *api.CatalogService) *serviceregistry.ServiceInstanceSpec {
+	registryName := c.Name()
+	if catalogService.ServiceMeta != nil &&
+		catalogService.ServiceMeta[MetaKeyRegistryName] != "" {
+		registryName = catalogService.ServiceMeta[MetaKeyRegistryName]
+	}
+
+	hostIP := catalogService.ServiceAddress
+	if hostIP == "" {
+		hostIP = catalogService.Address
+	}
+
+	return &serviceregistry.ServiceInstanceSpec{
+		RegistryName: registryName,
+		ServiceName:  catalogService.ServiceName,
+		InstanceID:   catalogService.ServiceID,
+		Port:         uint16(catalogService.ServicePort),
+		Tags:         catalogService.ServiceTags,
+		HostIP:       hostIP,
+	}
 }

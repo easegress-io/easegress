@@ -18,6 +18,7 @@
 package eurekaserviceregistry
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -34,6 +35,9 @@ const (
 
 	// Kind is the kind of EurekaServiceRegistry.
 	Kind = "EurekaServiceRegistry"
+
+	// MetaKeyRegistryName is the key of service metadata.
+	MetaKeyRegistryName = "RegistryName"
 )
 
 func init() {
@@ -48,14 +52,14 @@ type (
 
 		serviceRegistry *serviceregistry.ServiceRegistry
 		firstDone       bool
-		serviceSpecs    map[string]*serviceregistry.ServiceSpec
+		instances       map[string]*serviceregistry.ServiceInstanceSpec
 		notify          chan *serviceregistry.RegistryEvent
 
 		clientMutex sync.RWMutex
 		client      *eurekaapi.Client
 
-		statusMutex         sync.Mutex
-		serviceInstancesNum map[string]int
+		statusMutex  sync.Mutex
+		instancesNum map[string]int
 
 		done chan struct{}
 	}
@@ -69,7 +73,7 @@ type (
 	// Status is the status of EurekaServiceRegistry.
 	Status struct {
 		Health              string         `yaml:"health"`
-		ServiceInstancesNum map[string]int `yaml:"serviceInstancesNum"`
+		ServiceInstancesNum map[string]int `yaml:"instancesNum"`
 	}
 )
 
@@ -108,8 +112,9 @@ func (e *EurekaServiceRegistry) reload() {
 		Instance().(*serviceregistry.ServiceRegistry)
 	e.serviceRegistry.RegisterRegistry(e)
 	e.notify = make(chan *serviceregistry.RegistryEvent, 10)
+	e.firstDone = false
 
-	e.serviceInstancesNum = make(map[string]int)
+	e.instancesNum = make(map[string]int)
 	e.done = make(chan struct{})
 
 	_, err := e.getClient()
@@ -180,78 +185,33 @@ func (e *EurekaServiceRegistry) run() {
 }
 
 func (e *EurekaServiceRegistry) update() {
-	client, err := e.getClient()
+	instances, err := e.ListAllServiceInstances()
 	if err != nil {
-		logger.Errorf("%s get eureka client failed: %v",
-			e.superSpec.Name(), err)
+		logger.Errorf("list all service instances failed: %v", err)
 		return
 	}
 
-	apps, err := client.GetApplications()
-	if err != nil {
-		logger.Errorf("%s get services failed: %v",
-			e.superSpec.Name(), err)
-		return
-	}
-
-	serviceSpecs := make(map[string]*serviceregistry.ServiceSpec)
-	serviceInstancesNum := map[string]int{}
-	for _, app := range apps.Applications {
-		for _, instance := range app.Instances {
-			var instanceSpecs []*serviceregistry.ServiceInstanceSpec
-
-			baseServiceInstanceSpec := serviceregistry.ServiceInstanceSpec{
-				ServiceName: app.Name,
-				Hostname:    instance.HostName,
-				HostIP:      instance.IpAddr,
-				Port:        uint16(instance.Port.Port),
-			}
-
-			if instance.Port != nil && instance.Port.Enabled {
-				plain := baseServiceInstanceSpec
-				instanceSpecs = append(instanceSpecs, &plain)
-				serviceInstancesNum[app.Name]++
-			}
-
-			if instance.SecurePort != nil && instance.SecurePort.Enabled {
-				secure := baseServiceInstanceSpec
-				secure.Scheme = "https"
-				instanceSpecs = append(instanceSpecs, &secure)
-
-				serviceInstancesNum[app.Name]++
-			}
-
-			serviceName := app.Name
-
-			serviceSpec, exists := serviceSpecs[serviceName]
-			if !exists {
-				serviceSpecs[serviceName] = &serviceregistry.ServiceSpec{
-					RegistryName: e.Name(),
-					ServiceName:  serviceName,
-				}
-				serviceSpecs[serviceName].Instances = append(serviceSpecs[serviceName].Instances, instanceSpecs...)
-			} else {
-				serviceSpec.Instances = append(serviceSpec.Instances, instanceSpecs...)
-			}
-		}
+	instancesNum := make(map[string]int)
+	for _, instance := range instances {
+		instancesNum[instance.ServiceName]++
 	}
 
 	var event *serviceregistry.RegistryEvent
 	if !e.firstDone {
 		e.firstDone = true
 		event = &serviceregistry.RegistryEvent{
-			RegistryName: e.Name(),
-			Replace:      serviceSpecs,
+			SourceRegistryName: e.Name(),
+			Replace:            instances,
 		}
 	} else {
-		event = serviceregistry.NewRegistryEventFromDiff(e.Name(), e.serviceSpecs, serviceSpecs)
+		event = serviceregistry.NewRegistryEventFromDiff(e.Name(), e.instances, instances)
 	}
 
 	e.notify <- event
-	e.serviceSpecs = serviceSpecs
+	e.instances = instances
 
 	e.statusMutex.Lock()
-	e.serviceInstancesNum = serviceInstancesNum
+	e.instancesNum = instancesNum
 	e.statusMutex.Unlock()
 }
 
@@ -267,10 +227,10 @@ func (e *EurekaServiceRegistry) Status() *supervisor.Status {
 	}
 
 	e.statusMutex.Lock()
-	serviceInstancesNum := e.serviceInstancesNum
+	instancesNum := e.instancesNum
 	e.statusMutex.Unlock()
 
-	s.ServiceInstancesNum = serviceInstancesNum
+	s.ServiceInstancesNum = instancesNum
 
 	return &supervisor.Status{
 		ObjectStatus: s,
@@ -295,20 +255,178 @@ func (e *EurekaServiceRegistry) Notify() <-chan *serviceregistry.RegistryEvent {
 	return e.notify
 }
 
-// ApplyServices applies service specs to eureka registry.
-func (e *EurekaServiceRegistry) ApplyServices(serviceSpec []*serviceregistry.ServiceSpec) error {
-	// TODO
+// ApplyServiceInstances applies service instances to the registry.
+func (e *EurekaServiceRegistry) ApplyServiceInstances(instances map[string]*serviceregistry.ServiceInstanceSpec) error {
+	client, err := e.getClient()
+	if err != nil {
+		return fmt.Errorf("%s get consul client failed: %v",
+			e.superSpec.Name(), err)
+	}
+
+	for _, instance := range instances {
+		err := instance.Validate()
+		if err != nil {
+			return fmt.Errorf("%+v is invalid: %v", instance, err)
+		}
+	}
+
+	for _, instance := range instances {
+		info := e.serviceInstanceToInstanceInfo(instance)
+		err = client.RegisterInstance(info.App, info)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
-// GetService applies service specs to eureka registry.
-func (e *EurekaServiceRegistry) GetService(serviceName string) (*serviceregistry.ServiceSpec, error) {
-	// TODO
-	return nil, nil
+// DeleteServiceInstances applies service instances to the registry.
+func (e *EurekaServiceRegistry) DeleteServiceInstances(instances map[string]*serviceregistry.ServiceInstanceSpec) error {
+	client, err := e.getClient()
+	if err != nil {
+		return fmt.Errorf("%s get consul client failed: %v",
+			e.superSpec.Name(), err)
+	}
+
+	for _, instance := range instances {
+		err := client.UnregisterInstance(instance.ServiceName, instance.InstanceID)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
-// ListServices lists service specs from eureka registry.
-func (e *EurekaServiceRegistry) ListServices() ([]*serviceregistry.ServiceSpec, error) {
-	// TODO
-	return nil, nil
+// GetServiceInstance get service instance from the registry.
+func (e *EurekaServiceRegistry) GetServiceInstance(serviceName, instanceID string) (*serviceregistry.ServiceInstanceSpec, error) {
+	instances, err := e.ListServiceInstances(serviceName)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, instance := range instances {
+		if instance.InstanceID == instanceID {
+			return instance, nil
+		}
+	}
+
+	return nil, fmt.Errorf("%s/%s not found", serviceName, instanceID)
+}
+
+// ListServiceInstances list service instances of one service from the registry.
+func (e *EurekaServiceRegistry) ListServiceInstances(serviceName string) (map[string]*serviceregistry.ServiceInstanceSpec, error) {
+	client, err := e.getClient()
+	if err != nil {
+		return nil, fmt.Errorf("%s get consul client failed: %v",
+			e.superSpec.Name(), err)
+	}
+
+	app, err := client.GetApplication(serviceName)
+	if err != nil {
+		return nil, err
+	}
+
+	instances := make(map[string]*serviceregistry.ServiceInstanceSpec)
+	for _, info := range app.Instances {
+		for _, serviceInstance := range e.instanceInfoToServiceInstances(&info) {
+			err := serviceInstance.Validate()
+			if err != nil {
+				return nil, fmt.Errorf("%+v is invalid: %v", serviceInstance, err)
+			}
+			instances[serviceInstance.Key()] = serviceInstance
+		}
+	}
+
+	return instances, nil
+}
+
+// ListAllServiceInstances list all service instances from the registry.
+func (e *EurekaServiceRegistry) ListAllServiceInstances() (map[string]*serviceregistry.ServiceInstanceSpec, error) {
+	client, err := e.getClient()
+	if err != nil {
+		return nil, fmt.Errorf("%s get consul client failed: %v",
+			e.superSpec.Name(), err)
+	}
+
+	apps, err := client.GetApplications()
+	if err != nil {
+		return nil, err
+	}
+
+	instances := make(map[string]*serviceregistry.ServiceInstanceSpec)
+	for _, app := range apps.Applications {
+		for _, info := range app.Instances {
+			for _, serviceInstance := range e.instanceInfoToServiceInstances(&info) {
+				err := serviceInstance.Validate()
+				if err != nil {
+					return nil, fmt.Errorf("%+v is invalid: %v", serviceInstance, err)
+				}
+				instances[serviceInstance.Key()] = serviceInstance
+			}
+		}
+	}
+
+	return instances, nil
+}
+
+func (e *EurekaServiceRegistry) instanceInfoToServiceInstances(info *eurekaapi.InstanceInfo) []*serviceregistry.ServiceInstanceSpec {
+	var instances []*serviceregistry.ServiceInstanceSpec
+
+	registryName := e.Name()
+	if info.Metadata != nil && info.Metadata.Map != nil &&
+		info.Metadata.Map[MetaKeyRegistryName] != "" {
+		registryName = info.Metadata.Map[MetaKeyRegistryName]
+	}
+
+	baseServiceInstanceSpec := serviceregistry.ServiceInstanceSpec{
+		RegistryName: registryName,
+		ServiceName:  info.App,
+		InstanceID:   info.InstanceID,
+		Hostname:     info.HostName,
+		HostIP:       info.IpAddr,
+	}
+
+	if info.Port != nil && info.Port.Enabled {
+		plain := baseServiceInstanceSpec
+		instances = append(instances, &plain)
+	}
+
+	if info.SecurePort != nil && info.SecurePort.Enabled {
+		secure := baseServiceInstanceSpec
+		secure.Scheme = "https"
+		instances = append(instances, &secure)
+	}
+
+	return instances
+}
+
+func (e *EurekaServiceRegistry) serviceInstanceToInstanceInfo(serviceInstance *serviceregistry.ServiceInstanceSpec) *eurekaapi.InstanceInfo {
+	info := &eurekaapi.InstanceInfo{
+		Metadata: &eurekaapi.MetaData{
+			Map: map[string]string{
+				MetaKeyRegistryName: serviceInstance.RegistryName,
+			},
+		},
+		App:        serviceInstance.ServiceName,
+		InstanceID: serviceInstance.InstanceID,
+		HostName:   serviceInstance.Hostname,
+		IpAddr:     serviceInstance.HostIP,
+	}
+
+	switch serviceInstance.Scheme {
+	case "", "http":
+		info.Port = &eurekaapi.Port{
+			Port:    int(serviceInstance.Port),
+			Enabled: true,
+		}
+	case "https":
+		info.SecurePort = &eurekaapi.Port{
+			Port:    int(serviceInstance.Port),
+			Enabled: true,
+		}
+	}
+
+	return info
 }

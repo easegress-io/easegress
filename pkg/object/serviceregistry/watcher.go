@@ -25,29 +25,29 @@ import (
 
 type (
 	// ServiceEvent is the event of service.
-	// Only one of Apply and Delete should be filled.
+	// It concludes complete instances of the service.
 	ServiceEvent struct {
-		// Apply creates or updates the service.
-		Apply *ServiceSpec
-
-		// Delete has optional service instances.
-		Delete *ServiceSpec
+		RegistryName string
+		ServiceName  string
+		Instances    map[string]*ServiceInstanceSpec
 	}
 
 	// RegistryEvent is the event of service registry.
-	// Only one of Init, Delete and Apply should be filled.
+	// If UseReplace is true, the event handler should use Replace field even it is empty.
 	RegistryEvent struct {
-		RegistryName string
+		// SourceRegistryName is the registry which send the event,
+		// the RegistryName of specs may not be the same with it.
+		SourceRegistryName string
+		UseReplace         bool
 
-		// Replace replaces all services of the registry.
-		Replace map[string]*ServiceSpec
+		// Replace replaces all service instances of the registry.
+		Replace map[string]*ServiceInstanceSpec
 
-		// Apply creates or updates services of the registry.
-		Apply map[string]*ServiceSpec
+		// Apply creates or updates service instances of the registry.
+		Apply map[string]*ServiceInstanceSpec
 
-		// Delete deletes services of the registry.
-		// The spec of element has optional service instances.
-		Delete map[string]*ServiceSpec
+		// Delete deletes service instaces of the registry.
+		Delete map[string]*ServiceInstanceSpec
 	}
 
 	// ServiceWatcher is the watcher of service.
@@ -56,9 +56,6 @@ type (
 
 		RegistryName() string
 		ServiceName() string
-
-		// Exists returns if the service exists.
-		Exists() bool
 
 		Watch() <-chan *ServiceEvent
 
@@ -137,7 +134,6 @@ func (sr *ServiceRegistry) NewServiceWatcher(registryName, serviceName string) S
 		registryName: registryName,
 		serviceName:  serviceName,
 		eventChan:    make(chan *ServiceEvent, 10),
-		existsFn:     sr.serviceExistsFn(registryName, serviceName),
 		stopFn:       sr.serviceWacherStopFn(registryName, serviceName, id),
 	}
 
@@ -181,13 +177,6 @@ func (sr *ServiceRegistry) registryWacherStopFn(registryName, watcherID string) 
 		if bucket.needClean() {
 			delete(sr.registryBuckets, registryName)
 		}
-	}
-}
-
-func (sr *ServiceRegistry) serviceExistsFn(registryName, serviceName string) func() bool {
-	return func() bool {
-		_, err := sr.GetService(registryName, serviceName)
-		return err == nil
 	}
 }
 
@@ -275,14 +264,16 @@ func (w *registryWatcher) Stop() {
 
 // DeepCopy deep copies ServiceEvent.
 func (e *ServiceEvent) DeepCopy() *ServiceEvent {
-	copy := &ServiceEvent{}
-
-	if e.Apply != nil {
-		copy.Apply = e.Apply.DeepCopy()
+	copy := &ServiceEvent{
+		RegistryName: e.RegistryName,
+		ServiceName:  e.ServiceName,
 	}
 
-	if e.Delete != nil {
-		copy.Delete = e.Delete.DeepCopy()
+	if e.Instances != nil {
+		copy.Instances = make(map[string]*ServiceInstanceSpec)
+		for k, v := range e.Instances {
+			copy.Instances[k] = v.DeepCopy()
+		}
 	}
 
 	return copy
@@ -291,25 +282,26 @@ func (e *ServiceEvent) DeepCopy() *ServiceEvent {
 // DeepCopy deep copies RegistryEvent.
 func (e *RegistryEvent) DeepCopy() *RegistryEvent {
 	copy := &RegistryEvent{
-		RegistryName: e.RegistryName,
+		SourceRegistryName: e.SourceRegistryName,
+		Replace:            e.Replace,
 	}
 
 	if e.Replace != nil {
-		copy.Replace = make(map[string]*ServiceSpec)
+		copy.Replace = make(map[string]*ServiceInstanceSpec)
 		for k, v := range e.Replace {
 			copy.Replace[k] = v.DeepCopy()
 		}
 	}
 
 	if e.Apply != nil {
-		copy.Apply = make(map[string]*ServiceSpec)
+		copy.Apply = make(map[string]*ServiceInstanceSpec)
 		for k, v := range e.Apply {
 			copy.Apply[k] = v.DeepCopy()
 		}
 	}
 
 	if e.Delete != nil {
-		copy.Delete = make(map[string]*ServiceSpec)
+		copy.Delete = make(map[string]*ServiceInstanceSpec)
 		for k, v := range e.Delete {
 			copy.Delete[k] = v.DeepCopy()
 		}

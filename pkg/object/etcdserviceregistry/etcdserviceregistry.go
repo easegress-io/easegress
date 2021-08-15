@@ -19,15 +19,17 @@ package eserviceregistry
 
 import (
 	"context"
+	"fmt"
+	"path/filepath"
 	"sync"
 	"time"
-
-	"github.com/ghodss/yaml"
-	clientv3 "go.etcd.io/etcd/client/v3"
 
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/serviceregistry"
 	"github.com/megaease/easegress/pkg/supervisor"
+
+	clientv3 "go.etcd.io/etcd/client/v3"
+	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -50,14 +52,14 @@ type (
 
 		serviceRegistry *serviceregistry.ServiceRegistry
 		firstDone       bool
-		serviceSpecs    map[string]*serviceregistry.ServiceSpec
+		instances       map[string]*serviceregistry.ServiceInstanceSpec
 		notify          chan *serviceregistry.RegistryEvent
 
 		clientMutex sync.RWMutex
 		client      *clientv3.Client
 
-		statusMutex         sync.Mutex
-		serviceInstancesNum map[string]int
+		statusMutex  sync.Mutex
+		instancesNum map[string]int
 
 		done chan struct{}
 	}
@@ -72,7 +74,7 @@ type (
 	// Status is the status of EtcdServiceRegistry.
 	Status struct {
 		Health              string         `yaml:"health"`
-		ServiceInstancesNum map[string]int `yaml:"serviceInstancesNum"`
+		ServiceInstancesNum map[string]int `yaml:"instancesNum"`
 	}
 )
 
@@ -110,9 +112,10 @@ func (e *EtcdServiceRegistry) reload() {
 	e.serviceRegistry = e.superSpec.Super().MustGetSystemController(serviceregistry.Kind).
 		Instance().(*serviceregistry.ServiceRegistry)
 	e.serviceRegistry.RegisterRegistry(e)
+	e.firstDone = false
 	e.notify = make(chan *serviceregistry.RegistryEvent, 10)
 
-	e.serviceInstancesNum = map[string]int{}
+	e.instancesNum = map[string]int{}
 	e.done = make(chan struct{})
 
 	_, err := e.getClient()
@@ -197,66 +200,33 @@ func (e *EtcdServiceRegistry) run() {
 }
 
 func (e *EtcdServiceRegistry) update() {
-	client, err := e.getClient()
+	instances, err := e.ListAllServiceInstances()
 	if err != nil {
-		logger.Errorf("%s get etcd client failed: %v",
-			e.superSpec.Name(), err)
-		return
-	}
-	resp, err := client.Get(context.Background(), e.spec.Prefix, clientv3.WithPrefix())
-	if err != nil {
-		logger.Errorf("%s pull services failed: %v",
-			e.superSpec.Name(), err)
+		logger.Errorf("list all service instances failed: %v", err)
 		return
 	}
 
-	serviceSpecs := make(map[string]*serviceregistry.ServiceSpec)
-	serviceInstancesNum := map[string]int{}
-	for _, kv := range resp.Kvs {
-		serviceInstanceSpec := &serviceregistry.ServiceInstanceSpec{}
-		err := yaml.Unmarshal(kv.Value, serviceInstanceSpec)
-		if err != nil {
-			logger.Errorf("%s: unmarshal %s to yaml failed: %v",
-				kv.Key, kv.Value, err)
-			continue
-		}
-		if err := serviceInstanceSpec.Validate(); err != nil {
-			logger.Errorf("%s is invalid: %v", kv.Value, err)
-			continue
-		}
-
-		serviceName := serviceInstanceSpec.ServiceName
-
-		serviceSpec, exists := serviceSpecs[serviceName]
-		if !exists {
-			serviceSpecs[serviceName] = &serviceregistry.ServiceSpec{
-				RegistryName: e.Name(),
-				ServiceName:  serviceName,
-				Instances:    []*serviceregistry.ServiceInstanceSpec{serviceInstanceSpec},
-			}
-		} else {
-			serviceSpec.Instances = append(serviceSpec.Instances, serviceInstanceSpec)
-		}
-
-		serviceInstancesNum[serviceName]++
+	instancesNum := make(map[string]int)
+	for _, instance := range instances {
+		instancesNum[instance.ServiceName]++
 	}
 
 	var event *serviceregistry.RegistryEvent
 	if !e.firstDone {
 		e.firstDone = true
 		event = &serviceregistry.RegistryEvent{
-			RegistryName: e.Name(),
-			Replace:      serviceSpecs,
+			SourceRegistryName: e.Name(),
+			Replace:            instances,
 		}
 	} else {
-		event = serviceregistry.NewRegistryEventFromDiff(e.Name(), e.serviceSpecs, serviceSpecs)
+		event = serviceregistry.NewRegistryEventFromDiff(e.Name(), e.instances, instances)
 	}
 
 	e.notify <- event
-	e.serviceSpecs = serviceSpecs
+	e.instances = instances
 
 	e.statusMutex.Lock()
-	e.serviceInstancesNum = serviceInstancesNum
+	e.instancesNum = instancesNum
 	e.statusMutex.Unlock()
 }
 
@@ -272,10 +242,10 @@ func (e *EtcdServiceRegistry) Status() *supervisor.Status {
 	}
 
 	e.statusMutex.Lock()
-	serviceInstancesNum := e.serviceInstancesNum
+	instancesNum := e.instancesNum
 	e.statusMutex.Unlock()
 
-	s.ServiceInstancesNum = serviceInstancesNum
+	s.ServiceInstancesNum = instancesNum
 
 	return &supervisor.Status{
 		ObjectStatus: s,
@@ -300,20 +270,163 @@ func (e *EtcdServiceRegistry) Notify() <-chan *serviceregistry.RegistryEvent {
 	return e.notify
 }
 
-// ApplyServices applies service specs to etcd registry.
-func (e *EtcdServiceRegistry) ApplyServices(serviceSpec []*serviceregistry.ServiceSpec) error {
-	// TODO
+// ApplyServiceInstances applies service instances to the registry.
+func (e *EtcdServiceRegistry) ApplyServiceInstances(instances map[string]*serviceregistry.ServiceInstanceSpec) error {
+	client, err := e.getClient()
+	if err != nil {
+		return fmt.Errorf("%s get etcd client failed: %v",
+			e.superSpec.Name(), err)
+	}
+
+	ops := []clientv3.Op{}
+	for _, instance := range instances {
+		err := instance.Validate()
+		if err != nil {
+			return fmt.Errorf("%+v is invalid: %v", instance, err)
+		}
+
+		buff, err := yaml.Marshal(instance)
+		if err != nil {
+			return fmt.Errorf("marshal %+v to yaml failed: %v", instance, err)
+		}
+
+		key := e.serviceInstanceEtcdKey(instance)
+		ops = append(ops, clientv3.OpPut(key, string(buff)))
+	}
+
+	_, err = client.Txn(context.Background()).Then(ops...).Commit()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
-// GetService applies service specs to etcd registry.
-func (e *EtcdServiceRegistry) GetService(serviceName string) (*serviceregistry.ServiceSpec, error) {
-	// TODO
-	return nil, nil
+// DeleteServiceInstances applies service instances to the registry.
+func (e *EtcdServiceRegistry) DeleteServiceInstances(instances map[string]*serviceregistry.ServiceInstanceSpec) error {
+	client, err := e.getClient()
+	if err != nil {
+		return fmt.Errorf("%s get etcd client failed: %v",
+			e.superSpec.Name(), err)
+	}
+
+	ops := []clientv3.Op{}
+	for _, instance := range instances {
+		key := e.serviceInstanceEtcdKey(instance)
+		ops = append(ops, clientv3.OpDelete(key))
+	}
+
+	_, err = client.Txn(context.Background()).Then(ops...).Commit()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
-// ListServices lists service specs from etcd registry.
-func (e *EtcdServiceRegistry) ListServices() ([]*serviceregistry.ServiceSpec, error) {
-	// TODO
-	return nil, nil
+// GetServiceInstance get service instance from the registry.
+func (e *EtcdServiceRegistry) GetServiceInstance(serviceName, instanceID string) (*serviceregistry.ServiceInstanceSpec, error) {
+	client, err := e.getClient()
+	if err != nil {
+		return nil, fmt.Errorf("%s get etcd client failed: %v",
+			e.superSpec.Name(), err)
+	}
+
+	resp, err := client.Get(context.Background(), e.serviceInstanceEtcdKeyFromRaw(serviceName, instanceID))
+	if err != nil {
+		return nil, err
+	}
+
+	if len(resp.Kvs) == 0 {
+		return nil, fmt.Errorf("%s/%s not found", serviceName, instanceID)
+	}
+
+	instance := &serviceregistry.ServiceInstanceSpec{}
+	err = yaml.Unmarshal(resp.Kvs[0].Value, instance)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal %s to yaml failed: %v", resp.Kvs[0].Value, err)
+	}
+
+	err = instance.Validate()
+	if err != nil {
+		return nil, fmt.Errorf("%+v is invalid: %v", instance, err)
+	}
+
+	return instance, nil
+}
+
+// ListServiceInstances list service instances of one service from the registry.
+func (e *EtcdServiceRegistry) ListServiceInstances(serviceName string) (map[string]*serviceregistry.ServiceInstanceSpec, error) {
+	client, err := e.getClient()
+	if err != nil {
+		return nil, fmt.Errorf("%s get etcd client failed: %v",
+			e.superSpec.Name(), err)
+	}
+
+	resp, err := client.Get(context.Background(), e.serviceEtcdPrefix(serviceName), clientv3.WithPrefix())
+	if err != nil {
+		return nil, err
+	}
+
+	instances := make(map[string]*serviceregistry.ServiceInstanceSpec)
+	for _, kv := range resp.Kvs {
+		instance := &serviceregistry.ServiceInstanceSpec{}
+		err = yaml.Unmarshal(kv.Value, instance)
+		if err != nil {
+			return nil, fmt.Errorf("unmarshal %s to yaml failed: %v", kv.Value, err)
+		}
+
+		err = instance.Validate()
+		if err != nil {
+			return nil, fmt.Errorf("%+v is invalid: %v", instance, err)
+		}
+
+		instances[instance.Key()] = instance
+	}
+
+	return instances, nil
+}
+
+// ListAllServiceInstances list all service instances from the registry.
+func (e *EtcdServiceRegistry) ListAllServiceInstances() (map[string]*serviceregistry.ServiceInstanceSpec, error) {
+	client, err := e.getClient()
+	if err != nil {
+		return nil, fmt.Errorf("%s get etcd client failed: %v",
+			e.superSpec.Name(), err)
+	}
+
+	resp, err := client.Get(context.Background(), e.spec.Prefix, clientv3.WithPrefix())
+	if err != nil {
+		return nil, err
+	}
+
+	instances := make(map[string]*serviceregistry.ServiceInstanceSpec)
+	for _, kv := range resp.Kvs {
+		instance := &serviceregistry.ServiceInstanceSpec{}
+		err = yaml.Unmarshal(kv.Value, instance)
+		if err != nil {
+			return nil, fmt.Errorf("unmarshal %s to yaml failed: %v", kv.Value, err)
+		}
+
+		err = instance.Validate()
+		if err != nil {
+			return nil, fmt.Errorf("%+v is invalid: %v", instance, err)
+		}
+
+		instances[instance.Key()] = instance
+	}
+
+	return instances, nil
+}
+
+func (e *EtcdServiceRegistry) serviceEtcdPrefix(serviceName string) string {
+	return filepath.Join(e.spec.Prefix, serviceName) + "/"
+}
+
+func (e *EtcdServiceRegistry) serviceInstanceEtcdKey(instance *serviceregistry.ServiceInstanceSpec) string {
+	return e.serviceInstanceEtcdKeyFromRaw(instance.ServiceName, instance.InstanceID)
+}
+
+func (e *EtcdServiceRegistry) serviceInstanceEtcdKeyFromRaw(serviceName, instanceID string) string {
+	return filepath.Join(e.spec.Prefix, serviceName, instanceID)
 }
