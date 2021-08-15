@@ -21,21 +21,23 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/megaease/easegress/pkg/logger"
 )
 
 type (
 	// ServiceEvent is the event of service.
 	// It concludes complete instances of the service.
 	ServiceEvent struct {
-		RegistryName string
-		ServiceName  string
-		Instances    map[string]*ServiceInstanceSpec
+		// SourceRegistryName is the registry which caused the event,
+		// the RegistryName of specs may not be the same with it.
+		SourceRegistryName string
+		Instances          map[string]*ServiceInstanceSpec
 	}
 
 	// RegistryEvent is the event of service registry.
 	// If UseReplace is true, the event handler should use Replace field even it is empty.
 	RegistryEvent struct {
-		// SourceRegistryName is the registry which send the event,
+		// SourceRegistryName is the registry which caused the event,
 		// the RegistryName of specs may not be the same with it.
 		SourceRegistryName string
 		UseReplace         bool
@@ -119,6 +121,17 @@ func (sr *ServiceRegistry) NewRegistryWatcher(registryName string) RegistryWatch
 
 	sr.registryBuckets[registryName].registryWatchers[id] = watcher
 
+	instances, err := sr._listAllServiceInstances(registryName)
+	if err != nil {
+		logger.Warnf("watch registry %s: list service instances failed: %v", registryName, err)
+	} else {
+		watcher.EventChan() <- &RegistryEvent{
+			SourceRegistryName: registryName,
+			UseReplace:         true,
+			Replace:            instances,
+		}
+	}
+
 	return watcher
 }
 
@@ -147,6 +160,17 @@ func (sr *ServiceRegistry) NewServiceWatcher(registryName, serviceName string) S
 		sr.registryBuckets[registryName].serviceBuckets[serviceName] = newServiceBucket()
 	}
 	sr.registryBuckets[registryName].serviceBuckets[serviceName].serviceWatchers[id] = watcher
+
+	instances, err := sr._listServiceInstances(registryName, serviceName)
+	if err != nil {
+		logger.Warnf("watch service %s/%s: list service instances failed: %v",
+			registryName, serviceName, err)
+	} else {
+		watcher.EventChan() <- &ServiceEvent{
+			SourceRegistryName: registryName,
+			Instances:          instances,
+		}
+	}
 
 	return watcher
 }
@@ -265,8 +289,7 @@ func (w *registryWatcher) Stop() {
 // DeepCopy deep copies ServiceEvent.
 func (e *ServiceEvent) DeepCopy() *ServiceEvent {
 	copy := &ServiceEvent{
-		RegistryName: e.RegistryName,
-		ServiceName:  e.ServiceName,
+		SourceRegistryName: e.SourceRegistryName,
 	}
 
 	if e.Instances != nil {

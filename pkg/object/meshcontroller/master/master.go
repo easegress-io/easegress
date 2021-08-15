@@ -45,8 +45,9 @@ type (
 		spec                *spec.Admin
 		maxHeartbeatTimeout time.Duration
 
-		store   storage.Storage
-		service *service.Service
+		registrySyncer *registrySyncer
+		store          storage.Storage
+		service        *service.Service
 
 		done chan struct{}
 	}
@@ -64,8 +65,9 @@ func New(superSpec *supervisor.Spec) *Master {
 		superSpec: superSpec,
 		spec:      adminSpec,
 
-		store:   store,
-		service: service.New(superSpec),
+		store:          store,
+		service:        service.New(superSpec),
+		registrySyncer: newRegistrySyncer(superSpec),
 
 		done: make(chan struct{}),
 	}

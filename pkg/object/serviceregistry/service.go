@@ -25,12 +25,12 @@ import (
 type (
 	// ServiceInstanceSpec is the service instance spec in Easegress.
 	ServiceInstanceSpec struct {
-		// InstanceID is required.
-		InstanceID string `yaml:"name"`
 		// RegistryName is required.
 		RegistryName string `yaml:"registryName"`
 		// ServiceName is required.
 		ServiceName string `yaml:"serviceName"`
+		// InstanceID is required.
+		InstanceID string `yaml:"name"`
 
 		// Scheme is optional if Port is not empty.
 		Scheme string `yaml:"scheme"`

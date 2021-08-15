@@ -90,7 +90,7 @@ type (
 		// IngressPort is the port for http server in mesh ingress
 		IngressPort int `yaml:"ingressPort" jsonschema:"required"`
 
-		ServiceRegistry string `yaml:"serviceRegistry" jsonschema:"omitempty"`
+		ExternalServiceRegistry string `yaml:"externalServiceRegistry" jsonschema:"omitempty"`
 	}
 
 	// Service contains the information of service.
@@ -225,6 +225,8 @@ type (
 
 	// ServiceInstanceSpec is the spec of service instance.
 	ServiceInstanceSpec struct {
+		// Backward compatibility: empty RegistryName means it is a mesh service.
+		RegistryName string
 		// Provide by registry client
 		ServiceName  string            `yaml:"serviceName" jsonschema:"required"`
 		InstanceID   string            `yaml:"instanceID" jsonschema:"required"`
