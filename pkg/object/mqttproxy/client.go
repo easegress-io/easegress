@@ -130,6 +130,6 @@ func (c *Client) processPublish(publish *packets.PublishPacket) {
 	c.broker.backend.publish(publish)
 }
 
-// func (c *Client) close() {
-// 	// TODO close client later
-// }
+func (c *Client) close() {
+	c.conn.Close()
+}

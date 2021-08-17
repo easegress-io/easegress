@@ -62,8 +62,9 @@ func (mp *MQTTProxy) Status() *supervisor.Status {
 // Init initializes Function.
 func (mp *MQTTProxy) Init(superSpec *supervisor.Spec) {
 	spec := superSpec.ObjectSpec().(*Spec)
+	spec.Name = superSpec.Name()
 	mp.superSpec, mp.spec = superSpec, spec
-	mp.broker = newBroker(superSpec.Name(), spec)
+	mp.broker = newBroker(spec)
 }
 
 // Inherit inherits previous generation of WebSocketServer.

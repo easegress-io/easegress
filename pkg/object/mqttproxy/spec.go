@@ -19,12 +19,13 @@ package mqttproxy
 
 type (
 	Spec struct {
-		Port        uint16     `yaml:"port"`
-		BackendType string     `yaml:"backendType"`
-		Kafka       *KafkaSpec `yaml:"kafkaBroker"`
+		Name        string     `yaml:"-"`
+		Port        uint16     `yaml:"port" jsonschema:"required"`
+		BackendType string     `yaml:"backendType" jsonschema:"required"`
+		Kafka       *KafkaSpec `yaml:"kafkaBroker" jsonschema:"required"`
 	}
 
 	KafkaSpec struct {
-		Backend string `yaml:"backend"`
+		Backend []string `yaml:"backend" jsonschema:"required,uniqueItems=true"`
 	}
 )

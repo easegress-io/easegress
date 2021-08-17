@@ -20,6 +20,7 @@ package mqttproxy
 import (
 	"fmt"
 	"net"
+	"sync"
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/logger"
@@ -28,22 +29,32 @@ import (
 type Broker struct {
 	name string
 	spec *Spec
+	rw   sync.RWMutex
 
 	listener net.Listener
 	backend  BackendMQ
-	// clients  sync.Map
+	clients  map[string]*Client
 
 	// done is the channel for shutdowning this proxy.
 	done chan struct{}
 }
 
-func newBroker(name string, spec *Spec) *Broker {
-	broker := &Broker{
-		name:    name,
-		spec:    spec,
-		done:    make(chan struct{}),
-		backend: newBackendMQ(spec),
+func newBroker(spec *Spec) *Broker {
+	l, err := net.Listen("tcp", fmt.Sprintf(":%d", spec.Port))
+	if err != nil {
+		logger.Errorf("%#v gen mqtt tcp listener, failed: %v", spec, err)
+		return nil
 	}
+
+	broker := &Broker{
+		name:     spec.Name,
+		spec:     spec,
+		listener: l,
+		backend:  newBackendMQ(spec),
+		clients:  make(map[string]*Client),
+		done:     make(chan struct{}),
+	}
+
 	go broker.run()
 	return broker
 }
@@ -53,16 +64,8 @@ func (b *Broker) str() string {
 }
 
 func (b *Broker) run() {
-	addr := fmt.Sprintf(":%d", b.spec.Port)
-	l, err := net.Listen("tcp", addr)
-	if err != nil {
-		logger.Errorf("%s gen mqtt tcp listener, failed: %v", b.str(), err)
-		return
-	}
-	b.listener = l
-
 	for {
-		conn, err := l.Accept()
+		conn, err := b.listener.Accept()
 		if err != nil {
 			select {
 			case <-b.done:
@@ -122,13 +125,28 @@ func (b *Broker) handleConn(conn net.Conn) {
 	}
 
 	client := newClient(connect, b, conn)
-	// TODO session for later
-	// TODO add client to broker and replace old client graceful
+	cid := client.info.cid
+
+	b.rw.Lock()
+	if oldClient, ok := b.clients[cid]; ok {
+		oldClient.close()
+	}
+	b.clients[client.info.cid] = client
+	b.rw.Unlock()
+
 	client.readLoop()
 }
 
 func (b *Broker) close() {
 	close(b.done)
 	b.listener.Close()
-	// TODO: graceful shutdown later
+	b.backend.close()
+
+	b.rw.Lock()
+	defer b.rw.Unlock()
+	for _, v := range b.clients {
+		v.close()
+	}
+	b.clients = nil
+
 }
