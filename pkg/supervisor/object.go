@@ -118,13 +118,29 @@ func newObjectEntityWatcherEvent() *ObjectEntityWatcherEvent {
 	}
 }
 
-func newObjectRegistry(super *Supervisor) *ObjectRegistry {
-	syncer, err := super.Cluster().Syncer(syncInternal)
+func newObjectRegistry(super *Supervisor, initObjs map[string]string) *ObjectRegistry {
+	cls := super.Cluster()
+	prefix := cls.Layout().ConfigObjectPrefix()
+	objs, err := cls.GetPrefix(prefix)
+	if err != nil {
+		panic(fmt.Errorf("get existing objects failed: %v", err))
+	}
+	for k, v := range initObjs {
+		key := cls.Layout().ConfigObjectKey(k)
+		if _, ok := objs[key]; ok {
+			logger.Infof("initial object %s already exist in config, skip", k)
+			continue
+		}
+		if err = cls.Put(key, v); err != nil {
+			panic(fmt.Errorf("add initial object %s to config failed: %v", k, err))
+		}
+	}
+
+	syncer, err := cls.Syncer(syncInternal)
 	if err != nil {
 		panic(fmt.Errorf("get syncer failed: %v", err))
 	}
 
-	prefix := super.Cluster().Layout().ConfigObjectPrefix()
 	syncChan, err := syncer.SyncPrefix(prefix)
 	if err != nil {
 		panic(fmt.Errorf("sync prefix %s failed: %v", prefix, err))

@@ -19,6 +19,7 @@ package supervisor
 
 import (
 	"fmt"
+	"os"
 	"runtime/debug"
 	"sync"
 
@@ -57,6 +58,24 @@ var (
 	globalSuper *Supervisor
 )
 
+func loadInitialObjects(s *Supervisor, paths []string) map[string]string {
+	objs := map[string]string{}
+	for _, path := range paths {
+		data, e := os.ReadFile(path)
+		if e != nil {
+			logger.Errorf("failed to load initial object, path: %s, error: %v", path, e)
+			continue
+		}
+		spec, e := s.NewSpec(string(data))
+		if e != nil {
+			logger.Errorf("failed to create spec for initial object, path: %s, error: %v", path, e)
+			continue
+		}
+		objs[spec.Name()] = spec.YAMLConfig()
+	}
+	return objs
+}
+
 // MustNew creates a Supervisor.
 func MustNew(opt *option.Options, cls cluster.Cluster) *Supervisor {
 	s := &Supervisor{
@@ -68,7 +87,9 @@ func MustNew(opt *option.Options, cls cluster.Cluster) *Supervisor {
 		done:            make(chan struct{}),
 	}
 
-	s.objectRegistry = newObjectRegistry(s)
+	initObjs := loadInitialObjects(s, opt.InitialObjectConfigFiles)
+
+	s.objectRegistry = newObjectRegistry(s, initObjs)
 	s.watcher = s.objectRegistry.NewWatcher(watcherName, FilterCategory(
 		// NOTE: SystemController is only initialized internally.
 		// CategorySystemController,

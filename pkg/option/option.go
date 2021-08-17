@@ -64,6 +64,7 @@ type Options struct {
 	ClusterJoinURLs                 []string          `yaml:"cluster-join-urls"`
 	APIAddr                         string            `yaml:"api-addr"`
 	Debug                           bool              `yaml:"debug"`
+	InitialObjectConfigFiles        []string          `yaml:"initial-object-config-files"`
 
 	// Path.
 	HomeDir   string `yaml:"home-dir"`
@@ -109,6 +110,7 @@ func New() *Options {
 	opt.flags.StringSliceVar(&opt.ClusterJoinURLs, "cluster-join-urls", nil, "List of URLs to join, when the first url is the same with any one of cluster-initial-advertise-peer-urls, it means to join itself, and this config will be treated empty.")
 	opt.flags.StringVar(&opt.APIAddr, "api-addr", "localhost:2381", "Address([host]:port) to listen on for administration traffic.")
 	opt.flags.BoolVar(&opt.Debug, "debug", false, "Flag to set lowest log level from INFO downgrade DEBUG.")
+	opt.flags.StringSliceVar(&opt.InitialObjectConfigFiles, "initial-object-config-files", nil, "List of configuration files for initial objects, these objects will be created at startup if not already exist.")
 
 	opt.flags.StringVar(&opt.HomeDir, "home-dir", "./", "Path to the home directory.")
 	opt.flags.StringVar(&opt.DataDir, "data-dir", "data", "Path to the data directory.")
