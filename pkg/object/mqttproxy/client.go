@@ -20,6 +20,7 @@ package mqttproxy
 import (
 	"errors"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
@@ -27,8 +28,11 @@ import (
 )
 
 const (
-	Connected    = 1
-	Disconnected = 2
+	Connected         = 1
+	Disconnected      = 2
+	Qos0         byte = 0
+	Qos1         byte = 1
+	Qos2         byte = 2
 )
 
 type (
@@ -41,8 +45,11 @@ type (
 	}
 
 	Client struct {
-		broker *Broker
-		conn   net.Conn
+		sync.Mutex
+
+		broker  *Broker
+		session *Session
+		conn    net.Conn
 
 		info   ClientInfo
 		status int
@@ -81,6 +88,7 @@ func newClient(connect *packets.ConnectPacket, broker *Broker, conn net.Conn) *C
 }
 
 func (c *Client) readLoop() {
+	defer c.close()
 	keepAlive := time.Duration(c.info.keepalive) * time.Second
 	timeOut := keepAlive + keepAlive/2
 	for {
@@ -146,21 +154,23 @@ func (c *Client) processPacket(packet packets.ControlPacket) error {
 func (c *Client) processPublish(publish *packets.PublishPacket) {
 	c.broker.backend.publish(publish)
 	switch publish.Qos {
-	case 0:
+	case Qos0:
 		// do nothing
-	case 1:
+	case Qos1:
 		puback := packets.NewControlPacket(packets.Puback).(*packets.PubackPacket)
 		puback.MessageID = publish.MessageID
 		err := puback.Write(c.conn)
 		if err != nil {
 			logger.Errorf("write puback to client %s failed: %s", c.info.cid, err)
 		}
-	case 2:
+	case Qos2:
 		// not support yet
 	}
 }
 
 func (c *Client) processSubscribe(packet *packets.SubscribePacket) {
+	c.session.subscribe(packet.Topics, packet.Qoss)
+
 	suback := packets.NewControlPacket(packets.Suback).(*packets.SubackPacket)
 	suback.MessageID = packet.MessageID
 	suback.ReturnCodes = make([]byte, len(packet.Topics))
@@ -171,6 +181,8 @@ func (c *Client) processSubscribe(packet *packets.SubscribePacket) {
 }
 
 func (c *Client) processUnsubscribe(packet *packets.UnsubscribePacket) {
+	c.session.unsubscribe(packet.Topics)
+
 	unsuback := packets.NewControlPacket(packets.Unsuback).(*packets.UnsubackPacket)
 	unsuback.MessageID = packet.MessageID
 	unsuback.Write(c.conn)
@@ -182,6 +194,14 @@ func (c *Client) processPingreq(packet *packets.PingreqPacket) {
 }
 
 func (c *Client) close() {
+	c.Lock()
+	defer c.Unlock()
+	if c.status == Disconnected {
+		return
+	}
 	c.status = Disconnected
 	close(c.done)
+	if c.session.cleanSession() {
+		c.broker.sessMgr.del(c.info.cid)
+	}
 }

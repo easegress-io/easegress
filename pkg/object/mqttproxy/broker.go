@@ -27,13 +27,14 @@ import (
 )
 
 type Broker struct {
+	sync.RWMutex
 	name string
 	spec *Spec
-	rw   sync.RWMutex
 
 	listener net.Listener
 	backend  BackendMQ
 	clients  map[string]*Client
+	sessMgr  *SessionManager
 
 	// done is the channel for shutdowning this proxy.
 	done chan struct{}
@@ -52,6 +53,7 @@ func newBroker(spec *Spec) *Broker {
 		listener: l,
 		backend:  newBackendMQ(spec),
 		clients:  make(map[string]*Client),
+		sessMgr:  newSessionManager(),
 		done:     make(chan struct{}),
 	}
 
@@ -127,14 +129,29 @@ func (b *Broker) handleConn(conn net.Conn) {
 	client := newClient(connect, b, conn)
 	cid := client.info.cid
 
-	b.rw.Lock()
+	b.Lock()
 	if oldClient, ok := b.clients[cid]; ok {
 		oldClient.close()
 	}
 	b.clients[client.info.cid] = client
-	b.rw.Unlock()
+	b.setSession(client, connect)
+	b.Unlock()
+
+	// update session
 
 	client.readLoop()
+}
+
+func (b *Broker) setSession(client *Client, connect *packets.ConnectPacket) {
+	// when clean session is false, previous session exist and previous session not clean session,
+	// then we use prevous session, otherwise use new session
+	prevSess := b.sessMgr.get(connect.ClientIdentifier)
+	if !connect.CleanSession && (prevSess != nil) && !prevSess.cleanSession() {
+		prevSess.update(connect)
+		client.session = prevSess
+	} else {
+		client.session = b.sessMgr.new(connect)
+	}
 }
 
 func (b *Broker) close() {
@@ -142,8 +159,8 @@ func (b *Broker) close() {
 	b.listener.Close()
 	b.backend.close()
 
-	b.rw.Lock()
-	defer b.rw.Unlock()
+	b.Lock()
+	defer b.Unlock()
 	for _, v := range b.clients {
 		v.close()
 	}
