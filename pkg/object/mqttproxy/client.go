@@ -20,6 +20,7 @@ package mqttproxy
 import (
 	"errors"
 	"net"
+	"time"
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/logger"
@@ -45,6 +46,7 @@ type (
 
 		info   ClientInfo
 		status int
+		done   chan struct{}
 	}
 )
 
@@ -73,12 +75,27 @@ func newClient(connect *packets.ConnectPacket, broker *Broker, conn net.Conn) *C
 		conn:   conn,
 		info:   info,
 		status: Connected,
+		done:   make(chan struct{}),
 	}
 	return client
 }
 
 func (c *Client) readLoop() {
+	keepAlive := time.Duration(c.info.keepalive) * time.Second
+	timeOut := keepAlive + keepAlive/2
 	for {
+		select {
+		case <-c.done:
+			return
+		default:
+		}
+
+		if keepAlive > 0 {
+			if err := c.conn.SetDeadline(time.Now().Add(timeOut)); err != nil {
+				logger.Errorf("set read timeout error: %s", c.info.cid)
+			}
+		}
+
 		packet, err := packets.ReadPacket(c.conn)
 		if err != nil {
 			logger.Errorf("%s, client %s, read packet error: %s", c.broker.str(), c.info.cid, err)
@@ -107,15 +124,15 @@ func (c *Client) processPacket(packet packets.ControlPacket) error {
 	case *packets.PubrecPacket, *packets.PubrelPacket, *packets.PubcompPacket:
 		err = errors.New("qos2 not support now")
 	case *packets.SubscribePacket:
-		// do nothing
+		c.processSubscribe(p)
 	case *packets.SubackPacket:
 		err = errors.New("broker not subscribe")
 	case *packets.UnsubscribePacket:
-		// do nothing
+		c.processUnsubscribe(p)
 	case *packets.UnsubackPacket:
 		err = errors.New("broker not unsubscribe")
 	case *packets.PingreqPacket:
-		// do nothing now
+		c.processPingreq(p)
 	case *packets.PingrespPacket:
 		err = errors.New("broker not ping")
 	case *packets.DisconnectPacket:
@@ -128,8 +145,43 @@ func (c *Client) processPacket(packet packets.ControlPacket) error {
 
 func (c *Client) processPublish(publish *packets.PublishPacket) {
 	c.broker.backend.publish(publish)
+	switch publish.Qos {
+	case 0:
+		// do nothing
+	case 1:
+		puback := packets.NewControlPacket(packets.Puback).(*packets.PubackPacket)
+		puback.MessageID = publish.MessageID
+		err := puback.Write(c.conn)
+		if err != nil {
+			logger.Errorf("write puback to client %s failed: %s", c.info.cid, err)
+		}
+	case 2:
+		// not support yet
+	}
+}
+
+func (c *Client) processSubscribe(packet *packets.SubscribePacket) {
+	suback := packets.NewControlPacket(packets.Suback).(*packets.SubackPacket)
+	suback.MessageID = packet.MessageID
+	suback.ReturnCodes = make([]byte, len(packet.Topics))
+	for i := range packet.Topics {
+		suback.ReturnCodes[i] = packet.Qos
+	}
+	suback.Write(c.conn)
+}
+
+func (c *Client) processUnsubscribe(packet *packets.UnsubscribePacket) {
+	unsuback := packets.NewControlPacket(packets.Unsuback).(*packets.UnsubackPacket)
+	unsuback.MessageID = packet.MessageID
+	unsuback.Write(c.conn)
+}
+
+func (c *Client) processPingreq(packet *packets.PingreqPacket) {
+	resp := packets.NewControlPacket(packets.Pingresp).(*packets.PingrespPacket)
+	resp.Write(c.conn)
 }
 
 func (c *Client) close() {
-	c.conn.Close()
+	c.status = Disconnected
+	close(c.done)
 }
