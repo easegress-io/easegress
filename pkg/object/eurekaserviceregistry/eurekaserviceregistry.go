@@ -110,7 +110,6 @@ func (e *EurekaServiceRegistry) Inherit(superSpec *supervisor.Spec, previousGene
 func (e *EurekaServiceRegistry) reload() {
 	e.serviceRegistry = e.superSpec.Super().MustGetSystemController(serviceregistry.Kind).
 		Instance().(*serviceregistry.ServiceRegistry)
-	e.serviceRegistry.RegisterRegistry(e)
 	e.notify = make(chan *serviceregistry.RegistryEvent, 10)
 	e.firstDone = false
 
@@ -121,6 +120,8 @@ func (e *EurekaServiceRegistry) reload() {
 	if err != nil {
 		logger.Errorf("%s get eureka client failed: %v", e.superSpec.Name(), err)
 	}
+
+	e.serviceRegistry.RegisterRegistry(e)
 
 	go e.run()
 }
@@ -201,10 +202,15 @@ func (e *EurekaServiceRegistry) update() {
 		e.firstDone = true
 		event = &serviceregistry.RegistryEvent{
 			SourceRegistryName: e.Name(),
+			UseReplace:         true,
 			Replace:            instances,
 		}
 	} else {
 		event = serviceregistry.NewRegistryEventFromDiff(e.Name(), e.instances, instances)
+	}
+
+	if event.Empty() {
+		return
 	}
 
 	e.notify <- event

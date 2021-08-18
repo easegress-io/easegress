@@ -18,7 +18,6 @@
 package eserviceregistry
 
 import (
-	"context"
 	"fmt"
 	"path/filepath"
 	"sync"
@@ -27,6 +26,7 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/serviceregistry"
 	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/util/contexttool"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"gopkg.in/yaml.v2"
@@ -38,6 +38,8 @@ const (
 
 	// Kind is the kind of EtcdServiceRegistry.
 	Kind = "EtcdServiceRegistry"
+
+	requestTimeout = 5 * time.Second
 )
 
 func init() {
@@ -92,7 +94,7 @@ func (e *EtcdServiceRegistry) Kind() string {
 func (e *EtcdServiceRegistry) DefaultSpec() interface{} {
 	return &Spec{
 		Prefix:       "/services/",
-		CacheTimeout: "60s",
+		CacheTimeout: "10s",
 	}
 }
 
@@ -111,7 +113,6 @@ func (e *EtcdServiceRegistry) Inherit(superSpec *supervisor.Spec, previousGenera
 func (e *EtcdServiceRegistry) reload() {
 	e.serviceRegistry = e.superSpec.Super().MustGetSystemController(serviceregistry.Kind).
 		Instance().(*serviceregistry.ServiceRegistry)
-	e.serviceRegistry.RegisterRegistry(e)
 	e.firstDone = false
 	e.notify = make(chan *serviceregistry.RegistryEvent, 10)
 
@@ -122,6 +123,8 @@ func (e *EtcdServiceRegistry) reload() {
 	if err != nil {
 		logger.Errorf("%s get etcd client failed: %v", e.superSpec.Name(), err)
 	}
+
+	e.serviceRegistry.RegisterRegistry(e)
 
 	go e.run()
 }
@@ -216,10 +219,15 @@ func (e *EtcdServiceRegistry) update() {
 		e.firstDone = true
 		event = &serviceregistry.RegistryEvent{
 			SourceRegistryName: e.Name(),
+			UseReplace:         true,
 			Replace:            instances,
 		}
 	} else {
 		event = serviceregistry.NewRegistryEventFromDiff(e.Name(), e.instances, instances)
+	}
+
+	if event.Empty() {
+		return
 	}
 
 	e.notify <- event
@@ -294,7 +302,7 @@ func (e *EtcdServiceRegistry) ApplyServiceInstances(instances map[string]*servic
 		ops = append(ops, clientv3.OpPut(key, string(buff)))
 	}
 
-	_, err = client.Txn(context.Background()).Then(ops...).Commit()
+	_, err = client.Txn(contexttool.TimeoutContext(requestTimeout)).Then(ops...).Commit()
 	if err != nil {
 		return err
 	}
@@ -316,7 +324,7 @@ func (e *EtcdServiceRegistry) DeleteServiceInstances(instances map[string]*servi
 		ops = append(ops, clientv3.OpDelete(key))
 	}
 
-	_, err = client.Txn(context.Background()).Then(ops...).Commit()
+	_, err = client.Txn(contexttool.TimeoutContext(requestTimeout)).Then(ops...).Commit()
 	if err != nil {
 		return err
 	}
@@ -332,7 +340,7 @@ func (e *EtcdServiceRegistry) GetServiceInstance(serviceName, instanceID string)
 			e.superSpec.Name(), err)
 	}
 
-	resp, err := client.Get(context.Background(), e.serviceInstanceEtcdKeyFromRaw(serviceName, instanceID))
+	resp, err := client.Get(contexttool.TimeoutContext(requestTimeout), e.serviceInstanceEtcdKeyFromRaw(serviceName, instanceID))
 	if err != nil {
 		return nil, err
 	}
@@ -363,7 +371,7 @@ func (e *EtcdServiceRegistry) ListServiceInstances(serviceName string) (map[stri
 			e.superSpec.Name(), err)
 	}
 
-	resp, err := client.Get(context.Background(), e.serviceEtcdPrefix(serviceName), clientv3.WithPrefix())
+	resp, err := client.Get(contexttool.TimeoutContext(requestTimeout), e.serviceEtcdPrefix(serviceName), clientv3.WithPrefix())
 	if err != nil {
 		return nil, err
 	}
@@ -395,7 +403,7 @@ func (e *EtcdServiceRegistry) ListAllServiceInstances() (map[string]*serviceregi
 			e.superSpec.Name(), err)
 	}
 
-	resp, err := client.Get(context.Background(), e.spec.Prefix, clientv3.WithPrefix())
+	resp, err := client.Get(contexttool.TimeoutContext(requestTimeout), e.spec.Prefix, clientv3.WithPrefix())
 	if err != nil {
 		return nil, err
 	}

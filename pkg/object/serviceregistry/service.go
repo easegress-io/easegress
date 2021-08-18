@@ -30,7 +30,7 @@ type (
 		// ServiceName is required.
 		ServiceName string `yaml:"serviceName"`
 		// InstanceID is required.
-		InstanceID string `yaml:"name"`
+		InstanceID string `yaml:"instanceID"`
 
 		// Scheme is optional if Port is not empty.
 		Scheme string `yaml:"scheme"`
@@ -50,13 +50,28 @@ type (
 // DeepCopy deep copies ServiceInstanceSpec.
 func (s *ServiceInstanceSpec) DeepCopy() *ServiceInstanceSpec {
 	copy := *s
+
+	if s.Tags != nil {
+		for _, tag := range s.Tags {
+			copy.Tags = append(copy.Tags, tag)
+		}
+	}
+
 	return &copy
 }
 
 // Validate validates itself.
 func (s *ServiceInstanceSpec) Validate() error {
+	if s.RegistryName == "" {
+		return fmt.Errorf("registryName is empty")
+	}
+
 	if s.ServiceName == "" {
 		return fmt.Errorf("serviceName is empty")
+	}
+
+	if s.InstanceID == "" {
+		return fmt.Errorf("instanceID is empty")
 	}
 
 	if s.Hostname == "" && s.HostIP == "" {
@@ -124,18 +139,18 @@ func NewRegistryEventFromDiff(registryName string, oldSpecs, newSpecs map[string
 	}
 
 	for _, oldSpec := range oldSpecs {
-		_, exists := newSpecs[oldSpec.ServiceName]
+		_, exists := newSpecs[oldSpec.Key()]
 		if !exists {
 			copy := oldSpec.DeepCopy()
-			event.Delete[oldSpec.ServiceName] = copy
+			event.Delete[oldSpec.Key()] = copy
 		}
 	}
 
 	for _, newSpec := range newSpecs {
-		oldSpec, exists := oldSpecs[newSpec.ServiceName]
+		oldSpec, exists := oldSpecs[newSpec.Key()]
 		if exists && !reflect.DeepEqual(oldSpec, newSpec) {
 			copy := newSpec.DeepCopy()
-			event.Apply[newSpec.ServiceName] = copy
+			event.Apply[newSpec.Key()] = copy
 		}
 	}
 

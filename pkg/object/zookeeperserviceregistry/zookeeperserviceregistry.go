@@ -37,6 +37,8 @@ const (
 
 	// Kind is the kind of ZookeeperServiceRegistry.
 	Kind = "ZookeeperServiceRegistry"
+
+	requestTimeout = 5 * time.Second
 )
 
 func init() {
@@ -113,7 +115,6 @@ func (zk *ZookeeperServiceRegistry) Inherit(superSpec *supervisor.Spec, previous
 func (zk *ZookeeperServiceRegistry) reload() {
 	zk.serviceRegistry = zk.superSpec.Super().MustGetSystemController(serviceregistry.Kind).
 		Instance().(*serviceregistry.ServiceRegistry)
-	zk.serviceRegistry.RegisterRegistry(zk)
 	zk.notify = make(chan *serviceregistry.RegistryEvent, 10)
 	zk.firstDone = false
 
@@ -124,6 +125,8 @@ func (zk *ZookeeperServiceRegistry) reload() {
 	if err != nil {
 		logger.Errorf("%s get zookeeper conn failed: %v", zk.superSpec.Name(), err)
 	}
+
+	zk.serviceRegistry.RegisterRegistry(zk)
 
 	go zk.run()
 }
@@ -226,10 +229,15 @@ func (zk *ZookeeperServiceRegistry) update() {
 		zk.firstDone = true
 		event = &serviceregistry.RegistryEvent{
 			SourceRegistryName: zk.Name(),
+			UseReplace:         true,
 			Replace:            instances,
 		}
 	} else {
 		event = serviceregistry.NewRegistryEventFromDiff(zk.Name(), zk.instances, instances)
+	}
+
+	if event.Empty() {
+		return
 	}
 
 	zk.notify <- event

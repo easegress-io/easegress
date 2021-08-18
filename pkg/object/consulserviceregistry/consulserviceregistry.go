@@ -118,7 +118,6 @@ func (c *ConsulServiceRegistry) Inherit(superSpec *supervisor.Spec, previousGene
 func (c *ConsulServiceRegistry) reload() {
 	c.serviceRegistry = c.superSpec.Super().MustGetSystemController(serviceregistry.Kind).
 		Instance().(*serviceregistry.ServiceRegistry)
-	c.serviceRegistry.RegisterRegistry(c)
 	c.notify = make(chan *serviceregistry.RegistryEvent, 10)
 	c.firstDone = false
 
@@ -129,6 +128,8 @@ func (c *ConsulServiceRegistry) reload() {
 	if err != nil {
 		logger.Errorf("%s get consul client failed: %v", c.superSpec.Name(), err)
 	}
+
+	c.serviceRegistry.RegisterRegistry(c)
 
 	go c.run()
 }
@@ -228,10 +229,15 @@ func (c *ConsulServiceRegistry) update() {
 		c.firstDone = true
 		event = &serviceregistry.RegistryEvent{
 			SourceRegistryName: c.Name(),
+			UseReplace:         true,
 			Replace:            instances,
 		}
 	} else {
 		event = serviceregistry.NewRegistryEventFromDiff(c.Name(), c.instances, instances)
+	}
+
+	if event.Empty() {
+		return
 	}
 
 	c.notify <- event

@@ -140,7 +140,6 @@ func (n *NacosServiceRegistry) Inherit(superSpec *supervisor.Spec, previousGener
 func (n *NacosServiceRegistry) reload() {
 	n.serviceRegistry = n.superSpec.Super().MustGetSystemController(serviceregistry.Kind).
 		Instance().(*serviceregistry.ServiceRegistry)
-	n.serviceRegistry.RegisterRegistry(n)
 	n.notify = make(chan *serviceregistry.RegistryEvent, 10)
 	n.firstDone = false
 
@@ -151,6 +150,8 @@ func (n *NacosServiceRegistry) reload() {
 	if err != nil {
 		logger.Errorf("%s get nacos client failed: %v", n.superSpec.Name(), err)
 	}
+
+	n.serviceRegistry.RegisterRegistry(n)
 
 	go n.run()
 }
@@ -264,10 +265,15 @@ func (n *NacosServiceRegistry) update() {
 		n.firstDone = true
 		event = &serviceregistry.RegistryEvent{
 			SourceRegistryName: n.Name(),
+			UseReplace:         true,
 			Replace:            instances,
 		}
 	} else {
 		event = serviceregistry.NewRegistryEventFromDiff(n.Name(), n.instances, instances)
+	}
+
+	if event.Empty() {
+		return
 	}
 
 	n.notify <- event

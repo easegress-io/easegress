@@ -106,18 +106,18 @@ func newServers(super *supervisor.Supervisor, poolSpec *PoolSpec) *servers {
 		return s
 	}
 
+	s.serviceRegistry = s.super.MustGetSystemController(serviceregistry.Kind).
+		Instance().(*serviceregistry.ServiceRegistry)
+
+	s.tryUseService()
+	s.serviceWatcher = s.serviceRegistry.NewServiceWatcher(s.poolSpec.ServiceRegistry, s.poolSpec.ServiceName)
+
 	go s.watchService()
 
 	return s
 }
 
 func (s *servers) watchService() {
-	s.tryUseService()
-
-	s.serviceRegistry = s.super.MustGetSystemController(serviceregistry.Kind).
-		Instance().(*serviceregistry.ServiceRegistry)
-	s.serviceWatcher = s.serviceRegistry.NewServiceWatcher(s.poolSpec.ServiceRegistry, s.poolSpec.ServiceName)
-
 	for {
 		select {
 		case <-s.done:
@@ -134,12 +134,14 @@ func (s *servers) handleEvent(event *serviceregistry.ServiceEvent) {
 
 func (s *servers) tryUseService() {
 	serviceInstanceSpecs, err := s.serviceRegistry.ListServiceInstances(s.poolSpec.ServiceRegistry, s.poolSpec.ServiceName)
+
 	if err != nil {
 		logger.Errorf("get service %s/%s failed: %v",
 			s.poolSpec.ServiceRegistry, s.poolSpec.ServiceName, err)
 		s.useStaticServers()
 		return
 	}
+
 	s.useService(serviceInstanceSpecs)
 }
 
@@ -159,9 +161,19 @@ func (s *servers) useService(serviceInstanceSpecs map[string]*serviceregistry.Se
 		return
 	}
 
+	staticServers := newStaticServers(servers, s.poolSpec.ServersTags, s.poolSpec.LoadBalance)
+	if staticServers.len() == 0 {
+		logger.Errorf("%s/%s: no service instance satisfy tags: %v",
+			s.poolSpec.ServiceRegistry, s.poolSpec.ServiceName, s.poolSpec.ServersTags)
+		s.useStaticServers()
+	}
+
+	logger.Infof("use dynamic service: %s/%s", s.poolSpec.ServiceRegistry, s.poolSpec.ServiceName)
+
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	s.static = newStaticServers(servers, s.poolSpec.ServersTags, s.poolSpec.LoadBalance)
+	s.static = staticServers
+
 }
 
 func (s *servers) useStaticServers() {

@@ -214,7 +214,16 @@ func (sr *ServiceRegistry) serviceWacherStopFn(registryName, serviceName, watche
 			return
 		}
 
-		delete(bucket.serviceBuckets, watcherID)
+		serviceBucket, exists := bucket.serviceBuckets[serviceName]
+		if !exists {
+			return
+		}
+
+		delete(serviceBucket.serviceWatchers, watcherID)
+
+		if serviceBucket.needClean() {
+			delete(bucket.serviceBuckets, serviceName)
+		}
 
 		if bucket.needClean() {
 			delete(sr.registryBuckets, registryName)
@@ -224,10 +233,6 @@ func (sr *ServiceRegistry) serviceWacherStopFn(registryName, serviceName, watche
 
 func (sr *ServiceRegistry) generateID() string {
 	return uuid.NewString()
-}
-
-func (sr *ServiceRegistry) serviceWatchersKey(registryName, serviceName string) string {
-	return fmt.Sprintf("%s/%s", registryName, serviceName)
 }
 
 func (w *serviceWatcher) ID() string {
@@ -331,4 +336,36 @@ func (e *RegistryEvent) DeepCopy() *RegistryEvent {
 	}
 
 	return copy
+}
+
+// Empty returns if the event contains nothing to handle.
+func (e *RegistryEvent) Empty() bool {
+	return !e.UseReplace && len(e.Replace) == 0 &&
+		len(e.Delete) == 0 && len(e.Apply) == 0
+}
+
+// Validate validates RegistryEvent.
+func (e *RegistryEvent) Validate() error {
+	for k, v := range e.Replace {
+		err := v.Validate()
+		if err != nil {
+			return fmt.Errorf("replace element %v is invalid: %v", k, err)
+		}
+	}
+
+	for k, v := range e.Delete {
+		err := v.Validate()
+		if err != nil {
+			return fmt.Errorf("delete element %v is invalid: %v", k, err)
+		}
+	}
+
+	for k, v := range e.Apply {
+		err := v.Validate()
+		if err != nil {
+			return fmt.Errorf("apply element %v is invalid: %v", k, err)
+		}
+	}
+
+	return nil
 }

@@ -129,6 +129,12 @@ func (p *pool) status() *PoolStatus {
 }
 
 func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader) string {
+	// FIXME: When the request matched mirror handler, there will be
+	// data race warning. Because after proxy handled the request,
+	// the HTTPPipeline and mux of HTTPServer will call ctx.AddTag() too.
+	// Even the the situation is not a bug, but the cautious data race
+	// detector of golang will warn it.
+	// Add a method ctx.AddTagWithLock()?
 	addTag := func(subPrefix, msg string) {
 		tag := stringtool.Cat(p.tagPrefix, "#", subPrefix, ": ", msg)
 		ctx.Lock()

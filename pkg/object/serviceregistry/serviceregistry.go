@@ -46,7 +46,7 @@ type (
 		superSpec *supervisor.Spec
 		spec      *Spec
 
-		mutex sync.RWMutex
+		mutex sync.Mutex
 
 		// The key is registry name.
 		registryBuckets map[string]*registryBucket
@@ -121,6 +121,10 @@ func newServiceBucket() *serviceBucket {
 	}
 }
 
+func (b *serviceBucket) needClean() bool {
+	return len(b.serviceWatchers) == 0
+}
+
 // RegisterRegistry registers the registry and watch it.
 func (sr *ServiceRegistry) RegisterRegistry(registry Registry) error {
 	sr.mutex.Lock()
@@ -138,17 +142,32 @@ func (sr *ServiceRegistry) RegisterRegistry(registry Registry) error {
 
 	bucket.registered, bucket.registry = true, registry
 
-	go sr.watchRegistry(bucket)
+	// NOTE: There will be data race warning, if it calls Notify within watchRegistry,
+	// even it won't cause bug. So we move it out here.
+	go sr.watchRegistry(registry.Notify(), bucket)
 
 	return nil
 }
 
-func (sr *ServiceRegistry) watchRegistry(bucket *registryBucket) {
+func (sr *ServiceRegistry) watchRegistry(notify <-chan *RegistryEvent, bucket *registryBucket) {
 	for {
 		select {
 		case <-bucket.done:
 			return
-		case event := <-bucket.registry.Notify():
+		case event := <-notify:
+			// Defensive programming for driver not to judge it.
+			if event.Empty() {
+				continue
+			}
+
+			err := event.Validate()
+			if err != nil {
+				logger.Errorf("registry event from %v is invalid: %v",
+					bucket.registry.Name(), err)
+				continue
+			}
+
+			// Defensive programming for driver not to fulfill the field.
 			event.SourceRegistryName = bucket.registry.Name()
 
 			sr.handleRegistryEvent(event)
@@ -223,9 +242,10 @@ func (sr *ServiceRegistry) DeregisterRegistry(registryName string) error {
 		SourceRegistryName: registryName,
 		UseReplace:         true,
 	}
+
 	sr._handleRegistryEvent(cleanEvent)
 
-	bucket.registered = false
+	bucket.registered, bucket.registry = false, nil
 	close(bucket.done)
 
 	if bucket.needClean() {
