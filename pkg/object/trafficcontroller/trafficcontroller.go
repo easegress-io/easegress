@@ -45,6 +45,7 @@ type (
 		superSpec *supervisor.Spec
 		spec      *Spec
 
+		// Pointer aims to safely transform it to next generation.
 		mutex      *sync.Mutex
 		namespaces map[string]*Namespace
 	}
