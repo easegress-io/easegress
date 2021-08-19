@@ -137,7 +137,7 @@ spec:
     - name: admin
       protocol: TCP
       port: 2381
-      nodePort: 2381
+      nodePort: 2391
     - name: web
       protocol: TCP
       port: 8080
@@ -150,7 +150,7 @@ The service exposes two ports, the `admin` port is for Easegress administration,
 Now let's create the IngressController with the below command (suppose the spec in [Controller Spec](#controller-spec) has been saved to a file named `controller.yaml`):
 
 ```bash
-curl -XPOST --data-binary @controller.yaml http://{NODE_IP}:2381/apis/v1/objects
+curl -XPOST --data-binary @controller.yaml http://{NODE_IP}:2391/apis/v1/objects
 ```
 
 ### Create backend service & Kubernetes ingress
