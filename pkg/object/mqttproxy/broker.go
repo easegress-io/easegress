@@ -109,14 +109,14 @@ func (b *Broker) handleConn(conn net.Conn) {
 	connack.ReturnCode = connect.Validate()
 	if connack.ReturnCode != packets.Accepted {
 		err = connack.Write(conn)
-		logger.Errorf("%s, unvalid connection %#v, write back err %s", b.str(), connack.ReturnCode, err)
+		logger.Errorf("%s, invalid connection %#v, write back err %s", b.str(), connack.ReturnCode, err)
 		return
 	}
 
 	if !b.checkClientAuth(connect) {
 		connack.ReturnCode = packets.ErrRefusedNotAuthorised
 		err = connack.Write(conn)
-		logger.Errorf("%s, unvalid connection %#v, write back err %s", b.str(), connack.ReturnCode, err)
+		logger.Errorf("%s, invalid connection %#v, write back err %s", b.str(), connack.ReturnCode, err)
 		return
 	}
 
@@ -144,7 +144,7 @@ func (b *Broker) handleConn(conn net.Conn) {
 
 func (b *Broker) setSession(client *Client, connect *packets.ConnectPacket) {
 	// when clean session is false, previous session exist and previous session not clean session,
-	// then we use prevous session, otherwise use new session
+	// then we use previous session, otherwise use new session
 	prevSess := b.sessMgr.get(connect.ClientIdentifier)
 	if !connect.CleanSession && (prevSess != nil) && !prevSess.cleanSession() {
 		prevSess.update(connect)

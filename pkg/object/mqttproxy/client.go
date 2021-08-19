@@ -28,11 +28,13 @@ import (
 )
 
 const (
-	Connected         = 1
-	Disconnected      = 2
-	Qos0         byte = 0
-	Qos1         byte = 1
-	Qos2         byte = 2
+	Connected    = 1
+	Disconnected = 2
+
+	// three qualities of service for message delivery:
+	Qos0 byte = 0 // for "At most once"
+	Qos1 byte = 1 // for "At least once
+	Qos2 byte = 2 // for "Exactly once"
 )
 
 type (
@@ -66,8 +68,6 @@ func newClient(connect *packets.ConnectPacket, broker *Broker, conn net.Conn) *C
 		will.Retain = connect.WillRetain
 		will.Payload = connect.WillMessage
 		will.Dup = connect.Dup
-	} else {
-		will = nil
 	}
 
 	info := ClientInfo{
