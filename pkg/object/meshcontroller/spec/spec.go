@@ -224,9 +224,9 @@ type (
 	}
 
 	// ServiceInstanceSpec is the spec of service instance.
+	// FIXME: Use the unified struct: serviceregistry.ServiceInstanceSpec.
 	ServiceInstanceSpec struct {
-		// Backward compatibility: empty RegistryName means it is a mesh service.
-		RegistryName string
+		RegistryName string `yaml:"registryName" jsonschema:"required"`
 		// Provide by registry client
 		ServiceName  string            `yaml:"serviceName" jsonschema:"required"`
 		InstanceID   string            `yaml:"instanceID" jsonschema:"required"`
@@ -285,6 +285,11 @@ func (a Admin) Validate() error {
 	}
 
 	return nil
+}
+
+// Key returns the key of ServiceInstanceSpec.
+func (s *ServiceInstanceSpec) Key() string {
+	return fmt.Sprintf("%s/%s/%s", s.RegistryName, s.ServiceName, s.InstanceID)
 }
 
 func newPipelineSpecBuilder(name string) *pipelineSpecBuilder {

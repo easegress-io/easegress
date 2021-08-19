@@ -133,23 +133,30 @@ func NewRegistryEventFromDiff(registryName string, oldSpecs, newSpecs map[string
 
 	event := &RegistryEvent{
 		SourceRegistryName: registryName,
-
-		Delete: make(map[string]*ServiceInstanceSpec),
-		Apply:  make(map[string]*ServiceInstanceSpec),
 	}
 
 	for _, oldSpec := range oldSpecs {
 		_, exists := newSpecs[oldSpec.Key()]
 		if !exists {
 			copy := oldSpec.DeepCopy()
+
+			if event.Delete == nil {
+				event.Delete = make(map[string]*ServiceInstanceSpec)
+			}
+
 			event.Delete[oldSpec.Key()] = copy
 		}
 	}
 
 	for _, newSpec := range newSpecs {
 		oldSpec, exists := oldSpecs[newSpec.Key()]
-		if exists && !reflect.DeepEqual(oldSpec, newSpec) {
+		if !exists || !reflect.DeepEqual(oldSpec, newSpec) {
 			copy := newSpec.DeepCopy()
+
+			if event.Apply == nil {
+				event.Apply = make(map[string]*ServiceInstanceSpec)
+			}
+
 			event.Apply[newSpec.Key()] = copy
 		}
 	}

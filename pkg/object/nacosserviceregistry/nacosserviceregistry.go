@@ -75,11 +75,11 @@ type (
 
 	// Spec describes the NacosServiceRegistry.
 	Spec struct {
+		Servers      []*ServerSpec `yaml:"servers" jsonschema:"required"`
 		SyncInterval string        `yaml:"syncInterval" jsonschema:"required,format=duration"`
 		Namespace    string        `yaml:"namespace" jsonschema:"omitempty"`
-		Username     string        `yaml:"username"`
-		Password     string        `yaml:"password"`
-		Servers      []*ServerSpec `yaml:"servers"`
+		Username     string        `yaml:"username" jsonschema:"omitempty"`
+		Password     string        `yaml:"password" jsonschema:"omitempty"`
 	}
 
 	// ServerSpec is the server config of Nacos.

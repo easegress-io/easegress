@@ -27,6 +27,7 @@ import (
 type (
 	// ServiceEvent is the event of service.
 	// It concludes complete instances of the service.
+	// NOTE: Changing inner fields needs to adapt to its methods DeepCopy, etc.
 	ServiceEvent struct {
 		// SourceRegistryName is the registry which caused the event,
 		// the RegistryName of specs may not be the same with it.
@@ -36,6 +37,7 @@ type (
 
 	// RegistryEvent is the event of service registry.
 	// If UseReplace is true, the event handler should use Replace field even it is empty.
+	// NOTE: Changing inner fields needs to adapt to its methods Empty, DeepCopy, Validate, etc.
 	RegistryEvent struct {
 		// SourceRegistryName is the registry which caused the event,
 		// the RegistryName of specs may not be the same with it.
@@ -311,6 +313,7 @@ func (e *ServiceEvent) DeepCopy() *ServiceEvent {
 func (e *RegistryEvent) DeepCopy() *RegistryEvent {
 	copy := &RegistryEvent{
 		SourceRegistryName: e.SourceRegistryName,
+		UseReplace:         e.UseReplace,
 		Replace:            e.Replace,
 	}
 

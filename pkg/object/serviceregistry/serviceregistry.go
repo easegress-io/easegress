@@ -269,10 +269,6 @@ func (sr *ServiceRegistry) _applyServiceInstances(registryName string, serviceIn
 		return fmt.Errorf("%s not found", registryName)
 	}
 
-	for _, instance := range serviceInstances {
-		instance.RegistryName = registryName
-	}
-
 	return bucket.registry.ApplyServiceInstances(serviceInstances)
 }
 

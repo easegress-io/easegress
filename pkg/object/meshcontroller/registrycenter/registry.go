@@ -50,6 +50,7 @@ type (
 		RegistryType string
 		registered   bool
 
+		registryName  string
 		serviceName   string
 		instanceID    string
 		IP            string
@@ -68,10 +69,11 @@ type (
 )
 
 // NewRegistryCenterServer creates a initialized registry center server.
-func NewRegistryCenterServer(registryType string, serviceName string, IP string, port int, instanceID string,
+func NewRegistryCenterServer(registryType string, registryName, serviceName string, IP string, port int, instanceID string,
 	serviceLabels map[string]string, service *service.Service) *Server {
 	return &Server{
 		RegistryType:  registryType,
+		registryName:  registryName,
 		serviceName:   serviceName,
 		service:       service,
 		registered:    false,
@@ -105,11 +107,12 @@ func (rcs *Server) Register(serviceSpec *spec.Service, ingressReady ReadyFunc, e
 	}
 
 	ins := &spec.ServiceInstanceSpec{
-		ServiceName: rcs.serviceName,
-		InstanceID:  rcs.instanceID,
-		IP:          rcs.IP,
-		Port:        uint32(serviceSpec.Sidecar.IngressPort),
-		Labels:      rcs.serviceLabels,
+		RegistryName: rcs.registryName,
+		ServiceName:  rcs.serviceName,
+		InstanceID:   rcs.instanceID,
+		IP:           rcs.IP,
+		Port:         uint32(serviceSpec.Sidecar.IngressPort),
+		Labels:       rcs.serviceLabels,
 	}
 
 	go rcs.register(ins, ingressReady, egressReady)

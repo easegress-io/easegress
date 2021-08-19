@@ -1,0 +1,7 @@
+registryName: etcd-service-registry-example
+serviceName: service-001
+instanceID: intance-003
+scheme: http
+hostIP: 127.0.0.1
+port: 9093
+tags: [v3]

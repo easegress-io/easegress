@@ -95,6 +95,8 @@ func (rs *registrySyncer) handleEvent(event *serviceregistry.RegistryEvent) {
 	}()
 
 	if event.UseReplace {
+		event.Replace = rs.filterExternalInstances(event.Replace, rs.externalRegistryName())
+
 		oldInstances := rs.service.ListAllServiceInstanceSpecs()
 		for _, oldInstance := range oldInstances {
 			if oldInstance.RegistryName != rs.externalRegistryName() {
@@ -106,8 +108,8 @@ func (rs *registrySyncer) handleEvent(event *serviceregistry.RegistryEvent) {
 				ServiceName:  oldInstance.ServiceName,
 				InstanceID:   oldInstance.InstanceID,
 			}
-			_, existed := event.Replace[instance.Key()]
-			if !existed {
+			_, exists := event.Replace[instance.Key()]
+			if !exists {
 				rs.service.DeleteServiceInstanceSpec(oldInstance.ServiceName, oldInstance.InstanceID)
 			}
 		}
@@ -115,8 +117,12 @@ func (rs *registrySyncer) handleEvent(event *serviceregistry.RegistryEvent) {
 		for _, instance := range event.Replace {
 			rs.service.PutServiceInstanceSpec(rs.externalToMeshInstance(instance))
 		}
+
 		return
 	}
+
+	event.Delete = rs.filterExternalInstances(event.Delete, rs.externalRegistryName())
+	event.Apply = rs.filterExternalInstances(event.Apply, rs.externalRegistryName())
 
 	for _, instance := range event.Delete {
 		rs.service.DeleteServiceInstanceSpec(instance.ServiceName, instance.InstanceID)
@@ -132,17 +138,26 @@ func (rs *registrySyncer) serviceInstanceSpecsFunc(meshInstances map[string]*spe
 		logger.Errorf("list all service instances of %s: %v", rs.spec.ExternalServiceRegistry, err)
 		return true
 	}
+
 	oldInstances = rs.filterExternalInstances(oldInstances, rs.meshRegistryName())
 
-	meshInstances = rs.filterMeshInstances(meshInstances, "", rs.meshRegistryName())
+	meshInstances = rs.filterMeshInstances(meshInstances, rs.meshRegistryName())
 	newInstances := rs.meshToExternalInstances(meshInstances)
 
 	event := serviceregistry.NewRegistryEventFromDiff(rs.meshRegistryName(), oldInstances, newInstances)
+
 	if len(event.Apply) != 0 {
-		rs.serviceRegistry.ApplyServiceInstances(rs.externalRegistryName(), event.Apply)
+		err := rs.serviceRegistry.ApplyServiceInstances(rs.externalRegistryName(), event.Apply)
+		if err != nil {
+			logger.Errorf("apply service instances failed: %v", err)
+			return true
+		}
 	}
 	if len(event.Delete) != 0 {
-		rs.serviceRegistry.DeleteServiceInstances(rs.externalRegistryName(), event.Delete)
+		err := rs.serviceRegistry.DeleteServiceInstances(rs.externalRegistryName(), event.Delete)
+		if err != nil {
+			logger.Errorf("delete service instances failed: %v", err)
+		}
 	}
 
 	return true
@@ -173,7 +188,7 @@ func (rs *registrySyncer) filterMeshInstances(instances map[string]*spec.Service
 
 	for _, instance := range instances {
 		if stringtool.StrInSlice(instance.RegistryName, registryNames) {
-			result[instance.InstanceID] = instance
+			result[instance.Key()] = instance
 		}
 	}
 
