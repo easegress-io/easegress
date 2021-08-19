@@ -73,7 +73,7 @@ import { Program, registerProgramFactory } from '{EASEGRESS_SDK_PATH}/easegress'
 
 // define the program, 'FlashSale' is the name
 class FlashSale extends Program {
-	// constructor is the initializer of the problem, will be called once at the startup
+	// constructor is the initializer of the program, will be called once at the startup
 	constructor(params: Map<string, string>) {
 		super(params)
 	}
