@@ -82,6 +82,10 @@ func (rs *registrySyncer) run() {
 		case <-rs.done:
 			return
 		case event := <-rs.registryWatcher.Watch():
+			if !rs.needSync() {
+				continue
+			}
+
 			rs.handleEvent(event)
 		}
 	}
@@ -133,6 +137,10 @@ func (rs *registrySyncer) handleEvent(event *serviceregistry.RegistryEvent) {
 }
 
 func (rs *registrySyncer) serviceInstanceSpecsFunc(meshInstances map[string]*spec.ServiceInstanceSpec) bool {
+	if !rs.needSync() {
+		return true
+	}
+
 	oldInstances, err := rs.serviceRegistry.ListAllServiceInstances(rs.spec.ExternalServiceRegistry)
 	if err != nil {
 		logger.Errorf("list all service instances of %s: %v", rs.spec.ExternalServiceRegistry, err)
@@ -161,6 +169,11 @@ func (rs *registrySyncer) serviceInstanceSpecsFunc(meshInstances map[string]*spe
 	}
 
 	return true
+}
+
+func (rs *registrySyncer) needSync() bool {
+	// NOTE: Only need one member in the cluster to do sync.
+	return rs.superSpec.Super().Cluster().IsLeader()
 }
 
 func (rs *registrySyncer) meshRegistryName() string {

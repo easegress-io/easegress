@@ -163,6 +163,15 @@ func New(opt *option.Options) (Cluster, error) {
 	return c, nil
 }
 
+func (c *cluster) IsLeader() bool {
+	server, err := c.getServer()
+	if err != nil {
+		return false
+	}
+
+	return server.Server.Leader() == server.Server.ID()
+}
+
 // requestContext returns context with request timeout,
 // please use it immediately in case of incorrect timeout.
 func (c *cluster) requestContext() context.Context {
