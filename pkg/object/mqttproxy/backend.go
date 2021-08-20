@@ -18,6 +18,8 @@
 package mqttproxy
 
 import (
+	"fmt"
+
 	"github.com/Shopify/sarama"
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/logger"
@@ -31,6 +33,7 @@ type (
 
 	KafkaMQ struct {
 		producer sarama.AsyncProducer
+		mapFunc  topicMapFunc
 		done     chan struct{}
 	}
 
@@ -60,6 +63,7 @@ func newBackendMQ(spec *Spec) BackendMQ {
 
 func newKafkaMQ(spec *Spec) *KafkaMQ {
 	k := &KafkaMQ{}
+	k.mapFunc = getTopicMapFunc(spec.TopicMapper)
 	k.done = make(chan struct{})
 
 	config := sarama.NewConfig()
@@ -90,10 +94,30 @@ func newKafkaMQ(spec *Spec) *KafkaMQ {
 }
 
 func (k *KafkaMQ) publish(p *packets.PublishPacket) error {
-	k.producer.Input() <- &sarama.ProducerMessage{
-		Topic: p.TopicName,
-		Value: sarama.ByteEncoder(p.Payload),
+	var msg *sarama.ProducerMessage
+
+	if k.mapFunc != nil {
+		topic, headers, err := k.mapFunc(p.TopicName)
+		if err != nil {
+			return fmt.Errorf("packet TopicName not match TopicMapper rules, %s", p.TopicName)
+		}
+		kafkaHeaders := []sarama.RecordHeader{}
+		for k, v := range headers {
+			kafkaHeaders = append(kafkaHeaders, sarama.RecordHeader{Key: []byte(k), Value: []byte(v)})
+		}
+
+		msg = &sarama.ProducerMessage{
+			Topic:   topic,
+			Headers: kafkaHeaders,
+			Value:   sarama.ByteEncoder(p.Payload),
+		}
+	} else {
+		msg = &sarama.ProducerMessage{
+			Topic: p.TopicName,
+			Value: sarama.ByteEncoder(p.Payload),
+		}
 	}
+	k.producer.Input() <- msg
 	return nil
 }
 

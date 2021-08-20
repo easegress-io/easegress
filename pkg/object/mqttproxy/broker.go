@@ -18,6 +18,7 @@
 package mqttproxy
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net"
 	"sync"
@@ -35,6 +36,7 @@ type Broker struct {
 	backend  BackendMQ
 	clients  map[string]*Client
 	sessMgr  *SessionManager
+	auth     map[string]string
 
 	// done is the channel for shutdowning this proxy.
 	done chan struct{}
@@ -55,6 +57,10 @@ func newBroker(spec *Spec) *Broker {
 		clients:  make(map[string]*Client),
 		sessMgr:  newSessionManager(),
 		done:     make(chan struct{}),
+		auth:     make(map[string]string),
+	}
+	for _, a := range spec.Auth {
+		broker.auth[a.Username] = a.B64Passwd
 	}
 
 	go broker.run()
@@ -87,8 +93,11 @@ func (b *Broker) checkClientAuth(connect *packets.ConnectPacket) bool {
 	// mock here
 	cid := connect.ClientIdentifier
 	name := connect.Username
-	passwd := string(connect.Password)
-	return cid != "" && name == "test" && passwd == "test"
+	b64passwd := base64.StdEncoding.EncodeToString(connect.Password)
+	if authpasswd, ok := b.auth[name]; ok {
+		return (cid != "") && (b64passwd == authpasswd)
+	}
+	return false
 }
 
 func (b *Broker) handleConn(conn net.Conn) {
