@@ -1,0 +1,8 @@
+kind: NacosServiceRegistry
+name: nacos-service-registry-example
+syncInterval: 10s
+servers:
+  - scheme: http
+    port: 8848
+    contextPath: /nacos
+    ipAddr: 127.0.0.1

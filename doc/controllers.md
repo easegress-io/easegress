@@ -1,3 +1,4 @@
+
 # Controllers
 
 - [Controllers](#controllers)
@@ -178,14 +179,16 @@ specUpdateInterval: 10s
 heartbeatInterval: 5s
 registryType: consul
 serviceName: service-001
+externalServiceRegistry: consul-service-registry-example
 ```
 
-| Name              | Type   | Description                                                               | Required              |
-| ----------------- | ------ | ------------------------------------------------------------------------- | --------------------- |
-| heartbeatInterval | string | Interval for one service instance reporting its heartbeat                 | Yes (default: 5s)     |
-| registryType      | string | Protocol the registry center accepts, support `eureka`, `consul`, `nacos` | Yes (default: eureka) |
-| apiPort           | int    | Port listening on for worker's API server                                 | Yes (default: 13009)  |
-| ingressPort       | int    | Port listening on for for ingress traffic                                 | Yes (default: 13010)  |
+| Name                    | Type   | Description                                                               | Required              |
+| ----------------------- | ------ | ------------------------------------------------------------------------- | --------------------- |
+| heartbeatInterval       | string | Interval for one service instance reporting its heartbeat                 | Yes (default: 5s)     |
+| registryType            | string | Protocol the registry center accepts, support `eureka`, `consul`, `nacos` | Yes (default: eureka) |
+| apiPort                 | int    | Port listening on for worker's API server                                 | Yes (default: 13009)  |
+| ingressPort             | int    | Port listening on for for ingress traffic                                 | Yes (default: 13010)  |
+| externalServiceRegistry | string | External service registry name                                            | No                    |
 
 ### ConsulServiceRegistry
 
@@ -266,6 +269,17 @@ syncInterval: 10s
 ### NacosServiceRegistry
 
 NacosServiceRegistry supports service discovery for Nacos as backend. The config looks like:
+
+```yaml
+kind: NacosServiceRegistry
+name: nacos-service-registry-example
+syncInterval: 10s
+servers:
+  - scheme: http
+    port: 8848
+    contextPath: /nacos
+    ipAddr: 127.0.0.1
+```
 
 | Name         | Type                                  | Description                  | Required           |
 | ------------ | ------------------------------------- | ---------------------------- | ------------------ |

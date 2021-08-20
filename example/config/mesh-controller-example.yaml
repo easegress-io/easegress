@@ -2,4 +2,4 @@ name: mesh-controller-example
 kind: MeshController
 heartbeatInterval: 5s
 registryType: consul
-externalServiceRegistry: etcd-service-registry-example
+externalServiceRegistry: nacos-service-registry-example

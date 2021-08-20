@@ -101,7 +101,7 @@ filters:
             X-Filter:
               exact: candidate
     mainPool:
-      serviceRegistry: etcd-service-registry-example
+      serviceRegistry: nacos-service-registry-example
       serviceName: service-001
       serversTags: ["v2"]
       servers:
