@@ -47,7 +47,7 @@ mockBody: "mocked body"
 	}
 
 	fb := &Fallback{}
-	fb.Init("", spec)
+	fb.Init(spec)
 
 	resp := httptest.NewRecorder()
 	ctx := &contexttest.MockedHTTPContext{}
@@ -80,7 +80,7 @@ mockBody: "mocked body"
 
 	newFb := &Fallback{}
 	spec, _ = httppipeline.NewFilterSpec(rawSpec, nil)
-	newFb.Inherit("", spec, fb)
+	newFb.Inherit(spec, fb)
 	fb.Close()
 	ctx.MockedRequest.MockedMethod = func() string {
 		return http.MethodGet

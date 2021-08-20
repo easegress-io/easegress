@@ -41,7 +41,7 @@ name: cors
 	}
 
 	cors := &CORSAdaptor{}
-	cors.Init("", spec)
+	cors.Init(spec)
 
 	header := http.Header{}
 	ctx := &contexttest.MockedHTTPContext{}
@@ -65,7 +65,7 @@ name: cors
 
 	newCors := &CORSAdaptor{}
 	spec, _ = httppipeline.NewFilterSpec(rawSpec, nil)
-	newCors.Inherit("", spec, cors)
+	newCors.Inherit(spec, cors)
 	cors.Close()
 	ctx.MockedRequest.MockedMethod = func() string {
 		return http.MethodGet

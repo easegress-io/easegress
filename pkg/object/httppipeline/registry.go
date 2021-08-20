@@ -41,13 +41,13 @@ type (
 		Results() []string
 
 		// Init initializes the Filter.
-		Init(pipeline string, filterSpec *FilterSpec)
+		Init(filterSpec *FilterSpec)
 
 		// Inherit also initializes the Filter.
 		// But it needs to handle the lifecycle of the previous generation.
 		// So it's own responsibility for the filter to inherit and clean the previous generation stuff.
 		// The http pipeline won't call Close for the previous generation.
-		Inherit(pipeline string, filterSpec *FilterSpec, previousGeneration Filter)
+		Inherit(filterSpec *FilterSpec, previousGeneration Filter)
 
 		// Handle handles one HTTP request, all possible results
 		// need be registered in Results.

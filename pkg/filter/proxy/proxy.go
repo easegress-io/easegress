@@ -183,15 +183,15 @@ func (b *Proxy) Results() []string {
 }
 
 // Init initializes Proxy.
-func (b *Proxy) Init(pipeline string, filterSpec *httppipeline.FilterSpec) {
+func (b *Proxy) Init(filterSpec *httppipeline.FilterSpec) {
 	b.filterSpec, b.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	b.reload()
 }
 
 // Inherit inherits previous generation of Proxy.
-func (b *Proxy) Inherit(pipeline string, filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+func (b *Proxy) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
 	previousGeneration.Close()
-	b.Init(pipeline, filterSpec)
+	b.Init(filterSpec)
 }
 
 func (b *Proxy) reload() {

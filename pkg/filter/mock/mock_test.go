@@ -67,7 +67,7 @@ rules:
 	}
 
 	m := &Mock{}
-	m.Init("", spec)
+	m.Init(spec)
 
 	ctx := &contexttest.MockedHTTPContext{}
 	ctx.MockedRequest.MockedMethod = func() string {
@@ -125,7 +125,7 @@ rules:
 	}
 	newM := &Mock{}
 	spec, _ = httppipeline.NewFilterSpec(rawSpec, nil)
-	newM.Inherit("", spec, m)
+	newM.Inherit(spec, m)
 	m.Close()
 	newM.Handle(ctx)
 	if resp.Code != 204 {

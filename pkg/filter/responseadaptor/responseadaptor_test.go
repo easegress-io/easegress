@@ -83,9 +83,9 @@ func doTest(t *testing.T, yamlSpec string, prev *ResponseAdaptor) *ResponseAdapt
 
 	ra := &ResponseAdaptor{}
 	if prev == nil {
-		ra.Init("", spec)
+		ra.Init(spec)
 	} else {
-		ra.Inherit("", spec, prev)
+		ra.Inherit(spec, prev)
 	}
 
 	ctx := &contexttest.MockedHTTPContext{}

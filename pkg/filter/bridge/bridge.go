@@ -91,15 +91,15 @@ func (b *Bridge) Results() []string {
 }
 
 // Init initializes Bridge.
-func (b *Bridge) Init(pipeline string, filterSpec *httppipeline.FilterSpec) {
+func (b *Bridge) Init(filterSpec *httppipeline.FilterSpec) {
 	b.filterSpec, b.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	b.reload()
 }
 
 // Inherit inherits previous generation of Bridge.
-func (b *Bridge) Inherit(pipeline string, filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+func (b *Bridge) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
 	previousGeneration.Close()
-	b.Init(pipeline, filterSpec)
+	b.Init(filterSpec)
 }
 
 func (b *Bridge) reload() {

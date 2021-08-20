@@ -85,7 +85,7 @@ failureCodes: [503, 504]
 	}
 
 	proxy := &Proxy{}
-	proxy.Init("", spec)
+	proxy.Init(spec)
 
 	if len(proxy.candidatePools) != 1 {
 		t.Error("length of candidate pools is incorrect")

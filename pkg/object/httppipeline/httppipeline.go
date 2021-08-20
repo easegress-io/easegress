@@ -377,10 +377,11 @@ func (hp *HTTPPipeline) reload(previousGeneration *HTTPPipeline) {
 		}
 
 		filter := reflect.New(reflect.TypeOf(rootFilter).Elem()).Interface().(Filter)
+		runningFilter.spec.meta.Pipeline = pipelineName
 		if prevInstance == nil {
-			filter.Init(pipelineName, runningFilter.spec)
+			filter.Init(runningFilter.spec)
 		} else {
-			filter.Inherit(pipelineName, runningFilter.spec, prevInstance)
+			filter.Inherit(runningFilter.spec, prevInstance)
 		}
 
 		runningFilter.filter, runningFilter.rootFilter = filter, rootFilter

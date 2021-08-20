@@ -76,8 +76,8 @@ type (
 
 	// WasmHost is the WebAssembly filter
 	WasmHost struct {
-		pipeSpec *httppipeline.FilterSpec
-		spec     *Spec
+		filterSpec *httppipeline.FilterSpec
+		spec       *Spec
 
 		code       []byte
 		dataPrefix string
@@ -122,7 +122,7 @@ func (wh *WasmHost) Results() []string {
 
 // Cluster returns the cluster
 func (wh *WasmHost) Cluster() cluster.Cluster {
-	return wh.pipeSpec.Super().Cluster()
+	return wh.filterSpec.Super().Cluster()
 }
 
 // Data returns the shared data
@@ -263,11 +263,11 @@ func (wh *WasmHost) watchWasmData() {
 	}
 }
 
-func (wh *WasmHost) reload(pipeline string, pipeSpec *httppipeline.FilterSpec) {
-	wh.pipeSpec = pipeSpec
-	wh.spec = pipeSpec.FilterSpec().(*Spec)
+func (wh *WasmHost) reload(filterSpec *httppipeline.FilterSpec) {
+	wh.filterSpec = filterSpec
+	wh.spec = filterSpec.FilterSpec().(*Spec)
 
-	wh.dataPrefix = wh.Cluster().Layout().WasmDataPrefix(pipeline, pipeSpec.Name())
+	wh.dataPrefix = wh.Cluster().Layout().WasmDataPrefix(filterSpec.Pipeline(), filterSpec.Name())
 
 	wh.spec.timeout, _ = time.ParseDuration(wh.spec.Timeout)
 	wh.chStop = make(chan struct{})
@@ -278,14 +278,14 @@ func (wh *WasmHost) reload(pipeline string, pipeSpec *httppipeline.FilterSpec) {
 }
 
 // Init initializes WasmHost.
-func (wh *WasmHost) Init(pipeline string, pipeSpec *httppipeline.FilterSpec) {
-	wh.reload(pipeline, pipeSpec)
+func (wh *WasmHost) Init(pipeSpec *httppipeline.FilterSpec) {
+	wh.reload(pipeSpec)
 }
 
 // Inherit inherits previous generation of WasmHost.
-func (wh *WasmHost) Inherit(pipeline string, pipeSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+func (wh *WasmHost) Inherit(pipeSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
 	previousGeneration.Close()
-	wh.reload(pipeline, pipeSpec)
+	wh.reload(pipeSpec)
 }
 
 // Handle handles HTTP request

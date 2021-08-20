@@ -39,8 +39,9 @@ type (
 
 	// FilterMetaSpec is metadata for all specs.
 	FilterMetaSpec struct {
-		Name string `yaml:"name" jsonschema:"required,format=urlname"`
-		Kind string `yaml:"kind" jsonschema:"required"`
+		Name     string `yaml:"name" jsonschema:"required,format=urlname"`
+		Kind     string `yaml:"kind" jsonschema:"required"`
+		Pipeline string `yaml:"-" jsonschema:"-"`
 	}
 )
 
@@ -116,6 +117,9 @@ func (s *FilterSpec) Name() string { return s.meta.Name }
 
 // Kind returns kind.
 func (s *FilterSpec) Kind() string { return s.meta.Kind }
+
+// Pipeline returns the name of the pipeline this filter belongs to.
+func (s *FilterSpec) Pipeline() string { return s.meta.Pipeline }
 
 // YAMLConfig returns the config in yaml format.
 func (s *FilterSpec) YAMLConfig() string {

@@ -66,7 +66,7 @@ urls:
 	}
 
 	cb := &CircuitBreaker{}
-	cb.Init("", spec)
+	cb.Init(spec)
 
 	resp := httptest.NewRecorder()
 	ctx := &contexttest.MockedHTTPContext{}
@@ -113,7 +113,7 @@ urls:
 	}
 	newCb := &CircuitBreaker{}
 	spec, _ = httppipeline.NewFilterSpec(rawSpec, nil)
-	newCb.Inherit("", spec, cb)
+	newCb.Inherit(spec, cb)
 	cb.Close()
 	result = newCb.Handle(ctx)
 	if result != resultShortCircuited {

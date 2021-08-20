@@ -225,13 +225,13 @@ OuterLoop:
 }
 
 // Init initializes RateLimiter.
-func (rl *RateLimiter) Init(pipeline string, filterSpec *httppipeline.FilterSpec) {
+func (rl *RateLimiter) Init(filterSpec *httppipeline.FilterSpec) {
 	rl.filterSpec, rl.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	rl.reload(nil)
 }
 
 // Inherit inherits previous generation of RateLimiter.
-func (rl *RateLimiter) Inherit(pipeline string, filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+func (rl *RateLimiter) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
 	rl.filterSpec, rl.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	rl.reload(previousGeneration.(*RateLimiter))
 }

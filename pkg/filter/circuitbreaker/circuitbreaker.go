@@ -275,13 +275,13 @@ OuterLoop:
 }
 
 // Init initializes CircuitBreaker.
-func (cb *CircuitBreaker) Init(pipeline string, filterSpec *httppipeline.FilterSpec) {
+func (cb *CircuitBreaker) Init(filterSpec *httppipeline.FilterSpec) {
 	cb.filterSpec, cb.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	cb.reload(nil)
 }
 
 // Inherit inherits previous generation of CircuitBreaker.
-func (cb *CircuitBreaker) Inherit(pipeline string, filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+func (cb *CircuitBreaker) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
 	cb.filterSpec, cb.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	cb.reload(previousGeneration.(*CircuitBreaker))
 }

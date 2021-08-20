@@ -82,15 +82,15 @@ func (v *Validator) Results() []string {
 }
 
 // Init initializes Validator.
-func (v *Validator) Init(pipeline string, filterSpec *httppipeline.FilterSpec) {
+func (v *Validator) Init(filterSpec *httppipeline.FilterSpec) {
 	v.filterSpec, v.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	v.reload()
 }
 
 // Inherit inherits previous generation of Validator.
-func (v *Validator) Inherit(pipeline string, filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+func (v *Validator) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
 	previousGeneration.Close()
-	v.Init(pipeline, filterSpec)
+	v.Init(filterSpec)
 }
 
 func (v *Validator) reload() {

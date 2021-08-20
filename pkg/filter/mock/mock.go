@@ -87,15 +87,15 @@ func (m *Mock) Results() []string {
 }
 
 // Init initializes Mock.
-func (m *Mock) Init(pipeline string, filterSpec *httppipeline.FilterSpec) {
+func (m *Mock) Init(filterSpec *httppipeline.FilterSpec) {
 	m.filterSpec, m.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	m.reload()
 }
 
 // Inherit inherits previous generation of Mock.
-func (m *Mock) Inherit(pipeline string, filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+func (m *Mock) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
 	previousGeneration.Close()
-	m.Init(pipeline, filterSpec)
+	m.Init(filterSpec)
 }
 
 func (m *Mock) reload() {
