@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	"github.com/megaease/easegress/pkg/context/contexttest"
+	"github.com/megaease/easegress/pkg/object/serviceregistry"
 	"github.com/megaease/easegress/pkg/util/hashtool"
 	"github.com/megaease/easegress/pkg/util/httpheader"
 )
@@ -308,5 +309,50 @@ func TestStaticServers(t *testing.T) {
 		if ss.next(ctx) != s {
 			t.Errorf("ss.next() returns unexpected server")
 		}
+	}
+}
+
+func TestDynamicService(t *testing.T) {
+	loadBalance := &LoadBalance{Policy: PolicyRandom}
+	s := &servers{
+		poolSpec: &PoolSpec{
+			LoadBalance: loadBalance,
+		},
+	}
+
+	instances := []*serviceregistry.ServiceInstanceSpec{
+		{
+			RegistryName: "registry-test1",
+			ServiceName:  "service-test1",
+			InstanceID:   "instance-test1",
+			HostIP:       "127.0.0.1",
+			Port:         1111,
+		},
+		{
+			RegistryName: "registry-test1",
+			ServiceName:  "service-test1",
+			InstanceID:   "instance-test2",
+			HostIP:       "127.0.0.1",
+			Port:         2222,
+		},
+	}
+
+	serviceInstanceSpecs := make(map[string]*serviceregistry.ServiceInstanceSpec)
+	for _, instance := range instances {
+		serviceInstanceSpecs[instance.Key()] = instance
+	}
+
+	s.useService(serviceInstanceSpecs)
+
+	wantStatic := &staticServers{
+		lb: *loadBalance,
+		servers: []*Server{
+			{URL: "http://127.0.0.1:1111"},
+			{URL: "http://127.0.0.1:2222"},
+		},
+	}
+
+	if !reflect.DeepEqual(wantStatic, s.static) {
+		t.Fatalf("want: %+v\ngot :%+v\n", wantStatic, s.static)
 	}
 }
