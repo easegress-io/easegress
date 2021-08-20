@@ -279,14 +279,7 @@ func (b *Proxy) handle(ctx context.HTTPContext) (result string) {
 
 		wg := &sync.WaitGroup{}
 		wg.Add(1)
-		defer func() {
-			if result == "" {
-				// NOTE: Waiting for mirrorPool finishing
-				// only if mainPool/candidatePool handled
-				// with normal result.
-				wg.Wait()
-			}
-		}()
+		defer wg.Wait()
 
 		go func() {
 			defer wg.Done()

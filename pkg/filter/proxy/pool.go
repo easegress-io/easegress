@@ -129,12 +129,6 @@ func (p *pool) status() *PoolStatus {
 }
 
 func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader) string {
-	// FIXME: When the request matched mirror handler, there will be
-	// data race warning. Because after proxy handled the request,
-	// the HTTPPipeline and mux of HTTPServer will call ctx.AddTag() too.
-	// Even the the situation is not a bug, but the cautious data race
-	// detector of golang will warn it.
-	// Add a method ctx.AddTagWithLock()?
 	addTag := func(subPrefix, msg string) {
 		tag := stringtool.Cat(p.tagPrefix, "#", subPrefix, ": ", msg)
 		ctx.Lock()
@@ -142,12 +136,16 @@ func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader) string {
 		ctx.Unlock()
 	}
 
-	w := ctx.Response()
+	setStatusCode := func(code int) {
+		ctx.Lock()
+		ctx.Response().SetStatusCode(code)
+		ctx.Unlock()
+	}
 
 	server, err := p.servers.next(ctx)
 	if err != nil {
 		addTag("serverErr", err.Error())
-		w.SetStatusCode(http.StatusServiceUnavailable)
+		setStatusCode(http.StatusServiceUnavailable)
 		return resultInternalError
 	}
 	addTag("addr", server.URL)
@@ -157,7 +155,7 @@ func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader) string {
 		msg := stringtool.Cat("prepare request failed: ", err.Error())
 		logger.Errorf("BUG: %s", msg)
 		addTag("bug", msg)
-		w.SetStatusCode(http.StatusInternalServerError)
+		setStatusCode(http.StatusInternalServerError)
 		return resultInternalError
 	}
 
@@ -174,7 +172,7 @@ func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader) string {
 			return resultClientError
 		}
 
-		w.SetStatusCode(http.StatusServiceUnavailable)
+		setStatusCode(http.StatusServiceUnavailable)
 		return resultServerError
 	}
 
@@ -182,12 +180,14 @@ func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader) string {
 
 	ctx.Lock()
 	defer ctx.Unlock()
+	// NOTE: The code below can't use addTag and setStatusCode in case of deadlock.
+
 	respBody := p.statRequestResponse(ctx, req, resp, span)
 
 	if p.writeResponse {
-		w.SetStatusCode(resp.StatusCode)
-		w.Header().AddFromStd(resp.Header)
-		w.SetBody(respBody)
+		ctx.Response().SetStatusCode(resp.StatusCode)
+		ctx.Response().Header().AddFromStd(resp.Header)
+		ctx.Response().SetBody(respBody)
 
 		return ""
 	}

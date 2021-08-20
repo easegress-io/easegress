@@ -1,8 +1,8 @@
-
 # Controllers
 
 - [Controllers](#controllers)
   - [System Controllers](#system-controllers)
+    - [ServiceRegistry](#serviceregistry)
     - [TrafficController](#trafficcontroller)
     - [RawConfigTrafficController](#rawconfigtrafficcontroller)
       - [HTTPServer](#httpserver)
@@ -45,6 +45,18 @@ The two categories are conceptual, which means they are not strict distinctions.
 ## System Controllers
 
 For now, all system controllers can not be configured. It may gain this capability if necessary in the future.
+
+### ServiceRegistry
+
+We use system controller `ServiceRegistry` to be the service hub for all service registries. Current the drivers are
+
+- [ConsulServiceRegistry](#consulserviceregistry)
+- [EtcdServiceRegistry](#etcdserviceregistry)
+- [EurekaServiceRegistry](#eurekaserviceregistry)
+- [ZookeeperServiceRegistry](#zookeeperserviceregistry)
+- [NacosServiceRegistry](#nacosserviceregistry)
+
+The drivers need to offer notifying change periodically, and operations to the external service registry.
 
 ### TrafficController
 
