@@ -91,7 +91,7 @@ The architecture of Easegress:
 		- **Node:** role(leader, writer, reader), health or not, last heartbeat time, and so on
 		- **Traffic:** in multi-dimension: server and backend.
 			- **Throughput:** total and error statistics of request count, TPS/m1, m5, m15, and error percent, etc.
-			- **Latency:** p25, p50, p75, p95, 98, p99, p999.
+			- **Latency:** p25, p50, p75, p95, p98, p99, p999.
 			- **Data Size:** request and response size.
 			- **Status Codes:** HTTP status codes.
 			- **TopN:** sorted by aggregated APIs(only in server dimension).
