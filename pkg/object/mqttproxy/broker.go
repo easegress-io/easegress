@@ -27,6 +27,7 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 )
 
+// Broker is MQTT server, will manage client, topic, session, etc.
 type Broker struct {
 	sync.RWMutex
 	name string

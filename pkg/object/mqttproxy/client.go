@@ -28,16 +28,22 @@ import (
 )
 
 const (
-	Connected    = 1
+	// MQTT client status for Connected
+	Connected = 1
+	// MQTT client status for Disconnected
 	Disconnected = 2
 
 	// three qualities of service for message delivery:
-	Qos0 byte = 0 // for "At most once"
-	Qos1 byte = 1 // for "At least once
-	Qos2 byte = 2 // for "Exactly once"
+	// for "At most once"
+	Qos0 byte = 0
+	// for "At least once
+	Qos1 byte = 1
+	// for "Exactly once"
+	Qos2 byte = 2
 )
 
 type (
+	// basic infomation for client
 	ClientInfo struct {
 		cid       string
 		username  string
@@ -46,6 +52,7 @@ type (
 		will      *packets.PublishPacket
 	}
 
+	// Client represents a MQTT client connection in Broker
 	Client struct {
 		sync.Mutex
 

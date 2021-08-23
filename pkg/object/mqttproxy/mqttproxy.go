@@ -55,6 +55,7 @@ func (mp *MQTTProxy) DefaultSpec() interface{} {
 	return &Spec{}
 }
 
+// Status returns the Status of MQTTProxy.
 func (mp *MQTTProxy) Status() *supervisor.Status {
 	return &supervisor.Status{}
 }

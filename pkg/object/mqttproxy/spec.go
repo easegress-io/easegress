@@ -18,6 +18,7 @@
 package mqttproxy
 
 type (
+	// Spec describes the MQTTProxy.
 	Spec struct {
 		Name        string       `yaml:"-"`
 		Port        uint16       `yaml:"port" jsonschema:"required"`
@@ -27,16 +28,19 @@ type (
 		Kafka       *KafkaSpec   `yaml:"kafkaBroker" jsonschema:"omitempty"`
 	}
 
+	// Auth describes username and password for MQTTProxy
 	Auth struct {
 		Username  string `yaml:"userName" jsonschema:"required"`
 		B64Passwd string `yaml:"passBase64" jsonschema:"required"`
 	}
 
+	// TopicMapper describes topic map between MQTT topic and Backend MQ topic
 	TopicMapper struct {
 		TopicIndex int            `yaml:"topicIndex" jsonschema:"required"`
 		Headers    map[int]string `yaml:"headers" jsonschema:"required"`
 	}
 
+	// KafkaSpec describes Kafka producer
 	KafkaSpec struct {
 		Backend []string `yaml:"backend" jsonschema:"required,uniqueItems=true"`
 	}

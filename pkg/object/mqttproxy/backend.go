@@ -26,11 +26,13 @@ import (
 )
 
 type (
+	// BackendMQ is backend message queue for MQTT proxy
 	BackendMQ interface {
 		publish(p *packets.PublishPacket) error
 		close()
 	}
 
+	// KafkaMQ is backend message queue for MQTT proxy by using Kafka
 	KafkaMQ struct {
 		producer sarama.AsyncProducer
 		mapFunc  topicMapFunc

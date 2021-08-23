@@ -25,10 +25,13 @@ import (
 )
 
 type (
+	// SessionManager manage the status of session for clients
 	SessionManager struct {
 		smap sync.Map
 	}
 
+	// Session includes the information about the connect between client and broker,
+	// such as topic subscribe, not-send messages, etc.
 	Session struct {
 		sync.Mutex
 		initFlag bool
