@@ -473,7 +473,7 @@ func (n *NacosServiceRegistry) serviceInstanceToRegisterInstance(instance *servi
 		},
 		ServiceName: instance.ServiceName,
 
-		Ip:      instance.HostIP,
+		Ip:      instance.Address,
 		Port:    uint64(instance.Port),
 		Weight:  float64(instance.Weight),
 		Enable:  true,
@@ -484,7 +484,7 @@ func (n *NacosServiceRegistry) serviceInstanceToRegisterInstance(instance *servi
 func (n *NacosServiceRegistry) serviceInstanceToDeregisterInstance(instance *serviceregistry.ServiceInstanceSpec) *vo.DeregisterInstanceParam {
 	return &vo.DeregisterInstanceParam{
 		ServiceName: instance.ServiceName,
-		Ip:          instance.HostIP,
+		Ip:          instance.Address,
 		Port:        uint64(instance.Port),
 	}
 }
@@ -504,7 +504,7 @@ func (n *NacosServiceRegistry) nacosInstanceToServiceInstance(nacosInstance *mod
 		RegistryName: registryName,
 		ServiceName:  nacosInstance.ServiceName,
 		InstanceID:   instanceID,
-		HostIP:       nacosInstance.Ip,
+		Address:      nacosInstance.Ip,
 		Port:         uint16(nacosInstance.Port),
 		Weight:       int(nacosInstance.Weight),
 	}

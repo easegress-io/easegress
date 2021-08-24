@@ -386,12 +386,16 @@ func (e *EurekaServiceRegistry) instanceInfoToServiceInstances(info *eurekaapi.I
 		registryName = info.Metadata.Map[MetaKeyRegistryName]
 	}
 
+	address := info.IpAddr
+	if address == "" {
+		address = info.HostName
+	}
+
 	baseServiceInstanceSpec := serviceregistry.ServiceInstanceSpec{
 		RegistryName: registryName,
 		ServiceName:  info.App,
 		InstanceID:   info.InstanceID,
-		Hostname:     info.HostName,
-		HostIP:       info.IpAddr,
+		Address:      address,
 	}
 
 	if info.Port != nil && info.Port.Enabled {
@@ -417,8 +421,7 @@ func (e *EurekaServiceRegistry) serviceInstanceToInstanceInfo(serviceInstance *s
 		},
 		App:        serviceInstance.ServiceName,
 		InstanceID: serviceInstance.InstanceID,
-		HostName:   serviceInstance.Hostname,
-		IpAddr:     serviceInstance.HostIP,
+		IpAddr:     serviceInstance.Address,
 	}
 
 	switch serviceInstance.Scheme {

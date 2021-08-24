@@ -32,14 +32,13 @@ type (
 		// InstanceID is required.
 		InstanceID string `yaml:"instanceID"`
 
-		// Scheme is optional if Port is not empty.
-		Scheme string `yaml:"scheme"`
-		// Hostname is optional if HostIP is not empty.
-		Hostname string `yaml:"hostname"`
-		// HostIP is optional if Hostname is not empty.
-		HostIP string `yaml:"hostIP"`
-		// Port is optional if Scheme is not empty
+		// Address is required.
+		Address string `yaml:"address"`
+		// Port is required.
 		Port uint16 `yaml:"port"`
+
+		// Scheme is optional.
+		Scheme string `yaml:"scheme"`
 		// Tags is optional.
 		Tags []string `yaml:"tags"`
 		// Weight is optional.
@@ -74,12 +73,12 @@ func (s *ServiceInstanceSpec) Validate() error {
 		return fmt.Errorf("instanceID is empty")
 	}
 
-	if s.Hostname == "" && s.HostIP == "" {
-		return fmt.Errorf("both hostname and hostIP are empty")
+	if s.Address == "" {
+		return fmt.Errorf("address is empty")
 	}
 
-	if s.Scheme == "" && s.Port == 0 {
-		return fmt.Errorf("both scheme and port are empty")
+	if s.Port == 0 {
+		return fmt.Errorf("port is empty")
 	}
 
 	switch s.Scheme {
@@ -103,19 +102,7 @@ func (s *ServiceInstanceSpec) URL() string {
 		scheme = "http"
 	}
 
-	var host string
-	if s.Hostname != "" {
-		host = s.Hostname
-	} else {
-		host = s.HostIP
-	}
-
-	var port string
-	if s.Port != 0 {
-		port = fmt.Sprintf("%d", s.Port)
-	}
-
-	return fmt.Sprintf("%s://%s:%s", scheme, host, port)
+	return fmt.Sprintf("%s://%s:%d", scheme, s.Address, s.Port)
 }
 
 // NewRegistryEventFromDiff creates a registry event from diff old and new specs.

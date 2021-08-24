@@ -314,10 +314,22 @@ func TestStaticServers(t *testing.T) {
 
 func TestDynamicService(t *testing.T) {
 	loadBalance := &LoadBalance{Policy: PolicyRandom}
+	configServers := []*Server{
+		{
+			URL:  "http://127.0.0.1:8888",
+			Tags: []string{"static"},
+		},
+	}
 	s := &servers{
 		poolSpec: &PoolSpec{
 			LoadBalance: loadBalance,
+			Servers:     configServers,
 		},
+	}
+
+	s.useService(nil)
+	if !reflect.DeepEqual(s.static.servers, configServers) {
+		t.Fatalf("static servers want %+v, got %+v", configServers, s.static.servers)
 	}
 
 	instances := []*serviceregistry.ServiceInstanceSpec{
@@ -325,14 +337,14 @@ func TestDynamicService(t *testing.T) {
 			RegistryName: "registry-test1",
 			ServiceName:  "service-test1",
 			InstanceID:   "instance-test1",
-			HostIP:       "127.0.0.1",
+			Address:      "127.0.0.1",
 			Port:         1111,
 		},
 		{
 			RegistryName: "registry-test1",
 			ServiceName:  "service-test1",
 			InstanceID:   "instance-test2",
-			HostIP:       "127.0.0.1",
+			Address:      "127.0.0.1",
 			Port:         2222,
 		},
 	}

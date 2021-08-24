@@ -217,8 +217,8 @@ func (rs *registrySyncer) meshToExternalInstances(instances map[string]*spec.Ser
 			ServiceName:  instance.ServiceName,
 			InstanceID:   instance.InstanceID,
 
-			HostIP: instance.IP,
-			Port:   uint16(instance.Port),
+			Address: instance.IP,
+			Port:    uint16(instance.Port),
 		}
 		result[externalInstance.Key()] = externalInstance
 	}
@@ -231,7 +231,7 @@ func (rs *registrySyncer) externalToMeshInstance(instance *serviceregistry.Servi
 		RegistryName: instance.RegistryName,
 		ServiceName:  instance.ServiceName,
 		InstanceID:   instance.InstanceID,
-		IP:           instance.HostIP,
+		IP:           instance.Address,
 		Port:         uint32(instance.Port),
 	}
 }

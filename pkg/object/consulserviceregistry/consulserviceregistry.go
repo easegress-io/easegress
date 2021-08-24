@@ -58,7 +58,7 @@ type (
 		notify          chan *serviceregistry.RegistryEvent
 
 		clientMutex sync.RWMutex
-		client      *api.Client
+		client      consulClient
 
 		statusMutex  sync.Mutex
 		instancesNum map[string]int
@@ -134,7 +134,7 @@ func (c *ConsulServiceRegistry) reload() {
 	go c.run()
 }
 
-func (c *ConsulServiceRegistry) getClient() (*api.Client, error) {
+func (c *ConsulServiceRegistry) getClient() (consulClient, error) {
 	c.clientMutex.RLock()
 	if c.client != nil {
 		client := c.client
@@ -146,7 +146,7 @@ func (c *ConsulServiceRegistry) getClient() (*api.Client, error) {
 	return c.buildClient()
 }
 
-func (c *ConsulServiceRegistry) buildClient() (*api.Client, error) {
+func (c *ConsulServiceRegistry) buildClient() (consulClient, error) {
 	c.clientMutex.Lock()
 	defer c.clientMutex.Unlock()
 
@@ -176,9 +176,9 @@ func (c *ConsulServiceRegistry) buildClient() (*api.Client, error) {
 		return nil, err
 	}
 
-	c.client = client
+	c.client = newConsulAPIClient(client)
 
-	return client, nil
+	return c.client, nil
 }
 
 func (c *ConsulServiceRegistry) closeClient() {
@@ -305,7 +305,7 @@ func (c *ConsulServiceRegistry) ApplyServiceInstances(instances map[string]*serv
 
 	for _, instance := range instances {
 		registration := c.serviceInstanceToRegistration(instance)
-		err = client.Agent().ServiceRegister(registration)
+		err = client.ServiceRegister(registration)
 		if err != nil {
 			return err
 		}
@@ -323,7 +323,7 @@ func (c *ConsulServiceRegistry) DeleteServiceInstances(instances map[string]*ser
 	}
 
 	for _, instance := range instances {
-		err := client.Agent().ServiceDeregister(instance.InstanceID)
+		err := client.ServiceDeregister(instance.InstanceID)
 		if err != nil {
 			return err
 		}
@@ -356,7 +356,7 @@ func (c *ConsulServiceRegistry) ListServiceInstances(serviceName string) (map[st
 			c.superSpec.Name(), err)
 	}
 
-	catalogServices, _, err := client.Catalog().Service(serviceName, "", &api.QueryOptions{})
+	catalogServices, err := client.ListServiceInstances(serviceName)
 
 	if err != nil {
 		return nil, err
@@ -384,28 +384,20 @@ func (c *ConsulServiceRegistry) ListAllServiceInstances() (map[string]*servicere
 			c.superSpec.Name(), err)
 	}
 
-	resp, _, err := client.Catalog().Services(&api.QueryOptions{})
+	catalogServices, err := client.ListAllServiceInstances()
 	if err != nil {
 		return nil, fmt.Errorf("%s pull catalog services failed: %v",
 			c.superSpec.Name(), err)
 	}
 
 	instances := make(map[string]*serviceregistry.ServiceInstanceSpec)
-	for serviceName := range resp {
-		services, _, err := client.Catalog().Service(serviceName, "", &api.QueryOptions{})
-		if err != nil {
-			return nil, fmt.Errorf("%s pull catalog service %s failed: %v",
-				c.superSpec.Name(), serviceName, err)
+	for _, catalogService := range catalogServices {
+		serviceInstance := c.catalogServiceToServiceInstance(catalogService)
+		if err := serviceInstance.Validate(); err != nil {
+			return nil, fmt.Errorf("%+v is invalid: %v", serviceInstance, err)
 		}
 
-		for _, service := range services {
-			serviceInstance := c.catalogServiceToServiceInstance(service)
-			if err := serviceInstance.Validate(); err != nil {
-				return nil, fmt.Errorf("%+v is invalid: %v", serviceInstance, err)
-			}
-
-			instances[serviceInstance.Key()] = serviceInstance
-		}
+		instances[serviceInstance.Key()] = serviceInstance
 	}
 
 	return instances, nil
@@ -413,11 +405,12 @@ func (c *ConsulServiceRegistry) ListAllServiceInstances() (map[string]*servicere
 
 func (c *ConsulServiceRegistry) serviceInstanceToRegistration(serviceInstance *serviceregistry.ServiceInstanceSpec) *api.AgentServiceRegistration {
 	return &api.AgentServiceRegistration{
-		Kind: api.ServiceKindTypical,
-		ID:   serviceInstance.InstanceID,
-		Name: serviceInstance.ServiceName,
-		Tags: serviceInstance.Tags,
-		Port: int(serviceInstance.Port),
+		Kind:    api.ServiceKindTypical,
+		ID:      serviceInstance.InstanceID,
+		Name:    serviceInstance.ServiceName,
+		Tags:    serviceInstance.Tags,
+		Port:    int(serviceInstance.Port),
+		Address: serviceInstance.Address,
 		Meta: map[string]string{
 			MetaKeyRegistryName: serviceInstance.RegistryName,
 		},
@@ -431,17 +424,12 @@ func (c *ConsulServiceRegistry) catalogServiceToServiceInstance(catalogService *
 		registryName = catalogService.ServiceMeta[MetaKeyRegistryName]
 	}
 
-	hostIP := catalogService.ServiceAddress
-	if hostIP == "" {
-		hostIP = catalogService.Address
-	}
-
 	return &serviceregistry.ServiceInstanceSpec{
 		RegistryName: registryName,
 		ServiceName:  catalogService.ServiceName,
 		InstanceID:   catalogService.ServiceID,
 		Port:         uint16(catalogService.ServicePort),
 		Tags:         catalogService.ServiceTags,
-		HostIP:       hostIP,
+		Address:      catalogService.Address,
 	}
 }
