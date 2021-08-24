@@ -27,21 +27,31 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 )
 
-// Broker is MQTT server, will manage client, topic, session, etc.
-type Broker struct {
-	sync.RWMutex
-	name string
-	spec *Spec
+type (
+	// Broker is MQTT server, will manage client, topic, session, etc.
+	Broker struct {
+		sync.RWMutex
+		name string
+		spec *Spec
 
-	listener net.Listener
-	backend  BackendMQ
-	clients  map[string]*Client
-	sessMgr  *SessionManager
-	auth     map[string]string
+		listener net.Listener
+		backend  BackendMQ
+		clients  map[string]*Client
+		auth     map[string]string
 
-	// done is the channel for shutdowning this proxy.
-	done chan struct{}
-}
+		sessMgr  *SessionManager
+		topicMgr *TopicManager
+
+		// done is the channel for shutdowning this proxy.
+		done chan struct{}
+	}
+
+	Message struct {
+		topic   string
+		payload []byte
+		qos     byte
+	}
+)
 
 func newBroker(spec *Spec) *Broker {
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", spec.Port))
@@ -56,9 +66,10 @@ func newBroker(spec *Spec) *Broker {
 		listener: l,
 		backend:  newBackendMQ(spec),
 		clients:  make(map[string]*Client),
-		sessMgr:  newSessionManager(),
-		done:     make(chan struct{}),
 		auth:     make(map[string]string),
+		sessMgr:  newSessionManager(),
+		topicMgr: newTopicManager(),
+		done:     make(chan struct{}),
 	}
 	for _, a := range spec.Auth {
 		broker.auth[a.Username] = a.B64Passwd
@@ -148,7 +159,7 @@ func (b *Broker) handleConn(conn net.Conn) {
 	b.Unlock()
 
 	// update session
-
+	client.session.publishQueuedMsg()
 	client.readLoop()
 }
 
@@ -160,8 +171,37 @@ func (b *Broker) setSession(client *Client, connect *packets.ConnectPacket) {
 		prevSess.update(connect)
 		client.session = prevSess
 	} else {
-		client.session = b.sessMgr.new(connect)
+		client.session = b.sessMgr.new(b, connect)
 	}
+}
+
+func (b *Broker) sendMsgToClient(msg *Message) {
+	// plan, use topic from topic manager find clientID
+	// use client ids find session
+	// add message to session wait queue
+	subscribers := b.topicMgr.findSubscribers(msg.topic)
+	if subscribers == nil {
+		logger.Errorf("sendMsgToClient not find subscribers for topic <%s>", msg.topic)
+		return
+	}
+	for clientID := range subscribers {
+		sess := b.sessMgr.get(clientID)
+		if sess == nil {
+			logger.Errorf("session for client <%s> is nil", clientID)
+		} else {
+			sess.publish(msg)
+		}
+	}
+}
+
+func (b *Broker) getClient(clientID string) *Client {
+	b.RLock()
+	defer b.RUnlock()
+
+	if val, ok := b.clients[clientID]; ok {
+		return val
+	}
+	return nil
 }
 
 func (b *Broker) close() {

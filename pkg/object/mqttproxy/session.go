@@ -22,6 +22,7 @@ import (
 	"sync"
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
+	"github.com/megaease/easegress/pkg/logger"
 )
 
 type (
@@ -34,12 +35,17 @@ type (
 	// such as topic subscribe, not-send messages, etc.
 	Session struct {
 		sync.Mutex
-		initFlag bool
 
+		broker    *Broker
 		connect   *packets.ConnectPacket
 		topics    map[string]byte // map subscribe topic to qos
 		clientID  string
 		cleanFlag bool
+
+		nextID  uint16
+		qos0    []*Message
+		qos1    []*Message
+		pending map[uint16]*packets.PublishPacket
 	}
 )
 
@@ -48,9 +54,9 @@ func newSessionManager() *SessionManager {
 	return s
 }
 
-func (sm *SessionManager) new(connect *packets.ConnectPacket) *Session {
+func (sm *SessionManager) new(b *Broker, connect *packets.ConnectPacket) *Session {
 	s := &Session{}
-	s.init(connect)
+	s.init(b, connect)
 	sm.smap.Store(connect.ClientIdentifier, s)
 	return s
 }
@@ -66,12 +72,15 @@ func (sm *SessionManager) del(clientID string) {
 	sm.smap.Delete(clientID)
 }
 
-func (s *Session) init(connect *packets.ConnectPacket) error {
+func (s *Session) init(b *Broker, connect *packets.ConnectPacket) error {
+	s.broker = b
 	s.connect = connect
 	s.clientID = connect.ClientIdentifier
-	s.initFlag = true
 	s.cleanFlag = connect.CleanSession
 	s.topics = make(map[string]byte)
+	s.qos0 = []*Message{}
+	s.qos1 = []*Message{}
+	s.pending = make(map[uint16]*packets.PublishPacket)
 	return nil
 }
 
@@ -114,6 +123,78 @@ func (s *Session) allSubscribes() ([]string, []byte, error) {
 		qos = append(qos, v)
 	}
 	return sub, qos, nil
+}
+
+func (s *Session) getPacketFromMsg(msg *Message) *packets.PublishPacket {
+	p := packets.NewControlPacket(packets.Publish).(*packets.PublishPacket)
+	p.Qos = msg.qos
+	p.TopicName = msg.topic
+	p.Payload = msg.payload
+	p.MessageID = s.nextID
+	// the overflow is okay here
+	// the session will give unique id from 0 to 65535 and do this again and again
+	s.nextID += 1
+	return p
+}
+
+func (s *Session) publishQueuedMsg() {
+	client := s.broker.getClient(s.clientID)
+	if client == nil {
+		return
+	}
+	s.Lock()
+	defer s.Unlock()
+
+	ps := []packets.ControlPacket{}
+	for _, msg := range s.qos0 {
+		p := s.getPacketFromMsg(msg)
+		ps = append(ps, p)
+	}
+	for _, msg := range s.qos1 {
+		p := s.getPacketFromMsg(msg)
+		ps = append(ps, p)
+		s.pending[p.MessageID] = p
+	}
+
+	go client.WritePackets(ps)
+}
+
+func (s *Session) publish(msg *Message) {
+	client := s.broker.getClient(s.clientID)
+	s.Lock()
+	defer s.Unlock()
+
+	if qos, ok := s.topics[msg.topic]; !ok || qos < msg.qos {
+		return
+	}
+	if client == nil {
+		if msg.qos == Qos0 {
+			s.qos0 = append(s.qos0, msg)
+		} else if msg.qos == Qos1 {
+			s.qos1 = append(s.qos1, msg)
+		} else {
+			logger.Errorf("current not support to publish message with qos=2")
+		}
+	} else {
+		if len(s.qos0) != 0 || len(s.qos1) != 0 {
+			go s.publishQueuedMsg()
+		}
+		p := s.getPacketFromMsg(msg)
+		if msg.qos == Qos0 {
+			go client.WritePacket(p)
+		} else if msg.qos == Qos1 {
+			s.pending[p.MessageID] = p
+			go client.WritePacket(p)
+		} else {
+			logger.Errorf("current not support to publish message with qos=2")
+		}
+	}
+}
+
+func (s *Session) puback(p *packets.PubackPacket) {
+	s.Lock()
+	defer s.Unlock()
+	delete(s.pending, p.MessageID)
 }
 
 func (s *Session) cleanSession() bool {

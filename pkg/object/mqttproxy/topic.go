@@ -20,9 +20,63 @@ package mqttproxy
 import (
 	"fmt"
 	"strings"
+	"sync"
 )
 
-type topicMapFunc func(mqttTopic string) (topic string, headers map[string]string, err error)
+type (
+	// TopicManager use topic to find corresponding
+	TopicManager struct {
+		sync.RWMutex
+
+		// map topic (string) to subscribers (client ids)
+		subscriptions map[string]map[string]struct{}
+	}
+
+	topicMapFunc func(mqttTopic string) (topic string, headers map[string]string, err error)
+)
+
+func newTopicManager() *TopicManager {
+	t := &TopicManager{
+		subscriptions: make(map[string]map[string]struct{}),
+	}
+	return t
+}
+
+func (t *TopicManager) subscribe(topics []string, clientID string) {
+	t.Lock()
+	defer t.Unlock()
+	for _, topic := range topics {
+		if val, ok := t.subscriptions[topic]; ok {
+			val[clientID] = struct{}{}
+		} else {
+			t.subscriptions[topic] = make(map[string]struct{})
+			t.subscriptions[topic][clientID] = struct{}{}
+		}
+	}
+}
+
+func (t *TopicManager) unsubscribe(topics []string, clientID string) {
+	t.Lock()
+	defer t.Unlock()
+	for _, topic := range topics {
+		if val, ok := t.subscriptions[topic]; ok {
+			delete(val, clientID)
+			if len(val) == 0 {
+				delete(t.subscriptions, topic)
+			}
+		}
+	}
+}
+
+func (t *TopicManager) findSubscribers(topic string) map[string]struct{} {
+	t.RLock()
+	defer t.RUnlock()
+
+	if val, ok := t.subscriptions[topic]; ok {
+		return val
+	}
+	return nil
+}
 
 func getTopicMapFunc(topicMapper *TopicMapper) topicMapFunc {
 	if topicMapper == nil {

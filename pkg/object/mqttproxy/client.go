@@ -134,8 +134,7 @@ func (c *Client) processPacket(packet packets.ControlPacket) error {
 	case *packets.PublishPacket:
 		c.processPublish(p)
 	case *packets.PubackPacket:
-		// TODO after add http endpoint we can receive puback
-		err = errors.New("broker now not publish to client")
+		c.processPuback(p)
 	case *packets.PubrecPacket, *packets.PubrelPacket, *packets.PubcompPacket:
 		err = errors.New("qos2 not support now")
 	case *packets.SubscribePacket:
@@ -166,7 +165,7 @@ func (c *Client) processPublish(publish *packets.PublishPacket) {
 	case Qos1:
 		puback := packets.NewControlPacket(packets.Puback).(*packets.PubackPacket)
 		puback.MessageID = publish.MessageID
-		err := puback.Write(c.conn)
+		err := c.WritePacket(puback)
 		if err != nil {
 			logger.Errorf("write puback to client %s failed: %s", c.info.cid, err)
 		}
@@ -175,8 +174,13 @@ func (c *Client) processPublish(publish *packets.PublishPacket) {
 	}
 }
 
+func (c *Client) processPuback(puback *packets.PubackPacket) {
+	c.session.puback(puback)
+}
+
 func (c *Client) processSubscribe(packet *packets.SubscribePacket) {
 	c.session.subscribe(packet.Topics, packet.Qoss)
+	c.broker.topicMgr.subscribe(packet.Topics, c.info.cid)
 
 	suback := packets.NewControlPacket(packets.Suback).(*packets.SubackPacket)
 	suback.MessageID = packet.MessageID
@@ -184,20 +188,39 @@ func (c *Client) processSubscribe(packet *packets.SubscribePacket) {
 	for i := range packet.Topics {
 		suback.ReturnCodes[i] = packet.Qos
 	}
-	suback.Write(c.conn)
+	c.WritePacket(suback)
 }
 
 func (c *Client) processUnsubscribe(packet *packets.UnsubscribePacket) {
 	c.session.unsubscribe(packet.Topics)
+	c.broker.topicMgr.unsubscribe(packet.Topics, c.info.cid)
 
 	unsuback := packets.NewControlPacket(packets.Unsuback).(*packets.UnsubackPacket)
 	unsuback.MessageID = packet.MessageID
-	unsuback.Write(c.conn)
+	c.WritePacket(unsuback)
 }
 
 func (c *Client) processPingreq(packet *packets.PingreqPacket) {
 	resp := packets.NewControlPacket(packets.Pingresp).(*packets.PingrespPacket)
-	resp.Write(c.conn)
+	c.WritePacket(resp)
+}
+
+func (c *Client) WritePackets(ps []packets.ControlPacket) error {
+	c.Lock()
+	defer c.Unlock()
+	for _, p := range ps {
+		err := p.Write(c.conn)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *Client) WritePacket(packet packets.ControlPacket) error {
+	c.Lock()
+	defer c.Unlock()
+	return packet.Write(c.conn)
 }
 
 func (c *Client) close() {
