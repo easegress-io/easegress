@@ -133,7 +133,7 @@ func (s *Session) getPacketFromMsg(msg *Message) *packets.PublishPacket {
 	p.MessageID = s.nextID
 	// the overflow is okay here
 	// the session will give unique id from 0 to 65535 and do this again and again
-	s.nextID += 1
+	s.nextID++
 	return p
 }
 
@@ -156,7 +156,7 @@ func (s *Session) publishQueuedMsg() {
 		s.pending[p.MessageID] = p
 	}
 
-	go client.WritePackets(ps)
+	go client.writePackets(ps)
 }
 
 func (s *Session) publish(msg *Message) {
@@ -181,10 +181,10 @@ func (s *Session) publish(msg *Message) {
 		}
 		p := s.getPacketFromMsg(msg)
 		if msg.qos == Qos0 {
-			go client.WritePacket(p)
+			go client.writePacket(p)
 		} else if msg.qos == Qos1 {
 			s.pending[p.MessageID] = p
-			go client.WritePacket(p)
+			go client.writePacket(p)
 		} else {
 			logger.Errorf("current not support to publish message with qos=2")
 		}

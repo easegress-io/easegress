@@ -46,6 +46,7 @@ type (
 		done chan struct{}
 	}
 
+	// Message is the message send from broker to client
 	Message struct {
 		topic   string
 		payload []byte

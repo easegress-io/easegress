@@ -28,22 +28,22 @@ import (
 )
 
 const (
-	// MQTT client status for Connected
+	// Connected is MQTT client status of Connected
 	Connected = 1
-	// MQTT client status for Disconnected
+	// Disconnected is MQTT client status of Disconnected
 	Disconnected = 2
 
 	// three qualities of service for message delivery:
-	// for "At most once"
+	// Qos0 for "At most once"
 	Qos0 byte = 0
-	// for "At least once
+	// Qos1 for "At least once
 	Qos1 byte = 1
-	// for "Exactly once"
+	// Qos2 for "Exactly once"
 	Qos2 byte = 2
 )
 
 type (
-	// basic infomation for client
+	// ClientInfo is basic infomation for client
 	ClientInfo struct {
 		cid       string
 		username  string
@@ -165,7 +165,7 @@ func (c *Client) processPublish(publish *packets.PublishPacket) {
 	case Qos1:
 		puback := packets.NewControlPacket(packets.Puback).(*packets.PubackPacket)
 		puback.MessageID = publish.MessageID
-		err := c.WritePacket(puback)
+		err := c.writePacket(puback)
 		if err != nil {
 			logger.Errorf("write puback to client %s failed: %s", c.info.cid, err)
 		}
@@ -188,7 +188,7 @@ func (c *Client) processSubscribe(packet *packets.SubscribePacket) {
 	for i := range packet.Topics {
 		suback.ReturnCodes[i] = packet.Qos
 	}
-	c.WritePacket(suback)
+	c.writePacket(suback)
 }
 
 func (c *Client) processUnsubscribe(packet *packets.UnsubscribePacket) {
@@ -197,15 +197,15 @@ func (c *Client) processUnsubscribe(packet *packets.UnsubscribePacket) {
 
 	unsuback := packets.NewControlPacket(packets.Unsuback).(*packets.UnsubackPacket)
 	unsuback.MessageID = packet.MessageID
-	c.WritePacket(unsuback)
+	c.writePacket(unsuback)
 }
 
 func (c *Client) processPingreq(packet *packets.PingreqPacket) {
 	resp := packets.NewControlPacket(packets.Pingresp).(*packets.PingrespPacket)
-	c.WritePacket(resp)
+	c.writePacket(resp)
 }
 
-func (c *Client) WritePackets(ps []packets.ControlPacket) error {
+func (c *Client) writePackets(ps []packets.ControlPacket) error {
 	c.Lock()
 	defer c.Unlock()
 	for _, p := range ps {
@@ -217,7 +217,7 @@ func (c *Client) WritePackets(ps []packets.ControlPacket) error {
 	return nil
 }
 
-func (c *Client) WritePacket(packet packets.ControlPacket) error {
+func (c *Client) writePacket(packet packets.ControlPacket) error {
 	c.Lock()
 	defer c.Unlock()
 	return packet.Write(c.conn)
