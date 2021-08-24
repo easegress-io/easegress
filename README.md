@@ -323,7 +323,7 @@ See [Easegress Roadmap](./doc/Roadmap.md) for details.
 
 ## Community
 
-- [Slack Channel](https://openmegaease.slack.com/archives/C028Z6SUCU9) for requirement, issue and development.
+- [Join Slack Workspace](https://join.slack.com/t/openmegaease/shared_invite/zt-upo7v306-lYPHvVwKnvwlqR0Zl2vveA) for requirement, issue and development.
 - [MegaEase on Twitter](https://twitter.com/megaease)
 
 
