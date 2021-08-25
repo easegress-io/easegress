@@ -17,6 +17,13 @@
 
 package mqttproxy
 
+import "fmt"
+
+const (
+	sessionPrefix = "/mqtt/sessionMgr/clientID/%s"
+	topicPrefix   = "/mqtt/topicMgr/topicID/%s"
+)
+
 type (
 	// Spec describes the MQTTProxy.
 	Spec struct {
@@ -45,3 +52,7 @@ type (
 		Backend []string `yaml:"backend" jsonschema:"required,uniqueItems=true"`
 	}
 )
+
+func sessionStoreKey(clientID string) string {
+	return fmt.Sprintf(sessionPrefix, clientID)
+}

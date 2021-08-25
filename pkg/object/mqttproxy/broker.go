@@ -166,7 +166,7 @@ func (b *Broker) setSession(client *Client, connect *packets.ConnectPacket) {
 		// prevSess.update(connect)
 		client.session = prevSess
 	} else {
-		client.session = b.sessMgr.new(b, connect)
+		client.session = b.sessMgr.newSessionFromConn(b, connect)
 	}
 }
 

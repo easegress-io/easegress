@@ -73,13 +73,31 @@ type (
 )
 
 func newSessionManager(b *Broker, store storage.Storage) *SessionManager {
-	s := &SessionManager{
+	sm := &SessionManager{
 		store:   store,
 		storeCh: make(chan SessionStore),
 		done:    make(chan struct{}),
 	}
-	go s.doStore()
-	return s
+	go sm.doStore()
+
+	// get store session and init sessMgr and topicMgr
+	store.Lock()
+	allSess, err := store.GetPrefix(sessionStoreKey(""))
+	store.Unlock()
+	if err != nil {
+		return sm
+	}
+	for _, v := range allSess {
+		sess := sm.newSessionFromYaml(&v)
+		// init topicMgr here too
+		topics := []string{}
+		for k := range sess.info.Topics {
+			topics = append(topics, k)
+		}
+		b.topicMgr.subscribe(topics, sess.info.ClientID)
+		sm.smap.Store(sess.info.ClientID, sess)
+	}
+	return sm
 }
 
 func (sm *SessionManager) close() {
@@ -93,18 +111,30 @@ func (sm *SessionManager) doStore() {
 			return
 		case kv := <-sm.storeCh:
 			sm.store.Lock()
-			sm.store.Put(kv.key, kv.value)
+			sm.store.Put(sessionStoreKey(kv.key), kv.value)
 			sm.store.Unlock()
 		}
 	}
 }
 
-func (sm *SessionManager) new(b *Broker, connect *packets.ConnectPacket) *Session {
+func (sm *SessionManager) newSessionFromConn(b *Broker, connect *packets.ConnectPacket) *Session {
 	s := &Session{}
 	s.storeCh = sm.storeCh
 	s.init(b, connect)
 	sm.smap.Store(connect.ClientIdentifier, s)
 	return s
+}
+
+func (sm *SessionManager) newSessionFromYaml(str *string) *Session {
+	sess := &Session{}
+	sess.broker = sm.broker
+	sess.storeCh = sm.storeCh
+	sess.info = &SessionInfo{}
+	err := sess.decode(*str)
+	if err != nil {
+		return nil
+	}
+	return sess
 }
 
 func (sm *SessionManager) get(clientID string) *Session {
@@ -114,20 +144,15 @@ func (sm *SessionManager) get(clientID string) *Session {
 
 	sm.store.Lock()
 	defer sm.store.Unlock()
-	str, err := sm.store.Get(clientID)
+	str, err := sm.store.Get(sessionStoreKey(clientID))
 	if err != nil || str == nil {
 		return nil
 	}
 
-	sess := &Session{}
-	sess.broker = sm.broker
-	sess.storeCh = sm.storeCh
-	sess.info = &SessionInfo{}
-	err = sess.decode(*str)
-	if err != nil {
-		return nil
+	sess := sm.newSessionFromYaml(str)
+	if sess != nil {
+		sm.smap.Store(sess.info.ClientID, sess)
 	}
-	sm.smap.Store(sess.info.ClientID, sess)
 	return sess
 }
 
