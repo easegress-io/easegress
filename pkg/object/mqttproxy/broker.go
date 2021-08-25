@@ -45,13 +45,6 @@ type (
 		// done is the channel for shutdowning this proxy.
 		done chan struct{}
 	}
-
-	// Message is the message send from broker to client
-	Message struct {
-		topic   string
-		payload []byte
-		qos     byte
-	}
 )
 
 func newBroker(spec *Spec) *Broker {
@@ -169,20 +162,20 @@ func (b *Broker) setSession(client *Client, connect *packets.ConnectPacket) {
 	// then we use previous session, otherwise use new session
 	prevSess := b.sessMgr.get(connect.ClientIdentifier)
 	if !connect.CleanSession && (prevSess != nil) && !prevSess.cleanSession() {
-		prevSess.update(connect)
+		// prevSess.update(connect)
 		client.session = prevSess
 	} else {
 		client.session = b.sessMgr.new(b, connect)
 	}
 }
 
-func (b *Broker) sendMsgToClient(msg *Message) {
+func (b *Broker) sendMsgToClient(topic string, payload []byte, qos byte) {
 	// plan, use topic from topic manager find clientID
 	// use client ids find session
 	// add message to session wait queue
-	subscribers := b.topicMgr.findSubscribers(msg.topic)
+	subscribers := b.topicMgr.findSubscribers(topic)
 	if subscribers == nil {
-		logger.Errorf("sendMsgToClient not find subscribers for topic <%s>", msg.topic)
+		logger.Errorf("sendMsgToClient not find subscribers for topic <%s>", topic)
 		return
 	}
 	for clientID := range subscribers {
@@ -190,7 +183,7 @@ func (b *Broker) sendMsgToClient(msg *Message) {
 		if sess == nil {
 			logger.Errorf("session for client <%s> is nil", clientID)
 		} else {
-			sess.publish(msg)
+			sess.publish(topic, payload, qos)
 		}
 	}
 }

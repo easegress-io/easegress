@@ -18,8 +18,10 @@
 package mqttproxy
 
 import (
-	"fmt"
+	"encoding/base64"
 	"sync"
+
+	"gopkg.in/yaml.v2"
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/logger"
@@ -34,18 +36,24 @@ type (
 	// Session includes the information about the connect between client and broker,
 	// such as topic subscribe, not-send messages, etc.
 	Session struct {
-		sync.Mutex
+		sync.Mutex `yaml:"-"`
+		broker     *Broker `yaml:"-"`
 
-		broker    *Broker
-		connect   *packets.ConnectPacket
-		topics    map[string]byte // map subscribe topic to qos
-		clientID  string
-		cleanFlag bool
+		// map subscribe topic to qos
+		Topics    map[string]int `yaml:"topics"`
+		ClientID  string         `yaml:"clientID"`
+		CleanFlag bool           `yaml:"cleanFlag"`
 
-		nextID  uint16
-		qos0    []*Message
-		qos1    []*Message
-		pending map[uint16]*packets.PublishPacket
+		NextID  uint16              `yaml:"nextID"`
+		Qos1    []*Message          `yaml:"qos1"`
+		Pending map[uint16]*Message `yaml:"pending"`
+	}
+
+	// Message is the message send from broker to client
+	Message struct {
+		Topic      string `yaml:"topic"`
+		B64Payload string `yaml:"b64Payload"`
+		Qos        int    `yaml:"qos"`
 	}
 )
 
@@ -72,25 +80,25 @@ func (sm *SessionManager) del(clientID string) {
 	sm.smap.Delete(clientID)
 }
 
-func (s *Session) init(b *Broker, connect *packets.ConnectPacket) error {
-	s.broker = b
-	s.connect = connect
-	s.clientID = connect.ClientIdentifier
-	s.cleanFlag = connect.CleanSession
-	s.topics = make(map[string]byte)
-	s.qos0 = []*Message{}
-	s.qos1 = []*Message{}
-	s.pending = make(map[uint16]*packets.PublishPacket)
-	return nil
+func (s *Session) encode() (string, error) {
+	b, err := yaml.Marshal(s)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
 }
 
-func (s *Session) update(connect *packets.ConnectPacket) error {
-	s.Lock()
-	defer s.Unlock()
-	if s.connect.CleanSession {
-		return fmt.Errorf("session %s set CleanSession, should not update", s.clientID)
-	}
-	s.connect = connect
+func (s *Session) decode(str string) error {
+	return yaml.Unmarshal([]byte(str), s)
+}
+
+func (s *Session) init(b *Broker, connect *packets.ConnectPacket) error {
+	s.broker = b
+	s.ClientID = connect.ClientIdentifier
+	s.CleanFlag = connect.CleanSession
+	s.Topics = make(map[string]int)
+	s.Qos1 = []*Message{}
+	s.Pending = make(map[uint16]*Message)
 	return nil
 }
 
@@ -98,7 +106,7 @@ func (s *Session) subscribe(topics []string, qoss []byte) error {
 	s.Lock()
 	defer s.Unlock()
 	for i, t := range topics {
-		s.topics[t] = qoss[i]
+		s.Topics[t] = int(qoss[i])
 	}
 	return nil
 }
@@ -107,7 +115,7 @@ func (s *Session) unsubscribe(topics []string) error {
 	s.Lock()
 	defer s.Unlock()
 	for _, t := range topics {
-		delete(s.topics, t)
+		delete(s.Topics, t)
 	}
 	return nil
 }
@@ -118,27 +126,27 @@ func (s *Session) allSubscribes() ([]string, []byte, error) {
 
 	var sub []string
 	var qos []byte
-	for k, v := range s.topics {
+	for k, v := range s.Topics {
 		sub = append(sub, k)
-		qos = append(qos, v)
+		qos = append(qos, byte(v))
 	}
 	return sub, qos, nil
 }
 
-func (s *Session) getPacketFromMsg(msg *Message) *packets.PublishPacket {
+func (s *Session) getPacketFromMsg(topic string, payload []byte, qos byte) *packets.PublishPacket {
 	p := packets.NewControlPacket(packets.Publish).(*packets.PublishPacket)
-	p.Qos = msg.qos
-	p.TopicName = msg.topic
-	p.Payload = msg.payload
-	p.MessageID = s.nextID
+	p.Qos = qos
+	p.TopicName = topic
+	p.Payload = payload
+	p.MessageID = s.NextID
 	// the overflow is okay here
 	// the session will give unique id from 0 to 65535 and do this again and again
-	s.nextID++
+	s.NextID++
 	return p
 }
 
 func (s *Session) publishQueuedMsg() {
-	client := s.broker.getClient(s.clientID)
+	client := s.broker.getClient(s.ClientID)
 	if client == nil {
 		return
 	}
@@ -146,44 +154,49 @@ func (s *Session) publishQueuedMsg() {
 	defer s.Unlock()
 
 	ps := []packets.ControlPacket{}
-	for _, msg := range s.qos0 {
-		p := s.getPacketFromMsg(msg)
+	for _, msg := range s.Qos1 {
+		payload, _ := base64.StdEncoding.DecodeString(msg.B64Payload)
+		p := s.getPacketFromMsg(msg.Topic, payload, byte(msg.Qos))
 		ps = append(ps, p)
-	}
-	for _, msg := range s.qos1 {
-		p := s.getPacketFromMsg(msg)
-		ps = append(ps, p)
-		s.pending[p.MessageID] = p
+		s.Pending[p.MessageID] = msg
 	}
 
 	go client.writePackets(ps)
 }
 
-func (s *Session) publish(msg *Message) {
-	client := s.broker.getClient(s.clientID)
+func getMsg(topic string, payload []byte, qos byte) *Message {
+	m := &Message{
+		Topic:      topic,
+		B64Payload: base64.StdEncoding.EncodeToString(payload),
+		Qos:        int(qos),
+	}
+	return m
+}
+
+func (s *Session) publish(topic string, payload []byte, qos byte) {
+	client := s.broker.getClient(s.ClientID)
 	s.Lock()
 	defer s.Unlock()
 
-	if qos, ok := s.topics[msg.topic]; !ok || qos < msg.qos {
+	if q, ok := s.Topics[topic]; !ok || byte(q) < qos {
 		return
 	}
 	if client == nil {
-		if msg.qos == Qos0 {
-			s.qos0 = append(s.qos0, msg)
-		} else if msg.qos == Qos1 {
-			s.qos1 = append(s.qos1, msg)
+		if qos == Qos1 {
+			s.Qos1 = append(s.Qos1, getMsg(topic, payload, qos))
 		} else {
 			logger.Errorf("current not support to publish message with qos=2")
 		}
 	} else {
-		if len(s.qos0) != 0 || len(s.qos1) != 0 {
+		if len(s.Qos1) != 0 {
 			go s.publishQueuedMsg()
 		}
-		p := s.getPacketFromMsg(msg)
-		if msg.qos == Qos0 {
+		p := s.getPacketFromMsg(topic, payload, qos)
+		if qos == Qos0 {
 			go client.writePacket(p)
-		} else if msg.qos == Qos1 {
-			s.pending[p.MessageID] = p
+		} else if qos == Qos1 {
+			msg := getMsg(topic, payload, qos)
+			s.Pending[p.MessageID] = msg
 			go client.writePacket(p)
 		} else {
 			logger.Errorf("current not support to publish message with qos=2")
@@ -194,9 +207,9 @@ func (s *Session) publish(msg *Message) {
 func (s *Session) puback(p *packets.PubackPacket) {
 	s.Lock()
 	defer s.Unlock()
-	delete(s.pending, p.MessageID)
+	delete(s.Pending, p.MessageID)
 }
 
 func (s *Session) cleanSession() bool {
-	return s.cleanFlag
+	return s.CleanFlag
 }
