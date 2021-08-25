@@ -17,7 +17,10 @@
 
 package mqttproxy
 
-import "github.com/megaease/easegress/pkg/supervisor"
+import (
+	"github.com/megaease/easegress/pkg/object/function/storage"
+	"github.com/megaease/easegress/pkg/supervisor"
+)
 
 const (
 	// Category is the category of MQTTProxy.
@@ -65,7 +68,9 @@ func (mp *MQTTProxy) Init(superSpec *supervisor.Spec) {
 	spec := superSpec.ObjectSpec().(*Spec)
 	spec.Name = superSpec.Name()
 	mp.superSpec, mp.spec = superSpec, spec
-	mp.broker = newBroker(spec)
+
+	store := storage.NewStorage(superSpec.Name(), superSpec.Super().Cluster())
+	mp.broker = newBroker(spec, store)
 }
 
 // Inherit inherits previous generation of WebSocketServer.

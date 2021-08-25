@@ -25,6 +25,7 @@ import (
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/object/function/storage"
 )
 
 type (
@@ -39,6 +40,7 @@ type (
 		clients  map[string]*Client
 		auth     map[string]string
 
+		store    storage.Storage
 		sessMgr  *SessionManager
 		topicMgr *TopicManager
 
@@ -47,7 +49,7 @@ type (
 	}
 )
 
-func newBroker(spec *Spec) *Broker {
+func newBroker(spec *Spec, store storage.Storage) *Broker {
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", spec.Port))
 	if err != nil {
 		logger.Errorf("%#v gen mqtt tcp listener, failed: %v", spec, err)
@@ -61,10 +63,10 @@ func newBroker(spec *Spec) *Broker {
 		backend:  newBackendMQ(spec),
 		clients:  make(map[string]*Client),
 		auth:     make(map[string]string),
-		sessMgr:  newSessionManager(),
 		topicMgr: newTopicManager(),
 		done:     make(chan struct{}),
 	}
+	broker.sessMgr = newSessionManager(broker, store)
 	for _, a := range spec.Auth {
 		broker.auth[a.Username] = a.B64Passwd
 	}
@@ -202,6 +204,7 @@ func (b *Broker) close() {
 	close(b.done)
 	b.listener.Close()
 	b.backend.close()
+	b.sessMgr.close()
 
 	b.Lock()
 	defer b.Unlock()

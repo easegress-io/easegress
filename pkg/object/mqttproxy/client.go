@@ -232,6 +232,6 @@ func (c *Client) close() {
 	c.status = Disconnected
 	close(c.done)
 	if c.session.cleanSession() {
-		c.broker.sessMgr.del(c.info.cid)
+		c.broker.sessMgr.delLocal(c.info.cid)
 	}
 }

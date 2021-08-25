@@ -25,19 +25,25 @@ import (
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/storage"
 )
 
 type (
 	// SessionManager manage the status of session for clients
 	SessionManager struct {
-		smap sync.Map
+		broker  *Broker
+		smap    sync.Map
+		store   storage.Storage
+		storeCh chan SessionStore
+		done    chan struct{}
 	}
 
 	// Session includes the information about the connect between client and broker,
 	// such as topic subscribe, not-send messages, etc.
 	Session struct {
 		sync.Mutex `yaml:"-"`
-		broker     *Broker `yaml:"-"`
+		broker     *Broker           `yaml:"-"`
+		storeCh    chan SessionStore `yaml:"-"`
 
 		// map subscribe topic to qos
 		Topics    map[string]int `yaml:"topics"`
@@ -49,6 +55,11 @@ type (
 		Pending map[uint16]*Message `yaml:"pending"`
 	}
 
+	SessionStore struct {
+		key   string
+		value string
+	}
+
 	// Message is the message send from broker to client
 	Message struct {
 		Topic      string `yaml:"topic"`
@@ -57,13 +68,36 @@ type (
 	}
 )
 
-func newSessionManager() *SessionManager {
-	s := &SessionManager{}
+func newSessionManager(b *Broker, store storage.Storage) *SessionManager {
+	s := &SessionManager{
+		store:   store,
+		storeCh: make(chan SessionStore),
+		done:    make(chan struct{}),
+	}
+	go s.doStore()
 	return s
+}
+
+func (sm *SessionManager) close() {
+	close(sm.done)
+}
+
+func (sm *SessionManager) doStore() {
+	for {
+		select {
+		case <-sm.done:
+			return
+		case kv := <-sm.storeCh:
+			sm.store.Lock()
+			sm.store.Put(kv.key, kv.value)
+			sm.store.Unlock()
+		}
+	}
 }
 
 func (sm *SessionManager) new(b *Broker, connect *packets.ConnectPacket) *Session {
 	s := &Session{}
+	s.storeCh = sm.storeCh
 	s.init(b, connect)
 	sm.smap.Store(connect.ClientIdentifier, s)
 	return s
@@ -73,11 +107,41 @@ func (sm *SessionManager) get(clientID string) *Session {
 	if val, ok := sm.smap.Load(clientID); ok {
 		return val.(*Session)
 	}
-	return nil
+	sm.store.Lock()
+	defer sm.store.Unlock()
+	str, err := sm.store.Get(clientID)
+	if err != nil || str == nil {
+		return nil
+	}
+
+	sess := &Session{}
+	sess.broker = sm.broker
+	sess.storeCh = sm.storeCh
+	err = sess.decode(*str)
+	if err != nil {
+		return nil
+	}
+	sm.smap.Store(sess.ClientID, sess)
+	return sess
 }
 
-func (sm *SessionManager) del(clientID string) {
+func (sm *SessionManager) delLocal(clientID string) {
 	sm.smap.Delete(clientID)
+}
+
+func (s *Session) store() {
+	str, err := s.encode()
+	if err != nil {
+		logger.Errorf("encode session %+v failed, %v", s, err)
+		return
+	}
+	ss := SessionStore{
+		key:   s.ClientID,
+		value: str,
+	}
+	go func() {
+		s.storeCh <- ss
+	}()
 }
 
 func (s *Session) encode() (string, error) {
@@ -160,7 +224,6 @@ func (s *Session) publishQueuedMsg() {
 		ps = append(ps, p)
 		s.Pending[p.MessageID] = msg
 	}
-
 	go client.writePackets(ps)
 }
 
@@ -202,6 +265,7 @@ func (s *Session) publish(topic string, payload []byte, qos byte) {
 			logger.Errorf("current not support to publish message with qos=2")
 		}
 	}
+	s.store()
 }
 
 func (s *Session) puback(p *packets.PubackPacket) {
