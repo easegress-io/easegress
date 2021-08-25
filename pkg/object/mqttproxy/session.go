@@ -38,13 +38,8 @@ type (
 		done    chan struct{}
 	}
 
-	// Session includes the information about the connect between client and broker,
-	// such as topic subscribe, not-send messages, etc.
-	Session struct {
-		sync.Mutex `yaml:"-"`
-		broker     *Broker           `yaml:"-"`
-		storeCh    chan SessionStore `yaml:"-"`
-
+	// SessionInfo is info about session that will be put into etcd for persistency
+	SessionInfo struct {
 		// map subscribe topic to qos
 		Topics    map[string]int `yaml:"topics"`
 		ClientID  string         `yaml:"clientID"`
@@ -53,6 +48,15 @@ type (
 		NextID  uint16              `yaml:"nextID"`
 		Qos1    []*Message          `yaml:"qos1"`
 		Pending map[uint16]*Message `yaml:"pending"`
+	}
+
+	// Session includes the information about the connect between client and broker,
+	// such as topic subscribe, not-send messages, etc.
+	Session struct {
+		sync.Mutex
+		broker  *Broker
+		storeCh chan SessionStore
+		info    *SessionInfo
 	}
 
 	SessionStore struct {
@@ -107,6 +111,7 @@ func (sm *SessionManager) get(clientID string) *Session {
 	if val, ok := sm.smap.Load(clientID); ok {
 		return val.(*Session)
 	}
+
 	sm.store.Lock()
 	defer sm.store.Unlock()
 	str, err := sm.store.Get(clientID)
@@ -117,11 +122,12 @@ func (sm *SessionManager) get(clientID string) *Session {
 	sess := &Session{}
 	sess.broker = sm.broker
 	sess.storeCh = sm.storeCh
+	sess.info = &SessionInfo{}
 	err = sess.decode(*str)
 	if err != nil {
 		return nil
 	}
-	sm.smap.Store(sess.ClientID, sess)
+	sm.smap.Store(sess.info.ClientID, sess)
 	return sess
 }
 
@@ -136,7 +142,7 @@ func (s *Session) store() {
 		return
 	}
 	ss := SessionStore{
-		key:   s.ClientID,
+		key:   s.info.ClientID,
 		value: str,
 	}
 	go func() {
@@ -145,7 +151,7 @@ func (s *Session) store() {
 }
 
 func (s *Session) encode() (string, error) {
-	b, err := yaml.Marshal(s)
+	b, err := yaml.Marshal(s.info)
 	if err != nil {
 		return "", err
 	}
@@ -153,16 +159,17 @@ func (s *Session) encode() (string, error) {
 }
 
 func (s *Session) decode(str string) error {
-	return yaml.Unmarshal([]byte(str), s)
+	return yaml.Unmarshal([]byte(str), s.info)
 }
 
 func (s *Session) init(b *Broker, connect *packets.ConnectPacket) error {
 	s.broker = b
-	s.ClientID = connect.ClientIdentifier
-	s.CleanFlag = connect.CleanSession
-	s.Topics = make(map[string]int)
-	s.Qos1 = []*Message{}
-	s.Pending = make(map[uint16]*Message)
+	s.info = &SessionInfo{}
+	s.info.ClientID = connect.ClientIdentifier
+	s.info.CleanFlag = connect.CleanSession
+	s.info.Topics = make(map[string]int)
+	s.info.Qos1 = []*Message{}
+	s.info.Pending = make(map[uint16]*Message)
 	return nil
 }
 
@@ -170,7 +177,7 @@ func (s *Session) subscribe(topics []string, qoss []byte) error {
 	s.Lock()
 	defer s.Unlock()
 	for i, t := range topics {
-		s.Topics[t] = int(qoss[i])
+		s.info.Topics[t] = int(qoss[i])
 	}
 	return nil
 }
@@ -179,7 +186,7 @@ func (s *Session) unsubscribe(topics []string) error {
 	s.Lock()
 	defer s.Unlock()
 	for _, t := range topics {
-		delete(s.Topics, t)
+		delete(s.info.Topics, t)
 	}
 	return nil
 }
@@ -190,7 +197,7 @@ func (s *Session) allSubscribes() ([]string, []byte, error) {
 
 	var sub []string
 	var qos []byte
-	for k, v := range s.Topics {
+	for k, v := range s.info.Topics {
 		sub = append(sub, k)
 		qos = append(qos, byte(v))
 	}
@@ -202,15 +209,15 @@ func (s *Session) getPacketFromMsg(topic string, payload []byte, qos byte) *pack
 	p.Qos = qos
 	p.TopicName = topic
 	p.Payload = payload
-	p.MessageID = s.NextID
+	p.MessageID = s.info.NextID
 	// the overflow is okay here
 	// the session will give unique id from 0 to 65535 and do this again and again
-	s.NextID++
+	s.info.NextID++
 	return p
 }
 
 func (s *Session) publishQueuedMsg() {
-	client := s.broker.getClient(s.ClientID)
+	client := s.broker.getClient(s.info.ClientID)
 	if client == nil {
 		return
 	}
@@ -218,11 +225,11 @@ func (s *Session) publishQueuedMsg() {
 	defer s.Unlock()
 
 	ps := []packets.ControlPacket{}
-	for _, msg := range s.Qos1 {
+	for _, msg := range s.info.Qos1 {
 		payload, _ := base64.StdEncoding.DecodeString(msg.B64Payload)
 		p := s.getPacketFromMsg(msg.Topic, payload, byte(msg.Qos))
 		ps = append(ps, p)
-		s.Pending[p.MessageID] = msg
+		s.info.Pending[p.MessageID] = msg
 	}
 	go client.writePackets(ps)
 }
@@ -237,21 +244,21 @@ func getMsg(topic string, payload []byte, qos byte) *Message {
 }
 
 func (s *Session) publish(topic string, payload []byte, qos byte) {
-	client := s.broker.getClient(s.ClientID)
+	client := s.broker.getClient(s.info.ClientID)
 	s.Lock()
 	defer s.Unlock()
 
-	if q, ok := s.Topics[topic]; !ok || byte(q) < qos {
+	if q, ok := s.info.Topics[topic]; !ok || byte(q) < qos {
 		return
 	}
 	if client == nil {
 		if qos == Qos1 {
-			s.Qos1 = append(s.Qos1, getMsg(topic, payload, qos))
+			s.info.Qos1 = append(s.info.Qos1, getMsg(topic, payload, qos))
 		} else {
 			logger.Errorf("current not support to publish message with qos=2")
 		}
 	} else {
-		if len(s.Qos1) != 0 {
+		if len(s.info.Qos1) != 0 {
 			go s.publishQueuedMsg()
 		}
 		p := s.getPacketFromMsg(topic, payload, qos)
@@ -259,7 +266,7 @@ func (s *Session) publish(topic string, payload []byte, qos byte) {
 			go client.writePacket(p)
 		} else if qos == Qos1 {
 			msg := getMsg(topic, payload, qos)
-			s.Pending[p.MessageID] = msg
+			s.info.Pending[p.MessageID] = msg
 			go client.writePacket(p)
 		} else {
 			logger.Errorf("current not support to publish message with qos=2")
@@ -271,9 +278,11 @@ func (s *Session) publish(topic string, payload []byte, qos byte) {
 func (s *Session) puback(p *packets.PubackPacket) {
 	s.Lock()
 	defer s.Unlock()
-	delete(s.Pending, p.MessageID)
+	delete(s.info.Pending, p.MessageID)
 }
 
 func (s *Session) cleanSession() bool {
-	return s.CleanFlag
+	s.Lock()
+	defer s.Unlock()
+	return s.info.CleanFlag
 }

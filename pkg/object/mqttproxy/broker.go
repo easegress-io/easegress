@@ -40,7 +40,6 @@ type (
 		clients  map[string]*Client
 		auth     map[string]string
 
-		store    storage.Storage
 		sessMgr  *SessionManager
 		topicMgr *TopicManager
 
