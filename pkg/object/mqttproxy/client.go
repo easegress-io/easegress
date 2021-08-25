@@ -33,7 +33,6 @@ const (
 	// Disconnected is MQTT client status of Disconnected
 	Disconnected = 2
 
-	// three qualities of service for message delivery:
 	// Qos0 for "At most once"
 	Qos0 byte = 0
 	// Qos1 for "At least once

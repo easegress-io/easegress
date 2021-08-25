@@ -59,6 +59,7 @@ type (
 		info    *SessionInfo
 	}
 
+	// SessionStore for session store, key is session clientID, value is session yaml marshal value
 	SessionStore struct {
 		key   string
 		value string
