@@ -45,7 +45,7 @@ type (
 		superSpec *supervisor.Spec
 		spec      *Spec
 
-		mutex      sync.Mutex
+		mutex      *sync.Mutex
 		namespaces map[string]*Namespace
 	}
 
@@ -134,6 +134,7 @@ func (tc *TrafficController) DefaultSpec() interface{} {
 func (tc *TrafficController) Init(superSpec *supervisor.Spec) {
 	tc.superSpec, tc.spec, tc.super = superSpec, superSpec.ObjectSpec().(*Spec), superSpec.Super()
 
+	tc.mutex = &sync.Mutex{}
 	tc.namespaces = make(map[string]*Namespace)
 
 	tc.reload(nil)
