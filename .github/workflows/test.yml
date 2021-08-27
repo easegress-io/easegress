@@ -41,7 +41,7 @@ jobs:
           make test TEST_FLAGS="-race -coverprofile=coverage.txt -covermode=atomic"
 
       - name: Upload coverage to Codecov 
-        uses: codecov/codecov-action@v2.0.2
+        uses: codecov/codecov-action@v2.0.3
         with:
           file: ./coverage.txt
   test-win:
