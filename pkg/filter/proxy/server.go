@@ -27,19 +27,10 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/serviceregistry"
+	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/hashtool"
 	"github.com/megaease/easegress/pkg/util/stringtool"
 )
-
-// make it mockable in test
-var fnGetService atomic.Value
-
-func init() {
-	rand.Seed(time.Now().UnixNano())
-	fnGetService.Store(func(serviceRegistry, serviceName string) (*serviceregistry.Service, error) {
-		return serviceregistry.Global.GetService(serviceRegistry, serviceName)
-	})
-}
 
 const (
 	// PolicyRoundRobin is the policy of round-robin.
@@ -59,11 +50,13 @@ const (
 type (
 	servers struct {
 		poolSpec *PoolSpec
+		super    *supervisor.Supervisor
 
-		mutex   sync.Mutex
-		service *serviceregistry.Service
-		static  *staticServers
-		done    chan struct{}
+		mutex           sync.Mutex
+		serviceRegistry *serviceregistry.ServiceRegistry
+		serviceWatcher  serviceregistry.ServiceWatcher
+		static          *staticServers
+		done            chan struct{}
 	}
 
 	staticServers struct {
@@ -100,141 +93,109 @@ func (lb LoadBalance) Validate() error {
 	return nil
 }
 
-func newServers(poolSpec *PoolSpec) *servers {
+func newServers(super *supervisor.Supervisor, poolSpec *PoolSpec) *servers {
 	s := &servers{
 		poolSpec: poolSpec,
+		super:    super,
 		done:     make(chan struct{}),
 	}
 
-	s.tryUpdateService()
+	s.useStaticServers()
 
-	go s.run()
+	if poolSpec.ServiceRegistry == "" || poolSpec.ServiceName == "" {
+		return s
+	}
+
+	s.serviceRegistry = s.super.MustGetSystemController(serviceregistry.Kind).
+		Instance().(*serviceregistry.ServiceRegistry)
+
+	s.tryUseService()
+	s.serviceWatcher = s.serviceRegistry.NewServiceWatcher(s.poolSpec.ServiceRegistry, s.poolSpec.ServiceName)
+
+	go s.watchService()
 
 	return s
 }
 
-func (s *servers) run() {
-	if s.poolSpec.ServiceName == "" {
-		return
-	}
-
+func (s *servers) watchService() {
 	for {
-		service := s.mustUpdateService()
-
-		// NOTE: The servers is closed.
-		if service == nil {
-			return
-		}
-
 		select {
-		// NOTE: Defensive programming.
 		case <-s.done:
 			return
-		case <-service.Updated():
-			logger.Infof("service %s updated, try to update",
-				s.poolSpec.ServiceName)
-		case <-service.Closed():
-			logger.Warnf("service %s closed: %s, try to get again",
-				s.poolSpec.ServiceName, service.CloseMessage())
+		case event := <-s.serviceWatcher.Watch():
+			s.handleEvent(event)
 		}
 	}
 }
 
-// mustUpdateService blocks until getting the service or closed.
-func (s *servers) mustUpdateService() *serviceregistry.Service {
-	for {
-		service, err := s.useService()
-		if err == nil {
-			return service
-		}
-		logger.Warnf("%v", err)
-		select {
-		case <-s.done:
-			return nil
-		case <-time.After(retryTimeout):
-		}
-	}
+func (s *servers) handleEvent(event *serviceregistry.ServiceEvent) {
+	s.useService(event.Instances)
 }
 
-// tryUpdateService uses static servers if it failed to get service.
-func (s *servers) tryUpdateService() {
-	if s.poolSpec.ServiceName == "" {
+func (s *servers) tryUseService() {
+	serviceInstanceSpecs, err := s.serviceRegistry.ListServiceInstances(s.poolSpec.ServiceRegistry, s.poolSpec.ServiceName)
+
+	if err != nil {
+		logger.Errorf("get service %s/%s failed: %v",
+			s.poolSpec.ServiceRegistry, s.poolSpec.ServiceName, err)
 		s.useStaticServers()
 		return
 	}
 
-	_, err := s.useService()
-	if err == nil {
+	s.useService(serviceInstanceSpecs)
+}
+
+func (s *servers) useService(serviceInstanceSpecs map[string]*serviceregistry.ServiceInstanceSpec) {
+	var servers []*Server
+	for _, instance := range serviceInstanceSpecs {
+		servers = append(servers, &Server{
+			URL:    instance.URL(),
+			Tags:   instance.Tags,
+			Weight: instance.Weight,
+		})
+	}
+	if len(servers) == 0 {
+		logger.Errorf("%s/%s: empty service instance",
+			s.poolSpec.ServiceRegistry, s.poolSpec.ServiceName)
+		s.useStaticServers()
 		return
 	}
 
-	logger.Errorf("%v", err)
-	if len(s.poolSpec.Servers) > 0 {
-		logger.Warnf("fallback to static severs")
+	dynamicServers := newStaticServers(servers, s.poolSpec.ServersTags, s.poolSpec.LoadBalance)
+	if dynamicServers.len() == 0 {
+		logger.Errorf("%s/%s: no service instance satisfy tags: %v",
+			s.poolSpec.ServiceRegistry, s.poolSpec.ServiceName, s.poolSpec.ServersTags)
 		s.useStaticServers()
-	} else {
-		logger.Warnf("no static server available either")
 	}
+
+	logger.Infof("use dynamic service: %s/%s", s.poolSpec.ServiceRegistry, s.poolSpec.ServiceName)
+
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.static = dynamicServers
 }
 
 func (s *servers) useStaticServers() {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	s.static = newStaticServers(s.poolSpec.Servers,
-		s.poolSpec.ServersTags,
-		s.poolSpec.LoadBalance)
-	s.service = nil
+	s.static = newStaticServers(s.poolSpec.Servers, s.poolSpec.ServersTags, s.poolSpec.LoadBalance)
 }
 
-func getService(serviceRegistry, serviceName string) (*serviceregistry.Service, error) {
-	fn := fnGetService.Load().(func(serviceRegistry, serviceName string) (*serviceregistry.Service, error))
-	return fn(serviceRegistry, serviceName)
-}
-
-func (s *servers) useService() (*serviceregistry.Service, error) {
+func (s *servers) snapshot() *staticServers {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	service, err := getService(s.poolSpec.ServiceRegistry, s.poolSpec.ServiceName)
-	if err != nil {
-		return nil, fmt.Errorf("get service %s failed: %v", s.poolSpec.ServiceName, err)
-	}
-
-	var serversInput []*Server
-	servers := service.Servers()
-	for _, snapshotServer := range servers {
-		serversInput = append(serversInput, &Server{
-			URL:    snapshotServer.URL(),
-			Tags:   snapshotServer.Tags,
-			Weight: snapshotServer.Weight,
-		})
-	}
-	static := newStaticServers(serversInput, s.poolSpec.ServersTags, s.poolSpec.LoadBalance)
-
-	s.static, s.service = static, service
-
-	return service, nil
-}
-
-func (s *servers) snapshot() (*staticServers, *serviceregistry.Service) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	return s.static, s.service
+	return s.static
 }
 
 func (s *servers) len() int {
-	static, _ := s.snapshot()
-
-	if static == nil {
-		return 0
-	}
+	static := s.snapshot()
 
 	return static.len()
 }
 
 func (s *servers) next(ctx context.HTTPContext) (*Server, error) {
-	static, _ := s.snapshot()
+	static := s.snapshot()
 
 	if static.len() == 0 {
 		return nil, fmt.Errorf("no server available")
@@ -245,9 +206,17 @@ func (s *servers) next(ctx context.HTTPContext) (*Server, error) {
 
 func (s *servers) close() {
 	close(s.done)
+
+	if s.serviceWatcher != nil {
+		s.serviceWatcher.Stop()
+	}
 }
 
 func newStaticServers(servers []*Server, tags []string, lb *LoadBalance) *staticServers {
+	if servers == nil {
+		servers = make([]*Server, 0)
+	}
+
 	ss := &staticServers{}
 	if lb == nil {
 		ss.lb.Policy = PolicyRoundRobin

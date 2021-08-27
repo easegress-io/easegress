@@ -28,6 +28,8 @@ import (
 type (
 	// Cluster is the open cluster interface.
 	Cluster interface {
+		IsLeader() bool
+
 		Layout() *Layout
 
 		Get(key string) (*string, error)

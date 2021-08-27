@@ -117,7 +117,7 @@ func New(superSpec *supervisor.Spec) *Worker {
 	store := storage.New(superSpec.Name(), super.Cluster())
 	_service := service.New(superSpec)
 	registryCenterServer := registrycenter.NewRegistryCenterServer(spec.RegistryType,
-		serviceName, applicationIP, applicationPort, instanceID, serviceLabels, _service)
+		superSpec.Name(), serviceName, applicationIP, applicationPort, instanceID, serviceLabels, _service)
 
 	inf := informer.NewInformer(store, serviceName)
 	ingressServer := NewIngressServer(superSpec, super, serviceName, inf)

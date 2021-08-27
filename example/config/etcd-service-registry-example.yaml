@@ -1,5 +1,5 @@
 kind: EtcdServiceRegistry
 name: etcd-service-registry-example
-endpoints: ['127.0.0.1:12379']
+endpoints: ['127.0.0.1:2379']
 prefix: "/services/"
-cacheTimeout: 10s
+cacheTimeout: 5s

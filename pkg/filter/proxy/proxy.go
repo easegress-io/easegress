@@ -195,7 +195,9 @@ func (b *Proxy) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration 
 }
 
 func (b *Proxy) reload() {
-	b.mainPool = newPool(b.spec.MainPool, "proxy#main",
+	super := b.filterSpec.Super()
+
+	b.mainPool = newPool(super, b.spec.MainPool, "proxy#main",
 		true /*writeResponse*/, b.spec.FailureCodes)
 
 	if b.spec.Fallback != nil {
@@ -205,13 +207,14 @@ func (b *Proxy) reload() {
 	if len(b.spec.CandidatePools) > 0 {
 		var candidatePools []*pool
 		for k := range b.spec.CandidatePools {
-			candidatePools = append(candidatePools, newPool(b.spec.CandidatePools[k], fmt.Sprintf("proxy#candidate#%d", k),
-				true, b.spec.FailureCodes))
+			candidatePools = append(candidatePools,
+				newPool(super, b.spec.CandidatePools[k], fmt.Sprintf("proxy#candidate#%d", k),
+					true, b.spec.FailureCodes))
 		}
 		b.candidatePools = candidatePools
 	}
 	if b.spec.MirrorPool != nil {
-		b.mirrorPool = newPool(b.spec.MirrorPool, "proxy#mirror",
+		b.mirrorPool = newPool(super, b.spec.MirrorPool, "proxy#mirror",
 			false /*writeResponse*/, b.spec.FailureCodes)
 	}
 
@@ -276,14 +279,7 @@ func (b *Proxy) handle(ctx context.HTTPContext) (result string) {
 
 		wg := &sync.WaitGroup{}
 		wg.Add(1)
-		defer func() {
-			if result == "" {
-				// NOTE: Waiting for mirrorPool finishing
-				// only if mainPool/candidatePool handled
-				// with normal result.
-				wg.Wait()
-			}
-		}()
+		defer wg.Wait()
 
 		go func() {
 			defer wg.Done()

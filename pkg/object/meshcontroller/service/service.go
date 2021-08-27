@@ -322,6 +322,14 @@ func (s *Service) PutServiceInstanceSpec(_spec *spec.ServiceInstanceSpec) {
 	}
 }
 
+// DeleteServiceInstanceSpec deletes the service instance spec.
+func (s *Service) DeleteServiceInstanceSpec(serviceName, instanceID string) {
+	err := s.store.Delete(layout.ServiceInstanceSpecKey(serviceName, instanceID))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+}
+
 // ListTenantSpecs lists tenant specs
 func (s *Service) ListTenantSpecs() []*spec.Tenant {
 	tenants := []*spec.Tenant{}

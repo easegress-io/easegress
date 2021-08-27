@@ -37,17 +37,18 @@ import (
 	_ "github.com/megaease/easegress/pkg/filter/wasmhost"
 
 	// Objects
+	_ "github.com/megaease/easegress/pkg/object/consulserviceregistry"
 	_ "github.com/megaease/easegress/pkg/object/easemonitormetrics"
+	_ "github.com/megaease/easegress/pkg/object/etcdserviceregistry"
+	_ "github.com/megaease/easegress/pkg/object/eurekaserviceregistry"
 	_ "github.com/megaease/easegress/pkg/object/function"
 	_ "github.com/megaease/easegress/pkg/object/httppipeline"
 	_ "github.com/megaease/easegress/pkg/object/httpserver"
 	_ "github.com/megaease/easegress/pkg/object/ingresscontroller"
 	_ "github.com/megaease/easegress/pkg/object/meshcontroller"
+	_ "github.com/megaease/easegress/pkg/object/nacosserviceregistry"
 	_ "github.com/megaease/easegress/pkg/object/rawconfigtrafficcontroller"
-	_ "github.com/megaease/easegress/pkg/object/serviceregistry/consulserviceregistry"
-	_ "github.com/megaease/easegress/pkg/object/serviceregistry/etcdserviceregistry"
-	_ "github.com/megaease/easegress/pkg/object/serviceregistry/eurekaserviceregistry"
-	_ "github.com/megaease/easegress/pkg/object/serviceregistry/zookeeperserviceregistry"
 	_ "github.com/megaease/easegress/pkg/object/trafficcontroller"
 	_ "github.com/megaease/easegress/pkg/object/websocketserver"
+	_ "github.com/megaease/easegress/pkg/object/zookeeperserviceregistry"
 )

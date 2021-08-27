@@ -45,8 +45,9 @@ type (
 		spec                *spec.Admin
 		maxHeartbeatTimeout time.Duration
 
-		store   storage.Storage
-		service *service.Service
+		registrySyncer *registrySyncer
+		store          storage.Storage
+		service        *service.Service
 
 		done chan struct{}
 	}
@@ -64,8 +65,9 @@ func New(superSpec *supervisor.Spec) *Master {
 		superSpec: superSpec,
 		spec:      adminSpec,
 
-		store:   store,
-		service: service.New(superSpec),
+		store:          store,
+		service:        service.New(superSpec),
+		registrySyncer: newRegistrySyncer(superSpec),
 
 		done: make(chan struct{}),
 	}
@@ -126,6 +128,10 @@ func (m *Master) scanInstances() (failedInstances []*spec.ServiceInstanceSpec,
 
 	now := time.Now()
 	for _, _spec := range specs {
+		if !m.isMeshRegistryName(_spec.RegistryName) {
+			continue
+		}
+
 		var status *spec.ServiceInstanceStatus
 		for _, s := range statuses {
 			if s.ServiceName == _spec.ServiceName && s.InstanceID == _spec.InstanceID {
@@ -181,6 +187,16 @@ func (m *Master) cleanDeadInstances() {
 		if err = m.store.Delete(statusKey); err != nil {
 			api.ClusterPanic(err)
 		}
+	}
+}
+
+func (m *Master) isMeshRegistryName(registryName string) bool {
+	// NOTE: Empty registry name means it is a internal mesh service by default.
+	switch registryName {
+	case "", m.superSpec.Name():
+		return true
+	default:
+		return false
 	}
 }
 

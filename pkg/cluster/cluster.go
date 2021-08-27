@@ -33,6 +33,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/option"
+	"github.com/megaease/easegress/pkg/util/contexttool"
 )
 
 const (
@@ -162,26 +163,25 @@ func New(opt *option.Options) (Cluster, error) {
 	return c, nil
 }
 
+func (c *cluster) IsLeader() bool {
+	server, err := c.getServer()
+	if err != nil {
+		return false
+	}
+
+	return server.Server.Leader() == server.Server.ID()
+}
+
 // requestContext returns context with request timeout,
 // please use it immediately in case of incorrect timeout.
 func (c *cluster) requestContext() context.Context {
-	ctx, cancel := context.WithTimeout(context.Background(), c.requestTimeout)
-	go func() {
-		time.Sleep(c.requestTimeout)
-		cancel()
-	}()
-	return ctx
+	return contexttool.TimeoutContext(c.requestTimeout)
 }
 
 // longRequestContext takes 3 times longer than requestContext.
 func (c *cluster) longRequestContext() context.Context {
 	requestTimeout := 3 * c.requestTimeout
-	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
-	go func() {
-		time.Sleep(requestTimeout)
-		cancel()
-	}()
-	return ctx
+	return contexttool.TimeoutContext(requestTimeout)
 }
 
 func (c *cluster) run() {
