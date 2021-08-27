@@ -161,8 +161,8 @@ func (s *servers) useService(serviceInstanceSpecs map[string]*serviceregistry.Se
 		return
 	}
 
-	staticServers := newStaticServers(servers, s.poolSpec.ServersTags, s.poolSpec.LoadBalance)
-	if staticServers.len() == 0 {
+	dynamicServers := newStaticServers(servers, s.poolSpec.ServersTags, s.poolSpec.LoadBalance)
+	if dynamicServers.len() == 0 {
 		logger.Errorf("%s/%s: no service instance satisfy tags: %v",
 			s.poolSpec.ServiceRegistry, s.poolSpec.ServiceName, s.poolSpec.ServersTags)
 		s.useStaticServers()
@@ -172,8 +172,7 @@ func (s *servers) useService(serviceInstanceSpecs map[string]*serviceregistry.Se
 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	s.static = staticServers
-
+	s.static = dynamicServers
 }
 
 func (s *servers) useStaticServers() {
