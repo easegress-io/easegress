@@ -20,24 +20,15 @@ package mqttproxy
 import (
 	"encoding/base64"
 	"sync"
+	"time"
 
 	"gopkg.in/yaml.v2"
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/meshcontroller/storage"
 )
 
 type (
-	// SessionManager manage the status of session for clients
-	SessionManager struct {
-		broker  *Broker
-		smap    sync.Map
-		store   storage.Storage
-		storeCh chan SessionStore
-		done    chan struct{}
-	}
-
 	// SessionInfo is info about session that will be put into etcd for persistency
 	SessionInfo struct {
 		// map subscribe topic to qos
@@ -45,9 +36,10 @@ type (
 		ClientID  string         `yaml:"clientID"`
 		CleanFlag bool           `yaml:"cleanFlag"`
 
-		NextID  uint16              `yaml:"nextID"`
-		Qos1    []*Message          `yaml:"qos1"`
-		Pending map[uint16]*Message `yaml:"pending"`
+		NextID       uint16              `yaml:"nextID"`
+		Qos1         []*Message          `yaml:"qos1"`
+		Pending      map[uint16]*Message `yaml:"pending"`
+		PendingQueue []uint16            `yaml:"pendingQueue"`
 	}
 
 	// Session includes the information about the connect between client and broker,
@@ -57,12 +49,7 @@ type (
 		broker  *Broker
 		storeCh chan SessionStore
 		info    *SessionInfo
-	}
-
-	// SessionStore for session store, key is session clientID, value is session yaml marshal value
-	SessionStore struct {
-		key   string
-		value string
+		done    chan struct{}
 	}
 
 	// Message is the message send from broker to client
@@ -73,92 +60,13 @@ type (
 	}
 )
 
-func newSessionManager(b *Broker, store storage.Storage) *SessionManager {
-	sm := &SessionManager{
-		store:   store,
-		storeCh: make(chan SessionStore),
-		done:    make(chan struct{}),
+func getMsg(topic string, payload []byte, qos byte) *Message {
+	m := &Message{
+		Topic:      topic,
+		B64Payload: base64.StdEncoding.EncodeToString(payload),
+		Qos:        int(qos),
 	}
-	go sm.doStore()
-
-	// get store session and init sessMgr and topicMgr
-	store.Lock()
-	allSess, err := store.GetPrefix(sessionStoreKey(""))
-	store.Unlock()
-	if err != nil {
-		return sm
-	}
-	for _, v := range allSess {
-		sess := sm.newSessionFromYaml(&v)
-		// init topicMgr here too
-		topics := []string{}
-		for k := range sess.info.Topics {
-			topics = append(topics, k)
-		}
-		b.topicMgr.subscribe(topics, sess.info.ClientID)
-		sm.smap.Store(sess.info.ClientID, sess)
-	}
-	return sm
-}
-
-func (sm *SessionManager) close() {
-	close(sm.done)
-}
-
-func (sm *SessionManager) doStore() {
-	for {
-		select {
-		case <-sm.done:
-			return
-		case kv := <-sm.storeCh:
-			sm.store.Lock()
-			sm.store.Put(sessionStoreKey(kv.key), kv.value)
-			sm.store.Unlock()
-		}
-	}
-}
-
-func (sm *SessionManager) newSessionFromConn(b *Broker, connect *packets.ConnectPacket) *Session {
-	s := &Session{}
-	s.storeCh = sm.storeCh
-	s.init(b, connect)
-	sm.smap.Store(connect.ClientIdentifier, s)
-	return s
-}
-
-func (sm *SessionManager) newSessionFromYaml(str *string) *Session {
-	sess := &Session{}
-	sess.broker = sm.broker
-	sess.storeCh = sm.storeCh
-	sess.info = &SessionInfo{}
-	err := sess.decode(*str)
-	if err != nil {
-		return nil
-	}
-	return sess
-}
-
-func (sm *SessionManager) get(clientID string) *Session {
-	if val, ok := sm.smap.Load(clientID); ok {
-		return val.(*Session)
-	}
-
-	sm.store.Lock()
-	defer sm.store.Unlock()
-	str, err := sm.store.Get(sessionStoreKey(clientID))
-	if err != nil || str == nil {
-		return nil
-	}
-
-	sess := sm.newSessionFromYaml(str)
-	if sess != nil {
-		sm.smap.Store(sess.info.ClientID, sess)
-	}
-	return sess
-}
-
-func (sm *SessionManager) delLocal(clientID string) {
-	sm.smap.Delete(clientID)
+	return m
 }
 
 func (s *Session) store() {
@@ -190,12 +98,14 @@ func (s *Session) decode(str string) error {
 
 func (s *Session) init(b *Broker, connect *packets.ConnectPacket) error {
 	s.broker = b
+	s.done = make(chan struct{})
 	s.info = &SessionInfo{}
 	s.info.ClientID = connect.ClientIdentifier
 	s.info.CleanFlag = connect.CleanSession
 	s.info.Topics = make(map[string]int)
 	s.info.Qos1 = []*Message{}
 	s.info.Pending = make(map[uint16]*Message)
+	s.info.PendingQueue = []uint16{}
 	return nil
 }
 
@@ -256,17 +166,9 @@ func (s *Session) publishQueuedMsg() {
 		p := s.getPacketFromMsg(msg.Topic, payload, byte(msg.Qos))
 		ps = append(ps, p)
 		s.info.Pending[p.MessageID] = msg
+		s.info.PendingQueue = append(s.info.PendingQueue, p.MessageID)
 	}
 	go client.writePackets(ps)
-}
-
-func getMsg(topic string, payload []byte, qos byte) *Message {
-	m := &Message{
-		Topic:      topic,
-		B64Payload: base64.StdEncoding.EncodeToString(payload),
-		Qos:        int(qos),
-	}
-	return m
 }
 
 func (s *Session) publish(topic string, payload []byte, qos byte) {
@@ -293,6 +195,7 @@ func (s *Session) publish(topic string, payload []byte, qos byte) {
 		} else if qos == Qos1 {
 			msg := getMsg(topic, payload, qos)
 			s.info.Pending[p.MessageID] = msg
+			s.info.PendingQueue = append(s.info.PendingQueue, p.MessageID)
 			go client.writePacket(p)
 		} else {
 			logger.Errorf("current not support to publish message with qos=2")
@@ -311,4 +214,46 @@ func (s *Session) cleanSession() bool {
 	s.Lock()
 	defer s.Unlock()
 	return s.info.CleanFlag
+}
+
+func (s *Session) close() {
+	close(s.done)
+}
+
+func (s *Session) resendPending() {
+	for {
+		select {
+		case <-s.done:
+			return
+		default:
+			client := s.broker.getClient(s.info.ClientID)
+			s.Lock()
+			if len(s.info.Pending) == 0 {
+				s.info.PendingQueue = []uint16{}
+			} else {
+				for i, idx := range s.info.PendingQueue {
+					if msg, ok := s.info.Pending[idx]; ok {
+						s.info.PendingQueue = s.info.PendingQueue[i:]
+
+						p := packets.NewControlPacket(packets.Publish).(*packets.PublishPacket)
+						p.Qos = byte(msg.Qos)
+						p.TopicName = msg.Topic
+						p.MessageID = idx
+						payload, err := base64.StdEncoding.DecodeString(msg.B64Payload)
+						if err != nil {
+							logger.Errorf("base64 decode msg <%v> payload error <%s>", msg, err)
+							break
+						}
+						p.Payload = payload
+						if client != nil {
+							go client.writePacket(p)
+						}
+						break
+					}
+				}
+			}
+			s.Unlock()
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
 }

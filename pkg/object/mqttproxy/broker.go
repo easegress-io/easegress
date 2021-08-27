@@ -106,9 +106,6 @@ func (b *Broker) run() {
 }
 
 func (b *Broker) checkClientAuth(connect *packets.ConnectPacket) bool {
-	// do auth here use
-	// TODO add real client auth here
-	// mock here
 	cid := connect.ClientIdentifier
 	name := connect.Username
 	b64passwd := base64.StdEncoding.EncodeToString(connect.Password)
@@ -177,6 +174,9 @@ func (b *Broker) setSession(client *Client, connect *packets.ConnectPacket) {
 		// prevSess.update(connect)
 		client.session = prevSess
 	} else {
+		if prevSess != nil {
+			prevSess.close()
+		}
 		client.session = b.sessMgr.newSessionFromConn(b, connect)
 	}
 }
@@ -202,8 +202,8 @@ func (b *Broker) sendMsgToClient(topic string, payload []byte, qos byte) {
 
 func (b *Broker) getClient(clientID string) *Client {
 	b.RLock()
-	defer b.RUnlock()
 
+	defer b.RUnlock()
 	if val, ok := b.clients[clientID]; ok {
 		return val
 	}
