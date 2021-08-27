@@ -21,7 +21,6 @@ import "fmt"
 
 const (
 	sessionPrefix = "/mqtt/sessionMgr/clientID/%s"
-	topicPrefix   = "/mqtt/topicMgr/topicID/%s"
 )
 
 type (

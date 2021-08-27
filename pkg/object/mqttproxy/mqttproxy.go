@@ -71,6 +71,7 @@ func (mp *MQTTProxy) Init(superSpec *supervisor.Spec) {
 
 	store := storage.NewStorage(superSpec.Name(), superSpec.Super().Cluster())
 	mp.broker = newBroker(spec, store)
+	mp.broker.registerAPIs()
 }
 
 // Inherit inherits previous generation of WebSocketServer.

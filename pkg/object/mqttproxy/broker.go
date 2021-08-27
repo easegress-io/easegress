@@ -19,11 +19,14 @@ package mqttproxy
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net"
+	"net/http"
 	"sync"
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
+	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/function/storage"
 )
@@ -45,6 +48,14 @@ type (
 
 		// done is the channel for shutdowning this proxy.
 		done chan struct{}
+	}
+
+	// HTTPJsonData is json data received from http endpoint used to send back to clients
+	HTTPJsonData struct {
+		Topic   string `json:"topic"`
+		Qos     int    `json:"qos"`
+		Payload string `json:"payload"`
+		Base64  bool   `json:"base64"`
 	}
 )
 
@@ -197,6 +208,51 @@ func (b *Broker) getClient(clientID string) *Client {
 		return val
 	}
 	return nil
+}
+
+func (b *Broker) topicsPublishHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("suppose POST request but got %s", r.Method))
+		return
+	}
+	var data HTTPJsonData
+	err := json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("invalid json data from request body"))
+		return
+	}
+	if data.Qos < 0 || data.Qos > 2 {
+		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("qos of MQTT is 0, 1, 2, and choose 1 for most cases"))
+		return
+	}
+	var payload []byte
+	if data.Base64 {
+		payload, err = base64.StdEncoding.DecodeString(data.Payload)
+		if err != nil {
+			api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("base64 set to true, but payload decode failed"))
+			return
+		}
+	} else {
+		payload = []byte(data.Payload)
+	}
+	go b.sendMsgToClient(data.Topic, payload, byte(data.Qos))
+}
+
+const apiGroupName = "mqtt_proxy"
+
+func (b *Broker) mqttAPTPrefix() string {
+	return fmt.Sprintf("/mqttproxy/%s/topics/publish", b.name)
+}
+
+func (b *Broker) registerAPIs() {
+	group := &api.Group{
+		Group: apiGroupName,
+		Entries: []*api.Entry{
+			{Path: b.mqttAPTPrefix(), Method: "POST", Handler: b.topicsPublishHandler},
+		},
+	}
+
+	api.RegisterAPIs(group)
 }
 
 func (b *Broker) close() {
