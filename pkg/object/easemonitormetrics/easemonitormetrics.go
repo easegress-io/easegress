@@ -220,7 +220,7 @@ func (emm *EaseMonitorMetrics) getClient() (sarama.AsyncProducer, error) {
 				if !ok {
 					return
 				}
-				logger.Errorf("produce failed:", err)
+				logger.Errorf("produce failed: %v", err)
 			}
 		}
 	}()
