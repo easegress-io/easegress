@@ -87,12 +87,12 @@ func (sm *SessionManager) doStore() {
 	}
 }
 
-func (sm *SessionManager) newSessionFromConn(b *Broker, connect *packets.ConnectPacket) *Session {
+func (sm *SessionManager) newSessionFromConn(connect *packets.ConnectPacket) *Session {
 	s := &Session{}
 	s.storeCh = sm.storeCh
-	s.init(b, connect)
+	s.init(sm.broker, connect)
 	sm.smap.Store(connect.ClientIdentifier, s)
-	go s.resendPending()
+	go s.backgroundResendPending()
 	return s
 }
 
@@ -106,7 +106,7 @@ func (sm *SessionManager) newSessionFromYaml(str *string) *Session {
 	if err != nil {
 		return nil
 	}
-	go sess.resendPending()
+	go sess.backgroundResendPending()
 	return sess
 }
 

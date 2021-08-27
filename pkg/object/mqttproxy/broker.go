@@ -177,7 +177,7 @@ func (b *Broker) setSession(client *Client, connect *packets.ConnectPacket) {
 		if prevSess != nil {
 			prevSess.close()
 		}
-		client.session = b.sessMgr.newSessionFromConn(b, connect)
+		client.session = b.sessMgr.newSessionFromConn(connect)
 	}
 }
 
@@ -202,7 +202,6 @@ func (b *Broker) sendMsgToClient(topic string, payload []byte, qos byte) {
 
 func (b *Broker) getClient(clientID string) *Client {
 	b.RLock()
-
 	defer b.RUnlock()
 	if val, ok := b.clients[clientID]; ok {
 		return val

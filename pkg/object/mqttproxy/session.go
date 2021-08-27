@@ -19,6 +19,7 @@ package mqttproxy
 
 import (
 	"encoding/base64"
+	"fmt"
 	"sync"
 	"time"
 
@@ -220,40 +221,46 @@ func (s *Session) close() {
 	close(s.done)
 }
 
-func (s *Session) resendPending() {
+func (s *Session) doResend() {
+	client := s.broker.getClient(s.info.ClientID)
+	s.Lock()
+	defer s.Unlock()
+
+	if len(s.info.Pending) == 0 {
+		s.info.PendingQueue = []uint16{}
+		return
+	}
+	for i, idx := range s.info.PendingQueue {
+		if val, ok := s.info.Pending[idx]; ok {
+			// find first msg need to resend
+			s.info.PendingQueue = s.info.PendingQueue[i:]
+			p := packets.NewControlPacket(packets.Publish).(*packets.PublishPacket)
+			p.Qos = byte(val.Qos)
+			p.TopicName = val.Topic
+			payload, err := base64.StdEncoding.DecodeString(val.B64Payload)
+			if err != nil {
+				logger.Errorf("base64 decode error for Message B64Payload %s", err)
+				fmt.Printf("base64 decode error for Message B64Payload %s", err)
+				return
+			}
+			p.Payload = payload
+			p.MessageID = idx
+			if client != nil {
+				go client.writePacket(p)
+			}
+			return
+		}
+	}
+}
+
+func (s *Session) backgroundResendPending() {
 	for {
 		select {
 		case <-s.done:
 			return
 		default:
-			client := s.broker.getClient(s.info.ClientID)
-			s.Lock()
-			if len(s.info.Pending) == 0 {
-				s.info.PendingQueue = []uint16{}
-			} else {
-				for i, idx := range s.info.PendingQueue {
-					if msg, ok := s.info.Pending[idx]; ok {
-						s.info.PendingQueue = s.info.PendingQueue[i:]
-
-						p := packets.NewControlPacket(packets.Publish).(*packets.PublishPacket)
-						p.Qos = byte(msg.Qos)
-						p.TopicName = msg.Topic
-						p.MessageID = idx
-						payload, err := base64.StdEncoding.DecodeString(msg.B64Payload)
-						if err != nil {
-							logger.Errorf("base64 decode msg <%v> payload error <%s>", msg, err)
-							break
-						}
-						p.Payload = payload
-						if client != nil {
-							go client.writePacket(p)
-						}
-						break
-					}
-				}
-			}
-			s.Unlock()
+			go s.doResend()
 		}
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(time.Second)
 	}
 }
