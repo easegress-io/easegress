@@ -166,6 +166,8 @@ func (e *EurekaServiceRegistry) closeClient() {
 }
 
 func (e *EurekaServiceRegistry) run() {
+	defer e.closeClient()
+
 	syncInterval, err := time.ParseDuration(e.spec.SyncInterval)
 	if err != nil {
 		logger.Errorf("BUG: parse duration %s failed: %v",
@@ -247,7 +249,6 @@ func (e *EurekaServiceRegistry) Status() *supervisor.Status {
 func (e *EurekaServiceRegistry) Close() {
 	e.serviceRegistry.DeregisterRegistry(e.Name())
 
-	e.closeClient()
 	close(e.done)
 }
 

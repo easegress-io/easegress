@@ -48,7 +48,7 @@ For now, all system controllers can not be configured. It may gain this capabili
 
 ### ServiceRegistry
 
-We use system controller `ServiceRegistry` to be the service hub for all service registries. Current the drivers are
+We use the system controller `ServiceRegistry` as the service hub for all service registries. Current drivers are
 
 - [ConsulServiceRegistry](#consulserviceregistry)
 - [EtcdServiceRegistry](#etcdserviceregistry)

@@ -183,6 +183,8 @@ func (e *EtcdServiceRegistry) closeClient() {
 }
 
 func (e *EtcdServiceRegistry) run() {
+	defer e.closeClient()
+
 	cacheTimeout, err := time.ParseDuration(e.spec.CacheTimeout)
 	if err != nil {
 		logger.Errorf("BUG: parse duration %s failed: %v",
@@ -264,7 +266,6 @@ func (e *EtcdServiceRegistry) Status() *supervisor.Status {
 func (e *EtcdServiceRegistry) Close() {
 	e.serviceRegistry.DeregisterRegistry(e.Name())
 
-	e.closeClient()
 	close(e.done)
 }
 

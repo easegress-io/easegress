@@ -56,8 +56,8 @@ type (
 		instances       map[string]*serviceregistry.ServiceInstanceSpec
 		notify          chan *serviceregistry.RegistryEvent
 
-		connMutex sync.RWMutex
-		conn      *zookeeper.Conn
+		clientMutex sync.RWMutex
+		client      *zookeeper.Conn
 
 		statusMutex  sync.Mutex
 		instancesNum map[string]int
@@ -132,24 +132,24 @@ func (zk *ZookeeperServiceRegistry) reload() {
 }
 
 func (zk *ZookeeperServiceRegistry) getClient() (*zookeeper.Conn, error) {
-	zk.connMutex.RLock()
-	if zk.conn != nil {
-		conn := zk.conn
-		zk.connMutex.RUnlock()
+	zk.clientMutex.RLock()
+	if zk.client != nil {
+		conn := zk.client
+		zk.clientMutex.RUnlock()
 		return conn, nil
 	}
-	zk.connMutex.RUnlock()
+	zk.clientMutex.RUnlock()
 
 	return zk.buildClient()
 }
 
 func (zk *ZookeeperServiceRegistry) buildClient() (*zookeeper.Conn, error) {
-	zk.connMutex.Lock()
-	defer zk.connMutex.Unlock()
+	zk.clientMutex.Lock()
+	defer zk.clientMutex.Unlock()
 
 	// DCL
-	if zk.conn != nil {
-		return zk.conn, nil
+	if zk.client != nil {
+		return zk.client, nil
 	}
 
 	conntimeout, err := time.ParseDuration(zk.spec.ConnTimeout)
@@ -176,23 +176,25 @@ func (zk *ZookeeperServiceRegistry) buildClient() (*zookeeper.Conn, error) {
 		return nil, fmt.Errorf("path [%s] no exist", zk.spec.Prefix)
 	}
 
-	zk.conn = conn
+	zk.client = conn
 
 	return conn, nil
 }
 
-func (zk *ZookeeperServiceRegistry) closeConn() {
-	zk.connMutex.Lock()
-	defer zk.connMutex.Unlock()
+func (zk *ZookeeperServiceRegistry) closeClient() {
+	zk.clientMutex.Lock()
+	defer zk.clientMutex.Unlock()
 
-	if zk.conn == nil {
+	if zk.client == nil {
 		return
 	}
 
-	zk.conn.Close()
+	zk.client.Close()
 }
 
 func (zk *ZookeeperServiceRegistry) run() {
+	defer zk.closeClient()
+
 	syncInterval, err := time.ParseDuration(zk.spec.SyncInterval)
 	if err != nil {
 		logger.Errorf("BUG: parse duration %s failed: %v",
@@ -272,7 +274,6 @@ func (zk *ZookeeperServiceRegistry) Status() *supervisor.Status {
 func (zk *ZookeeperServiceRegistry) Close() {
 	zk.serviceRegistry.DeregisterRegistry(zk.Name())
 
-	zk.closeConn()
 	close(zk.done)
 }
 

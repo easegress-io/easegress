@@ -193,6 +193,8 @@ func (c *ConsulServiceRegistry) closeClient() {
 }
 
 func (c *ConsulServiceRegistry) run() {
+	defer c.closeClient()
+
 	syncInterval, err := time.ParseDuration(c.spec.SyncInterval)
 	if err != nil {
 		logger.Errorf("BUG: parse duration %s failed: %v",
@@ -274,7 +276,6 @@ func (c *ConsulServiceRegistry) Status() *supervisor.Status {
 func (c *ConsulServiceRegistry) Close() {
 	c.serviceRegistry.DeregisterRegistry(c.Name())
 
-	c.closeClient()
 	close(c.done)
 }
 

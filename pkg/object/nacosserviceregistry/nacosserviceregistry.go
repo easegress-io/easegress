@@ -229,6 +229,8 @@ func (n *NacosServiceRegistry) closeClient() {
 }
 
 func (n *NacosServiceRegistry) run() {
+	defer n.closeClient()
+
 	syncInterval, err := time.ParseDuration(n.spec.SyncInterval)
 	if err != nil {
 		logger.Errorf("BUG: parse duration %s failed: %v",
@@ -310,7 +312,6 @@ func (n *NacosServiceRegistry) Status() *supervisor.Status {
 func (n *NacosServiceRegistry) Close() {
 	n.serviceRegistry.DeregisterRegistry(n.Name())
 
-	n.closeClient()
 	close(n.done)
 }
 
