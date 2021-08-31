@@ -63,4 +63,8 @@ func TestLayout(t *testing.T) {
 	if len(l.WasmCodeEvent()) == 0 {
 		t.Error("WasmCodeEvent empty")
 	}
+
+	if len(l.WasmDataPrefix("pipeline", "wasm")) == 0 {
+		t.Error("WasmDataPrefix empty")
+	}
 }

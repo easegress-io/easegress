@@ -359,6 +359,7 @@ func (hp *HTTPPipeline) reload(previousGeneration *HTTPPipeline) {
 		}
 	}
 
+	pipelineName := hp.superSpec.Name()
 	var filterBuffs []context.FilterBuff
 	for _, runningFilter := range runningFilters {
 		name, kind := runningFilter.spec.Name(), runningFilter.spec.Kind()
@@ -376,6 +377,7 @@ func (hp *HTTPPipeline) reload(previousGeneration *HTTPPipeline) {
 		}
 
 		filter := reflect.New(reflect.TypeOf(rootFilter).Elem()).Interface().(Filter)
+		runningFilter.spec.meta.Pipeline = pipelineName
 		if prevInstance == nil {
 			filter.Init(runningFilter.spec)
 		} else {

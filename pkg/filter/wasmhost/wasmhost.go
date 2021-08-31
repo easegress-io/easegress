@@ -35,6 +35,7 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"go.etcd.io/etcd/api/v3/mvccpb"
 )
 
 const (
@@ -64,6 +65,7 @@ func init() {
 }
 
 type (
+	// Spec is the spec for WasmHost
 	Spec struct {
 		MaxConcurrency int32             `yaml:"maxConcurrency" jsonschema:"required,minimum=1"`
 		Code           string            `yaml:"code" jsonschema:"required"`
@@ -72,18 +74,22 @@ type (
 		timeout        time.Duration
 	}
 
+	// WasmHost is the WebAssembly filter
 	WasmHost struct {
-		pipeSpec *httppipeline.FilterSpec
-		spec     *Spec
+		filterSpec *httppipeline.FilterSpec
+		spec       *Spec
 
-		code   []byte
-		vmPool atomic.Value
-		chStop chan struct{}
+		code       []byte
+		dataPrefix string
+		data       atomic.Value
+		vmPool     atomic.Value
+		chStop     chan struct{}
 
 		numOfRequest   int64
 		numOfWasmError int64
 	}
 
+	// Status is the status of WasmHost
 	Status struct {
 		Health         string `yaml:"health"`
 		NumOfRequest   int64  `yaml:"numOfRequest"`
@@ -112,6 +118,20 @@ func (wh *WasmHost) Description() string {
 // Results returns the results of WasmHost.
 func (wh *WasmHost) Results() []string {
 	return results
+}
+
+// Cluster returns the cluster
+func (wh *WasmHost) Cluster() cluster.Cluster {
+	return wh.filterSpec.Super().Cluster()
+}
+
+// Data returns the shared data
+func (wh *WasmHost) Data() map[string]*mvccpb.KeyValue {
+	d := wh.data.Load()
+	if d == nil {
+		return map[string]*mvccpb.KeyValue{}
+	}
+	return d.(map[string]*mvccpb.KeyValue)
 }
 
 func readWasmCodeFromURL(url string) ([]byte, error) {
@@ -157,7 +177,7 @@ func (wh *WasmHost) loadWasmCode() error {
 		return nil
 	}
 
-	p, e := NewWasmVMPool(wh.spec.MaxConcurrency, code, wh.spec.Parameters)
+	p, e := NewWasmVMPool(wh, code)
 	if e != nil {
 		logger.Errorf("failed to create wasm VM pool: %v", e)
 		return e
@@ -176,7 +196,7 @@ func (wh *WasmHost) watchWasmCode() {
 	)
 
 	for {
-		c := wh.pipeSpec.Super().Cluster()
+		c := wh.Cluster()
 		syncer, err = c.Syncer(time.Minute)
 		if err == nil {
 			chWasm, err = syncer.Sync(c.Layout().WasmCodeEvent())
@@ -208,15 +228,53 @@ func (wh *WasmHost) watchWasmCode() {
 	}
 }
 
-func (wh *WasmHost) reload(pipeSpec *httppipeline.FilterSpec) {
-	wh.pipeSpec = pipeSpec
-	wh.spec = pipeSpec.FilterSpec().(*Spec)
+func (wh *WasmHost) watchWasmData() {
+	var (
+		chWasm <-chan map[string]*mvccpb.KeyValue
+		syncer *cluster.Syncer
+		err    error
+	)
+
+	for {
+		c := wh.Cluster()
+		syncer, err = c.Syncer(time.Minute)
+		if err == nil {
+			chWasm, err = syncer.SyncRawPrefix(wh.dataPrefix)
+			if err == nil {
+				break
+			}
+		}
+		logger.Errorf("failed to watch wasm data: %v", err)
+		select {
+		case <-time.After(10 * time.Second):
+		case <-wh.chStop:
+			return
+		}
+	}
+
+	for {
+		select {
+		case data := <-chWasm:
+			wh.data.Store(data)
+
+		case <-wh.chStop:
+			return
+		}
+	}
+}
+
+func (wh *WasmHost) reload(filterSpec *httppipeline.FilterSpec) {
+	wh.filterSpec = filterSpec
+	wh.spec = filterSpec.FilterSpec().(*Spec)
+
+	wh.dataPrefix = wh.Cluster().Layout().WasmDataPrefix(filterSpec.Pipeline(), filterSpec.Name())
 
 	wh.spec.timeout, _ = time.ParseDuration(wh.spec.Timeout)
 	wh.chStop = make(chan struct{})
 
 	wh.loadWasmCode()
 	go wh.watchWasmCode()
+	go wh.watchWasmData()
 }
 
 // Init initializes WasmHost.

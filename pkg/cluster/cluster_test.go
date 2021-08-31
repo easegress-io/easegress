@@ -25,6 +25,7 @@ import (
 
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
+	"go.etcd.io/etcd/client/v3/concurrency"
 )
 
 func mockClusters(count int) []*cluster {
@@ -439,6 +440,13 @@ func TestMutexAndOP(t *testing.T) {
 	err = c.DeletePrefix("akey")
 	if err != nil {
 		t.Errorf("DeletePrefix failed: %v", err)
+	}
+
+	err = c.STM(func(s concurrency.STM) error {
+		return nil
+	})
+	if err != nil {
+		t.Errorf("STM failed: %v", err)
 	}
 }
 
