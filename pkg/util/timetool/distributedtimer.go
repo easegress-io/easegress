@@ -57,7 +57,7 @@ func (dt *DistributedTimer) run() {
 		case <-dt.done:
 			return
 		case now := <-time.After(dt.nextDurationFunc()):
-			// use a select to avoid block
+			// NOTE: Use a select-statement to avoid block and always send last time.
 			select {
 			case dt.C <- now:
 			default:
