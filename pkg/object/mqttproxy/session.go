@@ -116,6 +116,7 @@ func (s *Session) subscribe(topics []string, qoss []byte) error {
 	for i, t := range topics {
 		s.info.Topics[t] = int(qoss[i])
 	}
+	s.store()
 	return nil
 }
 
@@ -125,6 +126,7 @@ func (s *Session) unsubscribe(topics []string) error {
 	for _, t := range topics {
 		delete(s.info.Topics, t)
 	}
+	s.store()
 	return nil
 }
 
@@ -212,8 +214,6 @@ func (s *Session) puback(p *packets.PubackPacket) {
 }
 
 func (s *Session) cleanSession() bool {
-	s.Lock()
-	defer s.Unlock()
 	return s.info.CleanFlag
 }
 
@@ -259,8 +259,8 @@ func (s *Session) backgroundResendPending() {
 		case <-s.done:
 			return
 		default:
-			go s.doResend()
+			s.doResend()
 		}
-		time.Sleep(time.Second)
+		time.Sleep(100 * time.Millisecond)
 	}
 }

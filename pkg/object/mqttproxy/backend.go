@@ -55,7 +55,7 @@ func newBackendMQ(spec *Spec) BackendMQ {
 		return newKafkaMQ(spec)
 	case testMQType:
 		t := &testMQ{}
-		t.ch = make(chan *packets.PublishPacket, 10)
+		t.ch = make(chan *packets.PublishPacket, 100)
 		return t
 	default:
 		logger.Errorf("backend type not support %s", spec.BackendType)
