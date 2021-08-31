@@ -391,14 +391,17 @@ func TestDynamicService(t *testing.T) {
 	wantStatic := &staticServers{
 		lb: *loadBalance,
 		servers: []*Server{
-			{URL: "http://127.0.0.1:1111"},
-			{URL: "http://127.0.0.1:2222"},
-			{URL: "http://127.0.0.1:3333"},
 			{URL: "http://127.0.0.1:4444"},
+			{URL: "http://127.0.0.1:1111"},
 			{URL: "http://127.0.0.1:5555"},
+			{URL: "http://127.0.0.1:2222"},
 			{URL: "http://127.0.0.1:6666"},
+			{URL: "http://127.0.0.1:3333"},
 		},
 	}
+	sort.Slice(wantStatic.servers, func(i, j int) bool {
+		return wantStatic.servers[i].URL < wantStatic.servers[j].URL
+	})
 
 	if !reflect.DeepEqual(wantStatic, s.static) {
 		t.Fatalf("want: %+v\ngot :%+v\n", wantStatic, s.static)
