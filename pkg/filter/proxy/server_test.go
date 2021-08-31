@@ -365,6 +365,9 @@ func TestDynamicService(t *testing.T) {
 	}
 
 	if !reflect.DeepEqual(wantStatic, s.static) {
-		t.Fatalf("want: %+v\ngot :%+v\n", wantStatic, s.static)
+		wantStatic.servers[0], wantStatic.servers[1] = wantStatic.servers[1], wantStatic.servers[0]
+		if !reflect.DeepEqual(wantStatic, s.static) {
+			t.Fatalf("want: %+v\ngot :%+v\n", wantStatic, s.static)
+		}
 	}
 }
