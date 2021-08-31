@@ -33,24 +33,23 @@ type (
 	// SessionInfo is info about session that will be put into etcd for persistency
 	SessionInfo struct {
 		// map subscribe topic to qos
+		EGName    string         `yaml:"egName"`
 		Topics    map[string]int `yaml:"topics"`
 		ClientID  string         `yaml:"clientID"`
 		CleanFlag bool           `yaml:"cleanFlag"`
-
-		NextID       uint16              `yaml:"nextID"`
-		Qos1         []*Message          `yaml:"qos1"`
-		Pending      map[uint16]*Message `yaml:"pending"`
-		PendingQueue []uint16            `yaml:"pendingQueue"`
 	}
 
 	// Session includes the information about the connect between client and broker,
 	// such as topic subscribe, not-send messages, etc.
 	Session struct {
 		sync.Mutex
-		broker  *Broker
-		storeCh chan SessionStore
-		info    *SessionInfo
-		done    chan struct{}
+		broker       *Broker
+		storeCh      chan SessionStore
+		info         *SessionInfo
+		done         chan struct{}
+		pending      map[uint16]*Message
+		pendingQueue []uint16
+		nextID       uint16
 	}
 
 	// Message is the message send from broker to client
@@ -97,17 +96,26 @@ func (s *Session) decode(str string) error {
 	return yaml.Unmarshal([]byte(str), s.info)
 }
 
-func (s *Session) init(b *Broker, connect *packets.ConnectPacket) error {
+func (s *Session) init(sm *SessionManager, b *Broker, connect *packets.ConnectPacket) error {
 	s.broker = b
+	s.storeCh = sm.storeCh
 	s.done = make(chan struct{})
+	s.pending = make(map[uint16]*Message)
+	s.pendingQueue = []uint16{}
+
 	s.info = &SessionInfo{}
+	s.info.EGName = b.name
 	s.info.ClientID = connect.ClientIdentifier
 	s.info.CleanFlag = connect.CleanSession
 	s.info.Topics = make(map[string]int)
-	s.info.Qos1 = []*Message{}
-	s.info.Pending = make(map[uint16]*Message)
-	s.info.PendingQueue = []uint16{}
 	return nil
+}
+
+func (s *Session) updateEGName(name string) {
+	s.Lock()
+	defer s.Unlock()
+	s.info.EGName = name
+	s.store()
 }
 
 func (s *Session) subscribe(topics []string, qoss []byte) error {
@@ -148,30 +156,11 @@ func (s *Session) getPacketFromMsg(topic string, payload []byte, qos byte) *pack
 	p.Qos = qos
 	p.TopicName = topic
 	p.Payload = payload
-	p.MessageID = s.info.NextID
+	p.MessageID = s.nextID
 	// the overflow is okay here
 	// the session will give unique id from 0 to 65535 and do this again and again
-	s.info.NextID++
+	s.nextID++
 	return p
-}
-
-func (s *Session) publishQueuedMsg() {
-	client := s.broker.getClient(s.info.ClientID)
-	if client == nil {
-		return
-	}
-	s.Lock()
-	defer s.Unlock()
-
-	ps := []packets.ControlPacket{}
-	for _, msg := range s.info.Qos1 {
-		payload, _ := base64.StdEncoding.DecodeString(msg.B64Payload)
-		p := s.getPacketFromMsg(msg.Topic, payload, byte(msg.Qos))
-		ps = append(ps, p)
-		s.info.Pending[p.MessageID] = msg
-		s.info.PendingQueue = append(s.info.PendingQueue, p.MessageID)
-	}
-	go client.writePackets(ps)
 }
 
 func (s *Session) publish(topic string, payload []byte, qos byte) {
@@ -183,34 +172,26 @@ func (s *Session) publish(topic string, payload []byte, qos byte) {
 		return
 	}
 	if client == nil {
-		if qos == Qos1 {
-			s.info.Qos1 = append(s.info.Qos1, getMsg(topic, payload, qos))
-		} else {
-			logger.Errorf("current not support to publish message with qos=2")
-		}
+		logger.Errorf("client %s is offline", s.info.ClientID)
 	} else {
-		if len(s.info.Qos1) != 0 {
-			go s.publishQueuedMsg()
-		}
 		p := s.getPacketFromMsg(topic, payload, qos)
 		if qos == Qos0 {
 			go client.writePacket(p)
 		} else if qos == Qos1 {
 			msg := getMsg(topic, payload, qos)
-			s.info.Pending[p.MessageID] = msg
-			s.info.PendingQueue = append(s.info.PendingQueue, p.MessageID)
+			s.pending[p.MessageID] = msg
+			s.pendingQueue = append(s.pendingQueue, p.MessageID)
 			go client.writePacket(p)
 		} else {
 			logger.Errorf("current not support to publish message with qos=2")
 		}
 	}
-	s.store()
 }
 
 func (s *Session) puback(p *packets.PubackPacket) {
 	s.Lock()
 	defer s.Unlock()
-	delete(s.info.Pending, p.MessageID)
+	delete(s.pending, p.MessageID)
 }
 
 func (s *Session) cleanSession() bool {
@@ -226,14 +207,14 @@ func (s *Session) doResend() {
 	s.Lock()
 	defer s.Unlock()
 
-	if len(s.info.Pending) == 0 {
-		s.info.PendingQueue = []uint16{}
+	if len(s.pending) == 0 {
+		s.pendingQueue = []uint16{}
 		return
 	}
-	for i, idx := range s.info.PendingQueue {
-		if val, ok := s.info.Pending[idx]; ok {
+	for i, idx := range s.pendingQueue {
+		if val, ok := s.pending[idx]; ok {
 			// find first msg need to resend
-			s.info.PendingQueue = s.info.PendingQueue[i:]
+			s.pendingQueue = s.pendingQueue[i:]
 			p := packets.NewControlPacket(packets.Publish).(*packets.PublishPacket)
 			p.Qos = byte(val.Qos)
 			p.TopicName = val.Topic

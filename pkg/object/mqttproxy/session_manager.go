@@ -59,12 +59,6 @@ func newSessionManager(b *Broker, store storage.Storage) *SessionManager {
 	}
 	for _, v := range allSess {
 		sess := sm.newSessionFromYaml(&v)
-		// init topicMgr here too
-		topics := []string{}
-		for k := range sess.info.Topics {
-			topics = append(topics, k)
-		}
-		b.topicMgr.subscribe(topics, sess.info.ClientID)
 		sm.smap.Store(sess.info.ClientID, sess)
 	}
 	return sm
@@ -89,8 +83,7 @@ func (sm *SessionManager) doStore() {
 
 func (sm *SessionManager) newSessionFromConn(connect *packets.ConnectPacket) *Session {
 	s := &Session{}
-	s.storeCh = sm.storeCh
-	s.init(sm.broker, connect)
+	s.init(sm, sm.broker, connect)
 	sm.smap.Store(connect.ClientIdentifier, s)
 	go s.backgroundResendPending()
 	return s
@@ -100,8 +93,11 @@ func (sm *SessionManager) newSessionFromYaml(str *string) *Session {
 	sess := &Session{}
 	sess.broker = sm.broker
 	sess.storeCh = sm.storeCh
-	sess.info = &SessionInfo{}
 	sess.done = make(chan struct{})
+	sess.pending = make(map[uint16]*Message)
+	sess.pendingQueue = []uint16{}
+
+	sess.info = &SessionInfo{}
 	err := sess.decode(*str)
 	if err != nil {
 		return nil

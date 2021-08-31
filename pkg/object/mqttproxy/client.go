@@ -204,18 +204,6 @@ func (c *Client) processPingreq(packet *packets.PingreqPacket) {
 	c.writePacket(resp)
 }
 
-func (c *Client) writePackets(ps []packets.ControlPacket) error {
-	c.Lock()
-	defer c.Unlock()
-	for _, p := range ps {
-		err := p.Write(c.conn)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (c *Client) writePacket(packet packets.ControlPacket) error {
 	c.Lock()
 	defer c.Unlock()
@@ -230,7 +218,5 @@ func (c *Client) close() {
 	}
 	c.status = Disconnected
 	close(c.done)
-	if c.session.cleanSession() {
-		c.broker.sessMgr.delLocal(c.info.cid)
-	}
+	c.broker.sessMgr.delLocal(c.info.cid)
 }

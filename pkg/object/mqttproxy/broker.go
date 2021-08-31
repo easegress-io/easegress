@@ -161,8 +161,7 @@ func (b *Broker) handleConn(conn net.Conn) {
 	b.setSession(client, connect)
 	b.Unlock()
 
-	// update session
-	client.session.publishQueuedMsg()
+	client.session.updateEGName(b.name)
 	client.readLoop()
 }
 
@@ -195,7 +194,12 @@ func (b *Broker) sendMsgToClient(topic string, payload []byte, qos byte) {
 		if sess == nil {
 			logger.Errorf("session for client <%s> is nil", clientID)
 		} else {
-			sess.publish(topic, payload, qos)
+			if sess.info.EGName == b.name {
+				sess.publish(topic, payload, qos)
+			} else {
+				// TODO
+				panic("sendMsgToClient wrong instance ")
+			}
 		}
 	}
 }
