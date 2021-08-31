@@ -44,6 +44,9 @@ type (
 		Delete(key string) error
 		DeletePrefix(prefix string) error
 
+		// The STM function is used to do cluster-level atomic operations like
+		// increase/decrease an integer by one, which is very useful to create
+		// a cluster-level counter.
 		STM(apply func(concurrency.STM) error) error
 
 		Watcher() (Watcher, error)

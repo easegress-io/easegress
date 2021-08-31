@@ -13,7 +13,7 @@
 		- [6.1 Parameters](#61-parameters)
 		- [6.2 Manage Shared Data](#62-manage-shared-data)
 
-A flash sale is a discount or promotion offered by an ecommerce store for a short period of time. The quantity is limited, which often means the discounts are higher or more significant than run-of-the-mill promotions. 
+A flash sale is a discount or promotion offered by an eCommerce store for a short period of time. The quantity is limited, which often means the discounts are higher or more significant than run-of-the-mill promotions. 
 
 However, significant discounts, limited quantity, and a short period of time lead to a significant traffic spike, which often results in slow service, denial of service, or even downtime.
 
@@ -263,7 +263,7 @@ We will get a `sold out` message at the possibility of 40%. Note the `blockRatio
 
 From the view of business, after we permit a lucky user to go forward, we should always permit this user to go forward; but from the logic of the code in the last step, the request may be blocked if the user accesses the URL again.
 
-Fortunately, all users need to sign-in before joining the flash sale, that's the requests will contain an identifier of the user, we can use this identifier to record the lucky users.
+Fortunately, all users need to sign in before joining the flash sale, that's the requests will contain an identifier of the user, we can use this identifier to record the lucky users.
 
 As an example, we suppose the value of the `Authorization` header is the desired identifier (the identifier could be a JWT token, and the [Validator filter](./security.md#security-verify-credential) can be used to validate the token, but this is out of the scope of this document).
 
