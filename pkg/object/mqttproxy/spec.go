@@ -21,6 +21,7 @@ import "fmt"
 
 const (
 	sessionPrefix = "/mqtt/sessionMgr/clientID/%s"
+	topicPrefix   = "/mqtt/topicMgr/topic/%s"
 )
 
 type (
@@ -54,4 +55,8 @@ type (
 
 func sessionStoreKey(clientID string) string {
 	return fmt.Sprintf(sessionPrefix, clientID)
+}
+
+func topicStoreKey(topic string) string {
+	return fmt.Sprintf(topicPrefix, topic)
 }

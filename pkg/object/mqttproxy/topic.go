@@ -20,62 +20,132 @@ package mqttproxy
 import (
 	"fmt"
 	"strings"
-	"sync"
+
+	"github.com/megaease/easegress/pkg/object/function/storage"
+	etcderror "go.etcd.io/etcd/api/v3/v3rpc/rpctypes"
+	"gopkg.in/yaml.v2"
 )
 
 type (
 	// TopicManager use topic to find corresponding
 	TopicManager struct {
-		sync.RWMutex
+		store storage.Storage
+	}
 
-		// map topic (string) to subscribers (client ids)
-		subscriptions map[string]map[string]struct{}
+	Topic struct {
+		Set map[string]struct{} `yaml:"set"`
 	}
 
 	topicMapFunc func(mqttTopic string) (topic string, headers map[string]string, err error)
 )
 
-func newTopicManager() *TopicManager {
+func newTopicManager(store storage.Storage) *TopicManager {
 	t := &TopicManager{
-		subscriptions: make(map[string]map[string]struct{}),
+		store: store,
 	}
 	return t
 }
 
-func (t *TopicManager) subscribe(topics []string, clientID string) {
-	t.Lock()
-	defer t.Unlock()
-	for _, topic := range topics {
-		if val, ok := t.subscriptions[topic]; ok {
-			val[clientID] = struct{}{}
-		} else {
-			t.subscriptions[topic] = make(map[string]struct{})
-			t.subscriptions[topic][clientID] = struct{}{}
-		}
+func (t *TopicManager) subscribe(topics []string, clientID string) error {
+	err := t.store.Lock()
+	if err != nil {
+		return err
 	}
-}
+	defer func() {
+		err = t.store.Unlock()
+	}()
 
-func (t *TopicManager) unsubscribe(topics []string, clientID string) {
-	t.Lock()
-	defer t.Unlock()
 	for _, topic := range topics {
-		if val, ok := t.subscriptions[topic]; ok {
-			delete(val, clientID)
-			if len(val) == 0 {
-				delete(t.subscriptions, topic)
+		key := topicStoreKey(topic)
+		value, err := t.store.Get(key)
+		if err != nil && err != etcderror.ErrKeyNotFound {
+			return err
+		}
+
+		data := Topic{}
+		if value == nil {
+			data.Set = make(map[string]struct{})
+		} else {
+			err = yaml.Unmarshal([]byte(*value), &data)
+			if err != nil {
+				return err
 			}
 		}
+		data.Set[clientID] = struct{}{}
+		bs, err := yaml.Marshal(data)
+		if err != nil {
+			return err
+		}
+		err = t.store.Put(key, string(bs))
+		if err != nil {
+			return err
+		}
 	}
+	return err
 }
 
-func (t *TopicManager) findSubscribers(topic string) map[string]struct{} {
-	t.RLock()
-	defer t.RUnlock()
-
-	if val, ok := t.subscriptions[topic]; ok {
-		return val
+func (t *TopicManager) unsubscribe(topics []string, clientID string) error {
+	err := t.store.Lock()
+	if err != nil {
+		return err
 	}
-	return nil
+	defer func() {
+		err = t.store.Unlock()
+	}()
+
+	for _, topic := range topics {
+		key := topicStoreKey(topic)
+		value, err := t.store.Get(key)
+		if err != nil && err != etcderror.ErrKeyNotFound {
+			return err
+		}
+
+		data := Topic{}
+		if value == nil {
+			data.Set = make(map[string]struct{})
+		} else {
+			err = yaml.Unmarshal([]byte(*value), &data)
+			if err != nil {
+				return err
+			}
+		}
+		delete(data.Set, clientID)
+		bs, err := yaml.Marshal(data)
+		if err != nil {
+			return err
+		}
+		err = t.store.Put(key, string(bs))
+		if err != nil {
+			return err
+		}
+	}
+	return err
+}
+
+func (t *TopicManager) findSubscribers(topic string) (map[string]struct{}, error) {
+	err := t.store.Lock()
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err = t.store.Unlock()
+	}()
+
+	key := topicStoreKey(topic)
+	value, err := t.store.Get(key)
+	if err != nil {
+		if err == etcderror.ErrKeyNotFound {
+			return map[string]struct{}{}, nil
+		}
+		return nil, err
+	}
+
+	data := Topic{}
+	err = yaml.Unmarshal([]byte(*value), &data)
+	if err != nil {
+		return nil, err
+	}
+	return data.Set, nil
 }
 
 func getTopicMapFunc(topicMapper *TopicMapper) topicMapFunc {

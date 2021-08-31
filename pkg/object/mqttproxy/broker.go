@@ -73,9 +73,9 @@ func newBroker(spec *Spec, store storage.Storage) *Broker {
 		backend:  newBackendMQ(spec),
 		clients:  make(map[string]*Client),
 		auth:     make(map[string]string),
-		topicMgr: newTopicManager(),
 		done:     make(chan struct{}),
 	}
+	broker.topicMgr = newTopicManager(store)
 	broker.sessMgr = newSessionManager(broker, store)
 	for _, a := range spec.Auth {
 		broker.auth[a.Username] = a.B64Passwd
@@ -185,7 +185,7 @@ func (b *Broker) sendMsgToClient(topic string, payload []byte, qos byte) {
 	// plan, use topic from topic manager find clientID
 	// use client ids find session
 	// add message to session wait queue
-	subscribers := b.topicMgr.findSubscribers(topic)
+	subscribers, _ := b.topicMgr.findSubscribers(topic)
 	if subscribers == nil {
 		logger.Errorf("sendMsgToClient not find subscribers for topic <%s>", topic)
 		return
