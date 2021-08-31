@@ -234,9 +234,6 @@ func (ssc *StatusSyncController) GetStatusesRecords() []*StatusesRecord {
 	defer ssc.StatusesRecordsMutex.RUnlock()
 
 	records := make([]*StatusesRecord, len(ssc.statusesRecords))
-	for i, record := range ssc.statusesRecords {
-		records[i] = record
-	}
-
+	copy(records, ssc.statusesRecords)
 	return records
 }
