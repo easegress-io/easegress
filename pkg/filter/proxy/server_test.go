@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"sort"
 	"testing"
 
 	"github.com/megaease/easegress/pkg/context/contexttest"
@@ -347,6 +348,34 @@ func TestDynamicService(t *testing.T) {
 			Address:      "127.0.0.1",
 			Port:         2222,
 		},
+		{
+			RegistryName: "registry-test1",
+			ServiceName:  "service-test1",
+			InstanceID:   "instance-test3",
+			Address:      "127.0.0.1",
+			Port:         3333,
+		},
+		{
+			RegistryName: "registry-test1",
+			ServiceName:  "service-test1",
+			InstanceID:   "instance-test4",
+			Address:      "127.0.0.1",
+			Port:         4444,
+		},
+		{
+			RegistryName: "registry-test1",
+			ServiceName:  "service-test1",
+			InstanceID:   "instance-test5",
+			Address:      "127.0.0.1",
+			Port:         5555,
+		},
+		{
+			RegistryName: "registry-test1",
+			ServiceName:  "service-test1",
+			InstanceID:   "instance-test6",
+			Address:      "127.0.0.1",
+			Port:         6666,
+		},
 	}
 
 	serviceInstanceSpecs := make(map[string]*serviceregistry.ServiceInstanceSpec)
@@ -355,14 +384,24 @@ func TestDynamicService(t *testing.T) {
 	}
 
 	s.useService(serviceInstanceSpecs)
+	sort.Slice(s.static.servers, func(i, j int) bool {
+		return s.static.servers[i].URL < s.static.servers[j].URL
+	})
 
 	wantStatic := &staticServers{
 		lb: *loadBalance,
 		servers: []*Server{
+			{URL: "http://127.0.0.1:4444"},
 			{URL: "http://127.0.0.1:1111"},
+			{URL: "http://127.0.0.1:5555"},
 			{URL: "http://127.0.0.1:2222"},
+			{URL: "http://127.0.0.1:6666"},
+			{URL: "http://127.0.0.1:3333"},
 		},
 	}
+	sort.Slice(wantStatic.servers, func(i, j int) bool {
+		return wantStatic.servers[i].URL < wantStatic.servers[j].URL
+	})
 
 	if !reflect.DeepEqual(wantStatic, s.static) {
 		t.Fatalf("want: %+v\ngot :%+v\n", wantStatic, s.static)
