@@ -40,7 +40,6 @@ If your cluster is configured with RBAC, you will need to authorize Easegress In
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  namespace: default
   name: easegress-ingress-controller
 rules:
 - apiGroups: [""] # "" indicates the core API group
@@ -59,10 +58,9 @@ metadata:
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
+kind: ClusterRoleBinding
 metadata:
   name: easegress-ingress-controller
-  namespace: default
 subjects:
 - kind: ServiceAccount
   name: easegress-ingress-controller
