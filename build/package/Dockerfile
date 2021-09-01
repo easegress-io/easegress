@@ -8,7 +8,7 @@ RUN make clean && make build
 
 # ---
 
-FROM alpine:latest
+FROM alpine:3.13
 
 WORKDIR /opt/easegress
 
