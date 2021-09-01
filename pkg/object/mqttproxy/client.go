@@ -178,8 +178,8 @@ func (c *Client) processPuback(puback *packets.PubackPacket) {
 }
 
 func (c *Client) processSubscribe(packet *packets.SubscribePacket) {
-	c.session.subscribe(packet.Topics, packet.Qoss)
 	c.broker.topicMgr.subscribe(packet.Topics, c.info.cid)
+	c.session.subscribe(packet.Topics, packet.Qoss)
 
 	suback := packets.NewControlPacket(packets.Suback).(*packets.SubackPacket)
 	suback.MessageID = packet.MessageID

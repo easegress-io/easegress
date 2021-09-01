@@ -18,6 +18,8 @@
 package mqttproxy
 
 import (
+	"bytes"
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -35,16 +37,19 @@ type (
 	// Broker is MQTT server, will manage client, topic, session, etc.
 	Broker struct {
 		sync.RWMutex
-		name string
-		spec *Spec
+		egName string
+		name   string
+		spec   *Spec
 
 		listener net.Listener
 		backend  BackendMQ
 		clients  map[string]*Client
 		auth     map[string]string
+		tlsCfg   *tls.Config
 
-		sessMgr  *SessionManager
-		topicMgr *TopicManager
+		sessMgr   *SessionManager
+		topicMgr  *TopicManager
+		memberURL func(string, string) (string, error)
 
 		// done is the channel for shutdowning this proxy.
 		done chan struct{}
@@ -59,21 +64,16 @@ type (
 	}
 )
 
-func newBroker(spec *Spec, store storage.Storage) *Broker {
-	l, err := net.Listen("tcp", fmt.Sprintf(":%d", spec.Port))
-	if err != nil {
-		logger.Errorf("%#v gen mqtt tcp listener, failed: %v", spec, err)
-		return nil
-	}
-
+func newBroker(spec *Spec, store storage.Storage, memberURL func(string, string) (string, error)) *Broker {
 	broker := &Broker{
-		name:     spec.Name,
-		spec:     spec,
-		listener: l,
-		backend:  newBackendMQ(spec),
-		clients:  make(map[string]*Client),
-		auth:     make(map[string]string),
-		done:     make(chan struct{}),
+		egName:    spec.EGName,
+		name:      spec.Name,
+		spec:      spec,
+		backend:   newBackendMQ(spec),
+		clients:   make(map[string]*Client),
+		auth:      make(map[string]string),
+		memberURL: memberURL,
+		done:      make(chan struct{}),
 	}
 	broker.topicMgr = newTopicManager(store)
 	broker.sessMgr = newSessionManager(broker, store)
@@ -81,8 +81,39 @@ func newBroker(spec *Spec, store storage.Storage) *Broker {
 		broker.auth[a.Username] = a.B64Passwd
 	}
 
+	err := broker.setListener()
+	if err != nil {
+		logger.Errorf("mqtt broker get listener failed, err:%v", err)
+		return nil
+	}
+
 	go broker.run()
 	return broker
+}
+
+func (b *Broker) setListener() error {
+	var l net.Listener
+	var err error
+	var cfg *tls.Config
+	addr := fmt.Sprintf(":%d", b.spec.Port)
+	if b.spec.UseTLS {
+		cfg, err = b.spec.tlsConfig()
+		if err != nil {
+			return fmt.Errorf("invalid tls config for mqtt proxy, err:%v", err)
+		}
+		l, err = tls.Listen("tcp", addr, cfg)
+		if err != nil {
+			return fmt.Errorf("gen mqtt tls tcp listener failed, addr:%s, err:%v", addr, err)
+		}
+	} else {
+		l, err = net.Listen("tcp", addr)
+		if err != nil {
+			return fmt.Errorf("gen mqtt tcp listener failed, addr:%s, err:%v", addr, err)
+		}
+	}
+	b.tlsCfg = cfg
+	b.listener = l
+	return err
 }
 
 func (b *Broker) str() string {
@@ -155,13 +186,13 @@ func (b *Broker) handleConn(conn net.Conn) {
 
 	b.Lock()
 	if oldClient, ok := b.clients[cid]; ok {
-		oldClient.close()
+		go oldClient.close()
 	}
 	b.clients[client.info.cid] = client
 	b.setSession(client, connect)
 	b.Unlock()
 
-	client.session.updateEGName(b.name)
+	client.session.updateEGName(b.egName, b.name)
 	client.readLoop()
 }
 
@@ -180,6 +211,28 @@ func (b *Broker) setSession(client *Client, connect *packets.ConnectPacket) {
 	}
 }
 
+func (b *Broker) requestTransfer(egName, name string, data HTTPJsonData) {
+	url, err := b.memberURL(egName, name)
+	if err != nil {
+		logger.Errorf("requestTransfer: not find url for name %s, err:%v", name, err)
+		return
+	}
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		logger.Errorf("requestTransfer: json data marshal failed, err: %v", err)
+		return
+	}
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+}
+
 func (b *Broker) sendMsgToClient(topic string, payload []byte, qos byte) {
 	// plan, use topic from topic manager find clientID
 	// use client ids find session
@@ -189,16 +242,22 @@ func (b *Broker) sendMsgToClient(topic string, payload []byte, qos byte) {
 		logger.Errorf("sendMsgToClient not find subscribers for topic <%s>", topic)
 		return
 	}
+
 	for clientID := range subscribers {
 		sess := b.sessMgr.get(clientID)
 		if sess == nil {
 			logger.Errorf("session for client <%s> is nil", clientID)
 		} else {
-			if sess.info.EGName == b.name {
+			if sess.info.EGName == b.egName && sess.info.Name == b.name {
 				sess.publish(topic, payload, qos)
 			} else {
-				// TODO
-				panic("sendMsgToClient wrong instance ")
+				data := HTTPJsonData{
+					Topic:   topic,
+					Qos:     int(qos),
+					Payload: string(base64.StdEncoding.EncodeToString(payload)),
+					Base64:  true,
+				}
+				b.requestTransfer(sess.info.EGName, sess.info.Name, data)
 			}
 		}
 	}
@@ -243,15 +302,15 @@ func (b *Broker) topicsPublishHandler(w http.ResponseWriter, r *http.Request) {
 
 const apiGroupName = "mqtt_proxy"
 
-func (b *Broker) mqttAPTPrefix() string {
-	return fmt.Sprintf("/mqttproxy/%s/topics/publish", b.name)
+func (b *Broker) mqttAPIPrefix() string {
+	return fmt.Sprintf(mqttAPIPrefix, b.name)
 }
 
 func (b *Broker) registerAPIs() {
 	group := &api.Group{
 		Group: apiGroupName,
 		Entries: []*api.Entry{
-			{Path: b.mqttAPTPrefix(), Method: "POST", Handler: b.topicsPublishHandler},
+			{Path: b.mqttAPIPrefix(), Method: "POST", Handler: b.topicsPublishHandler},
 		},
 	}
 

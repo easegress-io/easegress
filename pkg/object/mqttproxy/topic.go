@@ -123,13 +123,6 @@ func (t *TopicManager) unsubscribe(topics []string, clientID string) error {
 }
 
 func (t *TopicManager) findSubscribers(topic string) (map[string]struct{}, error) {
-	err := t.store.Lock()
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		err = t.store.Unlock()
-	}()
 
 	key := topicStoreKey(topic)
 	value, err := t.store.Get(key)

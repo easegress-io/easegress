@@ -17,22 +17,36 @@
 
 package mqttproxy
 
-import "fmt"
+import (
+	"crypto/tls"
+	"fmt"
+)
 
 const (
 	sessionPrefix = "/mqtt/sessionMgr/clientID/%s"
 	topicPrefix   = "/mqtt/topicMgr/topic/%s"
+	mqttAPIPrefix = "/mqttproxy/%s/topics/publish"
 )
 
 type (
 	// Spec describes the MQTTProxy.
 	Spec struct {
+		EGName      string       `yaml:"-"`
 		Name        string       `yaml:"-"`
 		Port        uint16       `yaml:"port" jsonschema:"required"`
 		BackendType string       `yaml:"backendType" jsonschema:"required"`
 		Auth        []Auth       `yaml:"auth" jsonschema:"required"`
 		TopicMapper *TopicMapper `yaml:"topicMapper" jsonschema:"omitempty"`
 		Kafka       *KafkaSpec   `yaml:"kafkaBroker" jsonschema:"omitempty"`
+
+		UseTLS      bool          `yaml:"useTLS" jsonschema:"omitempty"`
+		Certificate []Certificate `yaml:"certificate" jsonschema:"omitempty"`
+	}
+
+	Certificate struct {
+		Name string `yaml:"name" jsonschema:"required"`
+		Cert string `yaml:"cert" jsonschema:"required"`
+		Key  string `yaml:"key" jsonschema:"required"`
 	}
 
 	// Auth describes username and password for MQTTProxy
@@ -52,6 +66,23 @@ type (
 		Backend []string `yaml:"backend" jsonschema:"required,uniqueItems=true"`
 	}
 )
+
+func (spec *Spec) tlsConfig() (*tls.Config, error) {
+	var certificates []tls.Certificate
+
+	for _, c := range spec.Certificate {
+		cert, err := tls.X509KeyPair([]byte(c.Cert), []byte(c.Key))
+		if err != nil {
+			return nil, fmt.Errorf("generate x509 key pair for %s failed: %s ", c.Name, err)
+		}
+		certificates = append(certificates, cert)
+	}
+	if len(certificates) == 0 {
+		return nil, fmt.Errorf("none valid certs and secret")
+	}
+
+	return &tls.Config{Certificates: certificates}, nil
+}
 
 func sessionStoreKey(clientID string) string {
 	return fmt.Sprintf(sessionPrefix, clientID)

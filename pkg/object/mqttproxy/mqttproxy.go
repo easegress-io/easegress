@@ -18,8 +18,13 @@
 package mqttproxy
 
 import (
+	"fmt"
+
+	"github.com/megaease/easegress/pkg/cluster"
+	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/function/storage"
 	"github.com/megaease/easegress/pkg/supervisor"
+	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -63,14 +68,40 @@ func (mp *MQTTProxy) Status() *supervisor.Status {
 	return &supervisor.Status{}
 }
 
+func memberURLFunc(superSpec *supervisor.Spec) func(string, string) (string, error) {
+	c := superSpec.Super().Cluster()
+
+	f := func(egName, name string) (string, error) {
+		kv, err := c.GetPrefix(c.Layout().StatusMemberPrefix())
+		if err != nil {
+			logger.Errorf("cluster get member list failed, err:%v", err)
+			return "", err
+		}
+		for _, v := range kv {
+			memberStatus := cluster.MemberStatus{}
+			err := yaml.Unmarshal([]byte(v), &memberStatus)
+			if err != nil {
+				logger.Errorf("cluster status unmarshal error, %v", err)
+				return "", err
+			}
+			if memberStatus.Options.Name == egName {
+				return memberStatus.Options.APIAddr + fmt.Sprintf(mqttAPIPrefix, name), nil
+			}
+		}
+		return "", fmt.Errorf("name %s not in cluster member list", name)
+	}
+	return f
+}
+
 // Init initializes Function.
 func (mp *MQTTProxy) Init(superSpec *supervisor.Spec) {
 	spec := superSpec.ObjectSpec().(*Spec)
 	spec.Name = superSpec.Name()
+	spec.EGName = superSpec.Super().Options().Name
 	mp.superSpec, mp.spec = superSpec, spec
 
 	store := storage.NewStorage(superSpec.Name(), superSpec.Super().Cluster())
-	mp.broker = newBroker(spec, store)
+	mp.broker = newBroker(spec, store, memberURLFunc(superSpec))
 	mp.broker.registerAPIs()
 }
 

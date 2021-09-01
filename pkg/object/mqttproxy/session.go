@@ -34,6 +34,7 @@ type (
 	SessionInfo struct {
 		// map subscribe topic to qos
 		EGName    string         `yaml:"egName"`
+		Name      string         `yaml:"name"`
 		Topics    map[string]int `yaml:"topics"`
 		ClientID  string         `yaml:"clientID"`
 		CleanFlag bool           `yaml:"cleanFlag"`
@@ -104,17 +105,19 @@ func (s *Session) init(sm *SessionManager, b *Broker, connect *packets.ConnectPa
 	s.pendingQueue = []uint16{}
 
 	s.info = &SessionInfo{}
-	s.info.EGName = b.name
+	s.info.EGName = b.egName
+	s.info.Name = b.name
 	s.info.ClientID = connect.ClientIdentifier
 	s.info.CleanFlag = connect.CleanSession
 	s.info.Topics = make(map[string]int)
 	return nil
 }
 
-func (s *Session) updateEGName(name string) {
+func (s *Session) updateEGName(egName, name string) {
 	s.Lock()
 	defer s.Unlock()
-	s.info.EGName = name
+	s.info.EGName = egName
+	s.info.Name = name
 	s.store()
 }
 
