@@ -58,7 +58,7 @@ func newBackendMQ(spec *Spec) BackendMQ {
 		t.ch = make(chan *packets.PublishPacket, 100)
 		return t
 	default:
-		logger.Errorf("backend type not support %s", spec.BackendType)
+		logger.Errorf("mqtt.newBackendMQ: backend type <%s> not support", spec.BackendType)
 		return nil
 	}
 }
@@ -73,7 +73,7 @@ func newKafkaMQ(spec *Spec) *KafkaMQ {
 	config.Version = sarama.V0_10_2_0
 	producer, err := sarama.NewAsyncProducer(spec.Kafka.Backend, config)
 	if err != nil {
-		logger.Errorf("start sarama producer failed, broker: %s, err: %s", spec.Kafka.Backend, err)
+		logger.Errorf("mqtt.newKafkaMQ: start sarama producer failed, addr:%v, err:%v", spec.Kafka.Backend, err)
 		return nil
 	}
 
@@ -86,7 +86,7 @@ func newKafkaMQ(spec *Spec) *KafkaMQ {
 				if !ok {
 					return
 				}
-				logger.Errorf("produce failed: %s", err)
+				logger.Errorf("mqtt.newKafkaMQ: produce failed, err:%v", err)
 			}
 		}
 	}()
@@ -127,7 +127,7 @@ func (k *KafkaMQ) close() {
 	close(k.done)
 	err := k.producer.Close()
 	if err != nil {
-		logger.Errorf("close kafka producer failed: %s", err)
+		logger.Errorf("mqtt.close: close kafka producer failed, err:%v", err)
 	}
 }
 

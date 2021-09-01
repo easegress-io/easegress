@@ -19,7 +19,6 @@ package mqttproxy
 
 import (
 	"encoding/base64"
-	"fmt"
 	"sync"
 	"time"
 
@@ -186,7 +185,7 @@ func (s *Session) publish(topic string, payload []byte, qos byte) {
 			s.pendingQueue = append(s.pendingQueue, p.MessageID)
 			go client.writePacket(p)
 		} else {
-			logger.Errorf("current not support to publish message with qos=2")
+			logger.Errorf("mqtt.publish: current not support to publish message with qos=2")
 		}
 	}
 }
@@ -223,8 +222,7 @@ func (s *Session) doResend() {
 			p.TopicName = val.Topic
 			payload, err := base64.StdEncoding.DecodeString(val.B64Payload)
 			if err != nil {
-				logger.Errorf("base64 decode error for Message B64Payload %s", err)
-				fmt.Printf("base64 decode error for Message B64Payload %s", err)
+				logger.Errorf("mqtt.doResend: base64 decode error for Message B64Payload %s", err)
 				return
 			}
 			p.Payload = payload

@@ -80,10 +80,9 @@ func newBroker(spec *Spec, store storage.Storage, memberURL func(string, string)
 	for _, a := range spec.Auth {
 		broker.auth[a.Username] = a.B64Passwd
 	}
-
 	err := broker.setListener()
 	if err != nil {
-		logger.Errorf("mqtt broker get listener failed, err:%v", err)
+		logger.Errorf("mqtt.newBroker: broker set listener failed, err:%v", err)
 		return nil
 	}
 
@@ -116,10 +115,6 @@ func (b *Broker) setListener() error {
 	return err
 }
 
-func (b *Broker) str() string {
-	return fmt.Sprintf("%s cfg:%#v", b.name, b.spec)
-}
-
 func (b *Broker) run() {
 	for {
 		conn, err := b.listener.Accept()
@@ -128,7 +123,7 @@ func (b *Broker) run() {
 			case <-b.done:
 				return
 			default:
-				logger.Errorf("%s net listener accept err: %s", b.str(), err)
+				logger.Errorf("mqtt.run: net listener accept failed, err:%s", err)
 			}
 		} else {
 			go b.handleConn(conn)
@@ -150,12 +145,12 @@ func (b *Broker) handleConn(conn net.Conn) {
 	defer conn.Close()
 	packet, err := packets.ReadPacket(conn)
 	if err != nil {
-		logger.Errorf("%s read connect packet error: %s", b.str(), err)
+		logger.Errorf("mqtt.handleConn: read connect packet failed, err:%s", err)
 		return
 	}
 	connect, ok := packet.(*packets.ConnectPacket)
 	if !ok {
-		logger.Errorf("received %s that was not Connect", packet.String())
+		logger.Errorf("mqtt.handleConn: received %s that was not Connect", packet.String())
 		return
 	}
 
@@ -164,20 +159,20 @@ func (b *Broker) handleConn(conn net.Conn) {
 	connack.ReturnCode = connect.Validate()
 	if connack.ReturnCode != packets.Accepted {
 		err = connack.Write(conn)
-		logger.Errorf("%s, invalid connection %#v, write back err %s", b.str(), connack.ReturnCode, err)
+		logger.Errorf("mqtt.handleConn: invalid connection %v, write connack failed, err:%s", connack.ReturnCode, err)
 		return
 	}
 
 	if !b.checkClientAuth(connect) {
 		connack.ReturnCode = packets.ErrRefusedNotAuthorised
 		err = connack.Write(conn)
-		logger.Errorf("%s, invalid connection %#v, write back err %s", b.str(), connack.ReturnCode, err)
+		logger.Errorf("mqtt.handleConn: invalid connection %v, connack back failed, err:%s", connack.ReturnCode, err)
 		return
 	}
 
 	err = connack.Write(conn)
 	if err != nil {
-		logger.Errorf("%s, send connack to client %s err %s", b.str(), connect.ClientIdentifier, err)
+		logger.Errorf("mqtt.handleConn: send connack to client %s failed, err %s", connect.ClientIdentifier, err)
 		return
 	}
 
@@ -214,20 +209,22 @@ func (b *Broker) setSession(client *Client, connect *packets.ConnectPacket) {
 func (b *Broker) requestTransfer(egName, name string, data HTTPJsonData) {
 	url, err := b.memberURL(egName, name)
 	if err != nil {
-		logger.Errorf("requestTransfer: not find url for name %s, err:%v", name, err)
+		logger.Errorf("mqtt.requestTransfer: not find url for eg:%s, name:%s, err:%v", egName, name, err)
 		return
 	}
 	jsonData, err := json.Marshal(data)
 	if err != nil {
-		logger.Errorf("requestTransfer: json data marshal failed, err: %v", err)
+		logger.Errorf("mqtt.requestTransfer: json data marshal failed, err: %v", err)
 		return
 	}
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
+		logger.Errorf("mqtt.requestTransfer: make new request failed, err:%v", err)
 		return
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
+		logger.Errorf("mqtt.requestTransfer: http client send msg failed, err:%v", err)
 		return
 	}
 	defer resp.Body.Close()
@@ -239,14 +236,14 @@ func (b *Broker) sendMsgToClient(topic string, payload []byte, qos byte) {
 	// add message to session wait queue
 	subscribers, _ := b.topicMgr.findSubscribers(topic)
 	if subscribers == nil {
-		logger.Errorf("sendMsgToClient not find subscribers for topic <%s>", topic)
+		logger.Errorf("mqtt.sendMsgToClient: not find subscribers for topic %s", topic)
 		return
 	}
 
 	for clientID := range subscribers {
 		sess := b.sessMgr.get(clientID)
 		if sess == nil {
-			logger.Errorf("session for client <%s> is nil", clientID)
+			logger.Errorf("mqtt.sendMsgToClient: session for client %s is nil", clientID)
 		} else {
 			if sess.info.EGName == b.egName && sess.info.Name == b.name {
 				sess.publish(topic, payload, qos)
@@ -326,8 +323,7 @@ func (b *Broker) close() {
 	b.Lock()
 	defer b.Unlock()
 	for _, v := range b.clients {
-		v.close()
+		go v.close()
 	}
 	b.clients = nil
-
 }

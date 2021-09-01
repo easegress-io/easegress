@@ -19,6 +19,7 @@ package mqttproxy
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"sync"
 	"time"
@@ -106,18 +107,18 @@ func (c *Client) readLoop() {
 
 		if keepAlive > 0 {
 			if err := c.conn.SetDeadline(time.Now().Add(timeOut)); err != nil {
-				logger.Errorf("set read timeout error: %s", c.info.cid)
+				logger.Errorf("mqtt.readLoop: set read timeout failed, err:%s", c.info.cid)
 			}
 		}
 
 		packet, err := packets.ReadPacket(c.conn)
 		if err != nil {
-			logger.Errorf("%s, client %s, read packet error: %s", c.broker.str(), c.info.cid, err)
+			logger.Errorf("mqtt.readLoop: client %s read packet failed, err:%v", c.info.cid, err)
 			return
 		}
 		err = c.processPacket(packet)
 		if err != nil {
-			logger.Errorf("%s, client %s, error: %s", c.broker.str(), c.info.cid, err)
+			logger.Errorf("mqtt.readLoop client %s process packet failed, err:%v", c.info.cid, err)
 			return
 		}
 	}
@@ -131,7 +132,7 @@ func (c *Client) processPacket(packet packets.ControlPacket) error {
 	case *packets.ConnackPacket:
 		err = errors.New("client send connack")
 	case *packets.PublishPacket:
-		c.processPublish(p)
+		err = c.processPublish(p)
 	case *packets.PubackPacket:
 		c.processPuback(p)
 	case *packets.PubrecPacket, *packets.PubrelPacket, *packets.PubcompPacket:
@@ -156,7 +157,7 @@ func (c *Client) processPacket(packet packets.ControlPacket) error {
 	return err
 }
 
-func (c *Client) processPublish(publish *packets.PublishPacket) {
+func (c *Client) processPublish(publish *packets.PublishPacket) error {
 	c.broker.backend.publish(publish)
 	switch publish.Qos {
 	case Qos0:
@@ -166,11 +167,12 @@ func (c *Client) processPublish(publish *packets.PublishPacket) {
 		puback.MessageID = publish.MessageID
 		err := c.writePacket(puback)
 		if err != nil {
-			logger.Errorf("write puback to client %s failed: %s", c.info.cid, err)
+			return fmt.Errorf("write puback to client %s failed, err:%s", c.info.cid, err)
 		}
 	case Qos2:
 		// not support yet
 	}
+	return nil
 }
 
 func (c *Client) processPuback(puback *packets.PubackPacket) {
@@ -178,7 +180,11 @@ func (c *Client) processPuback(puback *packets.PubackPacket) {
 }
 
 func (c *Client) processSubscribe(packet *packets.SubscribePacket) {
-	c.broker.topicMgr.subscribe(packet.Topics, c.info.cid)
+	err := c.broker.topicMgr.subscribe(packet.Topics, c.info.cid)
+	if err != nil {
+		logger.Errorf("mqtt.processSubscribe: client %v subscribe %v failed, err:%v", c.info.cid, packet.Topics, err)
+		return
+	}
 	c.session.subscribe(packet.Topics, packet.Qoss)
 
 	suback := packets.NewControlPacket(packets.Suback).(*packets.SubackPacket)
@@ -191,8 +197,11 @@ func (c *Client) processSubscribe(packet *packets.SubscribePacket) {
 }
 
 func (c *Client) processUnsubscribe(packet *packets.UnsubscribePacket) {
+	err := c.broker.topicMgr.unsubscribe(packet.Topics, c.info.cid)
+	if err != nil {
+		logger.Errorf("mqtt.processUnsubscribe: client %v unsubscribe %v failed, err:%v", c.info.cid, packet.Topics, err)
+	}
 	c.session.unsubscribe(packet.Topics)
-	c.broker.topicMgr.unsubscribe(packet.Topics, c.info.cid)
 
 	unsuback := packets.NewControlPacket(packets.Unsuback).(*packets.UnsubackPacket)
 	unsuback.MessageID = packet.MessageID

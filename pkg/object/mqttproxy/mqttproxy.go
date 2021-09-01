@@ -74,14 +74,14 @@ func memberURLFunc(superSpec *supervisor.Spec) func(string, string) (string, err
 	f := func(egName, name string) (string, error) {
 		kv, err := c.GetPrefix(c.Layout().StatusMemberPrefix())
 		if err != nil {
-			logger.Errorf("cluster get member list failed, err:%v", err)
+			logger.Errorf("mqtt.memberURLFunc: cluster get member list failed, err:%v", err)
 			return "", err
 		}
 		for _, v := range kv {
 			memberStatus := cluster.MemberStatus{}
 			err := yaml.Unmarshal([]byte(v), &memberStatus)
 			if err != nil {
-				logger.Errorf("cluster status unmarshal error, %v", err)
+				logger.Errorf("mqtt.memberURLFunc: cluster status unmarshal error, %v", err)
 				return "", err
 			}
 			if memberStatus.Options.Name == egName {
