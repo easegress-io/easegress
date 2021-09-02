@@ -1,6 +1,6 @@
-# Handle Flash Save With Easegress and WebAssembly
+# Handle Flash Sale With Easegress and WebAssembly
 
-- [Handle Flash Save With Easegress and WebAssembly](#handle-flash-save-with-easegress-and-webassembly)
+- [Handle Flash Sale With Easegress and WebAssembly](#handle-flash-sale-with-easegress-and-webassembly)
 	- [1. Getting Started](#1-getting-started)
 		- [1.1 Setting Up The Flash Sale Project](#11-setting-up-the-flash-sale-project)
 		- [1.2 Creating HTTP Server And Pipeline In Easegress](#12-creating-http-server-and-pipeline-in-easegress)
