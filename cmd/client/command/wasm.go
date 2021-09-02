@@ -85,8 +85,9 @@ func wasmApplyDataCmd() *cobra.Command {
 		},
 
 		Run: func(cmd *cobra.Command, args []string) {
-			buf, _ := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPut, makeURL(wasmDataURL, args[0], args[1]), buf, cmd)
+			readFromFileOrStdin(specFile, cmd, func(doc, name string) {
+				handleRequest(http.MethodPut, makeURL(wasmDataURL, args[0], args[1]), []byte(doc), cmd)
+			})
 		},
 	}
 	cmd.Flags().StringVarP(&specFile, "file", "f", "", "A yaml file specifying the object.")

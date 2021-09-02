@@ -61,8 +61,9 @@ func createObjectCmd() *cobra.Command {
 		Use:   "create",
 		Short: "Create an object from a yaml file or stdin",
 		Run: func(cmd *cobra.Command, args []string) {
-			buff, _ := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPost, makeURL(objectsURL), buff, cmd)
+			readFromFileOrStdin(specFile, cmd, func(doc, name string) {
+				handleRequest(http.MethodPost, makeURL(objectsURL), []byte(doc), cmd)
+			})
 		},
 	}
 
@@ -77,8 +78,9 @@ func updateObjectCmd() *cobra.Command {
 		Use:   "update",
 		Short: "Update an object from a yaml file or stdin",
 		Run: func(cmd *cobra.Command, args []string) {
-			buff, name := readFromFileOrStdin(specFile, cmd)
-			handleRequest(http.MethodPut, makeURL(objectURL, name), buff, cmd)
+			readFromFileOrStdin(specFile, cmd, func(doc, name string) {
+				handleRequest(http.MethodPut, makeURL(objectURL, name), []byte(doc), cmd)
+			})
 		},
 	}
 
