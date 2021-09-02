@@ -306,7 +306,7 @@ func (tc *TrafficController) DeleteHTTPServer(namespace, name string) error {
 	return nil
 }
 
-// GetHTTPServer gets HTTP servers by it's namespace and name
+// GetHTTPServer gets HTTP servers by its namespace and name
 func (tc *TrafficController) GetHTTPServer(namespace, name string) (*supervisor.ObjectEntity, bool) {
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
@@ -517,7 +517,7 @@ func (tc *TrafficController) ApplyHTTPPipeline(namespace string, entity *supervi
 	return entity, nil
 }
 
-// DeleteHTTPPipeline deletes the HTTP pipeline by it's namespace and name
+// DeleteHTTPPipeline deletes the HTTP pipeline by its namespace and name
 func (tc *TrafficController) DeleteHTTPPipeline(namespace, name string) error {
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()

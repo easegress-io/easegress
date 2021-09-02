@@ -50,7 +50,7 @@ type (
 		// Apply creates or updates service instances of the registry.
 		Apply map[string]*ServiceInstanceSpec
 
-		// Delete deletes service instaces of the registry.
+		// Delete deletes service instances of the registry.
 		Delete map[string]*ServiceInstanceSpec
 	}
 
@@ -113,7 +113,7 @@ func (sr *ServiceRegistry) NewRegistryWatcher(registryName string) RegistryWatch
 		registryName: registryName,
 		eventChan:    make(chan *RegistryEvent, 10),
 		existsFn:     sr.registryExistsFn(registryName),
-		stopFn:       sr.registryWacherStopFn(registryName, id),
+		stopFn:       sr.registryWatcherStopFn(registryName, id),
 	}
 
 	_, exists := sr.registryBuckets[registryName]
@@ -149,7 +149,7 @@ func (sr *ServiceRegistry) NewServiceWatcher(registryName, serviceName string) S
 		registryName: registryName,
 		serviceName:  serviceName,
 		eventChan:    make(chan *ServiceEvent, 10),
-		stopFn:       sr.serviceWacherStopFn(registryName, serviceName, id),
+		stopFn:       sr.serviceWatcherStopFn(registryName, serviceName, id),
 	}
 
 	_, exists := sr.registryBuckets[registryName]
@@ -188,7 +188,7 @@ func (sr *ServiceRegistry) registryExistsFn(registryName string) func() bool {
 	}
 }
 
-func (sr *ServiceRegistry) registryWacherStopFn(registryName, watcherID string) func() {
+func (sr *ServiceRegistry) registryWatcherStopFn(registryName, watcherID string) func() {
 	return func() {
 		sr.mutex.Lock()
 		defer sr.mutex.Unlock()
@@ -206,7 +206,7 @@ func (sr *ServiceRegistry) registryWacherStopFn(registryName, watcherID string) 
 	}
 }
 
-func (sr *ServiceRegistry) serviceWacherStopFn(registryName, serviceName, watcherID string) func() {
+func (sr *ServiceRegistry) serviceWatcherStopFn(registryName, serviceName, watcherID string) func() {
 	return func() {
 		sr.mutex.Lock()
 		defer sr.mutex.Unlock()

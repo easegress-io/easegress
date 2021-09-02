@@ -107,7 +107,7 @@ func (s *ServiceInstanceSpec) URL() string {
 
 // NewRegistryEventFromDiff creates a registry event from diff old and new specs.
 // It only uses Apply and Delete excluding Replace.
-// External drivers should use event.Replace in first time, then use this utiliy to generate next events.
+// External drivers should use event.Replace in first time, then use this utility to generate next events.
 // registryName is only assigned to the event, the registry name of service instance spec won't change.
 func NewRegistryEventFromDiff(registryName string, oldSpecs, newSpecs map[string]*ServiceInstanceSpec) *RegistryEvent {
 	if oldSpecs == nil {

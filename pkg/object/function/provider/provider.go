@@ -75,7 +75,7 @@ func (kc *knativeClient) GetStatus(name string) (*spec.Status, error) {
 	if len(service.Status.LatestReadyRevisionName) == 0 ||
 		service.Status.LatestCreatedRevisionName != service.Status.LatestReadyRevisionName {
 		for _, v := range service.Status.Conditions {
-			// There are three types of condiction, false, unknown, true
+			// There are three types of condition, false, unknown, true
 			if v.Status == corev1.ConditionFalse {
 				hasErrors = true
 			}

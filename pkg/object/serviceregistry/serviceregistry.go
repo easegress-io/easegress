@@ -357,7 +357,7 @@ func (sr *ServiceRegistry) DefaultSpec() interface{} {
 	}
 }
 
-// Init initilizes ServiceRegistry.
+// Init initializes ServiceRegistry.
 func (sr *ServiceRegistry) Init(superSpec *supervisor.Spec) {
 	sr.superSpec, sr.spec = superSpec, superSpec.ObjectSpec().(*Spec)
 	sr.reload()

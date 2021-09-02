@@ -125,7 +125,7 @@ func (n *NacosServiceRegistry) DefaultSpec() interface{} {
 	}
 }
 
-// Init initilizes NacosServiceRegistry.
+// Init initializes NacosServiceRegistry.
 func (n *NacosServiceRegistry) Init(superSpec *supervisor.Spec) {
 	n.superSpec, n.spec = superSpec, superSpec.ObjectSpec().(*Spec)
 	n.reload()

@@ -125,7 +125,7 @@ func (a *API) registerAPIs() {
 
 			{Path: MeshServiceInstancePrefix, Method: "GET", Handler: a.listServiceInstanceSpecs},
 			{Path: MeshServiceInstancePath, Method: "GET", Handler: a.getServiceInstanceSpec},
-			{Path: MeshServiceInstancePath, Method: "DELETE", Handler: a.offlineSerivceInstance},
+			{Path: MeshServiceInstancePath, Method: "DELETE", Handler: a.offlineServiceInstance},
 
 			{Path: MeshServiceCanaryPath, Method: "POST", Handler: a.createPartOfService(canaryMeta)},
 			{Path: MeshServiceCanaryPath, Method: "GET", Handler: a.getPartOfService(canaryMeta)},

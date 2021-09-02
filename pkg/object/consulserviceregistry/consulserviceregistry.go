@@ -103,7 +103,7 @@ func (c *ConsulServiceRegistry) DefaultSpec() interface{} {
 	}
 }
 
-// Init initilizes ConsulServiceRegistry.
+// Init initializes ConsulServiceRegistry.
 func (c *ConsulServiceRegistry) Init(superSpec *supervisor.Spec) {
 	c.superSpec, c.spec = superSpec, superSpec.ObjectSpec().(*Spec)
 	c.reload()

@@ -98,7 +98,7 @@ func (e *EtcdServiceRegistry) DefaultSpec() interface{} {
 	}
 }
 
-// Init initilizes EtcdServiceRegistry.
+// Init initializes EtcdServiceRegistry.
 func (e *EtcdServiceRegistry) Init(superSpec *supervisor.Spec) {
 	e.superSpec, e.spec = superSpec, superSpec.ObjectSpec().(*Spec)
 	e.reload()
