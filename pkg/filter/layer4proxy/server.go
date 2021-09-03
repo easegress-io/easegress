@@ -3,6 +3,7 @@ package layer4proxy
 import (
 	"fmt"
 	"math/rand"
+	"net"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -50,9 +51,10 @@ type (
 
 	// Server is proxy server.
 	Server struct {
-		Address string   `yaml:"url" jsonschema:"required,format=hostport"`
-		Tags    []string `yaml:"tags" jsonschema:"omitempty,uniqueItems=true"`
-		Weight  int      `yaml:"weight" jsonschema:"omitempty,minimum=0,maximum=100"`
+		Address  *net.TCPAddr
+		HostPort string   `yaml:"HostPort" jsonschema:"required,format=hostport"`
+		Tags     []string `yaml:"tags" jsonschema:"omitempty,uniqueItems=true"`
+		Weight   int      `yaml:"weight" jsonschema:"omitempty,minimum=0,maximum=100"`
 	}
 
 	// LoadBalance is load balance for multiple servers.
@@ -61,8 +63,24 @@ type (
 	}
 )
 
+func (s *servers) Validated() error {
+	if s.poolSpec.Protocol == "tcp" {
+		for _, server := range s.static.servers {
+			if addr, err := net.ResolveTCPAddr("tcp", server.HostPort); err != nil {
+				logger.Errorf("resolve tcp addr failed, host port: %v, %v", server.HostPort, err)
+				return err
+			} else {
+				server.Address = addr
+			}
+		}
+	}
+
+	// TODO check udp address
+	return nil
+}
+
 func (s *Server) String() string {
-	return fmt.Sprintf("%s,%v,%d", s.Address, s.Tags, s.Weight)
+	return fmt.Sprintf("%s,%v,%d", s.HostPort, s.Tags, s.Weight)
 }
 
 func newServers(super *supervisor.Supervisor, poolSpec *PoolSpec) *servers {
@@ -121,9 +139,9 @@ func (s *servers) useService(serviceInstanceSpecs map[string]*serviceregistry.Se
 	var servers []*Server
 	for _, instance := range serviceInstanceSpecs {
 		servers = append(servers, &Server{
-			Address: instance.Address + ":" + strconv.Itoa(int(instance.Port)),
-			Tags:    instance.Tags,
-			Weight:  instance.Weight,
+			HostPort: instance.Address + ":" + strconv.Itoa(int(instance.Port)),
+			Tags:     instance.Tags,
+			Weight:   instance.Weight,
 		})
 	}
 	if len(servers) == 0 {
