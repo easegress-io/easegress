@@ -85,7 +85,7 @@ func memberURLFunc(superSpec *supervisor.Spec) func(string, string) (string, err
 				return "", err
 			}
 			if memberStatus.Options.Name == egName {
-				return memberStatus.Options.APIAddr + fmt.Sprintf(mqttAPIPrefix, name), nil
+				return "http://" + memberStatus.Options.APIAddr + "/apis/v1" + fmt.Sprintf(mqttAPIPrefix, name), nil
 			}
 		}
 		return "", fmt.Errorf("name %s not in cluster member list", name)
@@ -102,7 +102,9 @@ func (mp *MQTTProxy) Init(superSpec *supervisor.Spec) {
 
 	store := storage.NewStorage(superSpec.Name(), superSpec.Super().Cluster())
 	mp.broker = newBroker(spec, store, memberURLFunc(superSpec))
-	mp.broker.registerAPIs()
+	if mp.broker != nil {
+		mp.broker.registerAPIs()
+	}
 }
 
 // Inherit inherits previous generation of WebSocketServer.

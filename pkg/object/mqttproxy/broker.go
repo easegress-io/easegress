@@ -297,7 +297,7 @@ func (b *Broker) topicsPublishHandler(w http.ResponseWriter, r *http.Request) {
 	go b.sendMsgToClient(data.Topic, payload, byte(data.Qos))
 }
 
-const apiGroupName = "mqtt_proxy"
+// const apiGroupName = "mqtt_proxy"
 
 func (b *Broker) mqttAPIPrefix() string {
 	return fmt.Sprintf(mqttAPIPrefix, b.name)
@@ -305,7 +305,7 @@ func (b *Broker) mqttAPIPrefix() string {
 
 func (b *Broker) registerAPIs() {
 	group := &api.Group{
-		Group: apiGroupName,
+		Group: b.name,
 		Entries: []*api.Entry{
 			{Path: b.mqttAPIPrefix(), Method: "POST", Handler: b.topicsPublishHandler},
 		},
