@@ -42,6 +42,35 @@ type (
 	// HandlerCaller is a helper function to call the handler
 	HandlerCaller func(lastResult string) string
 
+	// Layer4Context is all context of an TCP processing.
+	// It is not goroutine-safe, callers must use Lock/Unlock
+	// to protect it by themselves.
+	Layer4Context interface {
+		Lock()
+		Unlock()
+
+		stdcontext.Context
+		Cancel(err error)
+		Cancelled() bool
+		ClientDisconnected() bool
+
+		Duration() time.Duration // For log, sample, etc.
+		OnFinish(func())         // For setting final client statistics, etc.
+		AddTag(tag string)       // For debug, log, etc.
+
+		Finish()
+
+		Host() string
+		SetHost(host string)
+		Port() uint16
+		SetPort(port uint16)
+
+		ClientIP() string
+
+		CallNextHandler(lastResult string) string
+		SetHandlerCaller(caller HandlerCaller)
+	}
+
 	// HTTPContext is all context of an HTTP processing.
 	// It is not goroutine-safe, callers must use Lock/Unlock
 	// to protect it by themselves.

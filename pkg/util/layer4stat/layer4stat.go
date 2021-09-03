@@ -1,4 +1,4 @@
-package tcpstat
+package layer4stat
 
 import (
 	"sync"
@@ -8,8 +8,8 @@ import (
 )
 
 type (
-	// TcpStat is the statistics tool for TCP traffic.
-	TcpStat struct {
+	// Layer4Stat is the statistics tool for TCP traffic.
+	Layer4Stat struct {
 		mutex sync.Mutex
 
 		count  uint64 // for tcp connection
@@ -71,3 +71,11 @@ type (
 		Codes map[int]uint64 `yaml:"codes"`
 	}
 )
+
+func (s *Layer4Stat) Status() *Status {
+	panic("implement me")
+}
+
+func New() *Layer4Stat {
+	panic("implement me")
+}

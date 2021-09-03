@@ -81,7 +81,7 @@ func (hs *HTTPServer) Inherit(superSpec *supervisor.Spec, previousGeneration sup
 	}
 }
 
-// Status is the wrapper of runtime's Status.
+// Status is the wrapper of runtimes Status.
 func (hs *HTTPServer) Status() *supervisor.Status {
 	return &supervisor.Status{
 		ObjectStatus: hs.runtime.Status(),

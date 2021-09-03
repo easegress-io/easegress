@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package proxy
+package layer4proxy
 
 import (
 	"bytes"
