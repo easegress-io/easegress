@@ -54,7 +54,7 @@ The `check_cluster_status.sh` will list:
 ## Stop and Clean Easegress Cluster
 
 ```shell
- ./clean_eg_cluster.sh
+ ./clean_cluster.sh
 ```
 
 It will ignore step-stop if members have stopped.
