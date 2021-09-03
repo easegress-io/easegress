@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/function/storage"
 	etcderror "go.etcd.io/etcd/api/v3/v3rpc/rpctypes"
 	"gopkg.in/yaml.v2"
