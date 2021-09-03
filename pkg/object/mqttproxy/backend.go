@@ -70,7 +70,7 @@ func newKafkaMQ(spec *Spec) *KafkaMQ {
 
 	config := sarama.NewConfig()
 	config.ClientID = spec.Name
-	config.Version = sarama.V0_10_2_0
+	config.Version = sarama.V1_0_0_0
 	producer, err := sarama.NewAsyncProducer(spec.Kafka.Backend, config)
 	if err != nil {
 		logger.Errorf("mqtt.newKafkaMQ: start sarama producer failed, addr:%v, err:%v", spec.Kafka.Backend, err)

@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/function/storage"
 	etcderror "go.etcd.io/etcd/api/v3/v3rpc/rpctypes"
 	"gopkg.in/yaml.v2"
@@ -131,6 +132,9 @@ func (t *TopicManager) findSubscribers(topic string) (map[string]struct{}, error
 			return map[string]struct{}{}, nil
 		}
 		return nil, err
+	}
+	if value == nil {
+		return map[string]struct{}{}, nil
 	}
 
 	data := Topic{}

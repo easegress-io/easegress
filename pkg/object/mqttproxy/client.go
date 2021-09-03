@@ -118,7 +118,7 @@ func (c *Client) readLoop() {
 		}
 		err = c.processPacket(packet)
 		if err != nil {
-			logger.Errorf("mqtt.readLoop client %s process packet failed, err:%v", c.info.cid, err)
+			logger.Debugf("mqtt.readLoop client %s process packet failed, err:%v", c.info.cid, err)
 			return
 		}
 	}
