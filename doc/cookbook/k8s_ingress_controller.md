@@ -10,7 +10,7 @@
 
 The IngressController is an implementation of [Kubernetes ingress controller](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/), it watches Kubernetes Ingress, Service, Endpoints, and Secrets then translates them to Easegress HTTP server and pipelines.
 
-This document list example configurations for typical scenarios, more details could be found at [the guide of ingress controller](./ingresscontroller.md).
+This document list example configurations for typical scenarios, more details could be found at [the guide of ingress controller](../ingresscontroller.md).
 
 ## Why Use an Ingress Controller
 
