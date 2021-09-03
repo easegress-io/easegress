@@ -95,7 +95,7 @@ func (e *EurekaServiceRegistry) DefaultSpec() interface{} {
 	}
 }
 
-// Init initilizes EurekaServiceRegistry.
+// Init initializes EurekaServiceRegistry.
 func (e *EurekaServiceRegistry) Init(superSpec *supervisor.Spec) {
 	e.superSpec, e.spec = superSpec, superSpec.ObjectSpec().(*Spec)
 	e.reload()

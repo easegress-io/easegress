@@ -30,7 +30,7 @@ import (
 )
 
 type (
-	// Worker stores the woker information
+	// Worker stores the worker information
 	Worker struct {
 		mutex     sync.RWMutex
 		super     *supervisor.Supervisor

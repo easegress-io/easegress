@@ -191,7 +191,7 @@ func (m *Master) cleanDeadInstances() {
 }
 
 func (m *Master) isMeshRegistryName(registryName string) bool {
-	// NOTE: Empty registry name means it is a internal mesh service by default.
+	// NOTE: Empty registry name means it is an internal mesh service by default.
 	switch registryName {
 	case "", m.superSpec.Name():
 		return true

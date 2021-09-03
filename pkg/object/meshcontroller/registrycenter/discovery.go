@@ -162,8 +162,8 @@ func (rcs *Server) Discovery() ([]*ServiceRegistryInfo, error) {
 	}
 	var version int64
 	tenantInfos := rcs.getTenants([]string{spec.GlobalTenant, rcs.tenant})
-	if globalTentant, ok := tenantInfos[spec.GlobalTenant]; ok {
-		version = globalTentant.info.Version
+	if globalTenant, ok := tenantInfos[spec.GlobalTenant]; ok {
+		version = globalTenant.info.Version
 		for _, v := range tenantInfos[spec.GlobalTenant].tenant.Services {
 			if v != rcs.serviceName {
 				visibleServices[v] = true

@@ -116,7 +116,7 @@ func (worker *Worker) healthService(w http.ResponseWriter, r *http.Request) {
 
 	buff, err := json.Marshal(serviceEntry)
 	if err != nil {
-		logger.Errorf("json marshal sericeEntry: %#v err: %v", serviceEntry, err)
+		logger.Errorf("json marshal serviceEntry: %#v err: %v", serviceEntry, err)
 		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
 		return
 	}

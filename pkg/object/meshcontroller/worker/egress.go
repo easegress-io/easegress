@@ -59,7 +59,7 @@ type (
 	}
 )
 
-// NewEgressServer creates a initialized egress server
+// NewEgressServer creates an initialized egress server
 func NewEgressServer(superSpec *supervisor.Spec, super *supervisor.Supervisor,
 	serviceName string, service *service.Service, inf informer.Informer) *EgressServer {
 

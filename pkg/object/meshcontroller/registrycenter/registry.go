@@ -46,7 +46,7 @@ const (
 type (
 	// Server handle all registry about logic
 	Server struct {
-		// Currently we supports Eureka/Consul
+		// Currently we support Eureka/Consul
 		RegistryType string
 		registered   bool
 
@@ -68,7 +68,7 @@ type (
 	ReadyFunc func() bool
 )
 
-// NewRegistryCenterServer creates a initialized registry center server.
+// NewRegistryCenterServer creates an initialized registry center server.
 func NewRegistryCenterServer(registryType string, registryName, serviceName string, IP string, port int, instanceID string,
 	serviceLabels map[string]string, service *service.Service) *Server {
 	return &Server{
@@ -209,7 +209,7 @@ func (rcs *Server) decodeByEurekaFormat(contentType string, body []byte) error {
 			return err
 		}
 	default:
-		if err = xml.Unmarshal([]byte(body), &eurekaIns); err != nil {
+		if err = xml.Unmarshal(body, &eurekaIns); err != nil {
 			logger.Errorf("decode eureka contentType: %s body: %s failed: %v", contentType, string(body), err)
 			return err
 		}

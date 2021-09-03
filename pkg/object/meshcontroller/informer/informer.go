@@ -56,7 +56,7 @@ const (
 	// ServiceLoadBalance is the path of service loadbalance.
 	ServiceLoadBalance GJSONPath = "loadBalance"
 
-	// ServiceCircuitBreaker is the path of service resilience's circuritBreaker part.
+	// ServiceCircuitBreaker is the path of service resilience's circuitBreaker part.
 	ServiceCircuitBreaker GJSONPath = "resilience.circuitBreaker"
 )
 
@@ -163,7 +163,7 @@ var (
 // If service is specified, will only inform resource changes within the same tenant
 // of the service and the global tenant, note this only apply to service, service instance
 // and service status.
-// if service is empty, will inform all resouce changes.
+// if service is empty, will inform all resource changes.
 func NewInformer(store storage.Storage, service string) Informer {
 	inf := &meshInformer{
 		store:           store,
@@ -442,7 +442,7 @@ func (inf *meshInformer) OnServiceInstanceSpecs(serviceName string, fn ServiceIn
 	return inf.onServiceInstanceSpecs(storeKey, syncerKey, fn)
 }
 
-// OnServiceInstanceSpecs watches instance specs of all services.
+// OnAllServiceInstanceSpecs watches instance specs of all services.
 func (inf *meshInformer) OnAllServiceInstanceSpecs(fn ServiceInstanceSpecsFunc) error {
 	storeKey := layout.AllServiceInstanceSpecPrefix()
 	syncerKey := "prefix-service-instance"
@@ -491,7 +491,7 @@ func (inf *meshInformer) OnServiceInstanceStatuses(serviceName string, fn Servic
 	return inf.onServiceInstanceStatuses(storeKey, syncerKey, fn)
 }
 
-// OnServiceInstanceStatuses watches instance statuses of all services
+// OnAllServiceInstanceStatuses watches instance statuses of all services
 func (inf *meshInformer) OnAllServiceInstanceStatuses(fn ServiceInstanceStatusesFunc) error {
 	storeKey := layout.AllServiceInstanceStatusPrefix()
 	syncerKey := "prefix-service-instance-status"

@@ -90,7 +90,7 @@ func (r *MockedHTTPResponse) OnFlushBody(fn func(body []byte, complete bool) (ne
 	}
 }
 
-// Std returns the stardard response
+// Std returns the standard response
 func (r *MockedHTTPResponse) Std() http.ResponseWriter {
 	if r.MockedStd != nil {
 		return r.MockedStd()

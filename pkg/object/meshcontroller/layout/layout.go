@@ -61,12 +61,12 @@ func ServiceInstanceStatusKey(serviceName, instanceID string) string {
 	return fmt.Sprintf(serviceInstanceStatus, serviceName, instanceID)
 }
 
-// ServiceInstanceSpecPrefix returns the prefix of serivce instance specs.
+// ServiceInstanceSpecPrefix returns the prefix of service instance specs.
 func ServiceInstanceSpecPrefix(serviceName string) string {
 	return fmt.Sprintf(serviceInstanceSpecPrefix, serviceName)
 }
 
-// ServiceInstanceStatusPrefix returns the prefix of serivce instance statuses.
+// ServiceInstanceStatusPrefix returns the prefix of service instance statuses.
 func ServiceInstanceStatusPrefix(serviceName string) string {
 	return fmt.Sprintf(serviceInstanceStatusPrefix, serviceName)
 }

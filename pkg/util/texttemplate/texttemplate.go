@@ -342,7 +342,7 @@ func (t TextTemplate) extractVarsAroundToken(input string) []string {
 			break
 		}
 
-		input = input[bIdx+len(t.beginToken):] // jump over the begin token
+		input = input[bIdx+len(t.beginToken):] // jump over the beginning token
 		eIdx := strings.Index(input, t.endToken)
 
 		if eIdx == -1 {
