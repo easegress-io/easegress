@@ -10,13 +10,14 @@ import (
 type (
 	// Spec describes the TcpServer.
 	Spec struct {
+		IP             string `yaml:"ip" jsonschema:"required,minimum=1"`
 		Port           uint16 `yaml:"port" jsonschema:"required,minimum=1"`
 		MaxConnections uint32 `yaml:"maxConnections" jsonschema:"omitempty,minimum=1"`
 
 		// By default, backlog is set to -1 on FreeBSD, DragonFly BSD, and macOS, and to 511 on other platforms.
 		Backlog             int32  `yaml:"backlog" jsonschema:"omitempty,minimum=-1"`
-		SendBuf             uint32 `yaml:"sendBuf" jsonschema:"omitempty"`
-		RecvBuf             uint32 `yaml:"recvBuf" jsonschema:"omitempty"`
+		SendBuf             int    `yaml:"sendBuf" jsonschema:"omitempty"`
+		RecvBuf             int    `yaml:"recvBuf" jsonschema:"omitempty"`
 		Reuseport           bool   `yaml:"reuseport" jsonschema:"omitempty"`
 		KeepAlive           bool   `yaml:"keepAlive" jsonschema:"required"`
 		TcpNodelay          bool   `yaml:"tcpNodelay" jsonschema:"omitempty"`

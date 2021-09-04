@@ -21,6 +21,7 @@ import (
 	stdcontext "context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"runtime/debug"
 	"strings"
@@ -53,6 +54,8 @@ type (
 		Cancel(err error)
 		Cancelled() bool
 		ClientDisconnected() bool
+
+		ClientConn() *net.TCPConn
 
 		Duration() time.Duration // For log, sample, etc.
 		OnFinish(func())         // For setting final client statistics, etc.
@@ -179,6 +182,32 @@ type (
 		stdctx         stdcontext.Context
 		cancelFunc     stdcontext.CancelFunc
 		err            error
+	}
+
+	tcpContext struct {
+		mutex sync.Mutex
+
+		startTime *time.Time
+		endTime   *time.Time
+
+		tags []string
+
+		clientConn  *net.TCPConn
+		backendConn *net.TCPConn
+		stdctx      stdcontext.Context
+		err         error
+	}
+
+	udpContext struct {
+		mutex sync.Mutex
+
+		startTime *time.Time
+		endTime   *time.Time
+
+		tags []string
+
+		stdctx stdcontext.Context
+		err    error
 	}
 )
 
@@ -364,4 +393,8 @@ func (ctx *httpContext) SaveReqToTemplate(filterName string) error {
 // SaveRspToTemplate stores http response related info into HTTP template engine
 func (ctx *httpContext) SaveRspToTemplate(filterName string) error {
 	return ctx.ht.SaveResponse(filterName, ctx)
+}
+
+func (ctx *tcpContext) saveBackendConn(conn *net.TCPConn) {
+	ctx.backendConn = conn
 }

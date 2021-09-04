@@ -1,6 +1,7 @@
 package layer4proxy
 
 import (
+	"bufio"
 	"fmt"
 	"github.com/google/martian/log"
 	"github.com/megaease/easegress/pkg/context"
@@ -97,7 +98,8 @@ func (p *pool) status() *PoolStatus {
 	return s
 }
 
-func (p *pool) handle(ctx context.Layer4Context, clientConn *net.TCPConn) string {
+func (p *pool) handle(ctx context.Layer4Context) string {
+
 	addTag := func(subPrefix, msg string) {
 		tag := stringtool.Cat(p.tagPrefix, "#", subPrefix, ": ", msg)
 		ctx.Lock()
@@ -126,8 +128,8 @@ func (p *pool) handle(ctx context.Layer4Context, clientConn *net.TCPConn) string
 	}(backendConn)
 
 	errChan := make(chan error)
-	go p.connCopy(backendConn, clientConn, errChan)
-	go p.connCopy(clientConn, backendConn, errChan)
+	go p.connCopy(backendConn, ctx.ClientConn(), errChan)
+	go p.connCopy(ctx.ClientConn(), backendConn, errChan)
 
 	err = <-errChan
 	if err != nil {
@@ -148,7 +150,10 @@ func (p *pool) close() {
 }
 
 func (p *pool) connCopy(dst *net.TCPConn, src *net.TCPConn, errCh chan error) {
-	_, err := io.Copy(dst, src)
+	writer := bufio.NewWriter(dst)
+	reader := bufio.NewReader(src)
+	_, err := io.Copy(writer, reader)
+	_ = writer.Flush() // need flush bytes in buffer
 	errCh <- err
 
 	errClose := dst.CloseWrite()

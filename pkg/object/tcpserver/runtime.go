@@ -2,6 +2,8 @@ package tcpserver
 
 import (
 	"fmt"
+	"net"
+	"runtime/debug"
 	"sync/atomic"
 	"time"
 
@@ -16,7 +18,7 @@ type runtime struct {
 	superSpec *supervisor.Spec
 	spec      *Spec
 	startNum  uint64
-	eventChan chan interface{}
+	eventChan chan interface{} // receive traffic controller event
 
 	// status
 	state atomic.Value // stateType
@@ -111,7 +113,8 @@ func (r *runtime) handleEventReload(e *eventReload) {
 }
 
 func (r *runtime) handleEventClose(e *eventClose) {
-
+	r.closeServer()
+	close(e.done)
 }
 
 func (r *runtime) checkFailed() {
@@ -125,4 +128,76 @@ func (r *runtime) checkFailed() {
 			return
 		}
 	}
+}
+
+func (r *runtime) startServer() {
+
+	listener, err := gnet.Listen("tcp", fmt.Sprintf("%s:%d", r.spec.IP, r.spec.Port))
+	if err != nil {
+		r.setState(stateFailed)
+		r.setError(err)
+		logger.Errorf("listen tcp conn for %s:%d failed, err: %v", r.spec.IP, r.spec.Port, err)
+
+		_ = listener.Close()
+		r.eventChan <- &eventServeFailed{
+			err:      err,
+			startNum: r.startNum,
+		}
+		return
+	}
+
+	r.startNum++
+	r.setState(stateRunning)
+	r.setError(nil)
+
+	limitListener := limitlistener.NewLimitListener(listener, r.spec.MaxConnections)
+	r.limitListener = limitListener
+	go r.runTCPProxyServer()
+}
+
+// runTCPProxyServer bind to specific address, accept tcp conn
+func (r *runtime) runTCPProxyServer() {
+
+	go func() {
+		defer func() {
+			if e := recover(); e != nil {
+				logger.Errorf("listen tcp for %s:%d crashed, trace: %s", r.spec.IP, r.spec.Port, string(debug.Stack()))
+			}
+		}()
+
+		for {
+			var netConn, err = (*r.limitListener).Accept()
+			conn := netConn.(*net.TCPConn)
+			if err == nil {
+				go func() {
+					defer func() {
+						if e := recover(); e != nil {
+							logger.Errorf("tcp conn handler for %s:%d crashed, trace: %s", r.spec.IP,
+								r.spec.Port, string(debug.Stack()))
+						}
+					}()
+
+					r.setTcpConf(conn)
+					//fn(conn)
+				}()
+			} else {
+				// only record accept error, didn't close listener
+				logger.Errorf("tcp conn handler for %s:%d crashed, trace: %s", r.spec.IP,
+					r.spec.Port, string(debug.Stack()))
+				break
+			}
+		}
+	}()
+}
+
+func (r *runtime) setTcpConf(conn *net.TCPConn) {
+	_ = conn.SetKeepAlive(r.spec.KeepAlive)
+	_ = conn.SetNoDelay(r.spec.TcpNodelay)
+	_ = conn.SetReadBuffer(r.spec.RecvBuf)
+	_ = conn.SetWriteBuffer(r.spec.SendBuf)
+	// TODO set deadline for tpc connection
+}
+
+func (r *runtime) closeServer() {
+	_ = r.limitListener.Close()
 }
