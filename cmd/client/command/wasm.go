@@ -85,8 +85,11 @@ func wasmApplyDataCmd() *cobra.Command {
 		},
 
 		Run: func(cmd *cobra.Command, args []string) {
-			readFromFileOrStdin(specFile, cmd, func(doc, name string) {
-				handleRequest(http.MethodPut, makeURL(wasmDataURL, args[0], args[1]), []byte(doc), cmd)
+			visitor := buildVisitorFromFileOrStdin(specFile, cmd)
+			visitor.Visit(func(docs []spec) {
+				for _, d := range docs {
+					handleRequest(http.MethodPut, makeURL(wasmDataURL, args[0], args[1]), []byte(d.doc), cmd)
+				}
 			})
 		},
 	}

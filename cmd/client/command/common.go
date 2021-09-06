@@ -203,3 +203,20 @@ func readFromFileOrStdin(specFile string, cmd *cobra.Command, handler yamlHandle
 		handler(yamlDoc, spec.Name)
 	}
 }
+
+func buildVisitorFromFileOrStdin(specFile string, cmd *cobra.Command) Visitor {
+	var buff []byte
+	var err error
+	if specFile != "" {
+		buff, err = ioutil.ReadFile(specFile)
+		if err != nil {
+			ExitWithErrorf("%s failed: %v", cmd.Short, err)
+		}
+	} else {
+		buff, err = ioutil.ReadAll(os.Stdin)
+		if err != nil {
+			ExitWithErrorf("%s failed: %v", cmd.Short, err)
+		}
+	}
+	return NewStreamVisitor(string(buff))
+}
