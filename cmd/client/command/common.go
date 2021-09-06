@@ -23,7 +23,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"strings"
 
 	yamljsontool "github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
@@ -42,8 +41,6 @@ type (
 		Code    int    `yaml:"code"`
 		Message string `yaml:"message"`
 	}
-
-	yamlHandler func(doc, name string)
 )
 
 // CommandlineGlobalFlags is the singleton of GlobalFlags.
@@ -64,9 +61,8 @@ const (
 	statusObjectURL  = apiURL + "/status/objects/%s"
 	statusObjectsURL = apiURL + "/status/objects"
 
-	wasmCodeURL   = apiURL + "/wasm/code"
-	wasmDataURL   = apiURL + "/wasm/data/%s/%s"
-	yamlSeparator = "---"
+	wasmCodeURL = apiURL + "/wasm/code"
+	wasmDataURL = apiURL + "/wasm/data/%s/%s"
 
 	// MeshTenantsURL is the mesh tenant prefix.
 	MeshTenantsURL = apiURL + "/mesh/tenants"
@@ -167,7 +163,7 @@ func printBody(body []byte) {
 	fmt.Printf("%s", output)
 }
 
-func readFromFileOrStdin(specFile string, cmd *cobra.Command, handler yamlHandler) {
+func readFromFileOrStdin(specFile string, cmd *cobra.Command) ([]byte, string) {
 	var buff []byte
 	var err error
 	if specFile != "" {
@@ -186,22 +182,12 @@ func readFromFileOrStdin(specFile string, cmd *cobra.Command, handler yamlHandle
 		Kind string `yaml:"kind"`
 		Name string `yaml:"name"`
 	}
-
-	yamlDocs := strings.Split(string(buff), yamlSeparator)
-
-	// make sure each yaml doc valid
-	for _, yamlDoc := range yamlDocs {
-		if len(strings.TrimSpace(yamlDoc)) == 0 {
-			continue
-		}
-		err = yaml.Unmarshal([]byte(yamlDoc), &spec)
-		if err != nil {
-			ExitWithErrorf("%s failed, invalid spec: %v", cmd.Short, err)
-			break
-		}
-
-		handler(yamlDoc, spec.Name)
+	err = yaml.Unmarshal(buff, &spec)
+	if err != nil {
+		ExitWithErrorf("%s failed, invalid spec: %v", cmd.Short, err)
 	}
+
+	return buff, spec.Name
 }
 
 func buildVisitorFromFileOrStdin(specFile string, cmd *cobra.Command) Visitor {
