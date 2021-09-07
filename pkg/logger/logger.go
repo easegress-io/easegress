@@ -40,9 +40,9 @@ func Init(opt *option.Options) {
 // InitNop initializes all logger as nop, mainly for unit testing
 func InitNop() {
 	nop := zap.NewNop()
-	httpFilterAccessLogger = nop
-	httpFilterDumpLogger = nop
-	restAPILogger = nop
+	httpFilterAccessLogger = nop.Sugar()
+	httpFilterDumpLogger = nop.Sugar()
+	restAPILogger = nop.Sugar()
 
 	defaultLogger = nop.Sugar()
 	gressLogger = defaultLogger
@@ -70,9 +70,9 @@ var (
 	defaultLogger          *zap.SugaredLogger // equal stderrLogger + gressLogger
 	stderrLogger           *zap.SugaredLogger
 	gressLogger            *zap.SugaredLogger
-	httpFilterAccessLogger *zap.Logger
-	httpFilterDumpLogger   *zap.Logger
-	restAPILogger          *zap.Logger
+	httpFilterAccessLogger *zap.SugaredLogger
+	httpFilterDumpLogger   *zap.SugaredLogger
+	restAPILogger          *zap.SugaredLogger
 )
 
 // EtcdClientLoggerConfig generates the config of etcd client logger.
@@ -149,7 +149,7 @@ func initRestAPI(opt *option.Options) {
 	restAPILogger = newPlainLogger(opt, adminAPIFilename, systemLogMaxCacheCount)
 }
 
-func newPlainLogger(opt *option.Options, filename string, maxCacheCount uint32) *zap.Logger {
+func newPlainLogger(opt *option.Options, filename string, maxCacheCount uint32) *zap.SugaredLogger {
 	encoderConfig := zapcore.EncoderConfig{
 		TimeKey:       "",
 		LevelKey:      "",
@@ -168,5 +168,5 @@ func newPlainLogger(opt *option.Options, filename string, maxCacheCount uint32) 
 	syncer := zapcore.AddSync(fr)
 	core := zapcore.NewCore(zapcore.NewConsoleEncoder(encoderConfig), syncer, zap.DebugLevel)
 
-	return zap.New(core)
+	return zap.New(core).Sugar()
 }

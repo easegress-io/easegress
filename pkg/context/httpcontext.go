@@ -282,7 +282,28 @@ func (ctx *httpContext) Finish() {
 		}()
 	}
 
-	logger.HTTPAccess(ctx.Log())
+	stdr := ctx.r.std
+
+	// log format:
+	// [startTime]
+	// [requestInfo]
+	// [contextStatistics]
+	// [tags]
+	//
+	// [$startTime]
+	// [$remoteAddr $realIP $method $requestURL $proto $statusCode]
+	// [$contextDuration $readBytes $writeBytes]
+	// [$tags]
+
+	logger.HTTPAccess("[%s] "+
+		"[%s %s %s %s %s %d] "+
+		"[%v rx:%dB tx:%dB] "+
+		"[%s]",
+		ctx.startTime.Format(timetool.RFC3339Milli),
+		stdr.RemoteAddr, ctx.r.RealIP(), stdr.Method, stdr.RequestURI, stdr.Proto, ctx.w.code,
+		ctx.Duration(), ctx.r.Size(), ctx.w.Size(),
+		strings.Join(ctx.tags, " | "))
+	//logger.HTTPAccess(ctx.Log())
 }
 
 func (ctx *httpContext) StatMetric() *httpstat.Metric {
@@ -307,6 +328,7 @@ func (ctx *httpContext) Log() string {
 	// [$remoteAddr $realIP $method $requestURL $proto $statusCode]
 	// [$contextDuration $readBytes $writeBytes]
 	// [$tags]
+
 	return fmt.Sprintf("[%s] "+
 		"[%s %s %s %s %s %d] "+
 		"[%v rx:%dB tx:%dB] "+

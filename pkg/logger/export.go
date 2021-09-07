@@ -18,7 +18,6 @@
 package logger
 
 import (
-	"fmt"
 	"net/url"
 	"time"
 
@@ -62,17 +61,16 @@ func APIAccess(
 	bodyBytedReceived, bodyBytesSent int64,
 	requestTime time.Time,
 	processTime time.Duration) {
-	entry := fmt.Sprintf("%s %s %s %v rx:%dB tx:%dB start:%v process:%v",
+
+	restAPILogger.Debugf("%s %s %s %v rx:%dB tx:%dB start:%v process:%v",
 		method, remoteAddr, path, code,
 		bodyBytedReceived, bodyBytesSent,
 		requestTime.Format(time.RFC3339), processTime)
-
-	restAPILogger.Debug(entry)
 }
 
 // HTTPAccess logs http access log.
-func HTTPAccess(line string) {
-	httpFilterAccessLogger.Debug(line)
+func HTTPAccess(template string, args ...interface{}) {
+	httpFilterAccessLogger.Debugf(template, args...)
 }
 
 // NginxHTTPAccess is DEPRECATED, replaced by HTTPAccess.
@@ -112,17 +110,14 @@ func NginxHTTPAccess(remoteAddr, proto, method, path, referer, agent, realIP str
 		}
 	}
 
-	line := fmt.Sprintf(
-		`%v - - [%v] "%s %s %s" `+
-			`%v %v "%s" `+
-			`"%s" "%s" `+
-			`%f %f %v %v . `+
-			`%f %f %f`,
+	httpFilterAccessLogger.Debugf(`%v - - [%v] "%s %s %s" `+
+		`%v %v "%s" `+
+		`"%s" "%s" `+
+		`%f %f %v %v . `+
+		`%f %f %f`,
 		remoteAddr, common.Now().Local(), method, path, proto,
 		code, bodyBytesSent, referer,
 		agent, realIP,
 		requestTime.Seconds(), upstreamResponseTime.Seconds(), upstreamAddr, upstreamCode,
 		clientWriteBodyTime.Seconds(), clientReadBodyTime.Seconds(), routeTime.Seconds())
-
-	httpFilterAccessLogger.Debug(line)
 }
