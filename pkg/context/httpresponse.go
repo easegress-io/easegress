@@ -26,7 +26,6 @@ import (
 
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/util/httpheader"
-	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
 var bodyFlushBuffSize = 8 * int64(os.Getpagesize())
@@ -166,17 +165,29 @@ func (w *httpResponse) finish() {
 }
 
 func (w *httpResponse) Size() uint64 {
+	size := int(w.bodyWritten)
+
 	text := http.StatusText(w.StatusCode())
 	if text == "" {
 		text = "status code " + strconv.Itoa(w.StatusCode())
 	}
 
 	// Reference: https://tools.ietf.org/html/rfc2616#section-6
-	// NOTE: We don't use httputil.DumpResponse because it does not
-	// completely output plain HTTP Request.
-	meta := stringtool.Cat(w.stdr.Proto, " ", strconv.Itoa(w.StatusCode()), " ", text, "\r\n",
-		w.Header().Dump(), "\r\n\r\n")
-	return uint64(len(meta)) + w.bodyWritten
+	//
+	// meta length is the length of:
+	// w.stdr.Proto + " "
+	// + strconv.Itoa(w.StatusCode()) + " "
+	// + text + "\r\n",
+	// + w.Header().Dump() + "\r\n\r\n"
+	//
+	// but to improve performance, we won't build this string
+
+	size += len(w.stdr.Proto) + 1
+	size += len(strconv.Itoa(w.StatusCode())) + 1
+	size += len(text) + 2
+	size += w.Header().Length() + 4
+
+	return uint64(size)
 }
 
 func (w *httpResponse) Std() http.ResponseWriter {

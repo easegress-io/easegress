@@ -20,10 +20,8 @@ package httpheader
 import (
 	"net/http"
 	"net/textproto"
-	"strings"
 
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/util/stringtool"
 	"github.com/megaease/easegress/pkg/util/texttemplate"
 )
 
@@ -111,6 +109,26 @@ func (h *HTTPHeader) VisitAll(fn func(key, value string)) {
 	}
 }
 
+// Length returns the length of the header in serialized format
+func (h *HTTPHeader) Length() int {
+	length, lines := 0, 0
+
+	for key, values := range h.h {
+		for _, value := range values {
+			lines++
+			length += len(key) + len(value)
+		}
+	}
+
+	length += lines * 2 // ": "
+	if lines > 1 {
+		length += (lines - 1) * 2 // "\r\n"
+	}
+
+	return length
+}
+
+/*
 // Dump dumps HTTPHeader in RFC format.
 func (h *HTTPHeader) Dump() string {
 	var headers []string
@@ -120,6 +138,7 @@ func (h *HTTPHeader) Dump() string {
 
 	return strings.Join(headers, "\r\n")
 }
+*/
 
 // AddFrom adds values from another HTTPHeader.
 func (h *HTTPHeader) AddFrom(src *HTTPHeader) {
