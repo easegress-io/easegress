@@ -9,7 +9,7 @@ import (
 )
 
 // VisitorFunc executes visition logic
-type VisitorFunc func([]spec)
+type VisitorFunc func(*spec)
 
 // Visitor walk through the document via VisitorFunc
 type Visitor interface {
@@ -60,7 +60,7 @@ func (d *yamlDecoder) Decode(into interface{}) error {
 // Visit implements Visitor over a stream.
 func (v *streamVisitor) Visit(fn VisitorFunc) {
 	d := newYAMLDecoder(v.Reader)
-	var validDocs []spec
+	var validSpecs []spec
 	for {
 		var s spec
 		if err := d.Decode(&s); err != nil {
@@ -72,7 +72,9 @@ func (v *streamVisitor) Visit(fn VisitorFunc) {
 		}
 		s.doc = d.doc
 		//TODO can validate spec's Kind here
-		validDocs = append(validDocs, s)
+		validSpecs = append(validSpecs, s)
 	}
-	fn(validDocs)
+	for _, s := range validSpecs {
+		fn(&s)
+	}
 }
