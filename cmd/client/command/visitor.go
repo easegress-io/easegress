@@ -22,13 +22,13 @@ type spec struct {
 	doc  string
 }
 
-type streamVisitor struct {
+type StreamVisitor struct {
 	io.Reader
 }
 
 // NewStreamVisitor returns a streamVisitor.
-func NewStreamVisitor(src string) *streamVisitor {
-	return &streamVisitor{
+func NewStreamVisitor(src string) *StreamVisitor {
+	return &StreamVisitor{
 		Reader: strings.NewReader(src),
 	}
 }
@@ -58,7 +58,7 @@ func (d *yamlDecoder) Decode(into interface{}) error {
 }
 
 // Visit implements Visitor over a stream.
-func (v *streamVisitor) Visit(fn VisitorFunc) {
+func (v *StreamVisitor) Visit(fn VisitorFunc) {
 	d := newYAMLDecoder(v.Reader)
 	var validSpecs []spec
 	for {
