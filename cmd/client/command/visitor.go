@@ -21,7 +21,7 @@ type spec struct {
 	Name string
 	doc  string
 }
-
+// StreamVisitor is the struct of Visitor Pattern
 type StreamVisitor struct {
 	io.Reader
 }
