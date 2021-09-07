@@ -1,3 +1,4 @@
+//go:build wasmhost
 // +build wasmhost
 
 /*
