@@ -163,7 +163,7 @@ func printBody(body []byte) {
 	fmt.Printf("%s", output)
 }
 
-func readFromFileOrStdin(specFile string, cmd *cobra.Command) ([]byte, string) {
+func buildVisitorFromFileOrStdin(specFile string, cmd *cobra.Command) Visitor {
 	var buff []byte
 	var err error
 	if specFile != "" {
@@ -177,15 +177,5 @@ func readFromFileOrStdin(specFile string, cmd *cobra.Command) ([]byte, string) {
 			ExitWithErrorf("%s failed: %v", cmd.Short, err)
 		}
 	}
-
-	var spec struct {
-		Kind string `yaml:"kind"`
-		Name string `yaml:"name"`
-	}
-	err = yaml.Unmarshal(buff, &spec)
-	if err != nil {
-		ExitWithErrorf("%s failed, invalid spec: %v", cmd.Short, err)
-	}
-
-	return buff, spec.Name
+	return NewStreamVisitor(string(buff))
 }
