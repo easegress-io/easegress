@@ -44,7 +44,7 @@ func newYAMLDecoder(r io.Reader) *yamlDecoder {
 	}
 }
 
-// Decods reads a YAML document into bytes and try to yaml.Unmarshal it.
+// Decode reads a YAML document into bytes and tries to yaml.Unmarshal it.
 func (d *yamlDecoder) Decode(into interface{}) error {
 	bytes, err := d.reader.Read()
 	if err != nil && err != io.EOF {
