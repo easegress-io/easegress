@@ -65,7 +65,7 @@ npx asinit .
 "asbuild:optimized": "asc assembly/index.ts --target release --use abort=",
 ```
 
-6 ) Replace the content of `assembly/index.ts` with the code below, note to replace `{EASEGRESS_SDK_PATH}` with the path in step 1) The code is just a skeleton and does "nothing" at present, it will be enhanced later:
+6 ) Replace the content of `assembly/index.ts` with the code below, note to replace `{EASEGRESS_SDK_PATH}` with the path in step 1). The code is just a skeleton and does "nothing" at present, it will be enhanced later:
 
 ```typescript
 // this line exports everything required by Easegress,
@@ -139,7 +139,7 @@ filters:
     code: 200' | egctl object create
 ```
 
-Note to replace `/home/megaease/example/build/optimized.wasm` with the path of the file generated in step 7.
+Note to replace `/home/megaease/example/build/optimized.wasm` with the path of the file generated in step 7) of section 1.1.
 
 In the above pipeline configuration, a `Mock` filter is used as the backend service. In practice, you will need a `Proxy` filter to forward requests to the real backend.
 
@@ -159,7 +159,7 @@ All flash sale promotions have a start time, requests before the time should be 
 ```typescript
 export * from '{EASEGRESS_SDK_PATH}/easegress/proxy'
 
-import { Program, response, getUnixTimeInMs, registerProgramFactory } from '{EASEGRESS_SDK_PATH}/easegress'
+import { Program, response, parseDate, getUnixTimeInMs, registerProgramFactory } from '{EASEGRESS_SDK_PATH}/easegress'
 
 class FlashSale extends Program {
 	// startTime is the start time of the flash sale, unix timestamp in millisecond
@@ -210,7 +210,7 @@ After the start of the flash sale, Easegress should block requests randomly, thi
 ```typescript
 export * from '{EASEGRESS_SDK_PATH}/easegress/proxy'
 
-import { Program, response, getUnixTimeInMs, rand, registerProgramFactory } from '{EASEGRESS_SDK_PATH}/easegress'
+import { Program, response, parseDate, getUnixTimeInMs, rand, registerProgramFactory } from '{EASEGRESS_SDK_PATH}/easegress'
 
 class FlashSale extends Program {
 	startTime: i64
@@ -279,7 +279,7 @@ To overcome this issue, Easegress provide APIs to access shared data:
 ```typescript
 export * from '{EASEGRESS_SDK_PATH}/easegress/proxy'
 
-import { Program, request, response, cluster, getUnixTimeInMs, rand, registerProgramFactory } from '{EASEGRESS_SDK_PATH}/easegress'
+import { Program, request, parseDate, response, cluster, getUnixTimeInMs, rand, registerProgramFactory } from '{EASEGRESS_SDK_PATH}/easegress'
 
 class FlashSale extends Program {
 	startTime: i64
@@ -341,7 +341,7 @@ As the quantity is often limited in a flash sale, we can block users after we ha
 ```typescript
 export * from '{EASEGRESS_SDK_PATH}/easegress/proxy'
 
-import { Program, request, response, cluster, getUnixTimeInMs, rand, registerProgramFactory } from '{EASEGRESS_SDK_PATH}/easegress'
+import { Program, request, parseDate, response, cluster, getUnixTimeInMs, rand, registerProgramFactory } from '{EASEGRESS_SDK_PATH}/easegress'
 
 class FlashSale extends Program {
 	startTime: i64
