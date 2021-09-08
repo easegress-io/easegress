@@ -12,57 +12,60 @@
 	- [6. Reuse The Program](#6-reuse-the-program)
 		- [6.1 Parameters](#61-parameters)
 		- [6.2 Manage Shared Data](#62-manage-shared-data)
+	- [7. Summary](#7-summary)
 
-A flash sale is a discount or promotion offered by an eCommerce store for a short period of time. The quantity is limited, which often means the discounts are higher or more significant than run-of-the-mill promotions. 
+A flash sale is a discount or promotion offered by an eCommerce store for a short period. The quantity is limited, which often means the discounts are higher or more significant than run-of-the-mill promotions. 
 
-However, significant discounts, limited quantity, and a short period of time lead to a significant traffic spike, which often results in slow service, denial of service, or even downtime.
+However, significant discounts, limited quantity, and a short period leading to a significant high traffic spike, which often results in slow service, denial of service, or even downtime.
 
 This document illustrates how to leverage the [WasmHost Filter](https://github.com/megaease/easegress/blob/main/doc/wasmhost.md) to protect the backend service in a flash sale. The WebAssembly code is written in [AssemblyScript](https://www.assemblyscript.org/) by using the [Easegress AssemblyScript SDK](https://github.com/megaease/easegress-assemblyscript-sdk).
 
-Before we start, please ensure a recent version of [Git](https://git-scm.com/), [Golang](https://golang.org), [Node.js](https://nodejs.org/) and its package manager [npm](https://www.npmjs.com/) are installed before continue. Basic knowledge about writing and working with TypeScript modules, which is very similar to AssemblyScript, is a plus.
+Before we start, we need to introduce why we use a service gateway with WebAssembly.  Firstly, Easegress as a service gateway is more responsible for the control logic. Secondly, the business logic like the flash sale would be a more customized thing and could be changed frequently.  Using Javascript or other high-level languages to write business logic could bring good productivity and lower technical barriers. With WebAssembly technology, the high-level languages code can be compiled to WASM and loaded dynamically at runtime. Furthermore, the WebAssembly code has good enough performance and security. So this combination can provide a perfect solution in terms of security, high performance, and customization extensions.
 
-**Note**: The `WasmHost` filter is disabled by default, to enable it, you need to build Easegress with the below command:
+## 1. Getting Started
+
+Please ensure a recent version of [Git](https://git-scm.com/), [Golang](https://golang.org), [Node.js](https://nodejs.org/) and its package manager [npm](https://www.npmjs.com/) are installed before continue. Basic knowledge about writing and working with TypeScript modules, which is very similar to AssemblyScript, is a plus.
+
+**Note**: The `WasmHost` filter is disabled by default. To enable it, you need to build Easegress with the below command:
 
 ```bash
 $ make build_server GOTAGS=wasmhost
 ```
 
-## 1. Getting Started
-
 ### 1.1 Setting Up The Flash Sale Project
 
-A. Clone git repository `easegress-assemblyscript-sdk` to somewhere on disk
+1 ) Clone git repository `easegress-assemblyscript-sdk` to somewhere on disk
 
 ```bash
 $ git clone https://github.com/megaease/easegress-assemblyscript-sdk.git
 ```
 
-B. Switch to a new directory and initialize a new node module:
+2 ) Switch to a new directory and initialize a new node module:
 
 ```bash
 npm init
 ```
 
-C. Install the AssemblyScript compiler using npm, assume that the compiler is not required in production and make it a development dependency:
+3 ) Install the AssemblyScript compiler using npm, assume that the compiler is not required in production, and make it a development dependency:
 
 ```bash
 npm install --save-dev assemblyscript
 ```
 
-D. Once installed, the compiler provides a handy scaffolding utility to quickly set up a new AssemblyScript project, for example, in the directory of the just initialized node module:
+4 ) Once installed, the compiler provides a handy scaffolding utility to quickly set up a new AssemblyScript project, for example, in the directory of the just initialized node module:
 
 ```bash
 npx asinit .
 ```
 
-E. Add `--use abort=` to the `asc` in `package.json`, for example:
+5 ) Add `--use abort=` to the `asc` in `package.json`, for example:
 
 ```json
 "asbuild:untouched": "asc assembly/index.ts --target debug --use abort=",
 "asbuild:optimized": "asc assembly/index.ts --target release --use abort=",
 ```
 
-F. Replace the content of `assembly/index.ts` with the code below, note to replace `{EASEGRESS_SDK_PATH}` with the path in step 1. The code is just a skeleton and does "nothing" at present, it will be enhanced later:
+6 ) Replace the content of `assembly/index.ts` with the code below, note to replace `{EASEGRESS_SDK_PATH}` with the path in step 1). The code is just a skeleton and does "nothing" at present, it will be enhanced later:
 
 ```typescript
 // this line exports everything required by Easegress,
@@ -90,7 +93,7 @@ registerProgramFactory((params: Map<string, string>) => {
 })
 ```
 
-G. Build with the below command, if everything is right, `untouched.wasm` (the debug version) and `optimized.wasm` (the release version) will be generated at the `build` folder.
+7 ) Build with the below command, if everything is right, `untouched.wasm` (the debug version) and `optimized.wasm` (the release version) will be generated at the `build` folder.
    
 ```bash
 $ npm run asbuild
@@ -136,7 +139,7 @@ filters:
     code: 200' | egctl object create
 ```
 
-Note to replace `/home/megaease/example/build/optimized.wasm` with the path of the file generated in step 7.
+Note to replace `/home/megaease/example/build/optimized.wasm` with the path of the file generated in step 7) of section 1.1.
 
 In the above pipeline configuration, a `Mock` filter is used as the backend service. In practice, you will need a `Proxy` filter to forward requests to the real backend.
 
@@ -151,12 +154,12 @@ You can buy the laptop for $1 now.
 
 ## 2. Block All Requests Before Flash Sale Start
 
-All flash sale promotions have a start time, requests before the time should be blocked. Suppose the start time is UTC `2021-08-08 00:00:00`, this can be accomplished with below code:
+All flash sale promotions have a start time, requests before the time should be blocked. Suppose the start time is UTC `2021-08-08 00:00:00`, this can be accomplished with the below code:
 
 ```typescript
 export * from '{EASEGRESS_SDK_PATH}/easegress/proxy'
 
-import { Program, response, getUnixTimeInMs, registerProgramFactory } from '{EASEGRESS_SDK_PATH}/easegress'
+import { Program, response, parseDate, getUnixTimeInMs, registerProgramFactory } from '{EASEGRESS_SDK_PATH}/easegress'
 
 class FlashSale extends Program {
 	// startTime is the start time of the flash sale, unix timestamp in millisecond
@@ -207,7 +210,7 @@ After the start of the flash sale, Easegress should block requests randomly, thi
 ```typescript
 export * from '{EASEGRESS_SDK_PATH}/easegress/proxy'
 
-import { Program, response, getUnixTimeInMs, rand, registerProgramFactory } from '{EASEGRESS_SDK_PATH}/easegress'
+import { Program, response, parseDate, getUnixTimeInMs, rand, registerProgramFactory } from '{EASEGRESS_SDK_PATH}/easegress'
 
 class FlashSale extends Program {
 	startTime: i64
@@ -276,7 +279,7 @@ To overcome this issue, Easegress provide APIs to access shared data:
 ```typescript
 export * from '{EASEGRESS_SDK_PATH}/easegress/proxy'
 
-import { Program, request, response, cluster, getUnixTimeInMs, rand, registerProgramFactory } from '{EASEGRESS_SDK_PATH}/easegress'
+import { Program, request, parseDate, response, cluster, getUnixTimeInMs, rand, registerProgramFactory } from '{EASEGRESS_SDK_PATH}/easegress'
 
 class FlashSale extends Program {
 	startTime: i64
@@ -338,7 +341,7 @@ As the quantity is often limited in a flash sale, we can block users after we ha
 ```typescript
 export * from '{EASEGRESS_SDK_PATH}/easegress/proxy'
 
-import { Program, request, response, cluster, getUnixTimeInMs, rand, registerProgramFactory } from '{EASEGRESS_SDK_PATH}/easegress'
+import { Program, request, parseDate, response, cluster, getUnixTimeInMs, rand, registerProgramFactory } from '{EASEGRESS_SDK_PATH}/easegress'
 
 class FlashSale extends Program {
 	startTime: i64
@@ -408,9 +411,9 @@ After 3 users were permitted, the 4th user is blocked forever.
 
 ### 6.1 Parameters
 
-We have hard coded `startTime`, `blockRatio` and `maxPermission` in the above examples, which means if we have another flash sale, we need to modify the code. This is not a good practice.
+We have hard-coded `startTime`, `blockRatio`, and `maxPermission` in the above examples, which means if we have another flash sale, we need to modify the code. This is not a good practice.
 
-A better approach is putting these parameters into configuration:
+A better approach is putting these parameters into the configuration:
 
 ```yaml
 filters:
@@ -482,3 +485,9 @@ $ egctl wasm delete-data flash-sale-pipeline wasm
 $ egctl wasm list-data flash-sale-pipeline wasm
 {}
 ```
+
+Well, the above is all technical details. You can freely use the code to customize your business logic. However, it should be aware that **the above is just a demo, and the practical solution is more complicated because it also needs to filter the crawlers and hackers**. If you need a more professional solution, welcome to contact us.
+
+## 7. Summary
+
+Using WebAssembly's security, high performance, and real-time dynamic loading capabilities, we can not only do such a high concurrency business on the gateway but also achieve some more complex business logic support. Because WebAssembly can reuse a variety of high-level languages (such as Javascript, C/C++, Rust, Python, C#, etc.). Easegress has more capabilities to play in a high-performance traffic orchestration with distributed architecture. Both of there bring much imagination to solve the problem with efficient operation and maintenance.
