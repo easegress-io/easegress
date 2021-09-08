@@ -58,7 +58,13 @@ type (
 	// TopicMapper describes topic map between MQTT topic and Backend MQ topic
 	TopicMapper struct {
 		TopicIndex int            `yaml:"topicIndex" jsonschema:"required"`
+		Route      []TopicRe      `yaml:"route" jsonschema:"required"`
 		Headers    map[int]string `yaml:"headers" jsonschema:"required"`
+	}
+
+	TopicRe struct {
+		Topic string   `yaml:"topic" jsonschema:"required"`
+		Expr  []string `yaml:"expr" jsonschema:"required"`
 	}
 
 	// KafkaSpec describes Kafka producer

@@ -19,8 +19,10 @@ package mqttproxy
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
+	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/function/storage"
 	etcderror "go.etcd.io/etcd/api/v3/v3rpc/rpctypes"
 	"gopkg.in/yaml.v2"
@@ -148,7 +150,22 @@ func getTopicMapFunc(topicMapper *TopicMapper) topicMapFunc {
 	if topicMapper == nil {
 		return nil
 	}
+
 	idx := topicMapper.TopicIndex
+	routes := topicMapper.Route
+	hds := topicMapper.Headers
+
+	remap := make(map[string][]*regexp.Regexp)
+	for _, route := range routes {
+		for _, expr := range route.Expr {
+			r, err := regexp.Compile(expr)
+			if err != nil {
+				logger.Errorf("topicMapper topic:%s, expr:%s compile failed, err:%v", route.Topic, expr, err)
+			} else {
+				remap[route.Topic] = append(remap[route.Topic], r)
+			}
+		}
+	}
 
 	f := func(mqttTopic string) (string, map[string]string, error) {
 		levels := strings.Split(mqttTopic, "/")
@@ -159,15 +176,22 @@ func getTopicMapFunc(topicMapper *TopicMapper) topicMapFunc {
 			return "", nil, fmt.Errorf("levels in mqtt topic <%s> is less than topic index <%d>", mqttTopic, idx)
 		}
 
-		topic := levels[idx]
 		headers := make(map[string]string)
-		for k, v := range topicMapper.Headers {
+		for k, v := range hds {
 			if k >= len(levels) {
 				continue
 			}
 			headers[v] = levels[k]
 		}
-		return topic, headers, nil
+		topicLevel := levels[idx]
+		for _, route := range routes {
+			for _, re := range remap[route.Topic] {
+				if re.MatchString(topicLevel) {
+					return route.Topic, headers, nil
+				}
+			}
+		}
+		return "", nil, fmt.Errorf("no match topic for msg")
 	}
 	return f
 }
