@@ -464,3 +464,7 @@ func (c *Connection) State() ConnState {
 	}
 	return ConnInit
 }
+
+func (c *Connection) GetReadBuffer() iobufferpool.IoBuffer {
+	return c.readBuffer
+}

@@ -15,13 +15,12 @@
  * limitations under the License.
  */
 
-package upstream
+package layer4proxy
 
 import (
 	"fmt"
 	"math/rand"
 	"net"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -68,33 +67,25 @@ type (
 
 	// Server is proxy server.
 	Server struct {
-		HostPort string   `yaml:"HostPort" jsonschema:"required,format=hostport"`
-		Tags     []string `yaml:"tags" jsonschema:"omitempty,uniqueItems=true"`
-		Weight   int      `yaml:"weight" jsonschema:"omitempty,minimum=0,maximum=100"`
+		Addr   string   `yaml:"url" jsonschema:"required,format=hostport"`
+		Tags   []string `yaml:"tags" jsonschema:"omitempty,uniqueItems=true"`
+		Weight int      `yaml:"weight" jsonschema:"omitempty,minimum=0,maximum=100"`
 	}
 
 	// LoadBalance is load balance for multiple servers.
 	LoadBalance struct {
-		Policy string `yaml:"policy" jsonschema:"required,enum=roundRobin,enum=random,enum=weightedRandom,enum=ipHash"`
+		Policy        string `yaml:"policy" jsonschema:"required,enum=roundRobin,enum=random,enum=weightedRandom,enum=ipHash"`
+		HeaderHashKey string `yaml:"headerHashKey" jsonschema:"omitempty"`
 	}
 )
 
-func (s *servers) Validated() error {
-	if s.poolSpec.Protocol == "tcp" {
-		for _, server := range s.static.servers {
-			if _, err := net.ResolveTCPAddr("tcp", server.HostPort); err != nil {
-				logger.Errorf("resolve tcp addr failed, host port: %v, %v", server.HostPort, err)
-				return err
-			}
-		}
-	}
-
-	// TODO check udp address
-	return nil
+func (s *Server) String() string {
+	return fmt.Sprintf("%s,%v,%d", s.Addr, s.Tags, s.Weight)
 }
 
-func (s *Server) String() string {
-	return fmt.Sprintf("%s,%v,%d", s.HostPort, s.Tags, s.Weight)
+// Validate validates LoadBalance.
+func (lb LoadBalance) Validate() error {
+	return nil
 }
 
 func newServers(super *supervisor.Supervisor, poolSpec *PoolSpec) *servers {
@@ -153,9 +144,9 @@ func (s *servers) useService(serviceInstanceSpecs map[string]*serviceregistry.Se
 	var servers []*Server
 	for _, instance := range serviceInstanceSpecs {
 		servers = append(servers, &Server{
-			HostPort: instance.Address + ":" + strconv.Itoa(int(instance.Port)),
-			Tags:     instance.Tags,
-			Weight:   instance.Weight,
+			Addr:   instance.URL(),
+			Tags:   instance.Tags,
+			Weight: instance.Weight,
 		})
 	}
 	if len(servers) == 0 {
@@ -272,6 +263,7 @@ func (ss *staticServers) next(ctx context.Layer4Context) *Server {
 	}
 
 	logger.Errorf("BUG: unknown load balance policy: %s", ss.lb.Policy)
+
 	return ss.roundRobin()
 }
 
@@ -302,9 +294,8 @@ func (ss *staticServers) weightedRandom() *Server {
 }
 
 func (ss *staticServers) ipHash(ctx context.Layer4Context) *Server {
-	remoteAddr := ctx.RemoteAddr().String()
-	host, _, _ := net.SplitHostPort(remoteAddr)
-
+	addr := ctx.RemoteAddr().String()
+	host, _, _ := net.SplitHostPort(addr)
 	sum32 := int(hashtool.Hash32(host))
 	return ss.servers[sum32%len(ss.servers)]
 }

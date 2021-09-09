@@ -20,6 +20,7 @@ package context
 import (
 	"bytes"
 	stdcontext "context"
+	"github.com/megaease/easegress/pkg/filter/layer4proxy"
 	"github.com/megaease/easegress/pkg/object/layer4rawserver"
 	"github.com/megaease/easegress/pkg/util/connectionwrapper"
 	"net"
@@ -51,6 +52,8 @@ type (
 		ClientDisconnected() bool
 
 		ClientConn() *connectionwrapper.Connection
+		UpStreamConn() *layer4proxy.UpStreamConn
+		SetUpStreamConn(conn *layer4proxy.UpStreamConn)
 
 		Duration() time.Duration // For log, sample, etc.
 		OnFinish(func())         // For setting final client statistics, etc.
