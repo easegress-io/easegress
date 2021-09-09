@@ -1,6 +1,7 @@
 package layer4pipeline
 
 import (
+	"bytes"
 	"fmt"
 	"reflect"
 	"sync"
@@ -86,6 +87,45 @@ func (fs *FilterStat) selfDuration() time.Duration {
 		d -= s.Duration
 	}
 	return d
+}
+
+func (ctx *PipelineContext) log() string {
+	if ctx.FilterStats == nil {
+		return "<empty>"
+	}
+
+	var buf bytes.Buffer
+	var fn func(stat *FilterStat)
+
+	fn = func(stat *FilterStat) {
+		buf.WriteString(stat.Name)
+		buf.WriteByte('(')
+		buf.WriteString(stat.Result)
+		if stat.Result != "" {
+			buf.WriteByte(',')
+		}
+		buf.WriteString(stat.selfDuration().String())
+		buf.WriteByte(')')
+		if len(stat.Next) == 0 {
+			return
+		}
+		buf.WriteString("->")
+		if len(stat.Next) > 1 {
+			buf.WriteByte('[')
+		}
+		for i, s := range stat.Next {
+			if i > 0 {
+				buf.WriteByte(',')
+			}
+			fn(s)
+		}
+		if len(stat.Next) > 1 {
+			buf.WriteByte(']')
+		}
+	}
+
+	fn(ctx.FilterStats)
+	return buf.String()
 }
 
 // context.TCPContext: *PipelineContext
