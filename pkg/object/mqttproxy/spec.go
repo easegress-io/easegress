@@ -104,7 +104,3 @@ func (spec *Spec) tlsConfig() (*tls.Config, error) {
 func sessionStoreKey(clientID string) string {
 	return fmt.Sprintf(sessionPrefix, clientID)
 }
-
-func topicStoreKey(topic string) string {
-	return fmt.Sprintf(topicPrefix, topic)
-}

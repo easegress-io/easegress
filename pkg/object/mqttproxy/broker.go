@@ -188,6 +188,13 @@ func (b *Broker) handleConn(conn net.Conn) {
 	b.Unlock()
 
 	client.session.updateEGName(b.egName, b.name)
+	topics, qoss, _ := client.session.allSubscribes()
+	if len(topics) > 0 {
+		err = b.topicMgr.subscribe(topics, qoss, client.info.cid)
+		if err != nil {
+			logger.Errorf("client <%v> use previous session topics <%v> to subscribe failed, err:%v", client.info.cid, topics, err)
+		}
+	}
 	client.readLoop()
 }
 
@@ -247,7 +254,10 @@ func (b *Broker) sendMsgToClient(topic string, payload []byte, qos byte) {
 		return
 	}
 
-	for clientID := range subscribers {
+	for clientID, subQos := range subscribers {
+		if subQos < qos {
+			return
+		}
 		sess := b.sessMgr.get(clientID)
 		if sess == nil {
 			logger.Errorf("mqtt.sendMsgToClient: session for client %s is nil", clientID)

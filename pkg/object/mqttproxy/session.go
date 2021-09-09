@@ -170,9 +170,6 @@ func (s *Session) publish(topic string, payload []byte, qos byte) {
 	s.Lock()
 	defer s.Unlock()
 
-	if q, ok := s.info.Topics[topic]; !ok || byte(q) < qos {
-		return
-	}
 	if client == nil {
 		logger.Errorf("client %s is offline", s.info.ClientID)
 	} else {
