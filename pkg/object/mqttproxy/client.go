@@ -180,7 +180,7 @@ func (c *Client) processPuback(puback *packets.PubackPacket) {
 }
 
 func (c *Client) processSubscribe(packet *packets.SubscribePacket) {
-	err := c.broker.topicMgr.subscribe(packet.Topics, c.info.cid)
+	err := c.broker.topicMgr.subscribe(packet.Topics, packet.Qoss, c.info.cid)
 	if err != nil {
 		logger.Errorf("mqtt.processSubscribe: client %v subscribe %v failed, err:%v", c.info.cid, packet.Topics, err)
 		return

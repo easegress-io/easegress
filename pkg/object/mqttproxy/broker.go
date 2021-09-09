@@ -49,7 +49,7 @@ type (
 
 		sessMgr   *SessionManager
 		topicMgr  *TopicManager
-		memberURL func(string, string) (string, error)
+		memberURL func(string, string) ([]string, error)
 
 		// done is the channel for shutdowning this proxy.
 		done chan struct{}
@@ -64,7 +64,7 @@ type (
 	}
 )
 
-func newBroker(spec *Spec, store storage.Storage, memberURL func(string, string) (string, error)) *Broker {
+func newBroker(spec *Spec, store storage.Storage, memberURL func(string, string) ([]string, error)) *Broker {
 	broker := &Broker{
 		egName:    spec.EGName,
 		name:      spec.Name,
@@ -75,7 +75,7 @@ func newBroker(spec *Spec, store storage.Storage, memberURL func(string, string)
 		memberURL: memberURL,
 		done:      make(chan struct{}),
 	}
-	broker.topicMgr = newTopicManager(store)
+	broker.topicMgr = newTopicManager()
 	broker.sessMgr = newSessionManager(broker, store)
 	for _, a := range spec.Auth {
 		broker.auth[a.Username] = a.B64Passwd
@@ -207,7 +207,7 @@ func (b *Broker) setSession(client *Client, connect *packets.ConnectPacket) {
 }
 
 func (b *Broker) requestTransfer(egName, name string, data HTTPJsonData) {
-	url, err := b.memberURL(egName, name)
+	urls, err := b.memberURL(egName, name)
 	if err != nil {
 		logger.Errorf("mqtt.requestTransfer: not find url for eg:%s, name:%s, err:%v", egName, name, err)
 		return
@@ -217,23 +217,30 @@ func (b *Broker) requestTransfer(egName, name string, data HTTPJsonData) {
 		logger.Errorf("mqtt.requestTransfer: json data marshal failed, err: %v", err)
 		return
 	}
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
-	if err != nil {
-		logger.Errorf("mqtt.requestTransfer: make new request failed, err:%v", err)
-		return
+	for _, url := range urls {
+		req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+		if err != nil {
+			logger.Errorf("mqtt.requestTransfer: make new request failed, err:%v", err)
+			return
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			logger.Errorf("mqtt.requestTransfer: http client send msg failed, err:%v", err)
+			return
+		}
+		defer resp.Body.Close()
 	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		logger.Errorf("mqtt.requestTransfer: http client send msg failed, err:%v", err)
-		return
-	}
-	defer resp.Body.Close()
 }
 
 func (b *Broker) sendMsgToClient(topic string, payload []byte, qos byte) {
-	// plan, use topic from topic manager find clientID
-	// use client ids find session
-	// add message to session wait queue
+	data := HTTPJsonData{
+		Topic:   topic,
+		Qos:     int(qos),
+		Payload: string(base64.StdEncoding.EncodeToString(payload)),
+		Base64:  true,
+	}
+	b.requestTransfer(b.egName, b.name, data)
+
 	subscribers, _ := b.topicMgr.findSubscribers(topic)
 	if subscribers == nil {
 		logger.Errorf("mqtt.sendMsgToClient: not find subscribers for topic %s", topic)
@@ -247,14 +254,6 @@ func (b *Broker) sendMsgToClient(topic string, payload []byte, qos byte) {
 		} else {
 			if sess.info.EGName == b.egName && sess.info.Name == b.name {
 				sess.publish(topic, payload, qos)
-			} else {
-				data := HTTPJsonData{
-					Topic:   topic,
-					Qos:     int(qos),
-					Payload: string(base64.StdEncoding.EncodeToString(payload)),
-					Base64:  true,
-				}
-				b.requestTransfer(sess.info.EGName, sess.info.Name, data)
 			}
 		}
 	}

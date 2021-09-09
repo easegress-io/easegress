@@ -31,14 +31,13 @@ const (
 type (
 	// Spec describes the MQTTProxy.
 	Spec struct {
-		EGName      string       `yaml:"-"`
-		Name        string       `yaml:"-"`
-		Port        uint16       `yaml:"port" jsonschema:"required"`
-		BackendType string       `yaml:"backendType" jsonschema:"required"`
-		Auth        []Auth       `yaml:"auth" jsonschema:"required"`
-		TopicMapper *TopicMapper `yaml:"topicMapper" jsonschema:"omitempty"`
-		Kafka       *KafkaSpec   `yaml:"kafkaBroker" jsonschema:"omitempty"`
-
+		EGName      string        `yaml:"-"`
+		Name        string        `yaml:"-"`
+		Port        uint16        `yaml:"port" jsonschema:"required"`
+		BackendType string        `yaml:"backendType" jsonschema:"required"`
+		Auth        []Auth        `yaml:"auth" jsonschema:"required"`
+		TopicMapper *TopicMapper  `yaml:"topicMapper" jsonschema:"omitempty"`
+		Kafka       *KafkaSpec    `yaml:"kafkaBroker" jsonschema:"omitempty"`
 		UseTLS      bool          `yaml:"useTLS" jsonschema:"omitempty"`
 		Certificate []Certificate `yaml:"certificate" jsonschema:"omitempty"`
 	}
@@ -55,8 +54,20 @@ type (
 		B64Passwd string `yaml:"passBase64" jsonschema:"required"`
 	}
 
-	// TopicMapper describes topic map between MQTT topic and Backend MQ topic
 	TopicMapper struct {
+		MatchIndex int         `yaml:"matchIndex" jsonschema:"required"`
+		Route      []*PolicyRe `yaml:"route" jsonschema:"required"`
+		Policies   []*Policy   `yaml:"policies" jsonschema:"required"`
+	}
+
+	PolicyRe struct {
+		Name      string `yaml:"name" jsonschema:"required"`
+		MatchExpr string `yaml:"matchExpr" jsonschema:"required"`
+	}
+
+	// TopicMapper describes topic map between MQTT topic and Backend MQ topic
+	Policy struct {
+		Name       string         `yaml:"name" jsonschema:"required"`
 		TopicIndex int            `yaml:"topicIndex" jsonschema:"required"`
 		Route      []TopicRe      `yaml:"route" jsonschema:"required"`
 		Headers    map[int]string `yaml:"headers" jsonschema:"required"`
@@ -64,7 +75,7 @@ type (
 
 	TopicRe struct {
 		Topic string   `yaml:"topic" jsonschema:"required"`
-		Expr  []string `yaml:"expr" jsonschema:"required"`
+		Exprs []string `yaml:"exprs" jsonschema:"required"`
 	}
 
 	// KafkaSpec describes Kafka producer

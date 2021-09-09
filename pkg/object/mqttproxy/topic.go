@@ -21,150 +21,223 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/function/storage"
-	etcderror "go.etcd.io/etcd/api/v3/v3rpc/rpctypes"
-	"gopkg.in/yaml.v2"
 )
 
-type (
-	// TopicManager use topic to find corresponding
-	TopicManager struct {
-		store storage.Storage
-	}
+type topicMapFunc func(mqttTopic string) (topic string, headers map[string]string, err error)
 
-	Topic struct {
-		Set map[string]struct{} `yaml:"set"`
-	}
-
-	topicMapFunc func(mqttTopic string) (topic string, headers map[string]string, err error)
-)
-
-func newTopicManager(store storage.Storage) *TopicManager {
-	t := &TopicManager{
-		store: store,
-	}
-	return t
+type TopicManager struct {
+	sync.RWMutex
+	root *topicNode
 }
 
-func (t *TopicManager) subscribe(topics []string, clientID string) error {
-	err := t.store.Lock()
-	if err != nil {
-		return err
+func newTopicManager() *TopicManager {
+	return &TopicManager{
+		root: newNode(),
 	}
-	defer func() {
-		err = t.store.Unlock()
-	}()
+}
 
-	for _, topic := range topics {
-		key := topicStoreKey(topic)
-		value, err := t.store.Get(key)
-		if err != nil && err != etcderror.ErrKeyNotFound {
-			return err
+func validTopic(topic string) bool {
+	levels := strings.Split(topic, "/")
+	for i, level := range levels {
+		if strings.ContainsRune(level, '+') && len(level) != 1 {
+			return false
 		}
-
-		data := Topic{}
-		if value == nil {
-			data.Set = make(map[string]struct{})
-		} else {
-			err = yaml.Unmarshal([]byte(*value), &data)
-			if err != nil {
-				return err
+		if strings.ContainsRune(level, '#') {
+			if len(level) != 1 || i != len(levels)-1 {
+				return false
 			}
 		}
-		data.Set[clientID] = struct{}{}
-		bs, err := yaml.Marshal(data)
-		if err != nil {
-			return err
+	}
+	return true
+}
+
+func (mgr *TopicManager) subscribe(topics []string, qoss []byte, clientID string) error {
+	mgr.Lock()
+	defer mgr.Unlock()
+
+	for i, t := range topics {
+		if !validTopic(t) {
+			return fmt.Errorf("topic not valid, topic:%s", t)
 		}
-		err = t.store.Put(key, string(bs))
-		if err != nil {
+		levels := strings.Split(t, "/")
+		if err := mgr.root.insert(levels, qoss[i], clientID); err != nil {
 			return err
 		}
 	}
-	return err
+	return nil
 }
 
-func (t *TopicManager) unsubscribe(topics []string, clientID string) error {
-	err := t.store.Lock()
-	if err != nil {
+func (mgr *TopicManager) unsubscribe(topics []string, clientID string) error {
+	mgr.Lock()
+	defer mgr.Unlock()
+
+	for _, t := range topics {
+		if !validTopic(t) {
+			return fmt.Errorf("topic not valid, topic:%s", t)
+		}
+		levels := strings.Split(t, "/")
+		if err := mgr.root.remove(levels, clientID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (mgr *TopicManager) findSubscribers(topic string) (map[string]byte, error) {
+	mgr.RLock()
+	defer mgr.RUnlock()
+	if !validTopic(topic) {
+		return nil, fmt.Errorf("topic not valid, topic:%s", topic)
+	}
+	levels := strings.Split(topic, "/")
+	ans := make(map[string]byte)
+	mgr.root.match(levels, ans)
+	return ans, nil
+}
+
+type topicNode struct {
+	// client with their qos
+	clients map[string]byte
+	nodes   map[string]*topicNode
+}
+
+func newNode() *topicNode {
+	return &topicNode{
+		clients: make(map[string]byte),
+		nodes:   make(map[string]*topicNode),
+	}
+}
+
+func (node *topicNode) insert(levels []string, qos byte, clientID string) error {
+	if len(levels) == 0 {
+		node.clients[clientID] = qos
+		return nil
+	}
+
+	nextNode, ok := node.nodes[levels[0]]
+	if !ok {
+		nextNode = newNode()
+		node.nodes[levels[0]] = nextNode
+	}
+	return nextNode.insert(levels[1:], qos, clientID)
+}
+
+func (node *topicNode) remove(levels []string, clientID string) error {
+	if len(levels) == 0 {
+		delete(node.clients, clientID)
+		return nil
+	}
+
+	nextNode, ok := node.nodes[levels[0]]
+	if !ok {
+		return nil
+	}
+	if err := nextNode.remove(levels[1:], clientID); err != nil {
 		return err
 	}
-	defer func() {
-		err = t.store.Unlock()
-	}()
-
-	for _, topic := range topics {
-		key := topicStoreKey(topic)
-		value, err := t.store.Get(key)
-		if err != nil && err != etcderror.ErrKeyNotFound {
-			return err
-		}
-
-		data := Topic{}
-		if value == nil {
-			data.Set = make(map[string]struct{})
-		} else {
-			err = yaml.Unmarshal([]byte(*value), &data)
-			if err != nil {
-				return err
-			}
-		}
-		delete(data.Set, clientID)
-		bs, err := yaml.Marshal(data)
-		if err != nil {
-			return err
-		}
-		err = t.store.Put(key, string(bs))
-		if err != nil {
-			return err
-		}
+	if len(nextNode.clients) == 0 && len(nextNode.nodes) == 0 {
+		delete(node.nodes, levels[0])
 	}
-	return err
+	return nil
 }
 
-func (t *TopicManager) findSubscribers(topic string) (map[string]struct{}, error) {
-
-	key := topicStoreKey(topic)
-	value, err := t.store.Get(key)
-	if err != nil {
-		if err == etcderror.ErrKeyNotFound {
-			return map[string]struct{}{}, nil
+func (node *topicNode) match(levels []string, ans map[string]byte) {
+	if len(levels) == 0 {
+		node.addClients(ans)
+		if n, ok := node.nodes["#"]; ok {
+			n.addClients(ans)
 		}
-		return nil, err
-	}
-	if value == nil {
-		return map[string]struct{}{}, nil
+		return
 	}
 
-	data := Topic{}
-	err = yaml.Unmarshal([]byte(*value), &data)
-	if err != nil {
-		return nil, err
+	for l, nextNode := range node.nodes {
+		if l == "#" {
+			nextNode.addClients(ans)
+		}
+		if l == "+" || l == levels[0] {
+			nextNode.match(levels[1:], ans)
+		}
 	}
-	return data.Set, nil
+}
+
+func (node *topicNode) addClients(ans map[string]byte) {
+	for client, qos := range node.clients {
+		ans[client] = qos
+	}
+}
+
+func getPolicyRoute(routes []*PolicyRe) map[string]*regexp.Regexp {
+	ans := make(map[string]*regexp.Regexp)
+	for _, route := range routes {
+		r, err := regexp.Compile(route.MatchExpr)
+		if err != nil {
+			logger.Errorf("topicMapper policy <%s> match expr <%s> compile failed, err:%v", route.Name, route.MatchExpr, err)
+		} else {
+			ans[route.Name] = r
+		}
+	}
+	return ans
+}
+
+type topicRouteType map[string][]*regexp.Regexp
+
+func getTopicRoute(p *Policy) topicRouteType {
+	m := make(map[string][]*regexp.Regexp)
+	for _, route := range p.Route {
+		for _, expr := range route.Exprs {
+			r, err := regexp.Compile(expr)
+			if err != nil {
+				logger.Errorf("topicMapper policy <%s> topic route expr <%s> compile failed, err:%v", p.Name, expr, err)
+			} else {
+				m[route.Topic] = append(m[route.Topic], r)
+			}
+		}
+	}
+	return m
+}
+
+func getPolicyMap(ps []*Policy) map[string]*Policy {
+	ans := make(map[string]*Policy)
+	for _, p := range ps {
+		ans[p.Name] = p
+	}
+	return ans
 }
 
 func getTopicMapFunc(topicMapper *TopicMapper) topicMapFunc {
 	if topicMapper == nil {
 		return nil
 	}
+	policyMap := getPolicyMap(topicMapper.Policies)
+	policyRoute := getPolicyRoute(topicMapper.Route)
+	topicRoutes := make(map[string]topicRouteType)
+	for _, p := range topicMapper.Policies {
+		topicRoutes[p.Name] = getTopicRoute(p)
+	}
 
-	idx := topicMapper.TopicIndex
-	routes := topicMapper.Route
-	hds := topicMapper.Headers
-
-	remap := make(map[string][]*regexp.Regexp)
-	for _, route := range routes {
-		for _, expr := range route.Expr {
-			r, err := regexp.Compile(expr)
-			if err != nil {
-				logger.Errorf("topicMapper topic:%s, expr:%s compile failed, err:%v", route.Topic, expr, err)
-			} else {
-				remap[route.Topic] = append(remap[route.Topic], r)
+	getPolicy := func(level string) *Policy {
+		for name, r := range policyRoute {
+			if r.MatchString(level) {
+				return policyMap[name]
 			}
 		}
+		return nil
+	}
+
+	getTopic := func(level string, p *Policy) (string, error) {
+		topicRoute := topicRoutes[p.Name]
+		for _, route := range p.Route {
+			regexps := topicRoute[route.Topic]
+			for _, regexp := range regexps {
+				if regexp.MatchString(level) {
+					return route.Topic, nil
+				}
+			}
+		}
+		return "", fmt.Errorf("no match topic for level <%s> with policy <%s>", level, p.Name)
 	}
 
 	f := func(mqttTopic string) (string, map[string]string, error) {
@@ -172,26 +245,28 @@ func getTopicMapFunc(topicMapper *TopicMapper) topicMapFunc {
 		if levels[0] == "" {
 			levels = levels[1:]
 		}
-		if len(levels) <= idx {
-			return "", nil, fmt.Errorf("levels in mqtt topic <%s> is less than topic index <%d>", mqttTopic, idx)
+		if len(levels) <= topicMapper.MatchIndex {
+			return "", nil, fmt.Errorf("levels in mqtt topic <%s> is less than policy match index <%d>", mqttTopic, topicMapper.MatchIndex)
 		}
-
+		p := getPolicy(levels[topicMapper.MatchIndex])
+		if p == nil {
+			return "", nil, fmt.Errorf("no policy match mqtt topic <%s>", mqttTopic)
+		}
+		if len(levels) <= p.TopicIndex {
+			return "", nil, fmt.Errorf("levels in mqtt topic <%s> is less then policy <%s> topic index <%d>", mqttTopic, p.Name, p.TopicIndex)
+		}
+		topic, err := getTopic(levels[p.TopicIndex], p)
+		if err != nil {
+			return "", nil, fmt.Errorf("mqttTopic %s get backend massage queue topic failed, err:%v", mqttTopic, err)
+		}
 		headers := make(map[string]string)
-		for k, v := range hds {
+		for k, v := range p.Headers {
 			if k >= len(levels) {
 				continue
 			}
 			headers[v] = levels[k]
 		}
-		topicLevel := levels[idx]
-		for _, route := range routes {
-			for _, re := range remap[route.Topic] {
-				if re.MatchString(topicLevel) {
-					return route.Topic, headers, nil
-				}
-			}
-		}
-		return "", nil, fmt.Errorf("no match topic for msg")
+		return topic, headers, nil
 	}
 	return f
 }

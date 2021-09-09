@@ -68,27 +68,28 @@ func (mp *MQTTProxy) Status() *supervisor.Status {
 	return &supervisor.Status{}
 }
 
-func memberURLFunc(superSpec *supervisor.Spec) func(string, string) (string, error) {
+func memberURLFunc(superSpec *supervisor.Spec) func(string, string) ([]string, error) {
 	c := superSpec.Super().Cluster()
 
-	f := func(egName, name string) (string, error) {
+	f := func(egName, name string) ([]string, error) {
 		kv, err := c.GetPrefix(c.Layout().StatusMemberPrefix())
 		if err != nil {
 			logger.Errorf("mqtt.memberURLFunc: cluster get member list failed, err:%v", err)
-			return "", err
+			return []string{}, err
 		}
+		urls := []string{}
 		for _, v := range kv {
 			memberStatus := cluster.MemberStatus{}
 			err := yaml.Unmarshal([]byte(v), &memberStatus)
 			if err != nil {
 				logger.Errorf("mqtt.memberURLFunc: cluster status unmarshal error, %v", err)
-				return "", err
+				return []string{}, err
 			}
-			if memberStatus.Options.Name == egName {
-				return "http://" + memberStatus.Options.APIAddr + "/apis/v1" + fmt.Sprintf(mqttAPIPrefix, name), nil
+			if memberStatus.Options.Name != egName {
+				urls = append(urls, "http://"+memberStatus.Options.APIAddr+"/apis/v1"+fmt.Sprintf(mqttAPIPrefix, name))
 			}
 		}
-		return "", fmt.Errorf("name %s not in cluster member list", name)
+		return urls, fmt.Errorf("name %s not in cluster member list", name)
 	}
 	return f
 }
