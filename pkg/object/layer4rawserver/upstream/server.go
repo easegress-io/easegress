@@ -1,4 +1,21 @@
-package layer4proxy
+/*
+ * Copyright (c) 2017, MegaEase
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package upstream
 
 import (
 	"fmt"
@@ -51,7 +68,6 @@ type (
 
 	// Server is proxy server.
 	Server struct {
-		Address  *net.TCPAddr
 		HostPort string   `yaml:"HostPort" jsonschema:"required,format=hostport"`
 		Tags     []string `yaml:"tags" jsonschema:"omitempty,uniqueItems=true"`
 		Weight   int      `yaml:"weight" jsonschema:"omitempty,minimum=0,maximum=100"`
@@ -66,11 +82,9 @@ type (
 func (s *servers) Validated() error {
 	if s.poolSpec.Protocol == "tcp" {
 		for _, server := range s.static.servers {
-			if addr, err := net.ResolveTCPAddr("tcp", server.HostPort); err != nil {
+			if _, err := net.ResolveTCPAddr("tcp", server.HostPort); err != nil {
 				logger.Errorf("resolve tcp addr failed, host port: %v, %v", server.HostPort, err)
 				return err
-			} else {
-				server.Address = addr
 			}
 		}
 	}
@@ -288,6 +302,9 @@ func (ss *staticServers) weightedRandom() *Server {
 }
 
 func (ss *staticServers) ipHash(ctx context.Layer4Context) *Server {
-	sum32 := int(hashtool.Hash32(ctx.ClientIP()))
+	remoteAddr := ctx.RemoteAddr().String()
+	host, _, _ := net.SplitHostPort(remoteAddr)
+
+	sum32 := int(hashtool.Hash32(host))
 	return ss.servers[sum32%len(ss.servers)]
 }

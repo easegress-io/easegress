@@ -47,8 +47,8 @@ type LimitListener struct {
 	closeOnce sync.Once // ensures the done chan is only closed once
 }
 
-// acquire acquires the limiting semaphore. Returns true if successfully
-// accquired, false if the listener is closed and the semaphore is not
+// acquire the limiting semaphore. Returns true if successfully
+// acquired, false if the listener is closed and the semaphore is not
 // acquired.
 func (l *LimitListener) acquire() bool {
 	return l.sem.AcquireWithContext(l.ctx) == nil

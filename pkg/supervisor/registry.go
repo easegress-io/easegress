@@ -69,6 +69,15 @@ type (
 		// So its own responsibility for the object to inherit and clean the previous generation stuff.
 		// The supervisor won't call Close for the previous generation.
 		Inherit(superSpec *Spec, previousGeneration Object, muxMapper protocol.MuxMapper)
+
+		// InitLayer4 initializes the Object.
+		InitLayer4(superSpec *Spec, muxMapper protocol.Layer4MuxMapper)
+
+		// InheritLayer4 also initializes the Object.
+		// But it needs to handle the lifecycle of the previous generation.
+		// So its own responsibility for the object to inherit and clean the previous generation stuff.
+		// The supervisor won't call Close for the previous generation.
+		InheritLayer4(superSpec *Spec, previousGeneration Object, muxMapper protocol.Layer4MuxMapper)
 	}
 
 	// TrafficGate is the object in category of TrafficGate.

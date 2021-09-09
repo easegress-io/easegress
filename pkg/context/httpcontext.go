@@ -21,7 +21,6 @@ import (
 	stdcontext "context"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"runtime/debug"
 	"strings"
@@ -40,39 +39,6 @@ import (
 )
 
 type (
-	// HandlerCaller is a helper function to call the handler
-	HandlerCaller func(lastResult string) string
-
-	// Layer4Context is all context of an TCP processing.
-	// It is not goroutine-safe, callers must use Lock/Unlock
-	// to protect it by themselves.
-	Layer4Context interface {
-		Lock()
-		Unlock()
-
-		stdcontext.Context
-		Cancel(err error)
-		Cancelled() bool
-		ClientDisconnected() bool
-
-		ClientConn() *net.TCPConn
-
-		Duration() time.Duration // For log, sample, etc.
-		OnFinish(func())         // For setting final client statistics, etc.
-		AddTag(tag string)       // For debug, log, etc.
-
-		Finish()
-
-		Host() string
-		SetHost(host string)
-		Port() uint16
-		SetPort(port uint16)
-
-		ClientIP() string
-
-		CallNextHandler(lastResult string) string
-		SetHandlerCaller(caller HandlerCaller)
-	}
 
 	// HTTPContext is all context of an HTTP processing.
 	// It is not goroutine-safe, callers must use Lock/Unlock
@@ -182,32 +148,6 @@ type (
 		stdctx         stdcontext.Context
 		cancelFunc     stdcontext.CancelFunc
 		err            error
-	}
-
-	tcpContext struct {
-		mutex sync.Mutex
-
-		startTime *time.Time
-		endTime   *time.Time
-
-		tags []string
-
-		clientConn  *net.TCPConn
-		backendConn *net.TCPConn
-		stdctx      stdcontext.Context
-		err         error
-	}
-
-	udpContext struct {
-		mutex sync.Mutex
-
-		startTime *time.Time
-		endTime   *time.Time
-
-		tags []string
-
-		stdctx stdcontext.Context
-		err    error
 	}
 )
 
@@ -393,8 +333,4 @@ func (ctx *httpContext) SaveReqToTemplate(filterName string) error {
 // SaveRspToTemplate stores http response related info into HTTP template engine
 func (ctx *httpContext) SaveRspToTemplate(filterName string) error {
 	return ctx.ht.SaveResponse(filterName, ctx)
-}
-
-func (ctx *tcpContext) saveBackendConn(conn *net.TCPConn) {
-	ctx.backendConn = conn
 }

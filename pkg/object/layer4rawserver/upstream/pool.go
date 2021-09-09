@@ -1,18 +1,32 @@
-package layer4proxy
+/*
+ * Copyright (c) 2017, MegaEase
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package upstream
 
 import (
-	"bufio"
 	"fmt"
-	"github.com/google/martian/log"
+	"net"
+	"time"
+
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/layer4stat"
 	"github.com/megaease/easegress/pkg/util/memorycache"
-	"github.com/megaease/easegress/pkg/util/stringtool"
-	"io"
-	"net"
-	"time"
 )
 
 type (
@@ -21,12 +35,10 @@ type (
 	pool struct {
 		spec *PoolSpec
 
-		tagPrefix     string
-		writeResponse bool
+		tagPrefix string
 
-		servers     *servers
-		layer4stat  *layer4stat.Layer4Stat
-		memoryCache *memorycache.MemoryCache
+		servers    *servers
+		layer4stat *layer4stat.Layer4Stat
 	}
 
 	// PoolSpec describes a pool of servers.
@@ -74,22 +86,13 @@ func (s PoolSpec) Validate() error {
 	return nil
 }
 
-func newPool(super *supervisor.Supervisor, spec *PoolSpec, tagPrefix string, writeResponse bool) *pool {
-
-	var memoryCache *memorycache.MemoryCache
-	if spec.MemoryCache != nil {
-		memoryCache = memorycache.New(spec.MemoryCache)
-	}
+func newPool(super *supervisor.Supervisor, spec *PoolSpec, tagPrefix string) *pool {
 
 	return &pool{
-		spec: spec,
-
-		tagPrefix:     tagPrefix,
-		writeResponse: writeResponse,
-
-		servers:     newServers(super, spec),
-		layer4stat:  layer4stat.New(),
-		memoryCache: memoryCache,
+		spec:       spec,
+		tagPrefix:  tagPrefix,
+		servers:    newServers(super, spec),
+		layer4stat: layer4stat.New(),
 	}
 }
 
@@ -100,64 +103,22 @@ func (p *pool) status() *PoolStatus {
 
 func (p *pool) handle(ctx context.Layer4Context) string {
 
-	addTag := func(subPrefix, msg string) {
-		tag := stringtool.Cat(p.tagPrefix, "#", subPrefix, ": ", msg)
-		ctx.Lock()
-		ctx.AddTag(tag)
-		ctx.Unlock()
-	}
-
 	server, err := p.servers.next(ctx)
 	if err != nil {
-		addTag("serverErr", err.Error())
 		return resultInternalError
 	}
-	addTag("addr", server.HostPort)
 
-	rawConn, err := net.DialTimeout("tcp", server.HostPort, 1000*time.Millisecond)
+	upstreamConn, err := net.DialTimeout("tcp", server.HostPort, 1000*time.Millisecond)
 	if err != nil {
-		log.Errorf("dial tcp for addr: % failed, err: %v", server.HostPort, err)
+		logger.Errorf("dial tcp for addr: % failed, err: %v", server.HostPort, err)
 	}
-	backendConn := rawConn.(*net.TCPConn)
+	_ = upstreamConn.Close()
 
-	defer func(backendConn *net.TCPConn) {
-		closeErr := backendConn.Close()
-		if closeErr != nil {
-			logger.Warnf("close backend conn for %v failed, err: %v", server.HostPort, err)
-		}
-	}(backendConn)
-
-	errChan := make(chan error)
-	go p.connCopy(backendConn, ctx.ClientConn(), errChan)
-	go p.connCopy(ctx.ClientConn(), backendConn, errChan)
-
-	err = <-errChan
-	if err != nil {
-		logger.Errorf("Error during connection: %v", err)
-	}
-
-	err = <-errChan // TODO export tcp config for backend conn, watch client/backend error
-
-	ctx.Lock()
-	defer ctx.Unlock()
-	// NOTE: The code below can't use addTag and setStatusCode in case of deadlock.
+	// TODO do layer4 proxy
 
 	return ""
 }
 
 func (p *pool) close() {
 	p.servers.close()
-}
-
-func (p *pool) connCopy(dst *net.TCPConn, src *net.TCPConn, errCh chan error) {
-	writer := bufio.NewWriter(dst)
-	reader := bufio.NewReader(src)
-	_, err := io.Copy(writer, reader)
-	_ = writer.Flush() // need flush bytes in buffer
-	errCh <- err
-
-	errClose := dst.CloseWrite()
-	if errClose != nil {
-		logger.Debugf("Error while terminating connection: %v", errClose)
-	}
 }
