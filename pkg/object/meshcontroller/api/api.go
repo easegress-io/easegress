@@ -54,6 +54,9 @@ const (
 	// MeshServiceCanaryPath is the mesh service canary path.
 	MeshServiceCanaryPath = "/mesh/services/{serviceName}/canary"
 
+	// MeshServiceMockPath is the mesh service mock path.
+	MeshServiceMockPath = "/mesh/services/{serviceName}/mock"
+
 	// MeshServiceResiliencePath is the mesh service resilience path.
 	MeshServiceResiliencePath = "/mesh/services/{serviceName}/resilience"
 
@@ -131,6 +134,11 @@ func (a *API) registerAPIs() {
 			{Path: MeshServiceCanaryPath, Method: "GET", Handler: a.getPartOfService(canaryMeta)},
 			{Path: MeshServiceCanaryPath, Method: "PUT", Handler: a.updatePartOfService(canaryMeta)},
 			{Path: MeshServiceCanaryPath, Method: "DELETE", Handler: a.deletePartOfService(canaryMeta)},
+
+			{Path: MeshServiceMockPath, Method: "POST", Handler: a.createPartOfService(mockMeta)},
+			{Path: MeshServiceMockPath, Method: "GET", Handler: a.getPartOfService(mockMeta)},
+			{Path: MeshServiceMockPath, Method: "PUT", Handler: a.updatePartOfService(mockMeta)},
+			{Path: MeshServiceMockPath, Method: "DELETE", Handler: a.deletePartOfService(mockMeta)},
 
 			{Path: MeshServiceResiliencePath, Method: "POST", Handler: a.createPartOfService(resilienceMeta)},
 			{Path: MeshServiceResiliencePath, Method: "GET", Handler: a.getPartOfService(resilienceMeta)},
