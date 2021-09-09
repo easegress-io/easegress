@@ -233,7 +233,7 @@ func (worker *Worker) run() {
 	}
 
 	if runnAble := startUpRoutine(); !runnAble {
-		logger.Errorf("service: %s is not runnable, check the service spec or ignore if when mock is enable", worker.superSpec.Name())
+		logger.Errorf("service: %s is not runnable, check the service spec or ignore if mock is enable", worker.superSpec.Name())
 		return
 	}
 	go worker.heartbeat()

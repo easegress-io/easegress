@@ -708,7 +708,6 @@ func (s *Service) SideCarEgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec
 	pipelineSpecBuilder := newPipelineSpecBuilder(s.EgressPipelineName())
 
 	if !s.Runnable() {
-		// if this is not runnable, not need to append other filters
 		pipelineSpecBuilder.appendMock(s.Mock.Rules)
 	} else {
 		if s.Resilience != nil {
