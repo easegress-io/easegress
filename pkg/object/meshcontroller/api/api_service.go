@@ -93,8 +93,8 @@ func (a *API) createService(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.service.Lock()
-	defer a.service.Unlock()
+	a.Lock()
+	defer a.Unlock()
 
 	oldSpec := a.service.GetServiceSpec(serviceName)
 	if oldSpec != nil {
@@ -166,8 +166,8 @@ func (a *API) updateService(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.service.Lock()
-	defer a.service.Unlock()
+	a.Lock()
+	defer a.Unlock()
 
 	oldSpec := a.service.GetServiceSpec(serviceName)
 	if oldSpec == nil {
@@ -218,8 +218,8 @@ func (a *API) deleteService(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.service.Lock()
-	defer a.service.Unlock()
+	a.Lock()
+	defer a.Unlock()
 
 	oldSpec := a.service.GetServiceSpec(serviceName)
 	if oldSpec == nil {
@@ -236,4 +236,5 @@ func (a *API) deleteService(w http.ResponseWriter, r *http.Request) {
 
 	a.service.PutTenantSpec(tenantSpec)
 	a.service.DeleteServiceSpec(serviceName)
+	a.shadowService.DeleteSpecsOfService(serviceName)
 }

@@ -99,8 +99,8 @@ func (a *API) createTenant(w http.ResponseWriter, r *http.Request) {
 	}
 	tenantSpec.CreatedAt = time.Now().Format(time.RFC3339)
 
-	a.service.Lock()
-	defer a.service.Unlock()
+	a.Lock()
+	defer a.Unlock()
 
 	oldSpec := a.service.GetTenantSpec(tenantName)
 	if oldSpec != nil {
@@ -168,8 +168,8 @@ func (a *API) updateTenant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.service.Lock()
-	defer a.service.Unlock()
+	a.Lock()
+	defer a.Unlock()
 
 	oldSpec := a.service.GetTenantSpec(tenantName)
 	if oldSpec == nil {
@@ -190,8 +190,8 @@ func (a *API) deleteTenant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.service.Lock()
-	defer a.service.Unlock()
+	a.Lock()
+	defer a.Unlock()
 
 	oldSpec := a.service.GetTenantSpec(tenantName)
 	if oldSpec == nil {

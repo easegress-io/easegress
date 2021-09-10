@@ -113,8 +113,8 @@ func (a *API) offlineServiceInstance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.service.Lock()
-	defer a.service.Unlock()
+	a.Lock()
+	defer a.Unlock()
 
 	instanceSpec := a.service.GetServiceInstanceSpec(serviceName, instanceID)
 	if instanceSpec == nil {

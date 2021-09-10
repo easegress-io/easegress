@@ -25,6 +25,8 @@ import (
 
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/service"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/shadowservice"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/storage"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/v"
 )
@@ -74,12 +76,20 @@ const (
 
 	// MeshServiceInstancePath is the mesh service path.
 	MeshServiceInstancePath = "/mesh/serviceinstances/{serviceName}/{instanceID}"
+
+	// MeshShadowServicePrefix is mesh shadow service prefix
+	MeshShadowServicePrefix = "/mesh/shadowservices"
+
+	// MeshShadowServicePath is the mesh shadow service path.
+	MeshShadowServicePath = "/mesh/shadowservices/{shadowServiceName}"
 )
 
 type (
 	// API is the struct with the service
 	API struct {
-		service *service.Service
+		store         storage.Storage
+		service       *service.Service
+		shadowService *shadowservice.ShadowService
 	}
 )
 
@@ -87,13 +97,32 @@ const apiGroupName = "mesh_admin"
 
 // New creates a API
 func New(superSpec *supervisor.Spec) *API {
+	store := storage.New(superSpec.Name(), superSpec.Super().Cluster())
 	api := &API{
-		service: service.New(superSpec),
+		store:         store,
+		service:       service.New(superSpec),
+		shadowService: shadowservice.New(superSpec),
 	}
 
 	api.registerAPIs()
 
 	return api
+}
+
+// Lock locks all store, it will do cluster panic if failed.
+func (a *API) Lock() {
+	err := a.store.Lock()
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+}
+
+// Unlock unlocks all store, it will do cluster panic if failed.
+func (a *API) Unlock() {
+	err := a.store.Unlock()
+	if err != nil {
+		api.ClusterPanic(err)
+	}
 }
 
 // Close unregisters a API
@@ -156,6 +185,12 @@ func (a *API) registerAPIs() {
 			{Path: MeshServiceMetricsPath, Method: "GET", Handler: a.getPartOfService(metricsMeta)},
 			{Path: MeshServiceMetricsPath, Method: "PUT", Handler: a.updatePartOfService(metricsMeta)},
 			{Path: MeshServiceMetricsPath, Method: "DELETE", Handler: a.deletePartOfService(metricsMeta)},
+
+			{Path: MeshShadowServicePrefix, Method: "GET", Handler: a.listShadowServices},
+			{Path: MeshShadowServicePath, Method: "POST", Handler: a.createShadowService},
+			{Path: MeshShadowServicePath, Method: "GET", Handler: a.getShadowService},
+			{Path: MeshShadowServicePath, Method: "PUT", Handler: a.updateShadowService},
+			{Path: MeshShadowServicePath, Method: "DELETE", Handler: a.deleteShadowService},
 		},
 	}
 

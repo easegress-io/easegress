@@ -1,0 +1,588 @@
+// Copyright 2021 MegaEase 
+//   Licensed under the Apache License, Version 2.0 (the "License");
+//   you may not use this file except in compliance with the License.
+//   You may obtain a copy of the License at
+//
+//       http://www.apache.org/licenses/LICENSE-2.0
+//
+//   Unless required by applicable law or agreed to in writing, software
+//   distributed under the License is distributed on an "AS IS" BASIS,
+//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//   See the License for the specific language governing permissions and
+//   limitations under the License.
+syntax = "proto3";
+
+package easemesh.v1alpha1;
+ 
+option go_package="easemesh/api/v1alpha1";
+
+// Tenant is the logic group of mesh services. Inside the same tenant,
+// services can visit each other directly. There are two kinds of tenant, one is the  common type 
+// of tenants and the other is system reserved "global" tenant which's access scope is globally 
+// inside the mesh . If one mesh service is created with "global" tenant filed, it can be visible 
+// to all the service inside the mesh. 
+message Tenant {
+	// Name is the identify of this tenant. 
+	string name = 1;
+
+	// Services are the array of mesh service name in this tenant.
+	repeated string services  = 2;
+
+	// Descriptions for this tenant.
+	string description = 3;
+}
+
+// Service is the basic element in EaseMesh to describe a user's business microservices' 
+// name, belonging tenant, and governance specs. One service should belongs to a dedicated 
+// tenant. 
+message Service {
+	// Name is the mesh service's name.
+	string name = 1; 
+
+	// RegisterTenant is the tenant's name this service belongs to.
+	string registerTenant = 2; 
+
+	// Resilience configuration, optional.
+	Resilience resilience  = 3;
+
+	// Canary configuration, optional.
+	Canary canary = 4; 
+
+	// LoadBalance configuration, optional.
+	LoadBalance loadBalance  = 5; 
+
+	// Sidecar configuration, optional.
+	Sidecar sidecar  = 6;
+
+	// Observability configuration, optional.
+	Observability observability  = 7;
+}
+
+// Resilience configures four key types of features, RateLimiter, CircuitBreaker, 
+// Retryer and Timeout.
+message Resilience {
+	// RateLimiter configuration. 
+	RateLimiter rateLimiter  = 1;
+
+	// CircuitBreaker configuration. 
+	CircuitBreaker circuitBreaker = 2;
+
+	// Retryer configuration.
+	Retryer retryer = 3;
+
+	// TimeLimiter configuration
+	TimeLimiter timeLimiter = 4; 
+}
+
+// Canary configures rules to implement canary deployment. It belongs to the traffic scheduling domain.
+// The developer can deploy a canary version of microservice and accept coloring test its stability before
+// rolling out to the whole instances. 
+message Canary {
+	// CanaryRules is the mesh service's all rules for canary deployment. 
+	repeated CanaryRule canaryRules = 1;
+}
+
+// Sidecar configures the sidecar for every mesh service instances. It works inside the same
+// pod with the workload instance. 
+message Sidecar {
+	// DiscoveryType configures the type of service register/discovery type, its value are among 
+	// "eureka","consul", and "nacos".
+	string discoveryType = 1;
+
+	// Address is the registry center address for workload to visit. 
+	string address = 2; 
+
+	// IngressPort is the port for ingress traffic.
+	int32 ingressPort = 3;
+
+	// IngressProtocol is the protocol for ingress traffic. Its value is "http".
+	string ingressProtocol = 4;
+
+	// EgressPort is the port for egress traffic.
+	int32 egressPort = 5;
+
+	// EgressProtocol is the protocol for egress traffic. Its value is "http"
+	string egressProtocol = 6;
+}
+
+// LoadBalance configures how to distribute the traffic inside this mesh.
+message LoadBalance {
+	// Policy including four kinds of load balancing scheme, including random, weightedRandom,ipHash,
+	// headerHash
+	string policy = 1;
+
+	// HeaderHashKey configures the key in HTTP header when the policy is headerHash. 
+	string headerHashKey = 2;
+}
+
+// Observability consists of three components, outputServer, tracing, and metrics. 
+message Observability {
+	// OutputServer configures JavaAgent's tracing output target. 
+	ObservabilityOutputServer outputServer = 1;
+
+	// Tracings configures whether JavaAgent should deal with tracing HTTP header or not. 
+	ObservabilityTracings  tracings = 2;
+
+	// Metrics configures the metrics JavaAgent should collect. 
+	ObservabilityMetrics    metrics = 3;
+}
+
+// Ingress is the spec of mesh ingress.
+message Ingress {
+	// Name is the identify of this ingress.  
+	string  name = 1;
+
+	// Rules is an array of ingress routing rules.
+	repeated IngressRule rules = 2;
+}
+
+// ServiceInstance is the runnable entity of a Mesh Service.
+message ServiceInstance {
+	// ServiceName is the name of service this instance belongs to.
+	string serviceName  = 1;
+
+	// InstanceID is the identity of this instance.
+	string instanceID  = 2;
+
+	// IP is this instance's address in EaseMesh.
+	string ip = 3;
+
+	// Port is the port this instance listening to.
+	int32  port = 4;
+
+	// RegistryTime is the time this instance registered.
+	string registryTime = 5;
+
+	// Labels is a map for storing service labels. This field is used for Canary Deployment.
+	map<string, string> labels = 6;
+
+	// Status is the status of this mesh service instance.
+	string status = 7;
+}
+
+
+// RateLimiter configures a limiter which can establish your services' high availability and reliability, 
+// also it can be used for scaling APIs. RateLimiter can protect servers from overwhelm by the peak traffic.
+message RateLimiter {
+	// Policies contains different limiting configurations for this RateLimiter to use.
+	repeated RateLimiterPolicy policies  = 1;
+
+	// DefaultPolicyRef is the default reference policy name.
+	string defaultPolicyRef = 2;
+
+	// Urls describe the HTTP request matching schemes for this limiter to filter.
+	repeated URLRule urls = 3;
+}
+
+// CircuitBreaker is used for blocking all in-coming requests when the the failure numbers 
+// reach the configured limitation. You can declare an CircuitBreaker with COUNT_BASED or 
+// TIME_BASED type.  It has three types of states, open, closed and half-close. One service 
+// can declare its desired CircuitBreaker, and the upstream clients will active the same CircuitBreaker 
+// locally when calling this service.
+message CircuitBreaker {
+	// Policies contain different breaker configurations for this CircuitBreaker to use.
+	repeated CircuitBreakerPolicy policies  = 1;
+
+	// DefaultPolicyRef is the default reference policy name.
+	string defaultPolicyRef = 2;
+
+	// URLs describe the HTTP request matching schemes for this limiter to filter.
+	repeated URLRule urls = 3;
+}
+
+// Retryer can perform an API calling retry when the service HTTP response code indicated its in 
+// temporary unavailable states. The up-stream client should make sure this API is idempotent. 
+// The service can declare an Retryer for its desired APIs and active in client side. 
+message Retryer {
+	// Policies contain different retryer configurations for this Retryer to use.
+	repeated RetryerPolicy policies  = 1;
+
+	// DefaultPolicyRef is the default reference policy name.
+	string defaultPolicyRef = 2;
+
+	// Urls describe the HTTP request matching schemes for this limiter to filter.
+	repeated URLRule urls = 3;
+
+}
+
+// Timeout configures the amount of time the client should wait for replies from a given service, 
+// it will be running in upstream clients and declared in downstream relied services.
+message TimeLimiter {
+	// DefaultTimeoutDuration configures the default duration for timeout, e.g.,500ms.
+	string defaultTimeoutDuration = 1;
+
+	// Urls describe the HTTP request matching schemes for this limiter to filter.
+	repeated URLRule urls = 3;
+}
+
+
+// CircuitBreakerPolicy is the policy for describing Resilience component CircuitBreaker. 
+// It contains the basic configurations for the breaker, including the type of sliding window this 
+// breaker will use. Whether including network error or not and so on. 
+message CircuitBreakerPolicy {
+	//  Name is the identify of this policy. 
+	string name  = 1; 
+
+	// SlidingWindowType is the sliding window type of this break, only "COUNT_BASED" or "TIME_BASED" allowed.
+	string slidingWindowType = 2;  
+
+	// FailureRateThreshold configures the failure rate threshold in percentage. When the failure rate is equal 
+	// or greater than the threshold the CircuitBreaker transitions to open and starts short-circuiting calls.
+	uint32 failureRateThreshold = 3;
+
+	// SlowCallRateThreshold Configures a threshold in percentage. The CircuitBreaker considers a call as slow 
+	// when the call duration is greater than slowCallDurationThreshold When the percentage of slow calls is 
+	// equal or greater the threshold, the CircuitBreaker transitions to open and starts short-circuiting calls.
+	uint32 slowCallRateThreshold = 4;
+
+	// CountingNetworkError configures whether a network failure situation should active CircuitBreaker or not. .
+	bool countingNetworkError = 5;
+
+	// SlidingWindowSize configures the size of the sliding window which is used to record the outcome of 
+	// calls when the CircuitBreaker is closed. 
+	uint32 slidingWindowSize = 6;
+
+	// PermittedNumberOfCallsInHalfOpenState configures the number of permitted calls when the CircuitBreaker 
+	// is half open.
+	uint32 permittedNumberOfCallsInHalfOpenState = 7;
+
+	// MinimumNumberOfCalls configures the minimum number of calls which are required (per sliding window period) 
+	// before the CircuitBreaker can calculate the error rate or slow call rate.  For example, 
+	// if minimumNumberOfCalls is 10, then at least 10 calls must be recorded, before the failure rate can be 
+	// calculated. If only 9 calls have been recorded the CircuitBreaker will not transition to open 
+	// even if all 9 calls have failed.
+	uint32 minimumNumberOfCalls = 8;
+
+	// SlowCallDurationThreshold configures the duration threshold above which calls are considered as slow 
+	// and increase the rate of slow calls.
+	string slowCallDurationThreshold  = 9;
+
+	// MaxWaitDurationInHalfOpenState configures a maximum wait duration which controls the longest amount 
+	// of time a CircuitBreaker could stay in Half Open state, before it switches to open. Value 0 means 
+	// Circuit Breaker would wait infinitely in HalfOpen State until all permitted calls have been completed.
+	string  maxWaitDurationInHalfOpenState = 10;
+
+	// WaitDurationInOpenState configures the duration that the CircuitBreaker should wait before transitioning 
+	// from open to half-open,e.g.,60000ms.
+	string waitDurationInOpenState = 11;
+
+	// FailureStatusCodes is the array for HTTP failure status code for this CircuitBreakerPolicy.
+	repeated int32 failureStatusCodes = 12;
+}
+
+
+// RetryerPolicy configures the policy for describing Resilience component Retryer. 
+// It contains the basic configurations for the retryer, including the type of sliding window this 
+// breaker will use. Whether including network error or not and so on.  
+message RetryerPolicy {
+	// Name is the identify of this policy. 
+	string name = 1; 
+
+	// MaxAttempts configures the maximum number of attempts. (including the initial call as the first attempt)
+	int32 maxAttempts = 2;
+
+	// WaitDuration configures the based and fixed wait duration between retry attempts.
+	string waitDuration = 3;
+
+	// BackOffPolicy configures the two kinds of policy, random and exponential.
+	string backOffPolicy = 4;
+
+	// RandomizationFactor configures the factor used for backoff, value between 0 and 1.
+	double randomizationFactor = 5;
+
+	// CountingNetworkError configures whether a network failure situation should retry or not. 
+	bool countingNetworkError = 6;
+
+	// FailureStatusCodes is the array for HTTP failure status code for this RetryPolicy.
+	repeated int32 failureStatusCodes = 7;
+}
+
+// RateLimiterPolicy configures the limiting policy used for Resilience component RateLimiter.
+// It contains the basic configurations for the limiter, including the permission number,
+// the duration for request waiting and the permission count refreshing period. 
+message RateLimiterPolicy {
+	// Name is the identify of this policy. 
+	string name = 1; 
+
+	// TimeoutDuration is the duration for one request should wait for a permission,e.g.,500ms.
+	string timeoutDuration = 2;  
+
+	// LimitRefreshPeriod is the period of a limit refresh. After each period the rate limiter sets 
+	// its permissions count back to the limitForPeriod value.
+	string limitRefreshPeriod = 3; 
+	
+	// LimitForPeriod is the number of permissions available during one limit refresh period.
+	int32 limitForPeriod = 4;  
+}
+
+
+// CanaryRule define the rule for canary deployment. Including service instances labels, 
+// how to match colored traffic, which traffic is considered as coloring.
+message CanaryRule { 
+	// ServiceInstanceLabels configure the labels patched into the service instances. 
+	// Registry center will label it to corresponding instances during deployment. It's optional.
+	// It indicates the canary target service instances. The relation between elements in this map is "OR". 
+	map<string,string> serviceInstanceLabels = 1;
+
+	// Headers configure HTTP requests matching configurations with "OR" relation. Once
+	// HTTP requests match one element in this array, it will be regarded as the colored traffic.  
+	map<string, StringMatch> headers = 2;
+
+	// Urls describe the HTTP request matching schemes for this canary rule.
+	repeated URLRule urls  = 3;
+}
+
+// ObservabilityOutputServer configures how to report observability data to Kafka.
+message ObservabilityOutputServer {
+	// Enabled configures whether reporting observability data to Kafka or not.
+	bool enabled  = 1; 
+
+	// BootstrapServer configures the Kafka bootstrap servers.
+	string bootstrapServer = 2;
+
+	// Timeout configures the timeout million second for requesting Kafka.
+	int32 timeout = 3; 
+}
+
+// ObservabilityTracingsDetail 
+message ObservabilityTracingsDetail {
+	// Enabled configures whether reporting this tracing component or not. 
+	bool  enabled = 1;
+
+	// ServicePrefix is used to be combined with the tracing component's.  
+	string servicePrefix  = 2;
+}
+
+message ObservabilityTracingsOutputConfig {
+	// Enabled configures whether reporting to tracing output or not.
+	bool enabled = 1;
+
+	// ReportThread configures the thread number for JavaAgent's reporting process.
+	int32 reportThread = 2;
+
+	// Topic configures the Kafka topic for tracing output target.
+	string topic = 3;
+	
+	// MessageMaxBytes configures the max bytes for one tracing report message.
+	int32 messageMaxBytes = 4;
+
+	// QueuedMaxSpans configures the max spans number for reporting queued.
+	int32 queuedMaxSpans = 5;
+
+	// QueuedMaxSize configures the max size of reporting queue.
+	int32 queuedMaxSize = 6;
+
+	// MessageTimeout configures the timeout for the message queue.
+	int32 messageTimeout = 7;
+}
+
+// ObservabilityTracings configure the tracings of observability.
+message ObservabilityTracings {
+	// Enable configures this mesh service's global tracing switch.
+	bool enabled = 1;
+
+	// SampleByQPS configures the QPS value for tracing sampling.
+	// The exceeded request will be ignored. 
+	int32 sampleByQPS  = 2;
+
+	// Output configures the tracing output topic, queue and thread.
+	ObservabilityTracingsOutputConfig output = 3;
+
+	// Request configures the tracing switch for this mesh service's HTTP APIs.
+	ObservabilityTracingsDetail request = 4;
+
+	// RemoteInvoke configures the tracing switch for this mesh service's HTTP RPC tracing.
+	ObservabilityTracingsDetail remoteInvoke  = 5;
+
+	// Kafka configures the tracing switch for this mesh service's Kafka requesting.
+	ObservabilityTracingsDetail kafka = 6;
+
+	// Jdbc configures the tracing switch for this mesh serivce's JDBC requesting.
+	ObservabilityTracingsDetail jdbc = 7;
+
+	// Redis configures the tracing switch for this mehs services's redis requesting.
+	ObservabilityTracingsDetail redis = 8;
+
+	// Rabbit configures the tracing switch for this mesh service's rabbitMQ requesting.
+	ObservabilityTracingsDetail rabbit = 9;
+}
+
+// ObservabilityMetricsDetail is the metrics detail of observability.
+message ObservabilityMetricsDetail  {
+	// Enabled configures the switch for one kind metric.
+	bool enabled = 1;
+
+	// Interval configures the million seconds for metric reporting.
+	int32 interval = 2;
+
+	// Topic configures the metrics' reporting Kafka topic.
+	string topic = 3;
+}
+
+message ObservabilityMetrics {
+	// Enabled configures the global switch for this mesh service.
+	bool enabled = 1;
+
+	// Access configures the access log about metrics.
+	ObservabilityMetricsDetail access = 2;
+
+	// Request configures this mesh service's HTTP APIs metrics.
+	ObservabilityMetricsDetail request = 3;
+	
+	// JdbcStatement configures this mesh service's JDBC statement metrics.
+	ObservabilityMetricsDetail jdbcStatement = 4;
+
+	// JdbcConnection configures this mesh service's JDBC connection related metrics.
+	ObservabilityMetricsDetail jdbcConnection = 5;
+
+	// Rabbit configures this mesh serivce's RabbitMQ requesting metrics.
+	ObservabilityMetricsDetail rabbit = 6;
+
+	// Kafka configures this mesh serivce's Kafka requesting metrics.
+	ObservabilityMetricsDetail kafka = 7;
+
+	// Redis configures this mesh serivce's redis requesting metrics.
+	ObservabilityMetricsDetail redis = 8;
+
+	// JvmGc configures this mesh serivce's JVM GC related metrics.
+	ObservabilityMetricsDetail jvmGc = 9;
+
+	// JvmMemory configures this mesh serivce's JVM memory usage related metrics.
+	ObservabilityMetricsDetail jvmMemory = 10;
+
+	// Md5Dictionary configures this serivce's md5Dictionary for reporting complete SQL Sentence and signature.
+	ObservabilityMetricsDetail md5Dictionary = 11;
+}
+
+// IngressPath is the path for a mesh ingress rule
+message IngressPath {
+	// Path is a regular expression for matching the target HTTP URL.
+	string path = 1;
+
+	// RewriteTarget is a regular expression for rewriting original URL when 
+	// the HTTP URL path match the Path field.  
+	string rewriteTarget = 2;
+
+	// Backend is the mesh service's name.
+	string backend = 3;
+}
+
+// IngressRule is the rule for mesh ingress.
+message IngressRule {
+	// Host is the RFC3986 defined host name. 
+	string  host = 1;
+
+	// Paths is an array for mapping HTTP paths to mesh services.
+	repeated IngressPath paths = 2;
+}
+
+// StringMatch configures how to match string in different ways.
+// Its priority is according to the field order. StringMatch will try exactly matching firstly,
+// then try to check has the same prefix, at last, it will use the regular expression to match the
+// string if it's provided
+message StringMatch {
+	// Exact configures the exactly URL value to match.
+	string exact = 1;
+
+	// Prefix configures the prefix for URL to match.
+	string prefix = 2;
+
+	// Regex configures the regular expression for URL to match.
+	string regex = 3;
+}
+
+// URLRule can be used to filter HTTP request by using HTTP method and URL. 
+message URLRule {
+	// Methods configures allowed HTTP method string, e.g. "GET","DELETE","POST"
+	repeated string methods = 1;
+
+	// Url configures how to match the HTTP request URL. 
+	StringMatch url = 2;
+
+	// PolicyRef configures which policy this URLRule references to. 
+	string policyRef = 3;
+}
+
+// MySQL is the MySQL configuration of a shadow service
+message MySQL {
+	// Uris is the URIs of MySQL servers
+	repeated string uris = 1;
+
+	// UserName is user name to connect to MySQL
+	string userName = 2;
+
+	// Password is password to connect to MySQL
+	string password = 3;
+}
+
+// Kafka is the Kafka configuration of a shadow service
+message Kafka {
+	// Uris is the URIs of Kafka servers
+	repeated string uris = 1;
+}
+
+// Redis is the Redis configuration of a shadow service
+message Redis {
+	// Uris is the URIs of Redis servers
+	repeated string uris = 1;
+
+	// UserName is user name to connect to Redis
+	string userName = 2;
+
+	// Password is password to connect to Redis
+	string password = 3;
+}
+
+// RabbitMQ is the RabbitMQ configuration of a shadow service
+message RabbitMQ {
+	// Uris is the URIs of RabbitMQ servers
+	repeated string uris = 1;
+
+	// UserName is user name to connect to MySQL
+	string userName = 2;
+
+	// Password is password to connect to MySQL
+	string password = 3;
+}
+
+// ElasticSearch is the ElasticSearch configuration of a shadow service
+message ElasticSearch {
+	// Uris is the URIs of ElasticSearch servers
+	repeated string uris = 1;
+
+	// UserName is user name to connect to ElasticSearch
+	string userName = 2;
+
+	// Password is password to connect to ElasticSearch
+	string password = 3;
+}
+
+// ShadowService is the configuration of a shadow service
+message ShadowService {
+	// Name is the name of the shadow service
+	string name = 1;
+
+	// ServiceName is the name of the service which was shadowed
+	string serviceName = 2;
+
+	// Namespace is the namespace the service belongs to
+	string namespace = 3;
+
+	// Service is the configuration of the shadowed service
+	Service service = 4;
+
+	// MySQL is the MySQL configuration of a shadow service
+	MySQL mysql = 5;
+
+	// Kafka is the Kafka configuration of a shadow service
+	Kafka kafka = 6;
+
+	// Redis is the Redis configuration of a shadow service
+	Redis redis = 7;
+
+	// RabbitMQ is the RabbitMQ configuration of a shadow service
+	RabbitMQ rabbitMq = 8;
+
+	// ElasticSearch is the ElasticSearch configuration of a shadow service
+	ElasticSearch elasticSearch = 9;
+}

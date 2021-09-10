@@ -39,6 +39,9 @@ const (
 	ingressPrefix = "/mesh/ingress/"
 
 	globalCanaryHeaders = "/mesh/canary-headers"
+
+	shadowServiceSpecPrefix = "/mesh/shadow-service-spec/"
+	shadowServiceSpec       = "/mesh/shadow-service-spec/%s" // +serviceName
 )
 
 // ServiceSpecPrefix returns the prefix of service.
@@ -104,4 +107,14 @@ func IngressPrefix() string {
 // GlobalCanaryHeaders returns the key of global service's canary headers.
 func GlobalCanaryHeaders() string {
 	return globalCanaryHeaders
+}
+
+// ShadowServiceSpecPrefix returns the prefix of shadow service.
+func ShadowServiceSpecPrefix() string {
+	return shadowServiceSpecPrefix
+}
+
+// ShadowServiceSpecKey returns the key of shadow service spec.
+func ShadowServiceSpecKey(serviceName string) string {
+	return fmt.Sprintf(shadowServiceSpec, serviceName)
 }

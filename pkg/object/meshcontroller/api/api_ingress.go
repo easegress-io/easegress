@@ -89,8 +89,8 @@ func (a *API) createIngress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.service.Lock()
-	defer a.service.Unlock()
+	a.Lock()
+	defer a.Unlock()
 
 	oldSpec := a.service.GetIngressSpec(ingressName)
 	if oldSpec != nil {
@@ -151,8 +151,8 @@ func (a *API) updateIngress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.service.Lock()
-	defer a.service.Unlock()
+	a.Lock()
+	defer a.Unlock()
 
 	oldSpec := a.service.GetIngressSpec(ingressName)
 	if oldSpec == nil {
@@ -170,8 +170,8 @@ func (a *API) deleteIngress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.service.Lock()
-	defer a.service.Unlock()
+	a.Lock()
+	defer a.Unlock()
 
 	oldSpec := a.service.GetIngressSpec(ingressName)
 	if oldSpec == nil {

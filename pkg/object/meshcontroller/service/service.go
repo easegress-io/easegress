@@ -53,22 +53,6 @@ func New(superSpec *supervisor.Spec) *Service {
 	return s
 }
 
-// Lock locks all store, it will do cluster panic if failed.
-func (s *Service) Lock() {
-	err := s.store.Lock()
-	if err != nil {
-		api.ClusterPanic(err)
-	}
-}
-
-// Unlock unlocks all store, it will do cluster panic if failed.
-func (s *Service) Unlock() {
-	err := s.store.Unlock()
-	if err != nil {
-		api.ClusterPanic(err)
-	}
-}
-
 // PutServiceSpec writes the service spec
 func (s *Service) PutServiceSpec(serviceSpec *spec.Service) {
 	buff, err := yaml.Marshal(serviceSpec)

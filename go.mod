@@ -60,3 +60,5 @@ require (
 )
 
 replace github.com/go-openapi/spec => github.com/go-openapi/spec v0.19.3
+
+replace github.com/megaease/easemesh-api => ./staging/easemesh-api

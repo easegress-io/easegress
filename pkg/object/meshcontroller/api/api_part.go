@@ -245,8 +245,8 @@ func (a *API) createPartOfService(meta *partMeta) http.HandlerFunc {
 			return
 		}
 
-		a.service.Lock()
-		defer a.service.Unlock()
+		a.Lock()
+		defer a.Unlock()
 
 		serviceSpec := a.service.GetServiceSpec(serviceName)
 		if serviceSpec == nil {
@@ -288,8 +288,8 @@ func (a *API) updatePartOfService(meta *partMeta) http.HandlerFunc {
 			return
 		}
 
-		a.service.Lock()
-		defer a.service.Unlock()
+		a.Lock()
+		defer a.Unlock()
 
 		serviceSpec := a.service.GetServiceSpec(serviceName)
 		if serviceSpec == nil {
@@ -318,8 +318,8 @@ func (a *API) deletePartOfService(meta *partMeta) http.HandlerFunc {
 			return
 		}
 
-		a.service.Lock()
-		defer a.service.Unlock()
+		a.Lock()
+		defer a.Unlock()
 
 		serviceSpec := a.service.GetServiceSpec(serviceName)
 		if serviceSpec == nil {

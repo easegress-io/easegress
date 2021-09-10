@@ -223,6 +223,52 @@ type (
 		Description string `yaml:"description"`
 	}
 
+	// MySQL is the spec of MySQL
+	MySQL struct {
+		URIs     []string `yaml:"uris" jsonschema:"required"`
+		UserName string   `yaml:"userName" jsonschema:"required"`
+		Password string   `yaml:"password" jsonschema:"required"`
+	}
+
+	// Kafka is the spec of Kafka
+	Kafka struct {
+		URIs []string `yaml:"uris" jsonschema:"required"`
+	}
+
+	// Redis is the spec of Redis
+	Redis struct {
+		URIs     []string `yaml:"uris" jsonschema:"required"`
+		UserName string   `yaml:"userName" jsonschema:"required"`
+		Password string   `yaml:"password" jsonschema:"required"`
+	}
+
+	// RabbitMQ is the spec of RabbitMQ
+	RabbitMQ struct {
+		URIs     []string `yaml:"uris" jsonschema:"required"`
+		UserName string   `yaml:"userName" jsonschema:"required"`
+		Password string   `yaml:"password" jsonschema:"required"`
+	}
+
+	// ElasticSearch is the spec of ElasticSearch
+	ElasticSearch struct {
+		URIs     []string `yaml:"uris" jsonschema:"required"`
+		UserName string   `yaml:"userName" jsonschema:"required"`
+		Password string   `yaml:"password" jsonschema:"required"`
+	}
+
+	// ShadowService is the spec of a shadow service
+	ShadowService struct {
+		Name          string         `yaml:"name" jsonschema:"required"`
+		ServiceName   string         `yaml:"serviceName" jsonschema:"required"`
+		Namespace     string         `yaml:"namespace" jsonschema:"required"`
+		Service       *Service       `yaml:"service" jsonschema:"omitempty"`
+		MySQL         *MySQL         `yaml:"mysql" jsonschema:"omitempty"`
+		Kafka         *Kafka         `yaml:"kafka" jsonschema:"omitempty"`
+		Redis         *Redis         `ymal:"redis" jsonschema:"omitempty"`
+		RabbitMQ      *RabbitMQ      `ymal:"rabbitMq" jsonschema:"omitempty"`
+		ElasticSearch *ElasticSearch `yaml:"elasticSearch" jsonschema:"omitempty"`
+	}
+
 	// ServiceInstanceSpec is the spec of service instance.
 	// FIXME: Use the unified struct: serviceregistry.ServiceInstanceSpec.
 	ServiceInstanceSpec struct {
