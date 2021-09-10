@@ -155,8 +155,8 @@ func (p *pool) handle(ctx context.Layer4Context) string {
 				logger.Errorf("dial tcp to %s failed, err: %s", server.Addr, dialErr.Error())
 				return resultServerError
 			} else {
+				ctx.SetUpStreamConn(tconn)
 				upstreamConn := NewUpStreamConn(tconn)
-				ctx.SetUpStreamConn(upstreamConn)
 				go upstreamConn.WriteLoop()
 
 				go func() {

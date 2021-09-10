@@ -20,9 +20,6 @@ package context
 import (
 	"bytes"
 	stdcontext "context"
-	"github.com/megaease/easegress/pkg/filter/layer4proxy"
-	"github.com/megaease/easegress/pkg/object/layer4rawserver"
-	"github.com/megaease/easegress/pkg/util/connectionwrapper"
 	"net"
 	"sync"
 	"time"
@@ -51,9 +48,9 @@ type (
 		Cancelled() bool
 		ClientDisconnected() bool
 
-		ClientConn() *connectionwrapper.Connection
-		UpStreamConn() *layer4proxy.UpStreamConn
-		SetUpStreamConn(conn *layer4proxy.UpStreamConn)
+		ClientConn() net.Conn
+		UpStreamConn() net.Conn
+		SetUpStreamConn(conn net.Conn)
 
 		Duration() time.Duration // For log, sample, etc.
 		OnFinish(func())         // For setting final client statistics, etc.
@@ -83,7 +80,7 @@ type (
 		protocol   string
 		localAddr  net.Addr
 		remoteAddr net.Addr
-		clientConn *connectionwrapper.Connection
+		clientConn net.Conn
 
 		connectionArgs *ConnectionArgs
 
@@ -101,16 +98,14 @@ type (
 )
 
 // NewLayer4Context creates an Layer4Context.
-func NewLayer4Context(protocol string, conn *connectionwrapper.Connection, mux *layer4rawserver.Mux) *layer4Context {
-
-	// TODO add mux for mux mapper
+func NewLayer4Context(protocol string, conn net.Conn) *layer4Context {
 
 	startTime := time.Now()
 	res := layer4Context{
 		protocol:   protocol,
 		clientConn: conn,
-		localAddr:  conn.Conn.LocalAddr(),
-		remoteAddr: conn.Conn.RemoteAddr(),
+		localAddr:  conn.LocalAddr(),
+		remoteAddr: conn.RemoteAddr(),
 
 		startTime: &startTime,
 		stopChan:  make(chan struct{}),
@@ -182,7 +177,7 @@ func (ctx *layer4Context) ClientDisconnected() bool {
 	panic("implement me")
 }
 
-func (ctx *layer4Context) ClientConn() *connectionwrapper.Connection {
+func (ctx *layer4Context) ClientConn() net.Conn {
 	return ctx.clientConn
 }
 
