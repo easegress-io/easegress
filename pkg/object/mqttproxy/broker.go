@@ -57,10 +57,11 @@ type (
 
 	// HTTPJsonData is json data received from http endpoint used to send back to clients
 	HTTPJsonData struct {
-		Topic   string `json:"topic"`
-		Qos     int    `json:"qos"`
-		Payload string `json:"payload"`
-		Base64  bool   `json:"base64"`
+		Topic       string `json:"topic"`
+		Qos         int    `json:"qos"`
+		Payload     string `json:"payload"`
+		Base64      bool   `json:"base64"`
+		Distributed bool   `json:"distributed"`
 	}
 )
 
@@ -240,14 +241,6 @@ func (b *Broker) requestTransfer(egName, name string, data HTTPJsonData) {
 }
 
 func (b *Broker) sendMsgToClient(topic string, payload []byte, qos byte) {
-	data := HTTPJsonData{
-		Topic:   topic,
-		Qos:     int(qos),
-		Payload: string(base64.StdEncoding.EncodeToString(payload)),
-		Base64:  true,
-	}
-	b.requestTransfer(b.egName, b.name, data)
-
 	subscribers, _ := b.topicMgr.findSubscribers(topic)
 	if subscribers == nil {
 		logger.Errorf("mqtt.sendMsgToClient: not find subscribers for topic %s", topic)
@@ -302,6 +295,11 @@ func (b *Broker) topicsPublishHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		payload = []byte(data.Payload)
+	}
+
+	if !data.Distributed {
+		data.Distributed = true
+		b.requestTransfer(b.egName, b.name, data)
 	}
 	go b.sendMsgToClient(data.Topic, payload, byte(data.Qos))
 }
