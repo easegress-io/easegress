@@ -285,7 +285,32 @@ type (
 		// Reference: https://github.com/go-yaml/yaml/issues/356
 		httppipeline.Spec `yaml:",inline"`
 	}
+
+	// CustomObjectKind defines the spec of a custom object kind
+	CustomObjectKind struct {
+		Name       string `yaml:"name"`
+		JSONSchema string `yaml:"jsonSchema" jsonschema:"omitempty"`
+	}
+
+	// CustomObject defines the spec of a custom object
+	CustomObject map[string]interface{}
 )
+
+// Name returns the 'name' field of the custom object
+func (co CustomObject) Name() string {
+	if v, ok := co["name"].(string); ok {
+		return v
+	}
+	return ""
+}
+
+// Kind returns the 'kind' field of the custom object
+func (co CustomObject) Kind() string {
+	if v, ok := co["kind"].(string); ok {
+		return v
+	}
+	return ""
+}
 
 // Validate validates Spec.
 func (a Admin) Validate() error {

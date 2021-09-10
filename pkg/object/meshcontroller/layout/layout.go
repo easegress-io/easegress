@@ -38,6 +38,12 @@ const (
 	ingress       = "/mesh/ingress/%s" // + ingressName
 	ingressPrefix = "/mesh/ingress/"
 
+	customObjectKindPrefix = "/mesh/custom-object-kinds/"
+	customObjectKind       = "/mesh/custom-object-kinds/%s/" // +kind
+	allCustomObjectPrefix  = "/mesh/custom-objects/"
+	customObjectPrefix     = "/mesh/custom-objects/%s/"    // +kind +name
+	customObject           = "/mesh/custom-objects/%s/%s/" // +kind +name
+
 	globalCanaryHeaders = "/mesh/canary-headers"
 )
 
@@ -104,4 +110,29 @@ func IngressPrefix() string {
 // GlobalCanaryHeaders returns the key of global service's canary headers.
 func GlobalCanaryHeaders() string {
 	return globalCanaryHeaders
+}
+
+// CustomObjectKindPrefix returns the prefix of custom object kinds.
+func CustomObjectKindPrefix() string {
+	return customObjectKindPrefix
+}
+
+// CustomObjectKindKey returns the key of specified custom object kind.
+func CustomObjectKindKey(kind string) string {
+	return fmt.Sprintf(customObjectKind, kind)
+}
+
+// AllCustomObjectPrefix returns the prefix of custom objects.
+func AllCustomObjectPrefix() string {
+	return allCustomObjectPrefix
+}
+
+// CustomObjectPrefix returns the prefix of custom objects.
+func CustomObjectPrefix(kind string) string {
+	return fmt.Sprintf(customObjectPrefix, kind)
+}
+
+// CustomObjectKey returns the key of specified custom object.
+func CustomObjectKey(kind, name string) string {
+	return fmt.Sprintf(customObject, kind, name)
 }
