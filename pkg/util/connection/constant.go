@@ -65,3 +65,13 @@ const (
 
 	DefaultConnectTimeout = 10 * time.Second
 )
+
+// ConnState status
+type ConnState int
+
+// Connection statuses
+const (
+	ConnInit ConnState = iota
+	ConnActive
+	ConnClosed
+)
