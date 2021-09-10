@@ -20,4 +20,4 @@ RUN apk --no-cache add tini tzdata && \
 
 ENV PATH /opt/easegress/bin:$PATH
 
-ENTRYPOINT ["/sbin/tini", "--", "/entrypoint.sh"]
+ENTRYPOINT ["/sbin/tini", "/entrypoint.sh"]
