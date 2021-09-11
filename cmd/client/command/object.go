@@ -81,7 +81,7 @@ func updateObjectCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			visitor := buildVisitorFromFileOrStdin(specFile, cmd)
 			visitor.Visit(func(s *spec) {
-				handleRequest(http.MethodPost, makeURL(objectsURL), []byte(s.doc), cmd)
+				handleRequest(http.MethodPut, makeURL(objectURL, s.Name), []byte(s.doc), cmd)
 			})
 		},
 	}
