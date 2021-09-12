@@ -18,6 +18,7 @@
 package connection
 
 import (
+	"errors"
 	"io"
 	"net"
 	"reflect"
@@ -58,16 +59,19 @@ type Connection struct {
 }
 
 // NewClientConnection wrap connection create from client
-func NewClientConnection(conn net.Conn, stopChan chan struct{}, remoteAddr net.Addr) *Connection {
+func NewClientConnection(conn net.Conn, remoteAddr net.Addr, stopChan chan struct{}) *Connection {
 	res := &Connection{
 		conn:      conn,
 		connected: 1,
 		protocol:  conn.LocalAddr().Network(),
 		localAddr: conn.LocalAddr(),
 
-		mu:              sync.Mutex{},
-		stopChan:        stopChan,
+		readEnabled:     true,
 		readEnabledChan: make(chan bool, 1),
+		writeBufferChan: make(chan *[]iobufferpool.IoBuffer, 8),
+
+		mu:       sync.Mutex{},
+		stopChan: stopChan,
 	}
 
 	if remoteAddr != nil {
@@ -456,4 +460,69 @@ type UpstreamConnection struct {
 	Connection
 	connectTimeout time.Duration
 	connectOnce    sync.Once
+}
+
+func NewUpstreamConnection(connectTimeout time.Duration, remoteAddr net.Addr, stopChan chan struct{},
+	onRead func(buffer iobufferpool.IoBuffer), onWrite func(src []iobufferpool.IoBuffer) []iobufferpool.IoBuffer) *UpstreamConnection {
+	res := &UpstreamConnection{
+		Connection: Connection{
+			connected:  1,
+			remoteAddr: remoteAddr,
+
+			readEnabled:     true,
+			readEnabledChan: make(chan bool, 1),
+			writeBufferChan: make(chan *[]iobufferpool.IoBuffer, 8),
+
+			mu:       sync.Mutex{},
+			stopChan: stopChan,
+			onRead:   onRead,
+			onWrite:  onWrite,
+		},
+		connectTimeout: connectTimeout,
+	}
+	if res.remoteAddr != nil {
+		res.Connection.protocol = res.remoteAddr.Network()
+	}
+	return res
+}
+
+func (u *UpstreamConnection) connect() (event Event, err error) {
+	timeout := u.connectTimeout
+	if timeout == 0 {
+		timeout = 10 * time.Second
+	}
+	addr := u.remoteAddr
+	if addr == nil {
+		return ConnectFailed, errors.New("upstream addr is nil")
+	}
+	u.conn, err = net.DialTimeout(u.protocol, addr.String(), timeout)
+	if err != nil {
+		if err == io.EOF {
+			event = RemoteClose
+		} else if err, ok := err.(net.Error); ok && err.Timeout() {
+			event = ConnectTimeout
+		} else {
+			event = ConnectFailed
+		}
+		return
+	}
+	atomic.StoreUint32(&u.connected, 1)
+	event = Connected
+	u.localAddr = u.conn.LocalAddr()
+	return
+}
+
+func (u *UpstreamConnection) Connect() (err error) {
+	u.connectOnce.Do(func() {
+		var event Event
+		event, err = u.connect()
+		if err == nil {
+			u.Start()
+		}
+		logger.Debugf("connect upstream, upstream addr: %s, event: %+v, err: %+v", u.remoteAddr, event, err)
+		if event != Connected {
+			close(u.stopChan) // if upstream connection failed, close client connection
+		}
+	})
+	return
 }
