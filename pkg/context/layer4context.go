@@ -18,8 +18,7 @@
 package context
 
 import (
-	"bytes"
-	stdcontext "context"
+	"github.com/megaease/easegress/pkg/util/iobufferpool"
 	"net"
 	"sync"
 	"time"
@@ -34,29 +33,19 @@ type (
 		Unlock()
 
 		Protocol() string
-		ConnectionArgs() *ConnectionArgs
-		SetConnectionArgs(args *ConnectionArgs)
 		LocalAddr() net.Addr
-		SetLocalAddr(addr net.Addr)
-		RemoteAddr() net.Addr
-		SetRemoteAddr(addr net.Addr)
+		ClientAddr() net.Addr
+		UpstreamAddr() net.Addr
+		SetUpstreamAddr(addr net.Addr)
 
-		Stop()
-
-		stdcontext.Context
-		Cancel(err error)
-		Cancelled() bool
-		ClientDisconnected() bool
-
-		ClientConn() net.Conn
-		UpStreamConn() net.Conn
-		SetUpStreamConn(conn net.Conn)
-
-		Duration() time.Duration // For log, sample, etc.
-		OnFinish(func())         // For setting final client statistics, etc.
-		AddTag(tag string)       // For debug, log, etc.
+		GetReadBuffer() iobufferpool.IoBuffer
+		AppendReadBuffer(buffer iobufferpool.IoBuffer)
+		GetWriteBuffer() iobufferpool.IoBuffer
+		AppendWriteBuffer(buffer iobufferpool.IoBuffer)
 
 		Finish()
+		Duration() time.Duration
+		StopChan() chan struct{} // client connection and upstream connection stop by this chan
 
 		CallNextHandler(lastResult string) string
 		SetHandlerCaller(caller HandlerCaller)
@@ -77,18 +66,15 @@ type (
 	layer4Context struct {
 		mutex sync.Mutex
 
-		protocol   string
-		localAddr  net.Addr
-		remoteAddr net.Addr
-		clientConn net.Conn
+		protocol     string
+		localAddr    net.Addr
+		clientAddr   net.Addr
+		upstreamAddr net.Addr
+		stopChan     chan struct{} // notify quit read loop and write loop
 
+		readBuffer     iobufferpool.IoBuffer
+		writeBuffer    iobufferpool.IoBuffer
 		connectionArgs *ConnectionArgs
-
-		readBuffer      bytes.Buffer
-		writeBuffers    net.Buffers
-		ioBuffers       []bytes.Buffer
-		writeBufferChan chan *[]bytes.Buffer
-		stopChan        chan struct{} // notify quit read loop and write loop
 
 		startTime *time.Time // connection accept time
 		endTime   *time.Time // connection close time
@@ -98,99 +84,18 @@ type (
 )
 
 // NewLayer4Context creates an Layer4Context.
-func NewLayer4Context(protocol string, conn net.Conn) *layer4Context {
+func NewLayer4Context(protocol string, localAddr net.Addr, clientAddr net.Addr, stopChan chan struct{}) *layer4Context {
 
 	startTime := time.Now()
 	res := layer4Context{
+		mutex:      sync.Mutex{},
 		protocol:   protocol,
-		clientConn: conn,
-		localAddr:  conn.LocalAddr(),
-		remoteAddr: conn.RemoteAddr(),
-
-		startTime: &startTime,
-		stopChan:  make(chan struct{}),
-		mutex:     sync.Mutex{},
+		localAddr:  localAddr,
+		clientAddr: clientAddr,
+		stopChan:   stopChan,
+		startTime:  &startTime,
 	}
 	return &res
-}
-
-func (ctx *layer4Context) Protocol() string {
-	return ctx.protocol
-}
-
-func (ctx *layer4Context) ConnectionArgs() *ConnectionArgs {
-	return ctx.connectionArgs
-}
-
-func (ctx *layer4Context) SetConnectionArgs(args *ConnectionArgs) {
-	ctx.connectionArgs = args
-}
-
-func (ctx *layer4Context) LocalAddr() net.Addr {
-	return ctx.localAddr
-}
-
-func (ctx *layer4Context) SetLocalAddr(localAddr net.Addr) {
-	ctx.localAddr = localAddr
-}
-
-func (ctx *layer4Context) RemoteAddr() net.Addr {
-	return ctx.remoteAddr
-}
-
-func (ctx *layer4Context) SetRemoteAddr(addr net.Addr) {
-	ctx.remoteAddr = addr
-}
-
-func (ctx *layer4Context) Stop() {
-	endTime := time.Now()
-	ctx.endTime = &endTime
-
-	// TODO add stat for context
-}
-
-func (ctx *layer4Context) Deadline() (deadline time.Time, ok bool) {
-	panic("implement me")
-}
-
-func (ctx *layer4Context) Done() <-chan struct{} {
-	panic("implement me")
-}
-
-func (ctx *layer4Context) Err() error {
-	panic("implement me")
-}
-
-func (ctx *layer4Context) Value(key interface{}) interface{} {
-	panic("implement me")
-}
-
-func (ctx *layer4Context) Cancel(err error) {
-	panic("implement me")
-}
-
-func (ctx *layer4Context) Cancelled() bool {
-	panic("implement me")
-}
-
-func (ctx *layer4Context) ClientDisconnected() bool {
-	panic("implement me")
-}
-
-func (ctx *layer4Context) ClientConn() net.Conn {
-	return ctx.clientConn
-}
-
-func (ctx *layer4Context) OnFinish(f func()) {
-	panic("implement me")
-}
-
-func (ctx *layer4Context) AddTag(tag string) {
-	panic("implement me")
-}
-
-func (ctx *layer4Context) Finish() {
-	panic("implement me")
 }
 
 func (ctx *layer4Context) Lock() {
@@ -201,6 +106,53 @@ func (ctx *layer4Context) Unlock() {
 	ctx.mutex.Unlock()
 }
 
+// Protocol get proxy protocol
+func (ctx *layer4Context) Protocol() string {
+	return ctx.protocol
+}
+
+func (ctx *layer4Context) LocalAddr() net.Addr {
+	return ctx.localAddr
+}
+
+func (ctx *layer4Context) ClientAddr() net.Addr {
+	return ctx.ClientAddr()
+}
+
+func (ctx *layer4Context) UpstreamAddr() net.Addr {
+	return ctx.upstreamAddr
+}
+
+func (ctx *layer4Context) SetUpstreamAddr(addr net.Addr) {
+	ctx.upstreamAddr = addr
+}
+
+func (ctx *layer4Context) StopChan() chan struct{} {
+	return ctx.stopChan
+}
+
+func (ctx *layer4Context) GetReadBuffer() iobufferpool.IoBuffer {
+	return ctx.readBuffer
+}
+
+func (ctx *layer4Context) AppendReadBuffer(buffer iobufferpool.IoBuffer) {
+	if buffer == nil || buffer.Len() == 0 {
+		return
+	}
+	_ = ctx.readBuffer.Append(buffer.Bytes())
+}
+
+func (ctx *layer4Context) GetWriteBuffer() iobufferpool.IoBuffer {
+	return ctx.writeBuffer
+}
+
+func (ctx *layer4Context) AppendWriteBuffer(buffer iobufferpool.IoBuffer) {
+	if buffer == nil || buffer.Len() == 0 {
+		return
+	}
+	_ = ctx.writeBuffer.Append(buffer.Bytes())
+}
+
 func (ctx *layer4Context) CallNextHandler(lastResult string) string {
 	return ctx.caller(lastResult)
 }
@@ -209,10 +161,14 @@ func (ctx *layer4Context) SetHandlerCaller(caller HandlerCaller) {
 	ctx.caller = caller
 }
 
+func (ctx *layer4Context) Finish() {
+	finish := time.Now()
+	ctx.endTime = &finish
+}
+
 func (ctx *layer4Context) Duration() time.Duration {
 	if ctx.endTime != nil {
 		return ctx.endTime.Sub(*ctx.startTime)
 	}
-
 	return time.Now().Sub(*ctx.startTime)
 }
