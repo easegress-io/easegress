@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    name: {{ .Release.Name }}
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}
+    spec:
+      serviceAccountName: {{ .Release.Name }}
+      containers:
+        - command:
+            - /bin/sh
+            - -c
+            - |-
+              echo name: $POD_NAME > /easegress-ingress/config.yaml && /opt/easegress/bin/easegress-server -f /easegress-ingress/config.yaml --initial-object-config-files /easegress-ingress/controller.yaml
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+          name: easegress-ingress
+          volumeMounts:
+            - name: ingress-params-volume
+              mountPath: /easegress-ingress
+            - name: controller-yaml
+              mountPath: /easegress-ingress/controller.yaml
+              subPath: controller.yaml
+      volumes:
+        - name: ingress-params-volume
+          emptyDir: { }
+        - name: controller-yaml
+          configMap:
+            name: {{ .Release.Name }}

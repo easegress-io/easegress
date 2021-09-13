@@ -1,0 +1,18 @@
+service:
+  # nodePort for easegress service
+  nodePort: 80
+
+# image for easegress deployment
+image:
+  repository: megaease/easegress
+  tag: latest
+
+ingressClass:
+  name: easegress
+
+controller:
+  name: ingress-controller-example
+  # kubeConfig: # path to kube-config file
+  # masterURL: # url to kube-api-server
+  namespaces:
+  # - default
