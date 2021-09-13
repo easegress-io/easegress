@@ -338,6 +338,17 @@ func (a *API) watchCustomObjects(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = kind
-	// TODO
+	logger.Infof("begin watch custom objects of kind '%s'", kind)
+
+	w.Header().Set("Content-type", "application/octet-stream")
+	a.service.WatchCustomObject(r.Context(), kind, func(objs []*spec.CustomObject) {
+		err = json.NewEncoder(w).Encode(objs)
+		if err != nil {
+			logger.Errorf("marshal custom object failed: %v", err)
+		}
+		w.Write([]byte("\r\n"))
+		w.(http.Flusher).Flush()
+	})
+
+	logger.Infof("end watch custom objects of kind '%s'", kind)
 }
