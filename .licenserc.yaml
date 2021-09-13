@@ -20,6 +20,7 @@ header:
 
   paths:
     - 'pkg/'
+    - 'cmd/'
 
   paths-ignore:
     - '**/*.json'
