@@ -232,7 +232,7 @@ func (worker *Worker) run() {
 		return true
 	}
 
-	if runnAble := startUpRoutine(); !runnAble {
+	if runnable := startUpRoutine(); !runnable {
 		logger.Errorf("service: %s is not runnable, check the service spec or ignore if mock is enable", worker.superSpec.Name())
 		return
 	}
