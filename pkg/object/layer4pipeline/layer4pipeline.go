@@ -1,3 +1,20 @@
+/*
+ * Copyright (c) 2017, MegaEase
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package layer4pipeline
 
 import (
@@ -36,7 +53,7 @@ type (
 		superSpec *supervisor.Spec
 		spec      *Spec
 
-		muxMapper      protocol.MuxMapper
+		muxMapper      protocol.Layer4MuxMapper
 		runningFilters []*runningFilter
 	}
 
@@ -128,7 +145,7 @@ func (ctx *PipelineContext) log() string {
 	return buf.String()
 }
 
-// context.TCPContext: *PipelineContext
+// context.Layer4Pipeline: *PipelineContext
 var runningContexts = sync.Map{}
 
 func newAndSetPipelineContext(ctx context.Layer4Context) *PipelineContext {
@@ -137,7 +154,7 @@ func newAndSetPipelineContext(ctx context.Layer4Context) *PipelineContext {
 	return pipeCtx
 }
 
-// GetPipelineContext returns the corresponding PipelineContext of the TCPContext,
+// GetPipelineContext returns the corresponding PipelineContext of the Layer4Context,
 // and a bool flag to represent it succeed or not.
 func GetPipelineContext(ctx context.Layer4Context) (*PipelineContext, bool) {
 	value, ok := runningContexts.Load(ctx)
@@ -176,7 +193,6 @@ func (meta *FilterMetaSpec) Validate() error {
 	if meta.Name == LabelEND {
 		return fmt.Errorf("can't use %s(built-in label) for filter name", LabelEND)
 	}
-
 	return nil
 }
 
@@ -211,7 +227,6 @@ func (s Spec) Validate() (err error) {
 	}
 
 	errPrefix = "flow"
-
 	filters := make(map[string]struct{})
 	for _, f := range s.Flow {
 		if _, exists := filters[f.Filter]; exists {
@@ -243,42 +258,42 @@ func (s Spec) Validate() (err error) {
 }
 
 // Category returns the category of Layer4Pipeline.
-func (hp *Layer4Pipeline) Category() supervisor.ObjectCategory {
+func (l *Layer4Pipeline) Category() supervisor.ObjectCategory {
 	return Category
 }
 
 // Kind returns the kind of Layer4Pipeline.
-func (hp *Layer4Pipeline) Kind() string {
+func (l *Layer4Pipeline) Kind() string {
 	return Kind
 }
 
 // DefaultSpec returns the default spec of Layer4Pipeline.
-func (hp *Layer4Pipeline) DefaultSpec() interface{} {
+func (l *Layer4Pipeline) DefaultSpec() interface{} {
 	return &Spec{}
 }
 
 // Init initializes Layer4Pipeline.
-func (hp *Layer4Pipeline) Init(superSpec *supervisor.Spec, muxMapper protocol.MuxMapper) {
-	hp.superSpec, hp.spec, hp.muxMapper = superSpec, superSpec.ObjectSpec().(*Spec), muxMapper
+func (l *Layer4Pipeline) Init(superSpec *supervisor.Spec, muxMapper protocol.Layer4MuxMapper) {
+	l.superSpec, l.spec, l.muxMapper = superSpec, superSpec.ObjectSpec().(*Spec), muxMapper
 
-	hp.reload(nil /*no previous generation*/)
+	l.reload(nil /*no previous generation*/)
 }
 
 // Inherit inherits previous generation of Layer4Pipeline.
-func (hp *Layer4Pipeline) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object, muxMapper protocol.MuxMapper) {
-	hp.superSpec, hp.spec, hp.muxMapper = superSpec, superSpec.ObjectSpec().(*Spec), muxMapper
+func (l *Layer4Pipeline) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object, muxMapper protocol.Layer4MuxMapper) {
+	l.superSpec, l.spec, l.muxMapper = superSpec, superSpec.ObjectSpec().(*Spec), muxMapper
 
-	hp.reload(previousGeneration.(*Layer4Pipeline))
+	l.reload(previousGeneration.(*Layer4Pipeline))
 
 	// NOTE: It's filters' responsibility to inherit and clean their resources.
 	// previousGeneration.Close()
 }
 
-func (hp *Layer4Pipeline) reload(previousGeneration *Layer4Pipeline) {
+func (l *Layer4Pipeline) reload(previousGeneration *Layer4Pipeline) {
 	runningFilters := make([]*runningFilter, 0)
-	if len(hp.spec.Flow) == 0 {
-		for _, filterSpec := range hp.spec.Filters {
-			spec, err := NewFilterSpec(filterSpec, hp.superSpec.Super())
+	if len(l.spec.Flow) == 0 {
+		for _, filterSpec := range l.spec.Filters {
+			spec, err := NewFilterSpec(filterSpec, l.superSpec.Super())
 			if err != nil {
 				panic(err)
 			}
@@ -288,11 +303,11 @@ func (hp *Layer4Pipeline) reload(previousGeneration *Layer4Pipeline) {
 			})
 		}
 	} else {
-		for _, f := range hp.spec.Flow {
+		for _, f := range l.spec.Flow {
 			var spec *FilterSpec
-			for _, filterSpec := range hp.spec.Filters {
+			for _, filterSpec := range l.spec.Filters {
 				var err error
-				spec, err = NewFilterSpec(filterSpec, hp.superSpec.Super())
+				spec, err = NewFilterSpec(filterSpec, l.superSpec.Super())
 				if err != nil {
 					panic(err)
 				}
@@ -311,8 +326,7 @@ func (hp *Layer4Pipeline) reload(previousGeneration *Layer4Pipeline) {
 		}
 	}
 
-	pipelineName := hp.superSpec.Name()
-	var filterBuffs []context.FilterBuff
+	pipelineName := l.superSpec.Name()
 	for _, runningFilter := range runningFilters {
 		name, kind := runningFilter.spec.Name(), runningFilter.spec.Kind()
 		rootFilter, exists := filterRegistry[kind]
@@ -337,17 +351,12 @@ func (hp *Layer4Pipeline) reload(previousGeneration *Layer4Pipeline) {
 		}
 
 		runningFilter.filter, runningFilter.rootFilter = filter, rootFilter
-
-		filterBuffs = append(filterBuffs, context.FilterBuff{
-			Name: name,
-			Buff: []byte(runningFilter.spec.YAMLConfig()),
-		})
 	}
 
-	hp.runningFilters = runningFilters
+	l.runningFilters = runningFilters
 }
 
-func (hp *Layer4Pipeline) getNextFilterIndex(index int, result string) int {
+func (l *Layer4Pipeline) getNextFilterIndex(index int, result string) int {
 	// return index + 1 if last filter succeeded
 	if result == "" {
 		return index + 1
@@ -355,7 +364,7 @@ func (hp *Layer4Pipeline) getNextFilterIndex(index int, result string) int {
 
 	// check the jumpIf table of current filter, return its index if the jump
 	// target is valid and -1 otherwise
-	filter := hp.runningFilters[index]
+	filter := l.runningFilters[index]
 	if !stringtool.StrInSlice(result, filter.rootFilter.Results()) {
 		format := "BUG: invalid result %s not in %v"
 		logger.Errorf(format, result, filter.rootFilter.Results())
@@ -369,20 +378,28 @@ func (hp *Layer4Pipeline) getNextFilterIndex(index int, result string) int {
 		return -1
 	}
 	if name == LabelEND {
-		return len(hp.runningFilters)
+		return len(l.runningFilters)
 	}
 
-	for index++; index < len(hp.runningFilters); index++ {
-		if hp.runningFilters[index].spec.Name() == name {
+	for index++; index < len(l.runningFilters); index++ {
+		if l.runningFilters[index].spec.Name() == name {
 			return index
 		}
 	}
-
 	return -1
 }
 
-// Handle is the handler to deal with layer4
-func (hp *Layer4Pipeline) Handle(ctx context.Layer4Context) {
+// InboundHandle is the handler to deal with layer4 inbound data
+func (l *Layer4Pipeline) InboundHandle(ctx context.Layer4Context) {
+	l.innerHandle(ctx, true)
+}
+
+// OutboundHandle is the handler to deal with layer4 outbound data
+func (l *Layer4Pipeline) OutboundHandle(ctx context.Layer4Context) {
+	l.innerHandle(ctx, false)
+}
+
+func (l *Layer4Pipeline) innerHandle(ctx context.Layer4Context, isInbound bool) {
 	pipeCtx := newAndSetPipelineContext(ctx)
 	defer deletePipelineContext(ctx)
 
@@ -390,6 +407,7 @@ func (hp *Layer4Pipeline) Handle(ctx context.Layer4Context) {
 	filterStat := &FilterStat{}
 
 	handle := func(lastResult string) string {
+
 		// Filters are called recursively as a stack, so we need to save current
 		// state and restore it before return
 		lastIndex := filterIndex
@@ -399,19 +417,24 @@ func (hp *Layer4Pipeline) Handle(ctx context.Layer4Context) {
 			filterStat = lastStat
 		}()
 
-		filterIndex = hp.getNextFilterIndex(filterIndex, lastResult)
-		if filterIndex == len(hp.runningFilters) {
+		filterIndex = l.getNextFilterIndex(filterIndex, lastResult)
+		if filterIndex == len(l.runningFilters) {
 			return "" // reach the end of pipeline
 		} else if filterIndex == -1 {
 			return lastResult // an error occurs but no filter can handle it
 		}
 
-		filter := hp.runningFilters[filterIndex]
+		filter := l.runningFilters[filterIndex]
 		name := filter.spec.Name()
-		filterStat = &FilterStat{Name: name, Kind: filter.spec.Kind()}
 
+		filterStat = &FilterStat{Name: name, Kind: filter.spec.Kind()}
 		startTime := time.Now()
-		result := filter.filter.Handle(ctx)
+		var result string
+		if isInbound {
+			result = filter.filter.InboundHandle(ctx)
+		} else {
+			result = filter.filter.OutboundHandle(ctx)
+		}
 		filterStat.Duration = time.Since(startTime)
 		filterStat.Result = result
 
@@ -427,23 +450,22 @@ func (hp *Layer4Pipeline) Handle(ctx context.Layer4Context) {
 	}
 }
 
-func (hp *Layer4Pipeline) getRunningFilter(name string) *runningFilter {
-	for _, filter := range hp.runningFilters {
+func (l *Layer4Pipeline) getRunningFilter(name string) *runningFilter {
+	for _, filter := range l.runningFilters {
 		if filter.spec.Name() == name {
 			return filter
 		}
 	}
-
 	return nil
 }
 
 // Status returns Status generated by Runtime.
-func (hp *Layer4Pipeline) Status() *supervisor.Status {
+func (l *Layer4Pipeline) Status() *supervisor.Status {
 	s := &Status{
 		Filters: make(map[string]interface{}),
 	}
 
-	for _, runningFilter := range hp.runningFilters {
+	for _, runningFilter := range l.runningFilters {
 		s.Filters[runningFilter.spec.Name()] = runningFilter.filter.Status()
 	}
 
@@ -453,8 +475,8 @@ func (hp *Layer4Pipeline) Status() *supervisor.Status {
 }
 
 // Close closes Layer4Pipeline.
-func (hp *Layer4Pipeline) Close() {
-	for _, runningFilter := range hp.runningFilters {
+func (l *Layer4Pipeline) Close() {
+	for _, runningFilter := range l.runningFilters {
 		runningFilter.filter.Close()
 	}
 }

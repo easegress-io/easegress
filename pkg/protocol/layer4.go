@@ -17,13 +17,22 @@
 
 package protocol
 
-import "github.com/megaease/easegress/pkg/context"
+import (
+	"github.com/megaease/easegress/pkg/context"
+)
 
 type (
 	// Layer4Handler is the common handler for the all backends
 	// which handle the traffic from layer4(tcp/udp) server.
 	Layer4Handler interface {
-		Handle(ctx context.Layer4Context)
+
+		// InboundHandler filter handle inbound stream from client via ctx
+		// put handle result to object and pass to next filter
+		InboundHandler(ctx context.Layer4Context, object interface{})
+
+		// OutboundHandler filter handle inbound stream from upstream via ctx
+		// put handle result to object and pass to next filter
+		OutboundHandler(ctx context.Layer4Context, object interface{})
 	}
 
 	// Layer4MuxMapper gets layer4 handler pipeline with mutex

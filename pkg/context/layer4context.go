@@ -18,6 +18,7 @@
 package context
 
 import (
+	"github.com/megaease/easegress/pkg/util/connection"
 	"github.com/megaease/easegress/pkg/util/iobufferpool"
 	"net"
 	"sync"
@@ -42,6 +43,9 @@ type (
 		AppendReadBuffer(buffer iobufferpool.IoBuffer)
 		GetWriteBuffer() iobufferpool.IoBuffer
 		AppendWriteBuffer(buffer iobufferpool.IoBuffer)
+
+		WriteToClient(buffer iobufferpool.IoBuffer)
+		WriteToUpstream(buffer iobufferpool.IoBuffer)
 
 		Finish()
 		Duration() time.Duration
@@ -72,6 +76,9 @@ type (
 		upstreamAddr net.Addr
 		stopChan     chan struct{} // notify quit read loop and write loop
 
+		clientConn   connection.Connection
+		upstreamConn connection.UpstreamConnection
+
 		readBuffer     iobufferpool.IoBuffer
 		writeBuffer    iobufferpool.IoBuffer
 		connectionArgs *ConnectionArgs
@@ -84,14 +91,14 @@ type (
 )
 
 // NewLayer4Context creates an Layer4Context.
-func NewLayer4Context(protocol string, localAddr net.Addr, clientAddr net.Addr, stopChan chan struct{}) *layer4Context {
+func NewLayer4Context(clientConn *connection.Connection, stopChan chan struct{}) *layer4Context {
 
 	startTime := time.Now()
 	res := layer4Context{
 		mutex:      sync.Mutex{},
-		protocol:   protocol,
-		localAddr:  localAddr,
-		clientAddr: clientAddr,
+		protocol:   clientConn.Protocol(),
+		localAddr:  clientConn.LocalAddr(),
+		clientAddr: clientConn.RemoteAddr(),
 		stopChan:   stopChan,
 		startTime:  &startTime,
 	}
@@ -119,6 +126,7 @@ func (ctx *layer4Context) ClientAddr() net.Addr {
 	return ctx.ClientAddr()
 }
 
+// UpstreamAddr get upstream addr
 func (ctx *layer4Context) UpstreamAddr() net.Addr {
 	return ctx.upstreamAddr
 }
@@ -131,10 +139,12 @@ func (ctx *layer4Context) StopChan() chan struct{} {
 	return ctx.stopChan
 }
 
+// GetReadBuffer get read buffer
 func (ctx *layer4Context) GetReadBuffer() iobufferpool.IoBuffer {
 	return ctx.readBuffer
 }
 
+// AppendReadBuffer filter receive client data, append data to ctx read buffer for other filters handle
 func (ctx *layer4Context) AppendReadBuffer(buffer iobufferpool.IoBuffer) {
 	if buffer == nil || buffer.Len() == 0 {
 		return
@@ -142,15 +152,33 @@ func (ctx *layer4Context) AppendReadBuffer(buffer iobufferpool.IoBuffer) {
 	_ = ctx.readBuffer.Append(buffer.Bytes())
 }
 
+// GetWriteBuffer get write buffer
 func (ctx *layer4Context) GetWriteBuffer() iobufferpool.IoBuffer {
 	return ctx.writeBuffer
 }
 
+// AppendWriteBuffer filter receive upstream data, append data to ctx write buffer for other filters handle
 func (ctx *layer4Context) AppendWriteBuffer(buffer iobufferpool.IoBuffer) {
 	if buffer == nil || buffer.Len() == 0 {
 		return
 	}
 	_ = ctx.writeBuffer.Append(buffer.Bytes())
+}
+
+// WriteToClient filter handle client upload data, send result to upstream connection
+func (ctx *layer4Context) WriteToClient(buffer iobufferpool.IoBuffer) error {
+	if buffer == nil || buffer.Len() == 0 {
+		return nil
+	}
+	return ctx.upstreamConn.Write(buffer)
+}
+
+// WriteToUpstream filter handle client upload data, send result to upstream connection
+func (ctx *layer4Context) WriteToUpstream(buffer iobufferpool.IoBuffer) error {
+	if buffer == nil || buffer.Len() == 0 {
+		return nil
+	}
+	return ctx.clientConn.Write(buffer)
 }
 
 func (ctx *layer4Context) CallNextHandler(lastResult string) string {
@@ -166,6 +194,7 @@ func (ctx *layer4Context) Finish() {
 	ctx.endTime = &finish
 }
 
+// Duration get context execute duration
 func (ctx *layer4Context) Duration() time.Duration {
 	if ctx.endTime != nil {
 		return ctx.endTime.Sub(*ctx.startTime)

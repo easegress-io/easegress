@@ -305,7 +305,7 @@ func (hp *HTTPPipeline) DefaultSpec() interface{} {
 	return &Spec{}
 }
 
-// Init initilizes HTTPPipeline.
+// Init initializes HTTPPipeline.
 func (hp *HTTPPipeline) Init(superSpec *supervisor.Spec, muxMapper protocol.MuxMapper) {
 	hp.superSpec, hp.spec, hp.muxMapper = superSpec, superSpec.ObjectSpec().(*Spec), muxMapper
 

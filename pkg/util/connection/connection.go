@@ -82,6 +82,18 @@ func NewClientConnection(conn net.Conn, remoteAddr net.Addr, stopChan chan struc
 	return res
 }
 
+func (c *Connection) Protocol() string {
+	return c.conn.LocalAddr().Network()
+}
+
+func (c *Connection) LocalAddr() net.Addr {
+	return c.localAddr
+}
+
+func (c *Connection) RemoteAddr() net.Addr {
+	return c.conn.RemoteAddr()
+}
+
 func (c *Connection) Start() {
 	if c.protocol == "udp" && c.conn.RemoteAddr() == nil {
 		return

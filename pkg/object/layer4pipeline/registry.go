@@ -49,9 +49,11 @@ type (
 		// The http pipeline won't call Close for the previous generation.
 		Inherit(filterSpec *FilterSpec, previousGeneration Filter)
 
-		// Handle handles one tcp request, all possible results
-		// need be registered in Results.
-		Handle(tcpContext context.Layer4Context) (result string)
+		// InboundHandle handle layer4 inbound data
+		InboundHandle(tcpContext context.Layer4Context) (result string)
+
+		// OutboundHandle handle layer4 outbound data
+		OutboundHandle(tcpContext context.Layer4Context) (result string)
 
 		// Status returns its runtime status.
 		// It could return nil.
