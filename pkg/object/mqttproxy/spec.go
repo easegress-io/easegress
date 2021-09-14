@@ -42,6 +42,7 @@ type (
 		Certificate []Certificate `yaml:"certificate" jsonschema:"omitempty"`
 	}
 
+	// Certificate describes TLS certifications.
 	Certificate struct {
 		Name string `yaml:"name" jsonschema:"required"`
 		Cert string `yaml:"cert" jsonschema:"required"`
@@ -53,13 +54,13 @@ type (
 		Username  string `yaml:"userName" jsonschema:"required"`
 		B64Passwd string `yaml:"passBase64" jsonschema:"required"`
 	}
-
+	// TopicMapper map MQTT multi-level topic to Kafka topic with headers
 	TopicMapper struct {
 		MatchIndex int         `yaml:"matchIndex" jsonschema:"required"`
 		Route      []*PolicyRe `yaml:"route" jsonschema:"required"`
 		Policies   []*Policy   `yaml:"policies" jsonschema:"required"`
 	}
-
+	// PolicyRe to match right policy to do topic map
 	PolicyRe struct {
 		Name      string `yaml:"name" jsonschema:"required"`
 		MatchExpr string `yaml:"matchExpr" jsonschema:"required"`
@@ -73,6 +74,7 @@ type (
 		Headers    map[int]string `yaml:"headers" jsonschema:"required"`
 	}
 
+	// TopicRe to match right topic in given policy
 	TopicRe struct {
 		Topic string   `yaml:"topic" jsonschema:"required"`
 		Exprs []string `yaml:"exprs" jsonschema:"required"`

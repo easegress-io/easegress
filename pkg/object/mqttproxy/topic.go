@@ -28,6 +28,7 @@ import (
 
 type topicMapFunc func(mqttTopic string) (topic string, headers map[string]string, err error)
 
+// TopicManager to manage topic subscribe and unsubscribe in MQTT
 type TopicManager struct {
 	sync.RWMutex
 	root *topicNode
