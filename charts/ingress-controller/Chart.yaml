@@ -1,0 +1,4 @@
+apiVersion: v2
+name: easegress-controller
+type: application
+version: 1.0.0
