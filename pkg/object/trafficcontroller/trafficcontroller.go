@@ -45,7 +45,8 @@ type (
 		superSpec *supervisor.Spec
 		spec      *Spec
 
-		mutex      sync.Mutex
+		// Pointer aims to safely transform it to next generation.
+		mutex      *sync.Mutex
 		namespaces map[string]*Namespace
 	}
 
@@ -134,6 +135,7 @@ func (tc *TrafficController) DefaultSpec() interface{} {
 func (tc *TrafficController) Init(superSpec *supervisor.Spec) {
 	tc.superSpec, tc.spec, tc.super = superSpec, superSpec.ObjectSpec().(*Spec), superSpec.Super()
 
+	tc.mutex = &sync.Mutex{}
 	tc.namespaces = make(map[string]*Namespace)
 
 	tc.reload(nil)
@@ -304,7 +306,7 @@ func (tc *TrafficController) DeleteHTTPServer(namespace, name string) error {
 	return nil
 }
 
-// GetHTTPServer gets HTTP servers by it's namespace and name
+// GetHTTPServer gets HTTP servers by its namespace and name
 func (tc *TrafficController) GetHTTPServer(namespace, name string) (*supervisor.ObjectEntity, bool) {
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
@@ -515,7 +517,7 @@ func (tc *TrafficController) ApplyHTTPPipeline(namespace string, entity *supervi
 	return entity, nil
 }
 
-// DeleteHTTPPipeline deletes the HTTP pipeline by it's namespace and name
+// DeleteHTTPPipeline deletes the HTTP pipeline by its namespace and name
 func (tc *TrafficController) DeleteHTTPPipeline(namespace, name string) error {
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()

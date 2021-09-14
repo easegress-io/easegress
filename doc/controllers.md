@@ -1,8 +1,8 @@
-
 # Controllers
 
 - [Controllers](#controllers)
   - [System Controllers](#system-controllers)
+    - [ServiceRegistry](#serviceregistry)
     - [TrafficController](#trafficcontroller)
     - [RawConfigTrafficController](#rawconfigtrafficcontroller)
       - [HTTPServer](#httpserver)
@@ -17,6 +17,7 @@
     - [EtcdServiceRegistry](#etcdserviceregistry)
     - [EurekaServiceRegistry](#eurekaserviceregistry)
     - [ZookeeperServiceRegistry](#zookeeperserviceregistry)
+    - [NacosServiceRegistry](#nacosserviceregistry)
   - [Common Types](#common-types)
     - [tracing.Spec](#tracingspec)
     - [zipkin.Spec](#zipkinspec)
@@ -27,6 +28,7 @@
     - [httppipeline.Flow](#httppipelineflow)
     - [httppipeline.Filter](#httppipelinefilter)
     - [easemonitormetrics.Kafka](#easemonitormetricskafka)
+    - [nacos.ServerSpec](#nacosserverspec)
 
 As the [architecture diagram](./architecture.png) shows, the controller is the core entity to control kinds of working. There are two kinds of controllers overall:
 
@@ -43,6 +45,18 @@ The two categories are conceptual, which means they are not strict distinctions.
 ## System Controllers
 
 For now, all system controllers can not be configured. It may gain this capability if necessary in the future.
+
+### ServiceRegistry
+
+We use the system controller `ServiceRegistry` as the service hub for all service registries. Current drivers are
+
+- [ConsulServiceRegistry](#consulserviceregistry)
+- [EtcdServiceRegistry](#etcdserviceregistry)
+- [EurekaServiceRegistry](#eurekaserviceregistry)
+- [ZookeeperServiceRegistry](#zookeeperserviceregistry)
+- [NacosServiceRegistry](#nacosserviceregistry)
+
+The drivers need to offer notifying change periodically, and operations to the external service registry.
 
 ### TrafficController
 
@@ -151,18 +165,18 @@ ingressClass: easegress
 httpServer:
   port: 8080
   https: false
-  keepAlive: true            
-  keepAliveTimeout: 60s      
+  keepAlive: true
+  keepAliveTimeout: 60s
   maxConnections: 10240
 ```
 
-| Name         | Type     | Description                                                               | Required              |
-| ------------ | -------- | ------------------------------------------------------------------------- | --------------------- |
-| kubeConfig   | string   | Path of the Kubernetes configuration file.                | No            |
-| masterURL    | string   | The address of the Kubernetes API server.                 | No            |
-| namespaces   | []string | An array of Kubernetes namespaces which the IngressController needs to watch, all namespaces are watched if left empty. | No  |
-| ingressClass | string   | The IngressController only handles `Ingresses` with `ingressClassName` set to the value of this option. | No (default: easegress)  |
-| httpServer   | [httpserver.Spec](#httpserver)   | Basic configuration for the shared HTTP traffic gate. The routing rules will be generated dynamically according to Kubernetes ingresses and should not be specified here. | Yes  |
+| Name         | Type                           | Description                                                                                                                                                               | Required                |
+| ------------ | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| kubeConfig   | string                         | Path of the Kubernetes configuration file.                                                                                                                                | No                      |
+| masterURL    | string                         | The address of the Kubernetes API server.                                                                                                                                 | No                      |
+| namespaces   | []string                       | An array of Kubernetes namespaces which the IngressController needs to watch, all namespaces are watched if left empty.                                                   | No                      |
+| ingressClass | string                         | The IngressController only handles `Ingresses` with `ingressClassName` set to the value of this option.                                                                   | No (default: easegress) |
+| httpServer   | [httpserver.Spec](#httpserver) | Basic configuration for the shared HTTP traffic gate. The routing rules will be generated dynamically according to Kubernetes ingresses and should not be specified here. | Yes                     |
 
 **Note**: IngressController uses `kubeConfig` and `masterURL` to connect to Kubernetes, at least one of them must be specified when deployed outside of a Kubernetes cluster, and both are optional when deployed inside a cluster.
 
@@ -177,14 +191,16 @@ specUpdateInterval: 10s
 heartbeatInterval: 5s
 registryType: consul
 serviceName: service-001
+externalServiceRegistry: consul-service-registry-example
 ```
 
-| Name              | Type   | Description                                                               | Required              |
-| ----------------- | ------ | ------------------------------------------------------------------------- | --------------------- |
-| heartbeatInterval | string | Interval for one service instance reporting its heartbeat                 | Yes (default: 5s)     |
-| registryType      | string | Protocol the registry center accepts, support `eureka`, `consul`, `nacos` | Yes (default: eureka) |
-| apiPort           | int    | Port listening on for worker's API server                                 | Yes (default: 13009)  |
-| ingressPort       | int    | Port listening on for for ingress traffic                                 | Yes (default: 13010)  |
+| Name                    | Type   | Description                                                               | Required              |
+| ----------------------- | ------ | ------------------------------------------------------------------------- | --------------------- |
+| heartbeatInterval       | string | Interval for one service instance reporting its heartbeat                 | Yes (default: 5s)     |
+| registryType            | string | Protocol the registry center accepts, support `eureka`, `consul`, `nacos` | Yes (default: eureka) |
+| apiPort                 | int    | Port listening on for worker's API server                                 | Yes (default: 13009)  |
+| ingressPort             | int    | Port listening on for for ingress traffic                                 | Yes (default: 13010)  |
+| externalServiceRegistry | string | External service registry name                                            | No                    |
 
 ### ConsulServiceRegistry
 
@@ -262,6 +278,29 @@ syncInterval: 10s
 | Prefix       | string   | Prefix of services           | Yes (default: /)              |
 | syncInterval | string   | Interval to synchronize data | Yes (default: 10s)            |
 
+### NacosServiceRegistry
+
+NacosServiceRegistry supports service discovery for Nacos as backend. The config looks like:
+
+```yaml
+kind: NacosServiceRegistry
+name: nacos-service-registry-example
+syncInterval: 10s
+servers:
+  - scheme: http
+    port: 8848
+    contextPath: /nacos
+    ipAddr: 127.0.0.1
+```
+
+| Name         | Type                                  | Description                  | Required           |
+| ------------ | ------------------------------------- | ---------------------------- | ------------------ |
+| servers      | [][nacosServerSpec](#nacosserverspec) | Servers of Nacos             | Yes                |
+| syncInterval | string                                | Interval to synchronize data | Yes (default: 10s) |
+| namespace    | string                                | The namespace of Nacos       | No                 |
+| username     | string                                | The username of client       | No                 |
+| password     | string                                | The password of client       | No                 |
+
 ## Common Types
 
 ### tracing.Spec
@@ -324,9 +363,9 @@ There must be at least one of `values` and `regexp`.
 
 ### httppipeline.Flow
 
-| Name   | Type              | Description                                                                                                                                                                           | Required |
-| ------ | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| filter | string            | The filter name                                                                                                                                                                       | Yes      |
+| Name   | Type              | Description                                                                                                                                                                         | Required |
+| ------ | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| filter | string            | The filter name                                                                                                                                                                     | Yes      |
 | jumpIf | map[string]string | Jump to another filter conditionally, the key is the result of the current filter, the value is the jumping filter name. `END` is the built-in value for the ending of the pipeline | No       |
 
 ### httppipeline.Filter
@@ -345,3 +384,12 @@ The self-defining specification of each filter references to [filters](./filters
 | ------- | -------- | ---------------- | ----------------------------- |
 | brokers | []string | Broker addresses | Yes (default: localhost:9092) |
 | topic   | string   | Produce topic    | Yes                           |
+
+### nacos.ServerSpec
+
+| Name        | Type   | Description                                  | Required |
+| ----------- | ------ | -------------------------------------------- | -------- |
+| ipAddr      | string | The ip address                               | Yes      |
+| port        | uint16 | The port                                     | Yes      |
+| scheme      | string | The scheme of protocol (support http, https) | No       |
+| contextPath | string | The context path                             | No       |

@@ -20,35 +20,25 @@ package serviceregistry
 import (
 	"fmt"
 	"reflect"
-	"sync"
 )
 
 type (
-	// Service contains the information of all backend servers of one service.
-	Service struct {
-		mutex sync.Mutex
-
-		name         string
-		servers      []*Server
-		closeMessage string
-
-		updated chan struct{}
-		closed  chan struct{}
-	}
-
-	// Server stands for one instance of the server.
-	Server struct {
+	// ServiceInstanceSpec is the service instance spec in Easegress.
+	ServiceInstanceSpec struct {
+		// RegistryName is required.
+		RegistryName string `yaml:"registryName"`
 		// ServiceName is required.
 		ServiceName string `yaml:"serviceName"`
+		// InstanceID is required.
+		InstanceID string `yaml:"instanceID"`
 
-		// Scheme is optional if Port is not empty.
-		Scheme string `yaml:"scheme"`
-		// Hostname is optional if HostIP is not empty.
-		Hostname string `yaml:"hostname"`
-		// HostIP is optional if Hostname is not empty.
-		HostIP string `yaml:"hostIP"`
-		// Port is optional if Scheme is not empty
+		// Address is required.
+		Address string `yaml:"address"`
+		// Port is required.
 		Port uint16 `yaml:"port"`
+
+		// Scheme is optional.
+		Scheme string `yaml:"scheme"`
 		// Tags is optional.
 		Tags []string `yaml:"tags"`
 		// Weight is optional.
@@ -56,18 +46,39 @@ type (
 	}
 )
 
+// DeepCopy deep copies ServiceInstanceSpec.
+func (s *ServiceInstanceSpec) DeepCopy() *ServiceInstanceSpec {
+	copy := *s
+
+	if s.Tags != nil {
+		for _, tag := range s.Tags {
+			copy.Tags = append(copy.Tags, tag)
+		}
+	}
+
+	return &copy
+}
+
 // Validate validates itself.
-func (s *Server) Validate() error {
+func (s *ServiceInstanceSpec) Validate() error {
+	if s.RegistryName == "" {
+		return fmt.Errorf("registryName is empty")
+	}
+
 	if s.ServiceName == "" {
 		return fmt.Errorf("serviceName is empty")
 	}
 
-	if s.Hostname == "" && s.HostIP == "" {
-		return fmt.Errorf("both hostname and hostIP are empty")
+	if s.InstanceID == "" {
+		return fmt.Errorf("instanceID is empty")
 	}
 
-	if s.Scheme == "" && s.Port == 0 {
-		return fmt.Errorf("both scheme and port are empty")
+	if s.Address == "" {
+		return fmt.Errorf("address is empty")
+	}
+
+	if s.Port == 0 {
+		return fmt.Errorf("port is empty")
 	}
 
 	switch s.Scheme {
@@ -79,114 +90,63 @@ func (s *Server) Validate() error {
 	return nil
 }
 
+// Key returns the unique key for the service instance.
+func (s *ServiceInstanceSpec) Key() string {
+	return fmt.Sprintf("%s/%s/%s", s.RegistryName, s.ServiceName, s.InstanceID)
+}
+
 // URL returns the url of the server.
-func (s *Server) URL() string {
+func (s *ServiceInstanceSpec) URL() string {
 	scheme := s.Scheme
 	if scheme == "" {
 		scheme = "http"
 	}
 
-	var host string
-	if s.Hostname != "" {
-		host = s.Hostname
-	} else {
-		host = s.HostIP
-	}
-
-	var port string
-	if s.Port != 0 {
-		port = fmt.Sprintf("%d", s.Port)
-	}
-
-	return fmt.Sprintf("%s://%s:%s", scheme, host, port)
+	return fmt.Sprintf("%s://%s:%d", scheme, s.Address, s.Port)
 }
 
-// NewService creates a Service.
-func NewService(name string, servers []*Server) (*Service, error) {
-	s := &Service{
-		name:    name,
-		updated: make(chan struct{}),
-		closed:  make(chan struct{}),
+// NewRegistryEventFromDiff creates a registry event from diff old and new specs.
+// It only uses Apply and Delete excluding Replace.
+// External drivers should use event.Replace in first time, then use this utility to generate next events.
+// registryName is only assigned to the event, the registry name of service instance spec won't change.
+func NewRegistryEventFromDiff(registryName string, oldSpecs, newSpecs map[string]*ServiceInstanceSpec) *RegistryEvent {
+	if oldSpecs == nil {
+		oldSpecs = make(map[string]*ServiceInstanceSpec)
 	}
 
-	err := s.Update(servers)
-	if err != nil {
-		return nil, err
+	if newSpecs == nil {
+		newSpecs = make(map[string]*ServiceInstanceSpec)
 	}
 
-	return s, nil
-}
-
-// Servers return the current servers.
-func (s *Service) Servers() []*Server {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	var servers []*Server
-	for _, server := range s.servers {
-		servers = append(servers, server)
+	event := &RegistryEvent{
+		SourceRegistryName: registryName,
 	}
 
-	return servers
-}
+	for _, oldSpec := range oldSpecs {
+		_, exists := newSpecs[oldSpec.Key()]
+		if !exists {
+			copy := oldSpec.DeepCopy()
 
-// Name returns the service name.
-func (s *Service) Name() string {
-	servers := s.Servers()
-	if len(servers) == 0 {
-		return ""
-	}
-	return servers[0].ServiceName
-}
+			if event.Delete == nil {
+				event.Delete = make(map[string]*ServiceInstanceSpec)
+			}
 
-// Update updates the Service with closing the channel updated.
-// It does nothing if servers are not changed.
-func (s *Service) Update(servers []*Server) error {
-	for i, server := range servers {
-		err := server.Validate()
-		if err != nil {
-			return fmt.Errorf("server %d is invalid: %v", i+1, err)
+			event.Delete[oldSpec.Key()] = copy
 		}
 	}
 
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	for _, newSpec := range newSpecs {
+		oldSpec, exists := oldSpecs[newSpec.Key()]
+		if !exists || !reflect.DeepEqual(oldSpec, newSpec) {
+			copy := newSpec.DeepCopy()
 
-	if !reflect.DeepEqual(s.servers, servers) {
-		s.servers = servers
-		close(s.updated)
-		s.updated = make(chan struct{})
+			if event.Apply == nil {
+				event.Apply = make(map[string]*ServiceInstanceSpec)
+			}
+
+			event.Apply[newSpec.Key()] = copy
+		}
 	}
 
-	return nil
-}
-
-// Updated returns the notifying channel to post update.
-func (s *Service) Updated() chan struct{} {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	return s.updated
-}
-
-// Closed returns the notifying channel to post close.
-func (s *Service) Closed() chan struct{} {
-	return s.closed
-}
-
-// CloseMessage closes the service.
-func (s *Service) CloseMessage() string {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	return s.closeMessage
-}
-
-// Close closes the service.
-func (s *Service) Close(message string) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	s.closeMessage = message
-	close(s.closed)
+	return event
 }

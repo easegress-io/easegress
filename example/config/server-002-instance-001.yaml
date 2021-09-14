@@ -1,0 +1,5 @@
+registryName: mesh-controller-example
+serviceName: service-002
+instanceID: instance-001
+ip: 127.0.0.1
+port: 9094

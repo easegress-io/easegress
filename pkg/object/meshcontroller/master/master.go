@@ -32,6 +32,11 @@ import (
 	"github.com/megaease/easegress/pkg/supervisor"
 )
 
+const (
+	defaultCleanInterval       time.Duration = 15 * time.Minute
+	defaultDeadRecordExistTime time.Duration = 30 * time.Minute
+)
+
 type (
 	// Master is the master role of Easegress for mesh control plane.
 	Master struct {
@@ -40,8 +45,9 @@ type (
 		spec                *spec.Admin
 		maxHeartbeatTimeout time.Duration
 
-		store   storage.Storage
-		service *service.Service
+		registrySyncer *registrySyncer
+		store          storage.Storage
+		service        *service.Service
 
 		done chan struct{}
 	}
@@ -59,8 +65,9 @@ func New(superSpec *supervisor.Spec) *Master {
 		superSpec: superSpec,
 		spec:      adminSpec,
 
-		store:   store,
-		service: service.New(superSpec),
+		store:          store,
+		service:        service.New(superSpec),
+		registrySyncer: newRegistrySyncer(superSpec),
 
 		done: make(chan struct{}),
 	}
@@ -99,18 +106,32 @@ func (m *Master) run() {
 				}()
 				m.checkInstancesHeartbeat()
 			}()
+		case <-time.After(defaultCleanInterval):
+			func() {
+				defer func() {
+					if err := recover(); err != nil {
+						logger.Errorf("failed to clean dead records %v, stack trace: \n%s\n",
+							err, debug.Stack())
+					}
+				}()
+				m.cleanDeadInstances()
+			}()
 		}
 	}
 }
 
-func (m *Master) checkInstancesHeartbeat() {
+func (m *Master) scanInstances() (failedInstances []*spec.ServiceInstanceSpec,
+	rebornInstances []*spec.ServiceInstanceSpec, deadInstances []*spec.ServiceInstanceSpec) {
+
 	statuses := m.service.ListAllServiceInstanceStatuses()
 	specs := m.service.ListAllServiceInstanceSpecs()
 
-	failedInstances := []*spec.ServiceInstanceSpec{}
-	rebornInstances := []*spec.ServiceInstanceSpec{}
 	now := time.Now()
 	for _, _spec := range specs {
+		if !m.isMeshRegistryName(_spec.RegistryName) {
+			continue
+		}
+
 		var status *spec.ServiceInstanceStatus
 		for _, s := range statuses {
 			if s.ServiceName == _spec.ServiceName && s.InstanceID == _spec.InstanceID {
@@ -125,7 +146,12 @@ func (m *Master) checkInstancesHeartbeat() {
 			}
 			gap := now.Sub(lastHeartbeatTime)
 			if gap > m.maxHeartbeatTimeout {
-				if _spec.Status != spec.ServiceStatusOutOfService {
+				// This instance record's time gap is beyond our tolerance, needs to be clean immediately.
+				// For freeing storage space
+				if gap > defaultDeadRecordExistTime {
+					logger.Errorf("%s/%s expired for %s, need to be deleted", _spec.ServiceName, _spec.InstanceID, gap.String())
+					deadInstances = append(deadInstances, _spec)
+				} else if _spec.Status != spec.ServiceStatusOutOfService {
 					logger.Errorf("%s/%s expired for %s", _spec.ServiceName, _spec.InstanceID, gap.String())
 					failedInstances = append(failedInstances, _spec)
 				}
@@ -140,9 +166,38 @@ func (m *Master) checkInstancesHeartbeat() {
 			failedInstances = append(failedInstances, _spec)
 		}
 	}
+	return
+}
 
+func (m *Master) checkInstancesHeartbeat() {
+	failedInstances, rebornInstances, _ := m.scanInstances()
 	m.handleFailedInstances(failedInstances)
 	m.handleRebornInstances(rebornInstances)
+}
+
+func (m *Master) cleanDeadInstances() {
+	_, _, deadInstances := m.scanInstances()
+	for _, _spec := range deadInstances {
+		recordKey := layout.ServiceInstanceSpecKey(_spec.ServiceName, _spec.InstanceID)
+		err := m.store.Delete(recordKey)
+		if err != nil {
+			api.ClusterPanic(err)
+		}
+		statusKey := layout.ServiceInstanceStatusKey(_spec.ServiceName, _spec.InstanceID)
+		if err = m.store.Delete(statusKey); err != nil {
+			api.ClusterPanic(err)
+		}
+	}
+}
+
+func (m *Master) isMeshRegistryName(registryName string) bool {
+	// NOTE: Empty registry name means it is an internal mesh service by default.
+	switch registryName {
+	case "", m.superSpec.Name():
+		return true
+	default:
+		return false
+	}
 }
 
 func (m *Master) handleRebornInstances(rebornInstances []*spec.ServiceInstanceSpec) {

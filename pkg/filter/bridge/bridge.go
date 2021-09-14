@@ -98,7 +98,6 @@ func (b *Bridge) Init(filterSpec *httppipeline.FilterSpec) {
 
 // Inherit inherits previous generation of Bridge.
 func (b *Bridge) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
-
 	previousGeneration.Close()
 	b.Init(filterSpec)
 }

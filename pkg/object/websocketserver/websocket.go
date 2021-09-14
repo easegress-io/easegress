@@ -57,7 +57,7 @@ func (ws *WebSocketServer) DefaultSpec() interface{} {
 	return &Spec{}
 }
 
-// Validate valides the websocketserver structure.
+// Validate validates the websocketserver structure.
 func (ws *WebSocketServer) Validate() error {
 	return nil
 }

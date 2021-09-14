@@ -18,6 +18,7 @@
 package command
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/spf13/cobra"
@@ -27,19 +28,88 @@ import (
 func WasmCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "wasm",
-		Short: "Manage WebAssembly code",
+		Short: "Manage WebAssembly code and data",
 	}
 
-	cmd.AddCommand(updateWasmCmd())
+	cmd.AddCommand(wasmReloadCodeCmd())
+	cmd.AddCommand(wasmDeleteDataCmd())
+	cmd.AddCommand(wasmApplyDataCmd())
+	cmd.AddCommand(wasmListDataCmd())
 	return cmd
 }
 
-func updateWasmCmd() *cobra.Command {
+func wasmReloadCodeCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "update",
+		Use:   "reload-code",
 		Short: "Notify Easegress to reload WebAssembly code",
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodPost, makeURL(wasmURL), nil, cmd)
+			handleRequest(http.MethodPost, makeURL(wasmCodeURL), nil, cmd)
+		},
+	}
+
+	return cmd
+}
+
+func wasmDeleteDataCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "delete-data",
+		Short:   "Delete all shared data of a WasmHost filter",
+		Example: "egctl wasm clear-data <pipeline> <filter>",
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 2 {
+				return nil
+			}
+			return fmt.Errorf("requires pipeline and filter name")
+		},
+
+		Run: func(cmd *cobra.Command, args []string) {
+			handleRequest(http.MethodDelete, makeURL(wasmDataURL, args[0], args[1]), nil, cmd)
+		},
+	}
+
+	return cmd
+}
+
+func wasmApplyDataCmd() *cobra.Command {
+	var specFile string
+
+	cmd := &cobra.Command{
+		Use:     "apply-data",
+		Short:   "Apply shared data to a WasmHost filter",
+		Example: "egctl wasm apply-data <pipeline> <filter> -f <YAML file>",
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 2 {
+				return nil
+			}
+			return fmt.Errorf("requires pipeline and filter name")
+		},
+
+		Run: func(cmd *cobra.Command, args []string) {
+			visitor := buildVisitorFromFileOrStdin(specFile, cmd)
+			visitor.Visit(func(s *spec) {
+				handleRequest(http.MethodPost, makeURL(objectsURL), []byte(s.doc), cmd)
+			})
+		},
+	}
+	cmd.Flags().StringVarP(&specFile, "file", "f", "", "A yaml file specifying the object.")
+
+	return cmd
+}
+
+func wasmListDataCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "list-data",
+		Short:   "List shared data of a WasmHost filter",
+		Example: "egctl wasm list-data <pipeline> <filter>",
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 2 {
+				return nil
+			}
+			return fmt.Errorf("requires pipeline and filter name")
+		},
+
+		Run: func(cmd *cobra.Command, args []string) {
+			handleRequest(http.MethodGet, makeURL(wasmDataURL, args[0], args[1]), nil, cmd)
 		},
 	}
 

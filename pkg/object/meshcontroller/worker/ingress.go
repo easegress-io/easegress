@@ -6,7 +6,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://wwwrk.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -49,7 +49,7 @@ type (
 	}
 )
 
-// NewIngressServer creates a initialized ingress server
+// NewIngressServer creates an initialized ingress server
 func NewIngressServer(superSpec *supervisor.Spec, super *supervisor.Supervisor, serviceName string, inf informer.Informer) *IngressServer {
 	entity, exists := super.GetSystemController(trafficcontroller.Kind)
 	if !exists {

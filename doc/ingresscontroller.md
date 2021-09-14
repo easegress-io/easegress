@@ -40,7 +40,6 @@ If your cluster is configured with RBAC, you will need to authorize Easegress In
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  namespace: default
   name: easegress-ingress-controller
 rules:
 - apiGroups: [""] # "" indicates the core API group
@@ -59,10 +58,9 @@ metadata:
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
+kind: ClusterRoleBinding
 metadata:
   name: easegress-ingress-controller
-  namespace: default
 subjects:
 - kind: ServiceAccount
   name: easegress-ingress-controller
@@ -108,7 +106,20 @@ spec:
           cluster-role: writer
           api-addr: 0.0.0.0:2381
           cluster-name: easegress-ingress-controller
-          ' >> /easegress-ingress/config.yaml && /opt/easegress/bin/easegress-server -f /easegress-ingress/config.yaml
+          ' >> /easegress-ingress/config.yaml && echo '
+          kind: IngressController
+          name: ingress-controller-example
+          kubeConfig:
+          masterURL:
+          namespaces: ["default"]
+          ingressClass: easegress
+          httpServer:
+            port: 8080
+            https: false
+            keepAlive: true            
+            keepAliveTimeout: 60s      
+            maxConnections: 10240
+          ' >> /easegress-ingress/controller.yaml && /opt/easegress/bin/easegress-server -f /easegress-ingress/config.yaml --initial-object-config-files /easegress-ingress/controller.yaml
         image: megaease/easegress:latest
         env:
         - name: POD_NAME
@@ -134,10 +145,6 @@ spec:
   selector:
     app: easegress-ingress
   ports:
-    - name: admin
-      protocol: TCP
-      port: 2381
-      nodePort: 2381
     - name: web
       protocol: TCP
       port: 8080
@@ -145,13 +152,7 @@ spec:
   type: NodePort
 ```
 
-The service exposes two ports, the `admin` port is for Easegress administration, we exposed it for simplicity here, but for security consideration, we don't recommend you to expose it in your environment; the `web` port is to receive external HTTP requests and forward them to the HTTP server in Easegress.
-
-Now let's create the IngressController with the below command (suppose the spec in [Controller Spec](#controller-spec) has been saved to a file named `controller.yaml`):
-
-```bash
-curl -XPOST --data-binary @controller.yaml http://{NODE_IP}:2381/apis/v1/objects
-```
+The IngressController is created via the command line argument `initial-object-config-files` of `easegress-server`. And the exported port `web` is to receive external HTTP requests and forward them to the HTTP server in Easegress.
 
 ### Create backend service & Kubernetes ingress
 
@@ -198,11 +199,11 @@ spec:
     app: products
     department: sales
   ports:
-  - name: port_v1
+  - name: port-v1
     protocol: TCP
     port: 60001
     targetPort: 50001
-  - name: port_v2
+  - name: port-v2
     protocol: TCP
     port: 60002
     targetPort: 50002

@@ -76,14 +76,14 @@ const (
 	podEnvApplicationIP = "APPLICATION_IP"
 )
 
-func decodeLables(lables string) map[string]string {
+func decodeLabels(labels string) map[string]string {
 	mLabels := make(map[string]string)
-	if len(lables) == 0 {
+	if len(labels) == 0 {
 		return mLabels
 	}
-	strLabel, err := url.QueryUnescape(lables)
+	strLabel, err := url.QueryUnescape(labels)
 	if err != nil {
-		logger.Errorf("query unescape: %s failed: %v ", lables, err)
+		logger.Errorf("query unescape: %s failed: %v ", labels, err)
 		return mLabels
 	}
 
@@ -106,7 +106,7 @@ func New(superSpec *supervisor.Spec) *Worker {
 	spec := superSpec.ObjectSpec().(*spec.Admin)
 	serviceName := super.Options().Labels[label.KeyServiceName]
 	aliveProbe := super.Options().Labels[label.KeyAliveProbe]
-	serviceLabels := decodeLables(super.Options().Labels[label.KeyServiceLables])
+	serviceLabels := decodeLabels(super.Options().Labels[label.KeyServiceLabels])
 	applicationPort, err := strconv.Atoi(super.Options().Labels[label.KeyApplicationPort])
 	if err != nil {
 		logger.Errorf("parse %s failed: %v", super.Options().Labels[label.KeyApplicationPort], err)
@@ -117,7 +117,7 @@ func New(superSpec *supervisor.Spec) *Worker {
 	store := storage.New(superSpec.Name(), super.Cluster())
 	_service := service.New(superSpec)
 	registryCenterServer := registrycenter.NewRegistryCenterServer(spec.RegistryType,
-		serviceName, applicationIP, applicationPort, instanceID, serviceLabels, _service)
+		superSpec.Name(), serviceName, applicationIP, applicationPort, instanceID, serviceLabels, _service)
 
 	inf := informer.NewInformer(store, serviceName)
 	ingressServer := NewIngressServer(superSpec, super, serviceName, inf)
@@ -223,7 +223,7 @@ func (worker *Worker) run() {
 }
 
 func (worker *Worker) heartbeat() {
-	inforJavaAgentReady, trafficGateReady := false, false
+	informJavaAgentReady, trafficGateReady := false, false
 
 	routine := func() {
 		defer func() {
@@ -243,16 +243,16 @@ func (worker *Worker) heartbeat() {
 		}
 
 		if worker.registryServer.Registered() {
-			if !inforJavaAgentReady {
+			if !informJavaAgentReady {
 				err := worker.informJavaAgent()
 				if err != nil {
 					logger.Errorf(err.Error())
 				} else {
-					inforJavaAgentReady = true
+					informJavaAgentReady = true
 				}
 			}
 
-			err := worker.updateHearbeat()
+			err := worker.updateHeartbeat()
 			if err != nil {
 				logger.Errorf("update heartbeat failed: %v", err)
 			}
@@ -321,7 +321,7 @@ func (worker *Worker) initTrafficGate() error {
 	return nil
 }
 
-func (worker *Worker) updateHearbeat() error {
+func (worker *Worker) updateHeartbeat() error {
 	resp, err := http.Get(worker.aliveProbe)
 	if err != nil {
 		return fmt.Errorf("probe: %s check service: %s instanceID: %s heartbeat failed: %v",
@@ -348,7 +348,7 @@ func (worker *Worker) updateHearbeat() error {
 		if err != nil {
 			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", *value, err)
 
-			// NOTE: This is a little strict, maybe we could use the brand new status to udpate.
+			// NOTE: This is a little strict, maybe we could use the brand new status to update.
 			return err
 		}
 	}
@@ -392,7 +392,7 @@ func (worker *Worker) Status() *supervisor.Status {
 	}
 }
 
-// Close close the worker
+// Close closes the worker
 func (worker *Worker) Close() {
 	close(worker.done)
 

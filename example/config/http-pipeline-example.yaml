@@ -101,6 +101,8 @@ filters:
             X-Filter:
               exact: candidate
     mainPool:
+      serviceRegistry: nacos-service-registry-example
+      serviceName: service-001
       serversTags: ["v2"]
       servers:
       - url: http://127.0.0.1:9095

@@ -6,17 +6,18 @@ require (
 	github.com/ArthurHlt/go-eureka-client v1.1.0
 	github.com/Shopify/sarama v1.29.1
 	github.com/alecthomas/jsonschema v0.0.0-20210526225647-edb03dcab7bc
-	github.com/bytecodealliance/wasmtime-go v0.28.0
 	github.com/eclipse/paho.mqtt.golang v1.3.5
+	github.com/bytecodealliance/wasmtime-go v0.29.0
 	github.com/facebookgo/ensure v0.0.0-20200202191622-63f1cf65ac4c // indirect
 	github.com/facebookgo/freeport v0.0.0-20150612182905-d4adf43b75b9 // indirect
 	github.com/facebookgo/stack v0.0.0-20160209184415-751773369052 // indirect
 	github.com/facebookgo/subset v0.0.0-20200203212716-c811ad88dec4 // indirect
-	github.com/fatih/color v1.9.0
+	github.com/fatih/color v1.12.0
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-chi/chi/v5 v5.0.3
 	github.com/go-zookeeper/zk v1.0.2
 	github.com/golang-jwt/jwt v3.2.1+incompatible
+	github.com/google/uuid v1.2.0
 	github.com/gorilla/websocket v1.4.2
 	github.com/hashicorp/consul/api v1.8.1
 	github.com/hashicorp/golang-lru v0.5.4
@@ -48,7 +49,7 @@ require (
 	go.etcd.io/etcd/api/v3 v3.5.0
 	go.etcd.io/etcd/client/v3 v3.5.0
 	go.etcd.io/etcd/server/v3 v3.5.0
-	go.uber.org/zap v1.17.0
+	go.uber.org/zap v1.19.0
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/sys v0.0.0-20210615035016-665e8c7367d1
 	gopkg.in/yaml.v2 v2.4.0

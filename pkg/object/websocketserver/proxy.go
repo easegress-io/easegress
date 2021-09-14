@@ -59,7 +59,7 @@ type Proxy struct {
 	// backendURL URL is the URL of target websocket server.
 	backendURL *url.URL
 
-	// upgrader specifies the parameters for upgrading a incoming HTTP
+	// upgrader specifies the parameters for upgrading an incoming HTTP
 	// connection to a WebSocket connection.
 	upgrader *websocket.Upgrader
 
@@ -272,7 +272,7 @@ func (p *Proxy) handle(rw http.ResponseWriter, req *http.Request) {
 	// other error type is expected, not need to log
 }
 
-// Close close websocket proxy.
+// Close closes websocket proxy.
 func (p *Proxy) Close() {
 	close(p.done)
 

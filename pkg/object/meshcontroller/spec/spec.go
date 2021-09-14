@@ -89,10 +89,16 @@ type (
 
 		// IngressPort is the port for http server in mesh ingress
 		IngressPort int `yaml:"ingressPort" jsonschema:"required"`
+
+		ExternalServiceRegistry string `yaml:"externalServiceRegistry" jsonschema:"omitempty"`
 	}
 
 	// Service contains the information of service.
 	Service struct {
+		// CreatedBy means the source of the service.
+		// It could be adminAPI, externalRegistry:Consul, etc.
+		CreatedBy string `yaml:"source" jsonschema:"omitempty"`
+
 		Name           string `yaml:"name" jsonschema:"required"`
 		RegisterTenant string `yaml:"registerTenant" jsonschema:"required"`
 
@@ -218,7 +224,9 @@ type (
 	}
 
 	// ServiceInstanceSpec is the spec of service instance.
+	// FIXME: Use the unified struct: serviceregistry.ServiceInstanceSpec.
 	ServiceInstanceSpec struct {
+		RegistryName string `yaml:"registryName" jsonschema:"required"`
 		// Provide by registry client
 		ServiceName  string            `yaml:"serviceName" jsonschema:"required"`
 		InstanceID   string            `yaml:"instanceID" jsonschema:"required"`
@@ -277,6 +285,11 @@ func (a Admin) Validate() error {
 	}
 
 	return nil
+}
+
+// Key returns the key of ServiceInstanceSpec.
+func (s *ServiceInstanceSpec) Key() string {
+	return fmt.Sprintf("%s/%s/%s", s.RegistryName, s.ServiceName, s.InstanceID)
 }
 
 func newPipelineSpecBuilder(name string) *pipelineSpecBuilder {

@@ -87,7 +87,7 @@ const (
 	configFileName = "running_objects.yaml"
 )
 
-// FilterCategory returns a bool function to check if the object entity is filter by category or not
+// FilterCategory returns a bool function to check if the object entity is filtered by category or not
 func FilterCategory(categories ...ObjectCategory) ObjectEntityWatcherFilter {
 	allCategory := false
 	for _, category := range categories {
@@ -118,13 +118,29 @@ func newObjectEntityWatcherEvent() *ObjectEntityWatcherEvent {
 	}
 }
 
-func newObjectRegistry(super *Supervisor) *ObjectRegistry {
-	syncer, err := super.Cluster().Syncer(syncInternal)
+func newObjectRegistry(super *Supervisor, initObjs map[string]string) *ObjectRegistry {
+	cls := super.Cluster()
+	prefix := cls.Layout().ConfigObjectPrefix()
+	objs, err := cls.GetPrefix(prefix)
+	if err != nil {
+		panic(fmt.Errorf("get existing objects failed: %v", err))
+	}
+	for k, v := range initObjs {
+		key := cls.Layout().ConfigObjectKey(k)
+		if _, ok := objs[key]; ok {
+			logger.Infof("initial object %s already exist in config, skip", k)
+			continue
+		}
+		if err = cls.Put(key, v); err != nil {
+			panic(fmt.Errorf("add initial object %s to config failed: %v", k, err))
+		}
+	}
+
+	syncer, err := cls.Syncer(syncInternal)
 	if err != nil {
 		panic(fmt.Errorf("get syncer failed: %v", err))
 	}
 
-	prefix := super.Cluster().Layout().ConfigObjectPrefix()
 	syncChan, err := syncer.SyncPrefix(prefix)
 	if err != nil {
 		panic(fmt.Errorf("sync prefix %s failed: %v", prefix, err))
@@ -311,7 +327,7 @@ func (w *ObjectEntityWatcher) Entities() map[string]*ObjectEntity {
 	return entities
 }
 
-// NewObjectEntityFromConfig creates a object entity from configuration
+// NewObjectEntityFromConfig creates an object entity from configuration
 func (s *Supervisor) NewObjectEntityFromConfig(config string) (*ObjectEntity, error) {
 	spec, err := s.NewSpec(config)
 	if err != nil {
@@ -321,7 +337,7 @@ func (s *Supervisor) NewObjectEntityFromConfig(config string) (*ObjectEntity, er
 	return s.NewObjectEntityFromSpec(spec)
 }
 
-// NewObjectEntityFromSpec creates a object entity from a spec
+// NewObjectEntityFromSpec creates an object entity from a spec
 func (s *Supervisor) NewObjectEntityFromSpec(spec *Spec) (*ObjectEntity, error) {
 	registerObject, exists := objectRegistry[spec.Kind()]
 	if !exists {

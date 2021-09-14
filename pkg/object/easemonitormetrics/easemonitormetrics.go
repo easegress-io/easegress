@@ -66,8 +66,6 @@ type (
 		client      atomic.Value
 		clientMutex sync.Mutex
 
-		latestTimestamp int64
-
 		done chan struct{}
 	}
 
@@ -220,7 +218,7 @@ func (emm *EaseMonitorMetrics) getClient() (sarama.AsyncProducer, error) {
 				if !ok {
 					return
 				}
-				logger.Errorf("produce failed:", err)
+				logger.Errorf("produce failed: %v", err)
 			}
 		}
 	}()
@@ -249,9 +247,12 @@ func (emm *EaseMonitorMetrics) closeClient() {
 }
 
 func (emm *EaseMonitorMetrics) run() {
+	var latestTimestamp int64
+
 	for {
 		select {
 		case <-emm.done:
+			emm.closeClient()
 			return
 		case <-time.After(statussynccontroller.SyncStatusPaceInUnixSeconds * time.Second):
 			client, err := emm.getClient()
@@ -263,17 +264,14 @@ func (emm *EaseMonitorMetrics) run() {
 
 			records := emm.ssc.GetStatusesRecords()
 			for _, record := range records {
-				if record.UnixTimestamp <= emm.latestTimestamp {
+				if record.UnixTimestamp <= latestTimestamp {
 					continue
 				}
-				messages := emm.record2Messages(record)
+				latestTimestamp = record.UnixTimestamp
 
+				messages := emm.record2Messages(record)
 				for _, message := range messages {
 					client.Input() <- message
-				}
-
-				if err != nil {
-					emm.latestTimestamp = record.UnixTimestamp
 				}
 			}
 		}
@@ -375,7 +373,6 @@ func (emm *EaseMonitorMetrics) httpPipeline2Metrics(baseFields *GlobalFields, pi
 			reqMetrics = append(reqMetrics, req)
 			codeMetrics = append(codeMetrics, codes...)
 		}
-
 	}
 
 	return
@@ -471,10 +468,7 @@ func (emm *EaseMonitorMetrics) Status() *supervisor.Status {
 
 // Close closes EaseMonitorMetrics.
 func (emm *EaseMonitorMetrics) Close() {
-	// NOTE: close the channel first in case of
-	// using closed client in the run().
 	close(emm.done)
-	emm.closeClient()
 }
 
 func getHostIPv4() string {

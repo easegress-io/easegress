@@ -25,6 +25,7 @@ import (
 
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
+	"go.etcd.io/etcd/client/v3/concurrency"
 )
 
 func mockClusters(count int) []*cluster {
@@ -355,7 +356,7 @@ func TestClusterWatcher(t *testing.T) {
 }
 
 func TestUtil(t *testing.T) {
-	equal := isDataEuqal(map[string]*mvccpb.KeyValue{
+	equal := isDataEqual(map[string]*mvccpb.KeyValue{
 		"aaa": {
 			Key:     []byte("akey"),
 			Version: 11233,
@@ -371,7 +372,7 @@ func TestUtil(t *testing.T) {
 		t.Error("isDataEqual failed")
 	}
 
-	equal = isDataEuqal(map[string]*mvccpb.KeyValue{
+	equal = isDataEqual(map[string]*mvccpb.KeyValue{
 		"aaa": {
 			Key:     []byte("akey"),
 			Version: 11233,
@@ -439,6 +440,13 @@ func TestMutexAndOP(t *testing.T) {
 	err = c.DeletePrefix("akey")
 	if err != nil {
 		t.Errorf("DeletePrefix failed: %v", err)
+	}
+
+	err = c.STM(func(s concurrency.STM) error {
+		return nil
+	})
+	if err != nil {
+		t.Errorf("STM failed: %v", err)
 	}
 }
 

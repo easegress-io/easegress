@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"sort"
 	"testing"
-	"time"
 
 	"github.com/megaease/easegress/pkg/context/contexttest"
 	"github.com/megaease/easegress/pkg/object/serviceregistry"
@@ -313,124 +313,97 @@ func TestStaticServers(t *testing.T) {
 	}
 }
 
-func TestServers(t *testing.T) {
-	servers := []*Server{
+func TestDynamicService(t *testing.T) {
+	loadBalance := &LoadBalance{Policy: PolicyRandom}
+	configServers := []*Server{
 		{
-			URL:    "http://127.0.0.1:9090",
-			Tags:   []string{"d1", "v1", "green"},
-			Weight: 1,
-		},
-		{
-			URL:    "http://127.0.0.1:9091",
-			Tags:   []string{"v1", "d1", "green"},
-			Weight: 2,
-		},
-		{
-			URL:    "http://127.0.0.1:9092",
-			Tags:   []string{"green", "d1", "v1"},
-			Weight: 3,
-		},
-		{
-			URL:    "http://127.0.0.1:9093",
-			Tags:   []string{"v1"},
-			Weight: 4,
-		},
-		{
-			URL:    "http://127.0.0.1:9094",
-			Tags:   []string{"v1", "v3"},
-			Weight: 5,
+			URL:  "http://127.0.0.1:8888",
+			Tags: []string{"static"},
 		},
 	}
-	ps := &PoolSpec{
-		ServersTags:     []string{},
-		ServiceRegistry: "service registry",
-		ServiceName:     "service name",
-		Servers:         []*Server{},
+	s := &servers{
+		poolSpec: &PoolSpec{
+			LoadBalance: loadBalance,
+			Servers:     configServers,
+		},
 	}
 
-	ctx := &contexttest.MockedHTTPContext{}
+	s.useService(nil)
+	if !reflect.DeepEqual(s.static.servers, configServers) {
+		t.Fatalf("static servers want %+v, got %+v", configServers, s.static.servers)
+	}
 
-	s := newServers(ps)
-	if s.len() != 0 {
-		t.Errorf("servers.len() should be 0")
+	instances := []*serviceregistry.ServiceInstanceSpec{
+		{
+			RegistryName: "registry-test1",
+			ServiceName:  "service-test1",
+			InstanceID:   "instance-test1",
+			Address:      "127.0.0.1",
+			Port:         1111,
+		},
+		{
+			RegistryName: "registry-test1",
+			ServiceName:  "service-test1",
+			InstanceID:   "instance-test2",
+			Address:      "127.0.0.1",
+			Port:         2222,
+		},
+		{
+			RegistryName: "registry-test1",
+			ServiceName:  "service-test1",
+			InstanceID:   "instance-test3",
+			Address:      "127.0.0.1",
+			Port:         3333,
+		},
+		{
+			RegistryName: "registry-test1",
+			ServiceName:  "service-test1",
+			InstanceID:   "instance-test4",
+			Address:      "127.0.0.1",
+			Port:         4444,
+		},
+		{
+			RegistryName: "registry-test1",
+			ServiceName:  "service-test1",
+			InstanceID:   "instance-test5",
+			Address:      "127.0.0.1",
+			Port:         5555,
+		},
+		{
+			RegistryName: "registry-test1",
+			ServiceName:  "service-test1",
+			InstanceID:   "instance-test6",
+			Address:      "127.0.0.1",
+			Port:         6666,
+		},
 	}
-	s.close()
 
-	ps = &PoolSpec{
-		ServersTags:     []string{},
-		ServiceRegistry: "service registry",
-		ServiceName:     "service name",
-		Servers:         servers,
+	serviceInstanceSpecs := make(map[string]*serviceregistry.ServiceInstanceSpec)
+	for _, instance := range instances {
+		serviceInstanceSpecs[instance.Key()] = instance
 	}
-	s = newServers(ps)
-	if s.len() != len(servers) {
-		t.Errorf("servers.len() is not %d", len(servers))
-	}
-	for i := 0; i < len(servers); i++ {
-		if svr, e := s.next(ctx); e != nil || svr != servers[i] {
-			t.Errorf("ss.next() returns unexpected server")
-		}
-	}
-	s.close()
 
-	ps = &PoolSpec{
-		ServersTags:     []string{},
-		ServiceRegistry: "service registry",
-		Servers:         []*Server{},
-		ServiceName:     "testservice",
-	}
-	fnGetService.Store(func(serviceRegistry, serviceName string) (*serviceregistry.Service, error) {
-		return nil, fmt.Errorf("dummy error")
+	s.useService(serviceInstanceSpecs)
+	sort.Slice(s.static.servers, func(i, j int) bool {
+		return s.static.servers[i].URL < s.static.servers[j].URL
 	})
-	s = newServers(ps)
-	if s.len() != 0 {
-		t.Errorf("servers.len() should be 0")
-	}
-	s.close()
 
-	svcservers := []*serviceregistry.Server{
-		{
-			ServiceName: "testservice",
-			Hostname:    "server1",
-			HostIP:      "192.168.1.1",
-			Port:        80,
-		},
-		{
-			ServiceName: "testservice",
-			Hostname:    "server2",
-			HostIP:      "192.168.1.2",
-			Port:        80,
-		},
-		{
-			ServiceName: "testservice",
-			Hostname:    "server3",
-			HostIP:      "192.168.1.3",
-			Port:        80,
+	wantStatic := &staticServers{
+		lb: *loadBalance,
+		servers: []*Server{
+			{URL: "http://127.0.0.1:4444"},
+			{URL: "http://127.0.0.1:1111"},
+			{URL: "http://127.0.0.1:5555"},
+			{URL: "http://127.0.0.1:2222"},
+			{URL: "http://127.0.0.1:6666"},
+			{URL: "http://127.0.0.1:3333"},
 		},
 	}
-	service, _ := serviceregistry.NewService("testservice", svcservers)
-
-	fnGetService.Store(func(serviceRegistry, serviceName string) (*serviceregistry.Service, error) {
-		return service, nil
+	sort.Slice(wantStatic.servers, func(i, j int) bool {
+		return wantStatic.servers[i].URL < wantStatic.servers[j].URL
 	})
-	s = newServers(ps)
-	if s.len() != len(service.Servers()) {
-		t.Errorf("servers.len() is not %d", len(service.Servers()))
+
+	if !reflect.DeepEqual(wantStatic, s.static) {
+		t.Fatalf("want: %+v\ngot :%+v\n", wantStatic, s.static)
 	}
-
-	svcservers = append(svcservers, &serviceregistry.Server{
-		ServiceName: "testservice",
-		Hostname:    "server4",
-		HostIP:      "192.168.1.4",
-		Port:        80,
-	})
-	service.Update(svcservers)
-
-	time.Sleep(100 * time.Millisecond)
-	if s.len() != len(service.Servers()) {
-		t.Errorf("servers.len() is not %d", len(service.Servers()))
-	}
-
-	service.Close("close")
-	s.close()
 }

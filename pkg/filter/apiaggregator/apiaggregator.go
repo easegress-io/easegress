@@ -182,7 +182,7 @@ func (aa *APIAggregator) handle(ctx context.HTTPContext) (result string) {
 			return resultFailed
 		}
 		if err != io.EOF {
-			ctx.AddTag((fmt.Sprintf("apiAggregator: read request body failed: %v", err)))
+			ctx.AddTag(fmt.Sprintf("apiAggregator: read request body failed: %v", err))
 			ctx.Response().SetStatusCode(http.StatusBadRequest)
 			return resultFailed
 		}

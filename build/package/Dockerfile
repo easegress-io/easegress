@@ -1,4 +1,4 @@
-FROM golang:alpine AS builder
+FROM golang:1.16-alpine AS builder
 RUN apk --no-cache add make git
 
 WORKDIR /opt/easegress
@@ -8,7 +8,7 @@ RUN make clean && make build
 
 # ---
 
-FROM alpine:latest
+FROM alpine:3.13
 
 WORKDIR /opt/easegress
 

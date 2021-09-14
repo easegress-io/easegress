@@ -43,7 +43,7 @@ type (
 
 		// NewChild creates a child span.
 		NewChild(name string) Span
-		// NewChild creates a child span with start time.
+		// NewChildWithStart creates a child span with start time.
 		NewChildWithStart(name string, startAt time.Time) Span
 
 		// SetName changes the span name.

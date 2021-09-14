@@ -88,7 +88,7 @@ func (s *Syncer) watch(key string, prefix bool) (clientv3.Watcher, clientv3.Watc
 	return watcher, watchChan
 }
 
-func isDataEuqal(data1 map[string]*mvccpb.KeyValue, data2 map[string]*mvccpb.KeyValue) bool {
+func isDataEqual(data1 map[string]*mvccpb.KeyValue, data2 map[string]*mvccpb.KeyValue) bool {
 	if len(data1) != len(data2) {
 		return false
 	}
@@ -137,7 +137,7 @@ func (s *Syncer) run(key string, prefix bool, send func(data map[string]*mvccpb.
 			logger.Errorf("pull data for key %s (prefix: %v) failed: %v", key, prefix, err)
 			return
 		}
-		if !isDataEuqal(data, newData) {
+		if !isDataEqual(data, newData) {
 			data = newData
 			send(data)
 		}
