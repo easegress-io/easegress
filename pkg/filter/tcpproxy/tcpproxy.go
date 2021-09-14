@@ -6,8 +6,10 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"sync/atomic"
 
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/filter/proxy"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
 )
@@ -24,11 +26,13 @@ type (
 
 	Spec struct {
 		Servers []Server
+		lb      proxy.LoadBalance
 	}
 
 	TCPProxy struct {
 		filterSpec *httppipeline.FilterSpec // The filter spec in pipeline level, which has two more fiels: kind and name.
 		spec       *Spec                    // The filter spec in its own level.
+		count      uint64                   // used for roundrobin policy
 	}
 )
 
@@ -57,8 +61,10 @@ func (tp *TCPProxy) Results() []string { return nil }
 
 // Init initializes HeaderCounter.
 func (tp *TCPProxy) Init(filterSpec *httppipeline.FilterSpec) {
-	logger.Infof("Init with %v\n", filterSpec)
 	tp.filterSpec, tp.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
+	// set default loadbalance policy
+	tp.spec.lb.Policy = proxy.PolicyRoundRobin
+	tp.count = 0
 	tp.reload()
 }
 
@@ -70,13 +76,15 @@ func (tp *TCPProxy) Inherit(filterSpec *httppipeline.FilterSpec, prevGeneration 
 
 func (tp *TCPProxy) Handle(ctx context.HTTPContext) (result string) {
 	ss := tp.spec.Servers
-	urlObj, err := url.Parse(ss[0].URL)
+	seed := atomic.AddUint64(&tp.count, 1)
+	svr := ss[seed%uint64(len(ss))]
+	logger.Debugf("handled by %s\n", svr.URL)
+
+	urlObj, err := url.Parse(svr.URL)
 	if err != nil {
 		// TODO move to Validate()
 		panic(err)
 	}
-
-	logger.Infof("handled by %s\n", ss[0].URL)
 
 	defaultDialer := new(net.Dialer)
 	var dial = func(ctx stdctxt.Context, _, _ string) (net.Conn, error) {
