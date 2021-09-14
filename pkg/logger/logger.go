@@ -150,6 +150,10 @@ func initRestAPI(opt *option.Options) {
 }
 
 func newPlainLogger(opt *option.Options, filename string, maxCacheCount uint32) *zap.SugaredLogger {
+	if opt.DisableAccessLog {
+		return zap.NewNop().Sugar()
+	}
+
 	encoderConfig := zapcore.EncoderConfig{
 		TimeKey:       "",
 		LevelKey:      "",
