@@ -66,7 +66,7 @@ type (
 		MatchExpr string `yaml:"matchExpr" jsonschema:"required"`
 	}
 
-	// TopicMapper describes topic map between MQTT topic and Backend MQ topic
+	// Policy describes topic map between MQTT topic and Backend MQ topic
 	Policy struct {
 		Name       string         `yaml:"name" jsonschema:"required"`
 		TopicIndex int            `yaml:"topicIndex" jsonschema:"required"`
