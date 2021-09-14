@@ -24,6 +24,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegress/pkg/filter/circuitbreaker"
+	"github.com/megaease/easegress/pkg/filter/mock"
 	"github.com/megaease/easegress/pkg/filter/proxy"
 	"github.com/megaease/easegress/pkg/filter/ratelimiter"
 	"github.com/megaease/easegress/pkg/filter/retryer"
@@ -103,10 +104,20 @@ type (
 		RegisterTenant string `yaml:"registerTenant" jsonschema:"required"`
 
 		Sidecar       *Sidecar       `yaml:"sidecar" jsonschema:"required"`
+		Mock          *Mock          `yaml:"mock" jsonschema:"omitempty"`
 		Resilience    *Resilience    `yaml:"resilience" jsonschema:"omitempty"`
 		Canary        *Canary        `yaml:"canary" jsonschema:"omitempty"`
 		LoadBalance   *LoadBalance   `yaml:"loadBalance" jsonschema:"omitempty"`
 		Observability *Observability `yaml:"observability" jsonschema:"omitempty"`
+	}
+
+	// Mock is the spec of configured and static API responses for this service.
+	Mock struct {
+		// Enable is the mocking switch for this service.
+		Enabled bool `yaml:"enabled" jsonschema:"required"`
+
+		// Rules are the mocking matching and responding configurations.
+		Rules []*mock.Rule `yaml:"rules" jsonschema:"omitempty"`
 	}
 
 	// Resilience is the spec of service resilience.
@@ -359,6 +370,22 @@ func (b *pipelineSpecBuilder) appendRetryer(r *retryer.Spec) *pipelineSpecBuilde
 		"defaultPolicyRef": r.DefaultPolicyRef,
 		"urls":             r.URLs,
 	})
+	return b
+}
+
+func (b *pipelineSpecBuilder) appendMock(m []*mock.Rule) *pipelineSpecBuilder {
+	const name = "mock"
+	if len(m) == 0 {
+		return b
+	}
+
+	b.Flow = append(b.Flow, httppipeline.Flow{Filter: name})
+	b.Filters = append(b.Filters, map[string]interface{}{
+		"kind":  mock.Kind,
+		"name":  name,
+		"rules": m,
+	})
+
 	return b
 }
 
@@ -641,6 +668,15 @@ https: false
 	return superSpec, nil
 }
 
+// Runnable indicates this service is runnable inside mesh or not.
+//   e.g., If this is a mock service, there is not need to be deployed and run.
+func (s *Service) Runnable() bool {
+	if s.Mock != nil && s.Mock.Enabled {
+		return false
+	}
+	return true
+}
+
 // SideCarIngressPipelineSpec returns a spec for sidecar ingress pipeline
 func (s *Service) SideCarIngressPipelineSpec(applicationPort uint32) (*supervisor.Spec, error) {
 	mainServers := []*proxy.Server{
@@ -671,13 +707,17 @@ func (s *Service) SideCarIngressPipelineSpec(applicationPort uint32) (*superviso
 func (s *Service) SideCarEgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec) (*supervisor.Spec, error) {
 	pipelineSpecBuilder := newPipelineSpecBuilder(s.EgressPipelineName())
 
-	if s.Resilience != nil {
-		pipelineSpecBuilder.appendTimeLimiter(s.Resilience.TimeLimiter)
-		pipelineSpecBuilder.appendRetryer(s.Resilience.Retryer)
-		pipelineSpecBuilder.appendCircuitBreaker(s.Resilience.CircuitBreaker)
-	}
+	if !s.Runnable() {
+		pipelineSpecBuilder.appendMock(s.Mock.Rules)
+	} else {
+		if s.Resilience != nil {
+			pipelineSpecBuilder.appendTimeLimiter(s.Resilience.TimeLimiter)
+			pipelineSpecBuilder.appendRetryer(s.Resilience.Retryer)
+			pipelineSpecBuilder.appendCircuitBreaker(s.Resilience.CircuitBreaker)
+		}
 
-	pipelineSpecBuilder.appendProxyWithCanary(instanceSpecs, s.Canary, s.LoadBalance)
+		pipelineSpecBuilder.appendProxyWithCanary(instanceSpecs, s.Canary, s.LoadBalance)
+	}
 
 	yamlConfig := pipelineSpecBuilder.yamlConfig()
 	superSpec, err := supervisor.NewSpec(yamlConfig)

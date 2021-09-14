@@ -158,43 +158,53 @@ func New(superSpec *supervisor.Spec) *Worker {
 	return worker
 }
 
-func (worker *Worker) run() {
+func (worker *Worker) validate() error {
 	var err error
 	worker.heartbeatInterval, err = time.ParseDuration(worker.spec.HeartbeatInterval)
 	if err != nil {
 		logger.Errorf("BUG: parse heartbeat interval: %s failed: %v",
 			worker.spec.HeartbeatInterval, err)
-		return
+		return err
 	}
 
 	if len(worker.serviceName) == 0 {
-		logger.Errorf("mesh service name is empty")
-		return
+		errMsg := "empty service name"
+		logger.Errorf(errMsg)
+		return fmt.Errorf(errMsg)
 	}
-	logger.Infof("%s works for service %s", worker.serviceName)
 
 	_, err = url.ParseRequestURI(worker.aliveProbe)
 	if err != nil {
 		logger.Errorf("parse alive probe: %s to url failed: %v", worker.aliveProbe, err)
-		return
+		return err
 	}
 
 	if worker.applicationPort == 0 {
-		logger.Errorf("empty application port")
-		return
+		errMsg := "empty application port"
+		logger.Errorf(errMsg)
+		return fmt.Errorf(errMsg)
 	}
 
 	if len(worker.instanceID) == 0 {
-		logger.Errorf("empty env HOSTNAME")
-		return
+		errMsg := "empty env HOSTNAME"
+		logger.Errorf(errMsg)
+		return fmt.Errorf(errMsg)
 	}
 
 	if len(worker.applicationIP) == 0 {
-		logger.Errorf("empty env APPLICATION_IP")
+		errMsg := "empty env APPLICATION_IP"
+		logger.Errorf(errMsg)
+		return fmt.Errorf(errMsg)
+	}
+	logger.Infof("sidecar works for service: %s", worker.serviceName)
+	return nil
+}
+
+func (worker *Worker) run() {
+	if err := worker.validate(); err != nil {
 		return
 	}
-
-	startUpRoutine := func() {
+	startUpRoutine := func() bool {
 		defer func() {
 			if err := recover(); err != nil {
 				logger.Errorf("%s: recover from: %v, stack trace:\n%s\n",
@@ -203,6 +213,9 @@ func (worker *Worker) run() {
 		}()
 
 		serviceSpec, info := worker.service.GetServiceSpecWithInfo(worker.serviceName)
+		if serviceSpec == nil || !serviceSpec.Runnable() {
+			return false
+		}
 
 		err := worker.initTrafficGate()
 		if err != nil {
@@ -215,9 +228,14 @@ func (worker *Worker) run() {
 		if err != nil {
 			logger.Errorf("update service %s failed: %v", serviceSpec.Name, err)
 		}
+
+		return true
 	}
 
-	startUpRoutine()
+	if runnable := startUpRoutine(); !runnable {
+		logger.Errorf("service: %s is not runnable, check the service spec or ignore if mock is enable", worker.superSpec.Name())
+		return
+	}
 	go worker.heartbeat()
 	go worker.pushSpecToJavaAgent()
 }

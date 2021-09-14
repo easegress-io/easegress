@@ -45,6 +45,27 @@ type (
 )
 
 var (
+	mockMeta = &partMeta{
+		partName: "mock",
+		newPart: func() interface{} {
+			return &spec.Mock{}
+		},
+		partOf: func(serviceSpec *spec.Service) (interface{}, bool) {
+			return serviceSpec.Mock, serviceSpec.Mock != nil
+		},
+		setPart: func(serviceSpec *spec.Service, part interface{}) {
+			if part == nil {
+				serviceSpec.Mock = nil
+				return
+			}
+			serviceSpec.Mock = part.(*spec.Mock)
+		},
+		pbSt: v1alpha1.Mock{},
+		newPartPB: func() interface{} {
+			return &v1alpha1.Mock{}
+		},
+	}
+
 	canaryMeta = &partMeta{
 		partName: "canary",
 		newPart: func() interface{} {

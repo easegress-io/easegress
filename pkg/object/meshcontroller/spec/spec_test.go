@@ -18,11 +18,13 @@
 package spec
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"testing"
 
 	"github.com/megaease/easegress/pkg/filter/circuitbreaker"
+	"github.com/megaease/easegress/pkg/filter/mock"
 	"github.com/megaease/easegress/pkg/filter/proxy"
 	"github.com/megaease/easegress/pkg/filter/ratelimiter"
 	"github.com/megaease/easegress/pkg/filter/retryer"
@@ -30,6 +32,7 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	_ "github.com/megaease/easegress/pkg/object/httpserver"
 	"github.com/megaease/easegress/pkg/util/urlrule"
+	v1alpha1 "github.com/megaease/easemesh-api/v1alpha1"
 )
 
 func TestMain(m *testing.M) {
@@ -195,6 +198,77 @@ func TestSideCarEgressPipelineWithCanarySpec(t *testing.T) {
 
 	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs)
 	fmt.Println(superSpec.YAMLConfig())
+}
+
+func TestSideCarEgressPipelineSpecWithMock(t *testing.T) {
+	s := &Service{
+		Name: "order-004-mock-",
+		Sidecar: &Sidecar{
+			Address:         "127.0.0.1",
+			IngressPort:     8080,
+			IngressProtocol: "http",
+			EgressPort:      9090,
+			EgressProtocol:  "http",
+		},
+
+		Mock: &Mock{
+			Enabled: true,
+			Rules: []*mock.Rule{
+				{
+					Path:       "/abc",
+					PathPrefix: "/",
+					Code:       200,
+					Headers: map[string]string{
+						"mock-by-eg": "yes",
+					},
+					Body: "mock ok!",
+				},
+			},
+		},
+	}
+
+	if s.Runnable() != false {
+		t.Fatalf("service spec %+v should be not runnable", s)
+	}
+
+	instanceSpecs := []*ServiceInstanceSpec{}
+	superSpec, err := s.SideCarEgressPipelineSpec(instanceSpecs)
+	if err != nil {
+		t.Fatalf("mocking service failed: %v", err)
+	}
+	fmt.Println(superSpec.YAMLConfig())
+}
+
+func TestMockPBConvert(t *testing.T) {
+	pbSpec := &v1alpha1.Mock{
+		Enabled: true,
+		Rules: []*v1alpha1.MockRule{
+			{
+				Path:       "/",
+				PathPrefix: "/abc",
+				Code:       200,
+				Headers: map[string]string{
+					"mock-by-eg": "yes",
+				},
+				Body:  "mock ok",
+				Delay: "0.5s",
+			},
+		},
+	}
+
+	spec := &Mock{}
+	buf, err := json.Marshal(pbSpec)
+	if err != nil {
+		t.Fatalf("marshal %#v to json: %v", pbSpec, err)
+	}
+
+	err = json.Unmarshal(buf, spec)
+	if err != nil {
+		t.Fatalf("unmarshal %#v to spec: %v", spec, err)
+	}
+	for _, v := range spec.Rules {
+		fmt.Printf("mock spec :%+v", v)
+	}
 }
 
 func TestSideCarEgressPipelneNotLoadBalancer(t *testing.T) {
