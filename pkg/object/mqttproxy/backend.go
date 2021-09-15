@@ -27,7 +27,7 @@ import (
 
 type (
 	// BackendMQ is backend message queue for MQTT proxy
-	BackendMQ interface {
+	backendMQ interface {
 		publish(p *packets.PublishPacket) error
 		close()
 	}
@@ -49,7 +49,7 @@ const (
 	testMQType = "TestMQ"
 )
 
-func newBackendMQ(spec *Spec) BackendMQ {
+func newBackendMQ(spec *Spec) backendMQ {
 	switch spec.BackendType {
 	case kafkaType:
 		return newKafkaMQ(spec)

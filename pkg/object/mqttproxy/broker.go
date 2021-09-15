@@ -44,7 +44,7 @@ type (
 		spec   *Spec
 
 		listener   net.Listener
-		backend    BackendMQ
+		backend    backendMQ
 		clients    map[string]*Client
 		sha256Auth map[string]string
 		tlsCfg     *tls.Config
@@ -138,7 +138,6 @@ func (b *Broker) run() {
 			case <-b.done:
 				return
 			default:
-				logger.Errorf("mqtt.run: net listener accept failed, err:%s", err)
 			}
 		} else {
 			go b.handleConn(conn)
@@ -250,7 +249,7 @@ func (b *Broker) requestTransfer(egName, name string, data HTTPJsonData) {
 			logger.Errorf("mqtt.requestTransfer: http client send msg failed, err:%v", err)
 			return
 		}
-		defer resp.Body.Close()
+		resp.Body.Close()
 	}
 }
 
@@ -296,7 +295,7 @@ func (b *Broker) topicsPublishHandler(w http.ResponseWriter, r *http.Request) {
 		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("invalid json data from request body"))
 		return
 	}
-	if data.Qos < 0 || data.Qos > 2 {
+	if data.Qos < int(Qos0) || data.Qos > int(Qos2) {
 		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("qos of MQTT is 0, 1, 2, and choose 1 for most cases"))
 		return
 	}

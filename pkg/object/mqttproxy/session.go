@@ -60,7 +60,7 @@ type (
 	}
 )
 
-func getMsg(topic string, payload []byte, qos byte) *Message {
+func newMsg(topic string, payload []byte, qos byte) *Message {
 	m := &Message{
 		Topic:      topic,
 		B64Payload: base64.StdEncoding.EncodeToString(payload),
@@ -167,23 +167,24 @@ func (s *Session) getPacketFromMsg(topic string, payload []byte, qos byte) *pack
 
 func (s *Session) publish(topic string, payload []byte, qos byte) {
 	client := s.broker.getClient(s.info.ClientID)
+	if client == nil {
+		logger.Errorf("client %s is offline", s.info.ClientID)
+		return
+	}
+
 	s.Lock()
 	defer s.Unlock()
 
-	if client == nil {
-		logger.Errorf("client %s is offline", s.info.ClientID)
+	p := s.getPacketFromMsg(topic, payload, qos)
+	if qos == Qos0 {
+		go client.writePacket(p)
+	} else if qos == Qos1 {
+		msg := newMsg(topic, payload, qos)
+		s.pending[p.MessageID] = msg
+		s.pendingQueue = append(s.pendingQueue, p.MessageID)
+		go client.writePacket(p)
 	} else {
-		p := s.getPacketFromMsg(topic, payload, qos)
-		if qos == Qos0 {
-			go client.writePacket(p)
-		} else if qos == Qos1 {
-			msg := getMsg(topic, payload, qos)
-			s.pending[p.MessageID] = msg
-			s.pendingQueue = append(s.pendingQueue, p.MessageID)
-			go client.writePacket(p)
-		} else {
-			logger.Errorf("mqtt.publish: current not support to publish message with qos=2")
-		}
+		logger.Errorf("mqtt.publish: current not support to publish message with qos=2")
 	}
 }
 
@@ -234,12 +235,12 @@ func (s *Session) doResend() {
 
 func (s *Session) backgroundResendPending() {
 	for {
+		ticker := time.NewTicker(100 * time.Millisecond)
 		select {
 		case <-s.done:
 			return
-		default:
+		case <-ticker.C:
 			s.doResend()
 		}
-		time.Sleep(100 * time.Millisecond)
 	}
 }
