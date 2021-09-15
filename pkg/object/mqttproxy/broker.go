@@ -32,7 +32,6 @@ import (
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/function/storage"
 )
 
 type (
@@ -72,7 +71,7 @@ func sha256Sum(data []byte) string {
 	return hex.EncodeToString(sha256Bytes[:])
 }
 
-func newBroker(spec *Spec, store storage.Storage, memberURL func(string, string) ([]string, error)) *Broker {
+func newBroker(spec *Spec, store storage, memberURL func(string, string) ([]string, error)) *Broker {
 	broker := &Broker{
 		egName:     spec.EGName,
 		name:       spec.Name,

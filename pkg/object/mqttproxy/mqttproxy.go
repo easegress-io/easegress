@@ -22,7 +22,6 @@ import (
 
 	"github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/function/storage"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"gopkg.in/yaml.v2"
 )
@@ -101,7 +100,7 @@ func (mp *MQTTProxy) Init(superSpec *supervisor.Spec) {
 	spec.EGName = superSpec.Super().Options().Name
 	mp.superSpec, mp.spec = superSpec, spec
 
-	store := storage.NewStorage(superSpec.Name(), superSpec.Super().Cluster())
+	store := newStorage(superSpec.Super().Cluster())
 	mp.broker = newBroker(spec, store, memberURLFunc(superSpec))
 	if mp.broker != nil {
 		mp.broker.registerAPIs()

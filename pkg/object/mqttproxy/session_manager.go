@@ -21,7 +21,7 @@ import (
 	"sync"
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
-	"github.com/megaease/easegress/pkg/object/function/storage"
+	"github.com/megaease/easegress/pkg/logger"
 )
 
 type (
@@ -29,7 +29,7 @@ type (
 	SessionManager struct {
 		broker  *Broker
 		smap    sync.Map
-		store   storage.Storage
+		store   storage
 		storeCh chan SessionStore
 		done    chan struct{}
 	}
@@ -41,7 +41,7 @@ type (
 	}
 )
 
-func newSessionManager(b *Broker, store storage.Storage) *SessionManager {
+func newSessionManager(b *Broker, store storage) *SessionManager {
 	sm := &SessionManager{
 		broker:  b,
 		store:   store,
@@ -51,9 +51,7 @@ func newSessionManager(b *Broker, store storage.Storage) *SessionManager {
 	go sm.doStore()
 
 	// get store session and init sessMgr and topicMgr
-	store.Lock()
-	allSess, err := store.GetPrefix(sessionStoreKey(""))
-	store.Unlock()
+	allSess, err := store.getPrefix(sessionStoreKey(""))
 	if err != nil {
 		return sm
 	}
@@ -74,9 +72,10 @@ func (sm *SessionManager) doStore() {
 		case <-sm.done:
 			return
 		case kv := <-sm.storeCh:
-			sm.store.Lock()
-			sm.store.Put(sessionStoreKey(kv.key), kv.value)
-			sm.store.Unlock()
+			err := sm.store.put(sessionStoreKey(kv.key), kv.value)
+			if err != nil {
+				logger.Errorf("put session %v into storage failed, err: %v", kv.key, err)
+			}
 		}
 	}
 }
@@ -111,9 +110,7 @@ func (sm *SessionManager) get(clientID string) *Session {
 		return val.(*Session)
 	}
 
-	sm.store.Lock()
-	defer sm.store.Unlock()
-	str, err := sm.store.Get(sessionStoreKey(clientID))
+	str, err := sm.store.get(sessionStoreKey(clientID))
 	if err != nil || str == nil {
 		return nil
 	}
