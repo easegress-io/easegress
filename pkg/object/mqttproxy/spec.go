@@ -51,8 +51,8 @@ type (
 
 	// Auth describes username and password for MQTTProxy
 	Auth struct {
-		Username  string `yaml:"userName" jsonschema:"required"`
-		B64Passwd string `yaml:"passBase64" jsonschema:"required"`
+		UserName   string `yaml:"userName" jsonschema:"required"`
+		PassBase64 string `yaml:"passBase64" jsonschema:"required"`
 	}
 	// TopicMapper map MQTT multi-level topic to Kafka topic with headers
 	TopicMapper struct {

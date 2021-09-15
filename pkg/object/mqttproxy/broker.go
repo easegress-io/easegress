@@ -19,8 +19,10 @@ package mqttproxy
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"crypto/tls"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -41,11 +43,11 @@ type (
 		name   string
 		spec   *Spec
 
-		listener net.Listener
-		backend  BackendMQ
-		clients  map[string]*Client
-		auth     map[string]string
-		tlsCfg   *tls.Config
+		listener   net.Listener
+		backend    BackendMQ
+		clients    map[string]*Client
+		sha256Auth map[string]string
+		tlsCfg     *tls.Config
 
 		sessMgr   *SessionManager
 		topicMgr  *TopicManager
@@ -65,28 +67,40 @@ type (
 	}
 )
 
+func sha256Sum(data []byte) string {
+	sha256Bytes := sha256.Sum256(data)
+	return hex.EncodeToString(sha256Bytes[:])
+}
+
 func newBroker(spec *Spec, store storage.Storage, memberURL func(string, string) ([]string, error)) *Broker {
 	broker := &Broker{
-		egName:    spec.EGName,
-		name:      spec.Name,
-		spec:      spec,
-		backend:   newBackendMQ(spec),
-		clients:   make(map[string]*Client),
-		auth:      make(map[string]string),
-		memberURL: memberURL,
-		done:      make(chan struct{}),
+		egName:     spec.EGName,
+		name:       spec.Name,
+		spec:       spec,
+		backend:    newBackendMQ(spec),
+		clients:    make(map[string]*Client),
+		sha256Auth: make(map[string]string),
+		memberURL:  memberURL,
+		done:       make(chan struct{}),
 	}
-	broker.topicMgr = newTopicManager()
-	broker.sessMgr = newSessionManager(broker, store)
+
 	for _, a := range spec.Auth {
-		broker.auth[a.Username] = a.B64Passwd
+		passwd, err := base64.StdEncoding.DecodeString(a.PassBase64)
+		if err != nil {
+			logger.Errorf("auth with name <%v>, base64 password <%v> decode failed, err:%v", a.UserName, a.PassBase64, err)
+		} else {
+			broker.sha256Auth[a.UserName] = sha256Sum(passwd)
+		}
 	}
+
 	err := broker.setListener()
 	if err != nil {
 		logger.Errorf("mqtt.newBroker: broker set listener failed, err:%v", err)
 		return nil
 	}
 
+	broker.topicMgr = newTopicManager()
+	broker.sessMgr = newSessionManager(broker, store)
 	go broker.run()
 	return broker
 }
@@ -135,9 +149,9 @@ func (b *Broker) run() {
 func (b *Broker) checkClientAuth(connect *packets.ConnectPacket) bool {
 	cid := connect.ClientIdentifier
 	name := connect.Username
-	b64passwd := base64.StdEncoding.EncodeToString(connect.Password)
-	if authpasswd, ok := b.auth[name]; ok {
-		return (cid != "") && (b64passwd == authpasswd)
+	sha256Passwd := sha256Sum(connect.Password)
+	if authpasswd, ok := b.sha256Auth[name]; ok {
+		return (cid != "") && (sha256Passwd == authpasswd)
 	}
 	return false
 }
