@@ -17,7 +17,10 @@
 
 package stringtool
 
-import "strings"
+import (
+	"path/filepath"
+	"strings"
+)
 
 // Cat concatenates strings.
 // It is intended to used in the core executing path for performance optimization.
@@ -58,4 +61,9 @@ func DeleteStrInSlice(slice []string, str string) []string {
 	}
 
 	return result
+}
+
+// JoinWithSlash joins strings with slash.
+func JoinWithSlash(elem ...string) string {
+	return filepath.ToSlash(filepath.Join(elem...))
 }

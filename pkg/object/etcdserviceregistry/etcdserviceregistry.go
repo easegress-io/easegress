@@ -19,7 +19,6 @@ package eserviceregistry
 
 import (
 	"fmt"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -27,6 +26,7 @@ import (
 	"github.com/megaease/easegress/pkg/object/serviceregistry"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/contexttool"
+	"github.com/megaease/easegress/pkg/util/stringtool"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"gopkg.in/yaml.v2"
@@ -429,7 +429,7 @@ func (e *EtcdServiceRegistry) ListAllServiceInstances() (map[string]*serviceregi
 }
 
 func (e *EtcdServiceRegistry) serviceEtcdPrefix(serviceName string) string {
-	return filepath.Join(e.spec.Prefix, serviceName) + "/"
+	return stringtool.JoinWithSlash(e.spec.Prefix, serviceName) + "/"
 }
 
 func (e *EtcdServiceRegistry) serviceInstanceEtcdKey(instance *serviceregistry.ServiceInstanceSpec) string {
@@ -437,5 +437,5 @@ func (e *EtcdServiceRegistry) serviceInstanceEtcdKey(instance *serviceregistry.S
 }
 
 func (e *EtcdServiceRegistry) serviceInstanceEtcdKeyFromRaw(serviceName, instanceID string) string {
-	return filepath.Join(e.spec.Prefix, serviceName, instanceID)
+	return stringtool.JoinWithSlash(e.spec.Prefix, serviceName, instanceID)
 }

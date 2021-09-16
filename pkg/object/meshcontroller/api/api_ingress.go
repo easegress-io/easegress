@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"path/filepath"
 	"sort"
 
 	"github.com/go-chi/chi/v5"
@@ -30,6 +29,7 @@ import (
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
+	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
 type ingressesByOrder []*spec.Ingress
@@ -91,7 +91,7 @@ func (a *API) createIngress(w http.ResponseWriter, r *http.Request) {
 
 	a.service.PutIngressSpec(ingressSpec)
 
-	w.Header().Set("Location", filepath.Join(r.URL.Path, ingressSpec.Name))
+	w.Header().Set("Location", stringtool.JoinWithSlash(r.URL.Path, ingressSpec.Name))
 	w.WriteHeader(http.StatusCreated)
 }
 
