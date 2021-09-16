@@ -41,7 +41,7 @@ func Get(d time.Duration) *time.Timer {
 
 // Put pools the given timer.
 //
-// There is no need to call t.Stop() before calling Put.
+// There is no need to call t.stop() before calling Put.
 //
 // Put will try to stop the timer before pooling. If the
 // given timer already expired, Put will read the unreceived

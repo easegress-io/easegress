@@ -45,6 +45,7 @@ import (
 	_ "github.com/megaease/easegress/pkg/object/httppipeline"
 	_ "github.com/megaease/easegress/pkg/object/httpserver"
 	_ "github.com/megaease/easegress/pkg/object/ingresscontroller"
+	_ "github.com/megaease/easegress/pkg/object/layer4rawserver"
 	_ "github.com/megaease/easegress/pkg/object/meshcontroller"
 	_ "github.com/megaease/easegress/pkg/object/nacosserviceregistry"
 	_ "github.com/megaease/easegress/pkg/object/rawconfigtrafficcontroller"

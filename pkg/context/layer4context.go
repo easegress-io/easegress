@@ -166,19 +166,19 @@ func (ctx *layer4Context) AppendWriteBuffer(buffer iobufferpool.IoBuffer) {
 }
 
 // WriteToClient filter handle client upload data, send result to upstream connection
-func (ctx *layer4Context) WriteToClient(buffer iobufferpool.IoBuffer) error {
+func (ctx *layer4Context) WriteToClient(buffer iobufferpool.IoBuffer) {
 	if buffer == nil || buffer.Len() == 0 {
-		return nil
+		return
 	}
-	return ctx.upstreamConn.Write(buffer)
+	_ = ctx.upstreamConn.Write(buffer)
 }
 
 // WriteToUpstream filter handle client upload data, send result to upstream connection
-func (ctx *layer4Context) WriteToUpstream(buffer iobufferpool.IoBuffer) error {
+func (ctx *layer4Context) WriteToUpstream(buffer iobufferpool.IoBuffer) {
 	if buffer == nil || buffer.Len() == 0 {
-		return nil
+		return
 	}
-	return ctx.clientConn.Write(buffer)
+	_ = ctx.clientConn.Write(buffer)
 }
 
 func (ctx *layer4Context) CallNextHandler(lastResult string) string {

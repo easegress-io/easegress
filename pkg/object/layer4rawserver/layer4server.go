@@ -54,7 +54,6 @@ func (l4 *Layer4Server) Kind() string {
 // DefaultSpec returns the default spec of Layer4Server.
 func (l4 *Layer4Server) DefaultSpec() interface{} {
 	return &Spec{
-		BindPort:            true,
 		MaxConnections:      10240,
 		ProxyConnectTimeout: 15 * 1000,
 	}

@@ -38,29 +38,29 @@ type Connection struct {
 	closed     uint32
 	protocol   string
 	localAddr  net.Addr
-	remoteAddr net.Addr
-
-	readEnabled     bool
-	readEnabledChan chan bool // if we need to reload read filters, it's better to stop read data before reload filters
+	remoteAddr net.Addr // just for udp proxy use
 
 	lastBytesSizeRead  int64
 	lastWriteSizeWrite int64
-	readBuffer         iobufferpool.IoBuffer
-	writeBuffers       net.Buffers
-	ioBuffers          []iobufferpool.IoBuffer
-	writeBufferChan    chan *[]iobufferpool.IoBuffer
+	readEnabled        bool
+	readEnabledChan    chan bool // if we need to reload read filters, it's better to stop read data before reload filters
 
-	mu        sync.Mutex
-	startOnce sync.Once
-	stopChan  chan struct{}
+	readBuffer      iobufferpool.IoBuffer
+	writeBuffers    net.Buffers
+	ioBuffers       []iobufferpool.IoBuffer
+	writeBufferChan chan *[]iobufferpool.IoBuffer
 
-	onRead  func(buffer iobufferpool.IoBuffer)                        // execute read filters
-	onWrite func(src []iobufferpool.IoBuffer) []iobufferpool.IoBuffer // execute write filters
+	mu               sync.Mutex
+	startOnce        sync.Once
+	connStopChan     chan struct{} // use for connection close
+	listenerStopChan chan struct{} // use for listener close
+
+	onReadBuffer func(buffer iobufferpool.IoBuffer) // execute read filters
 }
 
 // NewClientConnection wrap connection create from client
-func NewClientConnection(conn net.Conn, remoteAddr net.Addr, stopChan chan struct{}) *Connection {
-	res := &Connection{
+func NewClientConnection(conn net.Conn, remoteAddr net.Addr, listenerStopChan chan struct{}, connStopChan chan struct{}) *Connection {
+	clientConn := &Connection{
 		conn:      conn,
 		connected: 1,
 		protocol:  conn.LocalAddr().Network(),
@@ -70,33 +70,43 @@ func NewClientConnection(conn net.Conn, remoteAddr net.Addr, stopChan chan struc
 		readEnabledChan: make(chan bool, 1),
 		writeBufferChan: make(chan *[]iobufferpool.IoBuffer, 8),
 
-		mu:       sync.Mutex{},
-		stopChan: stopChan,
+		mu:               sync.Mutex{},
+		connStopChan:     connStopChan,
+		listenerStopChan: listenerStopChan,
 	}
 
 	if remoteAddr != nil {
-		res.remoteAddr = remoteAddr
+		clientConn.remoteAddr = remoteAddr
 	} else {
-		res.remoteAddr = conn.RemoteAddr()
+		clientConn.remoteAddr = conn.RemoteAddr() // udp server conn can not get remote address
 	}
-	return res
+	return clientConn
 }
 
+// Protocol get connection protocol
 func (c *Connection) Protocol() string {
-	return c.conn.LocalAddr().Network()
+	return c.protocol
 }
 
+// LocalAddr get connection local addr
 func (c *Connection) LocalAddr() net.Addr {
 	return c.localAddr
 }
 
+// RemoteAddr get connection remote addr(it's nil for udp server conn)
 func (c *Connection) RemoteAddr() net.Addr {
 	return c.conn.RemoteAddr()
 }
 
+// SetOnRead set connection read handle
+func (c *Connection) SetOnRead(onRead func(buffer iobufferpool.IoBuffer)) {
+	c.onReadBuffer = onRead
+}
+
+// Start running connection read/write loop
 func (c *Connection) Start() {
 	if c.protocol == "udp" && c.conn.RemoteAddr() == nil {
-		return
+		return // udp server connection no need to start read/write loop
 	}
 
 	c.startOnce.Do(func() {
@@ -104,6 +114,7 @@ func (c *Connection) Start() {
 	})
 }
 
+// State get connection running state
 func (c *Connection) State() ConnState {
 	if atomic.LoadUint32(&c.closed) == 1 {
 		return ConnClosed
@@ -118,19 +129,19 @@ func (c *Connection) startRWLoop() {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				logger.Errorf("%s connection read loop crashed, local addr: %s, remote addr: %s, err: %+v",
-					c.protocol, c.localAddr.String(), c.remoteAddr.String(), r)
-			}
+				logger.Errorf("tcp connection read loop crashed, local addr: %s, remote addr: %s, err: %+v",
+					c.localAddr.String(), c.remoteAddr.String(), r)
 
-			go func() {
-				defer func() {
-					if r := recover(); r != nil {
-						logger.Errorf("%s connection close due to read loop crashed failed, local addr: %s, remote addr: %s, err: %+v",
-							c.protocol, c.localAddr.String(), c.remoteAddr.String(), r)
-					}
+				go func() {
+					defer func() {
+						if r := recover(); r != nil {
+							logger.Errorf("tcp connection close failed, local addr: %s, remote addr: %s, err: %+v",
+								c.localAddr.String(), c.remoteAddr.String(), r)
+						}
+					}()
+					_ = c.Close(NoFlush, LocalClose)
 				}()
-				_ = c.Close(NoFlush, LocalClose)
-			}()
+			}
 		}()
 		c.startReadLoop()
 	}()
@@ -138,19 +149,19 @@ func (c *Connection) startRWLoop() {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				logger.Errorf("%s connection write loop crashed, local addr: %s, remote addr: %s, err: %+v",
-					c.protocol, c.localAddr.String(), c.remoteAddr.String(), r)
-			}
+				logger.Errorf("tcp connection write loop crashed, local addr: %s, remote addr: %s, err: %+v",
+					c.localAddr.String(), c.remoteAddr.String(), r)
 
-			go func() {
-				defer func() {
-					if r := recover(); r != nil {
-						logger.Errorf("%s connection close due to write loop crashed failed, local addr: %s, remote addr: %s, err: %+v",
-							c.protocol, c.localAddr.String(), c.remoteAddr.String(), r)
-					}
+				go func() {
+					defer func() {
+						if r := recover(); r != nil {
+							logger.Errorf("tcp connection close failed, local addr: %s, remote addr: %s, err: %+v",
+								c.localAddr.String(), c.remoteAddr.String(), r)
+						}
+					}()
+					_ = c.Close(NoFlush, LocalClose)
 				}()
-				_ = c.Close(NoFlush, LocalClose)
-			}()
+			}
 		}()
 		c.startWriteLoop()
 	}()
@@ -159,7 +170,9 @@ func (c *Connection) startRWLoop() {
 func (c *Connection) startReadLoop() {
 	for {
 		select {
-		case <-c.stopChan:
+		case <-c.connStopChan:
+			return
+		case <-c.listenerStopChan:
 			return
 		case <-c.readEnabledChan:
 		default:
@@ -174,13 +187,13 @@ func (c *Connection) startReadLoop() {
 						continue
 					}
 
-					// normal close or health check, modify log level
+					// normal close or health check
 					if c.lastBytesSizeRead == 0 || err == io.EOF {
-						logger.Debugf("%s connection error on read, local addr: %s, remote addr: %s, err: %s",
-							c.protocol, c.localAddr.String(), c.remoteAddr.String(), err.Error())
+						logger.Debugf("tcp connection error on read, local addr: %s, remote addr: %s, err: %s",
+							c.localAddr.String(), c.remoteAddr.String(), err.Error())
 					} else {
-						logger.Errorf("%s connection error on read, local addr: %s, remote addr: %s, err: %s",
-							c.protocol, c.localAddr.String(), c.remoteAddr.String(), err.Error())
+						logger.Errorf("tcp connection error on read, local addr: %s, remote addr: %s, err: %s",
+							c.localAddr.String(), c.remoteAddr.String(), err.Error())
 					}
 
 					if err == io.EOF {
@@ -213,7 +226,7 @@ func (c *Connection) startWriteLoop() {
 	var err error
 	for {
 		select {
-		case <-c.stopChan:
+		case <-c.listenerStopChan:
 			return
 		case buf, ok := <-c.writeBufferChan:
 			if !ok {
@@ -303,7 +316,7 @@ func (c *Connection) Close(ccType CloseType, eventType Event) (err error) {
 	}
 
 	// close conn recv, then notify read/write loop to exit
-	close(c.stopChan)
+	close(c.listenerStopChan)
 	_ = c.conn.Close()
 
 	logger.Errorf("%s connection closed, local addr: %s, remote addr: %s",
@@ -349,15 +362,14 @@ func (c *Connection) doReadIO() (err error) {
 		return
 	}
 
-	if bufLen := c.readBuffer.Len(); bufLen == 0 {
+	if prevLen := c.readBuffer.Len(); prevLen == 0 {
 		return
 	} else {
-		buf := c.readBuffer.Clone()
-		c.readBuffer.Drain(bufLen)
-		c.onRead(buf)
+		c.onReadBuffer(c.readBuffer)
+		readBufLen := int64(prevLen - c.readBuffer.Len()) // calculate read buffer len
 
-		if int64(bufLen) != c.lastBytesSizeRead {
-			c.lastBytesSizeRead = int64(bufLen)
+		if readBufLen != c.lastBytesSizeRead {
+			c.lastBytesSizeRead = int64(prevLen)
 		}
 	}
 	return
@@ -436,11 +448,6 @@ func (c *Connection) Write(buffers ...iobufferpool.IoBuffer) (err error) {
 		}
 	}()
 
-	bufs := c.onWrite(buffers)
-	if bufs == nil {
-		return
-	}
-
 	select {
 	case c.writeBufferChan <- &buffers:
 		return
@@ -474,8 +481,7 @@ type UpstreamConnection struct {
 	connectOnce    sync.Once
 }
 
-func NewUpstreamConnection(connectTimeout time.Duration, remoteAddr net.Addr, stopChan chan struct{},
-	onRead func(buffer iobufferpool.IoBuffer), onWrite func(src []iobufferpool.IoBuffer) []iobufferpool.IoBuffer) *UpstreamConnection {
+func NewUpstreamConnection(connectTimeout time.Duration, remoteAddr net.Addr, stopChan chan struct{}) *UpstreamConnection {
 	res := &UpstreamConnection{
 		Connection: Connection{
 			connected:  1,
@@ -485,10 +491,8 @@ func NewUpstreamConnection(connectTimeout time.Duration, remoteAddr net.Addr, st
 			readEnabledChan: make(chan bool, 1),
 			writeBufferChan: make(chan *[]iobufferpool.IoBuffer, 8),
 
-			mu:       sync.Mutex{},
-			stopChan: stopChan,
-			onRead:   onRead,
-			onWrite:  onWrite,
+			mu:               sync.Mutex{},
+			listenerStopChan: stopChan,
 		},
 		connectTimeout: connectTimeout,
 	}
@@ -533,7 +537,7 @@ func (u *UpstreamConnection) Connect() (err error) {
 		}
 		logger.Debugf("connect upstream, upstream addr: %s, event: %+v, err: %+v", u.remoteAddr, event, err)
 		if event != Connected {
-			close(u.stopChan) // if upstream connection failed, close client connection
+			close(u.listenerStopChan) // if upstream connection failed, close client connection
 		}
 	})
 	return

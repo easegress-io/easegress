@@ -26,15 +26,14 @@ import (
 	"github.com/megaease/easegress/pkg/protocol"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/ipfilter"
-	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
 type (
-	Mux struct {
-		rules atomic.Value // *MuxRules
+	mux struct {
+		rules atomic.Value // *muxRules
 	}
 
-	MuxRules struct {
+	muxRules struct {
 		superSpec *supervisor.Spec
 		spec      *Spec
 
@@ -61,7 +60,6 @@ func newIPFilterChain(parentIPFilters *ipfilter.IPFilters, childSpec *ipfilter.S
 	if len(ipFilters.Filters()) == 0 {
 		return nil
 	}
-
 	return ipFilters
 }
 
@@ -73,12 +71,12 @@ func newIPFilter(spec *ipfilter.Spec) *ipfilter.IPFilter {
 	return ipfilter.New(spec)
 }
 
-func (mr *MuxRules) pass(ctx context.Layer4Context) bool {
+func (mr *muxRules) pass(ctx context.Layer4Context) bool {
 	if mr.ipFilter == nil {
 		return true
 	}
 
-	switch addr := ctx.RemoteAddr().(type) {
+	switch addr := ctx.ClientAddr().(type) {
 	case *net.UDPAddr:
 		return mr.ipFilter.Allow(addr.IP.String())
 	case *net.TCPAddr:
@@ -89,21 +87,20 @@ func (mr *MuxRules) pass(ctx context.Layer4Context) bool {
 	return false
 }
 
-func newMux(mapper protocol.Layer4MuxMapper) *Mux {
-	m := &Mux{}
+func newMux(mapper protocol.Layer4MuxMapper) *mux {
+	m := &mux{}
 
-	m.rules.Store(&MuxRules{
+	m.rules.Store(&muxRules{
 		spec:      &Spec{},
 		muxMapper: mapper,
 	})
-
 	return m
 }
 
-func (m *Mux) reloadRules(superSpec *supervisor.Spec, muxMapper protocol.Layer4MuxMapper) {
+func (m *mux) reloadRules(superSpec *supervisor.Spec, muxMapper protocol.Layer4MuxMapper) {
 	spec := superSpec.ObjectSpec().(*Spec)
 
-	rules := &MuxRules{
+	rules := &muxRules{
 		superSpec:    superSpec,
 		spec:         spec,
 		muxMapper:    muxMapper,
@@ -113,22 +110,21 @@ func (m *Mux) reloadRules(superSpec *supervisor.Spec, muxMapper protocol.Layer4M
 	m.rules.Store(rules)
 }
 
-func (m *Mux) handleIPNotAllow(ctx context.Layer4Context) {
-	ctx.AddTag(stringtool.Cat("ip ", ctx.RemoteAddr().String(), " not allow"))
-}
-
-func (m *Mux) AllowIP(ipStr string) bool {
-	rules := m.rules.Load().(*MuxRules)
+func (m *mux) AllowIP(ipStr string) bool {
+	rules := m.rules.Load().(*muxRules)
 	if rules == nil {
 		return true
 	}
 	return rules.ipFilter.Allow(ipStr)
 }
 
-func (m *Mux) GetHandler(name string) (protocol.Layer4Handler, bool) {
-	rules := m.rules.Load().(*MuxRules)
+func (m *mux) GetHandler(name string) (protocol.Layer4Handler, bool) {
+	rules := m.rules.Load().(*muxRules)
 	if rules == nil {
 		return nil, false
 	}
 	return rules.muxMapper.GetHandler(name)
+}
+
+func (m *mux) close() {
 }

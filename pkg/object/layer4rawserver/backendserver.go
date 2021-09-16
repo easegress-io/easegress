@@ -15,15 +15,13 @@
  * limitations under the License.
  */
 
-package layer4proxy
+package layer4rawserver
 
 import (
 	"fmt"
 	"math/rand"
-	"net"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
@@ -42,8 +40,6 @@ const (
 	PolicyWeightedRandom = "weightedRandom"
 	// PolicyIPHash is the policy of ip hash.
 	PolicyIPHash = "ipHash"
-
-	retryTimeout = 3 * time.Second
 )
 
 type (
@@ -79,15 +75,6 @@ type (
 	}
 )
 
-func (s *Server) String() string {
-	return fmt.Sprintf("%s,%v,%d", s.Addr, s.Tags, s.Weight)
-}
-
-// Validate validates LoadBalance.
-func (lb LoadBalance) Validate() error {
-	return nil
-}
-
 func newServers(super *supervisor.Supervisor, poolSpec *PoolSpec) *servers {
 	s := &servers{
 		poolSpec: poolSpec,
@@ -96,20 +83,21 @@ func newServers(super *supervisor.Supervisor, poolSpec *PoolSpec) *servers {
 	}
 
 	s.useStaticServers()
-
 	if poolSpec.ServiceRegistry == "" || poolSpec.ServiceName == "" {
 		return s
 	}
 
 	s.serviceRegistry = s.super.MustGetSystemController(serviceregistry.Kind).
 		Instance().(*serviceregistry.ServiceRegistry)
-
 	s.tryUseService()
 	s.serviceWatcher = s.serviceRegistry.NewServiceWatcher(s.poolSpec.ServiceRegistry, s.poolSpec.ServiceName)
 
 	go s.watchService()
-
 	return s
+}
+
+func (s *Server) String() string {
+	return fmt.Sprintf("%s,%v,%d", s.Addr, s.Tags, s.Weight)
 }
 
 func (s *servers) watchService() {
@@ -136,7 +124,6 @@ func (s *servers) tryUseService() {
 		s.useStaticServers()
 		return
 	}
-
 	s.useService(serviceInstanceSpecs)
 }
 
@@ -185,17 +172,14 @@ func (s *servers) snapshot() *staticServers {
 
 func (s *servers) len() int {
 	static := s.snapshot()
-
 	return static.len()
 }
 
 func (s *servers) next(ctx context.Layer4Context) (*Server, error) {
 	static := s.snapshot()
-
 	if static.len() == 0 {
 		return nil, fmt.Errorf("no server available")
 	}
-
 	return static.next(ctx), nil
 }
 
@@ -236,7 +220,6 @@ func newStaticServers(servers []*Server, tags []string, lb *LoadBalance) *static
 		}
 	}
 	ss.servers = chosenServers
-
 	return ss
 }
 
@@ -261,9 +244,7 @@ func (ss *staticServers) next(ctx context.Layer4Context) *Server {
 	case PolicyIPHash:
 		return ss.ipHash(ctx)
 	}
-
 	logger.Errorf("BUG: unknown load balance policy: %s", ss.lb.Policy)
-
 	return ss.roundRobin()
 }
 
@@ -294,8 +275,6 @@ func (ss *staticServers) weightedRandom() *Server {
 }
 
 func (ss *staticServers) ipHash(ctx context.Layer4Context) *Server {
-	addr := ctx.RemoteAddr().String()
-	host, _, _ := net.SplitHostPort(addr)
-	sum32 := int(hashtool.Hash32(host))
+	sum32 := int(hashtool.Hash32(ctx.ClientAddr().String()))
 	return ss.servers[sum32%len(ss.servers)]
 }
