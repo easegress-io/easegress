@@ -952,3 +952,75 @@ func TestWildCard(t *testing.T) {
 		t.Errorf("test wild card want:%v, got:%v\n", want, subscribers)
 	}
 }
+
+func TestTLSConfig(t *testing.T) {
+	spec := Spec{}
+	_, err := spec.tlsConfig()
+	if err == nil {
+		t.Errorf("no certificate, should return error")
+	}
+
+	spec = Spec{
+		Certificate: []Certificate{
+			{"fake", "fakeCert", "fakeKey"},
+		},
+	}
+	_, err = spec.tlsConfig()
+	if err == nil {
+		t.Errorf("no vallid certificate, should return error")
+	}
+
+	certPem := []byte(`
+-----BEGIN CERTIFICATE-----
+MIIBhTCCASugAwIBAgIQIRi6zePL6mKjOipn+dNuaTAKBggqhkjOPQQDAjASMRAw
+DgYDVQQKEwdBY21lIENvMB4XDTE3MTAyMDE5NDMwNloXDTE4MTAyMDE5NDMwNlow
+EjEQMA4GA1UEChMHQWNtZSBDbzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABD0d
+7VNhbWvZLWPuj/RtHFjvtJBEwOkhbN/BnnE8rnZR8+sbwnc/KhCk3FhnpHZnQz7B
+5aETbbIgmuvewdjvSBSjYzBhMA4GA1UdDwEB/wQEAwICpDATBgNVHSUEDDAKBggr
+BgEFBQcDATAPBgNVHRMBAf8EBTADAQH/MCkGA1UdEQQiMCCCDmxvY2FsaG9zdDo1
+NDUzgg4xMjcuMC4wLjE6NTQ1MzAKBggqhkjOPQQDAgNIADBFAiEA2zpJEPQyz6/l
+Wf86aX6PepsntZv2GYlA5UpabfT2EZICICpJ5h/iI+i341gBmLiAFQOyTDT+/wQc
+6MF9+Yw1Yy0t
+-----END CERTIFICATE-----
+`)
+	keyPem := []byte(`
+-----BEGIN EC PRIVATE KEY-----
+MHcCAQEEIIrYSSNQFaA2Hwf1duRSxKtLYX5CB04fSeQ6tF1aY/PuoAoGCCqGSM49
+AwEHoUQDQgAEPR3tU2Fta9ktY+6P9G0cWO+0kETA6SFs38GecTyudlHz6xvCdz8q
+EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
+-----END EC PRIVATE KEY-----
+`)
+	spec = Spec{
+		Certificate: []Certificate{
+			{"demo", string(certPem), string(keyPem)},
+		},
+	}
+	_, err = spec.tlsConfig()
+	if err != nil {
+		t.Errorf("should return nil for correct cert and key pair err:<%v>", err)
+	}
+}
+
+func TestSessMgr(t *testing.T) {
+	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
+	broker := getBroker("test", "test", b64passwd, 1883)
+	sessMgr := broker.sessMgr
+	sess := &Session{
+		storeCh: sessMgr.storeCh,
+		info: &SessionInfo{
+			EGName:    "testEg",
+			Name:      "mqttProxy",
+			Topics:    map[string]int{"a": 1, "b": 0},
+			ClientID:  "testClient",
+			CleanFlag: true,
+		},
+	}
+	sessStr, err := sess.encode()
+	if err != nil {
+		t.Errorf("session encode failed, err:%v", err)
+	}
+	newSess := sessMgr.newSessionFromYaml(&sessStr)
+	if !reflect.DeepEqual(sess.info, newSess.info) {
+		t.Errorf("sessMgr produce wrong session")
+	}
+}
