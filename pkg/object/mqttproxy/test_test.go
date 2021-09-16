@@ -1,0 +1,954 @@
+/*
+ * Copyright (c) 2017, MegaEase
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package mqttproxy
+
+import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"reflect"
+	"strconv"
+	"sync"
+	"testing"
+
+	paho "github.com/eclipse/paho.mqtt.golang"
+	"github.com/eclipse/paho.mqtt.golang/packets"
+	"github.com/megaease/easegress/pkg/logger"
+	"gopkg.in/yaml.v2"
+)
+
+func (t *testMQ) get() *packets.PublishPacket {
+	p := <-t.ch
+	return p
+}
+
+func init() {
+	logger.InitNop()
+}
+
+func getMQTTClient(t *testing.T, clientID, userName, password string, cleanSession bool) paho.Client {
+	opts := paho.NewClientOptions().AddBroker("tcp://0.0.0.0:1883").SetClientID(clientID).SetUsername(userName).SetPassword(password).SetCleanSession(cleanSession)
+	c := paho.NewClient(opts)
+	if token := c.Connect(); token.Wait() && token.Error() != nil {
+		t.Errorf("basic connect error for client <%s> with <%s>", clientID, token.Error())
+	}
+	return c
+}
+
+func getMQTTSubscribeHandler(ch chan CheckMsg) paho.MessageHandler {
+	handler := func(client paho.Client, message paho.Message) {
+		msg := CheckMsg{
+			topic:   message.Topic(),
+			payload: string(message.Payload()),
+			qos:     int(message.Qos()),
+		}
+		ch <- msg
+	}
+	return handler
+}
+
+func getBroker(name, userName, passBase64 string, port uint16) *Broker {
+	spec := &Spec{
+		Name:        name,
+		EGName:      name,
+		Port:        port,
+		BackendType: testMQType,
+		Auth: []Auth{
+			{UserName: userName, PassBase64: passBase64},
+		},
+	}
+	store := newStorage(nil)
+	broker := newBroker(spec, store, func(s, ss string) ([]string, error) {
+		m := map[string]string{
+			"test":  "http://localhost:8080/mqtt",
+			"test1": "http://localhost:8081/mqtt",
+		}
+		urls := []string{}
+		for k, v := range m {
+			if k != s {
+				urls = append(urls, v)
+			}
+		}
+		return urls, nil
+	})
+	return broker
+}
+
+func TestConnection(t *testing.T) {
+	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
+	broker := getBroker("test", "test", b64passwd, 1883)
+
+	c1 := getMQTTClient(t, "test", "test", "test", true)
+	c1.Disconnect(200)
+
+	o2 := paho.NewClientOptions().AddBroker("tcp://0.0.0.0:1883").SetClientID("test").SetUsername("fakeuser").SetPassword("fakepasswd")
+	c2 := paho.NewClient(o2)
+	if token := c2.Connect(); token.Wait() && token.Error() == nil {
+		t.Errorf("non auth user should fail%s", token.Error())
+	}
+	c2.Disconnect(200)
+
+	broker.close()
+}
+
+func TestPublish(t *testing.T) {
+	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
+	broker := getBroker("test", "test", b64passwd, 1883)
+
+	client := getMQTTClient(t, "test", "test", "test", true)
+
+	for i := 0; i < 5; i++ {
+		topic := "go-mqtt/sample"
+		text := fmt.Sprintf("qos0 msg #%d!", i)
+		token := client.Publish(topic, 0, false, text)
+		token.Wait()
+		p := broker.backend.(*testMQ).get()
+		if p.TopicName != topic || string(p.Payload) != text {
+			t.Errorf("get wrong publish")
+		}
+	}
+
+	for i := 0; i < 5; i++ {
+		topic := "go-mqtt/sample"
+		text := fmt.Sprintf("qos1 msg #%d!", i)
+		token := client.Publish(topic, 1, false, text)
+		token.Wait()
+		if token.Error() != nil {
+			t.Errorf("should support qos1")
+		}
+		p := broker.backend.(*testMQ).get()
+		if p.TopicName != topic || string(p.Payload) != text {
+			t.Errorf("get wrong publish")
+		}
+	}
+	client.Disconnect(200)
+
+	broker.close()
+}
+
+func TestSubUnsub(t *testing.T) {
+	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
+	broker := getBroker("test", "test", b64passwd, 1883)
+
+	client := getMQTTClient(t, "test", "test", "test", true)
+	if token := client.Subscribe("go-mqtt/qos0", 0, nil); token.Wait() && token.Error() != nil {
+		t.Errorf("subscribe qos0 error %s", token.Error())
+	}
+	if token := client.Subscribe("go-mqtt/qos1", 1, nil); token.Wait() && token.Error() != nil {
+		t.Errorf("subscribe qos1 error %s", token.Error())
+	}
+	if token := client.Unsubscribe("go-mqtt/sample"); token.Wait() && token.Error() != nil {
+		t.Errorf("subscribe qos1 error %s", token.Error())
+	}
+	client.Disconnect(200)
+	broker.close()
+}
+
+func TestMultiClientPublish(t *testing.T) {
+	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
+	broker := getBroker("test", "test", b64passwd, 1883)
+
+	var wg sync.WaitGroup
+
+	clientNum := 30
+	msgNum := 50
+	for i := 0; i < clientNum; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			cid := fmt.Sprintf("test_%d", i)
+			client := getMQTTClient(t, cid, "test", "test", true)
+			for j := 0; j < msgNum; j++ {
+				topic := cid
+				text := fmt.Sprintf("%d", j)
+				token := client.Publish(topic, 1, false, text)
+				token.Wait()
+				if token.Error() != nil {
+					t.Errorf("client <%d> publish failed, <%s>", i, token.Error())
+				}
+			}
+			client.Disconnect(200)
+		}(i)
+	}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		producer := broker.backend.(*testMQ)
+		ans := make(map[string]int)
+		for i := 0; i < clientNum*msgNum; i++ {
+			p := producer.get()
+			num, _ := strconv.Atoi(string(p.Payload))
+			if val, ok := ans[p.TopicName]; ok {
+				if num != val+1 {
+					t.Errorf("received publish not in order")
+				}
+				ans[p.TopicName] = num
+			} else {
+				if num != 0 {
+					t.Errorf("received publish not in order")
+				}
+				ans[p.TopicName] = num
+			}
+		}
+	}()
+
+	wg.Wait()
+	broker.close()
+}
+
+func TestSession(t *testing.T) {
+	name := "admin"
+	passwd := "passwd"
+	b64passwd := base64.StdEncoding.EncodeToString([]byte(passwd))
+	broker := getBroker("test", name, b64passwd, 1883)
+
+	client := getMQTTClient(t, "test", name, passwd, true)
+
+	// sub go-mqtt/qos0 and check
+	if token := client.Subscribe("go-mqtt/qos0", 0, nil); token.Wait() && token.Error() != nil {
+		t.Errorf("subscribe qos0 error %s", token.Error())
+	}
+	subs, qoss, _ := broker.sessMgr.get("test").allSubscribes()
+	if subs[0] != "go-mqtt/qos0" || qoss[0] != 0 {
+		t.Errorf("session error")
+	}
+
+	// sub go-mqtt/qos1 and check
+	if token := client.Subscribe("go-mqtt/qos1", 1, nil); token.Wait() && token.Error() != nil {
+		t.Errorf("subscribe qos1 error %s", token.Error())
+	}
+	subs, qoss, _ = broker.sessMgr.get("test").allSubscribes()
+	if len(subs) != 2 || len(qoss) != 2 {
+		t.Errorf("session error")
+	}
+
+	// unsub go-mqtt/qos0 and check
+	if token := client.Unsubscribe("go-mqtt/qos0"); token.Wait() && token.Error() != nil {
+		t.Errorf("subscribe qos1 error %s", token.Error())
+	}
+	subs, qoss, _ = broker.sessMgr.get("test").allSubscribes()
+	if subs[0] != "go-mqtt/qos1" || qoss[0] != 1 {
+		t.Errorf("session error")
+	}
+
+	client.Disconnect(200)
+	broker.close()
+}
+
+func TestSpec(t *testing.T) {
+	yamlStr := `
+    port: 1883
+    backendType: Kafka
+    auth:
+      - userName: test
+        passBase64: dGVzdA==
+      - userName: admin
+        passBase64: YWRtaW4=
+    topicMapper:
+      matchIndex: 0
+      route: 
+        - name: g2s
+          matchExpr: g2s
+        - name: d2s
+          matchExpr: d2s
+      policies:
+        - name: d2s
+          topicIndex: 1
+          route: 
+            - topic: to_cloud
+              exprs: ["bar", "foo"]
+            - topic: to_raw
+              exprs: [".*"] 
+          headers: 
+            0: d2s
+            1: type
+            2: device
+        - name: g2s
+          topicIndex: 4
+          route:
+            - topic: to_cloud
+              exprs: ["bar", "foo"]
+            - topic: to_raw
+              exprs: [".*"]
+          headers: 
+            0: g2s
+            1: gateway
+            2: info
+            3: device
+            4: type
+    kafkaBroker:
+      backend: ["123.123.123.123:9092", "234.234.234.234:9092"]
+    useTLS: true
+    certificate:
+      - name: cert1
+        cert: balabala
+        key: keyForbalabala
+      - name: cert2
+        cert: foo
+        key: bar
+`
+	got := Spec{}
+	err := yaml.Unmarshal([]byte(yamlStr), &got)
+	if err != nil {
+		t.Errorf("yaml unmarshal failed, err:%v", err)
+	}
+
+	want := Spec{
+		Port:        1883,
+		BackendType: "Kafka",
+		Auth: []Auth{
+			{"test", "dGVzdA=="},
+			{"admin", "YWRtaW4="},
+		},
+		TopicMapper: &TopicMapper{
+			MatchIndex: 0,
+			Route: []*PolicyRe{
+				{"g2s", "g2s"},
+				{"d2s", "d2s"},
+			},
+			Policies: []*Policy{
+				{
+					Name:       "d2s",
+					TopicIndex: 1,
+					Route: []TopicRe{
+						{"to_cloud", []string{"bar", "foo"}},
+						{"to_raw", []string{".*"}},
+					},
+					Headers: map[int]string{0: "d2s", 1: "type", 2: "device"},
+				},
+				{
+					Name:       "g2s",
+					TopicIndex: 4,
+					Route: []TopicRe{
+						{"to_cloud", []string{"bar", "foo"}},
+						{"to_raw", []string{".*"}},
+					},
+					Headers: map[int]string{0: "g2s", 1: "gateway", 2: "info", 3: "device", 4: "type"},
+				},
+			},
+		},
+		Kafka: &KafkaSpec{
+			Backend: []string{"123.123.123.123:9092", "234.234.234.234:9092"},
+		},
+		UseTLS: true,
+		Certificate: []Certificate{
+			{"cert1", "balabala", "keyForbalabala"},
+			{"cert2", "foo", "bar"},
+		},
+	}
+	if !reflect.DeepEqual(want, got) {
+		t.Errorf("got:<%#v>\n want:<%#v>\n", got, want)
+	}
+}
+
+func TestTopicMapper(t *testing.T) {
+	// /d2s/{tenant}/{device_type}/{things_id}/log/eventName
+	// /d2s/{tenant}/{device_type}/{things_id}/status
+	// /d2s/{tenant}/{device_type}/{things_id}/event
+	// /d2s/{tenant}/{device_type}/{things_id}/raw
+	// /g2s/{gwTenantId}/{gwInfoModelId}/{gwThingsId}/d2s/{tenantId}/{infoModelId}/{thingsId}/data
+	topicMapper := TopicMapper{
+		MatchIndex: 0,
+		Route: []*PolicyRe{
+			{"g2s", "g2s"},
+			{"d2s", "d2s"},
+		},
+		Policies: []*Policy{
+			{
+				Name:       "d2s",
+				TopicIndex: 4,
+				Route: []TopicRe{
+					{"to_cloud", []string{"log", "status", "event"}},
+					{"to_raw", []string{"raw"}},
+				},
+				Headers: map[int]string{
+					0: "d2s",
+					1: "tenant",
+					2: "device_type",
+					3: "things_id",
+					4: "event",
+					5: "eventName",
+				},
+			},
+			{
+				Name:       "g2s",
+				TopicIndex: 8,
+				Route: []TopicRe{
+					{"to_cloud", []string{"log", "status", "event", "data"}},
+					{"to_raw", []string{"raw"}},
+				},
+				Headers: map[int]string{
+					0: "g2s",
+					1: "gwTenantId",
+					2: "gwInfoModelId",
+					3: "gwThingsId",
+					4: "d2s",
+					5: "tenantId",
+					6: "infoModelId",
+					7: "thingsId",
+					8: "event",
+					9: "eventName",
+				},
+			},
+		},
+	}
+	mapFunc := getTopicMapFunc(&topicMapper)
+	tests := []struct {
+		mqttTopic string
+		topic     string
+		headers   map[string]string
+	}{
+		{
+			mqttTopic: "/d2s/abc/phone/123/log/error",
+			topic:     "to_cloud",
+			headers:   map[string]string{"d2s": "d2s", "tenant": "abc", "device_type": "phone", "things_id": "123", "event": "log", "eventName": "error"}},
+		{
+			mqttTopic: "/d2s/xyz/tv/234/status/shutdown",
+			topic:     "to_cloud",
+			headers:   map[string]string{"d2s": "d2s", "tenant": "xyz", "device_type": "tv", "things_id": "234", "event": "status", "eventName": "shutdown"}},
+		{
+			mqttTopic: "/d2s/opq/car/345/raw",
+			topic:     "to_raw",
+			headers:   map[string]string{"d2s": "d2s", "tenant": "opq", "device_type": "car", "things_id": "345", "event": "raw"}},
+		{
+			mqttTopic: "/g2s/gwTenantId/gwInfoModelId/gwThingsId/d2s/tenantId/infoModelId/thingsId/data",
+			topic:     "to_cloud",
+			headers: map[string]string{"g2s": "g2s", "gwTenantId": "gwTenantId", "gwInfoModelId": "gwInfoModelId", "gwThingsId": "gwThingsId",
+				"d2s": "d2s", "tenantId": "tenantId", "infoModelId": "infoModelId", "thingsId": "thingsId", "event": "data"}},
+		{
+			mqttTopic: "/g2s/gw123/gwInfo234/gwID345/d2s/456/654/123/raw",
+			topic:     "to_raw",
+			headers: map[string]string{"g2s": "g2s", "gwTenantId": "gw123", "gwInfoModelId": "gwInfo234", "gwThingsId": "gwID345",
+				"d2s": "d2s", "tenantId": "456", "infoModelId": "654", "thingsId": "123", "event": "raw"}},
+	}
+	for _, tt := range tests {
+		topic, headers, err := mapFunc(tt.mqttTopic)
+		if err != nil || topic != tt.topic || !reflect.DeepEqual(tt.headers, headers) {
+			if !reflect.DeepEqual(tt.headers, headers) {
+				fmt.Printf("headers not equal, <%v>, <%v>\n", tt.headers, headers)
+			}
+			t.Errorf("unexpected result from topic map function <%+v>, <%+v>, want:<%+v>, got:<%+v>\n\n\n\n", tt.mqttTopic, topic, tt.headers, headers)
+		}
+	}
+
+	_, _, err := mapFunc("/not-work")
+	if err == nil {
+		t.Errorf("map func should return err for not match topic")
+	}
+	mapFunc = getTopicMapFunc(nil)
+	if mapFunc != nil {
+		t.Errorf("nil mapFunc if TopicMapper is nil")
+	}
+}
+
+type CheckMsg struct {
+	topic   string
+	payload string
+	qos     int
+}
+
+func TestSendMsgBack(t *testing.T) {
+	clientNum := 30
+	msgNum := 200
+	subscribeCh := make(chan CheckMsg, 100)
+	var wg sync.WaitGroup
+
+	// make broker
+	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
+	broker := getBroker("test", "test", b64passwd, 1883)
+
+	// subscribe handler
+	handler := getMQTTSubscribeHandler(subscribeCh)
+	// make client and subscribe different topic
+	clients := []paho.Client{}
+	for i := 0; i < clientNum; i++ {
+		cid := fmt.Sprintf("test_%d", i)
+		c := getMQTTClient(t, cid, "test", "test", true)
+		if token := c.Subscribe(cid, 1, handler); token.Wait() && token.Error() != nil {
+			t.Errorf("subscribe qos1 error %s", token.Error())
+		}
+		clients = append(clients, c)
+	}
+
+	// publish msg and send msg back
+	for i := 0; i < clientNum; i++ {
+		wg.Add(2)
+		go func(c paho.Client) {
+			defer wg.Done()
+			r := c.OptionsReader()
+			for j := 0; j < msgNum; j++ {
+				topic := r.ClientID()
+				text := fmt.Sprintf("%d", j)
+				token := c.Publish(topic, 1, false, text)
+				token.Wait()
+				if token.Error() != nil {
+					t.Errorf("client <%d> publish failed, <%s>", i, token.Error())
+				}
+			}
+		}(clients[i])
+
+		go func(c paho.Client) {
+			defer wg.Done()
+			r := c.OptionsReader()
+			for j := 0; j < msgNum; j++ {
+				topic := r.ClientID()
+				text := fmt.Sprintf("sub %d", j)
+				broker.sendMsgToClient(topic, []byte(text), Qos1)
+			}
+		}(clients[i])
+	}
+
+	wg.Add(2)
+
+	// receive msg
+	go func() {
+		defer wg.Done()
+		producer := broker.backend.(*testMQ)
+		ans := make(map[string]int)
+		for i := 0; i < clientNum*msgNum; i++ {
+			p := producer.get()
+			num, _ := strconv.Atoi(string(p.Payload))
+			if val, ok := ans[p.TopicName]; ok {
+				if num != val+1 {
+					t.Errorf("received publish not in order")
+				}
+				ans[p.TopicName] = num
+			} else {
+				if num != 0 {
+					t.Errorf("received publish not in order")
+				}
+				ans[p.TopicName] = num
+			}
+		}
+	}()
+
+	// check get enough msg, there may be resend
+	checkAns := func(ans map[string]map[string]struct{}) bool {
+		if len(ans) < clientNum {
+			return false
+		}
+		for _, v := range ans {
+			if len(v) < msgNum {
+				return false
+			}
+		}
+		return true
+	}
+
+	// receive subscribes
+	go func() {
+		defer wg.Done()
+		ans := make(map[string]map[string]struct{})
+
+		for {
+			if checkAns(ans) {
+				break
+			}
+			msg := <-subscribeCh
+			if _, ok := ans[msg.topic]; ok {
+				ans[msg.topic][msg.payload] = struct{}{}
+			} else {
+				ans[msg.topic] = make(map[string]struct{})
+				ans[msg.topic][msg.payload] = struct{}{}
+			}
+		}
+
+		for _, v := range ans {
+			if len(v) != msgNum {
+				t.Errorf("not receive right number of msg")
+			}
+		}
+	}()
+
+	// close
+	wg.Wait()
+
+	done := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			case <-subscribeCh:
+			}
+		}
+	}()
+
+	broker.close()
+	for _, c := range clients {
+		c.Disconnect(200)
+	}
+	close(done)
+
+}
+
+func TestYamlEncodeDecode(t *testing.T) {
+	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
+	broker := getBroker("test", "test", b64passwd, 1883)
+
+	// old session
+	s := &Session{
+		broker: broker,
+		info: &SessionInfo{
+			Topics:    map[string]int{"abc": 1, "def": 2},
+			ClientID:  "test",
+			CleanFlag: true,
+		},
+	}
+	str, err := s.encode()
+	if err != nil {
+		t.Errorf("%s", err.Error())
+	}
+
+	// new session
+	newS := Session{
+		info: &SessionInfo{},
+	}
+	if err := newS.decode(str); err != nil {
+		t.Errorf("yaml Decode error")
+	}
+
+	if !reflect.DeepEqual(newS.info.Topics, s.info.Topics) || newS.info.ClientID != s.info.ClientID || newS.info.CleanFlag != s.info.CleanFlag {
+		t.Errorf("yaml encode decode error")
+	}
+	broker.close()
+}
+
+type testServer struct {
+	mux *http.ServeMux
+	srv http.Server
+}
+
+func newServer(addr string) *testServer {
+	mux := http.NewServeMux()
+	srv := http.Server{Addr: addr, Handler: mux}
+	ts := &testServer{
+		mux: mux,
+		srv: srv,
+	}
+	return ts
+}
+
+func (ts *testServer) addHandlerFunc(pattern string, f http.HandlerFunc) {
+	ts.mux.HandleFunc(pattern, f)
+}
+
+func (ts *testServer) start() {
+	go ts.srv.ListenAndServe()
+}
+
+func (ts *testServer) shutdown() {
+	ts.srv.Shutdown(context.Background())
+}
+
+func topicsPublish(t *testing.T, data HTTPJsonData) int {
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		t.Errorf("json marshal error")
+	}
+	req, err := http.NewRequest("POST", "http://localhost:8080/mqtt", bytes.NewBuffer(jsonData))
+	if err != nil {
+		t.Errorf("request mqtt error")
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Errorf("mqtt client do error, %s", err.Error())
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode
+}
+
+func TestHTTPRequest(t *testing.T) {
+	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
+	broker := getBroker("test", "test", b64passwd, 1883)
+
+	srv := newServer(":8080")
+	srv.addHandlerFunc("/mqtt", broker.topicsPublishHandler)
+	srv.start()
+
+	// GET request should fail
+	req, _ := http.NewRequest("GET", "http://localhost:8080/mqtt", nil)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Errorf("client do req error %s", err)
+	}
+	if resp.StatusCode == http.StatusOK {
+		t.Errorf("http GET should fail, only POST permitted")
+	}
+	resp.Body.Close()
+
+	// non json data should fail
+	req, err = http.NewRequest("POST", "http://localhost:8080/mqtt", bytes.NewBuffer([]byte("non json")))
+	if err != nil {
+		t.Errorf("request mqtt error")
+	}
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Errorf("mqtt client do error")
+	}
+	if resp.StatusCode == http.StatusOK {
+		t.Errorf("http post should put json data")
+	}
+	resp.Body.Close()
+
+	// err qos should fail
+	data := HTTPJsonData{
+		Topic:   "topic",
+		Qos:     10,
+		Payload: "data",
+		Base64:  false,
+	}
+	statusCode := topicsPublish(t, data)
+	if statusCode == http.StatusOK {
+		t.Errorf("qos must be 0 or 1 or 2")
+	}
+
+	// base64 flag
+	data = HTTPJsonData{
+		Topic:   "topic",
+		Qos:     10,
+		Payload: "data",
+		Base64:  true,
+	}
+	statusCode = topicsPublish(t, data)
+	if statusCode == http.StatusOK {
+		t.Errorf("not use base64 but set base64 true")
+	}
+
+	// success
+	data = HTTPJsonData{
+		Topic:   "topic",
+		Qos:     1,
+		Payload: "data",
+		Base64:  false,
+	}
+	statusCode = topicsPublish(t, data)
+	if statusCode != http.StatusOK {
+		t.Errorf("request should success")
+	}
+	data = HTTPJsonData{
+		Topic:   "topic",
+		Qos:     1,
+		Payload: base64.StdEncoding.EncodeToString([]byte("data")),
+		Base64:  true,
+	}
+	statusCode = topicsPublish(t, data)
+	if statusCode != http.StatusOK {
+		t.Errorf("request should success")
+	}
+
+	broker.close()
+	srv.shutdown()
+}
+
+func TestHTTPPublish(t *testing.T) {
+	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
+	broker := getBroker("test", "test", b64passwd, 1883)
+
+	srv := newServer(":8080")
+	srv.addHandlerFunc("/mqtt", broker.topicsPublishHandler)
+	srv.start()
+
+	subscribeCh := make(chan CheckMsg)
+	handler := getMQTTSubscribeHandler(subscribeCh)
+	client := getMQTTClient(t, "test", "test", "test", true)
+	if token := client.Subscribe("test", 1, handler); token.Wait() && token.Error() != nil {
+		t.Errorf("subscribe qos1 error %s", token.Error())
+	}
+
+	numMsg := 200
+	go func() {
+		for i := 0; i < numMsg; i++ {
+			data := HTTPJsonData{
+				Topic:   "test",
+				Qos:     1,
+				Payload: base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%d", i))),
+				Base64:  true,
+			}
+			go func(data HTTPJsonData) {
+				code := topicsPublish(t, data)
+				if code != http.StatusOK {
+					t.Errorf("wrong status code return")
+				}
+			}(data)
+		}
+
+	}()
+
+	ans := map[string]struct{}{}
+	for len(ans) < numMsg {
+		msg := <-subscribeCh
+		if msg.topic != "test" {
+			t.Errorf("wrong topic received")
+		}
+		ans[msg.payload] = struct{}{}
+	}
+
+	done := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			case <-subscribeCh:
+			}
+		}
+	}()
+
+	client.Disconnect(200)
+	broker.close()
+	srv.shutdown()
+	close(done)
+}
+
+func TestHTTPTransfer(t *testing.T) {
+	passBase64 := base64.StdEncoding.EncodeToString([]byte("test"))
+	broker0 := getBroker("test", "test", passBase64, 1883)
+	srv0 := newServer(":8080")
+	srv0.addHandlerFunc("/mqtt", broker0.topicsPublishHandler)
+	srv0.start()
+
+	spec := &Spec{
+		Name:        "test1",
+		EGName:      "test1",
+		Port:        1884,
+		BackendType: testMQType,
+		Auth: []Auth{
+			{UserName: "test", PassBase64: passBase64},
+		},
+	}
+	store := broker0.sessMgr.store
+	broker1 := newBroker(spec, store, func(s, ss string) ([]string, error) {
+		m := map[string]string{
+			"test":  "http://localhost:8080/mqtt",
+			"test1": "http://localhost:8081/mqtt",
+		}
+		urls := []string{}
+		for k, v := range m {
+			if k != s {
+				urls = append(urls, v)
+			}
+		}
+		return urls, nil
+	})
+	srv1 := newServer(":8081")
+	srv1.addHandlerFunc("/mqtt", broker1.topicsPublishHandler)
+	srv1.start()
+
+	// auto connect to broker0, not broker1
+	ch := make(chan CheckMsg)
+	handler := getMQTTSubscribeHandler(ch)
+	mqttClient := getMQTTClient(t, "client", "test", "test", true)
+	if token := mqttClient.Subscribe("client", 1, handler); token.Wait() && token.Error() != nil {
+		t.Errorf("subscribe qos1 error %s", token.Error())
+	}
+
+	// set data to broker1
+	data := HTTPJsonData{
+		Topic:   "client",
+		Qos:     1,
+		Payload: "data",
+		Base64:  false,
+	}
+	jsonData, _ := json.Marshal(data)
+	req, _ := http.NewRequest("POST", "http://localhost:8081/mqtt", bytes.NewBuffer(jsonData))
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Errorf("mqtt client do error")
+	}
+	defer resp.Body.Close()
+
+	// get data from client who connect to broker0
+	msg := <-ch
+	if msg.topic != "client" || msg.payload != "data" {
+		t.Errorf("wrong msg")
+	}
+	go func() {
+		msg = <-ch
+		t.Errorf("receive data again, may transfer data for multi times")
+	}()
+
+	broker0.close()
+	broker1.close()
+	srv0.shutdown()
+	srv1.shutdown()
+
+	go func() {
+		for {
+			<-ch
+		}
+	}()
+	mqttClient.Disconnect(200)
+}
+
+func TestValidTopic(t *testing.T) {
+	tests := []struct {
+		topic string
+		ans   bool
+	}{
+		{"#", true},
+		{"#/a", false},
+		{"a#", false},
+		{"/#/a", false},
+		{"a/b/#", true},
+		{"#+", false},
+		{"/+/a/+/b/+/c", true},
+		{"/+/++/+a", false},
+		{"/a/b/c/d", true},
+		{"a/+/b/#", true},
+		{"/a/b/c/d/+/d/#", true},
+	}
+	for _, tt := range tests {
+		ans := validTopic(tt.topic)
+		if ans != tt.ans {
+			t.Errorf("topic:<%s>, got:%v, wanted:%v", tt.topic, ans, tt.ans)
+		}
+	}
+}
+
+func TestWildCard(t *testing.T) {
+	mgr := newTopicManager()
+	mgr.subscribe([]string{"a/+", "b/d"}, []byte{0, 1}, "A")
+	mgr.subscribe([]string{"+/+"}, []byte{1}, "B")
+	mgr.subscribe([]string{"+/fin"}, []byte{1}, "C")
+	mgr.subscribe([]string{"a/fin"}, []byte{1}, "D")
+	mgr.subscribe([]string{"#"}, []byte{2}, "E")
+	mgr.subscribe([]string{"a/#"}, []byte{2}, "F")
+
+	subscribers, _ := mgr.findSubscribers("a/fin")
+	want := map[string]byte{"A": 0, "B": 1, "C": 1, "D": 1, "E": 2, "F": 2}
+	if !reflect.DeepEqual(subscribers, want) {
+		t.Errorf("test wild card want:%v, got:%v\n", want, subscribers)
+	}
+
+	subscribers, _ = mgr.findSubscribers("b/d")
+	want = map[string]byte{"A": 1, "B": 1, "E": 2}
+	if !reflect.DeepEqual(subscribers, want) {
+		t.Errorf("test wild card want:%v, got:%v\n", want, subscribers)
+	}
+
+	subscribers, _ = mgr.findSubscribers("b/d/f")
+	want = map[string]byte{"E": 2}
+	if !reflect.DeepEqual(subscribers, want) {
+		t.Errorf("test wild card want:%v, got:%v\n", want, subscribers)
+	}
+}
