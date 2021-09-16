@@ -32,6 +32,7 @@ import (
 	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/supervisor"
 	"gopkg.in/yaml.v2"
 )
 
@@ -457,6 +458,96 @@ func TestTopicMapper(t *testing.T) {
 	mapFunc = getTopicMapFunc(nil)
 	if mapFunc != nil {
 		t.Errorf("nil mapFunc if TopicMapper is nil")
+	}
+
+	fakeMapper := TopicMapper{
+		MatchIndex: 0,
+		Route: []*PolicyRe{
+			{"fake", "]["},
+		},
+	}
+	getTopicMapFunc(&fakeMapper)
+	fakeMapper = TopicMapper{
+		MatchIndex: 0,
+		Route: []*PolicyRe{
+			{"demo", "demo"},
+		},
+		Policies: []*Policy{
+			{
+				Name:       "demo",
+				TopicIndex: 1,
+				Route: []TopicRe{
+					{"topic", []string{"]["}},
+				},
+				Headers: map[int]string{1: "topic"},
+			},
+		},
+	}
+	getTopicMapFunc(&fakeMapper)
+}
+
+func TestTopicMapper2(t *testing.T) {
+	// nothing/d2s/{tenant}/{device_type}/{things_id}/log/eventName
+	// nothing/d2s/{tenant}/{device_type}/{things_id}/status
+	// nothing/d2s/{tenant}/{device_type}/{things_id}/event
+	// nothing/d2s/{tenant}/{device_type}/{things_id}/raw
+	// nothing/g2s/{gwTenantId}/{gwInfoModelId}/{gwThingsId}/d2s/{tenantId}/{infoModelId}/{thingsId}/data
+	topicMapper := TopicMapper{
+		MatchIndex: 1,
+		Route: []*PolicyRe{
+			{"g2s", "g2s"},
+			{"d2s", "d2s"},
+		},
+		Policies: []*Policy{
+			{
+				Name:       "d2s",
+				TopicIndex: 5,
+				Route: []TopicRe{
+					{"to_cloud", []string{"log", "status", "event"}},
+					{"to_raw", []string{"raw"}},
+				},
+				Headers: map[int]string{
+					1: "d2s",
+					2: "tenant",
+					3: "device_type",
+					4: "things_id",
+					5: "event",
+				},
+			},
+			{
+				Name:       "g2s",
+				TopicIndex: 9,
+				Route: []TopicRe{
+					{"to_cloud", []string{"log", "status", "event", "data"}},
+					{"to_raw", []string{"raw"}},
+				},
+				Headers: map[int]string{
+					1: "g2s",
+					2: "gwTenantId",
+					3: "gwInfoModelId",
+					4: "gwThingsId",
+					5: "d2s",
+					6: "tenantId",
+					7: "infoModelId",
+					8: "thingsId",
+					9: "event",
+				},
+			},
+		},
+	}
+	mapFunc := getTopicMapFunc(&topicMapper)
+
+	_, _, err := mapFunc("/level0")
+	if err == nil {
+		t.Errorf("map func should return err for not match topic")
+	}
+	_, _, err = mapFunc("nothing/g2s")
+	if err == nil {
+		t.Errorf("map func should return err for not match topic")
+	}
+	_, _, err = mapFunc("nothing/d2s/tenant/device_type/things_id/notexist")
+	if err == nil {
+		t.Errorf("map func should return err for not match topic")
 	}
 }
 
@@ -951,6 +1042,19 @@ func TestWildCard(t *testing.T) {
 	if !reflect.DeepEqual(subscribers, want) {
 		t.Errorf("test wild card want:%v, got:%v\n", want, subscribers)
 	}
+
+	err := mgr.subscribe([]string{"++", "##"}, []byte{0, 1}, "A")
+	if err == nil {
+		t.Errorf("subscribe invalid topic should return error")
+	}
+	err = mgr.unsubscribe([]string{"++", "##", "/a/b/++"}, "A")
+	if err == nil {
+		t.Errorf("unsubscribe invalid topic should return error")
+	}
+	_, err = mgr.findSubscribers("##")
+	if err == nil {
+		t.Errorf("find subscribers for invalid topic should return error")
+	}
 }
 
 func TestTLSConfig(t *testing.T) {
@@ -1023,4 +1127,15 @@ func TestSessMgr(t *testing.T) {
 	if !reflect.DeepEqual(sess.info, newSess.info) {
 		t.Errorf("sessMgr produce wrong session")
 	}
+}
+
+func TestMQTTProxy(t *testing.T) {
+	mp := MQTTProxy{}
+	if !reflect.DeepEqual(mp.Status(), &supervisor.Status{}) {
+		t.Errorf("mqtt proxy return wrong status %v %v", mp.Status(), supervisor.Status{})
+	}
+	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
+	broker := getBroker("test", "test", b64passwd, 1883)
+	mp.broker = broker
+	mp.Close()
 }

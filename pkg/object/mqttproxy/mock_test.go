@@ -103,3 +103,18 @@ func TestStorage(t *testing.T) {
 		t.Errorf("get wrong prefix val")
 	}
 }
+
+func TestMockStorage(t *testing.T) {
+	store := newStorage(nil)
+	store.put("key1", "val1")
+	store.put("key2", "val2")
+	store.put("key3", "val3")
+	val, err := store.get("key1")
+	if err != nil || *val != "val1" {
+		t.Errorf("mock storage get return wrong value")
+	}
+	valMap, err := store.getPrefix("key")
+	if err != nil || !reflect.DeepEqual(valMap, map[string]string{"key1": "val1", "key2": "val2", "key3": "val3"}) {
+		t.Errorf("mock storage get prefix return wrong value %v %v", valMap, map[string]string{"key1": "val1", "key2": "val2", "key3": "val3"})
+	}
+}
