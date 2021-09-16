@@ -69,7 +69,7 @@ type (
 func newClient(connect *packets.ConnectPacket, broker *Broker, conn net.Conn) *Client {
 	var will *packets.PublishPacket
 	if connect.WillFlag {
-		will := packets.NewControlPacket(packets.Publish).(*packets.PublishPacket)
+		will = packets.NewControlPacket(packets.Publish).(*packets.PublishPacket)
 		will.Qos = connect.WillQos
 		will.TopicName = connect.WillTopic
 		will.Retain = connect.WillRetain

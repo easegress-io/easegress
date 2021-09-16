@@ -23,6 +23,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net"
 	"net/http"
 	"reflect"
 	"strconv"
@@ -685,7 +687,7 @@ func TestSendMsgBack(t *testing.T) {
 
 	broker.close()
 	for _, c := range clients {
-		c.Disconnect(200)
+		go c.Disconnect(200)
 	}
 	close(done)
 
@@ -1125,5 +1127,61 @@ func TestSessMgr(t *testing.T) {
 	newSess := sessMgr.newSessionFromYaml(&sessStr)
 	if !reflect.DeepEqual(sess.info, newSess.info) {
 		t.Errorf("sessMgr produce wrong session")
+	}
+}
+
+func TestClient(t *testing.T) {
+	svcConn, clientConn := net.Pipe()
+	go func() {
+		io.ReadAll(svcConn)
+	}()
+	connect := packets.NewControlPacket(packets.Connect).(*packets.ConnectPacket)
+	connect.WillFlag = true
+	connect.WillQos = 1
+	connect.WillTopic = "will"
+	connect.WillMessage = []byte("i am gone")
+
+	client := newClient(connect, nil, clientConn)
+	will := client.info.will
+	if (will.Qos != connect.WillQos) || (will.TopicName != connect.WillTopic) || string(will.Payload) != string(connect.WillMessage) {
+		t.Error("produce wrong will msg")
+	}
+
+	err := client.processPacket(connect)
+	if err == nil {
+		t.Errorf("double connect should return error")
+	}
+	connack := packets.NewControlPacket(packets.Connack).(*packets.ConnackPacket)
+	err = client.processPacket(connack)
+	if err == nil {
+		t.Errorf("client should not send connack")
+	}
+
+	pubrec := packets.NewControlPacket(packets.Pubrec).(*packets.PubrecPacket)
+	err = client.processPacket(pubrec)
+	if err == nil {
+		t.Errorf("qos2 not support now")
+	}
+
+	suback := packets.NewControlPacket(packets.Suback).(*packets.SubackPacket)
+	err = client.processPacket(suback)
+	if err == nil {
+		t.Errorf("server not subscribe")
+	}
+	unsuback := packets.NewControlPacket(packets.Unsuback).(*packets.UnsubackPacket)
+	err = client.processPacket(unsuback)
+	if err == nil {
+		t.Errorf("server not subscribe")
+	}
+
+	pingreq := packets.NewControlPacket(packets.Pingreq).(*packets.PingreqPacket)
+	err = client.processPacket(pingreq)
+	if err != nil {
+		t.Errorf("ping should success")
+	}
+	pingresp := packets.NewControlPacket(packets.Pingresp).(*packets.PingrespPacket)
+	err = client.processPacket(pingresp)
+	if err == nil {
+		t.Errorf("broker not ping")
 	}
 }
