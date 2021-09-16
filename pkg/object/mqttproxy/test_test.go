@@ -32,7 +32,6 @@ import (
 	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/supervisor"
 	"gopkg.in/yaml.v2"
 )
 
@@ -1127,15 +1126,4 @@ func TestSessMgr(t *testing.T) {
 	if !reflect.DeepEqual(sess.info, newSess.info) {
 		t.Errorf("sessMgr produce wrong session")
 	}
-}
-
-func TestMQTTProxy(t *testing.T) {
-	mp := MQTTProxy{}
-	if !reflect.DeepEqual(mp.Status(), &supervisor.Status{}) {
-		t.Errorf("mqtt proxy return wrong status %v %v", mp.Status(), supervisor.Status{})
-	}
-	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
-	broker := getBroker("test", "test", b64passwd, 1883)
-	mp.broker = broker
-	mp.Close()
 }
