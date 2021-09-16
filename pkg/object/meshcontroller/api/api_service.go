@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"path"
 	"reflect"
 	"sort"
 
@@ -104,7 +105,7 @@ func (a *API) createService(w http.ResponseWriter, r *http.Request) {
 	a.service.PutServiceSpec(serviceSpec)
 	a.service.PutTenantSpec(tenantSpec)
 
-	w.Header().Set("Location", stringtool.JoinWithSlash(r.URL.Path, serviceSpec.Name))
+	w.Header().Set("Location", path.Join(r.URL.Path, serviceSpec.Name))
 	w.WriteHeader(http.StatusCreated)
 }
 

@@ -18,7 +18,6 @@
 package stringtool
 
 import (
-	"path/filepath"
 	"strings"
 )
 
@@ -61,9 +60,4 @@ func DeleteStrInSlice(slice []string, str string) []string {
 	}
 
 	return result
-}
-
-// JoinWithSlash joins strings with slash.
-func JoinWithSlash(elem ...string) string {
-	return filepath.ToSlash(filepath.Join(elem...))
 }

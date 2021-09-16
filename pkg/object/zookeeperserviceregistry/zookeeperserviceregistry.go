@@ -19,13 +19,13 @@ package zookeeperserviceregistry
 
 import (
 	"fmt"
+	"path"
 	"sync"
 	"time"
 
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/serviceregistry"
 	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/stringtool"
 
 	zookeeper "github.com/go-zookeeper/zk"
 	"gopkg.in/yaml.v2"
@@ -430,11 +430,11 @@ func (zk *ZookeeperServiceRegistry) ListAllServiceInstances() (map[string]*servi
 }
 
 func (zk *ZookeeperServiceRegistry) fullPathOfChild(childPath string) string {
-	return stringtool.JoinWithSlash(zk.spec.Prefix, childPath)
+	return path.Join(zk.spec.Prefix, childPath)
 }
 
 func (zk *ZookeeperServiceRegistry) serviceZookeeperPrefix(serviceName string) string {
-	return stringtool.JoinWithSlash(zk.spec.Prefix, serviceName) + "/"
+	return path.Join(zk.spec.Prefix, serviceName) + "/"
 }
 
 func (zk *ZookeeperServiceRegistry) serviceInstanceZookeeperPath(instance *serviceregistry.ServiceInstanceSpec) string {
@@ -442,5 +442,5 @@ func (zk *ZookeeperServiceRegistry) serviceInstanceZookeeperPath(instance *servi
 }
 
 func (zk *ZookeeperServiceRegistry) serviceInstanceZookeeperPathFromRaw(serviceName, instanceID string) string {
-	return stringtool.JoinWithSlash(zk.spec.Prefix, serviceName, instanceID)
+	return path.Join(zk.spec.Prefix, serviceName, instanceID)
 }

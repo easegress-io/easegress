@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"path"
 	"sort"
 	"time"
 
@@ -30,7 +31,6 @@ import (
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
-	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
 type tenantsByOrder []*spec.Tenant
@@ -101,7 +101,7 @@ func (a *API) createTenant(w http.ResponseWriter, r *http.Request) {
 
 	a.service.PutTenantSpec(tenantSpec)
 
-	w.Header().Set("Location", stringtool.JoinWithSlash(r.URL.Path, tenantSpec.Name))
+	w.Header().Set("Location", path.Join(r.URL.Path, tenantSpec.Name))
 	w.WriteHeader(http.StatusCreated)
 }
 
