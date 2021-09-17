@@ -252,6 +252,22 @@ func TestSession(t *testing.T) {
 		t.Errorf("session error")
 	}
 
+	sessMgr := broker.sessMgr
+	sess := Session{
+		info: &SessionInfo{
+			EGName:    "eg",
+			Name:      "mqtt",
+			ClientID:  "checkStoreGet",
+			Topics:    map[string]int{"a": 1},
+			CleanFlag: false,
+		},
+	}
+	str, _ := sess.encode()
+	sessMgr.store.put(sessionStoreKey("checkStoreGet"), str)
+	newSess := sessMgr.get("checkStoreGet")
+	if !reflect.DeepEqual(newSess.info, sess.info) {
+		t.Errorf("sessMgr get wrong sess %v, %v", sess.info, newSess.info)
+	}
 	client.Disconnect(200)
 	broker.close()
 }
@@ -1232,6 +1248,13 @@ func TestBrokerListen(t *testing.T) {
 		t.Errorf("invalid PassBase64 should return empty auth, %v", broker.sha256Auth)
 	}
 
+	broker1 := newBroker(spec, store, func(s, ss string) ([]string, error) {
+		return nil, nil
+	})
+	if broker1 != nil {
+		t.Errorf("not valid port should return nil broker")
+	}
+
 	// not valid port should return nil
 	spec = &Spec{
 		Port:        1883,
@@ -1240,12 +1263,14 @@ func TestBrokerListen(t *testing.T) {
 			{UserName: "test", PassBase64: "test"},
 		},
 	}
-	broker1 := newBroker(spec, store, func(s, ss string) ([]string, error) {
+	broker2 := newBroker(spec, store, func(s, ss string) ([]string, error) {
 		return nil, nil
 	})
-	if broker1 != nil {
+	if broker2 != nil {
 		t.Errorf("not valid port should return nil broker")
 	}
+	broker.mqttAPIPrefix()
+	broker.registerAPIs()
 	broker.close()
 }
 
@@ -1273,4 +1298,14 @@ func TestBrokerHandleConn(t *testing.T) {
 		io.ReadAll(clientConn)
 	}()
 	broker.handleConn(svcConn)
+	broker.close()
+}
+
+func TestMQTTProxy(t *testing.T) {
+	mp := MQTTProxy{}
+	mp.Status()
+	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
+	broker := getBroker("test", "test", b64passwd, 1883)
+	mp.broker = broker
+	mp.Close()
 }
