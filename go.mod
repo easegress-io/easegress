@@ -26,7 +26,7 @@ require (
 	github.com/megaease/easemesh-api v1.3.0
 	github.com/megaease/grace v1.0.0
 	github.com/mitchellh/mapstructure v1.4.1
-	github.com/nacos-group/nacos-sdk-go v1.0.8
+	github.com/nacos-group/nacos-sdk-go v1.0.9
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/openzipkin-contrib/zipkin-go-opentracing v0.4.5
 	github.com/openzipkin/zipkin-go v0.2.5
