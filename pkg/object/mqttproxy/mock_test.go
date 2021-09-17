@@ -20,11 +20,14 @@ package mqttproxy
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/Shopify/sarama"
+	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/cluster"
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	"go.etcd.io/etcd/client/v3/concurrency"
@@ -117,4 +120,76 @@ func TestMockStorage(t *testing.T) {
 	if err != nil || !reflect.DeepEqual(valMap, map[string]string{"key1": "val1", "key2": "val2", "key3": "val3"}) {
 		t.Errorf("mock storage get prefix return wrong value %v %v", valMap, map[string]string{"key1": "val1", "key2": "val2", "key3": "val3"})
 	}
+}
+
+type mockAsyncProducer struct {
+	ch chan *sarama.ProducerMessage
+}
+
+func (m *mockAsyncProducer) AsyncClose()                               {}
+func (m *mockAsyncProducer) Successes() <-chan *sarama.ProducerMessage { return nil }
+func (m *mockAsyncProducer) Errors() <-chan *sarama.ProducerError      { return nil }
+
+func (m *mockAsyncProducer) Input() chan<- *sarama.ProducerMessage {
+	return m.ch
+}
+func (m *mockAsyncProducer) Close() error {
+	return fmt.Errorf("mock producer close failed")
+}
+
+var _ sarama.AsyncProducer = (*mockAsyncProducer)(nil)
+
+func newMockAsyncProducer() sarama.AsyncProducer {
+	return &mockAsyncProducer{
+		ch: make(chan *sarama.ProducerMessage, 1),
+	}
+}
+
+func TestKafka(t *testing.T) {
+	k := newBackendMQ(&Spec{
+		BackendType: kafkaType,
+		Kafka: &KafkaSpec{
+			Backend: []string{"localhost:1234"},
+		},
+	})
+	if k.(*KafkaMQ) != nil {
+		t.Errorf("should return nil for invalid broker address, %v", k)
+	}
+	k = newBackendMQ(&Spec{
+		BackendType: "FakeType",
+	})
+	if k != nil {
+		t.Errorf("should return nil for invalid wrong type")
+	}
+
+	mapFunc := func(mqttTopic string) (string, map[string]string, error) {
+		levels := strings.Split(mqttTopic, "/")
+		m := make(map[string]string)
+		for i, l := range levels {
+			m[strconv.Itoa(i)] = l
+		}
+		return mqttTopic, m, nil
+	}
+	kafka := KafkaMQ{
+		producer: newMockAsyncProducer(),
+		mapFunc:  mapFunc,
+		done:     make(chan struct{}),
+	}
+	p := packets.NewControlPacket(packets.Publish).(*packets.PublishPacket)
+	p.TopicName = "a/b/c"
+	p.Payload = []byte("abc")
+
+	kafka.publish(p)
+	msg := <-kafka.producer.(*mockAsyncProducer).ch
+	if msg.Topic != p.TopicName || len(msg.Headers) != 3 {
+		t.Errorf("kafka producer produce wrong msg")
+	}
+
+	kafka.mapFunc = nil
+	kafka.publish(p)
+	msg = <-kafka.producer.(*mockAsyncProducer).ch
+	if msg.Topic != p.TopicName || len(msg.Headers) != 0 {
+		t.Errorf("kafka producer produce wrong msg")
+	}
+	kafka.close()
 }
