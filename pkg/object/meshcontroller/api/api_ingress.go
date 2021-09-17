@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"path"
 	"sort"
 
 	"github.com/go-chi/chi/v5"
@@ -73,34 +74,24 @@ func (a *API) createIngress(w http.ResponseWriter, r *http.Request) {
 	pbIngressSpec := &v1alpha1.Ingress{}
 	ingressSpec := &spec.Ingress{}
 
-	ingressName, err := a.readIngressName(w, r)
+	err := a.readAPISpec(w, r, pbIngressSpec, ingressSpec)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
-		return
-	}
-	err = a.readAPISpec(w, r, pbIngressSpec, ingressSpec)
-	if err != nil {
-		api.HandleAPIError(w, r, http.StatusBadRequest, err)
-		return
-	}
-	if ingressName != ingressSpec.Name {
-		api.HandleAPIError(w, r, http.StatusBadRequest,
-			fmt.Errorf("name conflict: %s %s", ingressName, ingressSpec.Name))
 		return
 	}
 
 	a.service.Lock()
 	defer a.service.Unlock()
 
-	oldSpec := a.service.GetIngressSpec(ingressName)
+	oldSpec := a.service.GetIngressSpec(ingressSpec.Name)
 	if oldSpec != nil {
-		api.HandleAPIError(w, r, http.StatusConflict, fmt.Errorf("%s existed", ingressName))
+		api.HandleAPIError(w, r, http.StatusConflict, fmt.Errorf("%s existed", ingressSpec.Name))
 		return
 	}
 
 	a.service.PutIngressSpec(ingressSpec)
 
-	w.Header().Set("Location", r.URL.Path)
+	w.Header().Set("Location", path.Join(r.URL.Path, ingressSpec.Name))
 	w.WriteHeader(http.StatusCreated)
 }
 

@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"path"
 	"reflect"
 	"sort"
 
@@ -77,28 +78,18 @@ func (a *API) createService(w http.ResponseWriter, r *http.Request) {
 	pbServiceSpec := &v1alpha1.Service{}
 	serviceSpec := &spec.Service{}
 
-	serviceName, err := a.readServiceName(w, r)
+	err := a.readAPISpec(w, r, pbServiceSpec, serviceSpec)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
-		return
-	}
-	err = a.readAPISpec(w, r, pbServiceSpec, serviceSpec)
-	if err != nil {
-		api.HandleAPIError(w, r, http.StatusBadRequest, err)
-		return
-	}
-	if serviceName != serviceSpec.Name {
-		api.HandleAPIError(w, r, http.StatusBadRequest,
-			fmt.Errorf("name conflict: %s %s", serviceName, serviceSpec.Name))
 		return
 	}
 
 	a.service.Lock()
 	defer a.service.Unlock()
 
-	oldSpec := a.service.GetServiceSpec(serviceName)
+	oldSpec := a.service.GetServiceSpec(serviceSpec.Name)
 	if oldSpec != nil {
-		api.HandleAPIError(w, r, http.StatusConflict, fmt.Errorf("%s existed", serviceName))
+		api.HandleAPIError(w, r, http.StatusConflict, fmt.Errorf("%s existed", serviceSpec.Name))
 		return
 	}
 
@@ -114,7 +105,7 @@ func (a *API) createService(w http.ResponseWriter, r *http.Request) {
 	a.service.PutServiceSpec(serviceSpec)
 	a.service.PutTenantSpec(tenantSpec)
 
-	w.Header().Set("Location", r.URL.Path)
+	w.Header().Set("Location", path.Join(r.URL.Path, serviceSpec.Name))
 	w.WriteHeader(http.StatusCreated)
 }
 

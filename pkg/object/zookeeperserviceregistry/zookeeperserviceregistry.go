@@ -19,7 +19,7 @@ package zookeeperserviceregistry
 
 import (
 	"fmt"
-	"path/filepath"
+	"path"
 	"sync"
 	"time"
 
@@ -430,11 +430,11 @@ func (zk *ZookeeperServiceRegistry) ListAllServiceInstances() (map[string]*servi
 }
 
 func (zk *ZookeeperServiceRegistry) fullPathOfChild(childPath string) string {
-	return filepath.Join(zk.spec.Prefix, childPath)
+	return path.Join(zk.spec.Prefix, childPath)
 }
 
 func (zk *ZookeeperServiceRegistry) serviceZookeeperPrefix(serviceName string) string {
-	return filepath.Join(zk.spec.Prefix, serviceName) + "/"
+	return path.Join(zk.spec.Prefix, serviceName) + "/"
 }
 
 func (zk *ZookeeperServiceRegistry) serviceInstanceZookeeperPath(instance *serviceregistry.ServiceInstanceSpec) string {
@@ -442,5 +442,5 @@ func (zk *ZookeeperServiceRegistry) serviceInstanceZookeeperPath(instance *servi
 }
 
 func (zk *ZookeeperServiceRegistry) serviceInstanceZookeeperPathFromRaw(serviceName, instanceID string) string {
-	return filepath.Join(zk.spec.Prefix, serviceName, instanceID)
+	return path.Join(zk.spec.Prefix, serviceName, instanceID)
 }

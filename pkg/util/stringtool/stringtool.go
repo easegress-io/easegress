@@ -17,7 +17,9 @@
 
 package stringtool
 
-import "strings"
+import (
+	"strings"
+)
 
 // Cat concatenates strings.
 // It is intended to used in the core executing path for performance optimization.
