@@ -18,11 +18,12 @@
 package context
 
 import (
-	"github.com/megaease/easegress/pkg/util/connection"
-	"github.com/megaease/easegress/pkg/util/iobufferpool"
 	"net"
 	"sync"
 	"time"
+
+	"github.com/megaease/easegress/pkg/util/connection"
+	"github.com/megaease/easegress/pkg/util/iobufferpool"
 )
 
 type (

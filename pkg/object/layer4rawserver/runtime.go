@@ -295,7 +295,6 @@ func (r *runtime) onUdpAccept() func(cliAddr net.Addr, conn net.Conn, listenerSt
 		upstreamAddr, _ := net.ResolveUDPAddr("udp", server.Addr)
 		connTimeout := time.Duration(r.spec.ProxyConnectTimeout) * time.Millisecond
 		upstreamConn := connection.NewUpstreamConn(connTimeout, upstreamAddr, listenerStop, nil)
-
 		if err := upstreamConn.Connect(); err != nil {
 			logger.Errorf("discard udp packet due to upstream connect failed, local addr: %s, err: %+v", localAddr, err)
 			return
@@ -303,6 +302,7 @@ func (r *runtime) onUdpAccept() func(cliAddr net.Addr, conn net.Conn, listenerSt
 
 		cliConn := connection.NewClientConn(conn, conn.RemoteAddr(), listenerStop, nil)
 		ctx := context.NewLayer4Context(cliConn, upstreamConn, cliAddr)
+		connection.SetUDPProxyMap(connection.GetProxyMapKey(localAddr.String(), cliAddr.String()), ctx)
 		r.setConnectionReadHandler(cliConn, upstreamConn, ctx)
 	}
 }

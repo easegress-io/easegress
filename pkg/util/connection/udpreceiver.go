@@ -20,8 +20,6 @@ package connection
 import (
 	"strings"
 	"sync"
-
-	"github.com/megaease/easegress/pkg/context"
 )
 
 var (
@@ -38,7 +36,7 @@ func GetProxyMapKey(raddr, laddr string) string {
 }
 
 // SetUDPProxyMap set udp session by udp server listener
-func SetUDPProxyMap(key string, layer4Context context.Layer4Context) {
+func SetUDPProxyMap(key string, layer4Context interface{}) {
 	ProxyMap.Store(key, layer4Context)
 }
 

@@ -31,7 +31,7 @@ const (
 )
 
 func init() {
-	supervisor.Register(&Layer4Server{})
+	//supervisor.Register(&Layer4Server{})
 }
 
 type (
