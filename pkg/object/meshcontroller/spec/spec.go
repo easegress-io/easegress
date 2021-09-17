@@ -288,7 +288,7 @@ type (
 
 	// CustomObjectKind defines the spec of a custom object kind
 	CustomObjectKind struct {
-		Name       string `yaml:"name"`
+		Name       string `yaml:"name" jsonschema:"required"`
 		JSONSchema string `yaml:"jsonSchema" jsonschema:"omitempty"`
 	}
 

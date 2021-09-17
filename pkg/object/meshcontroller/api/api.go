@@ -79,22 +79,22 @@ const (
 	MeshServiceInstancePath = "/mesh/serviceinstances/{serviceName}/{instanceID}"
 
 	// MeshCustomObjectKindPrefix is the mesh custom object kind prefix.
-	MeshCustomObjectKindPrefix = "/mesh/customObjectKinds"
+	MeshCustomObjectKindPrefix = "/mesh/customobjectkinds"
 
 	// MeshCustomObjectKind is the mesh custom object kind
-	MeshCustomObjectKind = "/mesh/customObjectKinds/{name}"
+	MeshCustomObjectKind = "/mesh/customobjectkinds/{name}"
 
 	// MeshAllCustomObjectPrefix is the mesh custom object prefix
-	MeshAllCustomObjectPrefix = "/mesh/customObjects"
+	MeshAllCustomObjectPrefix = "/mesh/customobjects"
 
 	// MeshCustomObjectPrefix is the mesh custom object prefix of a specified kind
-	MeshCustomObjectPrefix = "/mesh/customObjects/{kind}"
+	MeshCustomObjectPrefix = "/mesh/customobjects/{kind}"
 
 	// MeshCustomObject is the mesh custom object of a specified kind
-	MeshCustomObject = "/mesh/customObjects/{kind}/{name}"
+	MeshCustomObject = "/mesh/customobjects/{kind}/{name}"
 
 	// MeshWatchCustomObject is the path to watch custom objects of a specified kind
-	MeshWatchCustomObject = "/mesh/watchCustomObjects/{kind}"
+	MeshWatchCustomObject = "/mesh/watchcustomobjects/{kind}"
 )
 
 type (
@@ -184,14 +184,14 @@ func (a *API) registerAPIs() {
 			{Path: MeshServiceMetricsPath, Method: "DELETE", Handler: a.deletePartOfService(metricsMeta)},
 
 			{Path: MeshCustomObjectKindPrefix, Method: "GET", Handler: a.listCustomObjectKinds},
-			{Path: MeshCustomObjectKind, Method: "POST", Handler: a.createCustomObjectKind},
+			{Path: MeshCustomObjectKindPrefix, Method: "POST", Handler: a.createCustomObjectKind},
 			{Path: MeshCustomObjectKind, Method: "GET", Handler: a.getCustomObjectKind},
 			{Path: MeshCustomObjectKind, Method: "PUT", Handler: a.updateCustomObjectKind},
 			{Path: MeshCustomObjectKind, Method: "DELETE", Handler: a.deleteCustomObjectKind},
 
 			{Path: MeshAllCustomObjectPrefix, Method: "GET", Handler: a.listAllCustomObjects},
 			{Path: MeshCustomObjectPrefix, Method: "GET", Handler: a.listCustomObjects},
-			{Path: MeshCustomObject, Method: "POST", Handler: a.createCustomObject},
+			{Path: MeshAllCustomObjectPrefix, Method: "POST", Handler: a.createCustomObject},
 			{Path: MeshCustomObject, Method: "GET", Handler: a.getCustomObject},
 			{Path: MeshCustomObject, Method: "PUT", Handler: a.updateCustomObject},
 			{Path: MeshCustomObject, Method: "DELETE", Handler: a.deleteCustomObject},

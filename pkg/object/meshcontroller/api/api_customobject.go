@@ -91,25 +91,29 @@ func (a *API) getCustomObjectKind(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 }
 
-func (a *API) putCustomObjectKind(w http.ResponseWriter, r *http.Request, update bool) error {
-	name, err := a.readURLParam(r, "name")
-	if err != nil {
-		api.HandleAPIError(w, r, http.StatusBadRequest, err)
-		return err
-	}
-
+func (a *API) saveCustomObjectKind(w http.ResponseWriter, r *http.Request, update bool) error {
 	pbKind := &v1alpha1.CustomObjectKind{}
 	kind := &spec.CustomObjectKind{}
 
-	err = a.readAPISpec(r, pbKind, kind)
+	err := a.readAPISpec(r, pbKind, kind)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return err
 	}
-	if name != kind.Name {
-		err = fmt.Errorf("name conflict: %s %s", name, kind.Name)
-		api.HandleAPIError(w, r, http.StatusConflict, err)
-		return err
+
+	name := kind.Name
+	if update {
+		name, err = a.readURLParam(r, "name")
+		if err != nil {
+			api.HandleAPIError(w, r, http.StatusBadRequest, err)
+			return err
+		}
+
+		if name != kind.Name {
+			err = fmt.Errorf("name conflict: %s %s", name, kind.Name)
+			api.HandleAPIError(w, r, http.StatusConflict, err)
+			return err
+		}
 	}
 
 	if kind.JSONSchema != "" {
@@ -141,7 +145,7 @@ func (a *API) putCustomObjectKind(w http.ResponseWriter, r *http.Request, update
 }
 
 func (a *API) createCustomObjectKind(w http.ResponseWriter, r *http.Request) {
-	err := a.putCustomObjectKind(w, r, false)
+	err := a.saveCustomObjectKind(w, r, false)
 	if err == nil {
 		w.Header().Set("Location", r.URL.Path)
 		w.WriteHeader(http.StatusCreated)
@@ -149,7 +153,7 @@ func (a *API) createCustomObjectKind(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) updateCustomObjectKind(w http.ResponseWriter, r *http.Request) {
-	a.putCustomObjectKind(w, r, true)
+	a.saveCustomObjectKind(w, r, true)
 }
 
 func (a *API) deleteCustomObjectKind(w http.ResponseWriter, r *http.Request) {
@@ -239,39 +243,53 @@ func (a *API) getCustomObject(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 }
 
-func (a *API) putCustomObject(w http.ResponseWriter, r *http.Request, update bool) error {
-	kind, err := a.readURLParam(r, "kind")
-	if err != nil {
-		api.HandleAPIError(w, r, http.StatusBadRequest, err)
-		return err
-	}
-	name, err := a.readURLParam(r, "name")
-	if err != nil {
-		api.HandleAPIError(w, r, http.StatusBadRequest, err)
-		return err
-	}
-
+func (a *API) saveCustomObject(w http.ResponseWriter, r *http.Request, update bool) error {
 	obj := &spec.CustomObject{}
-	err = json.NewDecoder(r.Body).Decode(obj)
+	err := json.NewDecoder(r.Body).Decode(obj)
 	if err != nil {
 		err = fmt.Errorf("unmarshal custom object failed: %v", err)
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return err
 	}
 
-	if obj.Kind() != kind {
-		err = fmt.Errorf("kind conflict: %s %s", kind, obj.Kind())
-		api.HandleAPIError(w, r, http.StatusConflict, err)
+	kind, name := obj.Kind(), obj.Name()
+	if kind == "" {
+		err = fmt.Errorf("kind cannot be empty")
+		api.HandleAPIError(w, r, http.StatusBadRequest, err)
+		return err
+	}
+	if name == "" {
+		err = fmt.Errorf("name cannot be empty")
+		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return err
 	}
 
-	if obj.Name() != name {
-		err = fmt.Errorf("name conflict: %s %s", name, obj.Name())
-		api.HandleAPIError(w, r, http.StatusConflict, err)
-		return err
+	if update {
+		kind, err = a.readURLParam(r, "kind")
+		if err != nil {
+			api.HandleAPIError(w, r, http.StatusBadRequest, err)
+			return err
+		}
+		name, err = a.readURLParam(r, "name")
+		if err != nil {
+			api.HandleAPIError(w, r, http.StatusBadRequest, err)
+			return err
+		}
+
+		if obj.Kind() != kind {
+			err = fmt.Errorf("kind conflict: %s %s", kind, obj.Kind())
+			api.HandleAPIError(w, r, http.StatusConflict, err)
+			return err
+		}
+
+		if obj.Name() != name {
+			err = fmt.Errorf("name conflict: %s %s", name, obj.Name())
+			api.HandleAPIError(w, r, http.StatusConflict, err)
+			return err
+		}
 	}
 
-	k := a.service.GetCustomObjectKind(kind)
+	k := a.service.GetCustomObjectKind(obj.Kind())
 	if k == nil {
 		api.HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("kind %s not found", kind))
 		return err
@@ -313,7 +331,7 @@ func (a *API) putCustomObject(w http.ResponseWriter, r *http.Request, update boo
 }
 
 func (a *API) createCustomObject(w http.ResponseWriter, r *http.Request) {
-	err := a.putCustomObject(w, r, false)
+	err := a.saveCustomObject(w, r, false)
 	if err == nil {
 		w.Header().Set("Location", r.URL.Path)
 		w.WriteHeader(http.StatusCreated)
@@ -321,7 +339,7 @@ func (a *API) createCustomObject(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) updateCustomObject(w http.ResponseWriter, r *http.Request) {
-	a.putCustomObject(w, r, true)
+	a.saveCustomObject(w, r, true)
 }
 
 func (a *API) deleteCustomObject(w http.ResponseWriter, r *http.Request) {

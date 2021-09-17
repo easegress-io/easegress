@@ -159,14 +159,14 @@ func (s *Service) DeleteServiceSpec(serviceName string) {
 // ListServiceSpecs lists services specs
 func (s *Service) ListServiceSpecs() []*spec.Service {
 	services := []*spec.Service{}
-	kvs, err := s.store.GetPrefix(layout.ServiceSpecPrefix())
+	kvs, err := s.store.GetRawPrefix(layout.ServiceSpecPrefix())
 	if err != nil {
 		api.ClusterPanic(err)
 	}
 
 	for _, v := range kvs {
 		serviceSpec := &spec.Service{}
-		err := yaml.Unmarshal([]byte(v), serviceSpec)
+		err := yaml.Unmarshal(v.Value, serviceSpec)
 		if err != nil {
 			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
 			continue
@@ -235,14 +235,14 @@ func (s *Service) listServiceInstanceStatuses(all bool, serviceName string) []*s
 		prefix = layout.ServiceInstanceSpecPrefix(serviceName)
 	}
 
-	kvs, err := s.store.GetPrefix(prefix)
+	kvs, err := s.store.GetRawPrefix(prefix)
 	if err != nil {
 		api.ClusterPanic(err)
 	}
 
 	for _, v := range kvs {
 		status := &spec.ServiceInstanceStatus{}
-		if err = yaml.Unmarshal([]byte(v), status); err != nil {
+		if err = yaml.Unmarshal(v.Value, status); err != nil {
 			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
 			continue
 		}
@@ -272,14 +272,14 @@ func (s *Service) listServiceInstanceSpecs(all bool, serviceName string) []*spec
 		prefix = layout.ServiceInstanceSpecPrefix(serviceName)
 	}
 
-	kvs, err := s.store.GetPrefix(prefix)
+	kvs, err := s.store.GetRawPrefix(prefix)
 	if err != nil {
 		api.ClusterPanic(err)
 	}
 
 	for _, v := range kvs {
 		_spec := &spec.ServiceInstanceSpec{}
-		if err = yaml.Unmarshal([]byte(v), _spec); err != nil {
+		if err = yaml.Unmarshal(v.Value, _spec); err != nil {
 			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
 			continue
 		}
