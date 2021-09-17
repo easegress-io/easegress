@@ -28,6 +28,7 @@ import (
 	"net/http"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 
@@ -1026,7 +1027,8 @@ func TestValidTopic(t *testing.T) {
 		{"/a/b/c/d/+/d/#", true},
 	}
 	for _, tt := range tests {
-		ans := validTopic(tt.topic)
+		levels := strings.Split(tt.topic, "/")
+		ans := validTopic(levels)
 		if ans != tt.ans {
 			t.Errorf("topic:<%s>, got:%v, wanted:%v", tt.topic, ans, tt.ans)
 		}

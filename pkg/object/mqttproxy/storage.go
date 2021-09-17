@@ -33,7 +33,7 @@ type (
 	}
 
 	mockStorage struct {
-		mu    sync.Mutex
+		mu    sync.RWMutex
 		store map[string]string
 	}
 
@@ -53,8 +53,8 @@ func newStorage(cls cluster.Cluster) storage {
 }
 
 func (m *mockStorage) get(key string) (*string, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	if val, ok := m.store[key]; ok {
 		return &val, nil
 	}
@@ -62,8 +62,8 @@ func (m *mockStorage) get(key string) (*string, error) {
 }
 
 func (m *mockStorage) getPrefix(prefix string) (map[string]string, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	out := make(map[string]string)
 	for k, v := range m.store {
 		if strings.Contains(k, prefix) {

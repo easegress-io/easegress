@@ -40,8 +40,7 @@ func newTopicManager() *TopicManager {
 	}
 }
 
-func validTopic(topic string) bool {
-	levels := strings.Split(topic, "/")
+func validTopic(levels []string) bool {
 	for i, level := range levels {
 		if strings.ContainsRune(level, '+') && len(level) != 1 {
 			return false
@@ -60,10 +59,10 @@ func (mgr *TopicManager) subscribe(topics []string, qoss []byte, clientID string
 	defer mgr.Unlock()
 
 	for i, t := range topics {
-		if !validTopic(t) {
+		levels := strings.Split(t, "/")
+		if !validTopic(levels) {
 			return fmt.Errorf("topic not valid, topic:%s", t)
 		}
-		levels := strings.Split(t, "/")
 		if err := mgr.root.insert(levels, qoss[i], clientID); err != nil {
 			return err
 		}
@@ -76,10 +75,10 @@ func (mgr *TopicManager) unsubscribe(topics []string, clientID string) error {
 	defer mgr.Unlock()
 
 	for _, t := range topics {
-		if !validTopic(t) {
+		levels := strings.Split(t, "/")
+		if !validTopic(levels) {
 			return fmt.Errorf("topic not valid, topic:%s", t)
 		}
-		levels := strings.Split(t, "/")
 		if err := mgr.root.remove(levels, clientID); err != nil {
 			return err
 		}
@@ -90,10 +89,10 @@ func (mgr *TopicManager) unsubscribe(topics []string, clientID string) error {
 func (mgr *TopicManager) findSubscribers(topic string) (map[string]byte, error) {
 	mgr.RLock()
 	defer mgr.RUnlock()
-	if !validTopic(topic) {
+	levels := strings.Split(topic, "/")
+	if !validTopic(levels) {
 		return nil, fmt.Errorf("topic not valid, topic:%s", topic)
 	}
-	levels := strings.Split(topic, "/")
 	ans := make(map[string]byte)
 	mgr.root.match(levels, ans)
 	return ans, nil

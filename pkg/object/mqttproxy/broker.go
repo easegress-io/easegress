@@ -116,7 +116,7 @@ func (b *Broker) setListener() error {
 		}
 		l, err = tls.Listen("tcp", addr, cfg)
 		if err != nil {
-			return fmt.Errorf("gen mqtt tls tcp listener failed, addr:%s, err:%v", addr, err)
+			return fmt.Errorf("gen mqtt tls tcp listener failed, addr:%s, cfg:%v, err:%v", addr, cfg, err)
 		}
 	} else {
 		l, err = net.Listen("tcp", addr)
