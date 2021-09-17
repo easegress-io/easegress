@@ -1058,6 +1058,27 @@ func TestWildCard(t *testing.T) {
 	}
 }
 
+const certPem = `
+-----BEGIN CERTIFICATE-----
+MIIBhTCCASugAwIBAgIQIRi6zePL6mKjOipn+dNuaTAKBggqhkjOPQQDAjASMRAw
+DgYDVQQKEwdBY21lIENvMB4XDTE3MTAyMDE5NDMwNloXDTE4MTAyMDE5NDMwNlow
+EjEQMA4GA1UEChMHQWNtZSBDbzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABD0d
+7VNhbWvZLWPuj/RtHFjvtJBEwOkhbN/BnnE8rnZR8+sbwnc/KhCk3FhnpHZnQz7B
+5aETbbIgmuvewdjvSBSjYzBhMA4GA1UdDwEB/wQEAwICpDATBgNVHSUEDDAKBggr
+BgEFBQcDATAPBgNVHRMBAf8EBTADAQH/MCkGA1UdEQQiMCCCDmxvY2FsaG9zdDo1
+NDUzgg4xMjcuMC4wLjE6NTQ1MzAKBggqhkjOPQQDAgNIADBFAiEA2zpJEPQyz6/l
+Wf86aX6PepsntZv2GYlA5UpabfT2EZICICpJ5h/iI+i341gBmLiAFQOyTDT+/wQc
+6MF9+Yw1Yy0t
+-----END CERTIFICATE-----
+`
+const keyPem = `
+-----BEGIN EC PRIVATE KEY-----
+MHcCAQEEIIrYSSNQFaA2Hwf1duRSxKtLYX5CB04fSeQ6tF1aY/PuoAoGCCqGSM49
+AwEHoUQDQgAEPR3tU2Fta9ktY+6P9G0cWO+0kETA6SFs38GecTyudlHz6xvCdz8q
+EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
+-----END EC PRIVATE KEY-----
+`
+
 func TestTLSConfig(t *testing.T) {
 	spec := Spec{}
 	_, err := spec.tlsConfig()
@@ -1075,26 +1096,6 @@ func TestTLSConfig(t *testing.T) {
 		t.Errorf("no vallid certificate, should return error")
 	}
 
-	certPem := []byte(`
------BEGIN CERTIFICATE-----
-MIIBhTCCASugAwIBAgIQIRi6zePL6mKjOipn+dNuaTAKBggqhkjOPQQDAjASMRAw
-DgYDVQQKEwdBY21lIENvMB4XDTE3MTAyMDE5NDMwNloXDTE4MTAyMDE5NDMwNlow
-EjEQMA4GA1UEChMHQWNtZSBDbzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABD0d
-7VNhbWvZLWPuj/RtHFjvtJBEwOkhbN/BnnE8rnZR8+sbwnc/KhCk3FhnpHZnQz7B
-5aETbbIgmuvewdjvSBSjYzBhMA4GA1UdDwEB/wQEAwICpDATBgNVHSUEDDAKBggr
-BgEFBQcDATAPBgNVHRMBAf8EBTADAQH/MCkGA1UdEQQiMCCCDmxvY2FsaG9zdDo1
-NDUzgg4xMjcuMC4wLjE6NTQ1MzAKBggqhkjOPQQDAgNIADBFAiEA2zpJEPQyz6/l
-Wf86aX6PepsntZv2GYlA5UpabfT2EZICICpJ5h/iI+i341gBmLiAFQOyTDT+/wQc
-6MF9+Yw1Yy0t
------END CERTIFICATE-----
-`)
-	keyPem := []byte(`
------BEGIN EC PRIVATE KEY-----
-MHcCAQEEIIrYSSNQFaA2Hwf1duRSxKtLYX5CB04fSeQ6tF1aY/PuoAoGCCqGSM49
-AwEHoUQDQgAEPR3tU2Fta9ktY+6P9G0cWO+0kETA6SFs38GecTyudlHz6xvCdz8q
-EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
------END EC PRIVATE KEY-----
-`)
 	spec = Spec{
 		Certificate: []Certificate{
 			{"demo", string(certPem), string(keyPem)},
@@ -1128,6 +1129,7 @@ func TestSessMgr(t *testing.T) {
 	if !reflect.DeepEqual(sess.info, newSess.info) {
 		t.Errorf("sessMgr produce wrong session")
 	}
+	broker.close()
 }
 
 func TestClient(t *testing.T) {
@@ -1184,4 +1186,91 @@ func TestClient(t *testing.T) {
 	if err == nil {
 		t.Errorf("broker not ping")
 	}
+}
+
+func TestBrokerListen(t *testing.T) {
+	// invalid tls
+	spec := &Spec{
+		Port:        1883,
+		BackendType: testMQType,
+		Auth: []Auth{
+			{UserName: "test", PassBase64: "test"},
+		},
+		UseTLS: true,
+		Certificate: []Certificate{
+			{"fake", "abc", "abc"},
+		},
+	}
+	store := newStorage(nil)
+	broker := newBroker(spec, store, func(s, ss string) ([]string, error) {
+		return nil, nil
+	})
+	if broker != nil {
+		t.Errorf("invalid tls config should return nil broker")
+	}
+
+	// valid tls
+	spec = &Spec{
+		Port:        1883,
+		BackendType: testMQType,
+		Auth: []Auth{
+			{UserName: "test", PassBase64: "0"},
+		},
+		UseTLS: true,
+		Certificate: []Certificate{
+			{"demo", certPem, keyPem},
+		},
+	}
+	broker = newBroker(spec, store, func(s, ss string) ([]string, error) {
+		return nil, nil
+	})
+
+	if broker == nil {
+		t.Errorf("valid tls config should not return nil broker")
+	}
+	if len(broker.sha256Auth) != 0 {
+		t.Errorf("invalid PassBase64 should return empty auth, %v", broker.sha256Auth)
+	}
+
+	// not valid port should return nil
+	spec = &Spec{
+		Port:        1883,
+		BackendType: testMQType,
+		Auth: []Auth{
+			{UserName: "test", PassBase64: "test"},
+		},
+	}
+	broker1 := newBroker(spec, store, func(s, ss string) ([]string, error) {
+		return nil, nil
+	})
+	if broker1 != nil {
+		t.Errorf("not valid port should return nil broker")
+	}
+	broker.close()
+}
+
+func TestBrokerHandleConn(t *testing.T) {
+	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
+	broker := getBroker("test", "test", b64passwd, 1883)
+
+	// broker handleConn return if error happen
+	svcConn, clientConn := net.Pipe()
+	go clientConn.Write([]byte("fake data for paho.packets.ReadPacket to return error, to make that happends, this fake data should be long enough."))
+	broker.handleConn(svcConn)
+
+	// not use connect to connect
+	svcConn, clientConn = net.Pipe()
+	subscribe := packets.NewControlPacket(packets.Subscribe).(*packets.SubscribePacket)
+	go subscribe.Write(clientConn)
+	broker.handleConn(svcConn)
+
+	// use in valid connect to connect
+	svcConn, clientConn = net.Pipe()
+	connect := packets.NewControlPacket(packets.Connect).(*packets.ConnectPacket)
+	connect.ReservedBit = 1
+	go connect.Write(clientConn)
+	go func() {
+		io.ReadAll(clientConn)
+	}()
+	broker.handleConn(svcConn)
 }
