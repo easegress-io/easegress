@@ -213,7 +213,7 @@ func (b *ioBuffer) ReadOnce(r io.Reader) (n int64, err error) {
 		b.copy(0)
 	}
 
-	// free max buffers avoid memleak
+	// free max buffers avoid memory leak
 	if b.off == len(b.buf) && cap(b.buf) > MaxBufferLength {
 		b.Free()
 		b.Alloc(MaxRead)
