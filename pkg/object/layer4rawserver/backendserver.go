@@ -23,7 +23,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/serviceregistry"
 	"github.com/megaease/easegress/pkg/supervisor"
@@ -131,7 +130,7 @@ func (s *servers) useService(serviceInstanceSpecs map[string]*serviceregistry.Se
 	var servers []*Server
 	for _, instance := range serviceInstanceSpecs {
 		servers = append(servers, &Server{
-			Addr:   instance.URL(),
+			Addr:   fmt.Sprintf("%s:%d", instance.Address, instance.Port),
 			Tags:   instance.Tags,
 			Weight: instance.Weight,
 		})
@@ -175,12 +174,12 @@ func (s *servers) len() int {
 	return static.len()
 }
 
-func (s *servers) next(ctx context.Layer4Context) (*Server, error) {
+func (s *servers) next(cliAddr string) (*Server, error) {
 	static := s.snapshot()
 	if static.len() == 0 {
 		return nil, fmt.Errorf("no server available")
 	}
-	return static.next(ctx), nil
+	return static.next(cliAddr), nil
 }
 
 func (s *servers) close() {
@@ -233,7 +232,7 @@ func (ss *staticServers) len() int {
 	return len(ss.servers)
 }
 
-func (ss *staticServers) next(ctx context.Layer4Context) *Server {
+func (ss *staticServers) next(cliAddr string) *Server {
 	switch ss.lb.Policy {
 	case PolicyRoundRobin:
 		return ss.roundRobin()
@@ -242,7 +241,7 @@ func (ss *staticServers) next(ctx context.Layer4Context) *Server {
 	case PolicyWeightedRandom:
 		return ss.weightedRandom()
 	case PolicyIPHash:
-		return ss.ipHash(ctx)
+		return ss.ipHash(cliAddr)
 	}
 	logger.Errorf("BUG: unknown load balance policy: %s", ss.lb.Policy)
 	return ss.roundRobin()
@@ -274,7 +273,7 @@ func (ss *staticServers) weightedRandom() *Server {
 	return ss.random()
 }
 
-func (ss *staticServers) ipHash(ctx context.Layer4Context) *Server {
-	sum32 := int(hashtool.Hash32(ctx.ClientAddr().String()))
+func (ss *staticServers) ipHash(cliAddr string) *Server {
+	sum32 := int(hashtool.Hash32(cliAddr))
 	return ss.servers[sum32%len(ss.servers)]
 }

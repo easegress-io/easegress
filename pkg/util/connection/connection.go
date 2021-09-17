@@ -212,9 +212,9 @@ func (c *Connection) startReadLoop() {
 				err := c.doReadIO()
 				if err != nil {
 					if te, ok := err.(net.Error); ok && te.Timeout() {
-						if c.protocol == "tcp" && c.readBuffer != nil && c.readBuffer.Len() == 0 && c.readBuffer.Cap() > DefaultBufferReadCapacity {
+						if c.protocol == "tcp" && c.readBuffer != nil && c.readBuffer.Len() == 0 && c.readBuffer.Cap() > iobufferpool.DefaultBufferReadCapacity {
 							c.readBuffer.Free()
-							c.readBuffer.Alloc(DefaultBufferReadCapacity)
+							c.readBuffer.Alloc(iobufferpool.DefaultBufferReadCapacity)
 						}
 						continue
 					}
@@ -381,7 +381,7 @@ func (c *Connection) doReadIO() (err error) {
 			// A UDP socket will Read up to the size of the receiving buffer and will discard the rest
 			c.readBuffer = iobufferpool.GetIoBuffer(iobufferpool.UdpPacketMaxSize)
 		default: // unix or tcp
-			c.readBuffer = iobufferpool.GetIoBuffer(DefaultBufferReadCapacity)
+			c.readBuffer = iobufferpool.GetIoBuffer(iobufferpool.DefaultBufferReadCapacity)
 		}
 	}
 
@@ -495,7 +495,7 @@ type UpstreamConnection struct {
 	connectOnce    sync.Once
 }
 
-func NewUpstreamConn(connectTimeout time.Duration, remoteAddr net.Addr, stopChan chan struct{}, connStopChan chan struct{}) *UpstreamConnection {
+func NewUpstreamConn(connectTimeout time.Duration, remoteAddr net.Addr, stopChan, connStopChan chan struct{}) *UpstreamConnection {
 	conn := &UpstreamConnection{
 		Connection: Connection{
 			connected:  1,

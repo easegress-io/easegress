@@ -37,7 +37,6 @@ type (
 		LocalAddr() net.Addr
 		ClientAddr() net.Addr
 		UpstreamAddr() net.Addr
-		SetUpstreamAddr(addr net.Addr)
 
 		GetReadBuffer() iobufferpool.IoBuffer
 		AppendReadBuffer(buffer iobufferpool.IoBuffer)
@@ -49,7 +48,6 @@ type (
 
 		Finish()
 		Duration() time.Duration
-		StopChan() chan struct{} // client connection and upstream connection stop by this chan
 
 		CallNextHandler(lastResult string) string
 		SetHandlerCaller(caller HandlerCaller)
@@ -68,16 +66,15 @@ type (
 	}
 
 	layer4Context struct {
-		mutex sync.Mutex
+		mu sync.Mutex
 
 		protocol     string
 		localAddr    net.Addr
 		clientAddr   net.Addr
 		upstreamAddr net.Addr
-		stopChan     chan struct{} // notify quit read loop and write loop
 
-		clientConn   connection.Connection
-		upstreamConn connection.UpstreamConnection
+		clientConn   *connection.Connection
+		upstreamConn *connection.UpstreamConnection
 
 		readBuffer     iobufferpool.IoBuffer
 		writeBuffer    iobufferpool.IoBuffer
@@ -91,26 +88,44 @@ type (
 )
 
 // NewLayer4Context creates an Layer4Context.
-func NewLayer4Context(clientConn *connection.Connection, stopChan chan struct{}) *layer4Context {
-
+func NewLayer4Context(cliConn *connection.Connection, upstreamConn *connection.UpstreamConnection, cliAddr net.Addr) *layer4Context {
 	startTime := time.Now()
-	res := layer4Context{
-		mutex:      sync.Mutex{},
-		protocol:   clientConn.Protocol(),
-		localAddr:  clientConn.LocalAddr(),
-		clientAddr: clientConn.RemoteAddr(),
-		stopChan:   stopChan,
-		startTime:  &startTime,
+	ctx := &layer4Context{
+		protocol:     cliConn.Protocol(),
+		localAddr:    cliConn.LocalAddr(),
+		upstreamAddr: upstreamConn.RemoteAddr(),
+		clientConn:   cliConn,
+		upstreamConn: upstreamConn,
+		startTime:    &startTime,
+
+		mu: sync.Mutex{},
 	}
-	return &res
+
+	if cliAddr != nil {
+		ctx.clientAddr = cliAddr
+	} else {
+		ctx.clientAddr = cliConn.RemoteAddr() // nil for udp server conn
+	}
+
+	switch ctx.protocol {
+	case "udp":
+		ctx.readBuffer = iobufferpool.GetIoBuffer(iobufferpool.UdpPacketMaxSize)
+		ctx.writeBuffer = iobufferpool.GetIoBuffer(iobufferpool.UdpPacketMaxSize)
+	case "tcp":
+		ctx.readBuffer = iobufferpool.GetIoBuffer(iobufferpool.DefaultBufferReadCapacity)
+		ctx.writeBuffer = iobufferpool.GetIoBuffer(iobufferpool.DefaultBufferReadCapacity)
+	}
+	return ctx
 }
 
+// Lock acquire context lock
 func (ctx *layer4Context) Lock() {
-	ctx.mutex.Lock()
+	ctx.mu.Lock()
 }
 
+// Unlock release lock
 func (ctx *layer4Context) Unlock() {
-	ctx.mutex.Unlock()
+	ctx.mu.Unlock()
 }
 
 // Protocol get proxy protocol
@@ -129,14 +144,6 @@ func (ctx *layer4Context) ClientAddr() net.Addr {
 // UpstreamAddr get upstream addr
 func (ctx *layer4Context) UpstreamAddr() net.Addr {
 	return ctx.upstreamAddr
-}
-
-func (ctx *layer4Context) SetUpstreamAddr(addr net.Addr) {
-	ctx.upstreamAddr = addr
-}
-
-func (ctx *layer4Context) StopChan() chan struct{} {
-	return ctx.stopChan
 }
 
 // GetReadBuffer get read buffer
@@ -181,15 +188,23 @@ func (ctx *layer4Context) WriteToUpstream(buffer iobufferpool.IoBuffer) {
 	_ = ctx.clientConn.Write(buffer)
 }
 
+// CallNextHandler call handler caller
 func (ctx *layer4Context) CallNextHandler(lastResult string) string {
 	return ctx.caller(lastResult)
 }
 
+// SetHandlerCaller set handler caller
 func (ctx *layer4Context) SetHandlerCaller(caller HandlerCaller) {
 	ctx.caller = caller
 }
 
+// Finish context finish handler
 func (ctx *layer4Context) Finish() {
+	_ = iobufferpool.PutIoBuffer(ctx.readBuffer)
+	_ = iobufferpool.PutIoBuffer(ctx.writeBuffer)
+	ctx.readBuffer = nil
+	ctx.writeBuffer = nil
+
 	finish := time.Now()
 	ctx.endTime = &finish
 }

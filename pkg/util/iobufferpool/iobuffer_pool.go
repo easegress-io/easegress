@@ -22,7 +22,10 @@ import (
 	"sync"
 )
 
-const UdpPacketMaxSize = 64 * 1024
+const (
+	UdpPacketMaxSize          = 64 * 1024
+	DefaultBufferReadCapacity = 1 << 7
+)
 
 var ibPool IoBufferPool
 

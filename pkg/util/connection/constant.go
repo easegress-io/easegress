@@ -58,8 +58,6 @@ var (
 
 // Network related const
 const (
-	DefaultBufferReadCapacity = 1 << 7
-
 	NetBufferDefaultSize     = 0
 	NetBufferDefaultCapacity = 1 << 4
 

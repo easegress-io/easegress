@@ -41,35 +41,35 @@ const (
 )
 
 type listener struct {
-	m           *mux
 	name        string
 	udpListener net.PacketConn               // udp connection listener
 	tcpListener *limitlistener.LimitListener // tcp connection listener with connection limit
 
 	state          ListenerState
-	listenAddr     string
 	protocol       string // enum:udp/tcp
+	listenAddr     string
 	keepalive      bool
-	reuseport      bool
 	maxConnections uint32
 
 	mutex    *sync.Mutex
 	stopChan chan struct{} // connection listen to this stopChan
 
-	onTcpAccept func(conn net.Conn, listenerStopChan chan struct{})
-	onUdpAccept func(clientAddr net.Addr, buffer iobufferpool.IoBuffer)
+	onTcpAccept func(conn net.Conn, listenerStopChan chan struct{})                                             // tcp accept handle
+	onUdpAccept func(cliAddr net.Addr, conn net.Conn, listenerStop chan struct{}, buffer iobufferpool.IoBuffer) // udp accept handle
 }
 
-func newListener(spec *Spec, onAccept func(conn net.Conn, listenerStopChan chan struct{})) *listener {
+func newListener(spec *Spec, onAccept func(conn net.Conn, listenerStopChan chan struct{}),
+	onUdpAccept func(cliAddr net.Addr, conn net.Conn, listenerStop chan struct{}, buffer iobufferpool.IoBuffer)) *listener {
 	listen := &listener{
 		state:          ListenerInited,
 		listenAddr:     fmt.Sprintf(":%d", spec.Port),
 		protocol:       spec.Protocol,
 		keepalive:      spec.KeepAlive,
 		maxConnections: spec.MaxConnections,
-		onTcpAccept:    onAccept,
 
-		mutex: &sync.Mutex{},
+		onTcpAccept: onAccept,
+		onUdpAccept: onUdpAccept,
+		mutex:       &sync.Mutex{},
 	}
 	return listen
 }
@@ -159,12 +159,6 @@ func (l *listener) acceptEventLoop() {
 					l.listenAddr, err.Error())
 			}
 		} else {
-			host, _, splitErr := net.SplitHostPort(tconn.RemoteAddr().String())
-			if splitErr != nil || !l.m.AllowIP(host) {
-				logger.Debugf("reject remote connection from: %s", tconn.RemoteAddr().String())
-				_ = tconn.Close()
-				continue
-			}
 			go l.onTcpAccept(tconn, l.stopChan)
 		}
 	}
@@ -211,8 +205,7 @@ func (l *listener) readMsgLoop() {
 			logger.Errorf("udp listener %s receiving packet occur error: %+v", l.listenAddr, err)
 			continue
 		}
-
-		l.onUdpAccept(rAddr, buf)
+		l.onUdpAccept(rAddr, conn, l.stopChan, buf)
 	}
 }
 

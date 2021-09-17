@@ -27,6 +27,7 @@ import (
 type (
 	// Spec describes the Layer4 Server.
 	Spec struct {
+		Name     string `yaml:"name" json:"name" jsonschema:"required"`
 		Protocol string `yaml:"protocol" jsonschema:"required,enum=tcp,enum=udp"`
 		Port     uint16 `yaml:"port" json:"port" jsonschema:"required"`
 

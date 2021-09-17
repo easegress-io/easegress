@@ -19,17 +19,17 @@ package layer4rawserver
 
 import (
 	"fmt"
-	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/util/connection"
-	"github.com/megaease/easegress/pkg/util/iobufferpool"
 	"net"
 	"reflect"
 	"sync/atomic"
 	"time"
 
+	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocol"
 	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/util/connection"
+	"github.com/megaease/easegress/pkg/util/iobufferpool"
 	"github.com/megaease/easegress/pkg/util/layer4stat"
 )
 
@@ -224,88 +224,121 @@ func (r *runtime) handleEventClose(e *eventClose) {
 	close(e.done)
 }
 
-func (r *runtime) startServer() {
-	onAccept := func(conn net.Conn, listenerStopChan chan struct{}) {
-		internalStopChan := make(chan struct{}, 1)
-		switch r.spec.Protocol {
-		case "tcp":
-			clientConn := connection.NewClientConnection(conn, conn.RemoteAddr(), listenerStopChan, internalStopChan)
-			ctx := context.NewLayer4Context(clientConn, listenerStopChan)
-			if server, err := r.pool.servers.next(ctx); err != nil {
-				logger.Errorf("Get layer4 proxy upstream server failed, err: %+v", err)
-				_ = clientConn.Close(connection.NoFlush, connection.OnConnect)
-			} else {
-				upstreamAddr, _ := net.ResolveTCPAddr("tcp", server.Addr)
-				upstreamConn := connection.NewUpstreamConnection(time.Duration(r.spec.ProxyTimeout)*time.Millisecond, upstreamAddr, listenerStopChan)
-				if err := upstreamConn.Connect(); err == nil {
-					if handle, ok := r.mux.GetHandler(r.spec.Protocol); ok {
-						clientConn.SetOnRead(func(buffer iobufferpool.IoBuffer) {
-							handle.InboundHandler(ctx, buffer)
-							buf := ctx.GetReadBuffer().Clone()
-							ctx.GetReadBuffer().Drain(buf.Len())
-							ctx.WriteToUpstream(buf)
-						})
-						upstreamConn.SetOnRead(func(buffer iobufferpool.IoBuffer) {
-							handle.OutboundHandler(ctx, buffer)
-							buf := ctx.GetReadBuffer().Clone()
-							ctx.GetReadBuffer().Drain(buf.Len())
-							ctx.WriteToClient(buf)
-						})
-					} else {
-						clientConn.SetOnRead(func(buffer iobufferpool.IoBuffer) {
-							buf := buffer.Clone()
-							buffer.Drain(buf.Len())
-							ctx.WriteToUpstream(buf)
-						})
-						upstreamConn.SetOnRead(func(buffer iobufferpool.IoBuffer) {
-							buf := buffer.Clone()
-							buffer.Drain(buf.Len())
-							ctx.WriteToClient(buf)
-						})
-					}
-				}
-			}
-		case "udp":
-			clientConn := connection.NewClientConnection(conn, conn.RemoteAddr(), listenerStopChan, internalStopChan)
-			ctx := context.NewLayer4Context(clientConn, listenerStopChan)
-			if server, err := r.pool.servers.next(ctx); err != nil {
-				logger.Errorf("Get layer4 proxy upstream server failed, err: %+v", err)
-				_ = clientConn.Close(connection.NoFlush, connection.OnConnect)
-			} else {
-				upstreamAddr, _ := net.ResolveTCPAddr("udp", server.Addr)
-				upstreamConn := connection.NewUpstreamConnection(time.Duration(r.spec.ProxyTimeout)*time.Millisecond, upstreamAddr, listenerStopChan)
-				if err := upstreamConn.Connect(); err == nil {
-					if handle, ok := r.mux.GetHandler(r.spec.Protocol); ok {
-						clientConn.SetOnRead(func(buffer iobufferpool.IoBuffer) {
-							handle.InboundHandler(ctx, buffer)
-							buf := ctx.GetReadBuffer().Clone()
-							ctx.GetReadBuffer().Reset()
-							ctx.WriteToUpstream(buf)
-						})
-						upstreamConn.SetOnRead(func(buffer iobufferpool.IoBuffer) {
-							handle.OutboundHandler(ctx, buffer)
-							buf := ctx.GetReadBuffer().Clone()
-							ctx.GetReadBuffer().Reset()
-							ctx.WriteToClient(buf)
-						})
-					} else {
-						clientConn.SetOnRead(func(buffer iobufferpool.IoBuffer) {
-							buf := buffer.Clone()
-							buffer.Drain(buf.Len())
-							ctx.WriteToUpstream(buf)
-						})
-						upstreamConn.SetOnRead(func(buffer iobufferpool.IoBuffer) {
-							buf := buffer.Clone()
-							buffer.Drain(buf.Len())
-							ctx.WriteToClient(buf)
-						})
-					}
-				}
-			}
-		}
+func (r *runtime) onTcpAccept() func(conn net.Conn, listenerStop chan struct{}) {
+	if r.spec.Protocol != "tcp" {
+		return nil
 	}
 
-	l := newListener(r.spec, onAccept)
+	return func(conn net.Conn, listenerStop chan struct{}) {
+		remote := conn.RemoteAddr().(*net.TCPAddr).IP.String()
+		if r.mux.AllowIP(remote) {
+			_ = conn.Close()
+			logger.Infof("close tcp connection from %s to %s which ip is not allowed",
+				conn.RemoteAddr().String(), conn.LocalAddr().String())
+			return
+		}
+
+		server, err := r.pool.servers.next(remote)
+		if err != nil {
+			_ = conn.Close()
+			logger.Errorf("close tcp connection due to can not find upstream server, local addr: %s, err: %+v",
+				conn.LocalAddr(), err)
+			return
+		}
+
+		stopChan := make(chan struct{})
+
+		serverAddr, _ := net.ResolveTCPAddr("tcp", server.Addr)
+		connTimeout := time.Duration(r.spec.ProxyConnectTimeout) * time.Millisecond
+		upstreamConn := connection.NewUpstreamConn(connTimeout, serverAddr, listenerStop, stopChan)
+		if err := upstreamConn.Connect(); err != nil {
+			logger.Errorf("close tcp connection due to upstream conn connect failed, local addr: %s, err: %+v",
+				conn.LocalAddr().String(), err)
+			_ = conn.Close()
+			close(stopChan)
+			return
+		}
+
+		cliConn := connection.NewClientConn(conn, conn.RemoteAddr(), listenerStop, stopChan)
+		ctx := context.NewLayer4Context(cliConn, upstreamConn, cliConn.RemoteAddr())
+		r.setConnectionReadHandler(cliConn, upstreamConn, ctx)
+	}
+}
+
+func (r *runtime) onUdpAccept() func(cliAddr net.Addr, conn net.Conn, listenerStop chan struct{}, buffer iobufferpool.IoBuffer) {
+	if r.spec.Protocol != "udp" {
+		return nil
+	}
+
+	return func(cliAddr net.Addr, conn net.Conn, listenerStop chan struct{}, buffer iobufferpool.IoBuffer) {
+		localAddr := conn.LocalAddr()
+		remote := cliAddr.(*net.UDPAddr).IP.String()
+		if r.mux.AllowIP(remote) {
+			logger.Infof("discard udp packet from %s to %s which ip is not allowed", cliAddr.String(), localAddr.String())
+			return
+		}
+
+		key := connection.GetProxyMapKey(localAddr.String(), cliAddr.String())
+		if rawCtx, ok := connection.ProxyMap.Load(key); ok {
+			ctx := rawCtx.(context.Layer4Context)
+			ctx.WriteToUpstream(buffer.Clone()) // there is no need to reset buffer
+			return
+		}
+
+		server, err := r.pool.servers.next(remote)
+		if err != nil {
+			logger.Infof("discard udp packet from %s to %s due to can not find upstream server, err: %+v",
+				cliAddr.String(), localAddr.String())
+			return
+		}
+
+		upstreamAddr, _ := net.ResolveUDPAddr("udp", server.Addr)
+		connTimeout := time.Duration(r.spec.ProxyConnectTimeout) * time.Millisecond
+		upstreamConn := connection.NewUpstreamConn(connTimeout, upstreamAddr, listenerStop, nil)
+
+		if err := upstreamConn.Connect(); err != nil {
+			logger.Errorf("discard udp packet due to upstream connect failed, local addr: %s, err: %+v", localAddr, err)
+			return
+		}
+
+		cliConn := connection.NewClientConn(conn, conn.RemoteAddr(), listenerStop, nil)
+		ctx := context.NewLayer4Context(cliConn, upstreamConn, cliAddr)
+		r.setConnectionReadHandler(cliConn, upstreamConn, ctx)
+	}
+}
+
+func (r *runtime) setConnectionReadHandler(cliConn *connection.Connection, upstreamConn *connection.UpstreamConnection, ctx context.Layer4Context) {
+	if handle, ok := r.mux.GetHandler(r.spec.Name); ok {
+		cliConn.SetOnRead(func(buffer iobufferpool.IoBuffer) {
+			handle.InboundHandler(ctx, buffer)
+			if ctx.GetReadBuffer().Len() > 0 {
+				buf := ctx.GetReadBuffer().Clone()
+				ctx.GetReadBuffer().Reset()
+				ctx.WriteToUpstream(buf)
+			}
+		})
+		upstreamConn.SetOnRead(func(buffer iobufferpool.IoBuffer) {
+			handle.OutboundHandler(ctx, buffer)
+			if ctx.GetReadBuffer().Len() > 0 {
+				buf := ctx.GetReadBuffer().Clone()
+				ctx.GetReadBuffer().Reset()
+				ctx.WriteToClient(buf)
+			}
+		})
+	} else {
+		cliConn.SetOnRead(func(buffer iobufferpool.IoBuffer) {
+			ctx.WriteToUpstream(buffer.Clone())
+			buffer.Reset()
+		})
+		upstreamConn.SetOnRead(func(buffer iobufferpool.IoBuffer) {
+			ctx.WriteToClient(buffer.Clone())
+			buffer.Reset()
+		})
+	}
+}
+
+func (r *runtime) startServer() {
+	l := newListener(r.spec, r.onTcpAccept(), r.onUdpAccept())
 	err := l.listen()
 	if err != nil {
 		r.setState(stateFailed)
