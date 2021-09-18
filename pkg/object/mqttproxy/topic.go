@@ -149,6 +149,8 @@ func (mgr *TopicManager) remove(topic string, clientID string) error {
 		node = prevNodes[i].nodes[levels[i]]
 		if len(node.clients) == 0 && len(node.nodes) == 0 {
 			delete(prevNodes[i].nodes, levels[i])
+		} else {
+			return nil
 		}
 	}
 	return nil
