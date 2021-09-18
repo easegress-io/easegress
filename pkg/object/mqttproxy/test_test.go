@@ -576,8 +576,8 @@ type CheckMsg struct {
 }
 
 func TestSendMsgBack(t *testing.T) {
-	clientNum := 30
-	msgNum := 200
+	clientNum := 10
+	msgNum := 100
 	subscribeCh := make(chan CheckMsg, 100)
 	var wg sync.WaitGroup
 
@@ -597,6 +597,7 @@ func TestSendMsgBack(t *testing.T) {
 		}
 		clients = append(clients, c)
 	}
+	fmt.Printf("TestSendMsgBack: finished get clients\n")
 
 	// publish msg and send msg back
 	for i := 0; i < clientNum; i++ {
@@ -625,9 +626,9 @@ func TestSendMsgBack(t *testing.T) {
 			}
 		}(clients[i])
 	}
+	fmt.Printf("TestSendMsgBack: finished publish and send msg back\n")
 
 	wg.Add(2)
-
 	// receive msg
 	go func() {
 		defer wg.Done()
@@ -688,8 +689,10 @@ func TestSendMsgBack(t *testing.T) {
 		}
 	}()
 
+	fmt.Printf("TestSendMsgBack: wait received all msg and subscribes\n")
 	// close
 	wg.Wait()
+	fmt.Printf("TestSendMsgBack: received all msg and subscribes\n")
 
 	done := make(chan struct{})
 	go func() {
@@ -707,7 +710,6 @@ func TestSendMsgBack(t *testing.T) {
 		go c.Disconnect(200)
 	}
 	close(done)
-
 }
 
 func TestYamlEncodeDecode(t *testing.T) {
