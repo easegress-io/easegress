@@ -1006,3 +1006,30 @@ func TestEgressName(t *testing.T) {
 		t.Error("egress endpoint name should not be none")
 	}
 }
+
+func TestCustomObject(t *testing.T) {
+	o := CustomObject{}
+	if o.Name() != "" {
+		t.Error("name should be empty")
+	}
+	o["name"] = 1
+	if o.Name() != "" {
+		t.Error("name should be empty")
+	}
+	o["name"] = "obj1"
+	if o.Name() != "obj1" {
+		t.Error("name should be obj1")
+	}
+
+	if o.Kind() != "" {
+		t.Error("kind should be empty")
+	}
+	o["kind"] = 1
+	if o.Kind() != "" {
+		t.Error("kind should be empty")
+	}
+	o["kind"] = "kind1"
+	if o.Kind() != "kind1" {
+		t.Error("kind should be kind1")
+	}
+}

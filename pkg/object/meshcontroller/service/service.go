@@ -18,6 +18,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 
 	"go.etcd.io/etcd/api/v3/mvccpb"
@@ -158,14 +159,14 @@ func (s *Service) DeleteServiceSpec(serviceName string) {
 // ListServiceSpecs lists services specs
 func (s *Service) ListServiceSpecs() []*spec.Service {
 	services := []*spec.Service{}
-	kvs, err := s.store.GetPrefix(layout.ServiceSpecPrefix())
+	kvs, err := s.store.GetRawPrefix(layout.ServiceSpecPrefix())
 	if err != nil {
 		api.ClusterPanic(err)
 	}
 
 	for _, v := range kvs {
 		serviceSpec := &spec.Service{}
-		err := yaml.Unmarshal([]byte(v), serviceSpec)
+		err := yaml.Unmarshal(v.Value, serviceSpec)
 		if err != nil {
 			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
 			continue
@@ -234,14 +235,14 @@ func (s *Service) listServiceInstanceStatuses(all bool, serviceName string) []*s
 		prefix = layout.ServiceInstanceSpecPrefix(serviceName)
 	}
 
-	kvs, err := s.store.GetPrefix(prefix)
+	kvs, err := s.store.GetRawPrefix(prefix)
 	if err != nil {
 		api.ClusterPanic(err)
 	}
 
 	for _, v := range kvs {
 		status := &spec.ServiceInstanceStatus{}
-		if err = yaml.Unmarshal([]byte(v), status); err != nil {
+		if err = yaml.Unmarshal(v.Value, status); err != nil {
 			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
 			continue
 		}
@@ -271,14 +272,14 @@ func (s *Service) listServiceInstanceSpecs(all bool, serviceName string) []*spec
 		prefix = layout.ServiceInstanceSpecPrefix(serviceName)
 	}
 
-	kvs, err := s.store.GetPrefix(prefix)
+	kvs, err := s.store.GetRawPrefix(prefix)
 	if err != nil {
 		api.ClusterPanic(err)
 	}
 
 	for _, v := range kvs {
 		_spec := &spec.ServiceInstanceSpec{}
-		if err = yaml.Unmarshal([]byte(v), _spec); err != nil {
+		if err = yaml.Unmarshal(v.Value, _spec); err != nil {
 			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
 			continue
 		}
@@ -333,14 +334,14 @@ func (s *Service) DeleteServiceInstanceSpec(serviceName, instanceID string) {
 // ListTenantSpecs lists tenant specs
 func (s *Service) ListTenantSpecs() []*spec.Tenant {
 	tenants := []*spec.Tenant{}
-	kvs, err := s.store.GetPrefix(layout.TenantPrefix())
+	kvs, err := s.store.GetRawPrefix(layout.TenantPrefix())
 	if err != nil {
 		api.ClusterPanic(err)
 	}
 
 	for _, v := range kvs {
 		tenantSpec := &spec.Tenant{}
-		err := yaml.Unmarshal([]byte(v), tenantSpec)
+		err := yaml.Unmarshal(v.Value, tenantSpec)
 		if err != nil {
 			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
 			continue
@@ -401,14 +402,14 @@ func (s *Service) PutIngressSpec(ingressSpec *spec.Ingress) {
 // ListIngressSpecs lists the ingress specs
 func (s *Service) ListIngressSpecs() []*spec.Ingress {
 	ingresses := []*spec.Ingress{}
-	kvs, err := s.store.GetPrefix(layout.IngressPrefix())
+	kvs, err := s.store.GetRawPrefix(layout.IngressPrefix())
 	if err != nil {
 		api.ClusterPanic(err)
 	}
 
 	for _, v := range kvs {
 		ingressSpec := &spec.Ingress{}
-		err := yaml.Unmarshal([]byte(v), ingressSpec)
+		err := yaml.Unmarshal(v.Value, ingressSpec)
 		if err != nil {
 			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
 			continue
@@ -424,5 +425,166 @@ func (s *Service) DeleteIngressSpec(ingressName string) {
 	err := s.store.Delete(layout.IngressSpecKey(ingressName))
 	if err != nil {
 		api.ClusterPanic(err)
+	}
+}
+
+// ListCustomObjectKinds lists custom object kinds
+func (s *Service) ListCustomObjectKinds() []*spec.CustomObjectKind {
+	kvs, err := s.store.GetRawPrefix(layout.CustomObjectKindPrefix())
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+
+	kinds := []*spec.CustomObjectKind{}
+	for _, v := range kvs {
+		kind := &spec.CustomObjectKind{}
+		err := yaml.Unmarshal(v.Value, kind)
+		if err != nil {
+			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
+			continue
+		}
+		kinds = append(kinds, kind)
+	}
+
+	return kinds
+}
+
+// DeleteCustomObjectKind deletes a custom object kind
+func (s *Service) DeleteCustomObjectKind(kind string) {
+	err := s.store.Delete(layout.CustomObjectKindKey(kind))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+}
+
+// GetCustomObjectKind gets custom object kind with its name
+func (s *Service) GetCustomObjectKind(name string) *spec.CustomObjectKind {
+	kvs, err := s.store.GetRaw(layout.CustomObjectKindKey(name))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+
+	if kvs == nil {
+		return nil
+	}
+
+	kind := &spec.CustomObjectKind{}
+	err = yaml.Unmarshal(kvs.Value, kind)
+	if err != nil {
+		panic(fmt.Errorf("BUG: unmarshal %s to yaml failed: %v", string(kvs.Value), err))
+	}
+
+	return kind
+}
+
+// PutCustomObjectKind writes the custom object kind to storage.
+func (s *Service) PutCustomObjectKind(kind *spec.CustomObjectKind) {
+	buff, err := yaml.Marshal(kind)
+	if err != nil {
+		panic(fmt.Errorf("BUG: marshal %#v to yaml failed: %v", kind, err))
+	}
+
+	err = s.store.Put(layout.CustomObjectKindKey(kind.Name), string(buff))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+}
+
+// ListCustomObjects lists custom objects of specified kind.
+// if kind is empty, it returns custom objects of all kinds.
+func (s *Service) ListCustomObjects(kind string) []*spec.CustomObject {
+	prefix := layout.AllCustomObjectPrefix()
+	if kind != "" {
+		prefix = layout.CustomObjectPrefix(kind)
+	}
+	kvs, err := s.store.GetRawPrefix(prefix)
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+
+	objs := []*spec.CustomObject{}
+	for _, v := range kvs {
+		obj := &spec.CustomObject{}
+		err := yaml.Unmarshal(v.Value, obj)
+		if err != nil {
+			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
+			continue
+		}
+		objs = append(objs, obj)
+	}
+
+	return objs
+}
+
+// DeleteCustomObject deletes a custom object
+func (s *Service) DeleteCustomObject(kind, name string) {
+	err := s.store.Delete(layout.CustomObjectKey(kind, name))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+}
+
+// GetCustomObject gets custom object with its kind & name
+func (s *Service) GetCustomObject(kind, name string) *spec.CustomObject {
+	kvs, err := s.store.GetRaw(layout.CustomObjectKey(kind, name))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+
+	if kvs == nil {
+		return nil
+	}
+
+	obj := &spec.CustomObject{}
+	err = yaml.Unmarshal(kvs.Value, obj)
+	if err != nil {
+		panic(fmt.Errorf("BUG: unmarshal %s to yaml failed: %v", string(kvs.Value), err))
+	}
+
+	return obj
+}
+
+// PutCustomObject writes the custom object kind to storage.
+func (s *Service) PutCustomObject(obj *spec.CustomObject) {
+	buff, err := yaml.Marshal(obj)
+	if err != nil {
+		panic(fmt.Errorf("BUG: marshal %#v to yaml failed: %v", obj, err))
+	}
+
+	err = s.store.Put(layout.CustomObjectKey(obj.Kind(), obj.Name()), string(buff))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+}
+
+// WatchCustomObject watches custom objects of the specified kind
+func (s *Service) WatchCustomObject(ctx context.Context, kind string, onChange func(objs []*spec.CustomObject)) error {
+	syncer, err := s.store.Syncer()
+	if err != nil {
+		return err
+	}
+
+	prefix := layout.CustomObjectPrefix(kind)
+	ch, err := syncer.SyncRawPrefix(prefix)
+	if err != nil {
+		return err
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			syncer.Close()
+			return nil
+		case m := <-ch:
+			objs := make([]*spec.CustomObject, 0, len(m))
+			for _, v := range m {
+				obj := &spec.CustomObject{}
+				err = yaml.Unmarshal(v.Value, obj)
+				if err == nil {
+					objs = append(objs, obj)
+				}
+			}
+			onChange(objs)
+		}
 	}
 }

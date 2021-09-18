@@ -38,7 +38,7 @@ func (s ingressesByOrder) Less(i, j int) bool { return s[i].Name < s[j].Name }
 func (s ingressesByOrder) Len() int           { return len(s) }
 func (s ingressesByOrder) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
-func (a *API) readIngressName(w http.ResponseWriter, r *http.Request) (string, error) {
+func (a *API) readIngressName(r *http.Request) (string, error) {
 	serviceName := chi.URLParam(r, "ingressName")
 	if serviceName == "" {
 		return "", fmt.Errorf("empty ingress name")
@@ -74,7 +74,7 @@ func (a *API) createIngress(w http.ResponseWriter, r *http.Request) {
 	pbIngressSpec := &v1alpha1.Ingress{}
 	ingressSpec := &spec.Ingress{}
 
-	err := a.readAPISpec(w, r, pbIngressSpec, ingressSpec)
+	err := a.readAPISpec(r, pbIngressSpec, ingressSpec)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
@@ -96,7 +96,7 @@ func (a *API) createIngress(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) getIngress(w http.ResponseWriter, r *http.Request) {
-	ingressName, err := a.readIngressName(w, r)
+	ingressName, err := a.readIngressName(r)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
@@ -126,12 +126,12 @@ func (a *API) updateIngress(w http.ResponseWriter, r *http.Request) {
 	pbIngressSpec := &v1alpha1.Ingress{}
 	ingressSpec := &spec.Ingress{}
 
-	ingressName, err := a.readIngressName(w, r)
+	ingressName, err := a.readIngressName(r)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
-	err = a.readAPISpec(w, r, pbIngressSpec, ingressSpec)
+	err = a.readAPISpec(r, pbIngressSpec, ingressSpec)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
@@ -155,7 +155,7 @@ func (a *API) updateIngress(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) deleteIngress(w http.ResponseWriter, r *http.Request) {
-	ingressName, err := a.readIngressName(w, r)
+	ingressName, err := a.readIngressName(r)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return

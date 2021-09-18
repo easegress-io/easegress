@@ -212,7 +212,7 @@ var (
 
 func (a *API) getPartOfService(meta *partMeta) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		serviceName, err := a.readServiceName(w, r)
+		serviceName, err := a.readServiceName(r)
 		if err != nil {
 			api.HandleAPIError(w, r, http.StatusBadRequest, err)
 			return
@@ -251,7 +251,7 @@ func (a *API) getPartOfService(meta *partMeta) http.HandlerFunc {
 
 func (a *API) createPartOfService(meta *partMeta) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		serviceName, err := a.readServiceName(w, r)
+		serviceName, err := a.readServiceName(r)
 		if err != nil {
 			api.HandleAPIError(w, r, http.StatusBadRequest, err)
 			return
@@ -260,7 +260,7 @@ func (a *API) createPartOfService(meta *partMeta) http.HandlerFunc {
 		part := meta.newPart()
 		partPB := meta.newPartPB()
 
-		err = a.readAPISpec(w, r, partPB, part)
+		err = a.readAPISpec(r, partPB, part)
 		if err != nil {
 			api.HandleAPIError(w, r, http.StatusBadRequest, err)
 			return
@@ -294,7 +294,7 @@ func (a *API) createPartOfService(meta *partMeta) http.HandlerFunc {
 
 func (a *API) updatePartOfService(meta *partMeta) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		serviceName, err := a.readServiceName(w, r)
+		serviceName, err := a.readServiceName(r)
 		if err != nil {
 			api.HandleAPIError(w, r, http.StatusBadRequest, err)
 			return
@@ -303,7 +303,7 @@ func (a *API) updatePartOfService(meta *partMeta) http.HandlerFunc {
 		part := meta.newPart()
 		partPB := meta.newPartPB()
 
-		err = a.readAPISpec(w, r, partPB, part)
+		err = a.readAPISpec(r, partPB, part)
 		if err != nil {
 			api.HandleAPIError(w, r, http.StatusBadRequest, err)
 			return
@@ -333,7 +333,7 @@ func (a *API) updatePartOfService(meta *partMeta) http.HandlerFunc {
 
 func (a *API) deletePartOfService(meta *partMeta) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		serviceName, err := a.readServiceName(w, r)
+		serviceName, err := a.readServiceName(r)
 		if err != nil {
 			api.HandleAPIError(w, r, http.StatusBadRequest, err)
 			return

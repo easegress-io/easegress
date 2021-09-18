@@ -20,7 +20,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/megaease/easegress/pkg/api"
@@ -77,6 +77,24 @@ const (
 
 	// MeshServiceInstancePath is the mesh service path.
 	MeshServiceInstancePath = "/mesh/serviceinstances/{serviceName}/{instanceID}"
+
+	// MeshCustomObjectKindPrefix is the mesh custom object kind prefix.
+	MeshCustomObjectKindPrefix = "/mesh/customobjectkinds"
+
+	// MeshCustomObjectKind is the mesh custom object kind
+	MeshCustomObjectKind = "/mesh/customobjectkinds/{name}"
+
+	// MeshAllCustomObjectPrefix is the mesh custom object prefix
+	MeshAllCustomObjectPrefix = "/mesh/customobjects"
+
+	// MeshCustomObjectPrefix is the mesh custom object prefix of a specified kind
+	MeshCustomObjectPrefix = "/mesh/customobjects/{kind}"
+
+	// MeshCustomObject is the mesh custom object of a specified kind
+	MeshCustomObject = "/mesh/customobjects/{kind}/{name}"
+
+	// MeshWatchCustomObject is the path to watch custom objects of a specified kind
+	MeshWatchCustomObject = "/mesh/watchcustomobjects/{kind}"
 )
 
 type (
@@ -164,6 +182,21 @@ func (a *API) registerAPIs() {
 			{Path: MeshServiceMetricsPath, Method: "GET", Handler: a.getPartOfService(metricsMeta)},
 			{Path: MeshServiceMetricsPath, Method: "PUT", Handler: a.updatePartOfService(metricsMeta)},
 			{Path: MeshServiceMetricsPath, Method: "DELETE", Handler: a.deletePartOfService(metricsMeta)},
+
+			{Path: MeshCustomObjectKindPrefix, Method: "GET", Handler: a.listCustomObjectKinds},
+			{Path: MeshCustomObjectKindPrefix, Method: "POST", Handler: a.createCustomObjectKind},
+			{Path: MeshCustomObjectKind, Method: "GET", Handler: a.getCustomObjectKind},
+			{Path: MeshCustomObjectKind, Method: "PUT", Handler: a.updateCustomObjectKind},
+			{Path: MeshCustomObjectKind, Method: "DELETE", Handler: a.deleteCustomObjectKind},
+
+			{Path: MeshAllCustomObjectPrefix, Method: "GET", Handler: a.listAllCustomObjects},
+			{Path: MeshCustomObjectPrefix, Method: "GET", Handler: a.listCustomObjects},
+			{Path: MeshAllCustomObjectPrefix, Method: "POST", Handler: a.createCustomObject},
+			{Path: MeshCustomObject, Method: "GET", Handler: a.getCustomObject},
+			{Path: MeshCustomObject, Method: "PUT", Handler: a.updateCustomObject},
+			{Path: MeshCustomObject, Method: "DELETE", Handler: a.deleteCustomObject},
+
+			{Path: MeshWatchCustomObject, Method: "GET", Handler: a.watchCustomObjects},
 		},
 	}
 
@@ -198,10 +231,10 @@ func (a *API) convertPBToSpec(pbSpec interface{}, spec interface{}) error {
 	return nil
 }
 
-func (a *API) readAPISpec(w http.ResponseWriter, r *http.Request, pbSpec interface{}, spec interface{}) error {
+func (a *API) readAPISpec(r *http.Request, pbSpec interface{}, spec interface{}) error {
 	// TODO: Use default spec and validate it.
 
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		return fmt.Errorf("read body failed: %v", err)
 	}

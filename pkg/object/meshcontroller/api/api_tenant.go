@@ -39,7 +39,7 @@ func (s tenantsByOrder) Less(i, j int) bool { return s[i].Name < s[j].Name }
 func (s tenantsByOrder) Len() int           { return len(s) }
 func (s tenantsByOrder) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
-func (a *API) readTenantName(w http.ResponseWriter, r *http.Request) (string, error) {
+func (a *API) readTenantName(r *http.Request) (string, error) {
 	serviceName := chi.URLParam(r, "tenantName")
 	if serviceName == "" {
 		return "", fmt.Errorf("empty tenant name")
@@ -77,7 +77,7 @@ func (a *API) createTenant(w http.ResponseWriter, r *http.Request) {
 	pbTenantSpec := &v1alpha1.Tenant{}
 	tenantSpec := &spec.Tenant{}
 
-	err := a.readAPISpec(w, r, pbTenantSpec, tenantSpec)
+	err := a.readAPISpec(r, pbTenantSpec, tenantSpec)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
@@ -106,7 +106,7 @@ func (a *API) createTenant(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) getTenant(w http.ResponseWriter, r *http.Request) {
-	tenantName, err := a.readTenantName(w, r)
+	tenantName, err := a.readTenantName(r)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
@@ -137,12 +137,12 @@ func (a *API) updateTenant(w http.ResponseWriter, r *http.Request) {
 	pbTenantSpec := &v1alpha1.Tenant{}
 	tenantSpec := &spec.Tenant{}
 
-	tenantName, err := a.readTenantName(w, r)
+	tenantName, err := a.readTenantName(r)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
-	err = a.readAPISpec(w, r, pbTenantSpec, tenantSpec)
+	err = a.readAPISpec(r, pbTenantSpec, tenantSpec)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
@@ -175,7 +175,7 @@ func (a *API) updateTenant(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) deleteTenant(w http.ResponseWriter, r *http.Request) {
-	tenantName, err := a.readTenantName(w, r)
+	tenantName, err := a.readTenantName(r)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
