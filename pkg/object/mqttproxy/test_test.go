@@ -1074,6 +1074,20 @@ func TestWildCard(t *testing.T) {
 	if err == nil {
 		t.Errorf("find subscribers for invalid topic should return error")
 	}
+
+	mgr = newTopicManager()
+	mgr.subscribe([]string{"a/b/c/d/e"}, []byte{0}, "A")
+	mgr.subscribe([]string{"a/b/c/f/g"}, []byte{0}, "A")
+	mgr.subscribe([]string{"m/x/v/f/g"}, []byte{0}, "B")
+	mgr.subscribe([]string{"m/x"}, []byte{0}, "C")
+
+	mgr.unsubscribe([]string{"a/b/c/d/e"}, "A")
+	mgr.unsubscribe([]string{"a/b/c/f/g"}, "A")
+	mgr.unsubscribe([]string{"m/x/v/f/g"}, "B")
+	mgr.unsubscribe([]string{"m/x"}, "C")
+	if len(mgr.root.clients) != 0 || len(mgr.root.nodes) != 0 {
+		t.Errorf("topic manager not clear memory when topics are unsubscribes")
+	}
 }
 
 const certPem = `
