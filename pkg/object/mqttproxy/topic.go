@@ -100,10 +100,42 @@ func (mgr *TopicManager) unsubscribe(topics []string, clientID string) error {
 	return nil
 }
 
+// findSubscribers is used to find all clients that subscribe a certain topic directly or use wildcard.
+// for example, topic "loc/device/event" will find clients that subscribe topic "+/+/+" or "loc/+/event" or "loc/device/event"
+// so, clients subscribe topics that contain or not contain wildcard, and this function will find all subscirbed topics that match
+// the given topic.
 func (mgr *TopicManager) findSubscribers(topic string) (map[string]byte, error) {
 	mgr.RLock()
 	defer mgr.RUnlock()
-	return mgr.match(topic)
+
+	levels, err := mgr.getLevels(topic)
+	if err != nil {
+		return nil, err
+	}
+	ans := make(map[string]byte)
+
+	currentLevelNodes := []*topicNode{mgr.root}
+	for _, topicLevel := range levels {
+		nextLevelNodes := []*topicNode{}
+		for _, node := range currentLevelNodes {
+			for nodeLevel, nextNode := range node.nodes {
+				if nodeLevel == "#" {
+					nextNode.addClients(ans)
+
+				} else if nodeLevel == "+" || nodeLevel == topicLevel {
+					nextLevelNodes = append(nextLevelNodes, nextNode)
+				}
+			}
+		}
+		currentLevelNodes = nextLevelNodes
+		if len(currentLevelNodes) == 0 {
+			return ans, nil
+		}
+	}
+	for _, n := range currentLevelNodes {
+		n.addClients(ans)
+	}
+	return ans, nil
 }
 
 func (mgr *TopicManager) insert(topic string, qos byte, clientID string) error {
@@ -154,35 +186,6 @@ func (mgr *TopicManager) remove(topic string, clientID string) error {
 		}
 	}
 	return nil
-}
-
-func (mgr *TopicManager) match(topic string) (map[string]byte, error) {
-	levels, err := mgr.getLevels(topic)
-	if err != nil {
-		return nil, err
-	}
-	ans := make(map[string]byte)
-
-	currentLevelNodes := []*topicNode{mgr.root}
-	nextLevelNodes := []*topicNode{}
-	for _, topicLevel := range levels {
-		for _, node := range currentLevelNodes {
-			for nodeLevel, nextNode := range node.nodes {
-				if nodeLevel == "#" {
-					nextNode.addClients(ans)
-				}
-				if nodeLevel == "+" || nodeLevel == topicLevel {
-					nextLevelNodes = append(nextLevelNodes, nextNode)
-				}
-			}
-		}
-		currentLevelNodes = nextLevelNodes
-		nextLevelNodes = []*topicNode{}
-	}
-	for _, n := range currentLevelNodes {
-		n.addClients(ans)
-	}
-	return ans, nil
 }
 
 func (t *topicLevelManager) get(topic string) ([]string, error) {
