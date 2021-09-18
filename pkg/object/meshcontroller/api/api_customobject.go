@@ -102,20 +102,6 @@ func (a *API) saveCustomObjectKind(w http.ResponseWriter, r *http.Request, updat
 	}
 
 	name := kind.Name
-	if update {
-		name, err = a.readURLParam(r, "name")
-		if err != nil {
-			api.HandleAPIError(w, r, http.StatusBadRequest, err)
-			return err
-		}
-
-		if name != kind.Name {
-			err = fmt.Errorf("name conflict: %s %s", name, kind.Name)
-			api.HandleAPIError(w, r, http.StatusConflict, err)
-			return err
-		}
-	}
-
 	if kind.JSONSchema != "" {
 		sl := gojsonschema.NewStringLoader(kind.JSONSchema)
 		if _, err = gojsonschema.NewSchema(sl); err != nil {
@@ -264,32 +250,7 @@ func (a *API) saveCustomObject(w http.ResponseWriter, r *http.Request, update bo
 		return err
 	}
 
-	if update {
-		kind, err = a.readURLParam(r, "kind")
-		if err != nil {
-			api.HandleAPIError(w, r, http.StatusBadRequest, err)
-			return err
-		}
-		name, err = a.readURLParam(r, "name")
-		if err != nil {
-			api.HandleAPIError(w, r, http.StatusBadRequest, err)
-			return err
-		}
-
-		if obj.Kind() != kind {
-			err = fmt.Errorf("kind conflict: %s %s", kind, obj.Kind())
-			api.HandleAPIError(w, r, http.StatusConflict, err)
-			return err
-		}
-
-		if obj.Name() != name {
-			err = fmt.Errorf("name conflict: %s %s", name, obj.Name())
-			api.HandleAPIError(w, r, http.StatusConflict, err)
-			return err
-		}
-	}
-
-	k := a.service.GetCustomObjectKind(obj.Kind())
+	k := a.service.GetCustomObjectKind(kind)
 	if k == nil {
 		api.HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("kind %s not found", kind))
 		return err

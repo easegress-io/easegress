@@ -186,14 +186,14 @@ func (a *API) registerAPIs() {
 			{Path: MeshCustomObjectKindPrefix, Method: "GET", Handler: a.listCustomObjectKinds},
 			{Path: MeshCustomObjectKindPrefix, Method: "POST", Handler: a.createCustomObjectKind},
 			{Path: MeshCustomObjectKind, Method: "GET", Handler: a.getCustomObjectKind},
-			{Path: MeshCustomObjectKind, Method: "PUT", Handler: a.updateCustomObjectKind},
+			{Path: MeshCustomObjectKindPrefix, Method: "PUT", Handler: a.updateCustomObjectKind},
 			{Path: MeshCustomObjectKind, Method: "DELETE", Handler: a.deleteCustomObjectKind},
 
 			{Path: MeshAllCustomObjectPrefix, Method: "GET", Handler: a.listAllCustomObjects},
 			{Path: MeshCustomObjectPrefix, Method: "GET", Handler: a.listCustomObjects},
 			{Path: MeshAllCustomObjectPrefix, Method: "POST", Handler: a.createCustomObject},
 			{Path: MeshCustomObject, Method: "GET", Handler: a.getCustomObject},
-			{Path: MeshCustomObject, Method: "PUT", Handler: a.updateCustomObject},
+			{Path: MeshAllCustomObjectPrefix, Method: "PUT", Handler: a.updateCustomObject},
 			{Path: MeshCustomObject, Method: "DELETE", Handler: a.deleteCustomObject},
 
 			{Path: MeshWatchCustomObject, Method: "GET", Handler: a.watchCustomObjects},
