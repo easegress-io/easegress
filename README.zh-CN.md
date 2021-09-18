@@ -18,16 +18,16 @@
   - [社区](#社区)
   - [许可证](#许可证)
 
-## 什么是Easegress
+## Easegress 简介
 
-`Easegress`是一个云原生流量协调系统，旨在。
+`Easegress`是一个云原生流量协调系统，旨在提供：
 
-- **高可用性：** 内置Raft共识和领导者选举提供99.99%的可用性。
-- **流量编排：** 为每个流量管道简单编排各种过滤器。
-- **高性能：** 轻量级和基本功能加快了性能。
-- **可观察性：** 有许多有意义的统计数据定期以可读的方式进行。
-- **可扩展性：** 很容易用高级编程语言开发自己的过滤器或控制器。
-- **集成性：** 简单的接口使它很容易与其他系统集成，如Kubernetes Ingress、[EaseMesh](https://github.com/megaease/easemesh) 边车、工作流等。
+- **高可用性：** 内置Raft共识和选主算法，提供99.99%的可用性。
+- **流量编排：** 支持多种流量过滤器，轻松编排流量处理流程（Pipeline）。
+- **高性能：** 基础功能采用轻量级方法实现，性能优异。
+- **可观察性：** 周期性报告多种统计数据，系统状态尽在掌握。
+- **可扩展性：** 良好的 API 设计，不必知道底层细节，也能自己开发过滤器和控制器。
+- **集成性：** 接口简单，易于与其他系统集成，如Kubernetes Ingress、[EaseMesh](https://github.com/megaease/easemesh) 边车、工作流等。
 
 Easegress的架构。
 
@@ -46,7 +46,7 @@ Easegress的架构。
 		- **断路器：** 暂时阻止可能的故障。
 		- **速率限制器：** 限制传入请求的速率。
 		- **重播器：** 重复失败的执行。
-		- 时间限制器：** 限制执行的时间。
+		- **时间限制器：** 限制执行的时间。
 	- **部署管理**
 		- **蓝绿策略：** 一次性切换流量。
 		- **金丝雀策略：** 按着色安排流量。
@@ -54,7 +54,7 @@ Easegress的架构。
 		- **API聚合：** 聚合多个API的结果。
 		- **API协调：** 协调API的流动。
 	- **安全**
-		- **IP过滤：** 限制对IP地址的访问。
+		- **IP过滤：** 限制对IP地址/地址段的访问。
 		- **静态HTTPS：** 静态证书文件。
 		- **API签名：** 支持[HMAC]（https://en.wikipedia.org/wiki/HMAC）验证。
 		- **JWT Verification:** 验证[JWT Token](https://jwt.io/)。
@@ -64,7 +64,7 @@ Easegress的架构。
 		- **责任链模式：** 协调过滤器链。
 		- **过滤器管理：** 使开发新过滤器变得容易。
 	- **服务网格**
-		- 网格主控：** 是管理网格服务生命周期的控制平面。
+		- ** 网格主控：** 是管理网格服务生命周期的控制平面。
 		- **Mesh Sidecar:** 是数据平面，作为端点进行流量拦截和路由。
 		- **网格入口控制器：** 是针对网格的入口控制器，将外部流量路由到网格服务。
 		  > 注意，该功能被[EaseMesh](https://github.com/megaease/easemesh)所使用。
@@ -100,7 +100,7 @@ Easegress的架构。
 
 下面的例子展示了如何在不同场景下使用Easegress。
 
-- [API Aggregator](./doc/cookbook/api_aggregator.md) - 将许多 API 聚集成一个 API。
+- [API Aggregator](./doc/cookbook/api_aggregator.md) - 将业务关联 API  聚合为单个 API。
 - [FaaS](./doc/cookbook/faas.md) - 支持Knative FaaS集成。
 - [Flash Sale](./doc/cookbook/flash_sale.md) - 如何使用Easegress进行高并发的秒杀活动。
 - [LoadBalancer](./doc/cookbook/load_balancer.md) - 负载均衡的若干策略 
@@ -112,7 +112,7 @@ Easegress的架构。
 - [Security](./doc/cookbook/security.md) - 如何通过Header、JWT、HMAC、OAuth2等进行认证。
 - [Service Proxy](./doc/cookbook/service_proxy.md) - 支持微服务注册表 - Zookeeper、Eureka、Consul、Nacos等。
 - [WebAssembly](./doc/cookbook/wasm.md) - 使用AssemblyScript来扩展Easegress
-- [Workflow](./doc/cookbook/workflow.md) - 一个为一些API制作工作流程的例子。
+- [Workflow](./doc/cookbook/workflow.md) - 将若干 API 进行组合，定制为工作流。
 
 完整的列表请参见 [Cookbook](./doc/cookbook/README.md)。
 
@@ -123,7 +123,8 @@ Easegress的基本通用用法是为后端服务器快速设置代理。我们�
 
 ### 设置 Easegress
 
-我们可以从[发布页](https://github.com/megaease/easegress/releases)下载二进制文件。例如，我们使用linux版本。
+我们可以从[发布页](https://github.com/megaease/easegress/releases)下载二进制文件。  
+例如，我们使用linux版本。
 
 ``` bash
 $ mkdir easegress
@@ -158,7 +159,8 @@ $ easegress-server
 
 Makefile的默认目标是将两个二进制文件编译到`bin/`目录中。`bin/easegress-server`是服务器端的二进制文件，`bin/egctl`是客户端的二进制文件。我们可以把它添加到`$PATH`中，以简化下面的命令。
 
-我们可以运行`easegress-server`而不指定任何参数，它通过打开默认的2379、2380、2381端口启动自己。当然，我们可以在配置文件中改变它们，或者在`easegress-server --help`中解释清楚的命令参数。
+我们可以运行`easegress-server`而不指定任何参数（服务默认依赖于2379、2380、2381端口）。  
+> 我们可以在配置文件中更改默认端口，或者在命令行启动时指定相关参数（参数具体释义可通过执行`easegress-server --help`命令获取）。
 
 ``` bash
 $ egctl member list
