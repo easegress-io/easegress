@@ -31,12 +31,30 @@ type topicMapFunc func(mqttTopic string) (topic string, headers map[string]strin
 // TopicManager to manage topic subscribe and unsubscribe in MQTT
 type TopicManager struct {
 	sync.RWMutex
-	root *topicNode
+	root     *topicNode
+	levelMgr *topicLevelManager
+}
+
+type topicLevelManager struct {
+	sync.RWMutex
+	data map[string]*topicLevels
+}
+
+type topicLevels struct {
+	levels []string
+	valid  bool
 }
 
 func newTopicManager() *TopicManager {
 	return &TopicManager{
-		root: newNode(),
+		root:     newNode(),
+		levelMgr: newTopicLevelManager(),
+	}
+}
+
+func newTopicLevelManager() *topicLevelManager {
+	return &topicLevelManager{
+		data: make(map[string]*topicLevels),
 	}
 }
 
@@ -51,7 +69,11 @@ func validTopic(levels []string) bool {
 			}
 		}
 	}
-	return true
+	return len(levels) > 0
+}
+
+func (mgr *TopicManager) getLevels(topic string) ([]string, error) {
+	return mgr.levelMgr.get(topic)
 }
 
 func (mgr *TopicManager) subscribe(topics []string, qoss []byte, clientID string) error {
@@ -59,11 +81,7 @@ func (mgr *TopicManager) subscribe(topics []string, qoss []byte, clientID string
 	defer mgr.Unlock()
 
 	for i, t := range topics {
-		levels := strings.Split(t, "/")
-		if !validTopic(levels) {
-			return fmt.Errorf("topic not valid, topic:%s", t)
-		}
-		if err := mgr.root.insert(levels, qoss[i], clientID); err != nil {
+		if err := mgr.insert(t, qoss[i], clientID); err != nil {
 			return err
 		}
 	}
@@ -75,11 +93,7 @@ func (mgr *TopicManager) unsubscribe(topics []string, clientID string) error {
 	defer mgr.Unlock()
 
 	for _, t := range topics {
-		levels := strings.Split(t, "/")
-		if !validTopic(levels) {
-			return fmt.Errorf("topic not valid, topic:%s", t)
-		}
-		if err := mgr.root.remove(levels, clientID); err != nil {
+		if err := mgr.remove(t, clientID); err != nil {
 			return err
 		}
 	}
@@ -89,13 +103,109 @@ func (mgr *TopicManager) unsubscribe(topics []string, clientID string) error {
 func (mgr *TopicManager) findSubscribers(topic string) (map[string]byte, error) {
 	mgr.RLock()
 	defer mgr.RUnlock()
-	levels := strings.Split(topic, "/")
-	if !validTopic(levels) {
-		return nil, fmt.Errorf("topic not valid, topic:%s", topic)
+	return mgr.match(topic)
+}
+
+func (mgr *TopicManager) insert(topic string, qos byte, clientID string) error {
+	levels, err := mgr.getLevels(topic)
+	if err != nil {
+		return err
+	}
+	node := mgr.root
+	var nextNode *topicNode
+	var ok bool
+	for _, l := range levels {
+		nextNode, ok = node.nodes[l]
+		if !ok {
+			nextNode = newNode()
+			node.nodes[l] = nextNode
+		}
+		node = nextNode
+	}
+	node.clients[clientID] = qos
+	return nil
+}
+
+func (mgr *TopicManager) remove(topic string, clientID string) error {
+	levels, err := mgr.getLevels(topic)
+	if err != nil {
+		return err
+	}
+	node := mgr.root
+	var nextNode *topicNode
+	var ok bool
+	prevNodes := []*topicNode{}
+	for _, l := range levels {
+		if nextNode, ok = node.nodes[l]; !ok {
+			return nil
+		}
+		prevNodes = append(prevNodes, node)
+		node = nextNode
+	}
+	delete(node.clients, clientID)
+
+	// clear memory
+	for i := len(prevNodes) - 1; i >= 0; i-- {
+		node = prevNodes[i].nodes[levels[i]]
+		if len(node.clients) == 0 && len(node.nodes) == 0 {
+			delete(prevNodes[i].nodes, levels[i])
+		}
+	}
+	return nil
+}
+
+func (mgr *TopicManager) match(topic string) (map[string]byte, error) {
+	levels, err := mgr.getLevels(topic)
+	if err != nil {
+		return nil, err
 	}
 	ans := make(map[string]byte)
-	mgr.root.match(levels, ans)
+
+	currentLevelNodes := []*topicNode{mgr.root}
+	nextLevelNodes := []*topicNode{}
+	for _, topicLevel := range levels {
+		for _, node := range currentLevelNodes {
+			for nodeLevel, nextNode := range node.nodes {
+				if nodeLevel == "#" {
+					nextNode.addClients(ans)
+				}
+				if nodeLevel == "+" || nodeLevel == topicLevel {
+					nextLevelNodes = append(nextLevelNodes, nextNode)
+				}
+			}
+		}
+		currentLevelNodes = nextLevelNodes
+		nextLevelNodes = []*topicNode{}
+	}
+	for _, n := range currentLevelNodes {
+		n.addClients(ans)
+	}
 	return ans, nil
+}
+
+func (t *topicLevelManager) get(topic string) ([]string, error) {
+	t.RLock()
+	defer t.RUnlock()
+	if val, ok := t.data[topic]; ok {
+		if val.valid {
+			return val.levels, nil
+		}
+		return nil, fmt.Errorf("topic %v is invalid", topic)
+	}
+
+	levels := strings.Split(topic, "/")
+	valid := validTopic(levels)
+	go t.put(topic, levels, valid)
+	if valid {
+		return levels, nil
+	}
+	return nil, fmt.Errorf("topic %v is invalid", topic)
+}
+
+func (t *topicLevelManager) put(topic string, levels []string, valid bool) {
+	t.Lock()
+	defer t.Unlock()
+	t.data[topic] = &topicLevels{levels, valid}
 }
 
 type topicNode struct {
@@ -108,58 +218,6 @@ func newNode() *topicNode {
 	return &topicNode{
 		clients: make(map[string]byte),
 		nodes:   make(map[string]*topicNode),
-	}
-}
-
-func (node *topicNode) insert(levels []string, qos byte, clientID string) error {
-	if len(levels) == 0 {
-		node.clients[clientID] = qos
-		return nil
-	}
-
-	nextNode, ok := node.nodes[levels[0]]
-	if !ok {
-		nextNode = newNode()
-		node.nodes[levels[0]] = nextNode
-	}
-	return nextNode.insert(levels[1:], qos, clientID)
-}
-
-func (node *topicNode) remove(levels []string, clientID string) error {
-	if len(levels) == 0 {
-		delete(node.clients, clientID)
-		return nil
-	}
-
-	nextNode, ok := node.nodes[levels[0]]
-	if !ok {
-		return nil
-	}
-	if err := nextNode.remove(levels[1:], clientID); err != nil {
-		return err
-	}
-	if len(nextNode.clients) == 0 && len(nextNode.nodes) == 0 {
-		delete(node.nodes, levels[0])
-	}
-	return nil
-}
-
-func (node *topicNode) match(levels []string, ans map[string]byte) {
-	if len(levels) == 0 {
-		node.addClients(ans)
-		if n, ok := node.nodes["#"]; ok {
-			n.addClients(ans)
-		}
-		return
-	}
-
-	for l, nextNode := range node.nodes {
-		if l == "#" {
-			nextNode.addClients(ans)
-		}
-		if l == "+" || l == levels[0] {
-			nextNode.match(levels[1:], ans)
-		}
 	}
 }
 
