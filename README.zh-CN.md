@@ -101,19 +101,19 @@
 
 下面的例子展示了如何在不同场景下使用 Easegress。
 
-- [API Aggregator](./doc/cookbook/api_aggregator.md) - 将多个 API 聚合为一个。
-- [FaaS](./doc/cookbook/faas.md) - 支持 Knative FaaS 集成。
-- [Flash Sale](./doc/cookbook/flash_sale.md) - 如何使用 Easegress 进行高并发的秒杀活动。
-- [LoadBalancer](./doc/cookbook/load_balancer.md) - 各种负载均衡策略。 
-- [Distributed Tracing](./doc/cookbook/distributed_tracing.md) - 如何使用 Zipkin 进行 APM 追踪。
+- [API 聚合](./doc/cookbook/api_aggregator.md) - 将多个 API 聚合为一个。
+- [函数即服务 FaaS](./doc/cookbook/faas.md) - 支持 Knative FaaS 集成。
+- [高并发秒杀](./doc/cookbook/flash_sale.md) - 如何使用 Easegress 进行高并发的秒杀活动。
+- [负载均衡](./doc/cookbook/load_balancer.md) - 各种负载均衡策略。 
+- [分布式调用链](./doc/cookbook/distributed_tracing.md) - 如何使用 Zipkin 进行 APM 追踪。
 - [Kubernetes入口控制器](./doc/cookbook/k8s_ingress_controller.md) - 如何作为入口控制器与 Kubernetes 集成。
-- [性能](./doc/cookbook/performance.md) - 性能优化，压缩、缓存等。
-- [Pipeline](./doc/cookbook/pipeline.md) - 如何编排 HTTP 过滤器来处理请求和应答。
-- [Resilience and Fault Tolerance](./doc/cookbook/resilience.md) - 断路器、速率限制、重试、时间限制等（移植自[Java resilience4j](https://github.com/resilience4j/resilience4j)
-- [Security](./doc/cookbook/security.md) - 如何通过标头、JWT、HMAC、OAuth2 等进行认证。
-- [Service Proxy](./doc/cookbook/service_proxy.md) - 使用 Zookeeper、Eureka、Consul、Nacos 等进行服务注册。
+- [高性能](./doc/cookbook/performance.md) - 性能优化，压缩、缓存等。
+- [管道编排](./doc/cookbook/pipeline.md) - 如何编排 HTTP 过滤器来处理请求和应答。
+- [弹力和容错设计](./doc/cookbook/resilience.md) - 断路器、速率限制、重试、时间限制等（移植自[Java resilience4j](https://github.com/resilience4j/resilience4j)
+- [安全](./doc/cookbook/security.md) - 如何通过标头、JWT、HMAC、OAuth2 等进行认证。
+- [服务网关](./doc/cookbook/service_proxy.md) - 使用 Zookeeper、Eureka、Consul、Nacos 等进行服务注册。
 - [WebAssembly](./doc/cookbook/wasm.md) - 使用 AssemblyScript 来扩展 Easegress。
-- [Workflow](./doc/cookbook/workflow.md) - 将若干 API 进行组合，定制为工作流。
+- [工作流](./doc/cookbook/workflow.md) - 将若干 API 进行组合，定制为工作流。
 
 完整的列表请参见 [Cookbook](./doc/cookbook/README.md)。
 
