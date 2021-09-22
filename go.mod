@@ -23,7 +23,7 @@ require (
 	github.com/json-iterator/go v1.1.11
 	github.com/klauspost/compress v1.13.1
 	github.com/lucas-clemente/quic-go v0.21.1
-	github.com/megaease/easemesh-api v1.3.0
+	github.com/megaease/easemesh-api v1.3.1
 	github.com/megaease/grace v1.0.0
 	github.com/mitchellh/mapstructure v1.4.1
 	github.com/nacos-group/nacos-sdk-go v1.0.8
@@ -38,7 +38,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.8.0
 	github.com/tcnksm/go-httpstat v0.2.1-0.20191008022543-e866bb274419
-	github.com/tidwall/gjson v1.8.0
+	github.com/tidwall/gjson v1.9.1
 	github.com/tomasen/realip v0.0.0-20180522021738-f0c99a92ddce
 	github.com/valyala/fasttemplate v1.2.1
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
