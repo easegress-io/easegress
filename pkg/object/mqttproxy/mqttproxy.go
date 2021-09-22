@@ -104,7 +104,11 @@ func memberURLFunc(superSpec *supervisor.Spec) func(string, string) ([]string, e
 				return []string{}, err
 			}
 			if memberStatus.Options.Name != egName {
-				egURL := memberStatus.Options.ClusterInitialAdvertisePeerURLs[0]
+				egURLs := memberStatus.Options.ClusterInitialAdvertisePeerURLs
+				if len(egURLs) == 0 {
+					return nil, fmt.Errorf("easegress %v has empty ClusterInitialAdvertisePeerURLs %v", memberStatus.Options.Name, egURLs)
+				}
+				egURL := egURLs[0]
 				apiAddr := memberStatus.Options.APIAddr
 				newURL, err := updatePort(egURL, apiAddr)
 				if err != nil {
@@ -113,7 +117,7 @@ func memberURLFunc(superSpec *supervisor.Spec) func(string, string) ([]string, e
 				urls = append(urls, newURL+"/apis/v1"+fmt.Sprintf(mqttAPIPrefix, name))
 			}
 		}
-		return urls, fmt.Errorf("name %s not in cluster member list", name)
+		return urls, nil
 	}
 	return f
 }

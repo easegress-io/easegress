@@ -117,11 +117,14 @@ func (c *Client) readLoop() {
 			return
 		}
 		if _, ok := packet.(*packets.DisconnectPacket); ok {
+			c.info.will = nil
 			return
 		}
 		err = c.processPacket(packet)
 		if err != nil {
 			logger.Errorf("mqtt.readLoop client %s process packet failed, err:%v", c.info.cid, err)
+			// publish will message if there are error happens, except disconnect packet
+			c.broker.backend.publish(c.info.will)
 			return
 		}
 	}
