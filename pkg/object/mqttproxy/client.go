@@ -116,9 +116,12 @@ func (c *Client) readLoop() {
 			logger.Errorf("mqtt.readLoop: client %s read packet failed, err:%v", c.info.cid, err)
 			return
 		}
+		if _, ok := packet.(*packets.DisconnectPacket); ok {
+			return
+		}
 		err = c.processPacket(packet)
 		if err != nil {
-			logger.Debugf("mqtt.readLoop client %s process packet failed, err:%v", c.info.cid, err)
+			logger.Errorf("mqtt.readLoop client %s process packet failed, err:%v", c.info.cid, err)
 			return
 		}
 	}
@@ -149,8 +152,6 @@ func (c *Client) processPacket(packet packets.ControlPacket) error {
 		c.processPingreq(p)
 	case *packets.PingrespPacket:
 		err = errors.New("broker not ping")
-	case *packets.DisconnectPacket:
-		err = errors.New("client disconnect")
 	default:
 		err = errors.New("unknown packet")
 	}
