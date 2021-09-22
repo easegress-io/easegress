@@ -190,6 +190,11 @@ func (a *API) listCustomResources(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if a.service.GetCustomResourceKind(kind) == nil {
+		api.HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("kind %s not found", kind))
+		return
+	}
+
 	resources := a.service.ListCustomResources(kind)
 	sort.Slice(resources, func(i, j int) bool {
 		return resources[i].Name() < resources[j].Name()
@@ -212,6 +217,11 @@ func (a *API) getCustomResource(w http.ResponseWriter, r *http.Request) {
 	name, err := a.readURLParam(r, "name")
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
+		return
+	}
+
+	if a.service.GetCustomResourceKind(kind) == nil {
+		api.HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("kind %s not found", kind))
 		return
 	}
 
