@@ -19,6 +19,8 @@ package mqttproxy
 
 import (
 	"fmt"
+	"net"
+	"net/url"
 
 	"github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/logger"
@@ -67,6 +69,23 @@ func (mp *MQTTProxy) Status() *supervisor.Status {
 	return &supervisor.Status{}
 }
 
+func updatePort(urlStr string, hostWithPort string) (string, error) {
+	u, err := url.Parse(urlStr)
+	if err != nil {
+		return "", fmt.Errorf("parse url %v failed, err:%v", urlStr, err)
+	}
+	host, _, err := net.SplitHostPort(u.Host)
+	if err != nil {
+		return "", fmt.Errorf("split host for url %v failed, err:%v", urlStr, err)
+	}
+	_, port, err := net.SplitHostPort(hostWithPort)
+	if err != nil {
+		return "", fmt.Errorf("split host for hostWithPort %v failed, err:%v", hostWithPort, err)
+	}
+	u.Host = net.JoinHostPort(host, port)
+	return u.String(), nil
+}
+
 func memberURLFunc(superSpec *supervisor.Spec) func(string, string) ([]string, error) {
 	c := superSpec.Super().Cluster()
 
@@ -85,7 +104,13 @@ func memberURLFunc(superSpec *supervisor.Spec) func(string, string) ([]string, e
 				return []string{}, err
 			}
 			if memberStatus.Options.Name != egName {
-				urls = append(urls, "http://"+memberStatus.Options.APIAddr+"/apis/v1"+fmt.Sprintf(mqttAPIPrefix, name))
+				egURL := memberStatus.Options.ClusterInitialAdvertisePeerURLs[0]
+				apiAddr := memberStatus.Options.APIAddr
+				newURL, err := updatePort(egURL, apiAddr)
+				if err != nil {
+					return nil, fmt.Errorf("get url for %v failed, err:%v", memberStatus.Options.Name, err)
+				}
+				urls = append(urls, newURL+"/apis/v1"+fmt.Sprintf(mqttAPIPrefix, name))
 			}
 		}
 		return urls, fmt.Errorf("name %s not in cluster member list", name)
