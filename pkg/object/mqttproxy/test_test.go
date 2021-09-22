@@ -1268,8 +1268,7 @@ func TestBrokerListen(t *testing.T) {
 
 	if broker == nil {
 		t.Errorf("valid tls config should not return nil broker")
-	}
-	if len(broker.sha256Auth) != 0 {
+	} else if len(broker.sha256Auth) != 0 {
 		t.Errorf("invalid PassBase64 should return empty auth, %v", broker.sha256Auth)
 	}
 
