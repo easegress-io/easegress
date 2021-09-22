@@ -614,6 +614,7 @@ func TestSendMsgBack(t *testing.T) {
 					t.Errorf("client <%d> publish failed, <%s>", i, token.Error())
 				}
 			}
+			fmt.Printf("client %s finished publish\n", r.ClientID())
 		}(clients[i])
 
 		go func(c paho.Client) {
@@ -631,7 +632,10 @@ func TestSendMsgBack(t *testing.T) {
 	wg.Add(2)
 	// receive msg
 	go func() {
-		defer wg.Done()
+		defer func() {
+			fmt.Printf("all msg received!\n")
+			wg.Done()
+		}()
 		producer := broker.backend.(*testMQ)
 		ans := make(map[string]int)
 		for i := 0; i < clientNum*msgNum; i++ {
@@ -666,7 +670,10 @@ func TestSendMsgBack(t *testing.T) {
 
 	// receive subscribes
 	go func() {
-		defer wg.Done()
+		defer func() {
+			fmt.Printf("all subscribes received!\n")
+			wg.Done()
+		}()
 		ans := make(map[string]map[string]struct{})
 
 		for {
