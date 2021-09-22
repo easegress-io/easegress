@@ -78,23 +78,23 @@ const (
 	// MeshServiceInstancePath is the mesh service path.
 	MeshServiceInstancePath = "/mesh/serviceinstances/{serviceName}/{instanceID}"
 
-	// MeshCustomObjectKindPrefix is the mesh custom object kind prefix.
-	MeshCustomObjectKindPrefix = "/mesh/customobjectkinds"
+	// MeshCustomResourceKindPrefix is the mesh custom resource kind prefix.
+	MeshCustomResourceKindPrefix = "/mesh/customresourcekinds"
 
-	// MeshCustomObjectKind is the mesh custom object kind
-	MeshCustomObjectKind = "/mesh/customobjectkinds/{name}"
+	// MeshCustomResourceKind is the mesh custom resource kind
+	MeshCustomResourceKind = "/mesh/customresourcekinds/{name}"
 
-	// MeshAllCustomObjectPrefix is the mesh custom object prefix
-	MeshAllCustomObjectPrefix = "/mesh/customobjects"
+	// MeshAllCustomResourcePrefix is the mesh custom resource prefix
+	MeshAllCustomResourcePrefix = "/mesh/customresources"
 
-	// MeshCustomObjectPrefix is the mesh custom object prefix of a specified kind
-	MeshCustomObjectPrefix = "/mesh/customobjects/{kind}"
+	// MeshCustomResourcePrefix is the mesh custom resource prefix of a specified kind
+	MeshCustomResourcePrefix = "/mesh/customresources/{kind}"
 
-	// MeshCustomObject is the mesh custom object of a specified kind
-	MeshCustomObject = "/mesh/customobjects/{kind}/{name}"
+	// MeshCustomResource is the mesh custom resource of a specified kind
+	MeshCustomResource = "/mesh/customresources/{kind}/{name}"
 
-	// MeshWatchCustomObject is the path to watch custom objects of a specified kind
-	MeshWatchCustomObject = "/mesh/watchcustomobjects/{kind}"
+	// MeshWatchCustomResource is the path to watch custom resources of a specified kind
+	MeshWatchCustomResource = "/mesh/watchcustomresources/{kind}"
 )
 
 type (
@@ -183,20 +183,20 @@ func (a *API) registerAPIs() {
 			{Path: MeshServiceMetricsPath, Method: "PUT", Handler: a.updatePartOfService(metricsMeta)},
 			{Path: MeshServiceMetricsPath, Method: "DELETE", Handler: a.deletePartOfService(metricsMeta)},
 
-			{Path: MeshCustomObjectKindPrefix, Method: "GET", Handler: a.listCustomObjectKinds},
-			{Path: MeshCustomObjectKindPrefix, Method: "POST", Handler: a.createCustomObjectKind},
-			{Path: MeshCustomObjectKind, Method: "GET", Handler: a.getCustomObjectKind},
-			{Path: MeshCustomObjectKind, Method: "PUT", Handler: a.updateCustomObjectKind},
-			{Path: MeshCustomObjectKind, Method: "DELETE", Handler: a.deleteCustomObjectKind},
+			{Path: MeshCustomResourceKindPrefix, Method: "GET", Handler: a.listCustomResourceKinds},
+			{Path: MeshCustomResourceKindPrefix, Method: "POST", Handler: a.createCustomResourceKind},
+			{Path: MeshCustomResourceKind, Method: "GET", Handler: a.getCustomResourceKind},
+			{Path: MeshCustomResourceKindPrefix, Method: "PUT", Handler: a.updateCustomResourceKind},
+			{Path: MeshCustomResourceKind, Method: "DELETE", Handler: a.deleteCustomResourceKind},
 
-			{Path: MeshAllCustomObjectPrefix, Method: "GET", Handler: a.listAllCustomObjects},
-			{Path: MeshCustomObjectPrefix, Method: "GET", Handler: a.listCustomObjects},
-			{Path: MeshAllCustomObjectPrefix, Method: "POST", Handler: a.createCustomObject},
-			{Path: MeshCustomObject, Method: "GET", Handler: a.getCustomObject},
-			{Path: MeshCustomObject, Method: "PUT", Handler: a.updateCustomObject},
-			{Path: MeshCustomObject, Method: "DELETE", Handler: a.deleteCustomObject},
+			{Path: MeshAllCustomResourcePrefix, Method: "GET", Handler: a.listAllCustomResources},
+			{Path: MeshCustomResourcePrefix, Method: "GET", Handler: a.listCustomResources},
+			{Path: MeshAllCustomResourcePrefix, Method: "POST", Handler: a.createCustomResource},
+			{Path: MeshCustomResource, Method: "GET", Handler: a.getCustomResource},
+			{Path: MeshAllCustomResourcePrefix, Method: "PUT", Handler: a.updateCustomResource},
+			{Path: MeshCustomResource, Method: "DELETE", Handler: a.deleteCustomResource},
 
-			{Path: MeshWatchCustomObject, Method: "GET", Handler: a.watchCustomObjects},
+			{Path: MeshWatchCustomResource, Method: "GET", Handler: a.watchCustomResources},
 		},
 	}
 

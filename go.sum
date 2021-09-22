@@ -912,8 +912,8 @@ github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5
 github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 h1:I0XW9+e1XWDxdcEniV4rQAIOPUGDq67JSCiRCgGCZLI=
 github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369/go.mod h1:BSXmuO+STAnVfrANrmjBb36TMTDstsz7MSK+HVaYKv4=
 github.com/maxbrunsfeld/counterfeiter/v6 v6.2.2/go.mod h1:eD9eIE7cdwcMi9rYluz88Jz2VyhSmden33/aXg4oVIY=
-github.com/megaease/easemesh-api v1.3.0 h1:1aq/uewe8rEYrkD8HU1Sk7Mb2ERItmmKd2Pv9997QYc=
-github.com/megaease/easemesh-api v1.3.0/go.mod h1:cNKMXb0iK3M+woe0JzivXFfnvP0E1MeF+zbeWFEuU7g=
+github.com/megaease/easemesh-api v1.3.1 h1:wfW1T+OTNiilgS3PUzjqt4TG2qUm6jcg+Ko0hW4TqH8=
+github.com/megaease/easemesh-api v1.3.1/go.mod h1:cNKMXb0iK3M+woe0JzivXFfnvP0E1MeF+zbeWFEuU7g=
 github.com/megaease/grace v1.0.0 h1:b44R3j6e/iaN62F4ZUnru9nzL1VaIcxxUZjSPVtTVzI=
 github.com/megaease/grace v1.0.0/go.mod h1:mOR6MVYQ6zGyuz9Y2or/VJ6QWueTL3erxWfIwyCmiIg=
 github.com/microcosm-cc/bluemonday v1.0.1/go.mod h1:hsXNsILzKxV+sX77C5b8FSuKF00vh2OMYv+xgHpAMF4=

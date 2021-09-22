@@ -39,15 +39,15 @@ func (a *API) readURLParam(r *http.Request, name string) (string, error) {
 	return value, nil
 }
 
-func (a *API) listCustomObjectKinds(w http.ResponseWriter, r *http.Request) {
-	kinds := a.service.ListCustomObjectKinds()
+func (a *API) listCustomResourceKinds(w http.ResponseWriter, r *http.Request) {
+	kinds := a.service.ListCustomResourceKinds()
 	sort.Slice(kinds, func(i, j int) bool {
 		return kinds[i].Name < kinds[j].Name
 	})
 
-	var pbKinds []*v1alpha1.CustomObjectKind
+	var pbKinds []*v1alpha1.CustomResourceKind
 	for _, v := range kinds {
-		kind := &v1alpha1.CustomObjectKind{}
+		kind := &v1alpha1.CustomResourceKind{}
 		err := a.convertSpecToPB(v, kind)
 		if err != nil {
 			logger.Errorf("convert spec %#v to pb spec failed: %v", v, err)
@@ -64,20 +64,20 @@ func (a *API) listCustomObjectKinds(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 }
 
-func (a *API) getCustomObjectKind(w http.ResponseWriter, r *http.Request) {
+func (a *API) getCustomResourceKind(w http.ResponseWriter, r *http.Request) {
 	name, err := a.readURLParam(r, "name")
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
-	kind := a.service.GetCustomObjectKind(name)
+	kind := a.service.GetCustomResourceKind(name)
 	if kind == nil {
 		api.HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("%s not found", name))
 		return
 	}
 
-	pbKind := &v1alpha1.CustomObjectKind{}
+	pbKind := &v1alpha1.CustomResourceKind{}
 	err = a.convertSpecToPB(kind, pbKind)
 	if err != nil {
 		panic(fmt.Errorf("convert spec %#v to pb failed: %v", kind, err))
@@ -91,9 +91,9 @@ func (a *API) getCustomObjectKind(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 }
 
-func (a *API) saveCustomObjectKind(w http.ResponseWriter, r *http.Request, update bool) error {
-	pbKind := &v1alpha1.CustomObjectKind{}
-	kind := &spec.CustomObjectKind{}
+func (a *API) saveCustomResourceKind(w http.ResponseWriter, r *http.Request, update bool) error {
+	pbKind := &v1alpha1.CustomResourceKind{}
+	kind := &spec.CustomResourceKind{}
 
 	err := a.readAPISpec(r, pbKind, kind)
 	if err != nil {
@@ -102,20 +102,6 @@ func (a *API) saveCustomObjectKind(w http.ResponseWriter, r *http.Request, updat
 	}
 
 	name := kind.Name
-	if update {
-		name, err = a.readURLParam(r, "name")
-		if err != nil {
-			api.HandleAPIError(w, r, http.StatusBadRequest, err)
-			return err
-		}
-
-		if name != kind.Name {
-			err = fmt.Errorf("name conflict: %s %s", name, kind.Name)
-			api.HandleAPIError(w, r, http.StatusConflict, err)
-			return err
-		}
-	}
-
 	if kind.JSONSchema != "" {
 		sl := gojsonschema.NewStringLoader(kind.JSONSchema)
 		if _, err = gojsonschema.NewSchema(sl); err != nil {
@@ -128,7 +114,7 @@ func (a *API) saveCustomObjectKind(w http.ResponseWriter, r *http.Request, updat
 	a.service.Lock()
 	defer a.service.Unlock()
 
-	oldKind := a.service.GetCustomObjectKind(name)
+	oldKind := a.service.GetCustomResourceKind(name)
 	if update && (oldKind == nil) {
 		err = fmt.Errorf("%s not found", name)
 		api.HandleAPIError(w, r, http.StatusNotFound, err)
@@ -140,23 +126,23 @@ func (a *API) saveCustomObjectKind(w http.ResponseWriter, r *http.Request, updat
 		return err
 	}
 
-	a.service.PutCustomObjectKind(kind)
+	a.service.PutCustomResourceKind(kind)
 	return nil
 }
 
-func (a *API) createCustomObjectKind(w http.ResponseWriter, r *http.Request) {
-	err := a.saveCustomObjectKind(w, r, false)
+func (a *API) createCustomResourceKind(w http.ResponseWriter, r *http.Request) {
+	err := a.saveCustomResourceKind(w, r, false)
 	if err == nil {
 		w.Header().Set("Location", r.URL.Path)
 		w.WriteHeader(http.StatusCreated)
 	}
 }
 
-func (a *API) updateCustomObjectKind(w http.ResponseWriter, r *http.Request) {
-	a.saveCustomObjectKind(w, r, true)
+func (a *API) updateCustomResourceKind(w http.ResponseWriter, r *http.Request) {
+	a.saveCustomResourceKind(w, r, true)
 }
 
-func (a *API) deleteCustomObjectKind(w http.ResponseWriter, r *http.Request) {
+func (a *API) deleteCustomResourceKind(w http.ResponseWriter, r *http.Request) {
 	name, err := a.readURLParam(r, "name")
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
@@ -166,58 +152,63 @@ func (a *API) deleteCustomObjectKind(w http.ResponseWriter, r *http.Request) {
 	a.service.Lock()
 	defer a.service.Unlock()
 
-	oldKind := a.service.GetCustomObjectKind(name)
+	oldKind := a.service.GetCustomResourceKind(name)
 	if oldKind == nil {
 		api.HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("%s not found", name))
 		return
 	}
 
-	a.service.DeleteCustomObjectKind(name)
-	// TODO: remove custom objects
+	a.service.DeleteCustomResourceKind(name)
+	// TODO: remove custom resources?
 }
 
-func (a *API) listAllCustomObjects(w http.ResponseWriter, r *http.Request) {
-	objs := a.service.ListCustomObjects("")
-	sort.Slice(objs, func(i, j int) bool {
-		k1, k2 := objs[i].Kind(), objs[j].Kind()
+func (a *API) listAllCustomResources(w http.ResponseWriter, r *http.Request) {
+	resources := a.service.ListCustomResources("")
+	sort.Slice(resources, func(i, j int) bool {
+		k1, k2 := resources[i].Kind(), resources[j].Kind()
 		if k1 < k2 {
 			return true
 		}
 		if k1 > k2 {
 			return false
 		}
-		return objs[i].Name() < objs[j].Name()
+		return resources[i].Name() < resources[j].Name()
 	})
 
-	err := json.NewEncoder(w).Encode(objs)
+	err := json.NewEncoder(w).Encode(resources)
 	if err != nil {
-		panic(fmt.Errorf("marshal %#v to json failed: %v", objs, err))
+		panic(fmt.Errorf("marshal %#v to json failed: %v", resources, err))
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 }
 
-func (a *API) listCustomObjects(w http.ResponseWriter, r *http.Request) {
+func (a *API) listCustomResources(w http.ResponseWriter, r *http.Request) {
 	kind, err := a.readURLParam(r, "kind")
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
-	objs := a.service.ListCustomObjects(kind)
-	sort.Slice(objs, func(i, j int) bool {
-		return objs[i].Name() < objs[j].Name()
+	if a.service.GetCustomResourceKind(kind) == nil {
+		api.HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("kind %s not found", kind))
+		return
+	}
+
+	resources := a.service.ListCustomResources(kind)
+	sort.Slice(resources, func(i, j int) bool {
+		return resources[i].Name() < resources[j].Name()
 	})
 
-	err = json.NewEncoder(w).Encode(objs)
+	err = json.NewEncoder(w).Encode(resources)
 	if err != nil {
-		panic(fmt.Errorf("marshal %#v to json failed: %v", objs, err))
+		panic(fmt.Errorf("marshal %#v to json failed: %v", resources, err))
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 }
 
-func (a *API) getCustomObject(w http.ResponseWriter, r *http.Request) {
+func (a *API) getCustomResource(w http.ResponseWriter, r *http.Request) {
 	kind, err := a.readURLParam(r, "kind")
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
@@ -229,30 +220,35 @@ func (a *API) getCustomObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	obj := a.service.GetCustomObject(kind, name)
-	if obj == nil {
+	if a.service.GetCustomResourceKind(kind) == nil {
+		api.HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("kind %s not found", kind))
+		return
+	}
+
+	resource := a.service.GetCustomResource(kind, name)
+	if resource == nil {
 		api.HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("%s not found", name))
 		return
 	}
 
-	err = json.NewEncoder(w).Encode(obj)
+	err = json.NewEncoder(w).Encode(resource)
 	if err != nil {
-		panic(fmt.Errorf("marshal %#v to json failed: %v", obj, err))
+		panic(fmt.Errorf("marshal %#v to json failed: %v", resource, err))
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 }
 
-func (a *API) saveCustomObject(w http.ResponseWriter, r *http.Request, update bool) error {
-	obj := &spec.CustomObject{}
-	err := json.NewDecoder(r.Body).Decode(obj)
+func (a *API) saveCustomResource(w http.ResponseWriter, r *http.Request, update bool) error {
+	resource := &spec.CustomResource{}
+	err := json.NewDecoder(r.Body).Decode(resource)
 	if err != nil {
-		err = fmt.Errorf("unmarshal custom object failed: %v", err)
+		err = fmt.Errorf("unmarshal custom resource failed: %v", err)
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return err
 	}
 
-	kind, name := obj.Kind(), obj.Name()
+	kind, name := resource.Kind(), resource.Name()
 	if kind == "" {
 		err = fmt.Errorf("kind cannot be empty")
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
@@ -264,32 +260,7 @@ func (a *API) saveCustomObject(w http.ResponseWriter, r *http.Request, update bo
 		return err
 	}
 
-	if update {
-		kind, err = a.readURLParam(r, "kind")
-		if err != nil {
-			api.HandleAPIError(w, r, http.StatusBadRequest, err)
-			return err
-		}
-		name, err = a.readURLParam(r, "name")
-		if err != nil {
-			api.HandleAPIError(w, r, http.StatusBadRequest, err)
-			return err
-		}
-
-		if obj.Kind() != kind {
-			err = fmt.Errorf("kind conflict: %s %s", kind, obj.Kind())
-			api.HandleAPIError(w, r, http.StatusConflict, err)
-			return err
-		}
-
-		if obj.Name() != name {
-			err = fmt.Errorf("name conflict: %s %s", name, obj.Name())
-			api.HandleAPIError(w, r, http.StatusConflict, err)
-			return err
-		}
-	}
-
-	k := a.service.GetCustomObjectKind(obj.Kind())
+	k := a.service.GetCustomResourceKind(kind)
 	if k == nil {
 		api.HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("kind %s not found", kind))
 		return err
@@ -297,7 +268,7 @@ func (a *API) saveCustomObject(w http.ResponseWriter, r *http.Request, update bo
 
 	if k.JSONSchema != "" {
 		schema := gojsonschema.NewStringLoader(k.JSONSchema)
-		doc := gojsonschema.NewGoLoader(obj)
+		doc := gojsonschema.NewGoLoader(resource)
 		res, err := gojsonschema.Validate(schema, doc)
 		if err != nil {
 			err = fmt.Errorf("validation failed: %v", err)
@@ -305,7 +276,7 @@ func (a *API) saveCustomObject(w http.ResponseWriter, r *http.Request, update bo
 			return err
 		}
 		if !res.Valid() {
-			err = fmt.Errorf("invalid custom object: %v", res.Errors())
+			err = fmt.Errorf("invalid custom resource: %v", res.Errors())
 			api.HandleAPIError(w, r, http.StatusBadRequest, err)
 			return err
 		}
@@ -314,35 +285,35 @@ func (a *API) saveCustomObject(w http.ResponseWriter, r *http.Request, update bo
 	a.service.Lock()
 	defer a.service.Unlock()
 
-	oldObj := a.service.GetCustomObject(kind, name)
-	if update && (oldObj == nil) {
-		err = fmt.Errorf("custom object %s not found", name)
+	oldResource := a.service.GetCustomResource(kind, name)
+	if update && (oldResource == nil) {
+		err = fmt.Errorf("custom resource %s not found", name)
 		api.HandleAPIError(w, r, http.StatusNotFound, err)
 		return err
 	}
-	if (!update) && (oldObj != nil) {
-		err = fmt.Errorf("custom object %s existed", name)
+	if (!update) && (oldResource != nil) {
+		err = fmt.Errorf("custom resource %s existed", name)
 		api.HandleAPIError(w, r, http.StatusConflict, err)
 		return err
 	}
 
-	a.service.PutCustomObject(obj)
+	a.service.PutCustomResource(resource)
 	return nil
 }
 
-func (a *API) createCustomObject(w http.ResponseWriter, r *http.Request) {
-	err := a.saveCustomObject(w, r, false)
+func (a *API) createCustomResource(w http.ResponseWriter, r *http.Request) {
+	err := a.saveCustomResource(w, r, false)
 	if err == nil {
 		w.Header().Set("Location", r.URL.Path)
 		w.WriteHeader(http.StatusCreated)
 	}
 }
 
-func (a *API) updateCustomObject(w http.ResponseWriter, r *http.Request) {
-	a.saveCustomObject(w, r, true)
+func (a *API) updateCustomResource(w http.ResponseWriter, r *http.Request) {
+	a.saveCustomResource(w, r, true)
 }
 
-func (a *API) deleteCustomObject(w http.ResponseWriter, r *http.Request) {
+func (a *API) deleteCustomResource(w http.ResponseWriter, r *http.Request) {
 	kind, err := a.readURLParam(r, "kind")
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
@@ -357,33 +328,33 @@ func (a *API) deleteCustomObject(w http.ResponseWriter, r *http.Request) {
 	a.service.Lock()
 	defer a.service.Unlock()
 
-	oldObj := a.service.GetCustomObject(kind, name)
-	if oldObj == nil {
+	oldResource := a.service.GetCustomResource(kind, name)
+	if oldResource == nil {
 		api.HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("%s not found", name))
 		return
 	}
 
-	a.service.DeleteCustomObject(kind, name)
+	a.service.DeleteCustomResource(kind, name)
 }
 
-func (a *API) watchCustomObjects(w http.ResponseWriter, r *http.Request) {
+func (a *API) watchCustomResources(w http.ResponseWriter, r *http.Request) {
 	kind, err := a.readURLParam(r, "kind")
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
 
-	logger.Infof("begin watch custom objects of kind '%s'", kind)
+	logger.Infof("begin watch custom resources of kind '%s'", kind)
 
 	w.Header().Set("Content-type", "application/octet-stream")
-	a.service.WatchCustomObject(r.Context(), kind, func(objs []*spec.CustomObject) {
-		err = json.NewEncoder(w).Encode(objs)
+	a.service.WatchCustomResource(r.Context(), kind, func(resources []*spec.CustomResource) {
+		err = json.NewEncoder(w).Encode(resources)
 		if err != nil {
-			logger.Errorf("marshal custom object failed: %v", err)
+			logger.Errorf("marshal custom resource failed: %v", err)
 		}
 		w.Write([]byte("\r\n"))
 		w.(http.Flusher).Flush()
 	})
 
-	logger.Infof("end watch custom objects of kind '%s'", kind)
+	logger.Infof("end watch custom resources of kind '%s'", kind)
 }

@@ -286,27 +286,27 @@ type (
 		httppipeline.Spec `yaml:",inline"`
 	}
 
-	// CustomObjectKind defines the spec of a custom object kind
-	CustomObjectKind struct {
+	// CustomResourceKind defines the spec of a custom resource kind
+	CustomResourceKind struct {
 		Name       string `yaml:"name" jsonschema:"required"`
 		JSONSchema string `yaml:"jsonSchema" jsonschema:"omitempty"`
 	}
 
-	// CustomObject defines the spec of a custom object
-	CustomObject map[string]interface{}
+	// CustomResource defines the spec of a custom resource
+	CustomResource map[string]interface{}
 )
 
-// Name returns the 'name' field of the custom object
-func (co CustomObject) Name() string {
-	if v, ok := co["name"].(string); ok {
+// Name returns the 'name' field of the custom resource
+func (cr CustomResource) Name() string {
+	if v, ok := cr["name"].(string); ok {
 		return v
 	}
 	return ""
 }
 
-// Kind returns the 'kind' field of the custom object
-func (co CustomObject) Kind() string {
-	if v, ok := co["kind"].(string); ok {
+// Kind returns the 'kind' field of the custom resource
+func (cr CustomResource) Kind() string {
+	if v, ok := cr["kind"].(string); ok {
 		return v
 	}
 	return ""
