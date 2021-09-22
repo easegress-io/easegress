@@ -428,16 +428,16 @@ func (s *Service) DeleteIngressSpec(ingressName string) {
 	}
 }
 
-// ListCustomObjectKinds lists custom object kinds
-func (s *Service) ListCustomObjectKinds() []*spec.CustomObjectKind {
-	kvs, err := s.store.GetRawPrefix(layout.CustomObjectKindPrefix())
+// ListCustomResourceKinds lists custom resource kinds
+func (s *Service) ListCustomResourceKinds() []*spec.CustomResourceKind {
+	kvs, err := s.store.GetRawPrefix(layout.CustomResourceKindPrefix())
 	if err != nil {
 		api.ClusterPanic(err)
 	}
 
-	kinds := []*spec.CustomObjectKind{}
+	kinds := []*spec.CustomResourceKind{}
 	for _, v := range kvs {
-		kind := &spec.CustomObjectKind{}
+		kind := &spec.CustomResourceKind{}
 		err := yaml.Unmarshal(v.Value, kind)
 		if err != nil {
 			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
@@ -449,17 +449,17 @@ func (s *Service) ListCustomObjectKinds() []*spec.CustomObjectKind {
 	return kinds
 }
 
-// DeleteCustomObjectKind deletes a custom object kind
-func (s *Service) DeleteCustomObjectKind(kind string) {
-	err := s.store.Delete(layout.CustomObjectKindKey(kind))
+// DeleteCustomResourceKind deletes a custom resource kind
+func (s *Service) DeleteCustomResourceKind(kind string) {
+	err := s.store.Delete(layout.CustomResourceKindKey(kind))
 	if err != nil {
 		api.ClusterPanic(err)
 	}
 }
 
-// GetCustomObjectKind gets custom object kind with its name
-func (s *Service) GetCustomObjectKind(name string) *spec.CustomObjectKind {
-	kvs, err := s.store.GetRaw(layout.CustomObjectKindKey(name))
+// GetCustomResourceKind gets custom resource kind with its name
+func (s *Service) GetCustomResourceKind(name string) *spec.CustomResourceKind {
+	kvs, err := s.store.GetRaw(layout.CustomResourceKindKey(name))
 	if err != nil {
 		api.ClusterPanic(err)
 	}
@@ -468,7 +468,7 @@ func (s *Service) GetCustomObjectKind(name string) *spec.CustomObjectKind {
 		return nil
 	}
 
-	kind := &spec.CustomObjectKind{}
+	kind := &spec.CustomResourceKind{}
 	err = yaml.Unmarshal(kvs.Value, kind)
 	if err != nil {
 		panic(fmt.Errorf("BUG: unmarshal %s to yaml failed: %v", string(kvs.Value), err))
@@ -477,56 +477,56 @@ func (s *Service) GetCustomObjectKind(name string) *spec.CustomObjectKind {
 	return kind
 }
 
-// PutCustomObjectKind writes the custom object kind to storage.
-func (s *Service) PutCustomObjectKind(kind *spec.CustomObjectKind) {
+// PutCustomResourceKind writes the custom resource kind to storage.
+func (s *Service) PutCustomResourceKind(kind *spec.CustomResourceKind) {
 	buff, err := yaml.Marshal(kind)
 	if err != nil {
 		panic(fmt.Errorf("BUG: marshal %#v to yaml failed: %v", kind, err))
 	}
 
-	err = s.store.Put(layout.CustomObjectKindKey(kind.Name), string(buff))
+	err = s.store.Put(layout.CustomResourceKindKey(kind.Name), string(buff))
 	if err != nil {
 		api.ClusterPanic(err)
 	}
 }
 
-// ListCustomObjects lists custom objects of specified kind.
+// ListCustomResources lists custom resources of specified kind.
 // if kind is empty, it returns custom objects of all kinds.
-func (s *Service) ListCustomObjects(kind string) []*spec.CustomObject {
-	prefix := layout.AllCustomObjectPrefix()
+func (s *Service) ListCustomResources(kind string) []*spec.CustomResource {
+	prefix := layout.AllCustomResourcePrefix()
 	if kind != "" {
-		prefix = layout.CustomObjectPrefix(kind)
+		prefix = layout.CustomResourcePrefix(kind)
 	}
 	kvs, err := s.store.GetRawPrefix(prefix)
 	if err != nil {
 		api.ClusterPanic(err)
 	}
 
-	objs := []*spec.CustomObject{}
+	resources := []*spec.CustomResource{}
 	for _, v := range kvs {
-		obj := &spec.CustomObject{}
-		err := yaml.Unmarshal(v.Value, obj)
+		resource := &spec.CustomResource{}
+		err := yaml.Unmarshal(v.Value, resource)
 		if err != nil {
 			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
 			continue
 		}
-		objs = append(objs, obj)
+		resources = append(resources, resource)
 	}
 
-	return objs
+	return resources
 }
 
-// DeleteCustomObject deletes a custom object
-func (s *Service) DeleteCustomObject(kind, name string) {
-	err := s.store.Delete(layout.CustomObjectKey(kind, name))
+// DeleteCustomResource deletes a custom resource
+func (s *Service) DeleteCustomResource(kind, name string) {
+	err := s.store.Delete(layout.CustomResourceKey(kind, name))
 	if err != nil {
 		api.ClusterPanic(err)
 	}
 }
 
-// GetCustomObject gets custom object with its kind & name
-func (s *Service) GetCustomObject(kind, name string) *spec.CustomObject {
-	kvs, err := s.store.GetRaw(layout.CustomObjectKey(kind, name))
+// GetCustomResource gets custom resource with its kind & name
+func (s *Service) GetCustomResource(kind, name string) *spec.CustomResource {
+	kvs, err := s.store.GetRaw(layout.CustomResourceKey(kind, name))
 	if err != nil {
 		api.ClusterPanic(err)
 	}
@@ -535,36 +535,36 @@ func (s *Service) GetCustomObject(kind, name string) *spec.CustomObject {
 		return nil
 	}
 
-	obj := &spec.CustomObject{}
-	err = yaml.Unmarshal(kvs.Value, obj)
+	resource := &spec.CustomResource{}
+	err = yaml.Unmarshal(kvs.Value, resource)
 	if err != nil {
 		panic(fmt.Errorf("BUG: unmarshal %s to yaml failed: %v", string(kvs.Value), err))
 	}
 
-	return obj
+	return resource
 }
 
-// PutCustomObject writes the custom object kind to storage.
-func (s *Service) PutCustomObject(obj *spec.CustomObject) {
+// PutCustomResource writes the custom resource kind to storage.
+func (s *Service) PutCustomResource(obj *spec.CustomResource) {
 	buff, err := yaml.Marshal(obj)
 	if err != nil {
 		panic(fmt.Errorf("BUG: marshal %#v to yaml failed: %v", obj, err))
 	}
 
-	err = s.store.Put(layout.CustomObjectKey(obj.Kind(), obj.Name()), string(buff))
+	err = s.store.Put(layout.CustomResourceKey(obj.Kind(), obj.Name()), string(buff))
 	if err != nil {
 		api.ClusterPanic(err)
 	}
 }
 
-// WatchCustomObject watches custom objects of the specified kind
-func (s *Service) WatchCustomObject(ctx context.Context, kind string, onChange func(objs []*spec.CustomObject)) error {
+// WatchCustomResource watches custom resources of the specified kind
+func (s *Service) WatchCustomResource(ctx context.Context, kind string, onChange func([]*spec.CustomResource)) error {
 	syncer, err := s.store.Syncer()
 	if err != nil {
 		return err
 	}
 
-	prefix := layout.CustomObjectPrefix(kind)
+	prefix := layout.CustomResourcePrefix(kind)
 	ch, err := syncer.SyncRawPrefix(prefix)
 	if err != nil {
 		return err
@@ -576,15 +576,15 @@ func (s *Service) WatchCustomObject(ctx context.Context, kind string, onChange f
 			syncer.Close()
 			return nil
 		case m := <-ch:
-			objs := make([]*spec.CustomObject, 0, len(m))
+			resources := make([]*spec.CustomResource, 0, len(m))
 			for _, v := range m {
-				obj := &spec.CustomObject{}
-				err = yaml.Unmarshal(v.Value, obj)
+				resource := &spec.CustomResource{}
+				err = yaml.Unmarshal(v.Value, resource)
 				if err == nil {
-					objs = append(objs, obj)
+					resources = append(resources, resource)
 				}
 			}
-			onChange(objs)
+			onChange(resources)
 		}
 	}
 }

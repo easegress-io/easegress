@@ -1007,29 +1007,29 @@ func TestEgressName(t *testing.T) {
 	}
 }
 
-func TestCustomObject(t *testing.T) {
-	o := CustomObject{}
-	if o.Name() != "" {
+func TestCustomResource(t *testing.T) {
+	r := CustomResource{}
+	if r.Name() != "" {
 		t.Error("name should be empty")
 	}
-	o["name"] = 1
-	if o.Name() != "" {
+	r["name"] = 1
+	if r.Name() != "" {
 		t.Error("name should be empty")
 	}
-	o["name"] = "obj1"
-	if o.Name() != "obj1" {
+	r["name"] = "obj1"
+	if r.Name() != "obj1" {
 		t.Error("name should be obj1")
 	}
 
-	if o.Kind() != "" {
+	if r.Kind() != "" {
 		t.Error("kind should be empty")
 	}
-	o["kind"] = 1
-	if o.Kind() != "" {
+	r["kind"] = 1
+	if r.Kind() != "" {
 		t.Error("kind should be empty")
 	}
-	o["kind"] = "kind1"
-	if o.Kind() != "kind1" {
+	r["kind"] = "kind1"
+	if r.Kind() != "kind1" {
 		t.Error("kind should be kind1")
 	}
 }
