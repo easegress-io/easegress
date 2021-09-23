@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"time"
@@ -246,7 +247,10 @@ func (rf *RemoteFilter) handle(ctx context.HTTPContext) (result string) {
 	}
 
 	errPrefix = "read remote body"
-	ctxBuff = rf.limitRead(resp.Body, maxContextBytes)
+	remoteReqBodyBuff := rf.limitRead(req.Body, maxBodyBytes)
+	remoteRespBodyBuff, _ := ioutil.ReadAll(resp.Body)
+	ctxBuff = rf.marshalHTTPContext(ctx, remoteReqBodyBuff, remoteRespBodyBuff)
+	//ctxBuff = rf.limitRead(resp.Body, maxContextBytes)
 
 	errPrefix = "unmarshal context"
 	rf.unmarshalHTTPContext(ctxBuff, ctx)
