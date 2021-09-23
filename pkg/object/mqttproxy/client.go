@@ -95,7 +95,12 @@ func newClient(connect *packets.ConnectPacket, broker *Broker, conn net.Conn) *C
 }
 
 func (c *Client) readLoop() {
-	defer c.close()
+	defer func() {
+		if c.info.will != nil {
+			c.broker.backend.publish(c.info.will)
+		}
+		c.close()
+	}()
 	keepAlive := time.Duration(c.info.keepalive) * time.Second
 	timeOut := keepAlive + keepAlive/2
 	for {
@@ -123,8 +128,6 @@ func (c *Client) readLoop() {
 		err = c.processPacket(packet)
 		if err != nil {
 			logger.Errorf("mqtt.readLoop client %s process packet failed, err:%v", c.info.cid, err)
-			// publish will message if there are error happens, except disconnect packet
-			c.broker.backend.publish(c.info.will)
 			return
 		}
 	}
