@@ -112,13 +112,13 @@ func (c *Client) readLoop() {
 
 		if keepAlive > 0 {
 			if err := c.conn.SetDeadline(time.Now().Add(timeOut)); err != nil {
-				logger.Errorf("mqtt.readLoop: set read timeout failed, err:%s", c.info.cid)
+				logger.Errorf("set read timeout failed: %s", c.info.cid)
 			}
 		}
 
 		packet, err := packets.ReadPacket(c.conn)
 		if err != nil {
-			logger.Errorf("mqtt.readLoop: client %s read packet failed, err:%v", c.info.cid, err)
+			logger.Errorf("client %s read packet failed: %v", c.info.cid, err)
 			return
 		}
 		if _, ok := packet.(*packets.DisconnectPacket); ok {
@@ -127,7 +127,7 @@ func (c *Client) readLoop() {
 		}
 		err = c.processPacket(packet)
 		if err != nil {
-			logger.Errorf("mqtt.readLoop client %s process packet failed, err:%v", c.info.cid, err)
+			logger.Errorf("client %s process packet failed: %v", c.info.cid, err)
 			return
 		}
 	}
@@ -174,7 +174,7 @@ func (c *Client) processPublish(publish *packets.PublishPacket) error {
 		puback.MessageID = publish.MessageID
 		err := c.writePacket(puback)
 		if err != nil {
-			return fmt.Errorf("write puback to client %s failed, err:%s", c.info.cid, err)
+			return fmt.Errorf("write puback to client %s failed: %s", c.info.cid, err)
 		}
 	case Qos2:
 		// not support yet
@@ -189,7 +189,7 @@ func (c *Client) processPuback(puback *packets.PubackPacket) {
 func (c *Client) processSubscribe(packet *packets.SubscribePacket) {
 	err := c.broker.topicMgr.subscribe(packet.Topics, packet.Qoss, c.info.cid)
 	if err != nil {
-		logger.Errorf("mqtt.processSubscribe: client %v subscribe %v failed, err:%v", c.info.cid, packet.Topics, err)
+		logger.Errorf("client %v subscribe %v failed: %v", c.info.cid, packet.Topics, err)
 		return
 	}
 	c.session.subscribe(packet.Topics, packet.Qoss)
@@ -206,7 +206,7 @@ func (c *Client) processSubscribe(packet *packets.SubscribePacket) {
 func (c *Client) processUnsubscribe(packet *packets.UnsubscribePacket) {
 	err := c.broker.topicMgr.unsubscribe(packet.Topics, c.info.cid)
 	if err != nil {
-		logger.Errorf("mqtt.processUnsubscribe: client %v unsubscribe %v failed, err:%v", c.info.cid, packet.Topics, err)
+		logger.Errorf("client %v unsubscribe %v failed: %v", c.info.cid, packet.Topics, err)
 	}
 	c.session.unsubscribe(packet.Topics)
 

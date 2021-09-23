@@ -237,7 +237,7 @@ func getPolicyRoute(routes []*PolicyRe) map[string]*regexp.Regexp {
 	for _, route := range routes {
 		r, err := regexp.Compile(route.MatchExpr)
 		if err != nil {
-			logger.Errorf("topicMapper policy <%s> match expr <%s> compile failed, err:%v", route.Name, route.MatchExpr, err)
+			logger.Errorf("topicMapper policy <%s> match expr <%s> compile failed: %v", route.Name, route.MatchExpr, err)
 		} else {
 			ans[route.Name] = r
 		}
@@ -253,7 +253,7 @@ func getTopicRoute(p *Policy) topicRouteType {
 		for _, expr := range route.Exprs {
 			r, err := regexp.Compile(expr)
 			if err != nil {
-				logger.Errorf("topicMapper policy <%s> topic route expr <%s> compile failed, err:%v", p.Name, expr, err)
+				logger.Errorf("topicMapper policy <%s> topic route expr <%s> compile failed: %v", p.Name, expr, err)
 			} else {
 				m[route.Topic] = append(m[route.Topic], r)
 			}
@@ -320,7 +320,7 @@ func getTopicMapFunc(topicMapper *TopicMapper) topicMapFunc {
 		}
 		topic, err := getTopic(levels[p.TopicIndex], p)
 		if err != nil {
-			return "", nil, fmt.Errorf("mqttTopic %s get backend massage queue topic failed, err:%v", mqttTopic, err)
+			return "", nil, fmt.Errorf("mqttTopic %s get backend massage queue topic failed: %v", mqttTopic, err)
 		}
 		headers := make(map[string]string)
 		for k, v := range p.Headers {

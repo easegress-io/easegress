@@ -66,7 +66,7 @@ func (m *mockStorage) getPrefix(prefix string) (map[string]string, error) {
 	defer m.mu.RUnlock()
 	out := make(map[string]string)
 	for k, v := range m.store {
-		if strings.Contains(k, prefix) {
+		if strings.HasPrefix(k, prefix) {
 			out[k] = v
 		}
 	}

@@ -58,7 +58,7 @@ func newBackendMQ(spec *Spec) backendMQ {
 		t.ch = make(chan *packets.PublishPacket, 100)
 		return t
 	default:
-		logger.Errorf("mqtt.newBackendMQ: backend type <%s> not support", spec.BackendType)
+		logger.Errorf("backend type <%s> not support", spec.BackendType)
 		return nil
 	}
 }
@@ -73,7 +73,7 @@ func newKafkaMQ(spec *Spec) *KafkaMQ {
 	config.Version = sarama.V1_0_0_0
 	producer, err := sarama.NewAsyncProducer(spec.Kafka.Backend, config)
 	if err != nil {
-		logger.Errorf("mqtt.newKafkaMQ: start sarama producer failed, addr:%v, err:%v", spec.Kafka.Backend, err)
+		logger.Errorf("start sarama producer with address %v failed: %v", spec.Kafka.Backend, err)
 		return nil
 	}
 
@@ -86,7 +86,7 @@ func newKafkaMQ(spec *Spec) *KafkaMQ {
 				if !ok {
 					return
 				}
-				logger.Errorf("mqtt.newKafkaMQ: produce failed, err:%v", err)
+				logger.Errorf("sarama producer failed: %v", err)
 			}
 		}
 	}()
@@ -101,7 +101,7 @@ func (k *KafkaMQ) publish(p *packets.PublishPacket) error {
 	if k.mapFunc != nil {
 		topic, headers, err := k.mapFunc(p.TopicName)
 		if err != nil {
-			return fmt.Errorf("packet TopicName not match TopicMapper rules, %s", p.TopicName)
+			return fmt.Errorf("packet TopicName %s not match TopicMapper rules", p.TopicName)
 		}
 		kafkaHeaders := []sarama.RecordHeader{}
 		for k, v := range headers {
@@ -127,7 +127,7 @@ func (k *KafkaMQ) close() {
 	close(k.done)
 	err := k.producer.Close()
 	if err != nil {
-		logger.Errorf("mqtt.close: close kafka producer failed, err:%v", err)
+		logger.Errorf("close kafka producer failed: %v", err)
 	}
 }
 

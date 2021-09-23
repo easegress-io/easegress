@@ -783,7 +783,7 @@ func topicsPublish(t *testing.T, data HTTPJsonData) int {
 	if err != nil {
 		t.Errorf("json marshal error")
 	}
-	req, err := http.NewRequest("POST", "http://localhost:8080/mqtt", bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest(http.MethodPost, "http://localhost:8080/mqtt", bytes.NewBuffer(jsonData))
 	if err != nil {
 		t.Errorf("request mqtt error")
 	}
@@ -804,7 +804,7 @@ func TestHTTPRequest(t *testing.T) {
 	srv.start()
 
 	// GET request should fail
-	req, _ := http.NewRequest("GET", "http://localhost:8080/mqtt", nil)
+	req, _ := http.NewRequest(http.MethodGet, "http://localhost:8080/mqtt", nil)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Errorf("client do req error %s", err)
@@ -815,7 +815,7 @@ func TestHTTPRequest(t *testing.T) {
 	resp.Body.Close()
 
 	// non json data should fail
-	req, err = http.NewRequest("POST", "http://localhost:8080/mqtt", bytes.NewBuffer([]byte("non json")))
+	req, err = http.NewRequest(http.MethodPost, "http://localhost:8080/mqtt", bytes.NewBuffer([]byte("non json")))
 	if err != nil {
 		t.Errorf("request mqtt error")
 	}
@@ -988,7 +988,7 @@ func TestHTTPTransfer(t *testing.T) {
 		Base64:  false,
 	}
 	jsonData, _ := json.Marshal(data)
-	req, _ := http.NewRequest("POST", "http://localhost:8081/mqtt", bytes.NewBuffer(jsonData))
+	req, _ := http.NewRequest(http.MethodPost, "http://localhost:8081/mqtt", bytes.NewBuffer(jsonData))
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Errorf("mqtt client do error")
@@ -1255,7 +1255,7 @@ func TestBrokerListen(t *testing.T) {
 		Port:        1883,
 		BackendType: testMQType,
 		Auth: []Auth{
-			{UserName: "test", PassBase64: "0"},
+			{UserName: "test", PassBase64: base64.StdEncoding.EncodeToString([]byte("test"))},
 		},
 		UseTLS: true,
 		Certificate: []Certificate{
@@ -1268,8 +1268,6 @@ func TestBrokerListen(t *testing.T) {
 
 	if broker == nil {
 		t.Errorf("valid tls config should not return nil broker")
-	} else if len(broker.sha256Auth) != 0 {
-		t.Errorf("invalid PassBase64 should return empty auth, %v", broker.sha256Auth)
 	}
 
 	broker1 := newBroker(spec, store, func(s, ss string) ([]string, error) {

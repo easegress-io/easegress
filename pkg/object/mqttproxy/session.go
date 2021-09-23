@@ -72,7 +72,7 @@ func newMsg(topic string, payload []byte, qos byte) *Message {
 func (s *Session) store() {
 	str, err := s.encode()
 	if err != nil {
-		logger.Errorf("encode session %+v failed, %v", s, err)
+		logger.Errorf("encode session %+v failed: %v", s, err)
 		return
 	}
 	ss := SessionStore{
@@ -184,7 +184,7 @@ func (s *Session) publish(topic string, payload []byte, qos byte) {
 		s.pendingQueue = append(s.pendingQueue, p.MessageID)
 		go client.writePacket(p)
 	} else {
-		logger.Errorf("mqtt.publish: current not support to publish message with qos=2")
+		logger.Errorf("current not support to publish message with qos=2")
 	}
 }
 
@@ -220,7 +220,7 @@ func (s *Session) doResend() {
 			p.TopicName = val.Topic
 			payload, err := base64.StdEncoding.DecodeString(val.B64Payload)
 			if err != nil {
-				logger.Errorf("mqtt.doResend: base64 decode error for Message B64Payload %s", err)
+				logger.Errorf("base64 decode error for Message B64Payload %s", err)
 				return
 			}
 			p.Payload = payload

@@ -86,15 +86,19 @@ func newBroker(spec *Spec, store storage, memberURL func(string, string) ([]stri
 	for _, a := range spec.Auth {
 		passwd, err := base64.StdEncoding.DecodeString(a.PassBase64)
 		if err != nil {
-			logger.Errorf("auth with name <%v>, base64 password <%v> decode failed, err:%v", a.UserName, a.PassBase64, err)
-		} else {
-			broker.sha256Auth[a.UserName] = sha256Sum(passwd)
+			logger.Errorf("auth with name %v, base64 password %v decode failed: %v", a.UserName, a.PassBase64, err)
+			return nil
 		}
+		broker.sha256Auth[a.UserName] = sha256Sum(passwd)
+	}
+	if len(broker.sha256Auth) == 0 {
+		logger.Errorf("empty valid auth for mqtt proxy")
+		return nil
 	}
 
 	err := broker.setListener()
 	if err != nil {
-		logger.Errorf("mqtt.newBroker: broker set listener failed, err:%v", err)
+		logger.Errorf("mqtt broker set listener failed: %v", err)
 		return nil
 	}
 
@@ -112,16 +116,16 @@ func (b *Broker) setListener() error {
 	if b.spec.UseTLS {
 		cfg, err = b.spec.tlsConfig()
 		if err != nil {
-			return fmt.Errorf("invalid tls config for mqtt proxy, err:%v", err)
+			return fmt.Errorf("invalid tls config for mqtt proxy: %v", err)
 		}
 		l, err = tls.Listen("tcp", addr, cfg)
 		if err != nil {
-			return fmt.Errorf("gen mqtt tls tcp listener failed, addr:%s, cfg:%v, err:%v", addr, cfg, err)
+			return fmt.Errorf("gen mqtt tls tcp listener with addr %v and cfg %v failed: %v", addr, cfg, err)
 		}
 	} else {
 		l, err = net.Listen("tcp", addr)
 		if err != nil {
-			return fmt.Errorf("gen mqtt tcp listener failed, addr:%s, err:%v", addr, err)
+			return fmt.Errorf("gen mqtt tcp listener with addr %s failed: %v", addr, err)
 		}
 	}
 	b.tlsCfg = cfg
@@ -158,12 +162,12 @@ func (b *Broker) handleConn(conn net.Conn) {
 	defer conn.Close()
 	packet, err := packets.ReadPacket(conn)
 	if err != nil {
-		logger.Errorf("mqtt.handleConn: read connect packet failed, err:%s", err)
+		logger.Errorf("read connect packet failed: %s", err)
 		return
 	}
 	connect, ok := packet.(*packets.ConnectPacket)
 	if !ok {
-		logger.Errorf("mqtt.handleConn: received %s that was not Connect", packet.String())
+		logger.Errorf("first packet received %s that was not Connect", packet.String())
 		return
 	}
 
@@ -172,20 +176,20 @@ func (b *Broker) handleConn(conn net.Conn) {
 	connack.ReturnCode = connect.Validate()
 	if connack.ReturnCode != packets.Accepted {
 		err = connack.Write(conn)
-		logger.Errorf("mqtt.handleConn: invalid connection %v, write connack failed, err:%s", connack.ReturnCode, err)
+		logger.Errorf("invalid connection %v, write connack failed: %s", connack.ReturnCode, err)
 		return
 	}
 
 	if !b.checkClientAuth(connect) {
 		connack.ReturnCode = packets.ErrRefusedNotAuthorised
 		err = connack.Write(conn)
-		logger.Errorf("mqtt.handleConn: invalid connection %v, connack back failed, err:%s", connack.ReturnCode, err)
+		logger.Errorf("invalid connection %v, connack back failed: %s", connack.ReturnCode, err)
 		return
 	}
 
 	err = connack.Write(conn)
 	if err != nil {
-		logger.Errorf("mqtt.handleConn: send connack to client %s failed, err %s", connect.ClientIdentifier, err)
+		logger.Errorf("send connack to client %s failed: %s", connect.ClientIdentifier, err)
 		return
 	}
 
@@ -205,7 +209,7 @@ func (b *Broker) handleConn(conn net.Conn) {
 	if len(topics) > 0 {
 		err = b.topicMgr.subscribe(topics, qoss, client.info.cid)
 		if err != nil {
-			logger.Errorf("client <%v> use previous session topics <%v> to subscribe failed, err:%v", client.info.cid, topics, err)
+			logger.Errorf("client %v use previous session topics %v to subscribe failed: %v", client.info.cid, topics, err)
 		}
 	}
 	client.readLoop()
@@ -229,33 +233,33 @@ func (b *Broker) setSession(client *Client, connect *packets.ConnectPacket) {
 func (b *Broker) requestTransfer(egName, name string, data HTTPJsonData) {
 	urls, err := b.memberURL(egName, name)
 	if err != nil {
-		logger.Errorf("mqtt.requestTransfer: not find url for eg:%s, name:%s, err:%v", egName, name, err)
+		logger.Errorf("find urls for other egs failed:%v", err)
 		return
 	}
 	jsonData, err := json.Marshal(data)
 	if err != nil {
-		logger.Errorf("mqtt.requestTransfer: json data marshal failed, err: %v", err)
+		logger.Errorf("json data marshal failed: %v", err)
 		return
 	}
 	for _, url := range urls {
-		req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+		req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(jsonData))
 		if err != nil {
-			logger.Errorf("mqtt.requestTransfer: make new request failed, err:%v", err)
-			return
+			logger.Errorf("make new request failed: %v", err)
+			continue
 		}
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			logger.Errorf("mqtt.requestTransfer: http client send msg failed, err:%v", err)
-			return
+			logger.Errorf("http client send msg failed:%v", err)
+		} else {
+			resp.Body.Close()
 		}
-		resp.Body.Close()
 	}
 }
 
 func (b *Broker) sendMsgToClient(topic string, payload []byte, qos byte) {
 	subscribers, _ := b.topicMgr.findSubscribers(topic)
 	if subscribers == nil {
-		logger.Errorf("mqtt.sendMsgToClient: not find subscribers for topic %s", topic)
+		logger.Errorf("not find subscribers for topic %s", topic)
 		return
 	}
 
@@ -265,7 +269,7 @@ func (b *Broker) sendMsgToClient(topic string, payload []byte, qos byte) {
 		}
 		sess := b.sessMgr.get(clientID)
 		if sess == nil {
-			logger.Errorf("mqtt.sendMsgToClient: session for client %s is nil", clientID)
+			logger.Errorf("session for client %s is nil", clientID)
 		} else {
 			if sess.info.EGName == b.egName && sess.info.Name == b.name {
 				sess.publish(topic, payload, qos)
@@ -284,7 +288,7 @@ func (b *Broker) getClient(clientID string) *Client {
 }
 
 func (b *Broker) topicsPublishHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
+	if r.Method != http.MethodPost {
 		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("suppose POST request but got %s", r.Method))
 		return
 	}
@@ -326,7 +330,7 @@ func (b *Broker) registerAPIs() {
 	group := &api.Group{
 		Group: b.name,
 		Entries: []*api.Entry{
-			{Path: b.mqttAPIPrefix(), Method: "POST", Handler: b.topicsPublishHandler},
+			{Path: b.mqttAPIPrefix(), Method: http.MethodPost, Handler: b.topicsPublishHandler},
 		},
 	}
 

@@ -72,15 +72,15 @@ func (mp *MQTTProxy) Status() *supervisor.Status {
 func updatePort(urlStr string, hostWithPort string) (string, error) {
 	u, err := url.Parse(urlStr)
 	if err != nil {
-		return "", fmt.Errorf("parse url %v failed, err:%v", urlStr, err)
+		return "", fmt.Errorf("parse url %v failed: %v", urlStr, err)
 	}
 	host, _, err := net.SplitHostPort(u.Host)
 	if err != nil {
-		return "", fmt.Errorf("split host for url %v failed, err:%v", urlStr, err)
+		return "", fmt.Errorf("split host for url %v failed: %v", urlStr, err)
 	}
 	_, port, err := net.SplitHostPort(hostWithPort)
 	if err != nil {
-		return "", fmt.Errorf("split host for hostWithPort %v failed, err:%v", hostWithPort, err)
+		return "", fmt.Errorf("split host for hostWithPort %v failed: %v", hostWithPort, err)
 	}
 	u.Host = net.JoinHostPort(host, port)
 	return u.String(), nil
@@ -92,7 +92,7 @@ func memberURLFunc(superSpec *supervisor.Spec) func(string, string) ([]string, e
 	f := func(egName, name string) ([]string, error) {
 		kv, err := c.GetPrefix(c.Layout().StatusMemberPrefix())
 		if err != nil {
-			logger.Errorf("mqtt.memberURLFunc: cluster get member list failed, err:%v", err)
+			logger.Errorf("cluster get member list failed: %v", err)
 			return []string{}, err
 		}
 		urls := []string{}
@@ -100,7 +100,7 @@ func memberURLFunc(superSpec *supervisor.Spec) func(string, string) ([]string, e
 			memberStatus := cluster.MemberStatus{}
 			err := yaml.Unmarshal([]byte(v), &memberStatus)
 			if err != nil {
-				logger.Errorf("mqtt.memberURLFunc: cluster status unmarshal error, %v", err)
+				logger.Errorf("cluster status unmarshal failed: %v", err)
 				return []string{}, err
 			}
 			if memberStatus.Options.Name != egName {
@@ -112,7 +112,7 @@ func memberURLFunc(superSpec *supervisor.Spec) func(string, string) ([]string, e
 				apiAddr := memberStatus.Options.APIAddr
 				newURL, err := updatePort(egURL, apiAddr)
 				if err != nil {
-					return nil, fmt.Errorf("get url for %v failed, err:%v", memberStatus.Options.Name, err)
+					return nil, fmt.Errorf("get url for %v failed: %v", memberStatus.Options.Name, err)
 				}
 				urls = append(urls, newURL+"/apis/v1"+fmt.Sprintf(mqttAPIPrefix, name))
 			}

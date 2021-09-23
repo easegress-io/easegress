@@ -74,7 +74,7 @@ func (sm *SessionManager) doStore() {
 		case kv := <-sm.storeCh:
 			err := sm.store.put(sessionStoreKey(kv.key), kv.value)
 			if err != nil {
-				logger.Errorf("put session %v into storage failed, err: %v", kv.key, err)
+				logger.Errorf("put session %v into storage failed: %v", kv.key, err)
 			}
 		}
 	}
