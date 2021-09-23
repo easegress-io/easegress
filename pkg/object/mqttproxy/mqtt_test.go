@@ -81,8 +81,8 @@ func getBroker(name, userName, passBase64 string, port uint16) *Broker {
 	store := newStorage(nil)
 	broker := newBroker(spec, store, func(s, ss string) ([]string, error) {
 		m := map[string]string{
-			"test":  "http://localhost:8080/mqtt",
-			"test1": "http://localhost:8081/mqtt",
+			"test":  "http://localhost:8888/mqtt",
+			"test1": "http://localhost:8889/mqtt",
 		}
 		urls := []string{}
 		for k, v := range m {
@@ -783,7 +783,7 @@ func topicsPublish(t *testing.T, data HTTPJsonData) int {
 	if err != nil {
 		t.Errorf("json marshal error")
 	}
-	req, err := http.NewRequest(http.MethodPost, "http://localhost:8080/mqtt", bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest(http.MethodPost, "http://localhost:8888/mqtt", bytes.NewBuffer(jsonData))
 	if err != nil {
 		t.Errorf("request mqtt error")
 	}
@@ -799,12 +799,12 @@ func TestHTTPRequest(t *testing.T) {
 	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
 	broker := getBroker("test", "test", b64passwd, 1883)
 
-	srv := newServer(":8080")
+	srv := newServer(":8888")
 	srv.addHandlerFunc("/mqtt", broker.topicsPublishHandler)
 	srv.start()
 
 	// GET request should fail
-	req, _ := http.NewRequest(http.MethodGet, "http://localhost:8080/mqtt", nil)
+	req, _ := http.NewRequest(http.MethodGet, "http://localhost:8888/mqtt", nil)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Errorf("client do req error %s", err)
@@ -815,7 +815,7 @@ func TestHTTPRequest(t *testing.T) {
 	resp.Body.Close()
 
 	// non json data should fail
-	req, err = http.NewRequest(http.MethodPost, "http://localhost:8080/mqtt", bytes.NewBuffer([]byte("non json")))
+	req, err = http.NewRequest(http.MethodPost, "http://localhost:8888/mqtt", bytes.NewBuffer([]byte("non json")))
 	if err != nil {
 		t.Errorf("request mqtt error")
 	}
@@ -882,7 +882,7 @@ func TestHTTPPublish(t *testing.T) {
 	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
 	broker := getBroker("test", "test", b64passwd, 1883)
 
-	srv := newServer(":8080")
+	srv := newServer(":8888")
 	srv.addHandlerFunc("/mqtt", broker.topicsPublishHandler)
 	srv.start()
 
@@ -941,7 +941,7 @@ func TestHTTPPublish(t *testing.T) {
 func TestHTTPTransfer(t *testing.T) {
 	passBase64 := base64.StdEncoding.EncodeToString([]byte("test"))
 	broker0 := getBroker("test", "test", passBase64, 1883)
-	srv0 := newServer(":8080")
+	srv0 := newServer(":8888")
 	srv0.addHandlerFunc("/mqtt", broker0.topicsPublishHandler)
 	srv0.start()
 
@@ -957,8 +957,8 @@ func TestHTTPTransfer(t *testing.T) {
 	store := broker0.sessMgr.store
 	broker1 := newBroker(spec, store, func(s, ss string) ([]string, error) {
 		m := map[string]string{
-			"test":  "http://localhost:8080/mqtt",
-			"test1": "http://localhost:8081/mqtt",
+			"test":  "http://localhost:8888/mqtt",
+			"test1": "http://localhost:8889/mqtt",
 		}
 		urls := []string{}
 		for k, v := range m {
@@ -968,7 +968,7 @@ func TestHTTPTransfer(t *testing.T) {
 		}
 		return urls, nil
 	})
-	srv1 := newServer(":8081")
+	srv1 := newServer(":8889")
 	srv1.addHandlerFunc("/mqtt", broker1.topicsPublishHandler)
 	srv1.start()
 
@@ -988,7 +988,7 @@ func TestHTTPTransfer(t *testing.T) {
 		Base64:  false,
 	}
 	jsonData, _ := json.Marshal(data)
-	req, _ := http.NewRequest(http.MethodPost, "http://localhost:8081/mqtt", bytes.NewBuffer(jsonData))
+	req, _ := http.NewRequest(http.MethodPost, "http://localhost:8889/mqtt", bytes.NewBuffer(jsonData))
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Errorf("mqtt client do error")
