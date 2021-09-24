@@ -79,7 +79,7 @@ func New(superSpec *supervisor.Spec) *Master {
 	}
 	m.maxHeartbeatTimeout = heartbeat * 2
 
-	go m.run()
+	m.run()
 
 	return m
 }
