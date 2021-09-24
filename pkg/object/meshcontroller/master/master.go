@@ -33,8 +33,8 @@ import (
 )
 
 const (
-	defaultCleanInterval       time.Duration = 15 * time.Minute
-	defaultDeadRecordExistTime time.Duration = 30 * time.Minute
+	defaultCleanInterval       time.Duration = 10 * time.Minute
+	defaultDeadRecordExistTime time.Duration = 20 * time.Minute
 )
 
 type (
@@ -92,6 +92,11 @@ func (m *Master) run() {
 		return
 	}
 
+	go m.checkHeartbeat(watchInterval)
+	go m.clean()
+}
+
+func (m *Master) checkHeartbeat(watchInterval time.Duration) {
 	for {
 		select {
 		case <-m.done:
@@ -106,11 +111,20 @@ func (m *Master) run() {
 				}()
 				m.checkInstancesHeartbeat()
 			}()
+		}
+	}
+}
+
+func (m *Master) clean() {
+	for {
+		select {
+		case <-m.done:
+			return
 		case <-time.After(defaultCleanInterval):
 			func() {
 				defer func() {
 					if err := recover(); err != nil {
-						logger.Errorf("failed to clean dead records %v, stack trace: \n%s\n",
+						logger.Errorf("failed to clean dead instances: %v, stack trace: \n%s\n",
 							err, debug.Stack())
 					}
 				}()
