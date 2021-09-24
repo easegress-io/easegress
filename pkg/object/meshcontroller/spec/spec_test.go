@@ -1032,4 +1032,16 @@ func TestCustomResource(t *testing.T) {
 	if r.Kind() != "kind1" {
 		t.Error("kind should be kind1")
 	}
+
+	r["field1"] = map[interface{}]interface{}{
+		"sub1": 1,
+		"sub2": "value2",
+	}
+	r["field2"] = []interface{}{
+		"sub1", "sub2",
+	}
+
+	if _, e := json.Marshal(r); e != nil {
+		t.Errorf("failed to marshal custom resource to JSON: %v", e)
+	}
 }

@@ -19,6 +19,7 @@ package spec
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 
 	"gopkg.in/yaml.v2"
@@ -310,6 +311,39 @@ func (cr CustomResource) Kind() string {
 		return v
 	}
 	return ""
+}
+
+// MarshalJSON implements json.Marshaler
+// the type of a CustomResource field could be map[interface{}]interface{} if it is unmarshaled
+// from yaml, but standard json package could not handle this case, so we convert the type to
+// map[string]interface{}
+func (cr CustomResource) MarshalJSON() ([]byte, error) {
+	cr2 := map[string]interface{}{}
+
+	var convert func(interface{}) interface{}
+	convert = func(src interface{}) interface{} {
+		switch x := src.(type) {
+		case map[interface{}]interface{}:
+			x2 := map[string]interface{}{}
+			for k, v := range x {
+				x2[k.(string)] = convert(v)
+			}
+			return x2
+		case []interface{}:
+			x2 := make([]interface{}, len(x))
+			for i, v := range x {
+				x2[i] = convert(v)
+			}
+			return x2
+		}
+		return src
+	}
+
+	for k, v := range cr {
+		cr2[k] = convert(v)
+	}
+
+	return json.Marshal(cr2)
 }
 
 // Validate validates Spec.
