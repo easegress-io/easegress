@@ -232,6 +232,15 @@ type (
 		Description string `yaml:"description"`
 	}
 
+	// Certificate is one cert for mesh service or root CA.
+	Certificate struct {
+		ServiceName string `yaml:"servieName" jsonschema:"omitempty"`
+		CertBase64  string `yaml:"CertBase64" jsonschema:"required"`
+		KeyBase64   string `yaml:"KeyBase64" jsonschema:"required"`
+		TTL         string `yaml:"ttl" jsonschema:"required,format=duration"`
+		IssueTime   string `yaml:"issueTime" jsonschema:"required,format=timerfc3339"`
+	}
+
 	// ServiceInstanceSpec is the spec of service instance.
 	// FIXME: Use the unified struct: serviceregistry.ServiceInstanceSpec.
 	ServiceInstanceSpec struct {
