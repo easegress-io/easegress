@@ -29,10 +29,8 @@ import (
 type (
 	// TopN is the statistics tool for HTTP traffic.
 	TopN struct {
-		sync.Mutex
-
+		m   sync.Map
 		n   int
-		m   map[string]*httpstat.HTTPStat
 		uca *urlclusteranalyzer.URLClusterAnalyzer
 	}
 
@@ -54,7 +52,7 @@ func (s Status) Less(i, j int) bool { return s[i].Status.Count > s[j].Status.Cou
 func New(n int) *TopN {
 	return &TopN{
 		n:   n,
-		m:   make(map[string]*httpstat.HTTPStat),
+		m:   sync.Map{}, //(map[string]*httpstat.HTTPStat),
 		uca: urlclusteranalyzer.New(),
 	}
 }
@@ -63,32 +61,30 @@ func New(n int) *TopN {
 func (t *TopN) Stat(ctx context.HTTPContext) {
 	pattern := t.uca.GetPattern(ctx.Request().Path())
 
-	t.Lock()
-
-	httpStat, exists := t.m[pattern]
-	if !exists {
+	var httpStat *httpstat.HTTPStat
+	if v, loaded := t.m.Load(pattern); loaded {
+		httpStat = v.(*httpstat.HTTPStat)
+	} else {
 		httpStat = httpstat.New()
-		t.m[pattern] = httpStat
+		v, loaded = t.m.LoadOrStore(pattern, httpStat)
+		if loaded {
+			httpStat = v.(*httpstat.HTTPStat)
+		}
 	}
-
-	t.Unlock()
 
 	httpStat.Stat(ctx.StatMetric())
 }
 
 // Status returns TopN Status, and resets all metrics.
 func (t *TopN) Status() *Status {
-	t.Lock()
-
 	status := make(Status, 0)
-	for pattern, httpStat := range t.m {
+	t.m.Range(func(key, value interface{}) bool {
 		status = append(status, &Item{
-			Path:   pattern,
-			Status: httpStat.Status(),
+			Path:   key.(string),
+			Status: value.(*httpstat.HTTPStat).Status(),
 		})
-	}
-
-	t.Unlock()
+		return true
+	})
 
 	sort.Sort(status)
 	n := len(status)
