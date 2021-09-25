@@ -50,8 +50,7 @@ type (
 
 		total uint64
 		min   uint64
-		// mean  uint64
-		max uint64
+		max   uint64
 
 		durationSampler *sampler.DurationSampler
 

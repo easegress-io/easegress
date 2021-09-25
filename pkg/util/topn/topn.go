@@ -52,7 +52,7 @@ func (s Status) Less(i, j int) bool { return s[i].Status.Count > s[j].Status.Cou
 func New(n int) *TopN {
 	return &TopN{
 		n:   n,
-		m:   sync.Map{}, //(map[string]*httpstat.HTTPStat),
+		m:   sync.Map{},
 		uca: urlclusteranalyzer.New(),
 	}
 }

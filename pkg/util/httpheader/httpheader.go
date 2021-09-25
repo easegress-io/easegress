@@ -128,18 +128,6 @@ func (h *HTTPHeader) Length() int {
 	return length
 }
 
-/*
-// Dump dumps HTTPHeader in RFC format.
-func (h *HTTPHeader) Dump() string {
-	var headers []string
-	h.VisitAll(func(key, value string) {
-		headers = append(headers, stringtool.Cat(key, ": ", value))
-	})
-
-	return strings.Join(headers, "\r\n")
-}
-*/
-
 // AddFrom adds values from another HTTPHeader.
 func (h *HTTPHeader) AddFrom(src *HTTPHeader) {
 	for key, values := range src.h {
