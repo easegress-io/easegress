@@ -102,8 +102,8 @@ func (a *API) saveCustomResourceKind(w http.ResponseWriter, r *http.Request, upd
 	}
 
 	name := kind.Name
-	if kind.JSONSchema != "" {
-		sl := gojsonschema.NewStringLoader(kind.JSONSchema)
+	if len(kind.JSONSchema) > 0 {
+		sl := gojsonschema.NewGoLoader(kind.JSONSchema)
 		if _, err = gojsonschema.NewSchema(sl); err != nil {
 			err = fmt.Errorf("invalid JSONSchema: %s", err.Error())
 			api.HandleAPIError(w, r, http.StatusBadRequest, err)
@@ -266,8 +266,8 @@ func (a *API) saveCustomResource(w http.ResponseWriter, r *http.Request, update 
 		return err
 	}
 
-	if k.JSONSchema != "" {
-		schema := gojsonschema.NewStringLoader(k.JSONSchema)
+	if len(k.JSONSchema) > 0 {
+		schema := gojsonschema.NewGoLoader(k.JSONSchema)
 		doc := gojsonschema.NewGoLoader(resource)
 		res, err := gojsonschema.Validate(schema, doc)
 		if err != nil {

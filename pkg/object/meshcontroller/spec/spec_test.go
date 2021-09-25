@@ -23,6 +23,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/ghodss/yaml"
 	"github.com/megaease/easegress/pkg/filter/circuitbreaker"
 	"github.com/megaease/easegress/pkg/filter/mock"
 	"github.com/megaease/easegress/pkg/filter/proxy"
@@ -1033,7 +1034,7 @@ func TestCustomResource(t *testing.T) {
 		t.Error("kind should be kind1")
 	}
 
-	r["field1"] = map[interface{}]interface{}{
+	r["field1"] = map[string]interface{}{
 		"sub1": 1,
 		"sub2": "value2",
 	}
@@ -1041,7 +1042,17 @@ func TestCustomResource(t *testing.T) {
 		"sub1", "sub2",
 	}
 
-	if _, e := json.Marshal(r); e != nil {
-		t.Errorf("failed to marshal custom resource to JSON: %v", e)
+	data, err := yaml.Marshal(r)
+	if err != nil {
+		t.Errorf("yaml.Marshal should succeed: %v", err.Error())
+	}
+
+	err = yaml.Unmarshal(data, &r)
+	if err != nil {
+		t.Errorf("yaml.Marshal should succeed: %v", err.Error())
+	}
+
+	if _, ok := r["field1"].(map[string]interface{}); !ok {
+		t.Errorf("the type of 'field1' should be 'map[string]interface{}'")
 	}
 }
