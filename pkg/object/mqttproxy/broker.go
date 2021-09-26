@@ -270,13 +270,11 @@ func (b *Broker) sendMsgToClient(topic string, payload []byte, qos byte) {
 		if subQos < qos {
 			return
 		}
-		sess := b.sessMgr.get(clientID)
-		if sess == nil {
-			logger.Errorf("session for client %s is nil", clientID)
+		client := b.getClient(clientID)
+		if client == nil {
+			logger.Debugf("client %v not on broker %v", clientID, b.name)
 		} else {
-			if sess.info.EGName == b.egName && sess.info.Name == b.name {
-				sess.publish(topic, payload, qos)
-			}
+			client.session.publish(topic, payload, qos)
 		}
 	}
 }
