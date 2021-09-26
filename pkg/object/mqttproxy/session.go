@@ -208,7 +208,6 @@ func (s *Session) close() {
 }
 
 func (s *Session) doResend() {
-	logger.Debugf("do resend %v", s.info.ClientID)
 	client := s.broker.getClient(s.info.ClientID)
 	s.Lock()
 	defer s.Unlock()
@@ -242,6 +241,7 @@ func (s *Session) doResend() {
 }
 
 func (s *Session) backgroundResendPending() {
+	debugLogTime := time.Now().Add(time.Minute)
 	for {
 		ticker := time.NewTicker(100 * time.Millisecond)
 		select {
@@ -249,6 +249,10 @@ func (s *Session) backgroundResendPending() {
 			return
 		case <-ticker.C:
 			s.doResend()
+		}
+		if time.Now().After(debugLogTime) {
+			logger.Debugf("session %v resend", s.info.ClientID)
+			debugLogTime = time.Now().Add(time.Minute)
 		}
 	}
 }

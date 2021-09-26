@@ -166,7 +166,7 @@ func (c *Client) processPacket(packet packets.ControlPacket) error {
 }
 
 func (c *Client) processPublish(publish *packets.PublishPacket) error {
-	logger.Debugf("client %s processPublish")
+	logger.Debugf("client %s process publish %v", c.info.cid, publish.TopicName)
 	c.broker.backend.publish(publish)
 	switch publish.Qos {
 	case Qos0:
