@@ -151,7 +151,7 @@ cpu-profile-file:
 memory-profile-file:
 log-dir: ./log
 member-dir: ./member
-std-log-level: INFO
+debug: false
 ```
 
 2.HTTPServer+Pipeline
