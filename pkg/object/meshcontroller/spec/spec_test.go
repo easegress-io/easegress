@@ -23,7 +23,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/ghodss/yaml"
 	"github.com/megaease/easegress/pkg/filter/circuitbreaker"
 	"github.com/megaease/easegress/pkg/filter/mock"
 	"github.com/megaease/easegress/pkg/filter/proxy"
@@ -34,6 +33,7 @@ import (
 	_ "github.com/megaease/easegress/pkg/object/httpserver"
 	"github.com/megaease/easegress/pkg/util/urlrule"
 	v1alpha1 "github.com/megaease/easemesh-api/v1alpha1"
+	"gopkg.in/yaml.v2"
 )
 
 func TestMain(m *testing.M) {
