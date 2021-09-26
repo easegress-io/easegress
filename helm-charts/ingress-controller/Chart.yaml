@@ -1,4 +1,4 @@
 apiVersion: v2
-name: easegress-controller
+name: easegress-ingress-controller
 type: application
 version: 1.0.0

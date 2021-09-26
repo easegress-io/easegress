@@ -1,8 +1,8 @@
-# easegress ingress-controller chart
+# Easegress ingress controller chart
 
-Use for easegress ingress controller installation by helm on kubernetes.
+Helm charts for install Easegress ingress controller on Kubernetes
 
-## usage
+## Usage
 
 ```shell
 # create namespace at first
