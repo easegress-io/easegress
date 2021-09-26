@@ -49,16 +49,6 @@ func newSessionManager(b *Broker, store storage) *SessionManager {
 		done:    make(chan struct{}),
 	}
 	go sm.doStore()
-
-	// get store session and init sessMgr and topicMgr
-	allSess, err := store.getPrefix(sessionStoreKey(""))
-	if err != nil {
-		return sm
-	}
-	for _, v := range allSess {
-		sess := sm.newSessionFromYaml(&v)
-		sm.smap.Store(sess.info.ClientID, sess)
-	}
 	return sm
 }
 
