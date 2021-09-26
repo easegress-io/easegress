@@ -146,13 +146,6 @@ func (ctx *PipelineContext) log() string {
 	return buf.String()
 }
 
-func newAndSetPipelineContext(ctx context.HTTPContext) *PipelineContext {
-	return &PipelineContext{}
-}
-
-func deletePipelineContext(ctx context.HTTPContext) {
-}
-
 func extractFiltersData(config []byte) interface{} {
 	var whole map[string]interface{}
 	yamltool.Unmarshal(config, &whole)
@@ -413,8 +406,7 @@ func (hp *HTTPPipeline) getNextFilterIndex(index int, result string) int {
 
 // Handle is the handler to deal with HTTP
 func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) {
-	pipeCtx := newAndSetPipelineContext(ctx)
-	defer deletePipelineContext(ctx)
+	pipeCtx := PipelineContext{}
 	ctx.SetTemplate(hp.ht)
 
 	filterIndex := -1
@@ -430,7 +422,9 @@ func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) {
 				format := "save http rsp failed, dict is %#v err is %v"
 				logger.Errorf(format, ctx.Template().GetDict(), err)
 			}
-			logger.Debugf("filter %s, saved response dict %v", name, ctx.Template().GetDict())
+			logger.LazyDebug(func() string {
+				return fmt.Sprintf("filter %s, saved response dict %v", name, ctx.Template().GetDict())
+			})
 		}
 
 		// Filters are called recursively as a stack, so we need to save current
@@ -457,7 +451,9 @@ func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) {
 			logger.Errorf(format, ctx.Template().GetDict(), err)
 		}
 
-		logger.Debugf("filter %s saved request dict %v", name, ctx.Template().GetDict())
+		logger.LazyDebug(func() string {
+			return fmt.Sprintf("filter %s saved request dict %v", name, ctx.Template().GetDict())
+		})
 		filterStat = &FilterStat{Name: name, Kind: filter.spec.Kind()}
 
 		startTime := fasttime.Now()

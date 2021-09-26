@@ -24,9 +24,23 @@ import (
 	"github.com/megaease/easegress/pkg/util/fasttime"
 )
 
+type lazyLogBuilder struct {
+	fn func() string
+}
+
+func (llb lazyLogBuilder) String() string {
+	return llb.fn()
+}
+
 // Debugf is the wrapper of default logger Debugf.
 func Debugf(template string, args ...interface{}) {
 	defaultLogger.Debugf(template, args...)
+}
+
+// LazyDebug logs debug log in lazy mode. if debug log is disabled by configuration,
+// it skips the the built of log message to improve performance
+func LazyDebug(fn func() string) {
+	defaultLogger.Debug(lazyLogBuilder{fn})
 }
 
 // Infof is the wrapper of default logger Infof.
@@ -71,6 +85,12 @@ func APIAccess(
 // HTTPAccess logs http access log.
 func HTTPAccess(template string, args ...interface{}) {
 	httpFilterAccessLogger.Debugf(template, args...)
+}
+
+// LazyHTTPAccess logs http access log in lazy mode, if http access log is disabled
+// by configuration, it skips the the built of log message to improve performance
+func LazyHTTPAccess(fn func() string) {
+	httpFilterAccessLogger.Debug(lazyLogBuilder{fn})
 }
 
 // NginxHTTPAccess is DEPRECATED, replaced by HTTPAccess.

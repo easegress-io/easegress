@@ -183,7 +183,11 @@ func (w *httpResponse) Size() uint64 {
 	// but to improve performance, we won't build this string
 
 	size += len(w.stdr.Proto) + 1
-	size += len(strconv.Itoa(w.StatusCode())) + 1
+	if c := w.StatusCode(); c >= 100 && c < 1000 {
+		size += 3 + 1
+	} else {
+		size += len(strconv.Itoa(w.StatusCode())) + 1
+	}
 	size += len(text) + 2
 	size += w.Header().Length() + 4
 

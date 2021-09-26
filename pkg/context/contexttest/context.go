@@ -47,7 +47,6 @@ type MockedHTTPContext struct {
 	MockedOnFinish           func(func())
 	MockedAddTag             func(tag string)
 	MockedStatMetric         func() *httpstat.Metric
-	MockedLog                func() string
 	MockedFinish             func()
 	MockedTemplate           func() texttemplate.TemplateEngine
 	MockedSetTemplate        func(ht *context.HTTPTemplate)
@@ -175,14 +174,6 @@ func (c *MockedHTTPContext) StatMetric() *httpstat.Metric {
 		return c.MockedStatMetric()
 	}
 	return nil
-}
-
-// Log mocks the Log function of HTTPContext
-func (c *MockedHTTPContext) Log() string {
-	if c.MockedLog != nil {
-		return c.MockedLog()
-	}
-	return ""
 }
 
 // Finish mocks the Finish function of HTTPContext

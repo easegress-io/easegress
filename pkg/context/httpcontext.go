@@ -64,7 +64,6 @@ type (
 		AddTag(tag string)       // For debug, log, etc.
 
 		StatMetric() *httpstat.Metric
-		Log() string
 
 		Finish()
 
@@ -282,23 +281,25 @@ func (ctx *httpContext) Finish() {
 		}()
 	}
 
-	stdr := ctx.r.std
+	logger.LazyHTTPAccess(func() string {
+		stdr := ctx.r.std
 
-	// log format:
-	// [startTime]
-	// [requestInfo]
-	// [contextStatistics]
-	// [tags]
-	//
-	// [$startTime]
-	// [$remoteAddr $realIP $method $requestURL $proto $statusCode]
-	// [$contextDuration $readBytes $writeBytes]
-	// [$tags]
-	logger.HTTPAccess("[%s] [%s %s %s %s %s %d] [%v rx:%dB tx:%dB] [%s]",
-		fasttime.Format(*ctx.startTime, fasttime.RFC3339Milli),
-		stdr.RemoteAddr, ctx.r.RealIP(), stdr.Method, stdr.RequestURI, stdr.Proto, ctx.w.code,
-		ctx.Duration(), ctx.r.Size(), ctx.w.Size(),
-		strings.Join(ctx.tags, " | "))
+		// log format:
+		// [startTime]
+		// [requestInfo]
+		// [contextStatistics]
+		// [tags]
+		//
+		// [$startTime]
+		// [$remoteAddr $realIP $method $requestURL $proto $statusCode]
+		// [$contextDuration $readBytes $writeBytes]
+		// [$tags]
+		return fmt.Sprintf("[%s] [%s %s %s %s %s %d] [%v rx:%dB tx:%dB] [%s]",
+			fasttime.Format(ctx.startTime, fasttime.RFC3339Milli),
+			stdr.RemoteAddr, ctx.r.RealIP(), stdr.Method, stdr.RequestURI, stdr.Proto, ctx.w.code,
+			ctx.Duration(), ctx.r.Size(), ctx.w.Size(),
+			strings.Join(ctx.tags, " | "))
+	})
 }
 
 func (ctx *httpContext) StatMetric() *httpstat.Metric {
@@ -308,26 +309,6 @@ func (ctx *httpContext) StatMetric() *httpstat.Metric {
 		ReqSize:    ctx.Request().Size(),
 		RespSize:   ctx.Response().Size(),
 	}
-}
-
-func (ctx *httpContext) Log() string {
-	stdr := ctx.r.std
-
-	// log format:
-	// [startTime]
-	// [requestInfo]
-	// [contextStatistics]
-	// [tags]
-	//
-	// [$startTime]
-	// [$remoteAddr $realIP $method $requestURL $proto $statusCode]
-	// [$contextDuration $readBytes $writeBytes]
-	// [$tags]
-	return fmt.Sprintf("[%s] [%s %s %s %s %s %d] [%v rx:%dB tx:%dB] [%s]",
-		fasttime.Format(*ctx.startTime, fasttime.RFC3339Milli),
-		stdr.RemoteAddr, ctx.r.RealIP(), stdr.Method, stdr.RequestURI, stdr.Proto, ctx.w.code,
-		ctx.Duration(), ctx.r.Size(), ctx.w.Size(),
-		strings.Join(ctx.tags, " | "))
 }
 
 // Template returns the template engine
