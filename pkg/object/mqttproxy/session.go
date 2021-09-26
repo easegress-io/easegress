@@ -70,6 +70,7 @@ func newMsg(topic string, payload []byte, qos byte) *Message {
 }
 
 func (s *Session) store() {
+	logger.Debugf("session %v store", s.info.ClientID)
 	str, err := s.encode()
 	if err != nil {
 		logger.Errorf("encode session %+v failed: %v", s, err)
@@ -121,6 +122,7 @@ func (s *Session) updateEGName(egName, name string) {
 }
 
 func (s *Session) subscribe(topics []string, qoss []byte) error {
+	logger.Debugf("session %s sub %v", s.info.ClientID, topics)
 	s.Lock()
 	defer s.Unlock()
 	for i, t := range topics {
@@ -131,6 +133,7 @@ func (s *Session) subscribe(topics []string, qoss []byte) error {
 }
 
 func (s *Session) unsubscribe(topics []string) error {
+	logger.Debugf("session %s unsub %v", s.info.ClientID, topics)
 	s.Lock()
 	defer s.Unlock()
 	for _, t := range topics {
@@ -141,6 +144,7 @@ func (s *Session) unsubscribe(topics []string) error {
 }
 
 func (s *Session) allSubscribes() ([]string, []byte, error) {
+	logger.Debugf("session %s all sub")
 	s.Lock()
 	defer s.Unlock()
 
@@ -175,6 +179,7 @@ func (s *Session) publish(topic string, payload []byte, qos byte) {
 	s.Lock()
 	defer s.Unlock()
 
+	logger.Debugf("session %v publish %v", s.info.ClientID, topic)
 	p := s.getPacketFromMsg(topic, payload, qos)
 	if qos == Qos0 {
 		go client.writePacket(p)
@@ -203,6 +208,7 @@ func (s *Session) close() {
 }
 
 func (s *Session) doResend() {
+	logger.Debugf("do resend %v", s.info.ClientID)
 	client := s.broker.getClient(s.info.ClientID)
 	s.Lock()
 	defer s.Unlock()
@@ -227,6 +233,8 @@ func (s *Session) doResend() {
 			p.MessageID = idx
 			if client != nil {
 				go client.writePacket(p)
+			} else {
+				logger.Debugf("session %v do resend but client is nil", s.info.ClientID)
 			}
 			return
 		}

@@ -90,6 +90,7 @@ func memberURLFunc(superSpec *supervisor.Spec) func(string, string) ([]string, e
 	c := superSpec.Super().Cluster()
 
 	f := func(egName, name string) ([]string, error) {
+		logger.Debugf("get member url for %v %v", egName, name)
 		kv, err := c.GetPrefix(c.Layout().StatusMemberPrefix())
 		if err != nil {
 			logger.Errorf("cluster get member list failed: %v", err)
@@ -117,6 +118,7 @@ func memberURLFunc(superSpec *supervisor.Spec) func(string, string) ([]string, e
 				urls = append(urls, newURL+"/apis/v1"+fmt.Sprintf(mqttAPIPrefix, name))
 			}
 		}
+		logger.Debugf("eg %v %v get urls %v", egName, name, urls)
 		return urls, nil
 	}
 	return f

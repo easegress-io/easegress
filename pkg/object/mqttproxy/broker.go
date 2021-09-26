@@ -170,6 +170,7 @@ func (b *Broker) handleConn(conn net.Conn) {
 		logger.Errorf("first packet received %s that was not Connect", packet.String())
 		return
 	}
+	logger.Debugf("connection from client %s", connect.ClientIdentifier)
 
 	connack := packets.NewControlPacket(packets.Connack).(*packets.ConnackPacket)
 	connack.SessionPresent = connect.CleanSession
@@ -254,9 +255,11 @@ func (b *Broker) requestTransfer(egName, name string, data HTTPJsonData) {
 			resp.Body.Close()
 		}
 	}
+	logger.Debugf("http transfer data %v to %v", data, urls)
 }
 
 func (b *Broker) sendMsgToClient(topic string, payload []byte, qos byte) {
+	logger.Debugf("send topic %v to client", topic)
 	subscribers, _ := b.topicMgr.findSubscribers(topic)
 	if subscribers == nil {
 		logger.Errorf("not find subscribers for topic %s", topic)
@@ -313,6 +316,7 @@ func (b *Broker) topicsPublishHandler(w http.ResponseWriter, r *http.Request) {
 		payload = []byte(data.Payload)
 	}
 
+	logger.Debugf("http endpoint received json data: %v", data)
 	if !data.Distributed {
 		data.Distributed = true
 		b.requestTransfer(b.egName, b.name, data)

@@ -97,6 +97,7 @@ func newKafkaMQ(spec *Spec) *KafkaMQ {
 
 func (k *KafkaMQ) publish(p *packets.PublishPacket) error {
 	var msg *sarama.ProducerMessage
+	logger.Debugf("produce msg with topic %s", p.TopicName)
 
 	if k.mapFunc != nil {
 		topic, headers, err := k.mapFunc(p.TopicName)

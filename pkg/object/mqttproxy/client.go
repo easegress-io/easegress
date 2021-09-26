@@ -116,6 +116,7 @@ func (c *Client) readLoop() {
 			}
 		}
 
+		logger.Debugf("client %s readLoop read packet", c.info.cid)
 		packet, err := packets.ReadPacket(c.conn)
 		if err != nil {
 			logger.Errorf("client %s read packet failed: %v", c.info.cid, err)
@@ -165,6 +166,7 @@ func (c *Client) processPacket(packet packets.ControlPacket) error {
 }
 
 func (c *Client) processPublish(publish *packets.PublishPacket) error {
+	logger.Debugf("client %s processPublish")
 	c.broker.backend.publish(publish)
 	switch publish.Qos {
 	case Qos0:
@@ -187,6 +189,7 @@ func (c *Client) processPuback(puback *packets.PubackPacket) {
 }
 
 func (c *Client) processSubscribe(packet *packets.SubscribePacket) {
+	logger.Debugf("client %s processSubscribe %v", c.info.cid, packet.Topics)
 	err := c.broker.topicMgr.subscribe(packet.Topics, packet.Qoss, c.info.cid)
 	if err != nil {
 		logger.Errorf("client %v subscribe %v failed: %v", c.info.cid, packet.Topics, err)
@@ -204,6 +207,7 @@ func (c *Client) processSubscribe(packet *packets.SubscribePacket) {
 }
 
 func (c *Client) processUnsubscribe(packet *packets.UnsubscribePacket) {
+	logger.Debugf("client %s processUnsubscribe %v", c.info.cid, packet.Topics)
 	err := c.broker.topicMgr.unsubscribe(packet.Topics, c.info.cid)
 	if err != nil {
 		logger.Errorf("client %v unsubscribe %v failed: %v", c.info.cid, packet.Topics, err)
