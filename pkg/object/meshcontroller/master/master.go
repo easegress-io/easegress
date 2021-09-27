@@ -176,8 +176,9 @@ func (m *Master) scanInstances() (failedInstances []*spec.ServiceInstanceSpec,
 				}
 			}
 		} else {
-			logger.Errorf("status of %s/%s not found", _spec.ServiceName, _spec.InstanceID)
+			logger.Errorf("status of %s/%s not found, need to delete", _spec.ServiceName, _spec.InstanceID)
 			failedInstances = append(failedInstances, _spec)
+			deadInstances = append(deadInstances, _spec)
 		}
 	}
 	return
