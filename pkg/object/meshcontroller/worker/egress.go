@@ -146,6 +146,10 @@ func (egs *EgressServer) InitEgress(service *spec.Service) error {
 func (egs *EgressServer) Ready() bool {
 	egs.mutex.RLock()
 	defer egs.mutex.RUnlock()
+	return egs._ready()
+}
+
+func (egs *EgressServer) _ready() bool {
 	return egs.httpServer != nil
 }
 
@@ -237,7 +241,7 @@ func (egs *EgressServer) Close() {
 	egs.mutex.Lock()
 	defer egs.mutex.Unlock()
 
-	if egs.Ready() {
+	if egs._ready() {
 		egs.tc.DeleteHTTPServer(egs.namespace, egs.httpServer.Spec().Name())
 		for _, entity := range egs.pipelines {
 			egs.tc.DeleteHTTPPipeline(egs.namespace, entity.Spec().Name())
