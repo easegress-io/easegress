@@ -280,7 +280,11 @@ func responseMetaSize(resp *http.Response) int {
 	// but to improve performance, we won't build this string
 
 	size := len(resp.Proto) + 1
-	size += len(strconv.Itoa(resp.StatusCode)) + 1
+	if resp.StatusCode >= 100 && resp.StatusCode < 1000 {
+		size += 3 + 1
+	} else {
+		size += len(strconv.Itoa(resp.StatusCode)) + 1
+	}
 	size += len(text) + 2
 	size += httpheader.New(resp.Header).Length() + 4
 

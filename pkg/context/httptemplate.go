@@ -175,14 +175,6 @@ func NewHTTPTemplate(filterBuffs []FilterBuff) (*HTTPTemplate, error) {
 	return &e, nil
 }
 
-// NewHTTPTemplateDummy return a empty implement version of HTTP template
-func NewHTTPTemplateDummy() *HTTPTemplate {
-	return &HTTPTemplate{
-		Engine:          texttemplate.NewDummyTemplate(),
-		filterExecFuncs: map[string]filterDictFuncs{},
-	}
-}
-
 func readBody(body io.Reader, maxBodySize int64) (*bytes.Buffer, error) {
 	buff := bytes.NewBuffer(nil)
 	if body == nil {

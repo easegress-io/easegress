@@ -27,8 +27,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/opentracing/opentracing-go"
-
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/megaease/easegress/pkg/util/fasttime"
@@ -59,9 +57,8 @@ type (
 		Cancelled() bool
 		ClientDisconnected() bool
 
-		Duration() time.Duration // For log, sample, etc.
-		OnFinish(func())         // For setting final client statistics, etc.
-		AddTag(tag string)       // For debug, log, etc.
+		OnFinish(func())   // For setting final client statistics, etc.
+		AddTag(tag string) // For debug, log, etc.
 
 		StatMetric() *httpstat.Metric
 
@@ -133,8 +130,7 @@ type (
 	httpContext struct {
 		mutex sync.Mutex
 
-		startTime   *time.Time
-		endTime     *time.Time
+		startTime   time.Time
 		finishFuncs []FinishFunc
 		tags        []string
 		caller      HandlerCaller
@@ -143,12 +139,13 @@ type (
 		w *httpResponse
 
 		ht             *HTTPTemplate
-		tracer         opentracing.Tracer
 		span           tracing.Span
 		originalReqCtx stdcontext.Context
 		stdctx         stdcontext.Context
 		cancelFunc     stdcontext.CancelFunc
 		err            error
+
+		metric httpstat.Metric
 	}
 )
 
@@ -163,15 +160,13 @@ func New(stdw http.ResponseWriter, stdr *http.Request,
 
 	startTime := fasttime.Now()
 	return &httpContext{
-		startTime:      &startTime,
-		tracer:         tracer,
-		span:           tracing.NewSpan(tracer, spanName),
+		startTime:      startTime,
+		span:           tracing.NewSpanWithStart(tracer, spanName, startTime),
 		originalReqCtx: originalReqCtx,
 		stdctx:         stdctx,
 		cancelFunc:     cancelFunc,
 		r:              newHTTPRequest(stdr),
 		w:              newHTTPResponse(stdw, stdr),
-		ht:             NewHTTPTemplateDummy(),
 	}
 }
 
@@ -243,14 +238,6 @@ func (ctx *httpContext) Cancelled() bool {
 	return ctx.err != nil || ctx.stdctx.Err() != nil
 }
 
-func (ctx *httpContext) Duration() time.Duration {
-	if ctx.endTime != nil {
-		return ctx.endTime.Sub(*ctx.startTime)
-	}
-
-	return fasttime.Now().Sub(*ctx.startTime)
-}
-
 func (ctx *httpContext) ClientDisconnected() bool {
 	return ctx.originalReqCtx.Err() != nil
 }
@@ -265,8 +252,10 @@ func (ctx *httpContext) Finish() {
 	ctx.r.finish()
 	ctx.w.finish()
 
-	endTime := fasttime.Now()
-	ctx.endTime = &endTime
+	ctx.metric.StatusCode = ctx.Response().StatusCode()
+	ctx.metric.Duration = fasttime.Now().Sub(ctx.startTime)
+	ctx.metric.ReqSize = ctx.Request().Size()
+	ctx.metric.RespSize = ctx.Response().Size()
 
 	for _, fn := range ctx.finishFuncs {
 		func() {
@@ -297,18 +286,13 @@ func (ctx *httpContext) Finish() {
 		return fmt.Sprintf("[%s] [%s %s %s %s %s %d] [%v rx:%dB tx:%dB] [%s]",
 			fasttime.Format(ctx.startTime, fasttime.RFC3339Milli),
 			stdr.RemoteAddr, ctx.r.RealIP(), stdr.Method, stdr.RequestURI, stdr.Proto, ctx.w.code,
-			ctx.Duration(), ctx.r.Size(), ctx.w.Size(),
+			ctx.metric.Duration, ctx.r.Size(), ctx.w.Size(),
 			strings.Join(ctx.tags, " | "))
 	})
 }
 
 func (ctx *httpContext) StatMetric() *httpstat.Metric {
-	return &httpstat.Metric{
-		StatusCode: ctx.Response().StatusCode(),
-		Duration:   ctx.Duration(),
-		ReqSize:    ctx.Request().Size(),
-		RespSize:   ctx.Response().Size(),
-	}
+	return &ctx.metric
 }
 
 // Template returns the template engine

@@ -43,7 +43,6 @@ type MockedHTTPContext struct {
 	MockedCancel             func(err error)
 	MockedCancelled          func() bool
 	MockedClientDisconnected func() bool
-	MockedDuration           func() time.Duration
 	MockedOnFinish           func(func())
 	MockedAddTag             func(tag string)
 	MockedStatMetric         func() *httpstat.Metric
@@ -141,14 +140,6 @@ func (c *MockedHTTPContext) ClientDisconnected() bool {
 		return c.MockedClientDisconnected()
 	}
 	return false
-}
-
-// Duration mocks the Duration function of HTTPContext
-func (c *MockedHTTPContext) Duration() time.Duration {
-	if c.MockedDuration != nil {
-		return c.MockedDuration()
-	}
-	return 0
 }
 
 // OnFinish mocks the OnFinish function of HTTPContext
