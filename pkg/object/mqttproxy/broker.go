@@ -221,7 +221,6 @@ func (b *Broker) setSession(client *Client, connect *packets.ConnectPacket) {
 	// then we use previous session, otherwise use new session
 	prevSess := b.sessMgr.get(connect.ClientIdentifier)
 	if !connect.CleanSession && (prevSess != nil) && !prevSess.cleanSession() {
-		// prevSess.update(connect)
 		client.session = prevSess
 	} else {
 		if prevSess != nil {
@@ -348,7 +347,7 @@ func (b *Broker) close() {
 	b.Lock()
 	defer b.Unlock()
 	for _, v := range b.clients {
-		go v.close()
+		go v.closeAndDelSession()
 	}
 	b.clients = nil
 }

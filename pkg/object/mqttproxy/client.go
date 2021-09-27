@@ -99,7 +99,7 @@ func (c *Client) readLoop() {
 		if c.info.will != nil {
 			c.broker.backend.publish(c.info.will)
 		}
-		c.close()
+		c.closeAndDelSession()
 	}()
 	keepAlive := time.Duration(c.info.keepalive) * time.Second
 	timeOut := keepAlive + keepAlive/2
@@ -167,7 +167,10 @@ func (c *Client) processPacket(packet packets.ControlPacket) error {
 
 func (c *Client) processPublish(publish *packets.PublishPacket) error {
 	logger.Debugf("client %s process publish %v", c.info.cid, publish.TopicName)
-	c.broker.backend.publish(publish)
+	err := c.broker.backend.publish(publish)
+	if err != nil {
+		logger.Errorf("client %v publish %v failed: %v", c.info.cid, publish.TopicName, err)
+	}
 	switch publish.Qos {
 	case Qos0:
 		// do nothing
@@ -238,5 +241,9 @@ func (c *Client) close() {
 	}
 	c.status = Disconnected
 	close(c.done)
+}
+
+func (c *Client) closeAndDelSession() {
 	c.broker.sessMgr.delLocal(c.info.cid)
+	c.close()
 }
