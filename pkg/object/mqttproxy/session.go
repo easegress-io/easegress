@@ -242,8 +242,10 @@ func (s *Session) doResend() {
 
 func (s *Session) backgroundResendPending() {
 	debugLogTime := time.Now().Add(time.Minute)
+	ticker := time.NewTicker(200 * time.Millisecond)
+	defer ticker.Stop()
+
 	for {
-		ticker := time.NewTicker(100 * time.Millisecond)
 		select {
 		case <-s.done:
 			return
