@@ -96,21 +96,30 @@ func (m *Master) run() {
 	go m.clean()
 }
 
+// only handle master routines when its the cluster leader.
+func (m *Master) needHandle() bool {
+	return m.superSpec.Super().Cluster().IsLeader()
+}
+
 func (m *Master) checkHeartbeat(watchInterval time.Duration) {
 	for {
 		select {
 		case <-m.done:
 			return
 		case <-time.After(watchInterval):
-			func() {
-				defer func() {
-					if err := recover(); err != nil {
-						logger.Errorf("failed to check instance heartbeat %v, stack trace: \n%s\n",
-							err, debug.Stack())
-					}
+			if m.needHandle() {
+				func() {
+					defer func() {
+						if err := recover(); err != nil {
+							logger.Errorf("failed to check instance heartbeat %v, stack trace: \n%s\n",
+								err, debug.Stack())
+						}
+					}()
+					m.checkInstancesHeartbeat()
 				}()
-				m.checkInstancesHeartbeat()
-			}()
+			} else {
+				logger.Infof("not the cluster leader, do nothing")
+			}
 		}
 	}
 }
@@ -121,15 +130,19 @@ func (m *Master) clean() {
 		case <-m.done:
 			return
 		case <-time.After(defaultCleanInterval):
-			func() {
-				defer func() {
-					if err := recover(); err != nil {
-						logger.Errorf("failed to clean dead instances: %v, stack trace: \n%s\n",
-							err, debug.Stack())
-					}
+			if m.needHandle() {
+				func() {
+					defer func() {
+						if err := recover(); err != nil {
+							logger.Errorf("failed to clean dead instances: %v, stack trace: \n%s\n",
+								err, debug.Stack())
+						}
+					}()
+					m.cleanDeadInstances()
 				}()
-				m.cleanDeadInstances()
-			}()
+			} else {
+				logger.Infof("not the cluster leader, do nothing")
+			}
 		}
 	}
 }
@@ -176,8 +189,9 @@ func (m *Master) scanInstances() (failedInstances []*spec.ServiceInstanceSpec,
 				}
 			}
 		} else {
-			logger.Errorf("status of %s/%s not found", _spec.ServiceName, _spec.InstanceID)
+			logger.Errorf("status of %s/%s not found, need to delete", _spec.ServiceName, _spec.InstanceID)
 			failedInstances = append(failedInstances, _spec)
+			deadInstances = append(deadInstances, _spec)
 		}
 	}
 	return
