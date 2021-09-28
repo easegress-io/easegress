@@ -144,7 +144,7 @@ func (s *Session) unsubscribe(topics []string) error {
 }
 
 func (s *Session) allSubscribes() ([]string, []byte, error) {
-	logger.Debugf("session %s all sub")
+	logger.Debugf("session %s all sub", s.info.ClientID)
 	s.Lock()
 	defer s.Unlock()
 
