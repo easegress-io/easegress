@@ -40,7 +40,7 @@ func Write(opt *option.Options) error {
 
 	err := ioutil.WriteFile(pidfilePath, []byte(fmt.Sprintf("%d", os.Getpid())), 0o644)
 	if err != nil {
-		logger.Errorf("write %s failed: %s", err)
+		logger.Errorf("write %s failed: %s", pidfilePath, err)
 		return err
 	}
 
@@ -53,7 +53,7 @@ func Read(opt *option.Options) (int, error) {
 
 	data, err := ioutil.ReadFile(pidfilePath)
 	if err != nil {
-		logger.Errorf("write %s failed: %s", err)
+		logger.Errorf("read %s failed: %s", pidfilePath, err)
 		return 0, err
 	}
 
