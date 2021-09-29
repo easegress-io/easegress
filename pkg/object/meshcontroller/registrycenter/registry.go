@@ -128,8 +128,8 @@ func (rcs *Server) onUpdateLocalInfo(event informer.Event, serviceSpec *spec.Ser
 	case informer.EventDelete:
 		return false
 	case informer.EventUpdate:
-		rcs.mutex.Lock()
 		logger.Infof("registry center update its local belonging tenant")
+		rcs.mutex.Lock()
 		rcs.tenant = serviceSpec.RegisterTenant
 		rcs.mutex.Unlock()
 	}
