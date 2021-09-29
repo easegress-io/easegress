@@ -158,12 +158,12 @@ func Register(o Object) {
 	case CategoryBusinessController, CategorySystemController:
 		_, ok := o.(Controller)
 		if !ok {
-			panic(fmt.Errorf("%s: not satisfies interface Controller", o.Kind()))
+			panic(fmt.Errorf("%s: doesn't implement interface Controller", o.Kind()))
 		}
 	case CategoryPipeline, CategoryTrafficGate:
 		_, ok := o.(TrafficObject)
 		if !ok {
-			panic(fmt.Errorf("%s: not satisfies interface TrafficObject", o.Kind()))
+			panic(fmt.Errorf("%s: doesn't implement interface TrafficObject", o.Kind()))
 		}
 	}
 
