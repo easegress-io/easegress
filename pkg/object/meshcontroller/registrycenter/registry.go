@@ -32,6 +32,7 @@ import (
 	consul "github.com/hashicorp/consul/api"
 
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/informer"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/service"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
 )
@@ -61,7 +62,8 @@ type (
 		done  chan struct{}
 		mutex sync.RWMutex
 
-		service *service.Service
+		service  *service.Service
+		informer informer.Informer
 	}
 
 	// ReadyFunc is a function to check Ingress/Egress ready to work
@@ -70,7 +72,7 @@ type (
 
 // NewRegistryCenterServer creates an initialized registry center server.
 func NewRegistryCenterServer(registryType string, registryName, serviceName string, IP string, port int, instanceID string,
-	serviceLabels map[string]string, service *service.Service) *Server {
+	serviceLabels map[string]string, service *service.Service, informer informer.Informer) *Server {
 	return &Server{
 		RegistryType:  registryType,
 		registryName:  registryName,
@@ -82,6 +84,7 @@ func NewRegistryCenterServer(registryType string, registryName, serviceName stri
 		IP:            IP,
 		instanceID:    instanceID,
 		serviceLabels: serviceLabels,
+		informer:      informer,
 
 		done: make(chan struct{}),
 	}
@@ -116,6 +119,23 @@ func (rcs *Server) Register(serviceSpec *spec.Service, ingressReady ReadyFunc, e
 	}
 
 	go rcs.register(ins, ingressReady, egressReady)
+
+	go rcs.informer.OnPartOfServiceSpec(rcs.serviceName, "", rcs.onUpdateLocalInfo)
+}
+
+func (rcs *Server) onUpdateLocalInfo(event informer.Event, serviceSpec *spec.Service) bool {
+	switch event.EventType {
+	case informer.EventDelete:
+		return false
+	case informer.EventUpdate:
+		logger.Infof("registry center update its local belonging tenant")
+		rcs.mutex.Lock()
+		rcs.tenant = serviceSpec.RegisterTenant
+		rcs.mutex.Unlock()
+	}
+
+	return true
+
 }
 
 func needUpdateRecord(originIns, ins *spec.ServiceInstanceSpec) bool {
