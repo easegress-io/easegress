@@ -88,10 +88,10 @@ func (v *specVisitor) Visit(fn SpecVisitorFunc) {
 			}
 		}
 		if s.Name == "" {
-			ExitWithErrorf("name cannot be empty: %s", d.doc)
+			ExitWithErrorf("name is empty: %s", d.doc)
 		}
 		if s.Kind == "" {
-			ExitWithErrorf("kind cannot be empty: %s", d.doc)
+			ExitWithErrorf("kind is empty: %s", d.doc)
 		}
 		s.doc = d.doc
 		//TODO can validate spec's Kind here
