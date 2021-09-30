@@ -74,7 +74,7 @@ func newAPIServer(port int) *apiServer {
 	s.addListAPI()
 
 	go func(s *apiServer) {
-		logger.Infof("api server running in %s", port)
+		logger.Infof("api server running in %d", port)
 		s.srv.ListenAndServe()
 	}(s)
 
@@ -126,7 +126,6 @@ func (s *apiServer) registerAPIs(apis []*apiEntry) {
 	s.apis = append(s.apis, apis...)
 
 	for _, api := range apis {
-		logger.Infof("api method: %s, path: %s, handler %#v", api.Method, api.Path, api.Handler)
 		switch api.Method {
 		case "GET":
 			s.router.Get(api.Path, api.Handler)

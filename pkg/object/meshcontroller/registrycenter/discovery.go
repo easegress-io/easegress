@@ -126,6 +126,7 @@ func (rcs *Server) DiscoveryService(serviceName string) (*ServiceRegistryInfo, e
 		return serviceInfo, err
 	}
 
+	// FIXME: rcs.tenant won't change after updating
 	if !inGlobal && target.RegisterTenant != rcs.tenant {
 		return nil, spec.ErrServiceNotFound
 	}
