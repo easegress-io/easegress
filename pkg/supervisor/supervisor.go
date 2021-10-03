@@ -202,7 +202,7 @@ func (s *Supervisor) ObjectRegistry() *ObjectRegistry {
 	return s.objectRegistry
 }
 
-// WalkControllers walks every controllers until walkFn returns false.
+// WalkControllers walks every controller until walkFn returns false.
 func (s *Supervisor) WalkControllers(walkFn WalkFunc) {
 	defer func() {
 		if err := recover(); err != nil {

@@ -127,7 +127,7 @@ func New() *HTTPStat {
 
 // NOTE: The methods of HTTPStats use Mutex to protect themselves.
 // It does not hurt affect performance , because all statistics
-// are called after finishing all other stuff in HTTPContext.
+// are called after finishing all others stuff in HTTPContext.
 
 // Stat stats the ctx.
 func (hs *HTTPStat) Stat(m *Metric) {

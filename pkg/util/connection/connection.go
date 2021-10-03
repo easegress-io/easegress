@@ -59,7 +59,8 @@ type Connection struct {
 }
 
 // NewClientConn wrap connection create from client
-func NewClientConn(conn net.Conn, remoteAddr net.Addr, listenerStopChan chan struct{}, connStopChan chan struct{}) *Connection {
+// @param remoteAddr client addr for udp proxy use
+func NewClientConn(conn net.Conn, remoteAddr net.Addr, listenerStopChan, connStopChan chan struct{}) *Connection {
 	clientConn := &Connection{
 		conn:      conn,
 		connected: 1,
@@ -106,6 +107,10 @@ func (c *Connection) ReadEnabled() bool {
 // SetOnRead set connection read handle
 func (c *Connection) SetOnRead(onRead func(buffer iobufferpool.IoBuffer)) {
 	c.onReadBuffer = onRead
+}
+
+func (c *Connection) OnRead(buffer iobufferpool.IoBuffer) {
+	c.onReadBuffer(buffer)
 }
 
 // Start running connection read/write loop
@@ -495,7 +500,7 @@ type UpstreamConnection struct {
 	connectOnce    sync.Once
 }
 
-func NewUpstreamConn(connectTimeout time.Duration, remoteAddr net.Addr, stopChan, connStopChan chan struct{}) *UpstreamConnection {
+func NewUpstreamConn(connectTimeout time.Duration, remoteAddr net.Addr, listenerStopChan, ConnStopChan chan struct{}) *UpstreamConnection {
 	conn := &UpstreamConnection{
 		Connection: Connection{
 			connected:  1,
@@ -507,8 +512,8 @@ func NewUpstreamConn(connectTimeout time.Duration, remoteAddr net.Addr, stopChan
 			writeBufferChan: make(chan *[]iobufferpool.IoBuffer, 8),
 
 			mu:               sync.Mutex{},
-			connStopChan:     connStopChan,
-			listenerStopChan: stopChan,
+			connStopChan:     ConnStopChan,
+			listenerStopChan: listenerStopChan,
 		},
 		connectTimeout: connectTimeout,
 	}

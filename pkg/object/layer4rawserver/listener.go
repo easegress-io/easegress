@@ -19,91 +19,80 @@ package layer4rawserver
 
 import (
 	stdcontext "context"
+	"errors"
 	"fmt"
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/util/iobufferpool"
-	"github.com/megaease/easegress/pkg/util/limitlistener"
 	"net"
 	"runtime/debug"
 	"sync"
+
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/util/iobufferpool"
+	"github.com/megaease/easegress/pkg/util/limitlistener"
 )
 
 type ListenerState int
 
-// listener state
-// ListenerInited means listener is inited, an inited listener can be started or stopped
-// ListenerRunning means listener is running, start a running listener will be ignored.
-// ListenerStopped means listener is stopped, start a stopped listener without restart flag will be ignored.
-const (
-	ListenerInited ListenerState = iota
-	ListenerRunning
-	ListenerStopped
-)
-
 type listener struct {
-	name        string
-	udpListener net.PacketConn               // udp connection listener
-	tcpListener *limitlistener.LimitListener // tcp connection listener with connection limit
-
-	state          ListenerState
-	protocol       string // enum:udp/tcp
-	listenAddr     string
-	keepalive      bool
-	maxConnections uint32
+	name      string
+	state     ListenerState
+	protocol  string // enum:udp/tcp
+	localAddr string
 
 	mutex    *sync.Mutex
-	stopChan chan struct{} // connection listen to this stopChan
+	stopChan chan struct{}
 
-	onTcpAccept func(conn net.Conn, listenerStopChan chan struct{})                                             // tcp accept handle
-	onUdpAccept func(cliAddr net.Addr, conn net.Conn, listenerStop chan struct{}, buffer iobufferpool.IoBuffer) // udp accept handle
+	udpListener net.PacketConn // udp listener
+
+	keepalive   bool                         // keepalive for tcp
+	maxConns    uint32                       // maxConn for tcp listener
+	tcpListener *limitlistener.LimitListener // tcp listener with accept limit
+
+	onTcpAccept func(conn net.Conn, listenerStop chan struct{})                                                 // tcp accept handle
+	onUdpAccept func(cliAddr net.Addr, conn net.Conn, listenerStop chan struct{}, packet iobufferpool.IoBuffer) // udp accept handle
 }
 
-func newListener(spec *Spec, onAccept func(conn net.Conn, listenerStopChan chan struct{}),
-	onUdpAccept func(cliAddr net.Addr, conn net.Conn, listenerStop chan struct{}, buffer iobufferpool.IoBuffer)) *listener {
+func newListener(spec *Spec, onAccept func(conn net.Conn, listenerStop chan struct{}),
+	onUdpAccept func(cliAddr net.Addr, conn net.Conn, listenerStop chan struct{}, packet iobufferpool.IoBuffer)) *listener {
 	listen := &listener{
-		state:          ListenerInited,
-		listenAddr:     fmt.Sprintf(":%d", spec.Port),
-		protocol:       spec.Protocol,
-		keepalive:      spec.KeepAlive,
-		maxConnections: spec.MaxConnections,
+		protocol:  spec.Protocol,
+		localAddr: fmt.Sprintf(":%d", spec.Port),
+		mutex:     &sync.Mutex{},
+		stopChan:  make(chan struct{}),
 
 		onTcpAccept: onAccept,
 		onUdpAccept: onUdpAccept,
-		mutex:       &sync.Mutex{},
+	}
+
+	if listen.protocol == "tcp" {
+		listen.keepalive = spec.KeepAlive
+		listen.maxConns = spec.MaxConnections
 	}
 	return listen
 }
 
-func (l *listener) start() {
-	ignored := func() bool {
-		l.mutex.Lock()
-		defer l.mutex.Unlock()
-
-		switch l.state {
-		case ListenerRunning:
-			logger.Debugf("listener %s %s is already running", l.protocol, l.listenAddr)
-			return true
-		case ListenerStopped:
-			logger.Debugf("listener %s %s restart", l.protocol, l.listenAddr)
-			if err := l.listen(); err != nil {
-				logger.Errorf("listener %s %s restart failed, err: %+v", l.protocol, l.listenAddr, err)
-				return true
-			}
-		default:
-			if l.udpListener == nil && l.tcpListener == nil {
-				if err := l.listen(); err != nil {
-					logger.Errorf("listener %s %s start failed, err: %+v", l.protocol, l.listenAddr, err)
-				}
-			}
+func (l *listener) listen() error {
+	switch l.protocol {
+	case "udp":
+		c := net.ListenConfig{}
+		if ul, err := c.ListenPacket(stdcontext.Background(), l.protocol, l.localAddr); err != nil {
+			return err
+		} else {
+			l.udpListener = ul
 		}
-		l.state = ListenerRunning
-		return false
-	}()
-
-	if ignored {
-		return
+	case "tcp":
+		if tl, err := net.Listen(l.protocol, l.localAddr); err != nil {
+			return err
+		} else {
+			// wrap tcp listener with accept limit
+			l.tcpListener = limitlistener.NewLimitListener(tl, l.maxConns)
+		}
+	default:
+		return errors.New("invalid protocol for layer4 server listener")
 	}
+	return nil
+}
 
+func (l *listener) startEventLoop() {
 	switch l.protocol {
 	case "udp":
 		l.readMsgEventLoop()
@@ -112,67 +101,11 @@ func (l *listener) start() {
 	}
 }
 
-func (l *listener) listen() error {
-	switch l.protocol {
-	case "udp":
-		c := net.ListenConfig{}
-		if ul, err := c.ListenPacket(stdcontext.Background(), l.protocol, l.listenAddr); err != nil {
-			return err
-		} else {
-			l.udpListener = ul
-		}
-	case "tcp":
-		if tl, err := net.Listen(l.protocol, l.listenAddr); err != nil {
-			return err
-		} else {
-			l.tcpListener = limitlistener.NewLimitListener(tl, l.maxConnections)
-		}
-	}
-	return nil
-}
-
-func (l *listener) acceptEventLoop() {
-
-	for {
-		if tconn, err := l.tcpListener.Accept(); err != nil {
-			if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
-				logger.Infof("tcp listener(%s) stop accept connection due to deadline, err: %s",
-					l.listenAddr, nerr)
-				return
-			}
-
-			if ope, ok := err.(*net.OpError); ok {
-				// not timeout error and not temporary, which means the error is non-recoverable
-				if !(ope.Timeout() && ope.Temporary()) {
-					// accept error raised by sockets closing
-					if ope.Op == "accept" {
-						logger.Errorf("tcp listener(%s) stop accept connection due to listener closed",
-							l.listenAddr)
-					} else {
-						logger.Errorf("tcp listener(%s) stop accept connection due to non-recoverable error: %s",
-							l.listenAddr, err.Error())
-					}
-					return
-				}
-			} else {
-				logger.Errorf("tcp listener(%s) stop accept connection with unknown error: %s.",
-					l.listenAddr, err.Error())
-			}
-		} else {
-			go l.onTcpAccept(tconn, l.stopChan)
-		}
-	}
-}
-
-func (l *listener) setMaxConnection(maxConn uint32) {
-	l.tcpListener.SetMaxConnection(maxConn)
-}
-
 func (l *listener) readMsgEventLoop() {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				logger.Errorf("failed to read udp msg for %s\n, stack trace: \n", l.listenAddr, debug.Stack())
+				logger.Errorf("failed to read udp msg for %s\n, stack trace: \n", l.localAddr, debug.Stack())
 				l.readMsgEventLoop()
 			}
 		}()
@@ -184,7 +117,9 @@ func (l *listener) readMsgEventLoop() {
 func (l *listener) readMsgLoop() {
 	conn := l.udpListener.(*net.UDPConn)
 	buf := iobufferpool.GetIoBuffer(iobufferpool.UdpPacketMaxSize)
-	defer iobufferpool.PutIoBuffer(buf)
+	defer func(buf iobufferpool.IoBuffer) {
+		_ = iobufferpool.PutIoBuffer(buf)
+	}(buf)
 
 	for {
 		buf.Reset()
@@ -193,32 +128,74 @@ func (l *listener) readMsgLoop() {
 
 		if err != nil {
 			if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
-				logger.Infof("udp listener %s stop receiving packet by deadline", l.listenAddr)
+				logger.Infof("udp listener %s stop receiving packet by deadline", l.localAddr)
 				return
 			}
 			if ope, ok := err.(*net.OpError); ok {
 				if !(ope.Timeout() && ope.Temporary()) {
-					logger.Errorf("udp listener %s occurs non-recoverable error, stop listening and receiving", l.listenAddr)
+					logger.Errorf("udp listener %s occurs non-recoverable error, stop listening and receiving", l.localAddr)
 					return
 				}
 			}
-			logger.Errorf("udp listener %s receiving packet occur error: %+v", l.listenAddr, err)
+			logger.Errorf("udp listener %s receiving packet occur error: %+v", l.localAddr, err)
 			continue
 		}
-		l.onUdpAccept(rAddr, conn, l.stopChan, buf)
+		l.onUdpAccept(rAddr, conn, l.stopChan, buf.Clone())
 	}
+}
+
+func (l *listener) acceptEventLoop() {
+
+	for {
+		if tconn, err := l.tcpListener.Accept(); err != nil {
+			if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
+				logger.Infof("tcp listener(%s) stop accept connection due to timeout, err: %s",
+					l.localAddr, nerr)
+				return
+			}
+
+			if ope, ok := err.(*net.OpError); ok {
+				// not timeout error and not temporary, which means the error is non-recoverable
+				if !(ope.Timeout() && ope.Temporary()) {
+					// accept error raised by sockets closing
+					if ope.Op == "accept" {
+						logger.Errorf("tcp listener(%s) stop accept connection due to listener closed",
+							l.localAddr)
+					} else {
+						logger.Errorf("tcp listener(%s) stop accept connection due to non-recoverable error: %s",
+							l.localAddr, err.Error())
+					}
+					return
+				}
+			} else {
+				logger.Errorf("tcp listener(%s) stop accept connection with unknown error: %s.",
+					l.localAddr, err.Error())
+			}
+		} else {
+			go l.onTcpAccept(tconn, l.stopChan)
+		}
+	}
+}
+
+func (l *listener) setMaxConnection(maxConn uint32) {
+	l.tcpListener.SetMaxConnection(maxConn)
 }
 
 func (l *listener) close() error {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
-	if l.tcpListener != nil {
-		return l.tcpListener.Close()
+	var err error
+	switch l.protocol {
+	case "tcp":
+		if l.tcpListener != nil {
+			err = l.tcpListener.Close()
+		}
+	case "udp":
+		if l.udpListener != nil {
+			err = l.udpListener.Close()
+		}
 	}
-	if l.udpListener != nil {
-		return l.udpListener.Close()
-	}
-	close(l.stopChan) // TODO listener关闭时，需要关闭已建立的连接吗
-	return nil
+	close(l.stopChan)
+	return err
 }

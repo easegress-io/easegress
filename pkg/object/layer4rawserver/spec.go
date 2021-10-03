@@ -34,7 +34,7 @@ type (
 		// tcp stream config params
 		KeepAlive           bool   `yaml:"keepAlive" jsonschema:"required"`
 		TcpNodelay          bool   `yaml:"tcpNodelay" jsonschema:"omitempty"`
-		MaxConnections      uint32 `yaml:"maxConnections" jsonschema:"omitempty,minimum=1"`
+		MaxConnections      uint32 `yaml:"maxConns" jsonschema:"omitempty,minimum=1"`
 		ProxyConnectTimeout uint32 `yaml:"proxyConnectTimeout" jsonschema:"omitempty"`
 		ProxyTimeout        uint32 `yaml:"proxyTimeout" jsonschema:"omitempty"`
 

@@ -36,8 +36,8 @@ func GetProxyMapKey(raddr, laddr string) string {
 }
 
 // SetUDPProxyMap set udp session by udp server listener
-func SetUDPProxyMap(key string, layer4Context interface{}) {
-	ProxyMap.Store(key, layer4Context)
+func SetUDPProxyMap(key string, clientConn interface{}) {
+	ProxyMap.Store(key, clientConn)
 }
 
 // DelUDPProxyMap delete udp session

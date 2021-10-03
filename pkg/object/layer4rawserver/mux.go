@@ -37,7 +37,7 @@ type (
 		superSpec *supervisor.Spec
 		spec      *Spec
 
-		muxMapper protocol.Layer4MuxMapper
+		muxMapper protocol.MuxMapper
 
 		ipFilter     *ipfilter.IPFilter
 		ipFilterChan *ipfilter.IPFilters
@@ -87,7 +87,7 @@ func (mr *muxRules) pass(ctx context.Layer4Context) bool {
 	return false
 }
 
-func newMux(mapper protocol.Layer4MuxMapper) *mux {
+func newMux(mapper protocol.MuxMapper) *mux {
 	m := &mux{}
 
 	m.rules.Store(&muxRules{
@@ -97,7 +97,7 @@ func newMux(mapper protocol.Layer4MuxMapper) *mux {
 	return m
 }
 
-func (m *mux) reloadRules(superSpec *supervisor.Spec, muxMapper protocol.Layer4MuxMapper) {
+func (m *mux) reloadRules(superSpec *supervisor.Spec, muxMapper protocol.MuxMapper) {
 	spec := superSpec.ObjectSpec().(*Spec)
 
 	rules := &muxRules{
@@ -123,8 +123,9 @@ func (m *mux) GetHandler(name string) (protocol.Layer4Handler, bool) {
 	if rules == nil {
 		return nil, false
 	}
-	return rules.muxMapper.GetHandler(name)
+	return rules.muxMapper.GetLayer4Handler(name)
 }
 
 func (m *mux) close() {
+	// TODO add close tracing
 }

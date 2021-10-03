@@ -249,7 +249,7 @@ func (ss *staticServers) next(cliAddr string) *Server {
 
 func (ss *staticServers) roundRobin() *Server {
 	count := atomic.AddUint64(&ss.count, 1)
-	// NOTE: start from 0.
+	// NOTE: startEventLoop from 0.
 	count--
 	return ss.servers[int(count)%len(ss.servers)]
 }

@@ -18,6 +18,7 @@
 package context
 
 import (
+	"github.com/megaease/easegress/pkg/util/layer4stat"
 	"net"
 	"sync"
 	"time"
@@ -34,19 +35,37 @@ type (
 		Lock()
 		Unlock()
 
+		// Protocol current support tcp/udp, future maybe support unix
 		Protocol() string
+		// LocalAddr listen addr for layer4 server
 		LocalAddr() net.Addr
+		// ClientAddr client addr
 		ClientAddr() net.Addr
+		// UpstreamAddr addr for upstream server
 		UpstreamAddr() net.Addr
 
-		GetReadBuffer() iobufferpool.IoBuffer
-		AppendReadBuffer(buffer iobufferpool.IoBuffer)
-		GetWriteBuffer() iobufferpool.IoBuffer
-		AppendWriteBuffer(buffer iobufferpool.IoBuffer)
+		// GetClientReadBuffer get io buffer read from client
+		GetClientReadBuffer() iobufferpool.IoBuffer
+		// GetWriteToClientBuffer get io buffer write to client
+		GetWriteToClientBuffer() iobufferpool.IoBuffer
+		// GetUpstreamReadBuffer get io buffer read from upstream
+		GetUpstreamReadBuffer() iobufferpool.IoBuffer
+		// GetWriteToUpstreamBuffer get io buffer write to upstream
+		GetWriteToUpstreamBuffer() iobufferpool.IoBuffer
 
-		WriteToClient(buffer iobufferpool.IoBuffer)
-		WriteToUpstream(buffer iobufferpool.IoBuffer)
+		// WriteToClient get write to client buffer and send to client
+		WriteToClient()
+		// DirectWriteToClient directly write to client
+		DirectWriteToClient(buffer iobufferpool.IoBuffer)
+		// WriteToUpstream get write to upstream buffer and send to upstream
+		WriteToUpstream()
+		// DirectWriteToUpstream directly write to upstream
+		DirectWriteToUpstream(buffer iobufferpool.IoBuffer)
 
+		// StatMetric get
+		StatMetric() *layer4stat.Metric
+
+		// Finish close context and release buffer resource
 		Finish()
 		Duration() time.Duration
 
@@ -54,20 +73,10 @@ type (
 		SetHandlerCaller(caller HandlerCaller)
 	}
 
-	ConnectionArgs struct {
-		TCPNodelay        bool
-		Linger            bool
-		SendBufSize       uint32
-		RecvBufSize       uint32
-		ProxyTimeout      uint32
-		ProxyReadTimeout  int64 // connection read timeout(milliseconds)
-		ProxyWriteTimeout int64 // connection write timeout(milliseconds)
-
-		startOnce sync.Once // make sure read loop and write loop start only once
-	}
-
 	layer4Context struct {
-		mu sync.Mutex
+		mu       sync.Mutex
+		reqSize  uint64
+		respSize uint64
 
 		protocol     string
 		localAddr    net.Addr
@@ -77,9 +86,10 @@ type (
 		clientConn   *connection.Connection
 		upstreamConn *connection.UpstreamConnection
 
-		readBuffer     iobufferpool.IoBuffer
-		writeBuffer    iobufferpool.IoBuffer
-		connectionArgs *ConnectionArgs
+		clientReadBuffer    iobufferpool.IoBuffer
+		clientWriteBuffer   iobufferpool.IoBuffer
+		upstreamReadBuffer  iobufferpool.IoBuffer
+		upstreamWriteBuffer iobufferpool.IoBuffer
 
 		startTime *time.Time // connection accept time
 		endTime   *time.Time // connection close time
@@ -89,6 +99,7 @@ type (
 )
 
 // NewLayer4Context creates an Layer4Context.
+// @param cliAddr udp client addr(client addr can not get from udp listen server)
 func NewLayer4Context(cliConn *connection.Connection, upstreamConn *connection.UpstreamConnection, cliAddr net.Addr) *layer4Context {
 	startTime := time.Now()
 	ctx := &layer4Context{
@@ -110,11 +121,15 @@ func NewLayer4Context(cliConn *connection.Connection, upstreamConn *connection.U
 
 	switch ctx.protocol {
 	case "udp":
-		ctx.readBuffer = iobufferpool.GetIoBuffer(iobufferpool.UdpPacketMaxSize)
-		ctx.writeBuffer = iobufferpool.GetIoBuffer(iobufferpool.UdpPacketMaxSize)
+		ctx.clientReadBuffer = iobufferpool.GetIoBuffer(iobufferpool.UdpPacketMaxSize)
+		ctx.clientWriteBuffer = iobufferpool.GetIoBuffer(iobufferpool.UdpPacketMaxSize)
+		ctx.upstreamReadBuffer = iobufferpool.GetIoBuffer(iobufferpool.UdpPacketMaxSize)
+		ctx.upstreamWriteBuffer = iobufferpool.GetIoBuffer(iobufferpool.UdpPacketMaxSize)
 	case "tcp":
-		ctx.readBuffer = iobufferpool.GetIoBuffer(iobufferpool.DefaultBufferReadCapacity)
-		ctx.writeBuffer = iobufferpool.GetIoBuffer(iobufferpool.DefaultBufferReadCapacity)
+		ctx.clientReadBuffer = iobufferpool.GetIoBuffer(iobufferpool.DefaultBufferReadCapacity)
+		ctx.clientWriteBuffer = iobufferpool.GetIoBuffer(iobufferpool.DefaultBufferReadCapacity)
+		ctx.upstreamReadBuffer = iobufferpool.GetIoBuffer(iobufferpool.DefaultBufferReadCapacity)
+		ctx.upstreamWriteBuffer = iobufferpool.GetIoBuffer(iobufferpool.DefaultBufferReadCapacity)
 	}
 	return ctx
 }
@@ -139,7 +154,7 @@ func (ctx *layer4Context) LocalAddr() net.Addr {
 }
 
 func (ctx *layer4Context) ClientAddr() net.Addr {
-	return ctx.ClientAddr()
+	return ctx.clientAddr
 }
 
 // UpstreamAddr get upstream addr
@@ -147,46 +162,71 @@ func (ctx *layer4Context) UpstreamAddr() net.Addr {
 	return ctx.upstreamAddr
 }
 
-// GetReadBuffer get read buffer
-func (ctx *layer4Context) GetReadBuffer() iobufferpool.IoBuffer {
-	return ctx.readBuffer
-}
-
-// AppendReadBuffer filter receive client data, append data to ctx read buffer for other filters handle
-func (ctx *layer4Context) AppendReadBuffer(buffer iobufferpool.IoBuffer) {
-	if buffer == nil || buffer.Len() == 0 {
-		return
+func (ctx *layer4Context) StatMetric() *layer4stat.Metric {
+	return &layer4stat.Metric{
+		Err:      false,
+		Duration: ctx.Duration(),
+		ReqSize:  ctx.reqSize,
+		RespSize: ctx.respSize,
 	}
-	_ = ctx.readBuffer.Append(buffer.Bytes())
 }
 
-// GetWriteBuffer get write buffer
-func (ctx *layer4Context) GetWriteBuffer() iobufferpool.IoBuffer {
-	return ctx.writeBuffer
+// GetClientReadBuffer get read buffer for client conn
+func (ctx *layer4Context) GetClientReadBuffer() iobufferpool.IoBuffer {
+	return ctx.clientReadBuffer
 }
 
-// AppendWriteBuffer filter receive upstream data, append data to ctx write buffer for other filters handle
-func (ctx *layer4Context) AppendWriteBuffer(buffer iobufferpool.IoBuffer) {
-	if buffer == nil || buffer.Len() == 0 {
-		return
-	}
-	_ = ctx.writeBuffer.Append(buffer.Bytes())
+// GetWriteToClientBuffer get write buffer sync to client
+func (ctx *layer4Context) GetWriteToClientBuffer() iobufferpool.IoBuffer {
+	return ctx.clientWriteBuffer
+}
+
+// GetUpstreamReadBuffer get read buffer for upstream conn
+func (ctx *layer4Context) GetUpstreamReadBuffer() iobufferpool.IoBuffer {
+	return ctx.upstreamReadBuffer
+}
+
+// GetWriteToUpstreamBuffer get write buffer sync to upstream
+func (ctx *layer4Context) GetWriteToUpstreamBuffer() iobufferpool.IoBuffer {
+	return ctx.upstreamWriteBuffer
 }
 
 // WriteToClient filter handle client upload data, send result to upstream connection
-func (ctx *layer4Context) WriteToClient(buffer iobufferpool.IoBuffer) {
+func (ctx *layer4Context) WriteToClient() {
+	if ctx.clientWriteBuffer == nil || ctx.upstreamWriteBuffer.Len() == 0 {
+		return
+	}
+	buf := ctx.clientWriteBuffer.Clone()
+	ctx.respSize += uint64(buf.Len())
+	ctx.clientWriteBuffer.Reset()
+	_ = ctx.upstreamConn.Write(buf)
+}
+
+func (ctx *layer4Context) DirectWriteToClient(buffer iobufferpool.IoBuffer) {
 	if buffer == nil || buffer.Len() == 0 {
 		return
 	}
-	_ = ctx.upstreamConn.Write(buffer)
+	ctx.respSize += uint64(buffer.Len())
+	_ = ctx.upstreamConn.Write(buffer.Clone())
 }
 
 // WriteToUpstream filter handle client upload data, send result to upstream connection
-func (ctx *layer4Context) WriteToUpstream(buffer iobufferpool.IoBuffer) {
+func (ctx *layer4Context) WriteToUpstream() {
+	if ctx.upstreamWriteBuffer == nil || ctx.upstreamWriteBuffer.Len() == 0 {
+		return
+	}
+	buf := ctx.upstreamWriteBuffer.Clone()
+	ctx.reqSize += uint64(buf.Len())
+	_ = ctx.clientConn.Write(buf)
+	ctx.upstreamWriteBuffer.Reset()
+}
+
+func (ctx *layer4Context) DirectWriteToUpstream(buffer iobufferpool.IoBuffer) {
 	if buffer == nil || buffer.Len() == 0 {
 		return
 	}
-	_ = ctx.clientConn.Write(buffer)
+	ctx.reqSize += uint64(buffer.Len())
+	_ = ctx.clientConn.Write(buffer.Clone())
 }
 
 // CallNextHandler call handler caller
@@ -201,10 +241,14 @@ func (ctx *layer4Context) SetHandlerCaller(caller HandlerCaller) {
 
 // Finish context finish handler
 func (ctx *layer4Context) Finish() {
-	_ = iobufferpool.PutIoBuffer(ctx.readBuffer)
-	_ = iobufferpool.PutIoBuffer(ctx.writeBuffer)
-	ctx.readBuffer = nil
-	ctx.writeBuffer = nil
+	_ = iobufferpool.PutIoBuffer(ctx.clientReadBuffer)
+	_ = iobufferpool.PutIoBuffer(ctx.clientWriteBuffer)
+	_ = iobufferpool.PutIoBuffer(ctx.upstreamReadBuffer)
+	_ = iobufferpool.PutIoBuffer(ctx.upstreamWriteBuffer)
+	ctx.clientReadBuffer = nil
+	ctx.clientWriteBuffer = nil
+	ctx.upstreamReadBuffer = nil
+	ctx.upstreamWriteBuffer = nil
 
 	finish := time.Now()
 	ctx.endTime = &finish

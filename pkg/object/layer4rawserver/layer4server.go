@@ -60,7 +60,7 @@ func (l4 *Layer4Server) DefaultSpec() interface{} {
 }
 
 // Init initializes Layer4Server.
-func (l4 *Layer4Server) Init(superSpec *supervisor.Spec, muxMapper protocol.Layer4MuxMapper) {
+func (l4 *Layer4Server) Init(superSpec *supervisor.Spec, muxMapper protocol.MuxMapper) {
 
 	l4.runtime = newRuntime(superSpec, muxMapper)
 
@@ -71,7 +71,7 @@ func (l4 *Layer4Server) Init(superSpec *supervisor.Spec, muxMapper protocol.Laye
 }
 
 // Inherit inherits previous generation of Layer4Server.
-func (l4 *Layer4Server) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object, muxMapper protocol.Layer4MuxMapper) {
+func (l4 *Layer4Server) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object, muxMapper protocol.MuxMapper) {
 	l4.runtime = previousGeneration.(*Layer4Server).runtime
 
 	l4.runtime.eventChan <- &eventReload{

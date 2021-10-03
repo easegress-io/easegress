@@ -53,7 +53,7 @@ type (
 		superSpec *supervisor.Spec
 		spec      *Spec
 
-		muxMapper      protocol.Layer4MuxMapper
+		muxMapper      protocol.MuxMapper
 		runningFilters []*runningFilter
 	}
 
@@ -273,14 +273,14 @@ func (l *Layer4Pipeline) DefaultSpec() interface{} {
 }
 
 // Init initializes Layer4Pipeline.
-func (l *Layer4Pipeline) Init(superSpec *supervisor.Spec, muxMapper protocol.Layer4MuxMapper) {
+func (l *Layer4Pipeline) Init(superSpec *supervisor.Spec, muxMapper protocol.MuxMapper) {
 	l.superSpec, l.spec, l.muxMapper = superSpec, superSpec.ObjectSpec().(*Spec), muxMapper
 
 	l.reload(nil /*no previous generation*/)
 }
 
 // Inherit inherits previous generation of Layer4Pipeline.
-func (l *Layer4Pipeline) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object, muxMapper protocol.Layer4MuxMapper) {
+func (l *Layer4Pipeline) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object, muxMapper protocol.MuxMapper) {
 	l.superSpec, l.spec, l.muxMapper = superSpec, superSpec.ObjectSpec().(*Spec), muxMapper
 
 	l.reload(previousGeneration.(*Layer4Pipeline))
