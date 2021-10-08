@@ -25,12 +25,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
-// VisitorFunc executes visition logic
-type VisitorFunc func(*spec)
+// SpecVisitorFunc executes visition logic
+type SpecVisitorFunc func(*spec)
 
-// Visitor walk through the document via VisitorFunc
-type Visitor interface {
-	Visit(VisitorFunc)
+// SpecVisitor walk through the document via SpecVisitorFunc
+type SpecVisitor interface {
+	Visit(SpecVisitorFunc)
 }
 
 type spec struct {
@@ -39,14 +39,13 @@ type spec struct {
 	doc  string
 }
 
-// StreamVisitor is the struct of Visitor Pattern
-type StreamVisitor struct {
+type specVisitor struct {
 	io.Reader
 }
 
-// NewStreamVisitor returns a streamVisitor.
-func NewStreamVisitor(src string) *StreamVisitor {
-	return &StreamVisitor{
+// NewSpecVisitor returns a spec visitor.
+func NewSpecVisitor(src string) SpecVisitor {
+	return &specVisitor{
 		Reader: strings.NewReader(src),
 	}
 }
@@ -75,8 +74,8 @@ func (d *yamlDecoder) Decode(into interface{}) error {
 	return err
 }
 
-// Visit implements Visitor over a stream.
-func (v *StreamVisitor) Visit(fn VisitorFunc) {
+// Visit implements SpecVisitor
+func (v *specVisitor) Visit(fn SpecVisitorFunc) {
 	d := newYAMLDecoder(v.Reader)
 	var validSpecs []spec
 	for {
@@ -87,6 +86,12 @@ func (v *StreamVisitor) Visit(fn VisitorFunc) {
 			} else {
 				ExitWithErrorf("error parsing %s: %v", d.doc, err)
 			}
+		}
+		if s.Name == "" {
+			ExitWithErrorf("name is empty: %s", d.doc)
+		}
+		if s.Kind == "" {
+			ExitWithErrorf("kind is empty: %s", d.doc)
 		}
 		s.doc = d.doc
 		//TODO can validate spec's Kind here
