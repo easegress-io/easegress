@@ -9,9 +9,6 @@ import (
 )
 
 const (
-	// DefaultCommonName is the name of root ca cert.
-	DefaultCommonName = "mesh-root-ca"
-
 	typeCert                    = "CERTIFICATE"
 	typeKey                     = "RSA PRIVATE KEY"
 	defaultRootCertCountry      = "cn"
