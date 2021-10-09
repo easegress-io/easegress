@@ -245,8 +245,8 @@ func (sr *ServiceRegistry) DeregisterRegistry(registryName string) error {
 
 	sr._handleRegistryEvent(cleanEvent)
 
-	bucket.registered, bucket.registry = false, nil
 	close(bucket.done)
+	bucket.registered, bucket.registry, bucket.done = false, nil, make(chan struct{})
 
 	if bucket.needClean() {
 		delete(sr.registryBuckets, registryName)
