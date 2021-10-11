@@ -219,7 +219,7 @@ func (p *pool) doRequest(ctx context.HTTPContext, req *request, client *http.Cli
 	span := ctx.Span().NewChildWithStart(spanName, req.startTime())
 	span.Tracer().Inject(span.Context(), opentracing.HTTPHeaders, opentracing.HTTPHeadersCarrier(req.std.Header))
 
-	resp, err := client.Do(req.std)
+	resp, err := fnSendRequest(req.std, client)
 	if err != nil {
 		return nil, nil, err
 	}

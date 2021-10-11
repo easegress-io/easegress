@@ -54,37 +54,6 @@ func init() {
 	httppipeline.Register(&Proxy{})
 }
 
-// All Proxy instances use one globalClient in order to reuse
-// some resounces such as keepalive connections.
-/*var globalClient = &http.Client{
-	// NOTE: Timeout could be no limit, real client or server could cancel it.
-	Timeout: 0,
-	Transport: &http.Transport{
-		Proxy: http.ProxyFromEnvironment,
-		DialContext: (&net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 60 * time.Second,
-			DualStack: true,
-		}).DialContext,
-		TLSClientConfig: &tls.Config{
-			// NOTE: Could make it an paramenter,
-			// when the requests need cross WAN.
-			InsecureSkipVerify: true,
-		},
-		DisableCompression: false,
-		// NOTE: The large number of Idle Connections can
-		// reduce overhead of building connections.
-		MaxIdleConns:          10240,
-		MaxIdleConnsPerHost:   512,
-		IdleConnTimeout:       90 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
-	},
-	CheckRedirect: func(req *http.Request, via []*http.Request) error {
-		return http.ErrUseLastResponse
-	},
-}*/
-
 var fnSendRequest = func(r *http.Request, client *http.Client) (*http.Response, error) {
 	return client.Do(r)
 }
