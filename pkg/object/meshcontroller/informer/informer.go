@@ -112,8 +112,8 @@ type (
 	// ServiceCertFunc is the callback function type for service cert.
 	ServiceCertFunc func(event Event, value *spec.Certificate) bool
 
-	// RootCertFunc is the callback function type for root cert.
-	// RootCertFunc func(event Event, cert *spec.Certificate) bool
+	// IngressControllerCertFunc is the callback function type for ingresscontroller cert.
+	IngressControllerCertFunc func(event Event, cert *spec.Certificate) bool
 
 	// Informer is the interface for informing two type of storage changed for every Mesh spec structure.
 	//  1. Based on comparison between old and new part of entry.
@@ -141,7 +141,7 @@ type (
 
 		OnAllServertCert(fn ServiceCertsFunc) error
 		OnServertCert(serviceName string, fn ServiceCertFunc) error
-		//OnRootCert(fn RootCertFunc) error
+		OnIngressControllerCert(fn IngressControllerCertFunc) error
 
 		Close()
 	}
@@ -553,6 +553,24 @@ func (inf *meshInformer) OnAllIngressSpecs(fn IngressSpecsFunc) error {
 	}
 
 	return inf.onSpecs(storeKey, syncerKey, specsFunc)
+}
+
+func (inf *meshInformer) OnIngressControllerCert(fn IngressControllerCertFunc) error {
+	storeKey := layout.IngressControllerCertKey()
+	syncerKey := "ingresscontroller-cert"
+
+	specFunc := func(event Event, value string) bool {
+		rootCert := &spec.Certificate{}
+		if event.EventType != EventDelete {
+			if err := yaml.Unmarshal([]byte(value), rootCert); err != nil {
+				logger.Errorf("BUG: unmarshal %s to yaml failed: %v", value, err)
+				return true
+			}
+		}
+		return fn(event, rootCert)
+	}
+
+	return inf.onSpecPart(storeKey, syncerKey, "", specFunc)
 }
 
 func (inf *meshInformer) OnServertCert(serviceName string, fn ServiceCertFunc) error {

@@ -51,6 +51,7 @@ type (
 		backendHTTPPipelines map[string]*supervisor.ObjectEntity
 		ingressBackends      map[string]struct{}
 		ingressRules         []*spec.IngressRule
+		mTLS                 bool
 	}
 
 	// Status is the traffic controller status
@@ -83,6 +84,8 @@ func New(superSpec *supervisor.Spec) *IngressController {
 		backendHTTPPipelines: make(map[string]*supervisor.ObjectEntity),
 		ingressBackends:      make(map[string]struct{}),
 		ingressRules:         []*spec.IngressRule{},
+
+		mTLS: superSpec.ObjectSpec().(*spec.Admin).NeedmTLS(),
 	}
 
 	err := ic.informer.OnAllIngressSpecs(ic.handleIngresses)
@@ -98,6 +101,12 @@ func New(superSpec *supervisor.Spec) *IngressController {
 	err = ic.informer.OnAllServiceInstanceSpecs(ic.handleServiceInstances)
 	if err != nil && err != informer.ErrAlreadyWatched {
 		logger.Errorf("watch service instance failed: %v", err)
+	}
+
+	// using informer for watching ingress cert
+	err = ic.informer.OnIngressControllerCert(ic.handleCert)
+	if err != nil && err != informer.ErrAlreadyWatched {
+		logger.Errorf("watch ingress controller cert failed: %v", err)
 	}
 
 	return ic
@@ -118,6 +127,19 @@ func (ic *IngressController) handleIngresses(ingresses map[string]*spec.Ingress)
 	return
 }
 
+func (ic *IngressController) handleCert(event informer.Event, cert *spec.Certificate) (continueWatch bool) {
+	continueWatch = true
+
+	defer func() {
+		if err := recover(); err != nil {
+			logger.Errorf("%s: handleIngress recover from: %v, stack trace:\n%s\n",
+				ic.superSpec.Name(), err, debug.Stack())
+		}
+	}()
+
+	ic.reloadTraffic()
+	return true
+}
 func (ic *IngressController) handleServices(services map[string]*spec.Service) (continueWatch bool) {
 	continueWatch = true
 
@@ -188,6 +210,13 @@ func (ic *IngressController) _reloadHTTPPipelines() {
 		}
 	}
 
+	// if in mTLS strict model, should init pipeline with certificates
+	var cert, rootCert *spec.Certificate
+	if ic.mTLS {
+		cert = ic.service.GetIngressControllerCert()
+		rootCert = ic.service.GetRootCert()
+	}
+
 	for _, serviceSpec := range ic.service.ListServiceSpecs() {
 		if _, exists := ic.ingressBackends[serviceSpec.BackendName()]; !exists {
 			continue
@@ -208,7 +237,7 @@ func (ic *IngressController) _reloadHTTPPipelines() {
 		}
 
 		// FIXME: What if the instance address is always 127.0.0.1.
-		superSpec, err := serviceSpec.IngressPipelineSpec(instanceSpecs)
+		superSpec, err := serviceSpec.IngressPipelineSpec(instanceSpecs, cert, rootCert)
 		if err != nil {
 			logger.Errorf("get ingress pipeline for %s failed: %v",
 				serviceSpec.Name, err)

@@ -856,7 +856,7 @@ func TestIngressPipelineSpec(t *testing.T) {
 			Status:      "UP",
 		},
 	}
-	superSpec, err := s.IngressPipelineSpec(instanceSpecs)
+	superSpec, err := s.IngressPipelineSpec(instanceSpecs, nil, nil)
 
 	if err != nil {
 		t.Fatalf("%v", err)

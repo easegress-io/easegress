@@ -25,6 +25,8 @@ import (
 
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/certmanager"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/informer"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/layout"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/service"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
@@ -44,10 +46,12 @@ type (
 		superSpec           *supervisor.Spec
 		spec                *spec.Admin
 		maxHeartbeatTimeout time.Duration
+		certMananger        *certmanager.CertManager
 
 		registrySyncer *registrySyncer
 		store          storage.Storage
 		service        *service.Service
+		inf            informer.Informer
 
 		done chan struct{}
 	}
@@ -68,6 +72,7 @@ func New(superSpec *supervisor.Spec) *Master {
 		store:          store,
 		service:        service.New(superSpec),
 		registrySyncer: newRegistrySyncer(superSpec),
+		inf:            informer.NewInformer(store, ""), //
 
 		done: make(chan struct{}),
 	}
@@ -83,6 +88,46 @@ func New(superSpec *supervisor.Spec) *Master {
 
 	return m
 }
+func (m *Master) onAllServiceCerts(value map[string]*spec.Service) bool {
+	var serviceSpecs []*spec.Service
+	for _, v := range value {
+		serviceSpecs = append(serviceSpecs, v)
+	}
+	err := m.certMananger.SignAllServices(serviceSpecs)
+	if err != nil {
+		logger.Errorf("inf sing all services failed: %v", err)
+	}
+	return true
+}
+
+func (m *Master) securityRoutine() error {
+	appCertInterval, err := time.ParseDuration(m.spec.Security.AppCertRefreshInterval)
+	if err != nil {
+		logger.Errorf("BUG: parse security app cert refresh interval: %s to duration failed: %v",
+			m.spec.Security.AppCertRefreshInterval, err)
+		return err
+	}
+
+	rootCertInterval, err := time.ParseDuration(m.spec.Security.RootCertRefreshInterval)
+	if err != nil {
+		logger.Errorf("BUG: parse security root cert refresh interval: %s to duration failed: %v",
+			m.spec.Security.RootCertRefreshInterval, err)
+		return err
+	}
+
+	m.certMananger = certmanager.NewCertManager(m.service, m.spec.Security)
+	if m.spec.NeedmTLS() {
+
+		go m.signRootCert(rootCertInterval)
+		go m.signAppCerts(appCertInterval)
+
+		// watch all services in mesh for their cert
+		m.inf.OnAllServiceSpecs(m.onAllServiceCerts)
+	} else {
+		m.certMananger.CleanAllCerts()
+	}
+	return nil
+}
 
 func (m *Master) run() {
 	watchInterval, err := time.ParseDuration(m.spec.HeartbeatInterval)
@@ -92,8 +137,14 @@ func (m *Master) run() {
 		return
 	}
 
+	if err := m.securityRoutine(); err != nil {
+		logger.Errorf("start security routine failed, err: %v", err)
+		return
+	}
+
 	go m.checkHeartbeat(watchInterval)
 	go m.clean()
+
 }
 
 // only handle master routines when its the cluster leader.
@@ -101,6 +152,53 @@ func (m *Master) needHandle() bool {
 	return m.superSpec.Super().Cluster().IsLeader()
 }
 
+func (m *Master) signRootCert(rootSignInterval time.Duration) {
+	for {
+		select {
+		case <-m.done:
+			return
+		case <-time.After(rootSignInterval):
+			if m.needHandle() {
+				func() {
+					defer func() {
+						if err := recover(); err != nil {
+							logger.Errorf("failed to resign apps %v, stack trace: \n%s\n",
+								err, debug.Stack())
+						}
+					}()
+
+					if err := m.certMananger.SignRootCert(); err != nil {
+						logger.Errorf("certmanager resign root cert failed: %v", err)
+					}
+				}()
+			}
+		}
+	}
+}
+
+func (m *Master) signAppCerts(appSignInterval time.Duration) {
+	for {
+		select {
+		case <-m.done:
+			return
+		case <-time.After(appSignInterval):
+			if m.needHandle() {
+				func() {
+					defer func() {
+						if err := recover(); err != nil {
+							logger.Errorf("failed to resign apps %v, stack trace: \n%s\n",
+								err, debug.Stack())
+						}
+					}()
+					serviceSpecs := m.service.ListServiceSpecs()
+					if err := m.certMananger.SignAllServices(serviceSpecs); err != nil {
+						logger.Errorf("certmanager resign all services cert failed: %v", err)
+					}
+				}()
+			}
+		}
+	}
+}
 func (m *Master) checkHeartbeat(watchInterval time.Duration) {
 	for {
 		select {

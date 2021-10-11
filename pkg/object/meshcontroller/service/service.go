@@ -240,6 +240,48 @@ func (s *Service) ListServiceCerts() []*spec.Certificate {
 }
 
 // GetRootCert  gets the root cert.
+func (s *Service) GetIngressControllerCert() *spec.Certificate {
+	value, err := s.store.Get(layout.IngressControllerCertKey())
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+
+	if value == nil {
+		return nil
+	}
+
+	cert := &spec.Certificate{}
+	err = yaml.Unmarshal([]byte(*value), cert)
+	if err != nil {
+		panic(fmt.Errorf("BUG: unmarshal %s to yaml failed: %v", *value, err))
+	}
+
+	return cert
+}
+
+// PutIngressControllerCert puts the root cert.
+func (s *Service) PutIngressControllerCert(cert *spec.Certificate) {
+	buff, err := yaml.Marshal(cert)
+	if err != nil {
+		panic(fmt.Errorf("BUG: marshal %#v to yaml failed: %v", cert, err))
+	}
+
+	err = s.store.Put(layout.IngressControllerCertKey(), string(buff))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+	return
+}
+
+// DelIngressControllerCert deletes root cert.
+func (s *Service) DelIngressControllerCert() {
+	err := s.store.Delete(layout.IngressControllerCertKey())
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+}
+
+// GetRootCert  gets the root cert.
 func (s *Service) GetRootCert() *spec.Certificate {
 	value, err := s.store.Get(layout.RootCertKey())
 	if err != nil {

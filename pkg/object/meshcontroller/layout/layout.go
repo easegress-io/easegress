@@ -38,9 +38,10 @@ const (
 	ingress       = "/mesh/ingress/%s" // + ingressName
 	ingressPrefix = "/mesh/ingress/"
 
-	serviceCert          = "/mesh/service-cert/%s" // + ServiceName
-	allServiceCertPrefix = "/mesh/service-cert/"
-	rootCert             = "/mesh/root-cert"
+	serviceCert           = "/mesh/cert/service-cert/%s" // + ServiceName
+	allServiceCertPrefix  = "/mesh/cert/service-cert/"
+	rootCert              = "/mesh//cert/root-cert"
+	ingressControllerCert = "/mesh/cert/ingress-controller-cert"
 
 	customResourceKindPrefix = "/mesh/custom-resource-kinds/"
 	customResourceKind       = "/mesh/custom-resource-kinds/%s/" // +kind
@@ -154,4 +155,9 @@ func AllServiceCertPrefix() string {
 // RootCertKey returns the root cert key.
 func RootCertKey() string {
 	return rootCert
+}
+
+// IngressControllerCertKey returns the ingress controller cert key.
+func IngressControllerCertKey() string {
+	return ingressControllerCert
 }

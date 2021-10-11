@@ -85,6 +85,10 @@ func init() {
 	},
 }*/
 
+var fnSendRequest = func(r *http.Request, client *http.Client) (*http.Response, error) {
+	return client.Do(r)
+}
+
 type (
 	// Proxy is the filter Proxy.
 	Proxy struct {

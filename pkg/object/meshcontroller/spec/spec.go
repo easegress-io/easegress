@@ -71,6 +71,9 @@ const (
 
 	// DefaultCommonName is the name of root ca cert.
 	DefaultCommonName = "mesh-root-ca"
+
+	// CertProviderSelfSign is the in-memory, self-sign cert provider.
+	CertProviderSelfSign = "selfSign"
 )
 
 var (
@@ -107,8 +110,8 @@ type (
 
 	// Security is the spec for mesh-wide security.
 	Security struct {
-		MtlsMode   string `yaml:"mtlsMode" jsonschema:"required"`
-		CaProvider string `yaml:"caProvider" jsonschema:"required"`
+		MtlsMode     string `yaml:"mtlsMode" jsonschema:"required"`
+		CertProvider string `yaml:"certProvider" jsonschema:"required"`
 
 		RootCertRefreshInterval string `yaml:"rootCertRefreshInterval" jsonschema:"required"`
 		AppCertRefreshInterval  string `yaml:"appCertRefreshInterval" jsonschema:"required"`
@@ -618,11 +621,11 @@ rules:`
 }
 
 // IngressPipelineSpec generates a spec for ingress pipeline spec
-func (s *Service) IngressPipelineSpec(instanceSpecs []*ServiceInstanceSpec) (*supervisor.Spec, error) {
+func (s *Service) IngressPipelineSpec(instanceSpecs []*ServiceInstanceSpec, cert, rootCert *Certificate) (*supervisor.Spec, error) {
 	pipelineSpecBuilder := newPipelineSpecBuilder(s.IngressPipelineName())
 
 	// inner pipeline won't need to active tls config for visiting the local app
-	pipelineSpecBuilder.appendProxyWithCanary(instanceSpecs, s.Canary, s.LoadBalance, nil, nil)
+	pipelineSpecBuilder.appendProxyWithCanary(instanceSpecs, s.Canary, s.LoadBalance, cert, rootCert)
 
 	yamlConfig := pipelineSpecBuilder.yamlConfig()
 	superSpec, err := supervisor.NewSpec(yamlConfig)

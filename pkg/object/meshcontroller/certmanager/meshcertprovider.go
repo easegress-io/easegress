@@ -1,3 +1,20 @@
+/*
+ * Copyright (c) 2017, MegaEase
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package certmanager
 
 import (
@@ -10,29 +27,27 @@ import (
 	"encoding/pem"
 	"fmt"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
 )
 
-// MeshCertProvider is the EaseMesh Self-Sign type cert provider.
+var (
+	appSubjectKeyID = []byte{102, 202, 33, 104, 96}
+)
+
+// MeshCertProvider is the EaseMesh in-memory, Self-Sign type cert provider.
 type MeshCertProvider struct {
 	RootCert     *spec.Certificate
-	RootCA       *x509.Certificate
 	ServiceCerts map[string]*spec.Certificate
-
-	rootCertRefreshInterval string
-	rootValidationDuration  time.Duration
-
-	appCertRefreshInterval string
-	appValidationDuration  time.Duration
+	mutex        sync.RWMutex
 }
 
-// NewMeshCertProvider will create a new mesh cert provider with existing certs and keys in
-//  Etcd.
-func NewMeshCertProvider(rootRefreshInterval, appRefreshInterval string) (*MeshCertProvider, error) {
-	return nil, nil
+// NewMeshCertProvider will create a new mesh in-memory, cert provider
+func NewMeshCertProvider() (*MeshCertProvider, error) {
+	return &MeshCertProvider{}, nil
 }
 
 // SignAppCertAndKey  Signs a cert, key pair for one service
@@ -57,8 +72,8 @@ func (mp *MeshCertProvider) SignAppCertAndKey(serviceName string, ttl time.Durat
 		},
 		//IPAddresses:  []net.IP{net.IPv4(127, 0, 0, 1), net.IPv6loopback},
 		NotBefore:    now,
-		NotAfter:     now.Add(mp.appValidationDuration),
-		SubjectKeyId: []byte{102, 202, 33, 104, 96},
+		NotAfter:     now.Add(ttl),
+		SubjectKeyId: appSubjectKeyID,
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
 		KeyUsage:     x509.KeyUsageDigitalSignature,
 	}
@@ -88,11 +103,11 @@ func (mp *MeshCertProvider) SignAppCertAndKey(serviceName string, ttl time.Durat
 		ServiceName: serviceName,
 		CertBase64:  base64.StdEncoding.EncodeToString(certPEM.Bytes()),
 		KeyBase64:   base64.StdEncoding.EncodeToString(certPrivKeyPEM.Bytes()),
-		TTL:         mp.appCertRefreshInterval,
+		TTL:         ttl.String(),
 		SignTime:    now.Format(time.RFC3339),
 	}
 
-	mp.ServiceCerts[serviceName] = cert
+	mp.SetAppCertAndKey(serviceName, cert)
 	return
 }
 
@@ -122,7 +137,7 @@ func decodeCertPEM(base64Cert string) (*x509.Certificate, error) {
 }
 
 // SignRootCertAndKey signs a cert, key pair for root.
-func (mp *MeshCertProvider) SignRootCertAndKey(time.Duration) (cert *spec.Certificate, err error) {
+func (mp *MeshCertProvider) SignRootCertAndKey(ttl time.Duration) (cert *spec.Certificate, err error) {
 	now := time.Now()
 	ca := &x509.Certificate{
 		SerialNumber: big.NewInt(defaultSerialNumber),
@@ -133,7 +148,7 @@ func (mp *MeshCertProvider) SignRootCertAndKey(time.Duration) (cert *spec.Certif
 			Organization: []string{defaultRootCertOrganization},
 		},
 		NotBefore:             now,
-		NotAfter:              now.Add(mp.rootValidationDuration),
+		NotAfter:              now.Add(ttl),
 		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
 		BasicConstraintsValid: true,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
@@ -168,15 +183,35 @@ func (mp *MeshCertProvider) SignRootCertAndKey(time.Duration) (cert *spec.Certif
 		ServiceName: spec.DefaultCommonName,
 		CertBase64:  base64.StdEncoding.EncodeToString(caPEM.Bytes()),
 		KeyBase64:   base64.StdEncoding.EncodeToString(caPrivKeyPEM.Bytes()),
-		TTL:         mp.rootCertRefreshInterval,
+		TTL:         ttl.String(),
 		SignTime:    now.Format(time.RFC3339),
 	}
-	mp.RootCert = cert
+	mp.SetRootCertAndKey(cert)
 	return
+}
+
+// SetAppCertAndKey sets service cert into local memory
+func (mp *MeshCertProvider) SetAppCertAndKey(serviceName string, cert *spec.Certificate) error {
+	mp.mutex.Lock()
+	defer mp.mutex.Unlock()
+
+	mp.ServiceCerts[serviceName] = cert
+	return nil
+}
+
+// SetRootCertAndKey sets root cert into local memory
+func (mp *MeshCertProvider) SetRootCertAndKey(cert *spec.Certificate) error {
+	mp.mutex.Lock()
+	defer mp.mutex.Unlock()
+
+	mp.RootCert = cert
+	return nil
 }
 
 // GetAppCertAndKey get cert and key for one service
 func (mp *MeshCertProvider) GetAppCertAndKey(serviceName string) (cert *spec.Certificate, err error) {
+	mp.mutex.RLock()
+	defer mp.mutex.RUnlock()
 	sCert, ok := mp.ServiceCerts[serviceName]
 	if ok {
 		cert = sCert
@@ -186,7 +221,9 @@ func (mp *MeshCertProvider) GetAppCertAndKey(serviceName string) (cert *spec.Cer
 
 // GetRootCertAndKey get root ca cert and key
 func (mp *MeshCertProvider) GetRootCertAndKey() (cert *spec.Certificate, err error) {
-	if mp.RootCA != nil {
+	mp.mutex.RLock()
+	defer mp.mutex.RUnlock()
+	if mp.RootCert != nil {
 		cert = mp.RootCert
 		return
 	}
@@ -196,6 +233,9 @@ func (mp *MeshCertProvider) GetRootCertAndKey() (cert *spec.Certificate, err err
 
 // ReleaseAppCertAndKey releases one service's cert and key
 func (mp *MeshCertProvider) ReleaseAppCertAndKey(serviceName string) error {
+	mp.mutex.Lock()
+	defer mp.mutex.Unlock()
+
 	_, ok := mp.ServiceCerts[serviceName]
 	if ok {
 		delete(mp.ServiceCerts, serviceName)
@@ -205,6 +245,9 @@ func (mp *MeshCertProvider) ReleaseAppCertAndKey(serviceName string) error {
 
 // ReleaseRootCertAndKey releases root CA cert and key
 func (mp *MeshCertProvider) ReleaseRootCertAndKey() error {
-	mp.RootCA = nil
+	mp.mutex.Lock()
+	defer mp.mutex.Unlock()
+
+	mp.RootCert = nil
 	return nil
 }
