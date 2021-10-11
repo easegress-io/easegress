@@ -37,6 +37,8 @@ import (
 const (
 	defaultCleanInterval       time.Duration = 10 * time.Minute
 	defaultDeadRecordExistTime time.Duration = 20 * time.Minute
+	defaultRootCertInterval    time.Duration = 20 * time.Minute
+	defaultAppCertInterval     time.Duration = 10 * time.Minute
 )
 
 type (
@@ -101,25 +103,21 @@ func (m *Master) onAllServiceCerts(value map[string]*spec.Service) bool {
 }
 
 func (m *Master) securityRoutine() error {
-	appCertInterval, err := time.ParseDuration(m.spec.Security.AppCertRefreshInterval)
+	appCertTTL, err := time.ParseDuration(m.spec.Security.AppCertTTL)
 	if err != nil {
-		logger.Errorf("BUG: parse security app cert refresh interval: %s to duration failed: %v",
-			m.spec.Security.AppCertRefreshInterval, err)
+		logger.Errorf("BUG: parse app cert ttl: %s failed: %v", appCertTTL, err)
+		return err
+	}
+	rootCertTTL, err := time.ParseDuration(m.spec.Security.RootCertTTL)
+	if err != nil {
+		logger.Errorf("BUG: parse root cert ttl: %s failed: %v", rootCertTTL, err)
 		return err
 	}
 
-	rootCertInterval, err := time.ParseDuration(m.spec.Security.RootCertRefreshInterval)
-	if err != nil {
-		logger.Errorf("BUG: parse security root cert refresh interval: %s to duration failed: %v",
-			m.spec.Security.RootCertRefreshInterval, err)
-		return err
-	}
-
-	m.certMananger = certmanager.NewCertManager(m.service, m.spec.Security)
-	if m.spec.NeedmTLS() {
-
-		go m.signRootCert(rootCertInterval)
-		go m.signAppCerts(appCertInterval)
+	m.certMananger = certmanager.NewCertManager(m.service, m.spec.Security.CertProvider, appCertTTL, rootCertTTL)
+	if m.spec.EnablemTLS() {
+		go m.signRootCert()
+		go m.signAppCerts()
 
 		// watch all services in mesh for their cert
 		m.inf.OnAllServiceSpecs(m.onAllServiceCerts)
@@ -152,12 +150,12 @@ func (m *Master) needHandle() bool {
 	return m.superSpec.Super().Cluster().IsLeader()
 }
 
-func (m *Master) signRootCert(rootSignInterval time.Duration) {
+func (m *Master) signRootCert() {
 	for {
 		select {
 		case <-m.done:
 			return
-		case <-time.After(rootSignInterval):
+		case <-time.After(defaultRootCertInterval):
 			if m.needHandle() {
 				func() {
 					defer func() {
@@ -176,12 +174,12 @@ func (m *Master) signRootCert(rootSignInterval time.Duration) {
 	}
 }
 
-func (m *Master) signAppCerts(appSignInterval time.Duration) {
+func (m *Master) signAppCerts() {
 	for {
 		select {
 		case <-m.done:
 			return
-		case <-time.After(appSignInterval):
+		case <-time.After(defaultAppCertInterval):
 			if m.needHandle() {
 				func() {
 					defer func() {

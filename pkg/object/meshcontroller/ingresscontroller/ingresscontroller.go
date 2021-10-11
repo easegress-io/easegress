@@ -51,7 +51,6 @@ type (
 		backendHTTPPipelines map[string]*supervisor.ObjectEntity
 		ingressBackends      map[string]struct{}
 		ingressRules         []*spec.IngressRule
-		mTLS                 bool
 	}
 
 	// Status is the traffic controller status
@@ -84,8 +83,6 @@ func New(superSpec *supervisor.Spec) *IngressController {
 		backendHTTPPipelines: make(map[string]*supervisor.ObjectEntity),
 		ingressBackends:      make(map[string]struct{}),
 		ingressRules:         []*spec.IngressRule{},
-
-		mTLS: superSpec.ObjectSpec().(*spec.Admin).NeedmTLS(),
 	}
 
 	err := ic.informer.OnAllIngressSpecs(ic.handleIngresses)
@@ -211,8 +208,9 @@ func (ic *IngressController) _reloadHTTPPipelines() {
 	}
 
 	// if in mTLS strict model, should init pipeline with certificates
+	admSpec := ic.superSpec.ObjectSpec().(*spec.Admin)
 	var cert, rootCert *spec.Certificate
-	if ic.mTLS {
+	if admSpec.EnablemTLS() {
 		cert = ic.service.GetIngressControllerCert()
 		rootCert = ic.service.GetRootCert()
 	}

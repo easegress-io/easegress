@@ -45,9 +45,9 @@ type MeshCertProvider struct {
 	mutex        sync.RWMutex
 }
 
-// NewMeshCertProvider will create a new mesh in-memory, cert provider
-func NewMeshCertProvider() (*MeshCertProvider, error) {
-	return &MeshCertProvider{}, nil
+// NewMeshCertProvider creates a new mesh in-memory, self-sign cert provider
+func NewMeshCertProvider() *MeshCertProvider {
+	return &MeshCertProvider{}
 }
 
 // SignAppCertAndKey  Signs a cert, key pair for one service

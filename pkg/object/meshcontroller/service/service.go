@@ -239,7 +239,7 @@ func (s *Service) ListServiceCerts() []*spec.Certificate {
 	return certs
 }
 
-// GetRootCert  gets the root cert.
+// GetIngressControllerCert  gets the ingress controller cert.
 func (s *Service) GetIngressControllerCert() *spec.Certificate {
 	value, err := s.store.Get(layout.IngressControllerCertKey())
 	if err != nil {

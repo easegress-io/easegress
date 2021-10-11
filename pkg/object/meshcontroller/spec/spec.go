@@ -20,6 +20,7 @@ package spec
 import (
 	"bytes"
 	"fmt"
+	"time"
 
 	"gopkg.in/yaml.v2"
 
@@ -113,8 +114,8 @@ type (
 		MtlsMode     string `yaml:"mtlsMode" jsonschema:"required"`
 		CertProvider string `yaml:"certProvider" jsonschema:"required"`
 
-		RootCertRefreshInterval string `yaml:"rootCertRefreshInterval" jsonschema:"required"`
-		AppCertRefreshInterval  string `yaml:"appCertRefreshInterval" jsonschema:"required"`
+		RootCertTTL string `yaml:"rootCertTTL" jsonschema:"required, format=duration"`
+		AppCertTTL  string `yaml:"appCertTTL" jsonschema:"required, format=duration"`
 	}
 
 	// Service contains the information of service.
@@ -350,11 +351,41 @@ func (a Admin) Validate() error {
 		return fmt.Errorf("unsupported registry center type: %s", a.RegistryType)
 	}
 
+	if a.Security != nil {
+		switch a.Security.CertProvider {
+		case CertProviderSelfSign:
+		default:
+			return fmt.Errorf("unknown mTLS cert provider type: %s", a.Security.CertProvider)
+		}
+
+		switch a.Security.MtlsMode {
+		case SecurityLevelPermissive, SecurityLevelStrict:
+		default:
+			return fmt.Errorf("unknown mTLS security level: %s", a.Security.MtlsMode)
+		}
+	}
+
+	if a.EnablemTLS() {
+		appCertTTL, err := time.ParseDuration(a.Security.AppCertTTL)
+		if err != nil {
+			return fmt.Errorf("parse appcertTTl: %s failed: %v", a.Security.AppCertTTL, err)
+		}
+		rootCertTTL, err := time.ParseDuration(a.Security.RootCertTTL)
+		if err != nil {
+			return fmt.Errorf("parse rootTTl: %s failed: %v", a.Security.AppCertTTL, err)
+		}
+
+		if appCertTTL >= rootCertTTL {
+			err = fmt.Errorf("appCertTTL: %s is larger than rootCertTTL: %s", appCertTTL.String(), rootCertTTL.String())
+			return err
+		}
+	}
+
 	return nil
 }
 
-// NeedmTLS indicates whether we should enable mTLS in mesh or not.
-func (a Admin) NeedmTLS() bool {
+// EnablemTLS indicates whether we should enable mTLS in mesh or not.
+func (a Admin) EnablemTLS() bool {
 	if a.Security != nil && a.Security.MtlsMode == SecurityLevelStrict {
 		return true
 	}
@@ -786,7 +817,7 @@ func (s *Service) SideCarIngressPipelineSpec(applicationPort uint32) (*superviso
 }
 
 // SideCarEgressPipelineSpec returns a spec for sidecar egress pipeline
-func (s *Service) SideCarEgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec, certs map[string]*Certificate) (*supervisor.Spec, error) {
+func (s *Service) SideCarEgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec, appCert, rootCert *Certificate) (*supervisor.Spec, error) {
 	pipelineSpecBuilder := newPipelineSpecBuilder(s.EgressPipelineName())
 
 	if !s.Runnable() {
@@ -798,7 +829,7 @@ func (s *Service) SideCarEgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec
 			pipelineSpecBuilder.appendCircuitBreaker(s.Resilience.CircuitBreaker)
 		}
 
-		pipelineSpecBuilder.appendProxyWithCanary(instanceSpecs, s.Canary, s.LoadBalance, certs[s.Name], certs[DefaultCommonName])
+		pipelineSpecBuilder.appendProxyWithCanary(instanceSpecs, s.Canary, s.LoadBalance, appCert, rootCert)
 	}
 	yamlConfig := pipelineSpecBuilder.yamlConfig()
 	superSpec, err := supervisor.NewSpec(yamlConfig)

@@ -36,6 +36,7 @@ type (
 	// IngressServer manages one ingress pipeline and one HTTPServer
 	IngressServer struct {
 		super       *supervisor.Supervisor
+		superSpec   *supervisor.Spec
 		serviceName string
 		service     *service.Service
 
@@ -65,7 +66,8 @@ func NewIngressServer(superSpec *supervisor.Spec, super *supervisor.Supervisor,
 	}
 
 	return &IngressServer{
-		super: super,
+		super:     super,
+		superSpec: superSpec,
 
 		tc:        tc,
 		namespace: fmt.Sprintf("%s/%s", superSpec.Name(), "ingress"),
@@ -117,7 +119,13 @@ func (ings *IngressServer) InitIngress(service *spec.Service, port uint32) error
 	}
 
 	if ings.httpServer == nil {
-		superSpec, err := service.SideCarIngressHTTPServerSpec(nil)
+		admSpec := ings.superSpec.ObjectSpec().(*spec.Admin)
+		var cert *spec.Certificate
+		if admSpec.EnablemTLS() {
+			cert = ings.service.GetServiceCert(ings.serviceName)
+		}
+
+		superSpec, err := service.SideCarIngressHTTPServerSpec(cert)
 		if err != nil {
 			return err
 		}

@@ -215,12 +215,10 @@ func (egs *EgressServer) reloadHTTPServer(specs map[string]*spec.Service, certs 
 	defer egs.mutex.Unlock()
 
 	admSpec := egs.superSpec.ObjectSpec().(*spec.Admin)
-	if admSpec.NeedmTLS() {
-		certs = make(map[string]*spec.Certificate)
-		tmpCerts := egs.service.ListServiceCerts()
-		for _, c := range tmpCerts {
-			certs[c.ServiceName] = c
-		}
+	var cert, rootCert *spec.Certificate
+	if admSpec.EnablemTLS() {
+		cert = egs.service.GetServiceCert(egs.serviceName)
+		rootCert = egs.service.GetRootCert()
 	}
 
 	pipelines := make(map[string]*supervisor.ObjectEntity)
@@ -228,7 +226,7 @@ func (egs *EgressServer) reloadHTTPServer(specs map[string]*spec.Service, certs 
 
 	for _, v := range specs {
 		instances := egs.service.ListServiceInstanceSpecs(v.Name)
-		pipelineSpec, err := v.SideCarEgressPipelineSpec(instances, certs)
+		pipelineSpec, err := v.SideCarEgressPipelineSpec(instances, cert, rootCert)
 		if err != nil {
 			logger.Errorf("BUG: gen sidecar egress httpserver spec failed: %v", err)
 			continue

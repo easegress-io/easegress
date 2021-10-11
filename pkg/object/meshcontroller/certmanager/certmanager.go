@@ -37,17 +37,14 @@ const (
 	defaultIngressControllerName = "mesh-deafult-ingress-controller"
 )
 
-var (
-	defaultAppCertTTL  = 19 * time.Hour
-	defaultRootCertTTL = 48 * time.Hour
-)
-
 type (
 
 	// CertManager manages the mesh-wide mTLS cert/keys's refreshing, storing into local Etcd.
 	CertManager struct {
-		Provider CertProvider
-		service  *service.Service
+		Provider    CertProvider
+		service     *service.Service
+		appCertTTL  time.Duration
+		rootCertTTL time.Duration
 	}
 
 	// CertProvider is the interface declaring the methods for the Certificate provider, such as
@@ -80,15 +77,18 @@ type (
 )
 
 // NewCertManager creates a initialed certmanager.
-func NewCertManager(service *service.Service, securitySpec *spec.Security) *CertManager {
+func NewCertManager(service *service.Service, certProviderType string, appCertTTL, rootCertTTL time.Duration) *CertManager {
 	certManager := &CertManager{
-		service: service,
+		service:     service,
+		appCertTTL:  appCertTTL,
+		rootCertTTL: rootCertTTL,
 	}
 
-	switch securitySpec.CertProvider {
+	switch certProviderType {
 	case spec.CertProviderSelfSign:
+		certManager.Provider = NewMeshCertProvider()
 	default:
-		certManager.Provider, _ = NewMeshCertProvider()
+		certManager.Provider = NewMeshCertProvider()
 	}
 
 	go certManager.init()
@@ -162,16 +162,16 @@ func (cm *CertManager) SignRootCert() error {
 	rootCert := cm.service.GetRootCert()
 	needSign, err := cm.needSign(rootCert)
 	if err != nil {
+		logger.Errorf("check need to resign root cert failed: %v", err)
 		return err
 	}
 
 	if needSign {
-		rootCert, err = cm.Provider.SignRootCertAndKey(defaultRootCertTTL)
+		rootCert, err = cm.Provider.SignRootCertAndKey(cm.rootCertTTL)
 		if err != nil {
 			return err
 		}
 		cm.service.PutRootCert(rootCert)
-
 		cm.ForceSignAllServices()
 	} else {
 		// set cert from Etcd to provider manually
@@ -192,12 +192,12 @@ func (cm *CertManager) SignIngressController() error {
 	cert := cm.service.GetIngressControllerCert()
 	needSign, err := cm.needSign(cert)
 	if err != nil {
-		logger.Errorf("sign ingresscontroller failed: %v", err)
+		logger.Errorf("check need to resign ingresscontroller cert failed: %v", err)
 		return err
 	}
 
 	if needSign {
-		cert, err = cm.Provider.SignAppCertAndKey(defaultIngressControllerName, defaultAppCertTTL)
+		cert, err = cm.Provider.SignAppCertAndKey(defaultIngressControllerName, cm.appCertTTL)
 		if err != nil {
 			return err
 		}
@@ -219,16 +219,16 @@ func (cm *CertManager) SignIngressController() error {
 func (cm *CertManager) ForceSignAllServices() {
 	serviceSpecs := cm.service.ListServiceSpecs()
 	for _, v := range serviceSpecs {
-		newCert, err := cm.Provider.SignAppCertAndKey(v.Name, defaultAppCertTTL)
+		newCert, err := cm.Provider.SignAppCertAndKey(v.Name, cm.appCertTTL)
 		if err != nil {
-			logger.Errorf("%s sign cert failed, err: %v", v.Name, err)
+			logger.Errorf("service: %s sign cert failed, err: %v", v.Name, err)
 			continue
 		}
 
 		cm.service.PutServiceCert(newCert)
 	}
 
-	cert, err := cm.Provider.SignAppCertAndKey(defaultIngressControllerName, defaultAppCertTTL)
+	cert, err := cm.Provider.SignAppCertAndKey(defaultIngressControllerName, cm.appCertTTL)
 	if err != nil {
 		logger.Errorf("sign ingress controller cert failed, err: %v", err)
 	}
@@ -243,6 +243,7 @@ func (cm *CertManager) SignAllServices(serviceSpecs []*spec.Service) error {
 		if originCert != nil {
 			needSign, err := cm.needSign(originCert)
 			if err != nil {
+				logger.Errorf("check cert: %#v need to resign failed: %v", originCert, err)
 				continue
 			}
 
@@ -264,7 +265,7 @@ func (cm *CertManager) SignAllServices(serviceSpecs []*spec.Service) error {
 	}
 
 	for _, v := range needSignServer {
-		newCert, err := cm.Provider.SignAppCertAndKey(v, defaultAppCertTTL)
+		newCert, err := cm.Provider.SignAppCertAndKey(v, cm.appCertTTL)
 		if err != nil {
 			logger.Errorf("%s sign cert failed, err: %v", v)
 			continue

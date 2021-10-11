@@ -76,6 +76,126 @@ func TestAdminInValidat(t *testing.T) {
 	}
 }
 
+func TestAdminInValidatmTLS(t *testing.T) {
+	a := Admin{
+		RegistryType:      RegistryTypeNacos,
+		HeartbeatInterval: "10s",
+		Security: &Security{
+			MtlsMode:     SecurityLevelStrict,
+			CertProvider: "",
+
+			RootCertTTL: "",
+			AppCertTTL:  "",
+		},
+	}
+
+	err := a.Validate()
+
+	if err == nil {
+		t.Errorf("registry type is invalid, should failed")
+	}
+}
+
+func TestAdminInValidatmTLS2(t *testing.T) {
+	a := Admin{
+		RegistryType:      RegistryTypeNacos,
+		HeartbeatInterval: "10s",
+		Security: &Security{
+			MtlsMode:     SecurityLevelStrict,
+			CertProvider: CertProviderSelfSign,
+
+			RootCertTTL: "2h",
+			AppCertTTL:  "4h",
+		},
+	}
+
+	err := a.Validate()
+
+	if err == nil {
+		t.Errorf("root TTL and app cert ttl is invalid, should failed")
+	}
+}
+
+func TestAdminValidatmTLS(t *testing.T) {
+	a := Admin{
+		RegistryType:      RegistryTypeNacos,
+		HeartbeatInterval: "10s",
+		Security: &Security{
+			MtlsMode:     SecurityLevelStrict,
+			CertProvider: CertProviderSelfSign,
+
+			RootCertTTL: "48h",
+			AppCertTTL:  "2h",
+		},
+	}
+
+	err := a.Validate()
+
+	if err != nil {
+		t.Errorf("admin mTLS should valid, err: %v", err)
+	}
+}
+
+func TestAdminInValidatmTLS3(t *testing.T) {
+	a := Admin{
+		RegistryType:      RegistryTypeNacos,
+		HeartbeatInterval: "10s",
+		Security: &Security{
+			MtlsMode:     SecurityLevelStrict,
+			CertProvider: CertProviderSelfSign,
+
+			RootCertTTL: "48",
+			AppCertTTL:  "2h",
+		},
+	}
+
+	err := a.Validate()
+
+	if err == nil {
+		t.Errorf("admin root ttl should invalid")
+	}
+}
+
+func TestAdminInValidatmTLS4(t *testing.T) {
+	a := Admin{
+		RegistryType:      RegistryTypeNacos,
+		HeartbeatInterval: "10s",
+		Security: &Security{
+			MtlsMode:     SecurityLevelStrict,
+			CertProvider: CertProviderSelfSign,
+
+			RootCertTTL: "48h",
+			AppCertTTL:  "2",
+		},
+	}
+
+	err := a.Validate()
+
+	if err == nil {
+		t.Errorf("admin app ttl should invalid")
+	}
+}
+
+func TestAdminInValidatmTLS5(t *testing.T) {
+	a := Admin{
+		RegistryType:      RegistryTypeNacos,
+		HeartbeatInterval: "10s",
+		Security: &Security{
+			MtlsMode:     SecurityLevelStrict,
+			CertProvider: "",
+
+			RootCertTTL: "48",
+			AppCertTTL:  "2h",
+		},
+	}
+
+	err := a.Validate()
+
+	if err == nil {
+		t.Errorf("admin root ttl should invalid")
+	}
+}
+
 func TestAdminValidat(t *testing.T) {
 	a := Admin{
 		RegistryType:      "eureka",
@@ -121,7 +241,7 @@ func TestSideCarEgressPipelineSpec(t *testing.T) {
 		},
 	}
 
-	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs, nil)
+	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs, nil, nil)
 	fmt.Println(superSpec.YAMLConfig())
 }
 
@@ -196,7 +316,7 @@ func TestSideCarEgressPipelineWithCanarySpec(t *testing.T) {
 		},
 	}
 
-	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs, nil)
+	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs, nil, nil)
 	fmt.Println(superSpec.YAMLConfig())
 }
 
@@ -232,7 +352,7 @@ func TestSideCarEgressPipelineSpecWithMock(t *testing.T) {
 	}
 
 	instanceSpecs := []*ServiceInstanceSpec{}
-	superSpec, err := s.SideCarEgressPipelineSpec(instanceSpecs, nil)
+	superSpec, err := s.SideCarEgressPipelineSpec(instanceSpecs, nil, nil)
 	if err != nil {
 		t.Fatalf("mocking service failed: %v", err)
 	}
@@ -360,7 +480,10 @@ func TestSideCarEgressPipelneNotLoadBalancer(t *testing.T) {
 		},
 	}
 
-	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs, nil)
+	superSpec, err := s.SideCarEgressPipelineSpec(instanceSpecs, nil, nil)
+	if err != nil {
+		t.Errorf("sidecar egress pipeline spec gen failed: %v", err)
+	}
 	fmt.Println(superSpec.YAMLConfig())
 }
 
@@ -455,7 +578,7 @@ func TestSideCarEgressPipelineWithMultipleCanarySpec(t *testing.T) {
 		},
 	}
 
-	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs, nil)
+	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs, nil, nil)
 	fmt.Println(superSpec.YAMLConfig())
 }
 
@@ -529,7 +652,7 @@ func TestSideCarEgressPipelineWithCanaryNoInstanceSpec(t *testing.T) {
 		},
 	}
 
-	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs, nil)
+	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs, nil, nil)
 	fmt.Println(superSpec.YAMLConfig())
 }
 
@@ -605,7 +728,7 @@ func TestSideCarEgressPipelineWithCanaryInstanceMultipleLabelSpec(t *testing.T) 
 		},
 	}
 
-	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs, nil)
+	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs, nil, nil)
 	fmt.Println(superSpec.YAMLConfig())
 }
 
@@ -772,7 +895,7 @@ func TestSideCarEgressResiliencePipelineSpec(t *testing.T) {
 		},
 	}
 
-	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs, nil)
+	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs, nil, nil)
 	fmt.Println(superSpec.YAMLConfig())
 }
 
