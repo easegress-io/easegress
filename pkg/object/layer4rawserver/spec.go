@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	"github.com/megaease/easegress/pkg/util/ipfilter"
-	"github.com/megaease/easegress/pkg/util/layer4stat"
 )
 
 type (
@@ -32,11 +31,10 @@ type (
 		Port     uint16 `yaml:"port" json:"port" jsonschema:"required"`
 
 		// tcp stream config params
-		KeepAlive           bool   `yaml:"keepAlive" jsonschema:"required"`
-		TcpNodelay          bool   `yaml:"tcpNodelay" jsonschema:"omitempty"`
-		MaxConnections      uint32 `yaml:"maxConns" jsonschema:"omitempty,minimum=1"`
-		ProxyConnectTimeout uint32 `yaml:"proxyConnectTimeout" jsonschema:"omitempty"`
-		ProxyTimeout        uint32 `yaml:"proxyTimeout" jsonschema:"omitempty"`
+		KeepAlive      bool   `yaml:"keepAlive" jsonschema:"required"`
+		MaxConnections uint32 `yaml:"maxConns" jsonschema:"omitempty,minimum=1"`
+		ConnectTimeout uint32 `yaml:"connectTimeout" jsonschema:"omitempty"`
+		ProxyTimeout   uint32 `yaml:"proxyTimeout" jsonschema:"omitempty"`
 
 		Pool     *PoolSpec      `yaml:"pool" jsonschema:"required"`
 		IPFilter *ipfilter.Spec `yaml:"ipFilter,omitempty" jsonschema:"omitempty"`
@@ -49,11 +47,6 @@ type (
 		Servers         []*Server    `yaml:"servers" jsonschema:"omitempty"`
 		ServersTags     []string     `yaml:"serversTags" jsonschema:"omitempty,uniqueItems=true"`
 		LoadBalance     *LoadBalance `yaml:"loadBalance" jsonschema:"required"`
-	}
-
-	// PoolStatus is the status of Pool.
-	PoolStatus struct {
-		Stat *layer4stat.Status `yaml:"stat"`
 	}
 )
 

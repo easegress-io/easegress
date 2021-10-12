@@ -23,15 +23,15 @@ import (
 )
 
 const (
-	// Category is the category of HTTPServer.
+	// Category is the category of Layer4Server.
 	Category = supervisor.CategoryTrafficGate
 
-	// Kind is the kind of HTTPServer.
+	// Kind is the kind of Layer4Server.
 	Kind = "Layer4Server"
 )
 
 func init() {
-	//supervisor.Register(&Layer4Server{})
+	supervisor.Register(&Layer4Server{})
 }
 
 type (
@@ -54,16 +54,20 @@ func (l4 *Layer4Server) Kind() string {
 // DefaultSpec returns the default spec of Layer4Server.
 func (l4 *Layer4Server) DefaultSpec() interface{} {
 	return &Spec{
-		MaxConnections:      10240,
-		ProxyConnectTimeout: 15 * 1000,
+		MaxConnections: 10240,
+		ConnectTimeout: 5 * 1000,
 	}
+}
+
+// Validate validates the layer4 server structure.
+func (l4 *Layer4Server) Validate() error {
+	return nil
 }
 
 // Init initializes Layer4Server.
 func (l4 *Layer4Server) Init(superSpec *supervisor.Spec, muxMapper protocol.MuxMapper) {
 
 	l4.runtime = newRuntime(superSpec, muxMapper)
-
 	l4.runtime.eventChan <- &eventReload{
 		nextSuperSpec: superSpec,
 		muxMapper:     muxMapper,
@@ -72,8 +76,8 @@ func (l4 *Layer4Server) Init(superSpec *supervisor.Spec, muxMapper protocol.MuxM
 
 // Inherit inherits previous generation of Layer4Server.
 func (l4 *Layer4Server) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object, muxMapper protocol.MuxMapper) {
-	l4.runtime = previousGeneration.(*Layer4Server).runtime
 
+	l4.runtime = previousGeneration.(*Layer4Server).runtime
 	l4.runtime.eventChan <- &eventReload{
 		nextSuperSpec: superSpec,
 		muxMapper:     muxMapper,
@@ -82,9 +86,7 @@ func (l4 *Layer4Server) Inherit(superSpec *supervisor.Spec, previousGeneration s
 
 // Status is the wrapper of runtimes Status.
 func (l4 *Layer4Server) Status() *supervisor.Status {
-	return &supervisor.Status{
-		ObjectStatus: l4.runtime.Status(),
-	}
+	return &supervisor.Status{}
 }
 
 // Close closes Layer4Server.

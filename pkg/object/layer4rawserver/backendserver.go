@@ -50,7 +50,8 @@ type (
 		serviceRegistry *serviceregistry.ServiceRegistry
 		serviceWatcher  serviceregistry.ServiceWatcher
 		static          *staticServers
-		done            chan struct{}
+
+		done chan struct{}
 	}
 
 	staticServers struct {

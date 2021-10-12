@@ -38,17 +38,16 @@ type listener struct {
 	protocol  string // enum:udp/tcp
 	localAddr string
 
-	mutex    *sync.Mutex
-	stopChan chan struct{}
+	mutex     *sync.Mutex
+	stopChan  chan struct{}
+	keepalive bool   // keepalive for tcp
+	maxConns  uint32 // maxConn for tcp listener
 
-	udpListener net.PacketConn // udp listener
-
-	keepalive   bool                         // keepalive for tcp
-	maxConns    uint32                       // maxConn for tcp listener
 	tcpListener *limitlistener.LimitListener // tcp listener with accept limit
 
-	onTcpAccept func(conn net.Conn, listenerStop chan struct{})                                                 // tcp accept handle
-	onUdpAccept func(cliAddr net.Addr, conn net.Conn, listenerStop chan struct{}, packet iobufferpool.IoBuffer) // udp accept handle
+	udpListener net.PacketConn                                                                                         // udp listener
+	onTcpAccept func(conn net.Conn, listenerStop chan struct{})                                                        // tcp accept handle
+	onUdpAccept func(downstreamAddr net.Addr, conn net.Conn, listenerStop chan struct{}, packet iobufferpool.IoBuffer) // udp accept handle
 }
 
 func newListener(spec *Spec, onAccept func(conn net.Conn, listenerStop chan struct{}),

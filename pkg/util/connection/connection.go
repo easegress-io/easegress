@@ -30,6 +30,7 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/util/iobufferpool"
 	"github.com/megaease/easegress/pkg/util/timerpool"
+	"github.com/rcrowley/go-metrics"
 )
 
 type Connection struct {
@@ -55,12 +56,16 @@ type Connection struct {
 	connStopChan     chan struct{} // use for connection close
 	listenerStopChan chan struct{} // use for listener close
 
-	onReadBuffer func(buffer iobufferpool.IoBuffer) // execute read filters
+	readCollector  metrics.Counter
+	writeCollector metrics.Counter
+
+	onRead  func(buffer iobufferpool.IoBuffer) // execute read filters
+	onClose func()
 }
 
-// NewClientConn wrap connection create from client
+// NewDownstreamConn wrap connection create from client
 // @param remoteAddr client addr for udp proxy use
-func NewClientConn(conn net.Conn, remoteAddr net.Addr, listenerStopChan, connStopChan chan struct{}) *Connection {
+func NewDownstreamConn(conn net.Conn, remoteAddr net.Addr, listenerStopChan chan struct{}) *Connection {
 	clientConn := &Connection{
 		conn:      conn,
 		connected: 1,
@@ -72,7 +77,7 @@ func NewClientConn(conn net.Conn, remoteAddr net.Addr, listenerStopChan, connSto
 		writeBufferChan: make(chan *[]iobufferpool.IoBuffer, 8),
 
 		mu:               sync.Mutex{},
-		connStopChan:     connStopChan,
+		connStopChan:     make(chan struct{}),
 		listenerStopChan: listenerStopChan,
 	}
 
@@ -104,13 +109,23 @@ func (c *Connection) ReadEnabled() bool {
 	return c.readEnabled
 }
 
+// SetCollector set read/write metrics collectors
+func (c *Connection) SetCollector(read, write metrics.Counter) {
+	c.readCollector = read
+	c.writeCollector = write
+}
+
 // SetOnRead set connection read handle
 func (c *Connection) SetOnRead(onRead func(buffer iobufferpool.IoBuffer)) {
-	c.onReadBuffer = onRead
+	c.onRead = onRead
 }
 
 func (c *Connection) OnRead(buffer iobufferpool.IoBuffer) {
-	c.onReadBuffer(buffer)
+	c.onRead(buffer)
+}
+
+func (c *Connection) GetReadBuffer() iobufferpool.IoBuffer {
+	return c.readBuffer
 }
 
 // Start running connection read/write loop
@@ -417,7 +432,7 @@ func (c *Connection) doReadIO() (err error) {
 		return
 	}
 
-	c.onReadBuffer(c.readBuffer)
+	c.onRead(c.readBuffer)
 	if currLen := int64(c.readBuffer.Len()); c.lastBytesSizeRead != currLen {
 		c.lastBytesSizeRead = currLen
 	}
@@ -500,19 +515,19 @@ type UpstreamConnection struct {
 	connectOnce    sync.Once
 }
 
-func NewUpstreamConn(connectTimeout time.Duration, remoteAddr net.Addr, listenerStopChan, ConnStopChan chan struct{}) *UpstreamConnection {
+func NewUpstreamConn(connectTimeout time.Duration, upstreamAddr net.Addr, listenerStopChan chan struct{}) *UpstreamConnection {
 	conn := &UpstreamConnection{
 		Connection: Connection{
 			connected:  1,
-			protocol:   remoteAddr.Network(),
-			remoteAddr: remoteAddr,
+			protocol:   upstreamAddr.Network(),
+			remoteAddr: upstreamAddr,
 
 			readEnabled:     true,
 			readEnabledChan: make(chan bool, 1),
 			writeBufferChan: make(chan *[]iobufferpool.IoBuffer, 8),
 
 			mu:               sync.Mutex{},
-			connStopChan:     ConnStopChan,
+			connStopChan:     make(chan struct{}),
 			listenerStopChan: listenerStopChan,
 		},
 		connectTimeout: connectTimeout,

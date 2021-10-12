@@ -21,6 +21,7 @@ package protocol
 
 import (
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/util/iobufferpool"
 )
 
 type (
@@ -36,7 +37,7 @@ type (
 		// Handle read buffer from context, and set write buffer to context,
 		// its filter's response to release read buffer in context
 		// and its filter's response to determine which time to flush buffer to client or upstream
-		Handle(ctx context.Layer4Context)
+		Handle(ctx context.Layer4Context, readBuf iobufferpool.IoBuffer) (writeBuf iobufferpool.IoBuffer)
 	}
 
 	// MuxMapper gets HTTP handler pipeline with mutex

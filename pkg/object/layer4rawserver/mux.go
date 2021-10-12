@@ -37,31 +37,10 @@ type (
 		superSpec *supervisor.Spec
 		spec      *Spec
 
+		ipFilter  *ipfilter.IPFilter
 		muxMapper protocol.MuxMapper
-
-		ipFilter     *ipfilter.IPFilter
-		ipFilterChan *ipfilter.IPFilters
 	}
 )
-
-// newIPFilterChain returns nil if the number of final filters is zero.
-func newIPFilterChain(parentIPFilters *ipfilter.IPFilters, childSpec *ipfilter.Spec) *ipfilter.IPFilters {
-	var ipFilters *ipfilter.IPFilters
-	if parentIPFilters != nil {
-		ipFilters = ipfilter.NewIPFilters(parentIPFilters.Filters()...)
-	} else {
-		ipFilters = ipfilter.NewIPFilters()
-	}
-
-	if childSpec != nil {
-		ipFilters.Append(ipfilter.New(childSpec))
-	}
-
-	if len(ipFilters.Filters()) == 0 {
-		return nil
-	}
-	return ipFilters
-}
 
 func newIPFilter(spec *ipfilter.Spec) *ipfilter.IPFilter {
 	if spec == nil {
@@ -76,7 +55,7 @@ func (mr *muxRules) pass(ctx context.Layer4Context) bool {
 		return true
 	}
 
-	switch addr := ctx.ClientAddr().(type) {
+	switch addr := ctx.DownstreamAddr().(type) {
 	case *net.UDPAddr:
 		return mr.ipFilter.Allow(addr.IP.String())
 	case *net.TCPAddr:
@@ -101,11 +80,10 @@ func (m *mux) reloadRules(superSpec *supervisor.Spec, muxMapper protocol.MuxMapp
 	spec := superSpec.ObjectSpec().(*Spec)
 
 	rules := &muxRules{
-		superSpec:    superSpec,
-		spec:         spec,
-		muxMapper:    muxMapper,
-		ipFilter:     newIPFilter(spec.IPFilter),
-		ipFilterChan: newIPFilterChain(nil, spec.IPFilter),
+		superSpec: superSpec,
+		spec:      spec,
+		muxMapper: muxMapper,
+		ipFilter:  newIPFilter(spec.IPFilter),
 	}
 	m.rules.Store(rules)
 }
@@ -127,5 +105,5 @@ func (m *mux) GetHandler(name string) (protocol.Layer4Handler, bool) {
 }
 
 func (m *mux) close() {
-	// TODO add close tracing
+	// may be close tracing in future
 }
