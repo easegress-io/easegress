@@ -47,7 +47,9 @@ type MeshCertProvider struct {
 
 // NewMeshCertProvider creates a new mesh in-memory, self-sign cert provider
 func NewMeshCertProvider() *MeshCertProvider {
-	return &MeshCertProvider{}
+	return &MeshCertProvider{
+		ServiceCerts: make(map[string]*spec.Certificate),
+	}
 }
 
 // SignAppCertAndKey  Signs a cert, key pair for one service
@@ -57,9 +59,18 @@ func (mp *MeshCertProvider) SignAppCertAndKey(serviceName string, ttl time.Durat
 		return
 	}
 
-	var ca *x509.Certificate
+	var (
+		ca        *x509.Certificate
+		caPrivKey *rsa.PrivateKey
+	)
 	ca, err = decodeCertPEM(mp.RootCert.CertBase64)
 	if err != nil {
+		logger.Errorf("decode root cert pem failed: %v", err)
+		return
+	}
+	caPrivKey, err = decodeKeyPEM(mp.RootCert.KeyBase64)
+	if err != nil {
+		logger.Errorf("decode root key pem failed: %v", err)
 		return
 	}
 	now := time.Now()
@@ -80,10 +91,12 @@ func (mp *MeshCertProvider) SignAppCertAndKey(serviceName string, ttl time.Durat
 
 	certPrivKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
+		logger.Errorf("service: %s generate key failed: %v", serviceName, err)
 		return
 	}
-	certBytes, err := x509.CreateCertificate(rand.Reader, x509Cert, ca, &certPrivKey.PublicKey, certPrivKey)
+	certBytes, err := x509.CreateCertificate(rand.Reader, x509Cert, ca, &certPrivKey.PublicKey, caPrivKey)
 	if err != nil {
+		logger.Errorf("service: %s create cert failed: %v", serviceName, err)
 		return
 	}
 
@@ -111,6 +124,31 @@ func (mp *MeshCertProvider) SignAppCertAndKey(serviceName string, ttl time.Durat
 	return
 }
 
+func decodeKeyPEM(base64Key string) (*rsa.PrivateKey, error) {
+	keyPEM, err := base64.StdEncoding.DecodeString(base64Key)
+	if err != nil {
+		return nil, err
+	}
+
+	for len(keyPEM) > 0 {
+		var block *pem.Block
+		block, keyPEM = pem.Decode(keyPEM)
+		if block == nil {
+			return nil, fmt.Errorf("no key in pem")
+		}
+		if block.Type != typeKey || len(block.Headers) != 0 {
+			continue
+		}
+		key, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+		if err != nil {
+			return nil, err
+		}
+		return key, nil
+	}
+
+	return nil, fmt.Errorf("no key in pem")
+}
+
 func decodeCertPEM(base64Cert string) (*x509.Certificate, error) {
 	certPEM, err := base64.StdEncoding.DecodeString(base64Cert)
 	if err != nil {
@@ -121,7 +159,7 @@ func decodeCertPEM(base64Cert string) (*x509.Certificate, error) {
 		var block *pem.Block
 		block, certPEM = pem.Decode(certPEM)
 		if block == nil {
-			return nil, fmt.Errorf("NoCertificateInPEM")
+			return nil, fmt.Errorf("no cert in pemM")
 		}
 		if block.Type != typeCert || len(block.Headers) != 0 {
 			continue
@@ -157,13 +195,14 @@ func (mp *MeshCertProvider) SignRootCertAndKey(ttl time.Duration) (cert *spec.Ce
 
 	caPrivKey, err := rsa.GenerateKey(rand.Reader, defaultRsaBits)
 	if err != nil {
-		logger.Errorf("gen root's caPrivKey failed: %v", err)
+		logger.Errorf("gen root's ca private keyfailed: %v", err)
 		return
 	}
 
 	// Self-sign the root certificate
 	caBytes, err := x509.CreateCertificate(rand.Reader, ca, ca, &caPrivKey.PublicKey, caPrivKey)
 	if err != nil {
+		logger.Errorf("create root cert failed: %v", err)
 		return
 	}
 
