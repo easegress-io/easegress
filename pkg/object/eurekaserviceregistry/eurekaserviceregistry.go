@@ -266,7 +266,7 @@ func (e *EurekaServiceRegistry) Notify() <-chan *serviceregistry.RegistryEvent {
 func (e *EurekaServiceRegistry) ApplyServiceInstances(instances map[string]*serviceregistry.ServiceInstanceSpec) error {
 	client, err := e.getClient()
 	if err != nil {
-		return fmt.Errorf("%s get consul client failed: %v",
+		return fmt.Errorf("%s get eureka client failed: %v",
 			e.superSpec.Name(), err)
 	}
 
@@ -292,7 +292,7 @@ func (e *EurekaServiceRegistry) ApplyServiceInstances(instances map[string]*serv
 func (e *EurekaServiceRegistry) DeleteServiceInstances(instances map[string]*serviceregistry.ServiceInstanceSpec) error {
 	client, err := e.getClient()
 	if err != nil {
-		return fmt.Errorf("%s get consul client failed: %v",
+		return fmt.Errorf("%s get eureka client failed: %v",
 			e.superSpec.Name(), err)
 	}
 
@@ -326,7 +326,7 @@ func (e *EurekaServiceRegistry) GetServiceInstance(serviceName, instanceID strin
 func (e *EurekaServiceRegistry) ListServiceInstances(serviceName string) (map[string]*serviceregistry.ServiceInstanceSpec, error) {
 	client, err := e.getClient()
 	if err != nil {
-		return nil, fmt.Errorf("%s get consul client failed: %v",
+		return nil, fmt.Errorf("%s get eureka client failed: %v",
 			e.superSpec.Name(), err)
 	}
 
@@ -353,7 +353,7 @@ func (e *EurekaServiceRegistry) ListServiceInstances(serviceName string) (map[st
 func (e *EurekaServiceRegistry) ListAllServiceInstances() (map[string]*serviceregistry.ServiceInstanceSpec, error) {
 	client, err := e.getClient()
 	if err != nil {
-		return nil, fmt.Errorf("%s get consul client failed: %v",
+		return nil, fmt.Errorf("%s get eureka client failed: %v",
 			e.superSpec.Name(), err)
 	}
 
