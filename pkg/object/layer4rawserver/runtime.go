@@ -342,15 +342,15 @@ func (r *runtime) onUdpAccept() func(cliAddr net.Addr, rawConn net.Conn, listene
 func (r *runtime) setOnReadHandler(downstreamConn *connection.Connection, upstreamConn *connection.UpstreamConnection, ctx context.Layer4Context) {
 	if handle, ok := r.mux.GetHandler(r.spec.Name); ok {
 		downstreamConn.SetOnRead(func(readBuf iobufferpool.IoBuffer) {
-			writeBuf := handle.Handle(ctx, readBuf)
-			if writeBuf != nil && writeBuf.Len() > 0 {
-				_ = upstreamConn.Write(writeBuf)
+			handle.Handle(ctx, readBuf, nil)
+			if buf := ctx.GetDownstreamWriteBuffer(); buf != nil {
+				_ = upstreamConn.Write(buf)
 			}
 		})
 		upstreamConn.SetOnRead(func(readBuf iobufferpool.IoBuffer) {
-			writeBuf := handle.Handle(ctx, readBuf)
-			if writeBuf != nil && writeBuf.Len() > 0 {
-				_ = downstreamConn.Write(writeBuf)
+			handle.Handle(ctx, readBuf, nil)
+			if buf := ctx.GetUpstreamWriteBuffer(); buf != nil {
+				_ = downstreamConn.Write(buf)
 			}
 		})
 	} else {

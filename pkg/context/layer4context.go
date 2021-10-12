@@ -18,6 +18,7 @@
 package context
 
 import (
+	"github.com/megaease/easegress/pkg/util/iobufferpool"
 	"net"
 	"sync"
 	"time"
@@ -49,6 +50,13 @@ type (
 		// Duration context alive duration
 		Duration() time.Duration
 
+		GetUpstreamWriteBuffer() iobufferpool.IoBuffer
+		// AppendUpstreamWriteBuffer append upstream write buffer(notice: buffer will put into buffer pool)
+		AppendUpstreamWriteBuffer(buffer iobufferpool.IoBuffer)
+		GetDownstreamWriteBuffer() iobufferpool.IoBuffer
+		// AppendDownstreamWriteBuffer append downstream write buffer(notice: buffer will put into buffer pool)
+		AppendDownstreamWriteBuffer(buffer iobufferpool.IoBuffer)
+
 		CallNextHandler(lastResult string) string
 		SetHandlerCaller(caller HandlerCaller)
 	}
@@ -62,6 +70,9 @@ type (
 		upstreamAddr   net.Addr
 		startTime      *time.Time // connection accept time
 		endTime        *time.Time // connection close time
+
+		upstreamWriteBuffer   iobufferpool.IoBuffer // init when AppendUpstreamWriteBuffer called
+		downstreamWriteBuffer iobufferpool.IoBuffer // init when AppendDownstreamWriteBuffer called
 
 		caller HandlerCaller
 	}
@@ -121,6 +132,44 @@ func (ctx *layer4Context) Duration() time.Duration {
 		return ctx.endTime.Sub(*ctx.startTime)
 	}
 	return time.Now().Sub(*ctx.startTime)
+}
+
+func (ctx *layer4Context) GetUpstreamWriteBuffer() iobufferpool.IoBuffer {
+	if ctx.upstreamWriteBuffer == nil || ctx.upstreamWriteBuffer.Len() == 0 {
+		return nil
+	}
+	return ctx.upstreamWriteBuffer.Clone()
+}
+
+func (ctx *layer4Context) AppendUpstreamWriteBuffer(buffer iobufferpool.IoBuffer) {
+	if ctx.upstreamWriteBuffer == nil {
+		if ctx.protocol == "tcp" {
+			ctx.upstreamWriteBuffer = iobufferpool.GetIoBuffer(iobufferpool.DefaultBufferReadCapacity)
+		} else {
+			ctx.upstreamWriteBuffer = iobufferpool.GetIoBuffer(iobufferpool.UdpPacketMaxSize)
+		}
+	}
+	_ = ctx.upstreamWriteBuffer.Append(buffer.Bytes())
+	_ = iobufferpool.PutIoBuffer(buffer)
+}
+
+func (ctx *layer4Context) GetDownstreamWriteBuffer() iobufferpool.IoBuffer {
+	if ctx.downstreamWriteBuffer == nil || ctx.downstreamWriteBuffer.Len() == 0 {
+		return nil
+	}
+	return ctx.downstreamWriteBuffer.Clone()
+}
+
+func (ctx *layer4Context) AppendDownstreamWriteBuffer(buffer iobufferpool.IoBuffer) {
+	if ctx.downstreamWriteBuffer == nil {
+		if ctx.protocol == "tcp" {
+			ctx.downstreamWriteBuffer = iobufferpool.GetIoBuffer(iobufferpool.DefaultBufferReadCapacity)
+		} else {
+			ctx.downstreamWriteBuffer = iobufferpool.GetIoBuffer(iobufferpool.UdpPacketMaxSize)
+		}
+	}
+	_ = ctx.downstreamWriteBuffer.Append(buffer.Bytes())
+	_ = iobufferpool.PutIoBuffer(buffer)
 }
 
 func (ctx *layer4Context) CallNextHandler(lastResult string) string {
