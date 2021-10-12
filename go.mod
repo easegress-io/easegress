@@ -61,3 +61,5 @@ require (
 )
 
 replace github.com/go-openapi/spec => github.com/go-openapi/spec v0.19.3
+
+replace github.com/buger/jsonparser => github.com/buger/jsonparser v1.1.1
