@@ -27,11 +27,11 @@ import (
 type (
 	// SessionManager manage the status of session for clients
 	SessionManager struct {
-		broker  *Broker
-		smap    sync.Map
-		store   storage
-		storeCh chan SessionStore
-		done    chan struct{}
+		broker     *Broker
+		sessionMap sync.Map
+		store      storage
+		storeCh    chan SessionStore
+		done       chan struct{}
 	}
 
 	// SessionStore for session store, key is session clientID, value is session yaml marshal value
@@ -74,7 +74,7 @@ func (sm *SessionManager) doStore() {
 func (sm *SessionManager) newSessionFromConn(connect *packets.ConnectPacket) *Session {
 	s := &Session{}
 	s.init(sm, sm.broker, connect)
-	sm.smap.Store(connect.ClientIdentifier, s)
+	sm.sessionMap.Store(connect.ClientIdentifier, s)
 	go s.backgroundResendPending()
 	return s
 }
@@ -97,7 +97,7 @@ func (sm *SessionManager) newSessionFromYaml(str *string) *Session {
 }
 
 func (sm *SessionManager) get(clientID string) *Session {
-	if val, ok := sm.smap.Load(clientID); ok {
+	if val, ok := sm.sessionMap.Load(clientID); ok {
 		return val.(*Session)
 	}
 
@@ -108,7 +108,7 @@ func (sm *SessionManager) get(clientID string) *Session {
 
 	sess := sm.newSessionFromYaml(str)
 	if sess != nil {
-		sm.smap.Store(sess.info.ClientID, sess)
+		sm.sessionMap.Store(sess.info.ClientID, sess)
 	}
 	return sess
 }
@@ -118,5 +118,5 @@ func (sm *SessionManager) delLocal(clientID string) {
 	if sess != nil {
 		sess.close()
 	}
-	sm.smap.Delete(clientID)
+	sm.sessionMap.Delete(clientID)
 }
