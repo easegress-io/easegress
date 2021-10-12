@@ -560,11 +560,13 @@ func (b *pipelineSpecBuilder) appendProxyWithCanary(instanceSpecs []*ServiceInst
 		}
 	}
 
-	certBase64, keyBase64, rootCertBase64 := "", "", ""
+	var mtls *proxy.MTLS
 	if cert != nil && rootCert != nil {
-		certBase64 = cert.CertBase64
-		keyBase64 = cert.KeyBase64
-		rootCertBase64 = rootCert.CertBase64
+		mtls = &proxy.MTLS{
+			CertBase64:     cert.CertBase64,
+			KeyBase64:      cert.KeyBase64,
+			RootCertBase64: rootCert.CertBase64,
+		}
 	}
 
 	b.Flow = append(b.Flow, httppipeline.Flow{Filter: backendName})
@@ -576,9 +578,7 @@ func (b *pipelineSpecBuilder) appendProxyWithCanary(instanceSpecs []*ServiceInst
 			LoadBalance: lb,
 		},
 		"candidatePools": candidatePool,
-		"certBase64":     certBase64,
-		"keyBase64":      keyBase64,
-		"rootCertBase64": rootCertBase64,
+		"mtls":           mtls,
 	})
 
 	return b
@@ -669,7 +669,7 @@ func (s *Service) IngressPipelineSpec(instanceSpecs []*ServiceInstanceSpec, cert
 }
 
 // SideCarIngressHTTPServerSpec generates a spec for sidecar ingress HTTP server
-func (s *Service) SideCarIngressHTTPServerSpec(cert *Certificate) (*supervisor.Spec, error) {
+func (s *Service) SideCarIngressHTTPServerSpec(cert, rootCert *Certificate) (*supervisor.Spec, error) {
 	ingressHTTPServerFormat := `
 kind: HTTPServer
 name: %s
@@ -678,6 +678,7 @@ keepAlive: false
 https: false
 certBase64: %s
 keyBase64: %s
+mTLSRootCertBase64: %s
 rules:
   - paths:
     - pathPrefix: /
@@ -685,13 +686,14 @@ rules:
 
 	name := fmt.Sprintf("mesh-ingress-server-%s", s.Name)
 	pipelineName := fmt.Sprintf("mesh-ingress-pipeline-%s", s.Name)
-	certBase64, keyBase64 := "", ""
-	if cert != nil {
+	certBase64, keyBase64, rootCertBaser64 := "", "", ""
+	if cert != nil && rootCert != nil {
 		certBase64 = cert.CertBase64
 		keyBase64 = cert.KeyBase64
+		rootCertBaser64 = rootCert.CertBase64
 	}
 	yamlConfig := fmt.Sprintf(ingressHTTPServerFormat, name,
-		s.Sidecar.IngressPort, certBase64, keyBase64, pipelineName)
+		s.Sidecar.IngressPort, certBase64, keyBase64, rootCertBaser64, pipelineName)
 
 	superSpec, err := supervisor.NewSpec(yamlConfig)
 	if err != nil {

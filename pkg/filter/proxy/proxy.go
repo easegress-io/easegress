@@ -83,9 +83,7 @@ type (
 		MirrorPool     *PoolSpec        `yaml:"mirrorPool,omitempty" jsonschema:"omitempty"`
 		FailureCodes   []int            `yaml:"failureCodes" jsonschema:"omitempty,uniqueItems=true,format=httpcode-array"`
 		Compression    *CompressionSpec `yaml:"compression,omitempty" jsonschema:"omitempty"`
-		CertBase64     string           `yaml:"certBase64,omitempty" jsonschema:"omitempty"`
-		KeyBase64      string           `yaml:"keyBase64,omitempty" jsonschema:"omitempty"`
-		RootCertBase64 string           `yaml:"rootCertBase64,omitempty" jsonschema:"omitempty"`
+		MTLS           *MTLS            `yaml:"mtls,omitempty" jsonschema:"omitempty"`
 	}
 
 	// FallbackSpec describes the fallback policy.
@@ -99,6 +97,13 @@ type (
 		MainPool       *PoolStatus   `yaml:"mainPool"`
 		CandidatePools []*PoolStatus `yaml:"candidatePools,omitempty"`
 		MirrorPool     *PoolStatus   `yaml:"mirrorPool,omitempty"`
+	}
+
+	// MTLS is the configuration for client side mTLS.
+	MTLS struct {
+		CertBase64     string `yaml:"certBase64,required" jsonschema:"required"`
+		KeyBase64      string `yaml:"keyBase64,required" jsonschema:"required"`
+		RootCertBase64 string `yaml:"rootCertBase64,required" jsonschema:"required"`
 	}
 )
 
@@ -136,13 +141,6 @@ func (s Spec) Validate() error {
 		}
 	}
 
-	if (len(s.CertBase64) != 0 && len(s.KeyBase64) != 0 || len(s.RootCertBase64) != 0) ||
-		(len(s.CertBase64) == 0 && len(s.KeyBase64) == 0 && len(s.RootCertBase64) == 0) {
-		// valid
-	} else {
-		return fmt.Errorf("certBase64: %s and keyBase64: %s should exist at the sametime", s.CertBase64, s.KeyBase64)
-	}
-
 	return nil
 }
 
@@ -178,26 +176,27 @@ func (b *Proxy) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration 
 	b.Init(filterSpec)
 }
 
-func (b *Proxy) needTLS() bool {
-	if len(b.spec.CertBase64) != 0 && len(b.spec.KeyBase64) != 0 && len(b.spec.RootCertBase64) != 0 {
+func (b *Proxy) needmTLS() bool {
+	if b.spec.MTLS != nil {
 		return true
 	}
+
 	return false
 }
 
 func (b *Proxy) tlsConfig() *tls.Config {
 	tlsConfig := &tls.Config{}
-	if b.needTLS() {
-		rootCertPem, _ := base64.StdEncoding.DecodeString(b.spec.RootCertBase64)
+	if b.needmTLS() {
+		rootCertPem, _ := base64.StdEncoding.DecodeString(b.spec.MTLS.RootCertBase64)
 		caCertPool := x509.NewCertPool()
 		caCertPool.AppendCertsFromPEM(rootCertPem)
 
 		var certificates []tls.Certificate
-		certPem, _ := base64.StdEncoding.DecodeString(b.spec.CertBase64)
-		keyPem, _ := base64.StdEncoding.DecodeString(b.spec.KeyBase64)
+		certPem, _ := base64.StdEncoding.DecodeString(b.spec.MTLS.CertBase64)
+		keyPem, _ := base64.StdEncoding.DecodeString(b.spec.MTLS.KeyBase64)
 		cert, err := tls.X509KeyPair(certPem, keyPem)
 		if err != nil {
-			logger.Errorf("proxy generate x509 key pair failed: %v", err)
+			logger.Errorf("proxy generates x509 key pair failed: %v", err)
 			tlsConfig = &tls.Config{
 				InsecureSkipVerify: true,
 			}
@@ -210,8 +209,6 @@ func (b *Proxy) tlsConfig() *tls.Config {
 		}
 	} else {
 		tlsConfig = &tls.Config{
-			// NOTE: Could make it an paramenter,
-			// when the requests need cross WAN.
 			InsecureSkipVerify: true,
 		}
 	}

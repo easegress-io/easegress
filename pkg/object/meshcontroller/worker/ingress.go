@@ -120,12 +120,13 @@ func (ings *IngressServer) InitIngress(service *spec.Service, port uint32) error
 
 	if ings.httpServer == nil {
 		admSpec := ings.superSpec.ObjectSpec().(*spec.Admin)
-		var cert *spec.Certificate
+		var cert, rootCert *spec.Certificate
 		if admSpec.EnablemTLS() {
 			cert = ings.service.GetServiceCert(ings.serviceName)
+			rootCert = ings.service.GetRootCert()
 		}
 
-		superSpec, err := service.SideCarIngressHTTPServerSpec(cert)
+		superSpec, err := service.SideCarIngressHTTPServerSpec(cert, rootCert)
 		if err != nil {
 			return err
 		}
@@ -170,7 +171,8 @@ func (ings *IngressServer) reloadHTTPServer(event informer.Event, value *spec.Ce
 		return false
 	}
 
-	superSpec, err := spec.SideCarIngressHTTPServerSpec(value)
+	rootCert := ings.service.GetRootCert()
+	superSpec, err := spec.SideCarIngressHTTPServerSpec(value, rootCert)
 	if err != nil {
 		logger.Errorf("BUG: update ingress pipeline spec: %s new super spec failed: %v",
 			superSpec.YAMLConfig(), err)

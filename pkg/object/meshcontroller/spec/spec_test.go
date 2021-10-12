@@ -1002,7 +1002,7 @@ func TestSidecarIngressPipelineSpec(t *testing.T) {
 		},
 	}
 
-	superSpec, err := s.SideCarIngressHTTPServerSpec(nil)
+	superSpec, err := s.SideCarIngressHTTPServerSpec(nil, nil)
 
 	if err != nil {
 		t.Fatalf("ingress http server spec failed: %v", err)
