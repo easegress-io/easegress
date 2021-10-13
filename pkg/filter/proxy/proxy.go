@@ -182,33 +182,30 @@ func (b *Proxy) needmTLS() bool {
 
 func (b *Proxy) tlsConfig() *tls.Config {
 	tlsConfig := &tls.Config{}
-	if b.needmTLS() {
-		rootCertPem, _ := base64.StdEncoding.DecodeString(b.spec.MTLS.RootCertBase64)
-		caCertPool := x509.NewCertPool()
-		caCertPool.AppendCertsFromPEM(rootCertPem)
-
-		var certificates []tls.Certificate
-		certPem, _ := base64.StdEncoding.DecodeString(b.spec.MTLS.CertBase64)
-		keyPem, _ := base64.StdEncoding.DecodeString(b.spec.MTLS.KeyBase64)
-		cert, err := tls.X509KeyPair(certPem, keyPem)
-		if err != nil {
-			logger.Errorf("proxy generates x509 key pair failed: %v", err)
-			tlsConfig = &tls.Config{
-				InsecureSkipVerify: true,
-			}
-		} else {
-			certificates = append(certificates, cert)
-			tlsConfig = &tls.Config{
-				Certificates: certificates,
-				RootCAs:      caCertPool,
-			}
-		}
-	} else {
-		tlsConfig = &tls.Config{
+	if !b.needmTLS() {
+		return &tls.Config{
 			InsecureSkipVerify: true,
 		}
 	}
-	return tlsConfig
+	rootCertPem, _ := base64.StdEncoding.DecodeString(b.spec.MTLS.RootCertBase64)
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM(rootCertPem)
+
+	var certificates []tls.Certificate
+	certPem, _ := base64.StdEncoding.DecodeString(b.spec.MTLS.CertBase64)
+	keyPem, _ := base64.StdEncoding.DecodeString(b.spec.MTLS.KeyBase64)
+	cert, err := tls.X509KeyPair(certPem, keyPem)
+	if err != nil {
+		logger.Errorf("proxy generates x509 key pair failed: %v", err)
+		return &tls.Config{
+			InsecureSkipVerify: true,
+		}
+	} 
+	certificates = append(certificates, cert)
+	return  &tls.Config{
+		Certificates: certificates,
+		RootCAs:      caCertPool,
+	}
 }
 
 func (b *Proxy) reload() {
