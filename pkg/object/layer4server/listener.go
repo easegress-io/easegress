@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package layer4rawserver
+package layer4server
 
 import (
 	stdcontext "context"
@@ -34,37 +34,36 @@ type ListenerState int
 
 type listener struct {
 	name      string
-	state     ListenerState
-	protocol  string // enum:udp/tcp
-	localAddr string
+	protocol  string        // enum:udp/tcp
+	localAddr string        // listen addr
+	state     ListenerState // listener state
 
-	mutex     *sync.Mutex
-	stopChan  chan struct{}
-	keepalive bool   // keepalive for tcp
-	maxConns  uint32 // maxConn for tcp listener
-
-	tcpListener *limitlistener.LimitListener // tcp listener with accept limit
+	mutex    *sync.Mutex
+	stopChan chan struct{}
+	maxConns uint32 // maxConn for tcp listener
 
 	udpListener net.PacketConn                                                                                         // udp listener
+	tcpListener *limitlistener.LimitListener                                                                           // tcp listener with accept limit
 	onTcpAccept func(conn net.Conn, listenerStop chan struct{})                                                        // tcp accept handle
 	onUdpAccept func(downstreamAddr net.Addr, conn net.Conn, listenerStop chan struct{}, packet iobufferpool.IoBuffer) // udp accept handle
 }
 
-func newListener(spec *Spec, onAccept func(conn net.Conn, listenerStop chan struct{}),
+func newListener(spec *Spec, onTcpAccept func(conn net.Conn, listenerStop chan struct{}),
 	onUdpAccept func(cliAddr net.Addr, conn net.Conn, listenerStop chan struct{}, packet iobufferpool.IoBuffer)) *listener {
 	listen := &listener{
+		name:      spec.Name,
 		protocol:  spec.Protocol,
 		localAddr: fmt.Sprintf(":%d", spec.Port),
-		mutex:     &sync.Mutex{},
-		stopChan:  make(chan struct{}),
 
-		onTcpAccept: onAccept,
-		onUdpAccept: onUdpAccept,
+		mutex:    &sync.Mutex{},
+		stopChan: make(chan struct{}),
 	}
 
 	if listen.protocol == "tcp" {
-		listen.keepalive = spec.KeepAlive
 		listen.maxConns = spec.MaxConnections
+		listen.onTcpAccept = onTcpAccept
+	} else {
+		listen.onUdpAccept = onUdpAccept
 	}
 	return listen
 }

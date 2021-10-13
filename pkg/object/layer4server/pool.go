@@ -15,15 +15,22 @@
  * limitations under the License.
  */
 
-package layer4rawserver
+package layer4server
 
 import (
+	"reflect"
+	"sync/atomic"
+
 	"github.com/megaease/easegress/pkg/supervisor"
 )
 
 type (
-	// pool backend server pool
 	pool struct {
+		rules atomic.Value
+	}
+
+	// pool backend server pool
+	poolRules struct {
 		spec *PoolSpec
 
 		tagPrefix string
@@ -32,14 +39,39 @@ type (
 )
 
 func newPool(super *supervisor.Supervisor, spec *PoolSpec, tagPrefix string) *pool {
-	return &pool{
+	p := &pool{}
+
+	p.rules.Store(&poolRules{
 		spec: spec,
 
 		tagPrefix: tagPrefix,
 		servers:   newServers(super, spec),
-	}
+	})
+	return p
+}
+
+func (p *pool) next(cliAddr string) (*Server, error) {
+	rules := p.rules.Load().(*poolRules)
+	return rules.servers.next(cliAddr)
 }
 
 func (p *pool) close() {
-	p.servers.close()
+	if old := p.rules.Load(); old != nil {
+		oldPool := old.(*poolRules)
+		oldPool.servers.close()
+	}
+}
+
+func (p *pool) reloadRules(super *supervisor.Supervisor, spec *PoolSpec, tagPrefix string) {
+	old := p.rules.Load().(*poolRules)
+	if reflect.DeepEqual(old.spec, spec) {
+		return
+	}
+	p.close()
+	p.rules.Store(&poolRules{
+		spec: spec,
+
+		tagPrefix: tagPrefix,
+		servers:   newServers(super, spec),
+	})
 }

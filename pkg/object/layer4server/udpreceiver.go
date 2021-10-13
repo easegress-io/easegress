@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package connection
+package layer4server
 
 import (
 	"strings"

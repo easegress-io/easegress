@@ -39,6 +39,8 @@ import (
 )
 
 type (
+	// HandlerCaller is a helper function to call the handler
+	HandlerCaller func(lastResult string) string
 
 	// HTTPContext is all context of an HTTP processing.
 	// It is not goroutine-safe, callers must use Lock/Unlock
@@ -82,7 +84,7 @@ type (
 		Method() string
 		SetMethod(method string)
 
-		// URL
+		// Scheme URL
 		Scheme() string
 		Host() string
 		SetHost(host string)

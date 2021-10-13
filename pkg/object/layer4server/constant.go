@@ -15,11 +15,10 @@
  * limitations under the License.
  */
 
-package connection
+package layer4server
 
 import (
 	"errors"
-	"time"
 )
 
 // CloseType represent connection close type
@@ -54,14 +53,6 @@ var (
 	ErrConnectionHasClosed    = errors.New("connection has closed")
 	ErrWriteTryLockTimeout    = errors.New("write trylock has timeout")
 	ErrWriteBufferChanTimeout = errors.New("writeBufferChan has timeout")
-)
-
-// Network related const
-const (
-	NetBufferDefaultSize     = 0
-	NetBufferDefaultCapacity = 1 << 4
-
-	DefaultConnectTimeout = 10 * time.Second
 )
 
 // ConnState status

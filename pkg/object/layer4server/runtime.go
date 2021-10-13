@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package layer4rawserver
+package layer4server
 
 import (
 	"fmt"
@@ -24,11 +24,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocol"
 	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/connection"
 	"github.com/megaease/easegress/pkg/util/iobufferpool"
 )
 
@@ -63,9 +61,11 @@ type (
 	runtime struct {
 		superSpec *supervisor.Spec
 		spec      *Spec
-		mux       *mux
-		pool      *pool     // backend servers
-		listener  *listener // layer4 server
+
+		pool      *pool      // backend servers pool
+		ipFilters *ipFilters // ip filters
+		listener  *listener  // layer4 listener
+
 		startNum  uint64
 		eventChan chan interface{} // receive traffic controller event
 
@@ -74,13 +74,17 @@ type (
 	}
 )
 
-func newRuntime(superSpec *supervisor.Spec, muxMapper protocol.MuxMapper) *runtime {
+func newRuntime(superSpec *supervisor.Spec) *runtime {
+	spec := superSpec.ObjectSpec().(*Spec)
 	r := &runtime{
 		superSpec: superSpec,
+
+		pool:      newPool(superSpec.Super(), spec.Pool, ""),
+		ipFilters: newIpFilters(spec.IPFilter),
+
 		eventChan: make(chan interface{}, 10),
 	}
 
-	r.mux = newMux(muxMapper)
 	r.setState(stateNil)
 	r.setError(errNil)
 
@@ -118,12 +122,11 @@ func (r *runtime) fsm() {
 	}
 }
 
-func (r *runtime) reload(nextSuperSpec *supervisor.Spec, muxMapper protocol.MuxMapper) {
+func (r *runtime) reload(nextSuperSpec *supervisor.Spec) {
 	r.superSpec = nextSuperSpec
-	r.mux.reloadRules(nextSuperSpec, muxMapper)
-
 	nextSpec := nextSuperSpec.ObjectSpec().(*Spec)
-	r.pool = newPool(nextSuperSpec.Super(), nextSpec.Pool, "")
+	r.ipFilters.reloadRules(nextSpec.IPFilter)
+	r.pool.reloadRules(nextSuperSpec.Super(), nextSpec.Pool, "")
 
 	// r.listener does not create just after the process started and the config load for the first time.
 	if nextSpec != nil && r.listener != nil {
@@ -184,10 +187,8 @@ func (r *runtime) needRestartServer(nextSpec *Spec) bool {
 	y := *nextSpec
 
 	// The change of options below need not restart the layer4 server.
-	x.KeepAlive, y.KeepAlive = true, true
 	x.MaxConnections, y.MaxConnections = 0, 0
-	x.ConnectTimeout, y.ProxyTimeout = 0, 0
-	x.ProxyTimeout, y.ProxyTimeout = 0, 0
+	x.ConnectTimeout, y.ConnectTimeout = 0, 0
 
 	x.Pool, y.Pool = nil, nil
 	x.IPFilter, y.IPFilter = nil, nil
@@ -257,12 +258,11 @@ func (r *runtime) handleEventServeFailed(e *eventServeFailed) {
 }
 
 func (r *runtime) handleEventReload(e *eventReload) {
-	r.reload(e.nextSuperSpec, e.muxMapper)
+	r.reload(e.nextSuperSpec)
 }
 
 func (r *runtime) handleEventClose(e *eventClose) {
 	r.closeServer()
-	r.mux.close()
 	r.pool.close()
 	close(e.done)
 }
@@ -271,14 +271,14 @@ func (r *runtime) onTcpAccept() func(conn net.Conn, listenerStop chan struct{}) 
 
 	return func(rawConn net.Conn, listenerStop chan struct{}) {
 		downstream := rawConn.RemoteAddr().(*net.TCPAddr).IP.String()
-		if r.mux.AllowIP(downstream) {
+		if r.ipFilters.AllowIP(downstream) {
 			_ = rawConn.Close()
 			logger.Infof("close tcp connection from %s to %s which ip is not allowed",
 				rawConn.RemoteAddr().String(), rawConn.LocalAddr().String())
 			return
 		}
 
-		server, err := r.pool.servers.next(downstream)
+		server, err := r.pool.next(downstream)
 		if err != nil {
 			_ = rawConn.Close()
 			logger.Errorf("close tcp connection due to no available upstream server, local addr: %s, err: %+v",
@@ -287,15 +287,16 @@ func (r *runtime) onTcpAccept() func(conn net.Conn, listenerStop chan struct{}) 
 		}
 
 		upstreamAddr, _ := net.ResolveTCPAddr("tcp", server.Addr)
-		upstreamConn := connection.NewUpstreamConn(time.Duration(r.spec.ConnectTimeout)*time.Millisecond, upstreamAddr, listenerStop)
+		upstreamConn := NewUpstreamConn(time.Duration(r.spec.ConnectTimeout)*time.Millisecond, upstreamAddr, listenerStop)
 		if err := upstreamConn.Connect(); err != nil {
 			logger.Errorf("close tcp connection due to upstream conn connect failed, local addr: %s, err: %+v",
 				rawConn.LocalAddr().String(), err)
 			_ = rawConn.Close()
 		} else {
-			downstreamConn := connection.NewDownstreamConn(rawConn, rawConn.RemoteAddr(), listenerStop)
-			ctx := context.NewLayer4Context("tcp", rawConn.LocalAddr(), rawConn.RemoteAddr(), upstreamAddr)
-			r.setOnReadHandler(downstreamConn, upstreamConn, ctx)
+			downstreamConn := NewDownstreamConn(rawConn, rawConn.RemoteAddr(), listenerStop)
+			r.setOnReadHandler(downstreamConn, upstreamConn)
+			upstreamConn.Start()
+			downstreamConn.Start()
 		}
 	}
 }
@@ -303,21 +304,21 @@ func (r *runtime) onTcpAccept() func(conn net.Conn, listenerStop chan struct{}) 
 func (r *runtime) onUdpAccept() func(cliAddr net.Addr, rawConn net.Conn, listenerStop chan struct{}, packet iobufferpool.IoBuffer) {
 	return func(cliAddr net.Addr, rawConn net.Conn, listenerStop chan struct{}, packet iobufferpool.IoBuffer) {
 		downstream := cliAddr.(*net.UDPAddr).IP.String()
-		if r.mux.AllowIP(downstream) {
+		if r.ipFilters.AllowIP(downstream) {
 			logger.Infof("discard udp packet from %s to %s which ip is not allowed", cliAddr.String(),
 				rawConn.LocalAddr().String())
 			return
 		}
 
 		localAddr := rawConn.LocalAddr()
-		key := connection.GetProxyMapKey(localAddr.String(), cliAddr.String())
-		if rawDownstreamConn, ok := connection.ProxyMap.Load(key); ok {
-			downstreamConn := rawDownstreamConn.(*connection.Connection)
+		key := GetProxyMapKey(localAddr.String(), cliAddr.String())
+		if rawDownstreamConn, ok := ProxyMap.Load(key); ok {
+			downstreamConn := rawDownstreamConn.(*Connection)
 			downstreamConn.OnRead(packet)
 			return
 		}
 
-		server, err := r.pool.servers.next(downstream)
+		server, err := r.pool.next(downstream)
 		if err != nil {
 			logger.Infof("discard udp packet from %s to %s due to can not find upstream server, err: %+v",
 				cliAddr.String(), localAddr.String())
@@ -325,46 +326,35 @@ func (r *runtime) onUdpAccept() func(cliAddr net.Addr, rawConn net.Conn, listene
 		}
 
 		upstreamAddr, _ := net.ResolveUDPAddr("udp", server.Addr)
-		upstreamConn := connection.NewUpstreamConn(time.Duration(r.spec.ConnectTimeout)*time.Millisecond, upstreamAddr, listenerStop)
+		upstreamConn := NewUpstreamConn(time.Duration(r.spec.ConnectTimeout)*time.Millisecond, upstreamAddr, listenerStop)
 		if err := upstreamConn.Connect(); err != nil {
 			logger.Errorf("discard udp packet due to upstream connect failed, local addr: %s, err: %+v", localAddr, err)
 			return
 		}
 
-		downstreamConn := connection.NewDownstreamConn(rawConn, rawConn.RemoteAddr(), listenerStop)
-		ctx := context.NewLayer4Context("udp", localAddr, upstreamAddr, upstreamAddr)
-		connection.SetUDPProxyMap(connection.GetProxyMapKey(localAddr.String(), cliAddr.String()), &downstreamConn)
-		r.setOnReadHandler(downstreamConn, upstreamConn, ctx)
+		fd, _ := rawConn.(*net.UDPConn).File()
+		downstreamRawConn, _ := net.FilePacketConn(fd)
+		downstreamConn := NewDownstreamConn(downstreamRawConn.(*net.UDPConn), rawConn.RemoteAddr(), listenerStop)
+		SetUDPProxyMap(GetProxyMapKey(localAddr.String(), cliAddr.String()), &downstreamConn)
+		r.setOnReadHandler(downstreamConn, upstreamConn)
+
+		downstreamConn.Start()
+		upstreamConn.Start()
 		downstreamConn.OnRead(packet)
 	}
 }
 
-func (r *runtime) setOnReadHandler(downstreamConn *connection.Connection, upstreamConn *connection.UpstreamConnection, ctx context.Layer4Context) {
-	if handle, ok := r.mux.GetHandler(r.spec.Name); ok {
-		downstreamConn.SetOnRead(func(readBuf iobufferpool.IoBuffer) {
-			handle.Handle(ctx, readBuf, nil)
-			if buf := ctx.GetDownstreamWriteBuffer(); buf != nil {
-				_ = upstreamConn.Write(buf)
-			}
-		})
-		upstreamConn.SetOnRead(func(readBuf iobufferpool.IoBuffer) {
-			handle.Handle(ctx, readBuf, nil)
-			if buf := ctx.GetUpstreamWriteBuffer(); buf != nil {
-				_ = downstreamConn.Write(buf)
-			}
-		})
-	} else {
-		downstreamConn.SetOnRead(func(readBuf iobufferpool.IoBuffer) {
-			if readBuf != nil && readBuf.Len() > 0 {
-				_ = upstreamConn.Write(readBuf.Clone())
-				readBuf.Drain(readBuf.Len())
-			}
-		})
-		upstreamConn.SetOnRead(func(readBuf iobufferpool.IoBuffer) {
-			if readBuf != nil && readBuf.Len() > 0 {
-				_ = downstreamConn.Write(readBuf.Clone())
-				readBuf.Drain(readBuf.Len())
-			}
-		})
-	}
+func (r *runtime) setOnReadHandler(downstreamConn *Connection, upstreamConn *UpstreamConnection) {
+	downstreamConn.SetOnRead(func(readBuf iobufferpool.IoBuffer) {
+		if readBuf != nil && readBuf.Len() > 0 {
+			_ = upstreamConn.Write(readBuf.Clone())
+			readBuf.Drain(readBuf.Len())
+		}
+	})
+	upstreamConn.SetOnRead(func(readBuf iobufferpool.IoBuffer) {
+		if readBuf != nil && readBuf.Len() > 0 {
+			_ = downstreamConn.Write(readBuf.Clone())
+			readBuf.Drain(readBuf.Len())
+		}
+	})
 }

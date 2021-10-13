@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package layer4rawserver
+package layer4server
 
 import (
 	"fmt"

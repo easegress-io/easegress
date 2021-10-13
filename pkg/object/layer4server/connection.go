@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package connection
+package layer4server
 
 import (
 	"errors"
@@ -372,7 +372,7 @@ func (c *Connection) Close(ccType CloseType, eventType Event) (err error) {
 	}
 
 	// close conn recv, then notify read/write loop to exit
-	close(c.listenerStopChan)
+	close(c.connStopChan)
 	_ = c.conn.Close()
 	c.lastBytesSizeRead = 0
 	c.lastWriteSizeWrite = 0

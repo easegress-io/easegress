@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package layer4rawserver
+package layer4server
 
 import (
 	"github.com/megaease/easegress/pkg/protocol"
@@ -54,7 +54,7 @@ func (l4 *Layer4Server) Kind() string {
 // DefaultSpec returns the default spec of Layer4Server.
 func (l4 *Layer4Server) DefaultSpec() interface{} {
 	return &Spec{
-		MaxConnections: 10240,
+		MaxConnections: 1024,
 		ConnectTimeout: 5 * 1000,
 	}
 }
@@ -67,7 +67,7 @@ func (l4 *Layer4Server) Validate() error {
 // Init initializes Layer4Server.
 func (l4 *Layer4Server) Init(superSpec *supervisor.Spec, muxMapper protocol.MuxMapper) {
 
-	l4.runtime = newRuntime(superSpec, muxMapper)
+	l4.runtime = newRuntime(superSpec)
 	l4.runtime.eventChan <- &eventReload{
 		nextSuperSpec: superSpec,
 		muxMapper:     muxMapper,

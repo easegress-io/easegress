@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package layer4rawserver
+package layer4server
 
 import (
 	"fmt"
@@ -31,13 +31,11 @@ type (
 		Port     uint16 `yaml:"port" json:"port" jsonschema:"required"`
 
 		// tcp stream config params
-		KeepAlive      bool   `yaml:"keepAlive" jsonschema:"required"`
 		MaxConnections uint32 `yaml:"maxConns" jsonschema:"omitempty,minimum=1"`
 		ConnectTimeout uint32 `yaml:"connectTimeout" jsonschema:"omitempty"`
-		ProxyTimeout   uint32 `yaml:"proxyTimeout" jsonschema:"omitempty"`
 
 		Pool     *PoolSpec      `yaml:"pool" jsonschema:"required"`
-		IPFilter *ipfilter.Spec `yaml:"ipFilter,omitempty" jsonschema:"omitempty"`
+		IPFilter *ipfilter.Spec `yaml:"ipFilters,omitempty" jsonschema:"omitempty"`
 	}
 
 	// PoolSpec describes a pool of servers.

@@ -147,7 +147,7 @@ func (b *Bridge) handle(ctx context.HTTPContext) (result string) {
 		return resultDestinationNotFound
 	}
 
-	handler, exists := b.muxMapper.GetHTTPHandler(dest)
+	handler, exists := b.muxMapper.GetHandler(dest)
 
 	if !exists {
 		logger.Errorf("failed to get running object %s", b.spec.Destinations[0])
