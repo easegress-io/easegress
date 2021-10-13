@@ -358,10 +358,10 @@ func (a Admin) Validate() error {
 			return fmt.Errorf("unknown mTLS cert provider type: %s", a.Security.CertProvider)
 		}
 
-		switch a.Security.MtlsMode {
+		switch a.Security.MTLSMode {
 		case SecurityLevelPermissive, SecurityLevelStrict:
 		default:
-			return fmt.Errorf("unknown mTLS security level: %s", a.Security.MtlsMode)
+			return fmt.Errorf("unknown mTLS security level: %s", a.Security.MTLSMode)
 		}
 	}
 
@@ -386,7 +386,7 @@ func (a Admin) Validate() error {
 
 // EnablemTLS indicates whether we should enable mTLS in mesh or not.
 func (a Admin) EnablemTLS() bool {
-	if a.Security != nil && a.Security.MtlsMode == SecurityLevelStrict {
+	if a.Security != nil && a.Security.MTLSMode == SecurityLevelStrict {
 		return true
 	}
 	return false

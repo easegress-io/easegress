@@ -95,7 +95,7 @@ func (m *Master) onAllServiceCerts(value map[string]*spec.Service) bool {
 	for _, v := range value {
 		serviceSpecs = append(serviceSpecs, v)
 	}
-	err := m.certMananger.SignAllServices(serviceSpecs)
+	err := m.certMananger.SignServices(serviceSpecs)
 	if err != nil {
 		logger.Errorf("inf sing all services failed: %v", err)
 	}
@@ -151,48 +151,50 @@ func (m *Master) needHandle() bool {
 }
 
 func (m *Master) signRootCert() {
+	signRootFn := func() {
+		defer func() {
+			if err := recover(); err != nil {
+				logger.Errorf("failed to resign apps %v, stack trace: \n%s\n",
+					err, debug.Stack())
+			}
+		}()
+
+		if err := m.certMananger.SignRootCert(); err != nil {
+			logger.Errorf("certmanager resign root cert failed: %v", err)
+		}
+	}
 	for {
 		select {
 		case <-m.done:
 			return
 		case <-time.After(defaultRootCertInterval):
 			if m.needHandle() {
-				func() {
-					defer func() {
-						if err := recover(); err != nil {
-							logger.Errorf("failed to resign apps %v, stack trace: \n%s\n",
-								err, debug.Stack())
-						}
-					}()
-
-					if err := m.certMananger.SignRootCert(); err != nil {
-						logger.Errorf("certmanager resign root cert failed: %v", err)
-					}
-				}()
+				signRootFn()
 			}
 		}
 	}
 }
 
 func (m *Master) signAppCerts() {
+	signFn := func() {
+		defer func() {
+			if err := recover(); err != nil {
+				logger.Errorf("failed to resign apps %v, stack trace: \n%s\n",
+					err, debug.Stack())
+			}
+		}()
+		serviceSpecs := m.service.ListServiceSpecs()
+		if err := m.certMananger.SignServices(serviceSpecs); err != nil {
+			logger.Errorf("certmanager resign all services cert failed: %v", err)
+		}
+	}
 	for {
 		select {
 		case <-m.done:
 			return
 		case <-time.After(defaultAppCertInterval):
 			if m.needHandle() {
-				func() {
-					defer func() {
-						if err := recover(); err != nil {
-							logger.Errorf("failed to resign apps %v, stack trace: \n%s\n",
-								err, debug.Stack())
-						}
-					}()
-					serviceSpecs := m.service.ListServiceSpecs()
-					if err := m.certMananger.SignAllServices(serviceSpecs); err != nil {
-						logger.Errorf("certmanager resign all services cert failed: %v", err)
-					}
-				}()
+				signFn()
 			}
 		}
 	}

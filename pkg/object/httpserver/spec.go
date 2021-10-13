@@ -94,12 +94,6 @@ type (
 
 		headerRE *regexp.Regexp
 	}
-
-	// MTLS is the configuration for server-side mTLS, only root ca cert needed.
-	// If enabled, server will validate client's cert/key by rootCA cert.
-	MTLS struct {
-		RootCertBase64 string `yaml:"rootCertBase64" jsonschema:"omitempty"`
-	}
 )
 
 // Validate validates HTTPServerSpec.

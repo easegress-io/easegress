@@ -81,7 +81,7 @@ func TestAdminInValidatmTLS(t *testing.T) {
 		RegistryType:      RegistryTypeNacos,
 		HeartbeatInterval: "10s",
 		Security: &Security{
-			MtlsMode:     SecurityLevelStrict,
+			MTLSMode:     SecurityLevelStrict,
 			CertProvider: "",
 
 			RootCertTTL: "",
@@ -101,7 +101,7 @@ func TestAdminInValidatmTLS2(t *testing.T) {
 		RegistryType:      RegistryTypeNacos,
 		HeartbeatInterval: "10s",
 		Security: &Security{
-			MtlsMode:     SecurityLevelStrict,
+			MTLSMode:     SecurityLevelStrict,
 			CertProvider: CertProviderSelfSign,
 
 			RootCertTTL: "2h",
@@ -121,7 +121,7 @@ func TestAdminValidatmTLS(t *testing.T) {
 		RegistryType:      RegistryTypeNacos,
 		HeartbeatInterval: "10s",
 		Security: &Security{
-			MtlsMode:     SecurityLevelStrict,
+			MTLSMode:     SecurityLevelStrict,
 			CertProvider: CertProviderSelfSign,
 
 			RootCertTTL: "48h",
@@ -141,7 +141,7 @@ func TestAdminInValidatmTLS3(t *testing.T) {
 		RegistryType:      RegistryTypeNacos,
 		HeartbeatInterval: "10s",
 		Security: &Security{
-			MtlsMode:     SecurityLevelStrict,
+			MTLSMode:     SecurityLevelStrict,
 			CertProvider: CertProviderSelfSign,
 
 			RootCertTTL: "48",
@@ -161,7 +161,7 @@ func TestAdminInValidatmTLS4(t *testing.T) {
 		RegistryType:      RegistryTypeNacos,
 		HeartbeatInterval: "10s",
 		Security: &Security{
-			MtlsMode:     SecurityLevelStrict,
+			MTLSMode:     SecurityLevelStrict,
 			CertProvider: CertProviderSelfSign,
 
 			RootCertTTL: "48h",
@@ -181,7 +181,7 @@ func TestAdminInValidatmTLS5(t *testing.T) {
 		RegistryType:      RegistryTypeNacos,
 		HeartbeatInterval: "10s",
 		Security: &Security{
-			MtlsMode:     SecurityLevelStrict,
+			MTLSMode:     SecurityLevelStrict,
 			CertProvider: "",
 
 			RootCertTTL: "48",

@@ -86,7 +86,7 @@ func NewCertManager(service *service.Service, certProviderType string, appCertTT
 
 	switch certProviderType {
 	case spec.CertProviderSelfSign:
-		certManager.Provider = NewMeshCertProvider()
+		fallthrough
 	default:
 		certManager.Provider = NewMeshCertProvider()
 	}
@@ -104,7 +104,7 @@ func (cm *CertManager) init() {
 	}
 
 	serviceSpecs := cm.service.ListServiceSpecs()
-	err = cm.SignAllServices(serviceSpecs)
+	err = cm.SignServices(serviceSpecs)
 	if err != nil {
 		logger.Errorf("certmanager sign all service failed: %v", err)
 		return
@@ -129,44 +129,42 @@ func (cm *CertManager) CleanAllCerts() error {
 	return nil
 }
 
-func (cm *CertManager) needSign(cert *spec.Certificate) (bool, error) {
+// needSign will check the cert's TTL, if it's expired, then return true.
+// also, if some certs' formats are incorrect, then it will return true for resigning.
+func (cm *CertManager) needSign(cert *spec.Certificate) bool {
 	if cert == nil {
-		return true, nil
+		return true
 	}
 	timeNow := time.Now()
 
 	signTime, err := time.Parse(time.RFC3339, cert.SignTime)
 	if err != nil {
-		logger.Errorf("service: %s has invalid sign time: %s, err: %v", cert.ServiceName, cert.SignTime, err)
-		return false, err
+		logger.Errorf("service: %s has invalid sign time: %s, err: %v, need to resign", cert.ServiceName, cert.SignTime, err)
+		return true
 	}
 	gap := timeNow.Sub(signTime)
 	ttl, err := time.ParseDuration(cert.TTL)
 	if err != nil {
-		logger.Errorf("service: %s has invalid cert ttl: %s, err: %v", cert.ServiceName, cert.TTL, err)
-		return false, err
+		logger.Errorf("service: %s has invalid cert ttl: %s, err: %v, need to resign", cert.ServiceName, cert.TTL, err)
+		return true
 	}
 
 	// expired, need resign
 	if gap > ttl {
-		logger.Infof("service: %s need to resign cert, gap: %s", cert.ServiceName, gap.String())
-		return true, nil
+		logger.Infof("service: %s need to resign cert, gap: %s, need to resign", cert.ServiceName, gap.String())
+		return true
 	}
 
-	return false, nil
+	return false
 }
 
 // SignRootCert signs the root cert, once the root cert had been resigned
 // it will cause the whole system's application certs to be resigned.
 func (cm *CertManager) SignRootCert() error {
+	var err error
 	rootCert := cm.service.GetRootCert()
-	needSign, err := cm.needSign(rootCert)
-	if err != nil {
-		logger.Errorf("check need to resign root cert failed: %v", err)
-		return err
-	}
 
-	if needSign {
+	if cm.needSign(rootCert) {
 		rootCert, err = cm.Provider.SignRootCertAndKey(cm.rootCertTTL)
 		if err != nil {
 			return err
@@ -175,13 +173,9 @@ func (cm *CertManager) SignRootCert() error {
 		cm.ForceSignAllServices()
 	} else {
 		// set cert from Etcd to provider manually
-		if providerCert, err := cm.Provider.GetRootCertAndKey(); err != nil {
+		if providerCert, err := cm.Provider.GetRootCertAndKey(); err != nil || !reflect.DeepEqual(providerCert, rootCert) {
 			cm.Provider.SetRootCertAndKey(rootCert)
-		} else {
-			if !reflect.DeepEqual(providerCert, rootCert) {
-				cm.Provider.SetRootCertAndKey(rootCert)
-				cm.ForceSignAllServices()
-			}
+			cm.ForceSignAllServices()
 		}
 	}
 	return nil
@@ -189,14 +183,10 @@ func (cm *CertManager) SignRootCert() error {
 
 // SignIngressController signs ingress controller's cert.
 func (cm *CertManager) SignIngressController() error {
+	var err error
 	cert := cm.service.GetIngressControllerCert()
-	needSign, err := cm.needSign(cert)
-	if err != nil {
-		logger.Errorf("check need to resign ingresscontroller cert failed: %v", err)
-		return err
-	}
 
-	if needSign {
+	if cm.needSign(cert) {
 		cert, err = cm.Provider.SignAppCertAndKey(defaultIngressControllerName, cm.appCertTTL)
 		if err != nil {
 			return err
@@ -204,10 +194,8 @@ func (cm *CertManager) SignIngressController() error {
 		cm.service.PutIngressControllerCert(cert)
 	} else {
 		// set cert from Etcd to provider manually
-		if providerCert, err := cm.Provider.GetAppCertAndKey(defaultIngressControllerName); err != nil {
+		if providerCert, err := cm.Provider.GetAppCertAndKey(defaultIngressControllerName); err != nil || !reflect.DeepEqual(providerCert, cert) {
 			cm.Provider.SetAppCertAndKey(defaultIngressControllerName, cert)
-		} else if !reflect.DeepEqual(providerCert, cert) {
-				cm.Provider.SetAppCertAndKey(defaultIngressControllerName, cert)
 		}
 	}
 	return nil
@@ -234,29 +222,22 @@ func (cm *CertManager) ForceSignAllServices() {
 	cm.service.PutIngressControllerCert(cert)
 }
 
-// SignAllServices signs all services' cert in mesh.
-func (cm *CertManager) SignAllServices(serviceSpecs []*spec.Service) error {
+// SignServices signs all services' cert in mesh.
+func (cm *CertManager) SignServices(serviceSpecs []*spec.Service) error {
 	var needSignServer []string
 	for _, v := range serviceSpecs {
 		originCert := cm.service.GetServiceCert(v.Name)
 		if originCert == nil {
-		        needSignServer = append(needSignServer, v.Name)
-		        continue
+			needSignServer = append(needSignServer, v.Name)
+			continue
 		}
-	        needSign, err := cm.needSign(originCert)
-	        if err != nil {
-		        logger.Errorf("check cert: %#v need to resign failed: %v", originCert, err)
-		        continue
-	        }
-        
-	        if needSign {
-		        needSignServer = append(needSignServer, v.Name)
-		        continue
-	        }
 
-		if providerCert, err := cm.Provider.GetAppCertAndKey(v.Name); err != nil {
-			cm.Provider.SetAppCertAndKey(v.Name, originCert)
-		} else if !reflect.DeepEqual(originCert, providerCert) {
+		if cm.needSign(originCert) {
+			needSignServer = append(needSignServer, v.Name)
+			continue
+		}
+
+		if providerCert, err := cm.Provider.GetAppCertAndKey(v.Name); err != nil || !reflect.DeepEqual(originCert, providerCert) {
 			// correct the provider's cert value according to Mesh Etcd's
 			cm.Provider.SetAppCertAndKey(v.Name, originCert)
 		}
