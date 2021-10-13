@@ -979,7 +979,22 @@ func TestIngressPipelineSpec(t *testing.T) {
 			Status:      "UP",
 		},
 	}
-	superSpec, err := s.IngressPipelineSpec(instanceSpecs, nil, nil)
+
+	cert := &Certificate{
+		ServiceName: "a-service",
+		CertBase64:  "dGhpcyBpcyBhIHRlc3QK",
+		KeyBase64:   "dGhpcyBpcyBhIHRlc3QK",
+		TTL:         "10h",
+		SignTime:    "2021-10-13 12:33:10",
+	}
+	rootCert := &Certificate{
+		ServiceName: "root",
+		CertBase64:  "dGhpcyBpcyBhIHRlc3QK",
+		KeyBase64:   "dGhpcyBpcyBhIHRlc3QK",
+		TTL:         "10h",
+		SignTime:    "2021-10-13 12:33:10",
+	}
+	superSpec, err := s.IngressPipelineSpec(instanceSpecs, cert, rootCert)
 
 	if err != nil {
 		t.Fatalf("%v", err)
@@ -987,6 +1002,51 @@ func TestIngressPipelineSpec(t *testing.T) {
 	fmt.Println(superSpec.YAMLConfig())
 }
 
+func TestSidecarIngressPipelineSpecCert(t *testing.T) {
+	s := &Service{
+		Name: "order-001",
+		LoadBalance: &LoadBalance{
+			Policy: proxy.PolicyRandom,
+		},
+		Sidecar: &Sidecar{
+			Address:         "127.0.0.1",
+			IngressPort:     8080,
+			IngressProtocol: "http",
+			EgressPort:      9090,
+			EgressProtocol:  "http",
+		},
+	}
+
+	cert := &Certificate{
+		ServiceName: "a-service",
+		CertBase64:  "dGhpcyBpcyBhIHRlc3QK",
+		KeyBase64:   "dGhpcyBpcyBhIHRlc3QK",
+		TTL:         "10h",
+		SignTime:    "2021-10-13 12:33:10",
+	}
+	rootCert := &Certificate{
+		ServiceName: "root",
+		CertBase64:  "dGhpcyBpcyBhIHRlc3QK",
+		KeyBase64:   "dGhpcyBpcyBhIHRlc3QK",
+		TTL:         "10h",
+		SignTime:    "2021-10-13 12:33:10",
+	}
+
+	superSpec, err := s.SideCarIngressHTTPServerSpec(cert, rootCert)
+
+	if err != nil {
+		t.Fatalf("ingress http server spec failed: %v", err)
+	}
+	fmt.Println(superSpec.YAMLConfig())
+
+	superSpec, err = s.SideCarEgressHTTPServerSpec()
+
+	if err != nil {
+		t.Fatalf("egress http server spec failed: %v", err)
+	}
+
+	fmt.Println(superSpec.YAMLConfig())
+}
 func TestSidecarIngressPipelineSpec(t *testing.T) {
 	s := &Service{
 		Name: "order-001",

@@ -101,9 +101,9 @@ type (
 
 	// MTLS is the configuration for client side mTLS.
 	MTLS struct {
-		CertBase64     string `yaml:"certBase64,required" jsonschema:"required"`
-		KeyBase64      string `yaml:"keyBase64,required" jsonschema:"required"`
-		RootCertBase64 string `yaml:"rootCertBase64,required" jsonschema:"required"`
+		CertBase64     string `yaml:"certBase64" jsonschema:"required,,format=base64"`
+		KeyBase64      string `yaml:"keyBase64" jsonschema:"required,format=base64"`
+		RootCertBase64 string `yaml:"rootCertBase64" jsonschema:"required,format=base64"`
 	}
 )
 

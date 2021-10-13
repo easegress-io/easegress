@@ -560,26 +560,33 @@ func (b *pipelineSpecBuilder) appendProxyWithCanary(instanceSpecs []*ServiceInst
 		}
 	}
 
-	var mtls *proxy.MTLS
-	if cert != nil && rootCert != nil {
-		mtls = &proxy.MTLS{
-			CertBase64:     cert.CertBase64,
-			KeyBase64:      cert.KeyBase64,
-			RootCertBase64: rootCert.CertBase64,
-		}
-	}
-
 	b.Flow = append(b.Flow, httppipeline.Flow{Filter: backendName})
-	b.Filters = append(b.Filters, map[string]interface{}{
-		"kind": proxy.Kind,
-		"name": backendName,
-		"mainPool": &proxy.PoolSpec{
-			Servers:     mainServers,
-			LoadBalance: lb,
-		},
-		"candidatePools": candidatePool,
-		"mtls":           mtls,
-	})
+	if cert != nil && rootCert != nil {
+		b.Filters = append(b.Filters, map[string]interface{}{
+			"kind": proxy.Kind,
+			"name": backendName,
+			"mainPool": &proxy.PoolSpec{
+				Servers:     mainServers,
+				LoadBalance: lb,
+			},
+			"candidatePools": candidatePool,
+			"mtls": &proxy.MTLS{
+				CertBase64:     cert.CertBase64,
+				KeyBase64:      cert.KeyBase64,
+				RootCertBase64: rootCert.CertBase64,
+			},
+		})
+	} else {
+		b.Filters = append(b.Filters, map[string]interface{}{
+			"kind": proxy.Kind,
+			"name": backendName,
+			"mainPool": &proxy.PoolSpec{
+				Servers:     mainServers,
+				LoadBalance: lb,
+			},
+			"candidatePools": candidatePool,
+		})
+	}
 
 	return b
 }
