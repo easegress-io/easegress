@@ -552,40 +552,32 @@ func (inf *meshInformer) OnAllIngressSpecs(fn IngressSpecsFunc) error {
 	return inf.onSpecs(storeKey, syncerKey, specsFunc)
 }
 
-func (inf *meshInformer) OnIngressControllerCert(fn CertFunc) error {
-	storeKey := layout.IngressControllerCertKey()
-	syncerKey := "ingresscontroller-cert"
-
+func (inf *meshInformer) onCert(storeKey, syncerKey string, fn CertFunc) error {
 	specFunc := func(event Event, value string) bool {
-		rootCert := &spec.Certificate{}
+		cert := &spec.Certificate{}
 		if event.EventType != EventDelete {
-			if err := yaml.Unmarshal([]byte(value), rootCert); err != nil {
+			if err := yaml.Unmarshal([]byte(value), cert); err != nil {
 				logger.Errorf("BUG: unmarshal %s to yaml failed: %v", value, err)
 				return true
 			}
 		}
-		return fn(event, rootCert)
+		return fn(event, cert)
 	}
-
 	return inf.onSpecPart(storeKey, syncerKey, "", specFunc)
+}
+
+func (inf *meshInformer) OnIngressControllerCert(fn CertFunc) error {
+	storeKey := layout.IngressControllerCertKey()
+	syncerKey := "ingresscontroller-cert"
+	return inf.onCert(storeKey, syncerKey, fn)
+
 }
 
 func (inf *meshInformer) OnServertCert(serviceName string, fn CertFunc) error {
 	storeKey := layout.ServiceCertKey(serviceName)
 	syncerKey := fmt.Sprintf("service-%s-cert", serviceName)
 
-	specFunc := func(event Event, value string) bool {
-		serviceCert := &spec.Certificate{}
-		if event.EventType != EventDelete {
-			if err := yaml.Unmarshal([]byte(value), serviceCert); err != nil {
-				logger.Errorf("BUG: unmarshal %s to yaml failed: %v", value, err)
-				return true
-			}
-		}
-		return fn(event, serviceCert)
-	}
-
-	return inf.onSpecPart(storeKey, syncerKey, "", specFunc)
+	return inf.onCert(storeKey, syncerKey, fn)
 }
 
 // OnAllServertCert watches all service cert specs.
