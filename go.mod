@@ -53,7 +53,7 @@ require (
 	golang.org/x/sys v0.0.0-20210616094352-59db8d763f22
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.21.4
-	k8s.io/apimachinery v0.21.4
+	k8s.io/apimachinery v0.22.2
 	k8s.io/client-go v0.21.4
 	knative.dev/client v0.26.0
 	knative.dev/serving v0.26.0
