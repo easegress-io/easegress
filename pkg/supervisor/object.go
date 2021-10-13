@@ -87,7 +87,7 @@ const (
 	configFileName = "running_objects.yaml"
 )
 
-// FilterCategory returns a bool function to check if the object entity is filter by category or not
+// FilterCategory returns a bool function to check if the object entity is filtered by category or not
 func FilterCategory(categories ...ObjectCategory) ObjectEntityWatcherFilter {
 	allCategory := false
 	for _, category := range categories {
@@ -327,7 +327,7 @@ func (w *ObjectEntityWatcher) Entities() map[string]*ObjectEntity {
 	return entities
 }
 
-// NewObjectEntityFromConfig creates a object entity from configuration
+// NewObjectEntityFromConfig creates an object entity from configuration
 func (s *Supervisor) NewObjectEntityFromConfig(config string) (*ObjectEntity, error) {
 	spec, err := s.NewSpec(config)
 	if err != nil {
@@ -337,7 +337,7 @@ func (s *Supervisor) NewObjectEntityFromConfig(config string) (*ObjectEntity, er
 	return s.NewObjectEntityFromSpec(spec)
 }
 
-// NewObjectEntityFromSpec creates a object entity from a spec
+// NewObjectEntityFromSpec creates an object entity from a spec
 func (s *Supervisor) NewObjectEntityFromSpec(spec *Spec) (*ObjectEntity, error) {
 	registerObject, exists := objectRegistry[spec.Kind()]
 	if !exists {

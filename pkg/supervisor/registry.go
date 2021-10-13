@@ -66,18 +66,9 @@ type (
 
 		// Inherit also initializes the Object.
 		// But it needs to handle the lifecycle of the previous generation.
-		// So its own responsibility for the object to inherit and clean the previous generation stuff.
+		// So it's own responsibility for the object to inherit and clean the previous generation stuff.
 		// The supervisor won't call Close for the previous generation.
 		Inherit(superSpec *Spec, previousGeneration Object, muxMapper protocol.MuxMapper)
-
-		//// InitLayer4 initializes the Object.
-		//InitLayer4(superSpec *Spec, muxMapper protocol.Layer4MuxMapper)
-		//
-		//// InheritLayer4 also initializes the Object.
-		//// But it needs to handle the lifecycle of the previous generation.
-		//// So its own responsibility for the object to inherit and clean the previous generation stuff.
-		//// The supervisor won't call Close for the previous generation.
-		//InheritLayer4(superSpec *Spec, previousGeneration Object, muxMapper protocol.Layer4MuxMapper)
 	}
 
 	// TrafficGate is the object in category of TrafficGate.
@@ -167,12 +158,12 @@ func Register(o Object) {
 	case CategoryBusinessController, CategorySystemController:
 		_, ok := o.(Controller)
 		if !ok {
-			panic(fmt.Errorf("%s: not satisfies interface Controller", o.Kind()))
+			panic(fmt.Errorf("%s: doesn't implement interface Controller", o.Kind()))
 		}
 	case CategoryPipeline, CategoryTrafficGate:
 		_, ok := o.(TrafficObject)
 		if !ok {
-			panic(fmt.Errorf("%s: not satisfies interface TrafficObject", o.Kind()))
+			panic(fmt.Errorf("%s: doesn't implement interface TrafficObject", o.Kind()))
 		}
 	}
 
