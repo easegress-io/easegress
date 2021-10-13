@@ -169,12 +169,12 @@ func (egs *EgressServer) reloadBySpecs(value map[string]*spec.Service) bool {
 	return egs.reloadHTTPServer(value)
 }
 
-// regex rule: ^(|(\w+\.)+)vet-services\.(\w+)\.svc\..+$
+// regex rule: ^(\w+\.)*vet-services\.(\w+)\.svc\..+$
 //  can match e.g. _tcp.vet-services.easemesh.svc.cluster.local
 //   		   vet-services.easemesh.svc.cluster.local
 //   		   _zip._tcp.vet-services.easemesh.svc.com
 func (egs *EgressServer) buildHostRegex(serviceName string) string {
-	return `^(|(\w+\.)+)` + serviceName + `\.(\w+)\.svc\..+`
+	return `^(\w+\.)*` + serviceName + `\.(\w+)\.svc\..+`
 }
 
 func (egs *EgressServer) reloadHTTPServer(specs map[string]*spec.Service) bool {
