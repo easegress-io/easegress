@@ -21,7 +21,6 @@ package protocol
 
 import (
 	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/util/iobufferpool"
 )
 
 type (
@@ -31,21 +30,8 @@ type (
 		Handle(ctx context.HTTPContext)
 	}
 
-	// Layer4Handler is the common handler for the all backends
-	// which handle the traffic from layer4(tcp/udp) server.
-	Layer4Handler interface {
-		// Handle read buffer from context, and set write buffer to context,
-		// its filter's response to release read buffer in context
-		// and its filter's response to determine which time to flush buffer to client or upstream
-		Handle(ctx context.Layer4Context, readBuf iobufferpool.IoBuffer, v interface{})
-	}
-
 	// MuxMapper gets HTTP handler pipeline with mutex
 	MuxMapper interface {
-		// GetHTTPHandler get http handler from mux
-		GetHTTPHandler(name string) (HTTPHandler, bool)
-
-		// GetLayer4Handler get layer4 handler from mux
-		GetLayer4Handler(name string) (Layer4Handler, bool)
+		GetHandler(name string) (HTTPHandler, bool)
 	}
 )

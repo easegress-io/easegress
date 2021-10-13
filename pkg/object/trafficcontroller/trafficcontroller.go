@@ -57,10 +57,8 @@ type (
 		// When the entry for a given key is only ever written once but read many times.
 		// Reference: https://golang.org/pkg/sync/#Map
 		// types of both: map[string]*supervisor.ObjectEntity
-		httpservers     sync.Map
-		httppipelines   sync.Map
-		layer4servers   sync.Map
-		layer4Pipelines sync.Map
+		httpservers   sync.Map
+		httppipelines sync.Map
 	}
 
 	// WalkFunc is the type of the function called for
@@ -107,24 +105,14 @@ func newNamespace(namespace string) *Namespace {
 	}
 }
 
-// GetHTTPHandler gets handler within the namespace
-func (ns *Namespace) GetHTTPHandler(name string) (protocol.HTTPHandler, bool) {
+// GetHandler gets handler within the namespace
+func (ns *Namespace) GetHandler(name string) (protocol.HTTPHandler, bool) {
 	entity, exists := ns.httppipelines.Load(name)
 	if !exists {
 		return nil, false
 	}
 
 	handler := entity.(*supervisor.ObjectEntity).Instance().(protocol.HTTPHandler)
-	return handler, true
-}
-
-func (ns *Namespace) GetLayer4Handler(name string) (protocol.Layer4Handler, bool) {
-	entity, exists := ns.layer4Pipelines.Load(name)
-	if !exists {
-		return nil, false
-	}
-
-	handler := entity.(*supervisor.ObjectEntity).Instance().(protocol.Layer4Handler)
 	return handler, true
 }
 
@@ -163,42 +151,6 @@ func (tc *TrafficController) reload(previousGeneration *TrafficController) {
 	if previousGeneration != nil {
 		tc.mutex, tc.namespaces = previousGeneration.mutex, previousGeneration.namespaces
 	}
-}
-
-// CreateLayer4ServerForSpec creates layer4 server with a spec
-func (tc *TrafficController) CreateLayer4ServerForSpec(namespace string, superSpec *supervisor.Spec) (
-	*supervisor.ObjectEntity, error) {
-	entity, err := tc.super.NewObjectEntityFromSpec(superSpec)
-	if err != nil {
-		return nil, err
-	}
-	return tc.CreateLayer4Server(namespace, entity)
-}
-
-// CreateLayer4Server creates Layer4 server
-func (tc *TrafficController) CreateLayer4Server(namespace string, entity *supervisor.ObjectEntity) (*supervisor.ObjectEntity, error) {
-	if namespace == "" {
-		return nil, fmt.Errorf("empty namespace")
-	}
-
-	tc.mutex.Lock()
-	defer tc.mutex.Unlock()
-
-	space, exists := tc.namespaces[namespace]
-	if !exists {
-		space = newNamespace(namespace)
-		tc.namespaces[namespace] = space
-		logger.Infof("create namespace %s", namespace)
-	}
-
-	name := entity.Spec().Name()
-
-	entity.InitWithRecovery(space)
-	space.layer4servers.Store(name, entity)
-
-	logger.Infof("create layer4 server %s/%s", namespace, name)
-
-	return entity, nil
 }
 
 // CreateHTTPServerForSpec creates HTTP server with a spec
@@ -565,7 +517,7 @@ func (tc *TrafficController) ApplyHTTPPipeline(namespace string, entity *supervi
 	return entity, nil
 }
 
-// DeleteHTTPPipeline deletes the HTTP pipeline by it's namespace and name
+// DeleteHTTPPipeline deletes the HTTP pipeline by its namespace and name
 func (tc *TrafficController) DeleteHTTPPipeline(namespace, name string) error {
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
