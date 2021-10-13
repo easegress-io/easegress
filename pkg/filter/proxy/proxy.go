@@ -181,7 +181,6 @@ func (b *Proxy) needmTLS() bool {
 }
 
 func (b *Proxy) tlsConfig() *tls.Config {
-	tlsConfig := &tls.Config{}
 	if !b.needmTLS() {
 		return &tls.Config{
 			InsecureSkipVerify: true,
@@ -200,9 +199,9 @@ func (b *Proxy) tlsConfig() *tls.Config {
 		return &tls.Config{
 			InsecureSkipVerify: true,
 		}
-	} 
+	}
 	certificates = append(certificates, cert)
-	return  &tls.Config{
+	return &tls.Config{
 		Certificates: certificates,
 		RootCAs:      caCertPool,
 	}

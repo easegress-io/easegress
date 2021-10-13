@@ -109,11 +109,8 @@ type (
 	// ServiceCertsFunc is the callback function type for service certs.
 	ServiceCertsFunc func(value map[string]*spec.Certificate) bool
 
-	// ServiceCertFunc is the callback function type for service cert.
-	ServiceCertFunc func(event Event, value *spec.Certificate) bool
-
-	// IngressControllerCertFunc is the callback function type for ingresscontroller cert.
-	IngressControllerCertFunc func(event Event, cert *spec.Certificate) bool
+	// CertFunc is the callback function type for service/ingressController's cert.
+	CertFunc func(event Event, value *spec.Certificate) bool
 
 	// Informer is the interface for informing two type of storage changed for every Mesh spec structure.
 	//  1. Based on comparison between old and new part of entry.
@@ -140,8 +137,8 @@ type (
 		StopWatchServiceInstanceSpec(serviceName string)
 
 		OnAllServertCert(fn ServiceCertsFunc) error
-		OnServertCert(serviceName string, fn ServiceCertFunc) error
-		OnIngressControllerCert(fn IngressControllerCertFunc) error
+		OnServertCert(serviceName string, fn CertFunc) error
+		OnIngressControllerCert(fn CertFunc) error
 
 		Close()
 	}
@@ -555,7 +552,7 @@ func (inf *meshInformer) OnAllIngressSpecs(fn IngressSpecsFunc) error {
 	return inf.onSpecs(storeKey, syncerKey, specsFunc)
 }
 
-func (inf *meshInformer) OnIngressControllerCert(fn IngressControllerCertFunc) error {
+func (inf *meshInformer) OnIngressControllerCert(fn CertFunc) error {
 	storeKey := layout.IngressControllerCertKey()
 	syncerKey := "ingresscontroller-cert"
 
@@ -573,7 +570,7 @@ func (inf *meshInformer) OnIngressControllerCert(fn IngressControllerCertFunc) e
 	return inf.onSpecPart(storeKey, syncerKey, "", specFunc)
 }
 
-func (inf *meshInformer) OnServertCert(serviceName string, fn ServiceCertFunc) error {
+func (inf *meshInformer) OnServertCert(serviceName string, fn CertFunc) error {
 	storeKey := layout.ServiceCertKey(serviceName)
 	syncerKey := fmt.Sprintf("service-%s-cert", serviceName)
 

@@ -48,18 +48,18 @@ type (
 	}
 
 	// CertProvider is the interface declaring the methods for the Certificate provider, such as
-	//   easemesh-self-Sign, Valt, and so on.
+	//   easemesh-self-sign, Valt, and so on.
 	CertProvider interface {
-		// SignAppCertAndKey  Signs a cert, key pair for one service
+		// SignAppCertAndKey  signs a cert, key pair for one service
 		SignAppCertAndKey(serviceName string, ttl time.Duration) (cert *spec.Certificate, err error)
 
-		// SignRootCertAndKey Signs a cert, key pair for root
+		// SignRootCertAndKey signs a cert, key pair for root
 		SignRootCertAndKey(time.Duration) (cert *spec.Certificate, err error)
 
-		// GetAppCertAndKey get cert and key for one service
+		// GetAppCertAndKey gets cert and key for one service
 		GetAppCertAndKey(serviceName string) (cert *spec.Certificate, err error)
 
-		// GetRootCertAndKey get root ca cert and key
+		// GetRootCertAndKey gets root ca cert and key
 		GetRootCertAndKey() (cert *spec.Certificate, err error)
 
 		// ReleaseAppCertAndKey releases one service's cert and key
@@ -189,6 +189,7 @@ func (cm *CertManager) SignIngressController() error {
 	if cm.needSign(cert) {
 		cert, err = cm.Provider.SignAppCertAndKey(defaultIngressControllerName, cm.appCertTTL)
 		if err != nil {
+			logger.Errorf("sign ingress controller failed: %v", err)
 			return err
 		}
 		cm.service.PutIngressControllerCert(cert)
@@ -222,19 +223,18 @@ func (cm *CertManager) ForceSignAllServices() {
 	cm.service.PutIngressControllerCert(cert)
 }
 
-// SignServices signs all services' cert in mesh.
+// SignServices signs services' cert by serviceSpecs parameter in mesh.
 func (cm *CertManager) SignServices(serviceSpecs []*spec.Service) error {
-	var needSignServer []string
 	for _, v := range serviceSpecs {
 		originCert := cm.service.GetServiceCert(v.Name)
-		if originCert == nil {
-			needSignServer = append(needSignServer, v.Name)
-			continue
-		}
+		if originCert == nil || cm.needSign(originCert) {
+			newCert, err := cm.Provider.SignAppCertAndKey(v.Name, cm.appCertTTL)
+			if err != nil {
+				logger.Errorf("%s sign cert failed, err: %v", v.Name, err)
+				continue
+			}
 
-		if cm.needSign(originCert) {
-			needSignServer = append(needSignServer, v.Name)
-			continue
+			cm.service.PutServiceCert(newCert)
 		}
 
 		if providerCert, err := cm.Provider.GetAppCertAndKey(v.Name); err != nil || !reflect.DeepEqual(originCert, providerCert) {
@@ -243,18 +243,9 @@ func (cm *CertManager) SignServices(serviceSpecs []*spec.Service) error {
 		}
 	}
 
-	for _, v := range needSignServer {
-		newCert, err := cm.Provider.SignAppCertAndKey(v, cm.appCertTTL)
-		if err != nil {
-			logger.Errorf("%s sign cert failed, err: %v", v)
-			continue
-		}
-
-		cm.service.PutServiceCert(newCert)
-	}
-
 	// sign ingress controller
 	if err := cm.SignIngressController(); err != nil {
+		logger.Errorf("sign ingress controller failed: %v", err)
 		return err
 	}
 	return nil
