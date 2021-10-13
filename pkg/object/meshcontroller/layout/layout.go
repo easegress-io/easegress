@@ -40,7 +40,7 @@ const (
 
 	serviceCert           = "/mesh/cert/service-cert/%s" // + ServiceName
 	allServiceCertPrefix  = "/mesh/cert/service-cert/"
-	rootCert              = "/mesh//cert/root-cert"
+	rootCert              = "/mesh/cert/root-cert"
 	ingressControllerCert = "/mesh/cert/ingress-controller-cert"
 
 	customResourceKindPrefix = "/mesh/custom-resource-kinds/"

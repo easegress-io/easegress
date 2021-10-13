@@ -206,10 +206,8 @@ func (cm *CertManager) SignIngressController() error {
 		// set cert from Etcd to provider manually
 		if providerCert, err := cm.Provider.GetAppCertAndKey(defaultIngressControllerName); err != nil {
 			cm.Provider.SetAppCertAndKey(defaultIngressControllerName, cert)
-		} else {
-			if !reflect.DeepEqual(providerCert, cert) {
+		} else if !reflect.DeepEqual(providerCert, cert) {
 				cm.Provider.SetAppCertAndKey(defaultIngressControllerName, cert)
-			}
 		}
 	}
 	return nil
@@ -231,6 +229,7 @@ func (cm *CertManager) ForceSignAllServices() {
 	cert, err := cm.Provider.SignAppCertAndKey(defaultIngressControllerName, cm.appCertTTL)
 	if err != nil {
 		logger.Errorf("sign ingress controller cert failed, err: %v", err)
+		return
 	}
 	cm.service.PutIngressControllerCert(cert)
 }
@@ -240,27 +239,26 @@ func (cm *CertManager) SignAllServices(serviceSpecs []*spec.Service) error {
 	var needSignServer []string
 	for _, v := range serviceSpecs {
 		originCert := cm.service.GetServiceCert(v.Name)
-		if originCert != nil {
-			needSign, err := cm.needSign(originCert)
-			if err != nil {
-				logger.Errorf("check cert: %#v need to resign failed: %v", originCert, err)
-				continue
-			}
+		if originCert == nil {
+		        needSignServer = append(needSignServer, v.Name)
+		        continue
+		}
+	        needSign, err := cm.needSign(originCert)
+	        if err != nil {
+		        logger.Errorf("check cert: %#v need to resign failed: %v", originCert, err)
+		        continue
+	        }
+        
+	        if needSign {
+		        needSignServer = append(needSignServer, v.Name)
+		        continue
+	        }
 
-			if needSign {
-				needSignServer = append(needSignServer, v.Name)
-			} else {
-				if providerCert, err := cm.Provider.GetAppCertAndKey(v.Name); err != nil {
-					cm.Provider.SetAppCertAndKey(v.Name, originCert)
-				} else {
-					// correct the provider's cert value according to Mesh Etcd's
-					if !reflect.DeepEqual(originCert, providerCert) {
-						cm.Provider.SetAppCertAndKey(v.Name, originCert)
-					}
-				}
-			}
-		} else {
-			needSignServer = append(needSignServer, v.Name)
+		if providerCert, err := cm.Provider.GetAppCertAndKey(v.Name); err != nil {
+			cm.Provider.SetAppCertAndKey(v.Name, originCert)
+		} else if !reflect.DeepEqual(originCert, providerCert) {
+			// correct the provider's cert value according to Mesh Etcd's
+			cm.Provider.SetAppCertAndKey(v.Name, originCert)
 		}
 	}
 

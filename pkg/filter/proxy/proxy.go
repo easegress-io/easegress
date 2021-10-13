@@ -177,11 +177,7 @@ func (b *Proxy) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration 
 }
 
 func (b *Proxy) needmTLS() bool {
-	if b.spec.MTLS != nil {
-		return true
-	}
-
-	return false
+	return b.spec.MTLS != nil
 }
 
 func (b *Proxy) tlsConfig() *tls.Config {

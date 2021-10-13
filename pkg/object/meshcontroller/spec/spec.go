@@ -111,7 +111,7 @@ type (
 
 	// Security is the spec for mesh-wide security.
 	Security struct {
-		MtlsMode     string `yaml:"mtlsMode" jsonschema:"required"`
+		MTLSMode     string `yaml:"mtlsMode" jsonschema:"required"`
 		CertProvider string `yaml:"certProvider" jsonschema:"required"`
 
 		RootCertTTL string `yaml:"rootCertTTL" jsonschema:"required, format=duration"`
