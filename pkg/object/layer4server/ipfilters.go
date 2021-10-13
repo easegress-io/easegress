@@ -56,9 +56,9 @@ func newIPFilter(spec *ipfilter.Spec) *ipfilter.IPFilter {
 	return ipfilter.New(spec)
 }
 
-func (r *ipFiltersRules) pass(downstreamIp string) bool {
+func (r *ipFiltersRules) pass(downstreamIP string) bool {
 	if r.ipFilter == nil {
 		return true
 	}
-	return r.ipFilter.Allow(downstreamIp)
+	return r.ipFilter.Allow(downstreamIP)
 }

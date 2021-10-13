@@ -48,8 +48,8 @@ type listener struct {
 	onUdpAccept func(downstreamAddr net.Addr, conn net.Conn, listenerStop chan struct{}, packet iobufferpool.IoBuffer) // udp accept handle
 }
 
-func newListener(spec *Spec, onTcpAccept func(conn net.Conn, listenerStop chan struct{}),
-	onUdpAccept func(cliAddr net.Addr, conn net.Conn, listenerStop chan struct{}, packet iobufferpool.IoBuffer)) *listener {
+func newListener(spec *Spec, onTCPAccept func(conn net.Conn, listenerStop chan struct{}),
+	onUDPAccept func(cliAddr net.Addr, conn net.Conn, listenerStop chan struct{}, packet iobufferpool.IoBuffer)) *listener {
 	listen := &listener{
 		name:      spec.Name,
 		protocol:  spec.Protocol,
@@ -61,9 +61,9 @@ func newListener(spec *Spec, onTcpAccept func(conn net.Conn, listenerStop chan s
 
 	if listen.protocol == "tcp" {
 		listen.maxConns = spec.MaxConnections
-		listen.onTcpAccept = onTcpAccept
+		listen.onTcpAccept = onTCPAccept
 	} else {
-		listen.onUdpAccept = onUdpAccept
+		listen.onUdpAccept = onUDPAccept
 	}
 	return listen
 }
