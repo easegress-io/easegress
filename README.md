@@ -127,8 +127,8 @@ We can download the binary from [release page](https://github.com/megaease/easeg
 
 ```bash
 $ mkdir easegress
-$ wget https://github.com/megaease/easegress/releases/download/v1.1.0/easegress-v1.1.0-linux-amd64.tar.gz
-$ tar zxvf easegress-v1.1.0-linux-amd64.tar.gz -C easegress && cd easegress
+$ wget https://github.com/megaease/easegress/releases/download/v1.3.0/easegress-v1.3.0-linux-amd64.tar.gz
+$ tar zxvf easegress-v1.3.0-linux-amd64.tar.gz -C easegress && cd easegress
 ```
 
 or use source code:
