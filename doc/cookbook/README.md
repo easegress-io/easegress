@@ -15,3 +15,4 @@ The following examples show how to use Easegress for different scenarios.
 - [Service Proxy](./service_proxy.md) - Supporting the Microservice  registries - Zookeeper, Eureka, Consul, Nacos, etc.
 - [WebAssembly](./wasm.md) - Using AssemblyScript to extend the Easegress
 - [Workflow](./workflow.md) - An Example to make a workflow for a number of APIs.
+- [MQTTProxy](./mqtt_proxy.md) - An Example to MQTT proxy with Kafka backend. 
