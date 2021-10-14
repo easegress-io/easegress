@@ -571,7 +571,7 @@ func (s *Service) PutIngressSpec(ingressSpec *spec.Ingress) {
 
 // GetIngressControllerInstanceSpec gets one ingress controller's spec
 func (s *Service) GetIngressControllerInstanceSpec(instaceID string) *spec.ServiceInstanceSpec {
-	cert := &spec.ServiceInstanceSpec{}
+	instance := &spec.ServiceInstanceSpec{}
 	value, err := s.store.Get(layout.IngressControllerInstanceSpecKey(instaceID))
 	if err != nil {
 		api.ClusterPanic(err)
@@ -581,11 +581,11 @@ func (s *Service) GetIngressControllerInstanceSpec(instaceID string) *spec.Servi
 		return nil
 	}
 
-	err = yaml.Unmarshal([]byte(*value), cert)
+	err = yaml.Unmarshal([]byte(*value), instance)
 	if err != nil {
 		panic(fmt.Errorf("BUG: unmarshal %s to yaml failed: %v", *value, err))
 	}
-	return nil
+	return instance
 }
 
 // GetIngressControllerInstanceCert gets one ingress controller's cert
@@ -604,7 +604,7 @@ func (s *Service) GetIngressControllerInstanceCert(instaceID string) *spec.Certi
 	if err != nil {
 		panic(fmt.Errorf("BUG: unmarshal %s to yaml failed: %v", *value, err))
 	}
-	return nil
+	return cert
 }
 
 // ListAllIngressControllerInstanceSpecs lists all IngressController's instances specs

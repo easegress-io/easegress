@@ -194,7 +194,7 @@ func (cm *CertManager) SignRootCert() error {
 // SignIngressController signs ingress controller's cert.
 func (cm *CertManager) SignIngressController() error {
 	var err error
-	instanceSpecs := cm.service.ListAllServiceInstanceSpecs()
+	instanceSpecs := cm.service.ListAllIngressControllerInstanceSpecs()
 
 	for _, ins := range instanceSpecs {
 		if ins.Status != spec.ServiceStatusUp {

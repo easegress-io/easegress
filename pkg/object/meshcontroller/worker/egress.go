@@ -42,10 +42,10 @@ type (
 		pipelines  map[string]*supervisor.ObjectEntity
 		httpServer *supervisor.ObjectEntity
 
-		tc        *trafficcontroller.TrafficController
-		namespace string
-		inf       informer.Informer
-		instaceID string
+		tc         *trafficcontroller.TrafficController
+		namespace  string
+		inf        informer.Informer
+		instanceID string
 
 		serviceName      string
 		egressServerName string
@@ -85,7 +85,7 @@ func NewEgressServer(superSpec *supervisor.Spec, super *supervisor.Supervisor,
 		pipelines:   make(map[string]*supervisor.ObjectEntity),
 		serviceName: serviceName,
 		service:     service,
-		instaceID:   instanceID,
+		instanceID:  instanceID,
 	}
 }
 
@@ -143,8 +143,8 @@ func (egs *EgressServer) InitEgress(service *spec.Service) error {
 
 	admSpec := egs.superSpec.ObjectSpec().(*spec.Admin)
 	if admSpec.EnablemTLS() {
-		logger.Infof("egress in mtls mode, start listen ID: %s's cert", egs.instaceID)
-		if err := egs.inf.OnServertCert(egs.serviceName, egs.instaceID, egs.reloadByCert); err != nil {
+		logger.Infof("egress in mtls mode, start listen ID: %s's cert", egs.instanceID)
+		if err := egs.inf.OnServertCert(egs.serviceName, egs.instanceID, egs.reloadByCert); err != nil {
 			if err != informer.ErrAlreadyWatched {
 				logger.Errorf("add egress spec watching service: %s failed: %v", service.Name, err)
 				return err
@@ -165,13 +165,6 @@ func (egs *EgressServer) Ready() bool {
 
 func (egs *EgressServer) _ready() bool {
 	return egs.httpServer != nil
-}
-
-func (egs *EgressServer) getCerts() map[string]*spec.Certificate {
-	cert := egs.service.GetServiceInstanceCert(egs.serviceName, egs.instaceID)
-	certs := make(map[string]*spec.Certificate)
-	certs[egs.serviceName] = cert
-	return certs
 }
 
 func (egs *EgressServer) reloadByCert(event informer.Event, value *spec.Certificate) bool {
@@ -216,7 +209,7 @@ func (egs *EgressServer) reloadHTTPServer(specs map[string]*spec.Service) bool {
 	admSpec := egs.superSpec.ObjectSpec().(*spec.Admin)
 	var cert, rootCert *spec.Certificate
 	if admSpec.EnablemTLS() {
-		cert = egs.service.GetServiceInstanceCert(egs.serviceName, egs.instaceID)
+		cert = egs.service.GetServiceInstanceCert(egs.serviceName, egs.instanceID)
 		rootCert = egs.service.GetRootCert()
 	}
 

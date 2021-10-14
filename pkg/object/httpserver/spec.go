@@ -40,7 +40,7 @@ type (
 		CacheSize          uint32        `yaml:"cacheSize" jsonschema:"omitempty"`
 		XForwardedFor      bool          `yaml:"xForwardedFor" jsonschema:"omitempty"`
 		Tracing            *tracing.Spec `yaml:"tracing" jsonschema:"omitempty"`
-		MTLSRootCertBase64 string        `yaml:"mTLSRootCertBase64" jsonschema:"omitempty"`
+		MTLSRootCertBase64 string        `yaml:"mTLSRootCertBase64" jsonschema:"omitempty,format=base64"`
 
 		// Support multiple certs, preserve the certbase64 and keybase64
 		// for backward compatibility
