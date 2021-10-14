@@ -46,6 +46,7 @@ type (
 		applicationPort uint32
 		namespace       string
 		inf             informer.Informer
+		instaceID       string
 
 		pipelines  map[string]*supervisor.ObjectEntity
 		httpServer *supervisor.ObjectEntity
@@ -54,7 +55,7 @@ type (
 
 // NewIngressServer creates an initialized ingress server
 func NewIngressServer(superSpec *supervisor.Spec, super *supervisor.Supervisor,
-	serviceName string, service *service.Service, inf informer.Informer) *IngressServer {
+	serviceName, instaceID string, service *service.Service, inf informer.Informer) *IngressServer {
 	entity, exists := super.GetSystemController(trafficcontroller.Kind)
 	if !exists {
 		panic(fmt.Errorf("BUG: traffic controller not found"))
@@ -75,6 +76,7 @@ func NewIngressServer(superSpec *supervisor.Spec, super *supervisor.Supervisor,
 		pipelines:   make(map[string]*supervisor.ObjectEntity),
 		httpServer:  nil,
 		serviceName: serviceName,
+		instaceID:   instaceID,
 		inf:         inf,
 		mutex:       sync.RWMutex{},
 		service:     service,
@@ -122,7 +124,7 @@ func (ings *IngressServer) InitIngress(service *spec.Service, port uint32) error
 		admSpec := ings.superSpec.ObjectSpec().(*spec.Admin)
 		var cert, rootCert *spec.Certificate
 		if admSpec.EnablemTLS() {
-			cert = ings.service.GetServiceCert(ings.serviceName)
+			cert = ings.service.GetServiceInstanceCert(ings.serviceName, ings.instaceID)
 			rootCert = ings.service.GetRootCert()
 		}
 
@@ -146,7 +148,7 @@ func (ings *IngressServer) InitIngress(service *spec.Service, port uint32) error
 		}
 	}
 
-	if err := ings.inf.OnServertCert(ings.serviceName, ings.reloadHTTPServer); err != nil {
+	if err := ings.inf.OnServertCert(ings.serviceName, ings.instaceID, ings.reloadHTTPServer); err != nil {
 		if err != informer.ErrAlreadyWatched {
 			logger.Errorf("add egress spec watching service: %s failed: %v", service.Name, err)
 			return err

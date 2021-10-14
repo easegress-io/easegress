@@ -70,12 +70,6 @@ type (
 	}
 )
 
-const (
-	// from k8s pod's env value
-	podEnvHostname      = "HOSTNAME"
-	podEnvApplicationIP = "APPLICATION_IP"
-)
-
 func decodeLabels(labels string) map[string]string {
 	mLabels := make(map[string]string)
 	if len(labels) == 0 {
@@ -103,7 +97,7 @@ func decodeLabels(labels string) map[string]string {
 // New creates a mesh worker.
 func New(superSpec *supervisor.Spec) *Worker {
 	super := superSpec.Super()
-	spec := superSpec.ObjectSpec().(*spec.Admin)
+	_spec := superSpec.ObjectSpec().(*spec.Admin)
 	serviceName := super.Options().Labels[label.KeyServiceName]
 	aliveProbe := super.Options().Labels[label.KeyAliveProbe]
 	serviceLabels := decodeLabels(super.Options().Labels[label.KeyServiceLabels])
@@ -112,25 +106,25 @@ func New(superSpec *supervisor.Spec) *Worker {
 		logger.Errorf("parse %s failed: %v", super.Options().Labels[label.KeyApplicationPort], err)
 	}
 
-	instanceID := os.Getenv(podEnvHostname)
-	applicationIP := os.Getenv(podEnvApplicationIP)
+	instanceID := os.Getenv(spec.PodEnvHostname)
+	applicationIP := os.Getenv(spec.PodEnvApplicationIP)
 	store := storage.New(superSpec.Name(), super.Cluster())
 	_service := service.New(superSpec)
 
 	inf := informer.NewInformer(store, serviceName)
-	registryCenterServer := registrycenter.NewRegistryCenterServer(spec.RegistryType,
+	registryCenterServer := registrycenter.NewRegistryCenterServer(_spec.RegistryType,
 		superSpec.Name(), serviceName, applicationIP, applicationPort,
 		instanceID, serviceLabels, _service, inf)
-	ingressServer := NewIngressServer(superSpec, super, serviceName, _service, inf)
-	egressServer := NewEgressServer(superSpec, super, serviceName, _service, inf)
+	ingressServer := NewIngressServer(superSpec, super, serviceName, instanceID, _service, inf)
+	egressServer := NewEgressServer(superSpec, super, serviceName, instanceID, _service, inf)
 
 	observabilityManager := NewObservabilityServer(serviceName)
-	apiServer := newAPIServer(spec.APIPort)
+	apiServer := newAPIServer(_spec.APIPort)
 
 	worker := &Worker{
 		super:     super,
 		superSpec: superSpec,
-		spec:      spec,
+		spec:      _spec,
 
 		serviceName:     serviceName,
 		instanceID:      instanceID, // instanceID will be the pod ID valued by HOSTNAME env.

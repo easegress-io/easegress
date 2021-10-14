@@ -177,9 +177,9 @@ func (s *Service) ListServiceSpecs() []*spec.Service {
 	return services
 }
 
-// GetServiceCert gets one specified service's cert
-func (s *Service) GetServiceCert(serviceName string) *spec.Certificate {
-	value, err := s.store.Get(layout.ServiceCertKey(serviceName))
+// GetServiceInstanceCert gets one specified service instance's cert
+func (s *Service) GetServiceInstanceCert(serviceName, instanceID string) *spec.Certificate {
+	value, err := s.store.Get(layout.ServiceInstanceCertKey(serviceName, instanceID))
 	if err != nil {
 		api.ClusterPanic(err)
 	}
@@ -197,22 +197,22 @@ func (s *Service) GetServiceCert(serviceName string) *spec.Certificate {
 	return cert
 }
 
-// PutServiceCert puts one service's cert.
-func (s *Service) PutServiceCert(cert *spec.Certificate) {
+// PutServiceInstanceCert puts one service's instance cert.
+func (s *Service) PutServiceInstanceCert(serviceName, instaceID string, cert *spec.Certificate) {
 	buff, err := yaml.Marshal(cert)
 	if err != nil {
 		panic(fmt.Errorf("BUG: marshal %#v to yaml failed: %v", cert, err))
 	}
 
-	err = s.store.Put(layout.ServiceCertKey(cert.ServiceName), string(buff))
+	err = s.store.Put(layout.ServiceInstanceCertKey(serviceName, instaceID), string(buff))
 	if err != nil {
 		api.ClusterPanic(err)
 	}
 }
 
-// DeleteServiceCert deletes one service's cert.
-func (s *Service) DeleteServiceCert(serviceName string) {
-	err := s.store.Delete(layout.ServiceCertKey(serviceName))
+// DelServiceInstanceCert deletes one service's cert.
+func (s *Service) DelServiceInstanceCert(serviceName, instanceID string) {
+	err := s.store.Delete(layout.ServiceInstanceCertKey(serviceName, instanceID))
 	if err != nil {
 		api.ClusterPanic(err)
 	}
@@ -239,46 +239,70 @@ func (s *Service) ListServiceCerts() []*spec.Certificate {
 	return certs
 }
 
-// GetIngressControllerCert  gets the ingress controller cert.
-func (s *Service) GetIngressControllerCert() *spec.Certificate {
-	value, err := s.store.Get(layout.IngressControllerCertKey())
+// ListAllIngressControllerInstanceCerts  gets the ingress controller cert.
+func (s *Service) ListAllIngressControllerInstanceCerts() []*spec.Certificate {
+	var certs []*spec.Certificate
+	values, err := s.store.GetPrefix(layout.AllIngressControllerInstanceCertPrefix())
 	if err != nil {
 		api.ClusterPanic(err)
 	}
 
-	if value == nil {
-		return nil
-	}
+	for _, v := range values {
+		cert := &spec.Certificate{}
+		if err = yaml.Unmarshal([]byte(v), cert); err != nil {
+			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
+			continue
+		}
 
-	cert := &spec.Certificate{}
-	err = yaml.Unmarshal([]byte(*value), cert)
-	if err != nil {
-		panic(fmt.Errorf("BUG: unmarshal %s to yaml failed: %v", *value, err))
-	}
+		certs = append(certs, cert)
 
-	return cert
+	}
+	return certs
 }
 
-// PutIngressControllerCert puts the root cert.
-func (s *Service) PutIngressControllerCert(cert *spec.Certificate) {
+// PutIngressControllerInstanceCert puts the root cert.
+func (s *Service) PutIngressControllerInstanceCert(instaceID string, cert *spec.Certificate) {
 	buff, err := yaml.Marshal(cert)
 	if err != nil {
 		panic(fmt.Errorf("BUG: marshal %#v to yaml failed: %v", cert, err))
 	}
 
-	err = s.store.Put(layout.IngressControllerCertKey(), string(buff))
+	err = s.store.Put(layout.IngressControllerInstanceCertKey(instaceID), string(buff))
 	if err != nil {
 		api.ClusterPanic(err)
 	}
 	return
 }
 
-// DelIngressControllerCert deletes root cert.
-func (s *Service) DelIngressControllerCert() {
-	err := s.store.Delete(layout.IngressControllerCertKey())
+// DelIngressControllerInstanceCert deletes root cert.
+func (s *Service) DelIngressControllerInstanceCert(instanceID string) {
+	err := s.store.Delete(layout.IngressControllerInstanceCertKey(instanceID))
 	if err != nil {
 		api.ClusterPanic(err)
 	}
+	return
+}
+
+// DelAllIngressControllerInstanceCert deletes all ingress controller certs.
+func (s *Service) DelAllIngressControllerInstanceCert() {
+	err := s.store.DeletePrefix(layout.AllIngressControllerInstanceCertPrefix())
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+}
+
+// PutIngressControllerInstanceSpec puts ingress controller's spec
+func (s *Service) PutIngressControllerInstanceSpec(instance *spec.ServiceInstanceSpec) {
+	buff, err := yaml.Marshal(instance)
+	if err != nil {
+		panic(fmt.Errorf("BUG: marshal %#v to yaml failed: %v", instance, err))
+	}
+
+	err = s.store.Put(layout.IngressControllerInstanceSpecKey(instance.InstanceID), string(buff))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+	return
 }
 
 // GetRootCert  gets the root cert.
@@ -543,6 +567,66 @@ func (s *Service) PutIngressSpec(ingressSpec *spec.Ingress) {
 	if err != nil {
 		api.ClusterPanic(err)
 	}
+}
+
+// GetIngressControllerInstanceSpec gets one ingress controller's spec
+func (s *Service) GetIngressControllerInstanceSpec(instaceID string) *spec.ServiceInstanceSpec {
+	cert := &spec.ServiceInstanceSpec{}
+	value, err := s.store.Get(layout.IngressControllerInstanceSpecKey(instaceID))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+
+	if value == nil {
+		return nil
+	}
+
+	err = yaml.Unmarshal([]byte(*value), cert)
+	if err != nil {
+		panic(fmt.Errorf("BUG: unmarshal %s to yaml failed: %v", *value, err))
+	}
+	return nil
+}
+
+// GetIngressControllerInstanceCert gets one ingress controller's cert
+func (s *Service) GetIngressControllerInstanceCert(instaceID string) *spec.Certificate {
+	cert := &spec.Certificate{}
+	value, err := s.store.Get(layout.IngressControllerInstanceCertKey(instaceID))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+
+	if value == nil {
+		return nil
+	}
+
+	err = yaml.Unmarshal([]byte(*value), cert)
+	if err != nil {
+		panic(fmt.Errorf("BUG: unmarshal %s to yaml failed: %v", *value, err))
+	}
+	return nil
+}
+
+// ListAllIngressControllerInstanceSpecs lists all IngressController's instances specs
+func (s *Service) ListAllIngressControllerInstanceSpecs() []*spec.ServiceInstanceSpec {
+	specs := []*spec.ServiceInstanceSpec{}
+
+	kvs, err := s.store.GetPrefix(layout.AllIngressControllerInstanceCertPrefix())
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+
+	for _, v := range kvs {
+		_spec := &spec.ServiceInstanceSpec{}
+		if err = yaml.Unmarshal([]byte(v), _spec); err != nil {
+			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
+			continue
+		}
+
+		specs = append(specs, _spec)
+	}
+
+	return specs
 }
 
 // ListIngressSpecs lists the ingress specs

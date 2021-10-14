@@ -32,16 +32,20 @@ const (
 	serviceInstanceSpec            = "/mesh/service-instances/spec/%s/%s"   // +serviceName +instanceID
 	serviceInstanceStatus          = "/mesh/service-instances/status/%s/%s" // +serviceName +instanceID
 
+	allIngressControllerInstanceSpecPrefix = "/mesh/ingresscontroller/spec/"
+	ingressControllerInstanceSpecPrefix    = "/mesh/ingresscontroller/spec/%s" //+instanceID
+
 	tenant       = "/mesh/tenants/%s" // +tenantName
 	tenantPrefix = "/mesh/tenants/"
 
 	ingress       = "/mesh/ingress/%s" // + ingressName
 	ingressPrefix = "/mesh/ingress/"
 
-	serviceCert           = "/mesh/cert/service-cert/%s" // + ServiceName
-	allServiceCertPrefix  = "/mesh/cert/service-cert/"
-	rootCert              = "/mesh/cert/root-cert"
-	ingressControllerCert = "/mesh/cert/ingress-controller-cert"
+	serviceInstanceCert                    = "/mesh/cert/service-cert/%s/%s" // + ServiceName + InstanceID
+	allServiceCertPrefix                   = "/mesh/cert/service-cert/"
+	rootCert                               = "/mesh/cert/root-cert"
+	ingressControllerInstanceCert          = "/mesh/cert/ingress-controller-cert/%s"
+	allIngressControllerInstanceCertPrefix = "/mesh/cert/ingress-controller-cert/"
 
 	customResourceKindPrefix = "/mesh/custom-resource-kinds/"
 	customResourceKind       = "/mesh/custom-resource-kinds/%s/" // +kind
@@ -142,9 +146,9 @@ func CustomResourceKey(kind, name string) string {
 	return fmt.Sprintf(customResource, kind, name)
 }
 
-// ServiceCertKey returns the key of specified service's cert.
-func ServiceCertKey(name string) string {
-	return fmt.Sprintf(serviceCert, name)
+// ServiceInstanceCertKey returns the key of specified service's cert.
+func ServiceInstanceCertKey(name, instanceID string) string {
+	return fmt.Sprintf(serviceInstanceCert, instanceID, name)
 }
 
 // AllServiceCertPrefix returns the prefix of all service's cert.
@@ -157,7 +161,22 @@ func RootCertKey() string {
 	return rootCert
 }
 
-// IngressControllerCertKey returns the ingress controller cert key.
-func IngressControllerCertKey() string {
-	return ingressControllerCert
+// IngressControllerInstanceCertKey returns one ingresscontroller's instance key.
+func IngressControllerInstanceCertKey(instanceID string) string {
+	return fmt.Sprintf(IngressControllerInstanceCertKey(instanceID))
+}
+
+// IngressControllerInstanceSpecKey returns one ingresscontroller's instance key.
+func IngressControllerInstanceSpecKey(instanceID string) string {
+	return fmt.Sprintf(ingressControllerInstanceSpecPrefix, instanceID)
+}
+
+// AllIngressControllerInstanceSpecPrefix returns all instances specs prefix.
+func AllIngressControllerInstanceSpecPrefix() string {
+	return allIngressControllerInstanceSpecPrefix
+}
+
+// AllIngressControllerInstanceCertPrefix returns all instances specs prefix.
+func AllIngressControllerInstanceCertPrefix() string {
+	return allIngressControllerInstanceCertPrefix
 }

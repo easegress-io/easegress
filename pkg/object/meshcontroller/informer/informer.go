@@ -137,8 +137,8 @@ type (
 		StopWatchServiceInstanceSpec(serviceName string)
 
 		OnAllServertCert(fn ServiceCertsFunc) error
-		OnServertCert(serviceName string, fn CertFunc) error
-		OnIngressControllerCert(fn CertFunc) error
+		OnServertCert(serviceName, instanceID string, fn CertFunc) error
+		OnIngressControllerCert(instaceID string, fn CertFunc) error
 
 		Close()
 	}
@@ -566,16 +566,16 @@ func (inf *meshInformer) onCert(storeKey, syncerKey string, fn CertFunc) error {
 	return inf.onSpecPart(storeKey, syncerKey, "", specFunc)
 }
 
-func (inf *meshInformer) OnIngressControllerCert(fn CertFunc) error {
-	storeKey := layout.IngressControllerCertKey()
-	syncerKey := "ingresscontroller-cert"
+func (inf *meshInformer) OnIngressControllerCert(instanceID string, fn CertFunc) error {
+	storeKey := layout.IngressControllerInstanceCertKey(instanceID)
+	syncerKey := fmt.Sprintf("ingresscontroller-%s-cert", instanceID)
 	return inf.onCert(storeKey, syncerKey, fn)
 
 }
 
-func (inf *meshInformer) OnServertCert(serviceName string, fn CertFunc) error {
-	storeKey := layout.ServiceCertKey(serviceName)
-	syncerKey := fmt.Sprintf("service-%s-cert", serviceName)
+func (inf *meshInformer) OnServertCert(serviceName, instanceID string, fn CertFunc) error {
+	storeKey := layout.ServiceInstanceCertKey(serviceName, instanceID)
+	syncerKey := fmt.Sprintf("service-%s-%s-cert", serviceName, instanceID)
 
 	return inf.onCert(storeKey, syncerKey, fn)
 }

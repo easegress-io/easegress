@@ -90,14 +90,14 @@ func New(superSpec *supervisor.Spec) *Master {
 
 	return m
 }
-func (m *Master) onAllServiceCerts(value map[string]*spec.Service) bool {
-	var serviceSpecs []*spec.Service
+func (m *Master) onAllServiceInstances(value map[string]*spec.ServiceInstanceSpec) bool {
+	var instanceSpecs []*spec.ServiceInstanceSpec
 	for _, v := range value {
-		serviceSpecs = append(serviceSpecs, v)
+		instanceSpecs = append(instanceSpecs, v)
 	}
-	err := m.certMananger.SignServices(serviceSpecs)
+	err := m.certMananger.SignServiceInstances(instanceSpecs)
 	if err != nil {
-		logger.Errorf("inf sing all services failed: %v", err)
+		logger.Errorf("inf sing all service instance failed: %v", err)
 	}
 	return true
 }
@@ -119,8 +119,8 @@ func (m *Master) securityRoutine() error {
 		go m.signRootCert()
 		go m.signAppCerts()
 
-		// watch all services in mesh for their cert
-		m.inf.OnAllServiceSpecs(m.onAllServiceCerts)
+		// watch all services instances in mesh for their cert
+		m.inf.OnAllServiceInstanceSpecs(m.onAllServiceInstances)
 	} else {
 		m.certMananger.CleanAllCerts()
 	}
@@ -183,9 +183,9 @@ func (m *Master) signAppCerts() {
 					err, debug.Stack())
 			}
 		}()
-		serviceSpecs := m.service.ListServiceSpecs()
-		if err := m.certMananger.SignServices(serviceSpecs); err != nil {
-			logger.Errorf("certmanager resign all services cert failed: %v", err)
+		instanceSpes := m.service.ListAllServiceInstanceSpecs()
+		if err := m.certMananger.SignServiceInstances(instanceSpes); err != nil {
+			logger.Errorf("certmanager sign all services instances cert failed: %v", err)
 		}
 	}
 	for {

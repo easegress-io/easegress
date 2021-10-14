@@ -45,6 +45,7 @@ type (
 		tc        *trafficcontroller.TrafficController
 		namespace string
 		inf       informer.Informer
+		instaceID string
 
 		serviceName      string
 		egressServerName string
@@ -62,7 +63,7 @@ type (
 
 // NewEgressServer creates an initialized egress server
 func NewEgressServer(superSpec *supervisor.Spec, super *supervisor.Supervisor,
-	serviceName string, service *service.Service, inf informer.Informer) *EgressServer {
+	serviceName, instanceID string, service *service.Service, inf informer.Informer) *EgressServer {
 
 	entity, exists := super.GetSystemController(trafficcontroller.Kind)
 	if !exists {
@@ -84,6 +85,7 @@ func NewEgressServer(superSpec *supervisor.Spec, super *supervisor.Supervisor,
 		pipelines:   make(map[string]*supervisor.ObjectEntity),
 		serviceName: serviceName,
 		service:     service,
+		instaceID:   instanceID,
 	}
 }
 
@@ -139,7 +141,7 @@ func (egs *EgressServer) InitEgress(service *spec.Service) error {
 		}
 	}
 
-	if err := egs.inf.OnServertCert(egs.serviceName, egs.reloadByCert); err != nil {
+	if err := egs.inf.OnServertCert(egs.serviceName, egs.instaceID, egs.reloadByCert); err != nil {
 		if err != informer.ErrAlreadyWatched {
 			logger.Errorf("add egress spec watching service: %s failed: %v", service.Name, err)
 			return err
@@ -161,10 +163,8 @@ func (egs *EgressServer) _ready() bool {
 }
 
 func (egs *EgressServer) getCerts() map[string]*spec.Certificate {
-	rootCert := egs.service.GetRootCert()
-	cert := egs.service.GetServiceCert(egs.serviceName)
+	cert := egs.service.GetServiceInstanceCert(egs.serviceName, egs.instaceID)
 	certs := make(map[string]*spec.Certificate)
-	certs[spec.DefaultCommonName] = rootCert
 	certs[egs.serviceName] = cert
 	return certs
 }
@@ -176,7 +176,7 @@ func (egs *EgressServer) reloadByCert(event informer.Event, value *spec.Certific
 		mSpecs[v.Name] = v
 	}
 
-	egs.reloadHTTPServer(mSpecs, egs.getCerts())
+	egs.reloadHTTPServer(mSpecs)
 	return false
 }
 
@@ -189,17 +189,11 @@ func (egs *EgressServer) reloadByInstances(value map[string]*spec.ServiceInstanc
 		}
 	}
 
-	return egs.reloadHTTPServer(specs, egs.getCerts())
+	return egs.reloadHTTPServer(specs)
 }
 
 func (egs *EgressServer) reloadBySpecs(value map[string]*spec.Service) bool {
-	rootCert := egs.service.GetRootCert()
-	cert := egs.service.GetServiceCert(egs.serviceName)
-	certs := make(map[string]*spec.Certificate)
-	certs[spec.DefaultCommonName] = rootCert
-	certs[egs.serviceName] = cert
-
-	return egs.reloadHTTPServer(value, nil)
+	return egs.reloadHTTPServer(value)
 }
 
 // regex rule: ^(\w+\.)*vet-services\.(\w+)\.svc\..+$
@@ -210,14 +204,14 @@ func (egs *EgressServer) buildHostRegex(serviceName string) string {
 	return `^(\w+\.)*` + serviceName + `\.(\w+)\.svc\..+`
 }
 
-func (egs *EgressServer) reloadHTTPServer(specs map[string]*spec.Service, certs map[string]*spec.Certificate) bool {
+func (egs *EgressServer) reloadHTTPServer(specs map[string]*spec.Service) bool {
 	egs.mutex.Lock()
 	defer egs.mutex.Unlock()
 
 	admSpec := egs.superSpec.ObjectSpec().(*spec.Admin)
 	var cert, rootCert *spec.Certificate
 	if admSpec.EnablemTLS() {
-		cert = egs.service.GetServiceCert(egs.serviceName)
+		cert = egs.service.GetServiceInstanceCert(egs.serviceName, egs.instaceID)
 		rootCert = egs.service.GetRootCert()
 	}
 

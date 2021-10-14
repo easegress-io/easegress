@@ -27,14 +27,13 @@ import (
 )
 
 const (
-	typeCert                     = "CERTIFICATE"
-	typeKey                      = "RSA PRIVATE KEY"
-	defaultRootCertCountry       = "cn"
-	defaultRootCertLocality      = "beijing"
-	defaultRootCertOrganization  = "megaease"
-	defaultRsaBits               = 2046
-	defaultSerialNumber          = 202100
-	defaultIngressControllerName = "mesh-deafult-ingress-controller"
+	typeCert                    = "CERTIFICATE"
+	typeKey                     = "RSA PRIVATE KEY"
+	defaultRootCertCountry      = "cn"
+	defaultRootCertLocality     = "beijing"
+	defaultRootCertOrganization = "megaease"
+	defaultRsaBits              = 2046
+	defaultSerialNumber         = 202100
 )
 
 type (
@@ -50,26 +49,26 @@ type (
 	// CertProvider is the interface declaring the methods for the Certificate provider, such as
 	//   easemesh-self-sign, Valt, and so on.
 	CertProvider interface {
-		// SignAppCertAndKey  signs a cert, key pair for one service
-		SignAppCertAndKey(serviceName string, ttl time.Duration) (cert *spec.Certificate, err error)
+		// SignAppCertAndKey  signs a cert, key pair for one service's instance
+		SignAppCertAndKey(serviceName string, IP string, ttl time.Duration) (cert *spec.Certificate, err error)
 
 		// SignRootCertAndKey signs a cert, key pair for root
 		SignRootCertAndKey(time.Duration) (cert *spec.Certificate, err error)
 
-		// GetAppCertAndKey gets cert and key for one service
-		GetAppCertAndKey(serviceName string) (cert *spec.Certificate, err error)
+		// GetAppCertAndKey gets cert and key for one service's instance
+		GetAppCertAndKey(serviceName, IP string) (cert *spec.Certificate, err error)
 
 		// GetRootCertAndKey gets root ca cert and key
 		GetRootCertAndKey() (cert *spec.Certificate, err error)
 
-		// ReleaseAppCertAndKey releases one service's cert and key
-		ReleaseAppCertAndKey(serviceName string) error
+		// ReleaseAppCertAndKey releases one service instance's cert and key
+		ReleaseAppCertAndKey(serviceName, IP string) error
 
 		// ReleaseRootCertAndKey releases root CA cert and key
 		ReleaseRootCertAndKey() error
 
 		// SetRootCertAndKey sets exists app cert
-		SetAppCertAndKey(serviceName string, cert *spec.Certificate) error
+		SetAppCertAndKey(serviceName, IP string, cert *spec.Certificate) error
 
 		// SetRootCertAndKey sets exists root cert into provider
 		SetRootCertAndKey(cert *spec.Certificate) error
@@ -103,12 +102,13 @@ func (cm *CertManager) init() {
 		return
 	}
 
-	serviceSpecs := cm.service.ListServiceSpecs()
-	err = cm.SignServices(serviceSpecs)
+	instanceSpecs := cm.service.ListAllServiceInstanceSpecs()
+	err = cm.SignServiceInstances(instanceSpecs)
 	if err != nil {
 		logger.Errorf("certmanager sign all service failed: %v", err)
 		return
 	}
+
 }
 
 // CleanAllCerts cleans all exist cert records in Mesh Etcd.
@@ -119,11 +119,19 @@ func (cm *CertManager) CleanAllCerts() error {
 		cm.Provider.ReleaseRootCertAndKey()
 	}
 
-	serviceCerts := cm.service.ListServiceCerts()
-	for _, v := range serviceCerts {
+	instances := cm.service.ListAllServiceInstanceSpecs()
+	for _, v := range instances {
 		if v != nil {
-			cm.service.DeleteServiceCert(v.ServiceName)
-			cm.Provider.ReleaseAppCertAndKey(v.ServiceName)
+			cm.service.DelServiceInstanceCert(v.ServiceName, v.InstanceID)
+			cm.Provider.ReleaseAppCertAndKey(v.ServiceName, v.IP)
+		}
+	}
+
+	ingressInstances := cm.service.ListAllIngressControllerInstanceSpecs()
+	for _, v := range ingressInstances {
+		if v != nil {
+			cm.service.DelIngressControllerInstanceCert(v.InstanceID)
+			cm.Provider.ReleaseAppCertAndKey(v.ServiceName, v.IP)
 		}
 	}
 	return nil
@@ -167,6 +175,7 @@ func (cm *CertManager) SignRootCert() error {
 	if cm.needSign(rootCert) {
 		rootCert, err = cm.Provider.SignRootCertAndKey(cm.rootCertTTL)
 		if err != nil {
+			logger.Errorf("sign root cert failed: %v", err)
 			return err
 		}
 		cm.service.PutRootCert(rootCert)
@@ -178,70 +187,103 @@ func (cm *CertManager) SignRootCert() error {
 			cm.ForceSignAllServices()
 		}
 	}
+	logger.Infof("sign root cert ok")
 	return nil
 }
 
 // SignIngressController signs ingress controller's cert.
 func (cm *CertManager) SignIngressController() error {
 	var err error
-	cert := cm.service.GetIngressControllerCert()
+	instanceSpecs := cm.service.ListAllServiceInstanceSpecs()
 
-	if cm.needSign(cert) {
-		cert, err = cm.Provider.SignAppCertAndKey(defaultIngressControllerName, cm.appCertTTL)
-		if err != nil {
-			logger.Errorf("sign ingress controller failed: %v", err)
-			return err
+	for _, ins := range instanceSpecs {
+		if ins.Status != spec.ServiceStatusUp {
+			logger.Errorf("ingress controller instance %s is not up, release cert", ins.InstanceID)
+			cm.service.DelIngressControllerInstanceCert(ins.InstanceID)
+			cm.Provider.ReleaseAppCertAndKey(spec.IngressControllerName, ins.IP)
+			continue
 		}
-		cm.service.PutIngressControllerCert(cert)
-	} else {
-		// set cert from Etcd to provider manually
-		if providerCert, err := cm.Provider.GetAppCertAndKey(defaultIngressControllerName); err != nil || !reflect.DeepEqual(providerCert, cert) {
-			cm.Provider.SetAppCertAndKey(defaultIngressControllerName, cert)
+		cert := cm.service.GetIngressControllerInstanceCert(ins.InstanceID)
+		if cm.needSign(cert) {
+			cert, err = cm.Provider.SignAppCertAndKey(spec.IngressControllerName, cert.IP, cm.appCertTTL)
+			if err != nil {
+				logger.Errorf("sign ingress controller failed: %v", err)
+				return err
+			}
+			cm.service.PutIngressControllerInstanceCert(ins.InstanceID, cert)
+		} else {
+			// set cert from Etcd to provider manually
+			if providerCert, err := cm.Provider.GetAppCertAndKey(spec.IngressControllerName, ins.IP); err != nil || !reflect.DeepEqual(providerCert, cert) {
+				cm.Provider.SetAppCertAndKey(spec.IngressControllerName, ins.IP, cert)
+			}
 		}
 	}
+	logger.Infof("sign ingress controller ok")
+
 	return nil
 }
 
 // ForceSignAllServices resigns all services inside mesh regradless it's expired or not.
 func (cm *CertManager) ForceSignAllServices() {
-	serviceSpecs := cm.service.ListServiceSpecs()
-	for _, v := range serviceSpecs {
-		newCert, err := cm.Provider.SignAppCertAndKey(v.Name, cm.appCertTTL)
+	serviceInstanceSpecs := cm.service.ListAllServiceInstanceSpecs()
+	for _, v := range serviceInstanceSpecs {
+		if v.Status != spec.ServiceStatusUp {
+			continue
+		}
+		newCert, err := cm.Provider.SignAppCertAndKey(v.ServiceName, v.IP, cm.appCertTTL)
 		if err != nil {
-			logger.Errorf("service: %s sign cert failed, err: %v", v.Name, err)
+			logger.Errorf("service: %s sign cert failed, err: %v", v.ServiceName, err)
 			continue
 		}
 
-		cm.service.PutServiceCert(newCert)
+		cm.service.PutServiceInstanceCert(v.ServiceName, v.InstanceID, newCert)
 	}
+	logger.Infof("try to sign len: %d", len(serviceInstanceSpecs))
 
-	cert, err := cm.Provider.SignAppCertAndKey(defaultIngressControllerName, cm.appCertTTL)
-	if err != nil {
-		logger.Errorf("sign ingress controller cert failed, err: %v", err)
-		return
+	ingressControllerInstances := cm.service.ListAllIngressControllerInstanceSpecs()
+	for _, v := range ingressControllerInstances {
+		if v.Status != spec.ServiceStatusUp {
+			continue
+		}
+		newCert, err := cm.Provider.SignAppCertAndKey(spec.IngressControllerName, v.IP, cm.appCertTTL)
+		if err != nil {
+			logger.Errorf("ingress controller  sign cert failed, err: %v", v.ServiceName, err)
+			continue
+		}
+
+		cm.service.PutIngressControllerInstanceCert(v.InstanceID, newCert)
 	}
-	cm.service.PutIngressControllerCert(cert)
+	logger.Infof("try to sign ingresscontroller len: %d", len(ingressControllerInstances))
+
 }
 
-// SignServices signs services' cert by serviceSpecs parameter in mesh.
-func (cm *CertManager) SignServices(serviceSpecs []*spec.Service) error {
-	for _, v := range serviceSpecs {
-		originCert := cm.service.GetServiceCert(v.Name)
+// SignServiceInstances signs services' instances cert by instanceSpecs parameter.
+func (cm *CertManager) SignServiceInstances(instanceSpecs []*spec.ServiceInstanceSpec) error {
+	for _, v := range instanceSpecs {
+		if v.Status != spec.ServiceStatusUp {
+			logger.Infof("service: %s instance %s is not up, not need to sign", v.ServiceName, v.InstanceID)
+			cm.service.DelIngressControllerInstanceCert(v.InstanceID)
+			cm.Provider.ReleaseAppCertAndKey(v.ServiceName, v.IP)
+			continue
+		}
+		originCert := cm.service.GetServiceInstanceCert(v.ServiceName, v.InstanceID)
 		if originCert == nil || cm.needSign(originCert) {
-			newCert, err := cm.Provider.SignAppCertAndKey(v.Name, cm.appCertTTL)
+			newCert, err := cm.Provider.SignAppCertAndKey(v.ServiceName, v.IP, cm.appCertTTL)
 			if err != nil {
-				logger.Errorf("%s sign cert failed, err: %v", v.Name, err)
+				logger.Errorf("%s sign instance: %s cert failed, err: %v", v.ServiceName, v.InstanceID, err)
 				continue
 			}
 
-			cm.service.PutServiceCert(newCert)
+			cm.service.PutServiceInstanceCert(v.ServiceName, v.InstanceID, newCert)
 		}
 
-		if providerCert, err := cm.Provider.GetAppCertAndKey(v.Name); err != nil || !reflect.DeepEqual(originCert, providerCert) {
+		if providerCert, err := cm.Provider.GetAppCertAndKey(v.ServiceName, v.IP); err != nil || !reflect.DeepEqual(originCert, providerCert) {
 			// correct the provider's cert value according to Mesh Etcd's
-			cm.Provider.SetAppCertAndKey(v.Name, originCert)
+			cm.Provider.SetAppCertAndKey(v.ServiceName, v.IP, originCert)
 		}
 	}
+
+	logger.Infof("sign all service instance , len: %d", len(instanceSpecs))
 
 	// sign ingress controller
 	if err := cm.SignIngressController(); err != nil {

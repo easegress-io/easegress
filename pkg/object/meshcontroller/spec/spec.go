@@ -75,6 +75,15 @@ const (
 
 	// CertProviderSelfSign is the in-memory, self-sign cert provider.
 	CertProviderSelfSign = "selfSign"
+
+	// IngressControllerName is the name of easemesh ingress controller.
+	IngressControllerName = "ingresscontroller"
+
+	// from k8s pod's env value
+
+	PodEnvHostname = "HOSTNAME"
+	//
+	PodEnvApplicationIP = "APPLICATION_IP"
 )
 
 var (
@@ -258,7 +267,8 @@ type (
 
 	// Certificate is one cert for mesh service or root CA.
 	Certificate struct {
-		ServiceName string `yaml:"servieName" jsonschema:"omitempty"`
+		IP          string `yaml:"IP" jsonschema:"required"`
+		ServiceName string `yaml:"servieName" jsonschema:"required"`
 		CertBase64  string `yaml:"CertBase64" jsonschema:"required"`
 		KeyBase64   string `yaml:"KeyBase64" jsonschema:"required"`
 		TTL         string `yaml:"ttl" jsonschema:"required,format=duration"`
@@ -504,12 +514,24 @@ func (b *pipelineSpecBuilder) appendProxyWithCanary(instanceSpecs []*ServiceInst
 	mainServers := []*proxy.Server{}
 	canaryInstances := []*ServiceInstanceSpec{}
 
+	needMTLS := false
+	if cert != nil && rootCert != nil {
+		needMTLS = true
+	}
+
 	for k, instanceSpec := range instanceSpecs {
 		if instanceSpec.Status == ServiceStatusUp {
 			if len(instanceSpec.Labels) == 0 {
-				mainServers = append(mainServers, &proxy.Server{
-					URL: fmt.Sprintf("http://%s:%d", instanceSpec.IP, instanceSpec.Port),
-				})
+				if needMTLS {
+					mainServers = append(mainServers, &proxy.Server{
+						URL: fmt.Sprintf("http://%s:%d", instanceSpec.IP, instanceSpec.Port),
+					})
+				} else {
+					mainServers = append(mainServers, &proxy.Server{
+						URL: fmt.Sprintf("https://%s:%d", instanceSpec.IP, instanceSpec.Port),
+					})
+
+				}
 			} else {
 				canaryInstances = append(canaryInstances, instanceSpecs[k])
 			}
@@ -532,9 +554,16 @@ func (b *pipelineSpecBuilder) appendProxyWithCanary(instanceSpecs []*ServiceInst
 					match := false
 					for insKey, insLabel := range ins.Labels {
 						if key == insKey && label == insLabel {
-							servers = append(servers, &proxy.Server{
-								URL: fmt.Sprintf("http://%s:%d", ins.IP, ins.Port),
-							})
+							if needMTLS {
+								servers = append(servers, &proxy.Server{
+									URL: fmt.Sprintf("https://%s:%d", ins.IP, ins.Port),
+								})
+							} else {
+								servers = append(servers, &proxy.Server{
+									URL: fmt.Sprintf("http://%s:%d", ins.IP, ins.Port),
+								})
+
+							}
 							match = true
 							break
 						}
@@ -561,7 +590,7 @@ func (b *pipelineSpecBuilder) appendProxyWithCanary(instanceSpecs []*ServiceInst
 	}
 
 	b.Flow = append(b.Flow, httppipeline.Flow{Filter: backendName})
-	if cert != nil && rootCert != nil {
+	if needMTLS {
 		b.Filters = append(b.Filters, map[string]interface{}{
 			"kind": proxy.Kind,
 			"name": backendName,
