@@ -24,7 +24,7 @@ import (
 
 const (
 	// Category is the category of Layer4Server.
-	Category = supervisor.CategoryTrafficGate
+	Category = supervisor.CategoryBusinessController
 
 	// Kind is the kind of Layer4Server.
 	Kind = "Layer4Server"
