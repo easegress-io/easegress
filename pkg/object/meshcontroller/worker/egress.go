@@ -141,12 +141,17 @@ func (egs *EgressServer) InitEgress(service *spec.Service) error {
 		}
 	}
 
-	if err := egs.inf.OnServertCert(egs.serviceName, egs.instaceID, egs.reloadByCert); err != nil {
-		if err != informer.ErrAlreadyWatched {
-			logger.Errorf("add egress spec watching service: %s failed: %v", service.Name, err)
-			return err
+	admSpec := egs.superSpec.ObjectSpec().(*spec.Admin)
+	if admSpec.EnablemTLS() {
+		logger.Infof("egress in mtls mode, start listen ID: %s's cert", egs.instaceID)
+		if err := egs.inf.OnServertCert(egs.serviceName, egs.instaceID, egs.reloadByCert); err != nil {
+			if err != informer.ErrAlreadyWatched {
+				logger.Errorf("add egress spec watching service: %s failed: %v", service.Name, err)
+				return err
+			}
 		}
 	}
+
 	return nil
 }
 

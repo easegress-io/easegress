@@ -81,8 +81,10 @@ const (
 
 	// from k8s pod's env value
 
+	// PodEnvHostname is the name of the pod in environment variable.
 	PodEnvHostname = "HOSTNAME"
-	//
+
+	// PodEnvApplicationIP is the IP of the pod in environment variable.
 	PodEnvApplicationIP = "APPLICATION_IP"
 )
 
@@ -524,11 +526,11 @@ func (b *pipelineSpecBuilder) appendProxyWithCanary(instanceSpecs []*ServiceInst
 			if len(instanceSpec.Labels) == 0 {
 				if needMTLS {
 					mainServers = append(mainServers, &proxy.Server{
-						URL: fmt.Sprintf("http://%s:%d", instanceSpec.IP, instanceSpec.Port),
+						URL: fmt.Sprintf("https://%s:%d", instanceSpec.IP, instanceSpec.Port),
 					})
 				} else {
 					mainServers = append(mainServers, &proxy.Server{
-						URL: fmt.Sprintf("https://%s:%d", instanceSpec.IP, instanceSpec.Port),
+						URL: fmt.Sprintf("http://%s:%d", instanceSpec.IP, instanceSpec.Port),
 					})
 
 				}
@@ -605,17 +607,19 @@ func (b *pipelineSpecBuilder) appendProxyWithCanary(instanceSpecs []*ServiceInst
 				RootCertBase64: rootCert.CertBase64,
 			},
 		})
-	} else {
-		b.Filters = append(b.Filters, map[string]interface{}{
-			"kind": proxy.Kind,
-			"name": backendName,
-			"mainPool": &proxy.PoolSpec{
-				Servers:     mainServers,
-				LoadBalance: lb,
-			},
-			"candidatePools": candidatePool,
-		})
+
+		return b
 	}
+
+	b.Filters = append(b.Filters, map[string]interface{}{
+		"kind": proxy.Kind,
+		"name": backendName,
+		"mainPool": &proxy.PoolSpec{
+			Servers:     mainServers,
+			LoadBalance: lb,
+		},
+		"candidatePools": candidatePool,
+	})
 
 	return b
 }

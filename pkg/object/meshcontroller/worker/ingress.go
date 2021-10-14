@@ -46,7 +46,7 @@ type (
 		applicationPort uint32
 		namespace       string
 		inf             informer.Informer
-		instaceID       string
+		instanceID      string
 
 		pipelines  map[string]*supervisor.ObjectEntity
 		httpServer *supervisor.ObjectEntity
@@ -76,7 +76,7 @@ func NewIngressServer(superSpec *supervisor.Spec, super *supervisor.Supervisor,
 		pipelines:   make(map[string]*supervisor.ObjectEntity),
 		httpServer:  nil,
 		serviceName: serviceName,
-		instaceID:   instaceID,
+		instanceID:  instaceID,
 		inf:         inf,
 		mutex:       sync.RWMutex{},
 		service:     service,
@@ -120,11 +120,11 @@ func (ings *IngressServer) InitIngress(service *spec.Service, port uint32) error
 		ings.pipelines[service.IngressPipelineName()] = entity
 	}
 
+	admSpec := ings.superSpec.ObjectSpec().(*spec.Admin)
 	if ings.httpServer == nil {
-		admSpec := ings.superSpec.ObjectSpec().(*spec.Admin)
 		var cert, rootCert *spec.Certificate
 		if admSpec.EnablemTLS() {
-			cert = ings.service.GetServiceInstanceCert(ings.serviceName, ings.instaceID)
+			cert = ings.service.GetServiceInstanceCert(ings.serviceName, ings.instanceID)
 			rootCert = ings.service.GetRootCert()
 		}
 
@@ -148,10 +148,13 @@ func (ings *IngressServer) InitIngress(service *spec.Service, port uint32) error
 		}
 	}
 
-	if err := ings.inf.OnServertCert(ings.serviceName, ings.instaceID, ings.reloadHTTPServer); err != nil {
-		if err != informer.ErrAlreadyWatched {
-			logger.Errorf("add egress spec watching service: %s failed: %v", service.Name, err)
-			return err
+	if admSpec.EnablemTLS() {
+		logger.Infof("ingress in mtls mode, start listen ID: %s's cert", ings.instanceID)
+		if err := ings.inf.OnServertCert(ings.serviceName, ings.instanceID, ings.reloadHTTPServer); err != nil {
+			if err != informer.ErrAlreadyWatched {
+				logger.Errorf("add egress spec watching service: %s failed: %v", service.Name, err)
+				return err
+			}
 		}
 	}
 
