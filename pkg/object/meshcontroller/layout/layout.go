@@ -38,6 +38,10 @@ const (
 	ingress       = "/mesh/ingress/%s" // + ingressName
 	ingressPrefix = "/mesh/ingress/"
 
+	serviceCert          = "/mesh/service-cert/%s" // + ServiceName
+	allServiceCertPrefix = "/mesh/service-cert/"
+	rootCert             = "/mesh/root-cert"
+
 	customResourceKindPrefix = "/mesh/custom-resource-kinds/"
 	customResourceKind       = "/mesh/custom-resource-kinds/%s/" // +kind
 	allCustomResourcePrefix  = "/mesh/custom-resources/"
@@ -135,4 +139,19 @@ func CustomResourcePrefix(kind string) string {
 // CustomResourceKey returns the key of specified custom object.
 func CustomResourceKey(kind, name string) string {
 	return fmt.Sprintf(customResource, kind, name)
+}
+
+// ServiceCertKey returns the key of specified service's cert.
+func ServiceCertKey(name string) string {
+	return fmt.Sprintf(serviceCert, name)
+}
+
+// AllServiceCertPrefix returns the prefix of all service's cert.
+func AllServiceCertPrefix() string {
+	return allServiceCertPrefix
+}
+
+// RootCertKey returns the root cert key.
+func RootCertKey() string {
+	return rootCert
 }

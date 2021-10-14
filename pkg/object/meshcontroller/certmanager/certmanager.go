@@ -3,8 +3,22 @@ package certmanager
 import (
 	"time"
 
+	"github.com/megaease/easegress/pkg/object/meshcontroller/service"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/storage"
+)
+
+const (
+	// DefaultCommonName is the name of root ca cert.
+	DefaultCommonName = "mesh-root-ca"
+
+	typeCert                    = "CERTIFICATE"
+	typeKey                     = "RSA PRIVATE KEY"
+	defaultRootCertCountry      = "cn"
+	defaultRootCertLocality     = "beijing"
+	defaultRootCertOrganization = "megaease"
+	defaultRsaBits              = 2046
+	defaultSerialNumber         = 202100
 )
 
 type (
@@ -14,22 +28,23 @@ type (
 		RootCARefreshInterval time.Duration
 		AppRefreshInterval    time.Duration
 		Provider              CertProvider
+		service               *service.Service
 	}
 
 	// CertProvider is the interface declaring the methods for the Certificate provider, such as
-	//   easemesh-self-issue, Valt, and so on.
+	//   easemesh-self-Sign, Valt, and so on.
 	CertProvider interface {
-		// IssueAppCertAndKey  issues a cert, key pair for one service
-		IssueAppCertAndKey(serviceName string, ttl time.Duration) (cert spec.Certificate, err error)
+		// SignAppCertAndKey  Signs a cert, key pair for one service
+		SignAppCertAndKey(serviceName string, ttl time.Duration) (cert *spec.Certificate, err error)
 
-		// IssueRootCertAndKey issues a cert, key pair for root
-		IssueRootCertAndKey(time.Duration) (cert spec.Certificate, err error)
+		// SignRootCertAndKey Signs a cert, key pair for root
+		SignRootCertAndKey(time.Duration) (cert *spec.Certificate, err error)
 
 		// GetAppCertAndKey get cert and key for one service
-		GetAppCertAndKey(serviceName string) (cert spec.Certificate, err error)
+		GetAppCertAndKey(serviceName string) (cert *spec.Certificate, err error)
 
 		// GetRootCertAndKey get root ca cert and key
-		GetRootCertAndKey() (cert spec.Certificate, err error)
+		GetRootCertAndKey() (cert *spec.Certificate, err error)
 
 		// ReleaseAppCertAndKey releases one service's cert and key
 		ReleaseAppCertAndKey(serviceName string) error
@@ -46,7 +61,6 @@ func NewCertManager(rootCARefreshInterval, appRefreshInterval string, store stor
 
 // RefreshRootCertAndKey refreshes the root ca cert/key
 func (cm *CertManager) RefreshRootCertAndKey(done chan struct{}) (cert spec.Certificate, err error) {
-
 	// check whether root cert/key need to be updated
 
 	// if so, also update all system's service cert/key

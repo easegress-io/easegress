@@ -177,6 +177,110 @@ func (s *Service) ListServiceSpecs() []*spec.Service {
 	return services
 }
 
+// GetServiceCert gets one specified service's cert
+func (s *Service) GetServiceCert(serviceName string) *spec.Certificate {
+	value, err := s.store.Get(layout.ServiceCertKey(serviceName))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+
+	if value == nil {
+		return nil
+	}
+
+	cert := &spec.Certificate{}
+	err = yaml.Unmarshal([]byte(*value), cert)
+	if err != nil {
+		panic(fmt.Errorf("BUG: unmarshal %s to yaml failed: %v", *value, err))
+	}
+
+	return cert
+}
+
+// PutServiceCert puts one service's cert.
+func (s *Service) PutServiceCert(cert *spec.Certificate) {
+	buff, err := yaml.Marshal(cert)
+	if err != nil {
+		panic(fmt.Errorf("BUG: marshal %#v to yaml failed: %v", cert, err))
+	}
+
+	err = s.store.Put(layout.ServiceCertKey(cert.ServiceName), string(buff))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+}
+
+// DeleteServiceCert deletes one service's cert.
+func (s *Service) DeleteServiceCert(serviceName string) {
+	err := s.store.Delete(layout.ServiceCertKey(serviceName))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+}
+
+// ListServiceCerts lists services certs.
+func (s *Service) ListServiceCerts() []*spec.Certificate {
+	certs := []*spec.Certificate{}
+	values, err := s.store.GetPrefix(layout.AllServiceCertPrefix())
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+
+	for _, v := range values {
+		cert := &spec.Certificate{}
+		err := yaml.Unmarshal([]byte(v), cert)
+		if err != nil {
+			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
+			continue
+		}
+		certs = append(certs, cert)
+	}
+
+	return certs
+}
+
+// GetRootCert  gets the root cert.
+func (s *Service) GetRootCert() *spec.Certificate {
+	value, err := s.store.Get(layout.RootCertKey())
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+
+	if value == nil {
+		return nil
+	}
+
+	cert := &spec.Certificate{}
+	err = yaml.Unmarshal([]byte(*value), cert)
+	if err != nil {
+		panic(fmt.Errorf("BUG: unmarshal %s to yaml failed: %v", *value, err))
+	}
+
+	return cert
+}
+
+// PutRootCert puts the root cert.
+func (s *Service) PutRootCert(cert *spec.Certificate) {
+	buff, err := yaml.Marshal(cert)
+	if err != nil {
+		panic(fmt.Errorf("BUG: marshal %#v to yaml failed: %v", cert, err))
+	}
+
+	err = s.store.Put(layout.RootCertKey(), string(buff))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+	return
+}
+
+//  DelRootCert deletes root cert.
+func (s *Service) DelRootCert() {
+	err := s.store.Delete(layout.RootCertKey())
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+}
+
 // GetTenantSpec gets tenant spec with its name
 func (s *Service) GetTenantSpec(tenantName string) *spec.Tenant {
 	tenant, _ := s.GetTenantSpecWithInfo(tenantName)

@@ -121,7 +121,7 @@ func New(superSpec *supervisor.Spec) *Worker {
 	registryCenterServer := registrycenter.NewRegistryCenterServer(spec.RegistryType,
 		superSpec.Name(), serviceName, applicationIP, applicationPort,
 		instanceID, serviceLabels, _service, inf)
-	ingressServer := NewIngressServer(superSpec, super, serviceName, inf)
+	ingressServer := NewIngressServer(superSpec, super, serviceName, _service, inf)
 	egressServer := NewEgressServer(superSpec, super, serviceName, _service, inf)
 
 	observabilityManager := NewObservabilityServer(serviceName)

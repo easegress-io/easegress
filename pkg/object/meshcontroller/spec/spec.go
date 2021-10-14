@@ -62,6 +62,15 @@ const (
 
 	// HeartbeatInterval is the default heartbeat interval for checking service heartbeat
 	HeartbeatInterval = "5s"
+
+	// SecurityLevelPermissive is the level for not enabling mTLS.
+	SecurityLevelPermissive = "permissive"
+
+	// SecurityLevelStrict is the level for enabling mTLS.
+	SecurityLevelStrict = "strict"
+
+	// DefaultCommonName is the name of root ca cert.
+	DefaultCommonName = "mesh-root-ca"
 )
 
 var (
@@ -92,6 +101,17 @@ type (
 		IngressPort int `yaml:"ingressPort" jsonschema:"required"`
 
 		ExternalServiceRegistry string `yaml:"externalServiceRegistry" jsonschema:"omitempty"`
+
+		Security *Security `yaml:"security" jsonschema:"omitempty"`
+	}
+
+	// Security is the spec for mesh-wide security.
+	Security struct {
+		MtlsMode   string `yaml:"mtlsMode" jsonschema:"required"`
+		CaProvider string `yaml:"caProvider" jsonschema:"required"`
+
+		RootCertRefreshInterval string `yaml:"rootCertRefreshInterval" jsonschema:"required"`
+		AppCertRefreshInterval  string `yaml:"appCertRefreshInterval" jsonschema:"required"`
 	}
 
 	// Service contains the information of service.
@@ -238,7 +258,7 @@ type (
 		CertBase64  string `yaml:"CertBase64" jsonschema:"required"`
 		KeyBase64   string `yaml:"KeyBase64" jsonschema:"required"`
 		TTL         string `yaml:"ttl" jsonschema:"required,format=duration"`
-		IssueTime   string `yaml:"issueTime" jsonschema:"required,format=timerfc3339"`
+		SignTime    string `yaml:"signTime" jsonschema:"required,format=timerfc3339"`
 	}
 
 	// ServiceInstanceSpec is the spec of service instance.
@@ -328,6 +348,14 @@ func (a Admin) Validate() error {
 	}
 
 	return nil
+}
+
+// NeedmTLS indicates whether we should enable mTLS in mesh or not.
+func (a Admin) NeedmTLS() bool {
+	if a.Security != nil && a.Security.MtlsMode == SecurityLevelStrict {
+		return true
+	}
+	return false
 }
 
 // Key returns the key of ServiceInstanceSpec.
@@ -438,7 +466,7 @@ func (b *pipelineSpecBuilder) appendTimeLimiter(tl *timelimiter.Spec) *pipelineS
 	return b
 }
 
-func (b *pipelineSpecBuilder) appendProxyWithCanary(instanceSpecs []*ServiceInstanceSpec, canary *Canary, lb *proxy.LoadBalance) *pipelineSpecBuilder {
+func (b *pipelineSpecBuilder) appendProxyWithCanary(instanceSpecs []*ServiceInstanceSpec, canary *Canary, lb *proxy.LoadBalance, cert, rootCert *Certificate) *pipelineSpecBuilder {
 	mainServers := []*proxy.Server{}
 	canaryInstances := []*ServiceInstanceSpec{}
 
@@ -498,6 +526,13 @@ func (b *pipelineSpecBuilder) appendProxyWithCanary(instanceSpecs []*ServiceInst
 		}
 	}
 
+	certBase64, keyBase64, rootCertBase64 := "", "", ""
+	if cert != nil && rootCert != nil {
+		certBase64 = cert.CertBase64
+		keyBase64 = cert.KeyBase64
+		rootCertBase64 = rootCert.CertBase64
+	}
+
 	b.Flow = append(b.Flow, httppipeline.Flow{Filter: backendName})
 	b.Filters = append(b.Filters, map[string]interface{}{
 		"kind": proxy.Kind,
@@ -507,6 +542,9 @@ func (b *pipelineSpecBuilder) appendProxyWithCanary(instanceSpecs []*ServiceInst
 			LoadBalance: lb,
 		},
 		"candidatePools": candidatePool,
+		"certBase64":     certBase64,
+		"keyBase64":      keyBase64,
+		"rootCertBase64": rootCertBase64,
 	})
 
 	return b
@@ -583,7 +621,8 @@ rules:`
 func (s *Service) IngressPipelineSpec(instanceSpecs []*ServiceInstanceSpec) (*supervisor.Spec, error) {
 	pipelineSpecBuilder := newPipelineSpecBuilder(s.IngressPipelineName())
 
-	pipelineSpecBuilder.appendProxyWithCanary(instanceSpecs, s.Canary, s.LoadBalance)
+	// inner pipeline won't need to active tls config for visiting the local app
+	pipelineSpecBuilder.appendProxyWithCanary(instanceSpecs, s.Canary, s.LoadBalance, nil, nil)
 
 	yamlConfig := pipelineSpecBuilder.yamlConfig()
 	superSpec, err := supervisor.NewSpec(yamlConfig)
@@ -596,13 +635,15 @@ func (s *Service) IngressPipelineSpec(instanceSpecs []*ServiceInstanceSpec) (*su
 }
 
 // SideCarIngressHTTPServerSpec generates a spec for sidecar ingress HTTP server
-func (s *Service) SideCarIngressHTTPServerSpec() (*supervisor.Spec, error) {
+func (s *Service) SideCarIngressHTTPServerSpec(cert *Certificate) (*supervisor.Spec, error) {
 	ingressHTTPServerFormat := `
 kind: HTTPServer
 name: %s
 port: %d
 keepAlive: false
 https: false
+certBase64: %s
+keyBase64: %s
 rules:
   - paths:
     - pathPrefix: /
@@ -610,7 +651,13 @@ rules:
 
 	name := fmt.Sprintf("mesh-ingress-server-%s", s.Name)
 	pipelineName := fmt.Sprintf("mesh-ingress-pipeline-%s", s.Name)
-	yamlConfig := fmt.Sprintf(ingressHTTPServerFormat, name, s.Sidecar.IngressPort, pipelineName)
+	certBase64, keyBase64 := "", ""
+	if cert != nil {
+		certBase64 = cert.CertBase64
+		keyBase64 = cert.KeyBase64
+	}
+	yamlConfig := fmt.Sprintf(ingressHTTPServerFormat, name,
+		s.Sidecar.IngressPort, certBase64, keyBase64, pipelineName)
 
 	superSpec, err := supervisor.NewSpec(yamlConfig)
 	if err != nil {
@@ -736,7 +783,7 @@ func (s *Service) SideCarIngressPipelineSpec(applicationPort uint32) (*superviso
 }
 
 // SideCarEgressPipelineSpec returns a spec for sidecar egress pipeline
-func (s *Service) SideCarEgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec) (*supervisor.Spec, error) {
+func (s *Service) SideCarEgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec, certs map[string]*Certificate) (*supervisor.Spec, error) {
 	pipelineSpecBuilder := newPipelineSpecBuilder(s.EgressPipelineName())
 
 	if !s.Runnable() {
@@ -748,9 +795,8 @@ func (s *Service) SideCarEgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec
 			pipelineSpecBuilder.appendCircuitBreaker(s.Resilience.CircuitBreaker)
 		}
 
-		pipelineSpecBuilder.appendProxyWithCanary(instanceSpecs, s.Canary, s.LoadBalance)
+		pipelineSpecBuilder.appendProxyWithCanary(instanceSpecs, s.Canary, s.LoadBalance, certs[s.Name], certs[DefaultCommonName])
 	}
-
 	yamlConfig := pipelineSpecBuilder.yamlConfig()
 	superSpec, err := supervisor.NewSpec(yamlConfig)
 	if err != nil {

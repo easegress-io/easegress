@@ -106,6 +106,15 @@ type (
 	// IngressSpecsFunc is the callback function type for service specs.
 	IngressSpecsFunc func(value map[string]*spec.Ingress) bool
 
+	// ServiceCertsFunc is the callback function type for service certs.
+	ServiceCertsFunc func(value map[string]*spec.Certificate) bool
+
+	// ServiceCertFunc is the callback function type for service cert.
+	ServiceCertFunc func(event Event, value *spec.Certificate) bool
+
+	// RootCertFunc is the callback function type for root cert.
+	// RootCertFunc func(event Event, cert *spec.Certificate) bool
+
 	// Informer is the interface for informing two type of storage changed for every Mesh spec structure.
 	//  1. Based on comparison between old and new part of entry.
 	//  2. Based on comparison on entries with the same prefix.
@@ -129,6 +138,10 @@ type (
 
 		StopWatchServiceSpec(serviceName string, gjsonPath GJSONPath)
 		StopWatchServiceInstanceSpec(serviceName string)
+
+		OnAllServertCert(fn ServiceCertsFunc) error
+		OnServertCert(serviceName string, fn ServiceCertFunc) error
+		//OnRootCert(fn RootCertFunc) error
 
 		Close()
 	}
@@ -537,6 +550,46 @@ func (inf *meshInformer) OnAllIngressSpecs(fn IngressSpecsFunc) error {
 		}
 
 		return fn(ingresss)
+	}
+
+	return inf.onSpecs(storeKey, syncerKey, specsFunc)
+}
+
+func (inf *meshInformer) OnServertCert(serviceName string, fn ServiceCertFunc) error {
+	storeKey := layout.ServiceCertKey(serviceName)
+	syncerKey := fmt.Sprintf("service-%s-cert", serviceName)
+
+	specFunc := func(event Event, value string) bool {
+		serviceCert := &spec.Certificate{}
+		if event.EventType != EventDelete {
+			if err := yaml.Unmarshal([]byte(value), serviceCert); err != nil {
+				logger.Errorf("BUG: unmarshal %s to yaml failed: %v", value, err)
+				return true
+			}
+		}
+		return fn(event, serviceCert)
+	}
+
+	return inf.onSpecPart(storeKey, syncerKey, "", specFunc)
+}
+
+// OnAllServertCert watches all service cert specs.
+func (inf *meshInformer) OnAllServertCert(fn ServiceCertsFunc) error {
+	storeKey := layout.AllServiceCertPrefix()
+	syncerKey := "prefix-certs"
+
+	specsFunc := func(kvs map[string]string) bool {
+		cert := make(map[string]*spec.Certificate)
+		for k, v := range kvs {
+			certSpec := &spec.Certificate{}
+			if err := yaml.Unmarshal([]byte(v), certSpec); err != nil {
+				logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
+				continue
+			}
+			cert[k] = certSpec
+		}
+
+		return fn(cert)
 	}
 
 	return inf.onSpecs(storeKey, syncerKey, specsFunc)

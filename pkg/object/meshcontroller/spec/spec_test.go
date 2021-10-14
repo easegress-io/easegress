@@ -121,7 +121,7 @@ func TestSideCarEgressPipelineSpec(t *testing.T) {
 		},
 	}
 
-	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs)
+	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs, nil)
 	fmt.Println(superSpec.YAMLConfig())
 }
 
@@ -196,7 +196,7 @@ func TestSideCarEgressPipelineWithCanarySpec(t *testing.T) {
 		},
 	}
 
-	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs)
+	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs, nil)
 	fmt.Println(superSpec.YAMLConfig())
 }
 
@@ -232,7 +232,7 @@ func TestSideCarEgressPipelineSpecWithMock(t *testing.T) {
 	}
 
 	instanceSpecs := []*ServiceInstanceSpec{}
-	superSpec, err := s.SideCarEgressPipelineSpec(instanceSpecs)
+	superSpec, err := s.SideCarEgressPipelineSpec(instanceSpecs, nil)
 	if err != nil {
 		t.Fatalf("mocking service failed: %v", err)
 	}
@@ -360,7 +360,7 @@ func TestSideCarEgressPipelneNotLoadBalancer(t *testing.T) {
 		},
 	}
 
-	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs)
+	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs, nil)
 	fmt.Println(superSpec.YAMLConfig())
 }
 
@@ -455,7 +455,7 @@ func TestSideCarEgressPipelineWithMultipleCanarySpec(t *testing.T) {
 		},
 	}
 
-	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs)
+	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs, nil)
 	fmt.Println(superSpec.YAMLConfig())
 }
 
@@ -529,7 +529,7 @@ func TestSideCarEgressPipelineWithCanaryNoInstanceSpec(t *testing.T) {
 		},
 	}
 
-	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs)
+	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs, nil)
 	fmt.Println(superSpec.YAMLConfig())
 }
 
@@ -605,7 +605,7 @@ func TestSideCarEgressPipelineWithCanaryInstanceMultipleLabelSpec(t *testing.T) 
 		},
 	}
 
-	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs)
+	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs, nil)
 	fmt.Println(superSpec.YAMLConfig())
 }
 
@@ -772,7 +772,7 @@ func TestSideCarEgressResiliencePipelineSpec(t *testing.T) {
 		},
 	}
 
-	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs)
+	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs, nil)
 	fmt.Println(superSpec.YAMLConfig())
 }
 
@@ -879,7 +879,7 @@ func TestSidecarIngressPipelineSpec(t *testing.T) {
 		},
 	}
 
-	superSpec, err := s.SideCarIngressHTTPServerSpec()
+	superSpec, err := s.SideCarIngressHTTPServerSpec(nil)
 
 	if err != nil {
 		t.Fatalf("ingress http server spec failed: %v", err)
