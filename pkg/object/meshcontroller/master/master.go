@@ -102,7 +102,33 @@ func (m *Master) onAllServiceInstances(value map[string]*spec.ServiceInstanceSpe
 	return true
 }
 
+// cleanCerts cleans all exist cert records in Mesh Etcd.
+func (m *Master) cleanCerts() {
+	rootCert := m.service.GetRootCert()
+	if rootCert != nil {
+		m.service.DelRootCert()
+	}
+
+	instances := m.service.ListAllServiceInstanceSpecs()
+	for _, v := range instances {
+		if v != nil {
+			m.service.DelServiceInstanceCert(v.ServiceName, v.InstanceID)
+		}
+	}
+
+	ingressInstances := m.service.ListAllIngressControllerInstanceSpecs()
+	for _, v := range ingressInstances {
+		if v != nil {
+			m.service.DelIngressControllerInstanceCert(v.InstanceID)
+		}
+	}
+}
+
 func (m *Master) securityRoutine() error {
+	if !m.spec.EnablemTLS() {
+		m.cleanCerts()
+		return nil
+	}
 	appCertTTL, err := time.ParseDuration(m.spec.Security.AppCertTTL)
 	if err != nil {
 		logger.Errorf("BUG: parse app cert ttl: %s failed: %v", appCertTTL, err)
@@ -115,15 +141,11 @@ func (m *Master) securityRoutine() error {
 	}
 
 	m.certMananger = certmanager.NewCertManager(m.service, m.spec.Security.CertProvider, appCertTTL, rootCertTTL)
-	if m.spec.EnablemTLS() {
-		go m.signRootCert()
-		go m.signAppCerts()
+	go m.signRootCert()
+	go m.signAppCerts()
 
-		// watch all services instances in mesh for their cert
-		m.inf.OnAllServiceInstanceSpecs(m.onAllServiceInstances)
-	} else {
-		m.certMananger.CleanAllCerts()
-	}
+	// watch all services instances in mesh for their cert
+	m.inf.OnAllServiceInstanceSpecs(m.onAllServiceInstances)
 	return nil
 }
 
@@ -215,8 +237,6 @@ func (m *Master) checkHeartbeat(watchInterval time.Duration) {
 					}()
 					m.checkInstancesHeartbeat()
 				}()
-			} else {
-				logger.Infof("not the cluster leader, do nothing")
 			}
 		}
 	}
@@ -238,8 +258,6 @@ func (m *Master) clean() {
 					}()
 					m.cleanDeadInstances()
 				}()
-			} else {
-				logger.Infof("not the cluster leader, do nothing")
 			}
 		}
 	}
@@ -304,14 +322,18 @@ func (m *Master) checkInstancesHeartbeat() {
 func (m *Master) cleanDeadInstances() {
 	_, _, deadInstances := m.scanInstances()
 	for _, _spec := range deadInstances {
-		recordKey := layout.ServiceInstanceSpecKey(_spec.ServiceName, _spec.InstanceID)
-		err := m.store.Delete(recordKey)
+		specKey := layout.ServiceInstanceSpecKey(_spec.ServiceName, _spec.InstanceID)
+		err := m.store.Delete(specKey)
 		if err != nil {
 			api.ClusterPanic(err)
+		} else {
+			logger.Infof("deleted speckey: %s", specKey)
 		}
 		statusKey := layout.ServiceInstanceStatusKey(_spec.ServiceName, _spec.InstanceID)
 		if err = m.store.Delete(statusKey); err != nil {
 			api.ClusterPanic(err)
+		} else {
+			logger.Infof("deleted statuskey: %s", statusKey)
 		}
 	}
 }

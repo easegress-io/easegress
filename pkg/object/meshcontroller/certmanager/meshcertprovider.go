@@ -53,12 +53,12 @@ func NewMeshCertProvider() *MeshCertProvider {
 	}
 }
 
-func uniqID(serviceName, IP string) string {
-	return fmt.Sprintf("%s-%s", serviceName, IP)
+func uniqID(serviceName, HOST, IP string) string {
+	return fmt.Sprintf("%s-%s-%s", serviceName, HOST, IP)
 }
 
 // SignAppCertAndKey  Signs a cert, key pair for one service
-func (mp *MeshCertProvider) SignAppCertAndKey(serviceName string, IP string, ttl time.Duration) (cert *spec.Certificate, err error) {
+func (mp *MeshCertProvider) SignAppCertAndKey(serviceName, HOST, IP string, ttl time.Duration) (cert *spec.Certificate, err error) {
 	if mp.RootCert == nil {
 		err = fmt.Errorf("not root cert found")
 		return
@@ -78,7 +78,7 @@ func (mp *MeshCertProvider) SignAppCertAndKey(serviceName string, IP string, ttl
 		logger.Errorf("decode root key pem failed: %v", err)
 		return
 	}
-	logger.Infof("try to sign serverName: %s, IP: %s, ttl: %s", serviceName, IP, ttl.String())
+	logger.Infof("try to sign serverName: %s, HOST: %s IP: %s, ttl: %s", serviceName, HOST, IP, ttl.String())
 	now := time.Now()
 	x509Cert := &x509.Certificate{
 		SerialNumber: big.NewInt(defaultSerialNumber),
@@ -126,9 +126,10 @@ func (mp *MeshCertProvider) SignAppCertAndKey(serviceName string, IP string, ttl
 		KeyBase64:   base64.StdEncoding.EncodeToString(certPrivKeyPEM.Bytes()),
 		TTL:         ttl.String(),
 		SignTime:    now.Format(time.RFC3339),
+		HOST:        HOST,
 	}
 
-	mp.SetAppCertAndKey(serviceName, IP, cert)
+	mp.SetAppCertAndKey(serviceName, HOST, IP, cert)
 	return
 }
 
@@ -239,11 +240,11 @@ func (mp *MeshCertProvider) SignRootCertAndKey(ttl time.Duration) (cert *spec.Ce
 }
 
 // SetAppCertAndKey sets service cert into local memory
-func (mp *MeshCertProvider) SetAppCertAndKey(serviceName, IP string, cert *spec.Certificate) error {
+func (mp *MeshCertProvider) SetAppCertAndKey(serviceName, HOST, IP string, cert *spec.Certificate) error {
 	mp.mutex.Lock()
 	defer mp.mutex.Unlock()
 
-	mp.ServiceCerts[uniqID(serviceName, IP)] = cert
+	mp.ServiceCerts[uniqID(serviceName, HOST, IP)] = cert
 	return nil
 }
 
@@ -257,14 +258,14 @@ func (mp *MeshCertProvider) SetRootCertAndKey(cert *spec.Certificate) error {
 }
 
 // GetAppCertAndKey get cert and key for one service
-func (mp *MeshCertProvider) GetAppCertAndKey(serviceName, IP string) (cert *spec.Certificate, err error) {
+func (mp *MeshCertProvider) GetAppCertAndKey(serviceName, HOST, IP string) (cert *spec.Certificate, err error) {
 	mp.mutex.RLock()
 	defer mp.mutex.RUnlock()
-	sCert, ok := mp.ServiceCerts[uniqID(serviceName, IP)]
+	sCert, ok := mp.ServiceCerts[uniqID(serviceName, HOST, IP)]
 	if ok {
 		cert = sCert
 	}
-	err = fmt.Errorf("service :%s cert not found", uniqID(serviceName, IP))
+	err = fmt.Errorf("service :%s cert not found", uniqID(serviceName, HOST, IP))
 	return
 }
 
@@ -281,13 +282,13 @@ func (mp *MeshCertProvider) GetRootCertAndKey() (cert *spec.Certificate, err err
 }
 
 // ReleaseAppCertAndKey releases one service's cert and key
-func (mp *MeshCertProvider) ReleaseAppCertAndKey(serviceName, IP string) error {
+func (mp *MeshCertProvider) ReleaseAppCertAndKey(serviceName, HOST, IP string) error {
 	mp.mutex.Lock()
 	defer mp.mutex.Unlock()
 
-	_, ok := mp.ServiceCerts[uniqID(serviceName, IP)]
+	_, ok := mp.ServiceCerts[uniqID(serviceName, HOST, IP)]
 	if ok {
-		delete(mp.ServiceCerts, uniqID(serviceName, IP))
+		delete(mp.ServiceCerts, uniqID(serviceName, HOST, IP))
 	}
 	return nil
 }

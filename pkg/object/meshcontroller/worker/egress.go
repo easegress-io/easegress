@@ -211,6 +211,7 @@ func (egs *EgressServer) reloadHTTPServer(specs map[string]*spec.Service) bool {
 	if admSpec.EnablemTLS() {
 		cert = egs.service.GetServiceInstanceCert(egs.serviceName, egs.instanceID)
 		rootCert = egs.service.GetRootCert()
+		logger.Infof("egress enable TLS, init pipeline with cert: %#v", cert)
 	}
 
 	pipelines := make(map[string]*supervisor.ObjectEntity)
@@ -223,6 +224,8 @@ func (egs *EgressServer) reloadHTTPServer(specs map[string]*spec.Service) bool {
 			logger.Errorf("BUG: gen sidecar egress httpserver spec failed: %v", err)
 			continue
 		}
+		logger.Infof("service: %s visit: %s pipeline init ok", egs.serviceName, v.Name)
+
 		entity, err := egs.tc.CreateHTTPPipelineForSpec(egs.namespace, pipelineSpec)
 		if err != nil {
 			logger.Errorf("update http pipeline failed: %v", err)

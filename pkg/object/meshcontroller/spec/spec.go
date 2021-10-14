@@ -267,14 +267,15 @@ type (
 		Description string `yaml:"description"`
 	}
 
-	// Certificate is one cert for mesh service or root CA.
+	// Certificate is one cert for mesh service instance or root CA.
 	Certificate struct {
-		IP          string `yaml:"IP" jsonschema:"required"`
+		IP          string `yaml:"ip" jsonschema:"required"`
 		ServiceName string `yaml:"servieName" jsonschema:"required"`
-		CertBase64  string `yaml:"CertBase64" jsonschema:"required"`
-		KeyBase64   string `yaml:"KeyBase64" jsonschema:"required"`
+		CertBase64  string `yaml:"certBase64" jsonschema:"required"`
+		KeyBase64   string `yaml:"keyBase64" jsonschema:"required"`
 		TTL         string `yaml:"ttl" jsonschema:"required,format=duration"`
 		SignTime    string `yaml:"signTime" jsonschema:"required,format=timerfc3339"`
+		HOST        string `yaml:"host" jsonschema:"required"`
 	}
 
 	// ServiceInstanceSpec is the spec of service instance.

@@ -126,6 +126,7 @@ func (ings *IngressServer) InitIngress(service *spec.Service, port uint32) error
 		if admSpec.EnablemTLS() {
 			cert = ings.service.GetServiceInstanceCert(ings.serviceName, ings.instanceID)
 			rootCert = ings.service.GetRootCert()
+			logger.Infof("ingress enable TLS, init httpserver with cert: %#v", cert)
 		}
 
 		superSpec, err := service.SideCarIngressHTTPServerSpec(cert, rootCert)
