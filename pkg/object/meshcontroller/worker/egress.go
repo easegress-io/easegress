@@ -169,6 +169,14 @@ func (egs *EgressServer) reloadBySpecs(value map[string]*spec.Service) bool {
 	return egs.reloadHTTPServer(value)
 }
 
+// regex rule: ^(\w+\.)*vet-services\.(\w+)\.svc\..+$
+//  can match e.g. _tcp.vet-services.easemesh.svc.cluster.local
+//   		   vet-services.easemesh.svc.cluster.local
+//   		   _zip._tcp.vet-services.easemesh.svc.com
+func (egs *EgressServer) buildHostRegex(serviceName string) string {
+	return `^(\w+\.)*` + serviceName + `\.(\w+)\.svc\..+`
+}
+
 func (egs *EgressServer) reloadHTTPServer(specs map[string]*spec.Service) bool {
 	egs.mutex.Lock()
 	defer egs.mutex.Unlock()
@@ -195,7 +203,7 @@ func (egs *EgressServer) reloadHTTPServer(specs map[string]*spec.Service) bool {
 	httpServerSpec := egs.httpServer.Spec().ObjectSpec().(*httpserver.Spec)
 	httpServerSpec.Rules = nil
 
-	for k := range pipelines {
+	for serviceName := range pipelines {
 		rule := &httpserver.Rule{
 			Paths: []*httpserver.Path{
 				{
@@ -204,17 +212,32 @@ func (egs *EgressServer) reloadHTTPServer(specs map[string]*spec.Service) bool {
 						{
 							Key: egressRPCKey,
 							// Value should be the service name
-							Values:  []string{k},
-							Backend: serverName2PipelineName[k],
+							Values:  []string{serviceName},
+							Backend: serverName2PipelineName[serviceName],
 						},
 					},
 					// this name should be the pipeline full name
-					Backend: serverName2PipelineName[k],
+					Backend: serverName2PipelineName[serviceName],
 				},
 			},
 		}
 
-		httpServerSpec.Rules = append(httpServerSpec.Rules, rule)
+		// for matching only host name request
+		//   1) try exactly matching
+		//   2) try matching with regexp
+		ruleHost := &httpserver.Rule{
+			Host:       serviceName,
+			HostRegexp: egs.buildHostRegex(serviceName),
+			Paths: []*httpserver.Path{
+				{
+					PathPrefix: "/",
+					// this name should be the pipeline full name
+					Backend: serverName2PipelineName[serviceName],
+				},
+			},
+		}
+
+		httpServerSpec.Rules = append(httpServerSpec.Rules, rule, ruleHost)
 	}
 
 	builder := newHTTPServerSpecBuilder(egs.egressServerName, httpServerSpec)
