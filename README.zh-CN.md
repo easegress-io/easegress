@@ -41,7 +41,7 @@
 		- HTTP/1.1
 		- HTTP/2
 		- HTTP/3(QUIC)
-		- MQTT(即将推出)
+		- MQTT
 	- **路由规则**：精确路径、路径前缀、路径的正则表达式、方法、标头。
 	- **弹性和容错**。
 		- **断路器**： 暂时阻止可能的故障。
@@ -97,16 +97,17 @@
 			- **TopN**：按 API 聚合并排序（仅服务器维度）。
 
 
-## 相关用例
+## 用户案例
 
 下面的例子展示了如何在不同场景下使用 Easegress。
 
 - [API 聚合](./doc/cookbook/api_aggregator.md) - 将多个 API 聚合为一个。
+- [分布式调用链](./doc/cookbook/distributed_tracing.md) - 如何使用 Zipkin 进行 APM 追踪。
 - [函数即服务 FaaS](./doc/cookbook/faas.md) - 支持 Knative FaaS 集成。
 - [高并发秒杀](./doc/cookbook/flash_sale.md) - 如何使用 Easegress 进行高并发的秒杀活动。
-- [负载均衡](./doc/cookbook/load_balancer.md) - 各种负载均衡策略。 
-- [分布式调用链](./doc/cookbook/distributed_tracing.md) - 如何使用 Zipkin 进行 APM 追踪。
 - [Kubernetes入口控制器](./doc/cookbook/k8s_ingress_controller.md) - 如何作为入口控制器与 Kubernetes 集成。
+- [负载均衡](./doc/cookbook/load_balancer.md) - 各种负载均衡策略。
+- [MQTT代理](./doc/cookbook/mqtt_proxy.md) - 支持 Kafka 作为后端的 MQTT 代理
 - [高性能](./doc/cookbook/performance.md) - 性能优化，压缩、缓存等。
 - [管道编排](./doc/cookbook/pipeline.md) - 如何编排 HTTP 过滤器来处理请求和应答。
 - [弹力和容错设计](./doc/cookbook/resilience.md) - 断路器、速率限制、重试、时间限制等（移植自[Java resilience4j](https://github.com/resilience4j/resilience4j)
