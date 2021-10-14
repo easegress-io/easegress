@@ -47,13 +47,18 @@ func newIpFilters(spec *ipfilter.Spec) *ipFilters {
 
 func (i *ipFilters) AllowIP(ip string) bool {
 	rules := i.rules.Load().(*ipFiltersRules)
-	if rules == nil {
+	if rules == nil || rules.spec == nil {
 		return true
 	}
 	return rules.ipFilter.Allow(ip)
 }
 
 func (i *ipFilters) reloadRules(spec *ipfilter.Spec) {
+	if spec == nil {
+		i.rules.Store(&ipFiltersRules{})
+		return
+	}
+
 	old := i.rules.Load().(*ipFiltersRules)
 	if reflect.DeepEqual(old.spec, spec) {
 		return

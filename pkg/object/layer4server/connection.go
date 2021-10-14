@@ -515,7 +515,7 @@ type UpstreamConnection struct {
 	connectOnce    sync.Once
 }
 
-func NewUpstreamConn(connectTimeout time.Duration, upstreamAddr net.Addr, listenerStopChan chan struct{}) *UpstreamConnection {
+func NewUpstreamConn(connectTimeout uint32, upstreamAddr net.Addr, listenerStopChan chan struct{}) *UpstreamConnection {
 	conn := &UpstreamConnection{
 		Connection: Connection{
 			connected:  1,
@@ -530,7 +530,7 @@ func NewUpstreamConn(connectTimeout time.Duration, upstreamAddr net.Addr, listen
 			connStopChan:     make(chan struct{}),
 			listenerStopChan: listenerStopChan,
 		},
-		connectTimeout: connectTimeout,
+		connectTimeout: time.Duration(connectTimeout) * time.Millisecond,
 	}
 	return conn
 }
@@ -556,8 +556,12 @@ func (u *UpstreamConnection) connect() (event Event, err error) {
 		return
 	}
 	atomic.StoreUint32(&u.connected, 1)
-	event = Connected
 	u.localAddr = u.conn.LocalAddr()
+	if u.protocol == "tcp" {
+		_ = u.conn.(*net.TCPConn).SetNoDelay(true)
+		_ = u.conn.(*net.TCPConn).SetKeepAlive(true)
+	}
+	event = Connected
 	return
 }
 

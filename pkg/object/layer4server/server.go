@@ -70,8 +70,7 @@ type (
 
 	// LoadBalance is load balance for multiple servers.
 	LoadBalance struct {
-		Policy        string `yaml:"policy" jsonschema:"required,enum=roundRobin,enum=random,enum=weightedRandom,enum=ipHash"`
-		HeaderHashKey string `yaml:"headerHashKey" jsonschema:"omitempty"`
+		Policy string `yaml:"policy" jsonschema:"required,enum=roundRobin,enum=random,enum=weightedRandom,enum=ipHash"`
 	}
 )
 

@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/protocol"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/iobufferpool"
 )
@@ -54,7 +53,6 @@ type (
 
 	eventReload struct {
 		nextSuperSpec *supervisor.Spec
-		muxMapper     protocol.MuxMapper
 	}
 	eventClose struct{ done chan struct{} }
 
@@ -227,7 +225,7 @@ func (r *runtime) closeServer() {
 	}
 
 	_ = r.listener.close()
-	logger.Infof("listener for %s :%d closed", r.listener.protocol, r.listener.localAddr)
+	logger.Infof("listener for %s(%s) closed", r.listener.protocol, r.listener.localAddr)
 }
 
 func (r *runtime) checkFailed() {
@@ -271,7 +269,7 @@ func (r *runtime) onTcpAccept() func(conn net.Conn, listenerStop chan struct{}) 
 
 	return func(rawConn net.Conn, listenerStop chan struct{}) {
 		downstream := rawConn.RemoteAddr().(*net.TCPAddr).IP.String()
-		if r.ipFilters.AllowIP(downstream) {
+		if r.ipFilters != nil && !r.ipFilters.AllowIP(downstream) {
 			_ = rawConn.Close()
 			logger.Infof("close tcp connection from %s to %s which ip is not allowed",
 				rawConn.RemoteAddr().String(), rawConn.LocalAddr().String())
@@ -287,7 +285,7 @@ func (r *runtime) onTcpAccept() func(conn net.Conn, listenerStop chan struct{}) 
 		}
 
 		upstreamAddr, _ := net.ResolveTCPAddr("tcp", server.Addr)
-		upstreamConn := NewUpstreamConn(time.Duration(r.spec.ConnectTimeout)*time.Millisecond, upstreamAddr, listenerStop)
+		upstreamConn := NewUpstreamConn(r.spec.ConnectTimeout, upstreamAddr, listenerStop)
 		if err := upstreamConn.Connect(); err != nil {
 			logger.Errorf("close tcp connection due to upstream conn connect failed, local addr: %s, err: %+v",
 				rawConn.LocalAddr().String(), err)
@@ -304,7 +302,7 @@ func (r *runtime) onTcpAccept() func(conn net.Conn, listenerStop chan struct{}) 
 func (r *runtime) onUdpAccept() func(cliAddr net.Addr, rawConn net.Conn, listenerStop chan struct{}, packet iobufferpool.IoBuffer) {
 	return func(cliAddr net.Addr, rawConn net.Conn, listenerStop chan struct{}, packet iobufferpool.IoBuffer) {
 		downstream := cliAddr.(*net.UDPAddr).IP.String()
-		if r.ipFilters.AllowIP(downstream) {
+		if r.ipFilters != nil && !r.ipFilters.AllowIP(downstream) {
 			logger.Infof("discard udp packet from %s to %s which ip is not allowed", cliAddr.String(),
 				rawConn.LocalAddr().String())
 			return
@@ -326,7 +324,7 @@ func (r *runtime) onUdpAccept() func(cliAddr net.Addr, rawConn net.Conn, listene
 		}
 
 		upstreamAddr, _ := net.ResolveUDPAddr("udp", server.Addr)
-		upstreamConn := NewUpstreamConn(time.Duration(r.spec.ConnectTimeout)*time.Millisecond, upstreamAddr, listenerStop)
+		upstreamConn := NewUpstreamConn(r.spec.ConnectTimeout, upstreamAddr, listenerStop)
 		if err := upstreamConn.Connect(); err != nil {
 			logger.Errorf("discard udp packet due to upstream connect failed, local addr: %s, err: %+v", localAddr, err)
 			return

@@ -18,7 +18,6 @@
 package layer4server
 
 import (
-	"github.com/megaease/easegress/pkg/protocol"
 	"github.com/megaease/easegress/pkg/supervisor"
 )
 
@@ -65,22 +64,20 @@ func (l4 *Layer4Server) Validate() error {
 }
 
 // Init initializes Layer4Server.
-func (l4 *Layer4Server) Init(superSpec *supervisor.Spec, muxMapper protocol.MuxMapper) {
+func (l4 *Layer4Server) Init(superSpec *supervisor.Spec) {
 
 	l4.runtime = newRuntime(superSpec)
 	l4.runtime.eventChan <- &eventReload{
 		nextSuperSpec: superSpec,
-		muxMapper:     muxMapper,
 	}
 }
 
 // Inherit inherits previous generation of Layer4Server.
-func (l4 *Layer4Server) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object, muxMapper protocol.MuxMapper) {
+func (l4 *Layer4Server) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object) {
 
 	l4.runtime = previousGeneration.(*Layer4Server).runtime
 	l4.runtime.eventChan <- &eventReload{
 		nextSuperSpec: superSpec,
-		muxMapper:     muxMapper,
 	}
 }
 
