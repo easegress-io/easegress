@@ -1,6 +1,6 @@
-# MQTTProxy
+# MQTT Proxy
 
-- [MQTTProxy](#MQTTProxy)
+- [MQTT Proxy](#mqtt-proxy)
   - [Background](#background)
   - [Design](#design)
     - [Match different topic mapping policy](#match-different-topic-mapping-policy)
@@ -12,14 +12,14 @@
 # Background
 - MQTT is a standard messaging protocol for IoT (Internet of Things) which is extremely lightweight and used by a wide variety of industries.
 - By supporting MQTT Proxy in Easegress, MQTT clients can produce messages to Kafka backend directly.
-- We also provide http endpoint to allow backend to send messages to MQTT clients.
-
+- We also provide the HTTP endpoint to allow the backend to send messages to MQTT clients.
 
 # Design
 - `MQTTProxy` is now a `BusinessController` to Easegress. 
 - Use `github.com/eclipse/paho.mqtt.golang/packets` to parse MQTT packet. `paho.mqtt.golang` is a MQTT 3.1.1 go client introduced by Eclipse Foundation (who also introduced the most widely used MQTT broker mosquitto).
-- As a MQTT proxy, we now support MQTT clients to `publish` messages to backend Kafka with powerful topic mapper to map multi-level MQTT topics to Kafka topics with headers (Details in following).
-- We also support MQTT clients to `subscribe` topics (wildcard is supported) and send messages back to MQTT client through http endpoint. 
+- As a MQTT proxy, we now support MQTT clients to `publish` messages to backend Kafka with a powerful topic mapper to map multi-level MQTT topics to Kafka topics with headers (Details in following).
+- We also support MQTT clients to `subscribe` topics (wildcard is supported) and send messages back to the MQTT clients through the HTTP endpoint.
+
 ```
              publish msg                       topic mapper
 MQTT client ------------> Easegress MQTTProxy ------------> Kafka
@@ -31,8 +31,7 @@ MQTT client <---------------- Easegress MQTT HTTP Endpoint <---- Backend
 
 all msg send back to MQTT clients come from HTTP endpoint. 
 ```
-- We assume that IOT devices (use MQTT client) report their status to backend (through Kafka), and backend process these messages and send instructions back to IOT devices.
-
+- We assume that IoT devices (use MQTT client) report their status to the backend (through Kafka), and backend process these messages and send instructions back to IoT devices.
 
 # Example 
 Save following yaml to file `mqttproxy.yaml` and then run 
@@ -95,7 +94,7 @@ topicMapper:
       2: device
       3: status
 ```
-In MQTT, there are multi-levels in topic. Topic mapping is used to map MQTT topic to Kafka topic with headers. For example: 
+In MQTT, there are multi-levels in a topic. Topic mapping is used to map MQTT topic to Kafka topic with headers. For example:
 ```
 MQTT multi-level topics:
 - beijing/car/123/log
@@ -129,7 +128,7 @@ schema2: direct/device/status
         matchExpr: "dir*"
 ...
 ```
-means that we use MQTT topic level 0 to match `matchExpr` to find corresponding policy. In this case, `gateway/gate123/iphone/log` will match policy `gateway`, `direct/iphone/log` will match policy `direct`. 
+means that we use MQTT topic level 0 to match `matchExpr` to find a corresponding policy. In this case, `gateway/gate123/iphone/log` will match policy `gateway`, `direct/iphone/log` will match policy `direct`. 
 
 
 ## Detail of single policy 
@@ -181,11 +180,10 @@ Kafka
         device: tv
         status: log
 ```
-Empty `topicMapper` means there are no map between MQTT topic and Kafka topic.
-
+Empty `topicMapper` means there is no map between the MQTT topic and Kafka topic.
 
 # HTTP endpoint
-We support backend to send messages back to MQTT clients through http endpoint.
+We support the backend to send messages back to MQTT clients through the HTTP endpoint.
 
 API for http endpoint:
 - Host: Easegress IP, for example `http://127.0.0.1`
@@ -196,19 +194,21 @@ API for http endpoint:
 ```json
 {
   "topic": "yourTopicName", 
-  "qos": 1, // currently only support 0 and 1
+  "qos": 1,
   "payload": "dataPayload",
   "base64": false
 }
 ```
+> Note:   Currently, the QoS only support `0` and `1`
+
 To send binary data, you can encode your binary data base64 and send `base64` flag to `true`. Your client will receive the original binary data, we will do the decode. 
 - Status code:
   - 200: Success
   - 400: StatusBadRequest, may wrong http method, or wrong data (qos send to illegal number) etc. 
 
-The HTTP endpoint schema also work for multi-node deployment. Say you have 3 Easegress instances called `eg-0`, `eg-1`, `eg-2`, and your MQTT client connects to `eg-0`, if you send messages to `eg-1`, your client will receive the message too.
+The HTTP endpoint schema also works for multi-node deployment. Say you have 3 Easegress instances called `eg-0`, `eg-1`, `eg-2`, and your MQTT client connects to `eg-0`, if you send messages to `eg-1`, your client will receive the message too.
 
-We also support wildcard subscription. 
+We also support wildcard subscriptions.
 For example, 
 ```
 POST http://127.0.0.1:2381/apis/v1/mqttproxy/mqttproxy/topics/publish
