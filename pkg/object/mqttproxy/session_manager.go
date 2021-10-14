@@ -114,9 +114,8 @@ func (sm *SessionManager) get(clientID string) *Session {
 }
 
 func (sm *SessionManager) delLocal(clientID string) {
-	sess := sm.get(clientID)
-	if sess != nil {
+	if val, ok := sm.sessionMap.LoadAndDelete(clientID); ok {
+		sess := val.(*Session)
 		sess.close()
 	}
-	sm.sessionMap.Delete(clientID)
 }

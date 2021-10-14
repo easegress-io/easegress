@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
@@ -60,9 +61,9 @@ type (
 		session *Session
 		conn    net.Conn
 
-		info   ClientInfo
-		status int
-		done   chan struct{}
+		info       ClientInfo
+		statusFlag int32
+		done       chan struct{}
 	}
 )
 
@@ -85,11 +86,11 @@ func newClient(connect *packets.ConnectPacket, broker *Broker, conn net.Conn) *C
 		will:      will,
 	}
 	client := &Client{
-		broker: broker,
-		conn:   conn,
-		info:   info,
-		status: Connected,
-		done:   make(chan struct{}),
+		broker:     broker,
+		conn:       conn,
+		info:       info,
+		statusFlag: Connected,
+		done:       make(chan struct{}),
 	}
 	return client
 }
@@ -100,6 +101,7 @@ func (c *Client) readLoop() {
 			c.broker.backend.publish(c.info.will)
 		}
 		c.closeAndDelSession()
+		c.broker.removeClient(c.info.cid)
 	}()
 	keepAlive := time.Duration(c.info.keepalive) * time.Second
 	timeOut := keepAlive + keepAlive/2
@@ -236,11 +238,15 @@ func (c *Client) writePacket(packet packets.ControlPacket) error {
 func (c *Client) close() {
 	c.Lock()
 	defer c.Unlock()
-	if c.status == Disconnected {
+	if c.disconnected() {
 		return
 	}
-	c.status = Disconnected
+	atomic.StoreInt32(&c.statusFlag, Disconnected)
 	close(c.done)
+}
+
+func (c *Client) disconnected() bool {
+	return atomic.LoadInt32(&c.statusFlag) == Disconnected
 }
 
 func (c *Client) closeAndDelSession() {
