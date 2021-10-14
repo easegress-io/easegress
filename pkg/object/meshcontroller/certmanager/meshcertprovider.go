@@ -87,6 +87,7 @@ func (mp *MeshCertProvider) SignAppCertAndKey(serviceName string, ttl time.Durat
 		SubjectKeyId: appSubjectKeyID,
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
 		KeyUsage:     x509.KeyUsageDigitalSignature,
+		DNSNames:     []string{"*"},
 	}
 
 	certPrivKey, err := rsa.GenerateKey(rand.Reader, 4096)
@@ -191,6 +192,7 @@ func (mp *MeshCertProvider) SignRootCertAndKey(ttl time.Duration) (cert *spec.Ce
 		BasicConstraintsValid: true,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
 		IsCA:                  true,
+		DNSNames:              []string{"*"},
 	}
 
 	caPrivKey, err := rsa.GenerateKey(rand.Reader, defaultRsaBits)

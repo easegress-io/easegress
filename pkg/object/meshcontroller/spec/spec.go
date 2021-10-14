@@ -682,7 +682,7 @@ kind: HTTPServer
 name: %s
 port: %d
 keepAlive: false
-https: false
+https: %s 
 certBase64: %s
 keyBase64: %s
 mTLSRootCertBase64: %s
@@ -693,14 +693,15 @@ rules:
 
 	name := fmt.Sprintf("mesh-ingress-server-%s", s.Name)
 	pipelineName := fmt.Sprintf("mesh-ingress-pipeline-%s", s.Name)
-	certBase64, keyBase64, rootCertBaser64 := "", "", ""
+	certBase64, keyBase64, rootCertBaser64, needHTTPS := "", "", "", "false"
 	if cert != nil && rootCert != nil {
 		certBase64 = cert.CertBase64
 		keyBase64 = cert.KeyBase64
 		rootCertBaser64 = rootCert.CertBase64
+		needHTTPS = "true"
 	}
 	yamlConfig := fmt.Sprintf(ingressHTTPServerFormat, name,
-		s.Sidecar.IngressPort, certBase64, keyBase64, rootCertBaser64, pipelineName)
+		s.Sidecar.IngressPort, needHTTPS, certBase64, keyBase64, rootCertBaser64, pipelineName)
 
 	superSpec, err := supervisor.NewSpec(yamlConfig)
 	if err != nil {
