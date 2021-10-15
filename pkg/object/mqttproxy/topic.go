@@ -184,7 +184,7 @@ func splitTopic(topic string) ([]string, bool) {
 				return nil, false
 			}
 			levels[levelsLoc] = level
-			levelsLoc += 1
+			levelsLoc++
 			levelStart = i + 1
 			wildCardFlag = false
 
