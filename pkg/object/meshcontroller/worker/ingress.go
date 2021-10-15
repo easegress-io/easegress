@@ -151,7 +151,7 @@ func (ings *IngressServer) InitIngress(service *spec.Service, port uint32) error
 
 	if admSpec.EnablemTLS() {
 		logger.Infof("ingress in mtls mode, start listen ID: %s's cert", ings.instanceID)
-		if err := ings.inf.OnServertCert(ings.serviceName, ings.instanceID, ings.reloadHTTPServer); err != nil {
+		if err := ings.inf.OnServerCert(ings.serviceName, ings.instanceID, ings.reloadHTTPServer); err != nil {
 			if err != informer.ErrAlreadyWatched {
 				logger.Errorf("add egress spec watching service: %s failed: %v", service.Name, err)
 				return err

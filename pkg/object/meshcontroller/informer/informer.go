@@ -136,8 +136,8 @@ type (
 		StopWatchServiceSpec(serviceName string, gjsonPath GJSONPath)
 		StopWatchServiceInstanceSpec(serviceName string)
 
-		OnAllServertCert(fn ServiceCertsFunc) error
-		OnServertCert(serviceName, instanceID string, fn CertFunc) error
+		OnAllServerCert(fn ServiceCertsFunc) error
+		OnServerCert(serviceName, instanceID string, fn CertFunc) error
 		OnIngressControllerCert(instaceID string, fn CertFunc) error
 
 		Close()
@@ -573,15 +573,15 @@ func (inf *meshInformer) OnIngressControllerCert(instanceID string, fn CertFunc)
 
 }
 
-func (inf *meshInformer) OnServertCert(serviceName, instanceID string, fn CertFunc) error {
+func (inf *meshInformer) OnServerCert(serviceName, instanceID string, fn CertFunc) error {
 	storeKey := layout.ServiceInstanceCertKey(serviceName, instanceID)
 	syncerKey := fmt.Sprintf("service-%s-%s-cert", serviceName, instanceID)
 
 	return inf.onCert(storeKey, syncerKey, fn)
 }
 
-// OnAllServertCert watches all service cert specs.
-func (inf *meshInformer) OnAllServertCert(fn ServiceCertsFunc) error {
+// OnAllServerCert watches all service cert specs.
+func (inf *meshInformer) OnAllServerCert(fn ServiceCertsFunc) error {
 	storeKey := layout.AllServiceCertPrefix()
 	syncerKey := "prefix-certs"
 

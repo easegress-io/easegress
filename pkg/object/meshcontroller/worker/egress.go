@@ -144,7 +144,7 @@ func (egs *EgressServer) InitEgress(service *spec.Service) error {
 	admSpec := egs.superSpec.ObjectSpec().(*spec.Admin)
 	if admSpec.EnablemTLS() {
 		logger.Infof("egress in mtls mode, start listen ID: %s's cert", egs.instanceID)
-		if err := egs.inf.OnServertCert(egs.serviceName, egs.instanceID, egs.reloadByCert); err != nil {
+		if err := egs.inf.OnServerCert(egs.serviceName, egs.instanceID, egs.reloadByCert); err != nil {
 			if err != informer.ErrAlreadyWatched {
 				logger.Errorf("add egress spec watching service: %s failed: %v", service.Name, err)
 				return err
@@ -174,8 +174,7 @@ func (egs *EgressServer) reloadByCert(event informer.Event, value *spec.Certific
 		mSpecs[v.Name] = v
 	}
 
-	egs.reloadHTTPServer(mSpecs)
-	return false
+	return egs.reloadHTTPServer(mSpecs)
 }
 
 func (egs *EgressServer) reloadByInstances(value map[string]*spec.ServiceInstanceSpec) bool {
@@ -221,7 +220,7 @@ func (egs *EgressServer) reloadHTTPServer(specs map[string]*spec.Service) bool {
 		instances := egs.service.ListServiceInstanceSpecs(v.Name)
 		pipelineSpec, err := v.SideCarEgressPipelineSpec(instances, cert, rootCert)
 		if err != nil {
-			logger.Errorf("BUG: gen sidecar egress httpserver spec failed: %v", err)
+			logger.Errorf("gen sidecar egress httpserver spec failed: %v", err)
 			continue
 		}
 		logger.Infof("service: %s visit: %s pipeline init ok", egs.serviceName, v.Name)

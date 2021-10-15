@@ -147,8 +147,8 @@ func CustomResourceKey(kind, name string) string {
 }
 
 // ServiceInstanceCertKey returns the key of specified service's cert.
-func ServiceInstanceCertKey(name, instanceID string) string {
-	return fmt.Sprintf(serviceInstanceCert, instanceID, name)
+func ServiceInstanceCertKey(serviceName, instanceID string) string {
+	return fmt.Sprintf(serviceInstanceCert, serviceName, instanceID)
 }
 
 // AllServiceCertPrefix returns the prefix of all service's cert.

@@ -685,7 +685,7 @@ rules:`
 	yamlConfig := buf.String()
 	spec, err := supervisor.NewSpec(yamlConfig)
 	if err != nil {
-		logger.Errorf("BUG: new spec for %s failed: %v", yamlConfig, err)
+		logger.Errorf("new spec for %s failed: %v", yamlConfig, err)
 		return nil, err
 	}
 
@@ -862,6 +862,10 @@ func (s *Service) SideCarIngressPipelineSpec(applicationPort uint32) (*superviso
 
 // SideCarEgressPipelineSpec returns a spec for sidecar egress pipeline
 func (s *Service) SideCarEgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec, appCert, rootCert *Certificate) (*supervisor.Spec, error) {
+	if len(instanceSpecs) == 0 {
+		return nil, fmt.Errorf("not instance")
+	}
+
 	pipelineSpecBuilder := newPipelineSpecBuilder(s.EgressPipelineName())
 
 	if !s.Runnable() {
