@@ -117,6 +117,11 @@ func (mgr *TopicManager) findSubscribers(topic string) (map[string]byte, error) 
 	}
 	for _, n := range currentLevelNodes {
 		n.addClients(ans)
+		// in MQTT version 3.1.1 section 4.7.1.2, topic "sport/tennis/player1/#" would receive msg from "sport/tennis/player1"
+		// which means when we reach end of topic level, we need check one more level for wildcard #
+		if val, ok := n.nodes["#"]; ok {
+			val.addClients(ans)
+		}
 	}
 	return ans, nil
 }
