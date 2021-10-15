@@ -109,6 +109,10 @@ func newWasmVM(host *WasmHost, engine *wasmtime.Engine, module *wasmtime.Module,
 	if e != nil {
 		return nil, e
 	}
+	
+	wasi := wasmtime.NewWasiConfig()
+	wasi.InheritStdout()
+	store.SetWasi(wasi)
 
 	vm := &WasmVM{host: host, store: store, ih: ih}
 
