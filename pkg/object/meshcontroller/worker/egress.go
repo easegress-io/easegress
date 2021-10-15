@@ -299,6 +299,7 @@ func (egs *EgressServer) Close() {
 	egs.mutex.Lock()
 	defer egs.mutex.Unlock()
 
+	egs.inf.Close()
 	if egs._ready() {
 		egs.tc.DeleteHTTPServer(egs.namespace, egs.httpServer.Spec().Name())
 		for _, entity := range egs.pipelines {
