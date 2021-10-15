@@ -290,26 +290,12 @@ func (r *runtime) onTcpAccept() func(conn net.Conn, listenerStop chan struct{}) 
 			logger.Errorf("upstream connect failed(name: %s, addr: %s), err: %+v",
 				r.spec.Name, rawConn.LocalAddr().String(), err)
 			_ = rawConn.Close()
-		} else {
-			downstreamConn := NewDownstreamConn(rawConn, rawConn.RemoteAddr(), listenerStop)
-			r.setOnReadHandler(downstreamConn, upstreamConn)
-			downstreamConn.SetOnClose(func(event ConnectionEvent) {
-				if event == RemoteClose {
-					_ = upstreamConn.Close(FlushWrite, LocalClose)
-				} else {
-					_ = upstreamConn.Close(NoFlush, LocalClose)
-				}
-			})
-			upstreamConn.SetOnClose(func(event ConnectionEvent) {
-				if event == RemoteClose {
-					_ = downstreamConn.Close(FlushWrite, LocalClose)
-				} else {
-					_ = downstreamConn.Close(NoFlush, LocalClose)
-				}
-			})
-			upstreamConn.Start()
-			downstreamConn.Start()
+			return
 		}
+
+		downstreamConn := NewDownstreamConn(rawConn, rawConn.RemoteAddr(), listenerStop)
+		r.setCallbacks(downstreamConn, upstreamConn)
+		downstreamConn.Start() // upstream conn start read/write loop when connect is called
 	}
 }
 
@@ -324,9 +310,9 @@ func (r *runtime) onUdpAccept() func(cliAddr net.Addr, rawConn net.Conn, listene
 
 		localAddr := rawConn.LocalAddr()
 		key := GetProxyMapKey(localAddr.String(), cliAddr.String())
-		if rawDownstreamConn, ok := ProxyMap.Load(key); ok {
-			downstreamConn := rawDownstreamConn.(*Connection)
-			downstreamConn.OnRead(packet)
+		if rawDc, ok := ProxyMap.Load(key); ok {
+			dc := rawDc.(*Connection)
+			dc.OnRead(packet)
 			return
 		}
 
@@ -338,25 +324,24 @@ func (r *runtime) onUdpAccept() func(cliAddr net.Addr, rawConn net.Conn, listene
 		}
 
 		upstreamAddr, _ := net.ResolveUDPAddr("udp", server.Addr)
-		upstreamConn := NewUpstreamConn(r.spec.ConnectTimeout, upstreamAddr, listenerStop)
-		if err := upstreamConn.Connect(); err != nil {
+		uc := NewUpstreamConn(r.spec.ConnectTimeout, upstreamAddr, listenerStop)
+		if err := uc.Connect(); err != nil {
 			logger.Errorf("discard udp packet due to upstream connect failed, local addr: %s, err: %+v", localAddr, err)
 			return
 		}
 
 		fd, _ := rawConn.(*net.UDPConn).File()
 		downstreamRawConn, _ := net.FilePacketConn(fd)
-		downstreamConn := NewDownstreamConn(downstreamRawConn.(*net.UDPConn), rawConn.RemoteAddr(), listenerStop)
-		SetUDPProxyMap(GetProxyMapKey(localAddr.String(), cliAddr.String()), &downstreamConn)
-		r.setOnReadHandler(downstreamConn, upstreamConn)
+		dc := NewDownstreamConn(downstreamRawConn.(*net.UDPConn), rawConn.RemoteAddr(), listenerStop)
+		SetUDPProxyMap(GetProxyMapKey(localAddr.String(), cliAddr.String()), &dc)
+		r.setCallbacks(dc, uc)
 
-		downstreamConn.Start()
-		upstreamConn.Start()
-		downstreamConn.OnRead(packet)
+		dc.Start()
+		dc.OnRead(packet)
 	}
 }
 
-func (r *runtime) setOnReadHandler(downstreamConn *Connection, upstreamConn *UpstreamConnection) {
+func (r *runtime) setCallbacks(downstreamConn *Connection, upstreamConn *UpstreamConnection) {
 	downstreamConn.SetOnRead(func(readBuf iobufferpool.IoBuffer) {
 		if readBuf != nil && readBuf.Len() > 0 {
 			_ = upstreamConn.Write(readBuf.Clone())
@@ -367,6 +352,21 @@ func (r *runtime) setOnReadHandler(downstreamConn *Connection, upstreamConn *Ups
 		if readBuf != nil && readBuf.Len() > 0 {
 			_ = downstreamConn.Write(readBuf.Clone())
 			readBuf.Drain(readBuf.Len())
+		}
+	})
+
+	downstreamConn.SetOnClose(func(event ConnectionEvent) {
+		if event == RemoteClose {
+			_ = upstreamConn.Close(FlushWrite, LocalClose)
+		} else {
+			_ = upstreamConn.Close(NoFlush, LocalClose)
+		}
+	})
+	upstreamConn.SetOnClose(func(event ConnectionEvent) {
+		if event == RemoteClose {
+			_ = downstreamConn.Close(FlushWrite, LocalClose)
+		} else {
+			_ = downstreamConn.Close(NoFlush, LocalClose)
 		}
 	})
 }

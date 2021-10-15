@@ -31,16 +31,16 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/util/iobufferpool"
 	"github.com/megaease/easegress/pkg/util/timerpool"
-	"github.com/rcrowley/go-metrics"
 )
 
 type Connection struct {
-	conn       net.Conn
-	connected  uint32
-	closed     uint32
+	rawConn   net.Conn
+	connected uint32
+	closed    uint32
+
 	protocol   string
 	localAddr  net.Addr
-	remoteAddr net.Addr // just for udp proxy use
+	remoteAddr net.Addr // udp listener send response use remoteAddr
 
 	lastBytesSizeRead  int64
 	lastWriteSizeWrite int64
@@ -57,9 +57,6 @@ type Connection struct {
 	connStopChan     chan struct{} // use for connection close
 	listenerStopChan chan struct{} // use for listener close
 
-	readCollector  metrics.Counter
-	writeCollector metrics.Counter
-
 	onRead  func(buffer iobufferpool.IoBuffer) // execute read filters
 	onClose func(event ConnectionEvent)
 }
@@ -68,7 +65,7 @@ type Connection struct {
 // @param remoteAddr client addr for udp proxy use
 func NewDownstreamConn(conn net.Conn, remoteAddr net.Addr, listenerStopChan chan struct{}) *Connection {
 	clientConn := &Connection{
-		conn:      conn,
+		rawConn:   conn,
 		connected: 1,
 		protocol:  conn.LocalAddr().Network(),
 		localAddr: conn.LocalAddr(),
@@ -85,7 +82,7 @@ func NewDownstreamConn(conn net.Conn, remoteAddr net.Addr, listenerStopChan chan
 	if remoteAddr != nil {
 		clientConn.remoteAddr = remoteAddr
 	} else {
-		clientConn.remoteAddr = conn.RemoteAddr() // udp server conn can not get remote address
+		clientConn.remoteAddr = conn.RemoteAddr() // udp server rawConn can not get remote address
 	}
 	return clientConn
 }
@@ -100,20 +97,14 @@ func (c *Connection) LocalAddr() net.Addr {
 	return c.localAddr
 }
 
-// RemoteAddr get connection remote addr(it's nil for udp server conn)
+// RemoteAddr get connection remote addr(it's nil for udp server rawConn)
 func (c *Connection) RemoteAddr() net.Addr {
-	return c.conn.RemoteAddr()
+	return c.rawConn.RemoteAddr()
 }
 
 // ReadEnabled get connection read enable status
 func (c *Connection) ReadEnabled() bool {
 	return c.readEnabled
-}
-
-// SetCollector set read/write metrics collectors
-func (c *Connection) SetCollector(read, write metrics.Counter) {
-	c.readCollector = read
-	c.writeCollector = write
 }
 
 // SetOnRead set connection read handle
@@ -135,7 +126,7 @@ func (c *Connection) GetReadBuffer() iobufferpool.IoBuffer {
 
 // Start running connection read/write loop
 func (c *Connection) Start() {
-	if c.protocol == "udp" && c.conn.RemoteAddr() == nil {
+	if c.protocol == "udp" && c.rawConn.RemoteAddr() == nil {
 		return // udp server connection no need to start read/write loop
 	}
 
@@ -228,7 +219,6 @@ func (c *Connection) startReadLoop() {
 	for {
 		select {
 		case <-c.connStopChan:
-			logger.Infof("exit read loop")
 			return
 		case <-c.listenerStopChan:
 			return
@@ -274,9 +264,9 @@ func (c *Connection) startReadLoop() {
 func (c *Connection) setReadDeadline() {
 	switch c.protocol {
 	case "udp":
-		_ = c.conn.SetReadDeadline(time.Now().Add(1 * time.Second))
+		_ = c.rawConn.SetReadDeadline(time.Now().Add(1 * time.Second))
 	case "tcp":
-		_ = c.conn.SetReadDeadline(time.Now().Add(15 * time.Second))
+		_ = c.rawConn.SetReadDeadline(time.Now().Add(15 * time.Second))
 	}
 }
 
@@ -360,25 +350,25 @@ func (c *Connection) Close(ccType CloseType, event ConnectionEvent) (err error) 
 	}
 
 	// connection failed in client mode
-	if c.conn == nil || reflect.ValueOf(c.conn).IsNil() {
+	if c.rawConn == nil || reflect.ValueOf(c.rawConn).IsNil() {
 		return nil
 	}
 
-	// close tcp conn read first
-	if tconn, ok := c.conn.(*net.TCPConn); ok {
+	// close tcp rawConn read first
+	if tconn, ok := c.rawConn.(*net.TCPConn); ok {
 		logger.Debugf("tcp connection closed, local addr: %s, remote addr: %s, event: %s",
 			c.localAddr.String(), c.remoteAddr.String(), event)
 		_ = tconn.CloseRead()
 	}
 
-	if c.protocol == "udp" && c.conn.RemoteAddr() == nil {
+	if c.protocol == "udp" && c.rawConn.RemoteAddr() == nil {
 		key := GetProxyMapKey(c.localAddr.String(), c.remoteAddr.String())
 		DelUDPProxyMap(key)
 	}
 
-	// close conn recv, then notify read/write loop to exit
+	// close rawConn recv, then notify read/write loop to exit
 	close(c.connStopChan)
-	_ = c.conn.Close()
+	_ = c.rawConn.Close()
 	c.lastBytesSizeRead, c.lastWriteSizeWrite = 0, 0
 
 	logger.Debugf("%s connection closed, local addr: %s, remote addr: %s, event: %s",
@@ -415,7 +405,7 @@ func (c *Connection) doReadIO() (err error) {
 
 	var bytesRead int64
 	c.setReadDeadline()
-	bytesRead, err = c.readBuffer.ReadOnce(c.conn)
+	bytesRead, err = c.readBuffer.ReadOnce(c.rawConn)
 
 	if err != nil {
 		if atomic.LoadUint32(&c.closed) == 1 {
@@ -470,16 +460,16 @@ func (c *Connection) doWriteIO() (bytesSent int64, err error) {
 	buffers := c.writeBuffers
 	switch c.protocol {
 	case "tcp":
-		bytesSent, err = buffers.WriteTo(c.conn)
+		bytesSent, err = buffers.WriteTo(c.rawConn)
 	case "udp":
 		n := 0
 		bytesSent = 0
 		addr := c.remoteAddr.(*net.UDPAddr)
 		for _, buf := range c.ioBuffers {
-			if c.conn.RemoteAddr() == nil {
-				n, err = c.conn.(*net.UDPConn).WriteToUDP(buf.Bytes(), addr)
+			if c.rawConn.RemoteAddr() == nil {
+				n, err = c.rawConn.(*net.UDPConn).WriteToUDP(buf.Bytes(), addr)
 			} else {
-				n, err = c.conn.Write(buf.Bytes())
+				n, err = c.rawConn.Write(buf.Bytes())
 			}
 			if err != nil {
 				break
@@ -510,9 +500,9 @@ func (c *Connection) doWriteIO() (bytesSent int64, err error) {
 func (c *Connection) setWriteDeadline() {
 	switch c.protocol {
 	case "udp":
-		_ = c.conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+		_ = c.rawConn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 	case "tcp":
-		_ = c.conn.SetWriteDeadline(time.Now().Add(15 * time.Second))
+		_ = c.rawConn.SetWriteDeadline(time.Now().Add(15 * time.Second))
 	}
 }
 
@@ -552,7 +542,7 @@ func (u *UpstreamConnection) connect() (event ConnectionEvent, err error) {
 	if addr == nil {
 		return ConnectFailed, errors.New("upstream addr is nil")
 	}
-	u.conn, err = net.DialTimeout(u.protocol, addr.String(), timeout)
+	u.rawConn, err = net.DialTimeout(u.protocol, addr.String(), timeout)
 	if err != nil {
 		if err == io.EOF {
 			event = RemoteClose
@@ -564,10 +554,10 @@ func (u *UpstreamConnection) connect() (event ConnectionEvent, err error) {
 		return
 	}
 	atomic.StoreUint32(&u.connected, 1)
-	u.localAddr = u.conn.LocalAddr()
+	u.localAddr = u.rawConn.LocalAddr()
 	if u.protocol == "tcp" {
-		_ = u.conn.(*net.TCPConn).SetNoDelay(true)
-		_ = u.conn.(*net.TCPConn).SetKeepAlive(true)
+		_ = u.rawConn.(*net.TCPConn).SetNoDelay(true)
+		_ = u.rawConn.(*net.TCPConn).SetKeepAlive(true)
 	}
 	event = Connected
 	return
@@ -580,10 +570,7 @@ func (u *UpstreamConnection) Connect() (err error) {
 		if err == nil {
 			u.Start()
 		}
-		logger.Debugf("connect upstream, upstream addr: %s, event: %+v, err: %+v", u.remoteAddr, event, err)
-		if event != Connected {
-			close(u.listenerStopChan) // if upstream connection failed, close client connection
-		}
+		logger.Debugf("%s connect upstream(%s), event: %s, err: %+v", u.protocol, u.remoteAddr, event, err)
 	})
 	return
 }
