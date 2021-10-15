@@ -26,6 +26,7 @@ import (
 	"github.com/megaease/easegress/pkg/object/meshcontroller/informer"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/service"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/storage"
 	"github.com/megaease/easegress/pkg/object/trafficcontroller"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"gopkg.in/yaml.v2"
@@ -63,7 +64,7 @@ type (
 
 // NewEgressServer creates an initialized egress server
 func NewEgressServer(superSpec *supervisor.Spec, super *supervisor.Supervisor,
-	serviceName, instanceID string, service *service.Service, inf informer.Informer) *EgressServer {
+	serviceName, instanceID string, service *service.Service) *EgressServer {
 
 	entity, exists := super.GetSystemController(trafficcontroller.Kind)
 	if !exists {
@@ -79,7 +80,7 @@ func NewEgressServer(superSpec *supervisor.Spec, super *supervisor.Supervisor,
 		super:     super,
 		superSpec: superSpec,
 
-		inf:         inf,
+		inf:         informer.NewInformer(storage.New(superSpec.Name(), super.Cluster()), serviceName),
 		tc:          tc,
 		namespace:   fmt.Sprintf("%s/%s", superSpec.Name(), "egress"),
 		pipelines:   make(map[string]*supervisor.ObjectEntity),

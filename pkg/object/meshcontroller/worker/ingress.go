@@ -25,6 +25,7 @@ import (
 	"github.com/megaease/easegress/pkg/object/meshcontroller/informer"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/service"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/storage"
 	"github.com/megaease/easegress/pkg/object/trafficcontroller"
 	"github.com/megaease/easegress/pkg/supervisor"
 )
@@ -55,7 +56,7 @@ type (
 
 // NewIngressServer creates an initialized ingress server
 func NewIngressServer(superSpec *supervisor.Spec, super *supervisor.Supervisor,
-	serviceName, instaceID string, service *service.Service, inf informer.Informer) *IngressServer {
+	serviceName, instaceID string, service *service.Service) *IngressServer {
 	entity, exists := super.GetSystemController(trafficcontroller.Kind)
 	if !exists {
 		panic(fmt.Errorf("BUG: traffic controller not found"))
@@ -77,7 +78,7 @@ func NewIngressServer(superSpec *supervisor.Spec, super *supervisor.Supervisor,
 		httpServer:  nil,
 		serviceName: serviceName,
 		instanceID:  instaceID,
-		inf:         inf,
+		inf:         informer.NewInformer(storage.New(superSpec.Name(), super.Cluster()), serviceName),
 		mutex:       sync.RWMutex{},
 		service:     service,
 	}
