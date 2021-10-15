@@ -1024,16 +1024,36 @@ func TestSplitTopic(t *testing.T) {
 		ans    bool
 	}{
 		{"#", []string{"#"}, true},
-		{"#/a", nil, false},
-		{"a#", nil, false},
-		{"/#/a", nil, false},
-		{"a/b/#", []string{"a", "b", "#"}, true},
+		{"#/sport", nil, false},
+		{"sport#", nil, false},
+		{"/#/sport", nil, false},
 		{"#+", nil, false},
-		{"/+/a/+/b/+/c", []string{"", "+", "a", "+", "b", "+", "c"}, true},
-		{"/+/++/+a", nil, false},
-		{"/a/b/c/d", []string{"", "a", "b", "c", "d"}, true},
-		{"a/+/b/#", []string{"a", "+", "b", "#"}, true},
-		{"/a/b/c/d/+/d/#", []string{"", "a", "b", "c", "d", "+", "d", "#"}, true},
+		{"/+/sport/+/player1/+/score", []string{"", "+", "sport", "+", "player1", "+", "score"}, true},
+		{"/+/++/+finance", nil, false},
+		{"/sport/ball/player1/score", []string{"", "sport", "ball", "player1", "score"}, true},
+		{"finance/+/bank/#", []string{"finance", "+", "bank", "#"}, true},
+		{"/sport/ball/player1/score/+/wimbledon/#", []string{"", "sport", "ball", "player1", "score", "+", "wimbledon", "#"}, true},
+		{"/sport/ball/player2/score/+/game2/#", []string{"", "sport", "ball", "player2", "score", "+", "game2", "#"}, true},
+		{"/", []string{"", ""}, true},
+		{"finance/", []string{"finance", ""}, true},
+		{"//", []string{"", "", ""}, true},
+		{"/finance/bank", []string{"", "finance", "bank"}, true},
+		{"/finance/bank/", []string{"", "finance", "bank", ""}, true},
+		{"sport/tennis/player1/#", []string{"sport", "tennis", "player1", "#"}, true},
+		{"sport/tennis/player1", []string{"sport", "tennis", "player1"}, true},
+		{"sport/tennis/player1/ranking", []string{"sport", "tennis", "player1", "ranking"}, true},
+		{"sport/tennis/player1/score/wimbledon", []string{"sport", "tennis", "player1", "score", "wimbledon"}, true},
+		{"sport/#", []string{"sport", "#"}, true},
+		{"sport/tennis/#", []string{"sport", "tennis", "#"}, true},
+		{"sport/tennis#", nil, false},
+		{"sport/tennis/#/ranking", nil, false},
+		{"sport/tennis/+", []string{"sport", "tennis", "+"}, true},
+		{"sport/tennis/player1", []string{"sport", "tennis", "player1"}, true},
+		{"+", []string{"+"}, true},
+		{"+/tennis/#", []string{"+", "tennis", "#"}, true},
+		{"sport+", nil, false},
+		{"sport/+/player1", []string{"sport", "+", "player1"}, true},
+		{"/finance", []string{"", "finance"}, true},
 	}
 	for _, tt := range tests {
 		levels, ans := splitTopic(tt.topic)
@@ -1099,6 +1119,38 @@ func TestWildCard(t *testing.T) {
 	if len(mgr.root.clients) != 0 || len(mgr.root.nodes) != 0 {
 		t.Errorf("topic manager not clear memory when topics are unsubscribes")
 	}
+
+	mgr = newTopicManager(1000000)
+	checkSubscriptions := func(subTopic string, recvTopic []string, notRecvTopic []string) {
+		mgr.subscribe([]string{subTopic}, []byte{0}, "tmpClient")
+		for _, topic := range recvTopic {
+			clients, err := mgr.findSubscribers(topic)
+			if err != nil {
+				t.Errorf("findSubscribers for topic failed, %v", err)
+			}
+			if val, ok := clients["tmpClient"]; !ok || (val != 0) {
+				t.Errorf("subscribe topic %v but not recv topic %v", subTopic, topic)
+			}
+		}
+		for _, topic := range notRecvTopic {
+			clients, err := mgr.findSubscribers(topic)
+			if err != nil {
+				t.Errorf("findSubscribers for topic failed, %v", err)
+			}
+			if _, ok := clients["tmpClient"]; ok {
+				t.Errorf("subscribe topic %v but recv topic %v", subTopic, topic)
+			}
+		}
+		mgr.unsubscribe([]string{subTopic}, "tmpClient")
+	}
+	checkSubscriptions("sport/tennis/player1/#", []string{"sport/tennis/player1", "sport/tennis/player1/ranking", "sport/tennis/player1/score/wimbledon"}, []string{})
+	checkSubscriptions("sport/#", []string{"sport"}, []string{})
+
+	checkSubscriptions("sport/tennis/+", []string{"sport/tennis/player1", "sport/tennis/player2"}, []string{"sport/tennis/player1/ranking"})
+	checkSubscriptions("sport/+", []string{"sport/"}, []string{"sport"})
+	checkSubscriptions("+/+", []string{"/finance"}, []string{})
+	checkSubscriptions("/+", []string{"/finance"}, []string{})
+	checkSubscriptions("+", []string{}, []string{"/finance"})
 }
 
 const certPem = `
