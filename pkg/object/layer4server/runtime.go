@@ -287,12 +287,26 @@ func (r *runtime) onTcpAccept() func(conn net.Conn, listenerStop chan struct{}) 
 		upstreamAddr, _ := net.ResolveTCPAddr("tcp", server.Addr)
 		upstreamConn := NewUpstreamConn(r.spec.ConnectTimeout, upstreamAddr, listenerStop)
 		if err := upstreamConn.Connect(); err != nil {
-			logger.Errorf("close tcp connection due to upstream conn connect failed, local addr: %s, err: %+v",
-				rawConn.LocalAddr().String(), err)
+			logger.Errorf("upstream connect failed(name: %s, addr: %s), err: %+v",
+				r.spec.Name, rawConn.LocalAddr().String(), err)
 			_ = rawConn.Close()
 		} else {
 			downstreamConn := NewDownstreamConn(rawConn, rawConn.RemoteAddr(), listenerStop)
 			r.setOnReadHandler(downstreamConn, upstreamConn)
+			downstreamConn.SetOnClose(func(event ConnectionEvent) {
+				if event == RemoteClose {
+					_ = upstreamConn.Close(FlushWrite, LocalClose)
+				} else {
+					_ = upstreamConn.Close(NoFlush, LocalClose)
+				}
+			})
+			upstreamConn.SetOnClose(func(event ConnectionEvent) {
+				if event == RemoteClose {
+					_ = downstreamConn.Close(FlushWrite, LocalClose)
+				} else {
+					_ = downstreamConn.Close(NoFlush, LocalClose)
+				}
+			})
 			upstreamConn.Start()
 			downstreamConn.Start()
 		}

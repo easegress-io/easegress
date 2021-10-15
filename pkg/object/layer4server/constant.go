@@ -32,21 +32,21 @@ const (
 	NoFlush CloseType = "NoFlush"
 )
 
-// Event type
-type Event string
+// ConnectionEvent type
+type ConnectionEvent string
 
 // ConnectionEvent types
 const (
-	RemoteClose     Event = "RemoteClose"
-	LocalClose      Event = "LocalClose"
-	OnReadErrClose  Event = "OnReadErrClose"
-	OnWriteErrClose Event = "OnWriteErrClose"
-	OnConnect       Event = "OnConnect"
-	Connected       Event = "ConnectedFlag"
-	ConnectTimeout  Event = "ConnectTimeout"
-	ConnectFailed   Event = "ConnectFailed"
-	OnReadTimeout   Event = "OnReadTimeout"
-	OnWriteTimeout  Event = "OnWriteTimeout"
+	RemoteClose     ConnectionEvent = "RemoteClose"
+	LocalClose      ConnectionEvent = "LocalClose"
+	OnReadErrClose  ConnectionEvent = "OnReadErrClose"
+	OnWriteErrClose ConnectionEvent = "OnWriteErrClose"
+	OnConnect       ConnectionEvent = "OnConnect"
+	Connected       ConnectionEvent = "ConnectedFlag"
+	ConnectTimeout  ConnectionEvent = "ConnectTimeout"
+	ConnectFailed   ConnectionEvent = "ConnectFailed"
+	OnReadTimeout   ConnectionEvent = "OnReadTimeout"
+	OnWriteTimeout  ConnectionEvent = "OnWriteTimeout"
 )
 
 var (

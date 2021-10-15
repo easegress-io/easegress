@@ -22,6 +22,7 @@ import (
 	"io"
 	"net"
 	"reflect"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -60,7 +61,7 @@ type Connection struct {
 	writeCollector metrics.Counter
 
 	onRead  func(buffer iobufferpool.IoBuffer) // execute read filters
-	onClose func()
+	onClose func(event ConnectionEvent)
 }
 
 // NewDownstreamConn wrap connection create from client
@@ -122,6 +123,10 @@ func (c *Connection) SetOnRead(onRead func(buffer iobufferpool.IoBuffer)) {
 
 func (c *Connection) OnRead(buffer iobufferpool.IoBuffer) {
 	c.onRead(buffer)
+}
+
+func (c *Connection) SetOnClose(onclose func(event ConnectionEvent)) {
+	c.onClose = onclose
 }
 
 func (c *Connection) GetReadBuffer() iobufferpool.IoBuffer {
@@ -223,6 +228,7 @@ func (c *Connection) startReadLoop() {
 	for {
 		select {
 		case <-c.connStopChan:
+			logger.Infof("exit read loop")
 			return
 		case <-c.listenerStopChan:
 			return
@@ -241,7 +247,7 @@ func (c *Connection) startReadLoop() {
 
 					// normal close or health check
 					if c.lastBytesSizeRead == 0 || err == io.EOF {
-						logger.Debugf("tcp connection error on read, local addr: %s, remote addr: %s, err: %s",
+						logger.Infof("tcp connection error on read, local addr: %s, remote addr: %s, err: %s",
 							c.localAddr.String(), c.remoteAddr.String(), err.Error())
 					} else {
 						logger.Errorf("tcp connection error on read, local addr: %s, remote addr: %s, err: %s",
@@ -304,8 +310,8 @@ func (c *Connection) startWriteLoop() {
 
 		if err != nil {
 			if err == iobufferpool.EOF {
-				logger.Debugf("%s connection error on write, local addr: %s, remote addr: %s, err: %+v",
-					c.protocol, c.localAddr.String(), c.remoteAddr.String(), err)
+				logger.Debugf("%s connection local close with eof, local addr: %s, remote addr: %s",
+					c.protocol, c.localAddr.String(), c.remoteAddr.String())
 				_ = c.Close(NoFlush, LocalClose)
 			} else {
 				logger.Errorf("%s connection error on write, local addr: %s, remote addr: %s, err: %+v",
@@ -337,11 +343,10 @@ func (c *Connection) appendBuffer(ioBuffers *[]iobufferpool.IoBuffer) {
 	}
 }
 
-func (c *Connection) Close(ccType CloseType, eventType Event) (err error) {
+func (c *Connection) Close(ccType CloseType, event ConnectionEvent) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			logger.Errorf("%s connection close occur panic, local addr: %s, remote addr: %s, err: %+v",
-				c.protocol, c.localAddr.String(), c.remoteAddr.String(), r)
+			logger.Errorf("%s connection close panic, err: %+v\n%s", c.protocol, r, string(debug.Stack()))
 		}
 	}()
 
@@ -361,8 +366,8 @@ func (c *Connection) Close(ccType CloseType, eventType Event) (err error) {
 
 	// close tcp conn read first
 	if tconn, ok := c.conn.(*net.TCPConn); ok {
-		logger.Debugf("tcp connection close read, local addr: %s, remote addr: %s",
-			c.localAddr.String(), c.remoteAddr.String())
+		logger.Debugf("tcp connection closed, local addr: %s, remote addr: %s, event: %s",
+			c.localAddr.String(), c.remoteAddr.String(), event)
 		_ = tconn.CloseRead()
 	}
 
@@ -374,11 +379,14 @@ func (c *Connection) Close(ccType CloseType, eventType Event) (err error) {
 	// close conn recv, then notify read/write loop to exit
 	close(c.connStopChan)
 	_ = c.conn.Close()
-	c.lastBytesSizeRead = 0
-	c.lastWriteSizeWrite = 0
+	c.lastBytesSizeRead, c.lastWriteSizeWrite = 0, 0
 
-	logger.Errorf("%s connection closed, local addr: %s, remote addr: %s",
-		c.protocol, c.localAddr.String(), c.remoteAddr.String())
+	logger.Debugf("%s connection closed, local addr: %s, remote addr: %s, event: %s",
+		c.protocol, c.localAddr.String(), c.remoteAddr.String(), event)
+
+	if c.onClose != nil {
+		c.onClose(event)
+	}
 	return nil
 }
 
@@ -490,7 +498,7 @@ func (c *Connection) doWriteIO() (bytesSent int64, err error) {
 			err = iobufferpool.EOF
 		}
 		if e := iobufferpool.PutIoBuffer(buf); e != nil {
-			logger.Errorf("%s connection PutIoBuffer error, local addr: %s, remote addr: %s, err: %+v",
+			logger.Errorf("%s connection give buffer error, local addr: %s, remote addr: %s, err: %+v",
 				c.protocol, c.localAddr.String(), c.remoteAddr.String(), err)
 		}
 	}
@@ -535,7 +543,7 @@ func NewUpstreamConn(connectTimeout uint32, upstreamAddr net.Addr, listenerStopC
 	return conn
 }
 
-func (u *UpstreamConnection) connect() (event Event, err error) {
+func (u *UpstreamConnection) connect() (event ConnectionEvent, err error) {
 	timeout := u.connectTimeout
 	if timeout == 0 {
 		timeout = 10 * time.Second
@@ -567,7 +575,7 @@ func (u *UpstreamConnection) connect() (event Event, err error) {
 
 func (u *UpstreamConnection) Connect() (err error) {
 	u.connectOnce.Do(func() {
-		var event Event
+		var event ConnectionEvent
 		event, err = u.connect()
 		if err == nil {
 			u.Start()
