@@ -63,20 +63,20 @@ func (m *mockStorage) get(key string) (*string, error) {
 
 func (m *mockStorage) getPrefix(prefix string) (map[string]string, error) {
 	m.mu.RLock()
-	defer m.mu.RUnlock()
 	out := make(map[string]string)
 	for k, v := range m.store {
 		if strings.HasPrefix(k, prefix) {
 			out[k] = v
 		}
 	}
+	m.mu.RUnlock()
 	return out, nil
 }
 
 func (m *mockStorage) put(key, value string) error {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	m.store[key] = value
+	m.mu.Unlock()
 	return nil
 }
 

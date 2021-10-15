@@ -293,12 +293,12 @@ func (b *Broker) getClient(clientID string) *Client {
 
 func (b *Broker) removeClient(clientID string) {
 	b.Lock()
-	defer b.Unlock()
 	if val, ok := b.clients[clientID]; ok {
 		if val.disconnected() {
 			delete(b.clients, clientID)
 		}
 	}
+	b.Unlock()
 }
 
 func (b *Broker) topicsPublishHandler(w http.ResponseWriter, r *http.Request) {
