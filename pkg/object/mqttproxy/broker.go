@@ -287,6 +287,16 @@ func (b *Broker) getClient(clientID string) *Client {
 	return nil
 }
 
+func (b *Broker) removeClient(clientID string) {
+	b.Lock()
+	defer b.Unlock()
+	if val, ok := b.clients[clientID]; ok {
+		if val.disconnected() {
+			delete(b.clients, clientID)
+		}
+	}
+}
+
 func (b *Broker) topicsPublishHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("suppose POST request but got %s", r.Method))
