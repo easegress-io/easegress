@@ -360,11 +360,11 @@ func TestSideCarEgressPipelineSpecWithMock(t *testing.T) {
 	}
 
 	instanceSpecs := []*ServiceInstanceSpec{}
-	superSpec, err := s.SideCarEgressPipelineSpec(instanceSpecs, nil, nil)
-	if err != nil {
-		t.Fatalf("mocking service failed: %v", err)
+	_, err := s.SideCarEgressPipelineSpec(instanceSpecs, nil, nil)
+	if err == nil {
+		t.Fatalf("mocking service should failed: %v", err)
 	}
-	fmt.Println(superSpec.YAMLConfig())
+	//fmt.Println(superSpec.YAMLConfig())
 }
 
 func TestMockPBConvert(t *testing.T) {
