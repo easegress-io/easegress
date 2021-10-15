@@ -102,7 +102,10 @@ func newBroker(spec *Spec, store storage, memberURL func(string, string) ([]stri
 		return nil
 	}
 
-	broker.topicMgr = newTopicManager()
+	if spec.TopicCache <= 0 {
+		spec.TopicCache = 100000
+	}
+	broker.topicMgr = newTopicManager(spec.TopicCache)
 	broker.sessMgr = newSessionManager(broker, store)
 	go broker.run()
 	return broker
@@ -213,6 +216,7 @@ func (b *Broker) handleConn(conn net.Conn) {
 			logger.Errorf("client %v use previous session topics %v to subscribe failed: %v", client.info.cid, topics, err)
 		}
 	}
+	go client.writeLoop()
 	client.readLoop()
 }
 

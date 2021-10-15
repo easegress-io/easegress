@@ -28,7 +28,6 @@ import (
 	"net/http"
 	"reflect"
 	"strconv"
-	"strings"
 	"sync"
 	"testing"
 
@@ -1018,34 +1017,37 @@ func TestHTTPTransfer(t *testing.T) {
 	mqttClient.Disconnect(200)
 }
 
-func TestValidTopic(t *testing.T) {
+func TestSplitTopic(t *testing.T) {
 	tests := []struct {
-		topic string
-		ans   bool
+		topic  string
+		levels []string
+		ans    bool
 	}{
-		{"#", true},
-		{"#/a", false},
-		{"a#", false},
-		{"/#/a", false},
-		{"a/b/#", true},
-		{"#+", false},
-		{"/+/a/+/b/+/c", true},
-		{"/+/++/+a", false},
-		{"/a/b/c/d", true},
-		{"a/+/b/#", true},
-		{"/a/b/c/d/+/d/#", true},
+		{"#", []string{"#"}, true},
+		{"#/a", nil, false},
+		{"a#", nil, false},
+		{"/#/a", nil, false},
+		{"a/b/#", []string{"a", "b", "#"}, true},
+		{"#+", nil, false},
+		{"/+/a/+/b/+/c", []string{"", "+", "a", "+", "b", "+", "c"}, true},
+		{"/+/++/+a", nil, false},
+		{"/a/b/c/d", []string{"", "a", "b", "c", "d"}, true},
+		{"a/+/b/#", []string{"a", "+", "b", "#"}, true},
+		{"/a/b/c/d/+/d/#", []string{"", "a", "b", "c", "d", "+", "d", "#"}, true},
 	}
 	for _, tt := range tests {
-		levels := strings.Split(tt.topic, "/")
-		ans := validTopic(levels)
+		levels, ans := splitTopic(tt.topic)
+		if !reflect.DeepEqual(levels, tt.levels) {
+			t.Errorf("topic:<%s> levels got:%v, want:%v", tt.topic, levels, tt.levels)
+		}
 		if ans != tt.ans {
-			t.Errorf("topic:<%s>, got:%v, wanted:%v", tt.topic, ans, tt.ans)
+			t.Errorf("topic:<%s>, got:%v, want:%v", tt.topic, ans, tt.ans)
 		}
 	}
 }
 
 func TestWildCard(t *testing.T) {
-	mgr := newTopicManager()
+	mgr := newTopicManager(10000)
 	mgr.subscribe([]string{"a/+", "b/d"}, []byte{0, 1}, "A")
 	mgr.subscribe([]string{"+/+"}, []byte{1}, "B")
 	mgr.subscribe([]string{"+/fin"}, []byte{1}, "C")
@@ -1084,7 +1086,7 @@ func TestWildCard(t *testing.T) {
 		t.Errorf("find subscribers for invalid topic should return error")
 	}
 
-	mgr = newTopicManager()
+	mgr = newTopicManager(100000)
 	mgr.subscribe([]string{"a/b/c/d/e"}, []byte{0}, "A")
 	mgr.subscribe([]string{"a/b/c/f/g"}, []byte{0}, "A")
 	mgr.subscribe([]string{"m/x/v/f/g"}, []byte{0}, "B")

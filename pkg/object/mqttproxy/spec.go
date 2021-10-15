@@ -40,6 +40,7 @@ type (
 		Kafka       *KafkaSpec    `yaml:"kafkaBroker" jsonschema:"omitempty"`
 		UseTLS      bool          `yaml:"useTLS" jsonschema:"omitempty"`
 		Certificate []Certificate `yaml:"certificate" jsonschema:"omitempty"`
+		TopicCache  int           `yaml:"topicCache" jsonschema:"omitempty"`
 	}
 
 	// Certificate describes TLS certifications.
