@@ -23,7 +23,6 @@ package wasmhost
 import (
 	"fmt"
 
-	"github.com/bytecodealliance/wasmtime-go"
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 )
