@@ -9,6 +9,7 @@ export GO111MODULE=on
 MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 MKFILE_DIR := $(dir $(MKFILE_PATH))
 RELEASE_DIR := ${MKFILE_DIR}bin
+GO_PATH := $(shell go env | grep GOPATH | awk -F '"' '{print $$2}')
 
 # Version
 RELEASE?=v1.3.0
@@ -68,6 +69,12 @@ dev_build_server:
 	-o ${TARGET_SERVER} ${MKFILE_DIR}cmd/server
 
 build_docker:
+	cd ${MKFILE_DIR}
+	mkdir -p build/.cache
+	docker run -w /egsrc -u ${shell id -u}:${shell id -g} --rm \
+	-v ${GO_PATH}:/gopath -v ${MKFILE_DIR}:/egsrc -v ${MKFILE_DIR}build/.cache:/gocache \
+	-e GOPROXY=https://goproxy.io,direct -e GOCACHE=/gocache -e GOPATH=/gopath \
+	megaease/golang:1.16-alpine make build
 	docker build -t megaease/easegress:${RELEASE} -f ./build/package/Dockerfile .
 
 test:
@@ -79,6 +86,7 @@ test:
 
 clean:
 	rm -rf ${RELEASE_DIR}
+	rm -rf ${MKFILE_DIR}build/.cache
 
 run: build_server
 

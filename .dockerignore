@@ -1,1 +1,9 @@
-bin/
+.git/
+.github/
+build/.cache/
+build/test/
+cmd/
+doc/
+example/
+helm-charts/
+pkg/
