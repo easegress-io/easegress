@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package layer4server
+package tcpproxy
 
 import (
 	"fmt"
@@ -26,9 +26,8 @@ import (
 type (
 	// Spec describes the Layer4 Server.
 	Spec struct {
-		Name     string `yaml:"name" json:"name" jsonschema:"required"`
-		Protocol string `yaml:"protocol" jsonschema:"required,enum=tcp,enum=udp"`
-		Port     uint16 `yaml:"port" json:"port" jsonschema:"required"`
+		Name string `yaml:"name" json:"name" jsonschema:"required"`
+		Port uint16 `yaml:"port" json:"port" jsonschema:"required"`
 
 		// tcp stream config params
 		MaxConnections uint32 `yaml:"maxConns" jsonschema:"omitempty,minimum=1"`

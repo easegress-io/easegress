@@ -15,56 +15,56 @@
  * limitations under the License.
  */
 
-package layer4server
+package tcpproxy
 
 import (
 	"github.com/megaease/easegress/pkg/supervisor"
 )
 
 const (
-	// Category is the category of Layer4Server.
+	// Category is the category of TcpServer.
 	Category = supervisor.CategoryBusinessController
 
-	// Kind is the kind of Layer4Server.
-	Kind = "Layer4Server"
+	// Kind is the kind of TcpServer.
+	Kind = "TcpServer"
 )
 
 func init() {
-	supervisor.Register(&Layer4Server{})
+	supervisor.Register(&TcpServer{})
 }
 
 type (
-	// Layer4Server is Object of tpc/udp server.
-	Layer4Server struct {
+	// TcpServer is Object of tcp server.
+	TcpServer struct {
 		runtime *runtime
 	}
 )
 
-// Category returns the category of Layer4Server.
-func (l4 *Layer4Server) Category() supervisor.ObjectCategory {
+// Category returns the category of TcpServer.
+func (l4 *TcpServer) Category() supervisor.ObjectCategory {
 	return Category
 }
 
-// Kind returns the kind of Layer4Server.
-func (l4 *Layer4Server) Kind() string {
+// Kind returns the kind of TcpServer.
+func (l4 *TcpServer) Kind() string {
 	return Kind
 }
 
-// DefaultSpec returns the default spec of Layer4Server.
-func (l4 *Layer4Server) DefaultSpec() interface{} {
+// DefaultSpec returns the default spec of TcpServer.
+func (l4 *TcpServer) DefaultSpec() interface{} {
 	return &Spec{
 		MaxConnections: 1024,
 		ConnectTimeout: 5 * 1000,
 	}
 }
 
-// Validate validates the layer4 server structure.
-func (l4 *Layer4Server) Validate() error {
+// Validate validates the tcp server structure.
+func (l4 *TcpServer) Validate() error {
 	return nil
 }
 
-// Init initializes Layer4Server.
-func (l4 *Layer4Server) Init(superSpec *supervisor.Spec) {
+// Init initializes TcpServer.
+func (l4 *TcpServer) Init(superSpec *supervisor.Spec) {
 
 	l4.runtime = newRuntime(superSpec)
 	l4.runtime.eventChan <- &eventReload{
@@ -72,21 +72,21 @@ func (l4 *Layer4Server) Init(superSpec *supervisor.Spec) {
 	}
 }
 
-// Inherit inherits previous generation of Layer4Server.
-func (l4 *Layer4Server) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object) {
+// Inherit inherits previous generation of TcpServer.
+func (l4 *TcpServer) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object) {
 
-	l4.runtime = previousGeneration.(*Layer4Server).runtime
+	l4.runtime = previousGeneration.(*TcpServer).runtime
 	l4.runtime.eventChan <- &eventReload{
 		nextSuperSpec: superSpec,
 	}
 }
 
 // Status is the wrapper of runtimes Status.
-func (l4 *Layer4Server) Status() *supervisor.Status {
+func (l4 *TcpServer) Status() *supervisor.Status {
 	return &supervisor.Status{}
 }
 
-// Close closes Layer4Server.
-func (l4 *Layer4Server) Close() {
+// Close closes TcpServer.
+func (l4 *TcpServer) Close() {
 	l4.runtime.Close()
 }

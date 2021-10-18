@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package layer4server
+package tcpproxy
 
 import (
 	"errors"

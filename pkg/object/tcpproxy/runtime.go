@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package layer4server
+package tcpproxy
 
 import (
 	"fmt"
@@ -62,7 +62,7 @@ type (
 
 		pool      *pool      // backend servers pool
 		ipFilters *ipFilters // ip filters
-		listener  *listener  // layer4 listener
+		listener  *listener  // tcp listener
 
 		startNum  uint64
 		eventChan chan interface{} // receive traffic controller event
@@ -184,7 +184,7 @@ func (r *runtime) needRestartServer(nextSpec *Spec) bool {
 	x := *r.spec
 	y := *nextSpec
 
-	// The change of options below need not restart the layer4 server.
+	// The change of options below need not restart the tcp server.
 	x.MaxConnections, y.MaxConnections = 0, 0
 	x.ConnectTimeout, y.ConnectTimeout = 0, 0
 
@@ -196,7 +196,7 @@ func (r *runtime) needRestartServer(nextSpec *Spec) bool {
 }
 
 func (r *runtime) startServer() {
-	l := newListener(r.spec, r.onTcpAccept(), r.onUdpAccept())
+	l := newListener(r.spec, r.onAccept())
 
 	r.listener = l
 	r.startNum++
@@ -206,7 +206,7 @@ func (r *runtime) startServer() {
 	if err := l.listen(); err != nil {
 		r.setState(stateFailed)
 		r.setError(err)
-		logger.Errorf("listen for %s %s failed, err: %+v", l.protocol, l.localAddr, err)
+		logger.Errorf("tcp listener for %s failed, err: %+v", l.localAddr, err)
 
 		_ = l.close()
 		r.eventChan <- &eventServeFailed{
@@ -216,7 +216,7 @@ func (r *runtime) startServer() {
 		return
 	}
 
-	go r.listener.startEventLoop()
+	go r.listener.acceptEventLoop()
 }
 
 func (r *runtime) closeServer() {
@@ -225,7 +225,7 @@ func (r *runtime) closeServer() {
 	}
 
 	_ = r.listener.close()
-	logger.Infof("listener for %s(%s) closed", r.listener.protocol, r.listener.localAddr)
+	logger.Infof("listener for %s(%s) closed", r.listener.localAddr)
 }
 
 func (r *runtime) checkFailed() {
@@ -265,7 +265,7 @@ func (r *runtime) handleEventClose(e *eventClose) {
 	close(e.done)
 }
 
-func (r *runtime) onTcpAccept() func(conn net.Conn, listenerStop chan struct{}) {
+func (r *runtime) onAccept() func(conn net.Conn, listenerStop chan struct{}) {
 
 	return func(rawConn net.Conn, listenerStop chan struct{}) {
 		downstream := rawConn.RemoteAddr().(*net.TCPAddr).IP.String()
@@ -296,48 +296,6 @@ func (r *runtime) onTcpAccept() func(conn net.Conn, listenerStop chan struct{}) 
 		downstreamConn := NewDownstreamConn(rawConn, rawConn.RemoteAddr(), listenerStop)
 		r.setCallbacks(downstreamConn, upstreamConn)
 		downstreamConn.Start() // upstream conn start read/write loop when connect is called
-	}
-}
-
-func (r *runtime) onUdpAccept() func(cliAddr net.Addr, rawConn net.Conn, listenerStop chan struct{}, packet iobufferpool.IoBuffer) {
-	return func(cliAddr net.Addr, rawConn net.Conn, listenerStop chan struct{}, packet iobufferpool.IoBuffer) {
-		downstream := cliAddr.(*net.UDPAddr).IP.String()
-		if r.ipFilters != nil && !r.ipFilters.AllowIP(downstream) {
-			logger.Infof("discard udp packet from %s to %s which ip is not allowed", cliAddr.String(),
-				rawConn.LocalAddr().String())
-			return
-		}
-
-		localAddr := rawConn.LocalAddr()
-		key := GetProxyMapKey(localAddr.String(), cliAddr.String())
-		if rawDc, ok := ProxyMap.Load(key); ok {
-			dc := rawDc.(*Connection)
-			dc.OnRead(packet)
-			return
-		}
-
-		server, err := r.pool.next(downstream)
-		if err != nil {
-			logger.Infof("discard udp packet from %s to %s due to can not find upstream server, err: %+v",
-				cliAddr.String(), localAddr.String())
-			return
-		}
-
-		upstreamAddr, _ := net.ResolveUDPAddr("udp", server.Addr)
-		uc := NewUpstreamConn(r.spec.ConnectTimeout, upstreamAddr, listenerStop)
-		if err := uc.Connect(); err != nil {
-			logger.Errorf("discard udp packet due to upstream connect failed, local addr: %s, err: %+v", localAddr, err)
-			return
-		}
-
-		fd, _ := rawConn.(*net.UDPConn).File()
-		downstreamRawConn, _ := net.FilePacketConn(fd)
-		dc := NewDownstreamConn(downstreamRawConn.(*net.UDPConn), rawConn.RemoteAddr(), listenerStop)
-		SetUDPProxyMap(GetProxyMapKey(localAddr.String(), cliAddr.String()), &dc)
-		r.setCallbacks(dc, uc)
-
-		dc.Start()
-		dc.OnRead(packet)
 	}
 }
 
