@@ -35,6 +35,13 @@ ifdef GOTAGS
   endif
 endif
 
+# When build binaries for docker, we put the binaries to another folder to avoid
+# overwriting existing build result, or Mac/Windows user will have to do a rebuild
+# after build the docker image, which is Linux only currently.
+ifdef DOCKER
+  RELEASE_DIR= ${MKFILE_DIR}build/bin
+endif
+
 # Targets
 TARGET_SERVER=${RELEASE_DIR}/easegress-server
 TARGET_CLIENT=${RELEASE_DIR}/egctl
@@ -70,11 +77,12 @@ dev_build_server:
 
 build_docker:
 	cd ${MKFILE_DIR}
-	mkdir -p build/.cache
+	mkdir -p build/cache
+	mkdir -p build/bin
 	docker run -w /egsrc -u ${shell id -u}:${shell id -g} --rm \
-	-v ${GO_PATH}:/gopath -v ${MKFILE_DIR}:/egsrc -v ${MKFILE_DIR}build/.cache:/gocache \
+	-v ${GO_PATH}:/gopath -v ${MKFILE_DIR}:/egsrc -v ${MKFILE_DIR}build/cache:/gocache \
 	-e GOPROXY=https://goproxy.io,direct -e GOCACHE=/gocache -e GOPATH=/gopath \
-	megaease/golang:1.16-alpine make build
+	megaease/golang:1.16-alpine make build DOCKER=true
 	docker build -t megaease/easegress:${RELEASE} -f ./build/package/Dockerfile .
 
 test:
@@ -86,7 +94,8 @@ test:
 
 clean:
 	rm -rf ${RELEASE_DIR}
-	rm -rf ${MKFILE_DIR}build/.cache
+	rm -rf ${MKFILE_DIR}build/cache
+	rm -rf ${MKFILE_DIR}build/bin
 
 run: build_server
 

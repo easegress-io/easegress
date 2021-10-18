@@ -25,7 +25,8 @@ member
 dist/
 
 # golang build cache for docker
-build/.cache
+build/cache
+build/bin
 
 easegress.pid
 

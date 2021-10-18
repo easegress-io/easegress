@@ -1,6 +1,7 @@
 .git/
 .github/
-build/.cache/
+bin/
+build/cache/
 build/test/
 cmd/
 doc/
