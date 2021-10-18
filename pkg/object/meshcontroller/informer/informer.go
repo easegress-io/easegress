@@ -100,10 +100,10 @@ type (
 	// TenantSpecsFunc is the callback function type for tenant specs.
 	TenantSpecsFunc func(value map[string]*spec.Tenant) bool
 
-	// IngressSpecFunc is the callback function type for service spec.
+	// IngressSpecFunc is the callback function type for ingress spec.
 	IngressSpecFunc func(event Event, ingressSpec *spec.Ingress) bool
 
-	// IngressSpecsFunc is the callback function type for service specs.
+	// IngressSpecsFunc is the callback function type for ingress specs.
 	IngressSpecsFunc func(value map[string]*spec.Ingress) bool
 
 	// ServiceCertsFunc is the callback function type for service certs.
@@ -111,6 +111,18 @@ type (
 
 	// CertFunc is the callback function type for service/ingressController's cert.
 	CertFunc func(event Event, value *spec.Certificate) bool
+
+	// HTTPRouteGroupSpecFunc is the callback function type for HTTP route group spec.
+	HTTPRouteGroupSpecFunc func(event Event, value *spec.HTTPRouteGroup) bool
+
+	// HTTPRouteGroupSpecsFunc is the callback function type for HTTP route group specs.
+	HTTPRouteGroupSpecsFunc func(value map[string]*spec.HTTPRouteGroup) bool
+
+	// TrafficTargetSpecFunc is the callback function type for traffic target spec.
+	TrafficTargetSpecFunc func(event Event, value *spec.TrafficTarget) bool
+
+	// TrafficTargetSpecsFunc is the callback function type for traffic target specs.
+	TrafficTargetSpecsFunc func(value map[string]*spec.TrafficTarget) bool
 
 	// Informer is the interface for informing two type of storage changed for every Mesh spec structure.
 	//  1. Based on comparison between old and new part of entry.
@@ -132,6 +144,12 @@ type (
 
 		OnPartOfIngressSpec(serviceName string, gjsonPath GJSONPath, fn IngressSpecFunc) error
 		OnAllIngressSpecs(fn IngressSpecsFunc) error
+
+		OnPartOfHTTPRouteGroupSpec(groupName string, gjsonPath GJSONPath, fn HTTPRouteGroupSpecFunc) error
+		OnAllHTTPRouteGroupSpecs(fn HTTPRouteGroupSpecsFunc) error
+
+		OnPartOfTrafficTargetSpec(ttName string, gjsonPath GJSONPath, fn TrafficTargetSpecFunc) error
+		OnAllTrafficTargetSpecs(fn TrafficTargetSpecsFunc) error
 
 		StopWatchServiceSpec(serviceName string, gjsonPath GJSONPath)
 		StopWatchServiceInstanceSpec(serviceName string)
@@ -339,7 +357,7 @@ func (inf *meshInformer) OnPartOfServiceInstanceStatus(serviceName, instanceID s
 	return inf.onSpecPart(storeKey, syncerKey, gjsonPath, specFunc)
 }
 
-// OnPartOfTenantSpec watches one tenant status spec by given gjsonPath.
+// OnPartOfTenantSpec watches one tenant spec by given gjsonPath.
 func (inf *meshInformer) OnPartOfTenantSpec(tenant string, gjsonPath GJSONPath, fn TenantSpecFunc) error {
 	storeKey := layout.TenantSpecKey(tenant)
 	syncerKey := fmt.Sprintf("tenant-%s", tenant)
@@ -358,7 +376,7 @@ func (inf *meshInformer) OnPartOfTenantSpec(tenant string, gjsonPath GJSONPath, 
 	return inf.onSpecPart(storeKey, syncerKey, gjsonPath, specFunc)
 }
 
-// OnPartOfIngressSpec watches one ingress status spec by given gjsonPath.
+// OnPartOfIngressSpec watches one ingress spec by given gjsonPath.
 func (inf *meshInformer) OnPartOfIngressSpec(ingress string, gjsonPath GJSONPath, fn IngressSpecFunc) error {
 	storeKey := layout.IngressSpecKey(ingress)
 	syncerKey := fmt.Sprintf("ingress-%s", ingress)
@@ -372,6 +390,44 @@ func (inf *meshInformer) OnPartOfIngressSpec(ingress string, gjsonPath GJSONPath
 			}
 		}
 		return fn(event, ingressSpec)
+	}
+
+	return inf.onSpecPart(storeKey, syncerKey, gjsonPath, specFunc)
+}
+
+// OnPartOfHTTPRouteGroupSpec watches one HTTP route group spec by given gjsonPath.
+func (inf *meshInformer) OnPartOfHTTPRouteGroupSpec(group string, gjsonPath GJSONPath, fn HTTPRouteGroupSpecFunc) error {
+	storeKey := layout.HTTPRouteGroupKey(group)
+	syncerKey := fmt.Sprintf("http-route-group-%s", group)
+
+	specFunc := func(event Event, value string) bool {
+		groupSpec := &spec.HTTPRouteGroup{}
+		if event.EventType != EventDelete {
+			if err := yaml.Unmarshal([]byte(value), groupSpec); err != nil {
+				logger.Errorf("BUG: unmarshal %s to yaml failed: %v", value, err)
+				return true
+			}
+		}
+		return fn(event, groupSpec)
+	}
+
+	return inf.onSpecPart(storeKey, syncerKey, gjsonPath, specFunc)
+}
+
+// OnPartOfTrafficTargetSpec watches one traffic target spec by given gjsonPath.
+func (inf *meshInformer) OnPartOfTrafficTargetSpec(tt string, gjsonPath GJSONPath, fn TrafficTargetSpecFunc) error {
+	storeKey := layout.TrafficTargetKey(tt)
+	syncerKey := fmt.Sprintf("traffic-target-%s", tt)
+
+	specFunc := func(event Event, value string) bool {
+		ttSpec := &spec.TrafficTarget{}
+		if event.EventType != EventDelete {
+			if err := yaml.Unmarshal([]byte(value), ttSpec); err != nil {
+				logger.Errorf("BUG: unmarshal %s to yaml failed: %v", value, err)
+				return true
+			}
+		}
+		return fn(event, ttSpec)
 	}
 
 	return inf.onSpecPart(storeKey, syncerKey, gjsonPath, specFunc)
@@ -597,6 +653,50 @@ func (inf *meshInformer) OnAllServerCert(fn ServiceCertsFunc) error {
 		}
 
 		return fn(cert)
+	}
+
+	return inf.onSpecs(storeKey, syncerKey, specsFunc)
+}
+
+// OnAllHTTPRouteGroupSpecs watches all tenant specs
+func (inf *meshInformer) OnAllHTTPRouteGroupSpecs(fn HTTPRouteGroupSpecsFunc) error {
+	storeKey := layout.HTTPRouteGroupPrefix()
+	syncerKey := "http-route-group-target"
+
+	specsFunc := func(kvs map[string]string) bool {
+		groups := make(map[string]*spec.HTTPRouteGroup)
+		for k, v := range kvs {
+			groupSpec := &spec.HTTPRouteGroup{}
+			if err := yaml.Unmarshal([]byte(v), groupSpec); err != nil {
+				logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
+				continue
+			}
+			groups[k] = groupSpec
+		}
+
+		return fn(groups)
+	}
+
+	return inf.onSpecs(storeKey, syncerKey, specsFunc)
+}
+
+// OnAllTrafficTargetSpecs watches all tenant specs
+func (inf *meshInformer) OnAllTrafficTargetSpecs(fn TrafficTargetSpecsFunc) error {
+	storeKey := layout.TrafficTargetPrefix()
+	syncerKey := "prefix-traffic-target"
+
+	specsFunc := func(kvs map[string]string) bool {
+		tts := make(map[string]*spec.TrafficTarget)
+		for k, v := range kvs {
+			ttSpec := &spec.TrafficTarget{}
+			if err := yaml.Unmarshal([]byte(v), ttSpec); err != nil {
+				logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
+				continue
+			}
+			tts[k] = ttSpec
+		}
+
+		return fn(tts)
 	}
 
 	return inf.onSpecs(storeKey, syncerKey, specsFunc)

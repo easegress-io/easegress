@@ -248,9 +248,8 @@ func (ings *ingressServer) add(pipeline string) error {
 					PathPrefix: "/",
 					Headers: []*httpserver.Header{
 						{
-							Key:     ingressFunctionKey,
-							Values:  []string{pipeline},
-							Backend: pipeline,
+							Key:    ingressFunctionKey,
+							Values: []string{pipeline},
 						},
 					},
 					Backend: pipeline,
