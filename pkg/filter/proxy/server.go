@@ -136,7 +136,7 @@ func (s *servers) tryUseService() {
 	serviceInstanceSpecs, err := s.serviceRegistry.ListServiceInstances(s.poolSpec.ServiceRegistry, s.poolSpec.ServiceName)
 
 	if err != nil {
-		logger.Errorf("get service %s/%s failed: %v",
+		logger.Warnf("first try to use service %s/%s failed(will try again): %v",
 			s.poolSpec.ServiceRegistry, s.poolSpec.ServiceName, err)
 		s.useStaticServers()
 		return
@@ -155,7 +155,7 @@ func (s *servers) useService(serviceInstanceSpecs map[string]*serviceregistry.Se
 		})
 	}
 	if len(servers) == 0 {
-		logger.Errorf("%s/%s: empty service instance",
+		logger.Warnf("%s/%s: empty service instance",
 			s.poolSpec.ServiceRegistry, s.poolSpec.ServiceName)
 		s.useStaticServers()
 		return
@@ -163,7 +163,7 @@ func (s *servers) useService(serviceInstanceSpecs map[string]*serviceregistry.Se
 
 	dynamicServers := newStaticServers(servers, s.poolSpec.ServersTags, s.poolSpec.LoadBalance)
 	if dynamicServers.len() == 0 {
-		logger.Errorf("%s/%s: no service instance satisfy tags: %v",
+		logger.Warnf("%s/%s: no service instance satisfy tags: %v",
 			s.poolSpec.ServiceRegistry, s.poolSpec.ServiceName, s.poolSpec.ServersTags)
 		s.useStaticServers()
 	}
