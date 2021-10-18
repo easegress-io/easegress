@@ -8,3 +8,4 @@ doc/
 example/
 helm-charts/
 pkg/
+vendor/
