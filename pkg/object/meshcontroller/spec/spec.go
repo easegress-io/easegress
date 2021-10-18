@@ -284,15 +284,57 @@ type (
 		httppipeline.Spec `yaml:",inline"`
 	}
 
+	// DynamicObject defines a dynamic object which is a map of string to interface{}.
+	// The value of this map could also be a dynamic object, but in this case, its type
+	// must be `map[string]interface{}`, and should not be `map[interface{}]interface{}`.
+	DynamicObject map[string]interface{}
+
 	// CustomResourceKind defines the spec of a custom resource kind
 	CustomResourceKind struct {
-		Name       string `yaml:"name" jsonschema:"required"`
-		JSONSchema string `yaml:"jsonSchema" jsonschema:"omitempty"`
+		Name       string        `yaml:"name" jsonschema:"required"`
+		JSONSchema DynamicObject `yaml:"jsonSchema" jsonschema:"omitempty"`
 	}
 
 	// CustomResource defines the spec of a custom resource
-	CustomResource map[string]interface{}
+	CustomResource DynamicObject
 )
+
+// UnmarshalYAML implements yaml.Unmarshaler
+// the type of a DynamicObject field could be `map[interface{}]interface{}` if it is
+// unmarshaled from yaml, but some packages, like the standard json package could not
+// handle this type, so it must be converted to `map[string]interface{}`.
+func (do *DynamicObject) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	m := map[string]interface{}{}
+	if err := unmarshal(&m); err != nil {
+		return err
+	}
+
+	var convert func(interface{}) interface{}
+	convert = func(src interface{}) interface{} {
+		switch x := src.(type) {
+		case map[interface{}]interface{}:
+			x2 := map[string]interface{}{}
+			for k, v := range x {
+				x2[k.(string)] = convert(v)
+			}
+			return x2
+		case []interface{}:
+			x2 := make([]interface{}, len(x))
+			for i, v := range x {
+				x2[i] = convert(v)
+			}
+			return x2
+		}
+		return src
+	}
+
+	for k, v := range m {
+		m[k] = convert(v)
+	}
+	*do = m
+
+	return nil
+}
 
 // Name returns the 'name' field of the custom resource
 func (cr CustomResource) Name() string {
@@ -308,6 +350,11 @@ func (cr CustomResource) Kind() string {
 		return v
 	}
 	return ""
+}
+
+// UnmarshalYAML implements yaml.Unmarshaler
+func (cr *CustomResource) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	return (*DynamicObject)(cr).UnmarshalYAML(unmarshal)
 }
 
 // Validate validates Spec.

@@ -33,6 +33,7 @@ import (
 	_ "github.com/megaease/easegress/pkg/object/httpserver"
 	"github.com/megaease/easegress/pkg/util/urlrule"
 	v1alpha1 "github.com/megaease/easemesh-api/v1alpha1"
+	"gopkg.in/yaml.v2"
 )
 
 func TestMain(m *testing.M) {
@@ -1031,5 +1032,27 @@ func TestCustomResource(t *testing.T) {
 	r["kind"] = "kind1"
 	if r.Kind() != "kind1" {
 		t.Error("kind should be kind1")
+	}
+
+	r["field1"] = map[string]interface{}{
+		"sub1": 1,
+		"sub2": "value2",
+	}
+	r["field2"] = []interface{}{
+		"sub1", "sub2",
+	}
+
+	data, err := yaml.Marshal(r)
+	if err != nil {
+		t.Errorf("yaml.Marshal should succeed: %v", err.Error())
+	}
+
+	err = yaml.Unmarshal(data, &r)
+	if err != nil {
+		t.Errorf("yaml.Marshal should succeed: %v", err.Error())
+	}
+
+	if _, ok := r["field1"].(map[string]interface{}); !ok {
+		t.Errorf("the type of 'field1' should be 'map[string]interface{}'")
 	}
 }
