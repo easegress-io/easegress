@@ -622,7 +622,7 @@ func TestSendMsgBack(t *testing.T) {
 			for j := 0; j < msgNum; j++ {
 				topic := r.ClientID()
 				text := fmt.Sprintf("sub %d", j)
-				broker.sendMsgToClient(topic, []byte(text), Qos1)
+				broker.sendMsgToClient(topic, []byte(text), QoS1)
 			}
 		}(clients[i])
 	}
@@ -830,7 +830,7 @@ func TestHTTPRequest(t *testing.T) {
 	// err qos should fail
 	data := HTTPJsonData{
 		Topic:   "topic",
-		Qos:     10,
+		QoS:     10,
 		Payload: "data",
 		Base64:  false,
 	}
@@ -842,7 +842,7 @@ func TestHTTPRequest(t *testing.T) {
 	// base64 flag
 	data = HTTPJsonData{
 		Topic:   "topic",
-		Qos:     10,
+		QoS:     10,
 		Payload: "data",
 		Base64:  true,
 	}
@@ -854,7 +854,7 @@ func TestHTTPRequest(t *testing.T) {
 	// success
 	data = HTTPJsonData{
 		Topic:   "topic",
-		Qos:     1,
+		QoS:     1,
 		Payload: "data",
 		Base64:  false,
 	}
@@ -864,7 +864,7 @@ func TestHTTPRequest(t *testing.T) {
 	}
 	data = HTTPJsonData{
 		Topic:   "topic",
-		Qos:     1,
+		QoS:     1,
 		Payload: base64.StdEncoding.EncodeToString([]byte("data")),
 		Base64:  true,
 	}
@@ -897,7 +897,7 @@ func TestHTTPPublish(t *testing.T) {
 		for i := 0; i < numMsg; i++ {
 			data := HTTPJsonData{
 				Topic:   "test",
-				Qos:     1,
+				QoS:     1,
 				Payload: base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%d", i))),
 				Base64:  true,
 			}
@@ -982,7 +982,7 @@ func TestHTTPTransfer(t *testing.T) {
 	// set data to broker1
 	data := HTTPJsonData{
 		Topic:   "client",
-		Qos:     1,
+		QoS:     1,
 		Payload: "data",
 		Base64:  false,
 	}

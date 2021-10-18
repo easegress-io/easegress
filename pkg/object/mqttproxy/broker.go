@@ -59,7 +59,7 @@ type (
 	// HTTPJsonData is json data received from http endpoint used to send back to clients
 	HTTPJsonData struct {
 		Topic       string `json:"topic"`
-		Qos         int    `json:"qos"`
+		QoS         int    `json:"qos"`
 		Payload     string `json:"payload"`
 		Base64      bool   `json:"base64"`
 		Distributed bool   `json:"distributed"`
@@ -102,10 +102,10 @@ func newBroker(spec *Spec, store storage, memberURL func(string, string) ([]stri
 		return nil
 	}
 
-	if spec.TopicCache <= 0 {
-		spec.TopicCache = 100000
+	if spec.TopicCacheSize <= 0 {
+		spec.TopicCacheSize = 100000
 	}
-	broker.topicMgr = newTopicManager(spec.TopicCache)
+	broker.topicMgr = newTopicManager(spec.TopicCacheSize)
 	broker.sessMgr = newSessionManager(broker, store)
 	go broker.run()
 	return broker
@@ -269,8 +269,8 @@ func (b *Broker) sendMsgToClient(topic string, payload []byte, qos byte) {
 		return
 	}
 
-	for clientID, subQos := range subscribers {
-		if subQos < qos {
+	for clientID, subQoS := range subscribers {
+		if subQoS < qos {
 			return
 		}
 		client := b.getClient(clientID)
@@ -312,7 +312,7 @@ func (b *Broker) topicsPublishHandler(w http.ResponseWriter, r *http.Request) {
 		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("invalid json data from request body"))
 		return
 	}
-	if data.Qos < int(Qos0) || data.Qos > int(Qos2) {
+	if data.QoS < int(QoS0) || data.QoS > int(QoS2) {
 		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("qos of MQTT is 0, 1, 2, and choose 1 for most cases"))
 		return
 	}
@@ -332,7 +332,7 @@ func (b *Broker) topicsPublishHandler(w http.ResponseWriter, r *http.Request) {
 		data.Distributed = true
 		b.requestTransfer(b.egName, b.name, data)
 	}
-	go b.sendMsgToClient(data.Topic, payload, byte(data.Qos))
+	go b.sendMsgToClient(data.Topic, payload, byte(data.QoS))
 }
 
 // const apiGroupName = "mqtt_proxy"

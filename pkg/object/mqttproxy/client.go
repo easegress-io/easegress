@@ -34,12 +34,12 @@ const (
 	// Disconnected is MQTT client status of Disconnected
 	Disconnected = 2
 
-	// Qos0 for "At most once"
-	Qos0 byte = 0
-	// Qos1 for "At least once
-	Qos1 byte = 1
-	// Qos2 for "Exactly once"
-	Qos2 byte = 2
+	// QoS0 for "At most once"
+	QoS0 byte = 0
+	// QoS1 for "At least once
+	QoS1 byte = 1
+	// QoS2 for "Exactly once"
+	QoS2 byte = 2
 )
 
 type (
@@ -175,13 +175,13 @@ func (c *Client) processPublish(publish *packets.PublishPacket) {
 		logger.Errorf("client %v publish %v failed: %v", c.info.cid, publish.TopicName, err)
 	}
 	switch publish.Qos {
-	case Qos0:
+	case QoS0:
 		// do nothing
-	case Qos1:
+	case QoS1:
 		puback := packets.NewControlPacket(packets.Puback).(*packets.PubackPacket)
 		puback.MessageID = publish.MessageID
 		c.writePacket(puback)
-	case Qos2:
+	case QoS2:
 		// not support yet
 	}
 }
