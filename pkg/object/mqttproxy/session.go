@@ -192,7 +192,7 @@ func (s *Session) publish(topic string, payload []byte, qos byte) {
 		s.pendingQueue = append(s.pendingQueue, p.MessageID)
 		client.writePacket(p)
 	} else {
-		logger.Errorf("current not support to publish message with qos=2")
+		logger.Errorf("publish message with qos=2 is not supported currently")
 	}
 }
 
