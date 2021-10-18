@@ -80,6 +80,10 @@ func (ings *IngressServer) Ready() bool {
 	ings.mutex.RLock()
 	defer ings.mutex.RUnlock()
 
+	return ings._ready()
+}
+
+func (ings *IngressServer) _ready() bool {
 	serviceSpec := &spec.Service{
 		Name: ings.serviceName,
 	}
@@ -162,7 +166,7 @@ func (ings *IngressServer) Close() {
 	ings.mutex.Lock()
 	defer ings.mutex.Unlock()
 
-	if ings.Ready() {
+	if ings._ready() {
 		ings.tc.DeleteHTTPServer(ings.namespace, ings.httpServer.Spec().Name())
 		for _, entity := range ings.pipelines {
 			ings.tc.DeleteHTTPPipeline(ings.namespace, entity.Spec().Name())
