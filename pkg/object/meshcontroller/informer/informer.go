@@ -106,6 +106,12 @@ type (
 	// IngressSpecsFunc is the callback function type for service specs.
 	IngressSpecsFunc func(value map[string]*spec.Ingress) bool
 
+	// ServiceCertsFunc is the callback function type for service certs.
+	ServiceCertsFunc func(value map[string]*spec.Certificate) bool
+
+	// CertFunc is the callback function type for service/ingressController's cert.
+	CertFunc func(event Event, value *spec.Certificate) bool
+
 	// Informer is the interface for informing two type of storage changed for every Mesh spec structure.
 	//  1. Based on comparison between old and new part of entry.
 	//  2. Based on comparison on entries with the same prefix.
@@ -129,6 +135,10 @@ type (
 
 		StopWatchServiceSpec(serviceName string, gjsonPath GJSONPath)
 		StopWatchServiceInstanceSpec(serviceName string)
+
+		OnAllServerCert(fn ServiceCertsFunc) error
+		OnServerCert(serviceName, instanceID string, fn CertFunc) error
+		OnIngressControllerCert(instaceID string, fn CertFunc) error
 
 		Close()
 	}
@@ -537,6 +547,56 @@ func (inf *meshInformer) OnAllIngressSpecs(fn IngressSpecsFunc) error {
 		}
 
 		return fn(ingresss)
+	}
+
+	return inf.onSpecs(storeKey, syncerKey, specsFunc)
+}
+
+func (inf *meshInformer) onCert(storeKey, syncerKey string, fn CertFunc) error {
+	specFunc := func(event Event, value string) bool {
+		cert := &spec.Certificate{}
+		if event.EventType != EventDelete {
+			if err := yaml.Unmarshal([]byte(value), cert); err != nil {
+				logger.Errorf("BUG: unmarshal %s to yaml failed: %v", value, err)
+				return true
+			}
+		}
+		return fn(event, cert)
+	}
+	return inf.onSpecPart(storeKey, syncerKey, "", specFunc)
+}
+
+func (inf *meshInformer) OnIngressControllerCert(instanceID string, fn CertFunc) error {
+	storeKey := layout.IngressControllerInstanceCertKey(instanceID)
+	syncerKey := fmt.Sprintf("ingresscontroller-%s-cert", instanceID)
+	return inf.onCert(storeKey, syncerKey, fn)
+
+}
+
+func (inf *meshInformer) OnServerCert(serviceName, instanceID string, fn CertFunc) error {
+	storeKey := layout.ServiceInstanceCertKey(serviceName, instanceID)
+	syncerKey := fmt.Sprintf("service-%s-%s-cert", serviceName, instanceID)
+
+	return inf.onCert(storeKey, syncerKey, fn)
+}
+
+// OnAllServerCert watches all service cert specs.
+func (inf *meshInformer) OnAllServerCert(fn ServiceCertsFunc) error {
+	storeKey := layout.AllServiceCertPrefix()
+	syncerKey := "prefix-certs"
+
+	specsFunc := func(kvs map[string]string) bool {
+		cert := make(map[string]*spec.Certificate)
+		for k, v := range kvs {
+			certSpec := &spec.Certificate{}
+			if err := yaml.Unmarshal([]byte(v), certSpec); err != nil {
+				logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
+				continue
+			}
+			cert[k] = certSpec
+		}
+
+		return fn(cert)
 	}
 
 	return inf.onSpecs(storeKey, syncerKey, specsFunc)

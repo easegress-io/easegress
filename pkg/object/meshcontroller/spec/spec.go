@@ -20,6 +20,7 @@ package spec
 import (
 	"bytes"
 	"fmt"
+	"time"
 
 	"gopkg.in/yaml.v2"
 
@@ -62,6 +63,29 @@ const (
 
 	// HeartbeatInterval is the default heartbeat interval for checking service heartbeat
 	HeartbeatInterval = "5s"
+
+	// SecurityLevelPermissive is the level for not enabling mTLS.
+	SecurityLevelPermissive = "permissive"
+
+	// SecurityLevelStrict is the level for enabling mTLS.
+	SecurityLevelStrict = "strict"
+
+	// DefaultCommonName is the name of root ca cert.
+	DefaultCommonName = "mesh-root-ca"
+
+	// CertProviderSelfSign is the in-memory, self-sign cert provider.
+	CertProviderSelfSign = "selfSign"
+
+	// IngressControllerName is the name of easemesh ingress controller.
+	IngressControllerName = "ingresscontroller"
+
+	// from k8s pod's env value
+
+	// PodEnvHostname is the name of the pod in environment variable.
+	PodEnvHostname = "HOSTNAME"
+
+	// PodEnvApplicationIP is the IP of the pod in environment variable.
+	PodEnvApplicationIP = "APPLICATION_IP"
 )
 
 var (
@@ -92,6 +116,17 @@ type (
 		IngressPort int `yaml:"ingressPort" jsonschema:"required"`
 
 		ExternalServiceRegistry string `yaml:"externalServiceRegistry" jsonschema:"omitempty"`
+
+		Security *Security `yaml:"security" jsonschema:"omitempty"`
+	}
+
+	// Security is the spec for mesh-wide security.
+	Security struct {
+		MTLSMode     string `yaml:"mtlsMode" jsonschema:"required"`
+		CertProvider string `yaml:"certProvider" jsonschema:"required"`
+
+		RootCertTTL string `yaml:"rootCertTTL" jsonschema:"required, format=duration"`
+		AppCertTTL  string `yaml:"appCertTTL" jsonschema:"required, format=duration"`
 	}
 
 	// Service contains the information of service.
@@ -232,6 +267,17 @@ type (
 		Description string `yaml:"description"`
 	}
 
+	// Certificate is one cert for mesh service instance or root CA.
+	Certificate struct {
+		IP          string `yaml:"ip" jsonschema:"required"`
+		ServiceName string `yaml:"servieName" jsonschema:"required"`
+		CertBase64  string `yaml:"certBase64" jsonschema:"required"`
+		KeyBase64   string `yaml:"keyBase64" jsonschema:"required"`
+		TTL         string `yaml:"ttl" jsonschema:"required,format=duration"`
+		SignTime    string `yaml:"signTime" jsonschema:"required,format=timerfc3339"`
+		HOST        string `yaml:"host" jsonschema:"required"`
+	}
+
 	// ServiceInstanceSpec is the spec of service instance.
 	// FIXME: Use the unified struct: serviceregistry.ServiceInstanceSpec.
 	ServiceInstanceSpec struct {
@@ -365,7 +411,45 @@ func (a Admin) Validate() error {
 		return fmt.Errorf("unsupported registry center type: %s", a.RegistryType)
 	}
 
+	if a.Security != nil {
+		switch a.Security.CertProvider {
+		case CertProviderSelfSign:
+		default:
+			return fmt.Errorf("unknown mTLS cert provider type: %s", a.Security.CertProvider)
+		}
+
+		switch a.Security.MTLSMode {
+		case SecurityLevelPermissive, SecurityLevelStrict:
+		default:
+			return fmt.Errorf("unknown mTLS security level: %s", a.Security.MTLSMode)
+		}
+	}
+
+	if a.EnablemTLS() {
+		appCertTTL, err := time.ParseDuration(a.Security.AppCertTTL)
+		if err != nil {
+			return fmt.Errorf("parse appcertTTl: %s failed: %v", a.Security.AppCertTTL, err)
+		}
+		rootCertTTL, err := time.ParseDuration(a.Security.RootCertTTL)
+		if err != nil {
+			return fmt.Errorf("parse rootTTl: %s failed: %v", a.Security.AppCertTTL, err)
+		}
+
+		if appCertTTL >= rootCertTTL {
+			err = fmt.Errorf("appCertTTL: %s is larger than rootCertTTL: %s", appCertTTL.String(), rootCertTTL.String())
+			return err
+		}
+	}
+
 	return nil
+}
+
+// EnablemTLS indicates whether we should enable mTLS in mesh or not.
+func (a Admin) EnablemTLS() bool {
+	if a.Security != nil && a.Security.MTLSMode == SecurityLevelStrict {
+		return true
+	}
+	return false
 }
 
 // Key returns the key of ServiceInstanceSpec.
@@ -476,16 +560,28 @@ func (b *pipelineSpecBuilder) appendTimeLimiter(tl *timelimiter.Spec) *pipelineS
 	return b
 }
 
-func (b *pipelineSpecBuilder) appendProxyWithCanary(instanceSpecs []*ServiceInstanceSpec, canary *Canary, lb *proxy.LoadBalance) *pipelineSpecBuilder {
+func (b *pipelineSpecBuilder) appendProxyWithCanary(instanceSpecs []*ServiceInstanceSpec, canary *Canary, lb *proxy.LoadBalance, cert, rootCert *Certificate) *pipelineSpecBuilder {
 	mainServers := []*proxy.Server{}
 	canaryInstances := []*ServiceInstanceSpec{}
+
+	needMTLS := false
+	if cert != nil && rootCert != nil {
+		needMTLS = true
+	}
 
 	for k, instanceSpec := range instanceSpecs {
 		if instanceSpec.Status == ServiceStatusUp {
 			if len(instanceSpec.Labels) == 0 {
-				mainServers = append(mainServers, &proxy.Server{
-					URL: fmt.Sprintf("http://%s:%d", instanceSpec.IP, instanceSpec.Port),
-				})
+				if needMTLS {
+					mainServers = append(mainServers, &proxy.Server{
+						URL: fmt.Sprintf("https://%s:%d", instanceSpec.IP, instanceSpec.Port),
+					})
+				} else {
+					mainServers = append(mainServers, &proxy.Server{
+						URL: fmt.Sprintf("http://%s:%d", instanceSpec.IP, instanceSpec.Port),
+					})
+
+				}
 			} else {
 				canaryInstances = append(canaryInstances, instanceSpecs[k])
 			}
@@ -508,9 +604,16 @@ func (b *pipelineSpecBuilder) appendProxyWithCanary(instanceSpecs []*ServiceInst
 					match := false
 					for insKey, insLabel := range ins.Labels {
 						if key == insKey && label == insLabel {
-							servers = append(servers, &proxy.Server{
-								URL: fmt.Sprintf("http://%s:%d", ins.IP, ins.Port),
-							})
+							if needMTLS {
+								servers = append(servers, &proxy.Server{
+									URL: fmt.Sprintf("https://%s:%d", ins.IP, ins.Port),
+								})
+							} else {
+								servers = append(servers, &proxy.Server{
+									URL: fmt.Sprintf("http://%s:%d", ins.IP, ins.Port),
+								})
+
+							}
 							match = true
 							break
 						}
@@ -537,6 +640,25 @@ func (b *pipelineSpecBuilder) appendProxyWithCanary(instanceSpecs []*ServiceInst
 	}
 
 	b.Flow = append(b.Flow, httppipeline.Flow{Filter: backendName})
+	if needMTLS {
+		b.Filters = append(b.Filters, map[string]interface{}{
+			"kind": proxy.Kind,
+			"name": backendName,
+			"mainPool": &proxy.PoolSpec{
+				Servers:     mainServers,
+				LoadBalance: lb,
+			},
+			"candidatePools": candidatePool,
+			"mtls": &proxy.MTLS{
+				CertBase64:     cert.CertBase64,
+				KeyBase64:      cert.KeyBase64,
+				RootCertBase64: rootCert.CertBase64,
+			},
+		})
+
+		return b
+	}
+
 	b.Filters = append(b.Filters, map[string]interface{}{
 		"kind": proxy.Kind,
 		"name": backendName,
@@ -610,7 +732,7 @@ rules:`
 	yamlConfig := buf.String()
 	spec, err := supervisor.NewSpec(yamlConfig)
 	if err != nil {
-		logger.Errorf("BUG: new spec for %s failed: %v", yamlConfig, err)
+		logger.Errorf("new spec for %s failed: %v", yamlConfig, err)
 		return nil, err
 	}
 
@@ -618,10 +740,11 @@ rules:`
 }
 
 // IngressPipelineSpec generates a spec for ingress pipeline spec
-func (s *Service) IngressPipelineSpec(instanceSpecs []*ServiceInstanceSpec) (*supervisor.Spec, error) {
+func (s *Service) IngressPipelineSpec(instanceSpecs []*ServiceInstanceSpec, cert, rootCert *Certificate) (*supervisor.Spec, error) {
 	pipelineSpecBuilder := newPipelineSpecBuilder(s.IngressPipelineName())
 
-	pipelineSpecBuilder.appendProxyWithCanary(instanceSpecs, s.Canary, s.LoadBalance)
+	// inner pipeline won't need to active tls config for visiting the local app
+	pipelineSpecBuilder.appendProxyWithCanary(instanceSpecs, s.Canary, s.LoadBalance, cert, rootCert)
 
 	yamlConfig := pipelineSpecBuilder.yamlConfig()
 	superSpec, err := supervisor.NewSpec(yamlConfig)
@@ -634,13 +757,16 @@ func (s *Service) IngressPipelineSpec(instanceSpecs []*ServiceInstanceSpec) (*su
 }
 
 // SideCarIngressHTTPServerSpec generates a spec for sidecar ingress HTTP server
-func (s *Service) SideCarIngressHTTPServerSpec() (*supervisor.Spec, error) {
+func (s *Service) SideCarIngressHTTPServerSpec(cert, rootCert *Certificate) (*supervisor.Spec, error) {
 	ingressHTTPServerFormat := `
 kind: HTTPServer
 name: %s
 port: %d
 keepAlive: false
-https: false
+https: %s 
+certBase64: %s
+keyBase64: %s
+caCertBase64: %s
 rules:
   - paths:
     - pathPrefix: /
@@ -648,7 +774,15 @@ rules:
 
 	name := fmt.Sprintf("mesh-ingress-server-%s", s.Name)
 	pipelineName := fmt.Sprintf("mesh-ingress-pipeline-%s", s.Name)
-	yamlConfig := fmt.Sprintf(ingressHTTPServerFormat, name, s.Sidecar.IngressPort, pipelineName)
+	certBase64, keyBase64, rootCertBaser64, needHTTPS := "", "", "", "false"
+	if cert != nil && rootCert != nil {
+		certBase64 = cert.CertBase64
+		keyBase64 = cert.KeyBase64
+		rootCertBaser64 = rootCert.CertBase64
+		needHTTPS = "true"
+	}
+	yamlConfig := fmt.Sprintf(ingressHTTPServerFormat, name,
+		s.Sidecar.IngressPort, needHTTPS, certBase64, keyBase64, rootCertBaser64, pipelineName)
 
 	superSpec, err := supervisor.NewSpec(yamlConfig)
 	if err != nil {
@@ -774,7 +908,11 @@ func (s *Service) SideCarIngressPipelineSpec(applicationPort uint32) (*superviso
 }
 
 // SideCarEgressPipelineSpec returns a spec for sidecar egress pipeline
-func (s *Service) SideCarEgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec) (*supervisor.Spec, error) {
+func (s *Service) SideCarEgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec, appCert, rootCert *Certificate) (*supervisor.Spec, error) {
+	if len(instanceSpecs) == 0 {
+		return nil, fmt.Errorf("not instance")
+	}
+
 	pipelineSpecBuilder := newPipelineSpecBuilder(s.EgressPipelineName())
 
 	if !s.Runnable() {
@@ -786,9 +924,8 @@ func (s *Service) SideCarEgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec
 			pipelineSpecBuilder.appendCircuitBreaker(s.Resilience.CircuitBreaker)
 		}
 
-		pipelineSpecBuilder.appendProxyWithCanary(instanceSpecs, s.Canary, s.LoadBalance)
+		pipelineSpecBuilder.appendProxyWithCanary(instanceSpecs, s.Canary, s.LoadBalance, appCert, rootCert)
 	}
-
 	yamlConfig := pipelineSpecBuilder.yamlConfig()
 	superSpec, err := supervisor.NewSpec(yamlConfig)
 	if err != nil {

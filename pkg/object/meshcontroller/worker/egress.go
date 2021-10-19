@@ -26,6 +26,7 @@ import (
 	"github.com/megaease/easegress/pkg/object/meshcontroller/informer"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/service"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/storage"
 	"github.com/megaease/easegress/pkg/object/trafficcontroller"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"gopkg.in/yaml.v2"
@@ -42,9 +43,10 @@ type (
 		pipelines  map[string]*supervisor.ObjectEntity
 		httpServer *supervisor.ObjectEntity
 
-		tc        *trafficcontroller.TrafficController
-		namespace string
-		inf       informer.Informer
+		tc         *trafficcontroller.TrafficController
+		namespace  string
+		inf        informer.Informer
+		instanceID string
 
 		serviceName      string
 		egressServerName string
@@ -56,12 +58,13 @@ type (
 		Kind            string `yaml:"kind"`
 		Name            string `yaml:"name"`
 		httpserver.Spec `yaml:",inline"`
+		Cert            *spec.Certificate `yaml:"-"`
 	}
 )
 
 // NewEgressServer creates an initialized egress server
 func NewEgressServer(superSpec *supervisor.Spec, super *supervisor.Supervisor,
-	serviceName string, service *service.Service, inf informer.Informer) *EgressServer {
+	serviceName, instanceID string, service *service.Service) *EgressServer {
 
 	entity, exists := super.GetSystemController(trafficcontroller.Kind)
 	if !exists {
@@ -77,12 +80,13 @@ func NewEgressServer(superSpec *supervisor.Spec, super *supervisor.Supervisor,
 		super:     super,
 		superSpec: superSpec,
 
-		inf:         inf,
+		inf:         informer.NewInformer(storage.New(superSpec.Name(), super.Cluster()), serviceName),
 		tc:          tc,
 		namespace:   fmt.Sprintf("%s/%s", superSpec.Name(), "egress"),
 		pipelines:   make(map[string]*supervisor.ObjectEntity),
 		serviceName: serviceName,
 		service:     service,
+		instanceID:  instanceID,
 	}
 }
 
@@ -126,18 +130,29 @@ func (egs *EgressServer) InitEgress(service *spec.Service) error {
 	if err := egs.inf.OnAllServiceSpecs(egs.reloadBySpecs); err != nil {
 		// only return err when its type is not `AlreadyWatched`
 		if err != informer.ErrAlreadyWatched {
-			logger.Errorf("add ingress spec watching service: %s failed: %v", service.Name, err)
+			logger.Errorf("add egress spec watching service: %s failed: %v", service.Name, err)
 			return err
 		}
 	}
 
 	if err := egs.inf.OnAllServiceInstanceSpecs(egs.reloadByInstances); err != nil {
-		// only return err when its type is not `AlreadyWatched`
 		if err != informer.ErrAlreadyWatched {
-			logger.Errorf("add ingress spec watching service: %s failed: %v", service.Name, err)
+			logger.Errorf("add egress spec watching service: %s failed: %v", service.Name, err)
 			return err
 		}
 	}
+
+	admSpec := egs.superSpec.ObjectSpec().(*spec.Admin)
+	if admSpec.EnablemTLS() {
+		logger.Infof("egress in mtls mode, start listen ID: %s's cert", egs.instanceID)
+		if err := egs.inf.OnServerCert(egs.serviceName, egs.instanceID, egs.reloadByCert); err != nil {
+			if err != informer.ErrAlreadyWatched {
+				logger.Errorf("add egress spec watching service: %s failed: %v", service.Name, err)
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -151,6 +166,16 @@ func (egs *EgressServer) Ready() bool {
 
 func (egs *EgressServer) _ready() bool {
 	return egs.httpServer != nil
+}
+
+func (egs *EgressServer) reloadByCert(event informer.Event, value *spec.Certificate) bool {
+	specs := egs.service.ListServiceSpecs()
+	mSpecs := make(map[string]*spec.Service)
+	for _, v := range specs {
+		mSpecs[v.Name] = v
+	}
+
+	return egs.reloadHTTPServer(mSpecs)
 }
 
 func (egs *EgressServer) reloadByInstances(value map[string]*spec.ServiceInstanceSpec) bool {
@@ -181,16 +206,26 @@ func (egs *EgressServer) reloadHTTPServer(specs map[string]*spec.Service) bool {
 	egs.mutex.Lock()
 	defer egs.mutex.Unlock()
 
+	admSpec := egs.superSpec.ObjectSpec().(*spec.Admin)
+	var cert, rootCert *spec.Certificate
+	if admSpec.EnablemTLS() {
+		cert = egs.service.GetServiceInstanceCert(egs.serviceName, egs.instanceID)
+		rootCert = egs.service.GetRootCert()
+		logger.Infof("egress enable TLS, init pipeline with cert: %#v", cert)
+	}
+
 	pipelines := make(map[string]*supervisor.ObjectEntity)
 	serverName2PipelineName := make(map[string]string)
 
 	for _, v := range specs {
 		instances := egs.service.ListServiceInstanceSpecs(v.Name)
-		pipelineSpec, err := v.SideCarEgressPipelineSpec(instances)
+		pipelineSpec, err := v.SideCarEgressPipelineSpec(instances, cert, rootCert)
 		if err != nil {
-			logger.Errorf("BUG: gen sidecar egress httpserver spec failed: %v", err)
+			logger.Errorf("gen sidecar egress httpserver spec failed: %v", err)
 			continue
 		}
+		logger.Infof("service: %s visit: %s pipeline init ok", egs.serviceName, v.Name)
+
 		entity, err := egs.tc.CreateHTTPPipelineForSpec(egs.namespace, pipelineSpec)
 		if err != nil {
 			logger.Errorf("update http pipeline failed: %v", err)
@@ -264,6 +299,7 @@ func (egs *EgressServer) Close() {
 	egs.mutex.Lock()
 	defer egs.mutex.Unlock()
 
+	egs.inf.Close()
 	if egs._ready() {
 		egs.tc.DeleteHTTPServer(egs.namespace, egs.httpServer.Spec().Name())
 		for _, entity := range egs.pipelines {

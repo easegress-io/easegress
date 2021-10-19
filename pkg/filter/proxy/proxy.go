@@ -19,6 +19,8 @@ package proxy
 
 import (
 	"crypto/tls"
+	"crypto/x509"
+	"encoding/base64"
 	"fmt"
 	"net"
 	"net/http"
@@ -26,6 +28,7 @@ import (
 	"time"
 
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
 	"github.com/megaease/easegress/pkg/util/fallback"
 )
@@ -51,39 +54,8 @@ func init() {
 	httppipeline.Register(&Proxy{})
 }
 
-// All Proxy instances use one globalClient in order to reuse
-// some resounces such as keepalive connections.
-var globalClient = &http.Client{
-	// NOTE: Timeout could be no limit, real client or server could cancel it.
-	Timeout: 0,
-	Transport: &http.Transport{
-		Proxy: http.ProxyFromEnvironment,
-		DialContext: (&net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 60 * time.Second,
-			DualStack: true,
-		}).DialContext,
-		TLSClientConfig: &tls.Config{
-			// NOTE: Could make it an paramenter,
-			// when the requests need cross WAN.
-			InsecureSkipVerify: true,
-		},
-		DisableCompression: false,
-		// NOTE: The large number of Idle Connections can
-		// reduce overhead of building connections.
-		MaxIdleConns:          10240,
-		MaxIdleConnsPerHost:   512,
-		IdleConnTimeout:       90 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
-	},
-	CheckRedirect: func(req *http.Request, via []*http.Request) error {
-		return http.ErrUseLastResponse
-	},
-}
-
-var fnSendRequest = func(r *http.Request) (*http.Response, error) {
-	return globalClient.Do(r)
+var fnSendRequest = func(r *http.Request, client *http.Client) (*http.Response, error) {
+	return client.Do(r)
 }
 
 type (
@@ -98,6 +70,8 @@ type (
 		candidatePools []*pool
 		mirrorPool     *pool
 
+		client *http.Client
+
 		compression *compression
 	}
 
@@ -109,6 +83,7 @@ type (
 		MirrorPool     *PoolSpec        `yaml:"mirrorPool,omitempty" jsonschema:"omitempty"`
 		FailureCodes   []int            `yaml:"failureCodes" jsonschema:"omitempty,uniqueItems=true,format=httpcode-array"`
 		Compression    *CompressionSpec `yaml:"compression,omitempty" jsonschema:"omitempty"`
+		MTLS           *MTLS            `yaml:"mtls,omitempty" jsonschema:"omitempty"`
 	}
 
 	// FallbackSpec describes the fallback policy.
@@ -122,6 +97,13 @@ type (
 		MainPool       *PoolStatus   `yaml:"mainPool"`
 		CandidatePools []*PoolStatus `yaml:"candidatePools,omitempty"`
 		MirrorPool     *PoolStatus   `yaml:"mirrorPool,omitempty"`
+	}
+
+	// MTLS is the configuration for client side mTLS.
+	MTLS struct {
+		CertBase64     string `yaml:"certBase64" jsonschema:"required,format=base64"`
+		KeyBase64      string `yaml:"keyBase64" jsonschema:"required,format=base64"`
+		RootCertBase64 string `yaml:"rootCertBase64" jsonschema:"required,format=base64"`
 	}
 )
 
@@ -194,6 +176,37 @@ func (b *Proxy) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration 
 	b.Init(filterSpec)
 }
 
+func (b *Proxy) needmTLS() bool {
+	return b.spec.MTLS != nil
+}
+
+func (b *Proxy) tlsConfig() *tls.Config {
+	if !b.needmTLS() {
+		return &tls.Config{
+			InsecureSkipVerify: true,
+		}
+	}
+	rootCertPem, _ := base64.StdEncoding.DecodeString(b.spec.MTLS.RootCertBase64)
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM(rootCertPem)
+
+	var certificates []tls.Certificate
+	certPem, _ := base64.StdEncoding.DecodeString(b.spec.MTLS.CertBase64)
+	keyPem, _ := base64.StdEncoding.DecodeString(b.spec.MTLS.KeyBase64)
+	cert, err := tls.X509KeyPair(certPem, keyPem)
+	if err != nil {
+		logger.Errorf("proxy generates x509 key pair failed: %v", err)
+		return &tls.Config{
+			InsecureSkipVerify: true,
+		}
+	}
+	certificates = append(certificates, cert)
+	return &tls.Config{
+		Certificates: certificates,
+		RootCAs:      caCertPool,
+	}
+}
+
 func (b *Proxy) reload() {
 	super := b.filterSpec.Super()
 
@@ -220,6 +233,31 @@ func (b *Proxy) reload() {
 
 	if b.spec.Compression != nil {
 		b.compression = newCompression(b.spec.Compression)
+	}
+
+	b.client = &http.Client{
+		// NOTE: Timeout could be no limit, real client or server could cancel it.
+		Timeout: 0,
+		Transport: &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+			DialContext: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 60 * time.Second,
+				DualStack: true,
+			}).DialContext,
+			TLSClientConfig:    b.tlsConfig(),
+			DisableCompression: false,
+			// NOTE: The large number of Idle Connections can
+			// reduce overhead of building connections.
+			MaxIdleConns:          10240,
+			MaxIdleConnsPerHost:   512,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+		},
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
 	}
 }
 
@@ -283,7 +321,7 @@ func (b *Proxy) handle(ctx context.HTTPContext) (result string) {
 
 		go func() {
 			defer wg.Done()
-			b.mirrorPool.handle(ctx, slave)
+			b.mirrorPool.handle(ctx, slave, b.client)
 		}()
 	}
 
@@ -305,7 +343,7 @@ func (b *Proxy) handle(ctx context.HTTPContext) (result string) {
 		return ""
 	}
 
-	result = p.handle(ctx, ctx.Request().Body())
+	result = p.handle(ctx, ctx.Request().Body(), b.client)
 	if result != "" {
 		return result
 	}

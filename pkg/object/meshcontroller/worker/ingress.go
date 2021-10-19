@@ -23,7 +23,9 @@ import (
 
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/informer"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/service"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/storage"
 	"github.com/megaease/easegress/pkg/object/trafficcontroller"
 	"github.com/megaease/easegress/pkg/supervisor"
 )
@@ -35,7 +37,9 @@ type (
 	// IngressServer manages one ingress pipeline and one HTTPServer
 	IngressServer struct {
 		super       *supervisor.Supervisor
+		superSpec   *supervisor.Spec
 		serviceName string
+		service     *service.Service
 
 		mutex sync.RWMutex
 
@@ -43,6 +47,7 @@ type (
 		applicationPort uint32
 		namespace       string
 		inf             informer.Informer
+		instanceID      string
 
 		pipelines  map[string]*supervisor.ObjectEntity
 		httpServer *supervisor.ObjectEntity
@@ -50,7 +55,8 @@ type (
 )
 
 // NewIngressServer creates an initialized ingress server
-func NewIngressServer(superSpec *supervisor.Spec, super *supervisor.Supervisor, serviceName string, inf informer.Informer) *IngressServer {
+func NewIngressServer(superSpec *supervisor.Spec, super *supervisor.Supervisor,
+	serviceName, instaceID string, service *service.Service) *IngressServer {
 	entity, exists := super.GetSystemController(trafficcontroller.Kind)
 	if !exists {
 		panic(fmt.Errorf("BUG: traffic controller not found"))
@@ -62,7 +68,8 @@ func NewIngressServer(superSpec *supervisor.Spec, super *supervisor.Supervisor, 
 	}
 
 	return &IngressServer{
-		super: super,
+		super:     super,
+		superSpec: superSpec,
 
 		tc:        tc,
 		namespace: fmt.Sprintf("%s/%s", superSpec.Name(), "ingress"),
@@ -70,8 +77,10 @@ func NewIngressServer(superSpec *supervisor.Spec, super *supervisor.Supervisor, 
 		pipelines:   make(map[string]*supervisor.ObjectEntity),
 		httpServer:  nil,
 		serviceName: serviceName,
-		inf:         inf,
+		instanceID:  instaceID,
+		inf:         informer.NewInformer(storage.New(superSpec.Name(), super.Cluster()), serviceName),
 		mutex:       sync.RWMutex{},
+		service:     service,
 	}
 }
 
@@ -112,8 +121,16 @@ func (ings *IngressServer) InitIngress(service *spec.Service, port uint32) error
 		ings.pipelines[service.IngressPipelineName()] = entity
 	}
 
+	admSpec := ings.superSpec.ObjectSpec().(*spec.Admin)
 	if ings.httpServer == nil {
-		superSpec, err := service.SideCarIngressHTTPServerSpec()
+		var cert, rootCert *spec.Certificate
+		if admSpec.EnablemTLS() {
+			cert = ings.service.GetServiceInstanceCert(ings.serviceName, ings.instanceID)
+			rootCert = ings.service.GetRootCert()
+			logger.Infof("ingress enable TLS, init httpserver with cert: %#v", cert)
+		}
+
+		superSpec, err := service.SideCarIngressHTTPServerSpec(cert, rootCert)
 		if err != nil {
 			return err
 		}
@@ -125,7 +142,7 @@ func (ings *IngressServer) InitIngress(service *spec.Service, port uint32) error
 		ings.httpServer = entity
 	}
 
-	if err := ings.inf.OnPartOfServiceSpec(service.Name, informer.AllParts, ings.reloadTraffic); err != nil {
+	if err := ings.inf.OnPartOfServiceSpec(service.Name, informer.AllParts, ings.reloadPipeline); err != nil {
 		// Only return err when its type is not `AlreadyWatched`
 		if err != informer.ErrAlreadyWatched {
 			logger.Errorf("add ingress spec watching service: %s failed: %v", service.Name, err)
@@ -133,10 +150,55 @@ func (ings *IngressServer) InitIngress(service *spec.Service, port uint32) error
 		}
 	}
 
+	if admSpec.EnablemTLS() {
+		logger.Infof("ingress in mtls mode, start listen ID: %s's cert", ings.instanceID)
+		if err := ings.inf.OnServerCert(ings.serviceName, ings.instanceID, ings.reloadHTTPServer); err != nil {
+			if err != informer.ErrAlreadyWatched {
+				logger.Errorf("add egress spec watching service: %s failed: %v", service.Name, err)
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 
-func (ings *IngressServer) reloadTraffic(event informer.Event, serviceSpec *spec.Service) bool {
+func (ings *IngressServer) reloadHTTPServer(event informer.Event, value *spec.Certificate) bool {
+	ings.mutex.Lock()
+	defer ings.mutex.Unlock()
+
+	if event.EventType == informer.EventDelete {
+		logger.Infof("receive delete event: %#v", event)
+		return false
+	}
+
+	spec := ings.service.GetServiceSpec(ings.serviceName)
+	if spec == nil {
+		logger.Infof("ingress can't find its service: %s", ings.serviceName)
+		return false
+	}
+
+	rootCert := ings.service.GetRootCert()
+	superSpec, err := spec.SideCarIngressHTTPServerSpec(value, rootCert)
+	if err != nil {
+		logger.Errorf("BUG: update ingress pipeline spec: %s new super spec failed: %v",
+			superSpec.YAMLConfig(), err)
+		return true
+	}
+
+	entity, err := ings.tc.UpdateHTTPServerForSpec(ings.namespace, superSpec)
+	if err != nil {
+		logger.Errorf("update http server %s failed: %v", ings.serviceName, err)
+		return true
+	}
+
+	// update local storage
+	ings.httpServer = entity
+
+	return true
+}
+
+func (ings *IngressServer) reloadPipeline(event informer.Event, serviceSpec *spec.Service) bool {
 	ings.mutex.Lock()
 	defer ings.mutex.Unlock()
 
@@ -166,6 +228,7 @@ func (ings *IngressServer) Close() {
 	ings.mutex.Lock()
 	defer ings.mutex.Unlock()
 
+	ings.inf.Close()
 	if ings._ready() {
 		ings.tc.DeleteHTTPServer(ings.namespace, ings.httpServer.Spec().Name())
 		for _, entity := range ings.pipelines {

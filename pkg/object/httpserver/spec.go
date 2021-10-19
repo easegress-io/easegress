@@ -19,6 +19,7 @@ package httpserver
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
 	"fmt"
 	"regexp"
@@ -39,6 +40,7 @@ type (
 		CacheSize        uint32        `yaml:"cacheSize" jsonschema:"omitempty"`
 		XForwardedFor    bool          `yaml:"xForwardedFor" jsonschema:"omitempty"`
 		Tracing          *tracing.Spec `yaml:"tracing" jsonschema:"omitempty"`
+		CaCertBase64     string        `yaml:"caCertBase64" jsonschema:"omitempty,format=base64"`
 
 		// Support multiple certs, preserve the certbase64 and keybase64
 		// for backward compatibility
@@ -142,7 +144,22 @@ func (spec *Spec) tlsConfig() (*tls.Config, error) {
 		return nil, fmt.Errorf("none valid certs and secret")
 	}
 
-	return &tls.Config{Certificates: certificates}, nil
+	tlsConf := &tls.Config{
+		Certificates: certificates,
+	}
+
+	// if caCertBase64 configuration is provided, should enable tls.ClientAuth and
+	// add the root cert
+	if len(spec.CaCertBase64) != 0 {
+		rootCertPem, _ := base64.StdEncoding.DecodeString(spec.CaCertBase64)
+		certPool := x509.NewCertPool()
+		certPool.AppendCertsFromPEM(rootCertPem)
+
+		tlsConf.ClientAuth = tls.RequireAndVerifyClientCert
+		tlsConf.ClientCAs = certPool
+	}
+
+	return tlsConf, nil
 }
 
 func (h *Header) initHeaderRoute() {

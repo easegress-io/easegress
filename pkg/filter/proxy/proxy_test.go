@@ -122,20 +122,22 @@ failureCodes: [503, 504]
 		t.Error("fallback for 500 should be false")
 	}
 
-	fnSendRequest = func(r *http.Request) (*http.Response, error) {
+	fnSendRequest = func(r *http.Request, client *http.Client) (*http.Response, error) {
 		return &http.Response{
 			Body: io.NopCloser(strings.NewReader("this is the body")),
 		}, nil
 	}
+
 	result := proxy.Handle(ctx)
 	if result != "" {
 		t.Error("proxy.Handle should succeeded")
 	}
 	ctx.Finish()
 
-	fnSendRequest = func(r *http.Request) (*http.Response, error) {
+	fnSendRequest = func(r *http.Request, client *http.Client) (*http.Response, error) {
 		return nil, fmt.Errorf("mocked error")
 	}
+
 	result = proxy.Handle(ctx)
 	if result == "" {
 		t.Error("proxy.Handle should fail")
