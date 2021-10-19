@@ -78,7 +78,7 @@ func newRuntime(superSpec *supervisor.Spec) *runtime {
 		superSpec: superSpec,
 
 		pool:      newPool(superSpec.Super(), spec.Pool, ""),
-		ipFilters: newIpFilters(spec.IPFilter),
+		ipFilters: newIPFilters(spec.IPFilter),
 
 		eventChan: make(chan interface{}, 10),
 	}

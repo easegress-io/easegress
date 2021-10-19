@@ -32,6 +32,7 @@ import (
 	"github.com/megaease/easegress/pkg/util/timerpool"
 )
 
+// Connection wrap tcp connection
 type Connection struct {
 	rawConn   net.Conn
 	connected uint32
@@ -96,14 +97,17 @@ func (c *Connection) SetOnRead(onRead func(buffer iobufferpool.IoBuffer)) {
 	c.onRead = onRead
 }
 
+// OnRead set data read callback
 func (c *Connection) OnRead(buffer iobufferpool.IoBuffer) {
 	c.onRead(buffer)
 }
 
+// SetOnClose set close callback
 func (c *Connection) SetOnClose(onclose func(event ConnectionEvent)) {
 	c.onClose = onclose
 }
 
+// GetReadBuffer get connection red buffer
 func (c *Connection) GetReadBuffer() iobufferpool.IoBuffer {
 	return c.readBuffer
 }
@@ -287,6 +291,7 @@ func (c *Connection) appendBuffer(ioBuffers *[]iobufferpool.IoBuffer) {
 	}
 }
 
+// Close connection close function
 func (c *Connection) Close(ccType CloseType, event ConnectionEvent) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -416,6 +421,7 @@ type UpstreamConnection struct {
 	connectOnce    sync.Once
 }
 
+// NewUpstreamConn construct tcp upstream connection
 func NewUpstreamConn(connectTimeout uint32, upstreamAddr net.Addr, listenerStopChan chan struct{}) *UpstreamConnection {
 	conn := &UpstreamConnection{
 		Connection: Connection{
@@ -462,6 +468,7 @@ func (u *UpstreamConnection) connect() (event ConnectionEvent, err error) {
 	return
 }
 
+// Connect tcp upstream connect to backend server
 func (u *UpstreamConnection) Connect() (err error) {
 	u.connectOnce.Do(func() {
 		var event ConnectionEvent

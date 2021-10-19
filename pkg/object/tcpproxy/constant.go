@@ -35,23 +35,18 @@ const (
 // ConnectionEvent type
 type ConnectionEvent string
 
-// ConnectionEvent types
 const (
-	RemoteClose     ConnectionEvent = "RemoteClose"
-	LocalClose      ConnectionEvent = "LocalClose"
-	OnReadErrClose  ConnectionEvent = "OnReadErrClose"
-	OnWriteErrClose ConnectionEvent = "OnWriteErrClose"
-	OnConnect       ConnectionEvent = "OnConnect"
-	Connected       ConnectionEvent = "ConnectedFlag"
-	ConnectTimeout  ConnectionEvent = "ConnectTimeout"
-	ConnectFailed   ConnectionEvent = "ConnectFailed"
-	OnReadTimeout   ConnectionEvent = "OnReadTimeout"
-	OnWriteTimeout  ConnectionEvent = "OnWriteTimeout"
+	RemoteClose    ConnectionEvent = "RemoteClose"
+	LocalClose     ConnectionEvent = "LocalClose"
+	OnReadErrClose ConnectionEvent = "OnReadErrClose"
+	Connected      ConnectionEvent = "ConnectedFlag"
+	ConnectTimeout ConnectionEvent = "ConnectTimeout"
+	ConnectFailed  ConnectionEvent = "ConnectFailed"
+	OnWriteTimeout ConnectionEvent = "OnWriteTimeout"
 )
 
 var (
 	ErrConnectionHasClosed    = errors.New("connection has closed")
-	ErrWriteTryLockTimeout    = errors.New("write trylock has timeout")
 	ErrWriteBufferChanTimeout = errors.New("writeBufferChan has timeout")
 )
 

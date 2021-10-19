@@ -35,7 +35,7 @@ type (
 	}
 )
 
-func newIpFilters(spec *ipfilter.Spec) *ipFilters {
+func newIPFilters(spec *ipfilter.Spec) *ipFilters {
 	m := &ipFilters{}
 
 	m.rules.Store(&ipFiltersRules{

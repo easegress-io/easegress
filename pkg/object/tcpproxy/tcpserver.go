@@ -22,36 +22,36 @@ import (
 )
 
 const (
-	// Category is the category of TcpServer.
+	// Category is the category of TCPServer.
 	Category = supervisor.CategoryBusinessController
 
-	// Kind is the kind of TcpServer.
-	Kind = "TcpServer"
+	// Kind is the kind of TCPServer.
+	Kind = "TCPServer"
 )
 
 func init() {
-	supervisor.Register(&TcpServer{})
+	supervisor.Register(&TCPServer{})
 }
 
 type (
-	// TcpServer is Object of tcp server.
-	TcpServer struct {
+	// TCPServer is Object of tcp server.
+	TCPServer struct {
 		runtime *runtime
 	}
 )
 
-// Category returns the category of TcpServer.
-func (l4 *TcpServer) Category() supervisor.ObjectCategory {
+// Category returns the category of TCPServer.
+func (l4 *TCPServer) Category() supervisor.ObjectCategory {
 	return Category
 }
 
-// Kind returns the kind of TcpServer.
-func (l4 *TcpServer) Kind() string {
+// Kind returns the kind of TCPServer.
+func (l4 *TCPServer) Kind() string {
 	return Kind
 }
 
-// DefaultSpec returns the default spec of TcpServer.
-func (l4 *TcpServer) DefaultSpec() interface{} {
+// DefaultSpec returns the default spec of TCPServer.
+func (l4 *TCPServer) DefaultSpec() interface{} {
 	return &Spec{
 		MaxConnections: 1024,
 		ConnectTimeout: 5 * 1000,
@@ -59,12 +59,12 @@ func (l4 *TcpServer) DefaultSpec() interface{} {
 }
 
 // Validate validates the tcp server structure.
-func (l4 *TcpServer) Validate() error {
+func (l4 *TCPServer) Validate() error {
 	return nil
 }
 
-// Init initializes TcpServer.
-func (l4 *TcpServer) Init(superSpec *supervisor.Spec) {
+// Init initializes TCPServer.
+func (l4 *TCPServer) Init(superSpec *supervisor.Spec) {
 
 	l4.runtime = newRuntime(superSpec)
 	l4.runtime.eventChan <- &eventReload{
@@ -72,21 +72,21 @@ func (l4 *TcpServer) Init(superSpec *supervisor.Spec) {
 	}
 }
 
-// Inherit inherits previous generation of TcpServer.
-func (l4 *TcpServer) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object) {
+// Inherit inherits previous generation of TCPServer.
+func (l4 *TCPServer) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object) {
 
-	l4.runtime = previousGeneration.(*TcpServer).runtime
+	l4.runtime = previousGeneration.(*TCPServer).runtime
 	l4.runtime.eventChan <- &eventReload{
 		nextSuperSpec: superSpec,
 	}
 }
 
 // Status is the wrapper of runtimes Status.
-func (l4 *TcpServer) Status() *supervisor.Status {
+func (l4 *TCPServer) Status() *supervisor.Status {
 	return &supervisor.Status{}
 }
 
-// Close closes TcpServer.
-func (l4 *TcpServer) Close() {
+// Close closes TCPServer.
+func (l4 *TCPServer) Close() {
 	l4.runtime.Close()
 }

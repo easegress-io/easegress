@@ -23,7 +23,6 @@ import (
 	"io"
 	"sync"
 	"sync/atomic"
-	"time"
 )
 
 const (
@@ -39,11 +38,10 @@ const (
 var nullByte []byte
 
 var (
-	EOF                  = errors.New("EOF")
-	ErrTooLarge          = errors.New("io buffer: too large")
-	ErrNegativeCount     = errors.New("io buffer: negative count")
+	// EOF io buffer eof sign
+	EOF = errors.New("EOF")
+	// ErrInvalidWriteCount io buffer: invalid write count
 	ErrInvalidWriteCount = errors.New("io buffer: invalid write count")
-	ConnReadTimeout      = 15 * time.Second
 )
 
 type pipe struct {
@@ -117,6 +115,7 @@ func (p *pipe) CloseWithError(err error) {
 	defer p.c.Signal()
 }
 
+// NewPipeBuffer create pipe buffer with fixed capacity
 func NewPipeBuffer(capacity int) IoBuffer {
 	return &pipe{
 		IoBuffer: newIoBuffer(capacity),
@@ -147,6 +146,7 @@ func newIoBuffer(capacity int) IoBuffer {
 	return buffer
 }
 
+// NewIoBufferString new io buffer with string
 func NewIoBufferString(s string) IoBuffer {
 	if s == "" {
 		return newIoBuffer(0)
@@ -158,6 +158,7 @@ func NewIoBufferString(s string) IoBuffer {
 	}
 }
 
+// NewIoBufferBytes new io buffer with bytes array
 func NewIoBufferBytes(bytes []byte) IoBuffer {
 	if bytes == nil {
 		return NewIoBuffer(0)
@@ -169,6 +170,7 @@ func NewIoBufferBytes(bytes []byte) IoBuffer {
 	}
 }
 
+// NewIoBufferEOF new io buffer with eof sign
 func NewIoBufferEOF() IoBuffer {
 	buf := newIoBuffer(0)
 	buf.SetEOF(true)
