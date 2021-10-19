@@ -41,7 +41,7 @@ const (
 	ingress       = "/mesh/ingress/%s" // + ingressName
 	ingressPrefix = "/mesh/ingress/"
 
-	serviceInstanceCert                    = "/mesh/cert/service-cert/%s/%s" // + ServiceName + InstanceID
+	serviceInstanceCert                    = "/mesh/cert/service-cert/%s/%s" // +serviceName +instanceID
 	allServiceCertPrefix                   = "/mesh/cert/service-cert/"
 	rootCert                               = "/mesh/cert/root-cert"
 	ingressControllerInstanceCertKey       = "/mesh/cert/ingress-controller-cert/%s"

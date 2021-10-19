@@ -151,51 +151,58 @@ func needUpdateRecord(originIns, ins *spec.ServiceInstanceSpec) bool {
 }
 
 func (rcs *Server) register(ins *spec.ServiceInstanceSpec, ingressReady ReadyFunc, egressReady ReadyFunc) {
-	var tryTimes int
+	routine := func() (err error) {
+		defer func() {
+			if err1 := recover(); err1 != nil {
+				logger.Errorf("registry center recover from: %v, stack trace:\n%s\n",
+					err, debug.Stack())
+				err = fmt.Errorf("%v", err1)
+			}
+		}()
 
+		if !ingressReady() || !egressReady() {
+			return fmt.Errorf("ingress ready: %v egress ready: %v", ingressReady(), egressReady())
+		}
+
+		if originIns := rcs.service.GetServiceInstanceSpec(rcs.serviceName, rcs.instanceID); originIns != nil {
+			if !needUpdateRecord(originIns, ins) {
+				rcs.mutex.Lock()
+				rcs.registered = true
+				rcs.mutex.Unlock()
+				return nil
+			}
+		}
+
+		ins.Status = spec.ServiceStatusUp
+		ins.RegistryTime = time.Now().Format(time.RFC3339)
+		rcs.service.PutServiceInstanceSpec(ins)
+
+		rcs.mutex.Lock()
+		rcs.registered = true
+		rcs.mutex.Unlock()
+
+		return nil
+	}
+
+	var tryTimes int
+	var firstSucceed bool
 	for {
 		select {
 		case <-rcs.done:
 			return
 		default:
-			rcs.mutex.Lock()
-			if rcs.registered {
-				rcs.mutex.Unlock()
-				return
-			}
-			// wrapper for the recover
-			routine := func() {
-				defer func() {
-					if err := recover(); err != nil {
-						logger.Errorf("registry center recover from: %v, stack trace:\n%s\n",
-							err, debug.Stack())
-					}
-				}()
-				// level triggered, loop until it success
-				tryTimes++
-				if !ingressReady() || !egressReady() {
-					logger.Infof("ingress ready: %v egress ready: %v", ingressReady(), egressReady())
-					return
+			tryTimes++
+
+			err := routine()
+			if err != nil {
+				logger.Errorf("register failed: %v", err)
+				time.Sleep(5 * time.Second)
+			} else {
+				if !firstSucceed {
+					logger.Infof("register instance spec succeed")
+					firstSucceed = true
 				}
-
-				if originIns := rcs.service.GetServiceInstanceSpec(rcs.serviceName, rcs.instanceID); originIns != nil {
-					logger.Infof("register in original ins: %#v, current ins: %#v", originIns, ins)
-					if !needUpdateRecord(originIns, ins) {
-						rcs.registered = true
-						return
-					}
-				}
-
-				ins.Status = spec.ServiceStatusUp
-				ins.RegistryTime = time.Now().Format(time.RFC3339)
-				rcs.registered = true
-				rcs.service.PutServiceInstanceSpec(ins)
-				logger.Infof("registry SUCC service: %s instanceID: %s registry try times: %d", ins.ServiceName, ins.InstanceID, tryTimes)
 			}
-
-			routine()
-			time.Sleep(1 * time.Second)
-			rcs.mutex.Unlock()
 		}
 	}
 }

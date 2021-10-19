@@ -76,11 +76,13 @@ func NewEgressServer(superSpec *supervisor.Spec, super *supervisor.Supervisor,
 		panic(fmt.Errorf("BUG: want *TrafficController, got %T", entity.Instance()))
 	}
 
+	inf := informer.NewInformer(storage.New(superSpec.Name(), super.Cluster()), serviceName)
+
 	return &EgressServer{
 		super:     super,
 		superSpec: superSpec,
 
-		inf:         informer.NewInformer(storage.New(superSpec.Name(), super.Cluster()), serviceName),
+		inf:         inf,
 		tc:          tc,
 		namespace:   fmt.Sprintf("%s/%s", superSpec.Name(), "egress"),
 		pipelines:   make(map[string]*supervisor.ObjectEntity),
@@ -211,7 +213,7 @@ func (egs *EgressServer) reloadHTTPServer(specs map[string]*spec.Service) bool {
 	if admSpec.EnablemTLS() {
 		cert = egs.service.GetServiceInstanceCert(egs.serviceName, egs.instanceID)
 		rootCert = egs.service.GetRootCert()
-		logger.Infof("egress enable TLS, init pipeline with cert: %#v", cert)
+		logger.Infof("egress enable TLS")
 	}
 
 	pipelines := make(map[string]*supervisor.ObjectEntity)
@@ -300,6 +302,7 @@ func (egs *EgressServer) Close() {
 	defer egs.mutex.Unlock()
 
 	egs.inf.Close()
+
 	if egs._ready() {
 		egs.tc.DeleteHTTPServer(egs.namespace, egs.httpServer.Spec().Name())
 		for _, entity := range egs.pipelines {

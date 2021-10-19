@@ -78,7 +78,7 @@ func (agent *AgentClient) UpdateService(newService *spec.Service, version int64)
 	if err != nil {
 		return fmt.Errorf("handleRequest error: %v", err)
 	}
-	logger.Infof("Update Service, URL: %s,request: %s, result: %v", url, string(bytes), string(bodyString))
+	logger.Debugf("update service: URL: %s request: %s result: %v", url, string(bytes), string(bodyString))
 	return err
 }
 
