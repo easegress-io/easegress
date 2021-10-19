@@ -118,17 +118,20 @@ func (p *byteBufferPool) give(buf *[]byte) {
 	p.pool[slot].pool.Put(buf)
 }
 
+// ByteBufferPoolContainer byte buffer pool container
 type ByteBufferPoolContainer struct {
 	bytes []*[]byte
 	*byteBufferPool
 }
 
+// NewByteBufferPoolContainer construct byte buffer pool container
 func NewByteBufferPoolContainer() *ByteBufferPoolContainer {
 	return &ByteBufferPoolContainer{
 		byteBufferPool: bbPool,
 	}
 }
 
+// Reset clean byte buffer pool container resource
 func (c *ByteBufferPoolContainer) Reset() {
 	for _, buf := range c.bytes {
 		c.give(buf)
@@ -136,6 +139,7 @@ func (c *ByteBufferPoolContainer) Reset() {
 	c.bytes = c.bytes[:0]
 }
 
+// Take append *[]byte with fixed size from byteBufferPool
 func (c *ByteBufferPoolContainer) Take(size int) *[]byte {
 	buf := c.take(size)
 	c.bytes = append(c.bytes, buf)

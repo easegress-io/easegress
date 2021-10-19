@@ -23,7 +23,8 @@ import (
 )
 
 const (
-	UdpPacketMaxSize          = 64 * 1024
+	// UDPPacketMaxSize udp packet max size
+	UDPPacketMaxSize          = 64 * 1024
 	DefaultBufferReadCapacity = 1 << 7
 )
 
