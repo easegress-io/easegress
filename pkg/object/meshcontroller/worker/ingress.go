@@ -67,6 +67,8 @@ func NewIngressServer(superSpec *supervisor.Spec, super *supervisor.Supervisor,
 		panic(fmt.Errorf("BUG: want *TrafficController, got %T", entity.Instance()))
 	}
 
+	inf := informer.NewInformer(storage.New(superSpec.Name(), super.Cluster()), serviceName)
+
 	return &IngressServer{
 		super:     super,
 		superSpec: superSpec,
@@ -78,7 +80,7 @@ func NewIngressServer(superSpec *supervisor.Spec, super *supervisor.Supervisor,
 		httpServer:  nil,
 		serviceName: serviceName,
 		instanceID:  instaceID,
-		inf:         informer.NewInformer(storage.New(superSpec.Name(), super.Cluster()), serviceName),
+		inf:         inf,
 		mutex:       sync.RWMutex{},
 		service:     service,
 	}
@@ -229,6 +231,7 @@ func (ings *IngressServer) Close() {
 	defer ings.mutex.Unlock()
 
 	ings.inf.Close()
+
 	if ings._ready() {
 		ings.tc.DeleteHTTPServer(ings.namespace, ings.httpServer.Spec().Name())
 		for _, entity := range ings.pipelines {

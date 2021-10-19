@@ -1,5 +1,12 @@
-name: mesh-controller-example
 kind: MeshController
+name: easemesh-controller
+apiPort: 13009
+ingressPort: 19527
+externalServiceRegistry:
 heartbeatInterval: 5s
 registryType: consul
-externalServiceRegistry: nacos-service-registry-example
+#security:
+#  mtlsMode: strict
+#  certProvider: selfSign
+#  rootCertTTL: 20h
+#  appCertTTL: 10h

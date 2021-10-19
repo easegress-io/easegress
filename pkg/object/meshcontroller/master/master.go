@@ -327,13 +327,14 @@ func (m *Master) cleanDeadInstances() {
 		if err != nil {
 			api.ClusterPanic(err)
 		} else {
-			logger.Infof("deleted speckey: %s", specKey)
+			logger.Infof("clean instance spec: %s", specKey)
 		}
+
 		statusKey := layout.ServiceInstanceStatusKey(_spec.ServiceName, _spec.InstanceID)
 		if err = m.store.Delete(statusKey); err != nil {
 			api.ClusterPanic(err)
 		} else {
-			logger.Infof("deleted statuskey: %s", statusKey)
+			logger.Infof("clean instance status: %s", statusKey)
 		}
 	}
 }

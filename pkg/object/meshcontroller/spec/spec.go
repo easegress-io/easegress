@@ -763,7 +763,7 @@ kind: HTTPServer
 name: %s
 port: %d
 keepAlive: false
-https: %s 
+https: %s
 certBase64: %s
 keyBase64: %s
 caCertBase64: %s
