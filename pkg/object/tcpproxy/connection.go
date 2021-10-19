@@ -126,46 +126,40 @@ func (c *Connection) State() ConnState {
 	return ConnInit
 }
 
+// GoWithRecover wraps a `go func()` with recover()
+func (c *Connection) goWithRecover(handler func(), recoverHandler func(r interface{})) {
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				logger.Errorf("tcp connection goroutine panic: %v\n%s\n", r, string(debug.Stack()))
+				if recoverHandler != nil {
+					go func() {
+						defer func() {
+							if p := recover(); p != nil {
+								logger.Errorf("tcp connection goroutine panic: %v\n%s\n", p, string(debug.Stack()))
+							}
+						}()
+						recoverHandler(r)
+					}()
+				}
+			}
+		}()
+		handler()
+	}()
+}
+
 func (c *Connection) startRWLoop() {
-	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				logger.Errorf("tcp connection read loop crashed, local addr: %s, remote addr: %s, err: %+v",
-					c.localAddr.String(), c.remoteAddr.String(), r)
-
-				go func() {
-					defer func() {
-						if r := recover(); r != nil {
-							logger.Errorf("tcp connection close failed, local addr: %s, remote addr: %s, err: %+v",
-								c.localAddr.String(), c.remoteAddr.String(), r)
-						}
-					}()
-					_ = c.Close(NoFlush, LocalClose)
-				}()
-			}
-		}()
+	c.goWithRecover(func() {
 		c.startReadLoop()
-	}()
+	}, func(r interface{}) {
+		_ = c.Close(NoFlush, LocalClose)
+	})
 
-	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				logger.Errorf("tcp connection write loop crashed, local addr: %s, remote addr: %s, err: %+v",
-					c.localAddr.String(), c.remoteAddr.String(), r)
-
-				go func() {
-					defer func() {
-						if r := recover(); r != nil {
-							logger.Errorf("tcp connection close failed, local addr: %s, remote addr: %s, err: %+v",
-								c.localAddr.String(), c.remoteAddr.String(), r)
-						}
-					}()
-					_ = c.Close(NoFlush, LocalClose)
-				}()
-			}
-		}()
+	c.goWithRecover(func() {
 		c.startWriteLoop()
-	}()
+	}, func(r interface{}) {
+		_ = c.Close(NoFlush, LocalClose)
+	})
 }
 
 // Write receive other connection data
