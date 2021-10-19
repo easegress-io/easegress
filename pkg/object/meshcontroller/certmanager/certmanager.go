@@ -47,35 +47,35 @@ type (
 	}
 
 	// CertProvider is the interface declaring the methods for the Certificate provider, such as
-	//   easemesh-self-sign, Valt, and so on.
+	// easemesh-self-sign, Valt, and so on.
 	CertProvider interface {
-		// SignAppCertAndKey  signs a cert, key pair for one service's instance
-		SignAppCertAndKey(serviceName string, HOST, IP string, ttl time.Duration) (cert *spec.Certificate, err error)
+		// SignAppCertAndKey signs a cert, key pair for one service's instance
+		SignAppCertAndKey(serviceName string, host, ip string, ttl time.Duration) (cert *spec.Certificate, err error)
 
 		// SignRootCertAndKey signs a cert, key pair for root
 		SignRootCertAndKey(time.Duration) (cert *spec.Certificate, err error)
 
 		// GetAppCertAndKey gets cert and key for one service's instance
-		GetAppCertAndKey(serviceName, HOST, IP string) (cert *spec.Certificate, err error)
+		GetAppCertAndKey(serviceName, host, ip string) (cert *spec.Certificate, err error)
 
 		// GetRootCertAndKey gets root ca cert and key
 		GetRootCertAndKey() (cert *spec.Certificate, err error)
 
 		// ReleaseAppCertAndKey releases one service instance's cert and key
-		ReleaseAppCertAndKey(serviceName, HOST, IP string) error
+		ReleaseAppCertAndKey(serviceName, host, ip string) error
 
 		// ReleaseRootCertAndKey releases root CA cert and key
 		ReleaseRootCertAndKey() error
 
-		// SetRootCertAndKey sets exists app cert
-		SetAppCertAndKey(serviceName, HOST, IP string, cert *spec.Certificate) error
+		// SetRootCertAndKey sets existing app cert
+		SetAppCertAndKey(serviceName, host, ip string, cert *spec.Certificate) error
 
 		// SetRootCertAndKey sets exists root cert into provider
 		SetRootCertAndKey(cert *spec.Certificate) error
 	}
 )
 
-// NewCertManager creates a initialed certmanager.
+// NewCertManager creates a certmanager.
 func NewCertManager(service *service.Service, certProviderType string, appCertTTL, rootCertTTL time.Duration) *CertManager {
 	certManager := &CertManager{
 		service:     service,

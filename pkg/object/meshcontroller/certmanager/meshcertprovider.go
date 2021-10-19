@@ -53,12 +53,12 @@ func NewMeshCertProvider() *MeshCertProvider {
 	}
 }
 
-func uniqID(serviceName, HOST, IP string) string {
-	return fmt.Sprintf("%s-%s-%s", serviceName, HOST, IP)
+func uniqID(serviceName, host, ip string) string {
+	return fmt.Sprintf("%s-%s-%s", serviceName, host, ip)
 }
 
 // SignAppCertAndKey  Signs a cert, key pair for one service
-func (mp *MeshCertProvider) SignAppCertAndKey(serviceName, HOST, IP string, ttl time.Duration) (cert *spec.Certificate, err error) {
+func (mp *MeshCertProvider) SignAppCertAndKey(serviceName, host, ip string, ttl time.Duration) (cert *spec.Certificate, err error) {
 	if mp.RootCert == nil {
 		err = fmt.Errorf("not root cert found")
 		return
@@ -78,7 +78,7 @@ func (mp *MeshCertProvider) SignAppCertAndKey(serviceName, HOST, IP string, ttl 
 		logger.Errorf("decode root key pem failed: %v", err)
 		return
 	}
-	logger.Infof("try to sign serverName: %s, HOST: %s IP: %s, ttl: %s", serviceName, HOST, IP, ttl.String())
+	logger.Infof("try to sign serverName: %s, HOST: %s IP: %s, ttl: %s", serviceName, host, ip, ttl.String())
 	now := time.Now()
 	x509Cert := &x509.Certificate{
 		SerialNumber: big.NewInt(defaultSerialNumber),
@@ -93,7 +93,7 @@ func (mp *MeshCertProvider) SignAppCertAndKey(serviceName, HOST, IP string, ttl 
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
 		KeyUsage:     x509.KeyUsageDigitalSignature,
 		DNSNames:     []string{"*"},
-		IPAddresses:  []net.IP{net.ParseIP(IP), net.IPv6loopback},
+		IPAddresses:  []net.IP{net.ParseIP(ip), net.IPv6loopback},
 	}
 
 	certPrivKey, err := rsa.GenerateKey(rand.Reader, 4096)
@@ -121,15 +121,15 @@ func (mp *MeshCertProvider) SignAppCertAndKey(serviceName, HOST, IP string, ttl 
 
 	cert = &spec.Certificate{
 		ServiceName: serviceName,
-		IP:          IP,
+		IP:          ip,
 		CertBase64:  base64.StdEncoding.EncodeToString(certPEM.Bytes()),
 		KeyBase64:   base64.StdEncoding.EncodeToString(certPrivKeyPEM.Bytes()),
 		TTL:         ttl.String(),
 		SignTime:    now.Format(time.RFC3339),
-		HOST:        HOST,
+		HOST:        host,
 	}
 
-	mp.SetAppCertAndKey(serviceName, HOST, IP, cert)
+	mp.SetAppCertAndKey(serviceName, host, ip, cert)
 	return
 }
 
@@ -240,11 +240,11 @@ func (mp *MeshCertProvider) SignRootCertAndKey(ttl time.Duration) (cert *spec.Ce
 }
 
 // SetAppCertAndKey sets service cert into local memory
-func (mp *MeshCertProvider) SetAppCertAndKey(serviceName, HOST, IP string, cert *spec.Certificate) error {
+func (mp *MeshCertProvider) SetAppCertAndKey(serviceName, host, ip string, cert *spec.Certificate) error {
 	mp.mutex.Lock()
 	defer mp.mutex.Unlock()
 
-	mp.ServiceCerts[uniqID(serviceName, HOST, IP)] = cert
+	mp.ServiceCerts[uniqID(serviceName, host, ip)] = cert
 	return nil
 }
 
@@ -258,14 +258,14 @@ func (mp *MeshCertProvider) SetRootCertAndKey(cert *spec.Certificate) error {
 }
 
 // GetAppCertAndKey get cert and key for one service
-func (mp *MeshCertProvider) GetAppCertAndKey(serviceName, HOST, IP string) (cert *spec.Certificate, err error) {
+func (mp *MeshCertProvider) GetAppCertAndKey(serviceName, host, ip string) (cert *spec.Certificate, err error) {
 	mp.mutex.RLock()
 	defer mp.mutex.RUnlock()
-	sCert, ok := mp.ServiceCerts[uniqID(serviceName, HOST, IP)]
+	sCert, ok := mp.ServiceCerts[uniqID(serviceName, host, ip)]
 	if ok {
 		cert = sCert
 	}
-	err = fmt.Errorf("service :%s cert not found", uniqID(serviceName, HOST, IP))
+	err = fmt.Errorf("service :%s cert not found", uniqID(serviceName, host, ip))
 	return
 }
 
@@ -282,13 +282,13 @@ func (mp *MeshCertProvider) GetRootCertAndKey() (cert *spec.Certificate, err err
 }
 
 // ReleaseAppCertAndKey releases one service's cert and key
-func (mp *MeshCertProvider) ReleaseAppCertAndKey(serviceName, HOST, IP string) error {
+func (mp *MeshCertProvider) ReleaseAppCertAndKey(serviceName, host, ip string) error {
 	mp.mutex.Lock()
 	defer mp.mutex.Unlock()
 
-	_, ok := mp.ServiceCerts[uniqID(serviceName, HOST, IP)]
+	_, ok := mp.ServiceCerts[uniqID(serviceName, host, ip)]
 	if ok {
-		delete(mp.ServiceCerts, uniqID(serviceName, HOST, IP))
+		delete(mp.ServiceCerts, uniqID(serviceName, host, ip))
 	}
 	return nil
 }

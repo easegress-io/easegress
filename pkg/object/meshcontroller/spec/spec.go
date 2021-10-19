@@ -719,7 +719,7 @@ keepAlive: false
 https: %s 
 certBase64: %s
 keyBase64: %s
-mTLSRootCertBase64: %s
+caCertBase64: %s
 rules:
   - paths:
     - pathPrefix: /

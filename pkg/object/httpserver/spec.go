@@ -31,16 +31,16 @@ import (
 type (
 	// Spec describes the HTTPServer.
 	Spec struct {
-		HTTP3              bool          `yaml:"http3" jsonschema:"omitempty"`
-		Port               uint16        `yaml:"port" jsonschema:"required,minimum=1"`
-		KeepAlive          bool          `yaml:"keepAlive" jsonschema:"required"`
-		KeepAliveTimeout   string        `yaml:"keepAliveTimeout" jsonschema:"omitempty,format=duration"`
-		MaxConnections     uint32        `yaml:"maxConnections" jsonschema:"omitempty,minimum=1"`
-		HTTPS              bool          `yaml:"https" jsonschema:"required"`
-		CacheSize          uint32        `yaml:"cacheSize" jsonschema:"omitempty"`
-		XForwardedFor      bool          `yaml:"xForwardedFor" jsonschema:"omitempty"`
-		Tracing            *tracing.Spec `yaml:"tracing" jsonschema:"omitempty"`
-		MTLSRootCertBase64 string        `yaml:"mTLSRootCertBase64" jsonschema:"omitempty,format=base64"`
+		HTTP3            bool          `yaml:"http3" jsonschema:"omitempty"`
+		Port             uint16        `yaml:"port" jsonschema:"required,minimum=1"`
+		KeepAlive        bool          `yaml:"keepAlive" jsonschema:"required"`
+		KeepAliveTimeout string        `yaml:"keepAliveTimeout" jsonschema:"omitempty,format=duration"`
+		MaxConnections   uint32        `yaml:"maxConnections" jsonschema:"omitempty,minimum=1"`
+		HTTPS            bool          `yaml:"https" jsonschema:"required"`
+		CacheSize        uint32        `yaml:"cacheSize" jsonschema:"omitempty"`
+		XForwardedFor    bool          `yaml:"xForwardedFor" jsonschema:"omitempty"`
+		Tracing          *tracing.Spec `yaml:"tracing" jsonschema:"omitempty"`
+		CaCertBase64     string        `yaml:"caCertBase64" jsonschema:"omitempty,format=base64"`
 
 		// Support multiple certs, preserve the certbase64 and keybase64
 		// for backward compatibility
@@ -148,10 +148,10 @@ func (spec *Spec) tlsConfig() (*tls.Config, error) {
 		Certificates: certificates,
 	}
 
-	// if mTLS configuration is provided, should enable tls.ClientAuth and
+	// if caCertBase64 configuration is provided, should enable tls.ClientAuth and
 	// add the root cert
-	if len(spec.MTLSRootCertBase64) != 0 {
-		rootCertPem, _ := base64.StdEncoding.DecodeString(spec.MTLSRootCertBase64)
+	if len(spec.CaCertBase64) != 0 {
+		rootCertPem, _ := base64.StdEncoding.DecodeString(spec.CaCertBase64)
 		certPool := x509.NewCertPool()
 		certPool.AppendCertsFromPEM(rootCertPem)
 
