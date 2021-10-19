@@ -225,7 +225,7 @@ func (r *runtime) closeServer() {
 	}
 
 	_ = r.listener.close()
-	logger.Infof("listener for %s(%s) closed", r.listener.localAddr)
+	logger.Infof("listener for %s(%s) closed", r.listener.name, r.listener.localAddr)
 }
 
 func (r *runtime) checkFailed() {

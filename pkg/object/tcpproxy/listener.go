@@ -46,11 +46,11 @@ func newListener(spec *Spec, onAccept func(conn net.Conn, listenerStop chan stru
 		name:      spec.Name,
 		localAddr: fmt.Sprintf(":%d", spec.Port),
 
-		mutex:    &sync.Mutex{},
-		maxConns: spec.MaxConnections,
-		stopChan: make(chan struct{}),
-
 		onAccept: onAccept,
+		maxConns: spec.MaxConnections,
+
+		mutex:    &sync.Mutex{},
+		stopChan: make(chan struct{}),
 	}
 	return listen
 }

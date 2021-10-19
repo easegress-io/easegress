@@ -42,8 +42,6 @@ type Connection struct {
 
 	lastBytesSizeRead  int64
 	lastWriteSizeWrite int64
-	readEnabled        bool
-	readEnabledChan    chan bool // if we need to reload read filters, it's better to stop read data before reload filters
 
 	readBuffer      iobufferpool.IoBuffer
 	writeBuffers    net.Buffers
@@ -68,8 +66,6 @@ func NewDownstreamConn(conn net.Conn, remoteAddr net.Addr, listenerStopChan chan
 		localAddr:  conn.LocalAddr(),
 		remoteAddr: conn.RemoteAddr(),
 
-		readEnabled:     true,
-		readEnabledChan: make(chan bool, 1),
 		writeBufferChan: make(chan *[]iobufferpool.IoBuffer, 8),
 
 		mu:               sync.Mutex{},
@@ -93,11 +89,6 @@ func (c *Connection) LocalAddr() net.Addr {
 // RemoteAddr get connection remote addr(it's nil for udp server rawConn)
 func (c *Connection) RemoteAddr() net.Addr {
 	return c.rawConn.RemoteAddr()
-}
-
-// ReadEnabled get connection read enable status
-func (c *Connection) ReadEnabled() bool {
-	return c.readEnabled
 }
 
 // SetOnRead set connection read handle
@@ -211,40 +202,32 @@ func (c *Connection) startReadLoop() {
 			return
 		case <-c.listenerStopChan:
 			return
-		case <-c.readEnabledChan:
 		default:
-			if c.readEnabled {
-				err := c.doReadIO()
-				if err != nil {
-					if te, ok := err.(net.Error); ok && te.Timeout() {
-						if c.readBuffer != nil && c.readBuffer.Len() == 0 && c.readBuffer.Cap() > iobufferpool.DefaultBufferReadCapacity {
-							c.readBuffer.Free()
-							c.readBuffer.Alloc(iobufferpool.DefaultBufferReadCapacity)
-						}
-						continue
+			err := c.doReadIO()
+			if err != nil {
+				if te, ok := err.(net.Error); ok && te.Timeout() {
+					if c.readBuffer != nil && c.readBuffer.Len() == 0 && c.readBuffer.Cap() > iobufferpool.DefaultBufferReadCapacity {
+						c.readBuffer.Free()
+						c.readBuffer.Alloc(iobufferpool.DefaultBufferReadCapacity)
 					}
-
-					// normal close or health check
-					if c.lastBytesSizeRead == 0 || err == io.EOF {
-						logger.Infof("tcp connection error on read, local addr: %s, remote addr: %s, err: %s",
-							c.localAddr.String(), c.remoteAddr.String(), err.Error())
-					} else {
-						logger.Errorf("tcp connection error on read, local addr: %s, remote addr: %s, err: %s",
-							c.localAddr.String(), c.remoteAddr.String(), err.Error())
-					}
-
-					if err == io.EOF {
-						_ = c.Close(NoFlush, RemoteClose)
-					} else {
-						_ = c.Close(NoFlush, OnReadErrClose)
-					}
-					return
+					continue
 				}
-			} else {
-				select {
-				case <-c.readEnabledChan:
-				case <-time.After(100 * time.Millisecond):
+
+				// normal close or health check
+				if c.lastBytesSizeRead == 0 || err == io.EOF {
+					logger.Infof("tcp connection error on read, local addr: %s, remote addr: %s, err: %s",
+						c.localAddr.String(), c.remoteAddr.String(), err.Error())
+				} else {
+					logger.Errorf("tcp connection error on read, local addr: %s, remote addr: %s, err: %s",
+						c.localAddr.String(), c.remoteAddr.String(), err.Error())
 				}
+
+				if err == io.EOF {
+					_ = c.Close(NoFlush, RemoteClose)
+				} else {
+					_ = c.Close(NoFlush, OnReadErrClose)
+				}
+				return
 			}
 		}
 	}
@@ -351,18 +334,6 @@ func (c *Connection) Close(ccType CloseType, event ConnectionEvent) (err error) 
 	return nil
 }
 
-func (c *Connection) SetReadDisable(disable bool) {
-	if disable {
-		if c.readEnabled {
-			c.readEnabled = false
-		}
-	} else {
-		c.readEnabled = true
-		// only on read disable status, we need to trigger chan to wake read loop up
-		c.readEnabledChan <- true
-	}
-}
-
 func (c *Connection) doReadIO() (err error) {
 	if c.readBuffer == nil {
 		c.readBuffer = iobufferpool.GetIoBuffer(iobufferpool.DefaultBufferReadCapacity)
@@ -391,7 +362,7 @@ func (c *Connection) doReadIO() (err error) {
 			c.localAddr.String(), c.remoteAddr.String())
 	}
 
-	if !c.readEnabled || c.readBuffer.Len() == 0 {
+	if c.readBuffer.Len() == 0 {
 		return
 	}
 
@@ -457,8 +428,6 @@ func NewUpstreamConn(connectTimeout uint32, upstreamAddr net.Addr, listenerStopC
 			connected:  1,
 			remoteAddr: upstreamAddr,
 
-			readEnabled:     true,
-			readEnabledChan: make(chan bool, 1),
 			writeBufferChan: make(chan *[]iobufferpool.IoBuffer, 8),
 
 			mu:               sync.Mutex{},
