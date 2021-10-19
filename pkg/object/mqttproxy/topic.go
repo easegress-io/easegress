@@ -23,6 +23,7 @@ import (
 	"strings"
 	"sync"
 
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/megaease/easegress/pkg/logger"
 )
 
@@ -36,40 +37,22 @@ type TopicManager struct {
 }
 
 type topicLevelManager struct {
-	sync.RWMutex
-	data map[string]*topicLevels
+	data *lru.Cache
 }
 
-type topicLevels struct {
-	levels []string
-	valid  bool
-}
-
-func newTopicManager() *TopicManager {
+func newTopicManager(cacheSize int) *TopicManager {
 	return &TopicManager{
 		root:     newNode(),
-		levelMgr: newTopicLevelManager(),
+		levelMgr: newTopicLevelManager(cacheSize),
 	}
 }
 
-func newTopicLevelManager() *topicLevelManager {
+func newTopicLevelManager(cacheSize int) *topicLevelManager {
+	// here we promise cacheSize greater than 0, so we ignore this error.
+	cache, _ := lru.New(cacheSize)
 	return &topicLevelManager{
-		data: make(map[string]*topicLevels),
+		data: cache,
 	}
-}
-
-func validTopic(levels []string) bool {
-	for i, level := range levels {
-		if strings.ContainsRune(level, '+') && len(level) != 1 {
-			return false
-		}
-		if strings.ContainsRune(level, '#') {
-			if len(level) != 1 || i != len(levels)-1 {
-				return false
-			}
-		}
-	}
-	return len(levels) > 0
 }
 
 func (mgr *TopicManager) getLevels(topic string) ([]string, error) {
@@ -134,6 +117,11 @@ func (mgr *TopicManager) findSubscribers(topic string) (map[string]byte, error) 
 	}
 	for _, n := range currentLevelNodes {
 		n.addClients(ans)
+		// in MQTT version 3.1.1 section 4.7.1.2, topic "sport/tennis/player1/#" would receive msg from "sport/tennis/player1"
+		// which means when we reach end of topic level, we need check one more level for wildcard #
+		if val, ok := n.nodes["#"]; ok {
+			val.addClients(ans)
+		}
 	}
 	return ans, nil
 }
@@ -188,29 +176,52 @@ func (mgr *TopicManager) remove(topic string, clientID string) error {
 	return nil
 }
 
-func (t *topicLevelManager) get(topic string) ([]string, error) {
-	t.RLock()
-	defer t.RUnlock()
-	if val, ok := t.data[topic]; ok {
-		if val.valid {
-			return val.levels, nil
+func splitTopic(topic string) ([]string, bool) {
+	levels := make([]string, strings.Count(topic, "/")+1)
+	levelsLoc := 0
+
+	levelStart := 0
+	wildCardFlag := false
+	for i, char := range topic {
+		if char == '/' {
+			level := topic[levelStart:i]
+			if len(level) > 1 && wildCardFlag {
+				return nil, false
+			}
+			levels[levelsLoc] = level
+			levelsLoc++
+			levelStart = i + 1
+			wildCardFlag = false
+
+		} else if char == '+' {
+			wildCardFlag = true
+
+		} else if char == '#' {
+			wildCardFlag = true
+			if i != len(topic)-1 {
+				return nil, false
+			}
 		}
-		return nil, fmt.Errorf("topic %v is invalid", topic)
 	}
 
-	levels := strings.Split(topic, "/")
-	valid := validTopic(levels)
-	go t.put(topic, levels, valid)
+	level := topic[levelStart:]
+	if len(level) > 1 && wildCardFlag {
+		return nil, false
+	}
+	levels[levelsLoc] = level
+	return levels, true
+}
+
+func (t *topicLevelManager) get(topic string) ([]string, error) {
+	if val, ok := t.data.Get(topic); ok {
+		return val.([]string), nil
+	}
+	levels, valid := splitTopic(topic)
 	if valid {
+		t.data.Add(topic, levels)
 		return levels, nil
 	}
 	return nil, fmt.Errorf("topic %v is invalid", topic)
-}
-
-func (t *topicLevelManager) put(topic string, levels []string, valid bool) {
-	t.Lock()
-	defer t.Unlock()
-	t.data[topic] = &topicLevels{levels, valid}
 }
 
 type topicNode struct {

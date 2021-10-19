@@ -119,3 +119,10 @@ func (sm *SessionManager) delLocal(clientID string) {
 		sess.close()
 	}
 }
+
+func (sm *SessionManager) delDB(clientID string) {
+	err := sm.store.delete(sessionStoreKey(clientID))
+	if err != nil {
+		logger.Errorf("delete session %v failed, %v", err)
+	}
+}

@@ -28,7 +28,6 @@ import (
 	"net/http"
 	"reflect"
 	"strconv"
-	"strings"
 	"sync"
 	"testing"
 
@@ -162,6 +161,78 @@ func TestSubUnsub(t *testing.T) {
 		t.Errorf("subscribe qos1 error %s", token.Error())
 	}
 	client.Disconnect(200)
+	broker.close()
+}
+
+func TestCleanSession(t *testing.T) {
+	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
+	broker := getBroker("test", "test", b64passwd, 1883)
+
+	// client that set cleanSession
+	cid := "cleanSessionClient"
+	client := getMQTTClient(t, cid, "test", "test", true)
+	if token := client.Subscribe("test/cleanSession/0", 0, nil); token.Wait() && token.Error() != nil {
+		t.Errorf("subscribe qos0 error %s", token.Error())
+	}
+	client.Disconnect(200)
+
+	c := broker.getClient(cid)
+	if c != nil {
+		c.closeAndDelSession()
+	}
+	subscribers, err := broker.topicMgr.findSubscribers("test/cleanSession/0")
+	if err != nil {
+		t.Errorf("findSubscribers for topic test/cleanSession/0 failed, %v", err)
+	}
+	if _, ok := subscribers[cid]; ok {
+		t.Errorf("topicMgr is not cleaned when client %v close connection", subscribers)
+	}
+	_, err = broker.sessMgr.store.get(sessionStoreKey(cid))
+	if err == nil {
+		t.Errorf("not clean DB when cleanSession is set, potential resource wasted")
+	}
+
+	// client that not set cleanSession, getMQTTClient last parameter set to false
+	cid = "notCleanSessionClient"
+	client = getMQTTClient(t, cid, "test", "test", false)
+	if token := client.Subscribe("test/cleanSession/0", 0, nil); token.Wait() && token.Error() != nil {
+		t.Errorf("subscribe qos0 error %s", token.Error())
+	}
+	client.Disconnect(200)
+
+	c = broker.getClient(cid)
+	if c != nil {
+		c.closeAndDelSession()
+	}
+	subscribers, err = broker.topicMgr.findSubscribers("test/cleanSession/0")
+	if err != nil {
+		t.Errorf("findSubscribers for topic test/cleanSession/0 failed, %v", err)
+	}
+	if _, ok := subscribers[cid]; ok {
+		t.Errorf("topicMgr is not cleaned when client %v close connection", subscribers)
+	}
+	_, err = broker.sessMgr.store.get(sessionStoreKey(cid))
+	if err != nil {
+		t.Errorf("clean DB when cleanSession is not set")
+	}
+
+	// check not clean session work when client come.
+	client = getMQTTClient(t, cid, "test", "test", false)
+	// publish topic to make sure client read loop start
+	token := client.Publish("topic", 1, false, "text")
+	token.Wait()
+	subscribers, err = broker.topicMgr.findSubscribers("test/cleanSession/0")
+	if err != nil {
+		t.Errorf("findSubscribers for topic test/cleanSession/0 failed, %v", err)
+	}
+	if _, ok := subscribers[cid]; !ok {
+		t.Errorf("topicMgr should contain topic test/cleanSession/0 when client reconnect, but got %v", subscribers)
+	}
+	_, err = broker.sessMgr.store.get(sessionStoreKey(cid))
+	if err != nil {
+		t.Errorf("clean DB when cleanSession is not set")
+	}
+
 	broker.close()
 }
 
@@ -623,7 +694,7 @@ func TestSendMsgBack(t *testing.T) {
 			for j := 0; j < msgNum; j++ {
 				topic := r.ClientID()
 				text := fmt.Sprintf("sub %d", j)
-				broker.sendMsgToClient(topic, []byte(text), Qos1)
+				broker.sendMsgToClient(topic, []byte(text), QoS1)
 			}
 		}(clients[i])
 	}
@@ -831,7 +902,7 @@ func TestHTTPRequest(t *testing.T) {
 	// err qos should fail
 	data := HTTPJsonData{
 		Topic:   "topic",
-		Qos:     10,
+		QoS:     10,
 		Payload: "data",
 		Base64:  false,
 	}
@@ -843,7 +914,7 @@ func TestHTTPRequest(t *testing.T) {
 	// base64 flag
 	data = HTTPJsonData{
 		Topic:   "topic",
-		Qos:     10,
+		QoS:     10,
 		Payload: "data",
 		Base64:  true,
 	}
@@ -855,7 +926,7 @@ func TestHTTPRequest(t *testing.T) {
 	// success
 	data = HTTPJsonData{
 		Topic:   "topic",
-		Qos:     1,
+		QoS:     1,
 		Payload: "data",
 		Base64:  false,
 	}
@@ -865,7 +936,7 @@ func TestHTTPRequest(t *testing.T) {
 	}
 	data = HTTPJsonData{
 		Topic:   "topic",
-		Qos:     1,
+		QoS:     1,
 		Payload: base64.StdEncoding.EncodeToString([]byte("data")),
 		Base64:  true,
 	}
@@ -898,7 +969,7 @@ func TestHTTPPublish(t *testing.T) {
 		for i := 0; i < numMsg; i++ {
 			data := HTTPJsonData{
 				Topic:   "test",
-				Qos:     1,
+				QoS:     1,
 				Payload: base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%d", i))),
 				Base64:  true,
 			}
@@ -983,7 +1054,7 @@ func TestHTTPTransfer(t *testing.T) {
 	// set data to broker1
 	data := HTTPJsonData{
 		Topic:   "client",
-		Qos:     1,
+		QoS:     1,
 		Payload: "data",
 		Base64:  false,
 	}
@@ -1018,34 +1089,57 @@ func TestHTTPTransfer(t *testing.T) {
 	mqttClient.Disconnect(200)
 }
 
-func TestValidTopic(t *testing.T) {
+func TestSplitTopic(t *testing.T) {
 	tests := []struct {
-		topic string
-		ans   bool
+		topic  string
+		levels []string
+		ans    bool
 	}{
-		{"#", true},
-		{"#/a", false},
-		{"a#", false},
-		{"/#/a", false},
-		{"a/b/#", true},
-		{"#+", false},
-		{"/+/a/+/b/+/c", true},
-		{"/+/++/+a", false},
-		{"/a/b/c/d", true},
-		{"a/+/b/#", true},
-		{"/a/b/c/d/+/d/#", true},
+		{"#", []string{"#"}, true},
+		{"#/sport", nil, false},
+		{"sport#", nil, false},
+		{"/#/sport", nil, false},
+		{"#+", nil, false},
+		{"/+/sport/+/player1/+/score", []string{"", "+", "sport", "+", "player1", "+", "score"}, true},
+		{"/+/++/+finance", nil, false},
+		{"/sport/ball/player1/score", []string{"", "sport", "ball", "player1", "score"}, true},
+		{"finance/+/bank/#", []string{"finance", "+", "bank", "#"}, true},
+		{"/sport/ball/player1/score/+/wimbledon/#", []string{"", "sport", "ball", "player1", "score", "+", "wimbledon", "#"}, true},
+		{"/sport/ball/player2/score/+/game2/#", []string{"", "sport", "ball", "player2", "score", "+", "game2", "#"}, true},
+		{"/", []string{"", ""}, true},
+		{"finance/", []string{"finance", ""}, true},
+		{"//", []string{"", "", ""}, true},
+		{"/finance/bank", []string{"", "finance", "bank"}, true},
+		{"/finance/bank/", []string{"", "finance", "bank", ""}, true},
+		{"sport/tennis/player1/#", []string{"sport", "tennis", "player1", "#"}, true},
+		{"sport/tennis/player1", []string{"sport", "tennis", "player1"}, true},
+		{"sport/tennis/player1/ranking", []string{"sport", "tennis", "player1", "ranking"}, true},
+		{"sport/tennis/player1/score/wimbledon", []string{"sport", "tennis", "player1", "score", "wimbledon"}, true},
+		{"sport/#", []string{"sport", "#"}, true},
+		{"sport/tennis/#", []string{"sport", "tennis", "#"}, true},
+		{"sport/tennis#", nil, false},
+		{"sport/tennis/#/ranking", nil, false},
+		{"sport/tennis/+", []string{"sport", "tennis", "+"}, true},
+		{"sport/tennis/player1", []string{"sport", "tennis", "player1"}, true},
+		{"+", []string{"+"}, true},
+		{"+/tennis/#", []string{"+", "tennis", "#"}, true},
+		{"sport+", nil, false},
+		{"sport/+/player1", []string{"sport", "+", "player1"}, true},
+		{"/finance", []string{"", "finance"}, true},
 	}
 	for _, tt := range tests {
-		levels := strings.Split(tt.topic, "/")
-		ans := validTopic(levels)
+		levels, ans := splitTopic(tt.topic)
+		if !reflect.DeepEqual(levels, tt.levels) {
+			t.Errorf("topic:<%s> levels got:%v, want:%v", tt.topic, levels, tt.levels)
+		}
 		if ans != tt.ans {
-			t.Errorf("topic:<%s>, got:%v, wanted:%v", tt.topic, ans, tt.ans)
+			t.Errorf("topic:<%s>, got:%v, want:%v", tt.topic, ans, tt.ans)
 		}
 	}
 }
 
 func TestWildCard(t *testing.T) {
-	mgr := newTopicManager()
+	mgr := newTopicManager(10000)
 	mgr.subscribe([]string{"a/+", "b/d"}, []byte{0, 1}, "A")
 	mgr.subscribe([]string{"+/+"}, []byte{1}, "B")
 	mgr.subscribe([]string{"+/fin"}, []byte{1}, "C")
@@ -1084,7 +1178,7 @@ func TestWildCard(t *testing.T) {
 		t.Errorf("find subscribers for invalid topic should return error")
 	}
 
-	mgr = newTopicManager()
+	mgr = newTopicManager(100000)
 	mgr.subscribe([]string{"a/b/c/d/e"}, []byte{0}, "A")
 	mgr.subscribe([]string{"a/b/c/f/g"}, []byte{0}, "A")
 	mgr.subscribe([]string{"m/x/v/f/g"}, []byte{0}, "B")
@@ -1097,6 +1191,38 @@ func TestWildCard(t *testing.T) {
 	if len(mgr.root.clients) != 0 || len(mgr.root.nodes) != 0 {
 		t.Errorf("topic manager not clear memory when topics are unsubscribes")
 	}
+
+	mgr = newTopicManager(1000000)
+	checkSubscriptions := func(subTopic string, recvTopic []string, notRecvTopic []string) {
+		mgr.subscribe([]string{subTopic}, []byte{0}, "tmpClient")
+		for _, topic := range recvTopic {
+			clients, err := mgr.findSubscribers(topic)
+			if err != nil {
+				t.Errorf("findSubscribers for topic failed, %v", err)
+			}
+			if val, ok := clients["tmpClient"]; !ok || (val != 0) {
+				t.Errorf("subscribe topic %v but not recv topic %v", subTopic, topic)
+			}
+		}
+		for _, topic := range notRecvTopic {
+			clients, err := mgr.findSubscribers(topic)
+			if err != nil {
+				t.Errorf("findSubscribers for topic failed, %v", err)
+			}
+			if _, ok := clients["tmpClient"]; ok {
+				t.Errorf("subscribe topic %v but recv topic %v", subTopic, topic)
+			}
+		}
+		mgr.unsubscribe([]string{subTopic}, "tmpClient")
+	}
+	checkSubscriptions("sport/tennis/player1/#", []string{"sport/tennis/player1", "sport/tennis/player1/ranking", "sport/tennis/player1/score/wimbledon"}, []string{})
+	checkSubscriptions("sport/#", []string{"sport"}, []string{})
+
+	checkSubscriptions("sport/tennis/+", []string{"sport/tennis/player1", "sport/tennis/player2"}, []string{"sport/tennis/player1/ranking"})
+	checkSubscriptions("sport/+", []string{"sport/"}, []string{"sport"})
+	checkSubscriptions("+/+", []string{"/finance"}, []string{})
+	checkSubscriptions("/+", []string{"/finance"}, []string{})
+	checkSubscriptions("+", []string{}, []string{"/finance"})
 }
 
 const certPem = `

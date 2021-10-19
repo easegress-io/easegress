@@ -19,7 +19,6 @@ package mqttproxy
 
 import (
 	"errors"
-	"fmt"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -35,12 +34,12 @@ const (
 	// Disconnected is MQTT client status of Disconnected
 	Disconnected = 2
 
-	// Qos0 for "At most once"
-	Qos0 byte = 0
-	// Qos1 for "At least once
-	Qos1 byte = 1
-	// Qos2 for "Exactly once"
-	Qos2 byte = 2
+	// QoS0 for "At most once"
+	QoS0 byte = 0
+	// QoS1 for "At least once
+	QoS1 byte = 1
+	// QoS2 for "Exactly once"
+	QoS2 byte = 2
 )
 
 type (
@@ -63,6 +62,7 @@ type (
 
 		info       ClientInfo
 		statusFlag int32
+		writeCh    chan packets.ControlPacket
 		done       chan struct{}
 	}
 )
@@ -90,6 +90,7 @@ func newClient(connect *packets.ConnectPacket, broker *Broker, conn net.Conn) *C
 		conn:       conn,
 		info:       info,
 		statusFlag: Connected,
+		writeCh:    make(chan packets.ControlPacket, 50),
 		done:       make(chan struct{}),
 	}
 	return client
@@ -144,7 +145,7 @@ func (c *Client) processPacket(packet packets.ControlPacket) error {
 	case *packets.ConnackPacket:
 		err = errors.New("client send connack")
 	case *packets.PublishPacket:
-		err = c.processPublish(p)
+		c.processPublish(p)
 	case *packets.PubackPacket:
 		c.processPuback(p)
 	case *packets.PubrecPacket, *packets.PubrelPacket, *packets.PubcompPacket:
@@ -167,26 +168,22 @@ func (c *Client) processPacket(packet packets.ControlPacket) error {
 	return err
 }
 
-func (c *Client) processPublish(publish *packets.PublishPacket) error {
+func (c *Client) processPublish(publish *packets.PublishPacket) {
 	logger.Debugf("client %s process publish %v", c.info.cid, publish.TopicName)
 	err := c.broker.backend.publish(publish)
 	if err != nil {
 		logger.Errorf("client %v publish %v failed: %v", c.info.cid, publish.TopicName, err)
 	}
 	switch publish.Qos {
-	case Qos0:
+	case QoS0:
 		// do nothing
-	case Qos1:
+	case QoS1:
 		puback := packets.NewControlPacket(packets.Puback).(*packets.PubackPacket)
 		puback.MessageID = publish.MessageID
-		err := c.writePacket(puback)
-		if err != nil {
-			return fmt.Errorf("write puback to client %s failed: %s", c.info.cid, err)
-		}
-	case Qos2:
+		c.writePacket(puback)
+	case QoS2:
 		// not support yet
 	}
-	return nil
 }
 
 func (c *Client) processPuback(puback *packets.PubackPacket) {
@@ -229,10 +226,23 @@ func (c *Client) processPingreq(packet *packets.PingreqPacket) {
 	c.writePacket(resp)
 }
 
-func (c *Client) writePacket(packet packets.ControlPacket) error {
-	c.Lock()
-	defer c.Unlock()
-	return packet.Write(c.conn)
+func (c *Client) writePacket(packet packets.ControlPacket) {
+	c.writeCh <- packet
+}
+
+func (c *Client) writeLoop() {
+	for {
+		select {
+		case p := <-c.writeCh:
+			err := p.Write(c.conn)
+			if err != nil {
+				logger.Errorf("write puback to client %s failed: %s", c.info.cid, err)
+				c.closeAndDelSession()
+			}
+		case <-c.done:
+			return
+		}
+	}
 }
 
 func (c *Client) close() {
@@ -251,5 +261,12 @@ func (c *Client) disconnected() bool {
 
 func (c *Client) closeAndDelSession() {
 	c.broker.sessMgr.delLocal(c.info.cid)
+	if c.session.cleanSession() {
+		c.broker.sessMgr.delDB(c.info.cid)
+	}
+
+	topics, _, _ := c.session.allSubscribes()
+	c.broker.topicMgr.unsubscribe(topics, c.info.cid)
+
 	c.close()
 }

@@ -56,7 +56,7 @@ type (
 	Message struct {
 		Topic      string `yaml:"topic"`
 		B64Payload string `yaml:"b64Payload"`
-		Qos        int    `yaml:"qos"`
+		QoS        int    `yaml:"qos"`
 	}
 )
 
@@ -64,7 +64,7 @@ func newMsg(topic string, payload []byte, qos byte) *Message {
 	m := &Message{
 		Topic:      topic,
 		B64Payload: base64.StdEncoding.EncodeToString(payload),
-		Qos:        int(qos),
+		QoS:        int(qos),
 	}
 	return m
 }
@@ -115,38 +115,37 @@ func (s *Session) init(sm *SessionManager, b *Broker, connect *packets.ConnectPa
 
 func (s *Session) updateEGName(egName, name string) {
 	s.Lock()
-	defer s.Unlock()
 	s.info.EGName = egName
 	s.info.Name = name
 	s.store()
+	s.Unlock()
 }
 
 func (s *Session) subscribe(topics []string, qoss []byte) error {
 	logger.Debugf("session %s sub %v", s.info.ClientID, topics)
 	s.Lock()
-	defer s.Unlock()
 	for i, t := range topics {
 		s.info.Topics[t] = int(qoss[i])
 	}
 	s.store()
+	s.Unlock()
 	return nil
 }
 
 func (s *Session) unsubscribe(topics []string) error {
 	logger.Debugf("session %s unsub %v", s.info.ClientID, topics)
 	s.Lock()
-	defer s.Unlock()
 	for _, t := range topics {
 		delete(s.info.Topics, t)
 	}
 	s.store()
+	s.Unlock()
 	return nil
 }
 
 func (s *Session) allSubscribes() ([]string, []byte, error) {
 	logger.Debugf("session %s all sub", s.info.ClientID)
 	s.Lock()
-	defer s.Unlock()
 
 	var sub []string
 	var qos []byte
@@ -154,6 +153,7 @@ func (s *Session) allSubscribes() ([]string, []byte, error) {
 		sub = append(sub, k)
 		qos = append(qos, byte(v))
 	}
+	s.Unlock()
 	return sub, qos, nil
 }
 
@@ -181,22 +181,25 @@ func (s *Session) publish(topic string, payload []byte, qos byte) {
 
 	logger.Debugf("session %v publish %v", s.info.ClientID, topic)
 	p := s.getPacketFromMsg(topic, payload, qos)
-	if qos == Qos0 {
-		go client.writePacket(p)
-	} else if qos == Qos1 {
+	if qos == QoS0 {
+		select {
+		case client.writeCh <- p:
+		default:
+		}
+	} else if qos == QoS1 {
 		msg := newMsg(topic, payload, qos)
 		s.pending[p.MessageID] = msg
 		s.pendingQueue = append(s.pendingQueue, p.MessageID)
-		go client.writePacket(p)
+		client.writePacket(p)
 	} else {
-		logger.Errorf("current not support to publish message with qos=2")
+		logger.Errorf("publish message with qos=2 is not supported currently")
 	}
 }
 
 func (s *Session) puback(p *packets.PubackPacket) {
 	s.Lock()
-	defer s.Unlock()
 	delete(s.pending, p.MessageID)
+	s.Unlock()
 }
 
 func (s *Session) cleanSession() bool {
@@ -221,7 +224,7 @@ func (s *Session) doResend() {
 			// find first msg need to resend
 			s.pendingQueue = s.pendingQueue[i:]
 			p := packets.NewControlPacket(packets.Publish).(*packets.PublishPacket)
-			p.Qos = byte(val.Qos)
+			p.Qos = byte(val.QoS)
 			p.TopicName = val.Topic
 			payload, err := base64.StdEncoding.DecodeString(val.B64Payload)
 			if err != nil {
@@ -231,7 +234,7 @@ func (s *Session) doResend() {
 			p.Payload = payload
 			p.MessageID = idx
 			if client != nil {
-				go client.writePacket(p)
+				client.writePacket(p)
 			} else {
 				logger.Debugf("session %v do resend but client is nil", s.info.ClientID)
 			}

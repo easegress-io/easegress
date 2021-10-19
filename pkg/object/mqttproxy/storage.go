@@ -30,6 +30,7 @@ type (
 		get(key string) (*string, error)
 		getPrefix(prefix string) (map[string]string, error)
 		put(key, value string) error
+		delete(key string) error
 	}
 
 	mockStorage struct {
@@ -63,20 +64,27 @@ func (m *mockStorage) get(key string) (*string, error) {
 
 func (m *mockStorage) getPrefix(prefix string) (map[string]string, error) {
 	m.mu.RLock()
-	defer m.mu.RUnlock()
 	out := make(map[string]string)
 	for k, v := range m.store {
 		if strings.HasPrefix(k, prefix) {
 			out[k] = v
 		}
 	}
+	m.mu.RUnlock()
 	return out, nil
 }
 
 func (m *mockStorage) put(key, value string) error {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	m.store[key] = value
+	m.mu.Unlock()
+	return nil
+}
+
+func (m *mockStorage) delete(key string) error {
+	m.mu.Lock()
+	delete(m.store, key)
+	m.mu.Unlock()
 	return nil
 }
 
@@ -90,4 +98,8 @@ func (cs *clusterStorage) getPrefix(prefix string) (map[string]string, error) {
 
 func (cs *clusterStorage) put(key, value string) error {
 	return cs.cls.Put(key, value)
+}
+
+func (cs *clusterStorage) delete(key string) error {
+	return cs.cls.Delete(key)
 }

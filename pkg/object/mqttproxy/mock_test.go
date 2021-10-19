@@ -71,20 +71,20 @@ func (m *mockCluster) Get(key string) (*string, error) {
 
 func (m *mockCluster) GetPrefix(prefix string) (map[string]string, error) {
 	m.RLock()
-	defer m.RUnlock()
 	out := make(map[string]string)
 	for k, v := range m.kv {
 		if strings.Contains(k, prefix) {
 			out[k] = v
 		}
 	}
+	m.RUnlock()
 	return out, nil
 }
 
 func (m *mockCluster) Put(key, value string) error {
 	m.Lock()
-	defer m.Unlock()
 	m.kv[key] = value
+	m.Unlock()
 	return nil
 }
 
