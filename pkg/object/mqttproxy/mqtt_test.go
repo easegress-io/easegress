@@ -164,6 +164,78 @@ func TestSubUnsub(t *testing.T) {
 	broker.close()
 }
 
+func TestCleanSession(t *testing.T) {
+	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
+	broker := getBroker("test", "test", b64passwd, 1883)
+
+	// client that set cleanSession
+	cid := "cleanSessionClient"
+	client := getMQTTClient(t, cid, "test", "test", true)
+	if token := client.Subscribe("test/cleanSession/0", 0, nil); token.Wait() && token.Error() != nil {
+		t.Errorf("subscribe qos0 error %s", token.Error())
+	}
+	client.Disconnect(200)
+
+	c := broker.getClient(cid)
+	if c != nil {
+		c.closeAndDelSession()
+	}
+	subscribers, err := broker.topicMgr.findSubscribers("test/cleanSession/0")
+	if err != nil {
+		t.Errorf("findSubscribers for topic test/cleanSession/0 failed, %v", err)
+	}
+	if _, ok := subscribers[cid]; ok {
+		t.Errorf("topicMgr is not cleaned when client %v close connection", subscribers)
+	}
+	_, err = broker.sessMgr.store.get(sessionStoreKey(cid))
+	if err == nil {
+		t.Errorf("not clean DB when cleanSession is set, potential resource wasted")
+	}
+
+	// client that not set cleanSession, getMQTTClient last parameter set to false
+	cid = "notCleanSessionClient"
+	client = getMQTTClient(t, cid, "test", "test", false)
+	if token := client.Subscribe("test/cleanSession/0", 0, nil); token.Wait() && token.Error() != nil {
+		t.Errorf("subscribe qos0 error %s", token.Error())
+	}
+	client.Disconnect(200)
+
+	c = broker.getClient(cid)
+	if c != nil {
+		c.closeAndDelSession()
+	}
+	subscribers, err = broker.topicMgr.findSubscribers("test/cleanSession/0")
+	if err != nil {
+		t.Errorf("findSubscribers for topic test/cleanSession/0 failed, %v", err)
+	}
+	if _, ok := subscribers[cid]; ok {
+		t.Errorf("topicMgr is not cleaned when client %v close connection", subscribers)
+	}
+	_, err = broker.sessMgr.store.get(sessionStoreKey(cid))
+	if err != nil {
+		t.Errorf("clean DB when cleanSession is not set")
+	}
+
+	// check not clean session work when client come.
+	client = getMQTTClient(t, cid, "test", "test", false)
+	// publish topic to make sure client read loop start
+	token := client.Publish("topic", 1, false, "text")
+	token.Wait()
+	subscribers, err = broker.topicMgr.findSubscribers("test/cleanSession/0")
+	if err != nil {
+		t.Errorf("findSubscribers for topic test/cleanSession/0 failed, %v", err)
+	}
+	if _, ok := subscribers[cid]; !ok {
+		t.Errorf("topicMgr should contain topic test/cleanSession/0 when client reconnect, but got %v", subscribers)
+	}
+	_, err = broker.sessMgr.store.get(sessionStoreKey(cid))
+	if err != nil {
+		t.Errorf("clean DB when cleanSession is not set")
+	}
+
+	broker.close()
+}
+
 func TestMultiClientPublish(t *testing.T) {
 	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
 	broker := getBroker("test", "test", b64passwd, 1883)
