@@ -261,5 +261,12 @@ func (c *Client) disconnected() bool {
 
 func (c *Client) closeAndDelSession() {
 	c.broker.sessMgr.delLocal(c.info.cid)
+	if c.session.cleanSession() {
+		c.broker.sessMgr.delDB(c.info.cid)
+	}
+
+	topics, _, _ := c.session.allSubscribes()
+	c.broker.topicMgr.unsubscribe(topics, c.info.cid)
+
 	c.close()
 }

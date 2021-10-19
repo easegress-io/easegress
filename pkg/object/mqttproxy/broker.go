@@ -335,8 +335,6 @@ func (b *Broker) topicsPublishHandler(w http.ResponseWriter, r *http.Request) {
 	go b.sendMsgToClient(data.Topic, payload, byte(data.QoS))
 }
 
-// const apiGroupName = "mqtt_proxy"
-
 func (b *Broker) mqttAPIPrefix() string {
 	return fmt.Sprintf(mqttAPIPrefix, b.name)
 }
