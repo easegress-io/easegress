@@ -26,6 +26,7 @@ import (
 	"github.com/megaease/easegress/pkg/util/limitlistener"
 )
 
+// ListenerState listener running state
 type ListenerState int
 
 type listener struct {
@@ -56,12 +57,12 @@ func newListener(spec *Spec, onAccept func(conn net.Conn, listenerStop chan stru
 }
 
 func (l *listener) listen() error {
-	if tl, err := net.Listen("tcp", l.localAddr); err != nil {
+	tl, err := net.Listen("tcp", l.localAddr)
+	if err != nil {
 		return err
-	} else {
-		// wrap tcp listener with accept limit
-		l.tcpListener = limitlistener.NewLimitListener(tl, l.maxConns)
 	}
+	// wrap tcp listener with accept limit
+	l.tcpListener = limitlistener.NewLimitListener(tl, l.maxConns)
 	return nil
 }
 

@@ -38,8 +38,8 @@ const (
 var nullByte []byte
 
 var (
-	// EOF io buffer eof sign
-	EOF = errors.New("EOF")
+	// ErrEOF io buffer eof sign
+	ErrEOF = errors.New("EOF")
 	// ErrInvalidWriteCount io buffer: invalid write count
 	ErrInvalidWriteCount = errors.New("io buffer: invalid write count")
 )
