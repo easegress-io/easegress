@@ -21,7 +21,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/megaease/easegress/pkg/common"
+	"github.com/megaease/easegress/pkg/util/fasttime"
 )
 
 // Debugf is the wrapper of default logger Debugf.
@@ -65,7 +65,7 @@ func APIAccess(
 	restAPILogger.Debugf("%s %s %s %v rx:%dB tx:%dB start:%v process:%v",
 		method, remoteAddr, path, code,
 		bodyBytedReceived, bodyBytesSent,
-		requestTime.Format(time.RFC3339), processTime)
+		fasttime.Format(requestTime, fasttime.RFC3339), processTime)
 }
 
 // HTTPAccess logs http access log.
@@ -115,7 +115,7 @@ func NginxHTTPAccess(remoteAddr, proto, method, path, referer, agent, realIP str
 		`"%s" "%s" `+
 		`%f %f %v %v . `+
 		`%f %f %f`,
-		remoteAddr, common.Now().Local(), method, path, proto,
+		remoteAddr, fasttime.Now().Local(), method, path, proto,
 		code, bodyBytesSent, referer,
 		agent, realIP,
 		requestTime.Seconds(), upstreamResponseTime.Seconds(), upstreamAddr, upstreamCode,

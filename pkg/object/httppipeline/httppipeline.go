@@ -21,13 +21,13 @@ import (
 	"bytes"
 	"fmt"
 	"reflect"
-	"sync"
 	"time"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocol"
 	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/util/fasttime"
 	"github.com/megaease/easegress/pkg/util/stringtool"
 	"github.com/megaease/easegress/pkg/util/yamltool"
 )
@@ -146,36 +146,11 @@ func (ctx *PipelineContext) log() string {
 	return buf.String()
 }
 
-// context.HTTPContext: *PipelineContext
-var runningContexts = sync.Map{}
-
 func newAndSetPipelineContext(ctx context.HTTPContext) *PipelineContext {
-	pipeCtx := &PipelineContext{}
-
-	runningContexts.Store(ctx, pipeCtx)
-
-	return pipeCtx
-}
-
-// GetPipelineContext returns the corresponding PipelineContext of the HTTPContext,
-// and a bool flag to represent it succeed or not.
-func GetPipelineContext(ctx context.HTTPContext) (*PipelineContext, bool) {
-	value, ok := runningContexts.Load(ctx)
-	if !ok {
-		return nil, false
-	}
-
-	pipeCtx, ok := value.(*PipelineContext)
-	if !ok {
-		logger.Errorf("BUG: want *PipelineContext, got %T", value)
-		return nil, false
-	}
-
-	return pipeCtx, true
+	return &PipelineContext{}
 }
 
 func deletePipelineContext(ctx context.HTTPContext) {
-	runningContexts.Delete(ctx)
 }
 
 func extractFiltersData(config []byte) interface{} {
@@ -485,10 +460,10 @@ func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) {
 		logger.Debugf("filter %s saved request dict %v", name, ctx.Template().GetDict())
 		filterStat = &FilterStat{Name: name, Kind: filter.spec.Kind()}
 
-		startTime := time.Now()
+		startTime := fasttime.Now()
 		result := filter.filter.Handle(ctx)
 
-		filterStat.Duration = time.Since(startTime)
+		filterStat.Duration = fasttime.Since(startTime)
 		filterStat.Result = result
 
 		lastStat.Next = append(lastStat.Next, filterStat)

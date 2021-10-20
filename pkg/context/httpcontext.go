@@ -31,11 +31,11 @@ import (
 
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/tracing"
+	"github.com/megaease/easegress/pkg/util/fasttime"
 	"github.com/megaease/easegress/pkg/util/httpheader"
 	"github.com/megaease/easegress/pkg/util/httpstat"
 	"github.com/megaease/easegress/pkg/util/stringtool"
 	"github.com/megaease/easegress/pkg/util/texttemplate"
-	"github.com/megaease/easegress/pkg/util/timetool"
 )
 
 type (
@@ -162,7 +162,7 @@ func New(stdw http.ResponseWriter, stdr *http.Request,
 	stdctx, cancelFunc := stdcontext.WithCancel(originalReqCtx)
 	stdr = stdr.WithContext(stdctx)
 
-	startTime := time.Now()
+	startTime := fasttime.Now()
 	return &httpContext{
 		startTime:      &startTime,
 		tracer:         tracer,
@@ -249,7 +249,7 @@ func (ctx *httpContext) Duration() time.Duration {
 		return ctx.endTime.Sub(*ctx.startTime)
 	}
 
-	return time.Now().Sub(*ctx.startTime)
+	return fasttime.Now().Sub(*ctx.startTime)
 }
 
 func (ctx *httpContext) ClientDisconnected() bool {
@@ -266,7 +266,7 @@ func (ctx *httpContext) Finish() {
 	ctx.r.finish()
 	ctx.w.finish()
 
-	endTime := time.Now()
+	endTime := fasttime.Now()
 	ctx.endTime = &endTime
 
 	for _, fn := range ctx.finishFuncs {
@@ -295,7 +295,7 @@ func (ctx *httpContext) Finish() {
 	// [$contextDuration $readBytes $writeBytes]
 	// [$tags]
 	logger.HTTPAccess("[%s] [%s %s %s %s %s %d] [%v rx:%dB tx:%dB] [%s]",
-		ctx.startTime.Format(timetool.RFC3339Milli),
+		fasttime.Format(*ctx.startTime, fasttime.RFC3339Milli),
 		stdr.RemoteAddr, ctx.r.RealIP(), stdr.Method, stdr.RequestURI, stdr.Proto, ctx.w.code,
 		ctx.Duration(), ctx.r.Size(), ctx.w.Size(),
 		strings.Join(ctx.tags, " | "))
@@ -324,7 +324,7 @@ func (ctx *httpContext) Log() string {
 	// [$contextDuration $readBytes $writeBytes]
 	// [$tags]
 	return fmt.Sprintf("[%s] [%s %s %s %s %s %d] [%v rx:%dB tx:%dB] [%s]",
-		ctx.startTime.Format(timetool.RFC3339Milli),
+		fasttime.Format(*ctx.startTime, fasttime.RFC3339Milli),
 		stdr.RemoteAddr, ctx.r.RealIP(), stdr.Method, stdr.RequestURI, stdr.Proto, ctx.w.code,
 		ctx.Duration(), ctx.r.Size(), ctx.w.Size(),
 		strings.Join(ctx.tags, " | "))

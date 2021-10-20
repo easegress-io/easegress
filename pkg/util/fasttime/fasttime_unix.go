@@ -1,3 +1,6 @@
+//go:build !windows
+// +build !windows
+
 /*
  * Copyright (c) 2017, MegaEase
  * All rights reserved.
@@ -15,9 +18,23 @@
  * limitations under the License.
  */
 
-package timetool
+package fasttime
 
-const (
-	// RFC3339Milli follows RFC3339 format with milliseconds for precision
-	RFC3339Milli = "2006-01-02T15:04:05.999Z07:00"
+import (
+	"syscall"
+	"time"
 )
+
+// Now is the current time
+func Now() time.Time {
+	var tv syscall.Timeval
+	syscall.Gettimeofday(&tv)
+	return time.Unix(0, syscall.TimevalToNsec(tv))
+}
+
+// NowUnixNano is the current Unix Nano time
+func NowUnixNano() int64 {
+	var tv syscall.Timeval
+	syscall.Gettimeofday(&tv)
+	return syscall.TimevalToNsec(tv)
+}

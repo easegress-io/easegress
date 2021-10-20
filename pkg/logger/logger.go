@@ -27,7 +27,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/common"
 	"github.com/megaease/easegress/pkg/option"
-	"github.com/megaease/easegress/pkg/util/timetool"
+	"github.com/megaease/easegress/pkg/util/fasttime"
 )
 
 // Init initializes logger.
@@ -95,7 +95,7 @@ func EtcdClientLoggerConfig(opt *option.Options, filename string) *zap.Config {
 
 func defaultEncoderConfig() zapcore.EncoderConfig {
 	timeEncoder := func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
-		enc.AppendString(t.Format(timetool.RFC3339Milli))
+		enc.AppendString(fasttime.Format(t, fasttime.RFC3339Milli))
 	}
 
 	return zapcore.EncoderConfig{

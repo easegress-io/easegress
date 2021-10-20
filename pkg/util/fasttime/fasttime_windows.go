@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package common
+package fasttime
 
 import (
 	"syscall"
