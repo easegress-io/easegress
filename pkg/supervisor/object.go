@@ -28,10 +28,11 @@ import (
 	"sync"
 	"time"
 
+	"gopkg.in/yaml.v2"
+
 	"github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocol"
-	yaml "gopkg.in/yaml.v2"
 )
 
 type (
@@ -181,16 +182,18 @@ func (or *ObjectRegistry) run() {
 
 func (or *ObjectRegistry) applyConfig(config map[string]string) {
 	or.mutex.Lock()
-	defer func() {
-		or.mutex.Unlock()
-	}()
+	defer or.mutex.Unlock()
 
-	del, create, update := make(map[string]*ObjectEntity), make(map[string]*ObjectEntity), make(map[string]*ObjectEntity)
+	var (
+		deleted = make(map[string]*ObjectEntity)
+		created = make(map[string]*ObjectEntity)
+		updated = make(map[string]*ObjectEntity)
+	)
 
 	for name, entity := range or.entities {
 		if _, exists := config[name]; !exists {
 			delete(or.entities, name)
-			del[name] = entity
+			deleted[name] = entity
 		}
 	}
 
@@ -207,9 +210,9 @@ func (or *ObjectRegistry) applyConfig(config map[string]string) {
 		}
 
 		if prevEntity != nil {
-			update[name] = entity
+			updated[name] = entity
 		} else {
-			create[name] = entity
+			created[name] = entity
 		}
 		or.entities[name] = entity
 	}
@@ -221,19 +224,19 @@ func (or *ObjectRegistry) applyConfig(config map[string]string) {
 
 			event := newObjectEntityWatcherEvent()
 
-			for name, entity := range del {
+			for name, entity := range deleted {
 				if watcher.filter(entity) {
 					event.Delete[name] = entity
 					delete(watcher.entities, name)
 				}
 			}
-			for name, entity := range create {
+			for name, entity := range created {
 				if watcher.filter(entity) {
 					event.Create[name] = entity
 					watcher.entities[name] = entity
 				}
 			}
-			for name, entity := range update {
+			for name, entity := range updated {
 				if watcher.filter(entity) {
 					event.Update[name] = entity
 					watcher.entities[name] = entity
