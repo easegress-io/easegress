@@ -408,7 +408,7 @@ func (e *EurekaServiceRegistry) instanceInfoToServiceInstances(info *eurekaapi.I
 
 	if info.SecurePort != nil && info.SecurePort.Enabled {
 		secure := baseServiceInstanceSpec
-		secure.Port = uint16(info.Port.Port)
+		secure.Port = uint16(info.SecurePort.Port)
 		secure.Scheme = "https"
 		instances = append(instances, &secure)
 	}
