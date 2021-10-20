@@ -23,7 +23,7 @@ builds:
       - darwin
     ldflags:
       - -s -w
-      - -X github.com/megaease/easegress/pkg/version.RELEASE=v1.3.0
+      - -X github.com/megaease/easegress/pkg/version.RELEASE=v1.3.1
       - -X github.com/megaease/easegress/pkg/version.COMMIT={{.Commit}}
       - -X github.com/megaease/easegress/pkg/version.REPO=megaease/easegress
 
@@ -37,7 +37,7 @@ builds:
       - darwin
     ldflags:
       - -s -w
-      - -X github.com/megaease/easegress/pkg/version.RELEASE=v1.3.0
+      - -X github.com/megaease/easegress/pkg/version.RELEASE=v1.3.1
       - -X github.com/megaease/easegress/pkg/version.COMMIT={{.Commit}}
       - -X github.com/megaease/easegress/pkg/version.REPO=megaease/easegress
 
