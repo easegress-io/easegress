@@ -84,6 +84,7 @@ build_docker:
 	-e GOPROXY=https://goproxy.io,direct -e GOCACHE=/gocache -e GOPATH=/gopath \
 	megaease/golang:1.16-alpine make build DOCKER=true
 	docker build -t megaease/easegress:${RELEASE} -f ./build/package/Dockerfile .
+	docker tag megaease/easegress:${RELEASE} megaease/easegress:latest
 
 test:
 	cd ${MKFILE_DIR}
