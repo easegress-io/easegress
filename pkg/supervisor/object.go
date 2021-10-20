@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
-	"reflect"
 	"runtime/debug"
 	"strings"
 	"sync"
@@ -342,22 +341,16 @@ func (s *Supervisor) NewObjectEntityFromConfig(config string) (*ObjectEntity, er
 
 // NewObjectEntityFromSpec creates an object entity from a spec
 func (s *Supervisor) NewObjectEntityFromSpec(spec *Spec) (*ObjectEntity, error) {
-	registerObject, exists := objectRegistry[spec.Kind()]
+	obj, exists := objectRegistry[spec.Kind()]
 	if !exists {
 		return nil, fmt.Errorf("unsupported kind: %s", spec.Kind())
-	}
-
-	obj := reflect.New(reflect.TypeOf(registerObject).Elem()).Interface()
-	instance, ok := obj.(Object)
-	if !ok {
-		return nil, fmt.Errorf("%T is not an object", obj)
 	}
 
 	return &ObjectEntity{
 		super:      s,
 		generation: 0,
 		spec:       spec,
-		instance:   instance,
+		instance:   obj,
 	}, nil
 }
 

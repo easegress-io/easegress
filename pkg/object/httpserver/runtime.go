@@ -163,7 +163,7 @@ func (r *runtime) reload(nextSuperSpec *supervisor.Spec, muxMapper protocol.MuxM
 
 	nextSpec := nextSuperSpec.ObjectSpec().(*Spec)
 
-	// r.limitListener does not created just after the process started and the config load for the first time.
+	// r.limitListener is not created just after the process started and the config load for the first time.
 	if nextSpec != nil && r.limitListener != nil {
 		r.limitListener.SetMaxConnection(nextSpec.MaxConnections)
 	}
