@@ -36,17 +36,26 @@ const (
 type ConnectionEvent string
 
 const (
-	RemoteClose    ConnectionEvent = "RemoteClose"
-	LocalClose     ConnectionEvent = "LocalClose"
+	// RemoteClose connection closed by remote
+	RemoteClose ConnectionEvent = "RemoteClose"
+	// LocalClose connection closed by local
+	LocalClose ConnectionEvent = "LocalClose"
+	// OnReadErrClose connection closed by read error
 	OnReadErrClose ConnectionEvent = "OnReadErrClose"
-	Connected      ConnectionEvent = "ConnectedFlag"
+	// Connected connection has been connected
+	Connected ConnectionEvent = "ConnectedFlag"
+	// ConnectTimeout connect to remote failed due to timeout
 	ConnectTimeout ConnectionEvent = "ConnectTimeout"
-	ConnectFailed  ConnectionEvent = "ConnectFailed"
+	// ConnectFailed connect to remote failed
+	ConnectFailed ConnectionEvent = "ConnectFailed"
+	// OnWriteTimeout write data failed due to timeout
 	OnWriteTimeout ConnectionEvent = "OnWriteTimeout"
 )
 
 var (
-	ErrConnectionHasClosed    = errors.New("connection has closed")
+	// ErrConnectionHasClosed connection has been closed
+	ErrConnectionHasClosed = errors.New("connection has closed")
+	// ErrWriteBufferChanTimeout writeBufferChan has timeout
 	ErrWriteBufferChanTimeout = errors.New("writeBufferChan has timeout")
 )
 

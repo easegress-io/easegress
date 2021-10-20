@@ -26,6 +26,7 @@ import (
 )
 
 const (
+	// AutoExpand auto expand io buffer
 	AutoExpand      = -1
 	MinRead         = 1 << 9
 	MaxRead         = 1 << 17
