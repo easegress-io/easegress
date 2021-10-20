@@ -125,7 +125,7 @@ Easegress 的基本用法是做为后端服务器的代理。下面分步说明�
 
 ### 安装 Easegress
 
-我们可以从[发布页](https://github.com/megaease/easegress/releases)下载 Easegress 的最新或历史版本。  例如，可以使用下面的命令安装 v1.0.0 的 Linux：
+我们可以从[发布页](https://github.com/megaease/easegress/releases)下载 Easegress 的最新或历史版本。例如，可以使用下面的命令安装 v1.0.0 的 Linux：
 
 ``` bash
 $ mkdir easegress
