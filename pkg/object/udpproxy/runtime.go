@@ -62,7 +62,6 @@ type (
 		serverConn *net.UDPConn // listener
 		sessions   map[string]*session
 
-		stopped   uint32
 		state     atomic.Value     // runtime running state
 		eventChan chan interface{} // receive event
 		ipFilters *ipFilters
@@ -80,6 +79,7 @@ func newRuntime(superSpec *supervisor.Spec) *runtime {
 		ipFilters: newIPFilters(spec.IPFilter),
 
 		eventChan: make(chan interface{}, 10),
+		sessions:  make(map[string]*session),
 	}
 
 	r.setState(stateNil)
@@ -164,13 +164,7 @@ func (r *runtime) handleEventReload(e *eventReload) {
 }
 
 func (r *runtime) handleEventClose(e *eventClose) {
-	_ = r.serverConn.Close()
-	r.mu.Lock()
-	for k, s := range r.sessions {
-		delete(r.sessions, k)
-		s.Close()
-	}
-	r.mu.Unlock()
+	r.closeServer()
 	r.pool.close()
 	close(e.done)
 }
@@ -239,6 +233,13 @@ func (r *runtime) startServer() {
 			if err != nil {
 				if r.getState() != stateRunning {
 					return
+				}
+				if ope, ok := err.(*net.OpError); ok {
+					// not timeout error and not temporary, which means the error is non-recoverable
+					if !(ope.Timeout() && ope.Temporary()) {
+						logger.Errorf("udp listener(%d) crashed due to non-recoverable error, err: %+v", r.spec.Port, err)
+						return
+					}
 				}
 				logger.Errorf("failed to read packet from udp connection(:%d), err: %+v", r.spec.Port, err)
 				continue
@@ -363,11 +364,14 @@ func (r *runtime) cleanup() {
 }
 
 func (r *runtime) closeServer() {
-	done := make(chan struct{})
-	r.eventChan <- &eventClose{
-		done: done,
+	r.setState(stateClosed)
+	_ = r.serverConn.Close()
+	r.mu.Lock()
+	for k, s := range r.sessions {
+		delete(r.sessions, k)
+		s.Close()
 	}
-	<-done
+	r.mu.Unlock()
 }
 
 func (r *runtime) needRestartServer(nextSpec *Spec) bool {

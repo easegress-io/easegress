@@ -132,6 +132,7 @@ func (s *session) ListenResponse(sendTo *net.UDPConn) {
 		defer s.Close()
 
 		for {
+			buf.Reset()
 			if s.upstreamIdleTimeout > 0 {
 				_ = s.upstreamConn.SetReadDeadline(time.Now().Add(s.upstreamIdleTimeout))
 			}

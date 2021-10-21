@@ -50,6 +50,7 @@ import (
 	_ "github.com/megaease/easegress/pkg/object/rawconfigtrafficcontroller"
 	_ "github.com/megaease/easegress/pkg/object/tcpproxy"
 	_ "github.com/megaease/easegress/pkg/object/trafficcontroller"
+	_ "github.com/megaease/easegress/pkg/object/udpproxy"
 	_ "github.com/megaease/easegress/pkg/object/websocketserver"
 	_ "github.com/megaease/easegress/pkg/object/zookeeperserviceregistry"
 )
