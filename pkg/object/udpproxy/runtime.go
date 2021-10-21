@@ -223,7 +223,7 @@ func (r *runtime) startServer() {
 	r.setState(stateRunning)
 
 	var cp *connPool
-	if r.spec.ContinuousMode {
+	if r.spec.HasResponse {
 		cp = newConnPool()
 	}
 
@@ -251,7 +251,7 @@ func (r *runtime) startServer() {
 				}
 			}
 
-			if r.spec.ContinuousMode {
+			if !r.spec.HasResponse {
 				if err := r.sendOneShot(cp, downstreamAddr, &buf); err != nil {
 					logger.Errorf("%s", err.Error())
 				}

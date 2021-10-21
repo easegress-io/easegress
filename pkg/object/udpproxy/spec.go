@@ -30,7 +30,7 @@ type (
 		Name string `yaml:"name" json:"name" jsonschema:"required"`
 		Port uint16 `yaml:"port" json:"port" jsonschema:"required"`
 
-		ContinuousMode        bool   `yaml:"continuousMode" jsonschema:"omitempty"`
+		HasResponse           bool   `yaml:"HasResponse" jsonschema:"required"`
 		DownstreamIdleTimeout uint32 `yaml:"downstreamIdleTimeout" jsonschema:"omitempty,minimum=1"`
 		UpstreamIdleTimeout   uint32 `yaml:"upstreamIdleTimeout" jsonschema:"omitempty,minimum=1"`
 
