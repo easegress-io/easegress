@@ -24,6 +24,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+
 	"github.com/megaease/easegress/pkg/logger"
 )
 
@@ -67,13 +68,12 @@ func (m *dynamicMux) reloadAPIs() {
 	apisMutex.Lock()
 	defer apisMutex.Unlock()
 
-	apiGroups := []*Group{}
-
+	apiGroups := make([]*Group, 0, len(apis))
 	for _, group := range apis {
 		apiGroups = append(apiGroups, group)
 	}
 
-	sort.Sort(apisbyOrder(apiGroups))
+	sort.Sort(apisByOrder(apiGroups))
 
 	router := chi.NewMux()
 	router.Use(middleware.StripSlashes)

@@ -82,7 +82,7 @@ func (s *Supervisor) NewSpec(yamlConfig string) (spec *Spec, err error) {
 
 	// Meta part.
 	meta := &MetaSpec{}
-	yamltool.Unmarshal([]byte(yamlBuff), meta)
+	yamltool.Unmarshal(yamlBuff, meta)
 	verr := v.Validate(meta)
 	if !verr.Valid() {
 		panic(verr)
