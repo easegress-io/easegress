@@ -26,7 +26,6 @@ import (
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/certmanager"
-	"github.com/megaease/easegress/pkg/object/meshcontroller/informer"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/layout"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/service"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
@@ -37,8 +36,6 @@ import (
 const (
 	defaultCleanInterval       time.Duration = 10 * time.Minute
 	defaultDeadRecordExistTime time.Duration = 20 * time.Minute
-	defaultRootCertInterval    time.Duration = 20 * time.Minute
-	defaultAppCertInterval     time.Duration = 10 * time.Minute
 )
 
 type (
@@ -53,7 +50,6 @@ type (
 		registrySyncer *registrySyncer
 		store          storage.Storage
 		service        *service.Service
-		inf            informer.Informer
 
 		done chan struct{}
 	}
@@ -74,7 +70,6 @@ func New(superSpec *supervisor.Spec) *Master {
 		store:          store,
 		service:        service.New(superSpec),
 		registrySyncer: newRegistrySyncer(superSpec),
-		inf:            informer.NewInformer(store, ""), //
 
 		done: make(chan struct{}),
 	}
@@ -90,43 +85,9 @@ func New(superSpec *supervisor.Spec) *Master {
 
 	return m
 }
-func (m *Master) onAllServiceInstances(value map[string]*spec.ServiceInstanceSpec) bool {
-	var instanceSpecs []*spec.ServiceInstanceSpec
-	for _, v := range value {
-		instanceSpecs = append(instanceSpecs, v)
-	}
-	err := m.certMananger.SignServiceInstances(instanceSpecs)
-	if err != nil {
-		logger.Errorf("inf sing all service instance failed: %v", err)
-	}
-	return true
-}
-
-// cleanCerts cleans all exist cert records in Mesh Etcd.
-func (m *Master) cleanCerts() {
-	rootCert := m.service.GetRootCert()
-	if rootCert != nil {
-		m.service.DelRootCert()
-	}
-
-	instances := m.service.ListAllServiceInstanceSpecs()
-	for _, v := range instances {
-		if v != nil {
-			m.service.DelServiceInstanceCert(v.ServiceName, v.InstanceID)
-		}
-	}
-
-	ingressInstances := m.service.ListAllIngressControllerInstanceSpecs()
-	for _, v := range ingressInstances {
-		if v != nil {
-			m.service.DelIngressControllerInstanceCert(v.InstanceID)
-		}
-	}
-}
 
 func (m *Master) securityRoutine() error {
 	if !m.spec.EnablemTLS() {
-		m.cleanCerts()
 		return nil
 	}
 	appCertTTL, err := time.ParseDuration(m.spec.Security.AppCertTTL)
@@ -140,12 +101,8 @@ func (m *Master) securityRoutine() error {
 		return err
 	}
 
-	m.certMananger = certmanager.NewCertManager(m.service, m.spec.Security.CertProvider, appCertTTL, rootCertTTL)
-	go m.signRootCert()
-	go m.signAppCerts()
+	m.certMananger = certmanager.NewCertManager(m.superSpec, m.service, m.spec.Security.CertProvider, appCertTTL, rootCertTTL, m.store)
 
-	// watch all services instances in mesh for their cert
-	m.inf.OnAllServiceInstanceSpecs(m.onAllServiceInstances)
 	return nil
 }
 
@@ -172,55 +129,6 @@ func (m *Master) needHandle() bool {
 	return m.superSpec.Super().Cluster().IsLeader()
 }
 
-func (m *Master) signRootCert() {
-	signRootFn := func() {
-		defer func() {
-			if err := recover(); err != nil {
-				logger.Errorf("failed to resign apps %v, stack trace: \n%s\n",
-					err, debug.Stack())
-			}
-		}()
-
-		if err := m.certMananger.SignRootCert(); err != nil {
-			logger.Errorf("certmanager resign root cert failed: %v", err)
-		}
-	}
-	for {
-		select {
-		case <-m.done:
-			return
-		case <-time.After(defaultRootCertInterval):
-			if m.needHandle() {
-				signRootFn()
-			}
-		}
-	}
-}
-
-func (m *Master) signAppCerts() {
-	signFn := func() {
-		defer func() {
-			if err := recover(); err != nil {
-				logger.Errorf("failed to resign apps %v, stack trace: \n%s\n",
-					err, debug.Stack())
-			}
-		}()
-		instanceSpes := m.service.ListAllServiceInstanceSpecs()
-		if err := m.certMananger.SignServiceInstances(instanceSpes); err != nil {
-			logger.Errorf("certmanager sign all services instances cert failed: %v", err)
-		}
-	}
-	for {
-		select {
-		case <-m.done:
-			return
-		case <-time.After(defaultAppCertInterval):
-			if m.needHandle() {
-				signFn()
-			}
-		}
-	}
-}
 func (m *Master) checkHeartbeat(watchInterval time.Duration) {
 	for {
 		select {
@@ -377,6 +285,9 @@ func (m *Master) updateInstanceStatus(instances []*spec.ServiceInstanceSpec, sta
 
 // Close closes the master
 func (m *Master) Close() {
+	if m.spec.EnablemTLS() {
+		m.certMananger.Close()
+	}
 	close(m.done)
 }
 

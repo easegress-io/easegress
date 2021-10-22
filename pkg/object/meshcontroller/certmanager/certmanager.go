@@ -19,21 +19,27 @@ package certmanager
 
 import (
 	"reflect"
+	"sync"
 	"time"
 
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/informer"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/service"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/storage"
+	"github.com/megaease/easegress/pkg/supervisor"
 )
 
 const (
-	typeCert                    = "CERTIFICATE"
-	typeKey                     = "RSA PRIVATE KEY"
-	defaultRootCertCountry      = "cn"
-	defaultRootCertLocality     = "beijing"
-	defaultRootCertOrganization = "megaease"
-	defaultRsaBits              = 2046
-	defaultSerialNumber         = 202100
+	typeCert                                  = "CERTIFICATE"
+	typeKey                                   = "RSA PRIVATE KEY"
+	defaultRootCertCountry                    = "cn"
+	defaultRootCertLocality                   = "beijing"
+	defaultRootCertOrganization               = "megaease"
+	defaultRsaBits                            = 2046
+	defaultSerialNumber                       = 202100
+	defaultAppCertInterval      time.Duration = 5 * time.Minute
+	defaultCertAliveGap         time.Duration = 1 * time.Hour
 )
 
 type (
@@ -44,6 +50,10 @@ type (
 		service     *service.Service
 		appCertTTL  time.Duration
 		rootCertTTL time.Duration
+		done        chan struct{}
+		mutex       sync.Mutex
+		inf         informer.Informer
+		superSpec   *supervisor.Spec
 	}
 
 	// CertProvider is the interface declaring the methods for the Certificate provider, such as
@@ -76,26 +86,57 @@ type (
 )
 
 // NewCertManager creates a certmanager.
-func NewCertManager(service *service.Service, certProviderType string, appCertTTL, rootCertTTL time.Duration) *CertManager {
-	certManager := &CertManager{
+func NewCertManager(superSpec *supervisor.Spec, service *service.Service, certProviderType string, appCertTTL, rootCertTTL time.Duration, store storage.Storage) *CertManager {
+	inf := informer.NewInformer(store, "")
+	cm := &CertManager{
 		service:     service,
 		appCertTTL:  appCertTTL,
 		rootCertTTL: rootCertTTL,
+		done:        make(chan struct{}),
+		inf:         inf,
+		superSpec:   superSpec,
 	}
 
 	switch certProviderType {
 	case spec.CertProviderSelfSign:
 		fallthrough
 	default:
-		certManager.Provider = NewMeshCertProvider()
+		cm.Provider = NewMeshCertProvider()
 	}
 
-	go certManager.init()
-	return certManager
+	go cm.run()
+
+	// watch all services instances in mesh for their cert
+	cm.inf.OnAllServiceInstanceSpecs(cm.onAllServiceInstances)
+	return cm
 }
 
-// sign root/ingress/all services certs
-func (cm *CertManager) init() {
+func (cm *CertManager) onAllServiceInstances(value map[string]*spec.ServiceInstanceSpec) bool {
+	cm.sign()
+	return true
+}
+
+func (cm *CertManager) run() {
+	cm.sign()
+
+	for {
+		select {
+		case <-cm.done:
+			return
+		case <-time.After(defaultAppCertInterval):
+			cm.sign()
+		}
+	}
+}
+
+func (cm *CertManager) sign() {
+	if !cm.superSpec.Super().Cluster().IsLeader() {
+		return
+	}
+
+	cm.mutex.Lock()
+	defer cm.mutex.Unlock()
+
 	err := cm.SignRootCert()
 	if err != nil {
 		logger.Errorf("certmanager sign root cert failed: %v", err)
@@ -108,7 +149,6 @@ func (cm *CertManager) init() {
 		logger.Errorf("certmanager sign all service failed: %v", err)
 		return
 	}
-
 }
 
 // needSign will check the cert's TTL, if it's expired, then return true.
@@ -131,7 +171,12 @@ func (cm *CertManager) needSign(cert *spec.Certificate) bool {
 		return true
 	}
 
-	// expired, need resign
+	if ttl < defaultCertAliveGap {
+		ttl = defaultCertAliveGap
+		logger.Infof("ttl:%v changed to defaultCertAliveGap: %v", ttl, defaultAppCertInterval)
+	}
+
+	// expired or before defaultCertAliveGap, resign
 	if gap > ttl {
 		logger.Infof("service: %s's instance: %s IP: %s need to resign cert, gap: %s, need to resign", cert.ServiceName, cert.HOST, cert.IP, gap.String())
 		return true
@@ -181,7 +226,7 @@ func (cm *CertManager) SignIngressController() error {
 		}
 		cert := cm.service.GetIngressControllerInstanceCert(ins.InstanceID)
 		if cm.needSign(cert) {
-			cert, err = cm.Provider.SignAppCertAndKey(spec.IngressControllerName, ins.InstanceID, cert.IP, cm.appCertTTL)
+			cert, err = cm.Provider.SignAppCertAndKey(spec.IngressControllerName, ins.InstanceID, ins.IP, cm.appCertTTL)
 			if err != nil {
 				logger.Errorf("sign ingress controller failed: %v", err)
 				return err
@@ -269,4 +314,10 @@ func (cm *CertManager) SignServiceInstances(instanceSpecs []*spec.ServiceInstanc
 		return err
 	}
 	return nil
+}
+
+// Close closes the certmanager
+func (cm *CertManager) Close() {
+	cm.inf.Close()
+	close(cm.done)
 }
