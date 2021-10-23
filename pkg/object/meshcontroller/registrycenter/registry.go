@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"runtime/debug"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ArthurHlt/go-eureka-client/eureka"
@@ -56,11 +57,11 @@ type (
 		instanceID    string
 		IP            string
 		port          int
-		tenant        string
 		serviceLabels map[string]string
 
-		done  chan struct{}
-		mutex sync.RWMutex
+		done               chan struct{}
+		mutex              sync.RWMutex
+		accessableServices atomic.Value
 
 		service  *service.Service
 		informer informer.Informer
@@ -104,7 +105,6 @@ func (rcs *Server) Close() {
 
 // Register registers itself into mesh
 func (rcs *Server) Register(serviceSpec *spec.Service, ingressReady ReadyFunc, egressReady ReadyFunc) {
-	rcs.tenant = serviceSpec.RegisterTenant
 	if rcs.Registered() {
 		return
 	}
@@ -120,7 +120,24 @@ func (rcs *Server) Register(serviceSpec *spec.Service, ingressReady ReadyFunc, e
 
 	go rcs.register(ins, ingressReady, egressReady)
 
-	go rcs.informer.OnPartOfServiceSpec(rcs.serviceName, "", rcs.onUpdateLocalInfo)
+	rcs.informer.OnPartOfServiceSpec(rcs.serviceName, "", rcs.onUpdateLocalInfo)
+	rcs.informer.OnAllTrafficTargetSpecs(rcs.onAllTrafficTargetSpecs)
+}
+
+func (rcs *Server) onAllTrafficTargetSpecs(tts map[string]*spec.TrafficTarget) bool {
+	svcs := map[string]bool{}
+
+	for _, tt := range tts {
+		for _, src := range tt.Sources {
+			if src.Name == rcs.serviceName {
+				svcs[tt.Destination.Name] = true
+				break
+			}
+		}
+	}
+
+	rcs.accessableServices.Store(svcs)
+	return true
 }
 
 func (rcs *Server) onUpdateLocalInfo(event informer.Event, serviceSpec *spec.Service) bool {
@@ -128,14 +145,9 @@ func (rcs *Server) onUpdateLocalInfo(event informer.Event, serviceSpec *spec.Ser
 	case informer.EventDelete:
 		return false
 	case informer.EventUpdate:
-		logger.Infof("registry center update its local belonging tenant")
-		rcs.mutex.Lock()
-		rcs.tenant = serviceSpec.RegisterTenant
-		rcs.mutex.Unlock()
 	}
 
 	return true
-
 }
 
 func needUpdateRecord(originIns, ins *spec.ServiceInstanceSpec) bool {
@@ -160,8 +172,9 @@ func (rcs *Server) register(ins *spec.ServiceInstanceSpec, ingressReady ReadyFun
 			}
 		}()
 
-		if !ingressReady() || !egressReady() {
-			return fmt.Errorf("ingress ready: %v egress ready: %v", ingressReady(), egressReady())
+		inReady, eReady := ingressReady(), egressReady()
+		if !inReady || !eReady {
+			return fmt.Errorf("ingress ready: %v egress ready: %v", inReady, eReady)
 		}
 
 		if originIns := rcs.service.GetServiceInstanceSpec(rcs.serviceName, rcs.instanceID); originIns != nil {

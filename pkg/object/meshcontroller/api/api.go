@@ -78,6 +78,18 @@ const (
 	// MeshServiceInstancePath is the mesh service path.
 	MeshServiceInstancePath = "/mesh/serviceinstances/{serviceName}/{instanceID}"
 
+	// MeshHTTPRouteGroupPrefix is the mesh HTTP route groups prefix.
+	MeshHTTPRouteGroupPrefix = "/mesh/httproutegroups"
+
+	// MeshHTTPRouteGroupPath is the mesh HTTP route groups path.
+	MeshHTTPRouteGroupPath = "/mesh/httproutegroups/{name}"
+
+	// MeshTrafficTargetPrefix is the mesh traffic target prefix.
+	MeshTrafficTargetPrefix = "/mesh/traffictargets"
+
+	// MeshTrafficTargetPath is the mesh traffic target path.
+	MeshTrafficTargetPath = "/mesh/traffictargets/{name}"
+
 	// MeshCustomResourceKindPrefix is the mesh custom resource kind prefix.
 	MeshCustomResourceKindPrefix = "/mesh/customresourcekinds"
 
@@ -182,6 +194,18 @@ func (a *API) registerAPIs() {
 			{Path: MeshServiceMetricsPath, Method: "GET", Handler: a.getPartOfService(metricsMeta)},
 			{Path: MeshServiceMetricsPath, Method: "PUT", Handler: a.updatePartOfService(metricsMeta)},
 			{Path: MeshServiceMetricsPath, Method: "DELETE", Handler: a.deletePartOfService(metricsMeta)},
+
+			{Path: MeshHTTPRouteGroupPrefix, Method: "GET", Handler: a.listHTTPRouteGroups},
+			{Path: MeshHTTPRouteGroupPrefix, Method: "POST", Handler: a.createHTTPRouteGroup},
+			{Path: MeshHTTPRouteGroupPath, Method: "GET", Handler: a.getHTTPRouteGroup},
+			{Path: MeshHTTPRouteGroupPath, Method: "PUT", Handler: a.updateHTTPRouteGroup},
+			{Path: MeshHTTPRouteGroupPath, Method: "DELETE", Handler: a.deleteHTTPRouteGroup},
+
+			{Path: MeshTrafficTargetPrefix, Method: "GET", Handler: a.listTrafficTargets},
+			{Path: MeshTrafficTargetPrefix, Method: "POST", Handler: a.createTrafficTarget},
+			{Path: MeshTrafficTargetPath, Method: "GET", Handler: a.getTrafficTarget},
+			{Path: MeshTrafficTargetPath, Method: "PUT", Handler: a.updateTrafficTarget},
+			{Path: MeshTrafficTargetPath, Method: "DELETE", Handler: a.deleteTrafficTarget},
 
 			{Path: MeshCustomResourceKindPrefix, Method: "GET", Handler: a.listCustomResourceKinds},
 			{Path: MeshCustomResourceKindPrefix, Method: "POST", Handler: a.createCustomResourceKind},

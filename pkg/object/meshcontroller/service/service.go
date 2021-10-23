@@ -818,3 +818,127 @@ func (s *Service) WatchCustomResource(ctx context.Context, kind string, onChange
 		}
 	}
 }
+
+// ListHTTPRouteGroups lists HTTP route groups
+func (s *Service) ListHTTPRouteGroups() []*spec.HTTPRouteGroup {
+	kvs, err := s.store.GetRawPrefix(layout.HTTPRouteGroupPrefix())
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+
+	groups := []*spec.HTTPRouteGroup{}
+	for _, v := range kvs {
+		group := &spec.HTTPRouteGroup{}
+		err := yaml.Unmarshal(v.Value, group)
+		if err != nil {
+			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
+			continue
+		}
+		groups = append(groups, group)
+	}
+
+	return groups
+}
+
+// DeleteHTTPRouteGroup deletes a HTTP route group
+func (s *Service) DeleteHTTPRouteGroup(name string) {
+	err := s.store.Delete(layout.HTTPRouteGroupKey(name))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+}
+
+// GetHTTPRouteGroup gets HTTP route group with its name
+func (s *Service) GetHTTPRouteGroup(name string) *spec.HTTPRouteGroup {
+	kvs, err := s.store.GetRaw(layout.HTTPRouteGroupKey(name))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+
+	if kvs == nil {
+		return nil
+	}
+
+	group := &spec.HTTPRouteGroup{}
+	err = yaml.Unmarshal(kvs.Value, group)
+	if err != nil {
+		panic(fmt.Errorf("BUG: unmarshal %s to yaml failed: %v", string(kvs.Value), err))
+	}
+
+	return group
+}
+
+// PutHTTPRouteGroup writes the HTTP route group to storage.
+func (s *Service) PutHTTPRouteGroup(group *spec.HTTPRouteGroup) {
+	buff, err := yaml.Marshal(group)
+	if err != nil {
+		panic(fmt.Errorf("BUG: marshal %#v to yaml failed: %v", group, err))
+	}
+
+	err = s.store.Put(layout.HTTPRouteGroupKey(group.Name), string(buff))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+}
+
+// ListTrafficTargets lists traffic targets
+func (s *Service) ListTrafficTargets() []*spec.TrafficTarget {
+	kvs, err := s.store.GetRawPrefix(layout.TrafficTargetPrefix())
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+
+	tts := []*spec.TrafficTarget{}
+	for _, v := range kvs {
+		tt := &spec.TrafficTarget{}
+		err := yaml.Unmarshal(v.Value, tt)
+		if err != nil {
+			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
+			continue
+		}
+		tts = append(tts, tt)
+	}
+
+	return tts
+}
+
+// DeleteTrafficTarget deletes a traffic target
+func (s *Service) DeleteTrafficTarget(name string) {
+	err := s.store.Delete(layout.TrafficTargetKey(name))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+}
+
+// GetTrafficTarget gets traffic target with its name
+func (s *Service) GetTrafficTarget(name string) *spec.TrafficTarget {
+	kvs, err := s.store.GetRaw(layout.TrafficTargetKey(name))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+
+	if kvs == nil {
+		return nil
+	}
+
+	tt := &spec.TrafficTarget{}
+	err = yaml.Unmarshal(kvs.Value, tt)
+	if err != nil {
+		panic(fmt.Errorf("BUG: unmarshal %s to yaml failed: %v", string(kvs.Value), err))
+	}
+
+	return tt
+}
+
+// PutTrafficTarget writes the traffic target to storage.
+func (s *Service) PutTrafficTarget(tt *spec.TrafficTarget) {
+	buff, err := yaml.Marshal(tt)
+	if err != nil {
+		panic(fmt.Errorf("BUG: marshal %#v to yaml failed: %v", tt, err))
+	}
+
+	err = s.store.Put(layout.TrafficTargetKey(tt.Name), string(buff))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+}

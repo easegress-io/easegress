@@ -343,6 +343,73 @@ type (
 
 	// CustomResource defines the spec of a custom resource
 	CustomResource DynamicObject
+
+	// HTTPMatch defines an individual route for HTTP traffic
+	HTTPMatch struct {
+		// Name is the name of the match for referencing in a TrafficTarget
+		Name string `json:"name,omitempty"`
+
+		// Methods for inbound traffic as defined in RFC 7231
+		// https://tools.ietf.org/html/rfc7231#section-4
+		Methods []string `json:"methods,omitempty"`
+
+		// PathRegex is a regular expression defining the route
+		PathRegex string `json:"pathRegex,omitempty"`
+
+		// Headers is a list of headers used to match HTTP traffic.
+		//
+		// But we are unable support headers in mesh, because all requests to mesh egress
+		// contains a special header 'X-Mesh-Rpc-Service', whose value is the name of the
+		// target service, and the relationship between multiple headers are 'OR'.
+		//
+		// Headers map[string]string `json:"headers,omitempty"`
+	}
+
+	// HTTPRouteGroup defines the spec of a HTTP route group
+	HTTPRouteGroup struct {
+		// Name is the name for referencing a HTTPRouteGroup
+		Name string `yaml:"name" jsonschema:"required"`
+
+		// Matches is a list of HTTPMatch to match traffic
+		Matches []HTTPMatch `json:"matches,omitempty"`
+	}
+
+	// TrafficTargetRule is the TrafficSpec to allow for a TrafficTarget
+	TrafficTargetRule struct {
+		// Kind is the kind of TrafficSpec to allow
+		Kind string `json:"kind"`
+
+		// Name of the TrafficSpec to use
+		Name string `json:"name"`
+
+		// Matches is a list of TrafficSpec routes to allow traffic for
+		// +optional
+		Matches []string `json:"matches,omitempty"`
+	}
+
+	// IdentityBindingSubject is a service which should be allowed access to the TrafficTarget
+	IdentityBindingSubject struct {
+		// Kind is the type of Subject to allow ingress (Service)
+		Kind string `json:"kind"`
+
+		// Name of the Subject, i.e. ServiceName
+		Name string `json:"name"`
+	}
+
+	// TrafficTarget is the specification of a TrafficTarget
+	TrafficTarget struct {
+		// Name is the name for referencing a TrafficTarget
+		Name string `yaml:"name" jsonschema:"required"`
+
+		// Destination is the service to allow ingress traffic
+		Destination IdentityBindingSubject `json:"destination"`
+
+		// Sources are the services to allow egress traffic
+		Sources []IdentityBindingSubject `json:"sources,omitempty"`
+
+		// Rules are the traffic rules to allow (HTTPRoutes)
+		Rules []TrafficTargetRule `json:"rules,omitempty"`
+	}
 )
 
 // UnmarshalYAML implements yaml.Unmarshaler

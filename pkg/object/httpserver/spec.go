@@ -87,10 +87,9 @@ type (
 	// the headers entry will only be checked after a path entry matched. However, the headers entry has a higher priority
 	// than the path entry itself.
 	Header struct {
-		Key     string   `yaml:"key" jsonschema:"required"`
-		Values  []string `yaml:"values,omitempty" jsonschema:"omitempty,uniqueItems=true"`
-		Regexp  string   `yaml:"regexp,omitempty" jsonschema:"omitempty,format=regexp"`
-		Backend string   `yaml:"backend" jsonschema:"required"`
+		Key    string   `yaml:"key" jsonschema:"required"`
+		Values []string `yaml:"values,omitempty" jsonschema:"omitempty,uniqueItems=true"`
+		Regexp string   `yaml:"regexp,omitempty" jsonschema:"omitempty,format=regexp"`
 
 		headerRE *regexp.Regexp
 	}

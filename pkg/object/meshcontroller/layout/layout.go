@@ -47,6 +47,11 @@ const (
 	ingressControllerInstanceCertKey       = "/mesh/cert/ingress-controller-cert/%s"
 	allIngressControllerInstanceCertPrefix = "/mesh/cert/ingress-controller-cert/"
 
+	httpRouteGroup       = "/mesh/http-route-groups/%s" // + httpRouteGroupName
+	httpRouteGroupPrefix = "/mesh/http-route-groups/"
+	trafficTarget        = "/mesh/traffic-targets/%s" // + trafficTargetName
+	trafficTargetPrefix  = "/mesh/traffic-targets/"
+
 	customResourceKindPrefix = "/mesh/custom-resource-kinds/"
 	customResourceKind       = "/mesh/custom-resource-kinds/%s/" // +kind
 	allCustomResourcePrefix  = "/mesh/custom-resources/"
@@ -119,6 +124,26 @@ func IngressPrefix() string {
 // GlobalCanaryHeaders returns the key of global service's canary headers.
 func GlobalCanaryHeaders() string {
 	return globalCanaryHeaders
+}
+
+// HTTPRouteGroupKey returns the key of HTTP route group spec.
+func HTTPRouteGroupKey(t string) string {
+	return fmt.Sprintf(httpRouteGroup, t)
+}
+
+// HTTPRouteGroupPrefix returns the prefix of HTTP route groups.
+func HTTPRouteGroupPrefix() string {
+	return httpRouteGroupPrefix
+}
+
+// TrafficTargetKey returns the key of traffic target spec.
+func TrafficTargetKey(t string) string {
+	return fmt.Sprintf(trafficTarget, t)
+}
+
+// TrafficTargetPrefix returns the prefix of traffic targets.
+func TrafficTargetPrefix() string {
+	return trafficTargetPrefix
 }
 
 // CustomResourceKindPrefix returns the prefix of custom object kinds.
