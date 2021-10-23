@@ -406,7 +406,7 @@ func (egs *EgressServer) reload() {
 
 		pipelineSpec, err := svc.SideCarEgressPipelineSpec(instances, cert, rootCert)
 		if err != nil {
-			logger.Errorf("gen sidecar egress pipeline spec for service %s failed: %v", svc.Name, err)
+			logger.Errorf("generate sidecar egress pipeline spec for service %s failed: %v", svc.Name, err)
 			return
 		}
 		logger.Infof("service: %s visit: %s pipeline init ok", egs.serviceName, svc.Name)
