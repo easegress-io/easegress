@@ -367,6 +367,16 @@ func (egs *EgressServer) buildMuxRule(pipelineName, serviceName string, matches 
 	return rules
 }
 
+func (egs *EgressServer) listServiceInstances(serviceName string) []*spec.ServiceInstanceSpec {
+	instances := egs.service.ListServiceInstanceSpecs(serviceName)
+	for _, inst := range instances {
+		if inst.Status == spec.ServiceStatusUp {
+			return instances
+		}
+	}
+	return nil
+}
+
 func (egs *EgressServer) reload() {
 	lgSvcs := egs.listLocalAndGlobalServices()
 	tts := egs.listTrafficTargets(lgSvcs)
@@ -388,10 +398,15 @@ func (egs *EgressServer) reload() {
 	serverName2PipelineName := make(map[string]string)
 
 	createPipeline := func(svc *spec.Service) {
-		instances := egs.service.ListServiceInstanceSpecs(svc.Name)
+		instances := egs.listServiceInstances(svc.Name)
+		if len(instances) == 0 {
+			logger.Warnf("service %s has no instance in UP status", svc.Name)
+			return
+		}
+
 		pipelineSpec, err := svc.SideCarEgressPipelineSpec(instances, cert, rootCert)
 		if err != nil {
-			logger.Errorf("BUG: gen sidecar egress httpserver spec failed: %v", err)
+			logger.Errorf("gen sidecar egress pipeline spec for service %s failed: %v", svc.Name, err)
 			return
 		}
 		logger.Infof("service: %s visit: %s pipeline init ok", egs.serviceName, svc.Name)
