@@ -69,31 +69,35 @@ func (l *listener) listen() error {
 func (l *listener) acceptEventLoop() {
 
 	for {
-		if tconn, err := l.tcpListener.Accept(); err != nil {
-			if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
-				logger.Infof("tcp listener(%s) stop accept connection due to timeout, err: %s",
-					l.localAddr, nerr)
-				return
-			}
+		tconn, err := l.tcpListener.Accept()
+		if err == nil {
+			go l.onAccept(tconn, l.stopChan)
+			continue
+		}
 
-			if ope, ok := err.(*net.OpError); ok {
-				// not timeout error and not temporary, which means the error is non-recoverable
-				if !(ope.Timeout() && ope.Temporary()) {
-					// accept error raised by sockets closing
-					if ope.Op == "accept" {
-						logger.Debugf("tcp listener(%s) stop accept connection due to listener closed", l.localAddr)
-					} else {
-						logger.Errorf("tcp listener(%s) stop accept connection due to non-recoverable error: %s",
-							l.localAddr, err.Error())
-					}
-					return
-				}
+		if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
+			logger.Infof("tcp listener(%s) stop accept connection due to timeout, err: %s",
+				l.localAddr, nerr)
+			return
+		}
+
+		ope, ok := err.(*net.OpError)
+		if !ok {
+			logger.Errorf("tcp listener(%s) stop accept connection with unknown error: %s.",
+				l.localAddr, err.Error())
+			return
+		}
+
+		// not timeout error and not temporary, which means the error is non-recoverable
+		if !(ope.Timeout() && ope.Temporary()) {
+			// accept error raised by sockets closing
+			if ope.Op == "accept" {
+				logger.Debugf("tcp listener(%s) stop accept connection due to listener closed", l.localAddr)
 			} else {
-				logger.Errorf("tcp listener(%s) stop accept connection with unknown error: %s.",
+				logger.Errorf("tcp listener(%s) stop accept connection due to non-recoverable error: %s",
 					l.localAddr, err.Error())
 			}
-		} else {
-			go l.onAccept(tconn, l.stopChan)
+			return
 		}
 	}
 }
