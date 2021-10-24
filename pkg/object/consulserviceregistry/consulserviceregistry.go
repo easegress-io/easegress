@@ -103,7 +103,7 @@ func (c *ConsulServiceRegistry) DefaultSpec() interface{} {
 	}
 }
 
-// Init initilizes ConsulServiceRegistry.
+// Init initializes ConsulServiceRegistry.
 func (c *ConsulServiceRegistry) Init(superSpec *supervisor.Spec) {
 	c.superSpec, c.spec = superSpec, superSpec.ObjectSpec().(*Spec)
 	c.reload()
@@ -425,12 +425,17 @@ func (c *ConsulServiceRegistry) catalogServiceToServiceInstance(catalogService *
 		registryName = catalogService.ServiceMeta[MetaKeyRegistryName]
 	}
 
+	serviceAddress := catalogService.ServiceAddress
+	if serviceAddress == "" {
+		serviceAddress = catalogService.Address
+	}
+
 	return &serviceregistry.ServiceInstanceSpec{
 		RegistryName: registryName,
 		ServiceName:  catalogService.ServiceName,
 		InstanceID:   catalogService.ServiceID,
 		Port:         uint16(catalogService.ServicePort),
 		Tags:         catalogService.ServiceTags,
-		Address:      catalogService.Address,
+		Address:      serviceAddress,
 	}
 }

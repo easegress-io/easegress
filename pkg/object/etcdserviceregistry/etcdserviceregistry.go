@@ -19,7 +19,7 @@ package eserviceregistry
 
 import (
 	"fmt"
-	"path/filepath"
+	"path"
 	"sync"
 	"time"
 
@@ -98,7 +98,7 @@ func (e *EtcdServiceRegistry) DefaultSpec() interface{} {
 	}
 }
 
-// Init initilizes EtcdServiceRegistry.
+// Init initializes EtcdServiceRegistry.
 func (e *EtcdServiceRegistry) Init(superSpec *supervisor.Spec) {
 	e.superSpec, e.spec = superSpec, superSpec.ObjectSpec().(*Spec)
 	e.reload()
@@ -429,7 +429,7 @@ func (e *EtcdServiceRegistry) ListAllServiceInstances() (map[string]*serviceregi
 }
 
 func (e *EtcdServiceRegistry) serviceEtcdPrefix(serviceName string) string {
-	return filepath.Join(e.spec.Prefix, serviceName) + "/"
+	return path.Join(e.spec.Prefix, serviceName) + "/"
 }
 
 func (e *EtcdServiceRegistry) serviceInstanceEtcdKey(instance *serviceregistry.ServiceInstanceSpec) string {
@@ -437,5 +437,5 @@ func (e *EtcdServiceRegistry) serviceInstanceEtcdKey(instance *serviceregistry.S
 }
 
 func (e *EtcdServiceRegistry) serviceInstanceEtcdKeyFromRaw(serviceName, instanceID string) string {
-	return filepath.Join(e.spec.Prefix, serviceName, instanceID)
+	return path.Join(e.spec.Prefix, serviceName, instanceID)
 }

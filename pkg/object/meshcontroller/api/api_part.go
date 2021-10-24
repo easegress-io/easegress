@@ -45,6 +45,27 @@ type (
 )
 
 var (
+	mockMeta = &partMeta{
+		partName: "mock",
+		newPart: func() interface{} {
+			return &spec.Mock{}
+		},
+		partOf: func(serviceSpec *spec.Service) (interface{}, bool) {
+			return serviceSpec.Mock, serviceSpec.Mock != nil
+		},
+		setPart: func(serviceSpec *spec.Service, part interface{}) {
+			if part == nil {
+				serviceSpec.Mock = nil
+				return
+			}
+			serviceSpec.Mock = part.(*spec.Mock)
+		},
+		pbSt: v1alpha1.Mock{},
+		newPartPB: func() interface{} {
+			return &v1alpha1.Mock{}
+		},
+	}
+
 	canaryMeta = &partMeta{
 		partName: "canary",
 		newPart: func() interface{} {
@@ -191,7 +212,7 @@ var (
 
 func (a *API) getPartOfService(meta *partMeta) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		serviceName, err := a.readServiceName(w, r)
+		serviceName, err := a.readServiceName(r)
 		if err != nil {
 			api.HandleAPIError(w, r, http.StatusBadRequest, err)
 			return
@@ -230,7 +251,7 @@ func (a *API) getPartOfService(meta *partMeta) http.HandlerFunc {
 
 func (a *API) createPartOfService(meta *partMeta) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		serviceName, err := a.readServiceName(w, r)
+		serviceName, err := a.readServiceName(r)
 		if err != nil {
 			api.HandleAPIError(w, r, http.StatusBadRequest, err)
 			return
@@ -239,7 +260,7 @@ func (a *API) createPartOfService(meta *partMeta) http.HandlerFunc {
 		part := meta.newPart()
 		partPB := meta.newPartPB()
 
-		err = a.readAPISpec(w, r, partPB, part)
+		err = a.readAPISpec(r, partPB, part)
 		if err != nil {
 			api.HandleAPIError(w, r, http.StatusBadRequest, err)
 			return
@@ -273,7 +294,7 @@ func (a *API) createPartOfService(meta *partMeta) http.HandlerFunc {
 
 func (a *API) updatePartOfService(meta *partMeta) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		serviceName, err := a.readServiceName(w, r)
+		serviceName, err := a.readServiceName(r)
 		if err != nil {
 			api.HandleAPIError(w, r, http.StatusBadRequest, err)
 			return
@@ -282,7 +303,7 @@ func (a *API) updatePartOfService(meta *partMeta) http.HandlerFunc {
 		part := meta.newPart()
 		partPB := meta.newPartPB()
 
-		err = a.readAPISpec(w, r, partPB, part)
+		err = a.readAPISpec(r, partPB, part)
 		if err != nil {
 			api.HandleAPIError(w, r, http.StatusBadRequest, err)
 			return
@@ -312,7 +333,7 @@ func (a *API) updatePartOfService(meta *partMeta) http.HandlerFunc {
 
 func (a *API) deletePartOfService(meta *partMeta) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		serviceName, err := a.readServiceName(w, r)
+		serviceName, err := a.readServiceName(r)
 		if err != nil {
 			api.HandleAPIError(w, r, http.StatusBadRequest, err)
 			return

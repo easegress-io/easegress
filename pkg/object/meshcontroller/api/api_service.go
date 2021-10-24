@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"path"
 	"reflect"
 	"sort"
 
@@ -39,7 +40,7 @@ func (s servicesByOrder) Less(i, j int) bool { return s[i].Name < s[j].Name }
 func (s servicesByOrder) Len() int           { return len(s) }
 func (s servicesByOrder) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
-func (a *API) readServiceName(w http.ResponseWriter, r *http.Request) (string, error) {
+func (a *API) readServiceName(r *http.Request) (string, error) {
 	serviceName := chi.URLParam(r, "serviceName")
 	if serviceName == "" {
 		return "", fmt.Errorf("empty service name")
@@ -77,28 +78,18 @@ func (a *API) createService(w http.ResponseWriter, r *http.Request) {
 	pbServiceSpec := &v1alpha1.Service{}
 	serviceSpec := &spec.Service{}
 
-	serviceName, err := a.readServiceName(w, r)
+	err := a.readAPISpec(r, pbServiceSpec, serviceSpec)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
-		return
-	}
-	err = a.readAPISpec(w, r, pbServiceSpec, serviceSpec)
-	if err != nil {
-		api.HandleAPIError(w, r, http.StatusBadRequest, err)
-		return
-	}
-	if serviceName != serviceSpec.Name {
-		api.HandleAPIError(w, r, http.StatusBadRequest,
-			fmt.Errorf("name conflict: %s %s", serviceName, serviceSpec.Name))
 		return
 	}
 
 	a.service.Lock()
 	defer a.service.Unlock()
 
-	oldSpec := a.service.GetServiceSpec(serviceName)
+	oldSpec := a.service.GetServiceSpec(serviceSpec.Name)
 	if oldSpec != nil {
-		api.HandleAPIError(w, r, http.StatusConflict, fmt.Errorf("%s existed", serviceName))
+		api.HandleAPIError(w, r, http.StatusConflict, fmt.Errorf("%s existed", serviceSpec.Name))
 		return
 	}
 
@@ -114,12 +105,12 @@ func (a *API) createService(w http.ResponseWriter, r *http.Request) {
 	a.service.PutServiceSpec(serviceSpec)
 	a.service.PutTenantSpec(tenantSpec)
 
-	w.Header().Set("Location", r.URL.Path)
+	w.Header().Set("Location", path.Join(r.URL.Path, serviceSpec.Name))
 	w.WriteHeader(http.StatusCreated)
 }
 
 func (a *API) getService(w http.ResponseWriter, r *http.Request) {
-	serviceName, err := a.readServiceName(w, r)
+	serviceName, err := a.readServiceName(r)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
@@ -150,12 +141,12 @@ func (a *API) updateService(w http.ResponseWriter, r *http.Request) {
 	pbServiceSpec := &v1alpha1.Service{}
 	serviceSpec := &spec.Service{}
 
-	serviceName, err := a.readServiceName(w, r)
+	serviceName, err := a.readServiceName(r)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
-	err = a.readAPISpec(w, r, pbServiceSpec, serviceSpec)
+	err = a.readAPISpec(r, pbServiceSpec, serviceSpec)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
@@ -212,7 +203,7 @@ func (a *API) updateService(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) deleteService(w http.ResponseWriter, r *http.Request) {
-	serviceName, err := a.readServiceName(w, r)
+	serviceName, err := a.readServiceName(r)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return

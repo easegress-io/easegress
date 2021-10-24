@@ -19,6 +19,7 @@ package httpserver
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
 	"fmt"
 	"regexp"
@@ -39,6 +40,7 @@ type (
 		CacheSize        uint32        `yaml:"cacheSize" jsonschema:"omitempty"`
 		XForwardedFor    bool          `yaml:"xForwardedFor" jsonschema:"omitempty"`
 		Tracing          *tracing.Spec `yaml:"tracing" jsonschema:"omitempty"`
+		CaCertBase64     string        `yaml:"caCertBase64" jsonschema:"omitempty,format=base64"`
 
 		// Support multiple certs, preserve the certbase64 and keybase64
 		// for backward compatibility
@@ -62,7 +64,7 @@ type (
 		// the original reason is the jsonscheme(genjs) has not support multiple types.
 		// Reference: https://github.com/alecthomas/jsonschema/issues/30
 		// In the future if we have the scenario where we need marshal the field, but omitempty
-		// in the schema, we are suppose to support multuple types on our own.
+		// in the schema, we are suppose to support multiple types on our own.
 		IPFilter   *ipfilter.Spec `yaml:"ipFilter,omitempty" jsonschema:"omitempty"`
 		Host       string         `yaml:"host" jsonschema:"omitempty"`
 		HostRegexp string         `yaml:"hostRegexp" jsonschema:"omitempty,format=regexp"`
@@ -85,10 +87,9 @@ type (
 	// the headers entry will only be checked after a path entry matched. However, the headers entry has a higher priority
 	// than the path entry itself.
 	Header struct {
-		Key     string   `yaml:"key" jsonschema:"required"`
-		Values  []string `yaml:"values,omitempty" jsonschema:"omitempty,uniqueItems=true"`
-		Regexp  string   `yaml:"regexp,omitempty" jsonschema:"omitempty,format=regexp"`
-		Backend string   `yaml:"backend" jsonschema:"required"`
+		Key    string   `yaml:"key" jsonschema:"required"`
+		Values []string `yaml:"values,omitempty" jsonschema:"omitempty,uniqueItems=true"`
+		Regexp string   `yaml:"regexp,omitempty" jsonschema:"omitempty,format=regexp"`
 
 		headerRE *regexp.Regexp
 	}
@@ -142,7 +143,22 @@ func (spec *Spec) tlsConfig() (*tls.Config, error) {
 		return nil, fmt.Errorf("none valid certs and secret")
 	}
 
-	return &tls.Config{Certificates: certificates}, nil
+	tlsConf := &tls.Config{
+		Certificates: certificates,
+	}
+
+	// if caCertBase64 configuration is provided, should enable tls.ClientAuth and
+	// add the root cert
+	if len(spec.CaCertBase64) != 0 {
+		rootCertPem, _ := base64.StdEncoding.DecodeString(spec.CaCertBase64)
+		certPool := x509.NewCertPool()
+		certPool.AppendCertsFromPEM(rootCertPem)
+
+		tlsConf.ClientAuth = tls.RequireAndVerifyClientCert
+		tlsConf.ClientCAs = certPool
+	}
+
+	return tlsConf, nil
 }
 
 func (h *Header) initHeaderRoute() {

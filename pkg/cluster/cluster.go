@@ -301,7 +301,7 @@ func (c *cluster) addSelfToCluster() error {
 					member.ID, err)
 				panic(err)
 			} else {
-				logger.Warnf("remove unhealthy etcd memebr %x for adding self to cluster",
+				logger.Warnf("remove unhealthy etcd member %x for adding self to cluster",
 					member.ID)
 			}
 		}
@@ -733,7 +733,7 @@ func (c *cluster) defrag() {
 				logger.Errorf("defrag failed: get client failed: %v", err)
 			}
 
-			// NOTICE: It need longer time than normal ones.
+			// NOTICE: It needs longer time than normal ones.
 			_, err = client.Defragment(c.longRequestContext(), c.opt.ClusterAdvertiseClientURLs[0])
 			if err != nil {
 				defragInterval = defragFailedInterval

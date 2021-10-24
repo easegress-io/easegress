@@ -179,7 +179,7 @@ func getSchemaMeta(t reflect.Type) (*schemaMeta, error) {
 //
 // 1. It traverses fields of the embedded struct.
 // 2. It does not traverse unexposed subfields of the struct.
-// 3. It pass nil to the argument StructField when it's not a struct field.
+// 3. It passes nil to the argument StructField when it's not a struct field.
 // 4. It stops when encoutering nil.
 func traverseGo(val *reflect.Value, field *reflect.StructField, fn func(*reflect.Value, *reflect.StructField)) {
 	t := val.Type()

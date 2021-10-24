@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"path"
 	"sort"
 	"time"
 
@@ -38,7 +39,7 @@ func (s tenantsByOrder) Less(i, j int) bool { return s[i].Name < s[j].Name }
 func (s tenantsByOrder) Len() int           { return len(s) }
 func (s tenantsByOrder) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
-func (a *API) readTenantName(w http.ResponseWriter, r *http.Request) (string, error) {
+func (a *API) readTenantName(r *http.Request) (string, error) {
 	serviceName := chi.URLParam(r, "tenantName")
 	if serviceName == "" {
 		return "", fmt.Errorf("empty tenant name")
@@ -76,19 +77,9 @@ func (a *API) createTenant(w http.ResponseWriter, r *http.Request) {
 	pbTenantSpec := &v1alpha1.Tenant{}
 	tenantSpec := &spec.Tenant{}
 
-	tenantName, err := a.readTenantName(w, r)
+	err := a.readAPISpec(r, pbTenantSpec, tenantSpec)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
-		return
-	}
-	err = a.readAPISpec(w, r, pbTenantSpec, tenantSpec)
-	if err != nil {
-		api.HandleAPIError(w, r, http.StatusBadRequest, err)
-		return
-	}
-	if tenantName != tenantSpec.Name {
-		api.HandleAPIError(w, r, http.StatusBadRequest,
-			fmt.Errorf("name conflict: %s %s", tenantName, tenantSpec.Name))
 		return
 	}
 
@@ -102,20 +93,20 @@ func (a *API) createTenant(w http.ResponseWriter, r *http.Request) {
 	a.service.Lock()
 	defer a.service.Unlock()
 
-	oldSpec := a.service.GetTenantSpec(tenantName)
+	oldSpec := a.service.GetTenantSpec(tenantSpec.Name)
 	if oldSpec != nil {
-		api.HandleAPIError(w, r, http.StatusConflict, fmt.Errorf("%s existed", tenantName))
+		api.HandleAPIError(w, r, http.StatusConflict, fmt.Errorf("%s existed", tenantSpec.Name))
 		return
 	}
 
 	a.service.PutTenantSpec(tenantSpec)
 
-	w.Header().Set("Location", r.URL.Path)
+	w.Header().Set("Location", path.Join(r.URL.Path, tenantSpec.Name))
 	w.WriteHeader(http.StatusCreated)
 }
 
 func (a *API) getTenant(w http.ResponseWriter, r *http.Request) {
-	tenantName, err := a.readTenantName(w, r)
+	tenantName, err := a.readTenantName(r)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
@@ -146,12 +137,12 @@ func (a *API) updateTenant(w http.ResponseWriter, r *http.Request) {
 	pbTenantSpec := &v1alpha1.Tenant{}
 	tenantSpec := &spec.Tenant{}
 
-	tenantName, err := a.readTenantName(w, r)
+	tenantName, err := a.readTenantName(r)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
-	err = a.readAPISpec(w, r, pbTenantSpec, tenantSpec)
+	err = a.readAPISpec(r, pbTenantSpec, tenantSpec)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
@@ -184,7 +175,7 @@ func (a *API) updateTenant(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) deleteTenant(w http.ResponseWriter, r *http.Request) {
-	tenantName, err := a.readTenantName(w, r)
+	tenantName, err := a.readTenantName(r)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return

@@ -70,20 +70,14 @@ type (
 	}
 )
 
-const (
-	// from k8s pod's env value
-	podEnvHostname      = "HOSTNAME"
-	podEnvApplicationIP = "APPLICATION_IP"
-)
-
-func decodeLables(lables string) map[string]string {
+func decodeLabels(labels string) map[string]string {
 	mLabels := make(map[string]string)
-	if len(lables) == 0 {
+	if len(labels) == 0 {
 		return mLabels
 	}
-	strLabel, err := url.QueryUnescape(lables)
+	strLabel, err := url.QueryUnescape(labels)
 	if err != nil {
-		logger.Errorf("query unescape: %s failed: %v ", lables, err)
+		logger.Errorf("query unescape: %s failed: %v ", labels, err)
 		return mLabels
 	}
 
@@ -103,33 +97,34 @@ func decodeLables(lables string) map[string]string {
 // New creates a mesh worker.
 func New(superSpec *supervisor.Spec) *Worker {
 	super := superSpec.Super()
-	spec := superSpec.ObjectSpec().(*spec.Admin)
+	_spec := superSpec.ObjectSpec().(*spec.Admin)
 	serviceName := super.Options().Labels[label.KeyServiceName]
 	aliveProbe := super.Options().Labels[label.KeyAliveProbe]
-	serviceLabels := decodeLables(super.Options().Labels[label.KeyServiceLables])
+	serviceLabels := decodeLabels(super.Options().Labels[label.KeyServiceLabels])
 	applicationPort, err := strconv.Atoi(super.Options().Labels[label.KeyApplicationPort])
 	if err != nil {
 		logger.Errorf("parse %s failed: %v", super.Options().Labels[label.KeyApplicationPort], err)
 	}
 
-	instanceID := os.Getenv(podEnvHostname)
-	applicationIP := os.Getenv(podEnvApplicationIP)
+	instanceID := os.Getenv(spec.PodEnvHostname)
+	applicationIP := os.Getenv(spec.PodEnvApplicationIP)
 	store := storage.New(superSpec.Name(), super.Cluster())
 	_service := service.New(superSpec)
-	registryCenterServer := registrycenter.NewRegistryCenterServer(spec.RegistryType,
-		superSpec.Name(), serviceName, applicationIP, applicationPort, instanceID, serviceLabels, _service)
 
 	inf := informer.NewInformer(store, serviceName)
-	ingressServer := NewIngressServer(superSpec, super, serviceName, inf)
-	egressServer := NewEgressServer(superSpec, super, serviceName, _service, inf)
+	registryCenterServer := registrycenter.NewRegistryCenterServer(_spec.RegistryType,
+		superSpec.Name(), serviceName, applicationIP, applicationPort,
+		instanceID, serviceLabels, _service, inf)
+	ingressServer := NewIngressServer(superSpec, super, serviceName, instanceID, _service)
+	egressServer := NewEgressServer(superSpec, super, serviceName, instanceID, _service)
 
 	observabilityManager := NewObservabilityServer(serviceName)
-	apiServer := newAPIServer(spec.APIPort)
+	apiServer := newAPIServer(_spec.APIPort)
 
 	worker := &Worker{
 		super:     super,
 		superSpec: superSpec,
-		spec:      spec,
+		spec:      _spec,
 
 		serviceName:     serviceName,
 		instanceID:      instanceID, // instanceID will be the pod ID valued by HOSTNAME env.
@@ -158,43 +153,53 @@ func New(superSpec *supervisor.Spec) *Worker {
 	return worker
 }
 
-func (worker *Worker) run() {
+func (worker *Worker) validate() error {
 	var err error
 	worker.heartbeatInterval, err = time.ParseDuration(worker.spec.HeartbeatInterval)
 	if err != nil {
 		logger.Errorf("BUG: parse heartbeat interval: %s failed: %v",
 			worker.spec.HeartbeatInterval, err)
-		return
+		return err
 	}
 
 	if len(worker.serviceName) == 0 {
-		logger.Errorf("mesh service name is empty")
-		return
+		errMsg := "empty service name"
+		logger.Errorf(errMsg)
+		return fmt.Errorf(errMsg)
 	}
-	logger.Infof("%s works for service %s", worker.serviceName)
 
 	_, err = url.ParseRequestURI(worker.aliveProbe)
 	if err != nil {
 		logger.Errorf("parse alive probe: %s to url failed: %v", worker.aliveProbe, err)
-		return
+		return err
 	}
 
 	if worker.applicationPort == 0 {
-		logger.Errorf("empty application port")
-		return
+		errMsg := "empty application port"
+		logger.Errorf(errMsg)
+		return fmt.Errorf(errMsg)
 	}
 
 	if len(worker.instanceID) == 0 {
-		logger.Errorf("empty env HOSTNAME")
-		return
+		errMsg := "empty env HOSTNAME"
+		logger.Errorf(errMsg)
+		return fmt.Errorf(errMsg)
 	}
 
 	if len(worker.applicationIP) == 0 {
-		logger.Errorf("empty env APPLICATION_IP")
+		errMsg := "empty env APPLICATION_IP"
+		logger.Errorf(errMsg)
+		return fmt.Errorf(errMsg)
+	}
+	logger.Infof("sidecar works for service: %s", worker.serviceName)
+	return nil
+}
+
+func (worker *Worker) run() {
+	if err := worker.validate(); err != nil {
 		return
 	}
-
-	startUpRoutine := func() {
+	startUpRoutine := func() bool {
 		defer func() {
 			if err := recover(); err != nil {
 				logger.Errorf("%s: recover from: %v, stack trace:\n%s\n",
@@ -203,6 +208,9 @@ func (worker *Worker) run() {
 		}()
 
 		serviceSpec, info := worker.service.GetServiceSpecWithInfo(worker.serviceName)
+		if serviceSpec == nil || !serviceSpec.Runnable() {
+			return false
+		}
 
 		err := worker.initTrafficGate()
 		if err != nil {
@@ -215,15 +223,20 @@ func (worker *Worker) run() {
 		if err != nil {
 			logger.Errorf("update service %s failed: %v", serviceSpec.Name, err)
 		}
+
+		return true
 	}
 
-	startUpRoutine()
+	if runnable := startUpRoutine(); !runnable {
+		logger.Errorf("service: %s is not runnable, check the service spec or ignore if mock is enable", worker.superSpec.Name())
+		return
+	}
 	go worker.heartbeat()
 	go worker.pushSpecToJavaAgent()
 }
 
 func (worker *Worker) heartbeat() {
-	inforJavaAgentReady, trafficGateReady := false, false
+	informJavaAgentReady, trafficGateReady := false, false
 
 	routine := func() {
 		defer func() {
@@ -243,16 +256,16 @@ func (worker *Worker) heartbeat() {
 		}
 
 		if worker.registryServer.Registered() {
-			if !inforJavaAgentReady {
+			if !informJavaAgentReady {
 				err := worker.informJavaAgent()
 				if err != nil {
 					logger.Errorf(err.Error())
 				} else {
-					inforJavaAgentReady = true
+					informJavaAgentReady = true
 				}
 			}
 
-			err := worker.updateHearbeat()
+			err := worker.updateHeartbeat()
 			if err != nil {
 				logger.Errorf("update heartbeat failed: %v", err)
 			}
@@ -321,7 +334,7 @@ func (worker *Worker) initTrafficGate() error {
 	return nil
 }
 
-func (worker *Worker) updateHearbeat() error {
+func (worker *Worker) updateHeartbeat() error {
 	resp, err := http.Get(worker.aliveProbe)
 	if err != nil {
 		return fmt.Errorf("probe: %s check service: %s instanceID: %s heartbeat failed: %v",
@@ -348,7 +361,7 @@ func (worker *Worker) updateHearbeat() error {
 		if err != nil {
 			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", *value, err)
 
-			// NOTE: This is a little strict, maybe we could use the brand new status to udpate.
+			// NOTE: This is a little strict, maybe we could use the brand new status to update.
 			return err
 		}
 	}
@@ -392,7 +405,7 @@ func (worker *Worker) Status() *supervisor.Status {
 	}
 }
 
-// Close close the worker
+// Close closes the worker
 func (worker *Worker) Close() {
 	close(worker.done)
 

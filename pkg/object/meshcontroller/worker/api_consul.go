@@ -6,7 +6,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://wwwrk.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -116,7 +116,7 @@ func (worker *Worker) healthService(w http.ResponseWriter, r *http.Request) {
 
 	buff, err := json.Marshal(serviceEntry)
 	if err != nil {
-		logger.Errorf("json marshal sericeEntry: %#v err: %v", serviceEntry, err)
+		logger.Errorf("json marshal serviceEntry: %#v err: %v", serviceEntry, err)
 		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
 		return
 	}

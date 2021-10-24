@@ -22,24 +22,17 @@ import (
 	"runtime/debug"
 	"strings"
 
-	"go.etcd.io/etcd/api/v3/mvccpb"
-
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
 )
 
 type (
 	// ServiceRegistryInfo contains service's spec,
-	//  and its instance, which is the sidecar+egress port address
+	// and its instance, which is the sidecar+egress port address
 	ServiceRegistryInfo struct {
 		Service *spec.Service
 		Ins     *spec.ServiceInstanceSpec // indicates local egress
 		Version int64                     // tenant Etcd key version,
-	}
-
-	tenantInfo struct {
-		tenant *spec.Tenant
-		info   *mvccpb.KeyValue
 	}
 )
 
@@ -70,70 +63,67 @@ func (rcs *Server) defaultInstance(self, target *spec.Service) *spec.ServiceInst
 	}
 }
 
-func (rcs *Server) getTenants(tenantNames []string) map[string]*tenantInfo {
-	tenantInfos := make(map[string]*tenantInfo)
-
-	for _, v := range tenantNames {
-		tenant, info := rcs.service.GetTenantSpecWithInfo(v)
-		if tenant != nil {
-			tenantInfos[v] = &tenantInfo{
-				tenant: tenant,
-				info:   info,
-			}
-		}
-	}
-
-	return tenantInfos
-}
-
 // DiscoveryService gets one service specs with default instance
 func (rcs *Server) DiscoveryService(serviceName string) (*ServiceRegistryInfo, error) {
 	defer func() {
 		if err := recover(); err != nil {
-			logger.Errorf("registry center recover from: %v, stack trace:\n%s\n",
-				err, debug.Stack())
+			msg := "registry center recover from: %v, stack trace:\n%s\n"
+			logger.Errorf(msg, err, debug.Stack())
 		}
 	}()
-	var serviceInfo *ServiceRegistryInfo
+
 	if !rcs.registered {
-		return serviceInfo, spec.ErrNoRegisteredYet
+		return nil, spec.ErrNoRegisteredYet
 	}
 
-	tenants := rcs.getTenants([]string{spec.GlobalTenant, rcs.tenant})
 	target := rcs.service.GetServiceSpec(serviceName)
 	if target == nil {
 		return nil, spec.ErrServiceNotFound
 	}
+
 	self := rcs.service.GetServiceSpec(rcs.serviceName)
 	if self == nil {
 		logger.Errorf("service: %s get self spec not found", rcs.serviceName)
 		return nil, spec.ErrNoRegisteredYet
 	}
 
-	var inGlobal = false
-	if globalTenant, ok := tenants[spec.GlobalTenant]; ok {
-		for _, v := range globalTenant.tenant.Services {
+	tenant, info := rcs.service.GetTenantSpecWithInfo(self.RegisterTenant)
+	if tenant == nil {
+		msg := "BUG: can't find service: %s's registry tenant: %s"
+		err := fmt.Errorf(msg, rcs.serviceName, self.RegisterTenant)
+		logger.Errorf("%v", err)
+		return nil, err
+	}
+
+	found := target.RegisterTenant == self.RegisterTenant
+
+	if !found {
+		if p := rcs.accessableServices.Load(); p != nil {
+			found = p.(map[string]bool)[serviceName]
+		}
+	}
+
+	if !found {
+		tenant, info = rcs.service.GetTenantSpecWithInfo(spec.GlobalTenant)
+		if tenant == nil {
+			return nil, spec.ErrServiceNotFound
+		}
+		for _, v := range tenant.Services {
 			if v == serviceName {
-				inGlobal = true
+				found = true
 				break
 			}
 		}
 	}
 
-	if _, ok := tenants[rcs.tenant]; !ok {
-		err := fmt.Errorf("BUG: can't find service: %s's registry tenant: %s", rcs.serviceName, rcs.tenant)
-		logger.Errorf("%v", err)
-		return serviceInfo, err
-	}
-
-	if !inGlobal && target.RegisterTenant != rcs.tenant {
+	if !found {
 		return nil, spec.ErrServiceNotFound
 	}
 
 	return &ServiceRegistryInfo{
 		Service: target,
 		Ins:     rcs.defaultInstance(self, target),
-		Version: tenants[rcs.tenant].info.Version,
+		Version: info.Version,
 	}, nil
 }
 
@@ -142,15 +132,17 @@ func (rcs *Server) DiscoveryService(serviceName string) (*ServiceRegistryInfo, e
 func (rcs *Server) Discovery() ([]*ServiceRegistryInfo, error) {
 	defer func() {
 		if err := recover(); err != nil {
-			logger.Errorf("registry center recover from: %v, stack trace:\n%s\n",
-				err, debug.Stack())
+			msg := "registry center recover from: %v, stack trace:\n%s\n"
+			logger.Errorf(msg, err, debug.Stack())
 		}
 	}()
+
 	var (
 		serviceInfos    []*ServiceRegistryInfo
 		visibleServices map[string]bool
 		err             error
 	)
+
 	visibleServices = make(map[string]bool)
 	if !rcs.registered {
 		return serviceInfos, spec.ErrNoRegisteredYet
@@ -160,42 +152,49 @@ func (rcs *Server) Discovery() ([]*ServiceRegistryInfo, error) {
 		logger.Errorf("service: %s get self spec not found", rcs.serviceName)
 		return serviceInfos, spec.ErrNoRegisteredYet
 	}
+
 	var version int64
-	tenantInfos := rcs.getTenants([]string{spec.GlobalTenant, rcs.tenant})
-	if globalTentant, ok := tenantInfos[spec.GlobalTenant]; ok {
-		version = globalTentant.info.Version
-		for _, v := range tenantInfos[spec.GlobalTenant].tenant.Services {
+	tenant, info := rcs.service.GetTenantSpecWithInfo(spec.GlobalTenant)
+	if tenant != nil {
+		version = info.Version
+		for _, v := range tenant.Services {
 			if v != rcs.serviceName {
 				visibleServices[v] = true
 			}
 		}
 	}
 
-	tenant, ok := tenantInfos[rcs.tenant]
-	if !ok {
-		err = fmt.Errorf("BUG: can't find service: %s's registry tenant: %s", rcs.serviceName, rcs.tenant)
+	tenant, info = rcs.service.GetTenantSpecWithInfo(self.RegisterTenant)
+	if tenant == nil {
+		msg := "BUG: can't find service: %s's registry tenant: %s"
+		err = fmt.Errorf(msg, rcs.serviceName, self.RegisterTenant)
 		logger.Errorf("%v", err)
 		return serviceInfos, err
 	}
-	if tenant.info.Version > version {
-		version = tenant.info.Version
+	if info.Version > version {
+		version = info.Version
 	}
 
-	for _, v := range tenantInfos[rcs.tenant].tenant.Services {
+	for _, v := range tenant.Services {
 		visibleServices[v] = true
+	}
+
+	if p := rcs.accessableServices.Load(); p != nil {
+		svcs := p.(map[string]bool)
+		for k := range svcs {
+			visibleServices[k] = true
+		}
 	}
 
 	for k := range visibleServices {
 		var spec *spec.Service
 		if k == rcs.serviceName {
 			spec = self
+		} else if service := rcs.service.GetServiceSpec(k); service == nil {
+			logger.Errorf("service %s not found", k)
+			continue
 		} else {
-			if service := rcs.service.GetServiceSpec(k); service == nil {
-				logger.Errorf("service %s not found", k)
-				continue
-			} else {
-				spec = service
-			}
+			spec = service
 		}
 
 		serviceInfos = append(serviceInfos, &ServiceRegistryInfo{

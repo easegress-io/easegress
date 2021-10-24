@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"runtime/debug"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ArthurHlt/go-eureka-client/eureka"
@@ -32,6 +33,7 @@ import (
 	consul "github.com/hashicorp/consul/api"
 
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/object/meshcontroller/informer"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/service"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
 )
@@ -46,7 +48,7 @@ const (
 type (
 	// Server handle all registry about logic
 	Server struct {
-		// Currently we supports Eureka/Consul
+		// Currently we support Eureka/Consul
 		RegistryType string
 		registered   bool
 
@@ -55,22 +57,23 @@ type (
 		instanceID    string
 		IP            string
 		port          int
-		tenant        string
 		serviceLabels map[string]string
 
-		done  chan struct{}
-		mutex sync.RWMutex
+		done               chan struct{}
+		mutex              sync.RWMutex
+		accessableServices atomic.Value
 
-		service *service.Service
+		service  *service.Service
+		informer informer.Informer
 	}
 
 	// ReadyFunc is a function to check Ingress/Egress ready to work
 	ReadyFunc func() bool
 )
 
-// NewRegistryCenterServer creates a initialized registry center server.
+// NewRegistryCenterServer creates an initialized registry center server.
 func NewRegistryCenterServer(registryType string, registryName, serviceName string, IP string, port int, instanceID string,
-	serviceLabels map[string]string, service *service.Service) *Server {
+	serviceLabels map[string]string, service *service.Service, informer informer.Informer) *Server {
 	return &Server{
 		RegistryType:  registryType,
 		registryName:  registryName,
@@ -82,6 +85,7 @@ func NewRegistryCenterServer(registryType string, registryName, serviceName stri
 		IP:            IP,
 		instanceID:    instanceID,
 		serviceLabels: serviceLabels,
+		informer:      informer,
 
 		done: make(chan struct{}),
 	}
@@ -101,7 +105,6 @@ func (rcs *Server) Close() {
 
 // Register registers itself into mesh
 func (rcs *Server) Register(serviceSpec *spec.Service, ingressReady ReadyFunc, egressReady ReadyFunc) {
-	rcs.tenant = serviceSpec.RegisterTenant
 	if rcs.Registered() {
 		return
 	}
@@ -116,6 +119,35 @@ func (rcs *Server) Register(serviceSpec *spec.Service, ingressReady ReadyFunc, e
 	}
 
 	go rcs.register(ins, ingressReady, egressReady)
+
+	rcs.informer.OnPartOfServiceSpec(rcs.serviceName, "", rcs.onUpdateLocalInfo)
+	rcs.informer.OnAllTrafficTargetSpecs(rcs.onAllTrafficTargetSpecs)
+}
+
+func (rcs *Server) onAllTrafficTargetSpecs(tts map[string]*spec.TrafficTarget) bool {
+	svcs := map[string]bool{}
+
+	for _, tt := range tts {
+		for _, src := range tt.Sources {
+			if src.Name == rcs.serviceName {
+				svcs[tt.Destination.Name] = true
+				break
+			}
+		}
+	}
+
+	rcs.accessableServices.Store(svcs)
+	return true
+}
+
+func (rcs *Server) onUpdateLocalInfo(event informer.Event, serviceSpec *spec.Service) bool {
+	switch event.EventType {
+	case informer.EventDelete:
+		return false
+	case informer.EventUpdate:
+	}
+
+	return true
 }
 
 func needUpdateRecord(originIns, ins *spec.ServiceInstanceSpec) bool {
@@ -131,51 +163,59 @@ func needUpdateRecord(originIns, ins *spec.ServiceInstanceSpec) bool {
 }
 
 func (rcs *Server) register(ins *spec.ServiceInstanceSpec, ingressReady ReadyFunc, egressReady ReadyFunc) {
-	var tryTimes int
+	routine := func() (err error) {
+		defer func() {
+			if err1 := recover(); err1 != nil {
+				logger.Errorf("registry center recover from: %v, stack trace:\n%s\n",
+					err, debug.Stack())
+				err = fmt.Errorf("%v", err1)
+			}
+		}()
 
+		inReady, eReady := ingressReady(), egressReady()
+		if !inReady || !eReady {
+			return fmt.Errorf("ingress ready: %v egress ready: %v", inReady, eReady)
+		}
+
+		if originIns := rcs.service.GetServiceInstanceSpec(rcs.serviceName, rcs.instanceID); originIns != nil {
+			if !needUpdateRecord(originIns, ins) {
+				rcs.mutex.Lock()
+				rcs.registered = true
+				rcs.mutex.Unlock()
+				return nil
+			}
+		}
+
+		ins.Status = spec.ServiceStatusUp
+		ins.RegistryTime = time.Now().Format(time.RFC3339)
+		rcs.service.PutServiceInstanceSpec(ins)
+
+		rcs.mutex.Lock()
+		rcs.registered = true
+		rcs.mutex.Unlock()
+
+		return nil
+	}
+
+	var tryTimes int
+	var firstSucceed bool
 	for {
 		select {
 		case <-rcs.done:
 			return
 		default:
-			rcs.mutex.Lock()
-			if rcs.registered {
-				rcs.mutex.Unlock()
-				return
-			}
-			// wrapper for the recover
-			routine := func() {
-				defer func() {
-					if err := recover(); err != nil {
-						logger.Errorf("registry center recover from: %v, stack trace:\n%s\n",
-							err, debug.Stack())
-					}
-				}()
-				// level triggered, loop until it success
-				tryTimes++
-				if !ingressReady() || !egressReady() {
-					logger.Infof("ingress ready: %v egress ready: %v", ingressReady(), egressReady())
-					return
+			tryTimes++
+
+			err := routine()
+			if err != nil {
+				logger.Errorf("register failed: %v", err)
+				time.Sleep(5 * time.Second)
+			} else {
+				if !firstSucceed {
+					logger.Infof("register instance spec succeed")
+					firstSucceed = true
 				}
-
-				if originIns := rcs.service.GetServiceInstanceSpec(rcs.serviceName, rcs.instanceID); originIns != nil {
-					logger.Infof("register in original ins: %#v, current ins: %#v", originIns, ins)
-					if !needUpdateRecord(originIns, ins) {
-						rcs.registered = true
-						return
-					}
-				}
-
-				ins.Status = spec.ServiceStatusUp
-				ins.RegistryTime = time.Now().Format(time.RFC3339)
-				rcs.registered = true
-				rcs.service.PutServiceInstanceSpec(ins)
-				logger.Infof("registry SUCC service: %s instanceID: %s registry try times: %d", ins.ServiceName, ins.InstanceID, tryTimes)
 			}
-
-			routine()
-			time.Sleep(1 * time.Second)
-			rcs.mutex.Unlock()
 		}
 	}
 }
@@ -209,7 +249,7 @@ func (rcs *Server) decodeByEurekaFormat(contentType string, body []byte) error {
 			return err
 		}
 	default:
-		if err = xml.Unmarshal([]byte(body), &eurekaIns); err != nil {
+		if err = xml.Unmarshal(body, &eurekaIns); err != nil {
 			logger.Errorf("decode eureka contentType: %s body: %s failed: %v", contentType, string(body), err)
 			return err
 		}

@@ -1,3 +1,4 @@
+//go:build wasmhost
 // +build wasmhost
 
 /*
@@ -579,7 +580,7 @@ func (vm *WasmVM) importHostFuncs(linker *wasmtime.Linker) {
 	defineFunc("host_resp_add_header", vm.hostResponseAddHeader)
 	defineFunc("host_resp_del_header", vm.hostResponseDelHeader)
 
-	defineFunc("host_req_set_cookie", vm.hostResponseSetCookie)
+	defineFunc("host_resp_set_cookie", vm.hostResponseSetCookie)
 
 	defineFunc("host_resp_get_body", vm.hostResponseGetBody)
 	defineFunc("host_resp_set_body", vm.hostResponseSetBody)

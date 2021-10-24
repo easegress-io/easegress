@@ -51,6 +51,7 @@ func (rcs *Server) ToConsulHealthService(serviceInfo *ServiceRegistryInfo) []*ap
 		Address: serviceInfo.Ins.IP,
 		Service: serviceInfo.Ins.ServiceName,
 	}
+	svc.Checks = make(api.HealthChecks, 0)
 	svcs = append(svcs, &svc)
 	return svcs
 }

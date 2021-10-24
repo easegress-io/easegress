@@ -1,1 +1,11 @@
+.git/
+.github/
 bin/
+build/cache/
+build/test/
+cmd/
+doc/
+example/
+helm-charts/
+pkg/
+vendor/

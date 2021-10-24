@@ -9,9 +9,10 @@ export GO111MODULE=on
 MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 MKFILE_DIR := $(dir $(MKFILE_PATH))
 RELEASE_DIR := ${MKFILE_DIR}bin
+GO_PATH := $(shell go env | grep GOPATH | awk -F '"' '{print $$2}')
 
 # Version
-RELEASE?=v1.1.0
+RELEASE?=v1.3.1
 
 # Git Related
 GIT_REPO_INFO=$(shell cd ${MKFILE_DIR} && git config --get remote.origin.url)
@@ -32,6 +33,13 @@ ifdef GOTAGS
   ifeq ($(findstring wasmhost,${GOTAGS}), wasmhost)
 	ENABLE_CGO= CGO_ENABLED=1
   endif
+endif
+
+# When build binaries for docker, we put the binaries to another folder to avoid
+# overwriting existing build result, or Mac/Windows user will have to do a rebuild
+# after build the docker image, which is Linux only currently.
+ifdef DOCKER
+  RELEASE_DIR= ${MKFILE_DIR}build/bin
 endif
 
 # Targets
@@ -68,7 +76,15 @@ dev_build_server:
 	-o ${TARGET_SERVER} ${MKFILE_DIR}cmd/server
 
 build_docker:
+	cd ${MKFILE_DIR}
+	mkdir -p build/cache
+	mkdir -p build/bin
+	docker run -w /egsrc -u ${shell id -u}:${shell id -g} --rm \
+	-v ${GO_PATH}:/gopath -v ${MKFILE_DIR}:/egsrc -v ${MKFILE_DIR}build/cache:/gocache \
+	-e GOPROXY=https://goproxy.io,direct -e GOCACHE=/gocache -e GOPATH=/gopath \
+	megaease/golang:1.16-alpine make build DOCKER=true
 	docker build -t megaease/easegress:${RELEASE} -f ./build/package/Dockerfile .
+	docker tag megaease/easegress:${RELEASE} megaease/easegress:latest
 
 test:
 	cd ${MKFILE_DIR}
@@ -79,6 +95,8 @@ test:
 
 clean:
 	rm -rf ${RELEASE_DIR}
+	rm -rf ${MKFILE_DIR}build/cache
+	rm -rf ${MKFILE_DIR}build/bin
 
 run: build_server
 

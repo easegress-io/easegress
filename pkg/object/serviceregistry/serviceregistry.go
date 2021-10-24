@@ -245,8 +245,8 @@ func (sr *ServiceRegistry) DeregisterRegistry(registryName string) error {
 
 	sr._handleRegistryEvent(cleanEvent)
 
-	bucket.registered, bucket.registry = false, nil
 	close(bucket.done)
+	bucket.registered, bucket.registry, bucket.done = false, nil, make(chan struct{})
 
 	if bucket.needClean() {
 		delete(sr.registryBuckets, registryName)
@@ -357,7 +357,7 @@ func (sr *ServiceRegistry) DefaultSpec() interface{} {
 	}
 }
 
-// Init initilizes ServiceRegistry.
+// Init initializes ServiceRegistry.
 func (sr *ServiceRegistry) Init(superSpec *supervisor.Spec) {
 	sr.superSpec, sr.spec = superSpec, superSpec.ObjectSpec().(*Spec)
 	sr.reload()

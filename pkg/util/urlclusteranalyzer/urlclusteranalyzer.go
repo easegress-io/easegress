@@ -67,8 +67,8 @@ func New() *URLClusterAnalyzer {
 }
 
 // GetPattern extracts the pattern of a Restful url path.
-// A field of the path occurs more than 20 distinct values will be consider as a variables.
-// e.g input: /com/megaease/users/123/friends/456
+// A field of the path occurs more than 20 distinct values will be considered as a variables.
+// e.g. input: /com/megaease/users/123/friends/456
 // output: /com/megaease/users/*/friends/*
 func (u *URLClusterAnalyzer) GetPattern(urlPath string) string {
 	if urlPath == "" {

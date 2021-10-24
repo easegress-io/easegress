@@ -20,7 +20,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/megaease/easegress/pkg/api"
@@ -54,6 +54,9 @@ const (
 	// MeshServiceCanaryPath is the mesh service canary path.
 	MeshServiceCanaryPath = "/mesh/services/{serviceName}/canary"
 
+	// MeshServiceMockPath is the mesh service mock path.
+	MeshServiceMockPath = "/mesh/services/{serviceName}/mock"
+
 	// MeshServiceResiliencePath is the mesh service resilience path.
 	MeshServiceResiliencePath = "/mesh/services/{serviceName}/resilience"
 
@@ -74,6 +77,36 @@ const (
 
 	// MeshServiceInstancePath is the mesh service path.
 	MeshServiceInstancePath = "/mesh/serviceinstances/{serviceName}/{instanceID}"
+
+	// MeshHTTPRouteGroupPrefix is the mesh HTTP route groups prefix.
+	MeshHTTPRouteGroupPrefix = "/mesh/httproutegroups"
+
+	// MeshHTTPRouteGroupPath is the mesh HTTP route groups path.
+	MeshHTTPRouteGroupPath = "/mesh/httproutegroups/{name}"
+
+	// MeshTrafficTargetPrefix is the mesh traffic target prefix.
+	MeshTrafficTargetPrefix = "/mesh/traffictargets"
+
+	// MeshTrafficTargetPath is the mesh traffic target path.
+	MeshTrafficTargetPath = "/mesh/traffictargets/{name}"
+
+	// MeshCustomResourceKindPrefix is the mesh custom resource kind prefix.
+	MeshCustomResourceKindPrefix = "/mesh/customresourcekinds"
+
+	// MeshCustomResourceKind is the mesh custom resource kind
+	MeshCustomResourceKind = "/mesh/customresourcekinds/{name}"
+
+	// MeshAllCustomResourcePrefix is the mesh custom resource prefix
+	MeshAllCustomResourcePrefix = "/mesh/customresources"
+
+	// MeshCustomResourcePrefix is the mesh custom resource prefix of a specified kind
+	MeshCustomResourcePrefix = "/mesh/customresources/{kind}"
+
+	// MeshCustomResource is the mesh custom resource of a specified kind
+	MeshCustomResource = "/mesh/customresources/{kind}/{name}"
+
+	// MeshWatchCustomResource is the path to watch custom resources of a specified kind
+	MeshWatchCustomResource = "/mesh/watchcustomresources/{kind}"
 )
 
 type (
@@ -106,17 +139,17 @@ func (a *API) registerAPIs() {
 		Group: apiGroupName,
 		Entries: []*api.Entry{
 			{Path: MeshTenantPrefix, Method: "GET", Handler: a.listTenants},
-			{Path: MeshTenantPath, Method: "POST", Handler: a.createTenant},
+			{Path: MeshTenantPrefix, Method: "POST", Handler: a.createTenant},
 			{Path: MeshTenantPath, Method: "GET", Handler: a.getTenant},
 			{Path: MeshTenantPath, Method: "PUT", Handler: a.updateTenant},
 			{Path: MeshTenantPath, Method: "DELETE", Handler: a.deleteTenant},
 			{Path: MeshIngressPrefix, Method: "GET", Handler: a.listIngresses},
-			{Path: MeshIngressPath, Method: "POST", Handler: a.createIngress},
+			{Path: MeshIngressPrefix, Method: "POST", Handler: a.createIngress},
 			{Path: MeshIngressPath, Method: "GET", Handler: a.getIngress},
 			{Path: MeshIngressPath, Method: "PUT", Handler: a.updateIngress},
 			{Path: MeshIngressPath, Method: "DELETE", Handler: a.deleteIngress},
 			{Path: MeshServicePrefix, Method: "GET", Handler: a.listServices},
-			{Path: MeshServicePath, Method: "POST", Handler: a.createService},
+			{Path: MeshServicePrefix, Method: "POST", Handler: a.createService},
 			{Path: MeshServicePath, Method: "GET", Handler: a.getService},
 			{Path: MeshServicePath, Method: "PUT", Handler: a.updateService},
 			{Path: MeshServicePath, Method: "DELETE", Handler: a.deleteService},
@@ -125,12 +158,17 @@ func (a *API) registerAPIs() {
 
 			{Path: MeshServiceInstancePrefix, Method: "GET", Handler: a.listServiceInstanceSpecs},
 			{Path: MeshServiceInstancePath, Method: "GET", Handler: a.getServiceInstanceSpec},
-			{Path: MeshServiceInstancePath, Method: "DELETE", Handler: a.offlineSerivceInstance},
+			{Path: MeshServiceInstancePath, Method: "DELETE", Handler: a.offlineServiceInstance},
 
 			{Path: MeshServiceCanaryPath, Method: "POST", Handler: a.createPartOfService(canaryMeta)},
 			{Path: MeshServiceCanaryPath, Method: "GET", Handler: a.getPartOfService(canaryMeta)},
 			{Path: MeshServiceCanaryPath, Method: "PUT", Handler: a.updatePartOfService(canaryMeta)},
 			{Path: MeshServiceCanaryPath, Method: "DELETE", Handler: a.deletePartOfService(canaryMeta)},
+
+			{Path: MeshServiceMockPath, Method: "POST", Handler: a.createPartOfService(mockMeta)},
+			{Path: MeshServiceMockPath, Method: "GET", Handler: a.getPartOfService(mockMeta)},
+			{Path: MeshServiceMockPath, Method: "PUT", Handler: a.updatePartOfService(mockMeta)},
+			{Path: MeshServiceMockPath, Method: "DELETE", Handler: a.deletePartOfService(mockMeta)},
 
 			{Path: MeshServiceResiliencePath, Method: "POST", Handler: a.createPartOfService(resilienceMeta)},
 			{Path: MeshServiceResiliencePath, Method: "GET", Handler: a.getPartOfService(resilienceMeta)},
@@ -156,6 +194,33 @@ func (a *API) registerAPIs() {
 			{Path: MeshServiceMetricsPath, Method: "GET", Handler: a.getPartOfService(metricsMeta)},
 			{Path: MeshServiceMetricsPath, Method: "PUT", Handler: a.updatePartOfService(metricsMeta)},
 			{Path: MeshServiceMetricsPath, Method: "DELETE", Handler: a.deletePartOfService(metricsMeta)},
+
+			{Path: MeshHTTPRouteGroupPrefix, Method: "GET", Handler: a.listHTTPRouteGroups},
+			{Path: MeshHTTPRouteGroupPrefix, Method: "POST", Handler: a.createHTTPRouteGroup},
+			{Path: MeshHTTPRouteGroupPath, Method: "GET", Handler: a.getHTTPRouteGroup},
+			{Path: MeshHTTPRouteGroupPath, Method: "PUT", Handler: a.updateHTTPRouteGroup},
+			{Path: MeshHTTPRouteGroupPath, Method: "DELETE", Handler: a.deleteHTTPRouteGroup},
+
+			{Path: MeshTrafficTargetPrefix, Method: "GET", Handler: a.listTrafficTargets},
+			{Path: MeshTrafficTargetPrefix, Method: "POST", Handler: a.createTrafficTarget},
+			{Path: MeshTrafficTargetPath, Method: "GET", Handler: a.getTrafficTarget},
+			{Path: MeshTrafficTargetPath, Method: "PUT", Handler: a.updateTrafficTarget},
+			{Path: MeshTrafficTargetPath, Method: "DELETE", Handler: a.deleteTrafficTarget},
+
+			{Path: MeshCustomResourceKindPrefix, Method: "GET", Handler: a.listCustomResourceKinds},
+			{Path: MeshCustomResourceKindPrefix, Method: "POST", Handler: a.createCustomResourceKind},
+			{Path: MeshCustomResourceKind, Method: "GET", Handler: a.getCustomResourceKind},
+			{Path: MeshCustomResourceKindPrefix, Method: "PUT", Handler: a.updateCustomResourceKind},
+			{Path: MeshCustomResourceKind, Method: "DELETE", Handler: a.deleteCustomResourceKind},
+
+			{Path: MeshAllCustomResourcePrefix, Method: "GET", Handler: a.listAllCustomResources},
+			{Path: MeshCustomResourcePrefix, Method: "GET", Handler: a.listCustomResources},
+			{Path: MeshAllCustomResourcePrefix, Method: "POST", Handler: a.createCustomResource},
+			{Path: MeshCustomResource, Method: "GET", Handler: a.getCustomResource},
+			{Path: MeshAllCustomResourcePrefix, Method: "PUT", Handler: a.updateCustomResource},
+			{Path: MeshCustomResource, Method: "DELETE", Handler: a.deleteCustomResource},
+
+			{Path: MeshWatchCustomResource, Method: "GET", Handler: a.watchCustomResources},
 		},
 	}
 
@@ -190,10 +255,10 @@ func (a *API) convertPBToSpec(pbSpec interface{}, spec interface{}) error {
 	return nil
 }
 
-func (a *API) readAPISpec(w http.ResponseWriter, r *http.Request, pbSpec interface{}, spec interface{}) error {
+func (a *API) readAPISpec(r *http.Request, pbSpec interface{}, spec interface{}) error {
 	// TODO: Use default spec and validate it.
 
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		return fmt.Errorf("read body failed: %v", err)
 	}

@@ -106,7 +106,7 @@ func (a *API) getServiceInstanceSpec(w http.ResponseWriter, r *http.Request) {
 	w.Write(buff)
 }
 
-func (a *API) offlineSerivceInstance(w http.ResponseWriter, r *http.Request) {
+func (a *API) offlineServiceInstance(w http.ResponseWriter, r *http.Request) {
 	serviceName, instanceID, err := a.readServiceInstanceInfo(w, r)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)

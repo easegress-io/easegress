@@ -18,6 +18,7 @@
 package httpserver
 
 import (
+	"net"
 	"net/http"
 	"reflect"
 	"regexp"
@@ -175,16 +176,19 @@ func (mr *muxRule) pass(ctx context.HTTPContext) bool {
 }
 
 func (mr *muxRule) match(ctx context.HTTPContext) bool {
-	r := ctx.Request()
-
 	if mr.host == "" && mr.hostRE == nil {
 		return true
 	}
 
-	if mr.host != "" && mr.host == r.Host() {
+	host := ctx.Request().Host()
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
+	}
+
+	if mr.host != "" && mr.host == host {
 		return true
 	}
-	if mr.hostRE != nil && mr.hostRE.MatchString(r.Host()) {
+	if mr.hostRE != nil && mr.hostRE.MatchString(host) {
 		return true
 	}
 

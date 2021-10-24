@@ -76,7 +76,6 @@ The supervisor has all references of running objects, so we need invoke supervis
 type (
 	// StatusInLocalController posts status of all objects in a local file.
 	StatusInLocalController struct {
-		super     *supervisor.Supervisor
 		superSpec *supervisor.Spec
 		spec      *Spec
 
@@ -99,10 +98,10 @@ func (c *StatusInLocalController) syncStatus() {
 	// Step1: Use entry to record status of all running objects.
 	entry := &Entry{
 		UnixTimestamp: time.Now().Unix(),
-		Statuses:     make(map[string]interface{}),
+		Statuses:      make(map[string]interface{}),
 	}
 
-	walkFn := func(runningObject *supervisor.RunningObject) bool {
+	walkFn := func(entity *supervisor.ObjectEntity) bool {
 		defer func() {
 			if err := recover(); err != nil {
 				logger.Errorf("recover from syncStatus, err: %v, stack trace:\n%s\n",
@@ -110,14 +109,13 @@ func (c *StatusInLocalController) syncStatus() {
 			}
 		}()
 
-		name := runningObject.Spec().Name()
-
-		entry.Statuses[name] = runningObject.Instance().Status().ObjectStatus
+		name := entity.Spec().Name()
+		entry.Statuses[name] = entity.Instance().Status()
 
 		return true
 	}
 
-	c.super.WalkRunningObjects(walkFn, supervisor.CategoryAll)
+	c.superSpec.Super().WalkControllers(walkFn)
 
 	// Step2: Write the status to the local file.
 	buff, err := yaml.Marshal(entry)
@@ -157,7 +155,6 @@ const (
 type (
 	// StatusInLocalController posts status of all objects in a local file.
 	StatusInLocalController struct {
-		super     *supervisor.Supervisor
 		superSpec *supervisor.Spec
 		spec      *Spec
 
@@ -171,13 +168,49 @@ type (
 
 	// Entry is the structure of the status file.
 	Entry struct {
-		Statuses     map[string]interface{}
+		Statuses      map[string]interface{}
 		UnixTimestamp int64
 	}
 )
 
 // init registers itself to supervisor registry.
-func init() { supervisor.Register(&StatusInLocalController{}) }
+func init() {
+	supervisor.Register(&StatusInLocalController{})
+}
+
+func (c *StatusInLocalController) syncStatus() {
+	// Step1: Use entry to record status of all running objects.
+	entry := &Entry{
+		UnixTimestamp: time.Now().Unix(),
+		Statuses:      make(map[string]interface{}),
+	}
+
+	walkFn := func(entity *supervisor.ObjectEntity) bool {
+		defer func() {
+			if err := recover(); err != nil {
+				logger.Errorf("recover from syncStatus, err: %v, stack trace:\n%s\n",
+					err, debug.Stack())
+			}
+		}()
+
+		name := entity.Spec().Name()
+		entry.Statuses[name] = entity.Instance().Status()
+
+		return true
+	}
+
+	c.superSpec.Super().WalkControllers(walkFn)
+
+	// Step2: Write the status to the local file.
+	buff, err := yaml.Marshal(entry)
+	if err != nil {
+		logger.Errorf("BUG: marshal %#v to yaml failed: %v",
+			entry, err)
+		return
+	}
+
+	ioutil.WriteFile(c.spec.Path, buff, 0644)
+}
 
 // Category returns the category of StatusInLocalController.
 func (c *StatusInLocalController) Category() supervisor.ObjectCategory {
@@ -191,17 +224,17 @@ func (c *StatusInLocalController) Kind() string { return Kind }
 func (c *StatusInLocalController) DefaultSpec() interface{} { return &Spec{} }
 
 // Init initializes StatusInLocalController.
-func (c *StatusInLocalController) Init(superSpec *supervisor.Spec, super *supervisor.Supervisor) {
-	c.superSpec, c.spec, c.super = superSpec, superSpec.ObjectSpec().(*Spec), super
+func (c *StatusInLocalController) Init(superSpec *supervisor.Spec) {
+	c.superSpec, c.spec = superSpec, superSpec.ObjectSpec().(*Spec)
 	c.reload()
 }
 
 // Inherit inherits previous generation of StatusInLocalController.
 func (c *StatusInLocalController) Inherit(spec *supervisor.Spec,
-	previousGeneration supervisor.Object, super *supervisor.Supervisor) {
+	previousGeneration supervisor.Object) {
 
 	previousGeneration.Close()
-	c.Init(spec, super)
+	c.Init(spec)
 }
 
 func (c *StatusInLocalController) reload() {
@@ -234,6 +267,19 @@ func (c *StatusInLocalController) Close() {
 }
 ```
 
+In the end, we have to import `StatusInLocalController` in `pkg/registry/registry.go`.
+```go
+import (
+// Filters
+// ...
+
+// Objects
+// ...
+	_ "github.com/megaease/easegress/pkg/object/statusinlocalcontroller"
+)
+
+```
+
 ## Develop Filter
 
 In most scenarios of handling traffic, do the second development of filters is the right choice, since its scheduling is covered by the flexible pipeline. The filter only does its own business, for example, we want to develop a filter to count the number of requests which have the specified header. Let's name the kind of filter `headerCounter`, so the config of the filter in pipeline spec would be:
@@ -253,7 +299,6 @@ We put the filter package in `pkg/filter/headercounter`. We could implement the 
 
 type (
 	HeaderCounter struct {
-		super    *supervisor.Supervisor		// The supervisor runtime.
 		pipeSpec *httppipeline.FilterSpec	// The filter spec in pipeline level, which has two more fiels: kind and name.
 		spec     *Spec						// The filter spec in its own level.
 
@@ -308,17 +353,17 @@ func (hc *HeaderCounter) Description() string {
 func (hc *HeaderCounter) Results() []string { return nil }
 
 // Init initializes HeaderCounter.
-func (hc *HeaderCounter) Init(pipeSpec *httppipeline.FilterSpec, super *supervisor.Supervisor) {
-	hc.pipeSpec, hc.spec, hc.super = pipeSpec, pipeSpec.FilterSpec().(*Spec), super
+func (hc *HeaderCounter) Init(pipeSpec *httppipeline.FilterSpec) {
+	hc.pipeSpec, hc.spec = pipeSpec, pipeSpec.FilterSpec().(*Spec)
 	hc.reload()
 }
 
 // Inherit inherits previous generation of HeaderCounter.
 func (hc *HeaderCounter) Inherit(pipeSpec *httppipeline.FilterSpec,
-	previousGeneration httppipeline.Filter, super *supervisor.Supervisor) {
+	previousGeneration httppipeline.Filter) {
 
 	previousGeneration.Close()
-	hc.Init(pipeSpec, super)
+	hc.Init(pipeSpec)
 }
 
 func (m *HeaderCounter) reload() {
@@ -332,7 +377,6 @@ func (m *HeaderCounter) Status() interface{} {
 
 	return m.count
 }
-
 
 // Close closes HeaderCounter.
 func (m *HeaderCounter) Close() {}
@@ -357,7 +401,7 @@ flow:
 - filter: validator
   jumpIf: { invalid: END }
 - filter: requestAdaptor
-- filter: proxy 
+- filter: proxy
 ```
 
 That `jumpIf` means the request will jump into the end without going through `requestAdaptor` and `proxy` if the `validator` returns the result `invalid`. So the method `Results` is to register all possible results of the filter. In the example of `HeaderCounter`, the empty results mean `Handle` only returns the empty result. So if we want to prevent requests which haven't any counting headers from going forward to next filters, we could change it to:
@@ -367,26 +411,26 @@ const resultInvalidHeader = "invalidHeader"
 
 // Results returns the results of HeaderCounter.
 func (hc *HeaderCounter) Results() []string {
-	return []string{resultInvalidHeader}			// New code
+	return []string{resultInvalidHeader} // New code
 }
 
 // Handle counts the header of the requests.
 func (m *HeaderCounter) Handle(ctx context.HTTPContext) (result string) {
-	counted := false								// New code
+	counted := false // New code
 	for _, key := range m.spec.Headers {
 		value := ctx.Request().Header().Get(key)
 		if value != "" {
 			m.countMutex.Lock()
-			counted = true							// New code
+			counted = true // New code
 			m.count[key]++
 			m.countMutex.Unlock()
 		}
 	}
 
-	if !counted {									// New code
-		return resultInvalidHeader					// New code
+	if !counted { // New code
+		return resultInvalidHeader // New code
 
-	}												// New code
+	} // New code
 
 	return ""
 }

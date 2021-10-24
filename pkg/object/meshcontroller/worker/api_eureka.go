@@ -6,7 +6,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://wwwrk.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -189,7 +189,7 @@ func (worker *Worker) apps(w http.ResponseWriter, r *http.Request) {
 
 	accept := worker.detectedAccept(r.Header.Get("Accept"))
 
-	rsp, err := worker.encodByAcceptType(accept, jsonAPPs, xmlAPPs)
+	rsp, err := worker.encodeByAcceptType(accept, jsonAPPs, xmlAPPs)
 	if err != nil {
 		logger.Errorf("encode accept: %s failed: %v", accept, err)
 		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
@@ -197,7 +197,7 @@ func (worker *Worker) apps(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", accept)
-	w.Write([]byte(rsp))
+	w.Write(rsp)
 }
 
 func (worker *Worker) app(w http.ResponseWriter, r *http.Request) {
@@ -233,7 +233,7 @@ func (worker *Worker) app(w http.ResponseWriter, r *http.Request) {
 			Instances: xmlAPP.Instances,
 		},
 	}
-	rsp, err := worker.encodByAcceptType(accept, jsonApp, xmlAPP)
+	rsp, err := worker.encodeByAcceptType(accept, jsonApp, xmlAPP)
 	if err != nil {
 		logger.Errorf("encode accept: %s failed: %v", accept, err)
 		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
@@ -241,7 +241,7 @@ func (worker *Worker) app(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", accept)
-	w.Write([]byte(rsp))
+	w.Write(rsp)
 }
 
 func (worker *Worker) getAppInstance(w http.ResponseWriter, r *http.Request) {
@@ -266,14 +266,14 @@ func (worker *Worker) getAppInstance(w http.ResponseWriter, r *http.Request) {
 		ins := worker.registryServer.ToEurekaInstanceInfo(serviceInfo)
 		accept := worker.detectedAccept(w.Header().Get("Accept"))
 
-		rsp, err := worker.encodByAcceptType(accept, ins, ins)
+		rsp, err := worker.encodeByAcceptType(accept, ins, ins)
 		if err != nil {
 			logger.Errorf("encode accept: %s failed: %v", accept, err)
 			api.HandleAPIError(w, r, http.StatusInternalServerError, err)
 			return
 		}
 		w.Header().Set("Content-Type", accept)
-		w.Write([]byte(rsp))
+		w.Write(rsp)
 		return
 	}
 
@@ -300,17 +300,17 @@ func (worker *Worker) getInstance(w http.ResponseWriter, r *http.Request) {
 	ins := worker.registryServer.ToEurekaInstanceInfo(serviceInfo)
 	accept := worker.detectedAccept(r.Header.Get("Accept"))
 
-	rsp, err := worker.encodByAcceptType(accept, ins, ins)
+	rsp, err := worker.encodeByAcceptType(accept, ins, ins)
 	if err != nil {
 		logger.Errorf("encode accept: %s failed: %v", accept, err)
 		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 	w.Header().Set("Content-Type", accept)
-	w.Write([]byte(rsp))
+	w.Write(rsp)
 }
 
-func (worker *Worker) encodByAcceptType(accept string, jsonSt interface{}, xmlSt interface{}) ([]byte, error) {
+func (worker *Worker) encodeByAcceptType(accept string, jsonSt interface{}, xmlSt interface{}) ([]byte, error) {
 	switch accept {
 	case registrycenter.ContentTypeJSON:
 		buff := bytes.NewBuffer(nil)

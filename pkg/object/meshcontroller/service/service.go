@@ -18,6 +18,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 
 	"go.etcd.io/etcd/api/v3/mvccpb"
@@ -100,7 +101,7 @@ func (s *Service) GetServiceSpecWithInfo(serviceName string) (*spec.Service, *mv
 	}
 
 	serviceSpec := &spec.Service{}
-	err = yaml.Unmarshal([]byte(kv.Value), serviceSpec)
+	err = yaml.Unmarshal(kv.Value, serviceSpec)
 	if err != nil {
 		panic(fmt.Errorf("BUG: unmarshal %s to yaml failed: %v", string(kv.Value), err))
 	}
@@ -114,7 +115,7 @@ func (s *Service) GetGlobalCanaryHeaders() *spec.GlobalCanaryHeaders {
 	return globalCanaryHeaders
 }
 
-// GetGlobalCanaryHeadersWithInfo gets the global cannary headers with information
+// GetGlobalCanaryHeadersWithInfo gets the global canary headers with information
 func (s *Service) GetGlobalCanaryHeadersWithInfo() (*spec.GlobalCanaryHeaders, *mvccpb.KeyValue) {
 	kv, err := s.store.GetRaw(layout.GlobalCanaryHeaders())
 	if err != nil {
@@ -158,14 +159,14 @@ func (s *Service) DeleteServiceSpec(serviceName string) {
 // ListServiceSpecs lists services specs
 func (s *Service) ListServiceSpecs() []*spec.Service {
 	services := []*spec.Service{}
-	kvs, err := s.store.GetPrefix(layout.ServiceSpecPrefix())
+	kvs, err := s.store.GetRawPrefix(layout.ServiceSpecPrefix())
 	if err != nil {
 		api.ClusterPanic(err)
 	}
 
 	for _, v := range kvs {
 		serviceSpec := &spec.Service{}
-		err := yaml.Unmarshal([]byte(v), serviceSpec)
+		err := yaml.Unmarshal(v.Value, serviceSpec)
 		if err != nil {
 			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
 			continue
@@ -174,6 +175,176 @@ func (s *Service) ListServiceSpecs() []*spec.Service {
 	}
 
 	return services
+}
+
+// GetServiceInstanceCert gets one specified service instance's cert
+func (s *Service) GetServiceInstanceCert(serviceName, instanceID string) *spec.Certificate {
+	value, err := s.store.Get(layout.ServiceInstanceCertKey(serviceName, instanceID))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+
+	if value == nil {
+		return nil
+	}
+
+	cert := &spec.Certificate{}
+	err = yaml.Unmarshal([]byte(*value), cert)
+	if err != nil {
+		panic(fmt.Errorf("BUG: unmarshal %s to yaml failed: %v", *value, err))
+	}
+
+	return cert
+}
+
+// PutServiceInstanceCert puts one service's instance cert.
+func (s *Service) PutServiceInstanceCert(serviceName, instaceID string, cert *spec.Certificate) {
+	buff, err := yaml.Marshal(cert)
+	if err != nil {
+		panic(fmt.Errorf("BUG: marshal %#v to yaml failed: %v", cert, err))
+	}
+
+	err = s.store.Put(layout.ServiceInstanceCertKey(serviceName, instaceID), string(buff))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+}
+
+// DelServiceInstanceCert deletes one service's cert.
+func (s *Service) DelServiceInstanceCert(serviceName, instanceID string) {
+	err := s.store.Delete(layout.ServiceInstanceCertKey(serviceName, instanceID))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+}
+
+// ListServiceCerts lists services certs.
+func (s *Service) ListServiceCerts() []*spec.Certificate {
+	certs := []*spec.Certificate{}
+	values, err := s.store.GetPrefix(layout.AllServiceCertPrefix())
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+
+	for _, v := range values {
+		cert := &spec.Certificate{}
+		err := yaml.Unmarshal([]byte(v), cert)
+		if err != nil {
+			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
+			continue
+		}
+		certs = append(certs, cert)
+	}
+
+	return certs
+}
+
+// ListAllIngressControllerInstanceCerts  gets the ingress controller cert.
+func (s *Service) ListAllIngressControllerInstanceCerts() []*spec.Certificate {
+	var certs []*spec.Certificate
+	values, err := s.store.GetPrefix(layout.AllIngressControllerInstanceCertPrefix())
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+
+	for _, v := range values {
+		cert := &spec.Certificate{}
+		if err = yaml.Unmarshal([]byte(v), cert); err != nil {
+			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
+			continue
+		}
+
+		certs = append(certs, cert)
+
+	}
+	return certs
+}
+
+// PutIngressControllerInstanceCert puts the root cert.
+func (s *Service) PutIngressControllerInstanceCert(instaceID string, cert *spec.Certificate) {
+	buff, err := yaml.Marshal(cert)
+	if err != nil {
+		panic(fmt.Errorf("BUG: marshal %#v to yaml failed: %v", cert, err))
+	}
+
+	err = s.store.Put(layout.IngressControllerInstanceCertKey(instaceID), string(buff))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+	return
+}
+
+// DelIngressControllerInstanceCert deletes root cert.
+func (s *Service) DelIngressControllerInstanceCert(instanceID string) {
+	err := s.store.Delete(layout.IngressControllerInstanceCertKey(instanceID))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+	return
+}
+
+// DelAllIngressControllerInstanceCert deletes all ingress controller certs.
+func (s *Service) DelAllIngressControllerInstanceCert() {
+	err := s.store.DeletePrefix(layout.AllIngressControllerInstanceCertPrefix())
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+}
+
+// PutIngressControllerInstanceSpec puts ingress controller's spec
+func (s *Service) PutIngressControllerInstanceSpec(instance *spec.ServiceInstanceSpec) {
+	buff, err := yaml.Marshal(instance)
+	if err != nil {
+		panic(fmt.Errorf("BUG: marshal %#v to yaml failed: %v", instance, err))
+	}
+
+	err = s.store.Put(layout.IngressControllerInstanceSpecKey(instance.InstanceID), string(buff))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+	return
+}
+
+// GetRootCert  gets the root cert.
+func (s *Service) GetRootCert() *spec.Certificate {
+	value, err := s.store.Get(layout.RootCertKey())
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+
+	if value == nil {
+		return nil
+	}
+
+	cert := &spec.Certificate{}
+	err = yaml.Unmarshal([]byte(*value), cert)
+	if err != nil {
+		panic(fmt.Errorf("BUG: unmarshal %s to yaml failed: %v", *value, err))
+	}
+
+	return cert
+}
+
+// PutRootCert puts the root cert.
+func (s *Service) PutRootCert(cert *spec.Certificate) {
+	buff, err := yaml.Marshal(cert)
+	if err != nil {
+		panic(fmt.Errorf("BUG: marshal %#v to yaml failed: %v", cert, err))
+	}
+
+	err = s.store.Put(layout.RootCertKey(), string(buff))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+	return
+}
+
+//  DelRootCert deletes root cert.
+func (s *Service) DelRootCert() {
+	err := s.store.Delete(layout.RootCertKey())
+	if err != nil {
+		api.ClusterPanic(err)
+	}
 }
 
 // GetTenantSpec gets tenant spec with its name
@@ -234,14 +405,14 @@ func (s *Service) listServiceInstanceStatuses(all bool, serviceName string) []*s
 		prefix = layout.ServiceInstanceSpecPrefix(serviceName)
 	}
 
-	kvs, err := s.store.GetPrefix(prefix)
+	kvs, err := s.store.GetRawPrefix(prefix)
 	if err != nil {
 		api.ClusterPanic(err)
 	}
 
 	for _, v := range kvs {
 		status := &spec.ServiceInstanceStatus{}
-		if err = yaml.Unmarshal([]byte(v), status); err != nil {
+		if err = yaml.Unmarshal(v.Value, status); err != nil {
 			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
 			continue
 		}
@@ -271,14 +442,14 @@ func (s *Service) listServiceInstanceSpecs(all bool, serviceName string) []*spec
 		prefix = layout.ServiceInstanceSpecPrefix(serviceName)
 	}
 
-	kvs, err := s.store.GetPrefix(prefix)
+	kvs, err := s.store.GetRawPrefix(prefix)
 	if err != nil {
 		api.ClusterPanic(err)
 	}
 
 	for _, v := range kvs {
 		_spec := &spec.ServiceInstanceSpec{}
-		if err = yaml.Unmarshal([]byte(v), _spec); err != nil {
+		if err = yaml.Unmarshal(v.Value, _spec); err != nil {
 			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
 			continue
 		}
@@ -333,14 +504,14 @@ func (s *Service) DeleteServiceInstanceSpec(serviceName, instanceID string) {
 // ListTenantSpecs lists tenant specs
 func (s *Service) ListTenantSpecs() []*spec.Tenant {
 	tenants := []*spec.Tenant{}
-	kvs, err := s.store.GetPrefix(layout.TenantPrefix())
+	kvs, err := s.store.GetRawPrefix(layout.TenantPrefix())
 	if err != nil {
 		api.ClusterPanic(err)
 	}
 
 	for _, v := range kvs {
 		tenantSpec := &spec.Tenant{}
-		err := yaml.Unmarshal([]byte(v), tenantSpec)
+		err := yaml.Unmarshal(v.Value, tenantSpec)
 		if err != nil {
 			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
 			continue
@@ -398,17 +569,77 @@ func (s *Service) PutIngressSpec(ingressSpec *spec.Ingress) {
 	}
 }
 
+// GetIngressControllerInstanceSpec gets one ingress controller's spec
+func (s *Service) GetIngressControllerInstanceSpec(instaceID string) *spec.ServiceInstanceSpec {
+	instance := &spec.ServiceInstanceSpec{}
+	value, err := s.store.Get(layout.IngressControllerInstanceSpecKey(instaceID))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+
+	if value == nil {
+		return nil
+	}
+
+	err = yaml.Unmarshal([]byte(*value), instance)
+	if err != nil {
+		panic(fmt.Errorf("BUG: unmarshal %s to yaml failed: %v", *value, err))
+	}
+	return instance
+}
+
+// GetIngressControllerInstanceCert gets one ingress controller's cert
+func (s *Service) GetIngressControllerInstanceCert(instaceID string) *spec.Certificate {
+	cert := &spec.Certificate{}
+	value, err := s.store.Get(layout.IngressControllerInstanceCertKey(instaceID))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+
+	if value == nil {
+		return nil
+	}
+
+	err = yaml.Unmarshal([]byte(*value), cert)
+	if err != nil {
+		panic(fmt.Errorf("BUG: unmarshal %s to yaml failed: %v", *value, err))
+	}
+	return cert
+}
+
+// ListAllIngressControllerInstanceSpecs lists all IngressController's instances specs
+func (s *Service) ListAllIngressControllerInstanceSpecs() []*spec.ServiceInstanceSpec {
+	specs := []*spec.ServiceInstanceSpec{}
+
+	kvs, err := s.store.GetPrefix(layout.AllIngressControllerInstanceCertPrefix())
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+
+	for _, v := range kvs {
+		_spec := &spec.ServiceInstanceSpec{}
+		if err = yaml.Unmarshal([]byte(v), _spec); err != nil {
+			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
+			continue
+		}
+
+		specs = append(specs, _spec)
+	}
+
+	return specs
+}
+
 // ListIngressSpecs lists the ingress specs
 func (s *Service) ListIngressSpecs() []*spec.Ingress {
 	ingresses := []*spec.Ingress{}
-	kvs, err := s.store.GetPrefix(layout.IngressPrefix())
+	kvs, err := s.store.GetRawPrefix(layout.IngressPrefix())
 	if err != nil {
 		api.ClusterPanic(err)
 	}
 
 	for _, v := range kvs {
 		ingressSpec := &spec.Ingress{}
-		err := yaml.Unmarshal([]byte(v), ingressSpec)
+		err := yaml.Unmarshal(v.Value, ingressSpec)
 		if err != nil {
 			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
 			continue
@@ -422,6 +653,291 @@ func (s *Service) ListIngressSpecs() []*spec.Ingress {
 // DeleteIngressSpec deletes the ingress spec
 func (s *Service) DeleteIngressSpec(ingressName string) {
 	err := s.store.Delete(layout.IngressSpecKey(ingressName))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+}
+
+// ListCustomResourceKinds lists custom resource kinds
+func (s *Service) ListCustomResourceKinds() []*spec.CustomResourceKind {
+	kvs, err := s.store.GetRawPrefix(layout.CustomResourceKindPrefix())
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+
+	kinds := []*spec.CustomResourceKind{}
+	for _, v := range kvs {
+		kind := &spec.CustomResourceKind{}
+		err := yaml.Unmarshal(v.Value, kind)
+		if err != nil {
+			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
+			continue
+		}
+		kinds = append(kinds, kind)
+	}
+
+	return kinds
+}
+
+// DeleteCustomResourceKind deletes a custom resource kind
+func (s *Service) DeleteCustomResourceKind(kind string) {
+	err := s.store.Delete(layout.CustomResourceKindKey(kind))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+}
+
+// GetCustomResourceKind gets custom resource kind with its name
+func (s *Service) GetCustomResourceKind(name string) *spec.CustomResourceKind {
+	kvs, err := s.store.GetRaw(layout.CustomResourceKindKey(name))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+
+	if kvs == nil {
+		return nil
+	}
+
+	kind := &spec.CustomResourceKind{}
+	err = yaml.Unmarshal(kvs.Value, kind)
+	if err != nil {
+		panic(fmt.Errorf("BUG: unmarshal %s to yaml failed: %v", string(kvs.Value), err))
+	}
+
+	return kind
+}
+
+// PutCustomResourceKind writes the custom resource kind to storage.
+func (s *Service) PutCustomResourceKind(kind *spec.CustomResourceKind) {
+	buff, err := yaml.Marshal(kind)
+	if err != nil {
+		panic(fmt.Errorf("BUG: marshal %#v to yaml failed: %v", kind, err))
+	}
+
+	err = s.store.Put(layout.CustomResourceKindKey(kind.Name), string(buff))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+}
+
+// ListCustomResources lists custom resources of specified kind.
+// if kind is empty, it returns custom objects of all kinds.
+func (s *Service) ListCustomResources(kind string) []*spec.CustomResource {
+	prefix := layout.AllCustomResourcePrefix()
+	if kind != "" {
+		prefix = layout.CustomResourcePrefix(kind)
+	}
+	kvs, err := s.store.GetRawPrefix(prefix)
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+
+	resources := []*spec.CustomResource{}
+	for _, v := range kvs {
+		resource := &spec.CustomResource{}
+		err := yaml.Unmarshal(v.Value, resource)
+		if err != nil {
+			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
+			continue
+		}
+		resources = append(resources, resource)
+	}
+
+	return resources
+}
+
+// DeleteCustomResource deletes a custom resource
+func (s *Service) DeleteCustomResource(kind, name string) {
+	err := s.store.Delete(layout.CustomResourceKey(kind, name))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+}
+
+// GetCustomResource gets custom resource with its kind & name
+func (s *Service) GetCustomResource(kind, name string) *spec.CustomResource {
+	kvs, err := s.store.GetRaw(layout.CustomResourceKey(kind, name))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+
+	if kvs == nil {
+		return nil
+	}
+
+	resource := &spec.CustomResource{}
+	err = yaml.Unmarshal(kvs.Value, resource)
+	if err != nil {
+		panic(fmt.Errorf("BUG: unmarshal %s to yaml failed: %v", string(kvs.Value), err))
+	}
+
+	return resource
+}
+
+// PutCustomResource writes the custom resource kind to storage.
+func (s *Service) PutCustomResource(obj *spec.CustomResource) {
+	buff, err := yaml.Marshal(obj)
+	if err != nil {
+		panic(fmt.Errorf("BUG: marshal %#v to yaml failed: %v", obj, err))
+	}
+
+	err = s.store.Put(layout.CustomResourceKey(obj.Kind(), obj.Name()), string(buff))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+}
+
+// WatchCustomResource watches custom resources of the specified kind
+func (s *Service) WatchCustomResource(ctx context.Context, kind string, onChange func([]*spec.CustomResource)) error {
+	syncer, err := s.store.Syncer()
+	if err != nil {
+		return err
+	}
+
+	prefix := layout.CustomResourcePrefix(kind)
+	ch, err := syncer.SyncRawPrefix(prefix)
+	if err != nil {
+		return err
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			syncer.Close()
+			return nil
+		case m := <-ch:
+			resources := make([]*spec.CustomResource, 0, len(m))
+			for _, v := range m {
+				resource := &spec.CustomResource{}
+				err = yaml.Unmarshal(v.Value, resource)
+				if err == nil {
+					resources = append(resources, resource)
+				}
+			}
+			onChange(resources)
+		}
+	}
+}
+
+// ListHTTPRouteGroups lists HTTP route groups
+func (s *Service) ListHTTPRouteGroups() []*spec.HTTPRouteGroup {
+	kvs, err := s.store.GetRawPrefix(layout.HTTPRouteGroupPrefix())
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+
+	groups := []*spec.HTTPRouteGroup{}
+	for _, v := range kvs {
+		group := &spec.HTTPRouteGroup{}
+		err := yaml.Unmarshal(v.Value, group)
+		if err != nil {
+			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
+			continue
+		}
+		groups = append(groups, group)
+	}
+
+	return groups
+}
+
+// DeleteHTTPRouteGroup deletes a HTTP route group
+func (s *Service) DeleteHTTPRouteGroup(name string) {
+	err := s.store.Delete(layout.HTTPRouteGroupKey(name))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+}
+
+// GetHTTPRouteGroup gets HTTP route group with its name
+func (s *Service) GetHTTPRouteGroup(name string) *spec.HTTPRouteGroup {
+	kvs, err := s.store.GetRaw(layout.HTTPRouteGroupKey(name))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+
+	if kvs == nil {
+		return nil
+	}
+
+	group := &spec.HTTPRouteGroup{}
+	err = yaml.Unmarshal(kvs.Value, group)
+	if err != nil {
+		panic(fmt.Errorf("BUG: unmarshal %s to yaml failed: %v", string(kvs.Value), err))
+	}
+
+	return group
+}
+
+// PutHTTPRouteGroup writes the HTTP route group to storage.
+func (s *Service) PutHTTPRouteGroup(group *spec.HTTPRouteGroup) {
+	buff, err := yaml.Marshal(group)
+	if err != nil {
+		panic(fmt.Errorf("BUG: marshal %#v to yaml failed: %v", group, err))
+	}
+
+	err = s.store.Put(layout.HTTPRouteGroupKey(group.Name), string(buff))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+}
+
+// ListTrafficTargets lists traffic targets
+func (s *Service) ListTrafficTargets() []*spec.TrafficTarget {
+	kvs, err := s.store.GetRawPrefix(layout.TrafficTargetPrefix())
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+
+	tts := []*spec.TrafficTarget{}
+	for _, v := range kvs {
+		tt := &spec.TrafficTarget{}
+		err := yaml.Unmarshal(v.Value, tt)
+		if err != nil {
+			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
+			continue
+		}
+		tts = append(tts, tt)
+	}
+
+	return tts
+}
+
+// DeleteTrafficTarget deletes a traffic target
+func (s *Service) DeleteTrafficTarget(name string) {
+	err := s.store.Delete(layout.TrafficTargetKey(name))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+}
+
+// GetTrafficTarget gets traffic target with its name
+func (s *Service) GetTrafficTarget(name string) *spec.TrafficTarget {
+	kvs, err := s.store.GetRaw(layout.TrafficTargetKey(name))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+
+	if kvs == nil {
+		return nil
+	}
+
+	tt := &spec.TrafficTarget{}
+	err = yaml.Unmarshal(kvs.Value, tt)
+	if err != nil {
+		panic(fmt.Errorf("BUG: unmarshal %s to yaml failed: %v", string(kvs.Value), err))
+	}
+
+	return tt
+}
+
+// PutTrafficTarget writes the traffic target to storage.
+func (s *Service) PutTrafficTarget(tt *spec.TrafficTarget) {
+	buff, err := yaml.Marshal(tt)
+	if err != nil {
+		panic(fmt.Errorf("BUG: marshal %#v to yaml failed: %v", tt, err))
+	}
+
+	err = s.store.Put(layout.TrafficTargetKey(tt.Name), string(buff))
 	if err != nil {
 		api.ClusterPanic(err)
 	}

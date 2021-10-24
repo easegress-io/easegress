@@ -19,7 +19,7 @@ package zookeeperserviceregistry
 
 import (
 	"fmt"
-	"path/filepath"
+	"path"
 	"sync"
 	"time"
 
@@ -100,7 +100,7 @@ func (zk *ZookeeperServiceRegistry) DefaultSpec() interface{} {
 	}
 }
 
-// Init initilizes ZookeeperServiceRegistry.
+// Init initializes ZookeeperServiceRegistry.
 func (zk *ZookeeperServiceRegistry) Init(superSpec *supervisor.Spec) {
 	zk.superSpec, zk.spec = superSpec, superSpec.ObjectSpec().(*Spec)
 	zk.reload()
@@ -361,13 +361,13 @@ func (zk *ZookeeperServiceRegistry) ListServiceInstances(serviceName string) (ma
 			zk.superSpec.Name(), err)
 	}
 
-	childs, _, err := client.Children(zk.serviceZookeeperPrefix(serviceName))
+	children, _, err := client.Children(zk.serviceZookeeperPrefix(serviceName))
 	if err != nil {
 		return nil, fmt.Errorf("%s get path: %s children failed: %v", zk.superSpec.Name(), zk.spec.Prefix, err)
 	}
 
 	instances := make(map[string]*serviceregistry.ServiceInstanceSpec)
-	for _, child := range childs {
+	for _, child := range children {
 		fullPath := zk.fullPathOfChild(child)
 		data, _, err := client.Get(fullPath)
 		if err != nil {
@@ -399,13 +399,13 @@ func (zk *ZookeeperServiceRegistry) ListAllServiceInstances() (map[string]*servi
 			zk.superSpec.Name(), err)
 	}
 
-	childs, _, err := client.Children(zk.spec.Prefix)
+	children, _, err := client.Children(zk.spec.Prefix)
 	if err != nil {
 		return nil, fmt.Errorf("%s get path: %s children failed: %v", zk.superSpec.Name(), zk.spec.Prefix, err)
 	}
 
 	instances := make(map[string]*serviceregistry.ServiceInstanceSpec)
-	for _, child := range childs {
+	for _, child := range children {
 		fullPath := zk.fullPathOfChild(child)
 		data, _, err := client.Get(fullPath)
 		if err != nil {
@@ -430,11 +430,11 @@ func (zk *ZookeeperServiceRegistry) ListAllServiceInstances() (map[string]*servi
 }
 
 func (zk *ZookeeperServiceRegistry) fullPathOfChild(childPath string) string {
-	return filepath.Join(zk.spec.Prefix, childPath)
+	return path.Join(zk.spec.Prefix, childPath)
 }
 
 func (zk *ZookeeperServiceRegistry) serviceZookeeperPrefix(serviceName string) string {
-	return filepath.Join(zk.spec.Prefix, serviceName) + "/"
+	return path.Join(zk.spec.Prefix, serviceName) + "/"
 }
 
 func (zk *ZookeeperServiceRegistry) serviceInstanceZookeeperPath(instance *serviceregistry.ServiceInstanceSpec) string {
@@ -442,5 +442,5 @@ func (zk *ZookeeperServiceRegistry) serviceInstanceZookeeperPath(instance *servi
 }
 
 func (zk *ZookeeperServiceRegistry) serviceInstanceZookeeperPathFromRaw(serviceName, instanceID string) string {
-	return filepath.Join(zk.spec.Prefix, serviceName, instanceID)
+	return path.Join(zk.spec.Prefix, serviceName, instanceID)
 }

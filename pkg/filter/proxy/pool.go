@@ -128,7 +128,7 @@ func (p *pool) status() *PoolStatus {
 	return s
 }
 
-func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader) string {
+func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader, client *http.Client) string {
 	addTag := func(subPrefix, msg string) {
 		tag := stringtool.Cat(p.tagPrefix, "#", subPrefix, ": ", msg)
 		ctx.Lock()
@@ -159,7 +159,7 @@ func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader) string {
 		return resultInternalError
 	}
 
-	resp, span, err := p.doRequest(ctx, req)
+	resp, span, err := p.doRequest(ctx, req, client)
 	if err != nil {
 		// NOTE: May add option to cancel the tracing if failed here.
 		// ctx.Span().Cancel()
@@ -208,7 +208,7 @@ func (p *pool) prepareRequest(ctx context.HTTPContext, server *Server, reqBody i
 	return p.newRequest(ctx, server, reqBody)
 }
 
-func (p *pool) doRequest(ctx context.HTTPContext, req *request) (*http.Response, tracing.Span, error) {
+func (p *pool) doRequest(ctx context.HTTPContext, req *request, client *http.Client) (*http.Response, tracing.Span, error) {
 	req.start()
 
 	spanName := p.spec.SpanName
@@ -219,7 +219,7 @@ func (p *pool) doRequest(ctx context.HTTPContext, req *request) (*http.Response,
 	span := ctx.Span().NewChildWithStart(spanName, req.startTime())
 	span.Tracer().Inject(span.Context(), opentracing.HTTPHeaders, opentracing.HTTPHeadersCarrier(req.std.Header))
 
-	resp, err := fnSendRequest(req.std)
+	resp, err := fnSendRequest(req.std, client)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -24,8 +24,9 @@ import (
 	"sync"
 	"time"
 
+	"gopkg.in/yaml.v2"
+
 	"github.com/megaease/easegress/pkg/logger"
-	yaml "gopkg.in/yaml.v2"
 )
 
 func aboutText() string {
@@ -52,11 +53,11 @@ var (
 	appendAddonAPIs []func(s *Server, group *Group)
 )
 
-type apisbyOrder []*Group
+type apisByOrder []*Group
 
-func (a apisbyOrder) Less(i, j int) bool { return a[i].Group < a[j].Group }
-func (a apisbyOrder) Len() int           { return len(a) }
-func (a apisbyOrder) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a apisByOrder) Less(i, j int) bool { return a[i].Group < a[j].Group }
+func (a apisByOrder) Len() int           { return len(a) }
+func (a apisByOrder) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 
 // RegisterAPIs registers global admin APIs.
 func RegisterAPIs(apiGroup *Group) {
@@ -146,13 +147,12 @@ func (s *Server) listAPIs(w http.ResponseWriter, r *http.Request) {
 	apisMutex.Lock()
 	defer apisMutex.Unlock()
 
-	apiGroups := []*Group{}
-
+	apiGroups := make([]*Group, 0, len(apis))
 	for _, group := range apis {
 		apiGroups = append(apiGroups, group)
 	}
 
-	sort.Sort(apisbyOrder(apiGroups))
+	sort.Sort(apisByOrder(apiGroups))
 
 	buff, err := yaml.Marshal(apiGroups)
 	if err != nil {

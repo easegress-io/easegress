@@ -22,8 +22,8 @@ const (
 	KeyRole = "mesh-role"
 	// KeyServiceName is the key of service name
 	KeyServiceName = "mesh-servicename"
-	// KeyServiceLables is the key of service label
-	KeyServiceLables = "mesh-service-labels"
+	// KeyServiceLabels is the key of service label
+	KeyServiceLabels = "mesh-service-labels"
 	// KeyApplicationPort is the key of application port
 	KeyApplicationPort = "application-port"
 	// KeyAliveProbe is the key of keepalive probe
