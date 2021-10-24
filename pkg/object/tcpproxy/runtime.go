@@ -19,6 +19,7 @@ package tcpproxy
 
 import (
 	"fmt"
+	"github.com/megaease/easegress/pkg/util/layer4ipfilters"
 	"net"
 	"reflect"
 	"sync/atomic"
@@ -60,9 +61,9 @@ type (
 		superSpec *supervisor.Spec
 		spec      *Spec
 
-		pool      *pool      // backend servers pool
-		ipFilters *ipFilters // ip filters
-		listener  *listener  // tcp listener
+		pool      *pool                            // backend servers pool
+		ipFilters *layer4ipfilters.Layer4IpFilters // ip filters
+		listener  *listener                        // tcp listener
 
 		startNum  uint64
 		eventChan chan interface{} // receive traffic controller event
@@ -78,7 +79,7 @@ func newRuntime(superSpec *supervisor.Spec) *runtime {
 		superSpec: superSpec,
 
 		pool:      newPool(superSpec.Super(), spec.Pool, ""),
-		ipFilters: newIPFilters(spec.IPFilter),
+		ipFilters: layer4ipfilters.NewLayer4IPFilters(spec.IPFilter),
 
 		eventChan: make(chan interface{}, 10),
 	}
@@ -123,7 +124,7 @@ func (r *runtime) fsm() {
 func (r *runtime) reload(nextSuperSpec *supervisor.Spec) {
 	r.superSpec = nextSuperSpec
 	nextSpec := nextSuperSpec.ObjectSpec().(*Spec)
-	r.ipFilters.reloadRules(nextSpec.IPFilter)
+	r.ipFilters.ReloadRules(nextSpec.IPFilter)
 	r.pool.reloadRules(nextSuperSpec.Super(), nextSpec.Pool, "")
 
 	// r.listener does not create just after the process started and the config load for the first time.

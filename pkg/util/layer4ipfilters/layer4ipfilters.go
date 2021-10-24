@@ -1,21 +1,4 @@
-/*
- * Copyright (c) 2017, MegaEase
- * All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-package udpproxy
+package layer4ipfilters
 
 import (
 	"reflect"
@@ -25,7 +8,7 @@ import (
 )
 
 type (
-	ipFilters struct {
+	Layer4IpFilters struct {
 		rules atomic.Value
 	}
 
@@ -35,8 +18,8 @@ type (
 	}
 )
 
-func newIPFilters(spec *ipfilter.Spec) *ipFilters {
-	m := &ipFilters{}
+func NewLayer4IPFilters(spec *ipfilter.Spec) *Layer4IpFilters {
+	m := &Layer4IpFilters{}
 
 	m.rules.Store(&ipFiltersRules{
 		spec:     spec,
@@ -45,7 +28,7 @@ func newIPFilters(spec *ipfilter.Spec) *ipFilters {
 	return m
 }
 
-func (i *ipFilters) AllowIP(ip string) bool {
+func (i *Layer4IpFilters) AllowIP(ip string) bool {
 	rules := i.rules.Load().(*ipFiltersRules)
 	if rules == nil || rules.spec == nil {
 		return true
@@ -53,7 +36,7 @@ func (i *ipFilters) AllowIP(ip string) bool {
 	return rules.ipFilter.Allow(ip)
 }
 
-func (i *ipFilters) reloadRules(spec *ipfilter.Spec) {
+func (i *Layer4IpFilters) ReloadRules(spec *ipfilter.Spec) {
 	if spec == nil {
 		i.rules.Store(&ipFiltersRules{})
 		return

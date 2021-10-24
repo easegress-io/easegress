@@ -19,6 +19,7 @@ package udpproxy
 
 import (
 	"fmt"
+	"github.com/megaease/easegress/pkg/util/layer4ipfilters"
 	"net"
 	"reflect"
 	"sync"
@@ -64,7 +65,7 @@ type (
 
 		state     atomic.Value     // runtime running state
 		eventChan chan interface{} // receive event
-		ipFilters *ipFilters
+		ipFilters *layer4ipfilters.Layer4IpFilters
 
 		mu sync.Mutex
 	}
@@ -76,7 +77,7 @@ func newRuntime(superSpec *supervisor.Spec) *runtime {
 		superSpec: superSpec,
 
 		pool:      newPool(superSpec.Super(), spec.Pool, ""),
-		ipFilters: newIPFilters(spec.IPFilter),
+		ipFilters: layer4ipfilters.NewLayer4IPFilters(spec.IPFilter),
 
 		eventChan: make(chan interface{}, 10),
 		sessions:  make(map[string]*session),
@@ -173,7 +174,7 @@ func (r *runtime) reload(nextSuperSpec *supervisor.Spec) {
 	r.superSpec = nextSuperSpec
 	nextSpec := nextSuperSpec.ObjectSpec().(*Spec)
 
-	r.ipFilters.reloadRules(nextSpec.IPFilter)
+	r.ipFilters.ReloadRules(nextSpec.IPFilter)
 	r.pool.reloadRules(nextSuperSpec.Super(), nextSpec.Pool, "")
 
 	// NOTE: Due to the mechanism of supervisor,
