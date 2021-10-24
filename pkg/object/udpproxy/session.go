@@ -84,17 +84,15 @@ func newSession(downstreamAddr *net.UDPAddr, upstreamAddr string, upstreamConn n
 
 				if err != nil {
 					logger.Errorf("udp connection flush data to upstream(%s) failed, err: %+v", upstreamAddr, err)
-					s.cleanWriteBuf()
-					break
+					s.Close()
+					continue
 				}
 
 				if bufLen != n {
 					logger.Errorf("udp connection flush data to upstream(%s) failed, should write %d but written %d",
 						upstreamAddr, bufLen, n)
-					s.cleanWriteBuf()
-					break
+					s.Close()
 				}
-
 			case <-s.stopChan:
 				if !atomic.CompareAndSwapUint32(&s.stopped, 0, 1) {
 					break
