@@ -57,6 +57,10 @@ type MockedHTTPContext struct {
 	MockedSetHandlerCaller   func(caller context.HandlerCaller)
 }
 
+func (c *MockedHTTPContext) Protocol() context.Protocol {
+	return context.HTTP
+}
+
 // Lock mocks the Lock function of HTTPContext
 func (c *MockedHTTPContext) Lock() {
 	if c.MockedLock != nil {

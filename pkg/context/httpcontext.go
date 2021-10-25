@@ -46,6 +46,7 @@ type (
 	// It is not goroutine-safe, callers must use Lock/Unlock
 	// to protect it by themselves.
 	HTTPContext interface {
+		Context
 		Lock()
 		Unlock()
 
@@ -54,7 +55,6 @@ type (
 		Request() HTTPRequest
 		Response() HTTPResponse
 
-		stdcontext.Context
 		Cancel(err error)
 		Cancelled() bool
 		ClientDisconnected() bool
@@ -174,6 +174,10 @@ func New(stdw http.ResponseWriter, stdr *http.Request,
 		w:              newHTTPResponse(stdw, stdr),
 		ht:             NewHTTPTemplateDummy(),
 	}
+}
+
+func (ctx *httpContext) Protocol() Protocol {
+	return HTTP
 }
 
 func (ctx *httpContext) CallNextHandler(lastResult string) string {
