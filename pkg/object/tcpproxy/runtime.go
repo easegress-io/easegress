@@ -19,7 +19,6 @@ package tcpproxy
 
 import (
 	"fmt"
-	"github.com/megaease/easegress/pkg/util/layer4ipfilters"
 	"net"
 	"reflect"
 	"sync/atomic"
@@ -28,6 +27,7 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/iobufferpool"
+	"github.com/megaease/easegress/pkg/util/ipfilter"
 )
 
 const (
@@ -61,9 +61,9 @@ type (
 		superSpec *supervisor.Spec
 		spec      *Spec
 
-		pool      *pool                            // backend servers pool
-		ipFilters *layer4ipfilters.Layer4IpFilters // ip filters
-		listener  *listener                        // tcp listener
+		pool      *pool                     // backend servers pool
+		ipFilters *ipfilter.Layer4IpFilters // ip filters
+		listener  *listener                 // tcp listener
 
 		startNum  uint64
 		eventChan chan interface{} // receive traffic controller event
@@ -79,7 +79,7 @@ func newRuntime(superSpec *supervisor.Spec) *runtime {
 		superSpec: superSpec,
 
 		pool:      newPool(superSpec.Super(), spec.Pool, ""),
-		ipFilters: layer4ipfilters.NewLayer4IPFilters(spec.IPFilter),
+		ipFilters: ipfilter.NewLayer4IPFilters(spec.IPFilter),
 
 		eventChan: make(chan interface{}, 10),
 	}
