@@ -107,7 +107,7 @@ func (c *Connection) SetOnClose(onclose func(event ConnectionEvent)) {
 	c.onClose = onclose
 }
 
-// GetReadBuffer get connection red buffer
+// GetReadBuffer get connection read buffer
 func (c *Connection) GetReadBuffer() iobufferpool.IoBuffer {
 	return c.readBuffer
 }
