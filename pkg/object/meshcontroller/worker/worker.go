@@ -390,7 +390,7 @@ func (worker *Worker) informJavaAgent() error {
 		return true
 	}
 
-	err := worker.informer.OnPartOfServiceSpec(worker.serviceName, informer.AllParts, handleServiceSpec)
+	err := worker.informer.OnPartOfServiceSpec(worker.serviceName, handleServiceSpec)
 	if err != nil && err != informer.ErrAlreadyWatched {
 		return fmt.Errorf("on informer for observability failed: %v", err)
 	}

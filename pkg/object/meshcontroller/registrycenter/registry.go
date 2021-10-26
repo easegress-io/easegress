@@ -120,7 +120,7 @@ func (rcs *Server) Register(serviceSpec *spec.Service, ingressReady ReadyFunc, e
 
 	go rcs.register(ins, ingressReady, egressReady)
 
-	rcs.informer.OnPartOfServiceSpec(rcs.serviceName, "", rcs.onUpdateLocalInfo)
+	rcs.informer.OnPartOfServiceSpec(rcs.serviceName, rcs.onUpdateLocalInfo)
 	rcs.informer.OnAllTrafficTargetSpecs(rcs.onAllTrafficTargetSpecs)
 }
 
