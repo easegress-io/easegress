@@ -144,7 +144,7 @@ func (ings *IngressServer) InitIngress(service *spec.Service, port uint32) error
 		ings.httpServer = entity
 	}
 
-	if err := ings.inf.OnPartOfServiceSpec(service.Name, informer.AllParts, ings.reloadPipeline); err != nil {
+	if err := ings.inf.OnPartOfServiceSpec(service.Name, ings.reloadPipeline); err != nil {
 		// Only return err when its type is not `AlreadyWatched`
 		if err != informer.ErrAlreadyWatched {
 			logger.Errorf("add ingress spec watching service: %s failed: %v", service.Name, err)
