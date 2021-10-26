@@ -15,4 +15,104 @@
  * limitations under the License.
  */
 
-package pipeline_test
+package pipeline
+
+import (
+	"strconv"
+	"sync"
+	"testing"
+
+	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/stretchr/testify/assert"
+)
+
+func init() {
+	Register(&mockMQTTFilter{})
+}
+
+func getPipeline(yamlStr string, t *testing.T) *Pipeline {
+	super := supervisor.NewDefaultMock()
+	superSpec, err := super.NewSpec(yamlStr)
+	if err != nil {
+		t.Errorf("supervisor unmarshal yaml failed, %s", err)
+		t.Skip()
+	}
+	p := &Pipeline{}
+	p.Init(superSpec)
+	return p
+}
+
+func TestPipeline(t *testing.T) {
+	yamlStr := `
+    name: pipeline
+    kind: Pipeline
+    protocol: MQTT
+    flow:
+    - filter: mqtt-filter
+    - filter: mqtt-filter2
+    filters:
+    - name: mqtt-filter
+      kind: MockMQTTFilter
+      userName: test
+      port: 1234
+      backendType: Kafka
+    - name: mqtt-filter2
+      kind: MockMQTTFilter`
+	p := getPipeline(yamlStr, t)
+	defer p.Close()
+
+	a := assert.New(t)
+	a.Equal(p.spec.Name, "pipeline", "wrong name")
+	a.Equal(p.spec.Protocol, context.MQTT, "wrong protocol")
+	a.Equal(len(p.spec.Flow), 2, "wrong flow length")
+	a.Equal(p.spec.Flow[0].Filter, "mqtt-filter", "wrong filter name")
+	a.Equal(len(p.runningFilters), 2, "wrong running filters")
+
+	s := p.runningFilters[0].spec
+	a.Equal(s.Name(), "mqtt-filter", "wrong filter name")
+	a.Equal(s.Kind(), "MockMQTTFilter", "wrong filter kind")
+	a.Equal(s.Pipeline(), "pipeline", "wrong filter pipeline")
+	a.Equal(s.Protocol(), context.MQTT, "wrong filter protocol")
+
+	f := p.getRunningFilter("mqtt-filter").filter.(*mockMQTTFilter)
+	a.Equal(f.spec.UserName, "test", "wrong filter username")
+	a.Equal(f.spec.Port, uint16(1234), "wrong filter port")
+	a.Equal(f.spec.BackendType, "Kafka", "wrong filter BackendType")
+
+	f = p.getRunningFilter("mqtt-filter2").filter.(*mockMQTTFilter)
+	a.Equal(f.spec.UserName, "", "wrong filter username")
+	a.Equal(f.spec.Port, uint16(0), "wrong filter port")
+	a.Equal(f.spec.BackendType, "", "wrong filter BackendType")
+}
+
+func TestHandleMQTT(t *testing.T) {
+	yamlStr := `
+    name: pipeline
+    kind: Pipeline
+    protocol: MQTT
+    flow:
+    - filter: mqtt-filter
+    filters:
+    - name: mqtt-filter
+      kind: MockMQTTFilter
+      userName: test
+      port: 1234
+      backendType: Kafka`
+	p := getPipeline(yamlStr, t)
+	defer p.Close()
+
+	var wg sync.WaitGroup
+	for i := 0; i < 1000; i++ {
+		wg.Add(1)
+		go func(i int) {
+			c := &mockMQTTClient{cid: strconv.Itoa(i)}
+			ctx := context.NewMQTTContext(c, nil)
+			p.HandleMQTT(ctx)
+			wg.Done()
+		}(i)
+	}
+	wg.Wait()
+	f := p.getRunningFilter("mqtt-filter").filter.(*mockMQTTFilter)
+	assert.Equal(t, len(f.clientCount()), 1000, "wrong client count")
+}

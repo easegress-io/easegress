@@ -27,7 +27,6 @@ type (
 	// Context is general context for HTTPContext, MQTTContext, TCPContext
 	Context interface {
 		stdcontext.Context
-
 		Protocol() Protocol
 	}
 )

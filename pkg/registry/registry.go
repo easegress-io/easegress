@@ -48,6 +48,7 @@ import (
 	_ "github.com/megaease/easegress/pkg/object/meshcontroller"
 	_ "github.com/megaease/easegress/pkg/object/mqttproxy"
 	_ "github.com/megaease/easegress/pkg/object/nacosserviceregistry"
+	_ "github.com/megaease/easegress/pkg/object/pipeline"
 	_ "github.com/megaease/easegress/pkg/object/rawconfigtrafficcontroller"
 	_ "github.com/megaease/easegress/pkg/object/trafficcontroller"
 	_ "github.com/megaease/easegress/pkg/object/websocketserver"

@@ -15,4 +15,4 @@
  * limitations under the License.
  */
 
-package pipeline_test
+package pipeline

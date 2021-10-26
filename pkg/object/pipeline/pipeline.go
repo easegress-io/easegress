@@ -63,7 +63,7 @@ func (p *Pipeline) Kind() string {
 }
 
 func (p *Pipeline) DefaultSpec() interface{} {
-	return nil
+	return &Spec{}
 }
 
 func (p *Pipeline) Status() *supervisor.Status {
@@ -75,13 +75,16 @@ func (p *Pipeline) Close() {
 }
 
 func (p *Pipeline) Init(superSpec *supervisor.Spec) {
-	p.superSpec, p.spec, p.spec.Name = superSpec, superSpec.ObjectSpec().(*Spec), superSpec.Name()
+	p.superSpec, p.spec = superSpec, superSpec.ObjectSpec().(*Spec)
+	p.spec.Name = superSpec.Name()
 	p.reload(nil /*no previous generation*/)
 	storePipeline(p.spec.Name, p.spec.Protocol, p)
 }
 
 func (p *Pipeline) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object) {
-	p.superSpec, p.spec, p.spec.Name = superSpec, superSpec.ObjectSpec().(*Spec), superSpec.Name()
+	p.superSpec, p.spec = superSpec, superSpec.ObjectSpec().(*Spec)
+	p.spec.Name = superSpec.Name()
+
 	prev := previousGeneration.(*Pipeline)
 	deletePipeline(prev.spec.Name, p.spec.Protocol)
 	p.reload(prev)
@@ -91,6 +94,7 @@ func (p *Pipeline) Inherit(superSpec *supervisor.Spec, previousGeneration superv
 func (p *Pipeline) HandleMQTT(ctx context.MQTTContext) {
 	if p.spec.Protocol != context.MQTT {
 		logger.Errorf("pipeline %s not support protocol MQTT but %s", p.spec.Name, p.spec.Protocol)
+		return
 	}
 	for _, rf := range p.runningFilters {
 		f := rf.filter.(MQTTFilter)
@@ -148,6 +152,7 @@ func (p *Pipeline) reload(previousGeneration *Pipeline) {
 
 		filter := reflect.New(reflect.TypeOf(rootFilter).Elem()).Interface().(Filter)
 		runningFilter.spec.meta.Pipeline = p.spec.Name
+		runningFilter.spec.meta.Protocol = p.spec.Protocol
 		if prevInstance == nil {
 			filter.Init(runningFilter.spec)
 		} else {
