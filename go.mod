@@ -41,7 +41,7 @@ require (
 	github.com/tcnksm/go-httpstat v0.2.1-0.20191008022543-e866bb274419
 	github.com/tidwall/gjson v1.8.0
 	github.com/tomasen/realip v0.0.0-20180522021738-f0c99a92ddce
-	github.com/valyala/bytebufferpool v1.0.0 // indirect
+	github.com/valyala/bytebufferpool v1.0.0
 	github.com/valyala/fasttemplate v1.2.1
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonschema v1.2.1-0.20201027075954-b076d39a02e5
