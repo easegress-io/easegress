@@ -41,20 +41,20 @@ type Connection struct {
 	localAddr  net.Addr
 	remoteAddr net.Addr
 
-	lastBytesSizeRead  int64
-	lastWriteSizeWrite int64
+	lastBytesSizeRead  int
+	lastWriteSizeWrite int
 
-	readBuffer      iobufferpool.IoBuffer
+	readBuffer      []byte
 	writeBuffers    net.Buffers
-	ioBuffers       []iobufferpool.IoBuffer
-	writeBufferChan chan *[]iobufferpool.IoBuffer
+	ioBuffers       []*iobufferpool.StreamBuffer
+	writeBufferChan chan *iobufferpool.StreamBuffer
 
 	mu               sync.Mutex
 	startOnce        sync.Once
 	connStopChan     chan struct{} // use for connection close
 	listenerStopChan chan struct{} // use for listener close
 
-	onRead  func(buffer iobufferpool.IoBuffer) // execute read filters
+	onRead  func(buffer *iobufferpool.StreamBuffer) // execute read filters
 	onClose func(event ConnectionEvent)
 }
 
@@ -67,7 +67,7 @@ func NewDownstreamConn(conn net.Conn, remoteAddr net.Addr, listenerStopChan chan
 		localAddr:  conn.LocalAddr(),
 		remoteAddr: conn.RemoteAddr(),
 
-		writeBufferChan: make(chan *[]iobufferpool.IoBuffer, 8),
+		writeBufferChan: make(chan *iobufferpool.StreamBuffer, 8),
 
 		mu:               sync.Mutex{},
 		connStopChan:     make(chan struct{}),
@@ -93,23 +93,18 @@ func (c *Connection) RemoteAddr() net.Addr {
 }
 
 // SetOnRead set connection read handle
-func (c *Connection) SetOnRead(onRead func(buffer iobufferpool.IoBuffer)) {
+func (c *Connection) SetOnRead(onRead func(buffer *iobufferpool.StreamBuffer)) {
 	c.onRead = onRead
 }
 
 // OnRead set data read callback
-func (c *Connection) OnRead(buffer iobufferpool.IoBuffer) {
+func (c *Connection) OnRead(buffer *iobufferpool.StreamBuffer) {
 	c.onRead(buffer)
 }
 
 // SetOnClose set close callback
 func (c *Connection) SetOnClose(onclose func(event ConnectionEvent)) {
 	c.onClose = onclose
-}
-
-// GetReadBuffer get connection read buffer
-func (c *Connection) GetReadBuffer() iobufferpool.IoBuffer {
-	return c.readBuffer
 }
 
 // Start running connection read/write loop
@@ -167,7 +162,7 @@ func (c *Connection) startRWLoop() {
 }
 
 // Write receive other connection data
-func (c *Connection) Write(buffers ...iobufferpool.IoBuffer) (err error) {
+func (c *Connection) Write(buf *iobufferpool.StreamBuffer) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Errorf("tcp connection has closed, local addr: %s, remote addr: %s, err: %+v",
@@ -177,7 +172,7 @@ func (c *Connection) Write(buffers ...iobufferpool.IoBuffer) (err error) {
 	}()
 
 	select {
-	case c.writeBufferChan <- &buffers:
+	case c.writeBufferChan <- buf:
 		return
 	default:
 	}
@@ -185,8 +180,9 @@ func (c *Connection) Write(buffers ...iobufferpool.IoBuffer) (err error) {
 	// try to send data again in 60 seconds
 	t := timerpool.Get(60 * time.Second)
 	select {
-	case c.writeBufferChan <- &buffers:
+	case c.writeBufferChan <- buf:
 	case <-t.C:
+		buf.Release()
 		err = ErrWriteBufferChanTimeout
 	}
 	timerpool.Put(t)
@@ -201,28 +197,34 @@ func (c *Connection) startReadLoop() {
 		case <-c.listenerStopChan:
 			return
 		default:
-			err := c.doReadIO()
+			bufLen, err := c.doReadIO()
 			if err != nil {
+				if atomic.LoadUint32(&c.closed) == 1 {
+					logger.Infof("tcp connection exit read loop for connection has closed, local addr: %s, "+
+						"remote addr: %s, err: %s", c.localAddr.String(), c.remoteAddr.String(), err.Error())
+					return
+				}
+
 				if te, ok := err.(net.Error); ok && te.Timeout() {
-					if c.readBuffer != nil && c.readBuffer.Len() == 0 && c.readBuffer.Cap() > iobufferpool.DefaultBufferReadCapacity {
-						c.readBuffer.Free()
-						c.readBuffer.Alloc(iobufferpool.DefaultBufferReadCapacity)
+					if bufLen == 0 {
+						continue // continue read data, ignore timeout error
 					}
-					continue
 				}
+			}
 
-				// normal close or health check
-				if c.lastBytesSizeRead == 0 || err == io.EOF {
-					logger.Infof("tcp connection error on read, local addr: %s, remote addr: %s, err: %s",
-						c.localAddr.String(), c.remoteAddr.String(), err.Error())
-				} else {
-					logger.Errorf("tcp connection error on read, local addr: %s, remote addr: %s, err: %s",
-						c.localAddr.String(), c.remoteAddr.String(), err.Error())
-				}
+			if bufLen != 0 && (err == nil || err == io.EOF) {
+				c.onRead(iobufferpool.NewStreamBuffer(c.readBuffer))
+				c.readBuffer = c.readBuffer[:0]
+			}
 
+			if err != nil {
 				if err == io.EOF {
+					logger.Infof("tcp connection read error, local addr: %s, remote addr: %s, err: %s",
+						c.localAddr.String(), c.remoteAddr.String(), err.Error())
 					_ = c.Close(NoFlush, RemoteClose)
 				} else {
+					logger.Errorf("tcp connection read error, local addr: %s, remote addr: %s, err: %s",
+						c.localAddr.String(), c.remoteAddr.String(), err.Error())
 					_ = c.Close(NoFlush, OnReadErrClose)
 				}
 				return
@@ -278,17 +280,12 @@ func (c *Connection) startWriteLoop() {
 	}
 }
 
-func (c *Connection) appendBuffer(ioBuffers *[]iobufferpool.IoBuffer) {
-	if ioBuffers == nil {
+func (c *Connection) appendBuffer(buf *iobufferpool.StreamBuffer) {
+	if buf == nil {
 		return
 	}
-	for _, buf := range *ioBuffers {
-		if buf == nil {
-			continue
-		}
-		c.ioBuffers = append(c.ioBuffers, buf)
-		c.writeBuffers = append(c.writeBuffers, buf.Bytes())
-	}
+	c.ioBuffers = append(c.ioBuffers, buf)
+	c.writeBuffers = append(c.writeBuffers, buf.Bytes())
 }
 
 // Close connection close function
@@ -300,7 +297,7 @@ func (c *Connection) Close(ccType CloseType, event ConnectionEvent) (err error) 
 	}()
 
 	if ccType == FlushWrite {
-		_ = c.Write(iobufferpool.NewIoBufferEOF())
+		_ = c.Write(iobufferpool.NewEOFStreamBuffer())
 		return nil
 	}
 
@@ -333,43 +330,15 @@ func (c *Connection) Close(ccType CloseType, event ConnectionEvent) (err error) 
 	return nil
 }
 
-func (c *Connection) doReadIO() (err error) {
+func (c *Connection) doReadIO() (bufLen int, err error) {
 	if c.readBuffer == nil {
-		c.readBuffer = iobufferpool.GetIoBuffer(iobufferpool.DefaultBufferReadCapacity)
+		c.readBuffer = iobufferpool.TCPBufferPool.Get().([]byte)
 	}
 
-	var bytesRead int64
+	// add read deadline setting optimization?
+	// https://github.com/golang/go/issues/15133
 	_ = c.rawConn.SetReadDeadline(time.Now().Add(15 * time.Second))
-	bytesRead, err = c.readBuffer.ReadOnce(c.rawConn)
-
-	if err != nil {
-		if atomic.LoadUint32(&c.closed) == 1 {
-			return err
-		}
-		if te, ok := err.(net.Error); ok && te.Timeout() {
-			if bytesRead == 0 {
-				return err
-			}
-		} else if err != io.EOF {
-			return err
-		}
-	}
-
-	if bytesRead == 0 && err == nil {
-		err = io.EOF
-		logger.Errorf("tcp connection ReadOnce maybe always return (0, nil) and causes dead loop, local addr: %s, remote addr: %s",
-			c.localAddr.String(), c.remoteAddr.String())
-	}
-
-	if c.readBuffer.Len() == 0 {
-		return
-	}
-
-	c.onRead(c.readBuffer)
-	if currLen := int64(c.readBuffer.Len()); c.lastBytesSizeRead != currLen {
-		c.lastBytesSizeRead = currLen
-	}
-	return
+	return c.rawConn.(io.Reader).Read(c.readBuffer)
 }
 
 func (c *Connection) doWrite() (int64, error) {
@@ -378,7 +347,7 @@ func (c *Connection) doWrite() (int64, error) {
 		return 0, nil
 	}
 
-	if bytesBufSize := int64(c.writeBufLen()); bytesBufSize != c.lastWriteSizeWrite {
+	if bytesBufSize := c.writeBufLen(); bytesBufSize != c.lastWriteSizeWrite {
 		c.lastWriteSizeWrite = bytesBufSize
 	}
 	return bytesSent, err
@@ -404,10 +373,7 @@ func (c *Connection) doWriteIO() (bytesSent int64, err error) {
 		if buf.EOF() {
 			err = iobufferpool.ErrEOF
 		}
-		if e := iobufferpool.PutIoBuffer(buf); e != nil {
-			logger.Errorf("tcp connection give buffer error, local addr: %s, remote addr: %s, err: %+v",
-				c.localAddr.String(), c.remoteAddr.String(), err)
-		}
+		buf.Release()
 	}
 	c.ioBuffers = c.ioBuffers[:0]
 	c.writeBuffers = c.writeBuffers[:0]
@@ -428,7 +394,7 @@ func NewUpstreamConn(connectTimeout uint32, upstreamAddr net.Addr, listenerStopC
 			connected:  1,
 			remoteAddr: upstreamAddr,
 
-			writeBufferChan: make(chan *[]iobufferpool.IoBuffer, 8),
+			writeBufferChan: make(chan *iobufferpool.StreamBuffer, 8),
 
 			mu:               sync.Mutex{},
 			connStopChan:     make(chan struct{}),

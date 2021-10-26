@@ -34,7 +34,7 @@ type session struct {
 	upstreamIdleTimeout   time.Duration
 
 	upstreamConn net.Conn
-	writeBuf     chan *iobufferpool.IoBuffer
+	writeBuf     chan *iobufferpool.Packet
 	stopChan     chan struct{}
 	stopped      uint32
 }
@@ -48,7 +48,7 @@ func newSession(downstreamAddr *net.UDPAddr, upstreamAddr string, upstreamConn n
 		upstreamIdleTimeout:   upstreamIdleTimeout,
 		downstreamIdleTimeout: downstreamIdleTimeout,
 
-		writeBuf: make(chan *iobufferpool.IoBuffer, 512),
+		writeBuf: make(chan *iobufferpool.Packet, 512),
 		stopChan: make(chan struct{}, 1),
 	}
 
@@ -78,9 +78,9 @@ func newSession(downstreamAddr *net.UDPAddr, upstreamAddr string, upstreamConn n
 					t.Reset(downstreamIdleTimeout)
 				}
 
-				bufLen := (*buf).Len()
-				n, err := s.upstreamConn.Write((*buf).Bytes())
-				_ = iobufferpool.PutIoBuffer(*buf)
+				bufLen := len(buf.Payload)
+				n, err := s.upstreamConn.Write(buf.Bytes())
+				buf.Release()
 
 				if err != nil {
 					logger.Errorf("udp connection flush data to upstream(%s) failed, err: %+v", upstreamAddr, err)
@@ -110,7 +110,7 @@ func newSession(downstreamAddr *net.UDPAddr, upstreamAddr string, upstreamConn n
 }
 
 // Write send data to buffer channel, wait flush to upstream
-func (s *session) Write(buf *iobufferpool.IoBuffer) error {
+func (s *session) Write(buf *iobufferpool.Packet) error {
 	if atomic.LoadUint32(&s.stopped) == 1 {
 		return fmt.Errorf("udp connection from %s to %s has closed", s.downstreamAddr.String(), s.upstreamAddr)
 	}
@@ -118,7 +118,7 @@ func (s *session) Write(buf *iobufferpool.IoBuffer) error {
 	select {
 	case s.writeBuf <- buf:
 	default:
-		_ = iobufferpool.PutIoBuffer(*buf) // if failed, may be try again?
+		buf.Release() // if failed, may be try again?
 	}
 	return nil
 }
@@ -126,19 +126,19 @@ func (s *session) Write(buf *iobufferpool.IoBuffer) error {
 // ListenResponse session listen upstream connection response and send to downstream
 func (s *session) ListenResponse(sendTo *net.UDPConn) {
 	go func() {
-		buf := iobufferpool.GetIoBuffer(iobufferpool.UDPPacketMaxSize)
+		buf := iobufferpool.UDPBufferPool.Get().([]byte)
 		defer s.Close()
 
 		for {
-			buf.Reset()
+			buf = buf[:0]
 			if s.upstreamIdleTimeout > 0 {
 				_ = s.upstreamConn.SetReadDeadline(time.Now().Add(s.upstreamIdleTimeout))
 			}
 
-			nRead, err := buf.ReadOnce(s.upstreamConn)
+			nRead, err := s.upstreamConn.Read(buf)
 			if err != nil {
 				if err, ok := err.(net.Error); ok && err.Timeout() {
-					return
+					return // return or continue to read?
 				}
 
 				if atomic.LoadUint32(&s.stopped) == 0 {
@@ -147,13 +147,13 @@ func (s *session) ListenResponse(sendTo *net.UDPConn) {
 				return
 			}
 
-			nWrite, err := sendTo.WriteToUDP(buf.Bytes(), s.downstreamAddr)
+			nWrite, err := sendTo.WriteToUDP(buf[0:nRead], s.downstreamAddr)
 			if err != nil {
 				logger.Errorf("udp connection send data to downstream(%s) failed, err: %+v", s.downstreamAddr.String(), err)
 				return
 			}
 
-			if nRead != int64(nWrite) {
+			if nRead != nWrite {
 				logger.Errorf("udp connection send data to downstream(%s) failed, should write %d but written %d",
 					s.downstreamAddr.String(), nRead, nWrite)
 				return
@@ -167,7 +167,7 @@ func (s *session) cleanWriteBuf() {
 		select {
 		case buf := <-s.writeBuf:
 			if buf != nil {
-				_ = iobufferpool.PutIoBuffer(*buf)
+				buf.Release()
 			}
 		default:
 			return

@@ -301,16 +301,14 @@ func (r *runtime) onAccept() func(conn net.Conn, listenerStop chan struct{}) {
 }
 
 func (r *runtime) setCallbacks(downstreamConn *Connection, upstreamConn *UpstreamConnection) {
-	downstreamConn.SetOnRead(func(readBuf iobufferpool.IoBuffer) {
+	downstreamConn.SetOnRead(func(readBuf *iobufferpool.StreamBuffer) {
 		if readBuf != nil && readBuf.Len() > 0 {
-			_ = upstreamConn.Write(readBuf.Clone())
-			readBuf.Drain(readBuf.Len())
+			_ = upstreamConn.Write(readBuf)
 		}
 	})
-	upstreamConn.SetOnRead(func(readBuf iobufferpool.IoBuffer) {
+	upstreamConn.SetOnRead(func(readBuf *iobufferpool.StreamBuffer) {
 		if readBuf != nil && readBuf.Len() > 0 {
-			_ = downstreamConn.Write(readBuf.Clone())
-			readBuf.Drain(readBuf.Len())
+			_ = downstreamConn.Write(readBuf)
 		}
 	})
 
