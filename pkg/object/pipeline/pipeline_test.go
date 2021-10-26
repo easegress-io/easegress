@@ -84,6 +84,10 @@ func TestPipeline(t *testing.T) {
 	a.Equal(f.spec.UserName, "", "wrong filter username")
 	a.Equal(f.spec.Port, uint16(0), "wrong filter port")
 	a.Equal(f.spec.BackendType, "", "wrong filter BackendType")
+
+	pipeline, err := GetPipeline("pipeline", context.MQTT)
+	a.Nil(err, "get pipeline failed")
+	a.Equal(pipeline, p, "get wrong pipeline")
 }
 
 func TestHandleMQTT(t *testing.T) {
