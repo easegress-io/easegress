@@ -88,6 +88,7 @@ func (p *Pipeline) Close() {
 	deletePipeline(p.spec.Name, p.spec.Protocol)
 }
 
+// Init init pipeline
 func (p *Pipeline) Init(superSpec *supervisor.Spec) {
 	p.superSpec, p.spec = superSpec, superSpec.ObjectSpec().(*Spec)
 	p.spec.Name = superSpec.Name()

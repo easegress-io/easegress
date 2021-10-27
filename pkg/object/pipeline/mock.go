@@ -61,19 +61,23 @@ type MockMQTTStatus map[string]int
 
 var _ MQTTFilter = (*MockMQTTFilter)(nil)
 
+// Kind retrun kind of MockMQTTFilter
 func (m *MockMQTTFilter) Kind() string {
 	return "MockMQTTFilter"
 }
 
+// DefaultSpec retrun default spec of MockMQTTFilter
 func (m *MockMQTTFilter) DefaultSpec() interface{} {
 	return &MockMQTTSpec{}
 }
 
+// Init init MockMQTTFilter
 func (m *MockMQTTFilter) Init(filterSpec *FilterSpec) {
 	m.spec = filterSpec.FilterSpec().(*MockMQTTSpec)
 	m.clients = make(map[string]int)
 }
 
+// HandleMQTT handle MQTTContext
 func (m *MockMQTTFilter) HandleMQTT(ctx context.MQTTContext) MQTTResult {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -91,6 +95,7 @@ func (m *MockMQTTFilter) clientCount() map[string]int {
 	return ans
 }
 
+// Status return status of MockMQTTFilter
 func (m *MockMQTTFilter) Status() interface{} {
 	return MockMQTTStatus(m.clientCount())
 }
@@ -102,10 +107,12 @@ type mockMQTTClient struct {
 
 var _ context.MQTTClient = (*mockMQTTClient)(nil)
 
+// ClientID return client id of mockMQTTClient
 func (c *mockMQTTClient) ClientID() string {
 	return c.cid
 }
 
+// UserName return username of mockMQTTClient
 func (c *mockMQTTClient) UserName() string {
 	return c.userName
 }
