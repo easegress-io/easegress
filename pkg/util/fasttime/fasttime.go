@@ -28,6 +28,7 @@ func Since(t time.Time) time.Duration {
 }
 
 func formatDateTime(buf []byte, t time.Time) {
+	// early bounds check to guarantee safety of writes below to improve performance
 	_ = buf[18]
 
 	y, M, d := t.Date()
@@ -55,13 +56,16 @@ func formatDateTime(buf []byte, t time.Time) {
 	buf[18] = byte(s)%10 + '0'
 }
 
+var powersOf10 = [9]int64{1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8}
+
 func formatFractional(buf []byte, t time.Time, n int) int {
+	// early bounds check to guarantee safety of writes below to improve performance
 	_ = buf[n]
 
-	f := t.UnixNano() % 1e9
-	for i := n; i < 9; i++ {
-		f /= 10
-	}
+	f := t.UnixNano() % 1e9 / powersOf10[9-n]
+
+	// The fractional part (including the dot) is omitted if its value is 0,
+	// this is to align with the behavior of the standard Go library.
 	if f == 0 {
 		return 0
 	}
@@ -82,6 +86,7 @@ func formatFractional(buf []byte, t time.Time, n int) int {
 }
 
 func formatTimeZone(buf []byte, t time.Time) int {
+	// early bounds check to guarantee safety of writes below to improve performance
 	_ = buf[5]
 
 	_, o := t.Zone()
@@ -110,28 +115,31 @@ func formatTimeZone(buf []byte, t time.Time) int {
 	return 6
 }
 
+// Layout is the layout to format a time value
+type Layout int
+
 const (
-	// RFC3339 is the format for RFC3339
-	RFC3339 = iota
-	// RFC3339Milli is the format for RFC3339 in milli-second
+	// RFC3339 is the layout for RFC3339
+	RFC3339 Layout = iota
+	// RFC3339Milli is the layout for RFC3339 in milli-second
 	RFC3339Milli
-	// RFC3339Nano is the format for RFC3339 in nano-second
+	// RFC3339Nano is the layout for RFC3339 in nano-second
 	RFC3339Nano
 )
 
-// Format is equivlant with time.Format for formats: RFC3339, RFC3339Milli and RFC3339Nano,
+// Format is equivlant with time.Format for layouts: RFC3339, RFC3339Milli and RFC3339Nano,
 // but with better performance
-func Format(t time.Time, format int) string {
+func Format(t time.Time, layout Layout) string {
 	d, m := 0, 0
 
-	switch format {
+	switch layout {
 	case RFC3339:
 	case RFC3339Milli:
 		d = 4
 	case RFC3339Nano:
 		d = 10
 	default:
-		panic(fmt.Sprint("unknown format:", format))
+		panic(fmt.Sprint("unknown layout:", layout))
 	}
 
 	buf := make([]byte, 25+d)

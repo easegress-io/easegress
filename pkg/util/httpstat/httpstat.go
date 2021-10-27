@@ -57,7 +57,7 @@ type (
 		reqSize  uint64
 		respSize uint64
 
-		cc *codecounter.CodeCounter
+		cc *codecounter.HTTPStatusCodeCounter
 	}
 
 	// Metric is the package of statistics at once.
