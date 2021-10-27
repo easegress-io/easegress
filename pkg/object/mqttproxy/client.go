@@ -72,10 +72,12 @@ type (
 
 var _ context.MQTTClient = (*Client)(nil)
 
+// ClientID return client id of Client
 func (c *Client) ClientID() string {
 	return c.info.cid
 }
 
+// UserName return username of Client
 func (c *Client) UserName() string {
 	return c.info.username
 }

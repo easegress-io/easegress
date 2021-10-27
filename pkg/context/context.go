@@ -22,8 +22,9 @@ import (
 )
 
 type (
-	//
+	// Protocol is type of protocol that context support
 	Protocol string
+
 	// Context is general context for HTTPContext, MQTTContext, TCPContext
 	Context interface {
 		stdcontext.Context
@@ -32,7 +33,12 @@ type (
 )
 
 const (
+	// HTTP is HTTP protocol
 	HTTP Protocol = "HTTP"
+
+	// MQTT is MQTT protocol
 	MQTT Protocol = "MQTT"
-	TCP  Protocol = "TCP"
+
+	// TCP is tcp protocol
+	TCP Protocol = "TCP"
 )

@@ -59,6 +59,7 @@ type (
 
 var _ MQTTContext = (*mqttContext)(nil)
 
+// NewMQTTContext create new MQTTContext
 func NewMQTTContext(ctx stdcontext.Context, client MQTTClient, packet *packets.PublishPacket) MQTTContext {
 	stdctx, cancelFunc := stdcontext.WithCancel(ctx)
 	startTime := time.Now()
@@ -72,18 +73,22 @@ func NewMQTTContext(ctx stdcontext.Context, client MQTTClient, packet *packets.P
 	}
 }
 
+// Protocol return protocol of mqttContext
 func (ctx *mqttContext) Protocol() Protocol {
 	return MQTT
 }
 
+// Deadline return deadline of mqttContext
 func (ctx *mqttContext) Deadline() (time.Time, bool) {
 	return ctx.ctx.Deadline()
 }
 
+// Done return done chan of mqttContext
 func (ctx *mqttContext) Done() <-chan struct{} {
 	return ctx.ctx.Done()
 }
 
+// Err return error of mqttContext
 func (ctx *mqttContext) Err() error {
 	ctx.mu.RLock()
 	defer ctx.mu.RUnlock()
@@ -93,37 +98,48 @@ func (ctx *mqttContext) Err() error {
 	return ctx.ctx.Err()
 }
 
+// Value return value of mqttContext for given key
 func (ctx *mqttContext) Value(key interface{}) interface{} {
 	return ctx.ctx.Value(key)
 }
 
+// Client return mqttContext client
 func (ctx *mqttContext) Client() MQTTClient {
 	return ctx.client
 }
 
+// Topic return topic of mqttContext's publish packet
 func (ctx *mqttContext) Topic() string {
 	return ctx.packet.TopicName
 }
 
+// Payload return payload of mqttContext's publish packet
 func (ctx *mqttContext) Payload() []byte {
 	return ctx.packet.Payload
 }
 
+// Cancel cancel mqttContext
 func (ctx *mqttContext) Cancel(err error) {
 	ctx.mu.Lock()
-	if !ctx.Canceled() {
+	if !ctx.canceled() {
 		ctx.err = err
 		ctx.cancelFunc()
 	}
 	ctx.mu.Unlock()
 }
 
-func (ctx *mqttContext) Canceled() bool {
-	ctx.mu.RLock()
-	defer ctx.mu.RUnlock()
+func (ctx *mqttContext) canceled() bool {
 	return ctx.err != nil || ctx.ctx.Err() != nil
 }
 
+// Canceled return if mqttContext is canceled
+func (ctx *mqttContext) Canceled() bool {
+	ctx.mu.RLock()
+	defer ctx.mu.RUnlock()
+	return ctx.canceled()
+}
+
+// Duration return time duration since this context start
 func (ctx *mqttContext) Duration() time.Duration {
 	ctx.mu.RLock()
 	defer ctx.mu.RUnlock()
@@ -133,6 +149,7 @@ func (ctx *mqttContext) Duration() time.Duration {
 	return time.Since(*ctx.startTime)
 }
 
+// Finish tell this context is finished
 func (ctx *mqttContext) Finish() {
 	ctx.mu.Lock()
 	endTime := time.Now()
