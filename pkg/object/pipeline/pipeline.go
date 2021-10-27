@@ -39,6 +39,7 @@ func init() {
 }
 
 type (
+	// Pipeline is general pipeline of Easegress
 	Pipeline struct {
 		superSpec      *supervisor.Spec
 		spec           *Spec
@@ -54,18 +55,22 @@ type (
 
 var _ supervisor.Controller = (*Pipeline)(nil)
 
+// Category return category of pipeline
 func (p *Pipeline) Category() supervisor.ObjectCategory {
 	return Category
 }
 
+// Kind return kind of pipeline
 func (p *Pipeline) Kind() string {
 	return Kind
 }
 
+// DefaultSpec return default spec of pipeline
 func (p *Pipeline) DefaultSpec() interface{} {
 	return &Spec{}
 }
 
+// Status return status of pipeline
 func (p *Pipeline) Status() *supervisor.Status {
 	s := &Status{
 		Filters: make(map[string]interface{}),
@@ -78,6 +83,7 @@ func (p *Pipeline) Status() *supervisor.Status {
 	}
 }
 
+// Close close pipeline
 func (p *Pipeline) Close() {
 	deletePipeline(p.spec.Name, p.spec.Protocol)
 }
@@ -89,6 +95,7 @@ func (p *Pipeline) Init(superSpec *supervisor.Spec) {
 	storePipeline(p.spec.Name, p.spec.Protocol, p)
 }
 
+// Inherit init new pipeline based on previous pipeline
 func (p *Pipeline) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object) {
 	p.superSpec, p.spec = superSpec, superSpec.ObjectSpec().(*Spec)
 	p.spec.Name = superSpec.Name()
@@ -99,6 +106,7 @@ func (p *Pipeline) Inherit(superSpec *supervisor.Spec, previousGeneration superv
 	storePipeline(p.spec.Name, p.spec.Protocol, p)
 }
 
+// HandleMQTT used to handle MQTT context
 func (p *Pipeline) HandleMQTT(ctx context.MQTTContext) {
 	if p.spec.Protocol != context.MQTT {
 		logger.Errorf("pipeline %s not support protocol MQTT but %s", p.spec.Name, p.spec.Protocol)

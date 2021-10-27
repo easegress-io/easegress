@@ -76,23 +76,28 @@ type (
 		HandleMQTT(context.MQTTContext) MQTTResult
 	}
 
+	// TCPFilter is the common interface for filters to handle tcp traffic
 	TCPFilter interface {
 		Filter
 
 		HandleTCP(context.TCPContext) TCPResult
 	}
 
+	// Result is result of filter
 	Result interface {
 	}
 
+	// HTTPResult is result for handling http request
 	HTTPResult interface {
 		Result
 	}
 
+	// MQTTResult is result for handling mqtt request
 	MQTTResult interface {
 		Result
 	}
 
+	// TCPResult is result for handling tcp request
 	TCPResult interface {
 		Result
 	}

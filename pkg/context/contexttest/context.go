@@ -57,6 +57,7 @@ type MockedHTTPContext struct {
 	MockedSetHandlerCaller   func(caller context.HandlerCaller)
 }
 
+// Protocol return protocol of MockedHTTPContext
 func (c *MockedHTTPContext) Protocol() context.Protocol {
 	return context.HTTP
 }

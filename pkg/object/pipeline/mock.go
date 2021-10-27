@@ -40,6 +40,7 @@ func (f *mockFilter) Inherit(filterSpec *FilterSpec, previousGeneration Filter) 
 func (f *mockFilter) Status() interface{}                                       { return nil }
 func (f *mockFilter) Close()                                                    {}
 
+// MockMQTTFilter is used for test pipeline, which will count the client number of MQTTContext
 type MockMQTTFilter struct {
 	mockFilter
 
@@ -48,12 +49,14 @@ type MockMQTTFilter struct {
 	clients map[string]int
 }
 
+// MockMQTTSpec is spec of MockMQTTFilter
 type MockMQTTSpec struct {
 	UserName    string `yaml:"userName" jsonschema:"required"`
 	Port        uint16 `yaml:"port" jsonschema:"required"`
 	BackendType string `yaml:"backendType" jsonschema:"required"`
 }
 
+// MockMQTTStatus is status of MockMQTTFilter
 type MockMQTTStatus map[string]int
 
 var _ MQTTFilter = (*MockMQTTFilter)(nil)
