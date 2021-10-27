@@ -40,7 +40,7 @@ func (f *mockFilter) Inherit(filterSpec *FilterSpec, previousGeneration Filter) 
 func (f *mockFilter) Status() interface{}                                       { return nil }
 func (f *mockFilter) Close()                                                    {}
 
-type mockMQTTFilter struct {
+type MockMQTTFilter struct {
 	mockFilter
 
 	mu      sync.Mutex
@@ -54,29 +54,31 @@ type MockMQTTSpec struct {
 	BackendType string `yaml:"backendType" jsonschema:"required"`
 }
 
-var _ MQTTFilter = (*mockMQTTFilter)(nil)
+type MockMQTTStatus map[string]int
 
-func (m *mockMQTTFilter) Kind() string {
+var _ MQTTFilter = (*MockMQTTFilter)(nil)
+
+func (m *MockMQTTFilter) Kind() string {
 	return "MockMQTTFilter"
 }
 
-func (m *mockMQTTFilter) DefaultSpec() interface{} {
+func (m *MockMQTTFilter) DefaultSpec() interface{} {
 	return &MockMQTTSpec{}
 }
 
-func (m *mockMQTTFilter) Init(filterSpec *FilterSpec) {
+func (m *MockMQTTFilter) Init(filterSpec *FilterSpec) {
 	m.spec = filterSpec.FilterSpec().(*MockMQTTSpec)
 	m.clients = make(map[string]int)
 }
 
-func (m *mockMQTTFilter) HandleMQTT(ctx context.MQTTContext) MQTTResult {
+func (m *MockMQTTFilter) HandleMQTT(ctx context.MQTTContext) MQTTResult {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.clients[ctx.Client().ClientID()]++
 	return nil
 }
 
-func (m *mockMQTTFilter) clientCount() map[string]int {
+func (m *MockMQTTFilter) clientCount() map[string]int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	ans := make(map[string]int)
@@ -86,12 +88,21 @@ func (m *mockMQTTFilter) clientCount() map[string]int {
 	return ans
 }
 
+func (m *MockMQTTFilter) Status() interface{} {
+	return MockMQTTStatus(m.clientCount())
+}
+
 type mockMQTTClient struct {
-	cid string
+	cid      string
+	userName string
 }
 
 var _ context.MQTTClient = (*mockMQTTClient)(nil)
 
 func (c *mockMQTTClient) ClientID() string {
 	return c.cid
+}
+
+func (c *mockMQTTClient) UserName() string {
+	return c.userName
 }

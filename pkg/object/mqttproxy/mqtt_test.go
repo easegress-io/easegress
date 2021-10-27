@@ -34,6 +34,8 @@ import (
 	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/object/pipeline"
+	"github.com/megaease/easegress/pkg/supervisor"
 	"gopkg.in/yaml.v2"
 )
 
@@ -1456,4 +1458,55 @@ func TestMQTTProxy(t *testing.T) {
 	broker := getBroker("test", "test", b64passwd, 1883)
 	mp.broker = broker
 	mp.Close()
+}
+
+func TestPipeline(t *testing.T) {
+	// create test pipeline first
+	pipeline.Register(&pipeline.MockMQTTFilter{})
+	yamlStr := `
+    name: mqtt-test-pipeline
+    kind: Pipeline
+    protocol: MQTT
+    flow:
+    - filter: mqtt-filter
+    filters:
+    - name: mqtt-filter
+      kind: MockMQTTFilter
+      userName: test
+      port: 1234
+      backendType: Kafka`
+	super := supervisor.NewDefaultMock()
+	superSpec, err := super.NewSpec(yamlStr)
+	if err != nil {
+		t.Errorf("supervisor unmarshal yaml failed, %s", err)
+		t.Skip()
+	}
+	pipe := pipeline.Pipeline{}
+	pipe.Init(superSpec)
+	defer pipe.Close()
+
+	// get broker
+	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
+	broker := getBroker("test", "test", b64passwd, 1883)
+	broker.pipeline = "mqtt-test-pipeline"
+	defer broker.close()
+
+	// set some client
+	clientNum := 20
+	for i := 0; i < clientNum; i++ {
+		client := getMQTTClient(t, strconv.Itoa(i), "test", "test", true)
+		topic := fmt.Sprintf("client-%d", i)
+		text := "text"
+		token := client.Publish(topic, 1, false, text)
+		token.Wait()
+		p := broker.backend.(*testMQ).get()
+		if p.TopicName != topic || string(p.Payload) != text {
+			t.Errorf("get wrong publish")
+		}
+		client.Disconnect(200)
+	}
+	filterStatus := pipe.Status().ObjectStatus.(*pipeline.Status).Filters["mqtt-filter"].(pipeline.MockMQTTStatus)
+	if len(filterStatus) != clientNum {
+		t.Errorf("filter get wrong result %v", filterStatus)
+	}
 }

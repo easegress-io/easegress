@@ -18,6 +18,7 @@
 package mqttproxy
 
 import (
+	stdcontext "context"
 	"errors"
 	"net"
 	"sync"
@@ -25,7 +26,9 @@ import (
 	"time"
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
+	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 )
 
 const (
@@ -66,6 +69,16 @@ type (
 		done       chan struct{}
 	}
 )
+
+var _ context.MQTTClient = (*Client)(nil)
+
+func (c *Client) ClientID() string {
+	return c.info.cid
+}
+
+func (c *Client) UserName() string {
+	return c.info.username
+}
 
 func newClient(connect *packets.ConnectPacket, broker *Broker, conn net.Conn) *Client {
 	var will *packets.PublishPacket
@@ -170,6 +183,15 @@ func (c *Client) processPacket(packet packets.ControlPacket) error {
 
 func (c *Client) processPublish(publish *packets.PublishPacket) {
 	logger.Debugf("client %s process publish %v", c.info.cid, publish.TopicName)
+	if c.broker.pipeline != "" {
+		pipe, err := pipeline.GetPipeline(c.broker.pipeline, context.MQTT)
+		if err != nil {
+			logger.Errorf("get pipeline %v failed, %v", c.broker.pipeline, err)
+		}
+		ctx := context.NewMQTTContext(stdcontext.Background(), c, publish)
+		pipe.HandleMQTT(ctx)
+	}
+
 	err := c.broker.backend.publish(publish)
 	if err != nil {
 		logger.Errorf("client %v publish %v failed: %v", c.info.cid, publish.TopicName, err)

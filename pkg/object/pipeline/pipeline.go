@@ -67,7 +67,15 @@ func (p *Pipeline) DefaultSpec() interface{} {
 }
 
 func (p *Pipeline) Status() *supervisor.Status {
-	return &supervisor.Status{}
+	s := &Status{
+		Filters: make(map[string]interface{}),
+	}
+	for _, rf := range p.runningFilters {
+		s.Filters[rf.spec.Name()] = rf.filter.Status()
+	}
+	return &supervisor.Status{
+		ObjectStatus: s,
+	}
 }
 
 func (p *Pipeline) Close() {

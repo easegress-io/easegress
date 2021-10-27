@@ -18,6 +18,8 @@
 package context
 
 import (
+	stdcontext "context"
+	"sync"
 	"time"
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
@@ -30,56 +32,110 @@ type (
 		Client() MQTTClient
 		Topic() string
 		Payload() []byte
+		Cancel(error)
+		Canceled() bool
+		Duration() time.Duration
+		Finish()
 	}
 
 	// MQTTClient contains client info that send this packet
 	MQTTClient interface {
 		ClientID() string
+		UserName() string
 	}
 
 	mqttContext struct {
-		client MQTTClient
-		packet *packets.PublishPacket
+		mu         sync.RWMutex
+		ctx        stdcontext.Context
+		cancelFunc stdcontext.CancelFunc
+
+		startTime *time.Time
+		endTime   *time.Time
+		client    MQTTClient
+		packet    *packets.PublishPacket
+		err       error
 	}
 )
 
 var _ MQTTContext = (*mqttContext)(nil)
 
-func NewMQTTContext(client MQTTClient, packet *packets.PublishPacket) MQTTContext {
+func NewMQTTContext(ctx stdcontext.Context, client MQTTClient, packet *packets.PublishPacket) MQTTContext {
+	stdctx, cancelFunc := stdcontext.WithCancel(ctx)
+	startTime := time.Now()
+
 	return &mqttContext{
-		client: client,
-		packet: packet,
+		ctx:        stdctx,
+		cancelFunc: cancelFunc,
+		startTime:  &startTime,
+		client:     client,
+		packet:     packet,
 	}
 }
 
-func (m *mqttContext) Protocol() Protocol {
+func (ctx *mqttContext) Protocol() Protocol {
 	return MQTT
 }
 
-func (m *mqttContext) Deadline() (deadline time.Time, ok bool) {
-	return
+func (ctx *mqttContext) Deadline() (time.Time, bool) {
+	return ctx.ctx.Deadline()
 }
 
-func (m *mqttContext) Done() <-chan struct{} {
-	return nil
+func (ctx *mqttContext) Done() <-chan struct{} {
+	return ctx.ctx.Done()
 }
 
-func (m *mqttContext) Err() error {
-	return nil
+func (ctx *mqttContext) Err() error {
+	ctx.mu.RLock()
+	defer ctx.mu.RUnlock()
+	if ctx.err != nil {
+		return ctx.err
+	}
+	return ctx.ctx.Err()
 }
 
-func (m *mqttContext) Value(key interface{}) interface{} {
-	return nil
+func (ctx *mqttContext) Value(key interface{}) interface{} {
+	return ctx.ctx.Value(key)
 }
 
-func (m *mqttContext) Client() MQTTClient {
-	return m.client
+func (ctx *mqttContext) Client() MQTTClient {
+	return ctx.client
 }
 
-func (m *mqttContext) Topic() string {
-	return m.packet.TopicName
+func (ctx *mqttContext) Topic() string {
+	return ctx.packet.TopicName
 }
 
-func (m *mqttContext) Payload() []byte {
-	return m.packet.Payload
+func (ctx *mqttContext) Payload() []byte {
+	return ctx.packet.Payload
+}
+
+func (ctx *mqttContext) Cancel(err error) {
+	ctx.mu.Lock()
+	if !ctx.Canceled() {
+		ctx.err = err
+		ctx.cancelFunc()
+	}
+	ctx.mu.Unlock()
+}
+
+func (ctx *mqttContext) Canceled() bool {
+	ctx.mu.RLock()
+	defer ctx.mu.RUnlock()
+	return ctx.err != nil || ctx.ctx.Err() != nil
+}
+
+func (ctx *mqttContext) Duration() time.Duration {
+	ctx.mu.RLock()
+	defer ctx.mu.RUnlock()
+	if ctx.endTime != nil {
+		return ctx.endTime.Sub(*ctx.startTime)
+	}
+	return time.Since(*ctx.startTime)
+}
+
+func (ctx *mqttContext) Finish() {
+	ctx.mu.Lock()
+	endTime := time.Now()
+	ctx.endTime = &endTime
+	ctx.mu.Unlock()
 }

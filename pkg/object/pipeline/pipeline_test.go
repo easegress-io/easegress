@@ -18,6 +18,7 @@
 package pipeline
 
 import (
+	stdcontext "context"
 	"strconv"
 	"sync"
 	"testing"
@@ -28,7 +29,7 @@ import (
 )
 
 func init() {
-	Register(&mockMQTTFilter{})
+	Register(&MockMQTTFilter{})
 }
 
 func getPipeline(yamlStr string, t *testing.T) *Pipeline {
@@ -75,12 +76,12 @@ func TestPipeline(t *testing.T) {
 	a.Equal(s.Pipeline(), "pipeline", "wrong filter pipeline")
 	a.Equal(s.Protocol(), context.MQTT, "wrong filter protocol")
 
-	f := p.getRunningFilter("mqtt-filter").filter.(*mockMQTTFilter)
+	f := p.getRunningFilter("mqtt-filter").filter.(*MockMQTTFilter)
 	a.Equal(f.spec.UserName, "test", "wrong filter username")
 	a.Equal(f.spec.Port, uint16(1234), "wrong filter port")
 	a.Equal(f.spec.BackendType, "Kafka", "wrong filter BackendType")
 
-	f = p.getRunningFilter("mqtt-filter2").filter.(*mockMQTTFilter)
+	f = p.getRunningFilter("mqtt-filter2").filter.(*MockMQTTFilter)
 	a.Equal(f.spec.UserName, "", "wrong filter username")
 	a.Equal(f.spec.Port, uint16(0), "wrong filter port")
 	a.Equal(f.spec.BackendType, "", "wrong filter BackendType")
@@ -111,12 +112,12 @@ func TestHandleMQTT(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			c := &mockMQTTClient{cid: strconv.Itoa(i)}
-			ctx := context.NewMQTTContext(c, nil)
+			ctx := context.NewMQTTContext(stdcontext.Background(), c, nil)
 			p.HandleMQTT(ctx)
 			wg.Done()
 		}(i)
 	}
 	wg.Wait()
-	f := p.getRunningFilter("mqtt-filter").filter.(*mockMQTTFilter)
+	f := p.getRunningFilter("mqtt-filter").filter.(*MockMQTTFilter)
 	assert.Equal(t, len(f.clientCount()), 1000, "wrong client count")
 }

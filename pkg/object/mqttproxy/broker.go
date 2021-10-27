@@ -47,6 +47,7 @@ type (
 		clients    map[string]*Client
 		sha256Auth map[string]string
 		tlsCfg     *tls.Config
+		pipeline   string
 
 		sessMgr   *SessionManager
 		topicMgr  *TopicManager
@@ -76,6 +77,7 @@ func newBroker(spec *Spec, store storage, memberURL func(string, string) ([]stri
 		egName:     spec.EGName,
 		name:       spec.Name,
 		spec:       spec,
+		pipeline:   spec.Pipeline,
 		backend:    newBackendMQ(spec),
 		clients:    make(map[string]*Client),
 		sha256Auth: make(map[string]string),

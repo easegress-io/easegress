@@ -58,6 +58,13 @@ type (
 		Pipeline string           `yaml:"-" jsonschema:"-"`
 		Protocol context.Protocol `yaml:"-" jsonschema:"-"`
 	}
+
+	// Status is the status of HTTPPipeline.
+	Status struct {
+		Health string `yaml:"health"`
+
+		Filters map[string]interface{} `yaml:"filters"`
+	}
 )
 
 // NewFilterSpec creates a filter spec and validates it.
