@@ -29,6 +29,7 @@ import (
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/iobufferpool"
 	"github.com/megaease/easegress/pkg/util/ipfilter"
+	"github.com/megaease/easegress/pkg/util/layer4backend"
 )
 
 const (
@@ -59,8 +60,8 @@ type (
 		spec      *Spec
 
 		startNum   uint64
-		pool       *pool        // backend servers pool
-		serverConn *net.UDPConn // listener
+		pool       *layer4backend.Pool // backend servers pool
+		serverConn *net.UDPConn        // listener
 		sessions   map[string]*session
 
 		state     atomic.Value     // runtime running state
@@ -76,7 +77,7 @@ func newRuntime(superSpec *supervisor.Spec) *runtime {
 	r := &runtime{
 		superSpec: superSpec,
 
-		pool:      newPool(superSpec.Super(), spec.Pool, ""),
+		pool:      layer4backend.NewPool(superSpec.Super(), spec.Pool, ""),
 		ipFilters: ipfilter.NewLayer4IPFilters(spec.IPFilter),
 
 		eventChan: make(chan interface{}, 10),
@@ -166,7 +167,7 @@ func (r *runtime) handleEventReload(e *eventReload) {
 
 func (r *runtime) handleEventClose(e *eventClose) {
 	r.closeServer()
-	r.pool.close()
+	r.pool.Close()
 	close(e.done)
 }
 
@@ -175,7 +176,7 @@ func (r *runtime) reload(nextSuperSpec *supervisor.Spec) {
 	nextSpec := nextSuperSpec.ObjectSpec().(*Spec)
 
 	r.ipFilters.ReloadRules(nextSpec.IPFilter)
-	r.pool.reloadRules(nextSuperSpec.Super(), nextSpec.Pool, "")
+	r.pool.ReloadRules(nextSuperSpec.Super(), nextSpec.Pool, "")
 
 	// NOTE: Due to the mechanism of supervisor,
 	// nextSpec must not be nil, just defensive programming here.
@@ -265,7 +266,7 @@ func (r *runtime) startServer() {
 }
 
 func (r *runtime) getUpstreamConn(pool *connPool, downstreamAddr *net.UDPAddr) (net.Conn, string, error) {
-	server, err := r.pool.next(downstreamAddr.IP.String())
+	server, err := r.pool.Next(downstreamAddr.IP.String())
 	if err != nil {
 		return nil, "", fmt.Errorf("can not get upstream addr for udp connection(:%d)", r.spec.Port)
 	}

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package tcpproxy
+package layer4backend
 
 import (
 	"fmt"

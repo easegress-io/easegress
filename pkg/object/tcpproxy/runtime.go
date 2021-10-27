@@ -19,6 +19,7 @@ package tcpproxy
 
 import (
 	"fmt"
+	"github.com/megaease/easegress/pkg/util/layer4backend"
 	"net"
 	"reflect"
 	"sync/atomic"
@@ -61,7 +62,7 @@ type (
 		superSpec *supervisor.Spec
 		spec      *Spec
 
-		pool      *pool                     // backend servers pool
+		pool      *layer4backend.Pool       // backend servers pool
 		ipFilters *ipfilter.Layer4IpFilters // ip filters
 		listener  *listener                 // tcp listener
 
@@ -78,7 +79,7 @@ func newRuntime(superSpec *supervisor.Spec) *runtime {
 	r := &runtime{
 		superSpec: superSpec,
 
-		pool:      newPool(superSpec.Super(), spec.Pool, ""),
+		pool:      layer4backend.NewPool(superSpec.Super(), spec.Pool, ""),
 		ipFilters: ipfilter.NewLayer4IPFilters(spec.IPFilter),
 
 		eventChan: make(chan interface{}, 10),
@@ -125,7 +126,7 @@ func (r *runtime) reload(nextSuperSpec *supervisor.Spec) {
 	r.superSpec = nextSuperSpec
 	nextSpec := nextSuperSpec.ObjectSpec().(*Spec)
 	r.ipFilters.ReloadRules(nextSpec.IPFilter)
-	r.pool.reloadRules(nextSuperSpec.Super(), nextSpec.Pool, "")
+	r.pool.ReloadRules(nextSuperSpec.Super(), nextSpec.Pool, "")
 
 	// r.listener does not create just after the process started and the config load for the first time.
 	if nextSpec != nil && r.listener != nil {
@@ -262,7 +263,7 @@ func (r *runtime) handleEventReload(e *eventReload) {
 
 func (r *runtime) handleEventClose(e *eventClose) {
 	r.closeServer()
-	r.pool.close()
+	r.pool.Close()
 	close(e.done)
 }
 
@@ -277,7 +278,7 @@ func (r *runtime) onAccept() func(conn net.Conn, listenerStop chan struct{}) {
 			return
 		}
 
-		server, err := r.pool.next(downstream)
+		server, err := r.pool.Next(downstream)
 		if err != nil {
 			_ = rawConn.Close()
 			logger.Errorf("close tcp connection due to no available upstream server, local addr: %s, err: %+v",

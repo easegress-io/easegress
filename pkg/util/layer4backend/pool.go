@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package udpproxy
+package layer4backend
 
 import (
 	"reflect"
@@ -25,7 +25,8 @@ import (
 )
 
 type (
-	pool struct {
+	// Pool backend servers pool
+	Pool struct {
 		rules atomic.Value
 	}
 
@@ -38,8 +39,9 @@ type (
 	}
 )
 
-func newPool(super *supervisor.Supervisor, spec *PoolSpec, tagPrefix string) *pool {
-	p := &pool{}
+// NewPool create backend server pool
+func NewPool(super *supervisor.Supervisor, spec *PoolSpec, tagPrefix string) *Pool {
+	p := &Pool{}
 
 	p.rules.Store(&poolRules{
 		spec: spec,
@@ -50,24 +52,27 @@ func newPool(super *supervisor.Supervisor, spec *PoolSpec, tagPrefix string) *po
 	return p
 }
 
-func (p *pool) next(cliAddr string) (*Server, error) {
+// Next choose one backend for proxy
+func (p *Pool) Next(cliAddr string) (*Server, error) {
 	rules := p.rules.Load().(*poolRules)
 	return rules.servers.next(cliAddr)
 }
 
-func (p *pool) close() {
+// Close shutdown backend servers watcher
+func (p *Pool) Close() {
 	if old := p.rules.Load(); old != nil {
 		oldPool := old.(*poolRules)
 		oldPool.servers.close()
 	}
 }
 
-func (p *pool) reloadRules(super *supervisor.Supervisor, spec *PoolSpec, tagPrefix string) {
+// ReloadRules reload backend servers pool rule
+func (p *Pool) ReloadRules(super *supervisor.Supervisor, spec *PoolSpec, tagPrefix string) {
 	old := p.rules.Load().(*poolRules)
 	if reflect.DeepEqual(old.spec, spec) {
 		return
 	}
-	p.close()
+	p.Close()
 	p.rules.Store(&poolRules{
 		spec: spec,
 

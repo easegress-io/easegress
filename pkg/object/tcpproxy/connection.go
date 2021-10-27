@@ -125,21 +125,14 @@ func (c *Connection) State() ConnState {
 	return ConnInit
 }
 
-// GoWithRecover wraps a `go func()` with recover()
 func (c *Connection) goWithRecover(handler func(), recoverHandler func(r interface{})) {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
 				logger.Errorf("tcp connection goroutine panic: %v\n%s\n", r, string(debug.Stack()))
 				if recoverHandler != nil {
-					go func() {
-						defer func() {
-							if p := recover(); p != nil {
-								logger.Errorf("tcp connection goroutine panic: %v\n%s\n", p, string(debug.Stack()))
-							}
-						}()
-						recoverHandler(r)
-					}()
+					// it is not needed to wrap recoverHandler with go func in the current scenario
+					recoverHandler(r)
 				}
 			}
 		}()
