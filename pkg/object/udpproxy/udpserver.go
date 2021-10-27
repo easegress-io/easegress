@@ -75,20 +75,15 @@ func (u *UDPServer) Close() {
 
 // Init initializes UDPServer.
 func (u *UDPServer) Init(superSpec *supervisor.Spec) {
-
 	u.runtime = newRuntime(superSpec)
-	u.runtime.eventChan <- &eventReload{
-		nextSuperSpec: superSpec,
-	}
 }
 
 // Inherit inherits previous generation of UDPServer.
 func (u *UDPServer) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object) {
 
 	u.runtime = previousGeneration.(*UDPServer).runtime
-	u.runtime.eventChan <- &eventReload{
-		nextSuperSpec: superSpec,
-	}
+	u.runtime.Close()
+	u.Init(superSpec)
 }
 
 func newConnPool() *connPool {

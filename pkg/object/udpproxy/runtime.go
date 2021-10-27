@@ -20,9 +20,7 @@ package udpproxy
 import (
 	"fmt"
 	"net"
-	"reflect"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/megaease/easegress/pkg/logger"
@@ -32,43 +30,19 @@ import (
 	"github.com/megaease/easegress/pkg/util/layer4backend"
 )
 
-const (
-	checkFailedTimeout = 10 * time.Second
-
-	stateNil     stateType = "nil"
-	stateFailed  stateType = "failed"
-	stateRunning stateType = "running"
-	stateClosed  stateType = "closed"
-)
-
 type (
-	stateType string
-
-	eventCheckFailed struct{}
-	eventServeFailed struct {
-		startNum uint64
-		err      error
-	}
-
-	eventReload struct {
-		nextSuperSpec *supervisor.Spec
-	}
-	eventClose struct{ done chan struct{} }
-
 	runtime struct {
 		superSpec *supervisor.Spec
 		spec      *Spec
 
-		startNum   uint64
 		pool       *layer4backend.Pool // backend servers pool
 		serverConn *net.UDPConn        // listener
 		sessions   map[string]*session
 
-		state     atomic.Value     // runtime running state
-		eventChan chan interface{} // receive event
 		ipFilters *ipfilter.Layer4IpFilters
 
-		mu sync.Mutex
+		mu   sync.Mutex
+		done chan struct{}
 	}
 )
 
@@ -80,143 +54,42 @@ func newRuntime(superSpec *supervisor.Spec) *runtime {
 		pool:      layer4backend.NewPool(superSpec.Super(), spec.Pool, ""),
 		ipFilters: ipfilter.NewLayer4IPFilters(spec.IPFilter),
 
-		eventChan: make(chan interface{}, 10),
-		sessions:  make(map[string]*session),
+		sessions: make(map[string]*session),
 	}
 
-	r.setState(stateNil)
-
-	go r.fsm()
-	go r.checkFailed()
+	r.startServer()
 	return r
-}
-
-// FSM is the finite-state-machine for the runtime.
-func (r *runtime) fsm() {
-	ticker := time.NewTicker(2 * time.Second)
-	for {
-		select {
-		case <-ticker.C:
-			r.cleanup()
-		case e := <-r.eventChan:
-			switch e := e.(type) {
-			case *eventCheckFailed:
-				r.handleEventCheckFailed()
-			case *eventServeFailed:
-				r.handleEventServeFailed(e)
-			case *eventReload:
-				r.handleEventReload(e)
-			case *eventClose:
-				ticker.Stop()
-				r.handleEventClose(e)
-				// NOTE: We don't close hs.eventChan,
-				// in case of panic of any other goroutines
-				// to send event to it later.
-				return
-			default:
-				logger.Errorf("BUG: unknown event: %T\n", e)
-			}
-		}
-	}
-}
-
-func (r *runtime) setState(state stateType) {
-	r.state.Store(state)
-}
-
-func (r *runtime) getState() stateType {
-	return r.state.Load().(stateType)
 }
 
 // Close notify runtime close
 func (r *runtime) Close() {
-	done := make(chan struct{})
-	r.eventChan <- &eventClose{done: done}
-	<-done
-}
 
-func (r *runtime) checkFailed() {
-	ticker := time.NewTicker(checkFailedTimeout)
-	for range ticker.C {
-		state := r.getState()
-		if state == stateFailed {
-			r.eventChan <- &eventCheckFailed{}
-		} else if state == stateClosed {
-			ticker.Stop()
-			return
-		}
+	close(r.done)
+	_ = r.serverConn.Close()
+
+	r.mu.Lock()
+	for k, s := range r.sessions {
+		delete(r.sessions, k)
+		s.Close()
 	}
-}
+	r.sessions = nil
+	r.mu.Unlock()
 
-func (r *runtime) handleEventCheckFailed() {
-	if r.getState() == stateFailed {
-		r.startServer()
-	}
-}
-
-func (r *runtime) handleEventServeFailed(e *eventServeFailed) {
-	if r.startNum > e.startNum {
-		return
-	}
-	r.setState(stateFailed)
-}
-
-func (r *runtime) handleEventReload(e *eventReload) {
-	r.reload(e.nextSuperSpec)
-}
-
-func (r *runtime) handleEventClose(e *eventClose) {
-	r.closeServer()
 	r.pool.Close()
-	close(e.done)
-}
-
-func (r *runtime) reload(nextSuperSpec *supervisor.Spec) {
-	r.superSpec = nextSuperSpec
-	nextSpec := nextSuperSpec.ObjectSpec().(*Spec)
-
-	r.ipFilters.ReloadRules(nextSpec.IPFilter)
-	r.pool.ReloadRules(nextSuperSpec.Super(), nextSpec.Pool, "")
-
-	// NOTE: Due to the mechanism of supervisor,
-	// nextSpec must not be nil, just defensive programming here.
-	switch {
-	case r.spec == nil && nextSpec == nil:
-		logger.Errorf("BUG: nextSpec is nil")
-		// Nothing to do.
-	case r.spec == nil && nextSpec != nil:
-		r.spec = nextSpec
-		r.startServer()
-	case r.spec != nil && nextSpec == nil:
-		logger.Errorf("BUG: nextSpec is nil")
-		r.spec = nil
-		r.closeServer()
-	case r.spec != nil && nextSpec != nil:
-		if r.needRestartServer(nextSpec) {
-			r.spec = nextSpec
-			r.closeServer()
-			r.startServer()
-		} else {
-			r.spec = nextSpec
-		}
-	}
 }
 
 func (r *runtime) startServer() {
 	listenAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf(":%d", r.spec.Port))
 	if err != nil {
-		r.setState(stateFailed)
 		logger.Errorf("parse udp listen addr(%s) failed, err: %+v", r.spec.Port, err)
 		return
 	}
 
 	r.serverConn, err = net.ListenUDP("udp", listenAddr)
 	if err != nil {
-		r.setState(stateFailed)
 		logger.Errorf("create udp listener(%s) failed, err: %+v", r.spec.Port, err)
 		return
 	}
-	r.setState(stateRunning)
 
 	var cp *connPool
 	if r.spec.HasResponse {
@@ -232,9 +105,12 @@ func (r *runtime) startServer() {
 			n, downstreamAddr, err := r.serverConn.ReadFromUDP(buf)
 
 			if err != nil {
-				if r.getState() != stateRunning {
-					return
+				select {
+				case <-r.done:
+					return // detect weather udp server is closed
+				default:
 				}
+
 				if ope, ok := err.(*net.OpError); ok {
 					// not timeout error and not temporary, which means the error is non-recoverable
 					if !(ope.Timeout() && ope.Temporary()) {
@@ -261,6 +137,19 @@ func (r *runtime) startServer() {
 			}
 
 			r.proxy(downstreamAddr, buf[0:n])
+		}
+	}()
+
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		for {
+			select {
+			case <-ticker.C:
+				r.cleanup()
+			case <-r.done:
+				ticker.Stop()
+				return
+			}
 		}
 	}()
 }
@@ -363,25 +252,4 @@ func (r *runtime) cleanup() {
 			delete(r.sessions, k)
 		}
 	}
-}
-
-func (r *runtime) closeServer() {
-	r.setState(stateClosed)
-	_ = r.serverConn.Close()
-	r.mu.Lock()
-	for k, s := range r.sessions {
-		delete(r.sessions, k)
-		s.Close()
-	}
-	r.mu.Unlock()
-}
-
-func (r *runtime) needRestartServer(nextSpec *Spec) bool {
-	x := *r.spec
-	y := *nextSpec
-
-	x.Pool, y.Pool = nil, nil
-	x.IPFilter, y.IPFilter = nil, nil
-
-	return !reflect.DeepEqual(x, y)
 }
