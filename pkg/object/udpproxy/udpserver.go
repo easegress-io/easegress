@@ -117,9 +117,6 @@ func (c *connPool) close() {
 		return
 	}
 
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	for _, conn := range c.pool {
 		_ = conn.Close()
 	}
