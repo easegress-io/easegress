@@ -32,8 +32,8 @@ type (
 		MaxConnections uint32 `yaml:"maxConns" jsonschema:"omitempty,minimum=1"`
 		ConnectTimeout uint32 `yaml:"connectTimeout" jsonschema:"omitempty"`
 
-		Pool     *layer4backend.PoolSpec `yaml:"pool" jsonschema:"required"`
-		IPFilter *ipfilter.Spec          `yaml:"ipFilters,omitempty" jsonschema:"omitempty"`
+		Pool     *layer4backend.Spec `yaml:"pool" jsonschema:"required"`
+		IPFilter *ipfilter.Spec      `yaml:"ipFilters,omitempty" jsonschema:"omitempty"`
 	}
 )
 

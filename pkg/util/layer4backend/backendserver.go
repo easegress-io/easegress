@@ -43,7 +43,7 @@ const (
 
 type (
 	servers struct {
-		poolSpec *PoolSpec
+		poolSpec *Spec
 		super    *supervisor.Supervisor
 
 		mutex           sync.Mutex
@@ -74,7 +74,7 @@ type (
 	}
 )
 
-func newServers(super *supervisor.Supervisor, poolSpec *PoolSpec) *servers {
+func newServers(super *supervisor.Supervisor, poolSpec *Spec) *servers {
 	s := &servers{
 		poolSpec: poolSpec,
 		super:    super,

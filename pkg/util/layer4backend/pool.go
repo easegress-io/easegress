@@ -32,7 +32,7 @@ type (
 
 	// pool backend server pool
 	poolRules struct {
-		spec *PoolSpec
+		spec *Spec
 
 		tagPrefix string
 		servers   *servers
@@ -40,7 +40,7 @@ type (
 )
 
 // NewPool create backend server pool
-func NewPool(super *supervisor.Supervisor, spec *PoolSpec, tagPrefix string) *Pool {
+func NewPool(super *supervisor.Supervisor, spec *Spec, tagPrefix string) *Pool {
 	p := &Pool{}
 
 	p.rules.Store(&poolRules{
@@ -67,12 +67,13 @@ func (p *Pool) Close() {
 }
 
 // ReloadRules reload backend servers pool rule
-func (p *Pool) ReloadRules(super *supervisor.Supervisor, spec *PoolSpec, tagPrefix string) {
+func (p *Pool) ReloadRules(super *supervisor.Supervisor, spec *Spec, tagPrefix string) {
 	old := p.rules.Load().(*poolRules)
 	if reflect.DeepEqual(old.spec, spec) {
 		return
 	}
 	p.Close()
+
 	p.rules.Store(&poolRules{
 		spec: spec,
 

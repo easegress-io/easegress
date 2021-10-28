@@ -52,7 +52,7 @@ func newSession(downstreamAddr *net.UDPAddr, upstreamAddr string, upstreamConn n
 		downstreamIdleTimeout: downstreamIdleTimeout,
 
 		writeBuf: make(chan *iobufferpool.Packet, 512),
-		stopChan: make(chan struct{}, 1),
+		stopChan: make(chan struct{}),
 	}
 
 	go func() {

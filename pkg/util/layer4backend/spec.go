@@ -19,8 +19,8 @@ package layer4backend
 
 import "fmt"
 
-// PoolSpec describes a pool of servers.
-type PoolSpec struct {
+// Spec describes a pool of servers.
+type Spec struct {
 	ServiceRegistry string       `yaml:"serviceRegistry" jsonschema:"omitempty"`
 	ServiceName     string       `yaml:"serviceName" jsonschema:"omitempty"`
 	Servers         []*Server    `yaml:"servers" jsonschema:"omitempty"`
@@ -29,7 +29,7 @@ type PoolSpec struct {
 }
 
 // Validate validates poolSpec.
-func (s *PoolSpec) Validate() error {
+func (s *Spec) Validate() error {
 	if s.ServiceName == "" && len(s.Servers) == 0 {
 		return fmt.Errorf("both serviceName and servers are empty")
 	}

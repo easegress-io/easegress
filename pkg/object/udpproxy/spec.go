@@ -33,8 +33,8 @@ type (
 		DownstreamIdleTimeout uint32 `yaml:"downstreamIdleTimeout" jsonschema:"omitempty,minimum=1"`
 		UpstreamIdleTimeout   uint32 `yaml:"upstreamIdleTimeout" jsonschema:"omitempty,minimum=1"`
 
-		Pool     *layer4backend.PoolSpec `yaml:"pool" jsonschema:"required"`
-		IPFilter *ipfilter.Spec          `yaml:"ipFilters,omitempty" jsonschema:"omitempty"`
+		Pool     *layer4backend.Spec `yaml:"pool" jsonschema:"required"`
+		IPFilter *ipfilter.Spec      `yaml:"ipFilters,omitempty" jsonschema:"omitempty"`
 	}
 )
 
