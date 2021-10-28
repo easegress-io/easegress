@@ -207,7 +207,7 @@ func (r *runtime) getSession(downstreamAddr *net.UDPAddr) (*session, error) {
 	defer r.mu.Unlock()
 
 	s, ok := r.sessions[key]
-	if ok && !s.IsClosed() {
+	if ok && !s.isClosed() {
 		return s, nil
 	}
 
@@ -248,7 +248,7 @@ func (r *runtime) cleanup() {
 	defer r.mu.Unlock()
 
 	for k, s := range r.sessions {
-		if s.IsClosed() {
+		if s.isClosed() {
 			delete(r.sessions, k)
 		}
 	}

@@ -25,19 +25,22 @@ import (
 
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/util/iobufferpool"
+	"github.com/megaease/easegress/pkg/util/timerpool"
 )
 
-type session struct {
-	upstreamAddr          string
-	downstreamAddr        *net.UDPAddr
-	downstreamIdleTimeout time.Duration
-	upstreamIdleTimeout   time.Duration
+type (
+	session struct {
+		upstreamAddr          string
+		downstreamAddr        *net.UDPAddr
+		downstreamIdleTimeout time.Duration
+		upstreamIdleTimeout   time.Duration
 
-	upstreamConn net.Conn
-	writeBuf     chan *iobufferpool.Packet
-	stopChan     chan struct{}
-	stopped      uint32
-}
+		upstreamConn net.Conn
+		writeBuf     chan *iobufferpool.Packet
+		stopChan     chan struct{}
+		stopped      uint32
+	}
+)
 
 func newSession(downstreamAddr *net.UDPAddr, upstreamAddr string, upstreamConn net.Conn,
 	downstreamIdleTimeout, upstreamIdleTimeout time.Duration) *session {
@@ -94,14 +97,12 @@ func newSession(downstreamAddr *net.UDPAddr, upstreamAddr string, upstreamConn n
 					s.Close()
 				}
 			case <-s.stopChan:
-				if !atomic.CompareAndSwapUint32(&s.stopped, 0, 1) {
-					break
-				}
 				if t != nil {
 					t.Stop()
 				}
 				_ = s.upstreamConn.Close()
 				s.cleanWriteBuf()
+				return
 			}
 		}
 	}()
@@ -111,16 +112,30 @@ func newSession(downstreamAddr *net.UDPAddr, upstreamAddr string, upstreamConn n
 
 // Write send data to buffer channel, wait flush to upstream
 func (s *session) Write(buf *iobufferpool.Packet) error {
-	if atomic.LoadUint32(&s.stopped) == 1 {
-		return fmt.Errorf("udp connection from %s to %s has closed", s.downstreamAddr.String(), s.upstreamAddr)
+	select {
+	case s.writeBuf <- buf:
+		return nil // try to send data with no check
+	default:
 	}
+
+	var t *time.Timer
+	if s.upstreamIdleTimeout != 0 {
+		t = timerpool.Get(s.upstreamIdleTimeout * time.Millisecond)
+	} else {
+		t = timerpool.Get(60 * time.Second)
+	}
+	defer timerpool.Put(t)
 
 	select {
 	case s.writeBuf <- buf:
-	default:
-		buf.Release() // if failed, may be try again?
+		return nil
+	case <-s.stopChan:
+		buf.Release()
+		return nil
+	case <-t.C:
+		buf.Release()
+		return fmt.Errorf("write data to channel timeout")
 	}
-	return nil
 }
 
 // ListenResponse session listen upstream connection response and send to downstream
@@ -137,12 +152,14 @@ func (s *session) ListenResponse(sendTo *net.UDPConn) {
 
 			nRead, err := s.upstreamConn.Read(buf)
 			if err != nil {
-				if err, ok := err.(net.Error); ok && err.Timeout() {
-					return // return or continue to read?
+				select {
+				case <-s.stopChan:
+					return // if session has closed, exit
+				default:
 				}
 
-				if atomic.LoadUint32(&s.stopped) == 0 {
-					logger.Errorf("udp connection read data from upstream(%s) failed, err: %+v", s.upstreamAddr, err)
+				if err, ok := err.(net.Error); ok && err.Timeout() {
+					continue
 				}
 				return
 			}
@@ -175,15 +192,14 @@ func (s *session) cleanWriteBuf() {
 	}
 }
 
-// IsClosed determine session if it is closed
-func (s *session) IsClosed() bool {
+// isClosed determine session if it is closed, used only for clean sessionMap
+func (s *session) isClosed() bool {
 	return atomic.LoadUint32(&s.stopped) == 1
 }
 
 // Close send session close signal
 func (s *session) Close() {
-	select {
-	case s.stopChan <- struct{}{}:
-	default:
+	if atomic.CompareAndSwapUint32(&s.stopped, 0, 1) {
+		close(s.stopChan)
 	}
 }
