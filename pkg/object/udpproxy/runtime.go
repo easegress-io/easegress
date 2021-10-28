@@ -235,9 +235,9 @@ func (r *runtime) proxy(downstreamAddr *net.UDPAddr, buf []byte) {
 		return
 	}
 
-	dup := iobufferpool.UDPBufferPool.Get().([]byte)[:iobufferpool.UDPPacketMaxSize]
+	dup := iobufferpool.UDPBufferPool.Get().([]byte)[:len(buf)]
 	n := copy(dup, buf)
-	err = s.Write(&iobufferpool.Packet{Payload: dup[:n], Len: n})
+	err = s.Write(&iobufferpool.Packet{Payload: dup, Len: n})
 	if err != nil {
 		logger.Errorf("write data to udp session(%s) failed, err: %v", downstreamAddr.IP.String(), err)
 	}
