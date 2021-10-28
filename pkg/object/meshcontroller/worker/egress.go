@@ -275,15 +275,21 @@ func (egs *EgressServer) listLocalAndGlobalServices() map[string]*spec.Service {
 	}
 
 	tenant := egs.service.GetTenantSpec(self.RegisterTenant)
-	for _, name := range tenant.Services {
-		if name == egs.serviceName {
-			continue
-		}
+	if tenant != nil {
+		for _, name := range tenant.Services {
+			if name == egs.serviceName {
+				continue
+			}
 
-		spec := egs.service.GetServiceSpec(name)
-		if spec != nil {
-			result[name] = spec
+			spec := egs.service.GetServiceSpec(name)
+			if spec != nil {
+				result[name] = spec
+			}
 		}
+	}
+
+	if self.RegisterTenant == spec.GlobalTenant {
+		return result
 	}
 
 	tenant = egs.service.GetTenantSpec(spec.GlobalTenant)
