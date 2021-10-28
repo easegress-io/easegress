@@ -50,6 +50,7 @@ func newRuntime(superSpec *supervisor.Spec) *runtime {
 	spec := superSpec.ObjectSpec().(*Spec)
 	r := &runtime{
 		superSpec: superSpec,
+		spec:      spec,
 
 		pool:      layer4backend.NewPool(superSpec.Super(), spec.Pool, ""),
 		ipFilters: ipfilter.NewLayer4IPFilters(spec.IPFilter),
@@ -101,8 +102,7 @@ func (r *runtime) startServer() {
 
 		buf := make([]byte, iobufferpool.UDPPacketMaxSize)
 		for {
-			buf = buf[:0]
-			n, downstreamAddr, err := r.serverConn.ReadFromUDP(buf)
+			n, downstreamAddr, err := r.serverConn.ReadFromUDP(buf[:])
 
 			if err != nil {
 				select {
@@ -235,9 +235,9 @@ func (r *runtime) proxy(downstreamAddr *net.UDPAddr, buf []byte) {
 		return
 	}
 
-	dup := iobufferpool.UDPBufferPool.Get().([]byte)
+	dup := iobufferpool.UDPBufferPool.Get().([]byte)[:iobufferpool.UDPPacketMaxSize]
 	n := copy(dup, buf)
-	err = s.Write(&iobufferpool.Packet{Payload: dup, Len: n})
+	err = s.Write(&iobufferpool.Packet{Payload: dup[:n], Len: n})
 	if err != nil {
 		logger.Errorf("write data to udp session(%s) failed, err: %v", downstreamAddr.IP.String(), err)
 	}

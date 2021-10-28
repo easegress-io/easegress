@@ -145,12 +145,11 @@ func (s *session) ListenResponse(sendTo *net.UDPConn) {
 		defer s.Close()
 
 		for {
-			buf = buf[:0]
 			if s.upstreamIdleTimeout > 0 {
 				_ = s.upstreamConn.SetReadDeadline(time.Now().Add(s.upstreamIdleTimeout))
 			}
 
-			nRead, err := s.upstreamConn.Read(buf)
+			n, err := s.upstreamConn.Read(buf)
 			if err != nil {
 				select {
 				case <-s.stopChan:
@@ -164,15 +163,15 @@ func (s *session) ListenResponse(sendTo *net.UDPConn) {
 				return
 			}
 
-			nWrite, err := sendTo.WriteToUDP(buf[0:nRead], s.downstreamAddr)
+			nWrite, err := sendTo.WriteToUDP(buf[0:n], s.downstreamAddr)
 			if err != nil {
 				logger.Errorf("udp connection send data to downstream(%s) failed, err: %+v", s.downstreamAddr.String(), err)
 				return
 			}
 
-			if nRead != nWrite {
+			if n != nWrite {
 				logger.Errorf("udp connection send data to downstream(%s) failed, should write %d but written %d",
-					s.downstreamAddr.String(), nRead, nWrite)
+					s.downstreamAddr.String(), n, nWrite)
 				return
 			}
 		}
