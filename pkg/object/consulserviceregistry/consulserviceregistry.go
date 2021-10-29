@@ -276,7 +276,33 @@ func (c *ConsulServiceRegistry) Status() *supervisor.Status {
 func (c *ConsulServiceRegistry) Close() {
 	c.serviceRegistry.DeregisterRegistry(c.Name())
 
+	if c.superSpec.Super().Cluster().IsLeader() {
+		c.cleanExternalRegistry()
+	}
+
 	close(c.done)
+}
+
+func (c *ConsulServiceRegistry) cleanExternalRegistry() {
+	instancesToDelete := map[string]*serviceregistry.ServiceInstanceSpec{}
+
+	instances, err := c.ListAllServiceInstances()
+	if err != nil {
+		logger.Errorf("list all service instances failed: %v", err)
+		return
+	}
+
+	for _, instance := range instances {
+		if instance.RegistryName != c.Name() {
+			instancesToDelete[instance.Key()] = instance
+			logger.Infof("clean %s", instance.Key())
+		}
+	}
+	err = c.DeleteServiceInstances(instancesToDelete)
+	if err != nil {
+		logger.Errorf("delete service instances %+v failed: %v",
+			instancesToDelete, err)
+	}
 }
 
 // Name returns name.

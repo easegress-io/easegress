@@ -117,6 +117,8 @@ type (
 
 		ExternalServiceRegistry string `yaml:"externalServiceRegistry" jsonschema:"omitempty"`
 
+		CleanExternalRegistry bool `yaml:"cleanExternalRegistry"`
+
 		Security *Security `yaml:"security" jsonschema:"omitempty"`
 	}
 
@@ -977,7 +979,7 @@ func (s *Service) SideCarIngressPipelineSpec(applicationPort uint32) (*superviso
 // SideCarEgressPipelineSpec returns a spec for sidecar egress pipeline
 func (s *Service) SideCarEgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec, appCert, rootCert *Certificate) (*supervisor.Spec, error) {
 	if len(instanceSpecs) == 0 {
-		return nil, fmt.Errorf("not instance")
+		return nil, fmt.Errorf("no instance")
 	}
 
 	pipelineSpecBuilder := newPipelineSpecBuilder(s.EgressPipelineName())
