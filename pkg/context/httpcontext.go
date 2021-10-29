@@ -127,6 +127,11 @@ type (
 		Size() uint64 // bytes
 	}
 
+	// HTTPResult is result for handling http request
+	HTTPResult struct {
+		Err error
+	}
+
 	// FinishFunc is the type of function to be called back
 	// when HTTPContext is finishing.
 	FinishFunc = func()

@@ -116,6 +116,9 @@ func (p *Pipeline) HandleMQTT(ctx context.MQTTContext) {
 	for _, rf := range p.runningFilters {
 		f := rf.filter.(MQTTFilter)
 		f.HandleMQTT(ctx)
+		if ctx.EarlyStop() {
+			return
+		}
 	}
 }
 

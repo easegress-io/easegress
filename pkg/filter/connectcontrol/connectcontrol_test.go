@@ -15,18 +15,10 @@
  * limitations under the License.
  */
 
-package context
+package connectcontrol
 
-type (
-	// TCPContext is context for TCP protocol
-	TCPContext interface {
-		Context
+import "testing"
 
-		// TODO
-	}
+func TestConnectControl(t *testing.T) {
 
-	// TCPResult is result for handling tcp request
-	TCPResult struct {
-		Err error
-	}
-)
+}

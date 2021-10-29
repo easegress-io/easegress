@@ -78,7 +78,7 @@ func (m *MockMQTTFilter) Init(filterSpec *FilterSpec) {
 }
 
 // HandleMQTT handle MQTTContext
-func (m *MockMQTTFilter) HandleMQTT(ctx context.MQTTContext) MQTTResult {
+func (m *MockMQTTFilter) HandleMQTT(ctx context.MQTTContext) *context.MQTTResult {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.clients[ctx.Client().ClientID()]++

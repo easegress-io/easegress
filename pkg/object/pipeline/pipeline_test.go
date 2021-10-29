@@ -23,6 +23,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/stretchr/testify/assert"
@@ -112,7 +113,8 @@ func TestHandleMQTT(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			c := &mockMQTTClient{cid: strconv.Itoa(i)}
-			ctx := context.NewMQTTContext(stdcontext.Background(), c, nil)
+			publish := packets.NewControlPacket(packets.Publish).(*packets.PublishPacket)
+			ctx := context.NewMQTTContext(stdcontext.Background(), c, publish)
 			p.HandleMQTT(ctx)
 			wg.Done()
 		}(i)

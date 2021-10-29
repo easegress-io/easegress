@@ -192,6 +192,13 @@ func (c *Client) processPublish(publish *packets.PublishPacket) {
 		}
 		ctx := context.NewMQTTContext(stdcontext.Background(), c, publish)
 		pipe.HandleMQTT(ctx)
+		if ctx.Disconnect() {
+			c.close()
+			return
+		}
+		if ctx.Drop() {
+			return
+		}
 	}
 
 	err := c.broker.backend.publish(publish)
