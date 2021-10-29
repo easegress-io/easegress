@@ -21,6 +21,7 @@ import (
 	"sync"
 
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/supervisor"
 )
 
 type mockFilter struct {
@@ -115,4 +116,16 @@ func (c *mockMQTTClient) ClientID() string {
 // UserName return username of mockMQTTClient
 func (c *mockMQTTClient) UserName() string {
 	return c.userName
+}
+
+func MockFilterSpec(super *supervisor.Supervisor, rawSpec map[string]interface{}, yamlConfig string,
+	meta *FilterMetaSpec, filterSpec interface{}, rootFilter Filter) *FilterSpec {
+	return &FilterSpec{
+		super:      super,
+		rawSpec:    rawSpec,
+		yamlConfig: yamlConfig,
+		meta:       meta,
+		filterSpec: filterSpec,
+		rootFilter: rootFilter,
+	}
 }
