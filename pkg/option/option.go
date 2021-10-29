@@ -64,6 +64,7 @@ type Options struct {
 	ClusterJoinURLs                 []string          `yaml:"cluster-join-urls"`
 	APIAddr                         string            `yaml:"api-addr"`
 	Debug                           bool              `yaml:"debug"`
+	DisableAccessLog                bool              `yaml:"disable-access-log"`
 	InitialObjectConfigFiles        []string          `yaml:"initial-object-config-files"`
 
 	// Path.

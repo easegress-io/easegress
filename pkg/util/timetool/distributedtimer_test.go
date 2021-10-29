@@ -15,35 +15,21 @@
  * limitations under the License.
  */
 
-package common
+package timetool
 
 import (
-	"fmt"
 	"testing"
 	"time"
 )
 
-func TestNow(t *testing.T) {
-	now := Now()
-	nano := NowUnixNano()
-	duration := Since(now)
-	fmt.Printf("now: %v, unix %v since: %v", now, nano, duration)
-}
+func TestDistributedTime(t *testing.T) {
+	dt := NewDistributedTimer(func() time.Duration {
+		return 20 * time.Millisecond
+	})
 
-func BenchmarkTimeNow(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		time.Now()
-	}
-}
-
-func BenchmarkNowGettimeofday(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		Now()
-	}
-}
-
-func BenchmarkNowUnixNanoGettimeofday(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		NowUnixNano()
-	}
+	<-dt.C
+	time.Sleep(30 * time.Millisecond)
+	<-dt.C
+	dt.Close()
+	time.Sleep(10 * time.Millisecond)
 }

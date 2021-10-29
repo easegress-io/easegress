@@ -18,9 +18,9 @@
 package httppipeline
 
 import (
-	"bytes"
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -28,6 +28,7 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocol"
 	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/util/fasttime"
 	"github.com/megaease/easegress/pkg/util/stringtool"
 	"github.com/megaease/easegress/pkg/util/yamltool"
 )
@@ -84,11 +85,6 @@ type (
 		Filters map[string]interface{} `yaml:"filters"`
 	}
 
-	// PipelineContext contains the context of the HTTPPipeline.
-	PipelineContext struct {
-		FilterStats *FilterStat
-	}
-
 	// FilterStat records the statistics of the running filter.
 	FilterStat struct {
 		Name     string
@@ -107,19 +103,38 @@ func (fs *FilterStat) selfDuration() time.Duration {
 	return d
 }
 
-func (ctx *PipelineContext) log() string {
-	if ctx.FilterStats == nil {
-		return "<empty>"
+var filterStatPool = sync.Pool{
+	New: func() interface{} {
+		return &FilterStat{}
+	},
+}
+
+func newFilterStat() *FilterStat {
+	return filterStatPool.Get().(*FilterStat)
+}
+
+func releaseFilterStat(fs *FilterStat) {
+	fs.Next = nil
+	filterStatPool.Put(fs)
+}
+
+func (fs *FilterStat) marshalAndRelease() string {
+	defer releaseFilterStat(fs)
+	if len(fs.Next) == 0 {
+		return "pipeline: <empty>"
 	}
 
-	var buf bytes.Buffer
-	var fn func(stat *FilterStat)
+	var buf strings.Builder
+	buf.WriteString("pipeline: ")
 
+	var fn func(stat *FilterStat)
 	fn = func(stat *FilterStat) {
+		defer releaseFilterStat(stat)
+
 		buf.WriteString(stat.Name)
 		buf.WriteByte('(')
-		buf.WriteString(stat.Result)
 		if stat.Result != "" {
+			buf.WriteString(stat.Result)
 			buf.WriteByte(',')
 		}
 		buf.WriteString(stat.selfDuration().String())
@@ -142,40 +157,8 @@ func (ctx *PipelineContext) log() string {
 		}
 	}
 
-	fn(ctx.FilterStats)
+	fn(fs.Next[0])
 	return buf.String()
-}
-
-// context.HTTPContext: *PipelineContext
-var runningContexts = sync.Map{}
-
-func newAndSetPipelineContext(ctx context.HTTPContext) *PipelineContext {
-	pipeCtx := &PipelineContext{}
-
-	runningContexts.Store(ctx, pipeCtx)
-
-	return pipeCtx
-}
-
-// GetPipelineContext returns the corresponding PipelineContext of the HTTPContext,
-// and a bool flag to represent it succeed or not.
-func GetPipelineContext(ctx context.HTTPContext) (*PipelineContext, bool) {
-	value, ok := runningContexts.Load(ctx)
-	if !ok {
-		return nil, false
-	}
-
-	pipeCtx, ok := value.(*PipelineContext)
-	if !ok {
-		logger.Errorf("BUG: want *PipelineContext, got %T", value)
-		return nil, false
-	}
-
-	return pipeCtx, true
-}
-
-func deletePipelineContext(ctx context.HTTPContext) {
-	runningContexts.Delete(ctx)
 }
 
 func extractFiltersData(config []byte) interface{} {
@@ -438,12 +421,10 @@ func (hp *HTTPPipeline) getNextFilterIndex(index int, result string) int {
 
 // Handle is the handler to deal with HTTP
 func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) {
-	pipeCtx := newAndSetPipelineContext(ctx)
-	defer deletePipelineContext(ctx)
 	ctx.SetTemplate(hp.ht)
 
 	filterIndex := -1
-	filterStat := &FilterStat{}
+	filterStat := newFilterStat()
 
 	handle := func(lastResult string) string {
 		// For saving the `filterIndex`'s filter generated HTTP Response.
@@ -455,7 +436,9 @@ func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) {
 				format := "save http rsp failed, dict is %#v err is %v"
 				logger.Errorf(format, ctx.Template().GetDict(), err)
 			}
-			logger.Debugf("filter %s, saved response dict %v", name, ctx.Template().GetDict())
+			logger.LazyDebug(func() string {
+				return fmt.Sprintf("filter %s, saved response dict %v", name, ctx.Template().GetDict())
+			})
 		}
 
 		// Filters are called recursively as a stack, so we need to save current
@@ -482,13 +465,17 @@ func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) {
 			logger.Errorf(format, ctx.Template().GetDict(), err)
 		}
 
-		logger.Debugf("filter %s saved request dict %v", name, ctx.Template().GetDict())
-		filterStat = &FilterStat{Name: name, Kind: filter.spec.Kind()}
+		logger.LazyDebug(func() string {
+			return fmt.Sprintf("filter %s saved request dict %v", name, ctx.Template().GetDict())
+		})
+		filterStat = newFilterStat()
+		filterStat.Name = name
+		filterStat.Kind = filter.spec.Kind()
 
-		startTime := time.Now()
+		startTime := fasttime.Now()
 		result := filter.filter.Handle(ctx)
 
-		filterStat.Duration = time.Since(startTime)
+		filterStat.Duration = fasttime.Since(startTime)
 		filterStat.Result = result
 
 		lastStat.Next = append(lastStat.Next, filterStat)
@@ -498,10 +485,7 @@ func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) {
 	ctx.SetHandlerCaller(handle)
 	handle("")
 
-	if len(filterStat.Next) > 0 {
-		pipeCtx.FilterStats = filterStat.Next[0]
-	}
-	ctx.AddTag(stringtool.Cat("pipeline: ", pipeCtx.log()))
+	ctx.AddTag(filterStat.marshalAndRelease())
 }
 
 func (hp *HTTPPipeline) getRunningFilter(name string) *runningFilter {

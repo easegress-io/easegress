@@ -19,7 +19,6 @@ package zipkin
 
 import (
 	"io"
-	"time"
 
 	opentracing "github.com/opentracing/opentracing-go"
 	zipkinot "github.com/openzipkin-contrib/zipkin-go-opentracing"
@@ -29,6 +28,7 @@ import (
 	zipkingohttp "github.com/openzipkin/zipkin-go/reporter/http"
 
 	"github.com/megaease/easegress/pkg/tracing/base"
+	"github.com/megaease/easegress/pkg/util/fasttime"
 )
 
 type (
@@ -75,7 +75,7 @@ func New(serviceName string, spec *Spec) (opentracing.Tracer, io.Closer, error) 
 		return nil, nil, err
 	}
 
-	sampler, err := zipkingo.NewBoundarySampler(spec.SampleRate, time.Now().Unix())
+	sampler, err := zipkingo.NewBoundarySampler(spec.SampleRate, fasttime.Now().Unix())
 	if err != nil {
 		return nil, nil, err
 	}
