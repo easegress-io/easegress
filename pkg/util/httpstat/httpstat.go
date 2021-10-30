@@ -18,7 +18,9 @@
 package httpstat
 
 import (
+	"math"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	metrics "github.com/rcrowley/go-metrics"
@@ -30,7 +32,7 @@ import (
 type (
 	// HTTPStat is the statistics tool for HTTP traffic.
 	HTTPStat struct {
-		mutex sync.Mutex
+		mutex sync.RWMutex
 
 		count  uint64
 		rate1  metrics.EWMA
@@ -48,7 +50,6 @@ type (
 
 		total uint64
 		min   uint64
-		mean  uint64
 		max   uint64
 
 		durationSampler *sampler.DurationSampler
@@ -56,7 +57,7 @@ type (
 		reqSize  uint64
 		respSize uint64
 
-		cc *codecounter.CodeCounter
+		cc *codecounter.HTTPStatusCodeCounter
 	}
 
 	// Metric is the package of statistics at once.
@@ -117,6 +118,7 @@ func New() *HTTPStat {
 		errRate5:  metrics.NewEWMA5(),
 		errRate15: metrics.NewEWMA15(),
 
+		min:             math.MaxUint64,
 		durationSampler: sampler.NewDurationSampler(),
 
 		cc: codecounter.New(),
@@ -125,45 +127,53 @@ func New() *HTTPStat {
 	return hs
 }
 
-// NOTE: The methods of HTTPStats use Mutex to protect themselves.
-// It does not hurt affect performance , because all statistics
-// are called after finishing all others stuff in HTTPContext.
-
 // Stat stats the ctx.
 func (hs *HTTPStat) Stat(m *Metric) {
-	hs.mutex.Lock()
-	defer hs.mutex.Unlock()
+	// Note: although this is a data update operation, we are using the RLock here,
+	// which means goroutines can execute this function concurrently, and contentions
+	// are handled by the atomic operations for each item.
+	//
+	// This lock is only a mutex for the 'Status' function below.
+	hs.mutex.RLock()
+	defer hs.mutex.RUnlock()
 
-	hs.count++
+	atomic.AddUint64(&hs.count, 1)
 	hs.rate1.Update(1)
 	hs.rate5.Update(1)
 	hs.rate15.Update(1)
 
 	if m.isErr() {
-		hs.errCount++
+		atomic.AddUint64(&hs.errCount, 1)
 		hs.errRate1.Update(1)
 		hs.errRate5.Update(1)
 		hs.errRate15.Update(1)
 	}
 
 	duration := uint64(m.Duration.Milliseconds())
-	hs.total += duration
-	if hs.count == 1 {
-		hs.min, hs.mean, hs.max = duration, duration, duration
-	} else {
-		if duration < hs.min {
-			hs.min = duration
+	atomic.AddUint64(&hs.total, duration)
+	for {
+		min := atomic.LoadUint64(&hs.min)
+		if duration >= min {
+			break
 		}
-		if duration > hs.max {
-			hs.max = duration
+		if atomic.CompareAndSwapUint64(&hs.min, min, duration) {
+			break
 		}
-		hs.mean = hs.total / hs.count
+	}
+	for {
+		max := atomic.LoadUint64(&hs.max)
+		if duration <= max {
+			break
+		}
+		if atomic.CompareAndSwapUint64(&hs.max, max, duration) {
+			break
+		}
 	}
 
 	hs.durationSampler.Update(m.Duration)
 
-	hs.reqSize += m.ReqSize
-	hs.respSize += m.RespSize
+	atomic.AddUint64(&hs.reqSize, m.ReqSize)
+	atomic.AddUint64(&hs.respSize, m.RespSize)
 
 	hs.cc.Count(m.StatusCode)
 }
@@ -195,7 +205,16 @@ func (hs *HTTPStat) Status() *Status {
 	}
 
 	percentiles := hs.durationSampler.Percentiles()
+	hs.durationSampler.Reset()
 
+	codes := hs.cc.Codes()
+	hs.cc.Reset()
+
+	mean, min := uint64(0), uint64(0)
+	if hs.count > 0 {
+		mean = hs.total / hs.count
+		min = hs.min
+	}
 	status := &Status{
 		Count: hs.count,
 		M1:    m1,
@@ -211,8 +230,8 @@ func (hs *HTTPStat) Status() *Status {
 		M5ErrPercent:  m5ErrPercent,
 		M15ErrPercent: m15ErrPercent,
 
-		Min:  hs.min,
-		Mean: hs.mean,
+		Min:  min,
+		Mean: mean,
 		Max:  hs.max,
 
 		P25:  percentiles[0],
@@ -226,7 +245,7 @@ func (hs *HTTPStat) Status() *Status {
 		ReqSize:  hs.reqSize,
 		RespSize: hs.respSize,
 
-		Codes: hs.cc.Codes(),
+		Codes: codes,
 	}
 
 	return status

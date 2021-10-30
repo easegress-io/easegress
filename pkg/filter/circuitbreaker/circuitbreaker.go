@@ -28,6 +28,7 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
 	libcb "github.com/megaease/easegress/pkg/util/circuitbreaker"
+	"github.com/megaease/easegress/pkg/util/fasttime"
 	"github.com/megaease/easegress/pkg/util/urlrule"
 )
 
@@ -295,7 +296,7 @@ func (cb *CircuitBreaker) handle(ctx context.HTTPContext, u *URLRule) string {
 		return ctx.CallNextHandler(resultShortCircuited)
 	}
 
-	start := time.Now()
+	start := fasttime.Now()
 	defer func() {
 		if e := recover(); e != nil {
 			d := time.Since(start)
