@@ -18,6 +18,7 @@
 package layer4backend
 
 import (
+	"fmt"
 	"reflect"
 	"sync/atomic"
 
@@ -55,6 +56,9 @@ func NewPool(super *supervisor.Supervisor, spec *Spec, tagPrefix string) *Pool {
 // Next choose one backend for proxy
 func (p *Pool) Next(cliAddr string) (*Server, error) {
 	rules := p.rules.Load().(*poolRules)
+	if rules == nil {
+		return nil, fmt.Errorf("no server available")
+	}
 	return rules.servers.next(cliAddr)
 }
 
