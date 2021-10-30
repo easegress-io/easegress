@@ -18,16 +18,29 @@
 package logger
 
 import (
-	"fmt"
 	"net/url"
 	"time"
 
-	"github.com/megaease/easegress/pkg/common"
+	"github.com/megaease/easegress/pkg/util/fasttime"
 )
+
+type lazyLogBuilder struct {
+	fn func() string
+}
+
+func (llb lazyLogBuilder) String() string {
+	return llb.fn()
+}
 
 // Debugf is the wrapper of default logger Debugf.
 func Debugf(template string, args ...interface{}) {
 	defaultLogger.Debugf(template, args...)
+}
+
+// LazyDebug logs debug log in lazy mode. if debug log is disabled by configuration,
+// it skips the the built of log message to improve performance
+func LazyDebug(fn func() string) {
+	defaultLogger.Debug(lazyLogBuilder{fn})
 }
 
 // Infof is the wrapper of default logger Infof.
@@ -62,17 +75,22 @@ func APIAccess(
 	bodyBytedReceived, bodyBytesSent int64,
 	requestTime time.Time,
 	processTime time.Duration) {
-	entry := fmt.Sprintf("%s %s %s %v rx:%dB tx:%dB start:%v process:%v",
+
+	restAPILogger.Debugf("%s %s %s %v rx:%dB tx:%dB start:%v process:%v",
 		method, remoteAddr, path, code,
 		bodyBytedReceived, bodyBytesSent,
-		requestTime.Format(time.RFC3339), processTime)
-
-	restAPILogger.Debug(entry)
+		fasttime.Format(requestTime, fasttime.RFC3339), processTime)
 }
 
 // HTTPAccess logs http access log.
-func HTTPAccess(line string) {
-	httpFilterAccessLogger.Debug(line)
+func HTTPAccess(template string, args ...interface{}) {
+	httpFilterAccessLogger.Debugf(template, args...)
+}
+
+// LazyHTTPAccess logs http access log in lazy mode, if http access log is disabled
+// by configuration, it skips the the built of log message to improve performance
+func LazyHTTPAccess(fn func() string) {
+	httpFilterAccessLogger.Debug(lazyLogBuilder{fn})
 }
 
 // NginxHTTPAccess is DEPRECATED, replaced by HTTPAccess.
@@ -112,17 +130,14 @@ func NginxHTTPAccess(remoteAddr, proto, method, path, referer, agent, realIP str
 		}
 	}
 
-	line := fmt.Sprintf(
-		`%v - - [%v] "%s %s %s" `+
-			`%v %v "%s" `+
-			`"%s" "%s" `+
-			`%f %f %v %v . `+
-			`%f %f %f`,
-		remoteAddr, common.Now().Local(), method, path, proto,
+	httpFilterAccessLogger.Debugf(`%v - - [%v] "%s %s %s" `+
+		`%v %v "%s" `+
+		`"%s" "%s" `+
+		`%f %f %v %v . `+
+		`%f %f %f`,
+		remoteAddr, fasttime.Now().Local(), method, path, proto,
 		code, bodyBytesSent, referer,
 		agent, realIP,
 		requestTime.Seconds(), upstreamResponseTime.Seconds(), upstreamAddr, upstreamCode,
 		clientWriteBodyTime.Seconds(), clientReadBodyTime.Seconds(), routeTime.Seconds())
-
-	httpFilterAccessLogger.Debug(line)
 }

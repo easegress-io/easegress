@@ -28,6 +28,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/util/fasttime"
 )
 
 type (
@@ -47,7 +48,7 @@ type (
 
 func (p *pool) newRequest(ctx context.HTTPContext, server *Server, reqBody io.Reader) (*request, error) {
 	req := &request{
-		createTime: time.Now(),
+		createTime: fasttime.Now(),
 		server:     server,
 		statResult: &httpstat.Result{},
 	}
@@ -79,7 +80,7 @@ func (r *request) start() {
 		return
 	}
 
-	now := time.Now()
+	now := fasttime.Now()
 	r._startTime = &now
 }
 
@@ -93,7 +94,7 @@ func (r *request) startTime() time.Time {
 
 func (r *request) endTime() time.Time {
 	if r._endTime == nil {
-		return time.Now()
+		return fasttime.Now()
 	}
 
 	return *r._endTime
@@ -105,7 +106,7 @@ func (r *request) finish() {
 		return
 	}
 
-	now := time.Now()
+	now := fasttime.Now()
 	r.statResult.End(now)
 	r._endTime = &now
 }
@@ -113,7 +114,7 @@ func (r *request) finish() {
 func (r *request) total() time.Duration {
 	if r._endTime == nil {
 		logger.Errorf("BUG: call total before finish")
-		return r.statResult.Total(time.Now())
+		return r.statResult.Total(fasttime.Now())
 	}
 
 	return r.statResult.Total(*r._endTime)

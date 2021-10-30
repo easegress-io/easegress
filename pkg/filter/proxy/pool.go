@@ -248,7 +248,7 @@ func (p *pool) statRequestResponse(ctx context.HTTPContext,
 			span.Finish()
 		}
 
-		ctx.AddTag(stringtool.Cat(p.tagPrefix, fmt.Sprintf("#duration: %s", req.total())))
+		ctx.AddTag(stringtool.Cat(p.tagPrefix, "#duration: ", req.total().String()))
 
 		metric := &httpstat.Metric{
 			StatusCode: resp.StatusCode,
@@ -271,15 +271,24 @@ func responseMetaSize(resp *http.Response) int {
 		text = "status code " + strconv.Itoa(resp.StatusCode)
 	}
 
-	// NOTE: We don't use httputil.DumpResponse because it does not
-	// completely output plain HTTP Request.
+	// meta length is the length of:
+	// resp.Proto + " "
+	// + strconv.Itoa(resp.StatusCode) + " "
+	// + text + "\r\n",
+	// + resp.Header().Dump() + "\r\n\r\n"
+	//
+	// but to improve performance, we won't build this string
 
-	headerDump := httpheader.New(resp.Header).Dump()
+	size := len(resp.Proto) + 1
+	if resp.StatusCode >= 100 && resp.StatusCode < 1000 {
+		size += 3 + 1
+	} else {
+		size += len(strconv.Itoa(resp.StatusCode)) + 1
+	}
+	size += len(text) + 2
+	size += httpheader.New(resp.Header).Length() + 4
 
-	respMeta := stringtool.Cat(resp.Proto, " ", strconv.Itoa(resp.StatusCode), " ", text, "\r\n",
-		headerDump, "\r\n\r\n")
-
-	return len(respMeta)
+	return size
 }
 
 func (p *pool) close() {

@@ -24,6 +24,7 @@ import (
 	opentracing "github.com/opentracing/opentracing-go"
 
 	"github.com/megaease/easegress/pkg/tracing/base"
+	"github.com/megaease/easegress/pkg/util/fasttime"
 )
 
 type (
@@ -73,7 +74,7 @@ type (
 
 // NewSpan creates a span.
 func NewSpan(tracer *Tracing, name string) Span {
-	return newSpanWithStart(tracer, name, time.Now())
+	return newSpanWithStart(tracer, name, fasttime.Now())
 }
 
 // NewSpanWithStart creates a span with specify start time.
@@ -108,7 +109,7 @@ func (s *span) Cancel() {
 }
 
 func (s *span) NewChild(name string) Span {
-	return s.newChildWithStart(name, time.Now())
+	return s.newChildWithStart(name, fasttime.Now())
 }
 
 func (s *span) NewChildWithStart(name string, startAt time.Time) Span {

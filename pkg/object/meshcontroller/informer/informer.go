@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"sync"
 
-	yamljsontool "github.com/ghodss/yaml"
-	"github.com/tidwall/gjson"
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	"gopkg.in/yaml.v2"
 
@@ -40,24 +38,6 @@ const (
 	EventUpdate = "Update"
 	// EventDelete is the delete inform event.
 	EventDelete = "Delete"
-
-	// AllParts is the path of the whole structure.
-	AllParts GJSONPath = ""
-
-	// ServiceObservability  is the path of service observability.
-	ServiceObservability GJSONPath = "observability"
-
-	// ServiceResilience is the path of service resilience.
-	ServiceResilience GJSONPath = "resilience"
-
-	// ServiceCanary is the path of service canary.
-	ServiceCanary GJSONPath = "canary"
-
-	// ServiceLoadBalance is the path of service loadbalance.
-	ServiceLoadBalance GJSONPath = "loadBalance"
-
-	// ServiceCircuitBreaker is the path of service resilience's circuitBreaker part.
-	ServiceCircuitBreaker GJSONPath = "resilience.circuitBreaker"
 )
 
 type (
@@ -66,9 +46,6 @@ type (
 		EventType string
 		RawKV     *mvccpb.KeyValue
 	}
-
-	// GJSONPath is the type of inform path, in GJSON syntax.
-	GJSONPath string
 
 	specHandleFunc  func(event Event, value string) bool
 	specsHandleFunc func(map[string]string) bool
@@ -128,30 +105,30 @@ type (
 	//  1. Based on comparison between old and new part of entry.
 	//  2. Based on comparison on entries with the same prefix.
 	Informer interface {
-		OnPartOfServiceSpec(serviceName string, gjsonPath GJSONPath, fn ServiceSpecFunc) error
+		OnPartOfServiceSpec(serviceName string, fn ServiceSpecFunc) error
 		OnAllServiceSpecs(fn ServiceSpecsFunc) error
 
-		OnPartOfServiceInstanceSpec(serviceName, instanceID string, gjsonPath GJSONPath, fn ServicesInstanceSpecFunc) error
+		OnPartOfServiceInstanceSpec(serviceName, instanceID string, fn ServicesInstanceSpecFunc) error
 		OnServiceInstanceSpecs(serviceName string, fn ServiceInstanceSpecsFunc) error
 		OnAllServiceInstanceSpecs(fn ServiceInstanceSpecsFunc) error
 
-		OnPartOfServiceInstanceStatus(serviceName, instanceID string, gjsonPath GJSONPath, fn ServiceInstanceStatusFunc) error
+		OnPartOfServiceInstanceStatus(serviceName, instanceID string, fn ServiceInstanceStatusFunc) error
 		OnServiceInstanceStatuses(serviceName string, fn ServiceInstanceStatusesFunc) error
 		OnAllServiceInstanceStatuses(fn ServiceInstanceStatusesFunc) error
 
-		OnPartOfTenantSpec(tenantName string, gjsonPath GJSONPath, fn TenantSpecFunc) error
+		OnPartOfTenantSpec(tenantName string, fn TenantSpecFunc) error
 		OnAllTenantSpecs(fn TenantSpecsFunc) error
 
-		OnPartOfIngressSpec(serviceName string, gjsonPath GJSONPath, fn IngressSpecFunc) error
+		OnPartOfIngressSpec(serviceName string, fn IngressSpecFunc) error
 		OnAllIngressSpecs(fn IngressSpecsFunc) error
 
-		OnPartOfHTTPRouteGroupSpec(groupName string, gjsonPath GJSONPath, fn HTTPRouteGroupSpecFunc) error
+		OnPartOfHTTPRouteGroupSpec(groupName string, fn HTTPRouteGroupSpecFunc) error
 		OnAllHTTPRouteGroupSpecs(fn HTTPRouteGroupSpecsFunc) error
 
-		OnPartOfTrafficTargetSpec(ttName string, gjsonPath GJSONPath, fn TrafficTargetSpecFunc) error
+		OnPartOfTrafficTargetSpec(ttName string, fn TrafficTargetSpecFunc) error
 		OnAllTrafficTargetSpecs(fn TrafficTargetSpecsFunc) error
 
-		StopWatchServiceSpec(serviceName string, gjsonPath GJSONPath)
+		StopWatchServiceSpec(serviceName string)
 		StopWatchServiceInstanceSpec(serviceName string)
 
 		OnAllServerCert(fn ServiceCertsFunc) error
@@ -291,14 +268,14 @@ func (inf *meshInformer) stopSyncOneKey(key string) {
 	}
 }
 
-func serviceSpecSyncerKey(serviceName string, gjsonPath GJSONPath) string {
-	return fmt.Sprintf("service-spec-%s-%s", serviceName, gjsonPath)
+func serviceSpecSyncerKey(serviceName string) string {
+	return fmt.Sprintf("service-spec-%s", serviceName)
 }
 
-// OnPartOfServiceSpec watches one service's spec by given gjsonPath.
-func (inf *meshInformer) OnPartOfServiceSpec(serviceName string, gjsonPath GJSONPath, fn ServiceSpecFunc) error {
+// OnPartOfServiceSpec watches one service's spec
+func (inf *meshInformer) OnPartOfServiceSpec(serviceName string, fn ServiceSpecFunc) error {
 	storeKey := layout.ServiceSpecKey(serviceName)
-	syncerKey := serviceSpecSyncerKey(serviceName, gjsonPath)
+	syncerKey := serviceSpecSyncerKey(serviceName)
 
 	specFunc := func(event Event, value string) bool {
 		serviceSpec := &spec.Service{}
@@ -311,18 +288,18 @@ func (inf *meshInformer) OnPartOfServiceSpec(serviceName string, gjsonPath GJSON
 		return fn(event, serviceSpec)
 	}
 
-	return inf.onSpecPart(storeKey, syncerKey, gjsonPath, specFunc)
+	return inf.onSpecPart(storeKey, syncerKey, specFunc)
 }
 
-func (inf *meshInformer) StopWatchServiceSpec(serviceName string, gjsonPath GJSONPath) {
-	syncerKey := serviceSpecSyncerKey(serviceName, gjsonPath)
+func (inf *meshInformer) StopWatchServiceSpec(serviceName string) {
+	syncerKey := serviceSpecSyncerKey(serviceName)
 	inf.stopSyncOneKey(syncerKey)
 }
 
-// OnPartOfServiceInstanceSpec watches one service's instance spec by given gjsonPath.
-func (inf *meshInformer) OnPartOfServiceInstanceSpec(serviceName, instanceID string, gjsonPath GJSONPath, fn ServicesInstanceSpecFunc) error {
+// OnPartOfServiceInstanceSpec watches one service's instance spec
+func (inf *meshInformer) OnPartOfServiceInstanceSpec(serviceName, instanceID string, fn ServicesInstanceSpecFunc) error {
 	storeKey := layout.ServiceInstanceSpecKey(serviceName, instanceID)
-	syncerKey := fmt.Sprintf("service-instance-spec-%s-%s-%s", serviceName, instanceID, gjsonPath)
+	syncerKey := fmt.Sprintf("service-instance-spec-%s-%s", serviceName, instanceID)
 
 	specFunc := func(event Event, value string) bool {
 		instanceSpec := &spec.ServiceInstanceSpec{}
@@ -335,13 +312,13 @@ func (inf *meshInformer) OnPartOfServiceInstanceSpec(serviceName, instanceID str
 		return fn(event, instanceSpec)
 	}
 
-	return inf.onSpecPart(storeKey, syncerKey, gjsonPath, specFunc)
+	return inf.onSpecPart(storeKey, syncerKey, specFunc)
 }
 
-// OnPartOfServiceInstanceStatus watches one service instance status spec by given gjsonPath.
-func (inf *meshInformer) OnPartOfServiceInstanceStatus(serviceName, instanceID string, gjsonPath GJSONPath, fn ServiceInstanceStatusFunc) error {
+// OnPartOfServiceInstanceStatus watches one service instance status spec
+func (inf *meshInformer) OnPartOfServiceInstanceStatus(serviceName, instanceID string, fn ServiceInstanceStatusFunc) error {
 	storeKey := layout.ServiceInstanceStatusKey(serviceName, instanceID)
-	syncerKey := fmt.Sprintf("service-instance-status-%s-%s-%s", serviceName, instanceID, gjsonPath)
+	syncerKey := fmt.Sprintf("service-instance-status-%s-%s", serviceName, instanceID)
 
 	specFunc := func(event Event, value string) bool {
 		instanceStatus := &spec.ServiceInstanceStatus{}
@@ -354,11 +331,11 @@ func (inf *meshInformer) OnPartOfServiceInstanceStatus(serviceName, instanceID s
 		return fn(event, instanceStatus)
 	}
 
-	return inf.onSpecPart(storeKey, syncerKey, gjsonPath, specFunc)
+	return inf.onSpecPart(storeKey, syncerKey, specFunc)
 }
 
-// OnPartOfTenantSpec watches one tenant spec by given gjsonPath.
-func (inf *meshInformer) OnPartOfTenantSpec(tenant string, gjsonPath GJSONPath, fn TenantSpecFunc) error {
+// OnPartOfTenantSpec watches one tenant spec
+func (inf *meshInformer) OnPartOfTenantSpec(tenant string, fn TenantSpecFunc) error {
 	storeKey := layout.TenantSpecKey(tenant)
 	syncerKey := fmt.Sprintf("tenant-%s", tenant)
 
@@ -373,11 +350,11 @@ func (inf *meshInformer) OnPartOfTenantSpec(tenant string, gjsonPath GJSONPath, 
 		return fn(event, tenantSpec)
 	}
 
-	return inf.onSpecPart(storeKey, syncerKey, gjsonPath, specFunc)
+	return inf.onSpecPart(storeKey, syncerKey, specFunc)
 }
 
-// OnPartOfIngressSpec watches one ingress spec by given gjsonPath.
-func (inf *meshInformer) OnPartOfIngressSpec(ingress string, gjsonPath GJSONPath, fn IngressSpecFunc) error {
+// OnPartOfIngressSpec watches one ingress spec
+func (inf *meshInformer) OnPartOfIngressSpec(ingress string, fn IngressSpecFunc) error {
 	storeKey := layout.IngressSpecKey(ingress)
 	syncerKey := fmt.Sprintf("ingress-%s", ingress)
 
@@ -392,11 +369,11 @@ func (inf *meshInformer) OnPartOfIngressSpec(ingress string, gjsonPath GJSONPath
 		return fn(event, ingressSpec)
 	}
 
-	return inf.onSpecPart(storeKey, syncerKey, gjsonPath, specFunc)
+	return inf.onSpecPart(storeKey, syncerKey, specFunc)
 }
 
-// OnPartOfHTTPRouteGroupSpec watches one HTTP route group spec by given gjsonPath.
-func (inf *meshInformer) OnPartOfHTTPRouteGroupSpec(group string, gjsonPath GJSONPath, fn HTTPRouteGroupSpecFunc) error {
+// OnPartOfHTTPRouteGroupSpec watches one HTTP route group spec
+func (inf *meshInformer) OnPartOfHTTPRouteGroupSpec(group string, fn HTTPRouteGroupSpecFunc) error {
 	storeKey := layout.HTTPRouteGroupKey(group)
 	syncerKey := fmt.Sprintf("http-route-group-%s", group)
 
@@ -411,11 +388,11 @@ func (inf *meshInformer) OnPartOfHTTPRouteGroupSpec(group string, gjsonPath GJSO
 		return fn(event, groupSpec)
 	}
 
-	return inf.onSpecPart(storeKey, syncerKey, gjsonPath, specFunc)
+	return inf.onSpecPart(storeKey, syncerKey, specFunc)
 }
 
-// OnPartOfTrafficTargetSpec watches one traffic target spec by given gjsonPath.
-func (inf *meshInformer) OnPartOfTrafficTargetSpec(tt string, gjsonPath GJSONPath, fn TrafficTargetSpecFunc) error {
+// OnPartOfTrafficTargetSpec watches one traffic target spec
+func (inf *meshInformer) OnPartOfTrafficTargetSpec(tt string, fn TrafficTargetSpecFunc) error {
 	storeKey := layout.TrafficTargetKey(tt)
 	syncerKey := fmt.Sprintf("traffic-target-%s", tt)
 
@@ -430,7 +407,7 @@ func (inf *meshInformer) OnPartOfTrafficTargetSpec(tt string, gjsonPath GJSONPat
 		return fn(event, ttSpec)
 	}
 
-	return inf.onSpecPart(storeKey, syncerKey, gjsonPath, specFunc)
+	return inf.onSpecPart(storeKey, syncerKey, specFunc)
 }
 
 // OnAllServiceSpecs watches all service specs
@@ -619,7 +596,7 @@ func (inf *meshInformer) onCert(storeKey, syncerKey string, fn CertFunc) error {
 		}
 		return fn(event, cert)
 	}
-	return inf.onSpecPart(storeKey, syncerKey, "", specFunc)
+	return inf.onSpecPart(storeKey, syncerKey, specFunc)
 }
 
 func (inf *meshInformer) OnIngressControllerCert(instanceID string, fn CertFunc) error {
@@ -702,30 +679,9 @@ func (inf *meshInformer) OnAllTrafficTargetSpecs(fn TrafficTargetSpecsFunc) erro
 	return inf.onSpecs(storeKey, syncerKey, specsFunc)
 }
 
-func (inf *meshInformer) comparePart(path GJSONPath, old, new string) bool {
-	if path == AllParts {
-		return old == new
-	}
-
-	oldJSON, err := yamljsontool.YAMLToJSON([]byte(old))
-	if err != nil {
-		logger.Errorf("BUG: transform yaml %s to json failed: %v", old, err)
-		return true
-	}
-
-	newJSON, err := yamljsontool.YAMLToJSON([]byte(new))
-	if err != nil {
-		logger.Errorf("BUG: transform yaml %s to json failed: %v", new, err)
-		return true
-	}
-
-	return gjson.Get(string(oldJSON), string(path)) == gjson.Get(string(newJSON), string(path))
-}
-
-// TODO: gjsonPath is useless now, need to be removed
 // also need to rename this function and all its caller functions
 // as they are not accurate anymore
-func (inf *meshInformer) onSpecPart(storeKey, syncerKey string, gjsonPath GJSONPath, fn specHandleFunc) error {
+func (inf *meshInformer) onSpecPart(storeKey, syncerKey string, fn specHandleFunc) error {
 	inf.mutex.Lock()
 	defer inf.mutex.Unlock()
 

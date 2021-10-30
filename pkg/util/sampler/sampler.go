@@ -18,86 +18,103 @@
 package sampler
 
 import (
+	"sync/atomic"
 	"time"
-
-	metrics "github.com/rcrowley/go-metrics"
 )
 
 type (
 	// DurationSampler is the sampler for sampling duration.
 	DurationSampler struct {
-		sample metrics.Sample
+		count     uint64
+		durations []uint32
+	}
+
+	// DurationSegment defines resolution for a duration segment
+	DurationSegment struct {
+		resolution time.Duration
+		slots      int
 	}
 )
 
-func nanoToMilli(f float64) float64 {
-	return f / 1000000
+var segments = []DurationSegment{
+	{time.Millisecond, 500},        // < 500ms
+	{time.Millisecond * 2, 250},    // < 1s
+	{time.Millisecond * 4, 250},    // < 2s
+	{time.Millisecond * 8, 125},    // < 3s
+	{time.Millisecond * 16, 125},   // < 5s
+	{time.Millisecond * 32, 125},   // < 9s
+	{time.Millisecond * 64, 125},   // < 17s
+	{time.Millisecond * 128, 125},  // < 33s
+	{time.Millisecond * 256, 125},  // < 65s
+	{time.Millisecond * 512, 125},  // < 129s
+	{time.Millisecond * 1024, 125}, // < 257s
 }
 
 // NewDurationSampler creates a DurationSampler.
 func NewDurationSampler() *DurationSampler {
+	slots := 1
+	for _, s := range segments {
+		slots += s.slots
+	}
 	return &DurationSampler{
-		// https://github.com/rcrowley/go-metrics/blob/3113b8401b8a98917cde58f8bbd42a1b1c03b1fd/sample_test.go#L65
-		sample: metrics.NewExpDecaySample(1028, 0.015),
+		durations: make([]uint32, slots),
 	}
 }
 
-// Update updates the sample.
+// Update updates the sample. This function could be called concurrently,
+// but should not be called concurrently with Percentiles.
 func (ds *DurationSampler) Update(d time.Duration) {
-	ds.sample.Update(int64(d))
+	idx := 0
+	for _, s := range segments {
+		bound := s.resolution * time.Duration(s.slots)
+		if d < bound-s.resolution/2 {
+			idx += int((d + s.resolution/2) / s.resolution)
+			break
+		}
+		d -= bound
+		idx += s.slots
+	}
+	atomic.AddUint64(&ds.count, 1)
+	atomic.AddUint32(&ds.durations[idx], 1)
 }
 
-// P25 returns the duration in millisecond greater than 25%.
-func (ds *DurationSampler) P25() float64 {
-	return nanoToMilli(ds.sample.Percentile(0.25))
-}
-
-// P50 returns the duration in millisecond greater than 50%.
-func (ds *DurationSampler) P50() float64 {
-	return nanoToMilli(ds.sample.Percentile(0.5))
-}
-
-// P75 returns the duration in millisecond greater than 75%.
-func (ds *DurationSampler) P75() float64 {
-	return nanoToMilli(ds.sample.Percentile(0.75))
-}
-
-// P95 returns the duration in millisecond greater than 95%.
-func (ds *DurationSampler) P95() float64 {
-	return nanoToMilli(ds.sample.Percentile(0.95))
-}
-
-// P98 returns the duration in millisecond greater than 98%.
-func (ds *DurationSampler) P98() float64 {
-	return nanoToMilli(ds.sample.Percentile(0.98))
-}
-
-// P99 returns the duration in millisecond greater than 99%.
-func (ds *DurationSampler) P99() float64 {
-	return nanoToMilli(ds.sample.Percentile(0.99))
-}
-
-// P999 returns the duration in millisecond greater than 99.9%.
-func (ds *DurationSampler) P999() float64 {
-	return nanoToMilli(ds.sample.Percentile(0.999))
+// Reset reset the DurationSampler to initial state
+func (ds *DurationSampler) Reset() {
+	for i := 0; i < len(ds.durations); i++ {
+		ds.durations[i] = 0
+	}
+	ds.count = 0
 }
 
 // Percentiles returns 7 metrics by order:
 // P25, P50, P75, P95, P98, P99, P999
 func (ds *DurationSampler) Percentiles() []float64 {
-	ps := ds.sample.Percentiles([]float64{
-		0.25, 0.5, 0.75,
-		0.95, 0.98, 0.99,
-		0.999,
-	})
-	for i, p := range ps {
-		ps[i] = nanoToMilli(p)
+	percentiles := []float64{0.25, 0.5, 0.75, 0.95, 0.98, 0.99, 0.999}
+
+	result := make([]float64, len(percentiles))
+	count, total := uint64(0), float64(ds.count)
+	di, pi := 0, 0
+	base := time.Duration(0)
+	for _, s := range segments {
+		for i := 0; i < s.slots; i++ {
+			count += uint64(ds.durations[di])
+			di++
+			p := float64(count) / total
+			for p >= percentiles[pi] {
+				d := base + s.resolution*time.Duration(i)
+				result[pi] = float64(d / time.Millisecond)
+				pi++
+				if pi == len(percentiles) {
+					return result
+				}
+			}
+		}
+		base += s.resolution * time.Duration(s.slots)
 	}
 
-	return ps
-}
-
-// Count return total count of DurationSampler.
-func (ds *DurationSampler) Count() float64 {
-	return float64(ds.sample.Count())
+	for pi < len(percentiles) {
+		result[pi] = 9999999
+		pi++
+	}
+	return result
 }

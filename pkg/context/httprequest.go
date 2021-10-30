@@ -25,7 +25,6 @@ import (
 
 	"github.com/megaease/easegress/pkg/util/callbackreader"
 	"github.com/megaease/easegress/pkg/util/httpheader"
-	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
 type (
@@ -67,12 +66,19 @@ func newHTTPRequest(stdr *http.Request) *httpRequest {
 	})
 
 	// Reference: https://tools.ietf.org/html/rfc2616#section-5
-	// NOTE: We don't use httputil.DumpRequest because it does not
-	// completely output plain HTTP Request.
-	meta := stringtool.Cat(stdr.Method, " ", stdr.URL.RequestURI(), " ", stdr.Proto, "\r\n",
-		hq.Header().Dump(), "\r\n\r\n")
+	//
+	// meta length is the length of:
+	// w.stdr.Method + " "
+	// + stdr.URL.RequestURI() + " "
+	// + stdr.Proto + "\r\n",
+	// + w.Header().Dump() + "\r\n\r\n"
+	//
+	// but to improve performance, we won't build this string
 
-	hq.metaSize = len(meta)
+	hq.metaSize += len(stdr.Method) + 1
+	hq.metaSize += len(stdr.URL.RequestURI()) + 1
+	hq.metaSize += len(stdr.Proto) + 2
+	hq.metaSize += hq.Header().Length() + 4
 
 	return hq
 }

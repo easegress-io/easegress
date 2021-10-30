@@ -120,7 +120,7 @@ func (rcs *Server) Register(serviceSpec *spec.Service, ingressReady ReadyFunc, e
 
 	go rcs.register(ins, ingressReady, egressReady)
 
-	rcs.informer.OnPartOfServiceSpec(rcs.serviceName, "", rcs.onUpdateLocalInfo)
+	rcs.informer.OnPartOfServiceSpec(rcs.serviceName, rcs.onUpdateLocalInfo)
 	rcs.informer.OnAllTrafficTargetSpecs(rcs.onAllTrafficTargetSpecs)
 }
 
@@ -197,25 +197,22 @@ func (rcs *Server) register(ins *spec.ServiceInstanceSpec, ingressReady ReadyFun
 		return nil
 	}
 
-	var tryTimes int
 	var firstSucceed bool
+	ticker := time.NewTicker(5 * time.Second)
 	for {
+		err := routine()
+		if err != nil {
+			logger.Errorf("register failed: %v", err)
+		} else if !firstSucceed {
+			logger.Infof("register instance spec succeed")
+			firstSucceed = true
+		}
+
 		select {
 		case <-rcs.done:
+			ticker.Stop()
 			return
-		default:
-			tryTimes++
-
-			err := routine()
-			if err != nil {
-				logger.Errorf("register failed: %v", err)
-				time.Sleep(5 * time.Second)
-			} else {
-				if !firstSucceed {
-					logger.Infof("register instance spec succeed")
-					firstSucceed = true
-				}
-			}
+		case <-ticker.C:
 		}
 	}
 }
