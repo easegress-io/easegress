@@ -72,7 +72,6 @@ func (p *Pool) ReloadRules(super *supervisor.Supervisor, spec *Spec, tagPrefix s
 	if reflect.DeepEqual(old.spec, spec) {
 		return
 	}
-	p.Close()
 
 	p.rules.Store(&poolRules{
 		spec: spec,
@@ -80,4 +79,5 @@ func (p *Pool) ReloadRules(super *supervisor.Supervisor, spec *Spec, tagPrefix s
 		tagPrefix: tagPrefix,
 		servers:   newServers(super, spec),
 	})
+	p.Close()
 }
