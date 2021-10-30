@@ -58,10 +58,9 @@ type Connection struct {
 	onClose func(event ConnectionEvent)
 }
 
-// NewDownstreamConn wrap connection create from client
-// @param remoteAddr client addr for udp proxy use
-func NewDownstreamConn(conn net.Conn, remoteAddr net.Addr, listenerStopChan chan struct{}) *Connection {
-	clientConn := &Connection{
+// NewClientConn wrap connection create from client
+func NewClientConn(conn net.Conn, listenerStopChan chan struct{}) *Connection {
+	return &Connection{
 		connected:  1,
 		rawConn:    conn,
 		localAddr:  conn.LocalAddr(),
@@ -73,23 +72,6 @@ func NewDownstreamConn(conn net.Conn, remoteAddr net.Addr, listenerStopChan chan
 		connStopChan:     make(chan struct{}),
 		listenerStopChan: listenerStopChan,
 	}
-
-	if remoteAddr != nil {
-		clientConn.remoteAddr = remoteAddr
-	} else {
-		clientConn.remoteAddr = conn.RemoteAddr() // udp server rawConn can not get remote address
-	}
-	return clientConn
-}
-
-// LocalAddr get connection local addr
-func (c *Connection) LocalAddr() net.Addr {
-	return c.localAddr
-}
-
-// RemoteAddr get connection remote addr(it's nil for udp server rawConn)
-func (c *Connection) RemoteAddr() net.Addr {
-	return c.rawConn.RemoteAddr()
 }
 
 // SetOnRead set connection read handle
@@ -373,19 +355,19 @@ func (c *Connection) doWriteIO() (bytesSent int64, err error) {
 	return
 }
 
-// UpstreamConnection wrap connection to upstream
-type UpstreamConnection struct {
+// ServerConnection wrap tcp connection to backend server
+type ServerConnection struct {
 	Connection
 	connectTimeout time.Duration
 	connectOnce    sync.Once
 }
 
-// NewUpstreamConn construct tcp upstream connection
-func NewUpstreamConn(connectTimeout uint32, upstreamAddr net.Addr, listenerStopChan chan struct{}) *UpstreamConnection {
-	conn := &UpstreamConnection{
+// NewServerConn construct tcp server connection
+func NewServerConn(connectTimeout uint32, serverAddr net.Addr, listenerStopChan chan struct{}) *ServerConnection {
+	conn := &ServerConnection{
 		Connection: Connection{
 			connected:  1,
-			remoteAddr: upstreamAddr,
+			remoteAddr: serverAddr,
 
 			writeBufferChan: make(chan *iobufferpool.StreamBuffer, 8),
 
@@ -398,14 +380,14 @@ func NewUpstreamConn(connectTimeout uint32, upstreamAddr net.Addr, listenerStopC
 	return conn
 }
 
-func (u *UpstreamConnection) connect() (event ConnectionEvent, err error) {
+func (u *ServerConnection) connect() (event ConnectionEvent, err error) {
 	timeout := u.connectTimeout
 	if timeout == 0 {
 		timeout = 10 * time.Second
 	}
 	addr := u.remoteAddr
 	if addr == nil {
-		return ConnectFailed, errors.New("upstream addr is nil")
+		return ConnectFailed, errors.New("server addr is nil")
 	}
 	u.rawConn, err = net.DialTimeout("tcp", addr.String(), timeout)
 	if err != nil {
@@ -427,15 +409,15 @@ func (u *UpstreamConnection) connect() (event ConnectionEvent, err error) {
 	return
 }
 
-// Connect tcp upstream connect to backend server
-func (u *UpstreamConnection) Connect() (err error) {
+// Connect create backend server tcp connection
+func (u *ServerConnection) Connect() (err error) {
 	u.connectOnce.Do(func() {
 		var event ConnectionEvent
 		event, err = u.connect()
 		if err == nil {
 			u.Start()
 		}
-		logger.Debugf("tcp connect upstream(%s), event: %s, err: %+v", u.remoteAddr, event, err)
+		logger.Debugf("tcp connect server(%s), event: %s, err: %+v", u.remoteAddr, event, err)
 	})
 	return
 }

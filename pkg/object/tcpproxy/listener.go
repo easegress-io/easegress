@@ -38,8 +38,8 @@ type listener struct {
 	stopChan chan struct{}
 	maxConns uint32 // maxConn for tcp listener
 
-	tcpListener *limitlistener.LimitListener                    // tcp listener with accept limit
-	onAccept    func(conn net.Conn, listenerStop chan struct{}) // tcp accept handle
+	listener *limitlistener.LimitListener                    // tcp listener with accept limit
+	onAccept func(conn net.Conn, listenerStop chan struct{}) // tcp accept handle
 }
 
 func newListener(spec *Spec, onAccept func(conn net.Conn, listenerStop chan struct{})) *listener {
@@ -62,14 +62,14 @@ func (l *listener) listen() error {
 		return err
 	}
 	// wrap tcp listener with accept limit
-	l.tcpListener = limitlistener.NewLimitListener(tl, l.maxConns)
+	l.listener = limitlistener.NewLimitListener(tl, l.maxConns)
 	return nil
 }
 
 func (l *listener) acceptEventLoop() {
 
 	for {
-		tconn, err := l.tcpListener.Accept()
+		tconn, err := l.listener.Accept()
 		if err == nil {
 			go l.onAccept(tconn, l.stopChan)
 			continue
@@ -103,15 +103,12 @@ func (l *listener) acceptEventLoop() {
 }
 
 func (l *listener) setMaxConnection(maxConn uint32) {
-	l.tcpListener.SetMaxConnection(maxConn)
+	l.listener.SetMaxConnection(maxConn)
 }
 
 func (l *listener) close() (err error) {
-	l.mutex.Lock()
-	defer l.mutex.Unlock()
-
-	if l.tcpListener != nil {
-		err = l.tcpListener.Close()
+	if l.listener != nil {
+		err = l.listener.Close()
 	}
 	close(l.stopChan)
 	return err

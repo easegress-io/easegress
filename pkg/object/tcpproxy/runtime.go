@@ -19,7 +19,6 @@ package tcpproxy
 
 import (
 	"fmt"
-	"github.com/megaease/easegress/pkg/util/layer4backend"
 	"net"
 	"reflect"
 	"sync/atomic"
@@ -29,6 +28,7 @@ import (
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/iobufferpool"
 	"github.com/megaease/easegress/pkg/util/ipfilter"
+	"github.com/megaease/easegress/pkg/util/layer4backend"
 )
 
 const (
@@ -270,61 +270,61 @@ func (r *runtime) handleEventClose(e *eventClose) {
 func (r *runtime) onAccept() func(conn net.Conn, listenerStop chan struct{}) {
 
 	return func(rawConn net.Conn, listenerStop chan struct{}) {
-		downstream := rawConn.RemoteAddr().(*net.TCPAddr).IP.String()
-		if r.ipFilters != nil && !r.ipFilters.AllowIP(downstream) {
+		clientIP := rawConn.RemoteAddr().(*net.TCPAddr).IP.String()
+		if r.ipFilters != nil && !r.ipFilters.AllowIP(clientIP) {
 			_ = rawConn.Close()
 			logger.Infof("close tcp connection from %s to %s which ip is not allowed",
 				rawConn.RemoteAddr().String(), rawConn.LocalAddr().String())
 			return
 		}
 
-		server, err := r.pool.Next(downstream)
+		server, err := r.pool.Next(clientIP)
 		if err != nil {
 			_ = rawConn.Close()
-			logger.Errorf("close tcp connection due to no available upstream server, local addr: %s, err: %+v",
+			logger.Errorf("close tcp connection due to no available server, local addr: %s, err: %+v",
 				rawConn.LocalAddr(), err)
 			return
 		}
 
-		upstreamAddr, _ := net.ResolveTCPAddr("tcp", server.Addr)
-		upstreamConn := NewUpstreamConn(r.spec.ConnectTimeout, upstreamAddr, listenerStop)
-		if err := upstreamConn.Connect(); err != nil {
-			logger.Errorf("upstream connect failed(name: %s, addr: %s), err: %+v",
+		serverAddr, _ := net.ResolveTCPAddr("tcp", server.Addr)
+		serverConn := NewServerConn(r.spec.ConnectTimeout, serverAddr, listenerStop)
+		if err := serverConn.Connect(); err != nil {
+			logger.Errorf("connect to server failed(name: %s, addr: %s), err: %+v",
 				r.spec.Name, rawConn.LocalAddr().String(), err)
 			_ = rawConn.Close()
 			return
 		}
 
-		downstreamConn := NewDownstreamConn(rawConn, rawConn.RemoteAddr(), listenerStop)
-		r.setCallbacks(downstreamConn, upstreamConn)
-		downstreamConn.Start() // upstream conn start read/write loop when connect is called
+		clientConn := NewClientConn(rawConn, listenerStop)
+		r.setCallbacks(clientConn, serverConn)
+		clientConn.Start() // server conn start read/write loop when connect is called
 	}
 }
 
-func (r *runtime) setCallbacks(downstreamConn *Connection, upstreamConn *UpstreamConnection) {
-	downstreamConn.SetOnRead(func(readBuf *iobufferpool.StreamBuffer) {
+func (r *runtime) setCallbacks(clientConn *Connection, serverConn *ServerConnection) {
+	clientConn.SetOnRead(func(readBuf *iobufferpool.StreamBuffer) {
 		if readBuf != nil && readBuf.Len() > 0 {
-			_ = upstreamConn.Write(readBuf)
+			_ = serverConn.Write(readBuf)
 		}
 	})
-	upstreamConn.SetOnRead(func(readBuf *iobufferpool.StreamBuffer) {
+	serverConn.SetOnRead(func(readBuf *iobufferpool.StreamBuffer) {
 		if readBuf != nil && readBuf.Len() > 0 {
-			_ = downstreamConn.Write(readBuf)
+			_ = clientConn.Write(readBuf)
 		}
 	})
 
-	downstreamConn.SetOnClose(func(event ConnectionEvent) {
+	clientConn.SetOnClose(func(event ConnectionEvent) {
 		if event == RemoteClose {
-			_ = upstreamConn.Close(FlushWrite, LocalClose)
+			_ = serverConn.Close(FlushWrite, LocalClose)
 		} else {
-			_ = upstreamConn.Close(NoFlush, LocalClose)
+			_ = serverConn.Close(NoFlush, LocalClose)
 		}
 	})
-	upstreamConn.SetOnClose(func(event ConnectionEvent) {
+	serverConn.SetOnClose(func(event ConnectionEvent) {
 		if event == RemoteClose {
-			_ = downstreamConn.Close(FlushWrite, LocalClose)
+			_ = clientConn.Close(FlushWrite, LocalClose)
 		} else {
-			_ = downstreamConn.Close(NoFlush, LocalClose)
+			_ = clientConn.Close(NoFlush, LocalClose)
 		}
 	})
 }
