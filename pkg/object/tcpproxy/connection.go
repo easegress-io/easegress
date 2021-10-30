@@ -59,7 +59,7 @@ type Connection struct {
 }
 
 // NewDownstreamConn wrap connection create from client
-// @param remoteAddr client addr for udp proxy use
+// @param remoteAddr client addr for tcp proxy use
 func NewDownstreamConn(conn net.Conn, remoteAddr net.Addr, listenerStopChan chan struct{}) *Connection {
 	clientConn := &Connection{
 		connected:  1,
