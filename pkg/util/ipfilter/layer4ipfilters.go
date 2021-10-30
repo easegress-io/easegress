@@ -23,6 +23,7 @@ import (
 )
 
 type (
+	// Layer4IpFilters layer4 ip filters
 	Layer4IpFilters struct {
 		rules atomic.Value
 	}
@@ -33,6 +34,7 @@ type (
 	}
 )
 
+// NewLayer4IPFilters create layer4 ip filters
 func NewLayer4IPFilters(spec *Spec) *Layer4IpFilters {
 	if spec == nil {
 		return &Layer4IpFilters{}
@@ -46,6 +48,7 @@ func NewLayer4IPFilters(spec *Spec) *Layer4IpFilters {
 	return m
 }
 
+// AllowIP check whether the IP is allowed to pass
 func (i *Layer4IpFilters) AllowIP(ip string) bool {
 	rules := i.rules.Load().(*ipFiltersRules)
 	if rules == nil || rules.spec == nil {
@@ -54,6 +57,7 @@ func (i *Layer4IpFilters) AllowIP(ip string) bool {
 	return rules.ipFilter.Allow(ip)
 }
 
+// ReloadRules reload layer4 ip filters rules
 func (i *Layer4IpFilters) ReloadRules(spec *Spec) {
 	if spec == nil {
 		i.rules.Store(&ipFiltersRules{})
