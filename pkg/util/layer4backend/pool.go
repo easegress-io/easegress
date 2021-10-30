@@ -61,8 +61,8 @@ func (p *Pool) Next(cliAddr string) (*Server, error) {
 // Close shutdown backend servers watcher
 func (p *Pool) Close() {
 	if old := p.rules.Load(); old != nil {
-		oldPool := old.(*poolRules)
-		oldPool.servers.close()
+		oldRules := old.(*poolRules)
+		oldRules.servers.close()
 	}
 }
 

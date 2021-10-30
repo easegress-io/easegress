@@ -30,26 +30,26 @@ import (
 
 type (
 	session struct {
-		upstreamAddr          string
-		downstreamAddr        *net.UDPAddr
-		downstreamIdleTimeout time.Duration
-		upstreamIdleTimeout   time.Duration
+		clientAddr        *net.UDPAddr
+		serverAddr        string
+		clientIdleTimeout time.Duration
+		serverIdleTimeout time.Duration
 
-		upstreamConn net.Conn
-		writeBuf     chan *iobufferpool.Packet
-		stopChan     chan struct{}
-		stopped      uint32
+		serverConn net.Conn
+		writeBuf   chan *iobufferpool.Packet
+		stopChan   chan struct{}
+		stopped    uint32
 	}
 )
 
-func newSession(downstreamAddr *net.UDPAddr, upstreamAddr string, upstreamConn net.Conn,
-	downstreamIdleTimeout, upstreamIdleTimeout time.Duration) *session {
+func newSession(clientAddr *net.UDPAddr, serverAddr string, serverConn net.Conn,
+	clientIdleTimeout, serverIdleTimeout time.Duration) *session {
 	s := session{
-		upstreamAddr:          upstreamAddr,
-		downstreamAddr:        downstreamAddr,
-		upstreamConn:          upstreamConn,
-		upstreamIdleTimeout:   upstreamIdleTimeout,
-		downstreamIdleTimeout: downstreamIdleTimeout,
+		serverAddr:        serverAddr,
+		clientAddr:        clientAddr,
+		serverConn:        serverConn,
+		serverIdleTimeout: serverIdleTimeout,
+		clientIdleTimeout: clientIdleTimeout,
 
 		writeBuf: make(chan *iobufferpool.Packet, 512),
 		stopChan: make(chan struct{}),
@@ -59,8 +59,8 @@ func newSession(downstreamAddr *net.UDPAddr, upstreamAddr string, upstreamConn n
 		var t *time.Timer
 		var idleCheck <-chan time.Time
 
-		if downstreamIdleTimeout > 0 {
-			t = time.NewTimer(downstreamIdleTimeout)
+		if clientIdleTimeout > 0 {
+			t = time.NewTimer(clientIdleTimeout)
 			idleCheck = t.C
 		}
 
@@ -78,29 +78,29 @@ func newSession(downstreamAddr *net.UDPAddr, upstreamAddr string, upstreamConn n
 					if !t.Stop() {
 						<-t.C
 					}
-					t.Reset(downstreamIdleTimeout)
+					t.Reset(clientIdleTimeout)
 				}
 
 				bufLen := len(buf.Payload)
-				n, err := s.upstreamConn.Write(buf.Bytes())
+				n, err := s.serverConn.Write(buf.Bytes())
 				buf.Release()
 
 				if err != nil {
-					logger.Errorf("udp connection flush data to upstream(%s) failed, err: %+v", upstreamAddr, err)
+					logger.Errorf("udp connection flush data to server(%s) failed, err: %+v", serverAddr, err)
 					s.Close()
 					continue
 				}
 
 				if bufLen != n {
-					logger.Errorf("udp connection flush data to upstream(%s) failed, should write %d but written %d",
-						upstreamAddr, bufLen, n)
+					logger.Errorf("udp connection flush data to server(%s) failed, should write %d but written %d",
+						serverAddr, bufLen, n)
 					s.Close()
 				}
 			case <-s.stopChan:
 				if t != nil {
 					t.Stop()
 				}
-				_ = s.upstreamConn.Close()
+				_ = s.serverConn.Close()
 				s.cleanWriteBuf()
 				return
 			}
@@ -110,7 +110,7 @@ func newSession(downstreamAddr *net.UDPAddr, upstreamAddr string, upstreamConn n
 	return &s
 }
 
-// Write send data to buffer channel, wait flush to upstream
+// Write send data to buffer channel, wait flush to server
 func (s *session) Write(buf *iobufferpool.Packet) error {
 	select {
 	case s.writeBuf <- buf:
@@ -119,8 +119,8 @@ func (s *session) Write(buf *iobufferpool.Packet) error {
 	}
 
 	var t *time.Timer
-	if s.upstreamIdleTimeout != 0 {
-		t = timerpool.Get(s.upstreamIdleTimeout * time.Millisecond)
+	if s.serverIdleTimeout != 0 {
+		t = timerpool.Get(s.serverIdleTimeout * time.Millisecond)
 	} else {
 		t = timerpool.Get(60 * time.Second)
 	}
@@ -138,18 +138,18 @@ func (s *session) Write(buf *iobufferpool.Packet) error {
 	}
 }
 
-// ListenResponse session listen upstream connection response and send to downstream
+// ListenResponse session listen server connection response and send to client
 func (s *session) ListenResponse(sendTo *net.UDPConn) {
 	go func() {
 		buf := iobufferpool.UDPBufferPool.Get().([]byte)
 		defer s.Close()
 
 		for {
-			if s.upstreamIdleTimeout > 0 {
-				_ = s.upstreamConn.SetReadDeadline(time.Now().Add(s.upstreamIdleTimeout))
+			if s.serverIdleTimeout > 0 {
+				_ = s.serverConn.SetReadDeadline(time.Now().Add(s.serverIdleTimeout))
 			}
 
-			n, err := s.upstreamConn.Read(buf)
+			n, err := s.serverConn.Read(buf)
 			if err != nil {
 				select {
 				case <-s.stopChan:
@@ -163,15 +163,15 @@ func (s *session) ListenResponse(sendTo *net.UDPConn) {
 				return
 			}
 
-			nWrite, err := sendTo.WriteToUDP(buf[0:n], s.downstreamAddr)
+			nWrite, err := sendTo.WriteToUDP(buf[0:n], s.clientAddr)
 			if err != nil {
-				logger.Errorf("udp connection send data to downstream(%s) failed, err: %+v", s.downstreamAddr.String(), err)
+				logger.Errorf("udp connection send data to client(%s) failed, err: %+v", s.clientAddr.String(), err)
 				return
 			}
 
 			if n != nWrite {
-				logger.Errorf("udp connection send data to downstream(%s) failed, should write %d but written %d",
-					s.downstreamAddr.String(), n, nWrite)
+				logger.Errorf("udp connection send data to client(%s) failed, should write %d but written %d",
+					s.clientAddr.String(), n, nWrite)
 				return
 			}
 		}

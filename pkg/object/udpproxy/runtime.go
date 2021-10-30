@@ -102,7 +102,7 @@ func (r *runtime) startServer() {
 
 		buf := make([]byte, iobufferpool.UDPPacketMaxSize)
 		for {
-			n, downstreamAddr, err := r.serverConn.ReadFromUDP(buf[:])
+			n, clientAddr, err := r.serverConn.ReadFromUDP(buf[:])
 
 			if err != nil {
 				select {
@@ -123,20 +123,20 @@ func (r *runtime) startServer() {
 			}
 
 			if r.ipFilters != nil {
-				if !r.ipFilters.AllowIP(downstreamAddr.IP.String()) {
-					logger.Debugf("discard udp packet from %s send to udp server(:%d)", downstreamAddr.IP.String(), r.spec.Port)
+				if !r.ipFilters.AllowIP(clientAddr.IP.String()) {
+					logger.Debugf("discard udp packet from %s send to udp server(:%d)", clientAddr.IP.String(), r.spec.Port)
 					continue
 				}
 			}
 
 			if !r.spec.HasResponse {
-				if err := r.sendOneShot(cp, downstreamAddr, buf[0:n]); err != nil {
+				if err := r.sendOneShot(cp, clientAddr, buf[0:n]); err != nil {
 					logger.Errorf("%s", err.Error())
 				}
 				continue
 			}
 
-			r.proxy(downstreamAddr, buf[0:n])
+			r.proxy(clientAddr, buf[0:n])
 		}
 	}()
 
@@ -154,54 +154,54 @@ func (r *runtime) startServer() {
 	}()
 }
 
-func (r *runtime) getUpstreamConn(pool *connPool, downstreamAddr *net.UDPAddr) (net.Conn, string, error) {
-	server, err := r.pool.Next(downstreamAddr.IP.String())
+func (r *runtime) getServerConn(pool *connPool, clientAddr *net.UDPAddr) (net.Conn, string, error) {
+	server, err := r.pool.Next(clientAddr.IP.String())
 	if err != nil {
-		return nil, "", fmt.Errorf("can not get upstream addr for udp connection(:%d)", r.spec.Port)
+		return nil, "", fmt.Errorf("can not get server addr for udp connection(:%d)", r.spec.Port)
 	}
 
-	var upstreamConn net.Conn
+	var serverConn net.Conn
 	if pool != nil {
-		upstreamConn = pool.get(server.Addr)
-		if upstreamConn != nil {
-			return upstreamConn, server.Addr, nil
+		serverConn = pool.get(server.Addr)
+		if serverConn != nil {
+			return serverConn, server.Addr, nil
 		}
 	}
 
 	addr, err := net.ResolveUDPAddr("udp", server.Addr)
 	if err != nil {
-		return nil, server.Addr, fmt.Errorf("parse upstream addr(%s) to udp addr failed, err: %+v", server.Addr, err)
+		return nil, server.Addr, fmt.Errorf("parse server addr(%s) to udp addr failed, err: %+v", server.Addr, err)
 	}
 
-	upstreamConn, err = net.DialUDP("udp", nil, addr)
+	serverConn, err = net.DialUDP("udp", nil, addr)
 	if err != nil {
-		return nil, server.Addr, fmt.Errorf("dial to upstream addr(%s) failed, err: %+v", server.Addr, err)
+		return nil, server.Addr, fmt.Errorf("dial to server addr(%s) failed, err: %+v", server.Addr, err)
 	}
 	if pool != nil {
-		pool.put(server.Addr, upstreamConn)
+		pool.put(server.Addr, serverConn)
 	}
-	return upstreamConn, server.Addr, nil
+	return serverConn, server.Addr, nil
 }
 
-func (r *runtime) sendOneShot(pool *connPool, downstreamAddr *net.UDPAddr, buf []byte) error {
-	upstreamConn, upstreamAddr, err := r.getUpstreamConn(pool, downstreamAddr)
+func (r *runtime) sendOneShot(pool *connPool, clientAddr *net.UDPAddr, buf []byte) error {
+	serverConn, serverAddr, err := r.getServerConn(pool, clientAddr)
 	if err != nil {
 		return err
 	}
 
-	n, err := upstreamConn.Write(buf)
+	n, err := serverConn.Write(buf)
 	if err != nil {
-		return fmt.Errorf("sned data to %s failed, err: %+v", upstreamAddr, err)
+		return fmt.Errorf("sned data to %s failed, err: %+v", serverAddr, err)
 	}
 
 	if n != len(buf) {
-		return fmt.Errorf("failed to send full packet to %s, read %d but send %d", upstreamAddr, len(buf), n)
+		return fmt.Errorf("failed to send full packet to %s, read %d but send %d", serverAddr, len(buf), n)
 	}
 	return nil
 }
 
-func (r *runtime) getSession(downstreamAddr *net.UDPAddr) (*session, error) {
-	key := downstreamAddr.String()
+func (r *runtime) getSession(clientAddr *net.UDPAddr) (*session, error) {
+	key := clientAddr.String()
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -215,21 +215,21 @@ func (r *runtime) getSession(downstreamAddr *net.UDPAddr) (*session, error) {
 		go func() { s.Close() }()
 	}
 
-	upstreamConn, upstreamAddr, err := r.getUpstreamConn(nil, downstreamAddr)
+	serverConn, serverAddr, err := r.getServerConn(nil, clientAddr)
 	if err != nil {
 		return nil, err
 	}
 
-	s = newSession(downstreamAddr, upstreamAddr, upstreamConn,
-		time.Duration(r.spec.UpstreamIdleTimeout)*time.Millisecond, time.Duration(r.spec.DownstreamIdleTimeout)*time.Millisecond)
+	s = newSession(clientAddr, serverAddr, serverConn,
+		time.Duration(r.spec.ServerIdleTimeout)*time.Millisecond, time.Duration(r.spec.ClientIdleTimeout)*time.Millisecond)
 	s.ListenResponse(r.serverConn)
 
 	r.sessions[key] = s
 	return s, nil
 }
 
-func (r *runtime) proxy(downstreamAddr *net.UDPAddr, buf []byte) {
-	s, err := r.getSession(downstreamAddr)
+func (r *runtime) proxy(clientAddr *net.UDPAddr, buf []byte) {
+	s, err := r.getSession(clientAddr)
 	if err != nil {
 		logger.Errorf("%s", err.Error())
 		return
@@ -239,7 +239,7 @@ func (r *runtime) proxy(downstreamAddr *net.UDPAddr, buf []byte) {
 	n := copy(dup, buf)
 	err = s.Write(&iobufferpool.Packet{Payload: dup, Len: n})
 	if err != nil {
-		logger.Errorf("write data to udp session(%s) failed, err: %v", downstreamAddr.IP.String(), err)
+		logger.Errorf("write data to udp session(%s) failed, err: %v", clientAddr.IP.String(), err)
 	}
 }
 

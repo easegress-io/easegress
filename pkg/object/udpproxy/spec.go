@@ -29,9 +29,9 @@ type (
 		Name string `yaml:"name" json:"name" jsonschema:"required"`
 		Port uint16 `yaml:"port" json:"port" jsonschema:"required"`
 
-		HasResponse           bool   `yaml:"hasResponse" jsonschema:"required"`
-		DownstreamIdleTimeout uint32 `yaml:"downstreamIdleTimeout" jsonschema:"omitempty,minimum=1"`
-		UpstreamIdleTimeout   uint32 `yaml:"upstreamIdleTimeout" jsonschema:"omitempty,minimum=1"`
+		HasResponse       bool   `yaml:"hasResponse" jsonschema:"required"`
+		ClientIdleTimeout uint32 `yaml:"clientIdleTimeout" jsonschema:"omitempty,minimum=1"`
+		ServerIdleTimeout uint32 `yaml:"serverIdleTimeout" jsonschema:"omitempty,minimum=1"`
 
 		Pool     *layer4backend.Spec `yaml:"pool" jsonschema:"required"`
 		IPFilter *ipfilter.Spec      `yaml:"ipFilters,omitempty" jsonschema:"omitempty"`

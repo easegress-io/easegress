@@ -72,9 +72,9 @@ func (i *Layer4IpFilters) ReloadRules(spec *Spec) {
 	i.rules.Store(rules)
 }
 
-func (r *ipFiltersRules) pass(downstreamIP string) bool {
+func (r *ipFiltersRules) pass(clientIP string) bool {
 	if r.ipFilter == nil {
 		return true
 	}
-	return r.ipFilter.Allow(downstreamIP)
+	return r.ipFilter.Allow(clientIP)
 }
