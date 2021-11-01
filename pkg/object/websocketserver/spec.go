@@ -35,8 +35,8 @@ type (
 		CertBase64 string `yaml:"certBase64" jsonschema:"omitempty,format=base64"`
 		KeyBase64  string `yaml:"keyBase64" jsonschema:"omitempty,format=base64"`
 
-		wssCertBase64 string `yaml:"certBase64" jsonschema:"omitempty,format=base64"`
-		wssKeyBase64  string `yaml:"keyBase64" jsonschema:"omitempty,format=base64"`
+		WssCertBase64 string `yaml:"wssCertBase64" jsonschema:"omitempty,format=base64"`
+		WssKeyBase64  string `yaml:"wssKeyBase64" jsonschema:"omitempty,format=base64"`
 	}
 )
 
@@ -57,7 +57,7 @@ func (spec *Spec) Validate() error {
 	}
 
 	if strings.HasPrefix(spec.Backend, "wss") {
-		if len(spec.wssCertBase64) == 0 || len(spec.wssKeyBase64) == 0 {
+		if len(spec.WssCertBase64) == 0 || len(spec.WssKeyBase64) == 0 {
 			return fmt.Errorf("invalid wssCertbase64 or wssKeybase64 with wss enable, spec: %#v", spec)
 		}
 	}
@@ -81,7 +81,7 @@ func validateTLS(certBas64, keyBase64 string) (*tls.Config, error) {
 }
 
 func (spec *Spec) wssTLSConfig() (*tls.Config, error) {
-	return validateTLS(spec.wssCertBase64, spec.wssKeyBase64)
+	return validateTLS(spec.WssCertBase64, spec.WssKeyBase64)
 }
 
 func (spec *Spec) tlsConfig() (*tls.Config, error) {
