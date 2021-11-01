@@ -19,7 +19,7 @@ require (
 	github.com/golang-jwt/jwt v3.2.1+incompatible
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/websocket v1.4.2
-	github.com/hashicorp/consul/api v1.8.1
+	github.com/hashicorp/consul/api v1.11.0
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/json-iterator/go v1.1.11
 	github.com/klauspost/compress v1.13.1
@@ -39,7 +39,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.8.1
 	github.com/tcnksm/go-httpstat v0.2.1-0.20191008022543-e866bb274419
-	github.com/tidwall/gjson v1.10.2
+	github.com/tidwall/gjson v1.11.0
 	github.com/tomasen/realip v0.0.0-20180522021738-f0c99a92ddce
 	github.com/valyala/fasttemplate v1.2.1
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
