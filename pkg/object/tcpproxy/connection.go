@@ -32,12 +32,16 @@ import (
 	"github.com/megaease/easegress/pkg/util/timerpool"
 )
 
+var tcpBufferPool = sync.Pool{
+	New: func() interface{} {
+		return make([]byte, iobufferpool.DefaultBufferReadCapacity)
+	},
+}
+
 // Connection wrap tcp connection
 type Connection struct {
-	rawConn   net.Conn
-	connected uint32
-	closed    uint32
-
+	closed     uint32
+	rawConn    net.Conn
 	localAddr  net.Addr
 	remoteAddr net.Addr
 
@@ -61,7 +65,6 @@ type Connection struct {
 // NewClientConn wrap connection create from client
 func NewClientConn(conn net.Conn, listenerStopChan chan struct{}) *Connection {
 	return &Connection{
-		connected:  1,
 		rawConn:    conn,
 		localAddr:  conn.LocalAddr(),
 		remoteAddr: conn.RemoteAddr(),
@@ -92,19 +95,18 @@ func (c *Connection) SetOnClose(onclose func(event ConnectionEvent)) {
 // Start running connection read/write loop
 func (c *Connection) Start() {
 	c.startOnce.Do(func() {
-		c.startRWLoop()
-	})
-}
+		c.goWithRecover(func() {
+			c.startReadLoop()
+		}, func(r interface{}) {
+			_ = c.Close(NoFlush, LocalClose)
+		})
 
-// State get connection running state
-func (c *Connection) State() ConnState {
-	if atomic.LoadUint32(&c.closed) == 1 {
-		return ConnClosed
-	}
-	if atomic.LoadUint32(&c.connected) == 1 {
-		return ConnActive
-	}
-	return ConnInit
+		c.goWithRecover(func() {
+			c.startWriteLoop()
+		}, func(r interface{}) {
+			_ = c.Close(NoFlush, LocalClose)
+		})
+	})
 }
 
 func (c *Connection) goWithRecover(handler func(), recoverHandler func(r interface{})) {
@@ -120,20 +122,6 @@ func (c *Connection) goWithRecover(handler func(), recoverHandler func(r interfa
 		}()
 		handler()
 	}()
-}
-
-func (c *Connection) startRWLoop() {
-	c.goWithRecover(func() {
-		c.startReadLoop()
-	}, func(r interface{}) {
-		_ = c.Close(NoFlush, LocalClose)
-	})
-
-	c.goWithRecover(func() {
-		c.startWriteLoop()
-	}, func(r interface{}) {
-		_ = c.Close(NoFlush, LocalClose)
-	})
 }
 
 // Write receive other connection data
@@ -172,24 +160,24 @@ func (c *Connection) startReadLoop() {
 		case <-c.listenerStopChan:
 			return
 		default:
-			bufLen, err := c.doReadIO()
+			n, err := c.doReadIO()
 			if err != nil {
 				if atomic.LoadUint32(&c.closed) == 1 {
 					logger.Infof("tcp connection exit read loop for connection has closed, local addr: %s, "+
 						"remote addr: %s, err: %s", c.localAddr.String(), c.remoteAddr.String(), err.Error())
+					tcpBufferPool.Put(c.readBuffer)
 					return
 				}
 
 				if te, ok := err.(net.Error); ok && te.Timeout() {
-					if bufLen == 0 {
+					if n == 0 {
 						continue // continue read data, ignore timeout error
 					}
 				}
 			}
 
-			if bufLen != 0 && (err == nil || err == io.EOF) {
-				c.onRead(iobufferpool.NewStreamBuffer(c.readBuffer))
-				c.readBuffer = c.readBuffer[:0]
+			if n != 0 && (err == nil || err == io.EOF) {
+				c.onRead(iobufferpool.NewStreamBuffer(c.readBuffer[:n]))
 			}
 
 			if err != nil {
@@ -307,7 +295,7 @@ func (c *Connection) Close(ccType CloseType, event ConnectionEvent) (err error) 
 
 func (c *Connection) doReadIO() (bufLen int, err error) {
 	if c.readBuffer == nil {
-		c.readBuffer = iobufferpool.TCPBufferPool.Get().([]byte)
+		c.readBuffer = tcpBufferPool.Get().([]byte)[:iobufferpool.DefaultBufferReadCapacity]
 	}
 
 	// add read deadline setting optimization?
@@ -366,7 +354,6 @@ type ServerConnection struct {
 func NewServerConn(connectTimeout uint32, serverAddr net.Addr, listenerStopChan chan struct{}) *ServerConnection {
 	conn := &ServerConnection{
 		Connection: Connection{
-			connected:  1,
 			remoteAddr: serverAddr,
 
 			writeBufferChan: make(chan *iobufferpool.StreamBuffer, 8),
@@ -380,44 +367,36 @@ func NewServerConn(connectTimeout uint32, serverAddr net.Addr, listenerStopChan 
 	return conn
 }
 
-func (u *ServerConnection) connect() (event ConnectionEvent, err error) {
-	timeout := u.connectTimeout
-	if timeout == 0 {
-		timeout = 10 * time.Second
-	}
-	addr := u.remoteAddr
-	if addr == nil {
-		return ConnectFailed, errors.New("server addr is nil")
-	}
-	u.rawConn, err = net.DialTimeout("tcp", addr.String(), timeout)
-	if err != nil {
-		if err == io.EOF {
-			event = RemoteClose
-		} else if err, ok := err.(net.Error); ok && err.Timeout() {
-			event = ConnectTimeout
-		} else {
-			event = ConnectFailed
-		}
-		return
-	}
-	atomic.StoreUint32(&u.connected, 1)
-	u.localAddr = u.rawConn.LocalAddr()
-
-	_ = u.rawConn.(*net.TCPConn).SetNoDelay(true)
-	_ = u.rawConn.(*net.TCPConn).SetKeepAlive(true)
-	event = Connected
-	return
-}
-
 // Connect create backend server tcp connection
 func (u *ServerConnection) Connect() (err error) {
 	u.connectOnce.Do(func() {
-		var event ConnectionEvent
-		event, err = u.connect()
-		if err == nil {
-			u.Start()
+		addr := u.remoteAddr
+		if addr == nil {
+			err = errors.New("server addr is nil")
+			return
 		}
-		logger.Debugf("tcp connect server(%s), event: %s, err: %+v", u.remoteAddr, event, err)
+
+		timeout := u.connectTimeout
+		if timeout == 0 {
+			timeout = 10 * time.Second
+		}
+
+		u.rawConn, err = net.DialTimeout("tcp", addr.String(), timeout)
+		if err != nil {
+			if err == io.EOF {
+				err = errors.New("server has been closed")
+			} else if te, ok := err.(net.Error); ok && te.Timeout() {
+				err = errors.New("connect to server timeout")
+			} else {
+				err = errors.New("connect to server failed")
+			}
+			return
+		}
+
+		u.localAddr = u.rawConn.LocalAddr()
+		_ = u.rawConn.(*net.TCPConn).SetNoDelay(true)
+		_ = u.rawConn.(*net.TCPConn).SetKeepAlive(true)
+		u.Start()
 	})
 	return
 }

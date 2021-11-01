@@ -18,17 +18,8 @@
 package iobufferpool
 
 import (
-	"sync"
-
 	"github.com/valyala/bytebufferpool"
 )
-
-// TCPBufferPool tcp buffer pool for tcp connection
-var TCPBufferPool = sync.Pool{
-	New: func() interface{} {
-		return make([]byte, DefaultBufferReadCapacity)
-	},
-}
 
 // StreamBuffer io buffer for stream scene
 type StreamBuffer struct {
@@ -41,16 +32,19 @@ func NewStreamBuffer(buf []byte) *StreamBuffer {
 		payload: bytebufferpool.Get(),
 		eof:     false,
 	}
+	res.payload.Reset()
 	_, _ = res.payload.Write(buf)
 	return res
 }
 
 // NewEOFStreamBuffer create stream buffer with eof sign
 func NewEOFStreamBuffer() *StreamBuffer {
-	return &StreamBuffer{
+	res := &StreamBuffer{
 		payload: bytebufferpool.Get(),
 		eof:     true,
 	}
+	res.payload.Reset()
+	return res
 }
 
 // Bytes return underlying bytes
@@ -74,8 +68,8 @@ func (s *StreamBuffer) Release() {
 	if s.payload == nil {
 		return
 	}
+	s.payload.Reset()
 	bytebufferpool.Put(s.payload)
-	s.payload = nil
 }
 
 // EOF return eof sign
