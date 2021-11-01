@@ -4,7 +4,7 @@ go 1.16
 
 require (
 	github.com/ArthurHlt/go-eureka-client v1.1.0
-	github.com/Shopify/sarama v1.29.1
+	github.com/Shopify/sarama v1.30.0
 	github.com/alecthomas/jsonschema v0.0.0-20210526225647-edb03dcab7bc
 	github.com/bytecodealliance/wasmtime-go v0.29.0
 	github.com/eclipse/paho.mqtt.golang v1.3.5
@@ -22,7 +22,7 @@ require (
 	github.com/hashicorp/consul/api v1.8.1
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/json-iterator/go v1.1.11
-	github.com/klauspost/compress v1.13.1
+	github.com/klauspost/compress v1.13.6
 	github.com/lucas-clemente/quic-go v0.21.1
 	github.com/megaease/easemesh-api v1.3.3
 	github.com/megaease/grace v1.0.0
@@ -30,7 +30,7 @@ require (
 	github.com/nacos-group/nacos-sdk-go v1.0.8
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/openzipkin-contrib/zipkin-go-opentracing v0.4.5
-	github.com/openzipkin/zipkin-go v0.2.5
+	github.com/openzipkin/zipkin-go v0.3.0
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475
