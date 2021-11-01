@@ -3,6 +3,7 @@ name: easemesh-controller
 apiPort: 13009
 ingressPort: 19527
 externalServiceRegistry:
+cleanExternalRegistry: true
 heartbeatInterval: 5s
 registryType: consul
 #security:
