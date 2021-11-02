@@ -218,7 +218,7 @@ func (cc *ConnectControl) handleInfo(w http.ResponseWriter, r *http.Request) {
 	}
 	err := json.NewEncoder(w).Encode(&data)
 	if err != nil {
-		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("encode json data failed"))
+		api.HandleAPIError(w, r, http.StatusInternalServerError, fmt.Errorf("encode json data failed"))
 		return
 	}
 }

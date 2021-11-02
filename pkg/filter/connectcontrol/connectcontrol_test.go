@@ -42,7 +42,7 @@ func newContext(cid string, topic string) context.MQTTContext {
 	return context.NewMQTTContext(stdcontext.Background(), client, packet)
 }
 
-func TestConnectControl(t *testing.T) {
+func defaultFilterSpec() *pipeline.FilterSpec {
 	meta := &pipeline.FilterMetaSpec{
 		Name:     "connect-control-demo",
 		Kind:     Kind,
@@ -55,6 +55,43 @@ func TestConnectControl(t *testing.T) {
 		EarlyStop:     true,
 	}
 	filterSpec := pipeline.MockFilterSpec(nil, nil, "", meta, spec, nil)
+	return filterSpec
+}
+
+func TestConnectControl(t *testing.T) {
+	cc := &ConnectControl{}
+	a := assert.New(t)
+	a.Equal(cc.Kind(), Kind, "wrong kind")
+	a.Equal(cc.DefaultSpec(), &Spec{}, "wrong spec")
+	a.NotEqual(len(cc.Description()), 0, "description for ConnectControl is empty")
+	a.Nil(cc.Results(), "if update result, please update this case")
+	a.Nil(cc.Status(), "if update status, please update this case")
+	checkProtocol := func() (err error) {
+		defer func() {
+			if errMsg := recover(); errMsg != nil {
+				err = errors.New(errMsg.(string))
+				return
+			}
+		}()
+		meta := &pipeline.FilterMetaSpec{
+			Protocol: context.HTTP,
+		}
+		filterSpec := pipeline.MockFilterSpec(nil, nil, "", meta, nil, nil)
+		cc.Init(filterSpec)
+		return
+	}
+	err := checkProtocol()
+	a.NotNil(err, "if ConnectControl supports more protocol, please update this case")
+
+	filterSpec := defaultFilterSpec()
+	cc.Init(filterSpec)
+	newCc := &ConnectControl{}
+	newCc.Inherit(filterSpec, cc)
+	defer newCc.Close()
+}
+
+func TestHandleMQTT(t *testing.T) {
+	filterSpec := defaultFilterSpec()
 	cc := &ConnectControl{}
 	cc.Init(filterSpec)
 
@@ -79,6 +116,10 @@ func TestConnectControl(t *testing.T) {
 		assert.Equal(t, ctx.EarlyStop(), test.earlyStop)
 	}
 
+	packet := packets.NewControlPacket(packets.Connect).(*packets.ConnectPacket)
+	ctx := context.NewMQTTContext(stdcontext.Background(), nil, packet)
+	res := cc.HandleMQTT(ctx)
+	assert.Equal(t, res.Err, errors.New(resultWrongPacket), "should return error for wrong result")
 }
 
 func TestHTTP(t *testing.T) {
@@ -88,14 +129,12 @@ func TestHTTP(t *testing.T) {
 		Pipeline: "pipeline-demo",
 		Protocol: context.MQTT,
 	}
-	spec := &Spec{
-		BannedClients: []string{},
-		BannedTopics:  []string{},
-		EarlyStop:     true,
-	}
+	spec := &Spec{}
 	filterSpec := pipeline.MockFilterSpec(nil, nil, "", meta, spec, nil)
 	cc := &ConnectControl{}
 	cc.Init(filterSpec)
+	apis := cc.APIs()
+	assert.Equal(t, len(apis), 3, "if apis is updated, please update this case")
 
 	tt := []struct {
 		method     string
@@ -153,4 +192,50 @@ func TestHTTP(t *testing.T) {
 		}
 		res.Body.Close()
 	}
+
+	checkBadReq := func(r *http.Request, fn http.HandlerFunc) {
+		w := httptest.NewRecorder()
+		fn(w, r)
+		res := w.Result()
+		assert.Equal(t, res.StatusCode, http.StatusBadRequest)
+		res.Body.Close()
+	}
+
+	// wrong method
+	checkBadReq(httptest.NewRequest(http.MethodGet, "/fake", nil), cc.handleBanClient)
+	checkBadReq(httptest.NewRequest(http.MethodGet, "/fake", nil), cc.handleUnbanClient)
+	checkBadReq(httptest.NewRequest(http.MethodPost, "/fake", nil), cc.handleInfo)
+	// wrong data
+	checkBadReq(httptest.NewRequest(http.MethodPost, "/fake", nil), cc.handleBanClient)
+	checkBadReq(httptest.NewRequest(http.MethodPost, "/fake", nil), cc.handleUnbanClient)
+	// json encode data error
+	req := httptest.NewRequest(http.MethodGet, "/fake", nil)
+	w := &badResponseWriter{FailTime: 1}
+	cc.handleInfo(w, req)
+	assert.Equal(t, w.StatusCode, http.StatusInternalServerError, "json encode error")
+}
+
+type badResponseWriter struct {
+	FailTime   int
+	Bytes      []byte
+	StatusCode int
+}
+
+var _ http.ResponseWriter = (*badResponseWriter)(nil)
+
+func (w *badResponseWriter) Header() http.Header {
+	return nil
+}
+
+func (w *badResponseWriter) Write(bytes []byte) (int, error) {
+	if w.FailTime > 0 {
+		w.FailTime--
+		return 0, errors.New("badResponseWriter will fail data write for several times")
+	}
+	w.Bytes = bytes
+	return len(bytes), nil
+}
+
+func (w *badResponseWriter) WriteHeader(statusCode int) {
+	w.StatusCode = statusCode
 }
