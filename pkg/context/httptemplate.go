@@ -180,16 +180,19 @@ func readBody(body io.Reader, maxBodySize int64) (*bytes.Buffer, error) {
 	if body == nil {
 		return buff, nil
 	}
-	written, err := io.CopyN(buff, body, defaultMaxBodySize+1)
+
+	written, err := io.Copy(buff, body)
 
 	if err != nil && err != io.EOF {
 		err = fmt.Errorf("read body failed: %v", err)
 		return nil, err
 	}
 
-	if written > defaultMaxBodySize {
-		err = fmt.Errorf("body exceed %dB", defaultMaxBodySize)
-		return nil, err
+	if written > maxBodySize {
+		logger.Warnf(
+			"body size was over %dB (was %dB), causing potentially decreased performance",
+			maxBodySize,
+			written)
 	}
 
 	return buff, nil
