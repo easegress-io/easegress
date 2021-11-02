@@ -35,14 +35,17 @@ type (
 		clientIdleTimeout time.Duration
 		serverIdleTimeout time.Duration
 
-		serverConn net.Conn
-		writeBuf   chan *iobufferpool.Packet
-		stopChan   chan struct{}
-		stopped    uint32
+		serverConn   net.Conn
+		writeBuf     chan *iobufferpool.Packet
+		stopped      uint32
+		stopChan     chan struct{}
+		listenerStop chan struct{}
+		onClose      func()
 	}
 )
 
 func newSession(clientAddr *net.UDPAddr, serverAddr string, serverConn net.Conn,
+	listenerStop chan struct{}, onClose func(),
 	clientIdleTimeout, serverIdleTimeout time.Duration) *session {
 	s := session{
 		serverAddr:        serverAddr,
@@ -51,8 +54,10 @@ func newSession(clientAddr *net.UDPAddr, serverAddr string, serverConn net.Conn,
 		serverIdleTimeout: serverIdleTimeout,
 		clientIdleTimeout: clientIdleTimeout,
 
-		writeBuf: make(chan *iobufferpool.Packet, 512),
-		stopChan: make(chan struct{}),
+		writeBuf:     make(chan *iobufferpool.Packet, 512),
+		stopChan:     make(chan struct{}),
+		listenerStop: listenerStop,
+		onClose:      onClose,
 	}
 
 	go func() {
@@ -66,6 +71,8 @@ func newSession(clientAddr *net.UDPAddr, serverAddr string, serverConn net.Conn,
 
 		for {
 			select {
+			case <-s.listenerStop:
+				s.Close()
 			case <-idleCheck:
 				s.Close()
 			case buf, ok := <-s.writeBuf:
@@ -102,6 +109,7 @@ func newSession(clientAddr *net.UDPAddr, serverAddr string, serverConn net.Conn,
 				}
 				_ = s.serverConn.Close()
 				s.cleanWriteBuf()
+				s.onClose()
 				return
 			}
 		}

@@ -64,18 +64,8 @@ func newRuntime(superSpec *supervisor.Spec) *runtime {
 
 // Close notify runtime close
 func (r *runtime) Close() {
-
 	close(r.done)
 	_ = r.serverConn.Close()
-
-	r.mu.Lock()
-	for k, s := range r.sessions {
-		delete(r.sessions, k)
-		s.Close()
-	}
-	r.sessions = nil
-	r.mu.Unlock()
-
 	r.pool.Close()
 }
 
@@ -139,19 +129,6 @@ func (r *runtime) startServer() {
 			r.proxy(clientAddr, buf[0:n])
 		}
 	}()
-
-	go func() {
-		ticker := time.NewTicker(5 * time.Second)
-		for {
-			select {
-			case <-ticker.C:
-				r.cleanup()
-			case <-r.done:
-				ticker.Stop()
-				return
-			}
-		}
-	}()
 }
 
 func (r *runtime) getServerConn(pool *connPool, clientAddr *net.UDPAddr) (net.Conn, string, error) {
@@ -162,7 +139,7 @@ func (r *runtime) getServerConn(pool *connPool, clientAddr *net.UDPAddr) (net.Co
 
 	var serverConn net.Conn
 	if pool != nil {
-		serverConn = pool.get(clientAddr.String())
+		serverConn = pool.get(server.Addr)
 		if serverConn != nil {
 			return serverConn, server.Addr, nil
 		}
@@ -177,6 +154,7 @@ func (r *runtime) getServerConn(pool *connPool, clientAddr *net.UDPAddr) (net.Co
 	if err != nil {
 		return nil, server.Addr, fmt.Errorf("dial to server addr(%s) failed, err: %+v", server.Addr, err)
 	}
+
 	if pool != nil {
 		pool.put(server.Addr, serverConn)
 	}
@@ -220,8 +198,14 @@ func (r *runtime) getSession(clientAddr *net.UDPAddr) (*session, error) {
 		return nil, err
 	}
 
-	s = newSession(clientAddr, serverAddr, serverConn,
-		time.Duration(r.spec.ServerIdleTimeout)*time.Millisecond, time.Duration(r.spec.ClientIdleTimeout)*time.Millisecond)
+	onClose := func() {
+		r.mu.Lock()
+		delete(r.sessions, key)
+		r.mu.Unlock()
+	}
+	s = newSession(clientAddr, serverAddr, serverConn, r.done, onClose,
+		time.Duration(r.spec.ServerIdleTimeout)*time.Millisecond,
+		time.Duration(r.spec.ClientIdleTimeout)*time.Millisecond)
 	s.ListenResponse(r.serverConn)
 
 	r.sessions[key] = s
@@ -240,16 +224,5 @@ func (r *runtime) proxy(clientAddr *net.UDPAddr, buf []byte) {
 	err = s.Write(&iobufferpool.Packet{Payload: dup, Len: n})
 	if err != nil {
 		logger.Errorf("write data to udp session(%s) failed, err: %v", clientAddr.IP.String(), err)
-	}
-}
-
-func (r *runtime) cleanup() {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	for k, s := range r.sessions {
-		if s.isClosed() {
-			delete(r.sessions, k)
-		}
 	}
 }
