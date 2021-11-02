@@ -21,7 +21,6 @@ import (
 	"errors"
 	"io"
 	"net"
-	"reflect"
 	"runtime/debug"
 	"sync"
 	"sync/atomic"
@@ -31,6 +30,8 @@ import (
 	"github.com/megaease/easegress/pkg/util/iobufferpool"
 	"github.com/megaease/easegress/pkg/util/timerpool"
 )
+
+const writeBufSize = 8
 
 var tcpBufferPool = sync.Pool{
 	New: func() interface{} {
@@ -65,26 +66,20 @@ type Connection struct {
 // NewClientConn wrap connection create from client
 func NewClientConn(conn net.Conn, listenerStopChan chan struct{}) *Connection {
 	return &Connection{
-		rawConn:    conn,
-		localAddr:  conn.LocalAddr(),
-		remoteAddr: conn.RemoteAddr(),
-
-		writeBufferChan: make(chan *iobufferpool.StreamBuffer, 8),
-
-		mu:               sync.Mutex{},
-		connStopChan:     make(chan struct{}),
+		rawConn:          conn,
+		localAddr:        conn.LocalAddr(),
+		remoteAddr:       conn.RemoteAddr(),
 		listenerStopChan: listenerStopChan,
+
+		mu:              sync.Mutex{},
+		connStopChan:    make(chan struct{}),
+		writeBufferChan: make(chan *iobufferpool.StreamBuffer, writeBufSize),
 	}
 }
 
 // SetOnRead set connection read handle
 func (c *Connection) SetOnRead(onRead func(buffer *iobufferpool.StreamBuffer)) {
 	c.onRead = onRead
-}
-
-// OnRead set data read callback
-func (c *Connection) OnRead(buffer *iobufferpool.StreamBuffer) {
-	c.onRead(buffer)
 }
 
 // SetOnClose set close callback
@@ -161,6 +156,10 @@ func (c *Connection) startReadLoop() {
 			return
 		default:
 			n, err := c.doReadIO()
+			if n > 0 {
+				c.onRead(iobufferpool.NewStreamBuffer(c.readBuffer[:n]))
+			}
+
 			if err != nil {
 				if atomic.LoadUint32(&c.closed) == 1 {
 					logger.Infof("tcp connection exit read loop for connection has closed, local addr: %s, "+
@@ -174,10 +173,6 @@ func (c *Connection) startReadLoop() {
 						continue // continue read data, ignore timeout error
 					}
 				}
-			}
-
-			if n != 0 && (err == nil || err == io.EOF) {
-				c.onRead(iobufferpool.NewStreamBuffer(c.readBuffer[:n]))
 			}
 
 			if err != nil {
@@ -208,7 +203,8 @@ func (c *Connection) startWriteLoop() {
 			}
 			c.appendBuffer(buf)
 		OUTER:
-			for i := 0; i < 8; i++ {
+			// Keep reading until write buffer channel is full(write buffer channel size is writeBufSize)
+			for i := 0; i < writeBufSize-1; i++ {
 				select {
 				case buf, ok := <-c.writeBufferChan:
 					if !ok {
@@ -219,8 +215,6 @@ func (c *Connection) startWriteLoop() {
 					break OUTER
 				}
 			}
-
-			_ = c.rawConn.SetWriteDeadline(time.Now().Add(15 * time.Second))
 			_, err = c.doWrite()
 		}
 
@@ -268,17 +262,10 @@ func (c *Connection) Close(ccType CloseType, event ConnectionEvent) (err error) 
 		return nil
 	}
 
-	// connection failed in client mode
-	if c.rawConn == nil || reflect.ValueOf(c.rawConn).IsNil() {
-		return nil
-	}
-
 	// close tcp rawConn read first
-	if tconn, ok := c.rawConn.(*net.TCPConn); ok {
-		logger.Debugf("tcp connection closed, local addr: %s, remote addr: %s, event: %s",
-			c.localAddr.String(), c.remoteAddr.String(), event)
-		_ = tconn.CloseRead()
-	}
+	logger.Debugf("tcp connection closed, local addr: %s, remote addr: %s, event: %s",
+		c.localAddr.String(), c.remoteAddr.String(), event)
+	_ = c.rawConn.(*net.TCPConn).CloseRead()
 
 	// close rawConn recv, then notify read/write loop to exit
 	close(c.connStopChan)
@@ -305,6 +292,7 @@ func (c *Connection) doReadIO() (bufLen int, err error) {
 }
 
 func (c *Connection) doWrite() (int64, error) {
+	_ = c.rawConn.SetWriteDeadline(time.Now().Add(15 * time.Second))
 	bytesSent, err := c.doWriteIO()
 	if err != nil && atomic.LoadUint32(&c.closed) == 1 {
 		return 0, nil
@@ -326,10 +314,10 @@ func (c *Connection) writeBufLen() (bufLen int) {
 func (c *Connection) doWriteIO() (bytesSent int64, err error) {
 	buffers := c.writeBuffers
 	bytesSent, err = buffers.WriteTo(c.rawConn)
-
 	if err != nil {
 		return bytesSent, err
 	}
+
 	for i, buf := range c.ioBuffers {
 		c.ioBuffers[i] = nil
 		c.writeBuffers[i] = nil
@@ -356,7 +344,7 @@ func NewServerConn(connectTimeout uint32, serverAddr net.Addr, listenerStopChan 
 		Connection: Connection{
 			remoteAddr: serverAddr,
 
-			writeBufferChan: make(chan *iobufferpool.StreamBuffer, 8),
+			writeBufferChan: make(chan *iobufferpool.StreamBuffer, writeBufSize),
 
 			mu:               sync.Mutex{},
 			connStopChan:     make(chan struct{}),
