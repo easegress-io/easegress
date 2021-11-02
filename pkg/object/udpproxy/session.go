@@ -20,7 +20,7 @@ package udpproxy
 import (
 	"fmt"
 	"net"
-	"sync/atomic"
+	"sync"
 	"time"
 
 	"github.com/megaease/easegress/pkg/logger"
@@ -32,15 +32,17 @@ type (
 	session struct {
 		clientAddr        *net.UDPAddr
 		serverAddr        string
+		serverConn        net.Conn
 		clientIdleTimeout time.Duration
 		serverIdleTimeout time.Duration
+		writeBuf          chan *iobufferpool.Packet
 
-		serverConn   net.Conn
-		writeBuf     chan *iobufferpool.Packet
-		stopped      uint32
+		stopped      bool
 		stopChan     chan struct{}
 		listenerStop chan struct{}
 		onClose      func()
+
+		mu sync.Mutex
 	}
 )
 
@@ -53,8 +55,9 @@ func newSession(clientAddr *net.UDPAddr, serverAddr string, serverConn net.Conn,
 		serverConn:        serverConn,
 		serverIdleTimeout: serverIdleTimeout,
 		clientIdleTimeout: clientIdleTimeout,
+		writeBuf:          make(chan *iobufferpool.Packet, 512),
 
-		writeBuf:     make(chan *iobufferpool.Packet, 512),
+		stopped:      false,
 		stopChan:     make(chan struct{}),
 		listenerStop: listenerStop,
 		onClose:      onClose,
@@ -72,12 +75,12 @@ func newSession(clientAddr *net.UDPAddr, serverAddr string, serverConn net.Conn,
 		for {
 			select {
 			case <-s.listenerStop:
-				s.Close()
+				s.close()
 			case <-idleCheck:
-				s.Close()
+				s.close()
 			case buf, ok := <-s.writeBuf:
 				if !ok {
-					s.Close()
+					s.close()
 					continue
 				}
 
@@ -94,14 +97,14 @@ func newSession(clientAddr *net.UDPAddr, serverAddr string, serverConn net.Conn,
 
 				if err != nil {
 					logger.Errorf("udp connection flush data to server(%s) failed, err: %+v", serverAddr, err)
-					s.Close()
+					s.close()
 					continue
 				}
 
 				if bufLen != n {
 					logger.Errorf("udp connection flush data to server(%s) failed, should write %d but written %d",
 						serverAddr, bufLen, n)
-					s.Close()
+					s.close()
 				}
 			case <-s.stopChan:
 				if t != nil {
@@ -150,7 +153,7 @@ func (s *session) Write(buf *iobufferpool.Packet) error {
 func (s *session) ListenResponse(sendTo *net.UDPConn) {
 	go func() {
 		buf := iobufferpool.UDPBufferPool.Get().([]byte)
-		defer s.Close()
+		defer s.close()
 
 		for {
 			if s.serverIdleTimeout > 0 {
@@ -201,12 +204,19 @@ func (s *session) cleanWriteBuf() {
 
 // isClosed determine session if it is closed, used only for clean sessionMap
 func (s *session) isClosed() bool {
-	return atomic.LoadUint32(&s.stopped) == 1
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.stopped
 }
 
-// Close send session close signal
-func (s *session) Close() {
-	if atomic.CompareAndSwapUint32(&s.stopped, 0, 1) {
-		close(s.stopChan)
+// close send session close signal
+func (s *session) close() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.stopped == true {
+		return
 	}
+
+	s.onClose()
+	close(s.stopChan)
 }

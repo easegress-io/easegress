@@ -189,10 +189,6 @@ func (r *runtime) getSession(clientAddr *net.UDPAddr) (*session, error) {
 		return s, nil
 	}
 
-	if ok {
-		go func() { s.Close() }()
-	}
-
 	serverConn, serverAddr, err := r.getServerConn(nil, clientAddr)
 	if err != nil {
 		return nil, err
