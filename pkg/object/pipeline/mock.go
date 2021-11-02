@@ -40,6 +40,7 @@ func (f *mockFilter) Init(filterSpec *FilterSpec)                               
 func (f *mockFilter) Inherit(filterSpec *FilterSpec, previousGeneration Filter) {}
 func (f *mockFilter) Status() interface{}                                       { return nil }
 func (f *mockFilter) Close()                                                    {}
+func (f *mockFilter) APIs() []*APIEntry                                         { return nil }
 
 // MockMQTTFilter is used for test pipeline, which will count the client number of MQTTContext
 type MockMQTTFilter struct {

@@ -19,6 +19,7 @@ package pipeline
 
 import (
 	"fmt"
+	"net/http"
 	"reflect"
 	"sync"
 
@@ -54,6 +55,9 @@ type (
 		// It could return nil.
 		Status() interface{}
 
+		// APIs return apis for filter to change its behavior in time
+		APIs() []*APIEntry
+
 		// Close closes itself.
 		Close()
 	}
@@ -81,6 +85,12 @@ type (
 		Filter
 
 		HandleTCP(context.TCPContext) *context.TCPResult
+	}
+
+	APIEntry struct {
+		Path    string
+		Method  string
+		Handler http.HandlerFunc
 	}
 )
 

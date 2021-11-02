@@ -24,7 +24,6 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
-	"github.com/megaease/easegress/pkg/supervisor"
 )
 
 const (

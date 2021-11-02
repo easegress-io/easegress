@@ -18,8 +18,13 @@
 package connectcontrol
 
 import (
+	"bytes"
 	stdcontext "context"
+	"encoding/json"
 	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
@@ -53,8 +58,6 @@ func TestConnectControl(t *testing.T) {
 	cc := &ConnectControl{}
 	cc.Init(filterSpec)
 
-	// a := assert.New(t)
-
 	tt := []struct {
 		cid        string
 		topic      string
@@ -76,4 +79,78 @@ func TestConnectControl(t *testing.T) {
 		assert.Equal(t, ctx.EarlyStop(), test.earlyStop)
 	}
 
+}
+
+func TestHTTP(t *testing.T) {
+	meta := &pipeline.FilterMetaSpec{
+		Name:     "connect-control-demo",
+		Kind:     Kind,
+		Pipeline: "pipeline-demo",
+		Protocol: context.MQTT,
+	}
+	spec := &Spec{
+		BannedClients: []string{},
+		BannedTopics:  []string{},
+		EarlyStop:     true,
+	}
+	filterSpec := pipeline.MockFilterSpec(nil, nil, "", meta, spec, nil)
+	cc := &ConnectControl{}
+	cc.Init(filterSpec)
+
+	tt := []struct {
+		method     string
+		reqData    *HTTPJsonData
+		fn         http.HandlerFunc
+		statusCode int
+		resData    *HTTPJsonData
+	}{
+		{
+			method:     http.MethodPost,
+			reqData:    &HTTPJsonData{Clients: []string{"ban1"}, Topics: []string{"sport/ball"}},
+			fn:         cc.handleBanClient,
+			statusCode: 200,
+			resData:    nil,
+		},
+		{
+			method:     http.MethodGet,
+			reqData:    nil,
+			fn:         cc.handleInfo,
+			statusCode: 200,
+			resData:    &HTTPJsonData{Clients: []string{"ban1"}, Topics: []string{"sport/ball"}},
+		},
+		{
+			method:     http.MethodPost,
+			reqData:    &HTTPJsonData{Clients: []string{"ban1"}, Topics: []string{"sport/ball"}},
+			fn:         cc.handleUnbanClient,
+			statusCode: 200,
+			resData:    nil,
+		},
+		{
+			method:     http.MethodGet,
+			reqData:    nil,
+			fn:         cc.handleInfo,
+			statusCode: 200,
+			resData:    &HTTPJsonData{Clients: []string{}, Topics: []string{}},
+		},
+	}
+	for _, test := range tt {
+		var body io.Reader
+		if test.reqData != nil {
+			jsonData, err := json.Marshal(test.reqData)
+			assert.Nil(t, err, "marshal json data failed")
+			body = bytes.NewBuffer(jsonData)
+		}
+		req := httptest.NewRequest(test.method, "/fake", body)
+		w := httptest.NewRecorder()
+		test.fn(w, req)
+		res := w.Result()
+		assert.Equal(t, res.StatusCode, test.statusCode, "wrong code")
+		if test.resData != nil {
+			resData := &HTTPJsonData{}
+			err := json.NewDecoder(res.Body).Decode(resData)
+			assert.Nil(t, err, "decode json data failed")
+			assert.Equal(t, resData, test.resData)
+		}
+		res.Body.Close()
+	}
 }

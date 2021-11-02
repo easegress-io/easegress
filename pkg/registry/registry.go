@@ -23,6 +23,7 @@ import (
 	_ "github.com/megaease/easegress/pkg/filter/apiaggregator"
 	_ "github.com/megaease/easegress/pkg/filter/bridge"
 	_ "github.com/megaease/easegress/pkg/filter/circuitbreaker"
+	_ "github.com/megaease/easegress/pkg/filter/connectcontrol"
 	_ "github.com/megaease/easegress/pkg/filter/corsadaptor"
 	_ "github.com/megaease/easegress/pkg/filter/fallback"
 	_ "github.com/megaease/easegress/pkg/filter/mock"
