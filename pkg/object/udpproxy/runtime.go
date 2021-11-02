@@ -62,8 +62,8 @@ func newRuntime(superSpec *supervisor.Spec) *runtime {
 	return r
 }
 
-// Close notify runtime close
-func (r *runtime) Close() {
+// close notify runtime close
+func (r *runtime) close() {
 	close(r.done)
 	_ = r.serverConn.Close()
 	r.pool.Close()
@@ -83,7 +83,8 @@ func (r *runtime) startServer() {
 	}
 
 	var cp *connPool
-	if r.spec.HasResponse {
+	if !r.spec.HasResponse {
+		// if client udp request doesn't have response, use connection pool to save server connections pool
 		cp = newConnPool()
 	}
 

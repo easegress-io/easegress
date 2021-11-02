@@ -29,6 +29,7 @@ type (
 		Name string `yaml:"name" json:"name" jsonschema:"required"`
 		Port uint16 `yaml:"port" json:"port" jsonschema:"required"`
 
+		// HasResponse client udp request has response?
 		HasResponse       bool   `yaml:"hasResponse" jsonschema:"required"`
 		ClientIdleTimeout uint32 `yaml:"clientIdleTimeout" jsonschema:"omitempty,minimum=1"`
 		ServerIdleTimeout uint32 `yaml:"serverIdleTimeout" jsonschema:"omitempty,minimum=1"`
