@@ -162,7 +162,7 @@ func (r *runtime) getServerConn(pool *connPool, clientAddr *net.UDPAddr) (net.Co
 
 	var serverConn net.Conn
 	if pool != nil {
-		serverConn = pool.get(server.Addr)
+		serverConn = pool.get(clientAddr.String())
 		if serverConn != nil {
 			return serverConn, server.Addr, nil
 		}
