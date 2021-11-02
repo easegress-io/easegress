@@ -165,7 +165,7 @@ func (r *httpRequest) Size() uint64 {
 
 func (r *httpRequest) finish() {
 	// NOTE: We don't use this line in case of large flow attack.
-	// io.Copy(ioutil.Discard, r.std.Body)
+	// io.Copy(io.Discard, r.std.Body)
 
 	// NOTE: The server will do it for us.
 	// r.std.Body.Close()

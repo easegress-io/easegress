@@ -19,7 +19,6 @@ package pidfile
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -38,7 +37,7 @@ var pidfilePath string
 func Write(opt *option.Options) error {
 	pidfilePath = filepath.Join(opt.AbsHomeDir, pidfileName)
 
-	err := ioutil.WriteFile(pidfilePath, []byte(fmt.Sprintf("%d", os.Getpid())), 0o644)
+	err := os.WriteFile(pidfilePath, []byte(fmt.Sprintf("%d", os.Getpid())), 0o644)
 	if err != nil {
 		logger.Errorf("write %s failed: %s", pidfilePath, err)
 		return err
@@ -51,7 +50,7 @@ func Write(opt *option.Options) error {
 func Read(opt *option.Options) (int, error) {
 	pidfilePath = filepath.Join(opt.AbsHomeDir, pidfileName)
 
-	data, err := ioutil.ReadFile(pidfilePath)
+	data, err := os.ReadFile(pidfilePath)
 	if err != nil {
 		logger.Errorf("read %s failed: %s", pidfilePath, err)
 		return 0, err

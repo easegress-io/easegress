@@ -21,7 +21,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 
@@ -128,7 +127,7 @@ func handleRequest(httpMethod string, url string, reqBody []byte, cmd *cobra.Com
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		ExitWithErrorf("%s failed: %v", cmd.Short, err)
 	}
