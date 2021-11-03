@@ -197,6 +197,7 @@ func (meta *FilterMetaSpec) Validate() error {
 	return nil
 }
 
+// FlowFilterNames returns the filter names of the flow
 func (s Spec) FlowFilterNames() []string {
 	names := make([]string, len(s.Flow))
 	for i, f := range s.Flow {
