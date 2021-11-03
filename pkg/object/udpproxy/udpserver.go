@@ -70,7 +70,7 @@ func (u *UDPServer) Status() *supervisor.Status {
 
 // Close actually close runtime
 func (u *UDPServer) Close() {
-	u.runtime.Close()
+	u.runtime.close()
 }
 
 // Init initializes UDPServer.
@@ -82,7 +82,7 @@ func (u *UDPServer) Init(superSpec *supervisor.Spec) {
 func (u *UDPServer) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object) {
 
 	u.runtime = previousGeneration.(*UDPServer).runtime
-	u.runtime.Close()
+	u.runtime.close()
 	u.Init(superSpec)
 }
 
