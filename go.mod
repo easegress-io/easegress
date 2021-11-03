@@ -42,8 +42,6 @@ require (
 	github.com/tidwall/gjson v1.11.0
 	github.com/tomasen/realip v0.0.0-20180522021738-f0c99a92ddce
 	github.com/valyala/fasttemplate v1.2.1
-	github.com/xdg/scram v1.0.3 // indirect
-	github.com/xdg/stringprep v1.0.3 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonschema v1.2.1-0.20201027075954-b076d39a02e5
 	github.com/yl2chen/cidranger v1.0.2
