@@ -49,6 +49,10 @@ TARGET_CLIENT=${RELEASE_DIR}/egctl
 # Rules
 build: build_client build_server
 
+wasm: ENABLE_CGO=CGO_ENABLED=1
+wasm: GO_BUILD_TAGS=-tags wasmhost
+wasm: build
+
 build_client:
 	@echo "build client"
 	cd ${MKFILE_DIR} && \
