@@ -4,7 +4,7 @@ go 1.16
 
 require (
 	github.com/ArthurHlt/go-eureka-client v1.1.0
-	github.com/Shopify/sarama v1.29.1
+	github.com/Shopify/sarama v1.30.0
 	github.com/alecthomas/jsonschema v0.0.0-20210526225647-edb03dcab7bc
 	github.com/bytecodealliance/wasmtime-go v0.31.0
 	github.com/eclipse/paho.mqtt.golang v1.3.5
@@ -22,7 +22,7 @@ require (
 	github.com/hashicorp/consul/api v1.8.1
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/json-iterator/go v1.1.11
-	github.com/klauspost/compress v1.13.1
+	github.com/klauspost/compress v1.13.6
 	github.com/lucas-clemente/quic-go v0.21.1
 	github.com/megaease/easemesh-api v1.3.3
 	github.com/megaease/grace v1.0.0
