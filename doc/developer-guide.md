@@ -125,7 +125,7 @@ func (c *StatusInLocalController) syncStatus() {
 		return
 	}
 
-	ioutil.WriteFile(c.spec.Path, buff, 0644)
+	os.WriteFile(c.spec.Path, buff, 0644)
 }
 ```
 
@@ -137,7 +137,7 @@ All objects must satisfy the interface `Object` in [`pkg/object/supervisor/regis
 package statusinlocalcontroller
 
 import (
-	"io/ioutil"
+	"os"
 	"runtime/debug"
 	"time"
 
@@ -209,7 +209,7 @@ func (c *StatusInLocalController) syncStatus() {
 		return
 	}
 
-	ioutil.WriteFile(c.spec.Path, buff, 0644)
+	os.WriteFile(c.spec.Path, buff, 0644)
 }
 
 // Category returns the category of StatusInLocalController.

@@ -20,7 +20,6 @@ package proxy
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"strconv"
 
@@ -198,7 +197,7 @@ func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader, client *http.C
 		// And we do NOT do statistics of duration and respSize
 		// for it, because we can't wait for it to finish.
 		defer resp.Body.Close()
-		io.Copy(ioutil.Discard, resp.Body)
+		io.Copy(io.Discard, resp.Body)
 	}()
 
 	return ""

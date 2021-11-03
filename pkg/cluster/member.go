@@ -20,7 +20,6 @@ package cluster
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -110,7 +109,7 @@ func (m *members) load() error {
 		return nil
 	}
 
-	buff, err := ioutil.ReadFile(m.file)
+	buff, err := os.ReadFile(m.file)
 	if err != nil {
 		return err
 	}
@@ -146,7 +145,7 @@ func (m *members) store() {
 		}
 	}
 
-	err = ioutil.WriteFile(m.file, buff, 0o644)
+	err = os.WriteFile(m.file, buff, 0o644)
 	if err != nil {
 		logger.Errorf("write file %s failed: %v", m.file, err)
 	} else {

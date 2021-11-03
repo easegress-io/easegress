@@ -22,7 +22,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -139,7 +139,7 @@ func (worker *Worker) detectedAccept(accept string) string {
 }
 
 func (worker *Worker) eurekaRegister(w http.ResponseWriter, r *http.Request) {
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest,
 			fmt.Errorf("read body failed: %v", err))

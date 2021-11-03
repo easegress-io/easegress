@@ -19,7 +19,7 @@ package worker
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -120,7 +120,7 @@ func (worker *Worker) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (worker *Worker) readAPISpec(w http.ResponseWriter, r *http.Request, spec interface{}) error {
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		return fmt.Errorf("read body failed: %v", err)
 	}

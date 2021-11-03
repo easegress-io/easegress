@@ -23,7 +23,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/textproto"
 	"net/url"
@@ -507,12 +507,12 @@ func (ctx *SigningContext) hashBody(req *http.Request, verify bool) error {
 		// sha256 of empty string
 		ctx.BodyHash = sha256Empty
 	} else {
-		body, e := ioutil.ReadAll(req.Body)
+		body, e := io.ReadAll(req.Body)
 		if e != nil {
 			return e
 		}
 		req.Body.Close()
-		req.Body = ioutil.NopCloser(bytes.NewReader(body))
+		req.Body = io.NopCloser(bytes.NewReader(body))
 		ctx.BodyHash = sha256DegistAndEncodeToHexString(body)
 	}
 
