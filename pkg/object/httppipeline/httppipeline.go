@@ -197,6 +197,14 @@ func (meta *FilterMetaSpec) Validate() error {
 	return nil
 }
 
+func (s Spec) FlowFilterNames() []string {
+	names := make([]string, len(s.Flow))
+	for i, f := range s.Flow {
+		names[i] = f.Filter
+	}
+	return names
+}
+
 // Validate validates Spec.
 func (s Spec) Validate() (err error) {
 	errPrefix := "filters"
@@ -214,26 +222,21 @@ func (s Spec) Validate() (err error) {
 	}
 	filterBuffs := convertToFilterBuffs(filtersData)
 
-	filterSpecs := make(map[string]*FilterSpec)
-	var templateFilterBuffs []context.FilterBuff
-	for _, filterSpec := range s.Filters {
-		// NOTE: Nil supervisor is fine in spec validating phrase.
-		spec, err := NewFilterSpec(filterSpec, nil)
-		if err != nil {
-			panic(err)
-		}
-
-		if _, exists := filterSpecs[spec.Name()]; exists {
-			panic(fmt.Errorf("conflict name: %s", spec.Name()))
-		}
-		filterSpecs[spec.Name()] = spec
-
-		templateFilterBuffs = append(templateFilterBuffs, context.FilterBuff{
-			Name: spec.Name(),
-			Buff: filterBuffs[spec.Name()],
-		})
+	filterSpecs, filterNames := filtersToFilterSpecs(
+		s.Filters,
+		nil, /*NOTE: Nil supervisor is fine in spec validating phrase.*/
+	)
+	// sort filters using the Flow or the order they were defined
+	filterOrder := s.FlowFilterNames()
+	if len(filterOrder) == 0 {
+		filterOrder = filterNames
 	}
-
+	templateFilterBuffs := make([]context.FilterBuff, len(filterOrder))
+	for i, name := range filterOrder {
+		templateFilterBuffs[i] = context.FilterBuff{
+			Name: name, Buff: filterBuffs[name],
+		}
+	}
 	// validate http template inside filter specs
 	_, err = context.NewHTTPTemplate(templateFilterBuffs)
 	if err != nil {
@@ -241,14 +244,12 @@ func (s Spec) Validate() (err error) {
 	}
 
 	errPrefix = "flow"
-
 	filters := make(map[string]struct{})
 	for _, f := range s.Flow {
 		if _, exists := filters[f.Filter]; exists {
 			panic(fmt.Errorf("repeated filter %s", f.Filter))
 		}
 	}
-
 	labelsValid := map[string]struct{}{LabelEND: {}}
 	for i := len(s.Flow) - 1; i >= 0; i-- {
 		f := s.Flow[i]
@@ -269,7 +270,6 @@ func (s Spec) Validate() (err error) {
 		}
 		labelsValid[f.Filter] = struct{}{}
 	}
-
 	return nil
 }
 
@@ -305,42 +305,58 @@ func (hp *HTTPPipeline) Inherit(superSpec *supervisor.Spec, previousGeneration s
 	// previousGeneration.Close()
 }
 
-func (hp *HTTPPipeline) reload(previousGeneration *HTTPPipeline) {
-	runningFilters := make([]*runningFilter, 0)
-	if len(hp.spec.Flow) == 0 {
-		for _, filterSpec := range hp.spec.Filters {
-			spec, err := NewFilterSpec(filterSpec, hp.superSpec.Super())
-			if err != nil {
-				panic(err)
-			}
+// creates FilterSpecs from a list of filters
+func filtersToFilterSpecs(
+	filters []map[string]interface{},
+	super *supervisor.Supervisor,
+) (map[string]*FilterSpec, []string) {
+	filterMap := make(map[string]*FilterSpec)
+	filterNames := make([]string, 0)
+	for _, filter := range filters {
+		spec, err := NewFilterSpec(filter, super)
+		if err != nil {
+			panic(err)
+		}
+		if _, exists := filterMap[spec.Name()]; exists {
+			panic(fmt.Errorf("conflict name: %s", spec.Name()))
+		}
+		filterMap[spec.Name()] = spec
+		filterNames = append(filterNames, spec.Name())
+	}
+	return filterMap, filterNames
+}
 
-			runningFilters = append(runningFilters, &runningFilter{
+// Transforms map of FilterSpecs to list,
+// sorted by Flow if present and otherwise in the order filters were defined
+func filterSpecMapToSortedList(
+	filterMap map[string]*FilterSpec, flowItems []Flow, filterNames []string) []*runningFilter {
+	runningFilters := make([]*runningFilter, len(filterNames))
+	if len(flowItems) == 0 {
+		for i, filterName := range filterNames {
+			spec, _ := filterMap[filterName]
+			runningFilters[i] = &runningFilter{
 				spec: spec,
-			})
+			}
 		}
 	} else {
-		for _, f := range hp.spec.Flow {
-			var spec *FilterSpec
-			for _, filterSpec := range hp.spec.Filters {
-				var err error
-				spec, err = NewFilterSpec(filterSpec, hp.superSpec.Super())
-				if err != nil {
-					panic(err)
-				}
-				if spec.Name() == f.Filter {
-					break
-				}
-			}
-			if spec == nil {
+		for i, f := range flowItems {
+			spec, specDefined := filterMap[f.Filter]
+			if !specDefined {
 				panic(fmt.Errorf("flow filter %s not found in filters", f.Filter))
 			}
 
-			runningFilters = append(runningFilters, &runningFilter{
+			runningFilters[i] = &runningFilter{
 				spec:   spec,
 				jumpIf: f.JumpIf,
-			})
+			}
 		}
 	}
+	return runningFilters
+}
+
+func (hp *HTTPPipeline) reload(previousGeneration *HTTPPipeline) {
+	filterSpecMap, filterNames := filtersToFilterSpecs(hp.spec.Filters, hp.superSpec.Super())
+	runningFilters := filterSpecMapToSortedList(filterSpecMap, hp.spec.Flow, filterNames)
 
 	pipelineName := hp.superSpec.Name()
 	var filterBuffs []context.FilterBuff
