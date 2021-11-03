@@ -62,7 +62,6 @@ func TestPipeline(t *testing.T) {
     - name: mqtt-filter2
       kind: MockMQTTFilter`
 	p := getPipeline(yamlStr, t)
-	defer p.Close()
 
 	a := assert.New(t)
 	a.Equal(p.spec.Name, "pipeline", "wrong name")
@@ -90,6 +89,13 @@ func TestPipeline(t *testing.T) {
 	pipeline, err := GetPipeline("pipeline", context.MQTT)
 	a.Nil(err, "get pipeline failed")
 	a.Equal(pipeline, p, "get wrong pipeline")
+
+	status := p.Status().ObjectStatus.(*Status)
+	a.Equal(len(status.Filters), 2)
+
+	newP := &Pipeline{}
+	newP.Inherit(p.superSpec, p)
+	newP.Close()
 }
 
 func TestHandleMQTT(t *testing.T) {
@@ -112,14 +118,15 @@ func TestHandleMQTT(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		wg.Add(1)
 		go func(i int) {
-			c := &mockMQTTClient{cid: strconv.Itoa(i)}
+			c := &mockMQTTClient{cid: strconv.Itoa(i), userName: strconv.Itoa(i + 1)}
 			publish := packets.NewControlPacket(packets.Publish).(*packets.PublishPacket)
 			ctx := context.NewMQTTContext(stdcontext.Background(), c, publish)
+			assert.Equal(t, ctx.Client().UserName(), strconv.Itoa(i+1))
 			p.HandleMQTT(ctx)
 			wg.Done()
 		}(i)
 	}
 	wg.Wait()
 	f := p.getRunningFilter("mqtt-filter").filter.(*MockMQTTFilter)
-	assert.Equal(t, len(f.clientCount()), 1000, "wrong client count")
+	assert.Equal(t, len(f.Status().(MockMQTTStatus)), 1000, "wrong client count")
 }
