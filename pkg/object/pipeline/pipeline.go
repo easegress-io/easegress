@@ -187,11 +187,11 @@ func (p *Pipeline) reload(previousGeneration *Pipeline) {
 
 func (p *Pipeline) checkProtocol() {
 	for _, rf := range p.runningFilters {
-		protocol, err := getProtocol(rf.filter)
+		protocols, err := getProtocols(rf.filter)
 		if err != nil {
 			panic(err)
 		}
-		if protocol != p.spec.Protocol {
+		if _, ok := protocols[p.spec.Protocol]; !ok {
 			panic(fmt.Errorf("filter %v not support pipeline protocol %s", rf.spec.Name(), p.spec.Protocol))
 		}
 	}

@@ -94,16 +94,21 @@ type (
 	}
 )
 
-func getProtocol(f Filter) (context.Protocol, error) {
-	switch f.(type) {
-	case HTTPFilter:
-		return context.HTTP, nil
-	case MQTTFilter:
-		return context.MQTT, nil
-	case TCPFilter:
-		return context.TCP, nil
+func getProtocols(f Filter) (map[context.Protocol]struct{}, error) {
+	ans := map[context.Protocol]struct{}{}
+	if _, ok := f.(HTTPFilter); ok {
+		ans[context.HTTP] = struct{}{}
 	}
-	return "", fmt.Errorf("filter %v protocol not found, currently only support HTTP, MQTT and TCP", f.Kind())
+	if _, ok := f.(MQTTFilter); ok {
+		ans[context.MQTT] = struct{}{}
+	}
+	if _, ok := f.(TCPFilter); ok {
+		ans[context.TCP] = struct{}{}
+	}
+	if len(ans) == 0 {
+		return nil, fmt.Errorf("filter %v protocol not found, currently only support HTTP, MQTT and TCP", f.Kind())
+	}
+	return ans, nil
 }
 
 var runningPipelines = sync.Map{}
