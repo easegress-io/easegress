@@ -622,8 +622,10 @@ $ make GOTAGS=wasmhost
 or
 
 ```bash
-$ go build -tags=wasmhost
+$ make wasm
 ```
+
+
 
 ### Configuration
 
