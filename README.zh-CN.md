@@ -140,6 +140,11 @@ $ git clone https://github.com/megaease/easegress && cd easegress
 $ make
 ```
 
+> **注意事项**：
+> - 我们需要 Go 1.16+ 以上版本的编辑器
+> - 如果你需要WebAssembbly的版本，你需要运行 `make wasm` 
+
+
 然后把二进制所在目录添加到 `PATH` 中，并启动服务：
 
 ```bash

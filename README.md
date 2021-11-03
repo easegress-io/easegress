@@ -139,9 +139,9 @@ $ git clone https://github.com/megaease/easegress && cd easegress
 $ make
 ```
 
-**Note**:
-- We need go 1.16+ complier for build.
-- If you need the WebAssembly feature, please run `make wasm`.
+> **Note**:
+> - We need go 1.16+ complier for build.
+> - If you need the WebAssembly feature, please run `make wasm`.
 
 Then we can add the binary directory to the `PATH` and execute the server:
 
