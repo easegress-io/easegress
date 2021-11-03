@@ -17,6 +17,7 @@
 
 package context
 
+// MockMQTTClient is mock client for MQTTContext
 type MockMQTTClient struct {
 	MockClientID string
 	MockUserName string
@@ -24,10 +25,12 @@ type MockMQTTClient struct {
 
 var _ MQTTClient = (*MockMQTTClient)(nil)
 
+// ClientID return client id of MockMQTTClient
 func (m *MockMQTTClient) ClientID() string {
 	return m.MockClientID
 }
 
+// UserName return username if MockMQTTClient
 func (m *MockMQTTClient) UserName() string {
 	return m.MockUserName
 }

@@ -87,6 +87,7 @@ type (
 		HandleTCP(context.TCPContext) *context.TCPResult
 	}
 
+	// APIEntry contains filter api information
 	APIEntry struct {
 		Path    string
 		Method  string

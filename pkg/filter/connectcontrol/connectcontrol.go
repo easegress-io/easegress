@@ -59,9 +59,11 @@ type (
 		EarlyStop     bool     `yaml:"earlyStop" jsonschema:"omitempty"`
 	}
 
+	// Status is ConnectControl filter status
 	Status struct {
 	}
 
+	// HTTPJsonData is json data struct for ConnectControl filter to process http request
 	HTTPJsonData struct {
 		Clients []string `yaml:"clients" jsonschema:"omitempty"`
 		Topics  []string `yaml:"topics" jsonschema:"omitempty"`
@@ -145,6 +147,7 @@ func (cc *ConnectControl) HandleMQTT(ctx context.MQTTContext) *context.MQTTResul
 	return &context.MQTTResult{Err: errors.New(resultBannedClientOrTopic)}
 }
 
+// APIs return apis for ConnectControl filter
 func (cc *ConnectControl) APIs() []*pipeline.APIEntry {
 	addName := func(path string) string {
 		return fmt.Sprintf(path, cc.filterSpec.Name())

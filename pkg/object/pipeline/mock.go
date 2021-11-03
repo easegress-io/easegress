@@ -120,6 +120,7 @@ func (c *mockMQTTClient) UserName() string {
 	return c.userName
 }
 
+// MockFilterSpec help to create FilterSpec for test
 func MockFilterSpec(super *supervisor.Supervisor, rawSpec map[string]interface{}, yamlConfig string,
 	meta *FilterMetaSpec, filterSpec interface{}, rootFilter Filter) *FilterSpec {
 	return &FilterSpec{

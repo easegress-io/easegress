@@ -54,6 +54,7 @@ type (
 		UserName() string
 	}
 
+	// MQTTPacketType contains supported mqtt packet type
 	MQTTPacketType int
 
 	mqttContext struct {
@@ -81,9 +82,14 @@ type (
 )
 
 const (
+	// MQTTConnect is mqtt packet type of connect
 	MQTTConnect MQTTPacketType = 1
+
+	// MQTTPublish is mqtt packet type of publish
 	MQTTPublish MQTTPacketType = 2
-	MQTTOther   MQTTPacketType = 3
+
+	// MQTTOther is all other mqtt packet type
+	MQTTOther MQTTPacketType = 3
 )
 
 var _ MQTTContext = (*mqttContext)(nil)
