@@ -56,6 +56,7 @@ type MockMQTTSpec struct {
 	UserName    string `yaml:"userName" jsonschema:"required"`
 	Port        uint16 `yaml:"port" jsonschema:"required"`
 	BackendType string `yaml:"backendType" jsonschema:"required"`
+	EarlyStop   bool   `yaml:"earlyStop" jsonschema:"omitempty"`
 }
 
 // MockMQTTStatus is status of MockMQTTFilter
