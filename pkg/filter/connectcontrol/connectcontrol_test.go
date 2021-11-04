@@ -59,13 +59,14 @@ func defaultFilterSpec() *pipeline.FilterSpec {
 }
 
 func TestConnectControl(t *testing.T) {
+	assert := assert.New(t)
+
 	cc := &ConnectControl{}
-	a := assert.New(t)
-	a.Equal(cc.Kind(), Kind, "wrong kind")
-	a.Equal(cc.DefaultSpec(), &Spec{}, "wrong spec")
-	a.NotEqual(len(cc.Description()), 0, "description for ConnectControl is empty")
-	a.Nil(cc.Results(), "if update result, please update this case")
-	a.Nil(cc.Status(), "if update status, please update this case")
+	assert.Equal(cc.Kind(), Kind, "wrong kind")
+	assert.Equal(cc.DefaultSpec(), &Spec{}, "wrong spec")
+	assert.NotEqual(len(cc.Description()), 0, "description for ConnectControl is empty")
+	assert.Nil(cc.Results(), "if update result, please update this case")
+	assert.Nil(cc.Status(), "if update status, please update this case")
 	checkProtocol := func() (err error) {
 		defer func() {
 			if errMsg := recover(); errMsg != nil {
@@ -81,7 +82,7 @@ func TestConnectControl(t *testing.T) {
 		return
 	}
 	err := checkProtocol()
-	a.NotNil(err, "if ConnectControl supports more protocol, please update this case")
+	assert.NotNil(err, "if ConnectControl supports more protocol, please update this case")
 
 	filterSpec := defaultFilterSpec()
 	cc.Init(filterSpec)
@@ -91,6 +92,8 @@ func TestConnectControl(t *testing.T) {
 }
 
 func TestHandleMQTT(t *testing.T) {
+	assert := assert.New(t)
+
 	filterSpec := defaultFilterSpec()
 	cc := &ConnectControl{}
 	cc.Init(filterSpec)
@@ -111,18 +114,20 @@ func TestHandleMQTT(t *testing.T) {
 	for _, test := range tt {
 		ctx := newContext(test.cid, test.topic)
 		res := cc.HandleMQTT(ctx)
-		assert.Equal(t, res.Err, test.err)
-		assert.Equal(t, ctx.Disconnect(), test.disconnect)
-		assert.Equal(t, ctx.EarlyStop(), test.earlyStop)
+		assert.Equal(res.Err, test.err)
+		assert.Equal(ctx.Disconnect(), test.disconnect)
+		assert.Equal(ctx.EarlyStop(), test.earlyStop)
 	}
 
 	packet := packets.NewControlPacket(packets.Connect).(*packets.ConnectPacket)
 	ctx := context.NewMQTTContext(stdcontext.Background(), nil, packet)
 	res := cc.HandleMQTT(ctx)
-	assert.Equal(t, res.Err, errors.New(resultWrongPacket), "should return error for wrong result")
+	assert.Equal(res.Err, errors.New(resultWrongPacket), "should return error for wrong result")
 }
 
 func TestHTTP(t *testing.T) {
+	assert := assert.New(t)
+
 	meta := &pipeline.FilterMetaSpec{
 		Name:     "connect-control-demo",
 		Kind:     Kind,
@@ -134,7 +139,7 @@ func TestHTTP(t *testing.T) {
 	cc := &ConnectControl{}
 	cc.Init(filterSpec)
 	apis := cc.APIs()
-	assert.Equal(t, len(apis), 3, "if apis is updated, please update this case")
+	assert.Equal(len(apis), 3, "if apis is updated, please update this case")
 
 	tt := []struct {
 		method     string
@@ -176,19 +181,19 @@ func TestHTTP(t *testing.T) {
 		var body io.Reader
 		if test.reqData != nil {
 			jsonData, err := json.Marshal(test.reqData)
-			assert.Nil(t, err, "marshal json data failed")
+			assert.Nil(err, "marshal json data failed")
 			body = bytes.NewBuffer(jsonData)
 		}
 		req := httptest.NewRequest(test.method, "/fake", body)
 		w := httptest.NewRecorder()
 		test.fn(w, req)
 		res := w.Result()
-		assert.Equal(t, res.StatusCode, test.statusCode, "wrong code")
+		assert.Equal(res.StatusCode, test.statusCode, "wrong code")
 		if test.resData != nil {
 			resData := &HTTPJsonData{}
 			err := json.NewDecoder(res.Body).Decode(resData)
-			assert.Nil(t, err, "decode json data failed")
-			assert.Equal(t, resData, test.resData)
+			assert.Nil(err, "decode json data failed")
+			assert.Equal(resData, test.resData)
 		}
 		res.Body.Close()
 	}
@@ -197,7 +202,7 @@ func TestHTTP(t *testing.T) {
 		w := httptest.NewRecorder()
 		fn(w, r)
 		res := w.Result()
-		assert.Equal(t, res.StatusCode, http.StatusBadRequest)
+		assert.Equal(res.StatusCode, http.StatusBadRequest)
 		res.Body.Close()
 	}
 
@@ -212,7 +217,7 @@ func TestHTTP(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/fake", nil)
 	w := &badResponseWriter{FailTime: 1}
 	cc.handleInfo(w, req)
-	assert.Equal(t, w.StatusCode, http.StatusInternalServerError, "json encode error")
+	assert.Equal(w.StatusCode, http.StatusInternalServerError, "json encode error")
 }
 
 type badResponseWriter struct {

@@ -104,40 +104,40 @@ func (f *nonStructSpecFilter) Kind() string             { return "nonStructSpecF
 func (f *nonStructSpecFilter) DefaultSpec() interface{} { return map[string]string{} }
 
 func TestRegistry(t *testing.T) {
-	a := assert.New(t)
+	assert := assert.New(t)
 
 	// test getProtocols
 	allFilter := &allProtocolFilter{}
 	protocols, err := getProtocols(allFilter)
-	a.Nil(err)
-	a.Equal(protocols, map[context.Protocol]struct{}{context.HTTP: {}, context.MQTT: {}, context.TCP: {}}, "allProtocolFilter support HTTP, MQTT and TCP")
+	assert.Nil(err)
+	assert.Equal(protocols, map[context.Protocol]struct{}{context.HTTP: {}, context.MQTT: {}, context.TCP: {}}, "allProtocolFilter support HTTP, MQTT and TCP")
 
 	nonFilter := &mockFilter{}
 	_, err = getProtocols(nonFilter)
-	a.NotNil(err, "nonFilter not support any protocol")
+	assert.NotNil(err, "nonFilter not support any protocol")
 
 	// test GetPipeline
 	_, err = GetPipeline("pipeline-no-exist", context.HTTP)
-	a.NotNil(err, "GetPipeline not exist pipeline should fail")
+	assert.NotNil(err, "GetPipeline not exist pipeline should fail")
 
 	// test store and delete pipeline
-	a.Panics(func() { deletePipeline("not-exist", context.HTTP) }, "delete not-exist pipeline should panic")
-	a.NotPanics(func() { storePipeline("pipeline-store", context.HTTP, &Pipeline{}) }, "store pipeline should success")
-	a.Panics(func() { storePipeline("pipeline-store", context.HTTP, &Pipeline{}) }, "store exist pipeline should panic")
-	a.NotPanics(func() { storePipeline("pipeline-store", context.MQTT, &Pipeline{}) }, "store same pipeline name but different protocol name should success")
-	a.NotPanics(func() { deletePipeline("pipeline-store", context.HTTP) }, "delete exist pipeline should success")
+	assert.Panics(func() { deletePipeline("not-exist", context.HTTP) }, "delete not-exist pipeline should panic")
+	assert.NotPanics(func() { storePipeline("pipeline-store", context.HTTP, &Pipeline{}) }, "store pipeline should success")
+	assert.Panics(func() { storePipeline("pipeline-store", context.HTTP, &Pipeline{}) }, "store exist pipeline should panic")
+	assert.NotPanics(func() { storePipeline("pipeline-store", context.MQTT, &Pipeline{}) }, "store same pipeline name but different protocol name should success")
+	assert.NotPanics(func() { deletePipeline("pipeline-store", context.HTTP) }, "delete exist pipeline should success")
 
 	Register(&mockFilter{})
 	Register(&allProtocolFilter{})
 	filters := GetFilterRegistry()
-	a.Contains(filters, nonFilter.Kind())
-	a.Contains(filters, allFilter.Kind())
+	assert.Contains(filters, nonFilter.Kind())
+	assert.Contains(filters, allFilter.Kind())
 
 	// check register
-	a.Panics(func() { Register(&errResultFilter{}) }, "errResultFilter return repeat results, should panic")
-	a.Panics(func() { Register(&emptyKindFilter{}) }, "emptyKindFilter return empty kind, should panic")
-	a.Panics(func() { Register(&mockFilter{}) }, "mockFilter already registered, should panic")
-	a.Panics(func() { Register(nonPtrFilter{}) }, "nonPtrFilter is not a ptr should panic")
-	a.Panics(func() { Register(&intSpecFilter{}) }, "intSpecFilter return int default spec, should panic")
-	a.Panics(func() { Register(&nonStructSpecFilter{}) }, "nonStructSpecFilter return non struct default spec, should panic")
+	assert.Panics(func() { Register(&errResultFilter{}) }, "errResultFilter return repeat results, should panic")
+	assert.Panics(func() { Register(&emptyKindFilter{}) }, "emptyKindFilter return empty kind, should panic")
+	assert.Panics(func() { Register(&mockFilter{}) }, "mockFilter already registered, should panic")
+	assert.Panics(func() { Register(nonPtrFilter{}) }, "nonPtrFilter is not a ptr should panic")
+	assert.Panics(func() { Register(&intSpecFilter{}) }, "intSpecFilter return int default spec, should panic")
+	assert.Panics(func() { Register(&nonStructSpecFilter{}) }, "nonStructSpecFilter return non struct default spec, should panic")
 }

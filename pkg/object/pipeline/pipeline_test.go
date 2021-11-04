@@ -48,7 +48,7 @@ func getPipeline(yamlStr string, t *testing.T) *Pipeline {
 }
 
 func TestPipeline(t *testing.T) {
-	a := assert.New(t)
+	assert := assert.New(t)
 
 	yamlStr := `
     name: pipeline
@@ -67,37 +67,37 @@ func TestPipeline(t *testing.T) {
       kind: MockMQTTFilter`
 	p := getPipeline(yamlStr, t)
 
-	a.Equal(p.spec.Name, "pipeline", "wrong name")
-	a.Equal(p.spec.Protocol, context.MQTT, "wrong protocol")
-	a.Equal(len(p.spec.Flow), 2, "wrong flow length")
-	a.Equal(p.spec.Flow[0].Filter, "mqtt-filter", "wrong filter name")
-	a.Equal(len(p.runningFilters), 2, "wrong running filters")
+	assert.Equal(p.spec.Name, "pipeline", "wrong name")
+	assert.Equal(p.spec.Protocol, context.MQTT, "wrong protocol")
+	assert.Equal(len(p.spec.Flow), 2, "wrong flow length")
+	assert.Equal(p.spec.Flow[0].Filter, "mqtt-filter", "wrong filter name")
+	assert.Equal(len(p.runningFilters), 2, "wrong running filters")
 
 	s := p.runningFilters[0].spec
-	a.Equal(s.Name(), "mqtt-filter", "wrong filter name")
-	a.Equal(s.Kind(), "MockMQTTFilter", "wrong filter kind")
-	a.Equal(s.Pipeline(), "pipeline", "wrong filter pipeline")
-	a.Equal(s.Protocol(), context.MQTT, "wrong filter protocol")
+	assert.Equal(s.Name(), "mqtt-filter", "wrong filter name")
+	assert.Equal(s.Kind(), "MockMQTTFilter", "wrong filter kind")
+	assert.Equal(s.Pipeline(), "pipeline", "wrong filter pipeline")
+	assert.Equal(s.Protocol(), context.MQTT, "wrong filter protocol")
 
 	f := p.getRunningFilter("mqtt-filter").filter.(*MockMQTTFilter)
-	a.Equal(f.spec.UserName, "test", "wrong filter username")
-	a.Equal(f.spec.Port, uint16(1234), "wrong filter port")
-	a.Equal(f.spec.BackendType, "Kafka", "wrong filter BackendType")
+	assert.Equal(f.spec.UserName, "test", "wrong filter username")
+	assert.Equal(f.spec.Port, uint16(1234), "wrong filter port")
+	assert.Equal(f.spec.BackendType, "Kafka", "wrong filter BackendType")
 
 	f = p.getRunningFilter("mqtt-filter2").filter.(*MockMQTTFilter)
-	a.Equal(f.spec.UserName, "", "wrong filter username")
-	a.Equal(f.spec.Port, uint16(0), "wrong filter port")
-	a.Equal(f.spec.BackendType, "", "wrong filter BackendType")
+	assert.Equal(f.spec.UserName, "", "wrong filter username")
+	assert.Equal(f.spec.Port, uint16(0), "wrong filter port")
+	assert.Equal(f.spec.BackendType, "", "wrong filter BackendType")
 
 	pipeline, err := GetPipeline("pipeline", context.MQTT)
-	a.Nil(err, "get pipeline failed")
-	a.Equal(pipeline, p, "get wrong pipeline")
+	assert.Nil(err, "get pipeline failed")
+	assert.Equal(pipeline, p, "get wrong pipeline")
 
 	status := p.Status().ObjectStatus.(*Status)
-	a.Equal(len(status.Filters), 2)
+	assert.Equal(len(status.Filters), 2)
 
 	filter := p.getRunningFilter("not-exist-filter")
-	a.Nil(filter)
+	assert.Nil(filter)
 
 	newP := &Pipeline{}
 	newP.Inherit(p.superSpec, p)
@@ -105,7 +105,7 @@ func TestPipeline(t *testing.T) {
 }
 
 func TestHandleMQTT(t *testing.T) {
-	a := assert.New(t)
+	assert := assert.New(t)
 
 	yamlStr := `
     name: pipeline
@@ -130,18 +130,18 @@ func TestHandleMQTT(t *testing.T) {
 			c := &mockMQTTClient{cid: strconv.Itoa(i), userName: strconv.Itoa(i + 1)}
 			publish := packets.NewControlPacket(packets.Publish).(*packets.PublishPacket)
 			ctx := context.NewMQTTContext(stdcontext.Background(), c, publish)
-			a.Equal(ctx.Client().UserName(), strconv.Itoa(i+1))
+			assert.Equal(ctx.Client().UserName(), strconv.Itoa(i+1))
 			p.HandleMQTT(ctx)
 			wg.Done()
 		}(i)
 	}
 	wg.Wait()
 	f := p.getRunningFilter("mqtt-filter").filter.(*MockMQTTFilter)
-	a.Equal(len(f.Status().(MockMQTTStatus)), 1000, "wrong client count")
+	assert.Equal(len(f.Status().(MockMQTTStatus)), 1000, "wrong client count")
 
 	newP := &Pipeline{}
 	newP.spec = &Spec{Protocol: context.HTTP}
-	a.NotPanics(func() { newP.HandleMQTT(nil) }, "handle mqtt will log and return since pipeline protocol is http")
+	assert.NotPanics(func() { newP.HandleMQTT(nil) }, "handle mqtt will log and return since pipeline protocol is http")
 
 	yamlStr = `
     name: pipeline-no-flow
@@ -154,7 +154,7 @@ func TestHandleMQTT(t *testing.T) {
       port: 1234
       earlyStop: true
       backendType: Kafka`
-	a.NotPanics(func() { getPipeline(yamlStr, t) }, "no flow should work")
+	assert.NotPanics(func() { getPipeline(yamlStr, t) }, "no flow should work")
 
 	yamlStr = `
     name: pipeline-flow-no-filter
@@ -169,7 +169,7 @@ func TestHandleMQTT(t *testing.T) {
       port: 1234
       earlyStop: true
       backendType: Kafka`
-	a.Panics(func() { getPipeline(yamlStr, t) }, "flow and filter have different name")
+	assert.Panics(func() { getPipeline(yamlStr, t) }, "flow and filter have different name")
 
 	yamlStr = `
     name: pipeline-flow-no-filter
@@ -177,5 +177,5 @@ func TestHandleMQTT(t *testing.T) {
     protocol: MQTT
     flow:
     - filter: mqtt-filter`
-	a.Panics(func() { getPipeline(yamlStr, t) }, "flow and no filter should panic")
+	assert.Panics(func() { getPipeline(yamlStr, t) }, "flow and no filter should panic")
 }

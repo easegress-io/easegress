@@ -26,16 +26,16 @@ import (
 )
 
 func TestMockFilter(t *testing.T) {
-	a := assert.New(t)
+	assert := assert.New(t)
 
 	// mockFilter do nothing, used for create other filters
 	mock := &mockFilter{}
-	a.Equal(mock.Kind(), "MockFilter")
-	a.Equal(mock.DefaultSpec(), &mockSpec{})
-	a.Equal(mock.Description(), "mock filter")
-	a.Nil(mock.Results())
-	a.Nil(mock.Status())
-	a.Nil(mock.APIs())
+	assert.Equal(mock.Kind(), "MockFilter")
+	assert.Equal(mock.DefaultSpec(), &mockSpec{})
+	assert.Equal(mock.Description(), "mock filter")
+	assert.Nil(mock.Results())
+	assert.Nil(mock.Status())
+	assert.Nil(mock.APIs())
 	mock.Init(nil)
 	newMock := &mockFilter{}
 	newMock.Inherit(nil, mock)
@@ -43,7 +43,7 @@ func TestMockFilter(t *testing.T) {
 }
 
 func TestMockFilterSpec(t *testing.T) {
-	a := assert.New(t)
+	assert := assert.New(t)
 
 	super := supervisor.NewDefaultMock()
 	rawSpec := map[string]interface{}{"name": "testMock"}
@@ -57,12 +57,12 @@ func TestMockFilterSpec(t *testing.T) {
 	filterSpec := &MockMQTTSpec{}
 	rootFilter := &MockMQTTFilter{}
 	mockSpec := MockFilterSpec(super, rawSpec, yamlConfig, meta, filterSpec, rootFilter)
-	a.Equal(mockSpec.Super(), super)
-	a.Equal(mockSpec.RawSpec(), rawSpec)
-	a.Equal(mockSpec.Kind(), meta.Kind)
-	a.Equal(mockSpec.Name(), meta.Name)
-	a.Equal(mockSpec.Pipeline(), meta.Pipeline)
-	a.Equal(mockSpec.Protocol(), meta.Protocol)
-	a.Equal(mockSpec.FilterSpec(), filterSpec)
-	a.Equal(mockSpec.RootFilter(), rootFilter)
+	assert.Equal(mockSpec.Super(), super)
+	assert.Equal(mockSpec.RawSpec(), rawSpec)
+	assert.Equal(mockSpec.Kind(), meta.Kind)
+	assert.Equal(mockSpec.Name(), meta.Name)
+	assert.Equal(mockSpec.Pipeline(), meta.Pipeline)
+	assert.Equal(mockSpec.Protocol(), meta.Protocol)
+	assert.Equal(mockSpec.FilterSpec(), filterSpec)
+	assert.Equal(mockSpec.RootFilter(), rootFilter)
 }
