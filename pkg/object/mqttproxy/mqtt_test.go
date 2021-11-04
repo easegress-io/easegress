@@ -22,6 +22,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -30,6 +31,7 @@ import (
 	"strconv"
 	"sync"
 	"testing"
+	"time"
 
 	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/eclipse/paho.mqtt.golang/packets"
@@ -823,16 +825,18 @@ func TestYamlEncodeDecode(t *testing.T) {
 }
 
 type testServer struct {
-	mux *http.ServeMux
-	srv http.Server
+	mux  *http.ServeMux
+	srv  http.Server
+	addr string
 }
 
 func newServer(addr string) *testServer {
 	mux := http.NewServeMux()
 	srv := http.Server{Addr: addr, Handler: mux}
 	ts := &testServer{
-		mux: mux,
-		srv: srv,
+		mux:  mux,
+		srv:  srv,
+		addr: addr,
 	}
 	return ts
 }
@@ -841,8 +845,18 @@ func (ts *testServer) addHandlerFunc(pattern string, f http.HandlerFunc) {
 	ts.mux.HandleFunc(pattern, f)
 }
 
-func (ts *testServer) start() {
+func (ts *testServer) start() error {
 	go ts.srv.ListenAndServe()
+	// Poll server until it is ready
+	for t := 0; t < 5; t++ {
+		time.Sleep(20)
+		req, _ := http.NewRequest(http.MethodGet, "http://localhost:"+ts.addr, nil)
+		_, err := http.DefaultClient.Do(req)
+		if err == nil {
+			return nil
+		}
+	}
+	return errors.New("Server did not respond")
 }
 
 func (ts *testServer) shutdown() {
@@ -872,7 +886,9 @@ func TestHTTPRequest(t *testing.T) {
 
 	srv := newServer(":8888")
 	srv.addHandlerFunc("/mqtt", broker.topicsPublishHandler)
-	srv.start()
+	if err := srv.start(); err != nil {
+		t.Errorf("couldn't start server: %s", err)
+	}
 
 	// GET request should fail
 	req, _ := http.NewRequest(http.MethodGet, "http://localhost:8888/mqtt", nil)
@@ -1358,6 +1374,8 @@ func TestClient(t *testing.T) {
 func TestBrokerListen(t *testing.T) {
 	// invalid tls
 	spec := &Spec{
+		Name:        "test-1",
+		EGName:      "test-1",
 		Port:        1883,
 		BackendType: testMQType,
 		Auth: []Auth{
@@ -1378,6 +1396,8 @@ func TestBrokerListen(t *testing.T) {
 
 	// valid tls
 	spec = &Spec{
+		Name:        "test-1",
+		EGName:      "test-1",
 		Port:        1883,
 		BackendType: testMQType,
 		Auth: []Auth{
@@ -1405,6 +1425,8 @@ func TestBrokerListen(t *testing.T) {
 
 	// not valid port should return nil
 	spec = &Spec{
+		Name:        "test-1",
+		EGName:      "test-1",
 		Port:        1883,
 		BackendType: testMQType,
 		Auth: []Auth{
