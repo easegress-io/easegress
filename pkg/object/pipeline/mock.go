@@ -54,6 +54,7 @@ type MockMQTTFilter struct {
 // MockMQTTSpec is spec of MockMQTTFilter
 type MockMQTTSpec struct {
 	UserName    string `yaml:"userName" jsonschema:"required"`
+	Password    string `yaml:"password" jsonschema:"required"`
 	Port        uint16 `yaml:"port" jsonschema:"required"`
 	BackendType string `yaml:"backendType" jsonschema:"required"`
 	EarlyStop   bool   `yaml:"earlyStop" jsonschema:"omitempty"`
@@ -85,6 +86,11 @@ func (m *MockMQTTFilter) HandleMQTT(ctx context.MQTTContext) *context.MQTTResult
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.clients[ctx.Client().ClientID()]++
+	if ctx.PacketType() == context.MQTTConnect {
+		if ctx.ConnectPacket().Username != m.spec.UserName || string(ctx.ConnectPacket().Password) != m.spec.Password {
+			ctx.SetDisconnect()
+		}
+	}
 	return nil
 }
 

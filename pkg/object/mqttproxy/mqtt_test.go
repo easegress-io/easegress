@@ -46,6 +46,7 @@ func (t *testMQ) get() *packets.PublishPacket {
 
 func init() {
 	logger.InitNop()
+	pipeline.Register(&pipeline.MockMQTTFilter{})
 }
 
 func getMQTTClient(t *testing.T, clientID, userName, password string, cleanSession bool) paho.Client {
@@ -975,7 +976,7 @@ func TestHTTPPublish(t *testing.T) {
 				Payload: base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%d", i))),
 				Base64:  true,
 			}
-			go func(data HTTPJsonData) {
+			func(data HTTPJsonData) {
 				code := topicsPublish(t, data)
 				if code != http.StatusOK {
 					t.Errorf("wrong status code return")
@@ -1462,7 +1463,6 @@ func TestMQTTProxy(t *testing.T) {
 
 func TestPipeline(t *testing.T) {
 	// create test pipeline first
-	pipeline.Register(&pipeline.MockMQTTFilter{})
 	yamlStr := `
     name: mqtt-test-pipeline
     kind: Pipeline
@@ -1509,4 +1509,59 @@ func TestPipeline(t *testing.T) {
 	if len(filterStatus) != clientNum {
 		t.Errorf("filter get wrong result %v", filterStatus)
 	}
+}
+
+func TestAuthByPipeline(t *testing.T) {
+	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
+	broker := getBroker("test", "test", b64passwd, 1883)
+	broker.spec.AuthByPipeline = true
+	broker.pipeline = "mqtt-test-pipeline"
+	defer broker.close()
+
+	// since there are no such pipeline
+	// connect to broker will fail
+	option := paho.NewClientOptions().AddBroker("tcp://0.0.0.0:1883").SetClientID("test").SetUsername("fakeuser").SetPassword("fakepasswd")
+	client := paho.NewClient(option)
+	if token := client.Connect(); token.Wait() && token.Error() == nil {
+		t.Errorf("non auth user should fail%s", token.Error())
+	}
+	client.Disconnect(200)
+
+	// filter with auth username and passwd
+	yamlStr := `
+    name: mqtt-test-pipeline
+    kind: Pipeline
+    protocol: MQTT
+    flow:
+    - filter: mqtt-filter
+    filters:
+    - name: mqtt-filter
+      kind: MockMQTTFilter
+      userName: filter-auth-name
+      password: filter-auth-passwd`
+	super := supervisor.NewDefaultMock()
+	superSpec, err := super.NewSpec(yamlStr)
+	if err != nil {
+		t.Errorf("supervisor unmarshal yaml failed, %s", err)
+		t.Skip()
+	}
+	pipe := pipeline.Pipeline{}
+	pipe.Init(superSpec)
+	defer pipe.Close()
+
+	// same username and passwd with filter, success
+	option = paho.NewClientOptions().AddBroker("tcp://0.0.0.0:1883").SetClientID("test").SetUsername("filter-auth-name").SetPassword("filter-auth-passwd")
+	client = paho.NewClient(option)
+	if token := client.Connect(); token.Wait() && token.Error() != nil {
+		t.Errorf("auth user should success %s", token.Error())
+	}
+	client.Disconnect(200)
+
+	// different username and passwd with filer, fail
+	option = paho.NewClientOptions().AddBroker("tcp://0.0.0.0:1883").SetClientID("test").SetUsername("fake").SetPassword("fakepasswd")
+	client = paho.NewClient(option)
+	if token := client.Connect(); token.Wait() && token.Error() == nil {
+		t.Errorf("non auth user should fail %s", token.Error())
+	}
+	client.Disconnect(200)
 }

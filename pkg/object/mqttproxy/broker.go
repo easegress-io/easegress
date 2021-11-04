@@ -19,6 +19,7 @@ package mqttproxy
 
 import (
 	"bytes"
+	stdcontext "context"
 	"crypto/sha256"
 	"crypto/tls"
 	"encoding/base64"
@@ -31,7 +32,9 @@ import (
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/api"
+	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 )
 
 type (
@@ -186,7 +189,29 @@ func (b *Broker) handleConn(conn net.Conn) {
 		return
 	}
 
-	if !b.checkClientAuth(connect) {
+	authFail := false
+	if b.spec.AuthByPipeline {
+		pipe, err := pipeline.GetPipeline(b.pipeline, context.MQTT)
+		if err != nil {
+			logger.Errorf("get pipeline %v failed, %v", b.pipeline, err)
+			authFail = true
+		} else {
+			c := &Client{
+				info: ClientInfo{
+					cid:      connect.ClientIdentifier,
+					username: connect.Username,
+				},
+			}
+			ctx := context.NewMQTTContext(stdcontext.Background(), c, connect)
+			pipe.HandleMQTT(ctx)
+			if ctx.Disconnect() {
+				authFail = true
+			}
+		}
+	} else if !b.checkClientAuth(connect) {
+		authFail = true
+	}
+	if authFail {
 		connack.ReturnCode = packets.ErrRefusedNotAuthorised
 		err = connack.Write(conn)
 		logger.Errorf("invalid connection %v, connack back failed: %s", connack.ReturnCode, err)
