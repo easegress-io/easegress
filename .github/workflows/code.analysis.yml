@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - main
+      - new-pipeline
     paths:
       - "**/*.go"
       - "go.mod"
