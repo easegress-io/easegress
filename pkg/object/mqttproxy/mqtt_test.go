@@ -973,7 +973,7 @@ func TestHTTPPublish(t *testing.T) {
 				Payload: base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%d", i))),
 				Base64:  true,
 			}
-			go func(data HTTPJsonData) {
+			func(data HTTPJsonData) {
 				code := topicsPublish(t, data)
 				if code != http.StatusOK {
 					t.Errorf("wrong status code return")
