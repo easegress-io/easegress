@@ -10,6 +10,7 @@ MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 MKFILE_DIR := $(dir $(MKFILE_PATH))
 RELEASE_DIR := ${MKFILE_DIR}bin
 GO_PATH := $(shell go env | grep GOPATH | awk -F '"' '{print $$2}')
+HTTPSERVER_TEST_PATH := build/test
 
 # Version
 RELEASE?=v1.3.1
@@ -96,6 +97,13 @@ test:
 	git diff --exit-code go.mod go.sum
 	go mod verify
 	go test -v ./... ${TEST_FLAGS}
+
+httpserver_test: build
+	{ \
+	set -e ;\
+	cd ${HTTPSERVER_TEST_PATH} ;\
+	./httpserver_test.sh ;\
+    }
 
 clean:
 	rm -rf ${RELEASE_DIR}

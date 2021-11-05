@@ -26,7 +26,7 @@ do
     try_time=$(($try_time+1))
     pid=`ps -eo pid,args | grep "$server" | grep -v grep | awk '{print $1}'`
     if [[ $try_time -ge 2 ]]; then
-        echo "Error: failed to start $sever"
+        echo "Error: failed to start $server"
         exit 2
     fi
 done
