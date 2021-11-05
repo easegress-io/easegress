@@ -850,7 +850,7 @@ func (ts *testServer) start() error {
 	// Poll server until it is ready
 	for t := 0; t < 25; t++ {
 		time.Sleep(50 * time.Millisecond)
-		req, _ := http.NewRequest(http.MethodGet, "http://localhost:"+ts.addr, nil)
+		req, _ := http.NewRequest(http.MethodGet,  "http://localhost"+ts.addr, nil)
 		_, err := http.DefaultClient.Do(req)
 		if err == nil {
 			return nil
