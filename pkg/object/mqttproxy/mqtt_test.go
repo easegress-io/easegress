@@ -848,8 +848,8 @@ func (ts *testServer) addHandlerFunc(pattern string, f http.HandlerFunc) {
 func (ts *testServer) start() error {
 	go ts.srv.ListenAndServe()
 	// Poll server until it is ready
-	for t := 0; t < 5; t++ {
-		time.Sleep(20)
+	for t := 0; t < 25; t++ {
+		time.Sleep(50 * time.Millisecond)
 		req, _ := http.NewRequest(http.MethodGet, "http://localhost:"+ts.addr, nil)
 		_, err := http.DefaultClient.Do(req)
 		if err == nil {
