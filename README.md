@@ -124,10 +124,10 @@ The basic common usage of Easegress is to quickly set up proxy for the backend s
 
 ### Setting up Easegress
 
-We can download the latest or history binaries from the [release page](https://github.com/megaease/easegress/releases). For example, we can install Easegress v1.0.0 for Linux amd64 platform with command:
+We can download the latest or history binaries from the [release page](https://github.com/megaease/easegress/releases). Following shell script will download and extract the latest binaries to `./easegress` folder:
 
 ```bash
-$ /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/megaease/easegress/main/scripts/install.sh)"
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/megaease/easegress/main/scripts/install.sh)"
 ```
 
 or if we can install Easegress from source code:
