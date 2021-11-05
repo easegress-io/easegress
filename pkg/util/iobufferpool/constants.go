@@ -23,7 +23,7 @@ const (
 	// UDPPacketMaxSize max size of udp packet
 	UDPPacketMaxSize = 65535
 	// DefaultBufferReadCapacity default buffer capacity for stream proxy such as tcp
-	DefaultBufferReadCapacity = 1 << 7
+	DefaultBufferReadCapacity = 1 << 13
 )
 
 var (

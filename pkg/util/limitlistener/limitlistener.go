@@ -73,7 +73,7 @@ func (l *LimitListener) Accept() (net.Conn, error) {
 		l.release()
 		return nil, err
 	}
-	return &limitListenerConn{Conn: c, release: l.release}, nil
+	return &Conn{Conn: c, release: l.release}, nil
 }
 
 // SetMaxConnection sets max connection.
@@ -88,13 +88,13 @@ func (l *LimitListener) Close() error {
 	return err
 }
 
-type limitListenerConn struct {
+type Conn struct {
 	net.Conn
 	releaseOnce sync.Once
 	release     func()
 }
 
-func (l *limitListenerConn) Close() error {
+func (l *Conn) Close() error {
 	err := l.Conn.Close()
 	l.releaseOnce.Do(l.release)
 	return err

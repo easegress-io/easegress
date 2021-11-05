@@ -28,6 +28,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/util/iobufferpool"
+	"github.com/megaease/easegress/pkg/util/limitlistener"
 	"github.com/megaease/easegress/pkg/util/timerpool"
 )
 
@@ -162,8 +163,8 @@ func (c *Connection) startReadLoop() {
 
 			if err != nil {
 				if atomic.LoadUint32(&c.closed) == 1 {
-					logger.Infof("tcp connection exit read loop for connection has closed, local addr: %s, "+
-						"remote addr: %s, err: %s", c.localAddr.String(), c.remoteAddr.String(), err.Error())
+					logger.Debugf("tcp connection has closed, exit read loop, local addr: %s, remote addr: %s",
+						c.localAddr.String(), c.remoteAddr.String())
 					tcpBufferPool.Put(c.readBuffer)
 					return
 				}
@@ -177,7 +178,7 @@ func (c *Connection) startReadLoop() {
 
 			if err != nil {
 				if err == io.EOF {
-					logger.Infof("tcp connection read error, local addr: %s, remote addr: %s, err: %s",
+					logger.Debugf("tcp connection remote close, local addr: %s, remote addr: %s, err: %s",
 						c.localAddr.String(), c.remoteAddr.String(), err.Error())
 					_ = c.Close(NoFlush, RemoteClose)
 				} else {
@@ -195,7 +196,9 @@ func (c *Connection) startWriteLoop() {
 	var err error
 	for {
 		select {
-		case <-c.listenerStopChan:
+		case <-c.connStopChan:
+			logger.Debugf("connection exit write loop, local addr: %s, remote addr: %s",
+				c.localAddr.String(), c.remoteAddr.String())
 			return
 		case buf, ok := <-c.writeBufferChan:
 			if !ok {
@@ -220,7 +223,7 @@ func (c *Connection) startWriteLoop() {
 
 		if err != nil {
 			if err == iobufferpool.ErrEOF {
-				logger.Debugf("tcp connection local close with eof, local addr: %s, remote addr: %s",
+				logger.Debugf("tcp connection close, local addr: %s, remote addr: %s",
 					c.localAddr.String(), c.remoteAddr.String())
 				_ = c.Close(NoFlush, LocalClose)
 			} else {
@@ -263,16 +266,18 @@ func (c *Connection) Close(ccType CloseType, event ConnectionEvent) (err error) 
 	}
 
 	// close tcp rawConn read first
-	logger.Debugf("tcp connection closed, local addr: %s, remote addr: %s, event: %s",
-		c.localAddr.String(), c.remoteAddr.String(), event)
-	_ = c.rawConn.(*net.TCPConn).CloseRead()
+	logger.Debugf("tcp connection closed(%s), local addr: %s, remote addr: %s",
+		event, c.localAddr.String(), c.remoteAddr.String())
+	if conn, ok := c.rawConn.(*limitlistener.Conn); ok {
+		_ = conn.Conn.(*net.TCPConn).CloseRead() // client connection is wrapped by limitlistener.Conn
+	} else {
+		_ = c.rawConn.(*net.TCPConn).CloseRead()
+	}
 
 	// close rawConn recv, then notify read/write loop to exit
 	close(c.connStopChan)
 	_ = c.rawConn.Close()
 	c.lastBytesSizeRead, c.lastWriteSizeWrite = 0, 0
-
-	logger.Debugf("tcp connection closed, local addr: %s, remote addr: %s, event: %s", c.localAddr.String(), c.remoteAddr.String(), event)
 
 	if c.onClose != nil {
 		c.onClose(event)
