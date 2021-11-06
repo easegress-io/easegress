@@ -18,7 +18,6 @@
 package tcpproxy
 
 import (
-	"errors"
 	"io"
 	"net"
 	"runtime/debug"
@@ -153,12 +152,6 @@ func (c *Connection) startReadLoop() {
 				continue
 			}
 
-			if atomic.LoadUint32(&c.closed) == 1 {
-				logger.Debugf("tcp connection has closed, exit read loop, local addr: %s, remote addr: %s",
-					c.localAddr.String(), c.remoteAddr.String())
-				return
-			}
-
 			if te, ok := err.(net.Error); ok && te.Timeout() {
 				if n == 0 {
 					continue // continue read data, ignore timeout error
@@ -166,11 +159,11 @@ func (c *Connection) startReadLoop() {
 			}
 
 			if err == io.EOF {
-				logger.Debugf("tcp connection remote close, local addr: %s, remote addr: %s, err: %s",
+				logger.Debugf("remote close connection, local addr: %s, remote addr: %s, err: %s",
 					c.localAddr.String(), c.remoteAddr.String(), err.Error())
 				_ = c.Close(NoFlush, RemoteClose)
 			} else {
-				logger.Errorf("tcp connection read error, local addr: %s, remote addr: %s, err: %s",
+				logger.Errorf("error on read, local addr: %s, remote addr: %s, err: %s",
 					c.localAddr.String(), c.remoteAddr.String(), err.Error())
 				_ = c.Close(NoFlush, OnReadErrClose)
 			}
@@ -208,22 +201,25 @@ func (c *Connection) startWriteLoop() {
 			_, err = c.doWrite()
 		}
 
-		if err != nil {
-			if err == iobufferpool.ErrEOF {
-				logger.Debugf("tcp connection close, local addr: %s, remote addr: %s",
-					c.localAddr.String(), c.remoteAddr.String())
-				_ = c.Close(NoFlush, LocalClose)
-			} else {
-				logger.Errorf("tcp connection error on write, local addr: %s, remote addr: %s, err: %+v",
-					c.localAddr.String(), c.remoteAddr.String(), err)
-			}
+		if err == nil {
+			continue
+		}
 
-			if te, ok := err.(net.Error); ok && te.Timeout() {
-				_ = c.Close(NoFlush, OnWriteTimeout)
-			}
-			//other write errs not close connection, because readbuffer may have unread data, wait for readloop close connection,
+		if te, ok := err.(net.Error); ok && te.Timeout() {
+			_ = c.Close(NoFlush, OnWriteTimeout)
 			return
 		}
+
+		if err == iobufferpool.ErrEOF {
+			logger.Debugf("finish write with eof, local addr: %s, remote addr: %s",
+				c.localAddr.String(), c.remoteAddr.String())
+			_ = c.Close(NoFlush, LocalClose)
+		} else {
+			// remote call CloseRead, so just exit write loop, wait read loop exit
+			logger.Errorf("error on write, local addr: %s, remote addr: %s, err: %+v",
+				c.localAddr.String(), c.remoteAddr.String(), err)
+		}
+		return
 	}
 }
 
@@ -239,7 +235,7 @@ func (c *Connection) appendBuffer(buf *iobufferpool.StreamBuffer) {
 func (c *Connection) Close(ccType CloseType, event ConnectionEvent) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			logger.Errorf("tcp connection close panic, err: %+v\n%s", r, string(debug.Stack()))
+			logger.Errorf("connection close panic, err: %+v\n%s", r, string(debug.Stack()))
 		}
 	}()
 
@@ -253,7 +249,7 @@ func (c *Connection) Close(ccType CloseType, event ConnectionEvent) (err error) 
 	}
 
 	// close tcp rawConn read first
-	logger.Debugf("tcp connection closed(%s), local addr: %s, remote addr: %s",
+	logger.Debugf("enter connection close func(%s), local addr: %s, remote addr: %s",
 		event, c.localAddr.String(), c.remoteAddr.String())
 	if conn, ok := c.rawConn.(*limitlistener.Conn); ok {
 		_ = conn.Conn.(*net.TCPConn).CloseRead() // client connection is wrapped by limitlistener.Conn
@@ -286,8 +282,8 @@ func (c *Connection) doReadIO() (bufLen int, err error) {
 func (c *Connection) doWrite() (int64, error) {
 	_ = c.rawConn.SetWriteDeadline(time.Now().Add(15 * time.Second))
 	bytesSent, err := c.doWriteIO()
-	if err != nil && atomic.LoadUint32(&c.closed) == 1 {
-		return 0, nil
+	if err != nil {
+		return 0, err
 	}
 
 	if bytesBufSize := c.writeBufLen(); bytesBufSize != c.lastWriteSizeWrite {
@@ -347,11 +343,11 @@ func NewServerConn(connectTimeout uint32, serverAddr net.Addr, listenerStopChan 
 }
 
 // Connect create backend server tcp connection
-func (u *ServerConnection) Connect() (err error) {
+func (u *ServerConnection) Connect() bool {
 	addr := u.remoteAddr
 	if addr == nil {
-		err = errors.New("server addr is nil")
-		return
+		logger.Errorf("cannot connect because the server has been closed, server addr: %s", addr.String())
+		return false
 	}
 
 	timeout := u.connectTimeout
@@ -359,21 +355,22 @@ func (u *ServerConnection) Connect() (err error) {
 		timeout = 10 * time.Second
 	}
 
+	var err error
 	u.rawConn, err = net.DialTimeout("tcp", addr.String(), timeout)
 	if err != nil {
 		if err == io.EOF {
-			err = errors.New("server has been closed")
+			logger.Errorf("cannot connect because the server has been closed, server addr: %s", addr.String())
 		} else if te, ok := err.(net.Error); ok && te.Timeout() {
-			err = errors.New("connect to server timeout")
+			logger.Errorf("connect to server timeout, server addr: %s", addr.String())
 		} else {
-			err = errors.New("connect to server failed")
+			logger.Errorf("connect to server failed, server addr: %s, err: %s", addr.String(), err.Error())
 		}
-		return
+		return false
 	}
 
 	u.localAddr = u.rawConn.LocalAddr()
 	_ = u.rawConn.(*net.TCPConn).SetNoDelay(true)
 	_ = u.rawConn.(*net.TCPConn).SetKeepAlive(true)
 	u.Start()
-	return nil
+	return true
 }
