@@ -163,9 +163,7 @@ func (c *Connection) startReadLoop() {
 			}
 
 			if te, ok := err.(net.Error); ok && te.Timeout() {
-				if n == 0 {
-					continue // continue read data, ignore timeout error
-				}
+				continue // ignore timeout error, read more stream data
 			}
 
 			if err == io.EOF {
