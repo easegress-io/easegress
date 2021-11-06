@@ -90,34 +90,24 @@ func (c *Connection) SetOnClose(onclose func(event ConnectionEvent)) {
 
 // Start running connection read/write loop
 func (c *Connection) Start() {
+	fnRecover := func() {
+		if r := recover(); r != nil {
+			logger.Errorf("tcp connection goroutine panic: %v\n%s\n", r, string(debug.Stack()))
+			c.Close(NoFlush, LocalClose)
+		}
+	}
+		
 	c.startOnce.Do(func() {
-		c.goWithRecover(func() {
+		go func() {
+			defer fnRecover()
 			c.startReadLoop()
-		}, func(r interface{}) {
-			_ = c.Close(NoFlush, LocalClose)
-		})
-
-		c.goWithRecover(func() {
-			c.startWriteLoop()
-		}, func(r interface{}) {
-			_ = c.Close(NoFlush, LocalClose)
-		})
-	})
-}
-
-func (c *Connection) goWithRecover(handler func(), recoverHandler func(r interface{})) {
-	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				logger.Errorf("tcp connection goroutine panic: %v\n%s\n", r, string(debug.Stack()))
-				if recoverHandler != nil {
-					// it is not needed to wrap recoverHandler with go func in the current scenario
-					recoverHandler(r)
-				}
-			}
 		}()
-		handler()
-	}()
+
+		go func() {
+			defer fnRecover()
+			c.startWriteLoop()
+		}()
+	})
 }
 
 // Write receive other connection data
