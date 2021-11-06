@@ -313,16 +313,16 @@ func (r *runtime) setCallbacks(clientConn *Connection, serverConn *ServerConnect
 
 	clientConn.SetOnClose(func(event ConnectionEvent) {
 		if event == RemoteClose {
-			_ = serverConn.Close(FlushWrite, LocalClose)
+			serverConn.Close(FlushWrite, LocalClose)
 		} else {
-			_ = serverConn.Close(NoFlush, LocalClose)
+			serverConn.Close(NoFlush, LocalClose)
 		}
 	})
 	serverConn.SetOnClose(func(event ConnectionEvent) {
 		if event == RemoteClose {
-			_ = clientConn.Close(FlushWrite, LocalClose)
+			clientConn.Close(FlushWrite, LocalClose)
 		} else {
-			_ = clientConn.Close(NoFlush, LocalClose)
+			clientConn.Close(NoFlush, LocalClose)
 		}
 	})
 }

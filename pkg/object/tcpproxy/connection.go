@@ -91,7 +91,7 @@ func (c *Connection) Start() {
 	fnRecover := func() {
 		if r := recover(); r != nil {
 			logger.Errorf("tcp connection goroutine panic: %v\n%s\n", r, string(debug.Stack()))
-			_ = c.Close(NoFlush, LocalClose)
+			c.Close(NoFlush, LocalClose)
 		}
 	}
 
@@ -152,6 +152,13 @@ func (c *Connection) startReadLoop() {
 				continue
 			}
 
+			if atomic.LoadUint32(&c.closed) == 1 {
+				// connection has closed, so there is no need to record error log(error may create by CloseRead)
+				logger.Debugf("connection has closed, exit read loop, local addr: %s, remote addr: %s",
+					c.localAddr.String(), c.remoteAddr.String())
+				return
+			}
+
 			if te, ok := err.(net.Error); ok && te.Timeout() {
 				if n == 0 {
 					continue // continue read data, ignore timeout error
@@ -161,11 +168,11 @@ func (c *Connection) startReadLoop() {
 			if err == io.EOF {
 				logger.Debugf("remote close connection, local addr: %s, remote addr: %s, err: %s",
 					c.localAddr.String(), c.remoteAddr.String(), err.Error())
-				_ = c.Close(NoFlush, RemoteClose)
+				c.Close(NoFlush, RemoteClose)
 			} else {
 				logger.Errorf("error on read, local addr: %s, remote addr: %s, err: %s",
 					c.localAddr.String(), c.remoteAddr.String(), err.Error())
-				_ = c.Close(NoFlush, OnReadErrClose)
+				c.Close(NoFlush, OnReadErrClose)
 			}
 			return
 		}
@@ -180,40 +187,36 @@ func (c *Connection) startWriteLoop() {
 			logger.Debugf("connection exit write loop, local addr: %s, remote addr: %s",
 				c.localAddr.String(), c.remoteAddr.String())
 			return
-		case buf, ok := <-c.writeBufferChan:
-			if !ok {
-				return
-			}
-			c.appendBuffer(buf)
-		OUTER:
-			// Keep reading until write buffer channel is full(write buffer channel size is writeBufSize)
-			for i := 0; i < writeBufSize-1; i++ {
-				select {
-				case buf, ok := <-c.writeBufferChan:
-					if !ok {
-						return
-					}
-					c.appendBuffer(buf)
-				default:
-					break OUTER
-				}
-			}
-			_, err = c.doWrite()
+		default:
 		}
 
-		if err == nil {
+	OUTER:
+		// Keep reading until write buffer channel is full(write buffer channel size is writeBufSize)
+		for i := 0; i < writeBufSize; i++ {
+			select {
+			case buf, ok := <-c.writeBufferChan:
+				if !ok {
+					return
+				}
+				c.appendBuffer(buf)
+			default:
+				break OUTER
+			}
+		}
+
+		if _, err = c.doWrite(); err == nil {
 			continue
 		}
 
 		if te, ok := err.(net.Error); ok && te.Timeout() {
-			_ = c.Close(NoFlush, OnWriteTimeout)
+			c.Close(NoFlush, OnWriteTimeout)
 			return
 		}
 
 		if err == iobufferpool.ErrEOF {
 			logger.Debugf("finish write with eof, local addr: %s, remote addr: %s",
 				c.localAddr.String(), c.remoteAddr.String())
-			_ = c.Close(NoFlush, LocalClose)
+			c.Close(NoFlush, LocalClose)
 		} else {
 			// remote call CloseRead, so just exit write loop, wait read loop exit
 			logger.Errorf("error on write, local addr: %s, remote addr: %s, err: %+v",
@@ -232,7 +235,7 @@ func (c *Connection) appendBuffer(buf *iobufferpool.StreamBuffer) {
 }
 
 // Close connection close function
-func (c *Connection) Close(ccType CloseType, event ConnectionEvent) (err error) {
+func (c *Connection) Close(ccType CloseType, event ConnectionEvent) {
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Errorf("connection close panic, err: %+v\n%s", r, string(debug.Stack()))
@@ -241,31 +244,30 @@ func (c *Connection) Close(ccType CloseType, event ConnectionEvent) (err error) 
 
 	if ccType == FlushWrite {
 		_ = c.Write(iobufferpool.NewEOFStreamBuffer())
-		return nil
+		return
 	}
 
 	if !atomic.CompareAndSwapUint32(&c.closed, 0, 1) {
-		return nil
+		return
 	}
-
 	// close tcp rawConn read first
 	logger.Debugf("enter connection close func(%s), local addr: %s, remote addr: %s",
 		event, c.localAddr.String(), c.remoteAddr.String())
+
+	// close tcp rawConn read first, make sure exit read loop
 	if conn, ok := c.rawConn.(*limitlistener.Conn); ok {
 		_ = conn.Conn.(*net.TCPConn).CloseRead() // client connection is wrapped by limitlistener.Conn
 	} else {
 		_ = c.rawConn.(*net.TCPConn).CloseRead()
 	}
 
-	// close rawConn recv, then notify read/write loop to exit
 	close(c.connStopChan)
 	_ = c.rawConn.Close()
-	c.lastBytesSizeRead, c.lastWriteSizeWrite = 0, 0
 
+	c.lastBytesSizeRead, c.lastWriteSizeWrite = 0, 0
 	if c.onClose != nil {
 		c.onClose(event)
 	}
-	return nil
 }
 
 func (c *Connection) doReadIO() (bufLen int, err error) {
