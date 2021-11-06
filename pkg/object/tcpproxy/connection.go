@@ -141,6 +141,9 @@ func (c *Connection) startReadLoop() {
 		case <-c.connStopChan:
 			return
 		case <-c.listenerStopChan:
+			logger.Debugf("connection close due to listener stopped, local addr: %s, remote addr: %s",
+				c.localAddr.String(), c.remoteAddr.String())
+			c.Close(NoFlush, LocalClose)
 			return
 		default:
 			n, err := c.doReadIO()

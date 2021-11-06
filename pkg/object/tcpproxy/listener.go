@@ -92,7 +92,7 @@ func (l *listener) acceptEventLoop() {
 		if !(ope.Timeout() && ope.Temporary()) {
 			// accept error raised by sockets closing
 			if ope.Op == "accept" {
-				logger.Debugf("tcp listener(%s) stop accept connection due to listener closed", l.localAddr)
+				logger.Debugf("tcp listener(%s) closed, stop accept connection", l.localAddr)
 			} else {
 				logger.Errorf("tcp listener(%s) stop accept connection due to non-recoverable error: %s",
 					l.localAddr, err.Error())
