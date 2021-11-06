@@ -56,7 +56,6 @@ type Connection struct {
 	writeBufferChan chan *iobufferpool.StreamBuffer
 
 	mu               sync.Mutex
-	startOnce        sync.Once
 	connStopChan     chan struct{} // use for connection close
 	listenerStopChan chan struct{} // use for listener close
 
@@ -93,21 +92,19 @@ func (c *Connection) Start() {
 	fnRecover := func() {
 		if r := recover(); r != nil {
 			logger.Errorf("tcp connection goroutine panic: %v\n%s\n", r, string(debug.Stack()))
-			c.Close(NoFlush, LocalClose)
+			_ = c.Close(NoFlush, LocalClose)
 		}
 	}
-		
-	c.startOnce.Do(func() {
-		go func() {
-			defer fnRecover()
-			c.startReadLoop()
-		}()
 
-		go func() {
-			defer fnRecover()
-			c.startWriteLoop()
-		}()
-	})
+	go func() {
+		defer fnRecover()
+		c.startReadLoop()
+	}()
+
+	go func() {
+		defer fnRecover()
+		c.startWriteLoop()
+	}()
 }
 
 // Write receive other connection data
@@ -330,7 +327,6 @@ func (c *Connection) doWriteIO() (bytesSent int64, err error) {
 type ServerConnection struct {
 	Connection
 	connectTimeout time.Duration
-	connectOnce    sync.Once
 }
 
 // NewServerConn construct tcp server connection
@@ -352,34 +348,32 @@ func NewServerConn(connectTimeout uint32, serverAddr net.Addr, listenerStopChan 
 
 // Connect create backend server tcp connection
 func (u *ServerConnection) Connect() (err error) {
-	u.connectOnce.Do(func() {
-		addr := u.remoteAddr
-		if addr == nil {
-			err = errors.New("server addr is nil")
-			return
-		}
+	addr := u.remoteAddr
+	if addr == nil {
+		err = errors.New("server addr is nil")
+		return
+	}
 
-		timeout := u.connectTimeout
-		if timeout == 0 {
-			timeout = 10 * time.Second
-		}
+	timeout := u.connectTimeout
+	if timeout == 0 {
+		timeout = 10 * time.Second
+	}
 
-		u.rawConn, err = net.DialTimeout("tcp", addr.String(), timeout)
-		if err != nil {
-			if err == io.EOF {
-				err = errors.New("server has been closed")
-			} else if te, ok := err.(net.Error); ok && te.Timeout() {
-				err = errors.New("connect to server timeout")
-			} else {
-				err = errors.New("connect to server failed")
-			}
-			return
+	u.rawConn, err = net.DialTimeout("tcp", addr.String(), timeout)
+	if err != nil {
+		if err == io.EOF {
+			err = errors.New("server has been closed")
+		} else if te, ok := err.(net.Error); ok && te.Timeout() {
+			err = errors.New("connect to server timeout")
+		} else {
+			err = errors.New("connect to server failed")
 		}
+		return
+	}
 
-		u.localAddr = u.rawConn.LocalAddr()
-		_ = u.rawConn.(*net.TCPConn).SetNoDelay(true)
-		_ = u.rawConn.(*net.TCPConn).SetKeepAlive(true)
-		u.Start()
-	})
-	return
+	u.localAddr = u.rawConn.LocalAddr()
+	_ = u.rawConn.(*net.TCPConn).SetNoDelay(true)
+	_ = u.rawConn.(*net.TCPConn).SetKeepAlive(true)
+	u.Start()
+	return nil
 }
