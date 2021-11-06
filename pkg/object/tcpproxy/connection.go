@@ -136,6 +136,7 @@ func (c *Connection) Write(buf *iobufferpool.StreamBuffer) (err error) {
 }
 
 func (c *Connection) startReadLoop() {
+	defer tcpBufferPool.Put(c.readBuffer)
 	for {
 		select {
 		case <-c.connStopChan:
@@ -148,33 +149,32 @@ func (c *Connection) startReadLoop() {
 				c.onRead(iobufferpool.NewStreamBuffer(c.readBuffer[:n]))
 			}
 
-			if err != nil {
-				if atomic.LoadUint32(&c.closed) == 1 {
-					logger.Debugf("tcp connection has closed, exit read loop, local addr: %s, remote addr: %s",
-						c.localAddr.String(), c.remoteAddr.String())
-					tcpBufferPool.Put(c.readBuffer)
-					return
-				}
-
-				if te, ok := err.(net.Error); ok && te.Timeout() {
-					if n == 0 {
-						continue // continue read data, ignore timeout error
-					}
-				}
+			if err == nil {
+				continue
 			}
 
-			if err != nil {
-				if err == io.EOF {
-					logger.Debugf("tcp connection remote close, local addr: %s, remote addr: %s, err: %s",
-						c.localAddr.String(), c.remoteAddr.String(), err.Error())
-					_ = c.Close(NoFlush, RemoteClose)
-				} else {
-					logger.Errorf("tcp connection read error, local addr: %s, remote addr: %s, err: %s",
-						c.localAddr.String(), c.remoteAddr.String(), err.Error())
-					_ = c.Close(NoFlush, OnReadErrClose)
-				}
+			if atomic.LoadUint32(&c.closed) == 1 {
+				logger.Debugf("tcp connection has closed, exit read loop, local addr: %s, remote addr: %s",
+					c.localAddr.String(), c.remoteAddr.String())
 				return
 			}
+
+			if te, ok := err.(net.Error); ok && te.Timeout() {
+				if n == 0 {
+					continue // continue read data, ignore timeout error
+				}
+			}
+
+			if err == io.EOF {
+				logger.Debugf("tcp connection remote close, local addr: %s, remote addr: %s, err: %s",
+					c.localAddr.String(), c.remoteAddr.String(), err.Error())
+				_ = c.Close(NoFlush, RemoteClose)
+			} else {
+				logger.Errorf("tcp connection read error, local addr: %s, remote addr: %s, err: %s",
+					c.localAddr.String(), c.remoteAddr.String(), err.Error())
+				_ = c.Close(NoFlush, OnReadErrClose)
+			}
+			return
 		}
 	}
 }
