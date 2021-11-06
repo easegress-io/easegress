@@ -88,12 +88,14 @@ func (l *LimitListener) Close() error {
 	return err
 }
 
+// Conn limit listener connection
 type Conn struct {
 	net.Conn
 	releaseOnce sync.Once
 	release     func()
 }
 
+// Close release semaphore and close connection
 func (l *Conn) Close() error {
 	err := l.Conn.Close()
 	l.releaseOnce.Do(l.release)
