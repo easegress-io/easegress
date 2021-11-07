@@ -35,7 +35,8 @@ const writeBufSize = 8
 
 var tcpBufferPool = sync.Pool{
 	New: func() interface{} {
-		return make([]byte, iobufferpool.DefaultBufferReadCapacity)
+		buf := make([]byte, iobufferpool.DefaultBufferReadCapacity)
+		return buf
 	},
 }
 
@@ -135,7 +136,12 @@ func (c *Connection) Write(buf *iobufferpool.StreamBuffer) (err error) {
 }
 
 func (c *Connection) startReadLoop() {
-	defer tcpBufferPool.Put(c.readBuffer)
+	defer func() {
+		if cap(c.readBuffer) < iobufferpool.DefaultBufferReadCapacity {
+			logger.Errorf("1")
+		}
+		tcpBufferPool.Put(c.readBuffer[:iobufferpool.DefaultBufferReadCapacity])
+	}()
 	for {
 		select {
 		case <-c.connStopChan:
@@ -273,7 +279,7 @@ func (c *Connection) Close(ccType CloseType, event ConnectionEvent) {
 
 func (c *Connection) doReadIO() (bufLen int, err error) {
 	if c.readBuffer == nil {
-		c.readBuffer = tcpBufferPool.Get().([]byte)[:iobufferpool.DefaultBufferReadCapacity]
+		c.readBuffer = tcpBufferPool.Get().([]byte)
 	}
 
 	// add read deadline setting optimization?
