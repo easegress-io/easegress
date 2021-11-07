@@ -137,11 +137,11 @@ func (c *Connection) Write(buf *iobufferpool.StreamBuffer) (err error) {
 
 func (c *Connection) startReadLoop() {
 	defer func() {
-		if cap(c.readBuffer) < iobufferpool.DefaultBufferReadCapacity {
-			logger.Errorf("1")
+		if c.readBuffer != nil {
+			tcpBufferPool.Put(c.readBuffer[:iobufferpool.DefaultBufferReadCapacity])
 		}
-		tcpBufferPool.Put(c.readBuffer[:iobufferpool.DefaultBufferReadCapacity])
 	}()
+
 	for {
 		select {
 		case <-c.connStopChan:
