@@ -1,5 +1,19 @@
 # Changelog
 
+## [v1.3.2](https://github.com/megaease/easegress/tree/v1.3.2) (2021-11-08)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v1.3.1...v1.3.2)
+
+**Implemented enhancements:**
+- **Performance improvement**[\#277](https://github.com/megaease/easegress/pull/277)
+
+**Fixed bugs:**
+- **Wrong host function name in WasmHost**[\#317](https://github.com/megaease/easegress/pull/317)
+- **Wrong name in WebSocket spec**[\#328](https://github.com/megaease/easegress/pull/328)
+- **Response body corrupt after pass ResponseAdapter**[\#345](https://github.com/megaease/easegress/pull/345)
+- **Failed to create pipeline when filters are not sorted as flow**[\#348](https://github.com/megaease/easegress/pull/348)
+
+
 ## [v1.3.1](https://github.com/megaease/easegress/tree/v1.3.1) (2021-10-20)
 
 [Full Changelog](https://github.com/megaease/easegress/compare/v1.3.0...v1.3.1)
