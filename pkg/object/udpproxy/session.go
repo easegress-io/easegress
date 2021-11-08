@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/util/fasttime"
 	"github.com/megaease/easegress/pkg/util/iobufferpool"
 	"github.com/megaease/easegress/pkg/util/timerpool"
 )
@@ -49,6 +50,7 @@ type (
 func newSession(clientAddr *net.UDPAddr, serverAddr string, serverConn net.Conn,
 	listenerStop chan struct{}, onClose func(),
 	clientIdleTimeout, serverIdleTimeout time.Duration) *session {
+	time.Now()
 	s := session{
 		serverAddr:        serverAddr,
 		clientAddr:        clientAddr,
@@ -157,7 +159,7 @@ func (s *session) ListenResponse(sendTo *net.UDPConn) {
 
 		for {
 			if s.serverIdleTimeout > 0 {
-				_ = s.serverConn.SetReadDeadline(time.Now().Add(s.serverIdleTimeout))
+				_ = s.serverConn.SetReadDeadline(fasttime.Now().Add(s.serverIdleTimeout))
 			}
 
 			n, err := s.serverConn.Read(buf)

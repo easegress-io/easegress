@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/util/fasttime"
 	"github.com/megaease/easegress/pkg/util/iobufferpool"
 	"github.com/megaease/easegress/pkg/util/limitlistener"
 	"github.com/megaease/easegress/pkg/util/timerpool"
@@ -58,6 +59,9 @@ type Connection struct {
 	mu               sync.Mutex
 	connStopChan     chan struct{} // use for connection close
 	listenerStopChan chan struct{} // use for listener close
+
+	lastReadDeadlineTime  time.Time
+	lastWriteDeadlineTime time.Time
 
 	onRead  func(buffer *iobufferpool.StreamBuffer) // execute read filters
 	onClose func(event ConnectionEvent)
@@ -194,20 +198,24 @@ func (c *Connection) startWriteLoop() {
 			logger.Debugf("connection exit write loop, local addr: %s, remote addr: %s",
 				c.localAddr.String(), c.remoteAddr.String())
 			return
-		default:
-		}
-
-	OUTER:
-		// Keep reading until write buffer channel is full(write buffer channel size is writeBufSize)
-		for i := 0; i < writeBufSize; i++ {
-			select {
-			case buf, ok := <-c.writeBufferChan:
-				if !ok {
-					return
+		case buf, ok := <-c.writeBufferChan:
+			if !ok {
+				return
+			}
+			c.appendBuffer(buf)
+		OUTER:
+			// Keep reading until writeBufferChan is empty
+			// writeBufferChan may be full when writeLoop call doWrite
+			for i := 0; i < writeBufSize-1; i++ {
+				select {
+				case buf, ok := <-c.writeBufferChan:
+					if !ok {
+						return
+					}
+					c.appendBuffer(buf)
+				default:
+					break OUTER
 				}
-				c.appendBuffer(buf)
-			default:
-				break OUTER
 			}
 		}
 
@@ -284,12 +292,22 @@ func (c *Connection) doReadIO() (bufLen int, err error) {
 
 	// add read deadline setting optimization?
 	// https://github.com/golang/go/issues/15133
-	_ = c.rawConn.SetReadDeadline(time.Now().Add(15 * time.Second))
+	curr := fasttime.Now().Add(15 * time.Second)
+	// there is no need to set readDeadline in too short time duration
+	if diff := curr.Sub(c.lastReadDeadlineTime).Milliseconds(); diff > 0 {
+		_ = c.rawConn.SetReadDeadline(curr)
+		c.lastReadDeadlineTime = curr
+	}
 	return c.rawConn.(io.Reader).Read(c.readBuffer)
 }
 
 func (c *Connection) doWrite() (int64, error) {
-	_ = c.rawConn.SetWriteDeadline(time.Now().Add(15 * time.Second))
+	curr := fasttime.Now().Add(15 * time.Second)
+	// there is no need to set writeDeadline in too short time duration
+	if diff := curr.Sub(c.lastWriteDeadlineTime).Milliseconds(); diff > 0 {
+		_ = c.rawConn.SetWriteDeadline(curr)
+		c.lastWriteDeadlineTime = curr
+	}
 	bytesSent, err := c.doWriteIO()
 	if err != nil {
 		return 0, err
