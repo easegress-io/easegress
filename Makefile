@@ -12,7 +12,7 @@ RELEASE_DIR := ${MKFILE_DIR}bin
 GO_PATH := $(shell go env | grep GOPATH | awk -F '"' '{print $$2}')
 
 # Version
-RELEASE?=v1.3.1
+RELEASE?=v1.3.2
 
 # Git Related
 GIT_REPO_INFO=$(shell cd ${MKFILE_DIR} && git config --get remote.origin.url)
