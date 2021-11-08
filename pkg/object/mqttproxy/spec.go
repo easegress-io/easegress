@@ -41,6 +41,8 @@ type (
 		UseTLS         bool          `yaml:"useTLS" jsonschema:"omitempty"`
 		Certificate    []Certificate `yaml:"certificate" jsonschema:"omitempty"`
 		TopicCacheSize int           `yaml:"topicCacheSize" jsonschema:"omitempty"`
+		Pipeline       string        `yaml:"pipeline" jsonschema:"omitempty"`
+		AuthByPipeline bool          `yaml:"authByPipeline" jsonschema:"omitempty"`
 	}
 
 	// Certificate describes TLS certifications.
