@@ -50,7 +50,6 @@ type (
 func newSession(clientAddr *net.UDPAddr, serverAddr string, serverConn net.Conn,
 	listenerStop chan struct{}, onClose func(),
 	clientIdleTimeout, serverIdleTimeout time.Duration) *session {
-	time.Now()
 	s := session{
 		serverAddr:        serverAddr,
 		clientAddr:        clientAddr,
