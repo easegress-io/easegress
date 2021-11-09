@@ -48,5 +48,5 @@ func (p *Packet) Release() {
 	if p.Payload == nil {
 		return
 	}
-	UDPBufferPool.Put(p.Payload)
+	UDPBufferPool.Put(p.Payload[:UDPPacketMaxSize])
 }

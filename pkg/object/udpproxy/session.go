@@ -218,6 +218,7 @@ func (s *session) close() {
 		return
 	}
 
+	s.stopped = true
 	s.onClose()
 	close(s.stopChan)
 }

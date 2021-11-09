@@ -217,9 +217,9 @@ func (r *runtime) proxy(clientAddr *net.UDPAddr, buf []byte) {
 		return
 	}
 
-	dup := iobufferpool.UDPBufferPool.Get().([]byte)[:len(buf)]
+	dup := iobufferpool.UDPBufferPool.Get().([]byte)
 	n := copy(dup, buf)
-	err = s.Write(&iobufferpool.Packet{Payload: dup, Len: n})
+	err = s.Write(&iobufferpool.Packet{Payload: dup[:n], Len: n})
 	if err != nil {
 		logger.Errorf("write data to udp session(%s) failed, err: %v", clientAddr.IP.String(), err)
 	}
