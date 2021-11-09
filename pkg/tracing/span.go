@@ -62,6 +62,9 @@ type (
 		//        "type", "cache timeout",
 		//        "waited.millis", 1500)
 		LogKV(kvs ...interface{})
+
+		// SetTag sets tag key and value.
+		SetTag(key string, value string)
 	}
 
 	span struct {
@@ -83,9 +86,13 @@ func NewSpanWithStart(tracer *Tracing, name string, startAt time.Time) Span {
 }
 
 func newSpanWithStart(tracer *Tracing, name string, startAt time.Time) Span {
+	newSpan := tracer.StartSpan(name, opentracing.StartTime(startAt))
+	for tagKey, tagValue := range tracer.tags {
+		newSpan.SetTag(tagKey, tagValue)
+	}
 	return &span{
 		tracer: tracer,
-		span:   tracer.StartSpan(name, opentracing.StartTime(startAt)),
+		span:   newSpan,
 	}
 }
 
@@ -138,4 +145,8 @@ func (s *span) SetName(name string) {
 
 func (s *span) LogKV(kv ...interface{}) {
 	s.span.LogKV(kv...)
+}
+
+func (s *span) SetTag(key string, value string) {
+	s.span.SetTag(key, value)
 }

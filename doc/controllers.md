@@ -308,6 +308,7 @@ servers:
 | Name        | Type                       | Description                   | Required |
 | ----------- | -------------------------- | ----------------------------- | -------- |
 | serviceName | string                     | The service name of top level | Yes      |
+| tags        | map[string]string          | Tags to include to every span | No       |
 | Zipkin      | [zipkin.Spec](#zipkinSpec) | The tracing spec of zipkin    | No       |
 
 ### zipkin.Spec
