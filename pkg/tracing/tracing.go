@@ -30,7 +30,6 @@ type (
 	Spec struct {
 		ServiceName string            `yaml:"serviceName" jsonschema:"required"`
 		Tags        map[string]string `yaml:"tags" jsonschema:"omitempty"`
-
 		Zipkin *zipkin.Spec `yaml:"zipkin" jsonschema:"omitempty"`
 	}
 
@@ -38,7 +37,6 @@ type (
 	Tracing struct {
 		opentracing.Tracer
 		tags map[string]string
-
 		closer io.Closer
 	}
 

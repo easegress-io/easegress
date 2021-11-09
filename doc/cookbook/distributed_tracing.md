@@ -21,7 +21,7 @@ rules:
 ```
 
 ## Custom tags
-Custom tags can help to filter tracing spans. For example, sometimes it is useful to include the version or deployment identifier to tracing logs, to see the latency impact of a new deployment. Here's an example with custom tag:
+Custom tags can help to furher filter and debug tracing spans. Here's an example with custom tag `customTagKey` with value `customTagValue`:
 
 ```yaml
 kind: HTTPServer
@@ -30,7 +30,7 @@ port: 10080
 tracing:
   serviceName: httpServerExample
   tags:                             # add "tags" entry and tags as key-value pairs
-    deployment: '<id>'
+    customTagKey: customTagValue
   zipkin:
     hostport: 0.0.0.0:10080
     serverURL: http://localhost:9412/api/v2/spans
