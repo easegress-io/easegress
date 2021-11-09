@@ -55,6 +55,7 @@ func newRuntime(superSpec *supervisor.Spec) *runtime {
 		pool:      layer4backend.NewPool(superSpec.Super(), spec.Pool, ""),
 		ipFilters: ipfilter.NewLayer4IPFilters(spec.IPFilter),
 
+		done:     make(chan struct{}),
 		sessions: make(map[string]*session),
 	}
 
