@@ -21,7 +21,7 @@ rules:
 ```
 
 ## Custom tags
-Custom tags can help to furher filter and debug tracing spans. Here's an example with custom tag `customTagKey` with value `customTagValue`:
+Custom tags can help to further filter and debug tracing spans. Here's an example with custom tag `customTagKey` with value `customTagValue`:
 
 ```yaml
 kind: HTTPServer
