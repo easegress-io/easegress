@@ -159,9 +159,12 @@ func New(stdw http.ResponseWriter, stdr *http.Request,
 	stdr = stdr.WithContext(stdctx)
 
 	startTime := fasttime.Now()
+	span := tracing.NewSpanWithStart(tracer, spanName, startTime)
+	span.SetTag("http.method", stdr.Method)
+	span.SetTag("http.path", stdr.URL.Path)
 	return &httpContext{
 		startTime:      startTime,
-		span:           tracing.NewSpanWithStart(tracer, spanName, startTime),
+		span:           span,
 		originalReqCtx: originalReqCtx,
 		stdctx:         stdctx,
 		cancelFunc:     cancelFunc,
