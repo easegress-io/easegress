@@ -18,12 +18,12 @@
 package httppipeline
 
 import (
-	"github.com/megaease/easegress/pkg/context/contexttest"
 	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/context/contexttest"
 	"github.com/megaease/easegress/pkg/logger"
-	"testing"
+	"github.com/megaease/easegress/pkg/supervisor"
 	"reflect"
+	"testing"
 )
 
 func CreateObjectMock(kind string) Filter {
@@ -32,7 +32,7 @@ func CreateObjectMock(kind string) Filter {
 
 type (
 	FilterMock struct {
-		kind string
+		kind    string
 		results []string
 	}
 )
@@ -236,7 +236,7 @@ filters:
       Content-Type:
         values:
         - application/json
-`	
+`
 	t.Run("missing filter results", func(t *testing.T) {
 		Register(CreateObjectMock("Validator"))
 		Register(CreateObjectMock("RequestAdaptor"))
@@ -254,10 +254,10 @@ filters:
 	if err != nil {
 		t.Errorf("failed to create spec %s", err)
 	}
-	httpPipeline := HTTPPipeline{nil,nil, nil, []*runningFilter{}, nil}
+	httpPipeline := HTTPPipeline{nil, nil, nil, []*runningFilter{}, nil}
 	httpPipeline.Init(superSpec, nil)
 
-	t.Run("test getNextFilterIndex", func(t *testing.T) {	
+	t.Run("test getNextFilterIndex", func(t *testing.T) {
 		if ind := httpPipeline.getNextFilterIndex(0, ""); ind != 1 {
 			t.Errorf("next index should be 1, was %d", ind)
 		}
@@ -271,7 +271,7 @@ filters:
 			t.Errorf("next index should be 2, was %d", ind)
 		}
 	})
-	
+
 	ctx := &contexttest.MockedHTTPContext{}
 	httpPipeline.Handle(ctx)
 	status := httpPipeline.Status()
