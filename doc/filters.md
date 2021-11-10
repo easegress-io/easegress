@@ -62,6 +62,7 @@
     - [resilience.URLRule](#resilienceurlrule)
     - [httpfilter.Probability](#httpfilterprobability)
     - [proxy.Compression](#proxycompression)
+    - [proxy.MTLS](#proxymtls)
     - [mock.Rule](#mockrule)
     - [circuitbreaker.Policy](#circuitbreakerpolicy)
     - [ratelimiter.Policy](#ratelimiterpolicy)
@@ -178,6 +179,9 @@ mainPool:
 | mirrorPool     | [proxy.PoolSpec](#proxyPoolSpec)               | Definition a mirror pool, requests are sent to this pool simultaneously when they are sent to candidate pools or main pool                                                                                                                                                                                          | No       |
 | failureCodes   | []int                                          | HTTP status codes need to be handled as failure                                                                                                                                                                                                                                                                     | No       |
 | compression    | [proxy.CompressionSpec](#proxyCompressionSpec) | Response compression options                                                                                                                                                                                                                                                                                        | No       |
+| mtls           | [proxy.MTLS](#proxymtls)            | mTLS configuration | No |
+| maxIdleConns    | int                                           | Controls the maximum number of idle (keep-alive) connections across all hosts. Default is 10240 | No |
+| maxIdleConnsPerHost    | int                                    | Controls the maximum idle (keep-alive) connections to keep per-host. Default is 1024               | No |
 
 ### Results
 
@@ -784,6 +788,13 @@ The relationship between `methods` and `url` is `AND`.
 | Name      | Type | Description                                                                                   | Required |
 | --------- | ---- | --------------------------------------------------------------------------------------------- | -------- |
 | minLength | int  | Minimum response body size to be compressed, response with a smaller body is never compressed | Yes      |
+
+### proxy.MTLS
+| Name           | Type   | Description                    | Required |
+| -------------- | ------ | ------------------------------ | -------- |
+| certBase64     | string | Base64 encoded certificate     | Yes      |
+| keyBase64      | string | Base64 encoded key             | Yes      |
+| rootCertBase64 | string | Base64 encoded root certificate | Yes      |
 
 ### mock.Rule
 
