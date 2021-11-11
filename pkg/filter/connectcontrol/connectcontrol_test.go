@@ -18,20 +18,20 @@
 package connectcontrol
 
 import (
-	"bytes"
 	stdcontext "context"
-	"encoding/json"
 	"errors"
-	"io"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/stretchr/testify/assert"
 )
+
+func init() {
+	logger.InitNop()
+}
 
 func newContext(cid string, topic string) context.MQTTContext {
 	client := &context.MockMQTTClient{
@@ -42,17 +42,12 @@ func newContext(cid string, topic string) context.MQTTContext {
 	return context.NewMQTTContext(stdcontext.Background(), client, packet)
 }
 
-func defaultFilterSpec() *pipeline.FilterSpec {
+func defaultFilterSpec(spec *Spec) *pipeline.FilterSpec {
 	meta := &pipeline.FilterMetaSpec{
 		Name:     "connect-control-demo",
 		Kind:     Kind,
 		Pipeline: "pipeline-demo",
 		Protocol: context.MQTT,
-	}
-	spec := &Spec{
-		BannedClients: []string{"ban1", "ban2"},
-		BannedTopics:  []string{"ban/sport/ball", "ban/sport/run"},
-		EarlyStop:     true,
 	}
 	filterSpec := pipeline.MockFilterSpec(nil, nil, "", meta, spec, nil)
 	return filterSpec
@@ -66,7 +61,6 @@ func TestConnectControl(t *testing.T) {
 	assert.Equal(cc.DefaultSpec(), &Spec{}, "wrong spec")
 	assert.NotEqual(len(cc.Description()), 0, "description for ConnectControl is empty")
 	assert.Nil(cc.Results(), "if update result, please update this case")
-	assert.Nil(cc.Status(), "if update status, please update this case")
 	checkProtocol := func() (err error) {
 		defer func() {
 			if errMsg := recover(); errMsg != nil {
@@ -84,163 +78,110 @@ func TestConnectControl(t *testing.T) {
 	err := checkProtocol()
 	assert.NotNil(err, "if ConnectControl supports more protocol, please update this case")
 
-	filterSpec := defaultFilterSpec()
+	spec := &Spec{
+		BannedClients: []string{"banClient1", "banClient2"},
+		BannedTopics:  []string{"banTopic1", "banTopic2"},
+	}
+	filterSpec := defaultFilterSpec(spec)
 	cc.Init(filterSpec)
 	newCc := &ConnectControl{}
 	newCc.Inherit(filterSpec, cc)
 	defer newCc.Close()
+	status := newCc.Status().(*Status)
+	assert.Equal(status.BannedClients, spec.BannedClients)
+	assert.Equal(status.BannedTopics, spec.BannedTopics)
 }
 
-func TestHandleMQTT(t *testing.T) {
-	assert := assert.New(t)
+type testCase struct {
+	cid        string
+	topic      string
+	err        error
+	disconnect bool
+	earlyStop  bool
+}
 
-	filterSpec := defaultFilterSpec()
+func doTest(t *testing.T, spec *Spec, testCases []testCase) {
+	assert := assert.New(t)
+	filterSpec := defaultFilterSpec(spec)
 	cc := &ConnectControl{}
 	cc.Init(filterSpec)
 
-	tt := []struct {
-		cid        string
-		topic      string
-		err        error
-		disconnect bool
-		earlyStop  bool
-	}{
-		{cid: "ban1", topic: "unban", err: errors.New(resultBannedClientOrTopic), disconnect: true, earlyStop: true},
-		{cid: "ban2", topic: "unban", err: errors.New(resultBannedClientOrTopic), disconnect: true, earlyStop: true},
-		{cid: "unban", topic: "ban/sport/ball", err: errors.New(resultBannedClientOrTopic), disconnect: true, earlyStop: true},
-		{cid: "unban", topic: "ban/sport/run", err: errors.New(resultBannedClientOrTopic), disconnect: true, earlyStop: true},
-		{cid: "unban", topic: "unban", err: nil, disconnect: false, earlyStop: false},
-	}
-	for _, test := range tt {
+	for _, test := range testCases {
 		ctx := newContext(test.cid, test.topic)
 		res := cc.HandleMQTT(ctx)
 		assert.Equal(res.Err, test.err)
 		assert.Equal(ctx.Disconnect(), test.disconnect)
 		assert.Equal(ctx.EarlyStop(), test.earlyStop)
 	}
-
-	packet := packets.NewControlPacket(packets.Connect).(*packets.ConnectPacket)
-	ctx := context.NewMQTTContext(stdcontext.Background(), nil, packet)
-	res := cc.HandleMQTT(ctx)
-	assert.Equal(res.Err, errors.New(resultWrongPacket), "should return error for wrong result")
+	status := cc.Status().(*Status)
+	assert.Equal(status.BannedClientRe, spec.BannedClientRe)
+	assert.Equal(status.BannedTopicRe, spec.BannedTopicRe)
+	assert.Equal(status.BannedClients, spec.BannedClients)
+	assert.Equal(status.BannedTopics, spec.BannedTopics)
 }
 
-func TestHTTP(t *testing.T) {
-	assert := assert.New(t)
-
-	meta := &pipeline.FilterMetaSpec{
-		Name:     "connect-control-demo",
-		Kind:     Kind,
-		Pipeline: "pipeline-demo",
-		Protocol: context.MQTT,
+func TestHandleMQTT(t *testing.T) {
+	// check BannedClients
+	spec := &Spec{
+		BannedClients: []string{"ban1", "ban2"},
+		EarlyStop:     true,
 	}
-	spec := &Spec{}
-	filterSpec := pipeline.MockFilterSpec(nil, nil, "", meta, spec, nil)
+	testCases := []testCase{
+		{cid: "ban1", topic: "unban", err: errors.New(resultBannedClientOrTopic), disconnect: true, earlyStop: true},
+		{cid: "ban2", topic: "unban", err: errors.New(resultBannedClientOrTopic), disconnect: true, earlyStop: true},
+		{cid: "unban1", topic: "ban/sport/ball", err: nil, disconnect: false, earlyStop: false},
+		{cid: "unban2", topic: "ban/sport/run", err: nil, disconnect: false, earlyStop: false},
+		{cid: "unban", topic: "unban", err: nil, disconnect: false, earlyStop: false},
+	}
+	doTest(t, spec, testCases)
+
+	// check BannedTopics
+	spec = &Spec{
+		BannedTopics: []string{"ban/sport/ball", "ban/sport/run"},
+		EarlyStop:    true,
+	}
+	testCases = []testCase{
+		{cid: "unban1", topic: "ban/sport/ball", err: errors.New(resultBannedClientOrTopic), disconnect: true, earlyStop: true},
+		{cid: "unban2", topic: "ban/sport/run", err: errors.New(resultBannedClientOrTopic), disconnect: true, earlyStop: true},
+		{cid: "unban3", topic: "unban/sport", err: nil, disconnect: false, earlyStop: false},
+		{cid: "unban4", topic: "unban", err: nil, disconnect: false, earlyStop: false},
+	}
+	doTest(t, spec, testCases)
+
+	// check BannedClientRe
+	spec = &Spec{
+		BannedClientRe: "phone",
+		EarlyStop:      true,
+	}
+	testCases = []testCase{
+		{cid: "phone123", topic: "ban/sport/ball", err: errors.New(resultBannedClientOrTopic), disconnect: true, earlyStop: true},
+		{cid: "phone256", topic: "ban/sport/run", err: errors.New(resultBannedClientOrTopic), disconnect: true, earlyStop: true},
+		{cid: "tv", topic: "unban/sport", err: nil, disconnect: false, earlyStop: false},
+		{cid: "tv", topic: "unban", err: nil, disconnect: false, earlyStop: false},
+	}
+	doTest(t, spec, testCases)
+
+	// check BannedTopicRe
+	spec = &Spec{
+		BannedTopicRe: "sport",
+		EarlyStop:     true,
+	}
+	testCases = []testCase{
+		{cid: "phone123", topic: "ban/sport/ball", err: errors.New(resultBannedClientOrTopic), disconnect: true, earlyStop: true},
+		{cid: "phone256", topic: "ban/sport/run", err: errors.New(resultBannedClientOrTopic), disconnect: true, earlyStop: true},
+		{cid: "tv", topic: "unban", err: nil, disconnect: false, earlyStop: false},
+		{cid: "tv", topic: "unban", err: nil, disconnect: false, earlyStop: false},
+	}
+	doTest(t, spec, testCases)
+
+	// check re compile fail
+	spec = &Spec{
+		BannedClientRe: "(",
+		BannedTopicRe:  "(?P<name>",
+	}
+	filterSpec := defaultFilterSpec(spec)
 	cc := &ConnectControl{}
 	cc.Init(filterSpec)
-	apis := cc.APIs()
-	assert.Equal(len(apis), 3, "if apis is updated, please update this case")
-
-	tt := []struct {
-		method     string
-		reqData    *HTTPJsonData
-		fn         http.HandlerFunc
-		statusCode int
-		resData    *HTTPJsonData
-	}{
-		{
-			method:     http.MethodPost,
-			reqData:    &HTTPJsonData{Clients: []string{"ban1"}, Topics: []string{"sport/ball"}},
-			fn:         cc.handleBanClient,
-			statusCode: 200,
-			resData:    nil,
-		},
-		{
-			method:     http.MethodGet,
-			reqData:    nil,
-			fn:         cc.handleInfo,
-			statusCode: 200,
-			resData:    &HTTPJsonData{Clients: []string{"ban1"}, Topics: []string{"sport/ball"}},
-		},
-		{
-			method:     http.MethodPost,
-			reqData:    &HTTPJsonData{Clients: []string{"ban1"}, Topics: []string{"sport/ball"}},
-			fn:         cc.handleUnbanClient,
-			statusCode: 200,
-			resData:    nil,
-		},
-		{
-			method:     http.MethodGet,
-			reqData:    nil,
-			fn:         cc.handleInfo,
-			statusCode: 200,
-			resData:    &HTTPJsonData{Clients: []string{}, Topics: []string{}},
-		},
-	}
-	for _, test := range tt {
-		var body io.Reader
-		if test.reqData != nil {
-			jsonData, err := json.Marshal(test.reqData)
-			assert.Nil(err, "marshal json data failed")
-			body = bytes.NewBuffer(jsonData)
-		}
-		req := httptest.NewRequest(test.method, "/fake", body)
-		w := httptest.NewRecorder()
-		test.fn(w, req)
-		res := w.Result()
-		assert.Equal(res.StatusCode, test.statusCode, "wrong code")
-		if test.resData != nil {
-			resData := &HTTPJsonData{}
-			err := json.NewDecoder(res.Body).Decode(resData)
-			assert.Nil(err, "decode json data failed")
-			assert.Equal(resData, test.resData)
-		}
-		res.Body.Close()
-	}
-
-	checkBadReq := func(r *http.Request, fn http.HandlerFunc) {
-		w := httptest.NewRecorder()
-		fn(w, r)
-		res := w.Result()
-		assert.Equal(res.StatusCode, http.StatusBadRequest)
-		res.Body.Close()
-	}
-
-	// wrong method
-	checkBadReq(httptest.NewRequest(http.MethodGet, "/fake", nil), cc.handleBanClient)
-	checkBadReq(httptest.NewRequest(http.MethodGet, "/fake", nil), cc.handleUnbanClient)
-	checkBadReq(httptest.NewRequest(http.MethodPost, "/fake", nil), cc.handleInfo)
-	// wrong data
-	checkBadReq(httptest.NewRequest(http.MethodPost, "/fake", nil), cc.handleBanClient)
-	checkBadReq(httptest.NewRequest(http.MethodPost, "/fake", nil), cc.handleUnbanClient)
-	// json encode data error
-	req := httptest.NewRequest(http.MethodGet, "/fake", nil)
-	w := &badResponseWriter{FailTime: 1}
-	cc.handleInfo(w, req)
-	assert.Equal(w.StatusCode, http.StatusInternalServerError, "json encode error")
-}
-
-type badResponseWriter struct {
-	FailTime   int
-	Bytes      []byte
-	StatusCode int
-}
-
-var _ http.ResponseWriter = (*badResponseWriter)(nil)
-
-func (w *badResponseWriter) Header() http.Header {
-	return nil
-}
-
-func (w *badResponseWriter) Write(bytes []byte) (int, error) {
-	if w.FailTime > 0 {
-		w.FailTime--
-		return 0, errors.New("badResponseWriter will fail data write for several times")
-	}
-	w.Bytes = bytes
-	return len(bytes), nil
-}
-
-func (w *badResponseWriter) WriteHeader(statusCode int) {
-	w.StatusCode = statusCode
+	assert.Nil(t, cc.bannedClientRe)
+	assert.Nil(t, cc.bannedTopicRe)
 }
