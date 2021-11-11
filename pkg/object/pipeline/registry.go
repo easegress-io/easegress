@@ -55,9 +55,6 @@ type (
 		// It could return nil.
 		Status() interface{}
 
-		// APIs return apis for filter to change its behavior in time
-		APIs() []*APIEntry
-
 		// Close closes itself.
 		Close()
 	}
