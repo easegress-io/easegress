@@ -53,7 +53,7 @@ func cleanup() {
 
 func TestSpecValidate(t *testing.T) {
 	cleanup()
-	t.Run("invalid spec", func(t *testing.T) {
+	t.Run("spec missing flow", func(t *testing.T) {
 		Register(CreateObjectMock("mock-filter"))
 		Register(CreateObjectMock("mock-pipeline"))
 		spec := map[string]interface{}{
@@ -161,6 +161,23 @@ func TestSpecValidate(t *testing.T) {
 		}
 	})
 	cleanup()
+	t.Run("duplicate filter", func(t *testing.T) {
+		Register(CreateObjectMock("mock-pipeline"))
+		Register(CreateObjectMock("mock-filter"))
+		spec := map[string]interface{}{
+			"name": "pipeline",
+			"kind": "mock-pipeline",
+			"filters": []map[string]interface{}{
+				map[string]interface{}{"name": "filter-1","kind": "mock-filter"},
+				map[string]interface{}{"name": "filter-1","kind": "mock-filter"},
+			},
+		}
+		_, err := NewFilterSpec(spec, nil)
+		if err == nil {
+			t.Errorf("spec creation should have failed")
+		}
+	})
+	cleanup()
 }
 
 func TestRegistry(t *testing.T) {
@@ -205,9 +222,6 @@ func TestRegistry(t *testing.T) {
 }
 
 func TestHttpipeline(t *testing.T) {
-	logger.InitNop()
-	Register(CreateObjectMock("Proxy"))
-	Register(CreateObjectMock("HTTPPipeline"))
 	superSpecYaml := `
 name: http-pipeline-test
 kind: HTTPPipeline
@@ -237,6 +251,9 @@ filters:
         values:
         - application/json
 `
+	logger.InitNop()
+	Register(CreateObjectMock("Proxy"))
+	Register(CreateObjectMock("HTTPPipeline"))
 	t.Run("missing filter results", func(t *testing.T) {
 		Register(CreateObjectMock("Validator"))
 		Register(CreateObjectMock("RequestAdaptor"))
@@ -247,7 +264,6 @@ filters:
 		delete(filterRegistry, "Validator")
 		delete(filterRegistry, "RequestAdaptor")
 	})
-
 	Register(&FilterMock{"Validator", []string{"invalid", "END"}})
 	Register(&FilterMock{"RequestAdaptor", []string{"specialCase"}})
 	superSpec, err := supervisor.NewSpec(superSpecYaml)
@@ -256,6 +272,7 @@ filters:
 	}
 	httpPipeline := HTTPPipeline{nil, nil, nil, []*runningFilter{}, nil}
 	httpPipeline.Init(superSpec, nil)
+	httpPipeline.Inherit(superSpec,&httpPipeline,nil)
 
 	t.Run("test getNextFilterIndex", func(t *testing.T) {
 		if ind := httpPipeline.getNextFilterIndex(0, ""); ind != 1 {
@@ -282,4 +299,59 @@ filters:
 		t.Errorf("should not have filters")
 	}
 	httpPipeline.Close()
+	cleanup()
+}
+
+func TestHttpipelineNoFlow(t *testing.T) {
+	superSpecYaml := `
+name: http-pipeline-test
+kind: HTTPPipeline
+filters:
+  - name: validator
+    kind: Validator
+    headers:
+      Content-Type:
+        values:
+        - application/json
+  - name: requestAdaptor
+    kind: RequestAdaptor
+    header:
+      set:
+        X-Adapt-Key: goodplan
+  - name: proxy
+    kind: Proxy
+    mainPool:
+      servers:
+      - url: http://127.0.0.1:9095
+      loadBalance:
+        policy: roundRobin
+`
+	logger.InitNop()
+	Register(CreateObjectMock("Proxy"))
+	Register(CreateObjectMock("HTTPPipeline"))
+	Register(CreateObjectMock("Validator"))
+	Register(CreateObjectMock("RequestAdaptor"))
+
+	superSpec, err := supervisor.NewSpec(superSpecYaml)
+	if err != nil {
+		t.Errorf("failed to create spec %s", err)
+	}
+	httpPipeline := HTTPPipeline{nil, nil, nil, []*runningFilter{}, nil}
+	httpPipeline.Init(superSpec, nil)
+	httpPipeline.Inherit(superSpec,&httpPipeline,nil)
+
+	ctx := &contexttest.MockedHTTPContext{}
+	httpPipeline.Handle(ctx)
+	status := httpPipeline.Status()
+	if reflect.TypeOf(status).Kind() == reflect.Struct {
+		t.Errorf("should be type of Status")
+	}
+	if httpPipeline.getRunningFilter("unknown") != nil {
+		t.Errorf("should not have filters")
+	}
+	if httpPipeline.getRunningFilter("proxy") == nil {
+		t.Errorf("should have filter")
+	}
+	httpPipeline.Close()
+	cleanup()
 }
