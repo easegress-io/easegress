@@ -168,8 +168,8 @@ func TestSpecValidate(t *testing.T) {
 			"name": "pipeline",
 			"kind": "mock-pipeline",
 			"filters": []map[string]interface{}{
-				map[string]interface{}{"name": "filter-1","kind": "mock-filter"},
-				map[string]interface{}{"name": "filter-1","kind": "mock-filter"},
+				map[string]interface{}{"name": "filter-1", "kind": "mock-filter"},
+				map[string]interface{}{"name": "filter-1", "kind": "mock-filter"},
 			},
 		}
 		_, err := NewFilterSpec(spec, nil)
@@ -272,7 +272,7 @@ filters:
 	}
 	httpPipeline := HTTPPipeline{nil, nil, nil, []*runningFilter{}, nil}
 	httpPipeline.Init(superSpec, nil)
-	httpPipeline.Inherit(superSpec,&httpPipeline,nil)
+	httpPipeline.Inherit(superSpec, &httpPipeline, nil)
 
 	t.Run("test getNextFilterIndex", func(t *testing.T) {
 		if ind := httpPipeline.getNextFilterIndex(0, ""); ind != 1 {
@@ -338,7 +338,7 @@ filters:
 	}
 	httpPipeline := HTTPPipeline{nil, nil, nil, []*runningFilter{}, nil}
 	httpPipeline.Init(superSpec, nil)
-	httpPipeline.Inherit(superSpec,&httpPipeline,nil)
+	httpPipeline.Inherit(superSpec, &httpPipeline, nil)
 
 	ctx := &contexttest.MockedHTTPContext{}
 	httpPipeline.Handle(ctx)
