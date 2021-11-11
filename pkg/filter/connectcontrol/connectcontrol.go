@@ -34,6 +34,7 @@ const (
 	resultBannedClientOrTopic = "bannedClientOrTopicError"
 )
 
+// ErrBannedClientOrTopic is error for banned client or topic
 var ErrBannedClientOrTopic = errors.New(resultBannedClientOrTopic)
 
 func init() {
