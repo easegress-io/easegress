@@ -66,10 +66,10 @@ type (
 
 	// Status is ConnectControl filter status
 	Status struct {
-		BannedClientRe string   `yaml:"bannedClientRe" jsonschema:"omitempty"`
-		BannedClients  []string `yaml:"bannedClients" jsonschema:"omitempty"`
-		BannedTopicRe  string   `yaml:"bannedTopicRe" jsonschema:"omitempty"`
-		BannedTopics   []string `yaml:"bannedTopics" jsonschema:"omitempty"`
+		BannedClientRe  string `yaml:"bannedClientRe" jsonschema:"omitempty"`
+		BannedClientNum int    `yaml:"bannedClientNum" jsonschema:"omitempty"`
+		BannedTopicRe   string `yaml:"bannedTopicRe" jsonschema:"omitempty"`
+		BannedTopicNum  int    `yaml:"bannedTopicNum" jsonschema:"omitempty"`
 	}
 )
 
@@ -131,10 +131,10 @@ func (cc *ConnectControl) reload() {
 	}
 
 	cc.status = &Status{
-		BannedClientRe: cc.spec.BannedClientRe,
-		BannedTopicRe:  cc.spec.BannedTopicRe,
-		BannedClients:  cc.spec.BannedClients,
-		BannedTopics:   cc.spec.BannedTopics,
+		BannedClientRe:  cc.spec.BannedClientRe,
+		BannedTopicRe:   cc.spec.BannedTopicRe,
+		BannedClientNum: len(cc.spec.BannedClients),
+		BannedTopicNum:  len(cc.spec.BannedTopics),
 	}
 }
 
