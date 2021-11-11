@@ -34,6 +34,8 @@ const (
 	resultBannedClientOrTopic = "bannedClientOrTopicError"
 )
 
+var ErrBannedClientOrTopic = errors.New(resultBannedClientOrTopic)
+
 func init() {
 	pipeline.Register(&ConnectControl{})
 }
@@ -179,7 +181,7 @@ func (cc *ConnectControl) HandleMQTT(ctx context.MQTTContext) *context.MQTTResul
 		if cc.spec.EarlyStop {
 			ctx.SetEarlyStop()
 		}
-		return &context.MQTTResult{Err: errors.New(resultBannedClientOrTopic)}
+		return &context.MQTTResult{Err: ErrBannedClientOrTopic}
 	}
 	return &context.MQTTResult{}
 }
