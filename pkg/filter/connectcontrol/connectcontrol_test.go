@@ -88,8 +88,8 @@ func TestConnectControl(t *testing.T) {
 	newCc.Inherit(filterSpec, cc)
 	defer newCc.Close()
 	status := newCc.Status().(*Status)
-	assert.Equal(status.BannedClients, spec.BannedClients)
-	assert.Equal(status.BannedTopics, spec.BannedTopics)
+	assert.Equal(status.BannedClientNum, len(spec.BannedClients))
+	assert.Equal(status.BannedTopicNum, len(spec.BannedTopics))
 }
 
 type testCase struct {
@@ -116,8 +116,8 @@ func doTest(t *testing.T, spec *Spec, testCases []testCase) {
 	status := cc.Status().(*Status)
 	assert.Equal(status.BannedClientRe, spec.BannedClientRe)
 	assert.Equal(status.BannedTopicRe, spec.BannedTopicRe)
-	assert.Equal(status.BannedClients, spec.BannedClients)
-	assert.Equal(status.BannedTopics, spec.BannedTopics)
+	assert.Equal(status.BannedClientNum, len(spec.BannedClients))
+	assert.Equal(status.BannedTopicNum, len(spec.BannedTopics))
 }
 
 func TestHandleMQTT(t *testing.T) {

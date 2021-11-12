@@ -34,6 +34,9 @@ const (
 	resultBannedClientOrTopic = "bannedClientOrTopicError"
 )
 
+// ErrBannedClientOrTopic is error for banned client or topic
+var ErrBannedClientOrTopic = errors.New(resultBannedClientOrTopic)
+
 func init() {
 	pipeline.Register(&ConnectControl{})
 }
@@ -63,10 +66,10 @@ type (
 
 	// Status is ConnectControl filter status
 	Status struct {
-		BannedClientRe string   `yaml:"bannedClientRe" jsonschema:"omitempty"`
-		BannedClients  []string `yaml:"bannedClients" jsonschema:"omitempty"`
-		BannedTopicRe  string   `yaml:"bannedTopicRe" jsonschema:"omitempty"`
-		BannedTopics   []string `yaml:"bannedTopics" jsonschema:"omitempty"`
+		BannedClientRe  string `yaml:"bannedClientRe" jsonschema:"omitempty"`
+		BannedClientNum int    `yaml:"bannedClientNum" jsonschema:"omitempty"`
+		BannedTopicRe   string `yaml:"bannedTopicRe" jsonschema:"omitempty"`
+		BannedTopicNum  int    `yaml:"bannedTopicNum" jsonschema:"omitempty"`
 	}
 )
 
@@ -128,10 +131,10 @@ func (cc *ConnectControl) reload() {
 	}
 
 	cc.status = &Status{
-		BannedClientRe: cc.spec.BannedClientRe,
-		BannedTopicRe:  cc.spec.BannedTopicRe,
-		BannedClients:  cc.spec.BannedClients,
-		BannedTopics:   cc.spec.BannedTopics,
+		BannedClientRe:  cc.spec.BannedClientRe,
+		BannedTopicRe:   cc.spec.BannedTopicRe,
+		BannedClientNum: len(cc.spec.BannedClients),
+		BannedTopicNum:  len(cc.spec.BannedTopics),
 	}
 }
 
@@ -179,7 +182,7 @@ func (cc *ConnectControl) HandleMQTT(ctx context.MQTTContext) *context.MQTTResul
 		if cc.spec.EarlyStop {
 			ctx.SetEarlyStop()
 		}
-		return &context.MQTTResult{Err: errors.New(resultBannedClientOrTopic)}
+		return &context.MQTTResult{Err: ErrBannedClientOrTopic}
 	}
 	return &context.MQTTResult{}
 }
