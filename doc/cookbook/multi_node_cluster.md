@@ -5,7 +5,7 @@
   - [Multiple instances in single node](#multiple-instances-in-single-node)
   - [Multiple nodes](#multiple-nodes)
 
-It is easy to start multiple Easegress instances to form an Easegress cluster, using `easegress-server` binary executable.
+It is easy to start multiple Easegress instances to form an Easegress cluster, using `easegress-server` binary.
 
 ##  Multiple instances in single node
 
@@ -13,7 +13,7 @@ To start a single writer instance and two readers, we need to run start the serv
 
 Start writer instance
 ```bash
-./bin/easegress-server \
+easegress-server \
   --cluster-name "multi-instance-cluster" \
   --cluster-role "writer" \
   --name "writer" \
@@ -52,7 +52,7 @@ Add environment variables to each machine:
 
 Start the first instance at the first machine
 ```bash
-./bin/easegress-server \
+easegress-server \
   --cluster-name "multi-node-cluster" \
   --cluster-role "writer" \
   --name "machine-1" \
@@ -65,7 +65,7 @@ Start the first instance at the first machine
 ```
 then the second instance at machine 2
 ```bash
-./bin/easegress-server \
+easegress-server \
   --cluster-name "multi-node-cluster" \
   --cluster-role "writer" \
   --name "machine-2" \
@@ -77,7 +77,7 @@ then the second instance at machine 2
 ```
 and the last machine 3
 ```bash
-./bin/easegress-server \
+easegress-server \
   --cluster-name "multi-node-cluster" \
   --cluster-role "writer" \
   --name "machine-3" \
