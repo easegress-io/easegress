@@ -19,6 +19,7 @@ It is possible to write Wasm code in [text format](https://webassembly.github.io
 To make things easier, MegaEase released some SDKs to help users to develop their logic in high-level languages, SDKs for the following languages are available currently:
 
 * [AssemblyScript](https://github.com/megaease/easegress-assemblyscript-sdk)
+* [Golang](https://github.com/xmh19936688/easegress-go-sdk)
 
 We can follow the documentation of these SDKs to write business logic and compile it to Wasm.
 
