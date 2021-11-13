@@ -88,17 +88,19 @@ func newBroker(spec *Spec, store storage, memberURL func(string, string) ([]stri
 		done:       make(chan struct{}),
 	}
 
-	for _, a := range spec.Auth {
-		passwd, err := base64.StdEncoding.DecodeString(a.PassBase64)
-		if err != nil {
-			logger.Errorf("auth with name %v, base64 password %v decode failed: %v", a.UserName, a.PassBase64, err)
+	if !spec.AuthByPipeline {
+		for _, a := range spec.Auth {
+			passwd, err := base64.StdEncoding.DecodeString(a.PassBase64)
+			if err != nil {
+				logger.Errorf("auth with name %v, base64 password %v decode failed: %v", a.UserName, a.PassBase64, err)
+				return nil
+			}
+			broker.sha256Auth[a.UserName] = sha256Sum(passwd)
+		}
+		if len(broker.sha256Auth) == 0 {
+			logger.Errorf("empty valid auth for mqtt proxy")
 			return nil
 		}
-		broker.sha256Auth[a.UserName] = sha256Sum(passwd)
-	}
-	if len(broker.sha256Auth) == 0 {
-		logger.Errorf("empty valid auth for mqtt proxy")
-		return nil
 	}
 
 	err := broker.setListener()

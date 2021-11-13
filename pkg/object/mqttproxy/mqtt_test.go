@@ -1607,3 +1607,56 @@ func TestAuthByPipeline(t *testing.T) {
 	}
 	client.Disconnect(200)
 }
+
+func TestEmptyAuthAndAuthByPipeline(t *testing.T) {
+	spec := &Spec{
+		Name:           "test",
+		EGName:         "test",
+		Port:           1883,
+		BackendType:    testMQType,
+		AuthByPipeline: true,
+	}
+	store := newStorage(nil)
+	broker := newBroker(spec, store, func(s, ss string) ([]string, error) {
+		m := map[string]string{
+			"test":  "http://localhost:8888/mqtt",
+			"test1": "http://localhost:8889/mqtt",
+		}
+		urls := []string{}
+		for k, v := range m {
+			if k != s {
+				urls = append(urls, v)
+			}
+		}
+		return urls, nil
+	})
+	if broker == nil {
+		t.Errorf("broker with empty auth should not be nil when AuthByPipeline is true")
+	}
+	broker.close()
+
+	spec = &Spec{
+		Name:           "test",
+		EGName:         "test",
+		Port:           1883,
+		BackendType:    testMQType,
+		AuthByPipeline: false,
+	}
+	store = newStorage(nil)
+	broker = newBroker(spec, store, func(s, ss string) ([]string, error) {
+		m := map[string]string{
+			"test":  "http://localhost:8888/mqtt",
+			"test1": "http://localhost:8889/mqtt",
+		}
+		urls := []string{}
+		for k, v := range m {
+			if k != s {
+				urls = append(urls, v)
+			}
+		}
+		return urls, nil
+	})
+	if broker != nil {
+		t.Errorf("broker with empty auth should be nil when AuthByPipeline is false")
+	}
+}
