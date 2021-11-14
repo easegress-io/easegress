@@ -216,7 +216,10 @@ func (b *Broker) handleConn(conn net.Conn) {
 	if authFail {
 		connack.ReturnCode = packets.ErrRefusedNotAuthorised
 		err = connack.Write(conn)
-		logger.Errorf("invalid connection %v, connack back failed: %s", connack.ReturnCode, err)
+		if err != nil {
+			logger.Errorf("connack back to client %s failed: %s", connect.ClientIdentifier, err)
+		}
+		logger.Errorf("invalid connection %v, client %s auth failed", connack.ReturnCode, connect.ClientIdentifier)
 		return
 	}
 
