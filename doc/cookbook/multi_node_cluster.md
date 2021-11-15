@@ -69,7 +69,7 @@ then the second instance at machine 2
 ```bash
 easegress-server \
   --cluster-name "multi-node-cluster" \
-  --cluster-role "reader" \
+  --cluster-role "writer" \
   --name "machine-2" \
   --cluster-initial-advertise-peer-urls http://$HOST2:2378 \
   --cluster-listen-peer-urls http://$HOST2:2378 \
@@ -81,7 +81,7 @@ and the last machine 3
 ```bash
 easegress-server \
   --cluster-name "multi-node-cluster" \
-  --cluster-role "reader" \
+  --cluster-role "writer" \
   --name "machine-3" \
   --cluster-initial-advertise-peer-urls http://$HOST3:2376 \
   --cluster-listen-peer-urls http://$HOST3:2376 \
@@ -103,11 +103,32 @@ should print
     name: machine-3
 ```
 
+###  Add new node
+
+Let's add one more node; this time a reader cluster role.
+
+```bash
+# on a new machine
+export HOST1=<host1-IP>
+export HOST2=<host2-IP>
+export HOST3=<host3-IP>
+export HOST4=<host4-IP>
+
+easegress-server \
+  --cluster-name "multi-node-cluster" \
+  --cluster-role "reader" \
+  --name "machine-4" \
+  --cluster-initial-advertise-peer-urls http://$HOST4:2374 \
+  --cluster-listen-peer-urls http://$HOST4:2374 \
+  --cluster-listen-client-urls http://$HOST4:2373 \
+  --cluster-advertise-client-urls http://$HOST4:2373 \
+  --cluster-join-urls http://$HOST1:2380,http://$HOST2:2378,http://$HOST3:2376,http://$HOST4:2374
+```
+
+
 ##  Readers and writers
 
-When running Easegress as a cluster, each instance has either *writer* or *reader* role. There should be odd number off *writers* (1,3,5,7,9) for [failure tolerance](https://etcd.io/docs/v3.5/faq/#what-is-failure-tolerance) and any positive number of *readers*.
-
-*Attention*: Due to known issue, creating more than one *writer* will fail.
+When running Easegress as a cluster, each instance has either *writer* or *reader* role. There should be odd number off *writers* (1,3,5,7,9) for [failure tolerance](https://etcd.io/docs/v3.5/faq/#what-is-failure-tolerance) and any number of *readers*.
 
 ## References
 
