@@ -137,7 +137,7 @@ func TestHandleMQTT(t *testing.T) {
 	}
 	wg.Wait()
 	f := p.getRunningFilter("mqtt-filter").filter.(*MockMQTTFilter)
-	assert.Equal(len(f.Status().(MockMQTTStatus)), 1000, "wrong client count")
+	assert.Equal(len(f.Status().(MockMQTTStatus).ClientCount), 1000, "wrong client count")
 
 	newP := &Pipeline{}
 	newP.spec = &Spec{Protocol: context.HTTP}

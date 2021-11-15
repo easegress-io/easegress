@@ -45,10 +45,11 @@ func (f *mockFilter) APIs() []*APIEntry                                         
 // MockMQTTFilter is used for test pipeline, which will count the client number of MQTTContext
 type MockMQTTFilter struct {
 	mockFilter
+	mu sync.Mutex
 
-	mu      sync.Mutex
-	spec    *MockMQTTSpec
-	clients map[string]int
+	spec       *MockMQTTSpec
+	clients    map[string]int
+	disconnect map[string]struct{}
 }
 
 // MockMQTTSpec is spec of MockMQTTFilter
@@ -61,7 +62,10 @@ type MockMQTTSpec struct {
 }
 
 // MockMQTTStatus is status of MockMQTTFilter
-type MockMQTTStatus map[string]int
+type MockMQTTStatus struct {
+	ClientCount      map[string]int
+	ClientDisconnect map[string]struct{}
+}
 
 var _ MQTTFilter = (*MockMQTTFilter)(nil)
 
@@ -79,17 +83,22 @@ func (m *MockMQTTFilter) DefaultSpec() interface{} {
 func (m *MockMQTTFilter) Init(filterSpec *FilterSpec) {
 	m.spec = filterSpec.FilterSpec().(*MockMQTTSpec)
 	m.clients = make(map[string]int)
+	m.disconnect = make(map[string]struct{})
 }
 
 // HandleMQTT handle MQTTContext
 func (m *MockMQTTFilter) HandleMQTT(ctx context.MQTTContext) *context.MQTTResult {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	m.clients[ctx.Client().ClientID()]++
 	if ctx.PacketType() == context.MQTTConnect {
 		if ctx.ConnectPacket().Username != m.spec.UserName || string(ctx.ConnectPacket().Password) != m.spec.Password {
 			ctx.SetDisconnect()
 		}
+	}
+	if ctx.PacketType() == context.MQTTDisconnect {
+		m.disconnect[ctx.Client().ClientID()] = struct{}{}
 	}
 	return nil
 }
@@ -104,9 +113,22 @@ func (m *MockMQTTFilter) clientCount() map[string]int {
 	return ans
 }
 
+func (m *MockMQTTFilter) clientDisconnect() map[string]struct{} {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	ans := make(map[string]struct{})
+	for k, v := range m.disconnect {
+		ans[k] = v
+	}
+	return ans
+}
+
 // Status return status of MockMQTTFilter
 func (m *MockMQTTFilter) Status() interface{} {
-	return MockMQTTStatus(m.clientCount())
+	return MockMQTTStatus{
+		ClientCount:      m.clientCount(),
+		ClientDisconnect: m.clientDisconnect(),
+	}
 }
 
 type mockMQTTClient struct {

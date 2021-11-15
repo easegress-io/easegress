@@ -37,8 +37,9 @@ type (
 		Finish()
 
 		PacketType() MQTTPacketType
-		ConnectPacket() *packets.ConnectPacket // read only
-		PublishPacket() *packets.PublishPacket // read only
+		ConnectPacket() *packets.ConnectPacket       // read only
+		PublishPacket() *packets.PublishPacket       // read only
+		DisconnectPacket() *packets.DisconnectPacket // read only
 
 		SetDrop()         // set drop value to true
 		Drop() bool       // if true, this mqtt packet will be dropped
@@ -62,12 +63,13 @@ type (
 		ctx        stdcontext.Context
 		cancelFunc stdcontext.CancelFunc
 
-		startTime     *time.Time
-		endTime       *time.Time
-		client        MQTTClient
-		connectPacket *packets.ConnectPacket
-		publishPacket *packets.PublishPacket
-		packetType    MQTTPacketType
+		startTime        *time.Time
+		endTime          *time.Time
+		client           MQTTClient
+		connectPacket    *packets.ConnectPacket
+		publishPacket    *packets.PublishPacket
+		disconnectPacket *packets.DisconnectPacket
+		packetType       MQTTPacketType
 
 		err        error
 		drop       int32
@@ -88,8 +90,11 @@ const (
 	// MQTTPublish is mqtt packet type of publish
 	MQTTPublish MQTTPacketType = 2
 
+	// MQTTDisconnect is mqtt packet type of disconnect
+	MQTTDisconnect = 3
+
 	// MQTTOther is all other mqtt packet type
-	MQTTOther MQTTPacketType = 3
+	MQTTOther MQTTPacketType = 4
 )
 
 var _ MQTTContext = (*mqttContext)(nil)
@@ -112,6 +117,9 @@ func NewMQTTContext(ctx stdcontext.Context, client MQTTClient, packet packets.Co
 	case *packets.PublishPacket:
 		mqttCtx.publishPacket = packet
 		mqttCtx.packetType = MQTTPublish
+	case *packets.DisconnectPacket:
+		mqttCtx.disconnectPacket = packet
+		mqttCtx.packetType = MQTTDisconnect
 	default:
 		mqttCtx.packetType = MQTTOther
 	}
@@ -202,6 +210,10 @@ func (ctx *mqttContext) ConnectPacket() *packets.ConnectPacket {
 
 func (ctx *mqttContext) PublishPacket() *packets.PublishPacket {
 	return ctx.publishPacket
+}
+
+func (ctx *mqttContext) DisconnectPacket() *packets.DisconnectPacket {
+	return ctx.disconnectPacket
 }
 
 func (ctx *mqttContext) SetDrop() {

@@ -189,15 +189,16 @@ func (c *Client) processPublish(publish *packets.PublishPacket) {
 		pipe, err := pipeline.GetPipeline(c.broker.pipeline, context.MQTT)
 		if err != nil {
 			logger.Errorf("get pipeline %v failed, %v", c.broker.pipeline, err)
-		}
-		ctx := context.NewMQTTContext(stdcontext.Background(), c, publish)
-		pipe.HandleMQTT(ctx)
-		if ctx.Disconnect() {
-			c.close()
-			return
-		}
-		if ctx.Drop() {
-			return
+		} else {
+			ctx := context.NewMQTTContext(stdcontext.Background(), c, publish)
+			pipe.HandleMQTT(ctx)
+			if ctx.Disconnect() {
+				c.close()
+				return
+			}
+			if ctx.Drop() {
+				return
+			}
 		}
 	}
 
@@ -278,12 +279,25 @@ func (c *Client) writeLoop() {
 
 func (c *Client) close() {
 	c.Lock()
-	defer c.Unlock()
 	if c.disconnected() {
+		c.Unlock()
 		return
 	}
 	atomic.StoreInt32(&c.statusFlag, Disconnected)
 	close(c.done)
+	c.Unlock()
+
+	// pipeline
+	if c.broker.pipeline != "" {
+		pipe, err := pipeline.GetPipeline(c.broker.pipeline, context.MQTT)
+		if err != nil {
+			logger.Errorf("get pipeline %v failed, %v", c.broker.pipeline, err)
+		} else {
+			disconnect := packets.NewControlPacket(packets.Disconnect).(*packets.DisconnectPacket)
+			ctx := context.NewMQTTContext(stdcontext.Background(), c, disconnect)
+			pipe.HandleMQTT(ctx)
+		}
+	}
 }
 
 func (c *Client) disconnected() bool {
