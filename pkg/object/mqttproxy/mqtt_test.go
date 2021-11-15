@@ -1496,7 +1496,9 @@ func TestPipeline(t *testing.T) {
       kind: MockMQTTFilter
       userName: test
       port: 1234
-      backendType: Kafka`
+      backendType: Kafka
+      keysToStore:
+      - filter`
 	super := supervisor.NewDefaultMock()
 	superSpec, err := super.NewSpec(yamlStr)
 	if err != nil {
@@ -1524,6 +1526,12 @@ func TestPipeline(t *testing.T) {
 		p := broker.backend.(*testMQ).get()
 		if p.TopicName != topic || string(p.Payload) != text {
 			t.Errorf("get wrong publish")
+		}
+		broker.Lock()
+		c := broker.clients[strconv.Itoa(i)]
+		broker.Unlock()
+		if _, ok := c.Load("filter"); !ok {
+			t.Errorf("filter write key value failed")
 		}
 		client.Disconnect(200)
 	}

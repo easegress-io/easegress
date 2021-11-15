@@ -53,6 +53,9 @@ type (
 	MQTTClient interface {
 		ClientID() string
 		UserName() string
+		Load(key interface{}) (value interface{}, ok bool)
+		Store(key interface{}, value interface{})
+		Delete(key interface{})
 	}
 
 	// MQTTPacketType contains supported mqtt packet type

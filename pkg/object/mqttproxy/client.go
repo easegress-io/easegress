@@ -67,6 +67,9 @@ type (
 		statusFlag int32
 		writeCh    chan packets.ControlPacket
 		done       chan struct{}
+
+		// kv map is used for pipeline to share messages among filters during whole connection
+		kvMap sync.Map
 	}
 )
 
@@ -75,6 +78,18 @@ var _ context.MQTTClient = (*Client)(nil)
 // ClientID return client id of Client
 func (c *Client) ClientID() string {
 	return c.info.cid
+}
+
+func (c *Client) Load(key interface{}) (value interface{}, ok bool) {
+	return c.kvMap.Load(key)
+}
+
+func (c *Client) Store(key interface{}, value interface{}) {
+	c.kvMap.Store(key, value)
+}
+
+func (c *Client) Delete(key interface{}) {
+	c.kvMap.Delete(key)
 }
 
 // UserName return username of Client

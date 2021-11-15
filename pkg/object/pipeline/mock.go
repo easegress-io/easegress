@@ -47,18 +47,20 @@ type MockMQTTFilter struct {
 	mockFilter
 	mu sync.Mutex
 
-	spec       *MockMQTTSpec
-	clients    map[string]int
-	disconnect map[string]struct{}
+	spec        *MockMQTTSpec
+	clients     map[string]int
+	disconnect  map[string]struct{}
+	missingKeys map[string]struct{}
 }
 
 // MockMQTTSpec is spec of MockMQTTFilter
 type MockMQTTSpec struct {
-	UserName    string `yaml:"userName" jsonschema:"required"`
-	Password    string `yaml:"password" jsonschema:"required"`
-	Port        uint16 `yaml:"port" jsonschema:"required"`
-	BackendType string `yaml:"backendType" jsonschema:"required"`
-	EarlyStop   bool   `yaml:"earlyStop" jsonschema:"omitempty"`
+	UserName    string   `yaml:"userName" jsonschema:"required"`
+	Password    string   `yaml:"password" jsonschema:"required"`
+	Port        uint16   `yaml:"port" jsonschema:"required"`
+	BackendType string   `yaml:"backendType" jsonschema:"required"`
+	EarlyStop   bool     `yaml:"earlyStop" jsonschema:"omitempty"`
+	KeysToStore []string `yaml:"keysToStore" jsonschema:"omitempty"`
 }
 
 // MockMQTTStatus is status of MockMQTTFilter
@@ -100,6 +102,9 @@ func (m *MockMQTTFilter) HandleMQTT(ctx context.MQTTContext) *context.MQTTResult
 	if ctx.PacketType() == context.MQTTDisconnect {
 		m.disconnect[ctx.Client().ClientID()] = struct{}{}
 	}
+	for _, k := range m.spec.KeysToStore {
+		ctx.Client().Store(k, struct{}{})
+	}
 	return nil
 }
 
@@ -134,6 +139,7 @@ func (m *MockMQTTFilter) Status() interface{} {
 type mockMQTTClient struct {
 	cid      string
 	userName string
+	kvMap    sync.Map
 }
 
 var _ context.MQTTClient = (*mockMQTTClient)(nil)
@@ -146,6 +152,18 @@ func (c *mockMQTTClient) ClientID() string {
 // UserName return username of mockMQTTClient
 func (c *mockMQTTClient) UserName() string {
 	return c.userName
+}
+
+func (c *mockMQTTClient) Load(key interface{}) (interface{}, bool) {
+	return c.kvMap.Load(key)
+}
+
+func (c *mockMQTTClient) Store(key interface{}, value interface{}) {
+	c.kvMap.Store(key, value)
+}
+
+func (c *mockMQTTClient) Delete(key interface{}) {
+	c.kvMap.Delete(key)
 }
 
 // MockFilterSpec help to create FilterSpec for test
