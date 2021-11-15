@@ -4,6 +4,8 @@
 - [Multi-node cluster](#multi-node-cluster)
   - [Multiple instances in single node](#multiple-instances-in-single-node)
   - [Multiple nodes](#multiple-nodes)
+  - [Readers and writers](#readers-and-writers)
+  - [References](#references)
 
 It is easy to start multiple Easegress instances to form an Easegress cluster, using `easegress-server` binary.
 
@@ -61,31 +63,31 @@ easegress-server \
   --cluster-listen-peer-urls http://$HOST1:2380 \
   --cluster-listen-client-urls http://$HOST1:2379 \
   --cluster-advertise-client-urls http://$HOST1:2379 \
-  --cluster-join-urls http://$HOST1:2380,http://$HOST2:2378,http://$HOST2:2376
+  --cluster-join-urls http://$HOST1:2380,http://$HOST2:2378,http://$HOST3:2376
 ```
 then the second instance at machine 2
 ```bash
 easegress-server \
   --cluster-name "multi-node-cluster" \
-  --cluster-role "writer" \
+  --cluster-role "reader" \
   --name "machine-2" \
   --cluster-initial-advertise-peer-urls http://$HOST2:2378 \
   --cluster-listen-peer-urls http://$HOST2:2378 \
   --cluster-listen-client-urls http://$HOST2:2377 \
   --cluster-advertise-client-urls http://$HOST2:2377 \
-  --cluster-join-urls http://$HOST1:2380,http://$HOST2:2378,http://$HOST2:2376
+  --cluster-join-urls http://$HOST1:2380,http://$HOST2:2378,http://$HOST3:2376
 ```
 and the last machine 3
 ```bash
 easegress-server \
   --cluster-name "multi-node-cluster" \
-  --cluster-role "writer" \
+  --cluster-role "reader" \
   --name "machine-3" \
   --cluster-initial-advertise-peer-urls http://$HOST3:2376 \
   --cluster-listen-peer-urls http://$HOST3:2376 \
   --cluster-listen-client-urls http://$HOST3:2375 \
   --cluster-advertise-client-urls http://$HOST3:2375 \
-  --cluster-join-urls http://$HOST1:2380,http://$HOST2:2378,http://$HOST2:2376
+  --cluster-join-urls http://$HOST1:2380,http://$HOST2:2378,http://$HOST3:2376
 ```
 
 Now list cluster members
@@ -100,3 +102,13 @@ should print
     name: machine-2
     name: machine-3
 ```
+
+##  Readers and writers
+
+When running Easegress as a cluster, each instance has either *writer* or *reader* role. There should be odd number off *writers* (1,3,5,7,9) for [failure tolerance](https://etcd.io/docs/v3.5/faq/#what-is-failure-tolerance) and any positive number of *readers*.
+
+*Attention*: Due to known issue, creating more than one *writer* will fail.
+
+## References
+
+1. https://etcd.io/docs/v3.5/faq/
