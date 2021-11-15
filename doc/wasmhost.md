@@ -16,10 +16,10 @@ The WasmHost is a filter of Easegress which can be orchestrated into a pipeline.
 
 It is possible to write Wasm code in [text format](https://webassembly.github.io/spec/core/text/index.html), but this is painful.
 
-To make things easier, MegaEase released some SDKs to help users to develop their logic in high-level languages, SDKs for the following languages are available currently:
+To make things easier, MegaEase and the community released SDKs to help users to develop their logic in high-level languages, SDKs for the following languages are available currently:
 
 * [AssemblyScript](https://github.com/megaease/easegress-assemblyscript-sdk)
-* [Golang](https://github.com/xmh19936688/easegress-go-sdk)
+* [Golang](https://github.com/xmh19936688/easegress-go-sdk) (developed by @[xmh19936688](https://github.com/xmh19936688))
 
 We can follow the documentation of these SDKs to write business logic and compile it to Wasm.
 
