@@ -20,7 +20,7 @@ The values need to be aligned with actual memory, CPU, and network.
     net.ipv4.ip_local_port_range = 1024 65535
     ```
 
-2. Increase number of max open-files
+2. Increase the max number of open files
     ```conf
     fs.file-max = 150000
     ```
