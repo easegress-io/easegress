@@ -5,13 +5,14 @@
   - [Multiple instances in single node](#multiple-instances-in-single-node)
   - [Multiple nodes](#multiple-nodes)
   - [Readers and writers](#readers-and-writers)
+    - [Cluster roles in etcd terminology](#cluster-roles-in-etcd-terminology)
   - [References](#references)
 
 It is easy to start multiple Easegress instances to form an Easegress cluster, using `easegress-server` binary.
 
 ##  Multiple instances in single node
 
-To start a single writer instance and two readers, we need to run start the server in three separate terminals. It's enough to define `localhost` for `cluster-join-urls` value and leave most of the options to default values.
+To start a single writer instance and two readers, we need to start the server in three separate terminals. It's enough to define `localhost` for `cluster-join-urls` value and leave most of the options to default values.
 
 Start writer instance
 ```bash
@@ -126,10 +127,26 @@ easegress-server \
 ```
 
 
-##  Readers and writers
+##  Reader and writer nodes
 
-When running Easegress as a cluster, each instance has either *writer* or *reader* role. There should be odd number off *writers* (1,3,5,7,9) for [failure tolerance](https://etcd.io/docs/v3.5/faq/#what-is-failure-tolerance) and any number of *readers*.
+When running Easegress as a cluster, each instance has either *writer* or *reader* role. *Writer* nodes persist the Easegress state on the disk, while *readers* request this information from their peers (defined by `cluster-initial-advertise-peer-urls` parameter).
+
+It is a best practice to choose an odd number (1,3,5,7,9) of *writers*, to tolerate failures of *writer* nodes. This way the cluster can stay in healthy state, even if the network partitions. With an even number of writer nodes, the cluster can be divided to two groups of equal size due to network partition. Then neither of the sub-cluster have the majority required for consensus. However with odd number of *writer* nodes, the cluster cannot be divided to two groups of equal size and this problem cannot occur.
+
+For the *readers*, there is no constraints for the number of nodes. Readers do not participate consensus vote of the cluster, so their failure do not affect the cluster health. It is a good practice to have few *reader* nodes.
+
+### Cluster roles in etcd terminology
+
+Easegress cluster uses [etcd](https://etcd.io) distributed key-value store to synchronize the cluster state. The writer and reader cluster roles have following relation with `etcd`:
+
+
+| Easegress cluster role   | writer   | reader   |
+|-----|-----|-----|
+| etcd term | server | client |
+
 
 ## References
 
-1. https://etcd.io/docs/v3.5/faq/
+1. https://en.wikipedia.org/wiki/High-availability_cluster
+2. https://en.wikipedia.org/wiki/Raft_(algorithm)
+3. https://etcd.io/docs/v3.5/faq/
