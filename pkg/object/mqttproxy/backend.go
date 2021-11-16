@@ -141,7 +141,7 @@ func (k *KafkaMQ) close() {
 	}
 }
 
-// PublishMessage publish msg to Kafka backend
+// Publish publish msg to Kafka backend
 func (k *KafkaMQ) Publish(target string, data []byte, headers map[string]string) error {
 	var msg *sarama.ProducerMessage
 	kafkaHeaders := []sarama.RecordHeader{}
@@ -162,7 +162,7 @@ func (t *testMQ) publish(p *packets.PublishPacket) error {
 	return nil
 }
 
-// PublishMessage publish msg to testMQ backend
+// Publish publish msg to testMQ backend
 func (t *testMQ) Publish(target string, data []byte, headers map[string]string) error {
 	t.msg[target] = headers
 	return nil
