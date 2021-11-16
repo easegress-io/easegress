@@ -379,6 +379,7 @@ func (b *Broker) registerAPIs() {
 	api.RegisterAPIs(group)
 }
 
+// Publish publish msg to broker backend
 func (b *Broker) Publish(target string, data []byte, headers map[string]string) error {
 	return b.backend.PublishMessage(target, data, headers)
 }
