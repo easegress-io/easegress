@@ -131,9 +131,9 @@ easegress-server \
 
 When running Easegress as a cluster, each instance has either *writer* or *reader* role. *Writer* nodes persist the Easegress state on the disk, while *readers* request this information from their peers (defined by `cluster-initial-advertise-peer-urls` parameter).
 
-It is a best practice to choose an odd number (1,3,5,7,9) of *writers*, to tolerate failures of *writer* nodes. This way the cluster can stay in healthy state, even if the network partitions. With an even number of writer nodes, the cluster can be divided to two groups of equal size due to network partition. Then neither of the sub-cluster have the majority required for consensus. However with odd number of *writer* nodes, the cluster cannot be divided to two groups of equal size and this problem cannot occur.
+It is a good practice to choose an odd number (1,3,5,7,9) of *writers*, to tolerate failures of *writer* nodes. This way the cluster can stay in healthy state, even if the network partitions. With an even number of writer nodes, the cluster can be divided to two groups of equal size due to network partition. Then neither of the sub-cluster have the majority required for consensus. However with odd number of *writer* nodes, the cluster cannot be divided to two groups of equal size and this problem cannot occur.
 
-For the *readers*, there is no constraints for the number of nodes. Readers do not participate consensus vote of the cluster, so their failure do not affect the cluster health. It is a good practice to have few *reader* nodes.
+For the *readers*, there is no constraints for the number of nodes. Readers do not participate consensus vote of the cluster, so their failure do not affect the cluster health. Adding more (*reader*) nodes does still increase the communication between nodes.
 
 ### Cluster roles in etcd terminology
 
