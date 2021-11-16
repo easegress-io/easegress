@@ -17,10 +17,13 @@
 
 package context
 
+import "sync"
+
 // MockMQTTClient is mock client for MQTTContext
 type MockMQTTClient struct {
 	MockClientID string
 	MockUserName string
+	MockKVMap    sync.Map
 }
 
 var _ MQTTClient = (*MockMQTTClient)(nil)
@@ -33,4 +36,19 @@ func (m *MockMQTTClient) ClientID() string {
 // UserName return username if MockMQTTClient
 func (m *MockMQTTClient) UserName() string {
 	return m.MockUserName
+}
+
+// Load load value keep in MockMQTTClient kv map
+func (m *MockMQTTClient) Load(key interface{}) (value interface{}, ok bool) {
+	return m.MockKVMap.Load(key)
+}
+
+// Store store kv pair into MockMQTTClient kv map
+func (m *MockMQTTClient) Store(key interface{}, value interface{}) {
+	m.MockKVMap.Store(key, value)
+}
+
+// Delete delete key-value pair in MockMQTTClient kv map
+func (m *MockMQTTClient) Delete(key interface{}) {
+	m.MockKVMap.Delete(key)
 }

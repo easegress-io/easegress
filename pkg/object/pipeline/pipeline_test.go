@@ -119,7 +119,11 @@ func TestHandleMQTT(t *testing.T) {
       userName: test
       port: 1234
       earlyStop: true
-      backendType: Kafka`
+      backendType: Kafka
+      keysToStore:
+      - mock
+      - mqtt
+      - filter`
 	p := getPipeline(yamlStr, t)
 	defer p.Close()
 
@@ -132,12 +136,18 @@ func TestHandleMQTT(t *testing.T) {
 			ctx := context.NewMQTTContext(stdcontext.Background(), c, publish)
 			assert.Equal(ctx.Client().UserName(), strconv.Itoa(i+1))
 			p.HandleMQTT(ctx)
+			_, ok := ctx.Client().Load("mock")
+			assert.Equal(true, ok)
+			_, ok = ctx.Client().Load("mqtt")
+			assert.Equal(true, ok)
+			_, ok = ctx.Client().Load("filter")
+			assert.Equal(true, ok)
 			wg.Done()
 		}(i)
 	}
 	wg.Wait()
 	f := p.getRunningFilter("mqtt-filter").filter.(*MockMQTTFilter)
-	assert.Equal(len(f.Status().(MockMQTTStatus)), 1000, "wrong client count")
+	assert.Equal(len(f.Status().(MockMQTTStatus).ClientCount), 1000, "wrong client count")
 
 	newP := &Pipeline{}
 	newP.spec = &Spec{Protocol: context.HTTP}
