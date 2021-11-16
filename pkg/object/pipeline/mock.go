@@ -54,13 +54,14 @@ type MockMQTTFilter struct {
 
 // MockMQTTSpec is spec of MockMQTTFilter
 type MockMQTTSpec struct {
-	UserName    string   `yaml:"userName" jsonschema:"required"`
-	Password    string   `yaml:"password" jsonschema:"required"`
-	Port        uint16   `yaml:"port" jsonschema:"required"`
-	BackendType string   `yaml:"backendType" jsonschema:"required"`
-	EarlyStop   bool     `yaml:"earlyStop" jsonschema:"omitempty"`
-	KeysToStore []string `yaml:"keysToStore" jsonschema:"omitempty"`
-	ConnectKey  string   `yaml:"connectKey" jsonschema:"omitempty"`
+	UserName               string   `yaml:"userName" jsonschema:"required"`
+	Password               string   `yaml:"password" jsonschema:"required"`
+	Port                   uint16   `yaml:"port" jsonschema:"required"`
+	BackendType            string   `yaml:"backendType" jsonschema:"required"`
+	EarlyStop              bool     `yaml:"earlyStop" jsonschema:"omitempty"`
+	KeysToStore            []string `yaml:"keysToStore" jsonschema:"omitempty"`
+	ConnectKey             string   `yaml:"connectKey" jsonschema:"omitempty"`
+	PublishBackendClientID bool     `yaml:"publishBackendClientID" jsonschema:"omitempty"`
 }
 
 // MockMQTTStatus is status of MockMQTTFilter
@@ -107,6 +108,10 @@ func (m *MockMQTTFilter) HandleMQTT(ctx context.MQTTContext) *context.MQTTResult
 	}
 	if ctx.PacketType() == context.MQTTConnect {
 		ctx.Client().Store(m.spec.ConnectKey, struct{}{})
+	}
+	if m.spec.PublishBackendClientID {
+		backend := ctx.Backend()
+		backend.Publish(ctx.Client().ClientID(), nil, nil)
 	}
 	return nil
 }

@@ -108,24 +108,29 @@ func TestHandleMQTT(t *testing.T) {
 	assert := assert.New(t)
 
 	yamlStr := `
-    name: pipeline
-    kind: Pipeline
-    protocol: MQTT
-    flow:
-    - filter: mqtt-filter
-    filters:
-    - name: mqtt-filter
-      kind: MockMQTTFilter
-      userName: test
-      port: 1234
-      earlyStop: true
-      backendType: Kafka
-      keysToStore:
-      - mock
-      - mqtt
-      - filter`
+name: pipeline
+kind: Pipeline
+protocol: MQTT
+flow:
+- filter: mqtt-filter
+filters:
+- name: mqtt-filter
+  kind: MockMQTTFilter
+  userName: test
+  port: 1234
+  earlyStop: true
+  backendType: Kafka
+  keysToStore:
+  - mock
+  - mqtt
+  - filter
+  publishBackendClientID: true`
 	p := getPipeline(yamlStr, t)
 	defer p.Close()
+
+	backend := &context.MockMQTTBackend{
+		Messages: make(map[string]context.MockMQTTMsg),
+	}
 
 	var wg sync.WaitGroup
 	for i := 0; i < 1000; i++ {
@@ -133,7 +138,7 @@ func TestHandleMQTT(t *testing.T) {
 		go func(i int) {
 			c := &mockMQTTClient{cid: strconv.Itoa(i), userName: strconv.Itoa(i + 1)}
 			publish := packets.NewControlPacket(packets.Publish).(*packets.PublishPacket)
-			ctx := context.NewMQTTContext(stdcontext.Background(), c, publish)
+			ctx := context.NewMQTTContext(stdcontext.Background(), backend, c, publish)
 			assert.Equal(ctx.Client().UserName(), strconv.Itoa(i+1))
 			p.HandleMQTT(ctx)
 			_, ok := ctx.Client().Load("mock")
@@ -148,6 +153,8 @@ func TestHandleMQTT(t *testing.T) {
 	wg.Wait()
 	f := p.getRunningFilter("mqtt-filter").filter.(*MockMQTTFilter)
 	assert.Equal(len(f.Status().(MockMQTTStatus).ClientCount), 1000, "wrong client count")
+
+	assert.Equal(1000, len(backend.Messages))
 
 	newP := &Pipeline{}
 	newP.spec = &Spec{Protocol: context.HTTP}
