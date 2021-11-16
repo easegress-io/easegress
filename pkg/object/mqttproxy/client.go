@@ -67,6 +67,9 @@ type (
 		statusFlag int32
 		writeCh    chan packets.ControlPacket
 		done       chan struct{}
+
+		// kv map is used for pipeline to share messages among filters during whole connection
+		kvMap sync.Map
 	}
 )
 
@@ -75,6 +78,21 @@ var _ context.MQTTClient = (*Client)(nil)
 // ClientID return client id of Client
 func (c *Client) ClientID() string {
 	return c.info.cid
+}
+
+// Load load value keep in Client kv map
+func (c *Client) Load(key interface{}) (value interface{}, ok bool) {
+	return c.kvMap.Load(key)
+}
+
+// Store store key-value pair in Client kv map
+func (c *Client) Store(key interface{}, value interface{}) {
+	c.kvMap.Store(key, value)
+}
+
+// Delete delete key-value pair in Client kv map
+func (c *Client) Delete(key interface{}) {
+	c.kvMap.Delete(key)
 }
 
 // UserName return username of Client
@@ -189,15 +207,16 @@ func (c *Client) processPublish(publish *packets.PublishPacket) {
 		pipe, err := pipeline.GetPipeline(c.broker.pipeline, context.MQTT)
 		if err != nil {
 			logger.Errorf("get pipeline %v failed, %v", c.broker.pipeline, err)
-		}
-		ctx := context.NewMQTTContext(stdcontext.Background(), c, publish)
-		pipe.HandleMQTT(ctx)
-		if ctx.Disconnect() {
-			c.close()
-			return
-		}
-		if ctx.Drop() {
-			return
+		} else {
+			ctx := context.NewMQTTContext(stdcontext.Background(), c, publish)
+			pipe.HandleMQTT(ctx)
+			if ctx.Disconnect() {
+				c.close()
+				return
+			}
+			if ctx.Drop() {
+				return
+			}
 		}
 	}
 
@@ -278,12 +297,25 @@ func (c *Client) writeLoop() {
 
 func (c *Client) close() {
 	c.Lock()
-	defer c.Unlock()
 	if c.disconnected() {
+		c.Unlock()
 		return
 	}
 	atomic.StoreInt32(&c.statusFlag, Disconnected)
 	close(c.done)
+	c.Unlock()
+
+	// pipeline
+	if c.broker.pipeline != "" {
+		pipe, err := pipeline.GetPipeline(c.broker.pipeline, context.MQTT)
+		if err != nil {
+			logger.Errorf("get pipeline %v failed, %v", c.broker.pipeline, err)
+		} else {
+			disconnect := packets.NewControlPacket(packets.Disconnect).(*packets.DisconnectPacket)
+			ctx := context.NewMQTTContext(stdcontext.Background(), c, disconnect)
+			pipe.HandleMQTT(ctx)
+		}
+	}
 }
 
 func (c *Client) disconnected() bool {

@@ -1506,17 +1506,21 @@ func TestMQTTProxy(t *testing.T) {
 func TestPipeline(t *testing.T) {
 	// create test pipeline first
 	yamlStr := `
-    name: mqtt-test-pipeline
-    kind: Pipeline
-    protocol: MQTT
-    flow:
-    - filter: mqtt-filter
-    filters:
-    - name: mqtt-filter
-      kind: MockMQTTFilter
-      userName: test
-      port: 1234
-      backendType: Kafka`
+name: mqtt-test-pipeline
+kind: Pipeline
+protocol: MQTT
+flow:
+- filter: mqtt-filter
+filters:
+- name: mqtt-filter
+  kind: MockMQTTFilter
+  userName: test
+  port: 1234
+  backendType: Kafka
+  keysToStore:
+  - filter
+`
+
 	super := supervisor.NewDefaultMock()
 	superSpec, err := super.NewSpec(yamlStr)
 	if err != nil {
@@ -1545,11 +1549,31 @@ func TestPipeline(t *testing.T) {
 		if p.TopicName != topic || string(p.Payload) != text {
 			t.Errorf("get wrong publish")
 		}
+		broker.Lock()
+		c := broker.clients[strconv.Itoa(i)]
+		broker.Unlock()
+		if _, ok := c.Load("filter"); !ok {
+			t.Errorf("filter write key value failed")
+		}
 		client.Disconnect(200)
 	}
+	// wait all close
+	for i := 0; i < 10; i++ {
+		broker.Lock()
+		num := len(broker.clients)
+		broker.Unlock()
+		if num == 0 {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
 	filterStatus := pipe.Status().ObjectStatus.(*pipeline.Status).Filters["mqtt-filter"].(pipeline.MockMQTTStatus)
-	if len(filterStatus) != clientNum {
-		t.Errorf("filter get wrong result %v", filterStatus)
+	if len(filterStatus.ClientCount) != clientNum {
+		t.Errorf("filter get wrong result %v for client num", len(filterStatus.ClientCount))
+	}
+	if len(filterStatus.ClientDisconnect) != clientNum {
+		t.Errorf("filter get wrong result %v for client disconnect", filterStatus.ClientDisconnect)
 	}
 }
 
@@ -1571,16 +1595,18 @@ func TestAuthByPipeline(t *testing.T) {
 
 	// filter with auth username and passwd
 	yamlStr := `
-    name: mqtt-test-pipeline
-    kind: Pipeline
-    protocol: MQTT
-    flow:
-    - filter: mqtt-filter
-    filters:
-    - name: mqtt-filter
-      kind: MockMQTTFilter
-      userName: filter-auth-name
-      password: filter-auth-passwd`
+name: mqtt-test-pipeline
+kind: Pipeline
+protocol: MQTT
+flow:
+- filter: mqtt-filter
+filters:
+- name: mqtt-filter
+  kind: MockMQTTFilter
+  userName: filter-auth-name
+  password: filter-auth-passwd
+  connectKey: connect`
+
 	super := supervisor.NewDefaultMock()
 	superSpec, err := super.NewSpec(yamlStr)
 	if err != nil {
@@ -1597,6 +1623,13 @@ func TestAuthByPipeline(t *testing.T) {
 	if token := client.Connect(); token.Wait() && token.Error() != nil {
 		t.Errorf("auth user should success %s", token.Error())
 	}
+	broker.Lock()
+	c := broker.clients["test"]
+	broker.Unlock()
+	if _, ok := c.Load("connect"); !ok {
+		t.Errorf("filter set connect key failed")
+	}
+
 	client.Disconnect(200)
 
 	// different username and passwd with filer, fail
