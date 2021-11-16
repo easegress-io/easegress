@@ -80,14 +80,17 @@ func (c *Client) ClientID() string {
 	return c.info.cid
 }
 
+// Load load value keep in Client kv map
 func (c *Client) Load(key interface{}) (value interface{}, ok bool) {
 	return c.kvMap.Load(key)
 }
 
+// Store store key-value pair in Client kv map
 func (c *Client) Store(key interface{}, value interface{}) {
 	c.kvMap.Store(key, value)
 }
 
+// Delete delete key-value pair in Client kv map
 func (c *Client) Delete(key interface{}) {
 	c.kvMap.Delete(key)
 }

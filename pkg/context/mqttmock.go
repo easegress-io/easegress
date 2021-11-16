@@ -38,14 +38,17 @@ func (m *MockMQTTClient) UserName() string {
 	return m.MockUserName
 }
 
+// Load load value keep in MockMQTTClient kv map
 func (m *MockMQTTClient) Load(key interface{}) (value interface{}, ok bool) {
 	return m.MockKVMap.Load(key)
 }
 
+// Store store kv pair into MockMQTTClient kv map
 func (m *MockMQTTClient) Store(key interface{}, value interface{}) {
 	m.MockKVMap.Store(key, value)
 }
 
+// Delete delete key-value pair in MockMQTTClient kv map
 func (m *MockMQTTClient) Delete(key interface{}) {
 	m.MockKVMap.Delete(key)
 }

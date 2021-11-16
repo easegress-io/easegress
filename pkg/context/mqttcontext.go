@@ -97,7 +97,7 @@ const (
 	MQTTDisconnect = 3
 
 	// MQTTOther is all other mqtt packet type
-	MQTTOther MQTTPacketType = 4
+	MQTTOther MQTTPacketType = 99
 )
 
 var _ MQTTContext = (*mqttContext)(nil)
