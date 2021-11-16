@@ -1486,19 +1486,21 @@ func TestMQTTProxy(t *testing.T) {
 func TestPipeline(t *testing.T) {
 	// create test pipeline first
 	yamlStr := `
-    name: mqtt-test-pipeline
-    kind: Pipeline
-    protocol: MQTT
-    flow:
-    - filter: mqtt-filter
-    filters:
-    - name: mqtt-filter
-      kind: MockMQTTFilter
-      userName: test
-      port: 1234
-      backendType: Kafka
-      keysToStore:
-      - filter`
+name: mqtt-test-pipeline
+kind: Pipeline
+protocol: MQTT
+flow:
+- filter: mqtt-filter
+filters:
+- name: mqtt-filter
+  kind: MockMQTTFilter
+  userName: test
+  port: 1234
+  backendType: Kafka
+  keysToStore:
+  - filter
+`
+
 	super := supervisor.NewDefaultMock()
 	superSpec, err := super.NewSpec(yamlStr)
 	if err != nil {
@@ -1573,16 +1575,18 @@ func TestAuthByPipeline(t *testing.T) {
 
 	// filter with auth username and passwd
 	yamlStr := `
-    name: mqtt-test-pipeline
-    kind: Pipeline
-    protocol: MQTT
-    flow:
-    - filter: mqtt-filter
-    filters:
-    - name: mqtt-filter
-      kind: MockMQTTFilter
-      userName: filter-auth-name
-      password: filter-auth-passwd`
+name: mqtt-test-pipeline
+kind: Pipeline
+protocol: MQTT
+flow:
+- filter: mqtt-filter
+filters:
+- name: mqtt-filter
+  kind: MockMQTTFilter
+  userName: filter-auth-name
+  password: filter-auth-passwd
+  connectKey: connect`
+
 	super := supervisor.NewDefaultMock()
 	superSpec, err := super.NewSpec(yamlStr)
 	if err != nil {
@@ -1599,6 +1603,13 @@ func TestAuthByPipeline(t *testing.T) {
 	if token := client.Connect(); token.Wait() && token.Error() != nil {
 		t.Errorf("auth user should success %s", token.Error())
 	}
+	broker.Lock()
+	c := broker.clients["test"]
+	broker.Unlock()
+	if _, ok := c.Load("connect"); !ok {
+		t.Errorf("filter set connect key failed")
+	}
+
 	client.Disconnect(200)
 
 	// different username and passwd with filer, fail

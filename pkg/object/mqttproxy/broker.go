@@ -191,6 +191,8 @@ func (b *Broker) handleConn(conn net.Conn) {
 		return
 	}
 
+	client := newClient(connect, b, conn)
+
 	authFail := false
 	if b.spec.AuthByPipeline {
 		pipe, err := pipeline.GetPipeline(b.pipeline, context.MQTT)
@@ -198,13 +200,7 @@ func (b *Broker) handleConn(conn net.Conn) {
 			logger.Errorf("get pipeline %v failed, %v", b.pipeline, err)
 			authFail = true
 		} else {
-			c := &Client{
-				info: ClientInfo{
-					cid:      connect.ClientIdentifier,
-					username: connect.Username,
-				},
-			}
-			ctx := context.NewMQTTContext(stdcontext.Background(), c, connect)
+			ctx := context.NewMQTTContext(stdcontext.Background(), client, connect)
 			pipe.HandleMQTT(ctx)
 			if ctx.Disconnect() {
 				authFail = true
@@ -229,7 +225,6 @@ func (b *Broker) handleConn(conn net.Conn) {
 		return
 	}
 
-	client := newClient(connect, b, conn)
 	cid := client.info.cid
 
 	b.Lock()

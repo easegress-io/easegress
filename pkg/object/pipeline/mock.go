@@ -47,10 +47,9 @@ type MockMQTTFilter struct {
 	mockFilter
 	mu sync.Mutex
 
-	spec        *MockMQTTSpec
-	clients     map[string]int
-	disconnect  map[string]struct{}
-	missingKeys map[string]struct{}
+	spec       *MockMQTTSpec
+	clients    map[string]int
+	disconnect map[string]struct{}
 }
 
 // MockMQTTSpec is spec of MockMQTTFilter
@@ -61,6 +60,7 @@ type MockMQTTSpec struct {
 	BackendType string   `yaml:"backendType" jsonschema:"required"`
 	EarlyStop   bool     `yaml:"earlyStop" jsonschema:"omitempty"`
 	KeysToStore []string `yaml:"keysToStore" jsonschema:"omitempty"`
+	ConnectKey  string   `yaml:"connectKey" jsonschema:"omitempty"`
 }
 
 // MockMQTTStatus is status of MockMQTTFilter
@@ -104,6 +104,9 @@ func (m *MockMQTTFilter) HandleMQTT(ctx context.MQTTContext) *context.MQTTResult
 	}
 	for _, k := range m.spec.KeysToStore {
 		ctx.Client().Store(k, struct{}{})
+	}
+	if ctx.PacketType() == context.MQTTConnect {
+		ctx.Client().Store(m.spec.ConnectKey, struct{}{})
 	}
 	return nil
 }
