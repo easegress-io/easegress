@@ -29,6 +29,7 @@ type (
 	// BackendMQ is backend message queue for MQTT proxy
 	backendMQ interface {
 		publish(p *packets.PublishPacket) error
+		PublishMessage(target string, data []byte, headers map[string]string) error
 		close()
 	}
 
@@ -40,9 +41,13 @@ type (
 	}
 
 	testMQ struct {
-		ch chan *packets.PublishPacket
+		ch  chan *packets.PublishPacket
+		msg map[string]map[string]string
 	}
 )
+
+var _ backendMQ = (*KafkaMQ)(nil)
+var _ backendMQ = (*testMQ)(nil)
 
 const (
 	kafkaType  = "Kafka"
@@ -56,6 +61,7 @@ func newBackendMQ(spec *Spec) backendMQ {
 	case testMQType:
 		t := &testMQ{}
 		t.ch = make(chan *packets.PublishPacket, 100)
+		t.msg = make(map[string]map[string]string)
 		return t
 	default:
 		logger.Errorf("backend type <%s> not support", spec.BackendType)
@@ -132,8 +138,28 @@ func (k *KafkaMQ) close() {
 	}
 }
 
+func (k *KafkaMQ) PublishMessage(target string, data []byte, headers map[string]string) error {
+	var msg *sarama.ProducerMessage
+	kafkaHeaders := []sarama.RecordHeader{}
+	for k, v := range headers {
+		kafkaHeaders = append(kafkaHeaders, sarama.RecordHeader{Key: []byte(k), Value: []byte(v)})
+	}
+	msg = &sarama.ProducerMessage{
+		Topic:   target,
+		Headers: kafkaHeaders,
+		Value:   sarama.ByteEncoder(data),
+	}
+	k.producer.Input() <- msg
+	return nil
+}
+
 func (t *testMQ) publish(p *packets.PublishPacket) error {
 	t.ch <- p
+	return nil
+}
+
+func (t *testMQ) PublishMessage(target string, data []byte, headers map[string]string) error {
+	t.msg[target] = headers
 	return nil
 }
 

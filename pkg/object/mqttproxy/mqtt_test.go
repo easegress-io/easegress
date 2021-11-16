@@ -1499,6 +1499,7 @@ filters:
   backendType: Kafka
   keysToStore:
   - filter
+  publishBackendClientID: true
 `
 
 	super := supervisor.NewDefaultMock()
@@ -1546,6 +1547,11 @@ filters:
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
+	}
+
+	backend := broker.backend.(*testMQ)
+	if len(backend.msg) != clientNum {
+		t.Errorf("filter publish message to backend failed")
 	}
 
 	filterStatus := pipe.Status().ObjectStatus.(*pipeline.Status).Filters["mqtt-filter"].(pipeline.MockMQTTStatus)

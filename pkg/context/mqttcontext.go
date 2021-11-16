@@ -31,6 +31,7 @@ type (
 	MQTTContext interface {
 		Context
 		Client() MQTTClient
+		Backend() MQTTBackend
 		Cancel(error)
 		Canceled() bool
 		Duration() time.Duration
@@ -47,6 +48,11 @@ type (
 		Disconnect() bool // if true, this mqtt client will be disconnected
 		SetEarlyStop()    // set early stop value to true
 		EarlyStop() bool  // if early stop is true, pipeline will skip following filters and return
+	}
+
+	// MQTTBackend is backend of MQTT proxy
+	MQTTBackend interface {
+		Publish(target string, data []byte, headers map[string]string) error
 	}
 
 	// MQTTClient contains client info that send this packet
@@ -69,6 +75,7 @@ type (
 		startTime        *time.Time
 		endTime          *time.Time
 		client           MQTTClient
+		backend          MQTTBackend
 		connectPacket    *packets.ConnectPacket
 		publishPacket    *packets.PublishPacket
 		disconnectPacket *packets.DisconnectPacket
@@ -103,7 +110,7 @@ const (
 var _ MQTTContext = (*mqttContext)(nil)
 
 // NewMQTTContext create new MQTTContext
-func NewMQTTContext(ctx stdcontext.Context, client MQTTClient, packet packets.ControlPacket) MQTTContext {
+func NewMQTTContext(ctx stdcontext.Context, backend MQTTBackend, client MQTTClient, packet packets.ControlPacket) MQTTContext {
 	stdctx, cancelFunc := stdcontext.WithCancel(ctx)
 	startTime := time.Now()
 	mqttCtx := &mqttContext{
@@ -111,6 +118,7 @@ func NewMQTTContext(ctx stdcontext.Context, client MQTTClient, packet packets.Co
 		cancelFunc: cancelFunc,
 		startTime:  &startTime,
 		client:     client,
+		backend:    backend,
 	}
 
 	switch packet := packet.(type) {
@@ -241,4 +249,8 @@ func (ctx *mqttContext) SetEarlyStop() {
 
 func (ctx *mqttContext) EarlyStop() bool {
 	return atomic.LoadInt32(&ctx.earlyStop) == 1
+}
+
+func (ctx *mqttContext) Backend() MQTTBackend {
+	return ctx.backend
 }
