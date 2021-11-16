@@ -208,7 +208,7 @@ func (c *Client) processPublish(publish *packets.PublishPacket) {
 		if err != nil {
 			logger.Errorf("get pipeline %v failed, %v", c.broker.pipeline, err)
 		} else {
-			ctx := context.NewMQTTContext(stdcontext.Background(), c.broker, c, publish)
+			ctx := context.NewMQTTContext(stdcontext.Background(), c.broker.backend, c, publish)
 			pipe.HandleMQTT(ctx)
 			if ctx.Disconnect() {
 				c.close()
@@ -312,7 +312,7 @@ func (c *Client) close() {
 			logger.Errorf("get pipeline %v failed, %v", c.broker.pipeline, err)
 		} else {
 			disconnect := packets.NewControlPacket(packets.Disconnect).(*packets.DisconnectPacket)
-			ctx := context.NewMQTTContext(stdcontext.Background(), c.broker, c, disconnect)
+			ctx := context.NewMQTTContext(stdcontext.Background(), c.broker.backend, c, disconnect)
 			pipe.HandleMQTT(ctx)
 		}
 	}

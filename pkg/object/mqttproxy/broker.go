@@ -70,8 +70,6 @@ type (
 	}
 )
 
-var _ context.MQTTBackend = (*Broker)(nil)
-
 func sha256Sum(data []byte) string {
 	sha256Bytes := sha256.Sum256(data)
 	return hex.EncodeToString(sha256Bytes[:])
@@ -202,7 +200,7 @@ func (b *Broker) handleConn(conn net.Conn) {
 			logger.Errorf("get pipeline %v failed, %v", b.pipeline, err)
 			authFail = true
 		} else {
-			ctx := context.NewMQTTContext(stdcontext.Background(), b, client, connect)
+			ctx := context.NewMQTTContext(stdcontext.Background(), b.backend, client, connect)
 			pipe.HandleMQTT(ctx)
 			if ctx.Disconnect() {
 				authFail = true
@@ -377,11 +375,6 @@ func (b *Broker) registerAPIs() {
 	}
 
 	api.RegisterAPIs(group)
-}
-
-// Publish publish msg to broker backend
-func (b *Broker) Publish(target string, data []byte, headers map[string]string) error {
-	return b.backend.PublishMessage(target, data, headers)
 }
 
 func (b *Broker) close() {

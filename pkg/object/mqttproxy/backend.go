@@ -22,6 +22,7 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/eclipse/paho.mqtt.golang/packets"
+	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 )
 
@@ -29,7 +30,7 @@ type (
 	// BackendMQ is backend message queue for MQTT proxy
 	backendMQ interface {
 		publish(p *packets.PublishPacket) error
-		PublishMessage(target string, data []byte, headers map[string]string) error
+		Publish(target string, data []byte, headers map[string]string) error
 		close()
 	}
 
@@ -48,6 +49,8 @@ type (
 
 var _ backendMQ = (*KafkaMQ)(nil)
 var _ backendMQ = (*testMQ)(nil)
+var _ context.MQTTBackend = (*KafkaMQ)(nil)
+var _ context.MQTTBackend = (*testMQ)(nil)
 
 const (
 	kafkaType  = "Kafka"
@@ -139,7 +142,7 @@ func (k *KafkaMQ) close() {
 }
 
 // PublishMessage publish msg to Kafka backend
-func (k *KafkaMQ) PublishMessage(target string, data []byte, headers map[string]string) error {
+func (k *KafkaMQ) Publish(target string, data []byte, headers map[string]string) error {
 	var msg *sarama.ProducerMessage
 	kafkaHeaders := []sarama.RecordHeader{}
 	for k, v := range headers {
@@ -160,7 +163,7 @@ func (t *testMQ) publish(p *packets.PublishPacket) error {
 }
 
 // PublishMessage publish msg to testMQ backend
-func (t *testMQ) PublishMessage(target string, data []byte, headers map[string]string) error {
+func (t *testMQ) Publish(target string, data []byte, headers map[string]string) error {
 	t.msg[target] = headers
 	return nil
 }
