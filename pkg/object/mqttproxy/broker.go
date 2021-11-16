@@ -200,7 +200,7 @@ func (b *Broker) handleConn(conn net.Conn) {
 			logger.Errorf("get pipeline %v failed, %v", b.pipeline, err)
 			authFail = true
 		} else {
-			ctx := context.NewMQTTContext(stdcontext.Background(), client, connect)
+			ctx := context.NewMQTTContext(stdcontext.Background(), b.backend, client, connect)
 			pipe.HandleMQTT(ctx)
 			if ctx.Disconnect() {
 				authFail = true
