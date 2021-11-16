@@ -54,6 +54,8 @@ type (
 
 		IPFilter *ipfilter.Spec `yaml:"ipFilter,omitempty" jsonschema:"omitempty"`
 		Rules    []*Rule        `yaml:"rules" jsonschema:"omitempty"`
+
+		GlobalFilter string `yaml:"globalFilter,omitempty" jsonschema:"omitempty"`
 	}
 
 	// Rule is first level entry of router.
