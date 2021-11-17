@@ -182,6 +182,8 @@ Kafka
 ```
 Empty `topicMapper` means there is no map between the MQTT topic and Kafka topic.
 
+> Note: `"gateway/gate123/iphone/log"` index 0 is `"gateway"`, `"/gateway/gate123/iphone/log"` index 0 is still `"gateway"` not `""`. So, index 0 is first non-empty level of multi-level MQTT topic.
+
 # HTTP endpoint
 We support the backend to send messages back to MQTT clients through the HTTP endpoint.
 
