@@ -149,7 +149,8 @@ func (p *Proxy) run() {
 	p.dialer = dialer
 	p.upgrader = defaultUpgrader
 
-	// http.HandleFunc("/", p.handle)
+	// here if use DefaultServeMux, when do inherit, will cause panic
+	// panic: http: multiple registrations for /
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", p.handle)
 	addr := fmt.Sprintf(":%d", spec.Port)
