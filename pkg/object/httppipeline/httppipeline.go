@@ -402,10 +402,11 @@ func (hp *HTTPPipeline) reload(previousGeneration *HTTPPipeline) {
 	hp.runningFilters = runningFilters
 }
 
-func (hp *HTTPPipeline) getNextFilterIndex(index int, result string) int {
+// getNextFilterIndex return index and whether end
+func (hp *HTTPPipeline) getNextFilterIndex(index int, result string) (int, bool) {
 	// return index + 1 if last filter succeeded
 	if result == "" {
-		return index + 1
+		return index + 1, false
 	}
 
 	// check the jumpIf table of current filter, return its index if the jump
@@ -417,31 +418,32 @@ func (hp *HTTPPipeline) getNextFilterIndex(index int, result string) int {
 	}
 
 	if len(filter.jumpIf) == 0 {
-		return -1
+		return -1, false
 	}
 	name, ok := filter.jumpIf[result]
 	if !ok {
-		return -1
+		return -1, false
 	}
 	if name == LabelEND {
-		return len(hp.runningFilters)
+		return len(hp.runningFilters), true
 	}
 
 	for index++; index < len(hp.runningFilters); index++ {
 		if hp.runningFilters[index].spec.Name() == name {
-			return index
+			return index, false
 		}
 	}
 
-	return -1
+	return -1, false
 }
 
 // Handle is the handler to deal with HTTP
-func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) {
+func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) string {
 	ctx.SetTemplate(hp.ht)
 
 	filterIndex := -1
 	filterStat := newFilterStat()
+	isEnd := false
 
 	handle := func(lastResult string) string {
 		// For saving the `filterIndex`'s filter generated HTTP Response.
@@ -467,7 +469,10 @@ func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) {
 			filterStat = lastStat
 		}()
 
-		filterIndex = hp.getNextFilterIndex(filterIndex, lastResult)
+		filterIndex, isEnd = hp.getNextFilterIndex(filterIndex, lastResult)
+		if isEnd {
+			return LabelEND // jumpIf end of pipeline
+		}
 		if filterIndex == len(hp.runningFilters) {
 			return "" // reach the end of pipeline
 		} else if filterIndex == -1 {
@@ -500,9 +505,10 @@ func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) {
 	}
 
 	ctx.SetHandlerCaller(handle)
-	handle("")
+	result := handle("")
 
 	ctx.AddTag(filterStat.marshalAndRelease())
+	return result
 }
 
 func (hp *HTTPPipeline) getRunningFilter(name string) *runningFilter {

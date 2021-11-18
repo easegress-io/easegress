@@ -456,9 +456,13 @@ func (m *mux) handleRequestWithCache(rules *muxRules, ctx context.HTTPContext, c
 			path = ci.path.pathRE.ReplaceAllString(path, ci.path.rewriteTarget)
 			ctx.Request().SetPath(path)
 		}
-		m.beforeGlobalHTTPFilterHandle(ctx, rules)
-		handler.Handle(ctx)
-		m.afterGlobalHTTPFilterHandle(ctx, rules)
+		// global filter
+		globalFilter := m.getGlobalFilter(rules)
+		if globalFilter == nil {
+			handler.Handle(ctx)
+			return
+		}
+		globalFilter.Handle(ctx, handler)
 	}
 }
 
@@ -477,23 +481,7 @@ func (m *mux) appendXForwardedFor(ctx context.HTTPContext) {
 	}
 }
 
-func (m *mux) beforeGlobalHTTPFilterHandle(ctx context.HTTPContext, rules *muxRules) {
-	globalFilters := m.getGlobalFilters(rules)
-	if globalFilters == nil {
-		return
-	}
-	globalFilters.BeforeHandle(ctx)
-}
-
-func (m *mux) afterGlobalHTTPFilterHandle(ctx context.HTTPContext, rules *muxRules) {
-	globalFilters := m.getGlobalFilters(rules)
-	if globalFilters == nil {
-		return
-	}
-	globalFilters.AfterHandle(ctx)
-}
-
-func (m *mux) getGlobalFilters(rules *muxRules) *globalfilter.GlobalFilter {
+func (m *mux) getGlobalFilter(rules *muxRules) *globalfilter.GlobalFilter {
 	if rules.spec.GlobalFilter == "" {
 		return nil
 	}

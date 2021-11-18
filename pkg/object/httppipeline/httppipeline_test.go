@@ -18,12 +18,13 @@
 package httppipeline
 
 import (
+	"reflect"
+	"testing"
+
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/context/contexttest"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/supervisor"
-	"reflect"
-	"testing"
 )
 
 func CreateObjectMock(kind string) Filter {
@@ -275,16 +276,16 @@ filters:
 	httpPipeline.Inherit(superSpec, &httpPipeline, nil)
 
 	t.Run("test getNextFilterIndex", func(t *testing.T) {
-		if ind := httpPipeline.getNextFilterIndex(0, ""); ind != 1 {
+		if ind, end := httpPipeline.getNextFilterIndex(0, ""); ind != 1 && end != false {
 			t.Errorf("next index should be 1, was %d", ind)
 		}
-		if ind := httpPipeline.getNextFilterIndex(0, "invalid"); ind != 3 {
+		if ind, end := httpPipeline.getNextFilterIndex(0, "invalid"); ind != 3 && end != true {
 			t.Errorf("next index should be 3, was %d", ind)
 		}
-		if ind := httpPipeline.getNextFilterIndex(0, "unknown"); ind != -1 {
+		if ind, end := httpPipeline.getNextFilterIndex(0, "unknown"); ind != -1 && end != false {
 			t.Errorf("next index should be -1, was %d", ind)
 		}
-		if ind := httpPipeline.getNextFilterIndex(1, "specialCase"); ind != 2 {
+		if ind, end := httpPipeline.getNextFilterIndex(1, "specialCase"); ind != 2 && end != false {
 			t.Errorf("next index should be 2, was %d", ind)
 		}
 	})

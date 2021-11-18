@@ -19,7 +19,9 @@ package globalfilter
 
 import (
 	"fmt"
-	"sync"
+	"sync/atomic"
+
+	"github.com/megaease/easegress/pkg/protocol"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
@@ -33,9 +35,6 @@ const (
 
 	// Kind is the kind of GlobalFilter.
 	Kind = "GlobalFilter"
-
-	beforePipelineKey = "before"
-	afterPipelineKey  = "after"
 )
 
 type (
@@ -46,9 +45,8 @@ type (
 		superSpec *supervisor.Spec
 		spec      *Spec
 
-		// pipelines map[string]*httppipeline.HTTPPipeline
-		// only contains two key: before and after
-		pipelines *sync.Map
+		beforePipeline atomic.Value
+		afterPipeline  atomic.Value
 	}
 
 	// Spec describes the GlobalFilter.
@@ -73,29 +71,45 @@ func init() {
 func (gf *GlobalFilter) CreateAndUpdateBeforePipelineForSpec(spec *Spec, previousGeneration *httppipeline.HTTPPipeline) error {
 	beforePipeline := &pipelineSpec{
 		Kind: httppipeline.Kind,
-		Name: beforePipelineKey,
+		Name: "before",
 		Spec: spec.BeforePipeline,
 	}
-	return gf.CreateAndUpdatePipeline(beforePipeline, previousGeneration)
+	pipeline, err := gf.CreateAndUpdatePipeline(beforePipeline, previousGeneration)
+	if err != nil {
+		return err
+	}
+	if pipeline == nil {
+		return fmt.Errorf("before pipeline is nil, spec: %v", beforePipeline)
+	}
+	gf.beforePipeline.Store(pipeline)
+	return nil
 }
 
 // CreateAndUpdateAfterPipelineForSpec ...
 func (gf *GlobalFilter) CreateAndUpdateAfterPipelineForSpec(spec *Spec, previousGeneration *httppipeline.HTTPPipeline) error {
 	afterPipeline := &pipelineSpec{
 		Kind: httppipeline.Kind,
-		Name: beforePipelineKey,
+		Name: "after",
 		Spec: spec.AfterPipeline,
 	}
-	return gf.CreateAndUpdatePipeline(afterPipeline, previousGeneration)
+	pipeline, err := gf.CreateAndUpdatePipeline(afterPipeline, previousGeneration)
+	if err != nil {
+		return err
+	}
+	if pipeline == nil {
+		return fmt.Errorf("after pipeline is nil, spec: %v", afterPipeline)
+	}
+	gf.afterPipeline.Store(pipeline)
+	return nil
 }
 
 // CreateAndUpdatePipeline create and update globalFilter`s pipelines from pipeline spec
-func (gf *GlobalFilter) CreateAndUpdatePipeline(spec *pipelineSpec, previousGeneration *httppipeline.HTTPPipeline) error {
+func (gf *GlobalFilter) CreateAndUpdatePipeline(spec *pipelineSpec, previousGeneration *httppipeline.HTTPPipeline) (*httppipeline.HTTPPipeline, error) {
 	// init config
 	config := yamltool.Marshal(spec)
 	specS, err := supervisor.NewSpec(string(config))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// init or update pipeline
@@ -105,8 +119,7 @@ func (gf *GlobalFilter) CreateAndUpdatePipeline(spec *pipelineSpec, previousGene
 	} else {
 		pipeline.Init(specS, nil)
 	}
-	gf.pipelines.Store(spec.Name, pipeline)
-	return nil
+	return pipeline, nil
 }
 
 // Category returns the object category of itself.
@@ -135,7 +148,6 @@ func (gf *GlobalFilter) Status() *supervisor.Status {
 // Init initializes GlobalFilter.
 func (gf *GlobalFilter) Init(superSpec *supervisor.Spec) {
 	gf.superSpec, gf.spec = superSpec, superSpec.ObjectSpec().(*Spec)
-	gf.pipelines = &sync.Map{}
 	gf.reload(nil)
 }
 
@@ -145,44 +157,49 @@ func (gf *GlobalFilter) Inherit(superSpec *supervisor.Spec, previousGeneration s
 	gf.reload(previousGeneration.(*GlobalFilter))
 }
 
-// BeforeHandle before handler logic for beforePipeline spec
-func (gf *GlobalFilter) BeforeHandle(ctx context.HTTPContext) {
-	handler, ok := gf.getPipeline(beforePipelineKey)
-	if !ok {
+func (gf *GlobalFilter) Handle(ctx context.HTTPContext, httpHandle protocol.HTTPHandler) {
+	result := gf.beforeHandle(ctx)
+	if result == httppipeline.LabelEND {
 		return
 	}
-	handler.Handle(ctx)
+	result = httpHandle.Handle(ctx)
+	if result == httppipeline.LabelEND {
+		return
+	}
+	gf.afterHandle(ctx)
+	return
+}
+
+// BeforeHandle before handler logic for beforePipeline spec
+func (gf *GlobalFilter) beforeHandle(ctx context.HTTPContext) string {
+	value := gf.beforePipeline.Load()
+	if value == nil {
+		return ""
+	}
+	handler, ok := value.(*httppipeline.HTTPPipeline)
+	if !ok {
+		return ""
+	}
+	return handler.Handle(ctx)
 }
 
 // AfterHandle after handler logic for afterPipeline spec
-func (gf *GlobalFilter) AfterHandle(ctx context.HTTPContext) {
-	handler, ok := gf.getPipeline(afterPipelineKey)
+func (gf *GlobalFilter) afterHandle(ctx context.HTTPContext) string {
+	value := gf.afterPipeline.Load()
+	if value == nil {
+		return ""
+	}
+	handler, ok := value.(*httppipeline.HTTPPipeline)
 	if !ok {
-		return
+		return ""
 	}
-	handler.Handle(ctx)
-}
-
-func (gf *GlobalFilter) getPipeline(key string) (*httppipeline.HTTPPipeline, bool) {
-	value, ok := gf.pipelines.Load(key)
-	if !ok || value == nil {
-		return nil, false
-	}
-	pipe, ok := value.(*httppipeline.HTTPPipeline)
-	return pipe, ok
+	return handler.Handle(ctx)
 }
 
 // Close closes itself. It is called by deleting.
 // Supervisor won't call Close for previous generation in Update.
 func (gf *GlobalFilter) Close() {
-	gf.pipelines.Range(func(key, value interface{}) bool {
-		if v, ok := value.(*httppipeline.HTTPPipeline); ok {
-			v.Close()
-		}
-		return true
-	})
-	gf.pipelines.Delete(beforePipelineKey)
-	gf.pipelines.Delete(afterPipelineKey)
+
 }
 
 // Validate validates Spec.
@@ -202,14 +219,11 @@ func (s *Spec) Validate() (err error) {
 
 func (gf *GlobalFilter) reload(previousGeneration *GlobalFilter) {
 	var beforePreviousPipeline, afterPreviousPipeline *httppipeline.HTTPPipeline
-	if previousGeneration != nil {
-		gf.pipelines = previousGeneration.pipelines
-	}
 	// create and update beforePipeline entity
 	if len(gf.spec.BeforePipeline.Flow) != 0 {
 		if previousGeneration != nil {
-			previous, ok := gf.pipelines.Load(beforePipelineKey)
-			if ok {
+			previous := previousGeneration.beforePipeline.Load()
+			if previous != nil {
 				beforePreviousPipeline = previous.(*httppipeline.HTTPPipeline)
 			}
 		}
@@ -221,8 +235,8 @@ func (gf *GlobalFilter) reload(previousGeneration *GlobalFilter) {
 	//create and update afterPipeline entity
 	if len(gf.spec.AfterPipeline.Flow) != 0 {
 		if previousGeneration != nil {
-			previous, ok := gf.pipelines.Load(beforePipelineKey)
-			if ok {
+			previous := previousGeneration.afterPipeline.Load()
+			if previous != nil {
 				afterPreviousPipeline = previous.(*httppipeline.HTTPPipeline)
 			}
 		}
