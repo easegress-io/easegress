@@ -92,6 +92,7 @@ func getWebSocket(t *testing.T, yamlStr string, checkUrl string) *WebSocketServe
 	ws := &WebSocketServer{}
 	require.Nil(t, err)
 	ws.Init(superSpec)
+	assert.Nil(t, ws.Validate())
 
 	started := false
 	for i := 0; i < 10; i++ {
@@ -137,7 +138,6 @@ port: 10081
 https: false
 backend: ws://127.0.0.1:8888`
 	ws := getWebSocket(t, wsYaml, "ws://127.0.0.1:10081")
-	defer ws.Close()
 
 	clientNum := 50
 	wg := &sync.WaitGroup{}
@@ -145,4 +145,11 @@ backend: ws://127.0.0.1:8888`
 		doClient(t, wg, "ws://127.0.0.1:10081", strconv.Itoa(i))
 	}
 	wg.Wait()
+
+	// test inherit
+	newWs := WebSocketServer{}
+	newWs.Inherit(ws.superSpec, ws)
+	newWs.Status()
+	time.Sleep(100 * time.Millisecond)
+	newWs.Close()
 }
