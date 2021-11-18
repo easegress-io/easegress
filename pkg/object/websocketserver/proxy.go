@@ -149,11 +149,13 @@ func (p *Proxy) run() {
 	p.dialer = dialer
 	p.upgrader = defaultUpgrader
 
-	http.HandleFunc("/", p.handle)
+	// http.HandleFunc("/", p.handle)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", p.handle)
 	addr := fmt.Sprintf(":%d", spec.Port)
 	svr := &http.Server{
 		Addr:    addr,
-		Handler: nil,
+		Handler: mux,
 	}
 
 	if spec.HTTPS {
