@@ -37,65 +37,64 @@ The architecture of Easegress:
 ## Features
 
 - **Service Management**
-	- **Multiple protocols:**
-		- HTTP/1.1
-		- HTTP/2
-		- HTTP/3(QUIC)
-		- MQTT
-	- **Rich Routing Rules:** exact path, path prefix, regular expression of the path, method, headers.
-	- **Resilience&Fault Tolerance**
-		- **Circuit breaker:** temporarily blocks possible failures.
-		- **Rate limiter:** limits the rate of incoming requests.
-		- **Retryer:** repeats failed executions.
-		- **Time limiter:** limits the duration of execution.
-	- **Deployment Management**
-		- **Blue-green Strategy:** switches traffic at one time.
-		- **Canary Strategy:** schedules traffic slightly.
-	- **API Management**
-		- **API Aggregation:** aggregates results of multiple APIs.
-		- **API Orchestration:** orchestrates the flow of APIs.
-	- **Security**
-		- **IP Filter:** Limits access to IP addresses.
-		- **Static HTTPS:** static certificate files.
-		- **API Signature:** supports [HMAC](https://en.wikipedia.org/wiki/HMAC) verification.
-		- **JWT Verification:** verifies [JWT Token](https://jwt.io/).
-		- **OAuth2:** validates [OAuth/2](https://datatracker.ietf.org/doc/html/rfc6749) requests.
-		- **Let's Encrypt:** automatically manage certificate files.
-	- **Pipeline-Filter Mechanism**
-		- **Chain of Responsibility Pattern:** orchestrates filters chain.
-		- **Filter Management:** makes it easy to develop new filters.
-	- **Service Mesh**
-		- **Mesh Master:** is the control plane to manage the lifecycle of mesh services.
-		- **Mesh Sidecar:** is the data plane as the endpoint to do traffic interception and routing.
-		- **Mesh Ingress Controller:** is the mesh-specific ingress controller to route external traffic to mesh services.
-		  > Notes: This feature is leveraged by [EaseMesh](https://github.com/megaease/easemesh)
-	- **Third-Part Integration**
-		- **FaaS** integrates with the serverless platform Knative.
-		- **Service Discovery** integrates with Eureka, Consul, Etcd, and Zookeeper.
-		- **Ingress Controller** integrates with Kubernetes as an ingress controller.
+  - **Multiple protocols:**
+    - HTTP/1.1
+    - HTTP/2
+    - HTTP/3(QUIC)
+    - MQTT
+  - **Rich Routing Rules:** exact path, path prefix, regular expression of the path, method, headers.
+  - **Resilience&Fault Tolerance**
+    - **Circuit breaker:** temporarily blocks possible failures.
+    - **Rate limiter:** limits the rate of incoming requests.
+    - **Retryer:** repeats failed executions.
+    - **Time limiter:** limits the duration of execution.
+  - **Deployment Management**
+    - **Blue-green Strategy:** switches traffic at one time.
+    - **Canary Strategy:** schedules traffic slightly.
+  - **API Management**
+    - **API Aggregation:** aggregates results of multiple APIs.
+    - **API Orchestration:** orchestrates the flow of APIs.
+  - **Security**
+    - **IP Filter:** Limits access to IP addresses.
+    - **Static HTTPS:** static certificate files.
+    - **API Signature:** supports [HMAC](https://en.wikipedia.org/wiki/HMAC) verification.
+    - **JWT Verification:** verifies [JWT Token](https://jwt.io/).
+    - **OAuth2:** validates [OAuth/2](https://datatracker.ietf.org/doc/html/rfc6749) requests.
+    - **Let's Encrypt:** automatically manage certificate files.
+  - **Pipeline-Filter Mechanism**
+    - **Chain of Responsibility Pattern:** orchestrates filters chain.
+    - **Filter Management:** makes it easy to develop new filters.
+  - **Service Mesh**
+    - **Mesh Master:** is the control plane to manage the lifecycle of mesh services.
+    - **Mesh Sidecar:** is the data plane as the endpoint to do traffic interception and routing.
+    - **Mesh Ingress Controller:** is the mesh-specific ingress controller to route external traffic to mesh services.
+        > Notes: This feature is leveraged by [EaseMesh](https://github.com/megaease/easemesh)
+  - **Third-Part Integration**
+    - **FaaS** integrates with the serverless platform Knative.
+    - **Service Discovery** integrates with Eureka, Consul, Etcd, and Zookeeper.
+    - **Ingress Controller** integrates with Kubernetes as an ingress controller.
 - **Extensibility**
-    - **WebAssembly** executes user developed [WebAssembly](https://webassembly.org/) code.
+  - **WebAssembly** executes user developed [WebAssembly](https://webassembly.org/) code.
 - **High Performance and Availability**
-	- **Adaption**: adapts request, response in the handling chain.
-	- **Validation**: headers validation, OAuth2, JWT, and HMAC verification.
-	- **Load Balance:** round-robin, random, weighted random, IP hash, header hash.
-	- **Cache:** for the backend servers.
-	- **Compression:** compresses body for the response.
-	- **Hot-Update:** updates both config and binary of Easegress in place without losing connections.
+  - **Adaption**: adapts request, response in the handling chain.
+  - **Validation**: headers validation, OAuth2, JWT, and HMAC verification.
+  - **Load Balance:** round-robin, random, weighted random, IP hash, header hash.
+  - **Cache:** for the backend servers.
+  - **Compression:** compresses body for the response.
+  - **Hot-Update:** updates both config and binary of Easegress in place without losing connections.
 - **Operation**
-	- **Easy to Integrate:** command line(`egctl`), MegaEase Portal, HTTP clients such as curl, postman, etc.
-	- **Distributed Tracing**
-		- Built-in [Open Zipkin](https://zipkin.io/)
-		- [Open Tracing](https://opentracing.io/) for vendor-neutral APIs
-	- **Observability**
-		- **Node:** role(leader, writer, reader), health or not, last heartbeat time, and so on
-		- **Traffic:** in multi-dimension: server and backend.
-			- **Throughput:** total and error statistics of request count, TPS/m1, m5, m15, and error percent, etc.
-			- **Latency:** p25, p50, p75, p95, p98, p99, p999.
-			- **Data Size:** request and response size.
-			- **Status Codes:** HTTP status codes.
-			- **TopN:** sorted by aggregated APIs(only in server dimension).
-
+  - **Easy to Integrate:** command line(`egctl`), MegaEase Portal, HTTP clients such as curl, postman, etc.
+  - **Distributed Tracing**
+    - Built-in [Open Zipkin](https://zipkin.io/)
+    - [Open Tracing](https://opentracing.io/) for vendor-neutral APIs
+  - **Observability**
+    - **Node:** role(leader, writer, reader), health or not, last heartbeat time, and so on
+    - **Traffic:** in multi-dimension: server and backend.
+      - **Throughput:** total and error statistics of request count, TPS/m1, m5, m15, and error percent, etc.
+      - **Latency:** p25, p50, p75, p95, p98, p99, p999.
+      - **Data Size:** request and response size.
+      - **Status Codes:** HTTP status codes.
+      - **TopN:** sorted by aggregated APIs(only in server dimension).
 
 ## User Cases
 
@@ -133,11 +132,12 @@ We can download the latest or history binaries from the [release page](https://g
 or if we can install Easegress from source code:
 
 ```bash
-$ git clone https://github.com/megaease/easegress && cd easegress
-$ make
+git clone https://github.com/megaease/easegress && cd easegress
+make
 ```
 
 > **Note**:
+>
 > - We need go 1.16+ complier for build.
 > - If you need the WebAssembly feature, please run `make wasm`.
 
@@ -146,17 +146,17 @@ Then we can add the binary directory to the `PATH` and execute the server:
 ```bash
 $ export PATH=${PATH}:$(pwd)/bin/
 $ easegress-server
-2021-05-17T16:45:38.185+08:00	INFO	cluster/config.go:84	etcd config: init-cluster:eg-default-name=http://localhost:2380 cluster-state:new force-new-cluster:false
-2021-05-17T16:45:38.185+08:00	INFO	cluster/cluster.go:379	client is ready
-2021-05-17T16:45:39.189+08:00	INFO	cluster/cluster.go:590	server is ready
-2021-05-17T16:45:39.21+08:00	INFO	cluster/cluster.go:451	lease is ready
-2021-05-17T16:45:39.231+08:00	INFO	cluster/cluster.go:187	cluster is ready
-2021-05-17T16:45:39.253+08:00	INFO	supervisor/supervisor.go:180	create system controller StatusSyncController
-2021-05-17T16:45:39.253+08:00	INFO	cluster/cluster.go:496	session is ready
-2021-05-17T16:45:39.253+08:00	INFO	api/api.go:96	api server running in localhost:2381
-2021-05-17T16:45:44.235+08:00	INFO	cluster/member.go:210	self ID changed from 0 to 689e371e88f78b6a
-2021-05-17T16:45:44.236+08:00	INFO	cluster/member.go:137	store clusterMembers: eg-default-name(689e371e88f78b6a)=http://localhost:2380
-2021-05-17T16:45:44.236+08:00	INFO	cluster/member.go:138	store knownMembers  : eg-default-name(689e371e88f78b6a)=http://localhost:2380
+2021-05-17T16:45:38.185+08:00 INFO cluster/config.go:84 etcd config: init-cluster:eg-default-name=http://localhost:2380 cluster-state:new force-new-cluster:false
+2021-05-17T16:45:38.185+08:00 INFO cluster/cluster.go:379 client is ready
+2021-05-17T16:45:39.189+08:00 INFO cluster/cluster.go:590 server is ready
+2021-05-17T16:45:39.21+08:00 INFO cluster/cluster.go:451 lease is ready
+2021-05-17T16:45:39.231+08:00 INFO cluster/cluster.go:187 cluster is ready
+2021-05-17T16:45:39.253+08:00 INFO supervisor/supervisor.go:180 create system controller StatusSyncController
+2021-05-17T16:45:39.253+08:00 INFO cluster/cluster.go:496 session is ready
+2021-05-17T16:45:39.253+08:00 INFO api/api.go:96 api server running in localhost:2381
+2021-05-17T16:45:44.235+08:00 INFO cluster/member.go:210 self ID changed from 0 to 689e371e88f78b6a
+2021-05-17T16:45:44.236+08:00 INFO cluster/member.go:137 store clusterMembers: eg-default-name(689e371e88f78b6a)=http://localhost:2380
+2021-05-17T16:45:44.236+08:00 INFO cluster/member.go:138 store knownMembers  : eg-default-name(689e371e88f78b6a)=http://localhost:2380
 ```
 
 The default target of Makefile is to compile two binary into the directory `bin/`. `bin/easegress-server` is the server-side binary, `bin/egctl` is the client-side binary. We could add it to the `$PATH` for simplifying the following commands.
@@ -242,7 +242,7 @@ The pipeline means it will do proxy for 3 backend endpoints in load balance poli
 Now you can use some HTTP clients such as `curl` to test the feature:
 
 ```bash
-$ curl -v http://127.0.0.1:10080/pipeline
+curl -v http://127.0.0.1:10080/pipeline
 ```
 
 If you are not set up some applications to handle the 9095, 9096, and 9097 in the localhost, it will return 503 too. We prepare a simple service to let us test handily, the example shows:
@@ -262,11 +262,9 @@ Body  : Hello, Easegress
 
 Now we want to add more features to the pipeline, then we could add kinds of filters to the pipeline. For example, we want validation and request adaptation for the `pipeline-demo`.
 
-
 <p align="center">
   <img src="./doc/pipeline-demo.png" width=240>
 </p>
-
 
 ```bash
 $ cat pipeline-demo.yaml
@@ -302,7 +300,7 @@ filters:
 $ egctl object update -f pipeline-demo.yaml
 ```
 
-After updating the pipeline, the original `curl -v http://127.0.0.1:10080/pipeline ` will get 400 because of the validating. So we changed it to satisfy the limitation:
+After updating the pipeline, the original `curl -v http://127.0.0.1:10080/pipeline` will get 400 because of the validating. So we changed it to satisfy the limitation:
 
 ```bash
 $ curl http://127.0.0.1:10080/pipeline -H 'Content-Type: application/json' -d '{"message": "Hello, Easegress"}'
@@ -316,7 +314,6 @@ Body  : {"message": "Hello, Easegress"}
 
 We can also see Easegress send one more header `X-Adapt-Key: goodplan` to the mirror service.
 
-
 ## Documentation
 
 See [reference](./doc/reference.md) and [developer guide](./doc/developer-guide.md) for more information.
@@ -329,7 +326,6 @@ See [Easegress Roadmap](./doc/Roadmap.md) for details.
 
 - [Join Slack Workspace](https://join.slack.com/t/openmegaease/shared_invite/zt-upo7v306-lYPHvVwKnvwlqR0Zl2vveA) for requirement, issue and development.
 - [MegaEase on Twitter](https://twitter.com/megaease)
-
 
 ## License
 

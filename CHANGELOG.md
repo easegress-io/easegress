@@ -5,31 +5,31 @@
 [Full Changelog](https://github.com/megaease/easegress/compare/v1.3.1...v1.3.2)
 
 **Implemented enhancements:**
+
 - **Performance improvement**[\#277](https://github.com/megaease/easegress/pull/277)
 
 **Fixed bugs:**
+
 - **Wrong host function name in WasmHost**[\#317](https://github.com/megaease/easegress/pull/317)
 - **Wrong name in WebSocket spec**[\#328](https://github.com/megaease/easegress/pull/328)
 - **Response body corrupt after pass ResponseAdapter**[\#345](https://github.com/megaease/easegress/pull/345)
 - **Failed to create pipeline when filters are not sorted as flow**[\#348](https://github.com/megaease/easegress/pull/348)
-
 
 ## [v1.3.1](https://github.com/megaease/easegress/tree/v1.3.1) (2021-10-20)
 
 [Full Changelog](https://github.com/megaease/easegress/compare/v1.3.0...v1.3.1)
 
 **Implemented enhancements:**
+
 - **Improve docker image build speed**[\#306](https://github.com/megaease/easegress/pull/306)
 - **Add doc for MQTT proxy**[\#300](https://github.com/megaease/easegress/pull/300)
 - **MQTT proxy performance optimization**[\#304](https://github.com/megaease/easegress/pull/304)
 
-
 **Fixed bugs:**
+
 - **Fix MQTT closed client related bugs**[\#302](https://github.com/megaease/easegress/pull/302)
 - **Change logger level from Error to Warn**[\#296](https://github.com/megaease/easegress/pull/307)
 - **Fix Eureka port number**[\#309](https://github.com/megaease/easegress/pull/309)
-
-
 
 ## [v1.3.0](https://github.com/megaease/easegress/tree/v1.3.0) (2021-10-13)
 
@@ -66,10 +66,6 @@
 - **Add host functions for cluster data (flash sale support)** [\#188](https://github.com/megaease/easegress/pull/188)
 - **Avoid send duplicated metrics data** [\#217](https://github.com/megaease/easegress/pull/217)
 
-
-
-
-
 ## [v1.2.1](https://github.com/megaease/easegress/tree/v1.2.1) (2021-09-08)
 
 [Full Changelog](https://github.com/megaease/easegress/compare/v1.2.0...v1.2.1)
@@ -88,9 +84,6 @@
 **Fixed bugs:**
 
 - Fix interface nil convert panic [\#164](https://github.com/megaease/easegress/pull/164)
-
-
-
 
 ## [v1.2.0](https://github.com/megaease/easegress/tree/v1.2.0) (2021-08-23)
 
@@ -114,9 +107,6 @@
 - Fix http template dictory empty error [\#163](https://github.com/megaease/easegress/pull/163)
 - Fix initTrafficGate panic when service not found [\#144](https://github.com/megaease/easegress/pull/144)
 
-
-
-
 ## [v1.1.0](https://github.com/megaease/easegress/tree/v1.1.0) (2021-07-16)
 
 [Full Changelog](https://github.com/megaease/easegress/compare/v1.0.1...v1.1.0)
@@ -139,8 +129,6 @@
 - Fix unit test failure of semaphore and cluster [\#110](https://github.com/megaease/easegress/pull/110)
 - Use default spec correctly & fix httppipeline.Validate without recursively checking [\#100](https://github.com/megaease/easegress/pull/100)
 
-
-
 ## [v1.0.1](https://github.com/megaease/easegress/tree/v1.0.1) (2021-06-29)
 
 [Full Changelog](https://github.com/megaease/easegress/compare/v1.0.0...v1.0.1)
@@ -148,8 +136,8 @@
 **Significant changes:**
 
 - Use traffic controller to manage TrafficGate and Pipeline [\#20](https://github.com/megaease/easegress/issues/20)
-- FaaSController [\#59](https://github.com/megaease/easegress/pull/59) 
-- Upgrade MeshController to use TrafficController [\#79](https://github.com/megaease/easegress/pull/79) 
+- FaaSController [\#59](https://github.com/megaease/easegress/pull/59)
+- Upgrade MeshController to use TrafficController [\#79](https://github.com/megaease/easegress/pull/79)
 - Replace the Iris with Go-Chi Framework [\#24](https://github.com/megaease/easegress/issues/24)
 
 **Implemented enhancements:**
@@ -157,10 +145,10 @@
 - Golang/protobuf warning [\#36](https://github.com/megaease/easegress/issues/36)
 - Support an HTTPServer bind multiple certs [\#31](https://github.com/megaease/easegress/issues/31)
 - HTTP `Host` header can't be written properly into headers for backend request [\#27](https://github.com/megaease/easegress/issues/27)
-- Support strip trailing slash [\#85](https://github.com/megaease/easegress/pull/85) 
-- Add multiple certs support, close \#31 [\#48](https://github.com/megaease/easegress/pull/48) 
-- Docker: add tzdata package for latest alpine [\#45](https://github.com/megaease/easegress/pull/45) 
-- Deps: use dependabot to update dependencies [\#43](https://github.com/megaease/easegress/pull/43) 
+- Support strip trailing slash [\#85](https://github.com/megaease/easegress/pull/85)
+- Add multiple certs support, close \#31 [\#48](https://github.com/megaease/easegress/pull/48)
+- Docker: add tzdata package for latest alpine [\#45](https://github.com/megaease/easegress/pull/45)
+- Deps: use dependabot to update dependencies [\#43](https://github.com/megaease/easegress/pull/43)
 
 **Fixed bugs:**
 
@@ -168,6 +156,5 @@
 - HTTPPipeline loadBalance is required but causes panic if missing [\#63](https://github.com/megaease/easegress/issues/63)
 - Server help messages print multiple times [\#37](https://github.com/megaease/easegress/issues/37)
 - Fix double free etcd [\#87](https://github.com/megaease/easegress/pull/87)
-
 
 ## [v1.0.0](https://github.com/megaease/easegress/tree/v1.0.0) (2021-06-01)
