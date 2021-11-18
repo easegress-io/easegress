@@ -154,10 +154,9 @@ func (p *Proxy) run() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", p.handle)
 	addr := fmt.Sprintf(":%d", spec.Port)
-	svr := &http.Server{
-		Addr:    addr,
-		Handler: mux,
-	}
+
+	p.server.Addr = addr
+	p.server.Handler = mux
 
 	if spec.HTTPS {
 		tlsConfig, err := spec.tlsConfig()
@@ -165,10 +164,10 @@ func (p *Proxy) run() {
 			logger.Errorf("%s gen websocketserver's httpserver tlsConfig: %#v, failed: %v",
 				p.superSpec.Name(), spec, err)
 		}
-		svr.TLSConfig = tlsConfig
+		p.server.TLSConfig = tlsConfig
 	}
 
-	if err := svr.ListenAndServe(); err != nil {
+	if err := p.server.ListenAndServe(); err != nil {
 		logger.Errorf("%s websocketserver ListenAndServe failed: %v", p.superSpec.Name(), err)
 	}
 }
