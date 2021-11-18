@@ -48,9 +48,6 @@ type Connection struct {
 	localAddr  net.Addr
 	remoteAddr net.Addr
 
-	lastBytesSizeRead  int
-	lastWriteSizeWrite int
-
 	readBuffer      []byte
 	writeBuffers    net.Buffers
 	ioBuffers       []*iobufferpool.StreamBuffer
@@ -166,14 +163,15 @@ func (c *Connection) startReadLoop() {
 			}
 
 			if atomic.LoadUint32(&c.closed) == 1 {
-				// connection has closed, so there is no need to record error log(error may create by CloseRead)
+				// connection has closed, so there is no need to record error log
+				// error may be created by CloseRead function
 				logger.Debugf("connection has closed, exit read loop, local addr: %s, remote addr: %s",
 					c.localAddr.String(), c.remoteAddr.String())
 				return
 			}
 
 			if te, ok := err.(net.Error); ok && te.Timeout() {
-				continue // ignore timeout error, read more stream data
+				continue // ignore timeout error, continue read data
 			}
 
 			if err == io.EOF {
@@ -203,7 +201,7 @@ func (c *Connection) startWriteLoop() {
 				return
 			}
 			c.appendBuffer(buf)
-		OUTER:
+		NoMoreData:
 			// Keep reading until writeBufferChan is empty
 			// writeBufferChan may be full when writeLoop call doWrite
 			for i := 0; i < writeBufSize-1; i++ {
@@ -214,7 +212,7 @@ func (c *Connection) startWriteLoop() {
 					}
 					c.appendBuffer(buf)
 				default:
-					break OUTER
+					break NoMoreData
 				}
 			}
 		}
@@ -263,8 +261,10 @@ func (c *Connection) Close(ccType CloseType, event ConnectionEvent) {
 	}
 
 	if !atomic.CompareAndSwapUint32(&c.closed, 0, 1) {
+		// connection has already closed, so there is no need to execute below code
 		return
 	}
+
 	// close tcp rawConn read first
 	logger.Debugf("enter connection close func(%s), local addr: %s, remote addr: %s",
 		event, c.localAddr.String(), c.remoteAddr.String())
@@ -278,11 +278,7 @@ func (c *Connection) Close(ccType CloseType, event ConnectionEvent) {
 
 	close(c.connStopChan)
 	_ = c.rawConn.Close()
-
-	c.lastBytesSizeRead, c.lastWriteSizeWrite = 0, 0
-	if c.onClose != nil {
-		c.onClose(event)
-	}
+	c.onClose(event)
 }
 
 func (c *Connection) doReadIO() (bufLen int, err error) {
@@ -308,15 +304,7 @@ func (c *Connection) doWrite() (int64, error) {
 		_ = c.rawConn.SetWriteDeadline(curr)
 		c.lastWriteDeadlineTime = curr
 	}
-	bytesSent, err := c.doWriteIO()
-	if err != nil {
-		return 0, err
-	}
-
-	if bytesBufSize := c.writeBufLen(); bytesBufSize != c.lastWriteSizeWrite {
-		c.lastWriteSizeWrite = bytesBufSize
-	}
-	return bytesSent, err
+	return c.doWriteIO()
 }
 
 func (c *Connection) writeBufLen() (bufLen int) {
