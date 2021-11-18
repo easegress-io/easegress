@@ -146,17 +146,18 @@ Then we can add the binary directory to the `PATH` and execute the server:
 ```bash
 $ export PATH=${PATH}:$(pwd)/bin/
 $ easegress-server
-2021-05-17T16:45:38.185+08:00 INFO cluster/config.go:84 etcd config: init-cluster:eg-default-name=http://localhost:2380 cluster-state:new force-new-cluster:false
-2021-05-17T16:45:38.185+08:00 INFO cluster/cluster.go:379 client is ready
-2021-05-17T16:45:39.189+08:00 INFO cluster/cluster.go:590 server is ready
-2021-05-17T16:45:39.21+08:00 INFO cluster/cluster.go:451 lease is ready
-2021-05-17T16:45:39.231+08:00 INFO cluster/cluster.go:187 cluster is ready
-2021-05-17T16:45:39.253+08:00 INFO supervisor/supervisor.go:180 create system controller StatusSyncController
-2021-05-17T16:45:39.253+08:00 INFO cluster/cluster.go:496 session is ready
-2021-05-17T16:45:39.253+08:00 INFO api/api.go:96 api server running in localhost:2381
-2021-05-17T16:45:44.235+08:00 INFO cluster/member.go:210 self ID changed from 0 to 689e371e88f78b6a
-2021-05-17T16:45:44.236+08:00 INFO cluster/member.go:137 store clusterMembers: eg-default-name(689e371e88f78b6a)=http://localhost:2380
-2021-05-17T16:45:44.236+08:00 INFO cluster/member.go:138 store knownMembers  : eg-default-name(689e371e88f78b6a)=http://localhost:2380
+2021-05-17T16:45:38.185+08:00	INFO	cluster/config.go:84	etcd config: init-cluster:eg-default-name=http://localhost:2380 cluster-state:new force-new-cluster:false
+2021-05-17T16:45:38.185+08:00	INFO	cluster/cluster.go:379	client is ready
+2021-05-17T16:45:39.189+08:00	INFO	cluster/cluster.go:590	server is ready
+2021-05-17T16:45:39.21+08:00	INFO	cluster/cluster.go:451	lease is ready
+2021-05-17T16:45:39.231+08:00	INFO	cluster/cluster.go:187	cluster is ready
+2021-05-17T16:45:39.253+08:00	INFO	supervisor/supervisor.go:180	create system controller StatusSyncController
+2021-05-17T16:45:39.253+08:00	INFO	cluster/cluster.go:496	session is ready
+2021-05-17T16:45:39.253+08:00	INFO	api/api.go:96	api server running in localhost:2381
+2021-05-17T16:45:44.235+08:00	INFO	cluster/member.go:210	self ID changed from 0 to 689e371e88f78b6a
+2021-05-17T16:45:44.236+08:00	INFO	cluster/member.go:137	store clusterMembers: eg-default-name(689e371e88f78b6a)=http://localhost:2380
+2021-05-17T16:45:44.236+08:00	INFO	cluster/member.go:138	store knownMembers  : eg-default-name(689e371e88f78b6a)=http://localhost:2380
+
 ```
 
 The default target of Makefile is to compile two binary into the directory `bin/`. `bin/easegress-server` is the server-side binary, `bin/egctl` is the client-side binary. We could add it to the `$PATH` for simplifying the following commands.
