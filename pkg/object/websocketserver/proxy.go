@@ -167,8 +167,14 @@ func (p *Proxy) run() {
 		p.server.TLSConfig = tlsConfig
 	}
 
-	if err := p.server.ListenAndServe(); err != nil {
-		logger.Errorf("%s websocketserver ListenAndServe failed: %v", p.superSpec.Name(), err)
+	if p.server.TLSConfig != nil {
+		if err := p.server.ListenAndServeTLS("", ""); err != nil {
+			logger.Errorf("%s websocketserver ListenAndServeTLS failed: %v", p.superSpec.Name(), err)
+		}
+	} else {
+		if err := p.server.ListenAndServe(); err != nil {
+			logger.Errorf("%s websocketserver ListenAndServe failed: %v", p.superSpec.Name(), err)
+		}
 	}
 }
 
