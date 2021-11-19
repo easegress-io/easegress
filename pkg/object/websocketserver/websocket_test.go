@@ -165,14 +165,22 @@ func TestWebSocketTLS(t *testing.T) {
 kind: WebSocketServer
 name: websocket-demo
 port: 10081
-https: false
-backend: ws://127.0.0.1:8888
+https: true
+backend: wss://127.0.0.1:8888
 certBase64: %v
 keyBase64: %v
 wssCertBase64: %v
 wssKeyBase64: %v
 `
 	wsYaml = fmt.Sprintf(wsYaml, cert, key, cert, key)
-	ws := getWebSocket(t, wsYaml, "ws://127.0.0.1:10081")
-	defer ws.Close()
+
+	super := supervisor.NewDefaultMock()
+	superSpec, err := super.NewSpec(wsYaml)
+	require.Nil(t, err)
+
+	ws := &WebSocketServer{}
+	ws.Init(superSpec)
+	assert.Nil(t, ws.Validate())
+	time.Sleep(50 * time.Millisecond)
+	ws.Close()
 }
