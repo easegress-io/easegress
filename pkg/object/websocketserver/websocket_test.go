@@ -129,7 +129,7 @@ func doClient(t *testing.T, wg *sync.WaitGroup, url, cid string) {
 }
 
 func TestWebSocket(t *testing.T) {
-	testSrv := getTestServer(t, "127.0.0.1:8888")
+	testSrv := getTestServer(t, "127.0.0.1:8000")
 	defer testSrv.Close()
 
 	wsYaml := `
@@ -137,7 +137,7 @@ kind: WebSocketServer
 name: websocket-demo
 port: 10081
 https: false
-backend: ws://127.0.0.1:8888`
+backend: ws://127.0.0.1:8000`
 	ws := getWebSocket(t, wsYaml, "ws://127.0.0.1:10081")
 
 	clientNum := 50
@@ -156,7 +156,7 @@ backend: ws://127.0.0.1:8888`
 }
 
 func TestWebSocketTLS(t *testing.T) {
-	testSrv := getTestServer(t, "127.0.0.1:8888")
+	testSrv := getTestServer(t, "127.0.0.1:8000")
 	defer testSrv.Close()
 
 	cert := base64.StdEncoding.EncodeToString([]byte(certPem))
@@ -166,7 +166,7 @@ kind: WebSocketServer
 name: websocket-demo
 port: 10081
 https: true
-backend: wss://127.0.0.1:8888
+backend: wss://127.0.0.1:8000
 certBase64: %v
 keyBase64: %v
 wssCertBase64: %v
