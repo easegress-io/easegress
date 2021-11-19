@@ -18,6 +18,7 @@
 package websocketserver
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -152,4 +153,26 @@ backend: ws://127.0.0.1:8888`
 	newWs.Status()
 	time.Sleep(100 * time.Millisecond)
 	newWs.Close()
+}
+
+func TestWebSocketTLS(t *testing.T) {
+	testSrv := getTestServer(t, "127.0.0.1:8888")
+	defer testSrv.Close()
+
+	cert := base64.StdEncoding.EncodeToString([]byte(certPem))
+	key := base64.StdEncoding.EncodeToString([]byte(keyPem))
+	wsYaml := `
+kind: WebSocketServer
+name: websocket-demo
+port: 10081
+https: false
+backend: ws://127.0.0.1:8888
+certBase64: %v
+keyBase64: %v
+wssCertBase64: %v
+wssKeyBase64: %v
+`
+	wsYaml = fmt.Sprintf(wsYaml, cert, key, cert, key)
+	ws := getWebSocket(t, wsYaml, "ws://127.0.0.1:10081")
+	defer ws.Close()
 }
