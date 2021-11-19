@@ -33,6 +33,25 @@ import (
 	"github.com/megaease/easegress/pkg/supervisor"
 )
 
+const (
+	xForwardedFor   = "X-Forwarded-For"
+	xForwardedHost  = "X-Forwarded-Host"
+	xForwardedProto = "X-Forwarded-Proto"
+)
+
+var (
+	// unCopyHeaderKey are header keys gorilla used for request.
+	// if copy these keys, gorilla will return error
+	unCopyHeaderKey = map[string]struct{}{
+		"Upgrade":                  {},
+		"Connection":               {},
+		"Sec-Websocket-Key":        {},
+		"Sec-Websocket-Version":    {},
+		"Sec-Websocket-Extensions": {},
+		"Sec-Websocket-Protocol":   {},
+	}
+)
+
 var (
 	// defaultUpgrader specifies the parameters for upgrading an HTTP
 	// connection to a WebSocket connection.
@@ -181,33 +200,46 @@ func (p *Proxy) run() {
 // copyHeader copies headers from the incoming request to the dialer and forward them to
 // the destination.
 func (p *Proxy) copyHeader(req *http.Request) http.Header {
+	// Based on https://docs.oracle.com/en-us/iaas/Content/Balance/Reference/httpheaders.htm
+	// For load balancer, we add following key-value pairs to headers
+	// X-Forwarded-For: <original_client>, <proxy1>, <proxy2>
+	// X-Forwarded-Host: www.example.com:8080
+	// X-Forwarded-Proto: https
+
+	// In gorilla package: creates a new client connection. Use requestHeader to specify the
+	// origin (Origin), subprotocols (Sec-WebSocket-Protocol) and cookies (Cookie).
+	// But gorilla also copy other header values into their request header.
+	// gorilla also set some headers for request which we should not copy.
+	// As a result, we copy all headers except the ones gorilla will set for their request.
 
 	requestHeader := http.Header{}
-	if origin := req.Header.Get("Origin"); origin != "" {
-		requestHeader.Add("Origin", origin)
-	}
-	for _, prot := range req.Header[http.CanonicalHeaderKey("Sec-WebSocket-Protocol")] {
-		requestHeader.Add("Sec-WebSocket-Protocol", prot)
-	}
-	for _, cookie := range req.Header[http.CanonicalHeaderKey("Cookie")] {
-		requestHeader.Add("Cookie", cookie)
-	}
-	if req.Host != "" {
-		requestHeader.Set("Host", req.Host)
-	}
-
-	if clientIP, _, err := net.SplitHostPort(req.RemoteAddr); err == nil {
-		if prior, ok := req.Header["X-Forwarded-For"]; ok {
-			clientIP = strings.Join(prior, ", ") + ", " + clientIP
+	for k, values := range req.Header {
+		if _, ok := unCopyHeaderKey[k]; ok {
+			continue
 		}
-		requestHeader.Set("X-Forwarded-For", clientIP)
+		for _, v := range values {
+			requestHeader.Add(k, v)
+		}
 	}
 
-	requestHeader.Set("X-Forwarded-Proto", "http")
+	xff := requestHeader.Get(xForwardedFor)
+	if clientIP, _, err := net.SplitHostPort(req.RemoteAddr); err == nil {
+		if xff == "" {
+			requestHeader.Set(xForwardedFor, clientIP)
+		} else {
+			requestHeader.Set(xForwardedFor, fmt.Sprintf("%s, %s", xff, clientIP))
+		}
+	}
+
+	xfh := requestHeader.Get(xForwardedHost)
+	if xfh == "" && req.Host != "" {
+		requestHeader.Set(xForwardedHost, req.Host)
+	}
+
+	requestHeader.Set(xForwardedProto, "http")
 	if req.TLS != nil {
-		requestHeader.Set("X-Forwarded-Proto", "https")
+		requestHeader.Set(xForwardedProto, "https")
 	}
-
 	return requestHeader
 }
 
