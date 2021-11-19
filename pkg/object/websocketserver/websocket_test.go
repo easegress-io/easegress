@@ -87,7 +87,7 @@ func getTestServer(t *testing.T, addr string) *http.Server {
 	return server
 }
 
-func getWebSocket(t *testing.T, yamlStr string, checkUrl string) *WebSocketServer {
+func getWebSocket(t *testing.T, yamlStr string, checkURL string) *WebSocketServer {
 	super := supervisor.NewDefaultMock()
 	superSpec, err := super.NewSpec(yamlStr)
 	ws := &WebSocketServer{}
@@ -97,7 +97,7 @@ func getWebSocket(t *testing.T, yamlStr string, checkUrl string) *WebSocketServe
 
 	started := false
 	for i := 0; i < 10; i++ {
-		ws, _, err := websocket.DefaultDialer.Dial(checkUrl, nil)
+		ws, _, err := websocket.DefaultDialer.Dial(checkURL, nil)
 		if err == nil {
 			started = true
 			ws.Close()
