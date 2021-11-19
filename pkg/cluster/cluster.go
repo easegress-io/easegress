@@ -632,8 +632,13 @@ func (c *cluster) startServer() (done, timeout chan struct{}, err error) {
 		close(done)
 		return done, timeout, nil
 	}
+	createConfig := CreateEtcdConfig
+	if c.opt.UseInitialCluster() {
+		createConfig = CreateStaticClusterEtcdConfig
+	}
+	// TODO disable members file
 
-	etcdConfig, err := c.prepareEtcdConfig()
+	etcdConfig, err := createConfig(c.opt, c.members)
 	if err != nil {
 		return nil, nil, err
 	}
