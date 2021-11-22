@@ -191,6 +191,20 @@ func (b *Broker) handleConn(conn net.Conn) {
 		return
 	}
 
+	if b.spec.MaxAllowedConnection > 0 {
+		b.Lock()
+		connNum := len(b.clients)
+		b.Unlock()
+		if connNum >= b.spec.MaxAllowedConnection {
+			connack.ReturnCode = packets.ErrRefusedServerUnavailable
+			err = connack.Write(conn)
+			if err != nil {
+				logger.Errorf("connack back to client %s failed: %s", connect.ClientIdentifier, err)
+			}
+			return
+		}
+	}
+
 	client := newClient(connect, b, conn)
 
 	authFail := false

@@ -1244,6 +1244,8 @@ func TestWildCard(t *testing.T) {
 	checkSubscriptions("+", []string{}, []string{"/finance"})
 }
 
+// this certPem and keyPem come from golang crypto/tls/testdata
+// with original name: example-key.pem and example-key.pem
 const certPem = `
 -----BEGIN CERTIFICATE-----
 MIIBhTCCASugAwIBAgIQIRi6zePL6mKjOipn+dNuaTAKBggqhkjOPQQDAjASMRAw
@@ -1677,5 +1679,58 @@ func TestEmptyAuthAndAuthByPipeline(t *testing.T) {
 	})
 	if broker != nil {
 		t.Errorf("broker with empty auth should be nil when AuthByPipeline is false")
+	}
+}
+
+func TestMaxAllowedConnection(t *testing.T) {
+	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
+	spec := &Spec{
+		Name:        "test",
+		EGName:      "test",
+		Port:        1883,
+		BackendType: testMQType,
+		Auth: []Auth{
+			{UserName: "test", PassBase64: b64passwd},
+		},
+		MaxAllowedConnection: 10,
+	}
+	store := newStorage(nil)
+	broker := newBroker(spec, store, func(s, ss string) ([]string, error) {
+		return nil, errors.New("empty urls for test")
+	})
+	defer broker.close()
+
+	clients := []paho.Client{}
+	clientNum := 10
+	for i := 0; i < clientNum; i++ {
+		option := paho.NewClientOptions().AddBroker("tcp://0.0.0.0:1883").SetClientID(strconv.Itoa(i)).SetUsername("test").SetPassword("test")
+		client := paho.NewClient(option)
+		if token := client.Connect(); token.Wait() && token.Error() != nil {
+			t.Errorf("client %v connect fail, %v", i, token.Error())
+		}
+		clients = append(clients, client)
+	}
+	var num int
+	for i := 0; i < 10; i++ {
+		broker.Lock()
+		num = len(broker.clients)
+		broker.Unlock()
+		if num == clientNum {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if num != clientNum {
+		t.Fatalf("wrong client connection number, got %v, expected %v", num, clientNum)
+	}
+	for i := clientNum; i < 2*clientNum; i++ {
+		option := paho.NewClientOptions().AddBroker("tcp://0.0.0.0:1883").SetClientID(strconv.Itoa(i)).SetUsername("test").SetPassword("test")
+		client := paho.NewClient(option)
+		if token := client.Connect(); token.Wait() && token.Error() == nil {
+			t.Errorf("client %v connect should fail but got nil error, %v", i, token.Error())
+		}
+	}
+	for _, c := range clients {
+		c.Disconnect(200)
 	}
 }

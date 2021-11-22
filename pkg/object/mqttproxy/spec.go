@@ -31,18 +31,19 @@ const (
 type (
 	// Spec describes the MQTTProxy.
 	Spec struct {
-		EGName         string        `yaml:"-"`
-		Name           string        `yaml:"-"`
-		Port           uint16        `yaml:"port" jsonschema:"required"`
-		BackendType    string        `yaml:"backendType" jsonschema:"required"`
-		Auth           []Auth        `yaml:"auth" jsonschema:"required"`
-		TopicMapper    *TopicMapper  `yaml:"topicMapper" jsonschema:"omitempty"`
-		Kafka          *KafkaSpec    `yaml:"kafkaBroker" jsonschema:"omitempty"`
-		UseTLS         bool          `yaml:"useTLS" jsonschema:"omitempty"`
-		Certificate    []Certificate `yaml:"certificate" jsonschema:"omitempty"`
-		TopicCacheSize int           `yaml:"topicCacheSize" jsonschema:"omitempty"`
-		Pipeline       string        `yaml:"pipeline" jsonschema:"omitempty"`
-		AuthByPipeline bool          `yaml:"authByPipeline" jsonschema:"omitempty"`
+		EGName               string        `yaml:"-"`
+		Name                 string        `yaml:"-"`
+		Port                 uint16        `yaml:"port" jsonschema:"required"`
+		BackendType          string        `yaml:"backendType" jsonschema:"required"`
+		Auth                 []Auth        `yaml:"auth" jsonschema:"required"`
+		TopicMapper          *TopicMapper  `yaml:"topicMapper" jsonschema:"omitempty"`
+		Kafka                *KafkaSpec    `yaml:"kafkaBroker" jsonschema:"omitempty"`
+		UseTLS               bool          `yaml:"useTLS" jsonschema:"omitempty"`
+		Certificate          []Certificate `yaml:"certificate" jsonschema:"omitempty"`
+		TopicCacheSize       int           `yaml:"topicCacheSize" jsonschema:"omitempty"`
+		Pipeline             string        `yaml:"pipeline" jsonschema:"omitempty"`
+		AuthByPipeline       bool          `yaml:"authByPipeline" jsonschema:"omitempty"`
+		MaxAllowedConnection int           `yaml:"maxAllowedConnection" jsonschema:"omitempty"`
 	}
 
 	// Certificate describes TLS certifications.
