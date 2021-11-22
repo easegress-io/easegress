@@ -57,21 +57,20 @@ func CreateStaticClusterEtcdConfig(opt *option.Options, members *members) (*embe
 		peerURLs     []url.URL
 		clientAdURLs []url.URL
 		peerAdURLs   []url.URL
-
 	)
-	clientURLs,err := option.ParseURLs(opt.Cluster.ListenClientURLs)
+	clientURLs, err := option.ParseURLs(opt.Cluster.ListenClientURLs)
 	if err != nil {
 		return nil, err
 	}
-	peerURLs,err = option.ParseURLs(opt.Cluster.ListenPeerURLs)
+	peerURLs, err = option.ParseURLs(opt.Cluster.ListenPeerURLs)
 	if err != nil {
 		return nil, err
 	}
-	clientAdURLs,err = option.ParseURLs(opt.Cluster.AdvertiseClientURLs)
+	clientAdURLs, err = option.ParseURLs(opt.Cluster.AdvertiseClientURLs)
 	if err != nil {
 		return nil, err
 	}
-	peerAdURLs,err = option.ParseURLs(opt.Cluster.InitialAdvertisePeerURLs)
+	peerAdURLs, err = option.ParseURLs(opt.Cluster.InitialAdvertisePeerURLs)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +102,6 @@ func CreateStaticClusterEtcdConfig(opt *option.Options, members *members) (*embe
 	return ec, nil
 }
 
-
 // CreateEtcdConfig creates an embedded etcd config that starts the cluster by adding member by member.
 func CreateEtcdConfig(opt *option.Options, members *members) (*embed.Config, error) {
 	ec := embed.NewConfig()
@@ -114,19 +112,19 @@ func CreateEtcdConfig(opt *option.Options, members *members) (*embed.Config, err
 		clientAdURLs []url.URL
 		peerAdURLs   []url.URL
 	)
-	clientURLs,err := option.ParseURLs(opt.ClusterListenClientURLs)
+	clientURLs, err := option.ParseURLs(opt.ClusterListenClientURLs)
 	if err != nil {
 		return nil, err
 	}
-	peerURLs,err = option.ParseURLs(opt.ClusterListenPeerURLs)
+	peerURLs, err = option.ParseURLs(opt.ClusterListenPeerURLs)
 	if err != nil {
 		return nil, err
 	}
-	clientAdURLs,err = option.ParseURLs(opt.ClusterAdvertiseClientURLs)
+	clientAdURLs, err = option.ParseURLs(opt.ClusterAdvertiseClientURLs)
 	if err != nil {
 		return nil, err
 	}
-	peerAdURLs,err = option.ParseURLs(opt.ClusterInitialAdvertisePeerURLs)
+	peerAdURLs, err = option.ParseURLs(opt.ClusterInitialAdvertisePeerURLs)
 	if err != nil {
 		return nil, err
 	}

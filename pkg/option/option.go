@@ -37,11 +37,11 @@ import (
 
 // ClusterOptions is the start-up options.
 type ClusterOptions struct {
-	ListenPeerURLs				[]string 			`yaml:"listen-peer-urls"`
-	ListenClientURLs			[]string 			`yaml:"listen-client-urls"`
-	AdvertiseClientURLs			[]string 			`yaml:"advertise-client-urls"`
-	InitialAdvertisePeerURLs	[]string 			`yaml:"initial-advertise-peer-urls"`
-	InitialCluster				map[string]string 	`yaml:"initial-cluster"`
+	ListenPeerURLs           []string          `yaml:"listen-peer-urls"`
+	ListenClientURLs         []string          `yaml:"listen-client-urls"`
+	AdvertiseClientURLs      []string          `yaml:"advertise-client-urls"`
+	InitialAdvertisePeerURLs []string          `yaml:"initial-advertise-peer-urls"`
+	InitialCluster           map[string]string `yaml:"initial-cluster"`
 }
 
 // Options is the start-up options.
@@ -61,23 +61,23 @@ type Options struct {
 	// If a config file is specified, below command line flags will be ignored.
 
 	// meta
-	Name                            string            `yaml:"name" env:"EG_NAME"`
-	Labels                          map[string]string `yaml:"labels" env:"EG_LABELS"`
-	APIAddr                         string            `yaml:"api-addr"`
-	Debug                           bool              `yaml:"debug"`
-	DisableAccessLog                bool              `yaml:"disable-access-log"`
-	InitialObjectConfigFiles        []string          `yaml:"initial-object-config-files"`
+	Name                     string            `yaml:"name" env:"EG_NAME"`
+	Labels                   map[string]string `yaml:"labels" env:"EG_LABELS"`
+	APIAddr                  string            `yaml:"api-addr"`
+	Debug                    bool              `yaml:"debug"`
+	DisableAccessLog         bool              `yaml:"disable-access-log"`
+	InitialObjectConfigFiles []string          `yaml:"initial-object-config-files"`
 
 	// cluster options
-	ClusterName                     string            `yaml:"cluster-name"`
-	ClusterRole                     string            `yaml:"cluster-role"`
-	ClusterRequestTimeout           string            `yaml:"cluster-request-timeout"`
-	ClusterListenClientURLs         []string          `yaml:"cluster-listen-client-urls"`
-	ClusterListenPeerURLs           []string          `yaml:"cluster-listen-peer-urls"`
-	ClusterAdvertiseClientURLs      []string          `yaml:"cluster-advertise-client-urls"`
-	ClusterInitialAdvertisePeerURLs []string          `yaml:"cluster-initial-advertise-peer-urls"`
-	ClusterJoinURLs                 []string          `yaml:"cluster-join-urls"`
-	Cluster							ClusterOptions	  `yaml:"cluster"`
+	ClusterName                     string         `yaml:"cluster-name"`
+	ClusterRole                     string         `yaml:"cluster-role"`
+	ClusterRequestTimeout           string         `yaml:"cluster-request-timeout"`
+	ClusterListenClientURLs         []string       `yaml:"cluster-listen-client-urls"`
+	ClusterListenPeerURLs           []string       `yaml:"cluster-listen-peer-urls"`
+	ClusterAdvertiseClientURLs      []string       `yaml:"cluster-advertise-client-urls"`
+	ClusterInitialAdvertisePeerURLs []string       `yaml:"cluster-initial-advertise-peer-urls"`
+	ClusterJoinURLs                 []string       `yaml:"cluster-join-urls"`
+	Cluster                         ClusterOptions `yaml:"cluster"`
 
 	// Path.
 	HomeDir   string `yaml:"home-dir"`
@@ -103,7 +103,7 @@ func addClusterVars(opt *Options) {
 	opt.flags.StringVar(&opt.ClusterName, "cluster-name", "eg-cluster-default-name", "Human-readable name for the new cluster, ignored while joining an existed cluster.")
 	opt.flags.StringVar(&opt.ClusterRole, "cluster-role", "writer", "Cluster role for this member (reader, writer).")
 	opt.flags.StringVar(&opt.ClusterRequestTimeout, "cluster-request-timeout", "10s", "Timeout to handle request in the cluster.")
-	
+
 	// Cluster connection configuration style 1
 	opt.flags.StringSliceVar(&opt.ClusterListenClientURLs, "cluster-listen-client-urls", []string{"http://localhost:2379"}, "List of URLs to listen on for cluster client traffic.")
 	opt.flags.StringSliceVar(&opt.ClusterListenPeerURLs, "cluster-listen-peer-urls", []string{"http://localhost:2380"}, "List of URLs to listen on for cluster peer traffic.")
@@ -293,21 +293,21 @@ func (opt *Options) validate() error {
 		}
 	case "writer":
 		argumentsToValidate := map[string][]string{
-			"cluster-listen-client-urls": opt.ClusterListenClientURLs,
-			"cluster-listen-peer-urls": opt.ClusterListenPeerURLs,
-			"cluster-advertise-client-urls": opt.ClusterAdvertiseClientURLs,
+			"cluster-listen-client-urls":          opt.ClusterListenClientURLs,
+			"cluster-listen-peer-urls":            opt.ClusterListenPeerURLs,
+			"cluster-advertise-client-urls":       opt.ClusterAdvertiseClientURLs,
 			"cluster-initial-advertise-peer-urls": opt.ClusterInitialAdvertisePeerURLs,
 		}
 
 		if opt.UseInitialCluster() {
 			argumentsToValidate = map[string][]string{
-				"listen-client-urls": opt.Cluster.ListenClientURLs,
-				"listen-peer-urls": opt.Cluster.ListenPeerURLs,
-				"advertise-client-urls": opt.Cluster.AdvertiseClientURLs,
+				"listen-client-urls":          opt.Cluster.ListenClientURLs,
+				"listen-peer-urls":            opt.Cluster.ListenPeerURLs,
+				"advertise-client-urls":       opt.Cluster.AdvertiseClientURLs,
 				"initial-advertise-peer-urls": opt.Cluster.InitialAdvertisePeerURLs,
 			}
 			initialClusterUrls := make([]string, 0, len(opt.Cluster.InitialCluster))
-			for  _, value := range opt.Cluster.InitialCluster {
+			for _, value := range opt.Cluster.InitialCluster {
 				initialClusterUrls = append(initialClusterUrls, value)
 			}
 			if _, err := ParseURLs(initialClusterUrls); err != nil {

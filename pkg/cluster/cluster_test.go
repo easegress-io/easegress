@@ -131,7 +131,6 @@ func closeClusters(clusters []*cluster) {
 	}
 }
 
-
 func TestCluster(t *testing.T) {
 	t.Run("start cluster dynamically", func(t *testing.T) {
 		clusters := mockClusters(3)

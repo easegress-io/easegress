@@ -19,8 +19,8 @@ package cluster
 
 import (
 	"fmt"
-	"testing"
 	"strings"
+	"testing"
 
 	"github.com/megaease/easegress/pkg/option"
 )
@@ -37,7 +37,7 @@ func TestCreateEtcdConfigFailures(t *testing.T) {
 	testData[len(testData)-1].ClusterInitialAdvertisePeerURLs = []string{"::::::"}
 
 	for i, opt := range testData {
-		t.Run(fmt.Sprintf("CreateEtcdConfig: options invalid url i=%d",i), func(t *testing.T) {
+		t.Run(fmt.Sprintf("CreateEtcdConfig: options invalid url i=%d", i), func(t *testing.T) {
 			membersInstance, _ := newMembers(opt)
 			_, err := CreateEtcdConfig(opt, membersInstance)
 			if err == nil {
@@ -60,7 +60,7 @@ func TestCreateEtcdConfigFailures(t *testing.T) {
 	testData[len(testData)-1].Cluster.InitialAdvertisePeerURLs = []string{"::::::"}
 
 	for i, opt := range testData {
-		t.Run(fmt.Sprintf("CreateStaticClusterEtcdConfig: options invalid url i=%d",i), func(t *testing.T) {
+		t.Run(fmt.Sprintf("CreateStaticClusterEtcdConfig: options invalid url i=%d", i), func(t *testing.T) {
 			membersInstance, _ := newMembers(opt)
 			_, err := CreateStaticClusterEtcdConfig(opt, membersInstance)
 			if err == nil {
@@ -68,7 +68,7 @@ func TestCreateEtcdConfigFailures(t *testing.T) {
 			}
 			if !strings.Contains(err.Error(), "missing protocol scheme") {
 				t.Error("Error should contain missing protocol scheme")
-			}	
+			}
 		})
 	}
 }

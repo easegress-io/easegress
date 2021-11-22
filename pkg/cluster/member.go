@@ -111,12 +111,12 @@ func (m *members) initializeMembers(opt *option.Options) {
 // initializeStaticClusterMembers adds all members to ClusterMembers and KnownMembers.
 func (m *members) initializeStaticClusterMembers(opt *option.Options) {
 	initMS := make(membersSlice, 0)
-		for name, peerURL := range opt.Cluster.InitialCluster {
-			initMS = append(initMS, &member{
-				Name:    name,
-				PeerURL: peerURL,
-			})
-		}
+	for name, peerURL := range opt.Cluster.InitialCluster {
+		initMS = append(initMS, &member{
+			Name:    name,
+			PeerURL: peerURL,
+		})
+	}
 	m.ClusterMembers.update(initMS)
 	m.KnownMembers.update(initMS)
 }
