@@ -1,0 +1,23 @@
+name: writer-1
+cluster-name: cluster-test
+cluster-role: writer
+api-addr: localhost:2831
+data-dir: ./data
+wal-dir: ""
+cpu-profile-file:
+memory-profile-file:
+log-dir: ./log
+debug: false
+cluster-listen-client-urls:
+ - http://127.0.0.1:2379
+cluster-listen-peer-urls:
+- http://127.0.0.1:2380
+cluster-advertise-client-urls:
+ - http://127.0.0.1:2379
+cluster-initial-advertise-peer-urls:
+ - http://127.0.0.1:2380
+cluster-join-urls:
+ - http://127.0.0.1:2380
+ - http://127.0.0.1:2378
+ - http://127.0.0.1:2376
+member-dir: ./member
