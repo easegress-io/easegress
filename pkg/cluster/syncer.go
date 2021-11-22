@@ -49,7 +49,7 @@ func (c *cluster) Syncer(pullInterval time.Duration) (*Syncer, error) {
 		return nil, err
 	}
 	return &Syncer{
-		WaitGroup: sync.WaitGroup{},
+		WaitGroup:    sync.WaitGroup{},
 		cluster:      c,
 		client:       client,
 		pullInterval: pullInterval,
