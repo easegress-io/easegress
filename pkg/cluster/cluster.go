@@ -241,7 +241,7 @@ func (c *cluster) getReady() error {
 		return nil
 	}
 
-	if !c.opt.ForceNewCluster && c.members.knownMembersLen() > 1 {
+	if !c.opt.ForceNewCluster && c.members.knownMembersLen() > 1 && !c.opt.UseInitialCluster() {
 		client, _ := c.getClient()
 		if client != nil {
 			err := c.addSelfToCluster()
@@ -636,7 +636,6 @@ func (c *cluster) startServer() (done, timeout chan struct{}, err error) {
 	if c.opt.UseInitialCluster() {
 		createConfig = CreateStaticClusterEtcdConfig
 	}
-	// TODO disable members file
 
 	etcdConfig, err := createConfig(c.opt, c.members)
 	if err != nil {
