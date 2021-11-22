@@ -736,9 +736,12 @@ func (c *cluster) defrag() {
 				defragInterval = defragFailedInterval
 				logger.Errorf("defrag failed: get client failed: %v", err)
 			}
-
+			defragmentURL := c.opt.ClusterAdvertiseClientURLs[0]
+			if c.opt.UseInitialCluster() {
+				defragmentURL = c.opt.Cluster.AdvertiseClientURLs[0]
+			}
 			// NOTICE: It needs longer time than normal ones.
-			_, err = client.Defragment(c.longRequestContext(), c.opt.ClusterAdvertiseClientURLs[0])
+			_, err = client.Defragment(c.longRequestContext(), defragmentURL)
 			if err != nil {
 				defragInterval = defragFailedInterval
 				logger.Errorf("defrag failed: %v", err)

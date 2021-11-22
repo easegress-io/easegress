@@ -94,6 +94,9 @@ func CreateStaticClusterEtcdConfig(opt *option.Options, members *members) (*embe
 	ec.LogOutputs = []string{common.NormalizeZapLogPath(filepath.Join(opt.AbsLogDir, logFilename))}
 
 	ec.ClusterState = embed.ClusterStateFlagNew
+	if opt.Cluster.StateFlag == "existing" {
+		ec.ClusterState = embed.ClusterStateFlagExisting
+	}
 	ec.InitialCluster = members.initCluster()
 
 	logger.Infof("etcd config: init-cluster:%s cluster-state:%s force-new-cluster:%v",

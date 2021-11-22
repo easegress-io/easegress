@@ -106,8 +106,13 @@ func memberURLFunc(superSpec *supervisor.Spec) func(string, string) ([]string, e
 			}
 			if memberStatus.Options.Name != egName {
 				egURLs := memberStatus.Options.ClusterInitialAdvertisePeerURLs
+				peerUrlVariableName := "ClusterInitialAdvertisePeerURLs"
+				if memberStatus.Options.UseInitialCluster() {
+					egURLs = memberStatus.Options.Cluster.InitialAdvertisePeerURLs
+					peerUrlVariableName = "Cluster.InitialAdvertisePeerURLs"
+				}
 				if len(egURLs) == 0 {
-					return nil, fmt.Errorf("easegress %v has empty ClusterInitialAdvertisePeerURLs %v", memberStatus.Options.Name, egURLs)
+					return nil, fmt.Errorf("easegress %v has empty %v %v", memberStatus.Options.Name, peerUrlVariableName, egURLs)
 				}
 				egURL := egURLs[0]
 				apiAddr := memberStatus.Options.APIAddr

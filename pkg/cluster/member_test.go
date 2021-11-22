@@ -182,13 +182,13 @@ func mockStaticClusterMembers(count int) ([]*option.Options, membersSlice, []*pb
 		members[i] = &member{
 			ID:      id,
 			Name:    opt.Name,
-			PeerURL: opt.ClusterInitialAdvertisePeerURLs[0],
+			PeerURL: opt.Cluster.InitialAdvertisePeerURLs[0],
 		}
 		pbMembers[i] = &pb.Member{
 			ID:         id,
 			Name:       opt.Name,
-			PeerURLs:   []string{opt.ClusterInitialAdvertisePeerURLs[0]},
-			ClientURLs: []string{opt.ClusterAdvertiseClientURLs[0]},
+			PeerURLs:   []string{opt.Cluster.InitialAdvertisePeerURLs[0]},
+			ClientURLs: []string{opt.Cluster.AdvertiseClientURLs[0]},
 		}
 		env.InitServerDir(opts[i])
 	}

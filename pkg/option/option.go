@@ -42,6 +42,7 @@ type ClusterOptions struct {
 	AdvertiseClientURLs      []string          `yaml:"advertise-client-urls"`
 	InitialAdvertisePeerURLs []string          `yaml:"initial-advertise-peer-urls"`
 	InitialCluster           map[string]string `yaml:"initial-cluster"`
+	StateFlag                string            `yaml:"state-flag"`
 }
 
 // Options is the start-up options.
@@ -119,6 +120,7 @@ func addClusterVars(opt *Options) {
 	opt.flags.StringSliceVar(&opt.Cluster.InitialAdvertisePeerURLs, "initial-advertise-peer-urls", []string{"http://localhost:2380"}, "List of this member’s peer URLs to advertise to the rest of the cluster.")
 	opt.flags.StringToStringVarP(&opt.Cluster.InitialCluster, "initial-cluster", "", nil,
 		"List of (member name, URL) pairs that will form the cluster. E.g. writer-1=http://localhost:2380. When used, leave cluster-join-urls empty.")
+	opt.flags.StringVar(&opt.Cluster.StateFlag, "state-flag", "new", "Cluster state (new, existing)")
 }
 
 // New creates a default Options.
@@ -288,7 +290,7 @@ func (opt *Options) validate() error {
 		if opt.ForceNewCluster {
 			return fmt.Errorf("reader got force-new-cluster")
 		}
-		if len(opt.ClusterJoinURLs) == 0 {
+		if !opt.UseInitialCluster() && len(opt.ClusterJoinURLs) == 0 {
 			return fmt.Errorf("reader got empty cluster-join-urls")
 		}
 	case "writer":
