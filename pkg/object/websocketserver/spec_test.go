@@ -72,6 +72,8 @@ func TestSpecValidate(t *testing.T) {
 	}
 }
 
+// this certPem and keyPem come from golang crypto/tls/testdata
+// with original name: example-cert.pem and example-key.pem
 const certPem = `
 -----BEGIN CERTIFICATE-----
 MIIBhTCCASugAwIBAgIQIRi6zePL6mKjOipn+dNuaTAKBggqhkjOPQQDAjASMRAw

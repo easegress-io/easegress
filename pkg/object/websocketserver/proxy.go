@@ -40,9 +40,8 @@ const (
 )
 
 var (
-	// unCopyHeaderKey are header keys gorilla used for request.
-	// if copy these keys, gorilla will return error
-	unCopyHeaderKey = map[string]struct{}{
+	// headersToSkip are gorilla library's request headers, our websocket proxy should not set.
+	headersToSkip = map[string]struct{}{
 		"Upgrade":                  {},
 		"Connection":               {},
 		"Sec-Websocket-Key":        {},
@@ -168,8 +167,6 @@ func (p *Proxy) run() {
 	p.dialer = dialer
 	p.upgrader = defaultUpgrader
 
-	// here if use DefaultServeMux, when do inherit, will cause panic
-	// panic: http: multiple registrations for /
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", p.handle)
 	addr := fmt.Sprintf(":%d", spec.Port)
@@ -206,15 +203,12 @@ func (p *Proxy) copyHeader(req *http.Request) http.Header {
 	// X-Forwarded-Host: www.example.com:8080
 	// X-Forwarded-Proto: https
 
-	// In gorilla package: creates a new client connection. Use requestHeader to specify the
-	// origin (Origin), subprotocols (Sec-WebSocket-Protocol) and cookies (Cookie).
-	// But gorilla also copy other header values into their request header.
-	// gorilla also set some headers for request which we should not copy.
-	// As a result, we copy all headers except the ones gorilla will set for their request.
+	// New client connection is created using [Gorilla websocket library](https://github.com/gorilla/websocket), which takes care of some of the headers.
+	// Let's copy copy all headers from the incoming request, except the ones gorilla will set.
 
 	requestHeader := http.Header{}
 	for k, values := range req.Header {
-		if _, ok := unCopyHeaderKey[k]; ok {
+		if _, ok := headersToSkip[k]; ok {
 			continue
 		}
 		for _, v := range values {
