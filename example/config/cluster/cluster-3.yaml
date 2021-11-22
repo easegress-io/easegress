@@ -1,7 +1,7 @@
 name: writer-3
 cluster-name: cluster-test
 cluster-role: writer
-api-addr: localhost:2831
+api-addr: localhost:2381
 data-dir: ./data
 wal-dir: ""
 cpu-profile-file:
