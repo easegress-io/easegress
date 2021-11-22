@@ -20,6 +20,7 @@ package websocketserver
 import (
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -60,4 +61,17 @@ func TestProxyUpgradeRspHeader(t *testing.T) {
 	assert.Equal("cookie=1", newHeader.Get("Set-Cookie"))
 	// only copy protocol and cookie
 	assert.Equal("", newHeader.Get("Sec-Websocket-Extensions"))
+}
+
+func TestCopyResponse(t *testing.T) {
+	testSrv := getTestServer(t, "127.0.0.1:8000")
+	defer testSrv.Close()
+
+	req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:8000/start", nil)
+	require.Nil(t, err)
+	resp, err := http.DefaultClient.Do(req)
+	require.Nil(t, err)
+	copyResp := httptest.NewRecorder()
+	copyResponse(copyResp, resp)
+	assert.Equal(t, copyResp.Header(), resp.Header)
 }

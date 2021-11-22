@@ -184,3 +184,34 @@ wssKeyBase64: %v
 	time.Sleep(50 * time.Millisecond)
 	ws.Close()
 }
+
+func TestWebSocketEmptyTLS(t *testing.T) {
+	testSrv := getTestServer(t, "127.0.0.1:8000")
+	defer testSrv.Close()
+
+	wsYaml := `
+kind: WebSocketServer
+name: websocket-demo
+port: 10081
+https: true
+backend: wss://127.0.0.1:8000
+certBase64: 1234
+keyBase64: 2234
+wssCertBase64: 3234
+wssKeyBase64: 4234
+`
+	super := supervisor.NewDefaultMock()
+	superSpec, err := super.NewSpec(wsYaml)
+	require.Nil(t, err)
+
+	_, err = superSpec.ObjectSpec().(*Spec).tlsConfig()
+	assert.NotNil(t, err)
+	_, err = superSpec.ObjectSpec().(*Spec).wssTLSConfig()
+	assert.NotNil(t, err)
+
+	ws := &WebSocketServer{}
+	ws.Init(superSpec)
+	assert.Nil(t, ws.Validate())
+	time.Sleep(50 * time.Millisecond)
+	ws.Close()
+}
