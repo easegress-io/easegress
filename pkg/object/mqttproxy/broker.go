@@ -34,6 +34,8 @@ import (
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/object/pipeline"
+	"github.com/openzipkin/zipkin-go/model"
+	"github.com/openzipkin/zipkin-go/propagation/b3"
 )
 
 type (
@@ -301,11 +303,11 @@ func (b *Broker) requestTransfer(egName, name string, data HTTPJsonData) {
 	spanDebugf(nil, "http transfer data %v to %v", data, urls)
 }
 
-func (b *Broker) sendMsgToClient(topic string, payload []byte, qos byte) {
-	spanDebugf(nil, "send topic %v to client", topic)
+func (b *Broker) sendMsgToClient(span *model.SpanContext, topic string, payload []byte, qos byte) {
 	subscribers, _ := b.topicMgr.findSubscribers(topic)
+	spanDebugf(span, "send topic %v to client %v", topic, subscribers)
 	if subscribers == nil {
-		spanErrorf(nil, "not find subscribers for topic %s", topic)
+		spanErrorf(span, "not find subscribers for topic %s", topic)
 		return
 	}
 
@@ -315,9 +317,9 @@ func (b *Broker) sendMsgToClient(topic string, payload []byte, qos byte) {
 		}
 		client := b.getClient(clientID)
 		if client == nil {
-			spanDebugf(nil, "client %v not on broker %v", clientID, b.name)
+			spanDebugf(span, "client %v not on broker %v", clientID, b.name)
 		} else {
-			client.session.publish(topic, payload, qos)
+			client.session.publish(span, topic, payload, qos)
 		}
 	}
 }
@@ -372,7 +374,8 @@ func (b *Broker) topicsPublishHandler(w http.ResponseWriter, r *http.Request) {
 		data.Distributed = true
 		b.requestTransfer(b.egName, b.name, data)
 	}
-	go b.sendMsgToClient(data.Topic, payload, byte(data.QoS))
+	span, _ := b3.ExtractHTTP(r)()
+	go b.sendMsgToClient(span, data.Topic, payload, byte(data.QoS))
 }
 
 func (b *Broker) mqttAPIPrefix() string {

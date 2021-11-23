@@ -47,8 +47,8 @@ func (t *testMQ) get() *packets.PublishPacket {
 }
 
 func init() {
-	logger.InitNop()
-	// logger.InitMock()
+	// logger.InitNop()
+	logger.InitMock()
 	pipeline.Register(&pipeline.MockMQTTFilter{})
 }
 
@@ -700,7 +700,7 @@ func TestSendMsgBack(t *testing.T) {
 			for j := 0; j < msgNum; j++ {
 				topic := r.ClientID()
 				text := fmt.Sprintf("sub %d", j)
-				broker.sendMsgToClient(topic, []byte(text), QoS1)
+				broker.sendMsgToClient(nil, topic, []byte(text), QoS1)
 			}
 		}(clients[i])
 	}

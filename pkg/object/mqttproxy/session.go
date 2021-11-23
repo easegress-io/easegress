@@ -25,6 +25,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
+	"github.com/openzipkin/zipkin-go/model"
 )
 
 type (
@@ -168,17 +169,17 @@ func (s *Session) getPacketFromMsg(topic string, payload []byte, qos byte) *pack
 	return p
 }
 
-func (s *Session) publish(topic string, payload []byte, qos byte) {
+func (s *Session) publish(span *model.SpanContext, topic string, payload []byte, qos byte) {
 	client := s.broker.getClient(s.info.ClientID)
 	if client == nil {
-		spanErrorf(nil, "client %s is offline", s.info.ClientID)
+		spanErrorf(span, "client %s is offline", s.info.ClientID)
 		return
 	}
 
 	s.Lock()
 	defer s.Unlock()
 
-	spanDebugf(nil, "session %v publish %v", s.info.ClientID, topic)
+	spanDebugf(span, "session %v publish %v", s.info.ClientID, topic)
 	p := s.getPacketFromMsg(topic, payload, qos)
 	if qos == QoS0 {
 		select {
@@ -191,7 +192,7 @@ func (s *Session) publish(topic string, payload []byte, qos byte) {
 		s.pendingQueue = append(s.pendingQueue, p.MessageID)
 		client.writePacket(p)
 	} else {
-		spanErrorf(nil, "publish message with qos=2 is not supported currently")
+		spanErrorf(span, "publish message with qos=2 is not supported currently")
 	}
 }
 

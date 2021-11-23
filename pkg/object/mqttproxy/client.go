@@ -240,7 +240,7 @@ func (c *Client) processPuback(puback *packets.PubackPacket) {
 }
 
 func (c *Client) processSubscribe(packet *packets.SubscribePacket) {
-	spanDebugf(nil, "client %s processSubscribe %v", c.info.cid, packet.Topics)
+	spanDebugf(nil, "client %s subscribe %v with qos %v", c.info.cid, packet.Topics, packet.Qoss)
 	err := c.broker.topicMgr.subscribe(packet.Topics, packet.Qoss, c.info.cid)
 	if err != nil {
 		spanErrorf(nil, "client %v subscribe %v failed: %v", c.info.cid, packet.Topics, err)
