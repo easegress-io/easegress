@@ -288,7 +288,7 @@ func checkNoOverlappingArguments(opt *Options) error {
 		return fmt.Errorf(errorMsg)
 	}
 	errorMsg := `--initial-cluster and --cluster-join-urls are both defined. ` +
-			`Please provide only one of them. --initial-cluster is the recommended way.`
+		`Please provide only one of them. --initial-cluster is the recommended way.`
 	return fmt.Errorf(errorMsg)
 }
 
