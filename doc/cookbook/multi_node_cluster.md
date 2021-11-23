@@ -2,69 +2,37 @@
 # Multi-node cluster
 
 - [Multi-node cluster](#multi-node-cluster)
-  - [Multiple instances in single node](#multiple-instances-in-single-node)
-  - [Multiple nodes](#multiple-nodes)
+  - [Multiple writers](#multiple-writers)
+    - [Add new node](#add-new-node)
+    - [YAML Configuration](#yaml-configuration)
   - [Readers and writers](#readers-and-writers)
     - [Cluster roles in etcd terminology](#cluster-roles-in-etcd-terminology)
   - [References](#references)
 
 It is easy to start multiple Easegress instances to form an Easegress cluster, using `easegress-server` binary.
 
-##  Multiple instances in single node
-
-To start a single writer instance and two readers, we need to start the server in three separate terminals. It's enough to define `localhost` for `cluster-join-urls` value and leave most of the options to default values.
-
-Start writer instance
-```bash
-easegress-server \
-  --cluster-name "multi-instance-cluster" \
-  --cluster-role "writer" \
-  --name "writer" \
-  --cluster-join-urls http://localhost:2380
-```
-Then open a new terminal window and add first reader instance
-```bash
-easegress-server \
-  --cluster-name "multi-instance-cluster" \
-  --cluster-role "reader" \
-  --name "reader-node1" \
-  --cluster-join-urls http://localhost:2380
-```
-and third terminal for the second reader:
-```bash
-easegress-server \
-  --cluster-name "multi-instance-cluster" \
-  --cluster-role "reader" \
-  --name "reader-node2" \
-  --cluster-join-urls http://localhost:2380
-```
-
-We can now see three members in the cluster `egctl member list`
-or to list only member names `egctl member list | grep " name"`.
-
-## Multiple nodes
-Often the cluster instances run at different machines. Let's suppose you have three nodes that are in the same network or otherwise accessible. Let's store node's private IPs to following environment variables:
+## Multiple writers
+Let's suppose you have three nodes that are in the same network or otherwise accessible. Let's store node's private IPs to following environment variables:
 
 ```bash
 export HOST1=<host1-IP>
 export HOST2=<host2-IP>
 export HOST3=<host3-IP>
+export CLUSTER=machine-1=http://$HOST1:2380,machine-2=http://$HOST2:2380,machine-3=http://$HOST3:2380
 ```
 
-Add environment variables to each machine:
-
-Start the first instance at the first machine
+Set the environment variables to each machine. Start the first instance at the first machine
 ```bash
 easegress-server \
   --cluster-name "multi-node-cluster" \
   --cluster-role "writer" \
   --name "machine-1" \
   --api-addr $HOST1:2381 \ # or 0.0.0.0:2381 if running in docker
-  --cluster-initial-advertise-peer-urls http://$HOST1:2380 \
-  --cluster-listen-peer-urls http://$HOST1:2380 \
-  --cluster-listen-client-urls http://$HOST1:2379 \
-  --cluster-advertise-client-urls http://$HOST1:2379 \
-  --cluster-join-urls http://$HOST1:2380,http://$HOST2:2378,http://$HOST3:2376
+  --initial-advertise-peer-urls http://$HOST1:2380 \
+  --listen-peer-urls http://$HOST1:2380 \
+  --listen-client-urls http://$HOST1:2379 \
+  --advertise-client-urls http://$HOST1:2379 \
+  --initial-cluster $CLUSTER
 ```
 then the second instance at machine 2
 ```bash
@@ -72,23 +40,23 @@ easegress-server \
   --cluster-name "multi-node-cluster" \
   --cluster-role "writer" \
   --name "machine-2" \
-  --cluster-initial-advertise-peer-urls http://$HOST2:2378 \
-  --cluster-listen-peer-urls http://$HOST2:2378 \
-  --cluster-listen-client-urls http://$HOST2:2377 \
-  --cluster-advertise-client-urls http://$HOST2:2377 \
-  --cluster-join-urls http://$HOST1:2380,http://$HOST2:2378,http://$HOST3:2376
+  --initial-advertise-peer-urls http://$HOST2:2380 \
+  --listen-peer-urls http://$HOST2:2380 \
+  --listen-client-urls http://$HOST2:2379 \
+  --advertise-client-urls http://$HOST2:2379 \
+  --initial-cluster $CLUSTER
 ```
-and the last machine 3
+and the last machine 3.
 ```bash
 easegress-server \
   --cluster-name "multi-node-cluster" \
   --cluster-role "writer" \
   --name "machine-3" \
-  --cluster-initial-advertise-peer-urls http://$HOST3:2376 \
-  --cluster-listen-peer-urls http://$HOST3:2376 \
-  --cluster-listen-client-urls http://$HOST3:2375 \
-  --cluster-advertise-client-urls http://$HOST3:2375 \
-  --cluster-join-urls http://$HOST1:2380,http://$HOST2:2378,http://$HOST3:2376
+  --initial-advertise-peer-urls http://$HOST3:2380 \
+  --listen-peer-urls http://$HOST3:2380 \
+  --listen-client-urls http://$HOST3:2379 \
+  --advertise-client-urls http://$HOST3:2379 \
+  --initial-cluster $CLUSTER
 ```
 
 Now list cluster members
@@ -104,9 +72,9 @@ should print
     name: machine-3
 ```
 
-###  Add new node
+###  Add new reader node
 
-Let's add one more node; this time a reader cluster role.
+Let's add one more node with a *reader* cluster role this time. Please note that it is not recommended to add additional writers, that were not created at cluster start up.
 
 ```bash
 # on a new machine
@@ -114,22 +82,57 @@ export HOST1=<host1-IP>
 export HOST2=<host2-IP>
 export HOST3=<host3-IP>
 export HOST4=<host4-IP>
+export CLUSTER=machine-1=http://$HOST1:2380,machine-2=http://$HOST2:2380,machine-3=http://$HOST3:2380,machine-4=http://$HOST4:2380
+
 
 easegress-server \
   --cluster-name "multi-node-cluster" \
   --cluster-role "reader" \
   --name "machine-4" \
-  --cluster-initial-advertise-peer-urls http://$HOST4:2374 \
-  --cluster-listen-peer-urls http://$HOST4:2374 \
-  --cluster-listen-client-urls http://$HOST4:2373 \
-  --cluster-advertise-client-urls http://$HOST4:2373 \
-  --cluster-join-urls http://$HOST1:2380,http://$HOST2:2378,http://$HOST3:2376,http://$HOST4:2374
+  --initial-advertise-peer-urls http://$HOST4:2380 \
+  --listen-peer-urls http://$HOST4:2380 \
+  --listen-client-urls http://$HOST4:2379 \
+  --advertise-client-urls http://$HOST4:2379 \
+  --initial-cluster $CLUSTER
+  --state-flag "existing"
 ```
 
+## YAML Configuration
+
+The examples above use the easegress-server's command line flags, but often it is more convenient to define server parameters in a yaml configuration file. For example, store following yaml to each host machine and change the host addresses accordingly.
+
+```yaml
+# create one yaml file for each host
+name: writer-1 # writer-2, writer-3
+cluster-name: cluster-test
+cluster-role: writer
+api-addr: localhost:2381
+data-dir: ./data
+wal-dir: ""
+cpu-profile-file:
+memory-profile-file:
+log-dir: ./log
+debug: false
+cluster:
+  listen-peer-urls:
+   - http://<HOST-1>:2380
+  listen-client-urls:
+   - http://<HOST-1>:2379
+  advertise-client-urls:
+   - http://<HOST-1>:2379
+  initial-advertise-peer-urls:
+   - http://<HOST-1>:2380
+  initial-cluster:
+   - writer-1: http://<HOST-1>:2380
+   - writer-2: http://<HOST-1>:2380
+   - writer-3: http://<HOST-1>:2380
+```
+Then apply these values on each machine, using `config-file` command line argument:
+`easegress-server --config-file config.yaml`.
 
 ##  Reader and writer nodes
 
-When running Easegress as a cluster, each instance has either *writer* or *reader* role. *Writer* nodes persist the Easegress state on the disk, while *readers* request this information from their peers (defined by `cluster-initial-advertise-peer-urls` parameter).
+When running Easegress as a cluster, each instance has either *writer* or *reader* role. *Writer* nodes persist the Easegress state on the disk, while *readers* request this information from their peers (defined by `initial-advertise-peer-urls` parameter).
 
 It is a good practice to choose an odd number (1,3,5,7,9) of *writers*, to tolerate failures of *writer* nodes. This way the cluster can stay in healthy state, even if the network partitions. With an even number of writer nodes, the cluster can be divided to two groups of equal size due to network partition. Then neither of the sub-cluster have the majority required for consensus. However with odd number of *writer* nodes, the cluster cannot be divided to two groups of equal size and this problem cannot occur.
 
