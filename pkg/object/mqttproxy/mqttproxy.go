@@ -23,7 +23,6 @@ import (
 	"net/url"
 
 	"github.com/megaease/easegress/pkg/cluster"
-	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"gopkg.in/yaml.v2"
 )
@@ -90,10 +89,10 @@ func memberURLFunc(superSpec *supervisor.Spec) func(string, string) ([]string, e
 	c := superSpec.Super().Cluster()
 
 	f := func(egName, name string) ([]string, error) {
-		logger.Debugf("get member url for %v %v", egName, name)
+		spanDebugf(nil, "get member url for %v %v", egName, name)
 		kv, err := c.GetPrefix(c.Layout().StatusMemberPrefix())
 		if err != nil {
-			logger.Errorf("cluster get member list failed: %v", err)
+			spanErrorf(nil, "cluster get member list failed: %v", err)
 			return []string{}, err
 		}
 		urls := []string{}
@@ -101,7 +100,7 @@ func memberURLFunc(superSpec *supervisor.Spec) func(string, string) ([]string, e
 			memberStatus := cluster.MemberStatus{}
 			err := yaml.Unmarshal([]byte(v), &memberStatus)
 			if err != nil {
-				logger.Errorf("cluster status unmarshal failed: %v", err)
+				spanErrorf(nil, "cluster status unmarshal failed: %v", err)
 				return []string{}, err
 			}
 			if memberStatus.Options.Name != egName {
@@ -118,7 +117,7 @@ func memberURLFunc(superSpec *supervisor.Spec) func(string, string) ([]string, e
 				urls = append(urls, newURL+"/apis/v1"+fmt.Sprintf(mqttAPIPrefix, name))
 			}
 		}
-		logger.Debugf("eg %v %v get urls %v", egName, name, urls)
+		spanDebugf(nil, "eg %v %v get urls %v", egName, name, urls)
 		return urls, nil
 	}
 	return f

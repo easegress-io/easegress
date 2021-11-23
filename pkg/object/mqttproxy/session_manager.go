@@ -21,7 +21,6 @@ import (
 	"sync"
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
-	"github.com/megaease/easegress/pkg/logger"
 )
 
 type (
@@ -62,10 +61,10 @@ func (sm *SessionManager) doStore() {
 		case <-sm.done:
 			return
 		case kv := <-sm.storeCh:
-			logger.Debugf("session manager store session %v", kv.key)
+			spanDebugf(nil, "session manager store session %v", kv.key)
 			err := sm.store.put(sessionStoreKey(kv.key), kv.value)
 			if err != nil {
-				logger.Errorf("put session %v into storage failed: %v", kv.key, err)
+				spanErrorf(nil, "put session %v into storage failed: %v", kv.key, err)
 			}
 		}
 	}
@@ -123,6 +122,6 @@ func (sm *SessionManager) delLocal(clientID string) {
 func (sm *SessionManager) delDB(clientID string) {
 	err := sm.store.delete(sessionStoreKey(clientID))
 	if err != nil {
-		logger.Errorf("delete session %v failed, %v", err)
+		spanErrorf(nil, "delete session %v failed, %v", err)
 	}
 }

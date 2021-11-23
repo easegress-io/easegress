@@ -33,7 +33,6 @@ import (
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/pipeline"
 )
 
@@ -92,20 +91,20 @@ func newBroker(spec *Spec, store storage, memberURL func(string, string) ([]stri
 		for _, a := range spec.Auth {
 			passwd, err := base64.StdEncoding.DecodeString(a.PassBase64)
 			if err != nil {
-				logger.Errorf("auth with name %v, base64 password %v decode failed: %v", a.UserName, a.PassBase64, err)
+				spanErrorf(nil, "auth with name %v, base64 password %v decode failed: %v", a.UserName, a.PassBase64, err)
 				return nil
 			}
 			broker.sha256Auth[a.UserName] = sha256Sum(passwd)
 		}
 		if len(broker.sha256Auth) == 0 {
-			logger.Errorf("empty valid auth for mqtt proxy")
+			spanErrorf(nil, "empty valid auth for mqtt proxy")
 			return nil
 		}
 	}
 
 	err := broker.setListener()
 	if err != nil {
-		logger.Errorf("mqtt broker set listener failed: %v", err)
+		spanErrorf(nil, "mqtt broker set listener failed: %v", err)
 		return nil
 	}
 
@@ -172,22 +171,22 @@ func (b *Broker) handleConn(conn net.Conn) {
 	defer conn.Close()
 	packet, err := packets.ReadPacket(conn)
 	if err != nil {
-		logger.Errorf("read connect packet failed: %s", err)
+		spanErrorf(nil, "read connect packet failed: %s", err)
 		return
 	}
 	connect, ok := packet.(*packets.ConnectPacket)
 	if !ok {
-		logger.Errorf("first packet received %s that was not Connect", packet.String())
+		spanErrorf(nil, "first packet received %s that was not Connect", packet.String())
 		return
 	}
-	logger.Debugf("connection from client %s", connect.ClientIdentifier)
+	spanDebugf(nil, "connection from client %s", connect.ClientIdentifier)
 
 	connack := packets.NewControlPacket(packets.Connack).(*packets.ConnackPacket)
 	connack.SessionPresent = connect.CleanSession
 	connack.ReturnCode = connect.Validate()
 	if connack.ReturnCode != packets.Accepted {
 		err = connack.Write(conn)
-		logger.Errorf("invalid connection %v, write connack failed: %s", connack.ReturnCode, err)
+		spanErrorf(nil, "invalid connection %v, write connack failed: %s", connack.ReturnCode, err)
 		return
 	}
 
@@ -199,7 +198,7 @@ func (b *Broker) handleConn(conn net.Conn) {
 			connack.ReturnCode = packets.ErrRefusedServerUnavailable
 			err = connack.Write(conn)
 			if err != nil {
-				logger.Errorf("connack back to client %s failed: %s", connect.ClientIdentifier, err)
+				spanErrorf(nil, "connack back to client %s failed: %s", connect.ClientIdentifier, err)
 			}
 			return
 		}
@@ -211,7 +210,7 @@ func (b *Broker) handleConn(conn net.Conn) {
 	if b.spec.AuthByPipeline {
 		pipe, err := pipeline.GetPipeline(b.pipeline, context.MQTT)
 		if err != nil {
-			logger.Errorf("get pipeline %v failed, %v", b.pipeline, err)
+			spanErrorf(nil, "get pipeline %v failed, %v", b.pipeline, err)
 			authFail = true
 		} else {
 			ctx := context.NewMQTTContext(stdcontext.Background(), b.backend, client, connect)
@@ -227,15 +226,15 @@ func (b *Broker) handleConn(conn net.Conn) {
 		connack.ReturnCode = packets.ErrRefusedNotAuthorised
 		err = connack.Write(conn)
 		if err != nil {
-			logger.Errorf("connack back to client %s failed: %s", connect.ClientIdentifier, err)
+			spanErrorf(nil, "connack back to client %s failed: %s", connect.ClientIdentifier, err)
 		}
-		logger.Errorf("invalid connection %v, client %s auth failed", connack.ReturnCode, connect.ClientIdentifier)
+		spanErrorf(nil, "invalid connection %v, client %s auth failed", connack.ReturnCode, connect.ClientIdentifier)
 		return
 	}
 
 	err = connack.Write(conn)
 	if err != nil {
-		logger.Errorf("send connack to client %s failed: %s", connect.ClientIdentifier, err)
+		spanErrorf(nil, "send connack to client %s failed: %s", connect.ClientIdentifier, err)
 		return
 	}
 
@@ -254,7 +253,7 @@ func (b *Broker) handleConn(conn net.Conn) {
 	if len(topics) > 0 {
 		err = b.topicMgr.subscribe(topics, qoss, client.info.cid)
 		if err != nil {
-			logger.Errorf("client %v use previous session topics %v to subscribe failed: %v", client.info.cid, topics, err)
+			spanErrorf(nil, "client %v use previous session topics %v to subscribe failed: %v", client.info.cid, topics, err)
 		}
 	}
 	go client.writeLoop()
@@ -278,35 +277,35 @@ func (b *Broker) setSession(client *Client, connect *packets.ConnectPacket) {
 func (b *Broker) requestTransfer(egName, name string, data HTTPJsonData) {
 	urls, err := b.memberURL(egName, name)
 	if err != nil {
-		logger.Errorf("find urls for other egs failed:%v", err)
+		spanErrorf(nil, "find urls for other egs failed:%v", err)
 		return
 	}
 	jsonData, err := json.Marshal(data)
 	if err != nil {
-		logger.Errorf("json data marshal failed: %v", err)
+		spanErrorf(nil, "json data marshal failed: %v", err)
 		return
 	}
 	for _, url := range urls {
 		req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(jsonData))
 		if err != nil {
-			logger.Errorf("make new request failed: %v", err)
+			spanErrorf(nil, "make new request failed: %v", err)
 			continue
 		}
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			logger.Errorf("http client send msg failed:%v", err)
+			spanErrorf(nil, "http client send msg failed:%v", err)
 		} else {
 			resp.Body.Close()
 		}
 	}
-	logger.Debugf("http transfer data %v to %v", data, urls)
+	spanDebugf(nil, "http transfer data %v to %v", data, urls)
 }
 
 func (b *Broker) sendMsgToClient(topic string, payload []byte, qos byte) {
-	logger.Debugf("send topic %v to client", topic)
+	spanDebugf(nil, "send topic %v to client", topic)
 	subscribers, _ := b.topicMgr.findSubscribers(topic)
 	if subscribers == nil {
-		logger.Errorf("not find subscribers for topic %s", topic)
+		spanErrorf(nil, "not find subscribers for topic %s", topic)
 		return
 	}
 
@@ -316,7 +315,7 @@ func (b *Broker) sendMsgToClient(topic string, payload []byte, qos byte) {
 		}
 		client := b.getClient(clientID)
 		if client == nil {
-			logger.Debugf("client %v not on broker %v", clientID, b.name)
+			spanDebugf(nil, "client %v not on broker %v", clientID, b.name)
 		} else {
 			client.session.publish(topic, payload, qos)
 		}
@@ -368,7 +367,7 @@ func (b *Broker) topicsPublishHandler(w http.ResponseWriter, r *http.Request) {
 		payload = []byte(data.Payload)
 	}
 
-	logger.Debugf("http endpoint received json data: %v", data)
+	spanDebugf(nil, "http endpoint received json data: %v", data)
 	if !data.Distributed {
 		data.Distributed = true
 		b.requestTransfer(b.egName, b.name, data)
