@@ -266,12 +266,30 @@ func ParseURLs(urlStrings []string) ([]url.URL, error) {
 	for i, urlString := range urlStrings {
 		parsedUrl, err := url.Parse(urlString)
 		if err != nil {
-			fmt.Println(urlString)
 			return nil, fmt.Errorf(" %s: %v", urlString, err)
 		}
 		urls[i] = *parsedUrl
 	}
 	return urls, nil
+}
+
+// checkNoOverlappingArguments checks that only one of Cluster.InitialCluster and ClusterJoinURLs is defined.
+func checkNoOverlappingArguments(opt *Options) error {
+	if !opt.UseInitialCluster() {
+		return nil
+	}
+	if len(opt.ClusterJoinURLs) == 0 {
+		return nil
+	}
+	hasYAMLConfig := len(opt.ConfigFile) > 0
+	if hasYAMLConfig {
+		errorMsg := `cluster.initial-cluster and cluster-join-urls are both defined. ` +
+			`Please provide only one of them. cluster.initial-cluster is the recommended way.`
+		return fmt.Errorf(errorMsg)
+	}
+	errorMsg := `--initial-cluster and --cluster-join-urls are both defined. ` +
+			`Please provide only one of them. --initial-cluster is the recommended way.`
+	return fmt.Errorf(errorMsg)
 }
 
 func (opt *Options) validate() error {
@@ -294,6 +312,9 @@ func (opt *Options) validate() error {
 			return fmt.Errorf("reader got empty cluster-join-urls")
 		}
 	case "writer":
+		if err := checkNoOverlappingArguments(opt); err != nil {
+			return err
+		}
 		argumentsToValidate := map[string][]string{
 			"cluster-listen-client-urls":          opt.ClusterListenClientURLs,
 			"cluster-listen-peer-urls":            opt.ClusterListenPeerURLs,
@@ -314,15 +335,6 @@ func (opt *Options) validate() error {
 			}
 			if _, err := ParseURLs(initialClusterUrls); err != nil {
 				return fmt.Errorf("invalid initial-cluster: %v", err)
-			}
-			if len(opt.ClusterJoinURLs) > 0 {
-				err := strings.Join(strings.Fields(`
-					%s and %s are both defined.
-					Please provide only one of them. %s is the recommended way.`), " ")
-				if len(opt.ConfigFile) == 0 {
-					return fmt.Errorf(err, "--initial-cluster", "--cluster-join-urls", "--initial-cluster")
-				}
-				return fmt.Errorf(err, "cluster.initial-cluster", "cluster-join-urls", "cluster.initial-cluster")
 			}
 		}
 		for arg, urls := range argumentsToValidate {
