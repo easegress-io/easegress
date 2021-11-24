@@ -22,20 +22,19 @@ import (
 	"github.com/openzipkin/zipkin-go/model"
 )
 
-func spanDebugf(context *model.SpanContext, template string, args ...interface{}) {
-	temp := "tid=%v sid=%v " + template
+func getSpanTemplate(context *model.SpanContext, template string) string {
 	if context == nil {
-		logger.Debugf(temp, nil, nil, args)
-	} else {
-		logger.Debugf(temp, context.TraceID, context.ID, args)
+		return "tid=" + "<nil>" + " sid=" + "<nil>" + " " + template
 	}
+	return "tid=" + context.TraceID.String() + " sid=" + context.ID.String() + " " + template
+}
+
+func spanDebugf(context *model.SpanContext, template string, args ...interface{}) {
+	temp := getSpanTemplate(context, template)
+	logger.Debugf(temp, args...)
 }
 
 func spanErrorf(context *model.SpanContext, template string, args ...interface{}) {
-	temp := "tid=%v sid=%v " + template
-	if context == nil {
-		logger.Errorf(temp, nil, nil, args)
-	} else {
-		logger.Errorf(temp, context.TraceID, context.ID, args)
-	}
+	temp := getSpanTemplate(context, template)
+	logger.Errorf(temp, args...)
 }

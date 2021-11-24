@@ -44,6 +44,18 @@ type (
 		Pipeline             string        `yaml:"pipeline" jsonschema:"omitempty"`
 		AuthByPipeline       bool          `yaml:"authByPipeline" jsonschema:"omitempty"`
 		MaxAllowedConnection int           `yaml:"maxAllowedConnection" jsonschema:"omitempty"`
+		ConnectionLimit      *RateLimit    `yaml:"connectionLimit" jsonschema:"omitempty"`
+		ClientPublishLimit   *RateLimit    `yaml:"clientPublishLimit" jsonschema:"omitempty"`
+	}
+
+	// RateLimit describes rate limit for connection or publish.
+	// rate: max allowed request in time period
+	// burst: max allowed bytes in time period
+	// timePeriod: time of seconds to count rate and burst, default 1 second
+	RateLimit struct {
+		Rate       int `yaml:"rate" jsonschema:"omitempty"`
+		Burst      int `yaml:"burst" jsonschema:"omitempty"`
+		TimePeriod int `yaml:"timePeriod" jsonschema:"omitempty"`
 	}
 
 	// Certificate describes TLS certifications.

@@ -58,9 +58,10 @@ type (
 	Client struct {
 		sync.Mutex
 
-		broker  *Broker
-		session *Session
-		conn    net.Conn
+		broker       *Broker
+		session      *Session
+		publishLimit *Limiter
+		conn         net.Conn
 
 		info       ClientInfo
 		statusFlag int32
@@ -99,7 +100,7 @@ func (c *Client) UserName() string {
 	return c.info.username
 }
 
-func newClient(connect *packets.ConnectPacket, broker *Broker, conn net.Conn) *Client {
+func newClient(connect *packets.ConnectPacket, broker *Broker, conn net.Conn, limitSpec *RateLimit) *Client {
 	var will *packets.PublishPacket
 	if connect.WillFlag {
 		will = packets.NewControlPacket(packets.Publish).(*packets.PublishPacket)
@@ -118,12 +119,13 @@ func newClient(connect *packets.ConnectPacket, broker *Broker, conn net.Conn) *C
 		will:      will,
 	}
 	client := &Client{
-		broker:     broker,
-		conn:       conn,
-		info:       info,
-		statusFlag: Connected,
-		writeCh:    make(chan packets.ControlPacket, 50),
-		done:       make(chan struct{}),
+		broker:       broker,
+		conn:         conn,
+		info:         info,
+		statusFlag:   Connected,
+		writeCh:      make(chan packets.ControlPacket, 50),
+		done:         make(chan struct{}),
+		publishLimit: newLimiter(limitSpec),
 	}
 	return client
 }
@@ -200,8 +202,18 @@ func (c *Client) processPacket(packet packets.ControlPacket) error {
 	return err
 }
 
+func (c *Client) checkPublishLimit(publish *packets.PublishPacket) bool {
+	size := publish.RemainingLength + 8
+	return c.publishLimit.acquirePermission(size)
+}
+
 func (c *Client) processPublish(publish *packets.PublishPacket) {
 	spanDebugf(nil, "client %s process publish %v", c.info.cid, publish.TopicName)
+
+	if !c.checkPublishLimit(publish) {
+		spanErrorf(nil, "client %v publish limiter drop packet %v", c.info.cid, publish.TopicName)
+		return
+	}
 	if c.broker.pipeline != "" {
 		pipe, err := pipeline.GetPipeline(c.broker.pipeline, context.MQTT)
 		if err != nil {

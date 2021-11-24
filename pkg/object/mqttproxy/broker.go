@@ -53,9 +53,10 @@ type (
 		tlsCfg     *tls.Config
 		pipeline   string
 
-		sessMgr   *SessionManager
-		topicMgr  *TopicManager
-		memberURL func(string, string) ([]string, error)
+		sessMgr           *SessionManager
+		topicMgr          *TopicManager
+		connectionLimiter *Limiter
+		memberURL         func(string, string) ([]string, error)
 
 		// done is the channel for shutdowning this proxy.
 		done chan struct{}
@@ -115,6 +116,7 @@ func newBroker(spec *Spec, store storage, memberURL func(string, string) ([]stri
 	}
 	broker.topicMgr = newTopicManager(spec.TopicCacheSize)
 	broker.sessMgr = newSessionManager(broker, store)
+	broker.connectionLimiter = newLimiter(spec.ConnectionLimit)
 	go broker.run()
 	return broker
 }
@@ -169,6 +171,23 @@ func (b *Broker) checkClientAuth(connect *packets.ConnectPacket) bool {
 	return false
 }
 
+func (b *Broker) checkConnectPermission(connect *packets.ConnectPacket) bool {
+	size := connect.RemainingLength + 8
+	permitted := b.connectionLimiter.acquirePermission(size)
+	if !permitted {
+		return permitted
+	}
+	if b.spec.MaxAllowedConnection > 0 {
+		b.Lock()
+		connNum := len(b.clients)
+		b.Unlock()
+		if connNum >= b.spec.MaxAllowedConnection {
+			return false
+		}
+	}
+	return true
+}
+
 func (b *Broker) handleConn(conn net.Conn) {
 	defer conn.Close()
 	packet, err := packets.ReadPacket(conn)
@@ -192,21 +211,16 @@ func (b *Broker) handleConn(conn net.Conn) {
 		return
 	}
 
-	if b.spec.MaxAllowedConnection > 0 {
-		b.Lock()
-		connNum := len(b.clients)
-		b.Unlock()
-		if connNum >= b.spec.MaxAllowedConnection {
-			connack.ReturnCode = packets.ErrRefusedServerUnavailable
-			err = connack.Write(conn)
-			if err != nil {
-				spanErrorf(nil, "connack back to client %s failed: %s", connect.ClientIdentifier, err)
-			}
-			return
+	if !b.checkConnectPermission(connect) {
+		connack.ReturnCode = packets.ErrRefusedServerUnavailable
+		err = connack.Write(conn)
+		if err != nil {
+			spanErrorf(nil, "connack back to client %s failed: %s", connect.ClientIdentifier, err)
 		}
+		return
 	}
 
-	client := newClient(connect, b, conn)
+	client := newClient(connect, b, conn, b.spec.ClientPublishLimit)
 
 	authFail := false
 	if b.spec.AuthByPipeline {

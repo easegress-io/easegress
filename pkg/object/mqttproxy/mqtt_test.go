@@ -47,8 +47,8 @@ func (t *testMQ) get() *packets.PublishPacket {
 }
 
 func init() {
-	// logger.InitNop()
-	logger.InitMock()
+	logger.InitNop()
+	// logger.InitMock()
 	pipeline.Register(&pipeline.MockMQTTFilter{})
 }
 
@@ -58,6 +58,12 @@ func getMQTTClient(t *testing.T, clientID, userName, password string, cleanSessi
 	if token := c.Connect(); token.Wait() && token.Error() != nil {
 		t.Errorf("basic connect error for client <%s> with <%s>", clientID, token.Error())
 	}
+	return c
+}
+
+func getUnConnectClient(clientID, userName, password string, cleanSession bool) paho.Client {
+	opts := paho.NewClientOptions().AddBroker("tcp://0.0.0.0:1883").SetClientID(clientID).SetUsername(userName).SetPassword(password).SetCleanSession(cleanSession)
+	c := paho.NewClient(opts)
 	return c
 }
 
@@ -1332,7 +1338,7 @@ func TestClient(t *testing.T) {
 	connect.WillTopic = "will"
 	connect.WillMessage = []byte("i am gone")
 
-	client := newClient(connect, nil, clientConn)
+	client := newClient(connect, nil, clientConn, nil)
 	will := client.info.will
 	if (will.Qos != connect.WillQos) || (will.TopicName != connect.WillTopic) || string(will.Payload) != string(connect.WillMessage) {
 		t.Error("produce wrong will msg")
@@ -1704,11 +1710,7 @@ func TestMaxAllowedConnection(t *testing.T) {
 	clients := []paho.Client{}
 	clientNum := 10
 	for i := 0; i < clientNum; i++ {
-		option := paho.NewClientOptions().AddBroker("tcp://0.0.0.0:1883").SetClientID(strconv.Itoa(i)).SetUsername("test").SetPassword("test")
-		client := paho.NewClient(option)
-		if token := client.Connect(); token.Wait() && token.Error() != nil {
-			t.Errorf("client %v connect fail, %v", i, token.Error())
-		}
+		client := getMQTTClient(t, strconv.Itoa(i), "test", "test", true)
 		clients = append(clients, client)
 	}
 	var num int
@@ -1725,13 +1727,81 @@ func TestMaxAllowedConnection(t *testing.T) {
 		t.Fatalf("wrong client connection number, got %v, expected %v", num, clientNum)
 	}
 	for i := clientNum; i < 2*clientNum; i++ {
-		option := paho.NewClientOptions().AddBroker("tcp://0.0.0.0:1883").SetClientID(strconv.Itoa(i)).SetUsername("test").SetPassword("test")
-		client := paho.NewClient(option)
+		client := getUnConnectClient(strconv.Itoa(i), "test", "test", true)
 		if token := client.Connect(); token.Wait() && token.Error() == nil {
 			t.Errorf("client %v connect should fail but got nil error, %v", i, token.Error())
 		}
 	}
 	for _, c := range clients {
 		c.Disconnect(200)
+	}
+}
+
+func TestConnectionLimit(t *testing.T) {
+	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
+	spec := &Spec{
+		Name:        "test",
+		EGName:      "test",
+		Port:        1883,
+		BackendType: testMQType,
+		Auth: []Auth{
+			{UserName: "test", PassBase64: b64passwd},
+		},
+		ConnectionLimit: &RateLimit{
+			Rate:       10,
+			TimePeriod: 1000,
+		},
+	}
+	store := newStorage(nil)
+	broker := newBroker(spec, store, func(s, ss string) ([]string, error) {
+		return nil, errors.New("empty urls for test")
+	})
+	defer broker.close()
+
+	// use all rate
+	for i := 0; i < 10; i++ {
+		broker.connectionLimiter.acquirePermission(1000)
+	}
+	client := getUnConnectClient("test", "test", "test", true)
+	if token := client.Connect(); token.Wait() && token.Error() == nil {
+		t.Errorf("client test connect should fail but got nil error, %v", token.Error())
+	}
+}
+
+func TestClientPublishLimit(t *testing.T) {
+	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
+	spec := &Spec{
+		Name:        "test",
+		EGName:      "test",
+		Port:        1883,
+		BackendType: testMQType,
+		Auth: []Auth{
+			{UserName: "test", PassBase64: b64passwd},
+		},
+		ClientPublishLimit: &RateLimit{
+			Rate:       10,
+			TimePeriod: 1000,
+		},
+	}
+	store := newStorage(nil)
+	broker := newBroker(spec, store, func(s, ss string) ([]string, error) {
+		return nil, errors.New("empty urls for test")
+	})
+	defer broker.close()
+
+	client := getMQTTClient(t, "test", "test", "test", true)
+	time.Sleep(50 * time.Millisecond)
+
+	// acquire all permission
+	broker.Lock()
+	c := broker.clients["test"]
+	broker.Unlock()
+	for i := 0; i < 10; i++ {
+		c.publishLimit.acquirePermission(100)
+	}
+
+	token := client.Publish("123", 1, false, []byte("test"))
+	if token.WaitTimeout(1 * time.Second) {
+		t.Errorf("client publish should fail, since we set client publish limit")
 	}
 }
