@@ -233,7 +233,7 @@ func (c *Connection) startWriteLoop() {
 			return
 		}
 
-		if err == iobufferpool.ErrEOF {
+		if err == io.EOF {
 			logger.Debugf("finish write with eof, local addr: %s, remote addr: %s",
 				c.localAddr.String(), c.remoteAddr.String())
 			c.Close(NoFlush, LocalClose)
@@ -327,7 +327,7 @@ func (c *Connection) doWriteIO() (bytesSent int64, err error) {
 		c.ioBuffers[i] = nil
 		c.writeBuffers[i] = nil
 		if buf.EOF() {
-			err = iobufferpool.ErrEOF
+			err = io.EOF
 		}
 		buf.Release()
 	}
