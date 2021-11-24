@@ -146,8 +146,8 @@ func mockStaticClusterMembers(count int) ([]*option.Options, membersSlice, []*pb
 	initialCluster := make(map[string]string)
 	for i := 0; i < count; i++ {
 		name := fmt.Sprintf("static-cluster-test-member-%03d", i)
-		peerUrl := fmt.Sprintf("http://localhost:%d", ports[(i*2)+1])
-		initialCluster[name] = peerUrl
+		peerURL := fmt.Sprintf("http://localhost:%d", ports[(i*2)+1])
+		initialCluster[name] = peerURL
 	}
 
 	for i := 0; i < count; i++ {

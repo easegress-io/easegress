@@ -264,11 +264,11 @@ func (opt *Options) adjust() {
 func ParseURLs(urlStrings []string) ([]url.URL, error) {
 	urls := make([]url.URL, len(urlStrings))
 	for i, urlString := range urlStrings {
-		parsedUrl, err := url.Parse(urlString)
+		parsedURL, err := url.Parse(urlString)
 		if err != nil {
 			return nil, fmt.Errorf(" %s: %v", urlString, err)
 		}
-		urls[i] = *parsedUrl
+		urls[i] = *parsedURL
 	}
 	return urls, nil
 }
