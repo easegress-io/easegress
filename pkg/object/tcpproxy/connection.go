@@ -28,7 +28,6 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/util/fasttime"
 	"github.com/megaease/easegress/pkg/util/iobufferpool"
-	"github.com/megaease/easegress/pkg/util/limitlistener"
 	"github.com/megaease/easegress/pkg/util/timerpool"
 )
 
@@ -92,7 +91,7 @@ func (c *Connection) SetOnClose(onclose func(event ConnectionEvent)) {
 func (c *Connection) Start() {
 	fnRecover := func() {
 		if r := recover(); r != nil {
-			logger.Errorf("tcp connection goroutine panic: %v\n%s\n", r, string(debug.Stack()))
+			logger.Errorf("tcp read/write loop panic: %v\n%s\n", r, string(debug.Stack()))
 			c.Close(NoFlush, LocalClose)
 		}
 	}
@@ -153,38 +152,38 @@ func (c *Connection) startReadLoop() {
 			c.Close(NoFlush, LocalClose)
 			return
 		default:
-			n, err := c.doReadIO()
-			if n > 0 {
-				c.onRead(iobufferpool.NewStreamBuffer(c.readBuffer[:n]))
-			}
+		}
 
-			if err == nil {
-				continue
-			}
+		n, err := c.doReadIO()
+		if n > 0 {
+			c.onRead(iobufferpool.NewStreamBuffer(c.readBuffer[:n]))
+		}
 
-			if atomic.LoadUint32(&c.closed) == 1 {
-				// connection has closed, so there is no need to record error log
-				// error may be created by CloseRead function
+		if err == nil {
+			continue
+		}
+
+		if te, ok := err.(net.Error); ok && te.Timeout() {
+			select {
+			case <-c.connStopChan:
 				logger.Debugf("connection has closed, exit read loop, local addr: %s, remote addr: %s",
 					c.localAddr.String(), c.remoteAddr.String())
 				return
+			default:
 			}
-
-			if te, ok := err.(net.Error); ok && te.Timeout() {
-				continue // ignore timeout error, continue read data
-			}
-
-			if err == io.EOF {
-				logger.Debugf("remote close connection, local addr: %s, remote addr: %s, err: %s",
-					c.localAddr.String(), c.remoteAddr.String(), err.Error())
-				c.Close(NoFlush, RemoteClose)
-			} else {
-				logger.Errorf("error on read, local addr: %s, remote addr: %s, err: %s",
-					c.localAddr.String(), c.remoteAddr.String(), err.Error())
-				c.Close(NoFlush, OnReadErrClose)
-			}
-			return
+			continue // ignore timeout error, continue read data
 		}
+
+		if err == io.EOF {
+			logger.Debugf("remote close connection, local addr: %s, remote addr: %s, err: %s",
+				c.localAddr.String(), c.remoteAddr.String(), err.Error())
+			c.Close(NoFlush, RemoteClose)
+		} else {
+			logger.Errorf("error on read, local addr: %s, remote addr: %s, err: %s",
+				c.localAddr.String(), c.remoteAddr.String(), err.Error())
+			c.Close(NoFlush, OnReadErrClose)
+		}
+		return
 	}
 }
 
@@ -222,6 +221,14 @@ func (c *Connection) startWriteLoop() {
 		}
 
 		if te, ok := err.(net.Error); ok && te.Timeout() {
+			select {
+			case <-c.connStopChan:
+				logger.Debugf("connection has closed, exit write loop, local addr: %s, remote addr: %s",
+					c.localAddr.String(), c.remoteAddr.String())
+				return
+			default:
+			}
+
 			c.Close(NoFlush, OnWriteTimeout)
 			return
 		}
@@ -269,16 +276,11 @@ func (c *Connection) Close(ccType CloseType, event ConnectionEvent) {
 	logger.Debugf("enter connection close func(%s), local addr: %s, remote addr: %s",
 		event, c.localAddr.String(), c.remoteAddr.String())
 
-	// close tcp rawConn read first, make sure exit read loop
-	if conn, ok := c.rawConn.(*limitlistener.Conn); ok {
-		_ = conn.Conn.(*net.TCPConn).CloseRead() // client connection is wrapped by limitlistener.Conn
-	} else {
-		_ = c.rawConn.(*net.TCPConn).CloseRead()
-	}
-
 	close(c.connStopChan)
-	_ = c.rawConn.Close()
+	_ = c.rawConn.SetDeadline(time.Now()) // notify break read/write loop
+
 	c.onClose(event)
+	_ = c.rawConn.Close()
 }
 
 func (c *Connection) doReadIO() (bufLen int, err error) {
