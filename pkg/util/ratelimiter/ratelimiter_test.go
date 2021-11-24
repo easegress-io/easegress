@@ -49,7 +49,7 @@ func TestNewDefaultPolicy(t *testing.T) {
 	}
 }
 func TestConcurrent(t *testing.T) {
-	policy := NewPolicy(50, 10, 5)
+	policy := NewPolicy(50*time.Millisecond, 10*time.Millisecond, 5)
 
 	var wg sync.WaitGroup
 	limiter := New(policy)
@@ -100,7 +100,7 @@ func TestConcurrent(t *testing.T) {
 }
 
 func TestRateLimiter(t *testing.T) {
-	policy := NewPolicy(50, 10, 5)
+	policy := NewPolicy(50*time.Millisecond, 10*time.Millisecond, 5)
 
 	limiter := New(policy)
 	limiter.SetStateListener(func(event *Event) {

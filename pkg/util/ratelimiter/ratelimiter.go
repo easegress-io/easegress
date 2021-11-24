@@ -73,15 +73,15 @@ var stateStrings = []string{
 // NewPolicy create and initialize a policy
 func NewPolicy(timeout, refresh time.Duration, limit int) *Policy {
 	return &Policy{
-		TimeoutDuration:    timeout * time.Millisecond,
-		LimitRefreshPeriod: refresh * time.Millisecond,
+		TimeoutDuration:    timeout,
+		LimitRefreshPeriod: refresh,
 		LimitForPeriod:     limit,
 	}
 }
 
 // NewDefaultPolicy create and initialize a policy with default configuration
 func NewDefaultPolicy() *Policy {
-	return NewPolicy(100, 10, 50)
+	return NewPolicy(100*time.Millisecond, 10*time.Millisecond, 50)
 }
 
 // New creates a rate limiter based on `policy`,
