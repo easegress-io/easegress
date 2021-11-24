@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/megaease/easegress/pkg/object/autocertmanager"
 	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/megaease/easegress/pkg/util/ipfilter"
 )
@@ -36,8 +37,9 @@ type (
 		KeepAlive        bool          `yaml:"keepAlive" jsonschema:"required"`
 		KeepAliveTimeout string        `yaml:"keepAliveTimeout" jsonschema:"omitempty,format=duration"`
 		MaxConnections   uint32        `yaml:"maxConnections" jsonschema:"omitempty,minimum=1"`
-		HTTPS            bool          `yaml:"https" jsonschema:"required"`
 		CacheSize        uint32        `yaml:"cacheSize" jsonschema:"omitempty"`
+		HTTPS            bool          `yaml:"https" jsonschema:"required"`
+		AutoCert         bool          `yaml:"autoCert" jsonschema:"omitempty"`
 		XForwardedFor    bool          `yaml:"xForwardedFor" jsonschema:"omitempty"`
 		Tracing          *tracing.Spec `yaml:"tracing" jsonschema:"omitempty"`
 		CaCertBase64     string        `yaml:"caCertBase64" jsonschema:"omitempty,format=base64"`
@@ -118,6 +120,7 @@ func (spec *Spec) Validate() error {
 
 func (spec *Spec) tlsConfig() (*tls.Config, error) {
 	var certificates []tls.Certificate
+
 	if spec.CertBase64 != "" && spec.KeyBase64 != "" {
 		// Prefer add CertBase64 and KeyBase64
 		certPem, _ := base64.StdEncoding.DecodeString(spec.CertBase64)
@@ -130,23 +133,27 @@ func (spec *Spec) tlsConfig() (*tls.Config, error) {
 	}
 
 	for k, v := range spec.Certs {
-		if secret, exists := spec.Keys[k]; exists {
-			cert, err := tls.X509KeyPair([]byte(v), []byte(secret))
-			if err != nil {
-				return nil, fmt.Errorf("generate x509 key pair for %s failed: %s ", k, err)
-			}
-			certificates = append(certificates, cert)
-		} else {
+		secret, exists := spec.Keys[k]
+		if !exists {
 			return nil, fmt.Errorf("certs %s hasn't secret corresponded to it", k)
 		}
+
+		certPem, _ := base64.StdEncoding.DecodeString(v)
+		keyPem, _ := base64.StdEncoding.DecodeString(secret)
+		cert, err := tls.X509KeyPair(certPem, keyPem)
+		if err != nil {
+			return nil, fmt.Errorf("generate x509 key pair for %s failed: %s ", k, err)
+		}
+		certificates = append(certificates, cert)
 	}
 
-	if len(certificates) == 0 {
+	if len(certificates) == 0 && !spec.AutoCert {
 		return nil, fmt.Errorf("none valid certs and secret")
 	}
 
-	tlsConf := &tls.Config{
-		Certificates: certificates,
+	tlsConf := &tls.Config{Certificates: certificates}
+	if spec.AutoCert {
+		tlsConf.GetCertificate = autocertmanager.GetCertificate
 	}
 
 	// if caCertBase64 configuration is provided, should enable tls.ClientAuth and
