@@ -439,7 +439,7 @@ func (b *Broker) httpGetAllSessionHandler(w http.ResponseWriter, r *http.Request
 	}
 	span, _ := b3.ExtractHTTP(r)()
 	spanDebugf(span, "http endpoint receive request to get all session")
-	allSession, err := b.sessMgr.store.getPrefix(sessionStoreKey(""))
+	allSession, err := b.sessMgr.store.getPrefix(sessionStoreKey(""), true)
 	if err != nil {
 		spanErrorf(span, "get all sessions with prefix %v failed, %v", sessionStoreKey(""), err)
 		api.HandleAPIError(w, r, http.StatusInternalServerError, fmt.Errorf("get all sessions failed, %v", err))

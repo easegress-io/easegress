@@ -121,7 +121,7 @@ func TestStorage(t *testing.T) {
 	if err != nil || *val != "1" {
 		t.Errorf("get wrong val")
 	}
-	valmap, err := store.getPrefix("prefix")
+	valmap, err := store.getPrefix("prefix", false)
 	if err != nil || !reflect.DeepEqual(valmap, map[string]string{"prefix_1": "1", "prefix_2": "2"}) {
 		t.Errorf("get wrong prefix val")
 	}
@@ -136,7 +136,7 @@ func TestMockStorage(t *testing.T) {
 	if err != nil || *val != "val1" {
 		t.Errorf("mock storage get return wrong value")
 	}
-	valMap, err := store.getPrefix("key")
+	valMap, err := store.getPrefix("key", false)
 	if err != nil || !reflect.DeepEqual(valMap, map[string]string{"key1": "val1", "key2": "val2", "key3": "val3"}) {
 		t.Errorf("mock storage get prefix return wrong value %v %v", valMap, map[string]string{"key1": "val1", "key2": "val2", "key3": "val3"})
 	}
