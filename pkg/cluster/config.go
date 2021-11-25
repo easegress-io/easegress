@@ -49,7 +49,7 @@ var (
 
 // CreateStaticClusterEtcdConfig creates an embedded etcd config for static sized cluster,
 // listing all cluster members for etcd's initial-cluster argument.
-func CreateStaticClusterEtcdConfig(opt *option.Options, members *members) (*embed.Config, error) {
+func CreateStaticClusterEtcdConfig(opt *option.Options) (*embed.Config, error) {
 	ec := embed.NewConfig()
 
 	var (
@@ -97,7 +97,7 @@ func CreateStaticClusterEtcdConfig(opt *option.Options, members *members) (*embe
 	if opt.Cluster.StateFlag == "existing" {
 		ec.ClusterState = embed.ClusterStateFlagExisting
 	}
-	ec.InitialCluster = members.initCluster()
+	ec.InitialCluster = opt.InitialClusterToString()
 
 	logger.Infof("etcd config: init-cluster:%s cluster-state:%s force-new-cluster:%v",
 		ec.InitialCluster, ec.ClusterState, ec.ForceNewCluster)

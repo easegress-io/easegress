@@ -24,6 +24,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/mitchellh/mapstructure"
@@ -37,12 +38,15 @@ import (
 
 // ClusterOptions is the start-up options.
 type ClusterOptions struct {
+	// Primary members define following URLs to form a cluster.
 	ListenPeerURLs           []string          `yaml:"listen-peer-urls"`
 	ListenClientURLs         []string          `yaml:"listen-client-urls"`
 	AdvertiseClientURLs      []string          `yaml:"advertise-client-urls"`
 	InitialAdvertisePeerURLs []string          `yaml:"initial-advertise-peer-urls"`
 	InitialCluster           map[string]string `yaml:"initial-cluster"`
 	StateFlag                string            `yaml:"state-flag"`
+	// Secondary members define URLs to connect to cluster formed by primary members.
+	PrimaryListenPeerURLs []string `yaml:"primary-listen-peer-urls"`
 }
 
 // Options is the start-up options.
@@ -97,6 +101,9 @@ type Options struct {
 	AbsWALDir    string `yaml:"-"`
 	AbsLogDir    string `yaml:"-"`
 	AbsMemberDir string `yaml:"-"`
+
+	// For Options in-memory updates. Updates are not persisted.
+	mutex sync.Mutex
 }
 
 // addClusterVars introduces cluster arguments.
@@ -121,6 +128,10 @@ func addClusterVars(opt *Options) {
 	opt.flags.StringToStringVarP(&opt.Cluster.InitialCluster, "initial-cluster", "", nil,
 		"List of (member name, URL) pairs that will form the cluster. E.g. primary-1=http://localhost:2380. When used, leave cluster-join-urls empty.")
 	opt.flags.StringVar(&opt.Cluster.StateFlag, "state-flag", "new", "Cluster state (new, existing)")
+	opt.flags.StringSliceVar(&opt.Cluster.PrimaryListenPeerURLs,
+		"primary-listen-peer-urls",
+		[]string{"http://localhost:2380"},
+		"List of peer URLs of primary members. Define this only, when cluster-role is secondary.")
 }
 
 // New creates a default Options.
@@ -128,6 +139,7 @@ func New() *Options {
 	opt := &Options{
 		flags: pflag.NewFlagSet(os.Args[0], pflag.ContinueOnError),
 		viper: viper.New(),
+		mutex: sync.Mutex{},
 	}
 
 	opt.flags.BoolVarP(&opt.ShowVersion, "version", "v", false, "Print the version and exit.")
@@ -324,8 +336,8 @@ func (opt *Options) validate() error {
 		if opt.ForceNewCluster {
 			return fmt.Errorf("secondary got force-new-cluster")
 		}
-		if !opt.UseInitialCluster() && len(opt.ClusterJoinURLs) == 0 {
-			return fmt.Errorf("secondary got empty cluster-join-urls")
+		if len(opt.Cluster.PrimaryListenPeerURLs) == 0 && len(opt.ClusterJoinURLs) == 0 {
+			return fmt.Errorf("secondary got empty cluster.primary-listen-peer-urls and cluster-join-urls entries")
 		}
 	case "primary":
 		if err := checkNoOverlappingArguments(opt); err != nil {
@@ -362,7 +374,7 @@ func (opt *Options) validate() error {
 			}
 		}
 	default:
-		return fmt.Errorf("invalid cluster-role. Supported roles are primary/secondary.")
+		return fmt.Errorf("invalid cluster-role: supported roles are primary/secondary")
 	}
 
 	_, err := time.ParseDuration(opt.ClusterRequestTimeout)
@@ -444,6 +456,47 @@ func (opt *Options) prepare() error {
 	}
 
 	return nil
+}
+
+// InitialClusterToString returns initial clusters string representation.
+func (opt *Options) InitialClusterToString() string {
+	ss := make([]string, 0)
+	for name, peerURL := range opt.Cluster.InitialCluster {
+		ss = append(ss, fmt.Sprintf("%s=%s", name, peerURL))
+	}
+	return strings.Join(ss, ",")
+}
+
+// GetPeerURLs returns URLs listed in cluster.initial-cluster for primary (a.k.a writer) and
+// for secondary (a.k.a reader) the ones listed in cluster.primary-listen-peer-url.
+func (opt *Options) GetPeerURLs() []string {
+	opt.mutex.Lock()
+	defer opt.mutex.Unlock()
+
+	if opt.ClusterRole == "secondary" {
+		return opt.Cluster.PrimaryListenPeerURLs
+	}
+	peerURLs := make([]string, 0)
+	for _, peerURL := range opt.Cluster.InitialCluster {
+		peerURLs = append(peerURLs, peerURL)
+	}
+	return peerURLs
+}
+
+// SetClusterPrimaryListenPeerURLs updates secondary role's peerURLs.
+func (opt *Options) SetClusterPrimaryListenPeerURLs(peerURLs []string) {
+	opt.mutex.Lock()
+	defer opt.mutex.Unlock()
+
+	opt.Cluster.PrimaryListenPeerURLs = peerURLs
+}
+
+// SetInitialCluster updates primary role's initial cluster.
+func (opt *Options) SetInitialCluster(peerURLs map[string]string) {
+	opt.mutex.Lock()
+	defer opt.mutex.Unlock()
+
+	opt.Cluster.InitialCluster = peerURLs
 }
 
 func generateMemberName(apiAddr string) (string, error) {

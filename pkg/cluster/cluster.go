@@ -26,6 +26,7 @@ import (
 	"sync"
 	"time"
 
+	pb "go.etcd.io/etcd/api/v3/etcdserverpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/concurrency"
 	"go.etcd.io/etcd/server/v3/embed"
@@ -144,15 +145,21 @@ func New(opt *option.Options) (Cluster, error) {
 		return nil, fmt.Errorf("invalid cluster request timeout: %v", err)
 	}
 
-	members, err := newMembers(opt)
-	if err != nil {
-		return nil, fmt.Errorf("new members failed: %v", err)
+	// Member file，members.ClusterMembers and members.KnownMembers will be deprecated in the future.
+	// When the new configuration way (cluster.initial-cluster or cluster.primary-listen-peer-urls) is used, let's not create member
+	// instance but let's read member information from pkg/option/options.go's Options.ClusterOptions directly.
+	var membersFile *members
+	if len(opt.GetPeerURLs()) == 0 {
+		membersFile, err = newMembers(opt)
+		if err != nil {
+			return nil, fmt.Errorf("new members failed: %v", err)
+		}
 	}
 
 	c := &cluster{
 		opt:            opt,
 		requestTimeout: requestTimeout,
-		members:        members,
+		members:        membersFile,
 		done:           make(chan struct{}),
 	}
 
@@ -241,7 +248,7 @@ func (c *cluster) getReady() error {
 		return nil
 	}
 
-	if !c.opt.ForceNewCluster && c.members.knownMembersLen() > 1 && !c.opt.UseInitialCluster() {
+	if !c.opt.UseInitialCluster() && !c.opt.ForceNewCluster && c.members != nil && c.members.knownMembersLen() > 1 {
 		client, _ := c.getClient()
 		if client != nil {
 			err := c.addSelfToCluster()
@@ -382,9 +389,14 @@ func (c *cluster) getClient() (*clientv3.Client, error) {
 		return c.client, nil
 	}
 
-	endpoints := c.members.knownPeerURLs()
-	if c.opt.ForceNewCluster {
-		endpoints = []string{c.members.self().PeerURL}
+	var endpoints []string
+	if c.members == nil {
+		endpoints = c.opt.GetPeerURLs()
+	} else {
+		endpoints = c.members.knownPeerURLs()
+		if c.opt.ForceNewCluster {
+			endpoints = []string{c.members.self().PeerURL}
+		}
 	}
 	logger.Infof("client connect with endpoints: %v", endpoints)
 	client, err := clientv3.New(clientv3.Config{
@@ -632,12 +644,14 @@ func (c *cluster) startServer() (done, timeout chan struct{}, err error) {
 		close(done)
 		return done, timeout, nil
 	}
-	createConfig := CreateEtcdConfig
+	var (
+		etcdConfig *embed.Config
+	)
 	if c.opt.UseInitialCluster() {
-		createConfig = CreateStaticClusterEtcdConfig
+		etcdConfig, err = CreateStaticClusterEtcdConfig(c.opt)
+	} else {
+		etcdConfig, err = CreateEtcdConfig(c.opt, c.members)
 	}
-
-	etcdConfig, err := createConfig(c.opt, c.members)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -800,9 +814,30 @@ func (c *cluster) updateMembers() error {
 		return err
 	}
 
-	c.members.updateClusterMembers(resp.Members)
-
+	if c.opt.UseInitialCluster() {
+		c.UpdatePeerURLs(resp.Members)
+	} else {
+		c.members.updateClusterMembers(resp.Members)
+	}
 	return nil
+}
+
+// UpdatePeerURLs updates peerURLs according the cluster role.
+func (c *cluster) UpdatePeerURLs(pbMembers []*pb.Member) {
+	primaryMembers := pbMembersToMembersSlice(pbMembers)
+	if c.opt.ClusterRole == "secondary" {
+		newPeerURLs := make([]string, 0)
+		for _, member := range primaryMembers {
+			newPeerURLs = append(newPeerURLs, member.PeerURL)
+		}
+		c.opt.SetClusterPrimaryListenPeerURLs(newPeerURLs)
+	} else {
+		newInitialCluster := make(map[string]string)
+		for _, member := range primaryMembers {
+			newInitialCluster[member.Name] = member.PeerURL
+		}
+		c.opt.SetInitialCluster(newInitialCluster)
+	}
 }
 
 func (c *cluster) PurgeMember(memberName string) error {

@@ -72,16 +72,11 @@ func newMembers(opt *option.Options) (*members, error) {
 		ClusterMembers: newMemberSlices(),
 		KnownMembers:   newMemberSlices(),
 	}
-	if opt.UseInitialCluster() {
-		m.initializeStaticClusterMembers(opt)
-	} else {
-		m.initializeMembers(opt)
-		err := m.load()
-		if err != nil {
-			return nil, err
-		}
+	m.initializeMembers(opt)
+	err := m.load()
+	if err != nil {
+		return nil, err
 	}
-
 	return m, nil
 }
 
@@ -105,19 +100,6 @@ func (m *members) initializeMembers(opt *option.Options) {
 			})
 		}
 	}
-	m.KnownMembers.update(initMS)
-}
-
-// initializeStaticClusterMembers adds all members to ClusterMembers and KnownMembers.
-func (m *members) initializeStaticClusterMembers(opt *option.Options) {
-	initMS := make(membersSlice, 0)
-	for name, peerURL := range opt.Cluster.InitialCluster {
-		initMS = append(initMS, &member{
-			Name:    name,
-			PeerURL: peerURL,
-		})
-	}
-	m.ClusterMembers.update(initMS)
 	m.KnownMembers.update(initMS)
 }
 
@@ -245,12 +227,10 @@ func (m *members) updateClusterMembers(pbMembers []*pb.Member) {
 	// NOTE: KnownMembers store members as many as possible
 	m.KnownMembers.update(*m.ClusterMembers)
 
-	if !m.opt.UseInitialCluster() {
-		// When cluster is initialized member by member, persist KnownMembers and ClusterMembers
-		// to disk for failure recovery. If a member fails for any reason before it has been added
-		// to cluster, the persisted file can be used to continue initialization.
-		m.store()
-	}
+	// When cluster is initialized member by member, persist KnownMembers and ClusterMembers
+	// to disk for failure recovery. If a member fails for any reason before it has been added
+	// to cluster, the persisted file can be used to continue initialization.
+	m.store()
 }
 
 func (m *members) knownMembersLen() int {

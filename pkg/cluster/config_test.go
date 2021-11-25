@@ -61,8 +61,7 @@ func TestCreateEtcdConfigFailures(t *testing.T) {
 
 	for i, opt := range testData {
 		t.Run(fmt.Sprintf("CreateStaticClusterEtcdConfig: options invalid url i=%d", i), func(t *testing.T) {
-			membersInstance, _ := newMembers(opt)
-			_, err := CreateStaticClusterEtcdConfig(opt, membersInstance)
+			_, err := CreateStaticClusterEtcdConfig(opt)
 			if err == nil {
 				t.Error("There should be an error")
 			}
