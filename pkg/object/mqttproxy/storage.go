@@ -137,5 +137,5 @@ func (cs *clusterStorage) watchDelete(prefix string) (<-chan map[string]*string,
 	if cs.watcher == nil {
 		return nil, fmt.Errorf("nil watcher")
 	}
-	return cs.watcher.WatchWithOp(prefix, cluster.OpPrefix, cluster.OpDelete)
+	return cs.watcher.WatchWithOp(prefix, cluster.OpPrefix, cluster.OpFilterDelete)
 }

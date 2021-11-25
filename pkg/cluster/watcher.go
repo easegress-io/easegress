@@ -223,13 +223,9 @@ func (w *watcher) WatchRawPrefix(prefix string) (<-chan map[string]*clientv3.Eve
 func (w *watcher) WatchWithOp(key string, ops ...WatchOp) (<-chan map[string]*string, error) {
 	newOps := []clientv3.OpOption{}
 	for _, o := range ops {
-		switch o {
-		case OpPrefix:
-			newOps = append(newOps, clientv3.WithPrefix())
-		case OpPut:
-			newOps = append(newOps, clientv3.WithFilterPut())
-		case OpDelete:
-			newOps = append(newOps, clientv3.WithFilterDelete())
+		op := getOpOption(o)
+		if op != nil {
+			newOps = append(newOps, op)
 		}
 	}
 
