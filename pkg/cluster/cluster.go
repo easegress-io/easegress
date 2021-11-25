@@ -68,7 +68,7 @@ type (
 
 		LastDefragTime string `yaml:"lastDefragTime,omitempty"`
 
-		// Etcd is non-nil only it is a writer.
+		// Etcd is non-nil only if it's cluster status is primary.
 		Etcd *EtcdStatus `yaml:"etcd,omitempty"`
 	}
 
@@ -212,7 +212,7 @@ func (c *cluster) run() {
 
 	logger.Infof("cluster is ready")
 
-	if c.opt.ClusterRole == "writer" {
+	if c.opt.ClusterRole == "primary" {
 		go c.defrag()
 	}
 
@@ -220,7 +220,7 @@ func (c *cluster) run() {
 }
 
 func (c *cluster) getReady() error {
-	if c.opt.ClusterRole == "reader" {
+	if c.opt.ClusterRole == "secondary" {
 		_, err := c.getClient()
 		if err != nil {
 			return err
@@ -761,7 +761,7 @@ func (c *cluster) syncStatus() error {
 		Options: *c.opt,
 	}
 
-	if c.opt.ClusterRole == "writer" {
+	if c.opt.ClusterRole == "primary" {
 		server, err := c.getServer()
 		if err != nil {
 			return err

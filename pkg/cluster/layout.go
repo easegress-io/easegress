@@ -36,7 +36,7 @@ const (
 	wasmDataPrefixFormat     = "/wasm/data/%s/%s/"
 
 	// the cluster name of this eg group will be registered under this path in etcd
-	// any new member(reader or writer ) will be rejected if it is configured a different cluster name
+	// any new member(primary or secondary ) will be rejected if it is configured a different cluster name
 	clusterNameKey = "/eg/cluster/name"
 )
 

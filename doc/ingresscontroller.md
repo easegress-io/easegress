@@ -103,7 +103,7 @@ spec:
         - |-
           echo name: $POD_NAME > /easegress-ingress/config.yaml && echo '
           cluster-request-timeout: 10s
-          cluster-role: writer
+          cluster-role: primary
           api-addr: 0.0.0.0:2381
           cluster-name: easegress-ingress-controller
           ' >> /easegress-ingress/config.yaml && echo '

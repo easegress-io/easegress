@@ -70,7 +70,7 @@ func mockTestOpt() *option.Options {
 	opt := option.New()
 	opt.Name = name
 	opt.ClusterName = "test-cluster"
-	opt.ClusterRole = "writer"
+	opt.ClusterRole = "primary"
 	opt.ClusterRequestTimeout = "10s"
 	opt.ClusterListenClientURLs = []string{fmt.Sprintf("http://localhost:%d", ports[0])}
 	opt.ClusterAdvertiseClientURLs = opt.ClusterListenClientURLs
@@ -155,7 +155,7 @@ func mockStaticClusterMembers(count int) ([]*option.Options, membersSlice, []*pb
 		opt := option.New()
 		opt.Name = name
 		opt.ClusterName = "test-static-sized-cluster"
-		opt.ClusterRole = "writer"
+		opt.ClusterRole = "primary"
 		opt.ClusterRequestTimeout = "10s"
 		listenPort := ports[(i*2)+2]
 		advertisePort := ports[(i*2)+1]

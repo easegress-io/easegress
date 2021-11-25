@@ -1,6 +1,6 @@
-name: writer-1
+name: primary-1
 cluster-name: cluster-test
-cluster-role: writer
+cluster-role: primary
 api-addr: localhost:2381
 data-dir: ./data
 wal-dir: ""
@@ -18,6 +18,6 @@ cluster:
   initial-advertise-peer-urls:
    - http://127.0.0.1:2380
   initial-cluster:
-   - writer-1: http://127.0.0.1:2380
-   - writer-2: http://127.0.0.1:2378
-   - writer-3: http://127.0.0.1:2376
+   - primary-1: http://127.0.0.1:2380
+   - primary-2: http://127.0.0.1:2378
+   - primary-3: http://127.0.0.1:2376

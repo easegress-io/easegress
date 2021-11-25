@@ -62,7 +62,7 @@ NC='\033[0m' # No Color
         if [ -n "$cluster" ] && [ -n "$name" ] && [ -n "$role" ] && [ -n "$status" ] \
             && [ -n "$peer" ] && [ -n "$client" ] && [ -n $api ]
         then
-            if [ $role = "writer" ]
+            if [ $role = "primary" ]
             then
                 if [ ! -n "$etcd" ]
                 then

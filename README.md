@@ -88,7 +88,7 @@ The architecture of Easegress:
     - Built-in [Open Zipkin](https://zipkin.io/)
     - [Open Tracing](https://opentracing.io/) for vendor-neutral APIs
   - **Observability**
-    - **Node:** role(leader, writer, reader), health or not, last heartbeat time, and so on
+    - **Node:** role(primary, secondary), raft leader status, healthy or not, last heartbeat time, and so on
     - **Traffic:** in multi-dimension: server and backend.
       - **Throughput:** total and error statistics of request count, TPS/m1, m5, m15, and error percent, etc.
       - **Latency:** p25, p50, p75, p95, p98, p99, p999.
@@ -170,7 +170,7 @@ $ egctl member list
     name: eg-default-name
     labels: {}
     cluster-name: eg-cluster-default-name
-    cluster-role: writer
+    cluster-role: primary
     cluster-request-timeout: 10s
     cluster-listen-client-urls:
     - http://127.0.0.1:2379

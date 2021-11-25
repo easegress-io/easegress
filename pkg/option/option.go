@@ -102,7 +102,7 @@ type Options struct {
 // addClusterVars introduces cluster arguments.
 func addClusterVars(opt *Options) {
 	opt.flags.StringVar(&opt.ClusterName, "cluster-name", "eg-cluster-default-name", "Human-readable name for the new cluster, ignored while joining an existed cluster.")
-	opt.flags.StringVar(&opt.ClusterRole, "cluster-role", "writer", "Cluster role for this member (reader, writer).")
+	opt.flags.StringVar(&opt.ClusterRole, "cluster-role", "primary", "Cluster role for this member (primary, secondary).")
 	opt.flags.StringVar(&opt.ClusterRequestTimeout, "cluster-request-timeout", "10s", "Timeout to handle request in the cluster.")
 
 	// Cluster connection configuration style 1
@@ -119,7 +119,7 @@ func addClusterVars(opt *Options) {
 	opt.flags.StringSliceVar(&opt.Cluster.AdvertiseClientURLs, "advertise-client-urls", []string{"http://localhost:2379"}, "List of this member’s client URLs to advertise to the rest of the cluster.")
 	opt.flags.StringSliceVar(&opt.Cluster.InitialAdvertisePeerURLs, "initial-advertise-peer-urls", []string{"http://localhost:2380"}, "List of this member’s peer URLs to advertise to the rest of the cluster.")
 	opt.flags.StringToStringVarP(&opt.Cluster.InitialCluster, "initial-cluster", "", nil,
-		"List of (member name, URL) pairs that will form the cluster. E.g. writer-1=http://localhost:2380. When used, leave cluster-join-urls empty.")
+		"List of (member name, URL) pairs that will form the cluster. E.g. primary-1=http://localhost:2380. When used, leave cluster-join-urls empty.")
 	opt.flags.StringVar(&opt.Cluster.StateFlag, "state-flag", "new", "Cluster state (new, existing)")
 }
 
@@ -167,6 +167,21 @@ func (opt *Options) UseInitialCluster() bool {
 	return len(opt.Cluster.InitialCluster) > 0
 }
 
+// renameLegacyClusterRoles renames legacy writer/reader --> primary/secondary and raises warning.
+func (opt *Options) renameLegacyClusterRoles() {
+	warning := "Cluster roles writer/reader are deprecated. \n" +
+		"Renamed cluster role '%s' to '%s'. Please use primary/secondary instead. \n"
+	fmtLogger := fmt.Printf // Importing logger here is a import cycle, so use fmt instead.
+	if opt.ClusterRole == "writer" {
+		opt.ClusterRole = "primary"
+		fmtLogger(warning, "writer", "primary")
+	}
+	if opt.ClusterRole == "reader" {
+		opt.ClusterRole = "secondary"
+		fmtLogger(warning, "reader", "secondary")
+	}
+}
+
 // Parse parses all arguments, returns normal message without error if --help/--version set.
 func (opt *Options) Parse() (string, error) {
 	err := opt.flags.Parse(os.Args[1:])
@@ -212,6 +227,7 @@ func (opt *Options) Parse() (string, error) {
 		c.TagName = "yaml"
 	})
 
+	opt.renameLegacyClusterRoles()
 	err = opt.validate()
 	if err != nil {
 		return "", err
@@ -240,7 +256,7 @@ func (opt *Options) Parse() (string, error) {
 // adjust adjusts the options to handle conflict
 // between user's config and internal component.
 func (opt *Options) adjust() {
-	if opt.ClusterRole != "writer" || opt.UseInitialCluster() {
+	if opt.ClusterRole != "primary" || opt.UseInitialCluster() {
 		return
 	}
 	if len(opt.ClusterJoinURLs) == 0 {
@@ -304,14 +320,14 @@ func (opt *Options) validate() error {
 		}
 	}
 	switch opt.ClusterRole {
-	case "reader":
+	case "secondary":
 		if opt.ForceNewCluster {
-			return fmt.Errorf("reader got force-new-cluster")
+			return fmt.Errorf("secondary got force-new-cluster")
 		}
 		if !opt.UseInitialCluster() && len(opt.ClusterJoinURLs) == 0 {
-			return fmt.Errorf("reader got empty cluster-join-urls")
+			return fmt.Errorf("secondary got empty cluster-join-urls")
 		}
-	case "writer":
+	case "primary":
 		if err := checkNoOverlappingArguments(opt); err != nil {
 			return err
 		}
@@ -346,7 +362,7 @@ func (opt *Options) validate() error {
 			}
 		}
 	default:
-		return fmt.Errorf("invalid cluster-role(support writer, reader)")
+		return fmt.Errorf("invalid cluster-role. Supported roles are primary/secondary.")
 	}
 
 	_, err := time.ParseDuration(opt.ClusterRequestTimeout)

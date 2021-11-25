@@ -140,7 +140,7 @@ server {
 ``` yaml
 name: member-001
 cluster-name: cluster-test
-cluster-role: writer
+cluster-role: primary
 cluster-client-url: http://127.0.0.1:2379
 cluster-peer-url: http://127.0.0.1:2380
 cluster-join-urls:

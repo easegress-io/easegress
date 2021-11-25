@@ -88,7 +88,7 @@ func newMembers(opt *option.Options) (*members, error) {
 // initializeMembers adds first member to ClusterMembers and all members to KnownMembers.
 func (m *members) initializeMembers(opt *option.Options) {
 	initMS := make(membersSlice, 0)
-	if opt.ClusterRole == "writer" && len(opt.ClusterInitialAdvertisePeerURLs) != 0 {
+	if opt.ClusterRole == "primary" && len(opt.ClusterInitialAdvertisePeerURLs) != 0 {
 		// Cluster is started member by member --> start with cluster of size 1
 		initMS = append(initMS, &member{
 			Name:    opt.Name,
@@ -196,7 +196,7 @@ func (m *members) _self() *member {
 		return s
 	}
 
-	if m.opt.ClusterRole == "writer" {
+	if m.opt.ClusterRole == "primary" {
 		logger.Errorf("BUG: can't get self from cluster members: %s "+
 			"knownMembers: %s", m.ClusterMembers, m.KnownMembers)
 	}

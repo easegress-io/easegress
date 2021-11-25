@@ -88,7 +88,7 @@
     - 内置 [Open Zipkin](https://zipkin.io/)
     - [Open Tracing](https://opentracing.io/)，提供厂商中立的 API。
   - **可观察性**
-    - **节点**：角色（Leader、Writer、Reader）、健康状态、最后一次心跳时间，等等。
+    - **节点**：角色（primary、secondary）、是不是Leader，健康状态、最后一次心跳时间，等等。
     - **多维度的服务器和后端流量数据**
       - **吞吐量**：请求数、TPS/m1、m5、m15 和错误百分比等。
       - **延迟**：p25、p50、p75、p95、p98、p99、p999。
@@ -169,7 +169,7 @@ $ egctl member list
     name: eg-default-name
     labels: {}
     cluster-name: eg-cluster-default-name
-    cluster-role: writer
+    cluster-role: primary
     cluster-request-timeout: 10s
     cluster-listen-client-urls:
     - http://127.0.0.1:2379
