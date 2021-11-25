@@ -814,7 +814,7 @@ func (c *cluster) updateMembers() error {
 		return err
 	}
 
-	if c.opt.UseInitialCluster() {
+	if c.members == nil {
 		c.UpdatePeerURLs(resp.Members)
 	} else {
 		c.members.updateClusterMembers(resp.Members)
