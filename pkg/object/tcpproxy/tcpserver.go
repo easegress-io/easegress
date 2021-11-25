@@ -86,7 +86,7 @@ func (l4 *TCPServer) Status() *supervisor.Status {
 	return &supervisor.Status{}
 }
 
-// Close closes TCPServer.
+// Close actually close tcp server runtime
 func (l4 *TCPServer) Close() {
 	l4.runtime.Close()
 }

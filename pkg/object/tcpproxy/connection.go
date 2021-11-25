@@ -54,7 +54,7 @@ type Connection struct {
 
 	mu               sync.Mutex
 	connStopChan     chan struct{} // use for connection close
-	listenerStopChan chan struct{} // use for listener close
+	listenerStopChan chan struct{} // notify tcp listener has been closed, just use in read loop
 
 	lastReadDeadlineTime  time.Time
 	lastWriteDeadlineTime time.Time
@@ -142,36 +142,33 @@ func (c *Connection) startReadLoop() {
 		}
 	}()
 
+	var n int
+	var err error
 	for {
-		select {
-		case <-c.connStopChan:
+		if atomic.LoadUint32(&c.closed) == 1 {
+			logger.Debugf("connection has been closed, exit read loop, local addr: %s, remote addr: %s",
+				c.localAddr.String(), c.remoteAddr.String())
 			return
+		}
+
+		select {
 		case <-c.listenerStopChan:
-			logger.Debugf("connection close due to listener stopped, local addr: %s, remote addr: %s",
+			logger.Debugf("listener stopped, exit read loop,local addr: %s, remote addr: %s",
 				c.localAddr.String(), c.remoteAddr.String())
 			c.Close(NoFlush, LocalClose)
 			return
 		default:
 		}
 
-		n, err := c.doReadIO()
-		if n > 0 {
+		if n, err = c.doReadIO(); n > 0 {
 			c.onRead(iobufferpool.NewStreamBuffer(c.readBuffer[:n]))
 		}
 
 		if err == nil {
 			continue
 		}
-
 		if te, ok := err.(net.Error); ok && te.Timeout() {
-			select {
-			case <-c.connStopChan:
-				logger.Debugf("connection has closed, exit read loop, local addr: %s, remote addr: %s",
-					c.localAddr.String(), c.remoteAddr.String())
-				return
-			default:
-			}
-			continue // ignore timeout error, continue read data
+			continue // c.closed will be check in the front of read loop
 		}
 
 		if err == io.EOF {
@@ -221,15 +218,12 @@ func (c *Connection) startWriteLoop() {
 		}
 
 		if te, ok := err.(net.Error); ok && te.Timeout() {
-			select {
-			case <-c.connStopChan:
-				logger.Debugf("connection has closed, exit write loop, local addr: %s, remote addr: %s",
+			if atomic.LoadUint32(&c.closed) == 1 {
+				logger.Debugf("connection has been close, exit write loop, local addr: %s, remote addr: %s",
 					c.localAddr.String(), c.remoteAddr.String())
-				return
-			default:
+			} else {
+				c.Close(NoFlush, OnWriteTimeout)
 			}
-
-			c.Close(NoFlush, OnWriteTimeout)
 			return
 		}
 
@@ -263,7 +257,7 @@ func (c *Connection) Close(ccType CloseType, event ConnectionEvent) {
 	}()
 
 	if ccType == FlushWrite {
-		_ = c.Write(iobufferpool.NewEOFStreamBuffer())
+		_ = c.Write(iobufferpool.NewEOFStreamBuffer()) // wait for write loop to call close function again
 		return
 	}
 
@@ -271,13 +265,11 @@ func (c *Connection) Close(ccType CloseType, event ConnectionEvent) {
 		// connection has already closed, so there is no need to execute below code
 		return
 	}
-
-	// close tcp rawConn read first
 	logger.Debugf("enter connection close func(%s), local addr: %s, remote addr: %s",
 		event, c.localAddr.String(), c.remoteAddr.String())
 
 	close(c.connStopChan)
-	_ = c.rawConn.SetDeadline(time.Now()) // notify break read/write loop
+	_ = c.rawConn.SetDeadline(time.Now()) // notify read/write loop to break
 
 	c.onClose(event)
 	_ = c.rawConn.Close()
