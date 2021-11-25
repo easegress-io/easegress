@@ -1539,9 +1539,7 @@ filters:
 		if p.TopicName != topic || string(p.Payload) != text {
 			t.Errorf("get wrong publish")
 		}
-		broker.Lock()
-		c := broker.clients[strconv.Itoa(i)]
-		broker.Unlock()
+		c := broker.getClient(strconv.Itoa(i))
 		if _, ok := c.Load("filter"); !ok {
 			t.Errorf("filter write key value failed")
 		}
@@ -1549,9 +1547,7 @@ filters:
 	}
 	// wait all close
 	for i := 0; i < 10; i++ {
-		broker.Lock()
-		num := len(broker.clients)
-		broker.Unlock()
+		num := len(broker.currentClients())
 		if num == 0 {
 			break
 		}
@@ -1618,9 +1614,7 @@ filters:
 	if token := client.Connect(); token.Wait() && token.Error() != nil {
 		t.Errorf("auth user should success %s", token.Error())
 	}
-	broker.Lock()
-	c := broker.clients["test"]
-	broker.Unlock()
+	c := broker.getClient("test")
 	if _, ok := c.Load("connect"); !ok {
 		t.Errorf("filter set connect key failed")
 	}
@@ -1715,9 +1709,7 @@ func TestMaxAllowedConnection(t *testing.T) {
 	}
 	var num int
 	for i := 0; i < 10; i++ {
-		broker.Lock()
-		num = len(broker.clients)
-		broker.Unlock()
+		num = len(broker.currentClients())
 		if num == clientNum {
 			break
 		}
@@ -1793,9 +1785,7 @@ func TestClientPublishLimit(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 
 	// acquire all permission
-	broker.Lock()
-	c := broker.clients["test"]
-	broker.Unlock()
+	c := broker.getClient("test")
 	for i := 0; i < 10; i++ {
 		c.publishLimit.acquirePermission(100)
 	}
@@ -1827,7 +1817,7 @@ func TestHTTPGetAllSession(t *testing.T) {
 	}
 	defer srv.shutdown()
 
-	req, _ := http.NewRequest(http.MethodGet, "http://localhost:8888//get/all/session", nil)
+	req, _ := http.NewRequest(http.MethodGet, "http://localhost:8888/get/all/session", nil)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("get all session failed, %v", err)
@@ -1838,6 +1828,55 @@ func TestHTTPGetAllSession(t *testing.T) {
 	if len(sessions.SessionID) != clientNum {
 		t.Errorf("get wrong session number wanted %v, got %v", clientNum, len(sessions.SessionID))
 	}
+	for _, c := range clients {
+		c.Disconnect(200)
+	}
+}
+
+func TestHTTPDeleteSession(t *testing.T) {
+	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
+	broker := getBroker("test", "test", b64passwd, 1883)
+	defer broker.close()
+
+	// connect 10 clients
+	clients := []paho.Client{}
+	clientNum := 10
+	for i := 0; i < clientNum; i++ {
+		client := getMQTTClient(t, strconv.Itoa(i), "test", "test", true)
+		clients = append(clients, client)
+	}
+
+	// start server
+	srv := newServer(":8888")
+	srv.addHandlerFunc("/delete/session", broker.httpDeleteSessionHandler)
+	if err := srv.start(); err != nil {
+		t.Errorf("couldn't start server: %s", err)
+	}
+	defer srv.shutdown()
+
+	data := HTTPSession{
+		SessionID: []string{"1", "2"},
+	}
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		t.Errorf("marshal http session %v failed, %v", data, err)
+	}
+	req, _ := http.NewRequest(http.MethodPost, "http://localhost:8888/delete/session", bytes.NewBuffer(jsonData))
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("delete session failed, %v", err)
+	}
+	defer resp.Body.Close()
+
+	for i := 0; i < 10; i++ {
+		if len(broker.currentClients()) == clientNum-2 {
+			break
+		}
+		if i == 9 {
+			t.Errorf("session delete failed %v", broker.currentClients())
+		}
+	}
+
 	for _, c := range clients {
 		c.Disconnect(200)
 	}

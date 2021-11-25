@@ -124,6 +124,13 @@ func newBroker(spec *Spec, store storage, memberURL func(string, string) ([]stri
 	broker.sessMgr = newSessionManager(broker, store)
 	broker.connectionLimiter = newLimiter(spec.ConnectionLimit)
 	go broker.run()
+	ch, err := broker.sessMgr.store.watchDelete(sessionStoreKey(""))
+	if err != nil {
+		spanErrorf(nil, "get watcher for session failed, %v", err)
+	}
+	if ch != nil {
+		go broker.watchDelete(ch)
+	}
 	return broker
 }
 
@@ -150,6 +157,29 @@ func (b *Broker) setListener() error {
 	b.tlsCfg = cfg
 	b.listener = l
 	return err
+}
+
+func (b *Broker) watchDelete(ch <-chan map[string]*string) {
+	for {
+		select {
+		case <-b.done:
+			return
+		case m := <-ch:
+			for k := range m {
+				clientID := strings.TrimPrefix(k, sessionStoreKey(""))
+				go func(cid string) {
+					b.Lock()
+					defer b.Unlock()
+					if c, ok := b.clients[cid]; ok {
+						if !c.disconnected() {
+							c.close()
+						}
+					}
+					delete(b.clients, cid)
+				}(clientID)
+			}
+		}
+	}
 }
 
 func (b *Broker) run() {
@@ -433,12 +463,45 @@ func (b *Broker) httpGetAllSessionHandler(w http.ResponseWriter, r *http.Request
 	}
 }
 
+func (b *Broker) httpDeleteSessionHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("suppose POST request but got %s", r.Method))
+		return
+	}
+	var data HTTPSession
+	err := json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("invalid json data from request body"))
+		return
+	}
+
+	span, _ := b3.ExtractHTTP(r)()
+	spanDebugf(span, "http endpoint received delete session data: %v", data)
+	for _, s := range data.SessionID {
+		err := b.sessMgr.store.delete(sessionStoreKey(s))
+		if err != nil {
+			spanErrorf(span, "delete session %v failed, %v", s, err)
+		}
+	}
+}
+
+func (b *Broker) currentClients() map[string]struct{} {
+	ans := make(map[string]struct{})
+	b.Lock()
+	for k := range b.clients {
+		ans[k] = struct{}{}
+	}
+	b.Unlock()
+	return ans
+}
+
 func (b *Broker) registerAPIs() {
 	group := &api.Group{
 		Group: b.name,
 		Entries: []*api.Entry{
 			{Path: b.mqttAPIPrefix(mqttAPITopicPublishPrefix), Method: http.MethodPost, Handler: b.httpTopicsPublishHandler},
 			{Path: b.mqttAPIPrefix(mqttAPISessionQueryPrefix), Method: http.MethodGet, Handler: b.httpGetAllSessionHandler},
+			{Path: b.mqttAPIPrefix(mqttAPISessionDeletePrefix), Method: http.MethodPost, Handler: b.httpDeleteSessionHandler},
 		},
 	}
 

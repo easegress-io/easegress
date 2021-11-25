@@ -18,8 +18,10 @@
 package mqttproxy
 
 import (
+	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/megaease/easegress/pkg/cluster"
 	etcderror "go.etcd.io/etcd/api/v3/v3rpc/rpctypes"
@@ -31,15 +33,19 @@ type (
 		getPrefix(prefix string) (map[string]string, error)
 		put(key, value string) error
 		delete(key string) error
+		watchDelete(prefix string) (<-chan map[string]*string, error)
 	}
 
 	mockStorage struct {
-		mu    sync.RWMutex
-		store map[string]string
+		mu        sync.RWMutex
+		store     map[string]string
+		watchCh   chan map[string]*string
+		watchFlag int32
 	}
 
 	clusterStorage struct {
-		cls cluster.Cluster
+		cls     cluster.Cluster
+		watcher cluster.Watcher
 	}
 )
 
@@ -48,9 +54,19 @@ var _ storage = (*clusterStorage)(nil)
 
 func newStorage(cls cluster.Cluster) storage {
 	if cls != nil {
-		return &clusterStorage{cls: cls}
+		watcher, err := cls.Watcher()
+		if err != nil {
+			spanErrorf(nil, "cluster get watcher failed, %v", err)
+		}
+		return &clusterStorage{
+			cls:     cls,
+			watcher: watcher,
+		}
 	}
-	return &mockStorage{store: make(map[string]string)}
+	return &mockStorage{
+		store:   make(map[string]string),
+		watchCh: make(chan map[string]*string),
+	}
 }
 
 func (m *mockStorage) get(key string) (*string, error) {
@@ -84,8 +100,21 @@ func (m *mockStorage) put(key, value string) error {
 func (m *mockStorage) delete(key string) error {
 	m.mu.Lock()
 	delete(m.store, key)
+	flag := atomic.LoadInt32(&m.watchFlag)
+	if flag == 1 {
+		go func() {
+			ans := make(map[string]*string)
+			ans[key] = nil
+			m.watchCh <- ans
+		}()
+	}
 	m.mu.Unlock()
 	return nil
+}
+
+func (m *mockStorage) watchDelete(prefix string) (<-chan map[string]*string, error) {
+	atomic.StoreInt32(&m.watchFlag, 1)
+	return m.watchCh, nil
 }
 
 func (cs *clusterStorage) get(key string) (*string, error) {
@@ -102,4 +131,11 @@ func (cs *clusterStorage) put(key, value string) error {
 
 func (cs *clusterStorage) delete(key string) error {
 	return cs.cls.Delete(key)
+}
+
+func (cs *clusterStorage) watchDelete(prefix string) (<-chan map[string]*string, error) {
+	if cs.watcher == nil {
+		return nil, fmt.Errorf("nil watcher")
+	}
+	return cs.watcher.WatchWithOp(prefix, cluster.OpPrefix, cluster.OpDelete)
 }
