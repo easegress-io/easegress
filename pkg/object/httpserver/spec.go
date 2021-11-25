@@ -101,21 +101,18 @@ type (
 
 // Validate validates HTTPServerSpec.
 func (spec *Spec) Validate() error {
-	if spec.HTTP3 && !spec.HTTPS {
-		return fmt.Errorf("https is disabled when http3 enabled")
+	if !spec.HTTPS {
+		if spec.HTTP3 {
+			return fmt.Errorf("https is disabled when http3 enabled")
+		}
+		return nil
 	}
 
-	if spec.HTTPS {
-		if spec.CertBase64 == "" && spec.KeyBase64 == "" && len(spec.Certs) == 0 && len(spec.Keys) == 0 {
-			return fmt.Errorf("certBase64/keyBase64, certs/keys are both empty when https enabled")
-		}
-		_, err := spec.tlsConfig()
-		if err != nil {
-			return err
-		}
+	if spec.CertBase64 == "" && spec.KeyBase64 == "" && len(spec.Certs) == 0 && len(spec.Keys) == 0 && !spec.AutoCert {
+		return fmt.Errorf("certBase64/keyBase64, certs/keys are both empty and autocert is disabled when https enabled")
 	}
-
-	return nil
+	_, err := spec.tlsConfig()
+	return err
 }
 
 func (spec *Spec) tlsConfig() (*tls.Config, error) {
@@ -154,6 +151,7 @@ func (spec *Spec) tlsConfig() (*tls.Config, error) {
 	tlsConf := &tls.Config{Certificates: certificates}
 	if spec.AutoCert {
 		tlsConf.GetCertificate = autocertmanager.GetCertificate
+		tlsConf.NextProtos = []string{"acme-tls/1"}
 	}
 
 	// if caCertBase64 configuration is provided, should enable tls.ClientAuth and

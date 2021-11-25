@@ -37,6 +37,7 @@ import (
 	_ "github.com/megaease/easegress/pkg/filter/wasmhost"
 
 	// Objects
+	_ "github.com/megaease/easegress/pkg/object/autocertmanager"
 	_ "github.com/megaease/easegress/pkg/object/consulserviceregistry"
 	_ "github.com/megaease/easegress/pkg/object/easemonitormetrics"
 	_ "github.com/megaease/easegress/pkg/object/etcdserviceregistry"
