@@ -64,12 +64,21 @@ type (
 		PurgeMember(member string) error
 	}
 
+	WatchOp string
+
 	// Watcher wraps etcd watcher.
 	Watcher interface {
 		Watch(key string) (<-chan *string, error)
 		WatchPrefix(prefix string) (<-chan map[string]*string, error)
 		WatchRaw(key string) (<-chan *clientv3.Event, error)
 		WatchRawPrefix(prefix string) (<-chan map[string]*clientv3.Event, error)
+		WatchWithOp(key string, ops ...WatchOp) (<-chan map[string]*string, error)
 		Close()
 	}
+)
+
+const (
+	OpPrefix WatchOp = "prefix"
+	OpPut    WatchOp = "put"
+	OpDelete WatchOp = "delete"
 )
