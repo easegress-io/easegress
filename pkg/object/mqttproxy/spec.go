@@ -23,9 +23,11 @@ import (
 )
 
 const (
-	sessionPrefix = "/mqtt/sessionMgr/clientID/%s"
-	topicPrefix   = "/mqtt/topicMgr/topic/%s"
-	mqttAPIPrefix = "/mqttproxy/%s/topics/publish"
+	sessionPrefix              = "/mqtt/sessionMgr/clientID/%s"
+	topicPrefix                = "/mqtt/topicMgr/topic/%s"
+	mqttAPITopicPublishPrefix  = "/mqttproxy/%s/topics/publish"
+	mqttAPISessionQueryPrefix  = "/mqttproxy/%s/session/query"
+	mqttAPISessionDeletePrefix = "/mqttproxy/%s/session/delete"
 )
 
 type (

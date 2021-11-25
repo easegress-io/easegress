@@ -895,7 +895,7 @@ func TestHTTPRequest(t *testing.T) {
 	broker := getBroker("test", "test", b64passwd, 1883)
 
 	srv := newServer(":8888")
-	srv.addHandlerFunc("/mqtt", broker.topicsPublishHandler)
+	srv.addHandlerFunc("/mqtt", broker.httpTopicsPublishHandler)
 	if err := srv.start(); err != nil {
 		t.Errorf("couldn't start server: %s", err)
 	}
@@ -980,7 +980,7 @@ func TestHTTPPublish(t *testing.T) {
 	broker := getBroker("test", "test", b64passwd, 1883)
 
 	srv := newServer(":8888")
-	srv.addHandlerFunc("/mqtt", broker.topicsPublishHandler)
+	srv.addHandlerFunc("/mqtt", broker.httpTopicsPublishHandler)
 	srv.start()
 
 	subscribeCh := make(chan CheckMsg)
@@ -1039,7 +1039,7 @@ func TestHTTPTransfer(t *testing.T) {
 	passBase64 := base64.StdEncoding.EncodeToString([]byte("test"))
 	broker0 := getBroker("test", "test", passBase64, 1883)
 	srv0 := newServer(":8888")
-	srv0.addHandlerFunc("/mqtt", broker0.topicsPublishHandler)
+	srv0.addHandlerFunc("/mqtt", broker0.httpTopicsPublishHandler)
 	srv0.start()
 
 	spec := &Spec{
@@ -1066,7 +1066,7 @@ func TestHTTPTransfer(t *testing.T) {
 		return urls, nil
 	})
 	srv1 := newServer(":8889")
-	srv1.addHandlerFunc("/mqtt", broker1.topicsPublishHandler)
+	srv1.addHandlerFunc("/mqtt", broker1.httpTopicsPublishHandler)
 	srv1.start()
 
 	// auto connect to broker0, not broker1
@@ -1451,7 +1451,7 @@ func TestBrokerListen(t *testing.T) {
 	if broker2 != nil {
 		t.Errorf("not valid port should return nil broker")
 	}
-	broker.mqttAPIPrefix()
+	broker.mqttAPIPrefix(mqttAPITopicPublishPrefix)
 	broker.registerAPIs()
 	broker.close()
 }
@@ -1803,5 +1803,42 @@ func TestClientPublishLimit(t *testing.T) {
 	token := client.Publish("123", 1, false, []byte("test"))
 	if token.WaitTimeout(1 * time.Second) {
 		t.Errorf("client publish should fail, since we set client publish limit")
+	}
+}
+
+func TestHTTPGetAllSession(t *testing.T) {
+	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
+	broker := getBroker("test", "test", b64passwd, 1883)
+	defer broker.close()
+
+	// connect 10 clients
+	clients := []paho.Client{}
+	clientNum := 10
+	for i := 0; i < clientNum; i++ {
+		client := getMQTTClient(t, strconv.Itoa(i), "test", "test", true)
+		clients = append(clients, client)
+	}
+
+	// start server
+	srv := newServer(":8888")
+	srv.addHandlerFunc("/get/all/session", broker.httpGetAllSessionHandler)
+	if err := srv.start(); err != nil {
+		t.Errorf("couldn't start server: %s", err)
+	}
+	defer srv.shutdown()
+
+	req, _ := http.NewRequest(http.MethodGet, "http://localhost:8888//get/all/session", nil)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("get all session failed, %v", err)
+	}
+	defer resp.Body.Close()
+	sessions := &HTTPSession{}
+	json.NewDecoder(resp.Body).Decode(sessions)
+	if len(sessions.SessionID) != clientNum {
+		t.Errorf("get wrong session number wanted %v, got %v", clientNum, len(sessions.SessionID))
+	}
+	for _, c := range clients {
+		c.Disconnect(200)
 	}
 }

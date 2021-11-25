@@ -114,7 +114,7 @@ func memberURLFunc(superSpec *supervisor.Spec) func(string, string) ([]string, e
 				if err != nil {
 					return nil, fmt.Errorf("get url for %v failed: %v", memberStatus.Options.Name, err)
 				}
-				urls = append(urls, newURL+"/apis/v1"+fmt.Sprintf(mqttAPIPrefix, name))
+				urls = append(urls, newURL+"/apis/v1"+fmt.Sprintf(mqttAPITopicPublishPrefix, name))
 			}
 		}
 		spanDebugf(nil, "eg %v %v get urls %v", egName, name, urls)

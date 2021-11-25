@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
@@ -69,6 +70,11 @@ type (
 		Payload     string `json:"payload"`
 		Base64      bool   `json:"base64"`
 		Distributed bool   `json:"distributed"`
+	}
+
+	// HTTPSession is json data used for session related operations, like get all sessions and delete some sessions
+	HTTPSession struct {
+		SessionID []string `json:"sessionID"`
 	}
 )
 
@@ -357,7 +363,7 @@ func (b *Broker) removeClient(clientID string) {
 	b.Unlock()
 }
 
-func (b *Broker) topicsPublishHandler(w http.ResponseWriter, r *http.Request) {
+func (b *Broker) httpTopicsPublishHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("suppose POST request but got %s", r.Method))
 		return
@@ -383,24 +389,56 @@ func (b *Broker) topicsPublishHandler(w http.ResponseWriter, r *http.Request) {
 		payload = []byte(data.Payload)
 	}
 
-	spanDebugf(nil, "http endpoint received json data: %v", data)
+	span, _ := b3.ExtractHTTP(r)()
+	spanDebugf(span, "http endpoint received json data: %v", data)
 	if !data.Distributed {
 		data.Distributed = true
 		b.requestTransfer(b.egName, b.name, data)
 	}
-	span, _ := b3.ExtractHTTP(r)()
 	go b.sendMsgToClient(span, data.Topic, payload, byte(data.QoS))
 }
 
-func (b *Broker) mqttAPIPrefix() string {
-	return fmt.Sprintf(mqttAPIPrefix, b.name)
+func (b *Broker) mqttAPIPrefix(path string) string {
+	return fmt.Sprintf(path, b.name)
+}
+
+func (b *Broker) httpGetAllSessionHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("suppose Get request but got %s", r.Method))
+		return
+	}
+	span, _ := b3.ExtractHTTP(r)()
+	spanDebugf(span, "http endpoint receive request to get all session")
+	allSession, err := b.sessMgr.store.getPrefix(sessionStoreKey(""))
+	if err != nil {
+		spanErrorf(span, "get all sessions with prefix %v failed, %v", sessionStoreKey(""), err)
+		api.HandleAPIError(w, r, http.StatusInternalServerError, fmt.Errorf("get all sessions failed, %v", err))
+		return
+	}
+	res := &HTTPSession{}
+	for k := range allSession {
+		sessionID := strings.TrimPrefix(k, sessionStoreKey(""))
+		res.SessionID = append(res.SessionID, sessionID)
+	}
+	jsonData, err := json.Marshal(res)
+	if err != nil {
+		spanErrorf(span, "all session data json marshal failed, %v", err)
+		api.HandleAPIError(w, r, http.StatusInternalServerError, fmt.Errorf("all sessions json marshal failed, %v", err))
+		return
+	}
+	_, err = w.Write(jsonData)
+	if err != nil {
+		spanErrorf(span, "write json data to http response writer failed, %v", err)
+		api.HandleAPIError(w, r, http.StatusInternalServerError, fmt.Errorf("write json data failed"))
+	}
 }
 
 func (b *Broker) registerAPIs() {
 	group := &api.Group{
 		Group: b.name,
 		Entries: []*api.Entry{
-			{Path: b.mqttAPIPrefix(), Method: http.MethodPost, Handler: b.topicsPublishHandler},
+			{Path: b.mqttAPIPrefix(mqttAPITopicPublishPrefix), Method: http.MethodPost, Handler: b.httpTopicsPublishHandler},
+			{Path: b.mqttAPIPrefix(mqttAPISessionQueryPrefix), Method: http.MethodGet, Handler: b.httpGetAllSessionHandler},
 		},
 	}
 
