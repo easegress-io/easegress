@@ -230,7 +230,7 @@ func (gf *GlobalFilter) reload(previousGeneration *GlobalFilter) {
 		}
 		err := gf.CreateAndUpdateBeforePipelineForSpec(gf.spec, beforePreviousPipeline)
 		if err != nil {
-			panic(fmt.Sprintf("create before pipeline error %v", err))
+			panic(fmt.Errorf("create before pipeline failed: %v", err))
 		}
 	}
 	//create and update afterPipeline entity
