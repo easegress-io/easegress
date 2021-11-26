@@ -1,3 +1,20 @@
+/*
+ * Copyright (c) 2017, MegaEase
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package autocertmanager
 
 import (
@@ -8,10 +25,10 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
-	"fmt"
 	"sync/atomic"
 	"time"
 
+	"github.com/libdns/libdns"
 	"github.com/megaease/easegress/pkg/logger"
 	"golang.org/x/crypto/acme"
 )
@@ -118,28 +135,61 @@ func (d *Domain) runTLSALPN01(acm *AutoCertManager, z *acme.Authorization, chal 
 }
 
 func (d *Domain) runDNS01(acm *AutoCertManager, chal *acme.Challenge) error {
-	if !acm.spec.EnableDNS01 {
+	if !acm.spec.EnableDNS01 || d.DomainSpec.DNSProvider == "" {
 		return nil
 	}
+
+	client := acm.client
+
+	dp, err := newDNSProvider(d.DomainSpec)
+	if err != nil {
+		return err
+	}
+
+	value, err := client.DNS01ChallengeRecord(chal.Token)
+	if err != nil {
+		return err
+	}
+
+	records, err := dp.AppendRecords(d.ctx, d.Zone, []libdns.Record{{
+		Type:  "TXT",
+		Name:  "_acme-challenge",
+		Value: value,
+	}})
+
+	if err != nil {
+		return err
+	}
+
 	d.cleanup = append(d.cleanup, func() error {
+		dp.DeleteRecords(d.ctx, d.Zone, records)
 		return nil
 	})
-	return nil
+
+	// DNS challenge need more time to complete
+	select {
+	case <-time.After(90 * time.Second):
+	case <-d.ctx.Done():
+		return d.ctx.Err()
+	}
+
+	_, err = client.Accept(d.ctx, chal)
+	return err
 }
 
-func newCSR(id acme.AuthzID) ([]byte, crypto.Signer) {
+func newCSR(id acme.AuthzID) ([]byte, crypto.Signer, error) {
 	var csr x509.CertificateRequest
 
 	csr.DNSNames = append(csr.DNSNames, id.Value)
 	k, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
-		panic(fmt.Sprintf("newCSR: ecdsa.GenerateKey for a cert: %v", err))
+		return nil, nil, err
 	}
 	b, err := x509.CreateCertificateRequest(rand.Reader, &csr, k)
 	if err != nil {
-		panic(fmt.Sprintf("newCSR: x509.CreateCertificateRequest: %v", err))
+		return nil, nil, err
 	}
-	return b, k
+	return b, k, nil
 }
 
 func (d *Domain) doRenewCert(acm *AutoCertManager) error {
@@ -189,7 +239,7 @@ func (d *Domain) doRenewCert(acm *AutoCertManager) error {
 			case "http-01":
 				d.runHTTP01(acm, chal)
 			case "dns-01":
-				//d.runDNS01(ctx, z, chal)
+				d.runDNS01(acm, chal)
 			case "tls-alpn-01":
 				d.runTLSALPN01(acm, z, chal)
 			default:
@@ -205,11 +255,16 @@ func (d *Domain) doRenewCert(acm *AutoCertManager) error {
 	}
 
 	if _, err := client.WaitOrder(ctx, order.URI); err != nil {
-		logger.Errorf("WaitOrder: %v", err)
+		logger.Errorf("WaitOrder(%q): %v", order.URI, err)
 		return err
 	}
 
-	csr, certkey := newCSR(ids[0])
+	csr, certkey, err := newCSR(ids[0])
+	if err != nil {
+		logger.Errorf("newCSR(%q): %v", ids[0], err)
+		return err
+	}
+
 	der, _, err := client.CreateOrderCert(ctx, order.FinalizeURL, csr, true)
 	if err != nil {
 		logger.Errorf("CreateOrderCert: %v", err)

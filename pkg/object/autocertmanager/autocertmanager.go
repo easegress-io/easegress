@@ -76,6 +76,7 @@ type (
 	DomainSpec struct {
 		Name            string `yaml:"name" jsonschema:"required"`
 		DNSProvider     string `yaml:"dnsProvider" jsonschema:"omitempty"`
+		Zone            string `yaml:"zone" jsonschema:"omitempty"`
 		APIToken        string `yaml:"apiToken" jsonschema:"omitempty"`
 		AccessKeyID     string `yaml:"accessKeyId" jsonschema:"omitempty"`
 		AccessKeySecret string `yaml:"accessKeySecret" jsonschema:"omitempty"`
@@ -162,6 +163,10 @@ func (acm *AutoCertManager) reload() {
 	for i := range acm.spec.Domains {
 		spec := &acm.spec.Domains[i]
 		name, err := idna.Lookup.ToASCII(spec.Name)
+		if err != nil && spec.Name[0] == '*' {
+			name, err = idna.Lookup.ToASCII(spec.Name[1:])
+			name = "*" + name
+		}
 		if err != nil {
 			name = spec.Name
 			logger.Warnf("domain name contains invalid characters: %s", name)
