@@ -207,7 +207,7 @@ func (s *Spec) Validate() (err error) {
 
 	err = s.BeforePipeline.Validate()
 	if err != nil {
-		return fmt.Errorf("before pipeline is invalidate err: %v", err)
+		return fmt.Errorf("before pipeline is invalid: %v", err)
 	}
 	err = s.AfterPipeline.Validate()
 	if err != nil {
