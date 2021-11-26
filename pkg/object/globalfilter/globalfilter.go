@@ -198,7 +198,6 @@ func (gf *GlobalFilter) afterHandle(ctx context.HTTPContext) string {
 }
 
 // Close closes GlobalFilter itself.
-// Supervisor won't call Close for previous generation in Update.
 func (gf *GlobalFilter) Close() {
 
 }
