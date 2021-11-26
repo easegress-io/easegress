@@ -243,7 +243,7 @@ func (gf *GlobalFilter) reload(previousGeneration *GlobalFilter) {
 		}
 		err := gf.CreateAndUpdateAfterPipelineForSpec(gf.spec, afterPreviousPipeline)
 		if err != nil {
-			panic(fmt.Sprintf("create after pipeline error %v", err))
+			panic(fmt.Errorf("create after pipeline failed: %v", err))
 		}
 	}
 }
