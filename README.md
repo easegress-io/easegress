@@ -113,6 +113,7 @@ The following examples show how to use Easegress for different scenarios.
 - [Security](./doc/cookbook/security.md) - How to do authentication by Header, JWT, HMAC, OAuth2, etc.
 - [Service Proxy](./doc/cookbook/service_proxy.md) - Supporting the Microservice registries - Zookeeper, Eureka, Consul, Nacos, etc.
 - [WebAssembly](./doc/cookbook/wasm.md) - Using AssemblyScript to extend the Easegress
+- [WebSocket](./doc/cookbook/websocket.md) - WebSocket proxy for Easegress
 - [Workflow](./doc/cookbook/workflow.md) - An Example to make a workflow for a number of APIs.
 
 For full list, see [Cookbook](./doc/cookbook/README.md).

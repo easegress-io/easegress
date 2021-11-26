@@ -113,6 +113,7 @@
 - [安全](./doc/cookbook/security.md) - 如何通过标头、JWT、HMAC、OAuth2 等进行认证。
 - [服务网关](./doc/cookbook/service_proxy.md) - 使用 Zookeeper、Eureka、Consul、Nacos 等进行服务注册。
 - [WebAssembly](./doc/cookbook/wasm.md) - 使用 AssemblyScript 来扩展 Easegress。
+- [WebSocket](./doc/cookbook/websocket.md) - Easegress 的 WebSocket 代理。
 - [工作流](./doc/cookbook/workflow.md) - 将若干 API 进行组合，定制为工作流。
 
 完整的列表请参见 [Cookbook](./doc/cookbook/README.md)。

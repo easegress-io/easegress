@@ -15,4 +15,5 @@ The following examples show how to use Easegress for different scenarios.
 - [Security](./security.md) - How to do authenication by Header, JWT, HMAC, OAuth2, etc.
 - [Service Proxy](./service_proxy.md) - Supporting the Microservice  registries - Zookeeper, Eureka, Consul, Nacos, etc.
 - [WebAssembly](./wasm.md) - Using AssemblyScript to extend the Easegress
+- [WebSocket](./websocket.md) - WebSocket proxy for Easegress
 - [Workflow](./workflow.md) - An Example to make a workflow for a number of APIs.
