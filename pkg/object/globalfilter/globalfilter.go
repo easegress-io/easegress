@@ -103,7 +103,7 @@ func (gf *GlobalFilter) CreateAndUpdateAfterPipelineForSpec(spec *Spec, previous
 	return nil
 }
 
-// CreateAndUpdatePipeline create and update globalFilter`s pipelines from pipeline spec.
+// CreateAndUpdatePipeline creates and updates GlobalFilter's pipelines.
 func (gf *GlobalFilter) CreateAndUpdatePipeline(spec *pipelineSpec, previousGeneration *httppipeline.HTTPPipeline) (*httppipeline.HTTPPipeline, error) {
 	// init config
 	config := yamltool.Marshal(spec)
