@@ -85,7 +85,7 @@ func (gf *GlobalFilter) CreateAndUpdateBeforePipelineForSpec(spec *Spec, previou
 	return nil
 }
 
-// CreateAndUpdateAfterPipelineForSpec If afterPipeline is nil, it will be created by the spec, otherwise updated.
+// CreateAndUpdateAfterPipelineForSpec creates afterPipeline if the spec is nil, otherwise it updates with the spec.
 func (gf *GlobalFilter) CreateAndUpdateAfterPipelineForSpec(spec *Spec, previousGeneration *httppipeline.HTTPPipeline) error {
 	afterPipeline := &pipelineSpec{
 		Kind: httppipeline.Kind,
