@@ -402,7 +402,7 @@ func (hp *HTTPPipeline) reload(previousGeneration *HTTPPipeline) {
 	hp.runningFilters = runningFilters
 }
 
-// getNextFilterIndex return index and whether end
+// getNextFilterIndex return filter index and whether jumped to the end of the pipeline.
 func (hp *HTTPPipeline) getNextFilterIndex(index int, result string) (int, bool) {
 	// return index + 1 if last filter succeeded
 	if result == "" {
@@ -443,7 +443,6 @@ func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) string {
 
 	filterIndex := -1
 	filterStat := newFilterStat()
-	isEnd := false
 
 	handle := func(lastResult string) string {
 		// For saving the `filterIndex`'s filter generated HTTP Response.
@@ -469,7 +468,7 @@ func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) string {
 			filterStat = lastStat
 		}()
 
-		filterIndex, isEnd = hp.getNextFilterIndex(filterIndex, lastResult)
+		filterIndex, isEnd := hp.getNextFilterIndex(filterIndex, lastResult)
 		if isEnd {
 			return LabelEND // jumpIf end of pipeline
 		}

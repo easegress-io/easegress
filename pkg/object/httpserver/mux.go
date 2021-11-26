@@ -489,7 +489,11 @@ func (m *mux) getGlobalFilter(rules *muxRules) *globalfilter.GlobalFilter {
 	if globalFilter == nil || !ok {
 		return nil
 	}
-	return globalFilter.Instance().(*globalfilter.GlobalFilter)
+	globalFilterInstance, ok := globalFilter.Instance().(*globalfilter.GlobalFilter)
+	if !ok {
+		return nil
+	}
+	return globalFilterInstance
 }
 
 func (m *mux) close() {
