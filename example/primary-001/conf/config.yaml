@@ -2,14 +2,11 @@ name: primary-001
 cluster-name: cluster-test
 cluster-role: primary
 cluster:
-  listen-client-urls: [http://127.0.0.1:12379]
-  listen-peer-urls: [http://127.0.0.1:12380]
-  advertise-client-urls: [http://127.0.0.1:12379]
-  initial-advertise-peer-urls: [http://127.0.0.1:12380]
-  initial-cluster:
-    primary-001: http://127.0.0.1:12380
-    primary-002: http://127.0.0.1:22380
-    primary-003: http://127.0.0.1:32380
+cluster-listen-client-urls: [http://127.0.0.1:12379]
+cluster-listen-peer-urls: [http://127.0.0.1:12380]
+cluster-advertise-client-urls: [http://127.0.0.1:12379]
+cluster-initial-advertise-peer-urls: [http://127.0.0.1:12380]
+cluster-join-urls: [http://127.0.0.1:12380,http://127.0.0.1:22380,http://127.0.0.1:32380]
 api-addr: 127.0.0.1:12381
 data-dir: ./data
 wal-dir: ""

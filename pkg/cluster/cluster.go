@@ -26,7 +26,6 @@ import (
 	"sync"
 	"time"
 
-	pb "go.etcd.io/etcd/api/v3/etcdserverpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/concurrency"
 	"go.etcd.io/etcd/server/v3/embed"
@@ -750,9 +749,11 @@ func (c *cluster) defrag() {
 				defragInterval = defragFailedInterval
 				logger.Errorf("defrag failed: get client failed: %v", err)
 			}
-			defragmentURL := c.opt.ClusterAdvertiseClientURLs[0]
-			if c.opt.UseInitialCluster() {
-				defragmentURL = c.opt.Cluster.AdvertiseClientURLs[0]
+
+			defragmentURL, err := c.opt.GetFirstAdvertiseClientURL()
+			if err != nil {
+				logger.Errorf("defrag failed: %v", err)
+				return
 			}
 			// NOTICE: It needs longer time than normal ones.
 			_, err = client.Defragment(c.longRequestContext(), defragmentURL)
@@ -814,30 +815,10 @@ func (c *cluster) updateMembers() error {
 		return err
 	}
 
-	if c.members == nil {
-		c.UpdatePeerURLs(resp.Members)
-	} else {
+	if c.members != nil {
 		c.members.updateClusterMembers(resp.Members)
 	}
 	return nil
-}
-
-// UpdatePeerURLs updates peerURLs according the cluster role.
-func (c *cluster) UpdatePeerURLs(pbMembers []*pb.Member) {
-	primaryMembers := pbMembersToMembersSlice(pbMembers)
-	if c.opt.ClusterRole == "secondary" {
-		newPeerURLs := make([]string, 0)
-		for _, member := range primaryMembers {
-			newPeerURLs = append(newPeerURLs, member.PeerURL)
-		}
-		c.opt.SetClusterPrimaryListenPeerURLs(newPeerURLs)
-	} else {
-		newInitialCluster := make(map[string]string)
-		for _, member := range primaryMembers {
-			newInitialCluster[member.Name] = member.PeerURL
-		}
-		c.opt.SetInitialCluster(newInitialCluster)
-	}
 }
 
 func (c *cluster) PurgeMember(memberName string) error {

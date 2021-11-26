@@ -24,7 +24,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/mitchellh/mapstructure"
@@ -101,9 +100,6 @@ type Options struct {
 	AbsWALDir    string `yaml:"-"`
 	AbsLogDir    string `yaml:"-"`
 	AbsMemberDir string `yaml:"-"`
-
-	// For Options in-memory updates. Updates are not persisted.
-	mutex sync.Mutex
 }
 
 // addClusterVars introduces cluster arguments.
@@ -139,7 +135,6 @@ func New() *Options {
 	opt := &Options{
 		flags: pflag.NewFlagSet(os.Args[0], pflag.ContinueOnError),
 		viper: viper.New(),
-		mutex: sync.Mutex{},
 	}
 
 	opt.flags.BoolVarP(&opt.ShowVersion, "version", "v", false, "Print the version and exit.")
@@ -470,9 +465,6 @@ func (opt *Options) InitialClusterToString() string {
 // GetPeerURLs returns URLs listed in cluster.initial-cluster for primary (a.k.a writer) and
 // for secondary (a.k.a reader) the ones listed in cluster.primary-listen-peer-url.
 func (opt *Options) GetPeerURLs() []string {
-	opt.mutex.Lock()
-	defer opt.mutex.Unlock()
-
 	if opt.ClusterRole == "secondary" {
 		return opt.Cluster.PrimaryListenPeerURLs
 	}
@@ -483,20 +475,18 @@ func (opt *Options) GetPeerURLs() []string {
 	return peerURLs
 }
 
-// SetClusterPrimaryListenPeerURLs updates secondary role's peerURLs.
-func (opt *Options) SetClusterPrimaryListenPeerURLs(peerURLs []string) {
-	opt.mutex.Lock()
-	defer opt.mutex.Unlock()
-
-	opt.Cluster.PrimaryListenPeerURLs = peerURLs
-}
-
-// SetInitialCluster updates primary role's initial cluster.
-func (opt *Options) SetInitialCluster(peerURLs map[string]string) {
-	opt.mutex.Lock()
-	defer opt.mutex.Unlock()
-
-	opt.Cluster.InitialCluster = peerURLs
+// GetFirstAdvertiseClientURL returns the first advertised client url.
+func (opt *Options) GetFirstAdvertiseClientURL() (string, error) {
+	if opt.UseInitialCluster() {
+		if len(opt.Cluster.AdvertiseClientURLs) == 0 {
+			return "", fmt.Errorf("cluster.advertise-client-URLs is empty")
+		}
+		return opt.Cluster.AdvertiseClientURLs[0], nil
+	}
+	if len(opt.ClusterAdvertiseClientURLs) == 0 {
+		return "", fmt.Errorf("cluster-advertise-client-URLs is empty")
+	}
+	return opt.ClusterAdvertiseClientURLs[0], nil
 }
 
 func generateMemberName(apiAddr string) (string, error) {
