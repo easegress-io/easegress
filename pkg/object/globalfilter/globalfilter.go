@@ -67,7 +67,7 @@ func init() {
 	supervisor.Register(&GlobalFilter{})
 }
 
-// CreateAndUpdateBeforePipelineForSpec If beforPipeline is nil, it will be created by the spec, otherwise updated.
+// CreateAndUpdateBeforePipelineForSpec creates beforPipeline if the spec is nil, otherwise it updates by the spec.
 func (gf *GlobalFilter) CreateAndUpdateBeforePipelineForSpec(spec *Spec, previousGeneration *httppipeline.HTTPPipeline) error {
 	beforePipeline := &pipelineSpec{
 		Kind: httppipeline.Kind,
