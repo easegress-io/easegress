@@ -68,7 +68,26 @@
 
     We copy all headers from your HTTP request to websocket backend, except ones used by `gorilla` package to build connection. Based on [4], we also add `X-Forwarded-For`, `X-Forwarded-Host`, `X-Forwarded-Proto` to http headers that send to websocket backend.
 
-> note: `gorilla` use `Upgrade`, `Connection`, `Sec-Websocket-Key`, `Sec-Websocket-Version`, `Sec-Websocket-Extensions` and `Sec-Websocket-Protocol` in http headers to set connection.
+    > note: `gorilla` use `Upgrade`, `Connection`, `Sec-Websocket-Key`, `Sec-Websocket-Version`, `Sec-Websocket-Extensions` and `Sec-Websocket-Protocol` in http headers to set connection.
+
+4. Demos
+
+    1. Create a WebSocket proxy for Easegress: `egctl object create -f websocket.yaml`. Here we use `Example1` as example, which will transfer requests from `easegress-ip:10020` to `ws://localhost:3001`.
+
+    2. Send request
+
+        ```bash
+        curl --include \
+            --no-buffer \
+            --header "Connection: Upgrade" \
+            --header "Upgrade: websocket" \
+            --header "Host: 127.0.0.1:10020" \
+            --header "Sec-WebSocket-Key: your-key-here" \
+            --header "Sec-WebSocket-Version: 13" \
+            http://127.0.0.1:10081/
+        ```
+
+    3. You send request to `WebSocketServer` and it will transfer it to true backend `ws://localhost:3001`.
 
 ## References
 
