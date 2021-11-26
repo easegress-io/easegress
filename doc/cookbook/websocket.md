@@ -3,6 +3,7 @@
 - [WebSocket](#websocket)
   - [Background](#background)
   - [Design](#design)
+  - [Example](#example)
   - [References](#references)
 
 ## Background
@@ -70,24 +71,24 @@
 
     > note: `gorilla` use `Upgrade`, `Connection`, `Sec-Websocket-Key`, `Sec-Websocket-Version`, `Sec-Websocket-Extensions` and `Sec-Websocket-Protocol` in http headers to set connection.
 
-4. Demos
+## Example
 
-    1. Create a WebSocket proxy for Easegress: `egctl object create -f websocket.yaml`. Here we use `Example1` as example, which will transfer requests from `easegress-ip:10020` to `ws://localhost:3001`.
+1. Create a WebSocket proxy for Easegress: `egctl object create -f websocket.yaml`. Here we use `Example1` as example, which will transfer requests from `easegress-ip:10020` to `ws://localhost:3001`.
 
-    2. Send request
+2. Send request
 
-        ```bash
-        curl --include \
-            --no-buffer \
-            --header "Connection: Upgrade" \
-            --header "Upgrade: websocket" \
-            --header "Host: 127.0.0.1:10020" \
-            --header "Sec-WebSocket-Key: your-key-here" \
-            --header "Sec-WebSocket-Version: 13" \
-            http://127.0.0.1:10081/
-        ```
+    ```bash
+    curl --include \
+        --no-buffer \
+        --header "Connection: Upgrade" \
+        --header "Upgrade: websocket" \
+        --header "Host: 127.0.0.1:10020" \
+        --header "Sec-WebSocket-Key: your-key-here" \
+        --header "Sec-WebSocket-Version: 13" \
+        http://127.0.0.1:10081/
+    ```
 
-    3. You send request to `WebSocketServer` and it will transfer it to true backend `ws://localhost:3001`.
+3. This request to `WebSocketServer` `easegress-ip:10081` will be transferred to websocket backend `ws://localhost:3001`.
 
 ## References
 
