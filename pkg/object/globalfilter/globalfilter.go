@@ -197,7 +197,7 @@ func (gf *GlobalFilter) afterHandle(ctx context.HTTPContext) string {
 	return handler.Handle(ctx)
 }
 
-// Close closes itself. It is called by deleting.
+// Close closes GlobalFilter itself.
 // Supervisor won't call Close for previous generation in Update.
 func (gf *GlobalFilter) Close() {
 
