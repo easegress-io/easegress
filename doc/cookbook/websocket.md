@@ -7,16 +7,17 @@
 
 ## Background
 
-- Easegress is popular for reverse proxy usage in production and development scenarios.
+- Reverse proxy is one of most popular features of Easegress and it's suitable for many production and development scenarios.
 
-- In reversed proxy use cases, `WebSocket` is a widely used protocol for a full-duplex communication solution between client and server. It relies on TCP.[1]
+- In reversed proxy use cases, `WebSocket` is a widely used protocol for a full-duplex communication solution between client and server. WebSocket relies on TCP.[1]
+
 - Many reverse proxy support `WebSocket`,e.g., NGINX[2], Traefik, and so on.
 
 ## Design
 
-- Bring `WebSocketServer` as an BusinessController to Easegress.
+- WebSocket server of Easegress is called `WebSocketServer` and it belongs to the group of BusinessControllers.
 
-- Using `github.com/gorilla/websocket` as the `WebSocket` client implementation, since it has rich features supported and a quite active community.（15k star/2.5k fork) Comparing to the original `golang.org/x/net/websocket` package, it can `receive fragmented message` and `send close message`.[3]
+- Easegress uses  `github.com/gorilla/websocket` to implement `WebSocket` client since it has rich features supported and a quite active community (15k star/2.5k fork). Gorilla supports some useful features (`receive fragmented message` and `send close message`) that do not exist in Go's standard WebSocket library `golang.org/x/net/websocket` [3], which make it a natural choice for Easegress WebSocketServer.
 
 1. Spec
 
