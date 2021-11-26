@@ -1806,27 +1806,57 @@ func TestHTTPGetAllSession(t *testing.T) {
 	clientNum := 10
 	for i := 0; i < clientNum; i++ {
 		client := getMQTTClient(t, strconv.Itoa(i), "test", "test", true)
+		if token := client.Subscribe("topic", 1, nil); token.Wait() && token.Error() != nil {
+			t.Errorf("subscribe qos0 error %s", token.Error())
+		}
 		clients = append(clients, client)
 	}
 
 	// start server
 	srv := newServer(":8888")
-	srv.addHandlerFunc("/get/all/session", broker.httpGetAllSessionHandler)
+	srv.addHandlerFunc("/session/query", broker.httpGetAllSessionHandler)
 	if err := srv.start(); err != nil {
 		t.Errorf("couldn't start server: %s", err)
 	}
 	defer srv.shutdown()
 
-	req, _ := http.NewRequest(http.MethodGet, "http://localhost:8888/get/all/session", nil)
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatalf("get all session failed, %v", err)
+	tests := []struct {
+		url    string
+		ok     bool
+		ansLen int
+	}{
+		{"http://localhost:8888/session/query?page=1&page_size=20&q=", true, 10},
+		{"http://localhost:8888/session/query?page=1&page_size=8&q=", true, 8},
+		{"http://localhost:8888/session/query", true, 10},
+		{"http://localhost:8888/session/query?page=1", false, 0},
+		{"http://localhost:8888/session/query?page_size=2", false, 0},
+		{"http://localhost:8888/session/query?q=", false, 0},
+		{"http://localhost:8888/session/query?page=0&page_size=10&q=", false, 0},
+		{"http://localhost:8888/session/query?page=1&page_size=0&q=", false, 0},
+		{"http://localhost:8888/session/query?page=2&page_size=20&q=", true, 0},
+		{"http://localhost:8888/session/query?page=1&page_size=10&q=233", true, 0},
 	}
-	defer resp.Body.Close()
-	sessions := &HTTPSession{}
-	json.NewDecoder(resp.Body).Decode(sessions)
-	if len(sessions.SessionID) != clientNum {
-		t.Errorf("get wrong session number wanted %v, got %v", clientNum, len(sessions.SessionID))
+	for _, test := range tests {
+		req, err := http.NewRequest(http.MethodGet, test.url, nil)
+		if err != nil {
+			t.Errorf("get request failed, %v", err)
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Errorf("client request failed, %v", err)
+		}
+		ok := resp.StatusCode == http.StatusOK
+		if ok != test.ok {
+			t.Errorf("get wrong result")
+		}
+		if ok {
+			sessions := &HTTPSessions{}
+			json.NewDecoder(resp.Body).Decode(sessions)
+			if len(sessions.Sessions) != test.ansLen {
+				t.Errorf("get wrong session number wanted %v, got %v", test.ansLen, len(sessions.Sessions))
+			}
+		}
+		resp.Body.Close()
 	}
 	for _, c := range clients {
 		c.Disconnect(200)
@@ -1854,8 +1884,11 @@ func TestHTTPDeleteSession(t *testing.T) {
 	}
 	defer srv.shutdown()
 
-	data := HTTPSession{
-		SessionID: []string{"1", "2"},
+	data := HTTPSessions{
+		Sessions: []*HTTPSession{
+			{SessionID: "1"},
+			{SessionID: "2"},
+		},
 	}
 	jsonData, err := json.Marshal(data)
 	if err != nil {

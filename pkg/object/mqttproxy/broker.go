@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -72,9 +73,15 @@ type (
 		Distributed bool   `json:"distributed"`
 	}
 
+	// HTTPSessions is json data used for session related operations, like get all sessions and delete some sessions
+	HTTPSessions struct {
+		Sessions []*HTTPSession `json:"sessions"`
+	}
+
 	// HTTPSession is json data used for session related operations, like get all sessions and delete some sessions
 	HTTPSession struct {
-		SessionID []string `json:"sessionID"`
+		SessionID string `json:"sessionID"`
+		Topic     string `json:"topic"`
 	}
 )
 
@@ -439,17 +446,74 @@ func (b *Broker) httpGetAllSessionHandler(w http.ResponseWriter, r *http.Request
 	}
 	span, _ := b3.ExtractHTTP(r)()
 	spanDebugf(span, "http endpoint receive request to get all session")
-	allSession, err := b.sessMgr.store.getPrefix(sessionStoreKey(""), true)
+
+	query := r.URL.Query()
+	page := 0
+	pageSize := 0
+	var topic string
+	var err error
+	if len(query) != 0 {
+		pageStr := query.Get("page")
+		pageSizeStr := query.Get("page_size")
+		topic = query.Get("q")
+		if len(pageStr) == 0 || len(pageSizeStr) == 0 {
+			api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("if use query, please provide both page and page_size"))
+			return
+		}
+		page, err = strconv.Atoi(pageStr)
+		if err != nil || page <= 0 {
+			api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("page in query should be number and >0"))
+			return
+		}
+		pageSize, err = strconv.Atoi(pageSizeStr)
+		if err != nil || pageSize <= 0 {
+			api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("page_size in query should be number and >0"))
+			return
+		}
+	}
+
+	allSession, err := b.sessMgr.store.getPrefix(sessionStoreKey(""), false)
 	if err != nil {
 		spanErrorf(span, "get all sessions with prefix %v failed, %v", sessionStoreKey(""), err)
 		api.HandleAPIError(w, r, http.StatusInternalServerError, fmt.Errorf("get all sessions failed, %v", err))
 		return
 	}
-	res := &HTTPSession{}
-	for k := range allSession {
-		sessionID := strings.TrimPrefix(k, sessionStoreKey(""))
-		res.SessionID = append(res.SessionID, sessionID)
+
+	res := &HTTPSessions{}
+	if len(query) == 0 {
+		for k := range allSession {
+			httpSession := &HTTPSession{
+				SessionID: k,
+			}
+			res.Sessions = append(res.Sessions, httpSession)
+		}
+	} else {
+		index := 0
+		start := page*pageSize - pageSize
+		end := page * pageSize
+		for _, v := range allSession {
+			if index >= start && index < end {
+				session := &Session{}
+				session.info = &SessionInfo{}
+				session.decode(v)
+				for k := range session.info.Topics {
+					if strings.Contains(k, topic) {
+						httpSession := &HTTPSession{
+							SessionID: session.info.ClientID,
+							Topic:     k,
+						}
+						res.Sessions = append(res.Sessions, httpSession)
+						break
+					}
+				}
+			}
+			if index > end {
+				break
+			}
+			index++
+		}
 	}
+
 	jsonData, err := json.Marshal(res)
 	if err != nil {
 		spanErrorf(span, "all session data json marshal failed, %v", err)
@@ -468,7 +532,7 @@ func (b *Broker) httpDeleteSessionHandler(w http.ResponseWriter, r *http.Request
 		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("suppose POST request but got %s", r.Method))
 		return
 	}
-	var data HTTPSession
+	var data HTTPSessions
 	err := json.NewDecoder(r.Body).Decode(&data)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("invalid json data from request body"))
@@ -477,8 +541,8 @@ func (b *Broker) httpDeleteSessionHandler(w http.ResponseWriter, r *http.Request
 
 	span, _ := b3.ExtractHTTP(r)()
 	spanDebugf(span, "http endpoint received delete session data: %v", data)
-	for _, s := range data.SessionID {
-		err := b.sessMgr.store.delete(sessionStoreKey(s))
+	for _, s := range data.Sessions {
+		err := b.sessMgr.store.delete(sessionStoreKey(s.SessionID))
 		if err != nil {
 			spanErrorf(span, "delete session %v failed, %v", s, err)
 		}
