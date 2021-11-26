@@ -1875,6 +1875,7 @@ func TestHTTPDeleteSession(t *testing.T) {
 		if i == 9 {
 			t.Errorf("session delete failed %v", broker.currentClients())
 		}
+		time.Sleep(50 * time.Millisecond)
 	}
 
 	for _, c := range clients {
