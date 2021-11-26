@@ -25,6 +25,8 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/megaease/easegress/pkg/object/globalfilter"
+
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocol"
@@ -454,7 +456,13 @@ func (m *mux) handleRequestWithCache(rules *muxRules, ctx context.HTTPContext, c
 			path = ci.path.pathRE.ReplaceAllString(path, ci.path.rewriteTarget)
 			ctx.Request().SetPath(path)
 		}
-		handler.Handle(ctx)
+		// global filter
+		globalFilter := m.getGlobalFilter(rules)
+		if globalFilter == nil {
+			handler.Handle(ctx)
+			return
+		}
+		globalFilter.Handle(ctx, handler)
 	}
 }
 
@@ -471,6 +479,21 @@ func (m *mux) appendXForwardedFor(ctx context.HTTPContext) {
 		v = stringtool.Cat(v, ",", ip)
 		ctx.Request().Header().Set(httpheader.KeyXForwardedFor, v)
 	}
+}
+
+func (m *mux) getGlobalFilter(rules *muxRules) *globalfilter.GlobalFilter {
+	if rules.spec.GlobalFilter == "" {
+		return nil
+	}
+	globalFilter, ok := rules.superSpec.Super().GetBusinessController(rules.spec.GlobalFilter)
+	if globalFilter == nil || !ok {
+		return nil
+	}
+	globalFilterInstance, ok := globalFilter.Instance().(*globalfilter.GlobalFilter)
+	if !ok {
+		return nil
+	}
+	return globalFilterInstance
 }
 
 func (m *mux) close() {
