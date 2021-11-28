@@ -28,13 +28,16 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/pipeline"
+	"github.com/openzipkin/zipkin-go/model"
+	"github.com/openzipkin/zipkin-go/propagation/b3"
 )
 
 type (
@@ -52,9 +55,10 @@ type (
 		tlsCfg     *tls.Config
 		pipeline   string
 
-		sessMgr   *SessionManager
-		topicMgr  *TopicManager
-		memberURL func(string, string) ([]string, error)
+		sessMgr           *SessionManager
+		topicMgr          *TopicManager
+		connectionLimiter *Limiter
+		memberURL         func(string, string) ([]string, error)
 
 		// done is the channel for shutdowning this proxy.
 		done chan struct{}
@@ -67,6 +71,17 @@ type (
 		Payload     string `json:"payload"`
 		Base64      bool   `json:"base64"`
 		Distributed bool   `json:"distributed"`
+	}
+
+	// HTTPSessions is json data used for session related operations, like get all sessions and delete some sessions
+	HTTPSessions struct {
+		Sessions []*HTTPSession `json:"sessions"`
+	}
+
+	// HTTPSession is json data used for session related operations, like get all sessions and delete some sessions
+	HTTPSession struct {
+		SessionID string `json:"sessionID"`
+		Topic     string `json:"topic"`
 	}
 )
 
@@ -92,20 +107,20 @@ func newBroker(spec *Spec, store storage, memberURL func(string, string) ([]stri
 		for _, a := range spec.Auth {
 			passwd, err := base64.StdEncoding.DecodeString(a.PassBase64)
 			if err != nil {
-				logger.Errorf("auth with name %v, base64 password %v decode failed: %v", a.UserName, a.PassBase64, err)
+				spanErrorf(nil, "auth with name %v, base64 password %v decode failed: %v", a.UserName, a.PassBase64, err)
 				return nil
 			}
 			broker.sha256Auth[a.UserName] = sha256Sum(passwd)
 		}
 		if len(broker.sha256Auth) == 0 {
-			logger.Errorf("empty valid auth for mqtt proxy")
+			spanErrorf(nil, "empty valid auth for mqtt proxy")
 			return nil
 		}
 	}
 
 	err := broker.setListener()
 	if err != nil {
-		logger.Errorf("mqtt broker set listener failed: %v", err)
+		spanErrorf(nil, "mqtt broker set listener failed: %v", err)
 		return nil
 	}
 
@@ -114,7 +129,15 @@ func newBroker(spec *Spec, store storage, memberURL func(string, string) ([]stri
 	}
 	broker.topicMgr = newTopicManager(spec.TopicCacheSize)
 	broker.sessMgr = newSessionManager(broker, store)
+	broker.connectionLimiter = newLimiter(spec.ConnectionLimit)
 	go broker.run()
+	ch, err := broker.sessMgr.store.watchDelete(sessionStoreKey(""))
+	if err != nil {
+		spanErrorf(nil, "get watcher for session failed, %v", err)
+	}
+	if ch != nil {
+		go broker.watchDelete(ch)
+	}
 	return broker
 }
 
@@ -143,6 +166,29 @@ func (b *Broker) setListener() error {
 	return err
 }
 
+func (b *Broker) watchDelete(ch <-chan map[string]*string) {
+	for {
+		select {
+		case <-b.done:
+			return
+		case m := <-ch:
+			for k := range m {
+				clientID := strings.TrimPrefix(k, sessionStoreKey(""))
+				go func(cid string) {
+					b.Lock()
+					defer b.Unlock()
+					if c, ok := b.clients[cid]; ok {
+						if !c.disconnected() {
+							c.close()
+						}
+					}
+					delete(b.clients, cid)
+				}(clientID)
+			}
+		}
+	}
+}
+
 func (b *Broker) run() {
 	for {
 		conn, err := b.listener.Accept()
@@ -168,36 +214,62 @@ func (b *Broker) checkClientAuth(connect *packets.ConnectPacket) bool {
 	return false
 }
 
+func (b *Broker) checkConnectPermission(connect *packets.ConnectPacket) bool {
+	size := connect.RemainingLength + 8
+	permitted := b.connectionLimiter.acquirePermission(size)
+	if !permitted {
+		return permitted
+	}
+	if b.spec.MaxAllowedConnection > 0 {
+		b.Lock()
+		connNum := len(b.clients)
+		b.Unlock()
+		if connNum >= b.spec.MaxAllowedConnection {
+			return false
+		}
+	}
+	return true
+}
+
 func (b *Broker) handleConn(conn net.Conn) {
 	defer conn.Close()
 	packet, err := packets.ReadPacket(conn)
 	if err != nil {
-		logger.Errorf("read connect packet failed: %s", err)
+		spanErrorf(nil, "read connect packet failed: %s", err)
 		return
 	}
 	connect, ok := packet.(*packets.ConnectPacket)
 	if !ok {
-		logger.Errorf("first packet received %s that was not Connect", packet.String())
+		spanErrorf(nil, "first packet received %s that was not Connect", packet.String())
 		return
 	}
-	logger.Debugf("connection from client %s", connect.ClientIdentifier)
+	spanDebugf(nil, "connection from client %s", connect.ClientIdentifier)
 
 	connack := packets.NewControlPacket(packets.Connack).(*packets.ConnackPacket)
 	connack.SessionPresent = connect.CleanSession
 	connack.ReturnCode = connect.Validate()
 	if connack.ReturnCode != packets.Accepted {
 		err = connack.Write(conn)
-		logger.Errorf("invalid connection %v, write connack failed: %s", connack.ReturnCode, err)
+		spanErrorf(nil, "invalid connection %v, write connack failed: %s", connack.ReturnCode, err)
 		return
 	}
 
-	client := newClient(connect, b, conn)
+	if !b.checkConnectPermission(connect) {
+		connack.ReturnCode = packets.ErrRefusedServerUnavailable
+		err = connack.Write(conn)
+		if err != nil {
+			spanErrorf(nil, "connack back to client %s failed: %s", connect.ClientIdentifier, err)
+		}
+		return
+	}
+
+	client := newClient(connect, b, conn, b.spec.ClientPublishLimit)
 
 	authFail := false
 	if b.spec.AuthByPipeline {
 		pipe, err := pipeline.GetPipeline(b.pipeline, context.MQTT)
 		if err != nil {
-			logger.Errorf("get pipeline %v failed, %v", b.pipeline, err)
+			spanErrorf(nil, "get pipeline %v failed, %v", b.pipeline, err)
 			authFail = true
 		} else {
 			ctx := context.NewMQTTContext(stdcontext.Background(), b.backend, client, connect)
@@ -213,15 +285,15 @@ func (b *Broker) handleConn(conn net.Conn) {
 		connack.ReturnCode = packets.ErrRefusedNotAuthorised
 		err = connack.Write(conn)
 		if err != nil {
-			logger.Errorf("connack back to client %s failed: %s", connect.ClientIdentifier, err)
+			spanErrorf(nil, "connack back to client %s failed: %s", connect.ClientIdentifier, err)
 		}
-		logger.Errorf("invalid connection %v, client %s auth failed", connack.ReturnCode, connect.ClientIdentifier)
+		spanErrorf(nil, "invalid connection %v, client %s auth failed", connack.ReturnCode, connect.ClientIdentifier)
 		return
 	}
 
 	err = connack.Write(conn)
 	if err != nil {
-		logger.Errorf("send connack to client %s failed: %s", connect.ClientIdentifier, err)
+		spanErrorf(nil, "send connack to client %s failed: %s", connect.ClientIdentifier, err)
 		return
 	}
 
@@ -240,7 +312,7 @@ func (b *Broker) handleConn(conn net.Conn) {
 	if len(topics) > 0 {
 		err = b.topicMgr.subscribe(topics, qoss, client.info.cid)
 		if err != nil {
-			logger.Errorf("client %v use previous session topics %v to subscribe failed: %v", client.info.cid, topics, err)
+			spanErrorf(nil, "client %v use previous session topics %v to subscribe failed: %v", client.info.cid, topics, err)
 		}
 	}
 	go client.writeLoop()
@@ -264,35 +336,35 @@ func (b *Broker) setSession(client *Client, connect *packets.ConnectPacket) {
 func (b *Broker) requestTransfer(egName, name string, data HTTPJsonData) {
 	urls, err := b.memberURL(egName, name)
 	if err != nil {
-		logger.Errorf("find urls for other egs failed:%v", err)
+		spanErrorf(nil, "find urls for other egs failed:%v", err)
 		return
 	}
 	jsonData, err := json.Marshal(data)
 	if err != nil {
-		logger.Errorf("json data marshal failed: %v", err)
+		spanErrorf(nil, "json data marshal failed: %v", err)
 		return
 	}
 	for _, url := range urls {
 		req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(jsonData))
 		if err != nil {
-			logger.Errorf("make new request failed: %v", err)
+			spanErrorf(nil, "make new request failed: %v", err)
 			continue
 		}
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			logger.Errorf("http client send msg failed:%v", err)
+			spanErrorf(nil, "http client send msg failed:%v", err)
 		} else {
 			resp.Body.Close()
 		}
 	}
-	logger.Debugf("http transfer data %v to %v", data, urls)
+	spanDebugf(nil, "http transfer data %v to %v", data, urls)
 }
 
-func (b *Broker) sendMsgToClient(topic string, payload []byte, qos byte) {
-	logger.Debugf("send topic %v to client", topic)
+func (b *Broker) sendMsgToClient(span *model.SpanContext, topic string, payload []byte, qos byte) {
 	subscribers, _ := b.topicMgr.findSubscribers(topic)
+	spanDebugf(span, "send topic %v to client %v", topic, subscribers)
 	if subscribers == nil {
-		logger.Errorf("not find subscribers for topic %s", topic)
+		spanErrorf(span, "not find subscribers for topic %s", topic)
 		return
 	}
 
@@ -302,9 +374,9 @@ func (b *Broker) sendMsgToClient(topic string, payload []byte, qos byte) {
 		}
 		client := b.getClient(clientID)
 		if client == nil {
-			logger.Debugf("client %v not on broker %v", clientID, b.name)
+			spanDebugf(span, "client %v not on broker %v", clientID, b.name)
 		} else {
-			client.session.publish(topic, payload, qos)
+			client.session.publish(span, topic, payload, qos)
 		}
 	}
 }
@@ -328,7 +400,7 @@ func (b *Broker) removeClient(clientID string) {
 	b.Unlock()
 }
 
-func (b *Broker) topicsPublishHandler(w http.ResponseWriter, r *http.Request) {
+func (b *Broker) httpTopicsPublishHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("suppose POST request but got %s", r.Method))
 		return
@@ -354,23 +426,146 @@ func (b *Broker) topicsPublishHandler(w http.ResponseWriter, r *http.Request) {
 		payload = []byte(data.Payload)
 	}
 
-	logger.Debugf("http endpoint received json data: %v", data)
+	span, _ := b3.ExtractHTTP(r)()
+	spanDebugf(span, "http endpoint received json data: %v", data)
 	if !data.Distributed {
 		data.Distributed = true
 		b.requestTransfer(b.egName, b.name, data)
 	}
-	go b.sendMsgToClient(data.Topic, payload, byte(data.QoS))
+	go b.sendMsgToClient(span, data.Topic, payload, byte(data.QoS))
 }
 
-func (b *Broker) mqttAPIPrefix() string {
-	return fmt.Sprintf(mqttAPIPrefix, b.name)
+func (b *Broker) mqttAPIPrefix(path string) string {
+	return fmt.Sprintf(path, b.name)
+}
+
+func (b *Broker) httpGetAllSessionHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("suppose Get request but got %s", r.Method))
+		return
+	}
+	span, _ := b3.ExtractHTTP(r)()
+	spanDebugf(span, "http endpoint receive request to get all session")
+
+	query := r.URL.Query()
+	page := 0
+	pageSize := 0
+	var topic string
+	var err error
+	if len(query) != 0 {
+		pageStr := query.Get("page")
+		pageSizeStr := query.Get("page_size")
+		topic = query.Get("q")
+		if len(pageStr) == 0 || len(pageSizeStr) == 0 {
+			api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("if use query, please provide both page and page_size"))
+			return
+		}
+		page, err = strconv.Atoi(pageStr)
+		if err != nil || page <= 0 {
+			api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("page in query should be number and >0"))
+			return
+		}
+		pageSize, err = strconv.Atoi(pageSizeStr)
+		if err != nil || pageSize <= 0 {
+			api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("page_size in query should be number and >0"))
+			return
+		}
+	}
+
+	allSession, err := b.sessMgr.store.getPrefix(sessionStoreKey(""), false)
+	if err != nil {
+		spanErrorf(span, "get all sessions with prefix %v failed, %v", sessionStoreKey(""), err)
+		api.HandleAPIError(w, r, http.StatusInternalServerError, fmt.Errorf("get all sessions failed, %v", err))
+		return
+	}
+
+	res := &HTTPSessions{}
+	if len(query) == 0 {
+		for k := range allSession {
+			httpSession := &HTTPSession{
+				SessionID: k,
+			}
+			res.Sessions = append(res.Sessions, httpSession)
+		}
+	} else {
+		index := 0
+		start := page*pageSize - pageSize
+		end := page * pageSize
+		for _, v := range allSession {
+			if index >= start && index < end {
+				session := &Session{}
+				session.info = &SessionInfo{}
+				session.decode(v)
+				for k := range session.info.Topics {
+					if strings.Contains(k, topic) {
+						httpSession := &HTTPSession{
+							SessionID: session.info.ClientID,
+							Topic:     k,
+						}
+						res.Sessions = append(res.Sessions, httpSession)
+						break
+					}
+				}
+			}
+			if index > end {
+				break
+			}
+			index++
+		}
+	}
+
+	jsonData, err := json.Marshal(res)
+	if err != nil {
+		spanErrorf(span, "all session data json marshal failed, %v", err)
+		api.HandleAPIError(w, r, http.StatusInternalServerError, fmt.Errorf("all sessions json marshal failed, %v", err))
+		return
+	}
+	_, err = w.Write(jsonData)
+	if err != nil {
+		spanErrorf(span, "write json data to http response writer failed, %v", err)
+		api.HandleAPIError(w, r, http.StatusInternalServerError, fmt.Errorf("write json data failed"))
+	}
+}
+
+func (b *Broker) httpDeleteSessionHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("suppose POST request but got %s", r.Method))
+		return
+	}
+	var data HTTPSessions
+	err := json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("invalid json data from request body"))
+		return
+	}
+
+	span, _ := b3.ExtractHTTP(r)()
+	spanDebugf(span, "http endpoint received delete session data: %v", data)
+	for _, s := range data.Sessions {
+		err := b.sessMgr.store.delete(sessionStoreKey(s.SessionID))
+		if err != nil {
+			spanErrorf(span, "delete session %v failed, %v", s, err)
+		}
+	}
+}
+
+func (b *Broker) currentClients() map[string]struct{} {
+	ans := make(map[string]struct{})
+	b.Lock()
+	for k := range b.clients {
+		ans[k] = struct{}{}
+	}
+	b.Unlock()
+	return ans
 }
 
 func (b *Broker) registerAPIs() {
 	group := &api.Group{
 		Group: b.name,
 		Entries: []*api.Entry{
-			{Path: b.mqttAPIPrefix(), Method: http.MethodPost, Handler: b.topicsPublishHandler},
+			{Path: b.mqttAPIPrefix(mqttAPITopicPublishPrefix), Method: http.MethodPost, Handler: b.httpTopicsPublishHandler},
+			{Path: b.mqttAPIPrefix(mqttAPISessionQueryPrefix), Method: http.MethodGet, Handler: b.httpGetAllSessionHandler},
+			{Path: b.mqttAPIPrefix(mqttAPISessionDeletePrefix), Method: http.MethodPost, Handler: b.httpDeleteSessionHandler},
 		},
 	}
 

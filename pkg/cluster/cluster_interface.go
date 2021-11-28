@@ -21,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/megaease/easegress/pkg/logger"
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/concurrency"
@@ -37,6 +38,7 @@ type (
 		GetPrefix(prefix string) (map[string]string, error)
 		GetRaw(key string) (*mvccpb.KeyValue, error)
 		GetRawPrefix(prefix string) (map[string]*mvccpb.KeyValue, error)
+		GetWithOp(key string, ops ...WatchOp) (map[string]string, error)
 
 		Put(key, value string) error
 		PutUnderLease(key, value string) error
@@ -64,12 +66,38 @@ type (
 		PurgeMember(member string) error
 	}
 
+	WatchOp string
+
 	// Watcher wraps etcd watcher.
 	Watcher interface {
 		Watch(key string) (<-chan *string, error)
 		WatchPrefix(prefix string) (<-chan map[string]*string, error)
 		WatchRaw(key string) (<-chan *clientv3.Event, error)
 		WatchRawPrefix(prefix string) (<-chan map[string]*clientv3.Event, error)
+		WatchWithOp(key string, ops ...WatchOp) (<-chan map[string]*string, error)
 		Close()
 	}
 )
+
+const (
+	OpPrefix       WatchOp = "prefix"
+	OpFilterPut    WatchOp = "put"
+	OpFilterDelete WatchOp = "delete"
+	OpKeysOnly     WatchOp = "keysOnly"
+)
+
+func getOpOption(op WatchOp) clientv3.OpOption {
+	switch op {
+	case OpPrefix:
+		return clientv3.WithPrefix()
+	case OpFilterPut:
+		return clientv3.WithFilterPut()
+	case OpFilterDelete:
+		return clientv3.WithFilterDelete()
+	case OpKeysOnly:
+		return clientv3.WithKeysOnly()
+	default:
+		logger.Errorf("not support operation type %v", op)
+		return nil
+	}
+}

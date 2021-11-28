@@ -27,7 +27,6 @@ import (
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/pipeline"
 )
 
@@ -59,9 +58,10 @@ type (
 	Client struct {
 		sync.Mutex
 
-		broker  *Broker
-		session *Session
-		conn    net.Conn
+		broker       *Broker
+		session      *Session
+		publishLimit *Limiter
+		conn         net.Conn
 
 		info       ClientInfo
 		statusFlag int32
@@ -100,7 +100,7 @@ func (c *Client) UserName() string {
 	return c.info.username
 }
 
-func newClient(connect *packets.ConnectPacket, broker *Broker, conn net.Conn) *Client {
+func newClient(connect *packets.ConnectPacket, broker *Broker, conn net.Conn, limitSpec *RateLimit) *Client {
 	var will *packets.PublishPacket
 	if connect.WillFlag {
 		will = packets.NewControlPacket(packets.Publish).(*packets.PublishPacket)
@@ -119,12 +119,13 @@ func newClient(connect *packets.ConnectPacket, broker *Broker, conn net.Conn) *C
 		will:      will,
 	}
 	client := &Client{
-		broker:     broker,
-		conn:       conn,
-		info:       info,
-		statusFlag: Connected,
-		writeCh:    make(chan packets.ControlPacket, 50),
-		done:       make(chan struct{}),
+		broker:       broker,
+		conn:         conn,
+		info:         info,
+		statusFlag:   Connected,
+		writeCh:      make(chan packets.ControlPacket, 50),
+		done:         make(chan struct{}),
+		publishLimit: newLimiter(limitSpec),
 	}
 	return client
 }
@@ -148,14 +149,14 @@ func (c *Client) readLoop() {
 
 		if keepAlive > 0 {
 			if err := c.conn.SetDeadline(time.Now().Add(timeOut)); err != nil {
-				logger.Errorf("set read timeout failed: %s", c.info.cid)
+				spanErrorf(nil, "set read timeout failed: %s", c.info.cid)
 			}
 		}
 
-		logger.Debugf("client %s readLoop read packet", c.info.cid)
+		spanDebugf(nil, "client %s readLoop read packet", c.info.cid)
 		packet, err := packets.ReadPacket(c.conn)
 		if err != nil {
-			logger.Errorf("client %s read packet failed: %v", c.info.cid, err)
+			spanErrorf(nil, "client %s read packet failed: %v", c.info.cid, err)
 			return
 		}
 		if _, ok := packet.(*packets.DisconnectPacket); ok {
@@ -164,7 +165,7 @@ func (c *Client) readLoop() {
 		}
 		err = c.processPacket(packet)
 		if err != nil {
-			logger.Errorf("client %s process packet failed: %v", c.info.cid, err)
+			spanErrorf(nil, "client %s process packet failed: %v", c.info.cid, err)
 			return
 		}
 	}
@@ -201,12 +202,22 @@ func (c *Client) processPacket(packet packets.ControlPacket) error {
 	return err
 }
 
+func (c *Client) checkPublishLimit(publish *packets.PublishPacket) bool {
+	size := publish.RemainingLength + 8
+	return c.publishLimit.acquirePermission(size)
+}
+
 func (c *Client) processPublish(publish *packets.PublishPacket) {
-	logger.Debugf("client %s process publish %v", c.info.cid, publish.TopicName)
+	spanDebugf(nil, "client %s process publish %v", c.info.cid, publish.TopicName)
+
+	if !c.checkPublishLimit(publish) {
+		spanErrorf(nil, "client %v publish limiter drop packet %v", c.info.cid, publish.TopicName)
+		return
+	}
 	if c.broker.pipeline != "" {
 		pipe, err := pipeline.GetPipeline(c.broker.pipeline, context.MQTT)
 		if err != nil {
-			logger.Errorf("get pipeline %v failed, %v", c.broker.pipeline, err)
+			spanErrorf(nil, "get pipeline %v failed, %v", c.broker.pipeline, err)
 		} else {
 			ctx := context.NewMQTTContext(stdcontext.Background(), c.broker.backend, c, publish)
 			pipe.HandleMQTT(ctx)
@@ -222,7 +233,7 @@ func (c *Client) processPublish(publish *packets.PublishPacket) {
 
 	err := c.broker.backend.publish(publish)
 	if err != nil {
-		logger.Errorf("client %v publish %v failed: %v", c.info.cid, publish.TopicName, err)
+		spanErrorf(nil, "client %v publish %v failed: %v", c.info.cid, publish.TopicName, err)
 	}
 	switch publish.Qos {
 	case QoS0:
@@ -241,10 +252,10 @@ func (c *Client) processPuback(puback *packets.PubackPacket) {
 }
 
 func (c *Client) processSubscribe(packet *packets.SubscribePacket) {
-	logger.Debugf("client %s processSubscribe %v", c.info.cid, packet.Topics)
+	spanDebugf(nil, "client %s subscribe %v with qos %v", c.info.cid, packet.Topics, packet.Qoss)
 	err := c.broker.topicMgr.subscribe(packet.Topics, packet.Qoss, c.info.cid)
 	if err != nil {
-		logger.Errorf("client %v subscribe %v failed: %v", c.info.cid, packet.Topics, err)
+		spanErrorf(nil, "client %v subscribe %v failed: %v", c.info.cid, packet.Topics, err)
 		return
 	}
 	c.session.subscribe(packet.Topics, packet.Qoss)
@@ -259,10 +270,10 @@ func (c *Client) processSubscribe(packet *packets.SubscribePacket) {
 }
 
 func (c *Client) processUnsubscribe(packet *packets.UnsubscribePacket) {
-	logger.Debugf("client %s processUnsubscribe %v", c.info.cid, packet.Topics)
+	spanDebugf(nil, "client %s processUnsubscribe %v", c.info.cid, packet.Topics)
 	err := c.broker.topicMgr.unsubscribe(packet.Topics, c.info.cid)
 	if err != nil {
-		logger.Errorf("client %v unsubscribe %v failed: %v", c.info.cid, packet.Topics, err)
+		spanErrorf(nil, "client %v unsubscribe %v failed: %v", c.info.cid, packet.Topics, err)
 	}
 	c.session.unsubscribe(packet.Topics)
 
@@ -286,7 +297,7 @@ func (c *Client) writeLoop() {
 		case p := <-c.writeCh:
 			err := p.Write(c.conn)
 			if err != nil {
-				logger.Errorf("write puback to client %s failed: %s", c.info.cid, err)
+				spanErrorf(nil, "write puback to client %s failed: %s", c.info.cid, err)
 				c.closeAndDelSession()
 			}
 		case <-c.done:
@@ -309,7 +320,7 @@ func (c *Client) close() {
 	if c.broker.pipeline != "" {
 		pipe, err := pipeline.GetPipeline(c.broker.pipeline, context.MQTT)
 		if err != nil {
-			logger.Errorf("get pipeline %v failed, %v", c.broker.pipeline, err)
+			spanErrorf(nil, "get pipeline %v failed, %v", c.broker.pipeline, err)
 		} else {
 			disconnect := packets.NewControlPacket(packets.Disconnect).(*packets.DisconnectPacket)
 			ctx := context.NewMQTTContext(stdcontext.Background(), c.broker.backend, c, disconnect)
