@@ -73,15 +73,15 @@ var stateStrings = []string{
 // NewPolicy create and initialize a policy
 func NewPolicy(timeout, refresh time.Duration, limit int) *Policy {
 	return &Policy{
-		TimeoutDuration:    timeout * time.Millisecond,
-		LimitRefreshPeriod: refresh * time.Millisecond,
+		TimeoutDuration:    timeout,
+		LimitRefreshPeriod: refresh,
 		LimitForPeriod:     limit,
 	}
 }
 
 // NewDefaultPolicy create and initialize a policy with default configuration
 func NewDefaultPolicy() *Policy {
-	return NewPolicy(100, 10, 50)
+	return NewPolicy(100*time.Millisecond, 10*time.Millisecond, 50)
 }
 
 // New creates a rate limiter based on `policy`,
@@ -125,10 +125,7 @@ func (rl *RateLimiter) notifyListener(tm time.Time, state State) {
 	}
 }
 
-// AcquirePermission acquires a permission from the rate limiter.
-// returns true if the request is permitted and false otherwise.
-// when permitted, the caller should wait returned duration before action.
-func (rl *RateLimiter) AcquirePermission() (bool, time.Duration) {
+func (rl *RateLimiter) acquirePermission(count int) (bool, time.Duration) {
 	rl.lock.Lock()
 	defer rl.lock.Unlock()
 
@@ -154,12 +151,12 @@ func (rl *RateLimiter) AcquirePermission() (bool, time.Duration) {
 	}
 
 	// reject if already reached the permission limitation
-	if tokens == maxTokens {
+	if tokens >= maxTokens {
 		return false, rl.policy.TimeoutDuration
 	}
 
 	// permit another token
-	rl.tokens = tokens + 1
+	rl.tokens = tokens + count
 	rl.cycle = cycle
 
 	// if there are still free tokens in current cycle
@@ -184,6 +181,20 @@ func (rl *RateLimiter) AcquirePermission() (bool, time.Duration) {
 	timeToWait = rl.startTime.Add(d).Sub(now)
 
 	return true, timeToWait
+}
+
+// AcquirePermission acquires a permission from the rate limiter.
+// returns true if the request is permitted and false otherwise.
+// when permitted, the caller should wait returned duration before action.
+func (rl *RateLimiter) AcquirePermission() (bool, time.Duration) {
+	return rl.acquirePermission(1)
+}
+
+// AcquireNPermission acquires N permission from the rate limiter.
+// returns true if the request is permitted and false otherwise.
+// when permitted, the caller should wait returned duration before action.
+func (rl *RateLimiter) AcquireNPermission(n int) (bool, time.Duration) {
+	return rl.acquirePermission(n)
 }
 
 // WaitPermission waits a permission from the rate limiter
