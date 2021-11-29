@@ -30,7 +30,7 @@ import (
 type (
 	storage interface {
 		get(key string) (*string, error)
-		getPrefix(prefix string, keysOnly bool) (map[string]string, error)
+		getPrefix(prefix string) (map[string]string, error)
 		put(key, value string) error
 		delete(key string) error
 		watchDelete(prefix string) (<-chan map[string]*string, error)
@@ -78,16 +78,12 @@ func (m *mockStorage) get(key string) (*string, error) {
 	return nil, etcderror.ErrKeyNotFound
 }
 
-func (m *mockStorage) getPrefix(prefix string, keysOnly bool) (map[string]string, error) {
+func (m *mockStorage) getPrefix(prefix string) (map[string]string, error) {
 	m.mu.RLock()
 	out := make(map[string]string)
 	for k, v := range m.store {
 		if strings.HasPrefix(k, prefix) {
-			if keysOnly {
-				out[k] = ""
-			} else {
-				out[k] = v
-			}
+			out[k] = v
 		}
 	}
 	m.mu.RUnlock()
@@ -125,10 +121,7 @@ func (cs *clusterStorage) get(key string) (*string, error) {
 	return cs.cls.Get(key)
 }
 
-func (cs *clusterStorage) getPrefix(prefix string, keysOnly bool) (map[string]string, error) {
-	if keysOnly {
-		return cs.cls.GetWithOp(prefix, cluster.OpPrefix, cluster.OpKeysOnly)
-	}
+func (cs *clusterStorage) getPrefix(prefix string) (map[string]string, error) {
 	return cs.cls.GetPrefix(prefix)
 }
 
@@ -144,5 +137,5 @@ func (cs *clusterStorage) watchDelete(prefix string) (<-chan map[string]*string,
 	if cs.watcher == nil {
 		return nil, fmt.Errorf("nil watcher")
 	}
-	return cs.watcher.WatchWithOp(prefix, cluster.OpPrefix, cluster.OpFilterDelete)
+	return cs.watcher.WatchPrefix(prefix)
 }

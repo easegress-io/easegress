@@ -160,6 +160,7 @@ func (c *Client) readLoop() {
 			return
 		}
 		if _, ok := packet.(*packets.DisconnectPacket); ok {
+			spanErrorf(nil, "client %s recv disconnect packet", c.info.cid)
 			c.info.will = nil
 			return
 		}

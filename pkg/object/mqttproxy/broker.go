@@ -172,13 +172,18 @@ func (b *Broker) watchDelete(ch <-chan map[string]*string) {
 		case <-b.done:
 			return
 		case m := <-ch:
-			for k := range m {
+			for k, v := range m {
+				if v != nil {
+					continue
+				}
 				clientID := strings.TrimPrefix(k, sessionStoreKey(""))
+				spanDebugf(nil, "client %v recv delete watch", clientID)
 				go func(cid string) {
 					b.Lock()
 					defer b.Unlock()
 					if c, ok := b.clients[cid]; ok {
 						if !c.disconnected() {
+							spanDebugf(nil, "broker watch and delete client %v", c.info.cid)
 							c.close()
 						}
 					}
@@ -477,7 +482,7 @@ func (b *Broker) httpGetAllSessionHandler(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	allSession, err := b.sessMgr.store.getPrefix(sessionStoreKey(""), false)
+	allSession, err := b.sessMgr.store.getPrefix(sessionStoreKey(""))
 	if err != nil {
 		spanErrorf(span, "get all sessions with prefix %v failed, %v", sessionStoreKey(""), err)
 		api.HandleAPIError(w, r, http.StatusInternalServerError, fmt.Errorf("get all sessions failed, %v", err))

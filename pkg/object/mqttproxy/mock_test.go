@@ -81,26 +81,6 @@ func (m *mockCluster) GetPrefix(prefix string) (map[string]string, error) {
 	return out, nil
 }
 
-func (m *mockCluster) GetWithOp(key string, op ...cluster.WatchOp) (map[string]string, error) {
-	prefix := false
-	for _, o := range op {
-		if o == cluster.OpPrefix {
-			prefix = true
-		}
-	}
-	ans := make(map[string]string)
-	if prefix {
-		kvs, _ := m.GetPrefix(key)
-		for k, v := range kvs {
-			ans[k] = v
-		}
-	} else {
-		value, _ := m.Get(key)
-		ans[key] = *value
-	}
-	return ans, nil
-}
-
 func (m *mockCluster) Put(key, value string) error {
 	m.Lock()
 	m.kv[key] = value
@@ -121,7 +101,7 @@ func TestStorage(t *testing.T) {
 	if err != nil || *val != "1" {
 		t.Errorf("get wrong val")
 	}
-	valmap, err := store.getPrefix("prefix", false)
+	valmap, err := store.getPrefix("prefix")
 	if err != nil || !reflect.DeepEqual(valmap, map[string]string{"prefix_1": "1", "prefix_2": "2"}) {
 		t.Errorf("get wrong prefix val")
 	}
@@ -136,7 +116,7 @@ func TestMockStorage(t *testing.T) {
 	if err != nil || *val != "val1" {
 		t.Errorf("mock storage get return wrong value")
 	}
-	valMap, err := store.getPrefix("key", false)
+	valMap, err := store.getPrefix("key")
 	if err != nil || !reflect.DeepEqual(valMap, map[string]string{"key1": "val1", "key2": "val2", "key3": "val3"}) {
 		t.Errorf("mock storage get prefix return wrong value %v %v", valMap, map[string]string{"key1": "val1", "key2": "val2", "key3": "val3"})
 	}
