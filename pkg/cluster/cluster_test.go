@@ -216,9 +216,6 @@ func TestClusterSyncer(t *testing.T) {
 	if _, err = c.GetPrefix("/abcd"); err != nil {
 		t.Errorf("cluster get prefix failed: %v", err)
 	}
-	if _, err = c.GetWithOp("/abcd", OpPrefix); err != nil {
-		t.Errorf("cluster get prefix failed: %v", err)
-	}
 
 	for {
 		value := make(map[string]string, 1)
@@ -301,10 +298,6 @@ func TestClusterWatcher(t *testing.T) {
 	if err != nil {
 		t.Errorf("watcher watch failed: %v", err)
 	}
-	opchan, err := watcher.WatchWithOp("/ab", OpPrefix)
-	if err != nil {
-		t.Errorf("watcher watch failed: %v", err)
-	}
 
 	rawpchan, err := watcher.WatchRawPrefix("/abcd")
 	if err != nil {
@@ -318,14 +311,6 @@ func TestClusterWatcher(t *testing.T) {
 		value := make(map[string]*string, 1)
 		select {
 		case value = <-pchan:
-			fmt.Printf("watch prefix value is %v\n", value)
-		}
-		break
-	}
-	for {
-		value := make(map[string]*string, 1)
-		select {
-		case value = <-opchan:
 			fmt.Printf("watch prefix value is %v\n", value)
 		}
 		break
@@ -346,14 +331,6 @@ func TestClusterWatcher(t *testing.T) {
 		value := make(map[string]*string, 1)
 		select {
 		case value = <-pchan:
-			fmt.Printf("watch delete prefix value is %v\n", value)
-		}
-		break
-	}
-	for {
-		value := make(map[string]*string, 1)
-		select {
-		case value = <-opchan:
 			fmt.Printf("watch delete prefix value is %v\n", value)
 		}
 		break
