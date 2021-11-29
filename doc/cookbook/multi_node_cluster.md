@@ -135,7 +135,7 @@ cluster:
 
 ##  Cluster role
 
-When running Easegress as a cluster, each instance has either *primary* or *secondary* role. *Primary* nodes persist the Easegress state on the disk, while *secondary* request this information from their peers (defined by `initial-advertise-peer-urls` parameter).
+When running Easegress as a cluster, each instance has either *primary* or *secondary* role. *Primary* members persist the Easegress state on the disk, while *secondary* members request this information from the *primary* members. Because the *primary* members are responsible for maintaining the cluster state, they need know other *primary* members (or peers) in the cluster, in order to synchronize. On the other hand, for the *secondary* members knowing at least one *primary* member is enough (defined in `cluster.primary-listen-peer-urls` in example above).
 
 It is a good practice to choose an odd number (1,3,5,7,9) of *primary* nodes, to tolerate failures of *primary* nodes. This way the cluster can stay in healthy state, even if the network partitions. With an even number of *primary* nodes, the cluster can be divided to two groups of equal size due to network partition. Then neither of the sub-cluster have the majority required for consensus (of Raft algorithm). However with odd number of *primary* nodes, the cluster cannot be divided to two groups of equal size and this problem cannot occur.
 
