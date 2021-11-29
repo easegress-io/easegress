@@ -21,7 +21,16 @@ import (
 	"fmt"
 
 	"github.com/libdns/alidns"
+	"github.com/libdns/azure"
+	"github.com/libdns/cloudflare"
+	"github.com/libdns/digitalocean"
+	"github.com/libdns/dnspod"
+	"github.com/libdns/duckdns"
+	"github.com/libdns/googleclouddns"
+	"github.com/libdns/hetzner"
 	"github.com/libdns/libdns"
+	"github.com/libdns/route53"
+	"github.com/libdns/vultr"
 )
 
 type dnsProvider interface {
@@ -37,6 +46,52 @@ var dnsProviders = map[string]func(domain *DomainSpec) (dnsProvider, error){
 			AccKeyID:     domain.AccessKeyID,
 			AccKeySecret: domain.AccessKeySecret,
 		}, nil
+	},
+
+	"azure": func(domain *DomainSpec) (dnsProvider, error) {
+		return &azure.Provider{
+			TenantId:          domain.TenantID,
+			ClientId:          domain.ClientID,
+			ClientSecret:      domain.ClientSecret,
+			SubscriptionId:    domain.SubscriptionID,
+			ResourceGroupName: domain.ResourceGroupName,
+		}, nil
+	},
+
+	"cloudflare": func(domain *DomainSpec) (dnsProvider, error) {
+		return &cloudflare.Provider{APIToken: domain.APIToken}, nil
+	},
+
+	"digitalocean": func(domain *DomainSpec) (dnsProvider, error) {
+		return &digitalocean.Provider{APIToken: domain.APIToken}, nil
+	},
+
+	"dnspod": func(domain *DomainSpec) (dnsProvider, error) {
+		return &dnspod.Provider{APIToken: domain.APIToken}, nil
+	},
+
+	"duckdns": func(domain *DomainSpec) (dnsProvider, error) {
+		return &duckdns.Provider{APIToken: domain.APIToken}, nil
+	},
+
+	"google": func(domain *DomainSpec) (dnsProvider, error) {
+		return &googleclouddns.Provider{Project: domain.Project}, nil
+	},
+
+	"hetzner": func(domain *DomainSpec) (dnsProvider, error) {
+		return &hetzner.Provider{AuthAPIToken: domain.APIToken}, nil
+	},
+
+	"route53": func(domain *DomainSpec) (dnsProvider, error) {
+		return &route53.Provider{
+			AccessKeyId:     domain.AccessKeyID,
+			SecretAccessKey: domain.AccessKeySecret,
+			AWSProfile:      domain.AWSProfile,
+		}, nil
+	},
+
+	"vultr": func(domain *DomainSpec) (dnsProvider, error) {
+		return &vultr.Provider{APIToken: domain.APIToken}, nil
 	},
 }
 

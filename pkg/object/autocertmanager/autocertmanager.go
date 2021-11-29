@@ -73,12 +73,19 @@ type (
 
 	// DomainSpec is the automate certificate management spec for a domain
 	DomainSpec struct {
-		Name            string `yaml:"name" jsonschema:"required"`
-		DNSProvider     string `yaml:"dnsProvider" jsonschema:"omitempty"`
-		Zone            string `yaml:"zone" jsonschema:"omitempty"`
-		APIToken        string `yaml:"apiToken" jsonschema:"omitempty"`
-		AccessKeyID     string `yaml:"accessKeyId" jsonschema:"omitempty"`
-		AccessKeySecret string `yaml:"accessKeySecret" jsonschema:"omitempty"`
+		Name              string `yaml:"name" jsonschema:"required"`
+		DNSProvider       string `yaml:"dnsProvider" jsonschema:"omitempty"`
+		Zone              string `yaml:"zone" jsonschema:"omitempty"`
+		APIToken          string `yaml:"apiToken" jsonschema:"omitempty"`
+		AccessKeyID       string `yaml:"accessKeyId" jsonschema:"omitempty"`
+		AccessKeySecret   string `yaml:"accessKeySecret" jsonschema:"omitempty"`
+		AWSProfile        string `yaml:"awsProfile" jsonschema:"omitempty"`
+		TenantID          string `yaml:"tenantId" jsonschema:"omitempty"`
+		ClientID          string `yaml:"clientId" jsonschema:"omitempty"`
+		ClientSecret      string `yaml:"clientSecret" jsonschema:"omitempty"`
+		SubscriptionID    string `yaml:"subscriptionId" jsonschema:"omitempty"`
+		ResourceGroupName string `yaml:"resourceGroupName" jsonschema:"omitempty"`
+		Project           string `yaml:"project" jsonschema:"omitempty"`
 	}
 
 	// CertificateStatus is the certificate status of a domain
