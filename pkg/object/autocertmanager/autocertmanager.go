@@ -23,7 +23,6 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -82,14 +81,54 @@ type (
 		AccessKeySecret string `yaml:"accessKeySecret" jsonschema:"omitempty"`
 	}
 
+	// CertificateStatus is the certificate status of a domain
+	CertificateStatus struct {
+		Name       string    `yaml:"name"`
+		ExpireTime time.Time `yaml:"expireTime"`
+	}
+
 	// Status is the status of AutoCertManager
 	Status struct {
+		Domains []CertificateStatus `yaml:"domains"`
 	}
 )
 
 var (
 	globalACM atomic.Value
 )
+
+// Validate validates the spec of AutoCertManager
+func (spec *Spec) Validate() error {
+	if !(spec.EnableHTTP01 || spec.EnableTLSALPN01 || spec.EnableDNS01) {
+		return fmt.Errorf("at least one challenge type must be enabled")
+	}
+
+	for i := range spec.Domains {
+		d := &spec.Domains[i]
+
+		// convert to puny code to support Chinese or other unicode domain names
+		_, err := idna.Lookup.ToASCII(d.Name)
+		if err != nil && d.Name[0] == '*' {
+			_, err = idna.Lookup.ToASCII(d.Name[1:])
+		}
+		if err != nil {
+			return fmt.Errorf("domain name contains invalid characters: %s", d.Name)
+		}
+
+		if d.Name[0] != '*' {
+			continue
+		}
+
+		if !spec.EnableDNS01 {
+			return fmt.Errorf("find wildcard domain name but DNS-01 challenge is disabled: %s", d.Name)
+		}
+
+		if _, err := newDNSProvider(d); err != nil {
+			return fmt.Errorf("DNS provider configuration is invalid: %s", d.Name)
+		}
+	}
+	return nil
+}
 
 func init() {
 	supervisor.Register(&AutoCertManager{})
@@ -121,6 +160,11 @@ func (acm *AutoCertManager) Init(superSpec *supervisor.Spec) {
 	acm.spec = superSpec.ObjectSpec().(*Spec)
 	acm.super = superSpec.Super()
 
+	// TODO: remove this check after converting AutoCertManager to a system controller
+	if globalACM.Load() != nil {
+		logger.Warnf("an AutoCertManager instance is already exist")
+	}
+
 	acm.reload()
 }
 
@@ -134,13 +178,15 @@ func (acm *AutoCertManager) Inherit(superSpec *supervisor.Spec, previousGenerati
 	previousGeneration.(*AutoCertManager).Close()
 }
 
-func (acm *AutoCertManager) findDomain(name string, wildcard bool) *Domain {
+func (acm *AutoCertManager) findDomain(name string, exactMatch bool) *Domain {
+	// compare one by one, if many domains are configured, we need to refactor
+	// this function to improve performance.
 	for i := range acm.domains {
 		domain := &acm.domains[i]
-		if name == domain.Name {
-			return domain
-		}
-		if !wildcard {
+		if exactMatch {
+			if name == domain.Name {
+				return domain
+			}
 			continue
 		}
 		if !domain.isWildcard() {
@@ -162,6 +208,8 @@ func (acm *AutoCertManager) reload() {
 	acm.domains = make([]Domain, len(acm.spec.Domains))
 	for i := range acm.spec.Domains {
 		spec := &acm.spec.Domains[i]
+
+		// convert to puny code to support Chinese or other unicode domain names
 		name, err := idna.Lookup.ToASCII(spec.Name)
 		if err != nil && spec.Name[0] == '*' {
 			name, err = idna.Lookup.ToASCII(spec.Name[1:])
@@ -171,6 +219,7 @@ func (acm *AutoCertManager) reload() {
 			name = spec.Name
 			logger.Warnf("domain name contains invalid characters: %s", name)
 		}
+
 		domain := &acm.domains[i]
 		domain.DomainSpec = spec
 		domain.nameInPunyCode = name
@@ -189,9 +238,15 @@ func (acm *AutoCertManager) reload() {
 
 // Status returns the status of AutoCertManager.
 func (acm *AutoCertManager) Status() *supervisor.Status {
-	return &supervisor.Status{
-		ObjectStatus: &Status{},
+	status := &Status{}
+	for i := range acm.domains {
+		d := &acm.domains[i]
+		status.Domains = append(status.Domains, CertificateStatus{
+			Name:       d.Name,
+			ExpireTime: d.certExpireTime(),
+		})
 	}
+	return &supervisor.Status{ObjectStatus: status}
 }
 
 // Close closes AutoCertManager.
@@ -203,7 +258,7 @@ func (acm *AutoCertManager) renew() {
 	deadline := time.Now().Add(acm.renewBefore)
 	for i := range acm.domains {
 		domain := &acm.domains[i]
-		if domain.certificateState == CertStateRenewing {
+		if domain.certState() == CertStateRenewing {
 			continue
 		}
 		if domain.certExpireTime().After(deadline) {
@@ -248,6 +303,8 @@ func (acm *AutoCertManager) run() {
 
 	ticker.Reset(time.Hour)
 	for {
+		// to avoid race conditions, we should only renew certificates from
+		// the leader node
 		if acm.super.Cluster().IsLeader() {
 			acm.renew()
 		}
@@ -260,22 +317,29 @@ func (acm *AutoCertManager) run() {
 	}
 }
 
-func (acm *AutoCertManager) getCertificate(chi *tls.ClientHelloInfo) (*tls.Certificate, error) {
+func (acm *AutoCertManager) getCertificate(chi *tls.ClientHelloInfo, tokenOnly bool) (*tls.Certificate, error) {
 	name := chi.ServerName
 	if name == "" {
-		return nil, errors.New("missing server name")
+		return nil, fmt.Errorf("missing server name")
 	}
 	if !strings.Contains(strings.Trim(name, "."), ".") {
-		return nil, errors.New("server name component count invalid")
+		return nil, fmt.Errorf("server name component count invalid")
 	}
 	name = strings.TrimSuffix(name, ".") // golang.org/issue/18114
 
 	// this is a token cert requested for TLS-ALPN challenge.
 	if len(chi.SupportedProtos) == 1 && chi.SupportedProtos[0] == acme.ALPNProto {
+		if !acm.spec.EnableTLSALPN01 {
+			return nil, fmt.Errorf("TLS-ALPN01 challenge is disabled")
+		}
 		return acm.storage.getTLSALPNCert(name)
 	}
 
-	domain := acm.findDomain(name, true)
+	if tokenOnly {
+		return nil, fmt.Errorf("certificate does not exist")
+	}
+
+	domain := acm.findDomain(name, false)
 	if domain == nil {
 		return nil, fmt.Errorf("host %s is not configured for auto cert", name)
 	}
@@ -289,7 +353,12 @@ func (acm *AutoCertManager) getCertificate(chi *tls.ClientHelloInfo) (*tls.Certi
 }
 
 func (acm *AutoCertManager) handleHTTP01Challenge(w http.ResponseWriter, r *http.Request) {
-	domain := acm.findDomain(r.Host, false)
+	if !acm.spec.EnableHTTP01 {
+		http.Error(w, "HTTP01 challenge is disabled", http.StatusNotFound)
+		return
+	}
+
+	domain := acm.findDomain(r.Host, true)
 	if domain == nil {
 		msg := fmt.Sprintf("host %q is not configured for auto cert", r.Host)
 		http.Error(w, msg, http.StatusForbidden)
@@ -304,20 +373,20 @@ func (acm *AutoCertManager) handleHTTP01Challenge(w http.ResponseWriter, r *http
 	w.Write(data)
 }
 
-// GetCertificate implements tls.Config.GetCertificate
-func GetCertificate(chi *tls.ClientHelloInfo) (*tls.Certificate, error) {
+// GetCertificate handles the tls hello
+func GetCertificate(chi *tls.ClientHelloInfo, tokenOnly bool) (*tls.Certificate, error) {
 	p := globalACM.Load()
 	if p == nil {
 		return nil, fmt.Errorf("auto certificate manager is not started")
 	}
-	return p.(*AutoCertManager).getCertificate(chi)
+	return p.(*AutoCertManager).getCertificate(chi, tokenOnly)
 }
 
 // HandleHTTP01Challenge handles HTTP-01 challenge
 func HandleHTTP01Challenge(w http.ResponseWriter, r *http.Request) {
 	p := globalACM.Load()
 	if p == nil {
-		w.WriteHeader(http.StatusNotFound)
+		http.Error(w, "auto certificate manager is not started", http.StatusNotFound)
 		return
 	}
 	p.(*AutoCertManager).handleHTTP01Challenge(w, r)

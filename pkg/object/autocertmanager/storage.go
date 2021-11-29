@@ -34,9 +34,9 @@ import (
 
 const (
 	autoCertPrefix            = "autocert/"
-	autoCertDomainCert        = "autocert/%s/cert"
-	autoCertDomainHTTPToken   = "autocert/%s/http/%s"
-	autoCertDomainTLSALPNCert = "autocert/%s/tlsalpn"
+	autoCertDomainCert        = "autocert/cert/%s"
+	autoCertDomainHTTPToken   = "autocert/http/%s/%s"
+	autoCertDomainTLSALPNCert = "autocert/tlsalpn/%s"
 )
 
 type storage struct {

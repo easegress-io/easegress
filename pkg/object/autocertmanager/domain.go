@@ -25,6 +25,8 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
+	"net"
 	"sync/atomic"
 	"time"
 
@@ -49,7 +51,7 @@ type Domain struct {
 	nameInPunyCode   string
 	certificate      atomic.Value
 	certificateState int32
-	cleanup          []func() error
+	cleanups         []func() error
 	ctx              context.Context
 }
 
@@ -84,96 +86,130 @@ func (d *Domain) setCertState(state CertState) {
 }
 
 func (d *Domain) runHTTP01(acm *AutoCertManager, chal *acme.Challenge) error {
-	if !acm.spec.EnableHTTP01 {
-		return nil
-	}
-
 	client := acm.client
 
 	path := client.HTTP01ChallengePath(chal.Token)
 	body, err := client.HTTP01ChallengeResponse(chal.Token)
 	if err != nil {
+		logger.Errorf("HTTP01ChallengeResponse: %v", err)
 		return err
 	}
 
 	err = acm.storage.putHTTPToken(d.nameInPunyCode, path, []byte(body))
 	if err != nil {
+		logger.Errorf("put HTTP01 token: %v", err)
 		return err
 	}
 
-	d.cleanup = append(d.cleanup, func() error {
+	d.cleanups = append(d.cleanups, func() error {
 		return acm.storage.deleteHTTPToken(d.nameInPunyCode, path)
 	})
 
 	_, err = client.Accept(d.ctx, chal)
+	if err != nil {
+		logger.Errorf("accept HTTP01 challenge: %v", err)
+	}
+
 	return err
 }
 
 func (d *Domain) runTLSALPN01(acm *AutoCertManager, z *acme.Authorization, chal *acme.Challenge) error {
-	if !acm.spec.EnableTLSALPN01 {
-		return nil
-	}
-
 	client := acm.client
 
 	cert, err := client.TLSALPN01ChallengeCert(chal.Token, z.Identifier.Value)
 	if err != nil {
+		logger.Errorf("TLSALPN01ChallengeCert: %v", err)
 		return err
 	}
 
 	err = acm.storage.putTLSALPNCert(d.nameInPunyCode, &cert)
 	if err != nil {
+		logger.Errorf("put TLSALPN01 certificate: %v", err)
 		return err
 	}
 
-	d.cleanup = append(d.cleanup, func() error {
+	d.cleanups = append(d.cleanups, func() error {
+		acm.storage.deleteTLSALPNCert(d.nameInPunyCode)
 		return nil
 	})
 
 	_, err = client.Accept(d.ctx, chal)
+	if err != nil {
+		logger.Errorf("accept TLSALPN01 challenge: %v", err)
+	}
 	return err
 }
 
-func (d *Domain) runDNS01(acm *AutoCertManager, chal *acme.Challenge) error {
-	if !acm.spec.EnableDNS01 || d.DomainSpec.DNSProvider == "" {
-		return nil
+func (d *Domain) waitDNSRecord(value string) error {
+	name := "_acme-challenge."
+	if d.isWildcard() {
+		name += d.nameInPunyCode[2:] // skip '*.'
+	} else {
+		name += d.nameInPunyCode
 	}
 
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		values, err := net.DefaultResolver.LookupTXT(d.ctx, name)
+		if err == nil {
+			for _, v := range values {
+				if v == value {
+					return nil
+				}
+			}
+		}
+		select {
+		case <-ticker.C:
+		case <-d.ctx.Done():
+			return d.ctx.Err()
+		}
+	}
+}
+
+func (d *Domain) runDNS01(acm *AutoCertManager, chal *acme.Challenge) error {
 	client := acm.client
 
 	dp, err := newDNSProvider(d.DomainSpec)
 	if err != nil {
+		logger.Errorf("new DNS provider: %v", err)
 		return err
 	}
 
 	value, err := client.DNS01ChallengeRecord(chal.Token)
 	if err != nil {
+		logger.Errorf("DNS01ChallengeRecord: %v", err)
 		return err
 	}
 
-	records, err := dp.AppendRecords(d.ctx, d.Zone, []libdns.Record{{
+	records, err := dp.SetRecords(d.ctx, d.Zone, []libdns.Record{{
 		Type:  "TXT",
 		Name:  "_acme-challenge",
 		Value: value,
 	}})
-
 	if err != nil {
+		logger.Errorf("SetRecords: %v", err)
 		return err
 	}
 
-	d.cleanup = append(d.cleanup, func() error {
-		dp.DeleteRecords(d.ctx, d.Zone, records)
+	d.cleanups = append(d.cleanups, func() error {
+		// we cannot use d.ctx here as it may be already cancelled
+		dp.DeleteRecords(context.Background(), d.Zone, records)
 		return nil
 	})
 
-	// DNS challenge need more time to complete
-	select {
-	case <-time.After(90 * time.Second):
-	case <-d.ctx.Done():
-		return d.ctx.Err()
+	// we need to wait because it takes some time for a new DNS record to become effective
+	err = d.waitDNSRecord(value)
+	if err != nil {
+		logger.Errorf("wait DNS record: %v", err)
+		return err
 	}
 
 	_, err = client.Accept(d.ctx, chal)
+	if err != nil {
+		logger.Errorf("accept DNS01 challenge: %v", err)
+	}
 	return err
 }
 
@@ -192,31 +228,75 @@ func newCSR(id acme.AuthzID) ([]byte, crypto.Signer, error) {
 	return b, k, nil
 }
 
-func (d *Domain) doRenewCert(acm *AutoCertManager) error {
-	var zurls []string
+func (d *Domain) fulfill(acm *AutoCertManager, u string) error {
 	client := acm.client
 
+	z, err := client.GetAuthorization(d.ctx, u)
+	if err != nil {
+		logger.Errorf("GetAuthorization(%q): %v", u, err)
+		return err
+	}
+	if z.Status != acme.StatusPending {
+		return nil
+	}
+	d.cleanups = append(d.cleanups, func() error {
+		// we cannot use d.ctx here as it may be already cancelled
+		err := client.RevokeAuthorization(context.Background(), u)
+		if err != nil {
+			logger.Errorf("RevokeAuthorization(%q): %v", u, err)
+		}
+		return err
+	})
+
+	fulfilled := 0
+	for _, chal := range z.Challenges {
+		switch chal.Type {
+		case "http-01":
+			if acm.spec.EnableHTTP01 && d.runHTTP01(acm, chal) == nil {
+				fulfilled++
+			}
+		case "dns-01":
+			if acm.spec.EnableDNS01 && d.runDNS01(acm, chal) == nil {
+				fulfilled++
+			}
+		case "tls-alpn-01":
+			if acm.spec.EnableTLSALPN01 && d.runTLSALPN01(acm, z, chal) == nil {
+				fulfilled++
+			}
+		default:
+			logger.Errorf("unknown challenge type %q", chal.Type)
+		}
+	}
+	if fulfilled == 0 {
+		err = fmt.Errorf("no challenge was fulfilled")
+		logger.Errorf("%v", err)
+		return err
+	}
+
+	_, err = client.WaitAuthorization(d.ctx, z.URI)
+	if err != nil {
+		logger.Errorf("WaitAuthorization(%q): %v", z.URI, err)
+	}
+
+	return nil
+}
+
+func (d *Domain) doRenewCert(acm *AutoCertManager) error {
 	ctx, cancel := context.WithTimeout(acm.stopCtx, 10*time.Minute)
 	d.ctx = ctx
 
 	defer func() {
-		for _, fn := range d.cleanup {
+		cleanups := d.cleanups
+		d.cleanups = nil
+		for _, fn := range cleanups {
 			fn()
-		}
-		d.cleanup = nil
-
-		// Deactivate all authorizations we satisfied earlier.
-		for _, v := range zurls {
-			if err := client.RevokeAuthorization(ctx, v); err != nil {
-				logger.Errorf("RevokeAuthorization(%q): %v", v, err)
-				continue
-			}
 		}
 
 		d.ctx = nil
 		cancel()
 	}()
 
+	client := acm.client
 	ids := acme.DomainIDs(d.nameInPunyCode)
 	order, err := client.AuthorizeOrder(ctx, ids)
 	if err != nil {
@@ -225,33 +305,9 @@ func (d *Domain) doRenewCert(acm *AutoCertManager) error {
 	}
 
 	for _, u := range order.AuthzURLs {
-		z, err := client.GetAuthorization(ctx, u)
-		if err != nil {
-			logger.Errorf("GetAuthorization(%q): %v", u, err)
+		if err = d.fulfill(acm, u); err != nil {
 			return err
 		}
-		if z.Status != acme.StatusPending {
-			continue
-		}
-
-		for _, chal := range z.Challenges {
-			switch chal.Type {
-			case "http-01":
-				d.runHTTP01(acm, chal)
-			case "dns-01":
-				d.runDNS01(acm, chal)
-			case "tls-alpn-01":
-				d.runTLSALPN01(acm, z, chal)
-			default:
-				logger.Errorf("unknown challenge type %q", chal.Type)
-			}
-		}
-
-		if _, err = client.WaitAuthorization(ctx, z.URI); err != nil {
-			logger.Errorf("WaitAuthorization(%q): %v", z.URI, err)
-			return err
-		}
-		zurls = append(zurls, u)
 	}
 
 	if _, err := client.WaitOrder(ctx, order.URI); err != nil {
