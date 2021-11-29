@@ -333,7 +333,7 @@ func (b *Broker) setSession(client *Client, connect *packets.ConnectPacket) {
 	}
 }
 
-func (b *Broker) requestTransfer(egName, name string, data HTTPJsonData) {
+func (b *Broker) requestTransfer(egName, name string, data HTTPJsonData, header http.Header) {
 	urls, err := b.memberURL(egName, name)
 	if err != nil {
 		spanErrorf(nil, "find urls for other egs failed:%v", err)
@@ -346,6 +346,7 @@ func (b *Broker) requestTransfer(egName, name string, data HTTPJsonData) {
 	}
 	for _, url := range urls {
 		req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(jsonData))
+		req.Header = header.Clone()
 		if err != nil {
 			spanErrorf(nil, "make new request failed: %v", err)
 			continue
@@ -430,7 +431,8 @@ func (b *Broker) httpTopicsPublishHandler(w http.ResponseWriter, r *http.Request
 	spanDebugf(span, "http endpoint received json data: %v", data)
 	if !data.Distributed {
 		data.Distributed = true
-		b.requestTransfer(b.egName, b.name, data)
+		headers := r.Header.Clone()
+		b.requestTransfer(b.egName, b.name, data, headers)
 	}
 	go b.sendMsgToClient(span, data.Topic, payload, byte(data.QoS))
 }
