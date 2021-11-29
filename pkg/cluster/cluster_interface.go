@@ -66,6 +66,7 @@ type (
 		PurgeMember(member string) error
 	}
 
+	// WatchOp is watch option type for etcd watcher
 	WatchOp string
 
 	// Watcher wraps etcd watcher.
@@ -80,10 +81,17 @@ type (
 )
 
 const (
-	OpPrefix         WatchOp = "prefix"
-	OpNotWatchPut    WatchOp = "put"
+	// OpPrefix will watch all event with certain prefix
+	OpPrefix WatchOp = "prefix"
+
+	// OpNotWatchPut will not watch put event
+	OpNotWatchPut WatchOp = "put"
+
+	// OpNotWatchDelete will not watch delete event
 	OpNotWatchDelete WatchOp = "delete"
-	OpKeysOnly       WatchOp = "keysOnly"
+
+	// OpKeysOnly will get etcd and only return keys, for example, get all prefix without values
+	OpKeysOnly WatchOp = "keysOnly"
 )
 
 func getOpOption(op WatchOp) clientv3.OpOption {
