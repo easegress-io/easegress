@@ -85,6 +85,43 @@ func mockClusters(count int) []*cluster {
 	return clusters
 }
 
+func mockStaticCluster(count int) []*cluster {
+	opts, _, _ := mockStaticClusterMembers(count)
+
+	clusterNodes := make([]*cluster, count)
+	clusterNodesLock := sync.Mutex{}
+	clusterCreationWg := &sync.WaitGroup{}
+	clusterCreationWg.Add(count)
+	startNode := func(i int) error {
+		node, err := New(opts[i])
+		if err != nil {
+			panic(fmt.Errorf("new cluster failed: %v", err))
+		}
+		clusterNodesLock.Lock()
+		clusterNodes[i] = node.(*cluster)
+		clusterNodesLock.Unlock()
+		clusterCreationWg.Done()
+		return nil
+	}
+
+	for i := 0; i < count; i++ {
+		go startNode(i)
+	}
+	clusterCreationWg.Wait()
+
+	for {
+		_, err := clusterNodes[0].getClient()
+		time.Sleep(HeartbeatInterval)
+		if err != nil {
+			fmt.Println(err)
+			continue
+		} else {
+			break
+		}
+	}
+	return clusterNodes
+}
+
 func closeClusters(clusters []*cluster) {
 	wg := &sync.WaitGroup{}
 	wg.Add(len(clusters))
@@ -95,11 +132,16 @@ func closeClusters(clusters []*cluster) {
 }
 
 func TestCluster(t *testing.T) {
-	clusters := mockClusters(3)
-	defer closeClusters(clusters)
-	// for testing longRequestContext()
-	clusters[0].longRequestContext()
-
+	t.Run("start cluster dynamically", func(t *testing.T) {
+		clusters := mockClusters(3)
+		defer closeClusters(clusters)
+		// for testing longRequestContext()
+		clusters[0].longRequestContext()
+	})
+	t.Run("start static sized cluster", func(t *testing.T) {
+		clusterNodes := mockStaticCluster(3)
+		defer closeClusters(clusterNodes)
+	})
 }
 
 func TestLease(t *testing.T) {

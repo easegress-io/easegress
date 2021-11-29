@@ -1,0 +1,13 @@
+name: secondary-1
+cluster-name: cluster-test
+cluster-role: secondary
+api-addr: localhost:2381
+data-dir: ./data
+wal-dir: ""
+cpu-profile-file:
+memory-profile-file:
+log-dir: ./log
+debug: false
+cluster:
+  primary-listen-peer-urls:
+   - http://127.0.0.1:2380

@@ -1,0 +1,10 @@
+name: primary-n
+cluster-name: cluster-test
+cluster-role: primary
+api-addr: 0.0.0.0:2831
+data-dir: ./data
+wal-dir: ""
+cpu-profile-file:
+memory-profile-file:
+log-dir: ./log
+debug: false

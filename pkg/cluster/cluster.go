@@ -68,7 +68,7 @@ type (
 
 		LastDefragTime string `yaml:"lastDefragTime,omitempty"`
 
-		// Etcd is non-nil only it is a writer.
+		// Etcd is non-nil only if it's cluster status is primary.
 		Etcd *EtcdStatus `yaml:"etcd,omitempty"`
 	}
 
@@ -144,15 +144,21 @@ func New(opt *option.Options) (Cluster, error) {
 		return nil, fmt.Errorf("invalid cluster request timeout: %v", err)
 	}
 
-	members, err := newMembers(opt)
-	if err != nil {
-		return nil, fmt.Errorf("new members failed: %v", err)
+	// Member file，members.ClusterMembers and members.KnownMembers will be deprecated in the future.
+	// When the new configuration way (cluster.initial-cluster or cluster.primary-listen-peer-urls) is used, let's not create member
+	// instance but let's read member information from pkg/option/options.go's Options.ClusterOptions directly.
+	var membersFile *members
+	if len(opt.GetPeerURLs()) == 0 {
+		membersFile, err = newMembers(opt)
+		if err != nil {
+			return nil, fmt.Errorf("new members failed: %v", err)
+		}
 	}
 
 	c := &cluster{
 		opt:            opt,
 		requestTimeout: requestTimeout,
-		members:        members,
+		members:        membersFile,
 		done:           make(chan struct{}),
 	}
 
@@ -212,7 +218,7 @@ func (c *cluster) run() {
 
 	logger.Infof("cluster is ready")
 
-	if c.opt.ClusterRole == "writer" {
+	if c.opt.ClusterRole == "primary" {
 		go c.defrag()
 	}
 
@@ -220,7 +226,7 @@ func (c *cluster) run() {
 }
 
 func (c *cluster) getReady() error {
-	if c.opt.ClusterRole == "reader" {
+	if c.opt.ClusterRole == "secondary" {
 		_, err := c.getClient()
 		if err != nil {
 			return err
@@ -241,7 +247,7 @@ func (c *cluster) getReady() error {
 		return nil
 	}
 
-	if !c.opt.ForceNewCluster && c.members.knownMembersLen() > 1 {
+	if !c.opt.UseInitialCluster() && !c.opt.ForceNewCluster && c.members != nil && c.members.knownMembersLen() > 1 {
 		client, _ := c.getClient()
 		if client != nil {
 			err := c.addSelfToCluster()
@@ -382,9 +388,14 @@ func (c *cluster) getClient() (*clientv3.Client, error) {
 		return c.client, nil
 	}
 
-	endpoints := c.members.knownPeerURLs()
-	if c.opt.ForceNewCluster {
-		endpoints = []string{c.members.self().PeerURL}
+	var endpoints []string
+	if c.members == nil {
+		endpoints = c.opt.GetPeerURLs()
+	} else {
+		endpoints = c.members.knownPeerURLs()
+		if c.opt.ForceNewCluster {
+			endpoints = []string{c.members.self().PeerURL}
+		}
 	}
 	logger.Infof("client connect with endpoints: %v", endpoints)
 	client, err := clientv3.New(clientv3.Config{
@@ -632,8 +643,14 @@ func (c *cluster) startServer() (done, timeout chan struct{}, err error) {
 		close(done)
 		return done, timeout, nil
 	}
-
-	etcdConfig, err := c.prepareEtcdConfig()
+	var (
+		etcdConfig *embed.Config
+	)
+	if c.opt.UseInitialCluster() {
+		etcdConfig, err = CreateStaticClusterEtcdConfig(c.opt)
+	} else {
+		etcdConfig, err = CreateEtcdConfig(c.opt, c.members)
+	}
 	if err != nil {
 		return nil, nil, err
 	}
@@ -733,8 +750,13 @@ func (c *cluster) defrag() {
 				logger.Errorf("defrag failed: get client failed: %v", err)
 			}
 
+			defragmentURL, err := c.opt.GetFirstAdvertiseClientURL()
+			if err != nil {
+				logger.Errorf("defrag failed: %v", err)
+				return
+			}
 			// NOTICE: It needs longer time than normal ones.
-			_, err = client.Defragment(c.longRequestContext(), c.opt.ClusterAdvertiseClientURLs[0])
+			_, err = client.Defragment(c.longRequestContext(), defragmentURL)
 			if err != nil {
 				defragInterval = defragFailedInterval
 				logger.Errorf("defrag failed: %v", err)
@@ -754,7 +776,7 @@ func (c *cluster) syncStatus() error {
 		Options: *c.opt,
 	}
 
-	if c.opt.ClusterRole == "writer" {
+	if c.opt.ClusterRole == "primary" {
 		server, err := c.getServer()
 		if err != nil {
 			return err
@@ -793,8 +815,9 @@ func (c *cluster) updateMembers() error {
 		return err
 	}
 
-	c.members.updateClusterMembers(resp.Members)
-
+	if c.members != nil {
+		c.members.updateClusterMembers(resp.Members)
+	}
 	return nil
 }
 

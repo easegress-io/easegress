@@ -88,7 +88,7 @@
     - 内置 [Open Zipkin](https://zipkin.io/)
     - [Open Tracing](https://opentracing.io/)，提供厂商中立的 API。
   - **可观察性**
-    - **节点**：角色（Leader、Writer、Reader）、健康状态、最后一次心跳时间，等等。
+    - **节点**：角色（primary、secondary）、是不是Leader，健康状态、最后一次心跳时间，等等。
     - **多维度的服务器和后端流量数据**
       - **吞吐量**：请求数、TPS/m1、m5、m15 和错误百分比等。
       - **延迟**：p25、p50、p75、p95、p98、p99、p999。
@@ -147,17 +147,22 @@ make
 ```bash
 $ export PATH=${PATH}:$(pwd)/bin/
 $ easegress-server
-2021-05-17T16:45:38.185+08:00	INFO	cluster/config.go:84	etcd config: init-cluster:eg-default-name=http://localhost:2380 cluster-state:new force-new-cluster:false
-2021-05-17T16:45:38.185+08:00	INFO	cluster/cluster.go:379	client is ready
-2021-05-17T16:45:39.189+08:00	INFO	cluster/cluster.go:590	server is ready
-2021-05-17T16:45:39.21+08:00	INFO	cluster/cluster.go:451	lease is ready
-2021-05-17T16:45:39.231+08:00	INFO	cluster/cluster.go:187	cluster is ready
-2021-05-17T16:45:39.253+08:00	INFO	supervisor/supervisor.go:180	create system controller StatusSyncController
-2021-05-17T16:45:39.253+08:00	INFO	cluster/cluster.go:496	session is ready
-2021-05-17T16:45:39.253+08:00	INFO	api/api.go:96	api server running in localhost:2381
-2021-05-17T16:45:44.235+08:00	INFO	cluster/member.go:210	self ID changed from 0 to 689e371e88f78b6a
-2021-05-17T16:45:44.236+08:00	INFO	cluster/member.go:137	store clusterMembers: eg-default-name(689e371e88f78b6a)=http://localhost:2380
-2021-05-17T16:45:44.236+08:00	INFO	cluster/member.go:138	store knownMembers  : eg-default-name(689e371e88f78b6a)=http://localhost:2380
+2021-11-26T16:10:08.419+08:00	INFO	cluster/config.go:172	etcd config: init-cluster:eg-default-name=http://localhost:2380 cluster-state:new force-new-cluster:false
+2021-11-26T16:10:09.515+08:00	INFO	cluster/cluster.go:400	client connect with endpoints: [http://localhost:2380]
+2021-11-26T16:10:09.516+08:00	INFO	cluster/cluster.go:413	client is ready
+2021-11-26T16:10:09.608+08:00	INFO	cluster/cluster.go:692	server is ready
+2021-11-26T16:10:09.649+08:00	INFO	cluster/cluster.go:546	lease is ready (grant new one: b6a7d5b4b68ff07)
+2021-11-26T16:10:09.649+08:00	INFO	cluster/cluster.go:219	cluster is ready
+2021-11-26T16:10:09.669+08:00	INFO	supervisor/supervisor.go:137	create TrafficController
+2021-11-26T16:10:09.67+08:00	INFO	supervisor/supervisor.go:137	create RawConfigTrafficController
+2021-11-26T16:10:09.67+08:00	INFO	supervisor/supervisor.go:137	create ServiceRegistry
+2021-11-26T16:10:09.671+08:00	INFO	supervisor/supervisor.go:137	create StatusSyncController
+2021-11-26T16:10:09.671+08:00	INFO	cluster/cluster.go:586	session is ready
+2021-11-26T16:10:09.671+08:00	INFO	api/api.go:73	register api group admin
+2021-11-26T16:10:09.671+08:00	INFO	api/server.go:78	api server running in localhost:2381
+2021-11-26T16:10:14.673+08:00	INFO	cluster/member.go:223	self ID changed from 0 to 689e371e88f78b6a
+2021-11-26T16:10:14.674+08:00	INFO	cluster/member.go:157	store clusterMembers: eg-default-name(689e371e88f78b6a)=http://localhost:2380
+2021-11-26T16:10:14.674+08:00	INFO	cluster/member.go:158	store knownMembers  : eg-default-name(689e371e88f78b6a)=http://localhost:2380
 ```
 
 Makefile 默认会将两个二进制文件编译到 `bin/` 目录中。`bin/easegress-server` 是服务器端的二进制文件，`bin/egctl` 是客户端的二进制文件。我们可以把它添加到 `$PATH` 中，以便于执行后续命令。
@@ -165,36 +170,15 @@ Makefile 默认会将两个二进制文件编译到 `bin/` 目录中。`bin/ease
 如果启动时不指定任何参数，`easegress-server` 会默认使用端口 2379、2380 和 2381。我们可以在配置文件中更改默认端口，或者在命令行启动时指定相关参数（参数具体释义可通过执行 `easegress-server --help` 命令获取）。
 
 ```bash
-$ egctl member list
-- options:
-    name: eg-default-name
-    labels: {}
-    cluster-name: eg-cluster-default-name
-    cluster-role: writer
-    cluster-request-timeout: 10s
-    cluster-listen-client-urls:
-    - http://127.0.0.1:2379
-    cluster-listen-peer-urls:
-    - http://127.0.0.1:2380
-    cluster-advertise-client-urls:
-    - http://127.0.0.1:2379
-    cluster-initial-advertise-peer-urls:
-    - http://127.0.0.1:2380
-    cluster-join-urls: []
+$ egctl member list | grep "cluster-role"
+    cluster-role: primary
+$ egctl member list | grep "api-addr"
     api-addr: localhost:2381
-    debug: false
-    home-dir: ./
-    data-dir: data
-    wal-dir: ""
-    log-dir: log
-    member-dir: member
-    cpu-profile-file: ""
-    memory-profile-file: ""
-  lastHeartbeatTime: "2021-05-05T15:43:27+08:00"
-  etcd:
-    id: a30c34bf7ec77546
-    startTime: "2021-05-05T15:42:37+08:00"
-    state: Leader
+$ egctl member list | grep "name"
+    name: eg-default-name
+    cluster-name: eg-cluster-default-name
+$ egctl member list | grep "id"
+    id: 689e371e88f78b6a
 ```
 
 成功启动后，我们可以用上述命令检查单节点集群的状态，它展示示了系统的静态选项，以及心跳和etcd的动态状态。
