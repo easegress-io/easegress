@@ -255,6 +255,7 @@ func (b *Broker) handleConn(conn net.Conn) {
 	}
 
 	if !b.checkConnectPermission(connect) {
+		spanDebugf(nil, "client %v not get connect permission from rate limiter", connect.ClientIdentifier)
 		connack.ReturnCode = packets.ErrRefusedServerUnavailable
 		err = connack.Write(conn)
 		if err != nil {
@@ -275,6 +276,7 @@ func (b *Broker) handleConn(conn net.Conn) {
 			ctx := context.NewMQTTContext(stdcontext.Background(), b.backend, client, connect)
 			pipe.HandleMQTT(ctx)
 			if ctx.Disconnect() {
+				spanErrorf(nil, "client %v not get connect permission from pipeline", connect.ClientIdentifier)
 				authFail = true
 			}
 		}
@@ -301,6 +303,7 @@ func (b *Broker) handleConn(conn net.Conn) {
 
 	b.Lock()
 	if oldClient, ok := b.clients[cid]; ok {
+		spanDebugf(nil, "client %v take over by new client with same name", oldClient.info.cid)
 		go oldClient.close()
 	}
 	b.clients[client.info.cid] = client

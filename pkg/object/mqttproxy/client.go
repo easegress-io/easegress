@@ -199,6 +199,9 @@ func (c *Client) processPacket(packet packets.ControlPacket) error {
 	default:
 		err = errors.New("unknown packet")
 	}
+	if err != nil {
+		spanDebugf(nil, "client %v process packet failed, %v", c.info.cid, err)
+	}
 	return err
 }
 
@@ -222,10 +225,12 @@ func (c *Client) processPublish(publish *packets.PublishPacket) {
 			ctx := context.NewMQTTContext(stdcontext.Background(), c.broker.backend, c, publish)
 			pipe.HandleMQTT(ctx)
 			if ctx.Disconnect() {
+				spanDebugf(nil, "client %v set disconnect during process publish", c.info.cid)
 				c.close()
 				return
 			}
 			if ctx.Drop() {
+				spanDebugf(nil, "client %v drop packet %v during process publish", c.info.cid, publish.TopicName)
 				return
 			}
 		}
@@ -297,7 +302,7 @@ func (c *Client) writeLoop() {
 		case p := <-c.writeCh:
 			err := p.Write(c.conn)
 			if err != nil {
-				spanErrorf(nil, "write puback to client %s failed: %s", c.info.cid, err)
+				spanErrorf(nil, "write packet %v to client %s failed: %s", p.String(), c.info.cid, err)
 				c.closeAndDelSession()
 			}
 		case <-c.done:
@@ -312,6 +317,7 @@ func (c *Client) close() {
 		c.Unlock()
 		return
 	}
+	spanDebugf(nil, "client %v connection close", c.info.cid)
 	atomic.StoreInt32(&c.statusFlag, Disconnected)
 	close(c.done)
 	c.Unlock()
