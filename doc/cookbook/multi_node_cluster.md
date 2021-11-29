@@ -1,18 +1,45 @@
 
-# Multi-node cluster
+# Easegress cluster
 
-- [Multi-node cluster](#multi-node-cluster)
-  - [Multiple members](#multiple-members)
-    - [Add new secondary node](#add-new-secondary-node)
-    - [YAML Configuration](#yaml-configuration)
-  - [Cluster role](#cluster-role)
-    - [Cluster roles in etcd terminology](#cluster-roles-in-etcd-terminology)
+- [Easegress cluster](#easegress-cluster)
+  - [Background](#background)
+  - [Prerequisite](#prerequisite)
+  - [Example](#example)
+    - [Add new member](#add-new-member)
+  - [YAML Configuration (optional)](#yaml-configuration-optional)
+  - [Configuration tips (optional)](#configuration-tips-optional)
   - [References](#references)
 
-It is easy to start multiple Easegress instances to form an Easegress cluster, using `easegress-server` binary.
+## Background
 
-## Multiple members
-Let's suppose you have three nodes that are in the same network or otherwise accessible. We will start three instances of `easegress-server` with `primary` cluster role. Let's store node's private IPs to following environment variables:
+When to deploy Easegress as a cluster?
+- Your traffic is larger than one machine can handle
+- You want to High-availability and minimize the service downtime
+- You want to minimize latency on service peaks
+
+It is easy to start multiple Easegress instances to form an Easegress cluster. This tutorial provides instructions how to create stand-alone Easegress cluster by starting multiple Easegress instances.
+
+## Prerequisite
+
+The following prerequisites are required for a successful deployment of Easegress cluster.
+- latest `easegress-server` and `egctl` binaries (run `make` in root of the repository)
+- successful creation of an Easegress pipeline (like the Hello World example in the README.md of the repository or any other chapter in doc/cookbook)
+- few machines that are in the same network or otherwise accessible or Docker or other container technology. If you only have one machine, then you could use localhost as the host and modify the ports in the example.
+
+## Example
+The goal of this tutorial is to have following infrastructure running Easegress:
+
+<p align="center">
+  <img src="./easegress-cluster-nodes.png" width=400>
+</p>
+
+- 4 machines connected
+- each running Easegress instance
+- 3 of Easegress instances have cluster role *primary* and one *secondary*
+
+The difference between *primary* and *secondary* cluster roles is that *primary* persists the cluster state to disk, while *secondary* does not. The number of *secondary* Easegress instances can scale up and down, but the number of *primary* instances should be fixed.
+
+Let's start by creating three Easegress instances with *primary* role. Add nodes private IPs to following environment variables:
 
 ```bash
 export HOST1=<host1-IP>
@@ -20,6 +47,7 @@ export HOST2=<host2-IP>
 export HOST3=<host3-IP>
 export CLUSTER=machine-1=http://$HOST1:2380,machine-2=http://$HOST2:2380,machine-3=http://$HOST3:2380
 ```
+`CLUSTER` environment variable now contains IP addresses of each member in the cluster. It will be same for all members.
 
 Set the environment variables to each machine. Start the first instance at the first machine
 ```bash
@@ -34,7 +62,10 @@ easegress-server \
   --advertise-client-urls http://$HOST1:2379 \
   --initial-cluster $CLUSTER
 ```
-then the second instance at machine 2
+
+Here we define the basic information, like the name of the instance and the name of the cluster. Arguments `initial-advertise-peer-urls`,`listen-peer-urls`, `listen-client-urls` and `advertise-client-urls` are for communication with other peers (other primary cluster members). You can read more about them in the end of this tutorial, but for now it's enough to notice that hostname for *machine-1* is `$HOST1`, which is the IP address of this machine.
+
+Then start the second instance at machine 2
 ```bash
 easegress-server \
   --cluster-name "multi-node-cluster" \
@@ -59,7 +90,7 @@ easegress-server \
   --initial-cluster $CLUSTER
 ```
 
-Now list cluster members
+Now you can list cluster members
 ```bash
 egctl --server $HOST1:2381 member list | grep " name"
 ```
@@ -70,12 +101,12 @@ should print
     name: machine-3
 ```
 
-###  Add new secondary node
+###  Add new member
 
-Let's add one more node with a *secondary* cluster role this time. Please note that it is not recommended to add additional node with `primary` cluster role, but `primary` nodes should be started at cluster start up.
+Let's add one more node with a *secondary* cluster role this time.
 
 ```bash
-# on a new machine
+# on machine 4
 easegress-server \
   --cluster-name "multi-node-cluster" \
   --cluster-role "secondary" \
@@ -83,8 +114,22 @@ easegress-server \
   --primary-listen-peer-urls http://$HOST1:2380 \
   --state-flag "existing"
 ```
+Here `primary-listen-peer-urls` tells, where to find a *primary* cluster member and `state-flag` with value "existing" means that this cluster was already created.
 
-## YAML Configuration
+We can now see also the 4th instance:
+```bash
+egctl --server $HOST1:2381 member list | grep " name"
+# prints
+    name: machine-1
+    name: machine-2
+    name: machine-3
+    name: machine-4
+```
+Congratulations, you now have your Easegress instances running! You can now start applying resources to Easegress, like [pipeline](./pipeline.md) or [workflow](./workflow.md) for example.
+
+You can also keep reading this tutorial to know more about YAML configuration of Easegress cluster instances or configuration tips.
+
+## YAML Configuration (optional)
 
 The examples above use the *easegress-server's* command line flags, but often it is more convenient to define server parameters in a yaml configuration file. For example, store following yaml to each host machine and change the host addresses accordingly.
 
@@ -133,18 +178,44 @@ cluster:
   primary-listen-peer-urls: http://$HOST1:2380
 ```
 
-##  Cluster role
+## Configuration tips (optional)
 
-When running Easegress as a cluster, each instance has either *primary* or *secondary* role. *Primary* members persist the Easegress state on the disk, while *secondary* members request this information from the *primary* members. Because the *primary* members are responsible for maintaining the cluster state, they need know other *primary* members (or peers) in the cluster, in order to synchronize. On the other hand, for the *secondary* members knowing at least one *primary* member is enough (defined in `cluster.primary-listen-peer-urls` in example above).
+*What is good size for cluster?*
 
-It is a good practice to choose an odd number (1,3,5,7,9) of *primary* nodes, to tolerate failures of *primary* nodes. This way the cluster can stay in healthy state, even if the network partitions. With an even number of *primary* nodes, the cluster can be divided to two groups of equal size due to network partition. Then neither of the sub-cluster have the majority required for consensus (of Raft algorithm). However with odd number of *primary* nodes, the cluster cannot be divided to two groups of equal size and this problem cannot occur.
+It is a good practice to choose an odd number (1,3,5,7,9) of *primary* nodes, to tolerate failures of *primary* nodes. This way the cluster can stay in healthy state, even if the network partitions. With an even number of *primary* nodes, the cluster can be divided to two groups of equal size due to network partition. Then neither of the sub-clusters have the majority required for consensus. However with odd number of *primary* nodes, the cluster cannot be divided to two groups of equal size and this problem cannot occur.
 
 For the *secondary* nodes, there is no constraints for the number of nodes. Secondary nodes do not participate consensus vote of the cluster, so their failure do not affect the cluster health. Adding more (*secondary*) nodes does still increase the communication between nodes.
 
-### Cluster roles in etcd terminology
+ *Can number of primary members scale up?*
+
+Please note that it is not recommended to add additional node with `primary` cluster role, but `primary` nodes should be started at cluster start up. When scaling up the cluster, it is recommended to add and remove `secondary` cluster members.
+
+*What are advertise-peer-urls and listen-client-urls?*
+
+`advertise-client-urls`, `listen-client-urls`, `listen-peer-urls` and `listen-client-urls` are arguments necessary for *primary* cluster members to communicate with other peers (members).
+
+| argument   |  description  |
+|-----|-----|
+| advertise-client-urls | client URLs member advertises to the rest of the cluster |
+| listen-client-urls | URLs that member listens for client traffic |
+| listen-peer-urls | URLs that member listens for peer (other *primary* members) traffic  |
+| initial-advertise-peer-urls | peer (other *primary* members) URLs member advertises to the rest of the cluster |
+
+These arguments are used for [etcd](https://etcd.io) server and client configuration. You can read more about them in etcd documentation.
+
+*Why *primary* member needs more arguments than *secondary* member ?*
+
+Here's a drawing that illustrates the difference.
+
+<p align="center">
+  <img src="./easegress-cluster-connections.png" width=300>
+</p>
+
+*Primary* members need to synchronize with peers (other *primary* members). Meanwhile *secondary* can read and update the state through one *primary* member.
+
+*How are etcd server and primary related?*
 
 Easegress cluster uses [etcd](https://etcd.io) distributed key-value store to synchronize the cluster state. The primary and secondary cluster roles have following relation with `etcd`:
-
 
 | Easegress cluster role   | primary   | secondary   |
 |-----|-----|-----|
