@@ -38,6 +38,7 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/openzipkin/zipkin-go/propagation/b3"
 	"gopkg.in/yaml.v2"
 )
 
@@ -1934,4 +1935,72 @@ func TestHTTPDeleteSession(t *testing.T) {
 	for _, c := range clients {
 		c.Disconnect(200)
 	}
+}
+
+func TestHTTPTransferHeaderCopy(t *testing.T) {
+	done := make(chan bool, 2)
+
+	passBase64 := base64.StdEncoding.EncodeToString([]byte("test"))
+	broker0 := getBroker("test", "test", passBase64, 1883)
+	srv0 := newServer(":8888")
+	srv0.addHandlerFunc("/mqtt", func(w http.ResponseWriter, r *http.Request) {
+		broker0.httpTopicsPublishHandler(w, r)
+		done <- true
+	})
+	srv0.start()
+
+	spec := &Spec{
+		Name:        "test1",
+		EGName:      "test1",
+		Port:        1884,
+		BackendType: testMQType,
+		Auth: []Auth{
+			{UserName: "test", PassBase64: passBase64},
+		},
+	}
+	store := broker0.sessMgr.store
+	broker1 := newBroker(spec, store, func(s, ss string) ([]string, error) {
+		m := map[string]string{
+			"test":  "http://localhost:8888/mqtt",
+			"test1": "http://localhost:8889/mqtt",
+		}
+		urls := []string{}
+		for k, v := range m {
+			if k != s {
+				urls = append(urls, v)
+			}
+		}
+		return urls, nil
+	})
+	srv1 := newServer(":8889")
+	srv1.addHandlerFunc("/mqtt", func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get(b3.TraceID) != "123" {
+			t.Errorf("wrong trace id received")
+		}
+		done <- true
+	})
+	srv1.start()
+
+	// set data to broker1
+	data := HTTPJsonData{
+		Topic:   "client",
+		QoS:     1,
+		Payload: "data",
+		Base64:  false,
+	}
+	jsonData, _ := json.Marshal(data)
+	req, _ := http.NewRequest(http.MethodPost, "http://localhost:8888/mqtt", bytes.NewBuffer(jsonData))
+	req.Header.Add(b3.TraceID, "123")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Errorf("mqtt client do error")
+	}
+	defer resp.Body.Close()
+
+	<-done
+	<-done
+	broker0.close()
+	broker1.close()
+	srv0.shutdown()
+	srv1.shutdown()
 }
