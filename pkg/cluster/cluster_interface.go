@@ -80,19 +80,19 @@ type (
 )
 
 const (
-	OpPrefix       WatchOp = "prefix"
-	OpFilterPut    WatchOp = "put"
-	OpFilterDelete WatchOp = "delete"
-	OpKeysOnly     WatchOp = "keysOnly"
+	OpPrefix         WatchOp = "prefix"
+	OpNotWatchPut    WatchOp = "put"
+	OpNotWatchDelete WatchOp = "delete"
+	OpKeysOnly       WatchOp = "keysOnly"
 )
 
 func getOpOption(op WatchOp) clientv3.OpOption {
 	switch op {
 	case OpPrefix:
 		return clientv3.WithPrefix()
-	case OpFilterPut:
+	case OpNotWatchPut:
 		return clientv3.WithFilterPut()
-	case OpFilterDelete:
+	case OpNotWatchDelete:
 		return clientv3.WithFilterDelete()
 	case OpKeysOnly:
 		return clientv3.WithKeysOnly()
