@@ -333,39 +333,39 @@ func (b *Broker) setSession(client *Client, connect *packets.ConnectPacket) {
 	}
 }
 
-func (b *Broker) requestTransfer(egName, name string, data HTTPJsonData, header http.Header) {
+func (b *Broker) requestTransfer(span *model.SpanContext, egName, name string, data HTTPJsonData, header http.Header) {
 	urls, err := b.memberURL(egName, name)
 	if err != nil {
-		spanErrorf(nil, "find urls for other egs failed:%v", err)
+		spanErrorf(span, "eg %v find urls for other egs failed:%v", b.egName, err)
 		return
 	}
 	jsonData, err := json.Marshal(data)
 	if err != nil {
-		spanErrorf(nil, "json data marshal failed: %v", err)
+		spanErrorf(span, "json data marshal failed: %v", err)
 		return
 	}
 	for _, url := range urls {
 		req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(jsonData))
 		req.Header = header.Clone()
 		if err != nil {
-			spanErrorf(nil, "make new request failed: %v", err)
+			spanErrorf(span, "make new request failed: %v", err)
 			continue
 		}
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			spanErrorf(nil, "http client send msg failed:%v", err)
+			spanErrorf(span, "http client send msg failed:%v", err)
 		} else {
 			resp.Body.Close()
 		}
 	}
-	spanDebugf(nil, "http transfer data %v to %v", data, urls)
+	spanDebugf(span, "eg %v http transfer data %v to %v", b.egName, data, urls)
 }
 
 func (b *Broker) sendMsgToClient(span *model.SpanContext, topic string, payload []byte, qos byte) {
 	subscribers, _ := b.topicMgr.findSubscribers(topic)
-	spanDebugf(span, "send topic %v to client %v", topic, subscribers)
+	spanDebugf(span, "eg %v send topic %v to client %v", b.egName, topic, subscribers)
 	if subscribers == nil {
-		spanErrorf(span, "not find subscribers for topic %s", topic)
+		spanErrorf(span, "eg %v not find subscribers for topic %s", b.egName, topic)
 		return
 	}
 
@@ -375,7 +375,7 @@ func (b *Broker) sendMsgToClient(span *model.SpanContext, topic string, payload 
 		}
 		client := b.getClient(clientID)
 		if client == nil {
-			spanDebugf(span, "client %v not on broker %v", clientID, b.name)
+			spanDebugf(span, "client %v not on broker %v in eg %v", clientID, b.name, b.egName)
 		} else {
 			client.session.publish(span, topic, payload, qos)
 		}
@@ -432,7 +432,7 @@ func (b *Broker) httpTopicsPublishHandler(w http.ResponseWriter, r *http.Request
 	if !data.Distributed {
 		data.Distributed = true
 		headers := r.Header.Clone()
-		b.requestTransfer(b.egName, b.name, data, headers)
+		b.requestTransfer(span, b.egName, b.name, data, headers)
 	}
 	go b.sendMsgToClient(span, data.Topic, payload, byte(data.QoS))
 }

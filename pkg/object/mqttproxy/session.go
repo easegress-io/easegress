@@ -172,7 +172,7 @@ func (s *Session) getPacketFromMsg(topic string, payload []byte, qos byte) *pack
 func (s *Session) publish(span *model.SpanContext, topic string, payload []byte, qos byte) {
 	client := s.broker.getClient(s.info.ClientID)
 	if client == nil {
-		spanErrorf(span, "client %s is offline", s.info.ClientID)
+		spanErrorf(span, "client %s is offline in eg %v", s.info.ClientID, s.broker.egName)
 		return
 	}
 
