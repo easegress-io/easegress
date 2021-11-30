@@ -172,13 +172,18 @@ func (b *Broker) watchDelete(ch <-chan map[string]*string) {
 		case <-b.done:
 			return
 		case m := <-ch:
-			for k := range m {
+			for k, v := range m {
+				if v != nil {
+					continue
+				}
 				clientID := strings.TrimPrefix(k, sessionStoreKey(""))
+				spanDebugf(nil, "client %v recv delete watch %v", clientID, v)
 				go func(cid string) {
 					b.Lock()
 					defer b.Unlock()
 					if c, ok := b.clients[cid]; ok {
 						if !c.disconnected() {
+							spanDebugf(nil, "broker watch and delete client %v", c.info.cid)
 							c.close()
 						}
 					}
