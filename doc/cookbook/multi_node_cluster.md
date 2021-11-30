@@ -4,7 +4,7 @@
 - [Easegress cluster](#easegress-cluster)
   - [Background](#background)
   - [Prerequisite](#prerequisite)
-  - [Example](#example)
+  - [Deploy an Easegress cluster step by step](#deploy-an-easegress-cluster-step-by-step)
     - [Add new member](#add-new-member)
   - [YAML Configuration (optional)](#yaml-configuration-optional)
   - [Configuration tips (optional)](#configuration-tips-optional)
@@ -26,7 +26,7 @@ The following prerequisites are required for a successful deployment of Easegres
 - successful creation of an Easegress pipeline (like the Hello World example in the README.md of the repository or any other chapter in doc/cookbook)
 - few machines that are in the same network or otherwise accessible or Docker or other container technology. If you only have one machine, then you could use localhost as the host and modify the ports in the example.
 
-## Example
+## Deploy an Easegress cluster step by step
 The goal of this tutorial is to have following infrastructure running Easegress:
 
 <p align="center">
@@ -190,7 +190,7 @@ For the *secondary* nodes, there is no constraints for the number of nodes. Seco
 
 Please note that it is not recommended to add additional node with `primary` cluster role, but `primary` nodes should be started at cluster start up. When scaling up the cluster, it is recommended to add and remove `secondary` cluster members.
 
-*What are advertise-peer-urls and listen-client-urls?*
+*What are `advertise-peer-urls` and `listen-client-urls`?*
 
 `advertise-client-urls`, `listen-client-urls`, `listen-peer-urls` and `listen-client-urls` are arguments necessary for *primary* cluster members to communicate with other peers (members).
 
@@ -213,13 +213,15 @@ Here's a drawing that illustrates the difference.
 
 *Primary* members need to synchronize with peers (other *primary* members). Meanwhile *secondary* can read and update the state through one *primary* member.
 
-*How are etcd server and primary related?*
+*How are etcd server and Easegress primary member related?*
 
-Easegress cluster uses [etcd](https://etcd.io) distributed key-value store to synchronize the cluster state. The primary and secondary cluster roles have following relation with `etcd`:
+Easegress uses [etcd](https://etcd.io) distributed key-value store to synchronize the cluster state. The primary and secondary cluster roles have the following relation with `etcd`:
 
 | Easegress cluster role   | primary   | secondary   |
 |-----|-----|-----|
 | etcd term | server | client |
+
+*Primary* member uses etcd server for cluster communication, while *secondary* member uses etcd client for this.
 
 
 ## References
