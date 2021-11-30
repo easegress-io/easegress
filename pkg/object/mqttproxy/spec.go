@@ -27,7 +27,7 @@ const (
 	topicPrefix                = "/mqtt/topicMgr/topic/%s"
 	mqttAPITopicPublishPrefix  = "/mqttproxy/%s/topics/publish"
 	mqttAPISessionQueryPrefix  = "/mqttproxy/%s/session/query"
-	mqttAPISessionDeletePrefix = "/mqttproxy/%s/session/delete"
+	mqttAPISessionDeletePrefix = "/mqttproxy/%s/session"
 )
 
 type (

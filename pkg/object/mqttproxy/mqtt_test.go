@@ -1895,7 +1895,7 @@ func TestHTTPDeleteSession(t *testing.T) {
 	if err != nil {
 		t.Errorf("marshal http session %v failed, %v", data, err)
 	}
-	req, _ := http.NewRequest(http.MethodPost, "http://localhost:8888/delete/session", bytes.NewBuffer(jsonData))
+	req, _ := http.NewRequest(http.MethodDelete, "http://localhost:8888/delete/session", bytes.NewBuffer(jsonData))
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("delete session failed, %v", err)
