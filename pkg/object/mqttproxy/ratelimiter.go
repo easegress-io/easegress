@@ -23,6 +23,7 @@ import (
 	"github.com/megaease/easegress/pkg/util/ratelimiter"
 )
 
+// Limiter is a rate limiter for MQTTProxy
 type Limiter struct {
 	rateLimiter  *ratelimiter.RateLimiter
 	burstLimiter *ratelimiter.RateLimiter

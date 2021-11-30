@@ -30,8 +30,8 @@ func Test_getOpOption(t *testing.T) {
 		op       WatchOp
 	}{
 		{clientv3.WithPrefix(), OpPrefix},
-		{clientv3.WithFilterPut(), OpFilterPut},
-		{clientv3.WithFilterDelete(), OpFilterDelete},
+		{clientv3.WithFilterPut(), OpNotWatchPut},
+		{clientv3.WithFilterDelete(), OpNotWatchDelete},
 		{clientv3.WithKeysOnly(), OpKeysOnly},
 	}
 	for _, tc := range tests {
