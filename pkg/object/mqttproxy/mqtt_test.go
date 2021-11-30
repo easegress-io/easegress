@@ -1899,7 +1899,7 @@ func TestHTTPDeleteSession(t *testing.T) {
 
 	// start server
 	srv := newServer(":8888")
-	srv.addHandlerFunc("/delete/session", broker.httpDeleteSessionHandler)
+	srv.addHandlerFunc("/sessions", broker.httpDeleteSessionHandler)
 	if err := srv.start(); err != nil {
 		t.Errorf("couldn't start server: %s", err)
 	}
@@ -1915,7 +1915,7 @@ func TestHTTPDeleteSession(t *testing.T) {
 	if err != nil {
 		t.Errorf("marshal http session %v failed, %v", data, err)
 	}
-	req, _ := http.NewRequest(http.MethodPost, "http://localhost:8888/delete/session", bytes.NewBuffer(jsonData))
+	req, _ := http.NewRequest(http.MethodDelete, "http://localhost:8888/sessions", bytes.NewBuffer(jsonData))
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("delete session failed, %v", err)
