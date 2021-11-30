@@ -14,7 +14,7 @@
     - [TimeLimiter](#timelimiter-1)
     - [Concepts](#concepts)
 
-The as a Cloud Native traffic orchestrator, Easegress supports build-in resilience features. It is the ability of your system to react to failure and still remain functional. It's not about avoiding failure, but accepting failure and constructing your cloud-native services to respond to it. You want to return to a fully functioning state quickly as possible.[1]
+As a Cloud Native traffic orchestrator, Easegress supports build-in resilience features. It is the ability of your system to react to failure and still remain functional. It's not about avoiding failure, but accepting failure and constructing your cloud-native services to respond to it. You want to return to a fully functioning state quickly as possible.[1]
 
 ## Basic: Load Balance
 

@@ -115,6 +115,7 @@
 - [WebAssembly](./doc/cookbook/wasm.md) - 使用 AssemblyScript 来扩展 Easegress。
 - [WebSocket](./doc/cookbook/websocket.md) - Easegress 的 WebSocket 代理。
 - [工作流](./doc/cookbook/workflow.md) - 将若干 API 进行组合，定制为工作流。
+- [Easegress 集群化部署](./doc/cookbook/multi_node_cluster.md) - Easegress 如何进行集群化多点部署。
 
 完整的列表请参见 [Cookbook](./doc/cookbook/README.md)。
 

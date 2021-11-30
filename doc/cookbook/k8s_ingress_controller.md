@@ -82,11 +82,11 @@ spec:
     app: products
     department: sales
   ports:
-  - name: port_v1
+  - name: port-v1
     protocol: TCP
     port: 60001
     targetPort: 50001
-  - name: port_v2
+  - name: port-v2
     protocol: TCP
     port: 60002
     targetPort: 50002

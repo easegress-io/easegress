@@ -115,6 +115,7 @@ The following examples show how to use Easegress for different scenarios.
 - [WebAssembly](./doc/cookbook/wasm.md) - Using AssemblyScript to extend the Easegress
 - [WebSocket](./doc/cookbook/websocket.md) - WebSocket proxy for Easegress
 - [Workflow](./doc/cookbook/workflow.md) - An Example to make a workflow for a number of APIs.
+- [Cluster deployment](./doc/cookbook/multi_node_cluster.md) - How to deploy multiple Easegress cluster nodes.
 
 For full list, see [Cookbook](./doc/cookbook/README.md).
 
