@@ -18,6 +18,7 @@
     - [EurekaServiceRegistry](#eurekaserviceregistry)
     - [ZookeeperServiceRegistry](#zookeeperserviceregistry)
     - [NacosServiceRegistry](#nacosserviceregistry)
+    - [AutoCertManager](#autocertmanager)
   - [Common Types](#common-types)
     - [tracing.Spec](#tracingspec)
     - [zipkin.Spec](#zipkinspec)
@@ -29,6 +30,7 @@
     - [httppipeline.Filter](#httppipelinefilter)
     - [easemonitormetrics.Kafka](#easemonitormetricskafka)
     - [nacos.ServerSpec](#nacosserverspec)
+    - [autocertmanager.DomainSpec](#autocertmanagerdomainspec)
 
 As the [architecture diagram](./architecture.png) shows, the controller is the core entity to control kinds of working. There are two kinds of controllers overall:
 
@@ -301,6 +303,36 @@ servers:
 | username     | string                                | The username of client       | No                 |
 | password     | string                                | The password of client       | No                 |
 
+### AutoCertManager
+
+AutoCertManager automatically manage HTTPS certificates. The config looks like:
+
+```yaml
+kind: AutoCertManager
+name: autocert
+email: someone@megaease.com
+directoryUrl: https://acme-v02.api.letsencrypt.org/directory
+renewBefore: 720h
+enableHTTP01: true
+enableTLSALPN01: true
+enableDNS01: true
+domains:
+  - name: "*.megaease.com"
+    dnsProvider:
+      name: alidns
+      zone: megaease.com
+```
+
+| Name            | Type                                       | Description                                                                          | Required                           |
+| --------------- | ------------------------------------------ | ------------------------------------------------------------------------------------ | ---------------------------------- |
+| email           | string                                     | An email address for CA account                                                      | Yes                                |
+| directoryUrl    | string                                     | The endpoint of the CA directory                                                     | No (default to use Let's Encrypt)  |
+| renewBefore     | string                                     | A certificate will be renewed before this duration of its expire time                | No (default 720 hours)             |
+| enableHTTP01    | bool                                       | Enable HTTP-01 challenge (Easegress need to be accessable at port 80 when true)      | No (default true)                  |
+| enableTLSALPN01 | bool                                       | Enable TLS-ALPN-01 challenge (Easegress need to be accessable at port 443 when true) | No (default true)                  |
+| enableDNS01     | bool                                       | Enable DNS-01 challenge                                                              | No (default true)                  |
+| domains         | [][DomainSpec](#autocertmanagerdomainspec) | Domains to be managed                                                                | Yes                                |
+
 ## Common Types
 
 ### tracing.Spec
@@ -394,3 +426,26 @@ The self-defining specification of each filter references to [filters](./filters
 | port        | uint16 | The port                                     | Yes      |
 | scheme      | string | The scheme of protocol (support http, https) | No       |
 | contextPath | string | The context path                             | No       |
+
+### autocertmanager.DomainSpec
+
+| Name        | Type              | Description               | Required                             |
+| ----------- | ----------------- | --------------------------| ------------------------------------ |
+| name        | string            | The name of the domain    | Yes                                  |
+| dnsProvider | map[string]string | DNS provider information  | No (Yes if `name` is a wildcard one) |
+
+The fields in `dnsProvider` vary from DNS providers, but `name` and `zone` are required for all DNS providers.
+Below table list other required fields for each supported DNS provider:
+
+| DNS Provider Name | Required Fields                                                     |
+| ----------------- | ------------------------------------------------------------------- |
+| alidns            | accessKeyId, accessKeySecret                                        |
+| azure             | tenantId, clientId, clientSecret, subscriptionId, resourceGroupName |
+| cloudflare        | apiToken                                                            |
+| digitalocean      | apiToken                                                            |
+| dnspod            | apiToken                                                            |
+| duckdns           | apiToken                                                            |
+| google            | project                                                             |
+| hetzner           | authApiToken                                                        |
+| route53           | accessKeyId, secretAccessKey, awsProfile                            |
+| vultr             | apiToken                                                            |
