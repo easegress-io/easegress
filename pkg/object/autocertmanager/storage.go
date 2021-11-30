@@ -19,6 +19,7 @@ package autocertmanager
 
 import (
 	"bytes"
+	"context"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/rsa"
@@ -30,13 +31,15 @@ import (
 	"time"
 
 	"github.com/megaease/easegress/pkg/cluster"
+	"github.com/megaease/easegress/pkg/logger"
+	"go.etcd.io/etcd/api/v3/mvccpb"
 )
 
 const (
-	autoCertPrefix            = "autocert/"
-	autoCertDomainCert        = "autocert/cert/%s"
-	autoCertDomainHTTPToken   = "autocert/http/%s/%s"
-	autoCertDomainTLSALPNCert = "autocert/tlsalpn/%s"
+	autoCertManagerCertPrefix  = "autocert/cert/"
+	autoCertManagerCert        = "autocert/cert/%s"
+	autoCertManagerHTTPToken   = "autocert/http/%s/%s"
+	autoCertManagerTLSALPNCert = "autocert/tlsalpn/%s"
 )
 
 type storage struct {
@@ -44,15 +47,15 @@ type storage struct {
 }
 
 func domainCert(name string) string {
-	return fmt.Sprintf(autoCertDomainCert, name)
+	return fmt.Sprintf(autoCertManagerCert, name)
 }
 
 func domainHTTPToken(name, path string) string {
-	return fmt.Sprintf(autoCertDomainHTTPToken, name, path)
+	return fmt.Sprintf(autoCertManagerHTTPToken, name, path)
 }
 
 func domainTLSALPNCert(name string) string {
-	return fmt.Sprintf(autoCertDomainTLSALPNCert, name)
+	return fmt.Sprintf(autoCertManagerTLSALPNCert, name)
 }
 
 func encodeCertificate(cert *tls.Certificate) ([]byte, error) {
@@ -284,4 +287,52 @@ func (s *storage) putTLSALPNCert(domain string, cert *tls.Certificate) error {
 func (s *storage) deleteTLSALPNCert(domain string) error {
 	key := domainTLSALPNCert(domain)
 	return s.cls.Delete(key)
+}
+
+func (s *storage) watchCertificate(ctx context.Context, onChange func(domain string, cert *tls.Certificate)) {
+	var (
+		syncer *cluster.Syncer
+		err    error
+		ch     <-chan map[string]*mvccpb.KeyValue
+	)
+
+	for {
+		syncer, err = s.cls.Syncer(time.Hour)
+		if err != nil {
+			logger.Errorf("failed to create syncer: %v", err)
+		} else if ch, err = syncer.SyncRawPrefix(autoCertManagerCertPrefix); err != nil {
+			logger.Errorf("failed to sync raw prefix: %v", err)
+			syncer.Close()
+		} else {
+			break
+		}
+
+		select {
+		case <-time.After(10 * time.Second):
+		case <-ctx.Done():
+			return
+		}
+	}
+	defer syncer.Close()
+
+	fn := func(kvs map[string]*mvccpb.KeyValue) {
+		for _, kv := range kvs {
+			domain := strings.TrimPrefix(string(kv.Key), autoCertManagerCertPrefix)
+			cert, err := decodeCertificate(kv.Value)
+			if err == nil {
+				onChange(domain, cert)
+			} else {
+				logger.Errorf("failed to decode certificate for %q: %v", domain, err)
+			}
+		}
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case kvs := <-ch:
+			fn(kvs)
+		}
+	}
 }

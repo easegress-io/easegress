@@ -55,6 +55,10 @@ func newDNSProvider(d *DomainSpec) (dnsProvider, error) {
 		return nil, fmt.Errorf("DNS provider name is required for domain: %s", d.Name)
 	}
 
+	if _, ok := d.DNSProvider["zone"]; !ok {
+		return nil, fmt.Errorf("DNS provider field 'zone' is required for domain: %s", d.Name)
+	}
+
 	creator := dnsProviderCreators[name]
 	if creator == nil {
 		return nil, fmt.Errorf("unknown DNS provider %q for domain: %s", name, d.Name)
@@ -65,6 +69,7 @@ func newDNSProvider(d *DomainSpec) (dnsProvider, error) {
 			return nil, fmt.Errorf("DNS provider field %q is required for domain: %s", f, d.Name)
 		}
 	}
+
 	return creator.creatorFn(d)
 }
 

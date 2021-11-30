@@ -85,6 +85,32 @@ func (d *Domain) setCertState(state CertState) {
 	atomic.StoreInt32(&d.certificateState, int32(state))
 }
 
+func (d *Domain) updateCert(cert *tls.Certificate) {
+	// BUG: we have a race condition here, it is possible that we replace the
+	// new certificate with an old one even we have the check below. But this
+	// should be fine as the two certificates can both be valid for a period of
+	// time, and the new one will finally become effective.
+	//
+	// To fix this bug, we will need atomic.Value.CompareAndSwap, but it is a
+	// feature of Go 1.17, and we cannot use it by now as we decide to support
+	// the latest two versions of Go.
+	//
+	// After Go 1.18 is released, the below code should be updated to:
+	//  for {
+	//  	oldCert := d.cert()
+	//  	if oldCert != nil && !cert.Leaf.NotAfter.After(oldCert.Leaf.NotAfter) {
+	//  		break
+	//  	}
+	//  	if d.certificate.CompareAndSwap(oldCert, cert) {
+	//  		break
+	//  	}
+	//  }
+	expireTime := d.certExpireTime()
+	if cert.Leaf.NotAfter.After(expireTime) {
+		d.certificate.Store(cert)
+	}
+}
+
 func (d *Domain) runHTTP01(acm *AutoCertManager, chal *acme.Challenge) error {
 	client := acm.client
 
@@ -171,33 +197,31 @@ func (d *Domain) waitDNSRecord(value string) error {
 func (d *Domain) runDNS01(acm *AutoCertManager, chal *acme.Challenge) error {
 	client := acm.client
 
-	dp, err := newDNSProvider(d.DomainSpec)
-	if err != nil {
-		logger.Errorf("new DNS provider: %v", err)
-		return err
-	}
-
 	value, err := client.DNS01ChallengeRecord(chal.Token)
 	if err != nil {
 		logger.Errorf("DNS01ChallengeRecord: %v", err)
 		return err
 	}
 
-	records, err := dp.SetRecords(d.ctx, d.Zone, []libdns.Record{{
-		Type:  "TXT",
-		Name:  "_acme-challenge",
-		Value: value,
-	}})
+	dp, err := newDNSProvider(d.DomainSpec)
 	if err != nil {
-		logger.Errorf("SetRecords: %v", err)
+		logger.Errorf("new DNS provider: %v", err)
 		return err
 	}
 
-	d.cleanups = append(d.cleanups, func() error {
-		// we cannot use d.ctx here as it may be already cancelled
-		dp.DeleteRecords(context.Background(), d.Zone, records)
-		return nil
-	})
+	record := libdns.Record{
+		Type: "TXT",
+		Name: "_acme-challenge",
+	}
+	// ignore the error of DeleteRecords because the record may not exist
+	dp.DeleteRecords(d.ctx, d.Zone(), []libdns.Record{record})
+
+	record.Value = value
+	_, err = dp.AppendRecords(d.ctx, d.Zone(), []libdns.Record{record})
+	if err != nil {
+		logger.Errorf("AppendRecords: %v", err)
+		return err
+	}
 
 	// we need to wait because it takes some time for a new DNS record to become effective
 	err = d.waitDNSRecord(value)
@@ -338,7 +362,7 @@ func (d *Domain) doRenewCert(acm *AutoCertManager) error {
 		Leaf:        leaf,
 	}
 
-	d.certificate.Store(cert)
+	d.updateCert(cert)
 	acm.storage.putCert(d.nameInPunyCode, cert)
 	return nil
 }

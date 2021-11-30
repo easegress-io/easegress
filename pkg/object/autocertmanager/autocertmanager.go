@@ -74,7 +74,6 @@ type (
 	// DomainSpec is the automate certificate management spec for a domain
 	DomainSpec struct {
 		Name        string            `yaml:"name" jsonschema:"required"`
-		Zone        string            `yaml:"zone" jsonschema:"omitempty"`
 		DNSProvider map[string]string `yaml:"dnsProvider" jsonschema:"omitempty"`
 	}
 
@@ -125,6 +124,14 @@ func (spec *Spec) Validate() error {
 		}
 	}
 	return nil
+}
+
+// Zone returns the zone the domain belongs to
+func (spec *DomainSpec) Zone() string {
+	if spec.DNSProvider != nil {
+		return spec.DNSProvider["zone"]
+	}
+	return ""
 }
 
 func init() {
@@ -180,13 +187,10 @@ func (acm *AutoCertManager) findDomain(name string, exactMatch bool) *Domain {
 	// this function to improve performance.
 	for i := range acm.domains {
 		domain := &acm.domains[i]
-		if exactMatch {
-			if name == domain.Name {
-				return domain
-			}
-			continue
+		if name == domain.Name {
+			return domain
 		}
-		if !domain.isWildcard() {
+		if exactMatch || !domain.isWildcard() {
 			continue
 		}
 		if strings.HasSuffix(name, domain.Name[1:]) {
@@ -217,20 +221,21 @@ func (acm *AutoCertManager) reload() {
 			logger.Warnf("domain name contains invalid characters: %s", name)
 		}
 
-		domain := &acm.domains[i]
-		domain.DomainSpec = spec
-		domain.nameInPunyCode = name
+		d := &acm.domains[i]
+		d.DomainSpec = spec
+		d.nameInPunyCode = name
 
-		cert, err := acm.storage.getCert(domain.nameInPunyCode)
+		cert, err := acm.storage.getCert(d.nameInPunyCode)
 		if err != nil {
 			logger.Infof("failed to load certificate for domain %s: %v", spec.Name, err)
 			continue
 		}
-		domain.certificate.Store(cert)
+		d.certificate.Store(cert)
 	}
 
 	globalACM.Store(acm)
 	go acm.run()
+	go acm.watchCertificate()
 }
 
 // Status returns the status of AutoCertManager.
@@ -282,6 +287,17 @@ func (acm *AutoCertManager) createAcmeClient() error {
 
 	acm.client = cl
 	return nil
+}
+
+func (acm *AutoCertManager) watchCertificate() {
+	onChange := func(name string, cert *tls.Certificate) {
+		d := acm.findDomain(name, false)
+		if d != nil {
+			d.updateCert(cert)
+		}
+	}
+
+	acm.storage.watchCertificate(acm.stopCtx, onChange)
 }
 
 func (acm *AutoCertManager) run() {
@@ -338,7 +354,7 @@ func (acm *AutoCertManager) getCertificate(chi *tls.ClientHelloInfo, tokenOnly b
 
 	domain := acm.findDomain(name, false)
 	if domain == nil {
-		return nil, fmt.Errorf("host %s is not configured for auto cert", name)
+		return nil, fmt.Errorf("host %q is not configured for auto cert", name)
 	}
 
 	cert := domain.cert()
