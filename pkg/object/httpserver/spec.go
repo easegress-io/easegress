@@ -149,7 +149,7 @@ func (spec *Spec) tlsConfig() (*tls.Config, error) {
 	}
 
 	// TLS-ALPN-01 challenges requires HTTP server to listen on port 443, but we don't
-	// known which HTTP server listen on this port (consider there's an nginx sit in
+	// know which HTTP server listen on this port (consider there's an nginx sitting in
 	// front of Easegress), so all HTTP servers need to handle TLS-ALPN-01 challenges.
 	// But for HTTP servers who have disabled AutoCert, it should only handle the
 	// TLS-ALPN-01 token certificate request.

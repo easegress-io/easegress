@@ -354,8 +354,8 @@ func (m *mux) reloadRules(superSpec *supervisor.Spec, muxMapper protocol.MuxMapp
 
 func (m *mux) ServeHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 	// HTTP-01 challenges requires HTTP server to listen on port 80, but we don't
-	// known which HTTP server listen on this port (consider there's an nginx sit in
-	// front of Easegress), so all HTTP servers need to handle HTTP-01 challenges.
+	// know which HTTP server listen on this port (consider there's an nginx sitting
+	// in front of Easegress), so all HTTP servers need to handle HTTP-01 challenges.
 	if strings.HasPrefix(stdr.URL.Path, "/.well-known/acme-challenge/") {
 		autocertmanager.HandleHTTP01Challenge(stdw, stdr)
 		return
