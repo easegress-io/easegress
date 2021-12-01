@@ -20,6 +20,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	"gopkg.in/yaml.v2"
@@ -942,3 +943,90 @@ func (s *Service) PutTrafficTarget(tt *spec.TrafficTarget) {
 		api.ClusterPanic(err)
 	}
 }
+
+// PutServiceCanarySpec updates the service canary spec.
+func (s *Service) PutServiceCanarySpec(serviceCanarySpec *spec.ServiceCanary) {
+	buff, err := yaml.Marshal(serviceCanarySpec)
+	if err != nil {
+		panic(fmt.Errorf("BUG: marshal %#v to yaml failed: %v", serviceCanarySpec, err))
+	}
+
+	err = s.store.Put(layout.ServiceCanaryKey(serviceCanarySpec.Name), string(buff))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+}
+
+// GetServiceCanary gets the service canary.
+func (s *Service) GetServiceCanary(serviceCanaryName string) *spec.ServiceCanary {
+	serviceCanary, _ := s.GetServiceCanaryWithInfo(serviceCanaryName)
+	return serviceCanary
+}
+
+// GetServiceCanaryWithInfo gets the service canary with raw info.
+func (s *Service) GetServiceCanaryWithInfo(serviceCanaryName string) (*spec.ServiceCanary, *mvccpb.KeyValue) {
+	kv, err := s.store.GetRaw(layout.ServiceCanaryKey(serviceCanaryName))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+
+	if kv == nil {
+		return nil, nil
+	}
+
+	serviceCanary := &spec.ServiceCanary{}
+	err = yaml.Unmarshal(kv.Value, serviceCanary)
+	if err != nil {
+		panic(fmt.Errorf("BUG: unmarshal %s to yaml failed: %v", string(kv.Value), err))
+	}
+
+	return serviceCanary, kv
+}
+
+// DeleteServiceCanary deletes service canary.
+func (s *Service) DeleteServiceCanary(serviceCanaryName string) {
+	err := s.store.Delete(layout.ServiceCanaryKey(serviceCanaryName))
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+}
+
+// ListServiceCanaries lists service canaries.
+// It sorts service canary in order of priority(primary) and name(secondary).
+func (s *Service) ListServiceCanaries() []*spec.ServiceCanary {
+	serviceCanaries := []*spec.ServiceCanary{}
+	kvs, err := s.store.GetRawPrefix(layout.ServiceCanaryPrefix())
+	if err != nil {
+		api.ClusterPanic(err)
+	}
+
+	for _, v := range kvs {
+		serviceCanary := &spec.ServiceCanary{}
+		err := yaml.Unmarshal(v.Value, serviceCanary)
+		if err != nil {
+			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
+			continue
+		}
+		serviceCanaries = append(serviceCanaries, serviceCanary)
+	}
+
+	sort.Sort(serviceCanariesByPriority(serviceCanaries))
+
+	return serviceCanaries
+}
+
+type serviceCanariesByPriority []*spec.ServiceCanary
+
+func (s serviceCanariesByPriority) Less(i, j int) bool {
+	if s[i].Priority < s[j].Priority {
+		return true
+	}
+
+	if s[i].Priority == s[j].Priority && s[i].Name < s[j].Name {
+		return true
+	}
+
+	return false
+}
+func (s serviceCanariesByPriority) Len() int      { return len(s) }
+func (s serviceCanariesByPriority) Swap(i, j int) { s[i], s[j] = s[j], s[i] }

@@ -32,6 +32,7 @@ type (
 		Exact  string `yaml:"exact" jsonschema:"omitempty"`
 		Prefix string `yaml:"prefix" jsonschema:"omitempty"`
 		RegEx  string `yaml:"regex" jsonschema:"omitempty,format=regexp"`
+		Empty  bool   `yaml:"empty" jsonschema:"omitempty"`
 		re     *regexp.Regexp
 	}
 
@@ -46,6 +47,13 @@ type (
 
 // Validate validates the StringMatch object
 func (sm StringMatch) Validate() error {
+	if sm.Empty {
+		if sm.Exact != "" || sm.Prefix != "" || sm.RegEx != "" {
+			return fmt.Errorf("empty is conflict with other patterns")
+		}
+		return nil
+	}
+
 	if sm.Exact != "" {
 		return nil
 	}
@@ -58,7 +66,7 @@ func (sm StringMatch) Validate() error {
 		return nil
 	}
 
-	return fmt.Errorf("at least one pattern must be configured")
+	return fmt.Errorf("all patterns is empty")
 }
 
 // Init initializes an StringMatch
@@ -70,6 +78,10 @@ func (sm *StringMatch) Init() {
 
 // Match matches a string to the pattern
 func (sm *StringMatch) Match(value string) bool {
+	if sm.Empty && value == "" {
+		return true
+	}
+
 	if sm.Exact != "" && value == sm.Exact {
 		return true
 	}

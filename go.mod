@@ -35,7 +35,7 @@ require (
 	github.com/libdns/route53 v1.1.2
 	github.com/libdns/vultr v0.0.0-20211122184636-cd4cb5c12e51
 	github.com/lucas-clemente/quic-go v0.24.0
-	github.com/megaease/easemesh-api v1.3.3
+	github.com/megaease/easemesh-api v1.3.4
 	github.com/megaease/grace v1.0.0
 	github.com/mitchellh/mapstructure v1.4.1
 	github.com/nacos-group/nacos-sdk-go v1.0.8
@@ -61,7 +61,7 @@ require (
 	go.etcd.io/etcd/client/v3 v3.5.0
 	go.etcd.io/etcd/server/v3 v3.5.0
 	go.uber.org/zap v1.19.0
-	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
+	golang.org/x/crypto v0.0.0-20211117183948-ae814b36b871
 	golang.org/x/net v0.0.0-20211118161319-6a13c67c3ce4
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/sys v0.0.0-20211030160813-b3129d9d1021

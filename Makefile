@@ -90,6 +90,7 @@ build_docker:
 	megaease/golang:1.17-alpine make build DOCKER=true
 	docker build -t megaease/easegress:${RELEASE} -f ./build/package/Dockerfile .
 	docker tag megaease/easegress:${RELEASE} megaease/easegress:latest
+	docker tag megaease/easegress:latest megaease/easegress:server-sidecar
 
 test:
 	cd ${MKFILE_DIR}

@@ -25,6 +25,7 @@ import (
 	_ "github.com/megaease/easegress/pkg/filter/circuitbreaker"
 	_ "github.com/megaease/easegress/pkg/filter/corsadaptor"
 	_ "github.com/megaease/easegress/pkg/filter/fallback"
+	_ "github.com/megaease/easegress/pkg/filter/meshadaptor"
 	_ "github.com/megaease/easegress/pkg/filter/mock"
 	_ "github.com/megaease/easegress/pkg/filter/proxy"
 	_ "github.com/megaease/easegress/pkg/filter/ratelimiter"

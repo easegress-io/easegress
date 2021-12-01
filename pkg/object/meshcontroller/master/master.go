@@ -18,7 +18,9 @@
 package master
 
 import (
+	"fmt"
 	"runtime/debug"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v2"
@@ -54,9 +56,20 @@ type (
 		done chan struct{}
 	}
 
+	serviceInstances []*spec.ServiceInstanceSpec
+
 	// Status is the status of mesh master.
 	Status struct{}
 )
+
+func (s serviceInstances) String() string {
+	instances := make([]string, len(s))
+	for i, instance := range s {
+		instances[i] = fmt.Sprintf("%s/%s", instance.ServiceName, instance.InstanceID)
+	}
+
+	return fmt.Sprintf("[%s]", strings.Join(instances, ","))
+}
 
 // New creates a mesh master.
 func New(superSpec *supervisor.Spec) *Master {
@@ -197,27 +210,34 @@ func (m *Master) scanInstances() (failedInstances []*spec.ServiceInstanceSpec,
 			}
 			gap := now.Sub(lastHeartbeatTime)
 			if gap > m.maxHeartbeatTimeout {
-				// This instance record's time gap is beyond our tolerance, needs to be clean immediately.
-				// For freeing storage space
-				if gap > defaultDeadRecordExistTime {
-					logger.Errorf("%s/%s expired for %s, need to be deleted", _spec.ServiceName, _spec.InstanceID, gap.String())
-					deadInstances = append(deadInstances, _spec)
-				} else if _spec.Status != spec.ServiceStatusOutOfService {
-					logger.Errorf("%s/%s expired for %s", _spec.ServiceName, _spec.InstanceID, gap.String())
+				if _spec.Status != spec.ServiceStatusOutOfService {
 					failedInstances = append(failedInstances, _spec)
+				}
+
+				if gap > defaultDeadRecordExistTime {
+					deadInstances = append(deadInstances, _spec)
 				}
 			} else {
 				if _spec.Status == spec.ServiceStatusOutOfService {
-					logger.Infof("%s/%s heartbeat recovered, make it UP", _spec.ServiceName, _spec.InstanceID)
 					rebornInstances = append(rebornInstances, _spec)
 				}
 			}
 		} else {
-			logger.Errorf("status of %s/%s not found, need to delete", _spec.ServiceName, _spec.InstanceID)
 			failedInstances = append(failedInstances, _spec)
 			deadInstances = append(deadInstances, _spec)
 		}
 	}
+
+	if len(failedInstances) > 0 {
+		logger.Warnf("failed instances: %s", serviceInstances(failedInstances))
+	}
+	if len(deadInstances) > 0 {
+		logger.Warnf("dead instances: %s", serviceInstances(deadInstances))
+	}
+	if len(rebornInstances) > 0 {
+		logger.Warnf("reborn instances: %s", serviceInstances(rebornInstances))
+	}
+
 	return
 }
 

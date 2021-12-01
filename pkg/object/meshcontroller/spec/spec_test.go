@@ -50,28 +50,6 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func TestSideCarIngressPipelineSpec(t *testing.T) {
-	s := &Service{
-		Name: "order-001",
-		LoadBalance: &LoadBalance{
-			Policy: proxy.PolicyRandom,
-		},
-		Sidecar: &Sidecar{
-			Address:         "127.0.0.1",
-			IngressPort:     8080,
-			IngressProtocol: "http",
-			EgressPort:      9090,
-			EgressProtocol:  "http",
-		},
-	}
-
-	superSpec, err := s.SideCarIngressPipelineSpec(443)
-	if err != nil {
-		t.Fatalf("%v", err)
-	}
-	fmt.Println(superSpec.YAMLConfig())
-}
-
 func TestAdminInValidat(t *testing.T) {
 	a := Admin{
 		RegistryType:      "unknow",
@@ -218,9 +196,9 @@ func TestAdminValidat(t *testing.T) {
 	}
 }
 
-func TestSideCarEgressPipelineSpec(t *testing.T) {
+func TestSidecarEgressPipelineSpec(t *testing.T) {
 	s := &Service{
-		Name: "order-001",
+		Name: "delivery-mesh",
 		LoadBalance: &LoadBalance{
 			Policy: proxy.PolicyIPHash,
 		},
@@ -233,28 +211,55 @@ func TestSideCarEgressPipelineSpec(t *testing.T) {
 		},
 	}
 
-	instanceSpecs := []*ServiceInstanceSpec{
+	instances := []*ServiceInstanceSpec{
 		{
-			ServiceName: "fake-001",
-			InstanceID:  "xxx-89757",
-			IP:          "192.168.0.110",
-			Port:        80,
-			Status:      "UP",
+			ServiceName:  "delivery-mesh",
+			RegistryName: "easemesh-controller",
+			InstanceID:   "delivery-mesh-84dbdb69df-7b6st",
+			IP:           "10.1.0.76",
+			Port:         13001,
+			Status:       "UP",
 		},
 		{
-			ServiceName: "fake-002",
-			InstanceID:  "zzz-73597",
-			IP:          "192.168.0.120",
-			Port:        80,
-			Status:      "UP",
+			ServiceName:  "delivery-mesh",
+			RegistryName: "easemesh-controller",
+			InstanceID:   "delivery-mesh-canary-7897758bb5-wdnjq",
+			IP:           "10.1.0.77",
+			Port:         13001,
+			Status:       "UP",
+			Labels: map[string]string{
+				"release": "delivery-mesh-canary",
+			},
 		},
 	}
 
-	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs, nil, nil)
+	canaries := []*ServiceCanary{
+		{
+			Name: "delivery-mesh-canary",
+			Selector: &ServiceSelector{
+				MatchServices: []string{"delivery-mesh"},
+				MatchInstanceLabels: map[string]string{
+					"release": "delivery-mesh-canary",
+				},
+			},
+			TrafficRules: &TrafficRules{
+				Headers: map[string]*urlrule.StringMatch{
+					"X-Location": {
+						Exact: "Beijing",
+					},
+				},
+			},
+		},
+	}
+
+	superSpec, err := s.SidecarEgressPipelineSpec(instances, canaries, nil, nil)
+	if err != nil {
+		t.Fatalf("generate sidecar egress pipeline failed: %v", err)
+	}
 	fmt.Println(superSpec.YAMLConfig())
 }
 
-func TestSideCarEgressPipelineWithCanarySpec(t *testing.T) {
+func TestSidecarEgressPipelineWithCanarySpec(t *testing.T) {
 	s := &Service{
 		Name: "order-002-canary",
 		LoadBalance: &LoadBalance{
@@ -325,11 +330,11 @@ func TestSideCarEgressPipelineWithCanarySpec(t *testing.T) {
 		},
 	}
 
-	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs, nil, nil)
+	superSpec, _ := s.SidecarEgressPipelineSpec(instanceSpecs, nil, nil, nil)
 	fmt.Println(superSpec.YAMLConfig())
 }
 
-func TestSideCarEgressPipelineSpecWithMock(t *testing.T) {
+func TestSidecarEgressPipelineSpecWithMock(t *testing.T) {
 	s := &Service{
 		Name: "order-004-mock-",
 		Sidecar: &Sidecar{
@@ -361,7 +366,7 @@ func TestSideCarEgressPipelineSpecWithMock(t *testing.T) {
 	}
 
 	instanceSpecs := []*ServiceInstanceSpec{}
-	_, err := s.SideCarEgressPipelineSpec(instanceSpecs, nil, nil)
+	_, err := s.SidecarEgressPipelineSpec(instanceSpecs, nil, nil, nil)
 	if err == nil {
 		t.Fatalf("mocking service should failed: %v", err)
 	}
@@ -400,7 +405,7 @@ func TestMockPBConvert(t *testing.T) {
 	}
 }
 
-func TestSideCarEgressPipelneNotLoadBalancer(t *testing.T) {
+func TestSidecarEgressPipelneNotLoadBalancer(t *testing.T) {
 	s := &Service{
 		Name: "order-003-canary-array",
 		Sidecar: &Sidecar{
@@ -489,14 +494,14 @@ func TestSideCarEgressPipelneNotLoadBalancer(t *testing.T) {
 		},
 	}
 
-	superSpec, err := s.SideCarEgressPipelineSpec(instanceSpecs, nil, nil)
+	superSpec, err := s.SidecarEgressPipelineSpec(instanceSpecs, nil, nil, nil)
 	if err != nil {
 		t.Errorf("sidecar egress pipeline spec gen failed: %v", err)
 	}
 	fmt.Println(superSpec.YAMLConfig())
 }
 
-func TestSideCarEgressPipelineWithMultipleCanarySpec(t *testing.T) {
+func TestSidecarEgressPipelineWithMultipleCanarySpec(t *testing.T) {
 	s := &Service{
 		Name: "order-003-canary-array",
 		LoadBalance: &LoadBalance{
@@ -587,11 +592,11 @@ func TestSideCarEgressPipelineWithMultipleCanarySpec(t *testing.T) {
 		},
 	}
 
-	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs, nil, nil)
+	superSpec, _ := s.SidecarEgressPipelineSpec(instanceSpecs, nil, nil, nil)
 	fmt.Println(superSpec.YAMLConfig())
 }
 
-func TestSideCarEgressPipelineWithCanaryNoInstanceSpec(t *testing.T) {
+func TestSidecarEgressPipelineWithCanaryNoInstanceSpec(t *testing.T) {
 	s := &Service{
 		Name: "order-004-canary-no-instance",
 		LoadBalance: &LoadBalance{
@@ -661,11 +666,11 @@ func TestSideCarEgressPipelineWithCanaryNoInstanceSpec(t *testing.T) {
 		},
 	}
 
-	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs, nil, nil)
+	superSpec, _ := s.SidecarEgressPipelineSpec(instanceSpecs, nil, nil, nil)
 	fmt.Println(superSpec.YAMLConfig())
 }
 
-func TestSideCarEgressPipelineWithCanaryInstanceMultipleLabelSpec(t *testing.T) {
+func TestSidecarEgressPipelineWithCanaryInstanceMultipleLabelSpec(t *testing.T) {
 	s := &Service{
 		Name: "order-005-canary-instance-multiple-label",
 		LoadBalance: &LoadBalance{
@@ -737,7 +742,7 @@ func TestSideCarEgressPipelineWithCanaryInstanceMultipleLabelSpec(t *testing.T) 
 		},
 	}
 
-	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs, nil, nil)
+	superSpec, _ := s.SidecarEgressPipelineSpec(instanceSpecs, nil, nil, nil)
 	fmt.Println(superSpec.YAMLConfig())
 }
 
@@ -761,7 +766,7 @@ func TestIngressHTTPServerSpec(t *testing.T) {
 	}
 
 }
-func TestSideCarIngressWithResiliencePipelineSpec(t *testing.T) {
+func TestSidecarIngressWithResiliencePipelineSpec(t *testing.T) {
 	s := &Service{
 		Name: "order-001",
 		LoadBalance: &LoadBalance{
@@ -798,11 +803,11 @@ func TestSideCarIngressWithResiliencePipelineSpec(t *testing.T) {
 		},
 	}
 
-	superSpec, _ := s.SideCarIngressPipelineSpec(443)
+	superSpec, _ := s.SidecarIngressPipelineSpec(443)
 	fmt.Println(superSpec.YAMLConfig())
 }
 
-func TestSideCarEgressResiliencePipelineSpec(t *testing.T) {
+func TestSidecarEgressResiliencePipelineSpec(t *testing.T) {
 	s := &Service{
 		Name: "order-001",
 		LoadBalance: &LoadBalance{
@@ -904,7 +909,7 @@ func TestSideCarEgressResiliencePipelineSpec(t *testing.T) {
 		},
 	}
 
-	superSpec, _ := s.SideCarEgressPipelineSpec(instanceSpecs, nil, nil)
+	superSpec, _ := s.SidecarEgressPipelineSpec(instanceSpecs, nil, nil, nil)
 	fmt.Println(superSpec.YAMLConfig())
 }
 
@@ -1003,7 +1008,7 @@ func TestIngressPipelineSpec(t *testing.T) {
 		TTL:         "10h",
 		SignTime:    "2021-10-13 12:33:10",
 	}
-	superSpec, err := s.IngressPipelineSpec(instanceSpecs, cert, rootCert)
+	superSpec, err := s.IngressControllerPipelineSpec(instanceSpecs, nil, cert, rootCert)
 
 	if err != nil {
 		t.Fatalf("%v", err)
@@ -1041,14 +1046,14 @@ func TestSidecarIngressPipelineSpecCert(t *testing.T) {
 		SignTime:    "2021-10-13 12:33:10",
 	}
 
-	superSpec, err := s.SideCarIngressHTTPServerSpec(cert, rootCert)
+	superSpec, err := s.SidecarIngressHTTPServerSpec(cert, rootCert)
 
 	if err != nil {
 		t.Fatalf("ingress http server spec failed: %v", err)
 	}
 	fmt.Println(superSpec.YAMLConfig())
 
-	superSpec, err = s.SideCarEgressHTTPServerSpec()
+	superSpec, err = s.SidecarEgressHTTPServerSpec()
 
 	if err != nil {
 		t.Fatalf("egress http server spec failed: %v", err)
@@ -1071,14 +1076,14 @@ func TestSidecarIngressPipelineSpec(t *testing.T) {
 		},
 	}
 
-	superSpec, err := s.SideCarIngressHTTPServerSpec(nil, nil)
+	superSpec, err := s.SidecarIngressHTTPServerSpec(nil, nil)
 
 	if err != nil {
 		t.Fatalf("ingress http server spec failed: %v", err)
 	}
 	fmt.Println(superSpec.YAMLConfig())
 
-	superSpec, err = s.SideCarEgressHTTPServerSpec()
+	superSpec, err = s.SidecarEgressHTTPServerSpec()
 
 	if err != nil {
 		t.Fatalf("egress http server spec failed: %v", err)
@@ -1246,4 +1251,78 @@ func TestCustomResource(t *testing.T) {
 	if _, ok := r["field1"].(map[string]interface{}); !ok {
 		t.Errorf("the type of 'field1' should be 'map[string]interface{}'")
 	}
+}
+
+func TestAppendProxyWithCanary(t *testing.T) {
+	b := newPipelineSpecBuilder("test-pipeline-builder")
+	instances := []*ServiceInstanceSpec{
+		{
+			ServiceName:  "delivery-mesh",
+			RegistryName: "easemesh-controller",
+			InstanceID:   "delivery-mesh-84dbdb69df-7b6st",
+			IP:           "10.1.0.76",
+			Port:         13001,
+			Status:       "UP",
+		},
+		{
+			ServiceName: "delivery-mesh",
+			InstanceID:  "delivery-mesh-canary-7897758bb5-wdnjq",
+			IP:          "10.1.0.77",
+			Port:        13001,
+			Status:      "UP",
+			Labels: map[string]string{
+				"release": "delivery-mesh-canary",
+			},
+		},
+	}
+
+	canaries := []*ServiceCanary{
+		{
+			Name: "delivery-mesh-canary",
+			Selector: &ServiceSelector{
+				MatchServices: []string{"delivery-mesh"},
+				MatchInstanceLabels: map[string]string{
+					"release": "delivery-mesh-canary",
+				},
+			},
+			TrafficRules: &TrafficRules{
+				Headers: map[string]*urlrule.StringMatch{
+					"X-Location": {
+						Exact: "Beijing",
+					},
+				},
+			},
+		},
+	}
+
+	b.appendProxyWithCanary(instances, canaries, nil, nil, nil)
+	buff, _ := yaml.Marshal(b.Spec)
+	t.Logf("%s", buff)
+}
+
+func TestAppendMeshAdaptor(t *testing.T) {
+	b := newPipelineSpecBuilder("test-pipeline-builder")
+
+	canaries := []*ServiceCanary{
+		{
+			Name: "delivery-mesh-canary",
+			Selector: &ServiceSelector{
+				MatchServices: []string{"delivery-mesh"},
+				MatchInstanceLabels: map[string]string{
+					"release": "delivery-mesh-canary",
+				},
+			},
+			TrafficRules: &TrafficRules{
+				Headers: map[string]*urlrule.StringMatch{
+					"X-Location": {
+						Exact: "Beijing",
+					},
+				},
+			},
+		},
+	}
+
+	b.appendMeshAdaptor(canaries)
+	buff, _ := yaml.Marshal(b.Spec)
+	t.Logf("%s", buff)
 }
