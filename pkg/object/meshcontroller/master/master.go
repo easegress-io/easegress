@@ -235,7 +235,7 @@ func (m *Master) scanInstances() (failedInstances []*spec.ServiceInstanceSpec,
 		logger.Warnf("dead instances: %s", serviceInstances(deadInstances))
 	}
 	if len(rebornInstances) > 0 {
-		logger.Warnf("reborn instances: %s", serviceInstances(rebornInstances))
+		logger.Infof("reborn instances: %s", serviceInstances(rebornInstances))
 	}
 
 	return

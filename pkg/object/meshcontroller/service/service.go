@@ -272,7 +272,6 @@ func (s *Service) PutIngressControllerInstanceCert(instaceID string, cert *spec.
 	if err != nil {
 		api.ClusterPanic(err)
 	}
-	return
 }
 
 // DelIngressControllerInstanceCert deletes root cert.
@@ -281,7 +280,6 @@ func (s *Service) DelIngressControllerInstanceCert(instanceID string) {
 	if err != nil {
 		api.ClusterPanic(err)
 	}
-	return
 }
 
 // DelAllIngressControllerInstanceCert deletes all ingress controller certs.
@@ -303,7 +301,6 @@ func (s *Service) PutIngressControllerInstanceSpec(instance *spec.ServiceInstanc
 	if err != nil {
 		api.ClusterPanic(err)
 	}
-	return
 }
 
 // GetRootCert  gets the root cert.
@@ -337,7 +334,6 @@ func (s *Service) PutRootCert(cert *spec.Certificate) {
 	if err != nil {
 		api.ClusterPanic(err)
 	}
-	return
 }
 
 //  DelRootCert deletes root cert.
@@ -959,28 +955,22 @@ func (s *Service) PutServiceCanarySpec(serviceCanarySpec *spec.ServiceCanary) {
 
 // GetServiceCanary gets the service canary.
 func (s *Service) GetServiceCanary(serviceCanaryName string) *spec.ServiceCanary {
-	serviceCanary, _ := s.GetServiceCanaryWithInfo(serviceCanaryName)
-	return serviceCanary
-}
-
-// GetServiceCanaryWithInfo gets the service canary with raw info.
-func (s *Service) GetServiceCanaryWithInfo(serviceCanaryName string) (*spec.ServiceCanary, *mvccpb.KeyValue) {
-	kv, err := s.store.GetRaw(layout.ServiceCanaryKey(serviceCanaryName))
+	value, err := s.store.Get(layout.ServiceCanaryKey(serviceCanaryName))
 	if err != nil {
 		api.ClusterPanic(err)
 	}
 
-	if kv == nil {
-		return nil, nil
+	if value == nil {
+		return nil
 	}
 
 	serviceCanary := &spec.ServiceCanary{}
-	err = yaml.Unmarshal(kv.Value, serviceCanary)
+	err = yaml.Unmarshal([]byte(*value), serviceCanary)
 	if err != nil {
-		panic(fmt.Errorf("BUG: unmarshal %s to yaml failed: %v", string(kv.Value), err))
+		panic(fmt.Errorf("BUG: unmarshal %s to yaml failed: %v", string(*value), err))
 	}
 
-	return serviceCanary, kv
+	return serviceCanary
 }
 
 // DeleteServiceCanary deletes service canary.

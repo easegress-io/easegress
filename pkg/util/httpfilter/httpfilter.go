@@ -116,6 +116,11 @@ func (hf *HTTPFilter) filterHeader(ctx context.HTTPContext) bool {
 	h := ctx.Request().Header()
 	headerMatchNum := 0
 	for key, matchRule := range hf.spec.Headers {
+		// NOTE: Quickly break for performance.
+		if headerMatchNum >= 1 && !hf.spec.MatchAllHeaders {
+			break
+		}
+
 		values := h.GetAll(key)
 
 		if len(values) == 0 && matchRule.Empty {

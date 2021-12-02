@@ -18,7 +18,6 @@
 package httpfilter
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -36,6 +35,7 @@ func TestFilterHeader(t *testing.T) {
 		},
 		Header: map[string][]string{
 			"X-Easemesh-Servicecanary": {},
+			"Content-Type":             {"application/json"},
 		},
 	}
 
@@ -44,11 +44,21 @@ func TestFilterHeader(t *testing.T) {
 	filter := New(&Spec{
 		MatchAllHeaders: true,
 		Headers: map[string]*urlrule.StringMatch{
+			"Content-Type": {
+				Exact: "application/json",
+			},
 			"X-Easemesh-Servicecanary": {
 				Empty: true,
 			},
 		},
 	})
 
-	fmt.Println(filter.Filter(ctx))
+	if !filter.Filter(ctx) {
+		t.Fatalf("filter failed")
+	}
+
+	filter.spec.MatchAllHeaders = false
+	if !filter.Filter(ctx) {
+		t.Fatalf("filter failed")
+	}
 }

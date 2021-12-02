@@ -444,7 +444,7 @@ func (sc ServiceCanary) Validate() error {
 	return nil
 }
 
-// Clone clonse TrafficRules.
+// Clone clones TrafficRules.
 func (tr *TrafficRules) Clone() *TrafficRules {
 	headers := map[string]*urlrule.StringMatch{}
 	for k, v := range tr.Headers {
