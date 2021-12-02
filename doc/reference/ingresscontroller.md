@@ -178,12 +178,12 @@ spec:
     spec:
       containers:
       - name: hello-v1
-        image: "gcr.io/google-samples/node-hello:1.0"
+        image: "us-docker.pkg.dev/google-samples/containers/gke/hello-app:1.0"
         env:
         - name: "PORT"
           value: "50001"
       - name: hello-v2
-        image: "gcr.io/google-samples/hello-app:2.0"
+        image: "us-docker.pkg.dev/google-samples/containers/gke/hello-app:2.0"
         env:
         - name: "PORT"
           value: "50002"
@@ -247,7 +247,9 @@ Version: 2.0.0
 Hostname: hello-deployment-6cbf765985-r6242
 
 $ curl http://{NODE_IP}/ -HHost:www.example.com
-Hello Kubernetes!
+Hello, world!
+Version: 1.0.0
+Hostname: hello-deployment-6cbf765985-r6242
 ```
 
 And we can see Easegress IngressController has forwarded requests to the correct application version according to Kubernetes ingress.
