@@ -31,6 +31,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/api"
@@ -61,7 +63,8 @@ type (
 		memberURL         func(string, string) ([]string, error)
 
 		// done is the channel for shutdowning this proxy.
-		done chan struct{}
+		done      chan struct{}
+		closeFlag int32
 	}
 
 	// HTTPJsonData is json data received from http endpoint used to send back to clients
@@ -131,12 +134,12 @@ func newBroker(spec *Spec, store storage, memberURL func(string, string) ([]stri
 	broker.sessMgr = newSessionManager(broker, store)
 	broker.connectionLimiter = newLimiter(spec.ConnectionLimit)
 	go broker.run()
-	ch, err := broker.sessMgr.store.watchDelete(sessionStoreKey(""))
+	ch, closeFunc, err := broker.sessMgr.store.watchDelete(sessionStoreKey(""))
 	if err != nil {
 		spanErrorf(nil, "get watcher for session failed, %v", err)
 	}
 	if ch != nil {
-		go broker.watchDelete(ch)
+		go broker.watchDelete(ch, closeFunc)
 	}
 	return broker
 }
@@ -166,12 +169,51 @@ func (b *Broker) setListener() error {
 	return err
 }
 
-func (b *Broker) watchDelete(ch <-chan map[string]*string) {
+func (b *Broker) reconnectWatcher() {
+	if b.closed() {
+		return
+	}
+
+	ch, cancelFunc, err := b.sessMgr.store.watchDelete(sessionStoreKey(""))
+	if err != nil {
+		spanErrorf(nil, "get watcher for session failed, %v", err)
+		time.Sleep(10 * time.Second)
+		go b.reconnectWatcher()
+		return
+	}
+	go b.watchDelete(ch, cancelFunc)
+
+	// check event during reconnect
+	sessions, err := b.sessMgr.store.getPrefix(sessionStoreKey(""), true)
+	if err != nil {
+		spanErrorf(nil, "get all session prefix failed, %v", err)
+	}
+
+	clients := []*Client{}
+	b.Lock()
+	for sessionID, client := range b.clients {
+		if _, ok := sessions[sessionID]; !ok {
+			clients = append(clients, client)
+		}
+	}
+	b.Unlock()
+
+	for _, c := range clients {
+		c.close()
+	}
+}
+
+func (b *Broker) watchDelete(ch <-chan map[string]*string, closeFunc func()) {
+	defer closeFunc()
 	for {
 		select {
 		case <-b.done:
 			return
 		case m := <-ch:
+			if m == nil {
+				go b.reconnectWatcher()
+				return
+			}
 			for k, v := range m {
 				if v != nil {
 					continue
@@ -582,7 +624,17 @@ func (b *Broker) registerAPIs() {
 	api.RegisterAPIs(group)
 }
 
+func (b *Broker) setClose() {
+	atomic.StoreInt32(&b.closeFlag, 1)
+}
+
+func (b *Broker) closed() bool {
+	flag := atomic.LoadInt32(&b.closeFlag)
+	return flag == 1
+}
+
 func (b *Broker) close() {
+	b.setClose()
 	close(b.done)
 	b.listener.Close()
 	b.backend.close()
