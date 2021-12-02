@@ -87,7 +87,7 @@ build_docker:
 	docker run -w /egsrc -u ${shell id -u}:${shell id -g} --rm \
 	-v ${GO_PATH}:/gopath -v ${MKFILE_DIR}:/egsrc -v ${MKFILE_DIR}build/cache:/gocache \
 	-e GOPROXY=https://goproxy.io,direct -e GOCACHE=/gocache -e GOPATH=/gopath \
-	megaease/golang:1.16-alpine make build DOCKER=true
+	megaease/golang:1.17-alpine make build DOCKER=true
 	docker build -t megaease/easegress:${RELEASE} -f ./build/package/Dockerfile .
 	docker tag megaease/easegress:${RELEASE} megaease/easegress:latest
 
