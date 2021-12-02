@@ -132,6 +132,9 @@ func (mp *MQTTProxy) Init(superSpec *supervisor.Spec) {
 
 	store := newStorage(superSpec.Super().Cluster())
 	mp.broker = newBroker(spec, store, memberURLFunc(superSpec))
+	if mp.broker == nil {
+		panic(fmt.Sprintf("broker %v start failed", spec.Name))
+	}
 	if mp.broker != nil {
 		mp.broker.registerAPIs()
 	}

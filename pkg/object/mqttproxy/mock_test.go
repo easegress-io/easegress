@@ -172,7 +172,7 @@ func TestKafka(t *testing.T) {
 			Backend: []string{"localhost:1234"},
 		},
 	})
-	if k.(*KafkaMQ) != nil {
+	if k != nil {
 		t.Errorf("should return nil for invalid broker address, %v", k)
 	}
 	k = newBackendMQ(&Spec{

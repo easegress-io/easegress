@@ -105,6 +105,9 @@ func newBroker(spec *Spec, store storage, memberURL func(string, string) ([]stri
 		memberURL:  memberURL,
 		done:       make(chan struct{}),
 	}
+	if broker.backend == nil {
+		panic(fmt.Sprintf("mqtt broker %v connect backend failed", broker.name))
+	}
 
 	if !spec.AuthByPipeline {
 		for _, a := range spec.Auth {

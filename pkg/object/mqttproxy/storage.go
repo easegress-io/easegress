@@ -54,7 +54,6 @@ func newStorage(cls cluster.Cluster) storage {
 	if cls != nil {
 		return &clusterStorage{
 			cls: cls,
-			// watcher: watcher,
 		}
 	}
 	return &mockStorage{

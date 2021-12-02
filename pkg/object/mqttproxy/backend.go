@@ -71,7 +71,7 @@ func newBackendMQ(spec *Spec) backendMQ {
 	}
 }
 
-func newKafkaMQ(spec *Spec) *KafkaMQ {
+func newKafkaMQ(spec *Spec) backendMQ {
 	k := &KafkaMQ{}
 	k.mapFunc = getTopicMapFunc(spec.TopicMapper)
 	k.done = make(chan struct{})
