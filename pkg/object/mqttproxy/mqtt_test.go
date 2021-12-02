@@ -1490,6 +1490,7 @@ func TestMQTTProxy(t *testing.T) {
 	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
 	broker := getBroker("test", "test", b64passwd, 1883)
 	mp.broker = broker
+	broker.reconnectWatcher()
 	mp.Close()
 }
 
