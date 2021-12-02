@@ -538,7 +538,7 @@ func (b *Broker) httpGetAllSessionHandler(w http.ResponseWriter, r *http.Request
 	if len(query) == 0 {
 		for k := range allSession {
 			httpSession := &HTTPSession{
-				SessionID: k,
+				SessionID: strings.TrimPrefix(k, sessionStoreKey("")),
 			}
 			res.Sessions = append(res.Sessions, httpSession)
 		}
@@ -620,7 +620,7 @@ func (b *Broker) registerAPIs() {
 		Entries: []*api.Entry{
 			{Path: b.mqttAPIPrefix(mqttAPITopicPublishPrefix), Method: http.MethodPost, Handler: b.httpTopicsPublishHandler},
 			{Path: b.mqttAPIPrefix(mqttAPISessionQueryPrefix), Method: http.MethodGet, Handler: b.httpGetAllSessionHandler},
-			{Path: b.mqttAPIPrefix(mqttAPISessionDeletePrefix), Method: http.MethodPost, Handler: b.httpDeleteSessionHandler},
+			{Path: b.mqttAPIPrefix(mqttAPISessionDeletePrefix), Method: http.MethodDelete, Handler: b.httpDeleteSessionHandler},
 		},
 	}
 
