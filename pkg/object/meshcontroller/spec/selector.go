@@ -31,9 +31,9 @@ type (
 // NoopServiceSelector selects none of services or instances.
 var NoopServiceSelector = &ServiceSelector{}
 
-// MatchInstance returns if selecting the service instance.
+// MatchInstance returns whether selecting the service instance by service name and instance labels.
 func (s *ServiceSelector) MatchInstance(serviceName string, instancelabels map[string]string) bool {
-	if !stringtool.StrInSlice(serviceName, s.MatchServices) {
+	if !s.MatchService(serviceName) {
 		return false
 	}
 
@@ -46,7 +46,7 @@ func (s *ServiceSelector) MatchInstance(serviceName string, instancelabels map[s
 	return true
 }
 
-// MatchService returns if selecting the service.
+// MatchService returns whether selecting the given service.
 func (s *ServiceSelector) MatchService(serviceName string) bool {
 	return stringtool.StrInSlice(serviceName, s.MatchServices)
 }

@@ -706,14 +706,14 @@ func (b *pipelineSpecBuilder) appendProxyWithCanary(instanceSpecs []*ServiceInst
 	}
 
 	makeServer := func(instance *ServiceInstanceSpec) *proxy.Server {
-		var url string
+		var protocol string
 		if needMTLS {
-			url = fmt.Sprintf("https://%s:%d", instance.IP, instance.Port)
+			protocol = "https"
 		} else {
-			url = fmt.Sprintf("http://%s:%d", instance.IP, instance.Port)
+			protocol = "http"
 		}
 		return &proxy.Server{
-			URL: url,
+			URL: fmt.Sprintf("%s://%s:%d", protocol, instance.IP, instance.Port),
 		}
 	}
 
