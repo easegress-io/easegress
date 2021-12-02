@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/megaease/easegress/pkg/util/fasttime"
+	"github.com/openzipkin/zipkin-go/model"
 )
 
 type lazyLogBuilder struct {
@@ -140,4 +141,21 @@ func NginxHTTPAccess(remoteAddr, proto, method, path, referer, agent, realIP str
 		agent, realIP,
 		requestTime.Seconds(), upstreamResponseTime.Seconds(), upstreamAddr, upstreamCode,
 		clientWriteBodyTime.Seconds(), clientReadBodyTime.Seconds(), routeTime.Seconds())
+}
+
+func getSpanTemplate(context *model.SpanContext, template string) string {
+	if context == nil {
+		return "tid=" + "<nil>" + " sid=" + "<nil>" + " " + template
+	}
+	return "tid=" + context.TraceID.String() + " sid=" + context.ID.String() + " " + template
+}
+
+func SpanDebugf(context *model.SpanContext, template string, args ...interface{}) {
+	temp := getSpanTemplate(context, template)
+	defaultLogger.Debugf(temp, args...)
+}
+
+func SpanErrorf(context *model.SpanContext, template string, args ...interface{}) {
+	temp := getSpanTemplate(context, template)
+	defaultLogger.Errorf(temp, args...)
 }

@@ -23,6 +23,7 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/logger"
 )
 
 type (
@@ -66,7 +67,7 @@ func newBackendMQ(spec *Spec) backendMQ {
 		t.msg = make(map[string]map[string]string)
 		return t
 	default:
-		spanErrorf(nil, "backend type <%s> not support", spec.BackendType)
+		logger.SpanErrorf(nil, "backend type <%s> not support", spec.BackendType)
 		return nil
 	}
 }
@@ -81,7 +82,7 @@ func newKafkaMQ(spec *Spec) backendMQ {
 	config.Version = sarama.V1_0_0_0
 	producer, err := sarama.NewAsyncProducer(spec.Kafka.Backend, config)
 	if err != nil {
-		spanErrorf(nil, "start sarama producer with address %v failed: %v", spec.Kafka.Backend, err)
+		logger.SpanErrorf(nil, "start sarama producer with address %v failed: %v", spec.Kafka.Backend, err)
 		return nil
 	}
 
@@ -94,7 +95,7 @@ func newKafkaMQ(spec *Spec) backendMQ {
 				if !ok {
 					return
 				}
-				spanErrorf(nil, "sarama producer failed: %v", err)
+				logger.SpanErrorf(nil, "sarama producer failed: %v", err)
 			}
 		}
 	}()
@@ -105,7 +106,7 @@ func newKafkaMQ(spec *Spec) backendMQ {
 
 func (k *KafkaMQ) publish(p *packets.PublishPacket) error {
 	var msg *sarama.ProducerMessage
-	spanDebugf(nil, "produce msg with topic %s", p.TopicName)
+	logger.SpanDebugf(nil, "produce msg with topic %s", p.TopicName)
 
 	if k.mapFunc != nil {
 		topic, headers, err := k.mapFunc(p.TopicName)
@@ -136,7 +137,7 @@ func (k *KafkaMQ) close() {
 	close(k.done)
 	err := k.producer.Close()
 	if err != nil {
-		spanErrorf(nil, "close kafka producer failed: %v", err)
+		logger.SpanErrorf(nil, "close kafka producer failed: %v", err)
 	}
 }
 
