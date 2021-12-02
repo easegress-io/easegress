@@ -35,24 +35,13 @@ import (
 	"golang.org/x/crypto/acme"
 )
 
-// CertState is the state of a certificate
-type CertState int32
-
-const (
-	// CertStateNormal means the certificate state is normal
-	CertStateNormal = iota
-	// CertStateRenewing means the certificate is under a renew process
-	CertStateRenewing
-)
-
 // Domain represents a domain for automated certificate management
 type Domain struct {
 	*DomainSpec
-	nameInPunyCode   string
-	certificate      atomic.Value
-	certificateState int32
-	cleanups         []func() error
-	ctx              context.Context
+	nameInPunyCode string
+	certificate    atomic.Value
+	cleanups       []func() error
+	ctx            context.Context
 }
 
 // isWildcard returns whether the domain is for a wildcard one
@@ -75,14 +64,6 @@ func (d *Domain) certExpireTime() time.Time {
 		return time.Time{}
 	}
 	return cert.Leaf.NotAfter
-}
-
-func (d *Domain) certState() CertState {
-	return CertState(atomic.LoadInt32(&d.certificateState))
-}
-
-func (d *Domain) setCertState(state CertState) {
-	atomic.StoreInt32(&d.certificateState, int32(state))
 }
 
 func (d *Domain) updateCert(cert *tls.Certificate) {
@@ -305,7 +286,7 @@ func (d *Domain) fulfill(acm *AutoCertManager, u string) error {
 	return nil
 }
 
-func (d *Domain) doRenewCert(acm *AutoCertManager) error {
+func (d *Domain) renewCert(acm *AutoCertManager) error {
 	ctx, cancel := context.WithTimeout(acm.stopCtx, 10*time.Minute)
 	d.ctx = ctx
 
@@ -365,25 +346,4 @@ func (d *Domain) doRenewCert(acm *AutoCertManager) error {
 	d.updateCert(cert)
 	acm.storage.putCert(d.nameInPunyCode, cert)
 	return nil
-}
-
-func (d *Domain) renewCert(acm *AutoCertManager) {
-	logger.Infof("begin renew certificate for domain %s", d.Name)
-
-	for {
-		err := d.doRenewCert(acm)
-		if err == nil {
-			break
-		}
-		logger.Errorf("failed to renew cerficate for domain %s: %v", d.Name, err)
-
-		select {
-		case <-acm.stopCtx.Done():
-			return
-		case <-time.After(time.Minute):
-		}
-	}
-
-	d.setCertState(CertStateNormal)
-	logger.Infof("certificate for domain %s has been renewed", d.Name)
 }

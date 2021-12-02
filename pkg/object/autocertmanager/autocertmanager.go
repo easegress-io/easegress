@@ -151,6 +151,7 @@ func (acm *AutoCertManager) Kind() string {
 // DefaultSpec returns the default spec of AutoCertManager.
 func (acm *AutoCertManager) DefaultSpec() interface{} {
 	return &Spec{
+		DirectoryURL:    acme.LetsEncryptURL,
 		RenewBefore:     "720h",
 		EnableHTTP01:    true,
 		EnableTLSALPN01: true,
@@ -256,19 +257,33 @@ func (acm *AutoCertManager) Close() {
 	acm.cancel()
 }
 
-func (acm *AutoCertManager) renew() {
+func (acm *AutoCertManager) renew() bool {
+	allSucc := true
 	deadline := time.Now().Add(acm.renewBefore)
+
 	for i := range acm.domains {
-		domain := &acm.domains[i]
-		if domain.certState() == CertStateRenewing {
+		// Try to avoid race conditions. We should only renew certificates from
+		// the leader node. And because it takes some time for the renew process
+		// to complete, we need to check this before each iteration.
+		if !acm.super.Cluster().IsLeader() {
+			break
+		}
+
+		d := &acm.domains[i]
+		if d.certExpireTime().After(deadline) {
 			continue
 		}
-		if domain.certExpireTime().After(deadline) {
-			continue
+
+		logger.Infof("begin renew certificate for domain %s", d.Name)
+		if err := d.renewCert(acm); err == nil {
+			logger.Infof("certificate for domain %s has been renewed", d.Name)
+		} else {
+			logger.Errorf("failed to renew cerficate for domain %s: %v", d.Name, err)
+			allSucc = false
 		}
-		domain.setCertState(CertStateRenewing)
-		go domain.renewCert(acm)
 	}
+
+	return allSucc
 }
 
 func (acm *AutoCertManager) createAcmeClient() error {
@@ -301,31 +316,27 @@ func (acm *AutoCertManager) watchCertificate() {
 }
 
 func (acm *AutoCertManager) run() {
-	ticker := time.NewTicker(30 * time.Second)
 	for {
 		if err := acm.createAcmeClient(); err == nil {
 			break
 		}
 		select {
 		case <-acm.stopCtx.Done():
-			ticker.Stop()
 			return
-		case <-ticker.C:
+		case <-time.After(30 * time.Second):
 		}
 	}
 
-	ticker.Reset(time.Hour)
 	for {
-		// to avoid race conditions, we should only renew certificates from
-		// the leader node
-		if acm.super.Cluster().IsLeader() {
-			acm.renew()
+		waitDuration := time.Hour
+		if allSucc := acm.renew(); !allSucc {
+			waitDuration = 10 * time.Minute
 		}
+
 		select {
 		case <-acm.stopCtx.Done():
-			ticker.Stop()
 			return
-		case <-ticker.C:
+		case <-time.After(waitDuration):
 		}
 	}
 }
