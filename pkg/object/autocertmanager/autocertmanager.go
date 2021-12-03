@@ -166,7 +166,7 @@ func (acm *AutoCertManager) Init(superSpec *supervisor.Spec) {
 	acm.super = superSpec.Super()
 
 	// TODO: remove this check after converting AutoCertManager to a system controller
-	if globalACM.Load() != nil {
+	if p := globalACM.Load(); p != nil && p.(*AutoCertManager) != nil {
 		logger.Warnf("an AutoCertManager instance is already exist")
 	}
 
@@ -255,6 +255,18 @@ func (acm *AutoCertManager) Status() *supervisor.Status {
 // Close closes AutoCertManager.
 func (acm *AutoCertManager) Close() {
 	acm.cancel()
+	// TODO: remove this after converting AutoCertManager to system controller.
+	//
+	// globalACM equals acm means the AutoCertManager is being deleted, so we
+	// need to set the globalACM to nil.
+	//
+	// But note here's a race condition, the value of globalACM may no longer be
+	// 'acm' when we call globalACM.Store. Fixing the issue requires
+	// atomic.Value.CompareAndSwap, please refer the comment for Domain.UpdateCert
+	// for details.
+	if globalACM.Load() == acm {
+		globalACM.Store((*AutoCertManager)(nil))
+	}
 }
 
 func (acm *AutoCertManager) renew() bool {
@@ -399,19 +411,26 @@ func (acm *AutoCertManager) handleHTTP01Challenge(w http.ResponseWriter, r *http
 
 // GetCertificate handles the tls hello
 func GetCertificate(chi *tls.ClientHelloInfo, tokenOnly bool) (*tls.Certificate, error) {
-	p := globalACM.Load()
-	if p == nil {
+	var acm *AutoCertManager
+	if p := globalACM.Load(); p != nil {
+		acm = p.(*AutoCertManager)
+	}
+	if acm != nil {
+		return acm.getCertificate(chi, tokenOnly)
+	} else {
 		return nil, fmt.Errorf("auto certificate manager is not started")
 	}
-	return p.(*AutoCertManager).getCertificate(chi, tokenOnly)
 }
 
 // HandleHTTP01Challenge handles HTTP-01 challenge
 func HandleHTTP01Challenge(w http.ResponseWriter, r *http.Request) {
-	p := globalACM.Load()
-	if p == nil {
-		http.Error(w, "auto certificate manager is not started", http.StatusNotFound)
-		return
+	var acm *AutoCertManager
+	if p := globalACM.Load(); p != nil {
+		acm = p.(*AutoCertManager)
 	}
-	p.(*AutoCertManager).handleHTTP01Challenge(w, r)
+	if acm != nil {
+		acm.handleHTTP01Challenge(w, r)
+	} else {
+		http.Error(w, "auto certificate manager is not started", http.StatusNotFound)
+	}
 }
