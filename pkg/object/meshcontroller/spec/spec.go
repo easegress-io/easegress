@@ -436,6 +436,7 @@ type (
 	}
 )
 
+// Validate validates ServiceCanary.
 func (sc ServiceCanary) Validate() error {
 	if sc.Priority < 0 || sc.Priority > 9 {
 		return fmt.Errorf("invalid priority (range is [0, 9], the default 0 will be set to 5)")
