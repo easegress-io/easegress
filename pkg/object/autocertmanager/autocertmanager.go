@@ -417,9 +417,8 @@ func GetCertificate(chi *tls.ClientHelloInfo, tokenOnly bool) (*tls.Certificate,
 	}
 	if acm != nil {
 		return acm.getCertificate(chi, tokenOnly)
-	} else {
-		return nil, fmt.Errorf("auto certificate manager is not started")
 	}
+	return nil, fmt.Errorf("auto certificate manager is not started")
 }
 
 // HandleHTTP01Challenge handles HTTP-01 challenge

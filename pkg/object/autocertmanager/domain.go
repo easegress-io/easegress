@@ -51,11 +51,10 @@ func (d *Domain) isWildcard() bool {
 
 // cert returns the certificate for the domain
 func (d *Domain) cert() *tls.Certificate {
-	if x := d.certificate.Load(); x == nil {
-		return nil
-	} else {
+	if x := d.certificate.Load(); x != nil {
 		return x.(*tls.Certificate)
 	}
+	return nil
 }
 
 func (d *Domain) certExpireTime() time.Time {
