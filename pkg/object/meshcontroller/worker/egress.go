@@ -210,6 +210,7 @@ func (egs *EgressServer) reloadByCert(event informer.Event, value *spec.Certific
 func (egs *EgressServer) reloadByInstances(value map[string]*spec.ServiceInstanceSpec) bool {
 	select {
 	case egs.chReloadEvent <- struct{}{}:
+	default:
 	}
 	return true
 }
@@ -217,6 +218,7 @@ func (egs *EgressServer) reloadByInstances(value map[string]*spec.ServiceInstanc
 func (egs *EgressServer) reloadBySpecs(value map[string]*spec.Service) bool {
 	select {
 	case egs.chReloadEvent <- struct{}{}:
+	default:
 	}
 	return true
 }
@@ -224,6 +226,7 @@ func (egs *EgressServer) reloadBySpecs(value map[string]*spec.Service) bool {
 func (egs *EgressServer) reloadByHTTPRouteGroups(value map[string]*spec.HTTPRouteGroup) bool {
 	select {
 	case egs.chReloadEvent <- struct{}{}:
+	default:
 	}
 	return true
 }
@@ -231,6 +234,7 @@ func (egs *EgressServer) reloadByHTTPRouteGroups(value map[string]*spec.HTTPRout
 func (egs *EgressServer) reloadByTrafficTargets(value map[string]*spec.TrafficTarget) bool {
 	select {
 	case egs.chReloadEvent <- struct{}{}:
+	default:
 	}
 	return true
 }
@@ -238,6 +242,7 @@ func (egs *EgressServer) reloadByTrafficTargets(value map[string]*spec.TrafficTa
 func (egs *EgressServer) reloadByServiceCanaries(value map[string]*spec.ServiceCanary) bool {
 	select {
 	case egs.chReloadEvent <- struct{}{}:
+	default:
 	}
 	return true
 }
