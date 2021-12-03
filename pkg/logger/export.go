@@ -150,11 +150,13 @@ func getSpanTemplate(context *model.SpanContext, template string) string {
 	return "tid=" + context.TraceID.String() + " sid=" + context.ID.String() + " " + template
 }
 
+// SpanDebugf is the wrapper of default logger Debugf to log tracing message
 func SpanDebugf(context *model.SpanContext, template string, args ...interface{}) {
 	temp := getSpanTemplate(context, template)
 	defaultLogger.Debugf(temp, args...)
 }
 
+// SpanErrorf is the wrapper of default logger Debugf to log tracing message
 func SpanErrorf(context *model.SpanContext, template string, args ...interface{}) {
 	temp := getSpanTemplate(context, template)
 	defaultLogger.Errorf(temp, args...)
