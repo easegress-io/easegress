@@ -202,6 +202,7 @@ func (egs *EgressServer) _ready() bool {
 func (egs *EgressServer) reloadByCert(event informer.Event, value *spec.Certificate) bool {
 	select {
 	case egs.chReloadEvent <- struct{}{}:
+	default:
 	}
 	return true
 }
