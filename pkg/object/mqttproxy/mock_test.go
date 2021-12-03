@@ -161,7 +161,7 @@ var _ sarama.AsyncProducer = (*mockAsyncProducer)(nil)
 
 func newMockAsyncProducer() sarama.AsyncProducer {
 	return &mockAsyncProducer{
-		ch: make(chan *sarama.ProducerMessage, 1),
+		ch: make(chan *sarama.ProducerMessage, 100),
 	}
 }
 
@@ -209,7 +209,13 @@ func TestKafka(t *testing.T) {
 	kafka.publish(p)
 	msg = <-kafka.producer.(*mockAsyncProducer).ch
 	if msg.Topic != p.TopicName || len(msg.Headers) != 0 {
-		t.Errorf("kafka producer produce wrong msg")
+		t.Errorf("kafka producer publish wrong msg")
+	}
+	kafka.Publish("a/b/c/d", []byte("abcd"), map[string]string{"key": "value"})
+	msg = <-kafka.producer.(*mockAsyncProducer).ch
+	if msg.Topic != "a/b/c/d" || len(msg.Headers) != 1 {
+		t.Errorf("kafka producer Publish wrong msg")
+
 	}
 	kafka.close()
 }

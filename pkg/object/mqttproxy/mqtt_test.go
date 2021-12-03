@@ -39,6 +39,7 @@ import (
 	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/openzipkin/zipkin-go/propagation/b3"
+	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v2"
 )
 
@@ -1329,11 +1330,14 @@ func TestSessMgr(t *testing.T) {
 }
 
 func TestClient(t *testing.T) {
+	assert := assert.New(t)
 	svcConn, clientConn := net.Pipe()
 	go func() {
 		io.ReadAll(svcConn)
 	}()
 	connect := packets.NewControlPacket(packets.Connect).(*packets.ConnectPacket)
+	connect.ClientIdentifier = "cid"
+	connect.Username = "username"
 	connect.WillFlag = true
 	connect.WillQos = 1
 	connect.WillTopic = "will"
@@ -1382,6 +1386,17 @@ func TestClient(t *testing.T) {
 	if err == nil {
 		t.Errorf("broker not ping")
 	}
+
+	assert.Equal("username", client.UserName())
+	client.Store("key", "value")
+
+	value, ok := client.Load("key")
+	assert.Equal(true, ok)
+	assert.Equal("value", value)
+
+	client.Delete("key")
+	_, ok = client.Load("key")
+	assert.Equal(false, ok)
 }
 
 func TestBrokerListen(t *testing.T) {
@@ -1492,6 +1507,10 @@ func TestMQTTProxy(t *testing.T) {
 	mp.broker = broker
 	broker.reconnectWatcher()
 	mp.Close()
+
+	ans, err := updatePort("http://example.com:1234", "demo.com:2345")
+	assert.Nil(t, err)
+	assert.Equal(t, "http://example.com:2345", ans)
 }
 
 func TestPipeline(t *testing.T) {
