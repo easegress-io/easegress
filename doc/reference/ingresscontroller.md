@@ -11,6 +11,7 @@
     - [Deploy Easegress IngressController](#deploy-easegress-ingresscontroller)
     - [Create backend service & Kubernetes ingress](#create-backend-service--kubernetes-ingress)
   - [Multi-node IngressController](#multi-node-ingresscontroller)
+  - [Add secondary Easegress instances](#add-secondary-easegress-instances)
 
 The IngressController is an implementation of [Kubernetes ingress controller](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/), it watches Kubernetes Ingress, Service, Endpoints, and Secrets then translates them to Easegress HTTP server and pipelines.
 
@@ -259,7 +260,7 @@ spec:
         - -c
         - |-
           echo name: $EG_NAME > /opt/eg-config/config.yaml &&
-          cat /opt/eg-config/eg-primary.yaml >> /opt/eg-config/config.yaml && 
+          cat /opt/eg-config/eg-primary.yaml >> /opt/eg-config/config.yaml &&
           /opt/easegress/bin/easegress-server \
             -f /opt/eg-config/config.yaml \
             --advertise-client-urls http://$(EG_NAME).easegress-hs.default:2379 \
@@ -593,7 +594,7 @@ metadata:
   name: easegress
   namespace: default
 spec:
-  replicas: 3 # THIS CHANGED
+  replicas: 3 # changed from 1 to 3
   selector:
     matchLabels:
       app: easegress-ingress
@@ -612,4 +613,141 @@ egctl member list |grep " name"
 #     name: easegress-2
 ```
 
-You can read more multi node Easegress this cookbook [chapter](./doc/../cookbook/multi_node_cluster.md).
+You can read more multi-node Easegress this cookbook [chapter](./doc/../cookbook/multi_node_cluster.md).
+
+## Add secondary Easegress instances
+
+Previously in this tutorial we went through the necessary kubernetes files for single instance Easegress Ingress Controller and three member Easegress Ingress Controller cluster. In both cases we deployed *primary* Easegress instances. Sometimes we want to scale the number of instances up or down. This can be achieved using *secondary* Easegress instances, that unlike *primary* instances, can be added to existing cluster or removed anytime. *Secondary* instances do not require [stable network id](https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#stable-network-id) so we can use Deployment instead of StatfulSet.
+
+Let's create an Kubernetes Deployment that adds two *secondary* Easegress instances to cluster.
+
+Here's Easegress configuration for *secondary* instance.
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: easegress-cluster-cm
+  namespace: default
+data:
+  eg-primary.yaml: |
+    ...
+  eg-secondary.yaml: |
+    cluster-name: easegress-ingress-controller
+    cluster-role: secondary
+    cluster:
+      primary-listen-peer-urls:
+      - http://easegress-0.easegress-hs.default:2380
+    api-addr: 0.0.0.0:2381
+    data-dir: /opt/eg-data/data
+    wal-dir: ""
+    cpu-profile-file: ""
+    memory-profile-file: ""
+    log-dir: /opt/eg-data/log
+    debug: false
+  controller.yaml: |
+    ...
+---
+```
+
+The URL `http://easegress-0.easegress-hs.default:2380` defined in `cluster.primary-listen-peer-urls` is an address of one cluster member, which *secondary* instance can use to connect to the cluster.
+
+Deployment could look like this:
+
+```yaml
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: easegress-ingress
+  name: easegress-secondary
+  namespace: default
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: easegress-ingress
+  template:
+    metadata:
+      labels:
+        app: easegress-ingress
+    spec:
+      serviceAccountName: easegress-ingress-controller
+      containers:
+      - args:
+        - -c
+        - |-
+          echo name: $EG_NAME > /opt/eg-config/config.yaml &&
+          cat /opt/eg-config/eg-secondary.yaml >> /opt/eg-config/config.yaml &&
+          /opt/easegress/bin/easegress-server \
+            -f /opt/eg-config/config.yaml \
+            --initial-object-config-files /opt/eg-config/controller.yaml
+        command:
+        - /bin/sh
+        env:
+        - name: EG_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        image: megaease/easegress:latest
+        imagePullPolicy: IfNotPresent
+        name: easegress-secondary
+        ports:
+        - containerPort: 2381
+          name: admin-port
+          protocol: TCP
+        - containerPort: 2380
+          name: peer-port
+          protocol: TCP
+        - containerPort: 2379
+          name: client-port
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 1200m
+            memory: 2Gi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+        volumeMounts:
+        - mountPath: /opt/eg-config/eg-secondary.yaml
+          name: easegress-cluster-cm
+          subPath: eg-secondary.yaml
+        - mountPath: /opt/eg-config/controller.yaml
+          name: easegress-cluster-cm
+          subPath: controller.yaml
+        - mountPath: /opt/eg-data/
+          name: ingress-data-volume
+      restartPolicy: Always
+      volumes:
+      - emptyDir: {}
+        name: ingress-data-volume
+      - configMap:
+          defaultMode: 420
+          items:
+          - key: eg-secondary.yaml
+            path: eg-secondary.yaml
+          - key: controller.yaml
+            path: controller.yaml
+          name: easegress-cluster-cm
+        name: easegress-cluster-cm
+---
+```
+
+Applying the deployment to the cluster creates two pods with prefix `easegress-secondary-`. We can again log into one of pods and see new *secondary* members.
+
+```bash
+# log in to pod
+kubectl exec -it easegress-0 -- sh
+# inside pod, check cluster member names
+egctl member list |grep " name"
+# => prints
+    # name: easegress-0
+    # name: easegress-1
+    # name: easegress-2
+    # name: easegress-secondary-758695b96c-2rzqt
+    # name: easegress-secondary-758695b96c-2vcpz
+```
+We now have 5 Easegress Ingress Controller instances running, handling the ingress traffic of our Kubernetes cluster.
