@@ -308,17 +308,16 @@ func (r *runtime) runHTTP1And2Server(limitListener *limitlistener.LimitListener,
 }
 
 func (r *runtime) closeServer() {
-	if r.server == nil {
-		return
-	}
-
 	if r.server3 != nil {
 		err := r.server3.Close()
 		if err != nil {
 			logger.Warnf("shutdown http3 server %s failed: %v",
 				r.superSpec.Name(), err)
 		}
-	} else {
+		return
+	}
+
+	if r.server != nil {
 		// NOTE: It's safe to shutdown serve failed server.
 		ctx, cancelFunc := serverShutdownContext()
 		defer cancelFunc()
