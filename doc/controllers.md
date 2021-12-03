@@ -311,7 +311,7 @@ AutoCertManager automatically manage HTTPS certificates. The config looks like:
 kind: AutoCertManager
 name: autocert
 email: someone@megaease.com
-directoryUrl: https://acme-v02.api.letsencrypt.org/directory
+directoryURL: https://acme-v02.api.letsencrypt.org/directory
 renewBefore: 720h
 enableHTTP01: true
 enableTLSALPN01: true
@@ -326,7 +326,7 @@ domains:
 | Name            | Type                                       | Description                                                                          | Required                           |
 | --------------- | ------------------------------------------ | ------------------------------------------------------------------------------------ | ---------------------------------- |
 | email           | string                                     | An email address for CA account                                                      | Yes                                |
-| directoryUrl    | string                                     | The endpoint of the CA directory                                                     | No (default to use Let's Encrypt)  |
+| directoryURL    | string                                     | The endpoint of the CA directory                                                     | No (default to use Let's Encrypt)  |
 | renewBefore     | string                                     | A certificate will be renewed before this duration of its expire time                | No (default 720 hours)             |
 | enableHTTP01    | bool                                       | Enable HTTP-01 challenge (Easegress need to be accessable at port 80 when true)      | No (default true)                  |
 | enableTLSALPN01 | bool                                       | Enable TLS-ALPN-01 challenge (Easegress need to be accessable at port 443 when true) | No (default true)                  |

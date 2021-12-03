@@ -37,7 +37,7 @@ import (
 
 const (
 	// Category is the category of AutoCertManager.
-	// It is a business controller by now, but should be a system controller
+	// It is a business controller by now, but should be a system controller.
 	Category = supervisor.CategoryBusinessController
 
 	// Kind is the kind of AutoCertManager.
@@ -45,7 +45,7 @@ const (
 )
 
 type (
-	//AutoCertManager is the controller for Automated Certificate Management
+	//AutoCertManager is the controller for Automated Certificate Management.
 	AutoCertManager struct {
 		super     *supervisor.Supervisor
 		superSpec *supervisor.Spec
@@ -62,7 +62,7 @@ type (
 
 	// Spec describes AutoCertManager.
 	Spec struct {
-		DirectoryURL    string       `yaml:"directoryUrl" jsonschema:"required,format=url"`
+		DirectoryURL    string       `yaml:"directoryURL" jsonschema:"required,format=url"`
 		Email           string       `yaml:"email" jsonschema:"required,format=email"`
 		RenewBefore     string       `yaml:"renewBefore" jsonschema:"required,format=duration"`
 		EnableHTTP01    bool         `yaml:"enableHTTP01"`
@@ -71,19 +71,19 @@ type (
 		Domains         []DomainSpec `yaml:"domains" jsonschema:"required"`
 	}
 
-	// DomainSpec is the automate certificate management spec for a domain
+	// DomainSpec is the automated certificate management spec for a domain.
 	DomainSpec struct {
 		Name        string            `yaml:"name" jsonschema:"required"`
 		DNSProvider map[string]string `yaml:"dnsProvider" jsonschema:"omitempty"`
 	}
 
-	// CertificateStatus is the certificate status of a domain
+	// CertificateStatus is the certificate status of a domain.
 	CertificateStatus struct {
 		Name       string    `yaml:"name"`
 		ExpireTime time.Time `yaml:"expireTime"`
 	}
 
-	// Status is the status of AutoCertManager
+	// Status is the status of AutoCertManager.
 	Status struct {
 		Domains []CertificateStatus `yaml:"domains"`
 	}
@@ -93,7 +93,7 @@ var (
 	globalACM atomic.Value
 )
 
-// Validate validates the spec of AutoCertManager
+// Validate validates the spec of AutoCertManager.
 func (spec *Spec) Validate() error {
 	if !(spec.EnableHTTP01 || spec.EnableTLSALPN01 || spec.EnableDNS01) {
 		return fmt.Errorf("at least one challenge type must be enabled")
@@ -102,7 +102,7 @@ func (spec *Spec) Validate() error {
 	for i := range spec.Domains {
 		d := &spec.Domains[i]
 
-		// convert to puny code to support Chinese or other unicode domain names
+		// convert to puny code to support Chinese or other unicode domain names.
 		_, err := idna.Lookup.ToASCII(d.Name)
 		if err != nil && d.Name[0] == '*' {
 			_, err = idna.Lookup.ToASCII(d.Name[1:])
@@ -126,7 +126,7 @@ func (spec *Spec) Validate() error {
 	return nil
 }
 
-// Zone returns the zone the domain belongs to
+// Zone returns the zone the domain belongs to.
 func (spec *DomainSpec) Zone() string {
 	if spec.DNSProvider != nil {
 		return spec.DNSProvider["zone"]
@@ -165,7 +165,7 @@ func (acm *AutoCertManager) Init(superSpec *supervisor.Spec) {
 	acm.spec = superSpec.ObjectSpec().(*Spec)
 	acm.super = superSpec.Super()
 
-	// TODO: remove this check after converting AutoCertManager to a system controller
+	// TODO: remove this check after converting AutoCertManager to a system controller.
 	if p := globalACM.Load(); p != nil && p.(*AutoCertManager) != nil {
 		logger.Warnf("an AutoCertManager instance is already exist")
 	}
@@ -211,15 +211,11 @@ func (acm *AutoCertManager) reload() {
 	for i := range acm.spec.Domains {
 		spec := &acm.spec.Domains[i]
 
-		// convert to puny code to support Chinese or other unicode domain names
+		// convert to puny code to support Chinese or other unicode domain names.
 		name, err := idna.Lookup.ToASCII(spec.Name)
 		if err != nil && spec.Name[0] == '*' {
-			name, err = idna.Lookup.ToASCII(spec.Name[1:])
+			name, _ = idna.Lookup.ToASCII(spec.Name[1:])
 			name = "*" + name
-		}
-		if err != nil {
-			name = spec.Name
-			logger.Warnf("domain name contains invalid characters: %s", name)
 		}
 
 		d := &acm.domains[i]
