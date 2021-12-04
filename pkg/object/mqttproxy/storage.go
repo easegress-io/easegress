@@ -18,7 +18,6 @@
 package mqttproxy
 
 import (
-	"fmt"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -33,7 +32,7 @@ type (
 		getPrefix(prefix string, keysOnly bool) (map[string]string, error)
 		put(key, value string) error
 		delete(key string) error
-		watchDelete(prefix string) (<-chan map[string]*string, error)
+		watchDelete(prefix string) (<-chan map[string]*string, func(), error)
 	}
 
 	mockStorage struct {
@@ -44,8 +43,7 @@ type (
 	}
 
 	clusterStorage struct {
-		cls     cluster.Cluster
-		watcher cluster.Watcher
+		cls cluster.Cluster
 	}
 )
 
@@ -54,13 +52,8 @@ var _ storage = (*clusterStorage)(nil)
 
 func newStorage(cls cluster.Cluster) storage {
 	if cls != nil {
-		watcher, err := cls.Watcher()
-		if err != nil {
-			spanErrorf(nil, "cluster get watcher failed, %v", err)
-		}
 		return &clusterStorage{
-			cls:     cls,
-			watcher: watcher,
+			cls: cls,
 		}
 	}
 	return &mockStorage{
@@ -116,9 +109,9 @@ func (m *mockStorage) delete(key string) error {
 	return nil
 }
 
-func (m *mockStorage) watchDelete(prefix string) (<-chan map[string]*string, error) {
+func (m *mockStorage) watchDelete(prefix string) (<-chan map[string]*string, func(), error) {
 	atomic.StoreInt32(&m.watchFlag, 1)
-	return m.watchCh, nil
+	return m.watchCh, func() {}, nil
 }
 
 func (cs *clusterStorage) get(key string) (*string, error) {
@@ -140,9 +133,15 @@ func (cs *clusterStorage) delete(key string) error {
 	return cs.cls.Delete(key)
 }
 
-func (cs *clusterStorage) watchDelete(prefix string) (<-chan map[string]*string, error) {
-	if cs.watcher == nil {
-		return nil, fmt.Errorf("nil watcher")
+func (cs *clusterStorage) watchDelete(prefix string) (<-chan map[string]*string, func(), error) {
+	watcher, err := cs.cls.Watcher()
+	if err != nil {
+		return nil, nil, err
 	}
-	return cs.watcher.WatchWithOp(prefix, cluster.OpPrefix, cluster.OpNotWatchPut)
+	ch, err := watcher.WatchWithOp(prefix, cluster.OpPrefix, cluster.OpNotWatchPut)
+	if err != nil {
+		watcher.Close()
+		return nil, nil, err
+	}
+	return ch, watcher.Close, nil
 }

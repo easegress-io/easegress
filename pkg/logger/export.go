@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/megaease/easegress/pkg/util/fasttime"
+	"github.com/openzipkin/zipkin-go/model"
 )
 
 type lazyLogBuilder struct {
@@ -140,4 +141,23 @@ func NginxHTTPAccess(remoteAddr, proto, method, path, referer, agent, realIP str
 		agent, realIP,
 		requestTime.Seconds(), upstreamResponseTime.Seconds(), upstreamAddr, upstreamCode,
 		clientWriteBodyTime.Seconds(), clientReadBodyTime.Seconds(), routeTime.Seconds())
+}
+
+func getSpanTemplate(context *model.SpanContext, template string) string {
+	if context == nil {
+		return "tid=" + "<nil>" + " sid=" + "<nil>" + " " + template
+	}
+	return "tid=" + context.TraceID.String() + " sid=" + context.ID.String() + " " + template
+}
+
+// SpanDebugf is the wrapper of default logger Debugf to log tracing message
+func SpanDebugf(context *model.SpanContext, template string, args ...interface{}) {
+	temp := getSpanTemplate(context, template)
+	defaultLogger.Debugf(temp, args...)
+}
+
+// SpanErrorf is the wrapper of default logger Debugf to log tracing message
+func SpanErrorf(context *model.SpanContext, template string, args ...interface{}) {
+	temp := getSpanTemplate(context, template)
+	defaultLogger.Errorf(temp, args...)
 }
