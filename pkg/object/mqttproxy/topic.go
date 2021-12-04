@@ -24,6 +24,7 @@ import (
 	"sync"
 
 	lru "github.com/hashicorp/golang-lru"
+	"github.com/megaease/easegress/pkg/logger"
 )
 
 type topicMapFunc func(mqttTopic string) (topic string, headers map[string]string, err error)
@@ -247,7 +248,7 @@ func getPolicyRoute(routes []*PolicyRe) map[string]*regexp.Regexp {
 	for _, route := range routes {
 		r, err := regexp.Compile(route.MatchExpr)
 		if err != nil {
-			spanErrorf(nil, "topicMapper policy <%s> match expr <%s> compile failed: %v", route.Name, route.MatchExpr, err)
+			logger.SpanErrorf(nil, "topicMapper policy <%s> match expr <%s> compile failed: %v", route.Name, route.MatchExpr, err)
 		} else {
 			ans[route.Name] = r
 		}
@@ -263,7 +264,7 @@ func getTopicRoute(p *Policy) topicRouteType {
 		for _, expr := range route.Exprs {
 			r, err := regexp.Compile(expr)
 			if err != nil {
-				spanErrorf(nil, "topicMapper policy <%s> topic route expr <%s> compile failed: %v", p.Name, expr, err)
+				logger.SpanErrorf(nil, "topicMapper policy <%s> topic route expr <%s> compile failed: %v", p.Name, expr, err)
 			} else {
 				m[route.Topic] = append(m[route.Topic], r)
 			}
