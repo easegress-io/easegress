@@ -122,7 +122,7 @@ func (egs *EgressServer) InitEgress(service *spec.Service) error {
 	}
 
 	egs.egressServerName = service.EgressHTTPServerName()
-	superSpec, err := service.SideCarEgressHTTPServerSpec()
+	superSpec, err := service.SidecarEgressHTTPServerSpec()
 	if err != nil {
 		return err
 	}
@@ -175,7 +175,15 @@ func (egs *EgressServer) InitEgress(service *spec.Service) error {
 		}
 	}
 
+	if err := egs.inf.OnAllServiceCanaries(egs.reloadByServiceCanaries); err != nil {
+		if err != informer.ErrAlreadyWatched {
+			logger.Errorf("add service canary watching service: %s failed: %v", service.Name, err)
+			return err
+		}
+	}
+
 	go egs.watch()
+
 	return nil
 }
 
@@ -194,6 +202,7 @@ func (egs *EgressServer) _ready() bool {
 func (egs *EgressServer) reloadByCert(event informer.Event, value *spec.Certificate) bool {
 	select {
 	case egs.chReloadEvent <- struct{}{}:
+	default:
 	}
 	return true
 }
@@ -201,6 +210,7 @@ func (egs *EgressServer) reloadByCert(event informer.Event, value *spec.Certific
 func (egs *EgressServer) reloadByInstances(value map[string]*spec.ServiceInstanceSpec) bool {
 	select {
 	case egs.chReloadEvent <- struct{}{}:
+	default:
 	}
 	return true
 }
@@ -208,6 +218,7 @@ func (egs *EgressServer) reloadByInstances(value map[string]*spec.ServiceInstanc
 func (egs *EgressServer) reloadBySpecs(value map[string]*spec.Service) bool {
 	select {
 	case egs.chReloadEvent <- struct{}{}:
+	default:
 	}
 	return true
 }
@@ -215,6 +226,7 @@ func (egs *EgressServer) reloadBySpecs(value map[string]*spec.Service) bool {
 func (egs *EgressServer) reloadByHTTPRouteGroups(value map[string]*spec.HTTPRouteGroup) bool {
 	select {
 	case egs.chReloadEvent <- struct{}{}:
+	default:
 	}
 	return true
 }
@@ -222,6 +234,15 @@ func (egs *EgressServer) reloadByHTTPRouteGroups(value map[string]*spec.HTTPRout
 func (egs *EgressServer) reloadByTrafficTargets(value map[string]*spec.TrafficTarget) bool {
 	select {
 	case egs.chReloadEvent <- struct{}{}:
+	default:
+	}
+	return true
+}
+
+func (egs *EgressServer) reloadByServiceCanaries(value map[string]*spec.ServiceCanary) bool {
+	select {
+	case egs.chReloadEvent <- struct{}{}:
+	default:
 	}
 	return true
 }
@@ -403,6 +424,7 @@ func (egs *EgressServer) reload() {
 	pipelines := make(map[string]*supervisor.ObjectEntity)
 	serverName2PipelineName := make(map[string]string)
 
+	canaries := egs.service.ListServiceCanaries()
 	createPipeline := func(svc *spec.Service) {
 		instances := egs.listServiceInstances(svc.Name)
 		if len(instances) == 0 {
@@ -410,7 +432,7 @@ func (egs *EgressServer) reload() {
 			return
 		}
 
-		pipelineSpec, err := svc.SideCarEgressPipelineSpec(instances, cert, rootCert)
+		pipelineSpec, err := svc.SidecarEgressPipelineSpec(instances, canaries, cert, rootCert)
 		if err != nil {
 			logger.Errorf("generate sidecar egress pipeline spec for service %s failed: %v", svc.Name, err)
 			return

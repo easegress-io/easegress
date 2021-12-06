@@ -41,9 +41,10 @@ const (
 type (
 	// Spec describes HTTPFilter.
 	Spec struct {
-		Headers     map[string]*urlrule.StringMatch `yaml:"headers" jsonschema:"omitempty"`
-		URLs        []*urlrule.URLRule              `yaml:"urls" jsonschema:"omitempty"`
-		Probability *Probability                    `yaml:"probability,omitempty" jsonschema:"omitempty"`
+		MatchAllHeaders bool                            `yaml:"matchAllHeaders" jsonschema:"omitempty"`
+		Headers         map[string]*urlrule.StringMatch `yaml:"headers" jsonschema:"omitempty"`
+		URLs            []*urlrule.URLRule              `yaml:"urls" jsonschema:"omitempty"`
+		Probability     *Probability                    `yaml:"probability,omitempty" jsonschema:"omitempty"`
 	}
 
 	// HTTPFilter filters HTTP traffic.
@@ -113,23 +114,40 @@ func (hf *HTTPFilter) Filter(ctx context.HTTPContext) bool {
 
 func (hf *HTTPFilter) filterHeader(ctx context.HTTPContext) bool {
 	h := ctx.Request().Header()
-	headerMatch := false
-	for key, vf := range hf.spec.Headers {
-		if headerMatch {
+	headerMatchNum := 0
+	for key, matchRule := range hf.spec.Headers {
+		// NOTE: Quickly break for performance.
+		if headerMatchNum >= 1 && !hf.spec.MatchAllHeaders {
 			break
 		}
 
 		values := h.GetAll(key)
 
+		if len(values) == 0 && matchRule.Empty {
+			headerMatchNum++
+			continue
+		}
+
+		// NOTE: So even matchRule.RegEx match empty string,
+		// it won't reach here when len(values) == 0.
 		for _, value := range values {
-			if vf.Match(value) {
-				headerMatch = true
+			if matchRule.Match(value) {
+				headerMatchNum++
 				break
 			}
 		}
 	}
 
-	return headerMatch
+	needHeaderMatchNum := 1
+	if hf.spec.MatchAllHeaders {
+		needHeaderMatchNum = len(hf.spec.Headers)
+	}
+
+	if headerMatchNum >= needHeaderMatchNum {
+		return true
+	}
+
+	return false
 }
 
 func (hf *HTTPFilter) filterURL(ctx context.HTTPContext) bool {

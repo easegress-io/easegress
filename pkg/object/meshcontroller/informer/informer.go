@@ -101,6 +101,12 @@ type (
 	// TrafficTargetSpecsFunc is the callback function type for traffic target specs.
 	TrafficTargetSpecsFunc func(value map[string]*spec.TrafficTarget) bool
 
+	// ServiceCanarySpecFunc is the callback function type for service canary spec.
+	ServiceCanarySpecFunc func(event Event, value *spec.ServiceCanary) bool
+
+	// ServiceCanariesFunc is the callback function type for service canary specs.
+	ServiceCanariesFunc func(value map[string]*spec.ServiceCanary) bool
+
 	// Informer is the interface for informing two type of storage changed for every Mesh spec structure.
 	//  1. Based on comparison between old and new part of entry.
 	//  2. Based on comparison on entries with the same prefix.
@@ -127,6 +133,9 @@ type (
 
 		OnPartOfTrafficTargetSpec(ttName string, fn TrafficTargetSpecFunc) error
 		OnAllTrafficTargetSpecs(fn TrafficTargetSpecsFunc) error
+
+		OnPartOfServiceCanary(serviceCanaryName string, fn ServiceCanarySpecFunc) error
+		OnAllServiceCanaries(fn ServiceCanariesFunc) error
 
 		StopWatchServiceSpec(serviceName string)
 		StopWatchServiceInstanceSpec(serviceName string)
@@ -410,6 +419,25 @@ func (inf *meshInformer) OnPartOfTrafficTargetSpec(tt string, fn TrafficTargetSp
 	return inf.onSpecPart(storeKey, syncerKey, specFunc)
 }
 
+// OnPartOfServiceCanary watches one service canary.
+func (inf *meshInformer) OnPartOfServiceCanary(servicecanaryName string, fn ServiceCanarySpecFunc) error {
+	storeKey := layout.ServiceCanaryKey(servicecanaryName)
+	syncerKey := fmt.Sprintf("service-canary-%s", servicecanaryName)
+
+	specFunc := func(event Event, value string) bool {
+		serviceCanary := &spec.ServiceCanary{}
+		if event.EventType != EventDelete {
+			if err := yaml.Unmarshal([]byte(value), serviceCanary); err != nil {
+				logger.Errorf("BUG: unmarshal %s to yaml failed: %v", value, err)
+				return true
+			}
+		}
+		return fn(event, serviceCanary)
+	}
+
+	return inf.onSpecPart(storeKey, syncerKey, specFunc)
+}
+
 // OnAllServiceSpecs watches all service specs
 func (inf *meshInformer) OnAllServiceSpecs(fn ServiceSpecsFunc) error {
 	storeKey := layout.ServiceSpecPrefix()
@@ -635,7 +663,7 @@ func (inf *meshInformer) OnAllServerCert(fn ServiceCertsFunc) error {
 	return inf.onSpecs(storeKey, syncerKey, specsFunc)
 }
 
-// OnAllHTTPRouteGroupSpecs watches all tenant specs
+// OnAllHTTPRouteGroupSpecs watches all http route specs.
 func (inf *meshInformer) OnAllHTTPRouteGroupSpecs(fn HTTPRouteGroupSpecsFunc) error {
 	storeKey := layout.HTTPRouteGroupPrefix()
 	syncerKey := "http-route-group-target"
@@ -657,7 +685,7 @@ func (inf *meshInformer) OnAllHTTPRouteGroupSpecs(fn HTTPRouteGroupSpecsFunc) er
 	return inf.onSpecs(storeKey, syncerKey, specsFunc)
 }
 
-// OnAllTrafficTargetSpecs watches all tenant specs
+// OnAllTrafficTargetSpecs watches all traffic target specs.
 func (inf *meshInformer) OnAllTrafficTargetSpecs(fn TrafficTargetSpecsFunc) error {
 	storeKey := layout.TrafficTargetPrefix()
 	syncerKey := "prefix-traffic-target"
@@ -674,6 +702,28 @@ func (inf *meshInformer) OnAllTrafficTargetSpecs(fn TrafficTargetSpecsFunc) erro
 		}
 
 		return fn(tts)
+	}
+
+	return inf.onSpecs(storeKey, syncerKey, specsFunc)
+}
+
+// OnAllServiceCanaries watches all service canary specs.
+func (inf *meshInformer) OnAllServiceCanaries(fn ServiceCanariesFunc) error {
+	storeKey := layout.ServiceCanaryPrefix()
+	syncerKey := "prefix-service-canary"
+
+	specsFunc := func(kvs map[string]string) bool {
+		serviceCanaries := make(map[string]*spec.ServiceCanary)
+		for k, v := range kvs {
+			serviceCanary := &spec.ServiceCanary{}
+			if err := yaml.Unmarshal([]byte(v), serviceCanary); err != nil {
+				logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
+				continue
+			}
+			serviceCanaries[k] = serviceCanary
+		}
+
+		return fn(serviceCanaries)
 	}
 
 	return inf.onSpecs(storeKey, syncerKey, specsFunc)
