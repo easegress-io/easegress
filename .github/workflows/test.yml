@@ -13,7 +13,6 @@ on:
     types: [opened, synchronize, reopened]
     branches:
       - main
-      - new-pipeline
     paths:
       - "**/*.go"
       - "go.mod"
