@@ -200,6 +200,22 @@ func TestCleanSession(t *testing.T) {
 	if token := client.Subscribe("test/cleanSession/0", 0, nil); token.Wait() && token.Error() != nil {
 		t.Errorf("subscribe qos0 error %s", token.Error())
 	}
+
+	// make sure before disconnect, session and subscribe topic has been stored in storage
+	for i := 0; i < 10; i++ {
+		time.Sleep(30 * time.Millisecond)
+		yamlStr, err := broker.sessMgr.store.get(sessionStoreKey(cid))
+		if err != nil {
+			continue
+		}
+		session := &Session{
+			info: &SessionInfo{},
+		}
+		session.decode(*yamlStr)
+		if len(session.info.Topics) == 1 {
+			break
+		}
+	}
 	client.Disconnect(200)
 
 	c = broker.getClient(cid)
@@ -223,6 +239,9 @@ func TestCleanSession(t *testing.T) {
 	// publish topic to make sure client read loop start
 	token := client.Publish("topic", 1, false, "text")
 	token.Wait()
+	if token.Error() != nil {
+		t.Errorf("client publish message failed %v", token.Error())
+	}
 	subscribers, err = broker.topicMgr.findSubscribers("test/cleanSession/0")
 	if err != nil {
 		t.Errorf("findSubscribers for topic test/cleanSession/0 failed, %v", err)
@@ -234,6 +253,7 @@ func TestCleanSession(t *testing.T) {
 	if err != nil {
 		t.Errorf("clean DB when cleanSession is not set")
 	}
+	client.Disconnect(200)
 
 	broker.close()
 }
