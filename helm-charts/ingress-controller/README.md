@@ -18,4 +18,15 @@ helm install ingress-easegress -n ingress-easegress ./helm-charts/ingress-contro
   --set ingressClass.name=test-eg \
   --set controller.name=test-eg \
   --set 'controller.namespaces={ingress-easegress, default}'
+
+# install cluster of 3 primary and 2 secondary Easegress ingress instances
+helm install ingress-easegress -n ingress-easegress ./helm-charts/ingress-controller \
+  --set cluster.primaryReplicas=3 \
+  --set cluster.secondaryReplicas=2
+
+# install using persistentVolume on node with hostname "hostname-xyz"
+# to support recovery when pod crashes
+helm install ingress-easegress -n ingress-easegress ./helm-charts/ingress-controller \
+  --set cluster.volumeType=persistentVolume \
+  --set 'cluster.nodeHostnames={hostname-xyz}'
 ```
