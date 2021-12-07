@@ -10,6 +10,7 @@
 
 - **Support automated certificate management with ACME (Let's Encrypt)** [\#391](https://github.com/megaease/easegress/pull/391)
 - **Cluster configuration made simpler** [\#382](https://github.com/megaease/easegress/pull/382)
+- **WebAssembly SDK for Golang** [#370](https://github.com/megaease/easegress/pull/370)
 
 
 **Implemented enhancements:**
