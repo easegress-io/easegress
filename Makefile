@@ -13,7 +13,7 @@ GO_PATH := $(shell go env | grep GOPATH | awk -F '"' '{print $$2}')
 HTTPSERVER_TEST_PATH := build/test
 
 # Version
-RELEASE?=v1.3.2
+RELEASE?=v1.4.0
 
 # Git Related
 GIT_REPO_INFO=$(shell cd ${MKFILE_DIR} && git config --get remote.origin.url)
