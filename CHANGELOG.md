@@ -1,5 +1,31 @@
 # Changelog
 
+
+## [v1.4.0](https://github.com/megaease/easegress/tree/v1.4.0) (2021-12-07)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v1.3.1...v1.4.0)
+
+
+**Significant changes:**
+
+- **Support automated certificate management with ACME (Let's Encrypt)** [\#391](https://github.com/megaease/easegress/pull/391)
+- **Cluster configuration made simpler** [\#382](https://github.com/megaease/easegress/pull/382)
+
+
+**Implemented enhancements:**
+
+- **New feature `GlobalFilters` to HTTPPipeline**[\#376](https://github.com/megaease/easegress/pull/376)
+- **Linux kernel tuning guide**[\#361](https://github.com/megaease/easegress/pull/361)
+- **WebSocket proxy user guide**[\#385](https://github.com/megaease/easegress/pull/385)
+- **Cluster deployment guide**[\#369](https://github.com/megaease/easegress/pull/369)
+
+
+**Fixed bugs:**
+
+- **Add more tracing information**[\#316](https://github.com/megaease/easegress/issues/316)
+- **Improve robustness of WebSocket proxy**[\#379](https://github.com/megaease/easegress/issues/379)
+
+
 ## [v1.3.2](https://github.com/megaease/easegress/tree/v1.3.2) (2021-11-08)
 
 [Full Changelog](https://github.com/megaease/easegress/compare/v1.3.1...v1.3.2)
