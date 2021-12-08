@@ -30,12 +30,14 @@ import (
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/cluster"
 	"go.etcd.io/etcd/api/v3/mvccpb"
+	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/concurrency"
 )
 
 type mockCluster struct {
 	sync.RWMutex
-	kv map[string]string
+	kv    map[string]string
+	delCh chan map[string]*string
 }
 
 var _ cluster.Cluster = (*mockCluster)(nil)
@@ -49,16 +51,53 @@ func (m *mockCluster) GetRawPrefix(prefix string) (map[string]*mvccpb.KeyValue, 
 func (m *mockCluster) PutUnderLease(key, value string) error                      { return nil }
 func (m *mockCluster) PutAndDelete(map[string]*string) error                      { return nil }
 func (m *mockCluster) PutAndDeleteUnderLease(map[string]*string) error            { return nil }
-func (m *mockCluster) Delete(key string) error                                    { return nil }
 func (m *mockCluster) DeletePrefix(prefix string) error                           { return nil }
 func (m *mockCluster) STM(apply func(concurrency.STM) error) error                { return nil }
-func (m *mockCluster) Watcher() (cluster.Watcher, error)                          { return nil, nil }
 func (m *mockCluster) Syncer(pullInterval time.Duration) (*cluster.Syncer, error) { return nil, nil }
 func (m *mockCluster) Mutex(name string) (cluster.Mutex, error)                   { return nil, nil }
 func (m *mockCluster) CloseServer(wg *sync.WaitGroup)                             {}
 func (m *mockCluster) StartServer() (chan struct{}, chan struct{}, error)         { return nil, nil, nil }
 func (m *mockCluster) Close(wg *sync.WaitGroup)                                   {}
 func (m *mockCluster) PurgeMember(member string) error                            { return nil }
+
+func (m *mockCluster) Watcher() (cluster.Watcher, error) {
+	m.Lock()
+	defer m.Unlock()
+	if m.delCh == nil {
+		m.delCh = make(chan map[string]*string, 100)
+	}
+	return &mockWatcher{delCh: m.delCh}, nil
+}
+
+func (m *mockCluster) Delete(key string) error {
+	m.Lock()
+	defer m.Unlock()
+	if v, ok := m.kv[key]; ok {
+		if m.delCh != nil {
+			kv := map[string]*string{key: &v}
+			m.delCh <- kv
+		}
+	}
+	delete(m.kv, key)
+	return nil
+}
+
+type mockWatcher struct {
+	delCh chan map[string]*string
+}
+
+var _ cluster.Watcher = (*mockWatcher)(nil)
+
+func (w *mockWatcher) Watch(key string) (<-chan *string, error)                     { return nil, nil }
+func (w *mockWatcher) WatchPrefix(prefix string) (<-chan map[string]*string, error) { return nil, nil }
+func (w *mockWatcher) WatchRaw(key string) (<-chan *clientv3.Event, error)          { return nil, nil }
+func (w *mockWatcher) WatchRawPrefix(prefix string) (<-chan map[string]*clientv3.Event, error) {
+	return nil, nil
+}
+func (w *mockWatcher) WatchWithOp(key string, ops ...cluster.ClientOp) (<-chan map[string]*string, error) {
+	return w.delCh, nil
+}
+func (w *mockWatcher) Close() {}
 
 func (m *mockCluster) Get(key string) (*string, error) {
 	m.RLock()
@@ -124,6 +163,20 @@ func TestStorage(t *testing.T) {
 	valmap, err := store.getPrefix("prefix", false)
 	if err != nil || !reflect.DeepEqual(valmap, map[string]string{"prefix_1": "1", "prefix_2": "2"}) {
 		t.Errorf("get wrong prefix val")
+	}
+	ch, _, err := store.watchDelete("prefix")
+	if err != nil {
+		t.Errorf("create watch delete failed %v", err)
+	}
+	store.delete("prefix_1")
+	delKv := <-ch
+	v, ok := delKv["prefix_1"]
+	if !ok {
+		t.Errorf("watch delete failed")
+	} else {
+		if *v != "1" {
+			t.Errorf("get wrong watch result, expected %v, got %v", "1", *v)
+		}
 	}
 }
 
