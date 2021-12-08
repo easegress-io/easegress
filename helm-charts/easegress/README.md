@@ -8,6 +8,9 @@ Helm charts for installing Easegress on Kubernetes.
 # create namespace at first
 kubectl create ns easegress
 
+# update common helm charts
+helm dependency update ./helm-charts/easegress
+
 # install with default values
 helm install easegress -n easegress ./helm-charts/easegress
 
