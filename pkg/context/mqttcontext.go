@@ -72,8 +72,8 @@ type (
 		ctx        stdcontext.Context
 		cancelFunc stdcontext.CancelFunc
 
-		startTime        *time.Time
-		endTime          *time.Time
+		startTime        time.Time
+		endTime          time.Time
 		client           MQTTClient
 		backend          MQTTBackend
 		connectPacket    *packets.ConnectPacket
@@ -116,7 +116,7 @@ func NewMQTTContext(ctx stdcontext.Context, backend MQTTBackend, client MQTTClie
 	mqttCtx := &mqttContext{
 		ctx:        stdctx,
 		cancelFunc: cancelFunc,
-		startTime:  &startTime,
+		startTime:  startTime,
 		client:     client,
 		backend:    backend,
 	}
@@ -197,17 +197,16 @@ func (ctx *mqttContext) Canceled() bool {
 func (ctx *mqttContext) Duration() time.Duration {
 	ctx.mu.RLock()
 	defer ctx.mu.RUnlock()
-	if ctx.endTime != nil {
-		return ctx.endTime.Sub(*ctx.startTime)
+	if !ctx.endTime.IsZero() {
+		return ctx.endTime.Sub(ctx.startTime)
 	}
-	return time.Since(*ctx.startTime)
+	return time.Since(ctx.startTime)
 }
 
 // Finish tell this context is finished
 func (ctx *mqttContext) Finish() {
 	ctx.mu.Lock()
-	endTime := time.Now()
-	ctx.endTime = &endTime
+	ctx.endTime = time.Now()
 	ctx.mu.Unlock()
 }
 

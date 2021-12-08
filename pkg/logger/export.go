@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/megaease/easegress/pkg/util/fasttime"
+	"github.com/megaease/easegress/pkg/util/stringtool"
 	"github.com/openzipkin/zipkin-go/model"
 )
 
@@ -145,9 +146,9 @@ func NginxHTTPAccess(remoteAddr, proto, method, path, referer, agent, realIP str
 
 func getSpanTemplate(context *model.SpanContext, template string) string {
 	if context == nil {
-		return "tid=" + "<nil>" + " sid=" + "<nil>" + " " + template
+		return stringtool.Cat("tid=<nil> sid=<nil> ", template)
 	}
-	return "tid=" + context.TraceID.String() + " sid=" + context.ID.String() + " " + template
+	return stringtool.Cat("tid=", context.TraceID.String(), " sid=", context.ID.String(), " ", template)
 }
 
 // SpanDebugf is the wrapper of default logger Debugf to log tracing message
