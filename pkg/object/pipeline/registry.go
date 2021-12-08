@@ -38,8 +38,7 @@ type (
 		// Description returns the description of the filter.
 		Description() string
 
-		// Results returns all possible results, the normal result
-		// (i.e. empty string) could not be in it.
+		// Results returns all possible results, excluding the default result value (empty string).
 		Results() []string
 
 		// Init initializes the Filter.
@@ -47,7 +46,7 @@ type (
 
 		// Inherit also initializes the Filter.
 		// But it needs to handle the lifecycle of the previous generation.
-		// So it's own responsibility for the filter to inherit and clean the previous generation stuff.
+		// So it is Filter's responsibility to inherit and clean the previous generation.
 		// The http pipeline won't call Close for the previous generation.
 		Inherit(filterSpec *FilterSpec, previousGeneration Filter)
 
@@ -119,8 +118,7 @@ func pipelineName(name string, protocol context.Protocol) string {
 // GetPipeline is used to get pipeline with given name and protocol
 func GetPipeline(name string, protocol context.Protocol) (*Pipeline, error) {
 	key := pipelineName(name, protocol)
-	value, ok := runningPipelines.Load(key)
-	if ok {
+	if value, ok := runningPipelines.Load(key); ok {
 		return value.(*Pipeline), nil
 	}
 	return nil, fmt.Errorf("no running pipeline for %v %v", protocol, name)

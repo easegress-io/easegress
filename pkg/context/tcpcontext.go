@@ -22,7 +22,7 @@ type (
 	TCPContext interface {
 		Context
 
-		// TODO
+		// TODO more protocols coming soon
 	}
 
 	// TCPResult is result for handling tcp request

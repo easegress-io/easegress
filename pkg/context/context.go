@@ -39,6 +39,9 @@ const (
 	// MQTT is MQTT protocol
 	MQTT Protocol = "MQTT"
 
-	// TCP is tcp protocol
+	// TCP is TCP protocol
 	TCP Protocol = "TCP"
+
+	// UDP is UDP protocol
+	UDP Protocol = "UDP"
 )

@@ -97,8 +97,7 @@ func (m *mockStorage) put(key, value string) error {
 func (m *mockStorage) delete(key string) error {
 	m.mu.Lock()
 	delete(m.store, key)
-	flag := atomic.LoadInt32(&m.watchFlag)
-	if flag == 1 {
+	if m.watched() {
 		go func() {
 			ans := make(map[string]*string)
 			ans[key] = nil
@@ -107,6 +106,11 @@ func (m *mockStorage) delete(key string) error {
 	}
 	m.mu.Unlock()
 	return nil
+}
+
+func (m *mockStorage) watched() bool {
+	flag := atomic.LoadInt32(&m.watchFlag)
+	return flag == 1
 }
 
 func (m *mockStorage) watchDelete(prefix string) (<-chan map[string]*string, func(), error) {
