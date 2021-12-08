@@ -223,9 +223,8 @@ func (w *watcher) WatchRawPrefix(prefix string) (<-chan map[string]*clientv3.Eve
 func (w *watcher) WatchWithOp(key string, ops ...ClientOp) (<-chan map[string]*string, error) {
 	newOps := []clientv3.OpOption{}
 	for _, o := range ops {
-		op := getOpOption(o)
-		if op != nil {
-			newOps = append(newOps, op)
+		if opOption := getOpOption(o); opOption != nil {
+			newOps = append(newOps, opOption)
 		}
 	}
 

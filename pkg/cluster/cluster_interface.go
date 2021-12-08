@@ -66,7 +66,7 @@ type (
 		PurgeMember(member string) error
 	}
 
-	// ClientOp is client option type for etcd client used in cluster and watcher
+	// ClientOp is client operation option type for etcd client used in cluster and watcher
 	ClientOp string
 
 	// Watcher wraps etcd watcher.

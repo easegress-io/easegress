@@ -185,9 +185,8 @@ func (c *cluster) GetWithOp(key string, op ...ClientOp) (map[string]string, erro
 
 	newOps := []clientv3.OpOption{}
 	for _, o := range op {
-		op := getOpOption(o)
-		if op != nil {
-			newOps = append(newOps, op)
+		if opOption := getOpOption(o); opOption != nil {
+			newOps = append(newOps, opOption)
 		}
 	}
 	resp, err := client.Get(c.requestContext(), key, newOps...)
