@@ -19,6 +19,7 @@ package mqttproxy
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/Shopify/sarama"
 	"github.com/eclipse/paho.mqtt.golang/packets"
@@ -42,6 +43,7 @@ type (
 	}
 
 	testMQ struct {
+		mu  sync.Mutex
 		ch  chan *packets.PublishPacket
 		msg map[string]map[string]string
 	}
@@ -144,7 +146,7 @@ func (k *KafkaMQ) close() {
 // Publish publish msg to Kafka backend
 func (k *KafkaMQ) Publish(target string, data []byte, headers map[string]string) error {
 	var msg *sarama.ProducerMessage
-	kafkaHeaders := []sarama.RecordHeader{}
+	kafkaHeaders := make([]sarama.RecordHeader, 0, len(headers))
 	for k, v := range headers {
 		kafkaHeaders = append(kafkaHeaders, sarama.RecordHeader{Key: []byte(k), Value: []byte(v)})
 	}
@@ -164,7 +166,9 @@ func (t *testMQ) publish(p *packets.PublishPacket) error {
 
 // Publish publish msg to testMQ backend
 func (t *testMQ) Publish(target string, data []byte, headers map[string]string) error {
+	t.mu.Lock()
 	t.msg[target] = headers
+	t.mu.Unlock()
 	return nil
 }
 

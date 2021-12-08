@@ -224,20 +224,22 @@ func (b *Broker) watchDelete(ch <-chan map[string]*string, closeFunc func()) {
 				}
 				clientID := strings.TrimPrefix(k, sessionStoreKey(""))
 				logger.SpanDebugf(nil, "client %v recv delete watch %v", clientID, v)
-				go func(cid string) {
-					b.Lock()
-					defer b.Unlock()
-					if c, ok := b.clients[cid]; ok {
-						if !c.disconnected() {
-							logger.SpanDebugf(nil, "broker watch and delete client %v", c.info.cid)
-							c.close()
-						}
-					}
-					delete(b.clients, cid)
-				}(clientID)
+				go b.deleteSession(clientID)
 			}
 		}
 	}
+}
+
+func (b *Broker) deleteSession(clientID string) {
+	b.Lock()
+	defer b.Unlock()
+	if c, ok := b.clients[clientID]; ok {
+		if !c.disconnected() {
+			logger.SpanDebugf(nil, "broker watch and delete client %v", c.info.cid)
+			c.close()
+		}
+	}
+	delete(b.clients, clientID)
 }
 
 func (b *Broker) run() {
@@ -271,6 +273,8 @@ func (b *Broker) checkConnectPermission(connect *packets.ConnectPacket) bool {
 	if !permitted {
 		return permitted
 	}
+	// check here to do early stop for connection. Later we will check it again to make sure
+	// not exceed MaxAllowedConnection
 	if b.spec.MaxAllowedConnection > 0 {
 		b.Lock()
 		connNum := len(b.clients)
@@ -282,41 +286,28 @@ func (b *Broker) checkConnectPermission(connect *packets.ConnectPacket) bool {
 	return true
 }
 
-func (b *Broker) handleConn(conn net.Conn) {
-	defer conn.Close()
-	packet, err := packets.ReadPacket(conn)
-	if err != nil {
-		logger.SpanErrorf(nil, "read connect packet failed: %s", err)
-		return
-	}
-	connect, ok := packet.(*packets.ConnectPacket)
-	if !ok {
-		logger.SpanErrorf(nil, "first packet received %s that was not Connect", packet.String())
-		return
-	}
-	logger.SpanDebugf(nil, "connection from client %s", connect.ClientIdentifier)
-
+func (b *Broker) connectionValidation(connect *packets.ConnectPacket, conn net.Conn) (*Client, *packets.ConnackPacket, bool) {
 	connack := packets.NewControlPacket(packets.Connack).(*packets.ConnackPacket)
 	connack.SessionPresent = connect.CleanSession
 	connack.ReturnCode = connect.Validate()
 	if connack.ReturnCode != packets.Accepted {
-		err = connack.Write(conn)
+		err := connack.Write(conn)
 		logger.SpanErrorf(nil, "invalid connection %v, write connack failed: %s", connack.ReturnCode, err)
-		return
+		return nil, nil, false
 	}
-
+	// check rate limiter and max allowed connection
 	if !b.checkConnectPermission(connect) {
 		logger.SpanDebugf(nil, "client %v not get connect permission from rate limiter", connect.ClientIdentifier)
 		connack.ReturnCode = packets.ErrRefusedServerUnavailable
-		err = connack.Write(conn)
+		err := connack.Write(conn)
 		if err != nil {
 			logger.SpanErrorf(nil, "connack back to client %s failed: %s", connect.ClientIdentifier, err)
 		}
-		return
+		return nil, nil, false
 	}
 
 	client := newClient(connect, b, conn, b.spec.ClientPublishLimit)
-
+	// check auth
 	authFail := false
 	if b.spec.AuthByPipeline {
 		pipe, err := pipeline.GetPipeline(b.pipeline, context.MQTT)
@@ -336,23 +327,49 @@ func (b *Broker) handleConn(conn net.Conn) {
 	}
 	if authFail {
 		connack.ReturnCode = packets.ErrRefusedNotAuthorised
-		err = connack.Write(conn)
+		err := connack.Write(conn)
 		if err != nil {
 			logger.SpanErrorf(nil, "connack back to client %s failed: %s", connect.ClientIdentifier, err)
 		}
 		logger.SpanErrorf(nil, "invalid connection %v, client %s auth failed", connack.ReturnCode, connect.ClientIdentifier)
-		return
+		return nil, nil, false
 	}
+	return client, connack, true
+}
 
-	err = connack.Write(conn)
+func (b *Broker) handleConn(conn net.Conn) {
+	defer conn.Close()
+	packet, err := packets.ReadPacket(conn)
 	if err != nil {
-		logger.SpanErrorf(nil, "send connack to client %s failed: %s", connect.ClientIdentifier, err)
+		logger.SpanErrorf(nil, "read connect packet failed: %s", err)
 		return
 	}
+	connect, ok := packet.(*packets.ConnectPacket)
+	if !ok {
+		logger.SpanErrorf(nil, "first packet received %s that was not Connect", packet.String())
+		return
+	}
+	logger.SpanDebugf(nil, "connection from client %s", connect.ClientIdentifier)
 
+	client, connack, valid := b.connectionValidation(connect, conn)
+	if !valid {
+		return
+	}
 	cid := client.info.cid
 
 	b.Lock()
+	if b.spec.MaxAllowedConnection > 0 {
+		if len(b.clients) >= b.spec.MaxAllowedConnection {
+			logger.SpanDebugf(nil, "client %v not get connect permission from rate limiter", connect.ClientIdentifier)
+			connack.ReturnCode = packets.ErrRefusedServerUnavailable
+			err = connack.Write(conn)
+			if err != nil {
+				logger.SpanErrorf(nil, "connack back to client %s failed: %s", connect.ClientIdentifier, err)
+			}
+			b.Unlock()
+			return
+		}
+	}
 	if oldClient, ok := b.clients[cid]; ok {
 		logger.SpanDebugf(nil, "client %v take over by new client with same name", oldClient.info.cid)
 		go oldClient.close()
@@ -360,6 +377,12 @@ func (b *Broker) handleConn(conn net.Conn) {
 	b.clients[client.info.cid] = client
 	b.setSession(client, connect)
 	b.Unlock()
+
+	err = connack.Write(conn)
+	if err != nil {
+		logger.SpanErrorf(nil, "send connack to client %s failed: %s", connect.ClientIdentifier, err)
+		return
+	}
 
 	client.session.updateEGName(b.egName, b.name)
 	topics, qoss, _ := client.session.allSubscribes()
@@ -535,40 +558,7 @@ func (b *Broker) httpGetAllSessionHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	res := &HTTPSessions{}
-	if len(query) == 0 {
-		for k := range allSession {
-			httpSession := &HTTPSession{
-				SessionID: strings.TrimPrefix(k, sessionStoreKey("")),
-			}
-			res.Sessions = append(res.Sessions, httpSession)
-		}
-	} else {
-		index := 0
-		start := page*pageSize - pageSize
-		end := page * pageSize
-		for _, v := range allSession {
-			if index >= start && index < end {
-				session := &Session{}
-				session.info = &SessionInfo{}
-				session.decode(v)
-				for k := range session.info.Topics {
-					if strings.Contains(k, topic) {
-						httpSession := &HTTPSession{
-							SessionID: session.info.ClientID,
-							Topic:     k,
-						}
-						res.Sessions = append(res.Sessions, httpSession)
-						break
-					}
-				}
-			}
-			if index > end {
-				break
-			}
-			index++
-		}
-	}
+	res := b.queryAllSessions(allSession, len(query) != 0, page, pageSize, topic)
 
 	jsonData, err := json.Marshal(res)
 	if err != nil {
@@ -581,6 +571,45 @@ func (b *Broker) httpGetAllSessionHandler(w http.ResponseWriter, r *http.Request
 		logger.SpanErrorf(span, "write json data to http response writer failed, %v", err)
 		api.HandleAPIError(w, r, http.StatusInternalServerError, fmt.Errorf("write json data failed"))
 	}
+}
+
+func (b *Broker) queryAllSessions(allSession map[string]string, query bool, page, pageSize int, topic string) *HTTPSessions {
+	res := &HTTPSessions{}
+	if !query {
+		for k := range allSession {
+			httpSession := &HTTPSession{
+				SessionID: strings.TrimPrefix(k, sessionStoreKey("")),
+			}
+			res.Sessions = append(res.Sessions, httpSession)
+		}
+		return res
+	}
+
+	index := 0
+	start := page*pageSize - pageSize
+	end := page * pageSize
+	for _, v := range allSession {
+		if index >= start && index < end {
+			session := &Session{}
+			session.info = &SessionInfo{}
+			session.decode(v)
+			for k := range session.info.Topics {
+				if strings.Contains(k, topic) {
+					httpSession := &HTTPSession{
+						SessionID: session.info.ClientID,
+						Topic:     k,
+					}
+					res.Sessions = append(res.Sessions, httpSession)
+					break
+				}
+			}
+		}
+		if index > end {
+			break
+		}
+		index++
+	}
+	return res
 }
 
 func (b *Broker) httpDeleteSessionHandler(w http.ResponseWriter, r *http.Request) {
