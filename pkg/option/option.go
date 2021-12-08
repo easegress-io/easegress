@@ -466,6 +466,9 @@ func (opt *Options) InitialClusterToString() string {
 // for secondary (a.k.a reader) the ones listed in cluster.primary-listen-peer-url.
 func (opt *Options) GetPeerURLs() []string {
 	if opt.ClusterRole == "secondary" {
+		if len(opt.ClusterJoinURLs) != 0 {
+			return opt.ClusterJoinURLs
+		}
 		return opt.Cluster.PrimaryListenPeerURLs
 	}
 	peerURLs := make([]string, 0)
