@@ -170,16 +170,6 @@ spec:
     port: 2381
     protocol: TCP
     targetPort: 2381
-  - name: peer-port
-    nodePort: 31104
-    port: 2380
-    protocol: TCP
-    targetPort: 2380
-  - name: client-port
-    nodePort: 30148
-    port: 2379
-    protocol: TCP
-    targetPort: 2379
   selector:
     app: easegress-ingress
   type: NodePort
@@ -603,10 +593,8 @@ spec:
 
 Now you have configuration yaml files for bootstrapping three member Easegress Ingress Controller cluster. You can test ingress like before `curl http://{NODE_IP}/ -HHost:www.example.com`. To verify that the cluster is healthy
 ```bash
-# log in to pod
-kubectl exec -it easegress-1 -- sh
-# inside pod, check cluster member names
-egctl member list |grep " name"
+# query admin port with egctl
+egctl --server {NODE_IP}:31255 member list |grep " name"
 # => should print
 #     name: easegress-0
 #     name: easegress-1
@@ -739,10 +727,8 @@ spec:
 Applying the deployment to the cluster creates two pods with prefix `easegress-secondary-`. We can again log into one of pods and see new *secondary* members.
 
 ```bash
-# log in to pod
-kubectl exec -it easegress-0 -- sh
-# inside pod, check cluster member names
-egctl member list |grep " name"
+# query admin port with egctl
+egctl --server {NODE_IP}:31255 member list |grep " name"
 # => prints
     # name: easegress-0
     # name: easegress-1

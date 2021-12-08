@@ -1,6 +1,8 @@
 service:
   # nodePort for easegress service
   nodePort: 80
+  # nodeport for egctl access
+  adminPort: 31255
 
 # image for easegress deployment
 image:

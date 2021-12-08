@@ -32,20 +32,10 @@ metadata:
 spec:
   ports:
   - name: admin-port
-    nodePort: 31255 # random port
     port: 2381
     protocol: TCP
     targetPort: 2381
-  - name: peer-port
-    nodePort: 31104
-    port: 2380
-    protocol: TCP
-    targetPort: 2380
-  - name: client-port
-    nodePort: 30148
-    port: 2379
-    protocol: TCP
-    targetPort: 2379
+    nodePort: {{ .Values.service.adminPort }}
   selector:
     app: {{ .Release.Name }}
   type: NodePort

@@ -25,8 +25,8 @@ spec:
           cat /opt/eg-config/eg-primary.yaml >> /opt/eg-config/config.yaml && 
           /opt/easegress/bin/easegress-server \
             -f /opt/eg-config/config.yaml \
-            --advertise-client-urls http://$(EG_NAME).easegress-hs.default:2379 \
-            --initial-advertise-peer-urls http://$(EG_NAME).easegress-hs.default:2380 \
+            --advertise-client-urls http://$(EG_NAME).easegress-hs.{{ .Release.Namespace }}:2379 \
+            --initial-advertise-peer-urls http://$(EG_NAME).easegress-hs.{{ .Release.Namespace }}:2380 \
             --initial-object-config-files /opt/eg-config/controller.yaml
         command:
         - /bin/sh
