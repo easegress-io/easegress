@@ -1,6 +1,6 @@
 # Easegress ingress controller chart
 
-Helm charts for install Easegress ingress controller on Kubernetes
+Helm charts for installing Easegress ingress controller on Kubernetes
 
 ## Usage
 
@@ -14,7 +14,7 @@ helm install ingress-easegress -n ingress-easegress ./helm-charts/ingress-contro
 # install with custom values
 helm install ingress-easegress -n ingress-easegress ./helm-charts/ingress-controller \
   --set service.nodePort=4080 \
-  --set image.tag=v1.3.2 \
+  --set image.tag=v1.4.0 \
   --set ingressClass.name=test-eg \
   --set controller.name=test-eg \
   --set 'controller.namespaces={ingress-easegress, default}'

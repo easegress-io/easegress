@@ -25,6 +25,6 @@ spec:
 ---
 {{ end }}
 
-{{- include "easegress-lib-chart.storageclass" (list . "easegress-ingress-controller.storageclass") -}}
+{{- include "easegress-lib-chart.storageclass" (list . "easegress.storageclass") -}}
 
 {{- end }}
