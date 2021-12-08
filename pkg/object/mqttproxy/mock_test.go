@@ -81,7 +81,7 @@ func (m *mockCluster) GetPrefix(prefix string) (map[string]string, error) {
 	return out, nil
 }
 
-func (m *mockCluster) GetWithOp(key string, op ...cluster.WatchOp) (map[string]string, error) {
+func (m *mockCluster) GetWithOp(key string, op ...cluster.ClientOp) (map[string]string, error) {
 	prefix := false
 	for _, o := range op {
 		if o == cluster.OpPrefix {

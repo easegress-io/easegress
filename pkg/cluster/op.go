@@ -175,7 +175,7 @@ func (c *cluster) GetRawPrefix(prefix string) (map[string]*mvccpb.KeyValue, erro
 	return kvs, nil
 }
 
-func (c *cluster) GetWithOp(key string, op ...WatchOp) (map[string]string, error) {
+func (c *cluster) GetWithOp(key string, op ...ClientOp) (map[string]string, error) {
 	kvs := make(map[string]string)
 
 	client, err := c.getClient()

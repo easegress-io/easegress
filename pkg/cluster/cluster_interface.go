@@ -38,7 +38,7 @@ type (
 		GetPrefix(prefix string) (map[string]string, error)
 		GetRaw(key string) (*mvccpb.KeyValue, error)
 		GetRawPrefix(prefix string) (map[string]*mvccpb.KeyValue, error)
-		GetWithOp(key string, ops ...WatchOp) (map[string]string, error)
+		GetWithOp(key string, ops ...ClientOp) (map[string]string, error)
 
 		Put(key, value string) error
 		PutUnderLease(key, value string) error
@@ -66,8 +66,8 @@ type (
 		PurgeMember(member string) error
 	}
 
-	// WatchOp is watch option type for etcd watcher
-	WatchOp string
+	// ClientOp is client option type for etcd client used in cluster and watcher
+	ClientOp string
 
 	// Watcher wraps etcd watcher.
 	Watcher interface {
@@ -75,26 +75,26 @@ type (
 		WatchPrefix(prefix string) (<-chan map[string]*string, error)
 		WatchRaw(key string) (<-chan *clientv3.Event, error)
 		WatchRawPrefix(prefix string) (<-chan map[string]*clientv3.Event, error)
-		WatchWithOp(key string, ops ...WatchOp) (<-chan map[string]*string, error)
+		WatchWithOp(key string, ops ...ClientOp) (<-chan map[string]*string, error)
 		Close()
 	}
 )
 
 const (
 	// OpPrefix will watch all event with certain prefix
-	OpPrefix WatchOp = "prefix"
+	OpPrefix ClientOp = "prefix"
 
 	// OpNotWatchPut will not watch put event
-	OpNotWatchPut WatchOp = "put"
+	OpNotWatchPut ClientOp = "put"
 
 	// OpNotWatchDelete will not watch delete event
-	OpNotWatchDelete WatchOp = "delete"
+	OpNotWatchDelete ClientOp = "delete"
 
 	// OpKeysOnly will get etcd and only return keys, for example, get all prefix without values
-	OpKeysOnly WatchOp = "keysOnly"
+	OpKeysOnly ClientOp = "keysOnly"
 )
 
-func getOpOption(op WatchOp) clientv3.OpOption {
+func getOpOption(op ClientOp) clientv3.OpOption {
 	switch op {
 	case OpPrefix:
 		return clientv3.WithPrefix()

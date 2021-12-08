@@ -27,7 +27,7 @@ import (
 func Test_getOpOption(t *testing.T) {
 	tests := []struct {
 		wantFunc clientv3.OpOption
-		op       WatchOp
+		op       ClientOp
 	}{
 		{clientv3.WithPrefix(), OpPrefix},
 		{clientv3.WithFilterPut(), OpNotWatchPut},

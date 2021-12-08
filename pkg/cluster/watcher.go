@@ -220,7 +220,7 @@ func (w *watcher) WatchRawPrefix(prefix string) (<-chan map[string]*clientv3.Eve
 	return prefixChan, nil
 }
 
-func (w *watcher) WatchWithOp(key string, ops ...WatchOp) (<-chan map[string]*string, error) {
+func (w *watcher) WatchWithOp(key string, ops ...ClientOp) (<-chan map[string]*string, error) {
 	newOps := []clientv3.OpOption{}
 	for _, o := range ops {
 		op := getOpOption(o)
