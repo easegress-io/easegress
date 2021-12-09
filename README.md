@@ -303,10 +303,7 @@ We can also see Easegress send one more header `X-Adapt-Key: goodplan` to the mi
 
 ## Documentation
 
-- [Easegress Roadmap](./doc/Roadmap.md)
-- [Easegress Developer Guide](./doc/developer-guide.md)
-
-See [Easegress Documentation](./doc/README.md) for more information.
+See [Easegress Documentation](./doc/README.md) for all documents.
 
 ## Roadmap
 
