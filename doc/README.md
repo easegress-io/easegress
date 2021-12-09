@@ -51,7 +51,7 @@ The full document please check - [Controller Reference](./reference/controllers.
 
 #### 4.1.1 System Controllers
 
-The following controllers are system level controllers,  they are created one and only one instance in every Easegress node, which can't be deleted. 
+The following controllers are system level controllers.  One and only one instance of them are created in every Easegress node and they can't be deleted. 
 
 - [ServiceRegistry](./reference/controllers.md#serviceregistry) - The service hub for all service registries - Consul, Etcd, Eureka, Zookeeper, Nacos...
 - [TrafficController](./reference/controllers.md#trafficcontroller) - TrafficController handles the lifecycle of HTTPServer and HTTPPipeline and their relationship. 
