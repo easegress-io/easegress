@@ -32,7 +32,7 @@
     - [nacos.ServerSpec](#nacosserverspec)
     - [autocertmanager.DomainSpec](#autocertmanagerdomainspec)
 
-As the [architecture diagram](./architecture.png) shows, the controller is the core entity to control kinds of working. There are two kinds of controllers overall:
+As the [architecture diagram](./imgs/architecture.png) shows, the controller is the core entity to control kinds of working. There are two kinds of controllers overall:
 
 - System Controller: It is created one and only one instance in every Easegress node, which can't be deleted. They mainly aim to control essential system-level stuff.
 - Business Controller: It could be created, updated, deleted by admin operation. They control various resources such as mesh traffic, service discovery, faas, and so on.

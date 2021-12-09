@@ -1,7 +1,7 @@
 # Easegress
 
 <a href="https://megaease.com/easegress">
-    <img src="./doc/easegress.svg"
+    <img src="./doc/imgs/easegress.svg"
         alt="Easegress logo" title="Easegress" height="175" width="175" align="right"/>
 </a>
 
@@ -32,7 +32,7 @@
 
 The architecture of Easegress:
 
-![architecture](./doc/architecture.png)
+![architecture](./doc/imgs/architecture.png)
 
 ## Features
 
@@ -250,7 +250,7 @@ Body  : Hello, Easegress
 Now we want to add more features to the pipeline, then we could add kinds of filters to the pipeline. For example, we want validation and request adaptation for the `pipeline-demo`.
 
 <p align="center">
-  <img src="./doc/pipeline-demo.png" width=240>
+  <img src="./doc/imgs/pipeline-demo.png" width=240>
 </p>
 
 ```bash

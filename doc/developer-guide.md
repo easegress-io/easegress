@@ -15,7 +15,7 @@
 
 As the diagram described, the cluster does data synchronization of all nodes, and the supervisor manages the lifecycle of all kinds of objects:
 
-![architecture](./architecture.png)
+![architecture](./imgs/architecture.png)
 
 1. System Controller: Every instance of EG has one and only one kind of it.
 2. Business Controller: The component does its own task which does not directly handle the traffic.

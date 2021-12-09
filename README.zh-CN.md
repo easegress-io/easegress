@@ -1,7 +1,7 @@
 # Easegress
 
 <a href="https://megaease.com/easegress">
-    <img src="./doc/easegress.svg"
+    <img src="./doc/imgs/easegress.svg"
         alt="Easegress logo" title="Easegress" height="175" width="175" align="right"/>
 </a>
 
@@ -32,7 +32,7 @@
 
 下面是其架构图：
 
-![架构](./doc/architecture.png)
+![架构](./doc/imgs/architecture.png)
 
 ## 功能
 
@@ -249,7 +249,7 @@ Body  : Hello, Easegress
 现在我们可以给 Pipeline 添加其它过滤器来实现更多的功能，例如，如果希望对 `pipeline-demo` 可以验证和改写请求，可以这样做：
 
 <p align="center">
-  <img src="./doc/pipeline-demo.png" width=240>
+  <img src="./doc/imgs/pipeline-demo.png" width=240>
 </p>
 
 ```bash

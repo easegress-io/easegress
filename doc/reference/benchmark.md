@@ -418,11 +418,11 @@ http:
 ## Summary
 ### RPS/P99 Latency comparing
 1. RPS 
-![rps](./stress-test-rps.png)
+![rps](../imgs/stress-test-rps.png)
 
 2. P99 Latency 
 
-![latency](./stress-test-p99-latency.png)
+![latency](../imgs/stress-test-p99-latency.png)
  
 
 ### Ubuntu system status 

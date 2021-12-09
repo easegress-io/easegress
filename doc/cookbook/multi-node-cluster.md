@@ -30,7 +30,7 @@ The following prerequisites are required for a successful deployment of Easegres
 The goal of this tutorial is to have following infrastructure running Easegress:
 
 <p align="center">
-  <img src="./easegress-cluster-nodes.png" width=400>
+  <img src="../imgs/easegress-cluster-nodes.png" width=400>
 </p>
 
 - 4 machines connected
@@ -208,7 +208,7 @@ These arguments are used for [etcd](https://etcd.io) server and client configura
 Here's a drawing that illustrates the difference.
 
 <p align="center">
-  <img src="./easegress-cluster-connections.png" width=300>
+  <img src="../imgs/easegress-cluster-connections.png" width=300>
 </p>
 
 *Primary* members need to synchronize with peers (other *primary* members). Meanwhile *secondary* can read and update the state through one *primary* member.

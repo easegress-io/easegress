@@ -13,19 +13,19 @@
 ## 1. Cookbook / How-To Guide
 This is a cookbook that lists a number of useful and practical examples how to use the Easegress for different scenarios.
 
-- [API Aggregator](./cookbook/api_aggregator.md) - Aggregating many APIs into a single API.
-- [Cluster deployment](./cookbook/multi_node_cluster.md) - How to deploy multiple Easegress cluster nodes.
-- [Distributed Tracing](./cookbook/distributed_tracing.md) - How to do APM tracing  - Zipkin.
+- [API Aggregator](./cookbook/api-aggregator.md) - Aggregating many APIs into a single API.
+- [Cluster deployment](./cookbook/multi-node-cluster.md) - How to deploy multiple Easegress cluster nodes.
+- [Distributed Tracing](./cookbook/distributed-tracing.md) - How to do APM tracing  - Zipkin.
 - [FaaS](./cookbook/faas.md) - Supporting Knative FaaS integration
-- [Flash Sale](./cookbook/flash_sale.md) - How to do high concurrent promotion sales with Easegress
-- [Kubernetes Ingress Controller](./cookbook/k8s_ingress_controller.md) - How to integrated with Kubernetes as ingress controller
-- [LoadBalancer](./cookbook/load_balancer.md) - A number of strategy of load balancing
-- [MQTTProxy](./cookbook/mqtt_proxy.md) - An Example to MQTT proxy with Kafka backend.
+- [Flash Sale](./cookbook/flash-sale.md) - How to do high concurrent promotion sales with Easegress
+- [Kubernetes Ingress Controller](./cookbook/k8s-ingress-controller.md) - How to integrated with Kubernetes as ingress controller
+- [LoadBalancer](./cookbook/load-balancer.md) - A number of strategy of load balancing
+- [MQTTProxy](./cookbook/mqtt-proxy.md) - An Example to MQTT proxy with Kafka backend.
 - [Performance](./cookbook/performance.md) - Performance optimization - compression, caching etc.
 - [Pipeline](./cookbook/pipeline.md) - How to orchestrate HTTP filters for requests/responses handling
 - [Resilience and Fault Tolerance](./cookbook/resilience.md) - Circuit Breaker, Rate Limiter, Retryer, Time limiter, etc. (Porting from [Java resilience4j](https://github.com/resilience4j/resilience4j))
 - [Security](./cookbook/security.md) - How to do authentication by Header, JWT, HMAC, OAuth2, etc.
-- [Service Proxy](./cookbook/service_proxy.md) - Supporting the Microservice  registries - Zookeeper, Eureka, Consul, Nacos, etc.
+- [Service Proxy](./cookbook/service-proxy.md) - Supporting the Microservice  registries - Zookeeper, Eureka, Consul, Nacos, etc.
 - [WebAssembly](./cookbook/wasm.md) - Using AssemblyScript to extend the Easegress
 - [WebSocket](./cookbook/websocket.md) - WebSocket proxy for Easegress
 - [Workflow](./cookbook/workflow.md) - An Example to make a workflow for a number of APIs.
@@ -82,7 +82,7 @@ It could be created, updated, deleted by admin operation. They control various r
 - [Mock](./reference/filters.md#Mock) - The Mock filter mocks responses according to configured rules, mainly for testing purposes.
 - [RemoteFilter](./reference/filters.md#RemoteFilter) - The RemoteFilter is a filter making remote service acting as an internal filter. 
 - [RequestAdaptor](./reference/filters.md#RequestAdaptor) - The RequestAdaptor modifies the original request according to configuration.
-- [CircuitBreaker](./reference/filters.md#CircuitBreaker) - The CircuitBreaker is a finite state machine with three states: CLOSED, OPEN, and HALF_OPEN.
+- [CircuitBreaker](./reference/filters.md#CircuitBreaker) - The CircuitBreaker is a finite state machine with three states: `CLOSED`, `OPEN`, and `HALF_OPEN`.
 - [RateLimiter](./reference/filters.md#RateLimiter) - The RateLimiter protects backend service for high availability and reliability by limiting the number of requests sent to the service in a configured duration.
 - [TimeLimiter](./reference/filters.md#TimeLimiter) - The TimeLimiter limits the time of requests, a request is canceled if it cannot get a response in configured duration.
 - [Retryer](./reference/filters.md#Retryer) - The Retryer retries failed requests according to configured policy.
