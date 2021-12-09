@@ -11,7 +11,7 @@
 		- [4.2 Filters](#42-filters)
 
 ## 1. Cookbook / How-To Guide
-This is a cook book lists a number of useful and practical examples to use the Easegress for different scenarios.
+This is a cookbook that lists a number of useful and practical examples how to use the Easegress for different scenarios.
 
 - [API Aggregator](./cookbook/api_aggregator.md) - Aggregating many APIs into a single API.
 - [Cluster deployment](./cookbook/multi_node_cluster.md) - How to deploy multiple Easegress cluster nodes.
