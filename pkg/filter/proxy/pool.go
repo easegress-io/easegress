@@ -175,7 +175,7 @@ func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader, client *http.C
 		return resultServerError
 	}
 
-	addTag("code", strconv.Itoa(resp.StatusCode))
+	addTag("code", http.StatusText(resp.StatusCode))
 
 	ctx.Lock()
 	defer ctx.Unlock()
