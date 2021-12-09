@@ -62,7 +62,7 @@ The following controllers are system level controllers,  they are created one an
 It could be created, updated, deleted by admin operation. They control various resources such as mesh traffic, service discovery, faas, and so on.
 
 - [EaseMonitorMetrics](./reference/controllers.md#) - Monitor metrics of Easegress and send them to Kafka.
-- [FaaSController](./reference/controllers.md#function) - For Easegress and FaaS products integration purpose.
+- [FaaSController](./reference/controllers.md#faascontroller) - For Easegress and FaaS products integration purpose.
 - [IngressController](./reference/controllers.md#ingresscontroller) - an implementation of Kubernetes ingress controller, it watches Kubernetes Ingress, Service, Endpoints, and Secrets then translates them to Easegress HTTP server and pipelines. 
 - [MeshController](./reference/controllers.md#meshcontroller) - This is for [EaseMesh](https://github.com/megaease/easemesh) project.
 - [ConsulServiceRegistry](./reference/controllers.md#consulserviceregistry) - supports service discovery for Consul as backend. 
