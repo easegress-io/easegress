@@ -23,6 +23,7 @@ import (
 	"io"
 	"net/http"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -57,8 +58,11 @@ type (
 		Cancelled() bool
 		ClientDisconnected() bool
 
-		OnFinish(FinishFunc) // For setting final client statistics, etc.
-		AddTag(tag string)   // For debug, log, etc.
+		OnFinish(FinishFunc)         // For setting final client statistics, etc.
+		AddTag(tag string)       // For debug, log, etc.
+		GrowTagN(n int)          // Grow tag list by n items.
+		AddLazyTag(tag *LazyTag) // For lazy evaluation of tag.
+		GrowLazyTagN(num int)    // Grow Lazy Tags list by n items.
 
 		StatMetric() *httpstat.Metric
 
@@ -142,6 +146,9 @@ type (
 		startTime   time.Time
 		finishFuncs []FinishFunc
 		tags        []string
+		lazyTags    []*LazyTag
+		tagInd      int
+		lazyTagInd  int
 		caller      HandlerCaller
 
 		r *httpRequest
@@ -156,7 +163,26 @@ type (
 
 		metric httpstat.Metric
 	}
+
+	// TODO
+	LazyTag struct {
+		Namespace string
+		Prefix    string
+		StringMsg string
+
+		IntMsg int
+
+		Sep string
+	}
 )
+
+func (lt *LazyTag) String() string {
+	msg := lt.StringMsg
+	if lt.IntMsg > 0 {
+		msg = strconv.Itoa(lt.IntMsg)
+	}
+	return stringtool.Cat(lt.Namespace, lt.Sep, lt.Prefix, lt.Sep, msg)
+}
 
 // New creates an HTTPContext.
 // NOTE: We can't use sync.Pool to recycle context.
@@ -179,6 +205,10 @@ func New(stdw http.ResponseWriter, stdr *http.Request,
 		cancelFunc:     cancelFunc,
 		r:              newHTTPRequest(stdr),
 		w:              newHTTPResponse(stdw, stdr),
+		tags:           make([]string, 3),
+		lazyTags:       make([]*LazyTag, 0),
+		tagInd:         0,
+		lazyTagInd:     0,
 	}
 }
 
@@ -207,7 +237,37 @@ func (ctx *httpContext) Span() tracing.Span {
 }
 
 func (ctx *httpContext) AddTag(tag string) {
-	ctx.tags = append(ctx.tags, tag)
+	if len(ctx.tags) < ctx.tagInd {
+		ctx.tags[ctx.tagInd] = tag
+	} else {
+		ctx.tags = append(ctx.tags, tag)
+	}
+	ctx.tagInd++
+}
+
+func (ctx *httpContext) GrowTagN(n int) {
+	newTags := make([]string, len(ctx.tags)+n)
+	for i, tag := range ctx.tags {
+		newTags[i] = tag
+	}
+	ctx.tags = newTags
+}
+
+func (ctx *httpContext) AddLazyTag(tag *LazyTag) {
+	if len(ctx.lazyTags) < ctx.lazyTagInd {
+		ctx.lazyTags[ctx.lazyTagInd] = tag
+	} else {
+		ctx.lazyTags = append(ctx.lazyTags, tag)
+	}
+	ctx.tagInd++
+}
+
+func (ctx *httpContext) GrowLazyTagN(n int) {
+	newLazyTags := make([]*LazyTag, len(ctx.lazyTags)+n)
+	for i, tag := range ctx.lazyTags {
+		newLazyTags[i] = tag
+	}
+	ctx.lazyTags = newLazyTags
 }
 
 func (ctx *httpContext) Request() HTTPRequest {
@@ -289,6 +349,15 @@ func (ctx *httpContext) Finish() {
 	logger.LazyHTTPAccess(func() string {
 		stdr := ctx.r.std
 
+		// combine here normal and Lazy tags
+		allTags := make([]string, ctx.tagInd+ctx.lazyTagInd)
+		for i := 0; i < ctx.tagInd; i++ {
+			allTags[i] = ctx.tags[i]
+		}
+		for i := 0; i < ctx.lazyTagInd; i++ {
+			allTags[ctx.tagInd+i] = ctx.lazyTags[i].String()
+		}
+
 		// log format:
 		// [startTime]
 		// [requestInfo]
@@ -303,7 +372,7 @@ func (ctx *httpContext) Finish() {
 			fasttime.Format(ctx.startTime, fasttime.RFC3339Milli),
 			stdr.RemoteAddr, ctx.r.RealIP(), stdr.Method, stdr.RequestURI, stdr.Proto, ctx.w.code,
 			ctx.metric.Duration, ctx.r.Size(), ctx.w.Size(),
-			strings.Join(ctx.tags, " | "))
+			strings.Join(allTags, " | "))
 	})
 }
 

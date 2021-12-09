@@ -45,6 +45,9 @@ type MockedHTTPContext struct {
 	MockedClientDisconnected func() bool
 	MockedOnFinish           func(func())
 	MockedAddTag             func(tag string)
+	MockedGrowTagN           func(n int)
+	MockedGrowLazyTagN       func(n int)
+	MockedAddLazyTag         func(tag *context.LazyTag)
 	MockedStatMetric         func() *httpstat.Metric
 	MockedFinish             func()
 	MockedTemplate           func() texttemplate.TemplateEngine
@@ -161,6 +164,27 @@ func (c *MockedHTTPContext) OnFinish(fn context.FinishFunc) {
 func (c *MockedHTTPContext) AddTag(tag string) {
 	if c.MockedAddTag != nil {
 		c.MockedAddTag(tag)
+	}
+}
+
+// TODO
+func (c *MockedHTTPContext) MockedAddLazyTag(tag *context.LazyTag) {
+	if c.MockedAddLazyTag != nil {
+		return c.MockedAddLazyTag(tag)
+	}
+}
+
+// TODO
+func (c *MockedHTTPContext) MockedGrowTagN(num int) {
+	if c.MockedGrowTagN != nil {
+		return c.MockedGrowTagN(num)
+	}
+}
+
+// TODO
+func (c *MockedHTTPContext) MockedGrowLazyTagN(num int) {
+	if c.MockedGrowLazyTagN != nil {
+		return c.MockedGrowLazyTagN(num)
 	}
 }
 

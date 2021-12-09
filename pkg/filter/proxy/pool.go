@@ -128,10 +128,17 @@ func (p *pool) status() *PoolStatus {
 }
 
 func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader, client *http.Client) string {
-	addTag := func(subPrefix, msg string) {
-		tag := stringtool.Cat(p.tagPrefix, "#", subPrefix, ": ", msg)
+	addLazyTag := func(subPrefix, msg string, intMsg int) {
+		//tag := stringtool.Cat(p.tagPrefix, "#", subPrefix, ": ", msg)
+		lazyTag := &context.LazyTag{
+			Namespace: p.tagPrefix,
+			Prefix:    subPrefix,
+			StringMsg: msg,
+			IntMsg:    intMsg,
+			Sep:       ": ",
+		}
 		ctx.Lock()
-		ctx.AddTag(tag)
+		ctx.AddLazyTag(lazyTag)
 		ctx.Unlock()
 	}
 
@@ -143,17 +150,17 @@ func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader, client *http.C
 
 	server, err := p.servers.next(ctx)
 	if err != nil {
-		addTag("serverErr", err.Error())
+		addLazyTag("serverErr", err.Error(), -1)
 		setStatusCode(http.StatusServiceUnavailable)
 		return resultInternalError
 	}
-	addTag("addr", server.URL)
+	addLazyTag("addr", server.URL, -1)
 
 	req, err := p.prepareRequest(ctx, server, reqBody)
 	if err != nil {
 		msg := stringtool.Cat("prepare request failed: ", err.Error())
 		logger.Errorf("BUG: %s", msg)
-		addTag("bug", msg)
+		addLazyTag("bug", msg, -1)
 		setStatusCode(http.StatusInternalServerError)
 		return resultInternalError
 	}
@@ -163,8 +170,8 @@ func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader, client *http.C
 		// NOTE: May add option to cancel the tracing if failed here.
 		// ctx.Span().Cancel()
 
-		addTag("doRequestErr", fmt.Sprintf("%v", err))
-		addTag("trace", req.detail())
+		addLazyTag("doRequestErr", fmt.Sprintf("%v", err), -1)
+		addLazyTag("trace", req.detail(), -1)
 		if ctx.ClientDisconnected() {
 			// NOTE: The HTTPContext will set 499 by itself if client is Disconnected.
 			// w.SetStatusCode((499)
@@ -175,7 +182,7 @@ func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader, client *http.C
 		return resultServerError
 	}
 
-	addTag("code", http.StatusText(resp.StatusCode))
+	addLazyTag("code", "", resp.StatusCode)
 
 	ctx.Lock()
 	defer ctx.Unlock()
