@@ -3,12 +3,12 @@
 - [Easegress Documentation](#easegress-documentation)
 	- [1. Cookbook / How-To Guide](#1-cookbook--how-to-guide)
 	- [2. Development Guide](#2-development-guide)
-	- [4. Performance](#4-performance)
-	- [3. Reference Guide](#3-reference-guide)
-		- [3.1 Controllers](#31-controllers)
-			- [3.1.1 System Controllers](#311-system-controllers)
-			- [3.1.2 Business Controllers](#312-business-controllers)
-		- [3.2 Filters](#32-filters)
+	- [3. Performance](#3-performance)
+	- [4. Reference Guide](#4-reference-guide)
+		- [4.1 Controllers](#41-controllers)
+			- [4.1.1 System Controllers](#411-system-controllers)
+			- [4.1.2 Business Controllers](#412-business-controllers)
+		- [4.2 Filters](#42-filters)
 
 ## 1. Cookbook / How-To Guide
 This is a cook book lists a number of useful and practical examples to use the Easegress for different scenarios.
@@ -24,7 +24,7 @@ This is a cook book lists a number of useful and practical examples to use the E
 - [Performance](./cookbook/performance.md) - Performance optimization - compression, caching etc.
 - [Pipeline](./cookbook/pipeline.md) - How to orchestrate HTTP filters for requests/responses handling
 - [Resilience and Fault Tolerance](./cookbook/resilience.md) - Circuit Breaker, Rate Limiter, Retryer, Time limiter, etc. (Porting from [Java resilience4j](https://github.com/resilience4j/resilience4j))
-- [Security](./cookbook/security.md) - How to do authenication by Header, JWT, HMAC, OAuth2, etc.
+- [Security](./cookbook/security.md) - How to do authentication by Header, JWT, HMAC, OAuth2, etc.
 - [Service Proxy](./cookbook/service_proxy.md) - Supporting the Microservice  registries - Zookeeper, Eureka, Consul, Nacos, etc.
 - [WebAssembly](./cookbook/wasm.md) - Using AssemblyScript to extend the Easegress
 - [WebSocket](./cookbook/websocket.md) - WebSocket proxy for Easegress
@@ -37,19 +37,19 @@ This is a cook book lists a number of useful and practical examples to use the E
 - [Easegress Roadmap](./Roadmap.md) - The development roadmap of Easegress.
 - [Developer Guide](./developer-guide.md) - A guide help to develop the Easegress.
 
-## 4. Performance
+## 3. Performance
 - [Benchmark](./reference/benchmark.md) - Performance Test Report.
 - [Linux Kernel Tuning](./reference/kernel-tuning.md) - Tuning the Linux Kernel to make the Easegress run faster.
 
-## 3. Reference Guide
+## 4. Reference Guide
 
-### 3.1 Controllers
+### 4.1 Controllers
 
 The Easegress controller is the core entity to control kinds of working. There are two kinds of controllers - system and business. 
 
 The full document please check - [Controller Reference](./reference/controllers.md)
 
-#### 3.1.1 System Controllers
+#### 4.1.1 System Controllers
 
 The following controllers are system level controllers,  they are created one and only one instance in every Easegress node, which can't be deleted. 
 
@@ -57,7 +57,7 @@ The following controllers are system level controllers,  they are created one an
 - [TrafficController](./reference/controllers.md#trafficcontroller) - TrafficController handles the lifecycle of HTTPServer and HTTPPipeline and their relationship. 
 - [RawConfigTrafficController](./reference/controllers.md#rawconfigtrafficcontroller) - RawConfigTrafficController maps all traffic static configurations to TrafficController in the namespace `default`.
 
-#### 3.1.2 Business Controllers
+#### 4.1.2 Business Controllers
 
 It could be created, updated, deleted by admin operation. They control various resources such as mesh traffic, service discovery, faas, and so on.
 
@@ -73,7 +73,7 @@ It could be created, updated, deleted by admin operation. They control various r
 - [AutoCertManager](./reference/controllers.md#autocertmanager) - automatically manage HTTPS certificates. 
 
 
-### 3.2 Filters
+### 4.2 Filters
 - [API Aggregator](./reference/filters.md#APIAggregator) - The API Aggregator forwards one request to multiple API HTTP Pipelines in the same namespace and aggregates responses.
 - [Proxy](./reference/filters.md#Proxy) - The Proxy filter is a proxy of backend service. 
 - [Bridge](./reference/filters.md#Bridge) - The Bridge filter route requests from one pipeline to other pipelines or HTTP proxies under an HTTP server.
