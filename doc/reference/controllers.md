@@ -153,7 +153,7 @@ kafka:
 
 A FaaSController is a business controller for handling Easegress and FaaS products integration purposes.  It abstracts `FaasFunction`, `FaaSStore` and, `FaasProvider`. Currently, we only support `Knative` type `FaaSProvider`. 
 
-The full reference document please check - [FaaS Controller](./faascontroller.md)
+For the full reference document please check - [FaaS Controller](./faascontroller.md)
 
 ### IngressController
 
