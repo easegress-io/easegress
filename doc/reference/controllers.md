@@ -10,7 +10,7 @@
     - [StatusSyncController](#statussynccontroller)
   - [Business Controllers](#business-controllers)
     - [EaseMonitorMetrics](#easemonitormetrics)
-    - [Function](#function)
+    - [FaaSController](#faascontroller)
     - [IngressController](#ingresscontroller)
     - [MeshController](#meshcontroller)
     - [ConsulServiceRegistry](#consulserviceregistry)
@@ -149,9 +149,11 @@ kafka:
 | ----- | ---------------------------------------------------- | -------------------- | -------- |
 | kafka | [easemonitormetrics.Kafka](#easemonitormetricsKafka) | Kafka related config | Yes      |
 
-### Function
+### FaaSController
 
-TODO (@ben)
+A FaaSController is a business controller for handling Easegress and FaaS products integration purposes.  It abstracts `FaasFunction`, `FaaSStore` and, `FaasProvider`. Currently, we only support `Knative` type `FaaSProvider`. 
+
+The full reference document please check - [FaaS Controller](./faascontroller.md)
 
 ### IngressController
 

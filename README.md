@@ -101,6 +101,7 @@ The architecture of Easegress:
 The following examples show how to use Easegress for different scenarios.
 
 - [API Aggregator](./doc/cookbook/api_aggregator.md) - Aggregating many APIs into a single API.
+- [Cluster deployment](./doc/cookbook/multi_node_cluster.md) - How to deploy multiple Easegress cluster nodes.
 - [Distributed Tracing](./doc/cookbook/distributed_tracing.md) - How to do APM tracing  - Zipkin.
 - [FaaS](./doc/cookbook/faas.md) - Supporting Knative FaaS integration
 - [Flash Sale](./doc/cookbook/flash_sale.md) - How to do high concurrent promotion sales with Easegress
@@ -115,7 +116,7 @@ The following examples show how to use Easegress for different scenarios.
 - [WebAssembly](./doc/cookbook/wasm.md) - Using AssemblyScript to extend the Easegress
 - [WebSocket](./doc/cookbook/websocket.md) - WebSocket proxy for Easegress
 - [Workflow](./doc/cookbook/workflow.md) - An Example to make a workflow for a number of APIs.
-- [Cluster deployment](./doc/cookbook/multi_node_cluster.md) - How to deploy multiple Easegress cluster nodes.
+
 
 For full list, see [Cookbook](./doc/cookbook/README.md).
 
@@ -182,7 +183,7 @@ $ egctl member list | grep "id"
     id: 689e371e88f78b6a
 ```
 
-After launched successfully, we could check the status of the one-node cluster. It shows the static options and dynamic status of heartbeat and etcd.
+After launching successfully, we could check the status of the one-node cluster. It shows the static options and dynamic status of heartbeat and etcd.
 
 ### Create an HTTPServer and Pipeline
 
@@ -302,7 +303,10 @@ We can also see Easegress send one more header `X-Adapt-Key: goodplan` to the mi
 
 ## Documentation
 
-See [reference](./doc/reference.md) and [developer guide](./doc/developer-guide.md) for more information.
+- [Easegress Roadmap](./doc/Roadmap.md)
+- [Easegress Developer Guide](./doc/developer-guide.md)
+
+See [Easegress Documentation](./doc/README.md) for more information.
 
 ## Roadmap
 
