@@ -302,7 +302,7 @@ Body  : {"message": "Hello, Easegress"}
 
 ## 文档
 
-更详细的文档请移步 [reference](./doc/reference.md) 和 [developer guide](./doc/developer-guide.md)。
+更多更详细的文档请移步 [Easegress 文档列表](./doc/README.md) 。
 
 ## 路线图
 
