@@ -2,7 +2,7 @@
 
 Helm charts for installing Easegress ingress controller on Kubernetes
 
-## Usage
+## Setup
 
 ```shell
 # create namespace at first
@@ -10,7 +10,9 @@ kubectl create ns ingress-easegress
 
 # update common helm charts
 helm dependency update ./helm-charts/ingress-controller
-
+```
+## Usage
+```shell
 # install with default values
 helm install ingress-easegress -n ingress-easegress ./helm-charts/ingress-controller
 

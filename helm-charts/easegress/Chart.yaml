@@ -6,5 +6,5 @@ version: 1.0.0
 # Common code in easegress-lib-chart library
 dependencies:
 - name: easegress-lib-chart
-  version: 0.1.0
+  version: 1.4.0
   repository: file://../easegress-lib-chart

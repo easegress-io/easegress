@@ -15,11 +15,11 @@ data:
       - {{ $releasename }}-{{$i}}: http://{{ $releasename }}-{{$i}}.easegress-hs.{{ $releasenamespace }}:2380
       {{- end }}
     api-addr: 0.0.0.0:2381
-    data-dir: /opt/eg-data/data
+    data-dir: /opt/easegress/data
     wal-dir: ""
     cpu-profile-file: ""
     memory-profile-file: ""
-    log-dir: /opt/eg-data/log
+    log-dir: /opt/easegress/log
     debug: false
   eg-secondary.yaml: |
     cluster-name: easegress
@@ -28,11 +28,11 @@ data:
       primary-listen-peer-urls:
       - http://{{ .Release.Name }}-0.easegress-hs.{{ .Release.Namespace }}:2380
     api-addr: 0.0.0.0:2381
-    data-dir: /opt/eg-data/data
+    data-dir: /opt/easegress/data
     wal-dir: ""
     cpu-profile-file: ""
     memory-profile-file: ""
-    log-dir: /opt/eg-data/log
+    log-dir: /opt/easegress/log
     debug: false
 kind: ConfigMap
 metadata:

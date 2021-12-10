@@ -197,11 +197,11 @@ data:
       initial-cluster:
       - easegress-0: http://easegress-0.easegress-hs.default:2380
     api-addr: 0.0.0.0:2381
-    data-dir: /opt/eg-data/data
+    data-dir: /opt/easegress/data
     wal-dir: ""
     cpu-profile-file: ""
     memory-profile-file: ""
-    log-dir: /opt/eg-data/log
+    log-dir: /opt/easegress/log
     debug: false
   controller.yaml: |
     kind: IngressController
@@ -216,7 +216,6 @@ data:
       keepAlive: true            
       keepAliveTimeout: 60s      
       maxConnections: 10240
----
 ```
 
 The `eg-primary.yaml` creates Easegress cluster with one member: `http://easegress-0.easegress-hs.default:2380`. Once we create a StatefulSet called `easegress`, using serviceName `easegress-hs` and inside namespace `default`, this URL will match Kubernetes DNS record. You can read more about stable network ids [here](https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#stable-network-id).
@@ -544,7 +543,6 @@ volumeBindingMode: WaitForFirstConsumer
 Now here's how we add all three cluster member URLs to *ConfigMap*:
 
 ```yaml
-```yaml
 kind: ConfigMap
 metadata:
   name: easegress-cluster-cm
@@ -563,11 +561,11 @@ data:
       - easegress-1: http://easegress-1.easegress-hs.default:2380
       - easegress-2: http://easegress-2.easegress-hs.default:2380
     api-addr: 0.0.0.0:2381
-    data-dir: /opt/eg-data/data
+    data-dir: /opt/easegress/data
     wal-dir: ""
     cpu-profile-file: ""
     memory-profile-file: ""
-    log-dir: /opt/eg-data/log
+    log-dir: /opt/easegress/log
     debug: false
   controller.yaml: |
     ...
@@ -590,11 +588,12 @@ spec:
   ...
 ```
 
-Now you have configuration yaml files for bootstrapping three member Easegress Ingress Controller cluster. You can test ingress like before `curl http://{NODE_IP}/ -HHost:www.example.com`. To verify that the cluster is healthy
+Now you have configuration yaml files for bootstrapping three member Easegress Ingress Controller cluster. You can test ingress like before `curl http://{NODE_IP}/ -HHost:www.example.com`. To verify that the cluster is healthy, query admin port with `egctl`:
 ```bash
-# query admin port with egctl
 egctl --server {NODE_IP}:31255 member list |grep " name"
-# => should print
+```
+which should output:
+```bash
 #     name: easegress-0
 #     name: easegress-1
 #     name: easegress-2
@@ -626,11 +625,11 @@ data:
       primary-listen-peer-urls:
       - http://easegress-0.easegress-hs.default:2380
     api-addr: 0.0.0.0:2381
-    data-dir: /opt/eg-data/data
+    data-dir: /opt/easegress/data
     wal-dir: ""
     cpu-profile-file: ""
     memory-profile-file: ""
-    log-dir: /opt/eg-data/log
+    log-dir: /opt/easegress/log
     debug: false
   controller.yaml: |
     ...
@@ -722,16 +721,19 @@ spec:
 ---
 ```
 
-Applying the deployment to the cluster creates two pods with prefix `easegress-secondary-`. We can again log into one of pods and see new *secondary* members.
+Applying the deployment to the cluster creates two pods with prefix `easegress-secondary-`. We can again log into one of pods and see new *secondary* members. Let's check again the cluster members using `egctl`:
 
 ```bash
-# query admin port with egctl
 egctl --server {NODE_IP}:31255 member list |grep " name"
-# => prints
+```
+which should give something like following:
+```bash
     # name: easegress-0
     # name: easegress-1
     # name: easegress-2
     # name: easegress-secondary-758695b96c-2rzqt
     # name: easegress-secondary-758695b96c-2vcpz
 ```
+Note that secondary member names might something different, as we did not use headless ClusterIP for them.
+
 We now have 5 Easegress Ingress Controller instances running, handling the ingress traffic of our Kubernetes cluster.
