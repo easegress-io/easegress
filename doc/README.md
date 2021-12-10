@@ -31,14 +31,13 @@ This is a cookbook that lists a number of useful and practical examples on how t
 - [WebSocket](./cookbook/websocket.md) - WebSocket proxy for Easegress
 - [Workflow](./cookbook/workflow.md) - An Example to make a workflow for a number of APIs.
 
-
-
 ## 2. Development Guide
 
 - [Easegress Roadmap](./Roadmap.md) - The development roadmap of Easegress.
 - [Developer Guide](./developer-guide.md) - A guide help to develop the Easegress.
 
 ## 3. Performance
+
 - [Benchmark](./reference/benchmark.md) - Performance Test Report.
 - [Linux Kernel Tuning](./reference/kernel-tuning.md) - Tuning the Linux Kernel to make the Easegress run faster.
 
