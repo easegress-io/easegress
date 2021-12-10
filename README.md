@@ -1,5 +1,7 @@
 # Easegress
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/megaease/easegress)](https://goreportcard.com/report/github.com/megaease/easegress)    ![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/megaease/easegress/Test/main)     [![codecov](https://codecov.io/gh/megaease/easegress/branch/main/graph/badge.svg?token=5Q80B98LPI)](https://codecov.io/gh/megaease/easegress)     [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)      ![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/megaease/easegress)     [![Join MegaEase Slack](https://img.shields.io/badge/slack-megaease-brightgreen?logo=slack)](https://join.slack.com/t/openmegaease/shared_invite/zt-upo7v306-lYPHvVwKnvwlqR0Zl2vveA) 
+
 <a href="https://megaease.com/easegress">
     <img src="./doc/imgs/easegress.svg"
         alt="Easegress logo" title="Easegress" height="175" width="175" align="right"/>
