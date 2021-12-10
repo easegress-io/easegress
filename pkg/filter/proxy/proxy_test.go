@@ -25,6 +25,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/context/contexttest"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
 	"github.com/megaease/easegress/pkg/util/httpfilter"
@@ -235,5 +236,29 @@ func TestPoolSpecValidate(t *testing.T) {
 	spec.ServersTags = []string{"v1"}
 	if spec.Validate() != nil {
 		t.Error("validate should succeed")
+	}
+}
+
+func TestPoolCanAddLazyTagsToHTTPContext(t *testing.T) {
+	ctx := context.NewEmptyContext()
+	ctx.GrowTagN(1)
+	if len(ctx.GetTags()) != 0 {
+		t.Error("tag list should have 0 item")
+	}
+	ctx.AddTag("tag 1")
+	ctx.AddTag("tag 2")
+	if len(ctx.GetTags()) != 2 {
+		t.Error("tag list should have 2 item")
+	}
+	ctx.AddLazyTag("mainpool", "code", "", 200)
+	tags := ctx.GetTags()
+	if tags[2] != "mainpool: code: 200" {
+		t.Errorf("lazy tag went wrong, got %s \n", tags[2])
+	}
+	// grow only pre-allocates HTTPContext internal tag slice but don't affect list returned by GetTags
+	ctx.GrowTagN(5)
+	ctx.GrowLazyTagN(5)
+	if len(ctx.GetTags()) != 3 {
+		t.Error("tag list should have 3 item")
 	}
 }

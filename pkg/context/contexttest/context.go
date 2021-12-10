@@ -47,7 +47,8 @@ type MockedHTTPContext struct {
 	MockedAddTag             func(tag string)
 	MockedGrowTagN           func(n int)
 	MockedGrowLazyTagN       func(n int)
-	MockedAddLazyTag         func(tag *context.LazyTag)
+	MockedAddLazyTag         func(ns string, prefix string, msg string, intMsg int)
+	MockedGetTags            func() []string
 	MockedStatMetric         func() *httpstat.Metric
 	MockedFinish             func()
 	MockedTemplate           func() texttemplate.TemplateEngine
@@ -167,25 +168,32 @@ func (c *MockedHTTPContext) AddTag(tag string) {
 	}
 }
 
-// TODO
-func (c *MockedHTTPContext) MockedAddLazyTag(tag *context.LazyTag) {
+// AddLazyTag mocks the AddLazyTag function of HTTPContext
+func (c *MockedHTTPContext) AddLazyTag(ns string, prefix string, msg string, intMsg int) {
 	if c.MockedAddLazyTag != nil {
-		return c.MockedAddLazyTag(tag)
+		c.MockedAddLazyTag(ns, prefix, msg, intMsg)
 	}
 }
 
-// TODO
-func (c *MockedHTTPContext) MockedGrowTagN(num int) {
+// GrowTagN mocks the GrowTagN function of HTTPContext
+func (c *MockedHTTPContext) GrowTagN(num int) {
 	if c.MockedGrowTagN != nil {
-		return c.MockedGrowTagN(num)
+		c.MockedGrowTagN(num)
 	}
 }
 
-// TODO
-func (c *MockedHTTPContext) MockedGrowLazyTagN(num int) {
+// GrowLazyTagN mocks the GrowLazyTagN function of HTTPContext
+func (c *MockedHTTPContext) GrowLazyTagN(num int) {
 	if c.MockedGrowLazyTagN != nil {
-		return c.MockedGrowLazyTagN(num)
+		c.MockedGrowLazyTagN(num)
 	}
+}
+
+func (c *MockedHTTPContext) GetTags() []string {
+	if c.MockedGetTags != nil {
+		return c.MockedGetTags()
+	}
+	return []string{}
 }
 
 // StatMetric mocks the StatMetric function of HTTPContext

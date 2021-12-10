@@ -129,16 +129,8 @@ func (p *pool) status() *PoolStatus {
 
 func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader, client *http.Client) string {
 	addLazyTag := func(subPrefix, msg string, intMsg int) {
-		//tag := stringtool.Cat(p.tagPrefix, "#", subPrefix, ": ", msg)
-		lazyTag := &context.LazyTag{
-			Namespace: p.tagPrefix,
-			Prefix:    subPrefix,
-			StringMsg: msg,
-			IntMsg:    intMsg,
-			Sep:       ": ",
-		}
 		ctx.Lock()
-		ctx.AddLazyTag(lazyTag)
+		ctx.AddLazyTag(p.tagPrefix, subPrefix, msg, intMsg)
 		ctx.Unlock()
 	}
 

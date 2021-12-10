@@ -58,11 +58,13 @@ type (
 		Cancelled() bool
 		ClientDisconnected() bool
 
-		OnFinish(FinishFunc)         // For setting final client statistics, etc.
-		AddTag(tag string)       // For debug, log, etc.
-		GrowTagN(n int)          // Grow tag list by n items.
-		AddLazyTag(tag *LazyTag) // For lazy evaluation of tag.
-		GrowLazyTagN(num int)    // Grow Lazy Tags list by n items.
+		OnFinish(FinishFunc) // For setting final client statistics, etc.
+		AddTag(tag string)   // For debug, log, etc.
+		GrowTagN(n int)      // Grow tag list by n items.
+		// Update next lazy tag, without creating new object if possible.
+		AddLazyTag(ns string, prefix string, msg string, intMsg int)
+		GrowLazyTagN(num int) // Grow Lazy Tags list by n items.
+		GetTags() []string
 
 		StatMetric() *httpstat.Metric
 
@@ -205,11 +207,16 @@ func New(stdw http.ResponseWriter, stdr *http.Request,
 		cancelFunc:     cancelFunc,
 		r:              newHTTPRequest(stdr),
 		w:              newHTTPResponse(stdw, stdr),
-		tags:           make([]string, 3),
+		tags:           make([]string, 0),
 		lazyTags:       make([]*LazyTag, 0),
 		tagInd:         0,
 		lazyTagInd:     0,
 	}
+}
+
+// Empty httpContext for testing.
+func NewEmptyContext() HTTPContext {
+	return &httpContext{}
 }
 
 func (ctx *httpContext) Protocol() Protocol {
@@ -236,8 +243,9 @@ func (ctx *httpContext) Span() tracing.Span {
 	return ctx.span
 }
 
+// Fill the empty tag. If all existing Tags are filled, create new one.
 func (ctx *httpContext) AddTag(tag string) {
-	if len(ctx.tags) < ctx.tagInd {
+	if len(ctx.tags) > ctx.tagInd {
 		ctx.tags[ctx.tagInd] = tag
 	} else {
 		ctx.tags = append(ctx.tags, tag)
@@ -245,29 +253,64 @@ func (ctx *httpContext) AddTag(tag string) {
 	ctx.tagInd++
 }
 
+// Grow the capacity of tag list by N.
+// Growing the list once should be faster than appending to list multiple times.
 func (ctx *httpContext) GrowTagN(n int) {
 	newTags := make([]string, len(ctx.tags)+n)
 	for i, tag := range ctx.tags {
 		newTags[i] = tag
 	}
+	for i := ctx.tagInd; i < len(newTags); i++ {
+		newTags[i] = ""
+	}
 	ctx.tags = newTags
 }
 
-func (ctx *httpContext) AddLazyTag(tag *LazyTag) {
-	if len(ctx.lazyTags) < ctx.lazyTagInd {
-		ctx.lazyTags[ctx.lazyTagInd] = tag
+// Fill the fields of next empty LazyTag. If all existing LazyTags are filled, create new one.
+func (ctx *httpContext) AddLazyTag(ns string, prefix string, msg string, intMsg int) {
+	if len(ctx.lazyTags) > ctx.lazyTagInd {
+		tag := ctx.lazyTags[ctx.lazyTagInd]
+		tag.Namespace = ns
+		tag.Prefix = prefix
+		tag.StringMsg = msg
+		tag.IntMsg = intMsg
+		tag.Sep = ": "
 	} else {
-		ctx.lazyTags = append(ctx.lazyTags, tag)
+		lazyTag := &LazyTag{
+			Namespace: ns,
+			Prefix:    prefix,
+			StringMsg: msg,
+			IntMsg:    intMsg,
+			Sep:       ": ",
+		}
+		ctx.lazyTags = append(ctx.lazyTags, lazyTag)
 	}
-	ctx.tagInd++
+	ctx.lazyTagInd++
 }
 
+// GrowLazyTagN the capacity of LazyTag list by N.
+// Growing the list once should be faster than appending to list multiple times.
 func (ctx *httpContext) GrowLazyTagN(n int) {
 	newLazyTags := make([]*LazyTag, len(ctx.lazyTags)+n)
 	for i, tag := range ctx.lazyTags {
 		newLazyTags[i] = tag
 	}
+	for i := ctx.lazyTagInd; i < len(newLazyTags); i++ {
+		newLazyTags[i] = &LazyTag{}
+	}
 	ctx.lazyTags = newLazyTags
+}
+
+// Return all tags in string format.
+func (ctx *httpContext) GetTags() []string {
+	allTags := make([]string, ctx.tagInd+ctx.lazyTagInd)
+	for i := 0; i < ctx.tagInd; i++ {
+		allTags[i] = ctx.tags[i]
+	}
+	for i := 0; i < ctx.lazyTagInd; i++ {
+		allTags[ctx.tagInd+i] = ctx.lazyTags[i].String()
+	}
+	return allTags
 }
 
 func (ctx *httpContext) Request() HTTPRequest {
@@ -349,15 +392,6 @@ func (ctx *httpContext) Finish() {
 	logger.LazyHTTPAccess(func() string {
 		stdr := ctx.r.std
 
-		// combine here normal and Lazy tags
-		allTags := make([]string, ctx.tagInd+ctx.lazyTagInd)
-		for i := 0; i < ctx.tagInd; i++ {
-			allTags[i] = ctx.tags[i]
-		}
-		for i := 0; i < ctx.lazyTagInd; i++ {
-			allTags[ctx.tagInd+i] = ctx.lazyTags[i].String()
-		}
-
 		// log format:
 		// [startTime]
 		// [requestInfo]
@@ -372,7 +406,7 @@ func (ctx *httpContext) Finish() {
 			fasttime.Format(ctx.startTime, fasttime.RFC3339Milli),
 			stdr.RemoteAddr, ctx.r.RealIP(), stdr.Method, stdr.RequestURI, stdr.Proto, ctx.w.code,
 			ctx.metric.Duration, ctx.r.Size(), ctx.w.Size(),
-			strings.Join(allTags, " | "))
+			strings.Join(ctx.GetTags(), " | "))
 	})
 }
 

@@ -329,7 +329,7 @@ func (b *Proxy) handle(ctx context.HTTPContext) (result string) {
 			b.mirrorPool.handle(ctx, secondaryBody, b.client)
 		}()
 	} else {
-		growLazyTagN(ctx, 3)
+		growLazyTagN(ctx, 3) // only default pool adds tags
 	}
 
 	var p *pool
@@ -374,6 +374,6 @@ func (b *Proxy) handle(ctx context.HTTPContext) (result string) {
 
 func growLazyTagN(ctx context.HTTPContext, num int) {
 	ctx.Lock()
-	ctx.GrowLazyTagN(6)
+	ctx.GrowLazyTagN(num)
 	ctx.Unlock()
 }
