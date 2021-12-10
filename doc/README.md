@@ -47,7 +47,7 @@ This is a cookbook that lists a number of useful and practical examples on how t
 
 The Easegress controller is the core entity to control kinds of working. There are two kinds of controllers - system and business. 
 
-The full document please check - [Controller Reference](./reference/controllers.md)
+For the full document, please check - [Controller Reference](./reference/controllers.md)
 
 #### 4.1.1 System Controllers
 
