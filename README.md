@@ -101,7 +101,7 @@ The architecture of Easegress:
 The following examples show how to use Easegress for different scenarios.
 
 - [API Aggregator](./doc/cookbook/api-aggregator.md) - Aggregating many APIs into a single API.
-- [Cluster deployment](./doc/cookbook/multi-node-cluster.md) - How to deploy multiple Easegress cluster nodes.
+- [Cluster Deployment](./doc/cookbook/multi-node-cluster.md) - How to deploy multiple Easegress cluster nodes.
 - [Distributed Tracing](./doc/cookbook/distributed-tracing.md) - How to do APM tracing  - Zipkin.
 - [FaaS](./doc/cookbook/faas.md) - Supporting Knative FaaS integration
 - [Flash Sale](./doc/cookbook/flash-sale.md) - How to do high concurrent promotion sales with Easegress

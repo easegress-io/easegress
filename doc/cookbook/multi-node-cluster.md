@@ -4,8 +4,8 @@
 - [Easegress cluster](#easegress-cluster)
   - [Background](#background)
   - [Prerequisite](#prerequisite)
-  - [Deploy an Easegress cluster step by step](#deploy-an-easegress-cluster-step-by-step)
-    - [Add new member](#add-new-member)
+  - [Deploy an Easegress Cluster Step by Step](#deploy-an-easegress-cluster-step-by-step)
+    - [Add New Member](#add-new-member)
   - [YAML Configuration (optional)](#yaml-configuration-optional)
   - [Configuration tips (optional)](#configuration-tips-optional)
   - [References](#references)
@@ -17,20 +17,20 @@ When to deploy Easegress as a cluster?
 - You want to High-availability and minimize the service downtime
 - You want to minimize latency on service peaks
 
-It is easy to start multiple Easegress instances to form an Easegress cluster. This tutorial provides instructions how to create stand-alone Easegress cluster by starting multiple Easegress instances.
+It is easy to start multiple Easegress instances to form an Easegress cluster. This tutorial provides instructions on how to create a stand-alone Easegress cluster by starting multiple Easegress instances.
 
 ## Prerequisite
 
-The following prerequisites are required for a successful deployment of Easegress cluster.
-- latest `easegress-server` and `egctl` binaries (run `make` in root of the repository)
+The following prerequisites are required for a successful deployment of the Easegress cluster.
+- latest `easegress-server` and `egctl` binaries (run `make` in the root of the repository)
 - successful creation of an Easegress pipeline (like the Hello World example in the README.md of the repository or any other chapter in doc/cookbook)
 - few machines that are in the same network or otherwise accessible or Docker or other container technology. If you only have one machine, then you could use localhost as the host and modify the ports in the example.
 
-## Deploy an Easegress cluster step by step
+## Deploy an Easegress Cluster Step by Step
 The goal of this tutorial is to have following infrastructure running Easegress:
 
 <p align="center">
-  <img src="../imgs/easegress-cluster-nodes.png" width=400>
+  <img src="../imgs/easegress-cluster-nodes.png">
 </p>
 
 - 4 machines connected
@@ -47,7 +47,7 @@ export HOST2=<host2-IP>
 export HOST3=<host3-IP>
 export CLUSTER=machine-1=http://$HOST1:2380,machine-2=http://$HOST2:2380,machine-3=http://$HOST3:2380
 ```
-`CLUSTER` environment variable now contains IP addresses of each member in the cluster. It will be same for all members.
+`CLUSTER` environment variable now contains IP addresses of each member in the cluster. It will be the same for all members.
 
 Set the environment variables to each machine. Start the first instance at the first machine
 ```bash
@@ -63,9 +63,10 @@ easegress-server \
   --initial-cluster $CLUSTER
 ```
 
-Here we define the basic information, like the name of the instance and the name of the cluster. Arguments `initial-advertise-peer-urls`,`listen-peer-urls`, `listen-client-urls` and `advertise-client-urls` are for communication with other peers (other primary cluster members). You can read more about them in the end of this tutorial, but for now it's enough to notice that hostname for *machine-1* is `$HOST1`, which is the IP address of this machine.
+Here we define the basic information, like the name of the instance and the name of the cluster. Arguments `initial-advertise-peer-urls`,`listen-peer-urls`, `listen-client-urls` and `advertise-client-urls` are for communication with other peers (other primary cluster members). You can read more about them at the end of this tutorial, but for now, it's enough to notice that hostname for *machine-1* is `$HOST1`, which is the IP address of this machine.
 
 Then start the second instance at machine 2
+
 ```bash
 easegress-server \
   --cluster-name "multi-node-cluster" \
@@ -77,7 +78,9 @@ easegress-server \
   --advertise-client-urls http://$HOST2:2379 \
   --initial-cluster $CLUSTER
 ```
+
 and the last machine 3.
+
 ```bash
 easegress-server \
   --cluster-name "multi-node-cluster" \
@@ -91,6 +94,7 @@ easegress-server \
 ```
 
 Now you can list cluster members
+
 ```bash
 egctl --server $HOST1:2381 member list | grep " name"
 ```
@@ -101,7 +105,7 @@ should print
     name: machine-3
 ```
 
-###  Add new member
+###  Add New Member
 
 Let's add one more node with a *secondary* cluster role this time.
 
@@ -114,7 +118,7 @@ easegress-server \
   --primary-listen-peer-urls http://$HOST1:2380 \
   --state-flag "existing"
 ```
-Here `primary-listen-peer-urls` tells, where to find a *primary* cluster member and `state-flag` with value "existing" means that this cluster was already created.
+Here `primary-listen-peer-urls` tell, where to find a *primary* cluster member and `state-flag` with value "existing" means that this cluster was already created.
 
 We can now see also the 4th instance:
 ```bash
@@ -131,7 +135,7 @@ You can also keep reading this tutorial to know more about YAML configuration of
 
 ## YAML Configuration (optional)
 
-The examples above use the *easegress-server's* command line flags, but often it is more convenient to define server parameters in a yaml configuration file. For example, store following yaml to each host machine and change the host addresses accordingly.
+The examples above use the *easegress-server's* command-line flags, but often it is more convenient to define server parameters in a YAML configuration file. For example, store the following YAML to each host machine and change the host addresses accordingly.
 
 ```yaml
 # create one yaml file for each host
@@ -162,7 +166,7 @@ cluster:
 Then apply these values on each machine, using `config-file` command line argument:
 `easegress-server --config-file config.yaml`.
 
-The configuration file for adding new secondary node looks like following:
+The configuration file for adding a new secondary node looks like following:
 
 ```yaml
 name: machine-4
@@ -180,13 +184,13 @@ cluster:
 
 ## Configuration tips (optional)
 
-*What is good size for cluster?*
+*What is a good size for the cluster?*
 
-It is a good practice to choose an odd number (1,3,5,7,9) of *primary* nodes, to tolerate failures of *primary* nodes. This way the cluster can stay in healthy state, even if the network partitions. With an even number of *primary* nodes, the cluster can be divided to two groups of equal size due to network partition. Then neither of the sub-clusters have the majority required for consensus. However with odd number of *primary* nodes, the cluster cannot be divided to two groups of equal size and this problem cannot occur.
+It is a good practice to choose an odd number (1,3,5,7,9) of *primary* nodes, to tolerate failures of *primary* nodes. This way the cluster can stay in a healthy state, even if the network partitions. With an even number of *primary* nodes, the cluster can be divided into two groups of equal size due to network partition. Then neither of the sub-clusters have the majority required for consensus. However, with the odd number of *primary* nodes, the cluster cannot be divided into two groups of equal size and this problem cannot occur.
 
-For the *secondary* nodes, there is no constraints for the number of nodes. Secondary nodes do not participate consensus vote of the cluster, so their failure do not affect the cluster health. Adding more (*secondary*) nodes does still increase the communication between nodes.
+For the *secondary* nodes, there are no constraints for the number of nodes. Secondary nodes do not participate consensus vote of the cluster, so their failure does not affect the cluster health. Adding more (*secondary*) nodes does still increase the communication between nodes.
 
- *Can number of primary members scale up?*
+ *Can a number of primary members scale up?*
 
 Please note that it is not recommended to add additional node with `primary` cluster role, but `primary` nodes should be started at cluster start up. When scaling up the cluster, it is recommended to add and remove `secondary` cluster members.
 
@@ -208,7 +212,7 @@ These arguments are used for [etcd](https://etcd.io) server and client configura
 Here's a drawing that illustrates the difference.
 
 <p align="center">
-  <img src="../imgs/easegress-cluster-connections.png" width=300>
+  <img src="../imgs/easegress-cluster-connections.png">
 </p>
 
 *Primary* members need to synchronize with peers (other *primary* members). Meanwhile *secondary* can read and update the state through one *primary* member.
