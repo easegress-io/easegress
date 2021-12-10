@@ -1470,7 +1470,7 @@ func TestBrokerHandleConn(t *testing.T) {
 
 	// broker handleConn return if error happen
 	svcConn, clientConn := net.Pipe()
-	go clientConn.Write([]byte("fake data for paho.packets.ReadPacket to return error, to make that happends, this fake data should be long enough."))
+	go clientConn.Write([]byte("fake data for paho.packets.ReadPacket to return error, to make that happens, this fake data should be long enough."))
 	broker.handleConn(svcConn)
 
 	// not use connect to connect

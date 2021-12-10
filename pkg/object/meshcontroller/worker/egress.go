@@ -252,7 +252,7 @@ func (egs *EgressServer) listTrafficTargets(lgSvcs map[string]*spec.Service) []*
 
 	tts := egs.service.ListTrafficTargets()
 	for _, tt := range tts {
-		// the destination service is a local or global service, which is already accessable
+		// the destination service is a local or global service, which is already accessible
 		if lgSvcs[tt.Destination.Name] != nil {
 			continue
 		}

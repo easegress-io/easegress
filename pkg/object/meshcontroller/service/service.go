@@ -336,7 +336,7 @@ func (s *Service) PutRootCert(cert *spec.Certificate) {
 	}
 }
 
-//  DelRootCert deletes root cert.
+// DelRootCert deletes root cert.
 func (s *Service) DelRootCert() {
 	err := s.store.Delete(layout.RootCertKey())
 	if err != nil {

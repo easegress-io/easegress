@@ -43,7 +43,7 @@ const (
 )
 
 type (
-	// ClientInfo is basic infomation for client
+	// ClientInfo is basic information for client
 	ClientInfo struct {
 		cid       string
 		username  string
