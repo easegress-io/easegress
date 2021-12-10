@@ -1,6 +1,6 @@
 service:
   # nodePort for easegress service
-  nodePort: 80
+  nodePort: 8080
   # nodeport for egctl access
   adminPort: 31255
 
@@ -8,16 +8,6 @@ service:
 image:
   repository: megaease/easegress
   tag: latest
-
-ingressClass:
-  name: easegress
-
-controller:
-  name: easegress-ingress-controller
-  # kubeConfig: # path to kube-config file
-  # masterURL: # url to kube-api-server
-  namespaces:
-  - default
 
 # Easegress cluster configurations.
 # When volumeType is

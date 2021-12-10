@@ -1,0 +1,30 @@
+{{- if eq .Values.cluster.volumeType "persistentVolume" }}
+{{- range $i, $hostname := .Values.cluster.nodeHostnames }}
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: easegress-pv-{{$i}}
+spec:
+  capacity:
+    storage: 4Gi
+  volumeMode: Filesystem
+  accessModes:
+  - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Delete
+  storageClassName: easegress-storage
+  hostPath:
+    path: /opt/easegress
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - {{$hostname}}
+---
+{{ end }}
+
+{{- include "easegress-lib-chart.storageclass" (list . "easegress-ingress-controller.storageclass") -}}
+
+{{- end }}
