@@ -571,7 +571,6 @@ data:
     debug: false
   controller.yaml: |
     ...
----
 ```
 And last but not least the *StatefulSet* with three replicas:
 
