@@ -53,6 +53,19 @@ func TestReader(t *testing.T) {
 	reader1.Close()
 }
 
+func TestConcurrentReader(t *testing.T) {
+	b := bytes.NewReader([]byte("abc"))
+	reader1, reader2 := newMasterSlaveReader(b)
+
+	buff1 := make([]byte, 10)
+	buff2 := make([]byte, 10)
+
+	for i := 0; i < 100; i++ {
+		go reader1.Read(buff1)
+		go reader2.Read(buff2)
+	}
+}
+
 func TestEOFReader(t *testing.T) {
 	eofReader := iotest.ErrReader(io.EOF)
 
@@ -62,17 +75,17 @@ func TestEOFReader(t *testing.T) {
 	_, err := reader1.Read(buff)
 
 	if err == nil {
-		t.Errorf("master read should failed, but succ")
+		t.Errorf("master read should failed, but succeed")
 	}
 
 	buff1 := make([]byte, 10)
 	_, err = reader2.Read(buff1)
 	if err == nil {
-		t.Errorf("slave read should failed but succ ")
+		t.Errorf("slave read should failed but succeed")
 	}
 
 	if string(buff) != string(buff1) {
-		t.Errorf("buff: %s, buff1: %s not the same ", string(buff), string(buff1))
+		t.Errorf("%s vs. %s: not the same", string(buff), string(buff1))
 	}
 
 	reader1.Close()

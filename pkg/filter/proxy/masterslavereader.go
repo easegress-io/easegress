@@ -20,6 +20,7 @@ package proxy
 import (
 	"bytes"
 	"io"
+	"sync"
 )
 
 type (
@@ -32,8 +33,9 @@ type (
 	}
 
 	masterReader struct {
-		r        io.Reader
-		buffChan chan []byte
+		r             io.Reader
+		buffChan      chan []byte
+		closeChanOnce sync.Once
 	}
 
 	slaveReader struct {
@@ -43,7 +45,7 @@ type (
 )
 
 func newMasterSlaveReader(r io.Reader) (io.ReadCloser, io.Reader) {
-	buffChan := make(chan []byte, 10)
+	buffChan := make(chan []byte, 100)
 	mr := &masterReader{
 		r:        r,
 		buffChan: buffChan,
@@ -66,7 +68,9 @@ func (mr *masterReader) Read(p []byte) (n int, err error) {
 	}
 
 	if err == io.EOF {
-		close(mr.buffChan)
+		mr.closeChanOnce.Do(func() {
+			close(mr.buffChan)
+		})
 	}
 
 	return n, err
