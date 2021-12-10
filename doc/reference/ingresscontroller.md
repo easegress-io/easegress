@@ -635,7 +635,6 @@ data:
     debug: false
   controller.yaml: |
     ...
----
 ```
 
 The URL `http://easegress-0.easegress-hs.default:2380` defined in `cluster.primary-listen-peer-urls` is an address of one cluster member, which *secondary* instance can use to connect to the cluster.
