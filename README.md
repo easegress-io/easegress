@@ -100,25 +100,25 @@ The architecture of Easegress:
 
 The following examples show how to use Easegress for different scenarios.
 
-- [API Aggregator](./doc/cookbook/api_aggregator.md) - Aggregating many APIs into a single API.
-- [Cluster deployment](./doc/cookbook/multi_node_cluster.md) - How to deploy multiple Easegress cluster nodes.
-- [Distributed Tracing](./doc/cookbook/distributed_tracing.md) - How to do APM tracing  - Zipkin.
+- [API Aggregator](./doc/cookbook/api-aggregator.md) - Aggregating many APIs into a single API.
+- [Cluster deployment](./doc/cookbook/multi-node-cluster.md) - How to deploy multiple Easegress cluster nodes.
+- [Distributed Tracing](./doc/cookbook/distributed-tracing.md) - How to do APM tracing  - Zipkin.
 - [FaaS](./doc/cookbook/faas.md) - Supporting Knative FaaS integration
-- [Flash Sale](./doc/cookbook/flash_sale.md) - How to do high concurrent promotion sales with Easegress
-- [Kubernetes Ingress Controller](./doc/cookbook/k8s_ingress_controller.md) - How to integrate with Kubernetes as ingress controller
-- [LoadBalancer](./doc/cookbook/load_balancer.md) - A number of the strategies of load balancing
-- [MQTTProxy](./doc/cookbook/mqtt_proxy.md) - An Example to MQTT proxy with Kafka backend.
+- [Flash Sale](./doc/cookbook/flash-sale.md) - How to do high concurrent promotion sales with Easegress
+- [Kubernetes Ingress Controller](./doc/cookbook/k8s-ingress-controller.md) - How to integrate with Kubernetes as ingress controller
+- [LoadBalancer](./doc/cookbook/load-balancer.md) - A number of the strategies of load balancing
+- [MQTTProxy](./doc/cookbook/mqtt-proxy.md) - An Example to MQTT proxy with Kafka backend.
 - [Performance](./doc/cookbook/performance.md) - Performance optimization - compression, caching etc.
 - [Pipeline](./doc/cookbook/pipeline.md) - How to orchestrate HTTP filters for requests/responses handling
 - [Resilience and Fault Tolerance](./doc/cookbook/resilience.md) - Circuit Breaker, Rate Limiter, Retryer, Time limiter, etc. (Porting from [Java resilience4j](https://github.com/resilience4j/resilience4j))
 - [Security](./doc/cookbook/security.md) - How to do authentication by Header, JWT, HMAC, OAuth2, etc.
-- [Service Proxy](./doc/cookbook/service_proxy.md) - Supporting the Microservice registries - Zookeeper, Eureka, Consul, Nacos, etc.
+- [Service Proxy](./doc/cookbook/service-proxy.md) - Supporting the Microservice registries - Zookeeper, Eureka, Consul, Nacos, etc.
 - [WebAssembly](./doc/cookbook/wasm.md) - Using AssemblyScript to extend the Easegress
 - [WebSocket](./doc/cookbook/websocket.md) - WebSocket proxy for Easegress
 - [Workflow](./doc/cookbook/workflow.md) - An Example to make a workflow for a number of APIs.
 
 
-For full list, see [Cookbook](./doc/cookbook/README.md).
+For full list, see [Cookbook](./doc/README.md#1-cookbook--how-to-guide).
 
 ## Getting Started
 

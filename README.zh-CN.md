@@ -100,24 +100,25 @@
 
 下面的例子展示了如何在不同场景下使用 Easegress。
 
-- [API 聚合](./doc/cookbook/api_aggregator.md) - 将多个 API 聚合为一个。
-- [分布式调用链](./doc/cookbook/distributed_tracing.md) - 如何使用 Zipkin 进行 APM 追踪。
+- [API 聚合](./doc/cookbook/api-aggregator.md) - 将多个 API 聚合为一个。
+- [Easegress 集群化部署](./doc/cookbook/multi-node-cluster.md) - Easegress 如何进行集群化多点部署。
+- [分布式调用链](./doc/cookbook/distributed-tracing.md) - 如何使用 Zipkin 进行 APM 追踪。
 - [函数即服务 FaaS](./doc/cookbook/faas.md) - 支持 Knative FaaS 集成。
-- [高并发秒杀](./doc/cookbook/flash_sale.md) - 如何使用 Easegress 进行高并发的秒杀活动。
-- [Kubernetes入口控制器](./doc/cookbook/k8s_ingress_controller.md) - 如何作为入口控制器与 Kubernetes 集成。
-- [负载均衡](./doc/cookbook/load_balancer.md) - 各种负载均衡策略。
-- [MQTT代理](./doc/cookbook/mqtt_proxy.md) - 支持 Kafka 作为后端的 MQTT 代理
+- [高并发秒杀](./doc/cookbook/flash-sale.md) - 如何使用 Easegress 进行高并发的秒杀活动。
+- [Kubernetes入口控制器](./doc/cookbook/k8s-ingress-controller.md) - 如何作为入口控制器与 Kubernetes 集成。
+- [负载均衡](./doc/cookbook/load-balancer.md) - 各种负载均衡策略。
+- [MQTT代理](./doc/cookbook/mqtt-proxy.md) - 支持 Kafka 作为后端的 MQTT 代理
 - [高性能](./doc/cookbook/performance.md) - 性能优化，压缩、缓存等。
 - [管道编排](./doc/cookbook/pipeline.md) - 如何编排 HTTP 过滤器来处理请求和应答。
 - [弹力和容错设计](./doc/cookbook/resilience.md) - 断路器、速率限制、重试、时间限制等（移植自[Java resilience4j](https://github.com/resilience4j/resilience4j)
 - [安全](./doc/cookbook/security.md) - 如何通过标头、JWT、HMAC、OAuth2 等进行认证。
-- [服务网关](./doc/cookbook/service_proxy.md) - 使用 Zookeeper、Eureka、Consul、Nacos 等进行服务注册。
+- [服务网关](./doc/cookbook/service-proxy.md) - 使用 Zookeeper、Eureka、Consul、Nacos 等进行服务注册。
 - [WebAssembly](./doc/cookbook/wasm.md) - 使用 AssemblyScript 来扩展 Easegress。
 - [WebSocket](./doc/cookbook/websocket.md) - Easegress 的 WebSocket 代理。
 - [工作流](./doc/cookbook/workflow.md) - 将若干 API 进行组合，定制为工作流。
-- [Easegress 集群化部署](./doc/cookbook/multi_node_cluster.md) - Easegress 如何进行集群化多点部署。
 
-完整的列表请参见 [Cookbook](./doc/cookbook/README.md)。
+
+完整的列表请参见 [Cookbook](./doc/README.md#1-cookbook--how-to-guide)。
 
 ## 入门
 
