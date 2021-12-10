@@ -1,7 +1,9 @@
 # Easegress
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/megaease/easegress)](https://goreportcard.com/report/github.com/megaease/easegress)    [![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/megaease/easegress/Test/main)](https://github.com/haoel/easegress/actions/workflows/test.yml)     [![codecov](https://codecov.io/gh/megaease/easegress/branch/main/graph/badge.svg?token=5Q80B98LPI)](https://codecov.io/gh/megaease/easegress)     [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)      [![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/megaease/easegress)](https://github.com/haoel/easegress/blob/main/go.mod)     [![Join MegaEase Slack](https://img.shields.io/badge/slack-megaease-brightgreen?logo=slack)](https://join.slack.com/t/openmegaease/shared_invite/zt-upo7v306-lYPHvVwKnvwlqR0Zl2vveA) 
+
 <a href="https://megaease.com/easegress">
-    <img src="./doc/easegress.svg"
+    <img src="./doc/imgs/easegress.svg"
         alt="Easegress logo" title="Easegress" height="175" width="175" align="right"/>
 </a>
 
@@ -32,7 +34,7 @@
 
 下面是其架构图：
 
-![架构](./doc/architecture.png)
+![架构](./doc/imgs/architecture.png)
 
 ## 功能
 
@@ -100,24 +102,25 @@
 
 下面的例子展示了如何在不同场景下使用 Easegress。
 
-- [API 聚合](./doc/cookbook/api_aggregator.md) - 将多个 API 聚合为一个。
-- [分布式调用链](./doc/cookbook/distributed_tracing.md) - 如何使用 Zipkin 进行 APM 追踪。
+- [API 聚合](./doc/cookbook/api-aggregator.md) - 将多个 API 聚合为一个。
+- [Easegress 集群化部署](./doc/cookbook/multi-node-cluster.md) - Easegress 如何进行集群化多点部署。
+- [分布式调用链](./doc/cookbook/distributed-tracing.md) - 如何使用 Zipkin 进行 APM 追踪。
 - [函数即服务 FaaS](./doc/cookbook/faas.md) - 支持 Knative FaaS 集成。
-- [高并发秒杀](./doc/cookbook/flash_sale.md) - 如何使用 Easegress 进行高并发的秒杀活动。
-- [Kubernetes入口控制器](./doc/cookbook/k8s_ingress_controller.md) - 如何作为入口控制器与 Kubernetes 集成。
-- [负载均衡](./doc/cookbook/load_balancer.md) - 各种负载均衡策略。
-- [MQTT代理](./doc/cookbook/mqtt_proxy.md) - 支持 Kafka 作为后端的 MQTT 代理
+- [高并发秒杀](./doc/cookbook/flash-sale.md) - 如何使用 Easegress 进行高并发的秒杀活动。
+- [Kubernetes入口控制器](./doc/cookbook/k8s-ingress-controller.md) - 如何作为入口控制器与 Kubernetes 集成。
+- [负载均衡](./doc/cookbook/load-balancer.md) - 各种负载均衡策略。
+- [MQTT代理](./doc/cookbook/mqtt-proxy.md) - 支持 Kafka 作为后端的 MQTT 代理
 - [高性能](./doc/cookbook/performance.md) - 性能优化，压缩、缓存等。
 - [管道编排](./doc/cookbook/pipeline.md) - 如何编排 HTTP 过滤器来处理请求和应答。
 - [弹力和容错设计](./doc/cookbook/resilience.md) - 断路器、速率限制、重试、时间限制等（移植自[Java resilience4j](https://github.com/resilience4j/resilience4j)
 - [安全](./doc/cookbook/security.md) - 如何通过标头、JWT、HMAC、OAuth2 等进行认证。
-- [服务网关](./doc/cookbook/service_proxy.md) - 使用 Zookeeper、Eureka、Consul、Nacos 等进行服务注册。
+- [服务网关](./doc/cookbook/service-proxy.md) - 使用 Zookeeper、Eureka、Consul、Nacos 等进行服务注册。
 - [WebAssembly](./doc/cookbook/wasm.md) - 使用 AssemblyScript 来扩展 Easegress。
 - [WebSocket](./doc/cookbook/websocket.md) - Easegress 的 WebSocket 代理。
 - [工作流](./doc/cookbook/workflow.md) - 将若干 API 进行组合，定制为工作流。
-- [Easegress 集群化部署](./doc/cookbook/multi_node_cluster.md) - Easegress 如何进行集群化多点部署。
 
-完整的列表请参见 [Cookbook](./doc/cookbook/README.md)。
+
+完整的列表请参见 [Cookbook](./doc/README.md#1-cookbook--how-to-guide)。
 
 ## 入门
 
@@ -249,7 +252,7 @@ Body  : Hello, Easegress
 现在我们可以给 Pipeline 添加其它过滤器来实现更多的功能，例如，如果希望对 `pipeline-demo` 可以验证和改写请求，可以这样做：
 
 <p align="center">
-  <img src="./doc/pipeline-demo.png" width=240>
+  <img src="./doc/imgs/pipeline-demo.png" width=240>
 </p>
 
 ```bash
@@ -302,7 +305,7 @@ Body  : {"message": "Hello, Easegress"}
 
 ## 文档
 
-更详细的文档请移步 [reference](./doc/reference.md) 和 [developer guide](./doc/developer-guide.md)。
+更多更详细的文档请移步 [Easegress 文档列表](./doc/README.md) 。
 
 ## 路线图
 

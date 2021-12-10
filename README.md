@@ -1,7 +1,9 @@
 # Easegress
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/megaease/easegress)](https://goreportcard.com/report/github.com/megaease/easegress)    [![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/megaease/easegress/Test/main)](https://github.com/haoel/easegress/actions/workflows/test.yml)     [![codecov](https://codecov.io/gh/megaease/easegress/branch/main/graph/badge.svg?token=5Q80B98LPI)](https://codecov.io/gh/megaease/easegress)     [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)      [![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/megaease/easegress)](https://github.com/haoel/easegress/blob/main/go.mod)     [![Join MegaEase Slack](https://img.shields.io/badge/slack-megaease-brightgreen?logo=slack)](https://join.slack.com/t/openmegaease/shared_invite/zt-upo7v306-lYPHvVwKnvwlqR0Zl2vveA) 
+
 <a href="https://megaease.com/easegress">
-    <img src="./doc/easegress.svg"
+    <img src="./doc/imgs/easegress.svg"
         alt="Easegress logo" title="Easegress" height="175" width="175" align="right"/>
 </a>
 
@@ -32,7 +34,7 @@
 
 The architecture of Easegress:
 
-![architecture](./doc/architecture.png)
+![architecture](./doc/imgs/architecture.png)
 
 ## Features
 
@@ -100,24 +102,25 @@ The architecture of Easegress:
 
 The following examples show how to use Easegress for different scenarios.
 
-- [API Aggregator](./doc/cookbook/api_aggregator.md) - Aggregating many APIs into a single API.
-- [Distributed Tracing](./doc/cookbook/distributed_tracing.md) - How to do APM tracing  - Zipkin.
+- [API Aggregator](./doc/cookbook/api-aggregator.md) - Aggregating many APIs into a single API.
+- [Cluster Deployment](./doc/cookbook/multi-node-cluster.md) - How to deploy multiple Easegress cluster nodes.
+- [Distributed Tracing](./doc/cookbook/distributed-tracing.md) - How to do APM tracing  - Zipkin.
 - [FaaS](./doc/cookbook/faas.md) - Supporting Knative FaaS integration
-- [Flash Sale](./doc/cookbook/flash_sale.md) - How to do high concurrent promotion sales with Easegress
-- [Kubernetes Ingress Controller](./doc/cookbook/k8s_ingress_controller.md) - How to integrate with Kubernetes as ingress controller
-- [LoadBalancer](./doc/cookbook/load_balancer.md) - A number of the strategies of load balancing
-- [MQTTProxy](./doc/cookbook/mqtt_proxy.md) - An Example to MQTT proxy with Kafka backend.
+- [Flash Sale](./doc/cookbook/flash-sale.md) - How to do high concurrent promotion sales with Easegress
+- [Kubernetes Ingress Controller](./doc/cookbook/k8s-ingress-controller.md) - How to integrate with Kubernetes as ingress controller
+- [LoadBalancer](./doc/cookbook/load-balancer.md) - A number of the strategies of load balancing
+- [MQTTProxy](./doc/cookbook/mqtt-proxy.md) - An Example to MQTT proxy with Kafka backend.
 - [Performance](./doc/cookbook/performance.md) - Performance optimization - compression, caching etc.
 - [Pipeline](./doc/cookbook/pipeline.md) - How to orchestrate HTTP filters for requests/responses handling
 - [Resilience and Fault Tolerance](./doc/cookbook/resilience.md) - Circuit Breaker, Rate Limiter, Retryer, Time limiter, etc. (Porting from [Java resilience4j](https://github.com/resilience4j/resilience4j))
 - [Security](./doc/cookbook/security.md) - How to do authentication by Header, JWT, HMAC, OAuth2, etc.
-- [Service Proxy](./doc/cookbook/service_proxy.md) - Supporting the Microservice registries - Zookeeper, Eureka, Consul, Nacos, etc.
+- [Service Proxy](./doc/cookbook/service-proxy.md) - Supporting the Microservice registries - Zookeeper, Eureka, Consul, Nacos, etc.
 - [WebAssembly](./doc/cookbook/wasm.md) - Using AssemblyScript to extend the Easegress
 - [WebSocket](./doc/cookbook/websocket.md) - WebSocket proxy for Easegress
 - [Workflow](./doc/cookbook/workflow.md) - An Example to make a workflow for a number of APIs.
-- [Cluster deployment](./doc/cookbook/multi_node_cluster.md) - How to deploy multiple Easegress cluster nodes.
 
-For full list, see [Cookbook](./doc/cookbook/README.md).
+
+For full list, see [Cookbook](./doc/README.md#1-cookbook--how-to-guide).
 
 ## Getting Started
 
@@ -182,7 +185,7 @@ $ egctl member list | grep "id"
     id: 689e371e88f78b6a
 ```
 
-After launched successfully, we could check the status of the one-node cluster. It shows the static options and dynamic status of heartbeat and etcd.
+After launching successfully, we could check the status of the one-node cluster. It shows the static options and dynamic status of heartbeat and etcd.
 
 ### Create an HTTPServer and Pipeline
 
@@ -249,7 +252,7 @@ Body  : Hello, Easegress
 Now we want to add more features to the pipeline, then we could add kinds of filters to the pipeline. For example, we want validation and request adaptation for the `pipeline-demo`.
 
 <p align="center">
-  <img src="./doc/pipeline-demo.png" width=240>
+  <img src="./doc/imgs/pipeline-demo.png" width=240>
 </p>
 
 ```bash
@@ -302,7 +305,7 @@ We can also see Easegress send one more header `X-Adapt-Key: goodplan` to the mi
 
 ## Documentation
 
-See [reference](./doc/reference.md) and [developer guide](./doc/developer-guide.md) for more information.
+See [Easegress Documentation](./doc/README.md) for all documents.
 
 ## Roadmap
 
