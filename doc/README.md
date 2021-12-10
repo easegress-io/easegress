@@ -72,8 +72,8 @@ It could be created, updated, deleted by admin operation. They control various r
 - [NacosServiceRegistry](./reference/controllers.md#nacosserviceregistry) - supports service discovery for Nacos as backend.
 - [AutoCertManager](./reference/controllers.md#autocertmanager) - automatically manage HTTPS certificates. 
 
-
 ### 4.2 Filters
+
 - [API Aggregator](./reference/filters.md#APIAggregator) - The API Aggregator forwards one request to multiple API HTTP Pipelines in the same namespace and aggregates responses.
 - [Proxy](./reference/filters.md#Proxy) - The Proxy filter is a proxy of backend service. 
 - [Bridge](./reference/filters.md#Bridge) - The Bridge filter route requests from one pipeline to other pipelines or HTTP proxies under an HTTP server.
