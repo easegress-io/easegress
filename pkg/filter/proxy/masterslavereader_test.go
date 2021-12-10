@@ -53,17 +53,13 @@ func TestReader(t *testing.T) {
 	reader1.Close()
 }
 
-func TestConcurrentReader(t *testing.T) {
+func TestMultipleRead(t *testing.T) {
 	b := bytes.NewReader([]byte("abc"))
-	reader1, reader2 := newMasterSlaveReader(b)
+	reader1, _ := newMasterSlaveReader(b)
 
-	buff1 := make([]byte, 10)
-	buff2 := make([]byte, 10)
-
-	for i := 0; i < 100; i++ {
-		go reader1.Read(buff1)
-		go reader2.Read(buff2)
-	}
+	reader1.Read(make([]byte, 10))
+	reader1.Read(make([]byte, 10))
+	reader1.Read(make([]byte, 10))
 }
 
 func TestEOFReader(t *testing.T) {
