@@ -20,7 +20,6 @@ package connectcontrol
 import (
 	"errors"
 	"regexp"
-	"sync"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
@@ -48,8 +47,8 @@ type (
 	ConnectControl struct {
 		filterSpec     *pipeline.FilterSpec
 		spec           *Spec
-		bannedClients  sync.Map
-		bannedTopics   sync.Map
+		bannedClients  map[string]struct{}
+		bannedTopics   map[string]struct{}
 		bannedClientRe *regexp.Regexp
 		bannedTopicRe  *regexp.Regexp
 		status         *Status
@@ -102,6 +101,8 @@ func (cc *ConnectControl) Init(filterSpec *pipeline.FilterSpec) {
 		panic("filter ConnectControl only support MQTT protocol for now")
 	}
 	cc.filterSpec, cc.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
+	cc.bannedClients = make(map[string]struct{})
+	cc.bannedTopics = make(map[string]struct{})
 	cc.reload()
 }
 
@@ -124,10 +125,10 @@ func (cc *ConnectControl) reload() {
 	}
 
 	for _, c := range cc.spec.BannedClients {
-		cc.bannedClients.Store(c, struct{}{})
+		cc.bannedClients[c] = struct{}{}
 	}
 	for _, t := range cc.spec.BannedTopics {
-		cc.bannedTopics.Store(t, struct{}{})
+		cc.bannedTopics[t] = struct{}{}
 	}
 
 	cc.status = &Status{
@@ -158,14 +159,14 @@ func (cc *ConnectControl) checkBan(ctx context.MQTTContext) bool {
 	if cc.bannedClientRe != nil && cc.bannedClientRe.MatchString(cid) {
 		return true
 	}
-	if _, ok := cc.bannedClients.Load(cid); ok {
+	if _, ok := cc.bannedClients[cid]; ok {
 		return true
 	}
 	topic := ctx.PublishPacket().TopicName
 	if cc.bannedTopicRe != nil && cc.bannedTopicRe.MatchString(topic) {
 		return true
 	}
-	if _, ok := cc.bannedTopics.Load(topic); ok {
+	if _, ok := cc.bannedTopics[topic]; ok {
 		return true
 	}
 	return false
