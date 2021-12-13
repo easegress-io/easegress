@@ -176,13 +176,12 @@ func (c *mockMQTTClient) Delete(key interface{}) {
 
 // MockFilterSpec help to create FilterSpec for test
 func MockFilterSpec(super *supervisor.Supervisor, rawSpec map[string]interface{}, yamlConfig string,
-	meta *FilterMetaSpec, filterSpec interface{}, rootFilter Filter) *FilterSpec {
+	meta *FilterMetaSpec, filterSpec interface{}) *FilterSpec {
 	return &FilterSpec{
 		super:      super,
 		rawSpec:    rawSpec,
 		yamlConfig: yamlConfig,
 		meta:       meta,
 		filterSpec: filterSpec,
-		rootFilter: rootFilter,
 	}
 }

@@ -47,8 +47,7 @@ type (
 	}
 
 	runningFilter struct {
-		spec *FilterSpec
-		// rootFilter Filter
+		spec   *FilterSpec
 		filter Filter
 	}
 )

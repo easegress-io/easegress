@@ -55,8 +55,7 @@ func TestMockFilterSpec(t *testing.T) {
 		Protocol: context.TCP,
 	}
 	filterSpec := &MockMQTTSpec{}
-	rootFilter := &MockMQTTFilter{}
-	mockSpec := MockFilterSpec(super, rawSpec, yamlConfig, meta, filterSpec, rootFilter)
+	mockSpec := MockFilterSpec(super, rawSpec, yamlConfig, meta, filterSpec)
 	assert.Equal(mockSpec.Super(), super)
 	assert.Equal(mockSpec.RawSpec(), rawSpec)
 	assert.Equal(mockSpec.Kind(), meta.Kind)
@@ -64,5 +63,4 @@ func TestMockFilterSpec(t *testing.T) {
 	assert.Equal(mockSpec.Pipeline(), meta.Pipeline)
 	assert.Equal(mockSpec.Protocol(), meta.Protocol)
 	assert.Equal(mockSpec.FilterSpec(), filterSpec)
-	assert.Equal(mockSpec.RootFilter(), rootFilter)
 }

@@ -48,7 +48,6 @@ type (
 		yamlConfig string
 		meta       *FilterMetaSpec
 		filterSpec interface{}
-		rootFilter Filter
 	}
 
 	// FilterMetaSpec is metadata for all specs.
@@ -124,7 +123,6 @@ func NewFilterSpec(originalRawSpec map[string]interface{}, super *supervisor.Sup
 	s.filterSpec = filterSpec
 	s.rawSpec = rawSpec
 	s.yamlConfig = yamlConfig
-	s.rootFilter = rootFilter
 
 	return
 }
@@ -159,9 +157,4 @@ func (s *FilterSpec) RawSpec() map[string]interface{} {
 // FilterSpec returns the filter spec in its own type.
 func (s *FilterSpec) FilterSpec() interface{} {
 	return s.filterSpec
-}
-
-// RootFilter returns the root filter of the filter spec.
-func (s *FilterSpec) RootFilter() Filter {
-	return s.rootFilter
 }
