@@ -31,20 +31,20 @@ type Limiter struct {
 
 func newLimiter(spec *RateLimit) *Limiter {
 	limiter := &Limiter{}
-	if spec == nil || (spec.Rate == 0 && spec.Burst == 0) {
+	if spec == nil || (spec.RequestRate == 0 && spec.BytesRate == 0) {
 		return limiter
 	}
 	timePeriod := 1
 	if spec.TimePeriod > 0 {
 		timePeriod = spec.TimePeriod
 	}
-	if spec.Rate > 0 {
-		policy := ratelimiter.NewPolicy(0, time.Duration(timePeriod)*time.Second, spec.Rate)
+	if spec.RequestRate > 0 {
+		policy := ratelimiter.NewPolicy(0, time.Duration(timePeriod)*time.Second, spec.RequestRate)
 		l := ratelimiter.New(policy)
 		limiter.rateLimiter = l
 	}
-	if spec.Burst > 0 {
-		policy := ratelimiter.NewPolicy(0, time.Duration(timePeriod)*time.Second, spec.Burst)
+	if spec.BytesRate > 0 {
+		policy := ratelimiter.NewPolicy(0, time.Duration(timePeriod)*time.Second, spec.BytesRate)
 		l := ratelimiter.New(policy)
 		limiter.burstLimiter = l
 	}

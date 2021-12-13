@@ -35,8 +35,8 @@ func TestLimiter(t *testing.T) {
 
 	// only provide rate should only check rate
 	spec = &RateLimit{
-		Rate:       10,
-		TimePeriod: 60,
+		RequestRate: 10,
+		TimePeriod:  60,
 	}
 	l = newLimiter(spec)
 	for i := 0; i < 20; i++ {
@@ -50,7 +50,7 @@ func TestLimiter(t *testing.T) {
 
 	// only provide burst should only check burst
 	spec = &RateLimit{
-		Burst:      100,
+		BytesRate:  100,
 		TimePeriod: 60,
 	}
 	l = newLimiter(spec)
@@ -65,7 +65,7 @@ func TestLimiter(t *testing.T) {
 
 	// not provide time period use one second
 	spec = &RateLimit{
-		Burst: 100,
+		BytesRate: 100,
 	}
 	l = newLimiter(spec)
 	permitted := l.acquirePermission(100)

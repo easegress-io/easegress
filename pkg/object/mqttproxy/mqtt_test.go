@@ -1781,8 +1781,8 @@ func TestConnectionLimit(t *testing.T) {
 			{UserName: "test", PassBase64: b64passwd},
 		},
 		ConnectionLimit: &RateLimit{
-			Rate:       10,
-			TimePeriod: 1000,
+			RequestRate: 10,
+			TimePeriod:  1000,
 		},
 	}
 	store := newStorage(nil)
@@ -1812,8 +1812,8 @@ func TestClientPublishLimit(t *testing.T) {
 			{UserName: "test", PassBase64: b64passwd},
 		},
 		ClientPublishLimit: &RateLimit{
-			Rate:       10,
-			TimePeriod: 1000,
+			RequestRate: 10,
+			TimePeriod:  1000,
 		},
 	}
 	store := newStorage(nil)

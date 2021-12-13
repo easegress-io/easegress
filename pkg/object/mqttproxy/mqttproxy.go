@@ -141,9 +141,7 @@ func (mp *MQTTProxy) Init(superSpec *supervisor.Spec) {
 	if mp.broker == nil {
 		panic(fmt.Sprintf("broker %v start failed", spec.Name))
 	}
-	if mp.broker != nil {
-		mp.broker.registerAPIs()
-	}
+	mp.broker.registerAPIs()
 }
 
 // Inherit inherits previous generation of WebSocketServer.

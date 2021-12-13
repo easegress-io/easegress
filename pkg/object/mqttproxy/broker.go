@@ -358,7 +358,11 @@ func (b *Broker) handleConn(conn net.Conn) {
 	cid := client.info.cid
 
 	b.Lock()
-	if b.spec.MaxAllowedConnection > 0 {
+	if oldClient, ok := b.clients[cid]; ok {
+		logger.SpanDebugf(nil, "client %v take over by new client with same name", oldClient.info.cid)
+		go oldClient.close()
+
+	} else if b.spec.MaxAllowedConnection > 0 {
 		if len(b.clients) >= b.spec.MaxAllowedConnection {
 			logger.SpanDebugf(nil, "client %v not get connect permission from rate limiter", connect.ClientIdentifier)
 			connack.ReturnCode = packets.ErrRefusedServerUnavailable
@@ -369,10 +373,6 @@ func (b *Broker) handleConn(conn net.Conn) {
 			b.Unlock()
 			return
 		}
-	}
-	if oldClient, ok := b.clients[cid]; ok {
-		logger.SpanDebugf(nil, "client %v take over by new client with same name", oldClient.info.cid)
-		go oldClient.close()
 	}
 	b.clients[client.info.cid] = client
 	b.setSession(client, connect)

@@ -76,11 +76,17 @@ type (
 		HandleMQTT(context.MQTTContext) *context.MQTTResult
 	}
 
-	// TCPFilter is the common interface for filters to handle tcp traffic
+	// TCPFilter is the common interface for filters to handle tcp traffic.
 	TCPFilter interface {
 		Filter
 
 		HandleTCP(context.TCPContext) *context.TCPResult
+	}
+
+	// UDPFilter is the common interface for filters to handle udp traffic.
+	UDPFilter interface {
+		Filter
+		HandleUDP(context.UDPContext) *context.UDPResult
 	}
 
 	// APIEntry contains filter api information
@@ -101,6 +107,9 @@ func getProtocols(f Filter) (map[context.Protocol]struct{}, error) {
 	}
 	if _, ok := f.(TCPFilter); ok {
 		ans[context.TCP] = struct{}{}
+	}
+	if _, ok := f.(UDPFilter); ok {
+		ans[context.UDP] = struct{}{}
 	}
 	if len(ans) == 0 {
 		return nil, fmt.Errorf("filter %v protocol not found, currently only support HTTP, MQTT and TCP", f.Kind())

@@ -51,13 +51,13 @@ type (
 	}
 
 	// RateLimit describes rate limit for connection or publish.
-	// rate: max allowed request in time period
-	// burst: max allowed bytes in time period
-	// timePeriod: time of seconds to count rate and burst, default 1 second
+	// requestRate: max allowed request in time period
+	// timePeriod: max allowed bytes in time period
+	// timePeriod: time of seconds to count requestRate and bytesRate, default 1 second
 	RateLimit struct {
-		Rate       int `yaml:"rate" jsonschema:"omitempty"`
-		Burst      int `yaml:"burst" jsonschema:"omitempty"`
-		TimePeriod int `yaml:"timePeriod" jsonschema:"omitempty"`
+		RequestRate int `yaml:"requestRate" jsonschema:"omitempty"`
+		BytesRate   int `yaml:"bytesRate" jsonschema:"omitempty"`
+		TimePeriod  int `yaml:"timePeriod" jsonschema:"omitempty"`
 	}
 
 	// Certificate describes TLS certifications.

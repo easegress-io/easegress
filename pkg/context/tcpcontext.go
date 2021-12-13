@@ -25,7 +25,7 @@ type (
 		// TODO more protocols coming soon
 	}
 
-	// TCPResult is result for handling tcp request
+	// TCPResult is result for handling TCP request
 	TCPResult struct {
 		Err error
 	}
