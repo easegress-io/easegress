@@ -199,7 +199,7 @@ func New(stdw http.ResponseWriter, stdr *http.Request,
 	span := tracing.NewSpanWithStart(tracer, spanName, startTime)
 	span.SetTag("http.method", stdr.Method)
 	span.SetTag("http.path", stdr.URL.Path)
-	return &httpContext{
+	ctx := &httpContext{
 		startTime:      startTime,
 		span:           span,
 		originalReqCtx: originalReqCtx,
@@ -212,6 +212,10 @@ func New(stdw http.ResponseWriter, stdr *http.Request,
 		tagInd:         0,
 		lazyTagInd:     0,
 	}
+	tagsToPreallocate := 3 // guess that in many cases there are 3 tags
+	ctx.GrowLazyTagN(tagsToPreallocate)
+	ctx.GrowTagN(tagsToPreallocate)
+	return ctx
 }
 
 // Empty httpContext for testing.
