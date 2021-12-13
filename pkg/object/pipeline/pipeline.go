@@ -47,9 +47,9 @@ type (
 	}
 
 	runningFilter struct {
-		spec       *FilterSpec
-		rootFilter Filter
-		filter     Filter
+		spec *FilterSpec
+		// rootFilter Filter
+		filter Filter
 	}
 )
 
@@ -178,7 +178,7 @@ func (p *Pipeline) reload(previousGeneration *Pipeline) {
 		} else {
 			filter.Inherit(runningFilter.spec, prevInstance)
 		}
-		runningFilter.filter, runningFilter.rootFilter = filter, rootFilter
+		runningFilter.filter = filter
 
 	}
 	p.runningFilters = runningFilters
