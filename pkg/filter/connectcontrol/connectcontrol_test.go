@@ -52,7 +52,7 @@ func defaultFilterSpec(spec *Spec) *pipeline.FilterSpec {
 		Pipeline: "pipeline-demo",
 		Protocol: context.MQTT,
 	}
-	filterSpec := pipeline.MockFilterSpec(nil, nil, "", meta, spec, nil)
+	filterSpec := pipeline.MockFilterSpec(nil, nil, "", meta, spec)
 	return filterSpec
 }
 
@@ -74,7 +74,7 @@ func TestConnectControl(t *testing.T) {
 		meta := &pipeline.FilterMetaSpec{
 			Protocol: context.HTTP,
 		}
-		filterSpec := pipeline.MockFilterSpec(nil, nil, "", meta, nil, nil)
+		filterSpec := pipeline.MockFilterSpec(nil, nil, "", meta, nil)
 		cc.Init(filterSpec)
 		return
 	}
