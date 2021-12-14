@@ -380,9 +380,11 @@ func TestMockPBConvert(t *testing.T) {
 		Enabled: true,
 		Rules: []*v1alpha1.MockRule{
 			{
-				Path:       "/",
-				PathPrefix: "/abc",
-				Code:       200,
+				Match: &v1alpha1.MockMatchRule{
+					Path:       "/",
+					PathPrefix: "/abc",
+				},
+				Code: 200,
 				Headers: map[string]string{
 					"mock-by-eg": "yes",
 				},
