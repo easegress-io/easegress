@@ -55,7 +55,7 @@ https: false
 rules:
   - paths:
     - pathPrefix: /api
-      backend: pipeline-api | egctl object create
+      backend: pipeline-api '  | egctl object create
 
 ```
 
