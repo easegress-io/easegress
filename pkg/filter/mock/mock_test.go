@@ -42,17 +42,47 @@ func TestMock(t *testing.T) {
 kind: Mock
 name: mock
 rules:
-- pathPrefix: /login/
+- match:
+    pathPrefix: /login/
   code: 202
   body: 'mocked body'
   headers:
     X-Test: test1
-- path: /sales
+- match:
+    path: /sales
   code: 203
   body: 'mocked body'
   headers:
     X-Test: test2
   delay: 1ms
+- match:
+    path: /pets
+    headers:
+      X-Mock:
+        exact: mock
+  code: 205
+  body: 'mocked body'
+  headers:
+    X-Test: test2
+- match:
+    path: /customers
+    headers:
+      X-Mock:
+        empty: true
+  code: 206
+  body: 'mocked body'
+  headers:
+    X-Test: test2
+- match:
+    path: /vets
+    matchAllHeader: true
+    headers:
+      X-Mock:
+        exact: mock
+  code: 207
+  body: 'mocked body'
+  headers:
+    X-Test: test2
 - code: 204
   body: 'mocked body 2'
   headers:
@@ -112,6 +142,79 @@ rules:
 
 	if resp.Header().Get("X-Test") != "test2" {
 		t.Error("header 'X-Test' should be 'test2'")
+	}
+
+	resp = httptest.NewRecorder()
+	ctx.MockedRequest.MockedPath = func() string {
+		return "/pets"
+	}
+	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
+		h := http.Header{}
+		h.Add("X-Mock", "mock")
+		return httpheader.New(h)
+	}
+	m.Handle(ctx)
+	if resp.Code != 205 {
+		t.Error("status code is not 205")
+	}
+	if resp.Body.String() != "mocked body" {
+		t.Error("body should be 'mocked body'")
+	}
+	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
+		h := http.Header{}
+		h.Add("X-Mock", "mock1")
+		return httpheader.New(h)
+	}
+	resp = httptest.NewRecorder()
+	m.Handle(ctx)
+	if resp.Code != 204 {
+		t.Errorf("status code is %d, not 204", resp.Code)
+	}
+
+	resp = httptest.NewRecorder()
+	ctx.MockedRequest.MockedPath = func() string {
+		return "/customers"
+	}
+	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
+		h := http.Header{
+			"X-Mock": []string{},
+		}
+		return httpheader.New(h)
+	}
+	m.Handle(ctx)
+	if resp.Code != 206 {
+		t.Errorf("status code is %d, not 206", resp.Code)
+	}
+	if body := resp.Body.String(); body != "mocked body" {
+		t.Errorf("body is %q should be 'mocked body'", body)
+	}
+
+	resp = httptest.NewRecorder()
+	ctx.MockedRequest.MockedPath = func() string {
+		return "/vets"
+	}
+	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
+		h := http.Header{}
+		h.Add("X-Mock", "mock")
+		return httpheader.New(h)
+	}
+	m.Handle(ctx)
+	if resp.Code != 207 {
+		t.Error("status code is not 207")
+	}
+	if resp.Body.String() != "mocked body" {
+		t.Error("body should be 'mocked body'")
+	}
+
+	resp = httptest.NewRecorder()
+	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
+		h := http.Header{}
+		h.Add("X-Mock", "mock1")
+		return httpheader.New(h)
+	}
+	m.Handle(ctx)
+	if resp.Code != 204 {
+		t.Errorf("status code is %d, not 204", resp.Code)
 	}
 
 	if m.Status() != nil {

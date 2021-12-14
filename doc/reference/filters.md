@@ -64,6 +64,7 @@
     - [proxy.Compression](#proxycompression)
     - [proxy.MTLS](#proxymtls)
     - [mock.Rule](#mockrule)
+    - [mock.MatchRule](#mockmatchrule)
     - [circuitbreaker.Policy](#circuitbreakerpolicy)
     - [ratelimiter.Policy](#ratelimiterpolicy)
     - [timelimiter.URLRule](#timelimiterurlrule)
@@ -285,7 +286,8 @@ Below is an example configuration to mock response for requests to path `/users/
 kind: Mock
 name: mock-example
 rules:
-- path: /users/1
+- match:
+    path: /users/1
   code: 200
   headers:
     Content-Type: application/json
@@ -801,11 +803,20 @@ The relationship between `methods` and `url` is `AND`.
 | Name       | Type              | Description                                                                                                                                         | Required |
 | ---------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
 | code       | int               | HTTP status code of the mocked response                                                                                                             | Yes      |
-| path       | string            | Path match criteria, if request path is the value of this option, then the response of the request is mocked according to this rule                 | No       |
-| pathPrefix | string            | Path prefix match criteria, if request path begins with the value of this option, then the response of the request is mocked according to this rule | No       |
+| match      | [MatchRule](#mock.MatchRule) | Rule to match a request        | Yes      |
 | delay      | string            | Delay duration, for the request processing time mocking                                                                                             | No       |
 | headers    | map[string]string | Headers of the mocked response                                                                                                                      | No       |
 | body       | string            | Body of the mocked response, default is an empty string                                                                                             | No       |
+
+### mock.MatchRule
+
+| Name       | Type              | Description                                                                                                                                         | Required |
+| ---------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| path       | string            | Path match criteria, if request path is the value of this option, then the response of the request is mocked according to this rule                 | No       |
+| pathPrefix | string            | Path prefix match criteria, if request path begins with the value of this option, then the response of the request is mocked according to this rule | No       |
+| matchAllHeaders | bool          | Whether to match all headers | No       |
+| headers    | map[string][url.StringMatch](#urlrulestringmatch) | Headers to match, key is a header name, value is the rule to match the header value | No |
+
 
 ### circuitbreaker.Policy
 
