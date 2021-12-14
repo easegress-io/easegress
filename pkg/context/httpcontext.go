@@ -207,10 +207,11 @@ func New(stdw http.ResponseWriter, stdr *http.Request,
 		cancelFunc:     cancelFunc,
 		r:              newHTTPRequest(stdr),
 		w:              newHTTPResponse(stdw, stdr),
-		tags:           make([]string, 0),
-		lazyTags:       make([]*LazyTag, 0),
+		tags:           make([]string, 0, 3),
+		lazyTags:       make([]*LazyTag, 0, 3),
 		tagInd:         0,
 		lazyTagInd:     0,
+		finishFuncs:    make([]FinishFunc, 0, 1),
 	}
 	tagsToPreallocate := 3 // guess that in many cases there are 3 tags
 	ctx.GrowLazyTagN(tagsToPreallocate)

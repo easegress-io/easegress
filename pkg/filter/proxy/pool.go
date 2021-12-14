@@ -22,6 +22,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"sync"
 
 	"github.com/opentracing/opentracing-go"
 
@@ -224,6 +225,12 @@ func (p *pool) doRequest(ctx context.HTTPContext, req *request, client *http.Cli
 	return resp, span, nil
 }
 
+var httpstatMetricPool = sync.Pool{
+	New: func() interface{} {
+		return &httpstat.Metric{}
+	},
+}
+
 func (p *pool) statRequestResponse(ctx context.HTTPContext,
 	req *request, resp *http.Response, span tracing.Span) io.Reader {
 
@@ -245,19 +252,21 @@ func (p *pool) statRequestResponse(ctx context.HTTPContext,
 			req.finish()
 			span.Finish()
 		}
+		duration := req.total()
+		ctx.AddLazyTag(p.tagPrefix, "#duration: ", duration.String(), -1)
+		// use recycled object
+		metric := httpstatMetricPool.Get().(*httpstat.Metric)
+		metric.StatusCode = resp.StatusCode
+		metric.Duration = duration
+		metric.ReqSize = ctx.Request().Size()
+		metric.RespSize = uint64(responseMetaSize(resp) + count)
 
-		ctx.AddTag(stringtool.Cat(p.tagPrefix, "#duration: ", req.total().String()))
-
-		metric := &httpstat.Metric{
-			StatusCode: resp.StatusCode,
-			Duration:   req.total(),
-			ReqSize:    ctx.Request().Size(),
-			RespSize:   uint64(responseMetaSize(resp) + count),
-		}
 		if !p.writeResponse {
 			metric.RespSize = 0
 		}
 		p.httpStat.Stat(metric)
+		// recycle object
+		httpstatMetricPool.Put(metric)
 	})
 
 	return callbackBody
