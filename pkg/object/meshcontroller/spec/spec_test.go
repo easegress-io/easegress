@@ -349,9 +349,11 @@ func TestSidecarEgressPipelineSpecWithMock(t *testing.T) {
 			Enabled: true,
 			Rules: []*mock.Rule{
 				{
-					Path:       "/abc",
-					PathPrefix: "/",
-					Code:       200,
+					Match: mock.MatchRule{
+						Path:       "/abc",
+						PathPrefix: "/",
+					},
+					Code: 200,
 					Headers: map[string]string{
 						"mock-by-eg": "yes",
 					},
