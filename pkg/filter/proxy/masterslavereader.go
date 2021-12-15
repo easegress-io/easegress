@@ -31,12 +31,14 @@ type (
 		secondaryReader  io.Reader
 	}
 
+	// primaryReader reads bytes from reader and synchronize them to secondary reader
 	primaryReader struct {
 		r        io.Reader
 		buffChan chan []byte
 		sawEOF   bool
 	}
 
+	// secondaryReader receives the bytes from primary
 	secondaryReader struct {
 		unreadBuff *bytes.Buffer
 		buffChan   chan []byte
