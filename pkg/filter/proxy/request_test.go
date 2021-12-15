@@ -26,6 +26,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/context/contexttest"
 	"github.com/megaease/easegress/pkg/util/httpheader"
+	"github.com/megaease/easegress/pkg/util/fasttime"
 )
 
 func TestRequest(t *testing.T) {
@@ -52,7 +53,8 @@ func TestRequest(t *testing.T) {
 
 	p := pool{}
 	sr := strings.NewReader("this is the raw body")
-	req, _ := p.newRequest(ctx, &server, sr)
+	req, _ := p.newRequest(ctx, &server, sr, requestPool, httpstatResultPool)
+	defer requestPool.Put(req) // recycle request
 
 	req.start()
 	tm := req.startTime()
@@ -92,4 +94,32 @@ func TestResultState(t *testing.T) {
 	if rs.Flag(1) {
 		t.Error("implementation changed, this case should be updated")
 	}
+}
+
+func TestRequestStatus(t *testing.T) {
+	req := requestPool.Get().(*request)
+	req.createTime = fasttime.Now()
+	req.status = Created
+
+	if !req.createTime.Equal(req.startTime()) {
+		t.Error("starttime should be createtime before start()")
+	}
+
+	req.start()
+
+	if req.createTime.Equal(req.startTime()) {
+		t.Error("starttime should not be createtime after start()")
+	}
+
+	if req.endTime().Equal(*req._endTime) {
+		t.Error("endtime should be now before finish()")
+	}
+
+	req.finish()
+
+	if !req.endTime().Equal(*req._endTime) {
+		t.Error("endtime should be _endtime after finish()")
+	}
+
+	requestPool.Put(req)
 }

@@ -147,8 +147,6 @@ type (
 		finishFuncs []FinishFunc
 		tags        []string
 		lazyTags    []*LazyTag
-		tagInd      int
-		lazyTagInd  int
 		caller      HandlerCaller
 
 		r *httpRequest
@@ -207,8 +205,6 @@ func New(stdw http.ResponseWriter, stdr *http.Request,
 		w:              newHTTPResponse(stdw, stdr),
 		tags:           make([]string, 0, 5),
 		lazyTags:       make([]*LazyTag, 0, 5),
-		tagInd:         0,
-		lazyTagInd:     0,
 		finishFuncs:    make([]FinishFunc, 0, 1),
 	}
 	return ctx
@@ -263,11 +259,11 @@ func (ctx *httpContext) AddLazyTag(ns string, prefix string, msg string, intMsg 
 // Return all tags in string format.
 func (ctx *httpContext) GetTags() []string {
 	allTags := make([]string, len(ctx.tags)+len(ctx.lazyTags))
-	for i := 0; i < ctx.tagInd; i++ {
+	for i := 0; i < len(ctx.tags); i++ {
 		allTags[i] = ctx.tags[i]
 	}
-	for i := 0; i < ctx.lazyTagInd; i++ {
-		allTags[ctx.tagInd+i] = ctx.lazyTags[i].String()
+	for i := 0; i < len(ctx.lazyTags); i++ {
+		allTags[len(ctx.tags)+i] = ctx.lazyTags[i].String()
 	}
 	return allTags
 }

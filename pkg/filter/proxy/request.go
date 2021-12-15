@@ -23,6 +23,7 @@ import (
 	"io"
 	"net/http"
 	"time"
+	"sync"
 
 	httpstat "github.com/tcnksm/go-httpstat"
 
@@ -32,6 +33,8 @@ import (
 )
 
 type (
+	requestStatus int16
+
 	request struct {
 		server     *Server
 		std        *http.Request
@@ -39,6 +42,7 @@ type (
 		createTime time.Time
 		_startTime *time.Time
 		_endTime   *time.Time
+		status	  requestStatus
 	}
 
 	resultState struct {
@@ -46,12 +50,24 @@ type (
 	}
 )
 
-func (p *pool) newRequest(ctx context.HTTPContext, server *Server, reqBody io.Reader) (*request, error) {
-	req := &request{
-		createTime: fasttime.Now(),
-		server:     server,
-		statResult: &httpstat.Result{},
-	}
+const (
+	Created	requestStatus = iota
+	Started
+	Finished
+)
+
+func (p *pool) newRequest(
+	ctx context.HTTPContext,
+	server *Server,
+	reqBody io.Reader,
+	requestPool sync.Pool,
+	httpstatResultPool sync.Pool) (*request, error) {
+	statResult := httpstatResultPool.Get().(*httpstat.Result)
+	req := requestPool.Get().(*request)
+	req.createTime = fasttime.Now()
+	req.server = server
+	req.statResult = statResult
+	req.status = Created
 
 	r := ctx.Request()
 
@@ -75,17 +91,18 @@ func (p *pool) newRequest(ctx context.HTTPContext, server *Server, reqBody io.Re
 }
 
 func (r *request) start() {
-	if r._startTime != nil {
+	if r.status == Started {
 		logger.Errorf("BUG: started already")
 		return
 	}
 
 	now := fasttime.Now()
 	r._startTime = &now
+	r.status = Started
 }
 
 func (r *request) startTime() time.Time {
-	if r._startTime == nil {
+	if r.status == Created {
 		return r.createTime
 	}
 
@@ -93,7 +110,7 @@ func (r *request) startTime() time.Time {
 }
 
 func (r *request) endTime() time.Time {
-	if r._endTime == nil {
+	if r.status != Finished {
 		return fasttime.Now()
 	}
 
@@ -101,7 +118,7 @@ func (r *request) endTime() time.Time {
 }
 
 func (r *request) finish() {
-	if r._endTime != nil {
+	if r.status == Finished {
 		logger.Errorf("BUG: finished already")
 		return
 	}
@@ -109,10 +126,11 @@ func (r *request) finish() {
 	now := fasttime.Now()
 	r.statResult.End(now)
 	r._endTime = &now
+	r.status = Finished
 }
 
 func (r *request) total() time.Duration {
-	if r._endTime == nil {
+	if r.status != Finished {
 		logger.Errorf("BUG: call total before finish")
 		return r.statResult.Total(fasttime.Now())
 	}

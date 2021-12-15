@@ -25,6 +25,7 @@ import (
 	"sync"
 
 	"github.com/opentracing/opentracing-go"
+	gohttpstat "github.com/tcnksm/go-httpstat"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
@@ -128,6 +129,18 @@ func (p *pool) status() *PoolStatus {
 	return s
 }
 
+var requestPool = sync.Pool{
+	New: func() interface{} {
+		return &request{}
+	},
+}
+
+var httpstatResultPool = sync.Pool{
+	New: func() interface{} {
+		return &gohttpstat.Result{}
+	},
+}
+
 func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader, client *http.Client) string {
 	addLazyTag := func(subPrefix, msg string, intMsg int) {
 		ctx.Lock()
@@ -149,7 +162,7 @@ func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader, client *http.C
 	}
 	addLazyTag("addr", server.URL, -1)
 
-	req, err := p.prepareRequest(ctx, server, reqBody)
+	req, err := p.prepareRequest(ctx, server, reqBody, requestPool, httpstatResultPool)
 	if err != nil {
 		msg := stringtool.Cat("prepare request failed: ", err.Error())
 		logger.Errorf("BUG: %s", msg)
@@ -203,8 +216,13 @@ func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader, client *http.C
 	return ""
 }
 
-func (p *pool) prepareRequest(ctx context.HTTPContext, server *Server, reqBody io.Reader) (req *request, err error) {
-	return p.newRequest(ctx, server, reqBody)
+func (p *pool) prepareRequest(
+	ctx context.HTTPContext,
+	server *Server,
+	reqBody io.Reader,
+	requestPool sync.Pool,
+	httpstatResultPool sync.Pool) (req *request, err error) {
+	return p.newRequest(ctx, server, reqBody, requestPool, httpstatResultPool)
 }
 
 func (p *pool) doRequest(ctx context.HTTPContext, req *request, client *http.Client) (*http.Response, tracing.Span, error) {
@@ -265,8 +283,10 @@ func (p *pool) statRequestResponse(ctx context.HTTPContext,
 			metric.RespSize = 0
 		}
 		p.httpStat.Stat(metric)
-		// recycle object
+		// recycle struct instances
 		httpstatMetricPool.Put(metric)
+		httpstatResultPool.Put(req.statResult)
+		requestPool.Put(req)
 	})
 
 	return callbackBody
