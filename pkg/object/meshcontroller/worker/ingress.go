@@ -99,7 +99,7 @@ func (ings *IngressServer) _ready() bool {
 		Name: ings.serviceName,
 	}
 
-	_, pipelineReady := ings.pipelines[serviceSpec.IngressPipelineName()]
+	_, pipelineReady := ings.pipelines[serviceSpec.SidecarIngressPipelineName()]
 
 	return pipelineReady && (ings.httpServer != nil)
 }
@@ -111,7 +111,7 @@ func (ings *IngressServer) InitIngress(service *spec.Service, port uint32) error
 
 	ings.applicationPort = port
 
-	if _, ok := ings.pipelines[service.IngressPipelineName()]; !ok {
+	if _, ok := ings.pipelines[service.SidecarIngressPipelineName()]; !ok {
 		superSpec, err := service.SidecarIngressPipelineSpec(port)
 		if err != nil {
 			return err
@@ -120,7 +120,7 @@ func (ings *IngressServer) InitIngress(service *spec.Service, port uint32) error
 		if err != nil {
 			return fmt.Errorf("create http pipeline %s failed: %v", superSpec.Name(), err)
 		}
-		ings.pipelines[service.IngressPipelineName()] = entity
+		ings.pipelines[service.SidecarIngressPipelineName()] = entity
 	}
 
 	admSpec := ings.superSpec.ObjectSpec().(*spec.Admin)
