@@ -23,32 +23,28 @@ import (
 )
 
 type (
-	// masterSlaveReader reads bytes to master,
-	// and synchronize them to slave.
-	// Currently only support one slave.
-	masterSlaveReader struct {
-		masterReader io.Reader
-		slaveReader  io.Reader
-	}
-
-	masterReader struct {
+	// primaryReader reads bytes from reader and synchronize them to secondary reader
+	primaryReader struct {
 		r        io.Reader
 		buffChan chan []byte
+		sawEOF   bool
 	}
 
-	slaveReader struct {
+	// secondaryReader receives the bytes from primary
+	secondaryReader struct {
 		unreadBuff *bytes.Buffer
 		buffChan   chan []byte
 	}
 )
 
-func newMasterSlaveReader(r io.Reader) (io.ReadCloser, io.Reader) {
+func newPrimarySecondaryReader(r io.Reader) (io.ReadCloser, io.Reader) {
 	buffChan := make(chan []byte, 10)
-	mr := &masterReader{
+	mr := &primaryReader{
 		r:        r,
 		buffChan: buffChan,
+		sawEOF:   false,
 	}
-	sr := &slaveReader{
+	sr := &secondaryReader{
 		unreadBuff: bytes.NewBuffer(nil),
 		buffChan:   buffChan,
 	}
@@ -56,7 +52,10 @@ func newMasterSlaveReader(r io.Reader) (io.ReadCloser, io.Reader) {
 	return mr, sr
 }
 
-func (mr *masterReader) Read(p []byte) (n int, err error) {
+func (mr *primaryReader) Read(p []byte) (n int, err error) {
+	if mr.sawEOF {
+		return 0, io.EOF
+	}
 	buff := bytes.NewBuffer(nil)
 	tee := io.TeeReader(mr.r, buff)
 	n, err = tee.Read(p)
@@ -67,12 +66,13 @@ func (mr *masterReader) Read(p []byte) (n int, err error) {
 
 	if err == io.EOF {
 		close(mr.buffChan)
+		mr.sawEOF = true
 	}
 
 	return n, err
 }
 
-func (mr *masterReader) Close() error {
+func (mr *primaryReader) Close() error {
 	if closer, ok := mr.r.(io.ReadCloser); ok {
 		return closer.Close()
 	}
@@ -80,7 +80,7 @@ func (mr *masterReader) Close() error {
 	return nil
 }
 
-func (sr *slaveReader) Read(p []byte) (int, error) {
+func (sr *secondaryReader) Read(p []byte) (int, error) {
 	buff, ok := <-sr.buffChan
 
 	if !ok {
