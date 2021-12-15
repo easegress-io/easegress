@@ -210,7 +210,7 @@ func (ic *IngressController) _reloadIngress() {
 				serviceSpec := &spec.Service{
 					Name: path.Backend,
 				}
-				path.Backend = serviceSpec.IngressPipelineName()
+				path.Backend = serviceSpec.IngressControllerPipelineName()
 			}
 
 			ingressRules = append(ingressRules, rule)
