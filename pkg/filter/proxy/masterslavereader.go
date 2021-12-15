@@ -23,14 +23,6 @@ import (
 )
 
 type (
-	// primarySecondaryReader reads bytes to master,
-	// and synchronize them to slave.
-	// Currently only support one slave.
-	primarySecondaryReader struct {
-		primaryReader io.Reader
-		secondaryReader  io.Reader
-	}
-
 	// primaryReader reads bytes from reader and synchronize them to secondary reader
 	primaryReader struct {
 		r        io.Reader
