@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/megaease/easegress/pkg/logger"
+
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/concurrency"
@@ -105,7 +106,7 @@ func getOpOption(op ClientOp) clientv3.OpOption {
 	case OpKeysOnly:
 		return clientv3.WithKeysOnly()
 	default:
-		logger.Errorf("not support operation type %v", op)
+		logger.Errorf("unsupported client operation: %v", op)
 		return nil
 	}
 }

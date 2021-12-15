@@ -24,7 +24,7 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
-func Test_getOpOption(t *testing.T) {
+func TestGetOpOption(t *testing.T) {
 	tests := []struct {
 		wantFunc clientv3.OpOption
 		op       ClientOp

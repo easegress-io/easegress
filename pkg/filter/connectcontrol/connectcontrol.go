@@ -92,7 +92,7 @@ func (cc *ConnectControl) Description() string {
 
 // Results return results of ConnectControl
 func (cc *ConnectControl) Results() []string {
-	return nil
+	return []string{resultBannedClientOrTopic}
 }
 
 // Init init ConnectControl with pipeline filter spec

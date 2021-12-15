@@ -63,7 +63,8 @@ func TestConnectControl(t *testing.T) {
 	assert.Equal(cc.Kind(), Kind, "wrong kind")
 	assert.Equal(cc.DefaultSpec(), &Spec{}, "wrong spec")
 	assert.NotEqual(len(cc.Description()), 0, "description for ConnectControl is empty")
-	assert.Nil(cc.Results(), "if update result, please update this case")
+
+	assert.NotNil(cc.Results(), "if update result, please update this case")
 	checkProtocol := func() (err error) {
 		defer func() {
 			if errMsg := recover(); errMsg != nil {

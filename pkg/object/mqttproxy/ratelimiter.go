@@ -25,8 +25,8 @@ import (
 
 // Limiter is a rate limiter for MQTTProxy
 type Limiter struct {
-	rateLimiter  *ratelimiter.RateLimiter
-	burstLimiter *ratelimiter.RateLimiter
+	requestLimiter *ratelimiter.UnlockedRateLimiter
+	byteLimiter    *ratelimiter.UnlockedRateLimiter
 }
 
 func newLimiter(spec *RateLimit) *Limiter {
@@ -40,27 +40,38 @@ func newLimiter(spec *RateLimit) *Limiter {
 	}
 	if spec.RequestRate > 0 {
 		policy := ratelimiter.NewPolicy(0, time.Duration(timePeriod)*time.Second, spec.RequestRate)
-		l := ratelimiter.New(policy)
-		limiter.rateLimiter = l
+		l := ratelimiter.NewUnlocked(policy)
+		limiter.requestLimiter = l
 	}
 	if spec.BytesRate > 0 {
 		policy := ratelimiter.NewPolicy(0, time.Duration(timePeriod)*time.Second, spec.BytesRate)
-		l := ratelimiter.New(policy)
-		limiter.burstLimiter = l
+		l := ratelimiter.NewUnlocked(policy)
+		limiter.byteLimiter = l
 	}
 	return limiter
 }
 
-func (l *Limiter) acquirePermission(burst int) bool {
-	permitted := true
-	if l.rateLimiter != nil {
-		permitted, _ = l.rateLimiter.AcquirePermission()
+func (l *Limiter) acquirePermission(byteNum int) bool {
+	requestPermit := true
+	bytePermit := true
+	if l.requestLimiter != nil {
+		l.requestLimiter.Lock()
+		defer l.requestLimiter.Unlock()
+		requestPermit, _ = l.requestLimiter.CheckPermission(1)
 	}
-	if !permitted {
-		return permitted
+	if l.byteLimiter != nil {
+		l.byteLimiter.Lock()
+		defer l.byteLimiter.Unlock()
+		bytePermit, _ = l.byteLimiter.CheckPermission(byteNum)
 	}
-	if l.burstLimiter != nil {
-		permitted, _ = l.burstLimiter.AcquireNPermission(burst)
+	if requestPermit && bytePermit {
+		if l.requestLimiter != nil {
+			l.requestLimiter.DoLastCheck()
+		}
+		if l.byteLimiter != nil {
+			l.byteLimiter.DoLastCheck()
+		}
+		return true
 	}
-	return permitted
+	return false
 }

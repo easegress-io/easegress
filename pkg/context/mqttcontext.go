@@ -175,11 +175,11 @@ func (ctx *mqttContext) Client() MQTTClient {
 // Cancel cancel mqttContext
 func (ctx *mqttContext) Cancel(err error) {
 	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
 	if !ctx.canceled() {
 		ctx.err = err
 		ctx.cancelFunc()
 	}
-	ctx.mu.Unlock()
 }
 
 func (ctx *mqttContext) canceled() bool {
