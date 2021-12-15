@@ -77,3 +77,12 @@ func TestEOFReader(t *testing.T) {
 
 	reader1.Close()
 }
+
+func TestMultipleRead(t *testing.T) {
+	b := bytes.NewReader([]byte("abc"))
+	reader1, _ := newMasterSlaveReader(b)
+
+	reader1.Read(make([]byte, 10))
+	reader1.Read(make([]byte, 10))
+	reader1.Read(make([]byte, 10))
+}

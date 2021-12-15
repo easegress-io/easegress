@@ -34,6 +34,7 @@ type (
 	masterReader struct {
 		r        io.Reader
 		buffChan chan []byte
+		sawEOF   bool
 	}
 
 	slaveReader struct {
@@ -47,6 +48,7 @@ func newMasterSlaveReader(r io.Reader) (io.ReadCloser, io.Reader) {
 	mr := &masterReader{
 		r:        r,
 		buffChan: buffChan,
+		sawEOF:   false,
 	}
 	sr := &slaveReader{
 		unreadBuff: bytes.NewBuffer(nil),
@@ -57,6 +59,9 @@ func newMasterSlaveReader(r io.Reader) (io.ReadCloser, io.Reader) {
 }
 
 func (mr *masterReader) Read(p []byte) (n int, err error) {
+	if mr.sawEOF {
+		return 0, io.EOF
+	}
 	buff := bytes.NewBuffer(nil)
 	tee := io.TeeReader(mr.r, buff)
 	n, err = tee.Read(p)
@@ -67,6 +72,7 @@ func (mr *masterReader) Read(p []byte) (n int, err error) {
 
 	if err == io.EOF {
 		close(mr.buffChan)
+		mr.sawEOF = true
 	}
 
 	return n, err
