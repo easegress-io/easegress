@@ -31,7 +31,7 @@ func TestReader(t *testing.T) {
 
 	r := bytes.NewReader(b.Bytes())
 
-	reader1, reader2 := newMasterSlaveReader(r)
+	reader1, reader2 := newPrimarySecondaryReader(r)
 
 	buff := make([]byte, 10)
 	n, _ := reader1.Read(buff)
@@ -56,7 +56,7 @@ func TestReader(t *testing.T) {
 func TestEOFReader(t *testing.T) {
 	eofReader := iotest.ErrReader(io.EOF)
 
-	reader1, reader2 := newMasterSlaveReader(eofReader)
+	reader1, reader2 := newPrimarySecondaryReader(eofReader)
 
 	buff := make([]byte, 10)
 	_, err := reader1.Read(buff)
@@ -80,7 +80,7 @@ func TestEOFReader(t *testing.T) {
 
 func TestMultipleRead(t *testing.T) {
 	b := bytes.NewReader([]byte("abc"))
-	reader1, _ := newMasterSlaveReader(b)
+	reader1, _ := newPrimarySecondaryReader(b)
 
 	reader1.Read(make([]byte, 10))
 	reader1.Read(make([]byte, 10))
