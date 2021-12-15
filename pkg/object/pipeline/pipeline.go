@@ -91,6 +91,9 @@ func (p *Pipeline) Close() {
 func (p *Pipeline) Init(superSpec *supervisor.Spec) {
 	p.superSpec, p.spec = superSpec, superSpec.ObjectSpec().(*Spec)
 	p.spec.Name = superSpec.Name()
+	if err := p.spec.Validate(); err != nil {
+		panic(err)
+	}
 	p.reload(nil /*no previous generation*/)
 	storePipeline(p.spec.Name, p.spec.Protocol, p)
 }
@@ -181,19 +184,6 @@ func (p *Pipeline) reload(previousGeneration *Pipeline) {
 
 	}
 	p.runningFilters = runningFilters
-	p.checkProtocol()
-}
-
-func (p *Pipeline) checkProtocol() {
-	for _, rf := range p.runningFilters {
-		protocols, err := getProtocols(rf.filter)
-		if err != nil {
-			panic(err)
-		}
-		if _, ok := protocols[p.spec.Protocol]; !ok {
-			panic(fmt.Errorf("filter %v not support pipeline protocol %s", rf.spec.Name(), p.spec.Protocol))
-		}
-	}
 }
 
 func (p *Pipeline) getRunningFilter(name string) *runningFilter {

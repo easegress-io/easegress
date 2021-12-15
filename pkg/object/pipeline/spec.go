@@ -66,6 +66,76 @@ type (
 	}
 )
 
+func extractFiltersData(config []byte) interface{} {
+	var whole map[string]interface{}
+	yamltool.Unmarshal(config, &whole)
+	return whole["filters"]
+}
+
+// creates FilterSpecs from a list of filters
+func filtersToFilterSpecs(filters []map[string]interface{}, super *supervisor.Supervisor) (map[string]*FilterSpec, []string) {
+	filterMap := make(map[string]*FilterSpec)
+	filterNames := []string{}
+	for _, filter := range filters {
+		spec, err := NewFilterSpec(filter, super)
+		if err != nil {
+			panic(err)
+		}
+		if _, exists := filterMap[spec.Name()]; exists {
+			panic(fmt.Errorf("conflict name: %s", spec.Name()))
+		}
+		filterMap[spec.Name()] = spec
+		filterNames = append(filterNames, spec.Name())
+	}
+	return filterMap, filterNames
+}
+
+// Validate validates Spec.
+func (s Spec) Validate() (err error) {
+	errPrefix := "filters"
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("%s: %s", errPrefix, r)
+		}
+	}()
+
+	config := yamltool.Marshal(s)
+
+	filtersData := extractFiltersData(config)
+	if filtersData == nil {
+		return fmt.Errorf("filters is required")
+	}
+
+	filterSpecs, _ := filtersToFilterSpecs(
+		s.Filters,
+		nil, /*NOTE: Nil supervisor is fine in spec validating phrase.*/
+	)
+
+	for _, spec := range filterSpecs {
+		kind := spec.Kind()
+		filter, exists := filterRegistry[kind]
+		if !exists {
+			panic(fmt.Errorf("kind %s not found", kind))
+		}
+		protocols, err := getProtocols(filter)
+		if err != nil {
+			panic(fmt.Errorf("filter %v get protocols failed, %v", kind, err))
+		}
+		if _, ok := protocols[s.Protocol]; !ok {
+			panic(fmt.Errorf("filter %v not support pipeline protocol %s", spec.Name(), s.Protocol))
+		}
+	}
+
+	errPrefix = "flow"
+	filters := make(map[string]struct{})
+	for _, f := range s.Flow {
+		if _, exists := filters[f.Filter]; exists {
+			panic(fmt.Errorf("repeated filter %s", f.Filter))
+		}
+	}
+	return nil
+}
+
 // NewFilterSpec creates a filter spec and validates it.
 func NewFilterSpec(originalRawSpec map[string]interface{}, super *supervisor.Supervisor) (
 	s *FilterSpec, err error) {
