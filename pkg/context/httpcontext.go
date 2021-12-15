@@ -58,12 +58,10 @@ type (
 		Cancelled() bool
 		ClientDisconnected() bool
 
-		OnFinish(FinishFunc) // For setting final client statistics, etc.
-		AddTag(tag string)   // For debug, log, etc.
-		GrowTagN(n int)      // Grow tag list by n items.
+		OnFinish(FinishFunc)   // For setting final client statistics, etc.
+		AddTag(tag string) // For debug, log, etc.
 		// Update next lazy tag, without creating new object if possible.
 		AddLazyTag(ns string, prefix string, msg string, intMsg int)
-		GrowLazyTagN(num int) // Grow Lazy Tags list by n items.
 		GetTags() []string
 
 		StatMetric() *httpstat.Metric
@@ -166,7 +164,7 @@ type (
 		metric httpstat.Metric
 	}
 
-	// TODO
+	// LazyTag for doing string concatenations later.
 	LazyTag struct {
 		Namespace string
 		Prefix    string
@@ -207,15 +205,12 @@ func New(stdw http.ResponseWriter, stdr *http.Request,
 		cancelFunc:     cancelFunc,
 		r:              newHTTPRequest(stdr),
 		w:              newHTTPResponse(stdw, stdr),
-		tags:           make([]string, 0, 3),
-		lazyTags:       make([]*LazyTag, 0, 3),
+		tags:           make([]string, 0, 5),
+		lazyTags:       make([]*LazyTag, 0, 5),
 		tagInd:         0,
 		lazyTagInd:     0,
 		finishFuncs:    make([]FinishFunc, 0, 1),
 	}
-	tagsToPreallocate := 3 // guess that in many cases there are 3 tags
-	ctx.GrowLazyTagN(tagsToPreallocate)
-	ctx.GrowTagN(tagsToPreallocate)
 	return ctx
 }
 
@@ -250,65 +245,24 @@ func (ctx *httpContext) Span() tracing.Span {
 
 // Fill the empty tag. If all existing Tags are filled, create new one.
 func (ctx *httpContext) AddTag(tag string) {
-	if len(ctx.tags) > ctx.tagInd {
-		ctx.tags[ctx.tagInd] = tag
-	} else {
-		ctx.tags = append(ctx.tags, tag)
-	}
-	ctx.tagInd++
+	ctx.tags = append(ctx.tags, tag)
 }
 
-// Grow the capacity of tag list by N.
-// Growing the list once should be faster than appending to list multiple times.
-func (ctx *httpContext) GrowTagN(n int) {
-	newTags := make([]string, len(ctx.tags)+n)
-	for i, tag := range ctx.tags {
-		newTags[i] = tag
-	}
-	for i := ctx.tagInd; i < len(newTags); i++ {
-		newTags[i] = ""
-	}
-	ctx.tags = newTags
-}
-
-// Fill the fields of next empty LazyTag. If all existing LazyTags are filled, create new one.
+// Add new LazyTag.
 func (ctx *httpContext) AddLazyTag(ns string, prefix string, msg string, intMsg int) {
-	if len(ctx.lazyTags) > ctx.lazyTagInd {
-		tag := ctx.lazyTags[ctx.lazyTagInd]
-		tag.Namespace = ns
-		tag.Prefix = prefix
-		tag.StringMsg = msg
-		tag.IntMsg = intMsg
-		tag.Sep = ": "
-	} else {
-		lazyTag := &LazyTag{
-			Namespace: ns,
-			Prefix:    prefix,
-			StringMsg: msg,
-			IntMsg:    intMsg,
-			Sep:       ": ",
-		}
-		ctx.lazyTags = append(ctx.lazyTags, lazyTag)
+	lazyTag := &LazyTag{
+		Namespace: ns,
+		Prefix:    prefix,
+		StringMsg: msg,
+		IntMsg:    intMsg,
+		Sep:       ": ",
 	}
-	ctx.lazyTagInd++
-}
-
-// GrowLazyTagN the capacity of LazyTag list by N.
-// Growing the list once should be faster than appending to list multiple times.
-func (ctx *httpContext) GrowLazyTagN(n int) {
-	newLazyTags := make([]*LazyTag, len(ctx.lazyTags)+n)
-	for i, tag := range ctx.lazyTags {
-		newLazyTags[i] = tag
-	}
-	for i := ctx.lazyTagInd; i < len(newLazyTags); i++ {
-		newLazyTags[i] = &LazyTag{}
-	}
-	ctx.lazyTags = newLazyTags
+	ctx.lazyTags = append(ctx.lazyTags, lazyTag)
 }
 
 // Return all tags in string format.
 func (ctx *httpContext) GetTags() []string {
-	allTags := make([]string, ctx.tagInd+ctx.lazyTagInd)
+	allTags := make([]string, len(ctx.tags)+len(ctx.lazyTags))
 	for i := 0; i < ctx.tagInd; i++ {
 		allTags[i] = ctx.tags[i]
 	}

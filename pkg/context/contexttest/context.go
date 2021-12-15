@@ -45,8 +45,6 @@ type MockedHTTPContext struct {
 	MockedClientDisconnected func() bool
 	MockedOnFinish           func(func())
 	MockedAddTag             func(tag string)
-	MockedGrowTagN           func(n int)
-	MockedGrowLazyTagN       func(n int)
 	MockedAddLazyTag         func(ns string, prefix string, msg string, intMsg int)
 	MockedGetTags            func() []string
 	MockedStatMetric         func() *httpstat.Metric
@@ -172,20 +170,6 @@ func (c *MockedHTTPContext) AddTag(tag string) {
 func (c *MockedHTTPContext) AddLazyTag(ns string, prefix string, msg string, intMsg int) {
 	if c.MockedAddLazyTag != nil {
 		c.MockedAddLazyTag(ns, prefix, msg, intMsg)
-	}
-}
-
-// GrowTagN mocks the GrowTagN function of HTTPContext
-func (c *MockedHTTPContext) GrowTagN(num int) {
-	if c.MockedGrowTagN != nil {
-		c.MockedGrowTagN(num)
-	}
-}
-
-// GrowLazyTagN mocks the GrowLazyTagN function of HTTPContext
-func (c *MockedHTTPContext) GrowLazyTagN(num int) {
-	if c.MockedGrowLazyTagN != nil {
-		c.MockedGrowLazyTagN(num)
 	}
 }
 
