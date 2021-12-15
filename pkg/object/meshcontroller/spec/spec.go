@@ -202,6 +202,12 @@ type (
 		ServiceHeaders map[string][]string `yaml:"serviceHeaders" jsonschema:"omitempty"`
 	}
 
+	// GlobalTransmission is the spec of global transmission data.
+	// All endpoints of mesh should pass them.
+	GlobalTransmission struct {
+		Headers []string `yaml:"headers" jsonschema:"omitempty"`
+	}
+
 	// LoadBalance is the spec of service load balance.
 	LoadBalance = proxy.LoadBalance
 

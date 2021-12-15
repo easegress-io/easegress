@@ -45,7 +45,7 @@ func createHTTPServer(finished chan bool, notFoundFlag bool) error {
 			m.HandleFunc(serviceConfigURL, func(w http.ResponseWriter, r *http.Request) {
 				fmt.Fprintf(w, "Hello, %q", html.EscapeString(r.URL.Path))
 			})
-			m.HandleFunc(canaryConfigURL, func(w http.ResponseWriter, r *http.Request) {
+			m.HandleFunc(globalTransmissionConfigURL, func(w http.ResponseWriter, r *http.Request) {
 				fmt.Fprintf(w, "Hello, %q", html.EscapeString(r.URL.Path))
 			})
 		}
@@ -109,11 +109,11 @@ func TestAgentClientSuccess(t *testing.T) {
 		t.Errorf("agent update service failed: %v\n", err)
 	}
 
-	// UpdateCanary
-	header := &spec.GlobalCanaryHeaders{
-		ServiceHeaders: map[string][]string{},
+	// UpdateGlobalTransmission
+	transmission := &spec.GlobalTransmission{
+		Headers: []string{},
 	}
-	err = agent.UpdateCanary(header, 1)
+	err = agent.UpdateGlobalTransmission(transmission)
 	if err != nil {
 		t.Errorf("agent update canary failed: %v\n", err)
 	}
@@ -134,10 +134,10 @@ func TestAgentClientFail(t *testing.T) {
 	if err == nil {
 		t.Errorf("agent should fail\n")
 	}
-	header := &spec.GlobalCanaryHeaders{
-		ServiceHeaders: map[string][]string{},
+	transmission := &spec.GlobalTransmission{
+		Headers: []string{},
 	}
-	err = agent.UpdateCanary(header, 1)
+	err = agent.UpdateGlobalTransmission(transmission)
 	if err == nil {
 		t.Errorf("agent should fail\n")
 	}
@@ -154,7 +154,7 @@ func TestAgentClientFail(t *testing.T) {
 	if err == nil {
 		t.Errorf("agent should fail\n")
 	}
-	err = agent.UpdateCanary(header, 1)
+	err = agent.UpdateGlobalTransmission(transmission)
 	if err == nil {
 		t.Errorf("agent should fail\n")
 	}

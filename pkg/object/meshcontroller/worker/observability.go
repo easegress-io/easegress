@@ -57,9 +57,9 @@ func (server *ObservabilityManager) UpdateService(newService *spec.Service, vers
 	return nil
 }
 
-// UpdateCanary updates canary.
-func (server *ObservabilityManager) UpdateCanary(globalHeaders *spec.GlobalCanaryHeaders, version int64) error {
-	err := server.agentClient.UpdateCanary(globalHeaders, version)
+// UpdateGlobalTransmission updates global transmission.
+func (server *ObservabilityManager) UpdateGlobalTransmission(transmission *spec.GlobalTransmission) error {
+	err := server.agentClient.UpdateGlobalTransmission(transmission)
 	if err != nil {
 		return fmt.Errorf("Update Canary Spec: %v ", err)
 	}
