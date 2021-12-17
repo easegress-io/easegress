@@ -82,7 +82,7 @@ func (w *httpResponse) SetBody(body io.Reader) {
 }
 
 // OnFlushBody adds an HTTP body flushing handler function
-func (w *httpResponse) OnFlushBody(fn BodyFlushFunc) {
+func (w *httpResponse) OnFlushBody(fn func(body []byte, complete bool) (newBody []byte)) {
 	w.bodyFlushFuncs = append(w.bodyFlushFuncs, fn)
 }
 

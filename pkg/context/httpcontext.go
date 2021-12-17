@@ -233,7 +233,7 @@ func (ctx *httpContext) Cancel(err error) {
 	}
 }
 
-func (ctx *httpContext) OnFinish(fn FinishFunc) {
+func (ctx *httpContext) OnFinish(fn func()) {
 	ctx.finishFuncs = append(ctx.finishFuncs, fn)
 }
 
