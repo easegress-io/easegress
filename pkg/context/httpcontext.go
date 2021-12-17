@@ -220,7 +220,7 @@ func New(stdw http.ResponseWriter, stdr *http.Request,
 	return ctx
 }
 
-// Empty httpContext for testing.
+// NewEmptyContext for testing.
 func NewEmptyContext() HTTPContext {
 	return &httpContext{}
 }

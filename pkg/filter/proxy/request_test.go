@@ -99,12 +99,12 @@ func TestResultState(t *testing.T) {
 func TestRequestStatus(t *testing.T) {
 	req := requestPool.Get().(*request)
 	req.createTime = fasttime.Now()
-	req.status = Created
+	req.status = created
 
 	if !req.createTime.Equal(req.startTime()) {
 		t.Error("starttime should be createtime before start()")
 	}
-
+	time.Sleep(time.Millisecond)
 	req.start()
 
 	if req.createTime.Equal(req.startTime()) {

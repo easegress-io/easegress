@@ -74,7 +74,7 @@ func (h *HTTPHeader) Std() http.Header {
 	return h.h
 }
 
-// Set the http.Header object to header.
+// SetRaw set the http.Header object to header.
 func (h *HTTPHeader) SetRaw(header http.Header) {
 	h.h = header
 }

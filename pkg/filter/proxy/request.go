@@ -51,9 +51,9 @@ type (
 )
 
 const (
-	Created requestStatus = iota
-	Started
-	Finished
+	created requestStatus = iota
+	started
+	finished
 )
 
 func (p *pool) newRequest(
@@ -67,7 +67,7 @@ func (p *pool) newRequest(
 	req.createTime = fasttime.Now()
 	req.server = server
 	req.statResult = statResult
-	req.status = Created
+	req.status = created
 
 	r := ctx.Request()
 
@@ -91,18 +91,18 @@ func (p *pool) newRequest(
 }
 
 func (r *request) start() {
-	if r.status == Started {
+	if r.status == started {
 		logger.Errorf("BUG: started already")
 		return
 	}
 
 	now := fasttime.Now()
 	r._startTime = &now
-	r.status = Started
+	r.status = started
 }
 
 func (r *request) startTime() time.Time {
-	if r.status == Created {
+	if r.status == created {
 		return r.createTime
 	}
 
@@ -110,7 +110,7 @@ func (r *request) startTime() time.Time {
 }
 
 func (r *request) endTime() time.Time {
-	if r.status != Finished {
+	if r.status != finished {
 		return fasttime.Now()
 	}
 
@@ -118,7 +118,7 @@ func (r *request) endTime() time.Time {
 }
 
 func (r *request) finish() {
-	if r.status == Finished {
+	if r.status == finished {
 		logger.Errorf("BUG: finished already")
 		return
 	}
@@ -126,11 +126,11 @@ func (r *request) finish() {
 	now := fasttime.Now()
 	r.statResult.End(now)
 	r._endTime = &now
-	r.status = Finished
+	r.status = finished
 }
 
 func (r *request) total() time.Duration {
-	if r.status != Finished {
+	if r.status != finished {
 		logger.Errorf("BUG: call total before finish")
 		return r.statResult.Total(fasttime.Now())
 	}
