@@ -111,13 +111,13 @@ func TestRequestStatus(t *testing.T) {
 		t.Error("starttime should not be createtime after start()")
 	}
 
-	if req.endTime().Equal(*req._endTime) {
+	if req._endTime != nil && req.endTime().Equal(*req._endTime) {
 		t.Error("endtime should be now before finish()")
 	}
 
 	req.finish()
 
-	if !req.endTime().Equal(*req._endTime) {
+	if req._endTime != nil && !req.endTime().Equal(*req._endTime) {
 		t.Error("endtime should be _endtime after finish()")
 	}
 
