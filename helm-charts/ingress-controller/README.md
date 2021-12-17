@@ -48,9 +48,9 @@ helm install ingress-easegress -n ingress-easegress ./helm-charts/ingress-contro
 ## Uninstall
 
 ```shell
-helm uninstall easegress -n easegress
+helm uninstall ingress-easegress -n ingress-easegress
 
 #sometimes helm does not delete pvc and pv. Delete manually each pvc.
-kubectl delete pvc easegress-pv-easegress-0 -n easegress
-# same for easegress-pv-easegress-i...n
+kubectl delete pvc easegress-pv-ingress-easegress-0 -n ingress-easegress
+# same for easegress-pv-ingress-easegress-i...n
 ```
