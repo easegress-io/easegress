@@ -200,6 +200,86 @@ func TestMultiRateLimiter(t *testing.T) {
 	limiter.SetState(StateDisabled)
 }
 
+func TestMultiRateLimiter2(t *testing.T) {
+	policy := NewMultiPolicy(0, 10*time.Millisecond, []int{10, 50})
+
+	limiter := NewMulti(policy)
+
+	// both exceed rate
+	for i := 0; i < 10; i++ {
+		permitted, _, err := limiter.AcquirePermission([]int{1, 5})
+		if err != nil {
+			t.Errorf("AcquirePermission fail, %v", err)
+		}
+		if !permitted {
+			t.Errorf("AcquirePermission should succeed: %d", i)
+		}
+	}
+	for i := 0; i < 10; i++ {
+		permitted, _, err := limiter.AcquirePermission([]int{1, 5})
+		if err != nil {
+			t.Errorf("AcquirePermission fail, %v", err)
+		}
+		if permitted {
+			t.Errorf("AcquirePermission should fail: %d", i)
+		}
+	}
+
+	// second exceed rate
+	now = now.Add(time.Millisecond * 10)
+	for i := 0; i < 10; i++ {
+		permitted, _, err := limiter.AcquirePermission([]int{0, 5})
+		if err != nil {
+			t.Errorf("AcquirePermission fail, %v", err)
+		}
+		if !permitted {
+			t.Errorf("AcquirePermission should succeed: %d", i)
+		}
+	}
+	for i := 0; i < 10; i++ {
+		permitted, _, err := limiter.AcquirePermission([]int{1, 0})
+		if err != nil {
+			t.Errorf("AcquirePermission fail, %v", err)
+		}
+		if permitted {
+			t.Errorf("AcquirePermission should fail: %d", i)
+		}
+	}
+
+	// first exceed rate
+	now = now.Add(time.Millisecond * 10)
+	for i := 0; i < 10; i++ {
+		permitted, _, err := limiter.AcquirePermission([]int{1, 0})
+		if err != nil {
+			t.Errorf("AcquirePermission fail, %v", err)
+		}
+		if !permitted {
+			t.Errorf("AcquirePermission should succeed: %d", i)
+		}
+	}
+	for i := 0; i < 10; i++ {
+		permitted, _, err := limiter.AcquirePermission([]int{0, 5})
+		if err != nil {
+			t.Errorf("AcquirePermission fail, %v", err)
+		}
+		if permitted {
+			t.Errorf("AcquirePermission should fail: %d", i)
+		}
+	}
+
+	// both not exceed rate
+	now = now.Add(time.Millisecond * 10)
+	for i := 0; i < 100; i++ {
+		permitted, _, err := limiter.AcquirePermission([]int{0, 0})
+		if err != nil {
+			t.Errorf("AcquirePermission fail, %v", err)
+		}
+		if !permitted {
+			t.Errorf("AcquirePermission should succeed: %d", i)
+		}
+	}
+}
+
 func TestMultiRateLimiterN(t *testing.T) {
 	policy := NewMultiPolicy(50*time.Millisecond, 10*time.Millisecond, []int{5})
 

@@ -75,4 +75,52 @@ func TestLimiter(t *testing.T) {
 	time.Sleep(1100 * time.Millisecond)
 	permitted = l.acquirePermission(100)
 	assert.Equal(t, true, permitted)
+
+	// provide both and use both
+	spec = &RateLimit{
+		RequestRate: 10,
+		BytesRate:   100,
+		TimePeriod:  60,
+	}
+	l = newLimiter(spec)
+	for i := 0; i < 20; i++ {
+		permitted := l.acquirePermission(10)
+		if i < 10 {
+			assert.Equal(t, true, permitted)
+		} else {
+			assert.Equal(t, false, permitted)
+		}
+	}
+
+	// provide both and use both
+	spec = &RateLimit{
+		RequestRate: 10,
+		BytesRate:   100,
+		TimePeriod:  60,
+	}
+	l = newLimiter(spec)
+	for i := 0; i < 20; i++ {
+		permitted := l.acquirePermission(0)
+		if i < 10 {
+			assert.Equal(t, true, permitted)
+		} else {
+			assert.Equal(t, false, permitted)
+		}
+	}
+
+	// provide both and use both
+	spec = &RateLimit{
+		RequestRate: 100,
+		BytesRate:   10,
+		TimePeriod:  60,
+	}
+	l = newLimiter(spec)
+	for i := 0; i < 20; i++ {
+		permitted := l.acquirePermission(1)
+		if i < 10 {
+			assert.Equal(t, true, permitted)
+		} else {
+			assert.Equal(t, false, permitted)
+		}
+	}
 }

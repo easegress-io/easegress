@@ -43,10 +43,12 @@ func newLimiter(spec *RateLimit) *Limiter {
 		policy := ratelimiter.NewMultiPolicy(0, time.Duration(timePeriod)*time.Second, []int{spec.RequestRate, spec.BytesRate})
 		l := ratelimiter.NewMulti(policy)
 		limiter.multiLimiter = l
+
 	} else if spec.RequestRate > 0 {
 		policy := ratelimiter.NewPolicy(0, time.Duration(timePeriod)*time.Second, spec.RequestRate)
 		l := ratelimiter.New(policy)
 		limiter.requestLimiter = l
+
 	} else if spec.BytesRate > 0 {
 		policy := ratelimiter.NewPolicy(0, time.Duration(timePeriod)*time.Second, spec.BytesRate)
 		l := ratelimiter.New(policy)
