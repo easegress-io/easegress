@@ -57,8 +57,8 @@ type (
 		Cancelled() bool
 		ClientDisconnected() bool
 
-		OnFinish(func())   // For setting final client statistics, etc.
-		AddTag(tag string) // For debug, log, etc.
+		OnFinish(FinishFunc) // For setting final client statistics, etc.
+		AddTag(tag string)   // For debug, log, etc.
 
 		StatMetric() *httpstat.Metric
 
@@ -116,7 +116,7 @@ type (
 
 		SetBody(body io.Reader)
 		Body() io.Reader
-		OnFlushBody(func(body []byte, complete bool) (newBody []byte))
+		OnFlushBody(BodyFlushFunc)
 
 		Std() http.ResponseWriter
 
@@ -126,6 +126,10 @@ type (
 	// FinishFunc is the type of function to be called back
 	// when HTTPContext is finishing.
 	FinishFunc = func()
+
+	// BodyFlushFunc is the type of function to be called back
+	// when body is flushing.
+	BodyFlushFunc = func(body []byte, complete bool) (newBody []byte)
 
 	httpContext struct {
 		mutex sync.Mutex
@@ -233,7 +237,7 @@ func (ctx *httpContext) Cancel(err error) {
 	}
 }
 
-func (ctx *httpContext) OnFinish(fn func()) {
+func (ctx *httpContext) OnFinish(fn FinishFunc) {
 	ctx.finishFuncs = append(ctx.finishFuncs, fn)
 }
 
