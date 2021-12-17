@@ -63,7 +63,7 @@ spec:
         - mountPath: /opt/eg-config/controller.yaml
           name: {{ .Release.Name }}
           subPath: controller.yaml
-        - mountPath: /opt/eg-data/
+        - mountPath: /opt/easegress/data
           name: {{ if eq .Values.cluster.volumeType "persistentVolume" }}easegress-pv {{ else }} ingress-data-volume {{ end }}
       restartPolicy: Always
       volumes:
