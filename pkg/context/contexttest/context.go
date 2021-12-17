@@ -143,7 +143,7 @@ func (c *MockedHTTPContext) ClientDisconnected() bool {
 }
 
 // OnFinish mocks the OnFinish function of HTTPContext
-func (c *MockedHTTPContext) OnFinish(fn func()) {
+func (c *MockedHTTPContext) OnFinish(fn context.FinishFunc) {
 	if c.MockedFinish != nil {
 		c.MockedOnFinish(fn)
 	}

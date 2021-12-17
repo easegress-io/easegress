@@ -31,10 +31,6 @@ import (
 var bodyFlushBuffSize = 8 * int64(os.Getpagesize())
 
 type (
-	// BodyFlushFunc is the type of function to be called back
-	// when body is flushing.
-	BodyFlushFunc = func(body []byte, complete bool) (newBody []byte)
-
 	httpResponse struct {
 		stdr *http.Request
 		std  http.ResponseWriter
