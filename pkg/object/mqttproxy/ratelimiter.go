@@ -25,8 +25,9 @@ import (
 
 // Limiter is a rate limiter for MQTTProxy
 type Limiter struct {
-	requestLimiter *ratelimiter.UnlockedRateLimiter
-	byteLimiter    *ratelimiter.UnlockedRateLimiter
+	multiLimiter   *ratelimiter.MultiRateLimiter
+	requestLimiter *ratelimiter.RateLimiter
+	byteLimiter    *ratelimiter.RateLimiter
 }
 
 func newLimiter(spec *RateLimit) *Limiter {
@@ -38,40 +39,34 @@ func newLimiter(spec *RateLimit) *Limiter {
 	if spec.TimePeriod > 0 {
 		timePeriod = spec.TimePeriod
 	}
-	if spec.RequestRate > 0 {
+	if spec.RequestRate > 0 && spec.BytesRate > 0 {
+		policy := ratelimiter.NewMultiPolicy(0, time.Duration(timePeriod)*time.Second, []int{spec.RequestRate, spec.BytesRate})
+		l := ratelimiter.NewMulti(policy)
+		limiter.multiLimiter = l
+	} else if spec.RequestRate > 0 {
 		policy := ratelimiter.NewPolicy(0, time.Duration(timePeriod)*time.Second, spec.RequestRate)
-		l := ratelimiter.NewUnlocked(policy)
+		l := ratelimiter.New(policy)
 		limiter.requestLimiter = l
-	}
-	if spec.BytesRate > 0 {
+	} else if spec.BytesRate > 0 {
 		policy := ratelimiter.NewPolicy(0, time.Duration(timePeriod)*time.Second, spec.BytesRate)
-		l := ratelimiter.NewUnlocked(policy)
+		l := ratelimiter.New(policy)
 		limiter.byteLimiter = l
 	}
 	return limiter
 }
 
 func (l *Limiter) acquirePermission(byteNum int) bool {
-	requestPermit := true
-	bytePermit := true
+	if l.multiLimiter != nil {
+		permitted, _, _ := l.multiLimiter.AcquirePermission([]int{1, byteNum})
+		return permitted
+	}
 	if l.requestLimiter != nil {
-		l.requestLimiter.Lock()
-		defer l.requestLimiter.Unlock()
-		requestPermit, _ = l.requestLimiter.CheckPermission(1)
+		permitted, _ := l.requestLimiter.AcquirePermission()
+		return permitted
 	}
 	if l.byteLimiter != nil {
-		l.byteLimiter.Lock()
-		defer l.byteLimiter.Unlock()
-		bytePermit, _ = l.byteLimiter.CheckPermission(byteNum)
+		permitted, _ := l.byteLimiter.AcquireNPermission(byteNum)
+		return permitted
 	}
-	if requestPermit && bytePermit {
-		if l.requestLimiter != nil {
-			l.requestLimiter.DoLastCheck()
-		}
-		if l.byteLimiter != nil {
-			l.byteLimiter.DoLastCheck()
-		}
-		return true
-	}
-	return false
+	return true
 }
