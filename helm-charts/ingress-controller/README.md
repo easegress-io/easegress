@@ -44,3 +44,13 @@ helm install ingress-easegress -n ingress-easegress ./helm-charts/ingress-contro
   --set cluster.volumeType=persistentVolume \
   --set 'cluster.nodeHostnames={hostname-xyz}'
 ```
+
+## Uninstall
+
+```shell
+helm uninstall easegress -n easegress
+
+#sometimes helm does not delete pvc and pv. Delete manually each pvc.
+kubectl delete pvc easegress-pv-easegress-0 -n easegress
+# same for easegress-pv-easegress-i...n
+```
