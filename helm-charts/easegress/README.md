@@ -10,6 +10,15 @@ kubectl create ns easegress
 # update common helm charts
 helm dependency update ./helm-charts/easegress
 ```
+
+### Prepare persistent volume (optional)
+
+If you are going to use persistent volumes, run following shell command on each persistent volume node:
+```bash
+sudo mkdir /opt/easegress
+sudo chmod 700 /opt/easegress
+```
+
 ## Usage
 ```shell
 

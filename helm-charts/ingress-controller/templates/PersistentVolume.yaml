@@ -12,7 +12,7 @@ spec:
   - ReadWriteOnce
   persistentVolumeReclaimPolicy: Delete
   storageClassName: easegress-storage
-  hostPath:
+  local:
     path: /opt/easegress
   nodeAffinity:
     required:

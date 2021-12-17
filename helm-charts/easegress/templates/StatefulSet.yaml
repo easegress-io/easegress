@@ -61,6 +61,8 @@ spec:
           subPath: eg-primary.yaml
         - mountPath: /opt/easegress/data
           name: {{ if eq .Values.cluster.volumeType "persistentVolume" }}easegress-pv {{ else }} easegress-data-volume {{ end }}
+        - mountPath: /opt/easegress/log
++         name: {{ if eq .Values.cluster.volumeType "persistentVolume" }}easegress-pv {{ else }} easegress-data-volume {{ end }}
       restartPolicy: Always
       volumes:
       - emptyDir: {}
