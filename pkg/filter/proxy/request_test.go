@@ -24,6 +24,8 @@ import (
 	"testing"
 	"time"
 
+	httpstat "github.com/tcnksm/go-httpstat"
+
 	"github.com/megaease/easegress/pkg/context/contexttest"
 	"github.com/megaease/easegress/pkg/util/fasttime"
 	"github.com/megaease/easegress/pkg/util/httpheader"
@@ -97,9 +99,11 @@ func TestResultState(t *testing.T) {
 }
 
 func TestRequestStatus(t *testing.T) {
+	statResult := httpstatResultPool.Get().(*httpstat.Result)
 	req := requestPool.Get().(*request)
 	req.createTime = fasttime.Now()
 	req.status = created
+	req.statResult = statResult
 
 	if !req.createTime.Equal(req.startTime()) {
 		t.Error("starttime should be createtime before start()")
@@ -121,5 +125,6 @@ func TestRequestStatus(t *testing.T) {
 		t.Error("endtime should be _endtime after finish()")
 	}
 
+	httpstatResultPool.Put(req.statResult)
 	requestPool.Put(req)
 }
