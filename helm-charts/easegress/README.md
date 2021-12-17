@@ -54,7 +54,7 @@ where NODE_IP is the IP address a node running Easegress pod and `pipeline.yaml`
 ```shell
 helm uninstall easegress -n easegress
 
-#sometimes helm does not delete pvc and pv. Delete manually each pvc.
+# sometimes helm does not delete pvc and pv. Delete manually each pvc.
 kubectl delete pvc easegress-pv-easegress-0 -n easegress
 # same for easegress-pv-easegress-i...n
 ```
