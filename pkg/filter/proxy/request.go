@@ -22,8 +22,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"time"
 	"sync"
+	"time"
 
 	httpstat "github.com/tcnksm/go-httpstat"
 
@@ -42,7 +42,7 @@ type (
 		createTime time.Time
 		_startTime *time.Time
 		_endTime   *time.Time
-		status	  requestStatus
+		status     requestStatus
 	}
 
 	resultState struct {
@@ -51,7 +51,7 @@ type (
 )
 
 const (
-	Created	requestStatus = iota
+	Created requestStatus = iota
 	Started
 	Finished
 )

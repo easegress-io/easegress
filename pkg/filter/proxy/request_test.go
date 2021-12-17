@@ -25,8 +25,8 @@ import (
 	"time"
 
 	"github.com/megaease/easegress/pkg/context/contexttest"
-	"github.com/megaease/easegress/pkg/util/httpheader"
 	"github.com/megaease/easegress/pkg/util/fasttime"
+	"github.com/megaease/easegress/pkg/util/httpheader"
 )
 
 func TestRequest(t *testing.T) {

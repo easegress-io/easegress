@@ -80,7 +80,7 @@ type (
 // NoopSpan does nothing.
 var NoopSpan = &span{
 	tracer: NoopTracing,
-	span: NoopTracing.StartSpan(""), // will return opentracing.defaultNoopSpan
+	span:   NoopTracing.StartSpan(""), // will return opentracing.defaultNoopSpan
 }
 
 // NewSpan creates a span.

@@ -95,6 +95,10 @@ func LazyHTTPAccess(fn func() string) {
 	httpFilterAccessLogger.Debug(lazyLogBuilder{fn})
 }
 
+func IsAccessLogDisabled() bool {
+	return isHttpFilterNop
+}
+
 // NginxHTTPAccess is DEPRECATED, replaced by HTTPAccess.
 func NginxHTTPAccess(remoteAddr, proto, method, path, referer, agent, realIP string,
 	code int, bodyBytesSent int64,

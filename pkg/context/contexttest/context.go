@@ -47,6 +47,7 @@ type MockedHTTPContext struct {
 	MockedAddTag             func(tag string)
 	MockedAddLazyTag         func(ns string, prefix string, msg string, intMsg int)
 	MockedGetTags            func() []string
+	MockedReleaseLazyTags    func()
 	MockedStatMetric         func() *httpstat.Metric
 	MockedFinish             func()
 	MockedTemplate           func() texttemplate.TemplateEngine
@@ -173,11 +174,19 @@ func (c *MockedHTTPContext) AddLazyTag(ns string, prefix string, msg string, int
 	}
 }
 
+// GetTags mocks the GetTags function of HTTPContext
 func (c *MockedHTTPContext) GetTags() []string {
 	if c.MockedGetTags != nil {
 		return c.MockedGetTags()
 	}
 	return []string{}
+}
+
+// ReleaseLazyTags mocks the ReleaseLazyTags function of HTTPContext
+func (c *MockedHTTPContext) ReleaseLazyTags() {
+	if c.MockedReleaseLazyTags != nil {
+		c.MockedReleaseLazyTags()
+	}
 }
 
 // StatMetric mocks the StatMetric function of HTTPContext

@@ -62,7 +62,10 @@ type (
 		AddTag(tag string) // For debug, log, etc.
 		// Update next lazy tag, without creating new object if possible.
 		AddLazyTag(ns string, prefix string, msg string, intMsg int)
+		// Converts LazyTags to string and return them with normal tags.
 		GetTags() []string
+		// Recycle LazyTags back to lazyTagPool.
+		ReleaseLazyTags()
 
 		StatMetric() *httpstat.Metric
 
@@ -182,6 +185,12 @@ func (lt *LazyTag) String() string {
 	return stringtool.Cat(lt.Namespace, lt.Sep, lt.Prefix, lt.Sep, msg)
 }
 
+var lazyTagPool = sync.Pool{
+	New: func() interface{} {
+		return &LazyTag{}
+	},
+}
+
 // New creates an HTTPContext.
 // NOTE: We can't use sync.Pool to recycle context.
 // Reference: https://github.com/gin-gonic/gin/issues/1731
@@ -247,14 +256,19 @@ func (ctx *httpContext) AddTag(tag string) {
 
 // Add new LazyTag.
 func (ctx *httpContext) AddLazyTag(ns string, prefix string, msg string, intMsg int) {
-	lazyTag := &LazyTag{
-		Namespace: ns,
-		Prefix:    prefix,
-		StringMsg: msg,
-		IntMsg:    intMsg,
-		Sep:       ": ",
-	}
+	lazyTag := lazyTagPool.Get().(*LazyTag)
+	lazyTag.Namespace = ns
+	lazyTag.Prefix = prefix
+	lazyTag.StringMsg = msg
+	lazyTag.IntMsg = intMsg
+	lazyTag.Sep = ": "
 	ctx.lazyTags = append(ctx.lazyTags, lazyTag)
+}
+
+func (ctx *httpContext) ReleaseLazyTags() {
+	for _, lazyTag := range ctx.lazyTags {
+		lazyTagPool.Put(lazyTag)
+	}
 }
 
 // Return all tags in string format.
@@ -347,6 +361,8 @@ func (ctx *httpContext) Finish() {
 
 	logger.LazyHTTPAccess(func() string {
 		stdr := ctx.r.std
+		tags := strings.Join(ctx.GetTags(), " | ")
+		ctx.ReleaseLazyTags()
 
 		// log format:
 		// [startTime]
@@ -362,8 +378,11 @@ func (ctx *httpContext) Finish() {
 			fasttime.Format(ctx.startTime, fasttime.RFC3339Milli),
 			stdr.RemoteAddr, ctx.r.RealIP(), stdr.Method, stdr.RequestURI, stdr.Proto, ctx.w.code,
 			ctx.metric.Duration, ctx.r.Size(), ctx.w.Size(),
-			strings.Join(ctx.GetTags(), " | "))
+			tags)
 	})
+	if logger.IsAccessLogDisabled() {
+		ctx.ReleaseLazyTags()
+	}
 }
 
 func (ctx *httpContext) StatMetric() *httpstat.Metric {
