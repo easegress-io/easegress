@@ -19,8 +19,8 @@ package statussynccontroller
 
 import (
 	"runtime/debug"
-	"sync"
 	"strings"
+	"sync"
 
 	"gopkg.in/yaml.v2"
 
