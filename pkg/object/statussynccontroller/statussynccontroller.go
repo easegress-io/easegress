@@ -19,7 +19,6 @@ package statussynccontroller
 
 import (
 	"runtime/debug"
-	"strings"
 	"sync"
 
 	"gopkg.in/yaml.v2"
@@ -219,7 +218,7 @@ func (ssc *StatusSyncController) syncStatusToCluster(statuses map[string]string)
 
 	err := ssc.superSpec.Super().Cluster().PutAndDeleteUnderLease(kvs)
 	if err != nil {
-		logger.Errorf("Sync status failed. If the message size is too large, " +
+		logger.Errorf("Sync status failed. If the message size is too large, "+
 			"please increase the value of cluster.MaxCallSendMsgSize in configuration: %v", err)
 	}
 }
