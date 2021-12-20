@@ -18,7 +18,6 @@
 package ratelimiter
 
 import (
-	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -87,9 +86,6 @@ func TestMultiRateLimiter(t *testing.T) {
 	policy := NewMultiPolicy(50*time.Millisecond, 10*time.Millisecond, []int{5})
 
 	limiter := NewMulti(policy)
-	limiter.SetStateListener(func(event *Event) {
-		fmt.Printf("%v\n", event)
-	})
 	limiter.SetState(StateNormal)
 	for i := 0; i < 30; i++ {
 		permitted, d, err := limiter.AcquirePermission([]int{1})
@@ -284,9 +280,6 @@ func TestMultiRateLimiterN(t *testing.T) {
 	policy := NewMultiPolicy(50*time.Millisecond, 10*time.Millisecond, []int{5})
 
 	limiter := NewMulti(policy)
-	limiter.SetStateListener(func(event *Event) {
-		fmt.Printf("%v\n", event)
-	})
 	limiter.SetState(StateNormal)
 	for i := 0; i < 15; i++ {
 		permitted, _, err := limiter.AcquirePermission([]int{2})

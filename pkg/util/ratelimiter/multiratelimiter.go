@@ -39,11 +39,10 @@ type (
 		startTime time.Time
 		cycle     int
 		tokens    []int
-		listener  EventListenerFunc
 	}
 )
 
-// NewPolicy create and initialize a policy
+// NewMultiPolicy create and initialize a policy
 func NewMultiPolicy(timeout, refresh time.Duration, limit []int) *MultiPolicy {
 	return &MultiPolicy{
 		TimeoutDuration:    timeout,
@@ -75,23 +74,6 @@ func (rl *MultiRateLimiter) SetState(state State) {
 		rl.startTime = nowFunc()
 	}
 	rl.state = state
-}
-
-// SetStateListener sets a state listener for the RateLimiter
-func (rl *MultiRateLimiter) SetStateListener(listener EventListenerFunc) {
-	rl.lock.Lock()
-	defer rl.lock.Unlock()
-	rl.listener = listener
-}
-
-func (rl *MultiRateLimiter) notifyListener(tm time.Time, state State) {
-	if rl.listener != nil {
-		event := Event{
-			Time:  tm,
-			State: stateStrings[state],
-		}
-		go rl.listener(&event)
-	}
 }
 
 // AcquirePermission acquires a permission from the rate limiter.
@@ -157,17 +139,12 @@ func (rl *MultiRateLimiter) AcquirePermission(count []int) (bool, time.Duration,
 	if allFree {
 		if rl.state != StateNormal {
 			rl.state = StateNormal
-			rl.notifyListener(now, rl.state)
 		}
 		return true, 0, nil
 	}
 
 	// no free tokens in current cycle, we can permit the request, but we need also
 	// return a duration which the caller must wait before proceed.
-	if rl.state != StateLimiting {
-		rl.state = StateLimiting
-		rl.notifyListener(now, rl.state)
-	}
 
 	var timeToWait time.Duration
 	for i, token := range tokens {
