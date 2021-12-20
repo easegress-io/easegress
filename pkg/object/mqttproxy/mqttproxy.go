@@ -90,10 +90,10 @@ func memberURLFunc(superSpec *supervisor.Spec) func(string, string) ([]string, e
 	c := superSpec.Super().Cluster()
 
 	f := func(egName, name string) ([]string, error) {
-		logger.Debugf("get member url for %v %v", egName, name)
+		logger.SpanDebugf(nil, "get member url for %v %v", egName, name)
 		kv, err := c.GetPrefix(c.Layout().StatusMemberPrefix())
 		if err != nil {
-			logger.Errorf("cluster get member list failed: %v", err)
+			logger.SpanErrorf(nil, "cluster get member list failed: %v", err)
 			return []string{}, err
 		}
 		urls := []string{}
@@ -101,7 +101,7 @@ func memberURLFunc(superSpec *supervisor.Spec) func(string, string) ([]string, e
 			memberStatus := cluster.MemberStatus{}
 			err := yaml.Unmarshal([]byte(v), &memberStatus)
 			if err != nil {
-				logger.Errorf("cluster status unmarshal failed: %v", err)
+				logger.SpanErrorf(nil, "cluster status unmarshal failed: %v", err)
 				return []string{}, err
 			}
 			if memberStatus.Options.Name != egName {
@@ -120,10 +120,10 @@ func memberURLFunc(superSpec *supervisor.Spec) func(string, string) ([]string, e
 				if err != nil {
 					return nil, fmt.Errorf("get url for %v failed: %v", memberStatus.Options.Name, err)
 				}
-				urls = append(urls, newURL+"/apis/v1"+fmt.Sprintf(mqttAPIPrefix, name))
+				urls = append(urls, newURL+"/apis/v1"+fmt.Sprintf(mqttAPITopicPublishPrefix, name))
 			}
 		}
-		logger.Debugf("eg %v %v get urls %v", egName, name, urls)
+		logger.SpanDebugf(nil, "eg %v %v get urls %v", egName, name, urls)
 		return urls, nil
 	}
 	return f
@@ -138,9 +138,10 @@ func (mp *MQTTProxy) Init(superSpec *supervisor.Spec) {
 
 	store := newStorage(superSpec.Super().Cluster())
 	mp.broker = newBroker(spec, store, memberURLFunc(superSpec))
-	if mp.broker != nil {
-		mp.broker.registerAPIs()
+	if mp.broker == nil {
+		panic(fmt.Sprintf("broker %v start failed", spec.Name))
 	}
+	mp.broker.registerAPIs()
 }
 
 // Inherit inherits previous generation of WebSocketServer.

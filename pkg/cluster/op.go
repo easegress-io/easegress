@@ -175,6 +175,30 @@ func (c *cluster) GetRawPrefix(prefix string) (map[string]*mvccpb.KeyValue, erro
 	return kvs, nil
 }
 
+func (c *cluster) GetWithOp(key string, op ...ClientOp) (map[string]string, error) {
+	kvs := make(map[string]string)
+
+	client, err := c.getClient()
+	if err != nil {
+		return kvs, err
+	}
+
+	newOps := []clientv3.OpOption{}
+	for _, o := range op {
+		if opOption := getOpOption(o); opOption != nil {
+			newOps = append(newOps, opOption)
+		}
+	}
+	resp, err := client.Get(c.requestContext(), key, newOps...)
+	if err != nil {
+		return kvs, err
+	}
+	for _, kv := range resp.Kvs {
+		kvs[string(kv.Key)] = string(kv.Value)
+	}
+	return kvs, nil
+}
+
 func (c *cluster) STM(apply func(concurrency.STM) error) error {
 	client, err := c.getClient()
 	if err != nil {

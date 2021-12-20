@@ -62,10 +62,10 @@ func (sm *SessionManager) doStore() {
 		case <-sm.done:
 			return
 		case kv := <-sm.storeCh:
-			logger.Debugf("session manager store session %v", kv.key)
+			logger.SpanDebugf(nil, "session manager store session %v", kv.key)
 			err := sm.store.put(sessionStoreKey(kv.key), kv.value)
 			if err != nil {
-				logger.Errorf("put session %v into storage failed: %v", kv.key, err)
+				logger.SpanErrorf(nil, "put session %v into storage failed: %v", kv.key, err)
 			}
 		}
 	}
@@ -123,6 +123,6 @@ func (sm *SessionManager) delLocal(clientID string) {
 func (sm *SessionManager) delDB(clientID string) {
 	err := sm.store.delete(sessionStoreKey(clientID))
 	if err != nil {
-		logger.Errorf("delete session %v failed, %v", err)
+		logger.SpanErrorf(nil, "delete session %v failed, %v", err)
 	}
 }

@@ -18,6 +18,7 @@
 package mqttproxy
 
 import (
+	stdcontext "context"
 	"errors"
 	"net"
 	"sync"
@@ -25,7 +26,9 @@ import (
 	"time"
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
+	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 )
 
 const (
@@ -56,18 +59,49 @@ type (
 	Client struct {
 		sync.Mutex
 
-		broker  *Broker
-		session *Session
-		conn    net.Conn
+		broker       *Broker
+		session      *Session
+		publishLimit *Limiter
+		conn         net.Conn
 
 		info       ClientInfo
 		statusFlag int32
 		writeCh    chan packets.ControlPacket
 		done       chan struct{}
+
+		// kv map is used for pipeline to share messages among filters during whole connection
+		kvMap sync.Map
 	}
 )
 
-func newClient(connect *packets.ConnectPacket, broker *Broker, conn net.Conn) *Client {
+var _ context.MQTTClient = (*Client)(nil)
+
+// ClientID return client id of Client
+func (c *Client) ClientID() string {
+	return c.info.cid
+}
+
+// Load load value keep in Client kv map
+func (c *Client) Load(key interface{}) (value interface{}, ok bool) {
+	return c.kvMap.Load(key)
+}
+
+// Store store key-value pair in Client kv map
+func (c *Client) Store(key interface{}, value interface{}) {
+	c.kvMap.Store(key, value)
+}
+
+// Delete delete key-value pair in Client kv map
+func (c *Client) Delete(key interface{}) {
+	c.kvMap.Delete(key)
+}
+
+// UserName return username of Client
+func (c *Client) UserName() string {
+	return c.info.username
+}
+
+func newClient(connect *packets.ConnectPacket, broker *Broker, conn net.Conn, limitSpec *RateLimit) *Client {
 	var will *packets.PublishPacket
 	if connect.WillFlag {
 		will = packets.NewControlPacket(packets.Publish).(*packets.PublishPacket)
@@ -86,12 +120,13 @@ func newClient(connect *packets.ConnectPacket, broker *Broker, conn net.Conn) *C
 		will:      will,
 	}
 	client := &Client{
-		broker:     broker,
-		conn:       conn,
-		info:       info,
-		statusFlag: Connected,
-		writeCh:    make(chan packets.ControlPacket, 50),
-		done:       make(chan struct{}),
+		broker:       broker,
+		conn:         conn,
+		info:         info,
+		statusFlag:   Connected,
+		writeCh:      make(chan packets.ControlPacket, 50),
+		done:         make(chan struct{}),
+		publishLimit: newLimiter(limitSpec),
 	}
 	return client
 }
@@ -115,14 +150,14 @@ func (c *Client) readLoop() {
 
 		if keepAlive > 0 {
 			if err := c.conn.SetDeadline(time.Now().Add(timeOut)); err != nil {
-				logger.Errorf("set read timeout failed: %s", c.info.cid)
+				logger.SpanErrorf(nil, "set read timeout failed: %s", c.info.cid)
 			}
 		}
 
-		logger.Debugf("client %s readLoop read packet", c.info.cid)
+		logger.SpanDebugf(nil, "client %s readLoop read packet", c.info.cid)
 		packet, err := packets.ReadPacket(c.conn)
 		if err != nil {
-			logger.Errorf("client %s read packet failed: %v", c.info.cid, err)
+			logger.SpanErrorf(nil, "client %s read packet failed: %v", c.info.cid, err)
 			return
 		}
 		if _, ok := packet.(*packets.DisconnectPacket); ok {
@@ -131,7 +166,7 @@ func (c *Client) readLoop() {
 		}
 		err = c.processPacket(packet)
 		if err != nil {
-			logger.Errorf("client %s process packet failed: %v", c.info.cid, err)
+			logger.SpanErrorf(nil, "client %s process packet failed: %v", c.info.cid, err)
 			return
 		}
 	}
@@ -165,14 +200,46 @@ func (c *Client) processPacket(packet packets.ControlPacket) error {
 	default:
 		err = errors.New("unknown packet")
 	}
+	if err != nil {
+		logger.SpanDebugf(nil, "client %v process packet failed, %v", c.info.cid, err)
+	}
 	return err
 }
 
+func (c *Client) checkPublishLimit(publish *packets.PublishPacket) bool {
+	size := publish.RemainingLength + 8
+	return c.publishLimit.acquirePermission(size)
+}
+
 func (c *Client) processPublish(publish *packets.PublishPacket) {
-	logger.Debugf("client %s process publish %v", c.info.cid, publish.TopicName)
+	logger.SpanDebugf(nil, "client %s process publish %v", c.info.cid, publish.TopicName)
+
+	if !c.checkPublishLimit(publish) {
+		logger.SpanErrorf(nil, "client %v publish limiter drop packet %v", c.info.cid, publish.TopicName)
+		return
+	}
+	if c.broker.pipeline != "" {
+		pipe, err := pipeline.GetPipeline(c.broker.pipeline, context.MQTT)
+		if err != nil {
+			logger.SpanErrorf(nil, "get pipeline %v failed, %v", c.broker.pipeline, err)
+		} else {
+			ctx := context.NewMQTTContext(stdcontext.Background(), c.broker.backend, c, publish)
+			pipe.HandleMQTT(ctx)
+			if ctx.Disconnect() {
+				logger.SpanDebugf(nil, "client %v set disconnect during process publish", c.info.cid)
+				c.close()
+				return
+			}
+			if ctx.Drop() {
+				logger.SpanDebugf(nil, "client %v drop packet %v during process publish", c.info.cid, publish.TopicName)
+				return
+			}
+		}
+	}
+
 	err := c.broker.backend.publish(publish)
 	if err != nil {
-		logger.Errorf("client %v publish %v failed: %v", c.info.cid, publish.TopicName, err)
+		logger.SpanErrorf(nil, "client %v publish %v failed: %v", c.info.cid, publish.TopicName, err)
 	}
 	switch publish.Qos {
 	case QoS0:
@@ -191,10 +258,10 @@ func (c *Client) processPuback(puback *packets.PubackPacket) {
 }
 
 func (c *Client) processSubscribe(packet *packets.SubscribePacket) {
-	logger.Debugf("client %s processSubscribe %v", c.info.cid, packet.Topics)
+	logger.SpanDebugf(nil, "client %s subscribe %v with qos %v", c.info.cid, packet.Topics, packet.Qoss)
 	err := c.broker.topicMgr.subscribe(packet.Topics, packet.Qoss, c.info.cid)
 	if err != nil {
-		logger.Errorf("client %v subscribe %v failed: %v", c.info.cid, packet.Topics, err)
+		logger.SpanErrorf(nil, "client %v subscribe %v failed: %v", c.info.cid, packet.Topics, err)
 		return
 	}
 	c.session.subscribe(packet.Topics, packet.Qoss)
@@ -209,10 +276,10 @@ func (c *Client) processSubscribe(packet *packets.SubscribePacket) {
 }
 
 func (c *Client) processUnsubscribe(packet *packets.UnsubscribePacket) {
-	logger.Debugf("client %s processUnsubscribe %v", c.info.cid, packet.Topics)
+	logger.SpanDebugf(nil, "client %s processUnsubscribe %v", c.info.cid, packet.Topics)
 	err := c.broker.topicMgr.unsubscribe(packet.Topics, c.info.cid)
 	if err != nil {
-		logger.Errorf("client %v unsubscribe %v failed: %v", c.info.cid, packet.Topics, err)
+		logger.SpanErrorf(nil, "client %v unsubscribe %v failed: %v", c.info.cid, packet.Topics, err)
 	}
 	c.session.unsubscribe(packet.Topics)
 
@@ -236,7 +303,7 @@ func (c *Client) writeLoop() {
 		case p := <-c.writeCh:
 			err := p.Write(c.conn)
 			if err != nil {
-				logger.Errorf("write puback to client %s failed: %s", c.info.cid, err)
+				logger.SpanErrorf(nil, "write packet %v to client %s failed: %s", p.String(), c.info.cid, err)
 				c.closeAndDelSession()
 			}
 		case <-c.done:
@@ -247,12 +314,26 @@ func (c *Client) writeLoop() {
 
 func (c *Client) close() {
 	c.Lock()
-	defer c.Unlock()
 	if c.disconnected() {
+		c.Unlock()
 		return
 	}
+	logger.SpanDebugf(nil, "client %v connection close", c.info.cid)
 	atomic.StoreInt32(&c.statusFlag, Disconnected)
 	close(c.done)
+	c.Unlock()
+
+	// pipeline
+	if c.broker.pipeline != "" {
+		pipe, err := pipeline.GetPipeline(c.broker.pipeline, context.MQTT)
+		if err != nil {
+			logger.SpanErrorf(nil, "get pipeline %v failed, %v", c.broker.pipeline, err)
+		} else {
+			disconnect := packets.NewControlPacket(packets.Disconnect).(*packets.DisconnectPacket)
+			ctx := context.NewMQTTContext(stdcontext.Background(), c.broker.backend, c, disconnect)
+			pipe.HandleMQTT(ctx)
+		}
+	}
 }
 
 func (c *Client) disconnected() bool {
