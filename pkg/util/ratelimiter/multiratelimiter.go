@@ -51,7 +51,7 @@ func NewMultiPolicy(timeout, refresh time.Duration, limit []int) *MultiPolicy {
 	}
 }
 
-// New creates a rate limiter based on `policy`,
+// NewMulti creates a multi rate limiter based on `policy`,
 func NewMulti(policy *MultiPolicy) *MultiRateLimiter {
 	rl := &MultiRateLimiter{
 		policy:    policy,
