@@ -405,6 +405,7 @@ func (c *cluster) getClient() (*clientv3.Client, error) {
 		DialKeepAliveTime:    dialKeepAliveTime,
 		DialKeepAliveTimeout: dialKeepAliveTimeout,
 		LogConfig:            logger.EtcdClientLoggerConfig(c.opt, logger.EtcdClientFilename),
+		MaxCallSendMsgSize:   c.opt.Cluster.MaxSyncMessageSize,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create client failed: %v", err)

@@ -46,6 +46,7 @@ type ClusterOptions struct {
 	StateFlag                string            `yaml:"state-flag"`
 	// Secondary members define URLs to connect to cluster formed by primary members.
 	PrimaryListenPeerURLs []string `yaml:"primary-listen-peer-urls"`
+	MaxSyncMessageSize    int      `yaml:"max-sync-message-size"`
 }
 
 // Options is the start-up options.
@@ -128,6 +129,7 @@ func addClusterVars(opt *Options) {
 		"primary-listen-peer-urls",
 		[]string{"http://localhost:2380"},
 		"List of peer URLs of primary members. Define this only, when cluster-role is secondary.")
+	opt.flags.IntVar(&opt.Cluster.MaxSyncMessageSize, "max-sync-message-size", 10*1024*1024, "Maximum size in bytes for cluster synchronization messages.")
 }
 
 // New creates a default Options.
