@@ -10,6 +10,15 @@ kubectl create ns easegress
 # update common helm charts
 helm dependency update ./helm-charts/easegress
 ```
+
+### Prepare persistent volume (optional)
+
+If you are going to use persistent volumes, run following shell command on each persistent volume node:
+```shell
+sudo mkdir /opt/easegress
+sudo chmod 700 /opt/easegress
+```
+
 ## Usage
 ```shell
 
@@ -39,3 +48,13 @@ Add filters and objects to Easegress:
 egctl --server {NODE_IP}:31255 object create -f pipeline.yaml
 ```
 where NODE_IP is the IP address a node running Easegress pod and `pipeline.yaml` Easegress object definition.
+
+## Uninstall
+
+```shell
+helm uninstall easegress -n easegress
+
+# sometimes helm does not delete pvc and pv. Delete manually each pvc.
+kubectl delete pvc easegress-pv-easegress-0 -n easegress
+# same for easegress-pv-easegress-i...n
+```

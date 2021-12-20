@@ -57,7 +57,7 @@ spec:
         - mountPath: /opt/eg-config/eg-secondary.yaml
           name: {{ .Release.Name }}
           subPath: eg-secondary.yaml
-        - mountPath: /opt/eg-data/
+        - mountPath: /opt/easegress/data
           name: easegress-data-volume
       restartPolicy: Always
       volumes:

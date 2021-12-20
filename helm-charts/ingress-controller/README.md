@@ -11,6 +11,15 @@ kubectl create ns ingress-easegress
 # update common helm charts
 helm dependency update ./helm-charts/ingress-controller
 ```
+
+### Prepare persistent volume (optional)
+
+If you are going to use persistent volumes, run following shell command on each persistent volume node:
+```bash
+sudo mkdir /opt/easegress
+sudo chmod 700 /opt/easegress
+```
+
 ## Usage
 ```shell
 # install with default values
@@ -34,4 +43,14 @@ helm install ingress-easegress -n ingress-easegress ./helm-charts/ingress-contro
 helm install ingress-easegress -n ingress-easegress ./helm-charts/ingress-controller \
   --set cluster.volumeType=persistentVolume \
   --set 'cluster.nodeHostnames={hostname-xyz}'
+```
+
+## Uninstall
+
+```shell
+helm uninstall ingress-easegress -n ingress-easegress
+
+#sometimes helm does not delete pvc and pv. Delete manually each pvc.
+kubectl delete pvc easegress-pv-ingress-easegress-0 -n ingress-easegress
+# same for easegress-pv-ingress-easegress-i...n
 ```
