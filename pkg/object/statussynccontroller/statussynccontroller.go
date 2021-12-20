@@ -207,21 +207,20 @@ func (ssc *StatusSyncController) syncStatusToCluster(statuses map[string]string)
 
 	ssc.lastSyncStatuses = statuses
 
+	totalLen := 0
 	for k, v := range statuses {
 		k = ssc.superSpec.Super().Cluster().Layout().StatusObjectKey(k)
 		value := v
+		totalLen += len(value)
 		kvs[k] = &value
 	}
+	fmt.Println("Total length of the key: ")
+	fmt.Println(totalLen)
 
 	err := ssc.superSpec.Super().Cluster().PutAndDeleteUnderLease(kvs)
 	if err != nil {
-		resourceExhaustedErrMsg := "trying to send message larger than max "
-		if strings.Contains(err.Error(), resourceExhaustedErrMsg) {
-			logger.Errorf("Size of the Easegress objects is too large to be synchronized. " +
-				"Please reduce objects (output of 'egctl object list') or " +
-				"increase the value of cluster.MaxCallSendMsgSize in server configuration.")
-		}
-		logger.Errorf("sync status failed: %v", err)
+		logger.Errorf("Sync status failed. If the message size is too large, " +
+			"please increase the value of cluster.MaxCallSendMsgSize in configuration: %v", err)
 	}
 }
 
