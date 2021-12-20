@@ -35,6 +35,7 @@ This is a cookbook that lists a number of useful and practical examples on how t
 
 - [Easegress Roadmap](./Roadmap.md) - The development roadmap of Easegress.
 - [Developer Guide](./developer-guide.md) - A guide help to develop the Easegress.
+- [Source Code Introduction](./slides/Easegress.code.pptx) - A slide introduces source code (Dec. 2021 - Easegress v1.4.0)
 
 ## 3. Performance
 
