@@ -20,6 +20,7 @@ package statussynccontroller
 import (
 	"runtime/debug"
 	"sync"
+	"strings"
 
 	"gopkg.in/yaml.v2"
 
@@ -214,6 +215,12 @@ func (ssc *StatusSyncController) syncStatusToCluster(statuses map[string]string)
 
 	err := ssc.superSpec.Super().Cluster().PutAndDeleteUnderLease(kvs)
 	if err != nil {
+		resourceExhaustedErrMsg := "trying to send message larger than max "
+		if strings.Contains(err.Error(), resourceExhaustedErrMsg) {
+			logger.Errorf("Size of the Easegress objects is too large to be synchronized. " +
+				"Please reduce objects (output of 'egctl object list') or " +
+				"increase the value of cluster.MaxCallSendMsgSize in server configuration.")
+		}
 		logger.Errorf("sync status failed: %v", err)
 	}
 }
