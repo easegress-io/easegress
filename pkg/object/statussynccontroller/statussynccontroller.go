@@ -208,13 +208,13 @@ func (ssc *StatusSyncController) syncStatusToCluster(statuses map[string]string)
 
 	for k, v := range statuses {
 		k = ssc.superSpec.Super().Cluster().Layout().StatusObjectKey(k)
-		value := v
-		kvs[k] = &value
+		kvs[k] = &v
 	}
 
 	err := ssc.superSpec.Super().Cluster().PutAndDeleteUnderLease(kvs)
 	if err != nil {
-		logger.Errorf("sync status failed: %v", err)
+		logger.Errorf("sync status failed. If the message size is too large, "+
+			"please increase the value of cluster.MaxCallSendMsgSize in configuration: %v", err)
 	}
 }
 
