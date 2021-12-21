@@ -1,4 +1,5 @@
-# IngressController 
+# IngressController
+
 - [IngressController](#ingresscontroller)
   - [Prerequisites](#prerequisites)
   - [Configuration](#configuration)
@@ -16,6 +17,7 @@
 The IngressController is an implementation of [Kubernetes ingress controller](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/), it watches Kubernetes Ingress, Service, Endpoints, and Secrets then translates them to Easegress HTTP server and pipelines.
 
 ## Prerequisites
+
 1. K8s cluster : **v1.18+**
 
 ## Configuration
@@ -36,10 +38,12 @@ httpServer:
   keepAliveTimeout: 60s
   maxConnections: 10240
 ```
-* IngressController uses `kubeConfig` and `masterURL` to connect to Kubernetes, at least one of them must be specified when deployed outside of a Kubernetes cluster, and both are optional when deployed inside a cluster.
-* The `namespaces` is an array of Kubernetes namespaces which the IngressController needs to watch, all namespaces are watched if left empty.
-* IngressController only handles `Ingresses` with `ingressClassName` set to `ingressClass`, the default value of `ingressClass` is `easegress`.
-* One IngressController manages a shared HTTP traffic gate and multiple pipelines according to the Kubernetes ingress. The `httpServer` section in the spec is the basic configuration for the shared HTTP traffic gate. The routing part of the HTTP server and pipeline configurations will be generated dynamically according to Kubernetes ingresses.
+
+- IngressController uses `kubeConfig` and `masterURL` to connect to Kubernetes, at least one of them must be specified when deployed outside of a Kubernetes cluster, and both are optional when deployed inside a cluster.
+
+- The `namespaces` is an array of Kubernetes namespaces which the IngressController needs to watch, all namespaces are watched if left empty.
+- IngressController only handles `Ingresses` with `ingressClassName` set to `ingressClass`, the default value of `ingressClass` is `easegress`.
+- One IngressController manages a shared HTTP traffic gate and multiple pipelines according to the Kubernetes ingress. The `httpServer` section in the spec is the basic configuration for the shared HTTP traffic gate. The routing part of the HTTP server and pipeline configurations will be generated dynamically according to Kubernetes ingresses.
 
 ## Getting Started
 
@@ -89,7 +93,7 @@ Note the name of the ServiceAccount we just created is `easegress-ingress-contro
 
 Easegress instances needs to access disk, to support failure of the pods. In this example we use local volume, but you could also mount any cloud providers volumes ([here](https://kubernetes.io/docs/concepts/storage/volumes/) are some of the options).
 
-To mount local directory at host machine, we create PersistentVolume and StorageClass. Replace `<YOUR-HOSTNAME-HERE>` by hostname of the machine, where Easegress can use the disk. 
+To mount local directory at host machine, we create PersistentVolume and StorageClass. Replace `<YOUR-HOSTNAME-HERE>` by hostname of the machine, where Easegress can use the disk.
 
 ```yaml
 ---
@@ -129,6 +133,7 @@ volumeBindingMode: WaitForFirstConsumer
 ### Create Headless service and set ports
 
 Create ClusterIP [Headless](https://kubernetes.io/docs/concepts/services-networking/service/#headless-services) service to facilitate Easegress server(s) communication.
+
 ```yaml
 ---
 
@@ -213,15 +218,15 @@ data:
     httpServer:
       port: 8080
       https: false
-      keepAlive: true            
-      keepAliveTimeout: 60s      
+      keepAlive: true
+      keepAliveTimeout: 60s
       maxConnections: 10240
 ```
 
 The `eg-primary.yaml` creates Easegress cluster with one member: `http://easegress-0.easegress-hs.default:2380`. Once we create a StatefulSet called `easegress`, using serviceName `easegress-hs` and inside namespace `default`, this URL will match Kubernetes DNS record. You can read more about stable network ids [here](https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#stable-network-id).
 
-
 ### Deploy Easegress IngressController
+
 To deploy the IngressController, we will create a StatefulSet and a Service as below:
 
 ```yaml
@@ -445,18 +450,20 @@ And we can see Easegress IngressController has forwarded requests to the correct
 Until now we have only created IngressController with one instance running. To support high-availability scenarios, let's go through the configurations for creating a cluster of 3 *primary* Easegress instances.
 
 Before applying the changes, let's remove the old resources first:
+
 ```yaml
 kubectl delete statefulset easegress
 kubectl delete pv easegress-pv-0
 kubectl delete configmap easegress-cluster-cm
 ```
+
 Also run `rm -rf /opt/easegress` on machine that `easegress-pv-0` was attached to.
 
 Here are briefly the modifications we need in order to support 3 member cluster:
+
 - in part [Access to disk](#access-to-disk): instead of creating only one *PersistentVolume* `easegress-pv-1`, create three of them `easegress-pv-1`, `easegress-pv-2`, `easegress-pv-3`
 - in part [Configurations to ConfigMap](#configurations-to-configmap) add all three member urls to cluster configuration
 - in part [Deploy Easegress IngressController](#deploy-easegress-ingresscontroller), change the *StatefulfulSet* replica count to 3
-
 
 So the *PersistentVolume* creation would look something like this:
 
@@ -540,6 +547,7 @@ provisioner: kubernetes.io/no-provisioner
 reclaimPolicy: Delete
 volumeBindingMode: WaitForFirstConsumer
 ```
+
 Now here's how we add all three cluster member URLs to *ConfigMap*:
 
 ```yaml
@@ -570,6 +578,7 @@ data:
   controller.yaml: |
     ...
 ```
+
 And last but not least the *StatefulSet* with three replicas:
 
 ```yaml
@@ -589,10 +598,13 @@ spec:
 ```
 
 Now you have configuration yaml files for bootstrapping three member Easegress Ingress Controller cluster. You can test ingress like before `curl http://{NODE_IP}/ -HHost:www.example.com`. To verify that the cluster is healthy, query admin port with `egctl`:
+
 ```bash
 egctl --server {NODE_IP}:31255 member list |grep " name"
 ```
+
 which should output:
+
 ```bash
 #     name: easegress-0
 #     name: easegress-1
@@ -726,7 +738,9 @@ Applying the deployment to the cluster creates two pods with prefix `easegress-s
 ```bash
 egctl --server {NODE_IP}:31255 member list |grep " name"
 ```
+
 which should give something like following:
+
 ```bash
     # name: easegress-0
     # name: easegress-1
@@ -734,6 +748,7 @@ which should give something like following:
     # name: easegress-secondary-758695b96c-2rzqt
     # name: easegress-secondary-758695b96c-2vcpz
 ```
+
 Note that secondary member names might something different, as we did not use headless ClusterIP for them.
 
 We now have 5 Easegress Ingress Controller instances running, handling the ingress traffic of our Kubernetes cluster.

@@ -10,13 +10,13 @@
 
 The IngressController is an implementation of [Kubernetes ingress controller](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/), it watches Kubernetes Ingress, Service, Endpoints, and Secrets then translates them to Easegress HTTP server and pipelines.
 
-This document list example configurations for typical scenarios, more details could be found at [the guide of ingress controller](../ingresscontroller.md).
+This document list example configurations for typical scenarios, more details could be found at [the guide of ingress controller](../reference/ingresscontroller.md).
 
 ## Why Use an Ingress Controller
 
-* **Cuts Down Infrastructure Costs**: Without an ingress controller, when we wanted to expose 20 services to the public internet, we have to pay for 20 cloud load balancers; but with an ingress controller, we only need to pay for one cloud load balancer.
-* **Scalable Layer 7 Load Balancer**
-* **Manage Load Balancer Configuration in a Distributed Fashion**
+- **Cuts Down Infrastructure Costs**: Without an ingress controller, when we wanted to expose 20 services to the public internet, we have to pay for 20 cloud load balancers; but with an ingress controller, we only need to pay for one cloud load balancer.
+- **Scalable Layer 7 Load Balancer**
+- **Manage Load Balancer Configuration in a Distributed Fashion**
 
 ## Cookbook
 
@@ -38,7 +38,7 @@ httpServer:
 ' | egctl object create
 ```
 
-Create two versions of `hello` service in Kubernetes: 
+Create two versions of `hello` service in Kubernetes:
 
 ```bash
 echo '
@@ -90,7 +90,7 @@ spec:
     protocol: TCP
     port: 60002
     targetPort: 50002
-' | kubectl apply 
+' | kubectl apply
 ```
 
 Create a Kubernetes ingress for the two services, note the `ingressClassName` is `easegress`:
@@ -124,7 +124,7 @@ spec:
             name: hello-service
             port:
               number: 60002
-' | kubectl apply 
+' | kubectl apply
 ```
 
 After a while, we can leverage the below command to access both versions of the `hello` application:
