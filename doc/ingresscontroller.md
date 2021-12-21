@@ -1,0 +1,1 @@
+This document has been moved to [here](./reference/ingresscontroller.md).
