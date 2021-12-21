@@ -62,7 +62,7 @@ The following table lists the configurable parameters of the MegaEase Easegress 
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| service.nodePort | int | `8080` | nodePort for easegress service. |
+| service.nodePort | int | `30780` | nodePort for easegress service. |
 | service.adminPort | int | `31255` | nodePort for egctl access. |
 | cluster.primaryReplicas | int | `1` | number of easegress service that persists cluster data to disk |
 | cluster.volumeType | string | `emptyDir` | `emptyDir`: use pods internal filesystem that is not persisted when pod crashes. `persistentVolume`, create as many persistenVolumes and persistentVolumeClaims as there are nodeHostnames.
