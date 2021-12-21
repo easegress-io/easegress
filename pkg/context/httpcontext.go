@@ -58,8 +58,8 @@ type (
 		Cancelled() bool
 		ClientDisconnected() bool
 
-		OnFinish(FinishFunc)   // For setting final client statistics, etc.
-		AddTag(tag string) // For debug, log, etc.
+		OnFinish(FinishFunc) // For setting final client statistics, etc.
+		AddTag(tag string)   // For debug, log, etc.
 		// Update next lazy tag, without creating new object if possible.
 		AddLazyTag(ns string, prefix string, msg string, intMsg int)
 		// Converts LazyTags to string and return them with normal tags.
