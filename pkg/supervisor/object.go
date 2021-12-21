@@ -20,7 +20,7 @@ package supervisor
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"reflect"
 	"runtime/debug"
@@ -300,7 +300,7 @@ func (or *ObjectRegistry) storeConfigInLocal(config map[string]string) {
 	}
 	buff.Write(configBuff)
 
-	err = ioutil.WriteFile(or.configLocalPath, buff.Bytes(), 0o644)
+	err = os.WriteFile(or.configLocalPath, buff.Bytes(), 0o644)
 	if err != nil {
 		logger.Errorf("write %s failed: %v", or.configLocalPath, err)
 		return

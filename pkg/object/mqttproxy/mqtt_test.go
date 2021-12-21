@@ -22,6 +22,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -30,10 +31,15 @@ import (
 	"strconv"
 	"sync"
 	"testing"
+	"time"
 
 	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/object/pipeline"
+	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/openzipkin/zipkin-go/propagation/b3"
+	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v2"
 )
 
@@ -44,6 +50,8 @@ func (t *testMQ) get() *packets.PublishPacket {
 
 func init() {
 	logger.InitNop()
+	// logger.InitMock()
+	pipeline.Register(&pipeline.MockMQTTFilter{})
 }
 
 func getMQTTClient(t *testing.T, clientID, userName, password string, cleanSession bool) paho.Client {
@@ -52,6 +60,12 @@ func getMQTTClient(t *testing.T, clientID, userName, password string, cleanSessi
 	if token := c.Connect(); token.Wait() && token.Error() != nil {
 		t.Errorf("basic connect error for client <%s> with <%s>", clientID, token.Error())
 	}
+	return c
+}
+
+func getUnConnectClient(clientID, userName, password string, cleanSession bool) paho.Client {
+	opts := paho.NewClientOptions().AddBroker("tcp://0.0.0.0:1883").SetClientID(clientID).SetUsername(userName).SetPassword(password).SetCleanSession(cleanSession)
+	c := paho.NewClient(opts)
 	return c
 }
 
@@ -198,6 +212,22 @@ func TestCleanSession(t *testing.T) {
 	if token := client.Subscribe("test/cleanSession/0", 0, nil); token.Wait() && token.Error() != nil {
 		t.Errorf("subscribe qos0 error %s", token.Error())
 	}
+
+	// make sure before disconnect, session and subscribe topic has been stored in storage
+	for i := 0; i < 10; i++ {
+		time.Sleep(30 * time.Millisecond)
+		yamlStr, err := broker.sessMgr.store.get(sessionStoreKey(cid))
+		if err != nil {
+			continue
+		}
+		session := &Session{
+			info: &SessionInfo{},
+		}
+		session.decode(*yamlStr)
+		if len(session.info.Topics) == 1 {
+			break
+		}
+	}
 	client.Disconnect(200)
 
 	c = broker.getClient(cid)
@@ -221,6 +251,9 @@ func TestCleanSession(t *testing.T) {
 	// publish topic to make sure client read loop start
 	token := client.Publish("topic", 1, false, "text")
 	token.Wait()
+	if token.Error() != nil {
+		t.Errorf("client publish message failed %v", token.Error())
+	}
 	subscribers, err = broker.topicMgr.findSubscribers("test/cleanSession/0")
 	if err != nil {
 		t.Errorf("findSubscribers for topic test/cleanSession/0 failed, %v", err)
@@ -232,6 +265,7 @@ func TestCleanSession(t *testing.T) {
 	if err != nil {
 		t.Errorf("clean DB when cleanSession is not set")
 	}
+	client.Disconnect(200)
 
 	broker.close()
 }
@@ -694,7 +728,7 @@ func TestSendMsgBack(t *testing.T) {
 			for j := 0; j < msgNum; j++ {
 				topic := r.ClientID()
 				text := fmt.Sprintf("sub %d", j)
-				broker.sendMsgToClient(topic, []byte(text), QoS1)
+				broker.sendMsgToClient(nil, topic, []byte(text), QoS1)
 			}
 		}(clients[i])
 	}
@@ -823,16 +857,18 @@ func TestYamlEncodeDecode(t *testing.T) {
 }
 
 type testServer struct {
-	mux *http.ServeMux
-	srv http.Server
+	mux  *http.ServeMux
+	srv  http.Server
+	addr string
 }
 
 func newServer(addr string) *testServer {
 	mux := http.NewServeMux()
 	srv := http.Server{Addr: addr, Handler: mux}
 	ts := &testServer{
-		mux: mux,
-		srv: srv,
+		mux:  mux,
+		srv:  srv,
+		addr: addr,
 	}
 	return ts
 }
@@ -841,8 +877,18 @@ func (ts *testServer) addHandlerFunc(pattern string, f http.HandlerFunc) {
 	ts.mux.HandleFunc(pattern, f)
 }
 
-func (ts *testServer) start() {
+func (ts *testServer) start() error {
 	go ts.srv.ListenAndServe()
+	// Poll server until it is ready
+	for t := 0; t < 25; t++ {
+		time.Sleep(50 * time.Millisecond)
+		req, _ := http.NewRequest(http.MethodGet, "http://localhost"+ts.addr, nil)
+		_, err := http.DefaultClient.Do(req)
+		if err == nil {
+			return nil
+		}
+	}
+	return errors.New("Server did not respond")
 }
 
 func (ts *testServer) shutdown() {
@@ -871,8 +917,10 @@ func TestHTTPRequest(t *testing.T) {
 	broker := getBroker("test", "test", b64passwd, 1883)
 
 	srv := newServer(":8888")
-	srv.addHandlerFunc("/mqtt", broker.topicsPublishHandler)
-	srv.start()
+	srv.addHandlerFunc("/mqtt", broker.httpTopicsPublishHandler)
+	if err := srv.start(); err != nil {
+		t.Errorf("couldn't start server: %s", err)
+	}
 
 	// GET request should fail
 	req, _ := http.NewRequest(http.MethodGet, "http://localhost:8888/mqtt", nil)
@@ -954,7 +1002,7 @@ func TestHTTPPublish(t *testing.T) {
 	broker := getBroker("test", "test", b64passwd, 1883)
 
 	srv := newServer(":8888")
-	srv.addHandlerFunc("/mqtt", broker.topicsPublishHandler)
+	srv.addHandlerFunc("/mqtt", broker.httpTopicsPublishHandler)
 	srv.start()
 
 	subscribeCh := make(chan CheckMsg)
@@ -973,7 +1021,7 @@ func TestHTTPPublish(t *testing.T) {
 				Payload: base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%d", i))),
 				Base64:  true,
 			}
-			go func(data HTTPJsonData) {
+			func(data HTTPJsonData) {
 				code := topicsPublish(t, data)
 				if code != http.StatusOK {
 					t.Errorf("wrong status code return")
@@ -1013,7 +1061,7 @@ func TestHTTPTransfer(t *testing.T) {
 	passBase64 := base64.StdEncoding.EncodeToString([]byte("test"))
 	broker0 := getBroker("test", "test", passBase64, 1883)
 	srv0 := newServer(":8888")
-	srv0.addHandlerFunc("/mqtt", broker0.topicsPublishHandler)
+	srv0.addHandlerFunc("/mqtt", broker0.httpTopicsPublishHandler)
 	srv0.start()
 
 	spec := &Spec{
@@ -1040,7 +1088,7 @@ func TestHTTPTransfer(t *testing.T) {
 		return urls, nil
 	})
 	srv1 := newServer(":8889")
-	srv1.addHandlerFunc("/mqtt", broker1.topicsPublishHandler)
+	srv1.addHandlerFunc("/mqtt", broker1.httpTopicsPublishHandler)
 	srv1.start()
 
 	// auto connect to broker0, not broker1
@@ -1225,6 +1273,8 @@ func TestWildCard(t *testing.T) {
 	checkSubscriptions("+", []string{}, []string{"/finance"})
 }
 
+// this certPem and keyPem come from golang crypto/tls/testdata
+// with original name: example-key.pem and example-key.pem
 const certPem = `
 -----BEGIN CERTIFICATE-----
 MIIBhTCCASugAwIBAgIQIRi6zePL6mKjOipn+dNuaTAKBggqhkjOPQQDAjASMRAw
@@ -1300,17 +1350,20 @@ func TestSessMgr(t *testing.T) {
 }
 
 func TestClient(t *testing.T) {
+	assert := assert.New(t)
 	svcConn, clientConn := net.Pipe()
 	go func() {
 		io.ReadAll(svcConn)
 	}()
 	connect := packets.NewControlPacket(packets.Connect).(*packets.ConnectPacket)
+	connect.ClientIdentifier = "cid"
+	connect.Username = "username"
 	connect.WillFlag = true
 	connect.WillQos = 1
 	connect.WillTopic = "will"
 	connect.WillMessage = []byte("i am gone")
 
-	client := newClient(connect, nil, clientConn)
+	client := newClient(connect, nil, clientConn, nil)
 	will := client.info.will
 	if (will.Qos != connect.WillQos) || (will.TopicName != connect.WillTopic) || string(will.Payload) != string(connect.WillMessage) {
 		t.Error("produce wrong will msg")
@@ -1353,11 +1406,24 @@ func TestClient(t *testing.T) {
 	if err == nil {
 		t.Errorf("broker not ping")
 	}
+
+	assert.Equal("username", client.UserName())
+	client.Store("key", "value")
+
+	value, ok := client.Load("key")
+	assert.Equal(true, ok)
+	assert.Equal("value", value)
+
+	client.Delete("key")
+	_, ok = client.Load("key")
+	assert.Equal(false, ok)
 }
 
 func TestBrokerListen(t *testing.T) {
 	// invalid tls
 	spec := &Spec{
+		Name:        "test-1",
+		EGName:      "test-1",
 		Port:        1883,
 		BackendType: testMQType,
 		Auth: []Auth{
@@ -1378,6 +1444,8 @@ func TestBrokerListen(t *testing.T) {
 
 	// valid tls
 	spec = &Spec{
+		Name:        "test-1",
+		EGName:      "test-1",
 		Port:        1883,
 		BackendType: testMQType,
 		Auth: []Auth{
@@ -1405,6 +1473,8 @@ func TestBrokerListen(t *testing.T) {
 
 	// not valid port should return nil
 	spec = &Spec{
+		Name:        "test-1",
+		EGName:      "test-1",
 		Port:        1883,
 		BackendType: testMQType,
 		Auth: []Auth{
@@ -1417,7 +1487,7 @@ func TestBrokerListen(t *testing.T) {
 	if broker2 != nil {
 		t.Errorf("not valid port should return nil broker")
 	}
-	broker.mqttAPIPrefix()
+	broker.mqttAPIPrefix(mqttAPITopicPublishPrefix)
 	broker.registerAPIs()
 	broker.close()
 }
@@ -1428,7 +1498,7 @@ func TestBrokerHandleConn(t *testing.T) {
 
 	// broker handleConn return if error happen
 	svcConn, clientConn := net.Pipe()
-	go clientConn.Write([]byte("fake data for paho.packets.ReadPacket to return error, to make that happends, this fake data should be long enough."))
+	go clientConn.Write([]byte("fake data for paho.packets.ReadPacket to return error, to make that happens, this fake data should be long enough."))
 	broker.handleConn(svcConn)
 
 	// not use connect to connect
@@ -1455,5 +1525,502 @@ func TestMQTTProxy(t *testing.T) {
 	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
 	broker := getBroker("test", "test", b64passwd, 1883)
 	mp.broker = broker
+	broker.reconnectWatcher()
 	mp.Close()
+
+	ans, err := updatePort("http://example.com:1234", "demo.com:2345")
+	assert.Nil(t, err)
+	assert.Equal(t, "http://example.com:2345", ans)
+}
+
+func TestPipeline(t *testing.T) {
+	// create test pipeline first
+	yamlStr := `
+name: mqtt-test-pipeline
+kind: Pipeline
+protocol: MQTT
+flow:
+- filter: mqtt-filter
+filters:
+- name: mqtt-filter
+  kind: MockMQTTFilter
+  userName: test
+  port: 1234
+  backendType: Kafka
+  keysToStore:
+  - filter
+  publishBackendClientID: true
+`
+
+	super := supervisor.NewDefaultMock()
+	superSpec, err := super.NewSpec(yamlStr)
+	if err != nil {
+		t.Errorf("supervisor unmarshal yaml failed, %s", err)
+		t.Skip()
+	}
+	pipe := pipeline.Pipeline{}
+	pipe.Init(superSpec)
+	defer pipe.Close()
+
+	// get broker
+	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
+	broker := getBroker("test", "test", b64passwd, 1883)
+	broker.pipeline = "mqtt-test-pipeline"
+	defer broker.close()
+
+	// set some client
+	clientNum := 20
+	for i := 0; i < clientNum; i++ {
+		client := getMQTTClient(t, strconv.Itoa(i), "test", "test", true)
+		topic := fmt.Sprintf("client-%d", i)
+		text := "text"
+		token := client.Publish(topic, 1, false, text)
+		token.Wait()
+		p := broker.backend.(*testMQ).get()
+		if p.TopicName != topic || string(p.Payload) != text {
+			t.Errorf("get wrong publish")
+		}
+		c := broker.getClient(strconv.Itoa(i))
+		if _, ok := c.Load("filter"); !ok {
+			t.Errorf("filter write key value failed")
+		}
+		client.Disconnect(200)
+	}
+	// wait all close
+	for i := 0; i < 10; i++ {
+		num := len(broker.currentClients())
+		if num == 0 {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	backend := broker.backend.(*testMQ)
+	if len(backend.msg) != clientNum {
+		t.Errorf("filter publish message to backend failed")
+	}
+
+	filterStatus := pipe.Status().ObjectStatus.(*pipeline.Status).Filters["mqtt-filter"].(pipeline.MockMQTTStatus)
+	if len(filterStatus.ClientCount) != clientNum {
+		t.Errorf("filter get wrong result %v for client num", len(filterStatus.ClientCount))
+	}
+	if len(filterStatus.ClientDisconnect) != clientNum {
+		t.Errorf("filter get wrong result %v for client disconnect", filterStatus.ClientDisconnect)
+	}
+}
+
+func TestAuthByPipeline(t *testing.T) {
+	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
+	broker := getBroker("test", "test", b64passwd, 1883)
+	broker.spec.AuthByPipeline = true
+	broker.pipeline = "mqtt-test-pipeline"
+	defer broker.close()
+
+	// since there are no such pipeline
+	// connect to broker will fail
+	option := paho.NewClientOptions().AddBroker("tcp://0.0.0.0:1883").SetClientID("test").SetUsername("fakeuser").SetPassword("fakepasswd")
+	client := paho.NewClient(option)
+	if token := client.Connect(); token.Wait() && token.Error() == nil {
+		t.Errorf("non auth user should fail%s", token.Error())
+	}
+	client.Disconnect(200)
+
+	// filter with auth username and passwd
+	yamlStr := `
+name: mqtt-test-pipeline
+kind: Pipeline
+protocol: MQTT
+flow:
+- filter: mqtt-filter
+filters:
+- name: mqtt-filter
+  kind: MockMQTTFilter
+  userName: filter-auth-name
+  password: filter-auth-passwd
+  connectKey: connect`
+
+	super := supervisor.NewDefaultMock()
+	superSpec, err := super.NewSpec(yamlStr)
+	if err != nil {
+		t.Errorf("supervisor unmarshal yaml failed, %s", err)
+		t.Skip()
+	}
+	pipe := pipeline.Pipeline{}
+	pipe.Init(superSpec)
+	defer pipe.Close()
+
+	// same username and passwd with filter, success
+	option = paho.NewClientOptions().AddBroker("tcp://0.0.0.0:1883").SetClientID("test").SetUsername("filter-auth-name").SetPassword("filter-auth-passwd")
+	client = paho.NewClient(option)
+	if token := client.Connect(); token.Wait() && token.Error() != nil {
+		t.Errorf("auth user should success %s", token.Error())
+	}
+	c := broker.getClient("test")
+	if _, ok := c.Load("connect"); !ok {
+		t.Errorf("filter set connect key failed")
+	}
+
+	client.Disconnect(200)
+
+	// different username and passwd with filer, fail
+	option = paho.NewClientOptions().AddBroker("tcp://0.0.0.0:1883").SetClientID("test").SetUsername("fake").SetPassword("fakepasswd")
+	client = paho.NewClient(option)
+	if token := client.Connect(); token.Wait() && token.Error() == nil {
+		t.Errorf("non auth user should fail %s", token.Error())
+	}
+	client.Disconnect(200)
+}
+
+func TestEmptyAuthAndAuthByPipeline(t *testing.T) {
+	spec := &Spec{
+		Name:           "test",
+		EGName:         "test",
+		Port:           1883,
+		BackendType:    testMQType,
+		AuthByPipeline: true,
+	}
+	store := newStorage(nil)
+	broker := newBroker(spec, store, func(s, ss string) ([]string, error) {
+		m := map[string]string{
+			"test":  "http://localhost:8888/mqtt",
+			"test1": "http://localhost:8889/mqtt",
+		}
+		urls := []string{}
+		for k, v := range m {
+			if k != s {
+				urls = append(urls, v)
+			}
+		}
+		return urls, nil
+	})
+	if broker == nil {
+		t.Errorf("broker with empty auth should not be nil when AuthByPipeline is true")
+	}
+	broker.close()
+
+	spec = &Spec{
+		Name:           "test",
+		EGName:         "test",
+		Port:           1883,
+		BackendType:    testMQType,
+		AuthByPipeline: false,
+	}
+	store = newStorage(nil)
+	broker = newBroker(spec, store, func(s, ss string) ([]string, error) {
+		m := map[string]string{
+			"test":  "http://localhost:8888/mqtt",
+			"test1": "http://localhost:8889/mqtt",
+		}
+		urls := []string{}
+		for k, v := range m {
+			if k != s {
+				urls = append(urls, v)
+			}
+		}
+		return urls, nil
+	})
+	if broker != nil {
+		t.Errorf("broker with empty auth should be nil when AuthByPipeline is false")
+	}
+}
+
+func TestMaxAllowedConnection(t *testing.T) {
+	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
+	spec := &Spec{
+		Name:        "test",
+		EGName:      "test",
+		Port:        1883,
+		BackendType: testMQType,
+		Auth: []Auth{
+			{UserName: "test", PassBase64: b64passwd},
+		},
+		MaxAllowedConnection: 10,
+	}
+	store := newStorage(nil)
+	broker := newBroker(spec, store, func(s, ss string) ([]string, error) {
+		return nil, errors.New("empty urls for test")
+	})
+	defer broker.close()
+
+	clients := []paho.Client{}
+	clientNum := 10
+	for i := 0; i < clientNum; i++ {
+		client := getMQTTClient(t, strconv.Itoa(i), "test", "test", true)
+		clients = append(clients, client)
+	}
+	var num int
+	for i := 0; i < 10; i++ {
+		num = len(broker.currentClients())
+		if num == clientNum {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if num != clientNum {
+		t.Fatalf("wrong client connection number, got %v, expected %v", num, clientNum)
+	}
+	for i := clientNum; i < 2*clientNum; i++ {
+		client := getUnConnectClient(strconv.Itoa(i), "test", "test", true)
+		if token := client.Connect(); token.Wait() && token.Error() == nil {
+			t.Errorf("client %v connect should fail but got nil error, %v", i, token.Error())
+		}
+	}
+	for _, c := range clients {
+		c.Disconnect(200)
+	}
+}
+
+func TestConnectionLimit(t *testing.T) {
+	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
+	spec := &Spec{
+		Name:        "test",
+		EGName:      "test",
+		Port:        1883,
+		BackendType: testMQType,
+		Auth: []Auth{
+			{UserName: "test", PassBase64: b64passwd},
+		},
+		ConnectionLimit: &RateLimit{
+			RequestRate: 10,
+			TimePeriod:  1000,
+		},
+	}
+	store := newStorage(nil)
+	broker := newBroker(spec, store, func(s, ss string) ([]string, error) {
+		return nil, errors.New("empty urls for test")
+	})
+	defer broker.close()
+
+	// use all rate
+	for i := 0; i < 10; i++ {
+		broker.connectionLimiter.acquirePermission(1000)
+	}
+	client := getUnConnectClient("test", "test", "test", true)
+	if token := client.Connect(); token.Wait() && token.Error() == nil {
+		t.Errorf("client test connect should fail but got nil error, %v", token.Error())
+	}
+}
+
+func TestClientPublishLimit(t *testing.T) {
+	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
+	spec := &Spec{
+		Name:        "test",
+		EGName:      "test",
+		Port:        1883,
+		BackendType: testMQType,
+		Auth: []Auth{
+			{UserName: "test", PassBase64: b64passwd},
+		},
+		ClientPublishLimit: &RateLimit{
+			RequestRate: 10,
+			TimePeriod:  1000,
+		},
+	}
+	store := newStorage(nil)
+	broker := newBroker(spec, store, func(s, ss string) ([]string, error) {
+		return nil, errors.New("empty urls for test")
+	})
+	defer broker.close()
+
+	client := getMQTTClient(t, "test", "test", "test", true)
+	time.Sleep(50 * time.Millisecond)
+
+	// acquire all permission
+	c := broker.getClient("test")
+	for i := 0; i < 10; i++ {
+		c.publishLimit.acquirePermission(100)
+	}
+
+	token := client.Publish("123", 1, false, []byte("test"))
+	if token.WaitTimeout(1 * time.Second) {
+		t.Errorf("client publish should fail, since we set client publish limit")
+	}
+}
+
+func TestHTTPGetAllSession(t *testing.T) {
+	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
+	broker := getBroker("test", "test", b64passwd, 1883)
+	defer broker.close()
+
+	// connect 10 clients
+	clients := []paho.Client{}
+	clientNum := 10
+	for i := 0; i < clientNum; i++ {
+		client := getMQTTClient(t, strconv.Itoa(i), "test", "test", true)
+		if token := client.Subscribe("topic", 1, nil); token.Wait() && token.Error() != nil {
+			t.Errorf("subscribe qos0 error %s", token.Error())
+		}
+		clients = append(clients, client)
+	}
+
+	// start server
+	srv := newServer(":8888")
+	srv.addHandlerFunc("/session/query", broker.httpGetAllSessionHandler)
+	if err := srv.start(); err != nil {
+		t.Errorf("couldn't start server: %s", err)
+	}
+	defer srv.shutdown()
+
+	tests := []struct {
+		url    string
+		ok     bool
+		ansLen int
+	}{
+		{"http://localhost:8888/session/query?page=1&page_size=20&q=", true, 10},
+		{"http://localhost:8888/session/query?page=1&page_size=8&q=", true, 8},
+		{"http://localhost:8888/session/query", true, 10},
+		{"http://localhost:8888/session/query?page=1", false, 0},
+		{"http://localhost:8888/session/query?page_size=2", false, 0},
+		{"http://localhost:8888/session/query?q=", false, 0},
+		{"http://localhost:8888/session/query?page=0&page_size=10&q=", false, 0},
+		{"http://localhost:8888/session/query?page=1&page_size=0&q=", false, 0},
+		{"http://localhost:8888/session/query?page=2&page_size=20&q=", true, 0},
+		{"http://localhost:8888/session/query?page=1&page_size=10&q=233", true, 0},
+	}
+	for _, test := range tests {
+		req, err := http.NewRequest(http.MethodGet, test.url, nil)
+		if err != nil {
+			t.Errorf("get request failed, %v", err)
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Errorf("client request failed, %v", err)
+		}
+		ok := resp.StatusCode == http.StatusOK
+		if ok != test.ok {
+			t.Errorf("get wrong result")
+		}
+		if ok {
+			sessions := &HTTPSessions{}
+			json.NewDecoder(resp.Body).Decode(sessions)
+			if len(sessions.Sessions) != test.ansLen {
+				t.Errorf("get wrong session number wanted %v, got %v", test.ansLen, len(sessions.Sessions))
+			}
+		}
+		resp.Body.Close()
+	}
+	for _, c := range clients {
+		c.Disconnect(200)
+	}
+}
+
+func TestHTTPDeleteSession(t *testing.T) {
+	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
+	broker := getBroker("test", "test", b64passwd, 1883)
+	defer broker.close()
+
+	// connect 10 clients
+	clients := []paho.Client{}
+	clientNum := 10
+	for i := 0; i < clientNum; i++ {
+		client := getMQTTClient(t, strconv.Itoa(i), "test", "test", true)
+		clients = append(clients, client)
+	}
+
+	// start server
+	srv := newServer(":8888")
+	srv.addHandlerFunc("/sessions", broker.httpDeleteSessionHandler)
+	if err := srv.start(); err != nil {
+		t.Errorf("couldn't start server: %s", err)
+	}
+	defer srv.shutdown()
+
+	data := HTTPSessions{
+		Sessions: []*HTTPSession{
+			{SessionID: "1"},
+			{SessionID: "2"},
+		},
+	}
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		t.Errorf("marshal http session %v failed, %v", data, err)
+	}
+	req, _ := http.NewRequest(http.MethodDelete, "http://localhost:8888/sessions", bytes.NewBuffer(jsonData))
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("delete session failed, %v", err)
+	}
+	defer resp.Body.Close()
+
+	for i := 0; i < 10; i++ {
+		if len(broker.currentClients()) == clientNum-2 {
+			break
+		}
+		if i == 9 {
+			t.Errorf("session delete failed %v", broker.currentClients())
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	for _, c := range clients {
+		c.Disconnect(200)
+	}
+}
+
+func TestHTTPTransferHeaderCopy(t *testing.T) {
+	done := make(chan bool, 2)
+
+	passBase64 := base64.StdEncoding.EncodeToString([]byte("test"))
+	broker0 := getBroker("test", "test", passBase64, 1883)
+	srv0 := newServer(":8888")
+	srv0.addHandlerFunc("/mqtt", func(w http.ResponseWriter, r *http.Request) {
+		broker0.httpTopicsPublishHandler(w, r)
+		done <- true
+	})
+	srv0.start()
+
+	spec := &Spec{
+		Name:        "test1",
+		EGName:      "test1",
+		Port:        1884,
+		BackendType: testMQType,
+		Auth: []Auth{
+			{UserName: "test", PassBase64: passBase64},
+		},
+	}
+	store := broker0.sessMgr.store
+	broker1 := newBroker(spec, store, func(s, ss string) ([]string, error) {
+		m := map[string]string{
+			"test":  "http://localhost:8888/mqtt",
+			"test1": "http://localhost:8889/mqtt",
+		}
+		urls := []string{}
+		for k, v := range m {
+			if k != s {
+				urls = append(urls, v)
+			}
+		}
+		return urls, nil
+	})
+	srv1 := newServer(":8889")
+	srv1.addHandlerFunc("/mqtt", func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get(b3.TraceID) != "123" {
+			t.Errorf("wrong trace id received")
+		}
+		done <- true
+	})
+	srv1.start()
+
+	// set data to broker1
+	data := HTTPJsonData{
+		Topic:   "client",
+		QoS:     1,
+		Payload: "data",
+		Base64:  false,
+	}
+	jsonData, _ := json.Marshal(data)
+	req, _ := http.NewRequest(http.MethodPost, "http://localhost:8888/mqtt", bytes.NewBuffer(jsonData))
+	req.Header.Add(b3.TraceID, "123")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Errorf("mqtt client do error")
+	}
+	defer resp.Body.Close()
+
+	<-done
+	<-done
+	broker0.close()
+	broker1.close()
+	srv0.shutdown()
+	srv1.shutdown()
 }

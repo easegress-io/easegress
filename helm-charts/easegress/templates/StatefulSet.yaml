@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    name: {{ .Release.Name }}
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: {{ .Values.cluster.primaryReplicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  serviceName: easegress-hs
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}
+    spec:
+      serviceAccountName: {{ .Release.Name }}
+      containers:
+      - args:
+        - -c
+        - |-
+          echo name: $EG_NAME > /opt/eg-config/config.yaml &&
+          cat /opt/eg-config/eg-primary.yaml >> /opt/eg-config/config.yaml && 
+          /opt/easegress/bin/easegress-server \
+            -f /opt/eg-config/config.yaml \
+            --advertise-client-urls http://$(EG_NAME).easegress-hs.{{ .Release.Namespace }}:2379 \
+            --initial-advertise-peer-urls http://$(EG_NAME).easegress-hs.{{ .Release.Namespace }}:2380
+        command:
+        - /bin/sh
+        env:
+        - name: EG_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        imagePullPolicy: IfNotPresent
+        name: easegress
+        ports:
+        - containerPort: 2381
+          name: admin-port
+          protocol: TCP
+        - containerPort: 2380
+          name: peer-port
+          protocol: TCP
+        - containerPort: 2379
+          name: client-port
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 1200m
+            memory: 2Gi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+        volumeMounts:
+        - mountPath: /opt/eg-config/eg-primary.yaml
+          name: {{ .Release.Name }}
+          subPath: eg-primary.yaml
+        - mountPath: /opt/easegress/data
+          name: {{ if eq .Values.cluster.volumeType "persistentVolume" }}easegress-pv {{ else }} easegress-data-volume {{ end }}
+        - mountPath: /opt/easegress/log
+          name: {{ if eq .Values.cluster.volumeType "persistentVolume" }}easegress-pv {{ else }} easegress-data-volume {{ end }}
+      restartPolicy: Always
+      volumes:
+      - emptyDir: {}
+        name: easegress-data-volume
+      - configMap:
+          defaultMode: 420
+          items:
+          - key: eg-primary.yaml
+            path: eg-primary.yaml
+          name: {{ .Release.Name }}
+        name: {{ .Release.Name }}
+  updateStrategy:
+    type: RollingUpdate
+  {{- if eq .Values.cluster.volumeType "persistentVolume" }}
+  volumeClaimTemplates:
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      name: easegress-pv
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 3Gi
+      storageClassName: easegress-storage
+      volumeMode: Filesystem
+  {{- end }}

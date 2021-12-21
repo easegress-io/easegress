@@ -18,6 +18,7 @@
 package contexttest
 
 import (
+	"github.com/megaease/easegress/pkg/context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -33,7 +34,7 @@ type MockedHTTPResponse struct {
 	MockedSetCookie     func(cookie *http.Cookie)
 	MockedSetBody       func(body io.Reader)
 	MockedBody          func() io.Reader
-	MockedOnFlushBody   func(func(body []byte, complete bool) (newBody []byte))
+	MockedOnFlushBody   func(fn context.BodyFlushFunc)
 	MockedStd           func() http.ResponseWriter
 	MockedSize          func() uint64
 }
@@ -84,7 +85,7 @@ func (r *MockedHTTPResponse) Body() io.Reader {
 }
 
 // OnFlushBody registers a callback function on flush body
-func (r *MockedHTTPResponse) OnFlushBody(fn func(body []byte, complete bool) (newBody []byte)) {
+func (r *MockedHTTPResponse) OnFlushBody(fn context.BodyFlushFunc) {
 	if r.MockedOnFlushBody != nil {
 		r.MockedOnFlushBody(fn)
 	}

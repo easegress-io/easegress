@@ -30,8 +30,8 @@ fi
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-total_etcd=`./status.sh | grep writer | wc -l`
-online=`./status.sh | grep writer | grep online | wc -l`
+total_etcd=`./status.sh | grep primary | wc -l`
+online=`./status.sh | grep primary | grep online | wc -l`
 
 if [ $online -le $((total_etcd / 2 + 1)) ]
 then

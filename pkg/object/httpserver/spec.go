@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/megaease/easegress/pkg/object/autocertmanager"
 	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/megaease/easegress/pkg/util/ipfilter"
 )
@@ -36,8 +37,9 @@ type (
 		KeepAlive        bool          `yaml:"keepAlive" jsonschema:"required"`
 		KeepAliveTimeout string        `yaml:"keepAliveTimeout" jsonschema:"omitempty,format=duration"`
 		MaxConnections   uint32        `yaml:"maxConnections" jsonschema:"omitempty,minimum=1"`
-		HTTPS            bool          `yaml:"https" jsonschema:"required"`
 		CacheSize        uint32        `yaml:"cacheSize" jsonschema:"omitempty"`
+		HTTPS            bool          `yaml:"https" jsonschema:"required"`
+		AutoCert         bool          `yaml:"autoCert" jsonschema:"omitempty"`
 		XForwardedFor    bool          `yaml:"xForwardedFor" jsonschema:"omitempty"`
 		Tracing          *tracing.Spec `yaml:"tracing" jsonschema:"omitempty"`
 		CaCertBase64     string        `yaml:"caCertBase64" jsonschema:"omitempty,format=base64"`
@@ -54,6 +56,8 @@ type (
 
 		IPFilter *ipfilter.Spec `yaml:"ipFilter,omitempty" jsonschema:"omitempty"`
 		Rules    []*Rule        `yaml:"rules" jsonschema:"omitempty"`
+
+		GlobalFilter string `yaml:"globalFilter,omitempty" jsonschema:"omitempty"`
 	}
 
 	// Rule is first level entry of router.
@@ -97,25 +101,23 @@ type (
 
 // Validate validates HTTPServerSpec.
 func (spec *Spec) Validate() error {
-	if spec.HTTP3 && !spec.HTTPS {
-		return fmt.Errorf("https is disabled when http3 enabled")
+	if !spec.HTTPS {
+		if spec.HTTP3 {
+			return fmt.Errorf("https is disabled when http3 enabled")
+		}
+		return nil
 	}
 
-	if spec.HTTPS {
-		if spec.CertBase64 == "" && spec.KeyBase64 == "" && len(spec.Certs) == 0 && len(spec.Keys) == 0 {
-			return fmt.Errorf("certBase64/keyBase64, certs/keys are both empty when https enabled")
-		}
-		_, err := spec.tlsConfig()
-		if err != nil {
-			return err
-		}
+	if spec.CertBase64 == "" && spec.KeyBase64 == "" && len(spec.Certs) == 0 && len(spec.Keys) == 0 && !spec.AutoCert {
+		return fmt.Errorf("certBase64/keyBase64, certs/keys are both empty and autocert is disabled when https enabled")
 	}
-
-	return nil
+	_, err := spec.tlsConfig()
+	return err
 }
 
 func (spec *Spec) tlsConfig() (*tls.Config, error) {
 	var certificates []tls.Certificate
+
 	if spec.CertBase64 != "" && spec.KeyBase64 != "" {
 		// Prefer add CertBase64 and KeyBase64
 		certPem, _ := base64.StdEncoding.DecodeString(spec.CertBase64)
@@ -128,23 +130,35 @@ func (spec *Spec) tlsConfig() (*tls.Config, error) {
 	}
 
 	for k, v := range spec.Certs {
-		if secret, exists := spec.Keys[k]; exists {
-			cert, err := tls.X509KeyPair([]byte(v), []byte(secret))
-			if err != nil {
-				return nil, fmt.Errorf("generate x509 key pair for %s failed: %s ", k, err)
-			}
-			certificates = append(certificates, cert)
-		} else {
+		secret, exists := spec.Keys[k]
+		if !exists {
 			return nil, fmt.Errorf("certs %s hasn't secret corresponded to it", k)
 		}
+
+		certPem, _ := base64.StdEncoding.DecodeString(v)
+		keyPem, _ := base64.StdEncoding.DecodeString(secret)
+		cert, err := tls.X509KeyPair(certPem, keyPem)
+		if err != nil {
+			return nil, fmt.Errorf("generate x509 key pair for %s failed: %s ", k, err)
+		}
+		certificates = append(certificates, cert)
 	}
 
-	if len(certificates) == 0 {
+	if len(certificates) == 0 && !spec.AutoCert {
 		return nil, fmt.Errorf("none valid certs and secret")
 	}
 
+	// TLS-ALPN-01 challenges requires HTTP server to listen on port 443, but we don't
+	// know which HTTP server listen on this port (consider there's an nginx sitting in
+	// front of Easegress), so all HTTP servers need to handle TLS-ALPN-01 challenges.
+	// But for HTTP servers who have disabled AutoCert, it should only handle the
+	// TLS-ALPN-01 token certificate request.
 	tlsConf := &tls.Config{
 		Certificates: certificates,
+		NextProtos:   []string{"acme-tls/1"},
+	}
+	tlsConf.GetCertificate = func(chi *tls.ClientHelloInfo) (*tls.Certificate, error) {
+		return autocertmanager.GetCertificate(chi, !spec.AutoCert /* tokenOnly */)
 	}
 
 	// if caCertBase64 configuration is provided, should enable tls.ClientAuth and

@@ -1,6 +1,8 @@
 service:
   # nodePort for easegress service
-  nodePort: 80
+  nodePort: 30080
+  # nodeport for egctl access
+  adminPort: 31255
 
 # image for easegress deployment
 image:
@@ -11,8 +13,24 @@ ingressClass:
   name: easegress
 
 controller:
-  name: ingress-controller-example
+  name: easegress-ingress-controller
   # kubeConfig: # path to kube-config file
   # masterURL: # url to kube-api-server
   namespaces:
-  # - default
+  - default
+
+# Easegress cluster configurations.
+# When volumeType is
+# - emptyDir: use pods internal filesystem that is not persisted when pod crashes.
+# - persistentVolume, create as many persistenVolumes and persistentVolumeClaims as there are nodeHostnames.
+cluster:
+  primaryReplicas: 1 # or 3,5,7
+  volumeType: emptyDir # or persistentVolume
+  # nodeHostnames are hostnames of VMs/Kubernetes nodes. Only used when `volumeType: persistentVolume`.
+  # Note that this require nodes to be static.
+  nodeHostnames:
+  # - hostname-1
+  # - hostname-2
+  # - hostname-3
+
+  secondaryReplicas: 0

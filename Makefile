@@ -10,9 +10,10 @@ MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 MKFILE_DIR := $(dir $(MKFILE_PATH))
 RELEASE_DIR := ${MKFILE_DIR}bin
 GO_PATH := $(shell go env | grep GOPATH | awk -F '"' '{print $$2}')
+HTTPSERVER_TEST_PATH := build/test
 
 # Version
-RELEASE?=v1.3.1
+RELEASE?=v1.4.0
 
 # Git Related
 GIT_REPO_INFO=$(shell cd ${MKFILE_DIR} && git config --get remote.origin.url)
@@ -49,6 +50,10 @@ TARGET_CLIENT=${RELEASE_DIR}/egctl
 # Rules
 build: build_client build_server
 
+wasm: ENABLE_CGO=CGO_ENABLED=1
+wasm: GO_BUILD_TAGS=-tags wasmhost
+wasm: build
+
 build_client:
 	@echo "build client"
 	cd ${MKFILE_DIR} && \
@@ -82,9 +87,10 @@ build_docker:
 	docker run -w /egsrc -u ${shell id -u}:${shell id -g} --rm \
 	-v ${GO_PATH}:/gopath -v ${MKFILE_DIR}:/egsrc -v ${MKFILE_DIR}build/cache:/gocache \
 	-e GOPROXY=https://goproxy.io,direct -e GOCACHE=/gocache -e GOPATH=/gopath \
-	megaease/golang:1.16-alpine make build DOCKER=true
+	megaease/golang:1.17-alpine make build DOCKER=true
 	docker build -t megaease/easegress:${RELEASE} -f ./build/package/Dockerfile .
 	docker tag megaease/easegress:${RELEASE} megaease/easegress:latest
+	docker tag megaease/easegress:latest megaease/easegress:server-sidecar
 
 test:
 	cd ${MKFILE_DIR}
@@ -92,6 +98,13 @@ test:
 	git diff --exit-code go.mod go.sum
 	go mod verify
 	go test -v ./... ${TEST_FLAGS}
+
+httpserver_test: build
+	{ \
+	set -e ;\
+	cd ${HTTPSERVER_TEST_PATH} ;\
+	./httpserver_test.sh ;\
+    }
 
 clean:
 	rm -rf ${RELEASE_DIR}

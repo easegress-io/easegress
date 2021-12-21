@@ -220,6 +220,58 @@ func (w *watcher) WatchRawPrefix(prefix string) (<-chan map[string]*clientv3.Eve
 	return prefixChan, nil
 }
 
+func (w *watcher) WatchWithOp(key string, ops ...ClientOp) (<-chan map[string]*string, error) {
+	newOps := []clientv3.OpOption{}
+	for _, o := range ops {
+		if opOption := getOpOption(o); opOption != nil {
+			newOps = append(newOps, opOption)
+		}
+	}
+
+	// NOTE: Can't use Context with timeout here.
+	ctx, cancel := context.WithCancel(context.Background())
+	watchResp := w.w.Watch(ctx, key, newOps...)
+	prefixChan := make(chan map[string]*string, 10)
+
+	go func() {
+		defer cancel()
+		defer close(prefixChan)
+
+		for {
+			select {
+			case <-w.done:
+				return
+			case resp := <-watchResp:
+				if resp.Canceled {
+					logger.Errorf("watch %s with ops %v canceled: %v", key, ops, resp.Err())
+					return
+				}
+				if resp.IsProgressNotify() {
+					continue
+				}
+				for _, event := range resp.Events {
+					switch event.Type {
+					case mvccpb.PUT:
+						value := string(event.Kv.Value)
+						prefixChan <- map[string]*string{
+							string(event.Kv.Key): &value,
+						}
+					case mvccpb.DELETE:
+						prefixChan <- map[string]*string{
+							string(event.Kv.Key): nil,
+						}
+					default:
+						logger.Errorf("BUG: key %s with ops %v received unknown event type %v",
+							key, ops, event.Type)
+					}
+				}
+			}
+		}
+	}()
+
+	return prefixChan, nil
+}
+
 func (w *watcher) Close() {
 	close(w.done)
 

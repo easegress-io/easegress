@@ -25,6 +25,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegress/pkg/filter/circuitbreaker"
+	"github.com/megaease/easegress/pkg/filter/meshadaptor"
 	"github.com/megaease/easegress/pkg/filter/mock"
 	"github.com/megaease/easegress/pkg/filter/proxy"
 	"github.com/megaease/easegress/pkg/filter/ratelimiter"
@@ -34,6 +35,7 @@ import (
 	"github.com/megaease/easegress/pkg/object/httppipeline"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/httpfilter"
+	"github.com/megaease/easegress/pkg/util/httpheader"
 	"github.com/megaease/easegress/pkg/util/urlrule"
 )
 
@@ -86,6 +88,9 @@ const (
 
 	// PodEnvApplicationIP is the IP of the pod in environment variable.
 	PodEnvApplicationIP = "APPLICATION_IP"
+
+	// ServiceCanaryHeaderKey is the http header key of service canary.
+	ServiceCanaryHeaderKey = "X-Mesh-Service-Canary"
 )
 
 var (
@@ -116,6 +121,8 @@ type (
 		IngressPort int `yaml:"ingressPort" jsonschema:"required"`
 
 		ExternalServiceRegistry string `yaml:"externalServiceRegistry" jsonschema:"omitempty"`
+
+		CleanExternalRegistry bool `yaml:"cleanExternalRegistry"`
 
 		Security *Security `yaml:"security" jsonschema:"omitempty"`
 	}
@@ -162,6 +169,7 @@ type (
 	}
 
 	// Canary is the spec of service canary.
+	// Deprecated: replaced by ServiceCanary.
 	Canary struct {
 		CanaryRules []*CanaryRule `yaml:"canaryRules" jsonschema:"omitempty"`
 	}
@@ -171,6 +179,22 @@ type (
 		ServiceInstanceLabels map[string]string               `yaml:"serviceInstanceLabels" jsonschema:"required"`
 		Headers               map[string]*urlrule.StringMatch `yaml:"headers" jsonschema:"required"`
 		URLs                  []*urlrule.URLRule              `yaml:"urls" jsonschema:"required"`
+	}
+
+	// ServiceCanary is the service canary entry.
+	ServiceCanary struct {
+		Name string `yaml:"name" jsonschema:"required"`
+		// Priority must be [1, 9], the default is 5 if user does not set it.
+		// The smaller number get higher priority.
+		// The order is sorted by name alphabetically in the same priority.
+		Priority     int              `yaml:"priority" jsonschema:"omitempty"`
+		Selector     *ServiceSelector `yaml:"selector" jsonschema:"required"`
+		TrafficRules *TrafficRules    `yaml:"trafficRules" jsonschema:"required"`
+	}
+
+	// TrafficRules is the rules of traffic.
+	TrafficRules struct {
+		Headers map[string]*urlrule.StringMatch `yaml:"headers" jsonschema:"required"`
 	}
 
 	// GlobalCanaryHeaders is the spec of global service
@@ -412,6 +436,28 @@ type (
 	}
 )
 
+// Validate validates ServiceCanary.
+func (sc ServiceCanary) Validate() error {
+	if sc.Priority < 0 || sc.Priority > 9 {
+		return fmt.Errorf("invalid priority (range is [0, 9], the default 0 will be set to 5)")
+	}
+
+	return nil
+}
+
+// Clone clones TrafficRules.
+func (tr *TrafficRules) Clone() *TrafficRules {
+	headers := map[string]*urlrule.StringMatch{}
+	for k, v := range tr.Headers {
+		stringMatch := *v
+		headers[k] = &stringMatch
+	}
+
+	return &TrafficRules{
+		Headers: headers,
+	}
+}
+
 // UnmarshalYAML implements yaml.Unmarshaler
 // the type of a DynamicObject field could be `map[interface{}]interface{}` if it is
 // unmarshaled from yaml, but some packages, like the standard json package could not
@@ -627,114 +673,144 @@ func (b *pipelineSpecBuilder) appendTimeLimiter(tl *timelimiter.Spec) *pipelineS
 	return b
 }
 
-func (b *pipelineSpecBuilder) appendProxyWithCanary(instanceSpecs []*ServiceInstanceSpec, canary *Canary, lb *proxy.LoadBalance, cert, rootCert *Certificate) *pipelineSpecBuilder {
-	mainServers := []*proxy.Server{}
-	canaryInstances := []*ServiceInstanceSpec{}
+func (b *pipelineSpecBuilder) appendProxyWithCanary(instanceSpecs []*ServiceInstanceSpec,
+	canaries []*ServiceCanary, lb *proxy.LoadBalance, cert, rootCert *Certificate) *pipelineSpecBuilder {
 
-	needMTLS := false
-	if cert != nil && rootCert != nil {
-		needMTLS = true
-	}
-
-	for k, instanceSpec := range instanceSpecs {
-		if instanceSpec.Status == ServiceStatusUp {
-			if len(instanceSpec.Labels) == 0 {
-				if needMTLS {
-					mainServers = append(mainServers, &proxy.Server{
-						URL: fmt.Sprintf("https://%s:%d", instanceSpec.IP, instanceSpec.Port),
-					})
-				} else {
-					mainServers = append(mainServers, &proxy.Server{
-						URL: fmt.Sprintf("http://%s:%d", instanceSpec.IP, instanceSpec.Port),
-					})
-
-				}
-			} else {
-				canaryInstances = append(canaryInstances, instanceSpecs[k])
-			}
-		}
-	}
-	backendName := "backend"
-
+	filterName := "backend"
 	if lb == nil {
 		lb = &proxy.LoadBalance{
 			Policy: proxy.PolicyRoundRobin,
 		}
 	}
 
-	candidatePool := []*proxy.PoolSpec{}
-	if len(canaryInstances) != 0 && canary != nil && len(canary.CanaryRules) != 0 {
-		for _, v := range canary.CanaryRules {
-			servers := []*proxy.Server{}
-			for _, ins := range canaryInstances {
-				for key, label := range v.ServiceInstanceLabels {
-					match := false
-					for insKey, insLabel := range ins.Labels {
-						if key == insKey && label == insLabel {
-							if needMTLS {
-								servers = append(servers, &proxy.Server{
-									URL: fmt.Sprintf("https://%s:%d", ins.IP, ins.Port),
-								})
-							} else {
-								servers = append(servers, &proxy.Server{
-									URL: fmt.Sprintf("http://%s:%d", ins.IP, ins.Port),
-								})
+	needMTLS := false
+	if cert != nil && rootCert != nil {
+		needMTLS = true
+	}
 
-							}
-							match = true
-							break
-						}
-					}
-					if match {
-						break
-					}
-				}
-			}
-			if len(servers) != 0 {
-				candidatePool = append(candidatePool, &proxy.PoolSpec{
-					Filter: &httpfilter.Spec{
-						Headers: v.Headers,
-						URLs:    v.URLs,
-					},
-					ServersTags:     []string{},
-					Servers:         servers,
-					ServiceRegistry: "",
-					ServiceName:     "",
-					LoadBalance:     lb,
-				})
-			}
+	mainPool := &proxy.PoolSpec{
+		LoadBalance: lb,
+	}
+	candidatePools := make([]*proxy.PoolSpec, len(canaries))
+
+	filter := map[string]interface{}{
+		"kind":     proxy.Kind,
+		"name":     filterName,
+		"mainPool": mainPool,
+	}
+	if needMTLS {
+		filter["mtls"] = &proxy.MTLS{
+			CertBase64:     cert.CertBase64,
+			KeyBase64:      cert.KeyBase64,
+			RootCertBase64: rootCert.CertBase64,
 		}
 	}
 
-	b.Flow = append(b.Flow, httppipeline.Flow{Filter: backendName})
-	if needMTLS {
-		b.Filters = append(b.Filters, map[string]interface{}{
-			"kind": proxy.Kind,
-			"name": backendName,
-			"mainPool": &proxy.PoolSpec{
-				Servers:     mainServers,
-				LoadBalance: lb,
-			},
-			"candidatePools": candidatePool,
-			"mtls": &proxy.MTLS{
-				CertBase64:     cert.CertBase64,
-				KeyBase64:      cert.KeyBase64,
-				RootCertBase64: rootCert.CertBase64,
-			},
-		})
+	makeServer := func(instance *ServiceInstanceSpec) *proxy.Server {
+		var protocol string
+		if needMTLS {
+			protocol = "https"
+		} else {
+			protocol = "http"
+		}
+		return &proxy.Server{
+			URL: fmt.Sprintf("%s://%s:%d", protocol, instance.IP, instance.Port),
+		}
+	}
 
+	for _, instance := range instanceSpecs {
+		if instance.Status != ServiceStatusUp {
+			continue
+		}
+
+		server := makeServer(instance)
+
+		isCanary := false
+		for i, canary := range canaries {
+			if !canary.Selector.MatchInstance(instance.ServiceName,
+				instance.Labels) {
+				continue
+			}
+
+			if candidatePools[i] == nil {
+				headers := canary.TrafficRules.Clone().Headers
+				headers[ServiceCanaryHeaderKey] = &urlrule.StringMatch{
+					Exact: canary.Name,
+				}
+				candidatePools[i] = &proxy.PoolSpec{
+					Filter: &httpfilter.Spec{
+						MatchAllHeaders: true,
+						Headers:         headers,
+					},
+					LoadBalance: lb,
+				}
+			}
+
+			candidatePools[i].Servers = append(candidatePools[i].Servers, server)
+
+			isCanary = true
+		}
+
+		if !isCanary {
+			mainPool.Servers = append(mainPool.Servers, server)
+		}
+	}
+
+	candidates := []*proxy.PoolSpec{}
+	for _, candidate := range candidatePools {
+		if candidate == nil || len(candidate.Servers) == 0 {
+			continue
+		}
+
+		candidates = append(candidates, candidate)
+	}
+
+	if len(candidates) != 0 {
+		filter["candidatePools"] = candidates
+	}
+
+	b.Filters = append(b.Filters, filter)
+	b.Flow = append(b.Flow, httppipeline.Flow{Filter: filterName})
+
+	return b
+}
+
+func (b *pipelineSpecBuilder) appendMeshAdaptor(canaries []*ServiceCanary) *pipelineSpecBuilder {
+	if len(canaries) == 0 {
 		return b
 	}
 
-	b.Filters = append(b.Filters, map[string]interface{}{
-		"kind": proxy.Kind,
-		"name": backendName,
-		"mainPool": &proxy.PoolSpec{
-			Servers:     mainServers,
-			LoadBalance: lb,
-		},
-		"candidatePools": candidatePool,
-	})
+	filterName := "meshAdaptor"
+
+	filter := map[string]interface{}{
+		"kind": meshadaptor.Kind,
+		"name": filterName,
+	}
+	adaptors := make([]*meshadaptor.ServiceCanaryAdaptor, len(canaries))
+	for i, canary := range canaries {
+		// NOTE: It means that setting `X-Mesh-Service-Canary: canaryName`
+		// if `X-Mesh-Service-Canary` does not exist and other headers are matching.
+		headers := canary.TrafficRules.Clone().Headers
+		headers[ServiceCanaryHeaderKey] = &urlrule.StringMatch{
+			Empty: true,
+		}
+		adaptors[i] = &meshadaptor.ServiceCanaryAdaptor{
+			Filter: &httpfilter.Spec{
+				MatchAllHeaders: true,
+				Headers:         headers,
+			},
+			Header: &httpheader.AdaptSpec{
+				Set: map[string]string{
+					ServiceCanaryHeaderKey: canary.Name,
+				},
+			},
+		}
+	}
+
+	filter["serviceCanaries"] = adaptors
+
+	b.Filters = append(b.Filters, filter)
+	b.Flow = append(b.Flow, httppipeline.Flow{Filter: filterName})
 
 	return b
 }
@@ -806,12 +882,14 @@ rules:`
 	return spec, nil
 }
 
-// IngressPipelineSpec generates a spec for ingress pipeline spec
-func (s *Service) IngressPipelineSpec(instanceSpecs []*ServiceInstanceSpec, cert, rootCert *Certificate) (*supervisor.Spec, error) {
+// IngressControllerPipelineSpec generates a spec for ingress controller pipeline spec.
+func (s *Service) IngressControllerPipelineSpec(instanceSpecs []*ServiceInstanceSpec,
+	canaries []*ServiceCanary, cert, rootCert *Certificate) (*supervisor.Spec, error) {
+
 	pipelineSpecBuilder := newPipelineSpecBuilder(s.IngressPipelineName())
 
-	// inner pipeline won't need to active tls config for visiting the local app
-	pipelineSpecBuilder.appendProxyWithCanary(instanceSpecs, s.Canary, s.LoadBalance, cert, rootCert)
+	pipelineSpecBuilder.appendMeshAdaptor(canaries)
+	pipelineSpecBuilder.appendProxyWithCanary(instanceSpecs, canaries, s.LoadBalance, cert, rootCert)
 
 	yamlConfig := pipelineSpecBuilder.yamlConfig()
 	superSpec, err := supervisor.NewSpec(yamlConfig)
@@ -823,8 +901,8 @@ func (s *Service) IngressPipelineSpec(instanceSpecs []*ServiceInstanceSpec, cert
 	return superSpec, nil
 }
 
-// SideCarIngressHTTPServerSpec generates a spec for sidecar ingress HTTP server
-func (s *Service) SideCarIngressHTTPServerSpec(cert, rootCert *Certificate) (*supervisor.Spec, error) {
+// SidecarIngressHTTPServerSpec generates a spec for sidecar ingress HTTP server
+func (s *Service) SidecarIngressHTTPServerSpec(cert, rootCert *Certificate) (*supervisor.Spec, error) {
 	ingressHTTPServerFormat := `
 kind: HTTPServer
 name: %s
@@ -916,8 +994,8 @@ func (s *Service) BackendName() string {
 	return s.Name
 }
 
-// SideCarEgressHTTPServerSpec returns a spec for egress HTTP server
-func (s *Service) SideCarEgressHTTPServerSpec() (*supervisor.Spec, error) {
+// SidecarEgressHTTPServerSpec returns a spec for egress HTTP server
+func (s *Service) SidecarEgressHTTPServerSpec() (*supervisor.Spec, error) {
 	egressHTTPServerFormat := `
 kind: HTTPServer
 name: %s
@@ -948,8 +1026,8 @@ func (s *Service) Runnable() bool {
 	return true
 }
 
-// SideCarIngressPipelineSpec returns a spec for sidecar ingress pipeline
-func (s *Service) SideCarIngressPipelineSpec(applicationPort uint32) (*supervisor.Spec, error) {
+// SidecarIngressPipelineSpec returns a spec for sidecar ingress pipeline
+func (s *Service) SidecarIngressPipelineSpec(applicationPort uint32) (*supervisor.Spec, error) {
 	mainServers := []*proxy.Server{
 		{
 			URL: s.ApplicationEndpoint(applicationPort),
@@ -974,13 +1052,17 @@ func (s *Service) SideCarIngressPipelineSpec(applicationPort uint32) (*superviso
 	return superSpec, nil
 }
 
-// SideCarEgressPipelineSpec returns a spec for sidecar egress pipeline
-func (s *Service) SideCarEgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec, appCert, rootCert *Certificate) (*supervisor.Spec, error) {
+// SidecarEgressPipelineSpec returns a spec for sidecar egress pipeline
+func (s *Service) SidecarEgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec,
+	canaries []*ServiceCanary, appCert, rootCert *Certificate) (*supervisor.Spec, error) {
+
 	if len(instanceSpecs) == 0 {
-		return nil, fmt.Errorf("not instance")
+		return nil, fmt.Errorf("no instance")
 	}
 
 	pipelineSpecBuilder := newPipelineSpecBuilder(s.EgressPipelineName())
+
+	pipelineSpecBuilder.appendMeshAdaptor(canaries)
 
 	if !s.Runnable() {
 		pipelineSpecBuilder.appendMock(s.Mock.Rules)
@@ -991,7 +1073,7 @@ func (s *Service) SideCarEgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec
 			pipelineSpecBuilder.appendCircuitBreaker(s.Resilience.CircuitBreaker)
 		}
 
-		pipelineSpecBuilder.appendProxyWithCanary(instanceSpecs, s.Canary, s.LoadBalance, appCert, rootCert)
+		pipelineSpecBuilder.appendProxyWithCanary(instanceSpecs, canaries, s.LoadBalance, appCert, rootCert)
 	}
 	yamlConfig := pipelineSpecBuilder.yamlConfig()
 	superSpec, err := supervisor.NewSpec(yamlConfig)

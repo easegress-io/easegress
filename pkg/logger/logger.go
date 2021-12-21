@@ -49,6 +49,18 @@ func InitNop() {
 	stderrLogger = defaultLogger
 }
 
+// InitMock initializes all logger to print stdout, mainly for unit testing
+func InitMock() {
+	mock := zap.NewExample()
+	httpFilterAccessLogger = mock.Sugar()
+	httpFilterDumpLogger = mock.Sugar()
+	restAPILogger = mock.Sugar()
+
+	defaultLogger = mock.Sugar()
+	gressLogger = defaultLogger
+	stderrLogger = defaultLogger
+}
+
 const (
 	stdoutFilename           = "stdout.log"
 	filterHTTPAccessFilename = "filter_http_access.log"

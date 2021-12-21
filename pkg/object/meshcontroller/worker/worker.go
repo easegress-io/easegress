@@ -70,28 +70,24 @@ type (
 	}
 )
 
-func decodeLabels(labels string) map[string]string {
-	mLabels := make(map[string]string)
-	if len(labels) == 0 {
-		return mLabels
-	}
-	strLabel, err := url.QueryUnescape(labels)
-	if err != nil {
-		logger.Errorf("query unescape: %s failed: %v ", labels, err)
-		return mLabels
+func decodeLabels(labelStr string) map[string]string {
+	labelMap := make(map[string]string)
+	if len(labelStr) == 0 {
+		return labelMap
 	}
 
-	arrLabel := strings.Split(strLabel, "&")
+	labelSlice := strings.Split(labelStr, ",")
 
-	for _, v := range arrLabel {
+	for _, v := range labelSlice {
 		kv := strings.Split(v, "=")
 		if len(kv) == 2 {
-			mLabels[kv[0]] = kv[1]
+			labelMap[kv[0]] = kv[1]
 		} else {
-			logger.Errorf("serviceLabel: %s invalid format: %s", strLabel, v)
+			logger.Errorf("%s: invalid label: %s", labelStr, v)
 		}
 	}
-	return mLabels
+
+	return labelMap
 }
 
 // New creates a mesh worker.

@@ -71,7 +71,7 @@ type (
 
 	// Status is the status of namespaces
 	Status struct {
-		Namespaces []string `yaml:"namespaces"`
+		Specs []*StatusInSameNamespace `yaml:"specs"`
 	}
 
 	// HTTPServerStatus is the HTTP server status
@@ -637,15 +637,45 @@ func (tc *TrafficController) Status() *supervisor.Status {
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
 
-	namespaces := []string{}
+	statuses := []*StatusInSameNamespace{}
 
-	for namespace := range tc.namespaces {
-		namespaces = append(namespaces, namespace)
+	for namespace, namespaceSpec := range tc.namespaces {
+		httpServers := make(map[string]*HTTPServerStatus)
+		namespaceSpec.httpservers.Range(func(key, value interface{}) bool {
+			k := key.(string)
+			v := value.(*supervisor.ObjectEntity)
+
+			httpServers[k] = &HTTPServerStatus{
+				Spec:   v.Spec().RawSpec(),
+				Status: v.Instance().Status().ObjectStatus.(*httpserver.Status),
+			}
+
+			return true
+		})
+
+		httpPipelines := make(map[string]*HTTPPipelineStatus)
+		namespaceSpec.httppipelines.Range(func(key, value interface{}) bool {
+			k := key.(string)
+			v := value.(*supervisor.ObjectEntity)
+
+			httpPipelines[k] = &HTTPPipelineStatus{
+				Spec:   v.Spec().RawSpec(),
+				Status: v.Instance().Status().ObjectStatus.(*httppipeline.Status),
+			}
+
+			return true
+		})
+
+		statuses = append(statuses, &StatusInSameNamespace{
+			Namespace:     namespace,
+			HTTPServers:   httpServers,
+			HTTPPipelines: httpPipelines,
+		})
 	}
 
 	return &supervisor.Status{
 		ObjectStatus: &Status{
-			Namespaces: namespaces,
+			Specs: statuses,
 		},
 	}
 }

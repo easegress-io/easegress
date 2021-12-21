@@ -240,6 +240,7 @@ func (ic *IngressController) _reloadHTTPPipelines() {
 		rootCert = ic.service.GetRootCert()
 	}
 
+	canaries := ic.service.ListServiceCanaries()
 	for _, serviceSpec := range ic.service.ListServiceSpecs() {
 		if _, exists := ic.ingressBackends[serviceSpec.BackendName()]; !exists {
 			continue
@@ -259,8 +260,7 @@ func (ic *IngressController) _reloadHTTPPipelines() {
 			continue
 		}
 
-		// FIXME: What if the instance address is always 127.0.0.1.
-		superSpec, err := serviceSpec.IngressPipelineSpec(instanceSpecs, cert, rootCert)
+		superSpec, err := serviceSpec.IngressControllerPipelineSpec(instanceSpecs, canaries, cert, rootCert)
 		if err != nil {
 			logger.Errorf("get ingress pipeline for %s failed: %v",
 				serviceSpec.Name, err)

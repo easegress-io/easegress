@@ -23,24 +23,41 @@ import (
 )
 
 const (
-	sessionPrefix = "/mqtt/sessionMgr/clientID/%s"
-	topicPrefix   = "/mqtt/topicMgr/topic/%s"
-	mqttAPIPrefix = "/mqttproxy/%s/topics/publish"
+	sessionPrefix              = "/mqtt/sessionMgr/clientID/%s"
+	topicPrefix                = "/mqtt/topicMgr/topic/%s"
+	mqttAPITopicPublishPrefix  = "/mqttproxy/%s/topics/publish"
+	mqttAPISessionQueryPrefix  = "/mqttproxy/%s/session/query"
+	mqttAPISessionDeletePrefix = "/mqttproxy/%s/sessions"
 )
 
 type (
 	// Spec describes the MQTTProxy.
 	Spec struct {
-		EGName         string        `yaml:"-"`
-		Name           string        `yaml:"-"`
-		Port           uint16        `yaml:"port" jsonschema:"required"`
-		BackendType    string        `yaml:"backendType" jsonschema:"required"`
-		Auth           []Auth        `yaml:"auth" jsonschema:"required"`
-		TopicMapper    *TopicMapper  `yaml:"topicMapper" jsonschema:"omitempty"`
-		Kafka          *KafkaSpec    `yaml:"kafkaBroker" jsonschema:"omitempty"`
-		UseTLS         bool          `yaml:"useTLS" jsonschema:"omitempty"`
-		Certificate    []Certificate `yaml:"certificate" jsonschema:"omitempty"`
-		TopicCacheSize int           `yaml:"topicCacheSize" jsonschema:"omitempty"`
+		EGName               string        `yaml:"-"`
+		Name                 string        `yaml:"-"`
+		Port                 uint16        `yaml:"port" jsonschema:"required"`
+		BackendType          string        `yaml:"backendType" jsonschema:"required"`
+		Auth                 []Auth        `yaml:"auth" jsonschema:"required"`
+		TopicMapper          *TopicMapper  `yaml:"topicMapper" jsonschema:"omitempty"`
+		Kafka                *KafkaSpec    `yaml:"kafkaBroker" jsonschema:"omitempty"`
+		UseTLS               bool          `yaml:"useTLS" jsonschema:"omitempty"`
+		Certificate          []Certificate `yaml:"certificate" jsonschema:"omitempty"`
+		TopicCacheSize       int           `yaml:"topicCacheSize" jsonschema:"omitempty"`
+		Pipeline             string        `yaml:"pipeline" jsonschema:"omitempty"`
+		AuthByPipeline       bool          `yaml:"authByPipeline" jsonschema:"omitempty"`
+		MaxAllowedConnection int           `yaml:"maxAllowedConnection" jsonschema:"omitempty"`
+		ConnectionLimit      *RateLimit    `yaml:"connectionLimit" jsonschema:"omitempty"`
+		ClientPublishLimit   *RateLimit    `yaml:"clientPublishLimit" jsonschema:"omitempty"`
+	}
+
+	// RateLimit describes rate limit for connection or publish.
+	// requestRate: max allowed request in time period
+	// timePeriod: max allowed bytes in time period
+	// timePeriod: time of seconds to count requestRate and bytesRate, default 1 second
+	RateLimit struct {
+		RequestRate int `yaml:"requestRate" jsonschema:"omitempty"`
+		BytesRate   int `yaml:"bytesRate" jsonschema:"omitempty"`
+		TimePeriod  int `yaml:"timePeriod" jsonschema:"omitempty"`
 	}
 
 	// Certificate describes TLS certifications.

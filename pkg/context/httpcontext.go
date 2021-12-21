@@ -44,6 +44,7 @@ type (
 	// It is not goroutine-safe, callers must use Lock/Unlock
 	// to protect it by themselves.
 	HTTPContext interface {
+		Context
 		Lock()
 		Unlock()
 
@@ -52,13 +53,12 @@ type (
 		Request() HTTPRequest
 		Response() HTTPResponse
 
-		stdcontext.Context
 		Cancel(err error)
 		Cancelled() bool
 		ClientDisconnected() bool
 
-		OnFinish(func())   // For setting final client statistics, etc.
-		AddTag(tag string) // For debug, log, etc.
+		OnFinish(FinishFunc) // For setting final client statistics, etc.
+		AddTag(tag string)   // For debug, log, etc.
 
 		StatMetric() *httpstat.Metric
 
@@ -116,16 +116,25 @@ type (
 
 		SetBody(body io.Reader)
 		Body() io.Reader
-		OnFlushBody(func(body []byte, complete bool) (newBody []byte))
+		OnFlushBody(BodyFlushFunc)
 
 		Std() http.ResponseWriter
 
 		Size() uint64 // bytes
 	}
 
+	// HTTPResult is result for handling http request
+	HTTPResult struct {
+		Err error
+	}
+
 	// FinishFunc is the type of function to be called back
 	// when HTTPContext is finishing.
 	FinishFunc = func()
+
+	// BodyFlushFunc is the type of function to be called back
+	// when body is flushing.
+	BodyFlushFunc = func(body []byte, complete bool) (newBody []byte)
 
 	httpContext struct {
 		mutex sync.Mutex
@@ -159,15 +168,22 @@ func New(stdw http.ResponseWriter, stdr *http.Request,
 	stdr = stdr.WithContext(stdctx)
 
 	startTime := fasttime.Now()
+	span := tracing.NewSpanWithStart(tracer, spanName, startTime)
+	span.SetTag("http.method", stdr.Method)
+	span.SetTag("http.path", stdr.URL.Path)
 	return &httpContext{
 		startTime:      startTime,
-		span:           tracing.NewSpanWithStart(tracer, spanName, startTime),
+		span:           span,
 		originalReqCtx: originalReqCtx,
 		stdctx:         stdctx,
 		cancelFunc:     cancelFunc,
 		r:              newHTTPRequest(stdr),
 		w:              newHTTPResponse(stdw, stdr),
 	}
+}
+
+func (ctx *httpContext) Protocol() Protocol {
+	return HTTP
 }
 
 func (ctx *httpContext) CallNextHandler(lastResult string) string {

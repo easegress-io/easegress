@@ -20,7 +20,7 @@ package retryer
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/rand"
 	"strings"
 	"time"
@@ -176,7 +176,7 @@ func (r *Retryer) handle(ctx context.HTTPContext, u *URLRule) string {
 	attempt := 0
 	base := float64(u.policy.waitDuration)
 
-	data, _ := ioutil.ReadAll(ctx.Request().Body())
+	data, _ := io.ReadAll(ctx.Request().Body())
 	for {
 		attempt++
 		ctx.Request().SetBody(bytes.NewReader(data))

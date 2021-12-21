@@ -12,5 +12,5 @@ CONFIG_PATH=${SCRIPTPATH}/config
 for CONFIG_FILE in ${CONFIG_PATH}/*.yaml
 do
 	echo "update object: ${CONFIG_FILE}"
-	$SCRIPTPATH/writer-001/egctl.sh object update -f ${CONFIG_FILE}
+	$SCRIPTPATH/primary-001/egctl.sh object update -f ${CONFIG_FILE}
 done

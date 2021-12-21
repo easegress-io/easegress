@@ -283,6 +283,37 @@ func (a *API) createPartOfService(meta *partMeta) http.HandlerFunc {
 			return
 		}
 
+		// NOTE: Canary is deprecated.
+		// Transform canary to new feature service canary.
+		// This block of code will be eliminated along with canary.
+		if meta.partName == "canary" {
+			canary := part.(*spec.Canary)
+			serviceCanaries := []*spec.ServiceCanary{}
+			for i, rules := range canary.CanaryRules {
+				serviceCanary := &spec.ServiceCanary{
+					Name:     fmt.Sprintf("%s-legacy-canary-%d", serviceName, i),
+					Priority: 5,
+					Selector: &spec.ServiceSelector{
+						MatchServices:       []string{serviceName},
+						MatchInstanceLabels: rules.ServiceInstanceLabels,
+					},
+					TrafficRules: &spec.TrafficRules{
+						Headers: rules.Headers,
+					},
+				}
+
+				serviceCanaries = append(serviceCanaries, serviceCanary)
+			}
+
+			for _, serviceCanary := range serviceCanaries {
+				a.service.PutServiceCanarySpec(serviceCanary)
+			}
+
+			w.WriteHeader(http.StatusCreated)
+
+			return
+		}
+
 		meta.setPart(serviceSpec, part)
 
 		a.service.PutServiceSpec(serviceSpec)

@@ -112,7 +112,7 @@ func (ings *IngressServer) InitIngress(service *spec.Service, port uint32) error
 	ings.applicationPort = port
 
 	if _, ok := ings.pipelines[service.IngressPipelineName()]; !ok {
-		superSpec, err := service.SideCarIngressPipelineSpec(port)
+		superSpec, err := service.SidecarIngressPipelineSpec(port)
 		if err != nil {
 			return err
 		}
@@ -132,7 +132,7 @@ func (ings *IngressServer) InitIngress(service *spec.Service, port uint32) error
 			logger.Infof("ingress enable TLS, init httpserver with cert: %#v", cert)
 		}
 
-		superSpec, err := service.SideCarIngressHTTPServerSpec(cert, rootCert)
+		superSpec, err := service.SidecarIngressHTTPServerSpec(cert, rootCert)
 		if err != nil {
 			return err
 		}
@@ -181,7 +181,7 @@ func (ings *IngressServer) reloadHTTPServer(event informer.Event, value *spec.Ce
 	}
 
 	rootCert := ings.service.GetRootCert()
-	superSpec, err := spec.SideCarIngressHTTPServerSpec(value, rootCert)
+	superSpec, err := spec.SidecarIngressHTTPServerSpec(value, rootCert)
 	if err != nil {
 		logger.Errorf("BUG: update ingress pipeline spec: %s new super spec failed: %v",
 			superSpec.YAMLConfig(), err)
@@ -209,7 +209,7 @@ func (ings *IngressServer) reloadPipeline(event informer.Event, serviceSpec *spe
 		return false
 	}
 
-	superSpec, err := serviceSpec.SideCarIngressPipelineSpec(ings.applicationPort)
+	superSpec, err := serviceSpec.SidecarIngressPipelineSpec(ings.applicationPort)
 	if err != nil {
 		logger.Errorf("BUG: update ingress pipeline spec: %s new super spec failed: %v",
 			superSpec.YAMLConfig(), err)

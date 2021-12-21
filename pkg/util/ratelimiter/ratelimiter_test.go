@@ -49,7 +49,7 @@ func TestNewDefaultPolicy(t *testing.T) {
 	}
 }
 func TestConcurrent(t *testing.T) {
-	policy := NewPolicy(50, 10, 5)
+	policy := NewPolicy(50*time.Millisecond, 10*time.Millisecond, 5)
 
 	var wg sync.WaitGroup
 	limiter := New(policy)
@@ -100,7 +100,7 @@ func TestConcurrent(t *testing.T) {
 }
 
 func TestRateLimiter(t *testing.T) {
-	policy := NewPolicy(50, 10, 5)
+	policy := NewPolicy(50*time.Millisecond, 10*time.Millisecond, 5)
 
 	limiter := New(policy)
 	limiter.SetStateListener(func(event *Event) {
@@ -178,6 +178,69 @@ func TestRateLimiter(t *testing.T) {
 		t.Errorf("AcquirePermission should fail")
 	} else if d != policy.TimeoutDuration {
 		t.Errorf("wait duration should not be: %s", d.String())
+	}
+	limiter.SetState(StateDisabled)
+}
+
+func TestRateLimiterN(t *testing.T) {
+	policy := NewPolicy(50*time.Millisecond, 10*time.Millisecond, 5)
+
+	limiter := New(policy)
+	limiter.SetStateListener(func(event *Event) {
+		fmt.Printf("%v\n", event)
+	})
+	limiter.SetState(StateNormal)
+	for i := 0; i < 15; i++ {
+		permitted, _ := limiter.AcquireNPermission(2)
+		if !permitted {
+			t.Errorf("AcquirePermission should succeed: %d", i)
+		}
+	}
+
+	limiter.SetState(StateDisabled)
+	if permitted, _ := limiter.AcquirePermission(); !permitted {
+		t.Errorf("AcquirePermission should succeeded")
+	}
+
+	limiter.SetState(StateNormal)
+	for i := 0; i < 10; i++ {
+		permitted, _ := limiter.AcquireNPermission(3)
+		if !permitted {
+			t.Errorf("AcquirePermission should succeed: %d", i)
+		}
+	}
+
+	limiter.SetState(StateLimiting)
+	if permitted, _ := limiter.AcquirePermission(); permitted {
+		t.Errorf("AcquirePermission should fail")
+	}
+
+	limiter.SetState(StateLimiting)
+	now = now.Add(time.Millisecond * 5)
+	if permitted, _ := limiter.AcquirePermission(); permitted {
+		t.Errorf("AcquirePermission should fail")
+	}
+
+	now = now.Add(time.Millisecond * 6)
+	for i := 0; i < 5; i++ {
+		if permitted, _ := limiter.AcquirePermission(); !permitted {
+			t.Errorf("AcquirePermission should succeed: %d", i)
+		}
+	}
+
+	if permitted, _ := limiter.AcquirePermission(); permitted {
+		t.Errorf("AcquirePermission should fail")
+	}
+
+	now = now.Add(time.Millisecond * 89)
+	for i := 0; i < 5; i++ {
+		if permitted, _ := limiter.AcquireNPermission(6); !permitted {
+			t.Errorf("AcquirePermission should succeed: %d", i)
+		}
+	}
+
+	if permitted, _ := limiter.AcquirePermission(); permitted {
+		t.Errorf("AcquirePermission should fail")
 	}
 	limiter.SetState(StateDisabled)
 }

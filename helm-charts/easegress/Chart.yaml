@@ -1,0 +1,5 @@
+apiVersion: v2
+name: easegress
+type: application
+version: 1.0.0
+
