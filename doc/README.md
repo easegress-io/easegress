@@ -19,7 +19,7 @@ This is a cookbook that lists a number of useful and practical examples on how t
 - [Distributed Tracing](./cookbook/distributed-tracing.md) - How to do APM tracing  - Zipkin.
 - [FaaS](./cookbook/faas.md) - Supporting Knative FaaS integration
 - [Flash Sale](./cookbook/flash-sale.md) - How to do high concurrent promotion sales with Easegress
-- [Kubernetes Ingress Controller](./cookbook/k8s-ingress-controller.md) - How to integrated with Kubernetes as ingress controller
+- [Kubernetes Ingress Controller](./cookbook/k8s-ingress-controller.md) - How to integrated with Kubernetes as ingress controller, and [K8s Ingress Controller](./reference/ingresscontroller.md) for full manual.
 - [LoadBalancer](./cookbook/load-balancer.md) - A number of strategy of load balancing
 - [MQTTProxy](./cookbook/mqtt-proxy.md) - An Example to MQTT proxy with Kafka backend.
 - [Performance](./cookbook/performance.md) - Performance optimization - compression, caching etc.
@@ -64,7 +64,7 @@ It could be created, updated, deleted by admin operation. They control various r
 
 - [EaseMonitorMetrics](./reference/controllers.md#) - Monitor metrics of Easegress and send them to Kafka.
 - [FaaSController](./reference/controllers.md#faascontroller) - For Easegress and FaaS products integration purpose.
-- [IngressController](./reference/controllers.md#ingresscontroller) - an implementation of Kubernetes ingress controller, it watches Kubernetes Ingress, Service, Endpoints, and Secrets then translates them to Easegress HTTP server and pipelines. 
+- [IngressController](./reference/controllers.md#ingresscontroller) - an implementation of Kubernetes ingress controller, it watches Kubernetes Ingress, Service, Endpoints, and Secrets then translates them to Easegress HTTP server and pipelines. The [K8s Ingress Controller](./reference/ingresscontroller.md) for full manual.
 - [MeshController](./reference/controllers.md#meshcontroller) - This is for [EaseMesh](https://github.com/megaease/easemesh) project.
 - [ConsulServiceRegistry](./reference/controllers.md#consulserviceregistry) - supports service discovery for Consul as backend. 
 - [EtcdServiceRegistry](./reference/controllers.md#etcdserviceregistry) - support service discovery for Etcd as backend. 
