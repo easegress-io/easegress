@@ -17,16 +17,9 @@
 
 package iobufferpool
 
-import "errors"
-
 const (
 	// UDPPacketMaxSize max size of udp packet
 	UDPPacketMaxSize = 65535
 	// DefaultBufferReadCapacity default buffer capacity for stream proxy such as tcp
-	DefaultBufferReadCapacity = 1 << 7
-)
-
-var (
-	// ErrEOF io buffer eof sign
-	ErrEOF = errors.New("EOF")
+	DefaultBufferReadCapacity = 1 << 16
 )

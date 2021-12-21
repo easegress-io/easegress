@@ -95,6 +95,7 @@ func newServers(super *supervisor.Supervisor, poolSpec *Spec) *servers {
 	return s
 }
 
+// String backend server info
 func (s *Server) String() string {
 	return fmt.Sprintf("%s,%v,%d", s.Addr, s.Tags, s.Weight)
 }

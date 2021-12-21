@@ -27,6 +27,7 @@ type StreamBuffer struct {
 	eof     bool
 }
 
+// NewStreamBuffer create stream buffer with specific payload
 func NewStreamBuffer(buf []byte) *StreamBuffer {
 	res := &StreamBuffer{
 		payload: bytebufferpool.Get(),

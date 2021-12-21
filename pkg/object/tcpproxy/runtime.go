@@ -105,7 +105,7 @@ func (r *runtime) fsm() {
 	for e := range r.eventChan {
 		switch e := e.(type) {
 		case *eventCheckFailed:
-			r.handleEventCheckFailed(e)
+			r.handleEventCheckFailed()
 		case *eventServeFailed:
 			r.handleEventServeFailed(e)
 		case *eventReload:
@@ -243,7 +243,7 @@ func (r *runtime) checkFailed() {
 	}
 }
 
-func (r *runtime) handleEventCheckFailed(e *eventCheckFailed) {
+func (r *runtime) handleEventCheckFailed() {
 	if r.getState() == stateFailed {
 		r.startServer()
 	}
@@ -288,9 +288,7 @@ func (r *runtime) onAccept() func(conn net.Conn, listenerStop chan struct{}) {
 
 		serverAddr, _ := net.ResolveTCPAddr("tcp", server.Addr)
 		serverConn := NewServerConn(r.spec.ConnectTimeout, serverAddr, listenerStop)
-		if err := serverConn.Connect(); err != nil {
-			logger.Errorf("connect to server failed(name: %s, addr: %s), err: %+v",
-				r.spec.Name, rawConn.LocalAddr().String(), err)
+		if !serverConn.Connect() {
 			_ = rawConn.Close()
 			return
 		}
@@ -315,16 +313,16 @@ func (r *runtime) setCallbacks(clientConn *Connection, serverConn *ServerConnect
 
 	clientConn.SetOnClose(func(event ConnectionEvent) {
 		if event == RemoteClose {
-			_ = serverConn.Close(FlushWrite, LocalClose)
+			serverConn.Close(FlushWrite, LocalClose)
 		} else {
-			_ = serverConn.Close(NoFlush, LocalClose)
+			serverConn.Close(NoFlush, LocalClose)
 		}
 	})
 	serverConn.SetOnClose(func(event ConnectionEvent) {
 		if event == RemoteClose {
-			_ = clientConn.Close(FlushWrite, LocalClose)
+			clientConn.Close(FlushWrite, LocalClose)
 		} else {
-			_ = clientConn.Close(NoFlush, LocalClose)
+			clientConn.Close(NoFlush, LocalClose)
 		}
 	})
 }
