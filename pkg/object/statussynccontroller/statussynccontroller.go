@@ -213,8 +213,6 @@ func (ssc *StatusSyncController) syncStatusToCluster(statuses map[string]string)
 		totalLen += len(value)
 		kvs[k] = &value
 	}
-	fmt.Println("Total length of the key: ")
-	fmt.Println(totalLen)
 
 	err := ssc.superSpec.Super().Cluster().PutAndDeleteUnderLease(kvs)
 	if err != nil {
