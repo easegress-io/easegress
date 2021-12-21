@@ -1,9 +1,0 @@
-{{- define "easegress-lib-chart.storageclass" -}}
-apiVersion: storage.k8s.io/v1
-kind: StorageClass
-metadata:
-  name: easegress-storage
-provisioner: kubernetes.io/no-provisioner
-reclaimPolicy: Delete
-volumeBindingMode: WaitForFirstConsumer
-{{- end -}}
