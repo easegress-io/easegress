@@ -3,8 +3,3 @@ name: easegress
 type: application
 version: 1.0.0
 
-# Common code in easegress-lib-chart library
-dependencies:
-- name: easegress-lib-chart
-  version: 1.4.0
-  repository: file://../easegress-lib-chart

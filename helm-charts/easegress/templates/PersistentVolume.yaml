@@ -25,6 +25,10 @@ spec:
 ---
 {{ end }}
 
-{{- include "easegress-lib-chart.storageclass" (list . "easegress.storageclass") -}}
-
-{{- end }}
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: easegress-storage
+provisioner: kubernetes.io/no-provisioner
+reclaimPolicy: Delete
+volumeBindingMode: WaitForFirstConsumer
