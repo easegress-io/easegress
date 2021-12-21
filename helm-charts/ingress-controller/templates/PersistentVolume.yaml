@@ -33,4 +33,4 @@ provisioner: kubernetes.io/no-provisioner
 reclaimPolicy: Delete
 volumeBindingMode: WaitForFirstConsumer
 
-{{ end }}
+{{- end }}

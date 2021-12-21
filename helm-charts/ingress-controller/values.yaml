@@ -1,6 +1,6 @@
 service:
   # nodePort for easegress service
-  nodePort: 30080
+  nodePort: 80
   # nodeport for egctl access
   adminPort: 31255
 
