@@ -115,6 +115,17 @@ func (spec *Spec) Validate() error {
 	return err
 }
 
+func tryDecodeBase64Pem(pem string) []byte {
+	// The pem could in base64 encoding or plain text. It starts with '-' if it is
+	// in plain text, and '-' is not a valid character in standard base64 encoding.
+	// We first try to decode it as base64, and fallback to plain text if failed.
+	d, err := base64.StdEncoding.DecodeString(pem)
+	if err == nil {
+		return d
+	}
+	return []byte(pem)
+}
+
 func (spec *Spec) tlsConfig() (*tls.Config, error) {
 	var certificates []tls.Certificate
 
@@ -135,8 +146,8 @@ func (spec *Spec) tlsConfig() (*tls.Config, error) {
 			return nil, fmt.Errorf("certs %s hasn't secret corresponded to it", k)
 		}
 
-		certPem, _ := base64.StdEncoding.DecodeString(v)
-		keyPem, _ := base64.StdEncoding.DecodeString(secret)
+		certPem := tryDecodeBase64Pem(v)
+		keyPem := tryDecodeBase64Pem(secret)
 		cert, err := tls.X509KeyPair(certPem, keyPem)
 		if err != nil {
 			return nil, fmt.Errorf("generate x509 key pair for %s failed: %s ", k, err)
