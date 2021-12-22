@@ -132,7 +132,7 @@ func (v *Validator) handle(ctx context.HTTPContext) string {
 	if v.jwt != nil {
 		err := v.jwt.Validate(req)
 		if err != nil {
-			ctx.Response().SetStatusCode(http.StatusForbidden)
+			ctx.Response().SetStatusCode(http.StatusUnauthorized)
 			ctx.AddTag(stringtool.Cat("JWT validator: ", err.Error()))
 			return resultInvalid
 		}
@@ -141,7 +141,7 @@ func (v *Validator) handle(ctx context.HTTPContext) string {
 	if v.signer != nil {
 		err := v.signer.Verify(req.Std())
 		if err != nil {
-			ctx.Response().SetStatusCode(http.StatusForbidden)
+			ctx.Response().SetStatusCode(http.StatusUnauthorized)
 			ctx.AddTag(stringtool.Cat("signature validator: ", err.Error()))
 			return resultInvalid
 		}
@@ -150,7 +150,7 @@ func (v *Validator) handle(ctx context.HTTPContext) string {
 	if v.oauth2 != nil {
 		err := v.oauth2.Validate(req)
 		if err != nil {
-			ctx.Response().SetStatusCode(http.StatusForbidden)
+			ctx.Response().SetStatusCode(http.StatusUnauthorized)
 			ctx.AddTag(stringtool.Cat("oauth2 validator: ", err.Error()))
 			return resultInvalid
 		}
