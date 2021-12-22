@@ -373,7 +373,10 @@ func (acm *AutoCertManager) getCertificate(chi *tls.ClientHelloInfo, tokenOnly b
 
 	domain := acm.findDomain(name, false)
 	if domain == nil {
-		return nil, fmt.Errorf("host %q is not configured for auto cert", name)
+		// return nil error if the domain is not managed by the AutoCertManager, so that
+		// the Go HTTP package could check the the static certificates configured in the
+		// HTTP server spec.
+		return nil, nil
 	}
 
 	cert := domain.cert()
@@ -414,7 +417,11 @@ func GetCertificate(chi *tls.ClientHelloInfo, tokenOnly bool) (*tls.Certificate,
 	if acm != nil {
 		return acm.getCertificate(chi, tokenOnly)
 	}
-	return nil, fmt.Errorf("auto certificate manager is not started")
+
+	// return a nil error if the AutoCertManager is not started, otherwise:
+	// * static certificates configured in an HTTP server are never used, which is a bug
+	// * the Go HTTP package logs a lot of 'TLS handshake error'
+	return nil, nil
 }
 
 // HandleHTTP01Challenge handles HTTP-01 challenge
