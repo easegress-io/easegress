@@ -144,9 +144,15 @@ var httpstatResultPool = sync.Pool{
 func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader, client *http.Client) string {
 	addLazyTag := func(subPrefix, msg string, intMsg int) {
 		ctx.Lock()
-		ctx.AddLazyTag(func() string {
-			return stringtool.Cat(p.tagPrefix, "#", subPrefix, ": ", msg)
-		})
+		if intMsg > -1 {
+			ctx.AddLazyTag(func() string {
+				return stringtool.Cat(p.tagPrefix, "#", subPrefix, ": ", strconv.Itoa(intMsg))
+			})
+		} else {
+			ctx.AddLazyTag(func() string {
+				return stringtool.Cat(p.tagPrefix, "#", subPrefix, ": ", msg)
+			})
+		}
 		ctx.Unlock()
 	}
 
