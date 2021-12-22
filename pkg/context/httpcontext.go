@@ -23,7 +23,6 @@ import (
 	"io"
 	"net/http"
 	"runtime/debug"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -58,14 +57,9 @@ type (
 		Cancelled() bool
 		ClientDisconnected() bool
 
-		OnFinish(FinishFunc) // For setting final client statistics, etc.
-		AddTag(tag string)   // For debug, log, etc.
-		// Update next lazy tag, without creating new object if possible.
-		AddLazyTag(ns string, prefix string, msg string, intMsg int)
-		// Converts LazyTags to string and return them with normal tags.
-		GetTags() []string
-		// Recycle LazyTags back to lazyTagPool.
-		ReleaseLazyTags()
+		OnFinish(FinishFunc)    // For setting final client statistics, etc.
+		AddTag(tag string)      // For debug, log, etc.
+		AddLazyTag(LazyTagFunc) // Return LazyTags as strings.
 
 		StatMetric() *httpstat.Metric
 
@@ -143,13 +137,16 @@ type (
 	// when body is flushing.
 	BodyFlushFunc = func(body []byte, complete bool) (newBody []byte)
 
+	// LazyTagFunc is the type of function to be called back
+	// when converting lazy tags to strings.
+	LazyTagFunc = func() string
+
 	httpContext struct {
 		mutex sync.Mutex
 
 		startTime   time.Time
 		finishFuncs []FinishFunc
-		tags        []string
-		lazyTags    []*LazyTag
+		lazyTags    []LazyTagFunc
 		caller      HandlerCaller
 
 		r *httpRequest
@@ -164,32 +161,7 @@ type (
 
 		metric httpstat.Metric
 	}
-
-	// LazyTag for doing string concatenations later.
-	LazyTag struct {
-		Namespace string
-		Prefix    string
-		StringMsg string
-
-		IntMsg int
-
-		Sep string
-	}
 )
-
-func (lt *LazyTag) String() string {
-	msg := lt.StringMsg
-	if lt.IntMsg > 0 {
-		msg = strconv.Itoa(lt.IntMsg)
-	}
-	return stringtool.Cat(lt.Namespace, lt.Sep, lt.Prefix, lt.Sep, msg)
-}
-
-var lazyTagPool = sync.Pool{
-	New: func() interface{} {
-		return &LazyTag{}
-	},
-}
 
 // New creates an HTTPContext.
 // NOTE: We can't use sync.Pool to recycle context.
@@ -213,8 +185,7 @@ func New(stdw http.ResponseWriter, stdr *http.Request,
 		cancelFunc:     cancelFunc,
 		r:              newHTTPRequest(stdr),
 		w:              newHTTPResponse(stdw, stdr),
-		tags:           make([]string, 0, 5),
-		lazyTags:       make([]*LazyTag, 0, 5),
+		lazyTags:       make([]LazyTagFunc, 0, 5),
 		finishFuncs:    make([]FinishFunc, 0, 1),
 	}
 	return ctx
@@ -251,36 +222,23 @@ func (ctx *httpContext) Span() tracing.Span {
 
 // Add new Tag.
 func (ctx *httpContext) AddTag(tag string) {
-	ctx.tags = append(ctx.tags, tag)
+	ctx.lazyTags = append(ctx.lazyTags, func() string {
+		return tag
+	})
 }
 
 // Add new LazyTag.
-func (ctx *httpContext) AddLazyTag(ns string, prefix string, msg string, intMsg int) {
-	lazyTag := lazyTagPool.Get().(*LazyTag)
-	lazyTag.Namespace = ns
-	lazyTag.Prefix = prefix
-	lazyTag.StringMsg = msg
-	lazyTag.IntMsg = intMsg
-	lazyTag.Sep = ": "
+func (ctx *httpContext) AddLazyTag(lazyTag LazyTagFunc) {
 	ctx.lazyTags = append(ctx.lazyTags, lazyTag)
 }
 
-func (ctx *httpContext) ReleaseLazyTags() {
-	for _, lazyTag := range ctx.lazyTags {
-		lazyTagPool.Put(lazyTag)
-	}
-}
-
 // Return all tags in string format.
-func (ctx *httpContext) GetTags() []string {
-	allTags := make([]string, len(ctx.tags)+len(ctx.lazyTags))
-	for i := 0; i < len(ctx.tags); i++ {
-		allTags[i] = ctx.tags[i]
-	}
+func (ctx *httpContext) getTags() []string {
+	tags := make([]string, len(ctx.lazyTags))
 	for i := 0; i < len(ctx.lazyTags); i++ {
-		allTags[len(ctx.tags)+i] = ctx.lazyTags[i].String()
+		tags[i] = ctx.lazyTags[i]()
 	}
-	return allTags
+	return tags
 }
 
 func (ctx *httpContext) Request() HTTPRequest {
@@ -361,8 +319,7 @@ func (ctx *httpContext) Finish() {
 
 	logger.LazyHTTPAccess(func() string {
 		stdr := ctx.r.std
-		tags := strings.Join(ctx.GetTags(), " | ")
-		ctx.ReleaseLazyTags()
+		tags := strings.Join(ctx.getTags(), " | ")
 
 		// log format:
 		// [startTime]
@@ -380,9 +337,6 @@ func (ctx *httpContext) Finish() {
 			ctx.metric.Duration, ctx.r.Size(), ctx.w.Size(),
 			tags)
 	})
-	if logger.IsAccessLogDisabled() {
-		ctx.ReleaseLazyTags()
-	}
 }
 
 func (ctx *httpContext) StatMetric() *httpstat.Metric {

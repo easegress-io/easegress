@@ -33,8 +33,6 @@ import (
 )
 
 type (
-	requestStatus int16
-
 	request struct {
 		server     *Server
 		std        *http.Request
@@ -42,7 +40,6 @@ type (
 		createTime time.Time
 		_startTime time.Time
 		_endTime   time.Time
-		status     requestStatus
 	}
 
 	resultState struct {

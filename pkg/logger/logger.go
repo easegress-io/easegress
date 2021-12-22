@@ -47,8 +47,6 @@ func InitNop() {
 	defaultLogger = nop.Sugar()
 	gressLogger = defaultLogger
 	stderrLogger = defaultLogger
-
-	isHTTPFilterNop = true
 }
 
 // InitMock initializes all logger to print stdout, mainly for unit testing
@@ -87,7 +85,6 @@ var (
 	httpFilterAccessLogger *zap.SugaredLogger
 	httpFilterDumpLogger   *zap.SugaredLogger
 	restAPILogger          *zap.SugaredLogger
-	isHTTPFilterNop        bool
 )
 
 // EtcdClientLoggerConfig generates the config of etcd client logger.
@@ -166,10 +163,8 @@ func initRestAPI(opt *option.Options) {
 
 func newPlainLogger(opt *option.Options, filename string, maxCacheCount uint32) *zap.SugaredLogger {
 	if opt.DisableAccessLog {
-		isHTTPFilterNop = true
 		return zap.NewNop().Sugar()
 	}
-	isHTTPFilterNop = false
 
 	encoderConfig := zapcore.EncoderConfig{
 		TimeKey:       "",

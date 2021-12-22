@@ -144,7 +144,9 @@ var httpstatResultPool = sync.Pool{
 func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader, client *http.Client) string {
 	addLazyTag := func(subPrefix, msg string, intMsg int) {
 		ctx.Lock()
-		ctx.AddLazyTag(p.tagPrefix, subPrefix, msg, intMsg)
+		ctx.AddLazyTag(func() string {
+			return stringtool.Cat(p.tagPrefix, "#", subPrefix, ": ", msg)
+		})
 		ctx.Unlock()
 	}
 
@@ -273,7 +275,9 @@ func (p *pool) statRequestResponse(ctx context.HTTPContext,
 			span.Finish()
 		}
 		duration := req.total()
-		ctx.AddLazyTag(p.tagPrefix, "#duration: ", duration.String(), -1)
+		ctx.AddLazyTag(func() string {
+			return stringtool.Cat(p.tagPrefix, "#duration: ", duration.String())
+		})
 		// use recycled object
 		metric := httpstatMetricPool.Get().(*httpstat.Metric)
 		metric.StatusCode = resp.StatusCode
