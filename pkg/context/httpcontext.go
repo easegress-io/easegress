@@ -249,7 +249,7 @@ func (ctx *httpContext) Span() tracing.Span {
 	return ctx.span
 }
 
-// Fill the empty tag. If all existing Tags are filled, create new one.
+// Add new Tag.
 func (ctx *httpContext) AddTag(tag string) {
 	ctx.tags = append(ctx.tags, tag)
 }

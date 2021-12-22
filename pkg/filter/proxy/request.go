@@ -40,20 +40,14 @@ type (
 		std        *http.Request
 		statResult *httpstat.Result
 		createTime time.Time
-		_startTime *time.Time
-		_endTime   *time.Time
+		_startTime time.Time
+		_endTime   time.Time
 		status     requestStatus
 	}
 
 	resultState struct {
 		buff *bytes.Buffer
 	}
-)
-
-const (
-	created requestStatus = iota
-	started
-	finished
 )
 
 func (p *pool) newRequest(
@@ -67,7 +61,8 @@ func (p *pool) newRequest(
 	req.createTime = fasttime.Now()
 	req.server = server
 	req.statResult = statResult
-	req.status = created
+	req._startTime = time.Time{}
+	req._endTime = time.Time{}
 
 	r := ctx.Request()
 
@@ -91,51 +86,48 @@ func (p *pool) newRequest(
 }
 
 func (r *request) start() {
-	if r.status == started {
+	if !time.Time.IsZero(r._startTime) {
 		logger.Errorf("BUG: started already")
 		return
 	}
 
-	now := fasttime.Now()
-	r._startTime = &now
-	r.status = started
+	r._startTime = fasttime.Now()
 }
 
 func (r *request) startTime() time.Time {
-	if r.status == created {
+	if time.Time.IsZero(r._startTime) {
 		return r.createTime
 	}
 
-	return *r._startTime
+	return r._startTime
 }
 
 func (r *request) endTime() time.Time {
-	if r.status != finished {
+	if time.Time.IsZero(r._endTime) {
 		return fasttime.Now()
 	}
 
-	return *r._endTime
+	return r._endTime
 }
 
 func (r *request) finish() {
-	if r.status == finished {
+	if !time.Time.IsZero(r._endTime) {
 		logger.Errorf("BUG: finished already")
 		return
 	}
 
 	now := fasttime.Now()
 	r.statResult.End(now)
-	r._endTime = &now
-	r.status = finished
+	r._endTime = now
 }
 
 func (r *request) total() time.Duration {
-	if r.status != finished {
+	if time.Time.IsZero(r._endTime) {
 		logger.Errorf("BUG: call total before finish")
 		return r.statResult.Total(fasttime.Now())
 	}
 
-	return r.statResult.Total(*r._endTime)
+	return r.statResult.Total(r._endTime)
 }
 
 func (r *request) detail() string {

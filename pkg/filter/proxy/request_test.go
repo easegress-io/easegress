@@ -102,7 +102,8 @@ func TestRequestStatus(t *testing.T) {
 	statResult := httpstatResultPool.Get().(*httpstat.Result)
 	req := requestPool.Get().(*request)
 	req.createTime = fasttime.Now()
-	req.status = created
+	req._startTime = time.Time{}
+	req._endTime = time.Time{}
 	req.statResult = statResult
 
 	if !req.createTime.Equal(req.startTime()) {
@@ -115,13 +116,13 @@ func TestRequestStatus(t *testing.T) {
 		t.Error("starttime should not be createtime after start()")
 	}
 
-	if req._endTime != nil && req.endTime().Equal(*req._endTime) {
+	if req.endTime().Equal(req._endTime) {
 		t.Error("endtime should be now before finish()")
 	}
-
+	time.Sleep(time.Millisecond)
 	req.finish()
 
-	if req._endTime != nil && !req.endTime().Equal(*req._endTime) {
+	if !req.endTime().Equal(req._endTime) {
 		t.Error("endtime should be _endtime after finish()")
 	}
 
