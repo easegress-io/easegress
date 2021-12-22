@@ -414,7 +414,10 @@ func GetCertificate(chi *tls.ClientHelloInfo, tokenOnly bool) (*tls.Certificate,
 	if acm != nil {
 		return acm.getCertificate(chi, tokenOnly)
 	}
-	return nil, fmt.Errorf("auto certificate manager is not started")
+	// return a nil error in this case, otherwise:
+	// * static certificates configured in an HTTP server are never used, which is a bug
+	// * the Go HTTP package logs a lot of 'TLS handshake error'
+	return nil, nil
 }
 
 // HandleHTTP01Challenge handles HTTP-01 challenge
