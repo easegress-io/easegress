@@ -49,8 +49,7 @@ func (t *testMQ) get() *packets.PublishPacket {
 }
 
 func init() {
-	logger.InitNop()
-	// logger.InitMock()
+	logger.InitMock()
 	pipeline.Register(&pipeline.MockMQTTFilter{})
 }
 
@@ -1895,6 +1894,10 @@ func TestHTTPGetAllSession(t *testing.T) {
 			json.NewDecoder(resp.Body).Decode(sessions)
 			if len(sessions.Sessions) != test.ansLen {
 				t.Errorf("get wrong session number wanted %v, got %v", test.ansLen, len(sessions.Sessions))
+				sessions, _ := broker.sessMgr.store.getPrefix(sessionStoreKey(""), true)
+				broker.Lock()
+				t.Errorf("broker clients %v, sessions %v", broker.clients, sessions)
+				broker.Unlock()
 			}
 		}
 		resp.Body.Close()
