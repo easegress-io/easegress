@@ -112,16 +112,16 @@ func addClusterVars(opt *Options) {
 	// Cluster connection configuration style 1
 	opt.flags.StringSliceVar(&opt.ClusterListenClientURLs, "cluster-listen-client-urls", []string{"http://localhost:2379"}, "List of URLs to listen on for cluster client traffic.")
 	opt.flags.StringSliceVar(&opt.ClusterListenPeerURLs, "cluster-listen-peer-urls", []string{"http://localhost:2380"}, "List of URLs to listen on for cluster peer traffic.")
-	opt.flags.StringSliceVar(&opt.ClusterAdvertiseClientURLs, "cluster-advertise-client-urls", []string{"http://localhost:2379"}, "List of this member’s client URLs to advertise to the rest of the cluster.")
-	opt.flags.StringSliceVar(&opt.ClusterInitialAdvertisePeerURLs, "cluster-initial-advertise-peer-urls", []string{"http://localhost:2380"}, "List of this member’s peer URLs to advertise to the rest of the cluster.")
+	opt.flags.StringSliceVar(&opt.ClusterAdvertiseClientURLs, "cluster-advertise-client-urls", []string{"http://localhost:2379"}, "List of this member's client URLs to advertise to the rest of the cluster.")
+	opt.flags.StringSliceVar(&opt.ClusterInitialAdvertisePeerURLs, "cluster-initial-advertise-peer-urls", []string{"http://localhost:2380"}, "List of this member's peer URLs to advertise to the rest of the cluster.")
 	opt.flags.StringSliceVar(&opt.ClusterJoinURLs, "cluster-join-urls", nil,
 		"List of URLs to join, when the first url is the same with any one of cluster-initial-advertise-peer-urls, it means to join itself, and this config will be treated empty. When used, leave initial-cluster empty.")
 
 	// Cluster connection configuration style 2
 	opt.flags.StringSliceVar(&opt.Cluster.ListenClientURLs, "listen-client-urls", []string{"http://localhost:2379"}, "List of URLs to listen on for cluster client traffic.")
 	opt.flags.StringSliceVar(&opt.Cluster.ListenPeerURLs, "listen-peer-urls", []string{"http://localhost:2380"}, "List of URLs to listen on for cluster peer traffic.")
-	opt.flags.StringSliceVar(&opt.Cluster.AdvertiseClientURLs, "advertise-client-urls", []string{"http://localhost:2379"}, "List of this member’s client URLs to advertise to the rest of the cluster.")
-	opt.flags.StringSliceVar(&opt.Cluster.InitialAdvertisePeerURLs, "initial-advertise-peer-urls", []string{"http://localhost:2380"}, "List of this member’s peer URLs to advertise to the rest of the cluster.")
+	opt.flags.StringSliceVar(&opt.Cluster.AdvertiseClientURLs, "advertise-client-urls", []string{"http://localhost:2379"}, "List of this member's client URLs to advertise to the rest of the cluster.")
+	opt.flags.StringSliceVar(&opt.Cluster.InitialAdvertisePeerURLs, "initial-advertise-peer-urls", []string{"http://localhost:2380"}, "List of this member's peer URLs to advertise to the rest of the cluster.")
 	opt.flags.StringToStringVarP(&opt.Cluster.InitialCluster, "initial-cluster", "", nil,
 		"List of (member name, URL) pairs that will form the cluster. E.g. primary-1=http://localhost:2380. When used, leave cluster-join-urls empty.")
 	opt.flags.StringVar(&opt.Cluster.StateFlag, "state-flag", "new", "Cluster state (new, existing)")
