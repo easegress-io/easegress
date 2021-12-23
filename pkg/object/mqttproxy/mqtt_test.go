@@ -1883,9 +1883,16 @@ func TestHTTPGetAllSession(t *testing.T) {
 	clients := []paho.Client{}
 	clientNum := 10
 	for i := 0; i < clientNum; i++ {
-		client := getMQTTClient(t, strconv.Itoa(i), "test", "test", true)
+		cid := strconv.Itoa(i)
+		client := getMQTTClient(t, cid, "test", "test", true)
+		if err := checkSessionStore(broker, cid, ""); err != nil {
+			t.Fatal(err)
+		}
 		if token := client.Subscribe("topic", 1, nil); token.Wait() && token.Error() != nil {
 			t.Errorf("subscribe qos0 error %s", token.Error())
+		}
+		if err := checkSessionStore(broker, cid, "topic"); err != nil {
+			t.Fatal(err)
 		}
 		clients = append(clients, client)
 	}
@@ -1943,7 +1950,7 @@ func TestHTTPGetAllSession(t *testing.T) {
 			sessions := &HTTPSessions{}
 			json.NewDecoder(resp.Body).Decode(sessions)
 			if len(sessions.Sessions) != test.ansLen {
-				t.Errorf("get wrong session number wanted %v, got %v %v", test.ansLen, len(sessions.Sessions), sessions.Sessions)
+				t.Errorf("get wrong session number wanted %v, got %v", test.ansLen, len(sessions.Sessions))
 				sessions, _ := broker.sessMgr.store.getPrefix(sessionStoreKey(""), true)
 				broker.Lock()
 				t.Errorf("broker clients %v, sessions %v", broker.clients, sessions)
