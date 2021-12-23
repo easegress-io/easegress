@@ -56,12 +56,11 @@ func (a *API) listCustomResourceKinds(w http.ResponseWriter, r *http.Request) {
 		pbKinds = append(pbKinds, kind)
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	err := json.NewEncoder(w).Encode(pbKinds)
 	if err != nil {
 		panic(fmt.Errorf("marshal %#v to json failed: %v", kinds, err))
 	}
-
-	w.Header().Set("Content-Type", "application/json")
 }
 
 func (a *API) getCustomResourceKind(w http.ResponseWriter, r *http.Request) {
@@ -83,12 +82,11 @@ func (a *API) getCustomResourceKind(w http.ResponseWriter, r *http.Request) {
 		panic(fmt.Errorf("convert spec %#v to pb failed: %v", kind, err))
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(pbKind)
 	if err != nil {
 		panic(fmt.Errorf("marshal %#v to json failed: %v", pbKind, err))
 	}
-
-	w.Header().Set("Content-Type", "application/json")
 }
 
 func (a *API) saveCustomResourceKind(w http.ResponseWriter, r *http.Request, update bool) error {
@@ -175,12 +173,11 @@ func (a *API) listAllCustomResources(w http.ResponseWriter, r *http.Request) {
 		return resources[i].Name() < resources[j].Name()
 	})
 
+	w.Header().Set("Content-Type", "application/json")
 	err := json.NewEncoder(w).Encode(resources)
 	if err != nil {
 		panic(fmt.Errorf("marshal %#v to json failed: %v", resources, err))
 	}
-
-	w.Header().Set("Content-Type", "application/json")
 }
 
 func (a *API) listCustomResources(w http.ResponseWriter, r *http.Request) {
@@ -200,12 +197,11 @@ func (a *API) listCustomResources(w http.ResponseWriter, r *http.Request) {
 		return resources[i].Name() < resources[j].Name()
 	})
 
+	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(resources)
 	if err != nil {
 		panic(fmt.Errorf("marshal %#v to json failed: %v", resources, err))
 	}
-
-	w.Header().Set("Content-Type", "application/json")
 }
 
 func (a *API) getCustomResource(w http.ResponseWriter, r *http.Request) {
@@ -231,12 +227,11 @@ func (a *API) getCustomResource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(resource)
 	if err != nil {
 		panic(fmt.Errorf("marshal %#v to json failed: %v", resource, err))
 	}
-
-	w.Header().Set("Content-Type", "application/json")
 }
 
 func (a *API) saveCustomResource(w http.ResponseWriter, r *http.Request, update bool) error {
