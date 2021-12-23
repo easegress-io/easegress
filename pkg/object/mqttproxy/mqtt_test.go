@@ -49,8 +49,7 @@ func (t *testMQ) get() *packets.PublishPacket {
 }
 
 func init() {
-	logger.InitNop()
-	// logger.InitMock()
+	logger.InitMock()
 	pipeline.Register(&pipeline.MockMQTTFilter{})
 }
 
@@ -1853,6 +1852,18 @@ func TestHTTPGetAllSession(t *testing.T) {
 		clients = append(clients, client)
 	}
 
+	// we use goroutine to store session, make sure all sessions have been stored before we go forward.
+	for i := 0; i < 20; i++ {
+		sessions, _ := broker.sessMgr.store.getPrefix(sessionStoreKey(""), true)
+		if len(sessions) == clientNum {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+		if i == 19 && len(sessions) != clientNum {
+			t.Fatalf("not all sessions have been stored %v", sessions)
+		}
+	}
+
 	// start server
 	srv := newServer(":8888")
 	srv.addHandlerFunc("/session/query", broker.httpGetAllSessionHandler)
@@ -1895,6 +1906,10 @@ func TestHTTPGetAllSession(t *testing.T) {
 			json.NewDecoder(resp.Body).Decode(sessions)
 			if len(sessions.Sessions) != test.ansLen {
 				t.Errorf("get wrong session number wanted %v, got %v", test.ansLen, len(sessions.Sessions))
+				sessions, _ := broker.sessMgr.store.getPrefix(sessionStoreKey(""), true)
+				broker.Lock()
+				t.Errorf("broker clients %v, sessions %v", broker.clients, sessions)
+				broker.Unlock()
 			}
 		}
 		resp.Body.Close()
