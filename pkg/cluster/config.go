@@ -41,7 +41,7 @@ const (
 	maxTxnOps       = 10240
 	maxRequestBytes = 10 * 1024 * 1024 // 10MB
 
-	// Should help to decrease memory usage.
+	// Threshold for number of changes etcd stores in memory before creating a new snapshot.
 	// Reference: https://etcd.io/docs/v3.5/tuning/#snapshot-tuning
 	snapshotCount = 5000
 )
