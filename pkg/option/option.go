@@ -232,9 +232,12 @@ func (opt *Options) Parse() (string, error) {
 		opt.viper.Set(key, val)
 	}
 
-	opt.viper.Unmarshal(opt, func(c *mapstructure.DecoderConfig) {
+	err = opt.viper.Unmarshal(opt, func(c *mapstructure.DecoderConfig) {
 		c.TagName = "yaml"
 	})
+	if err != nil {
+		return "", fmt.Errorf("yaml file unmarshal failed, please make sure you provide valid yaml file, %v", err)
+	}
 
 	opt.renameLegacyClusterRoles()
 	err = opt.validate()

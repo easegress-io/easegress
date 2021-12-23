@@ -49,7 +49,7 @@ func (t *testMQ) get() *packets.PublishPacket {
 }
 
 func init() {
-	logger.InitMock()
+	logger.InitNop()
 	pipeline.Register(&pipeline.MockMQTTFilter{})
 }
 
@@ -177,6 +177,37 @@ func TestSubUnsub(t *testing.T) {
 	broker.close()
 }
 
+func checkSessionStore(broker *Broker, cid, topic string) error {
+	checkFn := func() error {
+		sessStr, err := broker.sessMgr.store.get(sessionStoreKey(cid))
+		if err != nil {
+			return err
+		}
+		if topic == "" {
+			return nil
+		}
+		sess := Session{
+			info: &SessionInfo{},
+		}
+		sess.decode(*sessStr)
+
+		for t := range sess.info.Topics {
+			if topic == t {
+				return nil
+			}
+		}
+		return fmt.Errorf("topic %v not in session %v", topic, cid)
+	}
+
+	for i := 0; i < 20; i++ {
+		if checkFn() == nil {
+			return nil
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	return fmt.Errorf("session %v with topic %v not been stored", cid, topic)
+}
+
 func TestCleanSession(t *testing.T) {
 	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
 	broker := getBroker("test", "test", b64passwd, 1883)
@@ -184,9 +215,16 @@ func TestCleanSession(t *testing.T) {
 	// client that set cleanSession
 	cid := "cleanSessionClient"
 	client := getMQTTClient(t, cid, "test", "test", true)
+	if err := checkSessionStore(broker, cid, ""); err != nil {
+		t.Fatal(err)
+	}
 	if token := client.Subscribe("test/cleanSession/0", 0, nil); token.Wait() && token.Error() != nil {
 		t.Errorf("subscribe qos0 error %s", token.Error())
 	}
+	if err := checkSessionStore(broker, cid, "test/cleanSession/0"); err != nil {
+		t.Fatal(err)
+	}
+
 	client.Disconnect(200)
 
 	c := broker.getClient(cid)
@@ -1845,9 +1883,16 @@ func TestHTTPGetAllSession(t *testing.T) {
 	clients := []paho.Client{}
 	clientNum := 10
 	for i := 0; i < clientNum; i++ {
-		client := getMQTTClient(t, strconv.Itoa(i), "test", "test", true)
+		cid := strconv.Itoa(i)
+		client := getMQTTClient(t, cid, "test", "test", true)
+		if err := checkSessionStore(broker, cid, ""); err != nil {
+			t.Fatal(err)
+		}
 		if token := client.Subscribe("topic", 1, nil); token.Wait() && token.Error() != nil {
 			t.Errorf("subscribe qos0 error %s", token.Error())
+		}
+		if err := checkSessionStore(broker, cid, "topic"); err != nil {
+			t.Fatal(err)
 		}
 		clients = append(clients, client)
 	}
