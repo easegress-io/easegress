@@ -49,7 +49,7 @@ func (t *testMQ) get() *packets.PublishPacket {
 }
 
 func init() {
-	logger.InitMock()
+	logger.InitNop()
 	pipeline.Register(&pipeline.MockMQTTFilter{})
 }
 
