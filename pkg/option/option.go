@@ -236,7 +236,7 @@ func (opt *Options) Parse() (string, error) {
 		c.TagName = "yaml"
 	})
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("yaml file unmarshal failed, please make sure you provide valid yaml file, %v", err)
 	}
 
 	opt.renameLegacyClusterRoles()
