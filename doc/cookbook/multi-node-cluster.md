@@ -118,12 +118,14 @@ easegress-server \
   --primary-listen-peer-urls http://$HOST1:2380 \
   --state-flag "existing"
 ```
-Here `primary-listen-peer-urls` tell, where to find a *primary* cluster member and `state-flag` with value "existing" means that this cluster was already created.
+Here `primary-listen-peer-urls` tell, where to find a *primary* cluster members and `state-flag` with value "existing" means that this cluster was already created.
 
 We can now see also the 4th instance:
 ```bash
 egctl --server $HOST1:2381 member list | grep " name"
-# prints
+```
+prints to output:
+```bash
     name: machine-1
     name: machine-2
     name: machine-3
@@ -179,7 +181,8 @@ memory-profile-file:
 log-dir: ./log
 debug: false
 cluster:
-  primary-listen-peer-urls: http://$HOST1:2380
+  primary-listen-peer-urls:
+   - http://$HOST1:2380
 ```
 
 ## Configuration tips (optional)
