@@ -24,7 +24,6 @@ import (
 	"runtime/debug"
 	"runtime/pprof"
 	"sync"
-	"time"
 
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/option"
@@ -50,7 +49,6 @@ func New(opt *option.Options) (Profile, error) {
 	if err != nil {
 		return nil, err
 	}
-	p.startMemoryProfiling()
 
 	return p, nil
 }
@@ -102,16 +100,6 @@ func (p *profile) memoryProfile() {
 		logger.Errorf("close memory file failed: %v", err)
 		return
 	}
-}
-
-func (p *profile) startMemoryProfiling() {
-	go func() {
-		for {
-			fmt.Println("Running memory profiling.")
-			time.Sleep(10 * time.Minute)
-			p.memoryProfile()
-		}
-	}()
 }
 
 func (p *profile) Close(wg *sync.WaitGroup) {
