@@ -24,6 +24,9 @@ import (
 
 	yaml "gopkg.in/yaml.v2"
 
+	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/object/httpserver"
+	"github.com/megaease/easegress/pkg/object/trafficcontroller"
 	"github.com/megaease/easegress/pkg/supervisor"
 )
 
@@ -163,4 +166,56 @@ func (s *Server) _listStatusObjects() map[string]map[string]interface{} {
 	}
 
 	return status
+}
+
+func getSubStatusFromTrafficControllerStatus(status *trafficcontroller.Status, spec *supervisor.Spec) map[string]string {
+	ans := make(map[string]string)
+	for _, ns := range status.Specs {
+		if spec.Kind() == httpserver.Kind {
+			if val, ok := ns.HTTPServers[spec.Name()]; ok {
+				b, err := yaml.Marshal(val.Status)
+				if err != nil {
+					ClusterPanic(fmt.Errorf("unmarshal %v to yaml failed: %v", val.Status, err))
+				}
+				ans[ns.Namespace] = string(b)
+			}
+		}
+		if spec.Kind() == httppipeline.Kind {
+			if val, ok := ns.HTTPPipelines[spec.Name()]; ok {
+				b, err := yaml.Marshal(val.Status)
+				if err != nil {
+					ClusterPanic(fmt.Errorf("unmarshal %v to yaml failed: %v", val.Status, err))
+				}
+				ans[ns.Namespace] = string(b)
+			}
+		}
+	}
+	return ans
+}
+
+func (s *Server) _getStatusObjectFromTrafficController(name string, spec *supervisor.Spec) map[string]string {
+	prefix := s.cluster.Layout().StatusObjectPrefix(trafficcontroller.Kind)
+	kvs, err := s.cluster.GetPrefix(prefix)
+	if err != nil {
+		ClusterPanic(err)
+	}
+	status := &trafficcontroller.Status{}
+	// ans := make(map[string]string)
+	ans := make(map[string]string)
+	for k, v := range kvs {
+		// different member
+		memberName := strings.TrimPrefix(k, prefix)
+
+		err = yaml.Unmarshal([]byte(v), status)
+		if err != nil {
+			ClusterPanic(fmt.Errorf("unmarshal %s to yaml failed: %v", v, err))
+		}
+		nsStatus := getSubStatusFromTrafficControllerStatus(status, spec)
+		b, err := yaml.Marshal(nsStatus)
+		if err != nil {
+			ClusterPanic(fmt.Errorf("unmarshal %v to yaml failed: %v", nsStatus, err))
+		}
+		ans[memberName] = string(b)
+	}
+	return ans
 }
