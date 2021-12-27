@@ -26,10 +26,10 @@ set -e
 SCRIPTPATH="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 pushd $SCRIPTPATH"/../../example" > /dev/null
 EXAMPLEDIR="$SCRIPTPATH"/../../example
-PRIMARY01DIR=$EXAMPLEDIR"/primary-001"
+PRIMARYDIR=$EXAMPLEDIR"/primary-single"
 
 # target file related define.
-server="primary-001/bin/easegress-server"
+server="primary-single/bin/easegress-server"
 backend="$EXAMPLEDIR/backend-service/echo/echo.go"
 httpsvr_port=10080
 echo_port=9095
@@ -40,7 +40,7 @@ COLOR_NONE='\033[0m'
 COLOR_INFO='\033[0;36m'
 COLOR_ERROR='\033[1;31m'
 
-# clean cleans primary-001's cluster data and the `go run` process.
+# clean cleans primary-single's data and cluster data and the `go run` process.
 function clean()
 {
     # basic cleaning routine
@@ -65,8 +65,8 @@ function clean()
 # clean the cluster resource first.
 clean
 
-# start primary01 for testing.
-bash $PRIMARY01DIR/start.sh
+# start primary-single for testing.
+bash $PRIMARYDIR/start.sh
 try_time=0
 # wait Easegress to be ready, it will retry three times.
 # reference: https://unix.stackexchange.com/questions/5277/how-do-i-tell-a-script-to-wait-for-a-process-to-start-accepting-requests-on-a-po
@@ -80,7 +80,7 @@ do
     fi
 done
 
-# check the primary01 running status
+# check the primary-single running status
 pid=`ps -eo pid,args | grep "$server" | grep -v grep | awk '{print $1}'`
 if [ "$pid" = "" ]; then
     echo -e "\n${COLOR_ERROR}start test server $server failed${COLOR_NONE}"
@@ -101,7 +101,7 @@ https: false
 rules:
   - paths:
     - pathPrefix: /pipeline
-      backend: pipeline-demo' | $PRIMARY01DIR/egctl.sh object create
+      backend: pipeline-demo' | $PRIMARYDIR/egctl.sh object create
 
 #  create Pipeline
 echo '
@@ -116,7 +116,7 @@ filters:
       servers:
       - url: http://127.0.0.1:9095
       loadBalance:
-        policy: roundRobin' | $PRIMARY01DIR/egctl.sh object create
+        policy: roundRobin' | $PRIMARYDIR/egctl.sh object create
 
 while ! nc -z localhost $httpsvr_port </dev/null
 do
