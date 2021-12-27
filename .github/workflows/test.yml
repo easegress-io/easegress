@@ -6,6 +6,8 @@ on:
       - main
     paths:
       - "**/*.go"
+      - "**/*.yaml"
+      - "**/*.sh"
       - "go.mod"
       - "go.sum"
       - ".github/workflows/test.yml"
