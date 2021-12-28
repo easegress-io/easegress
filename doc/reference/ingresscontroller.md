@@ -98,6 +98,7 @@ metadata:
   namespace: default
 data:
   easegress-server.yaml: |
+    name: ingress-easegress
     cluster-name: easegress-ingress-controller
     cluster-role: primary
     api-addr: 0.0.0.0:2381
@@ -148,10 +149,8 @@ spec:
       - args:
         - -c
         - |-
-          echo name: $EG_NAME > /opt/eg-config/config.yaml &&
-          cat /opt/eg-config/easegress-server.yaml >> /opt/eg-config/config.yaml &&
           /opt/easegress/bin/easegress-server \
-            -f /opt/eg-config/config.yaml \
+            -f /opt/eg-config/easegress-server.yaml \
             --initial-object-config-files /opt/eg-config/controller.yaml \
             --initial-cluster $(EG_NAME)=http://localhost:2380
         command:

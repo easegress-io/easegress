@@ -1,6 +1,7 @@
 apiVersion: v1
 data:
   easegress-server.yaml: |
+    name: {{ .Release.Name }}
     cluster-name: easegress-ingress-controller
     cluster-role: primary
     api-addr: 0.0.0.0:2381
