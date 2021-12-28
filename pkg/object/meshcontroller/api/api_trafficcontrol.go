@@ -46,12 +46,11 @@ func (a *API) listHTTPRouteGroups(w http.ResponseWriter, r *http.Request) {
 		pbGroups = append(pbGroups, group)
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	err := json.NewEncoder(w).Encode(pbGroups)
 	if err != nil {
 		panic(fmt.Errorf("marshal %#v to json failed: %v", groups, err))
 	}
-
-	w.Header().Set("Content-Type", "application/json")
 }
 
 func (a *API) getHTTPRouteGroup(w http.ResponseWriter, r *http.Request) {
@@ -73,12 +72,11 @@ func (a *API) getHTTPRouteGroup(w http.ResponseWriter, r *http.Request) {
 		panic(fmt.Errorf("convert spec %#v to pb failed: %v", group, err))
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(pbGroup)
 	if err != nil {
 		panic(fmt.Errorf("marshal %#v to json failed: %v", pbGroup, err))
 	}
-
-	w.Header().Set("Content-Type", "application/json")
 }
 
 func (a *API) saveHTTPRouteGroup(w http.ResponseWriter, r *http.Request, update bool) error {
@@ -160,12 +158,11 @@ func (a *API) listTrafficTargets(w http.ResponseWriter, r *http.Request) {
 		pbTrafficTargets = append(pbTrafficTargets, tt)
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	err := json.NewEncoder(w).Encode(pbTrafficTargets)
 	if err != nil {
 		panic(fmt.Errorf("marshal %#v to json failed: %v", tts, err))
 	}
-
-	w.Header().Set("Content-Type", "application/json")
 }
 
 func (a *API) getTrafficTarget(w http.ResponseWriter, r *http.Request) {
@@ -187,12 +184,11 @@ func (a *API) getTrafficTarget(w http.ResponseWriter, r *http.Request) {
 		panic(fmt.Errorf("convert spec %#v to pb failed: %v", tt, err))
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(pbTrafficTarget)
 	if err != nil {
 		panic(fmt.Errorf("marshal %#v to json failed: %v", pbTrafficTarget, err))
 	}
-
-	w.Header().Set("Content-Type", "application/json")
 }
 
 func (a *API) saveTrafficTarget(w http.ResponseWriter, r *http.Request, update bool) error {
