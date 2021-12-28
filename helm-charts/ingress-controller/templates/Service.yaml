@@ -7,11 +7,6 @@ spec:
   selector:
     app: {{ .Release.Name }}
   ports:
-    - name: admin-port
-      port: 2381
-      protocol: TCP
-      targetPort: 2381
-      nodePort: {{ .Values.service.adminPort }}
     - name: web
       protocol: TCP
       port: 8080

@@ -1,8 +1,6 @@
 service:
   # nodePort for easegress service
   nodePort: 30080
-  # nodeport for egctl access
-  adminPort: 31255
 
 # image for easegress deployment
 image:
@@ -19,5 +17,5 @@ controller:
   namespaces:
   - default
 
-# numbers of Easegress IngressController replicas to install.
+# number of Easegress IngressController replicas
 replicas: 1

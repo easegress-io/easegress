@@ -38,10 +38,6 @@ spec:
         image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
         imagePullPolicy: IfNotPresent
         name: ingress-easegress
-        ports:
-        - containerPort: 2381
-          name: admin-port
-          protocol: TCP
         resources:
           limits:
             cpu: 1200m

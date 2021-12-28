@@ -165,16 +165,6 @@ spec:
         image: megaease/easegress:latest
         imagePullPolicy: IfNotPresent
         name: easegress-primary
-        ports:
-        - containerPort: 2381
-          name: admin-port
-          protocol: TCP
-        - containerPort: 2380
-          name: peer-port
-          protocol: TCP
-        - containerPort: 2379
-          name: client-port
-          protocol: TCP
         resources:
           limits:
             cpu: 1200m
@@ -220,11 +210,6 @@ metadata:
   namespace: default
 spec:
   ports:
-  - name: admin-port
-    nodePort: 31255
-    port: 2381
-    protocol: TCP
-    targetPort: 2381
   - name: web
     protocol: TCP
     port: 8080
@@ -234,10 +219,7 @@ spec:
   type: NodePort
 ```
 
-The exported port `admin-port` opens admin access for `egctl` CLI on port 31255.
 The port `web` is to receive external HTTP requests from port 30080 and forward them to the HTTP server in Easegress.
-
-You can verify that the Easegress admin port is open with `egctl --server {NODE_IP}:31255 health`. If the port is successfully open to Easegress instance, the output should be empty.
 
 ### Create backend service & Kubernetes ingress
 

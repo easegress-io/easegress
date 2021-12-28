@@ -38,7 +38,6 @@ The following table lists the configurable parameters of the Ingress Controller 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | service.nodePort | int | `30080` | nodePort for Easegress Ingress Controller. |
-| service.adminPort | int | `31255` | nodePort for egctl admin access. |
 | replicas | int | `1` | number of Easegress Ingress Controllers |
 
-> By default, k8s use range 30000-32767 for NodePort. Make sure you choose right port numbers.
+> By default, k8s use range 30000-32767 for NodePort. Make sure you choose right port number.
