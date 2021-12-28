@@ -142,6 +142,8 @@ var httpstatResultPool = sync.Pool{
 }
 
 func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader, client *http.Client) string {
+	// intMsg is converted to string in AddLazyTag for better performance,
+	// as it is not run when access logs are disabled.
 	addLazyTag := func(subPrefix, msg string, intMsg int) {
 		ctx.Lock()
 		if intMsg > -1 {
