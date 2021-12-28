@@ -425,4 +425,3 @@ func (worker *Worker) Close() {
 	worker.registryServer.Close()
 	worker.apiServer.Close()
 }
-
