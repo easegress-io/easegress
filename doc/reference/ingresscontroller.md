@@ -6,7 +6,6 @@
     - [Controller spec](#controller-spec)
   - [Getting Started](#getting-started)
     - [Role Based Access Control configuration](#role-based-access-control-configuration)
-    - [Set admin ports](#set-admin-ports)
     - [Configurations to ConfigMap](#configurations-to-configmap)
     - [Deploy Easegress IngressController](#deploy-easegress-ingresscontroller)
     - [Create backend service & Kubernetes ingress](#create-backend-service--kubernetes-ingress)
@@ -86,29 +85,6 @@ roleRef:
 ```
 
 Note the name of the ServiceAccount we just created is `easegress-ingress-controller`, it will be used later.
-
-### Set admin ports
-
-Create NodePort to open port for `egctl` admin access.
-
-```yaml
-
-apiVersion: v1
-kind: Service
-metadata:
-  name: easegress-public
-  namespace: default
-spec:
-  ports:
-  - name: admin-port
-    nodePort: 31255 # random port
-    port: 2381
-    protocol: TCP
-    targetPort: 2381
-  selector:
-    app: easegress-ingress
-  type: NodePort
-```
 
 ### Configurations to ConfigMap
 
@@ -237,22 +213,31 @@ The IngressController is created via the command line argument `initial-object-c
 Last but not least let's create service for forwarding the Ingress traffic to Easegress.
 
 ```yaml
-kind: Service
 apiVersion: v1
+kind: Service
 metadata:
-  name: easegress-ingress-service
+  name: easegress-public
   namespace: default
 spec:
+  ports:
+  - name: admin-port
+    nodePort: 31255
+    port: 2381
+    protocol: TCP
+    targetPort: 2381
+  - name: web
+    protocol: TCP
+    port: 8080
+    nodePort: 30080
   selector:
     app: easegress-ingress
-  ports:
-    - name: web
-      protocol: TCP
-      port: 8080
-      nodePort: 30080
   type: NodePort
 ```
-The exported port `web` is to receive external HTTP requests and forward them to the HTTP server in Easegress.
+
+The exported port `admin-port` opens admin access for `egctl` CLI on port 31255.
+The port `web` is to receive external HTTP requests from port 30080 and forward them to the HTTP server in Easegress.
+
+You can verify that the Easegress admin port is open with `egctl --server {NODE_IP}:31255 health`. If the port is successfully open to Easegress instance, the output should be empty.
 
 ### Create backend service & Kubernetes ingress
 
@@ -341,12 +326,12 @@ spec:
 Once all pods are up and running, we can leverage the command below to access both versions of the `hello` application:
 
 ```bash
-$ curl http://{NODE_IP}/ -HHost:www.megaease.com
+$ curl http://{NODE_IP}:30080/ -HHost:www.megaease.com
 Hello, world!
 Version: 2.0.0
 Hostname: hello-deployment-6cbf765985-r6242
 
-$ curl http://{NODE_IP}/ -HHost:www.example.com
+$ curl http://{NODE_IP}:30080/ -HHost:www.example.com
 Hello, world!
 Version: 1.0.0
 Hostname: hello-deployment-6cbf765985-r6242
@@ -356,4 +341,17 @@ And we can see Easegress IngressController has forwarded requests to the correct
 
 ## Multi-instance IngressController
 
-In previous chapters we created IngressController with one instance running. To support high-availability scenarios, you can increase the number of replicas.
+In previous chapters we created IngressController with one instance running. To support high-availability scenarios, you can increase the number of replicas in the Deployment:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: easegress-ingress
+  name: easegress
+  namespace: default
+spec:
+  replicas: 2 # number of IngressController instances running
+  ...
+```

@@ -9,14 +9,6 @@ Helm charts for installing Easegress ingress controller on Kubernetes
 kubectl create ns ingress-easegress
 ```
 
-### Prepare persistent volume (optional)
-
-If you are going to use persistent volumes, run following shell command on each persistent volume node:
-```bash
-sudo mkdir /opt/easegress
-sudo chmod 700 /opt/easegress
-```
-
 ## Usage
 ```shell
 # install with default values
@@ -29,40 +21,24 @@ helm install ingress-easegress -n ingress-easegress ./helm-charts/ingress-contro
   --set ingressClass.name=test-eg \
   --set controller.name=test-eg \
   --set 'controller.namespaces={ingress-easegress, default}'
-
-# install cluster of 3 primary and 2 secondary Easegress ingress instances
-helm install ingress-easegress -n ingress-easegress ./helm-charts/ingress-controller \
-  --set cluster.primaryReplicas=3 \
-  --set cluster.secondaryReplicas=2
-
-# install using persistentVolume on node with hostname "hostname-xyz"
-# to support recovery when pod crashes
-helm install ingress-easegress -n ingress-easegress ./helm-charts/ingress-controller \
-  --set cluster.volumeType=persistentVolume \
-  --set 'cluster.nodeHostnames={hostname-xyz}'
 ```
+
+You can reference [this example](/doc/reference/ingresscontroller.md#create-backend-service--kubernetes-ingress) for creating Kubernetes Ingress rules.
 
 ## Uninstall
 
 ```shell
 helm uninstall ingress-easegress -n ingress-easegress
-
-#sometimes helm does not delete pvc and pv. Delete manually each pvc.
-kubectl delete pvc easegress-pv-ingress-easegress-0 -n ingress-easegress
-# same for easegress-pv-ingress-easegress-i...n
 ```
 
 ## Parameters
 
-The following table lists the configurable parameters of the MegaEase Easegress Helm installation.
+The following table lists the configurable parameters of the Ingress Controller Helm installation.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| service.nodePort | int | `30080` | nodePort for easegress service. |
-| service.adminPort | int | `31255` | nodePort for egctl access. |
-| cluster.primaryReplicas | int | `1` | number of easegress service that persists cluster data to disk |
-| cluster.volumeType | string | `emptyDir` | `emptyDir`: use pods internal filesystem that is not persisted when pod crashes. `persistentVolume`, create as many persistenVolumes and persistentVolumeClaims as there are nodeHostnames.
-| cluster.nodeHostnames | list | `[]` | nodeHostnames are hostnames of VMs/Kubernetes nodes. Only used when `volumeType: persistentVolume`. Note that this require nodes to be static. |
-| secondaryReplicas | int | `0` | number of easegress service that not persists cluster data to disk. |
+| service.nodePort | int | `30080` | nodePort for Easegress Ingress Controller. |
+| service.adminPort | int | `31255` | nodePort for egctl admin access. |
+| replicas | int | `1` | number of Easegress Ingress Controllers |
 
-> By default, k8s use range 30000-32767 for NodePort. Make sure you choose right port number.
+> By default, k8s use range 30000-32767 for NodePort. Make sure you choose right port numbers.
