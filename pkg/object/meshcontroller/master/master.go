@@ -18,9 +18,7 @@
 package master
 
 import (
-	"fmt"
 	"runtime/debug"
-	"strings"
 	"time"
 
 	"gopkg.in/yaml.v2"
@@ -36,18 +34,17 @@ import (
 )
 
 const (
-	defaultCleanInterval       time.Duration = 10 * time.Minute
 	defaultDeadRecordExistTime time.Duration = 20 * time.Minute
 )
 
 type (
 	// Master is the master role of Easegress for mesh control plane.
 	Master struct {
-		super               *supervisor.Supervisor
-		superSpec           *supervisor.Spec
-		spec                *spec.Admin
-		maxHeartbeatTimeout time.Duration
-		certMananger        *certmanager.CertManager
+		super             *supervisor.Supervisor
+		superSpec         *supervisor.Spec
+		spec              *spec.Admin
+		heartbeatInterval time.Duration
+		certMananger      *certmanager.CertManager
 
 		registrySyncer *registrySyncer
 		store          storage.Storage
@@ -56,20 +53,9 @@ type (
 		done chan struct{}
 	}
 
-	serviceInstances []*spec.ServiceInstanceSpec
-
 	// Status is the status of mesh master.
 	Status struct{}
 )
-
-func (s serviceInstances) String() string {
-	instances := make([]string, len(s))
-	for i, instance := range s {
-		instances[i] = fmt.Sprintf("%s/%s", instance.ServiceName, instance.InstanceID)
-	}
-
-	return fmt.Sprintf("[%s]", strings.Join(instances, ","))
-}
 
 // New creates a mesh master.
 func New(superSpec *supervisor.Spec) *Master {
@@ -89,17 +75,19 @@ func New(superSpec *supervisor.Spec) *Master {
 
 	heartbeat, err := time.ParseDuration(m.spec.HeartbeatInterval)
 	if err != nil {
-		logger.Errorf("BUG: parse heartbeat interval %s to duration failed: %v",
-			m.spec.HeartbeatInterval, err)
+		format := "failed to parse heartbeat interval '%s', fallback to default(5s)"
+		logger.Errorf(format, m.spec.HeartbeatInterval)
+		heartbeat = 5 * time.Second
 	}
-	m.maxHeartbeatTimeout = heartbeat * 2
+	m.heartbeatInterval = heartbeat
 
-	m.run()
+	m.initMTLS()
+	go m.run()
 
 	return m
 }
 
-func (m *Master) securityRoutine() error {
+func (m *Master) initMTLS() error {
 	if !m.spec.EnablemTLS() {
 		return nil
 	}
@@ -120,21 +108,20 @@ func (m *Master) securityRoutine() error {
 }
 
 func (m *Master) run() {
-	watchInterval, err := time.ParseDuration(m.spec.HeartbeatInterval)
-	if err != nil {
-		logger.Errorf("BUG: parse duration %s failed: %v",
-			m.spec.HeartbeatInterval, err)
-		return
+	ticker := time.NewTicker(m.heartbeatInterval)
+
+	for {
+		select {
+		case <-m.done:
+			ticker.Stop()
+			return
+
+		case <-ticker.C:
+			if m.needHandle() {
+				m.checkServiceInstances()
+			}
+		}
 	}
-
-	if err := m.securityRoutine(); err != nil {
-		logger.Errorf("start security routine failed, err: %v", err)
-		return
-	}
-
-	go m.checkHeartbeat(watchInterval)
-	go m.clean()
-
 }
 
 // only handle master routines when its the cluster leader.
@@ -142,128 +129,87 @@ func (m *Master) needHandle() bool {
 	return m.superSpec.Super().Cluster().IsLeader()
 }
 
-func (m *Master) checkHeartbeat(watchInterval time.Duration) {
-	for {
-		select {
-		case <-m.done:
-			return
-		case <-time.After(watchInterval):
-			if m.needHandle() {
-				func() {
-					defer func() {
-						if err := recover(); err != nil {
-							logger.Errorf("failed to check instance heartbeat %v, stack trace: \n%s\n",
-								err, debug.Stack())
-						}
-					}()
-					m.checkInstancesHeartbeat()
-				}()
-			}
+func (m *Master) checkServiceInstances() {
+	defer func() {
+		if err := recover(); err != nil {
+			format := "failed to check instances %v, stack trace: \n%s\n"
+			logger.Errorf(format, err, debug.Stack())
 		}
-	}
-}
-
-func (m *Master) clean() {
-	for {
-		select {
-		case <-m.done:
-			return
-		case <-time.After(defaultCleanInterval):
-			if m.needHandle() {
-				func() {
-					defer func() {
-						if err := recover(); err != nil {
-							logger.Errorf("failed to clean dead instances: %v, stack trace: \n%s\n",
-								err, debug.Stack())
-						}
-					}()
-					m.cleanDeadInstances()
-				}()
-			}
-		}
-	}
-}
-
-func (m *Master) scanInstances() (failedInstances []*spec.ServiceInstanceSpec,
-	rebornInstances []*spec.ServiceInstanceSpec, deadInstances []*spec.ServiceInstanceSpec) {
+	}()
 
 	statuses := m.service.ListAllServiceInstanceStatuses()
 	specs := m.service.ListAllServiceInstanceSpecs()
 
-	now := time.Now()
 	for _, _spec := range specs {
 		if !m.isMeshRegistryName(_spec.RegistryName) {
 			continue
 		}
 
+		// TODO: improve search performance
 		var status *spec.ServiceInstanceStatus
 		for _, s := range statuses {
 			if s.ServiceName == _spec.ServiceName && s.InstanceID == _spec.InstanceID {
 				status = s
 			}
 		}
-		if status != nil {
-			lastHeartbeatTime, err := time.Parse(time.RFC3339, status.LastHeartbeatTime)
-			if err != nil {
-				logger.Errorf("BUG: parse last heartbeat time %s failed: %v", status.LastHeartbeatTime, err)
-				continue
-			}
-			gap := now.Sub(lastHeartbeatTime)
-			if gap > m.maxHeartbeatTimeout {
-				if _spec.Status != spec.ServiceStatusOutOfService {
-					failedInstances = append(failedInstances, _spec)
-				}
 
-				if gap > defaultDeadRecordExistTime {
-					deadInstances = append(deadInstances, _spec)
-				}
-			} else {
-				if _spec.Status == spec.ServiceStatusOutOfService {
-					rebornInstances = append(rebornInstances, _spec)
-				}
-			}
-		} else {
-			failedInstances = append(failedInstances, _spec)
-			deadInstances = append(deadInstances, _spec)
+		if status == nil {
+			format := "status of %s/%s not found, need to delete"
+			logger.Warnf(format, _spec.ServiceName, _spec.InstanceID)
+			m.deleteInstance(_spec)
+			continue
 		}
-	}
 
-	if len(failedInstances) > 0 {
-		logger.Warnf("failed instances: %s", serviceInstances(failedInstances))
+		m.checkLastHeartbeatTime(_spec, status.LastHeartbeatTime)
 	}
-	if len(deadInstances) > 0 {
-		logger.Warnf("dead instances: %s", serviceInstances(deadInstances))
-	}
-	if len(rebornInstances) > 0 {
-		logger.Infof("reborn instances: %s", serviceInstances(rebornInstances))
-	}
-
-	return
 }
 
-func (m *Master) checkInstancesHeartbeat() {
-	failedInstances, rebornInstances, _ := m.scanInstances()
-	m.handleFailedInstances(failedInstances)
-	m.handleRebornInstances(rebornInstances)
+func (m *Master) checkLastHeartbeatTime(_spec *spec.ServiceInstanceSpec, lastHeartbeatTime string) {
+	t, err := time.Parse(time.RFC3339, lastHeartbeatTime)
+	if err != nil {
+		logger.Errorf("BUG: parse last heartbeat time %s failed: %v", lastHeartbeatTime, err)
+		return
+	}
+	gap := time.Since(t)
+
+	// This instance record's time gap is beyond our tolerance, needs to be clean immediately.
+	// For freeing storage space
+	if gap > defaultDeadRecordExistTime {
+		format := "%s/%s expired for %s, need to be deleted"
+		logger.Warnf(format, _spec.ServiceName, _spec.InstanceID, gap.String())
+		m.deleteInstance(_spec)
+		return
+	}
+
+	// Bring it down if no heartbeat in 2 heartbeat interval
+	if gap > m.heartbeatInterval*2 {
+		if _spec.Status != spec.ServiceStatusOutOfService {
+			logger.Warnf("%s/%s expired for %s", _spec.ServiceName, _spec.InstanceID, gap.String())
+			m.updateInstanceStatus(_spec, spec.ServiceStatusOutOfService)
+		}
+		return
+	}
+
+	if _spec.Status == spec.ServiceStatusOutOfService {
+		logger.Infof("%s/%s heartbeat recovered, make it UP", _spec.ServiceName, _spec.InstanceID)
+		m.updateInstanceStatus(_spec, spec.ServiceStatusUp)
+	}
 }
 
-func (m *Master) cleanDeadInstances() {
-	_, _, deadInstances := m.scanInstances()
-	for _, _spec := range deadInstances {
-		specKey := layout.ServiceInstanceSpecKey(_spec.ServiceName, _spec.InstanceID)
-		err := m.store.Delete(specKey)
-		if err != nil {
-			api.ClusterPanic(err)
-		} else {
-			logger.Infof("clean instance spec: %s", specKey)
-		}
+func (m *Master) deleteInstance(_spec *spec.ServiceInstanceSpec) {
+	specKey := layout.ServiceInstanceSpecKey(_spec.ServiceName, _spec.InstanceID)
+	err := m.store.Delete(specKey)
+	if err != nil {
+		api.ClusterPanic(err)
+	} else {
+		logger.Infof("clean instance spec: %s", specKey)
+	}
 
-		statusKey := layout.ServiceInstanceStatusKey(_spec.ServiceName, _spec.InstanceID)
-		if err = m.store.Delete(statusKey); err != nil {
-			api.ClusterPanic(err)
-		} else {
-			logger.Infof("clean instance status: %s", statusKey)
-		}
+	statusKey := layout.ServiceInstanceStatusKey(_spec.ServiceName, _spec.InstanceID)
+	if err = m.store.Delete(statusKey); err != nil {
+		api.ClusterPanic(err)
+	} else {
+		logger.Infof("clean instance status: %s", statusKey)
 	}
 }
 
@@ -277,29 +223,19 @@ func (m *Master) isMeshRegistryName(registryName string) bool {
 	}
 }
 
-func (m *Master) handleRebornInstances(rebornInstances []*spec.ServiceInstanceSpec) {
-	m.updateInstanceStatus(rebornInstances, spec.ServiceStatusUp)
-}
+func (m *Master) updateInstanceStatus(_spec *spec.ServiceInstanceSpec, status string) {
+	_spec.Status = status
 
-func (m *Master) handleFailedInstances(failedInstances []*spec.ServiceInstanceSpec) {
-	m.updateInstanceStatus(failedInstances, spec.ServiceStatusOutOfService)
-}
+	buff, err := yaml.Marshal(_spec)
+	if err != nil {
+		logger.Errorf("BUG: marshal %#v to yaml failed: %v", _spec, err)
+		return
+	}
 
-func (m *Master) updateInstanceStatus(instances []*spec.ServiceInstanceSpec, status string) {
-	for _, _spec := range instances {
-		_spec.Status = status
-
-		buff, err := yaml.Marshal(_spec)
-		if err != nil {
-			logger.Errorf("BUG: marshal %#v to yaml failed: %v", _spec, err)
-			continue
-		}
-
-		key := layout.ServiceInstanceSpecKey(_spec.ServiceName, _spec.InstanceID)
-		err = m.store.Put(key, string(buff))
-		if err != nil {
-			api.ClusterPanic(err)
-		}
+	key := layout.ServiceInstanceSpecKey(_spec.ServiceName, _spec.InstanceID)
+	err = m.store.Put(key, string(buff))
+	if err != nil {
+		api.ClusterPanic(err)
 	}
 }
 
