@@ -67,6 +67,11 @@ func New(spec *Spec) (*Tracing, error) {
 	}, nil
 }
 
+// IsNoopTracer checks whether tracer is noop tracer.
+func (t *Tracing) IsNoopTracer() bool {
+	return t == NoopTracing
+}
+
 // Close closes Tracing.
 func (t *Tracing) Close() error {
 	if t.closer != nil {

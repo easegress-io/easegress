@@ -57,8 +57,9 @@ type (
 		Cancelled() bool
 		ClientDisconnected() bool
 
-		OnFinish(FinishFunc) // For setting final client statistics, etc.
-		AddTag(tag string)   // For debug, log, etc.
+		OnFinish(FinishFunc)    // For setting final client statistics, etc.
+		AddTag(tag string)      // For debug, log, etc.
+		AddLazyTag(LazyTagFunc) // Return LazyTags as strings.
 
 		StatMetric() *httpstat.Metric
 
@@ -136,12 +137,16 @@ type (
 	// when body is flushing.
 	BodyFlushFunc = func(body []byte, complete bool) (newBody []byte)
 
+	// LazyTagFunc is the type of function to be called back
+	// when converting lazy tags to strings.
+	LazyTagFunc = func() string
+
 	httpContext struct {
 		mutex sync.Mutex
 
 		startTime   time.Time
 		finishFuncs []FinishFunc
-		tags        []string
+		lazyTags    []LazyTagFunc
 		caller      HandlerCaller
 
 		r *httpRequest
@@ -166,12 +171,13 @@ func New(stdw http.ResponseWriter, stdr *http.Request,
 	originalReqCtx := stdr.Context()
 	stdctx, cancelFunc := stdcontext.WithCancel(originalReqCtx)
 	stdr = stdr.WithContext(stdctx)
-
 	startTime := fasttime.Now()
 	span := tracing.NewSpanWithStart(tracer, spanName, startTime)
-	span.SetTag("http.method", stdr.Method)
-	span.SetTag("http.path", stdr.URL.Path)
-	return &httpContext{
+	if !span.IsNoopSpan() {
+		span.SetTag("http.method", stdr.Method)
+		span.SetTag("http.path", stdr.URL.Path)
+	}
+	ctx := &httpContext{
 		startTime:      startTime,
 		span:           span,
 		originalReqCtx: originalReqCtx,
@@ -179,7 +185,15 @@ func New(stdw http.ResponseWriter, stdr *http.Request,
 		cancelFunc:     cancelFunc,
 		r:              newHTTPRequest(stdr),
 		w:              newHTTPResponse(stdw, stdr),
+		lazyTags:       make([]LazyTagFunc, 0, 5),
+		finishFuncs:    make([]FinishFunc, 0, 1),
 	}
+	return ctx
+}
+
+// NewEmptyContext for testing.
+func NewEmptyContext() HTTPContext {
+	return &httpContext{}
 }
 
 func (ctx *httpContext) Protocol() Protocol {
@@ -206,8 +220,25 @@ func (ctx *httpContext) Span() tracing.Span {
 	return ctx.span
 }
 
+// Add new Tag.
 func (ctx *httpContext) AddTag(tag string) {
-	ctx.tags = append(ctx.tags, tag)
+	ctx.lazyTags = append(ctx.lazyTags, func() string {
+		return tag
+	})
+}
+
+// Add new LazyTag.
+func (ctx *httpContext) AddLazyTag(lazyTag LazyTagFunc) {
+	ctx.lazyTags = append(ctx.lazyTags, lazyTag)
+}
+
+// Return all tags in string format.
+func (ctx *httpContext) getTags() []string {
+	tags := make([]string, len(ctx.lazyTags))
+	for i := 0; i < len(ctx.lazyTags); i++ {
+		tags[i] = ctx.lazyTags[i]()
+	}
+	return tags
 }
 
 func (ctx *httpContext) Request() HTTPRequest {
@@ -288,6 +319,7 @@ func (ctx *httpContext) Finish() {
 
 	logger.LazyHTTPAccess(func() string {
 		stdr := ctx.r.std
+		tags := strings.Join(ctx.getTags(), " | ")
 
 		// log format:
 		// [startTime]
@@ -303,7 +335,7 @@ func (ctx *httpContext) Finish() {
 			fasttime.Format(ctx.startTime, fasttime.RFC3339Milli),
 			stdr.RemoteAddr, ctx.r.RealIP(), stdr.Method, stdr.RequestURI, stdr.Proto, ctx.w.code,
 			ctx.metric.Duration, ctx.r.Size(), ctx.w.Size(),
-			strings.Join(ctx.tags, " | "))
+			tags)
 	})
 }
 

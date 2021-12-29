@@ -45,6 +45,7 @@ type MockedHTTPContext struct {
 	MockedClientDisconnected func() bool
 	MockedOnFinish           func(func())
 	MockedAddTag             func(tag string)
+	MockedAddLazyTag         func(func() string)
 	MockedStatMetric         func() *httpstat.Metric
 	MockedFinish             func()
 	MockedTemplate           func() texttemplate.TemplateEngine
@@ -161,6 +162,13 @@ func (c *MockedHTTPContext) OnFinish(fn context.FinishFunc) {
 func (c *MockedHTTPContext) AddTag(tag string) {
 	if c.MockedAddTag != nil {
 		c.MockedAddTag(tag)
+	}
+}
+
+// AddLazyTag mocks the AddLazyTag function of HTTPContext
+func (c *MockedHTTPContext) AddLazyTag(lazyTag func() string) {
+	if c.MockedAddLazyTag != nil {
+		c.MockedAddLazyTag(lazyTag)
 	}
 }
 

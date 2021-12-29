@@ -24,7 +24,10 @@ import (
 	"testing"
 	"time"
 
+	httpstat "github.com/tcnksm/go-httpstat"
+
 	"github.com/megaease/easegress/pkg/context/contexttest"
+	"github.com/megaease/easegress/pkg/util/fasttime"
 	"github.com/megaease/easegress/pkg/util/httpheader"
 )
 
@@ -52,7 +55,8 @@ func TestRequest(t *testing.T) {
 
 	p := pool{}
 	sr := strings.NewReader("this is the raw body")
-	req, _ := p.newRequest(ctx, &server, sr)
+	req, _ := p.newRequest(ctx, &server, sr, requestPool, httpstatResultPool)
+	defer requestPool.Put(req) // recycle request
 
 	req.start()
 	tm := req.startTime()
@@ -92,4 +96,36 @@ func TestResultState(t *testing.T) {
 	if rs.Flag(1) {
 		t.Error("implementation changed, this case should be updated")
 	}
+}
+
+func TestRequestStatus(t *testing.T) {
+	statResult := httpstatResultPool.Get().(*httpstat.Result)
+	req := requestPool.Get().(*request)
+	req.createTime = fasttime.Now()
+	req._startTime = time.Time{}
+	req._endTime = time.Time{}
+	req.statResult = statResult
+
+	if !req.createTime.Equal(req.startTime()) {
+		t.Error("starttime should be createtime before start()")
+	}
+	time.Sleep(time.Millisecond)
+	req.start()
+
+	if req.createTime.Equal(req.startTime()) {
+		t.Error("starttime should not be createtime after start()")
+	}
+
+	if req.endTime().Equal(req._endTime) {
+		t.Error("endtime should be now before finish()")
+	}
+	time.Sleep(time.Millisecond)
+	req.finish()
+
+	if !req.endTime().Equal(req._endTime) {
+		t.Error("endtime should be _endtime after finish()")
+	}
+
+	httpstatResultPool.Put(req.statResult)
+	requestPool.Put(req)
 }

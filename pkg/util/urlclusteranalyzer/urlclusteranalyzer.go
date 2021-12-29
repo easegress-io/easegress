@@ -20,6 +20,8 @@ package urlclusteranalyzer
 import (
 	"strings"
 	"sync"
+
+	lru "github.com/hashicorp/golang-lru"
 )
 
 const (
@@ -31,6 +33,7 @@ const (
 type URLClusterAnalyzer struct {
 	slots []*field `yaml:"slots"`
 	mutex *sync.Mutex
+	cache *lru.Cache
 }
 
 type field struct {
@@ -55,9 +58,11 @@ func newField(name string) *field {
 
 // New creates a URLClusterAnalyzer.
 func New() *URLClusterAnalyzer {
+	cache, _ := lru.New(4098)
 	u := &URLClusterAnalyzer{
 		mutex: &sync.Mutex{},
 		slots: make([]*field, maxLayers),
+		cache: cache,
 	}
 
 	for i := 0; i < maxLayers; i++ {
@@ -73,6 +78,9 @@ func New() *URLClusterAnalyzer {
 func (u *URLClusterAnalyzer) GetPattern(urlPath string) string {
 	if urlPath == "" {
 		return ""
+	}
+	if val, ok := u.cache.Get(urlPath); ok {
+		return val.(string)
 	}
 
 	var values []string
@@ -131,6 +139,8 @@ LOOP:
 		currPattern = newF.pattern
 		currField = newF
 	}
+
+	u.cache.Add(urlPath, currPattern)
 
 	return currPattern
 }

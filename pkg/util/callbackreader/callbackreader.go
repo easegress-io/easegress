@@ -43,7 +43,10 @@ type (
 // New creates CallbackReader.
 func New(r io.Reader) *CallbackReader {
 	return &CallbackReader{
-		reader: r,
+		// pre-allocate slices for performance
+		beforeFuncs: make([]BeforeFunc, 0, 1),
+		afterFuncs:  make([]AfterFunc, 0, 1),
+		reader:      r,
 	}
 }
 

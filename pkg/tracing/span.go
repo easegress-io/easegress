@@ -65,6 +65,8 @@ type (
 
 		// SetTag sets tag key and value.
 		SetTag(key string, value string)
+		// IsNoopSpan returns true if span is NoopSpan.
+		IsNoopSpan() bool
 	}
 
 	span struct {
@@ -75,13 +77,25 @@ type (
 	}
 )
 
+// NoopSpan does nothing.
+var NoopSpan = &span{
+	tracer: NoopTracing,
+	span:   NoopTracing.StartSpan(""), // will return opentracing.defaultNoopSpan
+}
+
 // NewSpan creates a span.
 func NewSpan(tracer *Tracing, name string) Span {
+	if tracer.IsNoopTracer() {
+		return NoopSpan
+	}
 	return newSpanWithStart(tracer, name, fasttime.Now())
 }
 
 // NewSpanWithStart creates a span with specify start time.
 func NewSpanWithStart(tracer *Tracing, name string, startAt time.Time) Span {
+	if tracer.IsNoopTracer() {
+		return NoopSpan
+	}
 	return newSpanWithStart(tracer, name, startAt)
 }
 
@@ -94,6 +108,10 @@ func newSpanWithStart(tracer *Tracing, name string, startAt time.Time) Span {
 		tracer: tracer,
 		span:   newSpan,
 	}
+}
+
+func (s *span) IsNoopSpan() bool {
+	return s == NoopSpan
 }
 
 func (s *span) Tracer() opentracing.Tracer {
@@ -116,10 +134,16 @@ func (s *span) Cancel() {
 }
 
 func (s *span) NewChild(name string) Span {
+	if s.IsNoopSpan() {
+		return s
+	}
 	return s.newChildWithStart(name, fasttime.Now())
 }
 
 func (s *span) NewChildWithStart(name string, startAt time.Time) Span {
+	if s.IsNoopSpan() {
+		return s
+	}
 	return s.newChildWithStart(name, startAt)
 }
 

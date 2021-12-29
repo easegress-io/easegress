@@ -22,8 +22,10 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"sync"
 
 	"github.com/opentracing/opentracing-go"
+	gohttpstat "github.com/tcnksm/go-httpstat"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
@@ -127,11 +129,32 @@ func (p *pool) status() *PoolStatus {
 	return s
 }
 
+var requestPool = sync.Pool{
+	New: func() interface{} {
+		return &request{}
+	},
+}
+
+var httpstatResultPool = sync.Pool{
+	New: func() interface{} {
+		return &gohttpstat.Result{}
+	},
+}
+
 func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader, client *http.Client) string {
-	addTag := func(subPrefix, msg string) {
-		tag := stringtool.Cat(p.tagPrefix, "#", subPrefix, ": ", msg)
+	// intMsg is converted to string in AddLazyTag for better performance,
+	// as it is not run when access logs are disabled.
+	addLazyTag := func(subPrefix, msg string, intMsg int) {
 		ctx.Lock()
-		ctx.AddTag(tag)
+		if intMsg > -1 {
+			ctx.AddLazyTag(func() string {
+				return stringtool.Cat(p.tagPrefix, "#", subPrefix, ": ", strconv.Itoa(intMsg))
+			})
+		} else {
+			ctx.AddLazyTag(func() string {
+				return stringtool.Cat(p.tagPrefix, "#", subPrefix, ": ", msg)
+			})
+		}
 		ctx.Unlock()
 	}
 
@@ -143,17 +166,17 @@ func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader, client *http.C
 
 	server, err := p.servers.next(ctx)
 	if err != nil {
-		addTag("serverErr", err.Error())
+		addLazyTag("serverErr", err.Error(), -1)
 		setStatusCode(http.StatusServiceUnavailable)
 		return resultInternalError
 	}
-	addTag("addr", server.URL)
+	addLazyTag("addr", server.URL, -1)
 
-	req, err := p.prepareRequest(ctx, server, reqBody)
+	req, err := p.prepareRequest(ctx, server, reqBody, requestPool, httpstatResultPool)
 	if err != nil {
 		msg := stringtool.Cat("prepare request failed: ", err.Error())
 		logger.Errorf("BUG: %s", msg)
-		addTag("bug", msg)
+		addLazyTag("bug", msg, -1)
 		setStatusCode(http.StatusInternalServerError)
 		return resultInternalError
 	}
@@ -163,8 +186,8 @@ func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader, client *http.C
 		// NOTE: May add option to cancel the tracing if failed here.
 		// ctx.Span().Cancel()
 
-		addTag("doRequestErr", fmt.Sprintf("%v", err))
-		addTag("trace", req.detail())
+		addLazyTag("doRequestErr", fmt.Sprintf("%v", err), -1)
+		addLazyTag("trace", req.detail(), -1)
 		if ctx.ClientDisconnected() {
 			// NOTE: The HTTPContext will set 499 by itself if client is Disconnected.
 			// w.SetStatusCode((499)
@@ -175,7 +198,7 @@ func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader, client *http.C
 		return resultServerError
 	}
 
-	addTag("code", strconv.Itoa(resp.StatusCode))
+	addLazyTag("code", "", resp.StatusCode)
 
 	ctx.Lock()
 	defer ctx.Unlock()
@@ -185,7 +208,7 @@ func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader, client *http.C
 
 	if p.writeResponse {
 		ctx.Response().SetStatusCode(resp.StatusCode)
-		ctx.Response().Header().AddFromStd(resp.Header)
+		ctx.Response().Header().SetRaw(resp.Header)
 		ctx.Response().SetBody(respBody)
 
 		return ""
@@ -203,8 +226,13 @@ func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader, client *http.C
 	return ""
 }
 
-func (p *pool) prepareRequest(ctx context.HTTPContext, server *Server, reqBody io.Reader) (req *request, err error) {
-	return p.newRequest(ctx, server, reqBody)
+func (p *pool) prepareRequest(
+	ctx context.HTTPContext,
+	server *Server,
+	reqBody io.Reader,
+	requestPool sync.Pool,
+	httpstatResultPool sync.Pool) (req *request, err error) {
+	return p.newRequest(ctx, server, reqBody, requestPool, httpstatResultPool)
 }
 
 func (p *pool) doRequest(ctx context.HTTPContext, req *request, client *http.Client) (*http.Response, tracing.Span, error) {
@@ -223,6 +251,12 @@ func (p *pool) doRequest(ctx context.HTTPContext, req *request, client *http.Cli
 		return nil, nil, err
 	}
 	return resp, span, nil
+}
+
+var httpstatMetricPool = sync.Pool{
+	New: func() interface{} {
+		return &httpstat.Metric{}
+	},
 }
 
 func (p *pool) statRequestResponse(ctx context.HTTPContext,
@@ -246,19 +280,25 @@ func (p *pool) statRequestResponse(ctx context.HTTPContext,
 			req.finish()
 			span.Finish()
 		}
+		duration := req.total()
+		ctx.AddLazyTag(func() string {
+			return stringtool.Cat(p.tagPrefix, "#duration: ", duration.String())
+		})
+		// use recycled object
+		metric := httpstatMetricPool.Get().(*httpstat.Metric)
+		metric.StatusCode = resp.StatusCode
+		metric.Duration = duration
+		metric.ReqSize = ctx.Request().Size()
+		metric.RespSize = uint64(responseMetaSize(resp) + count)
 
-		ctx.AddTag(stringtool.Cat(p.tagPrefix, "#duration: ", req.total().String()))
-
-		metric := &httpstat.Metric{
-			StatusCode: resp.StatusCode,
-			Duration:   req.total(),
-			ReqSize:    ctx.Request().Size(),
-			RespSize:   uint64(responseMetaSize(resp) + count),
-		}
 		if !p.writeResponse {
 			metric.RespSize = 0
 		}
 		p.httpStat.Stat(metric)
+		// recycle struct instances
+		httpstatMetricPool.Put(metric)
+		httpstatResultPool.Put(req.statResult)
+		requestPool.Put(req)
 	})
 
 	return callbackBody
