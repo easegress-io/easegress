@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httpserver"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/informer"
@@ -127,7 +128,7 @@ func (egs *EgressServer) InitEgress(service *spec.Service) error {
 		return err
 	}
 
-	entity, err := egs.tc.CreateHTTPServerForSpec(egs.namespace, superSpec)
+	entity, err := egs.tc.CreateServerForSpec(egs.namespace, context.HTTP, superSpec)
 	if err != nil {
 		return fmt.Errorf("create http server %s failed: %v", superSpec.Name(), err)
 	}
@@ -439,7 +440,7 @@ func (egs *EgressServer) reload() {
 		}
 		logger.Infof("service: %s visit: %s pipeline init ok", egs.serviceName, svc.Name)
 
-		entity, err := egs.tc.CreateHTTPPipelineForSpec(egs.namespace, pipelineSpec)
+		entity, err := egs.tc.CreatePipelineForSpec(egs.namespace, context.HTTP, pipelineSpec)
 		if err != nil {
 			logger.Errorf("update http pipeline failed: %v", err)
 			return
@@ -526,7 +527,7 @@ func (egs *EgressServer) reload() {
 		logger.Errorf("new spec for %s failed: %v", err)
 		return
 	}
-	entity, err := egs.tc.UpdateHTTPServerForSpec(egs.namespace, superSpec)
+	entity, err := egs.tc.UpdateServerForSpec(egs.namespace, context.HTTP, superSpec)
 	if err != nil {
 		logger.Errorf("update http server %s failed: %v", egs.egressServerName, err)
 		return
@@ -552,9 +553,9 @@ func (egs *EgressServer) Close() {
 	egs.inf.Close()
 
 	if egs._ready() {
-		egs.tc.DeleteHTTPServer(egs.namespace, egs.httpServer.Spec().Name())
+		egs.tc.DeleteServer(egs.namespace, context.HTTP, egs.httpServer.Spec().Name())
 		for _, entity := range egs.pipelines {
-			egs.tc.DeleteHTTPPipeline(egs.namespace, entity.Spec().Name())
+			egs.tc.DeletePipeline(egs.namespace, context.HTTP, entity.Spec().Name())
 		}
 	}
 }

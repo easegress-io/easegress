@@ -552,7 +552,7 @@ func (tc *TrafficController) ApplyPipeline(namespace string, protocolType contex
 	return entity, nil
 }
 
-// DeleteHTTPPipeline deletes the HTTP pipeline by its namespace and name
+// DeletePipeline deletes the pipeline by its namespace and name
 func (tc *TrafficController) DeletePipeline(namespace string, protocolType context.Protocol, name string) error {
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
@@ -684,30 +684,34 @@ func (tc *TrafficController) Status() *supervisor.Status {
 
 	for namespace, namespaceSpec := range tc.namespaces {
 		httpServers := make(map[string]*HTTPServerStatus)
-		servers := namespaceSpec.servers[context.HTTP]
-		servers.Range(func(key, value interface{}) bool {
-			k := key.(string)
-			v := value.(*supervisor.ObjectEntity)
+		servers, exists := namespaceSpec.servers[context.HTTP]
+		if exists {
+			servers.Range(func(key, value interface{}) bool {
+				k := key.(string)
+				v := value.(*supervisor.ObjectEntity)
 
-			httpServers[k] = &HTTPServerStatus{
-				Spec:   v.Spec().RawSpec(),
-				Status: v.Instance().Status().ObjectStatus.(*httpserver.Status),
-			}
-			return true
-		})
+				httpServers[k] = &HTTPServerStatus{
+					Spec:   v.Spec().RawSpec(),
+					Status: v.Instance().Status().ObjectStatus.(*httpserver.Status),
+				}
+				return true
+			})
+		}
 
 		httpPipelines := make(map[string]*HTTPPipelineStatus)
-		pipelines := namespaceSpec.pipelines[context.HTTP]
-		pipelines.Range(func(key, value interface{}) bool {
-			k := key.(string)
-			v := value.(*supervisor.ObjectEntity)
+		pipelines, exists := namespaceSpec.pipelines[context.HTTP]
+		if exists {
+			pipelines.Range(func(key, value interface{}) bool {
+				k := key.(string)
+				v := value.(*supervisor.ObjectEntity)
 
-			httpPipelines[k] = &HTTPPipelineStatus{
-				Spec:   v.Spec().RawSpec(),
-				Status: v.Instance().Status().ObjectStatus.(*httppipeline.Status),
-			}
-			return true
-		})
+				httpPipelines[k] = &HTTPPipelineStatus{
+					Spec:   v.Spec().RawSpec(),
+					Status: v.Instance().Status().ObjectStatus.(*httppipeline.Status),
+				}
+				return true
+			})
+		}
 
 		statuses = append(statuses, &StatusInSameNamespace{
 			Namespace:     namespace,

@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/informer"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/service"
@@ -116,7 +117,7 @@ func (ings *IngressServer) InitIngress(service *spec.Service, port uint32) error
 		if err != nil {
 			return err
 		}
-		entity, err := ings.tc.CreateHTTPPipelineForSpec(ings.namespace, superSpec)
+		entity, err := ings.tc.CreatePipelineForSpec(ings.namespace, context.HTTP, superSpec)
 		if err != nil {
 			return fmt.Errorf("create http pipeline %s failed: %v", superSpec.Name(), err)
 		}
@@ -137,7 +138,7 @@ func (ings *IngressServer) InitIngress(service *spec.Service, port uint32) error
 			return err
 		}
 
-		entity, err := ings.tc.CreateHTTPServerForSpec(ings.namespace, superSpec)
+		entity, err := ings.tc.CreateServerForSpec(ings.namespace, context.HTTP, superSpec)
 		if err != nil {
 			return fmt.Errorf("create http server %s failed: %v", superSpec.Name(), err)
 		}
@@ -188,7 +189,7 @@ func (ings *IngressServer) reloadHTTPServer(event informer.Event, value *spec.Ce
 		return true
 	}
 
-	entity, err := ings.tc.UpdateHTTPServerForSpec(ings.namespace, superSpec)
+	entity, err := ings.tc.UpdateServerForSpec(ings.namespace, context.HTTP, superSpec)
 	if err != nil {
 		logger.Errorf("update http server %s failed: %v", ings.serviceName, err)
 		return true
@@ -216,7 +217,7 @@ func (ings *IngressServer) reloadPipeline(event informer.Event, serviceSpec *spe
 		return true
 	}
 
-	entity, err := ings.tc.UpdateHTTPPipelineForSpec(ings.namespace, superSpec)
+	entity, err := ings.tc.UpdatePipelineForSpec(ings.namespace, context.HTTP, superSpec)
 	if err != nil {
 		return true
 	}
@@ -233,9 +234,9 @@ func (ings *IngressServer) Close() {
 	ings.inf.Close()
 
 	if ings._ready() {
-		ings.tc.DeleteHTTPServer(ings.namespace, ings.httpServer.Spec().Name())
+		ings.tc.DeleteServer(ings.namespace, context.HTTP, ings.httpServer.Spec().Name())
 		for _, entity := range ings.pipelines {
-			ings.tc.DeleteHTTPPipeline(ings.namespace, entity.Spec().Name())
+			ings.tc.DeletePipeline(ings.namespace, context.HTTP, entity.Spec().Name())
 		}
 	}
 }

@@ -23,6 +23,7 @@ import (
 	"runtime/debug"
 	"sync"
 
+	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
 	"github.com/megaease/easegress/pkg/object/httpserver"
@@ -223,7 +224,7 @@ func (ic *IngressController) _reloadIngress() {
 func (ic *IngressController) _reloadHTTPPipelines() {
 	for backend, entity := range ic.backendHTTPPipelines {
 		if _, exists := ic.ingressBackends[backend]; !exists {
-			err := ic.tc.DeleteHTTPPipeline(ic.namespace, entity.Spec().Name())
+			err := ic.tc.DeletePipeline(ic.namespace, context.HTTP, entity.Spec().Name())
 			if err != nil {
 				logger.Errorf("delete http pipeline %s failed: %v",
 					entity.Spec().Name(), err)
@@ -267,7 +268,7 @@ func (ic *IngressController) _reloadHTTPPipelines() {
 			continue
 		}
 
-		entity, err := ic.tc.ApplyHTTPPipelineForSpec(ic.namespace, superSpec)
+		entity, err := ic.tc.ApplyPipelineForSpec(ic.namespace, context.HTTP, superSpec)
 		if err != nil {
 			logger.Errorf("apply http pipeline %s failed: %v", superSpec.Name(), err)
 			continue
@@ -284,7 +285,7 @@ func (ic *IngressController) _reloadHTTPServer() {
 		return
 	}
 
-	entity, err := ic.tc.ApplyHTTPServerForSpec(ic.namespace, superSpec)
+	entity, err := ic.tc.ApplyServerForSpec(ic.namespace, context.HTTP, superSpec)
 	if err != nil {
 		logger.Errorf("apply http server failed: %v", err)
 		return
@@ -301,7 +302,7 @@ func (ic *IngressController) Status() *supervisor.Status {
 		HTTPPipelines: make(map[string]*trafficcontroller.HTTPPipelineStatus),
 	}
 
-	ic.tc.WalkHTTPServers(ic.namespace, func(entity *supervisor.ObjectEntity) bool {
+	ic.tc.WalkServers(ic.namespace, context.HTTP, func(entity *supervisor.ObjectEntity) bool {
 		status.HTTPServers[entity.Spec().Name()] = &trafficcontroller.HTTPServerStatus{
 			Spec:   entity.Spec().RawSpec(),
 			Status: entity.Instance().Status().ObjectStatus.(*httpserver.Status),
@@ -309,7 +310,7 @@ func (ic *IngressController) Status() *supervisor.Status {
 		return true
 	})
 
-	ic.tc.WalkHTTPPipelines(ic.namespace, func(entity *supervisor.ObjectEntity) bool {
+	ic.tc.WalkPipelines(ic.namespace, context.HTTP, func(entity *supervisor.ObjectEntity) bool {
 		status.HTTPPipelines[entity.Spec().Name()] = &trafficcontroller.HTTPPipelineStatus{
 			Spec:   entity.Spec().RawSpec(),
 			Status: entity.Instance().Status().ObjectStatus.(*httppipeline.Status),

@@ -158,7 +158,7 @@ func (gf *GlobalFilter) Inherit(superSpec *supervisor.Spec, previousGeneration s
 }
 
 // Handle `beforePipeline` and `afterPipeline` before and after the httpHandler is executed.
-func (gf *GlobalFilter) Handle(ctx context.HTTPContext, httpHandle protocol.HTTPHandler) {
+func (gf *GlobalFilter) Handle(ctx context.HTTPContext, httpHandle protocol.Handler) {
 	result := gf.beforeHandle(ctx)
 	if result == httppipeline.LabelEND {
 		return

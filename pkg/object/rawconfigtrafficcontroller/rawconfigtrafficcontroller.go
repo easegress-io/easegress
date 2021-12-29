@@ -20,6 +20,7 @@ package rawconfigtrafficcontroller
 import (
 	"fmt"
 
+	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
 	"github.com/megaease/easegress/pkg/object/httpserver"
@@ -91,12 +92,12 @@ func (rctc *RawConfigTrafficController) Inherit(spec *supervisor.Spec, previousG
 }
 
 // GetHTTPPipeline gets Pipeline within the default namespace
-func (rctc *RawConfigTrafficController) GetHTTPPipeline(name string) (protocol.HTTPHandler, bool) {
-	p, exist := rctc.tc.GetHTTPPipeline(DefaultNamespace, name)
+func (rctc *RawConfigTrafficController) GetPipeline(protocolType context.Protocol, name string) (protocol.Handler, bool) {
+	p, exist := rctc.tc.GetPipeline(DefaultNamespace, protocolType, name)
 	if !exist {
 		return nil, false
 	}
-	handler := p.Instance().(protocol.HTTPHandler)
+	handler := p.Instance().(protocol.Handler)
 	return handler, true
 }
 
@@ -140,9 +141,9 @@ func (rctc *RawConfigTrafficController) handleEvent(event *supervisor.ObjectEnti
 		kind := entity.Spec().Kind()
 		switch kind {
 		case httpserver.Kind:
-			err = rctc.tc.DeleteHTTPServer(DefaultNamespace, name)
+			err = rctc.tc.DeleteServer(DefaultNamespace, context.HTTP, name)
 		case httppipeline.Kind:
-			err = rctc.tc.DeleteHTTPPipeline(DefaultNamespace, name)
+			err = rctc.tc.DeletePipeline(DefaultNamespace, context.HTTP, name)
 		default:
 			logger.Errorf("BUG: unexpected kind %T", kind)
 		}
@@ -158,9 +159,9 @@ func (rctc *RawConfigTrafficController) handleEvent(event *supervisor.ObjectEnti
 		kind := entity.Spec().Kind()
 		switch kind {
 		case httpserver.Kind:
-			_, err = rctc.tc.CreateHTTPServer(DefaultNamespace, entity)
+			_, err = rctc.tc.CreateServer(DefaultNamespace, context.HTTP, entity)
 		case httppipeline.Kind:
-			_, err = rctc.tc.CreateHTTPPipeline(DefaultNamespace, entity)
+			_, err = rctc.tc.CreatePipeline(DefaultNamespace, context.HTTP, entity)
 		default:
 			logger.Errorf("BUG: unexpected kind %T", kind)
 		}
@@ -176,9 +177,9 @@ func (rctc *RawConfigTrafficController) handleEvent(event *supervisor.ObjectEnti
 		kind := entity.Instance().Kind()
 		switch kind {
 		case httpserver.Kind:
-			_, err = rctc.tc.UpdateHTTPServer(DefaultNamespace, entity)
+			_, err = rctc.tc.UpdateServer(DefaultNamespace, context.HTTP, entity)
 		case httppipeline.Kind:
-			_, err = rctc.tc.UpdateHTTPPipeline(DefaultNamespace, entity)
+			_, err = rctc.tc.UpdatePipeline(DefaultNamespace, context.HTTP, entity)
 		default:
 			logger.Errorf("BUG: unexpected kind %T", kind)
 		}
@@ -197,7 +198,7 @@ func (rctc *RawConfigTrafficController) Status() *supervisor.Status {
 		HTTPPipelines: make(map[string]*trafficcontroller.HTTPPipelineStatus),
 	}
 
-	rctc.tc.WalkHTTPServers(rctc.namespace, func(entity *supervisor.ObjectEntity) bool {
+	rctc.tc.WalkServers(rctc.namespace, context.HTTP, func(entity *supervisor.ObjectEntity) bool {
 		status.HTTPServers[entity.Spec().Name()] = &trafficcontroller.HTTPServerStatus{
 			Spec:   entity.Spec().RawSpec(),
 			Status: entity.Instance().Status().ObjectStatus.(*httpserver.Status),
@@ -205,7 +206,7 @@ func (rctc *RawConfigTrafficController) Status() *supervisor.Status {
 		return true
 	})
 
-	rctc.tc.WalkHTTPPipelines(rctc.namespace, func(entity *supervisor.ObjectEntity) bool {
+	rctc.tc.WalkPipelines(rctc.namespace, context.HTTP, func(entity *supervisor.ObjectEntity) bool {
 		status.HTTPPipelines[entity.Spec().Name()] = &trafficcontroller.HTTPPipelineStatus{
 			Spec:   entity.Spec().RawSpec(),
 			Status: entity.Instance().Status().ObjectStatus.(*httppipeline.Status),

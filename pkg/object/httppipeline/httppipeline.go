@@ -438,7 +438,9 @@ func (hp *HTTPPipeline) getNextFilterIndex(index int, result string) (int, bool)
 }
 
 // Handle is the handler to deal with HTTP
-func (hp *HTTPPipeline) Handle(ctx context.HTTPContext) string {
+func (hp *HTTPPipeline) Handle(cxt context.Context) string {
+	ctx := cxt.(context.HTTPContext)
+
 	ctx.SetTemplate(hp.ht)
 
 	filterIndex := -1

@@ -202,7 +202,7 @@ func (aa *APIAggregator) handle(ctx context.HTTPContext) (result string) {
 
 		go func(i int, name string, req *http.Request) {
 			defer wg.Done()
-			handler, exists := aa.rctc.GetHTTPPipeline(name)
+			handler, exists := aa.rctc.GetPipeline(context.HTTP, name)
 			if !exists {
 				logger.Errorf("pipeline: %s not found in current namespace", name)
 				return

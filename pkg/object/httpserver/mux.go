@@ -449,7 +449,7 @@ func (m *mux) handleRequestWithCache(rules *muxRules, ctx context.HTTPContext, c
 	case ci.methodNotAllowed:
 		ctx.Response().SetStatusCode(http.StatusMethodNotAllowed)
 	case ci.path != nil:
-		handler, exists := rules.muxMapper.GetHandler(ci.path.backend)
+		handler, exists := rules.muxMapper.GetHandler(ci.path.backend, context.HTTP)
 		if !exists {
 			ctx.AddTag(stringtool.Cat("backend ", ci.path.backend, " not found"))
 			ctx.Response().SetStatusCode(http.StatusServiceUnavailable)
