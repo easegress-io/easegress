@@ -439,6 +439,10 @@ func (hp *HTTPPipeline) getNextFilterIndex(index int, result string) (int, bool)
 
 // Handle is the handler to deal with HTTP
 func (hp *HTTPPipeline) Handle(cxt context.Context) string {
+	if cxt.Protocol() != context.HTTP {
+		logger.Errorf("httppipeline %s received %s context", hp.superSpec.Name(), cxt.Protocol())
+		return ""
+	}
 	ctx := cxt.(context.HTTPContext)
 
 	ctx.SetTemplate(hp.ht)
