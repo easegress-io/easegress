@@ -1077,15 +1077,16 @@ func (s *Service) SidecarEgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec
 
 	if !s.Runnable() {
 		pipelineSpecBuilder.appendMock(s.Mock.Rules)
-	} else {
-		if s.Resilience != nil {
-			pipelineSpecBuilder.appendTimeLimiter(s.Resilience.TimeLimiter)
-			pipelineSpecBuilder.appendRetryer(s.Resilience.Retryer)
-			pipelineSpecBuilder.appendCircuitBreaker(s.Resilience.CircuitBreaker)
-		}
-
-		pipelineSpecBuilder.appendProxyWithCanary(instanceSpecs, canaries, s.LoadBalance, appCert, rootCert)
 	}
+
+	if s.Resilience != nil {
+		pipelineSpecBuilder.appendTimeLimiter(s.Resilience.TimeLimiter)
+		pipelineSpecBuilder.appendRetryer(s.Resilience.Retryer)
+		pipelineSpecBuilder.appendCircuitBreaker(s.Resilience.CircuitBreaker)
+	}
+
+	pipelineSpecBuilder.appendProxyWithCanary(instanceSpecs, canaries, s.LoadBalance, appCert, rootCert)
+
 	yamlConfig := pipelineSpecBuilder.yamlConfig()
 	superSpec, err := supervisor.NewSpec(yamlConfig)
 	if err != nil {
