@@ -24,6 +24,10 @@ import (
 
 	yaml "gopkg.in/yaml.v2"
 
+	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/object/httpserver"
+	"github.com/megaease/easegress/pkg/object/rawconfigtrafficcontroller"
+	"github.com/megaease/easegress/pkg/object/trafficcontroller"
 	"github.com/megaease/easegress/pkg/supervisor"
 )
 
@@ -163,4 +167,54 @@ func (s *Server) _listStatusObjects() map[string]map[string]interface{} {
 	}
 
 	return status
+}
+
+func getSubStatusFromTrafficControllerStatus(status *trafficcontroller.Status, spec *supervisor.Spec) string {
+	for _, ns := range status.Specs {
+		if ns.Namespace != rawconfigtrafficcontroller.DefaultNamespace {
+			continue
+		}
+		if spec.Kind() == httpserver.Kind {
+			if val, ok := ns.HTTPServers[spec.Name()]; ok {
+				b, err := yaml.Marshal(val.Status)
+				if err != nil {
+					ClusterPanic(fmt.Errorf("unmarshal %v to yaml failed: %v", val.Status, err))
+				}
+				return string(b)
+			}
+			return ""
+		} else if spec.Kind() == httppipeline.Kind {
+			if val, ok := ns.HTTPPipelines[spec.Name()]; ok {
+				b, err := yaml.Marshal(val.Status)
+				if err != nil {
+					ClusterPanic(fmt.Errorf("unmarshal %v to yaml failed: %v", val.Status, err))
+				}
+				return string(b)
+			}
+			return ""
+		}
+	}
+	return ""
+}
+
+func (s *Server) _getStatusObjectFromTrafficController(name string, spec *supervisor.Spec) map[string]string {
+	prefix := s.cluster.Layout().StatusObjectPrefix(trafficcontroller.Kind)
+	kvs, err := s.cluster.GetPrefix(prefix)
+	if err != nil {
+		ClusterPanic(err)
+	}
+	status := &trafficcontroller.Status{}
+	ans := make(map[string]string)
+	for k, v := range kvs {
+		// different member
+		memberName := strings.TrimPrefix(k, prefix)
+
+		err = yaml.Unmarshal([]byte(v), status)
+		if err != nil {
+			ClusterPanic(fmt.Errorf("unmarshal %s to yaml failed: %v", v, err))
+		}
+		nsStatus := getSubStatusFromTrafficControllerStatus(status, spec)
+		ans[memberName] = nsStatus
+	}
+	return ans
 }
