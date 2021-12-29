@@ -174,7 +174,6 @@ func getSubStatusFromTrafficControllerStatus(status *trafficcontroller.Status, s
 		if ns.Namespace != rawconfigtrafficcontroller.DefaultNamespace {
 			continue
 		}
-
 		if spec.Kind() == httpserver.Kind {
 			if val, ok := ns.HTTPServers[spec.Name()]; ok {
 				b, err := yaml.Marshal(val.Status)
@@ -183,8 +182,8 @@ func getSubStatusFromTrafficControllerStatus(status *trafficcontroller.Status, s
 				}
 				return string(b)
 			}
-		}
-		if spec.Kind() == httppipeline.Kind {
+			return ""
+		} else if spec.Kind() == httppipeline.Kind {
 			if val, ok := ns.HTTPPipelines[spec.Name()]; ok {
 				b, err := yaml.Marshal(val.Status)
 				if err != nil {
@@ -192,6 +191,7 @@ func getSubStatusFromTrafficControllerStatus(status *trafficcontroller.Status, s
 				}
 				return string(b)
 			}
+			return ""
 		}
 	}
 	return ""
