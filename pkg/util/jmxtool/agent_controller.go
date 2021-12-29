@@ -31,14 +31,14 @@ import (
 )
 
 const (
-	canaryConfigURL  = "/config-canary"
-	serviceConfigURL = "/config-service"
+	globalTransmissionConfigURL = "/config-global-transmission"
+	serviceConfigURL            = "/config-service"
 )
 
 // AgentInterface is the interface operate the agent client
 type AgentInterface interface {
 	UpdateService(newService *spec.Service, version int64) error
-	UpdateCanary(globalHeaders *spec.GlobalCanaryHeaders, version int64) error
+	UpdateGlobalTransmission(transmission *spec.GlobalTransmission) error
 }
 
 // AgentClient stores the information of agent client
@@ -82,29 +82,25 @@ func (agent *AgentClient) UpdateService(newService *spec.Service, version int64)
 	return err
 }
 
-// UpdateCanary updates canary.
-func (agent *AgentClient) UpdateCanary(globalHeaders *spec.GlobalCanaryHeaders, version int64) error {
-	buff, err := yaml.Marshal(globalHeaders)
+// UpdateGlobalTransmission updates GlobalTransmission.
+func (agent *AgentClient) UpdateGlobalTransmission(transmission *spec.GlobalTransmission) error {
+	buff, err := yaml.Marshal(transmission)
 	if err != nil {
-		return fmt.Errorf("marshal %#v to yaml failed: %v", globalHeaders, err)
+		return fmt.Errorf("marshal %#v to yaml failed: %v", transmission, err)
 	}
+
 	jsonBytes, err := yamljsontool.YAMLToJSON(buff)
 	if err != nil {
 		return fmt.Errorf("convert yaml %s to json failed: %v", buff, err)
 	}
-	kvMap, err := JSONToKVMap(string(jsonBytes))
-	kvMap["version"] = strconv.FormatInt(version, 10)
 
-	bytes, err := json.Marshal(kvMap)
-	if err != nil {
-		return fmt.Errorf("marshal %s to json failed: %v", kvMap, err)
-	}
-
-	url := agent.URL + canaryConfigURL
-	bodyString, err := handleRequest(http.MethodPut, url, bytes)
+	url := agent.URL + globalTransmissionConfigURL
+	bodyString, err := handleRequest(http.MethodPut, url, jsonBytes)
 	if err != nil {
 		return fmt.Errorf("handleRequest error: %v", err)
 	}
-	logger.Infof("Update Canary, URL: %s,request: %s, result: %v", url, string(bytes), string(bodyString))
+
+	logger.Infof("update global transmission %s req: %s resp: %s", url, jsonBytes, bodyString)
+
 	return err
 }

@@ -23,6 +23,7 @@ import (
 	"net/url"
 	"os"
 	"runtime/debug"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -293,12 +294,24 @@ func (worker *Worker) pushSpecToJavaAgent() {
 			logger.Errorf("update service %s failed: %v", serviceSpec.Name, err)
 		}
 
-		globalCanaryHeaders, info := worker.service.GetGlobalCanaryHeadersWithInfo()
-		if globalCanaryHeaders != nil {
-			err := worker.observabilityManager.UpdateCanary(globalCanaryHeaders, info.Version)
-			if err != nil {
-				logger.Errorf("update canary failed: %v", err)
+		canaries := worker.service.ListServiceCanaries()
+		transmission := &spec.GlobalTransmission{}
+
+		headersMap := map[string]struct{}{spec.ServiceCanaryHeaderKey: {}}
+		for _, canary := range canaries {
+			for key := range canary.TrafficRules.Headers {
+				headersMap[key] = struct{}{}
 			}
+		}
+		for key := range headersMap {
+			transmission.Headers = append(transmission.Headers, key)
+		}
+
+		sort.Strings(transmission.Headers)
+
+		err = worker.observabilityManager.UpdateGlobalTransmission(transmission)
+		if err != nil {
+			logger.Errorf("update canary failed: %v", err)
 		}
 	}
 
@@ -306,7 +319,7 @@ func (worker *Worker) pushSpecToJavaAgent() {
 		select {
 		case <-worker.done:
 			return
-		case <-time.After(1 * time.Minute):
+		case <-time.After(30 * time.Second):
 			routine()
 		}
 	}

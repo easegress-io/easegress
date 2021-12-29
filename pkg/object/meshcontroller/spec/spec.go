@@ -202,6 +202,12 @@ type (
 		ServiceHeaders map[string][]string `yaml:"serviceHeaders" jsonschema:"omitempty"`
 	}
 
+	// GlobalTransmission is the spec of global transmission data.
+	// All endpoints of mesh should pass them.
+	GlobalTransmission struct {
+		Headers []string `yaml:"headers" jsonschema:"omitempty"`
+	}
+
 	// LoadBalance is the spec of service load balance.
 	LoadBalance = proxy.LoadBalance
 
@@ -886,7 +892,7 @@ rules:`
 func (s *Service) IngressControllerPipelineSpec(instanceSpecs []*ServiceInstanceSpec,
 	canaries []*ServiceCanary, cert, rootCert *Certificate) (*supervisor.Spec, error) {
 
-	pipelineSpecBuilder := newPipelineSpecBuilder(s.IngressPipelineName())
+	pipelineSpecBuilder := newPipelineSpecBuilder(s.IngressControllerPipelineName())
 
 	pipelineSpecBuilder.appendMeshAdaptor(canaries)
 	pipelineSpecBuilder.appendProxyWithCanary(instanceSpecs, canaries, s.LoadBalance, cert, rootCert)
@@ -984,9 +990,14 @@ func (s *Service) IngressHandlerName() string {
 	return fmt.Sprintf("mesh-ingress-handler-%s", s.Name)
 }
 
-// IngressPipelineName returns the ingress pipeline name
-func (s *Service) IngressPipelineName() string {
+// SidecarIngressPipelineName returns the ingress pipeline name
+func (s *Service) SidecarIngressPipelineName() string {
 	return fmt.Sprintf("mesh-ingress-pipeline-%s", s.Name)
+}
+
+// IngressControllerPipelineName returns the ingress pipeline name
+func (s *Service) IngressControllerPipelineName() string {
+	return fmt.Sprintf("mesh-ingresscontroller-pipeline-%s", s.Name)
 }
 
 // BackendName returns backend service name
@@ -1034,7 +1045,7 @@ func (s *Service) SidecarIngressPipelineSpec(applicationPort uint32) (*superviso
 		},
 	}
 
-	pipelineSpecBuilder := newPipelineSpecBuilder(s.IngressPipelineName())
+	pipelineSpecBuilder := newPipelineSpecBuilder(s.SidecarIngressPipelineName())
 
 	if s.Resilience != nil {
 		pipelineSpecBuilder.appendRateLimiter(s.Resilience.RateLimiter)
