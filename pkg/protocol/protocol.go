@@ -24,14 +24,14 @@ import (
 )
 
 type (
-	// HTTPHandler is the common handler for the all backends
-	// which handle the traffic from HTTPServer.
-	HTTPHandler interface {
-		Handle(ctx context.HTTPContext) string
+	// Handler is the common handler for the all backends
+	// which handle the traffic from server like HTTPServer, MQTTProxy, etc.
+	Handler interface {
+		Handle(ctx context.Context) string
 	}
 
-	// MuxMapper gets HTTP handler pipeline with mutex
+	// MuxMapper gets handler pipeline for given protocol with mutex
 	MuxMapper interface {
-		GetHandler(name string) (HTTPHandler, bool)
+		GetHandler(name string, protocolType context.Protocol) (Handler, bool)
 	}
 )

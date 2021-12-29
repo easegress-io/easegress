@@ -22,6 +22,7 @@ import (
 	"runtime/debug"
 	"sync"
 
+	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
 	"github.com/megaease/easegress/pkg/object/httpserver"
@@ -57,12 +58,12 @@ type (
 		// When the entry for a given key is only ever written once but read many times.
 		// Reference: https://golang.org/pkg/sync/#Map
 		// types of both: map[string]*supervisor.ObjectEntity
-		httpservers   sync.Map
-		httppipelines sync.Map
+		servers   map[context.Protocol]*sync.Map
+		pipelines map[context.Protocol]*sync.Map
 	}
 
 	// WalkFunc is the type of the function called for
-	// walking http server and http pipeline.
+	// walking server and pipeline.
 	WalkFunc = supervisor.WalkFunc
 
 	// Spec describes TrafficController.
@@ -100,19 +101,31 @@ func init() {
 }
 
 func newNamespace(namespace string) *Namespace {
-	return &Namespace{
+	ns := &Namespace{
 		namespace: namespace,
+		servers:   make(map[context.Protocol]*sync.Map),
+		pipelines: make(map[context.Protocol]*sync.Map),
 	}
+	for _, p := range context.Protocols {
+		ns.servers[p] = &sync.Map{}
+		ns.pipelines[p] = &sync.Map{}
+	}
+	return ns
 }
 
 // GetHandler gets handler within the namespace
-func (ns *Namespace) GetHandler(name string) (protocol.HTTPHandler, bool) {
-	entity, exists := ns.httppipelines.Load(name)
+func (ns *Namespace) GetHandler(name string, protocolType context.Protocol) (protocol.Handler, bool) {
+	pipelines, exists := ns.pipelines[protocolType]
 	if !exists {
 		return nil, false
 	}
 
-	handler := entity.(*supervisor.ObjectEntity).Instance().(protocol.HTTPHandler)
+	entity, exists := pipelines.Load(name)
+	if !exists {
+		return nil, false
+	}
+
+	handler := entity.(*supervisor.ObjectEntity).Instance().(protocol.Handler)
 	return handler, true
 }
 
@@ -153,19 +166,71 @@ func (tc *TrafficController) reload(previousGeneration *TrafficController) {
 	}
 }
 
-// CreateHTTPServerForSpec creates HTTP server with a spec
-func (tc *TrafficController) CreateHTTPServerForSpec(namespace string, superSpec *supervisor.Spec) (
+// getNamespace will return namespace for given namespace.
+func (tc *TrafficController) getNamespace(namespace string, create bool) (*Namespace, error) {
+	space, exists := tc.namespaces[namespace]
+	if !exists {
+		if !create {
+			return nil, fmt.Errorf("namespace %s not found", namespace)
+		}
+		space = newNamespace(namespace)
+		tc.namespaces[namespace] = space
+		logger.Infof("create namespace %s", namespace)
+	}
+	return space, nil
+}
+
+// getNamespaceAndServers will return servers map for given namespace and protocol.
+// when create set to true, getNamespaceAndServers will create corresponding object if not found.
+func (tc *TrafficController) getNamespaceAndServers(namespace string, protocol context.Protocol, create bool) (*Namespace, *sync.Map, error) {
+	space, err := tc.getNamespace(namespace, create)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	servers, exists := space.servers[protocol]
+	if !exists {
+		if !create {
+			return nil, nil, fmt.Errorf("servers for protocol %s in namespace %s not found", protocol, namespace)
+		}
+		servers = &sync.Map{}
+		space.servers[protocol] = servers
+	}
+	return space, servers, nil
+}
+
+// getNamespaceAndPipelines will return servers map for given namespace and protocol.
+// when create set to true, getNamespaceAndPipelines will create corresponding object if not found.
+func (tc *TrafficController) getNamespaceAndPipelines(namespace string, protocol context.Protocol, create bool) (*Namespace, *sync.Map, error) {
+	space, err := tc.getNamespace(namespace, create)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	pipelines, exists := space.pipelines[protocol]
+	if !exists {
+		if !create {
+			return nil, nil, fmt.Errorf("pipelines for protocol %s in namespace %s not found", protocol, namespace)
+		}
+		pipelines = &sync.Map{}
+		space.pipelines[protocol] = pipelines
+	}
+	return space, pipelines, nil
+}
+
+// CreateServerForSpec creates server with a spec
+func (tc *TrafficController) CreateServerForSpec(namespace string, protocolType context.Protocol, superSpec *supervisor.Spec) (
 	*supervisor.ObjectEntity, error) {
 
 	entity, err := tc.super.NewObjectEntityFromSpec(superSpec)
 	if err != nil {
 		return nil, err
 	}
-	return tc.CreateHTTPServer(namespace, entity)
+	return tc.CreateServer(namespace, protocolType, entity)
 }
 
-// CreateHTTPServer creates HTTP server
-func (tc *TrafficController) CreateHTTPServer(namespace string, entity *supervisor.ObjectEntity) (
+// CreateServer creates server
+func (tc *TrafficController) CreateServer(namespace string, protocolType context.Protocol, entity *supervisor.ObjectEntity) (
 	*supervisor.ObjectEntity, error) {
 
 	if namespace == "" {
@@ -175,74 +240,64 @@ func (tc *TrafficController) CreateHTTPServer(namespace string, entity *supervis
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
 
-	space, exists := tc.namespaces[namespace]
-	if !exists {
-		space = newNamespace(namespace)
-		tc.namespaces[namespace] = space
-		logger.Infof("create namespace %s", namespace)
-	}
+	space, servers, _ := tc.getNamespaceAndServers(namespace, protocolType, true)
 
 	name := entity.Spec().Name()
-
 	entity.InitWithRecovery(space)
-	space.httpservers.Store(name, entity)
+	servers.Store(name, entity)
 
-	logger.Infof("create http server %s/%s", namespace, name)
-
+	logger.Infof("create server %s/%s/%s", namespace, protocolType, name)
 	return entity, nil
 }
 
-// UpdateHTTPServerForSpec updates HTTP server with a Spec
-func (tc *TrafficController) UpdateHTTPServerForSpec(namespace string, superSpec *supervisor.Spec) (
+// UpdateServerForSpec updates server with a Spec
+func (tc *TrafficController) UpdateServerForSpec(namespace string, protocolType context.Protocol, superSpec *supervisor.Spec) (
 	*supervisor.ObjectEntity, error) {
 
 	entity, err := tc.super.NewObjectEntityFromSpec(superSpec)
 	if err != nil {
 		return nil, err
 	}
-	return tc.UpdateHTTPServer(namespace, entity)
+	return tc.UpdateServer(namespace, protocolType, entity)
 }
 
-// UpdateHTTPServer updates HTTP server
-func (tc *TrafficController) UpdateHTTPServer(namespace string, entity *supervisor.ObjectEntity) (
+// UpdateServer updates server
+func (tc *TrafficController) UpdateServer(namespace string, protocolType context.Protocol, entity *supervisor.ObjectEntity) (
 	*supervisor.ObjectEntity, error) {
 
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
 
-	space, exists := tc.namespaces[namespace]
-	if !exists {
-		return nil, fmt.Errorf("namespace %s not found", namespace)
+	space, servers, err := tc.getNamespaceAndServers(namespace, protocolType, false)
+	if err != nil {
+		return nil, err
 	}
 
 	name := entity.Spec().Name()
-
-	previousEntity, exists := space.httpservers.Load(name)
+	previousEntity, exists := servers.Load(name)
 	if !exists {
-		return nil, fmt.Errorf("http server %s/%s not found", namespace, name)
+		return nil, fmt.Errorf("server %s/%s/%s not found", namespace, protocolType, name)
 	}
-
 	entity.InheritWithRecovery(previousEntity.(*supervisor.ObjectEntity), space)
-	space.httpservers.Store(name, entity)
+	servers.Store(name, entity)
 
-	logger.Infof("update http server %s/%s", namespace, name)
-
+	logger.Infof("update server %s/%s/%s", namespace, protocolType, name)
 	return entity, nil
 }
 
-// ApplyHTTPServerForSpec applies HTTP servers with a Spec
-func (tc *TrafficController) ApplyHTTPServerForSpec(namespace string, superSpec *supervisor.Spec) (
+// ApplyServerForSpec applies servers with a Spec
+func (tc *TrafficController) ApplyServerForSpec(namespace string, protocolType context.Protocol, superSpec *supervisor.Spec) (
 	*supervisor.ObjectEntity, error) {
 
 	entity, err := tc.super.NewObjectEntityFromSpec(superSpec)
 	if err != nil {
 		return nil, err
 	}
-	return tc.ApplyHTTPServer(namespace, entity)
+	return tc.ApplyServer(namespace, protocolType, entity)
 }
 
-// ApplyHTTPServer applies HTTP Server
-func (tc *TrafficController) ApplyHTTPServer(namespace string, entity *supervisor.ObjectEntity) (
+// ApplyServer applies Server
+func (tc *TrafficController) ApplyServer(namespace string, protocolType context.Protocol, entity *supervisor.ObjectEntity) (
 	*supervisor.ObjectEntity, error) {
 
 	if namespace == "" {
@@ -252,71 +307,64 @@ func (tc *TrafficController) ApplyHTTPServer(namespace string, entity *superviso
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
 
-	space, exists := tc.namespaces[namespace]
-	if !exists {
-		space = newNamespace(namespace)
-		tc.namespaces[namespace] = space
-		logger.Infof("create namespace %s", namespace)
-	}
+	space, servers, _ := tc.getNamespaceAndServers(namespace, protocolType, true)
 
 	name := entity.Spec().Name()
-
-	previousEntity, exists := space.httpservers.Load(name)
+	previousEntity, exists := servers.Load(name)
 	if !exists {
 		entity.InitWithRecovery(space)
-		space.httpservers.Store(name, entity)
+		servers.Store(name, entity)
 
-		logger.Infof("create http server %s/%s", namespace, name)
+		logger.Infof("create server %s/%s/%s", namespace, protocolType, name)
 	} else {
 		prev := previousEntity.(*supervisor.ObjectEntity)
 		if prev.Spec().Equals(entity.Spec()) {
-			logger.Infof("http server %s/%s nothing change", namespace, name)
+			logger.Infof("server %s/%s/%s nothing change", namespace, protocolType, name)
 			return prev, nil
 		}
-
 		entity.InheritWithRecovery(previousEntity.(*supervisor.ObjectEntity), space)
-		space.httpservers.Store(name, entity)
+		servers.Store(name, entity)
 
-		logger.Infof("update http server %s/%s", namespace, name)
+		logger.Infof("update server %s/%s/%s", namespace, protocolType, name)
 	}
 
 	return entity, nil
 }
 
-// DeleteHTTPServer deletes a HTTP server
-func (tc *TrafficController) DeleteHTTPServer(namespace, name string) error {
+// DeleteServer deletes a server
+func (tc *TrafficController) DeleteServer(namespace string, protocolType context.Protocol, name string) error {
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
 
-	space, exists := tc.namespaces[namespace]
-	if !exists {
-		return fmt.Errorf("namespace %s not found", namespace)
+	_, servers, err := tc.getNamespaceAndServers(namespace, protocolType, false)
+	if err != nil {
+		return err
 	}
 
-	entity, exists := space.httpservers.LoadAndDelete(name)
+	entity, exists := servers.LoadAndDelete(name)
 	if !exists {
-		return fmt.Errorf("http server %s/%s not found", namespace, name)
+		return fmt.Errorf("server %s/%s/%s not found", namespace, protocolType, name)
 	}
 
 	entity.(*supervisor.ObjectEntity).CloseWithRecovery()
-	logger.Infof("delete http server %s/%s", namespace, name)
+	logger.Infof("delete server %s/%s/%s", namespace, protocolType, name)
 
 	tc._cleanSpace(namespace)
 
 	return nil
 }
 
-// GetHTTPServer gets HTTP servers by its namespace and name
-func (tc *TrafficController) GetHTTPServer(namespace, name string) (*supervisor.ObjectEntity, bool) {
+// GetServer gets servers by its namespace and name
+func (tc *TrafficController) GetServer(namespace string, protocolType context.Protocol, name string) (*supervisor.ObjectEntity, bool) {
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
 
-	space, exists := tc.namespaces[namespace]
-	if !exists {
+	_, servers, err := tc.getNamespaceAndServers(namespace, protocolType, false)
+	if err != nil {
 		return nil, false
 	}
 
-	entity, exists := space.httpservers.Load(name)
+	entity, exists := servers.Load(name)
 	if !exists {
 		return nil, false
 	}
@@ -324,18 +372,18 @@ func (tc *TrafficController) GetHTTPServer(namespace, name string) (*supervisor.
 	return entity.(*supervisor.ObjectEntity), exists
 }
 
-// ListHTTPServers lists the HTTP servers
-func (tc *TrafficController) ListHTTPServers(namespace string) []*supervisor.ObjectEntity {
+// ListServers lists the servers
+func (tc *TrafficController) ListServers(namespace string, protocolType context.Protocol) []*supervisor.ObjectEntity {
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
 
-	space, exists := tc.namespaces[namespace]
-	if !exists {
+	_, servers, err := tc.getNamespaceAndServers(namespace, protocolType, false)
+	if err != nil {
 		return nil
 	}
 
 	entities := []*supervisor.ObjectEntity{}
-	space.httpservers.Range(func(k, v interface{}) bool {
+	servers.Range(func(k, v interface{}) bool {
 		entities = append(entities, v.(*supervisor.ObjectEntity))
 		return true
 	})
@@ -343,11 +391,11 @@ func (tc *TrafficController) ListHTTPServers(namespace string) []*supervisor.Obj
 	return entities
 }
 
-// WalkHTTPServers walks HTTP servers
-func (tc *TrafficController) WalkHTTPServers(namespace string, walkFn WalkFunc) {
+// WalkServers walks servers
+func (tc *TrafficController) WalkServers(namespace string, protocolType context.Protocol, walkFn WalkFunc) {
 	defer func() {
 		if err := recover(); err != nil {
-			logger.Errorf("walkHTTPServers recover from err: %v, stack trace:\n%s\n",
+			logger.Errorf("walkServers recover from err: %v, stack trace:\n%s\n",
 				err, debug.Stack())
 		}
 	}()
@@ -355,21 +403,21 @@ func (tc *TrafficController) WalkHTTPServers(namespace string, walkFn WalkFunc) 
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
 
-	space, exists := tc.namespaces[namespace]
-	if !exists {
+	_, servers, err := tc.getNamespaceAndServers(namespace, protocolType, false)
+	if err != nil {
 		return
 	}
 
-	space.httpservers.Range(func(k, v interface{}) bool {
+	servers.Range(func(k, v interface{}) bool {
 		return walkFn(v.(*supervisor.ObjectEntity))
 	})
 }
 
-// WalkHTTPPipelines walks the HTTP pipelines
-func (tc *TrafficController) WalkHTTPPipelines(namespace string, walkFn WalkFunc) {
+// WalkPipelines walks the pipelines
+func (tc *TrafficController) WalkPipelines(namespace string, protocolType context.Protocol, walkFn WalkFunc) {
 	defer func() {
 		if err := recover(); err != nil {
-			logger.Errorf("walkHTTPPipelines recover from err: %v, stack trace:\n%s\n",
+			logger.Errorf("walkPipelines recover from err: %v, stack trace:\n%s\n",
 				err, debug.Stack())
 		}
 	}()
@@ -377,29 +425,29 @@ func (tc *TrafficController) WalkHTTPPipelines(namespace string, walkFn WalkFunc
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
 
-	space, exists := tc.namespaces[namespace]
-	if !exists {
+	_, pipelines, err := tc.getNamespaceAndPipelines(namespace, protocolType, false)
+	if err != nil {
 		return
 	}
 
-	space.httppipelines.Range(func(k, v interface{}) bool {
+	pipelines.Range(func(k, v interface{}) bool {
 		return walkFn(v.(*supervisor.ObjectEntity))
 	})
 }
 
-// CreateHTTPPipelineForSpec creates a HTTP pipeline by a spec
-func (tc *TrafficController) CreateHTTPPipelineForSpec(namespace string, superSpec *supervisor.Spec) (
+// CreatePipelineForSpec creates a pipeline by a spec
+func (tc *TrafficController) CreatePipelineForSpec(namespace string, protocol context.Protocol, superSpec *supervisor.Spec) (
 	*supervisor.ObjectEntity, error) {
 
 	entity, err := tc.super.NewObjectEntityFromSpec(superSpec)
 	if err != nil {
 		return nil, err
 	}
-	return tc.CreateHTTPPipeline(namespace, entity)
+	return tc.CreatePipeline(namespace, protocol, entity)
 }
 
-// CreateHTTPPipeline creates a HTTP pipeline
-func (tc *TrafficController) CreateHTTPPipeline(namespace string, entity *supervisor.ObjectEntity) (
+// CreatePipeline creates a pipeline
+func (tc *TrafficController) CreatePipeline(namespace string, protocolType context.Protocol, entity *supervisor.ObjectEntity) (
 	*supervisor.ObjectEntity, error) {
 
 	if namespace == "" {
@@ -409,74 +457,66 @@ func (tc *TrafficController) CreateHTTPPipeline(namespace string, entity *superv
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
 
-	space, exists := tc.namespaces[namespace]
-	if !exists {
-		space = newNamespace(namespace)
-		tc.namespaces[namespace] = space
-		logger.Infof("create namespace %s", namespace)
-	}
+	space, pipelines, _ := tc.getNamespaceAndPipelines(namespace, protocolType, true)
 
 	name := entity.Spec().Name()
-
 	entity.InitWithRecovery(space)
-	space.httppipelines.Store(name, entity)
+	pipelines.Store(name, entity)
 
-	logger.Infof("create http pipeline %s/%s", namespace, name)
-
+	logger.Infof("create pipeline %s/%s/%s", namespace, protocolType, name)
 	return entity, nil
 }
 
-// UpdateHTTPPipelineForSpec updates the HTTP pipeline with a Spec
-func (tc *TrafficController) UpdateHTTPPipelineForSpec(namespace string, superSpec *supervisor.Spec) (
+// UpdatePipelineForSpec updates the pipeline with a Spec
+func (tc *TrafficController) UpdatePipelineForSpec(namespace string, protocolType context.Protocol, superSpec *supervisor.Spec) (
 	*supervisor.ObjectEntity, error) {
 
 	entity, err := tc.super.NewObjectEntityFromSpec(superSpec)
 	if err != nil {
 		return nil, err
 	}
-	return tc.UpdateHTTPPipeline(namespace, entity)
+	return tc.UpdatePipeline(namespace, protocolType, entity)
 }
 
-// UpdateHTTPPipeline updates the HTTP pipeline
-func (tc *TrafficController) UpdateHTTPPipeline(namespace string, entity *supervisor.ObjectEntity) (
+// UpdatePipeline updates the pipeline
+func (tc *TrafficController) UpdatePipeline(namespace string, protocolType context.Protocol, entity *supervisor.ObjectEntity) (
 	*supervisor.ObjectEntity, error) {
 
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
 
-	space, exists := tc.namespaces[namespace]
-	if !exists {
-		return nil, fmt.Errorf("namespace %s not found", namespace)
+	space, pipelines, err := tc.getNamespaceAndPipelines(namespace, protocolType, false)
+	if err != nil {
+		return nil, err
 	}
 
 	name := entity.Spec().Name()
 
-	previousEntity, exists := space.httppipelines.Load(name)
+	previousEntity, exists := pipelines.Load(name)
 	if !exists {
-		return nil, fmt.Errorf("http pipeline %s/%s not found", namespace, name)
+		return nil, fmt.Errorf("pipeline %s/%s/%s not found", namespace, protocolType, name)
 	}
 
 	entity.InheritWithRecovery(previousEntity.(*supervisor.ObjectEntity), space)
-	space.httppipelines.Store(name, entity)
+	pipelines.Store(name, entity)
 
-	logger.Infof("update http pipeline %s/%s", namespace, name)
-
+	logger.Infof("update pipeline %s/%s/%s", namespace, protocolType, name)
 	return entity, nil
 }
 
-// ApplyHTTPPipelineForSpec applies the HTTP pipeline with a Spec
-func (tc *TrafficController) ApplyHTTPPipelineForSpec(namespace string, superSpec *supervisor.Spec) (
+// ApplyPipelineForSpec applies the pipeline with a Spec
+func (tc *TrafficController) ApplyPipelineForSpec(namespace string, protocolType context.Protocol, superSpec *supervisor.Spec) (
 	*supervisor.ObjectEntity, error) {
 
 	entity, err := tc.super.NewObjectEntityFromSpec(superSpec)
 	if err != nil {
 		return nil, err
 	}
-	return tc.ApplyHTTPPipeline(namespace, entity)
+	return tc.ApplyPipeline(namespace, protocolType, entity)
 }
 
-// ApplyHTTPPipeline applies the HTTP pipeline
-func (tc *TrafficController) ApplyHTTPPipeline(namespace string, entity *supervisor.ObjectEntity) (
+// ApplyPipeline applies the pipeline
+func (tc *TrafficController) ApplyPipeline(namespace string, protocolType context.Protocol, entity *supervisor.ObjectEntity) (
 	*supervisor.ObjectEntity, error) {
 
 	if namespace == "" {
@@ -486,71 +526,66 @@ func (tc *TrafficController) ApplyHTTPPipeline(namespace string, entity *supervi
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
 
-	space, exists := tc.namespaces[namespace]
-	if !exists {
-		space = newNamespace(namespace)
-		tc.namespaces[namespace] = space
-		logger.Infof("create namespace %s", namespace)
-	}
+	space, pipelines, _ := tc.getNamespaceAndPipelines(namespace, protocolType, true)
 
 	name := entity.Spec().Name()
 
-	previousEntity, exists := space.httppipelines.Load(name)
+	previousEntity, exists := pipelines.Load(name)
 	if !exists {
 		entity.InitWithRecovery(space)
-		space.httppipelines.Store(name, entity)
+		pipelines.Store(name, entity)
 
-		logger.Infof("create http pipeline %s/%s", namespace, name)
+		logger.Infof("create pipeline %s/%s/%s", namespace, protocolType, name)
 	} else {
 		prev := previousEntity.(*supervisor.ObjectEntity)
 		if prev.Spec().Equals(entity.Spec()) {
-			logger.Infof("http pipeline %s/%s nothing change", namespace, name)
+			logger.Infof("pipeline %s/%s/%s nothing change", namespace, protocolType, name)
 			return prev, nil
 		}
 
 		entity.InheritWithRecovery(prev, space)
-		space.httppipelines.Store(name, entity)
+		pipelines.Store(name, entity)
 
-		logger.Infof("update http pipeline %s/%s", namespace, name)
+		logger.Infof("update pipeline %s/%s/%s", namespace, protocolType, name)
 	}
 
 	return entity, nil
 }
 
 // DeleteHTTPPipeline deletes the HTTP pipeline by its namespace and name
-func (tc *TrafficController) DeleteHTTPPipeline(namespace, name string) error {
+func (tc *TrafficController) DeletePipeline(namespace string, protocolType context.Protocol, name string) error {
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
 
-	space, exists := tc.namespaces[namespace]
-	if !exists {
-		return fmt.Errorf("namespace %s not found", namespace)
+	_, pipelines, err := tc.getNamespaceAndPipelines(namespace, protocolType, false)
+	if err != nil {
+		return err
 	}
 
-	entity, exists := space.httppipelines.LoadAndDelete(name)
+	entity, exists := pipelines.LoadAndDelete(name)
 	if !exists {
-		return fmt.Errorf("http pipeline %s/%s not found", namespace, name)
+		return fmt.Errorf("pipeline %s/%s/%s not found", namespace, protocolType, name)
 	}
 
 	entity.(*supervisor.ObjectEntity).CloseWithRecovery()
-	logger.Infof("delete http pipeline %s/%s", namespace, name)
+	logger.Infof("delete pipeline %s/%s/%s", namespace, protocolType, name)
 
 	tc._cleanSpace(namespace)
 
 	return nil
 }
 
-// GetHTTPPipeline returns the pipeline by its namespace and name.
-func (tc *TrafficController) GetHTTPPipeline(namespace, name string) (*supervisor.ObjectEntity, bool) {
+// GetPipeline returns the pipeline by its namespace and name.
+func (tc *TrafficController) GetPipeline(namespace string, protocolType context.Protocol, name string) (*supervisor.ObjectEntity, bool) {
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
 
-	space, exists := tc.namespaces[namespace]
-	if !exists {
+	_, pipelines, err := tc.getNamespaceAndPipelines(namespace, protocolType, false)
+	if err != nil {
 		return nil, false
 	}
 
-	entity, exists := space.httppipelines.Load(name)
+	entity, exists := pipelines.Load(name)
 	if !exists {
 		return nil, false
 	}
@@ -558,18 +593,18 @@ func (tc *TrafficController) GetHTTPPipeline(namespace, name string) (*superviso
 	return entity.(*supervisor.ObjectEntity), exists
 }
 
-// ListHTTPPipelines lists the HTTP pipelines
-func (tc *TrafficController) ListHTTPPipelines(namespace string) []*supervisor.ObjectEntity {
+// ListPipelines lists the pipelines for given protocols
+func (tc *TrafficController) ListPipelines(namespace string, protocolType context.Protocol) []*supervisor.ObjectEntity {
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
 
-	space, exists := tc.namespaces[namespace]
-	if !exists {
+	_, pipelines, err := tc.getNamespaceAndPipelines(namespace, protocolType, false)
+	if err != nil {
 		return nil
 	}
 
 	entities := []*supervisor.ObjectEntity{}
-	space.httppipelines.Range(func(k, v interface{}) bool {
+	pipelines.Range(func(k, v interface{}) bool {
 		entities = append(entities, v.(*supervisor.ObjectEntity))
 		return true
 	})
@@ -577,52 +612,60 @@ func (tc *TrafficController) ListHTTPPipelines(namespace string) []*supervisor.O
 	return entities
 }
 
-// Clean all http servers and http pipelines of one namespace.
+// Clean all servers and pipelines of one namespace.
 func (tc *TrafficController) Clean(namespace string) error {
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
 
-	space, exist := tc.namespaces[namespace]
-	if !exist {
-		return fmt.Errorf("namespace %s not found", namespace)
+	space, err := tc.getNamespace(namespace, false)
+	if err != nil {
+		return err
 	}
 
-	space.httpservers.Range(func(k, v interface{}) bool {
-		v.(*supervisor.ObjectEntity).CloseWithRecovery()
-		logger.Infof("delete http server %s/%s", namespace, k)
-		space.httpservers.Delete(k)
-		return true
-	})
-
-	space.httppipelines.Range(func(k, v interface{}) bool {
-		v.(*supervisor.ObjectEntity).CloseWithRecovery()
-		logger.Infof("delete http pipeline %s/%s", namespace, k)
-		space.httppipelines.Delete(k)
-		return true
-	})
+	for protocolType, servers := range space.servers {
+		servers.Range(func(k, v interface{}) bool {
+			v.(*supervisor.ObjectEntity).CloseWithRecovery()
+			logger.Infof("delete server %s/%s/%s", namespace, protocolType, k)
+			servers.Delete(k)
+			return true
+		})
+	}
+	for protocolType, pipelines := range space.pipelines {
+		pipelines.Range(func(k, v interface{}) bool {
+			v.(*supervisor.ObjectEntity).CloseWithRecovery()
+			logger.Infof("delete pipeline %s/%s/%s", namespace, protocolType, k)
+			pipelines.Delete(k)
+			return true
+		})
+	}
 
 	tc._cleanSpace(namespace)
 
 	return nil
 }
 
-// _cleanSpace must be called after deleting HTTPServer or HTTPPipeline.
+// _cleanSpace must be called after deleting server or pipeline.
 // It's caller's duty to keep concurrent safety.
 func (tc *TrafficController) _cleanSpace(namespace string) {
-	space, exists := tc.namespaces[namespace]
-	if !exists {
+	space, err := tc.getNamespace(namespace, false)
+	if err != nil {
 		logger.Errorf("BUG: namespace %s not found", namespace)
+		return
 	}
 
 	serverLen, pipelineLen := 0, 0
-	space.httpservers.Range(func(k, v interface{}) bool {
-		serverLen++
-		return false
-	})
-	space.httppipelines.Range(func(k, v interface{}) bool {
-		pipelineLen++
-		return false
-	})
+	for _, servers := range space.servers {
+		servers.Range(func(k, v interface{}) bool {
+			serverLen++
+			return false
+		})
+	}
+	for _, pipelines := range space.pipelines {
+		pipelines.Range(func(k, v interface{}) bool {
+			pipelineLen++
+			return false
+		})
+	}
 	if serverLen+pipelineLen == 0 {
 		delete(tc.namespaces, namespace)
 		logger.Infof("delete namespace %s", namespace)
@@ -641,7 +684,8 @@ func (tc *TrafficController) Status() *supervisor.Status {
 
 	for namespace, namespaceSpec := range tc.namespaces {
 		httpServers := make(map[string]*HTTPServerStatus)
-		namespaceSpec.httpservers.Range(func(key, value interface{}) bool {
+		servers := namespaceSpec.servers[context.HTTP]
+		servers.Range(func(key, value interface{}) bool {
 			k := key.(string)
 			v := value.(*supervisor.ObjectEntity)
 
@@ -649,12 +693,12 @@ func (tc *TrafficController) Status() *supervisor.Status {
 				Spec:   v.Spec().RawSpec(),
 				Status: v.Instance().Status().ObjectStatus.(*httpserver.Status),
 			}
-
 			return true
 		})
 
 		httpPipelines := make(map[string]*HTTPPipelineStatus)
-		namespaceSpec.httppipelines.Range(func(key, value interface{}) bool {
+		pipelines := namespaceSpec.pipelines[context.HTTP]
+		pipelines.Range(func(key, value interface{}) bool {
 			k := key.(string)
 			v := value.(*supervisor.ObjectEntity)
 
@@ -662,7 +706,6 @@ func (tc *TrafficController) Status() *supervisor.Status {
 				Spec:   v.Spec().RawSpec(),
 				Status: v.Instance().Status().ObjectStatus.(*httppipeline.Status),
 			}
-
 			return true
 		})
 
@@ -686,20 +729,22 @@ func (tc *TrafficController) Close() {
 	defer tc.mutex.Unlock()
 
 	for name, space := range tc.namespaces {
-		space.httpservers.Range(func(k, v interface{}) bool {
-			entity := v.(*supervisor.ObjectEntity)
-			entity.CloseWithRecovery()
-			logger.Infof("delete http server %s/%s", space.namespace, k)
-			return true
-		})
-
-		space.httppipelines.Range(func(k, v interface{}) bool {
-			entity := v.(*supervisor.ObjectEntity)
-			entity.CloseWithRecovery()
-			logger.Infof("delete http pipeline %s/%s", space.namespace, k)
-			return true
-		})
-
+		for protocolType, servers := range space.servers {
+			servers.Range(func(k, v interface{}) bool {
+				entity := v.(*supervisor.ObjectEntity)
+				entity.CloseWithRecovery()
+				logger.Infof("delete server %s/%s/%s", space.namespace, protocolType, k)
+				return true
+			})
+		}
+		for protocolType, pipelines := range space.pipelines {
+			pipelines.Range(func(k, v interface{}) bool {
+				entity := v.(*supervisor.ObjectEntity)
+				entity.CloseWithRecovery()
+				logger.Infof("delete pipeline %s/%s/%s", space.namespace, protocolType, k)
+				return true
+			})
+		}
 		delete(tc.namespaces, name)
 		logger.Infof("delete namespace %s", name)
 	}

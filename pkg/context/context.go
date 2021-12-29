@@ -45,3 +45,7 @@ const (
 	// UDP is UDP protocol
 	UDP Protocol = "UDP"
 )
+
+// Protocols are all the protocols that we support now.
+// Please update this value when add new protocols.
+var Protocols = []Protocol{HTTP, MQTT, TCP, UDP}
