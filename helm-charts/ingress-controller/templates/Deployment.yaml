@@ -1,5 +1,4 @@
 
-{{ if gt ( .Values.cluster.secondaryReplicas | int ) 0 }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -8,7 +7,7 @@ metadata:
   name: {{ .Release.Name }}
   namespace: {{ .Release.Namespace }}
 spec:
-  replicas: {{ .Values.cluster.secondaryReplicas }}
+  replicas: {{ .Values.replicas }}
   selector:
     matchLabels:
       app: {{ .Release.Name }}
@@ -22,11 +21,10 @@ spec:
       - args:
         - -c
         - |-
-          echo name: $EG_NAME > /opt/eg-config/config.yaml &&
-          cat /opt/eg-config/eg-secondary.yaml >> /opt/eg-config/config.yaml &&
           /opt/easegress/bin/easegress-server \
-            -f /opt/eg-config/config.yaml \
-            --initial-object-config-files /opt/eg-config/controller.yaml
+            -f /opt/eg-config/easegress-server.yaml \
+            --initial-object-config-files /opt/eg-config/controller.yaml \
+            --initial-cluster $(EG_NAME)=http://localhost:2380
         command:
         - /bin/sh
         env:
@@ -37,17 +35,7 @@ spec:
               fieldPath: metadata.name
         image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
         imagePullPolicy: IfNotPresent
-        name: easegress-secondary
-        ports:
-        - containerPort: 2381
-          name: admin-port
-          protocol: TCP
-        - containerPort: 2380
-          name: peer-port
-          protocol: TCP
-        - containerPort: 2379
-          name: client-port
-          protocol: TCP
+        name: ingress-easegress
         resources:
           limits:
             cpu: 1200m
@@ -56,9 +44,9 @@ spec:
             cpu: 100m
             memory: 256Mi
         volumeMounts:
-        - mountPath: /opt/eg-config/eg-secondary.yaml
+        - mountPath: /opt/eg-config/easegress-server.yaml
           name: {{ .Release.Name }}
-          subPath: eg-secondary.yaml
+          subPath: easegress-server.yaml
         - mountPath: /opt/eg-config/controller.yaml
           name: {{ .Release.Name }}
           subPath: controller.yaml
@@ -71,10 +59,9 @@ spec:
       - configMap:
           defaultMode: 420
           items:
-          - key: eg-secondary.yaml
-            path: eg-secondary.yaml
+          - key: easegress-server.yaml
+            path: easegress-server.yaml
           - key: controller.yaml
             path: controller.yaml
           name: {{ .Release.Name }}
         name: {{ .Release.Name }}
-{{ end }}
