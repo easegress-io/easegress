@@ -26,6 +26,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/object/httppipeline"
 	"github.com/megaease/easegress/pkg/object/httpserver"
+	"github.com/megaease/easegress/pkg/object/rawconfigtrafficcontroller"
 	"github.com/megaease/easegress/pkg/object/trafficcontroller"
 	"github.com/megaease/easegress/pkg/supervisor"
 )
@@ -168,16 +169,19 @@ func (s *Server) _listStatusObjects() map[string]map[string]interface{} {
 	return status
 }
 
-func getSubStatusFromTrafficControllerStatus(status *trafficcontroller.Status, spec *supervisor.Spec) map[string]string {
-	ans := make(map[string]string)
+func getSubStatusFromTrafficControllerStatus(status *trafficcontroller.Status, spec *supervisor.Spec) string {
 	for _, ns := range status.Specs {
+		if ns.Namespace != rawconfigtrafficcontroller.DefaultNamespace {
+			continue
+		}
+
 		if spec.Kind() == httpserver.Kind {
 			if val, ok := ns.HTTPServers[spec.Name()]; ok {
 				b, err := yaml.Marshal(val.Status)
 				if err != nil {
 					ClusterPanic(fmt.Errorf("unmarshal %v to yaml failed: %v", val.Status, err))
 				}
-				ans[ns.Namespace] = string(b)
+				return string(b)
 			}
 		}
 		if spec.Kind() == httppipeline.Kind {
@@ -186,11 +190,11 @@ func getSubStatusFromTrafficControllerStatus(status *trafficcontroller.Status, s
 				if err != nil {
 					ClusterPanic(fmt.Errorf("unmarshal %v to yaml failed: %v", val.Status, err))
 				}
-				ans[ns.Namespace] = string(b)
+				return string(b)
 			}
 		}
 	}
-	return ans
+	return ""
 }
 
 func (s *Server) _getStatusObjectFromTrafficController(name string, spec *supervisor.Spec) map[string]string {
@@ -200,7 +204,6 @@ func (s *Server) _getStatusObjectFromTrafficController(name string, spec *superv
 		ClusterPanic(err)
 	}
 	status := &trafficcontroller.Status{}
-	// ans := make(map[string]string)
 	ans := make(map[string]string)
 	for k, v := range kvs {
 		// different member
@@ -211,11 +214,7 @@ func (s *Server) _getStatusObjectFromTrafficController(name string, spec *superv
 			ClusterPanic(fmt.Errorf("unmarshal %s to yaml failed: %v", v, err))
 		}
 		nsStatus := getSubStatusFromTrafficControllerStatus(status, spec)
-		b, err := yaml.Marshal(nsStatus)
-		if err != nil {
-			ClusterPanic(fmt.Errorf("unmarshal %v to yaml failed: %v", nsStatus, err))
-		}
-		ans[memberName] = string(b)
+		ans[memberName] = nsStatus
 	}
 	return ans
 }
