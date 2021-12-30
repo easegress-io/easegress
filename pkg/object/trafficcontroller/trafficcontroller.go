@@ -114,7 +114,7 @@ func newNamespace(namespace string) *Namespace {
 }
 
 // GetHandler gets handler within the namespace
-func (ns *Namespace) GetHandler(name string, protocolType context.Protocol) (protocol.Handler, bool) {
+func (ns *Namespace) GetHandler(protocolType context.Protocol, name string) (protocol.Handler, bool) {
 	pipelines, exists := ns.pipelines[protocolType]
 	if !exists {
 		return nil, false

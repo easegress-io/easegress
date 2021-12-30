@@ -32,6 +32,6 @@ type (
 
 	// MuxMapper gets handler pipeline for given protocol with mutex
 	MuxMapper interface {
-		GetHandler(name string, protocolType context.Protocol) (Handler, bool)
+		GetHandler(protocolType context.Protocol, name string) (Handler, bool)
 	}
 )
