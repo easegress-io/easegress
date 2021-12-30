@@ -45,7 +45,8 @@ Based on our product principles, we have made a classification of Easegress' fea
 | API Orchestration              |                                                          | Coordinate multiple APIs for complex tasks.                                                                    |
 | Controller/Filter Versioning   |                                                          | Configuring  `Controller/Filter` with specified versions.                                                      |
 | Protobuf Models Generating     |                                                          | Generating Easegress inner models and related docs with pre-defined Protobuf.                                  |
-| Better Unit Testing Experience |                                                          | Eliminate global components (such as logger) for better unit testing experience, improve unit test coverage.   |
+| Unit Testing                   |                                                          | Eliminate global components for better unit testing experience, improve unit test coverage.                    |
+| Modularized Logger             |                                                          | Make logger modularized and automatical environment perception.                                                |
 
 ###  Traffic Orchestration 
 
