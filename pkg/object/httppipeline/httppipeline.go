@@ -95,6 +95,8 @@ type (
 	}
 )
 
+var _ protocol.Handler = (*HTTPPipeline)(nil)
+
 func (fs *FilterStat) selfDuration() time.Duration {
 	d := fs.Duration
 	for _, s := range fs.Next {
