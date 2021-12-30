@@ -36,18 +36,23 @@ Based on our product principles, we have made a classification of Easegress' fea
 ## Roadmap 2022
 ### Business Extensibility
 
-| Name                         | Issue            | Description                                                                                                    |
-| ---------------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------- |
-| Operation Enhancement        |                  | For better supporting daily cluster operation routine,e.g., one-click installation supported, cluster scaling. |
-| API Orchestration            |                  | Coordinate multiple APIs for complex tasks.                                                                    |
-| Controller/Filter versioning |                  | Configuring  `Controller/Filter` with specified versions.                                                      |
-| Protobuf models generating   |                  | Generating Easegress inner models and related docs with pre-defined Protobuf                                   |
+| Name                           | Issue                                                    | Description                                                                                                    |
+| ------------------------------ | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| HTTP basic authentication      | [#404](https://github.com/megaease/easegress/issues/404) | Using HTTP basic authentication to restrict access.                                                            |
+| Configurable System Controller | [#397](https://github.com/megaease/easegress/issues/397) | Make the system controllers support dynamic configuration.                                                     |
+| Enhanced Validation Message    |                                                          | Make JSON schema validation messages more readable, e.g., include item index.                                  |
+| Operation Enhancement          |                                                          | For better supporting daily cluster operation routine,e.g., one-click installation supported, cluster scaling. |
+| API Orchestration              |                                                          | Coordinate multiple APIs for complex tasks.                                                                    |
+| Controller/Filter Versioning   |                                                          | Configuring  `Controller/Filter` with specified versions.                                                      |
+| Protobuf Models Generating     |                                                          | Generating Easegress inner models and related docs with pre-defined Protobuf.                                  |
+| Better Unit Testing Experience |                                                          | Eliminate global components (such as logger) for better unit testing experience, improve unit test coverage.   |
 
 ###  Traffic Orchestration 
 
-| Name                         | Issue            | Description                                                                                                    |
-| ---------------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------- |
-| Universal Pipeline           |                  | Pipeline to support multiple protocol.                                                                         |
-| Traffic coloring             |                  | Supporting coloring ingress traffic by adding a special HTTP header according to users' model.                 |
-| Layer 4 Proxy                |                  | TCP & UDP                                                                                                      |
-| More protocol supporting     |                  | Such as gRPC..                                                                                                 |
+| Name                           | Issue                                                    | Description                                                                                                    |
+| ------------------------------ | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Universal Pipeline             |                                                          | Pipeline to support multiple protocol.                                                                         |
+| Traffic coloring               |                                                          | Supporting coloring ingress traffic by adding a special HTTP header according to users' model.                 |
+| Layer 4 Proxy                  |                                                          | TCP & UDP                                                                                                      |
+| More protocol supporting       |                                                          | Such as gRPC..                                                                                                 |
+| Benchmark                      |                                                          | Reach 85% of the nginx QPS when using a mocked backend.                                                        |
