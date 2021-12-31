@@ -46,7 +46,10 @@ const (
 	QoS2 byte = 2
 )
 
-var processPacketFn = map[string]func(*Client, packets.ControlPacket) error{
+type processFn func(*Client, packets.ControlPacket)
+type processFnWithErr func(*Client, packets.ControlPacket) error
+
+var processPacketMap = map[string]processFnWithErr{
 	"*packets.ConnectPacket":     errorWrapper("double connect"),
 	"*packets.ConnackPacket":     errorWrapper("client should not send connack"),
 	"*packets.PubrecPacket":      errorWrapper("qos2 not support now"),
@@ -189,34 +192,9 @@ func (c *Client) readLoop() {
 	}
 }
 
-func errorWrapper(errMsg string) func(*Client, packets.ControlPacket) error {
-	return func(c *Client, p packets.ControlPacket) error {
-		return errors.New(errMsg)
-	}
-}
-
-func nilErrWrapper(fn func(c *Client, p packets.ControlPacket)) func(c *Client, p packets.ControlPacket) error {
-	return func(c *Client, p packets.ControlPacket) error {
-		fn(c, p)
-		return nil
-	}
-}
-
-func pipelineWrapper(fn func(c *Client, p packets.ControlPacket)) func(c *Client, p packets.ControlPacket) error {
-	return func(c *Client, p packets.ControlPacket) error {
-		err := c.runPipeline(p)
-		if err != nil {
-			logger.SpanDebugf(nil, "client process pipeline failed, %v", c.info.cid, err)
-			return nil
-		}
-		fn(c, p)
-		return nil
-	}
-}
-
 func (c *Client) processPacket(packet packets.ControlPacket) error {
 	packetType := reflect.TypeOf(packet).String()
-	fn, ok := processPacketFn[packetType]
+	fn, ok := processPacketMap[packetType]
 	if !ok {
 		return errors.New("unknown packet")
 	}
@@ -226,36 +204,6 @@ func (c *Client) processPacket(packet packets.ControlPacket) error {
 func (c *Client) checkPublishLimit(publish *packets.PublishPacket) bool {
 	size := publish.RemainingLength + 8
 	return c.publishLimit.acquirePermission(size)
-}
-
-func processPublish(c *Client, packet packets.ControlPacket) {
-	publish := packet.(*packets.PublishPacket)
-	logger.SpanDebugf(nil, "client %s process publish %v", c.info.cid, publish.TopicName)
-
-	if !c.checkPublishLimit(publish) {
-		logger.SpanErrorf(nil, "client %v publish limiter drop packet %v", c.info.cid, publish.TopicName)
-		return
-	}
-
-	err := c.broker.backend.publish(publish)
-	if err != nil {
-		logger.SpanErrorf(nil, "client %v publish %v failed: %v", c.info.cid, publish.TopicName, err)
-	}
-	switch publish.Qos {
-	case QoS0:
-		// do nothing
-	case QoS1:
-		puback := packets.NewControlPacket(packets.Puback).(*packets.PubackPacket)
-		puback.MessageID = publish.MessageID
-		c.writePacket(puback)
-	case QoS2:
-		// not support yet
-	}
-}
-
-func processPuback(c *Client, packet packets.ControlPacket) {
-	puback := packet.(*packets.PubackPacket)
-	c.session.puback(puback)
 }
 
 // runPipeline will run MQTT pipeline by using packet.
@@ -281,47 +229,6 @@ func (c *Client) runPipeline(packet packets.ControlPacket) error {
 		return errors.New("pipeline set drop")
 	}
 	return nil
-}
-
-func processSubscribe(c *Client, p packets.ControlPacket) {
-	packet := p.(*packets.SubscribePacket)
-	logger.SpanDebugf(nil, "client %s subscribe %v with qos %v", c.info.cid, packet.Topics, packet.Qoss)
-
-	err := c.broker.topicMgr.subscribe(packet.Topics, packet.Qoss, c.info.cid)
-	if err != nil {
-		logger.SpanErrorf(nil, "client %v subscribe %v failed: %v", c.info.cid, packet.Topics, err)
-		return
-	}
-	c.session.subscribe(packet.Topics, packet.Qoss)
-
-	suback := packets.NewControlPacket(packets.Suback).(*packets.SubackPacket)
-	suback.MessageID = packet.MessageID
-	suback.ReturnCodes = make([]byte, len(packet.Topics))
-	for i := range packet.Topics {
-		suback.ReturnCodes[i] = packet.Qos
-	}
-	c.writePacket(suback)
-}
-
-func processUnsubscribe(c *Client, p packets.ControlPacket) {
-	packet := p.(*packets.UnsubscribePacket)
-
-	logger.SpanDebugf(nil, "client %s processUnsubscribe %v", c.info.cid, packet.Topics)
-
-	err := c.broker.topicMgr.unsubscribe(packet.Topics, c.info.cid)
-	if err != nil {
-		logger.SpanErrorf(nil, "client %v unsubscribe %v failed: %v", c.info.cid, packet.Topics, err)
-	}
-	c.session.unsubscribe(packet.Topics)
-
-	unsuback := packets.NewControlPacket(packets.Unsuback).(*packets.UnsubackPacket)
-	unsuback.MessageID = packet.MessageID
-	c.writePacket(unsuback)
-}
-
-func processPingreq(c *Client, packet packets.ControlPacket) {
-	resp := packets.NewControlPacket(packets.Pingresp).(*packets.PingrespPacket)
-	c.writePacket(resp)
 }
 
 func (c *Client) writePacket(packet packets.ControlPacket) {
@@ -381,4 +288,100 @@ func (c *Client) closeAndDelSession() {
 	c.broker.topicMgr.unsubscribe(topics, c.info.cid)
 
 	c.close()
+}
+
+func errorWrapper(errMsg string) processFnWithErr {
+	return func(c *Client, p packets.ControlPacket) error {
+		return errors.New(errMsg)
+	}
+}
+
+func nilErrWrapper(fn processFn) processFnWithErr {
+	return func(c *Client, p packets.ControlPacket) error {
+		fn(c, p)
+		return nil
+	}
+}
+
+func pipelineWrapper(fn processFn) processFnWithErr {
+	return func(c *Client, p packets.ControlPacket) error {
+		err := c.runPipeline(p)
+		if err != nil {
+			logger.SpanDebugf(nil, "client process pipeline failed, %v", c.info.cid, err)
+			return nil
+		}
+		fn(c, p)
+		return nil
+	}
+}
+
+func processPublish(c *Client, packet packets.ControlPacket) {
+	publish := packet.(*packets.PublishPacket)
+	logger.SpanDebugf(nil, "client %s process publish %v", c.info.cid, publish.TopicName)
+
+	if !c.checkPublishLimit(publish) {
+		logger.SpanErrorf(nil, "client %v publish limiter drop packet %v", c.info.cid, publish.TopicName)
+		return
+	}
+
+	err := c.broker.backend.publish(publish)
+	if err != nil {
+		logger.SpanErrorf(nil, "client %v publish %v failed: %v", c.info.cid, publish.TopicName, err)
+	}
+	switch publish.Qos {
+	case QoS0:
+		// do nothing
+	case QoS1:
+		puback := packets.NewControlPacket(packets.Puback).(*packets.PubackPacket)
+		puback.MessageID = publish.MessageID
+		c.writePacket(puback)
+	case QoS2:
+		// not support yet
+	}
+}
+
+func processPuback(c *Client, packet packets.ControlPacket) {
+	puback := packet.(*packets.PubackPacket)
+	c.session.puback(puback)
+}
+
+func processSubscribe(c *Client, p packets.ControlPacket) {
+	packet := p.(*packets.SubscribePacket)
+	logger.SpanDebugf(nil, "client %s subscribe %v with qos %v", c.info.cid, packet.Topics, packet.Qoss)
+
+	err := c.broker.topicMgr.subscribe(packet.Topics, packet.Qoss, c.info.cid)
+	if err != nil {
+		logger.SpanErrorf(nil, "client %v subscribe %v failed: %v", c.info.cid, packet.Topics, err)
+		return
+	}
+	c.session.subscribe(packet.Topics, packet.Qoss)
+
+	suback := packets.NewControlPacket(packets.Suback).(*packets.SubackPacket)
+	suback.MessageID = packet.MessageID
+	suback.ReturnCodes = make([]byte, len(packet.Topics))
+	for i := range packet.Topics {
+		suback.ReturnCodes[i] = packet.Qos
+	}
+	c.writePacket(suback)
+}
+
+func processUnsubscribe(c *Client, p packets.ControlPacket) {
+	packet := p.(*packets.UnsubscribePacket)
+
+	logger.SpanDebugf(nil, "client %s processUnsubscribe %v", c.info.cid, packet.Topics)
+
+	err := c.broker.topicMgr.unsubscribe(packet.Topics, c.info.cid)
+	if err != nil {
+		logger.SpanErrorf(nil, "client %v unsubscribe %v failed: %v", c.info.cid, packet.Topics, err)
+	}
+	c.session.unsubscribe(packet.Topics)
+
+	unsuback := packets.NewControlPacket(packets.Unsuback).(*packets.UnsubackPacket)
+	unsuback.MessageID = packet.MessageID
+	c.writePacket(unsuback)
+}
+
+func processPingreq(c *Client, packet packets.ControlPacket) {
+	resp := packets.NewControlPacket(packets.Pingresp).(*packets.PingrespPacket)
+	c.writePacket(resp)
 }
