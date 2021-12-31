@@ -20,6 +20,9 @@ package proxy
 import (
 	"fmt"
 	"math/rand"
+	"net"
+	"net/url"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -68,9 +71,10 @@ type (
 
 	// Server is proxy server.
 	Server struct {
-		URL    string   `yaml:"url" jsonschema:"required,format=url"`
-		Tags   []string `yaml:"tags" jsonschema:"omitempty,uniqueItems=true"`
-		Weight int      `yaml:"weight" jsonschema:"omitempty,minimum=0,maximum=100"`
+		URL            string   `yaml:"url" jsonschema:"required,format=url"`
+		Tags           []string `yaml:"tags" jsonschema:"omitempty,uniqueItems=true"`
+		Weight         int      `yaml:"weight" jsonschema:"omitempty,minimum=0,maximum=100"`
+		addrIsHostName bool
 	}
 
 	// LoadBalance is load balance for multiple servers.
@@ -80,8 +84,34 @@ type (
 	}
 )
 
+// String implements the Stringer interface
 func (s *Server) String() string {
 	return fmt.Sprintf("%s,%v,%d", s.URL, s.Tags, s.Weight)
+}
+
+// checkAddrPattern checks whether the server address is host name or ip:port,
+// not all error cases are handled
+func (s *Server) checkAddrPattern() {
+	u, err := url.Parse(s.URL)
+	if err != nil {
+		return
+	}
+	host := u.Host
+
+	square := strings.LastIndexByte(host, ']')
+	colon := strings.LastIndexByte(host, ':')
+
+	// there a port number, remove it
+	if colon > square {
+		host = host[:colon]
+	}
+
+	// IPv6
+	if square != -1 && host[0] == '[' {
+		host = host[1:square]
+	}
+
+	s.addrIsHostName = net.ParseIP(host) == nil
 }
 
 // Validate validates LoadBalance.
@@ -247,6 +277,7 @@ func newStaticServers(servers []*Server, tags []string, lb *LoadBalance) *static
 
 func (ss *staticServers) prepare() {
 	for _, server := range ss.servers {
+		server.checkAddrPattern()
 		ss.weightsSum += server.Weight
 	}
 }
