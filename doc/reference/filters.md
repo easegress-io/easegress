@@ -717,7 +717,7 @@ Rules to revise request header. Note that both header name and value can be a te
 
 | Name   | Type     | Description                                                                                                  | Required |
 | ------ | -------- | ------------------------------------------------------------------------------------------------------------ | -------- |
-| url    | string   | Address of the server                                                                                        | Yes      |
+| url    | string   | Address of the server, the address should start with `http://` or `https://`, followed by the hostname or IP address of the server, and then optionally followed by `:{port number}`, for example: `https://www.megaease.com`, `http://10.10.10.10:8080`. When host name is used, the `Host` of a request sent to this server is always the hostname of the server, using a [RequestAdaptor](#requestadaptor) in the pipeline to modify it will not be possible. when IP address is used, the `Host` is the same as the original request, that's can be modified by a [RequestAdaptor](#requestadaptor)         | Yes      |
 | tags   | []string | Tags of this server, refer `serverTags` in [proxy.PoolSpec](#proxyPoolSpec)                                  | No       |
 | weight | int      | When load balance policy is `weightedRandom`, this value is used to calculate the possibility of this server | No       |
 
