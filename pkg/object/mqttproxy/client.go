@@ -244,22 +244,27 @@ func (c *Client) processPuback(puback *packets.PubackPacket) {
 	c.session.puback(puback)
 }
 
+// runPipeline will run MQTT pipeline by using packet.
+// it will return an error if MQTT pipline set MQTTContext to Disconnect or Drop.
 func (c *Client) runPipeline(packet packets.ControlPacket) error {
-	if c.broker.pipeline != "" {
-		pipe, err := pipeline.GetPipeline(c.broker.pipeline, context.MQTT)
-		if err != nil {
-			logger.SpanErrorf(nil, "get pipeline %v failed, %v", c.broker.pipeline, err)
-		} else {
-			ctx := context.NewMQTTContext(stdcontext.Background(), c.broker.backend, c, packet)
-			pipe.HandleMQTT(ctx)
-			if ctx.Disconnect() {
-				c.close()
-				return errors.New("pipeline set disconnect")
-			}
-			if ctx.Drop() {
-				return errors.New("pipeline set drop")
-			}
-		}
+	if c.broker.pipeline == "" {
+		return nil
+	}
+
+	pipe, err := pipeline.GetPipeline(c.broker.pipeline, context.MQTT)
+	if err != nil {
+		logger.SpanErrorf(nil, "get pipeline %v failed, %v", c.broker.pipeline, err)
+		return nil
+	}
+
+	ctx := context.NewMQTTContext(stdcontext.Background(), c.broker.backend, c, packet)
+	pipe.HandleMQTT(ctx)
+	if ctx.Disconnect() {
+		c.close()
+		return errors.New("pipeline set disconnect")
+	}
+	if ctx.Drop() {
+		return errors.New("pipeline set drop")
 	}
 	return nil
 }
