@@ -37,7 +37,7 @@ type (
 // NewLayer4IPFilters create layer4 ip filters
 func NewLayer4IPFilters(spec *Spec) *Layer4IpFilters {
 	if spec == nil {
-		return &Layer4IpFilters{}
+		return nil
 	}
 
 	m := &Layer4IpFilters{}
