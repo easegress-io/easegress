@@ -46,6 +46,22 @@ const (
 	QoS2 byte = 2
 )
 
+var processPacketFn = map[string]func(*Client, packets.ControlPacket) error{
+	"*packets.ConnectPacket":     errorWrapper("double connect"),
+	"*packets.ConnackPacket":     errorWrapper("client should not send connack"),
+	"*packets.PubrecPacket":      errorWrapper("qos2 not support now"),
+	"*packets.PubrelPacket":      errorWrapper("qos2 not support now"),
+	"*packets.PubcompPacket":     errorWrapper("qos2 not support now"),
+	"*packets.SubackPacket":      errorWrapper("broker not subscribe"),
+	"*packets.UnsubackPacket":    errorWrapper("broker not unsubscribe"),
+	"*packets.PingrespPacket":    errorWrapper("broker not ping"),
+	"*packets.PublishPacket":     pipelineWrapper(processPublish),
+	"*packets.SubscribePacket":   pipelineWrapper(processSubscribe),
+	"*packets.UnsubscribePacket": pipelineWrapper(processUnsubscribe),
+	"*packets.PingreqPacket":     nilErrWrapper(processPingreq),
+	"*packets.PubackPacket":      nilErrWrapper(processPuback),
+}
+
 type (
 	// ClientInfo is basic information for client
 	ClientInfo struct {
@@ -173,53 +189,38 @@ func (c *Client) readLoop() {
 	}
 }
 
-func errorWrapper(errMsg string) func(p packets.ControlPacket) error {
-	return func(p packets.ControlPacket) error {
+func errorWrapper(errMsg string) func(*Client, packets.ControlPacket) error {
+	return func(c *Client, p packets.ControlPacket) error {
 		return errors.New(errMsg)
 	}
 }
 
-func nilErrWrapper(fn func(p packets.ControlPacket)) func(p packets.ControlPacket) error {
-	return func(p packets.ControlPacket) error {
-		fn(p)
+func nilErrWrapper(fn func(c *Client, p packets.ControlPacket)) func(c *Client, p packets.ControlPacket) error {
+	return func(c *Client, p packets.ControlPacket) error {
+		fn(c, p)
 		return nil
 	}
 }
 
-func (c *Client) pipelineWrapper(fn func(p packets.ControlPacket)) func(p packets.ControlPacket) error {
-	return func(p packets.ControlPacket) error {
+func pipelineWrapper(fn func(c *Client, p packets.ControlPacket)) func(c *Client, p packets.ControlPacket) error {
+	return func(c *Client, p packets.ControlPacket) error {
 		err := c.runPipeline(p)
 		if err != nil {
 			logger.SpanDebugf(nil, "client process pipeline failed, %v", c.info.cid, err)
 			return nil
 		}
-		fn(p)
+		fn(c, p)
 		return nil
 	}
 }
 
 func (c *Client) processPacket(packet packets.ControlPacket) error {
-	processPacketFn := map[string]func(packets.ControlPacket) error{
-		"*packets.ConnectPacket":     errorWrapper("double connect"),
-		"*packets.ConnackPacket":     errorWrapper("client should not send connack"),
-		"*packets.PubrecPacket":      errorWrapper("qos2 not support now"),
-		"*packets.PubrelPacket":      errorWrapper("qos2 not support now"),
-		"*packets.PubcompPacket":     errorWrapper("qos2 not support now"),
-		"*packets.SubackPacket":      errorWrapper("broker not subscribe"),
-		"*packets.UnsubackPacket":    errorWrapper("broker not unsubscribe"),
-		"*packets.PingrespPacket":    errorWrapper("broker not ping"),
-		"*packets.PublishPacket":     c.pipelineWrapper(c.processPublish),
-		"*packets.SubscribePacket":   c.pipelineWrapper(c.processSubscribe),
-		"*packets.UnsubscribePacket": c.pipelineWrapper(c.processUnsubscribe),
-		"*packets.PingreqPacket":     nilErrWrapper(c.processPingreq),
-		"*packets.PubackPacket":      nilErrWrapper(c.processPuback),
-	}
 	packetType := reflect.TypeOf(packet).String()
 	fn, ok := processPacketFn[packetType]
 	if !ok {
 		return errors.New("unknown packet")
 	}
-	return fn(packet)
+	return fn(c, packet)
 }
 
 func (c *Client) checkPublishLimit(publish *packets.PublishPacket) bool {
@@ -227,7 +228,7 @@ func (c *Client) checkPublishLimit(publish *packets.PublishPacket) bool {
 	return c.publishLimit.acquirePermission(size)
 }
 
-func (c *Client) processPublish(packet packets.ControlPacket) {
+func processPublish(c *Client, packet packets.ControlPacket) {
 	publish := packet.(*packets.PublishPacket)
 	logger.SpanDebugf(nil, "client %s process publish %v", c.info.cid, publish.TopicName)
 
@@ -252,7 +253,7 @@ func (c *Client) processPublish(packet packets.ControlPacket) {
 	}
 }
 
-func (c *Client) processPuback(packet packets.ControlPacket) {
+func processPuback(c *Client, packet packets.ControlPacket) {
 	puback := packet.(*packets.PubackPacket)
 	c.session.puback(puback)
 }
@@ -282,7 +283,7 @@ func (c *Client) runPipeline(packet packets.ControlPacket) error {
 	return nil
 }
 
-func (c *Client) processSubscribe(p packets.ControlPacket) {
+func processSubscribe(c *Client, p packets.ControlPacket) {
 	packet := p.(*packets.SubscribePacket)
 	logger.SpanDebugf(nil, "client %s subscribe %v with qos %v", c.info.cid, packet.Topics, packet.Qoss)
 
@@ -302,7 +303,7 @@ func (c *Client) processSubscribe(p packets.ControlPacket) {
 	c.writePacket(suback)
 }
 
-func (c *Client) processUnsubscribe(p packets.ControlPacket) {
+func processUnsubscribe(c *Client, p packets.ControlPacket) {
 	packet := p.(*packets.UnsubscribePacket)
 
 	logger.SpanDebugf(nil, "client %s processUnsubscribe %v", c.info.cid, packet.Topics)
@@ -318,7 +319,7 @@ func (c *Client) processUnsubscribe(p packets.ControlPacket) {
 	c.writePacket(unsuback)
 }
 
-func (c *Client) processPingreq(packet packets.ControlPacket) {
+func processPingreq(c *Client, packet packets.ControlPacket) {
 	resp := packets.NewControlPacket(packets.Pingresp).(*packets.PingrespPacket)
 	c.writePacket(resp)
 }
