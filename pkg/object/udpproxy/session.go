@@ -56,7 +56,7 @@ func newSession(clientAddr *net.UDPAddr, serverAddr string, serverConn net.Conn,
 		serverConn:        serverConn,
 		serverIdleTimeout: serverIdleTimeout,
 		clientIdleTimeout: clientIdleTimeout,
-		writeBuf:          make(chan *iobufferpool.Packet, 512),
+		writeBuf:          make(chan *iobufferpool.Packet, 256),
 
 		stopped:      false,
 		stopChan:     make(chan struct{}),
@@ -64,62 +64,63 @@ func newSession(clientAddr *net.UDPAddr, serverAddr string, serverConn net.Conn,
 		onClose:      onClose,
 	}
 
-	go func() {
-		var t *time.Timer
-		var idleCheck <-chan time.Time
-
-		if clientIdleTimeout > 0 {
-			t = time.NewTimer(clientIdleTimeout)
-			idleCheck = t.C
-		}
-
-		for {
-			select {
-			case <-s.listenerStop:
-				s.close()
-			case <-idleCheck:
-				s.close()
-			case buf, ok := <-s.writeBuf:
-				if !ok {
-					s.close()
-					continue
-				}
-
-				if t != nil {
-					if !t.Stop() {
-						<-t.C
-					}
-					t.Reset(clientIdleTimeout)
-				}
-
-				bufLen := len(buf.Payload)
-				n, err := s.serverConn.Write(buf.Bytes())
-				buf.Release()
-
-				if err != nil {
-					logger.Errorf("udp connection flush data to server(%s) failed, err: %+v", serverAddr, err)
-					s.close()
-					continue
-				}
-
-				if bufLen != n {
-					logger.Errorf("udp connection flush data to server(%s) failed, should write %d but written %d",
-						serverAddr, bufLen, n)
-					s.close()
-				}
-			case <-s.stopChan:
-				if t != nil {
-					t.Stop()
-				}
-				_ = s.serverConn.Close()
-				s.cleanWriteBuf()
-				s.onClose()
-				return
-			}
-		}
-	}()
-
+	go s.startSession(serverAddr, clientIdleTimeout)
 	return &s
+}
+
+func (s *session) startSession(serverAddr string, clientIdleTimeout time.Duration) {
+	var t *time.Timer
+	var idleCheck <-chan time.Time
+
+	if clientIdleTimeout > 0 {
+		t = time.NewTimer(clientIdleTimeout)
+		idleCheck = t.C
+	}
+
+	for {
+		select {
+		case <-s.listenerStop:
+			s.close()
+		case <-idleCheck:
+			s.close()
+		case buf, ok := <-s.writeBuf:
+			if !ok {
+				s.close()
+				continue
+			}
+
+			if t != nil {
+				if !t.Stop() {
+					<-t.C
+				}
+				t.Reset(clientIdleTimeout)
+			}
+
+			bufLen := len(buf.Payload)
+			n, err := s.serverConn.Write(buf.Bytes())
+			buf.Release()
+
+			if err != nil {
+				logger.Errorf("udp connection flush data to server(%s) failed, err: %+v", serverAddr, err)
+				s.close()
+				continue
+			}
+
+			if bufLen != n {
+				logger.Errorf("udp connection flush data to server(%s) failed, should write %d but written %d",
+					serverAddr, bufLen, n)
+				s.close()
+			}
+		case <-s.stopChan:
+			if t != nil {
+				t.Stop()
+			}
+			_ = s.serverConn.Close()
+			s.cleanWriteBuf()
+			s.onClose()
+			return
+		}
+	}
 }
 
 // Write send data to buffer channel, wait flush to server
