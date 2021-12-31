@@ -135,7 +135,7 @@ func (m *MockMQTTFilter) Status() interface{} {
 		clientCount[k] = v
 	}
 	disconnect := make(map[string]struct{})
-	for k, _ := range m.disconnect {
+	for k := range m.disconnect {
 		disconnect[k] = struct{}{}
 	}
 	subscribe := make(map[string][]string)
