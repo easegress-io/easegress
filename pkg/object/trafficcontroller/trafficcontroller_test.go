@@ -289,3 +289,6 @@ func TestPipeline(t *testing.T) {
 	tc.WalkPipelines(ns, context.HTTP, walkFn)
 	assert.Equal(1, len(allStatus))
 }
+
+func TestConcurrent(t *testing.T) {
+}

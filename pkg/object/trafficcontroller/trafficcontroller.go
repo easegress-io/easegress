@@ -94,6 +94,8 @@ type (
 		HTTPServers   map[string]*HTTPServerStatus   `yaml:"httpServers"`
 		HTTPPipelines map[string]*HTTPPipelineStatus `yaml:"httpPipelines"`
 	}
+
+	processFn func(string, context.Protocol, *supervisor.ObjectEntity) (*supervisor.ObjectEntity, error)
 )
 
 func init() {
@@ -166,6 +168,16 @@ func (tc *TrafficController) reload(previousGeneration *TrafficController) {
 	}
 }
 
+func (tc *TrafficController) processForSpec(namespace string, protocolType context.Protocol, superSpec *supervisor.Spec, processFn processFn) (
+	*supervisor.ObjectEntity, error) {
+
+	entity, err := tc.super.NewObjectEntityFromSpec(superSpec)
+	if err != nil {
+		return nil, err
+	}
+	return processFn(namespace, protocolType, entity)
+}
+
 // getNamespace will return namespace for given namespace.
 func (tc *TrafficController) getNamespace(namespace string, create bool) (*Namespace, error) {
 	space, exists := tc.namespaces[namespace]
@@ -222,11 +234,7 @@ func (tc *TrafficController) getNamespaceAndPipelines(namespace string, protocol
 func (tc *TrafficController) CreateServerForSpec(namespace string, protocolType context.Protocol, superSpec *supervisor.Spec) (
 	*supervisor.ObjectEntity, error) {
 
-	entity, err := tc.super.NewObjectEntityFromSpec(superSpec)
-	if err != nil {
-		return nil, err
-	}
-	return tc.CreateServer(namespace, protocolType, entity)
+	return tc.processForSpec(namespace, protocolType, superSpec, tc.CreateServer)
 }
 
 // CreateServer creates server
@@ -254,11 +262,7 @@ func (tc *TrafficController) CreateServer(namespace string, protocolType context
 func (tc *TrafficController) UpdateServerForSpec(namespace string, protocolType context.Protocol, superSpec *supervisor.Spec) (
 	*supervisor.ObjectEntity, error) {
 
-	entity, err := tc.super.NewObjectEntityFromSpec(superSpec)
-	if err != nil {
-		return nil, err
-	}
-	return tc.UpdateServer(namespace, protocolType, entity)
+	return tc.processForSpec(namespace, protocolType, superSpec, tc.UpdateServer)
 }
 
 // UpdateServer updates server
@@ -289,11 +293,7 @@ func (tc *TrafficController) UpdateServer(namespace string, protocolType context
 func (tc *TrafficController) ApplyServerForSpec(namespace string, protocolType context.Protocol, superSpec *supervisor.Spec) (
 	*supervisor.ObjectEntity, error) {
 
-	entity, err := tc.super.NewObjectEntityFromSpec(superSpec)
-	if err != nil {
-		return nil, err
-	}
-	return tc.ApplyServer(namespace, protocolType, entity)
+	return tc.processForSpec(namespace, protocolType, superSpec, tc.ApplyServer)
 }
 
 // ApplyServer applies Server
@@ -439,11 +439,7 @@ func (tc *TrafficController) WalkPipelines(namespace string, protocolType contex
 func (tc *TrafficController) CreatePipelineForSpec(namespace string, protocol context.Protocol, superSpec *supervisor.Spec) (
 	*supervisor.ObjectEntity, error) {
 
-	entity, err := tc.super.NewObjectEntityFromSpec(superSpec)
-	if err != nil {
-		return nil, err
-	}
-	return tc.CreatePipeline(namespace, protocol, entity)
+	return tc.processForSpec(namespace, protocol, superSpec, tc.CreatePipeline)
 }
 
 // CreatePipeline creates a pipeline
@@ -471,11 +467,7 @@ func (tc *TrafficController) CreatePipeline(namespace string, protocolType conte
 func (tc *TrafficController) UpdatePipelineForSpec(namespace string, protocolType context.Protocol, superSpec *supervisor.Spec) (
 	*supervisor.ObjectEntity, error) {
 
-	entity, err := tc.super.NewObjectEntityFromSpec(superSpec)
-	if err != nil {
-		return nil, err
-	}
-	return tc.UpdatePipeline(namespace, protocolType, entity)
+	return tc.processForSpec(namespace, protocolType, superSpec, tc.UpdatePipeline)
 }
 
 // UpdatePipeline updates the pipeline
@@ -508,11 +500,7 @@ func (tc *TrafficController) UpdatePipeline(namespace string, protocolType conte
 func (tc *TrafficController) ApplyPipelineForSpec(namespace string, protocolType context.Protocol, superSpec *supervisor.Spec) (
 	*supervisor.ObjectEntity, error) {
 
-	entity, err := tc.super.NewObjectEntityFromSpec(superSpec)
-	if err != nil {
-		return nil, err
-	}
-	return tc.ApplyPipeline(namespace, protocolType, entity)
+	return tc.processForSpec(namespace, protocolType, superSpec, tc.ApplyPipeline)
 }
 
 // ApplyPipeline applies the pipeline
