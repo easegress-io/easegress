@@ -10,8 +10,8 @@ import (
 func tcpClient() {
 	strEcho := "Hello from client! \n"
 	servAddr := "127.0.0.1:10080"
-	if len(os.Args) > 1 {
-		servAddr = os.Args[1]
+	if len(os.Args) > 2 {
+		servAddr = os.Args[2]
 	}
 	tcpAddr, err := net.ResolveTCPAddr("tcp", servAddr)
 	if err != nil {
@@ -48,7 +48,11 @@ func tcpClient() {
 
 func udpClient() {
 	p := make([]byte, 2048)
-	conn, err := net.Dial("udp", "127.0.0.1:9095")
+	servAddr := "127.0.0.1:10070"
+	if len(os.Args) > 2 {
+		servAddr = os.Args[2]
+	}
+	conn, err := net.Dial("udp", servAddr)
 	if err != nil {
 		fmt.Printf("Some error %v", err)
 		return
