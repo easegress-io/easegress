@@ -84,13 +84,13 @@ type (
 	}
 )
 
-// String implements the Stringer interface
+// String implements the Stringer interface.
 func (s *Server) String() string {
 	return fmt.Sprintf("%s,%v,%d", s.URL, s.Tags, s.Weight)
 }
 
 // checkAddrPattern checks whether the server address is host name or ip:port,
-// not all error cases are handled
+// not all error cases are handled.
 func (s *Server) checkAddrPattern() {
 	u, err := url.Parse(s.URL)
 	if err != nil {
@@ -101,7 +101,7 @@ func (s *Server) checkAddrPattern() {
 	square := strings.LastIndexByte(host, ']')
 	colon := strings.LastIndexByte(host, ':')
 
-	// there a port number, remove it
+	// There is a port number, remove it.
 	if colon > square {
 		host = host[:colon]
 	}
