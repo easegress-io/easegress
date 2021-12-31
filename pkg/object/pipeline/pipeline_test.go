@@ -148,12 +148,12 @@ filters:
 			_, ok = ctx.Client().Load("filter")
 			assert.Equal(true, ok)
 
-			subscribe := packets.NewControlPacket(packets.Publish).(*packets.SubscribePacket)
+			subscribe := packets.NewControlPacket(packets.Subscribe).(*packets.SubscribePacket)
 			subscribe.Topics = []string{strconv.Itoa(i)}
 			ctx = context.NewMQTTContext(stdcontext.Background(), backend, c, subscribe)
 			p.HandleMQTT(ctx)
 
-			unsubscribe := packets.NewControlPacket(packets.Publish).(*packets.UnsubscribePacket)
+			unsubscribe := packets.NewControlPacket(packets.Unsubscribe).(*packets.UnsubscribePacket)
 			subscribe.Topics = []string{strconv.Itoa(i)}
 			ctx = context.NewMQTTContext(stdcontext.Background(), backend, c, unsubscribe)
 			p.HandleMQTT(ctx)
