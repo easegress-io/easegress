@@ -66,6 +66,7 @@ func httpServer() {
 
 func tcpServer() {
 	echoHandler := func(conn net.Conn) {
+		time.Sleep(10 * time.Millisecond)
 		reader := bufio.NewReader(conn)
 		for {
 			message, err := reader.ReadString('\n')
@@ -73,8 +74,13 @@ func tcpServer() {
 				conn.Close()
 				return
 			}
-			fmt.Printf("Message incoming: %s", string(message))
-			conn.Write([]byte("Message received.\n"))
+			fmt.Println("Message incoming: ", string(message))
+			responseMsg := []byte(
+				"\nYour Message \n" +
+					"============== \n" +
+					"Message incoming: " + string(message) + "\n",
+			)
+			conn.Write(responseMsg)
 		}
 	}
 
@@ -95,13 +101,14 @@ func tcpServer() {
 
 func udpServer() {
 	echoHandler := func(pc net.PacketConn, addr net.Addr, buf []byte) {
-		// 0 - 1: ID
-		// 2: QR(1): Opcode(4)
-		buf[2] |= 0x80 // Set QR bit
+		time.Sleep(10 * time.Millisecond)
+
+		fmt.Println("Your Message")
+		fmt.Println("==============")
+		fmt.Printf("Message incoming: %s \n", string(buf))
 
 		pc.WriteTo(buf, addr)
 	}
-	// listen to incoming udp packets
 	pc, err := net.ListenPacket("udp", ":9095")
 	if err != nil {
 		log.Fatal(err)
