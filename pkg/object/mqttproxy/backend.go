@@ -19,9 +19,11 @@ package mqttproxy
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/Shopify/sarama"
 	"github.com/eclipse/paho.mqtt.golang/packets"
+	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 )
 
@@ -29,6 +31,7 @@ type (
 	// BackendMQ is backend message queue for MQTT proxy
 	backendMQ interface {
 		publish(p *packets.PublishPacket) error
+		Publish(target string, data []byte, headers map[string]string) error
 		close()
 	}
 
@@ -40,9 +43,16 @@ type (
 	}
 
 	testMQ struct {
-		ch chan *packets.PublishPacket
+		mu  sync.Mutex
+		ch  chan *packets.PublishPacket
+		msg map[string]map[string]string
 	}
 )
+
+var _ backendMQ = (*KafkaMQ)(nil)
+var _ backendMQ = (*testMQ)(nil)
+var _ context.MQTTBackend = (*KafkaMQ)(nil)
+var _ context.MQTTBackend = (*testMQ)(nil)
 
 const (
 	kafkaType  = "Kafka"
@@ -56,14 +66,15 @@ func newBackendMQ(spec *Spec) backendMQ {
 	case testMQType:
 		t := &testMQ{}
 		t.ch = make(chan *packets.PublishPacket, 100)
+		t.msg = make(map[string]map[string]string)
 		return t
 	default:
-		logger.Errorf("backend type <%s> not support", spec.BackendType)
+		logger.SpanErrorf(nil, "backend type <%s> not support", spec.BackendType)
 		return nil
 	}
 }
 
-func newKafkaMQ(spec *Spec) *KafkaMQ {
+func newKafkaMQ(spec *Spec) backendMQ {
 	k := &KafkaMQ{}
 	k.mapFunc = getTopicMapFunc(spec.TopicMapper)
 	k.done = make(chan struct{})
@@ -73,7 +84,7 @@ func newKafkaMQ(spec *Spec) *KafkaMQ {
 	config.Version = sarama.V1_0_0_0
 	producer, err := sarama.NewAsyncProducer(spec.Kafka.Backend, config)
 	if err != nil {
-		logger.Errorf("start sarama producer with address %v failed: %v", spec.Kafka.Backend, err)
+		logger.SpanErrorf(nil, "start sarama producer with address %v failed: %v", spec.Kafka.Backend, err)
 		return nil
 	}
 
@@ -86,7 +97,7 @@ func newKafkaMQ(spec *Spec) *KafkaMQ {
 				if !ok {
 					return
 				}
-				logger.Errorf("sarama producer failed: %v", err)
+				logger.SpanErrorf(nil, "sarama producer failed: %v", err)
 			}
 		}
 	}()
@@ -97,7 +108,7 @@ func newKafkaMQ(spec *Spec) *KafkaMQ {
 
 func (k *KafkaMQ) publish(p *packets.PublishPacket) error {
 	var msg *sarama.ProducerMessage
-	logger.Debugf("produce msg with topic %s", p.TopicName)
+	logger.SpanDebugf(nil, "produce msg with topic %s", p.TopicName)
 
 	if k.mapFunc != nil {
 		topic, headers, err := k.mapFunc(p.TopicName)
@@ -128,12 +139,36 @@ func (k *KafkaMQ) close() {
 	close(k.done)
 	err := k.producer.Close()
 	if err != nil {
-		logger.Errorf("close kafka producer failed: %v", err)
+		logger.SpanErrorf(nil, "close kafka producer failed: %v", err)
 	}
+}
+
+// Publish publish msg to Kafka backend
+func (k *KafkaMQ) Publish(target string, data []byte, headers map[string]string) error {
+	var msg *sarama.ProducerMessage
+	kafkaHeaders := make([]sarama.RecordHeader, 0, len(headers))
+	for k, v := range headers {
+		kafkaHeaders = append(kafkaHeaders, sarama.RecordHeader{Key: []byte(k), Value: []byte(v)})
+	}
+	msg = &sarama.ProducerMessage{
+		Topic:   target,
+		Headers: kafkaHeaders,
+		Value:   sarama.ByteEncoder(data),
+	}
+	k.producer.Input() <- msg
+	return nil
 }
 
 func (t *testMQ) publish(p *packets.PublishPacket) error {
 	t.ch <- p
+	return nil
+}
+
+// Publish publish msg to testMQ backend
+func (t *testMQ) Publish(target string, data []byte, headers map[string]string) error {
+	t.mu.Lock()
+	t.msg[target] = headers
+	t.mu.Unlock()
 	return nil
 }
 

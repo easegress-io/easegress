@@ -20,6 +20,7 @@ package mqttproxy
 import (
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/megaease/easegress/pkg/cluster"
 	etcderror "go.etcd.io/etcd/api/v3/v3rpc/rpctypes"
@@ -28,14 +29,17 @@ import (
 type (
 	storage interface {
 		get(key string) (*string, error)
-		getPrefix(prefix string) (map[string]string, error)
+		getPrefix(prefix string, keysOnly bool) (map[string]string, error)
 		put(key, value string) error
 		delete(key string) error
+		watchDelete(prefix string) (<-chan map[string]*string, func(), error)
 	}
 
 	mockStorage struct {
-		mu    sync.RWMutex
-		store map[string]string
+		mu        sync.RWMutex
+		store     map[string]string
+		watchCh   chan map[string]*string
+		watchFlag int32
 	}
 
 	clusterStorage struct {
@@ -48,9 +52,14 @@ var _ storage = (*clusterStorage)(nil)
 
 func newStorage(cls cluster.Cluster) storage {
 	if cls != nil {
-		return &clusterStorage{cls: cls}
+		return &clusterStorage{
+			cls: cls,
+		}
 	}
-	return &mockStorage{store: make(map[string]string)}
+	return &mockStorage{
+		store:   make(map[string]string),
+		watchCh: make(chan map[string]*string),
+	}
 }
 
 func (m *mockStorage) get(key string) (*string, error) {
@@ -62,12 +71,16 @@ func (m *mockStorage) get(key string) (*string, error) {
 	return nil, etcderror.ErrKeyNotFound
 }
 
-func (m *mockStorage) getPrefix(prefix string) (map[string]string, error) {
+func (m *mockStorage) getPrefix(prefix string, keysOnly bool) (map[string]string, error) {
 	m.mu.RLock()
 	out := make(map[string]string)
 	for k, v := range m.store {
 		if strings.HasPrefix(k, prefix) {
-			out[k] = v
+			if keysOnly {
+				out[k] = ""
+			} else {
+				out[k] = v
+			}
 		}
 	}
 	m.mu.RUnlock()
@@ -84,15 +97,35 @@ func (m *mockStorage) put(key, value string) error {
 func (m *mockStorage) delete(key string) error {
 	m.mu.Lock()
 	delete(m.store, key)
+	if m.watched() {
+		go func() {
+			ans := make(map[string]*string)
+			ans[key] = nil
+			m.watchCh <- ans
+		}()
+	}
 	m.mu.Unlock()
 	return nil
+}
+
+func (m *mockStorage) watched() bool {
+	flag := atomic.LoadInt32(&m.watchFlag)
+	return flag == 1
+}
+
+func (m *mockStorage) watchDelete(prefix string) (<-chan map[string]*string, func(), error) {
+	atomic.StoreInt32(&m.watchFlag, 1)
+	return m.watchCh, func() {}, nil
 }
 
 func (cs *clusterStorage) get(key string) (*string, error) {
 	return cs.cls.Get(key)
 }
 
-func (cs *clusterStorage) getPrefix(prefix string) (map[string]string, error) {
+func (cs *clusterStorage) getPrefix(prefix string, keysOnly bool) (map[string]string, error) {
+	if keysOnly {
+		return cs.cls.GetWithOp(prefix, cluster.OpPrefix, cluster.OpKeysOnly)
+	}
 	return cs.cls.GetPrefix(prefix)
 }
 
@@ -102,4 +135,17 @@ func (cs *clusterStorage) put(key, value string) error {
 
 func (cs *clusterStorage) delete(key string) error {
 	return cs.cls.Delete(key)
+}
+
+func (cs *clusterStorage) watchDelete(prefix string) (<-chan map[string]*string, func(), error) {
+	watcher, err := cs.cls.Watcher()
+	if err != nil {
+		return nil, nil, err
+	}
+	ch, err := watcher.WatchWithOp(prefix, cluster.OpPrefix, cluster.OpNotWatchPut)
+	if err != nil {
+		watcher.Close()
+		return nil, nil, err
+	}
+	return ch, watcher.Close, nil
 }

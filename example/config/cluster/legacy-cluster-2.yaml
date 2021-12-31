@@ -1,0 +1,23 @@
+name: primary-2
+cluster-name: cluster-test
+cluster-role: primary
+api-addr: localhost:2381
+data-dir: ./data
+wal-dir: ""
+cpu-profile-file:
+memory-profile-file:
+log-dir: ./log
+debug: false
+cluster-listen-client-urls:
+ - http://127.0.0.1:2377
+cluster-listen-peer-urls:
+- http://127.0.0.1:2378
+cluster-advertise-client-urls:
+ - http://127.0.0.1:2377
+cluster-initial-advertise-peer-urls:
+ - http://127.0.0.1:2378
+cluster-join-urls:
+ - http://127.0.0.1:2380
+ - http://127.0.0.1:2378
+ - http://127.0.0.1:2376
+member-dir: ./member

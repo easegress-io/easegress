@@ -33,6 +33,24 @@ import (
 	"github.com/megaease/easegress/pkg/supervisor"
 )
 
+const (
+	xForwardedFor   = "X-Forwarded-For"
+	xForwardedHost  = "X-Forwarded-Host"
+	xForwardedProto = "X-Forwarded-Proto"
+)
+
+var (
+	// headersToSkip are gorilla library's request headers, our websocket proxy should not set.
+	headersToSkip = map[string]struct{}{
+		"Upgrade":                  {},
+		"Connection":               {},
+		"Sec-Websocket-Key":        {},
+		"Sec-Websocket-Version":    {},
+		"Sec-Websocket-Extensions": {},
+		"Sec-Websocket-Protocol":   {},
+	}
+)
+
 var (
 	// defaultUpgrader specifies the parameters for upgrading an HTTP
 	// connection to a WebSocket connection.
@@ -149,12 +167,12 @@ func (p *Proxy) run() {
 	p.dialer = dialer
 	p.upgrader = defaultUpgrader
 
-	http.HandleFunc("/", p.handle)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", p.handle)
 	addr := fmt.Sprintf(":%d", spec.Port)
-	svr := &http.Server{
-		Addr:    addr,
-		Handler: nil,
-	}
+
+	p.server.Addr = addr
+	p.server.Handler = mux
 
 	if spec.HTTPS {
 		tlsConfig, err := spec.tlsConfig()
@@ -162,44 +180,60 @@ func (p *Proxy) run() {
 			logger.Errorf("%s gen websocketserver's httpserver tlsConfig: %#v, failed: %v",
 				p.superSpec.Name(), spec, err)
 		}
-		svr.TLSConfig = tlsConfig
+		p.server.TLSConfig = tlsConfig
 	}
 
-	if err := svr.ListenAndServe(); err != nil {
-		logger.Errorf("%s websocketserver ListenAndServe failed: %v", p.superSpec.Name(), err)
+	if p.server.TLSConfig != nil {
+		if err := p.server.ListenAndServeTLS("", ""); err != nil {
+			logger.Errorf("%s websocketserver ListenAndServeTLS failed: %v", p.superSpec.Name(), err)
+		}
+	} else {
+		if err := p.server.ListenAndServe(); err != nil {
+			logger.Errorf("%s websocketserver ListenAndServe failed: %v", p.superSpec.Name(), err)
+		}
 	}
 }
 
 // copyHeader copies headers from the incoming request to the dialer and forward them to
 // the destination.
 func (p *Proxy) copyHeader(req *http.Request) http.Header {
+	// Based on https://docs.oracle.com/en-us/iaas/Content/Balance/Reference/httpheaders.htm
+	// For load balancer, we add following key-value pairs to headers
+	// X-Forwarded-For: <original_client>, <proxy1>, <proxy2>
+	// X-Forwarded-Host: www.example.com:8080
+	// X-Forwarded-Proto: https
+
+	// New client connection is created using [Gorilla websocket library](https://github.com/gorilla/websocket), which takes care of some of the headers.
+	// Let's copy copy all headers from the incoming request, except the ones gorilla will set.
 
 	requestHeader := http.Header{}
-	if origin := req.Header.Get("Origin"); origin != "" {
-		requestHeader.Add("Origin", origin)
-	}
-	for _, prot := range req.Header[http.CanonicalHeaderKey("Sec-WebSocket-Protocol")] {
-		requestHeader.Add("Sec-WebSocket-Protocol", prot)
-	}
-	for _, cookie := range req.Header[http.CanonicalHeaderKey("Cookie")] {
-		requestHeader.Add("Cookie", cookie)
-	}
-	if req.Host != "" {
-		requestHeader.Set("Host", req.Host)
-	}
-
-	if clientIP, _, err := net.SplitHostPort(req.RemoteAddr); err == nil {
-		if prior, ok := req.Header["X-Forwarded-For"]; ok {
-			clientIP = strings.Join(prior, ", ") + ", " + clientIP
+	for k, values := range req.Header {
+		if _, ok := headersToSkip[k]; ok {
+			continue
 		}
-		requestHeader.Set("X-Forwarded-For", clientIP)
+		for _, v := range values {
+			requestHeader.Add(k, v)
+		}
 	}
 
-	requestHeader.Set("X-Forwarded-Proto", "http")
+	xff := requestHeader.Get(xForwardedFor)
+	if clientIP, _, err := net.SplitHostPort(req.RemoteAddr); err == nil {
+		if xff == "" {
+			requestHeader.Set(xForwardedFor, clientIP)
+		} else {
+			requestHeader.Set(xForwardedFor, fmt.Sprintf("%s, %s", xff, clientIP))
+		}
+	}
+
+	xfh := requestHeader.Get(xForwardedHost)
+	if xfh == "" && req.Host != "" {
+		requestHeader.Set(xForwardedHost, req.Host)
+	}
+
+	requestHeader.Set(xForwardedProto, "http")
 	if req.TLS != nil {
-		requestHeader.Set("X-Forwarded-Proto", "https")
+		requestHeader.Set(xForwardedProto, "https")
 	}
-
 	return requestHeader
 }
 

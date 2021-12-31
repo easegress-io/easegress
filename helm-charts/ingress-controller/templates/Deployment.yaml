@@ -1,3 +1,5 @@
+
+{{ if gt ( .Values.cluster.secondaryReplicas | int ) 0 }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -6,7 +8,7 @@ metadata:
   name: {{ .Release.Name }}
   namespace: {{ .Release.Namespace }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.cluster.secondaryReplicas }}
   selector:
     matchLabels:
       app: {{ .Release.Name }}
@@ -17,28 +19,62 @@ spec:
     spec:
       serviceAccountName: {{ .Release.Name }}
       containers:
-        - command:
-            - /bin/sh
-            - -c
-            - |-
-              echo name: $POD_NAME > /easegress-ingress/config.yaml && /opt/easegress/bin/easegress-server -f /easegress-ingress/config.yaml --initial-object-config-files /easegress-ingress/controller.yaml
-          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
-          env:
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.name
-          name: easegress-ingress
-          volumeMounts:
-            - name: ingress-params-volume
-              mountPath: /easegress-ingress
-            - name: controller-yaml
-              mountPath: /easegress-ingress/controller.yaml
-              subPath: controller.yaml
+      - args:
+        - -c
+        - |-
+          echo name: $EG_NAME > /opt/eg-config/config.yaml &&
+          cat /opt/eg-config/eg-secondary.yaml >> /opt/eg-config/config.yaml &&
+          /opt/easegress/bin/easegress-server \
+            -f /opt/eg-config/config.yaml \
+            --initial-object-config-files /opt/eg-config/controller.yaml
+        command:
+        - /bin/sh
+        env:
+        - name: EG_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        imagePullPolicy: IfNotPresent
+        name: easegress-secondary
+        ports:
+        - containerPort: 2381
+          name: admin-port
+          protocol: TCP
+        - containerPort: 2380
+          name: peer-port
+          protocol: TCP
+        - containerPort: 2379
+          name: client-port
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 1200m
+            memory: 2Gi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+        volumeMounts:
+        - mountPath: /opt/eg-config/eg-secondary.yaml
+          name: {{ .Release.Name }}
+          subPath: eg-secondary.yaml
+        - mountPath: /opt/eg-config/controller.yaml
+          name: {{ .Release.Name }}
+          subPath: controller.yaml
+        - mountPath: /opt/easegress/data
+          name: ingress-data-volume
+      restartPolicy: Always
       volumes:
-        - name: ingress-params-volume
-          emptyDir: { }
-        - name: controller-yaml
-          configMap:
-            name: {{ .Release.Name }}
+      - emptyDir: {}
+        name: ingress-data-volume
+      - configMap:
+          defaultMode: 420
+          items:
+          - key: eg-secondary.yaml
+            path: eg-secondary.yaml
+          - key: controller.yaml
+            path: controller.yaml
+          name: {{ .Release.Name }}
+        name: {{ .Release.Name }}
+{{ end }}

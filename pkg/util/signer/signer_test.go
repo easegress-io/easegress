@@ -19,7 +19,6 @@ package signer
 
 import (
 	"io"
-	"io/ioutil"
 	"net/http"
 	"strconv"
 	"strings"
@@ -315,7 +314,7 @@ func TestPresignVerify(t *testing.T) {
 	}
 
 	signer.SetTTL(0)
-	req.Body = ioutil.NopCloser(strings.NewReader("aaaaa"))
+	req.Body = io.NopCloser(strings.NewReader("aaaaa"))
 	if e := signer.Verify(req); e == nil {
 		t.Errorf("verification should failed, but didn't")
 	}

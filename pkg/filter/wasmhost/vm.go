@@ -115,6 +115,11 @@ func newWasmVM(host *WasmHost, engine *wasmtime.Engine, module *wasmtime.Module,
 	linker := wasmtime.NewLinker(engine)
 	vm.importHostFuncs(linker)
 
+	e = linker.DefineWasi()
+	if e != nil {
+		return nil, e
+	}
+
 	inst, e := linker.Instantiate(store, module)
 	if e != nil {
 		return nil, e

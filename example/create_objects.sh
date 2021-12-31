@@ -9,5 +9,5 @@ CONFIG_PATH=${SCRIPTPATH}/config
 for CONFIG_FILE in ${CONFIG_PATH}/*.yaml
 do
 	echo "create object: ${CONFIG_FILE}"
-	$SCRIPTPATH/writer-001/egctl.sh object create -f ${CONFIG_FILE}
+	$SCRIPTPATH/primary-001/egctl.sh object create -f ${CONFIG_FILE}
 done

@@ -77,13 +77,15 @@ type (
 
 	// Spec describes the Proxy.
 	Spec struct {
-		Fallback       *FallbackSpec    `yaml:"fallback,omitempty" jsonschema:"omitempty"`
-		MainPool       *PoolSpec        `yaml:"mainPool" jsonschema:"required"`
-		CandidatePools []*PoolSpec      `yaml:"candidatePools,omitempty" jsonschema:"omitempty"`
-		MirrorPool     *PoolSpec        `yaml:"mirrorPool,omitempty" jsonschema:"omitempty"`
-		FailureCodes   []int            `yaml:"failureCodes" jsonschema:"omitempty,uniqueItems=true,format=httpcode-array"`
-		Compression    *CompressionSpec `yaml:"compression,omitempty" jsonschema:"omitempty"`
-		MTLS           *MTLS            `yaml:"mtls,omitempty" jsonschema:"omitempty"`
+		Fallback            *FallbackSpec    `yaml:"fallback,omitempty" jsonschema:"omitempty"`
+		MainPool            *PoolSpec        `yaml:"mainPool" jsonschema:"required"`
+		CandidatePools      []*PoolSpec      `yaml:"candidatePools,omitempty" jsonschema:"omitempty"`
+		MirrorPool          *PoolSpec        `yaml:"mirrorPool,omitempty" jsonschema:"omitempty"`
+		FailureCodes        []int            `yaml:"failureCodes" jsonschema:"omitempty,uniqueItems=true,format=httpcode-array"`
+		Compression         *CompressionSpec `yaml:"compression,omitempty" jsonschema:"omitempty"`
+		MTLS                *MTLS            `yaml:"mtls,omitempty" jsonschema:"omitempty"`
+		MaxIdleConns        int              `yaml:"maxIdleConns" jsonschema:"omitempty"`
+		MaxIdleConnsPerHost int              `yaml:"maxIdleConnsPerHost" jsonschema:"omitempty"`
 	}
 
 	// FallbackSpec describes the fallback policy.
@@ -151,7 +153,10 @@ func (b *Proxy) Kind() string {
 
 // DefaultSpec returns the default spec of Proxy.
 func (b *Proxy) DefaultSpec() interface{} {
-	return &Spec{}
+	return &Spec{
+		MaxIdleConns:        10240,
+		MaxIdleConnsPerHost: 1024,
+	}
 }
 
 // Description returns the description of Proxy.
@@ -249,8 +254,8 @@ func (b *Proxy) reload() {
 			DisableCompression: false,
 			// NOTE: The large number of Idle Connections can
 			// reduce overhead of building connections.
-			MaxIdleConns:          10240,
-			MaxIdleConnsPerHost:   512,
+			MaxIdleConns:          b.spec.MaxIdleConns,
+			MaxIdleConnsPerHost:   b.spec.MaxIdleConnsPerHost,
 			IdleConnTimeout:       90 * time.Second,
 			TLSHandshakeTimeout:   10 * time.Second,
 			ExpectContinueTimeout: 1 * time.Second,
@@ -312,8 +317,8 @@ func (b *Proxy) Handle(ctx context.HTTPContext) (result string) {
 
 func (b *Proxy) handle(ctx context.HTTPContext) (result string) {
 	if b.mirrorPool != nil && b.mirrorPool.filter.Filter(ctx) {
-		master, slave := newMasterSlaveReader(ctx.Request().Body())
-		ctx.Request().SetBody(master)
+		primaryBody, secondaryBody := newPrimarySecondaryReader(ctx.Request().Body())
+		ctx.Request().SetBody(primaryBody)
 
 		wg := &sync.WaitGroup{}
 		wg.Add(1)
@@ -321,7 +326,7 @@ func (b *Proxy) handle(ctx context.HTTPContext) (result string) {
 
 		go func() {
 			defer wg.Done()
-			b.mirrorPool.handle(ctx, slave, b.client)
+			b.mirrorPool.handle(ctx, secondaryBody, b.client)
 		}()
 	}
 

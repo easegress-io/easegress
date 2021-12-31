@@ -85,7 +85,7 @@ func (mgr *TopicManager) unsubscribe(topics []string, clientID string) error {
 
 // findSubscribers is used to find all clients that subscribe a certain topic directly or use wildcard.
 // for example, topic "loc/device/event" will find clients that subscribe topic "+/+/+" or "loc/+/event" or "loc/device/event"
-// so, clients subscribe topics that contain or not contain wildcard, and this function will find all subscirbed topics that match
+// so, clients subscribe topics that contain or not contain wildcard, and this function will find all subscribed topics that match
 // the given topic.
 func (mgr *TopicManager) findSubscribers(topic string) (map[string]byte, error) {
 	mgr.RLock()
@@ -248,7 +248,7 @@ func getPolicyRoute(routes []*PolicyRe) map[string]*regexp.Regexp {
 	for _, route := range routes {
 		r, err := regexp.Compile(route.MatchExpr)
 		if err != nil {
-			logger.Errorf("topicMapper policy <%s> match expr <%s> compile failed: %v", route.Name, route.MatchExpr, err)
+			logger.SpanErrorf(nil, "topicMapper policy <%s> match expr <%s> compile failed: %v", route.Name, route.MatchExpr, err)
 		} else {
 			ans[route.Name] = r
 		}
@@ -264,7 +264,7 @@ func getTopicRoute(p *Policy) topicRouteType {
 		for _, expr := range route.Exprs {
 			r, err := regexp.Compile(expr)
 			if err != nil {
-				logger.Errorf("topicMapper policy <%s> topic route expr <%s> compile failed: %v", p.Name, expr, err)
+				logger.SpanErrorf(nil, "topicMapper policy <%s> topic route expr <%s> compile failed: %v", p.Name, expr, err)
 			} else {
 				m[route.Topic] = append(m[route.Topic], r)
 			}

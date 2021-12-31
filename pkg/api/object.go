@@ -19,7 +19,7 @@ package api
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"sort"
 
@@ -86,7 +86,7 @@ func (s *Server) objectAPIEntries() []*Entry {
 }
 
 func (s *Server) readObjectSpec(w http.ResponseWriter, r *http.Request) (*supervisor.Spec, error) {
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		return nil, fmt.Errorf("read body failed: %v", err)
 	}

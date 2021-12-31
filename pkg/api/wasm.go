@@ -22,7 +22,7 @@ package api
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 
@@ -117,7 +117,7 @@ func (s *Server) wasmApplyData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, e := ioutil.ReadAll(r.Body)
+	body, e := io.ReadAll(r.Body)
 	if e != nil {
 		HandleAPIError(w, r, http.StatusBadRequest, e)
 		return

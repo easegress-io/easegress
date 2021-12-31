@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"go.etcd.io/etcd/api/v3/mvccpb"
-	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/concurrency"
 )
 
@@ -85,6 +84,43 @@ func mockClusters(count int) []*cluster {
 	return clusters
 }
 
+func mockStaticCluster(count int) []*cluster {
+	opts, _, _ := mockStaticClusterMembers(count)
+
+	clusterNodes := make([]*cluster, count)
+	clusterNodesLock := sync.Mutex{}
+	clusterCreationWg := &sync.WaitGroup{}
+	clusterCreationWg.Add(count)
+	startNode := func(i int) error {
+		node, err := New(opts[i])
+		if err != nil {
+			panic(fmt.Errorf("new cluster failed: %v", err))
+		}
+		clusterNodesLock.Lock()
+		clusterNodes[i] = node.(*cluster)
+		clusterNodesLock.Unlock()
+		clusterCreationWg.Done()
+		return nil
+	}
+
+	for i := 0; i < count; i++ {
+		go startNode(i)
+	}
+	clusterCreationWg.Wait()
+
+	for {
+		_, err := clusterNodes[0].getClient()
+		time.Sleep(HeartbeatInterval)
+		if err != nil {
+			fmt.Println(err)
+			continue
+		} else {
+			break
+		}
+	}
+	return clusterNodes
+}
+
 func closeClusters(clusters []*cluster) {
 	wg := &sync.WaitGroup{}
 	wg.Add(len(clusters))
@@ -95,11 +131,16 @@ func closeClusters(clusters []*cluster) {
 }
 
 func TestCluster(t *testing.T) {
-	clusters := mockClusters(3)
-	defer closeClusters(clusters)
-	// for testing longRequestContext()
-	clusters[0].longRequestContext()
-
+	t.Run("start cluster dynamically", func(t *testing.T) {
+		clusters := mockClusters(3)
+		defer closeClusters(clusters)
+		// for testing longRequestContext()
+		clusters[0].longRequestContext()
+	})
+	t.Run("start static sized cluster", func(t *testing.T) {
+		clusterNodes := mockStaticCluster(3)
+		defer closeClusters(clusterNodes)
+	})
 }
 
 func TestLease(t *testing.T) {
@@ -183,22 +224,14 @@ func TestClusterSyncer(t *testing.T) {
 
 	c.Put("/akey", "avalue")
 
-	for {
-		var value *string
-		select {
-		case value = <-schan:
-			fmt.Printf("sync value is %v\n", value)
-		}
-		break
+	{
+		value := <-schan
+		fmt.Printf("sync value is %v\n", value)
 	}
 
-	for {
-		var value *mvccpb.KeyValue
-		select {
-		case value = <-rschan:
-			fmt.Printf("sync raw value is %v\n", value)
-		}
-		break
+	{
+		value := <-rschan
+		fmt.Printf("sync raw value is %v\n", value)
 	}
 
 	pchan, err := syncer.SyncPrefix("/abcd")
@@ -216,23 +249,18 @@ func TestClusterSyncer(t *testing.T) {
 	if _, err = c.GetPrefix("/abcd"); err != nil {
 		t.Errorf("cluster get prefix failed: %v", err)
 	}
-
-	for {
-		value := make(map[string]string, 1)
-		select {
-		case value = <-pchan:
-			fmt.Printf("sync prefix value is %v\n", value)
-		}
-		break
+	if _, err = c.GetWithOp("/abcd", OpPrefix); err != nil {
+		t.Errorf("cluster get prefix failed: %v", err)
 	}
 
-	for {
-		value := make(map[string]*mvccpb.KeyValue)
-		select {
-		case value = <-rpchan:
-			fmt.Printf("sync raw pvalue is %v\n", value)
-		}
-		break
+	{
+		value := <-pchan
+		fmt.Printf("sync prefix value is %v\n", value)
+	}
+
+	{
+		value := <-rpchan
+		fmt.Printf("sync raw pvalue is %v\n", value)
 	}
 
 	syncer.Close()
@@ -276,25 +304,21 @@ func TestClusterWatcher(t *testing.T) {
 
 	c.Put("/akey/value", "yes")
 
-	for {
-		var value *string
-		select {
-		case value = <-wchan:
-			fmt.Printf("watch value is %v\n", value)
-		}
-		break
+	{
+		value := <-wchan
+		fmt.Printf("watch value is %v\n", value)
 	}
 
-	for {
-		var value *clientv3.Event
-		select {
-		case value = <-rchan:
-			fmt.Printf("watch raw value is %v\n", value)
-		}
-		break
+	{
+		value := <-rchan
+		fmt.Printf("watch raw value is %v\n", value)
 	}
 
 	pchan, err := watcher.WatchPrefix("/ab")
+	if err != nil {
+		t.Errorf("watcher watch failed: %v", err)
+	}
+	opchan, err := watcher.WatchWithOp("/ab", OpPrefix)
 	if err != nil {
 		t.Errorf("watcher watch failed: %v", err)
 	}
@@ -307,44 +331,39 @@ func TestClusterWatcher(t *testing.T) {
 
 	c.Put("/abc", "kkk")
 
-	for {
-		value := make(map[string]*string, 1)
-		select {
-		case value = <-pchan:
-			fmt.Printf("watch prefix value is %v\n", value)
-		}
-		break
+	{
+		value := <-pchan
+		fmt.Printf("watch prefix value is %v\n", value)
+	}
+
+	{
+		value := <-opchan
+		fmt.Printf("watch prefix value is %v\n", value)
 	}
 	c.Put("/abcd/ef", "jjj")
 
-	for {
-		value := make(map[string]*clientv3.Event, 1)
-		select {
-		case value = <-rawpchan:
-			fmt.Printf("watch prefix raw value is %v\n", value)
-		}
-		break
+	{
+		value := <-rawpchan
+		fmt.Printf("watch prefix raw value is %v\n", value)
 	}
+
 	c.DeletePrefix("/abc")
 
-	for {
-		value := make(map[string]*string, 1)
-		select {
-		case value = <-pchan:
-			fmt.Printf("watch delete prefix value is %v\n", value)
-		}
-		break
+	{
+		value := <-pchan
+		fmt.Printf("watch delete prefix value is %v\n", value)
+	}
+
+	{
+		value := <-opchan
+		fmt.Printf("watch delete prefix value is %v\n", value)
 	}
 
 	c.DeletePrefix("/abcd/")
 
-	for {
-		value := make(map[string]*clientv3.Event, 1)
-		select {
-		case value = <-rawpchan:
-			fmt.Printf("watch delete prefix raw value is %v\n", value)
-		}
-		break
+	{
+		value := <-rawpchan
+		fmt.Printf("watch delete prefix raw value is %v\n", value)
 	}
 
 	watcher.Close()

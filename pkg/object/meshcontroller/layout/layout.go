@@ -59,6 +59,9 @@ const (
 	customResource           = "/mesh/custom-resources/%s/%s/" // +kind +name
 
 	globalCanaryHeaders = "/mesh/canary-headers"
+
+	serviceCanaryPrefix = "/mesh/service-canary/"
+	serviceCanary       = "/mesh/service-canary/%s"
 )
 
 // ServiceSpecPrefix returns the prefix of service.
@@ -204,4 +207,14 @@ func AllIngressControllerInstanceSpecPrefix() string {
 // AllIngressControllerInstanceCertPrefix returns all instances specs prefix.
 func AllIngressControllerInstanceCertPrefix() string {
 	return allIngressControllerInstanceCertPrefix
+}
+
+// ServiceCanaryPrefix returns the prefix of service canaries.
+func ServiceCanaryPrefix() string {
+	return serviceCanaryPrefix
+}
+
+// ServiceCanaryKey returns the key of service canary.
+func ServiceCanaryKey(serviceCanaryName string) string {
+	return fmt.Sprintf(serviceCanary, serviceCanaryName)
 }

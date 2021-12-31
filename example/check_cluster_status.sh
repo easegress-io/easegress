@@ -13,11 +13,11 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 echo -e ${GREEN}"status:"${NC}
-${SCRIPTPATH}/writer-001/status.sh
+${SCRIPTPATH}/primary-001/status.sh
 
 echo -e ${GREEN}"members:"${NC}
-${SCRIPTPATH}/writer-001/egctl.sh member list
+${SCRIPTPATH}/primary-001/egctl.sh member list
 
 echo -e ${GREEN}"objects:"${NC}
-${SCRIPTPATH}/writer-001/egctl.sh object list
+${SCRIPTPATH}/primary-001/egctl.sh object list
 

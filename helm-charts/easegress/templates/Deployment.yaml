@@ -1,0 +1,73 @@
+{{ if gt ( .Values.cluster.secondaryReplicas | int ) 0 }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    name: {{ .Release.Name }}
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: {{ .Values.cluster.secondaryReplicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}
+    spec:
+      serviceAccountName: {{ .Release.Name }}
+      containers:
+      - args:
+        - -c
+        - |-
+          echo name: $EG_NAME > /opt/eg-config/config.yaml &&
+          cat /opt/eg-config/eg-secondary.yaml >> /opt/eg-config/config.yaml &&
+          /opt/easegress/bin/easegress-server \
+            -f /opt/eg-config/config.yaml
+        command:
+        - /bin/sh
+        env:
+        - name: EG_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        imagePullPolicy: IfNotPresent
+        name: easegress-secondary
+        ports:
+        - containerPort: 2381
+          name: admin-port
+          protocol: TCP
+        - containerPort: 2380
+          name: peer-port
+          protocol: TCP
+        - containerPort: 2379
+          name: client-port
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 1200m
+            memory: 2Gi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+        volumeMounts:
+        - mountPath: /opt/eg-config/eg-secondary.yaml
+          name: {{ .Release.Name }}
+          subPath: eg-secondary.yaml
+        - mountPath: /opt/easegress/data
+          name: easegress-data-volume
+      restartPolicy: Always
+      volumes:
+      - emptyDir: {}
+        name: easegress-data-volume
+      - configMap:
+          defaultMode: 420
+          items:
+          - key: eg-secondary.yaml
+            path: eg-secondary.yaml
+          name: {{ .Release.Name }}
+        name: {{ .Release.Name }}
+{{ end }}

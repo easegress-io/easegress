@@ -15,7 +15,7 @@
 
 As the diagram described, the cluster does data synchronization of all nodes, and the supervisor manages the lifecycle of all kinds of objects:
 
-![architecture](./architecture.png)
+![architecture](./imgs/architecture.png)
 
 1. System Controller: Every instance of EG has one and only one kind of it.
 2. Business Controller: The component does its own task which does not directly handle the traffic.
@@ -125,7 +125,7 @@ func (c *StatusInLocalController) syncStatus() {
 		return
 	}
 
-	ioutil.WriteFile(c.spec.Path, buff, 0644)
+	os.WriteFile(c.spec.Path, buff, 0644)
 }
 ```
 
@@ -137,7 +137,7 @@ All objects must satisfy the interface `Object` in [`pkg/object/supervisor/regis
 package statusinlocalcontroller
 
 import (
-	"io/ioutil"
+	"os"
 	"runtime/debug"
 	"time"
 
@@ -209,7 +209,7 @@ func (c *StatusInLocalController) syncStatus() {
 		return
 	}
 
-	ioutil.WriteFile(c.spec.Path, buff, 0644)
+	os.WriteFile(c.spec.Path, buff, 0644)
 }
 
 // Category returns the category of StatusInLocalController.

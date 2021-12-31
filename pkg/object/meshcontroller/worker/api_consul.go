@@ -20,7 +20,7 @@ package worker
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -73,7 +73,7 @@ func (worker *Worker) consulAPIs() []*apiEntry {
 }
 
 func (worker *Worker) consulRegister(w http.ResponseWriter, r *http.Request) {
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest,
 			fmt.Errorf("read body failed: %v", err))

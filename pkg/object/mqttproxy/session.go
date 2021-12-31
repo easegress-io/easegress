@@ -26,6 +26,7 @@ import (
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/openzipkin/zipkin-go/model"
 )
 
 type (
@@ -70,10 +71,10 @@ func newMsg(topic string, payload []byte, qos byte) *Message {
 }
 
 func (s *Session) store() {
-	logger.Debugf("session %v store", s.info.ClientID)
+	logger.SpanDebugf(nil, "session %v store", s.info.ClientID)
 	str, err := s.encode()
 	if err != nil {
-		logger.Errorf("encode session %+v failed: %v", s, err)
+		logger.SpanErrorf(nil, "encode session %+v failed: %v", s, err)
 		return
 	}
 	ss := SessionStore{
@@ -122,7 +123,7 @@ func (s *Session) updateEGName(egName, name string) {
 }
 
 func (s *Session) subscribe(topics []string, qoss []byte) error {
-	logger.Debugf("session %s sub %v", s.info.ClientID, topics)
+	logger.SpanDebugf(nil, "session %s sub %v", s.info.ClientID, topics)
 	s.Lock()
 	for i, t := range topics {
 		s.info.Topics[t] = int(qoss[i])
@@ -133,7 +134,7 @@ func (s *Session) subscribe(topics []string, qoss []byte) error {
 }
 
 func (s *Session) unsubscribe(topics []string) error {
-	logger.Debugf("session %s unsub %v", s.info.ClientID, topics)
+	logger.SpanDebugf(nil, "session %s unsub %v", s.info.ClientID, topics)
 	s.Lock()
 	for _, t := range topics {
 		delete(s.info.Topics, t)
@@ -144,7 +145,6 @@ func (s *Session) unsubscribe(topics []string) error {
 }
 
 func (s *Session) allSubscribes() ([]string, []byte, error) {
-	logger.Debugf("session %s all sub", s.info.ClientID)
 	s.Lock()
 
 	var sub []string
@@ -169,17 +169,17 @@ func (s *Session) getPacketFromMsg(topic string, payload []byte, qos byte) *pack
 	return p
 }
 
-func (s *Session) publish(topic string, payload []byte, qos byte) {
+func (s *Session) publish(span *model.SpanContext, topic string, payload []byte, qos byte) {
 	client := s.broker.getClient(s.info.ClientID)
 	if client == nil {
-		logger.Errorf("client %s is offline", s.info.ClientID)
+		logger.SpanErrorf(span, "client %s is offline in eg %v", s.info.ClientID, s.broker.egName)
 		return
 	}
 
 	s.Lock()
 	defer s.Unlock()
 
-	logger.Debugf("session %v publish %v", s.info.ClientID, topic)
+	logger.SpanDebugf(span, "session %v publish %v", s.info.ClientID, topic)
 	p := s.getPacketFromMsg(topic, payload, qos)
 	if qos == QoS0 {
 		select {
@@ -192,7 +192,7 @@ func (s *Session) publish(topic string, payload []byte, qos byte) {
 		s.pendingQueue = append(s.pendingQueue, p.MessageID)
 		client.writePacket(p)
 	} else {
-		logger.Errorf("publish message with qos=2 is not supported currently")
+		logger.SpanErrorf(span, "publish message with qos=2 is not supported currently")
 	}
 }
 
@@ -228,7 +228,7 @@ func (s *Session) doResend() {
 			p.TopicName = val.Topic
 			payload, err := base64.StdEncoding.DecodeString(val.B64Payload)
 			if err != nil {
-				logger.Errorf("base64 decode error for Message B64Payload %s", err)
+				logger.SpanErrorf(nil, "base64 decode error for Message B64Payload %s", err)
 				return
 			}
 			p.Payload = payload
@@ -236,7 +236,7 @@ func (s *Session) doResend() {
 			if client != nil {
 				client.writePacket(p)
 			} else {
-				logger.Debugf("session %v do resend but client is nil", s.info.ClientID)
+				logger.SpanDebugf(nil, "session %v do resend but client is nil", s.info.ClientID)
 			}
 			return
 		}
@@ -256,7 +256,7 @@ func (s *Session) backgroundResendPending() {
 			s.doResend()
 		}
 		if time.Now().After(debugLogTime) {
-			logger.Debugf("session %v resend", s.info.ClientID)
+			logger.SpanDebugf(nil, "session %v resend", s.info.ClientID)
 			debugLogTime = time.Now().Add(time.Minute)
 		}
 	}

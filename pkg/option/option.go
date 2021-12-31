@@ -35,7 +35,21 @@ import (
 	"github.com/megaease/easegress/pkg/version"
 )
 
-// Options is the startup options.
+// ClusterOptions is the start-up options.
+type ClusterOptions struct {
+	// Primary members define following URLs to form a cluster.
+	ListenPeerURLs           []string          `yaml:"listen-peer-urls"`
+	ListenClientURLs         []string          `yaml:"listen-client-urls"`
+	AdvertiseClientURLs      []string          `yaml:"advertise-client-urls"`
+	InitialAdvertisePeerURLs []string          `yaml:"initial-advertise-peer-urls"`
+	InitialCluster           map[string]string `yaml:"initial-cluster"`
+	StateFlag                string            `yaml:"state-flag"`
+	// Secondary members define URLs to connect to cluster formed by primary members.
+	PrimaryListenPeerURLs []string `yaml:"primary-listen-peer-urls"`
+	MaxCallSendMsgSize    int      `yaml:"max-call-send-msg-size"`
+}
+
+// Options is the start-up options.
 type Options struct {
 	flags   *pflag.FlagSet
 	viper   *viper.Viper
@@ -52,20 +66,23 @@ type Options struct {
 	// If a config file is specified, below command line flags will be ignored.
 
 	// meta
-	Name                            string            `yaml:"name" env:"EG_NAME"`
-	Labels                          map[string]string `yaml:"labels" env:"EG_LABELS"`
-	ClusterName                     string            `yaml:"cluster-name"`
-	ClusterRole                     string            `yaml:"cluster-role"`
-	ClusterRequestTimeout           string            `yaml:"cluster-request-timeout"`
-	ClusterListenClientURLs         []string          `yaml:"cluster-listen-client-urls"`
-	ClusterListenPeerURLs           []string          `yaml:"cluster-listen-peer-urls"`
-	ClusterAdvertiseClientURLs      []string          `yaml:"cluster-advertise-client-urls"`
-	ClusterInitialAdvertisePeerURLs []string          `yaml:"cluster-initial-advertise-peer-urls"`
-	ClusterJoinURLs                 []string          `yaml:"cluster-join-urls"`
-	APIAddr                         string            `yaml:"api-addr"`
-	Debug                           bool              `yaml:"debug"`
-	DisableAccessLog                bool              `yaml:"disable-access-log"`
-	InitialObjectConfigFiles        []string          `yaml:"initial-object-config-files"`
+	Name                     string            `yaml:"name" env:"EG_NAME"`
+	Labels                   map[string]string `yaml:"labels" env:"EG_LABELS"`
+	APIAddr                  string            `yaml:"api-addr"`
+	Debug                    bool              `yaml:"debug"`
+	DisableAccessLog         bool              `yaml:"disable-access-log"`
+	InitialObjectConfigFiles []string          `yaml:"initial-object-config-files"`
+
+	// cluster options
+	ClusterName                     string         `yaml:"cluster-name"`
+	ClusterRole                     string         `yaml:"cluster-role"`
+	ClusterRequestTimeout           string         `yaml:"cluster-request-timeout"`
+	ClusterListenClientURLs         []string       `yaml:"cluster-listen-client-urls"`
+	ClusterListenPeerURLs           []string       `yaml:"cluster-listen-peer-urls"`
+	ClusterAdvertiseClientURLs      []string       `yaml:"cluster-advertise-client-urls"`
+	ClusterInitialAdvertisePeerURLs []string       `yaml:"cluster-initial-advertise-peer-urls"`
+	ClusterJoinURLs                 []string       `yaml:"cluster-join-urls"`
+	Cluster                         ClusterOptions `yaml:"cluster"`
 
 	// Path.
 	HomeDir   string `yaml:"home-dir"`
@@ -86,6 +103,35 @@ type Options struct {
 	AbsMemberDir string `yaml:"-"`
 }
 
+// addClusterVars introduces cluster arguments.
+func addClusterVars(opt *Options) {
+	opt.flags.StringVar(&opt.ClusterName, "cluster-name", "eg-cluster-default-name", "Human-readable name for the new cluster, ignored while joining an existed cluster.")
+	opt.flags.StringVar(&opt.ClusterRole, "cluster-role", "primary", "Cluster role for this member (primary, secondary).")
+	opt.flags.StringVar(&opt.ClusterRequestTimeout, "cluster-request-timeout", "10s", "Timeout to handle request in the cluster.")
+
+	// Cluster connection configuration style 1
+	opt.flags.StringSliceVar(&opt.ClusterListenClientURLs, "cluster-listen-client-urls", []string{"http://localhost:2379"}, "List of URLs to listen on for cluster client traffic.")
+	opt.flags.StringSliceVar(&opt.ClusterListenPeerURLs, "cluster-listen-peer-urls", []string{"http://localhost:2380"}, "List of URLs to listen on for cluster peer traffic.")
+	opt.flags.StringSliceVar(&opt.ClusterAdvertiseClientURLs, "cluster-advertise-client-urls", []string{"http://localhost:2379"}, "List of this member’s client URLs to advertise to the rest of the cluster.")
+	opt.flags.StringSliceVar(&opt.ClusterInitialAdvertisePeerURLs, "cluster-initial-advertise-peer-urls", []string{"http://localhost:2380"}, "List of this member’s peer URLs to advertise to the rest of the cluster.")
+	opt.flags.StringSliceVar(&opt.ClusterJoinURLs, "cluster-join-urls", nil,
+		"List of URLs to join, when the first url is the same with any one of cluster-initial-advertise-peer-urls, it means to join itself, and this config will be treated empty. When used, leave initial-cluster empty.")
+
+	// Cluster connection configuration style 2
+	opt.flags.StringSliceVar(&opt.Cluster.ListenClientURLs, "listen-client-urls", []string{"http://localhost:2379"}, "List of URLs to listen on for cluster client traffic.")
+	opt.flags.StringSliceVar(&opt.Cluster.ListenPeerURLs, "listen-peer-urls", []string{"http://localhost:2380"}, "List of URLs to listen on for cluster peer traffic.")
+	opt.flags.StringSliceVar(&opt.Cluster.AdvertiseClientURLs, "advertise-client-urls", []string{"http://localhost:2379"}, "List of this member’s client URLs to advertise to the rest of the cluster.")
+	opt.flags.StringSliceVar(&opt.Cluster.InitialAdvertisePeerURLs, "initial-advertise-peer-urls", []string{"http://localhost:2380"}, "List of this member’s peer URLs to advertise to the rest of the cluster.")
+	opt.flags.StringToStringVarP(&opt.Cluster.InitialCluster, "initial-cluster", "", nil,
+		"List of (member name, URL) pairs that will form the cluster. E.g. primary-1=http://localhost:2380. When used, leave cluster-join-urls empty.")
+	opt.flags.StringVar(&opt.Cluster.StateFlag, "state-flag", "new", "Cluster state (new, existing)")
+	opt.flags.StringSliceVar(&opt.Cluster.PrimaryListenPeerURLs,
+		"primary-listen-peer-urls",
+		[]string{"http://localhost:2380"},
+		"List of peer URLs of primary members. Define this only, when cluster-role is secondary.")
+	opt.flags.IntVar(&opt.Cluster.MaxCallSendMsgSize, "max-call-send-msg-size", 10*1024*1024, "Maximum size in bytes for cluster synchronization messages.")
+}
+
 // New creates a default Options.
 func New() *Options {
 	opt := &Options{
@@ -101,14 +147,7 @@ func New() *Options {
 	opt.flags.BoolVar(&opt.SignalUpgrade, "signal-upgrade", false, "Send an upgrade signal to the server based on the local pid file, then exit. The original server will start a graceful upgrade after signal received.")
 	opt.flags.StringVar(&opt.Name, "name", "eg-default-name", "Human-readable name for this member.")
 	opt.flags.StringToStringVar(&opt.Labels, "labels", nil, "The labels for the instance of Easegress.")
-	opt.flags.StringVar(&opt.ClusterName, "cluster-name", "eg-cluster-default-name", "Human-readable name for the new cluster, ignored while joining an existed cluster.")
-	opt.flags.StringVar(&opt.ClusterRole, "cluster-role", "writer", "Cluster role for this member (reader, writer).")
-	opt.flags.StringVar(&opt.ClusterRequestTimeout, "cluster-request-timeout", "10s", "Timeout to handle request in the cluster.")
-	opt.flags.StringSliceVar(&opt.ClusterListenClientURLs, "cluster-listen-client-urls", []string{"http://localhost:2379"}, "List of URLs to listen on for cluster client traffic.")
-	opt.flags.StringSliceVar(&opt.ClusterListenPeerURLs, "cluster-listen-peer-urls", []string{"http://localhost:2380"}, "List of URLs to listen on for cluster peer traffic.")
-	opt.flags.StringSliceVar(&opt.ClusterAdvertiseClientURLs, "cluster-advertise-client-urls", []string{"http://localhost:2379"}, "List of this member’s client URLs to advertise to the rest of the cluster.")
-	opt.flags.StringSliceVar(&opt.ClusterInitialAdvertisePeerURLs, "cluster-initial-advertise-peer-urls", []string{"http://localhost:2380"}, "List of this member’s peer URLs to advertise to the rest of the cluster.")
-	opt.flags.StringSliceVar(&opt.ClusterJoinURLs, "cluster-join-urls", nil, "List of URLs to join, when the first url is the same with any one of cluster-initial-advertise-peer-urls, it means to join itself, and this config will be treated empty.")
+	addClusterVars(opt)
 	opt.flags.StringVar(&opt.APIAddr, "api-addr", "localhost:2381", "Address([host]:port) to listen on for administration traffic.")
 	opt.flags.BoolVar(&opt.Debug, "debug", false, "Flag to set lowest log level from INFO downgrade DEBUG.")
 	opt.flags.StringSliceVar(&opt.InitialObjectConfigFiles, "initial-object-config-files", nil, "List of configuration files for initial objects, these objects will be created at startup if not already exist.")
@@ -130,6 +169,26 @@ func New() *Options {
 // YAML returns yaml string of option, need to be called after calling Parse.
 func (opt *Options) YAML() string {
 	return opt.yamlStr
+}
+
+// UseInitialCluster returns true if the cluster.initial-cluster is defined. If it is, the ClusterJoinUrls is ignored.
+func (opt *Options) UseInitialCluster() bool {
+	return len(opt.Cluster.InitialCluster) > 0
+}
+
+// renameLegacyClusterRoles renames legacy writer/reader --> primary/secondary and raises warning.
+func (opt *Options) renameLegacyClusterRoles() {
+	warning := "Cluster roles writer/reader are deprecated. \n" +
+		"Renamed cluster role '%s' to '%s'. Please use primary/secondary instead. \n"
+	fmtLogger := fmt.Printf // Importing logger here is a import cycle, so use fmt instead.
+	if opt.ClusterRole == "writer" {
+		opt.ClusterRole = "primary"
+		fmtLogger(warning, "writer", "primary")
+	}
+	if opt.ClusterRole == "reader" {
+		opt.ClusterRole = "secondary"
+		fmtLogger(warning, "reader", "secondary")
+	}
 }
 
 // Parse parses all arguments, returns normal message without error if --help/--version set.
@@ -177,6 +236,7 @@ func (opt *Options) Parse() (string, error) {
 		c.TagName = "yaml"
 	})
 
+	opt.renameLegacyClusterRoles()
 	err = opt.validate()
 	if err != nil {
 		return "", err
@@ -205,7 +265,7 @@ func (opt *Options) Parse() (string, error) {
 // adjust adjusts the options to handle conflict
 // between user's config and internal component.
 func (opt *Options) adjust() {
-	if opt.ClusterRole != "writer" {
+	if opt.ClusterRole != "primary" || opt.UseInitialCluster() {
 		return
 	}
 	if len(opt.ClusterJoinURLs) == 0 {
@@ -225,79 +285,93 @@ func (opt *Options) adjust() {
 	}
 }
 
+// ParseURLs parses list of strings to url.URL objects.
+func ParseURLs(urlStrings []string) ([]url.URL, error) {
+	urls := make([]url.URL, len(urlStrings))
+	for i, urlString := range urlStrings {
+		parsedURL, err := url.Parse(urlString)
+		if err != nil {
+			return nil, fmt.Errorf(" %s: %v", urlString, err)
+		}
+		urls[i] = *parsedURL
+	}
+	return urls, nil
+}
+
+// checkNoOverlappingArguments checks that only one of Cluster.InitialCluster and ClusterJoinURLs is defined.
+func checkNoOverlappingArguments(opt *Options) error {
+	if !opt.UseInitialCluster() {
+		return nil
+	}
+	if len(opt.ClusterJoinURLs) == 0 {
+		return nil
+	}
+	hasYAMLConfig := len(opt.ConfigFile) > 0
+	if hasYAMLConfig {
+		errorMsg := `cluster.initial-cluster and cluster-join-urls are both defined. ` +
+			`Please provide only one of them. cluster.initial-cluster is the recommended way.`
+		return fmt.Errorf(errorMsg)
+	}
+	errorMsg := `--initial-cluster and --cluster-join-urls are both defined. ` +
+		`Please provide only one of them. --initial-cluster is the recommended way.`
+	return fmt.Errorf(errorMsg)
+}
+
 func (opt *Options) validate() error {
 	if opt.ClusterName == "" {
 		return fmt.Errorf("empty cluster-name")
 	} else if err := common.ValidateName(opt.ClusterName); err != nil {
 		return err
 	}
-
+	if len(opt.ClusterJoinURLs) != 0 {
+		if _, err := ParseURLs(opt.ClusterJoinURLs); err != nil {
+			return fmt.Errorf("invalid cluster-join-urls: %v", err)
+		}
+	}
 	switch opt.ClusterRole {
-	case "reader":
+	case "secondary":
 		if opt.ForceNewCluster {
-			return fmt.Errorf("reader got force-new-cluster")
+			return fmt.Errorf("secondary got force-new-cluster")
+		}
+		if len(opt.Cluster.PrimaryListenPeerURLs) == 0 && len(opt.ClusterJoinURLs) == 0 {
+			return fmt.Errorf("secondary got empty cluster.primary-listen-peer-urls and cluster-join-urls entries")
+		}
+	case "primary":
+		if err := checkNoOverlappingArguments(opt); err != nil {
+			return err
+		}
+		argumentsToValidate := map[string][]string{
+			"cluster-listen-client-urls":          opt.ClusterListenClientURLs,
+			"cluster-listen-peer-urls":            opt.ClusterListenPeerURLs,
+			"cluster-advertise-client-urls":       opt.ClusterAdvertiseClientURLs,
+			"cluster-initial-advertise-peer-urls": opt.ClusterInitialAdvertisePeerURLs,
 		}
 
-		if len(opt.ClusterJoinURLs) == 0 {
-			return fmt.Errorf("reader got empty cluster-join-urls")
-		}
-
-		for _, urlText := range opt.ClusterJoinURLs {
-			_, err := url.Parse(urlText)
-			if err != nil {
-				return fmt.Errorf("invalid cluster-join-urls: %v", err)
+		if opt.UseInitialCluster() {
+			argumentsToValidate = map[string][]string{
+				"listen-client-urls":          opt.Cluster.ListenClientURLs,
+				"listen-peer-urls":            opt.Cluster.ListenPeerURLs,
+				"advertise-client-urls":       opt.Cluster.AdvertiseClientURLs,
+				"initial-advertise-peer-urls": opt.Cluster.InitialAdvertisePeerURLs,
+			}
+			initialClusterUrls := make([]string, 0, len(opt.Cluster.InitialCluster))
+			for _, value := range opt.Cluster.InitialCluster {
+				initialClusterUrls = append(initialClusterUrls, value)
+			}
+			if _, err := ParseURLs(initialClusterUrls); err != nil {
+				return fmt.Errorf("invalid initial-cluster: %v", err)
 			}
 		}
-
-	case "writer":
-		if len(opt.ClusterListenClientURLs) == 0 {
-			return fmt.Errorf("empty cluster-listen-client-urls")
-		}
-		if len(opt.ClusterListenPeerURLs) == 0 {
-			return fmt.Errorf("empty cluster-listen-peer-urls")
-		}
-		if len(opt.ClusterAdvertiseClientURLs) == 0 {
-			return fmt.Errorf("empty cluster-advertise-client-urls")
-		}
-		if len(opt.ClusterInitialAdvertisePeerURLs) == 0 {
-			return fmt.Errorf("empty cluster-initial-advertise-peer-urls")
-		}
-
-		for _, clientURL := range opt.ClusterListenClientURLs {
-			_, err := url.Parse(clientURL)
-			if err != nil {
-				return fmt.Errorf("invalid cluster-listen-client-urls: %s: %v", clientURL, err)
+		for arg, urls := range argumentsToValidate {
+			if len(urls) == 0 {
+				return fmt.Errorf("empty %s", arg)
 			}
-		}
-		for _, peerURL := range opt.ClusterListenPeerURLs {
-			_, err := url.Parse(peerURL)
-			if err != nil {
-				return fmt.Errorf("invalid cluster-listen-peer-urls: %s: %v", peerURL, err)
-			}
-		}
-		for _, clientURL := range opt.ClusterAdvertiseClientURLs {
-			_, err := url.Parse(clientURL)
-			if err != nil {
-				return fmt.Errorf("invalid cluster-advertise-client-urls: %s: %v", clientURL, err)
-			}
-		}
-		for _, peerURL := range opt.ClusterInitialAdvertisePeerURLs {
-			_, err := url.Parse(peerURL)
-			if err != nil {
-				return fmt.Errorf("invalid cluster-initial-advertise-peer-urls: %s: %v", peerURL, err)
-			}
-		}
-
-		if len(opt.ClusterJoinURLs) != 0 {
-			for _, joinURL := range opt.ClusterJoinURLs {
-				_, err := url.Parse(joinURL)
-				if err != nil {
-					return fmt.Errorf("invalid cluster-join-urls: %s: %v", joinURL, err)
-				}
+			if _, err := ParseURLs(urls); err != nil {
+				return fmt.Errorf("invalid %s: %v", arg, err)
 			}
 		}
 	default:
-		return fmt.Errorf("invalid cluster-role(support writer, reader)")
+		return fmt.Errorf("invalid cluster-role: supported roles are primary/secondary")
 	}
 
 	_, err := time.ParseDuration(opt.ClusterRequestTimeout)
@@ -324,7 +398,7 @@ func (opt *Options) validate() error {
 	if opt.LogDir == "" {
 		return fmt.Errorf("empty log-dir")
 	}
-	if opt.MemberDir == "" {
+	if !opt.UseInitialCluster() && opt.MemberDir == "" {
 		return fmt.Errorf("empty member-dir")
 	}
 
@@ -379,6 +453,45 @@ func (opt *Options) prepare() error {
 	}
 
 	return nil
+}
+
+// InitialClusterToString returns initial clusters string representation.
+func (opt *Options) InitialClusterToString() string {
+	ss := make([]string, 0)
+	for name, peerURL := range opt.Cluster.InitialCluster {
+		ss = append(ss, fmt.Sprintf("%s=%s", name, peerURL))
+	}
+	return strings.Join(ss, ",")
+}
+
+// GetPeerURLs returns URLs listed in cluster.initial-cluster for primary (a.k.a writer) and
+// for secondary (a.k.a reader) the ones listed in cluster.primary-listen-peer-url.
+func (opt *Options) GetPeerURLs() []string {
+	if opt.ClusterRole == "secondary" {
+		if len(opt.ClusterJoinURLs) != 0 {
+			return opt.ClusterJoinURLs
+		}
+		return opt.Cluster.PrimaryListenPeerURLs
+	}
+	peerURLs := make([]string, 0)
+	for _, peerURL := range opt.Cluster.InitialCluster {
+		peerURLs = append(peerURLs, peerURL)
+	}
+	return peerURLs
+}
+
+// GetFirstAdvertiseClientURL returns the first advertised client url.
+func (opt *Options) GetFirstAdvertiseClientURL() (string, error) {
+	if opt.UseInitialCluster() {
+		if len(opt.Cluster.AdvertiseClientURLs) == 0 {
+			return "", fmt.Errorf("cluster.advertise-client-URLs is empty")
+		}
+		return opt.Cluster.AdvertiseClientURLs[0], nil
+	}
+	if len(opt.ClusterAdvertiseClientURLs) == 0 {
+		return "", fmt.Errorf("cluster-advertise-client-URLs is empty")
+	}
+	return opt.ClusterAdvertiseClientURLs[0], nil
 }
 
 func generateMemberName(apiAddr string) (string, error) {

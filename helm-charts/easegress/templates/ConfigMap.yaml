@@ -1,0 +1,40 @@
+apiVersion: v1
+data:
+  eg-primary.yaml: |
+    cluster-name: easegress
+    cluster-role: primary
+    cluster:
+      listen-client-urls:
+      - http://0.0.0.0:2379
+      listen-peer-urls:
+      - http://0.0.0.0:2380
+      initial-cluster:
+      {{- $releasename := printf "%s" .Release.Name -}}
+      {{- $releasenamespace := printf "%s" .Release.Namespace -}}
+      {{- range $i, $e := until (.Values.cluster.primaryReplicas | int) }}
+      - {{ $releasename }}-{{$i}}: http://{{ $releasename }}-{{$i}}.easegress-hs.{{ $releasenamespace }}:2380
+      {{- end }}
+    api-addr: 0.0.0.0:2381
+    data-dir: /opt/easegress/data
+    wal-dir: ""
+    cpu-profile-file: ""
+    memory-profile-file: ""
+    log-dir: /opt/easegress/log
+    debug: false
+  eg-secondary.yaml: |
+    cluster-name: easegress
+    cluster-role: secondary
+    cluster:
+      primary-listen-peer-urls:
+      - http://{{ .Release.Name }}-0.easegress-hs.{{ .Release.Namespace }}:2380
+    api-addr: 0.0.0.0:2381
+    data-dir: /opt/easegress/data
+    wal-dir: ""
+    cpu-profile-file: ""
+    memory-profile-file: ""
+    log-dir: /opt/easegress/log
+    debug: false
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}

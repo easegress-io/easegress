@@ -51,8 +51,8 @@ const (
 	// MeshServicePath is the mesh service path.
 	MeshServicePath = "/mesh/services/{serviceName}"
 
-	// MeshServiceCanaryPath is the mesh service canary path.
-	MeshServiceCanaryPath = "/mesh/services/{serviceName}/canary"
+	// OldMeshServiceCanaryPath is the mesh service canary path.
+	OldMeshServiceCanaryPath = "/mesh/services/{serviceName}/canary"
 
 	// MeshServiceMockPath is the mesh service mock path.
 	MeshServiceMockPath = "/mesh/services/{serviceName}/mock"
@@ -107,6 +107,12 @@ const (
 
 	// MeshWatchCustomResource is the path to watch custom resources of a specified kind
 	MeshWatchCustomResource = "/mesh/watchcustomresources/{kind}"
+
+	// MeshServiceCanaryPrefix is the service canary prefix.
+	MeshServiceCanaryPrefix = "/mesh/servicecanaries"
+
+	// MeshServiceCanaryPath is the service canary path.
+	MeshServiceCanaryPath = "/mesh/servicecanaries/{serviceCanaryName}"
 )
 
 type (
@@ -160,10 +166,10 @@ func (a *API) registerAPIs() {
 			{Path: MeshServiceInstancePath, Method: "GET", Handler: a.getServiceInstanceSpec},
 			{Path: MeshServiceInstancePath, Method: "DELETE", Handler: a.offlineServiceInstance},
 
-			{Path: MeshServiceCanaryPath, Method: "POST", Handler: a.createPartOfService(canaryMeta)},
-			{Path: MeshServiceCanaryPath, Method: "GET", Handler: a.getPartOfService(canaryMeta)},
-			{Path: MeshServiceCanaryPath, Method: "PUT", Handler: a.updatePartOfService(canaryMeta)},
-			{Path: MeshServiceCanaryPath, Method: "DELETE", Handler: a.deletePartOfService(canaryMeta)},
+			{Path: OldMeshServiceCanaryPath, Method: "POST", Handler: a.createPartOfService(canaryMeta)},
+			{Path: OldMeshServiceCanaryPath, Method: "GET", Handler: a.getPartOfService(canaryMeta)},
+			{Path: OldMeshServiceCanaryPath, Method: "PUT", Handler: a.updatePartOfService(canaryMeta)},
+			{Path: OldMeshServiceCanaryPath, Method: "DELETE", Handler: a.deletePartOfService(canaryMeta)},
 
 			{Path: MeshServiceMockPath, Method: "POST", Handler: a.createPartOfService(mockMeta)},
 			{Path: MeshServiceMockPath, Method: "GET", Handler: a.getPartOfService(mockMeta)},
@@ -221,6 +227,12 @@ func (a *API) registerAPIs() {
 			{Path: MeshCustomResource, Method: "DELETE", Handler: a.deleteCustomResource},
 
 			{Path: MeshWatchCustomResource, Method: "GET", Handler: a.watchCustomResources},
+
+			{Path: MeshServiceCanaryPrefix, Method: "GET", Handler: a.listServiceCanaries},
+			{Path: MeshServiceCanaryPrefix, Method: "POST", Handler: a.createServiceCanary},
+			{Path: MeshServiceCanaryPath, Method: "GET", Handler: a.getServiceCanary},
+			{Path: MeshServiceCanaryPath, Method: "PUT", Handler: a.updateServiceCanary},
+			{Path: MeshServiceCanaryPath, Method: "DELETE", Handler: a.deleteServiceCanary},
 		},
 	}
 

@@ -1,0 +1,14 @@
+name: secondary-005
+cluster-name: cluster-test
+cluster-role: secondary
+cluster:
+  primary-listen-peer-urls:
+  - http://127.0.0.1:12380
+api-addr: 127.0.0.1:52381
+data-dir: ./data
+wal-dir: ""
+cpu-profile-file:
+memory-profile-file:
+log-dir: ./log
+member-dir: ./member
+debug: false
