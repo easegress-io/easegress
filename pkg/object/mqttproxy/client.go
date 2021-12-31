@@ -218,26 +218,13 @@ func (c *Client) processPublish(publish *packets.PublishPacket) {
 		logger.SpanErrorf(nil, "client %v publish limiter drop packet %v", c.info.cid, publish.TopicName)
 		return
 	}
-	if c.broker.pipeline != "" {
-		pipe, err := pipeline.GetPipeline(c.broker.pipeline, context.MQTT)
-		if err != nil {
-			logger.SpanErrorf(nil, "get pipeline %v failed, %v", c.broker.pipeline, err)
-		} else {
-			ctx := context.NewMQTTContext(stdcontext.Background(), c.broker.backend, c, publish)
-			pipe.HandleMQTT(ctx)
-			if ctx.Disconnect() {
-				logger.SpanDebugf(nil, "client %v set disconnect during process publish", c.info.cid)
-				c.close()
-				return
-			}
-			if ctx.Drop() {
-				logger.SpanDebugf(nil, "client %v drop packet %v during process publish", c.info.cid, publish.TopicName)
-				return
-			}
-		}
+	err := c.runPipeline(publish)
+	if err != nil {
+		logger.SpanDebugf(nil, "client %v process publish %v failed, %v", c.info.cid, publish.TopicName, err)
+		return
 	}
 
-	err := c.broker.backend.publish(publish)
+	err = c.broker.backend.publish(publish)
 	if err != nil {
 		logger.SpanErrorf(nil, "client %v publish %v failed: %v", c.info.cid, publish.TopicName, err)
 	}
@@ -257,9 +244,35 @@ func (c *Client) processPuback(puback *packets.PubackPacket) {
 	c.session.puback(puback)
 }
 
+func (c *Client) runPipeline(packet packets.ControlPacket) error {
+	if c.broker.pipeline != "" {
+		pipe, err := pipeline.GetPipeline(c.broker.pipeline, context.MQTT)
+		if err != nil {
+			logger.SpanErrorf(nil, "get pipeline %v failed, %v", c.broker.pipeline, err)
+		} else {
+			ctx := context.NewMQTTContext(stdcontext.Background(), c.broker.backend, c, packet)
+			pipe.HandleMQTT(ctx)
+			if ctx.Disconnect() {
+				c.close()
+				return errors.New("pipeline set disconnect")
+			}
+			if ctx.Drop() {
+				return errors.New("pipeline set drop")
+			}
+		}
+	}
+	return nil
+}
+
 func (c *Client) processSubscribe(packet *packets.SubscribePacket) {
 	logger.SpanDebugf(nil, "client %s subscribe %v with qos %v", c.info.cid, packet.Topics, packet.Qoss)
-	err := c.broker.topicMgr.subscribe(packet.Topics, packet.Qoss, c.info.cid)
+	err := c.runPipeline(packet)
+	if err != nil {
+		logger.SpanDebugf(nil, "client %v process subscribe %v failed, %v", c.info.cid, packet.Topics, err)
+		return
+	}
+
+	err = c.broker.topicMgr.subscribe(packet.Topics, packet.Qoss, c.info.cid)
 	if err != nil {
 		logger.SpanErrorf(nil, "client %v subscribe %v failed: %v", c.info.cid, packet.Topics, err)
 		return
@@ -277,7 +290,13 @@ func (c *Client) processSubscribe(packet *packets.SubscribePacket) {
 
 func (c *Client) processUnsubscribe(packet *packets.UnsubscribePacket) {
 	logger.SpanDebugf(nil, "client %s processUnsubscribe %v", c.info.cid, packet.Topics)
-	err := c.broker.topicMgr.unsubscribe(packet.Topics, c.info.cid)
+	err := c.runPipeline(packet)
+	if err != nil {
+		logger.SpanDebugf(nil, "client %v process unsubscribe %v failed, %v", c.info.cid, packet.Topics, err)
+		return
+	}
+
+	err = c.broker.topicMgr.unsubscribe(packet.Topics, c.info.cid)
 	if err != nil {
 		logger.SpanErrorf(nil, "client %v unsubscribe %v failed: %v", c.info.cid, packet.Topics, err)
 	}

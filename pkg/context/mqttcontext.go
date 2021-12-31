@@ -38,9 +38,11 @@ type (
 		Finish()
 
 		PacketType() MQTTPacketType
-		ConnectPacket() *packets.ConnectPacket       // read only
-		PublishPacket() *packets.PublishPacket       // read only
-		DisconnectPacket() *packets.DisconnectPacket // read only
+		ConnectPacket() *packets.ConnectPacket         // read only
+		PublishPacket() *packets.PublishPacket         // read only
+		DisconnectPacket() *packets.DisconnectPacket   // read only
+		SubscribePacket() *packets.SubscribePacket     // read only
+		UnsubscribePacket() *packets.UnsubscribePacket // read only
 
 		SetDrop()         // set drop value to true
 		Drop() bool       // if true, this mqtt packet will be dropped
@@ -72,14 +74,12 @@ type (
 		ctx        stdcontext.Context
 		cancelFunc stdcontext.CancelFunc
 
-		startTime        time.Time
-		endTime          time.Time
-		client           MQTTClient
-		backend          MQTTBackend
-		connectPacket    *packets.ConnectPacket
-		publishPacket    *packets.PublishPacket
-		disconnectPacket *packets.DisconnectPacket
-		packetType       MQTTPacketType
+		startTime  time.Time
+		endTime    time.Time
+		client     MQTTClient
+		backend    MQTTBackend
+		packet     packets.ControlPacket
+		packetType MQTTPacketType
 
 		err        error
 		drop       int32
@@ -103,6 +103,12 @@ const (
 	// MQTTDisconnect is mqtt packet type of disconnect
 	MQTTDisconnect = 3
 
+	// MQTTSubscribe is mqtt packet type of subscribe
+	MQTTSubscribe = 4
+
+	// MQTTUnsubscribe is mqtt packet type of unsubscribe
+	MQTTUnsubscribe = 5
+
 	// MQTTOther is all other mqtt packet type
 	MQTTOther MQTTPacketType = 99
 )
@@ -121,19 +127,21 @@ func NewMQTTContext(ctx stdcontext.Context, backend MQTTBackend, client MQTTClie
 		backend:    backend,
 	}
 
-	switch packet := packet.(type) {
+	switch packet.(type) {
 	case *packets.ConnectPacket:
-		mqttCtx.connectPacket = packet
 		mqttCtx.packetType = MQTTConnect
 	case *packets.PublishPacket:
-		mqttCtx.publishPacket = packet
 		mqttCtx.packetType = MQTTPublish
 	case *packets.DisconnectPacket:
-		mqttCtx.disconnectPacket = packet
 		mqttCtx.packetType = MQTTDisconnect
+	case *packets.SubscribePacket:
+		mqttCtx.packetType = MQTTSubscribe
+	case *packets.UnsubscribePacket:
+		mqttCtx.packetType = MQTTUnsubscribe
 	default:
 		mqttCtx.packetType = MQTTOther
 	}
+	mqttCtx.packet = packet
 	return mqttCtx
 }
 
@@ -215,15 +223,23 @@ func (ctx *mqttContext) PacketType() MQTTPacketType {
 }
 
 func (ctx *mqttContext) ConnectPacket() *packets.ConnectPacket {
-	return ctx.connectPacket
+	return ctx.packet.(*packets.ConnectPacket)
 }
 
 func (ctx *mqttContext) PublishPacket() *packets.PublishPacket {
-	return ctx.publishPacket
+	return ctx.packet.(*packets.PublishPacket)
 }
 
 func (ctx *mqttContext) DisconnectPacket() *packets.DisconnectPacket {
-	return ctx.disconnectPacket
+	return ctx.packet.(*packets.DisconnectPacket)
+}
+
+func (ctx *mqttContext) SubscribePacket() *packets.SubscribePacket {
+	return ctx.packet.(*packets.SubscribePacket)
+}
+
+func (ctx *mqttContext) UnsubscribePacket() *packets.UnsubscribePacket {
+	return ctx.packet.(*packets.UnsubscribePacket)
 }
 
 func (ctx *mqttContext) SetDrop() {

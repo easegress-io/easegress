@@ -147,12 +147,26 @@ filters:
 			assert.Equal(true, ok)
 			_, ok = ctx.Client().Load("filter")
 			assert.Equal(true, ok)
+
+			subscribe := packets.NewControlPacket(packets.Publish).(*packets.SubscribePacket)
+			subscribe.Topics = []string{strconv.Itoa(i)}
+			ctx = context.NewMQTTContext(stdcontext.Background(), backend, c, subscribe)
+			p.HandleMQTT(ctx)
+
+			unsubscribe := packets.NewControlPacket(packets.Publish).(*packets.UnsubscribePacket)
+			subscribe.Topics = []string{strconv.Itoa(i)}
+			ctx = context.NewMQTTContext(stdcontext.Background(), backend, c, unsubscribe)
+			p.HandleMQTT(ctx)
+
 			wg.Done()
 		}(i)
 	}
 	wg.Wait()
 	f := p.getRunningFilter("mqtt-filter").filter.(*MockMQTTFilter)
-	assert.Equal(len(f.Status().(MockMQTTStatus).ClientCount), 1000, "wrong client count")
+	status := f.Status().(MockMQTTStatus)
+	assert.Equal(len(status.ClientCount), 1000, "wrong client count")
+	assert.Equal(1000, len(status.Subscribe))
+	assert.Equal(1000, len(status.Unsubscribe))
 
 	assert.Equal(1000, len(backend.Messages))
 
