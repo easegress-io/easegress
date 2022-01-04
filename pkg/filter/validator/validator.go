@@ -120,38 +120,35 @@ func (v *Validator) Handle(ctx context.HTTPContext) string {
 func (v *Validator) handle(ctx context.HTTPContext) string {
 	req := ctx.Request()
 
+	prepareErrorResponse := func(status int, tagPrefix string, err error) {
+		ctx.Response().SetStatusCode(status)
+		ctx.AddTag(stringtool.Cat(tagPrefix, err.Error()))
+	}
+
 	if v.headers != nil {
-		err := v.headers.Validate(req.Header())
-		if err != nil {
-			ctx.Response().SetStatusCode(http.StatusBadRequest)
-			ctx.AddTag(stringtool.Cat("header validator: ", err.Error()))
+		if err := v.headers.Validate(req.Header()); err != nil {
+			prepareErrorResponse(http.StatusBadRequest, "header validator: ", err)
 			return resultInvalid
 		}
 	}
 
 	if v.jwt != nil {
-		err := v.jwt.Validate(req)
-		if err != nil {
-			ctx.Response().SetStatusCode(http.StatusUnauthorized)
-			ctx.AddTag(stringtool.Cat("JWT validator: ", err.Error()))
+		if err := v.jwt.Validate(req); err != nil {
+			prepareErrorResponse(http.StatusUnauthorized, "JWT validator: ", err)
 			return resultInvalid
 		}
 	}
 
 	if v.signer != nil {
-		err := v.signer.Verify(req.Std())
-		if err != nil {
-			ctx.Response().SetStatusCode(http.StatusUnauthorized)
-			ctx.AddTag(stringtool.Cat("signature validator: ", err.Error()))
+		if err := v.signer.Verify(req.Std()); err != nil {
+			prepareErrorResponse(http.StatusUnauthorized, "signature validator: ", err)
 			return resultInvalid
 		}
 	}
 
 	if v.oauth2 != nil {
-		err := v.oauth2.Validate(req)
-		if err != nil {
-			ctx.Response().SetStatusCode(http.StatusUnauthorized)
-			ctx.AddTag(stringtool.Cat("oauth2 validator: ", err.Error()))
+		if err := v.oauth2.Validate(req); err != nil {
+			prepareErrorResponse(http.StatusUnauthorized, "oauth2 validator: ", err)
 			return resultInvalid
 		}
 	}
