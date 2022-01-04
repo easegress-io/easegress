@@ -47,9 +47,11 @@ type MockMQTTFilter struct {
 	mockFilter
 	mu sync.Mutex
 
-	spec       *MockMQTTSpec
-	clients    map[string]int
-	disconnect map[string]struct{}
+	spec        *MockMQTTSpec
+	clients     map[string]int
+	disconnect  map[string]struct{}
+	subscribe   map[string][]string
+	unsubscribe map[string][]string
 }
 
 // MockMQTTSpec is spec of MockMQTTFilter
@@ -68,6 +70,8 @@ type MockMQTTSpec struct {
 type MockMQTTStatus struct {
 	ClientCount      map[string]int
 	ClientDisconnect map[string]struct{}
+	Subscribe        map[string][]string
+	Unsubscribe      map[string][]string
 }
 
 var _ MQTTFilter = (*MockMQTTFilter)(nil)
@@ -87,27 +91,32 @@ func (m *MockMQTTFilter) Init(filterSpec *FilterSpec) {
 	m.spec = filterSpec.FilterSpec().(*MockMQTTSpec)
 	m.clients = make(map[string]int)
 	m.disconnect = make(map[string]struct{})
+	m.subscribe = make(map[string][]string)
+	m.unsubscribe = make(map[string][]string)
 }
 
 // HandleMQTT handle MQTTContext
 func (m *MockMQTTFilter) HandleMQTT(ctx context.MQTTContext) *context.MQTTResult {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-
 	m.clients[ctx.Client().ClientID()]++
-	if ctx.PacketType() == context.MQTTConnect {
+
+	switch ctx.PacketType() {
+	case context.MQTTConnect:
+		ctx.Client().Store(m.spec.ConnectKey, struct{}{})
 		if ctx.ConnectPacket().Username != m.spec.UserName || string(ctx.ConnectPacket().Password) != m.spec.Password {
 			ctx.SetDisconnect()
 		}
-	}
-	if ctx.PacketType() == context.MQTTDisconnect {
+	case context.MQTTDisconnect:
 		m.disconnect[ctx.Client().ClientID()] = struct{}{}
+	case context.MQTTSubscribe:
+		m.subscribe[ctx.Client().ClientID()] = ctx.SubscribePacket().Topics
+	case context.MQTTUnsubscribe:
+		m.unsubscribe[ctx.Client().ClientID()] = ctx.UnsubscribePacket().Topics
 	}
+
 	for _, k := range m.spec.KeysToStore {
 		ctx.Client().Store(k, struct{}{})
-	}
-	if ctx.PacketType() == context.MQTTConnect {
-		ctx.Client().Store(m.spec.ConnectKey, struct{}{})
 	}
 	if m.spec.PublishBackendClientID {
 		backend := ctx.Backend()
@@ -116,31 +125,36 @@ func (m *MockMQTTFilter) HandleMQTT(ctx context.MQTTContext) *context.MQTTResult
 	return nil
 }
 
-func (m *MockMQTTFilter) clientCount() map[string]int {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	ans := make(map[string]int)
-	for k, v := range m.clients {
-		ans[k] = v
-	}
-	return ans
-}
-
-func (m *MockMQTTFilter) clientDisconnect() map[string]struct{} {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	ans := make(map[string]struct{})
-	for k, v := range m.disconnect {
-		ans[k] = v
-	}
-	return ans
-}
-
 // Status return status of MockMQTTFilter
 func (m *MockMQTTFilter) Status() interface{} {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	clientCount := make(map[string]int)
+	for k, v := range m.clients {
+		clientCount[k] = v
+	}
+	disconnect := make(map[string]struct{})
+	for k := range m.disconnect {
+		disconnect[k] = struct{}{}
+	}
+	subscribe := make(map[string][]string)
+	for k, v := range m.subscribe {
+		vv := make([]string, len(v))
+		copy(vv, v)
+		subscribe[k] = v
+	}
+	unsubscribe := make(map[string][]string)
+	for k, v := range m.unsubscribe {
+		vv := make([]string, len(v))
+		copy(vv, v)
+		unsubscribe[k] = vv
+	}
 	return MockMQTTStatus{
-		ClientCount:      m.clientCount(),
-		ClientDisconnect: m.clientDisconnect(),
+		ClientCount:      clientCount,
+		ClientDisconnect: disconnect,
+		Subscribe:        subscribe,
+		Unsubscribe:      unsubscribe,
 	}
 }
 

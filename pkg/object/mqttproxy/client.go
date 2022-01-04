@@ -21,6 +21,7 @@ import (
 	stdcontext "context"
 	"errors"
 	"net"
+	"reflect"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -44,6 +45,25 @@ const (
 	// QoS2 for "Exactly once"
 	QoS2 byte = 2
 )
+
+type processFn func(*Client, packets.ControlPacket)
+type processFnWithErr func(*Client, packets.ControlPacket) error
+
+var processPacketMap = map[string]processFnWithErr{
+	"*packets.ConnectPacket":     errorWrapper("double connect"),
+	"*packets.ConnackPacket":     errorWrapper("client should not send connack"),
+	"*packets.PubrecPacket":      errorWrapper("qos2 not support now"),
+	"*packets.PubrelPacket":      errorWrapper("qos2 not support now"),
+	"*packets.PubcompPacket":     errorWrapper("qos2 not support now"),
+	"*packets.SubackPacket":      errorWrapper("broker not subscribe"),
+	"*packets.UnsubackPacket":    errorWrapper("broker not unsubscribe"),
+	"*packets.PingrespPacket":    errorWrapper("broker not ping"),
+	"*packets.PublishPacket":     pipelineWrapper(processPublish),
+	"*packets.SubscribePacket":   pipelineWrapper(processSubscribe),
+	"*packets.UnsubscribePacket": pipelineWrapper(processUnsubscribe),
+	"*packets.PingreqPacket":     nilErrWrapper(processPingreq),
+	"*packets.PubackPacket":      nilErrWrapper(processPuback),
+}
 
 type (
 	// ClientInfo is basic information for client
@@ -173,37 +193,12 @@ func (c *Client) readLoop() {
 }
 
 func (c *Client) processPacket(packet packets.ControlPacket) error {
-	var err error
-	switch p := packet.(type) {
-	case *packets.ConnectPacket:
-		err = errors.New("double connect")
-	case *packets.ConnackPacket:
-		err = errors.New("client send connack")
-	case *packets.PublishPacket:
-		c.processPublish(p)
-	case *packets.PubackPacket:
-		c.processPuback(p)
-	case *packets.PubrecPacket, *packets.PubrelPacket, *packets.PubcompPacket:
-		err = errors.New("qos2 not support now")
-	case *packets.SubscribePacket:
-		c.processSubscribe(p)
-	case *packets.SubackPacket:
-		err = errors.New("broker not subscribe")
-	case *packets.UnsubscribePacket:
-		c.processUnsubscribe(p)
-	case *packets.UnsubackPacket:
-		err = errors.New("broker not unsubscribe")
-	case *packets.PingreqPacket:
-		c.processPingreq(p)
-	case *packets.PingrespPacket:
-		err = errors.New("broker not ping")
-	default:
-		err = errors.New("unknown packet")
+	packetType := reflect.TypeOf(packet).String()
+	fn, ok := processPacketMap[packetType]
+	if !ok {
+		return errors.New("unknown packet")
 	}
-	if err != nil {
-		logger.SpanDebugf(nil, "client %v process packet failed, %v", c.info.cid, err)
-	}
-	return err
+	return fn(c, packet)
 }
 
 func (c *Client) checkPublishLimit(publish *packets.PublishPacket) bool {
@@ -211,86 +206,29 @@ func (c *Client) checkPublishLimit(publish *packets.PublishPacket) bool {
 	return c.publishLimit.acquirePermission(size)
 }
 
-func (c *Client) processPublish(publish *packets.PublishPacket) {
-	logger.SpanDebugf(nil, "client %s process publish %v", c.info.cid, publish.TopicName)
-
-	if !c.checkPublishLimit(publish) {
-		logger.SpanErrorf(nil, "client %v publish limiter drop packet %v", c.info.cid, publish.TopicName)
-		return
-	}
-	if c.broker.pipeline != "" {
-		pipe, err := pipeline.GetPipeline(c.broker.pipeline, context.MQTT)
-		if err != nil {
-			logger.SpanErrorf(nil, "get pipeline %v failed, %v", c.broker.pipeline, err)
-		} else {
-			ctx := context.NewMQTTContext(stdcontext.Background(), c.broker.backend, c, publish)
-			pipe.HandleMQTT(ctx)
-			if ctx.Disconnect() {
-				logger.SpanDebugf(nil, "client %v set disconnect during process publish", c.info.cid)
-				c.close()
-				return
-			}
-			if ctx.Drop() {
-				logger.SpanDebugf(nil, "client %v drop packet %v during process publish", c.info.cid, publish.TopicName)
-				return
-			}
-		}
+// runPipeline will run MQTT pipeline by using packet.
+// it will return an error if MQTT pipline set MQTTContext to Disconnect or Drop.
+func (c *Client) runPipeline(packet packets.ControlPacket) error {
+	if c.broker.pipeline == "" {
+		return nil
 	}
 
-	err := c.broker.backend.publish(publish)
+	pipe, err := pipeline.GetPipeline(c.broker.pipeline, context.MQTT)
 	if err != nil {
-		logger.SpanErrorf(nil, "client %v publish %v failed: %v", c.info.cid, publish.TopicName, err)
+		logger.SpanErrorf(nil, "get pipeline %v failed, %v", c.broker.pipeline, err)
+		return nil
 	}
-	switch publish.Qos {
-	case QoS0:
-		// do nothing
-	case QoS1:
-		puback := packets.NewControlPacket(packets.Puback).(*packets.PubackPacket)
-		puback.MessageID = publish.MessageID
-		c.writePacket(puback)
-	case QoS2:
-		// not support yet
+
+	ctx := context.NewMQTTContext(stdcontext.Background(), c.broker.backend, c, packet)
+	pipe.HandleMQTT(ctx)
+	if ctx.Disconnect() {
+		c.close()
+		return errors.New("pipeline set disconnect")
 	}
-}
-
-func (c *Client) processPuback(puback *packets.PubackPacket) {
-	c.session.puback(puback)
-}
-
-func (c *Client) processSubscribe(packet *packets.SubscribePacket) {
-	logger.SpanDebugf(nil, "client %s subscribe %v with qos %v", c.info.cid, packet.Topics, packet.Qoss)
-	err := c.broker.topicMgr.subscribe(packet.Topics, packet.Qoss, c.info.cid)
-	if err != nil {
-		logger.SpanErrorf(nil, "client %v subscribe %v failed: %v", c.info.cid, packet.Topics, err)
-		return
+	if ctx.Drop() {
+		return errors.New("pipeline set drop")
 	}
-	c.session.subscribe(packet.Topics, packet.Qoss)
-
-	suback := packets.NewControlPacket(packets.Suback).(*packets.SubackPacket)
-	suback.MessageID = packet.MessageID
-	suback.ReturnCodes = make([]byte, len(packet.Topics))
-	for i := range packet.Topics {
-		suback.ReturnCodes[i] = packet.Qos
-	}
-	c.writePacket(suback)
-}
-
-func (c *Client) processUnsubscribe(packet *packets.UnsubscribePacket) {
-	logger.SpanDebugf(nil, "client %s processUnsubscribe %v", c.info.cid, packet.Topics)
-	err := c.broker.topicMgr.unsubscribe(packet.Topics, c.info.cid)
-	if err != nil {
-		logger.SpanErrorf(nil, "client %v unsubscribe %v failed: %v", c.info.cid, packet.Topics, err)
-	}
-	c.session.unsubscribe(packet.Topics)
-
-	unsuback := packets.NewControlPacket(packets.Unsuback).(*packets.UnsubackPacket)
-	unsuback.MessageID = packet.MessageID
-	c.writePacket(unsuback)
-}
-
-func (c *Client) processPingreq(packet *packets.PingreqPacket) {
-	resp := packets.NewControlPacket(packets.Pingresp).(*packets.PingrespPacket)
-	c.writePacket(resp)
+	return nil
 }
 
 func (c *Client) writePacket(packet packets.ControlPacket) {
@@ -350,4 +288,100 @@ func (c *Client) closeAndDelSession() {
 	c.broker.topicMgr.unsubscribe(topics, c.info.cid)
 
 	c.close()
+}
+
+func errorWrapper(errMsg string) processFnWithErr {
+	return func(c *Client, p packets.ControlPacket) error {
+		return errors.New(errMsg)
+	}
+}
+
+func nilErrWrapper(fn processFn) processFnWithErr {
+	return func(c *Client, p packets.ControlPacket) error {
+		fn(c, p)
+		return nil
+	}
+}
+
+func pipelineWrapper(fn processFn) processFnWithErr {
+	return func(c *Client, p packets.ControlPacket) error {
+		err := c.runPipeline(p)
+		if err != nil {
+			logger.SpanDebugf(nil, "client process pipeline failed, %v", c.info.cid, err)
+			return nil
+		}
+		fn(c, p)
+		return nil
+	}
+}
+
+func processPublish(c *Client, packet packets.ControlPacket) {
+	publish := packet.(*packets.PublishPacket)
+	logger.SpanDebugf(nil, "client %s process publish %v", c.info.cid, publish.TopicName)
+
+	if !c.checkPublishLimit(publish) {
+		logger.SpanErrorf(nil, "client %v publish limiter drop packet %v", c.info.cid, publish.TopicName)
+		return
+	}
+
+	err := c.broker.backend.publish(publish)
+	if err != nil {
+		logger.SpanErrorf(nil, "client %v publish %v failed: %v", c.info.cid, publish.TopicName, err)
+	}
+	switch publish.Qos {
+	case QoS0:
+		// do nothing
+	case QoS1:
+		puback := packets.NewControlPacket(packets.Puback).(*packets.PubackPacket)
+		puback.MessageID = publish.MessageID
+		c.writePacket(puback)
+	case QoS2:
+		// not support yet
+	}
+}
+
+func processPuback(c *Client, packet packets.ControlPacket) {
+	puback := packet.(*packets.PubackPacket)
+	c.session.puback(puback)
+}
+
+func processSubscribe(c *Client, p packets.ControlPacket) {
+	packet := p.(*packets.SubscribePacket)
+	logger.SpanDebugf(nil, "client %s subscribe %v with qos %v", c.info.cid, packet.Topics, packet.Qoss)
+
+	err := c.broker.topicMgr.subscribe(packet.Topics, packet.Qoss, c.info.cid)
+	if err != nil {
+		logger.SpanErrorf(nil, "client %v subscribe %v failed: %v", c.info.cid, packet.Topics, err)
+		return
+	}
+	c.session.subscribe(packet.Topics, packet.Qoss)
+
+	suback := packets.NewControlPacket(packets.Suback).(*packets.SubackPacket)
+	suback.MessageID = packet.MessageID
+	suback.ReturnCodes = make([]byte, len(packet.Topics))
+	for i := range packet.Topics {
+		suback.ReturnCodes[i] = packet.Qos
+	}
+	c.writePacket(suback)
+}
+
+func processUnsubscribe(c *Client, p packets.ControlPacket) {
+	packet := p.(*packets.UnsubscribePacket)
+
+	logger.SpanDebugf(nil, "client %s processUnsubscribe %v", c.info.cid, packet.Topics)
+
+	err := c.broker.topicMgr.unsubscribe(packet.Topics, c.info.cid)
+	if err != nil {
+		logger.SpanErrorf(nil, "client %v unsubscribe %v failed: %v", c.info.cid, packet.Topics, err)
+	}
+	c.session.unsubscribe(packet.Topics)
+
+	unsuback := packets.NewControlPacket(packets.Unsuback).(*packets.UnsubackPacket)
+	unsuback.MessageID = packet.MessageID
+	c.writePacket(unsuback)
+}
+
+func processPingreq(c *Client, packet packets.ControlPacket) {
+	resp := packets.NewControlPacket(packets.Pingresp).(*packets.PingrespPacket)
+	c.writePacket(resp)
 }

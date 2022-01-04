@@ -1613,6 +1613,13 @@ filters:
 		text := "text"
 		token := client.Publish(topic, 1, false, text)
 		token.Wait()
+
+		token = client.Subscribe(strconv.Itoa(i), 1, nil)
+		token.Wait()
+
+		token = client.Unsubscribe(strconv.Itoa(i))
+		token.Wait()
+
 		p := broker.backend.(*testMQ).get()
 		if p.TopicName != topic || string(p.Payload) != text {
 			t.Errorf("get wrong publish")
@@ -1643,6 +1650,12 @@ filters:
 	}
 	if len(filterStatus.ClientDisconnect) != clientNum {
 		t.Errorf("filter get wrong result %v for client disconnect", filterStatus.ClientDisconnect)
+	}
+	if len(filterStatus.Subscribe) != clientNum {
+		t.Errorf("filter get wrong result %v for client subscribe", filterStatus.Subscribe)
+	}
+	if len(filterStatus.Unsubscribe) != clientNum {
+		t.Errorf("filter get wrong result %v for client unsubscribe", filterStatus.Unsubscribe)
 	}
 }
 
