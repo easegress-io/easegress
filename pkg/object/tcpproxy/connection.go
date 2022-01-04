@@ -21,6 +21,7 @@ import (
 	"io"
 	"net"
 	"runtime/debug"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -176,9 +177,16 @@ func (c *Connection) startReadLoop() {
 				c.localAddr.String(), c.remoteAddr.String(), err.Error())
 			c.Close(NoFlush, RemoteClose)
 		} else {
-			logger.Errorf("error on read, local addr: %s, remote addr: %s, err: %s",
-				c.localAddr.String(), c.remoteAddr.String(), err.Error())
-			c.Close(NoFlush, OnReadErrClose)
+			// it's hard to distinguish errors caused by c.rawConn.Close()
+			if atomic.LoadUint32(&c.closed) == 1 &&
+				strings.Contains(err.Error(), "use of closed network connection") {
+				logger.Debugf("stop read due to close connection, local addr: %s, remote addr: %s, err: %s",
+					c.localAddr.String(), c.remoteAddr.String(), err.Error())
+			} else {
+				logger.Errorf("error on read, local addr: %s, remote addr: %s, err: %s",
+					c.localAddr.String(), c.remoteAddr.String(), err.Error())
+				c.Close(NoFlush, OnReadErrClose)
+			}
 		}
 		return
 	}
@@ -265,11 +273,11 @@ func (c *Connection) Close(ccType CloseType, event ConnectionEvent) {
 		// connection has already closed, so there is no need to execute below code
 		return
 	}
-	logger.Debugf("enter connection close func(%s), local addr: %s, remote addr: %s",
-		event, c.localAddr.String(), c.remoteAddr.String())
 
 	close(c.connStopChan)
 	_ = c.rawConn.SetDeadline(time.Now()) // notify read/write loop to break
+	logger.Debugf("enter connection close func(%s), local addr: %s, remote addr: %s",
+		event, c.localAddr.String(), c.remoteAddr.String())
 
 	c.onClose(event)
 	_ = c.rawConn.Close()
