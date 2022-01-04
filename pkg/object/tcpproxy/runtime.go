@@ -271,7 +271,7 @@ func (r *runtime) onAccept() func(conn net.Conn, listenerStop chan struct{}) {
 
 	return func(rawConn net.Conn, listenerStop chan struct{}) {
 		clientIP := rawConn.RemoteAddr().(*net.TCPAddr).IP.String()
-		if r.ipFilters != nil && !r.ipFilters.AllowIP(clientIP) {
+		if !r.ipFilters.AllowIP(clientIP) {
 			_ = rawConn.Close()
 			logger.Infof("close tcp connection from %s to %s which ip is not allowed",
 				rawConn.RemoteAddr().String(), rawConn.LocalAddr().String())

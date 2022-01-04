@@ -114,7 +114,7 @@ func (r *runtime) startServer() {
 				continue
 			}
 
-			if r.ipFilters != nil && !r.ipFilters.AllowIP(clientAddr.IP.String()) {
+			if !r.ipFilters.AllowIP(clientAddr.IP.String()) {
 				logger.Debugf("discard udp packet from %s send to udp server(:%d)", clientAddr.IP.String(), r.spec.Port)
 				continue
 			}

@@ -36,22 +36,22 @@ type (
 
 // NewLayer4IPFilters create layer4 ip filters
 func NewLayer4IPFilters(spec *Spec) *Layer4IpFilters {
-	if spec == nil {
-		return nil
-	}
-
 	m := &Layer4IpFilters{}
-	m.rules.Store(&ipFiltersRules{
-		spec:     spec,
-		ipFilter: New(spec),
-	})
+	if spec == nil {
+		m.rules.Store(&ipFiltersRules{})
+	} else {
+		m.rules.Store(&ipFiltersRules{
+			spec:     spec,
+			ipFilter: New(spec),
+		})
+	}
 	return m
 }
 
 // AllowIP check whether the IP is allowed to pass
 func (i *Layer4IpFilters) AllowIP(ip string) bool {
 	rules := i.rules.Load().(*ipFiltersRules)
-	if rules == nil || rules.spec == nil {
+	if rules.spec == nil {
 		return true
 	}
 	return rules.ipFilter.Allow(ip)
