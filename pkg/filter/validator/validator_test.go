@@ -19,6 +19,7 @@ package validator
 
 import (
 	"fmt"
+	"encoding/base64"
 	"io"
 	"net/http"
 	"os"
@@ -41,7 +42,10 @@ func TestMain(m *testing.M) {
 func createValidator(yamlSpec string, prev *Validator) *Validator {
 	rawSpec := make(map[string]interface{})
 	yamltool.Unmarshal([]byte(yamlSpec), &rawSpec)
-	spec, _ := httppipeline.NewFilterSpec(rawSpec, nil)
+	spec, err := httppipeline.NewFilterSpec(rawSpec, nil)
+	if err != nil {
+		panic(err.Error())
+	}
 	v := &Validator{}
 	if prev == nil {
 		v.Init(spec)
@@ -287,5 +291,66 @@ signature:
 	result := v.Handle(ctx)
 	if result != resultInvalid {
 		t.Errorf("OAuth/2 Authorization should fail")
+	}
+}
+
+func check(e error) {
+    if e != nil {
+        panic(e)
+    }
+}
+
+func TestHTTPBasicAuth(t *testing.T) {
+	userFile, err := os.CreateTemp("/tmp/", "apache2-htpasswd")
+    check(err)
+
+	defer os.Remove(userFile.Name())
+
+	yamlSpec := `
+kind: Validator
+name: validator
+basicAuth:
+  userFile: ` + userFile.Name()
+
+	credentials1 := "userY:md5-encrypted-pw-1"
+	credentials2 := "userZ:md5-encrypted-pw-2"
+	userFile.Write([]byte(credentials1 + "\n" + credentials2))
+
+	v := createValidator(yamlSpec, nil)
+	// userY
+	ctx := &contexttest.MockedHTTPContext{}
+	header := http.Header{}
+	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
+		return httpheader.New(header)
+	}
+	b64creds := base64.StdEncoding.EncodeToString([]byte(credentials1))
+	header.Set("Authorization", "Bearer "+b64creds)
+	result := v.Handle(ctx)
+	if result == resultInvalid {
+		t.Errorf("the basic auth head should be valid")
+	}
+	// userZ
+	ctx = &contexttest.MockedHTTPContext{}
+	header = http.Header{}
+	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
+		return httpheader.New(header)
+	}
+	b64creds = base64.StdEncoding.EncodeToString([]byte(credentials2))
+	header.Set("Authorization", "Bearer "+b64creds)
+	result = v.Handle(ctx)
+	if result == resultInvalid {
+		t.Errorf("the basic auth head should be valid")
+	}
+	// nonExistingUser
+	ctx = &contexttest.MockedHTTPContext{}
+	header = http.Header{}
+	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
+		return httpheader.New(header)
+	}
+	b64creds = base64.StdEncoding.EncodeToString([]byte("nonExistingUser:md5-encrypted-pw3"))
+	header.Set("Authorization", "Bearer "+b64creds)
+	result = v.Handle(ctx)
+	if result != resultInvalid {
+		t.Errorf("the basic auth head should be invalid")
 	}
 }

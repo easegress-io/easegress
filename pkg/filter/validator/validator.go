@@ -20,6 +20,8 @@ package validator
 import (
 	"net/http"
 
+	"fmt"
+
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
 	"github.com/megaease/easegress/pkg/util/httpheader"
@@ -50,6 +52,7 @@ type (
 		jwt     *JWTValidator
 		signer  *signer.Signer
 		oauth2  *OAuth2Validator
+		basicAuth *BasicAuthValidator
 	}
 
 	// Spec describes the Validator.
@@ -58,8 +61,17 @@ type (
 		JWT       *JWTValidatorSpec         `yaml:"jwt,omitempty" jsonschema:"omitempty"`
 		Signature *signer.Spec              `yaml:"signature,omitempty" jsonschema:"omitempty"`
 		OAuth2    *OAuth2ValidatorSpec      `yaml:"oauth2,omitempty" jsonschema:"omitempty"`
+		BasicAuth    *BasicAuthValidatorSpec      `yaml:"basicAuth,omitempty" jsonschema:"omitempty"`
 	}
 )
+
+// Validate verifies that at least one of the validations is defined.
+func (spec Spec) Validate() error {
+	if spec == (Spec{}) {
+		return fmt.Errorf("none of the validations are defined")
+	}
+	return nil
+}
 
 // Kind returns the kind of Validator.
 func (v *Validator) Kind() string {
@@ -97,17 +109,17 @@ func (v *Validator) reload() {
 	if v.spec.Headers != nil {
 		v.headers = httpheader.NewValidator(v.spec.Headers)
 	}
-
 	if v.spec.JWT != nil {
 		v.jwt = NewJWTValidator(v.spec.JWT)
 	}
-
 	if v.spec.Signature != nil {
 		v.signer = signer.CreateFromSpec(v.spec.Signature)
 	}
-
 	if v.spec.OAuth2 != nil {
 		v.oauth2 = NewOAuth2Validator(v.spec.OAuth2)
+	}
+	if v.spec.BasicAuth != nil {
+		v.basicAuth = NewBasicAuthValidator(v.spec.BasicAuth)
 	}
 }
 
@@ -131,24 +143,27 @@ func (v *Validator) handle(ctx context.HTTPContext) string {
 			return resultInvalid
 		}
 	}
-
 	if v.jwt != nil {
 		if err := v.jwt.Validate(req); err != nil {
 			prepareErrorResponse(http.StatusUnauthorized, "JWT validator: ", err)
 			return resultInvalid
 		}
 	}
-
 	if v.signer != nil {
 		if err := v.signer.Verify(req.Std()); err != nil {
 			prepareErrorResponse(http.StatusUnauthorized, "signature validator: ", err)
 			return resultInvalid
 		}
 	}
-
 	if v.oauth2 != nil {
 		if err := v.oauth2.Validate(req); err != nil {
 			prepareErrorResponse(http.StatusUnauthorized, "oauth2 validator: ", err)
+			return resultInvalid
+		}
+	}
+	if v.basicAuth != nil {
+		if err := v.basicAuth.Validate(req); err != nil {
+			prepareErrorResponse(http.StatusUnauthorized, "http basic validator: ", err)
 			return resultInvalid
 		}
 	}

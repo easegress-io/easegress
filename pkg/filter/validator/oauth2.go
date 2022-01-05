@@ -29,6 +29,7 @@ import (
 	"github.com/golang-jwt/jwt"
 
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/util/httpheader"
 )
 
 type (
@@ -137,16 +138,23 @@ func (v *OAuth2Validator) introspectToken(tokenStr string) (*tokenInfo, error) {
 	return &ti.tokenInfo, nil
 }
 
-// Validate validates the access token of a http request
-func (v *OAuth2Validator) Validate(req context.HTTPRequest) error {
+func parseAuthorizationHeader(hdr *httpheader.HTTPHeader) (string, error) {
 	const prefix = "Bearer "
 
-	hdr := req.Header()
 	tokenStr := hdr.Get("Authorization")
 	if !strings.HasPrefix(tokenStr, prefix) {
-		return fmt.Errorf("unexpected authorization header: %s", tokenStr)
+		return "", fmt.Errorf("unexpected authorization header: %s", tokenStr)
 	}
-	tokenStr = tokenStr[len(prefix):]
+	return tokenStr[len(prefix):], nil
+}
+
+// Validate validates the access token of a http request
+func (v *OAuth2Validator) Validate(req context.HTTPRequest) error {
+	hdr := req.Header()
+	tokenStr, err := parseAuthorizationHeader(hdr)
+	if err != nil {
+		return err
+	}
 
 	var subject, scope string
 	if v.spec.TokenIntrospect != nil {
