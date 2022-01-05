@@ -21,14 +21,22 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 
+	"github.com/phayes/freeport"
+
+	cluster "github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/context/contexttest"
+	"github.com/megaease/easegress/pkg/env"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/option"
+	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/httpheader"
 	"github.com/megaease/easegress/pkg/util/yamltool"
 )
@@ -39,10 +47,10 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func createValidator(yamlSpec string, prev *Validator) *Validator {
+func createValidator(yamlSpec string, prev *Validator, supervisor *supervisor.Supervisor) *Validator {
 	rawSpec := make(map[string]interface{})
 	yamltool.Unmarshal([]byte(yamlSpec), &rawSpec)
-	spec, err := httppipeline.NewFilterSpec(rawSpec, nil)
+	spec, err := httppipeline.NewFilterSpec(rawSpec, supervisor)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -65,7 +73,7 @@ headers:
     regexp: "^ok-.+$"
 `
 
-	v := createValidator(yamlSpec, nil)
+	v := createValidator(yamlSpec, nil, nil)
 
 	header := http.Header{}
 	ctx := &contexttest.MockedHTTPContext{}
@@ -106,7 +114,7 @@ jwt:
   algorithm: HS256
   secret: 313233343536
 `
-	v := createValidator(yamlSpec, nil)
+	v := createValidator(yamlSpec, nil, nil)
 
 	ctx := &contexttest.MockedHTTPContext{}
 	ctx.MockedRequest.MockedCookie = func(name string) (*http.Cookie, error) {
@@ -152,7 +160,7 @@ jwt:
 		t.Errorf("the jwt token in cookie should be valid")
 	}
 
-	v = createValidator(yamlSpec, v)
+	v = createValidator(yamlSpec, v, nil)
 	result = v.Handle(ctx)
 	if result == resultInvalid {
 		t.Errorf("the jwt token in cookie should be valid")
@@ -173,7 +181,7 @@ oauth2:
     algorithm: HS256
     secret: 313233343536
 `
-	v := createValidator(yamlSpec, nil)
+	v := createValidator(yamlSpec, nil, nil)
 
 	ctx := &contexttest.MockedHTTPContext{}
 
@@ -220,7 +228,7 @@ oauth2:
     clientId: megaease
     clientSecret: secret
 `
-	v := createValidator(yamlSpec, nil)
+	v := createValidator(yamlSpec, nil, nil)
 	ctx := &contexttest.MockedHTTPContext{}
 
 	header := http.Header{}
@@ -257,7 +265,7 @@ oauth2:
     clientSecret: secret
     basicAuth: megaease@megaease
 `
-	v = createValidator(yamlSpec, nil)
+	v = createValidator(yamlSpec, nil, nil)
 
 	body = `{
 			"subject":"megaease.com",
@@ -280,7 +288,7 @@ signature:
   accessKeys:
     AKID: SECRET
 `
-	v := createValidator(yamlSpec, nil)
+	v := createValidator(yamlSpec, nil, nil)
 
 	ctx := &contexttest.MockedHTTPContext{}
 	ctx.MockedRequest.MockedStd = func() *http.Request {
@@ -300,57 +308,124 @@ func check(e error) {
 	}
 }
 
-func TestHTTPBasicAuth(t *testing.T) {
-	userFile, err := os.CreateTemp("/tmp/", "apache2-htpasswd")
+func createCluster(tempDir string) cluster.Cluster {
+	ports, err := freeport.GetFreePorts(3)
+	check(err)
+	name := fmt.Sprintf("test-member-x")
+	opt := option.New()
+	opt.Name = name
+	opt.ClusterName = "test-cluster"
+	opt.ClusterRole = "primary"
+	opt.ClusterRequestTimeout = "10s"
+	opt.Cluster.ListenClientURLs = []string{fmt.Sprintf("http://localhost:%d", ports[0])}
+	opt.Cluster.AdvertiseClientURLs = opt.Cluster.ListenClientURLs
+	opt.Cluster.ListenPeerURLs = []string{fmt.Sprintf("http://localhost:%d", ports[1])}
+	opt.Cluster.InitialAdvertisePeerURLs = opt.Cluster.ListenPeerURLs
+	opt.Cluster.InitialCluster = make(map[string]string)
+	opt.Cluster.InitialCluster[name] = opt.Cluster.InitialAdvertisePeerURLs[0]
+	opt.APIAddr = fmt.Sprintf("localhost:%d", ports[2])
+	opt.DataDir = fmt.Sprintf("%s/data", tempDir)
+	opt.LogDir = fmt.Sprintf("%s/log", tempDir)
+	opt.MemberDir = fmt.Sprintf("%s/member", tempDir)
+
+	_, err = opt.Parse()
 	check(err)
 
-	defer os.Remove(userFile.Name())
+	env.InitServerDir(opt)
 
-	yamlSpec := `
+	clusterInstance, err := cluster.New(opt)
+	check(err)
+	return clusterInstance
+}
+
+func TestBasicAuthUser(t *testing.T) {
+	userIds := []string{
+		"userY", "userZ", "nonExistingUser",
+	}
+	passwords := []string{
+		"md5-encrypted-pw-1", "md5-encrypted-pw-2", "md5-encrypted-pw3",
+	}
+	t.Run("credentials from userFile", func(t *testing.T) {
+		userFile, err := os.CreateTemp("/tmp/", "apache2-htpasswd")
+		check(err)
+
+		defer os.Remove(userFile.Name())
+
+		yamlSpec := `
 kind: Validator
 name: validator
 basicAuth:
   userFile: ` + userFile.Name()
 
-	credentials1 := "userY:md5-encrypted-pw-1"
-	credentials2 := "userZ:md5-encrypted-pw-2"
-	userFile.Write([]byte(credentials1 + "\n" + credentials2))
+		userFile.Write([]byte(userIds[0] + ":" + passwords[0] + "\n" + userIds[1] + ":" + passwords[1]))
+		expectedValid := []bool{true, true, false}
 
-	v := createValidator(yamlSpec, nil)
-	// userY
-	ctx := &contexttest.MockedHTTPContext{}
-	header := http.Header{}
-	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
-		return httpheader.New(header)
-	}
-	b64creds := base64.StdEncoding.EncodeToString([]byte(credentials1))
-	header.Set("Authorization", "Bearer "+b64creds)
-	result := v.Handle(ctx)
-	if result == resultInvalid {
-		t.Errorf("the basic auth head should be valid")
-	}
-	// userZ
-	ctx = &contexttest.MockedHTTPContext{}
-	header = http.Header{}
-	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
-		return httpheader.New(header)
-	}
-	b64creds = base64.StdEncoding.EncodeToString([]byte(credentials2))
-	header.Set("Authorization", "Bearer "+b64creds)
-	result = v.Handle(ctx)
-	if result == resultInvalid {
-		t.Errorf("the basic auth head should be valid")
-	}
-	// nonExistingUser
-	ctx = &contexttest.MockedHTTPContext{}
-	header = http.Header{}
-	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
-		return httpheader.New(header)
-	}
-	b64creds = base64.StdEncoding.EncodeToString([]byte("nonExistingUser:md5-encrypted-pw3"))
-	header.Set("Authorization", "Bearer "+b64creds)
-	result = v.Handle(ctx)
-	if result != resultInvalid {
-		t.Errorf("the basic auth head should be invalid")
-	}
+		v := createValidator(yamlSpec, nil, nil)
+		for i := 0; i < 3; i++ {
+			ctx := &contexttest.MockedHTTPContext{}
+			header := http.Header{}
+			ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
+				return httpheader.New(header)
+			}
+			b64creds := base64.StdEncoding.EncodeToString([]byte(userIds[i] + ":" + passwords[i]))
+			header.Set("Authorization", "Bearer "+b64creds)
+			result := v.Handle(ctx)
+			if expectedValid[i] {
+				if result == resultInvalid {
+					t.Errorf("the basic auth head should be valid")
+				}
+			} else {
+				if result != resultInvalid {
+					t.Errorf("the basic auth head should be invalid")
+				}
+			}
+		}
+	})
+	t.Run("credentials from etcd", func(t *testing.T) {
+		etcdDirName, err := ioutil.TempDir("", "etcd-validator-test")
+		check(err)
+		defer os.RemoveAll(etcdDirName)
+		clusterInstance := createCluster(etcdDirName)
+
+		clusterInstance.Put("/credentials/"+userIds[0], passwords[0])
+		clusterInstance.Put("/credentials/"+userIds[2], passwords[2])
+
+		var mockMap sync.Map
+		supervisor := supervisor.NewMock(
+			nil, clusterInstance, mockMap, mockMap, nil, nil, false, nil, nil)
+
+		yamlSpec := `
+kind: Validator
+name: validator
+basicAuth:
+  useEtcd: true`
+
+		expectedValid := []bool{true, false, true}
+
+		v := createValidator(yamlSpec, nil, supervisor)
+
+		for i := 0; i < 3; i++ {
+			ctx := &contexttest.MockedHTTPContext{}
+			header := http.Header{}
+			ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
+				return httpheader.New(header)
+			}
+			b64creds := base64.StdEncoding.EncodeToString([]byte(userIds[i] + ":" + passwords[i]))
+			header.Set("Authorization", "Bearer "+b64creds)
+			result := v.Handle(ctx)
+			if expectedValid[i] {
+				if result == resultInvalid {
+					t.Errorf("the basic auth head should be valid")
+				}
+			} else {
+				if result != resultInvalid {
+					t.Errorf("the basic auth head should be invalid")
+				}
+			}
+		}
+		wg := &sync.WaitGroup{}
+		wg.Add(1)
+		clusterInstance.CloseServer(wg)
+		wg.Wait()
+	})
 }

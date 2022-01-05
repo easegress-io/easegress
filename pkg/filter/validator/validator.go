@@ -119,7 +119,7 @@ func (v *Validator) reload() {
 		v.oauth2 = NewOAuth2Validator(v.spec.OAuth2)
 	}
 	if v.spec.BasicAuth != nil {
-		v.basicAuth = NewBasicAuthValidator(v.spec.BasicAuth)
+		v.basicAuth = NewBasicAuthValidator(v.spec.BasicAuth, v.filterSpec.Super())
 	}
 }
 
